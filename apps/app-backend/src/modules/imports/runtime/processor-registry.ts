@@ -1,5 +1,7 @@
 import type { Job } from "bullmq";
 
+import { config } from "~/lib/config";
+
 import type { ImportRunJobData } from "../jobs";
 import { processOpenScaleImport } from "../measurement/processor";
 import { processBookCsvImport } from "../media/book/processor";
@@ -36,7 +38,10 @@ type FileSourceProcessorInput = SourceProcessorInput & { filePath?: string };
 type BookCsvAdapter = (
 	csvText: string,
 ) => Promise<MediaImportAdapterResult> | MediaImportAdapterResult;
-type WorkoutCsvAdapter = (csvText: string) => Promise<WorkoutAdapterResult> | WorkoutAdapterResult;
+type WorkoutCsvAdapter = (
+	csvText: string,
+	timezone: string,
+) => Promise<WorkoutAdapterResult> | WorkoutAdapterResult;
 
 type ImportSourceProcessorConfig =
 	| {
@@ -150,7 +155,16 @@ const importSourceProcessors: Partial<Record<ImportRunSource, ImportSourceProces
 	},
 	goodreads: bookCsvProcessor("Goodreads", adaptGoodreadsCsv),
 	hardcover: bookCsvProcessor("Hardcover", adaptHardcoverCsv),
-	anilist: mediaTextFileProcessor("Anilist", adaptAnilistExport),
+	anilist: {
+		inputKind: "file",
+		process: (input) =>
+			processMediaTextFileImport(input.job, input.token, {
+				...mediaProcessorInput(input),
+				sourceName: "Anilist",
+				filePath: input.filePath,
+				loadAdapterResult: (fileText) => adaptAnilistExport(fileText, config.timezone),
+			}),
+	},
 	storygraph: bookCsvProcessor("StoryGraph", adaptStorygraphCsv),
 	strong_app: workoutCsvProcessor("StrongApp", adaptStrongAppCsv),
 	watcharr: mediaTextFileProcessor("Watcharr", adaptWatcharrExport),
