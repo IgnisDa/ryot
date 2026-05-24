@@ -104,6 +104,93 @@ const progressPropertiesSchemaByEntity = (entitySchemaSlug: string | undefined):
 		}))
 		.otherwise(() => progressPercentPropertiesSchema());
 
+const reviewBaseFields = () => ({
+	text: {
+		label: "Review",
+		type: "string" as const,
+		description: "Your written thoughts or notes about this media",
+	},
+	isSpoiler: {
+		label: "Is Spoiler?",
+		type: "boolean" as const,
+		description: "Whether this review contains spoilers",
+	},
+	rating: {
+		label: "Rating",
+		type: "number" as const,
+		validation: { maximum: 100, minimum: 0 },
+		description: "Your personal rating from 0 (lowest) to 100 (highest)",
+	},
+});
+
+const reviewPropertiesSchemaByEntity = (entitySchemaSlug: string | undefined): AppSchema =>
+	match(entitySchemaSlug)
+		.with("show", () => ({
+			fields: {
+				...reviewBaseFields(),
+				showSeason: {
+					label: "Show Season",
+					type: "integer" as const,
+					description: "Season number of the episode being reviewed",
+				},
+				showEpisode: {
+					label: "Show Episode",
+					type: "integer" as const,
+					description: "Episode number within the current season being reviewed",
+				},
+			},
+			rules: [
+				{
+					path: ["showSeason"],
+					kind: "validation" as const,
+					validation: { required: true as const },
+					when: { operator: "exists" as const, path: ["showEpisode"] },
+				},
+				{
+					path: ["showEpisode"],
+					kind: "validation" as const,
+					validation: { required: true as const },
+					when: { operator: "exists" as const, path: ["showSeason"] },
+				},
+			],
+		}))
+		.with("anime", () => ({
+			fields: {
+				...reviewBaseFields(),
+				animeEpisode: {
+					label: "Anime Episode",
+					type: "integer" as const,
+					description: "Episode number of the anime being reviewed",
+				},
+			},
+		}))
+		.with("manga", () => ({
+			fields: {
+				...reviewBaseFields(),
+				mangaVolume: {
+					label: "Manga Volume",
+					type: "integer" as const,
+					description: "Volume number of the manga being reviewed",
+				},
+				mangaChapter: {
+					label: "Manga Chapter",
+					type: "number" as const,
+					description: "Chapter number of the manga being reviewed",
+				},
+			},
+		}))
+		.with("podcast", () => ({
+			fields: {
+				...reviewBaseFields(),
+				podcastEpisode: {
+					label: "Podcast Episode",
+					type: "integer" as const,
+					description: "Episode number of the podcast being reviewed",
+				},
+			},
+		}))
+		.otherwise(() => ({ fields: reviewBaseFields() }));
+
 const mediaLifecycleEventSchemas = (entitySchemaSlug?: string) => [
 	{ name: "Backlog", slug: "backlog", propertiesSchema: { fields: {} } },
 	{
@@ -150,26 +237,7 @@ const mediaLifecycleEventSchemas = (entitySchemaSlug?: string) => [
 	{
 		name: "Review",
 		slug: "review",
-		propertiesSchema: {
-			fields: {
-				text: {
-					label: "Review",
-					type: "string" as const,
-					description: "Your written thoughts or notes about this media",
-				},
-				isSpoiler: {
-					label: "Is Spoiler?",
-					type: "boolean" as const,
-					description: "Whether this review contains spoilers",
-				},
-				rating: {
-					label: "Rating",
-					type: "number" as const,
-					validation: { maximum: 100, minimum: 0 },
-					description: "Your personal rating from 0 (lowest) to 100 (highest)",
-				},
-			},
-		},
+		propertiesSchema: reviewPropertiesSchemaByEntity(entitySchemaSlug),
 	},
 ];
 
