@@ -454,16 +454,16 @@ sources before porting every adapter.
 
 ### Task List
 
-| #   | Task                                                                 | Type | Status |
-| --- | -------------------------------------------------------------------- | ---- | ------ |
-| 01  | [Event Occurrence Semantics](./01-event-occurrence-semantics.md)     | AFK  | todo   |
-| 02  | [Auto-Complete Coverage Cycles](./02-auto-complete-coverage-cycles.md) | AFK  | todo   |
-| 03  | [OpenScale Import Tracer Bullet](./03-openscale-import-tracer-bullet.md) | AFK  | todo   |
-| 04  | [Shared Entity Population Refactor](./04-shared-entity-population-refactor.md) | AFK  | todo   |
+| #   | Task                                                                               | Type | Status |
+| --- | ---------------------------------------------------------------------------------- | ---- | ------ |
+| 01  | [Event Occurrence Semantics](./01-event-occurrence-semantics.md)                   | AFK  | todo   |
+| 02  | [Auto-Complete Coverage Cycles](./02-auto-complete-coverage-cycles.md)             | AFK  | todo   |
+| 03  | [OpenScale Import Tracer Bullet](./03-openscale-import-tracer-bullet.md)           | AFK  | todo   |
+| 04  | [Shared Entity Population Refactor](./04-shared-entity-population-refactor.md)     | AFK  | todo   |
 | 05  | [Provider-Backed Media Import Tracer](./05-provider-backed-media-import-tracer.md) | AFK  | todo   |
-| 06  | [Workout Import Tracer Bullet](./06-workout-import-tracer-bullet.md) | AFK  | todo   |
-| 07  | [Book CSV Source Adapters](./07-book-csv-source-adapters.md)         | AFK  | todo   |
-| 08  | [File-Based Media Source Adapters](./08-file-based-media-source-adapters.md) | AFK  | todo   |
-| 09  | [API Media Source Adapters](./09-api-media-source-adapters.md)       | AFK  | todo   |
-| 10  | [Netflix ZIP Import Adapter](./10-netflix-zip-import-adapter.md)     | AFK  | todo   |
-| 11  | [Codebase Cleanup](./11-codebase-cleanup.md)                         | AFK  | todo   |
+| 06  | [Workout Import Tracer Bullet](./06-workout-import-tracer-bullet.md)               | AFK  | todo   |
+| 07  | [Book CSV Source Adapters](./07-book-csv-source-adapters.md)                       | AFK  | todo   |
+| 08  | [File-Based Media Source Adapters](./08-file-based-media-source-adapters.md)       | AFK  | todo   |
+| 09  | [API Media Source Adapters](./09-api-media-source-adapters.md)                     | AFK  | todo   |
+| 10  | [Netflix ZIP Import Adapter](./10-netflix-zip-import-adapter.md)                   | AFK  | todo   |
+| 11  | [Codebase Cleanup](./11-codebase-cleanup.md)                                       | AFK  | todo   |
