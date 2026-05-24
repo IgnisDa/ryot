@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -12,13 +12,13 @@ Implement the event occurrence-time foundation described in the parent PRD secti
 
 Add the `event.occurredAt` database column and wire it through event schemas, event creation, repository selections, event listing, trigger context, query-engine event/event-join references, latest-event joins, backend media overview logic, app-client media overview query definitions, and legacy bootstrap event inserts. Existing app-client UI behavior should not gain new import UI; only update existing media overview/activity queries to use the new event chronology contract.
 
-Use the parent PRD as source of truth for defaulting semantics: API-created complete events with `completionMode: "custom_timestamps"` default `occurredAt` from `completedOn` when omitted, `just_now`/`unknown` default to now, and imported/backdated callers can pass explicit ISO datetimes.
+The event service's only defaulting rule is: `occurredAt` is optional; if omitted, it defaults to now. Historical or backdated callers are responsible for passing an explicit `occurredAt`; the generic event service does not inspect schema slugs or properties to infer a timestamp.
 
 ## Acceptance criteria
 
 - [ ] `event.occurredAt` exists as a non-null timestamp with timezone and is included in Drizzle schema, generated migration SQL, selections, response schemas, and test fixtures.
 - [ ] Event creation accepts optional `occurredAt`, validates it as an ISO datetime, persists it, and returns it in created/listed event data.
-- [ ] Complete event defaulting sets `occurredAt` from `completedOn` for `custom_timestamps` when omitted, and defaults `just_now`/`unknown` to now.
+- [ ] Event creation defaults `occurredAt` to now when omitted; callers that need historical timestamps must pass `occurredAt` explicitly.
 - [ ] Event listing orders by `occurredAt desc`, then `createdAt desc`, then `id desc`.
 - [ ] Query-engine event and event-join references expose `occurredAt` alongside `createdAt` and `updatedAt`.
 - [ ] Latest event joins use `occurredAt desc`, then `createdAt desc`, then `id desc`.

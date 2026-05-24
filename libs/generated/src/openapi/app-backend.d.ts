@@ -2344,6 +2344,8 @@ export interface paths {
                                 createdAt: string;
                                 /** Format: date-time */
                                 updatedAt: string;
+                                /** Format: date-time */
+                                occurredAt: string;
                                 entityId: string;
                                 eventSchemaId: string;
                                 eventSchemaName: string;
@@ -2407,6 +2409,8 @@ export interface paths {
                             [key: string]: unknown;
                         };
                         entityId: string;
+                        /** Format: date-time */
+                        occurredAt?: string;
                         eventSchemaId: string;
                         sessionEntityId?: string;
                     }[];
