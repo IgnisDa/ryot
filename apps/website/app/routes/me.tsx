@@ -243,6 +243,38 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			setPurchaseInProgress(customer.id);
 			return data({});
 		})
+		.with("generateResetLink", async () => {
+			if (!customer || !customer.ryotUserId) {
+				return data({ error: "No associated app user found" });
+			}
+			if (customer.oidcIssuerId) {
+				return data({ error: "Password reset is not available for OIDC accounts" });
+			}
+
+			try {
+				// TODO: Use openapi-typescript client here
+				const response = await fetch(
+					`${serverVariables.RYOT_BASE_URL}/api/god-mode/users/${customer.ryotUserId}/reset-password`,
+					{
+						method: "POST",
+						headers: {
+							"Content-Type": "application/json",
+							Authorization: `Bearer ${serverVariables.SERVER_ADMIN_ACCESS_TOKEN}`,
+						},
+					},
+				);
+
+				const body = await response.json();
+
+				if (!response.ok) {
+					return data({ error: body?.error?.message || `Server error (${response.status})` });
+				}
+
+				return data({ resetUrl: body.data.resetUrl, email: body.data.email });
+			} catch {
+				return data({ error: "Failed to reach the backend server" });
+			}
+		})
 		.with("logout", async () => {
 			const cookies = await websiteAuthCookie.serialize("", {
 				expires: new Date(0),
@@ -254,6 +286,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 
 export default function Index() {
 	const fetcher = useFetcher();
+	const resetFetcher = useFetcher();
 	const [paddle, setPaddle] = useState<Paddle>();
 	const loaderData = useLoaderData<typeof loader>();
 
@@ -340,6 +373,51 @@ export default function Index() {
 							<div>
 								<Label>User ID</Label>
 								<p className="text-muted-foreground">{loaderData.customerDetails.ryotUserId}</p>
+							</div>
+						) : null}
+						{loaderData.customerDetails.ryotUserId && !loaderData.customerDetails.oidcIssuerId ? (
+							<div className="col-span-2">
+								<div className="flex items-center justify-between">
+									<Label>Password Reset</Label>
+									<resetFetcher.Form
+										method="POST"
+										action={withQuery(".", { intent: "generateResetLink" })}
+									>
+										<Button
+											type="submit"
+											variant="outline"
+											size="sm"
+											disabled={resetFetcher.state !== "idle"}
+										>
+											{resetFetcher.state !== "idle" ? "Generating..." : "Generate Reset Link"}
+										</Button>
+									</resetFetcher.Form>
+								</div>
+								{resetFetcher.data?.error ? (
+									<p className="text-red-500 text-sm mt-1">{resetFetcher.data.error}</p>
+								) : null}
+								{resetFetcher.data?.resetUrl ? (
+									<div className="mt-2 space-y-1">
+										<p className="text-xs text-muted-foreground">
+											Login email: {resetFetcher.data.email}
+										</p>
+										<div className="flex items-center gap-2">
+											<p className="text-xs text-muted-foreground break-all">
+												{resetFetcher.data.resetUrl}
+											</p>
+											<button
+												type="button"
+												className="text-xs underline cursor-pointer shrink-0"
+												onClick={() => {
+													navigator.clipboard.writeText(resetFetcher.data.resetUrl);
+													toast.success("Reset link copied to clipboard");
+												}}
+											>
+												Copy
+											</button>
+										</div>
+									</div>
+								) : null}
 							</div>
 						) : null}
 						{loaderData.customerDetails.unkeyKeyId ? (
