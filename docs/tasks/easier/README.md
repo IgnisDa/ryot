@@ -255,6 +255,10 @@ The restore workflow wraps its whole `restore` operation in `Effect.scoped`, so 
 
 **Validation:** Table-driven parity across every expression variant, correlated `first`, null branches, unknown aliases, existing validator/executor tests.
 
+**Implemented.** `expression-kind.ts` owns kind inference. `scalarExpressionKind` walks every expression variant once and is parameterized by a `KindResolver` that supplies the two things the two callers disagreed about: how a column alias resolves to a catalog table, and how a correlated query set produces the child scope. The validator resolver reads its `ReadonlyMap<string, CatalogTable>` scope and returns `undefined` for an unknown alias or field, which the validator already reports through its own `Unknown table alias`/`Unknown field` errors; the executor resolver keeps `requireCompileTable` and returns the resolved field kind, and its `expressionKind` wrapper converts an unresolved kind into a compiler invariant error. The two hand-maintained recursive copies and the two `unifyExpressionKinds` copies are gone, so a new expression variant can no longer validate as one kind and compile as another. The executor's `RuntimeKind` alias and its remaining inline `CatalogFieldKind | "null"` unions collapse into the shared `ScalarKind`.
+
+`expression-kind.test.ts` table-drives the shared function through the validator resolver across every variant, including literal and cast targets, `dateBucket`, `jsonPath`, `exists`, `isNotNull`, `concat`/`transform`, aggregates and arithmetic, `floor`/`integer`/`round`, `coalesce` and `conditional` null and mixed-kind unification, and correlated `first` selecting a correlated column, an ancestor column, and a nested aggregate. A second case asserts unresolved aliases, unknown fields, and unknown correlated tables stay `undefined` instead of defaulting to a kind.
+
 ### 14. Make SDK Provider Codecs Canonical
 
 **Owner:** W14 Sandbox SDK
