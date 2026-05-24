@@ -8,6 +8,7 @@ import {
 	getEnabledItems,
 	getNavigationHref,
 	getNavigationItems,
+	getWorkspaceSummary,
 	mapCollectionsResponse,
 } from "./navigation-data";
 
@@ -113,6 +114,13 @@ describe("getNavigationItems", () => {
 		expect(items.views.map((item) => item.name)).toEqual(["Home", "Movies"]);
 		expect(items.savedViews.map((item) => item.name)).toEqual(["Everything"]);
 		expect(items.collections.map((item) => item.slug)).toEqual(["collection-1"]);
+	});
+
+	it("formats the workspace view and saved view counts", () => {
+		const items = getNavigationItems({ data, workspaceSlug: "media" });
+
+		expect(getWorkspaceSummary(items)).toBe("2 views · 1 saved view");
+		expect(getWorkspaceSummary({ ...items, savedViews: [] })).toBe("2 views · no saved views");
 	});
 });
 
