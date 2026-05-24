@@ -47,7 +47,7 @@ export type EntityPopulationDeps = {
 	getBuiltinEntitySchemaBySandboxScriptId: typeof getBuiltinEntitySchemaBySandboxScriptId;
 };
 
-export type EntityPopulationError =
+type EntityPopulationError =
 	| { kind: "script_failed"; message: string }
 	| { kind: "invalid_details"; message: string }
 	| { kind: "schema_not_found"; message: string }
@@ -329,7 +329,7 @@ export const populateGlobalEntity = async (
 	return { entity: updatedEntity };
 };
 
-export type EntityResolutionResult = { externalId: string | null } | { error: { message: string } };
+type EntityResolutionResult = { externalId: string | null } | { error: { message: string } };
 
 export const resolveGlobalEntityExternalId = async (
 	job: Job,

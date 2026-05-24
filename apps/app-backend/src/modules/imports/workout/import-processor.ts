@@ -2,20 +2,25 @@ import { updateImportRun } from "../repository";
 import { failImportRun, sanitizeErrorMessage } from "../runtime/failures";
 import { cleanupImportFile, readImportFile } from "../runtime/files";
 import type { WorkoutAdapterResult } from "./domain";
-import { processWorkoutImportResult } from "./processor";
+import { processWorkoutImportResultWithDeps, workoutImportProcessorDeps } from "./processor";
 
 export type WorkoutCsvImportProcessorDeps = {
 	readImportFile: typeof readImportFile;
 	updateImportRun: typeof updateImportRun;
 	cleanupImportFile: typeof cleanupImportFile;
-	processWorkoutImportResult: typeof processWorkoutImportResult;
+	processWorkoutImportResult: (input: {
+		runId: string;
+		userId: string;
+		adapterResult: WorkoutAdapterResult;
+	}) => Promise<void>;
 };
 
 const workoutCsvImportProcessorDeps: WorkoutCsvImportProcessorDeps = {
 	readImportFile,
 	updateImportRun,
 	cleanupImportFile,
-	processWorkoutImportResult,
+	processWorkoutImportResult: (input) =>
+		processWorkoutImportResultWithDeps(input, workoutImportProcessorDeps),
 };
 
 export const processWorkoutCsvImport = async (
