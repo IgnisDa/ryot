@@ -17,6 +17,8 @@ export type AuthSessionSnapshot =
 			readonly user: { readonly id: string; readonly email: string };
 	  };
 
+export type SettledAuthSession = Exclude<AuthSessionSnapshot, { readonly status: "pending" }>;
+
 export type AuthSessionStore = {
 	readonly getSnapshot: () => AuthSessionSnapshot;
 	readonly subscribe: (listener: () => void) => () => void;
@@ -78,6 +80,7 @@ export const makeAuthSessionStore = (source: AuthSessionSource): AuthSessionStor
 	let sourceSnapshot = source.get();
 	let snapshot = toSessionSnapshot(sourceSnapshot);
 	return {
+		subscribe: (listener) => source.listen(listener),
 		getSnapshot: () => {
 			const next = source.get();
 			if (next !== sourceSnapshot) {
@@ -86,15 +89,32 @@ export const makeAuthSessionStore = (source: AuthSessionSource): AuthSessionStor
 			}
 			return snapshot;
 		},
-		subscribe: (listener) => source.listen(listener),
 	};
 };
+
+export const settleSession = (store: AuthSessionStore) =>
+	Effect.callback<SettledAuthSession>((resume) => {
+		const settled = store.getSnapshot();
+		if (settled.status !== "pending") {
+			resume(Effect.succeed(settled));
+			return undefined;
+		}
+		const unsubscribe = store.subscribe(() => {
+			const snapshot = store.getSnapshot();
+			if (snapshot.status !== "pending") {
+				unsubscribe();
+				resume(Effect.succeed(snapshot));
+			}
+		});
+		return Effect.sync(unsubscribe);
+	});
 
 export class AuthClient extends Context.Service<
 	AuthClient,
 	{
 		readonly clear: () => Effect.Effect<void>;
 		readonly session: (origin: ServerOrigin) => AuthSessionStore;
+		readonly settledSession: (origin: ServerOrigin) => Effect.Effect<SettledAuthSession>;
 		readonly signIn: (
 			origin: ServerOrigin,
 			values: CredentialsValues,
@@ -167,7 +187,18 @@ export class AuthClient extends Context.Service<
 				"Could not verify that code.",
 			).pipe(Effect.asVoid);
 
-		return { clear, session, signIn, signInWithOidc, signOut, signUp, verifyTwoFactor };
+		const settledSession = (origin: ServerOrigin) => settleSession(session(origin));
+
+		return {
+			clear,
+			signIn,
+			signUp,
+			session,
+			signOut,
+			settledSession,
+			signInWithOidc,
+			verifyTwoFactor,
+		};
 	}),
 }) {
 	static readonly layer = Layer.effect(this, this.make);
