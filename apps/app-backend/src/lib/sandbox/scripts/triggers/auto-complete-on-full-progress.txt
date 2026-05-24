@@ -309,9 +309,6 @@ driver("trigger", async function (context) {
 
   if (trigger.properties.progressPercent !== 100) return;
 
-  const completeSchema = await getCompleteSchema(trigger);
-  if (!completeSchema) return;
-
   const isEpisodic =
     trigger.entitySchemaSlug === "show" ||
     trigger.entitySchemaSlug === "anime" ||
@@ -319,11 +316,24 @@ driver("trigger", async function (context) {
     trigger.entitySchemaSlug === "podcast";
 
   if (!isEpisodic) {
+    const completeSchema = await getCompleteSchema(trigger);
+    if (!completeSchema) return;
     await createCompletionEvent(trigger, completeSchema, trigger);
     return;
   }
 
-  const entityProperties = await getEntityProperties(trigger.entityId);
+  // For episodic media all three reads are independent — fetch in parallel.
+  const results = await Promise.all([
+    getCompleteSchema(trigger),
+    getEntityProperties(trigger.entityId),
+    getProgressEvents(trigger.entityId),
+  ]);
+  const completeSchema = results[0];
+  const entityProperties = results[1];
+  const progressEvents = results[2];
+
+  if (!completeSchema) return;
+
   const requiredKeys = getRequiredCoverageKeys(
     trigger.entitySchemaSlug,
     entityProperties,
@@ -331,7 +341,6 @@ driver("trigger", async function (context) {
 
   if (requiredKeys === null || requiredKeys.length === 0) return;
 
-  const progressEvents = await getProgressEvents(trigger.entityId);
   const completionCandidates = getCompletionCandidates(
     trigger.entitySchemaSlug,
     requiredKeys,
