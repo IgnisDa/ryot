@@ -437,6 +437,36 @@ describe("POST /collections", () => {
 			});
 		});
 
+		it("fills in defaultValue when a membership property is omitted", async () => {
+			const { client, cookies } = await createAuthenticatedClient();
+
+			const collection = await createCollection(client, cookies, {
+				name: "Movies with source tracking",
+				description: "Track how movies were added",
+				membershipPropertiesSchema: {
+					fields: {
+						rating: { type: "integer", label: "Rating", description: "Rating" },
+						source: {
+							type: "string",
+							label: "Source",
+							defaultValue: "manual",
+							description: "How this was added",
+						},
+					},
+				},
+			});
+
+			const { entityId } = await createTrackerWithSchemaAndEntity(client, cookies);
+
+			const { data, response } = await client.POST("/collections/memberships", {
+				headers: { Cookie: cookies },
+				body: { entityId, properties: { rating: 4 }, collectionId: collection.id },
+			});
+
+			expect(response.status).toBe(200);
+			expect(data?.data.memberOf.properties).toMatchObject({ rating: 4, source: "manual" });
+		});
+
 		it("upserts an existing membership instead of creating duplicates", async () => {
 			const { client, cookies } = await createAuthenticatedClient();
 
@@ -490,10 +520,7 @@ describe("POST /collections", () => {
 
 			const { response, error } = await client.POST("/collections/memberships", {
 				headers: { Cookie: cookies },
-				body: {
-					entityId,
-					collectionId: "nonexistent-collection-id",
-				},
+				body: { entityId, collectionId: "nonexistent-collection-id" },
 			});
 
 			expect(response.status).toBe(404);
@@ -510,10 +537,7 @@ describe("POST /collections", () => {
 
 			const { response, error } = await client.POST("/collections/memberships", {
 				headers: { Cookie: cookies },
-				body: {
-					collectionId: collection.id,
-					entityId: "nonexistent-entity-id",
-				},
+				body: { collectionId: collection.id, entityId: "nonexistent-entity-id" },
 			});
 
 			expect(response.status).toBe(404);
@@ -544,10 +568,7 @@ describe("POST /collections", () => {
 			const { client } = await createAuthenticatedClient();
 
 			const { response } = await client.POST("/collections/memberships", {
-				body: {
-					entityId: "some-entity-id",
-					collectionId: "some-collection-id",
-				},
+				body: { entityId: "some-entity-id", collectionId: "some-collection-id" },
 			});
 
 			expect(response.status).toBe(401);
@@ -574,10 +595,7 @@ describe("POST /collections", () => {
 
 		const { data: removeData, response: removeResponse } = await client.DELETE(
 			"/collections/memberships",
-			{
-				headers: { Cookie: cookies },
-				body: { entityId, collectionId: collection.id },
-			},
+			{ headers: { Cookie: cookies }, body: { entityId, collectionId: collection.id } },
 		);
 
 		expect(removeResponse.status).toBe(200);
@@ -612,10 +630,7 @@ describe("POST /collections", () => {
 
 		const { response, error } = await client.DELETE("/collections/memberships", {
 			headers: { Cookie: cookies },
-			body: {
-				entityId,
-				collectionId: "nonexistent-collection-id",
-			},
+			body: { entityId, collectionId: "nonexistent-collection-id" },
 		});
 
 		expect(response.status).toBe(404);
@@ -646,10 +661,7 @@ describe("POST /collections", () => {
 		const { client } = await createAuthenticatedClient();
 
 		const { response } = await client.DELETE("/collections/memberships", {
-			body: {
-				entityId: "some-entity-id",
-				collectionId: "some-collection-id",
-			},
+			body: { entityId: "some-entity-id", collectionId: "some-collection-id" },
 		});
 
 		expect(response.status).toBe(401);

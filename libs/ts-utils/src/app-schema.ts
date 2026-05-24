@@ -61,26 +61,32 @@ type AppPropertyBase<TValidation> = {
 
 export type AppStringProperty = AppPropertyBase<AppStringPropertyValidation> & {
 	type: "string";
+	defaultValue?: string;
 };
 
 export type AppNumberProperty = AppPropertyBase<AppNumberPropertyValidation> & {
 	type: "number";
+	defaultValue?: number;
 };
 
 export type AppIntegerProperty = AppPropertyBase<AppNumberPropertyValidation> & {
 	type: "integer";
+	defaultValue?: number;
 };
 
 export type AppBooleanProperty = AppPropertyBase<AppPropertyValidationBase> & {
 	type: "boolean";
+	defaultValue?: boolean;
 };
 
 export type AppDateProperty = AppPropertyBase<AppPropertyValidationBase> & {
 	type: "date";
+	defaultValue?: string;
 };
 
 export type AppDateTimeProperty = AppPropertyBase<AppPropertyValidationBase> & {
 	type: "datetime";
+	defaultValue?: string;
 };
 
 export type AppPrimitiveProperty =
@@ -93,22 +99,26 @@ export type AppPrimitiveProperty =
 
 export type AppArrayProperty = AppPropertyBase<AppArrayPropertyValidation> & {
 	type: "array";
+	defaultValue?: unknown[];
 	items: AppPropertyDefinition;
 };
 
 export type AppObjectProperty = AppPropertyBase<AppObjectPropertyValidation> & {
 	type: "object";
+	defaultValue?: Record<string, unknown>;
 	unknownKeys?: AppSchemaUnknownKeysPolicy;
 	properties: Record<string, AppPropertyDefinition>;
 };
 
 export type AppEnumProperty = AppPropertyBase<AppPropertyValidationBase> & {
 	type: "enum";
+	defaultValue?: string;
 	options: [string, ...string[]];
 };
 
 export type AppEnumArrayProperty = AppPropertyBase<AppArrayPropertyValidation> & {
 	type: "enum-array";
+	defaultValue?: string[];
 	options: [string, ...string[]];
 };
 
@@ -489,6 +499,16 @@ const withNumberTransform = (schema: z.ZodNumber, transform: AppPropertyTransfor
 export const isAppPropertyRequired = (property: AppPropertyDefinition) =>
 	!!property.validation?.required;
 
+const withDefault = (schema: z.ZodType, isRequired: boolean, defaultValue: unknown) => {
+	if (defaultValue !== undefined) {
+		return isRequired
+			? schema.optional().default(defaultValue)
+			: schema.nullish().default(defaultValue);
+	}
+
+	return isRequired ? schema : schema.nullish();
+};
+
 export const getAppPropertyDefinitionAtPath = (
 	fields: AppSchemaFields,
 	path: AppSchemaRulePath,
@@ -634,41 +654,40 @@ export const fromAppSchema = (property: AppPropertyDefinition): z.ZodType => {
 	return match(property)
 		.with({ type: "string" }, (p) => {
 			const schema = applyStringValidation(z.string(), p.validation);
-			return isRequired ? schema : schema.nullish();
+			return withDefault(schema, isRequired, p.defaultValue);
 		})
-		.with({ type: "date" }, () => (isRequired ? z.iso.date() : z.iso.date().nullish()))
-		.with({ type: "datetime" }, () => (isRequired ? z.iso.datetime() : z.iso.datetime().nullish()))
-		.with({ type: "boolean" }, () => (isRequired ? z.boolean() : z.boolean().nullish()))
+		.with({ type: "date" }, (p) => withDefault(z.iso.date(), isRequired, p.defaultValue))
+		.with({ type: "datetime" }, (p) => withDefault(z.iso.datetime(), isRequired, p.defaultValue))
+		.with({ type: "boolean" }, (p) => withDefault(z.boolean(), isRequired, p.defaultValue))
 		.with({ type: "number" }, (p) => {
 			const schema = applyNumberValidation(z.number(), p.validation);
-			const withTransform = withNumberTransform(schema, p.transform);
-			return isRequired ? withTransform : withTransform.nullish();
+			return withDefault(withNumberTransform(schema, p.transform), isRequired, p.defaultValue);
 		})
 		.with({ type: "integer" }, (p) => {
 			const schema = applyNumberValidation(z.number().int(), p.validation);
-			const withTransform = withNumberTransform(schema, p.transform);
-			return isRequired ? withTransform : withTransform.nullish();
+			return withDefault(withNumberTransform(schema, p.transform), isRequired, p.defaultValue);
 		})
 		.with({ type: "enum" }, (p) => {
 			const schema = z.enum(p.options);
-			return isRequired ? schema : schema.nullish();
+			return withDefault(schema, isRequired, p.defaultValue);
 		})
 		.with({ type: "enum-array" }, (p) => {
 			const schema = applyArrayValidation(z.array(z.enum(p.options)), p.validation);
-			return isRequired ? schema : schema.nullish();
+			return withDefault(schema, isRequired, p.defaultValue);
 		})
 		.with({ type: "array" }, (p) => {
 			const schema = applyArrayValidation(z.array(fromAppSchema(p.items)), p.validation);
-			return isRequired ? schema : schema.nullish();
+			return withDefault(schema, isRequired, p.defaultValue);
 		})
 		.with({ type: "object" }, (p) => {
 			const shape: Record<string, z.ZodType> = {};
 			for (const [key, value] of Object.entries(p.properties)) {
 				const schema = fromAppSchema(value);
-				shape[key] = isAppPropertyRequired(value) ? schema : schema.optional();
+				const hasDefault = value.defaultValue !== undefined;
+				shape[key] = isAppPropertyRequired(value) || hasDefault ? schema : schema.optional();
 			}
 			const schema = withUnknownKeysPolicy(shape, p.unknownKeys);
-			return isRequired ? schema : schema.nullish();
+			return withDefault(schema, isRequired, p.defaultValue);
 		})
 		.exhaustive();
 };
@@ -681,7 +700,8 @@ export const fromAppSchemaObject = (
 
 	for (const [key, value] of Object.entries(appSchema.fields)) {
 		const schema = fromAppSchema(value);
-		shape[key] = isAppPropertyRequired(value) ? schema : schema.optional();
+		const hasDefault = value.defaultValue !== undefined;
+		shape[key] = isAppPropertyRequired(value) || hasDefault ? schema : schema.optional();
 	}
 
 	const schema = withUnknownKeysPolicy(shape, options?.unknownKeys ?? appSchema.unknownKeys);
