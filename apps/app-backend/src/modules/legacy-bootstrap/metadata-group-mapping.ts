@@ -120,6 +120,14 @@ const metadataGroupEntityTargetValuesSql = sql.join(
 	sql`, `,
 );
 
+const buildMetadataGroupPropertiesSql = (
+	tableAlias: string,
+) => `jsonb_strip_nulls(jsonb_build_object(
+	'parts', ${tableAlias}.parts,
+	'description', ${tableAlias}.description,
+	'sourceUrl', ${tableAlias}.source_url
+))`;
+
 export const buildMetadataGroupEntityMigrationSql = (
 	targets: ResolvedLotEntityMigrationTarget[],
 ) => `
@@ -173,14 +181,16 @@ BEGIN
 			mg.last_updated_on,
 			NULL,
 			NULL,
-			'{}'::jsonb,
+			${buildMetadataGroupPropertiesSql("mg")},
 			mgt.entity_schema_id,
 			mgt.sandbox_script_id,
 			mg.last_updated_on
 		FROM "metadata_group" mg
 		INNER JOIN metadata_group_targets mgt ON mgt.lot = mg.lot AND mgt.source = mg.source
 		WHERE mg.id::text > cursor_id AND mg.id::text <= next_cursor_id
-		ON CONFLICT ("id") DO NOTHING;
+		ON CONFLICT ("id") DO UPDATE
+			SET "properties" = EXCLUDED."properties"
+			WHERE entity."properties" = '{}'::jsonb;
 		GET DIAGNOSTICS batch_rows_inserted = ROW_COUNT;
 
 		rows_inserted := rows_inserted + batch_rows_inserted;
