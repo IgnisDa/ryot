@@ -3,13 +3,19 @@ import { Effect } from "effect";
 
 import { clientPluginCompilationFailure, clientPluginCompilerDiagnostic } from "./diagnostics";
 
-const TRUSTED_MODULES = new Set(["react", "react-dom", "react-dom/client", "react/jsx-runtime"]);
+const TRUSTED_MODULES = new Set([
+	"react",
+	"react-dom",
+	"react-dom/client",
+	"react/jsx-runtime",
+	"@ryot/client-sdk",
+	"@ryot/client-sdk/effect",
+	"@ryot/client-sdk/plugin",
+	"@ryot/client-sdk/react",
+	"@ryot/client-ui-sdk",
+]);
 
-const TRUSTED_PACKAGES = ["@ryot/client-plugin-sdk", "@ryot/client-ui-sdk"];
-
-export const isTrustedClientModule = (specifier: string) =>
-	TRUSTED_MODULES.has(specifier) ||
-	TRUSTED_PACKAGES.some((name) => specifier === name || specifier.startsWith(`${name}/`));
+export const isTrustedClientModule = (specifier: string) => TRUSTED_MODULES.has(specifier);
 
 const directoryOf = (path: string) => path.slice(0, path.lastIndexOf("/"));
 

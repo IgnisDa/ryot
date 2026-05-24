@@ -30,7 +30,7 @@
 		"build": "tsc && bun build src/worker.ts --outdir dist --entry-naming client-plugin-compiler-worker.js --target bun --sourcemap"
 	},
 	"dependencies": {
-		"@ryot/client-plugin-sdk": "workspace:*",
+		"@ryot/client-sdk": "workspace:*",
 		"@ryot/client-ui-sdk": "workspace:*",
 		"@ryot/contract": "workspace:*",
 		"@ryot/ts-utils": "workspace:*",

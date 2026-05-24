@@ -1,9 +1,13 @@
 import { expect, it } from "@effect/vitest";
-import { CLIENT_API_VERSION } from "@ryot/contract/modules/plugins/client";
+import {
+	CLIENT_API_VERSION,
+	CLIENT_BRIDGE_PROTOCOL_VERSION,
+} from "@ryot/contract/modules/plugins/client";
 import { sortBy } from "@ryot/ts-utils/lodash";
 import { Effect } from "effect";
 
 import { compileClientPlugin } from "./compile";
+import { isTrustedClientModule } from "./dependencies";
 
 const fixtureRoot = new URL("../../../plugins/fixture", import.meta.url).pathname;
 
@@ -60,11 +64,25 @@ it.effect(
 			expect(document).toContain('<div id="app">');
 			expect(artifact.format).toBe(1);
 			expect(artifact.apiVersion).toBe(1);
-			expect(artifact.bridgeVersion).toBe(1);
+			expect(artifact.bridgeVersion).toBe(CLIENT_BRIDGE_PROTOCOL_VERSION);
 			expect(artifact.compilerVersion).toBe(1);
 		}),
 	30_000,
 );
+
+it("trusts only the published client SDK entry points", () => {
+	for (const specifier of [
+		"@ryot/client-sdk",
+		"@ryot/client-sdk/effect",
+		"@ryot/client-sdk/plugin",
+		"@ryot/client-sdk/react",
+		"@ryot/client-ui-sdk",
+	]) {
+		expect(isTrustedClientModule(specifier)).toBe(true);
+	}
+	expect(isTrustedClientModule("@ryot/client-sdk/unknown")).toBe(false);
+	expect(isTrustedClientModule("@ryot/client-ui-sdk/unknown")).toBe(false);
+});
 
 it.effect(
 	"derives artifact identity from the compiled client output alone",

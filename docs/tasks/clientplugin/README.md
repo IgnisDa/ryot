@@ -2,23 +2,26 @@
 
 ## Tasks
 
-**Overall Progress:** 5 of 9 tasks completed
+**Overall Progress:** 6 of 10 tasks completed
 
 **Current Task:** [Task 06](./06-synchronize-kernel-theme.md) (todo)
 
 ### Task List
 
-| #   | Task                                                                                          | Status |
-| --- | --------------------------------------------------------------------------------------------- | ------ |
-| 01  | [Establish Kernel UI and Connect to a Server](./01-establish-kernel-ui-and-connect-server.md) | done   |
-| 02  | [Authenticate Into the Kernel Shell](./02-authenticate-into-kernel-shell.md)                  | done   |
-| 03  | [Install and Render a Fixture Plugin](./03-install-and-render-fixture-plugin.md)              | done   |
-| 04  | [Navigate Fixture Private Routes](./04-navigate-fixture-private-routes.md)                    | done   |
-| 05  | [Invoke an Authenticated Operation](./05-invoke-authenticated-operation.md)                   | done   |
-| 06  | [Synchronize Kernel Theme](./06-synchronize-kernel-theme.md)                                  | todo   |
-| 07  | [Recover From Plugin Crashes](./07-recover-from-plugin-crashes.md)                            | todo   |
-| 08  | [Reload Updated Plugin Artifacts](./08-reload-updated-plugin-artifacts.md)                    | todo   |
-| 09  | [Clean Up the Web Tracer](./09-clean-up-web-tracer.md)                                        | todo   |
+| #           | Task                                                                                          | Status |
+| ----------- | --------------------------------------------------------------------------------------------- | ------ |
+| 01          | [Establish Kernel UI and Connect to a Server](./01-establish-kernel-ui-and-connect-server.md) | done   |
+| 02          | [Authenticate Into the Kernel Shell](./02-authenticate-into-kernel-shell.md)                  | done   |
+| 03          | [Install and Render a Fixture Plugin](./03-install-and-render-fixture-plugin.md)              | done   |
+| 04          | [Navigate Fixture Private Routes](./04-navigate-fixture-private-routes.md)                    | done   |
+| 05          | [Invoke an Authenticated Operation](./05-invoke-authenticated-operation.md)                   | done   |
+| 05-followup | [Establish Shared Client SDK Runtime](./05-followup-establish-shared-client-sdk-runtime.md)   | done   |
+| 06          | [Synchronize Kernel Theme](./06-synchronize-kernel-theme.md)                                  | todo   |
+| 07          | [Recover From Plugin Crashes](./07-recover-from-plugin-crashes.md)                            | todo   |
+| 08          | [Reload Updated Plugin Artifacts](./08-reload-updated-plugin-artifacts.md)                    | todo   |
+| 09          | [Clean Up the Web Tracer](./09-clean-up-web-tracer.md)                                        | todo   |
+
+Task 05-followup is complete after Task 05 and before Task 06. It is a follow-up entry, not a renumbering of Tasks 06-09; Task 06 remains the next normal task.
 
 ## Source Plan
 
@@ -36,6 +39,7 @@ plugin client source in archive
   -> authenticated kernel route resolution
   -> isolated iframe and MessageChannel bridge
   -> plugin home and one private route
+  -> shared recipe-backed client query with local decoding
   -> one authenticated backend operation
   -> live theme synchronization
   -> crash recovery
@@ -71,10 +75,13 @@ These actions are not tasks in this plan. Implementors may read the legacy clien
 - Kernel UI starts from the existing semantic design language, adapted to DOM CSS. Port tokens and behavior, not React Native or NativeWind implementation details.
 - The plugin source archive contains `manifest.json`, `backend/**`, and optional `client/**`. The compiled client artifact is separate from the source archive.
 - `@ryot/sandbox-compiler` remains backend-specific. Browser compilation belongs to a new `@ryot/client-plugin-compiler` package.
+- `@ryot/client-sdk` is the shared environment-neutral client package. Its public surfaces are the root package plus `/react`, `/plugin`, and `/effect`; `@ryot/client-ui-sdk` remains a separate UI package shared by the kernel and plugins.
+- `RyotClient` exposes Promise-based APIs through an explicitly supplied provider/client. The kernel uses a direct adapter; plugin runtimes use a `MessageChannel` adapter. No global mutable bridge is part of the shared client runtime.
 - The server compiles client source during plugin installation and update. Package source hash and client artifact hash are separate identities.
 - The kernel reads installation and artifact metadata through an application-owned named RyotQL recipe with a colocated schema and decoder.
+- `ryot.data.query(recipe)` executes a recipe and decodes its result locally. It uses the existing user-scoped backend authorization and does not introduce a client-specific authorization bypass.
 - Plugin applications run in isolated iframes, receive no Ryot credentials, and communicate through a kernel-created `MessageChannel`.
-- V1 uses exact client API, bridge protocol, and artifact-format markers. Do not add version ranges, negotiation, fallback adapters, or compatibility code.
+- The client API and artifact-format markers are exact, and the bridge uses exact protocol V2. Do not add version ranges, negotiation, fallback adapters, or compatibility code.
 - Installed plugins are trusted with data exposed through their SDK and may use public browser networking. This tracer does not add network permissions or origin allowlists.
 - A package update changes the artifact hash and force-reloads the mounted iframe. An old artifact must not continue against the new package revision.
 - A disabled installation is absent from bootstrap and the workspace switcher, but direct routes remain valid. Backend operation availability remains backend-owned.
@@ -88,14 +95,14 @@ This plan does not implement:
 - entity renderer delegation
 - saved-view UI porting
 - plugin installation or permission UI
-- the complete client plugin SDK or client UI SDK
+- the complete client SDK or client UI SDK
 - durable plugin client storage
 - files, notifications, audio, haptics, screen, or Live Activity capabilities
 - artifact retention or garbage collection beyond what the active fixture path requires
 - broad legacy-client feature parity
 - deletion or cleanup of `crates/**`
 
-Only SDK and UI APIs exercised by the web fixture may be introduced.
+Only SDK and UI APIs required by the web fixture or the shared recipe execution path may be introduced.
 
 ## Verification Strategy
 
