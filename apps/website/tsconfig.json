@@ -1,7 +1,6 @@
 {
 	"include": ["**/*.ts", "**/*.tsx", ".react-router/types/**/*"],
 	"compilerOptions": {
-		"baseUrl": ".",
 		"noEmit": true,
 		"strict": true,
 		"allowJs": true,
@@ -20,7 +19,6 @@
 		"types": ["@react-router/node", "vite/client"],
 		"paths": {
 			"~/*": ["./app/*"],
-			"@ryot/graphql/*": ["../../libs/graphql/src/*"],
 			"@ryot/ts-utils/*": ["../../libs/ts-utils/src/*"],
 			"@ryot/generated/*": ["../../libs/generated/src/*"],
 			"@ryot/transactional/*": ["../../libs/transactional/*"]
