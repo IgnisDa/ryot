@@ -2,9 +2,9 @@ import { generateId } from "better-auth";
 import { and, eq, isNull, notInArray, sql } from "drizzle-orm";
 import { Effect } from "effect";
 
-import { CurrentDb, dbEffect, TransactionRunner } from "~/lib/db";
-import * as schema from "~/lib/db/schema";
-import type { AppSchema } from "~/lib/schema";
+import { CurrentDb, dbEffect, TransactionRunner } from "#lib/db";
+import * as schema from "#lib/db/schema";
+import type { AppSchema } from "#lib/schema";
 
 import { builtinEntitySchemas } from "./entity-schemas";
 import {

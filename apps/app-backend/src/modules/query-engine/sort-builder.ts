@@ -1,8 +1,8 @@
-import type { QueryComputedField, QueryExpression } from "~/lib/query-language";
+import type { QueryComputedField, QueryExpression } from "#lib/query-language";
 import {
 	assertSortableExpression,
 	normalizeExpressionPropertyType,
-} from "~/lib/views/expression-analysis";
+} from "#lib/views/expression-analysis";
 
 import type { QueryEngineContext } from "./context";
 import type { ExpressionCompiler } from "./expression-compiler";

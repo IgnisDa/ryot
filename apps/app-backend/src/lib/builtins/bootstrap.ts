@@ -1,8 +1,8 @@
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { Effect } from "effect";
 
-import { CurrentDb, dbEffect, TransactionRunner } from "~/lib/db";
-import * as schema from "~/lib/db/schema";
+import { CurrentDb, dbEffect, TransactionRunner } from "#lib/db";
+import * as schema from "#lib/db/schema";
 
 import { builtinEntitySchemas } from "./entity-schemas";
 import { builtinSavedViews } from "./saved-views";

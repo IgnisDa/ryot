@@ -1,7 +1,7 @@
 import { sql, type SQLChunk } from "drizzle-orm";
 
-import { schema } from "~/lib/db";
-import type { EntityColumnOverrides, QueryEngineSchemaLike } from "~/lib/views/reference";
+import { schema } from "#lib/db";
+import type { EntityColumnOverrides, QueryEngineSchemaLike } from "#lib/views/reference";
 
 import type { SqlExpression } from "./sql-expression-helpers";
 

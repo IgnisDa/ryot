@@ -1,8 +1,8 @@
 import { HttpApiBuilder } from "@effect/platform";
 import { Effect } from "effect";
 
-import { AppContract } from "~/lib/contract";
-import { dieOnDbError } from "~/lib/errors";
+import { AppContract } from "#lib/contract";
+import { dieOnDbError } from "#lib/errors";
 
 import { GodModeService } from "./service";
 

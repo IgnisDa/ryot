@@ -13,16 +13,16 @@ import {
 	uniqueIndex,
 } from "drizzle-orm/pg-core";
 
-import type { DisplayConfiguration, SavedViewQueryDefinition } from "~/lib/query-language";
-import type { AppSchema } from "~/lib/schema";
-import type { EventTriggerMetadata } from "~/modules/events/schemas";
-import type { ImportRunFailureStage, ImportRunStatus } from "~/modules/imports/types";
+import type { DisplayConfiguration, SavedViewQueryDefinition } from "#lib/query-language";
+import type { AppSchema } from "#lib/schema";
+import type { EventTriggerMetadata } from "#modules/events/schemas";
+import type { ImportRunFailureStage, ImportRunStatus } from "#modules/imports/types";
 import type {
 	IntegrationExtraSettings,
 	IntegrationProvider,
 	IntegrationProviderSpecifics,
-} from "~/modules/integrations/schemas";
-import type { IntegrationLot } from "~/modules/integrations/types";
+} from "#modules/integrations/schemas";
+import type { IntegrationLot } from "#modules/integrations/types";
 
 import { user } from "./auth";
 

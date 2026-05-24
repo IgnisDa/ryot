@@ -1,17 +1,17 @@
 import { Effect } from "effect";
 
-import type { CurrentUserValue } from "~/lib/auth";
-import { DbRunner } from "~/lib/db";
-import { badRequest } from "~/lib/errors";
-import { parseAppSchemaPropertiesSafe } from "~/lib/property-schema-runtime";
-import type { AppSchema } from "~/lib/schema";
-import { EntitiesRepository } from "~/modules/entities/repository";
-import type { ListedEntity } from "~/modules/entities/schemas";
-import type { EntitiesService } from "~/modules/entities/service";
-import { EntitySchemasRepository } from "~/modules/entity-schemas/repository";
-import { EventSchemasRepository } from "~/modules/event-schemas/repository";
-import type { CreateEventItem } from "~/modules/events/schemas";
-import type { EventsService } from "~/modules/events/service";
+import type { CurrentUserValue } from "#lib/auth";
+import { DbRunner } from "#lib/db";
+import { badRequest } from "#lib/errors";
+import { parseAppSchemaPropertiesSafe } from "#lib/property-schema-runtime";
+import type { AppSchema } from "#lib/schema";
+import { EntitiesRepository } from "#modules/entities/repository";
+import type { ListedEntity } from "#modules/entities/schemas";
+import type { EntitiesService } from "#modules/entities/service";
+import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
+import { EventSchemasRepository } from "#modules/event-schemas/repository";
+import type { CreateEventItem } from "#modules/events/schemas";
+import type { EventsService } from "#modules/events/service";
 
 import {
 	buildWorkoutSetEventProperties,

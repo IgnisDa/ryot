@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createLiteralExpression } from "~/lib/query-language";
+import { createLiteralExpression } from "#lib/query-language";
 
 import { normalizeRequestPerMode } from "./preparer";
 
