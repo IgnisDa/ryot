@@ -1,6 +1,3 @@
-// Mirrors the "@theme inline" block of kernel/client/src/styles/tokens.css so plugin artifacts
-// resolve the same semantic utilities as the kernel shell.
-export const CLIENT_THEME_CSS = `
 @theme inline {
 	--color-bg: var(--bg);
 	--color-info: var(--info);
@@ -31,4 +28,3 @@ export const CLIENT_THEME_CSS = `
 	--shadow-sm: var(--shadow-small);
 	--shadow-card: var(--shadow-raised);
 }
-`;
