@@ -131,12 +131,12 @@ describe("Saved views E2E", () => {
 				{
 					entityId: entity.id,
 					eventSchemaId: reviewEventSchemaId,
-					properties: { rating: 2, review: "Okay" },
+					properties: { rating: 2, text: "Okay" },
 				},
 				{
 					entityId: entity.id,
 					eventSchemaId: reviewEventSchemaId,
-					properties: { rating: 4, review: "Good" },
+					properties: { rating: 4, text: "Good" },
 				},
 			],
 		});
@@ -223,12 +223,12 @@ describe("Saved views E2E", () => {
 				{
 					entityId: entity.id,
 					eventSchemaId: reviewEventSchemaId,
-					properties: { rating: 1, review: "Low" },
+					properties: { rating: 1, text: "Low" },
 				},
 				{
 					entityId: entity.id,
 					eventSchemaId: reviewEventSchemaId,
-					properties: { rating: 5, review: "High" },
+					properties: { rating: 5, text: "High" },
 				},
 			],
 		});

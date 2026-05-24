@@ -187,12 +187,12 @@ export const createCompletePropertiesSchema = () => ({
 
 export const createReviewPropertiesSchema = () => ({
 	fields: {
-		review: { label: "Review", description: "Review", type: "string" as const },
+		text: { label: "Review", description: "Review", type: "string" as const },
 		rating: {
 			label: "Rating",
 			description: "Rating",
-			type: "integer" as const,
-			validation: { required: true as const, maximum: 5, minimum: 1 },
+			type: "number" as const,
+			validation: { maximum: 100, minimum: 0 },
 		},
 	},
 });
