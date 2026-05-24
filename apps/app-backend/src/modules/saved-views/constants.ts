@@ -95,8 +95,8 @@ const buildTableColumnsForSlug = (slug: string): TableConfig["columns"] => {
 		])
 		.with("measurement", () => [
 			nameColumn,
+			{ label: "Comment", expression: createEntityPropertyExpression(slug, "comment") },
 			{ label: "Recorded At", expression: createEntityPropertyExpression(slug, "recordedAt") },
-			{ label: "Weight", expression: createEntityPropertyExpression(slug, "weight") },
 		])
 		.with("collection", () => [nameColumn])
 		.with("book", () => [
@@ -212,7 +212,7 @@ const createEntityCardConfig = (slug?: string): EntityCardConfig => {
 			calloutProperty: null,
 			eyebrowProperty: createEntitySchemaExpression("name"),
 			primarySubtitleProperty: createEntityPropertyExpression(slug, "recordedAt"),
-			secondarySubtitleProperty: createEntityPropertyExpression(slug, "weight"),
+			secondarySubtitleProperty: createEntityPropertyExpression(slug, "comment"),
 		};
 	}
 	return {
