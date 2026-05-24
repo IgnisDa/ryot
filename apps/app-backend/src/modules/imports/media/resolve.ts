@@ -65,7 +65,10 @@ export const resolveMediaEntityRefs = async (
 			continue;
 		}
 
-		const candidates = deps.getResolutionCandidates(ref.identifierType);
+		const candidates = deps.getResolutionCandidates({
+			identifierType: ref.identifierType,
+			entitySchemaSlug: ref.entitySchemaSlug,
+		});
 		if (candidates.length === 0) {
 			failedIndices.push(i);
 			await deps.createImportRunFailure({
