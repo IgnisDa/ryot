@@ -13,7 +13,7 @@ const UserListItem = Schema.Struct({
 	authState: UserAuthState,
 	createdAt: Schema.String,
 	bannedAt: Schema.NullOr(Schema.String),
-	twoFactorEnabled: Schema.optional(Schema.Boolean),
+	twoFactorEnabled: Schema.NullOr(Schema.Boolean),
 });
 
 const ListUsersResponse = Schema.Struct({
@@ -21,12 +21,23 @@ const ListUsersResponse = Schema.Struct({
 	users: Schema.Array(UserListItem),
 });
 
-const ProvisionUserBody = Schema.Struct({
-	email: Schema.String,
-	name: Schema.String,
-	provider: Schema.Literal("credential", "oidc"),
-	oidcIssuerId: Schema.optional(Schema.String),
-});
+const Email = Schema.String.pipe(Schema.pattern(/^[^\s@]+@[^\s@]+\.[^\s@]+$/));
+
+const ProvisionUserBody = Schema.Union(
+	Schema.Struct({
+		email: Email,
+		name: Schema.String,
+		provider: Schema.Literal("credential"),
+	}),
+	Schema.Struct({
+		email: Email,
+		name: Schema.String,
+		oidcIssuerId: Schema.String,
+		provider: Schema.Literal("oidc"),
+	}),
+);
+
+export type ProvisionUserBody = Schema.Schema.Type<typeof ProvisionUserBody>;
 
 const ProvisionUserResponse = Schema.Struct({ userId: Schema.String });
 
