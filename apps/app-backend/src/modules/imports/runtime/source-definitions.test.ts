@@ -34,12 +34,12 @@ describe("createImportRunBody", () => {
 		expect(
 			createImportRunBody.parse({
 				apiKey: "token_2",
-				source: "mediatracker",
+				source: "media_tracker",
 				apiUrl: "https://media.example.com/api/",
 			}),
 		).toEqual({
 			apiKey: "token_2",
-			source: "mediatracker",
+			source: "media_tracker",
 			apiUrl: "https://media.example.com/api/",
 		});
 
