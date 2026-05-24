@@ -1,13 +1,14 @@
 import { FileSystem, Multipart } from "@effect/platform";
 import { it, expect } from "@effect/vitest";
 import { Cause, Effect, Exit, Inspectable, Layer, Option } from "effect";
+import Redis from "ioredis";
 
 import type { CurrentUserValue } from "#lib/auth-middleware";
 import { BadRequest } from "#lib/errors";
 import { RedisService, redisKeys } from "#lib/redis";
 import { S3Service } from "#lib/s3";
 import { UserId } from "#lib/schema/brands";
-import { makeAppConfigLayer, makeMock } from "#lib/test-support/effect";
+import { makeAppConfigLayer } from "#lib/test-support/effect";
 
 import { UploadsService } from "./service";
 
@@ -31,23 +32,32 @@ const fakeFile = (name: string, contentType: string): Multipart.PersistedFile =>
 	[Inspectable.NodeInspectSymbol]: () => `PersistedFile(${name})`,
 });
 
-const makeS3Mock = (overrides: Record<string, unknown> = {}) =>
-	Object.assign(
-		makeMock<S3Service>({
-			isConfigured: true,
-			presignUpload: () => Effect.die("unused"),
-			presignDownload: () => Effect.die("unused"),
-		}),
-		overrides,
-	);
+const mockS3Service = Layer.mock(S3Service);
 
-const makeRedisMock = (overrides: Record<string, unknown> = {}) =>
-	Object.assign(
-		makeMock<RedisService>({
-			set: () => Effect.die("unused"),
-		}),
-		overrides,
-	);
+type S3Overrides = Omit<Parameters<typeof mockS3Service>[0], "_tag" | "isConfigured"> & {
+	isConfigured?: Parameters<typeof mockS3Service>[0]["isConfigured"];
+};
+
+const makeS3Layer = (overrides: S3Overrides = {}) =>
+	mockS3Service({ _tag: "S3Service", isConfigured: true, ...overrides });
+
+const mockRedisService = Layer.mock(RedisService);
+
+type RedisOverrides = Omit<Parameters<typeof mockRedisService>[0], "_tag" | "client"> & {
+	client?: RedisService["client"];
+};
+
+const makeRedisClient = (): RedisService["client"] =>
+	Object.assign(Object.create(Redis.prototype), {
+		duplicate: makeRedisClient,
+	});
+
+const makeRedisLayer = (overrides: RedisOverrides = {}) =>
+	mockRedisService({
+		_tag: "RedisService",
+		client: makeRedisClient(),
+		...overrides,
+	});
 
 const makeFsLayer = (overrides: Record<string, unknown> = {}) =>
 	FileSystem.layerNoop({
@@ -77,16 +87,16 @@ const defaultFileInfo = {
 const makeUploadsLayer = (
 	options: {
 		fsLayer?: ReturnType<typeof makeFsLayer>;
-		redisService?: ReturnType<typeof makeRedisMock>;
-		s3Service?: ReturnType<typeof makeS3Mock>;
+		redisService?: ReturnType<typeof makeRedisLayer>;
+		s3Service?: ReturnType<typeof makeS3Layer>;
 	} = {},
 ) =>
 	UploadsService.Default.pipe(
 		Layer.provide(
 			Layer.mergeAll(
 				makeAppConfigLayer({ tmpDir: TEST_TMP_DIR }),
-				Layer.succeed(S3Service, options.s3Service ?? makeS3Mock()),
-				Layer.succeed(RedisService, options.redisService ?? makeRedisMock()),
+				options.s3Service ?? makeS3Layer(),
+				options.redisService ?? makeRedisLayer(),
 				options.fsLayer ?? makeFsLayer(),
 			),
 		),
@@ -111,7 +121,7 @@ it.effect("generates presigned upload key with png extension", () =>
 	}).pipe(
 		Effect.provide(
 			makeUploadsLayer({
-				s3Service: makeS3Mock({
+				s3Service: makeS3Layer({
 					presignUpload: (_key: string) => Effect.succeed(`https://example.com/${_key}`),
 				}),
 			}),
@@ -127,7 +137,7 @@ it.effect("uses mime-based extension for jpeg presigned upload", () =>
 	}).pipe(
 		Effect.provide(
 			makeUploadsLayer({
-				s3Service: makeS3Mock({
+				s3Service: makeS3Layer({
 					presignUpload: (_key: string) => Effect.succeed(`https://example.com/${_key}`),
 				}),
 			}),
@@ -154,7 +164,7 @@ it.effect("uses mime-based extensions for csv, zip, and json presigned uploads",
 	}).pipe(
 		Effect.provide(
 			makeUploadsLayer({
-				s3Service: makeS3Mock({
+				s3Service: makeS3Layer({
 					presignUpload: (_key: string) => Effect.succeed(`https://example.com/${_key}`),
 				}),
 			}),
@@ -171,7 +181,7 @@ it.effect("dies when S3 is not configured for presigned upload", () =>
 		} else {
 			throw new Error("Expected failure");
 		}
-	}).pipe(Effect.provide(makeUploadsLayer({ s3Service: makeS3Mock({ isConfigured: false }) }))),
+	}).pipe(Effect.provide(makeUploadsLayer({ s3Service: makeS3Layer({ isConfigured: false }) }))),
 );
 
 it.effect("returns presigned download URLs for multiple keys", () =>
@@ -187,7 +197,7 @@ it.effect("returns presigned download URLs for multiple keys", () =>
 	}).pipe(
 		Effect.provide(
 			makeUploadsLayer({
-				s3Service: makeS3Mock({
+				s3Service: makeS3Layer({
 					presignDownload: (_key: string) => Effect.succeed(`https://example.com/${_key}`),
 				}),
 			}),
@@ -204,12 +214,12 @@ it.effect("dies when S3 is not configured for presigned download", () =>
 		} else {
 			throw new Error("Expected failure");
 		}
-	}).pipe(Effect.provide(makeUploadsLayer({ s3Service: makeS3Mock({ isConfigured: false }) }))),
+	}).pipe(Effect.provide(makeUploadsLayer({ s3Service: makeS3Layer({ isConfigured: false }) }))),
 );
 
 it.effect("writes supported files to temporary directory and returns tokens", () => {
 	const writtenPaths: Array<{ path: string; bytes: Uint8Array }> = [];
-	const storedTokens: Array<{ key: string; value: string; ttl: number }> = [];
+	const storedTokens: Array<{ key: string; value: string; ttl: number | undefined }> = [];
 
 	return Effect.gen(function* () {
 		const service = yield* UploadsService;
@@ -240,8 +250,8 @@ it.effect("writes supported files to temporary directory and returns tokens", ()
 	}).pipe(
 		Effect.provide(
 			makeUploadsLayer({
-				redisService: makeRedisMock({
-					set: (_key: string, _value: string, _ttl: number) => {
+				redisService: makeRedisLayer({
+					set: (_key, _value, _ttl) => {
 						storedTokens.push({ key: _key, value: _value, ttl: _ttl });
 						return Effect.void;
 					},
@@ -272,7 +282,7 @@ it.effect("strips trailing separators from file names", () => {
 	}).pipe(
 		Effect.provide(
 			makeUploadsLayer({
-				redisService: makeRedisMock({ set: () => Effect.void }),
+				redisService: makeRedisLayer({ set: () => Effect.void }),
 				fsLayer: makeFsLayer({
 					stat: () => Effect.succeed(defaultFileInfo),
 					readFile: () => Effect.succeed(new Uint8Array()),

@@ -3,31 +3,24 @@ import { Effect, Layer } from "effect";
 import { expect as vitestExpect } from "vitest";
 
 import { ImportRunId } from "#lib/schema/brands";
-import { dbRunnerLayer, makeMock } from "#lib/test-support/effect";
+import type { MockOverrides } from "#lib/test-support/effect";
+import { dbRunnerLayer } from "#lib/test-support/effect";
 
 import { ImportsRepository } from "../repository";
 import { failImportRunWithFailures, markImportRunStarted } from "./failures";
 
-const makeImportsRepository = (overrides: Partial<ImportsRepository> = {}) =>
-	makeMock<ImportsRepository>(
-		{
-			updateRun: () => Effect.void,
-			createFailure: () => Effect.void,
-			_tag: "ImportsRepository" as const,
-			createRun: () => Effect.die("unused"),
-			getRunById: () => Effect.die("unused"),
-			deleteRunById: () => Effect.die("unused"),
-			listRunsByUser: () => Effect.die("unused"),
-			listFailuresByRunId: () => Effect.die("unused"),
-			listRunsByIntegrationId: () => Effect.die("unused"),
-			hasActiveRunForIntegration: () => Effect.die("unused"),
-			listRecentStatusesByIntegrationId: () => Effect.die("unused"),
-		},
-		overrides,
-	);
+const mockImportsRepository = Layer.mock(ImportsRepository);
 
-const makeTestLayer = (importsRepository: ImportsRepository) =>
-	Layer.mergeAll(dbRunnerLayer, Layer.succeed(ImportsRepository, importsRepository));
+const makeImportsRepository = (overrides: MockOverrides<typeof mockImportsRepository> = {}) =>
+	mockImportsRepository({
+		_tag: "ImportsRepository",
+		updateRun: () => Effect.void,
+		createFailure: () => Effect.void,
+		...overrides,
+	});
+
+const makeTestLayer = (importsRepository: Layer.Layer<ImportsRepository>) =>
+	Layer.mergeAll(dbRunnerLayer, importsRepository);
 
 it.effect("marks import runs as running", () => {
 	const updates: Array<Record<string, unknown>> = [];

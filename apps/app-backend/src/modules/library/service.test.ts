@@ -9,9 +9,9 @@ import { BadRequest, NotFound } from "#lib/errors";
 import { createWorkflowJobId } from "#lib/job-id";
 import { EntitySchemaId, SandboxScriptId, UserId } from "#lib/schema/brands";
 import {
+	type MockOverrides,
 	dbRunnerLayer,
 	makeAppConfigLayer,
-	makeMock,
 	makeWorkflowEngine,
 	transactionLayer,
 } from "#lib/test-support/effect";
@@ -30,33 +30,15 @@ const externalId = "ext-123";
 const scriptId = SandboxScriptId.make("script-1");
 const entitySchemaId = EntitySchemaId.make("schema-1");
 
-const makeEntitiesRepository = (overrides: Partial<EntitiesRepository> = {}) =>
-	makeMock<EntitiesRepository>(
-		{
-			_tag: "EntitiesRepository" as const,
-			saveEntity: () => Effect.die("unused"),
-			getByIdForUser: () => Effect.die("unused"),
-			findEntitySchemaById: () => Effect.die("unused"),
-			getEntityScopeForUser: () => Effect.die("unused"),
-			getEntityMergeScopeForUser: () => Effect.die("unused"),
-			getEntitySchemaScopeForUser: () => Effect.die("unused"),
-			findEntitySchemaScriptBySlug: () => Effect.die("unused"),
-			findGlobalEntityByExternalId: () => Effect.die("unused"),
-			findEntityByExternalIdForUser: () => Effect.die("unused"),
-		},
-		overrides,
-	);
+const mockEntitiesRepository = Layer.mock(EntitiesRepository);
 
-const makeSandboxRepository = (overrides: Partial<SandboxRepository> = {}) =>
-	makeMock<SandboxRepository>(
-		{
-			_tag: "SandboxRepository" as const,
-			createScript: () => Effect.die("unused"),
-			getScriptForUser: () => Effect.die("unused"),
-			findScriptBySlugForUser: () => Effect.die("unused"),
-		},
-		overrides,
-	);
+const makeEntitiesRepository = (overrides: MockOverrides<typeof mockEntitiesRepository> = {}) =>
+	mockEntitiesRepository({ _tag: "EntitiesRepository", ...overrides });
+
+const mockSandboxRepository = Layer.mock(SandboxRepository);
+
+const makeSandboxRepository = (overrides: MockOverrides<typeof mockSandboxRepository> = {}) =>
+	mockSandboxRepository({ _tag: "SandboxRepository", ...overrides });
 
 const fakeScript = {
 	id: scriptId,
@@ -75,8 +57,8 @@ const fakeEntitySchemaScope = {
 };
 
 const makeServiceLayer = (
-	sandboxRepo: SandboxRepository,
-	entitiesRepo: EntitiesRepository,
+	sandboxRepo = makeSandboxRepository(),
+	entitiesRepo = makeEntitiesRepository(),
 	engine = makeWorkflowEngine(),
 ) =>
 	LibraryImportService.Default.pipe(
@@ -86,8 +68,8 @@ const makeServiceLayer = (
 				transactionLayer,
 				makeAppConfigLayer(),
 				Layer.succeed(WorkflowEngine, engine),
-				Layer.succeed(EntitiesRepository, entitiesRepo),
-				Layer.succeed(SandboxRepository, sandboxRepo),
+				entitiesRepo,
+				sandboxRepo,
 			),
 		),
 	);

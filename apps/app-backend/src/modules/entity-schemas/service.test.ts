@@ -5,12 +5,8 @@ import { Effect, Exit, Layer } from "effect";
 import type { CurrentUserValue } from "#lib/auth-middleware";
 import { BadRequest, Conflict, NotFound } from "#lib/errors";
 import { EntitySchemaId, TrackerId, UserId } from "#lib/schema/brands";
-import {
-	dbRunnerLayer,
-	makeMock,
-	makeWorkflowEngine,
-	transactionLayer,
-} from "#lib/test-support/effect";
+import type { MockOverrides } from "#lib/test-support/effect";
+import { dbRunnerLayer, makeWorkflowEngine, transactionLayer } from "#lib/test-support/effect";
 import { SandboxApiService } from "#modules/sandbox/service";
 import { TrackersRepository } from "#modules/trackers/repository";
 
@@ -23,54 +19,29 @@ const user = {
 	email: "user@example.com",
 } satisfies CurrentUserValue;
 
-const makeSandboxApiService = () =>
-	makeMock<SandboxApiService>({
-		_tag: "SandboxApiService" as const,
-		enqueue: () => Effect.die("not used in this test"),
-		getResult: () => Effect.die("not used in this test"),
-		createScript: () => Effect.die("not used in this test"),
-	});
+const mockSandboxApiService = Layer.mock(SandboxApiService);
 
-const fakeSandboxApiServiceLayer = Layer.succeed(SandboxApiService, makeSandboxApiService());
+const fakeSandboxApiServiceLayer = mockSandboxApiService({ _tag: "SandboxApiService" });
 
-const makeTrackersRepository = (overrides: Partial<TrackersRepository> = {}) =>
-	makeMock<TrackersRepository>(
-		{
-			_tag: "TrackersRepository" as const,
-			create: () => Effect.die("unused"),
-			listByUser: () => Effect.die("unused"),
-			findBySlug: () => Effect.die("unused"),
-			updateOwned: () => Effect.die("unused"),
-			getOwnedById: () => Effect.die("unused"),
-			persistOrder: () => Effect.die("unused"),
-			listIdsInOrder: () => Effect.die("unused"),
-			countOwnedByIds: () => Effect.die("unused"),
-			linkEntitySchema: () => Effect.die("unused"),
-		},
-		overrides,
-	);
+const mockTrackersRepository = Layer.mock(TrackersRepository);
 
-const makeEntitySchemasRepository = (overrides: Partial<EntitySchemasRepository> = {}) =>
-	makeMock<EntitySchemasRepository>(
-		{
-			_tag: "EntitySchemasRepository" as const,
-			findBySlug: () => Effect.die("unused"),
-			listByUser: () => Effect.die("unused"),
-			getByIdForUser: () => Effect.die("unused"),
-			listVisibleBySlugs: () => Effect.die("unused"),
-			createEntitySchema: () => Effect.die("unused"),
-		},
-		overrides,
-	);
+const makeTrackersRepository = (overrides: MockOverrides<typeof mockTrackersRepository> = {}) =>
+	mockTrackersRepository({ _tag: "TrackersRepository", ...overrides });
+
+const mockEntitySchemasRepository = Layer.mock(EntitySchemasRepository);
+
+const makeEntitySchemasRepository = (
+	overrides: MockOverrides<typeof mockEntitySchemasRepository> = {},
+) => mockEntitySchemasRepository({ _tag: "EntitySchemasRepository", ...overrides });
 
 const fakeWorkflowEngineLayer = Layer.succeed(
 	WorkflowEngine,
-	makeWorkflowEngine({ execute: () => Effect.void }),
+	makeWorkflowEngine({ execute: () => Effect.void.pipe(Effect.as(undefined)) }),
 );
 
 const makeEntitySchemasServiceLayer = (
-	repository: EntitySchemasRepository,
-	trackers: TrackersRepository,
+	repository: ReturnType<typeof makeEntitySchemasRepository>,
+	trackers: ReturnType<typeof makeTrackersRepository>,
 ) =>
 	EntitySchemasService.Default.pipe(
 		Layer.provide(
@@ -79,8 +50,8 @@ const makeEntitySchemasServiceLayer = (
 				transactionLayer,
 				fakeSandboxApiServiceLayer,
 				fakeWorkflowEngineLayer,
-				Layer.succeed(EntitySchemasRepository, repository),
-				Layer.succeed(TrackersRepository, trackers),
+				repository,
+				trackers,
 			),
 		),
 	);

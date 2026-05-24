@@ -12,9 +12,9 @@ import {
 	UserId,
 } from "#lib/schema/brands";
 import {
+	type MockOverrides,
 	dbRunnerLayer,
 	makeAppConfigLayer,
-	makeMock,
 	makeWorkflowEngine,
 	transactionLayer,
 } from "#lib/test-support/effect";
@@ -27,52 +27,33 @@ import { EntitiesService } from "./service";
 const now = "2026-06-14T00:00:00.000Z";
 
 const user = {
-	id: UserId.make("user-id"),
 	name: "Test User",
 	email: "user@example.com",
+	id: UserId.make("user-id"),
 } satisfies CurrentUserValue;
 
-const makeEntitiesRepository = (overrides: Partial<EntitiesRepository> = {}) =>
-	makeMock<EntitiesRepository>(
-		{
-			_tag: "EntitiesRepository" as const,
-			saveEntity: () => Effect.die("unused"),
-			getByIdForUser: () => Effect.die("unused"),
-			findEntitySchemaById: () => Effect.die("unused"),
-			getEntityScopeForUser: () => Effect.die("unused"),
-			getEntityMergeScopeForUser: () => Effect.die("unused"),
-			getEntitySchemaScopeForUser: () => Effect.die("unused"),
-			findEntitySchemaScriptBySlug: () => Effect.die("unused"),
-			findGlobalEntityByExternalId: () => Effect.die("unused"),
-			findEntityByExternalIdForUser: () => Effect.die("unused"),
-		},
-		overrides,
-	);
+const mockEntitiesRepository = Layer.mock(EntitiesRepository);
+
+const makeEntitiesRepository = (overrides: MockOverrides<typeof mockEntitiesRepository> = {}) =>
+	mockEntitiesRepository({ _tag: "EntitiesRepository", ...overrides });
 
 const fakeWorkflowEngineLayer = Layer.succeed(WorkflowEngine, makeWorkflowEngine());
 
-const makeSandboxRepository = (overrides: Partial<SandboxRepository> = {}) =>
-	makeMock<SandboxRepository>(
-		{
-			_tag: "SandboxRepository" as const,
-			createScript: () => Effect.die("unused"),
-			getScriptForUser: () => Effect.die("unused"),
-			findScriptBySlugForUser: () => Effect.die("unused"),
-		},
-		overrides,
-	);
+const mockSandboxRepository = Layer.mock(SandboxRepository);
 
-const makeQueryEngine = (overrides: Partial<QueryEngineService> = {}) =>
-	makeMock<QueryEngineService>(
-		{
-			validate: () => Effect.void,
-			_tag: "QueryEngineService" as const,
-			execute: () => Effect.die("unused"),
-		},
-		overrides,
-	);
+const makeSandboxRepository = (overrides: MockOverrides<typeof mockSandboxRepository> = {}) =>
+	mockSandboxRepository({ _tag: "SandboxRepository", ...overrides });
 
-const makeServiceLayer = (repository: EntitiesRepository) =>
+const mockQueryEngine = Layer.mock(QueryEngineService);
+
+const makeQueryEngine = (overrides: MockOverrides<typeof mockQueryEngine> = {}) =>
+	mockQueryEngine({
+		_tag: "QueryEngineService",
+		validate: () => Effect.void.pipe(Effect.as(undefined)),
+		...overrides,
+	});
+
+const makeServiceLayer = (repository = makeEntitiesRepository()) =>
 	EntitiesService.Default.pipe(
 		Layer.provide(
 			Layer.mergeAll(
@@ -80,9 +61,9 @@ const makeServiceLayer = (repository: EntitiesRepository) =>
 				transactionLayer,
 				makeAppConfigLayer(),
 				fakeWorkflowEngineLayer,
-				Layer.succeed(QueryEngineService, makeQueryEngine()),
-				Layer.succeed(EntitiesRepository, repository),
-				Layer.succeed(SandboxRepository, makeSandboxRepository()),
+				makeQueryEngine(),
+				repository,
+				makeSandboxRepository(),
 			),
 		),
 	);
