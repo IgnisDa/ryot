@@ -29,7 +29,6 @@ const createDeps = (
 	getEventCreateScopeForUser: () => Promise.resolve(undefined),
 	getSessionEntityScopeForUser: () => Promise.resolve(undefined),
 	getEventSchemaForEntityBySlug: () => Promise.resolve(undefined),
-	ensureEntityInLibrary: () => Promise.resolve({ data: undefined }),
 	getActiveBeforeCreateTriggersForEventSchemas: () => Promise.resolve([]),
 	runBeforeCreateTrigger: () => Promise.resolve({ outcome: "result", result: { action: "allow" } }),
 	createEventForUser: () => {
