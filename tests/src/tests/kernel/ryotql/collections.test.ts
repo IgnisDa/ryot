@@ -26,7 +26,7 @@ describe("RyotQL collections tracer", () => {
 				buildAllCollectionsDocument({ page: 1, limit: 10 }),
 			);
 			const rows = result.data["collections"];
-			if (!rows) {
+			if (rows?.type !== "rows") {
 				throw new Error("Expected collections result");
 			}
 
