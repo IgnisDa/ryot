@@ -76,7 +76,7 @@ export const adaptPlexData = (input: PlexAdapterInput) =>
 		const failures: MediaImportAdapterFailure[] = [];
 		const groupMap = new Map<string, ReturnType<typeof getOrCreateMediaEntityGroup>>();
 
-		const librariesResponse = yield* requestSourceJson<unknown>({
+		const librariesResponse = yield* requestSourceJson({
 			headers,
 			sourceName: "Plex",
 			baseUrl: input.apiUrl,
@@ -90,7 +90,7 @@ export const adaptPlexData = (input: PlexAdapterInput) =>
 				continue;
 			}
 
-			const itemsResponse = yield* requestSourceJson<unknown>({
+			const itemsResponse = yield* requestSourceJson({
 				headers,
 				sourceName: "Plex",
 				baseUrl: input.apiUrl,
@@ -143,7 +143,7 @@ export const adaptPlexData = (input: PlexAdapterInput) =>
 							} satisfies MediaImportAdapterFailure;
 						}
 
-						const leavesResult = yield* requestSourceJson<unknown>({
+						const leavesResult = yield* requestSourceJson({
 							headers,
 							sourceName: "Plex",
 							baseUrl: input.apiUrl,

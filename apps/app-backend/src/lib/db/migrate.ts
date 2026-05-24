@@ -7,7 +7,7 @@ import { DbService } from "./index";
 
 export const migrateDB = Effect.gen(function* () {
 	const { db } = yield* DbService;
-	const migrationsFolder = yield* Effect.sync(() => `${process.cwd()}/src/drizzle`);
+	const migrationsFolder = new URL("../../drizzle", import.meta.url).pathname;
 	yield* Effect.logInfo("running database migrations");
 	yield* Effect.tryPromise({
 		catch: unknownToDbError,
