@@ -142,7 +142,10 @@ export const builtinSandboxScripts = () => [
 		canonicalLanguage: "en-US",
 	}),
 	script("TMDB", "show.tmdb", tmdbShowScriptCode, ["providers.tmdbAccessToken"]),
-	script("TMDB", "person.tmdb", tmdbPersonScriptCode, ["providers.tmdbAccessToken"]),
+	script("TMDB", "person.tmdb", tmdbPersonScriptCode, ["providers.tmdbAccessToken"], {
+		source: "tmdb",
+		canonicalLanguage: "en-US",
+	}),
 	script("TVDB", "movie.tvdb", tvdbMovieScriptCode, ["providers.tvdbApiKey"]),
 	script("TVDB", "show.tvdb", tvdbShowScriptCode, ["providers.tvdbApiKey"]),
 	script("TVDB", "person.tvdb", tvdbPersonScriptCode, ["providers.tvdbApiKey"]),
@@ -178,7 +181,10 @@ export const builtinSandboxScripts = () => [
 		"providers.twitchClientId",
 		"providers.twitchClientSecret",
 	]),
-	script("TMDB", "movie-group.tmdb", tmdbMovieGroupScriptCode, ["providers.tmdbAccessToken"]),
+	script("TMDB", "movie-group.tmdb", tmdbMovieGroupScriptCode, ["providers.tmdbAccessToken"], {
+		source: "tmdb",
+		canonicalLanguage: "en-US",
+	}),
 	script("TVDB", "movie-group.tvdb", tvdbMovieGroupScriptCode, ["providers.tvdbApiKey"]),
 	script("Audible", "audiobook-group.audible", audibleAudiobookGroupScriptCode),
 	script("Hardcover", "book-group.hardcover", hardcoverBookGroupScriptCode, [
