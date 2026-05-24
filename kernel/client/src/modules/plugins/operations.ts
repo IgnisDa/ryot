@@ -1,5 +1,6 @@
 import { AuthRateLimited, AuthUnauthorized } from "@ryot/contract/auth-middleware";
 import type {
+	PluginOperationBridgeErrorReason,
 	PluginOperationOutcome,
 	PluginOperationRequest,
 } from "@ryot/contract/modules/plugins/client";
@@ -14,7 +15,7 @@ import { Context, Effect, Layer, Schema } from "effect";
 import { AuthenticatedApi } from "../../api/authenticated";
 import type { ApiScope } from "../../api/scope";
 
-const isExpectedFailure = Schema.is(
+const isDeclaredFailure = Schema.is(
 	Schema.Union([
 		AuthRateLimited,
 		AuthUnauthorized,
@@ -47,11 +48,12 @@ export class PluginOperationsService extends Context.Service<PluginOperationsSer
 					.pipe(
 						Effect.match({
 							onSuccess: (response) => ({ outcome: "success", value: response.result }) as const,
-							onFailure: (error) =>
-								({
-									outcome: "failure",
-									reason: isExpectedFailure(error.cause) ? "operation-failed" : "transport",
-								}) as const,
+							onFailure: (error) => {
+								const reason = (
+									isDeclaredFailure(error.cause) ? "operation-failed" : "transport"
+								) satisfies PluginOperationBridgeErrorReason;
+								return { reason, outcome: "failure" } as const;
+							},
 						}),
 					);
 				return outcome satisfies PluginOperationOutcome;
