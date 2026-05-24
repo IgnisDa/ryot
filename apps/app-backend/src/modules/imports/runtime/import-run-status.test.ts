@@ -7,7 +7,7 @@ import type { MockOverrides } from "#lib/test-support/effect";
 import { dbRunnerLayer } from "#lib/test-support/effect";
 
 import { ImportsRepository } from "../repository";
-import { failImportRunWithFailures, markImportRunStarted } from "./failures";
+import { failImportRunWithFailures, markImportRunStarted } from "./import-run-status";
 
 const mockImportsRepository = Layer.mock(ImportsRepository);
 

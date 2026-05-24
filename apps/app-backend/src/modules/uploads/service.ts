@@ -10,7 +10,11 @@ import { RedisService, redisKeys } from "#lib/redis";
 import { S3Service } from "#lib/s3";
 import { UserId } from "#lib/schema/brands";
 
-import { type UploadContentType, uploadContentTypeExtensions, uploadContentTypes } from "./shared";
+import {
+	type UploadContentType,
+	uploadContentTypeExtensions,
+	uploadContentTypes,
+} from "./upload-policy";
 
 const UPLOAD_TOKEN_TTL_SECONDS = 15 * 60;
 const UPLOAD_URL_EXPIRY_SECONDS = 15 * 60;

@@ -14,7 +14,7 @@ import {
 	MediaImportAdapterResultSchema,
 	type MediaImportAdapterFailure,
 	type MediaImportAdapterResult,
-} from "#modules/imports/media/import-processor";
+} from "#modules/imports/media/adapter-result";
 import { MediaImportWorkflowOperationsLive } from "#modules/imports/media/workflow-operations";
 import {
 	failImportRun,
@@ -22,7 +22,7 @@ import {
 	markImportRunStarted,
 	sanitizeErrorMessage,
 	type ImportRunFailureDetails,
-} from "#modules/imports/runtime/failures";
+} from "#modules/imports/runtime/import-run-status";
 import { ImportRunArtifacts } from "#modules/imports/runtime/workflow-helpers";
 import { runLoadedMediaImportWorkflow } from "#modules/imports/workflows";
 import type { SandboxCompletedResult } from "#modules/sandbox/schemas";

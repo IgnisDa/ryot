@@ -8,8 +8,8 @@ import { SandboxScriptId } from "#lib/schema/brands";
 import type { EntitiesRepository } from "#modules/entities/repository";
 
 import type { ImportRunJobData } from "../jobs";
-import { sanitizeErrorMessage } from "../runtime/failures";
-import { resolveSafeImportFilePath, validateFileExtension } from "../runtime/files";
+import { resolveSafeImportFilePath, validateFileExtension } from "../runtime/import-files";
+import { sanitizeErrorMessage } from "../runtime/import-run-status";
 import { makeImporterConfig } from "../runtime/importer-config";
 import { getKnownImportExtensions } from "../runtime/source-definitions";
 import { loadImportSourcePayload } from "../runtime/source-payload-store";
@@ -34,12 +34,12 @@ import {
 import { adaptStorygraphCsv } from "../sources/storygraph/adapter";
 import { adaptTraktData } from "../sources/trakt/adapter";
 import { adaptWatcharrExport } from "../sources/watcharr/adapter";
+import { MediaImportAdapterResultSchema } from "./adapter-result";
 import {
 	loadMediaTextFileAdapterResult,
 	type LoadedMediaImportAdapterError,
 	type LoadedMediaImportAdapterResult,
 } from "./file-processor";
-import { MediaImportAdapterResultSchema } from "./import-processor";
 
 type MediaImportLoadInput = Pick<ImportRunJobData, "runId" | "source" | "userId"> & {
 	filePath?: string;

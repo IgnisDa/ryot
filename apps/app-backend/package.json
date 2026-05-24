@@ -11,7 +11,7 @@
 		".": "./src/index.ts",
 		"./contract": "./src/lib/contract.ts",
 		"./schema/*": "./src/lib/schema/*.ts",
-		"./query-language": "./src/lib/query-language.ts"
+		"./display-configuration": "./src/lib/display-configuration.ts"
 	},
 	"scripts": {
 		"dev": "bun run --watch src/index.ts",

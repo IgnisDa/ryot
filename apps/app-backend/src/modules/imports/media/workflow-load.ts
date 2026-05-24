@@ -7,7 +7,7 @@ import type { EntitySearchItem } from "#modules/entity-import/population";
 import type { ImportRunJobData } from "../jobs";
 import { ImportRunError, toWorkflowError } from "../runtime/workflow-helpers";
 import { buildNetflixAdapterResult } from "../sources/netflix/processor";
-import { MediaImportAdapterResultSchema, type MediaImportAdapterResult } from "./import-processor";
+import { MediaImportAdapterResultSchema, type MediaImportAdapterResult } from "./adapter-result";
 import { LoadedMediaImportAdapterSuccess } from "./source-loaders";
 import { activityKey, LoadMediaImportFailed } from "./workflow-shared";
 import { MediaImportWorkflowOperations } from "./workflow-types";

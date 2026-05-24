@@ -2,10 +2,10 @@ import { DateTime, Effect, Either, Option, Schema } from "effect";
 
 import { RedisService, redisKeys } from "#lib/redis";
 import type { IntegrationId, UserId } from "#lib/schema/brands";
-import { finalizeEntityGroups } from "#modules/imports/media/book/shared";
+import { finalizeEntityGroups } from "#modules/imports/media/adapter-helpers";
+import type { MediaImportAdapterResult } from "#modules/imports/media/adapter-result";
 import { nowIso } from "#modules/imports/media/dates";
 import { getOrCreateMediaEntityGroup } from "#modules/imports/media/groups";
-import type { MediaImportAdapterResult } from "#modules/imports/media/import-processor";
 import type { ImportMediaEntityGroup } from "#modules/imports/media/types";
 
 export const YOUTUBE_MUSIC_SCRIPT_SLUG = "music.youtube-music";

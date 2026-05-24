@@ -9,13 +9,13 @@ import {
 	createReviewEvent,
 	finalizeEntityGroups,
 	normalizeRating,
-} from "../../media/book/shared";
-import { getOccurredAtValue, nowIso, parseDateInput } from "../../media/dates";
-import { getOrCreateMediaEntityGroup } from "../../media/groups";
+} from "../../media/adapter-helpers";
 import type {
 	MediaImportAdapterFailure,
 	MediaImportAdapterResult,
-} from "../../media/import-processor";
+} from "../../media/adapter-result";
+import { getOccurredAtValue, nowIso, parseDateInput } from "../../media/dates";
+import { getOrCreateMediaEntityGroup } from "../../media/groups";
 import type { ImportMediaEntityGroup } from "../../media/types";
 
 const WatcharrActivity = Schema.Struct({

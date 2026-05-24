@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { FetchHttpClient, HttpApiClient, HttpClient, HttpClientRequest } from "@effect/platform";
 import { faker } from "@faker-js/faker";
 import { AppContract } from "@ryot/app-backend/contract";
-import type { QueryExpression, RuntimeRef } from "@ryot/app-backend/query-language";
+import type { QueryExpression, RuntimeRef } from "@ryot/app-backend/display-configuration";
 import {
 	EntitySchemaId,
 	RemoteImageUrl,

@@ -6,10 +6,10 @@ import {
 	createCompleteEvent,
 	createReviewEvent,
 	finalizeEntityGroups,
-} from "../../media/book/shared";
+} from "../../media/adapter-helpers";
+import type { MediaImportAdapterFailure } from "../../media/adapter-result";
 import { parseDateTime } from "../../media/dates";
 import { getOrCreateMediaEntityGroup } from "../../media/groups";
-import type { MediaImportAdapterFailure } from "../../media/import-processor";
 import type { ImportMediaEntityGroup, ResolvedImportEntityRef } from "../../media/types";
 import { parseCsvText, readRequiredCsvCell } from "../../runtime/csv";
 import {

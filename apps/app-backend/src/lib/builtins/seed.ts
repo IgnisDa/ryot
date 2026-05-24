@@ -15,7 +15,7 @@ import {
 	fitnessSchemaScriptLinks,
 	groupSchemaScriptLinks,
 	personSchemaScriptLinks,
-} from "./manifests";
+} from "./registry";
 import { builtinRelationshipSchemas } from "./relationship-schemas";
 
 const ensureBuiltinEntitySchema = Effect.fn(function* (input: {

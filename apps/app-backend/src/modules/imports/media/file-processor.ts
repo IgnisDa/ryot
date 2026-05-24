@@ -1,8 +1,8 @@
 import { Effect } from "effect";
 
-import { sanitizeErrorMessage } from "../runtime/failures";
-import { readImportFile } from "../runtime/files";
-import type { MediaImportAdapterResult } from "./import-processor";
+import { readImportFile } from "../runtime/import-files";
+import { sanitizeErrorMessage } from "../runtime/import-run-status";
+import type { MediaImportAdapterResult } from "./adapter-result";
 
 export type LoadedMediaImportAdapterResult = {
 	cleanupPaths: ReadonlyArray<string>;
