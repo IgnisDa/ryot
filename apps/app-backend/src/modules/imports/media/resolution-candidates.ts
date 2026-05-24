@@ -6,8 +6,8 @@ const resolutionCandidatesBySchema: Record<string, Partial<Record<string, () => 
 	book: {
 		isbn: () => [
 			"book.openlibrary",
-			...(appConfig.books.hardcover.apiKey ? ["book.hardcover"] : []),
 			...(appConfig.books.googleBooks.apiKey ? ["book.google-book"] : []),
+			...(appConfig.books.hardcover.apiKey ? ["book.hardcover"] : []),
 		],
 	},
 };
