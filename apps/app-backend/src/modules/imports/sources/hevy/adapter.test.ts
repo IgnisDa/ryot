@@ -33,17 +33,17 @@ describe("adaptHevyCsv", () => {
 			{
 				name: "Run",
 				kind: "distance_and_duration",
-				sets: [{ setLot: "normal", distance: 5, duration: 1800 }],
+				sets: [{ setLot: "normal", distance: 5, duration: 30 }],
 			},
 			{
-				name: "Push Up",
 				kind: "reps",
+				name: "Push Up",
 				sets: [{ setLot: "normal", reps: 12 }],
 			},
 			{
 				name: "Timed Push Up",
 				kind: "reps_and_duration",
-				sets: [{ setLot: "normal", reps: 10, duration: 60 }],
+				sets: [{ setLot: "normal", reps: 10, duration: 1 }],
 			},
 		]);
 	});
