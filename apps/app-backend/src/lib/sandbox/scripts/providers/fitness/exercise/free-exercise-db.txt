@@ -1,0 +1,425 @@
+const EXERCISES_URL =
+  "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/dist/exercises.json";
+const IMAGES_PREFIX_URL =
+  "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises";
+
+const CACHE_KEY = "free-exercise-db:normalized:v1";
+const CACHE_TTL_SECONDS = 86400;
+const CACHE_CHUNK_BYTE_LIMIT = 80000;
+
+const equipmentAliases = {
+  "e-z curl bar": "ez_curl_bar",
+};
+
+const validForce = new Set(["pull", "push", "static"]);
+const validLevel = new Set(["beginner", "intermediate", "expert"]);
+const validMechanic = new Set(["compound", "isolation"]);
+const validMuscles = new Set([
+  "lats",
+  "neck",
+  "traps",
+  "chest",
+  "biceps",
+  "calves",
+  "glutes",
+  "triceps",
+  "forearms",
+  "abductors",
+  "adductors",
+  "shoulders",
+  "lower_back",
+  "abdominals",
+  "hamstrings",
+  "quadriceps",
+  "middle_back",
+]);
+const validEquipment = new Set([
+  "bands",
+  "cable",
+  "other",
+  "barbell",
+  "machine",
+  "body_only",
+  "dumbbell",
+  "foam_roll",
+  "ez_curl_bar",
+  "kettlebells",
+  "exercise_ball",
+  "medicine_ball",
+]);
+
+function categoryToKind(category) {
+  const lower = category.toLowerCase();
+  if (lower === "cardio") {
+    return "distance_and_duration";
+  }
+  if (lower === "stretching" || lower === "plyometrics") {
+    return "duration";
+  }
+  if (
+    lower === "strongman" ||
+    lower === "olympic weightlifting" ||
+    lower === "strength" ||
+    lower === "powerlifting"
+  ) {
+    return "reps_and_weight";
+  }
+  return null;
+}
+
+function normalizeSlugValue(value) {
+  if (typeof value !== "string" || !value.trim()) {
+    return null;
+  }
+  return value.trim().toLowerCase().replace(/\s+/g, "_");
+}
+
+function normalizeEquipmentValue(value) {
+  if (typeof value !== "string" || !value.trim()) {
+    return { ok: true, value: null };
+  }
+
+  const lower = value.trim().toLowerCase();
+  const normalized = equipmentAliases[lower] ?? normalizeSlugValue(value);
+  return validEquipment.has(normalized)
+    ? { ok: true, value: normalized }
+    : { ok: false, value: null };
+}
+
+function normalizeOptionalEnumValue(value, validValues) {
+  if (typeof value !== "string" || !value.trim()) {
+    return { ok: true, value: null };
+  }
+
+  const normalized = normalizeSlugValue(value);
+  return validValues.has(normalized)
+    ? { ok: true, value: normalized }
+    : { ok: false, value: null };
+}
+
+function normalizeRequiredEnumValue(value, validValues) {
+  const normalized = normalizeSlugValue(value);
+  return normalized && validValues.has(normalized) ? normalized : null;
+}
+
+function normalizeMuscleArray(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const muscles = [];
+  for (const muscle of value) {
+    const normalized = normalizeSlugValue(muscle);
+    if (!normalized || !validMuscles.has(normalized)) {
+      return null;
+    }
+    muscles.push(normalized);
+  }
+  return muscles;
+}
+
+function getInstructions(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.every((instruction) => typeof instruction === "string")
+    ? value
+    : null;
+}
+
+function getImages(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .filter((path) => typeof path === "string" && path.trim())
+    .map((path) => ({
+      type: "remote",
+      url: `${IMAGES_PREFIX_URL}/${path}`,
+    }));
+}
+
+function normalizeSearchText(parts) {
+  return parts
+    .filter((part) => part !== null && part !== undefined)
+    .flatMap((part) => (Array.isArray(part) ? part : [part]))
+    .join(" ")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function normalizeExercise(exercise) {
+  const category = typeof exercise?.category === "string" ? exercise.category : "";
+  const kind = categoryToKind(category);
+  if (!kind) {
+    return null;
+  }
+
+  const name = typeof exercise?.name === "string" ? exercise.name.trim() : "";
+  if (!name) {
+    return null;
+  }
+
+  const force = normalizeOptionalEnumValue(exercise?.force, validForce);
+  const level = normalizeRequiredEnumValue(exercise?.level, validLevel);
+  const mechanic = normalizeOptionalEnumValue(exercise?.mechanic, validMechanic);
+  const equipment = normalizeEquipmentValue(exercise?.equipment);
+  if (!force.ok || !level || !mechanic.ok || !equipment.ok) {
+    return null;
+  }
+
+  const primaryMuscles = normalizeMuscleArray(exercise?.primaryMuscles);
+  const secondaryMuscles = normalizeMuscleArray(exercise?.secondaryMuscles);
+  const instructions = getInstructions(exercise?.instructions);
+  if (!primaryMuscles || !secondaryMuscles || !instructions) {
+    return null;
+  }
+
+  const images = getImages(exercise?.images);
+  const muscles = [...new Set([...primaryMuscles, ...secondaryMuscles])];
+  const properties = {
+    kind,
+    force: force.value,
+    level,
+    images,
+    source: "github",
+    muscles,
+    mechanic: mechanic.value,
+    equipment: equipment.value,
+    instructions,
+  };
+
+  return {
+    name,
+    properties,
+    externalId: name,
+    image: images[0] ?? null,
+    searchText: normalizeSearchText([
+      name,
+      kind,
+      level,
+      category,
+      force.value,
+      mechanic.value,
+      equipment.value,
+      muscles,
+      instructions,
+    ]),
+  };
+}
+
+async function readCachedValue(key) {
+  const result = await getCachedValue(key);
+  if (!result?.success) {
+    throw new Error(result?.error ?? `Failed to read cache key ${key}`);
+  }
+  return result.data;
+}
+
+async function writeCachedValue(key, value) {
+  const result = await setCachedValue(key, value, CACHE_TTL_SECONDS);
+  if (!result?.success) {
+    throw new Error(result?.error ?? `Failed to write cache key ${key}`);
+  }
+}
+
+async function readCachedExercises() {
+  const metadata = await readCachedValue(CACHE_KEY);
+  if (
+    !metadata ||
+    typeof metadata !== "object" ||
+    typeof metadata.version !== "string" ||
+    !Number.isInteger(metadata.chunkCount) ||
+    metadata.chunkCount < 1
+  ) {
+    return null;
+  }
+
+  const rows = [];
+  for (let index = 0; index < metadata.chunkCount; index += 1) {
+    const chunk = await readCachedValue(
+      `${CACHE_KEY}:${metadata.version}:chunk:${index}`,
+    );
+    if (!Array.isArray(chunk)) {
+      return null;
+    }
+    rows.push(...chunk);
+  }
+  return rows;
+}
+
+function byteLength(value) {
+  return new TextEncoder().encode(value).byteLength;
+}
+
+async function writeCachedExercises(rows) {
+  const version = String(Date.now());
+  const chunks = [];
+  let currentChunk = [];
+
+  for (const row of rows) {
+    const nextChunk = [...currentChunk, row];
+    const nextBytes = byteLength(JSON.stringify(nextChunk));
+    if (currentChunk.length > 0 && nextBytes > CACHE_CHUNK_BYTE_LIMIT) {
+      chunks.push(currentChunk);
+      currentChunk = [row];
+      continue;
+    }
+    if (nextBytes > CACHE_CHUNK_BYTE_LIMIT) {
+      throw new Error(`Exercise cache row is too large: ${row.name}`);
+    }
+    currentChunk = nextChunk;
+  }
+
+  if (currentChunk.length > 0) {
+    chunks.push(currentChunk);
+  }
+
+  for (let index = 0; index < chunks.length; index += 1) {
+    await writeCachedValue(
+      `${CACHE_KEY}:${version}:chunk:${index}`,
+      chunks[index],
+    );
+  }
+  await writeCachedValue(CACHE_KEY, {
+    version,
+    chunkCount: chunks.length,
+  });
+}
+
+async function loadExercises() {
+  const cached = await readCachedExercises();
+  if (cached) {
+    return cached;
+  }
+
+  const response = await httpCall("GET", EXERCISES_URL);
+  if (!response?.success) {
+    throw new Error(response?.error ?? "Exercise database request failed");
+  }
+
+  let payload;
+  try {
+    payload = JSON.parse(response.data.body);
+  } catch {
+    throw new Error("Exercise database returned invalid JSON");
+  }
+
+  if (!Array.isArray(payload)) {
+    throw new Error("Exercise database returned an unexpected payload");
+  }
+
+  const rows = payload
+    .map(normalizeExercise)
+    .filter((exercise) => exercise !== null)
+    .sort((left, right) => left.name.localeCompare(right.name));
+  await writeCachedExercises(rows);
+  return rows;
+}
+
+function scoreExercise(row, query, tokens) {
+  if (!query) {
+    return 0;
+  }
+
+  const name = row.name.toLowerCase();
+  let score = 0;
+  if (name === query) {
+    score += 100;
+  }
+  if (name.startsWith(query)) {
+    score += 50;
+  }
+  if (name.includes(query)) {
+    score += 25;
+  }
+  for (const token of tokens) {
+    if (name.includes(token)) {
+      score += 5;
+    } else if (row.searchText.includes(token)) {
+      score += 1;
+    }
+  }
+  return score;
+}
+
+function matchesExercise(row, query, tokens) {
+  if (!query) {
+    return true;
+  }
+  if (row.searchText.includes(query)) {
+    return true;
+  }
+  return tokens.every((token) => row.searchText.includes(token));
+}
+
+driver("search", async function(context) {
+  const { z } = await import("npm:zod");
+  const { query, page: currentPage, pageSize } = z.object({
+    query: z.string().trim().catch(""),
+    page: z.coerce.number().min(1).transform(Math.floor).catch(1),
+    pageSize: z.coerce.number().min(1).max(100).transform(Math.floor).catch(20),
+  }).parse(context ?? {});
+
+  const normalizedQuery = normalizeSearchText([query]);
+  const tokens = normalizedQuery ? normalizedQuery.split(" ") : [];
+  const rows = await loadExercises();
+  const matchedRows = rows
+    .filter((row) => matchesExercise(row, normalizedQuery, tokens))
+    .map((row) => ({
+      row,
+      score: scoreExercise(row, normalizedQuery, tokens),
+    }))
+    .sort((left, right) => {
+      if (left.score !== right.score) {
+        return right.score - left.score;
+      }
+      return left.row.name.localeCompare(right.row.name);
+    })
+    .map((match) => match.row);
+
+  const totalItems = matchedRows.length;
+  const pageStart = (currentPage - 1) * pageSize;
+  const pageRows = matchedRows.slice(pageStart, pageStart + pageSize);
+  const items = pageRows.map((row) => ({
+    externalId: row.externalId,
+    calloutProperty: { kind: "null", value: null },
+    titleProperty: { kind: "text", value: row.name },
+    primarySubtitleProperty: { kind: "null", value: null },
+    secondarySubtitleProperty: { kind: "null", value: null },
+    imageProperty:
+      row.image === null
+        ? { kind: "null", value: null }
+        : { kind: "image", value: row.image },
+  }));
+
+  return {
+    items,
+    details: {
+      totalItems,
+      nextPage: pageStart + pageSize < totalItems ? currentPage + 1 : null,
+    },
+  };
+});
+
+driver("details", async function(context) {
+  const { z } = await import("npm:zod");
+  const { externalId } = z.object({
+    externalId: z.string().trim().min(1, "externalId is required"),
+  }).parse(context ?? {});
+
+  const rows = await loadExercises();
+  const row = rows.find((exercise) => exercise.externalId === externalId);
+  if (!row) {
+    throw new Error(`Exercise not found: ${externalId}`);
+  }
+
+  return {
+    name: row.name,
+    properties: row.properties,
+    relatedEntities: [],
+  };
+});

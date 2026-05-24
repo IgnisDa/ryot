@@ -69,7 +69,7 @@ describe("processEntityImportJob", () => {
 						),
 				}),
 			),
-		).rejects.toThrow("Media payload is invalid");
+		).rejects.toThrow("Entity payload is invalid");
 	});
 
 	it("continues populating an existing unpopulated entity", async () => {

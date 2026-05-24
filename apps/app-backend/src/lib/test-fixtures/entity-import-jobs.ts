@@ -63,6 +63,7 @@ export const createRelatedDeps = (
 export const createEntityImportWorkerDeps = (
 	overrides: Partial<NonNullable<Parameters<typeof processEntityImportJob>[2]>> = {},
 ): NonNullable<Parameters<typeof processEntityImportJob>[2]> => ({
+	addEntityQueueJob: () => Promise.resolve(),
 	getUserLibraryEntityId: () => Promise.resolve("library_1"),
 	getEntitySchemaScopeForUser: () => Promise.resolve(undefined),
 	findGlobalEntityByExternalId: () => Promise.resolve(undefined),

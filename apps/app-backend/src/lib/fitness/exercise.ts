@@ -87,10 +87,10 @@ export const exercisePropertiesJsonSchema: AppSchema = {
 		muscles: {
 			label: "Muscles",
 			type: "enum-array",
-			description: "Primary and secondary muscle groups targeted by this exercise",
 			validation: { required: true },
 			// oxlint-disable-next-line no-unsafe-type-assertion
 			options: muscleEnum.options as [string, ...string[]],
+			description: "Primary and secondary muscle groups targeted by this exercise",
 		},
 	},
 };
