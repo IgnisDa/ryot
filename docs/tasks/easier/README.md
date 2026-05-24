@@ -355,6 +355,10 @@ A new unit case covers the semantic RyotQL fallback, which was previously reacha
 
 **Validation:** Replay, HTTP retry, activity naming, child-ID and dispatcher tests.
 
+**Implemented.** `SandboxDurableHostDispatcherValue.dispatch` drops its fourth `requestIndex` parameter, and `performSandboxWorkflowRequest` and `performSandboxWorkflowChild` drop theirs. Every durable name and identifier now derives from `request.index`: the HTTP coordination, network, admission-wait, and block-wait activity and clock names, `sandbox-host-<index>-<capability>`, `${executionId}-host-service-<index>`, the create-events and send-notification preparation activities, `sandbox-workflow-sleep-<index>`, `${operation}-sandbox-child-artifacts-<index>`, and `sandboxWorkflowChildExecutionId`, whose third parameter is renamed `index`. The service-workflow child execution ID already read `request.index` while its sibling activity names read the separate parameter, so one request could produce identities from two indexes; that is now unrepresentable. The workflow's only call site already passed `request.index` as both arguments, so valid production names are unchanged.
+
+The dispatcher HTTP test harness was the payload that intentionally supplied different indexes: it dispatched `index: 4` with `requestIndex: 7` while asserting `sandbox-http-7-*` names. It now dispatches `index: 7` and asserts the same names from the single source.
+
 ### 20. Reuse Provider Search Resolution
 
 **Owner:** D20 Provider entities

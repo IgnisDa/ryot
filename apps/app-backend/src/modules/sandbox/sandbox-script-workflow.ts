@@ -150,11 +150,8 @@ export const establishSandboxWorkflowPin = Effect.fn("establishSandboxWorkflowPi
 const processPinnedSandbox = (payload: SandboxExecutionPayload) =>
 	processSandboxExecutionQueue(payload);
 
-export const sandboxWorkflowChildExecutionId = (
-	executionId: string,
-	name: string,
-	requestIndex: number,
-) => `${executionId}-child-${sanitizeSandboxExecutionSegment(name)}-${requestIndex}`;
+export const sandboxWorkflowChildExecutionId = (executionId: string, name: string, index: number) =>
+	`${executionId}-child-${sanitizeSandboxExecutionSegment(name)}-${index}`;
 
 const nondeterminismMessage = (
 	index: number,
@@ -287,19 +284,18 @@ export const performSandboxWorkflowRequest = Effect.fn("performSandboxWorkflowRe
 	targetScriptId: SandboxScriptId | undefined,
 	payload: SandboxScriptWorkflowPayloadValue,
 	executionId: string,
-	requestIndex: number,
 ) {
 	if (request.kind === "sleep") {
 		yield* DurableClock.sleep({
 			inMemoryThreshold: Duration.millis(1),
-			name: `sandbox-workflow-sleep-${requestIndex}`,
+			name: `sandbox-workflow-sleep-${request.index}`,
 			duration: Duration.millis(request.args.durationMs),
 		});
 		return null;
 	}
 	if (request.kind === "host") {
 		const dispatcher = yield* SandboxDurableHostDispatcher;
-		return yield* dispatcher.dispatch(request, payload, executionId, requestIndex);
+		return yield* dispatcher.dispatch(request, payload, executionId);
 	}
 
 	if (request.kind === "activity") {
@@ -313,11 +309,10 @@ export const performSandboxWorkflowRequest = Effect.fn("performSandboxWorkflowRe
 			targetScriptId,
 			payload,
 			executionId,
-			requestIndex,
 		);
 	}
 	const child = yield* Effect.exit(
-		performSandboxWorkflowChild(request, targetScriptId, payload, executionId, requestIndex),
+		performSandboxWorkflowChild(request, targetScriptId, payload, executionId),
 	);
 	if (request.kind === "child") {
 		return child._tag === "Success" ? child.value : yield* Effect.failCause(child.cause);
@@ -341,9 +336,12 @@ export const performSandboxWorkflowChild = Effect.fn("performSandboxWorkflowChil
 	targetScriptId: SandboxScriptId | undefined,
 	payload: SandboxScriptWorkflowPayloadValue,
 	executionId: string,
-	requestIndex: number,
 ) {
-	const childExecutionId = sandboxWorkflowChildExecutionId(executionId, request.name, requestIndex);
+	const childExecutionId = sandboxWorkflowChildExecutionId(
+		executionId,
+		request.name,
+		request.index,
+	);
 	const artifactOwnerExecutionId = payload.grants?.artifactOwnerExecutionId ?? executionId;
 	const kernel = request.args.workflowSlug.startsWith("kernel:");
 	if (!kernel && !targetScriptId) {
@@ -355,7 +353,7 @@ export const performSandboxWorkflowChild = Effect.fn("performSandboxWorkflowChil
 	const artifactReference = (operation: "release" | "retain") =>
 		Activity.make({
 			error: SandboxRunError,
-			name: `${operation}-sandbox-child-artifacts-${requestIndex}`,
+			name: `${operation}-sandbox-child-artifacts-${request.index}`,
 			execute: Effect.gen(function* () {
 				const artifacts = yield* SandboxArtifactStore;
 				yield* artifacts[operation](artifactOwnerExecutionId, dispatchReferenceExecutionId);
@@ -525,7 +523,6 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 						targetScriptId,
 						{ ...payload, scriptId: pin.scriptId, startedAt: pin.startedAt },
 						executionId,
-						request.index,
 					),
 				{ concurrency: SANDBOX_LIMITS.bridge.concurrentHostCalls },
 			);
