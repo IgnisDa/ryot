@@ -24,6 +24,7 @@ describe("import run schema enums", () => {
 		expect(importRunFailureStage.options).toContain("source_fetch");
 		expect(importRunFailureStage.options).toContain("input_transformation");
 		expect(importRunFailureStage.options).toContain("provider_details");
+		expect(importRunFailureStage.options).toContain("provider_resolution");
 		expect(importRunFailureStage.options).toContain("database_commit");
 	});
 

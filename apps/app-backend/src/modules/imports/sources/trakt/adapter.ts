@@ -183,7 +183,7 @@ export const adaptTraktData = async (
 				});
 				continue;
 			}
-			const group = getOrCreateMediaEntityGroup(groupMap, ref);
+			const group = getOrCreateMediaEntityGroup(groupMap, ref, itemIndex);
 			group.events.push({
 				eventSchemaSlug: "complete",
 				occurredAt: item.watched_at,
@@ -200,7 +200,7 @@ export const adaptTraktData = async (
 				});
 				continue;
 			}
-			const group = getOrCreateMediaEntityGroup(groupMap, ref);
+			const group = getOrCreateMediaEntityGroup(groupMap, ref, itemIndex);
 			group.events.push({
 				eventSchemaSlug: "progress",
 				occurredAt: item.watched_at,
@@ -232,7 +232,7 @@ export const adaptTraktData = async (
 				});
 				continue;
 			}
-			const group = getOrCreateMediaEntityGroup(groupMap, ref);
+			const group = getOrCreateMediaEntityGroup(groupMap, ref, itemIndex);
 			group.events.push({
 				occurredAt: item.rated_at,
 				eventSchemaSlug: "review",
@@ -258,7 +258,7 @@ export const adaptTraktData = async (
 			});
 			continue;
 		}
-		const group = getOrCreateMediaEntityGroup(groupMap, ref);
+		const group = getOrCreateMediaEntityGroup(groupMap, ref, itemIndex);
 		group.events.push({
 			properties: {},
 			eventSchemaSlug: "backlog",
@@ -292,7 +292,7 @@ export const adaptTraktData = async (
 				});
 				continue;
 			}
-			const group = getOrCreateMediaEntityGroup(groupMap, ref);
+			const group = getOrCreateMediaEntityGroup(groupMap, ref, itemIndex);
 			const alreadyMember = group.collectionMemberships.some(
 				(m) => m.collectionName === collectionName,
 			);
@@ -321,7 +321,7 @@ export const adaptTraktData = async (
 				});
 				continue;
 			}
-			const group = getOrCreateMediaEntityGroup(groupMap, ref);
+			const group = getOrCreateMediaEntityGroup(groupMap, ref, itemIndex);
 			const alreadyMember = group.collectionMemberships.some((m) => m.collectionName === "Owned");
 			if (!alreadyMember) {
 				group.collectionMemberships.push({ collectionName: "Owned" });
