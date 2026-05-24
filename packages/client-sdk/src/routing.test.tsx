@@ -8,11 +8,12 @@ import { afterEach, describe, expect, it } from "vitest";
 	globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
+import { createRyotClient } from "./index";
+import { RyotProvider, useRyot } from "./react";
 import {
 	createPluginLocationStore,
 	PluginLink,
 	PluginRouter,
-	usePluginNavigation,
 	usePluginParams,
 	usePluginSearch,
 } from "./routing";
@@ -26,7 +27,7 @@ const ItemRoute = () => {
 
 const Home = () => {
 	const [greetings, setGreetings] = useState(0);
-	const { push, replace } = usePluginNavigation();
+	const { navigation } = useRyot();
 	const tab = usePluginSearch().get("tab");
 
 	useState(() => {
@@ -43,10 +44,10 @@ const Home = () => {
 			<PluginLink to="/items/item-1" search={{ tab: "stats" }}>
 				Item 1
 			</PluginLink>
-			<button type="button" onClick={() => push({ path: "/items/item-2" })}>
+			<button type="button" onClick={() => navigation.push({ path: "/items/item-2" })}>
 				Push item 2
 			</button>
-			<button type="button" onClick={() => replace({ path: "/" })}>
+			<button type="button" onClick={() => navigation.replace({ path: "/" })}>
 				Replace home
 			</button>
 		</div>
@@ -67,7 +68,12 @@ const openChannel = () => {
 		messages.push({ mode, type: "navigate", location: { path: to.path, search } });
 	};
 
-	return { messages, send, navigate, locations };
+	return {
+		send,
+		messages,
+		locations,
+		client: createRyotClient({ navigate, query: () => Promise.resolve({}) }),
+	};
 };
 
 const renderRouter = (
@@ -81,11 +87,9 @@ const renderRouter = (
 
 	act(() => {
 		root.render(
-			<PluginRouter
-				navigate={channel.navigate}
-				locations={channel.locations}
-				definition={{ home: Home, routes }}
-			/>,
+			<RyotProvider client={channel.client}>
+				<PluginRouter locations={channel.locations} definition={{ home: Home, routes }} />
+			</RyotProvider>,
 		);
 	});
 
@@ -193,7 +197,7 @@ describe("PluginRouter", () => {
 		expect(messages).toEqual([]);
 	});
 
-	it("posts push and replace navigate messages from usePluginNavigation", async () => {
+	it("posts push and replace navigate messages from the client", async () => {
 		const { container, messages, sendLocation } = mount();
 		sendLocation("/");
 		await waitFor(() => expect(container.textContent).toContain("Greeted 0 times."));

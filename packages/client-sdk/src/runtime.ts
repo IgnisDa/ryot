@@ -12,7 +12,12 @@ import type { JsonValue } from "@ryot/contract/schema/json";
 import type { PreparedRecipe } from "@ryot/ryotql";
 import { Match, Result, Schema } from "effect";
 
-import { createRyotClient, PluginOperationError, RyotQueryError } from "./index";
+import {
+	createRyotClient,
+	PluginOperationError,
+	RyotQueryError,
+	type RyotNavigationTarget,
+} from "./index";
 import { createPluginLocationStore } from "./routing";
 
 type PluginRuntimeState = "ready" | "active" | "closing" | "failed" | "disposed";
@@ -120,7 +125,19 @@ export const createPluginRuntime = (
 			} satisfies PluginBridgeOperationRequest);
 		});
 
-	const client = createRyotClient({ query, invokeOperation });
+	const navigate = (mode: "push" | "replace", to: RyotNavigationTarget) => {
+		if (state !== "active") {
+			return;
+		}
+		const search = to.search ? new URLSearchParams(to.search).toString() : "";
+		post({
+			mode,
+			type: "navigate",
+			location: { path: to.path, search },
+		} satisfies PluginBridgeNavigate);
+	};
+
+	const client = createRyotClient({ query, invokeOperation, navigate });
 
 	port.addEventListener(
 		"message",
@@ -189,16 +206,5 @@ export const createPluginRuntime = (
 		client,
 		locations,
 		dispose: () => finish("disposed", "disposed", true),
-		navigate: (mode: "push" | "replace", to: { path: string; search?: Record<string, string> }) => {
-			if (state !== "active") {
-				return;
-			}
-			const search = to.search ? new URLSearchParams(to.search).toString() : "";
-			post({
-				mode,
-				type: "navigate",
-				location: { path: to.path, search },
-			} satisfies PluginBridgeNavigate);
-		},
 	};
 };
