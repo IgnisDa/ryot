@@ -1,0 +1,301 @@
+function parseJsonResponse(responseBody) {
+	try {
+		return JSON.parse(responseBody);
+	} catch {
+		throw new Error("GiantBomb returned invalid JSON");
+	}
+}
+
+async function getApiKey() {
+	const configValueResponse = await getAppConfigValue(
+		"videoGames.giantBomb.apiKey",
+	);
+	if (!configValueResponse?.success) {
+		throw new Error(
+			configValueResponse?.error ?? "Failed to retrieve GiantBomb API key",
+		);
+	}
+
+	const apiKey =
+		typeof configValueResponse.data === "string"
+			? configValueResponse.data.trim()
+			: null;
+
+	if (!apiKey) {
+		throw new Error(
+			"GiantBomb API key is not configured. Set VIDEO_GAMES_GIANT_BOMB_API_KEY in your environment.",
+		);
+	}
+
+	return apiKey;
+}
+
+function getPrioritizedImage(image) {
+	if (!image || typeof image !== "object") {
+		return null;
+	}
+
+	const candidates = [
+		image.original_url,
+		image.super_url,
+		image.medium_url,
+		image.screen_large_url,
+		image.screen_url,
+		image.small_url,
+		image.thumb_url,
+		image.icon_url,
+		image.tiny_url,
+	];
+
+	for (const candidate of candidates) {
+		if (typeof candidate === "string" && candidate.trim()) {
+			return candidate.trim();
+		}
+	}
+
+	return null;
+}
+
+function combineDescription(deck, description) {
+	const deckTrimmed = typeof deck === "string" ? deck.trim() : null;
+	const descTrimmed =
+		typeof description === "string" ? description.trim() : null;
+
+	if (deckTrimmed && descTrimmed) {
+		return `${deckTrimmed}\n\n${descTrimmed}`;
+	}
+
+	return deckTrimmed ?? descTrimmed ?? null;
+}
+
+function formatBirthDate(dateStr) {
+	if (typeof dateStr !== "string" || !dateStr.trim()) {
+		return null;
+	}
+
+	const match = dateStr.trim().match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+	if (!match) {
+		return null;
+	}
+
+	const year = Number.parseInt(match[1], 10);
+	const month = Number.parseInt(match[2], 10);
+	const day = Number.parseInt(match[3], 10);
+
+	if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+		return null;
+	}
+
+	return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+const BASE_URL = "https://www.giantbomb.com/api";
+const GUID_PATTERN = /^\d+-\d+$/;
+
+driver("search", async function (context) {
+	const { z } = await import("npm:zod");
+
+	const { query, page: currentPage, pageSize } = z
+		.object({
+			query: z.string().trim().min(1, "query is required"),
+			page: z.coerce.number().min(1).transform(Math.floor).catch(1),
+			pageSize: z.coerce.number().min(1).max(100).transform(Math.floor).catch(20),
+		})
+		.parse(context ?? {});
+
+	const apiKey = await getApiKey();
+	const offset = (currentPage - 1) * pageSize;
+
+	const url = `${BASE_URL}/search/?api_key=${encodeURIComponent(apiKey)}&format=json&query=${encodeURIComponent(query)}&resources=person&limit=${pageSize}&offset=${offset}`;
+
+	const response = await httpCall("GET", url, {
+		headers: { Accept: "application/json" },
+	});
+
+	if (!response?.success) {
+		throw new Error(response?.error ?? "GiantBomb person search request failed");
+	}
+
+	const payload = parseJsonResponse(response.data.body);
+
+	if (payload?.error && payload.error !== "OK") {
+		throw new Error(`GiantBomb API error: ${payload.error}`);
+	}
+
+	const totalItems =
+		typeof payload?.number_of_total_results === "number" &&
+		Number.isFinite(payload.number_of_total_results)
+			? Math.max(0, Math.trunc(payload.number_of_total_results))
+			: 0;
+
+	const results = Array.isArray(payload?.results) ? payload.results : [];
+
+	const items = results
+		.map((person) => {
+			if (!person || typeof person !== "object") {
+				return null;
+			}
+
+			const externalId =
+				typeof person.guid === "string" && person.guid.trim()
+					? person.guid.trim()
+					: null;
+			if (!externalId) {
+				// Fallback: extract guid from api_detail_url
+				const apiUrl =
+					typeof person.api_detail_url === "string" ? person.api_detail_url : "";
+				const guid = apiUrl
+					.split("/")
+					.filter((s) => s.length > 0)
+					.pop();
+				if (!guid || !GUID_PATTERN.test(guid)) {
+					return null;
+				}
+			}
+
+			const name =
+				typeof person.name === "string" && person.name.trim()
+					? person.name.trim()
+					: null;
+			if (!name) {
+				return null;
+			}
+
+			const image = getPrioritizedImage(person.image);
+
+			const birthYear =
+				typeof person.birth_date === "string" && person.birth_date.trim()
+					? (() => {
+							const match = person.birth_date.trim().match(/^(\d{4})/);
+							return match ? Number.parseInt(match[1], 10) : null;
+						})()
+					: null;
+
+			return {
+				titleProperty: { kind: "text", value: name },
+				calloutProperty: { kind: "null", value: null },
+				secondarySubtitleProperty: { kind: "null", value: null },
+				externalId: externalId || (() => {
+					const apiUrl =
+						typeof person.api_detail_url === "string" ? person.api_detail_url : "";
+					return apiUrl.split("/").filter((s) => s.length > 0).pop() || "";
+				})(),
+				primarySubtitleProperty:
+					birthYear === null
+						? { kind: "null", value: null }
+						: { kind: "number", value: birthYear },
+				imageProperty:
+					image === null
+						? { kind: "null", value: null }
+						: { kind: "image", value: { type: "remote", url: image } },
+			};
+		})
+		.filter((item) => item !== null);
+
+	return {
+		items,
+		details: {
+			totalItems,
+			nextPage: currentPage * pageSize < totalItems ? currentPage + 1 : null,
+		},
+	};
+});
+
+driver("details", async function (context) {
+	const { z } = await import("npm:zod");
+
+	const { externalId } = z
+		.object({
+			externalId: z.string().trim().min(1, "externalId is required"),
+		})
+		.parse(context ?? {});
+
+	if (!GUID_PATTERN.test(externalId)) {
+		throw new Error(
+			"externalId must be a GiantBomb GUID (e.g., '4010-1')",
+		);
+	}
+
+	const apiKey = await getApiKey();
+
+	const fieldList = [
+		"id",
+		"guid",
+		"name",
+		"deck",
+		"description",
+		"birth_date",
+		"date_of_birth",
+		"death_date",
+		"hometown",
+		"image",
+		"site_detail_url",
+	].join(",");
+
+	const url = `${BASE_URL}/person/${encodeURIComponent(externalId)}/?api_key=${encodeURIComponent(apiKey)}&format=json&field_list=${fieldList}`;
+
+	const response = await httpCall("GET", url, {
+		headers: { Accept: "application/json" },
+	});
+
+	if (!response?.success) {
+		throw new Error(response?.error ?? "GiantBomb person details request failed");
+	}
+
+	const payload = parseJsonResponse(response.data.body);
+
+	if (payload?.error && payload.error !== "OK") {
+		throw new Error(`GiantBomb API error: ${payload.error}`);
+	}
+
+	const person =
+		payload?.results && typeof payload.results === "object"
+			? payload.results
+			: null;
+
+	if (!person) {
+		throw new Error("GiantBomb returned no person data");
+	}
+
+	const name =
+		typeof person.name === "string" && person.name.trim()
+			? person.name.trim()
+			: null;
+
+	if (!name) {
+		throw new Error("GiantBomb person payload is missing name");
+	}
+
+	const images = [];
+	const primaryImage = getPrioritizedImage(person.image);
+	if (primaryImage) {
+		images.push({ type: "remote", url: primaryImage });
+	}
+
+	const birthDate = formatBirthDate(person.birth_date || person.date_of_birth);
+
+	const deathDate = formatBirthDate(person.death_date);
+
+	const hometown =
+		typeof person.hometown === "string" && person.hometown.trim()
+			? person.hometown.trim()
+			: null;
+
+	const sourceUrl =
+		typeof person.site_detail_url === "string" && person.site_detail_url.trim()
+			? person.site_detail_url.trim()
+			: null;
+
+	return {
+		name,
+		properties: {
+			images,
+			birthDate,
+			deathDate,
+			sourceUrl,
+			alternateNames: [],
+			birthPlace: hometown,
+			description: combineDescription(person.deck, person.description),
+		},
+	};
+});
