@@ -45,7 +45,7 @@ type OpenScaleAdapterResult = {
 	failures: OpenScaleAdapterFailure[];
 };
 
-export const adaptOpenScaleCsv = (csvText: string): OpenScaleAdapterResult => {
+export const adaptOpenScaleCsv = (csvText: string, timezone: string): OpenScaleAdapterResult => {
 	const { headers, rows } = parseCsvText(csvText);
 
 	if (headers.length === 0) {
@@ -105,7 +105,7 @@ export const adaptOpenScaleCsv = (csvText: string): OpenScaleAdapterResult => {
 			continue;
 		}
 
-		const parsed = dayjs(datetimeRaw.trim());
+		const parsed = dayjs.tz(datetimeRaw.trim(), timezone);
 		if (!parsed.isValid()) {
 			failures.push({
 				itemIndex: rowIdx,
