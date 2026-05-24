@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -14,14 +14,14 @@ This task is migration-focused. Do not introduce a legacy password verifier. Do 
 
 ## Acceptance criteria
 
-- [ ] Legacy users with both a non-empty password and a non-empty OIDC subject abort migration with a clear error
-- [ ] Legacy users with neither a non-empty password nor a non-empty OIDC subject abort migration with a clear error
-- [ ] Legacy OIDC users with invalid email-style names abort migration with a clear error
-- [ ] Legacy password users do not receive Better Auth credential account rows during migration
-- [ ] Legacy OIDC users receive restart-safe minimal Better Auth account stubs with provider `oidc`, account ID equal to the legacy OIDC subject, and null token/password fields
-- [ ] Migration verifies every legacy OIDC user has a matching account stub before old tables can be dropped
-- [ ] Migration verifies password users did not receive credential accounts before old tables can be dropped
-- [ ] Legacy bootstrap documentation describes password reset-only recovery, OIDC account stub migration, and the intentionally non-migrated auth data
+- [x] Legacy users with both a non-empty password and a non-empty OIDC subject abort migration with a clear error
+- [x] Legacy users with neither a non-empty password nor a non-empty OIDC subject abort migration with a clear error
+- [x] Legacy OIDC users with invalid email-style names abort migration with a clear error
+- [x] Legacy password users do not receive Better Auth credential account rows during migration
+- [x] Legacy OIDC users receive restart-safe minimal Better Auth account stubs with provider `oidc`, account ID equal to the legacy OIDC subject, and null token/password fields
+- [x] Migration verifies every legacy OIDC user has a matching account stub before old tables can be dropped
+- [x] Migration verifies password users did not receive credential accounts before old tables can be dropped
+- [x] Legacy bootstrap documentation describes password reset-only recovery, OIDC account stub migration, and the intentionally non-migrated auth data
 
 ## User stories addressed
 
