@@ -27,6 +27,8 @@ import { expectDataResult } from "~/lib/test-helpers";
 import {
 	createEvent,
 	createEvents,
+	createEventsBestEffortWithTriggers,
+	createEventsWithTriggers,
 	listEntityEvents,
 	parseEventProperties,
 	resolveEventCreateInput,
@@ -1285,6 +1287,108 @@ describe("createEvents", () => {
 		);
 
 		expect(result.count).toBe(2500);
+	});
+});
+
+describe("createEventsWithTriggers", () => {
+	it("creates events and enqueues matching triggers", async () => {
+		let nextEventNumber = 0;
+		const queuedJobIds: string[] = [];
+		const result = expectDataResult(
+			await createEventsWithTriggers(
+				{ userId: "user_1", body: [createEventBody(), createEventBody()] },
+				createEventDeps({
+					getActiveEventSchemaTriggersForEventSchemas: () =>
+						Promise.resolve([
+							{
+								metadata: {},
+								id: "trigger_1",
+								sandboxScriptId: "script_1",
+								eventSchemaId: "event_schema_1",
+							},
+						]),
+					createEventForUser: (input) => {
+						nextEventNumber++;
+						return Promise.resolve(
+							createListedEvent({
+								entityId: input.entityId,
+								occurredAt: input.occurredAt,
+								properties: input.properties,
+								id: `event_${nextEventNumber}`,
+								eventSchemaId: input.eventSchemaId,
+								eventSchemaName: input.eventSchemaName,
+								eventSchemaSlug: input.eventSchemaSlug,
+								sessionEntityId: input.sessionEntityId ?? null,
+							}),
+						);
+					},
+					enqueueEventSchemaTriggerJob: (input) => {
+						queuedJobIds.push(input.jobId);
+						return Promise.resolve();
+					},
+				}),
+			),
+		);
+
+		expect(result.count).toBe(2);
+		expect(queuedJobIds).toEqual([
+			"event-schema-trigger-trigger_1-event_1",
+			"event-schema-trigger-trigger_1-event_2",
+		]);
+	});
+});
+
+describe("createEventsBestEffortWithTriggers", () => {
+	it("records item failures and enqueues triggers for created events", async () => {
+		let nextEventNumber = 0;
+		const queuedJobIds: string[] = [];
+		const result = expectDataResult(
+			await createEventsBestEffortWithTriggers(
+				{
+					userId: "user_1",
+					body: [createEventBody(), { ...createEventBody(), entityId: "   " }, createEventBody()],
+				},
+				createEventDeps({
+					getActiveEventSchemaTriggersForEventSchemas: () =>
+						Promise.resolve([
+							{
+								metadata: {},
+								id: "trigger_1",
+								sandboxScriptId: "script_1",
+								eventSchemaId: "event_schema_1",
+							},
+						]),
+					createEventForUser: (input) => {
+						nextEventNumber++;
+						return Promise.resolve(
+							createListedEvent({
+								entityId: input.entityId,
+								id: `event_${nextEventNumber}`,
+								occurredAt: input.occurredAt,
+								properties: input.properties,
+								eventSchemaId: input.eventSchemaId,
+								eventSchemaName: input.eventSchemaName,
+								eventSchemaSlug: input.eventSchemaSlug,
+								sessionEntityId: input.sessionEntityId ?? null,
+							}),
+						);
+					},
+					enqueueEventSchemaTriggerJob: (input) => {
+						queuedJobIds.push(input.jobId);
+						return Promise.resolve();
+					},
+				}),
+			),
+		);
+
+		expect(result.count).toBe(2);
+		expect(result.failures).toEqual([
+			{ error: "validation", itemIndex: 1, message: "Entity id is required" },
+		]);
+		expect(queuedJobIds).toEqual([
+			"event-schema-trigger-trigger_1-event_1",
+			"event-schema-trigger-trigger_1-event_2",
+		]);
 	});
 });
 

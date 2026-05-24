@@ -7,7 +7,7 @@ TypeScript backend, a generic entity/event model, temporary uploads, BullMQ work
 provider scripts, but it does not yet have a source-import pipeline equivalent to V1.
 
 The V2 importer should not run full source importers inside the sandbox. Source importers need file
-reads, ZIP extraction, external API calls, queue-backed progress, direct service/repository writes,
+reads, ZIP extraction, external API calls, queue-backed progress, domain-service writes,
 temporary-file cleanup, and item-level failure persistence. The sandbox should still be reused for
 provider details and triggers because V2 already has provider scripts and seeded trigger behavior.
 
@@ -21,7 +21,7 @@ import ran.
 Build a V2 import module in `apps/app-backend/src/modules/imports` that runs source adapters as
 normal TypeScript backend code, writes import runs and failures to new tables, reuses shared entity
 population for provider-backed media, and commits normalized V2-native entities, events, collection
-relationships, workouts, workout-set events, and measurements.
+relationships, workouts, workout-set events, and measurements through the owning module services.
 
 Add `event.occurredAt` as the canonical event chronology field. `createdAt` remains audit/row
 creation time. Event listing, latest event joins, media state derivation, media overview chronology,
@@ -136,13 +136,13 @@ sources before porting every adapter.
 
 ### Events And Triggers
 
-- Split event creation into a reusable domain function that creates events synchronously and returns
+- Split event creation into reusable domain functions that can create events synchronously and return
   created events.
-- `/events` may still enqueue jobs as today, but imports call the same lower-level creation path
-  directly from the import worker.
+- `/events` may still enqueue jobs as today, but imports call an events-module API that creates
+  events and enqueues event-schema triggers as one module-owned operation.
 - Route-level event validation remains before enqueueing `/events` jobs.
 - `processEventSchemaTriggers` receives created events with `occurredAt`.
-- Imports wait for direct event writes but do not wait for sandbox trigger jobs.
+- Imports wait for event-service writes but do not wait for sandbox trigger jobs.
 - Multiple `complete` events for the same entity are valid. Do not add generic duplicate prevention.
 - The built-in auto-complete trigger remains sandbox-backed.
 - Auto-complete uses V1/V2 legacy coverage-cycle semantics for episodic media: build required keys,
@@ -169,6 +169,9 @@ sources before porting every adapter.
 - Import queue concurrency starts at `1`.
 - Import job attempts stay at `1` because automatic retry can duplicate events.
 - Parsing and external API fetching happen inside the import worker job.
+- Import processors orchestrate import concerns but must not write other modules' tables directly;
+  entity, event, collection, workout, exercise, and measurement mutations go through the owning
+  module service APIs.
 - Source adapters may use modest bounded internal concurrency for source API work.
 - The import processor should use bounded per-run concurrency across entity groups. `p-limit` may be
   added to `apps/app-backend/package.json` if it simplifies this.
@@ -415,13 +418,15 @@ sources before porting every adapter.
 - Add import run service/repository tests for status transitions, counters, and failure rows.
 - Add file helper tests for temp path traversal, extension validation, read limits, and cleanup.
 - Add ZIP helper tests for zip-slip, file count limits, and decompressed size limits.
-- Source adapter tests should use small fixtures.
+- Do not add unit or E2E tests for individual source adapters or media-processor helpers. Source adapter correctness is verified manually.
 - E2E tests should cover the full import flow for the first implemented source slice only, not every
   source.
 - Update `tests/src/tests/measurements.test.ts` and `tests/src/fixtures/measurements.ts` for the new
   uniform measurement statistics schema and saved view defaults.
 - Workout import slice tests must assert computed `oneRm`, `pace`, and `volume`.
-- Provider population tests should use fake/local sandbox scripts, not real external calls.
+- Do not add source-import tests that exercise provider internals directly. Import tests should cover
+  importer-owned behavior at the processor boundary with fake provider outcomes, while shared entity
+  population tests own provider mechanics.
 - Do not add automated legacy-bootstrap tests. Validate legacy bootstrap manually with restored dumps
   per the module notes.
 
@@ -449,9 +454,9 @@ sources before porting every adapter.
 
 ## Tasks
 
-**Overall Progress:** 4 of 11 tasks completed
+**Overall Progress:** 5 of 11 tasks completed
 
-**Current Task:** [Task 05](./05-provider-backed-media-import-tracer.md) (todo)
+**Current Task:** [Task 06](./06-workout-import-tracer-bullet.md) (todo)
 
 ### Task List
 
@@ -461,7 +466,7 @@ sources before porting every adapter.
 | 02  | [Auto-Complete Coverage Cycles](./02-auto-complete-coverage-cycles.md)             | AFK  | done   |
 | 03  | [OpenScale Import Tracer Bullet](./03-openscale-import-tracer-bullet.md)           | AFK  | done   |
 | 04  | [Shared Entity Population Refactor](./04-shared-entity-population-refactor.md)     | AFK  | done   |
-| 05  | [Provider-Backed Media Import Tracer](./05-provider-backed-media-import-tracer.md) | AFK  | todo   |
+| 05  | [Provider-Backed Media Import Tracer](./05-provider-backed-media-import-tracer.md) | AFK  | done   |
 | 06  | [Workout Import Tracer Bullet](./06-workout-import-tracer-bullet.md)               | AFK  | todo   |
 | 07  | [Book CSV Source Adapters](./07-book-csv-source-adapters.md)                       | AFK  | todo   |
 | 08  | [File-Based Media Source Adapters](./08-file-based-media-source-adapters.md)       | AFK  | todo   |
