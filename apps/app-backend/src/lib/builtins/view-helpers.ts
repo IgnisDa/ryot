@@ -10,6 +10,7 @@ import {
 	createTransformExpression,
 	type DisplayConfiguration,
 	type QueryExpression,
+	type QueryRelationshipJoin,
 	type SavedViewQueryDefinition,
 } from "~/lib/query-language";
 
@@ -220,7 +221,7 @@ export const buildDisplayConfig = (slug: string): typeof DisplayConfiguration.Ty
 
 export const buildDefaultQueryDefinition = (
 	scope: string[],
-	options?: { relationshipJoins?: unknown[] },
+	options?: { relationshipJoins?: QueryRelationshipJoin[] },
 ): typeof SavedViewQueryDefinition.Type => ({
 	scope,
 	filter: null,
@@ -234,7 +235,7 @@ export const buildDefaultQueryDefinition = (
 	},
 });
 
-export const inLibraryRelationshipJoin = {
+export const inLibraryRelationshipJoin: QueryRelationshipJoin = {
 	required: true,
 	key: "inLibrary",
 	direction: "outgoing",
