@@ -1,5 +1,6 @@
 import { Effect, Either } from "effect";
 
+import { nowIso } from "../../media/dates";
 import type {
 	LoadedMediaImportAdapterError,
 	LoadedMediaImportAdapterResult,
@@ -68,7 +69,7 @@ export const loadMovaryAdapterResult = (input: {
 		);
 
 		const adapterResult = yield* Effect.try({
-			try: () => adaptMovaryExports({ historyCsv, ratingsCsv, watchlistCsv }),
+			try: () => adaptMovaryExports({ historyCsv, ratingsCsv, watchlistCsv, importedAt: nowIso() }),
 			catch: (error) =>
 				({
 					cleanupPaths,
