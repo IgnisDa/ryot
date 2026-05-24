@@ -22,9 +22,10 @@ import {
 import { failImportRun } from "./runtime/failures";
 import { getTemporaryDirectory, resolveSafeImportFilePath } from "./runtime/files";
 import { deleteImportSourcePayload } from "./runtime/source-payload-store";
+import { ImportRunError } from "./runtime/workflow-helpers";
 import { adaptHevyCsv } from "./sources/hevy/adapter";
 import { adaptStrongAppCsv } from "./sources/strong-app/adapter";
-import { ImportRunError, runOneTimeMediaImportWorkflow } from "./workflows";
+import { runOneTimeMediaImportWorkflow } from "./workflows";
 import { runOneTimeNonMediaImportWorkflow } from "./workflows-non-media";
 import { WorkoutImportItemSchema } from "./workout/domain";
 import { loadWorkoutAdapterResult, prepareWorkoutWrites } from "./workout/workflow";
