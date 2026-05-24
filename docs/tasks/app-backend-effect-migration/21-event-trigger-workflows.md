@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -14,12 +14,12 @@ The implementation should avoid queue-specific replay state and use durable work
 
 ## Acceptance criteria
 
-- [ ] Event creation can run active before-create trigger scripts
-- [ ] Before-create allow, skip, and replace outcomes are validated and applied
-- [ ] Event creation persists valid events after before-create processing
-- [ ] After-create trigger scripts run for created events where configured
-- [ ] Trigger failures map to typed expected failures or durable failure records as appropriate
-- [ ] Event trigger E2E tests pass through the Effect client
+- [x] Event creation can run active before-create trigger scripts
+- [x] Before-create allow, skip, and replace outcomes are validated and applied
+- [x] Event creation persists valid events after before-create processing
+- [x] After-create trigger scripts run for created events where configured
+- [x] Trigger failures map to typed expected failures or durable failure records as appropriate
+- [x] Event trigger E2E tests pass through the Effect client
 
 ## User stories addressed
 
