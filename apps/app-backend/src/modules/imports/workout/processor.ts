@@ -3,6 +3,7 @@ import { Effect } from "effect";
 import type { CurrentUserValue } from "#lib/auth-middleware";
 import { DbRunner } from "#lib/db";
 import { badRequest } from "#lib/errors";
+import { isObjectRecord } from "#lib/predicates";
 import type { EntitySchemaId, EventSchemaId, ImportRunId, UserId } from "#lib/schema/brands";
 import type { AppSchema } from "#lib/schema/property-schema";
 import { parseAppSchemaPropertiesSafe } from "#lib/schema/property-schema-runtime";
@@ -28,9 +29,6 @@ export type WorkoutSchemas = {
 	workoutSetEventPropertiesSchema: AppSchema;
 };
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-	typeof value === "object" && value !== null && !Array.isArray(value);
-
 const exerciseIdentityKey = (input: { name: string; kind: string }): string =>
 	`${normalizeExerciseIdentityName(input.name)}|${input.kind}`;
 
@@ -40,7 +38,7 @@ const matchExerciseCandidate = (
 ): ListedEntity | undefined => {
 	const key = exerciseIdentityKey(exercise);
 	return candidates.find((candidate) => {
-		const kind = isRecord(candidate.properties) ? candidate.properties.kind : undefined;
+		const kind = isObjectRecord(candidate.properties) ? candidate.properties.kind : undefined;
 		return typeof kind === "string" && exerciseIdentityKey({ kind, name: candidate.name }) === key;
 	});
 };

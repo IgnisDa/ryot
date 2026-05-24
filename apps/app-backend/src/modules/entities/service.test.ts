@@ -25,6 +25,7 @@ import { SandboxRepository } from "#modules/sandbox/repository";
 import { EntityPopulationTrigger, EntityPopulationTriggerNoop } from "./population-trigger";
 import { EntitiesRepository } from "./repository";
 import { EntitiesService } from "./service";
+import { TranslationOverlayNoop } from "./translation-overlay";
 
 const now = "2026-06-14T00:00:00.000Z";
 
@@ -72,6 +73,7 @@ const makeServiceLayer = (
 				options.queryEngine ?? makeQueryEngine(),
 				repository,
 				makeSandboxRepository(),
+				TranslationOverlayNoop,
 				options.populationTrigger ?? EntityPopulationTriggerNoop,
 			),
 		),

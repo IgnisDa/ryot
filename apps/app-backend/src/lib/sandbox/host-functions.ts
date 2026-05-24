@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { Effect, Runtime, Schema } from "effect";
 
+import { isObjectRecord } from "#lib/predicates";
 import { EntityId, EntitySchemaId, IntegrationId, UserId } from "#lib/schema/brands";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
@@ -23,7 +24,6 @@ import {
 	apiSuccess,
 	type BoundHostFunction,
 	type UserSandboxRunInput,
-	isObjectRecord,
 	requireSandboxRunInput,
 	requireUserSandboxRunInput,
 } from "./shared";

@@ -1,3 +1,4 @@
+import { isObjectRecord } from "#lib/predicates";
 import type { MediaImportAdapterResult } from "#modules/imports/media/adapter-result";
 import { buildMovieOrShowImportRef } from "#modules/imports/sources/shared/provider-refs";
 
@@ -9,9 +10,6 @@ import {
 	type SinkParser,
 	wrapSinkParser,
 } from "./shared";
-
-const isObjectRecord = (value: unknown): value is Record<string, unknown> =>
-	typeof value === "object" && value !== null && !Array.isArray(value);
 
 export const parseKodiSinkPayload = (payload: unknown): MediaImportAdapterResult => {
 	if (!isObjectRecord(payload)) {
