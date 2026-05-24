@@ -99,6 +99,62 @@ describe("RyotQLDocument", () => {
 		expect(Schema.decodeUnknownSync(RyotQLDocument)(complex)).toEqual(complex);
 	});
 
+	it("decodes correlated query and arithmetic expressions", () => {
+		const eventQuery = {
+			from: { table: "event", alias: "event" },
+			where: {
+				operator: "eq",
+				type: "comparison",
+				right: { type: "column", tableAlias: "entity", field: "id" },
+				left: { type: "column", tableAlias: "event", field: "entityId" },
+			},
+		} as const;
+		const correlated = {
+			queries: {
+				entities: {
+					from: { table: "entity", alias: "entity" },
+					where: { type: "exists", query: eventQuery },
+					output: {
+						orderBy: [],
+						type: "rows",
+						pagination: { page: 1, limit: 20 },
+						fields: [
+							{
+								key: "latestEvent",
+								expr: {
+									type: "first",
+									query: eventQuery,
+									select: { type: "column", tableAlias: "event", field: "occurredAt" },
+									orderBy: [
+										{
+											direction: "desc",
+											expr: { type: "column", tableAlias: "event", field: "occurredAt" },
+										},
+									],
+								},
+							},
+							{
+								key: "ratio",
+								expr: {
+									type: "arithmetic",
+									operator: "divide",
+									right: { type: "literal", value: 2 },
+									left: {
+										type: "aggregate",
+										query: eventQuery,
+										aggregation: { function: "count" },
+									},
+								},
+							},
+						],
+					},
+				},
+			},
+		} as const;
+
+		expect(Schema.decodeUnknownSync(RyotQLDocument)(correlated)).toEqual(correlated);
+	});
+
 	it("rejects malformed JSON paths, cast targets, and nested unknown keys", () => {
 		const expression = { type: "column", tableAlias: "entity", field: "properties" };
 

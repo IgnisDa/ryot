@@ -6,7 +6,7 @@ RyotQL is the focused read API at `POST /ryotql/execute`. It is independent from
 
 - Authenticated user execution against the `entity`, `event`, and `relationship` tables.
 - Multiple independent named rows queries in one repeatable-read, read-only transaction.
-- Field selection, typed JSON expressions, predicates, inner and left joins, ordering, pagination, and correlated row includes.
+- Field selection, typed JSON expressions, predicates, arithmetic, correlated scalar expressions, inner and left joins, ordering, pagination, and correlated row includes.
 - Localized entity names and properties with translation status as a normal catalog field.
 - User visibility for every table occurrence: a caller can read their own rows and global rows.
 - Runtime field kinds: `text`, `date`, `number`, `boolean`, `json`, and `null`.
@@ -186,6 +186,37 @@ For a user with a non-canonical language preference, `name` uses the translated 
 
 `translationStatus` is `none` for canonical-language readers, entities without a provider, providers without a canonical language, and unpopulated entities. It is `pending` when a translation is required but absent, `none` for a negative-cache translation, and `ready` when translated content exists. Its provider and translation SQL is emitted only when an expression references `translationStatus`.
 
+## Correlated Scalar Expressions
+
+`exists`, `first`, and correlated aggregate expressions run a generic query set with its own `from`, optional joins, and optional predicate. The query set can reference aliases from its ancestor scopes. Its own aliases are lexical: duplicate aliases, sibling references, unknown aliases, and forward join references are invalid. Every table occurrence is authorized before its joins and predicates are applied, and localized fields use the same language as the root query.
+
+`exists` returns a boolean. `first` selects one scalar from the first matching row, requires explicit ordering, adds primary-key tie breakers, and returns null when no row matches. Correlated aggregates support `count`, `countDistinct`, `sum`, `average`, `minimum`, and `maximum`. Count operations return zero for an empty set; the other measures return null. Numeric measures safely cast their operands, and count distinct ignores null values through normal PostgreSQL semantics.
+
+```ts
+const course = table("entity", "course");
+const completion = table("event", "completion");
+const completions = {
+	where: eq(column(completion, "entityId"), column(course, "id")),
+};
+
+rows(course, {
+	where: exists(completion, completions),
+	fields: [
+		field("completionCount", count(completion, completions)),
+		field(
+			"latestCompletion",
+			first(completion, {
+				...completions,
+				select: column(completion, "occurredAt"),
+				orderBy: [descending(column(completion, "occurredAt"))],
+			}),
+		),
+	],
+});
+```
+
+`add`, `subtract`, `multiply`, and `divide` operate on safe numeric values. Invalid operands and division by zero return null. `coalesce` returns the first non-null value and preserves the selected branch's runtime field kind, including values selected by `first`.
+
 ## Limits
 
 - 10 named queries per document.
@@ -193,6 +224,7 @@ For a user with a non-canonical language preference, `name` uses the translated 
 - 100 rows per page.
 - 100 rows per include.
 - 3 include levels.
+- 3 correlated query levels.
 - 30-second transaction-local statement timeout.
 
-Correlated scalar expressions, aggregates, time series, plugin execution, and application tables other than `entity`, `event`, and `relationship` are not available yet.
+Root aggregate outputs, time series, plugin execution, and application tables other than `entity`, `event`, and `relationship` are not available yet.
