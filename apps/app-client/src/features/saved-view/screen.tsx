@@ -9,11 +9,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Box } from "@/components/ui/box";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
-import { useApiClient } from "@/lib/api-client";
+import { useContractClient } from "@/lib/contract-client";
 import { useResolvedImageUrls } from "@/lib/image";
 import { entityHref } from "@/lib/navigation-data";
 
-import type { QueryEngineEntityItem } from "../entity-detail/query-engine";
+import { createQueryEngineClient, type QueryEngineEntityItem } from "../entity-detail/query-engine";
 import { LoadMoreFooter, SavedViewHeader, ScreenState } from "./chrome";
 import { useSavedViewLayout } from "./layout";
 import {
@@ -351,7 +351,8 @@ function SavedViewResults(props: {
 }
 
 export function SavedViewScreen(props: { viewSlug: string }) {
-	const apiClient = useApiClient();
+	const runContract = useContractClient();
+	const queryEngineClient = createQueryEngineClient(runContract);
 	const insets = useSafeAreaInsets();
 	const normalizedSlug = props.viewSlug.trim();
 	const { layout, setLayout } = useSavedViewLayout(props.viewSlug);
@@ -359,16 +360,8 @@ export function SavedViewScreen(props: { viewSlug: string }) {
 	const viewQuery = useQuery({
 		enabled: normalizedSlug.length > 0,
 		queryKey: ["saved-view", normalizedSlug],
-		queryFn: async () => {
-			const response = await apiClient.GET("/saved-views/{viewSlug}", {
-				params: { path: { viewSlug: normalizedSlug } },
-			});
-			if (response.error) {
-				throw new Error("Failed to load saved view");
-			}
-
-			return response.data.data;
-		},
+		queryFn: () =>
+			runContract((client) => client.savedViews.get({ path: { viewSlug: normalizedSlug } })),
 	});
 
 	const view = viewQuery.data;
@@ -383,19 +376,13 @@ export function SavedViewScreen(props: { viewSlug: string }) {
 				throw new Error("Failed to load saved view results");
 			}
 
-			const response = await apiClient.POST("/query-engine/execute", {
-				body: createSavedViewRuntimeRequest({
+			return queryEngineClient(
+				createSavedViewRuntimeRequest({
 					layout,
 					page: pageParam,
 					view: supportedView,
 				}),
-			});
-
-			if (response.error || response.data.mode !== "entities") {
-				throw new Error("Failed to load saved view results");
-			}
-
-			return response.data;
+			);
 		},
 		getNextPageParam: (lastPage, pages) =>
 			lastPage.data.meta.pagination.hasNextPage ? pages.length + 1 : undefined,

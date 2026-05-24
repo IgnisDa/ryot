@@ -3,8 +3,8 @@ import { usePathname } from "expo-router";
 import { atom, useAtomValue, useSetAtom } from "jotai";
 import { useCallback, useMemo } from "react";
 
-import { useApiClient } from "@/lib/api-client";
-import { buildNavigationItems, type NavigationItem, unwrapData } from "@/lib/navigation-data";
+import { useContractClient } from "@/lib/contract-client";
+import { buildNavigationItems, type NavigationItem } from "@/lib/navigation-data";
 
 const navSheetOpenAtom = atom(false);
 const subFlyoutOpenAtom = atom(false);
@@ -73,28 +73,18 @@ interface UseNavigationDataResult {
 }
 
 export function useNavigationData(userName?: string): UseNavigationDataResult {
-	const apiClient = useApiClient();
+	const runContract = useContractClient();
 
 	const trackersQuery = useQuery({
 		queryKey: ["trackers"],
-		queryFn: async () => {
-			const response = await apiClient.GET("/trackers");
-			if (response.error) {
-				throw new Error(JSON.stringify(response.error));
-			}
-			return response.data;
-		},
+		queryFn: () =>
+			runContract((client) => client.trackers.list({ urlParams: { includeDisabled: false } })),
 	});
 
 	const viewsQuery = useQuery({
 		queryKey: ["saved-views"],
-		queryFn: async () => {
-			const response = await apiClient.GET("/saved-views");
-			if (response.error) {
-				throw new Error(JSON.stringify(response.error));
-			}
-			return response.data;
-		},
+		queryFn: () =>
+			runContract((client) => client.savedViews.list({ urlParams: { includeDisabled: false } })),
 	});
 
 	const isError = trackersQuery.isError || viewsQuery.isError;
@@ -121,8 +111,8 @@ export function useNavigationData(userName?: string): UseNavigationDataResult {
 	};
 
 	const data = useMemo(() => {
-		const rawTrackers = unwrapData(trackersQuery.data);
-		const rawViews = unwrapData(viewsQuery.data);
+		const rawTrackers = trackersQuery.data ?? [];
+		const rawViews = viewsQuery.data ?? [];
 		return buildNavigationItems(rawTrackers, rawViews);
 	}, [trackersQuery.data, viewsQuery.data]);
 

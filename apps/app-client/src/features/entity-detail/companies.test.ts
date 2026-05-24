@@ -5,7 +5,6 @@ import type {
 	QueryEngineClient,
 	QueryEngineEntitiesRequestBody,
 	QueryEngineEntitiesResponse,
-	QueryEngineRequestBody,
 } from "./query-engine";
 
 describe("entity-detail companies helpers", () => {
@@ -71,18 +70,12 @@ describe("entity-detail companies helpers", () => {
 				},
 			},
 		};
-		const apiClient: QueryEngineClient = {
-			POST(_path: "/query-engine/execute", options: { body: QueryEngineRequestBody }) {
-				if (options.body.mode !== "entities") {
-					throw new Error("Expected an entity query");
-				}
-
-				calls.push(options.body);
-				return Promise.resolve({ data: pageResponses[options.body.pagination.page] });
-			},
+		const queryEngineClient: QueryEngineClient = (payload) => {
+			calls.push(payload);
+			return Promise.resolve(pageResponses[payload.pagination.page]);
 		};
 
-		const companies = await loadRelatedCompanies(apiClient, {
+		const companies = await loadRelatedCompanies(queryEngineClient, {
 			entityId: "entity-1",
 			entitySchemaSlug: "movie",
 		});

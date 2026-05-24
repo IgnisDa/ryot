@@ -111,12 +111,12 @@ function readRelatedCreator(item: QueryEngineEntityItem, position: number): Rela
 }
 
 export async function loadRelatedCreators(
-	apiClient: QueryEngineClient,
+	queryEngineClient: QueryEngineClient,
 	input: { entityId: string; entitySchemaSlug: string },
 ) {
 	const relationshipSchemaSlug = normalizeSlug(`person to ${input.entitySchemaSlug}`);
 	const creators = await loadQueryEngineEntities({
-		apiClient,
+		queryEngineClient,
 		errorMessage: "Failed to load related creators",
 		requestForPage: (page) => ({
 			mode: "entities",

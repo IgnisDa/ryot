@@ -1,13 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 
-import { useApiClient } from "@/lib/api-client";
+import { useContractClient } from "@/lib/contract-client";
 
 import type { EntityImage } from "./entity-image";
 
 type ImageEntry = { id: string; image: EntityImage };
 
 export function useResolvedImageUrls(entries: ImageEntry[]) {
-	const apiClient = useApiClient();
+	const runContract = useContractClient();
 
 	const s3Keys = Array.from(
 		new Set(
@@ -21,19 +21,14 @@ export function useResolvedImageUrls(entries: ImageEntry[]) {
 		staleTime: 14 * 60 * 1000,
 		enabled: s3Keys.length > 0,
 		queryKey: ["presigned-downloads", s3Keys],
-		queryFn: async () => {
-			const response = await apiClient.POST("/uploads/presigned/download", {
-				body: { keys: s3Keys },
-			});
-			if (response.error) {
-				throw new Error(JSON.stringify(response.error));
-			}
-			return response.data;
-		},
+		queryFn: () =>
+			runContract((client) =>
+				client.uploads.createPresignedDownload({ payload: { keys: s3Keys } }),
+			),
 	});
 
 	const urlByKey = new Map<string, string>();
-	for (const item of presignedQuery.data?.data ?? []) {
+	for (const item of presignedQuery.data ?? []) {
 		urlByKey.set(item.key, item.downloadUrl);
 	}
 
