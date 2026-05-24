@@ -8,7 +8,7 @@
 |---|---|---|---|---|---|
 | `port` | `PORT` | HTTP port the server listens on | No | No | `8000` |
 | `timezone` | `TZ` | IANA timezone used for interpreting timezone-less datetimes during imports | No | No | `Etc/GMT` |
-| `redisUrl` | `REDIS_URL` | Redis connection string | No | Yes | `redis://localhost:6379` |
+| `redisUrl` | `REDIS_URL` | Redis connection string | Yes | Yes | — |
 | `frontendUrl` | `FRONTEND_URL` | Public URL of the frontend application | No | No | `http://localhost:3000` |
 | `builtinExercisePreloadLimit` | `BUILTIN_EXERCISE_PRELOAD_LIMIT` | Maximum number of built-in exercise entities to preload | No | No | `873` |
 
@@ -53,7 +53,7 @@
 
 | App Config Key | Variable | Description | Required | Sensitive | Default |
 |---|---|---|---|---|---|
-| `database.url` | `DATABASE_URL` | PostgreSQL connection string | No | Yes | `postgres://postgres:postgres@localhost:5432/postgres` |
+| `database.url` | `DATABASE_URL` | PostgreSQL connection string | Yes | Yes | — |
 | `database.statementTimeoutMs` | `DATABASE_STATEMENT_TIMEOUT_MS` | Maximum milliseconds a single SQL statement may run before PostgreSQL aborts it; 0 disables. Transactions run uninterruptibly, so this bounds a stuck statement. Leave at 0 if long-running migrations are expected. | No | No | `0` |
 | `database.connectionTimeoutMs` | `DATABASE_CONNECTION_TIMEOUT_MS` | Maximum milliseconds to wait when acquiring a PostgreSQL connection from the pool | No | No | `10000` |
 | `database.idleInTransactionTimeoutMs` | `DATABASE_IDLE_IN_TRANSACTION_TIMEOUT_MS` | Maximum milliseconds a transaction may sit idle holding locks before PostgreSQL aborts it; 0 disables | No | No | `0` |
