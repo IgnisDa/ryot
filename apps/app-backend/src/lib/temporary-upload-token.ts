@@ -11,9 +11,8 @@ const uploadTokenKey = (token: string): string => `${UPLOAD_TOKEN_KEY_PREFIX}${t
 type UploadTokenValue = { userId: string; resolvedPath: string };
 
 export type UploadTokenRedis = {
+	getdel(key: string): Promise<string | null>;
 	set(key: string, value: string, exMode: "EX", ttlSeconds: number): Promise<"OK">;
-	get(key: string): Promise<string | null>;
-	del(key: string): Promise<number>;
 };
 
 export type UploadTokenDeps = {
@@ -56,7 +55,7 @@ export const claimUploadToken = async (
 ): Promise<{ resolvedPath: string } | { error: string }> => {
 	const r = deps.redis ?? defaultDeps.redis;
 	const key = uploadTokenKey(token);
-	const raw = await r.get(key);
+	const raw = await r.getdel(key);
 
 	if (!raw) {
 		return { error: "Upload token is invalid or has expired" };
@@ -67,7 +66,6 @@ export const claimUploadToken = async (
 		// oxlint-disable-next-line no-unsafe-type-assertion
 		value = JSON.parse(raw) as UploadTokenValue;
 	} catch {
-		await r.del(key);
 		return { error: "Upload token is invalid or has expired" };
 	}
 
@@ -75,6 +73,5 @@ export const claimUploadToken = async (
 		return { error: "Upload token does not belong to this user" };
 	}
 
-	await r.del(key);
 	return { resolvedPath: value.resolvedPath };
 };
