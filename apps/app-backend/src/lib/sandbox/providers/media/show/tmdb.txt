@@ -115,6 +115,135 @@ function collectGenres(genresArray) {
 	return genres;
 }
 
+function parseTranslationLanguage(language) {
+	const [langPart, regionPart] = language.split("-");
+	return {
+		langCode: langPart.trim().toLowerCase(),
+		region: regionPart ? regionPart.trim().toUpperCase() : null,
+	};
+}
+
+function orderedTranslationCandidates(translationsData, langCode, region) {
+	const translations = Array.isArray(translationsData?.translations)
+		? translationsData.translations
+		: [];
+	const candidates = translations.filter(
+		(entry) =>
+			typeof entry?.iso_639_1 === "string" && entry.iso_639_1.toLowerCase() === langCode,
+	);
+	const regionMatch = region
+		? candidates.find(
+				(entry) =>
+					typeof entry?.iso_3166_1 === "string" && entry.iso_3166_1.toUpperCase() === region,
+			)
+		: null;
+	return regionMatch
+		? [regionMatch, ...candidates.filter((entry) => entry !== regionMatch)]
+		: candidates;
+}
+
+function firstTranslationValue(candidates, extract) {
+	for (const entry of candidates) {
+		const value = extract(entry);
+		if (typeof value === "string" && value.trim()) return value.trim();
+	}
+	return null;
+}
+
+function getLocalizedImageUrl(imagesData, imageKey, langCode) {
+	const images = Array.isArray(imagesData?.[imageKey]) ? imagesData[imageKey] : [];
+	const localizedImage = images.find(
+		(image) =>
+			typeof image?.iso_639_1 === "string" && image.iso_639_1.toLowerCase() === langCode,
+	);
+	return localizedImage ? getImageUrl(localizedImage.file_path) : null;
+}
+
+function getObjectProperties(value) {
+	if (value && typeof value === "object" && !Array.isArray(value)) {
+		return value;
+	}
+	throw new Error("properties must be an object for TMDB show translation");
+}
+
+function getIntegerProperty(properties, key) {
+	const value = properties[key];
+	return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : null;
+}
+
+function getStringProperty(properties, key) {
+	const value = properties[key];
+	return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function getTranslationRequest(input) {
+	if (!/^\d+$/.test(input.externalId)) {
+		throw new Error("externalId must be a numeric TMDB show ID");
+	}
+
+	if (input.entitySchemaSlug === "show") {
+		return {
+			imageKey: "posters",
+			imagesPath: `/tv/${input.externalId}/images`,
+			translationsPath: `/tv/${input.externalId}/translations`,
+		};
+	}
+
+	const properties = getObjectProperties(input.properties);
+	const seasonNumber = getIntegerProperty(properties, "seasonNumber");
+	const parentShowExternalId = getStringProperty(properties, "parentShowExternalId");
+	if (seasonNumber === null) {
+		throw new Error("seasonNumber is required for TMDB show child translation");
+	}
+	if (!parentShowExternalId || !/^\d+$/.test(parentShowExternalId)) {
+		throw new Error("parentShowExternalId must be a numeric TMDB show ID");
+	}
+
+	if (input.entitySchemaSlug === "show-season") {
+		return {
+			imageKey: "posters",
+			imagesPath: `/tv/${parentShowExternalId}/season/${seasonNumber}/images`,
+			translationsPath: `/tv/${parentShowExternalId}/season/${seasonNumber}/translations`,
+		};
+	}
+
+	const episodeNumber = getIntegerProperty(properties, "episodeNumber");
+	if (input.entitySchemaSlug === "show-episode") {
+		if (episodeNumber === null) {
+			throw new Error("episodeNumber is required for TMDB show episode translation");
+		}
+		return {
+			imageKey: "stills",
+			imagesPath: `/tv/${parentShowExternalId}/season/${seasonNumber}/episode/${episodeNumber}/images`,
+			translationsPath: `/tv/${parentShowExternalId}/season/${seasonNumber}/episode/${episodeNumber}/translations`,
+		};
+	}
+
+	throw new Error("show.tmdb translate supports only show, show-season, and show-episode");
+}
+
+async function buildTranslationResult(input) {
+	const [translationsData, imagesData] = await Promise.all([
+		tmdbGet(input.translationsPath, {}, input.token),
+		tmdbGet(input.imagesPath, { include_image_language: input.langCode }, input.token).catch(() => ({})),
+	]);
+	const candidates = orderedTranslationCandidates(translationsData, input.langCode, input.region);
+	const name = firstTranslationValue(candidates, (entry) =>
+		typeof entry?.data?.name === "string" && entry.data.name.trim()
+			? entry.data.name
+			: entry?.data?.title,
+	);
+	const description = firstTranslationValue(candidates, (entry) => entry?.data?.overview);
+	const imageUrl = getLocalizedImageUrl(imagesData, input.imageKey, input.langCode);
+
+	const result = {};
+	if (name) result.name = name;
+	if (description) result.description = description;
+	if (imageUrl) result.image = { type: "remote", url: imageUrl };
+
+	return result;
+}
+
 function collectCompanies(networks, productionCompanies) {
 	const companyByKey = new Map();
 
@@ -301,7 +430,7 @@ function collectPeople(cast, crew, createdBy) {
 	return { relatedEntities: [...relatedEntityByKey.values()], unlinkedCreators };
 }
 
-function buildSeason(seasonData, dayjs) {
+function buildSeason(parentShowExternalId, seasonData, dayjs) {
 	const id =
 		typeof seasonData?.id === "number" &&
 		Number.isFinite(seasonData.id) &&
@@ -376,6 +505,7 @@ function buildSeason(seasonData, dayjs) {
 				description: epOverview,
 				episodeNumber: epNumber,
 				publishDate: epPublishDate,
+				parentShowExternalId,
 			},
 		};
 	}).filter((episode) => episode !== null);
@@ -390,6 +520,7 @@ function buildSeason(seasonData, dayjs) {
 			seasonNumber,
 			description: overview,
 			releaseDate: publishDate,
+			parentShowExternalId,
 		},
 	};
 }
@@ -487,7 +618,7 @@ driver("search", async function (context) {
 	};
 });
 
-driver("details", async function (context) {
+driver("details", async function (context, { metadata }) {
 	const { z } = await import("npm:zod");
 	const dayjs = (await import("npm:dayjs")).default;
 
@@ -496,6 +627,7 @@ driver("details", async function (context) {
 			externalId: z.string().trim().min(1, "externalId is required"),
 		})
 		.parse(context ?? {});
+	const language = metadata?.providerInformation?.canonicalLanguage ?? "en-US";
 
 	if (!/^\d+$/.test(externalId)) {
 		throw new Error("externalId must be a numeric TMDB show ID");
@@ -504,9 +636,9 @@ driver("details", async function (context) {
 	const token = await getTmdbAccessToken();
 
 	const [showData, imagesData, creditsData] = await Promise.all([
-		tmdbGet(`/tv/${externalId}`, { language: "en-US" }, token),
+		tmdbGet(`/tv/${externalId}`, { language }, token),
 		tmdbGet(`/tv/${externalId}/images`, {}, token),
-		tmdbGet(`/tv/${externalId}/credits`, { language: "en-US" }, token),
+		tmdbGet(`/tv/${externalId}/credits`, { language }, token),
 	]);
 
 	const title =
@@ -534,14 +666,14 @@ driver("details", async function (context) {
 		const batch = seasonNumbers.slice(i, i + SEASON_BATCH_SIZE);
 		const batchResults = await Promise.all(
 			batch.map((n) =>
-				tmdbGet(`/tv/${externalId}/season/${n}`, { language: "en-US" }, token),
+				tmdbGet(`/tv/${externalId}/season/${n}`, { language }, token),
 			),
 		);
 		seasonDataList.push(...batchResults);
 	}
 
 	const childEntities = seasonDataList
-		.map((s) => buildSeason(s, dayjs))
+		.map((s) => buildSeason(externalId, s, dayjs))
 		.filter((season) => season !== null);
 	const totalEpisodes = childEntities.reduce(
 		(count, season) => count + season.childEntities.length,
@@ -621,4 +753,22 @@ driver("resolve", async function (context) {
 	}
 
 	return { externalId: null };
+});
+
+driver("translate", async function (context) {
+	const { z } = await import("npm:zod");
+
+	const { externalId, language, properties, entitySchemaSlug } = z
+		.object({
+			properties: z.unknown().optional(),
+			language: z.string().trim().min(1, "language is required"),
+			externalId: z.string().trim().min(1, "externalId is required"),
+			entitySchemaSlug: z.string().trim().min(1, "entitySchemaSlug is required"),
+		})
+		.parse(context ?? {});
+
+	const request = getTranslationRequest({ externalId, properties, entitySchemaSlug });
+	const { langCode, region } = parseTranslationLanguage(language);
+	const token = await getTmdbAccessToken();
+	return buildTranslationResult({ ...request, langCode, region, token });
 });
