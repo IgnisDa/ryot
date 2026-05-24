@@ -74,7 +74,7 @@ describe("client plugin artifacts", () => {
 			expect(markup).toContain(`"hash":"${artifactHash}"`);
 			expect(markup).toContain('src="./plugin.js"');
 			expect(markup).toContain('href="./plugin.css"');
-			expect(yield* Effect.promise(() => stylesheet.text())).toContain(".fixture-logo");
+			expect(yield* Effect.promise(() => stylesheet.text())).toContain(".plugin-logo");
 
 			const unknownFile = yield* fetchArtifact(artifactHash, "secrets.json");
 			const unknownArtifact = yield* fetchArtifact("0".repeat(64), "index.html");

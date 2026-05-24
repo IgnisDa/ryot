@@ -1,18 +1,13 @@
 import {
 	CLIENT_API_VERSION,
-	CLIENT_ARTIFACT_FORMAT,
-	CLIENT_BRIDGE_PROTOCOL_VERSION,
-	CLIENT_COMPILER_VERSION,
-	PluginBridgeReady,
-	type PluginBridgeInit,
+	type PluginLogicalLocation,
 } from "@ryot/contract/modules/plugins/client";
 import type { PluginClientCatalogEntry } from "@ryot/ryotql-recipes/plugin-client-catalog";
-import { Result, Schema } from "effect";
 import { useEffect, useRef, useState } from "react";
 
 import { serverApiUrl, type ServerOrigin } from "../../api/origin";
-
-const HANDSHAKE_TIMEOUT_MS = 15_000;
+import { openPluginBridge, type PluginBridgeSession } from "./bridge";
+import { toNavigationRequest, type PluginNavigationRequest } from "./plugin-location";
 
 export type PluginHostStatus =
 	| "ready"
@@ -62,7 +57,9 @@ export function resolvePluginArtifact(
 
 export function PluginHost(props: {
 	readonly server: ServerOrigin;
+	readonly location: PluginLogicalLocation;
 	readonly installation: PluginClientCatalogEntry;
+	readonly onNavigate: (request: PluginNavigationRequest) => void;
 }) {
 	const resolution = resolvePluginArtifact(props.installation);
 	if (resolution.kind === "blocked") {
@@ -72,6 +69,8 @@ export function PluginHost(props: {
 	return (
 		<PluginFrame
 			server={props.server}
+			location={props.location}
+			onNavigate={props.onNavigate}
 			pluginSlug={props.installation.slug}
 			artifactHash={resolution.artifactHash}
 			key={`${props.installation.installationId}:${resolution.artifactHash}`}
@@ -83,26 +82,26 @@ function PluginFrame(props: {
 	readonly pluginSlug: string;
 	readonly server: ServerOrigin;
 	readonly artifactHash: string;
+	readonly location: PluginLogicalLocation;
+	readonly onNavigate: (request: PluginNavigationRequest) => void;
 }) {
+	const { path, search } = props.location;
+	const latest = useRef(props);
 	const frame = useRef<HTMLIFrameElement>(null);
-	const bridge = useRef<{
-		readonly timer: number;
-		readonly port: MessagePort;
-		readonly listeners: AbortController;
-	}>(undefined);
+	const session = useRef<PluginBridgeSession>(undefined);
 	const [status, setStatus] = useState<"ready" | "loading" | "handshake-failure">("loading");
+	latest.current = props;
 
 	const closeBridge = () => {
-		if (bridge.current === undefined) {
-			return;
-		}
-		clearTimeout(bridge.current.timer);
-		bridge.current.listeners.abort();
-		bridge.current.port.close();
-		bridge.current = undefined;
+		session.current?.close();
+		session.current = undefined;
 	};
 
 	useEffect(() => closeBridge, []);
+
+	useEffect(() => {
+		session.current?.sendLocation({ path, search });
+	}, [path, search]);
 
 	function connect() {
 		const plugin = frame.current?.contentWindow;
@@ -111,39 +110,23 @@ function PluginFrame(props: {
 			setStatus("handshake-failure");
 			return;
 		}
-
-		const init: PluginBridgeInit = {
-			sessionId: crypto.randomUUID(),
-			apiVersion: CLIENT_API_VERSION,
-			format: CLIENT_ARTIFACT_FORMAT,
+		setStatus("loading");
+		session.current = openPluginBridge({
+			target: plugin,
 			artifactHash: props.artifactHash,
-			compilerVersion: CLIENT_COMPILER_VERSION,
-			bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
-		};
-		const channel = new MessageChannel();
-		const timer = window.setTimeout(() => {
-			closeBridge();
-			setStatus("handshake-failure");
-		}, HANDSHAKE_TIMEOUT_MS);
-
-		const listeners = new AbortController();
-		channel.port1.addEventListener(
-			"message",
-			(event) => {
-				const decoded = Schema.decodeUnknownResult(PluginBridgeReady)(event.data);
-				if (Result.isFailure(decoded) || !isExpectedReady(decoded.success, init)) {
-					closeBridge();
-					setStatus("handshake-failure");
-					return;
-				}
-				clearTimeout(timer);
-				setStatus("ready");
+			location: latest.current.location,
+			onReady: () => setStatus("ready"),
+			onFailure: () => {
+				session.current = undefined;
+				setStatus("handshake-failure");
 			},
-			{ signal: listeners.signal },
-		);
-		channel.port1.start();
-		bridge.current = { listeners, timer, port: channel.port1 };
-		plugin.postMessage(init, "*", [channel.port2]);
+			onNavigate: (request) => {
+				const navigation = toNavigationRequest(latest.current.pluginSlug, request);
+				if (navigation !== undefined) {
+					latest.current.onNavigate(navigation);
+				}
+			},
+		});
 	}
 
 	return (
@@ -181,6 +164,3 @@ function PluginNotice(props: { readonly status: Exclude<PluginHostStatus, "ready
 		</main>
 	);
 }
-
-const isExpectedReady = (ready: PluginBridgeReady, init: PluginBridgeInit) =>
-	ready.sessionId === init.sessionId && ready.artifactHash === init.artifactHash;
