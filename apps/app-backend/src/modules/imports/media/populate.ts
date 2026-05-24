@@ -7,6 +7,7 @@ import { getBuiltinSandboxScriptBySlug } from "~/modules/sandbox";
 
 import type { ImportEntityRef, ImportMediaEntityGroup, ImportRunJobData } from "../jobs";
 import { createImportRunFailure } from "../repository";
+import { mediaEntityGroupItemIndex } from "./groups";
 
 type MediaEntityPopulationDeps = {
 	populateGlobalEntity: typeof populateGlobalEntity;
@@ -65,6 +66,7 @@ export const populateMediaEntityRefs = async (
 	// oxlint-disable no-await-in-loop
 	for (let i = input.startIndex; i < input.entityRefs.length; i++) {
 		const ref = input.entityRefs[i];
+		const groupItemIndex = mediaEntityGroupItemIndex(input.mediaEntityGroups[i], i);
 		if (!ref) {
 			await recordEntityProcessed(i);
 			continue;
@@ -89,9 +91,9 @@ export const populateMediaEntityRefs = async (
 			failedIndices.push(i);
 			entityIds[i] = null;
 			await deps.createImportRunFailure({
-				itemIndex: i,
 				context: null,
 				runId: input.runId,
+				itemIndex: groupItemIndex,
 				sourceLabel: ref.sourceLabel,
 				stage: "input_transformation",
 				sourceIdentifier: ref.externalId,
@@ -112,9 +114,9 @@ export const populateMediaEntityRefs = async (
 			failedIndices.push(i);
 			entityIds[i] = null;
 			await deps.createImportRunFailure({
-				itemIndex: i,
 				context: null,
 				runId: input.runId,
+				itemIndex: groupItemIndex,
 				sourceLabel: ref.sourceLabel,
 				stage: "input_transformation",
 				sourceIdentifier: ref.externalId,
@@ -155,8 +157,8 @@ export const populateMediaEntityRefs = async (
 			entityIds[i] = null;
 			const failedGroup = input.mediaEntityGroups[i];
 			await deps.createImportRunFailure({
-				itemIndex: i,
 				runId: input.runId,
+				itemIndex: groupItemIndex,
 				stage: "provider_details",
 				sourceLabel: ref.sourceLabel,
 				message: result.error.message,
@@ -178,10 +180,10 @@ export const populateMediaEntityRefs = async (
 				failedIndices.push(i);
 				entityIds[i] = null;
 				await deps.createImportRunFailure({
-					itemIndex: i,
 					context: null,
 					runId: input.runId,
 					stage: "database_commit",
+					itemIndex: groupItemIndex,
 					sourceLabel: ref.sourceLabel,
 					message: libraryResult.message,
 					sourceIdentifier: ref.externalId,

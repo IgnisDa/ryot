@@ -67,7 +67,7 @@ export const adaptHardcoverCsv = (csvText: string): MediaImportAdapterResult => 
 			kind: "resolved" as const,
 			scriptSlug: "book.hardcover",
 		};
-		const group = getOrCreateMediaEntityGroup(groupMap, entityRef);
+		const group = getOrCreateMediaEntityGroup(groupMap, entityRef, itemIndex);
 		const startedOn = parseDateWithFormat(row["Date Started"] ?? "", "YYYY-MM-DD");
 		const completedOn = parseDateWithFormat(row["Date Finished"] ?? "", "YYYY-MM-DD");
 		const reviewOccurredAt =
