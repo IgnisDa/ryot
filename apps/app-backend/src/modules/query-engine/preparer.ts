@@ -1,5 +1,4 @@
-import { Effect } from "effect";
-import { match } from "ts-pattern";
+import { Effect, Match } from "effect";
 
 import type { CurrentDb } from "~/lib/db";
 import type { DbError } from "~/lib/errors";
@@ -53,29 +52,30 @@ type PrepareContextInput = {
 };
 
 export const normalizeRequestPerMode = (request: QueryEngineRequest): PrepareContextInput => {
-	return match(request)
-		.with({ mode: "entities" }, { mode: "aggregate" }, (r) => ({
+	return Match.value(request).pipe(
+		Match.whenOr({ mode: "entities" }, { mode: "aggregate" }, (r) => ({
 			mode: r.mode,
 			scope: [...r.scope],
 			eventJoins: r.eventJoins ? [...r.eventJoins] : [],
 			eventSchemas: [] as string[],
 			relationshipJoins: r.relationshipJoins ? [...r.relationshipJoins] : [],
-		}))
-		.with({ mode: "events" }, (r) => ({
+		})),
+		Match.when({ mode: "events" }, (r) => ({
 			mode: r.mode,
 			scope: [...r.scope],
 			eventJoins: r.eventJoins ? [...r.eventJoins] : [],
 			eventSchemas: [...r.eventSchemas],
 			relationshipJoins: [],
-		}))
-		.with({ mode: "timeSeries" }, (r) => ({
+		})),
+		Match.when({ mode: "timeSeries" }, (r) => ({
 			mode: r.mode,
 			scope: [...r.scope],
 			eventSchemas: [...r.eventSchemas],
 			eventJoins: [],
 			relationshipJoins: [],
-		}))
-		.exhaustive();
+		})),
+		Match.exhaustive,
+	);
 };
 
 const hasEventAggregateRef = (obj: unknown): boolean => {
@@ -200,18 +200,19 @@ export const prepareAndExecute = (userId: string, request: QueryEngineRequest) =
 
 		const fullContext = { ...context, eventSchemaMap };
 
-		return yield* match(request)
-			.with({ mode: "entities" }, (r) =>
+		return yield* Match.value(request).pipe(
+			Match.when({ mode: "entities" }, (r) =>
 				executePreparedQuery({ request: r, userId, context: fullContext }),
-			)
-			.with({ mode: "aggregate" }, (r) =>
+			),
+			Match.when({ mode: "aggregate" }, (r) =>
 				executeAggregateQuery({ request: r, userId, context: fullContext }),
-			)
-			.with({ mode: "events" }, (r) =>
+			),
+			Match.when({ mode: "events" }, (r) =>
 				executeEventQuery({ request: r, userId, context: fullContext }),
-			)
-			.with({ mode: "timeSeries" }, (r) =>
+			),
+			Match.when({ mode: "timeSeries" }, (r) =>
 				executeTimeSeriesQuery({ request: r, userId, context: fullContext }),
-			)
-			.exhaustive();
+			),
+			Match.exhaustive,
+		);
 	});

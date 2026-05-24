@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { match } from "ts-pattern";
+import { Match } from "effect";
 
 import { schema } from "~/lib/db";
 import type { QueryExpression } from "~/lib/query-language";
@@ -64,16 +64,17 @@ const buildRelationshipJoinLocalExpression = (input: {
 		);
 	}
 
-	const baseColumn = match(column)
-		.with("id", () => schema.relationship.id)
-		.with("createdAt", () => schema.relationship.createdAt)
-		.with("sourceEntityId", () => schema.relationship.sourceEntityId)
-		.with("targetEntityId", () => schema.relationship.targetEntityId)
-		.otherwise(() => {
+	const baseColumn = Match.value(column).pipe(
+		Match.when("id", () => schema.relationship.id),
+		Match.when("createdAt", () => schema.relationship.createdAt),
+		Match.when("sourceEntityId", () => schema.relationship.sourceEntityId),
+		Match.when("targetEntityId", () => schema.relationship.targetEntityId),
+		Match.orElse(() => {
 			throw new QueryEngineValidationError(
 				`Unsupported relationship join column 'relationship.${input.reference.joinKey}.${column}'`,
 			);
-		});
+		}),
+	);
 
 	return buildCastedValueExpression(
 		input.targetType ?? normalizeExpressionPropertyType(propertyType),
