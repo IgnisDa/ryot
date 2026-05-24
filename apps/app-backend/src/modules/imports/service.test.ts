@@ -38,7 +38,7 @@ describe("import run schema enums", () => {
 		expect(importRunSource.options).toContain("igdb");
 		expect(importRunSource.options).toContain("imdb");
 		expect(importRunSource.options).toContain("jellyfin");
-		expect(importRunSource.options).toContain("mediatracker");
+		expect(importRunSource.options).toContain("media_tracker");
 		expect(importRunSource.options).toContain("myanimelist");
 		expect(importRunSource.options).toContain("open_scale");
 		expect(importRunSource.options).toContain("plex");
