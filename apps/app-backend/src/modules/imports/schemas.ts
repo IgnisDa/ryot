@@ -56,6 +56,24 @@ export const strongAppRunInput = z.object({
 });
 export type StrongAppRunInput = z.infer<typeof strongAppRunInput>;
 
+export const goodreadsRunInput = z.object({
+	uploadToken: nonEmptyStringSchema,
+	source: z.literal("goodreads"),
+});
+export type GoodreadsRunInput = z.infer<typeof goodreadsRunInput>;
+
+export const hardcoverRunInput = z.object({
+	uploadToken: nonEmptyStringSchema,
+	source: z.literal("hardcover"),
+});
+export type HardcoverRunInput = z.infer<typeof hardcoverRunInput>;
+
+export const storygraphRunInput = z.object({
+	uploadToken: nonEmptyStringSchema,
+	source: z.literal("storygraph"),
+});
+export type StorygraphRunInput = z.infer<typeof storygraphRunInput>;
+
 export const traktRunInput = z.object({
 	username: nonEmptyStringSchema,
 	source: z.literal("trakt"),
@@ -66,7 +84,10 @@ export const createImportRunBody = z.discriminatedUnion("source", [
 	hevyRunInput,
 	traktRunInput,
 	openScaleRunInput,
+	goodreadsRunInput,
+	hardcoverRunInput,
 	strongAppRunInput,
+	storygraphRunInput,
 ]);
 export type CreateImportRunBody = z.infer<typeof createImportRunBody>;
 

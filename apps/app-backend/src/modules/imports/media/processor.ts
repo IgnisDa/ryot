@@ -8,7 +8,7 @@ import { getBuiltinEventSchemaBySlug } from "~/modules/event-schemas";
 import { createEventsBestEffortWithTriggers, type CreateEventBody } from "~/modules/events";
 import { getBuiltinSandboxScriptBySlug } from "~/modules/sandbox";
 
-import type { ImportEntityRef, ImportMediaEntityGroup } from "../jobs";
+import type { ImportEntityRef, ImportMediaEntityGroup, ImportRunJobData } from "../jobs";
 import { createImportRunFailure } from "../repository";
 
 export const entityRefKey = (ref: ImportEntityRef) =>
@@ -45,11 +45,11 @@ export const populateMediaEntityRefs = async (
 		runId: string;
 		userId: string;
 		startIndex: number;
-		traktUsername: string;
 		failedIndices: number[];
 		adapterFailureCount: number;
 		entityRefs: ImportEntityRef[];
 		entityIds: Array<string | null>;
+		jobData?: Partial<ImportRunJobData>;
 		currentSandboxJobId: string | undefined;
 		mediaEntityGroups: ImportMediaEntityGroup[];
 		onEntityProcessed?: (processedCount: number) => Promise<void>;
@@ -70,10 +70,10 @@ export const populateMediaEntityRefs = async (
 	}
 
 	const baseSnapshot = {
+		...input.jobData,
 		runId: input.runId,
 		userId: input.userId,
 		providerEntityIds: entityIds,
-		traktUsername: input.traktUsername,
 		providerEntityRefs: input.entityRefs,
 		mediaEntityGroups: input.mediaEntityGroups,
 		importStep: "populating_entities" as const,
