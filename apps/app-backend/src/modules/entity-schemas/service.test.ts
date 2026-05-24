@@ -16,19 +16,17 @@ const user = {
 	email: "user@example.com",
 } satisfies CurrentUserValue;
 
-const dbRunnerLayer = Layer.succeed(
-	DbRunner,
-	<A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, Exclude<R, CurrentDb>> =>
-		Effect.provideService(effect, CurrentDb, Object.create(null)),
+const dbRunnerLayer = Layer.succeed(DbRunner, <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+	Effect.provideService(effect, CurrentDb, Object.create(null)),
 );
 
 const transactionLayer = Layer.succeed(
 	TransactionRunner,
-	<A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, Exclude<R, CurrentDb>> =>
+	<A, E, R>(effect: Effect.Effect<A, E, R>) =>
 		Effect.provideService(effect, CurrentDb, Object.create(null)),
 );
 
-const fakeSandboxApiService = (): SandboxApiService =>
+const fakeSandboxApiService = () =>
 	Object.assign(Object.create(null), {
 		_tag: "SandboxApiService" as const,
 		enqueue: () => Effect.die("not used in this test"),
@@ -54,7 +52,7 @@ const makeEntitySchemasServiceLayer = (
 		),
 	);
 
-const defaultTrackersRepository = (): TrackersRepository =>
+const defaultTrackersRepository = () =>
 	Object.assign(Object.create(null), {
 		_tag: "TrackersRepository" as const,
 		create: () => Effect.die("unused"),
@@ -67,7 +65,7 @@ const defaultTrackersRepository = (): TrackersRepository =>
 		countOwnedByIds: () => Effect.die("unused"),
 	});
 
-const defaultEntitySchemasRepository = (): EntitySchemasRepository =>
+const defaultEntitySchemasRepository = () =>
 	Object.assign(Object.create(null), {
 		_tag: "EntitySchemasRepository" as const,
 		findBySlug: () => Effect.die("unused"),
@@ -78,12 +76,10 @@ const defaultEntitySchemasRepository = (): EntitySchemasRepository =>
 		createDefaultSavedView: () => Effect.die("unused"),
 	});
 
-const makeTrackersRepository = (overrides: Partial<TrackersRepository> = {}): TrackersRepository =>
+const makeTrackersRepository = (overrides: Partial<TrackersRepository> = {}) =>
 	Object.assign(Object.create(null), defaultTrackersRepository(), overrides);
 
-const makeEntitySchemasRepository = (
-	overrides: Partial<EntitySchemasRepository> = {},
-): EntitySchemasRepository =>
+const makeEntitySchemasRepository = (overrides: Partial<EntitySchemasRepository> = {}) =>
 	Object.assign(Object.create(null), defaultEntitySchemasRepository(), overrides);
 
 it.effect("returns not found when tracker does not exist during creation", () => {

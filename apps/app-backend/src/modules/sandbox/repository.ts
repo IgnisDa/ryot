@@ -4,7 +4,7 @@ import { Effect } from "effect";
 import { CurrentDb, dbEffect, isUniqueConstraintError, schema } from "~/lib/db";
 import { DbError, conflict } from "~/lib/errors";
 
-import type { SandboxScript, SandboxScriptMetadata } from "./schemas";
+import type { SandboxScriptMetadata } from "./schemas";
 
 type SandboxScriptRow = typeof schema.sandboxScript.$inferSelect;
 
@@ -25,7 +25,7 @@ type FoundScript = {
 
 const sandboxScriptUserSlugConstraint = "sandbox_script_user_slug_unique";
 
-const toScript = (row: SandboxScriptRow): SandboxScript => ({
+const toScript = (row: SandboxScriptRow) => ({
 	id: row.id,
 	slug: row.slug,
 	code: row.code,
