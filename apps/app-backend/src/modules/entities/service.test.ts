@@ -1,7 +1,7 @@
 import { expect, it } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { NotFound } from "@ryot/contract/errors";
-import type { FieldValue } from "@ryot/contract/modules/query-engine/language";
+import type { FieldValue } from "@ryot/contract/modules/ryotql/language";
 import {
 	EntityId,
 	EntitySchemaSlug,
@@ -12,7 +12,7 @@ import { Effect, Layer } from "effect";
 
 import { assertExitFails } from "#lib/test-utils/assertions";
 import { type MockOverrides, dbRunnerLayer, transactionLayer } from "#lib/test-utils/effect";
-import { QueryEngineService } from "#modules/query-engine/service";
+import { RyotQLService } from "#modules/ryotql/service";
 
 import { LifecycleDispatch, LifecycleDispatchNoop } from "./lifecycle-dispatch";
 import { EntitiesRepository } from "./repository";
@@ -33,17 +33,13 @@ const mockEntitiesRepository = Layer.mock(EntitiesRepository);
 const makeEntitiesRepository = (overrides: MockOverrides<typeof mockEntitiesRepository> = {}) =>
 	mockEntitiesRepository({ ...overrides });
 
-const mockQueryEngine = Layer.mock(QueryEngineService);
+const mockRyotQL = Layer.mock(RyotQLService);
 
-const makeQueryEngine = (overrides: MockOverrides<typeof mockQueryEngine> = {}) =>
-	mockQueryEngine({
-		validate: () => Effect.void.pipe(Effect.as(undefined)),
-		...overrides,
-	});
+const makeRyotQL = (overrides: MockOverrides<typeof mockRyotQL> = {}) => mockRyotQL(overrides);
 
 const makeServiceLayer = (
 	repository = makeEntitiesRepository(),
-	options: { queryEngine?: Layer.Layer<QueryEngineService> } = {},
+	options: { ryotql?: Layer.Layer<RyotQLService> } = {},
 ) =>
 	Layer.mergeAll(
 		EntitiesService.layer.pipe(
@@ -51,7 +47,7 @@ const makeServiceLayer = (
 				Layer.mergeAll(
 					dbRunnerLayer,
 					LifecycleDispatchNoop,
-					options.queryEngine ?? makeQueryEngine(),
+					options.ryotql ?? makeRyotQL(),
 					repository,
 				),
 			),
@@ -69,15 +65,20 @@ const makeEntityRow = (overrides: Record<string, FieldValue> = {}): Record<strin
 	updatedAt: field("date", now),
 	populatedAt: field("null", null),
 	externalId: field("text", "ext-1"),
-	entitySchemaSlug: field("text", "schema-1"),
 	providerId: field("text", "provider-1"),
 	translationStatus: field("text", "pending"),
+	entitySchemaSlug: field("text", "schema-1"),
 	...overrides,
 });
 
 const rowsResponse = (item: Record<string, FieldValue>) => ({
-	type: "rows" as const,
-	data: { pageInfo: { page: 1, limit: 1, total: 1, hasMore: false }, items: [item] },
+	data: {
+		entity: {
+			items: [item],
+			type: "rows" as const,
+			pageInfo: { page: 1, limit: 1, total: 1, hasMore: false },
+		},
+	},
 });
 
 const setupGetById = (row: Record<string, FieldValue>) => {
@@ -88,12 +89,12 @@ const setupGetById = (row: Record<string, FieldValue>) => {
 					isBuiltin: false,
 					entityName: "Cooper",
 					entityUserId: user.id,
-					entitySchemaSlug: EntitySchemaSlug.make("person"),
 					propertiesSchema: { fields: {} },
 					entityId: EntityId.make("entity-1"),
+					entitySchemaSlug: EntitySchemaSlug.make("person"),
 				}),
 		}),
-		{ queryEngine: makeQueryEngine({ execute: () => Effect.succeed(rowsResponse(row)) }) },
+		{ ryotql: makeRyotQL({ execute: () => Effect.succeed(rowsResponse(row)) }) },
 	);
 	return { layer };
 };
@@ -116,8 +117,8 @@ it.effect("returns existing entity when provenance already exists", () => {
 							populatedAt: null,
 							externalId: "ext-1",
 							id: EntityId.make("created-entity"),
-							entitySchemaSlug: EntitySchemaSlug.make("schema-id"),
 							providerId: SandboxProviderId.make("provider-id"),
+							entitySchemaSlug: EntitySchemaSlug.make("schema-id"),
 						},
 					};
 				}),
@@ -125,8 +126,8 @@ it.effect("returns existing entity when provenance already exists", () => {
 				Effect.succeed({
 					slug: "book",
 					userId: user.id,
-					id: EntitySchemaSlug.make("schema-id"),
 					isBuiltin: false,
+					id: EntitySchemaSlug.make("schema-id"),
 					propertiesSchema: {
 						fields: { title: { type: "string", label: "Title", description: "Title" } },
 					},
@@ -140,8 +141,8 @@ it.effect("returns existing entity when provenance already exists", () => {
 					externalId: "ext-1",
 					properties: { title: "Existing" },
 					id: EntityId.make("existing-entity"),
-					entitySchemaSlug: EntitySchemaSlug.make("schema-id"),
 					providerId: SandboxProviderId.make("provider-id"),
+					entitySchemaSlug: EntitySchemaSlug.make("schema-id"),
 				}),
 		}),
 	);
@@ -154,8 +155,8 @@ it.effect("returns existing entity when provenance already exists", () => {
 			userId: user.id,
 			externalId: "ext-1",
 			properties: { title: "Existing" },
-			entitySchemaSlug: EntitySchemaSlug.make("schema-id"),
 			providerId: SandboxProviderId.make("provider-id"),
+			entitySchemaSlug: EntitySchemaSlug.make("schema-id"),
 		});
 
 		expect(entity.id).toBe("existing-entity");
@@ -204,14 +205,14 @@ it.effect("does not reuse the bootstrap service with its no-op lifecycle dispatc
 					properties: {},
 					name: "Workout",
 					externalId: null,
-					populatedAt: null,
 					providerId: null,
+					populatedAt: null,
 					id: EntityId.make("workout-1"),
 					entitySchemaSlug: EntitySchemaSlug.make("workout"),
 				},
 			}),
 	});
-	const dependencies = Layer.mergeAll(dbRunnerLayer, makeQueryEngine(), repository);
+	const dependencies = Layer.mergeAll(dbRunnerLayer, makeRyotQL(), repository);
 	const bootstrap = Layer.fresh(EntitiesService.layer).pipe(
 		Layer.provide(Layer.mergeAll(dependencies, LifecycleDispatchNoop)),
 	);
@@ -278,7 +279,7 @@ it.effect(
 				Layer.provide(
 					Layer.mergeAll(
 						dbRunnerLayer,
-						makeQueryEngine(),
+						makeRyotQL(),
 						repository,
 						Layer.succeed(LifecycleDispatch, {
 							dispatch: (input) => Effect.sync(() => dispatched.push(input)).pipe(Effect.asVoid),
@@ -309,7 +310,7 @@ it.effect(
 	},
 );
 
-it.effect("returns the translationStatus sourced from the query-engine computed field", () => {
+it.effect("returns the translationStatus sourced from RyotQL", () => {
 	const { layer } = setupGetById(makeEntityRow({ translationStatus: field("text", "ready") }));
 
 	return Effect.gen(function* () {
@@ -328,13 +329,13 @@ const titlePropertiesSchema = {
 const globalEntity = {
 	createdAt: now,
 	updatedAt: now,
-	populatedAt: null,
 	name: "Cooper",
+	populatedAt: null,
 	externalId: "ext-1",
 	properties: { title: "Cooper" },
 	id: EntityId.make("entity-1"),
-	entitySchemaSlug: EntitySchemaSlug.make("person"),
 	providerId: SandboxProviderId.make("provider-1"),
+	entitySchemaSlug: EntitySchemaSlug.make("person"),
 };
 
 const upsertInput = (updateExisting: boolean) => ({
@@ -343,8 +344,8 @@ const upsertInput = (updateExisting: boolean) => ({
 	populatedAt: null,
 	externalId: "ext-1",
 	properties: { title: "Cooper" },
-	entitySchemaSlug: EntitySchemaSlug.make("person"),
 	providerId: SandboxProviderId.make("provider-1"),
+	entitySchemaSlug: EntitySchemaSlug.make("person"),
 });
 
 const globalSchemaScope = { slug: "person", propertiesSchema: titlePropertiesSchema };
@@ -387,9 +388,9 @@ it.effect("upsert creates a new global entity when none exists", () => {
 });
 
 it.effect("upsertGlobalEntities remains unbounded without maximumTotal", () => {
-	const inserts: unknown[] = [];
-	let countCalled = false;
 	let lockCalled = false;
+	let countCalled = false;
+	const inserts: unknown[] = [];
 	const layer = makeServiceLayer(
 		makeEntitiesRepository({
 			countGlobalEntitiesByProvenanceScope: () =>
@@ -415,9 +416,9 @@ it.effect("upsertGlobalEntities remains unbounded without maximumTotal", () => {
 		const result = yield* service.upsertGlobalEntities(
 			[
 				{
+					populatedAt: null,
 					name: "Replacement",
 					externalId: "ext-1",
-					populatedAt: null,
 					properties: { title: "Replacement" },
 					entitySchemaSlug: EntitySchemaSlug.make("person"),
 				},
@@ -448,10 +449,10 @@ it.effect("counts existing entities outside the submitted prefix before admittin
 	let insertCalled = false;
 	const layer = makeServiceLayer(
 		makeEntitiesRepository({
-			findEntitySchemaById: () => Effect.succeed(globalSchemaScope),
 			lockGlobalEntityProvenanceScope: () => Effect.void,
-			countGlobalEntitiesByProvenanceScope: () => Effect.succeed(2),
 			findGlobalEntityByExternalId: () => Effect.succeed(null),
+			findEntitySchemaById: () => Effect.succeed(globalSchemaScope),
+			countGlobalEntitiesByProvenanceScope: () => Effect.succeed(2),
 			insertEntity: () =>
 				Effect.sync(() => {
 					insertCalled = true;
