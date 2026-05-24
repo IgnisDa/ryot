@@ -42,6 +42,8 @@ async function listEventsForEntity(
 	return result.data?.data ?? [];
 }
 
+const isoAt = (day: number) => `2024-01-${String(day).padStart(2, "0")}T00:00:00.000Z`;
+
 describe("Event trigger firing", () => {
 	it("logging 100% progress creates a completion event via builtin trigger", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
@@ -56,8 +58,9 @@ describe("Event trigger firing", () => {
 			body: [
 				{
 					entityId,
-					eventSchemaId: progressEventSchemaId,
+					occurredAt: isoAt(1),
 					properties: { progressPercent: 100 },
+					eventSchemaId: progressEventSchemaId,
 				},
 			],
 		});
@@ -66,8 +69,10 @@ describe("Event trigger firing", () => {
 
 		expect(completionEvent.eventSchemaSlug).toBe("complete");
 		expect(completionEvent.properties).toMatchObject({
-			completionMode: "just_now",
+			completedOn: isoAt(1),
+			completionMode: "custom_timestamps",
 		});
+		expect(completionEvent.occurredAt).toBe(isoAt(1));
 	}, 20_000);
 
 	it("logging less than 100% progress does not create a completion event", async () => {
@@ -81,11 +86,7 @@ describe("Event trigger firing", () => {
 		await client.POST("/events", {
 			headers: { Cookie: cookies },
 			body: [
-				{
-					entityId,
-					properties: { progressPercent: 50 },
-					eventSchemaId: progressEventSchemaId,
-				},
+				{ entityId, properties: { progressPercent: 50 }, eventSchemaId: progressEventSchemaId },
 			],
 		});
 
@@ -111,11 +112,7 @@ describe("Event trigger firing", () => {
 		await client.POST("/events", {
 			headers: { Cookie: cookies },
 			body: [
-				{
-					entityId,
-					eventSchemaId: progressEventSchemaId,
-					properties: { progressPercent: 100 },
-				},
+				{ entityId, eventSchemaId: progressEventSchemaId, properties: { progressPercent: 100 } },
 			],
 		});
 
@@ -124,11 +121,7 @@ describe("Event trigger firing", () => {
 		await client.POST("/events", {
 			headers: { Cookie: cookies },
 			body: [
-				{
-					entityId,
-					eventSchemaId: progressEventSchemaId,
-					properties: { progressPercent: 100 },
-				},
+				{ entityId, properties: { progressPercent: 100 }, eventSchemaId: progressEventSchemaId },
 			],
 		});
 
@@ -158,30 +151,30 @@ describe("Event trigger firing", () => {
 					showSeasons: [
 						{
 							id: 1,
-							name: "Season 1",
 							overview: null,
-							publishDate: null,
-							posterImages: [],
-							backdropImages: [],
 							seasonNumber: 1,
+							name: "Season 1",
+							posterImages: [],
+							publishDate: null,
+							backdropImages: [],
 							episodes: [
 								{
 									id: 101,
-									name: "Episode 1",
 									runtime: null,
 									overview: null,
-									publishDate: null,
 									posterImages: [],
 									episodeNumber: 1,
+									name: "Episode 1",
+									publishDate: null,
 								},
 								{
 									id: 102,
-									name: "Episode 2",
 									runtime: null,
 									overview: null,
-									publishDate: null,
 									posterImages: [],
 									episodeNumber: 2,
+									publishDate: null,
+									name: "Episode 2",
 								},
 							],
 						},
@@ -196,11 +189,7 @@ describe("Event trigger firing", () => {
 				{
 					entityId,
 					eventSchemaId: progressEventSchemaId,
-					properties: {
-						progressPercent: 100,
-						showSeason: 1,
-						showEpisode: 1,
-					},
+					properties: { showSeason: 1, showEpisode: 1, progressPercent: 100 },
 				},
 			],
 		});
@@ -224,30 +213,30 @@ describe("Event trigger firing", () => {
 					showSeasons: [
 						{
 							id: 1,
-							name: "Season 1",
 							overview: null,
-							publishDate: null,
-							posterImages: [],
-							backdropImages: [],
 							seasonNumber: 1,
+							name: "Season 1",
+							posterImages: [],
+							publishDate: null,
+							backdropImages: [],
 							episodes: [
 								{
 									id: 101,
-									name: "Episode 1",
 									runtime: null,
 									overview: null,
-									publishDate: null,
 									posterImages: [],
 									episodeNumber: 1,
+									name: "Episode 1",
+									publishDate: null,
 								},
 								{
 									id: 102,
-									name: "Episode 2",
 									runtime: null,
 									overview: null,
-									publishDate: null,
 									posterImages: [],
 									episodeNumber: 2,
+									name: "Episode 2",
+									publishDate: null,
 								},
 							],
 						},
@@ -262,11 +251,7 @@ describe("Event trigger firing", () => {
 				{
 					entityId,
 					eventSchemaId: progressEventSchemaId,
-					properties: {
-						progressPercent: 100,
-						showSeason: 1,
-						showEpisode: 1,
-					},
+					properties: { showSeason: 1, showEpisode: 1, progressPercent: 100 },
 				},
 			],
 		});
@@ -279,11 +264,7 @@ describe("Event trigger firing", () => {
 				{
 					entityId,
 					eventSchemaId: progressEventSchemaId,
-					properties: {
-						progressPercent: 100,
-						showSeason: 1,
-						showEpisode: 2,
-					},
+					properties: { showSeason: 1, showEpisode: 2, progressPercent: 100 },
 				},
 			],
 		});
@@ -307,41 +288,41 @@ describe("Event trigger firing", () => {
 					showSeasons: [
 						{
 							id: 1,
-							name: "Season 1",
 							overview: null,
-							publishDate: null,
-							posterImages: [],
-							backdropImages: [],
 							seasonNumber: 1,
+							posterImages: [],
+							name: "Season 1",
+							publishDate: null,
+							backdropImages: [],
 							episodes: [
 								{
 									id: 101,
-									name: "Episode 1",
 									runtime: null,
 									overview: null,
-									publishDate: null,
-									posterImages: [],
 									episodeNumber: 1,
+									posterImages: [],
+									name: "Episode 1",
+									publishDate: null,
 								},
 							],
 						},
 						{
 							id: 2,
-							name: "Specials",
 							overview: null,
-							publishDate: null,
-							posterImages: [],
-							backdropImages: [],
 							seasonNumber: 0,
+							name: "Specials",
+							posterImages: [],
+							publishDate: null,
+							backdropImages: [],
 							episodes: [
 								{
 									id: 201,
-									name: "Special 1",
 									runtime: null,
 									overview: null,
-									publishDate: null,
 									posterImages: [],
 									episodeNumber: 1,
+									publishDate: null,
+									name: "Special 1",
 								},
 							],
 						},
@@ -356,11 +337,7 @@ describe("Event trigger firing", () => {
 				{
 					entityId,
 					eventSchemaId: progressEventSchemaId,
-					properties: {
-						progressPercent: 100,
-						showSeason: 1,
-						showEpisode: 1,
-					},
+					properties: { showSeason: 1, showEpisode: 1, progressPercent: 100 },
 				},
 			],
 		});
@@ -373,15 +350,39 @@ describe("Event trigger firing", () => {
 		expect(events.filter((event) => event.eventSchemaSlug === "complete")).toHaveLength(1);
 	}, 20_000);
 
-	it("logging all anime episodes creates a completion event", async () => {
+	it("show with only Specials does not create a completion event", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
 		const { entityId, progressEventSchemaId } = await createBuiltinMediaLifecycleFixture(
 			client,
 			cookies,
 			{
-				entitySchemaSlug: "anime",
-				properties: { images: [], episodes: 2 },
+				entitySchemaSlug: "show",
+				properties: {
+					images: [],
+					showSeasons: [
+						{
+							id: 2,
+							overview: null,
+							seasonNumber: 0,
+							posterImages: [],
+							name: "Specials",
+							publishDate: null,
+							backdropImages: [],
+							episodes: [
+								{
+									id: 201,
+									runtime: null,
+									overview: null,
+									posterImages: [],
+									episodeNumber: 1,
+									name: "Special 1",
+									publishDate: null,
+								},
+							],
+						},
+					],
+				},
 			},
 		);
 
@@ -390,11 +391,40 @@ describe("Event trigger firing", () => {
 			body: [
 				{
 					entityId,
+					occurredAt: isoAt(1),
+					eventSchemaId: progressEventSchemaId,
+					properties: { showSeason: 0, showEpisode: 1, progressPercent: 100 },
+				},
+			],
+		});
+
+		await waitForEventCount(client, cookies, entityId, 1);
+
+		const events = await listEventsForEntity(client, cookies, entityId);
+		expect(events.filter((event) => event.eventSchemaSlug === "complete")).toHaveLength(0);
+	}, 20_000);
+
+	it("logging all anime episodes creates a completion event", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+
+		const { entityId, progressEventSchemaId } = await createBuiltinMediaLifecycleFixture(
+			client,
+			cookies,
+			{ entitySchemaSlug: "anime", properties: { images: [], episodes: 2 } },
+		);
+
+		await client.POST("/events", {
+			headers: { Cookie: cookies },
+			body: [
+				{
+					entityId,
+					occurredAt: isoAt(1),
 					eventSchemaId: progressEventSchemaId,
 					properties: { progressPercent: 100, animeEpisode: 1 },
 				},
 				{
 					entityId,
+					occurredAt: isoAt(2),
 					eventSchemaId: progressEventSchemaId,
 					properties: { progressPercent: 100, animeEpisode: 2 },
 				},
@@ -404,21 +434,23 @@ describe("Event trigger firing", () => {
 		const completeEvent = await pollForEventWithSchema(client, cookies, entityId, "complete");
 
 		expect(completeEvent.eventSchemaSlug).toBe("complete");
+		expect(completeEvent.properties).toMatchObject({
+			completionMode: "custom_timestamps",
+			completedOn: isoAt(2),
+		});
+		expect(completeEvent.occurredAt).toBe(isoAt(2));
 
 		const events = await listEventsForEntity(client, cookies, entityId);
 		expect(events.filter((event) => event.eventSchemaSlug === "complete")).toHaveLength(1);
 	}, 20_000);
 
-	it("anime with unknown episode count completes immediately", async () => {
+	it("anime with unknown episode count does not create a completion event", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
 		const { entityId, progressEventSchemaId } = await createBuiltinMediaLifecycleFixture(
 			client,
 			cookies,
-			{
-				entitySchemaSlug: "anime",
-				properties: { images: [], episodes: null },
-			},
+			{ entitySchemaSlug: "anime", properties: { images: [], episodes: null } },
 		);
 
 		await client.POST("/events", {
@@ -426,18 +458,17 @@ describe("Event trigger firing", () => {
 			body: [
 				{
 					entityId,
+					occurredAt: isoAt(1),
 					eventSchemaId: progressEventSchemaId,
 					properties: { progressPercent: 100, animeEpisode: 1 },
 				},
 			],
 		});
 
-		const completeEvent = await pollForEventWithSchema(client, cookies, entityId, "complete");
-
-		expect(completeEvent.eventSchemaSlug).toBe("complete");
+		await waitForEventCount(client, cookies, entityId, 1);
 
 		const events = await listEventsForEntity(client, cookies, entityId);
-		expect(events.filter((event) => event.eventSchemaSlug === "complete")).toHaveLength(1);
+		expect(events.filter((event) => event.eventSchemaSlug === "complete")).toHaveLength(0);
 	}, 20_000);
 
 	it("logging all manga chapters creates a completion event", async () => {
@@ -446,10 +477,7 @@ describe("Event trigger firing", () => {
 		const { entityId, progressEventSchemaId } = await createBuiltinMediaLifecycleFixture(
 			client,
 			cookies,
-			{
-				entitySchemaSlug: "manga",
-				properties: { images: [], volumes: null, chapters: 2 },
-			},
+			{ entitySchemaSlug: "manga", properties: { images: [], volumes: null, chapters: 2 } },
 		);
 
 		await client.POST("/events", {
@@ -473,16 +501,13 @@ describe("Event trigger firing", () => {
 		expect(completeEvent.eventSchemaSlug).toBe("complete");
 	}, 20_000);
 
-	it("manga with unknown chapter count completes immediately", async () => {
+	it("manga with unknown chapter count does not create a completion event", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
 		const { entityId, progressEventSchemaId } = await createBuiltinMediaLifecycleFixture(
 			client,
 			cookies,
-			{
-				entitySchemaSlug: "manga",
-				properties: { images: [], volumes: null, chapters: null },
-			},
+			{ entitySchemaSlug: "manga", properties: { images: [], volumes: null, chapters: null } },
 		);
 
 		await client.POST("/events", {
@@ -490,15 +515,17 @@ describe("Event trigger firing", () => {
 			body: [
 				{
 					entityId,
+					occurredAt: isoAt(1),
 					eventSchemaId: progressEventSchemaId,
 					properties: { progressPercent: 100, mangaChapter: 1 },
 				},
 			],
 		});
 
-		const completeEvent = await pollForEventWithSchema(client, cookies, entityId, "complete");
+		await waitForEventCount(client, cookies, entityId, 1);
 
-		expect(completeEvent.eventSchemaSlug).toBe("complete");
+		const events = await listEventsForEntity(client, cookies, entityId);
+		expect(events.filter((event) => event.eventSchemaSlug === "complete")).toHaveLength(0);
 	}, 20_000);
 
 	it("logging all podcast episodes creates a completion event", async () => {
@@ -514,22 +541,22 @@ describe("Event trigger firing", () => {
 					totalEpisodes: 2,
 					episodes: [
 						{
-							id: "episode-1",
-							title: "Episode 1",
-							publishDate: "2024-01-01",
 							number: 1,
 							runtime: null,
 							overview: null,
 							thumbnail: null,
+							id: "episode-1",
+							title: "Episode 1",
+							publishDate: "2024-01-01",
 						},
 						{
-							id: "episode-2",
-							title: "Episode 2",
-							publishDate: "2024-01-02",
 							number: 2,
 							runtime: null,
 							overview: null,
 							thumbnail: null,
+							id: "episode-2",
+							title: "Episode 2",
+							publishDate: "2024-01-02",
 						},
 					],
 				},
@@ -557,16 +584,13 @@ describe("Event trigger firing", () => {
 		expect(completeEvent.eventSchemaSlug).toBe("complete");
 	}, 20_000);
 
-	it("movie completion still happens immediately at 100% progress", async () => {
+	it("logging 100% progress creates a timestamped completion event via builtin trigger", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
 		const { entityId, progressEventSchemaId } = await createBuiltinMediaLifecycleFixture(
 			client,
 			cookies,
-			{
-				entitySchemaSlug: "movie",
-				properties: { images: [] },
-			},
+			{ entitySchemaSlug: "movie", properties: { images: [] } },
 		);
 
 		await client.POST("/events", {
@@ -574,8 +598,9 @@ describe("Event trigger firing", () => {
 			body: [
 				{
 					entityId,
-					eventSchemaId: progressEventSchemaId,
+					occurredAt: isoAt(1),
 					properties: { progressPercent: 100 },
+					eventSchemaId: progressEventSchemaId,
 				},
 			],
 		});
@@ -583,6 +608,11 @@ describe("Event trigger firing", () => {
 		const completeEvent = await pollForEventWithSchema(client, cookies, entityId, "complete");
 
 		expect(completeEvent.eventSchemaSlug).toBe("complete");
+		expect(completeEvent.properties).toMatchObject({
+			completedOn: isoAt(1),
+			completionMode: "custom_timestamps",
+		});
+		expect(completeEvent.occurredAt).toBe(isoAt(1));
 	}, 20_000);
 
 	it("consumedOn from a progress event is propagated to the auto-generated complete event", async () => {
@@ -599,6 +629,7 @@ describe("Event trigger firing", () => {
 			body: [
 				{
 					entityId,
+					occurredAt: isoAt(1),
 					eventSchemaId: progressEventSchemaId,
 					properties: { progressPercent: 100, consumedOn: "Jellyfin" },
 				},
@@ -609,8 +640,10 @@ describe("Event trigger firing", () => {
 
 		expect(completeEvent.properties).toMatchObject({
 			consumedOn: "Jellyfin",
-			completionMode: "just_now",
+			completedOn: isoAt(1),
+			completionMode: "custom_timestamps",
 		});
+		expect(completeEvent.occurredAt).toBe(isoAt(1));
 	}, 20_000);
 
 	it("complete event has no consumedOn when progress event omits it", async () => {
@@ -625,13 +658,23 @@ describe("Event trigger firing", () => {
 		await client.POST("/events", {
 			headers: { Cookie: cookies },
 			body: [
-				{ entityId, properties: { progressPercent: 100 }, eventSchemaId: progressEventSchemaId },
+				{
+					entityId,
+					occurredAt: isoAt(1),
+					properties: { progressPercent: 100 },
+					eventSchemaId: progressEventSchemaId,
+				},
 			],
 		});
 
 		const completeEvent = await pollForEventWithSchema(client, cookies, entityId, "complete");
 
 		expect(completeEvent.properties).not.toHaveProperty("consumedOn");
+		expect(completeEvent.properties).toMatchObject({
+			completionMode: "custom_timestamps",
+			completedOn: isoAt(1),
+		});
+		expect(completeEvent.occurredAt).toBe(isoAt(1));
 	}, 20_000);
 
 	it("movie completion still fires twice when 100% progress is logged twice", async () => {
@@ -646,7 +689,12 @@ describe("Event trigger firing", () => {
 		await client.POST("/events", {
 			headers: { Cookie: cookies },
 			body: [
-				{ entityId, properties: { progressPercent: 100 }, eventSchemaId: progressEventSchemaId },
+				{
+					entityId,
+					occurredAt: isoAt(1),
+					properties: { progressPercent: 100 },
+					eventSchemaId: progressEventSchemaId,
+				},
 			],
 		});
 
@@ -655,7 +703,12 @@ describe("Event trigger firing", () => {
 		await client.POST("/events", {
 			headers: { Cookie: cookies },
 			body: [
-				{ entityId, properties: { progressPercent: 100 }, eventSchemaId: progressEventSchemaId },
+				{
+					entityId,
+					occurredAt: isoAt(2),
+					properties: { progressPercent: 100 },
+					eventSchemaId: progressEventSchemaId,
+				},
 			],
 		});
 

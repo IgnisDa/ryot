@@ -73,6 +73,71 @@ function extractEntityBase(item: QueryEngineEntityItem | undefined) {
 	};
 }
 
+const makeEventJoinColumnReference = (
+	joinKey: string,
+	column: "createdAt" | "id" | "occurredAt",
+) => ({
+	type: "reference" as const,
+	reference: { type: "event-join" as const, joinKey, path: [column] },
+});
+
+const makeChronologicalComparisonPredicate = (leftJoinKey: string, rightJoinKey: string) => {
+	const leftOccurredAt = makeEventJoinColumnReference(leftJoinKey, "occurredAt");
+	const rightOccurredAt = makeEventJoinColumnReference(rightJoinKey, "occurredAt");
+	const leftCreatedAt = makeEventJoinColumnReference(leftJoinKey, "createdAt");
+	const rightCreatedAt = makeEventJoinColumnReference(rightJoinKey, "createdAt");
+	const leftId = makeEventJoinColumnReference(leftJoinKey, "id");
+	const rightId = makeEventJoinColumnReference(rightJoinKey, "id");
+
+	return {
+		type: "or" as const,
+		predicates: [
+			{ type: "isNull" as const, expression: rightOccurredAt },
+			{
+				left: leftOccurredAt,
+				right: rightOccurredAt,
+				operator: "gt" as const,
+				type: "comparison" as const,
+			},
+			{
+				type: "and" as const,
+				predicates: [
+					{
+						left: leftOccurredAt,
+						right: rightOccurredAt,
+						operator: "eq" as const,
+						type: "comparison" as const,
+					},
+					{
+						left: leftCreatedAt,
+						right: rightCreatedAt,
+						operator: "gt" as const,
+						type: "comparison" as const,
+					},
+				],
+			},
+			{
+				type: "and" as const,
+				predicates: [
+					{
+						left: leftOccurredAt,
+						right: rightOccurredAt,
+						operator: "eq" as const,
+						type: "comparison" as const,
+					},
+					{
+						left: leftCreatedAt,
+						right: rightCreatedAt,
+						operator: "eq" as const,
+						type: "comparison" as const,
+					},
+					{ left: leftId, right: rightId, operator: "gt" as const, type: "comparison" as const },
+				],
+			},
+		],
+	};
+};
+
 export function useMediaOverviewData() {
 	const apiClient = useApiClient();
 
@@ -117,102 +182,10 @@ export function useMediaOverviewData() {
 									reference: { type: "event-join", joinKey: "backlog", path: ["occurredAt"] },
 								},
 							},
-							{
-								type: "or",
-								predicates: [
-									{
-										type: "isNull",
-										expression: {
-											type: "reference",
-											reference: { type: "event-join", path: ["occurredAt"], joinKey: "progress" },
-										},
-									},
-									{
-										operator: "gt",
-										type: "comparison",
-										left: {
-											type: "reference",
-											reference: { type: "event-join", joinKey: "backlog", path: ["occurredAt"] },
-										},
-										right: {
-											type: "reference",
-											reference: { type: "event-join", path: ["occurredAt"], joinKey: "progress" },
-										},
-									},
-								],
-							},
-							{
-								type: "or",
-								predicates: [
-									{
-										type: "isNull",
-										expression: {
-											type: "reference",
-											reference: { type: "event-join", path: ["occurredAt"], joinKey: "complete" },
-										},
-									},
-									{
-										operator: "gt",
-										type: "comparison",
-										left: {
-											type: "reference",
-											reference: { type: "event-join", joinKey: "backlog", path: ["occurredAt"] },
-										},
-										right: {
-											type: "reference",
-											reference: { type: "event-join", joinKey: "complete", path: ["occurredAt"] },
-										},
-									},
-								],
-							},
-							{
-								type: "or",
-								predicates: [
-									{
-										type: "isNull",
-										expression: {
-											type: "reference",
-											reference: { type: "event-join", path: ["occurredAt"], joinKey: "dropped" },
-										},
-									},
-									{
-										operator: "gt",
-										type: "comparison",
-										left: {
-											type: "reference",
-											reference: { type: "event-join", joinKey: "backlog", path: ["occurredAt"] },
-										},
-										right: {
-											type: "reference",
-											reference: { type: "event-join", joinKey: "dropped", path: ["occurredAt"] },
-										},
-									},
-								],
-							},
-							{
-								type: "or",
-								predicates: [
-									{
-										type: "isNull",
-										expression: {
-											type: "reference",
-											reference: { type: "event-join", path: ["occurredAt"], joinKey: "on_hold" },
-										},
-									},
-									{
-										operator: "gt",
-										type: "comparison",
-										left: {
-											type: "reference",
-											reference: { type: "event-join", joinKey: "backlog", path: ["occurredAt"] },
-										},
-										right: {
-											type: "reference",
-											reference: { type: "event-join", joinKey: "on_hold", path: ["occurredAt"] },
-										},
-									},
-								],
-							},
+							makeChronologicalComparisonPredicate("backlog", "progress"),
+							makeChronologicalComparisonPredicate("backlog", "complete"),
+							makeChronologicalComparisonPredicate("backlog", "dropped"),
+							makeChronologicalComparisonPredicate("backlog", "on_hold"),
 						],
 					},
 					fields: [
@@ -295,6 +268,7 @@ export function useMediaOverviewData() {
 						},
 					],
 					eventJoins: [
+						{ key: "backlog", kind: "latestEvent", eventSchemaSlug: "backlog" },
 						{ key: "dropped", kind: "latestEvent", eventSchemaSlug: "dropped" },
 						{ key: "on_hold", kind: "latestEvent", eventSchemaSlug: "on_hold" },
 						{ key: "progress", kind: "latestEvent", eventSchemaSlug: "progress" },
@@ -318,78 +292,10 @@ export function useMediaOverviewData() {
 									reference: { type: "event-join", joinKey: "progress", path: ["occurredAt"] },
 								},
 							},
-							{
-								type: "or",
-								predicates: [
-									{
-										type: "isNull",
-										expression: {
-											type: "reference",
-											reference: { type: "event-join", joinKey: "complete", path: ["occurredAt"] },
-										},
-									},
-									{
-										type: "comparison",
-										operator: "gt",
-										left: {
-											type: "reference",
-											reference: { type: "event-join", joinKey: "progress", path: ["occurredAt"] },
-										},
-										right: {
-											type: "reference",
-											reference: { type: "event-join", joinKey: "complete", path: ["occurredAt"] },
-										},
-									},
-								],
-							},
-							{
-								type: "or",
-								predicates: [
-									{
-										type: "isNull",
-										expression: {
-											type: "reference",
-											reference: { type: "event-join", joinKey: "dropped", path: ["occurredAt"] },
-										},
-									},
-									{
-										type: "comparison",
-										operator: "gt",
-										left: {
-											type: "reference",
-											reference: { type: "event-join", joinKey: "progress", path: ["occurredAt"] },
-										},
-										right: {
-											type: "reference",
-											reference: { type: "event-join", joinKey: "dropped", path: ["occurredAt"] },
-										},
-									},
-								],
-							},
-							{
-								type: "or",
-								predicates: [
-									{
-										type: "isNull",
-										expression: {
-											type: "reference",
-											reference: { type: "event-join", joinKey: "on_hold", path: ["occurredAt"] },
-										},
-									},
-									{
-										type: "comparison",
-										operator: "gt",
-										left: {
-											type: "reference",
-											reference: { type: "event-join", joinKey: "progress", path: ["occurredAt"] },
-										},
-										right: {
-											type: "reference",
-											reference: { type: "event-join", joinKey: "on_hold", path: ["occurredAt"] },
-										},
-									},
-								],
-							},
+							makeChronologicalComparisonPredicate("progress", "backlog"),
+							makeChronologicalComparisonPredicate("progress", "complete"),
+							makeChronologicalComparisonPredicate("progress", "dropped"),
+							makeChronologicalComparisonPredicate("progress", "on_hold"),
 						],
 					},
 					fields: [
@@ -537,7 +443,11 @@ export function useMediaOverviewData() {
 					],
 					eventJoins: [
 						{ key: "review", kind: "latestEvent", eventSchemaSlug: "review" },
+						{ key: "backlog", kind: "latestEvent", eventSchemaSlug: "backlog" },
+						{ key: "progress", kind: "latestEvent", eventSchemaSlug: "progress" },
 						{ key: "complete", kind: "latestEvent", eventSchemaSlug: "complete" },
+						{ key: "dropped", kind: "latestEvent", eventSchemaSlug: "dropped" },
+						{ key: "on_hold", kind: "latestEvent", eventSchemaSlug: "on_hold" },
 					],
 					pagination: { page: 1, limit: 6 },
 					sort: {
@@ -557,30 +467,11 @@ export function useMediaOverviewData() {
 									reference: { type: "event-join", path: ["occurredAt"], joinKey: "complete" },
 								},
 							},
-							{
-								type: "or",
-								predicates: [
-									{
-										type: "isNull",
-										expression: {
-											type: "reference",
-											reference: { joinKey: "review", type: "event-join", path: ["occurredAt"] },
-										},
-									},
-									{
-										type: "comparison",
-										operator: "gt",
-										left: {
-											type: "reference",
-											reference: { type: "event-join", joinKey: "complete", path: ["occurredAt"] },
-										},
-										right: {
-											type: "reference",
-											reference: { joinKey: "review", type: "event-join", path: ["occurredAt"] },
-										},
-									},
-								],
-							},
+							makeChronologicalComparisonPredicate("complete", "backlog"),
+							makeChronologicalComparisonPredicate("complete", "progress"),
+							makeChronologicalComparisonPredicate("complete", "dropped"),
+							makeChronologicalComparisonPredicate("complete", "on_hold"),
+							makeChronologicalComparisonPredicate("complete", "review"),
 						],
 					},
 					fields: [
