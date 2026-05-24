@@ -1,9 +1,8 @@
 import { randomUUID } from "node:crypto";
 
 import { createRoute, OpenAPIHono } from "@hono/zod-openapi";
-import type { Context } from "hono";
 
-import { auth } from "~/lib/auth/instance";
+import { auth, createAdminRoute } from "~/lib/auth";
 import { clearPendingReset, storePendingReset } from "~/lib/auth/password-reset";
 import { config } from "~/lib/config";
 import {
@@ -24,60 +23,50 @@ import {
 } from "./schemas";
 import { checkResetEligibility, listUsers } from "./service";
 
-const validateAdminToken = (c: Context) => {
-	const header = c.req.header("Authorization");
-	if (!header?.startsWith("Bearer ")) {
-		return false;
-	}
-	return header.slice(7) === config.server.adminAccessToken;
-};
+const listUsersRoute = createAdminRoute(
+	createRoute({
+		method: "get",
+		path: "/users",
+		tags: ["god-mode"],
+		request: { query: userListQuerySchema },
+		summary: "List all users with auth state classification",
+		responses: {
+			...createStandardResponses({
+				includePayloadError: false,
+				successSchema: userListResponseSchema,
+				successDescription: "User list with auth states",
+			}),
+		},
+	}),
+);
 
-const listUsersRoute = createRoute({
-	method: "get",
-	path: "/users",
-	tags: ["god-mode"],
-	request: { query: userListQuerySchema },
-	summary: "List all users with auth state classification",
-	responses: {
-		401: createErrorResponse("Authentication failed", commonErrors.unauthenticated),
-		...createStandardResponses({
-			includePayloadError: false,
-			successSchema: userListResponseSchema,
-			successDescription: "User list with auth states",
-		}),
-	},
-});
-
-const resetPasswordRoute = createRoute({
-	method: "post",
-	tags: ["god-mode"],
-	path: "/users/{userId}/reset-password",
-	summary: "Generate a password reset link for a user",
-	request: { params: resetPasswordPathParamsSchema },
-	responses: {
-		400: createErrorResponse("Validation error", commonErrors.validationFailed),
-		401: createErrorResponse("Authentication failed", commonErrors.unauthenticated),
-		500: createErrorResponse(
-			"Password reset request failed or timed out",
-			commonErrors.internalError,
-			commonErrors.timeout,
-		),
-		...createStandardResponses({
-			includePayloadError: false,
-			successSchema: resetPasswordResponseSchema,
-			successDescription: "Password reset link generated successfully",
-		}),
-	},
-});
+const resetPasswordRoute = createAdminRoute(
+	createRoute({
+		method: "post",
+		tags: ["god-mode"],
+		path: "/users/{userId}/reset-password",
+		summary: "Generate a password reset link for a user",
+		request: { params: resetPasswordPathParamsSchema },
+		responses: {
+			400: createErrorResponse("Validation error", commonErrors.validationFailed),
+			500: createErrorResponse(
+				"Password reset request failed or timed out",
+				commonErrors.internalError,
+				commonErrors.timeout,
+			),
+			...createStandardResponses({
+				includePayloadError: false,
+				successSchema: resetPasswordResponseSchema,
+				successDescription: "Password reset link generated successfully",
+			}),
+		},
+	}),
+);
 
 const RESET_LINK_TIMEOUT_MS = 10_000;
 
 const godModeApi = new OpenAPIHono()
 	.openapi(listUsersRoute, async (c) => {
-		if (!validateAdminToken(c)) {
-			return c.json(errorResponse(ERROR_CODES.UNAUTHENTICATED, "Authentication required"), 401);
-		}
-
 		const query = c.req.valid("query");
 
 		const ctx = await auth.$context;
@@ -94,10 +83,6 @@ const godModeApi = new OpenAPIHono()
 		return c.json(response.body, response.status);
 	})
 	.openapi(resetPasswordRoute, async (c) => {
-		if (!validateAdminToken(c)) {
-			return c.json(errorResponse(ERROR_CODES.UNAUTHENTICATED, "Authentication required"), 401);
-		}
-
 		if (config.users.disableLocalAuth) {
 			return c.json(
 				errorResponse(
