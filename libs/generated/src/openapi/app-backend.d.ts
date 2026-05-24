@@ -4169,7 +4169,7 @@ export interface paths {
                         };
                     };
                 };
-                /** @description Authentication failed */
+                /** @description Request is unauthenticated */
                 401: {
                     headers: {
                         [name: string]: unknown;
@@ -4237,7 +4237,7 @@ export interface paths {
                         };
                     };
                 };
-                /** @description Authentication failed */
+                /** @description Request is unauthenticated */
                 401: {
                     headers: {
                         [name: string]: unknown;

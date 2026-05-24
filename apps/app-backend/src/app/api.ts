@@ -2,7 +2,12 @@ import { OpenAPIHono } from "@hono/zod-openapi";
 import { Scalar } from "@scalar/hono-api-reference";
 import { HTTPException } from "hono/http-exception";
 
-import { auth, type MaybeAuthType } from "~/lib/auth";
+import {
+	adminAccessTokenHeader,
+	adminAccessTokenSecurityScheme,
+	auth,
+	type MaybeAuthType,
+} from "~/lib/auth";
 import { ERROR_CODES, errorResponse } from "~/lib/openapi/errors";
 import { collectionsApi } from "~/modules/collections/routes";
 import { entitiesApi } from "~/modules/entities/routes";
@@ -135,6 +140,12 @@ baseApp.openAPIRegistry.registerComponent("securitySchemes", "X-Api-Key", {
 	in: "header",
 	type: "apiKey",
 	name: "X-Api-Key",
+});
+
+baseApp.openAPIRegistry.registerComponent("securitySchemes", adminAccessTokenSecurityScheme, {
+	in: "header",
+	type: "apiKey",
+	name: adminAccessTokenHeader,
 });
 
 export type AppType = typeof baseApp;
