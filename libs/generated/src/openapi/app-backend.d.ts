@@ -2680,6 +2680,17 @@ export interface paths {
                         };
                     };
                 };
+                /** @description Temporary upload exceeds the maximum allowed size */
+                413: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: components["schemas"]["ValidationFailedError"];
+                        };
+                    };
+                };
                 /** @description Temporary upload failed */
                 500: {
                     headers: {
