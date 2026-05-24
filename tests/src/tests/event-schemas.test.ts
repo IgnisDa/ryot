@@ -410,9 +410,22 @@ describe("GET /event-schemas", () => {
 		expect(showProgressSchema).not.toEqual(movieProgressSchema);
 	});
 
-	it("exposes per-entity dropped and on_hold schema variants matching progress", async () => {
+	it("exposes per-entity dropped and on_hold schema variants extending progress", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { schemas } = await listBuiltinEntitySchemas(client, cookies);
+		const sessionFields = {
+			startedOn: {
+				type: "datetime",
+				label: "Started On",
+				description: "Date and time you started consuming this media",
+			},
+			timeSpent: {
+				type: "number",
+				label: "Time Spent",
+				validation: { minimum: 0 },
+				description: "Time spent consuming this media in minutes",
+			},
+		};
 
 		const getSchemaBySlug = async (entitySlug: string, eventSlug: string) => {
 			const mediaSchema = schemas.find((schema) => schema.slug === entitySlug);
@@ -433,8 +446,10 @@ describe("GET /event-schemas", () => {
 			// oxlint-disable-next-line no-await-in-loop
 			const onHoldSchema = await getSchemaBySlug(slug, "on_hold");
 
-			expect(droppedSchema).toEqual(progressSchema);
-			expect(onHoldSchema).toEqual(progressSchema);
+			expect(droppedSchema).toMatchObject(progressSchema);
+			expect(onHoldSchema).toMatchObject(progressSchema);
+			expect(droppedSchema).toMatchObject({ fields: sessionFields });
+			expect(onHoldSchema).toMatchObject({ fields: sessionFields });
 		}
 	});
 });
