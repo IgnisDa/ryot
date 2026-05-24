@@ -149,6 +149,11 @@ const sharedEventRuntimeColumns = {
 		display: true,
 		property: createRuntimeProperty("Updated At", "datetime", "Event update timestamp"),
 	},
+	occurredAt: {
+		filter: true,
+		display: true,
+		property: createRuntimeProperty("Occurred At", "datetime", "Event occurrence timestamp"),
+	},
 } satisfies Record<string, RuntimeColumnConfig>;
 
 const eventJoinColumns = sharedEventRuntimeColumns;

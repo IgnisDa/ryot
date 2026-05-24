@@ -28,8 +28,8 @@ export const buildEventFirstCte = (input: {
 	const entitySchemaData = buildEntitySchemaDataExpression();
 	const eventSchemaData = buildEventSchemaDataExpression();
 	const dateRangeClause = input.dateRange
-		? sql`and ${event.createdAt} >= ${input.dateRange.startAt}::timestamptz
-			and ${event.createdAt} < ${input.dateRange.endAt}::timestamptz`
+		? sql`and ${event.occurredAt} >= ${input.dateRange.startAt}::timestamptz
+			and ${event.occurredAt} < ${input.dateRange.endAt}::timestamptz`
 		: sql``;
 
 	return sql`
@@ -38,6 +38,7 @@ export const buildEventFirstCte = (input: {
 				${event.id} as id,
 				${event.createdAt} as created_at,
 				${event.updatedAt} as updated_at,
+				${event.occurredAt} as occurred_at,
 				${event.properties} as properties,
 				${event.entityId} as entity_id,
 				${entity.name} as name,
