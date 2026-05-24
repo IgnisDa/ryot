@@ -1,5 +1,6 @@
 import { expect, it } from "@effect/vitest";
 import {
+	aggregate,
 	and,
 	ascending,
 	castDate,
@@ -16,6 +17,8 @@ import {
 	join,
 	jsonPath,
 	literal,
+	measure,
+	measureDescending,
 	rows,
 	sum,
 	table,
@@ -144,6 +147,70 @@ it("accepts empty fields and rejects retained limits", () => {
 		),
 	).toBeNull();
 	expect(literal("unused")).toEqual({ type: "literal", value: "unused" });
+});
+
+it("validates aggregate keys, grouped requirements, ordering, and limits", () => {
+	const entity = table("entity", "entity");
+	const countMeasure = measure("count", { function: "count" });
+	const group = field("name", column(entity, "name"));
+
+	expect(
+		validateRyotQLDocument(document({ entities: aggregate(entity, { measures: [countMeasure] }) })),
+	).toBeNull();
+	expect(
+		validateRyotQLDocument(
+			document({
+				entities: aggregate(entity, {
+					groupBy: [group],
+					measures: [countMeasure],
+					orderBy: [measureDescending("count")],
+				}),
+			}),
+		),
+	).toBe("Query 'entities': Grouped aggregate outputs require a limit");
+	expect(
+		validateRyotQLDocument(
+			document({
+				entities: aggregate(entity, { limit: 10, groupBy: [group], measures: [countMeasure] }),
+			}),
+		),
+	).toBe("Query 'entities': Grouped aggregate outputs require non-empty orderBy");
+	expect(
+		validateRyotQLDocument(
+			document({
+				entities: aggregate(entity, {
+					limit: 1001,
+					groupBy: [group],
+					measures: [countMeasure],
+					orderBy: [measureDescending("count")],
+				}),
+			}),
+		),
+	).toBe("Query 'entities': Grouped aggregate limit must not exceed 1000");
+	expect(
+		validateRyotQLDocument(
+			document({
+				entities: aggregate(entity, {
+					limit: 10,
+					groupBy: [group],
+					measures: [countMeasure],
+					orderBy: [measureDescending("missing")],
+				}),
+			}),
+		),
+	).toBe("Query 'entities': Unknown aggregate measure key 'missing'");
+	expect(
+		validateRyotQLDocument(
+			document({
+				entities: aggregate(entity, {
+					limit: 10,
+					measures: [countMeasure],
+					orderBy: [measureDescending("count")],
+					groupBy: [field("count", column(entity, "name"))],
+				}),
+			}),
+		),
+	).toBe("Query 'entities': Duplicate aggregate output key 'count'");
 });
 
 it("rejects document and join counts above the retained limits", () => {
