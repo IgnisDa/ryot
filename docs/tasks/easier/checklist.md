@@ -97,10 +97,6 @@
   - Owner: W18 Transactional email
   - Scope: Remove static build/copy pipeline
 
-- [ ] **23. Make checks verification-only** [M/S/W]
-  - Owner: W19 Test orchestration
-  - Scope: `oxfmt --check` and non-fixing lint flags
-
 - [ ] **24. Remove website-local admin result protocol** [M/S/M]
   - Owner: C02 Website bridge
   - Scope: Use shared rejecting contract runner
