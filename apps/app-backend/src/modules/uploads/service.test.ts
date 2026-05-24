@@ -68,8 +68,6 @@ const defaultFileInfo = {
 	blksize: Option.none<FileSystem.Size>(),
 } satisfies FileSystem.File.Info;
 
-/* ---------- createPresignedUpload ---------- */
-
 it.effect("rejects unsupported content types for presigned upload", () =>
 	Effect.gen(function* () {
 		const service = yield* UploadsService;
@@ -203,8 +201,6 @@ it.effect("dies when S3 is not configured for presigned upload", () =>
 	),
 );
 
-/* ---------- createPresignedDownload ---------- */
-
 it.effect("returns presigned download URLs for multiple keys", () =>
 	Effect.gen(function* () {
 		const service = yield* UploadsService;
@@ -258,8 +254,6 @@ it.effect("dies when S3 is not configured for presigned download", () =>
 		),
 	),
 );
-
-/* ---------- uploadTemporary ---------- */
 
 it.effect("writes supported files to temporary directory and returns tokens", () => {
 	const writtenPaths: Array<{ path: string; bytes: Uint8Array }> = [];
