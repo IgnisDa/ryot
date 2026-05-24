@@ -46,7 +46,7 @@ const homeView = {
 
 function getTextField(row: RowItem, key: string) {
 	const field = row[key];
-	if (!field || !("kind" in field) || field.kind !== "text" || typeof field.value !== "string") {
+	if (!("kind" in field) || field.kind !== "text" || typeof field.value !== "string") {
 		return undefined;
 	}
 	return field.value;
@@ -121,7 +121,7 @@ export function getCurrentWorkspace(
 	workspaces: readonly NavigationWorkspace[],
 	routeWorkspace: string | undefined,
 	persistedWorkspace: string,
-) {
+): NavigationWorkspace | undefined {
 	return (
 		workspaces.find((item) => item.slug === routeWorkspace) ??
 		workspaces.find((item) => item.slug === persistedWorkspace) ??

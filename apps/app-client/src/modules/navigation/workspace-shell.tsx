@@ -1,5 +1,4 @@
 import { useAtomValue } from "@effect/atom-react";
-import { buildAllCollectionsQueryDocument } from "@ryot/query-engine/recipes/app";
 import clsx from "clsx";
 import { Cause } from "effect";
 import { AsyncResult } from "effect/unstable/reactivity";
@@ -8,7 +7,7 @@ import { useState, type ReactNode } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { appQueryClient } from "@/api/query-client";
+import { collectionsAtom, pluginsAtom, savedViewsAtom } from "@/api/atoms";
 import { useAuthClient } from "@/modules/auth/client";
 import { AppIcon as NavigationIcon } from "@/modules/icons";
 import { useSetWorkspace, useWorkspace } from "@/modules/server/state";
@@ -24,16 +23,6 @@ import {
 	type NavigationItems,
 	type NavigationWorkspace,
 } from "./navigation-data";
-
-const pluginsAtom = appQueryClient.query("definitions", "listPlugins", {
-	query: { includeDisabled: false },
-});
-const savedViewsAtom = appQueryClient.query("savedViews", "list", {
-	query: { includeDisabled: true },
-});
-const collectionsAtom = appQueryClient.query("queryEngine", "execute", {
-	payload: buildAllCollectionsQueryDocument({ limit: 100 }),
-});
 
 function NavigationRow(props: {
 	isActive: boolean;
@@ -634,14 +623,15 @@ export function WorkspaceShell() {
 	if (!currentWorkspace) {
 		return <NavigationStatus title="No workspace selected" />;
 	}
+	const currentWorkspaceSlug = currentWorkspace.slug;
 	const items = getNavigationItems({ data, workspaceSlug: currentWorkspace.slug });
-	const accountName = session?.user.name || session?.user.email || "Account";
-	const accountEmail = session?.user.email || "Email unavailable";
+	const accountName = session?.user.name ?? session?.user.email ?? "Account";
+	const accountEmail = session?.user.email ?? "Email unavailable";
 
 	function navigate(item: NavigationItem) {
 		setMobileSheet(null);
 		setDesktopWorkspaceOpen(false);
-		router.push(getNavigationHref(currentWorkspace.slug, item));
+		router.push(getNavigationHref(currentWorkspaceSlug, item));
 	}
 
 	function selectWorkspace(slug: string) {
