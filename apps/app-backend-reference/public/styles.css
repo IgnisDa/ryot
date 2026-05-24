@@ -1,0 +1,136 @@
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+
+body {
+	font-family: system-ui, sans-serif;
+	max-width: 860px;
+	margin: 0 auto;
+	padding: 1rem 2rem;
+	background: #f8f8f8;
+	color: #1a1a1a;
+}
+
+header {
+	display: flex;
+	align-items: baseline;
+	gap: 1rem;
+	border-bottom: 1px solid #ddd;
+	margin-bottom: 1.5rem;
+	padding-bottom: 0.5rem;
+}
+
+h1 {
+	font-size: 1.3rem;
+	margin: 0;
+}
+h2 {
+	font-size: 1rem;
+	margin: 1.5rem 0 0.5rem;
+}
+section {
+	margin-bottom: 2rem;
+}
+
+form {
+	align-items: flex-start;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+}
+
+input[type="email"],
+input[type="password"],
+input[type="url"] {
+	border: 1px solid #ccc;
+	border-radius: 4px;
+	font-size: 0.9rem;
+	min-width: 200px;
+	padding: 0.35rem 0.6rem;
+}
+
+textarea {
+	border: 1px solid #ccc;
+	border-radius: 4px;
+	font-family: monospace;
+	font-size: 0.85rem;
+	max-width: 500px;
+	padding: 0.35rem 0.6rem;
+	resize: vertical;
+	width: 100%;
+}
+
+button {
+	background: #0066cc;
+	border: none;
+	border-radius: 4px;
+	color: #fff;
+	cursor: pointer;
+	font-size: 0.9rem;
+	padding: 0.35rem 0.8rem;
+}
+
+button:hover {
+	background: #004fa3;
+}
+
+#signup-btn {
+	background: transparent;
+	border: 1px solid #0066cc;
+	color: #0066cc;
+}
+
+#signup-btn:hover {
+	background: #e8f0fe;
+}
+
+.card {
+	background: #fff;
+	border: 1px solid #e0e0e0;
+	border-radius: 6px;
+	font-size: 0.85rem;
+	margin-top: 0.5rem;
+	padding: 0.65rem 0.9rem;
+}
+
+.status {
+	font-weight: 600;
+	margin-left: 0.4rem;
+}
+.status.queued {
+	color: #888;
+}
+.status.fetching,
+.status.enriching,
+.status.sandboxing,
+.status.running {
+	color: #d97706;
+}
+.status.completed {
+	color: #16a34a;
+}
+.status.failed {
+	color: #dc2626;
+}
+
+pre {
+	background: #f4f4f4;
+	border-radius: 4px;
+	font-size: 0.8rem;
+	margin: 0.4rem 0 0;
+	overflow-x: auto;
+	padding: 0.4rem 0.6rem;
+	white-space: pre-wrap;
+}
+
+.error {
+	color: #dc2626;
+	font-size: 0.85rem;
+	margin: 0.3rem 0 0;
+}
+#user-info {
+	color: #555;
+	font-size: 0.85rem;
+}
