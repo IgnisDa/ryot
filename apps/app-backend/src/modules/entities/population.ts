@@ -16,9 +16,7 @@ import {
 	createGlobalEntity,
 	findGlobalEntityByExternalId,
 	getEntitySchemaScopeForUser,
-	getUserLibraryEntityId,
 	updateGlobalEntityById,
-	upsertInLibraryRelationship,
 } from "./repository";
 import type { ListedEntity } from "./schemas";
 import { writeEntityRelationship } from "./service";
@@ -37,10 +35,8 @@ const extractPrimaryImage = (images: unknown) => {
 export type EntityPopulationDeps = {
 	createGlobalEntity: typeof createGlobalEntity;
 	updateGlobalEntityById: typeof updateGlobalEntityById;
-	getUserLibraryEntityId: typeof getUserLibraryEntityId;
 	writeEntityRelationship: typeof writeEntityRelationship;
 	getEntitySchemaScopeForUser: typeof getEntitySchemaScopeForUser;
-	upsertInLibraryRelationship: typeof upsertInLibraryRelationship;
 	findGlobalEntityByExternalId: typeof findGlobalEntityByExternalId;
 	getBuiltinSandboxScriptBySlug: typeof getBuiltinSandboxScriptBySlug;
 	getBuiltinRelationshipSchemaBySlug: typeof getBuiltinRelationshipSchemaBySlug;
@@ -56,10 +52,8 @@ export type EntityPopulationError =
 export const entityPopulationDeps: EntityPopulationDeps = {
 	createGlobalEntity,
 	updateGlobalEntityById,
-	getUserLibraryEntityId,
 	writeEntityRelationship,
 	getEntitySchemaScopeForUser,
-	upsertInLibraryRelationship,
 	findGlobalEntityByExternalId,
 	getBuiltinSandboxScriptBySlug,
 	getBuiltinRelationshipSchemaBySlug,
@@ -203,22 +197,6 @@ export const processRelatedEntities = async (
 	// oxlint-enable no-await-in-loop
 };
 
-const upsertEntityInLibrary = async (
-	input: { userId: string; entityId: string },
-	deps: Pick<EntityPopulationDeps, "getUserLibraryEntityId" | "upsertInLibraryRelationship">,
-) => {
-	const libraryEntityId = await deps.getUserLibraryEntityId({ userId: input.userId });
-	if (!libraryEntityId) {
-		throw new Error("User library entity not found");
-	}
-
-	await deps.upsertInLibraryRelationship({
-		libraryEntityId,
-		userId: input.userId,
-		mediaEntityId: input.entityId,
-	});
-};
-
 export const populateGlobalEntity = async (
 	job: Job,
 	token: string | undefined,
@@ -227,14 +205,13 @@ export const populateGlobalEntity = async (
 		scriptId: string;
 		externalId: string;
 		entitySchemaId: string;
-		linkToLibrary: boolean;
 		sandboxChildJobId: string;
 		sandboxAlreadyQueued: boolean;
 		updatedJobData: Record<string, unknown>;
 	},
 	deps: EntityPopulationDeps = entityPopulationDeps,
 ): Promise<{ entity: ListedEntity } | { error: EntityPopulationError }> => {
-	const { userId, scriptId, externalId, entitySchemaId, linkToLibrary } = input;
+	const { userId, scriptId, externalId, entitySchemaId } = input;
 
 	const existingEntity = await deps.findGlobalEntityByExternalId({
 		externalId,
@@ -242,9 +219,6 @@ export const populateGlobalEntity = async (
 		sandboxScriptId: scriptId,
 	});
 	if (existingEntity && hasImportedEntityDetails(existingEntity)) {
-		if (linkToLibrary) {
-			await upsertEntityInLibrary({ userId, entityId: existingEntity.id }, deps);
-		}
 		return { entity: existingEntity };
 	}
 
@@ -347,10 +321,6 @@ export const populateGlobalEntity = async (
 		populatedAt:
 			isNew || !importedEntity.populatedAt ? dayjs().toDate() : importedEntity.populatedAt,
 	});
-
-	if (linkToLibrary) {
-		await upsertEntityInLibrary({ userId, entityId: importedEntity.id }, deps);
-	}
 
 	return { entity: updatedEntity };
 };

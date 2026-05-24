@@ -7,11 +7,7 @@ import { parseAppSchemaProperties } from "~/lib/app/schema-validation";
 import { getQueues } from "~/lib/queue";
 import { type ServiceResult, serviceData, serviceError, wrapServiceValidator } from "~/lib/result";
 import { sandboxRunJobName } from "~/lib/sandbox/jobs";
-import {
-	getUserLibraryEntityId,
-	upsertInLibraryIfGlobal,
-	upsertInLibraryRelationship,
-} from "~/modules/entities";
+import { ensureEntityInLibrary } from "~/modules/entities";
 
 import {
 	createEventForUser,
@@ -46,11 +42,10 @@ export type CreateEventsBestEffortData = {
 export type EventServiceDeps = {
 	createEventForUser: typeof createEventForUser;
 	getEntityScopeForUser: typeof getEntityScopeForUser;
-	getUserLibraryEntityId: typeof getUserLibraryEntityId;
+	ensureEntityInLibrary: typeof ensureEntityInLibrary;
 	getSessionEntityScopeForUser: typeof getEntityScopeForUser;
 	listEventsByEntityForUser: typeof listEventsByEntityForUser;
 	getEventCreateScopeForUser: typeof getEventCreateScopeForUser;
-	upsertInLibraryRelationship: typeof upsertInLibraryRelationship;
 	enqueueEventSchemaTriggerJob: typeof enqueueEventSchemaTriggerJob;
 	getActiveEventSchemaTriggersForEventSchemas: typeof getActiveEventSchemaTriggersForEventSchemas;
 };
@@ -106,11 +101,10 @@ const enqueueEventSchemaTriggerJob = async (input: {
 
 const eventServiceDeps: EventServiceDeps = {
 	createEventForUser,
+	ensureEntityInLibrary,
 	getEntityScopeForUser,
-	getUserLibraryEntityId,
 	listEventsByEntityForUser,
 	getEventCreateScopeForUser,
-	upsertInLibraryRelationship,
 	enqueueEventSchemaTriggerJob,
 	getActiveEventSchemaTriggersForEventSchemas,
 	getSessionEntityScopeForUser: getEntityScopeForUser,
@@ -402,16 +396,14 @@ export const createEvent = async (
 		return eventInput;
 	}
 
-	const libraryError = await upsertInLibraryIfGlobal(
-		{
+	if (eventScope.entityUserId === null) {
+		const libraryResult = await deps.ensureEntityInLibrary({
 			userId: input.userId,
 			entityId: eventScope.entityId,
-			entityUserId: eventScope.entityUserId,
-		},
-		deps,
-	);
-	if (libraryError) {
-		return libraryError;
+		});
+		if ("error" in libraryResult) {
+			return libraryResult;
+		}
 	}
 
 	const occurredAt = resolveOccurredAt({ occurredAt: input.body.occurredAt });

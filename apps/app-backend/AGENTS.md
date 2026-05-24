@@ -1,72 +1,43 @@
 # App Backend Guidelines
 
-> Inherits from root `AGENTS.md`. Rules below are additive.
+> Inherits from root `AGENTS.md`. Keep this file limited to backend-specific rules.
 
-## Product Context
+## Module Boundaries
 
-The backend powers a self-hosted personal tracking product. Favor explicit validation, stable contracts, and small composable helpers over clever implicit behavior.
+- Routes stay thin: validate request data, check access, call services, and return OpenAPI helper responses.
+- Define HTTP routes with `createAuthRoute` from `src/lib/auth`.
+- Use response helpers from `src/lib/openapi.ts`; do not hand-roll JSON error envelopes.
+- Services own business rules and return `ServiceResult<T, E>` for expected errors.
+- Repositories own persistence and row-to-domain normalization only.
+- Use `checkAccess`, `checkReadAccess`, or `checkCustomAccess` from `src/lib/access` for access decisions.
+- Use module barrels for cross-module public service APIs. Use subpaths only for route mounting, same-module internals, tests, or intentionally internal infrastructure.
 
-## Engineering Guardrails
+## Validation And Persistence
 
-### Type Safety
+- Runtime schemas, persisted JSON structures, and TypeScript types must stay aligned.
+- Reusable request/response schemas belong in module `schemas.ts` files.
+- Use `resolveValidationData` from `src/lib/openapi.ts` when a route must manually parse data outside `c.req.valid(...)`.
+- Drizzle schema timestamps must use `timestamp({ withTimezone: true })`.
+- Persist JSONB date values as ISO 8601 UTC strings, usually via `dayjs().toISOString()`.
 
-- Treat module `schemas.ts` files as the source of truth; derive all TypeScript types from them.
-- OpenAPI types at `libs/generated/src/openapi/app-backend.d.ts` are auto-generated in development.
+## Queues
 
-### Validation
-
-- Put reusable schemas in module `schemas.ts` files.
-- Use `resolveValidationData` (`src/lib/openapi.ts`) instead of ad hoc `try/catch` 400 responses.
-
-### Routes And OpenAPI
-
-- Routes should be thin: parse input, check access, call service/repo, return response.
-- Define routes with `createAuthRoute` (`src/lib/auth`).
-- Response helpers (`createSuccessResult`, `createServiceErrorResult`, `createStandardResponses`, etc.) live in `src/lib/openapi.ts`. Use them — do not construct ad hoc JSON error responses.
-
-### Error Handling
-
-- Services return `ServiceResult<T, E>` (`src/lib/result.ts`): `{ data: T }` or `{ error: E, message: string }`. Use `serviceError` to construct errors.
-- Access checks (`checkAccess`, `checkReadAccess`, `checkCustomAccess`) live in `src/lib/access/index.ts`.
-
-### Repositories And Drizzle
-
-- Centralize repeated Drizzle projections into shared constants.
-- Keep row-to-domain normalization in one helper per module.
-- Services own business rules; repositories own persistence.
-
-### Module Imports
-
-- Import from module barrels (`~/modules/X`) not sub-paths (`~/modules/X/service`).
-
-### Schema And Database Modeling
-
-- Keep runtime schemas, persisted JSON structures, and TypeScript types aligned.
-- Extend existing types from `src/lib/db/schema/tables.ts` or module `schemas.ts` instead of cloning shapes.
-- Always use `timestamp({ withTimezone: true })`; never bare `timestamp()`.
-- JSONB date values must be ISO 8601 UTC strings. Use `dayjs().toISOString()`.
-
-### Async Processing (BullMQ)
-
-BullMQ with Redis. Infrastructure in `src/lib/queue/` and `src/lib/sandbox/`.
-
-- **Queues**: `media`, `events`, `sandbox` in `src/lib/queue/queues.ts`, accessed via `getQueues()`.
-- **Jobs**: Each module owns jobs (`src/modules/{module}/jobs.ts`) and workers (`src/modules/{module}/worker.ts`).
-- **Dispatching**: `await getQueues().eventsQueue.add(jobName, payload)`. Use deterministic `jobId` for idempotency.
-- **Naming**: Queues lowercase singular (`"media"`), jobs kebab-case (`"media-import"`).
-- **Lifecycle**: `initializeQueues` → `initializeSandboxService` → `initializeWorkers` at startup; reverse on shutdown (30s timeout). See `src/app/runtime.ts`.
-
-### Testing
-
-- Shared fixtures in `src/lib/test-fixtures`. Module-specific fixtures preferred; cross-module primitives only in shared helpers.
-
-### Code Review
-
-After meaningful backend work, launch `backend-code-reviewer` via the Task tool before committing. Skip for trivial changes. Ensure tests pass before and after review.
+- BullMQ queues are `event`, `entity`, `import`, and `sandbox`; access them through `getQueues()`.
+- Module jobs live in `src/modules/{module}/jobs.ts`; workers live in `src/modules/{module}/worker.ts`.
+- Job names are kebab-case. Queue names are lowercase singular.
+- Use deterministic `jobId` only when a job is intended to be idempotent.
+- After migrations, runtime startup initializes Redis, queues, sandbox service, workers, then built-in entity preload dispatch. Shutdown closes workers before queues, sandbox, and Redis.
 
 ## Schema Write Path
 
 - `entity`, `event`, and `relationship` writes must validate `properties` against the matching schema table's `propertiesSchema`.
-- Use the canonical relationship writers in `modules/entities/service.ts`; collection membership validation belongs in `collections/service.ts:addToCollection`.
-- Use `AppSchema.unknownKeys: "passthrough"` only when relationship/collection property schemas must accept arbitrary top-level keys.
+- User-owned entity creation goes through `modules/entities: createEntity`.
+- Provider-backed global population goes through `modules/entities/population: populateGlobalEntity` and is populate-only: it may write global entities and provider-related global relationships, but not user library membership.
+- Create user-owned `in-library` relationships through `modules/entities: ensureEntityInLibrary`.
+- External event creation goes through event APIs that also dispatch event-schema triggers, such as `createEventsWithTriggers` or `createEventsBestEffortWithTriggers`.
+- Collection membership creation goes through `modules/collections: addToCollection`.
+- Generic relationship writes go through `writeRelationship` or `writeEntityRelationship`; collection membership validation belongs in `addToCollection`.
+- Repository-level write primitives must not be exported through module barrels for runtime callers.
+- `modules/legacy-bootstrap` is the migration-only exception to runtime write-path rules.
+- Use `AppSchema.unknownKeys: "passthrough"` only when relationship or collection property schemas must accept arbitrary top-level keys.
 - Keep collection properties and person/company relationship properties aligned with their built-in schemas.

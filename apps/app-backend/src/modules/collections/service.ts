@@ -2,17 +2,15 @@ import type { AppSchema } from "@ryot/ts-utils/app-schema";
 import { resolveRequiredString } from "@ryot/ts-utils/slug";
 
 import { formatValidationIssues, parseAppSchemaPropertiesSafe } from "~/lib/app/schema-validation";
+import type { DbClient } from "~/lib/db";
 import { type ServiceResult, serviceData, serviceError, wrapServiceValidator } from "~/lib/result";
-import {
-	getUserLibraryEntityId,
-	upsertInLibraryIfGlobal,
-	upsertInLibraryRelationship,
-} from "~/modules/entities";
+import { ensureEntityInLibrary } from "~/modules/entities";
 import { parseLabeledPropertySchemaInput } from "~/modules/property-schemas";
 
 import {
 	addEntityToCollection,
 	createCollectionForUser,
+	createLibraryEntityForUser,
 	findCollectionByNameForUser,
 	getBuiltinCollectionSchema,
 	getCollectionById,
@@ -49,6 +47,10 @@ export type CollectionServiceDeps = {
 	getBuiltinCollectionSchema: typeof getBuiltinCollectionSchema;
 };
 
+export type EnsureLibraryEntityForUserDeps = {
+	createLibraryEntityForUser: typeof createLibraryEntityForUser;
+};
+
 export type GetOrCreateCollectionServiceDeps = CollectionServiceDeps & {
 	findCollectionByNameForUser: typeof findCollectionByNameForUser;
 };
@@ -56,9 +58,8 @@ export type GetOrCreateCollectionServiceDeps = CollectionServiceDeps & {
 export type AddToCollectionServiceDeps = {
 	getEntityById: typeof getEntityById;
 	getCollectionById: typeof getCollectionById;
+	ensureEntityInLibrary: typeof ensureEntityInLibrary;
 	addEntityToCollection: typeof addEntityToCollection;
-	getUserLibraryEntityId: typeof getUserLibraryEntityId;
-	upsertInLibraryRelationship: typeof upsertInLibraryRelationship;
 };
 
 export type RemoveFromCollectionServiceDeps = {
@@ -74,6 +75,10 @@ const collectionServiceDeps: CollectionServiceDeps = {
 	getBuiltinCollectionSchema,
 };
 
+const ensureLibraryEntityForUserDeps: EnsureLibraryEntityForUserDeps = {
+	createLibraryEntityForUser,
+};
+
 const getOrCreateCollectionServiceDeps: GetOrCreateCollectionServiceDeps = {
 	...collectionServiceDeps,
 	findCollectionByNameForUser,
@@ -84,6 +89,14 @@ export const resolveCollectionName = (name: string) =>
 
 const resolveCollectionNameResult = (name: string) =>
 	wrapServiceValidator(() => resolveCollectionName(name), "Collection name is invalid");
+
+export const ensureLibraryEntityForUser = async (
+	input: { userId: string; entitySchemaId: string; database?: DbClient },
+	deps: EnsureLibraryEntityForUserDeps = ensureLibraryEntityForUserDeps,
+) => {
+	const { database, ...body } = input;
+	return deps.createLibraryEntityForUser(body, database);
+};
 
 export const createCollection = async (
 	input: { body: CreateCollectionBody; userId: string },
@@ -168,9 +181,8 @@ export const getOrCreateCollection = async (
 const addToCollectionServiceDeps: AddToCollectionServiceDeps = {
 	getEntityById,
 	getCollectionById,
+	ensureEntityInLibrary,
 	addEntityToCollection,
-	getUserLibraryEntityId,
-	upsertInLibraryRelationship,
 };
 
 export const addToCollection = async (
@@ -212,12 +224,14 @@ export const addToCollection = async (
 		validatedProperties = input.body.properties ?? {};
 	}
 
-	const libraryError = await upsertInLibraryIfGlobal(
-		{ userId: input.userId, entityId: entity.id, entityUserId: entity.userId },
-		deps,
-	);
-	if (libraryError) {
-		return libraryError;
+	if (entity.userId === null) {
+		const libraryResult = await deps.ensureEntityInLibrary({
+			entityId: entity.id,
+			userId: input.userId,
+		});
+		if ("error" in libraryResult) {
+			return libraryResult;
+		}
 	}
 
 	const relationships = await deps.addEntityToCollection({
