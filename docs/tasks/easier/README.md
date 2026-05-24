@@ -289,6 +289,12 @@ The restore workflow wraps its whole `restore` operation in `Effect.scoped`, so 
 
 **Validation:** Every issue/layout/field branch, semantic RyotQL fallback, registry invalid definitions, backup rejection.
 
+**Implemented.** Layout validation returns `{ layout, issue, field?, diagnostic }` instead of a sentence. `validateSavedViewLayouts` replaces `getSavedViewValidationError`, and the per-layout checks each name their own `issue` code and carry the projection key or mapping slot in `field` at the point that produced it, so `field` is no longer recovered by regex. `formatSavedViewValidationIssue` is the single formatter, and it produces the same `Grid layout: <diagnostic>` text the registry startup throw and the backup-restore `badRequest` already emitted. The issue codes move out of the inline `Schema.Literals` in `SavedViewBadRequestReason` into an exported `SavedViewDefinitionIssue`, which the backend issue type derives from, so the wire union and the producer can no longer diverge.
+
+`saved-views/definition-validation.ts` no longer parses prose: `toValidationReason` and its prefix matching, `indexOf(":")` slicing, `(?:mapping field '([^']+)'|^(\w+Field) must)` regex, and eleven exact-message `Match.when` arms are gone, replaced by copying `issue`, `layout`, and optional `field` onto the contract reason. Two silent misclassifications go with them: any unrecognized diagnostic previously fell through to `query-invalid`, and any unrecognized layout prefix fell through to `table`, so wording drift in one message would have relabelled the failure rather than failing. `query-invalid` now means only that `validateRyotQLDocument` rejected the document. Existing reasons are unchanged for every branch the tests pin, including `field: "entityIdField"` on `entity-id-source` and the slot names on `field-kind`/`image-cast`.
+
+A new unit case covers the semantic RyotQL fallback, which was previously reachable only through the parser's catch-all, and the registry test now asserts the exact formatted startup message rather than a loose pattern.
+
 ### 16. Discriminate Lifecycle Mutations
 
 **Owner:** D08 Entities lifecycle boundary
