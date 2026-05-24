@@ -1,9 +1,7 @@
-import { tmpdir } from "node:os";
-import { basename, join } from "node:path";
-
 import { resolveRequiredString } from "@ryot/ts-utils/slug";
 import { generateId } from "better-auth";
 
+import { getTemporaryDirectory, joinTemporaryDirectoryPath } from "~/lib/bun";
 import { type ServiceResult, serviceData, serviceError, wrapServiceValidator } from "~/lib/result";
 import { s3, s3BucketName } from "~/lib/s3";
 
@@ -11,7 +9,7 @@ import type { GetPresignedDownloadUrlBody, GetPresignedUploadUrlBody } from "./s
 import { type UploadContentType, uploadContentTypeExtensions } from "./shared";
 
 const uploadUrlExpirySeconds = 15 * 60;
-const temporaryUploadDirectory = tmpdir();
+const temporaryUploadDirectory = getTemporaryDirectory();
 
 type ResolvedPresignedUploadInput = {
 	contentType: UploadContentType;
@@ -66,16 +64,24 @@ export const resolvePresignedUploadInput = (
 const resolveExtension = (contentType: UploadContentType) =>
 	uploadContentTypeExtensions[contentType][0];
 
-const resolveTemporaryUploadFile = (file: File): ResolvedTemporaryUploadFile => ({
-	file,
-	fileName: basename(resolveRequiredString(file.name, "Upload file name")),
-});
+const resolveTemporaryUploadFile = (file: File): ResolvedTemporaryUploadFile => {
+	const name = resolveRequiredString(file.name, "Upload file name");
+	const fileNameSegments = name
+		.replace(/[\\/]+$/, "")
+		.split(/[\\/]/)
+		.filter(Boolean);
+	const fileName = fileNameSegments[fileNameSegments.length - 1];
+	if (!fileName) {
+		throw new Error("Upload file name must not be empty");
+	}
+	return { file, fileName };
+};
 
 const resolveTemporaryUploadPath = (
 	fileName: string,
 	generateObjectId: () => string,
 	temporaryDirectory: string,
-) => join(temporaryDirectory, `${generateObjectId()}-${fileName}`);
+) => joinTemporaryDirectoryPath(temporaryDirectory, `${generateObjectId()}-${fileName}`);
 
 const removeTemporaryUploads = async (paths: readonly string[]) => {
 	await Promise.allSettled(paths.map((path) => Bun.file(path).delete()));

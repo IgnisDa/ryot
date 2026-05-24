@@ -1,15 +1,17 @@
-import { tmpdir } from "node:os";
-
 import { dayjs } from "@ryot/ts-utils/dayjs";
 
+import { getTemporaryDirectory, joinTemporaryDirectoryPath } from "~/lib/bun";
+
 import sandboxRunnerSource from "./scripts/runner-source.txt";
+
+const temporaryDirectory = getTemporaryDirectory();
 
 export class RunnerFileManager {
 	private runnerPath: string | null = null;
 
 	async create() {
 		const fileName = `ryot-sandbox-runner-${dayjs().valueOf()}-${process.pid}.mjs`;
-		this.runnerPath = `${tmpdir()}/${fileName}`;
+		this.runnerPath = joinTemporaryDirectoryPath(temporaryDirectory, fileName);
 
 		try {
 			await Bun.write(this.runnerPath, sandboxRunnerSource);
