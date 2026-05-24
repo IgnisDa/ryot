@@ -1,4 +1,4 @@
-import { HttpApiBuilder } from "@effect/platform";
+import { HttpApiBuilder, HttpServerRequest } from "@effect/platform";
 import { Effect } from "effect";
 
 import { CurrentUser } from "~/lib/auth";
@@ -54,11 +54,14 @@ export const IntegrationsRoutesLive = HttpApiBuilder.group(
 					return yield* service.listRuns(user, path.integrationId).pipe(dieOnDbError);
 				}),
 			)
-			.handle("webhook", ({ path, payload }) =>
+			.handle("webhook", ({ path }) =>
 				Effect.gen(function* () {
+					const request = yield* HttpServerRequest.HttpServerRequest;
+					const rawBody = yield* request.text.pipe(Effect.orDie);
+					const contentType = request.headers["content-type"] ?? "application/json";
 					const service = yield* IntegrationsService;
 					return yield* service
-						.handleWebhook({ integrationId: path.integrationId, payload })
+						.handleWebhook({ integrationId: path.integrationId, rawBody, contentType })
 						.pipe(dieOnDbError);
 				}),
 			),

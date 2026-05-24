@@ -468,3 +468,37 @@ it.effect("creates remove event on successful membership deletion", () => {
 		expect(result.memberOf.id).toBe("rel-id");
 	}).pipe(Effect.provide(layer));
 });
+
+it.effect("merges ownership sources when marking an entity owned in the library", () => {
+	let upserted: { properties: Record<string, unknown> } | undefined;
+
+	const collectionsRepository = Object.assign(defaultCollectionsRepository(), {
+		getUserLibraryEntityId: () => Effect.succeed("library-entity-id"),
+	});
+	const entitiesRepository = Object.assign(defaultEntitiesRepository(), {
+		findRelationshipProperties: () =>
+			Effect.succeed({ owned: true, ownershipSources: ["plex_yank"] }),
+		upsertRelationship: (input: { properties: Record<string, unknown> }) => {
+			upserted = input;
+			return Effect.succeed({ id: "rel-id" });
+		},
+	});
+
+	const layer = makeServiceLayer(collectionsRepository, entitiesRepository);
+
+	return Effect.gen(function* () {
+		const service = yield* CollectionsService;
+		yield* service.markEntityOwnedInLibrary({
+			syncedAt: now,
+			provider: "komga",
+			userId: "user-id",
+			entityId: "entity-id",
+		});
+
+		expect(upserted?.properties).toEqual({
+			owned: true,
+			ownershipSyncedAt: now,
+			ownershipSources: ["plex_yank", "komga"],
+		});
+	}).pipe(Effect.provide(layer));
+});
