@@ -39,7 +39,7 @@ Permitted silent-skip patterns: idempotent guards (work already done on a previo
 
 **seen**: `review_id` (no inter-event references in V2), `manual_time_spent` on `InProgress` and episodic rows (V2 `progress` events have no `timeSpent`), `started_on` on `InProgress` and episodic rows (V2 `progress` events have no `startedOn`). Legacy IDs are not preserved — one seen row expands to multiple events; deterministic md5 IDs are used instead. See `seen-mapping.ts` for the full skipped-data list.
 
-**user**: OAuth redirect URL, sessions, `USERS_TOKEN_VALID_FOR_DAYS` (Better Auth owns session lifetime), `extra_information`, `is_disabled`, legacy admin `lot`. 2FA is dropped. Password users migrate without credential accounts and are recovered through god-mode reset links. OIDC identity links are migrated as minimal Better Auth account stubs so OIDC sign-in keeps working.
+**user**: OAuth redirect URL, sessions, `USERS_TOKEN_VALID_FOR_DAYS` (Better Auth owns session lifetime), `extra_information`, legacy admin `lot`. Legacy `is_disabled` migrates to `banned_at` using `last_login_on`, or `created_on + 90 days` when no last login exists. 2FA is dropped. Password users migrate without credential accounts and are recovered through god-mode reset links. OIDC identity links are migrated as minimal Better Auth account stubs so OIDC sign-in keeps working.
 
 ## Local Testing
 
