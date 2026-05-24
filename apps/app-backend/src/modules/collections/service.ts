@@ -255,7 +255,7 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 						});
 					}
 
-					const result = yield* relationshipsRepository.saveRelationship({
+					return yield* relationshipsRepository.saveRelationship({
 						scope: "user",
 						userId: user.id,
 						properties: validatedProperties,
@@ -264,8 +264,6 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 						targetEntityId: payload.collectionId,
 						relationshipSchemaId: memberOfRelationshipSchema.id,
 					});
-
-					return result;
 				}),
 			);
 

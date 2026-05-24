@@ -58,19 +58,17 @@ const createBuiltinTrackers = Effect.fn(function* (userId: string) {
 	);
 
 	const slugs = trackers.map((t) => t.slug);
-	const rows = yield* dbEffect(() =>
+	return yield* dbEffect(() =>
 		db
 			.select({ id: schema.tracker.id, slug: schema.tracker.slug })
 			.from(schema.tracker)
 			.where(and(eq(schema.tracker.userId, userId), inArray(schema.tracker.slug, slugs))),
 	);
-
-	return rows;
 });
 
 const listBuiltinEntitySchemas = Effect.gen(function* () {
 	const db = yield* CurrentDb;
-	const rows = yield* dbEffect(() =>
+	return yield* dbEffect(() =>
 		db
 			.select({
 				id: schema.entitySchema.id,
@@ -81,7 +79,6 @@ const listBuiltinEntitySchemas = Effect.gen(function* () {
 			.from(schema.entitySchema)
 			.where(and(eq(schema.entitySchema.isBuiltin, true), isNull(schema.entitySchema.userId))),
 	);
-	return rows;
 });
 
 type TrackerRow = { id: string; slug: string };

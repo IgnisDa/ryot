@@ -120,7 +120,7 @@ export class SavedViewsService extends Effect.Service<SavedViewsService>()("Save
 				return yield* badRequest("A saved view with this name already exists");
 			}
 
-			const created = yield* runWithDb(
+			return yield* runWithDb(
 				repository.create(user.id, {
 					slug,
 					name,
@@ -133,8 +133,6 @@ export class SavedViewsService extends Effect.Service<SavedViewsService>()("Save
 					displayConfiguration: payload.displayConfiguration,
 				}),
 			).pipe(Effect.catchTag("Conflict", (error) => Effect.fail(badRequest(error.message))));
-
-			return created;
 		});
 
 		const createDefaultForSchema = Effect.fn("SavedViewsService.createDefaultForSchema")(function* (
@@ -147,7 +145,7 @@ export class SavedViewsService extends Effect.Service<SavedViewsService>()("Save
 				return yield* conflict("Entity schema default saved view already exists");
 			}
 
-			const created = yield* runWithDb(
+			return yield* runWithDb(
 				repository.create(input.userId, {
 					slug,
 					name,
@@ -160,8 +158,6 @@ export class SavedViewsService extends Effect.Service<SavedViewsService>()("Save
 					queryDocument: buildDefaultQueryDocument([input.entitySchemaSlug]),
 				}),
 			);
-
-			return created;
 		});
 
 		const update = Effect.fn("SavedViewsService.update")(function* (
@@ -250,7 +246,7 @@ export class SavedViewsService extends Effect.Service<SavedViewsService>()("Save
 			const name = yield* resolveSavedViewName(clonedName);
 			const slug = yield* resolveSavedViewSlug(name);
 
-			const created = yield* runWithDb(
+			return yield* runWithDb(
 				repository.create(user.id, {
 					slug,
 					name,
@@ -263,8 +259,6 @@ export class SavedViewsService extends Effect.Service<SavedViewsService>()("Save
 					displayConfiguration: source.displayConfiguration,
 				}),
 			).pipe(Effect.catchTag("Conflict", (error) => Effect.fail(badRequest(error.message))));
-
-			return created;
 		});
 
 		const reorder = Effect.fn("SavedViewsService.reorder")(function* (
