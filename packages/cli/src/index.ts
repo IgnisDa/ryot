@@ -73,7 +73,7 @@ const loadManifest = Effect.fn("loadManifest")(function* (cwd: string) {
 const collectBackend = Effect.fn("collectBackend")(function* (cwd: string) {
 	const path = yield* Path.Path;
 	const fs = yield* FileSystem.FileSystem;
-	const paths = yield* Stream.fromAsyncIterable(
+	const backendPaths = yield* Stream.fromAsyncIterable(
 		new Bun.Glob("backend/**/*.ts").scan({ cwd, onlyFiles: true }),
 		(error) => new BuildError({ message: `Unable to discover backend sources: ${String(error)}` }),
 	).pipe(
@@ -81,6 +81,15 @@ const collectBackend = Effect.fn("collectBackend")(function* (cwd: string) {
 		Stream.map((sourcePath) => path.normalize(sourcePath)),
 		Stream.runCollect,
 	);
+	const clientPaths = yield* Stream.fromAsyncIterable(
+		new Bun.Glob("client/**/*.{ts,tsx,css,svg}").scan({ cwd, onlyFiles: true }),
+		(error) => new BuildError({ message: `Unable to discover client sources: ${String(error)}` }),
+	).pipe(
+		Stream.filter((sourcePath) => !path.basename(sourcePath).includes(".test.")),
+		Stream.map((sourcePath) => path.normalize(sourcePath)),
+		Stream.runCollect,
+	);
+	const paths = [...backendPaths, ...clientPaths];
 
 	const sources = yield* Effect.forEach(paths, (sourcePath) =>
 		fs
@@ -109,6 +118,21 @@ const validateScriptEntries = Effect.fn("validateScriptEntries")(function* (
 		if (!sourcePaths.has(normalizedEntry)) {
 			return yield* new BuildError({
 				message: `Script entry was not found in backend sources: ${entry}`,
+			});
+		}
+	}
+	if (manifest.client !== undefined) {
+		const entry = manifest.client.entry;
+		const entryPath = path.resolve(cwd, entry);
+		if (!entry.startsWith("client/") || !isWithin(path, path.resolve(cwd, "client"), entryPath)) {
+			return yield* new BuildError({
+				message: `Client entry must stay within client: ${entry}`,
+			});
+		}
+		const normalizedEntry = path.relative(cwd, entryPath);
+		if (!sourcePaths.has(normalizedEntry)) {
+			return yield* new BuildError({
+				message: `Client entry was not found in client sources: ${entry}`,
 			});
 		}
 	}
