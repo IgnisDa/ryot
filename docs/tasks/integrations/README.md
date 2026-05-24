@@ -748,9 +748,9 @@ Test `writeOwnershipToLibrary`: merges sources correctly, does not duplicate pro
 
 ## Tasks
 
-**Overall Progress:** 9 of 10 tasks completed
+**Overall Progress:** 10 of 10 tasks completed
 
-**Current Task:** [Task 09 — E2E Tests](./09-e2e-tests.md) (todo)
+**Current Task:** [Task 10 — Codebase Cleanup](./10-codebase-cleanup.md) (todo)
 
 ### Task List
 
@@ -764,5 +764,5 @@ Test `writeOwnershipToLibrary`: merges sources correctly, does not duplicate pro
 | 06  | [Sink Integration Execution and Adapters](./06-sink-integration-adapters.md)                               | AFK  | done   |
 | 07  | [Push and Progress-Policy Sandbox Scripts](./07-push-and-progress-policy-scripts.md)                       | AFK  | done   |
 | 08  | [Legacy Bootstrap Migration](./08-legacy-bootstrap-migration.md)                                           | AFK  | done   |
-| 09  | [E2E Tests](./09-e2e-tests.md)                                                                             | AFK  | todo   |
+| 09  | [E2E Tests](./09-e2e-tests.md)                                                                             | AFK  | done   |
 | 10  | [Codebase Cleanup](./10-codebase-cleanup.md)                                                               | AFK  | todo   |
