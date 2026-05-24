@@ -39,10 +39,16 @@ export const importRunFailureStage = z.enum([
 export type ImportRunFailureStage = z.infer<typeof importRunFailureStage>;
 
 export const openScaleRunInput = z.object({
-	filePath: nonEmptyStringSchema,
 	source: z.literal("open_scale"),
+	uploadToken: nonEmptyStringSchema,
 });
 export type OpenScaleRunInput = z.infer<typeof openScaleRunInput>;
+
+export const strongAppRunInput = z.object({
+	source: z.literal("strong_app"),
+	uploadToken: nonEmptyStringSchema,
+});
+export type StrongAppRunInput = z.infer<typeof strongAppRunInput>;
 
 export const traktRunInput = z.object({
 	username: nonEmptyStringSchema,
@@ -53,6 +59,7 @@ export type TraktRunInput = z.infer<typeof traktRunInput>;
 export const createImportRunBody = z.discriminatedUnion("source", [
 	traktRunInput,
 	openScaleRunInput,
+	strongAppRunInput,
 ]);
 export type CreateImportRunBody = z.infer<typeof createImportRunBody>;
 

@@ -28,6 +28,11 @@ const entitySelection = {
 	sandboxScriptId: entity.sandboxScriptId,
 };
 
+const entityMatchSelection = {
+	...entitySelection,
+	userId: entity.userId,
+};
+
 const entitySchemaScopeSelection = {
 	...entitySchemaAccessScopeSelection,
 	propertiesSchema: entitySchema.propertiesSchema,
@@ -93,6 +98,28 @@ export const listEntitiesByEntitySchemaForUser = async (input: {
 			),
 		)
 		.orderBy(asc(entity.name), asc(entity.createdAt));
+
+	return rows;
+};
+
+export const listEntityMatchCandidatesBySchemaForUser = async (input: {
+	userId: string;
+	entitySchemaId: string;
+}) => {
+	const rows = await db
+		.select(entityMatchSelection)
+		.from(entity)
+		.where(
+			and(
+				or(isNull(entity.userId), eq(entity.userId, input.userId)),
+				eq(entity.entitySchemaId, input.entitySchemaId),
+			),
+		)
+		.orderBy(
+			sql`case when ${entity.userId} = ${input.userId} then 0 else 1 end`,
+			asc(entity.name),
+			asc(entity.createdAt),
+		);
 
 	return rows;
 };

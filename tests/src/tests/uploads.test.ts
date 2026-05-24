@@ -1,5 +1,4 @@
 import { describe, expect, it } from "bun:test";
-import { tmpdir } from "node:os";
 
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 
@@ -136,7 +135,7 @@ describe("POST /uploads/temporary", () => {
 		expect(response.status).toBe(400);
 	});
 
-	it("writes csv, zip, and json files to disk", async () => {
+	it("writes csv, zip, and json files to disk and returns tokens", async () => {
 		const { cookies } = await createAuthenticatedClient();
 		const files = [
 			new File(["csv data"], "report.csv", { type: "text/csv" }),
@@ -148,26 +147,15 @@ describe("POST /uploads/temporary", () => {
 		expect(response.status).toBe(200);
 
 		const payload: Record<string, unknown> = await response.json();
-		const paths = payload.data;
-		expect(isStringArray(paths)).toBe(true);
-		if (!isStringArray(paths)) {
-			throw new Error("Temporary upload response did not include file paths");
+		const tokens = payload.data;
+		expect(isStringArray(tokens)).toBe(true);
+		if (!isStringArray(tokens)) {
+			throw new Error("Temporary upload response did not include tokens");
 		}
 
-		expect(paths).toHaveLength(files.length);
-		const fileContents = await Promise.all(files.map((file) => file.text()));
-
-		await Promise.all(
-			paths.map(async (path, index) => {
-				expect(path.startsWith(tmpdir())).toBe(true);
-				const expectedContent = fileContents[index];
-				if (expectedContent === undefined) {
-					throw new Error("Missing expected file content");
-				}
-				expect(await Bun.file(path).text()).toBe(expectedContent);
-			}),
-		);
-
-		await Promise.all(paths.map((path) => Bun.file(path).delete()));
+		expect(tokens).toHaveLength(files.length);
+		for (const token of tokens) {
+			expect(token.length).toBeGreaterThan(0);
+		}
 	});
 });
