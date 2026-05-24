@@ -340,7 +340,7 @@ export const validateRelationshipSource = (
 	return source.where !== null ? validateExpr(source.where, scope, aliases) : null;
 };
 
-export const validateSource = (
+const validateSource = (
 	source: Source,
 	scope: AliasScope,
 	aliases: AliasScope,

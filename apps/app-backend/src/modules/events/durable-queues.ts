@@ -4,7 +4,7 @@ import { Schema } from "effect";
 import { DbError } from "#lib/errors";
 import { EntityId, UserId } from "#lib/schema/brands";
 
-export const GlobalEntityReferencedPayload = Schema.Struct({
+const GlobalEntityReferencedPayload = Schema.Struct({
 	userId: UserId,
 	entityId: EntityId,
 	executionId: Schema.String,

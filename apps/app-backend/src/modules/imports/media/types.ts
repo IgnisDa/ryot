@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 
-export const ResolvedImportEntityRef = Schema.Struct({
+const ResolvedImportEntityRef = Schema.Struct({
 	sourceLabel: Schema.String,
 	kind: Schema.Literal("resolved"),
 	scriptSlug: Schema.NonEmptyString,
@@ -18,7 +18,7 @@ const UnresolvedImportEntityRef = Schema.Struct({
 	entitySchemaSlug: Schema.NonEmptyString,
 });
 
-export const ImportEntityRef = Schema.Union(ResolvedImportEntityRef, UnresolvedImportEntityRef);
+const ImportEntityRef = Schema.Union(ResolvedImportEntityRef, UnresolvedImportEntityRef);
 
 export type ImportEntityRef = typeof ImportEntityRef.Type;
 
@@ -27,7 +27,7 @@ export const importEntityRefKey = (ref: ImportEntityRef): string =>
 		? `${ref.entitySchemaSlug}|${ref.scriptSlug}|${ref.externalId}`
 		: `${ref.entitySchemaSlug}|${ref.identifierType}|${ref.identifierValue}`;
 
-export const ImportMediaEventSchema = Schema.Struct({
+const ImportMediaEventSchema = Schema.Struct({
 	occurredAt: Schema.String,
 	eventSchemaSlug: Schema.String,
 	properties: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
@@ -48,7 +48,7 @@ export const ImportMediaEventSchema = Schema.Struct({
 
 export type ImportMediaEvent = typeof ImportMediaEventSchema.Type;
 
-export const ImportCollectionMembershipSchema = Schema.Struct({
+const ImportCollectionMembershipSchema = Schema.Struct({
 	collectionName: Schema.String,
 });
 

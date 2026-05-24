@@ -57,7 +57,7 @@ type MediaImportLoadRequirements =
 
 const SearchScriptSlugSchema = Schema.Literal("movie.tmdb", "show.tmdb");
 
-export const MediaImportEntitySearchJob = Schema.Struct({
+const MediaImportEntitySearchJob = Schema.Struct({
 	query: Schema.String,
 	jobKey: Schema.String,
 	scriptId: SandboxScriptId,

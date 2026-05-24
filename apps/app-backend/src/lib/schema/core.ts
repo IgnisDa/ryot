@@ -15,11 +15,8 @@ export const integerField = (label: string, description: string) =>
 export const numberField = (label: string, description: string) =>
 	({ label, description, type: "number" }) as const;
 
-export const booleanField = (label: string, description: string) =>
+const booleanField = (label: string, description: string) =>
 	({ label, description, type: "boolean" }) as const;
-
-export const datetimeField = (label: string, description: string) =>
-	({ label, description, type: "datetime" }) as const;
 
 export const stringArrayField = (label: string, description: string) =>
 	({
@@ -29,7 +26,7 @@ export const stringArrayField = (label: string, description: string) =>
 		items: { type: "string", label: "Item", description: "Item" },
 	}) as const;
 
-export const imageItemSchema: AppPropertyDefinition = {
+const imageItemSchema: AppPropertyDefinition = {
 	label: "Item",
 	type: "object",
 	description: "Item",
@@ -72,7 +69,7 @@ export const mediaBaseFields = {
 	),
 };
 
-export const unlinkedCreatorItemSchema: AppPropertyDefinition = {
+const unlinkedCreatorItemSchema: AppPropertyDefinition = {
 	label: "Item",
 	type: "object",
 	description: "Item",

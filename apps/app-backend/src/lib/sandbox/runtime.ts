@@ -214,7 +214,7 @@ export class BridgeService extends Effect.Service<BridgeService>()("BridgeServic
 	}),
 }) {}
 
-export class RunnerFile extends Effect.Service<RunnerFile>()("RunnerFile", {
+class RunnerFile extends Effect.Service<RunnerFile>()("RunnerFile", {
 	scoped: Effect.gen(function* () {
 		const fs = yield* FileSystem.FileSystem;
 		const path = yield* fs.makeTempFileScoped({ prefix: "ryot-sandbox-", suffix: ".mjs" });

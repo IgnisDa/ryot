@@ -7,9 +7,9 @@ import { ImportRunId, IntegrationId, UserId } from "#lib/schema/brands";
 
 import { CreateEventItem, CreateEventsResponse, EventCreateOrigin } from "./schemas";
 
-export const EventCreateWorkflowError = Schema.Union(BadRequest, DbError, NotFound);
+const EventCreateWorkflowError = Schema.Union(BadRequest, DbError, NotFound);
 
-export const EventCreateWorkflowPayload = Schema.Struct({
+const EventCreateWorkflowPayload = Schema.Struct({
 	userId: UserId,
 	origin: EventCreateOrigin,
 	executionId: Schema.String,

@@ -16,7 +16,7 @@ export const integrationProviders = [
 	"ryot_browser_extension",
 ] as const;
 
-export const sinkProviders = [
+const sinkProviders = [
 	"kodi",
 	"emby",
 	"plex_sink",
@@ -24,10 +24,6 @@ export const sinkProviders = [
 	"jellyfin_sink",
 	"ryot_browser_extension",
 ] as const;
-
-export const yankProviders = ["audiobookshelf", "komga", "plex_yank", "youtube_music"] as const;
-
-export const pushProviders = ["radarr", "sonarr", "jellyfin_push"] as const;
 
 export type IntegrationLot = (typeof integrationLots)[number];
 export type IntegrationProvider = (typeof integrationProviders)[number];

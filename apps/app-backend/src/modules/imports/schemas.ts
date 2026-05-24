@@ -4,7 +4,7 @@ import { ImportRunId } from "#lib/schema/brands";
 
 import { importRunFailureStages, importRunStatuses } from "./types";
 
-export const ImportRunStatus = Schema.Literal(...importRunStatuses);
+const ImportRunStatus = Schema.Literal(...importRunStatuses);
 
 export const ImportRunFailureStage = Schema.Literal(...importRunFailureStages);
 
@@ -29,7 +29,7 @@ export const ListedImportRun = Schema.Struct({
 
 export type ListedImportRun = typeof ListedImportRun.Type;
 
-export const ListedImportRunFailure = Schema.Struct({
+const ListedImportRunFailure = Schema.Struct({
 	id: Schema.String,
 	runId: ImportRunId,
 	message: Schema.String,
@@ -56,23 +56,6 @@ export const DetailedImportRun = Schema.Struct({
 });
 
 export type DetailedImportRun = typeof DetailedImportRun.Type;
-
-export const fileImportRunSources = [
-	"hevy",
-	"igdb",
-	"imdb",
-	"netflix",
-	"movary",
-	"anilist",
-	"grouvee",
-	"watcharr",
-	"goodreads",
-	"hardcover",
-	"strong_app",
-	"open_scale",
-	"storygraph",
-	"myanimelist",
-] as const;
 
 const SourceApiUrl = Schema.String.pipe(
 	Schema.filter((value) => {

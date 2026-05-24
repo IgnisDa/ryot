@@ -2,7 +2,7 @@ import { Schema } from "effect";
 
 import { slugify } from "#lib/slug";
 
-export const workoutExerciseKinds = [
+const workoutExerciseKinds = [
 	"reps",
 	"duration",
 	"reps_and_weight",
@@ -13,7 +13,7 @@ export const workoutExerciseKinds = [
 
 export type WorkoutExerciseKind = (typeof workoutExerciseKinds)[number];
 
-export const WorkoutImportSetSchema = Schema.mutable(
+const WorkoutImportSetSchema = Schema.mutable(
 	Schema.Struct({
 		note: Schema.optional(Schema.String),
 		reps: Schema.optional(Schema.Number),
@@ -26,7 +26,7 @@ export const WorkoutImportSetSchema = Schema.mutable(
 
 export type WorkoutImportSet = typeof WorkoutImportSetSchema.Type;
 
-export const WorkoutImportExerciseSchema = Schema.mutable(
+const WorkoutImportExerciseSchema = Schema.mutable(
 	Schema.Struct({
 		name: Schema.String,
 		kind: Schema.Literal(...workoutExerciseKinds),

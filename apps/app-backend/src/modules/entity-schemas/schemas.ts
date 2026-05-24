@@ -3,7 +3,7 @@ import { Schema } from "effect";
 import { EntitySchemaId, SandboxScriptId, TrackerId } from "#lib/schema/brands";
 import { AppSchema } from "#lib/schema/property-schema";
 
-export const Provider = Schema.Struct({
+const Provider = Schema.Struct({
 	name: Schema.String,
 	scriptId: SandboxScriptId,
 });
