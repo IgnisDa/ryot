@@ -328,7 +328,7 @@ export async function executeQueryEngine(
 	body: QueryEngineRequest,
 ) {
 	const mode = body.mode ?? "entities";
-	const result = await client["query-engine"].execute({
+	const result = await client.queryEngine.execute({
 		// oxlint-disable-next-line typescript-eslint/no-explicit-any
 		body: { ...body, mode } as any,
 		headers: { Cookie: cookies },
