@@ -16,6 +16,7 @@ const sourceFileDefinitions: Partial<
 	hevy: [{ bodyField: "uploadToken", allowedExtensions: ["csv"] }],
 	igdb: [{ bodyField: "uploadToken", allowedExtensions: ["csv"] }],
 	imdb: [{ bodyField: "uploadToken", allowedExtensions: ["csv"] }],
+	netflix: [{ bodyField: "uploadToken", allowedExtensions: ["zip"] }],
 	movary: [
 		{
 			allowedExtensions: ["csv"],
@@ -110,6 +111,10 @@ const sourceStartValidators: Partial<
 		appConfig.moviesAndShows.tmdb.accessToken
 			? undefined
 			: "IMDb importer is not configured. Set MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN.",
+	netflix: () =>
+		appConfig.moviesAndShows.tmdb.accessToken
+			? undefined
+			: "Netflix importer is not configured. Set MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN.",
 	movary: () =>
 		appConfig.moviesAndShows.tmdb.accessToken
 			? undefined
@@ -151,6 +156,10 @@ export const buildInputSummary = (body: CreateImportRunBody): Record<string, unk
 		summary.hasRatingsFile = true;
 		summary.hasWatchlistFile = true;
 	}
+	if (body.source === "netflix") {
+		summary.hasExportFile = true;
+		summary.hasProfileName = Boolean(body.profileName?.trim());
+	}
 	if (body.source === "trakt") {
 		summary.username = body.username;
 	}
@@ -165,6 +174,10 @@ export const buildSourcePayload = (
 	}
 	if (body.source === "trakt") {
 		return { username: body.username };
+	}
+	if (body.source === "netflix") {
+		const profileName = body.profileName?.trim();
+		return profileName ? { profileName } : undefined;
 	}
 	if (
 		body.source === "plex" ||
