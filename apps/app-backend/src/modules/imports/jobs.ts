@@ -12,6 +12,9 @@ export const importEntityRefSchema = z.object({
 });
 export type ImportEntityRef = z.infer<typeof importEntityRefSchema>;
 
+export const importEntityRefKey = (ref: ImportEntityRef) =>
+	`${ref.entitySchemaSlug}|${ref.scriptSlug}|${ref.externalId}`;
+
 export const importMediaEventSchema = z.object({
 	occurredAt: nonEmptyStringSchema,
 	eventSchemaSlug: nonEmptyStringSchema,

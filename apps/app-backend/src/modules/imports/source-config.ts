@@ -1,15 +1,10 @@
 import { config } from "~/lib/config";
 
-import type { CreateImportRunBody } from "./schemas";
+import { fileImportRunSources, type CreateImportRunBody } from "./schemas";
 
-export const allowedExtensionsBySource = {
-	hevy: ["csv"],
-	goodreads: ["csv"],
-	hardcover: ["csv"],
-	open_scale: ["csv"],
-	strong_app: ["csv"],
-	storygraph: ["csv"],
-} satisfies Partial<Record<CreateImportRunBody["source"], string[]>>;
+export const allowedExtensionsBySource = Object.fromEntries(
+	fileImportRunSources.map((source) => [source, ["csv"]]),
+) satisfies Partial<Record<CreateImportRunBody["source"], string[]>>;
 
 export const getKnownImportExtensions = () => [
 	...new Set(Object.values(allowedExtensionsBySource).flat()),
