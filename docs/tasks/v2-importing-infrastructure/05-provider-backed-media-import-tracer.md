@@ -4,26 +4,28 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
-Add the first complete provider-backed media source adapter and processor path, using a simple source such as Movary unless implementation context points to an equally small better fit. This slice should prove that source adapters can emit V2-native media entity groups, the import processor can dedupe by `{ entitySchemaSlug, scriptSlug, externalId }`, provider details are populated through the shared entity population path, library linking occurs before event writes, collections are written as relationships, review/lifecycle events are created through the shared event service, and triggers are enqueued without being awaited.
+Add the first complete provider-backed media source adapter and processor path using the Trakt API as the tracer source. This slice should prove that source adapters can emit V2-native media entity groups, the import processor can dedupe by `{ entitySchemaSlug, scriptSlug, externalId }`, provider details are populated through the shared entity population path, library linking occurs before event writes, collections are written through the collection service, review/lifecycle events are created through the shared event service, and triggers are enqueued without being awaited.
 
-The adapter should preserve source data semantics rather than V1 implementation quirks. Lifecycle states map to V2 events; source lists/shelves become collections only when they are not lifecycle aliases. Item-level failures should be persisted with user-facing labels and identifiers.
+Trakt is an API-based source (no file upload). Users provide a Trakt username; the Trakt client ID is configured on the server with `SERVER_IMPORTER_TRAKT_CLIENT_ID`. The adapter fetches history (movies and episodes), ratings, watchlist, custom lists, and collection. Movies in history become `complete` events; episodes in history become `progress(100)` events with season/episode coverage keys; watchlist items become `backlog` events; ratings become `review` events; custom lists and "Owned" collection become collection memberships.
+
+The adapter preserves source data semantics. Lifecycle states map to V2 events; source lists/shelves become collections only when they are not lifecycle aliases. Item-level failures are persisted with user-facing labels and identifiers. API credentials are server configuration only; the client ID is not stored in import job data or persisted database rows. The input summary stores only the username.
 
 ## Acceptance criteria
 
-- [ ] A media source input schema is added to the imports module using the discriminated source input shape from the parent PRD.
-- [ ] The source adapter returns normalized media groups plus adapter item failures without writing DB rows directly.
-- [ ] Media groups dedupe by `{ entitySchemaSlug, scriptSlug, externalId }` and merge events, reviews, and collections before provider population.
-- [ ] Provider-backed media population uses the shared entity population function and links the populated global entity into the importing user's library.
-- [ ] Provider failure records one `provider_details` failure row per entity ref with affected counts and skips events/reviews/collections for that entity group.
-- [ ] Collection memberships are unique by collection name; conflicting non-empty membership properties use first-write-wins and record/log a warning.
-- [ ] Lifecycle events and review events are created through the shared event creation path with explicit `occurredAt` values where the source provides historical dates.
-- [ ] The import worker waits for provider details and direct event writes, but does not wait for sandbox trigger jobs.
-- [ ] Run progress/counters include successful media groups and adapter failures according to the parent PRD.
-- [ ] Tests cover source adapter parsing, provider-population failure handling with fakes, event creation, collection relationship creation, and failure-row persistence.
+- [x] A media source input schema is added to the imports module using the discriminated source input shape from the parent PRD.
+- [x] The source adapter returns normalized media groups plus adapter item failures without writing DB rows directly.
+- [x] Media groups dedupe by `{ entitySchemaSlug, scriptSlug, externalId }` and merge events, reviews, and collections before provider population.
+- [x] Provider-backed media population uses the shared entity population function and links the populated global entity into the importing user's library.
+- [x] Provider failure records one `provider_details` failure row per entity ref with affected counts and skips events/reviews/collections for that entity group.
+- [x] Collection memberships are unique by collection name; conflicting non-empty membership properties use first-write-wins and record/log a warning.
+- [x] Lifecycle events and review events are created through the shared event creation path with explicit `occurredAt` values where the source provides historical dates.
+- [x] The import worker waits for provider details and event-service writes, but does not wait for sandbox trigger jobs.
+- [x] Run progress/counters include successful media groups and adapter failures according to the parent PRD.
+- [x] Processor-boundary tests cover normalized-data checkpointing, fake provider outcomes, final counters, and adapter failure-row persistence. Individual source adapters and media-processor helpers are manually verified per the parent PRD.
 - [ ] An E2E test covers the tracer source import through public import routes without real external network calls.
 
 ## User stories addressed

@@ -86,6 +86,15 @@ export const systemConfigDef = group("Core system configuration", {
 			description: "Label shown on the OIDC sign-in button in the client",
 		}),
 	}),
+	importer: group("Import source credentials", {
+		trakt: group("Trakt", {
+			clientId: field("SERVER_IMPORTER_TRAKT_CLIENT_ID", {
+				optional: true,
+				sensitive: true,
+				description: "Trakt API client ID required to enable the Trakt importer",
+			}),
+		}),
+	}),
 });
 
 export const appConfigDef = group("Provider integration configuration", {
