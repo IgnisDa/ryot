@@ -14,6 +14,39 @@ const ADMIN_ACCESS_TOKEN_HEADER = "Admin-Access-Token";
 
 const adminAccessTokenHeaders = (token: string) => ({ [ADMIN_ACCESS_TOKEN_HEADER]: token });
 
+async function getUserIdByEmail(email: string) {
+	const result = await getPgClient().query<{ id: string }>(
+		`SELECT id FROM "user" WHERE email = $1`,
+		[email],
+	);
+	const row = result.rows[0];
+	if (!row) {
+		throw new Error("missing user row");
+	}
+	return row.id;
+}
+
+async function signInWithPassword(email: string, password: string) {
+	return await fetch(`${getBackendUrl()}/auth/sign-in/email`, {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ email, password }),
+	});
+}
+
+async function createApiKey(cookies: string) {
+	const response = await fetch(`${getBackendUrl()}/auth/api-key/create`, {
+		method: "POST",
+		body: JSON.stringify({ name: "E2E key" }),
+		headers: { Cookie: cookies, "Content-Type": "application/json" },
+	});
+	if (!response.ok) {
+		throw new Error(`API key creation failed: ${await response.text()}`);
+	}
+	const data: { key: string } = await response.json();
+	return data.key;
+}
+
 async function createNoAccountUser(name: string) {
 	const userId = randomUUID();
 	const email = `${name.toLowerCase()}-${dayjs().valueOf()}@example.com`;
@@ -73,6 +106,23 @@ describe("God-mode admin token enforcement", () => {
 		});
 		expect(response.status).toBe(401);
 	});
+
+	it("rejects ban toggle without auth header", async () => {
+		const client = getBackendClient();
+		const { response } = await client.POST("/god-mode/users/{userId}/ban/toggle", {
+			params: { path: { userId: "any-id" } },
+		});
+		expect(response.status).toBe(401);
+	});
+
+	it("rejects ban toggle with wrong admin token", async () => {
+		const client = getBackendClient();
+		const { response } = await client.POST("/god-mode/users/{userId}/ban/toggle", {
+			params: { path: { userId: "any-id" } },
+			headers: adminAccessTokenHeaders(WRONG_TOKEN),
+		});
+		expect(response.status).toBe(401);
+	});
 });
 
 describe("User listing with correct admin token", () => {
@@ -112,6 +162,7 @@ describe("User listing with correct admin token", () => {
 		});
 		expect(response.status).toBe(200);
 		expect(data?.data.users[0]?.authState).toBe("credential");
+		expect(data?.data.users[0]?.bannedAt).toBeNull();
 	});
 
 	it("classifies mixed auth users as 'mixed'", async () => {
@@ -128,7 +179,7 @@ describe("User listing with correct admin token", () => {
 		}
 		const userId = row.id;
 
-		await pg.query(
+		await getPgClient().query(
 			`INSERT INTO "account" (id, account_id, provider_id, user_id, created_at, updated_at)
 			 VALUES ($1, $2, 'oidc', $3, NOW(), NOW())`,
 			[randomUUID(), `oidc-sub-${dayjs().valueOf()}`, userId],
@@ -143,20 +194,74 @@ describe("User listing with correct admin token", () => {
 	});
 });
 
+describe("God-mode ban toggle", () => {
+	it("disables a user, revokes sessions, blocks API keys, and then enables the user", async () => {
+		const client = getBackendClient();
+		const { cookies, email, password } = await createTestUser();
+		const userId = await getUserIdByEmail(email);
+		const apiKey = await createApiKey(cookies);
+
+		const { response: sessionBefore } = await client.GET("/trackers", {
+			headers: { Cookie: cookies },
+		});
+		expect(sessionBefore.status).toBe(200);
+
+		const { response: apiKeyBefore } = await client.GET("/trackers", {
+			headers: { "X-Api-Key": apiKey },
+		});
+		expect(apiKeyBefore.status).toBe(200);
+
+		const { data: banData, response: banResponse } = await client.POST(
+			"/god-mode/users/{userId}/ban/toggle",
+			{
+				params: { path: { userId } },
+				headers: adminAccessTokenHeaders(ADMIN_TOKEN),
+			},
+		);
+		expect(banResponse.status).toBe(200);
+		expect(banData?.data.bannedAt).toBeString();
+
+		const { data: listData, response: listResponse } = await client.GET("/god-mode/users", {
+			params: { query: { search: email } },
+			headers: adminAccessTokenHeaders(ADMIN_TOKEN),
+		});
+		expect(listResponse.status).toBe(200);
+		expect(listData?.data.users[0]?.bannedAt).toBe(banData?.data.bannedAt);
+
+		const { response: revokedSession } = await client.GET("/trackers", {
+			headers: { Cookie: cookies },
+		});
+		expect(revokedSession.status).toBe(401);
+
+		const { response: blockedApiKey } = await client.GET("/trackers", {
+			headers: { "X-Api-Key": apiKey },
+		});
+		expect(blockedApiKey.status).toBe(401);
+
+		const blockedSignIn = await signInWithPassword(email, password);
+		expect(blockedSignIn.status).toBe(403);
+
+		const { data: enableData, response: enableResponse } = await client.POST(
+			"/god-mode/users/{userId}/ban/toggle",
+			{
+				params: { path: { userId } },
+				headers: adminAccessTokenHeaders(ADMIN_TOKEN),
+			},
+		);
+		expect(enableResponse.status).toBe(200);
+		expect(enableData?.data.bannedAt).toBeNull();
+
+		const restoredSignIn = await signInWithPassword(email, password);
+		expect(restoredSignIn.ok).toBe(true);
+	});
+});
+
 describe("Reset link generation and completion for credential user", () => {
 	it("generates reset link, sets new password, and signs in", async () => {
 		const client = getBackendClient();
 		const { email } = await createTestUser();
 
-		const pg = getPgClient();
-		const result = await pg.query<{ id: string }>(`SELECT id FROM "user" WHERE email = $1`, [
-			email,
-		]);
-		const row = result.rows[0];
-		if (!row) {
-			throw new Error("missing user row");
-		}
-		const userId = row.id;
+		const userId = await getUserIdByEmail(email);
 
 		const { data: resetData, response: resetResponse } = await client.POST(
 			"/god-mode/users/{userId}/reset-password",
@@ -184,11 +289,7 @@ describe("Reset link generation and completion for credential user", () => {
 		});
 		expect(resetError).toBeNull();
 
-		const signInRes = await fetch(`${getBackendUrl()}/auth/sign-in/email`, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ email, password: newPassword }),
-		});
+		const signInRes = await signInWithPassword(email, newPassword);
 		expect(signInRes.ok).toBe(true);
 
 		const signInData = await signInRes.json();
@@ -213,15 +314,7 @@ describe("Reset link generation and completion for credential user", () => {
 		});
 		expect(trackersBefore.status).toBe(200);
 
-		const pg = getPgClient();
-		const result = await pg.query<{ id: string }>(`SELECT id FROM "user" WHERE email = $1`, [
-			email,
-		]);
-		const row = result.rows[0];
-		if (!row) {
-			throw new Error("missing user row");
-		}
-		const userId = row.id;
+		const userId = await getUserIdByEmail(email);
 
 		const { data: resetData, response: resetResponse } = await client.POST(
 			"/god-mode/users/{userId}/reset-password",
@@ -249,11 +342,7 @@ describe("Reset link generation and completion for credential user", () => {
 		});
 		expect(oldSessionRes.status).toBe(401);
 
-		const signInRes = await fetch(`${getBackendUrl()}/auth/sign-in/email`, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ email, password: newPassword }),
-		});
+		const signInRes = await signInWithPassword(email, newPassword);
 		expect(signInRes.ok).toBe(true);
 
 		const newSetCookies = signInRes.headers.getSetCookie();
@@ -294,11 +383,7 @@ describe("Reset link generation and completion for no-account user", () => {
 		});
 		expect(resetError).toBeNull();
 
-		const signInRes = await fetch(`${getBackendUrl()}/auth/sign-in/email`, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ email, password: newPassword }),
-		});
+		const signInRes = await signInWithPassword(email, newPassword);
 		expect(signInRes.ok).toBe(true);
 
 		const accountResult = await getPgClient().query<{ count: string }>(
@@ -328,17 +413,9 @@ describe("Mixed auth user restrictions", () => {
 		const client = getBackendClient();
 		const { email } = await createTestUser();
 
-		const pg = getPgClient();
-		const result = await pg.query<{ id: string }>(`SELECT id FROM "user" WHERE email = $1`, [
-			email,
-		]);
-		const row = result.rows[0];
-		if (!row) {
-			throw new Error("missing user row");
-		}
-		const userId = row.id;
+		const userId = await getUserIdByEmail(email);
 
-		await pg.query(
+		await getPgClient().query(
 			`INSERT INTO "account" (id, account_id, provider_id, user_id, created_at, updated_at)
 			 VALUES ($1, $2, 'oidc', $3, NOW(), NOW())`,
 			[randomUUID(), `oidc-sub-${dayjs().valueOf()}`, userId],
