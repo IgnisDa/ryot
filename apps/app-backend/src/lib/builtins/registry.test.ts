@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { showEpisodePropertiesSchema, showSeasonPropertiesSchema } from "./media-property-schemas";
+import {
+	podcastEpisodePropertiesSchema,
+	showEpisodePropertiesSchema,
+	showSeasonPropertiesSchema,
+} from "./media-property-schemas";
 import { builtinSandboxScripts } from "./registry";
 
 describe("builtinSandboxScripts", () => {
@@ -37,6 +41,22 @@ describe("builtinSandboxScripts", () => {
 			source: "anilist",
 			canonicalLanguage: "english",
 		});
+		expect(providerInformationFor("podcast.itunes")).toEqual({
+			source: "itunes",
+			canonicalLanguage: "en_us",
+		});
+		expect(providerInformationFor("music.youtube-music")).toEqual({
+			source: "youtube-music",
+			canonicalLanguage: "en",
+		});
+		expect(providerInformationFor("person.youtube-music")).toEqual({
+			source: "youtube-music",
+			canonicalLanguage: "en",
+		});
+		expect(providerInformationFor("music-group.youtube-music")).toEqual({
+			source: "youtube-music",
+			canonicalLanguage: "en",
+		});
 	});
 
 	it("keeps parent show external ids on episodic show property schemas", () => {
@@ -44,6 +64,12 @@ describe("builtinSandboxScripts", () => {
 			type: "string",
 		});
 		expect(showEpisodePropertiesSchema.fields.parentShowExternalId).toMatchObject({
+			type: "string",
+		});
+	});
+
+	it("keeps parent podcast external ids on podcast episode property schemas", () => {
+		expect(podcastEpisodePropertiesSchema.fields.parentPodcastExternalId).toMatchObject({
 			type: "string",
 		});
 	});
