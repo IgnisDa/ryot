@@ -33,7 +33,7 @@ describe("Measurements E2E", () => {
 		expect(measurementSchema?.trackerId).toBe(fitnessTracker.id);
 	});
 
-	it("exposes the measurement schema properties", async () => {
+	it("exposes the measurement schema properties with uniform statistics", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { schema: measurementSchema } = await findBuiltinSchemaBySlug(
 			client,
@@ -42,15 +42,15 @@ describe("Measurements E2E", () => {
 		);
 
 		expect(measurementSchema.propertiesSchema.fields).toMatchObject({
-			weight: {
-				type: "number",
-				label: "Weight",
-				description: "Body weight in the user's preferred unit",
-			},
 			comment: {
 				type: "string",
 				label: "Comment",
 				description: "Optional notes about this measurement",
+			},
+			statistics: {
+				type: "array",
+				label: "Statistics",
+				description: "Array of measurement statistics",
 			},
 			recordedAt: {
 				type: "datetime",
@@ -58,9 +58,10 @@ describe("Measurements E2E", () => {
 				description: "Date and time this measurement was recorded",
 			},
 		});
+		expect(measurementSchema.propertiesSchema.fields).not.toHaveProperty("weight");
 	});
 
-	it("creates the built-in All Measurements saved view with measurement defaults", async () => {
+	it("creates the built-in All Measurements saved view with recordedAt sort and comment subtitle", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const fitnessTracker = await findBuiltinTrackerBySlug(client, cookies, "fitness");
 		const views = await listSavedViews(client, cookies, {
@@ -76,8 +77,8 @@ describe("Measurements E2E", () => {
 			queryDefinition: {
 				scope: ["measurement"],
 				sort: {
-					direction: "asc",
-					expression: createEntityColumnExpression("measurement", "name"),
+					direction: "desc",
+					expression: createEntityPropertyExpression("measurement", "recordedAt"),
 				},
 			},
 			displayConfiguration: {
@@ -86,23 +87,24 @@ describe("Measurements E2E", () => {
 					titleProperty: createEntityColumnExpression("measurement", "name"),
 					imageProperty: createEntityColumnExpression("measurement", "image"),
 					primarySubtitleProperty: createEntityPropertyExpression("measurement", "recordedAt"),
-					secondarySubtitleProperty: createEntityPropertyExpression("measurement", "weight"),
+					secondarySubtitleProperty: createEntityPropertyExpression("measurement", "comment"),
 				},
 			},
 		});
 	});
 
-	it("creates a measurement entity and retrieves it by id", async () => {
+	it("creates a measurement entity with statistics and retrieves it by id", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { measurementId } = await createMeasurementEntityFixture(client, cookies);
 		const entity = await getEntity(client, cookies, measurementId);
 
 		expect(entity.id).toBe(measurementId);
-		expect(entity.name).toBe("2026-04-27");
+		expect(entity.name).toBe("Measurement - 2026-04-27 08:00");
 		expect(entity.properties).toMatchObject({
-			weight: 75.5,
-			recordedAt: "2026-04-27T08:00:00Z",
+			statistics: [{ key: "weight", label: "Weight", value: 75.5 }],
+			recordedAt: expect.stringMatching(/^2026-04-27T08:00:00(\.\d+)?Z$/),
 		});
+		expect(entity.properties).not.toHaveProperty("weight");
 	});
 
 	it("shows measurement entities through the query engine", async () => {
@@ -120,7 +122,7 @@ describe("Measurements E2E", () => {
 					titleProperty: ["entity.measurement.name"],
 					imageProperty: ["entity.measurement.image"],
 					primarySubtitleProperty: ["entity.measurement.properties.recordedAt"],
-					secondarySubtitleProperty: ["entity.measurement.properties.weight"],
+					secondarySubtitleProperty: ["entity.measurement.properties.comment"],
 				},
 			}),
 		);
