@@ -15,6 +15,7 @@ export { listedEntitySchema } from "./schemas";
 export type {
 	EnsureEntityInLibraryDeps,
 	EntityImportDeps,
+	EntityMatchCandidate,
 	EntityServiceDeps,
 	EntityServiceResult,
 	WriteEntityRelationshipDeps,
@@ -26,6 +27,7 @@ export {
 	getEntityDetail,
 	getEntityImportResult,
 	importEntity,
+	listEntityMatchCandidates,
 	parseEntityImage,
 	parseEntityProperties,
 	resolveEntityCreateInput,
