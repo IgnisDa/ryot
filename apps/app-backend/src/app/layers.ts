@@ -22,6 +22,9 @@ import { EventSchemasService } from "~/modules/event-schemas/service";
 import { EventsRepository } from "~/modules/events/repository";
 import { EventsService } from "~/modules/events/service";
 import { GodModeService } from "~/modules/god-mode/service";
+import { ImportsRepository } from "~/modules/imports/repository";
+import { ImportsService } from "~/modules/imports/service";
+import { ImportWorkflowDefinitionsLive } from "~/modules/imports/worker";
 import { IntegrationsRepository } from "~/modules/integrations/repository";
 import { QueryEngineService } from "~/modules/query-engine/service";
 import { RelationshipSchemasRepository } from "~/modules/relationship-schemas/repository";
@@ -51,6 +54,7 @@ const RepositoriesLive = Layer.mergeAll(
 	EntitySchemasRepository.Default,
 	EventSchemasRepository.Default,
 	EventsRepository.Default,
+	ImportsRepository.Default,
 	IntegrationsRepository.Default,
 	RelationshipSchemasRepository.Default,
 	SandboxRepository.Default,
@@ -76,6 +80,7 @@ const ServicesLive = Layer.mergeAll(
 	EventSchemasService.Default,
 	EventsService.Default,
 	GodModeService.Default.pipe(Layer.provide(AuthService.Default)),
+	ImportsService.Default.pipe(Layer.provide(UploadsService.Default)),
 	QueryEngineService.Default,
 	RelationshipSchemasService.Default,
 	SavedViewsService.Default,
@@ -91,6 +96,7 @@ const ServiceDependenciesLive = ServicesLive.pipe(
 
 const RuntimeLive = Layer.mergeAll(
 	EntityImportWorkflowDefinitionsLive,
+	ImportWorkflowDefinitionsLive,
 	SandboxWorkflowDefinitionsLive,
 	ServerLive,
 );

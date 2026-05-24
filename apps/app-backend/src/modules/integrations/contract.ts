@@ -3,7 +3,7 @@ import { Schema } from "effect";
 
 import { AuthMiddleware } from "~/lib/auth";
 import { NotFound, NotImplemented, RateLimited, Unauthorized } from "~/lib/errors";
-import { ListedImportRun } from "~/modules/imports/contract";
+import { ListedImportRun } from "~/modules/imports/schemas";
 
 import { CreateIntegrationBody, UpdateIntegrationBody } from "./schemas";
 import { integrationLots, type IntegrationLot as IntegrationLotType } from "./types";

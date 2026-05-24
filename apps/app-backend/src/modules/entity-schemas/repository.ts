@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import { Effect } from "effect";
 
 import { buildDefaultQueryDefinition, buildDisplayConfig } from "~/lib/builtins/view-helpers";
@@ -186,6 +186,24 @@ export class EntitySchemasRepository extends Effect.Service<EntitySchemasReposit
 							.from(schema.entitySchema)
 							.where(
 								and(eq(schema.entitySchema.userId, userId), eq(schema.entitySchema.slug, slug)),
+							)
+							.limit(1),
+					);
+					return row ?? null;
+				}),
+			getBuiltinBySlug: (slug: string) =>
+				Effect.gen(function* () {
+					const db = yield* CurrentDb;
+					const [row] = yield* dbEffect(() =>
+						db
+							.select({ id: schema.entitySchema.id })
+							.from(schema.entitySchema)
+							.where(
+								and(
+									eq(schema.entitySchema.slug, slug),
+									isNull(schema.entitySchema.userId),
+									eq(schema.entitySchema.isBuiltin, true),
+								),
 							)
 							.limit(1),
 					);
