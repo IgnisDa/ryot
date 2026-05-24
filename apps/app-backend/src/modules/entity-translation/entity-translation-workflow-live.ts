@@ -1,12 +1,14 @@
 import { SandboxRunError, dieOnDbError, toSandboxRunError } from "@ryot/contract/errors";
 import { encodeEntityUpdatedMessage } from "@ryot/contract/modules/entity-interest/messages";
-import type { ProviderTranslateResult } from "@ryot/sandbox-sdk/provider";
+import {
+	providerTranslateResultSchema,
+	type ProviderTranslateResult,
+} from "@ryot/sandbox-sdk/provider";
 import { DateTime, Effect, Schema } from "effect";
 import { Activity } from "effect/unstable/workflow";
 
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
-import { decodeProviderTranslateResult } from "#modules/sandbox/provider-contracts";
 
 import {
 	TranslateEntityWorkflow,
@@ -14,6 +16,8 @@ import {
 } from "./entity-translation-workflow";
 import { TranslateEntityWorkflowOperations } from "./operations-workflow";
 import { TranslationsService } from "./service";
+
+const decodeProviderTranslateResult = Schema.decodeUnknownEffect(providerTranslateResultSchema);
 
 const writeTranslationOverlay = Effect.fn("writeTranslationOverlay")(function* (
 	payload: TranslateEntityWorkflowPayload,
