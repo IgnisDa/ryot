@@ -1,3 +1,4 @@
+import { Button } from "@ryot/client-ui-sdk";
 import type { SystemConfigResponse } from "@ryot/contract/modules/system/contract";
 import { createFileRoute } from "@tanstack/react-router";
 import { Effect } from "effect";
@@ -220,20 +221,17 @@ function AuthGate(props: { server: ServerOrigin; redirectTo?: string }) {
 				message="Authentication settings could not be loaded. Check the server and try again."
 				actions={
 					<>
-						<button
+						<Button
 							type="button"
-							className="ui-button-primary w-full"
+							variant="primary"
+							className="w-full"
 							onClick={() => setRetry((value) => value + 1)}
 						>
 							Try again
-						</button>
-						<button
-							type="button"
-							className="ui-button-text"
-							onClick={() => void selectAnotherServer()}
-						>
+						</Button>
+						<Button type="button" variant="text" onClick={() => void selectAnotherServer()}>
 							Change server
-						</button>
+						</Button>
 					</>
 				}
 			/>
@@ -246,13 +244,9 @@ function AuthGate(props: { server: ServerOrigin; redirectTo?: string }) {
 				title="Authentication unavailable"
 				message="This server has no browser sign-in method enabled."
 				actions={
-					<button
-						type="button"
-						className="ui-button-text"
-						onClick={() => void selectAnotherServer()}
-					>
+					<Button type="button" variant="text" onClick={() => void selectAnotherServer()}>
 						Change server
-					</button>
+					</Button>
 				}
 			/>
 		);
@@ -303,26 +297,28 @@ function AuthGate(props: { server: ServerOrigin; redirectTo?: string }) {
 										{oidcError}
 									</p>
 								)}
-								<button
+								<Button
 									type="button"
+									className="w-full"
+									variant="secondary"
 									disabled={oidcPending}
 									onClick={() => void signInWithOidc()}
-									className="ui-button-secondary w-full"
 								>
 									{oidcPending
 										? "Opening provider..."
 										: (methods.oidc.buttonLabel ?? "Sign in with OpenID Connect")}
-								</button>
+								</Button>
 							</div>
 						)}
-						<button
+						<Button
 							type="button"
+							variant="text"
+							className="w-full"
 							disabled={oidcPending}
-							className="ui-button-text w-full"
 							onClick={() => void selectAnotherServer()}
 						>
 							Change server
-						</button>
+						</Button>
 					</>
 				)}
 			</section>
