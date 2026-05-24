@@ -58,7 +58,6 @@ export type BackupRunFailure = typeof BackupRunFailure.Type;
 
 const BackupBadRequestReason = Schema.Union([
 	Schema.Struct({ code: Schema.Literal("account-not-found") }),
-	Schema.Struct({ code: Schema.Literal("bootstrap-definition-unavailable") }),
 	Schema.Struct({ code: Schema.Literal("restore-has-no-artifact") }),
 	Schema.Struct({ code: Schema.Literal("export-has-no-artifact") }),
 ]);
