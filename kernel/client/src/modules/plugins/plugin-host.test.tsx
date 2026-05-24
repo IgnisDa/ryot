@@ -41,6 +41,13 @@ describe("plugin host", () => {
 		expect(screen.getByRole("alert").textContent).toBe("This plugin has no web experience yet.");
 	});
 
+	it("keeps an installing plugin in the loading notice", () => {
+		renderHost({ health: "installing", clientArtifactHash: null });
+
+		expect(screen.queryByTitle("fixture plugin")).toBeNull();
+		expect(screen.getByRole("status").textContent).toBe("Preparing this plugin...");
+	});
+
 	it("reports a failed installation as a compilation failure", () => {
 		renderHost({ health: "failed" });
 

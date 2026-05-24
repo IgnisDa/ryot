@@ -26,6 +26,7 @@
 		"@vitejs/plugin-react": "^6.0.1",
 		"bun-types": "1.4.0",
 		"jsdom": "^30.0.1",
+		"typescript": "7.0.2",
 		"vite": "^8.0.0",
 		"vitest": "4.1.9"
 	}

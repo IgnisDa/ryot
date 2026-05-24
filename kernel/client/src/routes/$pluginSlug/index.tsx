@@ -1,46 +1,16 @@
-import { createFileRoute, notFound, redirect } from "@tanstack/react-router";
+import { createFileRoute, notFound } from "@tanstack/react-router";
 import { Effect } from "effect";
 
-import { decideProtectedRoute } from "../../modules/auth/route-gates";
-import { AuthService, toAuthSessionState } from "../../modules/auth/service";
+import { protectedRouteGuard } from "../../modules/auth/route-gates";
 import { PluginCatalogService } from "../../modules/plugins/catalog";
 import { PluginHost } from "../../modules/plugins/plugin-host";
 import { resolveRouteTarget } from "../../modules/plugins/route-resolver";
-import { ServerService } from "../../modules/server/service";
 
 export const Route = createFileRoute("/$pluginSlug/")({
 	component: PluginDestination,
 	errorComponent: PluginLoadError,
 	notFoundComponent: PluginNotFound,
-	beforeLoad: async ({ context, params }) => {
-		const server = context.runtime.runSync(
-			Effect.flatMap(ServerService, (service) => service.selected),
-		);
-		if (server === null) {
-			// oxlint-disable-next-line typescript/only-throw-error
-			throw redirect({
-				replace: true,
-				to: "/onboarding",
-				search: { redirect: `/${params.pluginSlug}` },
-			});
-		}
-		const session = await context.runtime.runPromise(
-			Effect.flatMap(AuthService, (service) => service.settledSession(server)),
-		);
-		const decision = decideProtectedRoute(
-			server,
-			toAuthSessionState(session),
-			`/${params.pluginSlug}`,
-		);
-		if (decision.action === "redirect") {
-			// oxlint-disable-next-line typescript/only-throw-error
-			throw redirect({ replace: true, to: decision.to, search: { redirect: decision.redirectTo } });
-		}
-		if (decision.action === "wait") {
-			throw new Error("Unreachable: settledSession never resolves a pending session.");
-		}
-		return { server, scope: decision.scope };
-	},
+	beforeLoad: ({ context, params }) => protectedRouteGuard(context, `/${params.pluginSlug}`),
 	loader: async ({ context, params }) => {
 		const catalog = await context.runtime.runPromise(
 			Effect.flatMap(PluginCatalogService, (service) => service.load(context.scope)),
