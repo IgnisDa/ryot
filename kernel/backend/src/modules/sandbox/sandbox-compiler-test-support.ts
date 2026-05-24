@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 
-import { SandboxCompiler } from "./compiler";
+import { SandboxCompiler } from "./sandbox-compiler";
 
 export const validSandboxSource = `
 import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";

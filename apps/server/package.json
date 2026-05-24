@@ -6,10 +6,11 @@
 		"assemble": "bun run scripts/assemble.ts",
 		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix",
 		"run-migration": "bun run --cwd ../../kernel/backend sandbox:compile-runner && RUN_MIGRATION_ONLY=true bun run src/main.ts",
-		"build": "bun run --cwd ../../kernel/backend sandbox:compile-runner && bun build src/main.ts --outdir dist --target bun --sourcemap --define process.env.UNKEY_ROOT_KEY=\"\\\"${UNKEY_ROOT_KEY:-}\\\"\" && bun build scripts/prepare-sandbox-runtime.ts --outdir dist --target bun --sourcemap && bun build scripts/smoke-compiler-worker.ts --outdir dist --target bun --sourcemap"
+		"build": "bun run --cwd ../../kernel/backend sandbox:compile-runner && bun build src/main.ts --outdir dist --target bun --sourcemap --define process.env.UNKEY_ROOT_KEY=\"\\\"${UNKEY_ROOT_KEY:-}\\\"\" && bun build scripts/prepare-sandbox-runtime.ts --outdir dist --target bun --sourcemap && bun build scripts/smoke-compiler-workers.ts --outdir dist --target bun --sourcemap"
 	},
 	"dependencies": {
 		"@effect/platform-bun": "4.0.0-beta.107",
+		"@ryot/client-plugin-compiler": "workspace:*",
 		"@ryot/kernel-backend": "workspace:*",
 		"@ryot/sandbox-compiler": "workspace:*",
 		"@ryot/sandbox-sdk": "workspace:*",

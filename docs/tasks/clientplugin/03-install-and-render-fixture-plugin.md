@@ -8,7 +8,9 @@
 
 Deliver the first complete plugin-client path on top of the authenticated kernel from Task 02. An actual plugin source archive must declare a V1 client entry, include local TSX, CSS, and an asset, compile during server installation, expose immutable artifact metadata through RyotQL, and render its home at `/fixture` inside an isolated iframe. The kernel must not import the fixture application or its domain code.
 
-Extend the canonical manifest and deterministic plugin archive with optional `client` metadata and `client/**` source. Keep backend-only plugins valid. Add `@ryot/client-plugin-compiler` as a browser compiler separate from `@ryot/sandbox-compiler`; use a fixed trusted module resolver, compile plugin-local Tailwind and CSS, reject unsupported external imports, and emit an independently loadable content-addressed artifact with exact V1 metadata. The package source hash and client artifact hash are distinct. The server owns compiler process limits and runs compilation during the same installation path used by the fixture.
+Extend the canonical manifest and deterministic plugin archive with optional `client` metadata and `client/**` source. Keep backend-only plugins valid. Add `@ryot/client-plugin-compiler` as a browser compiler engine separate from `@ryot/sandbox-compiler`; use a fixed trusted module resolver, compile plugin-local Tailwind and CSS, reject unsupported external imports, and emit an independently loadable content-addressed artifact with exact V1 metadata. The package source hash and client artifact hash are distinct. The server owns shared compiler process supervision and runs compilation during the same installation path used by the fixture.
+
+Compiler production dependencies remain package-owned. The production image installs the dependencies for both compiler packages through a filtered runtime stage and does not install dependency declarations from uploaded plugins. It carries `sandbox-compiler-worker.js*` and `client-plugin-compiler-worker.js*`; the image smoke command invokes both workers by absolute path and succeeds only when both smoke compilations succeed.
 
 Persist enough immutable artifact data to serve an active installation by artifact hash with correct content types and immutable caching. Resolve the design's open iframe-origin, sandbox, CSP, and physical artifact-layout choices with the smallest implementation that preserves the stated isolation invariants, and record the chosen mechanism in the architecture document. Plugin code must have no kernel DOM access and no Ryot credentials.
 
@@ -22,7 +24,7 @@ The fixture must use the same archive reader, compiler, persistence, artifact se
 - [ ] Deterministic plugin archives accept canonical `client/**` source and assets, reject unsafe paths and unsupported entries, enforce suitable source/archive limits, and preserve existing backend entries.
 - [ ] The CLI includes declared client source without trusting or installing the plugin's `package.json` dependencies.
 - [ ] `@ryot/client-plugin-compiler` compiles fixture TSX, plugin-local relative imports, Tailwind, custom CSS, and an asset into an independently loadable browser artifact.
-- [ ] The compiler resolves only approved React and Ryot SDK imports, rejects an arbitrary external package, does not broaden `@ryot/sandbox-compiler`, and runs through a bounded server-owned compiler process.
+- [ ] The compiler resolves only approved React and Ryot SDK imports, rejects an arbitrary external package, does not broaden `@ryot/sandbox-compiler`, and runs through shared bounded server-owned compiler process supervision.
 - [ ] Identical source and compiler inputs produce the same artifact identity; changing client source changes the artifact hash independently of persisted installation identity.
 - [ ] Installation fails atomically with typed diagnostics when client compilation fails and does not activate a partial client artifact.
 - [ ] Active artifact files are served with correct content types, immutable cache semantics, and an identity the kernel can verify.
@@ -32,6 +34,7 @@ The fixture must use the same archive reader, compiler, persistence, artifact se
 - [ ] The kernel transfers a `MessagePort` to the intended top-level plugin document, validates exact V1 markers, and receives a ready signal before presenting the plugin as loaded.
 - [ ] The fixture exports through `defineClientPlugin`, uses at least one minimal client UI SDK primitive, and visibly renders its home without a kernel import of fixture UI code.
 - [ ] Loading, missing-artifact, compilation-failure, handshake-failure, and unexpected-version states have stable kernel-owned presentation without exposing internal diagnostics.
+- [ ] The production image contains both compiler worker artifacts, and its image smoke compilation succeeds for both absolute worker paths.
 - [ ] Contract, archive, compiler, backend installation/serving, RyotQL decoding, route-resolution, bridge-bootstrap, isolation, and browser rendering tests cover the production path; all affected checks, tests, and builds pass.
 - [ ] The architecture document records the artifact layout, serving/origin mechanism, sandbox flags, and CSP decisions selected by this implementation without adding compatibility alternatives.
 
