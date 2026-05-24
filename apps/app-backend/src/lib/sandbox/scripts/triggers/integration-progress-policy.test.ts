@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
 import integrationProgressPolicyScriptCode from "./integration-progress-policy.txt";
-import { appApiFailure, appApiSuccess, runTriggerScript } from "./test-utils";
+import { hostFailure, hostSuccess, runTriggerScript } from "./test-utils";
 
 type EventFixture = {
 	occurredAt: string;
@@ -24,31 +24,32 @@ const createTrigger = (overrides: Record<string, unknown> = {}) => ({
 	},
 });
 
-const createAppApiCall = (options: {
+const createHostFunctions = (options: {
 	events?: EventFixture[];
 	thresholdHours?: string | number | null;
 	integration?: Record<string, unknown> | null;
 }) => {
-	const calls: Array<{ method: string; path: string }> = [];
-	const appApiCall = (method: unknown, path: unknown) => {
-		const stringPath = String(path);
-		calls.push({ method: String(method), path: stringPath });
+	const calls: string[] = [];
 
-		if (stringPath.startsWith("/api/integrations/")) {
-			return options.integration ? appApiSuccess(options.integration) : appApiFailure();
-		}
-		if (stringPath.startsWith("/api/events")) {
-			return appApiSuccess(options.events ?? []);
-		}
-		if (stringPath === "/api/system/config") {
-			return appApiSuccess({
-				system: { scheduler: { progressUpdateThresholdHours: options.thresholdHours ?? "2" } },
-			});
-		}
-		return appApiFailure();
+	return {
+		calls,
+		hostFunctions: {
+			getIntegration: () => {
+				calls.push("getIntegration");
+				return options.integration ? hostSuccess(options.integration) : hostFailure();
+			},
+			listEvents: () => {
+				calls.push("listEvents");
+				return hostSuccess(options.events ?? []);
+			},
+			getSystemConfig: () => {
+				calls.push("getSystemConfig");
+				return hostSuccess({
+					system: { scheduler: { progressUpdateThresholdHours: options.thresholdHours ?? "2" } },
+				});
+			},
+		},
 	};
-
-	return { appApiCall, calls };
 };
 
 const claimsTrue = () => ({ success: true, data: { claimed: true } });
@@ -63,12 +64,12 @@ const integration = (overrides: Record<string, unknown> = {}) => ({
 
 describe("integration-progress-policy sandbox script", () => {
 	it("allows non-integration events immediately without any API calls", async () => {
-		const { appApiCall, calls } = createAppApiCall({ integration: integration() });
+		const { calls, hostFunctions } = createHostFunctions({ integration: integration() });
 
 		const result = await runTriggerScript(
 			integrationProgressPolicyScriptCode,
 			createTrigger({ origin: "api" }),
-			{ appApiCall, claimCachedValue: claimsTrue },
+			{ ...hostFunctions, claimCachedValue: claimsTrue },
 		);
 
 		expect(result).toEqual({ action: "allow" });
@@ -76,12 +77,12 @@ describe("integration-progress-policy sandbox script", () => {
 	});
 
 	it("skips when progressPercent cannot be parsed", async () => {
-		const { appApiCall, calls } = createAppApiCall({ integration: integration() });
+		const { calls, hostFunctions } = createHostFunctions({ integration: integration() });
 
 		const result = await runTriggerScript(
 			integrationProgressPolicyScriptCode,
 			createTrigger({ properties: { progressPercent: "not-a-number", consumedOn: "Plex" } }),
-			{ appApiCall, claimCachedValue: claimsTrue },
+			{ ...hostFunctions, claimCachedValue: claimsTrue },
 		);
 
 		expect(result).toEqual({ action: "skip", reason: "invalid_progress" });
@@ -89,19 +90,21 @@ describe("integration-progress-policy sandbox script", () => {
 	});
 
 	it("skips progress below the integration minimum", async () => {
-		const { appApiCall } = createAppApiCall({ integration: integration({ minimumProgress: "5" }) });
+		const { hostFunctions } = createHostFunctions({
+			integration: integration({ minimumProgress: "5" }),
+		});
 
 		const result = await runTriggerScript(
 			integrationProgressPolicyScriptCode,
 			createTrigger({ properties: { progressPercent: 3, consumedOn: "Plex" } }),
-			{ appApiCall, claimCachedValue: claimsTrue },
+			{ ...hostFunctions, claimCachedValue: claimsTrue },
 		);
 
 		expect(result).toEqual({ action: "skip", reason: "below_minimum_progress" });
 	});
 
 	it("replaces progress above the integration maximum with 100", async () => {
-		const { appApiCall } = createAppApiCall({
+		const { hostFunctions } = createHostFunctions({
 			events: [],
 			integration: integration({ maximumProgress: "95" }),
 		});
@@ -109,7 +112,7 @@ describe("integration-progress-policy sandbox script", () => {
 		const result = await runTriggerScript(
 			integrationProgressPolicyScriptCode,
 			createTrigger({ properties: { progressPercent: 97, consumedOn: "Plex" } }),
-			{ appApiCall, claimCachedValue: claimsTrue },
+			{ ...hostFunctions, claimCachedValue: claimsTrue },
 		);
 
 		expect(result).toEqual({
@@ -119,7 +122,7 @@ describe("integration-progress-policy sandbox script", () => {
 	});
 
 	it("skips duplicate progress at the same percentage for the same identity", async () => {
-		const { appApiCall } = createAppApiCall({
+		const { hostFunctions } = createHostFunctions({
 			integration: integration(),
 			events: [
 				{ occurredAt: minutesAgo(5), properties: { progressPercent: 35, consumedOn: "Plex" } },
@@ -129,14 +132,14 @@ describe("integration-progress-policy sandbox script", () => {
 		const result = await runTriggerScript(
 			integrationProgressPolicyScriptCode,
 			createTrigger({ properties: { progressPercent: 35, consumedOn: "Plex" } }),
-			{ appApiCall, claimCachedValue: claimsTrue },
+			{ ...hostFunctions, claimCachedValue: claimsTrue },
 		);
 
 		expect(result).toEqual({ action: "skip", reason: "duplicate_progress" });
 	});
 
 	it("does not treat a different identity as a duplicate", async () => {
-		const { appApiCall } = createAppApiCall({
+		const { hostFunctions } = createHostFunctions({
 			integration: integration(),
 			events: [
 				{ occurredAt: minutesAgo(5), properties: { progressPercent: 35, consumedOn: "Netflix" } },
@@ -146,14 +149,14 @@ describe("integration-progress-policy sandbox script", () => {
 		const result = await runTriggerScript(
 			integrationProgressPolicyScriptCode,
 			createTrigger({ properties: { progressPercent: 35, consumedOn: "Plex" } }),
-			{ appApiCall, claimCachedValue: claimsTrue },
+			{ ...hostFunctions, claimCachedValue: claimsTrue },
 		);
 
 		expect(result).toEqual({ action: "allow" });
 	});
 
 	it("skips a completion when a recent completion exists within the threshold", async () => {
-		const { appApiCall } = createAppApiCall({
+		const { hostFunctions } = createHostFunctions({
 			integration: integration(),
 			events: [
 				{ occurredAt: minutesAgo(1), properties: { progressPercent: 50, consumedOn: "Plex" } },
@@ -164,14 +167,14 @@ describe("integration-progress-policy sandbox script", () => {
 		const result = await runTriggerScript(
 			integrationProgressPolicyScriptCode,
 			createTrigger({ properties: { progressPercent: 100, consumedOn: "Plex" } }),
-			{ appApiCall, claimCachedValue: claimsFalse },
+			{ ...hostFunctions, claimCachedValue: claimsFalse },
 		);
 
 		expect(result).toEqual({ action: "skip", reason: "completed_recently" });
 	});
 
 	it("allows a completion when the prior completion is outside the threshold", async () => {
-		const { appApiCall } = createAppApiCall({
+		const { hostFunctions } = createHostFunctions({
 			thresholdHours: "2",
 			integration: integration({ maximumProgress: "100" }),
 			events: [
@@ -183,19 +186,22 @@ describe("integration-progress-policy sandbox script", () => {
 		const result = await runTriggerScript(
 			integrationProgressPolicyScriptCode,
 			createTrigger({ properties: { progressPercent: 100, consumedOn: "Plex" } }),
-			{ appApiCall, claimCachedValue: claimsFalse },
+			{ ...hostFunctions, claimCachedValue: claimsFalse },
 		);
 
 		expect(result).toEqual({ action: "allow" });
 	});
 
 	it("allows in-range progress with no matching prior events", async () => {
-		const { appApiCall } = createAppApiCall({ events: [], integration: integration() });
+		const { hostFunctions } = createHostFunctions({
+			events: [],
+			integration: integration(),
+		});
 
 		const result = await runTriggerScript(
 			integrationProgressPolicyScriptCode,
 			createTrigger({ properties: { progressPercent: 42, consumedOn: "Plex" } }),
-			{ appApiCall, claimCachedValue: claimsTrue },
+			{ ...hostFunctions, claimCachedValue: claimsTrue },
 		);
 
 		expect(result).toEqual({ action: "allow" });

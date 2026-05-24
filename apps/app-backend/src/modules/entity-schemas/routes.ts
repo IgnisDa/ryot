@@ -9,6 +9,7 @@ import {
 } from "~/lib/openapi";
 import { sandboxJobParams } from "~/modules/sandbox";
 
+import { getEntitySchemaById, listEntitySchemas } from "./read-service";
 import {
 	createEntitySchemaBody,
 	createEntitySchemaResponseSchema,
@@ -19,13 +20,7 @@ import {
 	listEntitySchemasBody,
 	listEntitySchemasResponseSchema,
 } from "./schemas";
-import {
-	createEntitySchema,
-	enqueueEntitySearch,
-	getEntitySchemaById,
-	getEntitySearchResult,
-	listEntitySchemas,
-} from "./service";
+import { createEntitySchema, enqueueEntitySearch, getEntitySearchResult } from "./service";
 
 const listEntitySchemasRoute = createAuthRoute(
 	createRoute({
