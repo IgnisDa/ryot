@@ -152,6 +152,7 @@ describe("processEntityImportJob", () => {
 describe("processRelatedEntities", () => {
 	const validRelatedEntity = {
 		name: "Loading...",
+		reverseDirection: false,
 		scriptSlug: "person.tmdb",
 		externalId: "related_ext_1",
 		relationshipProperties: { roles: ["Author"] },

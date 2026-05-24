@@ -552,6 +552,7 @@ describe("processRelatedEntities", () => {
 					{
 						name: "Loading...",
 						externalId: "OL151749A",
+						reverseDirection: false,
 						scriptSlug: "person.openlibrary",
 						relationshipProperties: {
 							order: 1,

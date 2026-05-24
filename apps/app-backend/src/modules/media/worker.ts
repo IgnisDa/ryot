@@ -190,9 +190,9 @@ export const processRelatedEntities = async (
 			);
 		}
 
-		const relationshipSchemaSlug = normalizeSlug(
-			`${relatedSchema.slug} to ${input.mediaEntitySchemaSlug}`,
-		);
+		const relationshipSchemaSlug = relatedEntity.reverseDirection
+			? normalizeSlug(`${input.mediaEntitySchemaSlug} to ${relatedSchema.slug}`)
+			: normalizeSlug(`${relatedSchema.slug} to ${input.mediaEntitySchemaSlug}`);
 
 		// oxlint-disable-next-line no-await-in-loop
 		const relationshipSchema =
@@ -211,16 +211,23 @@ export const processRelatedEntities = async (
 			externalId: relatedEntity.externalId,
 		});
 
+		const sourceEntityId = relatedEntity.reverseDirection
+			? input.mediaEntityId
+			: existingOrCreated.id;
+		const targetEntityId = relatedEntity.reverseDirection
+			? existingOrCreated.id
+			: input.mediaEntityId;
+
 		// oxlint-disable-next-line no-await-in-loop
 		const relationshipResult = await deps.writeEntityRelationship({
-			properties: relatedEntity.relationshipProperties,
-			targetEntityId: input.mediaEntityId,
-			sourceEntityId: existingOrCreated.id,
+			targetEntityId,
+			sourceEntityId,
 			relationshipSchemaId: relationshipSchema.id,
+			properties: relatedEntity.relationshipProperties,
 		});
 		if ("error" in relationshipResult) {
 			throw new Error(
-				`Failed to write ${relatedSchema.slug}-to-${input.mediaEntitySchemaSlug} relationship: ${relationshipResult.message}`,
+				`Failed to write ${relationshipSchemaSlug} relationship: ${relationshipResult.message}`,
 			);
 		}
 	}

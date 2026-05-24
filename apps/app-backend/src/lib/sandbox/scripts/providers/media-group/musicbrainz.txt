@@ -218,8 +218,41 @@ driver("details", async function (context) {
   const images = coverUrl ? [{ type: "remote", url: coverUrl }] : [];
   const parts_ = trackCount > 0 ? trackCount : null;
 
+  const relatedEntities = [];
+  if (bestRelease && releaseDetails?.media) {
+    let trackIdx = 0;
+    for (const medium of releaseDetails.media) {
+      if (Array.isArray(medium?.tracks)) {
+        for (const track of medium.tracks) {
+          const recording = track?.recording ?? track;
+          const memberId =
+            typeof recording?.id === "string" && recording.id.trim()
+              ? recording.id.trim()
+              : null;
+          if (!memberId) {
+            trackIdx++;
+            continue;
+          }
+          const memberName =
+            typeof recording?.title === "string" && recording.title.trim()
+              ? recording.title.trim()
+              : "Loading...";
+          relatedEntities.push({
+            name: memberName,
+            externalId: memberId,
+            reverseDirection: true,
+            scriptSlug: "music.musicbrainz",
+            relationshipProperties: { order: trackIdx + 1 },
+          });
+          trackIdx++;
+        }
+      }
+    }
+  }
+
   return {
     name: title,
+    relatedEntities,
     properties: {
       images,
       description,
