@@ -312,7 +312,7 @@ export const insertRelationship = async (input: {
 };
 
 export const upsertInLibraryRelationship = async (
-	input: { userId: string; mediaEntityId: string; libraryEntityId: string },
+	input: { userId: string; entityId: string; libraryEntityId: string },
 	insert: typeof insertRelationship = insertRelationship,
 ) => {
 	const found = await getBuiltinRelationshipSchemaBySlug("in-library");
@@ -323,7 +323,7 @@ export const upsertInLibraryRelationship = async (
 		properties: {},
 		userId: input.userId,
 		relationshipSchemaId: found.id,
-		sourceEntityId: input.mediaEntityId,
+		sourceEntityId: input.entityId,
 		targetEntityId: input.libraryEntityId,
 	});
 };
