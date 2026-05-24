@@ -308,18 +308,9 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 								{ discard: true },
 							).pipe(Effect.andThen(Effect.failCause(cause))),
 						),
-						Effect.ensuring(
-							validated.cleanup.pipe(
-								Effect.catchCause((cause) =>
-									Effect.logWarning("backup restore spool cleanup failed", cause).pipe(
-										Effect.annotateLogs({ runId: payload.runId }),
-									),
-								),
-							),
-						),
 					);
 					return yield* Effect.void;
-				}),
+				}).pipe(Effect.scoped, Effect.annotateLogs({ runId: payload.runId })),
 				{ code: "unexpected-failure", operation: "restore" },
 				restoreFailure,
 			);

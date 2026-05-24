@@ -48,7 +48,7 @@
   - Owner: D03 Backup export
   - Scope: Build plugin/schema/entity context once
 
-- [ ] **11. Scope-own backup archive spool** [M/S/M]
+- [x] **11. Scope-own backup archive spool** [M/S/M]
   - Owner: D03 Backup archive
   - Scope: Scoped resource ownership for spool directory
 
