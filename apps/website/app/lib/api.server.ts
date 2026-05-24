@@ -1,46 +1,22 @@
-import { makeContractClient, type ContractProgram } from "@ryot/contract/client";
+import { type ContractPayload, type ContractProgram, runContract } from "@ryot/contract/client";
 import type { UserId } from "@ryot/contract/schema/brands";
-import { Effect } from "effect";
-import { FetchHttpClient } from "effect/unstable/http";
 
 import { getServerVariables } from "./config.server";
 
-type ApiError = { message: string };
-type ApiResult<T> = { data: T; error?: undefined } | { data?: undefined; error: ApiError };
-
-type ProvisionUserBody =
-	| { provider: "credential"; email: string; name: string }
-	| { provider: "oidc"; email: string; name: string; oidcIssuerId: string };
-
-const errorMessage = (error: unknown): string =>
-	typeof error === "object" &&
-	error !== null &&
-	"message" in error &&
-	typeof error.message === "string"
-		? error.message
-		: "Failed to reach the backend server";
-
-const runAdmin = <A, E>(program: ContractProgram<A, E>): Promise<ApiResult<A>> => {
+const runAdmin = <A, E>(program: ContractProgram<A, E>) => {
 	const serverVariables = getServerVariables();
 
-	return makeContractClient(`${serverVariables.RYOT_BASE_URL}/api`, {
-		"Admin-Access-Token": serverVariables.SERVER_ADMIN_ACCESS_TOKEN,
-	}).pipe(
-		Effect.flatMap(program),
-		Effect.map((data): ApiResult<A> => ({ data })),
-		Effect.catch((error) =>
-			Effect.succeed<ApiResult<A>>({ error: { message: errorMessage(error) } }),
-		),
-		Effect.provide(FetchHttpClient.layer),
-		Effect.runPromise,
-	);
+	return runContract(program, {
+		baseUrl: `${serverVariables.RYOT_BASE_URL}/api`,
+		headers: { "Admin-Access-Token": serverVariables.SERVER_ADMIN_ACCESS_TOKEN },
+	});
 };
 
-export const provisionUser = (body: ProvisionUserBody) =>
+export const provisionUser = (payload: ContractPayload<"godMode", "provisionUser">) =>
 	runAdmin((client) =>
-		body.provider === "oidc"
-			? client.godMode.provisionUser({ payload: body })
-			: client.godMode.provisionUser({ payload: body }),
+		payload.provider === "oidc"
+			? client.godMode.provisionUser({ payload })
+			: client.godMode.provisionUser({ payload }),
 	);
 
 export const resetUserPassword = (userId: UserId) =>
