@@ -1,0 +1,80 @@
+import { DurableQueue } from "@effect/workflow";
+import { Cause, Effect } from "effect";
+
+import { SandboxRunError, unknownToMessage } from "~/lib/errors";
+import { decodeEntityResolveResult } from "~/modules/entities/population";
+import { runEntityImportWorkflow } from "~/modules/entities/workflows";
+import { SandboxExecutionQueue } from "~/modules/sandbox/durable-queues";
+
+const toSandboxError = (cause: unknown) =>
+	cause instanceof SandboxRunError
+		? cause
+		: new SandboxRunError({ message: unknownToMessage(cause) });
+
+const processSandboxEntityDetails = (
+	payload: { userId: string; scriptId: string; externalId: string },
+	executionId: string,
+) =>
+	DurableQueue.process(SandboxExecutionQueue, {
+		driverName: "details",
+		userId: payload.userId,
+		scriptId: payload.scriptId,
+		context: { externalId: payload.externalId },
+		executionId: `${executionId}-sandbox-details`,
+	}).pipe(Effect.mapError(toSandboxError));
+
+export const resolveSandboxEntityExternalId = (input: {
+	value: string;
+	userId: string;
+	scriptId: string;
+	executionId: string;
+	identifierType: string;
+}) =>
+	DurableQueue.process(SandboxExecutionQueue, {
+		userId: input.userId,
+		driverName: "resolve",
+		scriptId: input.scriptId,
+		executionId: input.executionId,
+		context: { value: input.value, identifierType: input.identifierType },
+	}).pipe(
+		Effect.mapError(toSandboxError),
+		Effect.flatMap((result) =>
+			result.error
+				? Effect.fail(new SandboxRunError({ message: result.error }))
+				: decodeEntityResolveResult(result.value).pipe(
+						Effect.mapError(
+							() =>
+								new SandboxRunError({
+									message: "Entity resolve script returned an unexpected shape",
+								}),
+						),
+					),
+		),
+	);
+
+export const importMediaEntityViaWorkflow = (input: {
+	userId: string;
+	scriptId: string;
+	externalId: string;
+	executionId: string;
+	entitySchemaId: string;
+	activityPrefix: string;
+}) =>
+	runEntityImportWorkflow(
+		{
+			userId: input.userId,
+			scriptId: input.scriptId,
+			externalId: input.externalId,
+			executionId: input.executionId,
+			entitySchemaId: input.entitySchemaId,
+		},
+		input.executionId,
+		(entityPayload, childExecutionId) =>
+			processSandboxEntityDetails(entityPayload, childExecutionId),
+		{ skipLibraryMembership: true, activityPrefix: input.activityPrefix },
+	).pipe(
+		Effect.map((entity) => ({ id: entity.id })),
+		Effect.catchAllCause((cause) =>
+			Effect.fail(new SandboxRunError({ message: unknownToMessage(Cause.squash(cause)) })),
+		),
+	);
