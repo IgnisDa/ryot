@@ -2,17 +2,18 @@ import { type CurrentUserValue, defaultUserPreferences } from "@ryot/contract/au
 import { badRequest, notFound } from "@ryot/contract/errors";
 import type { AutomationOrigin } from "@ryot/contract/modules/automations/schemas";
 import type { CreateEventItem, EventCreateOrigin } from "@ryot/contract/modules/events/schemas";
-import type { RowItem } from "@ryot/contract/modules/query-engine/language";
+import type { RowItem } from "@ryot/contract/modules/ryotql/language";
 import {
 	EntityId,
+	EntitySchemaSlug,
 	EventId,
 	EventSchemaSlug,
-	type EntitySchemaSlug,
 	type ImportRunId,
 	type IntegrationId,
 	type UserId,
 } from "@ryot/contract/schema/brands";
-import { buildEventHistoryQueryDocument } from "@ryot/query-engine/recipes/app";
+import { buildEventHistoryDocument } from "@ryot/ryotql-recipes/events";
+import { isObjectRecord } from "@ryot/ts-utils/predicates";
 import { Context, Effect, Layer, Match } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
@@ -21,12 +22,12 @@ import { EntitiesRepository } from "#modules/entities/repository";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
 import {
 	getOptionalStringField,
+	requireFieldValue,
 	requireIsoStringField,
-	requireRecordField,
-	requireRowsResponse,
+	requireRowsResult,
 	requireStringField,
-} from "#modules/query-engine/response-helpers";
-import { QueryEngineService } from "#modules/query-engine/service";
+} from "#modules/ryotql/response-helpers";
+import { RyotQLService } from "#modules/ryotql/service";
 
 import { enqueueEventCreate } from "./event-create-workflow";
 import {
@@ -59,26 +60,17 @@ type EventListQuery = {
 type EventQueryScope = {
 	readonly eventSchemaSlugs: [string, ...string[]];
 	readonly entitySchemaSlugs: [string, ...string[]];
+	readonly eventSchemaNames: ReadonlyMap<string, string>;
 };
 
 const toLifecycleOrigin = (input: EventCreateInput): AutomationOrigin | undefined => {
 	const importRunId = input.metadata?.importRunId;
 	const integrationId = input.metadata?.integrationId;
 	return Match.value(input.source).pipe(
-		Match.when(
-			"api",
-			() =>
-				({
-					kind: "api",
-				}) as const,
-		),
+		Match.when("api", () => ({ kind: "api" }) as const),
 		Match.when(
 			"import",
-			() =>
-				({
-					kind: "import",
-					...(importRunId ? { importRunId } : {}),
-				}) as const,
+			() => ({ kind: "import", ...(importRunId ? { importRunId } : {}) }) as const,
 		),
 		Match.when("integration", () =>
 			integrationId
@@ -107,28 +99,44 @@ const nonEmptyStrings = (values: readonly string[]): [string, ...string[]] | nul
 	return first === undefined ? null : [first, ...rest];
 };
 
-const toListedEvent = Effect.fn("toListedEventFromQueryEngine")(function* (row: RowItem) {
+const eventSchemaKey = (entitySchemaSlug: string, eventSchemaSlug: string) =>
+	`${entitySchemaSlug}:${eventSchemaSlug}`;
+
+const toListedEvent = Effect.fn("toListedEventFromRyotQL")(function* (
+	row: RowItem,
+	eventSchemaNames: ReadonlyMap<string, string>,
+) {
+	const properties = (yield* requireFieldValue(row, "properties")).value;
 	const sessionEntityId = yield* getOptionalStringField(row, "sessionEntityId");
+	const eventSchemaSlug = yield* requireStringField(row, "eventSchemaSlug");
+	const entitySchemaSlug = yield* requireStringField(row, "entitySchemaSlug");
+	const eventSchemaName = eventSchemaNames.get(eventSchemaKey(entitySchemaSlug, eventSchemaSlug));
+	if (!eventSchemaName) {
+		return yield* Effect.die(`Expected event schema name for '${eventSchemaSlug}'`);
+	}
+	if (!isObjectRecord(properties)) {
+		return yield* Effect.die("Expected RyotQL event properties to be an object");
+	}
 
 	return {
-		properties: yield* requireRecordField(row, "properties"),
-		id: EventId.make(yield* requireStringField(row, "id")),
+		properties,
+		eventSchemaName,
+		eventSchemaSlug: EventSchemaSlug.make(eventSchemaSlug),
 		createdAt: yield* requireIsoStringField(row, "createdAt"),
 		updatedAt: yield* requireIsoStringField(row, "updatedAt"),
 		occurredAt: yield* requireIsoStringField(row, "occurredAt"),
-		eventSchemaName: yield* requireStringField(row, "eventSchemaName"),
+		id: EventId.make(yield* requireStringField(row, "id")),
 		entityId: EntityId.make(yield* requireStringField(row, "entityId")),
 		...(sessionEntityId ? { sessionEntityId: EntityId.make(sessionEntityId) } : {}),
-		eventSchemaSlug: EventSchemaSlug.make(yield* requireStringField(row, "eventSchemaSlug")),
 	};
 });
 
 export class EventsService extends Context.Service<EventsService>()("EventsService", {
 	make: Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
+		const ryotql = yield* RyotQLService;
 		const engine = yield* WorkflowEngine;
 		const repository = yield* EventsRepository;
-		const queryEngine = yield* QueryEngineService;
 		const entitiesRepository = yield* EntitiesRepository;
 		const eventSchemasRepository = yield* EventSchemasRepository;
 
@@ -153,10 +161,7 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 		const resolveEntityEventQueryScope = Effect.fn("EventsService.resolveEntityEventQueryScope")(
 			function* (
 				userId: UserId,
-				input: {
-					eventSchemaSlug?: string | undefined;
-					entitySchemaSlug: EntitySchemaSlug;
-				},
+				input: { entitySchemaSlug: EntitySchemaSlug; eventSchemaSlug?: string | undefined },
 			) {
 				const eventSchemas = yield* runWithDb(
 					eventSchemasRepository.listByEntitySchemaForUser({
@@ -169,7 +174,18 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 					: eventSchemas;
 				const eventSchemaSlugs = nonEmptyStrings(filtered.map((schema) => schema.slug));
 				const entitySchemaSlugs: [string, ...string[]] = [input.entitySchemaSlug];
-				return eventSchemaSlugs ? { eventSchemaSlugs, entitySchemaSlugs } : null;
+				return eventSchemaSlugs
+					? {
+							eventSchemaSlugs,
+							entitySchemaSlugs,
+							eventSchemaNames: new Map(
+								filtered.map((schema) => [
+									eventSchemaKey(schema.entitySchemaSlug, schema.slug),
+									schema.name,
+								]),
+							),
+						}
+					: null;
 			},
 		);
 
@@ -179,41 +195,62 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 				query: { eventSchemaSlug?: string | undefined; sessionEntityId: EntityId },
 			) {
 				const rows = yield* runWithDb(repository.listQueryScopesForUser({ userId, ...query }));
-				const eventSchemaSlugs = nonEmptyStrings(rows.map((row) => row.eventSchemaSlug));
+				const resolvedEventSchemas = yield* Effect.forEach(rows, (row) =>
+					eventSchemasRepository.getScopeForUser({
+						userId,
+						eventSchemaSlug: EventSchemaSlug.make(row.eventSchemaSlug),
+						entitySchemaSlug: EntitySchemaSlug.make(row.entitySchemaSlug),
+					}),
+				);
+				const eventSchemas = resolvedEventSchemas.filter(
+					(schema): schema is NonNullable<typeof schema> => schema !== null,
+				);
+				const eventSchemaSlugs = nonEmptyStrings(eventSchemas.map((schema) => schema.slug));
 				const entitySchemaSlugs = nonEmptyStrings(rows.map((row) => row.entitySchemaSlug));
 				return eventSchemaSlugs && entitySchemaSlugs
-					? { eventSchemaSlugs, entitySchemaSlugs }
+					? {
+							eventSchemaSlugs,
+							entitySchemaSlugs,
+							eventSchemaNames: new Map(
+								eventSchemas.map((schema) => [
+									eventSchemaKey(schema.entitySchemaSlug, schema.slug),
+									schema.name,
+								]),
+							),
+						}
 					: null;
 			},
 		);
 
-		const listEventsFromQueryEngine = Effect.fn("EventsService.listEventsFromQueryEngine")(
-			function* (userId: UserId, scope: EventQueryScope, query: EventListQuery) {
-				let page = 1;
-				let hasMore = true;
-				const items: RowItem[] = [];
-				const user = userFromId(userId);
+		const listEventsFromRyotQL = Effect.fn("EventsService.listEventsFromRyotQL")(function* (
+			userId: UserId,
+			scope: EventQueryScope,
+			query: EventListQuery,
+		) {
+			let page = 1;
+			let hasMore = true;
+			const items: RowItem[] = [];
+			const user = userFromId(userId);
 
-				while (hasMore) {
-					const response = yield* queryEngine.execute(
-						user,
-						buildEventHistoryQueryDocument({
-							page,
-							entityId: query.entityId,
-							sessionEntityId: query.sessionEntityId,
-							eventSchemaSlugs: scope.eventSchemaSlugs,
-							entitySchemaSlugs: scope.entitySchemaSlugs,
-						}),
-					);
-					const rows = yield* requireRowsResponse(response);
-					items.push(...rows.data.items);
-					hasMore = rows.data.pageInfo.hasMore;
-					page += 1;
-				}
+			while (hasMore) {
+				const response = yield* ryotql.execute(
+					user,
+					buildEventHistoryDocument({
+						page,
+						entityId: query.entityId,
+						sessionEntityId: query.sessionEntityId,
+						eventSchemaSlugs: scope.eventSchemaSlugs,
+						entitySchemaSlugs: scope.entitySchemaSlugs,
+					}),
+				);
+				const rows = yield* requireRowsResult(response, "events");
+				items.push(...rows.items);
+				hasMore = rows.pageInfo.hasMore;
+				page += 1;
+			}
 
-				return yield* Effect.forEach(items, toListedEvent);
-			},
-		);
+			return yield* Effect.forEach(items, (row) => toListedEvent(row, scope.eventSchemaNames));
+		});
 
 		const listForUser = Effect.fn("EventsService.listForUser")(function* (
 			userId: UserId,
@@ -245,7 +282,7 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 				});
 			}
 
-			return scope ? yield* listEventsFromQueryEngine(userId, scope, query) : [];
+			return scope ? yield* listEventsFromRyotQL(userId, scope, query) : [];
 		});
 
 		const create = Effect.fn("EventsService.create")(function* (input: EventCreateInput) {
