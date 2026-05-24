@@ -69,7 +69,7 @@ export const metadataGroupEntityTargets = [
 		lot: "music",
 		source: "music_brainz",
 		entitySchemaSlug: "music-group",
-		sandboxScriptSlug: "music-group.musicbrainz",
+		sandboxScriptSlug: "music-group.music-brainz",
 	},
 	{
 		lot: "music",
