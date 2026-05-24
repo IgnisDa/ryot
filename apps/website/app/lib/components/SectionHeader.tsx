@@ -16,8 +16,8 @@ type SectionHeaderProps = {
 
 export const SectionHeader = (props: SectionHeaderProps) => {
 	const Icon = props.icon;
-	const HeadingTag = props.as || "h2";
-	const maxWidthClass = props.maxWidth || "max-w-3xl";
+	const HeadingTag = props.as ?? "h2";
+	const maxWidthClass = props.maxWidth ?? "max-w-3xl";
 	const headingClass =
 		HeadingTag === "h1"
 			? "text-4xl lg:text-6xl font-bold text-foreground mb-6 leading-tight"
@@ -26,7 +26,7 @@ export const SectionHeader = (props: SectionHeaderProps) => {
 	return (
 		<div className="text-center mb-16">
 			{props.subtitle && (
-				<Badge variant={props.badgeVariant || "outline"} className="mb-6">
+				<Badge variant={props.badgeVariant ?? "outline"} className="mb-6">
 					{Icon && <Icon className="w-4 h-4 mr-2" />}
 					{props.subtitle}
 				</Badge>

@@ -102,7 +102,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 	const serverVariables = getServerVariables();
 	return await match(intent)
 		.with("regenerateUnkeyKey", async () => {
-			if (!customer || !customer.planType) {
+			if (!customer?.planType) {
 				throw new Error("No customer found");
 			}
 			if (!customer.unkeyKeyId) {
@@ -124,7 +124,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				.where(eq(customers.id, customer.id));
 			const emailElement = PurchaseCompleteEmail({
 				planType: customer.planType,
-				renewOn: customer.renewOn || undefined,
+				renewOn: customer.renewOn ?? undefined,
 				details: { __typename: "self_hosted", key: created.key },
 			});
 			if (!emailElement) {
@@ -245,7 +245,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			return data({});
 		})
 		.with("generateResetLink", async () => {
-			if (!customer || !customer.ryotUserId) {
+			if (!customer?.ryotUserId) {
 				return data({ error: "No associated app user found" });
 			}
 			if (customer.oidcIssuerId) {
