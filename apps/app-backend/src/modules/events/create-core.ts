@@ -227,6 +227,9 @@ export const createEventsForUser = (
 
 			let skipped = false;
 			for (const trigger of beforeTriggers) {
+				// TODO(Task 26/27): when "import"/"integration" origins are wired, thread the legacy
+				// EventWriteContext fields (importRunId, integrationId) into this trigger context —
+				// the integration-progress-policy script reads `trigger.integrationId`.
 				const triggerContext = {
 					trigger: {
 						userId,
