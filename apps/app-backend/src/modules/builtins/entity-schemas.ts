@@ -157,6 +157,11 @@ const mediaLifecycleEventSchemas = (entitySchemaSlug?: string) => [
 					type: "string" as const,
 					description: "Your written thoughts or notes about this media",
 				},
+				isSpoiler: {
+					label: "Is Spoiler?",
+					type: "boolean" as const,
+					description: "Whether this review contains spoilers",
+				},
 				rating: {
 					label: "Rating",
 					type: "number" as const,
