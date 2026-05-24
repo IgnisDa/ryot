@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -14,15 +14,15 @@ The backend must use Better Auth server context/adapter for user and account loo
 
 ## Acceptance criteria
 
-- [ ] A backend god-mode module exists with a user listing endpoint protected by `Authorization: Bearer <SERVER_ADMIN_ACCESS_TOKEN>`
-- [ ] Incorrect, missing, or malformed bearer tokens are rejected without leaking token details
-- [ ] The listing endpoint uses Better Auth server context/adapter for users and account lookup
-- [ ] The listing endpoint returns user ID, name, email, created timestamp, two-factor flag, and auth state
-- [ ] Auth states are classified as `credential`, `oidc`, `none`, or `mixed`
-- [ ] Account IDs, OIDC subjects, tokens, passwords, scopes, and provider secrets are not returned
-- [ ] App-client god-mode route accepts an admin token, keeps it in React memory only, and displays the user list
-- [ ] App-client god-mode route redirects to auth when no server URL is configured
-- [ ] Backend unit tests cover bearer token parsing and auth-state classification
+- [x] A backend god-mode module exists with a user listing endpoint protected by `Authorization: Bearer <SERVER_ADMIN_ACCESS_TOKEN>`
+- [x] Incorrect, missing, or malformed bearer tokens are rejected without leaking token details
+- [x] The listing endpoint uses Better Auth server context/adapter for users and account lookup
+- [x] The listing endpoint returns user ID, name, email, created timestamp, two-factor flag, and auth state
+- [x] Auth states are classified as `credential`, `oidc`, `none`, or `mixed`
+- [x] Account IDs, OIDC subjects, tokens, passwords, scopes, and provider secrets are not returned
+- [x] App-client god-mode route accepts an admin token, keeps it in React memory only, and displays the user list
+- [x] App-client god-mode route redirects to auth when no server URL is configured
+- [x] Backend unit tests cover bearer token parsing and auth-state classification
 
 ## User stories addressed
 
