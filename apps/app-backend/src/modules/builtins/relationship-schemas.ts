@@ -84,6 +84,13 @@ export const builtinRelationshipSchemas = (): BuiltinRelationshipSchema[] => [
 		propertiesSchema: { fields: {}, unknownKeys: "passthrough" as const },
 	},
 	{
+		slug: "workout-repeated-from",
+		name: "Workout Repeated From",
+		propertiesSchema: { fields: {} },
+		sourceEntitySchemaSlug: "workout",
+		targetEntitySchemaSlug: "workout",
+	},
+	{
 		propertiesSchema: { fields: {} },
 		sourceEntitySchemaSlug: "workout",
 		slug: "workout-to-workout-template",
