@@ -1,4 +1,4 @@
-import { getQueryEngineField } from "@ryot/app-backend/query-language";
+import { getQueryEngineField } from "@ryot/ts-utils/query-engine";
 import { useQuery } from "@tanstack/react-query";
 
 import {
