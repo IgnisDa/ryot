@@ -25,7 +25,7 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 	if (!claims) {
 		throw new Error("No claims found in token set");
 	}
-	const email = claims.email?.toString();
+	const email = typeof claims.email === "string" ? claims.email : undefined;
 	if (!email || !claims.sub) {
 		throw new Error("Invalid claims");
 	}
