@@ -12,8 +12,8 @@ describe("event recipes", () => {
 			eventSchemaSlugs: ["review", "progress"],
 		}).queries["events"];
 
-		expect(query?.from).toEqual({ table: "event", alias: "event" });
-		expect(query?.joins).toEqual([
+		expect(query.from).toEqual({ table: "event", alias: "event" });
+		expect(query.joins).toEqual([
 			{
 				type: "inner",
 				table: { table: "entity", alias: "entity" },
@@ -25,8 +25,8 @@ describe("event recipes", () => {
 				},
 			},
 		]);
-		expect(query?.output.pagination).toEqual({ page: 2, limit: 25 });
-		expect(query?.output.fields.map((selection) => selection.key)).toEqual([
+		expect(query.output.pagination).toEqual({ page: 2, limit: 25 });
+		expect(query.output.fields.map((selection) => selection.key)).toEqual([
 			"id",
 			"entityId",
 			"createdAt",
@@ -37,7 +37,7 @@ describe("event recipes", () => {
 			"sessionEntityId",
 			"entitySchemaSlug",
 		]);
-		expect(query?.where).toMatchObject({
+		expect(query.where).toMatchObject({
 			type: "and",
 			predicates: [
 				{ type: "in", expr: { field: "eventSchemaSlug" } },
