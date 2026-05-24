@@ -1,3 +1,4 @@
+import { Either } from "effect";
 import { XMLParser } from "fast-xml-parser";
 import { SyntaxValidator } from "fast-xml-validator";
 
@@ -163,7 +164,7 @@ const adaptMyanimelistLot = (
 	let itemIndex = input.itemIndex;
 
 	for (const block of itemBlocks) {
-		try {
+		const parsed = Either.try(() => {
 			const item = parseMyanimelistItem(block, input.lot);
 			const target =
 				input.lot === "anime"
@@ -207,10 +208,12 @@ const adaptMyanimelistLot = (
 			if (reviewEvent) {
 				group.events.push(reviewEvent);
 			}
-		} catch (error) {
+		});
+		if (Either.isLeft(parsed)) {
 			failures.push({
 				itemIndex,
-				message: error instanceof Error ? error.message : "MyAnimeList item is malformed",
+				message:
+					parsed.left instanceof Error ? parsed.left.message : "MyAnimeList item is malformed",
 			});
 		}
 		itemIndex++;
