@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
 import { redis } from "~/lib/redis";
+import { redisValues } from "~/lib/redis-keys";
 import { apiFailure, apiSuccess } from "~/lib/sandbox/types";
 
 import { getCachedValue } from "./get-cached-value";
@@ -11,9 +12,21 @@ describe("getCachedValue", () => {
 	it("returns the parsed cached value when the key exists", async () => {
 		const originalGet = redis.get.bind(redis);
 		// oxlint-disable-next-line no-unsafe-type-assertion
-		redis.get = () => Promise.resolve(JSON.stringify({ cached: true }) as never);
+		redis.get = (() =>
+			Promise.resolve(redisValues.sandbox.cache.stringify({ cached: true }))) as never;
 		try {
 			expect(await getCachedValue(ctx, "my-key")).toEqual(apiSuccess({ cached: true }));
+		} finally {
+			redis.get = originalGet;
+		}
+	});
+
+	it("returns the stored null value when the key exists", async () => {
+		const originalGet = redis.get.bind(redis);
+		// oxlint-disable-next-line no-unsafe-type-assertion
+		redis.get = (() => Promise.resolve(redisValues.sandbox.cache.stringify(null))) as never;
+		try {
+			expect(await getCachedValue(ctx, "my-key")).toEqual(apiSuccess(null));
 		} finally {
 			redis.get = originalGet;
 		}
