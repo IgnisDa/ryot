@@ -39,32 +39,39 @@
 
 ## Quick Start
 
-Create a `docker-compose.yml` file:
+Use the `docker-compose.yml` file from the root of this repository:
 
 ```yaml
 services:
   ryot-db:
-    restart: unless-stopped
     image: postgres:18-alpine
+    restart: unless-stopped
+    container_name: ryot-dev-db
     environment:
-      - POSTGRES_PASSWORD=postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_DB: postgres
     volumes:
       - postgres_storage:/var/lib/postgresql
 
   ryot:
     image: ignisda/ryot:v10
     restart: unless-stopped
+    container_name: ryot
+    depends_on:
+      - ryot-db
     ports:
-      - "8000:8000"
+      - "3001:8000"
     environment:
-      - SERVER_ADMIN_ACCESS_TOKEN=CHANGE_ME_TO_A_LONG_RANDOM_STRING
-      - DATABASE_URL=postgres://postgres:postgres@ryot-db:5432/postgres
+      SERVER_ADMIN_ACCESS_TOKEN: mysecretkey
+      DATABASE_URL: postgres://postgres:postgres@ryot-dev-db:5432/postgres
+      FRONTEND_URL: http://localhost:3001
 
 volumes:
   postgres_storage:
 ```
 
-Then run `docker compose up -d` and visit `http://localhost:8000`. For production setups, see the [installation guide](https://docs.ryot.io).
+Then run `docker compose up -d` and visit `http://localhost:3001`. For production setups, see the [installation guide](https://docs.ryot.io).
 
 ## What is Ryot?
 

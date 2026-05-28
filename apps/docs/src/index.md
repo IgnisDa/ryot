@@ -4,34 +4,33 @@ import variables from "./variables";
 
 # Installation
 
-Use the following docker-compose file:
+Use the `docker-compose.yml` file from the root of this repository:
 
 ```yaml
 services:
   ryot-db:
-    image: postgres:18-alpine # at-least version 15 is required
+    image: postgres:18-alpine
     restart: unless-stopped
-    container_name: ryot-db
+    container_name: ryot-dev-db
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_DB: postgres
     volumes:
       - postgres_storage:/var/lib/postgresql
-    environment:
-      - TZ=Europe/Amsterdam
-      - POSTGRES_DB=postgres
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
 
   ryot:
-    image: ignisda/ryot:v10 # or ghcr.io/ignisda/ryot:v10
-    pull_policy: always
+    image: ignisda/ryot:v10
     container_name: ryot
     restart: unless-stopped
+    depends_on:
+      - ryot-db
     ports:
-      - "8000:8000"
+      - "3001:8000"
     environment:
-      - TZ=Europe/Amsterdam
-      - FRONTEND_URL=https://ryot.your-domain.com # IP address is fine too
-      - DATABASE_URL=postgres://postgres:postgres@ryot-db:5432/postgres # REQUIRED
-      - SERVER_ADMIN_ACCESS_TOKEN=28ebb3ae554fa9867ba0 # REQUIRED: set to a long random string
+      SERVER_ADMIN_ACCESS_TOKEN: mysecretkey
+      DATABASE_URL: postgres://postgres:postgres@ryot-dev-db:5432/postgres
+      FRONTEND_URL: http://localhost:3001
 
 volumes:
   postgres_storage:
@@ -53,7 +52,7 @@ Once you have the key, you can set it in the `docker-compose.yml` file:
 ```diff
   ryot:
     environment:
-+      - SERVER_PRO_KEY=<pro_key_issued_to_you>
++      SERVER_PRO_KEY: <pro_key_issued_to_you>
 ```
 
 If the key is invalid or your subscription has expired, the server will automatically switch
