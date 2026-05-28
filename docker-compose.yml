@@ -1,0 +1,27 @@
+services:
+  ryot-db:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    container_name: ryot-dev-db
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_DB: postgres
+    volumes:
+      - postgres_storage:/var/lib/postgresql
+
+  ryot:
+    image: ignisda/ryot:v10
+    restart: unless-stopped
+    container_name: ryot
+    depends_on:
+      - ryot-db
+    ports:
+      - "3001:8000"
+    environment:
+      SERVER_ADMIN_ACCESS_TOKEN: mysecretkey
+      DATABASE_URL: postgres://postgres:postgres@ryot-dev-db:5432/postgres
+      FRONTEND_URL: http://localhost:3001
+
+volumes:
+  postgres_storage:
