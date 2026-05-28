@@ -114,10 +114,7 @@ pub async fn admin_account_guard(user_id: &String, ss: &Arc<SupportingService>) 
     Ok(())
 }
 
-pub async fn server_key_validation_guard(is_server_key_validated: bool) -> Result<()> {
-    if !is_server_key_validated {
-        bail!("This feature is only available on the Pro version");
-    }
+pub async fn server_key_validation_guard(_is_server_key_validated: bool) -> Result<()> {
     Ok(())
 }
 
