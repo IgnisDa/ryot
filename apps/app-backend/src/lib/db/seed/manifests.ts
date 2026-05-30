@@ -51,9 +51,14 @@ import spotifyPersonScriptCode from "~/lib/sandbox/scripts/providers/person/spot
 import tmdbPersonScriptCode from "~/lib/sandbox/scripts/providers/person/tmdb.txt";
 import tvdbPersonScriptCode from "~/lib/sandbox/scripts/providers/person/tvdb.txt";
 import youtubeMusicPersonScriptCode from "~/lib/sandbox/scripts/providers/person/youtube-music.txt";
+import integrationPushHelperCode from "~/lib/sandbox/scripts/shared/integration-push.txt";
 import titleCaseDelimiterHelperCode from "~/lib/sandbox/scripts/shared/title-case-delimiters.txt";
 import titleCaseHelperCode from "~/lib/sandbox/scripts/shared/title-case.txt";
 import autoCompleteOnFullProgressScriptCode from "~/lib/sandbox/scripts/triggers/auto-complete-on-full-progress.txt";
+import integrationProgressPolicyScriptCode from "~/lib/sandbox/scripts/triggers/integration-progress-policy.txt";
+import jellyfinPushScriptCode from "~/lib/sandbox/scripts/triggers/jellyfin-push.txt";
+import radarrPushScriptCode from "~/lib/sandbox/scripts/triggers/radarr-push.txt";
+import sonarrPushScriptCode from "~/lib/sandbox/scripts/triggers/sonarr-push.txt";
 import type { EventSchemaTriggerMetadata, SandboxScriptMetadata } from "~/lib/sandbox/types";
 
 const BUILTIN_ALLOWED_HOST_FUNCTIONS: NonNullable<SandboxScriptMetadata["allowedHostFunctions"]> = [
@@ -92,6 +97,8 @@ const script = (
 const withTitleCaseHelper = (code: string) => `${titleCaseHelperCode}\n\n${code}`;
 
 const withDelimiterTitleCaseHelper = (code: string) => `${titleCaseDelimiterHelperCode}\n\n${code}`;
+
+const withPushHelpers = (code: string) => `${integrationPushHelperCode}\n\n${code}`;
 
 export const builtinSandboxScripts = (): BuiltinScriptEntry[] => [
 	script("Free Exercise DB", "exercise.free-exercise-db", freeExerciseDbScriptCode),
@@ -205,6 +212,30 @@ export const builtinSandboxScripts = (): BuiltinScriptEntry[] => [
 		slug: "trigger.auto-complete-on-full-progress",
 		metadata: { allowedHostFunctions: ["appApiCall"] },
 	},
+	{
+		name: "Integration Progress Policy",
+		code: integrationProgressPolicyScriptCode,
+		slug: "trigger.integration-progress-policy",
+		metadata: { allowedHostFunctions: ["appApiCall", "claimCachedValue"] },
+	},
+	{
+		name: "Radarr Push",
+		slug: "trigger.radarr-push",
+		code: withPushHelpers(radarrPushScriptCode),
+		metadata: { allowedHostFunctions: ["httpCall", "appApiCall", "getUserPreferences"] },
+	},
+	{
+		name: "Sonarr Push",
+		slug: "trigger.sonarr-push",
+		code: withPushHelpers(sonarrPushScriptCode),
+		metadata: { allowedHostFunctions: ["httpCall", "appApiCall", "getUserPreferences"] },
+	},
+	{
+		name: "Jellyfin Push",
+		slug: "trigger.jellyfin-push",
+		code: withPushHelpers(jellyfinPushScriptCode),
+		metadata: { allowedHostFunctions: ["httpCall", "appApiCall", "getUserPreferences"] },
+	},
 ];
 
 export const entitySchemaScriptLinks = () =>
@@ -253,6 +284,38 @@ export const builtinEventSchemaTriggerLinks = (): BuiltinEventSchemaTriggerLink[
 		triggerName: "Auto-Complete on Full Progress",
 		metadata: { inheritedProperties: ["consumedOn"] },
 		scriptSlug: "trigger.auto-complete-on-full-progress",
+	},
+	{
+		position: 100,
+		metadata: {},
+		phase: "before_create",
+		eventSchemaSlug: "progress",
+		triggerName: "Integration Progress Policy",
+		scriptSlug: "trigger.integration-progress-policy",
+	},
+	{
+		position: 1000,
+		metadata: {},
+		phase: "after_create",
+		triggerName: "Radarr Push",
+		scriptSlug: "trigger.radarr-push",
+		eventSchemaSlug: "add-entity-to-collection",
+	},
+	{
+		position: 1000,
+		metadata: {},
+		phase: "after_create",
+		triggerName: "Sonarr Push",
+		scriptSlug: "trigger.sonarr-push",
+		eventSchemaSlug: "add-entity-to-collection",
+	},
+	{
+		position: 1000,
+		metadata: {},
+		phase: "after_create",
+		eventSchemaSlug: "complete",
+		triggerName: "Jellyfin Push",
+		scriptSlug: "trigger.jellyfin-push",
 	},
 ];
 
