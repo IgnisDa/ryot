@@ -12,6 +12,14 @@
 - Use `checkAccess`, `checkReadAccess`, or `checkCustomAccess` from `src/lib/access` for access decisions.
 - Use module barrels for cross-module public service APIs. Use subpaths only for route mounting, same-module internals, tests, or intentionally internal infrastructure.
 
+## Cross-Module Infrastructure
+
+- Modules must reuse the owning module's service or intentionally-internal infrastructure for cross-module side effects; do not write another module's schema tables directly.
+- Importers, background jobs, sandbox callbacks, and bootstrap paths follow the same entity, event, relationship, and collection write paths as HTTP modules.
+- Provider API knowledge belongs in sandbox scripts, not app modules. App modules can normalize source input and choose provider fallback policy, but provider-specific HTTP stays in sandbox drivers.
+- If app code only has a foreign identifier such as an ISBN or IMDB id, resolve it through sandbox `resolve` drivers before provider-backed population.
+- If app code already has a provider-native identifier such as a TMDB id or Hardcover id, pass it as a resolved provider ref/input directly.
+
 ## Validation And Persistence
 
 - Runtime schemas, persisted JSON structures, and TypeScript types must stay aligned.
