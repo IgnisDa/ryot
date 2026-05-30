@@ -16,7 +16,6 @@ export class AdminAccess extends Context.Tag("AdminAccess")<
 	{ readonly authorized: true }
 >() {}
 
-/** @effect-expect-leaking HttpServerRequest @effect-expect-leaking ParsedSearchParams @effect-expect-leaking RouteContext */
 export class AuthMiddleware extends HttpApiMiddleware.Tag<AuthMiddleware>()("AuthMiddleware", {
 	failure: Unauthorized,
 	provides: CurrentUser,
