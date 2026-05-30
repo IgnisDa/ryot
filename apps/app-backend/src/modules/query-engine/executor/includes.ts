@@ -68,12 +68,15 @@ const executeEntityIncludeForParentRow = Effect.fn("executeEntityIncludeForParen
 	const childColumn =
 		via.direction === "outgoing" ? sql`r.target_entity_id` : sql`r.source_entity_id`;
 	const orderSql = includeOrderSql(source, include.orderBy);
-	const pushdown = wherePushdown(source.where, (ref) =>
-		ref.sourceAlias === source.alias
-			? { alias: "e", schemas: source.schemas }
-			: ref.sourceAlias === via.alias
-				? { alias: "r", schemas: [via.schema] }
-				: null,
+	const pushdown = wherePushdown(
+		source.where,
+		(ref) =>
+			ref.sourceAlias === source.alias
+				? { alias: "e", schemas: source.schemas }
+				: ref.sourceAlias === via.alias
+					? { alias: "r", schemas: [via.schema] }
+					: null,
+		{ userId },
 	);
 	const limitSql =
 		pushdown.residual === null
@@ -135,8 +138,10 @@ const executeEventIncludeForParentRow = Effect.fn("executeEventIncludeForParentR
 		sql`, `,
 	);
 	const orderSql = eventIncludeOrderSql(source, include.orderBy);
-	const pushdown = wherePushdown(source.where, (ref) =>
-		ref.sourceAlias === source.alias ? { alias: "ev", schemas: source.schemas } : null,
+	const pushdown = wherePushdown(
+		source.where,
+		(ref) => (ref.sourceAlias === source.alias ? { alias: "ev", schemas: source.schemas } : null),
+		{ userId },
 	);
 	const limitSql =
 		pushdown.residual === null

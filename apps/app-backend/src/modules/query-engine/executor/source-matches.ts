@@ -11,6 +11,7 @@ import type {
 	QueryDocument,
 	RelationshipSource,
 	RootEventSource,
+	RootSource,
 	Source,
 } from "../language";
 import {
@@ -29,10 +30,14 @@ import {
 	loadVisibleRelationshipSchemas,
 } from "./schema-loaders";
 import {
+	entityRootFromWhereSql,
 	entitySelectColumnsSql,
+	eventRootFromWhereSql,
 	eventSelectColumnsSql,
 	relationshipEdgeColumnsSql,
+	relationshipRootFromWhereSql,
 	relationshipRootSelectSql,
+	relationshipRootWherePushdown,
 	wherePushdown,
 	wherePushdownSql,
 } from "./sql";
@@ -86,12 +91,15 @@ const executeEntitySourceMatches = Effect.fn("executeEntitySourceMatches")(funct
 		sql`, `,
 	);
 	const limitSql = fetchBoundLimitSql(bound);
-	const pushdown = wherePushdown(source.where, (ref) =>
-		ref.sourceAlias === source.alias
-			? { alias: "e", schemas: source.schemas }
-			: source.via && ref.sourceAlias === source.via.alias
-				? { alias: "r", schemas: [source.via.schema] }
-				: null,
+	const pushdown = wherePushdown(
+		source.where,
+		(ref) =>
+			ref.sourceAlias === source.alias
+				? { alias: "e", schemas: source.schemas }
+				: source.via && ref.sourceAlias === source.via.alias
+					? { alias: "r", schemas: [source.via.schema] }
+					: null,
+		{ userId },
 	);
 	const db = yield* CurrentDb;
 	let rows: IncludeQueryRow[] | EntityQueryRow[];
@@ -187,8 +195,10 @@ const executeEventSourceMatches = Effect.fn("executeEventSourceMatches")(functio
 		sql`, `,
 	);
 	const limitSql = fetchBoundLimitSql(bound);
-	const pushdown = wherePushdown(source.where, (ref) =>
-		ref.sourceAlias === source.alias ? { alias: "ev", schemas: source.schemas } : null,
+	const pushdown = wherePushdown(
+		source.where,
+		(ref) => (ref.sourceAlias === source.alias ? { alias: "ev", schemas: source.schemas } : null),
+		{ userId },
 	);
 	const db = yield* CurrentDb;
 	const rawRows = yield* dbEffect(() =>
@@ -252,12 +262,15 @@ const executeRootEventSourceMatches = Effect.fn("executeRootEventSourceMatches")
 		visibleEventSchemas.map((schema) => sql`${schema.id}`),
 		sql`, `,
 	);
-	const pushdown = wherePushdown(source.where, (ref) =>
-		ref.sourceAlias === source.alias
-			? { alias: "ev", schemas: source.schemas }
-			: ref.sourceAlias === source.entity.alias
-				? { alias: "e", schemas: source.entity.schemas }
-				: null,
+	const pushdown = wherePushdown(
+		source.where,
+		(ref) =>
+			ref.sourceAlias === source.alias
+				? { alias: "ev", schemas: source.schemas }
+				: ref.sourceAlias === source.entity.alias
+					? { alias: "e", schemas: source.entity.schemas }
+					: null,
+		{ userId },
 	);
 	const db = yield* CurrentDb;
 	const rawRows = yield* dbEffect(() =>
@@ -305,6 +318,52 @@ export const loadRelationshipRootVisibleSchemas = (userId: string, source: Relat
 		{ concurrency: "unbounded" },
 	);
 
+const idListSql = (schemas: readonly { id: string }[]) =>
+	sql.join(
+		schemas.map((schema) => sql`${schema.id}`),
+		sql`, `,
+	);
+
+// Resolves a root source's visible schemas and returns its FROM + WHERE fragment (visibility
+// enforced, pushed conditions applied). Shared by the aggregate and time-series SQL pushdown paths.
+export const rootSourceFromWhereSql = Effect.fn("rootSourceFromWhereSql")(function* (
+	userId: string,
+	source: RootSource,
+	pushedConditions: readonly ReturnType<typeof sql>[],
+) {
+	if (source.type === "entities") {
+		const visible = yield* loadVisibleEntitySchemas(userId, source.schemas);
+		return entityRootFromWhereSql(idListSql(visible), userId, pushedConditions);
+	}
+	if (source.type === "events") {
+		const visibleEntitySchemas = yield* loadVisibleEntitySchemas(userId, source.entity.schemas);
+		const entitySchemaIds = visibleEntitySchemas.map((schema) => schema.id);
+		const visibleEventSchemas = yield* loadVisibleEventSchemasForEntitySchemas(
+			userId,
+			entitySchemaIds,
+			source.schemas,
+		);
+		return eventRootFromWhereSql(
+			idListSql(visibleEventSchemas),
+			sql.join(
+				entitySchemaIds.map((id) => sql`${id}`),
+				sql`, `,
+			),
+			userId,
+			pushedConditions,
+		);
+	}
+	const [visibleRelationshipSchemas, visibleSourceEntitySchemas, visibleTargetEntitySchemas] =
+		yield* loadRelationshipRootVisibleSchemas(userId, source);
+	return relationshipRootFromWhereSql(
+		idListSql(visibleRelationshipSchemas),
+		idListSql(visibleSourceEntitySchemas),
+		idListSql(visibleTargetEntitySchemas),
+		userId,
+		pushedConditions,
+	);
+});
+
 const executeRootRelationshipSourceMatches = Effect.fn("executeRootRelationshipSourceMatches")(
 	function* (userId: string, source: RelationshipSource, evalBoolean: EvalExprAsBoolean) {
 		const [visibleRelationshipSchemas, visibleSourceEntitySchemas, visibleTargetEntitySchemas] =
@@ -322,6 +381,7 @@ const executeRootRelationshipSourceMatches = Effect.fn("executeRootRelationshipS
 			visibleTargetEntitySchemas.map((schema) => sql`${schema.id}`),
 			sql`, `,
 		);
+		const pushdown = relationshipRootWherePushdown(source, userId);
 		const db = yield* CurrentDb;
 		const rawRows = yield* dbEffect(() =>
 			db.execute<RelationshipRootQueryRow>(sql`
@@ -330,6 +390,7 @@ const executeRootRelationshipSourceMatches = Effect.fn("executeRootRelationshipS
 					sourceEntitySchemaIdsSql,
 					targetEntitySchemaIdsSql,
 					userId,
+					pushdown.conditions,
 				)}
 				${fetchBoundLimitSql(rootSourceBound)}
 			`),
@@ -343,7 +404,7 @@ const executeRootRelationshipSourceMatches = Effect.fn("executeRootRelationshipS
 		const matches: SourceMatch[] = [];
 		for (const row of rawRows.rows) {
 			const context = makeRelationshipRootContext(source, row);
-			if (source.where === null || (yield* evalBoolean(userId, source.where, context))) {
+			if (pushdown.residual === null || (yield* evalBoolean(userId, pushdown.residual, context))) {
 				matches.push({ context, row: relationshipEntityRow(row.sourceEntity) });
 			}
 		}

@@ -6,6 +6,16 @@ export const MAX_SERIALIZED_ROW_OBJECTS = 5000;
 export const MAX_INCLUDE_FILTER_SCAN_ROWS = 5000;
 export const MAX_AGGREGATE_EXPRESSION_SOURCE_ROWS = 10000;
 
+export type RootAliasKind = "entity" | "event" | "relationship";
+
+// System fields backed by a timestamptz column, per root-alias kind. Shared by SQL time-column
+// detection and by aggregate group-value reconstruction (these resolve to the `date` kind).
+export const SYSTEM_DATE_FIELDS_BY_KIND: Record<RootAliasKind, ReadonlySet<string>> = {
+	entity: new Set(["createdAt", "updatedAt", "populatedAt"]),
+	event: new Set(["createdAt", "updatedAt", "occurredAt"]),
+	relationship: new Set(["createdAt"]),
+};
+
 export type VisibleSchema = { id: string; slug: string };
 export type VisibleEventSchema = { id: string; slug: string };
 export type VisibleRelationshipSchema = { id: string; slug: string };
