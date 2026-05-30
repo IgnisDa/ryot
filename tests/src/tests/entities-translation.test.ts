@@ -1,7 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
 import {
-	type Client,
 	countEntityTranslations,
 	createAuthenticatedClient,
 	deleteGlobalEntityByProvenance,
@@ -10,106 +9,17 @@ import {
 	getBuiltinEntitySchemaId,
 	getEntity,
 	getEntityTranslationRow,
-	markEntityPopulated,
+	getProviderIds,
 	pollEntityUntilTranslationStatus,
 	pollEntityImportResult,
-	seedMediaEntity,
+	seedPopulatedProviderEntity,
+	seedPopulatedTmdbEntity,
+	seedPopulatedTmdbMovie,
 	setUserProviderLanguage,
 } from "../fixtures";
 import { assertCondition, assertPresent } from "../test-support/assertions";
 
 const CANONICAL_LANGUAGE = "en-US";
-
-async function seedPopulatedTmdbEntity(
-	client: Client,
-	input: {
-		name: string;
-		externalId: string;
-		schemaSlug: string;
-		entitySchemaId?: string;
-		sandboxScriptId?: string;
-		properties: Record<string, unknown>;
-	},
-) {
-	let entitySchemaId = input.entitySchemaId;
-	let sandboxScriptId = input.sandboxScriptId;
-	if (!entitySchemaId || !sandboxScriptId) {
-		const { schema } = await findBuiltinSchemaBySlug(client, input.schemaSlug);
-		entitySchemaId ??= schema.id;
-		sandboxScriptId ??= schema.providers.find((provider) => provider.name === "TMDB")?.scriptId;
-	}
-	assertPresent(entitySchemaId, `TMDB ${input.schemaSlug} entity schema not found`);
-	assertPresent(sandboxScriptId, `TMDB ${input.schemaSlug} provider script not found`);
-
-	const provenance = { entitySchemaId, sandboxScriptId, externalId: input.externalId };
-	await deleteGlobalEntityByProvenance(provenance);
-
-	const seeded = await seedMediaEntity({
-		image: null,
-		userId: null,
-		entitySchemaId,
-		sandboxScriptId,
-		name: input.name,
-		externalId: input.externalId,
-		properties: input.properties,
-	});
-	await markEntityPopulated(seeded.id);
-
-	return seeded;
-}
-
-async function seedPopulatedProviderEntity(input: {
-	name: string;
-	externalId: string;
-	entitySchemaId: string;
-	sandboxScriptId: string;
-	properties: Record<string, unknown>;
-}) {
-	const provenance = {
-		externalId: input.externalId,
-		entitySchemaId: input.entitySchemaId,
-		sandboxScriptId: input.sandboxScriptId,
-	};
-	await deleteGlobalEntityByProvenance(provenance);
-
-	const seeded = await seedMediaEntity({
-		image: null,
-		userId: null,
-		name: input.name,
-		externalId: input.externalId,
-		properties: input.properties,
-		entitySchemaId: input.entitySchemaId,
-		sandboxScriptId: input.sandboxScriptId,
-	});
-	await markEntityPopulated(seeded.id);
-
-	return seeded;
-}
-
-async function getProviderIds(
-	client: Client,
-	input: { schemaSlug: string; providerName: string },
-) {
-	const { schema } = await findBuiltinSchemaBySlug(client, input.schemaSlug);
-	const sandboxScriptId = schema.providers.find(
-		(provider) => provider.name === input.providerName,
-	)?.scriptId;
-	assertPresent(
-		sandboxScriptId,
-		`${input.providerName} ${input.schemaSlug} provider script not found`,
-	);
-
-	return { entitySchemaId: schema.id, sandboxScriptId };
-}
-
-async function seedPopulatedTmdbMovie(client: Client, input: { externalId: string; name: string }) {
-	return seedPopulatedTmdbEntity(client, {
-		name: input.name,
-		schemaSlug: "movie",
-		externalId: input.externalId,
-		properties: { description: `Canonical English overview of ${input.name}.` },
-	});
-}
 
 describe("GET /entities/:entityId — translation overlay", () => {
 	it("fetches a localized overlay on a miss, then shares it across users", async () => {
@@ -121,21 +31,16 @@ describe("GET /entities/:entityId — translation overlay", () => {
 
 		await setUserProviderLanguage({ userId: userIdA, source: "tmdb", preferredLanguage: "es-ES" });
 
-		// First read: no overlay yet, so the canonical text is returned immediately
-		// with a pending status while the fill runs in the background.
 		const firstRead = await getEntity(clientA, movie.id);
 		expect(firstRead.translationStatus).toBe("pending");
 		expect(firstRead.name).toBe("Canonical Fight Club");
 
-		// Subsequent reads return the merged localized overlay once it is populated.
 		const localizedRead = await pollEntityUntilTranslationStatus(clientA, movie.id, "ready", {
 			timeoutMs: 90_000,
 		});
 		expect(localizedRead.name).not.toBe("Canonical Fight Club");
 		expect(localizedRead.name.length).toBeGreaterThan(0);
 
-		// A second user preferring the same language reuses the single shared overlay
-		// without triggering another fetch.
 		const { client: clientB, userId: userIdB } = await createAuthenticatedClient();
 		await setUserProviderLanguage({ userId: userIdB, source: "tmdb", preferredLanguage: "es-ES" });
 
@@ -495,8 +400,6 @@ describe("GET /entities/:entityId — translation overlay", () => {
 			name: "Canonical The Godfather",
 		});
 
-		// "xx" is not a real language, so TMDB never has a translation for it: the
-		// fill writes an all-null negative-cache row that resolves to status none.
 		await setUserProviderLanguage({ userId, source: "tmdb", preferredLanguage: "xx" });
 
 		const firstRead = await getEntity(client, movie.id);
@@ -521,7 +424,6 @@ describe("GET /entities/:entityId — translation overlay", () => {
 			name: "Canonical The Shawshank Redemption",
 		});
 
-		// Preference equal to the canonical language: render canonical, no row, no fetch.
 		await setUserProviderLanguage({
 			userId,
 			source: "tmdb",
@@ -532,7 +434,6 @@ describe("GET /entities/:entityId — translation overlay", () => {
 		expect(canonicalPreferenceRead.name).toBe("Canonical The Shawshank Redemption");
 		expect(await countEntityTranslations(movie.id)).toBe(0);
 
-		// A different user with no preference for the provider: same canonical result.
 		const { client: noPreferenceClient } = await createAuthenticatedClient();
 		const noPreferenceRead = await getEntity(noPreferenceClient, movie.id);
 		expect(noPreferenceRead.translationStatus).toBe("none");

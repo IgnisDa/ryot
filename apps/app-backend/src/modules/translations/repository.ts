@@ -4,21 +4,13 @@ import { Effect } from "effect";
 import { CurrentDb, dbEffect } from "#lib/db";
 import { user } from "#lib/db/schema/auth";
 import * as schema from "#lib/db/schema/tables";
-import { DbError } from "#lib/errors";
 import { isObjectRecord } from "#lib/predicates";
 import type { EntityId, UserId } from "#lib/schema/brands";
 import type { StoredEntityImage } from "#modules/entities/types";
 
 import type { LanguagePreference } from "./language-resolution";
 
-export type TranslationOverlayRow = {
-	name: string | null;
-	populatedAt: Date | null;
-	description: string | null;
-	image: StoredEntityImage | null;
-};
-
-export type UpsertOverlayInput = {
+type UpsertOverlayInput = {
 	language: string;
 	populatedAt: Date;
 	entityId: EntityId;
@@ -62,7 +54,6 @@ export class TranslationsRepository extends Effect.Service<TranslationsRepositor
 							name: schema.entityTranslation.name,
 							image: schema.entityTranslation.image,
 							description: schema.entityTranslation.description,
-							populatedAt: schema.entityTranslation.populatedAt,
 						})
 						.from(schema.entityTranslation)
 						.where(
@@ -81,7 +72,7 @@ export class TranslationsRepository extends Effect.Service<TranslationsRepositor
 				input: UpsertOverlayInput,
 			) {
 				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
+				yield* dbEffect(() =>
 					db
 						.insert(schema.entityTranslation)
 						.values({
@@ -100,15 +91,8 @@ export class TranslationsRepository extends Effect.Service<TranslationsRepositor
 								populatedAt: input.populatedAt,
 								description: input.description,
 							},
-						})
-						.returning({ id: schema.entityTranslation.id }),
+						}),
 				);
-
-				if (!row) {
-					return yield* new DbError({ message: "Translation overlay upsert returned no row" });
-				}
-
-				return { id: row.id };
 			});
 
 			const findUserLanguagePreferences = Effect.fn(
