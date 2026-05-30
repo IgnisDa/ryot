@@ -336,6 +336,23 @@
         "vitest": "4.1.9",
       },
     },
+    "packages/cli": {
+      "name": "@ryot/cli",
+      "bin": {
+        "ryot": "./src/index.ts",
+      },
+      "dependencies": {
+        "@effect/platform-bun": "4.0.0-beta.107",
+        "@ryot/contract": "workspace:*",
+        "effect": "4.0.0-rc.111",
+      },
+      "devDependencies": {
+        "@effect/vitest": "4.0.0-beta.107",
+        "@ryot/testing": "workspace:*",
+        "bun-types": "1.4.0",
+        "vitest": "4.1.9",
+      },
+    },
     "packages/config": {
       "name": "@ryot/config",
       "dependencies": {
@@ -494,6 +511,7 @@
       },
       "devDependencies": {
         "@effect/vitest": "4.0.0-beta.107",
+        "@ryot/cli": "workspace:*",
         "@ryot/testing": "workspace:*",
         "bun-types": "1.4.0",
         "vitest": "4.1.9",
@@ -514,6 +532,7 @@
       "devDependencies": {
         "@effect/platform-bun": "4.0.0-beta.107",
         "@effect/vitest": "4.0.0-beta.107",
+        "@ryot/cli": "workspace:*",
         "@ryot/testing": "workspace:*",
         "bun-types": "1.4.0",
         "vitest": "4.1.9",
@@ -1682,6 +1701,8 @@
     "@rollup/rollup-win32-x64-msvc": ["@rollup/rollup-win32-x64-msvc@4.50.0", "", { "os": "win32", "cpu": "x64" }, "sha512-xMmiWRR8sp72Zqwjgtf3QbZfF1wdh8X2ABu3EaozvZcyHJeU0r+XAnXdKgs4cCAp6ORoYoCygipYP1mjmbjrsg=="],
 
     "@ryot/browser-extension": ["@ryot/browser-extension@workspace:apps/browser-extension"],
+
+    "@ryot/cli": ["@ryot/cli@workspace:packages/cli"],
 
     "@ryot/config": ["@ryot/config@workspace:packages/config"],
 

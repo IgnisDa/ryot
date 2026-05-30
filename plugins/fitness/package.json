@@ -20,6 +20,7 @@
 		}
 	},
 	"scripts": {
+		"build": "ryot plugin build",
 		"test": "bun --bun run vitest run",
 		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
 	},
@@ -34,6 +35,7 @@
 	},
 	"devDependencies": {
 		"@effect/vitest": "4.0.0-beta.107",
+		"@ryot/cli": "workspace:*",
 		"@ryot/testing": "workspace:*",
 		"bun-types": "1.4.0",
 		"vitest": "4.1.9"
