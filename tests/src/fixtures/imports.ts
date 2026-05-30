@@ -1,5 +1,5 @@
 import { getBackendUrl } from "../setup";
-import { requirePresent, requireResponseData } from "../test-support/assertions";
+import { requirePresent } from "../test-support/assertions";
 import type { Client } from "./auth";
 import { pollUntil } from "./polling";
 
@@ -33,22 +33,18 @@ export async function startOpenScaleImport(
 	cookies: string,
 	uploadToken: string,
 ): Promise<string> {
-	const { data, response } = await client.imports.createRun({
-		headers: { Cookie: cookies },
-		body: { source: "open_scale", uploadToken },
-	});
+	const result = await client.run(
+		(c) => c.imports.createRun({ payload: { source: "open_scale", uploadToken } }),
+		{ Cookie: cookies },
+	);
 
-	const result = requireResponseData(response, data, "Failed to start import run");
 	return requirePresent(result.id, "Import run id is missing");
 }
 
 export async function getImportRun(client: Client, cookies: string, runId: string) {
-	const { data, response } = await client.imports.getRun({
-		headers: { Cookie: cookies },
-		params: { path: { runId }, query: {} },
+	return client.run((c) => c.imports.getRun({ path: { runId }, urlParams: {} }), {
+		Cookie: cookies,
 	});
-
-	return requireResponseData(response, data, `Failed to get import run '${runId}'`);
 }
 
 export async function pollImportRunUntilTerminal(client: Client, cookies: string, runId: string) {
@@ -92,11 +88,10 @@ export async function runHevyImportFixture(client: Client, cookies: string) {
 		"text/csv",
 	);
 
-	const { data, response } = await client.imports.createRun({
-		headers: { Cookie: cookies },
-		body: { source: "hevy", uploadToken },
-	});
-	const result = requireResponseData(response, data, "Failed to start hevy import run");
+	const result = await client.run(
+		(c) => c.imports.createRun({ payload: { source: "hevy", uploadToken } }),
+		{ Cookie: cookies },
+	);
 	const runId = requirePresent(result.id, "Import run id is missing");
 
 	const completedRun = await pollImportRunUntilTerminal(client, cookies, runId);

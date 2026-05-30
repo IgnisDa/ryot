@@ -1,13 +1,12 @@
 import { describe, expect, it } from "bun:test";
 
-import { getBackendClient } from "../setup";
+import { getBackendClient } from "../fixtures";
 
 describe("Health endpoint", () => {
 	it("should return healthy status", async () => {
 		const client = getBackendClient();
-		const { data, response } = await client.system.health();
+		const data = await client.run((c) => c.system.health());
 
-		expect(response.status).toBe(200);
-		expect(data?.status).toBe("healthy");
+		expect(data.status).toBe("healthy");
 	});
 });

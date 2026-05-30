@@ -11,6 +11,7 @@ import {
 	createTracker,
 	literalExpression,
 } from "../fixtures";
+import { assertTaggedError } from "../test-support/assertions";
 
 const currentTime = () => DateTime.unsafeNow();
 const startOfDay = (value = currentTime()) => DateTime.startOf(value, "day");
@@ -74,23 +75,25 @@ describe("time-series mode", () => {
 		const startAt = toIso(startOfDay());
 		const endAt = toIso(add(startOfDay(), "3 days"));
 
-		const { data, response } = await client.queryEngine.execute({
-			headers: { Cookie: cookies },
-			body: {
-				filter: null,
-				bucket: "day",
-				mode: "timeSeries",
-				computedFields: [],
-				scope: [schema.slug],
-				metric: { type: "count" },
-				dateRange: { startAt, endAt },
-				eventSchemas: [reviewSchema.slug],
-			},
-		});
+		const data = await client.run(
+			(c) =>
+				c.queryEngine.execute({
+					payload: {
+						filter: null,
+						bucket: "day",
+						mode: "timeSeries",
+						computedFields: [],
+						scope: [schema.slug],
+						metric: { type: "count" },
+						dateRange: { startAt, endAt },
+						eventSchemas: [reviewSchema.slug],
+					},
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(response.status).toBe(200);
-		expect(data?.mode).toBe("timeSeries");
-		const buckets = data?.mode === "timeSeries" ? data.data.buckets : [];
+		expect(data.mode).toBe("timeSeries");
+		const buckets = data.mode === "timeSeries" ? data.data.buckets : [];
 		expect(buckets).toHaveLength(3);
 		expect(buckets[0]?.value).toBe(2);
 		// Future buckets should be 0 (empty bucket fill)
@@ -128,23 +131,25 @@ describe("time-series mode", () => {
 		const startAt = toIso(startOfDay());
 		const endAt = toIso(add(startOfDay(), Duration.days(1)));
 
-		const { data, response } = await client.queryEngine.execute({
-			headers: { Cookie: cookies },
-			body: {
-				filter: null,
-				bucket: "hour",
-				mode: "timeSeries",
-				computedFields: [],
-				scope: [schema.slug],
-				metric: { type: "count" },
-				dateRange: { startAt, endAt },
-				eventSchemas: [reviewSchema.slug],
-			},
-		});
+		const data = await client.run(
+			(c) =>
+				c.queryEngine.execute({
+					payload: {
+						filter: null,
+						bucket: "hour",
+						mode: "timeSeries",
+						computedFields: [],
+						scope: [schema.slug],
+						metric: { type: "count" },
+						dateRange: { startAt, endAt },
+						eventSchemas: [reviewSchema.slug],
+					},
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(response.status).toBe(200);
-		expect(data?.mode).toBe("timeSeries");
-		const buckets = data?.mode === "timeSeries" ? data.data.buckets : [];
+		expect(data.mode).toBe("timeSeries");
+		const buckets = data.mode === "timeSeries" ? data.data.buckets : [];
 		expect(buckets).toHaveLength(24);
 	});
 
@@ -176,22 +181,25 @@ describe("time-series mode", () => {
 
 		const currentIso = toIso(currentTime());
 
-		const { response } = await client.queryEngine.execute({
-			headers: { Cookie: cookies },
-			body: {
-				filter: null,
-				bucket: "day",
-				mode: "timeSeries",
-				computedFields: [],
-				scope: [schema.slug],
-				metric: { type: "count" },
-				eventSchemas: [reviewSchema.slug],
-				// endAt before startAt
-				dateRange: { startAt: currentIso, endAt: currentIso },
-			},
-		});
+		const error = await client.runError(
+			(c) =>
+				c.queryEngine.execute({
+					payload: {
+						filter: null,
+						bucket: "day",
+						mode: "timeSeries",
+						computedFields: [],
+						scope: [schema.slug],
+						metric: { type: "count" },
+						eventSchemas: [reviewSchema.slug],
+						// endAt before startAt
+						dateRange: { startAt: currentIso, endAt: currentIso },
+					},
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(response.status).toBe(400);
+		assertTaggedError(error, "BadRequest");
 	});
 
 	it("returns zero for a partial bucket range that excludes the event", async () => {
@@ -242,22 +250,24 @@ describe("time-series mode", () => {
 		const startAt = toIso(add(futureDay, "10 hours"));
 		const endAt = toIso(add(futureDay, "12 hours"));
 
-		const { data, response } = await client.queryEngine.execute({
-			headers: { Cookie: cookies },
-			body: {
-				filter: null,
-				bucket: "day",
-				mode: "timeSeries",
-				computedFields: [],
-				scope: [schema.slug],
-				metric: { type: "count" },
-				dateRange: { startAt, endAt },
-				eventSchemas: [reviewSchema.slug],
-			},
-		});
+		const data = await client.run(
+			(c) =>
+				c.queryEngine.execute({
+					payload: {
+						filter: null,
+						bucket: "day",
+						mode: "timeSeries",
+						computedFields: [],
+						scope: [schema.slug],
+						metric: { type: "count" },
+						dateRange: { startAt, endAt },
+						eventSchemas: [reviewSchema.slug],
+					},
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(response.status).toBe(200);
-		const buckets = data?.mode === "timeSeries" ? data.data.buckets : [];
+		const buckets = data.mode === "timeSeries" ? data.data.buckets : [];
 		expect(buckets).toHaveLength(1);
 		expect(buckets[0]?.value).toBe(0);
 	});
@@ -318,22 +328,24 @@ describe("time-series mode", () => {
 		const startAt = toIso(startOfDay());
 		const endAt = toIso(add(startOfDay(), Duration.days(1)));
 
-		const { data, response } = await client.queryEngine.execute({
-			headers: { Cookie: cookies },
-			body: {
-				filter: null,
-				bucket: "day",
-				mode: "timeSeries",
-				computedFields: [],
-				scope: [schema.slug],
-				metric: { type: "count" },
-				dateRange: { startAt, endAt },
-				eventSchemas: [reviewSchema.slug],
-			},
-		});
+		const data = await client.run(
+			(c) =>
+				c.queryEngine.execute({
+					payload: {
+						filter: null,
+						bucket: "day",
+						mode: "timeSeries",
+						computedFields: [],
+						scope: [schema.slug],
+						metric: { type: "count" },
+						dateRange: { startAt, endAt },
+						eventSchemas: [reviewSchema.slug],
+					},
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(response.status).toBe(200);
-		const buckets = data?.mode === "timeSeries" ? data.data.buckets : [];
+		const buckets = data.mode === "timeSeries" ? data.data.buckets : [];
 		// Only the event with occurredAt = now falls in today's range.
 		// If the filter used createdAt, it would count 2 (both were just inserted).
 		expect(buckets).toHaveLength(1);
@@ -383,22 +395,24 @@ describe("time-series mode", () => {
 		const startAt = toIso(pastBucketStart);
 		const endAt = toIso(add(pastBucketStart, Duration.days(1)));
 
-		const { data, response } = await client.queryEngine.execute({
-			headers: { Cookie: cookies },
-			body: {
-				filter: null,
-				bucket: "day",
-				mode: "timeSeries",
-				computedFields: [],
-				scope: [schema.slug],
-				metric: { type: "count" },
-				dateRange: { startAt, endAt },
-				eventSchemas: [reviewSchema.slug],
-			},
-		});
+		const data = await client.run(
+			(c) =>
+				c.queryEngine.execute({
+					payload: {
+						filter: null,
+						bucket: "day",
+						mode: "timeSeries",
+						computedFields: [],
+						scope: [schema.slug],
+						metric: { type: "count" },
+						dateRange: { startAt, endAt },
+						eventSchemas: [reviewSchema.slug],
+					},
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(response.status).toBe(200);
-		const buckets = data?.mode === "timeSeries" ? data.data.buckets : [];
+		const buckets = data.mode === "timeSeries" ? data.data.buckets : [];
 		expect(buckets).toHaveLength(1);
 		expect(buckets[0]?.date).toBe(startAt);
 		expect(buckets[0]?.value).toBe(1);
@@ -459,34 +473,36 @@ describe("time-series mode", () => {
 		const startAt = toIso(startOfDay());
 		const endAt = toIso(add(startOfDay(), Duration.days(1)));
 
-		const { data, response } = await client.queryEngine.execute({
-			headers: { Cookie: cookies },
-			body: {
-				bucket: "day",
-				mode: "timeSeries",
-				computedFields: [],
-				scope: [schema.slug],
-				metric: { type: "count" },
-				dateRange: { startAt, endAt },
-				eventSchemas: [reviewSchema.slug],
-				filter: {
-					operator: "gte",
-					type: "comparison",
-					right: literalExpression(5),
-					left: {
-						type: "reference",
-						reference: {
-							type: "event",
-							path: ["properties", "rating"],
-							eventSchemaSlug: reviewSchema.slug,
+		const data = await client.run(
+			(c) =>
+				c.queryEngine.execute({
+					payload: {
+						bucket: "day",
+						mode: "timeSeries",
+						computedFields: [],
+						scope: [schema.slug],
+						metric: { type: "count" },
+						dateRange: { startAt, endAt },
+						eventSchemas: [reviewSchema.slug],
+						filter: {
+							operator: "gte",
+							type: "comparison",
+							right: literalExpression(5),
+							left: {
+								type: "reference",
+								reference: {
+									type: "event",
+									path: ["properties", "rating"],
+									eventSchemaSlug: reviewSchema.slug,
+								},
+							},
 						},
 					},
-				},
-			},
-		});
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(response.status).toBe(200);
-		const buckets = data?.mode === "timeSeries" ? data.data.buckets : [];
+		const buckets = data.mode === "timeSeries" ? data.data.buckets : [];
 		// Only the 2 events with rating >= 5 should be counted
 		expect(buckets[0]?.value).toBe(2);
 	});
@@ -514,30 +530,31 @@ describe("time-series mode", () => {
 		const startAt = toIso(startOfDay());
 		const endAt = toIso(add(startOfDay(), Duration.days(1)));
 
-		const { error, response } = await client.queryEngine.execute({
-			headers: { Cookie: cookies },
-			body: {
-				filter: null,
-				bucket: "day",
-				mode: "timeSeries",
-				computedFields: [],
-				scope: [schema.slug],
-				dateRange: { startAt, endAt },
-				eventSchemas: [reviewSchema.slug],
-				metric: {
-					type: "sum",
-					expression: {
-						type: "reference",
-						reference: { joinKey: "review", type: "event-join", path: ["createdAt"] },
+		const error = await client.runError(
+			(c) =>
+				c.queryEngine.execute({
+					payload: {
+						filter: null,
+						bucket: "day",
+						mode: "timeSeries",
+						computedFields: [],
+						scope: [schema.slug],
+						dateRange: { startAt, endAt },
+						eventSchemas: [reviewSchema.slug],
+						metric: {
+							type: "sum",
+							expression: {
+								type: "reference",
+								reference: { joinKey: "review", type: "event-join", path: ["createdAt"] },
+							},
+						},
 					},
-				},
-			},
-		});
-
-		expect(response.status).toBe(400);
-		expect(error?.error.message).toBe(
-			"Event join 'event.review' is not part of this runtime request",
+				}),
+			{ Cookie: cookies },
 		);
+
+		assertTaggedError(error, "BadRequest");
+		expect(error.message).toBe("Event join 'event.review' is not part of this runtime request");
 	});
 
 	it("rejects non-numeric sum metric expressions", async () => {
@@ -563,24 +580,27 @@ describe("time-series mode", () => {
 		const startAt = toIso(startOfDay());
 		const endAt = toIso(add(startOfDay(), Duration.days(1)));
 
-		const { response } = await client.queryEngine.execute({
-			headers: { Cookie: cookies },
-			body: {
-				filter: null,
-				bucket: "day",
-				mode: "timeSeries",
-				computedFields: [],
-				scope: [schema.slug],
-				dateRange: { startAt, endAt },
-				eventSchemas: [reviewSchema.slug],
-				metric: {
-					type: "sum",
-					expression: { type: "reference", reference: { type: "event", path: ["createdAt"] } },
-				},
-			},
-		});
+		const error = await client.runError(
+			(c) =>
+				c.queryEngine.execute({
+					payload: {
+						filter: null,
+						bucket: "day",
+						mode: "timeSeries",
+						computedFields: [],
+						scope: [schema.slug],
+						dateRange: { startAt, endAt },
+						eventSchemas: [reviewSchema.slug],
+						metric: {
+							type: "sum",
+							expression: { type: "reference", reference: { type: "event", path: ["createdAt"] } },
+						},
+					},
+				}),
+			{ Cookie: cookies },
+		);
 
 		// createdAt is a datetime, not a number
-		expect(response.status).toBe(400);
+		assertTaggedError(error, "BadRequest");
 	});
 });

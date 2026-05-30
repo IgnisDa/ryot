@@ -1,4 +1,5 @@
 export * from "./auth";
+export * from "./contract-client";
 export * from "./collections";
 export * from "./integrations";
 export * from "./entities";

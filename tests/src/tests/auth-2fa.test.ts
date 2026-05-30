@@ -1,9 +1,10 @@
 import { describe, expect, it } from "bun:test";
 
+import { getBackendClient } from "../fixtures";
 import { createTestUser } from "../fixtures/auth";
 import { cookieHeaderFromSetCookies, enableTwoFactorForSession } from "../fixtures/auth-2fa";
-import { getBackendClient, getBackendUrl } from "../setup";
-import { requireNonEmptyArray } from "../test-support/assertions";
+import { getBackendUrl } from "../setup";
+import { assertTaggedError, requireNonEmptyArray } from "../test-support/assertions";
 
 const trackersListQuery = { includeDisabled: false };
 
@@ -24,11 +25,9 @@ describe("Two-factor sign-in flow", () => {
 			"Two-factor setup did not return any backup codes",
 		);
 
-		const enabledSession = await client.trackers.list({
-			params: { query: trackersListQuery },
-			headers: { Cookie: twoFactorCookies },
+		await client.run((c) => c.trackers.list({ urlParams: trackersListQuery }), {
+			Cookie: twoFactorCookies,
 		});
-		expect(enabledSession.response.status).toBe(200);
 
 		const signInResponse = await fetch(`${baseUrl}/auth/sign-in/email`, {
 			method: "POST",
@@ -45,11 +44,11 @@ describe("Two-factor sign-in flow", () => {
 		const signInData = await signInResponse.json();
 		expect(signInData).toHaveProperty("twoFactorRedirect", true);
 
-		const unauthorizedResponse = await client.trackers.list({
-			params: { query: trackersListQuery },
-			headers: { Cookie: signInCookies },
-		});
-		expect(unauthorizedResponse.response.status).toBe(401);
+		const unauthorizedError = await client.runError(
+			(c) => c.trackers.list({ urlParams: trackersListQuery }),
+			{ Cookie: signInCookies },
+		);
+		assertTaggedError(unauthorizedError, "Unauthorized");
 
 		const verifyResponse = await fetch(`${baseUrl}/auth/two-factor/verify-backup-code`, {
 			method: "POST",
@@ -66,11 +65,9 @@ describe("Two-factor sign-in flow", () => {
 		const verifiedCookies = verifySetCookies.length
 			? cookieHeaderFromSetCookies(verifySetCookies)
 			: signInCookies;
-		const protectedResponse = await client.trackers.list({
-			params: { query: trackersListQuery },
-			headers: { Cookie: verifiedCookies },
+		await client.run((c) => c.trackers.list({ urlParams: trackersListQuery }), {
+			Cookie: verifiedCookies,
 		});
-		expect(protectedResponse.response.status).toBe(200);
 
 		const secondSignInResponse = await fetch(`${baseUrl}/auth/sign-in/email`, {
 			method: "POST",
