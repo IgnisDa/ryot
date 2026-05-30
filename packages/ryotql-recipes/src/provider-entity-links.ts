@@ -1,4 +1,8 @@
-import type { EntitySchemaSlug, SandboxProviderId } from "@ryot/contract/schema/brands";
+import {
+	EntityId,
+	type EntitySchemaSlug,
+	type SandboxProviderId,
+} from "@ryot/contract/schema/brands";
 import type { Recipe } from "@ryot/ryotql";
 import {
 	and,
@@ -32,6 +36,7 @@ export const providerEntityLinksRecipe = defineRecipe(
 					limit: input.externalIds.length,
 					orderBy: [ascending(column(entity, "id"))],
 					selection: {
+						entityId: selectedField(column(entity, "id"), EntityId),
 						externalId: selectedField(column(entity, "externalId"), Schema.String),
 					},
 					where: and(
