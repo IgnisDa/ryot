@@ -4,6 +4,7 @@ import { cors } from "hono/cors";
 
 import { adminAccessTokenHeader } from "~/lib/auth";
 import { config } from "~/lib/config";
+import { integrationShortWebhookApp } from "~/modules/integrations";
 import { metricsMiddleware } from "~/modules/system";
 
 import { apiApp } from "./api";
@@ -21,6 +22,7 @@ export const getServer = () => {
 		.use("*", metricsMiddleware)
 		.use("*", corsMiddleware)
 		.route("/api", apiApp)
+		.route("/_i", integrationShortWebhookApp)
 		.use("*", serveStatic({ root: "./client" }))
 		.use("*", serveStatic({ path: "./client/index.html" }));
 
