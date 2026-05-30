@@ -186,6 +186,11 @@ pub async fn change_metadata_associations(
             .await?;
     }
 
+    MetadataToMetadata::delete_many()
+        .filter(metadata_to_metadata::Column::FromMetadataId.eq(metadata_id))
+        .filter(metadata_to_metadata::Column::Relation.eq(MetadataToMetadataRelation::Suggestion))
+        .exec(&ss.db)
+        .await?;
     for data in suggestions {
         let (db_partial_metadata, _) = commit_metadata(data, ss, None).await?;
         let intermediate = metadata_to_metadata::ActiveModel {
@@ -195,7 +200,6 @@ pub async fn change_metadata_associations(
             ..Default::default()
         };
         MetadataToMetadata::insert(intermediate)
-            .on_conflict(OnConflict::new().do_nothing().to_owned())
             .exec_without_returning(&ss.db)
             .await?;
     }
