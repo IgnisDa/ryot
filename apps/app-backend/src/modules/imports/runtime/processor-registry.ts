@@ -15,7 +15,7 @@ import { adaptHevyCsv } from "../sources/hevy/adapter";
 import { adaptIgdbCsv } from "../sources/igdb/adapter";
 import { adaptImdbCsv } from "../sources/imdb/adapter";
 import { processJellyfinImport } from "../sources/jellyfin/processor";
-import { processMediatrackerImport } from "../sources/mediatracker/processor";
+import { processMediaTrackerImport } from "../sources/media-tracker/processor";
 import { processMyanimelistImport } from "../sources/myanimelist/processor";
 import { processPlexImport } from "../sources/plex/processor";
 import { adaptStorygraphCsv } from "../sources/storygraph/adapter";
@@ -167,10 +167,10 @@ const importSourceProcessors: Partial<Record<ImportRunSource, ImportSourceProces
 				sourcePayload: sourcePayloadInput(input),
 			}),
 	},
-	mediatracker: {
+	media_tracker: {
 		inputKind: "source_payload",
 		process: (input) =>
-			processMediatrackerImport(input.job, input.token, {
+			processMediaTrackerImport(input.job, input.token, {
 				...mediaProcessorInput(input),
 				sourcePayload: sourcePayloadInput(input),
 			}),

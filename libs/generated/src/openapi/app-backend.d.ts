@@ -4552,7 +4552,7 @@ export interface paths {
                                 /** Format: date-time */
                                 updatedAt: string;
                                 /** @enum {string} */
-                                source: "hevy" | "igdb" | "imdb" | "plex" | "trakt" | "movary" | "anilist" | "grouvee" | "netflix" | "watcharr" | "jellyfin" | "goodreads" | "hardcover" | "open_scale" | "strong_app" | "storygraph" | "myanimelist" | "mediatracker" | "audiobookshelf";
+                                source: "hevy" | "igdb" | "imdb" | "plex" | "trakt" | "movary" | "anilist" | "grouvee" | "netflix" | "watcharr" | "jellyfin" | "goodreads" | "hardcover" | "open_scale" | "strong_app" | "storygraph" | "myanimelist" | "media_tracker" | "audiobookshelf";
                                 /** @enum {string} */
                                 status: "pending" | "running" | "completed" | "failed";
                                 progress: number;
@@ -4667,7 +4667,7 @@ export interface paths {
                         apiUrl: string;
                         apiKey: string;
                         /** @enum {string} */
-                        source: "mediatracker";
+                        source: "media_tracker";
                         allowInsecureConnections?: boolean;
                     } | {
                         apiUrl: string;
@@ -4755,7 +4755,7 @@ export interface paths {
                                 /** Format: date-time */
                                 updatedAt: string;
                                 /** @enum {string} */
-                                source: "hevy" | "igdb" | "imdb" | "plex" | "trakt" | "movary" | "anilist" | "grouvee" | "netflix" | "watcharr" | "jellyfin" | "goodreads" | "hardcover" | "open_scale" | "strong_app" | "storygraph" | "myanimelist" | "mediatracker" | "audiobookshelf";
+                                source: "hevy" | "igdb" | "imdb" | "plex" | "trakt" | "movary" | "anilist" | "grouvee" | "netflix" | "watcharr" | "jellyfin" | "goodreads" | "hardcover" | "open_scale" | "strong_app" | "storygraph" | "myanimelist" | "media_tracker" | "audiobookshelf";
                                 /** @enum {string} */
                                 status: "pending" | "running" | "completed" | "failed";
                                 progress: number;
