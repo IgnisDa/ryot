@@ -149,7 +149,7 @@ const layerFor = (installed: Array<PluginInstallationState>) =>
 	);
 
 it.effect(
-	"dispatches sorted installed entries with bound user authority and deterministic ids",
+	"dispatches sorted installed entries with bound user subject and deterministic ids",
 	() => {
 		const payloads: SandboxExecutionPayload[] = [];
 		return Effect.gen(function* () {
@@ -165,19 +165,19 @@ it.effect(
 				{
 					context: {},
 					scriptId: "bootstrap.first-id",
-					authority: { type: "user", userId: "user-1" },
+					subject: { type: "user", userId: "user-1" },
 					executionId: userBootstrapExecutionId("user-1", "example", "first"),
 				},
 				{
 					context: {},
 					scriptId: "bootstrap.second-id",
-					authority: { type: "user", userId: "user-1" },
+					subject: { type: "user", userId: "user-1" },
 					executionId: userBootstrapExecutionId("user-1", "example", "second"),
 				},
 				{
 					context: {},
 					scriptId: "bootstrap.only-id",
-					authority: { type: "user", userId: "user-1" },
+					subject: { type: "user", userId: "user-1" },
 					executionId: userBootstrapExecutionId("user-1", "sample", "only"),
 				},
 			]);

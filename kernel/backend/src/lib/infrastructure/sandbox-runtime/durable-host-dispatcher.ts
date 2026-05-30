@@ -205,6 +205,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 		const dispatchHttp = (
 			request: Parameters<SandboxDurableHostDispatcher["Service"]["dispatch"]>[0],
 			payload: Parameters<SandboxDurableHostDispatcher["Service"]["dispatch"]>[1],
+			principal: Parameters<SandboxDurableHostDispatcher["Service"]["dispatch"]>[2],
 			executionId: string,
 			startedAt: string,
 		) =>
@@ -352,7 +353,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 						execute: Effect.gen(function* () {
 							const startedAtMs = yield* Clock.currentTimeMillis;
 							const result = yield* provideDispatchServices(
-								dispatchSandboxHostActivity(request, payload, executionId, startedAt),
+								dispatchSandboxHostActivity(request, payload, principal, executionId, startedAt),
 							);
 							const responseTimeMs = yield* Clock.currentTimeMillis;
 							const durationMs = Math.max(0, responseTimeMs - startedAtMs);
@@ -491,7 +492,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 			});
 
 		return {
-			dispatch: (request, payload, executionId) => {
+			dispatch: (request, payload, principal, executionId) => {
 				const startedAt = payload.startedAt ?? "";
 				const strategy = sandboxDurableHostDispatchStrategy(request.args.capability);
 				if (!strategy) {
@@ -509,7 +510,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 					);
 				}
 				if (request.args.capability === "httpCall") {
-					return dispatchHttp(request, payload, executionId, startedAt);
+					return dispatchHttp(request, payload, principal, executionId, startedAt);
 				}
 				if (strategy === "activity") {
 					return Activity.make({
@@ -517,7 +518,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 						success: workflowDurableResultSchema,
 						name: `sandbox-host-${request.index}-${request.args.capability}`,
 						execute: provideDispatchServices(
-							dispatchSandboxHostActivity(request, payload, executionId, startedAt),
+							dispatchSandboxHostActivity(request, payload, principal, executionId, startedAt),
 						),
 					});
 				}
@@ -525,7 +526,13 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 					return engine
 						.execute(SandboxDurableHostServiceWorkflow, {
 							executionId: `${executionId}-host-service-${request.index}`,
-							payload: { request, startedAt, sandbox: payload, parentExecutionId: executionId },
+							payload: {
+								request,
+								startedAt,
+								principal,
+								sandbox: payload,
+								parentExecutionId: executionId,
+							},
 						})
 						.pipe(withoutWorkflowParent);
 				}
@@ -536,7 +543,13 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 							error: SandboxRunError,
 							success: PreparedSandboxCreateEvents,
 							name: `prepare-sandbox-create-events-${request.index}`,
-							execute: prepareSandboxCreateEvents(request, payload, executionId, startedAt).pipe(
+							execute: prepareSandboxCreateEvents(
+								request,
+								payload,
+								principal,
+								executionId,
+								startedAt,
+							).pipe(
 								Effect.provideService(Database, database),
 								Effect.provideService(SandboxRepository, repository),
 							),
@@ -587,7 +600,13 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 						error: SandboxRunError,
 						success: PreparedSandboxSendNotification,
 						name: `prepare-sandbox-send-notification-${request.index}`,
-						execute: prepareSandboxSendNotification(request, payload, executionId, startedAt).pipe(
+						execute: prepareSandboxSendNotification(
+							request,
+							payload,
+							principal,
+							executionId,
+							startedAt,
+						).pipe(
 							Effect.provideService(Database, database),
 							Effect.provideService(SandboxRepository, repository),
 						),

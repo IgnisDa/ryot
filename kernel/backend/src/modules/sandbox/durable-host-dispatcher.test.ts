@@ -1,11 +1,13 @@
 import { expect, it } from "@effect/vitest";
-import { SandboxScriptId } from "@ryot/contract/schema/brands";
+import { SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import { sandboxHostContracts } from "@ryot/sandbox-sdk/core";
+import { Effect } from "effect";
 
 import {
 	SANDBOX_DURABLE_HOST_DISPATCH,
 	sandboxDurableHttpRequestUrl,
 	sandboxDurableHostDispatchStrategy,
+	prepareSandboxSendNotification,
 	SandboxDurableHostServiceWorkflow,
 } from "./durable-host-dispatcher";
 
@@ -23,6 +25,40 @@ it("classifies every bridge host capability exactly once", () => {
 	});
 	expect(sandboxDurableHostDispatchStrategy("scratch")).toBeNull();
 });
+
+it.effect("applies centralized capability authorization before durable host dispatch", () =>
+	Effect.gen(function* () {
+		const error = yield* prepareSandboxSendNotification(
+			{
+				index: 0,
+				kind: "host",
+				name: "sendNotification",
+				args: { capability: "sendNotification", args: ["Ready"] },
+			},
+			{
+				input: {},
+				resolutionMode: "exact",
+				executionId: "sandbox-parent",
+				scriptId: SandboxScriptId.make("script-1"),
+				subject: { type: "user", userId: UserId.make("user-1") },
+			},
+			{
+				providerId: null,
+				pluginRevision: null,
+				contentHash: "hash",
+				scriptSlug: "script",
+				metadata: { capabilities: ["sendNotification"] },
+				scriptId: SandboxScriptId.make("script-1"),
+				subject: { type: "user", userId: UserId.make("user-1") },
+			},
+			"sandbox-parent",
+			"2026-08-06T00:00:00.000Z",
+		).pipe(Effect.flip);
+		expect(error.message).toBe(
+			"Sandbox durable host denied: sendNotification is available only to subscription executions",
+		);
+	}),
+);
 
 it("extracts only schema-valid durable HTTP request URLs", () => {
 	expect(
@@ -53,12 +89,21 @@ it("derives service workflow identity from the parent and call index", () => {
 	expect(
 		SandboxDurableHostServiceWorkflow.idempotencyKey({
 			request,
-			startedAt: "2026-08-06T00:00:00.000Z",
 			parentExecutionId: "sandbox-parent",
+			startedAt: "2026-08-06T00:00:00.000Z",
+			principal: {
+				metadata: {},
+				providerId: null,
+				contentHash: "hash",
+				pluginRevision: null,
+				scriptSlug: "script",
+				subject: { type: "system" },
+				scriptId: SandboxScriptId.make("script-1"),
+			},
 			sandbox: {
 				input: {},
 				resolutionMode: "exact",
-				authority: { type: "system" },
+				subject: { type: "system" },
 				executionId: "sandbox-parent",
 				scriptId: SandboxScriptId.make("script-1"),
 			},

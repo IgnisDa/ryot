@@ -134,7 +134,7 @@ it.effect("dispatches a registry-declared source to its owning plugin's import w
 			input: {
 				executionId: `${executionId}-import`,
 				input: { runId: "run-1", source: "nu" },
-				authority: { type: "user", userId: "user-1" },
+				subject: { type: "user", userId: "user-1" },
 				scriptId: SandboxScriptId.make("accepted.nu-import"),
 				grants: {
 					artifactOwnerExecutionId: `${executionId}-import`,

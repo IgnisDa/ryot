@@ -1,6 +1,6 @@
 import { expect, it } from "@effect/vitest";
 import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
-import type { ExecutionAuthority } from "@ryot/contract/modules/sandbox/schemas";
+import type { SandboxExecutionSubject } from "@ryot/contract/modules/sandbox/schemas";
 import {
 	EntitySchemaSlug,
 	SandboxProviderId,
@@ -13,6 +13,7 @@ import { assert } from "vitest";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { Database } from "#lib/infrastructure/db/service";
+import type { SandboxExecutionPrincipal } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { kernelDefinitionSource } from "#modules/definition-registry/kernel-source";
 import { makeDefinitionRegistry } from "#modules/definition-registry/service";
 
@@ -459,15 +460,6 @@ it.effect("resolves active schema providers and their operation-specific scripts
 				workflowSlug: "fixture-run",
 			}),
 		).toMatchObject({ id: "workflow-script-id", slug: "fixture.workflow" });
-		expect(
-			yield* resolver.resolveSystemQueryScript(SandboxScriptId.make("query-script-id")),
-		).toMatchObject({
-			pluginSlug: "fixture",
-			entitySchemaSlugs: ["fixture-entity", "unbound-entity"],
-		});
-		expect(
-			yield* resolver.resolveSystemQueryScript(SandboxScriptId.make("details-script-id")),
-		).toBeNull();
 	}).pipe(Effect.provide(makeLayer())),
 );
 
@@ -908,12 +900,34 @@ it.effect("does not resolve a private script whose compiled hash is stale", () =
 	),
 );
 
-const resolvePrivateConfigContext = (authority: ExecutionAuthority) =>
+const configPrincipal = (
+	subject: SandboxExecutionSubject,
+	pluginScope: "system" | "user",
+): SandboxExecutionPrincipal => ({
+	subject,
+	providerId: null,
+	contentHash: "script-hash",
+	metadata: { kind: "script" },
+	scriptSlug: pluginScope === "user" ? "private.script" : "fixture.details",
+	scriptId: SandboxScriptId.make(
+		pluginScope === "user" ? "private-script-id" : "details-script-id",
+	),
+	pluginRevision: {
+		scope: pluginScope,
+		compiledHashes: {},
+		workflowScripts: {},
+		userBootstrapScriptSlugs: [],
+		configSchema: fixtureManifest().configSchema,
+		slug: pluginScope === "user" ? "private" : "fixture",
+		ownerId: pluginScope === "user" ? UserId.make("user-1") : null,
+		id: pluginScope === "user" ? "private-plugin-id" : "fixture-plugin-id",
+		schemaScope: { eventSchemas: [], entitySchemaSlugs: [], relationshipSchemaSlugs: [] },
+	},
+});
+
+const resolvePrivateConfigContext = (subject: SandboxExecutionSubject) =>
 	Effect.flatMap(PluginRuntimeResolver, (runtime) =>
-		runtime.resolvePluginConfigContext({
-			authority,
-			scriptId: SandboxScriptId.make("private-script-id"),
-		}),
+		runtime.resolvePluginConfigContext(configPrincipal(subject, "user")),
 	);
 
 it.effect(
@@ -921,18 +935,16 @@ it.effect(
 	() =>
 		Effect.gen(function* () {
 			const resolver = yield* PluginRuntimeResolver;
-			const context = yield* resolver.resolvePluginConfigContext({
-				authority: { type: "system" },
-				scriptId: SandboxScriptId.make("details-script-id"),
-			});
+			const context = yield* resolver.resolvePluginConfigContext(
+				configPrincipal({ type: "system" }, "system"),
+			);
 			expect(context).toMatchObject({ kind: "environment", pluginSlug: "fixture" });
 			expect(context).not.toHaveProperty("config");
 
 			expect(
-				yield* resolver.resolvePluginConfigContext({
-					scriptId: SandboxScriptId.make("details-script-id"),
-					authority: { type: "user", userId: UserId.make("user-1") },
-				}),
+				yield* resolver.resolvePluginConfigContext(
+					configPrincipal({ type: "user", userId: UserId.make("user-1") }, "system"),
+				),
 			).toMatchObject({ kind: "environment", pluginSlug: "fixture" });
 		}).pipe(Effect.provide(makeLayer())),
 );
@@ -941,10 +953,9 @@ it.effect("resolves private plugin config from the owner's installation", () =>
 	Effect.gen(function* () {
 		const resolver = yield* PluginRuntimeResolver;
 		expect(
-			yield* resolver.resolvePluginConfigContext({
-				scriptId: SandboxScriptId.make("private-script-id"),
-				authority: { type: "user", userId: UserId.make("user-1") },
-			}),
+			yield* resolver.resolvePluginConfigContext(
+				configPrincipal({ type: "user", userId: UserId.make("user-1") }, "user"),
+			),
 		).toMatchObject({ kind: "installation", config: { apiToken: "private-token" } });
 	}).pipe(Effect.provide(makePrivateLayer())),
 );
@@ -963,24 +974,22 @@ it.effect("keeps exact-owner config available to already-pinned executions", () 
 		).toMatchObject({ kind: "installation", config: { apiToken: "private-token" } });
 		expect(
 			yield* Effect.flatMap(PluginRuntimeResolver, (resolver) =>
-				resolver.resolvePluginConfigContext({
-					scriptId: SandboxScriptId.make("details-script-id"),
-					authority: { type: "user", userId: UserId.make("user-1") },
-				}),
+				resolver.resolvePluginConfigContext(
+					configPrincipal({ type: "user", userId: UserId.make("user-1") }, "system"),
+				),
 			).pipe(Effect.provide(makeLayer(providerRow, false, scriptRow, [], { isDisabled: true }))),
 		).toMatchObject({ kind: "environment", pluginSlug: "fixture" });
 		expect(
 			yield* Effect.flatMap(PluginRuntimeResolver, (resolver) =>
-				resolver.resolvePluginConfigContext({
-					scriptId: SandboxScriptId.make("details-script-id"),
-					authority: { type: "user", userId: UserId.make("user-1") },
-				}),
+				resolver.resolvePluginConfigContext(
+					configPrincipal({ type: "user", userId: UserId.make("user-1") }, "system"),
+				),
 			).pipe(Effect.provide(makeLayer(providerRow, false, scriptRow, [], null))),
 		).toBeNull();
 	}),
 );
 
-it.effect("rejects private plugin config for system, foreign, and uninstalled authorities", () =>
+it.effect("rejects private plugin config for system, foreign, and uninstalled subjects", () =>
 	Effect.gen(function* () {
 		expect(
 			yield* resolvePrivateConfigContext({ type: "system" }).pipe(
@@ -995,91 +1004,6 @@ it.effect("rejects private plugin config for system, foreign, and uninstalled au
 		expect(
 			yield* resolvePrivateConfigContext({ type: "user", userId: UserId.make("user-1") }).pipe(
 				Effect.provide(makePrivateLayer(null)),
-			),
-		).toBeNull();
-	}),
-);
-
-const bootstrapScriptSlug = "fixture.user-bootstrap";
-
-const makeTrustedBootstrapLayer = (
-	overrides: { pluginId?: string; pluginScope?: "system" | "user" } = {},
-) => {
-	const loader = makePluginLoader(makeDefinitionRegistry());
-	const plugin = normalizedPlugin();
-	const declared = plugin.manifest.scripts[0];
-	const compiled = plugin.scripts[0];
-	assert(declared && compiled);
-	const bootstrapDeclaration = {
-		...declared,
-		kind: "script" as const,
-		name: "Fixture bootstrap",
-		slug: bootstrapScriptSlug,
-	};
-	const { entry: _entry, ...bootstrapMetadata } = bootstrapDeclaration;
-	loader.load({
-		...plugin,
-		manifest: {
-			...plugin.manifest,
-			scripts: [...plugin.manifest.scripts, bootstrapDeclaration],
-			userBootstrap: [
-				{ slug: "fixture", scriptSlug: bootstrapScriptSlug, description: "Bootstrap" },
-			],
-		},
-		scripts: [
-			...plugin.scripts,
-			{
-				...compiled,
-				name: "Fixture bootstrap",
-				slug: bootstrapScriptSlug,
-				metadata: bootstrapMetadata,
-				entry: bootstrapDeclaration.entry,
-				contentHash: `${bootstrapScriptSlug}-hash`,
-			},
-		],
-	});
-	const stored = {
-		pluginId: plugin.id,
-		pluginScope: "system",
-		pluginSlug: plugin.slug,
-		slug: bootstrapScriptSlug,
-		contentHash: `${bootstrapScriptSlug}-hash`,
-		...overrides,
-	};
-	const db = {
-		select: () => ({ from: () => ({ innerJoin: () => ({ where: () => limitable([stored]) }) }) }),
-	};
-	return PluginRuntimeResolver.layer.pipe(
-		Layer.provideMerge(
-			Layer.mergeAll(
-				Layer.succeed(PluginLoader, { ...loader }),
-				Layer.mock(PluginInstallationRepository)({}),
-				Layer.succeed(Database, Object.assign(Object.create(null), db)),
-			),
-		),
-	);
-};
-
-const resolveTrustedCaller = Effect.flatMap(PluginRuntimeResolver, (resolver) =>
-	resolver.resolveTrustedUserBootstrapCaller(SandboxScriptId.make("bootstrap-script-id")),
-);
-
-it.effect("accepts a trusted user bootstrap caller for a system-scoped shipped plugin", () =>
-	Effect.gen(function* () {
-		expect(yield* resolveTrustedCaller).toMatchObject({ pluginSlug: "fixture" });
-	}).pipe(Effect.provide(makeTrustedBootstrapLayer())),
-);
-
-it.effect("rejects a trusted user bootstrap caller from a user-scoped or shadowing plugin", () =>
-	Effect.gen(function* () {
-		expect(
-			yield* resolveTrustedCaller.pipe(
-				Effect.provide(makeTrustedBootstrapLayer({ pluginScope: "user" })),
-			),
-		).toBeNull();
-		expect(
-			yield* resolveTrustedCaller.pipe(
-				Effect.provide(makeTrustedBootstrapLayer({ pluginId: "other-plugin-id" })),
 			),
 		).toBeNull();
 	}),

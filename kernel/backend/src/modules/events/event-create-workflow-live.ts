@@ -94,8 +94,8 @@ export const EventCreateWorkflowOperationsLive = Layer.effect(
 			executeSandboxScript: (payload) =>
 				sandbox.executeScript({
 					input: payload.context,
+					subject: payload.subject,
 					scriptId: payload.scriptId,
-					authority: payload.authority,
 					executionId: payload.executionId,
 				}),
 		} satisfies EventCreateWorkflowOperationsValue;

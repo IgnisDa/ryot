@@ -6,7 +6,6 @@ import {
 	EntitySchemaSlug,
 	IntegrationId,
 	RelationshipSchemaSlug,
-	SandboxScriptId,
 	UserId,
 } from "@ryot/contract/schema/brands";
 import { sha256Base64Url } from "@ryot/ts-utils/crypto";
@@ -171,7 +170,7 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 					.create({
 						payload,
 						source: "sandbox",
-						userId: UserId.make(input.authority.userId),
+						userId: UserId.make(input.principal.subject.userId),
 						executionId: `${input.executionId}-create-events-${hashPayload(payload)}`,
 					})
 					.pipe(Effect.flatMap(toSandboxCreateEventsResult));
@@ -191,7 +190,7 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 						);
 					}
 					return yield* changeUserRelationships(
-						UserId.make(input.authority.userId),
+						UserId.make(input.principal.subject.userId),
 						batches.map((batch) => ({
 							creates: batch.creates.map(toSandboxRelationshipIdentity),
 							deletes: batch.deletes.map(toSandboxRelationshipIdentity),
@@ -209,21 +208,13 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 			sandboxHostEffect(
 				Effect.gen(function* () {
 					const input = yield* requireSandboxCapabilityInput(rawInput, "ensureUserEntities");
-					const caller = yield* pluginRuntime.resolveTrustedUserBootstrapCaller(
-						SandboxScriptId.make(input.scriptId),
-					);
-					if (!caller) {
-						return yield* Effect.fail(
-							"ensureUserEntities is available only to trusted user bootstrap scripts",
-						);
-					}
-					const ownedSchemaSlugs = new Set(caller.entitySchemaSlugs);
+					const revision = input.principal.pluginRevision;
 					for (const item of items) {
 						const definition = definitions.getEntitySchema(item.entitySchemaSlug);
 						if (
+							!revision?.schemaScope.entitySchemaSlugs.includes(item.entitySchemaSlug) ||
 							!definition ||
-							definition.pluginSlug !== caller.pluginSlug ||
-							!ownedSchemaSlugs.has(item.entitySchemaSlug)
+							definition.pluginSlug !== revision.slug
 						) {
 							return yield* Effect.fail(
 								`ensureUserEntities cannot write foreign entity schema: ${item.entitySchemaSlug}`,
@@ -232,7 +223,7 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 					}
 					return yield* entities
 						.ensureUserEntities(
-							UserId.make(input.authority.userId),
+							UserId.make(input.principal.subject.userId),
 							items.map((item) => ({
 								...item,
 								entitySchemaSlug: EntitySchemaSlug.make(item.entitySchemaSlug),
@@ -279,7 +270,7 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 								populatedAt: item.populatedAt,
 								entitySchemaSlug: EntitySchemaSlug.make(item.entitySchemaSlug),
 							})),
-							input.providerId,
+							input.principal.providerId,
 							options?.maximumTotal === undefined
 								? undefined
 								: { maximumTotal: options.maximumTotal },
@@ -328,26 +319,19 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 		executeRyotql: (rawInput, query) =>
 			requireSandboxCapabilityInput(rawInput, "executeRyotql").pipe(
 				Effect.flatMap((input) => {
-					const { authority } = input;
-					if (authority.type === "system") {
+					const { subject } = input.principal;
+					if (subject.type === "system") {
 						return sandboxHostEffect(
 							Effect.gen(function* () {
-								const caller = yield* pluginRuntime
-									.resolveSystemQueryScript(SandboxScriptId.make(input.scriptId))
-									.pipe(Effect.provideService(Database, database));
-								if (!caller) {
+								const revision = input.principal.pluginRevision;
+								if (revision?.scope !== "system") {
 									return yield* Effect.fail(
 										"executeRyotql system access requires a pinned plugin script",
 									);
 								}
 								const document = yield* decodeRyotQLDocument(query);
 								return yield* ryotqlService.executeForPlugin(
-									{
-										pluginSlug: caller.pluginSlug,
-										eventSchemas: caller.eventSchemas,
-										entitySchemaSlugs: caller.entitySchemaSlugs,
-										relationshipSchemaSlugs: caller.relationshipSchemaSlugs,
-									},
+									{ pluginSlug: revision.slug, ...revision.schemaScope },
 									document,
 								);
 							}),
@@ -356,7 +340,7 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 					return sandboxHostEffect(
 						decodeRyotQLDocument(query).pipe(
 							Effect.flatMap((document) =>
-								ryotqlService.executeForUser(authority.userId, null, document),
+								ryotqlService.executeForUser(subject.userId, null, document),
 							),
 						),
 					);
@@ -366,19 +350,14 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 			sandboxHostEffect(
 				normalizeConfigKeys("getPluginConfig", rawKeys).pipe(
 					Effect.flatMap((keys) =>
-						pluginRuntime
-							.resolvePluginConfigContext({
-								authority: input.authority,
-								scriptId: SandboxScriptId.make(input.scriptId),
-							})
-							.pipe(
-								Effect.flatMap((context) =>
-									context
-										? getPluginConfig({ keys, context, metadata: input.metadata })
-										: Effect.fail("Plugin config is available only to active plugin scripts"),
-								),
-								Effect.flatMap((values) => encodeConfigValues("Plugin", values)),
+						pluginRuntime.resolvePluginConfigContext(input.principal).pipe(
+							Effect.flatMap((context) =>
+								context
+									? getPluginConfig({ keys, context, metadata: input.principal.metadata })
+									: Effect.fail("Plugin config is available only to active plugin scripts"),
 							),
+							Effect.flatMap((values) => encodeConfigValues("Plugin", values)),
+						),
 					),
 					Effect.provideService(Database, database),
 				),
@@ -387,7 +366,7 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 			sandboxHostEffect(
 				normalizeConfigKeys("getSystemConfig", rawKeys).pipe(
 					Effect.flatMap((keys) =>
-						getSystemConfig(keys, input.metadata).pipe(
+						getSystemConfig(keys, input.principal.metadata).pipe(
 							Effect.flatMap((values) => encodeConfigValues("System", values)),
 						),
 					),
@@ -406,7 +385,7 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 							}
 
 							return pluginRuntime
-								.getEffectiveDefinitions(UserId.make(input.authority.userId))
+								.getEffectiveDefinitions(UserId.make(input.principal.subject.userId))
 								.pipe(
 									Effect.flatMap((effectiveDefinitions) =>
 										Effect.forEach(resolvedEntitySchemaSlugs, (entitySchemaSlug) => {
@@ -428,7 +407,9 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 										Effect.gen(function* () {
 											const links = yield* pluginRuntime.listSchemaProviders(
 												resolvedEntitySchemaSlugs,
-												"userId" in rawInput.authority ? rawInput.authority.userId : undefined,
+												"userId" in rawInput.principal.subject
+													? rawInput.principal.subject.userId
+													: undefined,
 											);
 											const providersBySchema = new Map<
 												string,
@@ -471,7 +452,7 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 
 					return integrationsRepository
 						.getForUser({
-							userId: UserId.make(input.authority.userId),
+							userId: UserId.make(input.principal.subject.userId),
 							integrationId: IntegrationId.make(integrationId),
 						})
 						.pipe(
@@ -487,7 +468,7 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 			),
 		getUserPreferences: (rawInput) =>
 			requireSandboxCapabilityInput(rawInput, "getUserPreferences").pipe(
-				Effect.flatMap((input) => readUserPreferences(UserId.make(input.authority.userId))),
+				Effect.flatMap((input) => readUserPreferences(UserId.make(input.principal.subject.userId))),
 				sandboxHostEffect,
 			),
 		listEventSchemas: (rawInput, entitySchemaSlugs) =>
@@ -503,7 +484,7 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 							}
 
 							return pluginRuntime
-								.getEffectiveDefinitions(UserId.make(input.authority.userId))
+								.getEffectiveDefinitions(UserId.make(input.principal.subject.userId))
 								.pipe(
 									Effect.flatMap((effectiveDefinitions) =>
 										Effect.forEach(resolvedEntitySchemaSlugs, (entitySchemaSlug) => {
@@ -536,7 +517,7 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 				return yield* sandboxHostEffect(
 					integrationsRepository
 						.listForUser({
-							userId: UserId.make(input.authority.userId),
+							userId: UserId.make(input.principal.subject.userId),
 							...(options.provider !== undefined ? { provider: options.provider } : {}),
 							...(options.isDisabled !== undefined ? { isDisabled: options.isDisabled } : {}),
 						})

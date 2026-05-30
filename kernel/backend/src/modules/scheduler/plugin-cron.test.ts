@@ -189,7 +189,7 @@ it.effect("dispatches due plugin crons as deterministic system sandbox runs", ()
 				payload: {
 					input: {},
 					resolutionMode: "exact",
-					authority: { type: "system" },
+					subject: { type: "system" },
 					scriptId: SandboxScriptId.make("fixture-script-id"),
 					executionId: "plugin-cron-7-fixture-12-fixture-cron-60000",
 				},
@@ -238,7 +238,7 @@ it.effect("targets exactly one script cron", () => {
 		});
 		expect(captured).toHaveLength(1);
 		expect(captured[0]?.payload).toMatchObject({
-			authority: { type: "system" },
+			subject: { type: "system" },
 			scriptId: SandboxScriptId.make("second-script-id"),
 		});
 	}).pipe(Effect.provide(makeLayer(loader, captured)));
@@ -262,7 +262,7 @@ it.effect("targets one workflow cron through the durable workflow shell", () => 
 		expect(captured[0]?.payload).toMatchObject({
 			input: {},
 			resolutionMode: "exact",
-			authority: { type: "system" },
+			subject: { type: "system" },
 			scriptId: SandboxScriptId.make("fixture-script-id"),
 		});
 	}).pipe(Effect.provide(makeLayer(loader, captured)));
@@ -482,7 +482,7 @@ const makePrivateCronLayer = (
 		),
 	);
 
-it.effect("dispatches one private cron per installation with its owner authority", () => {
+it.effect("dispatches one private cron per installation with its owner subject", () => {
 	const captured: Array<CapturedRun> = [];
 	const schedules = [
 		privateCronSchedule("installation-1", "user-1"),
@@ -498,7 +498,7 @@ it.effect("dispatches one private cron per installation with its owner authority
 				payload: {
 					input: {},
 					resolutionMode: "exact",
-					authority: { type: "user", userId: "user-1" },
+					subject: { type: "user", userId: "user-1" },
 					scriptId: SandboxScriptId.make("installation-1-script-id"),
 					executionId: "private-plugin-cron-14-installation-1-12-private-cron-60000",
 				},
@@ -508,7 +508,7 @@ it.effect("dispatches one private cron per installation with its owner authority
 				payload: {
 					input: {},
 					resolutionMode: "exact",
-					authority: { type: "user", userId: "user-2" },
+					subject: { type: "user", userId: "user-2" },
 					scriptId: SandboxScriptId.make("installation-2-script-id"),
 					executionId: "private-plugin-cron-14-installation-2-12-private-cron-60000",
 				},
