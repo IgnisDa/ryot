@@ -708,8 +708,8 @@ export function WorkspaceShell() {
 							{isScrolled ? (
 								<Pressable
 									accessibilityRole="button"
-									accessibilityLabel="Open navigation"
-									onPress={() => setMobileSheet("more")}
+									accessibilityLabel="Expand navigation"
+									onPress={() => setIsScrolled(false)}
 									className="h-14 w-14 items-center justify-center rounded-full border border-nav-border bg-nav-surface text-accent-text shadow-card"
 								>
 									<NavigationIcon name={selectedMobileTab?.icon ?? "panel-left"} size={20} />
