@@ -32,8 +32,8 @@ import { testPluginManifest } from "./fixtures/kernel/test-plugin";
 
 type EntitySchemaInputSlug = ContractPayload<"entities", "create">["entitySchemaSlug"];
 
-const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:8000";
-const API_BASE_URL = process.env.API_BASE_URL ?? "http://localhost:8000/api";
+const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3005";
+const API_BASE_URL = process.env.API_BASE_URL ?? "http://localhost:3000/api";
 const ENABLE_2FA = process.argv.includes("--enable-2fa");
 const adminHeaders = adminAccessTokenHeaders(
 	process.env.SERVER_ADMIN_ACCESS_TOKEN ?? "super-secret-token-that-should-be-changed",
