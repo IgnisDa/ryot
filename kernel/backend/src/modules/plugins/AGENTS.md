@@ -2,6 +2,7 @@
 
 - Keep plugin identity (`plugin.id`) separate from installation identity (`plugin_installation.id`). User-owned catalog and configuration access must use the exact installation.
 - The process-wide `PluginLoader` snapshot contains system plugins only. Private-plugin reads use persisted plugin and installation state and must not publish loader invalidations.
+- A plugin slug is the client's first URL segment, so `validatePluginManifestPolicy` rejects `reservedPluginSlugs` for system and user scope alike. Reserving a new name means adding it in `@ryot/contract`, not in the kernel.
 - User manifests may not declare `boot`, `userBootstrap`, or `httpRateLimits`. Validate all other declared surfaces and executable references like system packages.
 - Private configuration resolves only through the owner's exact installation and never falls back to `RYOT_PLUGIN_*` environment values.
 - Read system archives and private plugin uploads through the single reader from `@ryot/plugin-archive`; do not add a second archive reader in the kernel.
