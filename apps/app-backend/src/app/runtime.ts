@@ -9,6 +9,7 @@ import { initializeWorkers, shutdownWorkers } from "~/lib/queue/workers";
 import { initializeRedis, shutdownRedis } from "~/lib/redis";
 import { initializeSandboxService, shutdownSandboxService } from "~/lib/sandbox";
 import { dispatchBuiltinEntityPreloadJobs } from "~/modules/entities/startup";
+import { reconcileIntegrationScheduler } from "~/modules/integrations";
 import { initializeMetrics } from "~/modules/system";
 
 import { getServer } from "./server";
@@ -39,6 +40,7 @@ export const startServer = async () => {
 	await initializeQueues();
 	await initializeSandboxService();
 	initializeWorkers();
+	await reconcileIntegrationScheduler();
 	if (process.env.NODE_ENV === "test") {
 		console.info("Skipping builtin entity preload jobs in test mode");
 	} else {
