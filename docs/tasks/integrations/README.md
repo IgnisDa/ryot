@@ -747,9 +747,9 @@ Test `writeOwnershipToLibrary`: merges sources correctly, does not duplicate pro
 
 ## Tasks
 
-**Overall Progress:** 5 of 10 tasks completed
+**Overall Progress:** 6 of 10 tasks completed
 
-**Current Task:** [Task 05 — Yank Integration Execution and Adapters](./05-yank-integration-adapters.md) (todo)
+**Current Task:** [Task 06 — Sink Integration Execution and Adapters](./06-sink-integration-adapters.md) (todo)
 
 ### Task List
 
@@ -759,7 +759,7 @@ Test `writeOwnershipToLibrary`: merges sources correctly, does not duplicate pro
 | 02  | [Before-Trigger Event System](./02-before-trigger-event-system.md)                                         | AFK  | done   |
 | 03  | [Collection Events and Ownership Infrastructure](./03-collection-events-and-ownership.md)                  | AFK  | done   |
 | 04  | [Integrations CRUD, Scheduling, and Webhook Infrastructure](./04-integrations-crud-scheduling-webhooks.md) | AFK  | done   |
-| 05  | [Yank Integration Execution and Adapters](./05-yank-integration-adapters.md)                               | AFK  | todo   |
+| 05  | [Yank Integration Execution and Adapters](./05-yank-integration-adapters.md)                               | AFK  | done   |
 | 06  | [Sink Integration Execution and Adapters](./06-sink-integration-adapters.md)                               | AFK  | todo   |
 | 07  | [Push and Progress-Policy Sandbox Scripts](./07-push-and-progress-policy-scripts.md)                       | AFK  | todo   |
 | 08  | [Legacy Bootstrap Migration](./08-legacy-bootstrap-migration.md)                                           | AFK  | todo   |
