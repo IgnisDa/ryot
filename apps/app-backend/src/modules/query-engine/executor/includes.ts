@@ -24,6 +24,8 @@ import {
 	eventSelectColumnsSql,
 	includeOrderSql,
 	relationshipEdgeColumnsSql,
+	wherePushdown,
+	wherePushdownSql,
 } from "./sql";
 import {
 	MAX_INCLUDE_FILTER_SCAN_ROWS,
@@ -66,8 +68,15 @@ const executeEntityIncludeForParentRow = Effect.fn("executeEntityIncludeForParen
 	const childColumn =
 		via.direction === "outgoing" ? sql`r.target_entity_id` : sql`r.source_entity_id`;
 	const orderSql = includeOrderSql(source, include.orderBy);
+	const pushdown = wherePushdown(source.where, (ref) =>
+		ref.sourceAlias === source.alias
+			? { alias: "e", schemas: source.schemas }
+			: ref.sourceAlias === via.alias
+				? { alias: "r", schemas: [via.schema] }
+				: null,
+	);
 	const limitSql =
-		source.where === null
+		pushdown.residual === null
 			? sql`LIMIT ${include.limit + 1}`
 			: sql`LIMIT ${MAX_INCLUDE_FILTER_SCAN_ROWS + 1}`;
 	const db = yield* CurrentDb;
@@ -88,12 +97,13 @@ const executeEntityIncludeForParentRow = Effect.fn("executeEntityIncludeForParen
 					AND e.entity_schema_id IN (${schemaIdsSql})
 					AND (r.user_id = ${userId} OR r.user_id IS NULL)
 					AND (e.user_id = ${userId} OR e.user_id IS NULL)
+					${wherePushdownSql(pushdown.conditions)}
 				ORDER BY ${orderSql}
 				${limitSql}
 			`),
 	);
 
-	if (source.where === null) {
+	if (pushdown.residual === null) {
 		return limitFilteredRows(rawRows.rows, include.limit);
 	}
 	if (rawRows.rows.length > MAX_INCLUDE_FILTER_SCAN_ROWS) {
@@ -105,7 +115,7 @@ const executeEntityIncludeForParentRow = Effect.fn("executeEntityIncludeForParen
 	const filtered: IncludeQueryRow[] = [];
 	for (const row of rawRows.rows) {
 		const context = makeIncludeContext(include, row, parentContext);
-		if (yield* evalExprAsBoolean(userId, source.where, context)) {
+		if (yield* evalExprAsBoolean(userId, pushdown.residual, context)) {
 			filtered.push(row);
 		}
 	}
@@ -125,8 +135,11 @@ const executeEventIncludeForParentRow = Effect.fn("executeEventIncludeForParentR
 		sql`, `,
 	);
 	const orderSql = eventIncludeOrderSql(source, include.orderBy);
+	const pushdown = wherePushdown(source.where, (ref) =>
+		ref.sourceAlias === source.alias ? { alias: "ev", schemas: source.schemas } : null,
+	);
 	const limitSql =
-		source.where === null
+		pushdown.residual === null
 			? sql`LIMIT ${include.limit + 1}`
 			: sql`LIMIT ${MAX_INCLUDE_FILTER_SCAN_ROWS + 1}`;
 	const db = yield* CurrentDb;
@@ -146,12 +159,13 @@ const executeEventIncludeForParentRow = Effect.fn("executeEventIncludeForParentR
 					AND ev.user_id = ${userId}
 					AND ev.event_schema_id IN (${eventSchemaIdsSql})
 					AND (e.user_id = ${userId} OR e.user_id IS NULL)
+					${wherePushdownSql(pushdown.conditions)}
 				ORDER BY ${orderSql}
 				${limitSql}
 			`),
 	);
 
-	if (source.where === null) {
+	if (pushdown.residual === null) {
 		return limitFilteredRows(rawRows.rows, include.limit);
 	}
 	if (rawRows.rows.length > MAX_INCLUDE_FILTER_SCAN_ROWS) {
@@ -163,7 +177,7 @@ const executeEventIncludeForParentRow = Effect.fn("executeEventIncludeForParentR
 	const filtered: EventQueryRow[] = [];
 	for (const row of rawRows.rows) {
 		const context = makeEventIncludeContext(source, row, parentContext);
-		if (yield* evalExprAsBoolean(userId, source.where, context)) {
+		if (yield* evalExprAsBoolean(userId, pushdown.residual, context)) {
 			filtered.push(row);
 		}
 	}
