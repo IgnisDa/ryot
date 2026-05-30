@@ -1,7 +1,9 @@
 import { createImportRunFailure, updateImportRun } from "../repository";
 import type { ImportRunFailureStage } from "../schemas";
 
-export type ImportRunFailureInput = {
+export const PROGRESS_UPDATE_INTERVAL = 10;
+
+type ImportRunFailureInput = {
 	runId: string;
 	message: string;
 	itemIndex: number;

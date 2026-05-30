@@ -14,11 +14,11 @@ import type {
 	MediaImportAdapterResult,
 } from "../../media/import-processor";
 import {
-	createImportSourceFailure,
 	mapWithConcurrency,
 	requestSourceJson,
 	type SourceJsonRequestInput,
 } from "../../runtime/source-api";
+import { createSourceFetchFailure, isNotNullAdapterFailure } from "../shared/adapter-utils";
 
 const AUDIOBOOKSHELF_CONCURRENCY = 5;
 const FINISHED_FILTER = Buffer.from("finished", "utf8").toString("base64");
@@ -122,28 +122,6 @@ const getPodcastEpisodeNumber = (
 	return null;
 };
 
-const createAudiobookshelfItemFailure = (input: {
-	host: string;
-	error: unknown;
-	message: string;
-	itemIndex: number;
-	sourceLabel?: string;
-	sourceIdentifier?: string;
-}): MediaImportAdapterFailure =>
-	createImportSourceFailure({
-		host: input.host,
-		error: input.error,
-		stage: "source_fetch",
-		message: input.message,
-		itemIndex: input.itemIndex,
-		sourceLabel: input.sourceLabel,
-		sourceIdentifier: input.sourceIdentifier,
-	});
-
-const isAdapterFailure = (
-	value: MediaImportAdapterFailure | null,
-): value is MediaImportAdapterFailure => value !== null;
-
 export const adaptAudiobookshelfData = async (
 	input: AudiobookshelfAdapterInput,
 	deps: AudiobookshelfImportAdapterDeps = audiobookshelfImportAdapterDeps,
@@ -185,7 +163,7 @@ export const adaptAudiobookshelfData = async (
 			).results;
 		} catch (error) {
 			failures.push(
-				createAudiobookshelfItemFailure({
+				createSourceFetchFailure({
 					host,
 					error,
 					itemIndex: nextItemIndex,
@@ -293,7 +271,7 @@ export const adaptAudiobookshelfData = async (
 						}),
 					);
 				} catch (error) {
-					return createAudiobookshelfItemFailure({
+					return createSourceFetchFailure({
 						error,
 						host,
 						itemIndex,
@@ -340,7 +318,7 @@ export const adaptAudiobookshelfData = async (
 						);
 					} catch (error) {
 						failures.push(
-							createAudiobookshelfItemFailure({
+							createSourceFetchFailure({
 								host,
 								error,
 								itemIndex,
@@ -401,7 +379,7 @@ export const adaptAudiobookshelfData = async (
 			},
 		);
 
-		failures.push(...libraryFailures.filter(isAdapterFailure));
+		failures.push(...libraryFailures.filter(isNotNullAdapterFailure));
 		nextItemIndex += items.length;
 	}
 	// oxlint-enable no-await-in-loop

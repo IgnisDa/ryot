@@ -124,7 +124,7 @@ const cleanWorkoutSetStats = (kind: WorkoutExerciseKind, set: WorkoutImportSet) 
 	return stats;
 };
 
-export const calculateWorkoutSetVolume = (input: {
+const calculateWorkoutSetVolume = (input: {
 	reps?: number;
 	weight?: number;
 }): number | undefined => {
@@ -134,7 +134,7 @@ export const calculateWorkoutSetVolume = (input: {
 	return input.weight * input.reps;
 };
 
-export const calculateWorkoutSetPace = (input: {
+const calculateWorkoutSetPace = (input: {
 	duration?: number;
 	distance?: number;
 }): number | undefined => {
@@ -144,7 +144,7 @@ export const calculateWorkoutSetPace = (input: {
 	return input.distance / input.duration;
 };
 
-export const calculateWorkoutSetOneRm = (input: {
+const calculateWorkoutSetOneRm = (input: {
 	reps?: number;
 	weight?: number;
 }): number | undefined => {
