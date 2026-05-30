@@ -203,17 +203,20 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 					return Promise.resolve(apiFailure("getCachedValue expects a non-empty key string"));
 				}
 
-				return runPromise(redis.get(getCacheKey(input.scriptId, key.trim()))).then((cached) => {
-					if (cached === null) {
-						return apiSuccess(null);
-					}
-
-					try {
-						return apiSuccess(JSON.parse(cached));
-					} catch {
-						return apiFailure("getCachedValue: stored value is not valid JSON");
-					}
-				});
+				return runPromise(
+					redis.get(getCacheKey(input.scriptId, key.trim())).pipe(
+						Effect.flatMap((cached) => {
+							if (cached === null) {return Effect.succeed(apiSuccess(null));}
+							return Schema.decode(Schema.parseJson(Schema.Unknown))(cached).pipe(
+								Effect.map(apiSuccess),
+								Effect.orElseSucceed(() =>
+									apiFailure("getCachedValue: stored value is not valid JSON"),
+								),
+							);
+						}),
+						Effect.orDie,
+					),
+				);
 			},
 			getSystemConfig: () =>
 				Promise.resolve(
@@ -306,16 +309,18 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 					);
 				}
 
-				let serialized: string;
-				try {
-					serialized = JSON.stringify(value);
-				} catch {
-					return Promise.resolve(apiFailure("setCachedValue value must be JSON-serializable"));
-				}
-
 				return runPromise(
-					redis.set(getCacheKey(input.scriptId, key.trim()), serialized, expiry),
-				).then(() => apiSuccess(null));
+					Schema.encode(Schema.parseJson(Schema.Unknown))(value).pipe(
+						Effect.flatMap((serialized) =>
+							redis
+								.set(getCacheKey(input.scriptId, key.trim()), serialized, expiry)
+								.pipe(Effect.as(apiSuccess(null)), Effect.orDie),
+						),
+						Effect.orElseSucceed(() =>
+							apiFailure("setCachedValue value must be JSON-serializable"),
+						),
+					),
+				);
 			},
 		};
 
