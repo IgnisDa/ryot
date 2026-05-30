@@ -4,6 +4,8 @@ import { Cause, DateTime, Effect, Either, Schema } from "effect";
 import { DbRunner } from "#lib/db";
 import type { SandboxRunError } from "#lib/errors";
 import { unknownToMessage } from "#lib/errors";
+import type { EntityId, EntitySchemaId, ImportRunId } from "#lib/schema/brands";
+import { SandboxScriptId, UserId } from "#lib/schema/brands";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { MediaImportAdapterResultSchema } from "#modules/imports/media/import-processor";
 import {
@@ -34,7 +36,7 @@ import {
 
 const IntegrationRecordSchema = Schema.Struct({
 	...ListedIntegration.fields,
-	userId: Schema.String,
+	userId: UserId,
 });
 
 const toWorkflowError = (cause: unknown) =>
@@ -43,19 +45,19 @@ const toWorkflowError = (cause: unknown) =>
 type SinkMediaOperations<RResolve, RImport> = {
 	resolveExternalId: (input: {
 		value: string;
-		userId: string;
-		scriptId: string;
+		userId: UserId;
+		scriptId: SandboxScriptId;
 		executionId: string;
 		identifierType: string;
 	}) => Effect.Effect<{ externalId: string | null }, SandboxRunError, RResolve>;
 	importEntity: (input: {
-		userId: string;
-		scriptId: string;
+		userId: UserId;
+		scriptId: SandboxScriptId;
 		externalId: string;
 		executionId: string;
-		entitySchemaId: string;
+		entitySchemaId: EntitySchemaId;
 		activityPrefix: string;
-	}) => Effect.Effect<{ id: string }, SandboxRunError, RImport>;
+	}) => Effect.Effect<{ id: EntityId }, SandboxRunError, RImport>;
 };
 
 type YankMediaOperations<RYank, RHistory> = {
@@ -68,8 +70,8 @@ type YankMediaOperations<RYank, RHistory> = {
 		RYank
 	>;
 	runSandboxHistory: (input: {
-		userId: string;
-		scriptId: string;
+		userId: UserId;
+		scriptId: SandboxScriptId;
 		executionId: string;
 		context: { authCookie: string; timezone: string };
 	}) => Effect.Effect<SandboxCompletedResult, SandboxRunError, RHistory>;
@@ -81,7 +83,7 @@ type IntegrationRunOperations<RResolve, RImport, RYank, RHistory> = SinkMediaOpe
 > &
 	YankMediaOperations<RYank, RHistory>;
 
-const failRun = (name: string, runId: string, message: string) =>
+const failRun = (name: string, runId: ImportRunId, message: string) =>
 	Activity.make({
 		name,
 		error: IntegrationRunError,
@@ -164,7 +166,7 @@ const processYoutubeMusicYank = <RResolve, RImport, RHistory>(
 			const scriptId = yield* Activity.make({
 				error: IntegrationRunError,
 				name: "load-youtube-music-history-script",
-				success: Schema.NullOr(Schema.String),
+				success: Schema.NullOr(SandboxScriptId),
 				execute: runWithDb(
 					entitiesRepository.findEntitySchemaScriptBySlug(YOUTUBE_MUSIC_SCRIPT_SLUG),
 				).pipe(

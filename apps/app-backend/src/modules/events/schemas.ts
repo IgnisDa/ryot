@@ -1,5 +1,7 @@
 import { Schema } from "effect";
 
+import { EntityId, EventId, EventSchemaId } from "#lib/schema/brands";
+
 export type EventTriggerMetadata = {
 	inheritedProperties?: string[];
 };
@@ -20,7 +22,7 @@ const BeforeTriggerReplace = Schema.Struct({
 	action: Schema.Literal("replace"),
 	body: Schema.Struct({
 		occurredAt: Schema.optional(Schema.String),
-		sessionEntityId: Schema.optional(Schema.NullOr(Schema.String)),
+		sessionEntityId: Schema.optional(Schema.NullOr(EntityId)),
 		properties: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
 	}),
 });
@@ -34,26 +36,26 @@ export const BeforeTriggerResult = Schema.Union(
 export type BeforeTriggerResult = typeof BeforeTriggerResult.Type;
 
 export const ListedEvent = Schema.Struct({
-	id: Schema.String,
-	entityId: Schema.String,
+	id: EventId,
+	entityId: EntityId,
 	createdAt: Schema.String,
 	updatedAt: Schema.String,
 	occurredAt: Schema.String,
-	eventSchemaId: Schema.String,
+	eventSchemaId: EventSchemaId,
 	eventSchemaName: Schema.String,
 	eventSchemaSlug: Schema.String,
-	sessionEntityId: Schema.optional(Schema.String),
+	sessionEntityId: Schema.optional(EntityId),
 	properties: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
 });
 
 export type ListedEvent = typeof ListedEvent.Type;
 
 export const CreateEventItem = Schema.Struct({
-	entityId: Schema.String,
+	entityId: EntityId,
 	properties: Schema.Unknown,
-	eventSchemaId: Schema.String,
+	eventSchemaId: EventSchemaId,
 	occurredAt: Schema.optional(Schema.String),
-	sessionEntityId: Schema.optional(Schema.String),
+	sessionEntityId: Schema.optional(EntityId),
 });
 
 export type CreateEventItem = typeof CreateEventItem.Type;

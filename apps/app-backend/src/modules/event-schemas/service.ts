@@ -4,6 +4,7 @@ import type { CurrentUserValue } from "#lib/auth-middleware";
 import { builtinEntitySchemas } from "#lib/builtins/entity-schemas";
 import { DbRunner } from "#lib/db";
 import { badRequest, conflict, notFound } from "#lib/errors";
+import { EntitySchemaId } from "#lib/schema/brands";
 import { parseLabeledPropertySchemaInput } from "#lib/schema/property-schema-runtime";
 import { slugify } from "#lib/slug";
 import { requireText } from "#lib/validation";
@@ -58,11 +59,10 @@ export class EventSchemasService extends Effect.Service<EventSchemasService>()(
 			return {
 				list: Effect.fn("EventSchemasService.list")(function* (
 					user: CurrentUserValue,
-					input: { entitySchemaId: string },
+					input: { entitySchemaId: EntitySchemaId },
 				) {
-					const entitySchemaId = yield* requireText(
-						input.entitySchemaId,
-						"Entity schema id is required",
+					const entitySchemaId = EntitySchemaId.make(
+						yield* requireText(input.entitySchemaId, "Entity schema id is required"),
 					);
 
 					const entitySchema = yield* runWithDb(
@@ -80,9 +80,8 @@ export class EventSchemasService extends Effect.Service<EventSchemasService>()(
 					user: CurrentUserValue,
 					payload: CreateEventSchemaBody,
 				) {
-					const entitySchemaId = yield* requireText(
-						payload.entitySchemaId,
-						"Entity schema id is required",
+					const entitySchemaId = EntitySchemaId.make(
+						yield* requireText(payload.entitySchemaId, "Entity schema id is required"),
 					);
 
 					const entitySchema = yield* runWithDb(
