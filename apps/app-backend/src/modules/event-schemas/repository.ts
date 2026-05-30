@@ -69,6 +69,31 @@ export class EventSchemasRepository extends Effect.Service<EventSchemasRepositor
 
 					return row ?? null;
 				}),
+			getScopeForUser: (input: { eventSchemaId: string; userId: string }) =>
+				Effect.gen(function* () {
+					const db = yield* CurrentDb;
+					const [row] = yield* dbEffect(() =>
+						db
+							.select(listedEventSchemaSelection)
+							.from(schema.eventSchema)
+							.where(
+								and(
+									eq(schema.eventSchema.id, input.eventSchemaId),
+									or(
+										isNull(schema.eventSchema.userId),
+										eq(schema.eventSchema.userId, input.userId),
+									),
+								),
+							)
+							.limit(1),
+					);
+
+					if (!row) {
+						return null;
+					}
+
+					return yield* toListedEventSchema(row);
+				}),
 			createEventSchema: (input: {
 				name: string;
 				slug: string;
