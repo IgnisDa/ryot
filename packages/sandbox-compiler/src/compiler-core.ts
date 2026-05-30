@@ -61,7 +61,7 @@ export const compileSandboxSource = (source: string) =>
 		}
 
 		const extracted = extractSandboxManifest(project.sourceFile, inspection.manifestHelpers);
-		if ("diagnostic" in extracted) {
+		if (extracted.diagnostic) {
 			return yield* sandboxCompilationFailure([extracted.diagnostic]);
 		}
 		const definitionMismatch = sandboxDefinitionMismatch(inspection, extracted.manifest);

@@ -107,7 +107,7 @@ export const makeAppConfigLayer = (
 		disableTelemetry: false,
 		frontendUrl: "http://localhost:3000",
 		redisUrl: Redacted.make("unused"),
-		sandbox: { denoDir: "/tmp", processMode: "on-demand" },
+		sandbox: { denoDir: "./tmp", processMode: "on-demand" },
 		users: { allowRegistration: true, disableLocalAuth: false },
 		frontend: {
 			oidcButtonLabel: Option.none(),
@@ -126,11 +126,11 @@ export const makeAppConfigLayer = (
 		fileStorage: {
 			url: Option.none(),
 			region: Option.none(),
+			localDir: "./storage",
+			localTempDir: "./work",
 			bucketName: Option.none(),
 			accessKeyId: Option.none(),
-			localDir: "/home/ryot/storage",
 			secretAccessKey: Option.none(),
-			localTempDir: "/home/ryot/work",
 		},
 		server: {
 			logLevel: "Info",
@@ -139,6 +139,7 @@ export const makeAppConfigLayer = (
 			corsOrigins: Option.none(),
 			otlpEndpoint: Option.none(),
 			disableNotifications: false,
+			pluginsSystemDir: "./plugins",
 			proKeyVerificationUrl: "https://api.unkey.com",
 			adminAccessToken: Redacted.make("test-admin-token"),
 			oidc: { clientId: Option.none(), issuerUrl: Option.none(), clientSecret: Option.none() },

@@ -2,17 +2,9 @@ import { defineManifest } from "@ryot/sandbox-sdk/driver";
 import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineProvider } from "@ryot/sandbox-sdk/provider";
 
-import {
-	type UnknownRecord,
-	asRecord,
-	numberValue,
-	stringValue,
-} from "../../../script-helpers/records";
-import {
-	createRoleAccumulator,
-	type RoleRelatedEntity,
-} from "../../../script-helpers/role-accumulator";
-import { toTitleCase } from "../../../script-helpers/title-case";
+import { type UnknownRecord, asRecord, numberValue, stringValue } from "../../../../shared/records";
+import { createRoleAccumulator, type RoleRelatedEntity } from "../../../../shared/role-accumulator";
+import { toTitleCase } from "../../../../shared/title-case";
 import {
 	escapeGraphqlString,
 	firstGraphqlErrorMessage,

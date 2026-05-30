@@ -8,7 +8,6 @@ import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 import { kernelDefinitionSource, kernelScripts } from "#modules/definition-registry/kernel-source";
 import { SandboxWorkflowReferenceRepository } from "#modules/sandbox/workflow-reference-repository";
 
-import { bootConfiguredPluginSlugs } from "./boot-sources";
 import { PluginLoader, type PluginRegistryEntry } from "./loader";
 import {
 	compilePluginPackage,
@@ -19,6 +18,7 @@ import {
 import { PluginRepository } from "./repository";
 import { validateAdditiveSchemaEvolution } from "./schema-evolution";
 import { ScriptGarbageCollector } from "./script-garbage-collector";
+import { SystemPlugins } from "./system";
 import type { NormalizedPlugin, PluginSource } from "./types";
 import {
 	decodePluginManifest,
@@ -56,6 +56,7 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 			const loader = yield* PluginLoader;
 			const database = yield* Database;
 			const repository = yield* PluginRepository;
+			const systemPlugins = yield* SystemPlugins;
 			const scriptGarbageCollector = yield* ScriptGarbageCollector;
 			const mutationLock = yield* Semaphore.make(1);
 			const workflowReferences = yield* SandboxWorkflowReferenceRepository;
@@ -282,7 +283,7 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 										reason: { code: "plugin-not-found", pluginSlug },
 									});
 								}
-								if (bootConfiguredPluginSlugs.has(slug)) {
+								if (systemPlugins.slugs.has(slug)) {
 									return yield* new PluginConflictError({
 										reason: { code: "boot-configured", pluginSlug },
 									});

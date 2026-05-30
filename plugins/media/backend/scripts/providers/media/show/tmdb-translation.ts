@@ -1,7 +1,7 @@
 import { Effect } from "@ryot/sandbox-sdk/effect";
 import type { ProviderTranslateInput } from "@ryot/sandbox-sdk/provider";
 
-import { asRecord, stringValue } from "../../../script-helpers/records";
+import { asRecord, stringValue } from "../../../../shared/records";
 import {
 	firstTranslationValue,
 	getLocalizedImageUrl,
