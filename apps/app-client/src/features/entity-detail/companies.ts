@@ -10,9 +10,9 @@ import {
 	type QueryEngineClient,
 	type QueryEngineEntityItem,
 } from "./query-engine";
-import type { UnlinkedCreator } from "./types";
+import type { AppUnlinkedCreator } from "./types";
 
-export type RelatedCompany = Pick<UnlinkedCreator, "id" | "image" | "name" | "role">;
+export type RelatedCompany = Pick<AppUnlinkedCreator, "id" | "image" | "name" | "role">;
 
 type RelatedCompanyRecord = RelatedCompany & {
 	position: number;

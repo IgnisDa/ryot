@@ -9,7 +9,7 @@ import {
 	type QueryEngineClient,
 	type QueryEngineEntityItem,
 } from "./query-engine";
-import type { UnlinkedCreator } from "./types";
+import type { AppUnlinkedCreator } from "./types";
 
 export function formatRoleLabel(role: string) {
 	return role
@@ -26,9 +26,9 @@ export function formatRoleLabel(role: string) {
 		.join(" ");
 }
 
-export function mergeCreators(base: UnlinkedCreator[], related: UnlinkedCreator[]) {
-	const creatorsById = new Map<string, UnlinkedCreator>();
-	const creatorsWithoutId: UnlinkedCreator[] = [];
+export function mergeCreators(base: AppUnlinkedCreator[], related: AppUnlinkedCreator[]) {
+	const creatorsById = new Map<string, AppUnlinkedCreator>();
+	const creatorsWithoutId: AppUnlinkedCreator[] = [];
 
 	for (const creator of [...base, ...related]) {
 		if (!creator.id) {
@@ -42,7 +42,7 @@ export function mergeCreators(base: UnlinkedCreator[], related: UnlinkedCreator[
 			continue;
 		}
 
-		const merged: UnlinkedCreator = { ...existing };
+		const merged: AppUnlinkedCreator = { ...existing };
 		if (!merged.image && creator.image) {
 			merged.image = creator.image;
 		}
@@ -66,7 +66,7 @@ function matchesPrimaryCreatorRole(role: string) {
 	);
 }
 
-export function getPrimaryCreator(creators: UnlinkedCreator[]): UnlinkedCreator | undefined {
+export function getPrimaryCreator(creators: AppUnlinkedCreator[]): AppUnlinkedCreator | undefined {
 	if (creators.length === 0) {
 		return undefined;
 	}
@@ -74,7 +74,7 @@ export function getPrimaryCreator(creators: UnlinkedCreator[]): UnlinkedCreator 
 	return creators.find((creator) => matchesPrimaryCreatorRole(creator.role)) ?? creators[0];
 }
 
-type RelatedCreator = UnlinkedCreator & {
+type RelatedCreator = AppUnlinkedCreator & {
 	position: number;
 	order: number | null;
 	createdAt: string | null;
