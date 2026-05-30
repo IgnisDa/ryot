@@ -1,9 +1,9 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect, Layer } from "effect";
 
-import { PublicApi, PublicApiError } from "../../api/public";
-import { ClientStorage } from "../../persistence/storage";
-import { ServerService } from "./service";
+import { PublicApi, PublicApiError } from "#/api/public";
+import { ServerService } from "#/modules/server/service";
+import { ClientStorage } from "#/persistence/storage";
 
 describe("server service", () => {
 	it.effect("persists only after a healthy response and checks again when retried", () => {

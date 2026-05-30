@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { apiScopeKey, canonicalApiScope } from "./scope";
+import { apiScopeKey, canonicalApiScope } from "#/api/scope";
 
 describe("API scope", () => {
 	it("canonicalizes the server and partitions users and servers", () => {

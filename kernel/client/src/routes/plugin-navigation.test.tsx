@@ -10,18 +10,18 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Effect, Layer, ManagedRuntime, Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
-import { AuthenticatedApi } from "../api/authenticated";
-import { PublicApi } from "../api/public";
-import { AuthClient } from "../modules/auth/client";
-import { AuthService } from "../modules/auth/service";
-import { PluginCatalogService } from "../modules/plugins/catalog";
-import { makePluginCatalogEventsTestLayer } from "../modules/plugins/events.test-layer";
-import { PluginOperationsService } from "../modules/plugins/operations";
-import { PluginQueriesService } from "../modules/plugins/queries";
-import { ServerService } from "../modules/server/service";
-import type { ThemeStore } from "../modules/theme/store";
-import { ClientStorage } from "../persistence/storage";
-import { getRouter } from "../router";
+import { AuthenticatedApi } from "#/api/authenticated";
+import { PublicApi } from "#/api/public";
+import { AuthClient } from "#/modules/auth/client";
+import { AuthService } from "#/modules/auth/service";
+import { PluginCatalogService } from "#/modules/plugins/catalog";
+import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/events.test-layer";
+import { PluginOperationsService } from "#/modules/plugins/operations";
+import { PluginQueriesService } from "#/modules/plugins/queries";
+import { ServerService } from "#/modules/server/service";
+import type { ThemeStore } from "#/modules/theme/store";
+import { ClientStorage } from "#/persistence/storage";
+import { getRouter } from "#/router";
 
 const server = "https://ryot.example";
 const theme: ThemeStore = {

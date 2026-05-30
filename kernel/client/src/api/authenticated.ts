@@ -1,8 +1,8 @@
 import { runContract, type ContractProgram } from "@ryot/contract/client";
 import { Context, Data, Effect, Layer } from "effect";
 
-import { serverApiUrl } from "./origin";
-import { canonicalApiScope, type ApiScope } from "./scope";
+import { serverApiUrl } from "#/api/origin";
+import { canonicalApiScope, type ApiScope } from "#/api/scope";
 
 export class AuthenticatedApiError extends Data.TaggedError("AuthenticatedApiError")<{
 	readonly cause: unknown;
