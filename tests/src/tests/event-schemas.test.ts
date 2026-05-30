@@ -190,15 +190,18 @@ describe("GET /event-schemas", () => {
 						label: "Completed On",
 						description: "Date and time you finished consuming this media",
 					},
+					timeSpent: {
+						type: "number",
+						label: "Time Spent",
+						validation: { minimum: 0 },
+						description: "Time spent consuming this media in minutes",
+					},
 					completionMode: {
 						type: "string",
 						label: "Completion Mode",
+						validation: { required: true, pattern: "^(just_now|unknown|custom_timestamps)$" },
 						description:
 							"How the completion timestamps were determined: just_now, unknown, or custom_timestamps",
-						validation: {
-							required: true,
-							pattern: "^(just_now|unknown|custom_timestamps)$",
-						},
 					},
 				},
 				rules: [
@@ -206,11 +209,7 @@ describe("GET /event-schemas", () => {
 						kind: "validation",
 						path: ["completedOn"],
 						validation: { required: true },
-						when: {
-							operator: "eq",
-							path: ["completionMode"],
-							value: "custom_timestamps",
-						},
+						when: { operator: "eq", path: ["completionMode"], value: "custom_timestamps" },
 					},
 				],
 			});

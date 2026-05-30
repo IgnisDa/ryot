@@ -208,6 +208,12 @@ const mediaLifecycleEventSchemas = (entitySchemaSlug?: string) => [
 					type: "datetime" as const,
 					description: "Date and time you finished consuming this media",
 				},
+				timeSpent: {
+					label: "Time Spent",
+					type: "number" as const,
+					validation: { minimum: 0 },
+					description: "Time spent consuming this media in minutes",
+				},
 				completionMode: {
 					type: "string" as const,
 					label: "Completion Mode",
