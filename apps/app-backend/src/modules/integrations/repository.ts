@@ -6,6 +6,7 @@ import { importRun, integration } from "~/lib/db/schema";
 import type {
 	IntegrationExtraSettings,
 	IntegrationLot,
+	IntegrationProvider,
 	IntegrationProviderSpecifics,
 	ListedIntegration,
 } from "./schemas";
@@ -36,7 +37,8 @@ export const normalizeIntegration = (
 	lot: row.lot,
 	name: row.name,
 	userId: row.userId,
-	provider: row.provider,
+	// oxlint-disable-next-line no-unsafe-type-assertion
+	provider: row.provider as IntegrationProvider,
 	createdAt: row.createdAt,
 	updatedAt: row.updatedAt,
 	isDisabled: row.isDisabled,
@@ -50,7 +52,7 @@ export const normalizeIntegration = (
 
 export const createIntegrationRow = async (input: {
 	userId: string;
-	provider: string;
+	provider: IntegrationProvider;
 	lot: IntegrationLot;
 	name?: string | null;
 	isDisabled: boolean;
@@ -103,7 +105,7 @@ export const getIntegrationByIdAnyUser = async (input: {
 
 export const listIntegrationsByUser = async (input: {
 	userId: string;
-	provider?: string;
+	provider?: IntegrationProvider;
 	isDisabled?: boolean;
 }): Promise<(ListedIntegration & { userId: string })[]> => {
 	const conditions = [eq(integration.userId, input.userId)];
