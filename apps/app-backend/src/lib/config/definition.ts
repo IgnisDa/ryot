@@ -42,6 +42,11 @@ const fields = {
 		"Maximum milliseconds a transaction may sit idle holding locks before PostgreSQL aborts it; 0 disables",
 		{ default: 0 },
 	),
+	databasePoolMax: intField(
+		"DATABASE_POOL_MAX",
+		"Maximum number of PostgreSQL connections held in the pool",
+		{ default: 10 },
+	),
 	oidcButtonLabel: optField(
 		strField("FRONTEND_OIDC_BUTTON_LABEL", "Label for the OIDC sign-in button"),
 	),
@@ -189,12 +194,14 @@ const databaseGroup = group(
 	"PostgreSQL connection settings",
 	Config.all({
 		url: fields.databaseUrl.config,
+		poolMax: fields.databasePoolMax.config,
 		statementTimeoutMs: fields.databaseStatementTimeoutMs.config,
 		connectionTimeoutMs: fields.databaseConnectionTimeoutMs.config,
 		idleInTransactionTimeoutMs: fields.databaseIdleInTransactionTimeoutMs.config,
 	}),
 	{
 		url: fields.databaseUrl.meta,
+		poolMax: fields.databasePoolMax.meta,
 		statementTimeoutMs: fields.databaseStatementTimeoutMs.meta,
 		connectionTimeoutMs: fields.databaseConnectionTimeoutMs.meta,
 		idleInTransactionTimeoutMs: fields.databaseIdleInTransactionTimeoutMs.meta,
