@@ -2,9 +2,9 @@
 
 ## Tasks
 
-**Overall Progress:** 3 of 6 tasks completed
+**Overall Progress:** 4 of 6 tasks completed
 
-**Current Task:** [Task 04](./04-legacy-migration-extraction.md) (pending)
+**Current Task:** [Task 05](./05-embedded-kernel-scripts-and-checks.md) (pending)
 
 ### Task List
 
@@ -13,7 +13,7 @@
 | 01  | [Workspace Restructure And Server Assembly](./01-workspace-restructure-and-server-assembly.md) | done    |
 | 02  | [Plugin Bundle Format And CLI](./02-plugin-bundle-format-and-cli.md)                           | done    |
 | 03  | [Filesystem Plugin Discovery](./03-filesystem-plugin-discovery.md)                             | done    |
-| 04  | [Legacy Migration Extraction](./04-legacy-migration-extraction.md)                             | pending |
+| 04  | [Legacy Migration Extraction](./04-legacy-migration-extraction.md)                             | done    |
 | 05  | [Embedded Kernel Scripts And Architecture Checks](./05-embedded-kernel-scripts-and-checks.md)  | pending |
 | 06  | [Image Assembly And Documentation](./06-image-assembly-and-documentation.md)                   | pending |
 

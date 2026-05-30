@@ -3,7 +3,7 @@ import { Effect, Layer } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
-import { LegacyBootstrapMigrateDrop, MigrationsComplete } from "#lib/infrastructure/db/migrate";
+import { MigrationsComplete } from "#lib/infrastructure/db/migrate";
 import { DatabaseLive } from "#lib/infrastructure/db/service";
 import { LocalStorageService } from "#lib/infrastructure/local-storage";
 import { ObservabilityLive } from "#lib/infrastructure/observability";
@@ -582,7 +582,7 @@ export const RuntimeLive = Layer.mergeAll(
 	PluginCronSchedulerLive,
 );
 
-const SystemPluginBootstrapLive = SystemPluginBootstrap.layer.pipe(
+export const SystemPluginIngestionLive = SystemPluginBootstrap.layer.pipe(
 	Layer.provide([
 		PluginIngestionServiceLive,
 		PluginRepository.layer,
@@ -604,12 +604,9 @@ const MigrationBootstrapServicesLive = Layer.mergeAll(
 	SignalSchemasService.layer,
 ).pipe(Layer.provideMerge(PluginLoaderLive), Layer.provide(MigrationBootstrapDependenciesLive));
 
-const MigrationSequenceLive = MigrationsComplete.layer.pipe(
-	Layer.flatMap(() => SystemPluginBootstrapLive),
-	Layer.flatMap(() => LegacyBootstrapMigrateDrop.layer),
-);
+export const SchemaMigrationLive = MigrationsComplete.layer;
 
-const MigrationInfrastructureLive = Layer.mergeAll(
+export const MigrationInfrastructureLive = Layer.mergeAll(
 	MigrationBootstrapServicesLive,
 	PluginInstallationServiceLive,
 ).pipe(
@@ -661,21 +658,9 @@ export const RuntimeDependenciesLive = Layer.provideMerge(
 	ApplicationInfrastructureLive,
 );
 
-export const RuntimeAfterMigrationsLive = MigrationSequenceLive.pipe(
-	Layer.flatMap(() =>
-		Layer.provideMerge(
-			RuntimeLive,
-			PluginInvalidationSubscriber.layer.pipe(Layer.provide(PluginIngestionServiceLive)),
-		).pipe(Layer.provide(RuntimeDependenciesLive)),
-	),
-	Layer.provide(MigrationInfrastructureLive),
-);
+export const RuntimeServerLive = Layer.provideMerge(
+	RuntimeLive,
+	PluginInvalidationSubscriber.layer.pipe(Layer.provide(PluginIngestionServiceLive)),
+).pipe(Layer.provide(RuntimeDependenciesLive));
 
-const MigrationOnlyCoreLive = MigrationSequenceLive.pipe(
-	Layer.provide(MigrationInfrastructureLive),
-);
-
-const ObservabilityProvided = ObservabilityLive.pipe(Layer.provide(ConfigLive));
-
-export const AppLive = RuntimeAfterMigrationsLive.pipe(Layer.provide(ObservabilityProvided));
-export const MigrationOnlyLive = MigrationOnlyCoreLive.pipe(Layer.provide(ObservabilityProvided));
+export const ObservabilityProvidedLive = ObservabilityLive.pipe(Layer.provide(ConfigLive));
