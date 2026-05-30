@@ -1,14 +1,9 @@
 import { generateId } from "better-auth";
 
 import { redis } from "~/lib/redis";
+import { redisKeys, redisValues } from "~/lib/redis-keys";
 
 export const UPLOAD_TOKEN_TTL_SECONDS = 15 * 60;
-
-const UPLOAD_TOKEN_KEY_PREFIX = "import:upload:token:";
-
-const uploadTokenKey = (token: string): string => `${UPLOAD_TOKEN_KEY_PREFIX}${token}`;
-
-type UploadTokenValue = { userId: string; resolvedPath: string };
 
 export type UploadTokenRedis = {
 	getdel(key: string): Promise<string | null>;
@@ -38,8 +33,13 @@ export const storeUploadToken = async (
 	const r = deps.redis ?? defaultDeps.redis;
 	const generateToken = deps.generateToken ?? defaultDeps.generateToken;
 	const token = generateToken();
-	const value: UploadTokenValue = { userId: input.userId, resolvedPath: input.resolvedPath };
-	await r.set(uploadTokenKey(token), JSON.stringify(value), "EX", UPLOAD_TOKEN_TTL_SECONDS);
+	const value = { userId: input.userId, resolvedPath: input.resolvedPath };
+	await r.set(
+		redisKeys.imports.uploadToken(token),
+		redisValues.imports.uploadToken.stringify(value),
+		"EX",
+		UPLOAD_TOKEN_TTL_SECONDS,
+	);
 	return token;
 };
 
@@ -54,20 +54,19 @@ export const claimUploadToken = async (
 	deps: UploadTokenDeps = {},
 ): Promise<{ resolvedPath: string } | { error: string }> => {
 	const r = deps.redis ?? defaultDeps.redis;
-	const key = uploadTokenKey(token);
+	const key = redisKeys.imports.uploadToken(token);
 	const raw = await r.getdel(key);
 
 	if (!raw) {
 		return { error: "Upload token is invalid or has expired" };
 	}
 
-	let value: UploadTokenValue;
-	try {
-		// oxlint-disable-next-line no-unsafe-type-assertion
-		value = JSON.parse(raw) as UploadTokenValue;
-	} catch {
+	const parsed = redisValues.imports.uploadToken.safeParse(raw);
+	if (!parsed.success) {
 		return { error: "Upload token is invalid or has expired" };
 	}
+
+	const value = parsed.data;
 
 	if (value.userId !== userId) {
 		return { error: "Upload token does not belong to this user" };
