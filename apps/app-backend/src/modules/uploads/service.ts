@@ -5,6 +5,7 @@ import { getTemporaryDirectory, joinTemporaryDirectoryPath } from "~/lib/bun";
 import { type ServiceResult, serviceData, serviceError, wrapServiceValidator } from "~/lib/result";
 import { s3, s3BucketName } from "~/lib/s3";
 import { storeUploadToken } from "~/lib/temporary-upload-token";
+import { temporaryUploadMaxFileBytes } from "~/lib/upload";
 
 import type { GetPresignedDownloadUrlBody, GetPresignedUploadUrlBody } from "./schemas";
 import { type UploadContentType, uploadContentTypeExtensions } from "./shared";
@@ -40,6 +41,7 @@ type CreatePresignedUploadDeps = {
 };
 
 type CreateTemporaryUploadDeps = {
+	maxFileBytes?: number;
 	temporaryDirectory?: string;
 	generateObjectId?: () => string;
 	writeFile?: (path: string, file: File) => Promise<unknown>;
@@ -55,6 +57,28 @@ const resolveContentType = (contentType: string) => {
 
 	// oxlint-disable-next-line no-unsafe-type-assertion
 	return normalizedContentType as UploadContentType;
+};
+
+const resolveContentTypeFromFileName = (fileName: string) => {
+	const extension = fileName.split(".").pop()?.trim().toLowerCase() ?? "";
+	const matchedContentType = Object.entries(uploadContentTypeExtensions).find(([, extensions]) =>
+		extensions.includes(extension),
+	)?.[0];
+	if (!matchedContentType) {
+		throw new Error("Upload content type must be a supported MIME type");
+	}
+
+	// oxlint-disable-next-line no-unsafe-type-assertion
+	return matchedContentType as UploadContentType;
+};
+
+const resolveTemporaryUploadContentType = (contentType: string, fileName: string) => {
+	const normalizedContentType = contentType.split(";")[0]?.trim().toLowerCase() ?? "";
+	if (!normalizedContentType || normalizedContentType === "application/octet-stream") {
+		return resolveContentTypeFromFileName(fileName);
+	}
+
+	return resolveContentType(normalizedContentType);
 };
 
 export const resolvePresignedUploadInput = (
@@ -154,13 +178,20 @@ export const createTemporaryUploads = async (
 			throw new Error("At least one upload file is required");
 		}
 
+		const maxFileBytes = deps.maxFileBytes ?? temporaryUploadMaxFileBytes;
 		return input.files.map((file) => {
 			if (!(file instanceof File)) {
 				throw new Error("Upload file must be a file");
 			}
 
-			resolveContentType(file.type);
-			return resolveTemporaryUploadFile(file);
+			const resolvedFile = resolveTemporaryUploadFile(file);
+			resolveTemporaryUploadContentType(file.type, resolvedFile.fileName);
+			if (file.size > maxFileBytes) {
+				throw new Error(
+					`Upload file exceeds maximum allowed size of ${maxFileBytes} bytes (file is ${file.size} bytes)`,
+				);
+			}
+			return resolvedFile;
 		});
 	}, "Could not create temporary uploads");
 	if ("error" in resolvedFilesResult) {
