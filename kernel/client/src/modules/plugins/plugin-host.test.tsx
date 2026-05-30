@@ -1,3 +1,5 @@
+// oxlint-disable eslint/no-await-in-loop -- Each reload cycle depends on the prior replacement
+// oxlint-disable unicorn/require-post-message-target-origin -- MessagePort has no target origin
 import {
 	PluginBridgeInit,
 	PluginThemeSnapshot,
@@ -67,6 +69,33 @@ type HostState = {
 	readonly overrides: Partial<PluginClientCatalogEntry>;
 };
 
+function connectFrame(frame: HTMLIFrameElement) {
+	const messages: unknown[] = [];
+	let init: PluginBridgeInit | undefined;
+	let pluginPort: MessagePort | undefined;
+	Object.defineProperty(frame, "contentWindow", {
+		configurable: true,
+		value: {
+			postMessage: (message: unknown, _origin: string, transfer: Transferable[]) => {
+				const [transferred] = transfer;
+				if (!(transferred instanceof MessagePort)) {
+					throw new Error("Missing plugin port");
+				}
+				init = Schema.decodeUnknownSync(PluginBridgeInit)(message);
+				pluginPort = transferred;
+				transferred.addEventListener("message", (event) => messages.push(event.data));
+				transferred.start();
+			},
+		},
+	});
+
+	fireEvent.load(frame);
+	if (init === undefined || pluginPort === undefined) {
+		throw new Error("Plugin bridge did not connect");
+	}
+	return { init, messages, pluginPort };
+}
+
 const renderHost = (overrides: Partial<PluginClientCatalogEntry> = {}, location = home) => {
 	const navigations: PluginNavigationRequest[] = [];
 	const { setMode, theme } = createTheme();
@@ -103,42 +132,95 @@ describe("plugin host", () => {
 
 	it("reveals after initial theme application and keeps the active frame for updates", async () => {
 		const { setMode } = renderHost();
-		const messages: unknown[] = [];
 		const frame = screen.getByTitle<HTMLIFrameElement>("fixture plugin");
-		let init: unknown;
-		let port: MessagePort | undefined;
-		Object.defineProperty(frame, "contentWindow", {
-			configurable: true,
-			value: {
-				postMessage: (message: unknown, _origin: string, transfer: Transferable[]) => {
-					init = message;
-					const [transferred] = transfer;
-					if (!(transferred instanceof MessagePort)) {
-						throw new Error("Missing plugin port");
-					}
-					port = transferred;
-					transferred.addEventListener("message", (event) => messages.push(event.data));
-					transferred.start();
-				},
-			},
-		});
+		const connected = connectFrame(frame);
 
-		fireEvent.load(frame);
-		if (!port) {
-			throw new Error("Plugin bridge did not connect");
-		}
-		port.postMessage(Schema.decodeUnknownSync(PluginBridgeInit)(init));
-		await waitFor(() => expect(messages).toHaveLength(1));
+		connected.pluginPort.postMessage(connected.init);
+		await waitFor(() => expect(connected.messages).toHaveLength(1));
 		expect(frame.getAttribute("class")).toContain("hidden");
 
-		port.postMessage({ generation: 1, type: "theme-applied" });
+		connected.pluginPort.postMessage({ generation: 1, type: "theme-applied" });
 		await waitFor(() => expect(frame.getAttribute("class")).not.toContain("hidden"));
 		expect(screen.queryByRole("status")).toBeNull();
 
 		setMode("dark");
-		await waitFor(() => expect(messages).toHaveLength(3));
-		expect(messages[2]).toEqual({ generation: 2, type: "theme", theme: themeSnapshot("dark") });
+		await waitFor(() => expect(connected.messages).toHaveLength(3));
+		expect(connected.messages[2]).toEqual({
+			type: "theme",
+			generation: 2,
+			theme: themeSnapshot("dark"),
+		});
 		expect(screen.getByTitle("fixture plugin")).toBe(frame);
+	});
+
+	it("replaces the iframe after a pre-ready failure and reloads the same route", async () => {
+		const location = { path: "/details/item-1", search: "tab=stats" };
+		renderHost({}, location);
+		const firstFrame = screen.getByTitle<HTMLIFrameElement>("fixture plugin");
+		const first = connectFrame(firstFrame);
+
+		first.pluginPort.postMessage({ reason: "failed", type: "lifecycle-close" });
+		await waitFor(() => expect(screen.queryByTitle("fixture plugin")).toBeNull());
+
+		expect(screen.getAllByRole("button")).toHaveLength(1);
+		expect(screen.getByRole("button", { name: "Reload plugin" })).toBeTruthy();
+		fireEvent.click(screen.getByRole("button", { name: "Reload plugin" }));
+
+		const replacement = screen.getByTitle<HTMLIFrameElement>("fixture plugin");
+		expect(replacement).not.toBe(firstFrame);
+		expect(replacement.getAttribute("src")).toBe(artifactUrl);
+		const second = connectFrame(replacement);
+		expect(second.init.sessionId).not.toBe(first.init.sessionId);
+		second.pluginPort.postMessage(second.init);
+		await waitFor(() => expect(second.messages).toHaveLength(1));
+		second.pluginPort.postMessage({ generation: 1, type: "theme-applied" });
+		await waitFor(() => expect(second.messages).toContainEqual({ type: "location", location }));
+	});
+
+	it("replaces the iframe after a post-ready failure with one fresh session", async () => {
+		const location = { path: "/details/item-2", search: "" };
+		renderHost({}, location);
+		const firstFrame = screen.getByTitle<HTMLIFrameElement>("fixture plugin");
+		const first = connectFrame(firstFrame);
+		first.pluginPort.postMessage(first.init);
+		await waitFor(() => expect(first.messages).toHaveLength(1));
+		first.pluginPort.postMessage({ generation: 1, type: "theme-applied" });
+		await waitFor(() => expect(first.messages).toContainEqual({ type: "location", location }));
+
+		first.pluginPort.postMessage({ reason: "failed", type: "lifecycle-close" });
+		await waitFor(() => expect(screen.queryByTitle("fixture plugin")).toBeNull());
+		fireEvent.click(screen.getByRole("button", { name: "Reload plugin" }));
+
+		const replacement = screen.getByTitle<HTMLIFrameElement>("fixture plugin");
+		expect(replacement).not.toBe(firstFrame);
+		const second = connectFrame(replacement);
+		expect(second.init.sessionId).not.toBe(first.init.sessionId);
+		expect(replacement.getAttribute("src")).toBe(artifactUrl);
+	});
+
+	it("keeps only the fresh iframe through repeated crash and reload cycles", async () => {
+		const { navigations } = renderHost();
+		let frame = screen.getByTitle<HTMLIFrameElement>("fixture plugin");
+		const oldPorts: MessagePort[] = [];
+
+		for (let cycle = 0; cycle < 3; cycle += 1) {
+			const connected = connectFrame(frame);
+			oldPorts.push(connected.pluginPort);
+			connected.pluginPort.postMessage(connected.init);
+			await waitFor(() => expect(connected.messages).toHaveLength(1));
+			connected.pluginPort.postMessage({ generation: 1, type: "theme-applied" });
+			await waitFor(() => expect(frame.getAttribute("class")).not.toContain("hidden"));
+			connected.pluginPort.postMessage({ reason: "failed", type: "lifecycle-close" });
+			await waitFor(() => expect(screen.queryByTitle("fixture plugin")).toBeNull());
+			fireEvent.click(screen.getByRole("button", { name: "Reload plugin" }));
+			frame = screen.getByTitle<HTMLIFrameElement>("fixture plugin");
+			expect(screen.getAllByTitle("fixture plugin")).toHaveLength(1);
+		}
+
+		for (const port of oldPorts) {
+			port.postMessage({ location: home, mode: "push", type: "navigate" });
+		}
+		await waitFor(() => expect(navigations).toEqual([]));
 	});
 
 	it("keeps one iframe across logical location changes", () => {

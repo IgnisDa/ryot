@@ -27,18 +27,29 @@ export const bootstrapClientPlugin = (definition: ClientPluginDefinition) => {
 	const listener = new AbortController();
 	let root: Root | undefined;
 	let runtime: ReturnType<typeof createPluginRuntime> | undefined;
+	let sessionListener: AbortController | undefined;
+	const handleFatalEvent = (event: Event) => {
+		event.preventDefault();
+		runtime?.fatal();
+	};
 	const mount = () => {
 		if (!root && runtime) {
 			const rootElement = document.getElementById(CLIENT_ARTIFACT_ROOT_ELEMENT_ID);
 			if (!rootElement) {
 				return;
 			}
-			root = createRoot(rootElement);
-			root.render(
-				<RyotProvider client={runtime.client}>
-					<PluginRouter definition={definition} locations={runtime.locations} />
-				</RyotProvider>,
-			);
+			try {
+				root = createRoot(rootElement, {
+					onUncaughtError: () => runtime?.fatal(),
+				});
+				root.render(
+					<RyotProvider client={runtime.client}>
+						<PluginRouter definition={definition} locations={runtime.locations} />
+					</RyotProvider>,
+				);
+			} catch {
+				runtime.fatal();
+			}
 		}
 	};
 	const unmount = () => {
@@ -47,6 +58,8 @@ export const bootstrapClientPlugin = (definition: ClientPluginDefinition) => {
 	};
 	const dispose = () => {
 		listener.abort();
+		sessionListener?.abort();
+		sessionListener = undefined;
 		const activeRuntime = runtime;
 		runtime = undefined;
 		activeRuntime?.dispose();
@@ -75,6 +88,11 @@ export const bootstrapClientPlugin = (definition: ClientPluginDefinition) => {
 			}
 
 			listener.abort();
+			sessionListener = new AbortController();
+			window.addEventListener("error", handleFatalEvent, { signal: sessionListener.signal });
+			window.addEventListener("unhandledrejection", handleFatalEvent, {
+				signal: sessionListener.signal,
+			});
 			const init = decoded.success;
 			runtime = createPluginRuntime(
 				port,
@@ -82,7 +100,11 @@ export const bootstrapClientPlugin = (definition: ClientPluginDefinition) => {
 				artifactMetadata,
 				document.documentElement.style,
 				mount,
-				unmount,
+				() => {
+					sessionListener?.abort();
+					sessionListener = undefined;
+					unmount();
+				},
 			);
 		},
 		{ signal: listener.signal },
