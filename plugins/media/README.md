@@ -58,7 +58,7 @@ Trakt export ratings and comments can target movies, shows, show seasons, or sho
 
 ## Lifecycle
 
-Media entities use six event schemas: `backlog`, `progress`, `complete`, `dropped`, `on_hold`, and `review`. `schemas/entity-schemas.ts` owns which event schemas and properties each entity supports.
+Media entities use six event schemas: `backlog`, `progress`, `complete`, `dropped`, `on_hold`, and `review`. `backend/schemas/entity-schemas.ts` owns which event schemas and properties each entity supports.
 
 Provider imports run `automation.media-library-membership-on-import` after provider population for every eligible media schema. The automation queries the importing user's library and idempotently creates `in-library`; it is separate from the event-based `policy.media-library-membership` that handles lifecycle and collection membership.
 
