@@ -95,20 +95,6 @@ export const createShowProgressPropertiesSchema = () => ({
 			description: "Show Episode",
 		},
 	},
-	rules: [
-		{
-			path: ["showSeason"],
-			kind: "validation" as const,
-			validation: { required: true as const },
-			when: { operator: "exists" as const, path: ["showEpisode"] },
-		},
-		{
-			path: ["showEpisode"],
-			kind: "validation" as const,
-			validation: { required: true as const },
-			when: { operator: "exists" as const, path: ["showSeason"] },
-		},
-	],
 });
 
 export const createAnimeProgressPropertiesSchema = () => ({
@@ -204,20 +190,6 @@ export const createShowReviewPropertiesSchema = () => ({
 		showSeason: { label: "Show Season", type: "integer" as const, description: "Show Season" },
 		showEpisode: { label: "Show Episode", type: "integer" as const, description: "Show Episode" },
 	},
-	rules: [
-		{
-			path: ["showSeason"],
-			kind: "validation" as const,
-			validation: { required: true as const },
-			when: { operator: "exists" as const, path: ["showEpisode"] },
-		},
-		{
-			path: ["showEpisode"],
-			kind: "validation" as const,
-			validation: { required: true as const },
-			when: { operator: "exists" as const, path: ["showSeason"] },
-		},
-	],
 });
 
 export const createAnimeReviewPropertiesSchema = () => ({
