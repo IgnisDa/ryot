@@ -31,16 +31,9 @@ export const runTriggerScript = async (
 	return await trigger(context);
 };
 
-export const appApiSuccess = (data: unknown) => ({
-	success: true,
-	data: { body: { data }, status: 200, statusText: "OK", headers: {} },
-});
+export const hostSuccess = (data: unknown) => ({ success: true, data });
 
-export const appApiFailure = (error = "not found", status = 404) => ({
-	error,
-	success: false,
-	data: { body: null, status, headers: {} },
-});
+export const hostFailure = (error = "not found") => ({ error, success: false });
 
 export const httpSuccess = (body: unknown) => ({
 	success: true,

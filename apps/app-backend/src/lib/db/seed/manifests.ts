@@ -210,31 +210,59 @@ export const builtinSandboxScripts = (): BuiltinScriptEntry[] => [
 		name: "Auto-Complete on Full Progress",
 		code: autoCompleteOnFullProgressScriptCode,
 		slug: "trigger.auto-complete-on-full-progress",
-		metadata: { allowedHostFunctions: ["appApiCall"] },
+		metadata: {
+			allowedHostFunctions: ["getEntity", "listEvents", "createEvents", "listEventSchemas"],
+		},
 	},
 	{
 		name: "Integration Progress Policy",
 		code: integrationProgressPolicyScriptCode,
 		slug: "trigger.integration-progress-policy",
-		metadata: { allowedHostFunctions: ["appApiCall", "claimCachedValue"] },
+		metadata: {
+			allowedHostFunctions: ["listEvents", "getIntegration", "claimCachedValue", "getSystemConfig"],
+		},
 	},
 	{
 		name: "Radarr Push",
 		slug: "trigger.radarr-push",
 		code: withPushHelpers(radarrPushScriptCode),
-		metadata: { allowedHostFunctions: ["httpCall", "appApiCall", "getUserPreferences"] },
+		metadata: {
+			allowedHostFunctions: [
+				"httpCall",
+				"getEntity",
+				"getEntitySchema",
+				"listIntegrations",
+				"getUserPreferences",
+			],
+		},
 	},
 	{
 		name: "Sonarr Push",
 		slug: "trigger.sonarr-push",
 		code: withPushHelpers(sonarrPushScriptCode),
-		metadata: { allowedHostFunctions: ["httpCall", "appApiCall", "getUserPreferences"] },
+		metadata: {
+			allowedHostFunctions: [
+				"httpCall",
+				"getEntity",
+				"getEntitySchema",
+				"listIntegrations",
+				"getUserPreferences",
+			],
+		},
 	},
 	{
 		name: "Jellyfin Push",
 		slug: "trigger.jellyfin-push",
 		code: withPushHelpers(jellyfinPushScriptCode),
-		metadata: { allowedHostFunctions: ["httpCall", "appApiCall", "getUserPreferences"] },
+		metadata: {
+			allowedHostFunctions: [
+				"httpCall",
+				"getEntity",
+				"getEntitySchema",
+				"listIntegrations",
+				"getUserPreferences",
+			],
+		},
 	},
 ];
 

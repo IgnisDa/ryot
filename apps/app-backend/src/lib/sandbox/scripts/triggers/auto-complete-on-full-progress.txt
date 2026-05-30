@@ -1,10 +1,5 @@
 const SHOW_SPECIAL_SEASON_NAMES = ["Specials", "Extras"];
 
-function getApiResponseData(result) {
-  const body = result && result.data && result.data.body;
-  return body && body.data;
-}
-
 function toPositiveInteger(value) {
   return Number.isInteger(value) && value > 0 ? value : null;
 }
@@ -173,7 +168,6 @@ function getRequiredCoverageKeys(entitySchemaSlug, properties) {
 function getCompletionCandidates(entitySchemaSlug, requiredKeys, events) {
   const completionCandidates = [];
   let coveredKeys = new Set();
-  let cycleEvents = [];
   const orderedEvents = events.slice().sort(compareCoverageEvents);
 
   orderedEvents.forEach(function (event) {
@@ -184,7 +178,6 @@ function getCompletionCandidates(entitySchemaSlug, requiredKeys, events) {
     if (coverageKey === null) return;
 
     coveredKeys.add(coverageKey);
-    cycleEvents.push(event);
     if (!hasCoverageForAllRequiredKeys(requiredKeys, coveredKeys)) return;
 
     if (event && typeof event.id === "string") {
@@ -195,7 +188,6 @@ function getCompletionCandidates(entitySchemaSlug, requiredKeys, events) {
     }
 
     coveredKeys = new Set();
-    cycleEvents = [];
   });
 
   return completionCandidates;
@@ -208,15 +200,12 @@ function hasCoverageForAllRequiredKeys(requiredKeys, coveredKeys) {
 }
 
 async function getCompleteSchema(trigger) {
-  const schemasResult = await appApiCall(
-    "GET",
-    "/event-schemas?entitySchemaId=" + encodeURIComponent(trigger.entitySchemaId),
-  );
+  const schemasResult = await listEventSchemas(trigger.entitySchemaId);
   if (!schemasResult.success) {
     throw new Error(schemasResult.error);
   }
 
-  const schemas = getApiResponseData(schemasResult);
+  const schemas = schemasResult.data;
   if (!Array.isArray(schemas)) return null;
 
   return (
@@ -227,32 +216,27 @@ async function getCompleteSchema(trigger) {
 }
 
 async function getEntityProperties(entityId) {
-  const entityResult = await appApiCall(
-    "GET",
-    "/entities/" + encodeURIComponent(entityId),
-  );
+  const entityResult = await getEntity(entityId);
   if (!entityResult.success) {
     throw new Error(entityResult.error);
   }
 
-  const entity = getApiResponseData(entityResult);
+  const entity = entityResult.data;
   return entity && entity.properties && typeof entity.properties === "object"
     ? entity.properties
     : {};
 }
 
 async function getProgressEvents(entityId) {
-  const eventsResult = await appApiCall(
-    "GET",
-    "/events?entityId=" +
-      encodeURIComponent(entityId) +
-      "&eventSchemaSlug=progress",
-  );
+  const eventsResult = await listEvents({
+    entityId: entityId,
+    eventSchemaSlug: "progress",
+  });
   if (!eventsResult.success) {
     throw new Error(eventsResult.error);
   }
 
-  const events = getApiResponseData(eventsResult);
+  const events = eventsResult.data;
   return Array.isArray(events) ? events : [];
 }
 
@@ -284,19 +268,17 @@ function getInheritedCompletionProperties(event) {
 
 async function createCompletionEvent(trigger, completeSchema, sourceEvent) {
   const occurredAt = getCompletionOccurredAt(sourceEvent) || trigger.occurredAt;
-  const completionResult = await appApiCall("POST", "/events", {
-    body: [
-      {
-        entityId: trigger.entityId,
-        eventSchemaId: completeSchema.id,
-        occurredAt: occurredAt,
-        properties: Object.assign({}, getInheritedCompletionProperties(sourceEvent), {
-          completionMode: "custom_timestamps",
-          completedOn: occurredAt,
-        }),
-      },
-    ],
-  });
+  const completionResult = await createEvents([
+    {
+      entityId: trigger.entityId,
+      eventSchemaId: completeSchema.id,
+      occurredAt: occurredAt,
+      properties: Object.assign({}, getInheritedCompletionProperties(sourceEvent), {
+        completionMode: "custom_timestamps",
+        completedOn: occurredAt,
+      }),
+    },
+  ]);
 
   if (!completionResult.success) {
     throw new Error(completionResult.error);

@@ -2,6 +2,7 @@ export { metricsMiddleware } from "./middleware";
 export {
 	dbConnectionPoolAvailable,
 	dbConnectionPoolSize,
+	getMaskedSystemConfig,
 	getMetricsAsText,
 	httpRequestDuration,
 	httpRequestTotal,

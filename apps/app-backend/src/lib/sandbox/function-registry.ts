@@ -1,11 +1,33 @@
-import { appApiCall } from "./host-functions/app-api-call";
 import { claimCachedValue } from "./host-functions/claim-cached-value";
+import { createEvents } from "./host-functions/create-events";
+import { executeQueryEngine } from "./host-functions/execute-query-engine";
 import { getAppConfigValue } from "./host-functions/get-app-config-value";
 import { getCachedValue } from "./host-functions/get-cached-value";
+import { getEntity } from "./host-functions/get-entity";
+import { getEntitySchema } from "./host-functions/get-entity-schema";
+import { getIntegration } from "./host-functions/get-integration";
+import { getSystemConfig } from "./host-functions/get-system-config";
 import { getUserPreferences } from "./host-functions/get-user-preferences";
 import { httpCall } from "./host-functions/http-call";
+import { listEventSchemas } from "./host-functions/list-event-schemas";
+import { listEvents } from "./host-functions/list-events";
+import { listIntegrations } from "./host-functions/list-integrations";
 import { setCachedValue } from "./host-functions/set-cached-value";
 import type { ApiFunctionDescriptor, HostFunction, HostFunctionFactory } from "./types";
+
+const scriptScopedFunctionKeys = new Set(["getCachedValue", "setCachedValue", "claimCachedValue"]);
+
+const userScopedFunctionKeys = new Set([
+	"getEntity",
+	"listEvents",
+	"createEvents",
+	"getIntegration",
+	"getEntitySchema",
+	"listEventSchemas",
+	"listIntegrations",
+	"getUserPreferences",
+	"executeQueryEngine",
+]);
 
 const createHostFunctionFactory = <TContext extends Record<string, unknown>>(
 	hostFunction: HostFunction<TContext>,
@@ -18,12 +40,20 @@ const createHostFunctionFactory = <TContext extends Record<string, unknown>>(
 
 export const hostFunctionRegistry = {
 	httpCall: createHostFunctionFactory(httpCall),
-	appApiCall: createHostFunctionFactory(appApiCall),
+	getEntity: createHostFunctionFactory(getEntity),
+	listEvents: createHostFunctionFactory(listEvents),
+	createEvents: createHostFunctionFactory(createEvents),
 	getCachedValue: createHostFunctionFactory(getCachedValue),
+	getIntegration: createHostFunctionFactory(getIntegration),
 	setCachedValue: createHostFunctionFactory(setCachedValue),
+	getEntitySchema: createHostFunctionFactory(getEntitySchema),
+	getSystemConfig: createHostFunctionFactory(getSystemConfig),
+	listEventSchemas: createHostFunctionFactory(listEventSchemas),
+	listIntegrations: createHostFunctionFactory(listIntegrations),
 	claimCachedValue: createHostFunctionFactory(claimCachedValue),
 	getAppConfigValue: createHostFunctionFactory(getAppConfigValue),
 	getUserPreferences: createHostFunctionFactory(getUserPreferences),
+	executeQueryEngine: createHostFunctionFactory(executeQueryEngine),
 } satisfies Record<string, HostFunctionFactory>;
 
 const buildFunctionContext = (
@@ -31,14 +61,10 @@ const buildFunctionContext = (
 	userId: string,
 	scriptId: string,
 ): Record<string, unknown> => {
-	if (
-		functionKey === "getCachedValue" ||
-		functionKey === "setCachedValue" ||
-		functionKey === "claimCachedValue"
-	) {
+	if (scriptScopedFunctionKeys.has(functionKey)) {
 		return { scriptId };
 	}
-	if (functionKey === "appApiCall" || functionKey === "getUserPreferences") {
+	if (userScopedFunctionKeys.has(functionKey)) {
 		return { userId };
 	}
 	return {};
