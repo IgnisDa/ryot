@@ -73,7 +73,7 @@ describe("adaptNetflixExports", () => {
 							},
 						});
 					}
-					return Effect.succeed({ error: "Metadata not found" });
+					return Effect.fail("Metadata not found");
 				},
 			),
 		);
@@ -179,7 +179,7 @@ describe("adaptNetflixExports", () => {
 							},
 						});
 					}
-					return Effect.succeed({ error: "Metadata not found" });
+					return Effect.fail("Metadata not found");
 				},
 			),
 		);
