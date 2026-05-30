@@ -12,6 +12,7 @@ import {
 import {
 	bcp47ToTvdb,
 	collectCompanies,
+	collectCompanyTypes,
 	collectGenres,
 	collectImages,
 	collectPeople,
@@ -91,9 +92,10 @@ export const getTvdbShowDetails = (
 	}
 	const language = bcp47ToTvdb(canonicalLanguage);
 	return Effect.gen(function* () {
-		const [data, translationData] = yield* Effect.all(
+		const [data, companyTypesData, translationData] = yield* Effect.all(
 			[
 				tvdbGet(host, `/series/${input.externalId}/extended`),
+				tvdbGetOptional(host, "/companies/types"),
 				tvdbGetOptional(host, `/series/${input.externalId}/translations/${language}`),
 			],
 			{ concurrency: "unbounded" },
@@ -109,6 +111,7 @@ export const getTvdbShowDetails = (
 		}
 		const images = collectImages([show["image"]], show["artworks"], "cover");
 		const genres = collectGenres(show["genres"]);
+		const companyTypes = collectCompanyTypes(companyTypesData?.["data"]);
 		const people = collectPeople(show["characters"]);
 		const relatedEntities = people.relatedEntities.map((entity) => ({
 			name: entity.name,
@@ -176,21 +179,27 @@ export const getTvdbShowDetails = (
 			expectedChildEntitySchemaSlug: "show-season",
 			relatedEntityGroups: [
 				{
+					entities: relatedEntities,
 					direction: "incoming" as const,
 					synchronization: "additive" as const,
-					entities: relatedEntities,
 					relationshipSchemaSlug: "person-to-show",
 				},
 				{
 					direction: "incoming" as const,
 					synchronization: "additive" as const,
-					entities: collectCompanies(show["companies"]).map((entity) => ({
+					relationshipSchemaSlug: "company-to-show",
+					entities: collectCompanies(show["companies"], companyTypes).map((entity) => ({
 						name: entity.name,
 						externalId: entity.externalId,
 						providerSlug: entity.providerSlug,
 						relationshipProperties: entity.relationshipProperties,
 					})),
-					relationshipSchemaSlug: "company-to-show",
+				},
+				{
+					entities: [],
+					direction: "outgoing" as const,
+					synchronization: "authoritative" as const,
+					relationshipSchemaSlug: "media-suggestion",
 				},
 			],
 			properties: {
