@@ -2,6 +2,7 @@ import { useGoBack } from "@/modules/navigation/use-go-back";
 import { ManagedAssetHost } from "@/modules/ui/managed-asset-host";
 
 import { ShowBackdrop } from "./show-backdrop";
+import { ShowEpisodesTab } from "./show-episodes-tab";
 import { SHOW_ART_HEIGHT, ShowHero } from "./show-hero";
 import { showOverviewManagedAssets } from "./show-overview-state";
 import { ShowScreenContent } from "./show-screen-content";
@@ -42,6 +43,7 @@ export function ShowScreen(props: { readonly entityId: string }) {
 						refresh={refresh}
 						overview={overview.state}
 						refreshOverview={overview.refresh}
+						episodes={<ShowEpisodesTab entityId={props.entityId} />}
 					/>
 				</ManagedAssetHost>
 			</ShowScreenFrame>
