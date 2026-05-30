@@ -73,6 +73,7 @@ export function PluginHost(props: {
 	) => Promise<PluginRyotQLOutcome>;
 	readonly onInvokeOperation: (
 		request: PluginOperationRequest,
+		sourceHash: string,
 		signal: AbortSignal,
 	) => Promise<PluginOperationOutcome>;
 }) {
@@ -90,6 +91,7 @@ export function PluginHost(props: {
 			onNavigate={props.onNavigate}
 			pluginSlug={props.installation.slug}
 			artifactHash={resolution.artifactHash}
+			sourceHash={props.installation.sourceHash}
 			onInvokeOperation={props.onInvokeOperation}
 			key={`${props.installation.installationId}:${resolution.artifactHash}`}
 		/>
@@ -99,6 +101,7 @@ export function PluginHost(props: {
 function PluginFrame(props: {
 	readonly theme: ThemeStore;
 	readonly pluginSlug: string;
+	readonly sourceHash: string;
 	readonly server: ServerOrigin;
 	readonly artifactHash: string;
 	readonly location: PluginLogicalLocation;
@@ -109,6 +112,7 @@ function PluginFrame(props: {
 	) => Promise<PluginRyotQLOutcome>;
 	readonly onInvokeOperation: (
 		request: PluginOperationRequest,
+		sourceHash: string,
 		signal: AbortSignal,
 	) => Promise<PluginOperationOutcome>;
 }) {
@@ -155,7 +159,8 @@ function PluginFrame(props: {
 			onReady: () => setStatus("ready"),
 			theme: latest.current.theme.getSnapshot(),
 			onRyotQL: (request, signal) => latest.current.onQuery(request, signal),
-			onOperation: (request, signal) => latest.current.onInvokeOperation(request, signal),
+			onOperation: (request, signal) =>
+				latest.current.onInvokeOperation(request, latest.current.sourceHash, signal),
 			onFailure: () => {
 				connection.failed = true;
 				closeBridge();

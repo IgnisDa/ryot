@@ -4,10 +4,12 @@ import {
 	createIntegration,
 	deleteIntegration,
 	createAuthenticatedClient,
+	getBackendClient,
 	installTestPlugin,
 	integrationReadOperationSandboxSource,
 	uninstallTestPlugin,
 } from "~/fixtures/kernel";
+import { assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 describe("sandbox integration reads", () => {
@@ -86,6 +88,24 @@ describe("sandbox integration reads", () => {
 				current: expect.objectContaining({ id: current.id }),
 				enabled: [expect.objectContaining({ id: current.id })],
 			});
+
+			const unauthenticated = yield* getBackendClient().call((c) =>
+				c.plugins.invoke({
+					payload: { payload: { integrationId: current.id } },
+					params: { operationSlug: "read", pluginSlug: plugin.pluginSlug },
+				}),
+			);
+			expect(unauthenticated.result).toEqual(result);
+
+			const stale = yield* Effect.flip(
+				getBackendClient().call((c) =>
+					c.plugins.invoke({
+						params: { operationSlug: "read", pluginSlug: plugin.pluginSlug },
+						payload: { sourceHash: "stale-source-hash", payload: { integrationId: current.id } },
+					}),
+				),
+			);
+			assertTaggedError(stale, "PluginNotFoundError");
 		}),
 	);
 });

@@ -32,13 +32,17 @@ export class PluginOperationsService extends Context.Service<PluginOperationsSer
 			const api = yield* AuthenticatedApi;
 			const invoke = Effect.fn("PluginOperationsService.invoke")(function* (invocation: {
 				readonly scope: ApiScope;
+				readonly sourceHash: string;
 				readonly pluginSlug: string;
 				readonly request: PluginOperationRequest;
 			}) {
 				const outcome = yield* api
 					.run(invocation.scope, (client) =>
 						client.plugins.invoke({
-							payload: { payload: invocation.request.input },
+							payload: {
+								payload: invocation.request.input,
+								sourceHash: invocation.sourceHash,
+							},
 							params: {
 								operationSlug: invocation.request.operationSlug,
 								pluginSlug: PluginSlug.make(invocation.pluginSlug),
