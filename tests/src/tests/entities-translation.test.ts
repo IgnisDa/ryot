@@ -235,7 +235,7 @@ describe("GET /entities/:entityId — translation overlay", () => {
 
 		const overlay = await getEntityTranslationRow({ entityId: entity.id, language: "native" });
 		expect(overlay?.name).toBe(localizedRead.name);
-		expect(overlay?.description ?? null).toBeNull();
+		expect(overlay?.properties?.description ?? null).toBeNull();
 		expect(overlay?.image ?? null).toBeNull();
 		expect(await countEntityTranslations(entity.id)).toBe(1);
 	}, 150_000);
@@ -282,7 +282,7 @@ describe("GET /entities/:entityId — translation overlay", () => {
 
 		const overlay = await getEntityTranslationRow({ entityId: episode.id, language: "es_es" });
 		expect(overlay?.name).toBe(localizedRead.name);
-		expect(overlay?.description).toBe(localizedDescription);
+		expect(overlay?.properties?.description).toBe(localizedDescription);
 		expect(await countEntityTranslations(episode.id)).toBe(1);
 	}, 150_000);
 
@@ -315,7 +315,7 @@ describe("GET /entities/:entityId — translation overlay", () => {
 
 		const overlay = await getEntityTranslationRow({ entityId: music.id, language: "es" });
 		expect(overlay?.name).toBe(localizedRead.name);
-		expect(overlay?.description ?? null).toBeNull();
+		expect(overlay?.properties?.description ?? null).toBeNull();
 		expect(overlay?.image ?? null).toBeNull();
 		expect(await countEntityTranslations(music.id)).toBe(1);
 	}, 150_000);
@@ -412,7 +412,7 @@ describe("GET /entities/:entityId — translation overlay", () => {
 
 		const overlay = await getEntityTranslationRow({ entityId: movie.id, language: "xx" });
 		expect(overlay?.name ?? null).toBeNull();
-		expect(overlay?.description ?? null).toBeNull();
+		expect(overlay?.properties?.description ?? null).toBeNull();
 		expect(overlay?.image ?? null).toBeNull();
 		expect(await countEntityTranslations(movie.id)).toBe(1);
 	}, 120_000);

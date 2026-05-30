@@ -4,6 +4,7 @@ import type { CurrentUserValue } from "#lib/auth-middleware";
 import { DbRunner } from "#lib/db";
 import { DbError, badRequest, notFound } from "#lib/errors";
 import { EntityId, EntitySchemaId, SandboxScriptId } from "#lib/schema/brands";
+import { collectTranslatableProperties } from "#lib/schema/property-schema";
 import { parseAppSchemaProperties } from "#lib/schema/property-schema-runtime";
 import { requireText, trimToNull } from "#lib/validation";
 import type { Expr, QueryDocument, RowItem, RowsOutput } from "#modules/query-engine/language";
@@ -237,6 +238,7 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 				user,
 				entity,
 				entitySchemaSlug: scope.entitySchemaSlug,
+				translatableKeys: collectTranslatableProperties(scope.propertiesSchema),
 			});
 
 			return { ...overlay.entity, translationStatus: overlay.status };

@@ -27,7 +27,9 @@ export const translateEntityExecutionId = (input: { entityId: EntityId; language
 const TranslateDriverResult = Schema.Struct({
 	image: Schema.optional(Schema.NullOr(EntityImage)),
 	name: Schema.optional(Schema.NullOr(Schema.String)),
-	description: Schema.optional(Schema.NullOr(Schema.String)),
+	properties: Schema.optional(
+		Schema.NullOr(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
+	),
 });
 
 export const TranslateEntityWorkflow = Workflow.make({
@@ -84,7 +86,7 @@ const runTranslateEntityWorkflow = Effect.fn("runTranslateEntityWorkflow")(funct
 					language: payload.language,
 					name: translation.name ?? null,
 					image: translation.image ?? null,
-					description: translation.description ?? null,
+					properties: translation.properties ?? null,
 				}),
 			).pipe(dieOnDbError);
 		}),
