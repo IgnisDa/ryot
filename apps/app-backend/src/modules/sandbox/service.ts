@@ -29,7 +29,6 @@ const allowedHostFunctions = new Set([
 	"getIntegration",
 	"setCachedValue",
 	"getEntitySchema",
-	"getSystemConfig",
 	"listEventSchemas",
 	"listIntegrations",
 	"claimCachedValue",
