@@ -51,6 +51,7 @@ export const buildPaginatedQuerySql = (input: PaginatedQueryInput) => {
 	sanitizeIdentifier(input.paginatedAlias, "CTE alias");
 	sanitizeIdentifier(input.joinedTableName, "table name");
 	const cteList = sql.join(input.withCtes, sql`, `);
+	const tiebreaker = input.tiebreakerExpressions ?? sql`${sql.raw(input.filteredAlias)}.id asc`;
 
 	return sql`
 		with
@@ -63,7 +64,7 @@ export const buildPaginatedQuerySql = (input: PaginatedQueryInput) => {
 					${sql.raw(input.filteredAlias)}.*,
 					count(*) over ()::integer as total,
 					row_number() over (
-						order by ${input.sortExpression} ${input.direction} nulls last, ${sql.raw(input.filteredAlias)}.id asc
+						order by ${input.sortExpression} ${input.direction} nulls last, ${tiebreaker}
 					) as sort_index
 				from ${sql.raw(input.filteredAlias)}
 			),

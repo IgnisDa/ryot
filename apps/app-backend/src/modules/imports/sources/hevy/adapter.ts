@@ -63,25 +63,34 @@ const readOptionalNumber = (row: Record<string, string>, aliases: string[]): num
 	return parsed;
 };
 
-const parseHevyRow = (row: Record<string, string>, rowIdx: number): HevyRow => ({
-	itemIndex: rowIdx,
-	reps: readOptionalNumber(row, ["reps", "Reps"]),
-	description: readCell(row, ["description", "Description"]),
-	title: readRequiredCell(row, ["title", "Title"], "Title"),
-	exerciseNotes: readCell(row, ["exercise_notes", "Exercise Notes", "ExerciseNotes"]),
-	endTime: readRequiredCell(row, ["end_time", "End Time", "EndTime"], "End Time"),
-	setType: readRequiredCell(row, ["set_type", "Set Type", "SetType"], "Set Type"),
-	distanceMeters: readOptionalNumber(row, ["distance_m", "Distance (m)", "distance_km"]),
-	weight: readOptionalNumber(row, ["weight_kg", "weight_lbs", "Weight (kg)", "Weight (lbs)"]),
-	durationSeconds: readOptionalNumber(row, ["duration_seconds", "Duration (seconds)", "Seconds"]),
-	startTime: readRequiredCell(row, ["start_time", "Start Time", "StartTime"], "Start Time"),
-	setOrder: readRequiredCell(row, ["set_order", "set_index", "Set Order", "SetOrder"], "Set Order"),
-	exerciseTitle: readRequiredCell(
-		row,
-		["exercise_title", "Exercise Title", "ExerciseTitle"],
-		"Exercise Title",
-	),
-});
+const parseHevyRow = (row: Record<string, string>, rowIdx: number): HevyRow => {
+	const distanceM = readOptionalNumber(row, ["distance_m", "Distance (m)"]);
+	const distanceKm = readOptionalNumber(row, ["distance_km"]);
+	const distanceMeters = distanceM ?? (distanceKm !== undefined ? distanceKm * 1000 : undefined);
+	return {
+		itemIndex: rowIdx,
+		distanceMeters,
+		reps: readOptionalNumber(row, ["reps", "Reps"]),
+		description: readCell(row, ["description", "Description"]),
+		title: readRequiredCell(row, ["title", "Title"], "Title"),
+		exerciseNotes: readCell(row, ["exercise_notes", "Exercise Notes", "ExerciseNotes"]),
+		endTime: readRequiredCell(row, ["end_time", "End Time", "EndTime"], "End Time"),
+		setType: readRequiredCell(row, ["set_type", "Set Type", "SetType"], "Set Type"),
+		weight: readOptionalNumber(row, ["weight_kg", "weight_lbs", "Weight (kg)", "Weight (lbs)"]),
+		durationSeconds: readOptionalNumber(row, ["duration_seconds", "Duration (seconds)", "Seconds"]),
+		startTime: readRequiredCell(row, ["start_time", "Start Time", "StartTime"], "Start Time"),
+		setOrder: readRequiredCell(
+			row,
+			["set_order", "set_index", "Set Order", "SetOrder"],
+			"Set Order",
+		),
+		exerciseTitle: readRequiredCell(
+			row,
+			["exercise_title", "Exercise Title", "ExerciseTitle"],
+			"Exercise Title",
+		),
+	};
+};
 
 // Hevy exports timestamps like "01 Jan 2026, 10:00".
 // Some regional exports swap to "Jan 01 2026, 10:00", so both are tried.

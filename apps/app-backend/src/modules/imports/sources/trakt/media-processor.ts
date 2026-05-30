@@ -52,6 +52,7 @@ export const populateMediaEntityRefs = async (
 		entityIds: Array<string | null>;
 		currentSandboxJobId: string | undefined;
 		mediaEntityGroups: ImportMediaEntityGroup[];
+		onEntityProcessed?: (processedCount: number) => Promise<void>;
 	},
 	deps: Pick<
 		MediaProcessorDeps,
@@ -154,15 +155,21 @@ export const populateMediaEntityRefs = async (
 		if ("error" in result) {
 			failedIndices.push(i);
 			entityIds[i] = null;
+			const failedGroup = input.mediaEntityGroups[i];
 			await deps.createImportRunFailure({
 				itemIndex: i,
-				context: null,
 				runId: input.runId,
 				stage: "provider_details",
 				sourceLabel: ref.sourceLabel,
 				message: result.error.message,
 				sourceIdentifier: ref.externalId,
 				entitySchemaSlug: ref.entitySchemaSlug,
+				context: failedGroup
+					? {
+							skippedEvents: failedGroup.events.length,
+							skippedCollections: failedGroup.collectionMemberships.length,
+						}
+					: null,
 			});
 		} else {
 			const libraryResult = await deps.ensureEntityInLibrary({
@@ -193,6 +200,9 @@ export const populateMediaEntityRefs = async (
 			providerEntityIds: entityIds,
 			providerFailedIndices: failedIndices,
 		});
+		if (input.onEntityProcessed) {
+			await input.onEntityProcessed(input.adapterFailureCount + (i + 1));
+		}
 	}
 	// oxlint-enable no-await-in-loop
 
