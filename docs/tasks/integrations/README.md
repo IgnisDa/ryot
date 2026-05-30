@@ -69,7 +69,7 @@ Add a first-class integrations module to V2 that supports all three integration 
 - **Modified:** `src/modules/entities/` — add ownership property merging to `in-library` relationship helper.
 - **Modified:** `src/modules/builtins/` — seed new event schemas, new builtin event schema trigger links, new relationship schema properties for `in-library`, update user preferences schema.
 - **Modified:** `src/modules/imports/` — thread EventWriteContext through the media pipeline write phase; accept optional integrationId.
-- **Modified:** `src/modules/legacy-bootstrap/` — add integration migration, update user preference migration.
+- **Modified:** `src/modules/legacy-bootstrap/` — rename/drop the V1 `integration` table, add integration migration, add V1 Owned-collection ownership migration, update user preference migration.
 - **Modified:** `src/lib/sandbox/` — add `claimCachedValue` host function; add before-trigger driver validation; add sandbox script files for push and progress-policy triggers.
 - **Modified:** `src/lib/config/` — add scheduler and threshold config fields.
 - **Modified:** `src/lib/db/schema/` — integration table, import_run integrationId, event_schema_trigger phase and position, in-library schema properties.
@@ -540,12 +540,12 @@ After `initializeWorkers()` and before `dispatchBuiltinEntityPreloadJobs()`, add
 
 ### Legacy Bootstrap — Integration Migration
 
-Add `integration-mapping.ts` and wire it in `migrate-data.ts` after collection/entity migrations.
+Add `integration-mapping.ts` and wire it in `migrate-data.ts` after collection/entity migrations. Because the V2 schema reuses the `integration` table name and the Drizzle `CREATE TABLE integration` has no `IF NOT EXISTS`, the V1 `integration` table is first renamed to `old_integration` in `rename-tables.ts` (its `integration_pkey` constraint too, to avoid an index-name collision) before Drizzle runs, and dropped at the end in `drop-tables.ts`.
 
 SQL `DO` block behavior:
 
-- Verify `integration` table exists in old DB.
-- For each row in old `integration` table:
+- Verify `old_integration` table exists (raise if missing).
+- For each row in the `old_integration` table:
   - Map `lot` and `provider` directly (already snake_case in V1 DB).
   - Transform `provider_specifics` from flat V1 JSONB to discriminated union JSONB:
     - Rename fields to camelCase.
@@ -748,9 +748,9 @@ Test `writeOwnershipToLibrary`: merges sources correctly, does not duplicate pro
 
 ## Tasks
 
-**Overall Progress:** 8 of 10 tasks completed
+**Overall Progress:** 9 of 10 tasks completed
 
-**Current Task:** [Task 08 — Legacy Bootstrap Migration](./08-legacy-bootstrap-migration.md) (todo)
+**Current Task:** [Task 09 — E2E Tests](./09-e2e-tests.md) (todo)
 
 ### Task List
 
@@ -763,6 +763,6 @@ Test `writeOwnershipToLibrary`: merges sources correctly, does not duplicate pro
 | 05  | [Yank Integration Execution and Adapters](./05-yank-integration-adapters.md)                               | AFK  | done   |
 | 06  | [Sink Integration Execution and Adapters](./06-sink-integration-adapters.md)                               | AFK  | done   |
 | 07  | [Push and Progress-Policy Sandbox Scripts](./07-push-and-progress-policy-scripts.md)                       | AFK  | done   |
-| 08  | [Legacy Bootstrap Migration](./08-legacy-bootstrap-migration.md)                                           | AFK  | todo   |
+| 08  | [Legacy Bootstrap Migration](./08-legacy-bootstrap-migration.md)                                           | AFK  | done   |
 | 09  | [E2E Tests](./09-e2e-tests.md)                                                                             | AFK  | todo   |
 | 10  | [Codebase Cleanup](./10-codebase-cleanup.md)                                                               | AFK  | todo   |
