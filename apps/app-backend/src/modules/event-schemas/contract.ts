@@ -6,7 +6,7 @@ import { BadRequest, Conflict, NotFound, RateLimited, Unauthorized } from "~/lib
 
 import { CreateEventSchemaBody, ListedEventSchema } from "./schemas";
 
-export const EventSchemasGroup = HttpApiGroup.make("event-schemas")
+export const EventSchemasGroup = HttpApiGroup.make("eventSchemas")
 	.addError(Unauthorized, { status: 401 })
 	.addError(RateLimited, { status: 429 })
 	.add(
