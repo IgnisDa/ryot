@@ -367,3 +367,36 @@ Enqueuing a population job the moment a partial entity is written to the databas
 - Both `GET /entities/{entityId}` and `POST /query-engine/execute` call `maybeEnqueuePopulation` for each partial entity in their response.
 - BullMQ deterministic job IDs guarantee at most one active job per entity.
 - The client reacts to the SSE `entity:populated` event and invalidates cache; it does not poll or track job state.
+
+---
+
+## Decision 5: `consumedOn` and Trigger Property Inheritance
+
+### Context
+
+V1 stored a `providers_consumed_on: Vec<String>` field on the `seen` table, recording which importers, live integrations, or streaming platforms were associated with a given seen record. The array accumulated entries over time because V1 used a single mutable `seen` row per `(user, metadata)` pair.
+
+### Decision
+
+**`consumedOn: string` (optional)** is added as a property to the `progress`, `complete`, `dropped`, and `on_hold` event schemas. It is not present on `backlog` or `review`, which do not represent consumption acts. Each event carries its own single optional source string. The aggregate view across an entity's history is derivable via `SELECT DISTINCT consumed_on FROM event WHERE entity_id = ?` and does not need to be stored separately.
+
+When a trigger creates a new event from a triggering event — as the auto-complete trigger does when it creates a `complete` event from a 100% `progress` event — the trigger framework is responsible for forwarding relevant properties. This propagation is declared in data, not code.
+
+The `event_schema_trigger` table carries a `metadata` column (`jsonb NOT NULL`, no default — same semantics as `sandbox_script.metadata`) with schema:
+
+```ts
+eventSchemaTriggerMetadataSchema = z.object({
+    inheritedProperties: z.array(z.string()).optional(),
+});
+```
+
+When `processEventSchemaTriggers` builds the sandbox job context, it reads `trigger.metadata.inheritedProperties`, extracts those keys from the triggering event's `properties`, and injects them as `trigger.inheritedProperties`. The trigger script spreads `trigger.inheritedProperties` into the properties of the event it creates without referencing any property name directly.
+
+The builtin auto-complete trigger's seed record carries `metadata: { inheritedProperties: ["consumedOn"] }`. Adding a new property to propagate in the future requires only updating that metadata record — no script change.
+
+### Summary
+
+- `consumedOn: string` (optional) is a property on `progress`, `complete`, `dropped`, and `on_hold` events.
+- Each event carries its own source; the aggregate is a query over event history.
+- `event_schema_trigger.metadata.inheritedProperties` declares which properties the trigger framework copies from the triggering event into the sandbox job context.
+- Trigger scripts are property-name agnostic; propagation behavior lives in the DB.
