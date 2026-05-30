@@ -4,13 +4,7 @@ import { Schema } from "effect";
 import { AuthMiddleware } from "#lib/auth-middleware";
 import { BadRequest, NotFound, RateLimited, Unauthorized } from "#lib/errors";
 
-import {
-	ClearUserStateResponse,
-	CreateEntityBody,
-	ImportEntityBody,
-	ImportEntityRunResult,
-	ListedEntity,
-} from "./schemas";
+import { CreateEntityBody, ImportEntityBody, ImportEntityRunResult, ListedEntity } from "./schemas";
 
 const entityIdParam = HttpApiSchema.param("entityId", Schema.String);
 const jobIdParam = HttpApiSchema.param("jobId", Schema.String);
@@ -29,12 +23,6 @@ export const EntitiesGroup = HttpApiGroup.make("entities")
 	.add(
 		HttpApiEndpoint.get("get")`/entities/${entityIdParam}`
 			.addSuccess(ListedEntity)
-			.addError(BadRequest, { status: 400 })
-			.addError(NotFound, { status: 404 }),
-	)
-	.add(
-		HttpApiEndpoint.del("clearUserState")`/entities/${entityIdParam}/user-state`
-			.addSuccess(ClearUserStateResponse)
 			.addError(BadRequest, { status: 400 })
 			.addError(NotFound, { status: 404 }),
 	)

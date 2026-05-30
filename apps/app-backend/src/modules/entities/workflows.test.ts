@@ -6,6 +6,7 @@ import { Effect, Layer } from "effect";
 
 import { CurrentDb, DbRunner } from "#lib/db";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
+import { RelationshipsRepository } from "#modules/relationships/repository";
 
 import { EntityImportHook } from "./entity-import-hook";
 import { EntitiesRepository } from "./repository";
@@ -45,15 +46,10 @@ const dbRunnerLayer = Layer.succeed(DbRunner, <A, E, R>(effect: Effect.Effect<A,
 const defaultEntitiesRepository = () =>
 	Object.assign(Object.create(null), {
 		_tag: "EntitiesRepository" as const,
-		upsertEntityRelationship: () => Effect.void,
 		createEntity: () => Effect.die("unused"),
 		getByIdForUser: () => Effect.die("unused"),
 		getEntityScopeById: () => Effect.die("unused"),
-		insertRelationship: () => Effect.die("unused"),
-		upsertRelationship: () => Effect.die("unused"),
 		getEntityScopeForUser: () => Effect.die("unused"),
-		deleteUserEventsForEntity: () => Effect.die("unused"),
-		findRelationshipProperties: () => Effect.die("unused"),
 		listMatchCandidatesBySchema: () => Effect.die("unused"),
 		getEntitySchemaScopeForUser: () => Effect.die("unused"),
 		findEntitySchemaScriptBySlug: () => Effect.succeed(null),
@@ -61,7 +57,12 @@ const defaultEntitiesRepository = () =>
 		findEntityByExternalIdForUser: () => Effect.die("unused"),
 		findEntitySchemaById: () => Effect.succeed(baseEntitySchema),
 		createOrUpdateGlobalEntity: () => Effect.succeed(baseEntity),
-		deleteUserRelationshipsForEntity: () => Effect.die("unused"),
+	});
+
+const defaultRelationshipsRepository = () =>
+	Object.assign(Object.create(null), {
+		_tag: "RelationshipsRepository" as const,
+		upsertEntityRelationship: () => Effect.void,
 	});
 
 const defaultRelationshipSchemasRepository = () =>
@@ -75,6 +76,9 @@ const defaultRelationshipSchemasRepository = () =>
 const makeEntitiesRepository = (overrides: Partial<EntitiesRepository> = {}) =>
 	Object.assign(Object.create(null), defaultEntitiesRepository(), overrides);
 
+const makeRelationshipsRepository = (overrides: Partial<RelationshipsRepository> = {}) =>
+	Object.assign(Object.create(null), defaultRelationshipsRepository(), overrides);
+
 const makeRelationshipSchemasRepository = (
 	overrides: Partial<RelationshipSchemasRepository> = {},
 ) => Object.assign(Object.create(null), defaultRelationshipSchemasRepository(), overrides);
@@ -85,6 +89,7 @@ const makeEntityImportHook = (
 
 type TestLayerOptions = {
 	entitiesRepository?: EntitiesRepository;
+	relationshipsRepository?: RelationshipsRepository;
 	relationshipSchemasRepository?: RelationshipSchemasRepository;
 	entityImportHook?: Context.Tag.Service<typeof EntityImportHook>;
 };
@@ -93,6 +98,10 @@ const makeTestLayer = (options: TestLayerOptions) =>
 	Layer.mergeAll(
 		dbRunnerLayer,
 		Layer.succeed(EntitiesRepository, options.entitiesRepository ?? makeEntitiesRepository()),
+		Layer.succeed(
+			RelationshipsRepository,
+			options.relationshipsRepository ?? makeRelationshipsRepository(),
+		),
 		Layer.succeed(
 			RelationshipSchemasRepository,
 			options.relationshipSchemasRepository ?? makeRelationshipSchemasRepository(),
@@ -193,6 +202,12 @@ it.effect("populates entity, writes related entities, and ensures library member
 			libraryMembershipEntityId = entityId;
 			return Effect.void;
 		}),
+		relationshipsRepository: makeRelationshipsRepository({
+			upsertEntityRelationship: () => {
+				relationshipWritten = true;
+				return Effect.void;
+			},
+		}),
 		entitiesRepository: makeEntitiesRepository({
 			createOrUpdateGlobalEntity: (input) => {
 				if (input.entitySchemaId === "schema-1") {
@@ -203,10 +218,6 @@ it.effect("populates entity, writes related entities, and ensures library member
 				return Effect.succeed(relatedEntity);
 			},
 			findEntitySchemaScriptBySlug: () => Effect.succeed(relatedEntitySchemaScript),
-			upsertEntityRelationship: () => {
-				relationshipWritten = true;
-				return Effect.void;
-			},
 		}),
 	} satisfies TestLayerOptions;
 
@@ -390,6 +401,8 @@ it.effect("fails workflow when related relationship properties are invalid", () 
 
 				return Effect.succeed(nextEntity);
 			},
+		}),
+		relationshipsRepository: makeRelationshipsRepository({
 			upsertEntityRelationship: () =>
 				Effect.sync(() => {
 					relationshipWritten = true;
@@ -456,6 +469,8 @@ it.effect("fails workflow when related relationship properties are not objects",
 		entitiesRepository: makeEntitiesRepository({
 			findEntitySchemaScriptBySlug: () =>
 				Effect.succeed({ entitySchemaId: "schema-person", sandboxScriptId: "person-script" }),
+		}),
+		relationshipsRepository: makeRelationshipsRepository({
 			upsertEntityRelationship: () =>
 				Effect.sync(() => {
 					relationshipWritten = true;
@@ -550,6 +565,8 @@ it.effect("retries related writes after a failed related validation", () => {
 
 				return Effect.succeed(nextEntity);
 			},
+		}),
+		relationshipsRepository: makeRelationshipsRepository({
 			upsertEntityRelationship: () =>
 				Effect.sync(() => {
 					relationshipWriteCount += 1;
