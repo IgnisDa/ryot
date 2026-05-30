@@ -45,7 +45,9 @@ async function getAccessToken() {
 	if (cached?.success && cached.data !== null) {
 		const TokenSchema = z.object({ accessToken: z.string(), clientId: z.string() });
 		const parsed = TokenSchema.safeParse(cached.data);
-		if (parsed.success) {return parsed.data;}
+		if (parsed.success) {
+			return parsed.data;
+		}
 	}
 
 	const { clientId, clientSecret } = await getCredentials();
@@ -57,7 +59,9 @@ async function getAccessToken() {
 		throw new Error(response?.error ?? "Twitch OAuth token request failed");
 	}
 	const payload = parseJsonResponse(response.data.body);
-	if (!payload.access_token) {throw new Error("Twitch OAuth returned no access token");}
+	if (!payload.access_token) {
+		throw new Error("Twitch OAuth returned no access token");
+	}
 
 	const rawTokenType = typeof payload.token_type === "string" ? payload.token_type : "bearer";
 	const tokenType = rawTokenType.charAt(0).toUpperCase() + rawTokenType.slice(1);
@@ -149,11 +153,17 @@ driver("search", async function (context) {
 
 	const items = results
 		.map((c) => {
-			if (!c || typeof c !== "object") {return null;}
+			if (!c || typeof c !== "object") {
+				return null;
+			}
 			const id = typeof c.id === "number" ? String(c.id) : null;
-			if (!id) {return null;}
+			if (!id) {
+				return null;
+			}
 			const name = typeof c.name === "string" && c.name.trim() ? c.name.trim() : null;
-			if (!name) {return null;}
+			if (!name) {
+				return null;
+			}
 			const games = Array.isArray(c.games) ? c.games : [];
 			const parts = games.length > 0 ? games.length : null;
 			const firstCover = games
@@ -205,7 +215,9 @@ driver("details", async function (context) {
 	const collection = results[0];
 	const title =
 		typeof collection?.name === "string" && collection.name.trim() ? collection.name.trim() : null;
-	if (!title) {throw new Error("IGDB collection payload is missing name");}
+	if (!title) {
+		throw new Error("IGDB collection payload is missing name");
+	}
 
 	// Filter out DLC / version entries (version_parent set means it's a child edition)
 	const games = (Array.isArray(collection.games) ? collection.games : []).filter(
@@ -216,7 +228,9 @@ driver("details", async function (context) {
 	const relatedEntities = games
 		.map((game, idx) => {
 			const memberId = typeof game?.id === "number" ? String(Math.trunc(game.id)) : null;
-			if (!memberId) {return null;}
+			if (!memberId) {
+				return null;
+			}
 			const memberName =
 				typeof game?.name === "string" && game.name.trim() ? game.name.trim() : "Loading...";
 			return {

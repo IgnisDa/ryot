@@ -181,16 +181,26 @@ function buildTranslationResult(translationData, detailsData, language) {
 	const artwork = data?.artworks ?? data?.artwork;
 	const image = getLocalizedArtwork(artwork, language);
 	const result = {};
-	if (name) {result.name = name;}
-	if (image) {result.image = image;}
+	if (name) {
+		result.name = name;
+	}
+	if (image) {
+		result.image = image;
+	}
 	const properties = {};
-	if (description) {properties.description = description;}
-	if (Object.keys(properties).length > 0) {result.properties = properties;}
+	if (description) {
+		properties.description = description;
+	}
+	if (Object.keys(properties).length > 0) {
+		result.properties = properties;
+	}
 	return result;
 }
 
 function parsePublishYear(str, dayjs) {
-	if (typeof str !== "string" || !str.trim()) {return null;}
+	if (typeof str !== "string" || !str.trim()) {
+		return null;
+	}
 	const d = dayjs(str.trim());
 	return d.isValid() && d.year() > 0 ? d.year() : null;
 }
@@ -261,8 +271,8 @@ function collectCompanies(companiesObj) {
 					? company.name.trim()
 					: "Loading...";
 
-			const key = `company.tvdb:${id}`;
-			const existing = companyByKey.get(key);
+			const companyKey = `company.tvdb:${id}`;
+			const existing = companyByKey.get(companyKey);
 			if (existing) {
 				const roles = new Set([
 					...(Array.isArray(existing.relationshipProperties.roles)
@@ -277,7 +287,7 @@ function collectCompanies(companiesObj) {
 				continue;
 			}
 
-			companyByKey.set(key, {
+			companyByKey.set(companyKey, {
 				name,
 				externalId: String(id),
 				scriptSlug: "company.tvdb",
@@ -417,7 +427,7 @@ function buildSeason(parentShowExternalId, seasonData) {
 			return {
 				entitySchemaSlug: "show-episode",
 				externalId: String(epId),
-				name: epName || `Episode ${epNumber}`,
+				name: epName ?? `Episode ${epNumber}`,
 				image: epImage ? { type: "remote", url: epImage } : null,
 				properties: {
 					seasonNumber,
@@ -523,7 +533,8 @@ driver("search", async function (context) {
 
 driver("details", async function (context, { metadata }) {
 	const { z } = await import("npm:zod");
-	const dayjs = (await import("npm:dayjs")).default;
+	const dayjsModule = await import("npm:dayjs");
+	const dayjs = dayjsModule.default;
 
 	const { externalId } = z
 		.object({

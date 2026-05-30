@@ -56,7 +56,9 @@ function eventTimestamp(value) {
 
 function sortLatestFirst(a, b) {
 	const occurredDiff = eventTimestamp(b.occurredAt) - eventTimestamp(a.occurredAt);
-	if (occurredDiff !== 0) {return occurredDiff;}
+	if (occurredDiff !== 0) {
+		return occurredDiff;
+	}
 	return eventTimestamp(b.createdAt) - eventTimestamp(a.createdAt);
 }
 

@@ -28,7 +28,9 @@ function getIdentifier(value) {
 
 function parseYear(value, dayjs) {
 	const date = getString(value);
-	if (!date) {return null;}
+	if (!date) {
+		return null;
+	}
 	const d = dayjs(date);
 	return d.isValid() ? d.year() : null;
 }
@@ -70,7 +72,8 @@ async function loadMetronJson(url, errorPrefix) {
 
 driver("search", async function (context) {
 	const { z } = await import("npm:zod");
-	const dayjs = (await import("npm:dayjs")).default;
+	const dayjsModule = await import("npm:dayjs");
+	const dayjs = dayjsModule.default;
 
 	const {
 		query,

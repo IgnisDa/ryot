@@ -41,7 +41,9 @@ function getImageUrl(path) {
 }
 
 function parsePublishYear(dateStr, dayjs) {
-	if (typeof dateStr !== "string" || !dateStr.trim()) {return null;}
+	if (typeof dateStr !== "string" || !dateStr.trim()) {
+		return null;
+	}
 	const d = dayjs(dateStr.trim());
 	return d.isValid() && d.year() > 0 ? d.year() : null;
 }
@@ -251,7 +253,8 @@ function collectPeople(cast, crew) {
 
 driver("search", async function (context) {
 	const { z } = await import("npm:zod");
-	const dayjs = (await import("npm:dayjs")).default;
+	const dayjsModule = await import("npm:dayjs");
+	const dayjs = dayjsModule.default;
 
 	const {
 		query,
@@ -336,7 +339,8 @@ driver("search", async function (context) {
 
 driver("details", async function (context, { metadata }) {
 	const { z } = await import("npm:zod");
-	const dayjs = (await import("npm:dayjs")).default;
+	const dayjsModule = await import("npm:dayjs");
+	const dayjs = dayjsModule.default;
 
 	const { externalId } = z
 		.object({
@@ -524,11 +528,19 @@ driver("translate", async function (context) {
 	const imageUrl = localizedPoster ? getImageUrl(localizedPoster.file_path) : null;
 
 	const result = {};
-	if (name) {result.name = name;}
-	if (imageUrl) {result.image = { type: "remote", url: imageUrl };}
+	if (name) {
+		result.name = name;
+	}
+	if (imageUrl) {
+		result.image = { type: "remote", url: imageUrl };
+	}
 	const properties = {};
-	if (description) {properties.description = description;}
-	if (Object.keys(properties).length > 0) {result.properties = properties;}
+	if (description) {
+		properties.description = description;
+	}
+	if (Object.keys(properties).length > 0) {
+		result.properties = properties;
+	}
 
 	return result;
 });

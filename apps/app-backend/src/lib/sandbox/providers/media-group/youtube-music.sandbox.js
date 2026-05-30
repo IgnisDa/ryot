@@ -7,22 +7,32 @@ async function makeFetch(input, init) {
 		url = input.url;
 		method = input.method ?? "GET";
 		if (input.headers && typeof input.headers.entries === "function") {
-			for (const [k, v] of input.headers.entries()) {headers[k] = v;}
+			for (const [k, v] of input.headers.entries()) {
+				headers[k] = v;
+			}
 		}
 		try {
 			const t = await input.text();
-			if (t) {body = t;}
+			if (t) {
+				body = t;
+			}
 		} catch {}
 	} else {
 		url = typeof input === "string" ? input : String(input);
 	}
 	if (init) {
-		if (init.method) {method = init.method;}
+		if (init.method) {
+			method = init.method;
+		}
 		if (init.headers) {
 			if (typeof init.headers.entries === "function") {
-				for (const [k, v] of init.headers.entries()) {headers[k] = v;}
+				for (const [k, v] of init.headers.entries()) {
+					headers[k] = v;
+				}
 			} else if (Array.isArray(init.headers)) {
-				for (const [k, v] of init.headers) {headers[k] = v;}
+				for (const [k, v] of init.headers) {
+					headers[k] = v;
+				}
 			} else if (typeof init.headers === "object") {
 				Object.assign(headers, init.headers);
 			}
@@ -100,7 +110,9 @@ driver("search", async function (context) {
 	for (const shelf of results.contents ?? []) {
 		for (const album of shelf.contents ?? []) {
 			const id = album.id;
-			if (!id) {continue;}
+			if (!id) {
+				continue;
+			}
 			const name = album.title ?? id;
 			const imageUrl = getLargestThumbnailUrl(album.thumbnail);
 			allItems.push({
@@ -137,7 +149,9 @@ driver("details", async function (context, { metadata }) {
 	const album = await yt.music.getAlbum(externalId);
 
 	const title = getAlbumTitle(album);
-	if (!title) {throw new Error(`YouTube Music album not found: ${externalId}`);}
+	if (!title) {
+		throw new Error(`YouTube Music album not found: ${externalId}`);
+	}
 
 	// Description may be HTML-formatted
 	const rawDescription = album?.description ?? album?.header?.description?.text ?? null;
@@ -156,7 +170,9 @@ driver("details", async function (context, { metadata }) {
 	const relatedEntities = tracks
 		.map((track, idx) => {
 			const memberId = typeof track?.id === "string" && track.id.trim() ? track.id.trim() : null;
-			if (!memberId) {return null;}
+			if (!memberId) {
+				return null;
+			}
 			const memberName =
 				typeof track?.title === "string" && track.title.trim()
 					? track.title.trim()
@@ -181,7 +197,7 @@ driver("details", async function (context, { metadata }) {
 
 	return {
 		relatedEntities,
-		name: String(title),
+		name: title,
 		properties: {
 			parts,
 			images,

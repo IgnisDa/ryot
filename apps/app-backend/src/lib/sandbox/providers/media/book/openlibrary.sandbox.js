@@ -25,12 +25,18 @@ function parseDescription(value) {
 }
 
 function parseFlexibleDate(value, dayjs) {
-	if (typeof value !== "string") {return null;}
+	if (typeof value !== "string") {
+		return null;
+	}
 	const trimmed = value.trim();
-	if (!trimmed) {return null;}
+	if (!trimmed) {
+		return null;
+	}
 	for (const fmt of ["MMM D, YYYY", "YYYY"]) {
 		const d = dayjs(trimmed, fmt, true);
-		if (d.isValid()) {return new Date(Date.UTC(d.year(), d.month(), d.date()));}
+		if (d.isValid()) {
+			return new Date(Date.UTC(d.year(), d.month(), d.date()));
+		}
 	}
 	return null;
 }
@@ -91,7 +97,7 @@ driver("search", async function (context) {
 	const items = docs
 		.map((doc) => {
 			const key = typeof doc?.key === "string" ? doc.key : "";
-			const externalId = key.split("/").filter(Boolean).pop();
+			const externalId = key.split("/").findLast(Boolean);
 			if (!externalId) {
 				return null;
 			}
@@ -137,9 +143,11 @@ driver("search", async function (context) {
 
 driver("details", async function (context) {
 	const { z } = await import("npm:zod");
-	const dayjs = (await import("npm:dayjs")).default;
+	const dayjsModule = await import("npm:dayjs");
+	const dayjs = dayjsModule.default;
 	// dayjs has no `exports` field in package.json, so Deno requires the explicit .js extension for sub-path imports (https://github.com/iamkun/dayjs/issues/2562)
-	const customParseFormat = (await import("npm:dayjs/plugin/customParseFormat.js")).default;
+	const customParseFormatModule = await import("npm:dayjs/plugin/customParseFormat.js");
+	const customParseFormat = customParseFormatModule.default;
 	dayjs.extend(customParseFormat);
 
 	const { externalId: contextIdentifier } = z
@@ -248,29 +256,29 @@ driver("details", async function (context) {
 	};
 	const authorNameByKey = new Map();
 	const loadAuthorName = async (authorKey) => {
-		const requestedIdentifier = getKeySegment(authorKey);
-		if (!requestedIdentifier) {
+		const authorIdentifier = getKeySegment(authorKey);
+		if (!authorIdentifier) {
 			return "Loading...";
 		}
 
-		const cachedName = authorNameByKey.get(requestedIdentifier);
+		const cachedName = authorNameByKey.get(authorIdentifier);
 		if (cachedName !== undefined) {
 			return cachedName;
 		}
 
 		try {
 			const authorPayload = await loadOpenLibraryJson(
-				`https://openlibrary.org/authors/${requestedIdentifier}.json`,
+				`https://openlibrary.org/authors/${authorIdentifier}.json`,
 				"OpenLibrary author",
 			);
 			const name =
 				typeof authorPayload?.name === "string" && authorPayload.name.trim()
 					? authorPayload.name.trim()
 					: "Loading...";
-			authorNameByKey.set(requestedIdentifier, name);
+			authorNameByKey.set(authorIdentifier, name);
 			return name;
 		} catch {
-			authorNameByKey.set(requestedIdentifier, "Loading...");
+			authorNameByKey.set(authorIdentifier, "Loading...");
 			return "Loading...";
 		}
 	};

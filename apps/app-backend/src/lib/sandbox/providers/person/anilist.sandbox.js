@@ -39,7 +39,9 @@ function formatDate(dateObj, dayjs) {
 }
 
 async function cleanHtmlDescription(html) {
-	if (typeof html !== "string" || !html.trim()) {return null;}
+	if (typeof html !== "string" || !html.trim()) {
+		return null;
+	}
 	const { load } = await import("npm:cheerio");
 	const $ = load(html);
 	$("br").replaceWith("\n");
@@ -163,7 +165,8 @@ query StaffSearchQuery($search: String!, $page: Int!, $perPage: Int!) {
 
 driver("details", async function (context) {
 	const { z } = await import("npm:zod");
-	const dayjs = (await import("npm:dayjs")).default;
+	const dayjsModule = await import("npm:dayjs");
+	const dayjs = dayjsModule.default;
 
 	const { externalId: contextIdentifier } = z
 		.object({

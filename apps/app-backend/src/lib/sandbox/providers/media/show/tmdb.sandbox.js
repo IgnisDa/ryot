@@ -41,7 +41,9 @@ function getImageUrl(path) {
 }
 
 function parsePublishYear(dateStr, dayjs) {
-	if (typeof dateStr !== "string" || !dateStr.trim()) {return null;}
+	if (typeof dateStr !== "string" || !dateStr.trim()) {
+		return null;
+	}
 	const d = dayjs(dateStr.trim());
 	return d.isValid() && d.year() > 0 ? d.year() : null;
 }
@@ -141,7 +143,9 @@ function orderedTranslationCandidates(translationsData, langCode, region) {
 function firstTranslationValue(candidates, extract) {
 	for (const entry of candidates) {
 		const value = extract(entry);
-		if (typeof value === "string" && value.trim()) {return value.trim();}
+		if (typeof value === "string" && value.trim()) {
+			return value.trim();
+		}
 	}
 	return null;
 }
@@ -234,11 +238,19 @@ async function buildTranslationResult(input) {
 	const imageUrl = getLocalizedImageUrl(imagesData, input.imageKey, input.langCode);
 
 	const result = {};
-	if (name) {result.name = name;}
-	if (imageUrl) {result.image = { type: "remote", url: imageUrl };}
+	if (name) {
+		result.name = name;
+	}
+	if (imageUrl) {
+		result.image = { type: "remote", url: imageUrl };
+	}
 	const properties = {};
-	if (description) {properties.description = description;}
-	if (Object.keys(properties).length > 0) {result.properties = properties;}
+	if (description) {
+		properties.description = description;
+	}
+	if (Object.keys(properties).length > 0) {
+		result.properties = properties;
+	}
 
 	return result;
 }
@@ -410,7 +422,7 @@ function collectPeople(cast, crew, createdBy) {
 	return { relatedEntities: [...relatedEntityByKey.values()], unlinkedCreators };
 }
 
-function buildSeason(parentShowExternalId, seasonData, dayjs) {
+function buildSeason(parentShowExternalId, seasonData) {
 	const id =
 		typeof seasonData?.id === "number" && Number.isFinite(seasonData.id) && seasonData.id > 0
 			? Math.trunc(seasonData.id)
@@ -463,7 +475,7 @@ function buildSeason(parentShowExternalId, seasonData, dayjs) {
 			return {
 				entitySchemaSlug: "show-episode",
 				externalId: String(epId),
-				name: epName || `Episode ${epNumber}`,
+				name: epName ?? `Episode ${epNumber}`,
 				image: epPosterUrl ? { type: "remote", url: epPosterUrl } : null,
 				properties: {
 					seasonNumber,
@@ -481,7 +493,7 @@ function buildSeason(parentShowExternalId, seasonData, dayjs) {
 		childEntities,
 		externalId: String(id),
 		entitySchemaSlug: "show-season",
-		name: name || `Season ${seasonNumber}`,
+		name: name ?? `Season ${seasonNumber}`,
 		image: posterUrl ? { type: "remote", url: posterUrl } : null,
 		properties: {
 			seasonNumber,
@@ -494,7 +506,8 @@ function buildSeason(parentShowExternalId, seasonData, dayjs) {
 
 driver("search", async function (context) {
 	const { z } = await import("npm:zod");
-	const dayjs = (await import("npm:dayjs")).default;
+	const dayjsModule = await import("npm:dayjs");
+	const dayjs = dayjsModule.default;
 
 	const {
 		query,
@@ -578,7 +591,8 @@ driver("search", async function (context) {
 
 driver("details", async function (context, { metadata }) {
 	const { z } = await import("npm:zod");
-	const dayjs = (await import("npm:dayjs")).default;
+	const dayjsModule = await import("npm:dayjs");
+	const dayjs = dayjsModule.default;
 
 	const { externalId } = z
 		.object({
@@ -626,7 +640,7 @@ driver("details", async function (context, { metadata }) {
 	}
 
 	const childEntities = seasonDataList
-		.map((s) => buildSeason(externalId, s, dayjs))
+		.map((s) => buildSeason(externalId, s))
 		.filter((season) => season !== null);
 	const totalEpisodes = childEntities.reduce(
 		(count, season) => count + season.childEntities.length,

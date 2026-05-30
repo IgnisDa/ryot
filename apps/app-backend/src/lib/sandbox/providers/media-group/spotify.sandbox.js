@@ -84,11 +84,13 @@ async function spotifyGet(path, params) {
 }
 
 function getImagesSortedBySize(images) {
-	if (!Array.isArray(images) || images.length === 0) {return [];}
+	if (!Array.isArray(images) || images.length === 0) {
+		return [];
+	}
 	return [...images]
 		.sort((a, b) => {
-			const sizeA = (a.width || 0) * (a.height || 0);
-			const sizeB = (b.width || 0) * (b.height || 0);
+			const sizeA = (a.width ?? 0) * (a.height ?? 0);
+			const sizeB = (b.width ?? 0) * (b.height ?? 0);
 			return sizeB - sizeA;
 		})
 		.map((img) => img.url)
@@ -125,9 +127,13 @@ driver("search", async function (context) {
 	const items = albumItems
 		.map((album) => {
 			const id = typeof album?.id === "string" ? album.id.trim() : null;
-			if (!id) {return null;}
+			if (!id) {
+				return null;
+			}
 			const name = typeof album?.name === "string" && album.name.trim() ? album.name.trim() : null;
-			if (!name) {return null;}
+			if (!name) {
+				return null;
+			}
 			const parts = typeof album?.total_tracks === "number" ? album.total_tracks : null;
 			const imageUrls = getImagesSortedBySize(album?.images ?? []);
 			const imageUrl = imageUrls[0] ?? null;
@@ -165,7 +171,9 @@ driver("details", async function (context) {
 	const album = await spotifyGet(`/albums/${encodeURIComponent(externalId)}`);
 
 	const title = typeof album?.name === "string" && album.name.trim() ? album.name.trim() : null;
-	if (!title) {throw new Error("Spotify album is missing name");}
+	if (!title) {
+		throw new Error("Spotify album is missing name");
+	}
 
 	const description =
 		typeof album?.description === "string" && album.description.trim()
@@ -179,7 +187,9 @@ driver("details", async function (context) {
 		.map((item, idx) => {
 			const track = item?.track ?? item;
 			const memberId = typeof track?.id === "string" && track.id.trim() ? track.id.trim() : null;
-			if (!memberId) {return null;}
+			if (!memberId) {
+				return null;
+			}
 			const memberName =
 				typeof track?.name === "string" && track.name.trim() ? track.name.trim() : "Loading...";
 			return {

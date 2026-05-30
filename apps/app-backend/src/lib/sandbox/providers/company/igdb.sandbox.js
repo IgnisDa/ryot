@@ -52,7 +52,9 @@ async function getAccessToken() {
 			clientId: z.string(),
 		});
 		const parsed = TokenSchema.safeParse(cached.data);
-		if (parsed.success) {return parsed.data;}
+		if (parsed.success) {
+			return parsed.data;
+		}
 	}
 
 	const { clientId, clientSecret } = await getCredentials();
@@ -197,7 +199,8 @@ driver("search", async function (context) {
 
 driver("details", async function (context) {
 	const { z } = await import("npm:zod");
-	const dayjs = (await import("npm:dayjs")).default;
+	const dayjsModule = await import("npm:dayjs");
+	const dayjs = dayjsModule.default;
 
 	const { externalId } = z
 		.object({

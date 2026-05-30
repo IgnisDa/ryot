@@ -21,8 +21,8 @@ function getImagesSortedBySize(images) {
 	}
 
 	const sorted = [...images].sort((a, b) => {
-		const sizeA = (a.width || 0) * (a.height || 0);
-		const sizeB = (b.width || 0) * (b.height || 0);
+		const sizeA = (a.width ?? 0) * (a.height ?? 0);
+		const sizeB = (b.width ?? 0) * (b.height ?? 0);
 		return sizeB - sizeA;
 	});
 
@@ -30,7 +30,7 @@ function getImagesSortedBySize(images) {
 }
 
 function getFirstImage(images) {
-	return getImagesSortedBySize(images)[0] || null;
+	return getImagesSortedBySize(images)[0] ?? null;
 }
 
 const SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token";
@@ -211,11 +211,15 @@ driver("details", async function (context) {
 			});
 
 			const items = Array.isArray(data?.items) ? data.items : [];
-			if (items.length === 0) {break;}
+			if (items.length === 0) {
+				break;
+			}
 
 			allAlbums.push(...items);
 
-			if (allAlbums.length >= (typeof data?.total === "number" ? data.total : 0)) {break;}
+			if (allAlbums.length >= (typeof data?.total === "number" ? data.total : 0)) {
+				break;
+			}
 			offset += limit;
 		}
 

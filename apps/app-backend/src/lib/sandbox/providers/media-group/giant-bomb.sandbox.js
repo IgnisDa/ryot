@@ -215,7 +215,9 @@ driver("details", async function (context) {
 	const relatedEntities = franchiseGames
 		.map((game, idx) => {
 			const memberId = extractGiantBombGuid(game?.api_detail_url);
-			if (!memberId) {return null;}
+			if (!memberId) {
+				return null;
+			}
 			const memberName =
 				typeof game?.name === "string" && game.name.trim() ? game.name.trim() : "Loading...";
 			return {
