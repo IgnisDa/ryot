@@ -41,6 +41,7 @@ it.effect(
 
 			const byName = new Map(artifact.files.map((file) => [file.name, file]));
 			const asset = names.find((name) => name.startsWith("asset-")) ?? "";
+			expect(asset).toMatch(/^asset-[a-f0-9]{64}\.svg$/);
 			expect(byName.get("plugin.js")?.contentType).toBe("text/javascript; charset=utf-8");
 			expect(byName.get("plugin.css")?.contentType).toBe("text/css; charset=utf-8");
 			expect(byName.get("index.html")?.contentType).toBe("text/html; charset=utf-8");
@@ -66,6 +67,36 @@ it.effect(
 			expect(artifact.apiVersion).toBe(1);
 			expect(artifact.bridgeVersion).toBe(CLIENT_BRIDGE_PROTOCOL_VERSION);
 			expect(artifact.compilerVersion).toBe(1);
+		}),
+	30_000,
+);
+
+it.effect(
+	"deduplicates identical imported assets",
+	() =>
+		Effect.gen(function* () {
+			const files = yield* fixtureFiles;
+			const home = (files["client/home.tsx"] ?? "")
+				.replace(
+					'import logo from "./logo.svg";',
+					'import logo from "./logo.svg";\nimport logoCopy from "./logo-copy.svg";',
+				)
+				.replace(
+					'<img alt="" src={logo} className="plugin-logo" />',
+					'<img alt="" src={logo} className="plugin-logo" /><img alt="" src={logoCopy} />',
+				);
+			const { artifact } = yield* compileFixture({
+				...files,
+				"client/home.tsx": home,
+				"client/logo-copy.svg": files["client/logo.svg"] ?? "",
+			});
+
+			const assets = artifact.files.filter(({ name }) => name.startsWith("asset-"));
+			expect(assets).toHaveLength(1);
+			expect(assets[0]?.contents).toBe(files["client/logo.svg"]);
+			expect(artifact.files.find(({ name }) => name === "plugin.js")?.contents).toContain(
+				`"./${assets[0]?.name}"`,
+			);
 		}),
 	30_000,
 );

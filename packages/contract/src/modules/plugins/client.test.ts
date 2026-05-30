@@ -2,7 +2,11 @@ import { Result, Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
 import {
+	CLIENT_API_VERSION,
+	CLIENT_ARTIFACT_FORMAT,
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
+	CLIENT_COMPILER_VERSION,
+	PluginClientArtifact,
 	PluginBridgeClientMessage,
 	PluginBridgeHostMessage,
 	PluginBridgeOperationResult,
@@ -26,6 +30,26 @@ const document = {
 const tokens = Object.fromEntries(
 	REQUIRED_THEME_TOKEN_NAMES.map((name) => [name, `value-${name}`]),
 );
+
+describe("plugin client artifact contract", () => {
+	it("rejects duplicate emitted file names", () => {
+		const decode = Schema.decodeUnknownResult(PluginClientArtifact);
+		const file = { name: "plugin.js", contents: "", contentType: "text/javascript" };
+
+		expect(
+			Result.isFailure(
+				decode({
+					hash: "hash",
+					files: [file, file],
+					format: CLIENT_ARTIFACT_FORMAT,
+					apiVersion: CLIENT_API_VERSION,
+					compilerVersion: CLIENT_COMPILER_VERSION,
+					bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
+				}),
+			),
+		).toBe(true);
+	});
+});
 
 describe("plugin client bridge contract", () => {
 	it("uses exact protocol version 3", () => {
