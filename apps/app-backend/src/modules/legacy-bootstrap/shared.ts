@@ -47,6 +47,9 @@ export const logLegacyBootstrapNotice = (msg: { message?: string }) => {
 	}
 };
 
+// DO blocks do not accept external query parameters, so mapping values must be inlined as SQL
+// literals. Only use these helpers with controlled values (hardcoded mappings and IDs already
+// read from our own database) — never with user-supplied input.
 export const quoteSqlString = (value: string) => `'${value.replaceAll("'", "''")}'`;
 
 export const quoteNullableSqlString = (value: string | null) =>
@@ -79,6 +82,8 @@ const resolveLegacyBootstrapNoticeClient = async (database: DbClient) => {
 	throw new Error("Could not resolve PostgreSQL client for legacy bootstrap progress reporting");
 };
 
+// Attaches a notice listener for progress logging and guarantees its removal before the client
+// is released back to the pool, preventing listener leaks across requests.
 export const withLegacyBootstrapNoticeClient = async <T>(
 	database: DbClient,
 	callback: (client: NoticeClient) => Promise<T>,
