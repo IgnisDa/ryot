@@ -235,400 +235,394 @@ export const inferViewExpressionType = <
 	const typeCache = input.typeCache ?? new Map<string, ViewExpressionTypeInfo>();
 	const computedFieldMap = input.computedFieldMap ?? new Map<string, ViewComputedField>();
 
-	if (input.expression.type === "literal") {
-		return createLiteralTypeInfo(input.expression);
-	}
-
-	if (input.expression.type === "coalesce") {
-		return unifyTypeInfos(
-			input.expression.values.map((expression) =>
-				inferViewExpressionType({
-					typeCache,
-					expression,
-					computedFieldMap,
-					context: input.context,
-				}),
+	return match(input.expression)
+		.with({ type: "literal" }, (expr) => createLiteralTypeInfo(expr))
+		.with({ type: "coalesce" }, (expr) =>
+			unifyTypeInfos(
+				expr.values.map((expression) =>
+					inferViewExpressionType({
+						typeCache,
+						expression,
+						computedFieldMap,
+						context: input.context,
+					}),
+				),
 			),
-		);
-	}
+		)
+		.with({ type: "arithmetic" }, (expr) => {
+			const leftType = inferViewExpressionType({
+				typeCache,
+				computedFieldMap,
+				context: input.context,
+				expression: expr.left,
+			});
+			const rightType = inferViewExpressionType({
+				typeCache,
+				computedFieldMap,
+				context: input.context,
+				expression: expr.right,
+			});
+			assertNumericExpression(leftType, "Arithmetic");
+			assertNumericExpression(rightType, "Arithmetic");
+			if (leftType.kind !== "property" || rightType.kind !== "property") {
+				throw new QueryEngineValidationError("Arithmetic requires numeric property expressions");
+			}
 
-	if (input.expression.type === "arithmetic") {
-		const leftType = inferViewExpressionType({
-			typeCache,
-			computedFieldMap,
-			context: input.context,
-			expression: input.expression.left,
-		});
-		const rightType = inferViewExpressionType({
-			typeCache,
-			computedFieldMap,
-			context: input.context,
-			expression: input.expression.right,
-		});
-		assertNumericExpression(leftType, "Arithmetic");
-		assertNumericExpression(rightType, "Arithmetic");
-		if (leftType.kind !== "property" || rightType.kind !== "property") {
-			throw new QueryEngineValidationError("Arithmetic requires numeric property expressions");
-		}
-
-		return input.expression.operator === "divide" ||
-			leftType.propertyType === "number" ||
-			rightType.propertyType === "number"
-			? createPropertyTypeInfo("number", {
-					label: "Value",
-					type: "number",
-					description: "Computed numeric value",
-				})
-			: createPropertyTypeInfo("integer", {
-					label: "Value",
-					type: "integer",
-					description: "Computed numeric value",
-				});
-	}
-
-	if (
-		input.expression.type === "round" ||
-		input.expression.type === "floor" ||
-		input.expression.type === "integer"
-	) {
-		const expressionType = inferViewExpressionType({
-			typeCache,
-			computedFieldMap,
-			context: input.context,
-			expression: input.expression.expression,
-		});
-		assertNumericExpression(expressionType, "Numeric normalization");
-		return createPropertyTypeInfo("integer", {
-			label: "Value",
-			type: "integer",
-			description: "Normalized integer value",
-		});
-	}
-
-	if (input.expression.type === "concat") {
-		for (const value of input.expression.values) {
-			assertConcatCompatibleExpression(
-				inferViewExpressionType({
-					typeCache,
-					computedFieldMap,
-					expression: value,
-					context: input.context,
-				}),
-			);
-		}
-
-		return createPropertyTypeInfo("string", {
-			label: "Value",
-			type: "string",
-			description: "Computed text value",
-		});
-	}
-
-	if (input.expression.type === "transform") {
-		const innerType = inferViewExpressionType({
-			typeCache,
-			computedFieldMap,
-			context: input.context,
-			expression: input.expression.expression,
-		});
-		assertConcatCompatibleExpression(innerType);
-		return createPropertyTypeInfo("string", {
-			label: "Value",
-			type: "string",
-			description: "Transformed text value",
-		});
-	}
-
-	if (input.expression.type === "conditional") {
-		const thenType = inferViewExpressionType({
-			typeCache,
-			computedFieldMap,
-			context: input.context,
-			expression: input.expression.whenTrue,
-		});
-		const elseType = inferViewExpressionType({
-			typeCache,
-			computedFieldMap,
-			context: input.context,
-			expression: input.expression.whenFalse,
-		});
-
-		return unifyTypeInfos([thenType, elseType]);
-	}
-
-	const reference = input.expression.reference;
-	if (reference.type === "computed-field") {
-		const cached = typeCache.get(reference.key);
-		if (cached) {
-			return cached;
-		}
-
-		const computedField = getComputedFieldOrThrow(computedFieldMap, reference.key);
-
-		const inferred = inferViewExpressionType({
-			typeCache,
-			computedFieldMap,
-			context: input.context,
-			expression: computedField.expression,
-		});
-		typeCache.set(reference.key, inferred);
-		return inferred;
-	}
-
-	if (reference.type === "entity") {
-		const schema = getSchemaForReference(input.context.schemaMap, reference);
-
-		if (reference.path[0] === "properties") {
-			const propertyPath = reference.path.slice(1);
-			const propertyDefinition = getPropertyDefinition(schema, propertyPath);
-			if (!propertyDefinition) {
-				throw new QueryEngineValidationError(
-					`Property '${propertyPath.join(".")}' not found in schema '${reference.slug}'`,
+			return expr.operator === "divide" ||
+				leftType.propertyType === "number" ||
+				rightType.propertyType === "number"
+				? createPropertyTypeInfo("number", {
+						label: "Value",
+						type: "number",
+						description: "Computed numeric value",
+					})
+				: createPropertyTypeInfo("integer", {
+						label: "Value",
+						type: "integer",
+						description: "Computed numeric value",
+					});
+		})
+		.with({ type: "round" }, { type: "floor" }, { type: "integer" }, (expr) => {
+			const expressionType = inferViewExpressionType({
+				typeCache,
+				computedFieldMap,
+				context: input.context,
+				expression: expr.expression,
+			});
+			assertNumericExpression(expressionType, "Numeric normalization");
+			return createPropertyTypeInfo("integer", {
+				label: "Value",
+				type: "integer",
+				description: "Normalized integer value",
+			});
+		})
+		.with({ type: "concat" }, (expr) => {
+			for (const value of expr.values) {
+				assertConcatCompatibleExpression(
+					inferViewExpressionType({
+						typeCache,
+						computedFieldMap,
+						expression: value,
+						context: input.context,
+					}),
 				);
 			}
 
-			return createPropertyTypeInfo(
-				normalizeExpressionPropertyType(propertyDefinition.type),
-				propertyDefinition,
-			);
-		}
+			return createPropertyTypeInfo("string", {
+				label: "Value",
+				type: "string",
+				description: "Computed text value",
+			});
+		})
+		.with({ type: "transform" }, (expr) => {
+			const innerType = inferViewExpressionType({
+				typeCache,
+				computedFieldMap,
+				context: input.context,
+				expression: expr.expression,
+			});
+			assertConcatCompatibleExpression(innerType);
+			return createPropertyTypeInfo("string", {
+				label: "Value",
+				type: "string",
+				description: "Transformed text value",
+			});
+		})
+		.with({ type: "conditional" }, (expr) => {
+			const thenType = inferViewExpressionType({
+				typeCache,
+				computedFieldMap,
+				context: input.context,
+				expression: expr.whenTrue,
+			});
+			const elseType = inferViewExpressionType({
+				typeCache,
+				computedFieldMap,
+				context: input.context,
+				expression: expr.whenFalse,
+			});
 
-		const [column] = reference.path;
-		if (!column) {
-			throw new QueryEngineValidationError("Entity reference path must not be empty");
-		}
-		assertBuiltinPathHasSingleSegment({ path: reference.path, label: "Entity column" });
-		if (column === "image") {
-			return { kind: "image" };
-		}
+			return unifyTypeInfos([thenType, elseType]);
+		})
+		.with({ type: "reference" }, (expr) => {
+			const { reference } = expr;
 
-		const propertyDefinition = getEntityColumnPropertyDefinition(column);
-		if (!propertyDefinition) {
-			throw new QueryEngineValidationError(
-				`Unsupported entity column 'entity.${reference.slug}.${column}'`,
-			);
-		}
+			return match(reference)
+				.with({ type: "computed-field" }, (ref) => {
+					const cached = typeCache.get(ref.key);
+					if (cached) {
+						return cached;
+					}
 
-		return createPropertyTypeInfo(
-			normalizeExpressionPropertyType(propertyDefinition.type),
-			propertyDefinition,
-		);
-	}
+					const computedField = getComputedFieldOrThrow(computedFieldMap, ref.key);
 
-	if (reference.type === "event-aggregate") {
-		const propertyType = reference.aggregation === "count" ? "integer" : "number";
-		return createPropertyTypeInfo(propertyType, {
-			type: propertyType,
-			label: "Event Aggregate",
-			description: "Aggregated event value",
-		});
-	}
+					const inferred = inferViewExpressionType({
+						typeCache,
+						computedFieldMap,
+						context: input.context,
+						expression: computedField.expression,
+					});
+					typeCache.set(ref.key, inferred);
+					return inferred;
+				})
+				.with({ type: "entity" }, (ref) => {
+					const schema = getSchemaForReference(input.context.schemaMap, ref);
 
-	if (reference.type === "entity-schema") {
-		const [column] = reference.path;
-		if (!column) {
-			throw new QueryEngineValidationError("Entity schema reference path must not be empty");
-		}
-		if (reference.path.length > 1) {
-			throw new QueryEngineValidationError(
-				`Entity schema column 'entity-schema.${reference.path.join(".")}' does not support nested paths`,
-			);
-		}
-		const propertyDefinition = getEntitySchemaColumnPropertyDefinition(column);
-		if (!propertyDefinition) {
-			throw new QueryEngineValidationError(
-				`Unsupported entity schema column 'entity-schema.${column}'`,
-			);
-		}
-		return createPropertyTypeInfo(
-			normalizeExpressionPropertyType(propertyDefinition.type),
-			propertyDefinition,
-		);
-	}
+					if (ref.path[0] === "properties") {
+						const propertyPath = ref.path.slice(1);
+						const propertyDefinition = getPropertyDefinition(schema, propertyPath);
+						if (!propertyDefinition) {
+							throw new QueryEngineValidationError(
+								`Property '${propertyPath.join(".")}' not found in schema '${ref.slug}'`,
+							);
+						}
 
-	if (reference.type === "event") {
-		// Built-in columns: id, createdAt, updatedAt
-		if (reference.path[0] !== "properties") {
-			const [column] = reference.path;
-			if (!column) {
-				throw new QueryEngineValidationError("Event reference path must not be empty");
-			}
-			assertBuiltinPathHasSingleSegment({ path: reference.path, label: "Event column" });
-			const propertyDefinition = getEventColumnPropertyDefinition(column);
-			if (!propertyDefinition) {
-				throw new QueryEngineValidationError(`Unsupported event column 'event.${column}'`);
-			}
-			return createPropertyTypeInfo(
-				normalizeExpressionPropertyType(propertyDefinition.type),
-				propertyDefinition,
-			);
-		}
+						return createPropertyTypeInfo(
+							normalizeExpressionPropertyType(propertyDefinition.type),
+							propertyDefinition,
+						);
+					}
 
-		// Property path — look up type from event schema map when eventSchemaSlug
-		// is provided. Fall back to string (JSONB text extraction) otherwise.
-		const { eventSchemaSlug, path } = reference;
-		const propertyPath = path.slice(1);
-		if (eventSchemaSlug && input.context.eventSchemaMap) {
-			const eventSchemas = input.context.eventSchemaMap.get(eventSchemaSlug);
-			if (eventSchemas?.length) {
-				const propertyDefinition = getUnifiedEventPropertyDefinition(eventSchemas, propertyPath);
-				if (propertyDefinition) {
+					const [column] = ref.path;
+					if (!column) {
+						throw new QueryEngineValidationError("Entity reference path must not be empty");
+					}
+					assertBuiltinPathHasSingleSegment({ path: ref.path, label: "Entity column" });
+					if (column === "image") {
+						return { kind: "image" } as ViewExpressionTypeInfo;
+					}
+
+					const propertyDefinition = getEntityColumnPropertyDefinition(column);
+					if (!propertyDefinition) {
+						throw new QueryEngineValidationError(
+							`Unsupported entity column 'entity.${ref.slug}.${column}'`,
+						);
+					}
+
 					return createPropertyTypeInfo(
 						normalizeExpressionPropertyType(propertyDefinition.type),
 						propertyDefinition,
 					);
-				}
-			}
-		}
-
-		return createPropertyTypeInfo("string", {
-			type: "string",
-			label: "Event Property",
-			description: "Event property value",
-		});
-	}
-
-	if (reference.type === "event-schema") {
-		const [column] = reference.path;
-		if (!column) {
-			throw new QueryEngineValidationError("Event schema reference path must not be empty");
-		}
-		if (reference.path.length > 1) {
-			throw new QueryEngineValidationError(
-				`Event schema column 'event-schema.${reference.path.join(".")}' does not support nested paths`,
-			);
-		}
-		const propertyDefinition = getEventSchemaColumnPropertyDefinition(column);
-		if (!propertyDefinition) {
-			throw new QueryEngineValidationError(
-				`Unsupported event schema column 'event-schema.${column}'`,
-			);
-		}
-		return createPropertyTypeInfo(
-			normalizeExpressionPropertyType(propertyDefinition.type),
-			propertyDefinition,
-		);
-	}
-
-	if (reference.type === "relationship-join") {
-		const join = getRelationshipJoinForReference(
-			input.context.relationshipJoinMap ?? new Map(),
-			reference,
-		);
-
-		const [pathRoot] = reference.path;
-
-		if (pathRoot === "sourceEntity" || pathRoot === "targetEntity") {
-			const [, column, ...rest] = reference.path;
-			if (!column) {
-				throw new QueryEngineValidationError(
-					`Related entity reference path must not be empty after '${pathRoot}'`,
-				);
-			}
-			if (column === "image") {
-				assertBuiltinPathHasSingleSegment({
-					label: "Related entity column",
-					path: reference.path.slice(1),
-				});
-				return { kind: "image" };
-			}
-			if (column === "properties") {
-				const propertyPath = rest;
-				if (!propertyPath.length) {
-					throw new QueryEngineValidationError(
-						`Related entity 'properties' reference requires at least one property segment`,
+				})
+				.with({ type: "event-aggregate" }, (ref) => {
+					const propertyType = ref.aggregation === "count" ? "integer" : "number";
+					return createPropertyTypeInfo(propertyType, {
+						type: propertyType,
+						label: "Event Aggregate",
+						description: "Aggregated event value",
+					});
+				})
+				.with({ type: "entity-schema" }, (ref) => {
+					const [column] = ref.path;
+					if (!column) {
+						throw new QueryEngineValidationError("Entity schema reference path must not be empty");
+					}
+					if (ref.path.length > 1) {
+						throw new QueryEngineValidationError(
+							`Entity schema column 'entity-schema.${ref.path.join(".")}' does not support nested paths`,
+						);
+					}
+					const propertyDefinition = getEntitySchemaColumnPropertyDefinition(column);
+					if (!propertyDefinition) {
+						throw new QueryEngineValidationError(
+							`Unsupported entity schema column 'entity-schema.${column}'`,
+						);
+					}
+					return createPropertyTypeInfo(
+						normalizeExpressionPropertyType(propertyDefinition.type),
+						propertyDefinition,
 					);
-				}
-				const entitySchema = getRelationshipJoinEntitySchema(join, pathRoot);
-				if (!entitySchema) {
-					const sideName = pathRoot === "sourceEntity" ? "source" : "target";
-					throw new QueryEngineValidationError(
-						`Related entity properties under '${pathRoot}.properties' require the ${sideName} entity schema to be defined on the relationship schema '${join.relationshipSchemaSlug}'`,
+				})
+				.with({ type: "event" }, (ref) => {
+					if (ref.path[0] !== "properties") {
+						const [column] = ref.path;
+						if (!column) {
+							throw new QueryEngineValidationError("Event reference path must not be empty");
+						}
+						assertBuiltinPathHasSingleSegment({ path: ref.path, label: "Event column" });
+						const propertyDefinition = getEventColumnPropertyDefinition(column);
+						if (!propertyDefinition) {
+							throw new QueryEngineValidationError(`Unsupported event column 'event.${column}'`);
+						}
+						return createPropertyTypeInfo(
+							normalizeExpressionPropertyType(propertyDefinition.type),
+							propertyDefinition,
+						);
+					}
+
+					const { eventSchemaSlug, path } = ref;
+					const propertyPath = path.slice(1);
+					if (eventSchemaSlug && input.context.eventSchemaMap) {
+						const eventSchemas = input.context.eventSchemaMap.get(eventSchemaSlug);
+						if (eventSchemas?.length) {
+							const propertyDefinition = getUnifiedEventPropertyDefinition(
+								eventSchemas,
+								propertyPath,
+							);
+							if (propertyDefinition) {
+								return createPropertyTypeInfo(
+									normalizeExpressionPropertyType(propertyDefinition.type),
+									propertyDefinition,
+								);
+							}
+						}
+					}
+
+					return createPropertyTypeInfo("string", {
+						type: "string",
+						label: "Event Property",
+						description: "Event property value",
+					});
+				})
+				.with({ type: "event-schema" }, (ref) => {
+					const [column] = ref.path;
+					if (!column) {
+						throw new QueryEngineValidationError("Event schema reference path must not be empty");
+					}
+					if (ref.path.length > 1) {
+						throw new QueryEngineValidationError(
+							`Event schema column 'event-schema.${ref.path.join(".")}' does not support nested paths`,
+						);
+					}
+					const propertyDefinition = getEventSchemaColumnPropertyDefinition(column);
+					if (!propertyDefinition) {
+						throw new QueryEngineValidationError(
+							`Unsupported event schema column 'event-schema.${column}'`,
+						);
+					}
+					return createPropertyTypeInfo(
+						normalizeExpressionPropertyType(propertyDefinition.type),
+						propertyDefinition,
 					);
-				}
-				const propertyDefinition = getPropertyDefinition(entitySchema, propertyPath);
-				if (!propertyDefinition) {
-					throw new QueryEngineValidationError(
-						`Property '${propertyPath.join(".")}' not found in ${pathRoot === "sourceEntity" ? "source" : "target"} entity schema '${entitySchema.slug}'`,
+				})
+				.with({ type: "relationship-join" }, (ref) => {
+					const join = getRelationshipJoinForReference(
+						input.context.relationshipJoinMap ?? new Map(),
+						ref,
 					);
-				}
-				return createPropertyTypeInfo(
-					normalizeExpressionPropertyType(propertyDefinition.type),
-					propertyDefinition,
-				);
-			}
-			const propertyDefinition = getEntityColumnPropertyDefinition(column);
-			if (!propertyDefinition) {
-				throw new QueryEngineValidationError(
-					`Unsupported related entity column '${pathRoot}.${column}'`,
-				);
-			}
-			assertBuiltinPathHasSingleSegment({
-				label: "Related entity column",
-				path: reference.path.slice(1),
-			});
-			return createPropertyTypeInfo(
-				normalizeExpressionPropertyType(propertyDefinition.type),
-				propertyDefinition,
-			);
-		}
 
-		if (pathRoot === "properties") {
-			const propertyPath = reference.path.slice(1);
-			const propertyDefinition = getRelationshipJoinPropertyDefinition(join, propertyPath);
+					const [pathRoot] = ref.path;
 
-			return createPropertyTypeInfo(
-				normalizeExpressionPropertyType(propertyDefinition.type),
-				propertyDefinition,
-			);
-		}
+					if (pathRoot === "sourceEntity" || pathRoot === "targetEntity") {
+						const [, column, ...rest] = ref.path;
+						if (!column) {
+							throw new QueryEngineValidationError(
+								`Related entity reference path must not be empty after '${pathRoot}'`,
+							);
+						}
+						if (column === "image") {
+							assertBuiltinPathHasSingleSegment({
+								label: "Related entity column",
+								path: ref.path.slice(1),
+							});
+							return { kind: "image" } as ViewExpressionTypeInfo;
+						}
+						if (column === "properties") {
+							const propertyPath = rest;
+							if (!propertyPath.length) {
+								throw new QueryEngineValidationError(
+									`Related entity 'properties' reference requires at least one property segment`,
+								);
+							}
+							const entitySchema = getRelationshipJoinEntitySchema(join, pathRoot);
+							if (!entitySchema) {
+								const sideName = pathRoot === "sourceEntity" ? "source" : "target";
+								throw new QueryEngineValidationError(
+									`Related entity properties under '${pathRoot}.properties' require the ${sideName} entity schema to be defined on the relationship schema '${join.relationshipSchemaSlug}'`,
+								);
+							}
+							const propertyDefinition = getPropertyDefinition(entitySchema, propertyPath);
+							if (!propertyDefinition) {
+								throw new QueryEngineValidationError(
+									`Property '${propertyPath.join(".")}' not found in ${pathRoot === "sourceEntity" ? "source" : "target"} entity schema '${entitySchema.slug}'`,
+								);
+							}
+							return createPropertyTypeInfo(
+								normalizeExpressionPropertyType(propertyDefinition.type),
+								propertyDefinition,
+							);
+						}
+						const propertyDefinition = getEntityColumnPropertyDefinition(column);
+						if (!propertyDefinition) {
+							throw new QueryEngineValidationError(
+								`Unsupported related entity column '${pathRoot}.${column}'`,
+							);
+						}
+						assertBuiltinPathHasSingleSegment({
+							label: "Related entity column",
+							path: ref.path.slice(1),
+						});
+						return createPropertyTypeInfo(
+							normalizeExpressionPropertyType(propertyDefinition.type),
+							propertyDefinition,
+						);
+					}
 
-		const [column] = reference.path;
-		if (!column) {
-			throw new QueryEngineValidationError("Relationship join reference path must not be empty");
-		}
-		assertBuiltinPathHasSingleSegment({ path: reference.path, label: "Relationship join column" });
-		const propertyDefinition = getRelationshipJoinColumnPropertyDefinition(column);
-		if (!propertyDefinition) {
-			throw new QueryEngineValidationError(
-				`Unsupported relationship join column 'relationship.${reference.joinKey}.${column}'`,
-			);
-		}
+					if (pathRoot === "properties") {
+						const propertyPath = ref.path.slice(1);
+						const propertyDefinition = getRelationshipJoinPropertyDefinition(join, propertyPath);
 
-		return createPropertyTypeInfo(
-			normalizeExpressionPropertyType(propertyDefinition.type),
-			propertyDefinition,
-		);
-	}
+						return createPropertyTypeInfo(
+							normalizeExpressionPropertyType(propertyDefinition.type),
+							propertyDefinition,
+						);
+					}
 
-	const join = getEventJoinForReference(input.context.eventJoinMap, reference);
+					const [column] = ref.path;
+					if (!column) {
+						throw new QueryEngineValidationError(
+							"Relationship join reference path must not be empty",
+						);
+					}
+					assertBuiltinPathHasSingleSegment({
+						path: ref.path,
+						label: "Relationship join column",
+					});
+					const propertyDefinition = getRelationshipJoinColumnPropertyDefinition(column);
+					if (!propertyDefinition) {
+						throw new QueryEngineValidationError(
+							`Unsupported relationship join column 'relationship.${ref.joinKey}.${column}'`,
+						);
+					}
 
-	if (reference.path[0] === "properties") {
-		const propertyPath = reference.path.slice(1);
-		const propertyDefinition = getEventJoinPropertyDefinition(join, propertyPath);
+					return createPropertyTypeInfo(
+						normalizeExpressionPropertyType(propertyDefinition.type),
+						propertyDefinition,
+					);
+				})
+				.with({ type: "event-join" }, (ref) => {
+					const join = getEventJoinForReference(input.context.eventJoinMap, ref);
 
-		return createPropertyTypeInfo(
-			normalizeExpressionPropertyType(propertyDefinition.type),
-			propertyDefinition,
-		);
-	}
+					if (ref.path[0] === "properties") {
+						const propertyPath = ref.path.slice(1);
+						const propertyDefinition = getEventJoinPropertyDefinition(join, propertyPath);
 
-	const [column] = reference.path;
-	if (!column) {
-		throw new QueryEngineValidationError("Event join reference path must not be empty");
-	}
-	assertBuiltinPathHasSingleSegment({ path: reference.path, label: "Event join column" });
-	const propertyDefinition = getEventJoinColumnPropertyDefinition(column);
-	if (!propertyDefinition) {
-		throw new QueryEngineValidationError(
-			`Unsupported event join column 'event.${reference.joinKey}.${column}'`,
-		);
-	}
+						return createPropertyTypeInfo(
+							normalizeExpressionPropertyType(propertyDefinition.type),
+							propertyDefinition,
+						);
+					}
 
-	return createPropertyTypeInfo(
-		normalizeExpressionPropertyType(propertyDefinition.type),
-		propertyDefinition,
-	);
+					const [column] = ref.path;
+					if (!column) {
+						throw new QueryEngineValidationError("Event join reference path must not be empty");
+					}
+					assertBuiltinPathHasSingleSegment({ path: ref.path, label: "Event join column" });
+					const propertyDefinition = getEventJoinColumnPropertyDefinition(column);
+					if (!propertyDefinition) {
+						throw new QueryEngineValidationError(
+							`Unsupported event join column 'event.${ref.joinKey}.${column}'`,
+						);
+					}
+
+					return createPropertyTypeInfo(
+						normalizeExpressionPropertyType(propertyDefinition.type),
+						propertyDefinition,
+					);
+				})
+				.exhaustive();
+		})
+		.exhaustive();
 };
 
 export const assertFilterCompatibleExpression = (
