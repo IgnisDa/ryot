@@ -1,6 +1,7 @@
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "@effect/platform";
 import { isHttpMethod } from "@effect/platform/HttpMethod";
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
+import { generateId } from "better-auth";
 import { and, eq, isNull, or } from "drizzle-orm";
 import { Clock, Duration, Effect, Match, Runtime, Schema } from "effect";
 
@@ -155,7 +156,7 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 					const worker = yield* pool.get;
 					yield* worker.responseQueue.takeAll.pipe(Effect.asVoid);
 
-					const token = crypto.randomUUID();
+					const token = generateId();
 					const now = yield* Clock.currentTimeMillis;
 					yield* bridge.addSession(input.executionId, {
 						token,
