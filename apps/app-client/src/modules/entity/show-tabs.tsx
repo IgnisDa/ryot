@@ -11,7 +11,6 @@ const SHOW_TABS: readonly ShowTab[] = [
 	{ key: "overview", label: "Overview" },
 	{ key: "episodes", label: "Episodes" },
 	{ key: "activity", label: "Activity", todo: "TODO: open activity tab" },
-	{ key: "related", label: "Related", todo: "TODO: open related tab" },
 ];
 
 export function ShowTabBar(props: {
