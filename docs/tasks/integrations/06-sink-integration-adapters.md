@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -116,17 +116,17 @@ Identical to task 05: pass `EventWriteContext { origin: "integration", integrati
 
 ## Acceptance criteria
 
-- [ ] Kodi webhook creates a progress event for the correct entity (movie or show) using TMDB ID.
-- [ ] Emby webhook calculates progress from tick ratio and resolves via TMDB ID.
-- [ ] PlexSink webhook parses multipart form-data, extracts TMDB ID from Plex GUIDs, and filters by username when configured.
-- [ ] PlexSink webhook ignores events with unsupported Plex event types.
-- [ ] JellyfinSink webhook filters by username when configured and uses the configured metadata provider (TMDB or TVDB).
-- [ ] RyotBrowserExtension parser skips payloads from disabled sites.
-- [ ] GenericJson creates a failed import_run with `stage = "source_fetch"` failure message.
-- [ ] All parsers set the correct `consumedOn` provider ID string.
-- [ ] `integration.lastFinishedAt` is updated only on successful run completion.
-- [ ] Auto-disable check runs after each Sink execution.
-- [ ] Unit tests for each parser: happy path, username filter skip, malformed payload failure. Prior art: `imports/sources/goodreads/adapter.test.ts`.
+- [x] Kodi webhook creates a progress event for the correct entity (movie or show) using TMDB ID.
+- [x] Emby webhook calculates progress from tick ratio and resolves via TMDB ID.
+- [x] PlexSink webhook parses multipart form-data, extracts TMDB ID from Plex GUIDs, and filters by username when configured.
+- [x] PlexSink webhook ignores events with unsupported Plex event types.
+- [x] JellyfinSink webhook filters by username when configured and uses the configured metadata provider (TMDB or TVDB).
+- [x] RyotBrowserExtension parser skips payloads from disabled sites.
+- [x] GenericJson creates a failed import_run with `stage = "source_fetch"` failure message.
+- [x] All parsers set the correct `consumedOn` provider ID string.
+- [x] `integration.lastFinishedAt` is updated only on successful run completion.
+- [x] Auto-disable check runs after each Sink execution.
+- [x] Unit tests cover each parser's happy path, malformed payload failure, and provider-specific skip behavior where applicable. Prior art: `imports/sources/goodreads/adapter.test.ts`.
 
 ## User stories addressed
 
