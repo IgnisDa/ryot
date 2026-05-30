@@ -132,7 +132,9 @@ describe("plugin runtime", () => {
 
 	it("sends navigation through the client adapter after activation", async () => {
 		const { channel, messages, runtime } = openRuntime();
-		runtime.client.navigation.push({ path: "/early" });
+		expect(() => runtime.client.navigation.push({ path: "/early" })).toThrow(
+			new RyotClientError("transport"),
+		);
 		expect(messages).not.toContainEqual(expect.objectContaining({ type: "navigate" }));
 		activate(channel);
 		await delay();
@@ -168,7 +170,9 @@ describe("plugin runtime", () => {
 
 		runtime.dispose();
 		runtime.dispose();
-		runtime.client.navigation.push({ path: "/late" });
+		expect(() => runtime.client.navigation.push({ path: "/late" })).toThrow(
+			new RyotClientError("disposed"),
+		);
 		await expect(query).rejects.toMatchObject({ reason: "disposed" });
 		await expect(operation).rejects.toMatchObject({ reason: "disposed" });
 		await expect(
@@ -236,7 +240,9 @@ describe("plugin runtime", () => {
 		await expect(
 			runtime.client.operations.invoke({ input: {}, slug: "late", output: Schema.Unknown }),
 		).rejects.toMatchObject({ reason: "protocol" });
-		runtime.client.navigation.push({ path: "/late" });
+		expect(() => runtime.client.navigation.push({ path: "/late" })).toThrow(
+			new RyotClientError("protocol"),
+		);
 		await delay();
 
 		expect(
@@ -343,10 +349,12 @@ describe("plugin runtime", () => {
 		channel.port1.postMessage({
 			outcome: "success",
 			type: "ryotql-result",
-			requestId: "ryotql-1",
 			response: { data: {} },
+			requestId: "ryotql-1",
 		});
-		runtime.client.navigation.push({ path: "/late" });
+		expect(() => runtime.client.navigation.push({ path: "/late" })).toThrow(
+			new RyotClientError("protocol"),
+		);
 		await delay();
 		expect(messages).not.toContainEqual(expect.objectContaining({ type: "navigate" }));
 	});
@@ -409,6 +417,22 @@ describe("plugin runtime", () => {
 		await expect(
 			runtime.client.operations.invoke({ input: {}, slug: "late", output: Schema.Unknown }),
 		).rejects.toMatchObject({ reason: "transport" });
+	});
+
+	it("throws a transport error when navigation cannot be posted", async () => {
+		const { channel, runtime } = openRuntime();
+		activate(channel);
+		await delay();
+		channel.port2.postMessage = () => {
+			throw new Error("channel closed");
+		};
+
+		expect(() => runtime.client.navigation.push({ path: "/items" })).toThrow(
+			new RyotClientError("transport"),
+		);
+		expect(() => runtime.client.navigation.push({ path: "/late" })).toThrow(
+			new RyotClientError("transport"),
+		);
 	});
 
 	it("applies the initial theme before acknowledging it and gates activation on both inputs", async () => {
