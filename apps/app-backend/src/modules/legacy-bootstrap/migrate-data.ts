@@ -63,18 +63,31 @@ BEGIN
 
 	RAISE NOTICE 'old_user -> user: migration started (% seconds elapsed)', 0.0;
 
-	WITH legacy_users AS (
+	WITH classified_users AS (
 		SELECT
 			old_user.id,
 			old_user.name,
 			old_user.preferences,
 			old_user.created_on,
 			old_user.last_login_on,
-			nullif(regexp_replace(lower(old_user.name), '[^a-z0-9._%+-]+', '', 'g'), '') AS email_local_part,
-			count(*) OVER (
-				PARTITION BY nullif(regexp_replace(lower(old_user.name), '[^a-z0-9._%+-]+', '', 'g'), '')
-			) AS email_local_part_count
+			CASE
+				WHEN lower(old_user.name) ~ '^[a-z0-9._%+-]+@[a-z0-9.-]+.[a-z]{2,}$'
+				THEN lower(old_user.name)
+				ELSE NULL
+			END AS real_email,
+			CASE
+				WHEN lower(old_user.name) ~ '^[a-z0-9._%+-]+@[a-z0-9.-]+.[a-z]{2,}$'
+				THEN NULL
+				ELSE nullif(regexp_replace(lower(old_user.name), '[^a-z0-9._%+-]+', '', 'g'), '')
+			END AS synthetic_local_part
 		FROM old_user
+	),
+	legacy_users AS (
+		SELECT
+			*,
+			count(*) OVER (PARTITION BY COALESCE(real_email, id)) AS real_email_count,
+			count(*) OVER (PARTITION BY COALESCE(synthetic_local_part, id)) AS synthetic_local_part_count
+		FROM classified_users
 	)
 	INSERT INTO "user" (
 		"id",
@@ -89,10 +102,14 @@ BEGIN
 		legacy_users.id,
 		legacy_users.name,
 		CASE
-			WHEN legacy_users.email_local_part_count > 1 AND legacy_users.email_local_part IS NOT NULL THEN
-				legacy_users.email_local_part || '+' || legacy_users.id || '@ryot.local'
+			WHEN legacy_users.real_email IS NOT NULL AND legacy_users.real_email_count = 1 THEN
+				legacy_users.real_email
+			WHEN legacy_users.real_email IS NOT NULL AND legacy_users.real_email_count > 1 THEN
+				split_part(legacy_users.real_email, '@', 1) || '+' || legacy_users.id || '@' || split_part(legacy_users.real_email, '@', 2)
+			WHEN legacy_users.synthetic_local_part IS NOT NULL AND legacy_users.synthetic_local_part_count > 1 THEN
+				legacy_users.synthetic_local_part || '+' || legacy_users.id || '@ryot.local'
 			ELSE
-				COALESCE(legacy_users.email_local_part, legacy_users.id) || '@ryot.local'
+				COALESCE(legacy_users.synthetic_local_part, legacy_users.id) || '@ryot.local'
 		END,
 		jsonb_build_object(
 			'isNsfw', COALESCE((legacy_users.preferences -> 'general' ->> 'display_nsfw')::boolean, false),
