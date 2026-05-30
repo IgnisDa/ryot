@@ -66,7 +66,7 @@ describe("Query engine E2E", () => {
 			name: `Library Query Entity ${crypto.randomUUID()}`,
 			externalId: `library-query-entity-${crypto.randomUUID()}`,
 		});
-		await insertLibraryMembership({ mediaEntityId: entity.id, userId });
+		await insertLibraryMembership(client, { mediaEntityId: entity.id, userId });
 
 		const { data } = await executeQueryEngine(
 			client,
@@ -118,11 +118,11 @@ describe("Query engine E2E", () => {
 				productionStatus: "Ended",
 			},
 		});
-		await insertLibraryMembership({
+		await insertLibraryMembership(userA.client, {
 			userId: userA.userId,
 			mediaEntityId: entity.id,
 		});
-		await insertLibraryMembership({
+		await insertLibraryMembership(userB.client, {
 			userId: userB.userId,
 			mediaEntityId: entity.id,
 		});
@@ -205,7 +205,7 @@ describe("Query engine E2E", () => {
 			name: `Isolated Library Entity ${crypto.randomUUID()}`,
 			externalId: `isolated-library-entity-${crypto.randomUUID()}`,
 		});
-		await insertLibraryMembership({
+		await insertLibraryMembership(userA.client, {
 			userId: userA.userId,
 			mediaEntityId: entity.id,
 		});
@@ -238,7 +238,7 @@ describe("Query engine E2E", () => {
 			name: `Multi Relationship Entity ${crypto.randomUUID()}`,
 			externalId: `multi-relationship-entity-${crypto.randomUUID()}`,
 		});
-		await insertLibraryMembership({ mediaEntityId: entity.id, userId });
+		await insertLibraryMembership(client, { mediaEntityId: entity.id, userId });
 
 		const collection = await createCollection(client, {
 			name: `Query Engine Multi Match ${crypto.randomUUID()}`,
@@ -316,7 +316,7 @@ describe("Query engine E2E", () => {
 	});
 
 	it("optional join produces null values without excluding the entity", async () => {
-		const { client, userId } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 		const { trackerId } = await createTracker(client, { name: "Optional Join Tracker" });
 		const schema = await createEntitySchema(client, {
 			trackerId,
@@ -332,8 +332,7 @@ describe("Query engine E2E", () => {
 			entitySchemaId: schema.schemaId,
 			name: `Optional Join Entity ${crypto.randomUUID()}`,
 		});
-		const relSchema = await createRelationshipSchema({
-			userId,
+		const relSchema = await createRelationshipSchema(client, {
 			name: "Optional Rel",
 			propertiesSchema: { fields: {} },
 			slug: `optional-rel-${crypto.randomUUID()}`,
@@ -377,8 +376,7 @@ describe("Query engine E2E", () => {
 				fields: { title: { type: "string", label: "Title", description: "Title" } },
 			},
 		});
-		const relSchema = await createRelationshipSchema({
-			userId,
+		const relSchema = await createRelationshipSchema(client, {
 			name: "Required Rel",
 			propertiesSchema: { fields: {} },
 			slug: `required-rel-${crypto.randomUUID()}`,
@@ -460,7 +458,7 @@ describe("Query engine E2E", () => {
 			externalId: `rel-createdat-${crypto.randomUUID()}`,
 			name: `Rel CreatedAt Entity ${crypto.randomUUID()}`,
 		});
-		await insertLibraryMembership({ userId, mediaEntityId: entity.id });
+		await insertLibraryMembership(client, { userId, mediaEntityId: entity.id });
 
 		const { data } = await executeQueryEngine(client, {
 			eventJoins: [],
@@ -500,8 +498,7 @@ describe("Query engine E2E", () => {
 				fields: { title: { type: "string", label: "Title", description: "Title" } },
 			},
 		});
-		const relSchema = await createRelationshipSchema({
-			userId,
+		const relSchema = await createRelationshipSchema(client, {
 			name: "Rating Rel",
 			slug: `rating-rel-${crypto.randomUUID()}`,
 			propertiesSchema: {
@@ -580,8 +577,7 @@ describe("Query engine E2E", () => {
 				fields: { title: { type: "string", label: "Title", description: "Title" } },
 			},
 		});
-		const relSchema = await createRelationshipSchema({
-			userId,
+		const relSchema = await createRelationshipSchema(client, {
 			name: "Sort Rating Rel",
 			slug: `sort-rating-rel-${crypto.randomUUID()}`,
 			propertiesSchema: {
@@ -692,8 +688,7 @@ describe("Query engine E2E", () => {
 				fields: { title: { type: "string", label: "Title", description: "Title" } },
 			},
 		});
-		const relSchema = await createRelationshipSchema({
-			userId,
+		const relSchema = await createRelationshipSchema(client, {
 			name: "Filter Rating Rel",
 			slug: `filter-rating-rel-${crypto.randomUUID()}`,
 			propertiesSchema: {
@@ -837,8 +832,7 @@ describe("Query engine E2E", () => {
 				fields: { title: { type: "string", label: "Title", description: "Title" } },
 			},
 		});
-		const relSchema = await createRelationshipSchema({
-			userId,
+		const relSchema = await createRelationshipSchema(client, {
 			name: "Roles Rel",
 			slug: `roles-rel-${crypto.randomUUID()}`,
 			propertiesSchema: {
@@ -961,8 +955,7 @@ describe("Query engine E2E", () => {
 				fields: { title: { type: "string", label: "Title", description: "Title" } },
 			},
 		});
-		const relSchema = await createRelationshipSchema({
-			userId,
+		const relSchema = await createRelationshipSchema(client, {
 			name: "Local Filter Rel",
 			slug: `local-filter-rel-${crypto.randomUUID()}`,
 			propertiesSchema: {
@@ -1071,8 +1064,7 @@ describe("Query engine E2E", () => {
 				fields: { title: { type: "string", label: "Title", description: "Title" } },
 			},
 		});
-		const relSchema = await createRelationshipSchema({
-			userId,
+		const relSchema = await createRelationshipSchema(client, {
 			name: "Source Id Rel",
 			propertiesSchema: { fields: {} },
 			slug: `source-id-rel-${crypto.randomUUID()}`,
@@ -1164,8 +1156,7 @@ describe("Query engine E2E", () => {
 				fields: { title: { type: "string", label: "Title", description: "Title" } },
 			},
 		});
-		const relSchema = await createRelationshipSchema({
-			userId,
+		const relSchema = await createRelationshipSchema(client, {
 			name: "Target Id Rel",
 			propertiesSchema: { fields: {} },
 			slug: `target-id-rel-${crypto.randomUUID()}`,
@@ -1517,7 +1508,7 @@ describe("Query engine E2E", () => {
 	});
 
 	it("rejects join-local filter referencing a computed field", async () => {
-		const { client, userId } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 		const { trackerId } = await createTracker(client, {
 			name: "Local Filter Computed Rejection Tracker",
 		});
@@ -1528,8 +1519,7 @@ describe("Query engine E2E", () => {
 				fields: { title: { type: "string", label: "Title", description: "Title" } },
 			},
 		});
-		const relSchema = await createRelationshipSchema({
-			userId,
+		const relSchema = await createRelationshipSchema(client, {
 			name: "Computed Filter Rel",
 			propertiesSchema: { fields: {} },
 			slug: `computed-filter-rel-${crypto.randomUUID()}`,
@@ -3080,7 +3070,7 @@ describe("Query engine E2E", () => {
 			externalId,
 			name: `External ID Entity ${crypto.randomUUID()}`,
 		});
-		await insertLibraryMembership({ mediaEntityId: entity.id, userId });
+		await insertLibraryMembership(client, { mediaEntityId: entity.id, userId });
 		const sandboxScriptId = entity.sandboxScriptId;
 
 		const { data } = await executeQueryEngine(
@@ -3183,7 +3173,7 @@ describe("Query engine E2E", () => {
 			client,
 			{ externalId, name: `Cross Schema Global ${crypto.randomUUID()}` },
 		);
-		await insertLibraryMembership({ userId, mediaEntityId: globalEntity.id });
+		await insertLibraryMembership(client, { userId, mediaEntityId: globalEntity.id });
 
 		const { trackerId } = await createTracker(client, {
 			name: "Cross Schema Tracker",
