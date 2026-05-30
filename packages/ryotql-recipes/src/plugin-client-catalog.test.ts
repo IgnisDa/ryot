@@ -56,20 +56,18 @@ describe("plugin client catalog recipe", () => {
 		});
 	});
 
-	it("rejects a client API version other than the exact supported literal", () => {
-		expect(
-			Result.isFailure(
-				pluginClientCatalogRecipe().decode({
-					data: {
-						installations: rowsResult([{ ...entry, clientApiVersion: 2 }], {
-							limit: 100,
-							hasMore: false,
-							nextCursor: null,
-						}),
-					},
+	it("retains an unsupported numeric client API version for client-side validation", () => {
+		const decoded = pluginClientCatalogRecipe().decode({
+			data: {
+				installations: rowsResult([{ ...entry, clientApiVersion: 2 }], {
+					limit: 100,
+					hasMore: false,
+					nextCursor: null,
 				}),
-			),
-		).toBe(true);
+			},
+		});
+
+		expect(Result.getOrThrow(decoded).items[0]?.clientApiVersion).toBe(2);
 	});
 
 	it("rejects an unknown installation health", () => {
