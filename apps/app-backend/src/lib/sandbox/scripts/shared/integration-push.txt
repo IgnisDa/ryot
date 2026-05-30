@@ -1,0 +1,75 @@
+function getApiResponseData(result) {
+  const body = result && result.data && result.data.body;
+  return body && body.data;
+}
+
+function parseJsonBody(result) {
+  const body = result && result.data && result.data.body;
+  if (typeof body !== "string" || !body.trim()) return null;
+  try {
+    return JSON.parse(body);
+  } catch {
+    return null;
+  }
+}
+
+function normalizeBaseUrl(value) {
+  return typeof value === "string" ? value.trim().replace(/\/+$/, "") : "";
+}
+
+async function integrationsDisabledForUser() {
+  const prefsResult = await getUserPreferences();
+  return Boolean(
+    prefsResult &&
+      prefsResult.success &&
+      prefsResult.data &&
+      prefsResult.data.disableIntegrations === true,
+  );
+}
+
+async function listActiveIntegrations(provider) {
+  const result = await appApiCall(
+    "GET",
+    "/api/integrations?provider=" + encodeURIComponent(provider) + "&isDisabled=false",
+  );
+  if (!result.success) return [];
+  const integrations = getApiResponseData(result);
+  return Array.isArray(integrations) ? integrations : [];
+}
+
+async function fetchEntity(entityId) {
+  if (typeof entityId !== "string" || !entityId) return null;
+  const result = await appApiCall("GET", "/api/entities/" + encodeURIComponent(entityId));
+  if (!result.success) return null;
+  return getApiResponseData(result) || null;
+}
+
+async function resolveEntityProviderName(entity) {
+  if (
+    !entity ||
+    typeof entity.entitySchemaId !== "string" ||
+    typeof entity.sandboxScriptId !== "string"
+  ) {
+    return null;
+  }
+
+  const schemaResult = await appApiCall(
+    "GET",
+    "/api/entity-schemas/" + encodeURIComponent(entity.entitySchemaId),
+  );
+  if (!schemaResult.success) return null;
+
+  const schema = getApiResponseData(schemaResult);
+  const providers = schema && Array.isArray(schema.providers) ? schema.providers : [];
+  const matched = providers.find(function (provider) {
+    return provider && provider.scriptId === entity.sandboxScriptId;
+  });
+  return matched ? matched.name : null;
+}
+
+function collectionSyncMatches(integration, collectionId) {
+  const specifics = integration && integration.providerSpecifics;
+  const ids =
+    specifics && Array.isArray(specifics.syncCollectionIds) ? specifics.syncCollectionIds : [];
+  return ids.indexOf(collectionId) !== -1;
+}
