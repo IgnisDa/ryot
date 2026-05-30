@@ -71,4 +71,24 @@ describe("QueryEngineRequest", () => {
 			),
 		).toBe(true);
 	});
+
+	it("rejects timeSeries mode when startAt is not before endAt", () => {
+		expect(
+			Either.isLeft(
+				decodeQueryEngineRequest({
+					filter: null,
+					bucket: "day",
+					scope: ["books"],
+					mode: "timeSeries",
+					computedFields: [],
+					metric: { type: "count" },
+					eventSchemas: ["review"],
+					dateRange: {
+						endAt: "2026-01-01T00:00:00.000Z",
+						startAt: "2026-01-01T00:00:00.000Z",
+					},
+				}),
+			),
+		).toBe(true);
+	});
 });
