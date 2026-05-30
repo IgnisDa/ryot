@@ -1,7 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
 import { ImportRunId, IntegrationId } from "@ryot/app-backend/schema/brands";
-import type { QueryResultRow } from "pg";
 
 import {
 	createAudiobookshelfIntegration,
@@ -15,17 +14,13 @@ import {
 	postIntegrationWebhook,
 	postWebhook,
 	pollImportRunUntilTerminal,
+	seedGlobalShowEpisodeTree,
 	waitForEventSlugs,
 } from "../fixtures";
 import { getPgClient } from "../setup";
 import { assertTaggedError, requirePresent } from "../test-support/assertions";
 
 const kodiPayload = { identifier: "tt1234567", lot: "movie", progress: 50 };
-
-async function querySingle<T extends QueryResultRow>(sql: string, params: unknown[]): Promise<T> {
-	const result = await getPgClient().query<T>(sql, params);
-	return requirePresent(result.rows[0], `No row returned for: ${sql}`);
-}
 
 describe("Integration CRUD", () => {
 	it("creates with correct defaults", async () => {
@@ -227,69 +222,9 @@ describe("Webhook routes", () => {
 		const { client } = await createAuthenticatedClient();
 		const { id } = await createKodiIntegration(client);
 
-		const show = await querySingle<{ schemaId: string; scriptId: string }>(
-			`select ess.entity_schema_id as "schemaId", ess.sandbox_script_id as "scriptId"
-			 from sandbox_script ss
-			 join entity_schema_script ess on ess.sandbox_script_id = ss.id
-			 where ss.slug = 'show.tmdb' and ss.user_id is null
-			 order by ss.created_at desc limit 1`,
-			[],
-		);
-		const seasonSchema = await querySingle<{ id: string }>(
-			`select id from entity_schema where slug = 'show-season' and user_id is null limit 1`,
-			[],
-		);
-		const episodeSchema = await querySingle<{ id: string }>(
-			`select id from entity_schema where slug = 'show-episode' and user_id is null limit 1`,
-			[],
-		);
-		const showToSeason = await querySingle<{ id: string }>(
-			`select id from relationship_schema where slug = 'show-to-show-season' and user_id is null limit 1`,
-			[],
-		);
-		const seasonToEpisode = await querySingle<{ id: string }>(
-			`select id from relationship_schema where slug = 'show-season-to-show-episode' and user_id is null limit 1`,
-			[],
-		);
-
-		const pg = getPgClient();
-		const tmdbId = String(Math.floor(Math.random() * 1_000_000_000));
-		const showId = crypto.randomUUID();
-		const seasonId = crypto.randomUUID();
-		const episodeId = crypto.randomUUID();
-		await pg.query(
-			`insert into entity (id, name, external_id, entity_schema_id, sandbox_script_id, user_id, populated_at, properties)
-			 values
-			 ($1,'Live Sink Test Show',$2,$3,$4,null,now(),'{"totalSeasons":1,"totalEpisodes":1}'::jsonb),
-			 ($5,'Season 1',$6,$7,$4,null,now(),'{"seasonNumber":1}'::jsonb),
-			 ($8,'Episode 2',$9,$10,$4,null,now(),'{"seasonNumber":1,"episodeNumber":2}'::jsonb)`,
-			[
-				showId,
-				tmdbId,
-				show.schemaId,
-				show.scriptId,
-				seasonId,
-				`season-${tmdbId}`,
-				seasonSchema.id,
-				episodeId,
-				`episode-${tmdbId}`,
-				episodeSchema.id,
-			],
-		);
-		await pg.query(
-			`insert into relationship (id, source_entity_id, target_entity_id, relationship_schema_id, user_id)
-			 values ($1,$2,$3,$4,null), ($5,$6,$7,$8,null)`,
-			[
-				crypto.randomUUID(),
-				showId,
-				seasonId,
-				showToSeason.id,
-				crypto.randomUUID(),
-				seasonId,
-				episodeId,
-				seasonToEpisode.id,
-			],
-		);
+		const { tmdbId, showId, episodeId } = await seedGlobalShowEpisodeTree(client, {
+			showName: "Live Sink Test Show",
+		});
 
 		const { response, data } = await postWebhook(id, {
 			lot: "show",
@@ -306,8 +241,8 @@ describe("Webhook routes", () => {
 		expect(completedRun.status).toBe("completed");
 		expect(completedRun.failedItems).toBe(0);
 
-		const episodeEvents = await waitForEventSlugs(episodeId, "progress");
-		const showEvents = await listEventSlugs(showId);
+		const episodeEvents = await waitForEventSlugs(client, episodeId, "progress");
+		const showEvents = await listEventSlugs(client, showId);
 		expect(showEvents).not.toContain("progress");
 		expect(episodeEvents).toContain("progress");
 	}, 60_000);

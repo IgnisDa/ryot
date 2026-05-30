@@ -1,7 +1,6 @@
 import { EntityId, EntitySchemaId, EventSchemaId } from "@ryot/app-backend/schema/brands";
 
 import { getPgClient } from "../setup";
-import { assertPresent } from "../test-support/assertions";
 import { createAuthenticatedClient, type Client } from "./auth";
 import { createEntity } from "./entities";
 import { createEntitySchema } from "./entity-schemas";
@@ -89,16 +88,6 @@ export async function createQueryEngineEvent(
 
 	return result;
 }
-
-export const getBuiltinEntitySchemaId = async (slug: string) => {
-	const result = await getPgClient().query<{ id: string }>(
-		`select id from entity_schema where slug = $1 and user_id is null and is_builtin = true limit 1`,
-		[slug],
-	);
-	const row = result.rows[0];
-	assertPresent(row, `Expected builtin entity schema '${slug}'`);
-	return row.id;
-};
 
 export const insertGlobalRelationship = async (input: {
 	sourceEntityId: string;

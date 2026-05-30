@@ -1,9 +1,14 @@
 import { EntityId, RelationshipSchemaId } from "@ryot/app-backend/schema/brands";
 
 import { getPgClient } from "../setup";
-import { requirePresent } from "../test-support/assertions";
+import { assertPresent, requirePresent } from "../test-support/assertions";
 import type { Client } from "./auth";
-import { findBuiltinSchemaWithProviders, getFirstProviderScriptId } from "./entity-schemas";
+import {
+	findBuiltinSchemaBySlug,
+	findBuiltinSchemaWithProviders,
+	getBuiltinEntitySchemaId,
+	getFirstProviderScriptId,
+} from "./entity-schemas";
 import { pollUntil, type PollOptions } from "./polling";
 import { listRelationshipSchemas, requireRelationshipSchemaBySlug } from "./relationship-schemas";
 import { createRelationship } from "./relationships";
@@ -214,6 +219,73 @@ export async function createGlobalBookEntityFixture(
 		name: options.name ?? `Global Built-in Book ${crypto.randomUUID()}`,
 	});
 	return { entity, schema };
+}
+
+// Seeds a global (provider-owned) show → season → episode tree so import/webhook
+// flows can resolve an episode positionally without any external provider calls.
+// The show/season/episode schemas and TMDB script come from the API; only the
+// global entity/relationship rows (which no API can create) are inserted directly.
+export async function seedGlobalShowEpisodeTree(client: Client, options: { showName: string }) {
+	const { schema: showSchema } = await findBuiltinSchemaBySlug(client, "show");
+	const tmdbProvider = showSchema.providers.find((provider) => provider.name === "TMDB");
+	assertPresent(tmdbProvider, "Missing TMDB provider for built-in show schema");
+
+	const [seasonSchemaId, episodeSchemaId, relationshipSchemas] = await Promise.all([
+		getBuiltinEntitySchemaId("show-season"),
+		getBuiltinEntitySchemaId("show-episode"),
+		listRelationshipSchemas(client, {
+			slugs: ["show-to-show-season", "show-season-to-show-episode"],
+		}),
+	]);
+	const showToSeason = requireRelationshipSchemaBySlug(relationshipSchemas, "show-to-show-season");
+	const seasonToEpisode = requireRelationshipSchemaBySlug(
+		relationshipSchemas,
+		"show-season-to-show-episode",
+	);
+
+	// A random TMDB identifier keeps parallel test runs from colliding on external_id.
+	const tmdbId = String(Math.floor(Math.random() * 1_000_000_000));
+	const showId = crypto.randomUUID();
+	const seasonId = crypto.randomUUID();
+	const episodeId = crypto.randomUUID();
+	const pg = getPgClient();
+
+	await pg.query(
+		`insert into entity (id, name, external_id, entity_schema_id, sandbox_script_id, user_id, populated_at, properties)
+		 values
+		 ($1,$2,$3,$4,$5,null,now(),'{"totalSeasons":1,"totalEpisodes":1}'::jsonb),
+		 ($6,'Season 1',$7,$8,$5,null,now(),'{"seasonNumber":1}'::jsonb),
+		 ($9,'Episode 2',$10,$11,$5,null,now(),'{"seasonNumber":1,"episodeNumber":2}'::jsonb)`,
+		[
+			showId,
+			options.showName,
+			tmdbId,
+			showSchema.id,
+			tmdbProvider.scriptId,
+			seasonId,
+			`season-${tmdbId}`,
+			seasonSchemaId,
+			episodeId,
+			`episode-${tmdbId}`,
+			episodeSchemaId,
+		],
+	);
+	await pg.query(
+		`insert into relationship (id, source_entity_id, target_entity_id, relationship_schema_id, user_id)
+		 values ($1,$2,$3,$4,null), ($5,$6,$7,$8,null)`,
+		[
+			crypto.randomUUID(),
+			showId,
+			seasonId,
+			showToSeason.id,
+			crypto.randomUUID(),
+			seasonId,
+			episodeId,
+			seasonToEpisode.id,
+		],
+	);
+
+	return { tmdbId, showId, seasonId, episodeId };
 }
 
 export async function insertLibraryMembership(

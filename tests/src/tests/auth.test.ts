@@ -1,7 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
 import { createTestAuthClient, createTestUser, getBackendClient } from "../fixtures";
-import { getPgClient } from "../setup";
 
 describe("GET /system/config auth block defaults", () => {
 	it("returns correct auth defaults", async () => {
@@ -16,12 +15,12 @@ describe("GET /system/config auth block defaults", () => {
 
 describe("Email sign-up", () => {
 	it("bootstraps a new user with tracker rows after sign-up", async () => {
-		const { email } = await createTestUser();
-		const result = await getPgClient().query<{ count: string }>(
-			`SELECT count(*) FROM tracker WHERE user_id = (SELECT id FROM "user" WHERE email = $1 LIMIT 1)`,
-			[email],
+		const { cookies } = await createTestUser();
+		const trackers = await getBackendClient().run(
+			(c) => c.trackers.list({ urlParams: { includeDisabled: true } }),
+			{ Cookie: cookies },
 		);
-		expect(Number(result.rows[0]?.count)).toBeGreaterThan(0);
+		expect(trackers.length).toBeGreaterThan(0);
 	});
 
 	it("returns an error for a duplicate email sign-up", async () => {

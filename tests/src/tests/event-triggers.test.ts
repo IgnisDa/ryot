@@ -3,6 +3,7 @@ import { describe, expect, it } from "bun:test";
 import {
 	createAuthenticatedClient,
 	createBuiltinMediaLifecycleFixture,
+	getBuiltinEntitySchemaId,
 	listEventsForEntity,
 	listEventSchemas,
 	requireEventSchemaBySlug,
@@ -10,19 +11,8 @@ import {
 	waitForEventCount,
 	waitForEventWithSchema,
 } from "../fixtures";
-import { getPgClient } from "../setup";
-import { requirePresent } from "../test-support/assertions";
 
 const isoAt = (day: number) => `2024-01-${String(day).padStart(2, "0")}T00:00:00.000Z`;
-
-const getBuiltinEntitySchemaId = async (slug: string) => {
-	const result = await getPgClient().query<{ id: string }>(
-		`select id from entity_schema where slug = $1 and user_id is null and is_builtin = true limit 1`,
-		[slug],
-	);
-	const row = result.rows[0];
-	return requirePresent(row, `Expected builtin entity schema '${slug}'`).id;
-};
 
 describe("Event trigger firing", () => {
 	it("logging 100% progress creates a completion event via builtin trigger", async () => {
