@@ -1,21 +1,23 @@
 {
-	"name": "@ryot/cli",
-	"bin": {
-		"ryot": "./src/index.ts"
-	},
+	"name": "@ryot/plugin-archive",
 	"type": "module",
+	"exports": {
+		".": {
+			"types": "./src/index.ts",
+			"default": "./src/index.ts"
+		}
+	},
 	"scripts": {
 		"test": "bun --bun run vitest run",
 		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
 	},
 	"dependencies": {
-		"@effect/platform-bun": "4.0.0-beta.107",
 		"@ryot/contract": "workspace:*",
-		"@ryot/plugin-archive": "workspace:*",
-		"effect": "4.0.0-rc.111"
+		"@ryot/ts-utils": "workspace:*",
+		"effect": "4.0.0-rc.111",
+		"fflate": "0.8.3"
 	},
 	"devDependencies": {
-		"@effect/vitest": "4.0.0-beta.107",
 		"@ryot/testing": "workspace:*",
 		"bun-types": "1.4.0",
 		"vitest": "4.1.9"

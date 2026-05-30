@@ -23,7 +23,7 @@ import {
 	PluginIngestionService,
 	runPluginRegistryReconciliation,
 } from "./service";
-import { loadPluginSource } from "./source";
+import { loadPluginSource } from "./source.test-support";
 import { SystemPlugins } from "./system";
 import { fixtureManifest, fixturePackageRoot } from "./test-support";
 import type { NormalizedPlugin, StoredPlugin } from "./types";

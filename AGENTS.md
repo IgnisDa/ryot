@@ -7,10 +7,11 @@
 ## Workspace Map
 
 - `kernel/backend` is the domain-agnostic backend; `kernel/client` is the client kernel.
-- `apps/server` assembles the backend kernel, migrations, and shipped plugin bundles.
+- `apps/server` assembles the backend kernel, migrations, and shipped plugin archives.
 - `plugins/*` own first-party plugin manifests and backend sandbox sources.
 - `migrations/*` own one-time migrations that depend on the kernel.
-- `packages/cli` builds canonical plugin bundles for first-party and third-party plugins.
+- `packages/cli` builds canonical plugin archives for first-party and third-party plugins.
+- `packages/plugin-archive` owns the shared deterministic plugin archive reader and writer.
 
 ## Tools
 

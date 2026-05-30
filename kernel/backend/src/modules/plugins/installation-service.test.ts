@@ -1,14 +1,23 @@
 import { assert, expect, it } from "@effect/vitest";
-import { DbError, type InternalError, internalError } from "@ryot/contract/errors";
+import { badRequest, DbError, type InternalError, internalError } from "@ryot/contract/errors";
 import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
-import { PluginConflictError, PluginRequestError } from "@ryot/contract/modules/plugins/schemas";
+import {
+	PluginConflictError,
+	PluginNotFoundError,
+	PluginRequestError,
+} from "@ryot/contract/modules/plugins/schemas";
+import { UploadBadRequest } from "@ryot/contract/modules/uploads/schemas";
 import { UserId } from "@ryot/contract/schema/brands";
-import { Cause, Effect, Exit, Layer, Option } from "effect";
+import { writePluginArchive } from "@ryot/plugin-archive";
+import { sha256Hex } from "@ryot/ts-utils/crypto";
+import { Cause, Effect, Exit, Layer, Option, Stream } from "effect";
 
 import { databaseLayer } from "#lib/test-utils/effect";
 import { kernelDefinitionSource } from "#modules/definition-registry/kernel-source";
 import { DefinitionRegistry, makeDefinitionRegistry } from "#modules/definition-registry/service";
 import { SandboxWorkflowReferenceRepository } from "#modules/sandbox/workflow-reference-repository";
+import { UploadIntentsService } from "#modules/uploads/intents/service";
+import { ObjectStorageService } from "#modules/uploads/object-storage/service";
 
 import { PluginDefinitionMaterializer } from "./definition-materializer";
 import {
@@ -80,24 +89,30 @@ const installationRow = (
 const makeLayer = (input?: {
 	readonly removed?: Array<string>;
 	readonly dispatchFails?: boolean;
+	readonly archiveBytes?: Uint8Array;
+	readonly openUploadFails?: boolean;
+	readonly claimUploadFails?: boolean;
 	readonly dispatched?: Array<string>;
+	readonly deleteUploadFails?: boolean;
 	readonly deactivated?: Array<string>;
 	readonly hasEntityReferences?: boolean;
+	readonly deletedUploads?: Array<string>;
 	readonly hasWorkflowReferences?: boolean;
 	readonly pendingLifecycle?: Array<string>;
 	readonly dispatchFailsFor?: Array<string>;
 	readonly removedGenerated?: Array<string>;
+	readonly savedViewFences?: Array<unknown>;
+	readonly hasSavedViewReferences?: boolean;
 	readonly hasDefinitionReferences?: boolean;
 	readonly hasIntegrationReferences?: boolean;
-	readonly hasSavedViewReferences?: boolean;
 	readonly integrationFences?: Array<unknown>;
-	readonly savedViewFences?: Array<unknown>;
 	readonly privatePlugins?: Array<StoredPlugin>;
 	readonly created?: Array<Record<string, unknown>>;
 	readonly updated?: Array<Record<string, unknown>>;
 	readonly systemPlugins?: Array<PluginRegistryEntry>;
 	readonly installations?: Array<PluginInstallationState>;
 	readonly healthUpdates?: Array<Record<string, unknown>>;
+	readonly claimedUploads?: Array<Record<string, unknown>>;
 	readonly privateInstallations?: Array<PluginPrivateInstallationRow>;
 	readonly materialize?: (userId: UserId) => Effect.Effect<void, DbError>;
 	readonly persisted?: Array<{
@@ -173,6 +188,36 @@ const makeLayer = (input?: {
 		removeGenerated: (installationId) =>
 			Effect.sync(() => void input?.removedGenerated?.push(installationId)),
 	});
+	const uploadIntentsLayer = Layer.mock(UploadIntentsService)({
+		claimTemporaryUpload: (token, ownerId, claimId) =>
+			Effect.sync(() => input?.claimedUploads?.push({ claimId, token, userId: ownerId })).pipe(
+				Effect.andThen(
+					input?.claimUploadFails
+						? Effect.fail(new UploadBadRequest({ reason: { code: "token-invalid" } }))
+						: Effect.succeed({
+								fileName: "plugin.zip",
+								resolvedPath: "/tmp/plugin.zip",
+								intentId: "plugin-upload-intent",
+								leaseExpiresAt: "2026-08-27T00:00:00.000Z",
+								locator: { type: "local" as const, key: "plugin-upload" },
+							}),
+				),
+			),
+		deleteTemporaryUpload: (intentId) =>
+			Effect.sync(() => input?.deletedUploads?.push(intentId)).pipe(
+				Effect.andThen(
+					input?.deleteUploadFails
+						? Effect.fail(new UploadBadRequest({ reason: { code: "intent-busy", intentId } }))
+						: Effect.sync(() => undefined),
+				),
+			),
+	});
+	const objectStorageLayer = Layer.mock(ObjectStorageService)({
+		openObject: () =>
+			input?.openUploadFails
+				? Effect.fail(badRequest("Plugin upload object is unavailable"))
+				: Effect.succeed(Stream.make(input?.archiveBytes ?? new Uint8Array())),
+	});
 	const serviceLayer = PluginInstallationService.layer.pipe(
 		Layer.provide(
 			Layer.mergeAll(
@@ -181,6 +226,8 @@ const makeLayer = (input?: {
 				repositoryLayer,
 				installationLayer,
 				workflowReferenceLayer,
+				uploadIntentsLayer,
+				objectStorageLayer,
 				lifecycleDispatcherLayer,
 				definitionMaterializerLayer,
 			),
@@ -240,6 +287,94 @@ const systemEntry = (manifest: PluginManifest): PluginRegistryEntry => ({
 	slug: manifest.metadata.slug,
 	id: `${manifest.metadata.slug}-plugin-id`,
 	sourceHash: `hash-${manifest.metadata.slug}`,
+});
+
+it.effect("claims, reads, and best-effort deletes an uploaded plugin archive", () => {
+	const token = "plugin-upload-token";
+	const claimedUploads: Array<Record<string, unknown>> = [];
+	const deletedUploads: Array<string> = [];
+	return Effect.gen(function* () {
+		const service = yield* PluginInstallationService;
+		const installed = yield* service.installPrivatePlugin({
+			userId,
+			config: {},
+			uploadToken: token,
+		});
+		expect(installed.slug).toBe("private-fixture");
+		expect(claimedUploads).toEqual([
+			{ token, userId, claimId: `plugin-package:${sha256Hex(token)}` },
+		]);
+		expect(deletedUploads).toEqual(["plugin-upload-intent"]);
+	}).pipe(
+		Effect.provide(
+			makeLayer({
+				claimedUploads,
+				deletedUploads,
+				deleteUploadFails: true,
+				archiveBytes: writePluginArchive({ files: {}, manifest: privateManifest() }),
+			}),
+		),
+	);
+});
+
+it.effect("maps an unavailable upload claim without attempting cleanup", () => {
+	const deletedUploads: Array<string> = [];
+	return Effect.gen(function* () {
+		const service = yield* PluginInstallationService;
+		const exit = yield* Effect.exit(
+			service.installPrivatePlugin({ uploadToken: "missing", userId, config: {} }),
+		);
+		const failure = failureOf(exit);
+		assert(failure instanceof PluginRequestError);
+		expect(failure.reason).toEqual({ code: "upload-unavailable" });
+		expect(deletedUploads).toEqual([]);
+	}).pipe(Effect.provide(makeLayer({ deletedUploads, claimUploadFails: true })));
+});
+
+it.effect("maps an invalid archive and deletes the claimed upload", () => {
+	const deletedUploads: Array<string> = [];
+	return Effect.gen(function* () {
+		const service = yield* PluginInstallationService;
+		const exit = yield* Effect.exit(
+			service.installPrivatePlugin({ uploadToken: "corrupt", userId, config: {} }),
+		);
+		const failure = failureOf(exit);
+		assert(failure instanceof PluginRequestError);
+		expect(failure.reason).toEqual({ code: "package-archive-invalid", issue: "malformed-zip" });
+		expect(deletedUploads).toEqual(["plugin-upload-intent"]);
+	}).pipe(Effect.provide(makeLayer({ deletedUploads, archiveBytes: new Uint8Array([1, 2, 3]) })));
+});
+
+it.effect("maps an unavailable archive object and deletes the claimed upload", () => {
+	const deletedUploads: Array<string> = [];
+	return Effect.gen(function* () {
+		const service = yield* PluginInstallationService;
+		const exit = yield* Effect.exit(
+			service.installPrivatePlugin({ uploadToken: "missing-object", userId, config: {} }),
+		);
+		const failure = failureOf(exit);
+		assert(failure instanceof PluginRequestError);
+		expect(failure.reason).toEqual({ code: "upload-unavailable" });
+		expect(deletedUploads).toEqual(["plugin-upload-intent"]);
+	}).pipe(Effect.provide(makeLayer({ deletedUploads, openUploadFails: true })));
+});
+
+it.effect("checks update ownership before claiming the upload", () => {
+	const claimedUploads: Array<Record<string, unknown>> = [];
+	return Effect.gen(function* () {
+		const service = yield* PluginInstallationService;
+		const exit = yield* Effect.exit(
+			service.updatePrivatePlugin({
+				userId,
+				config: {},
+				uploadToken: "unused",
+				pluginSlug: "not-installed",
+			}),
+		);
+		const failure = failureOf(exit);
+		assert(failure instanceof PluginNotFoundError);
+		expect(claimedUploads).toEqual([]);
+	}).pipe(Effect.provide(makeLayer({ claimedUploads })));
 });
 
 it.effect("rejects an oversized package before compiling it", () => {
