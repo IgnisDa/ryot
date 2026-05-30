@@ -4,7 +4,7 @@
 	"references": [
 		{ "path": "apps/browser-extension" },
 		{ "path": "apps/app-backend" },
-		{ "path": "apps/app-frontend" },
+		{ "path": "apps/app-client" },
 		{ "path": "apps/docs" },
 		{ "path": "apps/frontend" },
 		{ "path": "apps/website" },
