@@ -29,9 +29,9 @@ import {
 } from "./runtime/source-payload-store";
 import type {
 	CreateImportRunBody,
+	DetailedImportRun,
 	ImportRunStatus,
 	ListedImportRun,
-	ListedImportRunFailure,
 } from "./schemas";
 
 type ImportServiceError = "not_found" | "validation";
@@ -165,14 +165,21 @@ export const startImportRun = async (input: {
 };
 
 export const getImportRun = async (input: {
+	page: number;
 	runId: string;
+	limit: number;
 	userId: string;
-}): Promise<ImportServiceResult<ListedImportRun>> => {
+}): Promise<ImportServiceResult<DetailedImportRun>> => {
 	const run = await getImportRunById({ runId: input.runId, userId: input.userId });
 	if (!run) {
 		return serviceError("not_found", "Import run not found");
 	}
-	return serviceData(run);
+	const failures = await listImportRunFailuresByRunId({
+		page: input.page,
+		limit: input.limit,
+		runId: input.runId,
+	});
+	return serviceData({ ...run, failures: { ...failures, page: input.page, limit: input.limit } });
 };
 
 export const listImportRuns = async (input: {
@@ -195,29 +202,4 @@ export const removeImportRun = async (input: {
 	}
 	await deleteImportRunById({ runId: input.runId, userId: input.userId });
 	return serviceData(undefined);
-};
-
-export const listRunFailures = async (input: {
-	page: number;
-	runId: string;
-	limit: number;
-	userId: string;
-}): Promise<
-	ImportServiceResult<{
-		page: number;
-		total: number;
-		limit: number;
-		items: ListedImportRunFailure[];
-	}>
-> => {
-	const run = await getImportRunById({ runId: input.runId, userId: input.userId });
-	if (!run) {
-		return serviceError("not_found", "Import run not found");
-	}
-	const result = await listImportRunFailuresByRunId({
-		page: input.page,
-		limit: input.limit,
-		runId: input.runId,
-	});
-	return serviceData({ ...result, page: input.page, limit: input.limit });
 };
