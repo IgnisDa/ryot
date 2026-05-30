@@ -18,9 +18,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
 	compactTitleProgress,
 	HEADER_LARGE_TITLE_HEIGHT,
-	HEADER_ROW_HEIGHT,
 	headerSurfaceProgress,
 } from "./header-metrics";
+import { useHeaderContentOffset } from "./use-header-content-offset";
 
 const MOBILE_ONLY = Platform.OS === "web" ? "md:hidden" : null;
 
@@ -39,6 +39,7 @@ export function HeaderFrame(props: {
 	onScrollOffsetChange?: (offset: number) => void;
 }) {
 	const insets = useSafeAreaInsets();
+	const contentOffset = useHeaderContentOffset();
 	const isRestored = useRef(false);
 	const heroHeight = props.heroHeight ?? 0;
 	const scrollRef = useAnimatedRef<Animated.ScrollView>();
@@ -89,9 +90,7 @@ export function HeaderFrame(props: {
 				onContentSizeChange={restoreOffset}
 				contentContainerClassName="min-h-full pb-8 md:px-8 md:pt-8"
 			>
-				{props.hero ?? (
-					<View className={clsx(MOBILE_ONLY)} style={{ height: insets.top + HEADER_ROW_HEIGHT }} />
-				)}
+				{props.hero ?? <View className={clsx(MOBILE_ONLY)} style={{ height: contentOffset }} />}
 				{props.searchRow || props.hideLargeTitle ? null : (
 					<Animated.View
 						style={largeTitleStyle}

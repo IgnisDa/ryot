@@ -39,7 +39,6 @@ export function ShowRailRow(props: {
 	readonly title: string;
 	readonly detail?: string;
 	readonly divided?: boolean;
-	readonly children?: ReactNode;
 	readonly trailing?: ReactNode;
 }) {
 	return (
@@ -58,7 +57,6 @@ export function ShowRailRow(props: {
 				</View>
 				{props.trailing}
 			</View>
-			{props.children}
 		</View>
 	);
 }
