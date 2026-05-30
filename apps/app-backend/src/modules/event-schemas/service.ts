@@ -1,10 +1,10 @@
 import { Effect } from "effect";
 
-import type { CurrentUserValue } from "#lib/auth";
+import type { CurrentUserValue } from "#lib/auth-middleware";
 import { builtinEntitySchemas } from "#lib/builtins/entity-schemas";
 import { DbRunner } from "#lib/db";
 import { badRequest, conflict, notFound } from "#lib/errors";
-import { parseLabeledPropertySchemaInput } from "#lib/schema/core";
+import { parseLabeledPropertySchemaInput } from "#lib/schema/property-schema-runtime";
 import { slugify } from "#lib/slug";
 import { requireText } from "#lib/validation";
 

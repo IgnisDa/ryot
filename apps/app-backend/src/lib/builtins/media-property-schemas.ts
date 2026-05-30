@@ -6,8 +6,8 @@ import {
 	numberField,
 	stringArrayField,
 	stringField,
-	type AppSchema,
 } from "#lib/schema/core";
+import type { AppSchema } from "#lib/schema/property-schema";
 
 export const moviePropertiesSchema: AppSchema = {
 	fields: {
