@@ -11,8 +11,8 @@ import { mapShowSummary, type ShowSummaryState } from "./show-summary-state";
 
 const NO_MANAGED_URLS: ReadonlyMap<string, string> = new Map();
 
-const clamps = () =>
-	screen.getAllByText("A four-part limited series.").map((node) => node.props.numberOfLines);
+const description = () => screen.getByText("A four-part limited series.");
+
 const readyState = (overrides: Record<string, unknown> = {}): ShowSummaryState =>
 	mapShowSummary(
 		AsyncResult.success(
@@ -90,7 +90,7 @@ describe("show screen content", () => {
 		expect(screen.getByText("4")).toBeOnTheScreen();
 		expect(screen.getByText("1 season")).toBeOnTheScreen();
 		expect(screen.getByText("4 episodes")).toBeOnTheScreen();
-		expect(screen.getAllByText("A four-part limited series.")).toHaveLength(2);
+		expect(screen.getByText("A four-part limited series.")).toBeOnTheScreen();
 		expect(screen.getByText("show-1")).toBeOnTheScreen();
 	});
 
@@ -154,18 +154,18 @@ describe("show screen content", () => {
 		expect(monitoring).not.toBeChecked();
 	});
 
-	it("expands and re-clamps every description slot from one toggle", async () => {
+	it("expands and re-clamps the description from the header", async () => {
 		const user = userEvent.setup();
 		await renderContent(readyState());
 
-		expect(clamps()).toEqual([3, 3]);
+		expect(description()).toHaveProp("numberOfLines", 3);
 
-		await user.press(screen.getAllByRole("button", { name: "More" })[0]);
+		await user.press(screen.getByRole("button", { name: "More" }));
 
-		expect(clamps()).toEqual([undefined, undefined]);
+		expect(description()).not.toHaveProp("numberOfLines");
 
-		await user.press(screen.getAllByRole("button", { name: "Less" })[1]);
+		await user.press(screen.getByRole("button", { name: "Less" }));
 
-		expect(clamps()).toEqual([3, 3]);
+		expect(description()).toHaveProp("numberOfLines", 3);
 	});
 });
