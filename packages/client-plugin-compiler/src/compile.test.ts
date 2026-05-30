@@ -59,6 +59,7 @@ it.effect(
 			expect(javascript).toContain(`"./${asset}"`);
 			expect(javascript).not.toContain("@ryot/client-ui-sdk");
 			expect(javascript).not.toContain("./styles.css");
+			expect(() => Function("document", javascript)({ getElementById: () => null })).not.toThrow();
 
 			const css = byName.get("plugin.css")?.contents ?? "";
 			expect(css).toContain(".plugin-logo");
