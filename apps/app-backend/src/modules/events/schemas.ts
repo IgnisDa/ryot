@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 
-export type EventSchemaTriggerMetadata = {
+export type EventTriggerMetadata = {
 	inheritedProperties?: string[];
 };
 
