@@ -13,7 +13,7 @@ import { pollUntil } from "./polling";
 import { createRelationshipSchema } from "./relationship-schemas";
 import { createRelationship } from "./relationships";
 
-export const createQueryEnginePluginSchema = (
+export const createPluginEntitySchema = (
 	client: Client,
 	options: {
 		schemaName: string;
@@ -32,7 +32,7 @@ export const createQueryEnginePluginSchema = (
 		return { pluginSlug, schemaId, slug };
 	});
 
-export const createQueryEngineEntity = (
+export const createEntityFixture = (
 	client: Client,
 	input: { name: string; entitySchemaSlug: string; properties?: Record<string, unknown> },
 ) =>
@@ -42,7 +42,7 @@ export const createQueryEngineEntity = (
 		entitySchemaSlug: makeEntitySchemaSlug(input.entitySchemaSlug),
 	});
 
-export const createQueryEngineEvent = (
+export const createEventFixture = (
 	client: Client,
 	input: {
 		entityId: string;
@@ -80,7 +80,7 @@ export const createQueryEngineEvent = (
 		);
 
 		yield* pollUntil(
-			`query-engine event ${input.eventSchemaSlug} on entity ${input.entityId}`,
+			`event ${input.eventSchemaSlug} on entity ${input.entityId}`,
 			Effect.gen(function* () {
 				const count = yield* countMatchingEvents;
 				return count > previousCount ? count : null;
@@ -111,29 +111,24 @@ export const insertGlobalRelationship = (input: {
 
 export const createCourseLessonFilterFixture = Effect.gen(function* () {
 	const { client } = yield* createAuthenticatedClient();
-	const { schemaId: courseSchemaId, slug: courseSlug } = yield* createQueryEnginePluginSchema(
-		client,
-		{ schemaName: "FilterCourse" },
-	);
-	const { schemaId: moduleSchemaId, slug: moduleSlug } = yield* createQueryEnginePluginSchema(
-		client,
-		{ schemaName: "FilterModule" },
-	);
-	const { schemaId: lessonSchemaId, slug: lessonSlug } = yield* createQueryEnginePluginSchema(
-		client,
-		{
-			schemaName: "FilterLesson",
-			propertiesSchema: {
-				fields: {
-					durationMinutes: {
-						type: "integer",
-						label: "Duration Minutes",
-						description: "Lesson duration in minutes",
-					},
+	const { schemaId: courseSchemaId, slug: courseSlug } = yield* createPluginEntitySchema(client, {
+		schemaName: "FilterCourse",
+	});
+	const { schemaId: moduleSchemaId, slug: moduleSlug } = yield* createPluginEntitySchema(client, {
+		schemaName: "FilterModule",
+	});
+	const { schemaId: lessonSchemaId, slug: lessonSlug } = yield* createPluginEntitySchema(client, {
+		schemaName: "FilterLesson",
+		propertiesSchema: {
+			fields: {
+				durationMinutes: {
+					type: "integer",
+					label: "Duration Minutes",
+					description: "Lesson duration in minutes",
 				},
 			},
 		},
-	);
+	});
 	const completeSlug = `filter-complete-${crypto.randomUUID()}`;
 	const completeSchema = yield* createEventSchema(client, {
 		slug: completeSlug,
@@ -160,7 +155,7 @@ export const createCourseLessonFilterFixture = Effect.gen(function* () {
 		lessons: readonly { durationMinutes: number; complete: boolean }[],
 	) =>
 		Effect.gen(function* () {
-			const course = yield* createQueryEngineEntity(client, {
+			const course = yield* createEntityFixture(client, {
 				name,
 				entitySchemaSlug: courseSchemaId,
 			});
@@ -168,11 +163,11 @@ export const createCourseLessonFilterFixture = Effect.gen(function* () {
 				lessons.map((lessonInput, index) =>
 					Effect.gen(function* () {
 						const [module, lesson] = yield* Effect.all([
-							createQueryEngineEntity(client, {
+							createEntityFixture(client, {
 								entitySchemaSlug: moduleSchemaId,
 								name: `${name} Module ${index + 1}`,
 							}),
-							createQueryEngineEntity(client, {
+							createEntityFixture(client, {
 								entitySchemaSlug: lessonSchemaId,
 								name: `${name} Lesson ${index + 1}`,
 								properties: { durationMinutes: lessonInput.durationMinutes },
@@ -191,7 +186,7 @@ export const createCourseLessonFilterFixture = Effect.gen(function* () {
 							}),
 						]);
 						if (lessonInput.complete) {
-							yield* createQueryEngineEvent(client, {
+							yield* createEventFixture(client, {
 								entityId: lesson.id,
 								eventSchemaSlug: completeSchema.id,
 							});

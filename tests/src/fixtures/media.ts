@@ -4,20 +4,25 @@ import {
 	RelationshipSchemaSlug,
 	SandboxProviderId,
 } from "@ryot/contract/schema/brands";
-import { queryEngineEntitySource } from "@ryot/query-engine/documents";
 import {
-	queryEngineAnd,
-	queryEngineComparison,
-	queryEngineExists,
-	queryEngineField,
-	queryEngineIsNull,
-	queryEngineLiteral,
-	queryEnginePropertyRef,
-	queryEngineSystemRef,
-} from "@ryot/query-engine/primitives";
+	and,
+	ascending,
+	column,
+	document,
+	eq,
+	exists,
+	field,
+	include,
+	isNull,
+	join,
+	jsonPath,
+	literal,
+	rows,
+	table,
+} from "@ryot/ryotql";
 import { DateTime, Effect } from "effect";
 
-import { assertPresent, requirePresent } from "~/support/assertions";
+import { assertPresent, requirePresent, requireString } from "~/support/assertions";
 
 import { adminHeaders } from "./admin";
 import type { Client } from "./auth";
@@ -29,14 +34,9 @@ import {
 	makeEntitySchemaSlug,
 } from "./entity-schemas";
 import { pollUntil } from "./polling";
-import {
-	buildEntityRowsQueryDocument,
-	executeQueryEngine,
-	getQueryEngineTextFieldOrNull,
-	requireQueryEngineTextField,
-} from "./query-engine-core";
 import { listRelationshipSchemas, requireRelationshipSchemaBySlug } from "./relationship-schemas";
 import { createRelationship } from "./relationships";
+import { executeRyotQL, requireRyotQLFieldValue, requireRyotQLTextField } from "./ryotql";
 
 export const insertRelationshipRow = (
 	client: Client,
@@ -58,106 +58,110 @@ export const queryInLibraryRelationship = (
 	client: Client,
 	entityId: string,
 	entitySchemaSlug: string,
-) =>
-	executeQueryEngine(
+) => {
+	const entity = table("entity", "entity");
+	const membership = table("relationship", "membership");
+	const library = table("entity", "library");
+	const existingLibrary = table("entity", "existingLibrary");
+	return executeRyotQL(
 		client,
-		buildEntityRowsQueryDocument({
-			limit: 1,
-			alias: "entity",
-			schemas: [entitySchemaSlug],
-			fields: [queryEngineField("id", queryEngineSystemRef("entity", "id"))],
-			include: [
-				{
-					limit: 1,
-					key: "libraries",
-					fields: [
-						queryEngineField("owned", queryEnginePropertyRef("inLibrary", "in-library", "owned")),
-						queryEngineField(
-							"ownershipSources",
-							queryEnginePropertyRef("inLibrary", "in-library", "ownershipSources"),
+		document({
+			entity: rows(entity, {
+				limit: 1,
+				fields: [field("id", column(entity, "id"))],
+				where: and(
+					eq(column(entity, "id"), literal(entityId)),
+					eq(column(entity, "entitySchemaSlug"), literal(entitySchemaSlug)),
+					exists(membership, {
+						joins: [
+							join(
+								"inner",
+								existingLibrary,
+								eq(column(membership, "targetEntityId"), column(existingLibrary, "id")),
+							),
+						],
+						where: and(
+							eq(column(membership, "sourceEntityId"), column(entity, "id")),
+							eq(column(membership, "relationshipSchemaSlug"), literal("in-library")),
+							eq(column(existingLibrary, "entitySchemaSlug"), literal("library")),
 						),
-						queryEngineField(
-							"ownershipSyncedAt",
-							queryEnginePropertyRef("inLibrary", "in-library", "ownershipSyncedAt"),
-						),
-					],
-					orderBy: [{ order: "asc", expr: queryEngineSystemRef("library", "id") }],
-					source: {
-						where: null,
-						alias: "library",
-						type: "entities",
-						schemas: ["library"],
-						via: {
-							alias: "inLibrary",
-							entityRef: "entity",
-							schema: "in-library",
-							direction: "outgoing" as const,
-						},
-					},
-				},
-			],
-			where: queryEngineAnd(
-				queryEngineComparison(
-					"eq",
-					queryEngineSystemRef("entity", "id"),
-					queryEngineLiteral(entityId),
-				),
-				queryEngineExists(
-					queryEngineEntitySource({
-						where: null,
-						schemas: ["library"],
-						alias: "membershipLibrary",
-						via: {
-							entityRef: "entity",
-							schema: "in-library",
-							alias: "membershipEdge",
-							direction: "outgoing" as const,
-						},
 					}),
 				),
-			),
+				include: [
+					include(membership, {
+						key: "libraries",
+						limit: 1,
+						fields: [
+							field("owned", jsonPath(column(membership, "properties"), "owned")),
+							field(
+								"ownershipSources",
+								jsonPath(column(membership, "properties"), "ownershipSources"),
+							),
+							field(
+								"ownershipSyncedAt",
+								jsonPath(column(membership, "properties"), "ownershipSyncedAt"),
+							),
+						],
+						orderBy: [ascending(column(membership, "id"))],
+						where: and(
+							eq(column(membership, "sourceEntityId"), column(entity, "id")),
+							eq(column(membership, "relationshipSchemaSlug"), literal("in-library")),
+						),
+						joins: [
+							join(
+								"inner",
+								library,
+								eq(column(membership, "targetEntityId"), column(library, "id")),
+							),
+						],
+					}),
+				],
+			}),
 		}),
 	);
+};
 
 export const getGlobalEntityByProvenance = (
 	client: Client,
 	input: { externalId: string; providerId: string; entitySchemaSlug: string },
 ) =>
 	Effect.gen(function* () {
-		const result = yield* executeQueryEngine(
+		const entity = table("entity", "entity");
+		const result = yield* executeRyotQL(
 			client,
-			buildEntityRowsQueryDocument({
-				limit: 1,
-				alias: "entity",
-				schemas: [input.entitySchemaSlug],
-				fields: [
-					queryEngineField("id", queryEngineSystemRef("entity", "id")),
-					queryEngineField("name", queryEngineSystemRef("entity", "name")),
-					queryEngineField("populatedAt", queryEngineSystemRef("entity", "populatedAt")),
-				],
-				where: queryEngineAnd(
-					queryEngineComparison(
-						"eq",
-						queryEngineSystemRef("entity", "externalId"),
-						queryEngineLiteral(input.externalId),
+			document({
+				entities: rows(entity, {
+					limit: 1,
+					fields: [
+						field("id", column(entity, "id")),
+						field("name", column(entity, "name")),
+						field("populatedAt", column(entity, "populatedAt")),
+					],
+					where: and(
+						eq(column(entity, "entitySchemaSlug"), literal(input.entitySchemaSlug)),
+						eq(column(entity, "externalId"), literal(input.externalId)),
+						eq(column(entity, "providerId"), literal(input.providerId)),
+						isNull(column(entity, "userId")),
 					),
-					queryEngineComparison(
-						"eq",
-						queryEngineSystemRef("entity", "providerId"),
-						queryEngineLiteral(input.providerId),
-					),
-					queryEngineIsNull(queryEngineSystemRef("entity", "userId")),
-				),
+				}),
 			}),
 		);
-		const entity = requirePresent(
-			result.data.items[0],
+		const entities = result.data.entities;
+		if (entities?.type !== "rows") {
+			throw new Error("Expected global entity rows");
+		}
+		const entityRow = requirePresent(
+			entities.items[0],
 			`Missing global entity for external id '${input.externalId}'`,
 		);
+		const populatedAt = requireRyotQLFieldValue(entityRow, "populatedAt");
 		return {
-			id: requireQueryEngineTextField(entity, "id"),
-			name: requireQueryEngineTextField(entity, "name"),
-			populatedAt: getQueryEngineTextFieldOrNull(entity, "populatedAt"),
+			id: requireRyotQLTextField(entityRow, "id"),
+			name: requireRyotQLTextField(entityRow, "name"),
+			populatedAt:
+				populatedAt.kind === "null"
+					? null
+					: requireString(populatedAt.value, "Expected 'populatedAt' to contain text"),
 		};
 	});
 
@@ -370,17 +374,7 @@ export const insertLibraryMembership = (
 	input: { mediaEntityId: string; properties?: Record<string, unknown> },
 ) =>
 	Effect.gen(function* () {
-		const libraryResult = yield* executeQueryEngine(
-			client,
-			buildEntityRowsQueryDocument({
-				limit: 1,
-				alias: "library",
-				schemas: ["library"],
-				fields: [queryEngineField("id", queryEngineSystemRef("library", "id"))],
-			}),
-		);
-		const libraryEntity = requirePresent(libraryResult.data.items[0], "Missing library entity");
-		const libraryEntityId = requireQueryEngineTextField(libraryEntity, "id");
+		const libraryEntityId = yield* getLibraryEntityId(client);
 
 		const schemas = yield* listRelationshipSchemas(client, { slugs: ["in-library"] });
 		const inLibrarySchema = requireRelationshipSchemaBySlug(schemas, "in-library");
@@ -395,17 +389,7 @@ export const insertLibraryMembership = (
 
 export const insertMediaMonitoring = (client: Client, entityId: string) =>
 	Effect.gen(function* () {
-		const libraryResult = yield* executeQueryEngine(
-			client,
-			buildEntityRowsQueryDocument({
-				limit: 1,
-				alias: "library",
-				schemas: ["library"],
-				fields: [queryEngineField("id", queryEngineSystemRef("library", "id"))],
-			}),
-		);
-		const libraryEntity = requirePresent(libraryResult.data.items[0], "Missing library entity");
-		const libraryEntityId = requireQueryEngineTextField(libraryEntity, "id");
+		const libraryEntityId = yield* getLibraryEntityId(client);
 		const schemas = yield* listRelationshipSchemas(client, { slugs: ["media-monitoring"] });
 		const monitoringSchema = requireRelationshipSchemaBySlug(schemas, "media-monitoring");
 
@@ -415,4 +399,27 @@ export const insertMediaMonitoring = (client: Client, entityId: string) =>
 			sourceEntityId: EntityId.make(entityId),
 			relationshipSchemaSlug: monitoringSchema.id,
 		});
+	});
+
+const getLibraryEntityId = (client: Client) =>
+	Effect.gen(function* () {
+		const library = table("entity", "library");
+		const result = yield* executeRyotQL(
+			client,
+			document({
+				libraries: rows(library, {
+					limit: 1,
+					fields: [field("id", column(library, "id"))],
+					where: eq(column(library, "entitySchemaSlug"), literal("library")),
+				}),
+			}),
+		);
+		const libraries = result.data.libraries;
+		if (libraries?.type !== "rows") {
+			throw new Error("Expected library rows");
+		}
+		return requireRyotQLTextField(
+			requirePresent(libraries.items[0], "Missing library entity"),
+			"id",
+		);
 	});

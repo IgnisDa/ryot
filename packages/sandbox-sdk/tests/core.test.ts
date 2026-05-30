@@ -236,14 +236,14 @@ describe("sandbox test hosts", () => {
 });
 
 describe("domain host contracts", () => {
-	test("invokes domain host stubs and keeps query-engine output unparsed", async () => {
+	test("invokes domain host stubs and keeps RyotQL output unparsed", async () => {
 		const manifest = defineManifest({
 			kind: "script",
 			name: "Domain reader",
 			slug: "domain-reader",
 			requiredPluginConfigKeys: [],
 			requiredSystemConfigKeys: [],
-			capabilities: ["executeQueryEngine"],
+			capabilities: ["executeRyotql"],
 		});
 		const definition = defineScript({
 			manifest,
@@ -251,11 +251,11 @@ describe("domain host contracts", () => {
 			output: Schema.Struct({ rows: Schema.Number }),
 			run: (_input, host) =>
 				host
-					.executeQueryEngine({ source: { type: "entities" } })
+					.executeRyotql({ queries: {} })
 					.pipe(Effect.map((result) => ({ rows: Array.isArray(result) ? result.length : 0 }))),
 		});
 		const host = defineSandboxTestHost(manifest, {
-			executeQueryEngine: () => Effect.succeed([{ id: "a" }, { id: "b" }]),
+			executeRyotql: () => Effect.succeed([{ id: "a" }, { id: "b" }]),
 		});
 
 		expect(

@@ -111,7 +111,9 @@ describe("POST /collections/memberships", () => {
 
 			const membership = yield* queryInLibraryRelationship(client, entity.id, schema.slug);
 
-			expect(membership.data.items).toHaveLength(1);
+			expect(
+				membership.data.entity?.type === "rows" ? membership.data.entity.items : [],
+			).toHaveLength(1);
 		}),
 	);
 
@@ -136,7 +138,9 @@ describe("POST /collections/memberships", () => {
 			);
 
 			const membership = yield* queryInLibraryRelationship(client, entity.id, schema.slug);
-			expect(membership.data.items).toHaveLength(0);
+			expect(
+				membership.data.entity?.type === "rows" ? membership.data.entity.items : [],
+			).toHaveLength(0);
 		}),
 	);
 
@@ -161,7 +165,9 @@ describe("POST /collections/memberships", () => {
 			);
 
 			const membership = yield* queryInLibraryRelationship(client, entity.id, slug);
-			expect(membership.data.items).toHaveLength(0);
+			expect(
+				membership.data.entity?.type === "rows" ? membership.data.entity.items : [],
+			).toHaveLength(0);
 		}),
 	);
 

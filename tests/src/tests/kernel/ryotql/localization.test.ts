@@ -18,8 +18,8 @@ import { Effect } from "effect";
 import {
 	adminHeaders,
 	createAuthenticatedClient,
-	createQueryEngineEntity,
-	createQueryEnginePluginSchema,
+	createEntityFixture,
+	createPluginEntitySchema,
 	executeRyotQL,
 	fakeProviderDetailsResult,
 	findBuiltinSchemaBySlug,
@@ -89,7 +89,7 @@ describe("RyotQL entity localization", () => {
 	it.live("localizes selection, JSON paths, predicates, and ordering with canonical fallback", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId, slug } = yield* createQueryEnginePluginSchema(client, {
+			const { schemaId, slug } = yield* createPluginEntitySchema(client, {
 				schemaName: "RyotQLLocalizedItem",
 				propertiesSchema: {
 					fields: {
@@ -98,12 +98,12 @@ describe("RyotQL entity localization", () => {
 					},
 				},
 			});
-			const zulu = yield* createQueryEngineEntity(client, {
+			const zulu = yield* createEntityFixture(client, {
 				name: "Zulu",
 				entitySchemaSlug: schemaId,
 				properties: { rating: 5, description: "Canonical Zulu overview" },
 			});
-			const alpha = yield* createQueryEngineEntity(client, {
+			const alpha = yield* createEntityFixture(client, {
 				name: "Alpha",
 				entitySchemaSlug: schemaId,
 				properties: { rating: 9, description: "Canonical Alpha overview" },
