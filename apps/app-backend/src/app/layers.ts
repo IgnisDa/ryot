@@ -7,6 +7,8 @@ import { AppConfig } from "../lib/config";
 import { DbService, DbRunnerLive, TransactionRunnerLive } from "../lib/db";
 import { MigrationsComplete } from "../lib/db/migrate";
 import { RedisService } from "../lib/redis";
+import { CollectionsRepository } from "../modules/collections/repository";
+import { CollectionsService } from "../modules/collections/service";
 import { EntitiesRepository } from "../modules/entities/repository";
 import { EntitiesService } from "../modules/entities/service";
 import { EntitySchemasRepository } from "../modules/entity-schemas/repository";
@@ -25,20 +27,26 @@ const RuntimeAfterMigrationsLive = MigrationsComplete.Default.pipe(
 	Layer.flatMap(() => SeedService.Default.pipe(Layer.flatMap(() => ServerLive))),
 );
 
+const RepositoriesLive = Layer.mergeAll(
+	TrackersRepository.Default,
+	CollectionsRepository.Default,
+	EntitiesRepository.Default,
+	EntitySchemasRepository.Default,
+	EventSchemasRepository.Default,
+	EventsRepository.Default,
+	RelationshipSchemasRepository.Default,
+);
+
 export const AppLive = RuntimeAfterMigrationsLive.pipe(
 	Layer.provide(TrackersService.Default),
+	Layer.provide(CollectionsService.Default),
 	Layer.provide(EntitiesService.Default),
 	Layer.provide(EntitySchemasService.Default),
 	Layer.provide(EventSchemasService.Default),
 	Layer.provide(EventsService.Default),
 	Layer.provide(RelationshipSchemasService.Default),
 	Layer.provide(DbRunnerLive),
-	Layer.provide(TrackersRepository.Default),
-	Layer.provide(EntitiesRepository.Default),
-	Layer.provide(EntitySchemasRepository.Default),
-	Layer.provide(EventSchemasRepository.Default),
-	Layer.provide(EventsRepository.Default),
-	Layer.provide(RelationshipSchemasRepository.Default),
+	Layer.provide(RepositoriesLive),
 	Layer.provide(AuthService.Default),
 	Layer.provide(TransactionRunnerLive),
 	Layer.provide(DbService.Default),
