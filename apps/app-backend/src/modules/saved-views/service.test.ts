@@ -75,7 +75,7 @@ const mockRyotQL = Layer.mock(RyotQLService);
 
 const makeRyotQL = (overrides: MockOverrides<typeof mockRyotQL> = {}) =>
 	mockRyotQL({
-		validate: () => Effect.succeed(undefined),
+		validate: () => Effect.void,
 		...overrides,
 	});
 
