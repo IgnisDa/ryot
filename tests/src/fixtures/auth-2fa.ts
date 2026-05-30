@@ -5,6 +5,8 @@ import { requireNonEmptyArray, requirePresent, requireString } from "~/support/a
 
 import { cookieHeaderFromSetCookies, createTestAuthClient } from "./auth";
 
+export { cookieHeaderFromSetCookies } from "./auth";
+
 type TwoFactorSetupResult = {
 	cookies: string;
 	backupCodes: string[];

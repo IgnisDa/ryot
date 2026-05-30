@@ -8,10 +8,10 @@ import {
 	SubscriptionRunId,
 	UserId,
 } from "@ryot/contract/schema/brands";
-import { utf8ByteLength } from "@ryot/sandbox-compiler/limits";
 import { stableStringify } from "@ryot/ts-utils/json";
 import { Effect, Layer } from "effect";
 
+import { utf8ByteLength } from "#lib/infrastructure/sandbox-runtime/limits";
 import type { MockOverrides } from "#lib/test-utils/effect";
 import { dbRunnerLayer, transactionLayer } from "#lib/test-utils/effect";
 import { DefinitionRegistry, makeDefinitionRegistry } from "#modules/definition-registry/service";
