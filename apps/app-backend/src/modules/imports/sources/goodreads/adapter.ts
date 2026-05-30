@@ -1,6 +1,5 @@
 import { dayjs } from "@ryot/ts-utils/dayjs";
 
-import { resolveBookEntityRefByIsbn } from "../../media/book/provider-lookup";
 import {
 	addCollectionMembership,
 	assertRequiredHeaders,
@@ -20,7 +19,6 @@ import {
 	parseDateWithFormat,
 	splitCommaList,
 	toTitleCaseWords,
-	type ResolveBookEntityRef,
 } from "../../media/book/shared";
 import { getOrCreateMediaEntityGroup } from "../../media/groups";
 import type {
@@ -28,14 +26,6 @@ import type {
 	MediaImportAdapterResult,
 } from "../../media/import-processor";
 import { parseCsvText } from "../../runtime/csv";
-
-type GoodreadsAdapterDeps = {
-	resolveBookEntityRef: ResolveBookEntityRef;
-};
-
-const goodreadsAdapterDeps: GoodreadsAdapterDeps = {
-	resolveBookEntityRef: resolveBookEntityRefByIsbn,
-};
 
 const selectLifecycleStatus = (shelves: string[]): ReturnType<typeof normalizeLifecycleStatus> => {
 	const statuses = new Set(shelves.map((shelf) => normalizeLifecycleStatus(shelf)).filter(Boolean));
@@ -57,17 +47,13 @@ const selectLifecycleStatus = (shelves: string[]): ReturnType<typeof normalizeLi
 	return undefined;
 };
 
-export const adaptGoodreadsCsv = async (
-	csvText: string,
-	deps: GoodreadsAdapterDeps = goodreadsAdapterDeps,
-): Promise<MediaImportAdapterResult> => {
+export const adaptGoodreadsCsv = (csvText: string): MediaImportAdapterResult => {
 	const { headers, rows } = parseCsvText(csvText);
 	assertRequiredHeaders(headers, ["Title", "ISBN13", "Bookshelves"], "Goodreads");
 
 	const failures: MediaImportAdapterFailure[] = [];
 	const groupMap = new Map<string, ReturnType<typeof getOrCreateMediaEntityGroup>>();
 
-	// oxlint-disable no-await-in-loop
 	for (let itemIndex = 0; itemIndex < rows.length; itemIndex++) {
 		const row = rows[itemIndex];
 		if (!row) {
@@ -95,32 +81,13 @@ export const adaptGoodreadsCsv = async (
 			continue;
 		}
 
-		let entityRef;
-		try {
-			entityRef = await deps.resolveBookEntityRef({ isbn, sourceLabel });
-		} catch (error) {
-			failures.push({
-				itemIndex,
-				sourceLabel,
-				context: { isbn },
-				sourceIdentifier: isbn,
-				message: error instanceof Error ? error.message : "Book provider lookup failed",
-			});
-			continue;
-		}
-
-		if (!entityRef) {
-			failures.push({
-				itemIndex,
-				sourceLabel,
-				context: { isbn },
-				sourceIdentifier: isbn,
-				message: "Could not resolve ISBN to a supported book provider",
-			});
-			continue;
-		}
-
-		const group = getOrCreateMediaEntityGroup(groupMap, entityRef);
+		const group = getOrCreateMediaEntityGroup(groupMap, {
+			sourceLabel,
+			kind: "unresolved",
+			identifierValue: isbn,
+			identifierType: "isbn",
+			entitySchemaSlug: "book",
+		});
 		const shelves = splitCommaList(row.Bookshelves ?? "");
 		const lifecycleStatus = selectLifecycleStatus(shelves);
 		const completedOn = parseDateWithFormat(row["Date Read"] ?? "", "YYYY/MM/DD");
@@ -163,7 +130,6 @@ export const adaptGoodreadsCsv = async (
 			addCollectionMembership(group, toTitleCaseWords(shelf));
 		}
 	}
-	// oxlint-enable no-await-in-loop
 
 	return { entityGroups: finalizeEntityGroups(groupMap), failures };
 };
