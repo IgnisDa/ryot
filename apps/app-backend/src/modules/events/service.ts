@@ -5,15 +5,13 @@ import type { CurrentUserValue } from "#lib/auth";
 import { DbRunner } from "#lib/db";
 import type { BadRequest, DbError, NotFound } from "#lib/errors";
 import { badRequest, notFound } from "#lib/errors";
-import { SandboxService } from "#lib/sandbox";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
-import { SandboxRepository } from "#modules/sandbox/repository";
 
-import { createEventsForUser } from "./create-core";
-import { GlobalEntityHook } from "./global-entity-hook";
+import { validateEventCreateSubmission } from "./create-core";
 import { EventsRepository } from "./repository";
 import type { CreateEventItem, CreateEventsResponse, ListedEvent } from "./schemas";
+import { enqueueEventCreate, runEventCreate } from "./workflows";
 
 const entityNotFoundError = "Entity not found";
 const sessionEntityNotFoundError = "Session entity not found";
@@ -45,22 +43,19 @@ export class EventsService extends Effect.Service<EventsService>()("EventsServic
 	effect: Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
 		const engine = yield* WorkflowEngine;
-		const sandbox = yield* SandboxService;
 		const repository = yield* EventsRepository;
-		const sandboxRepository = yield* SandboxRepository;
-		const { onGlobalEntity } = yield* GlobalEntityHook;
 		const entitiesRepository = yield* EntitiesRepository;
 		const eventSchemasRepository = yield* EventSchemasRepository;
 
-		const provideCreateEventsContext = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+		const provideValidationContext = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 			effect.pipe(
 				Effect.provideService(DbRunner, runWithDb),
-				Effect.provideService(WorkflowEngine, engine),
-				Effect.provideService(EventsRepository, repository),
-				Effect.provideService(SandboxRepository, sandboxRepository),
 				Effect.provideService(EntitiesRepository, entitiesRepository),
 				Effect.provideService(EventSchemasRepository, eventSchemasRepository),
 			);
+
+		const provideWorkflowEngine = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+			effect.pipe(Effect.provideService(WorkflowEngine, engine));
 
 		const requireReadableEntity = (userId: string, entityId: string, notFoundMessage: string) =>
 			Effect.gen(function* () {
@@ -96,35 +91,38 @@ export class EventsService extends Effect.Service<EventsService>()("EventsServic
 					return yield* runWithDb(repository.listForUser({ userId: user.id, ...query }));
 				}),
 			create: (user, payload) =>
-				provideCreateEventsContext(
-					createEventsForUser(
-						{ userId: user.id, origin: "api", payload },
-						sandbox.run,
-						onGlobalEntity,
-					),
-				),
+				Effect.gen(function* () {
+					if (payload.length === 0) {
+						return { count: 0 };
+					}
+
+					yield* provideValidationContext(
+						validateEventCreateSubmission({ userId: user.id, payload }),
+					);
+					yield* provideWorkflowEngine(
+						enqueueEventCreate({ userId: user.id, origin: "api", payload }),
+					);
+
+					return { count: payload.length };
+				}),
 			createForImport: (userId, payload, importRunId) =>
-				provideCreateEventsContext(
-					createEventsForUser(
-						{ userId, payload, importRunId, origin: "import" },
-						sandbox.run,
-						onGlobalEntity,
-					),
-				),
+				payload.length === 0
+					? Effect.succeed({ count: 0 })
+					: provideWorkflowEngine(
+							runEventCreate({ userId, payload, importRunId, origin: "import" }),
+						),
 			createForIntegration: (input) =>
-				provideCreateEventsContext(
-					createEventsForUser(
-						{
-							userId: input.userId,
-							origin: "integration",
-							payload: input.payload,
-							importRunId: input.importRunId,
-							integrationId: input.integrationId,
-						},
-						sandbox.run,
-						onGlobalEntity,
-					),
-				),
+				input.payload.length === 0
+					? Effect.succeed({ count: 0 })
+					: provideWorkflowEngine(
+							runEventCreate({
+								userId: input.userId,
+								origin: "integration",
+								payload: input.payload,
+								importRunId: input.importRunId,
+								integrationId: input.integrationId,
+							}),
+						),
 		} satisfies EventsServiceShape;
 	}),
 }) {}
