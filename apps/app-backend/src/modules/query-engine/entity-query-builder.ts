@@ -1,3 +1,5 @@
+import { sql } from "drizzle-orm";
+
 import type { PreparedQueryContext } from "./context";
 import { buildBaseEntitiesCte } from "./entity-query-ctes";
 import { buildJoinedEntitiesCte } from "./event-join-ctes";
@@ -14,6 +16,34 @@ import {
 } from "./query-builder-shared";
 import { ENTITY_CTE_ALIASES } from "./query-cte-shared";
 import type { EntityQueryEngineRequest, QueryEngineEntityResponse } from "./schemas";
+import {
+	getEventJoinColumnName,
+	type SqlExpression,
+	sanitizeIdentifier,
+} from "./sql-expression-helpers";
+
+const buildEventJoinOccurredAtTiebreaker = (
+	expression: EntityQueryEngineRequest["sort"]["expression"],
+): SqlExpression | undefined => {
+	if (expression.type !== "reference") {
+		return undefined;
+	}
+
+	const { reference } = expression;
+	if (
+		reference.type !== "event-join" ||
+		reference.path.length !== 1 ||
+		reference.path[0] !== "occurredAt"
+	) {
+		return undefined;
+	}
+
+	const joinColumnName = getEventJoinColumnName(reference.joinKey);
+	sanitizeIdentifier(joinColumnName, "event join column");
+	const joinColumn = sql`${sql.raw(ENTITY_CTE_ALIASES.filtered)}.${sql.raw(joinColumnName)}`;
+
+	return sql`(${joinColumn} ->> ${"createdAt"})::timestamptz desc nulls last, (${joinColumn} ->> ${"id"}) desc nulls last`;
+};
 
 export const executePreparedQuery = async (input: {
 	userId: string;
@@ -61,6 +91,7 @@ export const executePreparedQuery = async (input: {
 		filterWhereClause,
 		input.context.relationshipJoins,
 	);
+	const tiebreakerExpressions = buildEventJoinOccurredAtTiebreaker(input.request.sort.expression);
 
 	const { pagination, items } = await executePaginatedQuery({
 		direction,
@@ -76,6 +107,7 @@ export const executePreparedQuery = async (input: {
 		],
 		paginationConfig: {
 			rowIdColumn: "id",
+			tiebreakerExpressions,
 			countAlias: ENTITY_CTE_ALIASES.count,
 			sortedAlias: ENTITY_CTE_ALIASES.sorted,
 			filteredAlias: ENTITY_CTE_ALIASES.filtered,
