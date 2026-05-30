@@ -1,5 +1,11 @@
-import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, Multipart } from "@effect/platform";
-import { Schema } from "effect";
+import {
+	HttpApiEndpoint,
+	HttpApiError,
+	HttpApiGroup,
+	HttpApiSchema,
+	Multipart,
+} from "@effect/platform";
+import { Option, Schema } from "effect";
 
 import { AuthMiddleware } from "#lib/auth-middleware";
 import { BadRequest, RateLimited, Unauthorized } from "#lib/errors";
@@ -7,6 +13,7 @@ import { BadRequest, RateLimited, Unauthorized } from "#lib/errors";
 import { PresignedDownloadResponse, PresignedUploadResponse } from "./schemas";
 
 export const UploadsGroup = HttpApiGroup.make("uploads")
+	.addError(HttpApiError.HttpApiDecodeError, { status: 400 })
 	.addError(Unauthorized, { status: 401 })
 	.addError(RateLimited, { status: 429 })
 	.middleware(AuthMiddleware)
@@ -24,7 +31,13 @@ export const UploadsGroup = HttpApiGroup.make("uploads")
 	)
 	.add(
 		HttpApiEndpoint.post("uploadTemporary", "/uploads/temporary")
-			.setPayload(HttpApiSchema.Multipart(Schema.Struct({ files: Multipart.FilesSchema })))
+			.setPayload(
+				HttpApiSchema.Multipart(Schema.Struct({ "files[]": Multipart.FilesSchema }), {
+					fieldMimeTypes: [],
+					maxFileSize: Option.some(50 * 1024 * 1024),
+					maxTotalSize: Option.some(50 * 1024 * 1024 + 256 * 1024),
+				}),
+			)
 			.addSuccess(Schema.Array(Schema.String), { status: 201 })
 			.addError(Multipart.MultipartError, { status: 413 })
 			.addError(BadRequest, { status: 400 }),
