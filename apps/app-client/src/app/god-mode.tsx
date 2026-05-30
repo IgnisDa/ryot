@@ -7,7 +7,6 @@ import {
 	ActivityIndicator,
 	KeyboardAvoidingView,
 	Platform,
-	Pressable,
 	ScrollView,
 	Text,
 	View,
@@ -19,6 +18,8 @@ import { isUnauthorizedCause } from "@/modules/god-mode/errors";
 import { TokenForm } from "@/modules/god-mode/token-form";
 import { GodModeUserList } from "@/modules/god-mode/user-list";
 import { useServerUrl } from "@/modules/server/state";
+import { AppButton } from "@/modules/ui/button";
+import { AppStatusState } from "@/modules/ui/status-state";
 
 function UserManagement(props: {
 	serverUrl: string;
@@ -27,7 +28,12 @@ function UserManagement(props: {
 	onUnauthorized: () => void;
 }) {
 	const onUnauthorized = props.onUnauthorized;
-	const usersAtom = godModeUsersAtom(props);
+	const scope = {
+		serverUrl: props.serverUrl,
+		sessionId: props.sessionId,
+		adminToken: props.adminToken,
+	};
+	const usersAtom = godModeUsersAtom(scope);
 	const users = useAtomValue(usersAtom);
 	const refreshUsers = useAtomRefresh(usersAtom);
 	const unauthorized = AsyncResult.isFailure(users) && isUnauthorizedCause(users.cause);
@@ -44,27 +50,22 @@ function UserManagement(props: {
 
 	if (users.waiting) {
 		return (
-			<View className="items-center gap-2 py-12">
-				<ActivityIndicator accessibilityLabel="Loading users" />
-				<Text className="font-ui text-sm text-text-muted">Loading users...</Text>
-			</View>
+			<AppStatusState
+				className="py-12"
+				detail="Loading users..."
+				icon={<ActivityIndicator accessibilityLabel="Loading users" />}
+			/>
 		);
 	}
 
 	if (AsyncResult.isFailure(users)) {
 		return (
-			<View className="items-center gap-3 rounded-xl border border-border bg-surface p-6">
-				<Text className="text-center font-ui text-sm text-danger">
-					Could not load users. Check the server and try again.
-				</Text>
-				<Pressable
-					onPress={refreshUsers}
-					accessibilityRole="button"
-					className="rounded-lg border border-border-strong px-4 py-2"
-				>
-					<Text className="font-ui-medium text-sm text-text">Retry</Text>
-				</Pressable>
-			</View>
+			<AppStatusState
+				detailTone="danger"
+				className="rounded-xl border border-border bg-surface p-6"
+				action={<AppButton label="Retry" onPress={refreshUsers} />}
+				detail="Could not load users. Check the server and try again."
+			/>
 		);
 	}
 
@@ -73,13 +74,7 @@ function UserManagement(props: {
 	}
 
 	return (
-		<GodModeUserList
-			users={users.value.users}
-			serverUrl={props.serverUrl}
-			adminToken={props.adminToken}
-			sessionId={props.sessionId}
-			onUnauthorized={onUnauthorized}
-		/>
+		<GodModeUserList scope={scope} users={users.value.users} onUnauthorized={onUnauthorized} />
 	);
 }
 

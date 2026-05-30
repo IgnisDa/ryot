@@ -1,7 +1,9 @@
 import { createErrorVisibility } from "@tanstack/react-form";
 import clsx from "clsx";
 import type { ComponentProps, PropsWithChildren, ReactNode, Ref } from "react";
-import { Pressable, Text, TextInput, View } from "react-native";
+import { Text, TextInput, View } from "react-native";
+
+import { AppButton } from "./button";
 
 export const standardFormErrorVisibility = createErrorVisibility(
 	({ fieldState, state }) => fieldState.meta.isBlurred || state.submissionAttempts > 0,
@@ -65,29 +67,17 @@ export function FormSubmitButton(props: {
 	pendingLabel?: string;
 	density?: "compact" | "default";
 }) {
-	const disabled = (props.disabled ?? false) || (props.pending ?? false);
 	const density = props.density ?? "default";
 	return (
-		<Pressable
-			disabled={disabled}
+		<AppButton
+			variant="primary"
+			label={props.label}
 			onPress={props.onPress}
-			accessibilityRole="button"
-			accessibilityState={{ disabled }}
-			className={clsx(
-				"items-center justify-center rounded-lg bg-accent px-4",
-				density === "default" ? "py-3" : "h-10",
-				disabled && "opacity-50",
-				props.className,
-			)}
-		>
-			<Text
-				className={clsx(
-					"font-ui-semibold text-accent-ink",
-					density === "default" ? "text-base" : "text-sm",
-				)}
-			>
-				{props.pending ? (props.pendingLabel ?? props.label) : props.label}
-			</Text>
-		</Pressable>
+			pending={props.pending}
+			disabled={props.disabled}
+			className={props.className}
+			pendingLabel={props.pendingLabel}
+			size={density === "default" ? "default" : "compact"}
+		/>
 	);
 }

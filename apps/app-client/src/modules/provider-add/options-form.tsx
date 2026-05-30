@@ -6,6 +6,7 @@ import { useDeferredValue, useState } from "react";
 import { FlatList, Keyboard, Pressable, Text, TextInput, View } from "react-native";
 
 import { AppIcon } from "@/modules/icons";
+import { AppChip } from "@/modules/ui/chip";
 import { FormMessage, FormTextInput } from "@/modules/ui/form";
 import { AppModal } from "@/modules/ui/modal";
 import { AppSwitch } from "@/modules/ui/switch";
@@ -63,37 +64,6 @@ const parseNumericOption = (text: string) => {
 	const parsed = Number(trimmed);
 	return trimmed === "" || Number.isNaN(parsed) ? undefined : parsed;
 };
-
-function OptionChip(props: {
-	readonly label: string;
-	readonly checked: boolean;
-	readonly onPress: () => void;
-	readonly role: "radio" | "checkbox";
-}) {
-	return (
-		<Pressable
-			onPress={props.onPress}
-			accessibilityRole={props.role}
-			accessibilityLabel={props.label}
-			accessibilityState={{ checked: props.checked }}
-			className={clsx(
-				"h-7 items-center justify-center rounded-pill border px-2.5",
-				props.checked && "border-accent-border bg-accent-soft",
-				!props.checked && "border-border-strong",
-			)}
-		>
-			<Text
-				className={clsx(
-					"font-ui-medium text-xs",
-					props.checked && "text-accent-text",
-					!props.checked && "text-text-muted",
-				)}
-			>
-				{props.label}
-			</Text>
-		</Pressable>
-	);
-}
 
 const choiceLabel = (choice: AppChoice) => choice.label ?? choice.value;
 
@@ -279,9 +249,10 @@ function OptionControl(props: {
 		Match.when("enum", () => (
 			<View className="flex-row flex-wrap gap-1.5">
 				{choices.map((choice) => (
-					<OptionChip
+					<AppChip
 						role="radio"
 						key={choice.value}
+						className="px-2.5"
 						label={choice.label ?? choice.value}
 						checked={props.value === choice.value}
 						onPress={() => props.onChange(choice.value)}
