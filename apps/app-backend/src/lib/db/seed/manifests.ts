@@ -237,6 +237,8 @@ export const fitnessSchemaScriptLinks = () =>
 	[{ schemaSlug: "exercise", scriptSlug: "exercise.free-exercise-db" }] as const;
 
 type BuiltinEventSchemaTriggerLink = {
+	phase: string;
+	position: number;
 	scriptSlug: string;
 	triggerName: string;
 	eventSchemaSlug: string;
@@ -245,6 +247,8 @@ type BuiltinEventSchemaTriggerLink = {
 
 export const builtinEventSchemaTriggerLinks = (): BuiltinEventSchemaTriggerLink[] => [
 	{
+		position: 1000,
+		phase: "after_create",
 		eventSchemaSlug: "progress",
 		triggerName: "Auto-Complete on Full Progress",
 		metadata: { inheritedProperties: ["consumedOn"] },
