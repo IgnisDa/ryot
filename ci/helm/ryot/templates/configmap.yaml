@@ -1,0 +1,17 @@
+{{- include "ryot.validate" . -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "ryot.fullname" . }}
+  labels:
+    {{- include "ryot.labels" . | nindent 4 }}
+data:
+  TZ: {{ .Values.config.timezone | quote }}
+  DISABLE_TELEMETRY: {{ .Values.config.disableTelemetry | quote }}
+  USERS_ALLOW_REGISTRATION: {{ .Values.config.usersAllowRegistration | quote }}
+  {{- with .Values.config.frontendUrl }}
+  FRONTEND_URL: {{ . | quote }}
+  {{- end }}
+  {{- range $key, $val := .Values.config.extraEnv }}
+  {{ $key }}: {{ $val | quote }}
+  {{- end }}
