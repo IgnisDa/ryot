@@ -9,9 +9,8 @@
 	},
 	"exports": {
 		".": "./src/index.ts",
-		"./schema": "./src/lib/schema.ts",
 		"./contract": "./src/lib/contract.ts",
-		"./media-types": "./src/lib/media-types.ts",
+		"./schema/*": "./src/lib/schema/*.ts",
 		"./query-language": "./src/lib/query-language.ts"
 	},
 	"scripts": {
