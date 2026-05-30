@@ -329,14 +329,17 @@ export const insertRelationship = async (input: {
 		});
 };
 
-export const upsertRelationship = async (input: {
-	userId: string;
-	sourceEntityId: string;
-	targetEntityId: string;
-	relationshipSchemaId: string;
-	properties: Record<string, unknown>;
-}) => {
-	const [savedRelationship] = await db
+export const upsertRelationship = async (
+	input: {
+		userId: string;
+		sourceEntityId: string;
+		targetEntityId: string;
+		relationshipSchemaId: string;
+		properties: Record<string, unknown>;
+	},
+	database: DbClient = db,
+) => {
+	const [savedRelationship] = await database
 		.insert(relationship)
 		.values({
 			userId: input.userId,
@@ -354,7 +357,7 @@ export const upsertRelationship = async (input: {
 				relationship.relationshipSchemaId,
 			],
 		})
-		.returning(relationshipSelection);
+		.returning({ ...relationshipSelection, wasInserted: sql<boolean>`(xmax = '0'::xid)` });
 
 	return assertPersisted(savedRelationship, "relationship");
 };

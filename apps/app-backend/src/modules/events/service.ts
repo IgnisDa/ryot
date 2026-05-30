@@ -7,6 +7,7 @@ import { QueueEvents } from "bullmq";
 
 import { checkReadAccess } from "~/lib/access";
 import { parseAppSchemaProperties } from "~/lib/app/schema-validation";
+import type { DbClient } from "~/lib/db";
 import { getQueues } from "~/lib/queue";
 import { getRedisConnection } from "~/lib/queue/connection";
 import { type ServiceResult, serviceData, serviceError, wrapServiceValidator } from "~/lib/result";
@@ -21,6 +22,7 @@ import {
 	getActiveEventSchemaTriggersForEventSchemas,
 	getEntityScopeForUser,
 	getEventCreateScopeForUser,
+	getEventSchemaForEntityBySlug,
 	listEventsByEntityForUser,
 } from "./repository";
 import type { CreateEventBody, CreateEventBulkBody, ListedEvent } from "./schemas";
@@ -116,6 +118,7 @@ export type EventServiceDeps = {
 	listEventsByEntityForUser: typeof listEventsByEntityForUser;
 	getEventCreateScopeForUser: typeof getEventCreateScopeForUser;
 	enqueueEventSchemaTriggerJob: typeof enqueueEventSchemaTriggerJob;
+	getEventSchemaForEntityBySlug: typeof getEventSchemaForEntityBySlug;
 	getActiveEventSchemaTriggersForEventSchemas: typeof getActiveEventSchemaTriggersForEventSchemas;
 	getActiveBeforeCreateTriggersForEventSchemas: typeof getActiveBeforeCreateTriggersForEventSchemas;
 	runBeforeCreateTrigger: (
@@ -221,6 +224,7 @@ const eventServiceDeps: EventServiceDeps = {
 	listEventsByEntityForUser,
 	getEventCreateScopeForUser,
 	enqueueEventSchemaTriggerJob,
+	getEventSchemaForEntityBySlug,
 	getActiveEventSchemaTriggersForEventSchemas,
 	getActiveBeforeCreateTriggersForEventSchemas,
 	getSessionEntityScopeForUser: getEntityScopeForUser,
@@ -783,4 +787,57 @@ export const createEventsBestEffortWithTriggers = async (
 		createdEvents,
 		count: createdEvents.length,
 	});
+};
+
+const eventSchemaNotFoundForSlugError = "Event schema not found for entity and slug";
+
+export const createEventBySchemaSlugWithTriggers = async (
+	input: {
+		userId: string;
+		entityId: string;
+		database?: DbClient;
+		occurredAt?: string;
+		eventSchemaSlug: string;
+		context?: EventWriteContext;
+		properties: Record<string, unknown>;
+	},
+	deps: EventServiceDeps = eventServiceDeps,
+): Promise<EventServiceResult<CreatedEventData> | EventCreateSkipResult> => {
+	const scope = await deps.getEventSchemaForEntityBySlug({
+		userId: input.userId,
+		entityId: input.entityId,
+		eventSchemaSlug: input.eventSchemaSlug,
+	});
+	if (!scope) {
+		return serviceError("not_found", eventSchemaNotFoundForSlugError);
+	}
+
+	const depsWithDb: EventServiceDeps = input.database
+		? {
+				...deps,
+				createEventForUser: (createInput) => createEventForUser(createInput, input.database),
+			}
+		: deps;
+
+	const result = await createEvent(
+		{
+			userId: input.userId,
+			writeContext: input.context,
+			body: {
+				entityId: input.entityId,
+				properties: input.properties,
+				occurredAt: input.occurredAt,
+				eventSchemaId: scope.eventSchemaId,
+			},
+		},
+		depsWithDb,
+	);
+
+	if ("error" in result || "skipped" in result) {
+		return result;
+	}
+
+	await processEventSchemaTriggers({ userId: input.userId, createdEvents: [result.data] }, deps);
+
+	return result;
 };

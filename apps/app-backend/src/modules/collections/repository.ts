@@ -152,9 +152,9 @@ export const getCollectionById = async (
 export const getEntityById = async (
 	entityId: string,
 	userId: string,
-): Promise<{ id: string; userId: string | null } | undefined> => {
+): Promise<{ id: string; userId: string | null; entitySchemaSlug: string } | undefined> => {
 	const [foundEntity] = await db
-		.select({ id: entity.id, userId: entity.userId })
+		.select({ id: entity.id, userId: entity.userId, entitySchemaSlug: entitySchema.slug })
 		.from(entity)
 		.innerJoin(entitySchema, eq(entity.entitySchemaId, entitySchema.id))
 		.where(

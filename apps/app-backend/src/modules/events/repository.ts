@@ -1,6 +1,6 @@
 import { and, desc, eq, inArray, isNull, or } from "drizzle-orm";
 
-import { assertPersisted, db } from "~/lib/db";
+import { assertPersisted, db, type DbClient } from "~/lib/db";
 import {
 	entity,
 	entityAccessScopeWithSchemaJoinSelection,
@@ -120,17 +120,56 @@ export const listEventsByEntityForUser = async (input: {
 	return rows;
 };
 
-export const createEventForUser = async (input: {
+export const getEventSchemaForEntityBySlug = async (input: {
 	userId: string;
 	entityId: string;
-	occurredAt: Date;
-	eventSchemaId: string;
-	eventSchemaName: string;
 	eventSchemaSlug: string;
-	sessionEntityId?: string;
-	properties: EventPropertiesShape;
 }) => {
-	const [createdEvent] = await db
+	const [found] = await db
+		.select({
+			entityUserId: entity.userId,
+			eventSchemaId: eventSchema.id,
+			entitySchemaId: entitySchema.id,
+			eventSchemaName: eventSchema.name,
+			entitySchemaSlug: entitySchema.slug,
+			propertiesSchema: eventSchema.propertiesSchema,
+			eventSchemaEntitySchemaId: eventSchema.entitySchemaId,
+		})
+		.from(entity)
+		.innerJoin(entitySchema, eq(entity.entitySchemaId, entitySchema.id))
+		.innerJoin(
+			eventSchema,
+			and(
+				eq(eventSchema.entitySchemaId, entitySchema.id),
+				eq(eventSchema.slug, input.eventSchemaSlug),
+				eventSchemaVisibleToUserClause(input.userId),
+			),
+		)
+		.where(
+			and(
+				eq(entity.id, input.entityId),
+				or(isNull(entity.userId), eq(entity.userId, input.userId)),
+			),
+		)
+		.limit(1);
+
+	return found;
+};
+
+export const createEventForUser = async (
+	input: {
+		userId: string;
+		entityId: string;
+		occurredAt: Date;
+		eventSchemaId: string;
+		eventSchemaName: string;
+		eventSchemaSlug: string;
+		sessionEntityId?: string;
+		properties: EventPropertiesShape;
+	},
+	database: DbClient = db,
+) => {
+	const [createdEvent] = await database
 		.insert(event)
 		.values({
 			userId: input.userId,

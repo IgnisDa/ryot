@@ -19,14 +19,14 @@ import { entityImportJobData, entityImportJobName } from "./jobs";
 import {
 	createEntityForUser,
 	findEntityByExternalIdForUser,
-	listEntityMatchCandidatesBySchemaForUser,
 	getEntityByIdForUser,
 	getEntitySchemaScopeForUser,
-	getUserLibraryEntityId,
 	getEntityScopeForUser,
+	getUserLibraryEntityId,
 	insertRelationship,
-	upsertInLibraryRelationship,
+	listEntityMatchCandidatesBySchemaForUser,
 	upsertEntityRelationship,
+	upsertInLibraryRelationship,
 } from "./repository";
 import type {
 	CreateEntityBody,
