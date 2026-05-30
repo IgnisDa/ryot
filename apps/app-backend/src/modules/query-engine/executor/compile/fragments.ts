@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 
+import type { TimeSeriesBucket } from "../../time-series-buckets";
 import { SYSTEM_DATE_FIELDS_BY_KIND, type RootAliasKind } from "../types";
 
 export type SqlFragment = ReturnType<typeof sql>;
@@ -84,10 +85,8 @@ export const userVisibleSql = (sqlAlias: string, userId: string): SqlFragment =>
 
 // UTC, ISO/Monday-start weeks: date_trunc('week') is Monday-based and the AT TIME ZONE 'UTC'
 // sandwich truncates on UTC boundaries regardless of session time zone while returning a timestamptz.
-export const timeBucketSql = (
-	bucket: "hour" | "day" | "week" | "month",
-	timeColSql: SqlFragment,
-): SqlFragment => sql`date_trunc(${bucket}, ${timeColSql} AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'`;
+export const timeBucketSql = (bucket: TimeSeriesBucket, timeColSql: SqlFragment): SqlFragment =>
+	sql`date_trunc(${bucket}, ${timeColSql} AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'`;
 
 export const timeRangeConditionSql = (
 	timeColSql: SqlFragment,

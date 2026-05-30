@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 
-import type { AggregationSpec, Expr, FieldSelector, Source } from "../../language";
+import type { AggregationSpec, Expr, FieldSelector, OrderByEntry, Source } from "../../language";
 import {
 	escapeContainsPattern,
 	isSystemDateField,
@@ -13,8 +13,6 @@ import {
 	type SqlFragment,
 } from "./fragments";
 import type { CompileScope, SqlRef } from "./scope";
-
-type OrderByEntry = { readonly order: "asc" | "desc"; readonly expr: Expr };
 
 // The coarse SQL type an expression is compiled into. "json" means "not statically known" — the
 // value is left as raw jsonb and compared/typed at runtime by its JSON type.
