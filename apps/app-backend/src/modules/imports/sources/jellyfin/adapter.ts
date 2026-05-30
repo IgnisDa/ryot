@@ -1,4 +1,3 @@
-import { dayjs } from "@ryot/ts-utils/dayjs";
 import { z } from "zod";
 
 import {
@@ -12,11 +11,15 @@ import type {
 	MediaImportAdapterResult,
 } from "../../media/import-processor";
 import {
-	createImportSourceFailure,
 	mapWithConcurrency,
 	requestSourceJson,
 	type SourceJsonRequestInput,
 } from "../../runtime/source-api";
+import {
+	createSourceFetchFailure,
+	isNotNullAdapterFailure,
+	parseDateInput,
+} from "../shared/adapter-utils";
 import { buildMovieOrShowImportRef } from "../shared/provider-refs";
 
 const JELLYFIN_CONCURRENCY = 5;
@@ -76,32 +79,6 @@ const jellyfinImportAdapterDeps: JellyfinImportAdapterDeps = {
 	requestJson: requestSourceJson,
 };
 
-const getOccurredAt = (value: string | undefined): string | null => {
-	if (!value) {
-		return null;
-	}
-	const parsed = dayjs(value);
-	return parsed.isValid() ? parsed.toISOString() : null;
-};
-
-const createJellyfinItemFailure = (input: {
-	host: string;
-	error: unknown;
-	message: string;
-	itemIndex: number;
-	sourceLabel?: string;
-	sourceIdentifier?: string;
-}): MediaImportAdapterFailure =>
-	createImportSourceFailure({
-		host: input.host,
-		error: input.error,
-		stage: "source_fetch",
-		message: input.message,
-		itemIndex: input.itemIndex,
-		sourceLabel: input.sourceLabel,
-		sourceIdentifier: input.sourceIdentifier,
-	});
-
 const createJellyfinAuthHeaders = (accessToken?: string): Record<string, string> => ({
 	Accept: "application/json",
 	Authorization: accessToken
@@ -109,10 +86,6 @@ const createJellyfinAuthHeaders = (accessToken?: string): Record<string, string>
 		: JELLYFIN_AUTH_HEADER,
 	"Content-Type": "application/json",
 });
-
-const isAdapterFailure = (
-	value: MediaImportAdapterFailure | null,
-): value is MediaImportAdapterFailure => value !== null;
 
 export const adaptJellyfinData = async (
 	input: JellyfinAdapterInput,
@@ -175,7 +148,7 @@ export const adaptJellyfinData = async (
 		libraryResponse.Items,
 		JELLYFIN_CONCURRENCY,
 		async (item, itemIndex) => {
-			const occurredAt = getOccurredAt(item.UserData?.LastPlayedDate);
+			const occurredAt = parseDateInput(item.UserData?.LastPlayedDate);
 			if (!occurredAt) {
 				return {
 					itemIndex,
@@ -232,7 +205,7 @@ export const adaptJellyfinData = async (
 			try {
 				seriesDetails = await getSeriesDetails(item.SeriesId);
 			} catch (error) {
-				return createJellyfinItemFailure({
+				return createSourceFetchFailure({
 					host,
 					error,
 					itemIndex,
@@ -278,7 +251,7 @@ export const adaptJellyfinData = async (
 		},
 	);
 
-	failures.push(...itemFailures.filter(isAdapterFailure));
+	failures.push(...itemFailures.filter(isNotNullAdapterFailure));
 
 	return { failures, entityGroups: finalizeEntityGroups(groupMap) };
 };

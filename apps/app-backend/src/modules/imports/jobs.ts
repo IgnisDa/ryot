@@ -4,7 +4,7 @@ import { nonEmptyStringSchema } from "~/lib/zod";
 
 export const importRunJobName = "import-run";
 
-export const resolvedImportEntityRefSchema = z.object({
+const resolvedImportEntityRefSchema = z.object({
 	sourceLabel: z.string(),
 	externalId: nonEmptyStringSchema,
 	scriptSlug: nonEmptyStringSchema,
@@ -13,14 +13,13 @@ export const resolvedImportEntityRefSchema = z.object({
 });
 export type ResolvedImportEntityRef = z.infer<typeof resolvedImportEntityRefSchema>;
 
-export const unresolvedImportEntityRefSchema = z.object({
+const unresolvedImportEntityRefSchema = z.object({
 	sourceLabel: z.string(),
 	kind: z.literal("unresolved"),
 	identifierType: nonEmptyStringSchema,
 	identifierValue: nonEmptyStringSchema,
 	entitySchemaSlug: nonEmptyStringSchema,
 });
-export type UnresolvedImportEntityRef = z.infer<typeof unresolvedImportEntityRefSchema>;
 
 export const importEntityRefSchema = z.discriminatedUnion("kind", [
 	resolvedImportEntityRefSchema,
@@ -33,19 +32,16 @@ export const importEntityRefKey = (ref: ImportEntityRef) =>
 		? `${ref.entitySchemaSlug}|${ref.scriptSlug}|${ref.externalId}`
 		: `${ref.entitySchemaSlug}|${ref.identifierType}|${ref.identifierValue}`;
 
-export const importMediaEventSchema = z.object({
+const importMediaEventSchema = z.object({
 	occurredAt: nonEmptyStringSchema,
 	eventSchemaSlug: nonEmptyStringSchema,
 	properties: z.record(z.string(), z.unknown()),
 });
 export type ImportMediaEvent = z.infer<typeof importMediaEventSchema>;
 
-export const importCollectionMembershipSchema = z.object({
-	collectionName: nonEmptyStringSchema,
-});
-export type ImportCollectionMembership = z.infer<typeof importCollectionMembershipSchema>;
+const importCollectionMembershipSchema = z.object({ collectionName: nonEmptyStringSchema });
 
-export const importMediaEntityGroupSchema = z.object({
+const importMediaEntityGroupSchema = z.object({
 	entityRef: importEntityRefSchema,
 	events: z.array(importMediaEventSchema),
 	itemIndex: z.number().int().nonnegative().optional(),
