@@ -29,9 +29,9 @@ import { assertTaggedError } from "../test-support/assertions";
 
 describe("Workouts E2E", () => {
 	it("links the built-in workout schema to the fitness tracker", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const fitnessTracker = await findBuiltinTrackerBySlug(client, cookies, "fitness");
-		const schemas = await listEntitySchemas(client, cookies, {
+		const { client } = await createAuthenticatedClient();
+		const fitnessTracker = await findBuiltinTrackerBySlug(client, "fitness");
+		const schemas = await listEntitySchemas(client, {
 			trackerId: fitnessTracker.id,
 		});
 		const workoutSchema = schemas.find((schema) => schema.slug === "workout");
@@ -43,8 +43,8 @@ describe("Workouts E2E", () => {
 	});
 
 	it("exposes the workout schema properties", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { schema: workoutSchema } = await findBuiltinSchemaBySlug(client, cookies, "workout");
+		const { client } = await createAuthenticatedClient();
+		const { schema: workoutSchema } = await findBuiltinSchemaBySlug(client, "workout");
 
 		expect(workoutSchema.propertiesSchema.fields).toMatchObject({
 			comment: {
@@ -71,9 +71,9 @@ describe("Workouts E2E", () => {
 	});
 
 	it("creates the built-in All Workouts saved view with workout defaults", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const fitnessTracker = await findBuiltinTrackerBySlug(client, cookies, "fitness");
-		const views = await listSavedViews(client, cookies, {
+		const { client } = await createAuthenticatedClient();
+		const fitnessTracker = await findBuiltinTrackerBySlug(client, "fitness");
+		const views = await listSavedViews(client, {
 			trackerId: fitnessTracker.id,
 		});
 		const allWorkoutsView = views.find((view) => view.name === "All Workouts");
@@ -103,9 +103,9 @@ describe("Workouts E2E", () => {
 	});
 
 	it("creates a workout entity and retrieves it by id", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { workoutId } = await createWorkoutEntityFixture(client, cookies);
-		const entity = await getEntity(client, cookies, workoutId);
+		const { client } = await createAuthenticatedClient();
+		const { workoutId } = await createWorkoutEntityFixture(client);
+		const entity = await getEntity(client, workoutId);
 
 		expect(entity.id).toBe(workoutId);
 		expect(entity.properties).toMatchObject({
@@ -115,12 +115,11 @@ describe("Workouts E2E", () => {
 	});
 
 	it("shows workout entities through the All Workouts saved-view defaults", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		await createWorkoutEntityFixture(client, cookies);
+		const { client } = await createAuthenticatedClient();
+		await createWorkoutEntityFixture(client);
 
 		const result = await executeQueryEngine(
 			client,
-			cookies,
 			buildGridRequest({
 				scope: ["workout"],
 				pagination: { page: 1, limit: 10 },
@@ -141,132 +140,126 @@ describe("Workouts E2E", () => {
 	});
 
 	it("logs a workout set linked to a workout via sessionEntityId", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { workoutId } = await createWorkoutEntityFixture(client, cookies);
-		const { workoutSetEventSchema } = await findWorkoutSetEventSchema(client, cookies);
-		const exerciseId = await waitForSeededExerciseId(client, cookies);
+		const { client } = await createAuthenticatedClient();
+		const { workoutId } = await createWorkoutEntityFixture(client);
+		const { workoutSetEventSchema } = await findWorkoutSetEventSchema(client);
+		const exerciseId = await waitForSeededExerciseId(client);
 
-		const createResult = await client.run(
-			(c) =>
-				c.events.create({
-					payload: [
-						{
-							entityId: exerciseId,
-							sessionEntityId: workoutId,
-							eventSchemaId: workoutSetEventSchema.id,
-							properties: {
-								reps: 10,
-								weight: 60,
-								setOrder: 0,
-								setLot: "normal",
-								exerciseOrder: 0,
-							},
+		const createResult = await client.run((c) =>
+			c.events.create({
+				payload: [
+					{
+						entityId: exerciseId,
+						sessionEntityId: workoutId,
+						eventSchemaId: workoutSetEventSchema.id,
+						properties: {
+							reps: 10,
+							weight: 60,
+							setOrder: 0,
+							setLot: "normal",
+							exerciseOrder: 0,
 						},
-					],
-				}),
-			{ Cookie: cookies },
+					},
+				],
+			}),
 		);
 
 		expect(createResult.count).toBe(1);
 
-		const events = await waitForSessionEventCount(client, cookies, workoutId, 1);
+		const events = await waitForSessionEventCount(client, workoutId, 1);
 		expect(events[0]?.sessionEntityId).toBe(workoutId);
 		expect(events[0]?.entityId).toBe(exerciseId);
 	});
 
 	it("listing events by sessionEntityId returns only sets for that workout", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { workoutId: workoutOneId } = await createWorkoutEntityFixture(client, cookies);
-		const { workoutId: workoutTwoId } = await createWorkoutEntityFixture(client, cookies);
-		const { workoutSetEventSchema } = await findWorkoutSetEventSchema(client, cookies);
-		const exerciseId = await waitForSeededExerciseId(client, cookies);
+		const { client } = await createAuthenticatedClient();
+		const { workoutId: workoutOneId } = await createWorkoutEntityFixture(client);
+		const { workoutId: workoutTwoId } = await createWorkoutEntityFixture(client);
+		const { workoutSetEventSchema } = await findWorkoutSetEventSchema(client);
+		const exerciseId = await waitForSeededExerciseId(client);
 
-		await client.run(
-			(c) =>
-				c.events.create({
-					payload: [
-						{
-							entityId: exerciseId,
-							sessionEntityId: workoutOneId,
-							eventSchemaId: workoutSetEventSchema.id,
-							properties: {
-								reps: 10,
-								setOrder: 0,
-								setLot: "normal",
-								exerciseOrder: 0,
-							},
+		await client.run((c) =>
+			c.events.create({
+				payload: [
+					{
+						entityId: exerciseId,
+						sessionEntityId: workoutOneId,
+						eventSchemaId: workoutSetEventSchema.id,
+						properties: {
+							reps: 10,
+							setOrder: 0,
+							setLot: "normal",
+							exerciseOrder: 0,
 						},
-						{
-							entityId: exerciseId,
-							sessionEntityId: workoutOneId,
-							eventSchemaId: workoutSetEventSchema.id,
-							properties: {
-								reps: 8,
-								setOrder: 1,
-								setLot: "normal",
-								exerciseOrder: 0,
-							},
+					},
+					{
+						entityId: exerciseId,
+						sessionEntityId: workoutOneId,
+						eventSchemaId: workoutSetEventSchema.id,
+						properties: {
+							reps: 8,
+							setOrder: 1,
+							setLot: "normal",
+							exerciseOrder: 0,
 						},
-						{
-							entityId: exerciseId,
-							sessionEntityId: workoutTwoId,
-							eventSchemaId: workoutSetEventSchema.id,
-							properties: {
-								reps: 6,
-								setOrder: 0,
-								setLot: "normal",
-								exerciseOrder: 0,
-							},
+					},
+					{
+						entityId: exerciseId,
+						sessionEntityId: workoutTwoId,
+						eventSchemaId: workoutSetEventSchema.id,
+						properties: {
+							reps: 6,
+							setOrder: 0,
+							setLot: "normal",
+							exerciseOrder: 0,
 						},
-					],
-				}),
-			{ Cookie: cookies },
+					},
+				],
+			}),
 		);
 
-		const workoutOneEvents = await waitForSessionEventCount(client, cookies, workoutOneId, 2);
+		const workoutOneEvents = await waitForSessionEventCount(client, workoutOneId, 2);
 		expect(workoutOneEvents).toHaveLength(2);
 		expect(workoutOneEvents.every((event) => event.sessionEntityId === workoutOneId)).toBe(true);
 	});
 
 	it("listing events by entityId spans multiple workouts for the same exercise", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { workoutId: workoutOneId } = await createWorkoutEntityFixture(client, cookies);
-		const { workoutId: workoutTwoId } = await createWorkoutEntityFixture(client, cookies);
-		const { workoutSetEventSchema } = await findWorkoutSetEventSchema(client, cookies);
-		const exerciseId = await waitForSeededExerciseId(client, cookies);
+		const { client } = await createAuthenticatedClient();
+		const { workoutId: workoutOneId } = await createWorkoutEntityFixture(client);
+		const { workoutId: workoutTwoId } = await createWorkoutEntityFixture(client);
+		const { workoutSetEventSchema } = await findWorkoutSetEventSchema(client);
+		const exerciseId = await waitForSeededExerciseId(client);
 
-		await client.run(
-			(c) =>
-				c.events.create({
-					payload: [
-						{
-							entityId: exerciseId,
-							sessionEntityId: workoutOneId,
-							eventSchemaId: workoutSetEventSchema.id,
-							properties: {
-								reps: 10,
-								setOrder: 0,
-								setLot: "normal",
-								exerciseOrder: 0,
-							},
+		await client.run((c) =>
+			c.events.create({
+				payload: [
+					{
+						entityId: exerciseId,
+						sessionEntityId: workoutOneId,
+						eventSchemaId: workoutSetEventSchema.id,
+						properties: {
+							reps: 10,
+							setOrder: 0,
+							setLot: "normal",
+							exerciseOrder: 0,
 						},
-						{
-							entityId: exerciseId,
-							sessionEntityId: workoutTwoId,
-							eventSchemaId: workoutSetEventSchema.id,
-							properties: {
-								reps: 8,
-								setOrder: 0,
-								setLot: "normal",
-								exerciseOrder: 0,
-							},
+					},
+					{
+						entityId: exerciseId,
+						sessionEntityId: workoutTwoId,
+						eventSchemaId: workoutSetEventSchema.id,
+						properties: {
+							reps: 8,
+							setOrder: 0,
+							setLot: "normal",
+							exerciseOrder: 0,
 						},
-					],
-				}),
-			{ Cookie: cookies },
+					},
+				],
+			}),
 		);
 
-		const exerciseEvents = await waitForEventCount(client, cookies, exerciseId, 2);
+		const exerciseEvents = await waitForEventCount(client, exerciseId, 2);
 		expect(exerciseEvents).toHaveLength(2);
 		expect(new Set(exerciseEvents.map((event) => event.sessionEntityId))).toEqual(
 			new Set([workoutOneId, workoutTwoId]),
@@ -274,19 +267,17 @@ describe("Workouts E2E", () => {
 	});
 
 	it("returns 400 when listing events without entityId or sessionEntityId", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 
-		const error = await client.runError((c) => c.events.list({ urlParams: {} }), {
-			Cookie: cookies,
-		});
+		const error = await client.runError((c) => c.events.list({ urlParams: {} }));
 
 		assertTaggedError(error, "BadRequest");
 	});
 
 	it("creates a workout-repeated-from relationship between two workouts", async () => {
-		const { client, cookies, userId } = await createAuthenticatedClient();
-		const { workoutId: originalWorkoutId } = await createWorkoutEntityFixture(client, cookies);
-		const { workoutId: copiedWorkoutId } = await createWorkoutEntityFixture(client, cookies);
+		const { client, userId } = await createAuthenticatedClient();
+		const { workoutId: originalWorkoutId } = await createWorkoutEntityFixture(client);
+		const { workoutId: copiedWorkoutId } = await createWorkoutEntityFixture(client);
 
 		const relationshipSchemaId = await findBuiltinRelationshipSchemaId("workout-repeated-from");
 

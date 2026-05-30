@@ -24,11 +24,11 @@ import { assertPresent, assertTaggedError, requireObjectRecord } from "../test-s
 
 describe("GET /entity-schemas", () => {
 	it("returns 200 and lists built-in entity schemas for built-in tracker", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 
-		const builtinTracker = await findBuiltinTracker(client, cookies);
+		const builtinTracker = await findBuiltinTracker(client);
 
-		const schemas = await listEntitySchemas(client, cookies, {
+		const schemas = await listEntitySchemas(client, {
 			trackerId: builtinTracker.id,
 		});
 
@@ -47,9 +47,9 @@ describe("GET /entity-schemas", () => {
 	});
 
 	it("includes the built-in collection schema in the default platform", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const builtinTracker = await findBuiltinTracker(client, cookies);
-		const schemas = await listEntitySchemas(client, cookies, {
+		const { client } = await createAuthenticatedClient();
+		const builtinTracker = await findBuiltinTracker(client);
+		const schemas = await listEntitySchemas(client, {
 			trackerId: builtinTracker.id,
 		});
 		const collectionSchema = schemas.find((schema) => schema.slug === "collection");
@@ -76,19 +76,19 @@ describe("GET /entity-schemas", () => {
 	});
 
 	it("returns 200 and lists custom entity schemas for custom tracker", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 
-		const { trackerId } = await createTracker(client, cookies, {
+		const { trackerId } = await createTracker(client, {
 			name: "Custom Tracker",
 		});
 
-		const { schemaId } = await createEntitySchema(client, cookies, {
+		const { schemaId } = await createEntitySchema(client, {
 			trackerId,
 			name: "Custom Schema",
 			slug: "custom-schema",
 		});
 
-		const schemas = await listEntitySchemas(client, cookies, { trackerId });
+		const schemas = await listEntitySchemas(client, { trackerId });
 
 		expect(Array.isArray(schemas)).toBe(true);
 		expect(schemas.length).toBe(1);
@@ -102,12 +102,11 @@ describe("GET /entity-schemas", () => {
 	});
 
 	it("returns 404 for non-existent tracker", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 
 		const nonExistentId = "00000000-0000-0000-0000-000000000000";
 		const error = await client.runError(
 			(c) => c.entitySchemas.list({ payload: { trackerId: nonExistentId } }),
-			{ Cookie: cookies },
 		);
 
 		assertTaggedError(error, "NotFound");
@@ -115,60 +114,58 @@ describe("GET /entity-schemas", () => {
 	});
 
 	it("returns empty array for custom tracker with no schemas", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 
-		const { trackerId } = await createTracker(client, cookies, {
+		const { trackerId } = await createTracker(client, {
 			name: "Empty Tracker",
 		});
 
-		const schemas = await listEntitySchemas(client, cookies, { trackerId });
+		const schemas = await listEntitySchemas(client, { trackerId });
 
 		expect(Array.isArray(schemas)).toBe(true);
 		expect(schemas.length).toBe(0);
 	});
 
 	it("returns 404 when attempting to access another user's custom tracker", async () => {
-		const { client: client1, cookies: cookies1 } = await createAuthenticatedClient();
-		const { client: client2, cookies: cookies2 } = await createAuthenticatedClient();
+		const { client: client1 } = await createAuthenticatedClient();
+		const { client: client2 } = await createAuthenticatedClient();
 
-		const { trackerId } = await createTracker(client1, cookies1, {
+		const { trackerId } = await createTracker(client1, {
 			name: "User 1 Tracker",
 		});
 
-		const error = await client2.runError((c) => c.entitySchemas.list({ payload: { trackerId } }), {
-			Cookie: cookies2,
-		});
+		const error = await client2.runError((c) => c.entitySchemas.list({ payload: { trackerId } }));
 
 		assertTaggedError(error, "NotFound");
 		expect(error.message).toBe("Tracker not found");
 	});
 
 	it("lists multiple custom schemas ordered by name and createdAt", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 
-		const { trackerId } = await createTracker(client, cookies, {
+		const { trackerId } = await createTracker(client, {
 			name: "Multi Schema Tracker",
 		});
 
-		await createEntitySchema(client, cookies, {
+		await createEntitySchema(client, {
 			trackerId,
 			slug: "zebra",
 			name: "Zebra Schema",
 		});
 
-		await createEntitySchema(client, cookies, {
+		await createEntitySchema(client, {
 			trackerId,
 			slug: "alpha",
 			name: "Alpha Schema",
 		});
 
-		await createEntitySchema(client, cookies, {
+		await createEntitySchema(client, {
 			trackerId,
 			slug: "beta",
 			name: "Beta Schema",
 		});
 
-		const schemas = await listEntitySchemas(client, cookies, { trackerId });
+		const schemas = await listEntitySchemas(client, { trackerId });
 
 		expect(schemas.length).toBe(3);
 
@@ -177,12 +174,12 @@ describe("GET /entity-schemas", () => {
 	});
 
 	it("returns 200 when filtering by a single slug", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 
-		const { trackerId } = await createTracker(client, cookies, {
+		const { trackerId } = await createTracker(client, {
 			name: "Single Slug Tracker",
 		});
-		await createEntitySchema(client, cookies, {
+		await createEntitySchema(client, {
 			trackerId,
 			name: "Only Schema",
 			slug: "only-schema",
@@ -190,7 +187,6 @@ describe("GET /entity-schemas", () => {
 
 		const data = await client.run(
 			(c) => c.entitySchemas.list({ payload: { slugs: ["only-schema"] } }),
-			{ Cookie: cookies },
 		);
 
 		expect(data.length).toBe(1);
@@ -198,25 +194,25 @@ describe("GET /entity-schemas", () => {
 	});
 
 	it("lists schemas by slug across accessible trackers", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 
-		const { trackerId: booksTrackerId } = await createTracker(client, cookies, {
+		const { trackerId: booksTrackerId } = await createTracker(client, {
 			name: "Books",
 		});
-		const { trackerId: moviesTrackerId } = await createTracker(client, cookies, { name: "Movies" });
+		const { trackerId: moviesTrackerId } = await createTracker(client, { name: "Movies" });
 
-		await createEntitySchema(client, cookies, {
+		await createEntitySchema(client, {
 			name: "Book Entry",
 			slug: "book-entry",
 			trackerId: booksTrackerId,
 		});
-		await createEntitySchema(client, cookies, {
+		await createEntitySchema(client, {
 			name: "Movie Entry",
 			slug: "movie-entry",
 			trackerId: moviesTrackerId,
 		});
 
-		const schemas = await listEntitySchemas(client, cookies, {
+		const schemas = await listEntitySchemas(client, {
 			slugs: ["movie-entry", "book-entry"],
 		});
 
@@ -226,32 +222,30 @@ describe("GET /entity-schemas", () => {
 	});
 
 	it("returns all accessible schemas when trackerId and slugs are both missing", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const builtinTracker = await findBuiltinTracker(client, cookies);
-		const builtinSchemas = await listEntitySchemas(client, cookies, {
+		const { client } = await createAuthenticatedClient();
+		const builtinTracker = await findBuiltinTracker(client);
+		const builtinSchemas = await listEntitySchemas(client, {
 			trackerId: builtinTracker.id,
 		});
 
-		const { trackerId } = await createTracker(client, cookies, {
+		const { trackerId } = await createTracker(client, {
 			name: "Unfiltered Tracker",
 		});
-		await createEntitySchema(client, cookies, {
+		await createEntitySchema(client, {
 			trackerId,
 			name: "Custom Entry",
 			slug: "custom-entry",
 		});
 
-		const data = await client.run((c) => c.entitySchemas.list({ payload: {} }), {
-			Cookie: cookies,
-		});
+		const data = await client.run((c) => c.entitySchemas.list({ payload: {} }));
 
 		expect(data.some((schema) => schema.slug === "custom-entry")).toBe(true);
 		expect(data.length).toBeGreaterThanOrEqual(builtinSchemas.length + 1);
 	});
 
 	it("built-in schemas with linked scripts have non-empty providers", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
+		const { client } = await createAuthenticatedClient();
+		const { schema } = await findBuiltinSchemaWithProviders(client);
 
 		expect(schema.providers.length).toBeGreaterThan(0);
 		const provider = schema.providers[0];
@@ -262,16 +256,16 @@ describe("GET /entity-schemas", () => {
 	});
 
 	it("custom schemas without linked scripts have providers as empty array", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { trackerId } = await createTracker(client, cookies, {
+		const { client } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, {
 			name: "Provider Test Tracker",
 		});
-		await createEntitySchema(client, cookies, {
+		await createEntitySchema(client, {
 			trackerId,
 			name: "Provider Test Schema",
 		});
 
-		const schemas = await listEntitySchemas(client, cookies, { trackerId });
+		const schemas = await listEntitySchemas(client, { trackerId });
 
 		expect(schemas.length).toBe(1);
 		expect(schemas[0]?.providers).toEqual([]);
@@ -280,9 +274,9 @@ describe("GET /entity-schemas", () => {
 
 describe("POST /entity-schemas", () => {
 	it("returns 400 when attempting to create schema for built-in tracker", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 
-		const builtinTracker = await findBuiltinTracker(client, cookies);
+		const builtinTracker = await findBuiltinTracker(client);
 
 		const error = await client.runError(
 			(c) =>
@@ -300,7 +294,6 @@ describe("POST /entity-schemas", () => {
 						},
 					},
 				}),
-			{ Cookie: cookies },
 		);
 
 		assertTaggedError(error, "BadRequest");
@@ -308,9 +301,9 @@ describe("POST /entity-schemas", () => {
 	});
 
 	it("successfully creates schema for custom tracker", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 
-		const { trackerId } = await createTracker(client, cookies, {
+		const { trackerId } = await createTracker(client, {
 			name: "Custom Tracker",
 		});
 
@@ -331,7 +324,6 @@ describe("POST /entity-schemas", () => {
 						},
 					},
 				}),
-			{ Cookie: cookies },
 		);
 
 		expect(data.name).toBe("My Schema");
@@ -341,7 +333,7 @@ describe("POST /entity-schemas", () => {
 	});
 
 	it("returns 404 when tracker does not exist", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 
 		const nonExistentId = "00000000-0000-0000-0000-000000000000";
 		const error = await client.runError(
@@ -360,7 +352,6 @@ describe("POST /entity-schemas", () => {
 						},
 					},
 				}),
-			{ Cookie: cookies },
 		);
 
 		assertTaggedError(error, "NotFound");
@@ -368,10 +359,10 @@ describe("POST /entity-schemas", () => {
 	});
 
 	it("returns 404 when attempting to create schema for another user's tracker", async () => {
-		const { client: client1, cookies: cookies1 } = await createAuthenticatedClient();
-		const { client: client2, cookies: cookies2 } = await createAuthenticatedClient();
+		const { client: client1 } = await createAuthenticatedClient();
+		const { client: client2 } = await createAuthenticatedClient();
 
-		const { trackerId } = await createTracker(client1, cookies1, {
+		const { trackerId } = await createTracker(client1, {
 			name: "User 1 Tracker",
 		});
 
@@ -391,7 +382,6 @@ describe("POST /entity-schemas", () => {
 						},
 					},
 				}),
-			{ Cookie: cookies2 },
 		);
 
 		assertTaggedError(error, "NotFound");
@@ -399,13 +389,13 @@ describe("POST /entity-schemas", () => {
 	});
 
 	it("returns 400 when slug already exists for user", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 
-		const { trackerId } = await createTracker(client, cookies, {
+		const { trackerId } = await createTracker(client, {
 			name: "Tracker",
 		});
 
-		await createEntitySchema(client, cookies, {
+		await createEntitySchema(client, {
 			trackerId,
 			name: "First Schema",
 			slug: "duplicate-slug",
@@ -427,7 +417,6 @@ describe("POST /entity-schemas", () => {
 						},
 					},
 				}),
-			{ Cookie: cookies },
 		);
 
 		assertTaggedError(error, "BadRequest");
@@ -435,9 +424,9 @@ describe("POST /entity-schemas", () => {
 	});
 
 	it("returns 400 when attempting to create the reserved collection schema slug", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 
-		const { trackerId } = await createTracker(client, cookies, {
+		const { trackerId } = await createTracker(client, {
 			name: "Tracker",
 		});
 
@@ -457,7 +446,6 @@ describe("POST /entity-schemas", () => {
 						},
 					},
 				}),
-			{ Cookie: cookies },
 		);
 
 		assertTaggedError(error, "BadRequest");
@@ -467,19 +455,19 @@ describe("POST /entity-schemas", () => {
 
 describe("GET /entity-schemas/:entitySchemaId", () => {
 	it("returns 200 and the entity schema for a valid owned schema", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 
-		const { trackerId } = await createTracker(client, cookies, {
+		const { trackerId } = await createTracker(client, {
 			name: "Test Tracker",
 		});
 
-		const { schemaId, data: createdData } = await createEntitySchema(client, cookies, {
+		const { schemaId, data: createdData } = await createEntitySchema(client, {
 			trackerId,
 			name: "My Schema",
 			slug: "my-schema",
 		});
 
-		const schema = await getEntitySchema(client, cookies, schemaId);
+		const schema = await getEntitySchema(client, schemaId);
 
 		expect(schema.id).toBe(schemaId);
 		expect(schema.name).toBe("My Schema");
@@ -492,22 +480,21 @@ describe("GET /entity-schemas/:entitySchemaId", () => {
 	});
 
 	it("returns 200 for a built-in entity schema accessible to the user", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 
-		const { schema: firstSchema } = await findBuiltinEntitySchema(client, cookies);
-		const schema = await getEntitySchema(client, cookies, firstSchema.id);
+		const { schema: firstSchema } = await findBuiltinEntitySchema(client);
+		const schema = await getEntitySchema(client, firstSchema.id);
 
 		expect(schema.id).toBe(firstSchema.id);
 		expect(schema.isBuiltin).toBe(true);
 	});
 
 	it("returns 404 for a non-existent entity schema", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 
 		const nonExistentId = "00000000-0000-0000-0000-000000000000";
 		const error = await client.runError(
 			(c) => c.entitySchemas.get({ path: { entitySchemaId: nonExistentId } }),
-			{ Cookie: cookies },
 		);
 
 		assertTaggedError(error, "NotFound");
@@ -515,13 +502,13 @@ describe("GET /entity-schemas/:entitySchemaId", () => {
 	});
 
 	it("returns 404 when accessing another user's entity schema", async () => {
-		const { client: client1, cookies: cookies1 } = await createAuthenticatedClient();
-		const { client: client2, cookies: cookies2 } = await createAuthenticatedClient();
+		const { client: client1 } = await createAuthenticatedClient();
+		const { client: client2 } = await createAuthenticatedClient();
 
-		const { trackerId } = await createTracker(client1, cookies1, {
+		const { trackerId } = await createTracker(client1, {
 			name: "User 1 Tracker",
 		});
-		const { schemaId } = await createEntitySchema(client1, cookies1, {
+		const { schemaId } = await createEntitySchema(client1, {
 			trackerId,
 			slug: "user1-schema",
 			name: "User 1 Schema",
@@ -529,7 +516,6 @@ describe("GET /entity-schemas/:entitySchemaId", () => {
 
 		const error = await client2.runError(
 			(c) => c.entitySchemas.get({ path: { entitySchemaId: schemaId } }),
-			{ Cookie: cookies2 },
 		);
 
 		assertTaggedError(error, "NotFound");
@@ -548,11 +534,10 @@ describe("POST /entity-schemas/search", () => {
 	});
 
 	it("returns 404 when the scriptId does not exist", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 
 		const error = await client.runError(
 			(c) => c.entitySchemas.search({ payload: { scriptId: crypto.randomUUID() } }),
-			{ Cookie: cookies },
 		);
 
 		assertTaggedError(error, "NotFound");
@@ -560,11 +545,11 @@ describe("POST /entity-schemas/search", () => {
 	});
 
 	it("returns 200 with a jobId when given a valid builtin script", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
+		const { client } = await createAuthenticatedClient();
+		const { schema } = await findBuiltinSchemaWithProviders(client);
 		const scriptId = getFirstProviderScriptId(schema);
 
-		const { jobId } = await enqueueEntitySearch(client, cookies, {
+		const { jobId } = await enqueueEntitySearch(client, {
 			scriptId,
 			context: { page: 1, pageSize: 5, query: "test" },
 		});
@@ -585,11 +570,10 @@ describe("GET /entity-schemas/search/{jobId}", () => {
 	});
 
 	it("returns 404 for a non-existent job id", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 
 		const error = await client.runError(
 			(c) => c.entitySchemas.getSearchResult({ path: { jobId: crypto.randomUUID() } }),
-			{ Cookie: cookies },
 		);
 
 		assertTaggedError(error, "NotFound");
@@ -597,20 +581,19 @@ describe("GET /entity-schemas/search/{jobId}", () => {
 	});
 
 	it("returns 404 when another user polls the job", async () => {
-		const { client: clientA, cookies: cookiesA } = await createAuthenticatedClient();
-		const { client: clientB, cookies: cookiesB } = await createAuthenticatedClient();
+		const { client: clientA } = await createAuthenticatedClient();
+		const { client: clientB } = await createAuthenticatedClient();
 
-		const { schema } = await findBuiltinSchemaWithProviders(clientA, cookiesA);
+		const { schema } = await findBuiltinSchemaWithProviders(clientA);
 		const scriptId = getFirstProviderScriptId(schema);
 
-		const { jobId } = await enqueueEntitySearch(clientA, cookiesA, {
+		const { jobId } = await enqueueEntitySearch(clientA, {
 			scriptId,
 			context: { page: 1, pageSize: 5, query: "test" },
 		});
 
 		const error = await clientB.runError(
 			(c) => c.entitySchemas.getSearchResult({ path: { jobId } }),
-			{ Cookie: cookiesB },
 		);
 
 		assertTaggedError(error, "NotFound");
@@ -618,16 +601,16 @@ describe("GET /entity-schemas/search/{jobId}", () => {
 	});
 
 	it("reaches a terminal state for a builtin search script", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
+		const { client } = await createAuthenticatedClient();
+		const { schema } = await findBuiltinSchemaWithProviders(client);
 		const scriptId = getFirstProviderScriptId(schema);
 
-		const { jobId } = await enqueueEntitySearch(client, cookies, {
+		const { jobId } = await enqueueEntitySearch(client, {
 			scriptId,
 			context: { page: 1, pageSize: 5, query: "test" },
 		});
 
-		const result = await pollEntitySearchResult(client, cookies, jobId);
+		const result = await pollEntitySearchResult(client, jobId);
 
 		expect(["completed", "failed"]).toContain(result.status);
 	}, 30_000);
@@ -650,11 +633,11 @@ describe("POST /entities/import", () => {
 	});
 
 	it("returns 200 with a jobId when given valid builtin script and schema", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
+		const { client } = await createAuthenticatedClient();
+		const { schema } = await findBuiltinSchemaWithProviders(client);
 		const scriptId = getFirstProviderScriptId(schema);
 
-		const { jobId } = await enqueueEntityImport(client, cookies, {
+		const { jobId } = await enqueueEntityImport(client, {
 			scriptId,
 			externalId: "OL267933W",
 			entitySchemaId: schema.id,
@@ -676,11 +659,10 @@ describe("GET /entities/import/{jobId}", () => {
 	});
 
 	it("returns 404 for a non-existent job id", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 
 		const error = await client.runError(
 			(c) => c.entities.getImportResult({ path: { jobId: crypto.randomUUID() } }),
-			{ Cookie: cookies },
 		);
 
 		assertTaggedError(error, "NotFound");
@@ -688,39 +670,37 @@ describe("GET /entities/import/{jobId}", () => {
 	});
 
 	it("returns 404 when another user polls the import job", async () => {
-		const { client: clientA, cookies: cookiesA } = await createAuthenticatedClient();
-		const { client: clientB, cookies: cookiesB } = await createAuthenticatedClient();
+		const { client: clientA } = await createAuthenticatedClient();
+		const { client: clientB } = await createAuthenticatedClient();
 
-		const { schema } = await findBuiltinSchemaWithProviders(clientA, cookiesA);
+		const { schema } = await findBuiltinSchemaWithProviders(clientA);
 		const scriptId = getFirstProviderScriptId(schema);
 
-		const { jobId } = await enqueueEntityImport(clientA, cookiesA, {
+		const { jobId } = await enqueueEntityImport(clientA, {
 			scriptId,
 			externalId: "OL267933W",
 			entitySchemaId: schema.id,
 		});
 
-		const error = await clientB.runError((c) => c.entities.getImportResult({ path: { jobId } }), {
-			Cookie: cookiesB,
-		});
+		const error = await clientB.runError((c) => c.entities.getImportResult({ path: { jobId } }));
 
 		assertTaggedError(error, "NotFound");
 		expect(error.message).toBe("Entity import job not found");
 	});
 
 	it("reaches a terminal state for a builtin details script", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
+		const { client } = await createAuthenticatedClient();
+		const { schema } = await findBuiltinSchemaWithProviders(client);
 		const detailsScriptId = schema.providers.find((p) => p.name === "OpenLibrary")?.scriptId;
 		assertPresent(detailsScriptId, "OpenLibrary provider script not found");
 
-		const { jobId } = await enqueueEntityImport(client, cookies, {
+		const { jobId } = await enqueueEntityImport(client, {
 			externalId: "OL267933W",
 			scriptId: detailsScriptId,
 			entitySchemaId: schema.id,
 		});
 
-		const result = await pollEntityImportResult(client, cookies, jobId, {
+		const result = await pollEntityImportResult(client, jobId, {
 			timeoutMs: 30_000,
 		});
 
@@ -728,12 +708,12 @@ describe("GET /entities/import/{jobId}", () => {
 	}, 30_000);
 
 	it("returns entity with populated properties in the completed import result", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { schema } = await findBuiltinSchemaBySlug(client, cookies, "anime");
+		const { client } = await createAuthenticatedClient();
+		const { schema } = await findBuiltinSchemaBySlug(client, "anime");
 		const detailsScriptId = schema.providers.find((p) => p.name === "Anilist")?.scriptId;
 		assertPresent(detailsScriptId, "Anilist provider script not found");
 
-		const { schema: companySchema } = await findBuiltinSchemaBySlug(client, cookies, "company");
+		const { schema: companySchema } = await findBuiltinSchemaBySlug(client, "company");
 		const companyScriptId = companySchema.providers.find((p) => p.name === "Anilist")?.scriptId;
 		assertPresent(companyScriptId, "Anilist company provider script not found");
 
@@ -748,13 +728,13 @@ describe("GET /entities/import/{jobId}", () => {
 			sandboxScriptId: detailsScriptId,
 		});
 
-		const { jobId } = await enqueueEntityImport(client, cookies, {
+		const { jobId } = await enqueueEntityImport(client, {
 			externalId: "1",
 			scriptId: detailsScriptId,
 			entitySchemaId: schema.id,
 		});
 
-		const result = await pollEntityImportResult(client, cookies, jobId, {
+		const result = await pollEntityImportResult(client, jobId, {
 			timeoutMs: 30_000,
 		});
 
@@ -789,18 +769,18 @@ describe("GET /entities/import/{jobId}", () => {
 	}, 30_000);
 
 	it("sets populatedAt as a UTC ISO timestamp column on the imported entity", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { schema } = await findBuiltinSchemaBySlug(client, cookies, "anime");
+		const { client } = await createAuthenticatedClient();
+		const { schema } = await findBuiltinSchemaBySlug(client, "anime");
 		const detailsScriptId = schema.providers.find((p) => p.name === "Anilist")?.scriptId;
 		assertPresent(detailsScriptId, "Anilist provider script not found");
 
-		const { jobId } = await enqueueEntityImport(client, cookies, {
+		const { jobId } = await enqueueEntityImport(client, {
 			externalId: "1",
 			scriptId: detailsScriptId,
 			entitySchemaId: schema.id,
 		});
 
-		const result = await pollEntityImportResult(client, cookies, jobId, {
+		const result = await pollEntityImportResult(client, jobId, {
 			timeoutMs: 30_000,
 		});
 

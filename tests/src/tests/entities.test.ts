@@ -13,6 +13,7 @@ import {
 	enqueueEntitySearch,
 	findBuiltinSchemaBySlug,
 	findBuiltinSchemaWithProviders,
+	getBackendClient,
 	getEntity,
 	getEntitySchema,
 	getFirstProviderScriptId,
@@ -120,12 +121,11 @@ async function getLibraryEntityId(userId: string) {
 
 async function createSchemaWithEnumFields(
 	client: Awaited<ReturnType<typeof createAuthenticatedClient>>["client"],
-	cookies: string,
 ) {
-	const { trackerId } = await createTracker(client, cookies, {
+	const { trackerId } = await createTracker(client, {
 		name: "Enum Schema Tracker",
 	});
-	const { schemaId } = await createEntitySchema(client, cookies, {
+	const { schemaId } = await createEntitySchema(client, {
 		trackerId,
 		name: "Enum Schema",
 		propertiesSchema: {
@@ -150,10 +150,10 @@ async function createSchemaWithEnumFields(
 
 describe("POST /entities", () => {
 	it("creates entity normally when no provenance fields are provided", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { schemaId } = await createTrackerWithSchema(client, cookies);
+		const { client } = await createAuthenticatedClient();
+		const { schemaId } = await createTrackerWithSchema(client);
 
-		const entity = await createEntity(client, cookies, {
+		const entity = await createEntity(client, {
 			image: null,
 			name: "Plain Entity",
 			entitySchemaId: schemaId,
@@ -167,12 +167,12 @@ describe("POST /entities", () => {
 	});
 
 	it("creates entity with externalId and sandboxScriptId", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { schemaId } = await createTrackerWithSchema(client, cookies);
-		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
+		const { client } = await createAuthenticatedClient();
+		const { schemaId } = await createTrackerWithSchema(client);
+		const { schema } = await findBuiltinSchemaWithProviders(client);
 		const sandboxScriptId = getFirstProviderScriptId(schema);
 
-		const entity = await createEntity(client, cookies, {
+		const entity = await createEntity(client, {
 			image: null,
 			sandboxScriptId,
 			externalId: "ext-001",
@@ -187,12 +187,12 @@ describe("POST /entities", () => {
 	});
 
 	it("returns the existing entity on duplicate externalId + sandboxScriptId", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { schemaId } = await createTrackerWithSchema(client, cookies);
-		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
+		const { client } = await createAuthenticatedClient();
+		const { schemaId } = await createTrackerWithSchema(client);
+		const { schema } = await findBuiltinSchemaWithProviders(client);
 		const sandboxScriptId = getFirstProviderScriptId(schema);
 
-		const first = await createEntity(client, cookies, {
+		const first = await createEntity(client, {
 			image: null,
 			sandboxScriptId,
 			entitySchemaId: schemaId,
@@ -201,7 +201,7 @@ describe("POST /entities", () => {
 			properties: { title: "Idempotent Entity" },
 		});
 
-		const second = await createEntity(client, cookies, {
+		const second = await createEntity(client, {
 			image: null,
 			sandboxScriptId,
 			entitySchemaId: schemaId,
@@ -214,11 +214,11 @@ describe("POST /entities", () => {
 	});
 
 	it("creates an entity for a built-in schema that was previously restricted", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
+		const { client } = await createAuthenticatedClient();
+		const { schema } = await findBuiltinSchemaWithProviders(client);
 		const providerScriptId = getFirstProviderScriptId(schema);
 
-		const entity = await createEntity(client, cookies, {
+		const entity = await createEntity(client, {
 			image: null,
 			properties: {},
 			name: "Built-in Book",
@@ -233,10 +233,10 @@ describe("POST /entities", () => {
 	});
 
 	it("creates a built-in workout entity through the generic entity endpoint", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { schema } = await findBuiltinSchemaBySlug(client, cookies, "workout");
+		const { client } = await createAuthenticatedClient();
+		const { schema } = await findBuiltinSchemaBySlug(client, "workout");
 
-		const entity = await createEntity(client, cookies, {
+		const entity = await createEntity(client, {
 			image: null,
 			name: "Push Day",
 			entitySchemaId: schema.id,
@@ -252,20 +252,18 @@ describe("POST /entities", () => {
 	});
 
 	it("returns 400 when only externalId is provided without sandboxScriptId", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { schemaId } = await createTrackerWithSchema(client, cookies);
+		const { client } = await createAuthenticatedClient();
+		const { schemaId } = await createTrackerWithSchema(client);
 
-		const error = await client.runError(
-			(c) =>
-				c.entities.create({
-					payload: {
-						entitySchemaId: schemaId,
-						externalId: "ext-partial",
-						properties: { title: "Partial" },
-						name: "Partial Provenance Entity",
-					},
-				}),
-			{ Cookie: cookies },
+		const error = await client.runError((c) =>
+			c.entities.create({
+				payload: {
+					entitySchemaId: schemaId,
+					externalId: "ext-partial",
+					properties: { title: "Partial" },
+					name: "Partial Provenance Entity",
+				},
+			}),
 		);
 
 		assertTaggedError(error, "BadRequest");
@@ -275,22 +273,20 @@ describe("POST /entities", () => {
 	});
 
 	it("returns 400 when only sandboxScriptId is provided without externalId", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { schemaId } = await createTrackerWithSchema(client, cookies);
-		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
+		const { client } = await createAuthenticatedClient();
+		const { schemaId } = await createTrackerWithSchema(client);
+		const { schema } = await findBuiltinSchemaWithProviders(client);
 		const sandboxScriptId = getFirstProviderScriptId(schema);
 
-		const error = await client.runError(
-			(c) =>
-				c.entities.create({
-					payload: {
-						sandboxScriptId,
-						entitySchemaId: schemaId,
-						properties: { title: "Partial" },
-						name: "Partial Provenance Entity",
-					},
-				}),
-			{ Cookie: cookies },
+		const error = await client.runError((c) =>
+			c.entities.create({
+				payload: {
+					sandboxScriptId,
+					entitySchemaId: schemaId,
+					properties: { title: "Partial" },
+					name: "Partial Provenance Entity",
+				},
+			}),
 		);
 
 		assertTaggedError(error, "BadRequest");
@@ -302,26 +298,26 @@ describe("POST /entities", () => {
 
 describe("GET /entities/:id — global entity read access", () => {
 	it("returns 200 for the importing user and for a second user who never imported", async () => {
-		const { userId, client: clientA, cookies: cookiesA } = await createAuthenticatedClient();
-		const { entity } = await createGlobalBookEntityFixture(clientA, cookiesA);
+		const { userId, client: clientA } = await createAuthenticatedClient();
+		const { entity } = await createGlobalBookEntityFixture(clientA);
 
 		await insertLibraryMembership({ userId, mediaEntityId: entity.id });
-		const entityA = await getEntity(clientA, cookiesA, entity.id);
+		const entityA = await getEntity(clientA, entity.id);
 		expect(entityA.id).toBe(entity.id);
 
-		const { client: clientB, cookies: cookiesB } = await createAuthenticatedClient();
-		const entityB = await getEntity(clientB, cookiesB, entity.id);
+		const { client: clientB } = await createAuthenticatedClient();
+		const entityB = await getEntity(clientB, entity.id);
 		expect(entityB.id).toBe(entity.id);
 	}, 30_000);
 });
 
 describe("POST /entities — enum and enum-array property schema validation", () => {
 	it("round-trips enum and enum-array fields in propertiesSchema", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { trackerId } = await createTracker(client, cookies, {
+		const { client } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, {
 			name: "Enum Round-trip Tracker",
 		});
-		const { schemaId } = await createEntitySchema(client, cookies, {
+		const { schemaId } = await createEntitySchema(client, {
 			trackerId,
 			name: "Round-trip Schema",
 			propertiesSchema: {
@@ -342,7 +338,7 @@ describe("POST /entities — enum and enum-array property schema validation", ()
 			},
 		});
 
-		const schema = await getEntitySchema(client, cookies, schemaId);
+		const schema = await getEntitySchema(client, schemaId);
 
 		expect(schema.propertiesSchema.fields.status).toMatchObject({
 			type: "enum",
@@ -359,10 +355,10 @@ describe("POST /entities — enum and enum-array property schema validation", ()
 	});
 
 	it("creates entity with valid enum and enum-array values", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { schemaId } = await createSchemaWithEnumFields(client, cookies);
+		const { client } = await createAuthenticatedClient();
+		const { schemaId } = await createSchemaWithEnumFields(client);
 
-		const entity = await createEntity(client, cookies, {
+		const entity = await createEntity(client, {
 			image: null,
 			name: "Fiction Book",
 			entitySchemaId: schemaId,
@@ -374,38 +370,34 @@ describe("POST /entities — enum and enum-array property schema validation", ()
 	});
 
 	it("returns 400 when enum value is not in options", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { schemaId } = await createSchemaWithEnumFields(client, cookies);
+		const { client } = await createAuthenticatedClient();
+		const { schemaId } = await createSchemaWithEnumFields(client);
 
-		const error = await client.runError(
-			(c) =>
-				c.entities.create({
-					payload: {
-						name: "Invalid Status",
-						entitySchemaId: schemaId,
-						properties: { status: "deleted" },
-					},
-				}),
-			{ Cookie: cookies },
+		const error = await client.runError((c) =>
+			c.entities.create({
+				payload: {
+					name: "Invalid Status",
+					entitySchemaId: schemaId,
+					properties: { status: "deleted" },
+				},
+			}),
 		);
 
 		assertTaggedError(error, "BadRequest");
 	});
 
 	it("returns 400 when an enum-array item is not in options", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { schemaId } = await createSchemaWithEnumFields(client, cookies);
+		const { client } = await createAuthenticatedClient();
+		const { schemaId } = await createSchemaWithEnumFields(client);
 
-		const error = await client.runError(
-			(c) =>
-				c.entities.create({
-					payload: {
-						name: "Invalid Genre",
-						entitySchemaId: schemaId,
-						properties: { genres: ["fiction", "horror"] },
-					},
-				}),
-			{ Cookie: cookies },
+		const error = await client.runError((c) =>
+			c.entities.create({
+				payload: {
+					name: "Invalid Genre",
+					entitySchemaId: schemaId,
+					properties: { genres: ["fiction", "horror"] },
+				},
+			}),
 		);
 
 		assertTaggedError(error, "BadRequest");
@@ -416,14 +408,13 @@ describe("DELETE /entities/:id/user-state", () => {
 	it("clears only the caller's user-scoped state for a global entity", async () => {
 		const userA = await createAuthenticatedClient();
 		const userB = await createAuthenticatedClient();
-		const { entity, schema } = await createGlobalBookEntityFixture(userA.client, userA.cookies);
+		const { entity, schema } = await createGlobalBookEntityFixture(userA.client);
 
-		const eventSchemas = await listEventSchemas(userA.client, userA.cookies, schema.id);
+		const eventSchemas = await listEventSchemas(userA.client, schema.id);
 		const reviewEventSchema = requireEventSchemaBySlug(eventSchemas, "review");
 
 		const { entityId: extraTargetEntityId } = await createTrackerWithSchemaAndEntity(
 			userA.client,
-			userA.cookies,
 		);
 
 		await insertUserEvent({
@@ -455,7 +446,7 @@ describe("DELETE /entities/:id/user-state", () => {
 			{ eventCount: 1, relationshipCount: 1 },
 		);
 
-		const result = await clearEntityUserState(userA.client, userA.cookies, entity.id);
+		const result = await clearEntityUserState(userA.client, entity.id);
 
 		expect(result).toEqual({
 			entityId: entity.id,
@@ -476,12 +467,11 @@ describe("DELETE /entities/:id/user-state", () => {
 	});
 
 	it("rejects clearing the library entity user state", async () => {
-		const { client, cookies, userId } = await createAuthenticatedClient();
+		const { client, userId } = await createAuthenticatedClient();
 		const libraryEntityId = await getLibraryEntityId(userId);
 
-		const error = await client.runError(
-			(c) => c.entities.clearUserState({ path: { entityId: libraryEntityId } }),
-			{ Cookie: cookies },
+		const error = await client.runError((c) =>
+			c.entities.clearUserState({ path: { entityId: libraryEntityId } }),
 		);
 
 		assertTaggedError(error, "BadRequest");
@@ -489,7 +479,7 @@ describe("DELETE /entities/:id/user-state", () => {
 	});
 
 	it("rejects unauthenticated requests", async () => {
-		const { client } = await createAuthenticatedClient();
+		const client = getBackendClient();
 
 		const error = await client.runError((c) =>
 			c.entities.clearUserState({ path: { entityId: "entity_1" } }),
@@ -501,32 +491,31 @@ describe("DELETE /entities/:id/user-state", () => {
 
 describe("POST /entity-schemas/search — provider entity search", () => {
 	it("returns 404 when the script does not exist", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 
-		const error = await client.runError(
-			(c) => c.entitySchemas.search({ payload: { scriptId: crypto.randomUUID() } }),
-			{ Cookie: cookies },
+		const error = await client.runError((c) =>
+			c.entitySchemas.search({ payload: { scriptId: crypto.randomUUID() } }),
 		);
 
 		assertTaggedError(error, "NotFound");
 	});
 
 	it("enqueues a provider search and reaches a terminal state", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
+		const { client } = await createAuthenticatedClient();
+		const { schema } = await findBuiltinSchemaWithProviders(client);
 		const scriptId = getFirstProviderScriptId(schema);
 
-		const { jobId } = await enqueueEntitySearch(client, cookies, {
+		const { jobId } = await enqueueEntitySearch(client, {
 			scriptId,
 			context: { query: "test", page: 1, pageSize: 5 },
 		});
 
-		const result = await pollEntitySearchResult(client, cookies, jobId);
+		const result = await pollEntitySearchResult(client, jobId);
 		expect(result.status).not.toBe("pending");
 	}, 30_000);
 
 	it("returns 401 for unauthenticated search requests", async () => {
-		const { client } = await createAuthenticatedClient();
+		const client = getBackendClient();
 
 		const error = await client.runError((c) =>
 			c.entitySchemas.search({ payload: { scriptId: crypto.randomUUID() } }),
@@ -538,50 +527,45 @@ describe("POST /entity-schemas/search — provider entity search", () => {
 
 describe("POST /entities/import — provider entity import", () => {
 	it("returns 404 when the script does not exist", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
+		const { client } = await createAuthenticatedClient();
+		const { schema } = await findBuiltinSchemaWithProviders(client);
 
-		const error = await client.runError(
-			(c) =>
-				c.entities.import({
-					payload: {
-						scriptId: crypto.randomUUID(),
-						externalId: "some-external-id",
-						entitySchemaId: schema.id,
-					},
-				}),
-			{ Cookie: cookies },
+		const error = await client.runError((c) =>
+			c.entities.import({
+				payload: {
+					scriptId: crypto.randomUUID(),
+					externalId: "some-external-id",
+					entitySchemaId: schema.id,
+				},
+			}),
 		);
 
 		assertTaggedError(error, "NotFound");
 	});
 
 	it("returns 404 when the entity schema does not exist", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
+		const { client } = await createAuthenticatedClient();
+		const { schema } = await findBuiltinSchemaWithProviders(client);
 		const scriptId = getFirstProviderScriptId(schema);
 
-		const error = await client.runError(
-			(c) =>
-				c.entities.import({
-					payload: {
-						scriptId,
-						externalId: "some-external-id",
-						entitySchemaId: crypto.randomUUID(),
-					},
-				}),
-			{ Cookie: cookies },
+		const error = await client.runError((c) =>
+			c.entities.import({
+				payload: {
+					scriptId,
+					externalId: "some-external-id",
+					entitySchemaId: crypto.randomUUID(),
+				},
+			}),
 		);
 
 		assertTaggedError(error, "NotFound");
 	});
 
 	it("returns 404 for unknown import job id", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 
-		const error = await client.runError(
-			(c) => c.entities.getImportResult({ path: { jobId: crypto.randomUUID() } }),
-			{ Cookie: cookies },
+		const error = await client.runError((c) =>
+			c.entities.getImportResult({ path: { jobId: crypto.randomUUID() } }),
 		);
 
 		assertTaggedError(error, "NotFound");
@@ -589,7 +573,7 @@ describe("POST /entities/import — provider entity import", () => {
 	});
 
 	it("returns 401 for unauthenticated import requests", async () => {
-		const { client } = await createAuthenticatedClient();
+		const client = getBackendClient();
 
 		const error = await client.runError((c) =>
 			c.entities.import({
@@ -607,17 +591,17 @@ describe("POST /entities/import — provider entity import", () => {
 
 describe("GET /entities/import/:jobId — provider entity import result", () => {
 	it("enqueues a provider import and adds entity to library when completed", async () => {
-		const { client, cookies, email } = await createAuthenticatedClient();
-		const { schema } = await findBuiltinSchemaBySlug(client, cookies, "audiobook");
+		const { client, email } = await createAuthenticatedClient();
+		const { schema } = await findBuiltinSchemaBySlug(client, "audiobook");
 		const scriptId = getFirstProviderScriptId(schema);
 
-		const { jobId } = await enqueueEntityImport(client, cookies, {
+		const { jobId } = await enqueueEntityImport(client, {
 			scriptId,
 			externalId: "B08G9PRS1K",
 			entitySchemaId: schema.id,
 		});
 
-		const result = await pollEntityImportResult(client, cookies, jobId);
+		const result = await pollEntityImportResult(client, jobId);
 
 		expect(result.status).not.toBe("pending");
 		if (result.status === "completed") {
