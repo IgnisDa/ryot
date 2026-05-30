@@ -12,7 +12,7 @@ import {
 	eventRecord,
 	execution,
 	hostSuccess,
-	queryEngineRows,
+	ryotqlRows,
 } from "./automation-test-utils";
 
 const completeSchema = {
@@ -32,18 +32,21 @@ const createHost = (options: {
 	return {
 		created,
 		host: defineSandboxTestHost(manifest, {
-			executeQueryEngine: () =>
-				hostSuccess(
-					queryEngineRows(
-						queryIndex++ === 0
-							? [entityRecord({ properties: options.entityProperties ?? {} })]
-							: (options.events ?? []),
-					),
-				),
 			listEventSchemas: () => hostSuccess([completeSchema]),
 			createEvents: (items) => {
 				created.push(items);
 				return hostSuccess({ count: items.length });
+			},
+			executeRyotql: () => {
+				const index = queryIndex++;
+				return hostSuccess(
+					ryotqlRows(
+						index === 0 ? "entities" : "events",
+						index === 0
+							? [entityRecord({ properties: options.entityProperties ?? {} })]
+							: (options.events ?? []),
+					),
+				);
 			},
 		}),
 	};

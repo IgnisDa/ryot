@@ -10,7 +10,7 @@ import {
 	hostFailure,
 	hostSuccess,
 	integrationRecord,
-	queryEngineRows,
+	ryotqlRows,
 } from "./automation-test-utils";
 import definition, { manifest } from "./integration-progress-policy.sandbox";
 
@@ -42,9 +42,9 @@ const createHost = (options: {
 				calls.push("getCurrentIntegration");
 				return options.integration ? hostSuccess(options.integration) : hostFailure();
 			},
-			executeQueryEngine: () => {
-				calls.push("executeQueryEngine");
-				return hostSuccess(queryEngineRows(options.events ?? []));
+			executeRyotql: () => {
+				calls.push("executeRyotql");
+				return hostSuccess(ryotqlRows("events", options.events ?? []));
 			},
 			getPluginConfig: (keys) => {
 				calls.push("getPluginConfig");

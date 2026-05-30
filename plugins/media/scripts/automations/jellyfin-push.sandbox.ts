@@ -20,14 +20,14 @@ const JELLYFIN_AUTH_HEADER =
 export const manifest = defineManifest({
 	kind: "automation",
 	name: "Jellyfin Push",
-	slug: "trigger.jellyfin-push",
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
+	slug: "trigger.jellyfin-push",
 	capabilities: [
 		"httpCall",
+		"executeRyotql",
 		"getEntitySchemas",
 		"listIntegrations",
-		"executeQueryEngine",
 		"getUserPreferences",
 	],
 });

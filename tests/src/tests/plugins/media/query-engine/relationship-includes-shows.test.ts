@@ -8,15 +8,14 @@ import { Effect } from "effect";
 import {
 	createAuthenticatedClient,
 	createQueryEngineEvent,
-	executeQueryEngine,
+	executeRyotQL,
 	findBuiltinSchemaBySlug,
 	getBuiltinEntitySchemaSlug,
 	insertGlobalRelationship,
 	listEventSchemas,
 	listRelationshipSchemas,
 	requireEventSchemaBySlug,
-	requireQueryEngineFieldValue,
-	requireQueryEngineIncludeValue,
+	requireRyotQLFieldValue,
 	requireRelationshipSchemaBySlug,
 	seedMediaEntity,
 	waitForEventCount,
@@ -189,38 +188,54 @@ describe("Relationship includes", () => {
 				episodeLimit: 10,
 			});
 
-			const detailResult = yield* executeQueryEngine(client, detailDoc);
-			const showRow = detailResult.data.items[0];
+			const detailResult = yield* executeRyotQL(client, detailDoc);
+			const showResult = detailResult.data.show;
+			if (showResult?.type !== "rows") {
+				throw new Error("Expected show rows result");
+			}
+			const showRow = showResult.items[0];
 			assertPresent(showRow, "Expected show row");
-			const seasons = requireQueryEngineIncludeValue(showRow, "seasons");
+			const seasons = showRow.seasons;
+			if (!seasons || !("items" in seasons)) {
+				throw new Error("Expected seasons include");
+			}
 			expect(
-				seasons.items.map((season) => requireQueryEngineFieldValue(season, "seasonNumber").value),
+				seasons.items.map((season) => requireRyotQLFieldValue(season, "seasonNumber").value),
 			).toEqual([0, 1, 2]);
 			const firstSeasonRow = seasons.items[1];
 			assertPresent(firstSeasonRow, "Expected first regular season row");
-			const firstSeasonEpisodes = requireQueryEngineIncludeValue(firstSeasonRow, "episodes");
+			const firstSeasonEpisodes = firstSeasonRow.episodes;
+			if (!firstSeasonEpisodes || !("items" in firstSeasonEpisodes)) {
+				throw new Error("Expected episodes include");
+			}
 			const firstEpisodeRow = firstSeasonEpisodes.items[0];
 			assertPresent(firstEpisodeRow, "Expected first episode row");
-			expect(requireQueryEngineFieldValue(firstEpisodeRow, "name").value).toBe("Episode One");
-			expect(requireQueryEngineFieldValue(firstEpisodeRow, "hasProgress")).toEqual({
-				kind: "boolean",
+			expect(requireRyotQLFieldValue(firstEpisodeRow, "name").value).toBe("Episode One");
+			expect(requireRyotQLFieldValue(firstEpisodeRow, "hasProgress")).toEqual({
 				value: true,
+				kind: "boolean",
 			});
-			expect(requireQueryEngineFieldValue(firstEpisodeRow, "isComplete")).toEqual({
-				kind: "boolean",
+			expect(requireRyotQLFieldValue(firstEpisodeRow, "isComplete")).toEqual({
 				value: true,
+				kind: "boolean",
 			});
 
 			const currentlyWatchingDoc = buildInProgressShowsQueryDocument({
-				entityId: show.id,
 				limit: 10,
+				entityId: show.id,
 			});
-			const currentlyWatchingResult = yield* executeQueryEngine(client, currentlyWatchingDoc);
-			expect(currentlyWatchingResult.data.items).toHaveLength(1);
+			const currentlyWatchingResult = yield* executeRyotQL(client, currentlyWatchingDoc);
+			if (currentlyWatchingResult.data.shows?.type !== "rows") {
+				throw new Error("Expected in-progress show rows result");
+			}
+			expect(currentlyWatchingResult.data.shows.items).toHaveLength(1);
 
 			const fullyWatchedDoc = buildCompletedShowsQueryDocument({ entityId: show.id, limit: 10 });
-			const fullyWatchedResult = yield* executeQueryEngine(client, fullyWatchedDoc);
-			expect(fullyWatchedResult.data.items).toHaveLength(1);
+			const fullyWatchedResult = yield* executeRyotQL(client, fullyWatchedDoc);
+			if (fullyWatchedResult.data.shows?.type !== "rows") {
+				throw new Error("Expected completed show rows result");
+			}
+			expect(fullyWatchedResult.data.shows.items).toHaveLength(1);
 		}),
 	);
 });

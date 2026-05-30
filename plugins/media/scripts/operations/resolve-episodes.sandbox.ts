@@ -10,8 +10,8 @@ export const manifest = defineManifest({
 	name: "Resolve Episodes",
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
+	capabilities: ["executeRyotql"],
 	slug: "operation.resolve-episodes",
-	capabilities: ["executeQueryEngine"],
 });
 
 export default defineOperation({
@@ -19,7 +19,5 @@ export default defineOperation({
 	input: ResolveEpisodesInput,
 	output: ResolveEpisodesOutput,
 	run: (input, host) =>
-		resolveEpisodes(input.refs, host.executeQueryEngine).pipe(
-			Effect.map((results) => ({ results })),
-		),
+		resolveEpisodes(input.refs, host.executeRyotql).pipe(Effect.map((results) => ({ results }))),
 });
