@@ -260,6 +260,23 @@ export const handleWebhook = async (input: {
 
 	const inputSummary = buildIntegrationInputSummary(integration);
 
+	if (integration.isDisabled) {
+		const run = await createImportRun({
+			inputSummary,
+			userId: integration.userId,
+			source: integration.provider,
+			integrationId: integration.id,
+		});
+		await failImportRun(run.id, "Integration is disabled");
+		await recordImportRunFailure({
+			itemIndex: 0,
+			runId: run.id,
+			stage: "source_fetch",
+			message: "Integration is disabled",
+		});
+		return { runId: run.id };
+	}
+
 	const disableIntegrations = await getUserDisableIntegrations(integration.userId);
 
 	if (disableIntegrations) {
@@ -275,23 +292,6 @@ export const handleWebhook = async (input: {
 			runId: run.id,
 			stage: "source_fetch",
 			message: "Integrations are disabled for this user",
-		});
-		return { runId: run.id };
-	}
-
-	if (integration.isDisabled) {
-		const run = await createImportRun({
-			source: integration.provider,
-			inputSummary,
-			userId: integration.userId,
-			integrationId: integration.id,
-		});
-		await failImportRun(run.id, "Integration is disabled");
-		await recordImportRunFailure({
-			itemIndex: 0,
-			runId: run.id,
-			stage: "source_fetch",
-			message: "Integration is disabled",
 		});
 		return { runId: run.id };
 	}

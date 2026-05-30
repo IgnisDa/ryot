@@ -24,7 +24,11 @@ export const addYankRepeatJob = async (input: {
 		{ pattern: parseCronSchedule() },
 		{
 			name: integrationRunJobName,
-			data: { runId: "", userId: input.userId, integrationId: input.integrationId },
+			data: {
+				runId: "",
+				userId: input.userId,
+				integrationId: input.integrationId,
+			},
 		},
 	);
 };
@@ -43,31 +47,22 @@ export const reconcileIntegrationScheduler = async (): Promise<void> => {
 		importQueue.getJobSchedulers(),
 	]);
 
-	const existingYankSchedulers = existingSchedulers.filter((s) => s.id?.startsWith("yank-"));
-
 	const enabledIntegrationIds = new Set(enabledYankIntegrations.map((i) => i.id));
 
-	const schedulersToRemove = existingYankSchedulers.filter((s) => {
-		const integrationId = s.id?.replace("yank-", "");
-		return (
-			!integrationId || !enabledIntegrationIds.has(integrationId) || s.pattern !== cronExpression
-		);
+	// Remove only schedulers whose integration is gone or disabled; upsert-ing the rest applies cron
+	// changes without removing and re-adding the same scheduler in one pass, which could race.
+	const schedulersToRemove = existingSchedulers.filter((s) => {
+		if (!s.id?.startsWith("yank-")) {
+			return false;
+		}
+		const integrationId = s.id.replace("yank-", "");
+		return !integrationId || !enabledIntegrationIds.has(integrationId);
 	});
 
-	const existingCurrentSchedulerIds = new Set(
-		existingYankSchedulers
-			.filter((s) => s.pattern === cronExpression)
-			.map((s) => s.id?.replace("yank-", ""))
-			.filter(Boolean),
-	);
+	await Promise.all(schedulersToRemove.map((s) => importQueue.removeJobScheduler(s.id ?? s.key)));
 
-	const integrationIdsToAdd = enabledYankIntegrations.filter(
-		(i) => !existingCurrentSchedulerIds.has(i.id),
-	);
-
-	await Promise.all([
-		...schedulersToRemove.map((s) => importQueue.removeJobScheduler(s.id ?? s.key)),
-		...integrationIdsToAdd.map((i) =>
+	await Promise.all(
+		enabledYankIntegrations.map((i) =>
 			importQueue.upsertJobScheduler(
 				buildSchedulerId(i.id),
 				{ pattern: cronExpression },
@@ -77,7 +72,7 @@ export const reconcileIntegrationScheduler = async (): Promise<void> => {
 				},
 			),
 		),
-	]);
+	);
 
 	console.info(
 		`Integration scheduler reconciled: ${enabledYankIntegrations.length} active Yank integrations`,
