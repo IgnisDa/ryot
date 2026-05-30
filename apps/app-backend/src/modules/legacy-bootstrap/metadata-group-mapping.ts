@@ -120,10 +120,37 @@ const metadataGroupEntityTargetValuesSql = sql.join(
 	sql`, `,
 );
 
+const buildLegacyImageArraySql = (tableAlias: string) => `(
+	COALESCE(
+		(
+			SELECT jsonb_agg(
+				jsonb_build_object('type', 'remote', 'url', remote_image)
+				ORDER BY ordinality
+			)
+			FROM jsonb_array_elements_text(COALESCE(${tableAlias}.assets -> 'remote_images', '[]'::jsonb))
+				WITH ORDINALITY AS remote(remote_image, ordinality)
+		),
+		'[]'::jsonb
+	)
+	||
+	COALESCE(
+		(
+			SELECT jsonb_agg(
+				jsonb_build_object('type', 's3', 'key', s3_image)
+				ORDER BY ordinality
+			)
+			FROM jsonb_array_elements_text(COALESCE(${tableAlias}.assets -> 's3_images', '[]'::jsonb))
+				WITH ORDINALITY AS s3(s3_image, ordinality)
+		),
+		'[]'::jsonb
+	)
+)`;
+
 const buildMetadataGroupPropertiesSql = (
 	tableAlias: string,
 ) => `jsonb_strip_nulls(jsonb_build_object(
 	'parts', ${tableAlias}.parts,
+	'images', ${buildLegacyImageArraySql(tableAlias)},
 	'description', ${tableAlias}.description,
 	'sourceUrl', ${tableAlias}.source_url
 ))`;
