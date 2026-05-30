@@ -1,24 +1,15 @@
 import { describe, expect, it } from "vitest";
 
-import {
-	hostFailure,
-	hostSuccess,
-	httpSuccess,
-	readScriptFile,
-	runTriggerScript,
-	toRecord,
-} from "./test-utils";
+import integrationPushHelperCode from "../script-helpers/integration-push.sandbox.js" with { type: "text" };
+import sonarrPushScriptCode from "./sonarr-push.sandbox.js" with { type: "text" };
+import { hostFailure, hostSuccess, httpSuccess, runTriggerScript, toRecord } from "./test-utils";
 
-const getSonarrCode = () =>
-	Promise.all([
-		readScriptFile("../script-helpers/integration-push.sandbox.js"),
-		readScriptFile("./sonarr-push.sandbox.js"),
-	]).then(([helperCode, scriptCode]) => `${helperCode}\n\n${scriptCode}`);
+const sonarrCode = `${integrationPushHelperCode}\n\n${sonarrPushScriptCode}`;
 
 const runSonarrScript = (
 	context: unknown,
 	hostFunctions: Record<string, (...args: Array<unknown>) => unknown>,
-) => getSonarrCode().then((code) => runTriggerScript(code, context, hostFunctions));
+) => runTriggerScript(sonarrCode, context, hostFunctions);
 
 type HttpCall = { url: string; method: string; options: Record<string, unknown> };
 
