@@ -17,7 +17,7 @@ import {
 	type InstalledTestPlugin,
 	uninstallTestPluginStrict,
 	uploadImportFile,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
 import { assertPresent, assertTaggedError } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
 

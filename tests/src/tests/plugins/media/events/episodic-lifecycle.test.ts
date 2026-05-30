@@ -12,12 +12,11 @@ import {
 	postIntegrationWebhookAndWait,
 	requireEventSchemaBySlug,
 	requireRelationshipSchemaBySlug,
-	seedGlobalShowEpisodeTree,
-	seedMediaEntity,
 	uploadImportFile,
 	waitForEventCount,
 	waitForEventWithSchema,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
+import { seedGlobalShowEpisodeTree, seedMediaEntity } from "~/fixtures/plugins/media";
 import { describe, expect, it } from "~/support/effect-test";
 
 describe("Episodic lifecycle sessions", () => {

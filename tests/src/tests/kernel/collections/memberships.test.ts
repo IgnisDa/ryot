@@ -4,16 +4,18 @@ import { Effect } from "effect";
 import {
 	createAuthenticatedClient,
 	createCollection,
-	createGlobalBookEntityFixture,
 	createPluginScope,
 	createPluginSchemaAndEntity,
 	findBuiltinSchemaBySlug,
 	getBackendClient,
 	installTestPluginBundle,
 	literalSandboxSource,
+} from "~/fixtures/kernel";
+import {
+	createGlobalBookEntityFixture,
 	queryInLibraryRelationship,
 	seedMediaEntity,
-} from "~/fixtures";
+} from "~/fixtures/plugins/media";
 import { assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 

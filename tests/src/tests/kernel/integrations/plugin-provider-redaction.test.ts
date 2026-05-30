@@ -8,7 +8,7 @@ import {
 	deleteIntegration,
 	installTestIntegrationProvider,
 	uninstallTestPluginStrict,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
 import { describe, expect, it } from "~/support/effect-test";
 
 type PluginManifest = ContractPayload<"plugins", "install">["manifest"];

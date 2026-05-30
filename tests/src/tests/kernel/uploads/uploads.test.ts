@@ -4,7 +4,7 @@ import { UPLOAD_MAX_FILE_BYTES } from "@ryot/contract/modules/uploads/upload-pol
 import { Effect } from "effect";
 import getPort from "get-port";
 
-import { createAuthenticatedClient } from "~/fixtures";
+import { createAuthenticatedClient } from "~/fixtures/kernel";
 import { assertTaggedError, requirePresent } from "~/support/assertions";
 import { getBackendUrl } from "~/support/backend";
 import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";

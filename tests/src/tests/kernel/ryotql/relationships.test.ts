@@ -30,7 +30,7 @@ import {
 	createRelationshipSchema,
 	executeRyotQL,
 	requireRows,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
 import { assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 

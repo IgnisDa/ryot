@@ -16,7 +16,7 @@ import {
 	pollImportRunUntilTerminal,
 	syncIntegrations,
 	updateUserSettingsPreferences,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
 import {
 	assertTaggedError,
 	requireObjectRecord,

@@ -14,7 +14,7 @@ import {
 	restoreBackup,
 	signInWithPassword,
 	startBackupExport,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
 import { requirePresent } from "~/support/assertions";
 import { assert, describe, expect, it } from "~/support/effect-test";
 

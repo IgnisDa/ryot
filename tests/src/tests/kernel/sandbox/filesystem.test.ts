@@ -6,7 +6,7 @@ import {
 	installSandboxScriptScoped,
 	pollSandboxResult,
 	scratchEntryLimitSandboxSource,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
 import { assertCompleted } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 

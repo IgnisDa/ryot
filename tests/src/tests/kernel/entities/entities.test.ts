@@ -5,15 +5,17 @@ import {
 	createAuthenticatedClient,
 	createEntity,
 	createEntitySchema,
-	createGlobalBookEntityFixture,
 	createPluginScope,
 	createPluginSchema,
 	findBuiltinSchemaBySlug,
-	findBuiltinSchemaWithProviders,
 	getEntity,
 	getEntitySchema,
+} from "~/fixtures/kernel";
+import {
+	createGlobalBookEntityFixture,
+	findBuiltinSchemaWithProviders,
 	insertLibraryMembership,
-} from "~/fixtures";
+} from "~/fixtures/plugins/media";
 import { assertPresent, assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 

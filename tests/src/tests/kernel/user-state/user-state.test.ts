@@ -8,7 +8,6 @@ import {
 	createAuthenticatedClient,
 	createEntity,
 	createEventSchema,
-	createGlobalBookEntityFixture,
 	createRelationship,
 	createPluginSchema,
 	createPluginSchemaAndEntity,
@@ -17,14 +16,17 @@ import {
 	listEventSchemas,
 	listRelationshipSchemas,
 	mergeUserState,
-	queryInLibraryRelationship,
 	queryUserEntityStateCounts,
 	requireRyotQLText,
 	requireEventSchemaBySlug,
 	requireRelationshipSchemaBySlug,
 	pollUntil,
 	requireRows,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
+import {
+	createGlobalBookEntityFixture,
+	queryInLibraryRelationship,
+} from "~/fixtures/plugins/media";
 import { assertPresent, assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 

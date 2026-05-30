@@ -46,6 +46,10 @@ RUN_SANDBOX_BENCHMARKS=1 bun turbo --env-mode=loose --force --output-logs=full -
 
 Up to two files share the backend concurrently. Tests and hooks have 180-second limits, and the hanging-process reporter identifies leaked handles.
 
+## Fixtures
+
+`src/fixtures/` mirrors the ownership split of `src/tests/`: `kernel/` holds fixtures for generic platform concepts, and `plugins/<plugin>/` holds fixtures that seed or assert domain data owned by that plugin's manifest (its entity/event/relationship schemas, saved views, providers, or import sources). Each side has its own barrel (`~/fixtures/kernel`, `~/fixtures/plugins/<plugin>`) and there is no combined barrel, so a `src/tests/kernel/**` suite cannot reach a plugin fixture through an implicit re-export — a suite that legitimately needs plugin-seeded data (for example, to exercise a generic capability against the only builtin schemas the e2e environment has) says so with an explicit `~/fixtures/plugins/<plugin>` import.
+
 Effect-native fixtures return effects rather than promises. Scoped network fixtures use `Effect.acquireRelease`, and `it.live` supplies per-test Scope without TestClock so resources close automatically. Wrap raw promise boundaries with `Effect.promise` inside Effect test bodies.
 
 `pollUntil` retries an Effect check until it returns non-null. Every spawned backend writes to unique `SERVER_LOG_FILE` under OS temp directory; startup output prints path for diagnosis.
