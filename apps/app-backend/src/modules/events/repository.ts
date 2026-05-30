@@ -35,13 +35,15 @@ export type AfterCreateTriggerRow = {
 	readonly metadata: EventTriggerMetadata;
 };
 
+type EventsDbEffect<A> = Effect.Effect<A, DbError, CurrentDb>;
+
 type EventsRepositoryShape = {
 	readonly listForUser: (input: {
 		userId: string;
 		entityId?: string;
 		sessionEntityId?: string;
 		eventSchemaSlug?: string;
-	}) => Effect.Effect<ListedEvent[], DbError, CurrentDb>;
+	}) => EventsDbEffect<ListedEvent[]>;
 	readonly createEvent: (input: {
 		userId: string;
 		entityId: string;
@@ -51,15 +53,15 @@ type EventsRepositoryShape = {
 		eventSchemaSlug: string;
 		sessionEntityId?: string;
 		properties: Record<string, unknown>;
-	}) => Effect.Effect<ListedEvent, DbError, CurrentDb>;
+	}) => EventsDbEffect<ListedEvent>;
 	readonly getActiveBeforeCreateTriggers: (input: {
 		userId: string;
 		eventSchemaIds: string[];
-	}) => Effect.Effect<BeforeCreateTriggerRow[], DbError, CurrentDb>;
+	}) => EventsDbEffect<BeforeCreateTriggerRow[]>;
 	readonly getActiveAfterCreateTriggers: (input: {
 		userId: string;
 		eventSchemaIds: string[];
-	}) => Effect.Effect<AfterCreateTriggerRow[], DbError, CurrentDb>;
+	}) => EventsDbEffect<AfterCreateTriggerRow[]>;
 };
 
 const listedEventSelection = {
@@ -194,7 +196,7 @@ export class EventsRepository extends Effect.Service<EventsRepository>()("Events
 				}
 
 				const db = yield* CurrentDb;
-				const rows = yield* dbEffect(() =>
+				return yield* dbEffect(() =>
 					db
 						.select({
 							id: schema.eventSchemaTrigger.id,
@@ -215,8 +217,6 @@ export class EventsRepository extends Effect.Service<EventsRepository>()("Events
 							),
 						),
 				);
-
-				return rows as AfterCreateTriggerRow[];
 			}),
 	}),
 }) {}

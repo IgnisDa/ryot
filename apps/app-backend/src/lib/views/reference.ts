@@ -18,14 +18,12 @@ export type QueryEngineEventSchemaLike = {
 	propertiesSchema: AppSchema;
 };
 
-export type QueryEngineEventJoinLike<
-	TEventSchema extends QueryEngineEventSchemaLike = QueryEngineEventSchemaLike,
-> = {
+export type QueryEngineEventJoinLike = {
 	key: string;
 	kind: "latestEvent";
 	eventSchemaSlug: string;
-	eventSchemas: TEventSchema[];
-	eventSchemaMap: Map<string, TEventSchema>;
+	eventSchemas: QueryEngineEventSchemaLike[];
+	eventSchemaMap: Map<string, QueryEngineEventSchemaLike>;
 };
 
 export type QueryEngineRelationshipJoinEntitySchemaSide = {
@@ -49,20 +47,16 @@ export type EntityColumnOverrides = {
 	updated_at?: string;
 };
 
-export type QueryEngineReferenceContext<
-	TSchema extends QueryEngineSchemaLike = QueryEngineSchemaLike,
-	TJoin extends QueryEngineEventJoinLike = QueryEngineEventJoinLike,
-	TRelationshipJoin extends QueryEngineRelationshipJoinLike = QueryEngineRelationshipJoinLike,
-> = {
+export type QueryEngineReferenceContext = {
 	userId?: string;
 	supportsPrimaryEventRefs?: boolean;
-	requirePrimaryEventSchemaSlug?: boolean;
-	schemaMap: Map<string, TSchema>;
-	eventJoinMap: Map<string, TJoin>;
-	relationshipJoinMap?: Map<string, TRelationshipJoin>;
 	eventSchemaSlugs?: ReadonlySet<string>;
+	requirePrimaryEventSchemaSlug?: boolean;
+	schemaMap: Map<string, QueryEngineSchemaLike>;
 	entityColumnOverrides?: EntityColumnOverrides;
+	eventJoinMap: Map<string, QueryEngineEventJoinLike>;
 	eventSchemaMap?: Map<string, QueryEngineEventSchemaLike[]>;
+	relationshipJoinMap?: Map<string, QueryEngineRelationshipJoinLike>;
 };
 
 type RuntimeColumnConfig = {
@@ -93,7 +87,7 @@ function createRuntimeProperty(
 	type: RuntimePropertyType,
 	description: string,
 ): AppPropertyDefinition {
-	return { label, type, description } as AppPropertyDefinition;
+	return { label, type, description };
 }
 
 const entityRuntimeColumns = {
@@ -328,7 +322,7 @@ export const getRelationshipJoinColumnPropertyType = (column: string): PropertyT
 };
 
 export const serializeComparablePropertyDefinition = (property: AppPropertyDefinition): string => {
-	const { description: _description, label: _label, ...rest } = property as Record<string, unknown>;
+	const { description: _description, label: _label, ...rest } = property;
 
 	if (property.type === "array") {
 		return JSON.stringify({
