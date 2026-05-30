@@ -206,7 +206,9 @@ export const extractImportZipArchive = Effect.fn("imports.extractImportZipArchiv
 		}
 
 		return { directoryPath, entries };
-	}).pipe(Effect.tapError(() => fs.remove(directoryPath, { recursive: true }).pipe(Effect.ignoreLogged)));
+	}).pipe(
+		Effect.tapError(() => fs.remove(directoryPath, { recursive: true }).pipe(Effect.ignoreLogged)),
+	);
 
 	return yield* extractEntries;
 });
