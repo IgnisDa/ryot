@@ -4601,9 +4601,30 @@ export interface paths {
                         /** @enum {string} */
                         source: "hevy";
                     } | {
+                        uploadToken: string;
+                        /** @enum {string} */
+                        source: "igdb";
+                        collection: string;
+                    } | {
+                        uploadToken: string;
+                        /** @enum {string} */
+                        source: "imdb";
+                    } | {
                         username: string;
                         /** @enum {string} */
                         source: "trakt";
+                    } | {
+                        uploadToken: string;
+                        /** @enum {string} */
+                        source: "anilist";
+                    } | {
+                        uploadToken: string;
+                        /** @enum {string} */
+                        source: "grouvee";
+                    } | {
+                        uploadToken: string;
+                        /** @enum {string} */
+                        source: "watcharr";
                     } | {
                         uploadToken: string;
                         /** @enum {string} */
@@ -4624,6 +4645,11 @@ export interface paths {
                         uploadToken: string;
                         /** @enum {string} */
                         source: "storygraph";
+                    } | {
+                        /** @enum {string} */
+                        source: "myanimelist";
+                        animeUploadToken?: string;
+                        mangaUploadToken?: string;
                     };
                 };
             };
@@ -4867,7 +4893,7 @@ export interface paths {
                                     createdAt: string;
                                     itemIndex: number;
                                     /** @enum {string} */
-                                    stage: "source_fetch" | "database_commit" | "provider_details" | "input_transformation";
+                                    stage: "source_fetch" | "database_commit" | "provider_details" | "provider_resolution" | "input_transformation";
                                     sourceLabel: string | null;
                                     eventSchemaSlug: string | null;
                                     sourceIdentifier: string | null;
