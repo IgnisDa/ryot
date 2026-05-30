@@ -1,7 +1,4 @@
-import { eq } from "drizzle-orm";
-
 import { db } from "~/lib/db";
-import { tracker } from "~/lib/db/schema";
 import { createLibraryEntityForUser } from "~/modules/collections";
 import { createTrackerEntitySchemas, listBuiltinEntitySchemas } from "~/modules/entity-schemas";
 import { createSavedViewsForUser } from "~/modules/saved-views";
@@ -17,18 +14,8 @@ import { builtinSavedViews } from "./saved-views";
 import { builtinTrackers } from "./trackers";
 
 export const bootstrapNewUser = async (userId: string) => {
-	const [existingTracker] = await db
-		.select({ id: tracker.id })
-		.from(tracker)
-		.where(eq(tracker.userId, userId))
-		.limit(1);
-
-	if (existingTracker) {
-		return;
-	}
-
 	await db.transaction(async (tx) => {
-		const createdTrackers = await createBuiltinTrackersForUser({
+		const trackers = await createBuiltinTrackersForUser({
 			userId,
 			database: tx,
 			trackers: builtinTrackers(),
@@ -41,7 +28,7 @@ export const bootstrapNewUser = async (userId: string) => {
 		await createTrackerEntitySchemas({
 			database: tx,
 			links: buildBuiltinTrackerEntitySchemaLinks({
-				trackers: createdTrackers,
+				trackers,
 				entitySchemas: builtinEntitySchemaRows,
 				schemaLinks: builtinEntitySchemas()
 					.filter((schema) => typeof schema.trackerSlug === "string")
@@ -56,7 +43,7 @@ export const bootstrapNewUser = async (userId: string) => {
 			userId,
 			database: tx,
 			views: buildBuiltinSavedViewInputs({
-				trackers: createdTrackers,
+				trackers,
 				savedViews: builtinSavedViews(),
 				entitySchemas: builtinEntitySchemaRows,
 			}),

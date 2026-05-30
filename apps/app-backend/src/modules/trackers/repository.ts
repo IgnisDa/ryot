@@ -158,8 +158,9 @@ export const createBuiltinTrackersForUser = async (input: {
 	}
 
 	const database = input.database ?? db;
+	const trackerSlugs = input.trackers.map((item) => item.slug);
 
-	const rows = await database
+	await database
 		.insert(tracker)
 		.values(
 			input.trackers.map((item, index) => ({
@@ -173,7 +174,13 @@ export const createBuiltinTrackersForUser = async (input: {
 				description: item.description,
 			})),
 		)
-		.returning(trackerSlugSelection);
+		.onConflictDoNothing({ target: [tracker.userId, tracker.slug] });
+
+	const rows = await database
+		.select(trackerSlugSelection)
+		.from(tracker)
+		.where(and(eq(tracker.userId, input.userId), inArray(tracker.slug, trackerSlugs)))
+		.orderBy(asc(tracker.sortOrder), asc(tracker.createdAt));
 
 	return rows;
 };

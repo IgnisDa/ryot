@@ -142,25 +142,28 @@ export const createSavedViewsForUser = async (input: {
 	const database = input.database ?? db;
 	const scopeOrderMap = new Map<string, number>();
 
-	await database.insert(savedView).values(
-		input.views.map((view) => {
-			const scopeKey = view.trackerId ?? "__top_level__";
-			const sortOrder = scopeOrderMap.get(scopeKey) ?? 0;
-			scopeOrderMap.set(scopeKey, sortOrder + 1);
-			return {
-				sortOrder,
-				slug: view.slug,
-				icon: view.icon,
-				name: view.name,
-				userId: input.userId,
-				trackerId: view.trackerId,
-				isBuiltin: view.isBuiltin,
-				accentColor: view.accentColor,
-				queryDefinition: view.queryDefinition,
-				displayConfiguration: view.displayConfiguration,
-			};
-		}),
-	);
+	await database
+		.insert(savedView)
+		.values(
+			input.views.map((view) => {
+				const scopeKey = view.trackerId ?? "__top_level__";
+				const sortOrder = scopeOrderMap.get(scopeKey) ?? 0;
+				scopeOrderMap.set(scopeKey, sortOrder + 1);
+				return {
+					sortOrder,
+					slug: view.slug,
+					icon: view.icon,
+					name: view.name,
+					userId: input.userId,
+					trackerId: view.trackerId,
+					isBuiltin: view.isBuiltin,
+					accentColor: view.accentColor,
+					queryDefinition: view.queryDefinition,
+					displayConfiguration: view.displayConfiguration,
+				};
+			}),
+		)
+		.onConflictDoNothing({ target: [savedView.userId, savedView.slug] });
 };
 
 export const updateSavedViewBySlugForUser = async (input: {
