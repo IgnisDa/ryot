@@ -13,12 +13,10 @@ import {
 	entitySchemaVisibleToUserClause,
 	toListedEntity,
 } from "./repository-support";
-import type { StoredEntityImage } from "./types";
 
 export type SaveEntityInputBase = {
 	name: string;
 	entitySchemaId: EntitySchemaId;
-	image: StoredEntityImage | null;
 } & (
 	| {
 			scope: "global";
@@ -64,7 +62,7 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 							asc(schema.entity.createdAt),
 						),
 				);
-				return yield* Effect.forEach(rows, toListedEntity);
+				return rows.map(toListedEntity);
 			},
 		);
 
@@ -200,7 +198,7 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 					.limit(1),
 			);
 
-			return row ? yield* toListedEntity(row) : null;
+			return row ? toListedEntity(row) : null;
 		});
 
 		const findEntityByExternalIdForUser = Effect.fn(
@@ -227,7 +225,7 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 					.limit(1),
 			);
 
-			return row ? yield* toListedEntity(row) : null;
+			return row ? toListedEntity(row) : null;
 		});
 
 		const findGlobalEntityByExternalId = Effect.fn(
@@ -253,7 +251,7 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 					.limit(1),
 			);
 
-			return row ? yield* toListedEntity(row) : null;
+			return row ? toListedEntity(row) : null;
 		});
 
 		const findEntitySchemaById = Effect.fn("EntitiesRepository.findEntitySchemaById")(function* (
@@ -319,7 +317,6 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 				const values = {
 					userId: null,
 					name: input.name,
-					image: input.image,
 					properties: input.properties,
 					externalId: input.externalId,
 					populatedAt: input.populatedAt,
@@ -332,7 +329,7 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 				);
 
 				if (inserted[0]) {
-					return yield* toListedEntity(inserted[0]);
+					return toListedEntity(inserted[0]);
 				}
 
 				const [existing] = yield* dbEffect(() =>
@@ -360,7 +357,6 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 							.update(schema.entity)
 							.set({
 								name: input.name,
-								image: input.image,
 								properties: input.properties,
 								populatedAt: input.populatedAt,
 							})
@@ -369,18 +365,17 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 					);
 
 					if (updated) {
-						return yield* toListedEntity(updated);
+						return toListedEntity(updated);
 					}
 				}
 
-				return yield* toListedEntity(existing);
+				return toListedEntity(existing);
 			}
 
 			const externalId = input.externalId;
 			const sandboxScriptId = input.sandboxScriptId;
 			const values = {
 				name: input.name,
-				image: input.image,
 				userId: input.userId,
 				properties: input.properties,
 				externalId: externalId ?? null,
@@ -406,7 +401,7 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 
 				const created = rows[0];
 				if (created) {
-					return yield* toListedEntity(created);
+					return toListedEntity(created);
 				}
 
 				const [row] = yield* dbEffect(() =>
@@ -424,7 +419,7 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 						.limit(1),
 				);
 
-				const existing = row ? yield* toListedEntity(row) : null;
+				const existing = row ? toListedEntity(row) : null;
 
 				if (existing) {
 					return existing;
@@ -441,7 +436,7 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 				return yield* new DbError({ message: "Entity insert returned no row" });
 			}
 
-			return yield* toListedEntity(row);
+			return toListedEntity(row);
 		});
 
 		return {

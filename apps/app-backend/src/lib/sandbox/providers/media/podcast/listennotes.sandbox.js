@@ -337,12 +337,12 @@ driver("details", async function (context) {
 		entitySchemaSlug: "podcast-episode",
 		externalId: episode.id,
 		name: episode.title || `Episode ${episode.number}`,
-		image: episode.thumbnail ? { type: "remote", url: episode.thumbnail } : null,
 		properties: {
 			runtime: episode.runtime,
-			publishDate: episode.publishDate,
 			description: episode.overview,
 			episodeNumber: episode.number,
+			publishDate: episode.publishDate,
+			...(episode.thumbnail ? { images: [{ type: "remote", url: episode.thumbnail }] } : {}),
 		},
 	}));
 

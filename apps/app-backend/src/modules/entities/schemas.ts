@@ -1,21 +1,6 @@
 import { Schema } from "effect";
 
-import { EntityId, EntitySchemaId, RemoteImageUrl, SandboxScriptId } from "#lib/schema/brands";
-
-const S3ImageKey = Schema.String.pipe(
-	Schema.filter((value) => (value.trim().length > 0 ? true : "Entity image s3 key is required")),
-);
-
-export const EntityImage = Schema.Union(
-	Schema.Struct({ key: S3ImageKey, type: Schema.Literal("s3") }).pipe(
-		Schema.annotations({ identifier: "EntityS3Image", title: "Entity S3 Image" }),
-	),
-	Schema.Struct({ url: RemoteImageUrl, type: Schema.Literal("remote") }).pipe(
-		Schema.annotations({ identifier: "EntityRemoteImage", title: "Entity Remote Image" }),
-	),
-);
-
-export type EntityImage = typeof EntityImage.Type;
+import { EntityId, EntitySchemaId, SandboxScriptId } from "#lib/schema/brands";
 
 export const ListedEntity = Schema.Struct({
 	id: EntityId,
@@ -24,7 +9,6 @@ export const ListedEntity = Schema.Struct({
 	updatedAt: Schema.String,
 	properties: Schema.Unknown,
 	entitySchemaId: EntitySchemaId,
-	image: Schema.NullOr(EntityImage),
 	externalId: Schema.NullOr(Schema.String),
 	populatedAt: Schema.NullOr(Schema.String),
 	sandboxScriptId: Schema.NullOr(SandboxScriptId),
@@ -49,7 +33,6 @@ export const CreateEntityBody = Schema.Struct({
 	entitySchemaId: EntitySchemaId,
 	externalId: Schema.optional(Schema.String),
 	sandboxScriptId: Schema.optional(SandboxScriptId),
-	image: Schema.optional(Schema.NullOr(EntityImage)),
 });
 
 export type CreateEntityBody = typeof CreateEntityBody.Type;

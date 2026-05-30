@@ -3,6 +3,7 @@ import {
 	createConditionalExpression,
 	createEntityColumnExpression,
 	createEntityPropertyExpression,
+	createEntityPropertyPathExpression,
 	createEntitySchemaExpression,
 	createEventAggregateExpression,
 	createIsNotNullExpression,
@@ -13,6 +14,13 @@ import {
 import type { Expr, QueryDocument } from "#modules/query-engine/language";
 
 const entityColumn = (slug: string, column: string) => createEntityColumnExpression(slug, column);
+
+// Entity schemas whose properties have no `images` array; their cards render without an image.
+const imagelessEntitySlugs = new Set(["collection", "workout", "workout-template", "measurement"]);
+
+// Cards show the first image from the schema-defined `images` property.
+const entityImageProperty = (slug: string): QueryExpression | null =>
+	imagelessEntitySlugs.has(slug) ? null : createEntityPropertyPathExpression(slug, ["images", "0"]);
 
 const entityProperty = (slug: string, property: string) =>
 	createEntityPropertyExpression(slug, property);
@@ -197,7 +205,7 @@ export const buildDisplayConfig = (slug: string) => {
 	const cardConfig = buildCardConfig(slug);
 	const card = {
 		titleProperty: entityColumn(slug, "name"),
-		imageProperty: entityColumn(slug, "image"),
+		imageProperty: entityImageProperty(slug),
 		...cardConfig,
 	};
 	return {

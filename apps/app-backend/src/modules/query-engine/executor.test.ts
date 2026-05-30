@@ -51,7 +51,6 @@ const arithmeticExpr = (operator: ArithmeticOperator, left: number, right: numbe
 
 const baseRow: EntityQueryRow = {
 	id: "row-1",
-	image: null,
 	name: "Dune",
 	userId: "user-1",
 	externalId: null,
@@ -121,18 +120,6 @@ describe("evalSystemRef", () => {
 
 	it("resolves 'name' to text", () => {
 		expect(evalSystemRef("name", baseRow)).toEqual({ kind: "text", value: "Dune" });
-	});
-
-	it("resolves 'image' to null when image is null", () => {
-		expect(evalSystemRef("image", baseRow)).toEqual({ kind: "null", value: null });
-	});
-
-	it("resolves 'image' to {kind: 'image'} when image is present", () => {
-		const row = { ...baseRow, image: "https://example.com/cover.jpg" };
-		expect(evalSystemRef("image", row)).toEqual({
-			kind: "image",
-			value: "https://example.com/cover.jpg",
-		});
 	});
 
 	it("resolves 'createdAt' to date", () => {
@@ -516,7 +503,6 @@ describe("entityJsonbObjectSql", () => {
 		const query = toSql("se", "ses");
 		expect(query.sql).toContain("se.id");
 		expect(query.sql).toContain("se.name");
-		expect(query.sql).toContain("se.image");
 		expect(query.sql).toContain("se.created_at");
 		expect(query.sql).toContain("se.updated_at");
 		expect(query.sql).toContain("se.properties");

@@ -1,8 +1,4 @@
-import {
-	type ResolvedEntityMigrationTarget,
-	buildEntityTargetValuesSql,
-	buildPrimaryImageSql,
-} from "./shared";
+import { type ResolvedEntityMigrationTarget, buildEntityTargetValuesSql } from "./shared";
 
 type EntityMigrationInput = {
 	kind: "person" | "company";
@@ -109,7 +105,6 @@ BEGIN
 			"id",
 			"external_id",
 			"name",
-			"image",
 			"created_at",
 			"populated_at",
 			"user_id",
@@ -122,7 +117,6 @@ BEGIN
 			legacy_person.id,
 			legacy_person.identifier,
 			legacy_person.name,
-			${buildPrimaryImageSql("legacy_person")},
 			legacy_person.created_on,
 			NULL,
 			legacy_person.created_by_user_id,

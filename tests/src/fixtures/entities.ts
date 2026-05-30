@@ -5,10 +5,7 @@ import type { Client } from "./auth";
 import type { ContractPayload } from "./contract-client";
 import { createTrackerWithSchema } from "./entity-schemas";
 
-type CreateEntityBody = ContractPayload<"entities", "create">;
-type CreateEntityInput = Omit<CreateEntityBody, "image"> & {
-	image?: CreateEntityBody["image"] | null;
-};
+type CreateEntityInput = ContractPayload<"entities", "create">;
 
 function withRecordProperties<T extends { properties: unknown }>(
 	entity: T,
@@ -22,10 +19,7 @@ function withRecordProperties<T extends { properties: unknown }>(
 }
 
 export async function createEntity(client: Client, body: CreateEntityInput) {
-	const { image, ...rest } = body;
-	const entity = await client.run((c) =>
-		c.entities.create({ payload: { ...rest, ...(image != null && { image }) } }),
-	);
+	const entity = await client.run((c) => c.entities.create({ payload: body }));
 
 	requirePresent(entity.id, "Failed to create entity");
 
@@ -43,7 +37,6 @@ export async function getEntity(client: Client, entityId: string) {
 export async function createTrackerWithSchemaAndEntity(client: Client) {
 	const { schemaId } = await createTrackerWithSchema(client);
 	const entity = await createEntity(client, {
-		image: null,
 		name: "Test Entity",
 		entitySchemaId: schemaId,
 		properties: { title: "Test Title" },

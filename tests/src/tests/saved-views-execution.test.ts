@@ -18,7 +18,6 @@ describe("saved views execution", () => {
 		const { schema } = await findBuiltinSchemaBySlug(userA.client, "show");
 
 		const entity = await seedMediaEntity({
-			image: null,
 			userId: null,
 			entitySchemaId: schema.id,
 			sandboxScriptId: getFirstProviderScriptId(schema),
@@ -60,7 +59,6 @@ describe("saved views execution", () => {
 		const { schema } = await findBuiltinSchemaBySlug(client, "show");
 
 		const entity = await seedMediaEntity({
-			image: null,
 			userId: null,
 			entitySchemaId: schema.id,
 			sandboxScriptId: getFirstProviderScriptId(schema),

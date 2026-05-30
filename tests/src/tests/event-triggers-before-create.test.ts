@@ -45,7 +45,6 @@ const createBeforeTriggerFixture = async (
 		slug: `bt-event-${crypto.randomUUID()}`,
 	});
 	const entity = await createEntity(client, {
-		image: null,
 		entitySchemaId,
 		name: "BT Entity",
 		properties: { title: "Test" },

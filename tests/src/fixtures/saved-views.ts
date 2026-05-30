@@ -9,7 +9,12 @@ import { requirePresent } from "../test-support/assertions";
 import type { Client } from "./auth";
 import type { ContractPayload, ContractSuccess } from "./contract-client";
 import { systemRef } from "./query-engine-core";
-import { type ExpressionInput, entityField, toRequiredExpression } from "./view-language";
+import {
+	entityField,
+	entityImageField,
+	toRequiredExpression,
+	type ExpressionInput,
+} from "./view-language";
 
 type CardDisplayConfiguration = DisplayConfiguration["grid"];
 
@@ -151,7 +156,7 @@ const defaultDisplayConfiguration = {
 		secondarySubtitleProperty: null,
 		eyebrowProperty: createEntitySchemaExpression("name"),
 		titleProperty: [entityField("book", "name")],
-		imageProperty: [entityField("book", "image")],
+		imageProperty: [entityImageField("book")],
 	},
 	list: {
 		calloutProperty: null,
@@ -159,7 +164,7 @@ const defaultDisplayConfiguration = {
 		secondarySubtitleProperty: null,
 		eyebrowProperty: createEntitySchemaExpression("name"),
 		titleProperty: [entityField("book", "name")],
-		imageProperty: [entityField("book", "image")],
+		imageProperty: [entityImageField("book")],
 	},
 } satisfies DisplayConfigurationInput;
 
@@ -204,22 +209,22 @@ export function buildUpdatedSavedViewBody(
 					titleProperty: [entityField("book", "name")],
 				},
 				list: {
+					calloutProperty: null,
 					secondarySubtitleProperty: null,
+					imageProperty: [entityImageField("book")],
 					eyebrowProperty: createEntitySchemaExpression("name"),
 					titleProperty: [entityField("book", "name")],
-					imageProperty: [entityField("book", "image")],
-					calloutProperty: null,
 					primarySubtitleProperty: [entityField("book", "publishYear")],
 				},
 			});
 
 	return {
 		icon: "heart",
+		isDisabled: false,
 		displayConfiguration,
 		accentColor: "#00AA88",
 		name: `Updated View ${crypto.randomUUID()}`,
 		queryDocument: queryDocument ?? defaultQueryDocument,
-		isDisabled: false,
 		...rest,
 	};
 }

@@ -164,7 +164,6 @@ export async function seedMediaEntity(input: {
 	entitySchemaId: string;
 	sandboxScriptId: string | null;
 	properties: Record<string, unknown>;
-	image: Record<string, unknown> | null;
 }) {
 	const pg = getPgClient();
 	const id = crypto.randomUUID();
@@ -173,17 +172,15 @@ export async function seedMediaEntity(input: {
 		`insert into entity (
 			id,
 			name,
-			image,
 			user_id,
 			properties,
 			external_id,
 			entity_schema_id,
 			sandbox_script_id
-		) values ($1, $2, $3::jsonb, $4, $5::jsonb, $6, $7, $8)`,
+		) values ($1, $2, $3, $4::jsonb, $5, $6, $7)`,
 		[
 			id,
 			input.name,
-			JSON.stringify(input.image),
 			input.userId ?? null,
 			JSON.stringify(input.properties),
 			input.externalId,
@@ -193,9 +190,8 @@ export async function seedMediaEntity(input: {
 	);
 
 	return {
-		id: EntityId.make(id),
 		name: input.name,
-		image: input.image,
+		id: EntityId.make(id),
 		userId: input.userId ?? null,
 		properties: input.properties,
 		externalId: input.externalId,
@@ -210,7 +206,6 @@ export async function createGlobalBookEntityFixture(
 ) {
 	const { schema } = await findBuiltinSchemaWithProviders(client);
 	const entity = await seedMediaEntity({
-		image: null,
 		userId: null,
 		properties: {},
 		entitySchemaId: schema.id,
