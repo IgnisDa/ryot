@@ -15,7 +15,7 @@ describe("adaptStrongAppCsv", () => {
 			"2026-01-01 10:00:00;Push Day;1h 2m 3s;Bench Press;Rest Timer;;;;;;Good session",
 		].join("\n");
 
-		const result = adaptStrongAppCsv(csv);
+		const result = adaptStrongAppCsv(csv, "Etc/GMT");
 
 		expect(result.failures).toEqual([]);
 		expect(result.items.length).toBe(1);
@@ -56,7 +56,7 @@ describe("adaptStrongAppCsv", () => {
 			"2026-01-01 10:00:00,Evening,60,Squat,1,,12,,,,",
 		].join("\n");
 
-		const result = adaptStrongAppCsv(csv);
+		const result = adaptStrongAppCsv(csv, "Etc/GMT");
 
 		expect(result.failures).toEqual([]);
 		expect(result.items.map((item) => item.name)).toEqual(["Morning", "Evening"]);
@@ -72,7 +72,7 @@ describe("adaptStrongAppCsv", () => {
 			"2026-01-01 10:00:00,Empty,60,Mystery,1,,,,,,",
 		].join("\n");
 
-		const result = adaptStrongAppCsv(csv);
+		const result = adaptStrongAppCsv(csv, "Etc/GMT");
 
 		expect(result.items).toEqual([]);
 		expect(result.failures).toEqual([

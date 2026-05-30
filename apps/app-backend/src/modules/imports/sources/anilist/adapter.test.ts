@@ -44,7 +44,7 @@ describe("adaptAnilistExport", () => {
 			],
 		});
 
-		const result = adaptAnilistExport(exportJson);
+		const result = adaptAnilistExport(exportJson, "Etc/GMT");
 
 		expect(result.failures).toEqual([]);
 		expect(result.entityGroups).toHaveLength(2);
@@ -159,7 +159,7 @@ describe("adaptAnilistExport", () => {
 			],
 		});
 
-		const result = adaptAnilistExport(exportJson);
+		const result = adaptAnilistExport(exportJson, "Etc/GMT");
 
 		expect(result.failures).toEqual([]);
 		expect(result.entityGroups.map((group) => group.events)).toEqual([
@@ -215,7 +215,7 @@ describe("adaptAnilistExport", () => {
 			],
 		});
 
-		const result = adaptAnilistExport(exportJson);
+		const result = adaptAnilistExport(exportJson, "Etc/GMT");
 
 		expect(result.failures).toEqual([]);
 		expect(result.entityGroups).toEqual([
@@ -255,7 +255,7 @@ describe("adaptAnilistExport", () => {
 			],
 		});
 
-		const result = adaptAnilistExport(exportJson);
+		const result = adaptAnilistExport(exportJson, "Etc/GMT");
 
 		expect(result.entityGroups).toEqual([]);
 		expect(result.failures).toHaveLength(3);
