@@ -1,7 +1,6 @@
 import { afterAll, beforeAll } from "bun:test";
 import type { ChildProcess } from "node:child_process";
 
-import { config } from "dotenv";
 import getPort from "get-port";
 import { Client as PgClient } from "pg";
 
@@ -15,8 +14,6 @@ import {
 	stopCoreTestInfrastructure,
 	waitForHealthCheck,
 } from "./test-support/provisioning";
-
-config({ path: ".env" });
 
 const S3_BUCKET_NAME = "ryot-test";
 
