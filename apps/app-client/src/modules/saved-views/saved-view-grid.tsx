@@ -20,11 +20,13 @@ export function SavedViewGrid(props: {
 						accessibilityLabel={`Open ${item.title}`}
 						className="w-1/2 gap-2 rounded-lg px-1.5 pb-5 focus-visible:outline-2 focus-visible:outline-accent sm:w-1/3 md:w-1/4 md:px-2.5 lg:w-1/5 xl:w-1/6"
 					>
-						<SavedViewImageView
-							image={item.image}
-							managedUrls={props.managedUrls}
-							className="aspect-3/4 w-full rounded-lg bg-surface-2"
-						/>
+						<Link.AppleZoom>
+							<SavedViewImageView
+								image={item.image}
+								managedUrls={props.managedUrls}
+								className="aspect-3/4 w-full rounded-lg bg-surface-2"
+							/>
+						</Link.AppleZoom>
 						<View className="gap-1">
 							{item.overline && (
 								<SavedViewValue

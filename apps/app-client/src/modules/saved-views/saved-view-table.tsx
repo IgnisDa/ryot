@@ -37,14 +37,14 @@ function SavedViewTableRow(props: {
 							index === 0 && "flex-row items-center gap-3",
 						)}
 					>
-						{index === 0 && (
+						<Link.AppleZoom>
 							<SavedViewImageView
 								onError={onImageError}
 								image={props.item.image}
 								managedUrls={props.managedUrls}
 								className="h-13 w-9 shrink-0 rounded-sm bg-surface-2"
 							/>
-						)}
+						</Link.AppleZoom>
 						<Text
 							numberOfLines={1}
 							className={
