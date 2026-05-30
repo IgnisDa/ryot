@@ -4,37 +4,43 @@ import { Effect } from "effect";
 import type { FieldMeta, GroupMeta } from "./builder";
 
 type Tree = GroupMeta;
+type FieldRow = { key: string; field: FieldMeta };
 
-const collectFields = (node: Tree, level: number, lines: string[]): void => {
+const collectFields = (
+	node: Tree,
+	level: number,
+	lines: string[],
+	path: readonly string[],
+): void => {
 	lines.push(`${"#".repeat(level)} ${node.description}\n`);
 
-	const directFields: FieldMeta[] = [];
-	const childGroups: Tree[] = [];
+	const directFields: FieldRow[] = [];
+	const childGroups: { key: string; group: Tree }[] = [];
 
-	for (const child of Object.values(node.children)) {
+	for (const [key, child] of Object.entries(node.children)) {
 		if (child.kind === "field") {
 			if (!child.hidden) {
-				directFields.push(child);
+				directFields.push({ field: child, key: [...path, key].join(".") });
 			}
 		} else {
-			childGroups.push(child);
+			childGroups.push({ key, group: child });
 		}
 	}
 
 	if (directFields.length > 0) {
 		lines.push(
-			"| Variable | Description | Required | Default |",
-			"|---|---|---|---|",
+			"| App Config Key | Variable | Description | Required | Sensitive | Default |",
+			"|---|---|---|---|---|---|",
 			...directFields.map(
-				(f) =>
-					`| \`${f.envKey}\` | ${f.description} | ${f.required ? "Yes" : "No"} | ${f.default !== undefined ? `\`${f.default}\`` : "—"} |`,
+				({ field, key }) =>
+					`| \`${key}\` | \`${field.envKey}\` | ${field.description} | ${field.required ? "Yes" : "No"} | ${field.sensitive ? "Yes" : "No"} | ${field.default !== undefined ? `\`${field.default}\`` : "—"} |`,
 			),
 			"",
 		);
 	}
 
 	for (const child of childGroups) {
-		collectFields(child, level + 1, lines);
+		collectFields(child.group, level + 1, lines, [...path, child.key]);
 	}
 };
 
@@ -44,7 +50,7 @@ const buildContent = (trees: Tree[]): string => {
 		"> This file is auto-generated on dev server startup. Do not edit manually.\n",
 	];
 	for (const tree of trees) {
-		collectFields(tree, 2, lines);
+		collectFields(tree, 2, lines, []);
 	}
 	return lines.join("\n");
 };

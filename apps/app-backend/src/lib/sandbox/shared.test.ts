@@ -9,6 +9,7 @@ const makeRunInput = (userId: string | null) => ({
 	scriptId: "script_1",
 	driverName: "search",
 	executionId: "exec_1",
+	scriptIsBuiltin: false,
 	allowedHostFunctions: [],
 });
 

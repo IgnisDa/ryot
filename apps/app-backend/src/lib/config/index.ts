@@ -1,8 +1,9 @@
 import type { Config } from "effect";
 import { ConfigError, Effect, Option, Redacted } from "effect";
 
+import type { GroupMeta } from "./builder";
 import { providerConfigDefinition } from "./definition";
-import { SystemConfigSource, type SystemConfigValue } from "./system";
+import { SystemConfigSource, systemConfigDefinition, type SystemConfigValue } from "./system";
 
 const isNonEmpty = (opt: Option.Option<string>) => Option.isSome(opt) && opt.value.length > 0;
 
@@ -47,6 +48,15 @@ const validateSystemConfig = (
 };
 
 export type ProviderConfigValue = Config.Config.Success<typeof providerConfigDefinition.config>;
+
+export const appConfigMeta: GroupMeta = {
+	kind: "group",
+	description: "Application configuration",
+	children: {
+		...systemConfigDefinition.meta.children,
+		providers: providerConfigDefinition.meta,
+	},
+};
 
 export class AppConfig extends Effect.Service<AppConfig>()("AppConfig", {
 	effect: Effect.gen(function* () {

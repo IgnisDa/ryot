@@ -15,6 +15,7 @@ import { AppConfig, isOidcEnabled } from "../config";
 import { CurrentDb, DbRunner, dbEffect, schema } from "../db";
 import { unknownToMessage } from "../errors";
 import { RedisService, redisKeys } from "../redis";
+import { getSandboxAppConfigValue } from "./app-config";
 import {
 	apiFailure,
 	apiSuccess,
@@ -37,12 +38,6 @@ type SandboxHostFunctionContext =
 const entityNotFoundError = "Entity not found";
 const sessionEntityNotFoundError = "Session entity not found";
 const listScopeRequiredError = "Either entityId or sessionEntityId is required";
-
-const dotPathToEnvKey = (path: string): string =>
-	path
-		.split(".")
-		.map((segment) => segment.replace(/([A-Z])/g, "_$1").toUpperCase())
-		.join("_");
 
 const CreateEventsPayload = Schema.Array(CreateEventItem);
 const ListEventsQuery = Schema.Struct({
@@ -218,17 +213,15 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 			},
 			getAppConfigValue: (...args) => {
 				const key = args[0];
+				const input = requireSandboxRunInput(args, 1, "getAppConfigValue");
 				if (typeof key !== "string" || !key.trim()) {
 					return Promise.resolve(apiFailure("getAppConfigValue expects a non-empty key string"));
 				}
 
-				const envKey = dotPathToEnvKey(key.trim());
-				const value = Bun.env[envKey];
-				if (value === undefined) {
-					return Promise.resolve(apiFailure(`Config key "${key.trim()}" does not exist`));
-				}
-
-				return Promise.resolve(apiSuccess(value));
+				return runHostEffect(
+					runPromise,
+					getSandboxAppConfigValue(config, key.trim(), input.scriptIsBuiltin),
+				);
 			},
 			getEntity: (...args) => {
 				const entityId = args[0];
