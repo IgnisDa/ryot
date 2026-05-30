@@ -42,7 +42,7 @@ const responseWithItems = (items: readonly InterestItem[]) =>
 
 const row = (id: string, overrides: Partial<InterestItem> = {}): InterestItem => ({
 	id,
-	entitySchemaSlug: "book",
+	entitySchemaSlug: "record",
 	providerId: "provider-1",
 	properties: { title: id },
 	translationStatus: "ready",

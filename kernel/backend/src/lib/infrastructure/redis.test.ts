@@ -60,9 +60,9 @@ describe("import source state", () => {
 	it("round-trips secret-bearing file source state through the shared codec", () => {
 		const state = {
 			source: "movary",
-			pluginId: "media-plugin-id",
+			pluginId: "example-plugin-id",
 			uploadIntentIds: ["intent-1"],
-			pluginInstallationId: "media-installation",
+			pluginInstallationId: "example-installation",
 			namedArtifactPaths: { history: "/tmp/history.csv" },
 			sourcePayload: { apiKey: "secret", history: "history" },
 			workflowScriptId: SandboxScriptId.make("script-1"),

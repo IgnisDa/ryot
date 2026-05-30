@@ -15,15 +15,15 @@ import {
 const configSchema = {
 	unknownKeys: "strict",
 	fields: {
-		tmdbAccessToken: {
+		alphaAccessToken: {
 			type: "string",
-			label: "TMDB access token",
-			description: "TMDB access token",
+			label: "Alpha access token",
+			description: "Alpha access token",
 		},
-		hardcoverApiKey: {
+		deltaApiKey: {
 			type: "string",
-			label: "Hardcover API key",
-			description: "Hardcover API key",
+			label: "Delta API key",
+			description: "Delta API key",
 		},
 	},
 } as const;
@@ -40,16 +40,16 @@ const registeredSource = (
 	overrides: Partial<RegisteredImportSource> = {},
 ): RegisteredImportSource => ({
 	configSchema,
-	name: "Netflix",
-	slug: "netflix",
-	pluginSlug: "media",
+	name: "Nu",
+	slug: "nu",
+	pluginSlug: "example",
 	pluginScope: "system",
-	pluginId: "media-plugin-id",
+	pluginId: "example-plugin-id",
 	requiredPluginConfigKeys: [],
-	description: "Netflix export",
-	workflowSlug: "netflix-import",
-	installationId: "media-installation",
-	configContext: { kind: "environment", pluginSlug: "media", configSchema },
+	description: "Nu export",
+	workflowSlug: "nu-import",
+	installationId: "example-installation",
+	configContext: { kind: "environment", pluginSlug: "example", configSchema },
 	inputSchema: {
 		unknownKeys: "strict",
 		fields: {
@@ -94,7 +94,7 @@ it.effect("returns only the visible required upload after schema parsing", () =>
 		});
 		const properties = yield* parseRegistryImportSourceInput(source, {
 			mode: "history",
-			source: "netflix",
+			source: "nu",
 			historyUploadToken: "history",
 		});
 
@@ -128,7 +128,7 @@ it.effect("rejects undeclared upload token fields before schema parsing", () =>
 	Effect.gen(function* () {
 		const error = yield* Effect.flip(
 			parseRegistryImportSourceInput(registeredSource(), {
-				source: "netflix",
+				source: "nu",
 				historyUploadToken: "not-even-a-token",
 			}),
 		);
@@ -140,7 +140,7 @@ it.effect("rejects reserved internal fields before schema parsing", () =>
 	Effect.gen(function* () {
 		const error = yield* Effect.flip(
 			parseRegistryImportSourceInput(registeredSource(), {
-				source: "netflix",
+				source: "nu",
 				integrationScriptSlug: "integration.spoofed",
 			}),
 		);
@@ -151,34 +151,34 @@ it.effect("rejects reserved internal fields before schema parsing", () =>
 it.effect("formats schema validation failures", () =>
 	Effect.gen(function* () {
 		const error = yield* Effect.flip(
-			parseRegistryImportSourceInput(registeredSource(), { source: "netflix" }),
+			parseRegistryImportSourceInput(registeredSource(), { source: "nu" }),
 		);
 		expect(error).toContain("Import source input is invalid:");
 		expect(error).toContain("uploadToken");
 	}),
 );
 
-const myanimelistSource = () =>
+const epsilonSource = () =>
 	registeredSource({
-		slug: "myanimelist",
+		slug: "epsilon",
 		inputSchema: {
 			unknownKeys: "strict",
 			fields: {
-				animeUploadToken: uploadProperty(["xml"], false),
-				mangaUploadToken: uploadProperty(["xml"], false),
+				primaryUploadToken: uploadProperty(["xml"], false),
+				secondaryUploadToken: uploadProperty(["xml"], false),
 			},
 			rules: [
 				{
 					kind: "validation",
-					path: ["animeUploadToken"],
+					path: ["primaryUploadToken"],
 					validation: { required: true },
-					when: { path: ["mangaUploadToken"], operator: "not_exists" },
+					when: { path: ["secondaryUploadToken"], operator: "not_exists" },
 				},
 				{
 					kind: "validation",
-					path: ["mangaUploadToken"],
+					path: ["secondaryUploadToken"],
 					validation: { required: true },
-					when: { path: ["animeUploadToken"], operator: "not_exists" },
+					when: { path: ["primaryUploadToken"], operator: "not_exists" },
 				},
 			],
 		},
@@ -187,28 +187,28 @@ const myanimelistSource = () =>
 it.effect("rejects explicit nulls that would leave every conditional upload absent", () =>
 	Effect.gen(function* () {
 		const error = yield* Effect.flip(
-			parseRegistryImportSourceInput(myanimelistSource(), {
-				source: "myanimelist",
-				animeUploadToken: null,
-				mangaUploadToken: null,
+			parseRegistryImportSourceInput(epsilonSource(), {
+				source: "epsilon",
+				primaryUploadToken: null,
+				secondaryUploadToken: null,
 			}),
 		);
-		expect(error).toContain("animeUploadToken is required");
-		expect(error).toContain("mangaUploadToken is required");
+		expect(error).toContain("primaryUploadToken is required");
+		expect(error).toContain("secondaryUploadToken is required");
 	}),
 );
 
 it.effect("accepts a single conditional upload token and leaves the sibling null", () =>
 	Effect.gen(function* () {
-		const source = myanimelistSource();
+		const source = epsilonSource();
 		const properties = yield* parseRegistryImportSourceInput(source, {
-			source: "myanimelist",
-			mangaUploadToken: null,
-			animeUploadToken: "anime",
+			source: "epsilon",
+			secondaryUploadToken: null,
+			primaryUploadToken: "primary",
 		});
 
 		expect(registryImportSourceFileInputs(source, properties)).toEqual([
-			{ key: "animeUploadToken", uploadToken: "anime", allowedExtensions: ["xml"] },
+			{ key: "primaryUploadToken", uploadToken: "primary", allowedExtensions: ["xml"] },
 		]);
 	}),
 );
@@ -217,8 +217,8 @@ it.effect("rejects an upload token carried as an object", () =>
 	Effect.gen(function* () {
 		const error = yield* Effect.flip(
 			parseRegistryImportSourceInput(registeredSource(), {
-				source: "netflix",
-				uploadToken: { token: "netflix", expiresAt: "2026-08-23T00:00:00.000Z" },
+				source: "nu",
+				uploadToken: { token: "nu", expiresAt: "2026-08-23T00:00:00.000Z" },
 			}),
 		);
 		expect(error).toContain("Import source input is invalid:");
@@ -229,7 +229,7 @@ it.effect("rejects an upload token carried as an object", () =>
 it.effect("rejects an empty required upload token", () =>
 	Effect.gen(function* () {
 		const error = yield* Effect.flip(
-			parseRegistryImportSourceInput(registeredSource(), { source: "netflix", uploadToken: "" }),
+			parseRegistryImportSourceInput(registeredSource(), { source: "nu", uploadToken: "" }),
 		);
 		expect(error).toContain("uploadToken");
 	}),
@@ -239,9 +239,9 @@ it.effect("builds payload from decoded properties and replaces upload tokens wit
 	Effect.gen(function* () {
 		const source = registeredSource();
 		const properties = yield* parseRegistryImportSourceInput(source, {
-			source: "netflix",
+			source: "nu",
 			profileName: "Kids",
-			uploadToken: "netflix",
+			uploadToken: "nu",
 		});
 
 		expect(buildImportSourcePayload(properties, source)).toEqual({
@@ -261,17 +261,17 @@ it("summarizes only source and claimed original file names", () => {
 		source: "movary",
 		fileNames: { historyUploadToken: "history.csv", ratingsUploadToken: "ratings.csv" },
 	});
-	expect(buildImportInputSummary("trakt", {})).toEqual({ source: "trakt" });
+	expect(buildImportInputSummary("gamma", {})).toEqual({ source: "gamma" });
 });
 
 it.effect("formats every un-configured plugin config key", () =>
 	Effect.gen(function* () {
 		const source = registeredSource({
-			requiredPluginConfigKeys: ["tmdbAccessToken", "hardcoverApiKey"],
+			requiredPluginConfigKeys: ["alphaAccessToken", "deltaApiKey"],
 		});
 		expect(yield* registryImportSourceMissingConfigKeys(source)).toEqual([
-			"RYOT_PLUGIN_MEDIA_TMDB_ACCESS_TOKEN",
-			"RYOT_PLUGIN_MEDIA_HARDCOVER_API_KEY",
+			"RYOT_PLUGIN_EXAMPLE_ALPHA_ACCESS_TOKEN",
+			"RYOT_PLUGIN_EXAMPLE_DELTA_API_KEY",
 		]);
 	}).pipe(Effect.provide(makeConfigProviderLayer())),
 );
@@ -282,20 +282,20 @@ it.effect(
 		Effect.gen(function* () {
 			const source = registeredSource({
 				pluginScope: "user",
-				pluginSlug: "my-media",
+				pluginSlug: "my-example",
 				pluginId: "private-plugin-id",
 				installationId: "private-installation",
-				requiredPluginConfigKeys: ["tmdbAccessToken", "hardcoverApiKey"],
+				requiredPluginConfigKeys: ["alphaAccessToken", "deltaApiKey"],
 				configContext: {
 					configSchema,
 					kind: "installation",
-					config: { tmdbAccessToken: "installed-token" },
+					config: { alphaAccessToken: "installed-token" },
 				},
 			});
-			expect(yield* registryImportSourceMissingConfigKeys(source)).toEqual(["hardcoverApiKey"]);
+			expect(yield* registryImportSourceMissingConfigKeys(source)).toEqual(["deltaApiKey"]);
 		}).pipe(
 			Effect.provide(
-				makeConfigProviderLayer({ RYOT_PLUGIN_MY_MEDIA_HARDCOVER_API_KEY: "environment-key" }),
+				makeConfigProviderLayer({ RYOT_PLUGIN_MY_EXAMPLE_DELTA_API_KEY: "environment-key" }),
 			),
 		),
 );

@@ -255,7 +255,7 @@ describe("bindSandboxHostFunctions", () => {
 				creates: [
 					{
 						properties: {},
-						sourceEntityId: "media-1",
+						sourceEntityId: "example-1",
 						targetEntityId: "library-1",
 						relationshipSchemaSlug: "in-library",
 					},

@@ -39,10 +39,10 @@ it.effect("keeps the deterministic ID and exposes enqueue failure", () => {
 		const exit = yield* Effect.exit(
 			trigger.request({
 				userId: null,
-				externalId: "book-1",
+				externalId: "record-1",
 				origin: { kind: "api" },
 				entityId: EntityId.make("entity-1"),
-				entitySchemaSlug: EntitySchemaSlug.make("book"),
+				entitySchemaSlug: EntitySchemaSlug.make("record"),
 				providerId: SandboxProviderId.make("provider-1"),
 			}),
 		);
@@ -74,11 +74,11 @@ it.effect("does not enqueue user population for a disabled system provider", () 
 	return Effect.gen(function* () {
 		const trigger = yield* EntityPopulationTrigger;
 		yield* trigger.request({
-			externalId: "book-1",
+			externalId: "record-1",
 			origin: { kind: "api" },
 			userId: UserId.make("user-1"),
 			entityId: EntityId.make("entity-1"),
-			entitySchemaSlug: EntitySchemaSlug.make("book"),
+			entitySchemaSlug: EntitySchemaSlug.make("record"),
 			providerId: SandboxProviderId.make("provider-1"),
 		});
 		expect(enqueued).toBe(false);
@@ -93,7 +93,7 @@ const availableProvider = {
 	updatedAt: new Date(0),
 	information: { source: "provider" },
 	providerId: SandboxProviderId.make("provider-1"),
-	rootEntitySchemaSlug: EntitySchemaSlug.make("book"),
+	rootEntitySchemaSlug: EntitySchemaSlug.make("record"),
 };
 
 const capturePopulationPayload = (pluginScope: "system" | "user") => {
@@ -126,11 +126,11 @@ it.effect("keeps user-triggered system provider entities global", () => {
 	return Effect.gen(function* () {
 		const trigger = yield* EntityPopulationTrigger;
 		yield* trigger.request({
-			externalId: "book-1",
+			externalId: "record-1",
 			origin: { kind: "api" },
 			userId: UserId.make("user-1"),
 			entityId: EntityId.make("entity-1"),
-			entitySchemaSlug: EntitySchemaSlug.make("book"),
+			entitySchemaSlug: EntitySchemaSlug.make("record"),
 			providerId: SandboxProviderId.make("provider-1"),
 		});
 		expect(capture.getPayload()).toMatchObject({ entityScope: "global", userId: "user-1" });
@@ -142,11 +142,11 @@ it.effect("keeps user-triggered private provider entities user-owned", () => {
 	return Effect.gen(function* () {
 		const trigger = yield* EntityPopulationTrigger;
 		yield* trigger.request({
-			externalId: "book-1",
+			externalId: "record-1",
 			origin: { kind: "api" },
 			userId: UserId.make("user-1"),
 			entityId: EntityId.make("entity-1"),
-			entitySchemaSlug: EntitySchemaSlug.make("book"),
+			entitySchemaSlug: EntitySchemaSlug.make("record"),
 			providerId: SandboxProviderId.make("provider-1"),
 		});
 		expect(capture.getPayload()).toMatchObject({ entityScope: "user", userId: "user-1" });

@@ -16,7 +16,7 @@ const row = {
 	progress: 0,
 	failedItems: 0,
 	startedAt: null,
-	source: "komga",
+	source: "theta",
 	inputSummary: {},
 	totalItems: null,
 	finishedAt: null,
@@ -32,9 +32,9 @@ const row = {
 const admission = {
 	userId,
 	integrationId,
-	source: "komga",
+	source: "theta",
 	inputSummary: {},
-	pluginInstallationId: "media-installation-id",
+	pluginInstallationId: "example-installation-id",
 };
 
 const repositoryLayer = (db: unknown) =>

@@ -198,15 +198,15 @@ it("rejects integration provider and import source slug collisions across active
 	} satisfies PluginManifest["integrationProviders"][number]["settingsSchema"];
 	const cases = [
 		{
-			expected: /Duplicate integration provider slug 'plex'/,
+			expected: /Duplicate integration provider slug 'lambda'/,
 			section: {
 				integrationProviders: [
 					{
-						slug: "plex",
-						name: "Plex",
+						slug: "lambda",
+						name: "Lambda",
 						settingsSchema,
 						lot: "yank" as const,
-						description: "Plex yank",
+						description: "Lambda yank",
 						scriptSlug: "fixture.automation",
 					},
 				],

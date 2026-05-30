@@ -33,9 +33,9 @@ const systemInstallation = (
 		health: "ready",
 		isDisabled: false,
 		healthReason: null,
-		pluginSlug: "media",
+		pluginSlug: "example",
 		pluginScope: "system",
-		pluginId: "media-plugin-id",
+		pluginId: "example-plugin-id",
 		createdAt: new Date(0),
 		updatedAt: new Date(0),
 		userId: UserId.make("user-id"),
@@ -79,7 +79,7 @@ describe("classifyAccountCleanliness", () => {
 				cleanState({
 					pluginState: [
 						systemInstallation(),
-						systemInstallation({ pluginSlug: "fitness", pluginId: "fitness-plugin-id" }),
+						systemInstallation({ pluginSlug: "sample", pluginId: "sample-plugin-id" }),
 						systemInstallation({
 							health: "installing",
 							pluginSlug: "shipped",
