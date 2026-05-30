@@ -1,9 +1,9 @@
 import { DurableDeferred } from "@effect/workflow";
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
-import { Clock, Context, Effect, Layer, Schema } from "effect";
+import { Clock, Effect, Schema } from "effect";
 
 import type { CurrentUserValue } from "../../lib/auth";
-import type { DbError, SandboxRunError, UploadNotFound } from "../../lib/errors";
+import type { DbError } from "../../lib/errors";
 import { AudibleRunError, AudibleRunNotFound, ValidationError } from "../../lib/errors";
 import { UploadsRepository } from "../uploads/repository";
 import { AudibleRepository } from "./repository";
@@ -18,31 +18,6 @@ type NormalizedCreateInput = {
 	readonly query?: string;
 	readonly uploadId?: string;
 };
-
-export class AudibleService extends Context.Tag("AudibleService")<
-	AudibleService,
-	{
-		readonly confirmImport: (
-			user: CurrentUserValue,
-			runId: string,
-		) => Effect.Effect<
-			AudibleRunDetail,
-			DbError | AudibleRunError | AudibleRunNotFound | ValidationError
-		>;
-		readonly create: (
-			user: CurrentUserValue,
-			input: CreateAudibleRunPayload,
-		) => Effect.Effect<
-			AudibleRunDetail,
-			DbError | AudibleRunError | SandboxRunError | UploadNotFound | ValidationError
-		>;
-		readonly get: (
-			user: CurrentUserValue,
-			runId: string,
-		) => Effect.Effect<AudibleRunDetail, DbError | AudibleRunNotFound>;
-		readonly list: (user: CurrentUserValue) => Effect.Effect<ReadonlyArray<AudibleRun>, DbError>;
-	}
->() {}
 
 const validateCreate = (
 	input: CreateAudibleRunPayload,
@@ -73,9 +48,8 @@ const decodeConfirmationToken = (token: string) =>
 		),
 	);
 
-export const AudibleServiceLive = Layer.effect(
-	AudibleService,
-	Effect.gen(function* () {
+export class AudibleService extends Effect.Service<AudibleService>()("AudibleService", {
+	effect: Effect.gen(function* () {
 		const engine = yield* WorkflowEngine;
 		const repository = yield* AudibleRepository;
 		const uploads = yield* UploadsRepository;
@@ -87,7 +61,7 @@ export const AudibleServiceLive = Layer.effect(
 			);
 
 		return {
-			confirmImport: (user, runId) =>
+			confirmImport: (user: CurrentUserValue, runId: string) =>
 				Effect.gen(function* () {
 					const confirmation = yield* repository.getConfirmationToken(user.id, runId);
 					if (confirmation.run.status !== "awaiting_confirmation" || !confirmation.token) {
@@ -108,7 +82,7 @@ export const AudibleServiceLive = Layer.effect(
 
 					return yield* detailWithPoll(user, runId);
 				}),
-			create: (user, input) =>
+			create: (user: CurrentUserValue, input: CreateAudibleRunPayload) =>
 				Effect.gen(function* () {
 					const normalized = yield* validateCreate(input);
 					if (normalized.uploadId) {
@@ -136,8 +110,13 @@ export const AudibleServiceLive = Layer.effect(
 							),
 						);
 				}),
-			get: (user, runId) => detailWithPoll(user, runId),
-			list: (user) => repository.listForUser(user.id),
+			get: (
+				user: CurrentUserValue,
+				runId: string,
+			): Effect.Effect<AudibleRunDetail, DbError | AudibleRunNotFound> =>
+				detailWithPoll(user, runId),
+			list: (user: CurrentUserValue): Effect.Effect<ReadonlyArray<AudibleRun>, DbError> =>
+				repository.listForUser(user.id),
 		};
 	}),
-);
+}) {}
