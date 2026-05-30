@@ -23,6 +23,7 @@ export function toEntityDetail(
 	entity: EntityResponse,
 	entitySchemaSlug: SupportedEntitySchemaSlug,
 ) {
+	// oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion
 	return {
 		...entity,
 		entitySchemaSlug,
