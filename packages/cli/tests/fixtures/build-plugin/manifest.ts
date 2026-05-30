@@ -12,7 +12,7 @@ export default {
 	relationshipSchemas: [],
 	integrationProviders: [],
 	configSchema: { unknownKeys: "strict", fields: {} },
-	client: { entry: "client/index.tsx", apiVersion: 1, capabilities: [] },
+	client: { entry: "client/index.tsx", apiVersion: 1 },
 	httpRateLimits: [
 		{ requests: 1, key: "test-api", intervalMs: 1000, origins: ["https://example.com/"] },
 	],

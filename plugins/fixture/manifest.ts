@@ -17,7 +17,7 @@ export const fixturePlugin = definePlugin({
 	integrationProviders: [],
 	configSchema: { fields: {}, unknownKeys: "strict" },
 	scripts: [{ ...greetManifest, entry: "backend/greet.sandbox.ts" }],
-	client: { entry: "client/index.tsx", apiVersion: 1, capabilities: [] },
+	client: { entry: "client/index.tsx", apiVersion: 1 },
 	operations: [
 		{
 			auth: "user",

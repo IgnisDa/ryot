@@ -1,6 +1,7 @@
 import {
 	CLIENT_API_VERSION,
 	CLIENT_ARTIFACT_FORMAT,
+	CLIENT_BRIDGE_MAX_PENDING_REQUESTS,
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
 	PluginBridgeThemeApplied,
@@ -191,6 +192,44 @@ describe("plugin runtime", () => {
 					message.type === "lifecycle-close",
 			),
 		).toEqual([{ reason: "disposed", type: "lifecycle-close" }]);
+	});
+
+	it("fails the session when aggregate pending requests exceed the admission limit", async () => {
+		const { channel, messages, runtime } = openRuntime();
+		activate(channel);
+		await delay();
+		const pending = Array.from({ length: CLIENT_BRIDGE_MAX_PENDING_REQUESTS }, (_, index) =>
+			index % 2 === 0
+				? runtime.client.data.query({ document, decode: Result.succeed })
+				: runtime.client.operations.invoke({
+						input: null,
+						output: Schema.Unknown,
+						slug: `operation-${index}`,
+					}),
+		);
+		const overflow = runtime.client.data.query({ document, decode: Result.succeed });
+		const results = await Promise.allSettled([...pending, overflow]);
+		await delay();
+
+		expect(results).toHaveLength(CLIENT_BRIDGE_MAX_PENDING_REQUESTS + 1);
+		expect(
+			results.every(
+				(result) =>
+					result.status === "rejected" &&
+					result.reason instanceof RyotClientError &&
+					result.reason.reason === "protocol",
+			),
+		).toBe(true);
+		expect(
+			messages.filter(
+				(message) =>
+					typeof message === "object" &&
+					message !== null &&
+					"type" in message &&
+					(message.type === "operation-request" || message.type === "ryotql-request"),
+			),
+		).toHaveLength(CLIENT_BRIDGE_MAX_PENDING_REQUESTS);
+		expect(messages).toContainEqual({ reason: "failed", type: "lifecycle-close" });
 	});
 
 	it("rejects simultaneous pending calls once on fatal failure and ignores late results", async () => {

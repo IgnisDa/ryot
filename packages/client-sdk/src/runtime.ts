@@ -1,4 +1,5 @@
 import {
+	CLIENT_BRIDGE_MAX_PENDING_REQUESTS,
 	PluginBridgeHostMessage,
 	REQUIRED_THEME_TOKEN_NAMES,
 	type PluginBridgeInit,
@@ -107,6 +108,16 @@ export const createPluginRuntime = (
 		}
 	};
 
+	const admit = (pending: Map<string, PendingCall>, requestId: string, call: PendingCall) => {
+		if (operations.size + queries.size >= CLIENT_BRIDGE_MAX_PENDING_REQUESTS) {
+			finish("failed", "protocol", true);
+			call.reject(new RyotClientError("protocol"));
+			return false;
+		}
+		pending.set(requestId, call);
+		return true;
+	};
+
 	const query = (document: PreparedRecipe<unknown>["document"]) =>
 		new Promise<unknown>((resolve, reject) => {
 			if (state !== "active") {
@@ -115,7 +126,9 @@ export const createPluginRuntime = (
 			}
 			nextRequestId += 1;
 			const requestId = `ryotql-${nextRequestId}`;
-			queries.set(requestId, { reject, resolve });
+			if (!admit(queries, requestId, { reject, resolve })) {
+				return;
+			}
 			post({
 				document,
 				requestId,
@@ -131,7 +144,9 @@ export const createPluginRuntime = (
 			}
 			nextRequestId += 1;
 			const requestId = `operation-${nextRequestId}`;
-			operations.set(requestId, { reject, resolve });
+			if (!admit(operations, requestId, { reject, resolve })) {
+				return;
+			}
 			post({
 				requestId,
 				input: request.input,
