@@ -45,9 +45,13 @@ export type ContractSession = {
 	runError: <A, E>(program: ContractProgram<A, E>, headers?: RequestHeaders) => Promise<E>;
 };
 
-export const makeSession = (baseUrl = getBackendUrl(), defaultHeaders: RequestHeaders = {}): ContractSession => ({
+export const makeSession = (
+	baseUrl = getBackendUrl(),
+	defaultHeaders: RequestHeaders = {},
+): ContractSession => ({
 	run: (program, headers = {}) => runContract(program, { ...defaultHeaders, ...headers }, baseUrl),
-	runError: (program, headers = {}) => runContractError(program, { ...defaultHeaders, ...headers }, baseUrl),
+	runError: (program, headers = {}) =>
+		runContractError(program, { ...defaultHeaders, ...headers }, baseUrl),
 });
 
 export const getBackendClient = (): ContractSession => makeSession();

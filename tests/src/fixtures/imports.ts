@@ -28,12 +28,9 @@ export async function uploadTemporaryFile(
 	return requirePresent(tokens[0], "Upload token is missing");
 }
 
-export async function startOpenScaleImport(
-	client: Client,
-	uploadToken: string,
-): Promise<string> {
-	const result = await client.run(
-		(c) => c.imports.createRun({ payload: { source: "open_scale", uploadToken } }),
+export async function startOpenScaleImport(client: Client, uploadToken: string): Promise<string> {
+	const result = await client.run((c) =>
+		c.imports.createRun({ payload: { source: "open_scale", uploadToken } }),
 	);
 
 	return requirePresent(result.id, "Import run id is missing");
@@ -84,8 +81,8 @@ export async function runHevyImportFixture(client: Client, cookies: string) {
 		"text/csv",
 	);
 
-	const result = await client.run(
-		(c) => c.imports.createRun({ payload: { source: "hevy", uploadToken } }),
+	const result = await client.run((c) =>
+		c.imports.createRun({ payload: { source: "hevy", uploadToken } }),
 	);
 	const runId = requirePresent(result.id, "Import run id is missing");
 
