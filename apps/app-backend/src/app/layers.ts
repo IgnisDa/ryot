@@ -107,7 +107,10 @@ const ServicesNeedingCollectionsScopeLive = Layer.mergeAll(
 	EventsService.Default,
 	Layer.provide(GodModeService.Default, AuthService.Default),
 	Layer.provide(ImportsService.Default, UploadsService.Default),
-	IntegrationsService.Default,
+	Layer.provide(
+		IntegrationsService.Default,
+		Layer.provide(ImportsService.Default, UploadsService.Default),
+	),
 	QueryEngineService.Default,
 	RelationshipSchemasService.Default,
 	SavedViewsServiceLive,
