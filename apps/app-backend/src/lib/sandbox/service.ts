@@ -6,7 +6,6 @@ import { type Job, Worker } from "bullmq";
 import { getQueues } from "../queue";
 import { getRedisConnection } from "../queue/connection";
 import { onWorkerError } from "../queue/utils";
-import { recordSandboxBenchSample } from "./bench-recorder";
 import { BridgeServer } from "./bridge";
 import {
 	defaultMaxHeapMB,
@@ -168,8 +167,6 @@ export class SandboxService {
 			timeoutMs: jobData.timeoutMs,
 			maxHeapMB: jobData.maxHeapMB,
 			driverName: jobData.driverName,
-			// TEMP(sandbox-benchmark): defensive — test script fetchers omit slug.
-			scriptSlug: (script as { slug?: string | null }).slug ?? null,
 		});
 	}
 
@@ -187,19 +184,6 @@ export class SandboxService {
 		const timeoutMs = options.timeoutMs ?? this.executionDefaults.timeoutMs;
 		const maxHeapMB = options.maxHeapMB ?? this.executionDefaults.maxHeapMB;
 		const apiFunctions = { ...options.apiFunctions };
-
-		// TEMP(sandbox-benchmark): count host-function (bridge) round-trips per run.
-		let hostCalls = 0;
-		for (const key of Object.keys(apiFunctions)) {
-			const original = apiFunctions[key];
-			if (!original) {
-				continue;
-			}
-			apiFunctions[key] = async (...args: Array<unknown>) => {
-				hostCalls += 1;
-				return original(...args);
-			};
-		}
 
 		const token = generateId();
 		const executionId = generateId();
@@ -296,23 +280,6 @@ export class SandboxService {
 				if (executionMs > 0) {
 					sandboxScriptExecutionDurationSeconds.observe(executionMs / 1000);
 				}
-				recordSandboxBenchSample({
-					totalMs,
-					poolHit,
-					hostCalls,
-					processMs,
-					hostSetupMs,
-					ts: Date.now(),
-					scriptExecMs: executionMs,
-					success: parsed.success,
-					scriptId: options.scriptId,
-					driverName: options.driverName,
-					scriptSlug: options.scriptSlug ?? null,
-					startupMs: parsed.denoMetrics?.startupMs ?? 0,
-					memRssBytes: parsed.denoMetrics?.memoryRssBytes ?? 0,
-					memHeapBytes: parsed.denoMetrics?.memoryHeapUsedBytes ?? 0,
-					...extractBenchTriggerContext(context),
-				});
 				return {
 					logs,
 					value: parsed.value,
@@ -396,25 +363,7 @@ export type SandboxExecutionOptions = Pick<
 	"context" | "maxHeapMB" | "timeoutMs" | "driverName" | "scriptId"
 > & {
 	code: string;
-	scriptSlug?: string | null;
 	apiFunctions?: Record<string, (...args: Array<unknown>) => Promise<unknown>>;
-};
-
-// TEMP(sandbox-benchmark): pull trigger metadata out of the run context so each
-// recorded sample is self-describing (which event/entity, which phase, origin).
-const extractBenchTriggerContext = (context: unknown) => {
-	const trigger =
-		context && typeof context === "object" && "trigger" in context
-			? // oxlint-disable-next-line no-unsafe-type-assertion
-				(context.trigger as Record<string, unknown>)
-			: null;
-	const readString = (value: unknown) => (typeof value === "string" ? value : null);
-	return {
-		phase: readString(trigger?.phase),
-		origin: readString(trigger?.origin),
-		eventSchemaSlug: readString(trigger?.eventSchemaSlug),
-		entitySchemaSlug: readString(trigger?.entitySchemaSlug),
-	};
 };
 
 type SandboxJobLookupResult = {
