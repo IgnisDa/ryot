@@ -6,7 +6,13 @@ import { FetchHttpClient, HttpApiClient, HttpClient, HttpClientRequest } from "@
 import { faker } from "@faker-js/faker";
 import { AppContract } from "@ryot/app-backend/contract";
 import type { QueryExpression, QueryFilter, RuntimeRef } from "@ryot/app-backend/query-language";
-import type { AppSchema } from "@ryot/app-backend/schema/core";
+import {
+	EntitySchemaId,
+	RemoteImageUrl,
+	SandboxScriptId,
+	TrackerId,
+} from "@ryot/app-backend/schema/brands";
+import type { AppSchema } from "@ryot/app-backend/schema/property-schema";
 import { dayjs } from "@ryot/ts-utils/dayjs";
 import { createAuthClient } from "better-auth/client";
 import { config } from "dotenv";
@@ -136,7 +142,7 @@ type SavedViewDisplayConfigInput = {
 type SavedViewSpec = {
 	name: string;
 	icon: string;
-	trackerId?: string;
+	trackerId?: TrackerId;
 	accentColor: string;
 	queryDefinition: SavedViewQueryInput;
 	displayConfiguration: SavedViewDisplayConfigInput;
@@ -206,7 +212,7 @@ async function createEntitySchema(
 	apiClient: APIClient,
 	name: string,
 	slug: string,
-	trackerId: string,
+	trackerId: TrackerId,
 	icon: string,
 	accentColor: string,
 	propertiesSchema: AppSchema,
@@ -226,7 +232,7 @@ async function createEventSchema(
 	apiClient: APIClient,
 	name: string,
 	slug: string,
-	entitySchemaId: string,
+	entitySchemaId: EntitySchemaId,
 	propertiesSchema: AppSchema,
 ) {
 	console.log(`      Creating event schema: ${name}...`);
@@ -241,7 +247,7 @@ async function createEventSchema(
 async function createEntity(
 	apiClient: APIClient,
 	name: string,
-	entitySchemaId: string,
+	entitySchemaId: EntitySchemaId,
 	properties: Record<string, unknown>,
 	imageUrl: string | null,
 ) {
@@ -251,7 +257,7 @@ async function createEntity(
 				name,
 				properties,
 				entitySchemaId,
-				image: imageUrl ? { type: "remote", url: imageUrl } : null,
+				image: imageUrl ? { type: "remote", url: RemoteImageUrl.make(imageUrl) } : null,
 			},
 		}),
 	);
@@ -347,7 +353,7 @@ async function createSavedView(
 	accentColor: string,
 	queryDefinition: SavedViewQueryInput,
 	displayConfiguration: SavedViewDisplayConfigInput,
-	trackerId?: string,
+	trackerId?: TrackerId,
 ) {
 	const toExpression = (
 		input: string[] | SavedViewExpression | null,
@@ -1473,11 +1479,11 @@ async function getBuiltinTracker(apiClient: APIClient) {
 	return builtinTracker;
 }
 
-async function listMediaEntitySchemas(apiClient: APIClient, trackerId: string) {
+async function listMediaEntitySchemas(apiClient: APIClient, trackerId: TrackerId) {
 	return apiClient.run((c) => c.entitySchemas.list({ payload: { trackerId } }));
 }
 
-async function getMediaLifecycleEventSchemas(apiClient: APIClient, entitySchemaId: string) {
+async function getMediaLifecycleEventSchemas(apiClient: APIClient, entitySchemaId: EntitySchemaId) {
 	const schemas = await apiClient.run((c) =>
 		c.eventSchemas.list({ urlParams: { entitySchemaId } }),
 	);
@@ -1556,7 +1562,7 @@ async function pollSearchJob(
 
 async function searchMediaPage(
 	apiClient: APIClient,
-	scriptId: string,
+	scriptId: SandboxScriptId,
 	query: string,
 	page: number,
 ): Promise<Array<{ externalId: string }>> {
@@ -1568,9 +1574,9 @@ async function searchMediaPage(
 
 async function importMediaEntity(
 	apiClient: APIClient,
-	scriptId: string,
+	scriptId: SandboxScriptId,
 	externalId: string,
-	entitySchemaId: string,
+	entitySchemaId: EntitySchemaId,
 ): Promise<SeedEntity | null> {
 	let jobId: string;
 	try {
@@ -1654,7 +1660,7 @@ async function seedMedia(client: APIClient) {
 	type MediaEventSchemas = Awaited<ReturnType<typeof getMediaLifecycleEventSchemas>>;
 	type WorkItem = {
 		externalId: string;
-		scriptId: string;
+		scriptId: SandboxScriptId;
 		schema: (typeof schemas)[number];
 		eventSchemas: MediaEventSchemas;
 	};
@@ -2105,9 +2111,9 @@ async function seedCollections(
 
 async function seedSavedViews(
 	client: APIClient,
-	whiskeyTrackerId: string,
-	placesTrackerId: string,
-	phonesTrackerId: string,
+	whiskeyTrackerId: TrackerId,
+	placesTrackerId: TrackerId,
+	phonesTrackerId: TrackerId,
 ) {
 	console.log("\n💾 Seeding Saved Views...");
 

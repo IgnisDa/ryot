@@ -1,3 +1,5 @@
+import { TrackerId } from "@ryot/app-backend/schema/brands";
+
 import { requirePresent } from "../test-support/assertions";
 import type { Client } from "./auth";
 
@@ -54,7 +56,7 @@ export async function disableTracker(input: { trackerId: string; client: Client 
 	return input.client.run((c) =>
 		c.trackers.update({
 			payload: { isDisabled: true },
-			path: { trackerId: input.trackerId },
+			path: { trackerId: TrackerId.make(input.trackerId) },
 		}),
 	);
 }

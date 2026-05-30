@@ -1,5 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
+import { ImportRunId } from "@ryot/app-backend/schema/brands";
+
 import {
 	createAuthenticatedClient,
 	getImportRun,
@@ -16,7 +18,7 @@ describe("OpenScale Import E2E", () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { runId, completedRun } = await runOpenScaleImportFixture(client, cookies);
 
-		expect(completedRun.id).toBe(runId);
+		expect(completedRun.id).toBe(ImportRunId.make(runId));
 		expect(completedRun.status).toBe("completed");
 		expect(completedRun.source).toBe("open_scale");
 		expect(completedRun.importedItems).toBeGreaterThan(0);
@@ -32,7 +34,7 @@ describe("OpenScale Import E2E", () => {
 		const { runId } = await runOpenScaleImportFixture(client, cookies);
 
 		const run = await getImportRun(client, runId);
-		expect(run.id).toBe(runId);
+		expect(run.id).toBe(ImportRunId.make(runId));
 		expect(run.status).toBe("completed");
 	});
 
@@ -50,7 +52,7 @@ describe("OpenScale Import E2E", () => {
 		const { client } = await createAuthenticatedClient();
 
 		const error = await client.runError((c) =>
-			c.imports.getRun({ path: { runId: "nonexistent-run-id" }, urlParams: {} }),
+			c.imports.getRun({ path: { runId: ImportRunId.make("nonexistent-run-id") }, urlParams: {} }),
 		);
 
 		assertTaggedError(error, "NotFound");
@@ -87,10 +89,10 @@ describe("OpenScale Import E2E", () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { runId } = await runOpenScaleImportFixture(client, cookies);
 
-		await client.run((c) => c.imports.deleteRun({ path: { runId } }));
+		await client.run((c) => c.imports.deleteRun({ path: { runId: ImportRunId.make(runId) } }));
 
 		const error = await client.runError((c) =>
-			c.imports.getRun({ path: { runId }, urlParams: {} }),
+			c.imports.getRun({ path: { runId: ImportRunId.make(runId) }, urlParams: {} }),
 		);
 
 		assertTaggedError(error, "NotFound");
@@ -111,7 +113,10 @@ describe("OpenScale Import E2E", () => {
 		expect(completedRun.importedItems).toBeGreaterThan(0);
 
 		const runData = await client.run((c) =>
-			c.imports.getRun({ path: { runId }, urlParams: { page: 1, limit: 20 } }),
+			c.imports.getRun({
+				path: { runId: ImportRunId.make(runId) },
+				urlParams: { page: 1, limit: 20 },
+			}),
 		);
 
 		expect(runData.failures.items.length).toBeGreaterThan(0);
@@ -123,7 +128,7 @@ describe("Hevy Workout Import E2E", () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { runId, completedRun } = await runHevyImportFixture(client, cookies);
 
-		expect(completedRun.id).toBe(runId);
+		expect(completedRun.id).toBe(ImportRunId.make(runId));
 		expect(completedRun.source).toBe("hevy");
 		expect(completedRun.status).toBe("completed");
 		expect(completedRun.failedItems).toBe(0);
