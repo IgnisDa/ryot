@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
 import { PutObjectCommand } from "@aws-sdk/client-s3";
-import { temporaryUploadMaxRequestBytes } from "@ryot/app-backend/lib/upload";
+import { temporaryUploadMaxRequestBytes } from "@ryot/app-backend-legacy/lib/upload";
 
 import { createAuthenticatedClient } from "../fixtures";
 import { getBackendClient, getBackendUrl, getS3BucketName, getS3Client } from "../setup";
