@@ -30,11 +30,14 @@ type ImportServiceError = "not_found" | "validation";
 export type ImportServiceResult<T> = ServiceResult<T, ImportServiceError>;
 
 const allowedExtensionsBySource: Record<string, string[]> = {
+	hevy: ["csv"],
 	open_scale: ["csv"],
 	strong_app: ["csv"],
 };
 
-const buildFileInputSummary = (source: "open_scale" | "strong_app"): Record<string, unknown> => ({
+const buildFileInputSummary = (
+	source: "hevy" | "open_scale" | "strong_app",
+): Record<string, unknown> => ({
 	source,
 });
 
@@ -50,7 +53,11 @@ export const startImportRun = async (input: {
 	userId: string;
 	body: CreateImportRunBody;
 }): Promise<ImportServiceResult<{ id: string }>> => {
-	if (input.body.source === "open_scale" || input.body.source === "strong_app") {
+	if (
+		input.body.source === "hevy" ||
+		input.body.source === "open_scale" ||
+		input.body.source === "strong_app"
+	) {
 		const tempDir = getTemporaryDirectory();
 		const allowedExtensions = allowedExtensionsBySource[input.body.source];
 		if (!allowedExtensions) {
