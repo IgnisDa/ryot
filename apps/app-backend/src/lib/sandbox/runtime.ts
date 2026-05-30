@@ -262,7 +262,7 @@ export class PackageCacheManager extends Effect.Service<PackageCacheManager>()(
 			);
 
 			if (!cached) {
-				yield* fs.makeDirectory(denoDir, { recursive: true }).pipe(Effect.ignore);
+				yield* fs.makeDirectory(denoDir, { recursive: true }).pipe(Effect.ignoreLogged);
 
 				const { exitCode, stderr } = yield* runDenoCache(denoDir);
 				if (exitCode !== 0) {
