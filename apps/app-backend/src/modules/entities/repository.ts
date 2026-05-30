@@ -9,7 +9,6 @@ import {
 	relationship,
 } from "~/lib/db/schema";
 import type { ImageSchemaType } from "~/lib/zod";
-import { getBuiltinRelationshipSchemaBySlug } from "~/modules/relationship-schemas";
 
 const entitySchemaVisibleToUserClause = (userId: string) => {
 	return or(isNull(entitySchema.userId), eq(entitySchema.userId, userId));
@@ -292,26 +291,6 @@ export const findEntityIdForUserBySchemaId = async (
 	return found?.id;
 };
 
-export const getUserLibraryEntityId = async (
-	input: { userId: string },
-	database: DbClient = db,
-) => {
-	const [found] = await database
-		.select({ id: entity.id })
-		.from(entity)
-		.innerJoin(entitySchema, eq(entity.entitySchemaId, entitySchema.id))
-		.where(
-			and(
-				eq(entity.userId, input.userId),
-				eq(entitySchema.slug, "library"),
-				isNull(entitySchema.userId),
-			),
-		)
-		.limit(1);
-
-	return found?.id;
-};
-
 /**
  * Inserts a user-scoped relationship row. Silently skips if the row already exists
  * (ON CONFLICT DO NOTHING). Callers must not assume the write occurred on success.
@@ -415,21 +394,4 @@ export const getRelationshipForUser = async (input: {
 		)
 		.limit(1);
 	return found?.properties ?? undefined;
-};
-
-export const upsertInLibraryRelationship = async (
-	input: { userId: string; entityId: string; libraryEntityId: string },
-	insert: typeof insertRelationship = insertRelationship,
-) => {
-	const found = await getBuiltinRelationshipSchemaBySlug("in-library");
-	if (!found) {
-		throw new Error("in-library relationship schema not found");
-	}
-	await insert({
-		properties: {},
-		userId: input.userId,
-		relationshipSchemaId: found.id,
-		sourceEntityId: input.entityId,
-		targetEntityId: input.libraryEntityId,
-	});
 };

@@ -173,7 +173,7 @@ describe("populateGlobalEntity", () => {
 					updateGlobalEntityById: () => {
 						throw new Error("update failed");
 					},
-					ensureEntityInLibrary: () => {
+					onEntityImported: () => {
 						libraryLinkCalls++;
 						return Promise.resolve({ data: undefined });
 					},
@@ -478,7 +478,7 @@ describe("processEntityImportJob", () => {
 			undefined,
 			createEntityImportWorkerDeps({
 				findGlobalEntityByExternalId: () => Promise.resolve(entity),
-				ensureEntityInLibrary: (input) => {
+				onEntityImported: (input) => {
 					linkedEntityId = input.entityId;
 					return Promise.resolve({ data: undefined });
 				},

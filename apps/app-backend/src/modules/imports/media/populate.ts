@@ -1,6 +1,6 @@
 import type { Job } from "bullmq";
 
-import { ensureEntityInLibrary } from "~/modules/entities";
+import { ensureEntityInLibrary } from "~/modules/collections";
 import { populateGlobalEntity } from "~/modules/entities/population";
 import { getBuiltinEntitySchemaBySlug } from "~/modules/entity-schemas";
 import { getBuiltinSandboxScriptBySlug } from "~/modules/sandbox";

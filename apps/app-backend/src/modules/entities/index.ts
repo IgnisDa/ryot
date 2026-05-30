@@ -24,7 +24,6 @@ export type {
 } from "./service";
 export {
 	createEntity,
-	ensureEntityInLibrary,
 	getEntityDetail,
 	getEntityIdForUserBySchemaId,
 	getEntityImportResult,
