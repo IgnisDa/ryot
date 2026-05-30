@@ -5,6 +5,7 @@ import {
 	createCollection,
 	createGlobalBookEntityFixture,
 	createTrackerWithSchemaAndEntity,
+	listEventsForEntity,
 	queryInLibraryRelationship,
 } from "../fixtures";
 
@@ -652,5 +653,107 @@ describe("POST /collections", () => {
 		});
 
 		expect(response.status).toBe(401);
+	});
+});
+
+describe("collection events", () => {
+	it("add-entity-to-collection event is created on first add with correct properties", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+
+		const collection = await createCollection(client, cookies, { name: "Event Test Collection" });
+		const { entityId } = await createTrackerWithSchemaAndEntity(client, cookies);
+
+		const { data: addData, response: addResponse } = await client.POST("/collections/memberships", {
+			headers: { Cookie: cookies },
+			body: { entityId, collectionId: collection.id },
+		});
+
+		expect(addResponse.status).toBe(200);
+		const relationshipId = addData?.data.memberOf.id;
+
+		const events = await listEventsForEntity(client, cookies, collection.id);
+		const addEvents = events.filter((e) => e.eventSchemaSlug === "add-entity-to-collection");
+
+		expect(addEvents).toHaveLength(1);
+		expect(addEvents[0]?.properties).toMatchObject({
+			entityId,
+			relationshipId,
+		});
+		expect(addEvents[0]?.properties.entitySchemaSlug).toBeDefined();
+	});
+
+	it("second add to same collection (upsert) does not create a second event", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+
+		const collection = await createCollection(client, cookies, { name: "Upsert Event Collection" });
+		const { entityId } = await createTrackerWithSchemaAndEntity(client, cookies);
+
+		await client.POST("/collections/memberships", {
+			headers: { Cookie: cookies },
+			body: { entityId, collectionId: collection.id },
+		});
+
+		await client.POST("/collections/memberships", {
+			headers: { Cookie: cookies },
+			body: { entityId, collectionId: collection.id },
+		});
+
+		const events = await listEventsForEntity(client, cookies, collection.id);
+		const addEvents = events.filter((e) => e.eventSchemaSlug === "add-entity-to-collection");
+
+		expect(addEvents).toHaveLength(1);
+	});
+
+	it("remove-entity-from-collection event is created on remove with correct properties", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+
+		const collection = await createCollection(client, cookies, { name: "Remove Event Collection" });
+		const { entityId } = await createTrackerWithSchemaAndEntity(client, cookies);
+
+		const { data: addData } = await client.POST("/collections/memberships", {
+			headers: { Cookie: cookies },
+			body: { entityId, collectionId: collection.id },
+		});
+		const relationshipId = addData?.data.memberOf.id;
+
+		await client.DELETE("/collections/memberships", {
+			headers: { Cookie: cookies },
+			body: { entityId, collectionId: collection.id },
+		});
+
+		const events = await listEventsForEntity(client, cookies, collection.id);
+		const removeEvents = events.filter(
+			(e) => e.eventSchemaSlug === "remove-entity-from-collection",
+		);
+
+		expect(removeEvents).toHaveLength(1);
+		expect(removeEvents[0]?.properties).toMatchObject({
+			entityId,
+			relationshipId,
+		});
+		expect(removeEvents[0]?.properties.entitySchemaSlug).toBeDefined();
+	});
+
+	it("removing an entity not in the collection does not create a remove event", async () => {
+		const { client, cookies } = await createAuthenticatedClient();
+
+		const collection = await createCollection(client, cookies, {
+			name: "No Remove Event Collection",
+		});
+		const { entityId } = await createTrackerWithSchemaAndEntity(client, cookies);
+
+		const { response } = await client.DELETE("/collections/memberships", {
+			headers: { Cookie: cookies },
+			body: { entityId, collectionId: collection.id },
+		});
+
+		expect(response.status).toBe(404);
+
+		const events = await listEventsForEntity(client, cookies, collection.id);
+		const removeEvents = events.filter(
+			(e) => e.eventSchemaSlug === "remove-entity-from-collection",
+		);
+
+		expect(removeEvents).toHaveLength(0);
 	});
 });
