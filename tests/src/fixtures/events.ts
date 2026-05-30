@@ -1,10 +1,15 @@
 import { assertPresent } from "../test-support/assertions";
 import type { Client } from "./auth";
+import type { ClientSuccess } from "./backend-client";
 import { createEntity } from "./entities";
 import { createTrackerWithSchema, findBuiltinSchemaBySlug } from "./entity-schemas";
 import { createEventSchema, listEventSchemas, requireEventSchemaBySlug } from "./event-schemas";
 import { seedMediaEntity } from "./media";
 import { type PollOptions, pollUntil } from "./polling";
+
+type EventRecord = Omit<ClientSuccess<"events", "list">[number], "properties"> & {
+	properties: Record<string, unknown>;
+};
 
 const defaultMediaProperties = {
 	genres: [],
@@ -59,11 +64,11 @@ export async function waitForEventCount(
 	return pollUntil(
 		`${expectedCount} events on entity ${entityId}`,
 		async () => {
-			const result = await client.GET("/events", {
+			const result = await client.events.list({
 				headers: { Cookie: cookies },
 				params: { query: { entityId } },
 			});
-			const events = result.data?.data ?? [];
+			const events = result.data ?? [];
 			return events.length >= expectedCount ? events : null;
 		},
 		{ timeoutMs: 5000, intervalMs: 200, ...options },
@@ -146,11 +151,14 @@ export async function createRuleEventFixture(client: Client, cookies: string) {
 }
 
 export async function listEventsForEntity(client: Client, cookies: string, entityId: string) {
-	const result = await client.GET("/events", {
+	const result = await client.events.list({
 		headers: { Cookie: cookies },
 		params: { query: { entityId } },
 	});
-	return result.data?.data ?? [];
+
+	// TODO(Task 22): Remove this tests-only event assertion once the public
+	// AppContract exposes typed event properties.
+	return (result.data ?? []) as EventRecord[];
 }
 
 export async function waitForEventWithSchema(

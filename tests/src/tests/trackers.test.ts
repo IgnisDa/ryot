@@ -23,9 +23,15 @@ describe("Trackers E2E", () => {
 		});
 
 		expect(result.response.status).toBe(200);
-		expect(result.data?.data.map((tracker) => tracker.id)).toContain(enabledTracker.trackerId);
-		expect(result.data?.data.map((tracker) => tracker.id)).not.toContain(disabledTracker.trackerId);
-		expect(result.data?.data.every((tracker) => !tracker.isDisabled)).toBe(true);
+		expect(result.data?.data.map((tracker: { id: string }) => tracker.id)).toContain(
+			enabledTracker.trackerId,
+		);
+		expect(result.data?.data.map((tracker: { id: string }) => tracker.id)).not.toContain(
+			disabledTracker.trackerId,
+		);
+		expect(result.data?.data.every((tracker: { isDisabled: boolean }) => !tracker.isDisabled)).toBe(
+			true,
+		);
 	});
 
 	it("includes disabled trackers when includeDisabled is true", async () => {
@@ -49,10 +55,15 @@ describe("Trackers E2E", () => {
 		});
 
 		expect(result.response.status).toBe(200);
-		expect(result.data?.data.map((tracker) => tracker.id)).toContain(enabledTracker.trackerId);
-		expect(result.data?.data.map((tracker) => tracker.id)).toContain(disabledTracker.trackerId);
+		expect(result.data?.data.map((tracker: { id: string }) => tracker.id)).toContain(
+			enabledTracker.trackerId,
+		);
+		expect(result.data?.data.map((tracker: { id: string }) => tracker.id)).toContain(
+			disabledTracker.trackerId,
+		);
 
-		const states = result.data?.data.map((tracker) => tracker.isDisabled) ?? [];
+		const states =
+			result.data?.data.map((tracker: { isDisabled: boolean }) => tracker.isDisabled) ?? [];
 		const firstDisabledIndex = states.indexOf(true);
 		expect(firstDisabledIndex).toBeGreaterThan(-1);
 		expect(states.slice(firstDisabledIndex).every(Boolean)).toBe(true);

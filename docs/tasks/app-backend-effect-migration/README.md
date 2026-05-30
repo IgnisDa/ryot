@@ -149,6 +149,7 @@ The module migration proceeds from infrastructure and leaf modules toward highly
 - Auth and bootstrap tests should follow quickly because most domain tests require an authenticated user.
 - Tests should be re-enabled in dependency order: health, auth, trackers, entity/event schemas, entities/events/collections, uploads, sandbox, saved-views/query-engine, god-mode, imports/integrations, app-client checks.
 - While app-client is intentionally broken, filtered checks are acceptable. The final plan requires app-client checks and full cleanup to pass.
+- Any task that touches tests or public contract typing must review nearby tests-only `TODO(Task 11)`, `TODO(Task 22)`, and similar migration markers, then remove the ones that are now in scope instead of carrying them forward.
 
 ## Out of Scope
 
@@ -175,9 +176,9 @@ The module migration proceeds from infrastructure and leaf modules toward highly
 
 ## Tasks
 
-**Overall Progress:** 2 of 32 tasks completed
+**Overall Progress:** 3 of 32 tasks completed
 
-**Current Task:** [Task 03](./03-effect-e2e-client-harness.md) (todo)
+**Current Task:** [Task 04](./04-config-and-system-endpoints.md) (todo)
 
 ### Task List
 
@@ -185,7 +186,7 @@ The module migration proceeds from infrastructure and leaf modules toward highly
 | --- | ---------------------------------------------------------------------------------------------------- | ---- | ------ |
 | 01  | [Workspace Rename And Effect Server Shell](./01-workspace-rename-and-effect-server-shell.md)         | AFK  | done   |
 | 02  | [Pure Contract Exports And Stub Surface](./02-pure-contract-exports-and-stub-surface.md)             | AFK  | done   |
-| 03  | [Effect E2E Client Harness](./03-effect-e2e-client-harness.md)                                       | AFK  | todo   |
+| 03  | [Effect E2E Client Harness](./03-effect-e2e-client-harness.md)                                       | AFK  | done   |
 | 04  | [Config And System Endpoints](./04-config-and-system-endpoints.md)                                   | AFK  | todo   |
 | 05  | [Real Schema Migrations And Transaction Layer](./05-real-schema-migrations-and-transaction-layer.md) | AFK  | todo   |
 | 06  | [Static Builtins And Seed Manifests](./06-static-builtins-and-seed-manifests.md)                     | AFK  | todo   |

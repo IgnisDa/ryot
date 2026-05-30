@@ -1268,7 +1268,7 @@ describe("Saved views E2E", () => {
 				},
 			},
 		});
-		const runtimeQueryDefinition = createdView.queryDefinition;
+		const { mode: _ignoredMode, ...runtimeQueryDefinition } = createdView.queryDefinition;
 		const gridRequest = buildGridRequest({
 			...runtimeQueryDefinition,
 			displayConfiguration: createdView.displayConfiguration.grid,
