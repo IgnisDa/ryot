@@ -1,6 +1,7 @@
 import { appConfig, config } from "~/lib/config";
 
 import { fileImportRunSources, type CreateImportRunBody } from "../schemas";
+import { getSourceApiHost, normalizeSourceApiUrl } from "./source-api";
 
 export type ImportSourceFileDefinition = {
 	bodyField: string;
@@ -111,6 +112,12 @@ export const getImportSourceStartError = (source: CreateImportRunBody["source"])
 
 export const buildInputSummary = (body: CreateImportRunBody): Record<string, unknown> => {
 	const summary: Record<string, unknown> = { source: body.source };
+	if ("apiUrl" in body) {
+		summary.host = getSourceApiHost(body.apiUrl);
+		if (body.allowInsecureConnections) {
+			summary.allowInsecureConnections = true;
+		}
+	}
 	if (body.source === "igdb") {
 		summary.collection = body.collection;
 	}
@@ -118,7 +125,7 @@ export const buildInputSummary = (body: CreateImportRunBody): Record<string, unk
 		summary.hasAnimeFile = Boolean(body.animeUploadToken);
 		summary.hasMangaFile = Boolean(body.mangaUploadToken);
 	}
-	if ("username" in body) {
+	if (body.source === "trakt") {
 		summary.username = body.username;
 	}
 	return summary;
@@ -130,8 +137,27 @@ export const buildSourcePayload = (
 	if (body.source === "igdb") {
 		return { collection: body.collection };
 	}
-	if ("username" in body) {
+	if (body.source === "trakt") {
 		return { username: body.username };
+	}
+	if (
+		body.source === "plex" ||
+		body.source === "mediatracker" ||
+		body.source === "audiobookshelf"
+	) {
+		return {
+			apiKey: body.apiKey,
+			apiUrl: normalizeSourceApiUrl(body.apiUrl),
+			...(body.allowInsecureConnections ? { allowInsecureConnections: true } : {}),
+		};
+	}
+	if (body.source === "jellyfin") {
+		return {
+			apiUrl: normalizeSourceApiUrl(body.apiUrl),
+			username: body.username,
+			...(body.password ? { password: body.password } : {}),
+			...(body.allowInsecureConnections ? { allowInsecureConnections: true } : {}),
+		};
 	}
 	return undefined;
 };

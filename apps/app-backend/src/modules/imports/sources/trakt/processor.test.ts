@@ -8,7 +8,6 @@ const createDeps = (
 	overrides: Partial<TraktImportProcessorDeps> = {},
 ): TraktImportProcessorDeps => ({
 	getTraktClientId: () => "client_1",
-	updateImportRun: () => Promise.resolve(),
 	adaptTraktData: () => Promise.resolve({ entityGroups: [], failures: [] }),
 	processMediaImport: () => Promise.resolve(),
 	...overrides,
@@ -45,7 +44,7 @@ describe("processTraktImport", () => {
 					return Promise.resolve({ entityGroups: [], failures: [] });
 				},
 				processMediaImport: async (_job, _token, input) => {
-					expect(input.jobData).toEqual({ sourcePayload: { username: "alice" } });
+					expect(input.jobData).toBeUndefined();
 					expect(input.sourceName).toBe("Trakt");
 					expect(input.adapterErrorFallback).toBe("Failed to fetch data from Trakt");
 					expect(await input.loadAdapterResult()).toEqual({ entityGroups: [], failures: [] });
@@ -56,8 +55,7 @@ describe("processTraktImport", () => {
 		expect(adapterCalls).toEqual([{ username: "alice", clientId: "client_1" }]);
 	});
 
-	it("marks the run failed when the source payload is missing the username", async () => {
-		const runUpdates: Array<Record<string, unknown>> = [];
+	it("validates missing username only when loading source data", async () => {
 		let processorCalls = 0;
 
 		await processTraktImport(
@@ -65,25 +63,13 @@ describe("processTraktImport", () => {
 			undefined,
 			createInput(undefined),
 			createDeps({
-				updateImportRun: (input) => {
-					runUpdates.push(input);
-					return Promise.resolve();
-				},
-				processMediaImport: () => {
+				processMediaImport: async (_job, _token, input) => {
 					processorCalls += 1;
-					return Promise.resolve();
+					expect(() => input.loadAdapterResult()).toThrow("Import job is missing Trakt username");
 				},
 			}),
 		);
 
-		expect(processorCalls).toBe(0);
-		expect(runUpdates).toEqual([
-			{
-				runId: "run_1",
-				status: "failed",
-				finishedAt: expect.any(Date),
-				errorSummary: "Import job is missing Trakt username",
-			},
-		]);
+		expect(processorCalls).toBe(1);
 	});
 });
