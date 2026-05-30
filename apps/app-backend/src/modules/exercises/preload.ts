@@ -6,12 +6,12 @@ import * as schema from "#lib/db/schema/tables";
 import { dieOnDbError, unknownToMessage } from "#lib/errors";
 import { SandboxService } from "#lib/sandbox/service";
 import { parseAppSchemaProperties } from "#lib/schema/property-schema-runtime";
+import { EntitiesRepository } from "#modules/entities/repository";
 import {
 	decodeEntityDetailsResult,
 	decodeEntitySearchResult,
 	processRelatedEntity,
-} from "#modules/entities/population";
-import { EntitiesRepository } from "#modules/entities/repository";
+} from "#modules/entity-import/population";
 import { SandboxRepository } from "#modules/sandbox/repository";
 
 const builtinExercisePageSize = 100;

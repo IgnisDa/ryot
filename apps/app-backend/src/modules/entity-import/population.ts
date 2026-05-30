@@ -4,10 +4,9 @@ import { DbRunner } from "#lib/db";
 import { SandboxRunError, dieOnDbError } from "#lib/errors";
 import type { EntityId, EntitySchemaId } from "#lib/schema/brands";
 import { parseAppSchemaProperties } from "#lib/schema/property-schema-runtime";
+import { EntitiesRepository } from "#modules/entities/repository";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
-
-import { EntitiesRepository } from "./repository";
 
 export const EntityDetailsRelatedEntity = Schema.Struct({
 	name: Schema.String,
@@ -41,8 +40,8 @@ const EntitySearchItem = Schema.Struct({
 			),
 			Schema.Struct({ kind: Schema.Literal("number"), value: Schema.Number }).pipe(
 				Schema.annotations({
-					identifier: "NumberSubtitleProperty",
 					title: "Number Subtitle Property",
+					identifier: "NumberSubtitleProperty",
 				}),
 			),
 		),
