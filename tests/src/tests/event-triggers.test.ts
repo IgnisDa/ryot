@@ -3,44 +3,10 @@ import { describe, expect, it } from "bun:test";
 import {
 	createAuthenticatedClient,
 	createBuiltinMediaLifecycleFixture,
+	listEventsForEntity,
 	waitForEventCount,
+	waitForEventWithSchema,
 } from "../fixtures";
-
-async function pollForEventWithSchema(
-	client: Awaited<ReturnType<typeof createAuthenticatedClient>>["client"],
-	cookies: string,
-	entityId: string,
-	eventSchemaSlug: string,
-) {
-	for (let attempt = 0; attempt < 30; attempt++) {
-		// oxlint-disable-next-line no-await-in-loop
-		const events = await client.GET("/events", {
-			headers: { Cookie: cookies },
-			params: { query: { entityId } },
-		});
-		const found = events.data?.data.find((event) => event.eventSchemaSlug === eventSchemaSlug);
-		if (found) {
-			return found;
-		}
-
-		// oxlint-disable-next-line no-await-in-loop
-		await Bun.sleep(500);
-	}
-
-	throw new Error(`Timed out waiting for '${eventSchemaSlug}' event on '${entityId}'`);
-}
-
-async function listEventsForEntity(
-	client: Awaited<ReturnType<typeof createAuthenticatedClient>>["client"],
-	cookies: string,
-	entityId: string,
-) {
-	const result = await client.GET("/events", {
-		headers: { Cookie: cookies },
-		params: { query: { entityId } },
-	});
-	return result.data?.data ?? [];
-}
 
 const isoAt = (day: number) => `2024-01-${String(day).padStart(2, "0")}T00:00:00.000Z`;
 
@@ -65,7 +31,7 @@ describe("Event trigger firing", () => {
 			],
 		});
 
-		const completionEvent = await pollForEventWithSchema(client, cookies, entityId, "complete");
+		const completionEvent = await waitForEventWithSchema(client, cookies, entityId, "complete");
 
 		expect(completionEvent.eventSchemaSlug).toBe("complete");
 		expect(completionEvent.properties).toMatchObject({
@@ -92,11 +58,8 @@ describe("Event trigger firing", () => {
 
 		await waitForEventCount(client, cookies, entityId, 1);
 
-		const events = await client.GET("/events", {
-			headers: { Cookie: cookies },
-			params: { query: { entityId } },
-		});
-		const completeEvent = events.data?.data.find((event) => event.eventSchemaSlug === "complete");
+		const events = await listEventsForEntity(client, cookies, entityId);
+		const completeEvent = events.find((event) => event.eventSchemaSlug === "complete");
 
 		expect(completeEvent).toBeUndefined();
 	}, 20_000);
@@ -116,7 +79,7 @@ describe("Event trigger firing", () => {
 			],
 		});
 
-		await pollForEventWithSchema(client, cookies, entityId, "complete");
+		await waitForEventWithSchema(client, cookies, entityId, "complete");
 
 		await client.POST("/events", {
 			headers: { Cookie: cookies },
@@ -127,15 +90,10 @@ describe("Event trigger firing", () => {
 
 		await waitForEventCount(client, cookies, entityId, 4);
 
-		const allEvents = await client.GET("/events", {
-			headers: { Cookie: cookies },
-			params: { query: { entityId } },
-		});
-		const completeEvents = allEvents.data?.data.filter(
-			(event) => event.eventSchemaSlug === "complete",
-		);
+		const allEvents = await listEventsForEntity(client, cookies, entityId);
+		const completeEvents = allEvents.filter((event) => event.eventSchemaSlug === "complete");
 
-		expect(completeEvents?.length).toBe(2);
+		expect(completeEvents.length).toBe(2);
 	}, 20_000);
 
 	it("logging one show episode at 100% does not complete a multi-episode show", async () => {
@@ -342,7 +300,7 @@ describe("Event trigger firing", () => {
 			],
 		});
 
-		const completeEvent = await pollForEventWithSchema(client, cookies, entityId, "complete");
+		const completeEvent = await waitForEventWithSchema(client, cookies, entityId, "complete");
 
 		expect(completeEvent.eventSchemaSlug).toBe("complete");
 
@@ -431,7 +389,7 @@ describe("Event trigger firing", () => {
 			],
 		});
 
-		const completeEvent = await pollForEventWithSchema(client, cookies, entityId, "complete");
+		const completeEvent = await waitForEventWithSchema(client, cookies, entityId, "complete");
 
 		expect(completeEvent.eventSchemaSlug).toBe("complete");
 		expect(completeEvent.properties).toMatchObject({
@@ -496,7 +454,7 @@ describe("Event trigger firing", () => {
 			],
 		});
 
-		const completeEvent = await pollForEventWithSchema(client, cookies, entityId, "complete");
+		const completeEvent = await waitForEventWithSchema(client, cookies, entityId, "complete");
 
 		expect(completeEvent.eventSchemaSlug).toBe("complete");
 	}, 20_000);
@@ -579,7 +537,7 @@ describe("Event trigger firing", () => {
 			],
 		});
 
-		const completeEvent = await pollForEventWithSchema(client, cookies, entityId, "complete");
+		const completeEvent = await waitForEventWithSchema(client, cookies, entityId, "complete");
 
 		expect(completeEvent.eventSchemaSlug).toBe("complete");
 	}, 20_000);
@@ -605,7 +563,7 @@ describe("Event trigger firing", () => {
 			],
 		});
 
-		const completeEvent = await pollForEventWithSchema(client, cookies, entityId, "complete");
+		const completeEvent = await waitForEventWithSchema(client, cookies, entityId, "complete");
 
 		expect(completeEvent.eventSchemaSlug).toBe("complete");
 		expect(completeEvent.properties).toMatchObject({
@@ -636,7 +594,7 @@ describe("Event trigger firing", () => {
 			],
 		});
 
-		const completeEvent = await pollForEventWithSchema(client, cookies, entityId, "complete");
+		const completeEvent = await waitForEventWithSchema(client, cookies, entityId, "complete");
 
 		expect(completeEvent.properties).toMatchObject({
 			consumedOn: "Jellyfin",
@@ -667,7 +625,7 @@ describe("Event trigger firing", () => {
 			],
 		});
 
-		const completeEvent = await pollForEventWithSchema(client, cookies, entityId, "complete");
+		const completeEvent = await waitForEventWithSchema(client, cookies, entityId, "complete");
 
 		expect(completeEvent.properties).not.toHaveProperty("consumedOn");
 		expect(completeEvent.properties).toMatchObject({
@@ -698,7 +656,7 @@ describe("Event trigger firing", () => {
 			],
 		});
 
-		await pollForEventWithSchema(client, cookies, entityId, "complete");
+		await waitForEventWithSchema(client, cookies, entityId, "complete");
 
 		await client.POST("/events", {
 			headers: { Cookie: cookies },
