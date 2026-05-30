@@ -1,6 +1,6 @@
 import { dayjs } from "@ryot/ts-utils/dayjs";
 
-import { parseCsvText } from "../../csv";
+import { parseCsvText } from "../../runtime/csv";
 
 const DATE_COLUMN_NAMES = ["date"];
 const TIME_COLUMN_NAMES = ["time"];
