@@ -14,13 +14,11 @@ const user = {
 	email: "user@example.com",
 } satisfies CurrentUserValue;
 
-const dbRunnerLayer = Layer.succeed(
-	DbRunner,
-	<A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, Exclude<R, CurrentDb>> =>
-		Effect.provideService(effect, CurrentDb, Object.create(null)),
+const dbRunnerLayer = Layer.succeed(DbRunner, <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+	Effect.provideService(effect, CurrentDb, Object.create(null)),
 );
 
-const defaultEventSchemasRepository = (): EventSchemasRepository =>
+const defaultEventSchemasRepository = () =>
 	Object.assign(Object.create(null), {
 		_tag: "EventSchemasRepository" as const,
 		createEventSchema: () => Effect.die("unused"),
@@ -29,9 +27,7 @@ const defaultEventSchemasRepository = (): EventSchemasRepository =>
 		listByEntitySchemaForUser: () => Effect.die("unused"),
 	});
 
-const makeEventSchemasRepository = (
-	overrides: Partial<EventSchemasRepository> = {},
-): EventSchemasRepository =>
+const makeEventSchemasRepository = (overrides: Partial<EventSchemasRepository> = {}) =>
 	Object.assign(Object.create(null), defaultEventSchemasRepository(), overrides);
 
 const makeEventSchemasServiceLayer = (repository: EventSchemasRepository) =>
