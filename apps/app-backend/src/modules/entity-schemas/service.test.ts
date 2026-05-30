@@ -176,7 +176,9 @@ it.effect("returns bad request when entity schema slug already exists", () => {
 			}),
 		);
 
-		expect(exit).toEqual(Exit.fail(new BadRequest({ message: "Entity schema slug already exists" })));
+		expect(exit).toEqual(
+			Exit.fail(new BadRequest({ message: "Entity schema slug already exists" })),
+		);
 	}).pipe(Effect.provide(layer));
 });
 
