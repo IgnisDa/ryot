@@ -6,6 +6,11 @@ import { getQueues } from "~/lib/queue";
 import { getRedisConnection } from "~/lib/queue/connection";
 import { onWorkerError } from "~/lib/queue/utils";
 import {
+	getSandboxChildRunResult,
+	queueSandboxChildRun,
+	waitForSandboxChildRun,
+} from "~/lib/sandbox/child-run";
+import {
 	getBuiltinEntitySchemaBySandboxScriptId,
 	getBuiltinEntitySchemaBySlug,
 } from "~/modules/entity-schemas";
@@ -24,10 +29,7 @@ import {
 import {
 	type EntityPopulationDeps,
 	entityPopulationDeps,
-	getSandboxChildRunResult,
 	populateGlobalEntity,
-	queueSandboxChildRun,
-	waitForSandboxChildRun,
 } from "./population";
 import {
 	createGlobalEntity,
