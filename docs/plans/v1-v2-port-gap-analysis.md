@@ -58,8 +58,6 @@ Foundational; three behaviors depend on it. Build first.
 
 - **Merge** (metadata/exercise) — reassign events, relationships, and collection memberships from source → target, then delete source.
   - V1: `merge_metadata`, `merge_exercise`.
-- **Disassociate** — remove a user's `in-library` relationship to an entity.
-  - V1: `disassociate_metadata`.
 - **Mark as partial** — decide whether to add a population-state flag or treat as obsolete given V2's on-demand population; reconcile with the population pipeline.
   - V1: `mark_entity_as_partial`.
 - **Metadata lookup** — single-best-match wrapper over the existing search/resolve drivers (distinct from paginated search).

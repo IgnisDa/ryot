@@ -9,6 +9,7 @@ import {
 } from "~/lib/openapi";
 
 import {
+	clearEntityUserStateResponseSchema,
 	createEntityBody,
 	createEntityResponseSchema,
 	entityImportJobParams,
@@ -19,6 +20,7 @@ import {
 	importEntityResultResponseSchema,
 } from "./schemas";
 import { createEntity, getEntityDetail, getEntityImportResult, importEntity } from "./service";
+import { clearEntityUserState } from "./user-state";
 
 const createEntityRoute = createAuthRoute(
 	createRoute({
@@ -45,6 +47,23 @@ const getEntityRoute = createAuthRoute(
 		responses: createStandardResponses({
 			successSchema: getEntityResponseSchema,
 			successDescription: "Requested entity",
+			notFoundDescription: "Entity does not exist for this user",
+		}),
+	}),
+);
+
+const clearEntityUserStateRoute = createAuthRoute(
+	createRoute({
+		method: "delete",
+		tags: ["entities"],
+		path: "/{entityId}/user-state",
+		request: { params: entityParams },
+		summary: "Clear user-scoped state for an entity",
+		description:
+			"Delete the authenticated user's events and relationships touching this entity without deleting the entity row itself.",
+		responses: createStandardResponses({
+			successSchema: clearEntityUserStateResponseSchema,
+			successDescription: "User-scoped entity state was cleared",
 			notFoundDescription: "Entity does not exist for this user",
 		}),
 	}),
@@ -97,10 +116,20 @@ export const entitiesApi = new OpenAPIHono<{ Variables: AuthType }>()
 		const user = c.get("user");
 		const params = c.req.valid("param");
 
-		const result = await getEntityImportResult({
-			userId: user.id,
-			jobId: params.jobId,
-		});
+		const result = await getEntityImportResult({ userId: user.id, jobId: params.jobId });
+		if ("error" in result) {
+			const response = createServiceErrorResult(result);
+			return c.json(response.body, response.status);
+		}
+
+		const response = createSuccessResult(result.data);
+		return c.json(response.body, response.status);
+	})
+	.openapi(clearEntityUserStateRoute, async (c) => {
+		const user = c.get("user");
+		const params = c.req.valid("param");
+
+		const result = await clearEntityUserState({ userId: user.id, entityId: params.entityId });
 		if ("error" in result) {
 			const response = createServiceErrorResult(result);
 			return c.json(response.body, response.status);
@@ -113,10 +142,7 @@ export const entitiesApi = new OpenAPIHono<{ Variables: AuthType }>()
 		const user = c.get("user");
 		const params = c.req.valid("param");
 
-		const result = await getEntityDetail({
-			userId: user.id,
-			entityId: params.entityId,
-		});
+		const result = await getEntityDetail({ userId: user.id, entityId: params.entityId });
 		if ("error" in result) {
 			const response = createServiceErrorResult(result);
 			return c.json(response.body, response.status);
