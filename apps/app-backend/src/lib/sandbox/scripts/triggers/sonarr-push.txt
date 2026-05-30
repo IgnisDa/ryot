@@ -31,10 +31,13 @@ driver("trigger", async function (context) {
     trigger.properties && typeof trigger.properties === "object" ? trigger.properties : {};
   if (properties.entitySchemaSlug !== "show") return;
 
-  if (await integrationsDisabledForUser()) return;
-
-  const integrations = await listActiveIntegrations("sonarr");
-  const matchingIntegrations = integrations.filter(function (integration) {
+  // Both checks are independent — run in parallel.
+  const preamble = await Promise.all([
+    integrationsDisabledForUser(),
+    listActiveIntegrations("sonarr"),
+  ]);
+  if (preamble[0]) return;
+  const matchingIntegrations = preamble[1].filter(function (integration) {
     return collectionSyncMatches(integration, trigger.entityId);
   });
   if (matchingIntegrations.length === 0) return;

@@ -86,10 +86,13 @@ driver("trigger", async function (context) {
   if (!trigger) return;
   if (trigger.entitySchemaSlug !== "movie" && trigger.entitySchemaSlug !== "show") return;
 
-  if (await integrationsDisabledForUser()) return;
-
-  const integrations = await listActiveIntegrations("jellyfin_push");
-  if (integrations.length === 0) return;
+  // Both checks are independent — run in parallel.
+  const preamble = await Promise.all([
+    integrationsDisabledForUser(),
+    listActiveIntegrations("jellyfin_push"),
+  ]);
+  if (preamble[0] || preamble[1].length === 0) return;
+  const integrations = preamble[1];
 
   const entity = await fetchEntity(trigger.entityId);
   if (!entity) return;
