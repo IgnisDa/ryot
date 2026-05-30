@@ -100,7 +100,7 @@ driver("search", async function (context) {
 			}
 
 			const hitName = typeof item.hit_name === "string" ? item.hit_name.trim() : "";
-			const name = hitName || (typeof record.name === "string" ? record.name.trim() : "");
+			const name = hitName ?? (typeof record.name === "string" ? record.name.trim() : "");
 			if (!name) {
 				return null;
 			}

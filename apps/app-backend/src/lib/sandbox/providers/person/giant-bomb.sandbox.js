@@ -261,7 +261,7 @@ driver("details", async function (context) {
 		images.push({ type: "remote", url: primaryImage });
 	}
 
-	const birthDate = formatBirthDate(person.birth_date || person.date_of_birth);
+	const birthDate = formatBirthDate(person.birth_date ?? person.date_of_birth);
 
 	const deathDate = formatBirthDate(person.death_date);
 

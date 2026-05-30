@@ -70,7 +70,7 @@ function getThumbnailUrls(thumbnail) {
 			: [];
 	return arr
 		.filter((t) => t?.url)
-		.sort((a, b) => (b.width || 0) * (b.height || 0) - (a.width || 0) * (a.height || 0))
+		.sort((a, b) => (b.width ?? 0) * (b.height ?? 0) - (a.width ?? 0) * (a.height ?? 0))
 		.map((t) => t.url);
 }
 
