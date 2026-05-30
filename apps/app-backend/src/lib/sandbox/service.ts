@@ -142,10 +142,7 @@ export class SandboxService {
 		const metadata = sandboxScriptMetadataSchema.safeParse(script.metadata);
 		if (!metadata.success) {
 			const errors = metadata.error.issues.map((issue) => issue.message).join("; ");
-			return {
-				success: false,
-				error: `Sandbox script metadata is invalid: ${errors}`,
-			};
+			return { success: false, error: `Sandbox script metadata is invalid: ${errors}` };
 		}
 
 		const allowedKeys = metadata.data.allowedHostFunctions ?? [];
@@ -238,10 +235,7 @@ export class SandboxService {
 			} catch {
 				clearTimeoutGuard();
 				proc.kill("SIGKILL");
-				return {
-					success: false,
-					error: "Failed to send payload to sandbox",
-				};
+				return { success: false, error: "Failed to send payload to sandbox" };
 			}
 
 			const [exit, stderrText, stdoutText] = await Promise.all([
@@ -251,10 +245,10 @@ export class SandboxService {
 			]).finally(() => clearTimeoutGuard());
 
 			const t2 = performance.now();
-			const cpuDelta = process.cpuUsage(cpuBefore);
 			const totalMs = Math.round(t2 - t0);
 			const processMs = Math.round(t2 - t1);
 			const hostSetupMs = Math.round(t1 - t0);
+			const cpuDelta = process.cpuUsage(cpuBefore);
 			const cpuUserMs = Math.round(cpuDelta.user / 1000);
 			const cpuSystemMs = Math.round(cpuDelta.system / 1000);
 
@@ -270,8 +264,8 @@ export class SandboxService {
 				sandboxExecutionDurationSeconds.observe({ outcome }, totalMs / 1000);
 				return {
 					logs,
-					timing: { totalMs, executionMs: 0 },
 					success: false,
+					timing: { totalMs, executionMs: 0 },
 					error: `Sandbox timed out after ${timeoutMs}ms`,
 				};
 			}
@@ -290,8 +284,8 @@ export class SandboxService {
 					logs,
 					value: parsed.value,
 					error: parsed.error,
-					timing: { totalMs, executionMs },
 					success: parsed.success,
+					timing: { totalMs, executionMs },
 				};
 			} catch {
 				const outcome = "error";
@@ -308,10 +302,7 @@ export class SandboxService {
 				};
 			}
 		} catch (error) {
-			return {
-				success: false,
-				error: extractErrorMessage(error, String(error)),
-			};
+			return { success: false, error: extractErrorMessage(error, String(error)) };
 		} finally {
 			if (internalMetrics) {
 				recordInternalMetrics(internalMetrics);
@@ -386,8 +377,8 @@ type SandboxJobLookupResult = {
 };
 
 type DenoRunOutput = {
-	success: boolean;
 	value?: unknown;
+	success: boolean;
 	error?: string | null;
 	denoMetrics?: {
 		startupMs: number;
