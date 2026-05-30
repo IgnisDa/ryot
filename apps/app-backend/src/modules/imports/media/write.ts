@@ -5,6 +5,7 @@ import { createEventsBestEffortWithTriggers, type CreateEventBody } from "~/modu
 
 import { importEntityRefKey, type ImportMediaEntityGroup } from "../jobs";
 import { createImportRunFailure } from "../repository";
+import { mediaEntityGroupItemIndex } from "./groups";
 
 type MediaEntityWriteDeps = {
 	addToCollection: typeof addToCollection;
@@ -55,6 +56,7 @@ export const writeMediaEntityGroups = async (
 		groupIndex++
 	) {
 		const group = input.entityGroups[groupIndex];
+		const itemIndex = mediaEntityGroupItemIndex(group, groupIndex);
 		if (!group) {
 			await input.onGroupComplete({
 				failedItems,
@@ -84,9 +86,9 @@ export const writeMediaEntityGroups = async (
 			if (!entitySchema) {
 				failedItems++;
 				await deps.createImportRunFailure({
+					itemIndex,
 					context: null,
 					runId: input.runId,
-					itemIndex: groupIndex,
 					stage: "database_commit",
 					sourceLabel: ref.sourceLabel,
 					sourceIdentifier: ref.externalId,
@@ -115,9 +117,9 @@ export const writeMediaEntityGroups = async (
 					if ("error" in collectionResult) {
 						groupFailed = true;
 						await deps.createImportRunFailure({
+							itemIndex,
 							context: null,
 							runId: input.runId,
-							itemIndex: groupIndex,
 							stage: "database_commit",
 							sourceLabel: ref.sourceLabel,
 							sourceIdentifier: ref.externalId,
@@ -137,9 +139,9 @@ export const writeMediaEntityGroups = async (
 				if ("error" in addResult) {
 					groupFailed = true;
 					await deps.createImportRunFailure({
+						itemIndex,
 						context: null,
 						runId: input.runId,
-						itemIndex: groupIndex,
 						stage: "database_commit",
 						message: addResult.message,
 						sourceLabel: ref.sourceLabel,
@@ -150,9 +152,9 @@ export const writeMediaEntityGroups = async (
 			} catch (error) {
 				groupFailed = true;
 				await deps.createImportRunFailure({
+					itemIndex,
 					context: null,
 					runId: input.runId,
-					itemIndex: groupIndex,
 					stage: "database_commit",
 					sourceLabel: ref.sourceLabel,
 					sourceIdentifier: ref.externalId,
@@ -174,9 +176,9 @@ export const writeMediaEntityGroups = async (
 				if (!found) {
 					groupFailed = true;
 					await deps.createImportRunFailure({
+						itemIndex,
 						context: null,
 						runId: input.runId,
-						itemIndex: groupIndex,
 						stage: "database_commit",
 						sourceLabel: ref.sourceLabel,
 						sourceIdentifier: ref.externalId,
@@ -210,9 +212,9 @@ export const writeMediaEntityGroups = async (
 				const eventInput = eventInputs[failure.itemIndex];
 				groupFailed = true;
 				await deps.createImportRunFailure({
+					itemIndex,
 					context: null,
 					runId: input.runId,
-					itemIndex: groupIndex,
 					stage: "database_commit",
 					message: failure.message,
 					sourceLabel: ref.sourceLabel,
