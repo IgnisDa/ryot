@@ -29,7 +29,12 @@ const makeLayer = (stored: PluginClientArtifact | null) =>
 	PluginClientArtifactService.layer.pipe(
 		Layer.provide(
 			Layer.mock(PluginRepository)({
-				findClientArtifactByHash: (hash) => Effect.succeed(stored?.hash === hash ? stored : null),
+				findClientArtifactFile: (hash, fileName) =>
+					Effect.succeed(
+						stored?.hash === hash
+							? (stored.files.find((file) => file.name === fileName) ?? null)
+							: null,
+					),
 			}),
 		),
 		Layer.provideMerge(databaseLayer),
@@ -54,7 +59,7 @@ it.effect("returns nothing for an unknown artifact hash or file name", () =>
 	}).pipe(Effect.provide(makeLayer(artifact))),
 );
 
-it.effect("returns nothing when no plugin carries the artifact hash", () =>
+it.effect("returns nothing when the artifact/file is unavailable", () =>
 	Effect.gen(function* () {
 		const service = yield* PluginClientArtifactService;
 

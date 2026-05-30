@@ -99,7 +99,8 @@ describe("client plugin artifacts", () => {
 		() =>
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
-				const revisionA = yield* installFixtureClientPlugin(client, "A");
+				const variant = crypto.randomUUID();
+				const revisionA = yield* installFixtureClientPlugin(client, "A", variant);
 				const before = yield* fixtureCatalogEntry(client);
 				const artifactA = requirePresent(
 					before.clientArtifactHash,
@@ -108,7 +109,7 @@ describe("client plugin artifacts", () => {
 				const bytesA = yield* fetchArtifactBytes(artifactA, "plugin.js");
 				expect(new TextDecoder().decode(bytesA)).toContain(FIXTURE_CLIENT_REVISION_MARKERS.A);
 
-				const revisionB = yield* updateFixtureClientPlugin(client, "B");
+				const revisionB = yield* updateFixtureClientPlugin(client, "B", variant);
 				const after = yield* fixtureCatalogEntry(client);
 				const artifactB = requirePresent(
 					after.clientArtifactHash,
