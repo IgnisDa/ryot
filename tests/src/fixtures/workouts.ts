@@ -45,11 +45,11 @@ export async function waitForSessionEventCount(
 	return pollUntil(
 		`${expectedCount} events on session ${sessionEntityId}`,
 		async () => {
-			const result = await client.GET("/events", {
+			const result = await client.events.list({
 				headers: { Cookie: cookies },
 				params: { query: { sessionEntityId } },
 			});
-			const events = result.data?.data ?? [];
+			const events = result.data ?? [];
 			return events.length >= expectedCount ? events : null;
 		},
 		{ timeoutMs: 5000, intervalMs: 200, ...options },
