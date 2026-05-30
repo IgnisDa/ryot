@@ -36,6 +36,7 @@ export const importRunJobData = z.object({
 	userId: nonEmptyStringSchema,
 	filePath: z.string().optional(),
 	traktUsername: z.string().optional(),
+	sourcePayload: z.record(z.string(), z.unknown()).optional(),
 	providerSandboxJobId: z.string().optional(),
 	providerEntityIndex: z.number().int().nonnegative().optional(),
 	adapterFailureCount: z.number().int().nonnegative().optional(),

@@ -2,19 +2,6 @@ import { dayjs } from "@ryot/ts-utils/dayjs";
 
 import type { ImportEntityRef, ImportMediaEvent, ImportMediaEntityGroup } from "../../jobs";
 
-export type BookCsvAdapterFailure = {
-	message: string;
-	itemIndex: number;
-	sourceLabel?: string;
-	sourceIdentifier?: string;
-	context?: Record<string, unknown>;
-};
-
-export type BookCsvAdapterResult = {
-	failures: BookCsvAdapterFailure[];
-	entityGroups: ImportMediaEntityGroup[];
-};
-
 export type ResolveBookEntityRef = (input: {
 	isbn: string;
 	sourceLabel: string;
