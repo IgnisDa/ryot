@@ -6,6 +6,7 @@ import { badRequest, notFound } from "#lib/errors";
 import { buildReorderedIds } from "#lib/reorder";
 import { slugify } from "#lib/slug";
 import { trimToNull } from "#lib/validation";
+import { QueryEngineService } from "#modules/query-engine/service";
 
 import { SavedViewsRepository } from "./repository";
 import type { CreateSavedViewBody, ReorderSavedViewsBody, UpdateSavedViewBody } from "./schemas";
@@ -29,6 +30,18 @@ const resolveSavedViewSlug = (name: string) => {
 	return Effect.succeed(slug);
 };
 
+const normalizeSavedViewQueryDefinition = (
+	queryDefinition: CreateSavedViewBody["queryDefinition"],
+) => ({
+	mode: "entities" as const,
+	sort: queryDefinition.sort,
+	scope: [...queryDefinition.scope],
+	filter: queryDefinition.filter ?? null,
+	eventJoins: [...(queryDefinition.eventJoins ?? [])],
+	computedFields: [...(queryDefinition.computedFields ?? [])],
+	relationshipJoins: [...(queryDefinition.relationshipJoins ?? [])],
+});
+
 const ensureBuiltinUpdateIsAllowed = (
 	currentView: {
 		name: string;
@@ -45,14 +58,15 @@ const ensureBuiltinUpdateIsAllowed = (
 		return Effect.void;
 	}
 
+	const nextQueryDefinition = normalizeSavedViewQueryDefinition(payload.queryDefinition);
+
 	const attemptsMutation =
 		payload.name !== currentView.name ||
 		payload.icon !== currentView.icon ||
 		(payload.trackerId ?? null) !== currentView.trackerId ||
 		payload.accentColor !== currentView.accentColor ||
-		JSON.stringify(payload.queryDefinition) !== JSON.stringify(currentView.queryDefinition) ||
-		JSON.stringify(payload.displayConfiguration) !==
-			JSON.stringify(currentView.displayConfiguration);
+		!Bun.deepEquals(nextQueryDefinition, currentView.queryDefinition) ||
+		!Bun.deepEquals(payload.displayConfiguration, currentView.displayConfiguration);
 
 	if (attemptsMutation) {
 		return badRequest(builtinViewMutationMessage);
@@ -64,8 +78,9 @@ const ensureBuiltinUpdateIsAllowed = (
 export class SavedViewsService extends Effect.Service<SavedViewsService>()("SavedViewsService", {
 	effect: Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
-		const runInTransaction = yield* TransactionRunner;
+		const queryEngine = yield* QueryEngineService;
 		const repository = yield* SavedViewsRepository;
+		const runInTransaction = yield* TransactionRunner;
 
 		return {
 			list: (user: CurrentUserValue, input: { trackerId?: string; includeDisabled: boolean }) =>
@@ -83,22 +98,28 @@ export class SavedViewsService extends Effect.Service<SavedViewsService>()("Save
 				Effect.gen(function* () {
 					const name = yield* resolveSavedViewName(payload.name);
 					const slug = yield* resolveSavedViewSlug(name);
+					const queryDefinition = normalizeSavedViewQueryDefinition(payload.queryDefinition);
 
 					const existing = yield* runWithDb(repository.findBySlug(user.id, slug));
 					if (existing) {
 						return yield* badRequest("A saved view with this name already exists");
 					}
 
+					yield* queryEngine.validateSavedView(user, {
+						queryDefinition,
+						displayConfiguration: payload.displayConfiguration,
+					});
+
 					const created = yield* runWithDb(
 						repository.create(user.id, {
 							slug,
 							name,
 							userId: user.id,
+							queryDefinition,
 							isBuiltin: false,
 							icon: payload.icon,
 							trackerId: payload.trackerId,
 							accentColor: payload.accentColor,
-							queryDefinition: payload.queryDefinition,
 							displayConfiguration: payload.displayConfiguration,
 						}),
 					);
@@ -125,6 +146,12 @@ export class SavedViewsService extends Effect.Service<SavedViewsService>()("Save
 					}
 
 					const name = yield* resolveSavedViewName(payload.name);
+					const queryDefinition = normalizeSavedViewQueryDefinition(payload.queryDefinition);
+
+					yield* queryEngine.validateSavedView(user, {
+						queryDefinition,
+						displayConfiguration: payload.displayConfiguration,
+					});
 
 					const updated = yield* runWithDb(
 						repository.updateBySlug(
@@ -132,11 +159,11 @@ export class SavedViewsService extends Effect.Service<SavedViewsService>()("Save
 							viewSlug,
 							{
 								name,
+								queryDefinition,
 								icon: payload.icon,
 								trackerId: payload.trackerId,
 								isDisabled: payload.isDisabled,
 								accentColor: payload.accentColor,
-								queryDefinition: payload.queryDefinition,
 								displayConfiguration: payload.displayConfiguration,
 							},
 							current.trackerId,
@@ -171,21 +198,27 @@ export class SavedViewsService extends Effect.Service<SavedViewsService>()("Save
 					if (!source) {
 						return yield* notFound(savedViewNotFound);
 					}
+					const queryDefinition = normalizeSavedViewQueryDefinition(source.queryDefinition);
 
 					const clonedName = `${source.name} (Copy)`;
 					const name = yield* resolveSavedViewName(clonedName);
 					const slug = yield* resolveSavedViewSlug(name);
+
+					yield* queryEngine.validateSavedView(user, {
+						queryDefinition,
+						displayConfiguration: source.displayConfiguration,
+					});
 
 					const created = yield* runWithDb(
 						repository.create(user.id, {
 							slug,
 							name,
 							userId: user.id,
+							queryDefinition,
 							isBuiltin: false,
 							icon: source.icon,
 							trackerId: source.trackerId,
 							accentColor: source.accentColor,
-							queryDefinition: source.queryDefinition,
 							displayConfiguration: source.displayConfiguration,
 						}),
 					);
