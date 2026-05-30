@@ -1,5 +1,5 @@
 import type { DisplayConfiguration } from "@ryot/contract/display-configuration";
-import type { QueryDocument } from "@ryot/contract/modules/query-engine/language";
+import type { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
 
 import { buildDefaultMediaSavedViewQueryDocument } from "./query-recipes";
 import { mediaEntitySchemas } from "./schemas/entity-schemas";
@@ -13,7 +13,7 @@ export type BuiltinSavedView = {
 	readonly pluginSlug?: string;
 	readonly accentColor?: string;
 	readonly entitySchemaSlug?: string;
-	readonly queryDocument?: QueryDocument;
+	readonly queryDocument?: RyotQLDocument;
 	readonly displayConfiguration: DisplayConfiguration;
 };
 

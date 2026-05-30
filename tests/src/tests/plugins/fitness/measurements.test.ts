@@ -79,27 +79,25 @@ describe("Measurements E2E", () => {
 					name: "All Measurements",
 					pluginSlug: fitnessPlugin.slug,
 					queryDocument: {
-						source: { schemas: ["measurement"] },
-						output: {
-							orderBy: [
-								{
-									order: "desc",
-									expr: {
-										type: "ref",
-										sourceAlias: "entity",
-										field: { type: "property", schema: "measurement", path: ["recordedAt"] },
-									},
+						queries: {
+							savedView: {
+								output: {
+									orderBy: [{ direction: "desc", expr: { type: "cast", target: "date" } }],
 								},
-							],
+								where: {
+									right: { value: "measurement" },
+									left: { field: "entitySchemaSlug", tableAlias: "entity" },
+								},
+							},
 						},
 					},
 					displayConfiguration: {
 						grid: {
-							calloutProperty: null,
 							imageProperty: null,
+							calloutProperty: null,
 							titleProperty: createEntityColumnExpression("measurement", "name"),
-							primarySubtitleProperty: createEntityPropertyExpression("measurement", "recordedAt"),
 							secondarySubtitleProperty: createEntityPropertyExpression("measurement", "comment"),
+							primarySubtitleProperty: createEntityPropertyExpression("measurement", "recordedAt"),
 						},
 					},
 				});
