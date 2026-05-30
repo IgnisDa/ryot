@@ -1,4 +1,5 @@
-import type { JsonPrimitive, JsonValue } from "@ryot/contract/modules/sandbox/wire";
+import type { JsonValue } from "@ryot/contract/modules/ryotql/language";
+import type { JsonPrimitive } from "@ryot/contract/modules/sandbox/wire";
 import { Schema } from "@ryot/sandbox-sdk/effect";
 
 export type { JsonPrimitive, JsonValue };

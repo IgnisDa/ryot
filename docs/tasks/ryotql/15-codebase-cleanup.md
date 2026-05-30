@@ -2,7 +2,7 @@
 
 **Parent Plan:** [RyotQL](./README.md)
 
-**Status:** todo
+**Status:** completed
 
 ## What to build
 
@@ -10,6 +10,6 @@ Review every file touched during this plan and remove anything that is no longer
 
 ## Acceptance criteria
 
-- [ ] The task is executed using the `codebase-cleanup` skill
-- [ ] The cleanup pass covers all files touched by this plan and any directly affected modules
-- [ ] Any removals or simplifications are reflected in the changed code before the plan is considered complete
+- [x] The task is executed using the `codebase-cleanup` skill
+- [x] The cleanup pass covers all files touched by this plan and any directly affected modules
+- [x] Any removals or simplifications are reflected in the changed code before the plan is considered complete
