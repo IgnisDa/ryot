@@ -1,7 +1,11 @@
 import { describe, expect, it } from "bun:test";
 
 import { createImportRunBody } from "../schemas";
-import { buildInputSummary, buildSourcePayload } from "./source-definitions";
+import {
+	buildInputSummary,
+	buildSourcePayload,
+	getImportSourceFileInputs,
+} from "./source-definitions";
 
 describe("createImportRunBody", () => {
 	it("accepts the API-backed source payloads", () => {
@@ -45,6 +49,20 @@ describe("createImportRunBody", () => {
 
 		expect(
 			createImportRunBody.parse({
+				source: "movary",
+				historyUploadToken: "tok_history",
+				ratingsUploadToken: "tok_ratings",
+				watchlistUploadToken: "tok_watchlist",
+			}),
+		).toEqual({
+			source: "movary",
+			historyUploadToken: "tok_history",
+			ratingsUploadToken: "tok_ratings",
+			watchlistUploadToken: "tok_watchlist",
+		});
+
+		expect(
+			createImportRunBody.parse({
 				apiKey: "token_3",
 				source: "audiobookshelf",
 				apiUrl: "https://books.example.com/root/",
@@ -84,6 +102,60 @@ describe("buildInputSummary", () => {
 		});
 
 		expect(summary).toEqual({ host: "jellyfin.local", source: "jellyfin" });
+	});
+
+	it("stores only safe Movary file metadata in the run summary", () => {
+		const summary = buildInputSummary({
+			historyUploadToken: "tok_history",
+			ratingsUploadToken: "tok_ratings",
+			source: "movary",
+			watchlistUploadToken: "tok_watchlist",
+		});
+
+		expect(summary).toEqual({
+			hasHistoryFile: true,
+			hasRatingsFile: true,
+			hasWatchlistFile: true,
+			source: "movary",
+		});
+		expect(summary).not.toHaveProperty("historyUploadToken");
+		expect(summary).not.toHaveProperty("ratingsUploadToken");
+		expect(summary).not.toHaveProperty("watchlistUploadToken");
+	});
+});
+
+describe("getImportSourceFileInputs", () => {
+	it("maps Movary upload tokens to the expected file payload keys", () => {
+		const inputs = getImportSourceFileInputs({
+			historyUploadToken: "tok_history",
+			ratingsUploadToken: "tok_ratings",
+			source: "movary",
+			watchlistUploadToken: "tok_watchlist",
+		});
+
+		expect(inputs).toEqual([
+			{
+				bodyField: "historyUploadToken",
+				payloadKey: "historyFilePath",
+				required: undefined,
+				allowedExtensions: ["csv"],
+				uploadToken: "tok_history",
+			},
+			{
+				bodyField: "ratingsUploadToken",
+				payloadKey: "ratingsFilePath",
+				required: undefined,
+				allowedExtensions: ["csv"],
+				uploadToken: "tok_ratings",
+			},
+			{
+				bodyField: "watchlistUploadToken",
+				payloadKey: "watchlistFilePath",
+				required: undefined,
+				allowedExtensions: ["csv"],
+				uploadToken: "tok_watchlist",
+			},
+		]);
 	});
 });
 

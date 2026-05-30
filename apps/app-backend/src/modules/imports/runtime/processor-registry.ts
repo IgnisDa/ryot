@@ -16,6 +16,7 @@ import { adaptIgdbCsv } from "../sources/igdb/adapter";
 import { adaptImdbCsv } from "../sources/imdb/adapter";
 import { processJellyfinImport } from "../sources/jellyfin/processor";
 import { processMediaTrackerImport } from "../sources/media-tracker/processor";
+import { processMovaryImport } from "../sources/movary/processor";
 import { processMyanimelistImport } from "../sources/myanimelist/processor";
 import { processPlexImport } from "../sources/plex/processor";
 import { adaptStorygraphCsv } from "../sources/storygraph/adapter";
@@ -128,6 +129,15 @@ const importSourceProcessors: Partial<Record<ImportRunSource, ImportSourceProces
 	hevy: workoutCsvProcessor("Hevy", adaptHevyCsv),
 	imdb: mediaTextFileProcessor("IMDb", adaptImdbCsv),
 	grouvee: mediaTextFileProcessor("Grouvee", adaptGrouveeCsv),
+	movary: {
+		inputKind: "file",
+		process: (input) =>
+			processMovaryImport(input.job, input.token, {
+				...mediaProcessorInput(input),
+				filePath: input.filePath,
+				sourcePayload: input.sourcePayload,
+			}),
+	},
 	goodreads: bookCsvProcessor("Goodreads", adaptGoodreadsCsv),
 	hardcover: bookCsvProcessor("Hardcover", adaptHardcoverCsv),
 	anilist: mediaTextFileProcessor("Anilist", adaptAnilistExport),
