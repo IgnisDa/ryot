@@ -4458,21 +4458,21 @@ export interface paths {
                         "application/json": {
                             data: {
                                 id: string;
-                                /** @enum {string} */
-                                lot: "yank" | "sink" | "push";
-                                name: string | null;
-                                provider: string;
                                 /** Format: date-time */
                                 createdAt: string;
                                 /** Format: date-time */
                                 updatedAt: string;
+                                /** @enum {string} */
+                                lot: "yank" | "sink" | "push";
+                                provider: string;
                                 isDisabled: boolean;
                                 syncOwnership: boolean;
-                                /** Format: date-time */
-                                lastFinishedAt: string | null;
+                                name: string | null;
                                 minimumProgress: string;
                                 maximumProgress: string;
                                 webhookUrl?: string;
+                                /** Format: date-time */
+                                lastFinishedAt: string | null;
                                 extraSettings: {
                                     disableOnContinuousErrors: boolean;
                                 };
@@ -4577,11 +4577,6 @@ export interface paths {
                         name?: string;
                         isDisabled?: boolean;
                         syncOwnership?: boolean;
-                        minimumProgress?: number;
-                        maximumProgress?: number;
-                        extraSettings?: {
-                            disableOnContinuousErrors: boolean;
-                        };
                         providerSpecifics: {
                             /** @enum {string} */
                             kind: "kodi";
@@ -4650,6 +4645,11 @@ export interface paths {
                             kind: "ryot_browser_extension";
                             disabledSites?: string[];
                         };
+                        extraSettings?: {
+                            disableOnContinuousErrors: boolean;
+                        };
+                        minimumProgress?: number;
+                        maximumProgress?: number;
                     };
                 };
             };
@@ -4725,21 +4725,21 @@ export interface paths {
                         "application/json": {
                             data: {
                                 id: string;
-                                /** @enum {string} */
-                                lot: "yank" | "sink" | "push";
-                                name: string | null;
-                                provider: string;
                                 /** Format: date-time */
                                 createdAt: string;
                                 /** Format: date-time */
                                 updatedAt: string;
+                                /** @enum {string} */
+                                lot: "yank" | "sink" | "push";
+                                provider: string;
                                 isDisabled: boolean;
                                 syncOwnership: boolean;
-                                /** Format: date-time */
-                                lastFinishedAt: string | null;
+                                name: string | null;
                                 minimumProgress: string;
                                 maximumProgress: string;
                                 webhookUrl?: string;
+                                /** Format: date-time */
+                                lastFinishedAt: string | null;
                                 extraSettings: {
                                     disableOnContinuousErrors: boolean;
                                 };
@@ -4919,11 +4919,11 @@ export interface paths {
                         name?: string;
                         isDisabled?: boolean;
                         syncOwnership?: boolean;
-                        minimumProgress?: number;
-                        maximumProgress?: number;
                         extraSettings?: {
                             disableOnContinuousErrors: boolean;
                         };
+                        minimumProgress?: number;
+                        maximumProgress?: number;
                         providerSpecifics?: {
                             [key: string]: unknown;
                         };
@@ -4940,21 +4940,21 @@ export interface paths {
                         "application/json": {
                             data: {
                                 id: string;
-                                /** @enum {string} */
-                                lot: "yank" | "sink" | "push";
-                                name: string | null;
-                                provider: string;
                                 /** Format: date-time */
                                 createdAt: string;
                                 /** Format: date-time */
                                 updatedAt: string;
+                                /** @enum {string} */
+                                lot: "yank" | "sink" | "push";
+                                provider: string;
                                 isDisabled: boolean;
                                 syncOwnership: boolean;
-                                /** Format: date-time */
-                                lastFinishedAt: string | null;
+                                name: string | null;
                                 minimumProgress: string;
                                 maximumProgress: string;
                                 webhookUrl?: string;
+                                /** Format: date-time */
+                                lastFinishedAt: string | null;
                                 extraSettings: {
                                     disableOnContinuousErrors: boolean;
                                 };
