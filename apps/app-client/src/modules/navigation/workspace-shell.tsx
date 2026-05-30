@@ -690,28 +690,30 @@ export function WorkspaceShell() {
 							/>
 						</View>
 					)}
-					<View
-						className="absolute inset-x-0 bottom-0 z-50 items-start px-4 md:hidden"
-						style={{ paddingBottom: insets.bottom + 12 }}
-					>
-						{isScrolled ? (
-							<Pressable
-								accessibilityRole="button"
-								accessibilityLabel="Open navigation"
-								onPress={() => setMobileSheet("more")}
-								className="h-14 w-14 items-center justify-center rounded-full border border-nav-border bg-nav-surface text-accent-text shadow-card"
-							>
-								<NavigationIcon name="panel-left" size={20} />
-							</Pressable>
-						) : (
-							<MobileTabBar
-								items={items}
-								onNavigate={navigate}
-								activeKey={activeKey}
-								onMoreOpen={() => setMobileSheet("more")}
-							/>
-						)}
-					</View>
+					{!mobileSheet && (
+						<View
+							style={{ paddingBottom: insets.bottom + 12 }}
+							className="absolute inset-x-0 bottom-0 z-50 items-start px-4 md:hidden"
+						>
+							{isScrolled ? (
+								<Pressable
+									accessibilityRole="button"
+									accessibilityLabel="Open navigation"
+									onPress={() => setMobileSheet("more")}
+									className="h-14 w-14 items-center justify-center rounded-full border border-nav-border bg-nav-surface text-accent-text shadow-card"
+								>
+									<NavigationIcon name="panel-left" size={20} />
+								</Pressable>
+							) : (
+								<MobileTabBar
+									items={items}
+									activeKey={activeKey}
+									onNavigate={navigate}
+									onMoreOpen={() => setMobileSheet("more")}
+								/>
+							)}
+						</View>
+					)}
 					{(mobileSheet ?? desktopWorkspaceOpen) && (
 						<Pressable
 							accessibilityRole="button"
