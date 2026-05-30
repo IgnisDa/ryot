@@ -1,8 +1,9 @@
 import { compilePluginSandboxSourceEntries } from "@ryot/sandbox-compiler/plugins";
 import { sha256Hex } from "@ryot/ts-utils/crypto";
 import { stableStringify } from "@ryot/ts-utils/json";
-import { Context, Effect, FileSystem, Layer, Path } from "effect";
+import { Context, Effect, Layer } from "effect";
 
+import { kernelScriptSources } from "#modules/definition-registry/kernel-scripts.generated";
 import { kernelScripts } from "#modules/definition-registry/kernel-source";
 
 import { PluginInstallationService } from "./installation-service";
@@ -22,23 +23,12 @@ export class SystemPluginBootstrap extends Context.Service<SystemPluginBootstrap
 			const ingestion = yield* PluginIngestionService;
 			const installations = yield* PluginInstallationService;
 			const scriptGarbageCollector = yield* ScriptGarbageCollector;
-			const fs = yield* FileSystem.FileSystem;
-			const path = yield* Path.Path;
-
 			const ingestKernelScripts = Effect.fn("SystemPluginBootstrap.ingestKernelScripts")(
 				function* () {
-					const files = Object.fromEntries(
-						yield* Effect.forEach(kernelScripts, (script) =>
-							Effect.gen(function* () {
-								const filePath = yield* path.fromFileUrl(
-									new URL(`../../../${script.entry}`, import.meta.url),
-								);
-								const source = yield* fs.readFileString(filePath);
-								return [script.entry, source] as const;
-							}),
-						),
+					const outputs = yield* compilePluginSandboxSourceEntries(
+						kernelScriptSources,
+						kernelScripts,
 					);
-					const outputs = yield* compilePluginSandboxSourceEntries(files, kernelScripts);
 					const compiledScripts = yield* Effect.forEach(kernelScripts, (script) =>
 						Effect.gen(function* () {
 							const output = outputs.find(({ entry }) => entry === script.entry);
