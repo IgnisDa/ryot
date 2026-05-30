@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -14,16 +14,16 @@ Keep the UI within existing app-client patterns. Do not persist the admin token.
 
 ## Acceptance criteria
 
-- [ ] God-mode UI can generate a reset link for users with `credential` or `none` auth state
-- [ ] God-mode UI disables or blocks reset generation for `oidc` and `mixed` auth states
-- [ ] God-mode UI displays the returned reset link and login email
-- [ ] God-mode UI provides a copy/share affordance for the reset link
-- [ ] God-mode UI surfaces backend validation errors clearly
-- [ ] Reset-password route shows an invalid-link state when the token is missing
-- [ ] Reset-password route accepts and confirms a new password
-- [ ] Reset-password route calls Better Auth's reset-password operation with the token
-- [ ] Successful reset redirects to the auth route with a clear success state or message
-- [ ] Admin token remains in memory only and is not persisted to platform storage
+- [x] God-mode UI can generate a reset link for users with `credential` or `none` auth state
+- [x] God-mode UI disables or blocks reset generation for `oidc` and `mixed` auth states
+- [x] God-mode UI displays the returned reset link and login email
+- [x] God-mode UI provides a copy/share affordance for the reset link
+- [x] God-mode UI surfaces backend validation errors clearly
+- [x] Reset-password route shows an invalid-link state when the token is missing
+- [x] Reset-password route accepts and confirms a new password
+- [x] Reset-password route calls Better Auth's reset-password operation with the token
+- [x] Successful reset redirects to the auth route with a clear success state or message
+- [x] Admin token remains in memory only and is not persisted to platform storage
 
 ## User stories addressed
 
