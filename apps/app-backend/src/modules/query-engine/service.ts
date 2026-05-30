@@ -16,15 +16,21 @@ export class QueryEngineService extends Effect.Service<QueryEngineService>()("Qu
 		const runWithDb = yield* DbRunner;
 
 		return {
-			execute: (user: CurrentUserValue, request: QueryEngineRequest) =>
-				runWithDb(prepareAndExecute(user.id, request)).pipe(dieOnDbError),
-			validateSavedView: (
+			execute: Effect.fn("QueryEngineService.execute")(function* (
+				user: CurrentUserValue,
+				request: QueryEngineRequest,
+			) {
+				return yield* runWithDb(prepareAndExecute(user.id, request));
+			}, dieOnDbError),
+			validateSavedView: Effect.fn("QueryEngineService.validateSavedView")(function* (
 				user: CurrentUserValue,
 				input: {
 					queryDefinition: SavedViewQueryDefinition;
 					displayConfiguration: DisplayConfiguration;
 				},
-			) => runWithDb(loadAndValidateQueryContext({ userId: user.id, ...input })).pipe(dieOnDbError),
+			) {
+				return yield* runWithDb(loadAndValidateQueryContext({ userId: user.id, ...input }));
+			}, dieOnDbError),
 		};
 	}),
 }) {}

@@ -81,8 +81,8 @@ const toListedEntity = (row: EntityRow) => ({
 
 export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("EntitiesRepository", {
 	sync: () => ({
-		listMatchCandidatesBySchema: (input: { userId: string; entitySchemaId: string }) =>
-			Effect.gen(function* () {
+		listMatchCandidatesBySchema: Effect.fn("EntitiesRepository.listMatchCandidatesBySchema")(
+			function* (input: { userId: string; entitySchemaId: string }) {
 				const db = yield* CurrentDb;
 				const rows = yield* dbEffect(() =>
 					db
@@ -101,9 +101,10 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 						),
 				);
 				return rows.map(toListedEntity);
-			}),
-		getEntitySchemaScopeForUser: (input: { userId: string; entitySchemaId: string }) =>
-			Effect.gen(function* () {
+			},
+		),
+		getEntitySchemaScopeForUser: Effect.fn("EntitiesRepository.getEntitySchemaScopeForUser")(
+			function* (input: { userId: string; entitySchemaId: string }) {
 				const db = yield* CurrentDb;
 				const [row] = yield* dbEffect(() =>
 					db
@@ -140,34 +141,32 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 					userId: row.userId,
 					isBuiltin: row.isBuiltin,
 				};
-			}),
-		getEntityScopeForUser: (input: { userId: string; entityId: string }) =>
-			Effect.gen(function* () {
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
-					db
-						.select({
-							entityId: schema.entity.id,
-							entityUserId: schema.entity.userId,
-							isBuiltin: schema.entitySchema.isBuiltin,
-							entitySchemaSlug: schema.entitySchema.slug,
-							entitySchemaId: schema.entity.entitySchemaId,
-						})
-						.from(schema.entity)
-						.innerJoin(
-							schema.entitySchema,
-							eq(schema.entity.entitySchemaId, schema.entitySchema.id),
-						)
-						.where(
-							and(eq(schema.entity.id, input.entityId), entityVisibleToUserClause(input.userId)),
-						)
-						.limit(1),
-				);
+			},
+		),
+		getEntityScopeForUser: Effect.fn("EntitiesRepository.getEntityScopeForUser")(function* (input: {
+			userId: string;
+			entityId: string;
+		}) {
+			const db = yield* CurrentDb;
+			const [row] = yield* dbEffect(() =>
+				db
+					.select({
+						entityId: schema.entity.id,
+						entityUserId: schema.entity.userId,
+						isBuiltin: schema.entitySchema.isBuiltin,
+						entitySchemaSlug: schema.entitySchema.slug,
+						entitySchemaId: schema.entity.entitySchemaId,
+					})
+					.from(schema.entity)
+					.innerJoin(schema.entitySchema, eq(schema.entity.entitySchemaId, schema.entitySchema.id))
+					.where(and(eq(schema.entity.id, input.entityId), entityVisibleToUserClause(input.userId)))
+					.limit(1),
+			);
 
-				return row ?? null;
-			}),
-		getEntityMergeScopeForUser: (input: { userId: string; entityId: string }) =>
-			Effect.gen(function* () {
+			return row ?? null;
+		}),
+		getEntityMergeScopeForUser: Effect.fn("EntitiesRepository.getEntityMergeScopeForUser")(
+			function* (input: { userId: string; entityId: string }) {
 				const db = yield* CurrentDb;
 				const [row] = yield* dbEffect(() =>
 					db
@@ -191,52 +190,51 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 				);
 
 				return row ?? null;
-			}),
-		getEntityScopeById: (entityId: string) =>
-			Effect.gen(function* () {
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
-					db
-						.select({
-							entityId: schema.entity.id,
-							entityUserId: schema.entity.userId,
-							isBuiltin: schema.entitySchema.isBuiltin,
-							entitySchemaSlug: schema.entitySchema.slug,
-							entitySchemaId: schema.entity.entitySchemaId,
-						})
-						.from(schema.entity)
-						.innerJoin(
-							schema.entitySchema,
-							eq(schema.entity.entitySchemaId, schema.entitySchema.id),
-						)
-						.where(eq(schema.entity.id, entityId))
-						.limit(1),
-				);
+			},
+		),
+		getEntityScopeById: Effect.fn("EntitiesRepository.getEntityScopeById")(function* (
+			entityId: string,
+		) {
+			const db = yield* CurrentDb;
+			const [row] = yield* dbEffect(() =>
+				db
+					.select({
+						entityId: schema.entity.id,
+						entityUserId: schema.entity.userId,
+						isBuiltin: schema.entitySchema.isBuiltin,
+						entitySchemaSlug: schema.entitySchema.slug,
+						entitySchemaId: schema.entity.entitySchemaId,
+					})
+					.from(schema.entity)
+					.innerJoin(schema.entitySchema, eq(schema.entity.entitySchemaId, schema.entitySchema.id))
+					.where(eq(schema.entity.id, entityId))
+					.limit(1),
+			);
 
-				return row ?? null;
-			}),
-		getByIdForUser: (input: { userId: string; entityId: string }) =>
-			Effect.gen(function* () {
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
-					db
-						.select(entitySelection)
-						.from(schema.entity)
-						.where(
-							and(eq(schema.entity.id, input.entityId), entityVisibleToUserClause(input.userId)),
-						)
-						.limit(1),
-				);
-
-				return row ? toListedEntity(row) : null;
-			}),
-		findEntityByExternalIdForUser: (input: {
+			return row ?? null;
+		}),
+		getByIdForUser: Effect.fn("EntitiesRepository.getByIdForUser")(function* (input: {
 			userId: string;
-			externalId: string;
-			entitySchemaId: string;
-			sandboxScriptId: string;
-		}) =>
-			Effect.gen(function* () {
+			entityId: string;
+		}) {
+			const db = yield* CurrentDb;
+			const [row] = yield* dbEffect(() =>
+				db
+					.select(entitySelection)
+					.from(schema.entity)
+					.where(and(eq(schema.entity.id, input.entityId), entityVisibleToUserClause(input.userId)))
+					.limit(1),
+			);
+
+			return row ? toListedEntity(row) : null;
+		}),
+		findEntityByExternalIdForUser: Effect.fn("EntitiesRepository.findEntityByExternalIdForUser")(
+			function* (input: {
+				userId: string;
+				externalId: string;
+				entitySchemaId: string;
+				sandboxScriptId: string;
+			}) {
 				const db = yield* CurrentDb;
 				const [row] = yield* dbEffect(() =>
 					db
@@ -254,13 +252,10 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 				);
 
 				return row ? toListedEntity(row) : null;
-			}),
-		findGlobalEntityByExternalId: (input: {
-			externalId: string;
-			entitySchemaId: string;
-			sandboxScriptId: string;
-		}) =>
-			Effect.gen(function* () {
+			},
+		),
+		findGlobalEntityByExternalId: Effect.fn("EntitiesRepository.findGlobalEntityByExternalId")(
+			function* (input: { externalId: string; entitySchemaId: string; sandboxScriptId: string }) {
 				const db = yield* CurrentDb;
 				const [row] = yield* dbEffect(() =>
 					db
@@ -278,31 +273,33 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 				);
 
 				return row ? toListedEntity(row) : null;
-			}),
-		findEntitySchemaById: (entitySchemaId: string) =>
-			Effect.gen(function* () {
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
-					db
-						.select({ propertiesSchema: schema.entitySchema.propertiesSchema })
-						.from(schema.entitySchema)
-						.where(eq(schema.entitySchema.id, entitySchemaId))
-						.limit(1),
-				);
+			},
+		),
+		findEntitySchemaById: Effect.fn("EntitiesRepository.findEntitySchemaById")(function* (
+			entitySchemaId: string,
+		) {
+			const db = yield* CurrentDb;
+			const [row] = yield* dbEffect(() =>
+				db
+					.select({ propertiesSchema: schema.entitySchema.propertiesSchema })
+					.from(schema.entitySchema)
+					.where(eq(schema.entitySchema.id, entitySchemaId))
+					.limit(1),
+			);
 
-				if (!row) {
-					return null;
-				}
+			if (!row) {
+				return null;
+			}
 
-				const propertiesSchema = yield* decodeStoredAppSchema(
-					row.propertiesSchema,
-					"Invalid entity properties schema in database",
-				);
+			const propertiesSchema = yield* decodeStoredAppSchema(
+				row.propertiesSchema,
+				"Invalid entity properties schema in database",
+			);
 
-				return { propertiesSchema };
-			}),
-		findEntitySchemaScriptBySlug: (scriptSlug: string) =>
-			Effect.gen(function* () {
+			return { propertiesSchema };
+		}),
+		findEntitySchemaScriptBySlug: Effect.fn("EntitiesRepository.findEntitySchemaScriptBySlug")(
+			function* (scriptSlug: string) {
 				const db = yield* CurrentDb;
 				const [row] = yield* dbEffect(() =>
 					db
@@ -323,17 +320,18 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 				);
 
 				return row ?? null;
-			}),
-		createOrUpdateGlobalEntity: (input: {
-			name: string;
-			externalId: string;
-			entitySchemaId: string;
-			sandboxScriptId: string;
-			populatedAt: Date | null;
-			image: StoredEntityImage | null;
-			properties: Record<string, unknown>;
-		}) =>
-			Effect.gen(function* () {
+			},
+		),
+		createOrUpdateGlobalEntity: Effect.fn("EntitiesRepository.createOrUpdateGlobalEntity")(
+			function* (input: {
+				name: string;
+				externalId: string;
+				entitySchemaId: string;
+				sandboxScriptId: string;
+				populatedAt: Date | null;
+				image: StoredEntityImage | null;
+				properties: Record<string, unknown>;
+			}) {
 				const db = yield* CurrentDb;
 				const values = {
 					userId: null,
@@ -393,8 +391,9 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 				}
 
 				return toListedEntity(existing);
-			}),
-		createEntity: (input: {
+			},
+		),
+		createEntity: Effect.fn("EntitiesRepository.createEntity")(function* (input: {
 			name: string;
 			userId: string;
 			externalId?: string;
@@ -402,79 +401,78 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 			sandboxScriptId?: string;
 			image: StoredEntityImage | null;
 			properties: Record<string, unknown>;
-		}) =>
-			Effect.gen(function* () {
-				const db = yield* CurrentDb;
-				const externalId = input.externalId;
-				const sandboxScriptId = input.sandboxScriptId;
-				const values = {
-					name: input.name,
-					image: input.image,
-					userId: input.userId,
-					properties: input.properties,
-					externalId: externalId ?? null,
-					entitySchemaId: input.entitySchemaId,
-					sandboxScriptId: sandboxScriptId ?? null,
-				};
+		}) {
+			const db = yield* CurrentDb;
+			const externalId = input.externalId;
+			const sandboxScriptId = input.sandboxScriptId;
+			const values = {
+				name: input.name,
+				image: input.image,
+				userId: input.userId,
+				properties: input.properties,
+				externalId: externalId ?? null,
+				entitySchemaId: input.entitySchemaId,
+				sandboxScriptId: sandboxScriptId ?? null,
+			};
 
-				if (externalId && sandboxScriptId) {
-					const rows = yield* dbEffect(() =>
-						db
-							.insert(schema.entity)
-							.values(values)
-							.onConflictDoNothing({
-								target: [
-									schema.entity.userId,
-									schema.entity.externalId,
-									schema.entity.entitySchemaId,
-									schema.entity.sandboxScriptId,
-								],
-							})
-							.returning(entitySelection),
-					);
-
-					const created = rows[0];
-					if (created) {
-						return toListedEntity(created);
-					}
-
-					const existing = yield* Effect.flatMap(Effect.succeed(input), (repositoryInput) =>
-						Effect.gen(function* () {
-							const [row] = yield* dbEffect(() =>
-								db
-									.select(entitySelection)
-									.from(schema.entity)
-									.where(
-										and(
-											eq(schema.entity.userId, repositoryInput.userId),
-											eq(schema.entity.externalId, externalId),
-											eq(schema.entity.entitySchemaId, repositoryInput.entitySchemaId),
-											eq(schema.entity.sandboxScriptId, sandboxScriptId),
-										),
-									)
-									.limit(1),
-							);
-
-							return row ? toListedEntity(row) : null;
-						}),
-					);
-
-					if (existing) {
-						return existing;
-					}
-
-					return yield* new DbError({ message: "Entity insert returned no row" });
-				}
-
-				const [row] = yield* dbEffect(() =>
-					db.insert(schema.entity).values(values).returning(entitySelection),
+			if (externalId && sandboxScriptId) {
+				const rows = yield* dbEffect(() =>
+					db
+						.insert(schema.entity)
+						.values(values)
+						.onConflictDoNothing({
+							target: [
+								schema.entity.userId,
+								schema.entity.externalId,
+								schema.entity.entitySchemaId,
+								schema.entity.sandboxScriptId,
+							],
+						})
+						.returning(entitySelection),
 				);
 
-				if (!row) {
-					return yield* new DbError({ message: "Entity insert returned no row" });
+				const created = rows[0];
+				if (created) {
+					return toListedEntity(created);
 				}
 
-				return toListedEntity(row);
-			}),
+				const existing = yield* Effect.flatMap(Effect.succeed(input), (repositoryInput) =>
+					Effect.gen(function* () {
+						const [row] = yield* dbEffect(() =>
+							db
+								.select(entitySelection)
+								.from(schema.entity)
+								.where(
+									and(
+										eq(schema.entity.userId, repositoryInput.userId),
+										eq(schema.entity.externalId, externalId),
+										eq(schema.entity.entitySchemaId, repositoryInput.entitySchemaId),
+										eq(schema.entity.sandboxScriptId, sandboxScriptId),
+									),
+								)
+								.limit(1),
+						);
+
+						return row ? toListedEntity(row) : null;
+					}),
+				);
+
+				if (existing) {
+					return existing;
+				}
+
+				return yield* new DbError({ message: "Entity insert returned no row" });
+			}
+
+			const [row] = yield* dbEffect(() =>
+				db.insert(schema.entity).values(values).returning(entitySelection),
+			);
+
+			if (!row) {
+				return yield* new DbError({ message: "Entity insert returned no row" });
+			}
+
+			return toListedEntity(row);
+		}),
 	}),
 }) {}

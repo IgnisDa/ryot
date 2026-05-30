@@ -1,7 +1,5 @@
 import { Effect, Match } from "effect";
 
-import type { CurrentDb } from "#lib/db";
-import type { DbError } from "#lib/errors";
 import { BadRequest } from "#lib/errors";
 import type {
 	DisplayConfiguration,
@@ -85,66 +83,65 @@ const hasEventAggregateRef = (obj: unknown): boolean => {
 	return Object.values(obj).some(hasEventAggregateRef);
 };
 
-const prepareContext = (input: {
+const prepareContext = Effect.fn("queryEngine.prepareContext")(function* (input: {
 	userId: string;
 	query: PrepareContextInput;
-}): QueryEngineLoadEffect<PreparedQueryContext> =>
-	Effect.gen(function* () {
-		const { query } = input;
-		const runtimeSchemas = yield* loadVisibleSchemas({
-			scope: query.scope,
-			userId: input.userId,
+}) {
+	const { query } = input;
+	const runtimeSchemas = yield* loadVisibleSchemas({
+		scope: query.scope,
+		userId: input.userId,
+	});
+
+	const isEventMode = query.mode === "events" || query.mode === "timeSeries";
+	const eventJoinsForMode = query.mode === "timeSeries" ? [] : query.eventJoins;
+
+	if (isEventMode && query.eventSchemas.length === 0) {
+		return yield* new BadRequest({
+			message: "At least one event schema slug is required",
 		});
+	}
 
-		const isEventMode = query.mode === "events" || query.mode === "timeSeries";
-		const eventJoinsForMode = query.mode === "timeSeries" ? [] : query.eventJoins;
-
-		if (isEventMode && query.eventSchemas.length === 0) {
-			return yield* new BadRequest({
-				message: "At least one event schema slug is required",
-			});
-		}
-
-		const [eventJoins, relationshipJoins, eventSchemaSlugs] = yield* Effect.all([
-			loadVisibleEventJoins({
-				runtimeSchemas,
-				userId: input.userId,
-				eventJoins: eventJoinsForMode,
-			}),
-			isEventMode
-				? Effect.succeed([])
-				: loadVisibleRelationshipJoins({
-						runtimeSchemas,
-						userId: input.userId,
-						relationshipJoins: query.relationshipJoins,
-					}),
-			loadEventSchemaSlugs({ runtimeSchemas, userId: input.userId }),
-		]);
-
-		const eventSchemaMap = isEventMode
-			? yield* loadEventSchemasBySlug({
+	const [eventJoins, relationshipJoins, eventSchemaSlugs] = yield* Effect.all([
+		loadVisibleEventJoins({
+			runtimeSchemas,
+			userId: input.userId,
+			eventJoins: eventJoinsForMode,
+		}),
+		isEventMode
+			? Effect.succeed([])
+			: loadVisibleRelationshipJoins({
 					runtimeSchemas,
 					userId: input.userId,
-					eventSchemaSlugs:
-						query.eventSchemas.length > 0 ? query.eventSchemas : [...eventSchemaSlugs],
-				})
-			: undefined;
+					relationshipJoins: query.relationshipJoins,
+				}),
+		loadEventSchemaSlugs({ runtimeSchemas, userId: input.userId }),
+	]);
 
-		const schemaMap = buildSchemaMap(runtimeSchemas);
-		const eventJoinMap = buildEventJoinMap(eventJoins);
-		const relationshipJoinMap = buildRelationshipJoinMap(relationshipJoins);
+	const eventSchemaMap = isEventMode
+		? yield* loadEventSchemasBySlug({
+				runtimeSchemas,
+				userId: input.userId,
+				eventSchemaSlugs:
+					query.eventSchemas.length > 0 ? query.eventSchemas : [...eventSchemaSlugs],
+			})
+		: undefined;
 
-		return {
-			schemaMap,
-			eventJoins,
-			eventJoinMap,
-			runtimeSchemas,
-			eventSchemaMap,
-			eventSchemaSlugs,
-			relationshipJoins,
-			relationshipJoinMap,
-		};
-	});
+	const schemaMap = buildSchemaMap(runtimeSchemas);
+	const eventJoinMap = buildEventJoinMap(eventJoins);
+	const relationshipJoinMap = buildRelationshipJoinMap(relationshipJoins);
+
+	return {
+		schemaMap,
+		eventJoins,
+		eventJoinMap,
+		runtimeSchemas,
+		eventSchemaMap,
+		eventSchemaSlugs,
+		relationshipJoins,
+		relationshipJoinMap,
+	};
+});
 
 const loadOptionalEventSchemaMap = (input: {
 	userId: string;
@@ -192,12 +189,12 @@ const validateSavedViewDefinition = (input: {
 	);
 };
 
-export const loadAndValidateQueryContext = (input: {
-	userId: string;
-	queryDefinition: SavedViewQueryDefinition;
-	displayConfiguration: DisplayConfiguration;
-}): Effect.Effect<void, BadRequest | DbError, CurrentDb> =>
-	Effect.gen(function* () {
+export const loadAndValidateQueryContext = Effect.fn("queryEngine.loadAndValidateQueryContext")(
+	function* (input: {
+		userId: string;
+		queryDefinition: SavedViewQueryDefinition;
+		displayConfiguration: DisplayConfiguration;
+	}) {
 		const context = yield* prepareContext({
 			userId: input.userId,
 			query: {
@@ -236,51 +233,53 @@ export const loadAndValidateQueryContext = (input: {
 			catch: (error) =>
 				new BadRequest({ message: error instanceof Error ? error.message : String(error) }),
 		});
-	}).pipe(
-		Effect.catchTag("NotFound", (error) => Effect.fail(new BadRequest({ message: error.message }))),
+	},
+	Effect.catchTag("NotFound", (error) => Effect.fail(new BadRequest({ message: error.message }))),
+);
+
+export const prepareAndExecute = Effect.fn("queryEngine.prepareAndExecute")(function* (
+	userId: string,
+	request: QueryEngineRequest,
+) {
+	const query = normalizeRequestPerMode(request);
+
+	const context = yield* prepareContext({ userId, query });
+
+	const eventSchemaMap =
+		context.eventSchemaMap ??
+		(yield* loadOptionalEventSchemaMap({
+			userId,
+			shouldLoad: hasEventAggregateRef(request),
+			runtimeSchemas: context.runtimeSchemas,
+			eventSchemaSlugs: context.eventSchemaSlugs,
+		}));
+
+	yield* tryQueryEngineSync(() =>
+		validateQueryEngineReferences(request, {
+			eventSchemaMap,
+			schemaMap: context.schemaMap,
+			eventJoinMap: context.eventJoinMap,
+			eventSchemaSlugs: context.eventSchemaSlugs,
+			relationshipJoinMap: context.relationshipJoinMap,
+			supportsPrimaryEventRefs: request.mode === "events" || request.mode === "timeSeries",
+		}),
 	);
 
-export const prepareAndExecute = (userId: string, request: QueryEngineRequest) =>
-	Effect.gen(function* () {
-		const query = normalizeRequestPerMode(request);
+	const fullContext = { ...context, eventSchemaMap };
 
-		const context = yield* prepareContext({ userId, query });
-
-		const eventSchemaMap =
-			context.eventSchemaMap ??
-			(yield* loadOptionalEventSchemaMap({
-				userId,
-				shouldLoad: hasEventAggregateRef(request),
-				runtimeSchemas: context.runtimeSchemas,
-				eventSchemaSlugs: context.eventSchemaSlugs,
-			}));
-
-		yield* tryQueryEngineSync(() =>
-			validateQueryEngineReferences(request, {
-				eventSchemaMap,
-				schemaMap: context.schemaMap,
-				eventJoinMap: context.eventJoinMap,
-				eventSchemaSlugs: context.eventSchemaSlugs,
-				relationshipJoinMap: context.relationshipJoinMap,
-				supportsPrimaryEventRefs: request.mode === "events" || request.mode === "timeSeries",
-			}),
-		);
-
-		const fullContext = { ...context, eventSchemaMap };
-
-		return yield* Match.value(request).pipe(
-			Match.when({ mode: "entities" }, (r) =>
-				executePreparedQuery({ request: r, userId, context: fullContext }),
-			),
-			Match.when({ mode: "aggregate" }, (r) =>
-				executeAggregateQuery({ request: r, userId, context: fullContext }),
-			),
-			Match.when({ mode: "events" }, (r) =>
-				executeEventQuery({ request: r, userId, context: fullContext }),
-			),
-			Match.when({ mode: "timeSeries" }, (r) =>
-				executeTimeSeriesQuery({ request: r, userId, context: fullContext }),
-			),
-			Match.exhaustive,
-		);
-	});
+	return yield* Match.value(request).pipe(
+		Match.when({ mode: "entities" }, (r) =>
+			executePreparedQuery({ request: r, userId, context: fullContext }),
+		),
+		Match.when({ mode: "aggregate" }, (r) =>
+			executeAggregateQuery({ request: r, userId, context: fullContext }),
+		),
+		Match.when({ mode: "events" }, (r) =>
+			executeEventQuery({ request: r, userId, context: fullContext }),
+		),
+		Match.when({ mode: "timeSeries" }, (r) =>
+			executeTimeSeriesQuery({ request: r, userId, context: fullContext }),
+		),
+		Match.exhaustive,
+	);
+});
