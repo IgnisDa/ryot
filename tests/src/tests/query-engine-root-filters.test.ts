@@ -25,6 +25,7 @@ const orW = (a: Expr, b: Expr): Expr => ({ type: "or", values: [a, b] });
 const containsW = (left: Expr, right: Expr): Expr => ({ type: "contains", left, right });
 const isNullW = (expr: Expr): Expr => ({ type: "isNull", expr });
 const isNotNullW = (expr: Expr): Expr => ({ type: "isNotNull", expr });
+const notW = (expr: Expr): Expr => ({ type: "not", expr });
 
 const namesOf = (result: QueryEngineRowsResponse) =>
 	result.data.items.map((item) => requireQueryEngineFieldValue(item, "name").value);
@@ -259,5 +260,53 @@ describe("Query engine root property filters", () => {
 		// Only book rows are matched: the movie row's schema does not match the property's schema,
 		// so its value reads as null and is excluded even though its rating is >= 5.
 		expect(namesOf(result)).toEqual(["HighBook"]);
+	});
+
+	it("compiles neq with null-as-false (null-valued rows are excluded)", async () => {
+		const { client, slug } = await setupItems();
+		const result = await executeQueryEngine(
+			client,
+			buildDoc(
+				slug,
+				compare("neq", propertyRef("item", slug, "difficulty"), literalExpr("advanced")),
+			),
+		);
+		// Bravo/Charlie are advanced (excluded); Echo's difficulty is null so `neq` is false (excluded).
+		expect(namesOf(result)).toEqual(["Alpha", "Delta"]);
+	});
+
+	it("compiles not(eq) as a double negation that keeps null-valued rows", async () => {
+		const { client, slug } = await setupItems();
+		const result = await executeQueryEngine(
+			client,
+			buildDoc(
+				slug,
+				notW(compare("eq", propertyRef("item", slug, "difficulty"), literalExpr("advanced"))),
+			),
+		);
+		// eq is false for Echo (null), and NOT false is true — so Echo is kept, unlike neq above.
+		expect(namesOf(result)).toEqual(["Alpha", "Delta", "Echo"]);
+	});
+
+	it('orders text under COLLATE "C" (uppercase before lowercase, byte order)', async () => {
+		const { client } = await createAuthenticatedClient();
+		const { schemaId, slug } = await createQueryEngineTrackerAndSchema(client, {
+			schemaName: "CollationItem",
+		});
+		await Promise.all(
+			["apple", "Banana", "Cherry"].map((name) =>
+				createQueryEngineEntity(client, { name, entitySchemaId: schemaId }),
+			),
+		);
+		const result = await executeQueryEngine(
+			client,
+			buildEntityRowsQueryDocument({
+				alias: "item",
+				limit: 20,
+				schemas: [slug],
+				fields: [{ key: "name", expr: systemRef("item", "name") }],
+			}),
+		);
+		expect(namesOf(result)).toEqual(["Banana", "Cherry", "apple"]);
 	});
 });

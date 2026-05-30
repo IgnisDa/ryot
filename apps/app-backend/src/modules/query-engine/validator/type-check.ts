@@ -208,7 +208,18 @@ const orderingComparable = (left: CoarseType, right: CoarseType) => {
 	return isComparableScalar(left) && isComparableScalar(right);
 };
 
+// Date literals compile to a `::timestamptz` cast, which is stricter than a lenient JS Date parse,
+// so reject anything that is not an ISO 8601 date/datetime string at the boundary.
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+const isIsoDateLiteral = (value: unknown): boolean =>
+	typeof value === "string" && ISO_DATE.test(value);
+
 const checkExpr = (expr: Expr, context: TypeCheckContext): string | null => {
+	if (expr.type === "literal") {
+		return expr.valueType === "date" && !isIsoDateLiteral(expr.value)
+			? `Date literal must be an ISO 8601 string: ${JSON.stringify(expr.value)}`
+			: null;
+	}
 	if (expr.type === "comparison") {
 		const childError = checkExpr(expr.left, context) ?? checkExpr(expr.right, context);
 		if (childError) {
