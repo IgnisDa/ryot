@@ -82,7 +82,7 @@
 		"@ryot/ryotql-recipes": "workspace:*",
 		"@types/papaparse": "5.5.2",
 		"cheerio": "1.2.0",
-		"effect": "4.0.0-beta.107",
+		"effect": "4.0.0-rc.111",
 		"fast-xml-parser": "5.8.0",
 		"fflate": "0.8.3",
 		"papaparse": "5.5.3",

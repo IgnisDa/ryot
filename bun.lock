@@ -40,7 +40,7 @@
         "@ryot/ts-utils": "workspace:*",
         "better-auth": "1.7.0-rc.6",
         "drizzle-orm": "1.0.0-rc.5-169397b",
-        "effect": "4.0.0-beta.107",
+        "effect": "4.0.0-rc.111",
         "ioredis": "5.11.1",
         "nodemailer": "8.0.10",
         "pg": "8.21.0",
@@ -80,7 +80,7 @@
         "@tanstack/react-hotkeys": "^0.10.0",
         "better-auth": "1.7.0-rc.6",
         "clsx": "^2.1.1",
-        "effect": "4.0.0-beta.107",
+        "effect": "4.0.0-rc.111",
         "expo": "~57.0.14",
         "expo-constants": "~57.0.12",
         "expo-crypto": "~57.0.1",
@@ -141,7 +141,7 @@
         "@ryot/plugin-kit": "workspace:*",
         "@ryot/ts-utils": "workspace:*",
         "@tailwindcss/vite": "4.1.18",
-        "effect": "4.0.0-beta.107",
+        "effect": "4.0.0-rc.111",
         "lucide-react": "0.563.0",
         "react": "19.2.4",
         "react-dom": "19.2.4",
@@ -272,7 +272,7 @@
         "clsx": "2.1.1",
         "dayjs": "1.11.21",
         "drizzle-orm": "0.45.2",
-        "effect": "4.0.0-beta.107",
+        "effect": "4.0.0-rc.111",
         "embla-carousel-autoplay": "8.6.0",
         "embla-carousel-react": "8.6.0",
         "humanize-duration-ts": "2.1.1",
@@ -317,7 +317,7 @@
       "name": "@ryot/config",
       "dependencies": {
         "@ryot/contract": "workspace:*",
-        "effect": "4.0.0-beta.107",
+        "effect": "4.0.0-rc.111",
       },
       "devDependencies": {
         "@effect/vitest": "4.0.0-beta.107",
@@ -330,7 +330,7 @@
       "name": "@ryot/contract",
       "dependencies": {
         "@ryot/ts-utils": "workspace:*",
-        "effect": "4.0.0-beta.107",
+        "effect": "4.0.0-rc.111",
       },
       "devDependencies": {
         "@ryot/testing": "workspace:*",
@@ -347,7 +347,7 @@
     "packages/plugin-kit": {
       "name": "@ryot/plugin-kit",
       "dependencies": {
-        "effect": "4.0.0-beta.107",
+        "effect": "4.0.0-rc.111",
       },
       "devDependencies": {
         "@ryot/testing": "workspace:*",
@@ -358,7 +358,7 @@
     "packages/ryotql": {
       "name": "@ryot/ryotql",
       "dependencies": {
-        "effect": "4.0.0-beta.107",
+        "effect": "4.0.0-rc.111",
       },
       "devDependencies": {
         "@ryot/contract": "workspace:*",
@@ -374,7 +374,7 @@
       "dependencies": {
         "@ryot/contract": "workspace:*",
         "@ryot/ryotql": "workspace:*",
-        "effect": "4.0.0-beta.107",
+        "effect": "4.0.0-rc.111",
       },
       "devDependencies": {
         "@ryot/testing": "workspace:*",
@@ -386,7 +386,7 @@
       "dependencies": {
         "@ryot/sandbox-sdk": "workspace:*",
         "@ryot/ts-utils": "workspace:*",
-        "effect": "4.0.0-beta.107",
+        "effect": "4.0.0-rc.111",
         "typescript": "7.0.2",
       },
       "devDependencies": {
@@ -405,7 +405,7 @@
         "@ryot/ryotql-recipes": "workspace:*",
         "@types/papaparse": "5.5.2",
         "cheerio": "1.2.0",
-        "effect": "4.0.0-beta.107",
+        "effect": "4.0.0-rc.111",
         "fast-xml-parser": "5.8.0",
         "fflate": "0.8.3",
         "papaparse": "5.5.3",
@@ -467,7 +467,7 @@
         "@ryot/ryotql-recipes": "workspace:*",
         "@ryot/sandbox-sdk": "workspace:*",
         "@ryot/ts-utils": "workspace:*",
-        "effect": "4.0.0-beta.107",
+        "effect": "4.0.0-rc.111",
       },
       "devDependencies": {
         "@effect/vitest": "4.0.0-beta.107",
@@ -486,7 +486,7 @@
         "@ryot/ryotql-recipes": "workspace:*",
         "@ryot/sandbox-sdk": "workspace:*",
         "@ryot/ts-utils": "workspace:*",
-        "effect": "4.0.0-beta.107",
+        "effect": "4.0.0-rc.111",
       },
       "devDependencies": {
         "@effect/platform-bun": "4.0.0-beta.107",
@@ -518,7 +518,7 @@
         "@testcontainers/postgresql": "11.14.0",
         "better-auth": "1.7.0-rc.6",
         "dotenv": "17.3.1",
-        "effect": "4.0.0-beta.107",
+        "effect": "4.0.0-rc.111",
         "get-port": "7.2.0",
         "oauth2-mock-server": "9.1.0",
         "rfc4648": "1.5.4",
@@ -2685,7 +2685,7 @@
 
     "ee-first": ["ee-first@1.1.1", "", {}, "sha512-WMwm9LhRUo+WUaRN+vRuETqG89IgZphVSNkdFgeb6sS/E4OrDIN7t48CAewSHXc6C8lefD8KKfr5vY61brQlow=="],
 
-    "effect": ["effect@4.0.0-beta.107", "", { "dependencies": { "@standard-schema/spec": "^1.1.0", "fast-check": "^4.9.0", "kubernetes-types": "^1.30.0", "msgpackr": "^2.0.4", "uuid": "^14.0.1" } }, "sha512-OoBAv8eF+yanc+C6xhgEUnWeXUSHA6ynnscYqpkAY9GSnzZWystsIjBowVqCkLpHGlnRtdIqYT3wHwpOY6JDnQ=="],
+    "effect": ["effect@4.0.0-rc.111", "", { "dependencies": { "@standard-schema/spec": "^1.1.0", "fast-check": "^4.9.0", "msgpackr": "^2.0.5" } }, "sha512-ASd5L58EIR0CUNueZNKKjSsyOCd+2alxOAIaTcHaqkJkPsaYSsw5Cg/cfANk5K4Jr2YsX756xvX11shzqsreWA=="],
 
     "ejs": ["ejs@3.1.10", "", { "dependencies": { "jake": "^10.8.5" }, "bin": { "ejs": "bin/cli.js" } }, "sha512-UeJmFfOrAQS8OJWPZ4qtgHyWExa088/MtK5UEyoJGFH67cDEXkZSviOiKRCZ4Xij0zxI3JECgYs3oKx+AizQBA=="],
 
@@ -3372,8 +3372,6 @@
     "kleur": ["kleur@3.0.3", "", {}, "sha512-eTIzlVOSUR+JxdDFepEYcBMtZ9Qqdef+rnzWdRZuMbOywu5tO2w2N7rqjoANZ5k9vywhL6Br1VRjUIgTQx4E8w=="],
 
     "klona": ["klona@2.0.6", "", {}, "sha512-dhG34DXATL5hSxJbIexCft8FChFXtmskoZYnoPWjXQuebWYCNkVeV3KkGegCK9CP1oswI/vQibS2GY7Em/sJJA=="],
-
-    "kubernetes-types": ["kubernetes-types@1.30.0", "", {}, "sha512-Dew1okvhM/SQcIa2rcgujNndZwU8VnSapDgdxlYoB84ZlpAD43U6KLAFqYo17ykSFGHNPrg0qry0bP+GJd9v7Q=="],
 
     "ky": ["ky@1.14.3", "", {}, "sha512-9zy9lkjac+TR1c2tG+mkNSVlyOpInnWdSMiue4F+kq8TwJSgv6o8jhLRg8Ho6SnZ9wOYUq/yozts9qQCfk7bIw=="],
 
@@ -5148,8 +5146,6 @@
     "dot-prop/type-fest": ["type-fest@5.5.0", "", { "dependencies": { "tagged-tag": "^1.0.0" } }, "sha512-PlBfpQwiUvGViBNX84Yxwjsdhd1TUlXr6zjX7eoirtCPIr08NAmxwa+fcYBTeRQxHo9YC9wwF3m9i700sHma8g=="],
 
     "dotenv-expand/dotenv": ["dotenv@16.6.1", "", {}, "sha512-uBq4egWHTcTt33a72vpSG0z3HnPuIl6NqYcTrKEg2azoEyl2hpW0zqlxysq2pK9HlDIHyHyakeYaYnSAwd8bow=="],
-
-    "effect/uuid": ["uuid@14.0.1", "", { "bin": { "uuid": "dist-node/bin/uuid" } }, "sha512-6ZxzVpzDXDa3bJWaHilVayA+BH/1zmxCJoVgvmqJnid/gPoKHxUrS/aC/T6LGQtNHT+XHG9fXPJB4d+IrU30Ew=="],
 
     "encoding-sniffer/whatwg-encoding": ["whatwg-encoding@3.1.1", "", { "dependencies": { "iconv-lite": "0.6.3" } }, "sha512-6qN4hJdMwfYBtE3YBTTHhoeuUrDBPZmbQaxWAqSALV/MeEnR5z1xd8UKud2RAkFoPkmB+hli1TZSnyi84xz1vQ=="],
 
