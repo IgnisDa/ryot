@@ -2,20 +2,20 @@ import { Link } from "expo-router";
 import { Pressable, Text, View } from "react-native";
 
 import { getEntityHref } from "@/modules/navigation/navigation-data";
+import { ImageTintOverlay, useImageTint } from "@/modules/ui/image-tint-view";
 
 import type { SavedViewCardItem } from "./display-data";
 import { SavedViewImageView } from "./saved-view-image";
-import { SavedViewTintOverlay, useSavedViewTint } from "./saved-view-tint-view";
+import { savedViewImageUrl } from "./saved-view-image-url";
 import { SavedViewValue } from "./saved-view-value";
 
 function SavedViewListRow(props: {
 	item: SavedViewCardItem;
 	managedUrls: ReadonlyMap<string, string>;
 }) {
-	const { gradientStops, onImageError } = useSavedViewTint({
-		image: props.item.image,
-		managedUrls: props.managedUrls,
-	});
+	const { gradientStops, onImageError } = useImageTint(
+		savedViewImageUrl(props.item.image, props.managedUrls),
+	);
 
 	return (
 		<Link asChild href={getEntityHref(props.item.entityId)}>
@@ -24,7 +24,7 @@ function SavedViewListRow(props: {
 				accessibilityLabel={`Open ${props.item.title}`}
 				className="relative min-h-28 flex-row items-center gap-3 overflow-hidden border-b border-border py-2 focus-visible:outline-2 focus-visible:outline-accent md:min-h-18 md:gap-3.5 px-1"
 			>
-				<SavedViewTintOverlay gradientStops={gradientStops} />
+				<ImageTintOverlay direction="horizontal" gradientStops={gradientStops} />
 				<SavedViewImageView
 					onError={onImageError}
 					image={props.item.image}

@@ -8,6 +8,7 @@ import { decodeShowSummary, decodeShowSummaryResult, showSummaryRow } from "./sh
 import {
 	mapShowSummary,
 	showBackdropAsset,
+	showCollectionsLabel,
 	showEpisodeCountLabel,
 	showEpisodeFact,
 	showLifecycleLabel,
@@ -21,6 +22,11 @@ import {
 	showSummaryError,
 	showSummaryUnavailable,
 } from "./show-summary-state";
+
+const label = (items: readonly { id: string; name: string }[], hasMore = false) =>
+	showCollectionsLabel(
+		decodeShowSummary({ collections: { pageInfo: { hasMore, limit: 6 }, items } }).collections,
+	);
 
 describe("show summary state", () => {
 	it("maps a pending query to the loading state", () => {
@@ -188,5 +194,17 @@ describe("show summary state", () => {
 		expect(showOwnershipLabel(null)).toBe("Not recorded");
 		expect(showOwnershipLabel(true)).toBe("Owned");
 		expect(showOwnershipLabel(false)).toBe("Not owned");
+	});
+
+	it("labels collection membership by count and truncation", () => {
+		expect(label([])).toBe("Not in any collection");
+		expect(label([{ id: "c1", name: "Completed" }])).toBe("1 collection");
+		expect(
+			label([
+				{ id: "c1", name: "Completed" },
+				{ id: "c2", name: "Messed Up Order" },
+			]),
+		).toBe("2 collections");
+		expect(label([{ id: "c1", name: "Completed" }], true)).toBe("1+ collections");
 	});
 });
