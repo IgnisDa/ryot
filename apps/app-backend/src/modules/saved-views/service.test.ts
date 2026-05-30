@@ -1,9 +1,10 @@
 import { expect, it } from "@effect/vitest";
 import { Effect, Exit, Layer } from "effect";
 
-import type { CurrentUserValue } from "../../lib/auth";
-import { CurrentDb, DbRunner, TransactionRunner } from "../../lib/db";
-import { BadRequest, NotFound } from "../../lib/errors";
+import type { CurrentUserValue } from "~/lib/auth";
+import { CurrentDb, DbRunner, TransactionRunner } from "~/lib/db";
+import { BadRequest, NotFound } from "~/lib/errors";
+
 import { SavedViewsRepository } from "./repository";
 import type { ListedSavedView } from "./schemas";
 import { SavedViewsService } from "./service";
