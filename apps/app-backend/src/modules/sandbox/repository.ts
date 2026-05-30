@@ -74,7 +74,7 @@ export class SandboxRepository extends Effect.Service<SandboxRepository>()("Sand
 
 				return row ?? null;
 			}),
-		getScriptForUser: (input: { readonly scriptId: string; readonly userId: string }) =>
+		getScriptForUser: (input: { readonly scriptId: string; readonly userId: string | null }) =>
 			Effect.gen(function* () {
 				const db = yield* CurrentDb;
 				const [row] = yield* dbEffect(() =>
@@ -89,10 +89,12 @@ export class SandboxRepository extends Effect.Service<SandboxRepository>()("Sand
 						.where(
 							and(
 								eq(schema.sandboxScript.id, input.scriptId),
-								or(
-									isNull(schema.sandboxScript.userId),
-									eq(schema.sandboxScript.userId, input.userId),
-								),
+								input.userId === null
+									? isNull(schema.sandboxScript.userId)
+									: or(
+											isNull(schema.sandboxScript.userId),
+											eq(schema.sandboxScript.userId, input.userId),
+										),
 							),
 						)
 						.limit(1),
