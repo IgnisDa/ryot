@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -182,19 +182,19 @@ If before-create validation fails, the job fails (which causes the waiting event
 
 ## Acceptance criteria
 
-- [ ] `EventWriteContext` is threaded through all event creation paths. `origin: "api"` is the default when not supplied.
-- [ ] `createEvent` runs active `before_create` triggers in ascending position order before property validation.
-- [ ] A `skip` result from a before trigger causes `createEvent` to return a skip result without inserting the event or running after triggers.
-- [ ] A `replace` result merges properties/occurredAt/sessionEntityId into the event input. The replaced input undergoes full schema validation before insert.
-- [ ] A before-trigger job failure (error, timeout, invalid return shape) causes `createEvent` to fail closed with an error result.
-- [ ] `createEventsBestEffortWithTriggers` returns a `skipped` array alongside `failures` and `createdEvents`.
-- [ ] Skipped events do not create `import_run_failure` records.
-- [ ] `claimCachedValue` host function is registered and available to sandbox scripts.
-- [ ] `claimCachedValue` returns `{ claimed: true }` on first call; `{ claimed: false, value }` on subsequent calls within TTL.
-- [ ] Before-trigger context includes `phase`, `origin`, `userId`, raw `properties`, and optional `integrationId`/`importRunId`.
-- [ ] Existing after-trigger behavior is unchanged: after triggers fire only for events that were successfully inserted.
-- [ ] All new behavior is covered by unit tests following the patterns in `events/service.test.ts` and `events/trigger-processing.test.ts`.
-- [ ] `claimCachedValue` has unit tests following patterns in `sandbox/host-functions/set-cached-value.test.ts`.
+- [x] `EventWriteContext` is threaded through all event creation paths. `origin: "api"` is the default when not supplied.
+- [x] `createEvent` runs active `before_create` triggers in ascending position order before property validation.
+- [x] A `skip` result from a before trigger causes `createEvent` to return a skip result without inserting the event or running after triggers.
+- [x] A `replace` result merges properties/occurredAt/sessionEntityId into the event input. The replaced input undergoes full schema validation before insert.
+- [x] A before-trigger job failure (error, timeout, invalid return shape) causes `createEvent` to fail closed with an error result.
+- [x] `createEventsBestEffortWithTriggers` returns a `skipped` array alongside `failures` and `createdEvents`.
+- [x] Skipped events do not create `import_run_failure` records.
+- [x] `claimCachedValue` host function is registered and available to sandbox scripts.
+- [x] `claimCachedValue` returns `{ claimed: true }` on first call; `{ claimed: false, value }` on subsequent calls within TTL.
+- [x] Before-trigger context includes `phase`, `origin`, `userId`, raw `properties`, and optional `integrationId`/`importRunId`.
+- [x] Existing after-trigger behavior is unchanged: after triggers fire only for events that were successfully inserted.
+- [x] All new behavior is covered by unit tests following the patterns in `events/service.test.ts` and `events/trigger-processing.test.ts`.
+- [x] `claimCachedValue` has unit tests following patterns in `sandbox/host-functions/set-cached-value.test.ts`.
 
 ## User stories addressed
 

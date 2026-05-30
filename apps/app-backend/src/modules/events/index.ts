@@ -5,7 +5,10 @@ export type {
 	CreatedEventData,
 	CreateEventsBestEffortData,
 	CreateEventsBestEffortFailure,
+	CreateEventsBestEffortSkipped,
+	EventCreateSkipResult,
 	EventServiceResult,
+	EventWriteContext,
 } from "./service";
 export {
 	createEventsBestEffortWithTriggers,
