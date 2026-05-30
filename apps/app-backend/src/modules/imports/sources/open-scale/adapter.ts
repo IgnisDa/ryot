@@ -1,6 +1,6 @@
 import { dayjs } from "@ryot/ts-utils/dayjs";
 
-import { parseCsvText } from "../file-helpers";
+import { parseCsvText } from "../../file-helpers";
 
 const DATE_COLUMN_NAMES = ["date"];
 const TIME_COLUMN_NAMES = ["time"];
@@ -169,9 +169,9 @@ export const adaptOpenScaleCsv = (csvText: string): OpenScaleAdapterResult => {
 		}
 
 		items.push({
-			itemIndex: rowIdx,
 			sourceLabel,
 			sourceIdentifier,
+			itemIndex: rowIdx,
 			properties: { recordedAt, comment, statistics },
 		});
 	}
