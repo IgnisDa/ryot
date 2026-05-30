@@ -215,7 +215,7 @@ Before implementation begins, the existing `kernel/client` application moves unc
 
 Existing functionality is ported into the architecture in this document rather than preserved through adapters. There is no compatibility layer between the Expo client and the new kernel, no shared rendering path, and no migration requirement for client state or production user data.
 
-The temporary reference application and the rest of `crates/` are deleted before this branch merges to `main`.
+The reference applications under `crates/` remain read-only and outside the client plugin tracer scope.
 
 ### Plugin applications
 
@@ -707,7 +707,7 @@ The normal path is `ready -> active -> closing -> disposed`. A fatal failure ent
 
 `bootstrapClientPlugin` owns embedded metadata validation, the one-time parent-window bootstrap listener, the artifact root, and the top-level React root/unmount coordinator. It accepts exactly one valid init with exactly one transferred port, validates the artifact hash and all exact markers, including bridge protocol version 1, before accepting the session, requires the artifact root, creates the runtime, and supplies its client to `RyotProvider`. It removes the bootstrap listener after acceptance. The runtime owns `port.start()`, the session port listeners, the single dispatcher, lifecycle state, location state, pending calls, the `RyotClient`, and idempotent disposal. Runtime termination tells bootstrap to unmount the root. `PluginHost` owns the iframe element and the kernel-side session handle; it does not create capability-specific bridge objects.
 
-The single dispatcher currently routes location, query, operation, and terminal `lifecycle-close` messages. Task 06 adds theme snapshots and updates to this dispatcher and stores them in the same runtime. Query and operation calls use runtime-owned pending registries, even though they may remain separate maps for correlation. Together, operation and RyotQL pending requests share an aggregate maximum of 64 per session, enforced by both the SDK and kernel. Exceeding that limit is a protocol failure using the existing wire `failed` and public `protocol` teardown; requests are not queued or retried, and no new error reason is introduced. No other module may attach a session port listener or own a pending-call registry. The temporary parent-window bootstrap listener is the only listener outside the session runtime and is removed once the runtime is accepted.
+The single dispatcher routes location, theme, query, operation, and terminal `lifecycle-close` messages and stores location and theme state in the same runtime. Query and operation calls use runtime-owned pending registries, even though they may remain separate maps for correlation. Together, operation and RyotQL pending requests share an aggregate maximum of 64 per session, enforced by both the SDK and kernel. Exceeding that limit is a protocol failure using the existing wire `failed` and public `protocol` teardown; requests are not queued or retried, and no new error reason is introduced. No other module may attach a session port listener or own a pending-call registry. The temporary parent-window bootstrap listener is the only listener outside the session runtime and is removed once the runtime is accepted.
 
 Every pending query or operation entry is removed before its promise is settled. A result, runtime failure, or disposal can settle an entry only once. Normal disposal rejects every pending call with `disposed`; malformed session data or a wire `failed` close uses `protocol`; communication, posting, or network failure uses `transport`. The runtime clears the registries and ignores duplicate or late results. Closing the iframe is cleanup after this protocol-level rejection; plugin promises do not merely die with the iframe.
 
@@ -1754,7 +1754,7 @@ The third tracer ports one real Media entity surface:
 
 This proves that built-in plugins use the third-party path and that the kernel remains domain-agnostic. Further Media, Fitness, UI SDK, storage, and native capability work follows concrete requirements discovered while porting the remaining application.
 
-The temporary `crates/` tree is deleted after required behavior has been ported and before the branch merges to `main`.
+The `crates/` reference tree remains outside this work; any future removal requires a separate plan after its required behavior has been ported.
 
 ---
 

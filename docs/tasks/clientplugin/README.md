@@ -2,9 +2,9 @@
 
 ## Tasks
 
-**Overall Progress:** 9 of 10 tasks completed
+**Overall Progress:** 10 of 10 tasks completed
 
-**Current Task:** [Task 09](./09-clean-up-web-tracer.md) (todo)
+**Current Task:** [Task 09](./09-clean-up-web-tracer.md) (done)
 
 ### Task List
 
@@ -19,7 +19,7 @@
 | 06          | [Synchronize Kernel Theme](./06-synchronize-kernel-theme.md)                                  | done   |
 | 07          | [Recover From Plugin Crashes](./07-recover-from-plugin-crashes.md)                            | done   |
 | 08          | [Reload Updated Plugin Artifacts](./08-reload-updated-plugin-artifacts.md)                    | done   |
-| 09          | [Clean Up the Web Tracer](./09-clean-up-web-tracer.md)                                        | todo   |
+| 09          | [Clean Up the Web Tracer](./09-clean-up-web-tracer.md)                                        | done   |
 
 Task 05-followup is complete after Task 05 and before Task 06. It is a follow-up entry, not a renumbering of Tasks 06-09; Task 06 remains the next normal task.
 
