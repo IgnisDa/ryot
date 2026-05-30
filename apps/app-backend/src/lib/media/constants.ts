@@ -7,7 +7,14 @@ const builtinMediaEntitySchemaSlugValues = [
 
 export type BuiltinMediaEntitySchemaSlug = (typeof builtinMediaEntitySchemaSlugValues)[number];
 
-export const builtinMediaEventSchemaSlugs = ["review", "backlog", "progress", "complete"] as const;
+export const builtinMediaEventSchemaSlugs = [
+	"review",
+	"backlog",
+	"progress",
+	"complete",
+	"dropped",
+	"on_hold",
+] as const;
 
 export type BuiltinMediaEventSchemaSlug = (typeof builtinMediaEventSchemaSlugs)[number];
 
