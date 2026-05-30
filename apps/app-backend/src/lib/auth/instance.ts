@@ -10,6 +10,8 @@ import { db, schema } from "~/lib/db";
 import { redis } from "~/lib/redis";
 import { bootstrapNewUser, defaultUserPreferences } from "~/modules/builtins";
 
+import { clearPendingReset, getPendingCorrelationId } from "./password-reset";
+
 export const OIDC_PROVIDER_ID = "oidc";
 
 const { oidc } = config.server;
@@ -41,7 +43,24 @@ export const auth = betterAuth({
 	emailAndPassword: {
 		enabled: true,
 		autoSignIn: false,
+		revokeSessionsOnPasswordReset: true,
 		disableSignUp: !config.users.allowRegistration || config.users.disableLocalAuth,
+		sendResetPassword: async ({ user, token }) => {
+			try {
+				const correlationId = await getPendingCorrelationId(user.email);
+				if (!correlationId) {
+					return;
+				}
+				const resetUrl = `${config.frontendUrl}/reset-password?token=${token}`;
+				await redis.publish(
+					`god-mode:reset:${correlationId}`,
+					JSON.stringify({ resetUrl, email: user.email }),
+				);
+				await clearPendingReset(user.email, correlationId);
+			} catch (error) {
+				console.error("[auth] sendResetPassword publish failed", user.email, error);
+			}
+		},
 	},
 	databaseHooks: {
 		user: {
