@@ -1,6 +1,7 @@
 import { unknownToMessage } from "@ryot/contract/errors";
 import { CreateEventItem, type CreateEventsResponse } from "@ryot/contract/modules/events/schemas";
 import { QueryDocument } from "@ryot/contract/modules/query-engine/language";
+import { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
 import {
 	EntityId,
 	EntitySchemaSlug,
@@ -42,9 +43,11 @@ import {
 	changeUserRelationships,
 	reconcileGlobalRelationships,
 } from "#modules/relationships/service";
+import { RyotQLService } from "#modules/ryotql/service";
 
 type SandboxHostFunctionContext =
 	| DbRunner
+	| RyotQLService
 	| EventsService
 	| EntitiesService
 	| TransactionRunner
@@ -58,6 +61,7 @@ type SandboxHostFunctionContext =
 const CreateEventsPayload = Schema.Array(CreateEventItem);
 
 const decodeQueryDocument = Schema.decodeUnknownEffect(Schema.toType(QueryDocument));
+const decodeRyotQLDocument = Schema.decodeUnknownEffect(Schema.toType(RyotQLDocument));
 const decodeCreateEventsPayload = Schema.decodeUnknownEffect(CreateEventsPayload);
 
 const hashPayload = (payload: unknown) => sha256Base64Url(stableStringify(payload));
@@ -140,6 +144,7 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 	const runWithDb = yield* DbRunner;
 	const events = yield* EventsService;
 	const entities = yield* EntitiesService;
+	const ryotqlService = yield* RyotQLService;
 	const definitions = yield* DefinitionRegistry;
 	const runInTransaction = yield* TransactionRunner;
 	const pluginRuntime = yield* PluginRuntimeResolver;
@@ -364,6 +369,40 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 					return decodeQueryDocument(query).pipe(
 						Effect.flatMap((doc) =>
 							queryEngineService.executeForUser(UserId.make(userId), null, doc),
+						),
+					);
+				}),
+				sandboxHostEffect,
+			),
+		executeRyotql: (rawInput, query) =>
+			requireSandboxCapabilityInput(rawInput, "executeRyotql").pipe(
+				Effect.flatMap((input) => {
+					const { authority } = input;
+					if (authority.type === "system") {
+						return Effect.gen(function* () {
+							const caller = yield* runWithDb(
+								pluginRuntime.resolveSystemQueryScript(SandboxScriptId.make(input.scriptId)),
+							);
+							if (!caller) {
+								return yield* Effect.fail(
+									"executeRyotql system access requires a pinned plugin script",
+								);
+							}
+							const document = yield* decodeRyotQLDocument(query);
+							return yield* ryotqlService.executeForPlugin(
+								{
+									pluginSlug: caller.pluginSlug,
+									eventSchemas: caller.eventSchemas,
+									entitySchemaSlugs: caller.entitySchemaSlugs,
+									relationshipSchemaSlugs: caller.relationshipSchemaSlugs,
+								},
+								document,
+							);
+						});
+					}
+					return decodeRyotQLDocument(query).pipe(
+						Effect.flatMap((document) =>
+							ryotqlService.executeForUser(authority.userId, null, document),
 						),
 					);
 				}),
