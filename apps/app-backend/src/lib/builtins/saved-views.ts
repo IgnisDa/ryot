@@ -1,10 +1,10 @@
 import type { DisplayConfiguration, SavedViewQueryDefinition } from "~/lib/query-language";
+import { slugify } from "~/lib/slug";
 
 import {
 	buildDefaultQueryDefinition,
 	buildDisplayConfig,
 	inLibraryRelationshipJoin,
-	toSlug,
 } from "./view-helpers";
 
 export type BuiltinSavedView = {
@@ -134,7 +134,7 @@ export const builtinSavedViews = (): BuiltinSavedView[] => [
 		const name = mediaViewName[slug];
 		return {
 			name,
-			slug: toSlug(name),
+			slug: slugify(name),
 			trackerSlug: "media",
 			entitySchemaSlug: slug,
 			relationshipJoins: [inLibraryRelationshipJoin],
