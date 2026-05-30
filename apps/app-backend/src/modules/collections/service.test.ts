@@ -529,9 +529,9 @@ describe("addToCollection", () => {
 					},
 				},
 				createAddToCollectionDeps({
-					addEntityToCollection: (input) =>
-						Promise.resolve(
-							createAddToCollectionData({
+					writeCollectionMembership: (input) =>
+						Promise.resolve({
+							data: createAddToCollectionData({
 								memberOf: {
 									id: "rel_1",
 									properties: input.properties,
@@ -541,7 +541,7 @@ describe("addToCollection", () => {
 									relationshipSchemaId: "rel_schema_member_of",
 								},
 							}),
-						),
+						}),
 				}),
 			),
 		);
@@ -687,10 +687,10 @@ describe("addToCollection", () => {
 								},
 							}),
 						),
-					addEntityToCollection: (input) => {
+					writeCollectionMembership: (input) => {
 						receivedProperties = input.properties;
-						return Promise.resolve(
-							createAddToCollectionData({
+						return Promise.resolve({
+							data: createAddToCollectionData({
 								memberOf: {
 									id: "rel_1",
 									properties: input.properties,
@@ -700,7 +700,7 @@ describe("addToCollection", () => {
 									relationshipSchemaId: "rel_schema_member_of",
 								},
 							}),
-						);
+						});
 					},
 				}),
 			),
@@ -928,9 +928,9 @@ describe("addToCollection", () => {
 					},
 				},
 				createAddToCollectionDeps({
-					addEntityToCollection: (input) => {
+					writeCollectionMembership: (input) => {
 						receivedProperties = input.properties;
-						return Promise.resolve(createAddToCollectionData());
+						return Promise.resolve({ data: createAddToCollectionData() });
 					},
 				}),
 			),
@@ -977,10 +977,10 @@ describe("addToCollection", () => {
 								},
 							}),
 						),
-					addEntityToCollection: (input) => {
+					writeCollectionMembership: (input) => {
 						receivedProperties = input.properties;
-						return Promise.resolve(
-							createAddToCollectionData({
+						return Promise.resolve({
+							data: createAddToCollectionData({
 								memberOf: {
 									id: "rel_1",
 									properties: input.properties,
@@ -990,7 +990,7 @@ describe("addToCollection", () => {
 									relationshipSchemaId: "rel_schema_member_of",
 								},
 							}),
-						);
+						});
 					},
 				}),
 			),
@@ -1094,9 +1094,9 @@ describe("addToCollection", () => {
 			await addToCollection(
 				{ userId: "user-1", body: { collectionId: "collection-1", entityId: "entity-1" } },
 				createAddToCollectionDeps({
-					addEntityToCollection: (input) => {
+					writeCollectionMembership: (input) => {
 						receivedProperties = input.properties;
-						return Promise.resolve(createAddToCollectionData());
+						return Promise.resolve({ data: createAddToCollectionData() });
 					},
 				}),
 			),
@@ -1117,9 +1117,9 @@ describe("addToCollection", () => {
 					},
 				},
 				createAddToCollectionDeps({
-					addEntityToCollection: (input) =>
-						Promise.resolve(
-							createAddToCollectionData({
+					writeCollectionMembership: (input) =>
+						Promise.resolve({
+							data: createAddToCollectionData({
 								memberOf: {
 									id: "existing-rel-1",
 									properties: input.properties,
@@ -1129,7 +1129,7 @@ describe("addToCollection", () => {
 									relationshipSchemaId: "rel_schema_member_of",
 								},
 							}),
-						),
+						}),
 				}),
 			),
 		);
@@ -1140,15 +1140,15 @@ describe("addToCollection", () => {
 	it("prevents duplicate relationships by upserting", async () => {
 		let callCount = 0;
 
-		const addEntityToCollection = (input: {
+		const writeCollectionMembership = (input: {
 			userId: string;
 			entityId: string;
 			collectionId: string;
 			properties: Record<string, unknown>;
 		}) => {
 			callCount++;
-			return Promise.resolve(
-				createAddToCollectionData({
+			return Promise.resolve({
+				data: createAddToCollectionData({
 					memberOf: {
 						id: `rel_${callCount}`,
 						properties: input.properties,
@@ -1158,12 +1158,12 @@ describe("addToCollection", () => {
 						relationshipSchemaId: "rel_schema_member_of",
 					},
 				}),
-			);
+			});
 		};
 
 		await addToCollection(
 			{ userId: "user-1", body: { collectionId: "collection-1", entityId: "entity-1" } },
-			createAddToCollectionDeps({ addEntityToCollection }),
+			createAddToCollectionDeps({ writeCollectionMembership }),
 		);
 
 		expectDataResult(
@@ -1176,7 +1176,7 @@ describe("addToCollection", () => {
 						properties: { updated: true },
 					},
 				},
-				createAddToCollectionDeps({ addEntityToCollection }),
+				createAddToCollectionDeps({ writeCollectionMembership }),
 			),
 		);
 
@@ -1188,7 +1188,7 @@ describe("addToCollection", () => {
 			addToCollection(
 				{ userId: "user-1", body: { collectionId: "collection-1", entityId: "entity-1" } },
 				createAddToCollectionDeps({
-					addEntityToCollection: () => {
+					writeCollectionMembership: () => {
 						throw new Error("Database connection lost");
 					},
 				}),
@@ -1260,7 +1260,7 @@ describe("removeFromCollection", () => {
 			await removeFromCollection(
 				{ userId: "user-1", body: { collectionId: "collection-1", entityId: "entity-1" } },
 				createRemoveFromCollectionDeps({
-					removeEntityFromCollection: () => Promise.resolve(undefined),
+					deleteCollectionMembership: () => Promise.resolve({ data: undefined }),
 				}),
 			),
 		);
@@ -1274,7 +1274,7 @@ describe("removeFromCollection", () => {
 			removeFromCollection(
 				{ userId: "user-1", body: { collectionId: "collection-1", entityId: "entity-1" } },
 				createRemoveFromCollectionDeps({
-					removeEntityFromCollection: () => {
+					deleteCollectionMembership: () => {
 						throw new Error("Database connection lost");
 					},
 				}),
