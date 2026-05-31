@@ -5,22 +5,8 @@
 		{
 			"idx": 0,
 			"version": "7",
-			"when": 1779249314038,
-			"tag": "0000_lucky_switch",
-			"breakpoints": true
-		},
-		{
-			"idx": 1,
-			"version": "7",
-			"when": 1779854144947,
-			"tag": "0001_swift_kitty_pryde",
-			"breakpoints": true
-		},
-		{
-			"idx": 2,
-			"version": "7",
-			"when": 1780200186735,
-			"tag": "0002_quick_veda",
+			"when": 1780389621363,
+			"tag": "0000_mean_micromax",
 			"breakpoints": true
 		}
 	]

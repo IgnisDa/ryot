@@ -1,5 +1,5 @@
 {
-	"id": "dcbf6e2e-6338-45df-8bed-2110e79a9d17",
+	"id": "d6a7fcb9-a27c-41ea-9a71-53d7031f0cc7",
 	"prevId": "00000000-0000-0000-0000-000000000000",
 	"version": "7",
 	"dialect": "postgresql",
@@ -341,18 +341,18 @@
 					"primaryKey": false,
 					"notNull": false
 				},
+				"populated_at": {
+					"name": "populated_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				},
 				"created_at": {
 					"name": "created_at",
 					"type": "timestamp with time zone",
 					"primaryKey": false,
 					"notNull": true,
 					"default": "now()"
-				},
-				"populated_at": {
-					"name": "populated_at",
-					"type": "timestamp with time zone",
-					"primaryKey": false,
-					"notNull": false
 				},
 				"user_id": {
 					"name": "user_id",
@@ -774,12 +774,11 @@
 			"name": "event",
 			"schema": "",
 			"columns": {
-				"properties": {
-					"name": "properties",
-					"type": "jsonb",
+				"occurred_at": {
+					"name": "occurred_at",
+					"type": "timestamp with time zone",
 					"primaryKey": false,
-					"notNull": true,
-					"default": "'{}'::jsonb"
+					"notNull": true
 				},
 				"created_at": {
 					"name": "created_at",
@@ -787,6 +786,13 @@
 					"primaryKey": false,
 					"notNull": true,
 					"default": "now()"
+				},
+				"properties": {
+					"name": "properties",
+					"type": "jsonb",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "'{}'::jsonb"
 				},
 				"user_id": {
 					"name": "user_id",
@@ -1130,6 +1136,12 @@
 					"primaryKey": false,
 					"notNull": true,
 					"default": false
+				},
+				"metadata": {
+					"name": "metadata",
+					"type": "jsonb",
+					"primaryKey": false,
+					"notNull": true
 				},
 				"created_at": {
 					"name": "created_at",
@@ -2296,6 +2308,12 @@
 					"type": "text",
 					"primaryKey": false,
 					"notNull": true
+				},
+				"banned_at": {
+					"name": "banned_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
 				},
 				"preferences": {
 					"name": "preferences",

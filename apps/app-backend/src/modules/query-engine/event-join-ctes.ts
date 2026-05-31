@@ -30,12 +30,13 @@ export const buildLatestEventJoinCte = (input: {
 					'id', ${event.id},
 					'createdAt', ${event.createdAt},
 					'updatedAt', ${event.updatedAt},
+					'occurredAt', ${event.occurredAt},
 					'properties', ${event.properties}
 				) as latest_event
 			from ${event}
 			where ${event.userId} = ${input.userId}
 				and ${event.eventSchemaId} in (${eventSchemaIdList})
-			order by ${event.entityId}, ${event.createdAt} desc, ${event.id} desc
+			order by ${event.entityId}, ${event.occurredAt} desc, ${event.createdAt} desc, ${event.id} desc
 		)
 	`;
 };
