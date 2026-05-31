@@ -73,6 +73,9 @@ function createTheme() {
 }
 
 const installation = {
+	sortOrder: 0,
+	icon: "puzzle",
+	name: "Fixture",
 	slug: "fixture",
 	health: "ready",
 	isDisabled: false,
@@ -502,6 +505,19 @@ describe("plugin host", () => {
 
 		expect(screen.queryByTitle("fixture plugin")).toBeNull();
 		expect(screen.getByRole("alert").textContent).toBe("This plugin has no web experience yet.");
+	});
+
+	it("blocks an incompatible installation without rendering a frame", () => {
+		renderHost({
+			health: "incompatible",
+			clientApiVersion: null,
+			clientArtifactHash: null,
+		});
+
+		expect(screen.getByRole("alert").textContent).toBe(
+			"This plugin is incompatible with this version of Ryot.",
+		);
+		expect(screen.queryByTitle("fixture plugin")).toBeNull();
 	});
 
 	it("keeps an installing plugin in the loading notice", () => {

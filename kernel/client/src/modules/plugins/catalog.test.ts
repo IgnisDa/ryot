@@ -26,6 +26,9 @@ const theme: ThemeStore = {
 	getSnapshot: () => themeSnapshot,
 };
 const entry = {
+	sortOrder: 0,
+	icon: "puzzle",
+	name: "Fixture",
 	slug: "fixture",
 	health: "ready",
 	isDisabled: false,
