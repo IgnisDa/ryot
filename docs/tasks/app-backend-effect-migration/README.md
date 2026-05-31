@@ -178,9 +178,9 @@ The module migration proceeds from infrastructure and leaf modules toward highly
 
 ## Tasks
 
-**Overall Progress:** 20 of 32 tasks completed
+**Overall Progress:** 21 of 32 tasks completed
 
-**Current Task:** [Task 21](./21-event-trigger-workflows.md) (todo)
+**Current Task:** [Task 22](./22-saved-view-query-language-exports.md) (todo)
 
 ### Task List
 
@@ -206,7 +206,7 @@ The module migration proceeds from infrastructure and leaf modules toward highly
 | 18  | [Uploads Temporary And Presigned](./18-uploads-temporary-and-presigned.md)                           | AFK  | done   |
 | 19  | [Sandbox Runtime And Direct Runs](./19-sandbox-runtime-and-direct-runs.md)                           | AFK  | done   |
 | 20  | [Entity Provider Search And Import](./20-entity-provider-search-and-import.md)                       | AFK  | done   |
-| 21  | [Event Trigger Workflows](./21-event-trigger-workflows.md)                                           | AFK  | todo   |
+| 21  | [Event Trigger Workflows](./21-event-trigger-workflows.md)                                           | AFK  | done   |
 | 22  | [Saved View Query Language Exports](./22-saved-view-query-language-exports.md)                       | AFK  | todo   |
 | 23  | [Saved Views CRUD](./23-saved-views-crud.md)                                                         | AFK  | todo   |
 | 24  | [Query Engine Execute](./24-query-engine-execute.md)                                                 | AFK  | todo   |
