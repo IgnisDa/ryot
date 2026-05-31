@@ -1,9 +1,9 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, or } from "drizzle-orm";
 import { Effect } from "effect";
 
 import { CurrentDb, dbEffect, schema } from "../../lib/db";
 import { DbError } from "../../lib/errors";
-import type { ListedEvent } from "./schemas";
+import type { EventSchemaTriggerMetadata, ListedEvent } from "./schemas";
 
 type EventRow = Pick<
 	typeof schema.event.$inferSelect,
@@ -18,6 +18,20 @@ type EventRow = Pick<
 > & {
 	readonly eventSchemaName: (typeof schema.eventSchema.$inferSelect)["name"];
 	readonly eventSchemaSlug: (typeof schema.eventSchema.$inferSelect)["slug"];
+};
+
+export type BeforeCreateTriggerRow = {
+	readonly id: string;
+	readonly position: number;
+	readonly eventSchemaId: string;
+	readonly sandboxScriptId: string;
+};
+
+export type AfterCreateTriggerRow = {
+	readonly id: string;
+	readonly eventSchemaId: string;
+	readonly sandboxScriptId: string;
+	readonly metadata: EventSchemaTriggerMetadata;
 };
 
 type EventsRepositoryShape = {
@@ -37,6 +51,14 @@ type EventsRepositoryShape = {
 		sessionEntityId?: string;
 		properties: Record<string, unknown>;
 	}) => Effect.Effect<ListedEvent, DbError, CurrentDb>;
+	readonly getActiveBeforeCreateTriggers: (input: {
+		userId: string;
+		eventSchemaIds: string[];
+	}) => Effect.Effect<BeforeCreateTriggerRow[], DbError, CurrentDb>;
+	readonly getActiveAfterCreateTriggers: (input: {
+		userId: string;
+		eventSchemaIds: string[];
+	}) => Effect.Effect<AfterCreateTriggerRow[], DbError, CurrentDb>;
 };
 
 const listedEventSelection = {
@@ -133,6 +155,67 @@ export class EventsRepository extends Effect.Service<EventsRepository>()("Events
 					eventSchemaName: input.eventSchemaName,
 					eventSchemaSlug: input.eventSchemaSlug,
 				});
+			}),
+		getActiveBeforeCreateTriggers: (input) =>
+			Effect.gen(function* () {
+				if (input.eventSchemaIds.length === 0) {
+					return [];
+				}
+
+				const db = yield* CurrentDb;
+				return yield* dbEffect(() =>
+					db
+						.select({
+							id: schema.eventSchemaTrigger.id,
+							position: schema.eventSchemaTrigger.position,
+							eventSchemaId: schema.eventSchemaTrigger.eventSchemaId,
+							sandboxScriptId: schema.eventSchemaTrigger.sandboxScriptId,
+						})
+						.from(schema.eventSchemaTrigger)
+						.where(
+							and(
+								inArray(schema.eventSchemaTrigger.eventSchemaId, input.eventSchemaIds),
+								eq(schema.eventSchemaTrigger.isActive, true),
+								eq(schema.eventSchemaTrigger.phase, "before_create"),
+								or(
+									isNull(schema.eventSchemaTrigger.userId),
+									eq(schema.eventSchemaTrigger.userId, input.userId),
+								),
+							),
+						)
+						.orderBy(schema.eventSchemaTrigger.position),
+				);
+			}),
+		getActiveAfterCreateTriggers: (input) =>
+			Effect.gen(function* () {
+				if (input.eventSchemaIds.length === 0) {
+					return [];
+				}
+
+				const db = yield* CurrentDb;
+				const rows = yield* dbEffect(() =>
+					db
+						.select({
+							id: schema.eventSchemaTrigger.id,
+							metadata: schema.eventSchemaTrigger.metadata,
+							eventSchemaId: schema.eventSchemaTrigger.eventSchemaId,
+							sandboxScriptId: schema.eventSchemaTrigger.sandboxScriptId,
+						})
+						.from(schema.eventSchemaTrigger)
+						.where(
+							and(
+								inArray(schema.eventSchemaTrigger.eventSchemaId, input.eventSchemaIds),
+								eq(schema.eventSchemaTrigger.isActive, true),
+								eq(schema.eventSchemaTrigger.phase, "after_create"),
+								or(
+									isNull(schema.eventSchemaTrigger.userId),
+									eq(schema.eventSchemaTrigger.userId, input.userId),
+								),
+							),
+						),
+				);
+
+				return rows as AfterCreateTriggerRow[];
 			}),
 	}),
 }) {}

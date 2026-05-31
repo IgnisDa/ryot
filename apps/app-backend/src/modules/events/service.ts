@@ -1,35 +1,21 @@
-import { DateTime, Effect, Option } from "effect";
+import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
+import { Effect } from "effect";
 
 import type { CurrentUserValue } from "../../lib/auth";
 import { DbRunner } from "../../lib/db";
 import type { BadRequest, DbError, NotFound } from "../../lib/errors";
 import { badRequest, notFound } from "../../lib/errors";
-import { parseAppSchemaProperties } from "../../lib/property-schema-runtime";
-import { requireText } from "../../lib/validation";
+import { SandboxService } from "../../lib/sandbox";
 import { EntitiesRepository } from "../entities/repository";
 import { EventSchemasRepository } from "../event-schemas/repository";
+import { SandboxRepository } from "../sandbox/repository";
+import { createEventsForUser } from "./create-core";
 import { EventsRepository } from "./repository";
 import type { CreateEventItem, CreateEventsResponse, ListedEvent } from "./schemas";
 
 const entityNotFoundError = "Entity not found";
-const eventSchemaNotFoundError = "Event schema not found";
 const sessionEntityNotFoundError = "Session entity not found";
-const invalidOccurredAtError = "occurredAt must be a valid date";
 const listScopeRequiredError = "Either entityId or sessionEntityId is required";
-const eventSchemaMismatchError = "Event schema does not belong to the entity schema";
-
-const resolveOccurredAt = (occurredAt?: string): Effect.Effect<Date, BadRequest> => {
-	if (!occurredAt) {
-		return DateTime.nowAsDate;
-	}
-
-	const parsed = DateTime.make(occurredAt);
-	if (Option.isNone(parsed)) {
-		return badRequest(invalidOccurredAtError);
-	}
-
-	return Effect.succeed(DateTime.toDate(parsed.value));
-};
 
 type EventsServiceShape = {
 	readonly list: (
@@ -45,7 +31,10 @@ type EventsServiceShape = {
 export class EventsService extends Effect.Service<EventsService>()("EventsService", {
 	effect: Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
+		const engine = yield* WorkflowEngine;
+		const sandbox = yield* SandboxService;
 		const repository = yield* EventsRepository;
+		const sandboxRepository = yield* SandboxRepository;
 		const entitiesRepository = yield* EntitiesRepository;
 		const eventSchemasRepository = yield* EventSchemasRepository;
 
@@ -83,67 +72,18 @@ export class EventsService extends Effect.Service<EventsService>()("EventsServic
 					return yield* runWithDb(repository.listForUser({ userId: user.id, ...query }));
 				}),
 			create: (user, payload) =>
-				Effect.gen(function* () {
-					const createdEvents = yield* Effect.forEach(payload, (item) =>
-						Effect.gen(function* () {
-							const entityId = yield* requireText(item.entityId, "Entity id is required");
-							const eventSchemaId = yield* requireText(
-								item.eventSchemaId,
-								"Event schema id is required",
-							);
-
-							const entityScope = yield* requireReadableEntity(
-								user.id,
-								entityId,
-								entityNotFoundError,
-							);
-
-							const eventSchemaScope = yield* runWithDb(
-								eventSchemasRepository.getScopeForUser({ userId: user.id, eventSchemaId }),
-							);
-							if (!eventSchemaScope) {
-								return yield* notFound(eventSchemaNotFoundError);
-							}
-
-							if (eventSchemaScope.entitySchemaId !== entityScope.entitySchemaId) {
-								return yield* badRequest(eventSchemaMismatchError);
-							}
-
-							let sessionEntityId: string | undefined;
-							if (item.sessionEntityId) {
-								const sessionScope = yield* requireReadableEntity(
-									user.id,
-									item.sessionEntityId,
-									sessionEntityNotFoundError,
-								);
-								sessionEntityId = sessionScope.entityId;
-							}
-
-							const properties = yield* parseAppSchemaProperties({
-								kind: "Event",
-								properties: item.properties,
-								propertiesSchema: eventSchemaScope.propertiesSchema,
-							}).pipe(Effect.mapError((error) => badRequest(error.message)));
-
-							const occurredAt = yield* resolveOccurredAt(item.occurredAt);
-
-							return yield* runWithDb(
-								repository.createEvent({
-									properties,
-									occurredAt,
-									sessionEntityId,
-									userId: user.id,
-									entityId: entityScope.entityId,
-									eventSchemaId: eventSchemaScope.id,
-									eventSchemaName: eventSchemaScope.name,
-									eventSchemaSlug: eventSchemaScope.slug,
-								}),
-							);
-						}),
-					);
-
-					return { count: createdEvents.length };
-				}),
+				createEventsForUser(
+					{
+						runWithDb,
+						sandboxRepository,
+						entitiesRepository,
+						eventSchemasRepository,
+						workflowEngine: engine,
+						eventsRepository: repository,
+						runSandboxScript: (sandboxInput) => sandbox.run(sandboxInput),
+					},
+					{ userId: user.id, origin: "api", payload },
+				),
 		} satisfies EventsServiceShape;
 	}),
 }) {}

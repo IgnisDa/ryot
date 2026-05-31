@@ -13,6 +13,7 @@ import {
 	uniqueIndex,
 } from "drizzle-orm/pg-core";
 
+import type { EventSchemaTriggerMetadata } from "../../../modules/events/schemas";
 import type { ImportRunStatus } from "../../../modules/imports/types";
 import type { IntegrationLot } from "../../../modules/integrations/types";
 import type { DisplayConfiguration, SavedViewQueryDefinition } from "../../query-language";
@@ -362,9 +363,7 @@ export const eventSchemaTrigger = pgTable(
 		isActive: boolean().notNull().default(true),
 		isBuiltin: boolean().notNull().default(false),
 		phase: text().notNull().default("after_create"),
-		// TODO(effect-migration): restore a concrete EventSchemaTriggerMetadata type once
-		// the new sandbox trigger metadata schema exists in app-backend.
-		metadata: jsonb().$type<Record<string, unknown>>().notNull(),
+		metadata: jsonb().$type<EventSchemaTriggerMetadata>().notNull(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
 		eventSchemaId: text()
