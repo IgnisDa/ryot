@@ -12,6 +12,7 @@ const TRUSTED_MODULES = new Set([
 	"@ryot/client-sdk/effect",
 	"@ryot/client-sdk/plugin",
 	"@ryot/client-sdk/react",
+	"@ryot/client-sdk/ryotql",
 	"@ryot/client-ui-sdk",
 ]);
 
