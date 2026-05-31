@@ -5,6 +5,8 @@ import { cookieHeaderFromSetCookies, enableTwoFactorForSession } from "../fixtur
 import { getBackendClient, getBackendUrl } from "../setup";
 import { requireNonEmptyArray } from "../test-support/assertions";
 
+const trackersListQuery = { includeDisabled: false };
+
 describe("Two-factor sign-in flow", () => {
 	it("allows a 2FA-enabled user to sign in with a backup code", async () => {
 		const baseUrl = getBackendUrl();
@@ -23,6 +25,7 @@ describe("Two-factor sign-in flow", () => {
 		);
 
 		const enabledSession = await client.trackers.list({
+			params: { query: trackersListQuery },
 			headers: { Cookie: twoFactorCookies },
 		});
 		expect(enabledSession.response.status).toBe(200);
@@ -43,6 +46,7 @@ describe("Two-factor sign-in flow", () => {
 		expect(signInData).toHaveProperty("twoFactorRedirect", true);
 
 		const unauthorizedResponse = await client.trackers.list({
+			params: { query: trackersListQuery },
 			headers: { Cookie: signInCookies },
 		});
 		expect(unauthorizedResponse.response.status).toBe(401);
@@ -63,6 +67,7 @@ describe("Two-factor sign-in flow", () => {
 			? cookieHeaderFromSetCookies(verifySetCookies)
 			: signInCookies;
 		const protectedResponse = await client.trackers.list({
+			params: { query: trackersListQuery },
 			headers: { Cookie: verifiedCookies },
 		});
 		expect(protectedResponse.response.status).toBe(200);
