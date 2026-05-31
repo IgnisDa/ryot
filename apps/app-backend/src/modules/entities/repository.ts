@@ -6,8 +6,6 @@ import { DbError } from "~/lib/errors";
 import type { AppSchema } from "~/lib/schema";
 import { decodeStoredAppSchema } from "~/lib/schema";
 
-import type { ListedEntity } from "./schemas";
-
 type EntityRow = Pick<
 	typeof schema.entity.$inferSelect,
 	| "id"
@@ -60,87 +58,6 @@ export type EntitySchemaScriptScope = {
 	readonly sandboxScriptId: string;
 };
 
-type EntitiesRepositoryShape = {
-	readonly getEntitySchemaScopeForUser: (input: {
-		userId: string;
-		entitySchemaId: string;
-	}) => Effect.Effect<EntitySchemaScope | null, DbError, CurrentDb>;
-	readonly getEntityScopeForUser: (input: {
-		userId: string;
-		entityId: string;
-	}) => Effect.Effect<EntityScope | null, DbError, CurrentDb>;
-	readonly getEntityScopeById: (
-		entityId: string,
-	) => Effect.Effect<EntityScope | null, DbError, CurrentDb>;
-	readonly getByIdForUser: (input: {
-		userId: string;
-		entityId: string;
-	}) => Effect.Effect<ListedEntity | null, DbError, CurrentDb>;
-	readonly findEntityByExternalIdForUser: (input: {
-		userId: string;
-		externalId: string;
-		entitySchemaId: string;
-		sandboxScriptId: string;
-	}) => Effect.Effect<ListedEntity | null, DbError, CurrentDb>;
-	readonly findGlobalEntityByExternalId: (input: {
-		externalId: string;
-		entitySchemaId: string;
-		sandboxScriptId: string;
-	}) => Effect.Effect<ListedEntity | null, DbError, CurrentDb>;
-	readonly findEntitySchemaById: (
-		entitySchemaId: string,
-	) => Effect.Effect<{ propertiesSchema: AppSchema } | null, DbError, CurrentDb>;
-	readonly findEntitySchemaScriptBySlug: (
-		scriptSlug: string,
-	) => Effect.Effect<EntitySchemaScriptScope | null, DbError, CurrentDb>;
-	readonly createEntity: (input: {
-		name: string;
-		userId: string;
-		externalId?: string;
-		image: string | null;
-		entitySchemaId: string;
-		sandboxScriptId?: string;
-		properties: Record<string, unknown>;
-	}) => Effect.Effect<ListedEntity, DbError, CurrentDb>;
-	readonly createOrUpdateGlobalEntity: (input: {
-		name: string;
-		externalId: string;
-		image: string | null;
-		entitySchemaId: string;
-		sandboxScriptId: string;
-		populatedAt: Date | null;
-		properties: Record<string, unknown>;
-	}) => Effect.Effect<ListedEntity, DbError, CurrentDb>;
-	readonly deleteUserEventsForEntity: (input: {
-		userId: string;
-		entityId: string;
-	}) => Effect.Effect<number, DbError, CurrentDb>;
-	readonly deleteUserRelationshipsForEntity: (input: {
-		userId: string;
-		entityId: string;
-	}) => Effect.Effect<number, DbError, CurrentDb>;
-	readonly insertRelationship: (input: {
-		userId: string;
-		sourceEntityId: string;
-		targetEntityId: string;
-		relationshipSchemaId: string;
-		properties: Record<string, unknown>;
-	}) => Effect.Effect<void, DbError, CurrentDb>;
-	readonly upsertRelationship: (input: {
-		userId: string;
-		sourceEntityId: string;
-		targetEntityId: string;
-		relationshipSchemaId: string;
-		properties: Record<string, unknown>;
-	}) => Effect.Effect<SavedRelationship, DbError, CurrentDb>;
-	readonly upsertEntityRelationship: (input: {
-		sourceEntityId: string;
-		targetEntityId: string;
-		relationshipSchemaId: string;
-		properties: Record<string, unknown>;
-	}) => Effect.Effect<void, DbError, CurrentDb>;
-};
-
 const entitySelection = {
 	id: schema.entity.id,
 	name: schema.entity.name,
@@ -179,7 +96,7 @@ const imageToUrl = (image: EntityRow["image"]) => {
 	return typeof url === "string" ? url : null;
 };
 
-const toListedEntity = (row: EntityRow): ListedEntity => ({
+const toListedEntity = (row: EntityRow) => ({
 	id: row.id,
 	name: row.name,
 	properties: row.properties,
@@ -192,7 +109,7 @@ const toListedEntity = (row: EntityRow): ListedEntity => ({
 	populatedAt: row.populatedAt?.toISOString() ?? null,
 });
 
-const toSavedRelationship = (row: RelationshipRow): SavedRelationship => ({
+const toSavedRelationship = (row: RelationshipRow) => ({
 	id: row.id,
 	properties: row.properties,
 	wasInserted: row.wasInserted,
@@ -203,7 +120,7 @@ const toSavedRelationship = (row: RelationshipRow): SavedRelationship => ({
 });
 
 export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("EntitiesRepository", {
-	sync: (): EntitiesRepositoryShape => ({
+	sync: () => ({
 		getEntitySchemaScopeForUser: (input: { userId: string; entitySchemaId: string }) =>
 			Effect.gen(function* () {
 				const db = yield* CurrentDb;

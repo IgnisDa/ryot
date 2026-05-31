@@ -1,5 +1,17 @@
 # App Backend Guidelines
 
+## Return Types
+
+Remove explicit return type annotations when TypeScript can trivially infer them. Keep them when:
+
+- **Discriminated union narrowing**: Functions returning a discriminated union (e.g. `AppSchema`, `AppPropertyDefinition`) need the explicit return type since TS widens string literal `type` discriminants to `string`.
+- **Contextual parameter inference**: object literal methods passed to `Effect.Service`'s `sync` need the shape type return if method parameters rely on contextual typing.
+- **`as const` preservation**: Use `as const` on return values instead of an explicit type to preserve literal types for nested objects (e.g. `sort.direction: "asc"` in `buildDefaultQueryDefinition`).
+- **Effect type inference**: Functions returning `Effect.Effect<A, E, R>` need explicit annotation when the return contains both `Effect.fail(E)` and `Effect.succeed(A)` branches, as the inferred union breaks `.pipe(Effect.flatMap(...))` inference.
+- **Type predicates**: Keep `value is X` return types — they are not inferrable. Omit `X` on `as X` assertions.
+- **Array factory functions**: Factory functions returning arrays of objects with different optional fields (e.g. `builtinSavedViews`, `builtinRelationshipSchemas`) need the explicit return type to prevent the union element type from widening optional fields to `undefined`.
+- **`satisfies`**: Prefer `satisfies T` over a trailing return type when only the return value (not all callers) needs the constraint.
+
 ## Testing
 
 - `bun test` does not work in this app. Use `bun run test` instead.

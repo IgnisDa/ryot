@@ -3,7 +3,6 @@ import { Effect } from "effect";
 
 import { CurrentDb, dbEffect, TransactionRunner } from "~/lib/db";
 import * as schema from "~/lib/db/schema";
-import type { DbError } from "~/lib/errors";
 
 import { builtinEntitySchemas } from "./entity-schemas";
 import { builtinSavedViews } from "./saved-views";
@@ -248,7 +247,7 @@ const ensureLibraryEntity = (userId: string, entitySchemas: EntitySchemaRow[]) =
 		);
 	});
 
-const performBootstrap = (userId: string): Effect.Effect<void, DbError, CurrentDb> =>
+const performBootstrap = (userId: string) =>
 	Effect.gen(function* () {
 		const trackers = yield* createBuiltinTrackers(userId);
 		const entitySchemas = yield* listBuiltinEntitySchemas;
@@ -258,7 +257,7 @@ const performBootstrap = (userId: string): Effect.Effect<void, DbError, CurrentD
 		yield* Effect.logInfo("Bootstrap complete", { userId });
 	});
 
-export const bootstrapNewUser = (userId: string): Effect.Effect<void, DbError, TransactionRunner> =>
+export const bootstrapNewUser = (userId: string) =>
 	Effect.gen(function* () {
 		const runner = yield* TransactionRunner;
 		yield* runner(performBootstrap(userId));

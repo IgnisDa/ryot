@@ -1,4 +1,4 @@
-export const slugify = (value: string): string =>
+export const slugify = (value: string) =>
 	value
 		.replaceAll("_", "-")
 		.trim()

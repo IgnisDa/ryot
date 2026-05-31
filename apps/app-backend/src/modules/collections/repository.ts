@@ -4,20 +4,6 @@ import { Effect } from "effect";
 import { CurrentDb, dbEffect, schema } from "~/lib/db";
 import { DbError } from "~/lib/errors";
 
-import type { CollectionResponse, MembershipRelationship } from "./schemas";
-
-type CollectionEventSchema = Pick<typeof schema.eventSchema.$inferSelect, "id" | "name" | "slug">;
-
-type CollectionSchema = {
-	readonly id: (typeof schema.entitySchema.$inferSelect)["id"];
-	readonly entitySchemaId: (typeof schema.entitySchema.$inferSelect)["id"];
-	readonly propertiesSchema: Record<string, unknown>;
-};
-
-type EntityForMembership = Pick<typeof schema.entity.$inferSelect, "id" | "userId"> & {
-	readonly entitySchemaSlug: (typeof schema.entitySchema.$inferSelect)["slug"];
-};
-
 type CollectionRow = Pick<
 	typeof schema.entity.$inferSelect,
 	"id" | "name" | "createdAt" | "updatedAt" | "properties" | "entitySchemaId"
@@ -27,10 +13,6 @@ type MembershipRow = Pick<
 	typeof schema.relationship.$inferSelect,
 	"id" | "createdAt" | "properties" | "sourceEntityId" | "targetEntityId" | "relationshipSchemaId"
 >;
-
-type MembershipWithInsertedFlag = MembershipRelationship & {
-	readonly wasInserted: boolean;
-};
 
 const collectionSelection = {
 	id: schema.entity.id,
@@ -51,7 +33,7 @@ const membershipSelection = {
 	wasInserted: sql<boolean>`(xmax = '0'::xid)`,
 };
 
-const toCollectionResponse = (row: CollectionRow): CollectionResponse => ({
+const toCollectionResponse = (row: CollectionRow) => ({
 	id: row.id,
 	name: row.name,
 	properties: row.properties,
@@ -60,7 +42,7 @@ const toCollectionResponse = (row: CollectionRow): CollectionResponse => ({
 	updatedAt: row.updatedAt.toISOString(),
 });
 
-const toMembershipRelationship = (row: MembershipRow): MembershipRelationship => ({
+const toMembershipRelationship = (row: MembershipRow) => ({
 	id: row.id,
 	properties: row.properties,
 	sourceEntityId: row.sourceEntityId,
@@ -69,56 +51,10 @@ const toMembershipRelationship = (row: MembershipRow): MembershipRelationship =>
 	relationshipSchemaId: row.relationshipSchemaId,
 });
 
-type CollectionsRepositoryShape = {
-	readonly getBuiltinCollectionSchema: () => Effect.Effect<
-		CollectionSchema | null,
-		DbError,
-		CurrentDb
-	>;
-	readonly createLibraryEntityForUser: (input: {
-		userId: string;
-		entitySchemaId: string;
-	}) => Effect.Effect<{ id: string }, DbError, CurrentDb>;
-	readonly getUserLibraryEntityId: (input: {
-		userId: string;
-	}) => Effect.Effect<string | null, DbError, CurrentDb>;
-	readonly createCollectionForUser: (input: {
-		name: string;
-		userId: string;
-		entitySchemaId: string;
-		properties: Record<string, unknown>;
-	}) => Effect.Effect<CollectionResponse, DbError, CurrentDb>;
-	readonly getCollectionById: (
-		collectionId: string,
-		userId: string,
-	) => Effect.Effect<CollectionResponse | null, DbError, CurrentDb>;
-	readonly getEntityForMembership: (
-		entityId: string,
-		userId: string,
-	) => Effect.Effect<EntityForMembership | null, DbError, CurrentDb>;
-	readonly upsertMembership: (input: {
-		userId: string;
-		entityId: string;
-		collectionId: string;
-		relationshipSchemaId: string;
-		properties: Record<string, unknown>;
-	}) => Effect.Effect<MembershipWithInsertedFlag, DbError, CurrentDb>;
-	readonly deleteMembership: (input: {
-		userId: string;
-		entityId: string;
-		collectionId: string;
-		relationshipSchemaId: string;
-	}) => Effect.Effect<MembershipRelationship | null, DbError, CurrentDb>;
-	readonly findBuiltinEventSchemaBySlug: (
-		entitySchemaId: string,
-		slug: string,
-	) => Effect.Effect<CollectionEventSchema | null, DbError, CurrentDb>;
-};
-
 export class CollectionsRepository extends Effect.Service<CollectionsRepository>()(
 	"CollectionsRepository",
 	{
-		sync: (): CollectionsRepositoryShape => ({
+		sync: () => ({
 			getBuiltinCollectionSchema: () =>
 				Effect.gen(function* () {
 					const db = yield* CurrentDb;

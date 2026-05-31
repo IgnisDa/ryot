@@ -81,7 +81,7 @@ const decodeSandboxRunnerResponse = Schema.decodeUnknownSync(
 
 const makeInvalidResponse = () => new SandboxRunError({ message: invalidResponseMessage });
 
-const parseHttpCallOptions = (options: unknown): HttpCallOptions => {
+const parseHttpCallOptions = (options: unknown) => {
 	if (options === undefined || options === null) {
 		return {};
 	}
