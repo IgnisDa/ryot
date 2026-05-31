@@ -1,6 +1,7 @@
 import { FileSystem, HttpApiBuilder, HttpApiScalar } from "@effect/platform";
 import { BunHttpServer } from "@effect/platform-bun";
 import { Effect, Layer, Runtime } from "effect";
+import type * as LayerTypes from "effect/Layer";
 
 import { AdminMiddlewareLive, AuthMiddlewareLive, AuthService } from "../lib/auth";
 import { AppConfig } from "../lib/config";
@@ -8,7 +9,6 @@ import { AppContract } from "../lib/contract";
 import { CollectionsRoutesLive } from "../modules/collections/routes";
 import { EntitiesRoutesLive } from "../modules/entities/routes";
 import { EntitySchemasRoutesLive } from "../modules/entity-schemas/routes";
-import { EntitySchemasService } from "../modules/entity-schemas/service";
 import { EventSchemasRoutesLive } from "../modules/event-schemas/routes";
 import { EventsRoutesLive } from "../modules/events/routes";
 import { GodModeRoutesLive } from "../modules/god-mode/routes";
@@ -19,7 +19,6 @@ import { SandboxRoutesLive } from "../modules/sandbox/routes";
 import { SavedViewsRoutesLive } from "../modules/saved-views/routes";
 import { SystemRoutesLive } from "../modules/system/routes";
 import { TrackersRoutesLive } from "../modules/trackers/routes";
-import { TrackersService } from "../modules/trackers/service";
 import { UploadsRoutesLive } from "../modules/uploads/routes";
 
 const mimeTypes: Record<string, string> = {
@@ -69,9 +68,11 @@ const ApiLive = HttpApiBuilder.api(AppContract).pipe(
 	Layer.provide(AdminMiddlewareLive),
 );
 
-const ScalarLive = Layer.provide(HttpApiScalar.layer({ path: "/docs" }), ApiLive);
+const ScalarLive = HttpApiScalar.layer({ path: "/docs" }).pipe(Layer.provide(ApiLive));
 
 const ApiWithScalarLive = Layer.mergeAll(ApiLive, ScalarLive);
+
+type ApiContext = LayerTypes.Layer.Context<typeof ApiWithScalarLive>;
 
 export const ServerLive = Layer.scopedDiscard(
 	Effect.gen(function* () {
@@ -79,18 +80,10 @@ export const ServerLive = Layer.scopedDiscard(
 		const config = yield* AppConfig;
 		const fs = yield* FileSystem.FileSystem;
 		const runtime = yield* Effect.runtime();
-		const trackers = yield* TrackersService;
-		const entitySchemas = yield* EntitySchemasService;
+		const apiContext = yield* Effect.context<ApiContext>();
 
 		const apiLayer = ApiWithScalarLive.pipe(
-			Layer.provide(
-				Layer.mergeAll(
-					Layer.succeed(AppConfig, config),
-					Layer.succeed(AuthService, auth),
-					Layer.succeed(TrackersService, trackers),
-					Layer.succeed(EntitySchemasService, entitySchemas),
-				),
-			),
+			Layer.provide(Layer.succeedContext(apiContext)),
 			Layer.provideMerge(BunHttpServer.layerContext),
 		);
 

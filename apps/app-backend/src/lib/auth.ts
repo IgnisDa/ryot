@@ -213,12 +213,10 @@ export const AuthMiddlewareLive = Layer.effect(
 			return yield* auth.currentUser(new Headers(request.headers));
 		});
 
-		return {
-			cookie: (token) =>
-				Redacted.value(token) === "" ? Effect.fail(unauthorized()) : resolveFromRequest,
-			apiKey: (token) =>
-				Redacted.value(token) === "" ? Effect.fail(unauthorized()) : resolveFromRequest,
-		};
+		const resolveWithToken = (token: Redacted.Redacted) =>
+			Redacted.value(token) === "" ? Effect.fail(unauthorized()) : resolveFromRequest;
+
+		return { cookie: resolveWithToken, apiKey: resolveWithToken };
 	}),
 );
 
