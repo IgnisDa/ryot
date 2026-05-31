@@ -1,49 +1,360 @@
 import { describe, expect, it } from "bun:test";
 
 import {
-	createComputedFieldExpression,
 	createEntityColumnExpression,
-	createEntityPropertyExpression,
 	createEntitySchemaExpression,
-	createEventAggregateExpression,
 } from "@ryot/app-backend/query-language";
 
 import {
-	buildQueryEngineField,
-	buildGridRequest,
 	buildSavedViewBody,
-	buildTableRequest,
+	buildSavedViewQueryDocumentBody,
 	buildUpdatedSavedViewBody,
 	cloneSavedView,
 	createAuthenticatedClient,
+	createRelationshipSchema,
 	createSavedView,
-	createSingleSchemaQueryEngineFixture,
-	createTracker,
+	createSavedViewWithQueryDocument,
+	createQueryEngineTrackerAndSchema,
 	deleteSavedView,
 	entityField,
-	executeQueryEngine,
 	findBuiltinSavedView,
-	findBuiltinSchemaBySlug,
-	getFirstProviderScriptId,
-	getQueryEngineFieldOrThrow,
+	findBuiltinTrackerBySlug,
 	getSavedView,
-	insertLibraryMembership,
-	listEventSchemas,
 	listSavedViews,
-	literalExpression,
 	reorderSavedViews,
-	seedMediaEntity,
+	createTracker,
+	systemRef,
 	updateSavedView,
-	waitForEventCount,
+	updateSavedViewWithQueryDocument,
+	type SavedViewQueryDocument,
 } from "../fixtures";
-import { assertPresent, assertTaggedError } from "../test-support/assertions";
+import { assertTaggedError } from "../test-support/assertions";
 
-type SavedViewBodyOverrides = NonNullable<Parameters<typeof buildSavedViewBody>[0]>;
+const rowsDocument: SavedViewQueryDocument = {
+	version: 2,
+	source: { type: "entities", alias: "book", schemas: ["book"], where: null },
+	output: {
+		type: "rows",
+		pagination: { page: 1, limit: 20 },
+		fields: [{ key: "name", expr: systemRef("book", "name") }],
+		orderBy: [{ order: "asc", expr: systemRef("book", "name") }],
+	},
+};
+
+const aggregateDocument: SavedViewQueryDocument = {
+	version: 2,
+	source: { type: "entities", alias: "book", schemas: ["book"], where: null },
+	output: {
+		groupBy: [],
+		type: "aggregate",
+		measures: [{ key: "total", aggregation: { function: "count" } }],
+	},
+};
+
+const timeSeriesDocument: SavedViewQueryDocument = {
+	version: 2,
+	source: { type: "entities", alias: "book", schemas: ["book"], where: null },
+	output: {
+		type: "timeSeries",
+		measure: { aggregation: { function: "count" } },
+		time: {
+			bucket: "month",
+			expr: systemRef("book", "createdAt"),
+			range: { startAt: "2020-01-01T00:00:00.000Z", endAt: "2020-07-01T00:00:00.000Z" },
+		},
+	},
+};
+
+describe("Saved views query documents E2E", () => {
+	it("stores media built-in saved views with canonical in-library filters", async () => {
+		const { client } = await createAuthenticatedClient();
+		const mediaTracker = await findBuiltinTrackerBySlug(client, "media");
+		const views = await listSavedViews(client, { trackerId: mediaTracker.id });
+		const allBooksView = views.find((view) => view.name === "All Books");
+
+		expect(allBooksView?.queryDocument).toMatchObject({
+			source: {
+				schemas: ["book"],
+				where: {
+					type: "exists",
+					source: {
+						alias: "library",
+						type: "entities",
+						schemas: ["library"],
+						via: { entityRef: "entity", schema: "in-library" },
+					},
+				},
+			},
+		});
+	});
+
+	it("creates and retrieves a saved view backed by a rows query document", async () => {
+		const { client } = await createAuthenticatedClient();
+
+		const createdView = await createSavedViewWithQueryDocument(client, rowsDocument, {
+			name: `Rows View ${crypto.randomUUID()}`,
+		});
+		const fetchedView = await getSavedView(client, createdView.slug);
+
+		expect(createdView.queryDocument).toEqual(rowsDocument);
+		expect(fetchedView.queryDocument).toEqual(rowsDocument);
+	});
+
+	it("creates a saved view backed by an aggregate query document", async () => {
+		const { client } = await createAuthenticatedClient();
+
+		const createdView = await createSavedViewWithQueryDocument(client, aggregateDocument, {
+			name: `Aggregate View ${crypto.randomUUID()}`,
+		});
+
+		expect(createdView.queryDocument).toEqual(aggregateDocument);
+	});
+
+	it("creates a saved view backed by a time series query document", async () => {
+		const { client } = await createAuthenticatedClient();
+
+		const createdView = await createSavedViewWithQueryDocument(client, timeSeriesDocument, {
+			name: `Time Series View ${crypto.randomUUID()}`,
+		});
+
+		expect(createdView.queryDocument).toEqual(timeSeriesDocument);
+	});
+
+	it("updates a saved view's query document", async () => {
+		const { client } = await createAuthenticatedClient();
+		const createdView = await createSavedViewWithQueryDocument(client, rowsDocument, {
+			name: `Updatable View ${crypto.randomUUID()}`,
+		});
+
+		const updatedView = await updateSavedViewWithQueryDocument(
+			client,
+			createdView.slug,
+			aggregateDocument,
+		);
+		const fetchedView = await getSavedView(client, createdView.slug);
+
+		expect(updatedView.queryDocument).toEqual(aggregateDocument);
+		expect(fetchedView.queryDocument).toEqual(aggregateDocument);
+	});
+
+	it("preserves a full v2 document with a where clause and nested includes without stripping fields", async () => {
+		const { client } = await createAuthenticatedClient();
+		const { schemaId: courseSchemaId, slug: courseSlug } = await createQueryEngineTrackerAndSchema(
+			client,
+			{
+				schemaName: `SavedViewCourse ${crypto.randomUUID()}`,
+			},
+		);
+		const { schemaId: moduleSchemaId, slug: moduleSlug } = await createQueryEngineTrackerAndSchema(
+			client,
+			{
+				schemaName: `SavedViewModule ${crypto.randomUUID()}`,
+			},
+		);
+		const courseModuleSlug = `saved-view-course-module-${crypto.randomUUID()}`;
+		await createRelationshipSchema(client, {
+			slug: courseModuleSlug,
+			name: "Saved View Course Module",
+			propertiesSchema: { fields: {} },
+			sourceEntitySchemaId: courseSchemaId,
+			targetEntitySchemaId: moduleSchemaId,
+		});
+
+		const hierarchicalDocument: SavedViewQueryDocument = {
+			version: 2,
+			source: {
+				alias: "course",
+				type: "entities",
+				schemas: [courseSlug],
+				where: { type: "isNotNull", expr: systemRef("course", "name") },
+			},
+			output: {
+				type: "rows",
+				pagination: { page: 1, limit: 10 },
+				fields: [{ key: "name", expr: systemRef("course", "name") }],
+				orderBy: [{ order: "asc", expr: systemRef("course", "name") }],
+				include: [
+					{
+						limit: 20,
+						key: "modules",
+						fields: [{ key: "name", expr: systemRef("module", "name") }],
+						orderBy: [{ order: "asc", expr: systemRef("module", "name") }],
+						source: {
+							alias: "module",
+							type: "entities",
+							schemas: [moduleSlug],
+							where: null,
+							via: {
+								entityRef: "course",
+								alias: "courseModule",
+								direction: "outgoing",
+								schema: courseModuleSlug,
+							},
+						},
+					},
+				],
+			},
+		};
+
+		const createdView = await createSavedViewWithQueryDocument(client, hierarchicalDocument, {
+			name: `Hierarchical View ${crypto.randomUUID()}`,
+			displayConfiguration: {
+				entityIdProperty: createEntityColumnExpression(courseSlug, "id"),
+				table: { columns: [{ label: "Name", expression: [entityField(courseSlug, "name")] }] },
+				grid: {
+					imageProperty: [entityField(courseSlug, "image")],
+					titleProperty: [entityField(courseSlug, "name")],
+					eyebrowProperty: createEntitySchemaExpression("name"),
+					calloutProperty: null,
+					primarySubtitleProperty: null,
+					secondarySubtitleProperty: null,
+				},
+				list: {
+					imageProperty: [entityField(courseSlug, "image")],
+					titleProperty: [entityField(courseSlug, "name")],
+					eyebrowProperty: createEntitySchemaExpression("name"),
+					calloutProperty: null,
+					primarySubtitleProperty: null,
+					secondarySubtitleProperty: null,
+				},
+			},
+		});
+		const fetchedView = await getSavedView(client, createdView.slug);
+
+		expect(createdView.queryDocument).toEqual(hierarchicalDocument);
+		expect(fetchedView.queryDocument).toEqual(hierarchicalDocument);
+	});
+
+	it("rejects a query document that fails semantic validation", async () => {
+		const { client } = await createAuthenticatedClient();
+		const invalidDocument: SavedViewQueryDocument = {
+			...rowsDocument,
+			source: {
+				...rowsDocument.source,
+				where: {
+					operator: "eq",
+					type: "comparison",
+					right: { type: "literal", value: "x" },
+					left: {
+						type: "ref",
+						sourceAlias: "unknownAlias",
+						field: { type: "system", name: "name" },
+					},
+				},
+			},
+		};
+
+		const error = await client.runError((c) =>
+			c.savedViews.create({
+				payload: buildSavedViewQueryDocumentBody(invalidDocument, {
+					name: `Invalid View ${crypto.randomUUID()}`,
+				}),
+			}),
+		);
+
+		assertTaggedError(error, "BadRequest");
+		expect(error.message).toContain("Unknown source alias 'unknownAlias'");
+	});
+
+	it("rejects a query document with an unknown entity schema", async () => {
+		const { client } = await createAuthenticatedClient();
+		const invalidDocument: SavedViewQueryDocument = {
+			...rowsDocument,
+			source: { ...rowsDocument.source, schemas: ["does-not-exist"] },
+		};
+
+		const error = await client.runError((c) =>
+			c.savedViews.create({
+				payload: buildSavedViewQueryDocumentBody(invalidDocument, {
+					name: `Unknown Entity Schema View ${crypto.randomUUID()}`,
+				}),
+			}),
+		);
+
+		assertTaggedError(error, "BadRequest");
+		expect(error.message).toContain("Entity schema 'does-not-exist' not found");
+	});
+
+	it("rejects a query document with an unknown event schema", async () => {
+		const { client } = await createAuthenticatedClient();
+		const invalidDocument: SavedViewQueryDocument = {
+			...rowsDocument,
+			source: {
+				...rowsDocument.source,
+				where: {
+					type: "exists",
+					source: {
+						where: null,
+						alias: "event",
+						type: "events",
+						entityRef: "book",
+						schemas: ["does-not-exist"],
+					},
+				},
+			},
+		};
+
+		const error = await client.runError((c) =>
+			c.savedViews.create({
+				payload: buildSavedViewQueryDocumentBody(invalidDocument, {
+					name: `Unknown Event Schema View ${crypto.randomUUID()}`,
+				}),
+			}),
+		);
+
+		assertTaggedError(error, "BadRequest");
+		expect(error.message).toContain("Event schema 'does-not-exist' not found");
+	});
+
+	it("rejects a query document with an unknown relationship schema", async () => {
+		const { client } = await createAuthenticatedClient();
+		const invalidDocument: SavedViewQueryDocument = {
+			...rowsDocument,
+			output: {
+				type: "rows",
+				pagination: { page: 1, limit: 20 },
+				fields: [{ key: "name", expr: systemRef("book", "name") }],
+				orderBy: [{ order: "asc", expr: systemRef("book", "name") }],
+				include: [
+					{
+						limit: 1,
+						key: "related",
+						fields: [{ key: "name", expr: systemRef("relatedBook", "name") }],
+						orderBy: [{ order: "asc", expr: systemRef("relatedBook", "name") }],
+						source: {
+							where: null,
+							alias: "relatedBook",
+							type: "entities",
+							schemas: ["book"],
+							via: {
+								entityRef: "book",
+								alias: "related",
+								direction: "outgoing",
+								schema: "does-not-exist",
+							},
+						},
+					},
+				],
+			},
+		};
+
+		const error = await client.runError((c) =>
+			c.savedViews.create({
+				payload: buildSavedViewQueryDocumentBody(invalidDocument, {
+					name: `Unknown Relationship Schema View ${crypto.randomUUID()}`,
+				}),
+			}),
+		);
+
+		assertTaggedError(error, "BadRequest");
+		expect(error.message).toContain("Relationship schema 'does-not-exist' not found");
+	});
+});
 
 const builtinViewError = "Cannot modify built-in saved views";
 const missingViewSlug = "non-existent-view-slug";
 
-describe("Saved views E2E", () => {
+describe("Saved views lifecycle E2E", () => {
 	it("lists built-in and user-created views together", async () => {
 		const { client } = await createAuthenticatedClient();
 		const createdView = await createSavedView(client, {
@@ -68,241 +379,20 @@ describe("Saved views E2E", () => {
 			isBuiltin: true,
 			name: "Collections",
 			accentColor: "#F59E0B",
-			queryDefinition: { filter: null, eventJoins: [], scope: ["collection"] },
-			displayConfiguration: {
-				table: {
-					columns: [
-						{
-							label: "Name",
-							expression: createEntityColumnExpression("collection", "name"),
-						},
-					],
-				},
-				grid: {
-					titleProperty: createEntityColumnExpression("collection", "name"),
-					imageProperty: createEntityColumnExpression("collection", "image"),
-				},
-				list: {
-					titleProperty: createEntityColumnExpression("collection", "name"),
-					imageProperty: createEntityColumnExpression("collection", "image"),
-				},
-			},
 		});
-	});
-
-	it("seeds built-in media views with average user rating callouts", async () => {
-		const { client, userId } = await createAuthenticatedClient();
-		const { schema } = await findBuiltinSchemaBySlug(client, "show");
-
-		const entity = await seedMediaEntity({
-			image: null,
-			userId: null,
-			entitySchemaId: schema.id,
-			sandboxScriptId: getFirstProviderScriptId(schema),
-			name: `Saved View Show ${crypto.randomUUID()}`,
-			externalId: `saved-view-show-${crypto.randomUUID()}`,
-			properties: {
-				genres: [],
-				images: [],
-				isNsfw: null,
-				showSeasons: [],
-				sourceUrl: null,
-				description: null,
-				publishYear: 2016,
-				providerRating: 92.4,
-				unlinkedCreators: [],
-				productionStatus: "Ended",
-			},
-		});
-
-		await insertLibraryMembership(client, {
-			userId,
-			mediaEntityId: entity.id,
-		});
-
-		const eventSchemas = await listEventSchemas(client, schema.id);
-		const reviewEventSchemaId = eventSchemas.find((item) => item.slug === "review")?.id;
-		assertPresent(reviewEventSchemaId, "Missing review event schema");
-
-		await client.run((c) =>
-			c.events.create({
-				payload: [
-					{
-						entityId: entity.id,
-						eventSchemaId: reviewEventSchemaId,
-						properties: { rating: 2, text: "Okay" },
-					},
-					{
-						entityId: entity.id,
-						eventSchemaId: reviewEventSchemaId,
-						properties: { rating: 4, text: "Good" },
-					},
-				],
-			}),
-		);
-		await waitForEventCount(client, entity.id, 2);
-
-		const allShowsView = await getSavedView(client, "all-shows");
-		expect(allShowsView.displayConfiguration.grid.calloutProperty).toEqual(
-			createEventAggregateExpression("review", "avg", ["properties", "rating"]),
-		);
-
-		// all-shows is a built-in entities-mode view
-		const allShowsQD = allShowsView.queryDefinition;
-		const { data } = await executeQueryEngine(
-			client,
-			buildGridRequest({
-				sort: allShowsQD.sort,
-				scope: allShowsQD.scope,
-				eventJoins: allShowsQD.eventJoins,
-				computedFields: allShowsQD.computedFields,
-				relationshipJoins: allShowsQD.relationshipJoins,
-				filter: {
-					operator: "eq",
-					type: "comparison",
-					right: literalExpression(entity.name),
-					left: createEntityColumnExpression("show", "name"),
-				},
-				displayConfiguration: {
-					...allShowsView.displayConfiguration.grid,
-					primarySubtitleProperty: null,
-					secondarySubtitleProperty: null,
-				},
-			}),
-		);
-
-		expect(getQueryEngineFieldOrThrow(data.data.items[0], "callout")).toEqual({
-			value: 3,
-			key: "callout",
-			kind: "number",
-		});
-	});
-
-	it("keeps built-in media saved views executable after refetching their definitions", async () => {
-		const { client, userId } = await createAuthenticatedClient();
-		const { schema } = await findBuiltinSchemaBySlug(client, "show");
-
-		const entity = await seedMediaEntity({
-			image: null,
-			userId: null,
-			entitySchemaId: schema.id,
-			sandboxScriptId: getFirstProviderScriptId(schema),
-			name: `Refetched Saved View Show ${crypto.randomUUID()}`,
-			externalId: `refetched-saved-view-show-${crypto.randomUUID()}`,
-			properties: {
-				genres: [],
-				images: [],
-				isNsfw: null,
-				showSeasons: [],
-				sourceUrl: null,
-				description: null,
-				publishYear: 2017,
-				providerRating: 90.1,
-				unlinkedCreators: [],
-				productionStatus: "Ended",
-			},
-		});
-
-		await insertLibraryMembership(client, {
-			userId,
-			mediaEntityId: entity.id,
-		});
-
-		const eventSchemas = await listEventSchemas(client, schema.id);
-		const reviewEventSchemaId = eventSchemas.find((item) => item.slug === "review")?.id;
-		assertPresent(reviewEventSchemaId, "Missing review event schema");
-
-		await client.run((c) =>
-			c.events.create({
-				payload: [
-					{
-						entityId: entity.id,
-						eventSchemaId: reviewEventSchemaId,
-						properties: { rating: 1, text: "Low" },
-					},
-					{
-						entityId: entity.id,
-						eventSchemaId: reviewEventSchemaId,
-						properties: { rating: 5, text: "High" },
-					},
-				],
-			}),
-		);
-		await waitForEventCount(client, entity.id, 2);
-
-		const view = await getSavedView(client, "all-shows");
-		const queryDefinition = view.queryDefinition;
-
-		const { data } = await executeQueryEngine(
-			client,
-			buildGridRequest({
-				sort: queryDefinition.sort,
-				scope: queryDefinition.scope,
-				eventJoins: queryDefinition.eventJoins,
-				computedFields: queryDefinition.computedFields,
-				relationshipJoins: queryDefinition.relationshipJoins,
-				filter: {
-					operator: "eq",
-					type: "comparison",
-					right: literalExpression(entity.name),
-					left: createEntityColumnExpression("show", "name"),
-				},
-				displayConfiguration: {
-					...view.displayConfiguration.grid,
-					primarySubtitleProperty: null,
-					secondarySubtitleProperty: null,
-				},
-			}),
-		);
-
-		expect(getQueryEngineFieldOrThrow(data.data.items[0], "callout")).toEqual({
-			value: 3,
-			key: "callout",
-			kind: "number",
-		});
-	});
-
-	it("returns built-in all-shows with in-library scoping for each user", async () => {
-		const userA = await createAuthenticatedClient();
-		const userB = await createAuthenticatedClient();
-		const userAView = await getSavedView(userA.client, "all-shows");
-		const userBView = await getSavedView(userB.client, "all-shows");
-
-		const userAQD = userAView.queryDefinition;
-		const userBQD = userBView.queryDefinition;
-		expect(userAQD.relationshipJoins).toEqual([
-			{
-				required: true,
-				key: "inLibrary",
-				direction: "outgoing",
-				kind: "latestRelationship",
-				relationshipSchemaSlug: "in-library",
-			},
-		]);
-		expect(userBQD.relationshipJoins).toEqual([
-			{
-				required: true,
-				key: "inLibrary",
-				direction: "outgoing",
-				kind: "latestRelationship",
-				relationshipSchemaSlug: "in-library",
-			},
-		]);
+		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+		expect(collectionsView!.queryDocument.source).toMatchObject({ schemas: ["collection"] });
 	});
 
 	it("supports the full create-get-update-clone-delete lifecycle", async () => {
 		const { client } = await createAuthenticatedClient();
-		const createdView = await createSavedView(client, {
-			name: "Lifecycle View",
-		});
+		const createdView = await createSavedView(client, { name: "Lifecycle View" });
 		const fetchedView = await getSavedView(client, createdView.slug);
 
 		expect(fetchedView.id).toBe(createdView.id);
 		expect(fetchedView.name).toBe("Lifecycle View");
 		expect(fetchedView.isBuiltin).toBe(false);
 		expect(fetchedView.isDisabled).toBe(false);
-		expect(Array.isArray(fetchedView.queryDefinition.scope)).toBe(true);
-		expect(fetchedView.queryDefinition.filter).toBeNull();
 		expect(Number.isNaN(Date.parse(fetchedView.createdAt))).toBe(false);
 		expect(Number.isNaN(Date.parse(fetchedView.updatedAt))).toBe(false);
 
@@ -311,72 +401,18 @@ describe("Saved views E2E", () => {
 		expect(clonedView.name).toBe("Lifecycle View (Copy)");
 		expect(clonedView.isBuiltin).toBe(false);
 
-		const updatedCloneInput = buildUpdatedSavedViewBody({
-			name: "Lifecycle View (Copy) Revised",
-			queryDefinition: {
-				eventJoins: [],
-				computedFields: [],
-				scope: ["anime", "manga"],
-				sort: { direction: "desc", expression: createEntityColumnExpression("anime", "createdAt") },
-				filter: {
-					operator: "eq",
-					type: "comparison",
-					right: literalExpression("active"),
-					left: createEntityPropertyExpression("anime", "productionStatus"),
-				},
-			},
-			displayConfiguration: {
-				entityIdProperty: [entityField("anime", "id"), entityField("manga", "id")],
-				grid: {
-					imageProperty: null,
-					calloutProperty: null,
-					primarySubtitleProperty: null,
-					secondarySubtitleProperty: null,
-					titleProperty: [entityField("anime", "name"), entityField("manga", "name")],
-				},
-				list: {
-					secondarySubtitleProperty: null,
-					calloutProperty: [entityField("anime", "productionStatus")],
-					primarySubtitleProperty: [entityField("manga", "publishYear")],
-					titleProperty: [entityField("anime", "name"), entityField("manga", "name")],
-					imageProperty: [entityField("anime", "image"), entityField("manga", "image")],
-				},
-				table: {
-					columns: [
-						{
-							label: "Name",
-							property: [entityField("anime", "name"), entityField("manga", "name")],
-						},
-						{ label: "Status", property: [entityField("anime", "productionStatus")] },
-					],
-				},
-			},
+		const updatedClone = await updateSavedView(client, clonedView.slug, {
+			name: "Lifecycle View Revised",
 		});
-		const updatedClone = await updateSavedView(client, clonedView.slug, updatedCloneInput);
-		const fetchedUpdatedClone = await getSavedView(client, clonedView.slug);
+		const fetchedUpdated = await getSavedView(client, clonedView.slug);
 
-		expect(updatedClone.name).toBe("Lifecycle View (Copy) Revised");
-		expect(fetchedUpdatedClone.id).toBe(clonedView.id);
-		const { mode: queryMode, ...queryDefinitionWithoutMode } =
-			fetchedUpdatedClone.queryDefinition as { mode?: string } & Record<string, unknown>;
-		expect(queryMode).toBe("entities");
-		const updatedCloneQD = updatedCloneInput.queryDefinition as {
-			eventJoins?: ReadonlyArray<unknown>;
-			relationshipJoins?: ReadonlyArray<unknown>;
-		};
-		expect(queryDefinitionWithoutMode).toEqual({
-			...updatedCloneInput.queryDefinition,
-			eventJoins: updatedCloneQD.eventJoins ?? [],
-			relationshipJoins: updatedCloneQD.relationshipJoins ?? [],
-		});
-		expect(fetchedUpdatedClone.displayConfiguration).toEqual(
-			updatedCloneInput.displayConfiguration,
-		);
+		expect(updatedClone.name).toBe("Lifecycle View Revised");
+		expect(fetchedUpdated.id).toBe(clonedView.id);
 
 		const deletedOriginal = await deleteSavedView(client, createdView.slug);
 		const deletedClone = await deleteSavedView(client, clonedView.slug);
-		const remainingViews = await listSavedViews(client);
-		const remainingIds = remainingViews.map((view) => view.id);
+		const remaining = await listSavedViews(client);
+		const remainingIds = remaining.map((v) => v.id);
 
 		expect(deletedOriginal.id).toBe(createdView.id);
 		expect(deletedClone.id).toBe(clonedView.id);
@@ -394,11 +430,12 @@ describe("Saved views E2E", () => {
 
 		const deletedClone = await deleteSavedView(client, clonedView.slug);
 		const refreshedBuiltin = await getSavedView(client, builtinView.slug);
-		const remainingViews = await listSavedViews(client);
+		const remaining = await listSavedViews(client);
+		const remainingIds = remaining.map((v) => v.id);
 
 		expect(deletedClone.id).toBe(clonedView.id);
 		expect(refreshedBuiltin.id).toBe(builtinView.id);
-		expect(remainingViews.map((view) => view.id)).not.toContain(clonedView.id);
+		expect(remainingIds).not.toContain(clonedView.id);
 	});
 
 	it("rejects deletes for built-in views", async () => {
@@ -436,7 +473,6 @@ describe("Saved views E2E", () => {
 					name: builtinView.name,
 					accentColor: builtinView.accentColor,
 					queryDocument: builtinView.queryDocument,
-					queryDefinition: builtinView.queryDefinition,
 					displayConfiguration: builtinView.displayConfiguration,
 					...(builtinView.trackerId ? { trackerId: builtinView.trackerId } : {}),
 				},
@@ -453,7 +489,6 @@ describe("Saved views E2E", () => {
 					name: builtinView.name,
 					accentColor: builtinView.accentColor,
 					queryDocument: builtinView.queryDocument,
-					queryDefinition: builtinView.queryDefinition,
 					displayConfiguration: builtinView.displayConfiguration,
 					...(builtinView.trackerId ? { trackerId: builtinView.trackerId } : {}),
 				},
@@ -492,15 +527,10 @@ describe("Saved views E2E", () => {
 
 	it("preserves immutable fields when updating user views", async () => {
 		const { client } = await createAuthenticatedClient();
-		const createdView = await createSavedView(client, {
-			name: "Immutable Fields View",
-		});
+		const createdView = await createSavedView(client, { name: "Immutable Fields View" });
 
 		await new Promise((resolve) => setTimeout(resolve, 100));
-		await updateSavedView(client, createdView.slug, {
-			name: "Immutable Fields View Updated",
-		});
-
+		await updateSavedView(client, createdView.slug, { name: "Immutable Fields View Updated" });
 		const refreshedView = await getSavedView(client, createdView.slug);
 
 		expect(refreshedView.id).toBe(createdView.id);
@@ -511,23 +541,17 @@ describe("Saved views E2E", () => {
 
 	it("supports toggling isDisabled on user views", async () => {
 		const { client } = await createAuthenticatedClient();
-		const createdView = await createSavedView(client, {
-			name: "Disable Toggle View",
-		});
+		const createdView = await createSavedView(client, { name: "Disable Toggle View" });
 
 		expect(createdView.isDisabled).toBe(false);
 
-		const disabledView = await updateSavedView(client, createdView.slug, {
-			isDisabled: true,
-		});
+		const disabledView = await updateSavedView(client, createdView.slug, { isDisabled: true });
 		const fetchedDisabled = await getSavedView(client, createdView.slug);
 
 		expect(disabledView.isDisabled).toBe(true);
 		expect(fetchedDisabled.isDisabled).toBe(true);
 
-		const reEnabledView = await updateSavedView(client, createdView.slug, {
-			isDisabled: false,
-		});
+		const reEnabledView = await updateSavedView(client, createdView.slug, { isDisabled: false });
 		const fetchedReEnabled = await getSavedView(client, createdView.slug);
 
 		expect(reEnabledView.isDisabled).toBe(false);
@@ -540,9 +564,7 @@ describe("Saved views E2E", () => {
 			name: `Filtered View ${crypto.randomUUID()}`,
 		});
 
-		await updateSavedView(client, createdView.slug, {
-			isDisabled: true,
-		});
+		await updateSavedView(client, createdView.slug, { isDisabled: true });
 
 		const listedViews = await listSavedViews(client);
 
@@ -555,33 +577,24 @@ describe("Saved views E2E", () => {
 		const { trackerId } = await createTracker(client, {
 			name: `Tracked Views ${crypto.randomUUID()}`,
 		});
-		const enabledTrackedView = await createSavedView(client, {
+		const enabledTracked = await createSavedView(client, {
 			trackerId,
-			name: `Enabled Tracked View ${crypto.randomUUID()}`,
+			name: `Enabled Tracked ${crypto.randomUUID()}`,
 		});
-		const disabledTrackedView = await createSavedView(client, {
+		const disabledTracked = await createSavedView(client, {
 			trackerId,
-			name: `Disabled Tracked View ${crypto.randomUUID()}`,
+			name: `Disabled Tracked ${crypto.randomUUID()}`,
 		});
-		await createSavedView(client, {
-			name: `Standalone View ${crypto.randomUUID()}`,
-		});
+		await createSavedView(client, { name: `Standalone ${crypto.randomUUID()}` });
+		await updateSavedView(client, disabledTracked.slug, { trackerId, isDisabled: true });
 
-		await updateSavedView(client, disabledTrackedView.slug, {
-			trackerId,
-			isDisabled: true,
-		});
+		const listedViews = await listSavedViews(client, { trackerId, includeDisabled: true });
 
-		const listedViews = await listSavedViews(client, {
-			trackerId,
-			includeDisabled: true,
-		});
-
-		expect(new Set(listedViews.map((view) => view.id))).toEqual(
-			new Set([disabledTrackedView.id, enabledTrackedView.id]),
+		expect(new Set(listedViews.map((v) => v.id))).toEqual(
+			new Set([disabledTracked.id, enabledTracked.id]),
 		);
-		expect(listedViews.map((view) => view.trackerId)).toEqual([trackerId, trackerId]);
-		expect(listedViews.some((view) => view.isDisabled)).toBe(true);
+		expect(listedViews.map((v) => v.trackerId)).toEqual([trackerId, trackerId]);
+		expect(listedViews.some((v) => v.isDisabled)).toBe(true);
 	});
 
 	it("reorders saved views only within the requested tracker scope", async () => {
@@ -605,27 +618,18 @@ describe("Saved views E2E", () => {
 			viewSlugs: [second.slug, first.slug],
 			trackerId,
 		});
-		const scopedViews = await listSavedViews(client, {
-			trackerId,
-			includeDisabled: true,
-		});
-		const topLevelViews = await listSavedViews(client, {
-			includeDisabled: true,
-		});
+		const scopedViews = await listSavedViews(client, { trackerId, includeDisabled: true });
+		const topLevelViews = await listSavedViews(client, { includeDisabled: true });
 
 		expect(reordered.viewSlugs.slice(0, 2)).toEqual([second.slug, first.slug]);
-		expect(scopedViews.map((view) => view.slug).slice(0, 2)).toEqual([second.slug, first.slug]);
-		expect(topLevelViews.some((view) => view.id === standalone.id)).toBe(true);
+		expect(scopedViews.map((v) => v.slug).slice(0, 2)).toEqual([second.slug, first.slug]);
+		expect(topLevelViews.some((v) => v.id === standalone.id)).toBe(true);
 	});
 
 	it("reorders only top-level saved views when trackerId is omitted", async () => {
 		const { client } = await createAuthenticatedClient();
-		const first = await createSavedView(client, {
-			name: `Top View A ${crypto.randomUUID()}`,
-		});
-		const second = await createSavedView(client, {
-			name: `Top View B ${crypto.randomUUID()}`,
-		});
+		const first = await createSavedView(client, { name: `Top View A ${crypto.randomUUID()}` });
+		const second = await createSavedView(client, { name: `Top View B ${crypto.randomUUID()}` });
 		const { trackerId } = await createTracker(client, {
 			name: `Unrelated Tracker ${crypto.randomUUID()}`,
 		});
@@ -634,22 +638,16 @@ describe("Saved views E2E", () => {
 			name: `Tracked Scope View ${crypto.randomUUID()}`,
 		});
 
-		await reorderSavedViews(client, {
-			viewSlugs: [second.slug, first.slug],
-		});
-		const topLevelViews = await listSavedViews(client, {
-			includeDisabled: true,
-		});
-		const trackedViews = await listSavedViews(client, {
-			trackerId,
-			includeDisabled: true,
-		});
-		const topLevelCreatedSlugsInOrder = topLevelViews
-			.filter((view) => view.slug === first.slug || view.slug === second.slug)
-			.map((view) => view.slug);
+		await reorderSavedViews(client, { viewSlugs: [second.slug, first.slug] });
+		const topLevelViews = await listSavedViews(client, { includeDisabled: true });
+		const trackedViews = await listSavedViews(client, { trackerId, includeDisabled: true });
 
-		expect(topLevelCreatedSlugsInOrder).toEqual([second.slug, first.slug]);
-		expect(trackedViews.some((view) => view.id === tracked.id)).toBe(true);
+		const orderedSlugs = topLevelViews
+			.filter((v) => v.slug === first.slug || v.slug === second.slug)
+			.map((v) => v.slug);
+
+		expect(orderedSlugs).toEqual([second.slug, first.slug]);
+		expect(trackedViews.some((v) => v.id === tracked.id)).toBe(true);
 	});
 
 	it("moves a saved view to top-level when trackerId is omitted on update", async () => {
@@ -667,18 +665,13 @@ describe("Saved views E2E", () => {
 			name: `${movedView.name} Updated`,
 		});
 		const fetchedView = await getSavedView(client, movedView.slug);
-		const topLevelViews = await listSavedViews(client, {
-			includeDisabled: true,
-		});
-		const trackerViews = await listSavedViews(client, {
-			trackerId,
-			includeDisabled: true,
-		});
+		const topLevelViews = await listSavedViews(client, { includeDisabled: true });
+		const trackerViews = await listSavedViews(client, { trackerId, includeDisabled: true });
 
 		expect(updatedView.trackerId).toBeNull();
 		expect(fetchedView.trackerId).toBeNull();
-		expect(topLevelViews.map((view) => view.id)).toContain(movedView.id);
-		expect(trackerViews.map((view) => view.id)).not.toContain(movedView.id);
+		expect(topLevelViews.map((v) => v.id)).toContain(movedView.id);
+		expect(trackerViews.map((v) => v.id)).not.toContain(movedView.id);
 	});
 
 	it("rejects reorder requests containing saved views from another scope", async () => {
@@ -704,396 +697,6 @@ describe("Saved views E2E", () => {
 		expect(error.message).toBe("Saved view slugs contain unknown saved views");
 	});
 
-	it("rejects empty sort fields when creating or updating saved views", async () => {
-		const { client } = await createAuthenticatedClient();
-		const createdView = await createSavedView(client, {
-			name: "Sort Guard View",
-		});
-
-		const createError = await client.runError((c) =>
-			c.savedViews.create({
-				payload: buildSavedViewBody({
-					name: "Broken Sort View",
-					queryDefinition: {
-						filter: null,
-						eventJoins: [],
-						computedFields: [],
-						scope: ["book"],
-						sort: { expression: literalExpression(null), direction: "asc" },
-					},
-				}),
-			}),
-		);
-		const updateError = await client.runError((c) =>
-			c.savedViews.update({
-				path: { viewSlug: createdView.slug },
-				payload: buildUpdatedSavedViewBody({
-					queryDefinition: {
-						filter: null,
-						eventJoins: [],
-						computedFields: [],
-						scope: ["book"],
-						sort: { expression: literalExpression(null), direction: "asc" },
-					},
-				}),
-			}),
-		);
-		const refreshedView = await getSavedView(client, createdView.slug);
-		if (!("sort" in refreshedView.queryDefinition)) {
-			throw new Error("Expected saved view query definition to expose a sort expression");
-		}
-		const refreshedQD = refreshedView.queryDefinition;
-		assertPresent(refreshedQD.sort, "Expected saved view query definition to expose a sort value");
-
-		assertTaggedError(createError, "BadRequest");
-		assertTaggedError(updateError, "BadRequest");
-		expect(createError.message).toContain(
-			"Sort expressions must resolve to a sortable scalar value",
-		);
-		expect(updateError.message).toContain(
-			"Sort expressions must resolve to a sortable scalar value",
-		);
-		expect(refreshedQD.sort.expression).toEqual(createEntityColumnExpression("book", "name"));
-	});
-
-	it("rejects creating saved views with aggregate query definitions", async () => {
-		const { client } = await createAuthenticatedClient();
-
-		const aggregateQueryDefinition: NonNullable<SavedViewBodyOverrides["queryDefinition"]> =
-			JSON.parse(
-				JSON.stringify({
-					filter: null,
-					eventJoins: [],
-					scope: ["book"],
-					mode: "aggregate",
-					computedFields: [],
-					relationshipJoins: [],
-					aggregations: [{ key: "total", aggregation: { type: "count" } }],
-				}),
-			);
-
-		const error = await client.runError((c) =>
-			c.savedViews.create({
-				payload: buildSavedViewBody({
-					name: "Aggregate Stats View",
-					queryDefinition: aggregateQueryDefinition,
-				}),
-			}),
-		);
-
-		assertTaggedError(error, "ParseError");
-		expect(error.message).toContain("aggregations");
-		expect(error.message).toContain("is unexpected");
-	});
-
-	it("persists computed fields across saved view create and update flows", async () => {
-		const { client } = await createAuthenticatedClient();
-		const nextYearReference = createComputedFieldExpression("nextYear");
-		const labelReference = createComputedFieldExpression("label");
-		const yearBandReference = createComputedFieldExpression("yearBand");
-		const publishYearExpression = createEntityPropertyExpression("book", "publishYear");
-
-		const createdView = await createSavedView(client, {
-			name: "Computed Saved View",
-			queryDefinition: {
-				eventJoins: [],
-				scope: ["book"],
-				sort: { direction: "desc", expression: nextYearReference },
-				filter: {
-					operator: "gte",
-					type: "comparison",
-					left: nextYearReference,
-					right: { type: "literal", value: 2021 },
-				},
-				computedFields: [
-					{
-						key: "nextYear",
-						expression: {
-							operator: "add",
-							type: "arithmetic",
-							left: publishYearExpression,
-							right: { type: "literal", value: 1 },
-						},
-					},
-					{
-						key: "label",
-						expression: {
-							type: "concat",
-							values: [
-								{ type: "literal", value: "Book: " },
-								createEntityColumnExpression("book", "name"),
-							],
-						},
-					},
-				],
-			},
-			displayConfiguration: {
-				table: {
-					columns: [{ label: "Next Year", expression: nextYearReference }],
-				},
-				grid: {
-					calloutProperty: nextYearReference,
-					titleProperty: labelReference,
-					imageProperty: [entityField("book", "image")],
-					primarySubtitleProperty: null,
-					secondarySubtitleProperty: null,
-				},
-				list: {
-					calloutProperty: nextYearReference,
-					titleProperty: labelReference,
-					imageProperty: [entityField("book", "image")],
-					primarySubtitleProperty: null,
-					secondarySubtitleProperty: null,
-				},
-			},
-		});
-		const updatedView = await updateSavedView(client, createdView.slug, {
-			name: "Computed Saved View Updated",
-			queryDefinition: {
-				eventJoins: [],
-				scope: ["book"],
-				sort: { direction: "desc", expression: nextYearReference },
-				filter: {
-					type: "comparison",
-					operator: "gte",
-					left: nextYearReference,
-					right: { type: "literal", value: 2021 },
-				},
-				computedFields: [
-					{
-						key: "nextYear",
-						expression: {
-							type: "arithmetic",
-							operator: "add",
-							left: publishYearExpression,
-							right: { type: "literal", value: 1 },
-						},
-					},
-					{
-						key: "label",
-						expression: {
-							type: "concat",
-							values: [
-								{ type: "literal", value: "Book: " },
-								createEntityColumnExpression("book", "name"),
-							],
-						},
-					},
-					{
-						key: "yearBand",
-						expression: {
-							type: "conditional",
-							whenTrue: { type: "literal", value: "modern" },
-							whenFalse: { type: "literal", value: "classic" },
-							condition: {
-								type: "comparison",
-								operator: "gte",
-								left: nextYearReference,
-								right: { type: "literal", value: 2021 },
-							},
-						},
-					},
-				],
-			},
-			displayConfiguration: {
-				table: {
-					columns: [{ label: "Band", expression: yearBandReference }],
-				},
-				grid: {
-					calloutProperty: yearBandReference,
-					titleProperty: labelReference,
-					imageProperty: [entityField("book", "image")],
-					primarySubtitleProperty: nextYearReference,
-					secondarySubtitleProperty: null,
-				},
-				list: {
-					calloutProperty: yearBandReference,
-					titleProperty: labelReference,
-					imageProperty: [entityField("book", "image")],
-					primarySubtitleProperty: nextYearReference,
-					secondarySubtitleProperty: null,
-				},
-			},
-		});
-		const fetchedUpdatedView = await getSavedView(client, createdView.slug);
-
-		expect(createdView.queryDefinition.computedFields).toHaveLength(2);
-		expect(updatedView.queryDefinition.computedFields).toHaveLength(3);
-		expect(fetchedUpdatedView.name).toBe("Computed Saved View Updated");
-		expect(fetchedUpdatedView.queryDefinition).toEqual(updatedView.queryDefinition);
-		expect(fetchedUpdatedView.displayConfiguration).toEqual(updatedView.displayConfiguration);
-	});
-
-	it("rejects computed field cycles when creating or updating saved views", async () => {
-		const { client } = await createAuthenticatedClient();
-		const createdView = await createSavedView(client, {
-			name: "Cycle Guard View",
-		});
-
-		const invalidQueryDefinition = {
-			filter: null,
-			eventJoins: [],
-			scope: ["book"],
-			sort: {
-				direction: "asc",
-				expression: createEntityColumnExpression("book", "name"),
-			},
-			computedFields: [
-				{
-					key: "first",
-					expression: createComputedFieldExpression("second"),
-				},
-				{
-					key: "second",
-					expression: createComputedFieldExpression("first"),
-				},
-			],
-		} satisfies NonNullable<SavedViewBodyOverrides["queryDefinition"]>;
-
-		const createError = await client.runError((c) =>
-			c.savedViews.create({
-				payload: buildSavedViewBody({ queryDefinition: invalidQueryDefinition }),
-			}),
-		);
-		const updateError = await client.runError((c) =>
-			c.savedViews.update({
-				path: { viewSlug: createdView.slug },
-				payload: buildUpdatedSavedViewBody({ queryDefinition: invalidQueryDefinition }),
-			}),
-		);
-
-		assertTaggedError(createError, "BadRequest");
-		assertTaggedError(updateError, "BadRequest");
-		expect(createError.message).toBe(
-			"Computed field dependency cycle detected: first -> second -> first",
-		);
-		expect(updateError.message).toBe(
-			"Computed field dependency cycle detected: first -> second -> first",
-		);
-	});
-
-	it("rejects non-display computed image usage when creating or updating saved views", async () => {
-		const { client } = await createAuthenticatedClient();
-		const createdView = await createSavedView(client, {
-			name: "Image Guard View",
-		});
-
-		const invalidQueryDefinition = {
-			filter: null,
-			eventJoins: [],
-			scope: ["book"],
-			sort: {
-				direction: "asc",
-				expression: createComputedFieldExpression("cover"),
-			},
-			computedFields: [
-				{
-					key: "cover",
-					expression: createEntityColumnExpression("book", "image"),
-				},
-			],
-		} satisfies NonNullable<SavedViewBodyOverrides["queryDefinition"]>;
-
-		const createError = await client.runError((c) =>
-			c.savedViews.create({
-				payload: buildSavedViewBody({ queryDefinition: invalidQueryDefinition }),
-			}),
-		);
-		const updateError = await client.runError((c) =>
-			c.savedViews.update({
-				path: { viewSlug: createdView.slug },
-				payload: buildUpdatedSavedViewBody({ queryDefinition: invalidQueryDefinition }),
-			}),
-		);
-
-		assertTaggedError(createError, "BadRequest");
-		assertTaggedError(updateError, "BadRequest");
-		expect(createError.message).toBe(
-			"Image expressions are display-only and cannot be used in sorting",
-		);
-		expect(updateError.message).toBe(
-			"Image expressions are display-only and cannot be used in sorting",
-		);
-	});
-
-	it("rejects unqualified property references when creating or updating saved views", async () => {
-		const { client } = await createAuthenticatedClient();
-		const createdView = await createSavedView(client, {
-			name: "Qualification Guard View",
-		});
-
-		const unqualifiedQueryDefinition: NonNullable<SavedViewBodyOverrides["queryDefinition"]> =
-			JSON.parse(
-				JSON.stringify({
-					eventJoins: [],
-					scope: ["book"],
-					sort: { direction: "asc", expression: "year" },
-					filter: {
-						left: "status",
-						operator: "eq",
-						type: "comparison",
-						right: { type: "literal", value: "active" },
-					},
-				}),
-			);
-
-		const createError = await client.runError((c) =>
-			c.savedViews.create({
-				payload: {
-					...buildSavedViewBody({ name: "Broken Qualification View" }),
-					queryDefinition: unqualifiedQueryDefinition,
-				},
-			}),
-		);
-		const updateError = await client.runError((c) =>
-			c.savedViews.update({
-				path: { viewSlug: createdView.slug },
-				payload: {
-					...buildUpdatedSavedViewBody(),
-					queryDefinition: unqualifiedQueryDefinition,
-				},
-			}),
-		);
-
-		assertTaggedError(createError, "ParseError");
-		assertTaggedError(updateError, "ParseError");
-		expect(createError.message).toContain('actual "year"');
-		expect(updateError.message).toContain('actual "year"');
-	});
-
-	it("rejects a view referencing a property that does not exist in the schema", async () => {
-		const { client } = await createAuthenticatedClient();
-
-		const invalidQueryDefinition = {
-			filter: null,
-			eventJoins: [],
-			computedFields: [],
-			scope: ["book"],
-			sort: {
-				direction: "asc",
-				expression: createEntityPropertyExpression("book", "nonexistent_property"),
-			},
-		} satisfies NonNullable<SavedViewBodyOverrides["queryDefinition"]>;
-
-		const createError = await client.runError((c) =>
-			c.savedViews.create({
-				payload: buildSavedViewBody({ queryDefinition: invalidQueryDefinition }),
-			}),
-		);
-		const createdView = await createSavedView(client);
-		const updateError = await client.runError((c) =>
-			c.savedViews.update({
-				path: { viewSlug: createdView.slug },
-				payload: buildUpdatedSavedViewBody({ queryDefinition: invalidQueryDefinition }),
-			}),
-		);
-
-		assertTaggedError(createError, "BadRequest");
-		assertTaggedError(updateError, "BadRequest");
-		expect(createError.message).toContain("not found in schema");
-		expect(updateError.message).toContain("not found in schema");
-	});
-
 	it("rejects a view with a null title property in the display config", async () => {
 		const { client } = await createAuthenticatedClient();
 		const createBody = buildSavedViewBody();
@@ -1105,14 +708,8 @@ describe("Saved views E2E", () => {
 					...createBody,
 					displayConfiguration: {
 						...createBody.displayConfiguration,
-						grid: {
-							...createBody.displayConfiguration.grid,
-							titleProperty: invalidTitleProperty,
-						},
-						list: {
-							...createBody.displayConfiguration.list,
-							titleProperty: invalidTitleProperty,
-						},
+						grid: { ...createBody.displayConfiguration.grid, titleProperty: invalidTitleProperty },
+						list: { ...createBody.displayConfiguration.list, titleProperty: invalidTitleProperty },
 					},
 				},
 			}),
@@ -1132,17 +729,17 @@ describe("Saved views E2E", () => {
 					displayConfiguration: {
 						table: { columns: [] },
 						grid: {
-							imageProperty: null,
-							calloutProperty: null,
 							eyebrowProperty: null,
+							calloutProperty: null,
+							imageProperty: null,
 							primarySubtitleProperty: null,
 							secondarySubtitleProperty: null,
 							titleProperty: [entityField("book", "name")],
 						},
 						list: {
-							imageProperty: null,
-							calloutProperty: null,
 							eyebrowProperty: null,
+							calloutProperty: null,
+							imageProperty: null,
 							primarySubtitleProperty: null,
 							secondarySubtitleProperty: null,
 							titleProperty: [entityField("book", "name")],
@@ -1236,170 +833,5 @@ describe("Saved views E2E", () => {
 		expect(updateError.message).toContain("entityIdProperty");
 		expect(createError.message).toContain("string expression");
 		expect(updateError.message).toContain("string expression");
-	});
-
-	it("executes saved-view grid and table requests through the query engine", async () => {
-		const { client, entityIdsByName, schema } = await createSingleSchemaQueryEngineFixture();
-		const createdView = await createSavedView(client, {
-			name: `Runtime Coverage ${crypto.randomUUID()}`,
-			queryDefinition: {
-				filter: null,
-				eventJoins: [],
-				computedFields: [],
-				scope: [schema.slug],
-				relationshipJoins: [],
-				sort: { direction: "asc", expression: createEntityColumnExpression(schema.slug, "name") },
-			},
-			displayConfiguration: {
-				entityIdProperty: createEntityColumnExpression(schema.slug, "id"),
-				table: {
-					columns: [
-						{ label: "Name", expression: [entityField(schema.slug, "name")] },
-						{ label: "Year", expression: [entityField(schema.slug, "year")] },
-					],
-				},
-				grid: {
-					eyebrowProperty: createEntitySchemaExpression("name"),
-					titleProperty: [entityField(schema.slug, "name")],
-					imageProperty: createEntityColumnExpression(schema.slug, "image"),
-					calloutProperty: [entityField(schema.slug, "category")],
-					primarySubtitleProperty: [entityField(schema.slug, "year")],
-					secondarySubtitleProperty: [entityField(schema.slug, "category")],
-				},
-				list: {
-					eyebrowProperty: createEntitySchemaExpression("name"),
-					titleProperty: [entityField(schema.slug, "name")],
-					imageProperty: createEntityColumnExpression(schema.slug, "image"),
-					calloutProperty: [entityField(schema.slug, "category")],
-					primarySubtitleProperty: [entityField(schema.slug, "year")],
-					secondarySubtitleProperty: [entityField(schema.slug, "category")],
-				},
-			},
-		});
-		const { mode: _ignoredMode, ...runtimeQueryDefinition } = createdView.queryDefinition;
-		const gridRequest = buildGridRequest({
-			...runtimeQueryDefinition,
-			displayConfiguration: createdView.displayConfiguration.grid,
-			pagination: { limit: 20, page: 1 },
-		});
-		const tableRequest = buildTableRequest({
-			...runtimeQueryDefinition,
-			pagination: { limit: 20, page: 1 },
-			displayConfiguration: createdView.displayConfiguration.table,
-		});
-
-		const gridResult = await executeQueryEngine(client, {
-			...gridRequest,
-			fields: [
-				buildQueryEngineField("entityId", createdView.displayConfiguration.entityIdProperty),
-				(() => {
-					const eyebrowProperty = createdView.displayConfiguration.grid.eyebrowProperty;
-					if (eyebrowProperty === null) {
-						throw new Error("Missing eyebrow property for saved view runtime test");
-					}
-
-					return buildQueryEngineField("eyebrow", eyebrowProperty);
-				})(),
-				...gridRequest.fields,
-			],
-		});
-		const tableResult = await executeQueryEngine(client, {
-			...tableRequest,
-			fields: [
-				buildQueryEngineField("entityId", createdView.displayConfiguration.entityIdProperty),
-				...tableRequest.fields,
-			],
-		});
-
-		expect(gridResult.data.data.meta.fieldOrder).toEqual([
-			"entityId",
-			"eyebrow",
-			"image",
-			"title",
-			"primarySubtitle",
-			"secondarySubtitle",
-			"callout",
-		]);
-		expect(tableResult.data.data.meta.fieldOrder).toEqual(["entityId", "column_0", "column_1"]);
-
-		const gridItem = gridResult.data.data.items[0];
-		const tableItem = tableResult.data.data.items[0];
-		const alphaId = entityIdsByName["Alpha Phone"];
-		assertPresent(alphaId, "Missing runtime entity fixture id for saved view test");
-
-		expect(getQueryEngineFieldOrThrow(gridItem, "entityId")).toEqual({
-			kind: "text",
-			value: alphaId,
-			key: "entityId",
-		});
-		expect(getQueryEngineFieldOrThrow(gridItem, "eyebrow")).toEqual({
-			kind: "text",
-			key: "eyebrow",
-			value: schema.data.name,
-		});
-		expect(getQueryEngineFieldOrThrow(gridItem, "title")).toEqual({
-			key: "title",
-			kind: "text",
-			value: "Alpha Phone",
-		});
-		expect(getQueryEngineFieldOrThrow(gridItem, "image")).toEqual({
-			key: "image",
-			kind: "image",
-			value: { type: "remote", url: "https://example.com/alpha-phone.png" },
-		});
-		expect(getQueryEngineFieldOrThrow(gridItem, "primarySubtitle")).toEqual({
-			value: 2018,
-			kind: "number",
-			key: "primarySubtitle",
-		});
-		expect(getQueryEngineFieldOrThrow(gridItem, "secondarySubtitle")).toEqual({
-			kind: "text",
-			value: "phone",
-			key: "secondarySubtitle",
-		});
-		expect(getQueryEngineFieldOrThrow(gridItem, "callout")).toEqual({
-			kind: "text",
-			key: "callout",
-			value: "phone",
-		});
-		expect(getQueryEngineFieldOrThrow(tableItem, "entityId")).toEqual({
-			kind: "text",
-			value: alphaId,
-			key: "entityId",
-		});
-		expect(getQueryEngineFieldOrThrow(tableItem, "column_0")).toEqual({
-			kind: "text",
-			key: "column_0",
-			value: "Alpha Phone",
-		});
-		expect(getQueryEngineFieldOrThrow(tableItem, "column_1")).toEqual({
-			value: 2018,
-			kind: "number",
-			key: "column_1",
-		});
-	});
-
-	it("rejects a view referencing a schema slug that does not exist", async () => {
-		const { client } = await createAuthenticatedClient();
-
-		const error = await client.runError((c) =>
-			c.savedViews.create({
-				payload: buildSavedViewBody({
-					queryDefinition: {
-						filter: null,
-						eventJoins: [],
-						computedFields: [],
-						scope: ["does-not-exist"],
-						sort: {
-							direction: "asc",
-							expression: createEntityColumnExpression("does-not-exist", "name"),
-						},
-					},
-				}),
-			}),
-		);
-
-		assertTaggedError(error, "BadRequest");
-		expect(error.message).toContain("not found");
 	});
 });

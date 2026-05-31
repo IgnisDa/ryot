@@ -1,26 +1,8 @@
 import { Schema } from "effect";
 
-import {
-	DisplayConfiguration,
-	QueryComputedField,
-	QueryEventJoin,
-	QueryFilter,
-	QueryRelationshipJoin,
-	SavedViewSort,
-} from "#lib/query-language";
+import { DisplayConfiguration } from "#lib/query-language";
 import { SavedViewId, TrackerId } from "#lib/schema/brands";
-import { strictStruct } from "#lib/schema/utils";
-import { QueryDocumentV2 } from "#modules/query-engine-v2/language";
-
-const SavedViewQueryDefinition = strictStruct({
-	scope: Schema.Array(Schema.String),
-	sort: Schema.optional(SavedViewSort),
-	mode: Schema.optional(Schema.Literal("entities")),
-	filter: Schema.optional(Schema.NullOr(QueryFilter)),
-	eventJoins: Schema.optional(Schema.Array(QueryEventJoin)),
-	computedFields: Schema.optional(Schema.Array(QueryComputedField)),
-	relationshipJoins: Schema.optional(Schema.Array(QueryRelationshipJoin)),
-});
+import { QueryDocument } from "#modules/query-engine/language";
 
 export const ListedSavedView = Schema.Struct({
 	id: SavedViewId,
@@ -33,9 +15,8 @@ export const ListedSavedView = Schema.Struct({
 	isBuiltin: Schema.Boolean,
 	isDisabled: Schema.Boolean,
 	accentColor: Schema.String,
-	queryDocument: QueryDocumentV2,
+	queryDocument: QueryDocument,
 	trackerId: Schema.NullOr(TrackerId),
-	queryDefinition: SavedViewQueryDefinition,
 	displayConfiguration: DisplayConfiguration,
 });
 
@@ -45,8 +26,7 @@ export const CreateSavedViewBody = Schema.Struct({
 	icon: Schema.String,
 	name: Schema.String,
 	accentColor: Schema.String,
-	queryDocument: QueryDocumentV2,
-	queryDefinition: SavedViewQueryDefinition,
+	queryDocument: QueryDocument,
 	displayConfiguration: DisplayConfiguration,
 	trackerId: Schema.optional(TrackerId),
 });
@@ -58,8 +38,7 @@ export const UpdateSavedViewBody = Schema.Struct({
 	name: Schema.String,
 	isDisabled: Schema.Boolean,
 	accentColor: Schema.String,
-	queryDocument: QueryDocumentV2,
-	queryDefinition: SavedViewQueryDefinition,
+	queryDocument: QueryDocument,
 	displayConfiguration: DisplayConfiguration,
 	trackerId: Schema.optional(TrackerId),
 });
