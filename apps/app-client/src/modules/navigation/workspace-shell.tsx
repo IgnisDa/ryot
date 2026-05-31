@@ -414,55 +414,72 @@ function MobileWorkspaceSheet(props: {
 			<View className="gap-2">
 				{props.data.workspaces.map((workspace) => {
 					const items = getNavigationItems({ data: props.data, workspaceSlug: workspace.slug });
+					const isCurrent = workspace.slug === props.currentWorkspaceSlug;
 					return (
 						<Pressable
 							key={workspace.slug}
 							accessibilityRole="button"
 							onPress={() => props.onSelect(workspace.slug)}
 							accessibilityLabel={`Switch to ${workspace.name} workspace`}
-							className="flex-row items-center gap-3 rounded-lg border border-border px-3 py-3"
+							className={clsx(
+								"h-18 flex-row items-center gap-3.5 rounded-lg border px-3.5",
+								isCurrent ? "border-accent-text bg-accent-soft" : "border-transparent bg-surface-2",
+							)}
 						>
-							<View className="h-11 w-11 items-center justify-center rounded-lg bg-accent-soft">
-								<NavigationIcon className="text-accent-text" name={workspace.icon} size={20} />
+							<View
+								className={clsx(
+									"h-11 w-11 items-center justify-center rounded-xl",
+									isCurrent ? "bg-accent" : "bg-accent-soft",
+								)}
+							>
+								<NavigationIcon
+									size={21}
+									name={workspace.icon}
+									className={clsx(isCurrent ? "text-accent-ink" : "text-accent-text")}
+								/>
 							</View>
-							<View className="flex-1">
-								<Text className="font-ui-medium text-sm text-text">{workspace.name}</Text>
+							<View className="min-w-0 flex-1 gap-0.5">
+								<Text className="font-ui-semibold text-base text-text">{workspace.name}</Text>
 								<Text className="font-ui text-xs text-text-muted">
 									{getWorkspacePickerSummary(items)}
 								</Text>
 							</View>
-							{workspace.slug === props.currentWorkspaceSlug ? (
-								<NavigationIcon className="text-accent-text" name="check" size={17} />
+							{isCurrent ? (
+								<View className="h-6 w-6 items-center justify-center rounded-full bg-accent">
+									<NavigationIcon className="text-accent-ink" name="check" size={14} />
+								</View>
 							) : (
-								<NavigationIcon className="text-text-subtle" name="chevron-right" size={17} />
+								<NavigationIcon className="text-text-subtle" name="chevron-right" size={18} />
 							)}
 						</Pressable>
 					);
 				})}
 			</View>
-			<View className="mt-5 gap-2">
-				<Text className="font-ui-semibold text-[10px] uppercase tracking-[1.6px] text-text-subtle">
-					Saved Views
-				</Text>
-				<ScrollView
-					horizontal
-					contentContainerClassName="gap-2"
-					showsHorizontalScrollIndicator={false}
-				>
+			<View className="mt-3.5 gap-2">
+				<View className="flex-row items-center justify-between">
+					<Text className="font-mono text-[11px] font-bold uppercase tracking-[1.6px] text-text-subtle">
+						Saved Views
+					</Text>
+					<View className="flex-row items-center gap-1">
+						<NavigationIcon className="text-accent-text" name="plus" size={14} />
+						<Text className="font-ui-medium text-xs text-accent-text">New view</Text>
+					</View>
+				</View>
+				<View className="flex-row flex-wrap gap-2">
 					{props.items.savedViews.length === 0 ? (
 						<EmptyNavigationSection message="No saved views yet." />
 					) : (
 						props.items.savedViews.map((item) => (
 							<View
-								className="flex-row items-center gap-2 rounded-lg border border-border bg-bg px-3 py-2"
 								key={item.slug}
+								className="h-9 flex-row items-center gap-2 rounded-pill border border-border bg-surface-2 px-3"
 							>
 								<NavigationIcon className="text-text-muted" name={item.icon} size={15} />
-								<Text className="font-ui text-xs text-text">{item.name}</Text>
+								<Text className="font-ui-medium text-[13.5px] text-text">{item.name}</Text>
 							</View>
 						))
 					)}
-				</ScrollView>
+				</View>
 			</View>
 		</BottomSheet>
 	);
@@ -476,15 +493,21 @@ function MobileMoreSheet(props: {
 	const items = props.items;
 	return (
 		<BottomSheet
-			title="More Views"
-			onClose={props.onClose}
+			title="More views"
 			snapPoints={[570]}
-			description="Open additional views and saved views."
+			onClose={props.onClose}
+			description="Open and reorder additional views."
+			headerAction={
+				<View className="h-7.5 flex-row items-center gap-1.5 rounded-pill bg-surface-2 px-3">
+					<NavigationIcon className="text-accent-text" name="arrow-up-down" size={14} />
+					<Text className="font-ui-semibold text-[13px] text-accent-text">Reorder</Text>
+				</View>
+			}
 		>
 			<ScrollView
 				className="flex-1"
 				showsVerticalScrollIndicator={false}
-				contentContainerClassName="gap-2 pb-4"
+				contentContainerClassName="gap-1.5 pb-4"
 			>
 				{items.views.slice(4).map((item) => (
 					<Pressable
@@ -492,45 +515,17 @@ function MobileMoreSheet(props: {
 						accessibilityRole="button"
 						accessibilityLabel={item.name}
 						onPress={() => props.onNavigate(item)}
-						className="flex-row items-center gap-3 rounded-lg border border-border px-3 py-3"
+						className="h-13 flex-row items-center gap-3 rounded-md bg-surface-2 px-3"
 					>
-						<View className="h-8 w-8 items-center justify-center rounded-md bg-surface-2">
-							<NavigationIcon className="text-text-muted" name={item.icon} size={16} />
+						<View className="h-8 w-8 items-center justify-center rounded-md bg-accent-soft">
+							<NavigationIcon className="text-accent-text" name={item.icon} size={17} />
 						</View>
-						<Text className="flex-1 font-ui text-sm text-text">{item.name}</Text>
-						<NavigationIcon className="text-text-subtle" name="grip-vertical" size={16} />
+						<Text className="flex-1 font-ui-semibold text-[15px] text-text">
+							{item.name.replace(/^All /, "")}
+						</Text>
+						<NavigationIcon className="text-text-subtle" name="grip-vertical" size={17} />
 					</Pressable>
 				))}
-				<View className="mt-4 gap-2">
-					<View className="flex-row items-center justify-between">
-						<Text className="font-ui-semibold text-[10px] uppercase tracking-[1.6px] text-text-subtle">
-							Saved Views
-						</Text>
-						<Pressable
-							accessibilityRole="button"
-							accessibilityLabel="Create saved view"
-							className="flex-row items-center gap-1"
-						>
-							<NavigationIcon className="text-accent-text" name="plus" size={14} />
-							<Text className="font-ui-medium text-xs text-accent-text">New</Text>
-						</Pressable>
-					</View>
-					<View className="flex-row flex-wrap gap-2">
-						{items.collections.length === 0 && items.savedViews.length === 0 ? (
-							<EmptyNavigationSection message="No collections or saved views yet." />
-						) : (
-							[...items.collections, ...items.savedViews].map((item) => (
-								<View
-									className="flex-row items-center gap-2 rounded-lg border border-border bg-bg px-3 py-2"
-									key={`${item.kind}-${item.slug}`}
-								>
-									<NavigationIcon className="text-text-muted" name={item.icon} size={14} />
-									<Text className="font-ui text-xs text-text">{item.name}</Text>
-								</View>
-							))
-						)}
-					</View>
-				</View>
 			</ScrollView>
 		</BottomSheet>
 	);
