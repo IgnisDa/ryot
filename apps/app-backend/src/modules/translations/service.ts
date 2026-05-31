@@ -107,10 +107,9 @@ export class TranslationsService extends Effect.Service<TranslationsService>()(
 					return canonical(entity);
 				}
 
-				const preferences = yield* runWithDb(repository.findUserLanguagePreferences(input.user.id));
+				const preferredLanguage = yield* runWithDb(repository.findUserLanguage(input.user.id));
 				const resolution = resolveLanguage({
-					preferences,
-					source: providerInformation.source,
+					preferredLanguage,
 					canonicalLanguage: providerInformation.canonicalLanguage,
 				});
 				if (resolution.kind === "canonical") {

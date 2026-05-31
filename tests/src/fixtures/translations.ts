@@ -12,31 +12,12 @@ type EntityTranslationRow = {
 	properties: Record<string, unknown> | null;
 };
 
-export async function setUserProviderLanguage(input: {
-	userId: string;
-	source: string;
-	preferredLanguage: string;
-}) {
+export async function setUserLanguage(input: { userId: string; language: string }) {
 	await getPgClient().query(
 		`update "user"
-		 set preferences = jsonb_set(
-		   preferences,
-		   '{languages,providers}',
-		   coalesce(
-		     (
-		       select jsonb_agg(provider.value)
-		       from jsonb_array_elements(coalesce(preferences -> 'languages' -> 'providers', '[]'::jsonb)) as provider(value)
-		       where provider.value ->> 'source' <> $2
-		     ),
-		     '[]'::jsonb
-		   ) || $3::jsonb
-		 )
+		 set preferences = jsonb_set(preferences, '{language}', $2::jsonb)
 		 where id = $1`,
-		[
-			input.userId,
-			input.source,
-			JSON.stringify([{ source: input.source, preferredLanguage: input.preferredLanguage }]),
-		],
+		[input.userId, JSON.stringify(input.language)],
 	);
 }
 
