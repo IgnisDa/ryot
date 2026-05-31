@@ -17,8 +17,12 @@ import { type SandboxRunError, type TimeoutError, unknownToMessage } from "./err
 import type { RedisService } from "./redis";
 import { redisKeys } from "./redis";
 import type { SandboxRunInput, SandboxRunOutput } from "./sandbox";
-
-type BoundHostFunction = (...args: ReadonlyArray<unknown>) => Promise<unknown>;
+import {
+	apiFailure,
+	apiSuccess,
+	type BoundHostFunction,
+	requireSandboxRunInput,
+} from "./sandbox-shared";
 
 type SandboxHostFunctionDependencies = {
 	readonly redis: RedisService;
@@ -67,28 +71,8 @@ const ListEventsQuery = Schema.Struct({
 const decodeListEventsQuery = Schema.decodeUnknown(ListEventsQuery);
 const decodeCreateEventsPayload = Schema.decodeUnknown(CreateEventsPayload);
 
-const apiSuccess = <T>(data: T) => ({ data, success: true as const });
-const apiFailure = (error: string) => ({ error, success: false as const });
-
 const isObjectRecord = (value: unknown): value is Record<string, unknown> =>
 	typeof value === "object" && value !== null && !Array.isArray(value);
-
-const isSandboxRunInput = (value: unknown): value is SandboxRunInput =>
-	value !== null &&
-	typeof value === "object" &&
-	typeof Reflect.get(value, "userId") === "string" &&
-	typeof Reflect.get(value, "scriptId") === "string" &&
-	typeof Reflect.get(value, "driverName") === "string" &&
-	typeof Reflect.get(value, "executionId") === "string";
-
-const requireSandboxRunInput = (args: ReadonlyArray<unknown>, index: number, fnName: string) => {
-	const input = args[index];
-	if (!isSandboxRunInput(input)) {
-		throw new Error(`${fnName} is missing sandbox execution input`);
-	}
-
-	return input;
-};
 
 const requireNonEmptyString = (value: unknown, message: string): Effect.Effect<string, string> => {
 	if (typeof value !== "string" || value.trim().length === 0) {
