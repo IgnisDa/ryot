@@ -395,21 +395,24 @@ const createQueryEngineEntities = async (input: {
 	cookies: string;
 	entities: QueryEngineEntityFixture[];
 }) => {
-	const entityIdsByName: Record<string, string> = {};
+	const entries = await Promise.all(
+		input.entities.map(
+			async (entity) =>
+				[
+					entity.name,
+					await createQueryEngineEntity({
+						name: entity.name,
+						image: entity.image,
+						client: input.client,
+						cookies: input.cookies,
+						properties: entity.properties,
+						entitySchemaId: entity.entitySchemaId,
+					}),
+				] as const,
+		),
+	);
 
-	for (const entity of input.entities) {
-		// oxlint-disable-next-line no-await-in-loop
-		entityIdsByName[entity.name] = await createQueryEngineEntity({
-			name: entity.name,
-			image: entity.image,
-			client: input.client,
-			cookies: input.cookies,
-			properties: entity.properties,
-			entitySchemaId: entity.entitySchemaId,
-		});
-	}
-
-	return entityIdsByName;
+	return Object.fromEntries(entries);
 };
 
 export async function createSingleSchemaQueryEngineFixture() {

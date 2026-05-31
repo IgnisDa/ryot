@@ -9,6 +9,13 @@ import {
 	createRuleEventFixture,
 	waitForEventCount,
 } from "../fixtures";
+import { requireNumber, requireObjectRecord } from "../test-support/assertions";
+
+const getProgressPercent = (properties: unknown) =>
+	requireNumber(
+		requireObjectRecord(properties, "Expected event properties to be an object").progressPercent,
+		"Expected progressPercent to be a number",
+	);
 
 describe("Events bulk POST", () => {
 	it("creates multiple events and returns the count", async () => {
@@ -232,14 +239,9 @@ describe("Events bulk POST", () => {
 		const events = await waitForEventCount(apiClient, cookies, entityId, 2);
 		expect(events).toHaveLength(2);
 		expect(events.map((event) => event.eventSchemaSlug)).toEqual(["progress", "progress"]);
-		expect(
-			// oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion
-			sortBy(
-				events.map(
-					(event) => (event.properties as Record<string, unknown>).progressPercent as number,
-				),
-			),
-		).toEqual([25.56, 50.44]);
+		expect(sortBy(events.map((event) => getProgressPercent(event.properties)))).toEqual([
+			25.56, 50.44,
+		]);
 	});
 
 	it("creates repeated built-in complete events without relying on progress", async () => {
@@ -490,14 +492,9 @@ describe("Events bulk POST", () => {
 		const events = await waitForEventCount(apiClient, cookies, entityId, 2);
 		expect(events).toHaveLength(2);
 		expect(events.map((event) => event.eventSchemaSlug)).toEqual(["dropped", "dropped"]);
-		expect(
-			// oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion
-			sortBy(
-				events.map(
-					(event) => (event.properties as Record<string, unknown>).progressPercent as number,
-				),
-			),
-		).toEqual([33.33, 66.67]);
+		expect(sortBy(events.map((event) => getProgressPercent(event.properties)))).toEqual([
+			33.33, 66.67,
+		]);
 	});
 
 	it("creates built-in on_hold events with rounded progress values", async () => {
@@ -529,14 +526,9 @@ describe("Events bulk POST", () => {
 		const events = await waitForEventCount(apiClient, cookies, entityId, 2);
 		expect(events).toHaveLength(2);
 		expect(events.map((event) => event.eventSchemaSlug)).toEqual(["on_hold", "on_hold"]);
-		expect(
-			// oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion
-			sortBy(
-				events.map(
-					(event) => (event.properties as Record<string, unknown>).progressPercent as number,
-				),
-			),
-		).toEqual([45.56, 75.44]);
+		expect(sortBy(events.map((event) => getProgressPercent(event.properties)))).toEqual([
+			45.56, 75.44,
+		]);
 	});
 
 	it("creates dropped and on_hold events with episodic media fields for shows", async () => {

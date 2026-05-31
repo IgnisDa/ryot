@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { createEntityColumnExpression } from "@ryot/ts-utils/view-language";
+import { createEntityColumnExpression } from "@ryot/app-backend/query-language";
 
 import {
 	buildQueryEngineField,
@@ -452,16 +452,17 @@ describe("events mode", () => {
 			entitySchemaId: schema.schemaId,
 			properties: {},
 		});
-		for (const seq of [1, 2, 3, 4, 5]) {
-			// oxlint-disable-next-line no-await-in-loop
-			await createQueryEngineEvent({
-				client,
-				cookies,
-				entityId,
-				properties: { seq },
-				eventSchemaId: watchSchema.id,
-			});
-		}
+		await Promise.all(
+			[1, 2, 3, 4, 5].map((seq) =>
+				createQueryEngineEvent({
+					client,
+					cookies,
+					entityId,
+					properties: { seq },
+					eventSchemaId: watchSchema.id,
+				}),
+			),
+		);
 
 		const sortExpr = {
 			direction: "asc" as const,
@@ -711,16 +712,17 @@ describe("events mode", () => {
 			entitySchemaId: schema.schemaId,
 			properties: {},
 		});
-		for (const rating of [1, 2, 3, 4, 5]) {
-			// oxlint-disable-next-line no-await-in-loop
-			await createQueryEngineEvent({
-				client,
-				cookies,
-				entityId,
-				properties: { rating },
-				eventSchemaId: reviewSchema.id,
-			});
-		}
+		await Promise.all(
+			[1, 2, 3, 4, 5].map((rating) =>
+				createQueryEngineEvent({
+					client,
+					cookies,
+					entityId,
+					properties: { rating },
+					eventSchemaId: reviewSchema.id,
+				}),
+			),
+		);
 
 		const ratingRef = {
 			type: "reference" as const,

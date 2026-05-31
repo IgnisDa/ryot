@@ -1,11 +1,10 @@
-import { requirePresent, requireResponseData } from "../test-support/assertions";
+import {
+	requireObjectRecord,
+	requirePresent,
+	requireResponseData,
+} from "../test-support/assertions";
 import type { Client } from "./auth";
-import type { ClientSuccess } from "./backend-client";
 import type { AppSchema } from "./entity-schemas";
-
-type CollectionRecord = Omit<ClientSuccess<"collections", "create">, "properties"> & {
-	properties: Record<string, unknown>;
-};
 
 export interface CreateCollectionOptions {
 	name?: string;
@@ -34,5 +33,11 @@ export async function createCollection(
 
 	// TODO(Task 22): Remove this tests-only collection assertion once the public
 	// AppContract exposes typed collection properties.
-	return collection as CollectionRecord;
+	return {
+		...collection,
+		properties: requireObjectRecord(
+			collection.properties,
+			"Collection properties must be an object",
+		),
+	};
 }
