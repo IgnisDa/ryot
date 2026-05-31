@@ -2,6 +2,7 @@ import { expect, it } from "@effect/vitest";
 import { AuthUnauthorized } from "@ryot/contract/auth-middleware";
 import type { PluginOperationAuth } from "@ryot/contract/modules/plugins/manifest";
 import {
+	PluginConflictError,
 	PluginInvocationError,
 	PluginNotFoundError,
 	PluginRequestError,
@@ -245,7 +246,7 @@ it.effect("rejects a plugin operation when its active source revision changed", 
 	return Effect.gen(function* () {
 		expectError(
 			yield* Effect.exit(invoke({ pluginSlug: SYSTEM_SLUG, sourceHash: SOURCE_HASH })),
-			PluginNotFoundError,
+			PluginConflictError,
 		);
 		expect(captured).toEqual([]);
 		expect(events).toEqual(["lock", "revision"]);

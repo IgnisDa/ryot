@@ -403,7 +403,7 @@ The important invariants are:
 - a client-output change produces a new artifact
 - a live plugin document is not mutated underneath a running React tree
 
-The package source revision and client artifact are both fixed for the lifetime of a bridge session. When either identity changes, the kernel force-reloads any mounted iframe for that installation. An old client document must not continue calling a newer backend plugin revision, including when a backend-only update leaves the compiled client artifact unchanged.
+The package source revision and client artifact are both fixed for the lifetime of a bridge session. When either identity changes, the kernel force-reloads any mounted iframe for that installation. An old client document must not continue calling a newer backend plugin revision, including when a backend-only update leaves the compiled client artifact unchanged. For every operation, the kernel attaches the session's expected package source hash to the authenticated backend request. The backend compares it with the active revision while holding the plugin-ingestion lock and refuses a mismatch before selecting a script for execution. The stale-revision conflict remains internal to the kernel: it closes the bridge, refreshes the catalog, and replaces the iframe without delivering an ordinary operation outcome to the plugin.
 
 Artifact persistence is append-only. `plugin_client_artifact` stores metadata keyed by artifact hash, and `plugin_client_artifact_file` stores files keyed by `(artifact_hash, name)`. The plugin row stores only the nullable hash of its active client artifact. Installing or updating inserts an artifact before activating its hash and never updates an existing artifact record. Old artifacts remain addressable and are retained indefinitely; garbage collection requires a separate retention policy and is not implemented.
 
@@ -811,8 +811,8 @@ The concrete operation path is:
 ryot.operations.invoke({ slug, input, output })
   -> plugin SDK operation adapter on the session MessagePort
   -> kernel bridge session, which supplies the installation's plugin slug
-  -> kernel authenticated transport (browser credentials, ApiScope)
-  -> POST /plugins/:pluginSlug/operations/:operationSlug
+  -> kernel authenticated transport (browser credentials, ApiScope, expected package source hash)
+  -> POST /plugins/:pluginSlug/operations/:operationSlug with the kernel-owned expected hash
   -> backend operation authorization for the authenticated user
   -> plugin backend sandbox
 ```

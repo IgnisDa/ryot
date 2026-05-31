@@ -5,6 +5,7 @@ import type {
 	PluginOperationRequest,
 } from "@ryot/contract/modules/plugins/client";
 import {
+	PluginConflictError,
 	PluginInvocationError,
 	PluginNotFoundError,
 	PluginRequestError,
@@ -19,11 +20,19 @@ const isDeclaredFailure = Schema.is(
 	Schema.Union([
 		AuthRateLimited,
 		AuthUnauthorized,
+		PluginConflictError,
 		PluginRequestError,
 		PluginNotFoundError,
 		PluginInvocationError,
 	]),
 );
+
+const isStaleRevision = (cause: unknown) =>
+	Schema.is(PluginConflictError)(cause) && cause.reason.code === "source-revision-stale";
+
+export type PluginOperationDispatchOutcome =
+	| PluginOperationOutcome
+	| { readonly outcome: "stale-session" };
 
 export class PluginOperationsService extends Context.Service<PluginOperationsService>()(
 	"PluginOperationsService",
@@ -53,6 +62,9 @@ export class PluginOperationsService extends Context.Service<PluginOperationsSer
 						Effect.match({
 							onSuccess: (response) => ({ outcome: "success", value: response.result }) as const,
 							onFailure: (error) => {
+								if (isStaleRevision(error.cause)) {
+									return { outcome: "stale-session" } as const;
+								}
 								const reason = (
 									isDeclaredFailure(error.cause) ? "operation-failed" : "transport"
 								) satisfies PluginOperationBridgeErrorReason;
@@ -60,7 +72,7 @@ export class PluginOperationsService extends Context.Service<PluginOperationsSer
 							},
 						}),
 					);
-				return outcome satisfies PluginOperationOutcome;
+				return outcome satisfies PluginOperationDispatchOutcome;
 			});
 
 			return { invoke };
