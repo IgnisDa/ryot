@@ -1,4 +1,4 @@
-import type { AppPropertyDefinition, AppSchema } from "~/lib/schema";
+import type { AppPropertyDefinition, AppSchema } from "#lib/schema";
 
 const entityAssetsProperties: Readonly<Record<string, AppPropertyDefinition>> = {
 	s3Images: {

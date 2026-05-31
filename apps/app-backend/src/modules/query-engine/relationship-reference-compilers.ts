@@ -1,9 +1,9 @@
 import { sql } from "drizzle-orm";
 
-import type { QueryExpression } from "~/lib/query-language";
-import { QueryEngineValidationError } from "~/lib/views/errors";
-import { normalizeExpressionPropertyType } from "~/lib/views/expression-analysis";
-import type { PropertyType } from "~/lib/views/reference";
+import type { QueryExpression } from "#lib/query-language";
+import { QueryEngineValidationError } from "#lib/views/errors";
+import { normalizeExpressionPropertyType } from "#lib/views/expression-analysis";
+import type { PropertyType } from "#lib/views/reference";
 import {
 	getEntityColumnPropertyType,
 	getPropertyDefinition,
@@ -11,7 +11,7 @@ import {
 	getRelationshipJoinEntitySchema,
 	getRelationshipJoinForReference,
 	getRelationshipJoinPropertyType,
-} from "~/lib/views/reference";
+} from "#lib/views/reference";
 
 import type { QueryEngineContext } from "./context";
 import {
