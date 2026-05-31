@@ -33,13 +33,18 @@ const entityAssetsProperties: Readonly<Record<string, AppPropertyDefinition>> = 
 			description: "Item",
 			unknownKeys: "strict",
 			properties: {
-				url: { type: "string", label: "Url", description: "Url", validation: { required: true } },
+				url: {
+					label: "Url",
+					type: "string",
+					validation: { required: true },
+					description: "URL of the remote video",
+				},
 				source: {
 					type: "enum",
 					label: "Source",
-					description: "Source",
 					validation: { required: true },
 					options: ["youtube", "dailymotion"],
+					description: "Video hosting platform",
 				},
 			},
 		},
@@ -47,12 +52,17 @@ const entityAssetsProperties: Readonly<Record<string, AppPropertyDefinition>> = 
 };
 
 const workoutSupersetItemProperties: Readonly<Record<string, AppPropertyDefinition>> = {
-	color: { type: "string", label: "Color", description: "Color", validation: { required: true } },
+	color: {
+		type: "string",
+		label: "Color",
+		validation: { required: true },
+		description: "Display color for this superset",
+	},
 	exercises: {
 		type: "array",
 		label: "Exercises",
-		description: "Exercises",
 		validation: { required: true },
+		description: "Zero-based exercise positions in this superset",
 		items: { type: "integer", label: "Item", description: "Item", validation: { minimum: 0 } },
 	},
 };
@@ -308,29 +318,49 @@ export const workoutPropertiesSchema: AppSchema = {
 };
 
 const workoutTemplateSetProperties: Readonly<Record<string, AppPropertyDefinition>> = {
-	note: { type: "string", label: "Note", description: "Note" },
-	reps: { type: "number", label: "Reps", description: "Reps" },
-	duration: { type: "number", label: "Duration", description: "Duration" },
-	weight: { type: "number", label: "Weight", description: "Weight" },
-	distance: { type: "number", label: "Distance", description: "Distance" },
+	note: {
+		label: "Note",
+		type: "string",
+		description: "Optional note specific to this set",
+	},
+	reps: {
+		label: "Reps",
+		type: "number",
+		description: "Number of repetitions planned for this set",
+	},
+	duration: {
+		type: "number",
+		label: "Duration",
+		description: "Duration planned for this set in seconds",
+	},
+	weight: {
+		type: "number",
+		label: "Weight",
+		description: "Weight planned for this set in the user's preferred unit",
+	},
+	distance: {
+		type: "number",
+		label: "Distance",
+		description: "Distance planned for this set in the user's preferred unit",
+	},
 	setOrder: {
 		type: "integer",
 		label: "Set Order",
-		description: "Set Order",
 		validation: { minimum: 0, required: true },
+		description: "Zero-based position of this set within the exercise",
 	},
 	setLot: {
 		type: "enum",
 		label: "Set Lot",
-		description: "Set Lot",
 		validation: { required: true },
 		options: ["normal", "warm_up", "drop", "failure"],
+		description: "Set type: normal, warm_up, drop, or failure",
 	},
 	rpe: {
 		label: "Rpe",
 		type: "integer",
-		description: "Rpe",
 		validation: { minimum: 0, maximum: 10 },
+		description: "Planned rate of perceived exertion from 0 (no effort) to 10 (maximal effort)",
 	},
 };
 
@@ -338,20 +368,27 @@ const workoutTemplateExerciseProperties: Readonly<Record<string, AppPropertyDefi
 	exerciseId: {
 		type: "string",
 		label: "Exercise Id",
-		description: "Exercise Id",
 		validation: { required: true },
+		description: "Entity id of the exercise",
 	},
 	notes: {
 		type: "array",
 		label: "Notes",
-		description: "Notes",
 		validation: { required: true },
+		description: "Notes for this exercise",
 		items: { type: "string", label: "Item", description: "Item" },
+	},
+	exerciseOrder: {
+		type: "integer",
+		label: "Exercise Order",
+		description: "Zero-based position of this exercise within the template",
+		validation: { minimum: 0, required: true },
 	},
 	sets: {
 		type: "array",
 		label: "Sets",
-		description: "Sets",
+		validation: { required: true },
+		description: "Sets planned for this exercise",
 		items: {
 			label: "Item",
 			type: "object",
@@ -359,13 +396,6 @@ const workoutTemplateExerciseProperties: Readonly<Record<string, AppPropertyDefi
 			properties: workoutTemplateSetProperties,
 			description: "Set planned in this exercise",
 		},
-		validation: { required: true },
-	},
-	exerciseOrder: {
-		type: "integer",
-		label: "Exercise Order",
-		description: "Exercise Order",
-		validation: { minimum: 0, required: true },
 	},
 };
 
