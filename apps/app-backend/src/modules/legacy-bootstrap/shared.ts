@@ -51,22 +51,21 @@ export const quoteSqlString = (value: string) => `'${value.replaceAll("'", "''")
 export const quoteNullableSqlString = (value: string | null) =>
 	value === null ? "NULL" : quoteSqlString(value);
 
-export const withRawPgClient = <A>(
+export const withRawPgClient = Effect.fn("withRawPgClient")(function* <A>(
 	callback: (client: PoolClient) => Promise<A>,
-): Effect.Effect<A, Error, DbService> =>
-	Effect.gen(function* () {
-		const { pool } = yield* DbService;
-		const client = yield* Effect.promise(() => pool.connect());
-		client.on("notice", logLegacyBootstrapNotice);
-		return yield* Effect.promise(() => callback(client)).pipe(
-			Effect.ensuring(
-				Effect.sync(() => {
-					client.removeListener("notice", logLegacyBootstrapNotice);
-					client.release();
-				}),
-			),
-		);
-	});
+) {
+	const { pool } = yield* DbService;
+	const client = yield* Effect.promise(() => pool.connect());
+	client.on("notice", logLegacyBootstrapNotice);
+	return yield* Effect.promise(() => callback(client)).pipe(
+		Effect.ensuring(
+			Effect.sync(() => {
+				client.removeListener("notice", logLegacyBootstrapNotice);
+				client.release();
+			}),
+		),
+	);
+});
 
 export const buildUniqueSlugMap = (
 	rows: Array<{ id: string; slug: string }>,

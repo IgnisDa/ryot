@@ -2,7 +2,6 @@ import { sql } from "drizzle-orm";
 import { Effect } from "effect";
 
 import { CurrentDb, dbEffect } from "#lib/db";
-import type { DbError, NotFound } from "#lib/errors";
 
 import type { EntitySource, Expr, FieldValue, NestedEventSource } from "../language";
 import {
@@ -79,22 +78,21 @@ const evalEntityFirstSelect = (
 	return { kind: "null", value: null };
 };
 
-export const executeEventFirst = (
+export const executeEventFirst = Effect.fn("executeEventFirst")(function* (
 	userId: string,
 	anchor: BaseEntityQueryRow,
 	source: NestedEventSource,
 	expr: FirstExpr,
-): Effect.Effect<FieldValue, NotFound | DbError, CurrentDb> =>
-	Effect.gen(function* () {
-		const eventSchemas = yield* loadVisibleEventSchemas(userId, anchor.schemaId, source.schemas);
-		const eventSchemaIdsSql = sql.join(
-			eventSchemas.map((schema) => sql`${schema.id}`),
-			sql`, `,
-		);
-		const orderSql = eventFirstOrderSql(source, expr.orderBy);
-		const db = yield* CurrentDb;
-		const rawRows = yield* dbEffect(() =>
-			db.execute<EventQueryRow>(sql`
+) {
+	const eventSchemas = yield* loadVisibleEventSchemas(userId, anchor.schemaId, source.schemas);
+	const eventSchemaIdsSql = sql.join(
+		eventSchemas.map((schema) => sql`${schema.id}`),
+		sql`, `,
+	);
+	const orderSql = eventFirstOrderSql(source, expr.orderBy);
+	const db = yield* CurrentDb;
+	const rawRows = yield* dbEffect(() =>
+		db.execute<EventQueryRow>(sql`
 				SELECT
 					${entitySelectColumnsSql},
 					${eventSelectColumnsSql},
@@ -111,43 +109,42 @@ export const executeEventFirst = (
 				ORDER BY ${orderSql}
 				LIMIT 1
 			`),
-		);
+	);
 
-		const firstRow = rawRows.rows[0];
-		if (!firstRow) {
-			return { kind: "null" as const, value: null };
-		}
-		return evalEventFirstSelect(expr.select, firstRow, source, anchor);
-	});
+	const firstRow = rawRows.rows[0];
+	if (!firstRow) {
+		return { kind: "null" as const, value: null };
+	}
+	return evalEventFirstSelect(expr.select, firstRow, source, anchor);
+});
 
-export const executeEntityFirst = (
+export const executeEntityFirst = Effect.fn("executeEntityFirst")(function* (
 	userId: string,
 	anchor: BaseEntityQueryRow,
 	source: EntitySource,
 	expr: FirstExpr,
-): Effect.Effect<FieldValue, NotFound | DbError, CurrentDb> =>
-	Effect.gen(function* () {
-		if (source.via === undefined) {
-			return { kind: "null" as const, value: null };
-		}
-		const via = source.via;
+) {
+	if (source.via === undefined) {
+		return { kind: "null" as const, value: null };
+	}
+	const via = source.via;
 
-		const [relationshipSchema, visibleSchemas] = yield* Effect.all([
-			loadVisibleRelationshipSchema(userId, via.schema),
-			loadVisibleEntitySchemas(userId, source.schemas),
-		]);
-		const schemaIdsSql = sql.join(
-			visibleSchemas.map((schema) => sql`${schema.id}`),
-			sql`, `,
-		);
-		const anchorColumn =
-			via.direction === "outgoing" ? sql`r.source_entity_id` : sql`r.target_entity_id`;
-		const childColumn =
-			via.direction === "outgoing" ? sql`r.target_entity_id` : sql`r.source_entity_id`;
-		const orderSql = entityFirstOrderSql(source, expr.orderBy);
-		const db = yield* CurrentDb;
-		const rawRows = yield* dbEffect(() =>
-			db.execute<IncludeQueryRow>(sql`
+	const [relationshipSchema, visibleSchemas] = yield* Effect.all([
+		loadVisibleRelationshipSchema(userId, via.schema),
+		loadVisibleEntitySchemas(userId, source.schemas),
+	]);
+	const schemaIdsSql = sql.join(
+		visibleSchemas.map((schema) => sql`${schema.id}`),
+		sql`, `,
+	);
+	const anchorColumn =
+		via.direction === "outgoing" ? sql`r.source_entity_id` : sql`r.target_entity_id`;
+	const childColumn =
+		via.direction === "outgoing" ? sql`r.target_entity_id` : sql`r.source_entity_id`;
+	const orderSql = entityFirstOrderSql(source, expr.orderBy);
+	const db = yield* CurrentDb;
+	const rawRows = yield* dbEffect(() =>
+		db.execute<IncludeQueryRow>(sql`
 				SELECT
 					${entitySelectColumnsSql},
 					${relationshipEdgeColumnsSql},
@@ -165,11 +162,11 @@ export const executeEntityFirst = (
 				ORDER BY ${orderSql}
 				LIMIT 1
 			`),
-		);
+	);
 
-		const firstRow = rawRows.rows[0];
-		if (!firstRow) {
-			return { kind: "null" as const, value: null };
-		}
-		return evalEntityFirstSelect(expr.select, firstRow, source, anchor);
-	});
+	const firstRow = rawRows.rows[0];
+	if (!firstRow) {
+		return { kind: "null" as const, value: null };
+	}
+	return evalEntityFirstSelect(expr.select, firstRow, source, anchor);
+});
