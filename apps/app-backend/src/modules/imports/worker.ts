@@ -17,6 +17,7 @@ import {
 import {
 	importMediaEntityViaWorkflow,
 	resolveSandboxEntityExternalId,
+	searchSandboxEntities,
 } from "./media/workflow-operations";
 import { failImportRun } from "./runtime/failures";
 import { getTemporaryDirectory, resolveSafeImportFilePath } from "./runtime/files";
@@ -106,6 +107,7 @@ const ProcessImportRunWorkflowLive = ProcessImportRunWorkflow.toLayer((payload, 
 		}
 
 		yield* runOneTimeMediaImportWorkflow(payload, executionId, {
+			searchEntities: searchSandboxEntities,
 			cleanupArtifacts: cleanupImportArtifacts,
 			importEntity: importMediaEntityViaWorkflow,
 			resolveExternalId: resolveSandboxEntityExternalId,

@@ -2,7 +2,7 @@ import { DurableQueue } from "@effect/workflow";
 import { Cause, Effect } from "effect";
 
 import { SandboxRunError, unknownToMessage } from "~/lib/errors";
-import { decodeEntityResolveResult } from "~/modules/entities/population";
+import { decodeEntityResolveResult, decodeEntitySearchResult } from "~/modules/entities/population";
 import { runEntityImportWorkflow } from "~/modules/entities/workflows";
 import { SandboxExecutionQueue } from "~/modules/sandbox/durable-queues";
 
@@ -46,6 +46,35 @@ export const resolveSandboxEntityExternalId = (input: {
 							() =>
 								new SandboxRunError({
 									message: "Entity resolve script returned an unexpected shape",
+								}),
+						),
+					),
+		),
+	);
+
+export const searchSandboxEntities = (input: {
+	query: string;
+	userId: string;
+	scriptId: string;
+	executionId: string;
+}) =>
+	DurableQueue.process(SandboxExecutionQueue, {
+		userId: input.userId,
+		driverName: "search",
+		scriptId: input.scriptId,
+		executionId: input.executionId,
+		context: { query: input.query, page: 1, pageSize: 5 },
+	}).pipe(
+		Effect.mapError(toSandboxError),
+		Effect.flatMap((result) =>
+			result.error
+				? Effect.fail(new SandboxRunError({ message: result.error }))
+				: decodeEntitySearchResult(result.value).pipe(
+						Effect.map((parsed) => parsed.items),
+						Effect.mapError(
+							() =>
+								new SandboxRunError({
+									message: "Entity search script returned an unexpected shape",
 								}),
 						),
 					),
