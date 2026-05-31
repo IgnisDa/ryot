@@ -1,6 +1,7 @@
 import {
 	Box,
 	ChevronDown,
+	ChevronLeft,
 	ChevronRight,
 	Circle,
 	CircleCheck,
@@ -12,25 +13,28 @@ import {
 	Menu,
 	Puzzle,
 	Settings,
+	SlidersHorizontal,
 	User,
 	X,
 } from "lucide-react";
 
 const icons = {
+	x: X,
 	box: Box,
 	film: Film,
 	home: Home,
 	menu: Menu,
 	user: User,
-	x: X,
 	house: House,
 	puzzle: Puzzle,
 	settings: Settings,
 	"heart-pulse": HeartPulse,
 	"chevron-down": ChevronDown,
+	"chevron-left": ChevronLeft,
 	"circle-check": CircleCheck,
 	"chevron-right": ChevronRight,
 	"flask-conical": FlaskConical,
+	"sliders-horizontal": SlidersHorizontal,
 };
 
 type AppIconProps = {
