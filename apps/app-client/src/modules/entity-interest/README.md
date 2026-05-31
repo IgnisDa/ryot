@@ -23,3 +23,7 @@ Consumers can block the batcher while their data is not ready for update process
 Saved views register loaded page IDs with `visible` priority under an owner scoped by server, user, and view. They block interest updates during initial, load-more, and structural refresh queries.
 
 Each batched entity update triggers one structural refetch of the loaded page range. Updates received during the refetch coalesce into one trailing refetch. A background refetch failure keeps displayed data and retries after 30 seconds.
+
+## Show Overview
+
+The show overview registers its root entity and loaded people, companies, and recommendations at `visible` priority. Updates for any registered entity refresh the overview.

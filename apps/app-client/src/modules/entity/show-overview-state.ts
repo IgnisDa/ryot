@@ -55,6 +55,12 @@ export const showOverviewManagedAssets = (overview: ShowOverview) =>
 		...overview.recommendations.items.map(showRecommendationAsset),
 	]);
 
+export const showOverviewEntityIds = (overview: ShowOverview) => [
+	...overview.people.items.map((person) => person.id),
+	...overview.companies.items.map((company) => company.id),
+	...overview.recommendations.items.map((recommendation) => recommendation.id),
+];
+
 export const showRolesLabel = (roles: readonly string[] | null) =>
 	roles === null || roles.length === 0 ? undefined : roles.join(", ");
 
