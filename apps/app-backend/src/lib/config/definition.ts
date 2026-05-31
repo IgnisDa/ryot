@@ -52,6 +52,11 @@ const fields = {
 		"Minimum hours between automatic progress updates for an entity",
 		{ default: 2 },
 	),
+	frequentCronJobsSchedule: strField(
+		"SCHEDULER_FREQUENT_CRON_JOBS_SCHEDULE",
+		"Interval phrase used to poll enabled yank integrations",
+		{ default: "every 5 minutes" },
+	),
 	timeoutMs: intField(
 		"SANDBOX_TIMEOUT_MS",
 		"Maximum execution time for a sandbox job in milliseconds",
@@ -89,8 +94,14 @@ const usersGroup = group(
 
 const schedulerGroup = group(
 	"Scheduler settings",
-	Config.all({ progressUpdateThresholdHours: fields.progressUpdateThresholdHours.config }),
-	{ progressUpdateThresholdHours: fields.progressUpdateThresholdHours.meta },
+	Config.all({
+		frequentCronJobsSchedule: fields.frequentCronJobsSchedule.config,
+		progressUpdateThresholdHours: fields.progressUpdateThresholdHours.config,
+	}),
+	{
+		frequentCronJobsSchedule: fields.frequentCronJobsSchedule.meta,
+		progressUpdateThresholdHours: fields.progressUpdateThresholdHours.meta,
+	},
 );
 
 const sandboxGroup = group(
