@@ -4,8 +4,8 @@
 	"exports": {
 		".": "./src/index.ts",
 		"./schema": "./src/lib/schema.ts",
-		"./contract": "./src/contract.ts",
-		"./query-language": "./src/query-language.ts"
+		"./contract": "./src/lib/contract.ts",
+		"./query-language": "./src/lib/query-language.ts"
 	},
 	"scripts": {
 		"test": "bun --bun run vitest run",

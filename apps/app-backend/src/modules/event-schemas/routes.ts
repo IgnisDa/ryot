@@ -1,7 +1,7 @@
 import { HttpApiBuilder } from "@effect/platform";
 import { Effect } from "effect";
 
-import { AppContract } from "../../contract";
+import { AppContract } from "../../lib/contract";
 import { notImplemented } from "../../lib/errors";
 
 export const EventSchemasRoutesLive = HttpApiBuilder.group(
