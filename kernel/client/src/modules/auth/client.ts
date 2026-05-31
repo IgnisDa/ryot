@@ -14,7 +14,12 @@ export type AuthSessionSnapshot =
 	| { readonly status: "missing" }
 	| {
 			readonly status: "authenticated";
-			readonly user: { readonly id: string; readonly email: string };
+			readonly user: {
+				readonly id: string;
+				readonly name: string;
+				readonly email: string;
+				readonly image: string | null;
+			};
 	  };
 
 export type SettledAuthSession = Exclude<AuthSessionSnapshot, { readonly status: "pending" }>;
@@ -28,7 +33,14 @@ export type AuthSessionSource = {
 	readonly listen: (listener: () => void) => () => void;
 	readonly get: () => {
 		readonly isPending: boolean;
-		readonly data: null | { readonly user: { readonly id: string; readonly email: string } };
+		readonly data: null | {
+			readonly user: {
+				readonly id: string;
+				readonly name: string;
+				readonly email: string;
+				readonly image?: string | null;
+			};
+		};
 	};
 };
 
@@ -72,7 +84,12 @@ const toSessionSnapshot = (state: ReturnType<AuthSessionSource["get"]>): AuthSes
 	}
 	return {
 		status: "authenticated",
-		user: { email: state.data.user.email, id: state.data.user.id },
+		user: {
+			id: state.data.user.id,
+			name: state.data.user.name,
+			email: state.data.user.email,
+			image: state.data.user.image ?? null,
+		},
 	};
 };
 

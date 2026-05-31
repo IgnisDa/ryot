@@ -17,6 +17,7 @@
 	--accent-soft: #fbe7d0;
 	--accent-text: #a24e08;
 	--text-subtle: #756b5e;
+	--nav-indicator: rgb(36 31 24 / 15%);
 	--success-soft: #e3ecdb;
 	--accent-border: #f3c99b;
 	--border-strong: #d6cbb9;
@@ -49,6 +50,7 @@
 		--accent-soft: #31241a;
 		--accent-text: #f5a75f;
 		--text-subtle: #88857f;
+		--nav-indicator: rgb(255 255 255 / 20%);
 		--success-soft: #20291c;
 		--accent-border: #4d3820;
 		--border-strong: #3e4147;
@@ -74,6 +76,7 @@
 	--accent-soft: #31241a;
 	--accent-text: #f5a75f;
 	--text-subtle: #88857f;
+	--nav-indicator: rgb(255 255 255 / 20%);
 	--success-soft: #20291c;
 	--accent-border: #4d3820;
 	--border-strong: #3e4147;
