@@ -1,8 +1,15 @@
 import type { Where } from "better-auth";
 
 import { type ServiceResult, serviceData, serviceError } from "~/lib/result";
+import { defaultUserPreferences } from "~/modules/builtins";
 
-import type { AuthState, UserListItem, UserListQuery } from "./schemas";
+import type {
+	AuthState,
+	ProvisionUserBody,
+	SetUserBanBody,
+	UserListItem,
+	UserListQuery,
+} from "./schemas";
 
 type GodModeServiceError = "internal" | "validation";
 
@@ -105,7 +112,54 @@ export const checkResetEligibility = async (
 	return serviceData({ authState });
 };
 
-export interface ToggleUserBanDeps {
+export interface ProvisionUserDeps {
+	findUserByEmail: (email: string) => Promise<{ user: { id: string } } | null>;
+	createAccount: (data: {
+		userId: string;
+		accountId: string;
+		providerId: string;
+	}) => Promise<{ id: string }>;
+	createUser: (data: {
+		name: string;
+		email: string;
+		preferences: unknown;
+		emailVerified: boolean;
+	}) => Promise<{ id: string }>;
+}
+
+export const provisionUser = async (
+	input: ProvisionUserBody,
+	deps: ProvisionUserDeps,
+): Promise<GodModeServiceResult<{ userId: string }>> => {
+	try {
+		const existing = await deps.findUserByEmail(input.email);
+		if (existing) {
+			return serviceError("validation", `User with email '${input.email}' already exists`);
+		}
+
+		const user = await deps.createUser({
+			name: input.name,
+			email: input.email,
+			emailVerified: true,
+			preferences: defaultUserPreferences,
+		});
+
+		if (input.provider === "oidc") {
+			await deps.createAccount({
+				userId: user.id,
+				providerId: "oidc",
+				accountId: input.oidcIssuerId,
+			});
+		}
+
+		return serviceData({ userId: user.id });
+	} catch (error) {
+		const message = error instanceof Error ? error.message : "Failed to provision user";
+		return serviceError("internal", message);
+	}
+};
+
+export interface SetUserBanDeps {
 	now: () => Date;
 	deleteSessions: (userId: string) => Promise<void>;
 	findUserById: (userId: string) => Promise<UserLike | null>;
@@ -115,9 +169,10 @@ export interface ToggleUserBanDeps {
 	) => Promise<unknown>;
 }
 
-export const toggleUserBan = async (
+export const setUserBan = async (
 	userId: string,
-	deps: ToggleUserBanDeps,
+	input: SetUserBanBody,
+	deps: SetUserBanDeps,
 ): Promise<GodModeServiceResult<{ id: string; bannedAt: string | null }>> => {
 	try {
 		const foundUser = await deps.findUserById(userId);
@@ -126,16 +181,16 @@ export const toggleUserBan = async (
 		}
 
 		const updatedAt = deps.now();
-		const bannedAt = foundUser.bannedAt ? null : updatedAt;
+		const bannedAt = input.banned ? (foundUser.bannedAt ?? updatedAt) : null;
 		await deps.updateUser(foundUser.id, { updatedAt, bannedAt });
 
-		if (bannedAt) {
+		if (input.banned && !foundUser.bannedAt) {
 			await deps.deleteSessions(foundUser.id);
 		}
 
 		return serviceData({ id: foundUser.id, bannedAt: bannedAt?.toISOString() ?? null });
 	} catch (error) {
-		const message = error instanceof Error ? error.message : "Failed to toggle user ban";
+		const message = error instanceof Error ? error.message : "Failed to set user ban";
 		return serviceError("internal", message);
 	}
 };
