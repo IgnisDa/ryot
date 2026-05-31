@@ -1,0 +1,264 @@
+import { expect, it } from "@effect/vitest";
+import { Effect, Exit, Layer } from "effect";
+
+import type { CurrentUserValue } from "../../lib/auth";
+import { CurrentDb, DbRunner, TransactionRunner } from "../../lib/db";
+import { BadRequest, Conflict, NotFound } from "../../lib/errors";
+import { TrackersRepository } from "../trackers/repository";
+import { EntitySchemasRepository } from "./repository";
+import { EntitySchemasService } from "./service";
+
+const user = {
+	id: "user-id",
+	name: "Test User",
+	email: "user@example.com",
+} satisfies CurrentUserValue;
+
+const dbRunnerLayer = Layer.succeed(
+	DbRunner,
+	<A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, Exclude<R, CurrentDb>> =>
+		Effect.provideService(effect, CurrentDb, Object.create(null)),
+);
+
+const transactionLayer = Layer.succeed(
+	TransactionRunner,
+	<A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, Exclude<R, CurrentDb>> =>
+		Effect.provideService(effect, CurrentDb, Object.create(null)),
+);
+
+const makeEntitySchemasServiceLayer = (
+	repository: EntitySchemasRepository,
+	trackers: TrackersRepository,
+) =>
+	EntitySchemasService.Default.pipe(
+		Layer.provide(
+			Layer.mergeAll(
+				dbRunnerLayer,
+				transactionLayer,
+				Layer.succeed(EntitySchemasRepository, repository),
+				Layer.succeed(TrackersRepository, trackers),
+			),
+		),
+	);
+
+const defaultTrackersRepository = (): TrackersRepository =>
+	Object.assign(Object.create(null), {
+		_tag: "TrackersRepository" as const,
+		create: () => Effect.die("unused"),
+		listByUser: () => Effect.die("unused"),
+		findBySlug: () => Effect.die("unused"),
+		updateOwned: () => Effect.die("unused"),
+		getOwnedById: () => Effect.die("unused"),
+		persistOrder: () => Effect.die("unused"),
+		listIdsInOrder: () => Effect.die("unused"),
+		countOwnedByIds: () => Effect.die("unused"),
+	});
+
+const defaultEntitySchemasRepository = (): EntitySchemasRepository =>
+	Object.assign(Object.create(null), {
+		_tag: "EntitySchemasRepository" as const,
+		findBySlug: () => Effect.die("unused"),
+		listByUser: () => Effect.die("unused"),
+		linkToTracker: () => Effect.die("unused"),
+		getByIdForUser: () => Effect.die("unused"),
+		createEntitySchema: () => Effect.die("unused"),
+		createDefaultSavedView: () => Effect.die("unused"),
+	});
+
+const makeTrackersRepository = (overrides: Partial<TrackersRepository> = {}): TrackersRepository =>
+	Object.assign(Object.create(null), defaultTrackersRepository(), overrides);
+
+const makeEntitySchemasRepository = (
+	overrides: Partial<EntitySchemasRepository> = {},
+): EntitySchemasRepository =>
+	Object.assign(Object.create(null), defaultEntitySchemasRepository(), overrides);
+
+it.effect("returns not found when tracker does not exist during creation", () => {
+	const layer = makeEntitySchemasServiceLayer(
+		makeEntitySchemasRepository(),
+		makeTrackersRepository({ getOwnedById: () => Effect.succeed(null) }),
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* EntitySchemasService;
+		const exit = yield* Effect.exit(
+			service.create(user, {
+				icon: "rocket",
+				name: "My Schema",
+				trackerId: "tracker-id",
+				accentColor: "#FF5733",
+				propertiesSchema: {
+					fields: { name: { type: "string", label: "Name", description: "Name" } },
+				},
+			}),
+		);
+
+		expect(exit).toEqual(Exit.fail(new NotFound({ message: "Tracker not found" })));
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("returns bad request when tracker is built-in during creation", () => {
+	const layer = makeEntitySchemasServiceLayer(
+		makeEntitySchemasRepository(),
+		makeTrackersRepository({
+			getOwnedById: () =>
+				Effect.succeed({
+					icon: "film",
+					slug: "media",
+					name: "Media",
+					isBuiltin: true,
+					id: "tracker-id",
+					description: null,
+					accentColor: "#000000",
+				}),
+		}),
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* EntitySchemasService;
+		const exit = yield* Effect.exit(
+			service.create(user, {
+				icon: "rocket",
+				name: "My Schema",
+				trackerId: "tracker-id",
+				accentColor: "#FF5733",
+				propertiesSchema: {
+					fields: { name: { type: "string", label: "Name", description: "Name" } },
+				},
+			}),
+		);
+
+		expect(exit).toEqual(
+			Exit.fail(
+				new BadRequest({ message: "Built-in trackers do not support entity schema creation" }),
+			),
+		);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("returns conflict when entity schema slug already exists", () => {
+	const layer = makeEntitySchemasServiceLayer(
+		makeEntitySchemasRepository({ findBySlug: () => Effect.succeed({ id: "existing-id" }) }),
+		makeTrackersRepository({
+			getOwnedById: () =>
+				Effect.succeed({
+					icon: "star",
+					name: "Custom",
+					slug: "custom",
+					isBuiltin: false,
+					id: "tracker-id",
+					description: null,
+					accentColor: "#000000",
+				}),
+		}),
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* EntitySchemasService;
+		const exit = yield* Effect.exit(
+			service.create(user, {
+				icon: "rocket",
+				name: "My Schema",
+				trackerId: "tracker-id",
+				accentColor: "#FF5733",
+				propertiesSchema: {
+					fields: { name: { type: "string", label: "Name", description: "Name" } },
+				},
+			}),
+		);
+
+		expect(exit).toEqual(Exit.fail(new Conflict({ message: "Entity schema slug already exists" })));
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("returns bad request for reserved slug", () => {
+	const layer = makeEntitySchemasServiceLayer(
+		makeEntitySchemasRepository(),
+		makeTrackersRepository({
+			getOwnedById: () =>
+				Effect.succeed({
+					icon: "star",
+					slug: "custom",
+					name: "Custom",
+					isBuiltin: false,
+					id: "tracker-id",
+					description: null,
+					accentColor: "#000000",
+				}),
+		}),
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* EntitySchemasService;
+		const exit = yield* Effect.exit(
+			service.create(user, {
+				icon: "rocket",
+				name: "Book",
+				trackerId: "tracker-id",
+				accentColor: "#FF5733",
+				propertiesSchema: {
+					fields: { name: { type: "string", label: "Name", description: "Name" } },
+				},
+			}),
+		);
+
+		expect(exit).toEqual(
+			Exit.fail(
+				new BadRequest({ message: 'Entity schema slug "book" is reserved for built-in schemas' }),
+			),
+		);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("normalizes slugs before creating entity schemas", () => {
+	let createdSlug = "";
+
+	const layer = makeEntitySchemasServiceLayer(
+		makeEntitySchemasRepository({
+			createDefaultSavedView: () => Effect.void,
+			findBySlug: () => Effect.succeed(null),
+			linkToTracker: () => Effect.succeed("tracker-id"),
+			createEntitySchema: (input) =>
+				Effect.sync(() => {
+					createdSlug = input.slug;
+					return {
+						id: "schema-id",
+						name: input.name,
+						icon: input.icon,
+						slug: input.slug,
+						isBuiltin: false,
+						accentColor: input.accentColor,
+						propertiesSchema: input.propertiesSchema,
+					};
+				}),
+		}),
+		makeTrackersRepository({
+			getOwnedById: () =>
+				Effect.succeed({
+					icon: "star",
+					slug: "custom",
+					name: "Custom",
+					id: "tracker-id",
+					isBuiltin: false,
+					description: null,
+					accentColor: "#000000",
+				}),
+		}),
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* EntitySchemasService;
+		const schema = yield* service.create(user, {
+			icon: "rocket",
+			name: " My Cool Schema ",
+			trackerId: "tracker-id",
+			accentColor: "#FF5733",
+			propertiesSchema: {
+				fields: { name: { type: "string", label: "Name", description: "Name" } },
+			},
+		});
+
+		expect(createdSlug).toBe("my-cool-schema");
+		expect(schema.slug).toBe("my-cool-schema");
+	}).pipe(Effect.provide(layer));
+});

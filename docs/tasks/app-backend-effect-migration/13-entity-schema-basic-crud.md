@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -14,12 +14,12 @@ This slice should replace `NotImplemented` for non-provider entity-schema routes
 
 ## Acceptance criteria
 
-- [ ] Authenticated users can list entity schemas linked to their trackers
-- [ ] Authenticated users can create custom entity schemas under their trackers
-- [ ] Authenticated users can fetch an entity schema by id when accessible
-- [ ] Duplicate or reserved slug cases fail with typed validation errors
-- [ ] Created schemas use migrated property schema validation and create expected default saved-view data
-- [ ] Basic entity-schema E2E tests use the Effect client and pass
+- [x] Authenticated users can list entity schemas linked to their trackers
+- [x] Authenticated users can create custom entity schemas under their trackers
+- [x] Authenticated users can fetch an entity schema by id when accessible
+- [x] Duplicate or reserved slug cases fail with typed validation errors
+- [x] Created schemas use migrated property schema validation and create expected default saved-view data
+- [x] Basic entity-schema E2E tests use the Effect client and pass
 
 ## User stories addressed
 

@@ -8,6 +8,7 @@ import { AppContract } from "../lib/contract";
 import { CollectionsRoutesLive } from "../modules/collections/routes";
 import { EntitiesRoutesLive } from "../modules/entities/routes";
 import { EntitySchemasRoutesLive } from "../modules/entity-schemas/routes";
+import { EntitySchemasService } from "../modules/entity-schemas/service";
 import { EventSchemasRoutesLive } from "../modules/event-schemas/routes";
 import { EventsRoutesLive } from "../modules/events/routes";
 import { GodModeRoutesLive } from "../modules/god-mode/routes";
@@ -79,6 +80,7 @@ export const ServerLive = Layer.scopedDiscard(
 		const fs = yield* FileSystem.FileSystem;
 		const runtime = yield* Effect.runtime();
 		const trackers = yield* TrackersService;
+		const entitySchemas = yield* EntitySchemasService;
 
 		const apiLayer = ApiWithScalarLive.pipe(
 			Layer.provide(
@@ -86,6 +88,7 @@ export const ServerLive = Layer.scopedDiscard(
 					Layer.succeed(AppConfig, config),
 					Layer.succeed(AuthService, auth),
 					Layer.succeed(TrackersService, trackers),
+					Layer.succeed(EntitySchemasService, entitySchemas),
 				),
 			),
 			Layer.provideMerge(BunHttpServer.layerContext),
