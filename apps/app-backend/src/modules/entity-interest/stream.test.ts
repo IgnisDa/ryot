@@ -1,7 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
+import { UserId } from "@ryot/contract/schema/brands";
 import { Chunk, Deferred, Effect, Fiber, Stream } from "effect";
-
-import { UserId } from "#lib/schema/brands";
 
 import type { StreamEnqueue, StreamRegistry } from "./registry";
 import { events } from "./stream";

@@ -1,6 +1,12 @@
+import type {
+	AggregationSpec,
+	Expr,
+	FieldSelector,
+	OrderByEntry,
+	Source,
+} from "@ryot/contract/modules/query-engine/language";
 import { sql } from "drizzle-orm";
 
-import type { AggregationSpec, Expr, FieldSelector, OrderByEntry, Source } from "../../language";
 import {
 	entitySourceSql,
 	escapeContainsPattern,

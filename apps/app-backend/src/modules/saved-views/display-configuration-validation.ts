@@ -1,5 +1,3 @@
-import { Effect } from "effect";
-
 import {
 	entityBuiltinColumns,
 	entitySchemaBuiltinColumns,
@@ -7,12 +5,14 @@ import {
 	type QueryExpression,
 	type QueryFilter,
 	type RuntimeRef,
-} from "#lib/display-configuration";
-import type { BadRequest } from "#lib/errors";
-import { badRequest } from "#lib/errors";
-import type { AppPropertyDefinition } from "#lib/schema/property-schema";
+} from "@ryot/contract/display-configuration";
+import type { BadRequest } from "@ryot/contract/errors";
+import { badRequest } from "@ryot/contract/errors";
+import type { QueryDocument } from "@ryot/contract/modules/query-engine/language";
+import type { AppPropertyDefinition } from "@ryot/contract/schema/property-schema";
+import { Effect } from "effect";
+
 import type { VisibleEntityPropertySchema } from "#modules/query-engine/executor/schema-loaders";
-import type { QueryDocument } from "#modules/query-engine/language";
 import type { CoarseType } from "#modules/query-engine/validator/type-check";
 
 type DisplayExpressionType = CoarseType | "null";

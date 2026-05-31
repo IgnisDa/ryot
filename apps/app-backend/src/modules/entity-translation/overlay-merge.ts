@@ -1,4 +1,4 @@
-import type { TranslationStatus } from "#modules/entities/schemas";
+import type { TranslationStatus } from "@ryot/contract/modules/entities/schemas";
 
 export type TranslationFields = {
 	readonly name: string;

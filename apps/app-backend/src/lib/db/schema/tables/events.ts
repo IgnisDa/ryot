@@ -1,3 +1,5 @@
+import type { EventTriggerMetadata } from "@ryot/contract/modules/events/schemas";
+import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { generateId } from "better-auth";
 import { sql } from "drizzle-orm";
 import {
@@ -11,9 +13,6 @@ import {
 	unique,
 	uniqueIndex,
 } from "drizzle-orm/pg-core";
-
-import type { AppSchema } from "#lib/schema/property-schema";
-import type { EventTriggerMetadata } from "#modules/events/schemas";
 
 import { user } from "./auth";
 import { entitySchema, sandboxScript } from "./core";

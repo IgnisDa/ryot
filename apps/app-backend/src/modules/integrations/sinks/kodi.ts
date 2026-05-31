@@ -1,4 +1,5 @@
-import { isObjectRecord } from "#lib/predicates";
+import { isObjectRecord } from "@ryot/ts-utils/predicates";
+
 import type { MediaImportAdapterResult } from "#modules/imports/media/adapter-result";
 import { buildMovieOrShowImportRef } from "#modules/imports/sources/shared/provider-refs";
 

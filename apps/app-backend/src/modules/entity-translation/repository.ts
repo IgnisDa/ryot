@@ -1,10 +1,10 @@
+import type { EntityId, UserId } from "@ryot/contract/schema/brands";
 import { and, eq } from "drizzle-orm";
 import { Effect } from "effect";
 
 import { user } from "#lib/db/schema/tables/auth";
 import * as schema from "#lib/db/schema/tables/combined";
 import { CurrentDb, dbEffect } from "#lib/db/service";
-import type { EntityId, UserId } from "#lib/schema/brands";
 
 type UpsertOverlayInput = {
 	language: string;

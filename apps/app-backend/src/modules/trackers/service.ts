@@ -1,15 +1,19 @@
+import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
+import { badRequest, conflict, notFound } from "@ryot/contract/errors";
+import type {
+	CreateTrackerBody,
+	ReorderTrackersBody,
+	UpdateTrackerBody,
+} from "@ryot/contract/modules/trackers/schemas";
+import { TrackerId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
-import type { CurrentUserValue } from "#lib/auth-middleware";
 import { DbRunner, TransactionRunner } from "#lib/db/service";
-import { badRequest, conflict, notFound } from "#lib/errors";
 import { buildReorderedIds } from "#lib/reorder";
-import { TrackerId } from "#lib/schema/brands";
 import { slugify } from "#lib/slug";
 import { trimToNull } from "#lib/validation";
 
 import { TrackersRepository } from "./repository";
-import type { CreateTrackerBody, ReorderTrackersBody, UpdateTrackerBody } from "./schemas";
 
 const resolveOptionalDescription = (description: string | undefined) => {
 	if (description === undefined) {

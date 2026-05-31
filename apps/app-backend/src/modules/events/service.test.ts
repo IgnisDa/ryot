@@ -1,9 +1,8 @@
 import { expect, it } from "@effect/vitest";
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
-import { Effect, Exit, Layer } from "effect";
-
-import type { CurrentUserValue } from "#lib/auth-middleware";
-import { BadRequest, NotFound } from "#lib/errors";
+import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
+import { BadRequest, NotFound } from "@ryot/contract/errors";
+import type { CreateEventItem } from "@ryot/contract/modules/events/schemas";
 import {
 	EntityId,
 	EntitySchemaId,
@@ -12,7 +11,9 @@ import {
 	ImportRunId,
 	SandboxScriptId,
 	UserId,
-} from "#lib/schema/brands";
+} from "@ryot/contract/schema/brands";
+import { Effect, Exit, Layer } from "effect";
+
 import { type MockOverrides, dbRunnerLayer, makeWorkflowEngine } from "#lib/test-support/effect";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
@@ -21,7 +22,6 @@ import { RunSandboxWorkflow } from "#modules/sandbox/workflow-definitions";
 
 import { createEventsForUser } from "./event-creation";
 import { EventsRepository } from "./repository";
-import type { CreateEventItem } from "./schemas";
 import { EventsService } from "./service";
 
 const now = "2026-06-14T00:00:00.000Z";

@@ -1,6 +1,7 @@
-import type { DisplayConfiguration } from "#lib/display-configuration";
+import type { DisplayConfiguration } from "@ryot/contract/display-configuration";
+import type { QueryDocument } from "@ryot/contract/modules/query-engine/language";
+
 import { slugify } from "#lib/slug";
-import type { QueryDocument } from "#modules/query-engine/language";
 
 import { buildDefaultQueryDocument, buildDisplayConfig } from "./view-helpers";
 

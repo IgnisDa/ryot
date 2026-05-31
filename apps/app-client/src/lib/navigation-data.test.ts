@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { SavedViewId, TrackerId } from "@ryot/app-backend/schema/brands";
+import { SavedViewId, TrackerId } from "@ryot/contract/schema/brands";
 
 import type { NavigationItem } from "./navigation-data";
 import { buildNavigationItems, navHref, sortByOrderThenName } from "./navigation-data";

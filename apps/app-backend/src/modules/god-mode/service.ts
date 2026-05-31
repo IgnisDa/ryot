@@ -1,14 +1,14 @@
+import { badRequest, internalError } from "@ryot/contract/errors";
+import type { ProvisionUserBody } from "@ryot/contract/modules/god-mode/contract";
+import { UserId } from "@ryot/contract/schema/brands";
 import { DateTime, Effect, Either } from "effect";
 
 import { AuthService } from "#lib/auth";
 import { defaultUserPreferences } from "#lib/builtins/bootstrap";
 import { AppConfig } from "#lib/config/service";
 import { DbRunner } from "#lib/db/service";
-import { badRequest, internalError } from "#lib/errors";
 import { redisKeys, RedisService } from "#lib/redis";
-import { UserId } from "#lib/schema/brands";
 
-import type { ProvisionUserBody } from "./contract";
 import { GodModeRepository } from "./repository";
 
 const RESET_LINK_TIMEOUT_MS = 10_000;

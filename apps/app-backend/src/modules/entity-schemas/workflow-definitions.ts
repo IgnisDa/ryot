@@ -1,7 +1,6 @@
 import { Workflow } from "@effect/workflow";
+import { DbError } from "@ryot/contract/errors";
 import { Schema } from "effect";
-
-import { DbError } from "#lib/errors";
 
 import { CreateDefaultSavedViewPayload } from "./durable-queues";
 

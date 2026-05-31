@@ -1,4 +1,5 @@
-import type { QueryDocument } from "../language";
+import type { QueryDocument } from "@ryot/contract/modules/query-engine/language";
+
 import { validateEntitySource, validateRelationshipSource, validateRootEventSource } from "./core";
 import { validateAggregateOutput, validateRowsOutput, validateTimeSeriesOutput } from "./output";
 import type { AliasScope } from "./shared";

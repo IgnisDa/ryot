@@ -1,10 +1,14 @@
+import { badRequest } from "@ryot/contract/errors";
+import type {
+	AggregationSpec,
+	Expr,
+	FieldSelector,
+	QueryDocument,
+} from "@ryot/contract/modules/query-engine/language";
+import type { AppPropertyDefinition, AppSchema } from "@ryot/contract/schema/property-schema";
 import { Effect } from "effect";
 
-import { badRequest } from "#lib/errors";
-import type { AppPropertyDefinition, AppSchema } from "#lib/schema/property-schema";
-
 import { loadVisibleEntityPropertySchemas } from "../executor/schema-loaders";
-import type { AggregationSpec, Expr, FieldSelector, QueryDocument } from "../language";
 import { collectAliasScope } from "./document";
 import type { AliasScope, ScopeEntry } from "./shared";
 

@@ -1,6 +1,5 @@
+import { badRequest } from "@ryot/contract/errors";
 import { Effect } from "effect";
-
-import { badRequest } from "./errors";
 
 export const trimToNull = (value: string) => {
 	const trimmed = value.trim();

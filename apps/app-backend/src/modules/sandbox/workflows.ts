@@ -1,15 +1,14 @@
 import { DurableQueue } from "@effect/workflow";
 import type { Result as WorkflowResult } from "@effect/workflow/Workflow";
-import { Cause, Effect, Exit, Layer, Match, Option } from "effect";
-
-import type { SandboxRunError } from "#lib/errors";
-import { toSandboxRunError } from "#lib/errors";
-
-import { SandboxExecutionQueue, SandboxExecutionQueueWorkerLive } from "./durable-queues";
+import type { SandboxRunError } from "@ryot/contract/errors";
+import { toSandboxRunError } from "@ryot/contract/errors";
 import type {
 	SandboxCompletedResult as SandboxCompletedResultValue,
 	SandboxRunResult,
-} from "./schemas";
+} from "@ryot/contract/modules/sandbox/schemas";
+import { Cause, Effect, Exit, Layer, Match, Option } from "effect";
+
+import { SandboxExecutionQueue, SandboxExecutionQueueWorkerLive } from "./durable-queues";
 import { RunSandboxWorkflow } from "./workflow-definitions";
 
 const workflowFailureResult = (

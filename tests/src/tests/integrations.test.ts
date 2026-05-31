@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { ImportRunId, IntegrationId } from "@ryot/app-backend/schema/brands";
+import { ImportRunId, IntegrationId } from "@ryot/contract/schema/brands";
 
 import {
 	createAudiobookshelfIntegration,

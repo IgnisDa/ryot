@@ -1,10 +1,10 @@
+import { NotFound } from "@ryot/contract/errors";
+import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { and, eq, inArray, isNull, or } from "drizzle-orm";
 import { Effect } from "effect";
 
 import * as dbSchema from "#lib/db/schema/tables/combined";
 import { CurrentDb, dbEffect } from "#lib/db/service";
-import { NotFound } from "#lib/errors";
-import type { AppSchema } from "#lib/schema/property-schema";
 
 export type VisibleEntityPropertySchema = { slug: string; propertiesSchema: AppSchema };
 

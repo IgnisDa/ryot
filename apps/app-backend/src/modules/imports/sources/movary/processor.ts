@@ -1,7 +1,7 @@
+import type { ImportRunId, UserId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
 import { AppConfig } from "#lib/config/service";
-import type { ImportRunId, UserId } from "#lib/schema/brands";
 
 import { nowIso } from "../../media/dates";
 import type {

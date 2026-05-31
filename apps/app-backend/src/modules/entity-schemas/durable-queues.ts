@@ -1,8 +1,7 @@
 import { DurableQueue } from "@effect/workflow";
+import { DbError } from "@ryot/contract/errors";
+import { TrackerId, UserId } from "@ryot/contract/schema/brands";
 import { Schema } from "effect";
-
-import { DbError } from "#lib/errors";
-import { TrackerId, UserId } from "#lib/schema/brands";
 
 export const CreateDefaultSavedViewPayload = Schema.Struct({
 	userId: UserId,

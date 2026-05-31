@@ -1,10 +1,9 @@
 import { HttpApiBuilder } from "@effect/platform";
+import { CurrentUser } from "@ryot/contract/auth-middleware";
+import { AppContract } from "@ryot/contract/contract";
+import { MAX_INTEREST_ENTITY_IDS } from "@ryot/contract/modules/entity-interest/messages";
 import { Effect } from "effect";
 
-import { CurrentUser } from "#lib/auth-middleware";
-import { AppContract } from "#lib/contract";
-
-import { MAX_INTEREST_ENTITY_IDS } from "./messages";
 import { StreamRegistry } from "./registry";
 import { InterestReconciler } from "./service";
 import { buildInterestStreamResponse } from "./stream";

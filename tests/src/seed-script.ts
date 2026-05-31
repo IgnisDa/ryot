@@ -4,16 +4,16 @@ import { fileURLToPath } from "node:url";
 
 import { FetchHttpClient, HttpApiClient, HttpClient, HttpClientRequest } from "@effect/platform";
 import { faker } from "@faker-js/faker";
-import { AppContract } from "@ryot/app-backend/contract";
-import type { QueryExpression, RuntimeRef } from "@ryot/app-backend/display-configuration";
+import { AppContract } from "@ryot/contract/contract";
+import type { QueryExpression, RuntimeRef } from "@ryot/contract/display-configuration";
 import {
 	EntitySchemaId,
 	RemoteImageUrl,
 	SandboxScriptId,
 	TrackerId,
-} from "@ryot/app-backend/schema/brands";
-import { imagesField } from "@ryot/app-backend/schema/core";
-import type { AppSchema } from "@ryot/app-backend/schema/property-schema";
+} from "@ryot/contract/schema/brands";
+import { imagesField } from "@ryot/contract/schema/core";
+import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { dayjs } from "@ryot/ts-utils/dayjs";
 import { createAuthClient } from "better-auth/client";
 import { Effect } from "effect";

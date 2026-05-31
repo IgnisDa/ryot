@@ -1,9 +1,9 @@
 import { expect, it } from "@effect/vitest";
+import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
+import { BadRequest, Conflict, NotFound } from "@ryot/contract/errors";
+import { EntitySchemaId, RelationshipSchemaId, UserId } from "@ryot/contract/schema/brands";
 import { Effect, Exit, Layer } from "effect";
 
-import type { CurrentUserValue } from "#lib/auth-middleware";
-import { BadRequest, Conflict, NotFound } from "#lib/errors";
-import { EntitySchemaId, RelationshipSchemaId, UserId } from "#lib/schema/brands";
 import type { MockOverrides } from "#lib/test-support/effect";
 import { dbRunnerLayer } from "#lib/test-support/effect";
 

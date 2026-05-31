@@ -1,4 +1,4 @@
-import type { FieldSelector } from "../language";
+import type { FieldSelector } from "@ryot/contract/modules/query-engine/language";
 
 export const MAX_INCLUDE_DEPTH = 3;
 export const MAX_INCLUDE_LIMIT = 100;

@@ -27,6 +27,8 @@
         "@effect/platform-bun": "0.90.0",
         "@effect/sql-pg": "0.52.1",
         "@effect/workflow": "0.18.2",
+        "@ryot/contract": "workspace:*",
+        "@ryot/ts-utils": "workspace:*",
         "better-auth": "1.6.15",
         "drizzle-orm": "0.45.2",
         "effect": "3.21.3",
@@ -68,7 +70,7 @@
         "@react-aria/ssr": "3.10.0",
         "@react-aria/utils": "3.34.0",
         "@react-navigation/native": "^7.1.33",
-        "@ryot/app-backend": "workspace:*",
+        "@ryot/contract": "workspace:*",
         "@ryot/ts-utils": "workspace:*",
         "@tanstack/react-form": "^1.29.1",
         "@tanstack/react-query": "5.100.9",
@@ -251,7 +253,7 @@
         "@react-router/fs-routes": "7.16.0",
         "@react-router/node": "7.16.0",
         "@react-router/serve": "7.16.0",
-        "@ryot/app-backend": "workspace:*",
+        "@ryot/contract": "workspace:*",
         "@ryot/transactional": "workspace:*",
         "@ryot/ts-utils": "workspace:*",
         "@tailwindcss/vite": "4.3.0",
@@ -295,6 +297,14 @@
         "tailwindcss": "4.3.0",
         "typescript": "6.0.3",
         "vite": "8.0.14",
+      },
+    },
+    "libs/contract": {
+      "name": "@ryot/contract",
+      "dependencies": {
+        "@effect/platform": "0.96.1",
+        "@ryot/ts-utils": "workspace:*",
+        "effect": "3.21.3",
       },
     },
     "libs/graphql": {
@@ -341,7 +351,7 @@
         "@aws-sdk/client-s3": "3.1032.0",
         "@effect/platform": "0.96.1",
         "@faker-js/faker": "10.4.0",
-        "@ryot/app-backend": "workspace:*",
+        "@ryot/contract": "workspace:*",
         "@ryot/ts-utils": "workspace:*",
         "@testcontainers/postgresql": "11.14.0",
         "@types/pg": "8.20.0",
@@ -1487,6 +1497,8 @@
     "@ryot/app-client": ["@ryot/app-client@workspace:apps/app-client"],
 
     "@ryot/browser-extension": ["@ryot/browser-extension@workspace:apps/browser-extension"],
+
+    "@ryot/contract": ["@ryot/contract@workspace:libs/contract"],
 
     "@ryot/docs": ["@ryot/docs@workspace:apps/docs"],
 

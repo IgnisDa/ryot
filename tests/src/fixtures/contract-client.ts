@@ -1,5 +1,5 @@
 import { FetchHttpClient, HttpApiClient, HttpClient, HttpClientRequest } from "@effect/platform";
-import { AppContract } from "@ryot/app-backend/contract";
+import { AppContract } from "@ryot/contract/contract";
 import { Effect } from "effect";
 
 import { getBackendUrl } from "../setup";

@@ -1,13 +1,13 @@
 import { expect, it } from "@effect/vitest";
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
+import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
+import { BadRequest, NotFound } from "@ryot/contract/errors";
+import { EntitySchemaId, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import type { Exit } from "effect";
 import { Effect, Layer } from "effect";
 import { assert } from "vitest";
 
-import type { CurrentUserValue } from "#lib/auth-middleware";
-import { BadRequest, NotFound } from "#lib/errors";
 import { createWorkflowJobId } from "#lib/job-id";
-import { EntitySchemaId, SandboxScriptId, UserId } from "#lib/schema/brands";
 import {
 	type MockOverrides,
 	dbRunnerLayer,

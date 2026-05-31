@@ -1,5 +1,6 @@
+import type { EntitySource, Expr } from "@ryot/contract/modules/query-engine/language";
+
 import type { RowsQueryDocument } from "./executor/types";
-import type { EntitySource, Expr } from "./language";
 
 export type { RowsQueryDocument };
 

@@ -1,6 +1,10 @@
+import type {
+	IncludeEntry,
+	QueryDocument,
+	RowsOutput,
+} from "@ryot/contract/modules/query-engine/language";
 import { DateTime, Option } from "effect";
 
-import type { IncludeEntry, QueryDocument, RowsOutput } from "../language";
 import { countAlignedTimeSeriesBuckets } from "../time-series-buckets";
 import { validateEntitySource, validateExpr, validateNestedEventSource } from "./core";
 import {

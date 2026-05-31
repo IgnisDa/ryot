@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { EntityId } from "@ryot/app-backend/schema/brands";
+import { EntityId } from "@ryot/contract/schema/brands";
 
 import {
 	createAuthenticatedClient,

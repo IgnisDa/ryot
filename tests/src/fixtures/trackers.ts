@@ -1,4 +1,4 @@
-import { TrackerId } from "@ryot/app-backend/schema/brands";
+import { TrackerId } from "@ryot/contract/schema/brands";
 
 import { requirePresent } from "../test-support/assertions";
 import type { Client } from "./auth";
