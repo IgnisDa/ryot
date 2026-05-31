@@ -1,4 +1,4 @@
-import { DateTime, Duration, Option } from "effect";
+import { DateTime, Duration, Either, Option } from "effect";
 
 import {
 	parseCsvText,
@@ -142,18 +142,19 @@ export const adaptStrongAppCsv = (csvText: string, timezone: string): WorkoutAda
 		if (!row) {
 			continue;
 		}
-		try {
-			const parsed = parseStrongAppRow(row, rowIdx);
-			if (parsed.setOrder !== "Rest Timer" && parsed.setOrder !== "Note") {
-				parsedRows.push(parsed);
-			}
-		} catch (error) {
+		const parsed = Either.try(() => parseStrongAppRow(row, rowIdx));
+		if (Either.isLeft(parsed)) {
 			failures.push({
 				itemIndex: rowIdx,
 				sourceLabel: `Row ${rowIdx + 1}`,
 				sourceIdentifier: String(rowIdx + 1),
-				message: error instanceof Error ? error.message : "Could not parse StrongApp row",
+				message:
+					parsed.left instanceof Error ? parsed.left.message : "Could not parse StrongApp row",
 			});
+			continue;
+		}
+		if (parsed.right.setOrder !== "Rest Timer" && parsed.right.setOrder !== "Note") {
+			parsedRows.push(parsed.right);
 		}
 	}
 
@@ -188,18 +189,20 @@ export const adaptStrongAppCsv = (csvText: string, timezone: string): WorkoutAda
 			continue;
 		}
 
-		let durationSeconds: number;
-		try {
-			durationSeconds = parseWorkoutDurationSeconds(firstRow.workoutDuration);
-		} catch (error) {
+		const parsedDuration = Either.try(() => parseWorkoutDurationSeconds(firstRow.workoutDuration));
+		if (Either.isLeft(parsedDuration)) {
 			failures.push({
 				sourceLabel,
 				sourceIdentifier,
 				itemIndex: firstRow.itemIndex,
-				message: error instanceof Error ? error.message : "Could not parse workout duration",
+				message:
+					parsedDuration.left instanceof Error
+						? parsedDuration.left.message
+						: "Could not parse workout duration",
 			});
 			continue;
 		}
+		const durationSeconds = parsedDuration.right;
 
 		const exercisesByName = new Map<string, StrongAppRow[]>();
 		for (const row of workoutRows) {
