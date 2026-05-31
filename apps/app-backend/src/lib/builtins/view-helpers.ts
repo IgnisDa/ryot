@@ -1,6 +1,3 @@
-import type {
-	DisplayConfiguration,
-	SavedViewQueryDefinition} from "~/lib/query-language";
 import {
 	createConcatExpression,
 	createConditionalExpression,
@@ -11,7 +8,9 @@ import {
 	createIsNotNullExpression,
 	createLiteralExpression,
 	createTransformExpression,
+	type DisplayConfiguration,
 	type QueryExpression,
+	type SavedViewQueryDefinition,
 } from "~/lib/query-language";
 
 const entityColumn = (slug: string, column: string): QueryExpression =>
