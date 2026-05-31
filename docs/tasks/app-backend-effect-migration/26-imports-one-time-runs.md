@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -14,12 +14,12 @@ This slice should not migrate scheduled integrations yet except where shared imp
 
 ## Acceptance criteria
 
-- [ ] Authenticated users can create one-time import runs
-- [ ] Authenticated users can list, get, and delete their import runs
-- [ ] Import processing uses Effect Workflow or equivalent durable Effect primitives instead of BullMQ
-- [ ] Import failures and progress are persisted in typed domain records
-- [ ] Import writes use canonical entity, event, relationship, and collection paths
-- [ ] Import E2E tests pass through the Effect client
+- [x] Authenticated users can create one-time import runs
+- [x] Authenticated users can list, get, and delete their import runs
+- [x] Import processing uses Effect Workflow or equivalent durable Effect primitives instead of BullMQ
+- [x] Import failures and progress are persisted in typed domain records
+- [x] Import writes use canonical entity, event, relationship, and collection paths
+- [x] Import E2E tests pass through the Effect client
 
 ## User stories addressed
 

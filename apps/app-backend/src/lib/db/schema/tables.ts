@@ -16,7 +16,7 @@ import {
 import type { DisplayConfiguration, SavedViewQueryDefinition } from "~/lib/query-language";
 import type { AppSchema } from "~/lib/schema";
 import type { EventTriggerMetadata } from "~/modules/events/schemas";
-import type { ImportRunStatus } from "~/modules/imports/types";
+import type { ImportRunFailureStage, ImportRunStatus } from "~/modules/imports/types";
 import type { IntegrationLot } from "~/modules/integrations/types";
 
 import { user } from "./auth";
@@ -481,9 +481,7 @@ export const importRunFailure = pgTable(
 		message: text().notNull(),
 		itemIndex: integer().notNull(),
 		context: jsonb().$type<Record<string, unknown>>(),
-		// TODO(effect-migration): replace with ImportRunFailureStage once the imports
-		// module ports its failure-stage types into app-backend.
-		stage: text().notNull(),
+		stage: text().notNull().$type<ImportRunFailureStage>(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		runId: text()
 			.notNull()

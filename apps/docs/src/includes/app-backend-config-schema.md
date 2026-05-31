@@ -7,6 +7,7 @@
 | Variable | Description | Required | Default |
 |---|---|---|---|
 | `PORT` | HTTP port the server listens on | No | `8000` |
+| `TZ` | IANA timezone used for interpreting timezone-less datetimes during imports | No | `Etc/GMT` |
 | `REDIS_URL` | Redis connection string | No | `redis://localhost:6379` |
 | `FRONTEND_URL` | Public URL of the frontend application | No | `http://localhost:3000` |
 | `DATABASE_URL` | PostgreSQL connection string | No | `postgres://postgres:postgres@localhost:5432/postgres` |

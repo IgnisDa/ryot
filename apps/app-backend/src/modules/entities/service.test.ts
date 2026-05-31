@@ -66,6 +66,7 @@ const makeRelationshipSchemasRepository = (
 
 const fakeAppConfigLayer = Layer.succeed(AppConfig, {
 	port: 3000,
+	timezone: "Etc/GMT",
 	_tag: "AppConfig" as const,
 	frontendUrl: "http://localhost:3000",
 	redisUrl: Redacted.make("unused"),
