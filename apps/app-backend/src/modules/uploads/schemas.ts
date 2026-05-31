@@ -7,6 +7,15 @@ export const getPresignedUploadUrlBody = z.object({
 	contentType: z.string(),
 });
 
+export const temporaryUploadFileSchema = z.any().openapi({
+	type: "string",
+	format: "binary",
+});
+
+export const temporaryUploadBodySchema = z.object({
+	"files[]": z.array(temporaryUploadFileSchema).min(1),
+});
+
 export const getPresignedUploadUrlQuery = z.object({
 	key: nonEmptyTrimmedStringSchema,
 });
@@ -31,5 +40,10 @@ export const presignedUploadUrlSchema = z.object({
 
 export const getPresignedUploadUrlResponseSchema = dataSchema(presignedUploadUrlSchema);
 
+export const temporaryUploadPathSchema = z.string().min(1);
+
+export const temporaryUploadResponseSchema = dataSchema(z.array(temporaryUploadPathSchema));
+
 export type GetPresignedUploadUrlBody = z.infer<typeof getPresignedUploadUrlBody>;
 export type GetPresignedDownloadUrlBody = z.infer<typeof getPresignedDownloadUrlBody>;
+export type TemporaryUploadBody = z.infer<typeof temporaryUploadBodySchema>;

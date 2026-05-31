@@ -1,3 +1,6 @@
+import { tmpdir } from "node:os";
+import { basename, join } from "node:path";
+
 import { resolveRequiredString } from "@ryot/ts-utils/slug";
 import { generateId } from "better-auth";
 
@@ -8,9 +11,15 @@ import type { GetPresignedDownloadUrlBody, GetPresignedUploadUrlBody } from "./s
 import { type UploadContentType, uploadContentTypeExtensions } from "./shared";
 
 const uploadUrlExpirySeconds = 15 * 60;
+const temporaryUploadDirectory = tmpdir();
 
 type ResolvedPresignedUploadInput = {
 	contentType: UploadContentType;
+};
+
+type ResolvedTemporaryUploadFile = {
+	file: File;
+	fileName: string;
 };
 
 type SignUploadUrlInput = {
@@ -31,13 +40,16 @@ type CreatePresignedUploadDeps = {
 	signUploadUrl?: (input: SignUploadUrlInput) => Promise<UploadServiceResult<string>>;
 };
 
-const resolveContentType = (contentType: string) => {
-	const normalizedContentType = resolveRequiredString(
-		contentType,
-		"Upload content type",
-	).toLowerCase();
+type CreateTemporaryUploadDeps = {
+	temporaryDirectory?: string;
+	generateObjectId?: () => string;
+	writeFile?: (path: string, file: File) => Promise<unknown>;
+};
 
-	if (!(normalizedContentType in uploadContentTypeExtensions)) {
+const resolveContentType = (contentType: string) => {
+	const normalizedContentType = contentType.split(";")[0]?.trim().toLowerCase() ?? "";
+
+	if (!normalizedContentType || !(normalizedContentType in uploadContentTypeExtensions)) {
 		throw new Error("Upload content type must be a supported MIME type");
 	}
 
@@ -53,6 +65,21 @@ export const resolvePresignedUploadInput = (
 
 const resolveExtension = (contentType: UploadContentType) =>
 	uploadContentTypeExtensions[contentType][0];
+
+const resolveTemporaryUploadFile = (file: File): ResolvedTemporaryUploadFile => ({
+	file,
+	fileName: basename(resolveRequiredString(file.name, "Upload file name")),
+});
+
+const resolveTemporaryUploadPath = (
+	fileName: string,
+	generateObjectId: () => string,
+	temporaryDirectory: string,
+) => join(temporaryDirectory, `${generateObjectId()}-${fileName}`);
+
+const removeTemporaryUploads = async (paths: readonly string[]) => {
+	await Promise.allSettled(paths.map((path) => Bun.file(path).delete()));
+};
 
 const signUploadUrl = (input: SignUploadUrlInput): Promise<UploadServiceResult<string>> => {
 	if (!s3 || !s3BucketName) {
@@ -108,6 +135,72 @@ export const createPresignedUpload = async (
 	}
 
 	return serviceData({ key, uploadUrl: uploadUrlResult.data });
+};
+
+export const createTemporaryUploads = async (
+	input: { files: readonly (File | string)[] },
+	deps: CreateTemporaryUploadDeps = {},
+): Promise<UploadServiceResult<string[]>> => {
+	const resolvedFilesResult = wrapServiceValidator(() => {
+		if (input.files.length === 0) {
+			throw new Error("At least one upload file is required");
+		}
+
+		return input.files.map((file) => {
+			if (!(file instanceof File)) {
+				throw new Error("Upload file must be a file");
+			}
+
+			resolveContentType(file.type);
+			return resolveTemporaryUploadFile(file);
+		});
+	}, "Could not create temporary uploads");
+	if ("error" in resolvedFilesResult) {
+		return resolvedFilesResult;
+	}
+
+	const resolvedFiles = resolvedFilesResult.data;
+	const generateObjectId = deps.generateObjectId ?? generateId;
+	const temporaryDirectory = deps.temporaryDirectory ?? temporaryUploadDirectory;
+	const writeFile = deps.writeFile ?? ((path: string, file: File) => Bun.write(path, file));
+
+	const writeResults = await Promise.allSettled(
+		resolvedFiles.map(async ({ file, fileName }) => {
+			const path = resolveTemporaryUploadPath(fileName, generateObjectId, temporaryDirectory);
+			await writeFile(path, file);
+			return path;
+		}),
+	);
+
+	const failedResult = writeResults.find(
+		(result): result is PromiseRejectedResult => result.status === "rejected",
+	);
+	if (failedResult) {
+		const successfulPaths: string[] = [];
+		for (const result of writeResults) {
+			if (result.status === "fulfilled") {
+				successfulPaths.push(result.value);
+			}
+		}
+		await removeTemporaryUploads(successfulPaths);
+
+		return serviceError(
+			"internal",
+			failedResult.reason instanceof Error
+				? failedResult.reason.message
+				: "Could not create temporary uploads",
+		);
+	}
+
+	const paths = writeResults.map((result) => {
+		if (result.status !== "fulfilled") {
+			throw new Error("Unexpected rejected temporary upload write result");
+		}
+
+		return result.value;
+	});
+
+	return serviceData(paths);
 };
 
 export const createPresignedDownloads = async (
