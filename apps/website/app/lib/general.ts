@@ -18,7 +18,7 @@ export const initializePaddleForApplication = (
 	initializePaddle({
 		token: clientToken,
 		environment: isSandbox ? "sandbox" : undefined,
-		pwCustomer: { id: paddleCustomerId || undefined },
+		pwCustomer: { id: paddleCustomerId ?? undefined },
 	});
 
 export const queryClient = new QueryClient({
