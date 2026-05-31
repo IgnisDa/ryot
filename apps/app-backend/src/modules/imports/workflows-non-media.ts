@@ -131,6 +131,7 @@ const makeLoadOutcomeSchema = <Item>(itemSchema: Schema.Schema<Item>) =>
 		Schema.TaggedStruct("failed", {
 			message: Schema.String,
 			cleanupPaths: Schema.Array(Schema.String),
+			fallbackToInitialCleanupPaths: Schema.Boolean,
 		}),
 		Schema.TaggedStruct("loaded", {
 			items: Schema.Array(itemSchema),
@@ -153,12 +154,23 @@ export const runOneTimeNonMediaImportWorkflow = <
 		const runWithDb = yield* DbRunner;
 		const repository = yield* ImportsRepository;
 
-		const initialCleanupPaths = payload.filePath ? [payload.filePath] : [];
+		const initialCleanupPaths = payload.filePath
+			? (() => {
+					const safePathResult = resolveSafeImportFilePath(
+						payload.filePath,
+						getTemporaryDirectory(),
+					);
+					return "path" in safePathResult ? [safePathResult.path] : [];
+				})()
+			: [];
 		let cleanupPaths: ReadonlyArray<string> = initialCleanupPaths;
 		const { cleanupArtifactsBestEffort, failRunAndCleanup } = createImportRunLifecycle(
 			payload,
 			operations.cleanupArtifacts,
 		);
+		const mergeCleanupPaths = (paths: ReadonlyArray<string>) => [
+			...new Set([...initialCleanupPaths, ...paths]),
+		];
 
 		const processWorkflow = Effect.gen(function* () {
 			const startedAt = yield* DateTime.nowAsDate;
@@ -183,6 +195,7 @@ export const runOneTimeNonMediaImportWorkflow = <
 					Effect.catchAll((error) =>
 						Effect.succeed({
 							_tag: "failed" as const,
+							fallbackToInitialCleanupPaths: false,
 							message: error.message,
 							cleanupPaths: [...error.cleanupPaths],
 						}),
@@ -190,6 +203,7 @@ export const runOneTimeNonMediaImportWorkflow = <
 					Effect.catchAllCause((cause) =>
 						Effect.succeed({
 							cleanupPaths: [],
+							fallbackToInitialCleanupPaths: true,
 							_tag: "failed" as const,
 							message: unknownToMessage(Cause.squash(cause)),
 						}),
@@ -197,7 +211,12 @@ export const runOneTimeNonMediaImportWorkflow = <
 				),
 			});
 
-			cleanupPaths = [...new Set([...initialCleanupPaths, ...loadOutcome.cleanupPaths])];
+			cleanupPaths =
+				loadOutcome._tag === "failed"
+					? loadOutcome.fallbackToInitialCleanupPaths
+						? mergeCleanupPaths(loadOutcome.cleanupPaths)
+						: [...loadOutcome.cleanupPaths]
+					: mergeCleanupPaths(loadOutcome.cleanupPaths);
 			if (loadOutcome._tag === "failed") {
 				yield* failRunAndCleanup({
 					message: loadOutcome.message,
