@@ -17,6 +17,8 @@ import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 import { EntitySchemasService } from "#modules/entity-schemas/service";
+import { EpisodeResolverRepository } from "#modules/episode-resolver/repository";
+import { EpisodeResolverService } from "#modules/episode-resolver/service";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
 import { EventSchemasService } from "#modules/event-schemas/service";
 import { EventsRepository } from "#modules/events/repository";
@@ -67,6 +69,7 @@ const RepositoriesLive = Layer.mergeAll(
 	CollectionsRepository.Default,
 	EntitiesRepository.Default,
 	EntitySchemasRepository.Default,
+	EpisodeResolverRepository.Default,
 	EventSchemasRepository.Default,
 	EventsRepository.Default,
 	GodModeRepository.Default,
@@ -108,6 +111,7 @@ const ServicesNeedingCollectionsScopeLive = Layer.mergeAll(
 	EntitiesService.Default,
 	LibraryImportService.Default,
 	EntitySchemasService.Default,
+	EpisodeResolverService.Default,
 	EventSchemasService.Default,
 	EventsService.Default,
 	Layer.provide(GodModeService.Default, AuthService.Default),

@@ -70,8 +70,9 @@ describe("adaptWatcharrExport", () => {
 			events: [
 				{
 					eventSchemaSlug: "progress",
+					properties: { progressPercent: 100 },
 					occurredAt: "2026-01-02T10:00:00.000Z",
-					properties: { progressPercent: 100, showSeason: 1, showEpisode: 2 },
+					episodeLocator: { type: "show", seasonNumber: 1, episodeNumber: 2 },
 				},
 				{
 					eventSchemaSlug: "dropped",
