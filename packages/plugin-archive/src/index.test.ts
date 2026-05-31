@@ -12,6 +12,10 @@ const fixture = {
 	files: {
 		"backend/z.ts": "export const z = 'z';\n",
 		"backend/a.ts": "export const a = 'a';\n",
+		"client/a.ts": "export const a = 'a';\n",
+		"client/b.tsx": "export const b = 'b';\n",
+		"client/c.css": ".fixture { color: red; }\n",
+		"client/d.svg": "<svg />\n",
 	},
 	manifest: {
 		boot: [],
@@ -105,13 +109,21 @@ describe("plugin archive", () => {
 		});
 		expect(first).toEqual(second);
 		const files = unzipSync(first);
-		expect(Object.keys(files)).toEqual(["manifest.json", "backend/a.ts", "backend/z.ts"]);
+		expect(Object.keys(files)).toEqual([
+			"manifest.json",
+			"backend/a.ts",
+			"backend/z.ts",
+			"client/a.ts",
+			"client/b.tsx",
+			"client/c.css",
+			"client/d.svg",
+		]);
 		expect(new TextDecoder().decode(files["manifest.json"])).toBe(
 			`${JSON.stringify(fixture.manifest, null, "\t")}\n`,
 		);
 	});
 
-	it("round trips from an async byte stream", async () => {
+	it("round trips backend and client sources from an async byte stream", async () => {
 		const bytes = writePluginArchive(fixture);
 		async function* chunks() {
 			await Promise.resolve();
@@ -181,6 +193,13 @@ describe("plugin archive", () => {
 			[
 				["manifest.json", rawManifest],
 				["frontend/a.ts", new Uint8Array(0)],
+			],
+		],
+		[
+			"unexpected-entry",
+			[
+				["manifest.json", rawManifest],
+				["client/a.js", new Uint8Array(0)],
 			],
 		],
 		[
