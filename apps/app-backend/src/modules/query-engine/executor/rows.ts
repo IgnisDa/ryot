@@ -21,6 +21,11 @@ import type { RowsQueryDocument } from "./types";
 
 type RootPagination = RowsQueryDocument["output"]["pagination"];
 
+// Unreachable default for a union-exhaustive switch over `doc.source.type`.
+const absurdSourceType = (_source: never): never => {
+	throw new Error("query-engine executor: unhandled rows source type");
+};
+
 const idListSql = (schemas: readonly { id: string }[]): SqlFragment =>
 	sql.join(
 		schemas.map((schema) => sql`${schema.id}`),
@@ -225,5 +230,7 @@ export const executeRowsQuery = (
 			return executeRelationshipRowsQuery(userId, language, doc);
 		case "entities":
 			return executeEntityRowsQuery(userId, language, doc);
+		default:
+			return absurdSourceType(doc.source);
 	}
 };
