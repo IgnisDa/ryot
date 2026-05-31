@@ -6,7 +6,7 @@ import {
 	createReviewEvent,
 	finalizeEntityGroups,
 } from "../../media/book/shared";
-import { nowIso, parseDateTime } from "../../media/dates";
+import { parseDateTime } from "../../media/dates";
 import { getOrCreateMediaEntityGroup } from "../../media/groups";
 import type {
 	MediaImportAdapterFailure,
@@ -19,10 +19,6 @@ import {
 	readRequiredCsvCell,
 } from "../../runtime/csv";
 
-type MovaryImportAdapterDeps = {
-	now: () => string;
-};
-
 type MovaryRequiredColumn = {
 	label: string;
 	aliases: string[];
@@ -34,10 +30,6 @@ const TMDB_ID_ALIASES = ["tmdb_id", "tmdbId"];
 const RATING_ALIASES = ["user_rating", "userRating"];
 const HISTORY_DATE_ALIASES = ["watched_at", "watchedAt"];
 const MOVARY_DATE_FORMATS = ["YYYY-MM-DD", "YYYY-MM-DD HH:mm:ss"];
-
-const movaryImportAdapterDeps: MovaryImportAdapterDeps = {
-	now: () => nowIso(),
-};
 
 const movaryHeaders = {
 	history: [
@@ -267,13 +259,15 @@ const adaptWatchlistCsv = (
 	return itemIndex;
 };
 
-export const adaptMovaryExports = (
-	input: { historyCsv: string; ratingsCsv: string; watchlistCsv: string },
-	deps: MovaryImportAdapterDeps = movaryImportAdapterDeps,
-): MediaImportAdapterResult => {
+export const adaptMovaryExports = (input: {
+	historyCsv: string;
+	importedAt: string;
+	ratingsCsv: string;
+	watchlistCsv: string;
+}): MediaImportAdapterResult => {
 	const failures: MediaImportAdapterFailure[] = [];
 	const groupMap = new Map<string, ReturnType<typeof getOrCreateMediaEntityGroup>>();
-	const importedAt = deps.now();
+	const importedAt = input.importedAt;
 
 	let itemIndex = 0;
 	itemIndex = adaptHistoryCsv(groupMap, failures, input.historyCsv, itemIndex);
