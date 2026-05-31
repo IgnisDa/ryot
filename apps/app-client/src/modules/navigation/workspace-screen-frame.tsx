@@ -14,7 +14,7 @@ const TOP_BAR_WEB_HIDDEN = Platform.OS === "web" ? "md:hidden" : null;
 const TOP_BAR_EXITING = FadeOutUp.duration(160).reduceMotion(ReduceMotion.System);
 const TOP_BAR_ENTERING = FadeInUp.duration(200).reduceMotion(ReduceMotion.System);
 
-function WorkspaceTopBar(props: { onMenuOpen: () => void; onAccountOpen: () => void }) {
+function WorkspaceTopBar(props: { onMenuOpen: () => void }) {
 	return (
 		<View className="flex-row items-center gap-3 py-2">
 			<Pressable
@@ -29,14 +29,6 @@ function WorkspaceTopBar(props: { onMenuOpen: () => void; onAccountOpen: () => v
 				<NavigationIcon className="text-text-muted" name="search" size={24} />
 				<Text className="font-ui text-sm text-text-subtle">Search</Text>
 			</View>
-			<Pressable
-				accessibilityRole="button"
-				onPress={props.onAccountOpen}
-				accessibilityLabel="Open account"
-				className="h-10 w-10 items-center justify-center rounded-full bg-surface-2"
-			>
-				<NavigationIcon className="text-text-muted" name="user" size={24} />
-			</Pressable>
 		</View>
 	);
 }
@@ -88,7 +80,7 @@ export function WorkspaceScreenFrame(props: { children: ReactNode }) {
 						TOP_BAR_WEB_HIDDEN,
 					)}
 				>
-					<WorkspaceTopBar onMenuOpen={drawer.openDrawer} onAccountOpen={drawer.openAccount} />
+					<WorkspaceTopBar onMenuOpen={drawer.openDrawer} />
 				</Animated.View>
 			)}
 		</View>
