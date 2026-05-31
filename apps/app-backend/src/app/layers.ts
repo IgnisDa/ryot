@@ -75,7 +75,7 @@ const ServicesLive = Layer.mergeAll(
 	EntitySchemasService.Default,
 	EventSchemasService.Default,
 	EventsService.Default,
-	GodModeService.Default,
+	GodModeService.Default.pipe(Layer.provide(AuthService.Default)),
 	QueryEngineService.Default,
 	RelationshipSchemasService.Default,
 	SavedViewsService.Default,

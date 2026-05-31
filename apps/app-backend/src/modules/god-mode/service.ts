@@ -51,32 +51,12 @@ const parseResetLinkMessage = (message: string) => {
 	return null;
 };
 
-const parseActiveSessionTokens = (value: string | null) => {
-	if (!value) {
-		return [] as Array<string>;
-	}
-
-	const parsed = Either.try(() => JSON.parse(value));
-	if (Either.isLeft(parsed) || !Array.isArray(parsed.right)) {
-		return [] as Array<string>;
-	}
-
-	return parsed.right.flatMap((entry: unknown) => {
-		if (entry === null || typeof entry !== "object") {
-			return [];
-		}
-		const token = Reflect.get(entry, "token");
-		return typeof token === "string" ? [token] : [];
-	});
-};
-
 export class GodModeService extends Effect.Service<GodModeService>()("GodModeService", {
-	dependencies: [AuthService.Default],
 	effect: Effect.gen(function* () {
 		const config = yield* AppConfig;
 		const redis = yield* RedisService;
 		const runWithDb = yield* DbRunner;
-		const { auth } = yield* AuthService;
+		const { auth, deleteUserSessions } = yield* AuthService;
 
 		return {
 			listUsers: (input: { search?: string; offset: number; limit: number }) =>
@@ -234,24 +214,11 @@ export class GodModeService extends Effect.Service<GodModeService>()("GodModeSer
 									.set({ bannedAt, updatedAt })
 									.where(eq(schema.user.id, userId)),
 							);
-
-							if (banned) {
-								yield* dbEffect(() =>
-									db.delete(schema.session).where(eq(schema.session.userId, userId)),
-								);
-							}
 						}),
 					);
 
 					if (banned) {
-						const activeSessionKey = `active-sessions-${userId}`;
-						const activeSessions = yield* Effect.tryPromise(() =>
-							redis.client.get(activeSessionKey),
-						).pipe(Effect.orDie);
-						const sessionTokens = parseActiveSessionTokens(activeSessions);
-						yield* Effect.tryPromise(() =>
-							redis.client.del(activeSessionKey, ...sessionTokens),
-						).pipe(Effect.orDie);
+						yield* deleteUserSessions(userId);
 					}
 
 					return { id: userId, bannedAt: bannedAt?.toISOString() ?? null };
