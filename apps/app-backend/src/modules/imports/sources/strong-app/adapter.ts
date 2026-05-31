@@ -1,4 +1,4 @@
-import { dayjs } from "~/lib/dayjs";
+import { DateTime, Duration, Option } from "effect";
 
 import {
 	parseCsvText,
@@ -174,8 +174,11 @@ export const adaptStrongAppCsv = (csvText: string, timezone: string): WorkoutAda
 		const date = firstRow.date;
 
 		const sourceLabel = sourceLabelForWorkout(firstRow);
-		const startedAt = dayjs.tz(date, timezone);
-		if (!startedAt.isValid()) {
+		const startedAt = DateTime.makeZoned(date.replace(" ", "T"), {
+			timeZone: timezone,
+			adjustForTimeZone: true,
+		});
+		if (Option.isNone(startedAt)) {
 			failures.push({
 				sourceLabel,
 				sourceIdentifier,
@@ -237,9 +240,11 @@ export const adaptStrongAppCsv = (csvText: string, timezone: string): WorkoutAda
 			sourceIdentifier,
 			name: firstRow.workoutName,
 			itemIndex: firstRow.itemIndex,
-			startedAt: startedAt.toISOString(),
 			comment: firstRow.workoutNotes ?? null,
-			endedAt: startedAt.add(durationSeconds, "second").toISOString(),
+			startedAt: DateTime.formatIso(startedAt.value),
+			endedAt: DateTime.formatIso(
+				DateTime.addDuration(startedAt.value, Duration.seconds(durationSeconds)),
+			),
 		});
 	}
 
