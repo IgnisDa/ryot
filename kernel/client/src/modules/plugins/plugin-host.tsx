@@ -226,7 +226,7 @@ function PluginFrame(props: {
 				sandbox="allow-scripts"
 				referrerPolicy="no-referrer"
 				title={`${props.pluginSlug} plugin`}
-				className={status === "ready" ? "h-screen w-full border-0" : "hidden"}
+				className={status === "ready" ? "h-full w-full border-0" : "hidden"}
 				src={pluginArtifactUrl(props.server, props.artifactHash, "index.html")}
 			/>
 		</>
