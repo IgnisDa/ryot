@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 
-import { customers, type TPlanTypes, type TProductTypes } from "~/drizzle/schema.server";
+import { customers, PlanTypes, ProductTypes } from "~/drizzle/schema.server";
 import { getAppBackendApiClient } from "~/lib/api.server";
 import {
 	getCancellation,
@@ -211,12 +211,8 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			}
 
 			const formData = await request.formData();
-			const productType = formData.get("productType")?.toString() as TProductTypes;
-			const planType = formData.get("planType")?.toString() as TPlanTypes;
-
-			if (!productType || !planType) {
-				throw new Error("Product type and plan type are required");
-			}
+			const productType = ProductTypes.parse(formData.get("productType"));
+			const planType = PlanTypes.parse(formData.get("planType"));
 
 			const productId = findPolarProductId(productType, planType);
 
@@ -237,7 +233,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 
 			return redirect(checkout.url);
 		})
-		.with("checkoutPaddle", async () => {
+		.with("checkoutPaddle", () => {
 			if (!customer) {
 				throw new Error("No customer found");
 			}
@@ -291,18 +287,18 @@ export default function Index() {
 
 	useEffect(() => {
 		if (!paddle) {
-			initializePaddleForApplication(
+			void initializePaddleForApplication(
 				loaderData.clientToken,
 				loaderData.isSandbox,
 				loaderData.customerDetails.paddleCustomerId,
 			).then((paddleInstance) => {
 				if (paddleInstance) {
 					paddleInstance.Update({
-						eventCallback: (data) => {
-							if (data.name === CheckoutEventNames.CHECKOUT_COMPLETED) {
+						eventCallback: (event) => {
+							if (event.name === CheckoutEventNames.CHECKOUT_COMPLETED) {
 								paddleInstance.Checkout.close();
 								const formData = new FormData();
-								fetcher.submit(formData, {
+								void fetcher.submit(formData, {
 									method: "POST",
 									action: withQuery(".", { intent: "checkoutPaddle" }),
 								});
@@ -311,10 +307,12 @@ export default function Index() {
 					});
 					setPaddle(paddleInstance);
 				}
+				return;
 			});
 		}
 	}, [
 		paddle,
+		fetcher,
 		loaderData.isSandbox,
 		loaderData.clientToken,
 		loaderData.customerDetails.paddleCustomerId,
@@ -405,7 +403,7 @@ export default function Index() {
 												type="button"
 												className="text-xs underline cursor-pointer shrink-0"
 												onClick={() => {
-													navigator.clipboard.writeText(resetFetcher.data.resetUrl);
+													void navigator.clipboard.writeText(resetFetcher.data.resetUrl);
 													toast.success("Reset link copied to clipboard");
 												}}
 											>
@@ -468,7 +466,7 @@ export default function Index() {
 								const formData = new FormData();
 								formData.append("planType", planType);
 								formData.append("productType", productType);
-								fetcher.submit(formData, {
+								void fetcher.submit(formData, {
 									method: "POST",
 									action: withQuery(".", { intent: "checkoutPolar" }),
 								});
