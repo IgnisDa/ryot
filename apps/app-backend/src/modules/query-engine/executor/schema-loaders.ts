@@ -33,8 +33,8 @@ export const loadVisibleEntityPropertySchemas = Effect.fn("loadVisibleEntityProp
 	},
 );
 
-// Every entity-schema slug the user can see (own + global builtins). Used by the interest reconciler
-// to pass a guaranteed-visible schema list to the query engine (which 404s on any invisible slug).
+// Every entity-schema slug the user can see (own + global builtins), for passing a guaranteed-visible
+// schema list to the query engine (which 404s on any invisible slug).
 export const loadVisibleEntitySchemaSlugs = Effect.fn("loadVisibleEntitySchemaSlugs")(function* (
 	userId: string,
 ) {

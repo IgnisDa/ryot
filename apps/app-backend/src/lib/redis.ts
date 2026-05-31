@@ -5,7 +5,6 @@ import { AppConfig } from "./config/service";
 import { EntityId } from "./schema/brands";
 
 export const redisKeys = {
-	// Channel a workflow publishes to on populate/translate completion; the WS registry fans it out.
 	entityUpdatedChannel: "ryot:entity:updated",
 	uploadToken: (token: string) => `ryot:upload:token:${token}`,
 	godModePendingReset: (email: string) => `ryot:god-mode:pending:${email}`,
@@ -17,8 +16,6 @@ export const redisKeys = {
 		`ryot:integrations:cache:${integrationId}:${key}`,
 };
 
-// The publisher (not the subscriber) knows whether it populated or translated, so the reason rides in
-// the payload and becomes the `reason` of the fanned-out `entity:updated` frame.
 export const EntityUpdatedReason = Schema.Literal("populated", "translated");
 export type EntityUpdatedReason = typeof EntityUpdatedReason.Type;
 

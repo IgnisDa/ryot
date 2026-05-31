@@ -51,13 +51,13 @@ describe("interest authorization", () => {
 
 	it("rejects an unauthenticated stream connection", async () => {
 		const response = await fetch(
-			`${getBackendUrl()}/interest/stream?streamId=${crypto.randomUUID()}`,
+			`${getBackendUrl()}/entity-interest/stream?streamId=${crypto.randomUUID()}`,
 		);
 		expect(response.status).toBe(401);
 	});
 
 	it("rejects an unauthenticated interest declaration", async () => {
-		const response = await postBackendJson("/interest", {
+		const response = await postBackendJson("/entity-interest", {
 			entityIds: [],
 			streamId: crypto.randomUUID(),
 		});
@@ -71,7 +71,7 @@ describe("interest authorization", () => {
 		const streamA = await openInterestStream(authA);
 		try {
 			const response = await postBackendJson(
-				"/interest",
+				"/entity-interest",
 				{ streamId: streamA.streamId, entityIds: [] },
 				authB.cookies,
 			);

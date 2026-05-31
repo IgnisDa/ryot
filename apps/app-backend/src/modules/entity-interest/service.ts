@@ -6,6 +6,7 @@ import type { EntityUpdatedReason } from "#lib/redis";
 import { EntityId, EntitySchemaId, SandboxScriptId } from "#lib/schema/brands";
 import { EntityPopulationTrigger } from "#modules/entities/population-trigger";
 import { TranslationStatus } from "#modules/entities/schemas";
+import { TranslationsService } from "#modules/entity-translation/service";
 import { loadVisibleEntitySchemaSlugs } from "#modules/query-engine/executor/schema-loaders";
 import type { Expr, QueryDocument, RowItem } from "#modules/query-engine/language";
 import {
@@ -17,7 +18,6 @@ import {
 } from "#modules/query-engine/response-helpers";
 import { QueryEngineService } from "#modules/query-engine/service";
 import { MAX_ROOT_PAGE_SIZE } from "#modules/query-engine/validator/shared";
-import { TranslationsService } from "#modules/translations/service";
 
 const ENTITY_ALIAS = "entity";
 
