@@ -13,7 +13,7 @@ export const user = pgTable("user", {
 	createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 	updatedAt: timestamp({ withTimezone: true })
 		.defaultNow()
-		.$onUpdate(() => new Date())
+		.$onUpdate(() => /* @__PURE__ */ new Date())
 		.notNull(),
 });
 
@@ -27,7 +27,7 @@ export const session = pgTable(
 		expiresAt: timestamp({ withTimezone: true }).notNull(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		updatedAt: timestamp({ withTimezone: true })
-			.$onUpdate(() => new Date())
+			.$onUpdate(() => /* @__PURE__ */ new Date())
 			.notNull(),
 		userId: text()
 			.notNull()
@@ -54,7 +54,7 @@ export const account = pgTable(
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
 		updatedAt: timestamp({ withTimezone: true })
-			.$onUpdate(() => new Date())
+			.$onUpdate(() => /* @__PURE__ */ new Date())
 			.notNull(),
 	},
 	(table) => [index("account_userId_idx").on(table.userId)],
@@ -70,7 +70,7 @@ export const verification = pgTable(
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		updatedAt: timestamp({ withTimezone: true })
 			.defaultNow()
-			.$onUpdate(() => new Date())
+			.$onUpdate(() => /* @__PURE__ */ new Date())
 			.notNull(),
 	},
 	(table) => [index("verification_identifier_idx").on(table.identifier)],
