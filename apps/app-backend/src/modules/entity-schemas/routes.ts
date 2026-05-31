@@ -3,7 +3,7 @@ import { Effect } from "effect";
 
 import { CurrentUser } from "../../lib/auth";
 import { AppContract } from "../../lib/contract";
-import { notImplemented } from "../../lib/errors";
+import { dieOnDbError, notImplemented } from "../../lib/errors";
 import { EntitySchemasService } from "./service";
 
 export const EntitySchemasRoutesLive = HttpApiBuilder.group(
@@ -17,25 +17,21 @@ export const EntitySchemasRoutesLive = HttpApiBuilder.group(
 					const service = yield* EntitySchemasService;
 					return yield* service
 						.list(user, { trackerId: payload.trackerId, slugs: payload.slugs })
-						.pipe(Effect.catchTag("DbError", (error) => Effect.die(error)));
+						.pipe(dieOnDbError);
 				}),
 			)
 			.handle("create", ({ payload }) =>
 				Effect.gen(function* () {
 					const user = yield* CurrentUser;
 					const service = yield* EntitySchemasService;
-					return yield* service
-						.create(user, payload)
-						.pipe(Effect.catchTag("DbError", (error) => Effect.die(error)));
+					return yield* service.create(user, payload).pipe(dieOnDbError);
 				}),
 			)
 			.handle("get", ({ path }) =>
 				Effect.gen(function* () {
 					const user = yield* CurrentUser;
 					const service = yield* EntitySchemasService;
-					return yield* service
-						.getById(user, path.entitySchemaId)
-						.pipe(Effect.catchTag("DbError", (error) => Effect.die(error)));
+					return yield* service.getById(user, path.entitySchemaId).pipe(dieOnDbError);
 				}),
 			)
 			.handle("search", () => Effect.fail(notImplemented()))

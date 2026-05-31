@@ -1,7 +1,16 @@
-import type { AppPropertyDefinition } from "./property-schema";
+import { Effect, Schema } from "effect";
+
+import { DbError } from "./errors";
+import { AppSchema, type AppPropertyDefinition } from "./property-schema";
 
 export * from "./property-schema";
 export * from "./property-schema-runtime";
+
+export const decodeStoredAppSchema = (
+	value: unknown,
+	message: string,
+): Effect.Effect<AppSchema, DbError> =>
+	Schema.decodeUnknown(AppSchema)(value).pipe(Effect.mapError(() => new DbError({ message })));
 
 export const stringField = (label: string, description: string): AppPropertyDefinition => ({
 	label,
