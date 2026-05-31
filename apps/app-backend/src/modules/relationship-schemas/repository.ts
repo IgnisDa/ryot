@@ -1,5 +1,5 @@
 import { and, eq, isNull, or } from "drizzle-orm";
-import { Context, Effect, Either, Layer, Schema } from "effect";
+import { Effect, Either, Schema } from "effect";
 
 import { CurrentDb, dbEffect, schema } from "../../lib/db";
 import { DbError } from "../../lib/errors";
@@ -28,66 +28,58 @@ const toScope = (row: Row): Effect.Effect<RelationshipSchemaScope, DbError> =>
 		};
 	});
 
-export class RelationshipSchemasRepository extends Context.Tag("RelationshipSchemasRepository")<
-	RelationshipSchemasRepository,
+export class RelationshipSchemasRepository extends Effect.Service<RelationshipSchemasRepository>()(
+	"RelationshipSchemasRepository",
 	{
-		readonly findBuiltinBySlug: (
-			slug: string,
-		) => Effect.Effect<RelationshipSchemaScope | null, DbError, CurrentDb>;
-		readonly findById: (
-			id: string,
-			userId: string | null,
-		) => Effect.Effect<RelationshipSchemaScope | null, DbError, CurrentDb>;
-	}
->() {}
+		sync: () => ({
+			findBuiltinBySlug: (slug: string) =>
+				Effect.gen(function* () {
+					const db = yield* CurrentDb;
+					const [row] = yield* dbEffect(() =>
+						db
+							.select()
+							.from(schema.relationshipSchema)
+							.where(
+								and(
+									eq(schema.relationshipSchema.slug, slug),
+									isNull(schema.relationshipSchema.userId),
+									eq(schema.relationshipSchema.isBuiltin, true),
+								),
+							)
+							.limit(1),
+					);
 
-export const RelationshipSchemasRepositoryLive = Layer.succeed(RelationshipSchemasRepository, {
-	findBuiltinBySlug: (slug) =>
-		Effect.gen(function* () {
-			const db = yield* CurrentDb;
-			const [row] = yield* dbEffect(() =>
-				db
-					.select()
-					.from(schema.relationshipSchema)
-					.where(
-						and(
-							eq(schema.relationshipSchema.slug, slug),
-							isNull(schema.relationshipSchema.userId),
-							eq(schema.relationshipSchema.isBuiltin, true),
-						),
-					)
-					.limit(1),
-			);
+					if (!row) {
+						return null;
+					}
+					return yield* toScope(row);
+				}),
+			findById: (id: string, userId: string | null) =>
+				Effect.gen(function* () {
+					const db = yield* CurrentDb;
+					const [row] = yield* dbEffect(() =>
+						db
+							.select()
+							.from(schema.relationshipSchema)
+							.where(
+								and(
+									eq(schema.relationshipSchema.id, id),
+									userId !== null
+										? or(
+												isNull(schema.relationshipSchema.userId),
+												eq(schema.relationshipSchema.userId, userId),
+											)
+										: isNull(schema.relationshipSchema.userId),
+								),
+							)
+							.limit(1),
+					);
 
-			if (!row) {
-				return null;
-			}
-			return yield* toScope(row);
+					if (!row) {
+						return null;
+					}
+					return yield* toScope(row);
+				}),
 		}),
-	findById: (id, userId) =>
-		Effect.gen(function* () {
-			const db = yield* CurrentDb;
-			const [row] = yield* dbEffect(() =>
-				db
-					.select()
-					.from(schema.relationshipSchema)
-					.where(
-						and(
-							eq(schema.relationshipSchema.id, id),
-							userId !== null
-								? or(
-										isNull(schema.relationshipSchema.userId),
-										eq(schema.relationshipSchema.userId, userId),
-									)
-								: isNull(schema.relationshipSchema.userId),
-						),
-					)
-					.limit(1),
-			);
-
-			if (!row) {
-				return null;
-			}
-			return yield* toScope(row);
-		}),
-});
+	},
+) {}

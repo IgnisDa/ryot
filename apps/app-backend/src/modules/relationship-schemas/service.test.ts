@@ -4,7 +4,7 @@ import { Effect, Exit, Layer } from "effect";
 import { CurrentDb, DbRunner } from "../../lib/db";
 import { NotFound } from "../../lib/errors";
 import { RelationshipSchemasRepository } from "./repository";
-import { RelationshipSchemasService, RelationshipSchemasServiceLive } from "./service";
+import { RelationshipSchemasService } from "./service";
 
 const dbRunnerLayer = Layer.succeed(
 	DbRunner,
@@ -23,11 +23,12 @@ const scope = {
 };
 
 it.effect("returns builtin relationship schema by slug", () => {
-	const layer = RelationshipSchemasServiceLive.pipe(
+	const layer = RelationshipSchemasService.Default.pipe(
 		Layer.provide(
 			Layer.mergeAll(
 				dbRunnerLayer,
 				Layer.mock(RelationshipSchemasRepository, {
+					_tag: "RelationshipSchemasRepository" as const,
 					findById: () => Effect.die("unused"),
 					findBuiltinBySlug: () => Effect.succeed(scope),
 				}),
@@ -43,11 +44,12 @@ it.effect("returns builtin relationship schema by slug", () => {
 });
 
 it.effect("returns not found when builtin slug does not exist", () => {
-	const layer = RelationshipSchemasServiceLive.pipe(
+	const layer = RelationshipSchemasService.Default.pipe(
 		Layer.provide(
 			Layer.mergeAll(
 				dbRunnerLayer,
 				Layer.mock(RelationshipSchemasRepository, {
+					_tag: "RelationshipSchemasRepository" as const,
 					findById: () => Effect.die("unused"),
 					findBuiltinBySlug: () => Effect.succeed(null),
 				}),
@@ -63,11 +65,12 @@ it.effect("returns not found when builtin slug does not exist", () => {
 });
 
 it.effect("returns relationship schema by id for user scope", () => {
-	const layer = RelationshipSchemasServiceLive.pipe(
+	const layer = RelationshipSchemasService.Default.pipe(
 		Layer.provide(
 			Layer.mergeAll(
 				dbRunnerLayer,
 				Layer.mock(RelationshipSchemasRepository, {
+					_tag: "RelationshipSchemasRepository" as const,
 					findById: () => Effect.succeed(scope),
 					findBuiltinBySlug: () => Effect.die("unused"),
 				}),
@@ -83,11 +86,12 @@ it.effect("returns relationship schema by id for user scope", () => {
 });
 
 it.effect("returns not found when id does not exist or is inaccessible", () => {
-	const layer = RelationshipSchemasServiceLive.pipe(
+	const layer = RelationshipSchemasService.Default.pipe(
 		Layer.provide(
 			Layer.mergeAll(
 				dbRunnerLayer,
 				Layer.mock(RelationshipSchemasRepository, {
+					_tag: "RelationshipSchemasRepository" as const,
 					findById: () => Effect.succeed(null),
 					findBuiltinBySlug: () => Effect.die("unused"),
 				}),
@@ -103,11 +107,12 @@ it.effect("returns not found when id does not exist or is inaccessible", () => {
 });
 
 it.effect("finds builtin schema by id with null userId", () => {
-	const layer = RelationshipSchemasServiceLive.pipe(
+	const layer = RelationshipSchemasService.Default.pipe(
 		Layer.provide(
 			Layer.mergeAll(
 				dbRunnerLayer,
 				Layer.mock(RelationshipSchemasRepository, {
+					_tag: "RelationshipSchemasRepository" as const,
 					findById: () => Effect.succeed(scope),
 					findBuiltinBySlug: () => Effect.die("unused"),
 				}),
