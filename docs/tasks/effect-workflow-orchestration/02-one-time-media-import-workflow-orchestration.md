@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -16,17 +16,17 @@ This task should cover one-time media import sources. Non-media one-time sources
 
 ## Acceptance criteria
 
-- [ ] One-time media imports execute through explicit workflow phases instead of one opaque import-run queue worker
-- [ ] Shared media import orchestration exists behind a stable workflow-friendly interface for adapter result handling, failure recording, progress reporting, entity resolution, entity population, event and collection writes, and final counters
-- [ ] Media source adapter loading is represented as a durable activity or bounded durable queue step according to the adapter's work and retry semantics
-- [ ] Adapter row-level failures are recorded as item failures without failing the entire run
-- [ ] Catastrophic source-fetch, credential, or adapter failures fail the run through a durable failure-recording step
-- [ ] Media entity resolution no longer calls sandbox through raw workflow-engine execution from helpers
-- [ ] Media entity population reuses workflow-owned entity import or population orchestration rather than helper-level raw workflow-engine execution
-- [ ] Media writes continue to use owning module services for collections, events, and library state
-- [ ] Source payload and temporary file cleanup happens as durable finalization work
-- [ ] Existing one-time media import behavior remains product-compatible for run status, progress, counters, item failures, populated entities, collection writes, and event writes
-- [ ] Tests cover a successful media import, adapter row-level failures, catastrophic adapter failure, entity resolution, entity population, media writes, progress/final counters, and cleanup of stored source payloads or temporary files where applicable
+- [x] One-time media imports execute through explicit workflow phases instead of one opaque import-run queue worker
+- [x] Shared media import orchestration exists behind a stable workflow-friendly interface for adapter result handling, failure recording, progress reporting, entity resolution, entity population, event and collection writes, and final counters
+- [x] Media source adapter loading is represented as a durable activity or bounded durable queue step according to the adapter's work and retry semantics
+- [x] Adapter row-level failures are recorded as item failures without failing the entire run
+- [x] Catastrophic source-fetch, credential, or adapter failures fail the run through a durable failure-recording step
+- [x] Media entity resolution no longer calls sandbox through raw workflow-engine execution from helpers
+- [x] Media entity population reuses workflow-owned entity import or population orchestration rather than helper-level raw workflow-engine execution
+- [x] Media writes continue to use owning module services for collections, events, and library state
+- [x] Source payload and temporary file cleanup happens as durable finalization work
+- [x] Existing one-time media import behavior remains product-compatible for run status, progress, counters, item failures, populated entities, collection writes, and event writes
+- [x] Tests cover a successful media import, adapter row-level failures, catastrophic adapter failure, entity resolution, entity population, media writes, progress/final counters, and cleanup of stored source payloads or temporary files where applicable
 
 ## User stories addressed
 

@@ -32,7 +32,7 @@ export const decodeEntityDetailsResult = Schema.decodeUnknown(EntityDetailsResul
 
 const EntityResolveResult = Schema.Struct({ externalId: Schema.NullOr(Schema.String) });
 
-const decodeEntityResolveResult = Schema.decodeUnknown(EntityResolveResult);
+export const decodeEntityResolveResult = Schema.decodeUnknown(EntityResolveResult);
 
 const EntitySearchItem = Schema.Struct({
 	externalId: Schema.NonEmptyString,
