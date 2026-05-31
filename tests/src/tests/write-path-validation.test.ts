@@ -9,6 +9,7 @@ import {
 	createTrackerWithSchemaAndEntity,
 } from "../fixtures";
 import { getBackendUrl } from "../setup";
+import { assertTaggedError } from "../test-support/assertions";
 
 describe("Entity write path — propertiesSchema validation", () => {
 	it("rejects entity creation when a required field is missing", async () => {
@@ -27,13 +28,16 @@ describe("Entity write path — propertiesSchema validation", () => {
 			},
 		});
 
-		const { response, error } = await client.entities.create({
-			headers: { Cookie: cookies },
-			body: { properties: {}, name: "Missing Required", entitySchemaId: schemaId },
-		});
+		const error = await client.runError(
+			(c) =>
+				c.entities.create({
+					payload: { properties: {}, name: "Missing Required", entitySchemaId: schemaId },
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(response.status).toBe(400);
-		expect(error?.error.message).toContain("Entity payload is invalid");
+		assertTaggedError(error, "BadRequest");
+		expect(error.message).toContain("Entity payload is invalid");
 	});
 
 	it("rejects entity creation when a field has the wrong type", async () => {
@@ -52,16 +56,19 @@ describe("Entity write path — propertiesSchema validation", () => {
 			},
 		});
 
-		const { response } = await client.entities.create({
-			headers: { Cookie: cookies },
-			body: {
-				name: "Wrong Type",
-				entitySchemaId: schemaId,
-				properties: { count: "not-a-number" },
-			},
-		});
+		const error = await client.runError(
+			(c) =>
+				c.entities.create({
+					payload: {
+						name: "Wrong Type",
+						entitySchemaId: schemaId,
+						properties: { count: "not-a-number" },
+					},
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(response.status).toBe(400);
+		assertTaggedError(error, "BadRequest");
 	});
 
 	it("rejects entity creation with properties not declared in the schema", async () => {
@@ -73,16 +80,19 @@ describe("Entity write path — propertiesSchema validation", () => {
 			},
 		});
 
-		const { response } = await client.entities.create({
-			headers: { Cookie: cookies },
-			body: {
-				name: "Extra Field",
-				entitySchemaId: schemaId,
-				properties: { title: "OK", undeclaredField: "should fail" },
-			},
-		});
+		const error = await client.runError(
+			(c) =>
+				c.entities.create({
+					payload: {
+						name: "Extra Field",
+						entitySchemaId: schemaId,
+						properties: { title: "OK", undeclaredField: "should fail" },
+					},
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(response.status).toBe(400);
+		assertTaggedError(error, "BadRequest");
 	});
 
 	it("accepts entity creation when properties match the schema exactly", async () => {
@@ -119,50 +129,55 @@ describe("Event write path — propertiesSchema validation", () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { entityId, eventSchemaId } = await createEventTestFixture(client, cookies);
 
-		const { response, error } = await client.events.create({
-			headers: { Cookie: cookies },
-			body: [{ entityId, eventSchemaId, properties: {} }],
-		});
+		const error = await client.runError(
+			(c) => c.events.create({ payload: [{ entityId, eventSchemaId, properties: {} }] }),
+			{ Cookie: cookies },
+		);
 
-		expect(response.status).toBe(400);
-		expect(error?.error.message).toContain("Event payload is invalid");
+		assertTaggedError(error, "BadRequest");
+		expect(error.message).toContain("Event payload is invalid");
 	});
 
 	it("rejects event creation when a field has the wrong type", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { entityId, eventSchemaId } = await createEventTestFixture(client, cookies);
 
-		const { response } = await client.events.create({
-			headers: { Cookie: cookies },
-			body: [{ entityId, eventSchemaId, properties: { rating: "not-a-number" } }],
-		});
+		const error = await client.runError(
+			(c) =>
+				c.events.create({
+					payload: [{ entityId, eventSchemaId, properties: { rating: "not-a-number" } }],
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(response.status).toBe(400);
+		assertTaggedError(error, "BadRequest");
 	});
 
 	it("rejects event creation with unknown properties", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { entityId, eventSchemaId } = await createEventTestFixture(client, cookies);
 
-		const { response } = await client.events.create({
-			headers: { Cookie: cookies },
-			body: [{ entityId, eventSchemaId, properties: { rating: 4, undeclaredField: "bad" } }],
-		});
+		const error = await client.runError(
+			(c) =>
+				c.events.create({
+					payload: [{ entityId, eventSchemaId, properties: { rating: 4, undeclaredField: "bad" } }],
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(response.status).toBe(400);
+		assertTaggedError(error, "BadRequest");
 	});
 
 	it("accepts event creation when properties match the schema", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { entityId, eventSchemaId } = await createEventTestFixture(client, cookies);
 
-		const { response, data } = await client.events.create({
-			headers: { Cookie: cookies },
-			body: [{ entityId, eventSchemaId, properties: { rating: 5 } }],
-		});
+		const data = await client.run(
+			(c) => c.events.create({ payload: [{ entityId, eventSchemaId, properties: { rating: 5 } }] }),
+			{ Cookie: cookies },
+		);
 
-		expect(response.status).toBe(200);
-		expect(data?.count).toBe(1);
+		expect(data.count).toBe(1);
 	});
 });
 
@@ -224,13 +239,15 @@ describe("Collection membership — member-of relationship propertiesSchema vali
 		});
 		const { entityId } = await createTrackerWithSchemaAndEntity(client, cookies);
 
-		const { data, response } = await client.collections.createMembership({
-			headers: { Cookie: cookies },
-			body: { entityId, collectionId: collection.id, properties: { score: 8 } },
-		});
+		const data = await client.run(
+			(c) =>
+				c.collections.createMembership({
+					payload: { entityId, collectionId: collection.id, properties: { score: 8 } },
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(response.status).toBe(200);
-		expect(data?.memberOf.properties).toMatchObject({ score: 8 });
+		expect(data.memberOf.properties).toMatchObject({ score: 8 });
 	});
 
 	it("rejects membership add when properties fail the collection's membershipPropertiesSchema", async () => {
@@ -250,13 +267,16 @@ describe("Collection membership — member-of relationship propertiesSchema vali
 		});
 		const { entityId } = await createTrackerWithSchemaAndEntity(client, cookies);
 
-		const { response, error } = await client.collections.createMembership({
-			headers: { Cookie: cookies },
-			body: { entityId, collectionId: collection.id, properties: { score: 999 } },
-		});
+		const error = await client.runError(
+			(c) =>
+				c.collections.createMembership({
+					payload: { entityId, collectionId: collection.id, properties: { score: 999 } },
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(response.status).toBe(400);
-		expect(error?.error.message).toContain("Membership properties validation failed");
+		assertTaggedError(error, "BadRequest");
+		expect(error.message).toContain("Membership properties validation failed");
 	});
 
 	it("accepts membership add with arbitrary properties when no membershipPropertiesSchema is set", async () => {
@@ -264,16 +284,18 @@ describe("Collection membership — member-of relationship propertiesSchema vali
 		const collection = await createCollection(client, cookies, { name: "Open Collection" });
 		const { entityId } = await createTrackerWithSchemaAndEntity(client, cookies);
 
-		const { data, response } = await client.collections.createMembership({
-			headers: { Cookie: cookies },
-			body: {
-				entityId,
-				collectionId: collection.id,
-				properties: { arbitrary: "any-value", number: 42 },
-			},
-		});
+		const data = await client.run(
+			(c) =>
+				c.collections.createMembership({
+					payload: {
+						entityId,
+						collectionId: collection.id,
+						properties: { arbitrary: "any-value", number: 42 },
+					},
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(response.status).toBe(200);
-		expect(data?.memberOf.properties).toMatchObject({ arbitrary: "any-value", number: 42 });
+		expect(data.memberOf.properties).toMatchObject({ arbitrary: "any-value", number: 42 });
 	});
 });
