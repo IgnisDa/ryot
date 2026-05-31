@@ -1,5 +1,5 @@
 {
-	"id": "bc3ee62c-cc0e-4ce7-a254-3a3bc5a1c662",
+	"id": "0be31912-fe77-4fc4-8e02-f439088c60a4",
 	"prevId": "00000000-0000-0000-0000-000000000000",
 	"version": "7",
 	"dialect": "postgresql",
@@ -1123,6 +1123,13 @@
 					"primaryKey": false,
 					"notNull": true
 				},
+				"position": {
+					"name": "position",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"default": 1000
+				},
 				"is_active": {
 					"name": "is_active",
 					"type": "boolean",
@@ -1136,6 +1143,13 @@
 					"primaryKey": false,
 					"notNull": true,
 					"default": false
+				},
+				"phase": {
+					"name": "phase",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "'after_create'"
 				},
 				"metadata": {
 					"name": "metadata",
@@ -1360,6 +1374,12 @@
 					"notNull": true,
 					"default": "'{}'::jsonb"
 				},
+				"integration_id": {
+					"name": "integration_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
 				"user_id": {
 					"name": "user_id",
 					"type": "text",
@@ -1401,9 +1421,39 @@
 					"concurrently": false,
 					"method": "btree",
 					"with": {}
+				},
+				"import_run_integration_id_created_at_idx": {
+					"name": "import_run_integration_id_created_at_idx",
+					"columns": [
+						{
+							"expression": "integration_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "created_at",
+							"isExpression": false,
+							"asc": false,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
 				}
 			},
 			"foreignKeys": {
+				"import_run_integration_id_integration_id_fk": {
+					"name": "import_run_integration_id_integration_id_fk",
+					"tableFrom": "import_run",
+					"tableTo": "integration",
+					"columnsFrom": ["integration_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				},
 				"import_run_user_id_user_id_fk": {
 					"name": "import_run_user_id_user_id_fk",
 					"tableFrom": "import_run",
@@ -1521,6 +1571,204 @@
 					"tableFrom": "import_run_failure",
 					"tableTo": "import_run",
 					"columnsFrom": ["run_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.integration": {
+			"name": "integration",
+			"schema": "",
+			"columns": {
+				"name": {
+					"name": "name",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"provider": {
+					"name": "provider",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"lot": {
+					"name": "lot",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"is_disabled": {
+					"name": "is_disabled",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": false
+				},
+				"sync_ownership": {
+					"name": "sync_ownership",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": false
+				},
+				"minimum_progress": {
+					"name": "minimum_progress",
+					"type": "numeric",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "'2'"
+				},
+				"maximum_progress": {
+					"name": "maximum_progress",
+					"type": "numeric",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "'95'"
+				},
+				"last_finished_at": {
+					"name": "last_finished_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"extra_settings": {
+					"name": "extra_settings",
+					"type": "jsonb",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"provider_specifics": {
+					"name": "provider_specifics",
+					"type": "jsonb",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"user_id": {
+					"name": "user_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"id": {
+					"name": "id",
+					"type": "text",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"updated_at": {
+					"name": "updated_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				}
+			},
+			"indexes": {
+				"integration_user_id_created_at_idx": {
+					"name": "integration_user_id_created_at_idx",
+					"columns": [
+						{
+							"expression": "user_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "created_at",
+							"isExpression": false,
+							"asc": false,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"integration_user_id_provider_idx": {
+					"name": "integration_user_id_provider_idx",
+					"columns": [
+						{
+							"expression": "user_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "provider",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"integration_lot_is_disabled_idx": {
+					"name": "integration_lot_is_disabled_idx",
+					"columns": [
+						{
+							"expression": "lot",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "is_disabled",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"integration_provider_is_disabled_idx": {
+					"name": "integration_provider_is_disabled_idx",
+					"columns": [
+						{
+							"expression": "provider",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "is_disabled",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"integration_user_id_user_id_fk": {
+					"name": "integration_user_id_user_id_fk",
+					"tableFrom": "integration",
+					"tableTo": "user",
+					"columnsFrom": ["user_id"],
 					"columnsTo": ["id"],
 					"onDelete": "cascade",
 					"onUpdate": "no action"
