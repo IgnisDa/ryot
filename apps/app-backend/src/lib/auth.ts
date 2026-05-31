@@ -90,24 +90,35 @@ const makeAuthInstance = (args: {
 			disableSignUp: !args.config.users.allowRegistration || args.config.users.disableLocalAuth,
 			// @effect-diagnostics-next-line asyncFunction:off
 			sendResetPassword: async ({ user, token }) => {
-				try {
-					const pendingKey = redisKeys.godModePendingReset(user.email);
-					const correlationId = await args.redis.get(pendingKey);
-					if (!correlationId) {
-						return;
-					}
-					const resetUrl = `${args.config.frontendUrl}/reset-password?token=${token}`;
-					const channel = redisKeys.godModeResetChannel(correlationId);
-					await args.redis.publish(channel, JSON.stringify({ email: user.email, resetUrl }));
-					await args.redis.eval(
-						"if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end",
-						1,
-						pendingKey,
-						correlationId,
-					);
-				} catch (error) {
-					console.error("[auth] sendResetPassword publish failed", user.email, error);
-				}
+				await Runtime.runPromise(args.runtime)(
+					Effect.gen(function* () {
+						const pendingKey = redisKeys.godModePendingReset(user.email);
+						const correlationId = yield* Effect.tryPromise(() => args.redis.get(pendingKey));
+						if (!correlationId) {
+							return;
+						}
+						const resetUrl = `${args.config.frontendUrl}/reset-password?token=${token}`;
+						const channel = redisKeys.godModeResetChannel(correlationId);
+						const message = yield* Schema.encode(Schema.parseJson(Schema.Unknown))({
+							email: user.email,
+							resetUrl,
+						});
+						yield* Effect.tryPromise(() => args.redis.publish(channel, message));
+						yield* Effect.tryPromise(() =>
+							args.redis.eval(
+								"if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end",
+								1,
+								pendingKey,
+								correlationId,
+							),
+						);
+					}).pipe(
+						Effect.tapErrorCause((cause) =>
+							Effect.logError("[auth] sendResetPassword failed", user.email, cause),
+						),
+						Effect.catchAllCause(() => Effect.void),
+					),
+				);
 			},
 		},
 		databaseHooks: {
@@ -208,15 +219,30 @@ export class AuthService extends Effect.Service<AuthService>()("AuthService", {
 						return unauthorized();
 					},
 				}).pipe(
+					// Ban enforcement reads bannedAt straight from the database: Better Auth serves
+					// getSession from a cached snapshot (Redis secondary storage), and API-key auth
+					// is not backed by a revocable session, so session.user.bannedAt can lag behind a
+					// just-applied ban. The cached session flag is kept as a fallback.
 					Effect.flatMap((session) =>
 						session
-							? session.user.bannedAt
-								? Effect.fail(unauthorized())
-								: Effect.succeed({
-										id: session.user.id,
-										name: session.user.name,
-										email: session.user.email,
-									})
+							? Effect.tryPromise(() =>
+									db.db
+										.select({ bannedAt: schema.user.bannedAt })
+										.from(schema.user)
+										.where(eq(schema.user.id, session.user.id))
+										.limit(1),
+								).pipe(
+									Effect.orDie,
+									Effect.flatMap(([user]) =>
+										user?.bannedAt || session.user.bannedAt
+											? Effect.fail(unauthorized())
+											: Effect.succeed({
+													id: session.user.id,
+													name: session.user.name,
+													email: session.user.email,
+												}),
+									),
+								)
 							: Effect.fail(unauthorized()),
 					),
 				),
