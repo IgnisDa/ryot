@@ -220,6 +220,11 @@ export const extractImportZipArchive = (
 		return yield* extractEntries;
 	});
 
+export const resolveImportPath = (filePath: string): string[] => {
+	const safePathResult = resolveSafeImportFilePath(filePath, getTemporaryDirectory());
+	return "path" in safePathResult ? [safePathResult.path] : [];
+};
+
 export const cleanupImportFile = (safePath: string) =>
 	Effect.gen(function* () {
 		if (!safePath.trim()) {
