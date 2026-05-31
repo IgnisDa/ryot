@@ -32,94 +32,93 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 		const runWithDb = yield* DbRunner;
 		const repository = yield* EntitiesRepository;
 
-		return {
-			create: Effect.fn("EntitiesService.create")(function* (
-				user: CurrentUserValue,
-				payload: CreateEntityBody,
-			) {
-				const externalId = payload.externalId ? trimToNull(payload.externalId) : null;
-				const trimmedScriptId = payload.sandboxScriptId
-					? trimToNull(payload.sandboxScriptId)
-					: null;
-				const sandboxScriptId = trimmedScriptId ? SandboxScriptId.make(trimmedScriptId) : null;
-				const hasExternalId = externalId !== null;
-				const hasScriptId = sandboxScriptId !== null;
-				if (hasExternalId !== hasScriptId) {
-					return yield* badRequest(partialProvenanceError);
-				}
+		const create = Effect.fn("EntitiesService.create")(function* (
+			user: CurrentUserValue,
+			payload: CreateEntityBody,
+		) {
+			const externalId = payload.externalId ? trimToNull(payload.externalId) : null;
+			const trimmedScriptId = payload.sandboxScriptId ? trimToNull(payload.sandboxScriptId) : null;
+			const sandboxScriptId = trimmedScriptId ? SandboxScriptId.make(trimmedScriptId) : null;
+			const hasExternalId = externalId !== null;
+			const hasScriptId = sandboxScriptId !== null;
+			if (hasExternalId !== hasScriptId) {
+				return yield* badRequest(partialProvenanceError);
+			}
 
-				const trimmedEntitySchemaId = trimToNull(payload.entitySchemaId);
-				if (!trimmedEntitySchemaId) {
-					return yield* badRequest("Entity schema id is required");
-				}
+			const trimmedEntitySchemaId = trimToNull(payload.entitySchemaId);
+			if (!trimmedEntitySchemaId) {
+				return yield* badRequest("Entity schema id is required");
+			}
 
-				const entitySchemaId = EntitySchemaId.make(trimmedEntitySchemaId);
-				const scope = yield* runWithDb(
-					repository.getEntitySchemaScopeForUser({ userId: user.id, entitySchemaId }),
-				);
-				if (!scope) {
-					return yield* notFound(entitySchemaNotFoundError);
-				}
+			const entitySchemaId = EntitySchemaId.make(trimmedEntitySchemaId);
+			const scope = yield* runWithDb(
+				repository.getEntitySchemaScopeForUser({ userId: user.id, entitySchemaId }),
+			);
+			if (!scope) {
+				return yield* notFound(entitySchemaNotFoundError);
+			}
 
-				const provenance = externalId && sandboxScriptId ? { externalId, sandboxScriptId } : null;
+			const provenance = externalId && sandboxScriptId ? { externalId, sandboxScriptId } : null;
 
-				if (provenance) {
-					const existing = yield* runWithDb(
-						repository.findEntityByExternalIdForUser({
-							entitySchemaId,
-							userId: user.id,
-							externalId: provenance.externalId,
-							sandboxScriptId: provenance.sandboxScriptId,
-						}),
-					);
-					if (existing) {
-						return existing;
-					}
-				}
-
-				const name = yield* requireText(payload.name, "Entity name is required");
-
-				const properties = yield* parseAppSchemaProperties({
-					kind: "Entity",
-					properties: payload.properties,
-					propertiesSchema: scope.propertiesSchema,
-				}).pipe(Effect.mapError((error) => badRequest(error.message)));
-
-				return yield* runWithDb(
-					repository.createEntity({
-						name,
-						properties,
+			if (provenance) {
+				const existing = yield* runWithDb(
+					repository.findEntityByExternalIdForUser({
 						entitySchemaId,
 						userId: user.id,
-						image: payload.image ?? null,
-						...provenance,
+						externalId: provenance.externalId,
+						sandboxScriptId: provenance.sandboxScriptId,
 					}),
 				);
-			}),
-			getById: Effect.fn("EntitiesService.getById")(function* (
-				user: CurrentUserValue,
-				entityIdInput: EntityId,
-			) {
-				const trimmedEntityId = trimToNull(entityIdInput);
-				if (!trimmedEntityId) {
-					return yield* badRequest("Entity id is required");
+				if (existing) {
+					return existing;
 				}
+			}
 
-				const entityId = EntityId.make(trimmedEntityId);
-				const scope = yield* runWithDb(
-					repository.getEntityScopeForUser({ userId: user.id, entityId }),
-				);
-				if (!scope) {
-					return yield* notFound(entityNotFoundError);
-				}
+			const name = yield* requireText(payload.name, "Entity name is required");
 
-				const entity = yield* runWithDb(repository.getByIdForUser({ userId: user.id, entityId }));
-				if (!entity) {
-					return yield* notFound(entityNotFoundError);
-				}
+			const properties = yield* parseAppSchemaProperties({
+				kind: "Entity",
+				properties: payload.properties,
+				propertiesSchema: scope.propertiesSchema,
+			}).pipe(Effect.mapError((error) => badRequest(error.message)));
 
-				return entity;
-			}),
-		} satisfies EntitiesServiceShape;
+			return yield* runWithDb(
+				repository.createEntity({
+					name,
+					properties,
+					entitySchemaId,
+					userId: user.id,
+					image: payload.image ?? null,
+					...provenance,
+				}),
+			);
+		});
+
+		const getById = Effect.fn("EntitiesService.getById")(function* (
+			user: CurrentUserValue,
+			entityIdInput: EntityId,
+		) {
+			const trimmedEntityId = trimToNull(entityIdInput);
+			if (!trimmedEntityId) {
+				return yield* badRequest("Entity id is required");
+			}
+
+			const entityId = EntityId.make(trimmedEntityId);
+			const scope = yield* runWithDb(
+				repository.getEntityScopeForUser({ userId: user.id, entityId }),
+			);
+			if (!scope) {
+				return yield* notFound(entityNotFoundError);
+			}
+
+			const entity = yield* runWithDb(repository.getByIdForUser({ userId: user.id, entityId }));
+			if (!entity) {
+				return yield* notFound(entityNotFoundError);
+			}
+
+			return entity;
+		});
+
+		return { create, getById } satisfies EntitiesServiceShape;
 	}),
 }) {}
