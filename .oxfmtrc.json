@@ -14,6 +14,7 @@
 		"**/.vitepress/**",
 		"**/.react-router/**",
 		"apps/frontend/app/styles/*.css",
+		"kernel/client/src/routeTree.gen.ts",
 		"apps/docs/src/includes/app-backend-config-schema.md"
 	]
 }
