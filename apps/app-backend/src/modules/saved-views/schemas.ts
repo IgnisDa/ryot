@@ -10,6 +10,7 @@ import {
 } from "#lib/query-language";
 import { SavedViewId, TrackerId } from "#lib/schema/brands";
 import { strictStruct } from "#lib/schema/utils";
+import { QueryDocumentV2 } from "#modules/query-engine-v2/language";
 
 const SavedViewQueryDefinition = strictStruct({
 	scope: Schema.Array(Schema.String),
@@ -32,9 +33,10 @@ export const ListedSavedView = Schema.Struct({
 	isBuiltin: Schema.Boolean,
 	isDisabled: Schema.Boolean,
 	accentColor: Schema.String,
+	queryDocument: QueryDocumentV2,
+	trackerId: Schema.NullOr(TrackerId),
 	queryDefinition: SavedViewQueryDefinition,
 	displayConfiguration: DisplayConfiguration,
-	trackerId: Schema.NullOr(TrackerId),
 });
 
 export type ListedSavedView = typeof ListedSavedView.Type;
@@ -43,6 +45,7 @@ export const CreateSavedViewBody = Schema.Struct({
 	icon: Schema.String,
 	name: Schema.String,
 	accentColor: Schema.String,
+	queryDocument: QueryDocumentV2,
 	queryDefinition: SavedViewQueryDefinition,
 	displayConfiguration: DisplayConfiguration,
 	trackerId: Schema.optional(TrackerId),
@@ -55,6 +58,7 @@ export const UpdateSavedViewBody = Schema.Struct({
 	name: Schema.String,
 	isDisabled: Schema.Boolean,
 	accentColor: Schema.String,
+	queryDocument: QueryDocumentV2,
 	queryDefinition: SavedViewQueryDefinition,
 	displayConfiguration: DisplayConfiguration,
 	trackerId: Schema.optional(TrackerId),
@@ -63,8 +67,8 @@ export const UpdateSavedViewBody = Schema.Struct({
 export type UpdateSavedViewBody = typeof UpdateSavedViewBody.Type;
 
 export const ReorderSavedViewsBody = Schema.Struct({
-	viewSlugs: Schema.Array(Schema.String),
 	trackerId: Schema.optional(TrackerId),
+	viewSlugs: Schema.Array(Schema.String),
 });
 
 export type ReorderSavedViewsBody = typeof ReorderSavedViewsBody.Type;
