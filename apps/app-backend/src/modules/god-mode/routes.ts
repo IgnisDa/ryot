@@ -1,5 +1,3 @@
-import { randomUUID } from "node:crypto";
-
 import { createRoute, OpenAPIHono } from "@hono/zod-openapi";
 
 import { auth, createAdminRoute } from "~/lib/auth";
@@ -213,7 +211,7 @@ const godModeApi = new OpenAPIHono()
 			return c.json(errorResponse(ERROR_CODES.VALIDATION_FAILED, eligibility.message), 400);
 		}
 
-		const correlationId = randomUUID();
+		const correlationId = crypto.randomUUID();
 		const subscriber = redis.duplicate();
 		const channel = `god-mode:reset:${correlationId}`;
 
