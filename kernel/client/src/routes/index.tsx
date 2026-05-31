@@ -48,16 +48,16 @@ function ConnectedKernel(props: { server: ServerOrigin }) {
 
 	if (decision.action !== "allow") {
 		return (
-			<main className="page-shell">
+			<main className="ui-page">
 				<section
 					aria-labelledby="session-title"
-					className="stack surface-card mx-auto w-[min(100%,480px)]"
+					className="ui-stack ui-card mx-auto w-[min(100%,480px)]"
 				>
 					<div>
-						<h1 id="session-title" className="heading-display">
+						<h1 id="session-title" className="ui-heading">
 							Restoring your session
 						</h1>
-						<p role="status" className="subtitle">
+						<p role="status" className="ui-subtitle">
 							Checking your signed-in state...
 						</p>
 					</div>
@@ -98,15 +98,15 @@ function KernelShell(props: { email: string; scope: ApiScope; server: ServerOrig
 		<main className="mx-auto min-h-screen w-[min(100%,1040px)] px-5 pt-[max(88px,calc(env(safe-area-inset-top)+72px))] pb-[max(32px,env(safe-area-inset-bottom))]">
 			<header className="flex flex-col gap-6 border-b border-border pb-6 md:flex-row md:items-end md:justify-between">
 				<div>
-					<p className="overline">Ryot kernel</p>
-					<h1 className="heading-display">Your library</h1>
+					<p className="ui-overline">Ryot kernel</p>
+					<h1 className="ui-heading">Your library</h1>
 				</div>
 				<nav aria-label="Session controls" className="flex flex-wrap gap-2.5">
 					<button
 						type="button"
 						onClick={() => void changeServer()}
 						disabled={pendingAction !== undefined}
-						className="button-secondary"
+						className="ui-button-secondary"
 					>
 						{pendingAction === "server" ? "Changing..." : "Change server"}
 					</button>
@@ -114,7 +114,7 @@ function KernelShell(props: { email: string; scope: ApiScope; server: ServerOrig
 						type="button"
 						onClick={() => void signOut()}
 						disabled={pendingAction !== undefined}
-						className="button-primary"
+						className="ui-button-primary"
 					>
 						{pendingAction === "signout" ? "Signing out..." : "Sign out"}
 					</button>
@@ -124,7 +124,7 @@ function KernelShell(props: { email: string; scope: ApiScope; server: ServerOrig
 				aria-labelledby="kernel-ready-title"
 				className="mt-8 rounded-xl border border-border bg-surface p-6 shadow-card"
 			>
-				<p className="overline">Authenticated</p>
+				<p className="ui-overline">Authenticated</p>
 				<h2 id="kernel-ready-title" className="font-display text-2xl">
 					Kernel shell ready
 				</h2>
