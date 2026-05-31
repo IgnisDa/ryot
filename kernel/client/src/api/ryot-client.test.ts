@@ -63,4 +63,22 @@ describe("kernel Ryot client", () => {
 			await runtime.dispose();
 		}
 	});
+
+	it("interrupts a query with the caller signal and preserves its abort reason", async () => {
+		const runtime = ManagedRuntime.make(
+			Layer.succeed(AuthenticatedApi, { run: () => Effect.never }),
+		);
+		const controller = new AbortController();
+		const reason = new DOMException("Caller canceled", "AbortError");
+		try {
+			const client = createKernelRyotClient(runtime, scope, theme);
+			const query = client.data.query(recipe, { signal: controller.signal });
+
+			controller.abort(reason);
+
+			await expect(query).rejects.toBe(reason);
+		} finally {
+			await runtime.dispose();
+		}
+	});
 });

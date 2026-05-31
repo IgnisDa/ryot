@@ -174,7 +174,7 @@ describe("plugin navigation", () => {
 		expect(view.events.getSubscriptionCount()).toBe(1);
 	});
 
-	it("refreshes the mounted artifact without changing its private URL", async () => {
+	it("uses loader data without a duplicate request and refreshes on catalog events", async () => {
 		let loads = 0;
 		let entries = catalog;
 		const view = mountView("/fixture/details/item-1?tab=stats", entries, () =>
@@ -186,7 +186,10 @@ describe("plugin navigation", () => {
 
 		await waitFor(() => expect(frame().getAttribute("src")).toContain("/artifact-hash/index.html"));
 		await waitFor(() => expect(view.events.isSubscribed()).toBe(true));
+		expect(loads).toBe(1);
 		expect(view.events.getSubscriptionCount()).toBe(1);
+		await view.router.navigate({ href: "/fixture" });
+		await view.router.navigate({ href: "/fixture/details/item-1?tab=stats" });
 		const loadsBeforeEvent = loads;
 		const initialFrame = frame();
 		entries = [{ ...catalog[0], sourceHash: "next-source-hash" }];

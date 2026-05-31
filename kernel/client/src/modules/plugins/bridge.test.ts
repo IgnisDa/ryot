@@ -1059,6 +1059,47 @@ describe("plugin bridge", () => {
 		]);
 	});
 
+	it("cancels matching RyotQL work, releases admission, and ignores cancellation races", async () => {
+		const signals: AbortSignal[] = [];
+		const calls: Array<ReturnType<typeof deferred<PluginRyotQLOutcome>>> = [];
+		const { init, pluginPort, received, failures } = connect({
+			onRyotQL: (_request, signal) => {
+				signals.push(signal);
+				const call = deferred<PluginRyotQLOutcome>();
+				calls.push(call);
+				return call.promise;
+			},
+		});
+		pluginPort.postMessage(readyFor(init));
+		await waitFor(() => expect(received).toHaveLength(1));
+
+		for (let index = 0; index < CLIENT_BRIDGE_MAX_PENDING_REQUESTS; index += 1) {
+			pluginPort.postMessage({ document, type: "ryotql-request", requestId: `query-${index}` });
+		}
+		await waitFor(() => expect(signals).toHaveLength(CLIENT_BRIDGE_MAX_PENDING_REQUESTS));
+
+		pluginPort.postMessage({ requestId: "unknown", type: "ryotql-cancel" });
+		pluginPort.postMessage({ requestId: "query-0", type: "ryotql-cancel" });
+		pluginPort.postMessage({ requestId: "query-0", type: "ryotql-cancel" });
+		await waitFor(() => expect(signals[0]?.aborted).toBe(true));
+		pluginPort.postMessage({ document, requestId: "replacement", type: "ryotql-request" });
+		await waitFor(() => expect(signals).toHaveLength(CLIENT_BRIDGE_MAX_PENDING_REQUESTS + 1));
+
+		calls[0]?.resolve({ outcome: "success", response: { data: {} } });
+		calls.at(-1)?.resolve({ outcome: "success", response: { data: {} } });
+		await waitFor(() =>
+			expect(received).toContainEqual({
+				outcome: "success",
+				type: "ryotql-result",
+				response: { data: {} },
+				requestId: "replacement",
+			}),
+		);
+
+		expect(received).not.toContainEqual(expect.objectContaining({ requestId: "query-0" }));
+		expect(failures).toEqual([]);
+	});
+
 	it("never posts a Ryot credential, identity, or scope value to the plugin across a full session", async () => {
 		const { init, pluginPort, received, session } = connect({
 			onOperation: (request) =>
