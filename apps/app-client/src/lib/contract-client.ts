@@ -8,6 +8,8 @@ import { useAuthClient, useServerUrl } from "@/lib/atoms";
 import { CLOUD_URL } from "@/lib/server";
 
 type RequestHeaders = Record<string, string>;
+type ContractMethod = (...args: never[]) => Effect.Effect<unknown, unknown, unknown>;
+type StripResponseMeta<T> = T extends readonly [infer Data, unknown] ? Data : T;
 
 const makeContractClient = (serverUrl: string, headers: RequestHeaders) =>
 	HttpApiClient.make(AppContract, {
@@ -18,6 +20,9 @@ const makeContractClient = (serverUrl: string, headers: RequestHeaders) =>
 	});
 
 export type ContractClient = Effect.Effect.Success<ReturnType<typeof makeContractClient>>;
+export type ContractSuccess<T extends ContractMethod> = StripResponseMeta<
+	Effect.Effect.Success<ReturnType<T>>
+>;
 
 export type ContractRunner = <A, E>(
 	run: (client: ContractClient) => Effect.Effect<A, E>,

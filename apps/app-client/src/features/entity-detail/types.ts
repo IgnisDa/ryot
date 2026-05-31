@@ -10,16 +10,15 @@ import type { PodcastProperties } from "@ryot/app-backend-legacy/lib/media/podca
 import type { ShowProperties } from "@ryot/app-backend-legacy/lib/media/show";
 import type { VideoGameProperties } from "@ryot/app-backend-legacy/lib/media/video-game";
 import type { VisualNovelProperties } from "@ryot/app-backend-legacy/lib/media/visual-novel";
-import type { paths } from "@ryot/generated/openapi/app-backend";
 
+import type { ContractClient, ContractSuccess } from "@/lib/contract-client";
 import type { EntityImage } from "@/lib/entity-image";
 
 import type { MediaScopeSlug } from "../media/constants";
 
 export type UnlinkedCreator = BackendUnlinkedCreator & { id?: string; image?: EntityImage };
 
-export type EntityResponse =
-	paths["/entities/{entityId}"]["get"]["responses"][200]["content"]["application/json"]["data"];
+export type EntityResponse = ContractSuccess<ContractClient["entities"]["get"]>;
 
 type EntityBase = Omit<EntityResponse, "image" | "properties"> & {
 	image: EntityImage;

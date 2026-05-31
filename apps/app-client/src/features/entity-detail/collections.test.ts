@@ -5,7 +5,6 @@ import type {
 	QueryEngineClient,
 	QueryEngineEntitiesRequestBody,
 	QueryEngineEntitiesResponse,
-	QueryEngineRequestBody,
 } from "./query-engine";
 
 describe("loadRelatedCollections", () => {
@@ -57,19 +56,12 @@ describe("loadRelatedCollections", () => {
 				},
 			},
 		};
-		const apiClient: QueryEngineClient = {
-			POST(_path: "/query-engine/execute", options: { body: QueryEngineRequestBody }) {
-				if (options.body.mode !== "entities") {
-					throw new Error("Expected an entity query");
-				}
-
-				calls.push(options.body);
-				const page = options.body.pagination.page;
-				return Promise.resolve({ data: pageResponses[page] });
-			},
+		const queryEngineClient: QueryEngineClient = (payload) => {
+			calls.push(payload);
+			return Promise.resolve(pageResponses[payload.pagination.page]);
 		};
 
-		const collections = await loadRelatedCollections(apiClient, { entityId: "entity-1" });
+		const collections = await loadRelatedCollections(queryEngineClient, { entityId: "entity-1" });
 
 		expect(calls).toHaveLength(2);
 		expect(calls[0]).toMatchObject({
