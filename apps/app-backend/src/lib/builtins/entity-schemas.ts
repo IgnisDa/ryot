@@ -17,6 +17,7 @@ import {
 	moviePropertiesSchema,
 	musicPropertiesSchema,
 	personPropertiesSchema,
+	podcastEpisodePropertiesSchema,
 	podcastPropertiesSchema,
 	showEpisodePropertiesSchema,
 	showPropertiesSchema,
@@ -102,17 +103,6 @@ const progressPropertiesSchemaByEntity = (entitySchemaSlug: string | undefined):
 					},
 				},
 			};
-		case "podcast":
-			return {
-				fields: {
-					...progressPercentPropertiesSchema().fields,
-					podcastEpisode: {
-						label: "Podcast Episode",
-						type: "integer" as const,
-						description: "Episode number of the podcast being tracked",
-					},
-				},
-			};
 		default:
 			return progressPercentPropertiesSchema();
 	}
@@ -174,17 +164,6 @@ const reviewPropertiesSchemaByEntity = (entitySchemaSlug: string | undefined): A
 						label: "Manga Chapter",
 						type: "number" as const,
 						description: "Chapter number of the manga being reviewed",
-					},
-				},
-			};
-		case "podcast":
-			return {
-				fields: {
-					...reviewBaseFields(),
-					podcastEpisode: {
-						label: "Podcast Episode",
-						type: "integer" as const,
-						description: "Episode number of the podcast being reviewed",
 					},
 				},
 			};
@@ -398,7 +377,18 @@ export const builtinEntitySchemas = () => [
 		trackerSlug: "media",
 		accentColor: "#06B6D4",
 		propertiesSchema: podcastPropertiesSchema,
-		eventSchemas: mediaLifecycleEventSchemas("podcast"),
+		eventSchemas: mediaLifecycleEventSchemas("podcast").filter(
+			(schema) => schema.slug !== "progress",
+		),
+	},
+	{
+		icon: "radio",
+		slug: "podcast-episode",
+		name: "Podcast Episode",
+		trackerSlug: undefined,
+		accentColor: "#67E8F9",
+		propertiesSchema: podcastEpisodePropertiesSchema,
+		eventSchemas: [lifecycleEventSchemaBySlug("progress"), lifecycleEventSchemaBySlug("complete")],
 	},
 	{
 		icon: "gamepad-2",
