@@ -1,6 +1,8 @@
 import { HttpApiEndpoint, HttpApiGroup } from "@effect/platform";
 import { Schema } from "effect";
 
+import { AppSchema } from "~/lib/schema";
+
 import { AuthMiddleware } from "../../lib/auth";
 import { NotFound, NotImplemented, RateLimited, Unauthorized } from "../../lib/errors";
 
@@ -8,14 +10,14 @@ export const ListedEventSchema = Schema.Struct({
 	id: Schema.String,
 	slug: Schema.String,
 	name: Schema.String,
+	propertiesSchema: AppSchema,
 	entitySchemaId: Schema.String,
-	propertiesSchema: Schema.Unknown,
 });
 
 const CreateEventSchemaBody = Schema.Struct({
 	name: Schema.String,
+	propertiesSchema: AppSchema,
 	entitySchemaId: Schema.String,
-	propertiesSchema: Schema.Unknown,
 	slug: Schema.optional(Schema.String),
 });
 

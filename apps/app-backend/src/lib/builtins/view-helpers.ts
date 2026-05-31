@@ -1,73 +1,72 @@
-// TODO: Pure view-language expression helpers.
-// These are local equivalents of @ryot/ts-utils/view-language, kept here to avoid
-// a backend dependency on the legacy utility package.
+import {
+	createConcatExpression,
+	createConditionalExpression,
+	createEntityColumnExpression,
+	createEntityPropertyExpression,
+	createEntitySchemaExpression,
+	createEventAggregateExpression,
+	createIsNotNullExpression,
+	createLiteralExpression,
+	createTransformExpression,
+	type DisplayConfiguration,
+	type QueryExpression,
+	type SavedViewQueryDefinition,
+} from "~/query-language";
 
-type ViewExpr = Record<string, unknown>;
+const entityColumn = (slug: string, column: string): QueryExpression =>
+	createEntityColumnExpression(slug, column);
 
-const ref = (reference: Record<string, unknown>): ViewExpr => ({ type: "reference", reference });
+const entityProperty = (slug: string, property: string): QueryExpression =>
+	createEntityPropertyExpression(slug, property);
 
-export const entityColumn = (slug: string, column: string): ViewExpr =>
-	ref({ path: [column], slug, type: "entity" });
+const entitySchemaColumn = (column: string): QueryExpression =>
+	createEntitySchemaExpression(column);
 
-export const entityProperty = (slug: string, property: string): ViewExpr =>
-	ref({ path: ["properties", property], slug, type: "entity" });
+const eventAggregateAvg = (eventSchemaSlug: string, propertyPath: string[]): QueryExpression =>
+	createEventAggregateExpression(eventSchemaSlug, "avg", propertyPath);
 
-export const entitySchemaColumn = (column: string): ViewExpr =>
-	ref({ path: [column], type: "entity-schema" });
+const titleCase = (expression: QueryExpression): QueryExpression =>
+	createTransformExpression("titleCase", expression);
 
-export const eventAggregateAvg = (eventSchemaSlug: string, propertyPath: string[]): ViewExpr =>
-	ref({ aggregation: "avg", eventSchemaSlug, path: propertyPath, type: "event-aggregate" });
+const conditionalConcat = (slug: string, property: string, unit: string): QueryExpression =>
+	createConditionalExpression({
+		whenFalse: createLiteralExpression(null),
+		condition: createIsNotNullExpression(entityProperty(slug, property)),
+		whenTrue: createConcatExpression([
+			entityProperty(slug, property),
+			createLiteralExpression(unit),
+		]),
+	});
 
-export const titleCase = (expression: ViewExpr): ViewExpr => ({
-	expression,
-	name: "titleCase",
-	type: "transform",
-});
-
-export const conditionalConcat = (slug: string, property: string, unit: string): ViewExpr => ({
-	type: "conditional",
-	whenFalse: { type: "literal", value: null },
-	condition: { expression: entityProperty(slug, property), type: "isNotNull" },
-	whenTrue: {
-		type: "concat",
-		values: [entityProperty(slug, property), { type: "literal", value: unit }],
-	},
-});
-
-const avgRatingCallout = ref({
-	aggregation: "avg",
-	type: "event-aggregate",
-	eventSchemaSlug: "review",
-	path: ["properties", "rating"],
-});
+const avgRatingCallout = eventAggregateAvg("review", ["properties", "rating"]);
 
 const eyebrowSchemaName = entitySchemaColumn("name");
 
 type CardConfig = {
-	calloutProperty: ViewExpr | null;
-	eyebrowProperty: ViewExpr | null;
-	primarySubtitleProperty: ViewExpr | null;
-	secondarySubtitleProperty: ViewExpr | null;
+	calloutProperty: QueryExpression | null;
+	eyebrowProperty: QueryExpression | null;
+	primarySubtitleProperty: QueryExpression | null;
+	secondarySubtitleProperty: QueryExpression | null;
 };
 
-const buildSecondarySubtitle = (slug: string): ViewExpr | null => {
+const buildSecondarySubtitle = (slug: string): QueryExpression | null => {
 	switch (slug) {
 		case "book":
+		case "show":
+			return entityProperty(slug, "productionStatus");
 		case "comic-book":
 			return conditionalConcat(slug, "pages", " pages");
 		case "movie":
 		case "audiobook":
 			return conditionalConcat(slug, "runtime", " min");
-		case "anime":
-			return conditionalConcat(slug, "episodes", " eps");
 		case "manga":
 			return conditionalConcat(slug, "chapters", " ch");
+		case "anime":
+			return conditionalConcat(slug, "episodes", " eps");
 		case "podcast":
 			return conditionalConcat(slug, "totalEpisodes", " eps");
 		case "visual-novel":
 			return conditionalConcat(slug, "lengthMinutes", " min");
-		case "show":
-			return entityProperty(slug, "productionStatus");
 		case "exercise":
 			return titleCase(entityProperty(slug, "equipment"));
 		default:
@@ -79,8 +78,8 @@ const buildCardConfig = (slug: string): CardConfig => {
 	switch (slug) {
 		case "exercise":
 			return {
-				calloutProperty: titleCase(entityProperty(slug, "level")),
 				eyebrowProperty: eyebrowSchemaName,
+				calloutProperty: titleCase(entityProperty(slug, "level")),
 				primarySubtitleProperty: titleCase(entityProperty(slug, "kind")),
 				secondarySubtitleProperty: titleCase(entityProperty(slug, "equipment")),
 			};
@@ -102,8 +101,8 @@ const buildCardConfig = (slug: string): CardConfig => {
 			return {
 				calloutProperty: null,
 				eyebrowProperty: eyebrowSchemaName,
-				primarySubtitleProperty: entityProperty(slug, "recordedAt"),
 				secondarySubtitleProperty: entityProperty(slug, "comment"),
+				primarySubtitleProperty: entityProperty(slug, "recordedAt"),
 			};
 		case "person":
 			return {
@@ -115,21 +114,21 @@ const buildCardConfig = (slug: string): CardConfig => {
 		case "collection":
 			return {
 				calloutProperty: null,
-				eyebrowProperty: eyebrowSchemaName,
 				primarySubtitleProperty: null,
 				secondarySubtitleProperty: null,
+				eyebrowProperty: eyebrowSchemaName,
 			};
 		default:
 			return {
 				calloutProperty: avgRatingCallout,
 				eyebrowProperty: eyebrowSchemaName,
-				primarySubtitleProperty: entityProperty(slug, "publishYear"),
 				secondarySubtitleProperty: buildSecondarySubtitle(slug),
+				primarySubtitleProperty: entityProperty(slug, "publishYear"),
 			};
 	}
 };
 
-type TableColumn = { expression: ViewExpr; label: string };
+type TableColumn = { expression: QueryExpression; label: string };
 
 const buildTableColumns = (slug: string): TableColumn[] => {
 	const nameCol: TableColumn = { expression: entityColumn(slug, "name"), label: "Name" };
@@ -204,60 +203,43 @@ const buildTableColumns = (slug: string): TableColumn[] => {
 	}
 };
 
-export type DisplayConfig = {
-	entityIdProperty: ViewExpr;
-	grid: ViewExpr & Record<string, unknown>;
-	list: ViewExpr & Record<string, unknown>;
-	table: { columns: TableColumn[] };
-};
-
-export const buildDisplayConfig = (slug: string): DisplayConfig => {
+export const buildDisplayConfig = (slug: string): DisplayConfiguration => {
 	const cardConfig = buildCardConfig(slug);
 	const card = {
-		imageProperty: entityColumn(slug, "image"),
 		titleProperty: entityColumn(slug, "name"),
+		imageProperty: entityColumn(slug, "image"),
 		...cardConfig,
 	};
 	return {
-		entityIdProperty: entityColumn(slug, "id"),
-		grid: card,
-		list: card,
+		grid: { ...card },
+		list: { ...card },
 		table: { columns: buildTableColumns(slug) },
+		entityIdProperty: entityColumn(slug, "id"),
 	};
-};
-
-export type QueryDefinition = {
-	computedFields: unknown[];
-	eventJoins: unknown[];
-	filter: null;
-	mode: "entities";
-	relationshipJoins: unknown[];
-	scope: string[];
-	sort: { direction: string; expression: ViewExpr };
 };
 
 export const buildDefaultQueryDefinition = (
 	scope: string[],
 	options?: { relationshipJoins?: unknown[] },
-): QueryDefinition => ({
-	computedFields: [],
-	eventJoins: [],
-	filter: null,
-	mode: "entities",
-	relationshipJoins: options?.relationshipJoins ?? [],
+): SavedViewQueryDefinition => ({
 	scope,
+	filter: null,
+	eventJoins: [],
+	mode: "entities",
+	computedFields: [],
+	relationshipJoins: options?.relationshipJoins ?? [],
 	sort: {
 		direction: "asc",
-		expression: scope[0] ? entityColumn(scope[0], "name") : { type: "literal", value: "" },
+		expression: scope[0] ? entityColumn(scope[0], "name") : createLiteralExpression(""),
 	},
 });
 
 export const inLibraryRelationshipJoin = {
-	direction: "outgoing",
+	required: true,
 	key: "inLibrary",
+	direction: "outgoing",
 	kind: "latestRelationship",
 	relationshipSchemaSlug: "in-library",
-	required: true,
 };
 
 export const toSlug = (name: string): string =>

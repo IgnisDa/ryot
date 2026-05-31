@@ -1,10 +1,7 @@
-export type AppPropertyDefinition = Record<string, unknown>;
+import type { AppPropertyDefinition } from "./property-schema";
 
-export type AppSchema = {
-	rules?: Record<string, unknown>[];
-	fields: Record<string, AppPropertyDefinition>;
-	unknownKeys?: "strip" | "strict" | "passthrough";
-};
+export * from "./property-schema";
+export * from "./property-schema-runtime";
 
 export const stringField = (label: string, description: string): AppPropertyDefinition => ({
 	label,
@@ -113,5 +110,5 @@ export const mediaWithCreatorsBaseFields = {
 		label: "Unlinked Creators",
 		description: "Unlinked Creators",
 		items: unlinkedCreatorItemSchema,
-	},
+	} satisfies AppPropertyDefinition,
 };

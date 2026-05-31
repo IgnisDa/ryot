@@ -1,6 +1,8 @@
 import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from "@effect/platform";
 import { Schema } from "effect";
 
+import { AppSchema } from "~/lib/schema";
+
 import { AuthMiddleware } from "../../lib/auth";
 import { NotFound, NotImplemented, RateLimited, Unauthorized } from "../../lib/errors";
 import { SandboxRunResult } from "../sandbox/contract";
@@ -13,7 +15,7 @@ export const ListedEntitySchema = Schema.Struct({
 	trackerId: Schema.String,
 	isBuiltin: Schema.Boolean,
 	accentColor: Schema.String,
-	propertiesSchema: Schema.Unknown,
+	propertiesSchema: AppSchema,
 	providers: Schema.Array(Schema.Struct({ name: Schema.String, scriptId: Schema.String })),
 });
 
@@ -27,7 +29,7 @@ const CreateEntitySchemaBody = Schema.Struct({
 	name: Schema.String,
 	trackerId: Schema.String,
 	accentColor: Schema.String,
-	propertiesSchema: Schema.Unknown,
+	propertiesSchema: AppSchema,
 	slug: Schema.optional(Schema.String),
 });
 
