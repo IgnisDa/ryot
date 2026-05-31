@@ -14,6 +14,7 @@
 		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
 	},
 	"dependencies": {
+		"clsx": "2.1.1",
 		"react": "^19.2.0"
 	},
 	"devDependencies": {
