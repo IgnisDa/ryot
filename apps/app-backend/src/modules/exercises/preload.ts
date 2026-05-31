@@ -1,15 +1,16 @@
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
+import { generateId } from "better-auth";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { Cause, Effect, Layer } from "effect";
 
 import { CurrentDb, DbRunner, dbEffect } from "#lib/db";
 import * as schema from "#lib/db/schema/tables";
 import { dieOnDbError, unknownToMessage } from "#lib/errors";
-import { SandboxService } from "#lib/sandbox/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { decodeEntitySearchResult } from "#modules/entity-import/population";
 import { BuiltinEntityImportWorkflow } from "#modules/entity-import/workflows";
 import { SandboxRepository } from "#modules/sandbox/repository";
+import { RunSandboxWorkflow } from "#modules/sandbox/workflow-definitions";
 
 const builtinExercisePageSize = 100;
 const builtinExerciseExpectedCount = 873;
@@ -40,7 +41,6 @@ export const BuiltinEntityPreloaderLive = Layer.scopedDiscard(
 	Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
 		const engine = yield* WorkflowEngine;
-		const sandbox = yield* SandboxService;
 		const repository = yield* EntitiesRepository;
 		const sandboxRepository = yield* SandboxRepository;
 
@@ -74,17 +74,19 @@ export const BuiltinEntityPreloaderLive = Layer.scopedDiscard(
 			return;
 		}
 
+		const preloadRunId = generateId();
+
 		const searchPage = (page: number) =>
-			sandbox
-				.run({
-					userId: null,
-					code: script.code,
-					scriptId: script.id,
-					driverName: "search",
-					scriptIsBuiltin: script.isBuiltin,
-					executionId: `builtin-exercise-search-${page}`,
-					context: { query: "", page, pageSize: builtinExercisePageSize },
-					allowedHostFunctions: script.metadata.allowedHostFunctions ?? [],
+			engine
+				.execute(RunSandboxWorkflow, {
+					executionId: `${preloadRunId}-search-${page}`,
+					payload: {
+						userId: null,
+						scriptId: script.id,
+						driverName: "search",
+						executionId: `${preloadRunId}-search-${page}`,
+						context: { query: "", page, pageSize: builtinExercisePageSize },
+					},
 				})
 				.pipe(
 					Effect.flatMap((result) =>
