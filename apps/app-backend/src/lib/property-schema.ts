@@ -1,7 +1,6 @@
 import { Schema } from "effect";
 
-const strictStruct = <Fields extends Record<string, Schema.Struct.Field>>(fields: Fields) =>
-	Schema.Struct(fields).annotations({ parseOptions: { onExcessProperty: "error" as const } });
+import { strictStruct } from "./schema-utils";
 
 const nonEmptyTrimmedString = Schema.String.pipe(
 	Schema.filter((value) => value.trim().length > 0, {
@@ -45,7 +44,7 @@ export type AppPropertyTransform = {
 export type AppSchemaUnknownKeysPolicy = "strip" | "strict" | "passthrough";
 
 type AppPropertyValidationBase = {
-	readonly required?: boolean;
+	readonly required?: true;
 };
 
 export type AppArrayPropertyValidation = AppPropertyValidationBase & {
@@ -336,7 +335,7 @@ const datetimePropertySchema = strictStruct({
 	validation: Schema.optional(requiredValidationSchema),
 });
 
-export const AppPropertyDefinition = Schema.suspend(() =>
+export const AppPropertyDefinition: Schema.Schema<AppPropertyDefinition> = Schema.suspend(() =>
 	Schema.Union(
 		datePropertySchema,
 		numberPropertySchema,
@@ -388,7 +387,7 @@ export const AppPropertyDefinition = Schema.suspend(() =>
 	),
 ).pipe(
 	Schema.annotations({ identifier: "AppPropertyDefinition", title: "App Property Definition" }),
-) as Schema.Schema<AppPropertyDefinition, AppPropertyDefinition>;
+);
 
 const ruleConditionValueSchema = strictStruct({
 	path: rulePathSchema,
@@ -407,7 +406,7 @@ const ruleConditionManySchema = strictStruct({
 	operator: Schema.Literal("in", "not_in"),
 });
 
-export const AppSchemaRuleCondition = Schema.suspend(() =>
+export const AppSchemaRuleCondition: Schema.Schema<AppSchemaRuleCondition> = Schema.suspend(() =>
 	Schema.Union(
 		ruleConditionManySchema,
 		ruleConditionValueSchema,
@@ -419,7 +418,7 @@ export const AppSchemaRuleCondition = Schema.suspend(() =>
 	),
 ).pipe(
 	Schema.annotations({ identifier: "AppSchemaRuleCondition", title: "App Schema Rule Condition" }),
-) as Schema.Schema<AppSchemaRuleCondition, AppSchemaRuleCondition>;
+);
 
 const AppSchemaRule = strictStruct({
 	path: rulePathSchema,
@@ -435,6 +434,6 @@ const appSchemaBase = strictStruct({
 	fields: Schema.Record({ key: Schema.String, value: AppPropertyDefinition }),
 }).pipe(Schema.annotations({ identifier: "AppSchema", title: "App Schema" }));
 
-export const AppSchema = appSchemaBase as Schema.Schema<AppSchema, AppSchema>;
+export const AppSchema: Schema.Schema<AppSchema> = appSchemaBase;
 
 export const propertySchemaTypes = appPropertyPrimitiveTypes;

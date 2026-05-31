@@ -1,3 +1,6 @@
+import type {
+	DisplayConfiguration,
+	SavedViewQueryDefinition} from "~/lib/query-language";
 import {
 	createConcatExpression,
 	createConditionalExpression,
@@ -8,9 +11,7 @@ import {
 	createIsNotNullExpression,
 	createLiteralExpression,
 	createTransformExpression,
-	type DisplayConfiguration,
 	type QueryExpression,
-	type SavedViewQueryDefinition,
 } from "~/lib/query-language";
 
 const entityColumn = (slug: string, column: string): QueryExpression =>
@@ -203,7 +204,7 @@ const buildTableColumns = (slug: string): TableColumn[] => {
 	}
 };
 
-export const buildDisplayConfig = (slug: string): DisplayConfiguration => {
+export const buildDisplayConfig = (slug: string): typeof DisplayConfiguration.Type => {
 	const cardConfig = buildCardConfig(slug);
 	const card = {
 		titleProperty: entityColumn(slug, "name"),
@@ -221,7 +222,7 @@ export const buildDisplayConfig = (slug: string): DisplayConfiguration => {
 export const buildDefaultQueryDefinition = (
 	scope: string[],
 	options?: { relationshipJoins?: unknown[] },
-): SavedViewQueryDefinition => ({
+): typeof SavedViewQueryDefinition.Type => ({
 	scope,
 	filter: null,
 	eventJoins: [],

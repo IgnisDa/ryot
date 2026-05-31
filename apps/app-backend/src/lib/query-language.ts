@@ -1,7 +1,6 @@
 import { Schema } from "effect";
 
-const strictStruct = <Fields extends Record<string, Schema.Struct.Field>>(fields: Fields) =>
-	Schema.Struct(fields).annotations({ parseOptions: { onExcessProperty: "error" as const } });
+import { strictStruct } from "./schema-utils";
 
 export const entityBuiltinColumns: ReadonlySet<string> = new Set([
 	"id",
@@ -38,49 +37,9 @@ export const entitySchemaBuiltinColumns: ReadonlySet<string> = new Set([
 	"accentColor",
 ]);
 
-export type EventAggregation = "avg" | "count" | "max" | "min" | "sum";
+const EventAggregation = Schema.Literal("avg", "count", "max", "min", "sum");
 
-export type ViewTransformName = "titleCase" | "kebabCase";
-
-export type RuntimeReference =
-	| { readonly key: string; readonly type: "computed-field" }
-	| { readonly path: ReadonlyArray<string>; readonly type: "event-schema" }
-	| { readonly path: ReadonlyArray<string>; readonly type: "entity-schema" }
-	| { readonly slug: string; readonly path: ReadonlyArray<string>; readonly type: "entity" }
-	| { readonly joinKey: string; readonly path: ReadonlyArray<string>; readonly type: "event-join" }
-	| {
-			readonly joinKey: string;
-			readonly path: ReadonlyArray<string>;
-			readonly type: "relationship-join";
-	  }
-	| {
-			readonly path?: ReadonlyArray<string>;
-			readonly type: "event-aggregate";
-			readonly aggregation: EventAggregation;
-			readonly eventSchemaSlug: string;
-	  }
-	| {
-			readonly path: ReadonlyArray<string>;
-			readonly type: "event";
-			readonly eventSchemaSlug?: string;
-	  };
-
-export type QueryExpression =
-	| { readonly type: "literal"; readonly value: unknown }
-	| { readonly type: "reference"; readonly reference: RuntimeReference }
-	| {
-			readonly type: "transform";
-			readonly name: ViewTransformName;
-			readonly expression: QueryExpression;
-	  }
-	| { readonly type: "concat"; readonly values: ReadonlyArray<QueryExpression> }
-	| { readonly type: "isNotNull"; readonly expression: QueryExpression }
-	| {
-			readonly type: "conditional";
-			readonly condition: QueryExpression;
-			readonly whenTrue: QueryExpression;
-			readonly whenFalse: QueryExpression;
-	  };
+const ViewTransformName = Schema.Literal("titleCase", "kebabCase");
 
 const RuntimeReference = Schema.Union(
 	strictStruct({ key: Schema.String, type: Schema.Literal("computed-field") }),
@@ -105,7 +64,7 @@ const RuntimeReference = Schema.Union(
 		eventSchemaSlug: Schema.String,
 		type: Schema.Literal("event-aggregate"),
 		path: Schema.optional(Schema.Array(Schema.String)),
-		aggregation: Schema.Literal("avg", "count", "max", "min", "sum"),
+		aggregation: EventAggregation,
 	}),
 	strictStruct({
 		type: Schema.Literal("event"),
@@ -114,13 +73,30 @@ const RuntimeReference = Schema.Union(
 	}),
 );
 
+export type QueryExpression =
+	| { readonly type: "literal"; readonly value: unknown }
+	| { readonly type: "reference"; readonly reference: typeof RuntimeReference.Type }
+	| {
+			readonly type: "transform";
+			readonly name: typeof ViewTransformName.Type;
+			readonly expression: QueryExpression;
+	  }
+	| { readonly type: "concat"; readonly values: ReadonlyArray<QueryExpression> }
+	| { readonly type: "isNotNull"; readonly expression: QueryExpression }
+	| {
+			readonly type: "conditional";
+			readonly condition: QueryExpression;
+			readonly whenTrue: QueryExpression;
+			readonly whenFalse: QueryExpression;
+	  };
+
 export const QueryExpression: Schema.Schema<QueryExpression> = Schema.suspend(() =>
 	Schema.Union(
 		strictStruct({ type: Schema.Literal("literal"), value: Schema.Unknown }),
 		strictStruct({ type: Schema.Literal("reference"), reference: RuntimeReference }),
 		strictStruct({
 			type: Schema.Literal("transform"),
-			name: Schema.Literal("titleCase", "kebabCase"),
+			name: ViewTransformName,
 			expression: QueryExpression,
 		}),
 		strictStruct({ type: Schema.Literal("concat"), values: Schema.Array(QueryExpression) }),
@@ -152,8 +128,6 @@ export const SavedViewAggregation = strictStruct({
 	key: Schema.String,
 	aggregation: strictStruct({ type: Schema.String, expression: Schema.optional(QueryExpression) }),
 });
-
-export type SavedViewQueryDefinition = typeof SavedViewQueryDefinition.Type;
 
 export const SavedViewQueryDefinition = strictStruct({
 	scope: Schema.Array(Schema.String),
@@ -188,8 +162,6 @@ export const DisplayConfiguration = strictStruct({
 	entityIdProperty: QueryExpression,
 	table: strictStruct({ columns: Schema.Array(DisplayColumn) }),
 });
-
-export type DisplayConfiguration = typeof DisplayConfiguration.Type;
 
 export const EntitiesQueryRequest = strictStruct({
 	fields: Schema.Unknown,
@@ -268,7 +240,7 @@ export const createEntitySchemaExpression = (column: string): QueryExpression =>
 
 export const createEventAggregateExpression = (
 	eventSchemaSlug: string,
-	aggregation: EventAggregation,
+	aggregation: typeof EventAggregation.Type,
 	path?: ReadonlyArray<string>,
 ): QueryExpression => ({
 	type: "reference",
@@ -276,7 +248,7 @@ export const createEventAggregateExpression = (
 });
 
 export const createTransformExpression = (
-	name: ViewTransformName,
+	name: typeof ViewTransformName.Type,
 	expression: QueryExpression,
 ): QueryExpression => ({ type: "transform", name, expression });
 
