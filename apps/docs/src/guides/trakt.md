@@ -1,11 +1,11 @@
 # Trakt
 
-Ryot supports importing data from [Trakt](https://trakt.tv). To enable this functionality,
-you need to register an application with Trakt to obtain a client ID.
+Ryot supports importing data from [Trakt](https://trakt.tv). The User and List imports use
+the Trakt API and require a client ID. The Export ZIP import does not require a Trakt client ID.
 
 ## Getting Trakt client ID
 
-You can follow the below steps to obtain your own client ID and enable Trakt import.
+You can follow the below steps to obtain your own client ID and enable User and List API imports.
 
 ### Steps
 
@@ -19,4 +19,4 @@ You can follow the below steps to obtain your own client ID and enable Trakt imp
 5. Click "Save App".
 6. Once created, you will see your application details. Copy the **Client ID**.
 7. Set the `SERVER_IMPORTER_TRAKT_CLIENT_ID` environment variable as described in the
-   [configuration](../configuration.md#important-parameters) docs.
+   [configuration](../configuration.md#important-parameters) docs to enable User and List API imports.
