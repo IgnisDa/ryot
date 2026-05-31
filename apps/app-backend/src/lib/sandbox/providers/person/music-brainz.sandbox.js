@@ -12,7 +12,7 @@ function getString(value) {
 
 function getNullableString(value) {
 	const s = getString(value);
-	return s || null;
+	return s.length > 0 ? s : null;
 }
 
 const MB_BASE = "https://musicbrainz.org/ws/2";
@@ -110,7 +110,8 @@ driver("search", async function (context) {
 				return null;
 			}
 
-			const name = getString(artist?.name) || id;
+			const rawName = getString(artist?.name);
+			const name = rawName.length > 0 ? rawName : id;
 
 			return {
 				externalId: id,
@@ -172,13 +173,17 @@ driver("details", async function (context) {
 		.filter((n) => n !== null && n !== name);
 
 	const releaseGroups = Array.isArray(artist?.["release-groups"]) ? artist["release-groups"] : [];
-	const relatedEntities = releaseGroups.map((group) => ({
-		reverseDirection: true,
-		externalId: getString(group?.id),
-		scriptSlug: "music-group.music-brainz",
-		relationshipProperties: { roles: ["Artist"] },
-		name: getString(group?.title) || getString(group?.id),
-	}));
+	const relatedEntities = releaseGroups.map((group) => {
+		const groupId = getString(group?.id);
+		const groupTitle = getString(group?.title);
+		return {
+			externalId: groupId,
+			reverseDirection: true,
+			scriptSlug: "music-group.music-brainz",
+			relationshipProperties: { roles: ["Artist"] },
+			name: groupTitle.length > 0 ? groupTitle : groupId,
+		};
+	});
 
 	return {
 		name,
