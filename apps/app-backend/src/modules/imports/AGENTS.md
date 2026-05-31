@@ -6,7 +6,7 @@ This module owns one-time import runs. It normalizes third-party exports into Ry
 
 ## Directory layout
 
-- `routes.ts`, `service.ts`, `repository.ts`, `schemas.ts`, `jobs.ts`, `worker.ts`: HTTP, workflow entry, persistence, and shared import-run types.
+- `routes.ts`, `service.ts`, `repository.ts`, `schemas.ts`, `jobs.ts`, `import-run-workflow.ts`: HTTP, workflow entry, persistence, and shared import-run types.
 - `runtime/`: file handling, source payload storage, shared failures, and workflow helpers.
 - `sources/`: source-specific adapters and loader helpers.
 - `media/`: shared media import orchestration, source loading, and workflow-owned sandbox composition.
@@ -18,9 +18,9 @@ This module owns one-time import runs. It normalizes third-party exports into Ry
 Media imports run in four phases:
 
 1. Adapter load: parse source input and emit `ImportMediaEntityGroup[]` plus row-level transformation failures.
-2. `resolving_entities`: convert unresolved refs into resolved refs through sandbox `resolve` drivers.
-3. `populating_entities`: populate or reuse global entities through sandbox `details` drivers.
-4. `writing_events`: write collection memberships and events for resolved entity ids.
+2. `resolving-entities`: convert unresolved refs into resolved refs through sandbox `resolve` drivers.
+3. `populating-entities`: populate or reuse global entities through sandbox `details` drivers.
+4. `writing-events`: write collection memberships and events for resolved entity ids.
 
 The workflow body owns these phases directly. Resolution and population call sandbox or entity-import work through durable workflow steps instead of a hidden pass-through processor.
 
@@ -30,7 +30,7 @@ API source loaders should validate credentials inside `loadAdapterResult`, not i
 
 ## Provider And Source I/O Boundary
 
-Source-ingestion I/O is allowed only in adapter loading. App-side source connectors may fetch a user's source data from services such as Plex, Jellyfin, Trakt, Audiobookshelf, MediaTracker, or Komga, and then must emit normalized adapter results.
+Source-ingestion I/O is allowed only in adapter loading. App-side source connectors may fetch a user's source data from services such as Plex, Jellyfin, Trakt, Audiobookshelf, or MediaTracker, and then must emit normalized adapter results.
 
 Provider catalog I/O for enrichment stays in sandbox drivers. App adapters may emit resolved provider-native refs or unresolved foreign refs, but must not call metadata providers directly to search, resolve, or populate entities.
 
@@ -54,6 +54,7 @@ Use the existing import failure stages consistently:
 - `input_transformation`: parsing or normalization failures.
 - `provider_resolution`: unresolved ref could not be mapped to a supported provider id.
 - `provider_details`: sandbox `details` fetch or entity population failure.
+- `event_before_trigger`: failure before an import-triggered event fires.
 - `database_commit`: collections, events, or library membership writes failed.
 - `source_fetch`: source payload or external source fetch failed before normalization.
 
@@ -62,7 +63,7 @@ Use the existing import failure stages consistently:
 For a new source:
 
 1. Add source metadata and validation in `runtime/source-definitions.ts` if needed.
-2. Register the loader or dispatcher in `media/source-loaders.ts` or `worker.ts`, depending on whether the source is media or non-media.
+2. Register the loader or dispatcher in `media/source-loaders.ts` or `import-run-workflow.ts`, depending on whether the source is media or non-media.
 3. Prefer a small source adapter in `sources/<source>/adapter.ts` that only fetches, parses, and maps source data.
 4. Reuse `runOneTimeMediaImportWorkflow` or `runOneTimeNonMediaImportWorkflow` and keep source-specific code bounded to loading, parsing, or write preparation.
 5. Follow the source-ingestion versus provider catalog boundary rules.
@@ -73,7 +74,7 @@ For a new source:
 - Goodreads and StoryGraph: emit unresolved ISBN refs and rely on sandbox resolution.
 - Hardcover CSV: emits resolved Hardcover book ids directly.
 - Trakt: source connector stays in app code, emits resolved TMDB refs when present and unresolved IMDB refs when TMDB is missing.
-- Plex, Jellyfin, Audiobookshelf, MediaTracker, and Komga: source connectors stay in app code, fetch user source data, and emit normalized refs.
+- Plex, Jellyfin, Audiobookshelf, and MediaTracker: source connectors stay in app code, fetch user source data, and emit normalized refs.
 - YouTube Music history: source fetch stays in the sandbox `history` driver, then app code normalizes the returned songs.
 - Hevy and Strong: adapters normalize workout payloads into workout-domain items.
 - OpenScale: adapter normalizes measurement rows and writes them without provider resolution.
