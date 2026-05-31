@@ -43,6 +43,9 @@ const isNumericOperand = (kind: ScalarKind | undefined) =>
 const isTextOperand = (kind: ScalarKind | undefined) =>
 	kind === "json" || kind === "null" || kind === "text";
 
+const isNamedTimeZone = (value: string) =>
+	!/^[-+]\d{2}(?::?\d{2})?$/.test(value) && Option.isSome(DateTime.zoneMakeNamed(value));
+
 const unifyExpressionKinds = (kinds: readonly (ScalarKind | undefined)[]) => {
 	const nonNullKinds = kinds.filter((kind) => kind !== "null");
 	if (nonNullKinds.length === 0) {
@@ -63,6 +66,18 @@ const validateExpression = (
 	}
 	if (expr.type === "cast") {
 		return validateExpression(expr.expr, scope, correlatedDepth, executionScope);
+	}
+	if (expr.type === "dateBucket") {
+		const expressionError = validateExpression(expr.expr, scope, correlatedDepth, executionScope);
+		if (expressionError) {
+			return expressionError;
+		}
+		if (expressionKind(expr.expr, scope) !== "date") {
+			return "Date buckets require a date expression";
+		}
+		return isNamedTimeZone(expr.timeZone)
+			? null
+			: `Invalid date bucket time zone '${expr.timeZone}'`;
 	}
 	if (expr.type === "coalesce") {
 		return (
@@ -205,6 +220,9 @@ export const expressionKind = (
 	}
 	if (expr.type === "cast") {
 		return expr.target;
+	}
+	if (expr.type === "dateBucket") {
+		return "date";
 	}
 	if (expr.type === "exists") {
 		return "boolean";
@@ -455,6 +473,7 @@ const validateAggregateOutput = (
 	executionScope: Pick<RyotQLExecutionScope, "type">,
 ): string | null => {
 	const outputKeys = new Set<string>();
+	const groupKinds = new Map<string, ScalarKind | undefined>();
 	for (const group of output.groupBy ?? []) {
 		const keyError = requiredNameError(group.key, "Aggregate output key");
 		if (keyError) {
@@ -464,6 +483,7 @@ const validateAggregateOutput = (
 			return `Duplicate aggregate output key '${group.key}'`;
 		}
 		outputKeys.add(group.key);
+		groupKinds.set(group.key, expressionKind(group.expr, scope));
 		const expressionError = validateExpression(group.expr, scope, 0, executionScope);
 		if (expressionError) {
 			return expressionError;
@@ -511,8 +531,12 @@ const validateAggregateOutput = (
 		if (keyError) {
 			return keyError;
 		}
-		if (!measureKeys.has(order.key)) {
-			return `Unknown aggregate measure key '${order.key}'`;
+		const groupKind = groupKinds.get(order.key);
+		if (!measureKeys.has(order.key) && groupKind === undefined) {
+			return `Unknown aggregate order key '${order.key}'`;
+		}
+		if (groupKind === "json") {
+			return `Aggregate group order key '${order.key}' must resolve to a scalar value`;
 		}
 	}
 	return null;
