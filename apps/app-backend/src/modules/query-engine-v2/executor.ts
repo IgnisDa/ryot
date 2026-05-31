@@ -6,6 +6,8 @@ import * as dbSchema from "#lib/db/schema/tables";
 import { BadRequest, type DbError, NotFound } from "#lib/errors";
 
 import type {
+	AggregationSpec,
+	EntitySourceV2,
 	Expr,
 	FieldSelector,
 	FieldValue,
@@ -16,9 +18,12 @@ import type {
 	RowItem,
 	RowValue,
 	RowsResponseV2,
+	SourceV2,
 } from "./language";
 
 const MAX_SERIALIZED_ROW_OBJECTS = 5000;
+const MAX_AGGREGATE_EXPRESSION_SOURCE_ROWS = 10000;
+const MAX_ROOT_FILTER_SCAN_ROWS = 5000;
 
 export type VisibleSchema = { id: string; slug: string };
 type VisibleRelationshipSchema = { id: string; slug: string };
@@ -407,32 +412,451 @@ export const evalExprForField = (expr: Expr, row: EntityQueryRow): FieldValue =>
 	return { kind: "null", value: null };
 };
 
-const executeEventExists = (
+type RowContext = {
+	events: Map<string, EventFields>;
+	entities: Map<string, BaseEntityQueryRow>;
+	relationships: Map<string, RelationshipFields>;
+};
+
+type SourceMatch = { context: RowContext; row: BaseEntityQueryRow };
+
+const makeEntityContext = (alias: string, row: BaseEntityQueryRow): RowContext => ({
+	events: new Map(),
+	relationships: new Map(),
+	entities: new Map([[alias, row]]),
+});
+
+const cloneContext = (context: RowContext): RowContext => ({
+	events: new Map(context.events),
+	entities: new Map(context.entities),
+	relationships: new Map(context.relationships),
+});
+
+const fieldValueScalar = (value: FieldValue) => value.value;
+
+const evalRefInContext = (expr: Extract<Expr, { type: "ref" }>, context: RowContext) => {
+	const eventRow = context.events.get(expr.sourceAlias);
+	if (eventRow !== undefined) {
+		return evalEventFieldSelector(expr.field, eventRow);
+	}
+
+	const relationshipRow = context.relationships.get(expr.sourceAlias);
+	if (relationshipRow !== undefined) {
+		return evalRelationshipFieldSelector(expr.field, relationshipRow);
+	}
+
+	const entityRow = context.entities.get(expr.sourceAlias);
+	if (entityRow !== undefined) {
+		return evalFieldSelector(expr.field, entityRow);
+	}
+
+	return { kind: "null" as const, value: null };
+};
+
+const compareValues = (
+	left: unknown,
+	right: unknown,
+	operator: Extract<Expr, { type: "comparison" }>["operator"],
+) => {
+	if (left === null || left === undefined || right === null || right === undefined) {
+		return false;
+	}
+	const normalizedLeft = left instanceof Date ? left.toISOString() : left;
+	const normalizedRight = right instanceof Date ? right.toISOString() : right;
+	const compareOrdered = (compare: (result: number) => boolean) => {
+		if (typeof normalizedLeft === "number" && typeof normalizedRight === "number") {
+			return compare(normalizedLeft - normalizedRight);
+		}
+		if (typeof normalizedLeft === "string" && typeof normalizedRight === "string") {
+			return compare(normalizedLeft.localeCompare(normalizedRight));
+		}
+		return false;
+	};
+
+	return Match.value(operator).pipe(
+		Match.when("eq", () => left === right),
+		Match.when("neq", () => left !== right),
+		Match.when("gt", () => compareOrdered((result) => result > 0)),
+		Match.when("gte", () => compareOrdered((result) => result >= 0)),
+		Match.when("lt", () => compareOrdered((result) => result < 0)),
+		Match.when("lte", () => compareOrdered((result) => result <= 0)),
+		Match.exhaustive,
+	);
+};
+
+const containsValue = (left: unknown, right: unknown) => {
+	if (typeof left === "string" && typeof right === "string") {
+		return left.toLowerCase().includes(right.toLowerCase());
+	}
+	if (Array.isArray(left)) {
+		return Array.isArray(right) ? right.every((item) => left.includes(item)) : left.includes(right);
+	}
+	if (
+		typeof left === "object" &&
+		left !== null &&
+		typeof right === "object" &&
+		right !== null &&
+		!Array.isArray(left) &&
+		!Array.isArray(right)
+	) {
+		return Object.entries(right).every(([key, value]) => Reflect.get(left, key) === value);
+	}
+	return false;
+};
+
+const eventSourceEntityRow = (row: EventQueryRow): BaseEntityQueryRow => ({
+	id: row.id,
+	name: row.name,
+	image: row.image,
+	schemaId: row.schemaId,
+	createdAt: row.createdAt,
+	updatedAt: row.updatedAt,
+	properties: row.properties,
+	totalCount: row.totalCount,
+	schemaSlug: row.schemaSlug,
+	schemaName: row.schemaName,
+	externalId: row.externalId,
+	sandboxScriptId: row.sandboxScriptId,
+});
+
+const makeEventRootContext = (source: RootEventSourceV2, row: EventQueryRow): RowContext => ({
+	relationships: new Map(),
+	entities: new Map([[source.entity.alias, eventSourceEntityRow(row)]]),
+	events: new Map([[source.alias, row]]),
+});
+
+const makeIncludeContext = (include: IncludeEntryV2, row: IncludeQueryRow): RowContext => {
+	const context = makeEntityContext(include.source.alias, row);
+	if (include.source.via !== undefined) {
+		context.relationships.set(include.source.via.alias, row);
+	}
+	return context;
+};
+
+const executeEntitySourceMatches = (
 	userId: string,
-	row: BaseEntityQueryRow,
-	source: NestedEventSourceV2,
-): Effect.Effect<boolean, NotFound | DbError, CurrentDb> =>
+	context: RowContext,
+	source: EntitySourceV2,
+	limit: number | null,
+): Effect.Effect<SourceMatch[], BadRequest | NotFound | DbError, CurrentDb> =>
 	Effect.gen(function* () {
-		const eventSchemas = yield* loadVisibleEventSchemas(userId, row.schemaId, source.schemas);
+		const visibleSchemas = yield* loadVisibleEntitySchemas(userId, source.schemas);
+		const schemaIdsSql = sql.join(
+			visibleSchemas.map((s) => sql`${s.id}`),
+			sql`, `,
+		);
+		const limitSql = limit === null ? sql`` : sql`LIMIT ${limit}`;
+		const db = yield* CurrentDb;
+		let rows: IncludeQueryRow[] | EntityQueryRow[];
+
+		if (source.via === undefined) {
+			const rawRows = yield* dbEffect(() =>
+				db.execute<EntityQueryRow>(sql`
+					SELECT
+						e.id,
+						e.name,
+						e.image,
+						e.properties,
+						e.created_at AS "createdAt",
+						e.updated_at AS "updatedAt",
+						e.external_id AS "externalId",
+						e.sandbox_script_id AS "sandboxScriptId",
+						es.id AS "schemaId",
+						es.slug AS "schemaSlug",
+						es.name AS "schemaName",
+						1 AS "totalCount"
+					FROM entity e
+					JOIN entity_schema es ON es.id = e.entity_schema_id
+					WHERE
+						e.entity_schema_id IN (${schemaIdsSql})
+						AND (e.user_id = ${userId} OR e.user_id IS NULL)
+					${limitSql}
+				`),
+			);
+			rows = rawRows.rows;
+		} else {
+			const parentRow = context.entities.get(source.via.entityRef);
+			if (parentRow === undefined) {
+				return [];
+			}
+
+			const relationshipSchema = yield* loadVisibleRelationshipSchema(userId, source.via.schema);
+			const anchorColumn =
+				source.via.direction === "outgoing" ? sql`r.source_entity_id` : sql`r.target_entity_id`;
+			const childColumn =
+				source.via.direction === "outgoing" ? sql`r.target_entity_id` : sql`r.source_entity_id`;
+			const rawRows = yield* dbEffect(() =>
+				db.execute<IncludeQueryRow>(sql`
+					SELECT
+						e.id,
+						e.name,
+						e.image,
+						e.properties,
+						e.created_at AS "createdAt",
+						e.updated_at AS "updatedAt",
+						e.external_id AS "externalId",
+						e.sandbox_script_id AS "sandboxScriptId",
+						es.id AS "schemaId",
+						es.slug AS "schemaSlug",
+						es.name AS "schemaName",
+						r.id AS "relationshipId",
+						r.created_at AS "relationshipCreatedAt",
+						r.source_entity_id AS "relationshipSourceEntityId",
+						r.target_entity_id AS "relationshipTargetEntityId",
+						r.properties AS "relationshipProperties",
+						rs.slug AS "relationshipSchemaSlug",
+						rs.name AS "relationshipSchemaName",
+						1 AS "totalCount"
+					FROM relationship r
+					JOIN relationship_schema rs ON rs.id = r.relationship_schema_id
+					JOIN entity e ON e.id = ${childColumn}
+					JOIN entity_schema es ON es.id = e.entity_schema_id
+					WHERE
+						r.relationship_schema_id = ${relationshipSchema.id}
+						AND ${anchorColumn} = ${parentRow.id}
+						AND e.entity_schema_id IN (${schemaIdsSql})
+						AND (r.user_id = ${userId} OR r.user_id IS NULL)
+						AND (e.user_id = ${userId} OR e.user_id IS NULL)
+					${limitSql}
+				`),
+			);
+			rows = rawRows.rows;
+		}
+
+		const matches: SourceMatch[] = [];
+		for (const row of rows) {
+			const nextContext = cloneContext(context);
+			nextContext.entities.set(source.alias, row);
+			if (source.via !== undefined && "relationshipId" in row) {
+				nextContext.relationships.set(source.via.alias, row);
+			}
+			if (source.where === null || (yield* evalExprAsBoolean(userId, source.where, nextContext))) {
+				matches.push({ context: nextContext, row });
+			}
+		}
+
+		return matches;
+	});
+
+const executeEventSourceMatches = (
+	userId: string,
+	context: RowContext,
+	source: NestedEventSourceV2,
+	limit: number | null,
+): Effect.Effect<SourceMatch[], BadRequest | NotFound | DbError, CurrentDb> =>
+	Effect.gen(function* () {
+		const entityRow = context.entities.get(source.entityRef);
+		if (entityRow === undefined) {
+			return [];
+		}
+
+		const eventSchemas = yield* loadVisibleEventSchemas(userId, entityRow.schemaId, source.schemas);
 		const eventSchemaIdsSql = sql.join(
 			eventSchemas.map((s) => sql`${s.id}`),
 			sql`, `,
 		);
+		const limitSql = limit === null ? sql`` : sql`LIMIT ${limit}`;
 		const db = yield* CurrentDb;
 		const rawRows = yield* dbEffect(() =>
-			db.execute<{ id: string }>(sql`
-				SELECT ev.id
+			db.execute<EventQueryRow>(sql`
+				SELECT
+					e.id,
+					e.name,
+					e.image,
+					e.properties,
+					e.created_at AS "createdAt",
+					e.updated_at AS "updatedAt",
+					e.external_id AS "externalId",
+					e.sandbox_script_id AS "sandboxScriptId",
+					es.id AS "schemaId",
+					es.slug AS "schemaSlug",
+					es.name AS "schemaName",
+					ev.id AS "eventId",
+					ev.properties AS "eventProperties",
+					ev.created_at AS "eventCreatedAt",
+					ev.updated_at AS "eventUpdatedAt",
+					ev.occurred_at AS "eventOccurredAt",
+					evs.id AS "eventSchemaId",
+					evs.slug AS "eventSchemaSlug",
+					evs.name AS "eventSchemaName",
+					1 AS "totalCount"
 				FROM event ev
+				JOIN event_schema evs ON evs.id = ev.event_schema_id
+				JOIN entity e ON e.id = ev.entity_id
+				JOIN entity_schema es ON es.id = e.entity_schema_id
 				WHERE
-					ev.entity_id = ${row.id}
+					ev.entity_id = ${entityRow.id}
 					AND ev.user_id = ${userId}
 					AND ev.event_schema_id IN (${eventSchemaIdsSql})
-				LIMIT 1
+					AND (e.user_id = ${userId} OR e.user_id IS NULL)
+				${limitSql}
 			`),
 		);
 
-		return rawRows.rows.length > 0;
+		const matches: SourceMatch[] = [];
+		for (const row of rawRows.rows) {
+			const nextContext = cloneContext(context);
+			nextContext.events.set(source.alias, row);
+			nextContext.entities.set(source.entityRef, eventSourceEntityRow(row));
+			if (source.where === null || (yield* evalExprAsBoolean(userId, source.where, nextContext))) {
+				matches.push({ context: nextContext, row });
+			}
+		}
+
+		return matches;
 	});
+
+const executeSourceMatches = (
+	userId: string,
+	context: RowContext,
+	source: SourceV2,
+	limit: number | null = source.where === null ? MAX_AGGREGATE_EXPRESSION_SOURCE_ROWS + 1 : null,
+) =>
+	source.type === "entities"
+		? executeEntitySourceMatches(userId, context, source, limit)
+		: executeEventSourceMatches(userId, context, source, limit);
+
+const aggregateDistinctKey = (value: unknown) =>
+	typeof value === "object" && value !== null ? JSON.stringify(value) : String(value);
+
+const evalAggregate = (
+	userId: string,
+	context: RowContext,
+	aggregation: AggregationSpec,
+	source: SourceV2,
+): Effect.Effect<FieldValue, BadRequest | NotFound | DbError, CurrentDb> =>
+	Effect.gen(function* () {
+		const matches = yield* executeSourceMatches(userId, context, source);
+		if (matches.length > MAX_AGGREGATE_EXPRESSION_SOURCE_ROWS) {
+			return yield* new BadRequest({
+				message: `Aggregate expression source matched rows exceeds maximum of ${MAX_AGGREGATE_EXPRESSION_SOURCE_ROWS}`,
+			});
+		}
+
+		if (aggregation.function === "count") {
+			if (aggregation.distinctBy === undefined) {
+				return { kind: "number" as const, value: matches.length };
+			}
+
+			const distinct = new Set<string>();
+			for (const match of matches) {
+				const value = fieldValueScalar(
+					yield* evalExprValue(userId, aggregation.distinctBy, match.context),
+				);
+				if (value !== null && value !== undefined) {
+					distinct.add(aggregateDistinctKey(value));
+				}
+			}
+			return { kind: "number" as const, value: distinct.size };
+		}
+
+		const values: number[] = [];
+		for (const match of matches) {
+			const value = fieldValueScalar(yield* evalExprValue(userId, aggregation.expr, match.context));
+			if (typeof value === "number") {
+				values.push(value);
+			}
+		}
+
+		if (values.length === 0) {
+			return { kind: "null" as const, value: null };
+		}
+
+		const result = Match.value(aggregation.function).pipe(
+			Match.when("sum", () => values.reduce((total, value) => total + value, 0)),
+			Match.when(
+				"average",
+				() => values.reduce((total, value) => total + value, 0) / values.length,
+			),
+			Match.when("minimum", () => Math.min(...values)),
+			Match.when("maximum", () => Math.max(...values)),
+			Match.exhaustive,
+		);
+		return { kind: "number" as const, value: result };
+	});
+
+const evalExprValue = (
+	userId: string,
+	expr: Expr,
+	context: RowContext,
+): Effect.Effect<FieldValue, BadRequest | NotFound | DbError, CurrentDb> =>
+	Effect.gen(function* () {
+		if (expr.type === "ref") {
+			return evalRefInContext(expr, context);
+		}
+		if (expr.type === "literal") {
+			return valueToFieldValue(expr.value);
+		}
+		if (expr.type === "exists") {
+			const matches = yield* executeSourceMatches(
+				userId,
+				context,
+				expr.source,
+				expr.source.where === null ? 1 : null,
+			);
+			return { kind: "boolean" as const, value: matches.length > 0 };
+		}
+		if (expr.type === "aggregate") {
+			return yield* evalAggregate(userId, context, expr.aggregation, expr.source);
+		}
+		if (expr.type === "comparison") {
+			const left = fieldValueScalar(yield* evalExprValue(userId, expr.left, context));
+			const right = fieldValueScalar(yield* evalExprValue(userId, expr.right, context));
+			return { kind: "boolean" as const, value: compareValues(left, right, expr.operator) };
+		}
+		if (expr.type === "and") {
+			for (const value of expr.values) {
+				if (!(yield* evalExprAsBoolean(userId, value, context))) {
+					return { kind: "boolean" as const, value: false };
+				}
+			}
+			return { kind: "boolean" as const, value: true };
+		}
+		if (expr.type === "or") {
+			for (const value of expr.values) {
+				if (yield* evalExprAsBoolean(userId, value, context)) {
+					return { kind: "boolean" as const, value: true };
+				}
+			}
+			return { kind: "boolean" as const, value: false };
+		}
+		if (expr.type === "not") {
+			return {
+				kind: "boolean" as const,
+				value: !(yield* evalExprAsBoolean(userId, expr.expr, context)),
+			};
+		}
+		if (expr.type === "isNull") {
+			const value = fieldValueScalar(yield* evalExprValue(userId, expr.expr, context));
+			return { kind: "boolean" as const, value: value === null || value === undefined };
+		}
+		if (expr.type === "isNotNull") {
+			const value = fieldValueScalar(yield* evalExprValue(userId, expr.expr, context));
+			return { kind: "boolean" as const, value: value !== null && value !== undefined };
+		}
+		if (expr.type === "contains") {
+			const left = fieldValueScalar(yield* evalExprValue(userId, expr.left, context));
+			const right = fieldValueScalar(yield* evalExprValue(userId, expr.right, context));
+			return { kind: "boolean" as const, value: containsValue(left, right) };
+		}
+		if (expr.type === "coalesce") {
+			for (const valueExpr of expr.values) {
+				const value = yield* evalExprValue(userId, valueExpr, context);
+				if (value.value !== null && value.value !== undefined) {
+					return value;
+				}
+			}
+			return { kind: "null" as const, value: null };
+		}
+		return { kind: "null" as const, value: null };
+	});
+
+const evalExprAsBoolean = (
+	userId: string,
+	expr: Expr,
+	context: RowContext,
+): Effect.Effect<boolean, BadRequest | NotFound | DbError, CurrentDb> =>
+	Effect.map(evalExprValue(userId, expr, context), (value) => value.value === true);
 
 const firstOrderSql = (
 	source: NestedEventSourceV2,
@@ -531,37 +955,19 @@ const executeEventFirst = (
 		return evalFirstSelect(expr.select, firstRow, expr.source);
 	});
 
-const evalExistsExprForField = (
-	userId: string,
-	row: BaseEntityQueryRow,
-	expr: Extract<Expr, { type: "exists" }>,
-): Effect.Effect<FieldValue, NotFound | DbError, CurrentDb> => {
-	if (expr.source.type === "events") {
-		return Effect.map(executeEventExists(userId, row, expr.source), (exists) => ({
-			value: exists,
-			kind: "boolean" as const,
-		}));
-	}
-
-	return Effect.succeed({ kind: "null" as const, value: null });
-};
-
 const evalRootExprForField = (
 	userId: string,
 	expr: Expr,
 	row: EntityQueryRow,
 	entityAlias: string,
-): Effect.Effect<FieldValue, NotFound | DbError, CurrentDb> => {
-	if (expr.type === "exists") {
-		return evalExistsExprForField(userId, row, expr);
-	}
+): Effect.Effect<FieldValue, BadRequest | NotFound | DbError, CurrentDb> => {
 	if (expr.type === "first") {
 		if (expr.source.type === "events" && expr.source.entityRef === entityAlias) {
 			return executeEventFirst(userId, row, expr);
 		}
 		return Effect.succeed({ kind: "null", value: null });
 	}
-	return Effect.succeed(evalExprForField(expr, row));
+	return evalExprValue(userId, expr, makeEntityContext(entityAlias, row));
 };
 
 const evalEventRootExprForField = (
@@ -569,10 +975,7 @@ const evalEventRootExprForField = (
 	expr: Expr,
 	row: EventQueryRow,
 	source: RootEventSourceV2,
-): Effect.Effect<FieldValue, NotFound | DbError, CurrentDb> => {
-	if (expr.type === "exists") {
-		return evalExistsExprForField(userId, row, expr);
-	}
+): Effect.Effect<FieldValue, BadRequest | NotFound | DbError, CurrentDb> => {
 	if (expr.type === "first") {
 		if (expr.source.type === "events" && expr.source.entityRef === source.entity.alias) {
 			return executeEventFirst(userId, row, expr);
@@ -588,7 +991,7 @@ const evalEventRootExprForField = (
 	if (expr.type === "literal") {
 		return Effect.succeed(valueToFieldValue(expr.value));
 	}
-	return Effect.succeed({ kind: "null", value: null });
+	return evalExprValue(userId, expr, makeEventRootContext(source, row));
 };
 
 const evalIncludeExprForField = (
@@ -596,10 +999,7 @@ const evalIncludeExprForField = (
 	expr: Expr,
 	row: IncludeQueryRow,
 	include: IncludeEntryV2,
-): Effect.Effect<FieldValue, NotFound | DbError, CurrentDb> => {
-	if (expr.type === "exists") {
-		return evalExistsExprForField(userId, row, expr);
-	}
+): Effect.Effect<FieldValue, BadRequest | NotFound | DbError, CurrentDb> => {
 	if (expr.type === "first") {
 		if (expr.source.type === "events" && expr.source.entityRef === include.source.alias) {
 			return executeEventFirst(userId, row, expr);
@@ -615,7 +1015,7 @@ const evalIncludeExprForField = (
 	if (expr.type === "literal") {
 		return Effect.succeed(valueToFieldValue(expr.value));
 	}
-	return Effect.succeed({ kind: "null", value: null });
+	return evalExprValue(userId, expr, makeIncludeContext(include, row));
 };
 
 export const serializeRow = (
@@ -634,7 +1034,7 @@ const serializeRootRow = (
 	row: EntityQueryRow,
 	entityAlias: string,
 	fields: QueryDocumentV2["output"]["fields"],
-): Effect.Effect<RowItem, NotFound | DbError, CurrentDb> =>
+): Effect.Effect<RowItem, BadRequest | NotFound | DbError, CurrentDb> =>
 	Effect.gen(function* () {
 		const result: Record<string, RowValue> = {};
 		for (const field of fields) {
@@ -648,7 +1048,7 @@ const serializeEventRootRow = (
 	row: EventQueryRow,
 	source: RootEventSourceV2,
 	fields: QueryDocumentV2["output"]["fields"],
-): Effect.Effect<RowItem, NotFound | DbError, CurrentDb> =>
+): Effect.Effect<RowItem, BadRequest | NotFound | DbError, CurrentDb> =>
 	Effect.gen(function* () {
 		const result: Record<string, RowValue> = {};
 		for (const field of fields) {
@@ -661,7 +1061,7 @@ const serializeIncludeRow = (
 	userId: string,
 	row: IncludeQueryRow,
 	include: IncludeEntryV2,
-): Effect.Effect<RowItem, NotFound | DbError, CurrentDb> =>
+): Effect.Effect<RowItem, BadRequest | NotFound | DbError, CurrentDb> =>
 	Effect.gen(function* () {
 		const result: Record<string, RowValue> = {};
 		for (const field of include.fields) {
@@ -860,6 +1260,13 @@ export const executeEntityRowsQuery = (
 
 		const db = yield* CurrentDb;
 		const offset = (output.pagination.page - 1) * output.pagination.limit;
+		const paginationSql =
+			source.where === null
+				? sql`
+					LIMIT ${output.pagination.limit}
+					OFFSET ${offset}
+				`
+				: sql``;
 
 		const rawRows = yield* dbEffect(() =>
 			db.execute<EntityQueryRow>(sql`
@@ -882,13 +1289,36 @@ export const executeEntityRowsQuery = (
 					e.entity_schema_id IN (${schemaIdsSql})
 					AND (e.user_id = ${userId} OR e.user_id IS NULL)
 				ORDER BY ${orderSql}
-				LIMIT ${output.pagination.limit}
-				OFFSET ${offset}
+				${paginationSql}
 			`),
 		);
 
-		const rows = rawRows.rows;
-		const total = rows[0]?.totalCount !== undefined ? Number(rows[0].totalCount) : 0;
+		const filteredRows: EntityQueryRow[] = [];
+		if (source.where === null) {
+			filteredRows.push(...rawRows.rows);
+		} else {
+			if (rawRows.rows.length > MAX_ROOT_FILTER_SCAN_ROWS) {
+				return yield* new BadRequest({
+					message: `Root filter candidate rows exceeds maximum of ${MAX_ROOT_FILTER_SCAN_ROWS}`,
+				});
+			}
+			for (const row of rawRows.rows) {
+				if (yield* evalExprAsBoolean(userId, source.where, makeEntityContext(source.alias, row))) {
+					filteredRows.push(row);
+				}
+			}
+		}
+
+		const total =
+			source.where === null
+				? rawRows.rows[0]?.totalCount !== undefined
+					? Number(rawRows.rows[0].totalCount)
+					: 0
+				: filteredRows.length;
+		const rows =
+			source.where === null
+				? filteredRows
+				: filteredRows.slice(offset, offset + output.pagination.limit);
 		let serializedRowCount = rows.length;
 		const items: RowItem[] = [];
 		for (const row of rows) {
