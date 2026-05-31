@@ -1,4 +1,5 @@
 import type { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
+import { generateId } from "better-auth";
 import { DateTime, Effect, Option, Schema } from "effect";
 
 import type { DbRunner } from "../../lib/db";
@@ -99,7 +100,7 @@ const runBeforeCreateTrigger = (
 				code: script.code,
 				scriptId: script.id,
 				driverName: "trigger",
-				executionId: crypto.randomUUID(),
+				executionId: generateId(),
 				allowedHostFunctions: script.metadata.allowedHostFunctions ?? [],
 			})
 			.pipe(Effect.mapError((error) => badRequest(`Before trigger failed: ${error.message}`)));

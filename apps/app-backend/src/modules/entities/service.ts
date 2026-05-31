@@ -1,4 +1,5 @@
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
+import { generateId } from "better-auth";
 import { Effect, Redacted } from "effect";
 
 import type { CurrentUserValue } from "../../lib/auth";
@@ -251,7 +252,7 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 						return yield* notFound(entitySchemaNotFoundError);
 					}
 
-					const executionId = crypto.randomUUID();
+					const executionId = generateId();
 					yield* engine
 						.execute(EntityImportWorkflow, {
 							executionId,
