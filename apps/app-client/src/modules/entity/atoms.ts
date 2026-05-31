@@ -24,6 +24,7 @@ const SHOW_SEASON_LIMIT = 40;
 const SHOW_COMPANY_LIMIT = 6;
 const SHOW_EPISODE_LIMIT = 60;
 const SHOW_RECOMMENDATION_LIMIT = 12;
+const SHOW_ACTIVITY_SEASON_LIMIT = 100;
 const SHOW_SUMMARY_COLLECTION_LIMIT = 6;
 const SHOW_ACTIVITY_PARENT_EVENT_LIMIT = 60;
 const SHOW_ACTIVITY_EPISODE_EVENT_LIMIT = 100;
@@ -84,6 +85,7 @@ const showActivityFamily = Atom.family((request: ShowEntityRequest) =>
 		.ryotql.query(
 			showActivityRecipe({
 				entityId: request.entityId,
+				seasonLimit: SHOW_ACTIVITY_SEASON_LIMIT,
 				parentEventLimit: SHOW_ACTIVITY_PARENT_EVENT_LIMIT,
 				episodeEventLimit: SHOW_ACTIVITY_EPISODE_EVENT_LIMIT,
 				collectionEventLimit: SHOW_ACTIVITY_COLLECTION_EVENT_LIMIT,
