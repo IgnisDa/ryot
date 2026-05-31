@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -14,12 +14,12 @@ Entity writes must validate properties against the associated entity schema, pre
 
 ## Acceptance criteria
 
-- [ ] Authenticated users can create user-owned entities under accessible entity schemas
-- [ ] Authenticated users can retrieve accessible entity details
-- [ ] Entity property validation uses the migrated property schema DSL
-- [ ] Relationship write primitives validate relationship properties and access rules
-- [ ] Clearing user state removes user events and relationships for the entity while protecting library constraints
-- [ ] Entity E2E tests for basic create/get/clear-state behavior pass through the Effect client
+- [x] Authenticated users can create user-owned entities under accessible entity schemas
+- [x] Authenticated users can retrieve accessible entity details
+- [x] Entity property validation uses the migrated property schema DSL
+- [x] Relationship write primitives validate relationship properties and access rules
+- [x] Clearing user state removes user events and relationships for the entity while protecting library constraints
+- [x] Entity E2E tests for basic create/get/clear-state behavior pass through the Effect client
 
 ## User stories addressed
 
