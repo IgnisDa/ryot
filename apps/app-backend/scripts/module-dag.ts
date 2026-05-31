@@ -323,13 +323,32 @@ const generateMermaid = (moduleNames: string[], edges: Edge[], cycleEdgeKeys: Se
 	return lines.join("\n");
 };
 
-const wrapInHtml = (mermaid: string, cycles: string[][]) => {
+const getModuleConnections = (moduleNames: string[], edges: Edge[]) => {
+	const connections = new Map(moduleNames.map((moduleName) => [moduleName, new Set<string>()]));
+
+	for (const edge of edges) {
+		connections.get(edge.from)?.add(edge.to);
+	}
+
+	return Object.fromEntries(
+		[...connections.entries()].map(([moduleName, connected]) => [
+			moduleName,
+			[...connected].sort(),
+		]),
+	);
+};
+
+const wrapInHtml = (mermaid: string, cycles: string[][], moduleNames: string[], edges: Edge[]) => {
 	const cycleBanner =
 		cycles.length === 0
 			? ""
 			: `<div class="banner"><strong>Runtime import cycles detected:</strong><ul>${cycles
 					.map((cycle) => `<li>${cycle.join(" → ")}</li>`)
 					.join("")}</ul></div>`;
+	const safeModuleConnections = JSON.stringify(getModuleConnections(moduleNames, edges)).replace(
+		/</g,
+		"\\u003c",
+	);
 	const safeMermaid = mermaid.replace(/<\/script>/gi, "<\\/script>");
 
 	return `<!doctype html>
@@ -359,6 +378,10 @@ const wrapInHtml = (mermaid: string, cycles: string[][]) => {
     .mermaid, .mermaid svg { width: 100%; height: 100%; }
     .mermaid svg { display: block; cursor: grab; user-select: none; touch-action: none; }
     .mermaid svg.dragging { cursor: grabbing; }
+    .mermaid svg g.node { transition: opacity 120ms ease, filter 120ms ease; }
+    .mermaid svg g.node:focus { outline: none; }
+    .mermaid svg.has-highlight g.node { opacity: 0.22; }
+    .mermaid svg.has-highlight g.node.is-highlighted, .mermaid svg.has-highlight g.node.is-connected { opacity: 1; filter: drop-shadow(0 0 7px rgba(96, 165, 250, 0.65)); }
     .toolbar { position: absolute; top: 2rem; right: 1.5rem; z-index: 1; display: flex; gap: 0.5rem; }
     .toolbar button { width: 2.4rem; height: 2.4rem; border: 1px solid #334155; border-radius: 8px; background: rgba(15, 23, 42, 0.92); color: #e2e8f0; font-size: 1.1rem; cursor: pointer; }
     .toolbar button:hover { background: #1e293b; }
@@ -393,8 +416,10 @@ ${safeMermaid}
   <script type="module">
     import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs"
 
+    const moduleConnections = ${safeModuleConnections}
     const toViewBox = (box) => [box.x, box.y, box.width, box.height].join(" ")
     const copyViewBox = (box) => ({ x: box.x, y: box.y, width: box.width, height: box.height })
+    const getNodeModuleName = (node) => node.querySelector(".nodeLabel")?.textContent?.trim() ?? node.textContent?.trim()
 
     const ensureViewBox = (svg) => {
       if (svg.getAttribute("viewBox")) return
@@ -471,6 +496,39 @@ ${safeMermaid}
       })
     }
 
+    const setupHighlights = (svg) => {
+      const nodeByModule = new Map()
+      for (const node of svg.querySelectorAll("g.node")) {
+        const moduleName = getNodeModuleName(node)
+        if (!Array.isArray(moduleConnections[moduleName])) continue
+        node.setAttribute("tabindex", "0")
+        nodeByModule.set(moduleName, node)
+      }
+
+      const clearHighlight = () => {
+        svg.classList.remove("has-highlight")
+        for (const node of nodeByModule.values()) {
+          node.classList.remove("is-highlighted", "is-connected")
+        }
+      }
+
+      const highlight = (moduleName) => {
+        const connected = new Set(moduleConnections[moduleName])
+        svg.classList.add("has-highlight")
+        for (const [nodeName, node] of nodeByModule) {
+          node.classList.toggle("is-highlighted", nodeName === moduleName)
+          node.classList.toggle("is-connected", connected.has(nodeName))
+        }
+      }
+
+      for (const [moduleName, node] of nodeByModule) {
+        node.addEventListener("pointerenter", () => highlight(moduleName))
+        node.addEventListener("pointerleave", clearHighlight)
+        node.addEventListener("focus", () => highlight(moduleName))
+        node.addEventListener("blur", clearHighlight)
+      }
+    }
+
     mermaid.initialize({
       startOnLoad: false,
       theme: "base",
@@ -490,7 +548,10 @@ ${safeMermaid}
 
     await mermaid.run({ querySelector: ".mermaid" })
     const svg = document.querySelector("#diagram svg")
-    if (svg instanceof SVGSVGElement) setupZoom(svg)
+    if (svg instanceof SVGSVGElement) {
+      setupZoom(svg)
+      setupHighlights(svg)
+    }
   </script>
 </body>
 </html>
@@ -507,7 +568,12 @@ const program = Effect.gen(function* () {
 	const moduleNames = yield* getModuleNames(modulesDir);
 	const edges = yield* buildEdges(modulesDir, moduleNames);
 	const { cycleEdgeKeys, cycles } = detectCycles(moduleNames, edges);
-	const html = wrapInHtml(generateMermaid(moduleNames, edges, cycleEdgeKeys), cycles);
+	const html = wrapInHtml(
+		generateMermaid(moduleNames, edges, cycleEdgeKeys),
+		cycles,
+		moduleNames,
+		edges,
+	);
 
 	if (cycles.length > 0) {
 		yield* Effect.logWarning(
