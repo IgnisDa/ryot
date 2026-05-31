@@ -150,7 +150,7 @@ describe("API observability", () => {
 				"notification test request OTLP span",
 				Effect.sync(() => findRequestSpan()),
 			);
-			expect(getStringAttribute(resource["attributes"], "service.name")).toBe("ryot-api");
+			expect(getStringAttribute(resource["attributes"], "service.name")).toBe("ryot-backend");
 
 			const requestTraceId = requirePresent(
 				requireString(requestSpan["traceId"], "Request trace ID is missing"),
