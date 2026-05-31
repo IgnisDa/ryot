@@ -2,15 +2,15 @@
 
 ## Tasks
 
-**Overall Progress:** 0 of 9 tasks completed
+**Overall Progress:** 1 of 9 tasks completed
 
-**Current Task:** [Task 01](./01-establish-kernel-ui-and-connect-server.md) (todo)
+**Current Task:** [Task 02](./02-authenticate-into-kernel-shell.md) (todo)
 
 ### Task List
 
 | #   | Task                                                                                          | Status |
 | --- | --------------------------------------------------------------------------------------------- | ------ |
-| 01  | [Establish Kernel UI and Connect to a Server](./01-establish-kernel-ui-and-connect-server.md) | todo   |
+| 01  | [Establish Kernel UI and Connect to a Server](./01-establish-kernel-ui-and-connect-server.md) | done   |
 | 02  | [Authenticate Into the Kernel Shell](./02-authenticate-into-kernel-shell.md)                  | todo   |
 | 03  | [Install and Render a Fixture Plugin](./03-install-and-render-fixture-plugin.md)              | todo   |
 | 04  | [Navigate Fixture Private Routes](./04-navigate-fixture-private-routes.md)                    | todo   |
