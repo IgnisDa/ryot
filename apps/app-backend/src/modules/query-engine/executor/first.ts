@@ -16,62 +16,29 @@ import {
 	loadVisibleEventSchemas,
 	loadVisibleRelationshipSchema,
 } from "./schema-loaders";
-import { fieldSelectorToOrderSql } from "./sql";
+import {
+	buildOrderBySql,
+	entitySelectColumnsSql,
+	eventSelectColumnsSql,
+	relationshipEdgeColumnsSql,
+} from "./sql";
 import type { BaseEntityQueryRow, EventQueryRow, IncludeQueryRow } from "./types";
 
 type FirstExpr = Extract<Expr, { type: "first" }>;
 
-const orderEntrySql = (
-	exprSql: ReturnType<typeof sql> | null,
-	order: "asc" | "desc",
-): ReturnType<typeof sql> => {
-	if (!exprSql) {
-		return sql`1`;
-	}
-	return order === "asc" ? sql`${exprSql} ASC` : sql`${exprSql} DESC`;
-};
+export const eventFirstOrderSql = (source: NestedEventSource, orderBy: FirstExpr["orderBy"]) =>
+	buildOrderBySql(orderBy, (ref) =>
+		ref.sourceAlias === source.alias ? { alias: "ev", schemas: source.schemas } : null,
+	);
 
-export const eventFirstOrderSql = (
-	source: NestedEventSource,
-	orderBy: FirstExpr["orderBy"],
-): ReturnType<typeof sql> => {
-	const orderParts = orderBy.map((entry) => {
-		if (entry.expr.type !== "ref" || entry.expr.sourceAlias !== source.alias) {
-			return sql`1`;
-		}
-		return orderEntrySql(
-			fieldSelectorToOrderSql(entry.expr.field, source.schemas, "ev"),
-			entry.order,
-		);
-	});
-	return sql.join(orderParts, sql`, `);
-};
-
-export const entityFirstOrderSql = (
-	source: EntitySource,
-	orderBy: FirstExpr["orderBy"],
-): ReturnType<typeof sql> => {
-	const viaAlias = source.via?.alias;
-	const orderParts = orderBy.map((entry) => {
-		if (entry.expr.type !== "ref") {
-			return sql`1`;
-		}
-		const alias =
-			entry.expr.sourceAlias === source.alias
-				? "e"
-				: entry.expr.sourceAlias === viaAlias
-					? "r"
-					: null;
-		if (alias === null) {
-			return sql`1`;
-		}
-		return orderEntrySql(
-			fieldSelectorToOrderSql(entry.expr.field, source.schemas, alias),
-			entry.order,
-		);
-	});
-	return sql.join(orderParts, sql`, `);
-};
+export const entityFirstOrderSql = (source: EntitySource, orderBy: FirstExpr["orderBy"]) =>
+	buildOrderBySql(orderBy, (ref) =>
+		ref.sourceAlias === source.alias
+			? { alias: "e", schemas: source.schemas }
+			: ref.sourceAlias === source.via?.alias
+				? { alias: "r", schemas: source.schemas }
+				: null,
+	);
 
 const evalEventFirstSelect = (
 	expr: Expr,
@@ -129,27 +96,8 @@ export const executeEventFirst = (
 		const rawRows = yield* dbEffect(() =>
 			db.execute<EventQueryRow>(sql`
 				SELECT
-					e.id,
-					e.name,
-					e.image,
-					e.properties,
-					e.created_at AS "createdAt",
-					e.updated_at AS "updatedAt",
-					e.external_id AS "externalId",
-					e.sandbox_script_id AS "sandboxScriptId",
-					es.id AS "schemaId",
-					es.slug AS "schemaSlug",
-					es.name AS "schemaName",
-					es.is_builtin AS "schemaIsBuiltin",
-					ev.id AS "eventId",
-					ev.properties AS "eventProperties",
-					ev.created_at AS "eventCreatedAt",
-					ev.updated_at AS "eventUpdatedAt",
-					ev.occurred_at AS "eventOccurredAt",
-					evs.id AS "eventSchemaId",
-					evs.slug AS "eventSchemaSlug",
-					evs.name AS "eventSchemaName",
-					evs.is_builtin AS "eventSchemaIsBuiltin",
+					${entitySelectColumnsSql},
+					${eventSelectColumnsSql},
 					1 AS "totalCount"
 				FROM event ev
 				JOIN event_schema evs ON evs.id = ev.event_schema_id
@@ -201,26 +149,9 @@ export const executeEntityFirst = (
 		const rawRows = yield* dbEffect(() =>
 			db.execute<IncludeQueryRow>(sql`
 				SELECT
-					e.id,
-					e.name,
-					e.image,
-					e.properties,
-					e.created_at AS "createdAt",
-					e.updated_at AS "updatedAt",
-					e.external_id AS "externalId",
-					e.sandbox_script_id AS "sandboxScriptId",
-					es.id AS "schemaId",
-					es.slug AS "schemaSlug",
-					es.name AS "schemaName",
-					es.is_builtin AS "schemaIsBuiltin",
-					r.id AS "relationshipId",
-					r.created_at AS "relationshipCreatedAt",
-					r.source_entity_id AS "relationshipSourceEntityId",
-					r.target_entity_id AS "relationshipTargetEntityId",
-					r.properties AS "relationshipProperties",
-					rs.slug AS "relationshipSchemaSlug",
-					rs.name AS "relationshipSchemaName",
-					rs.is_builtin AS "relationshipSchemaIsBuiltin"
+					${entitySelectColumnsSql},
+					${relationshipEdgeColumnsSql},
+					1 AS "totalCount"
 				FROM relationship r
 				JOIN relationship_schema rs ON rs.id = r.relationship_schema_id
 				JOIN entity e ON e.id = ${childColumn}
