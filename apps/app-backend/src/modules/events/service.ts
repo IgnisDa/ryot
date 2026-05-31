@@ -15,6 +15,7 @@ import { defaultTimeoutMs } from "~/lib/sandbox/constants";
 import type { QueuedRunResult } from "~/lib/sandbox/jobs";
 import { sandboxRunJobName } from "~/lib/sandbox/jobs";
 
+import { createEventsJobName } from "./jobs";
 import {
 	createEventForUser,
 	getActiveBeforeCreateTriggersForEventSchemas,
@@ -455,6 +456,29 @@ export const validateEventCreateInputForUser = async (
 	}
 
 	return serviceData(undefined);
+};
+
+export const enqueueEventsForUser = async (
+	input: { body: CreateEventBulkBody; userId: string },
+	deps: EventServiceDeps = eventServiceDeps,
+): Promise<EventServiceResult<{ count: number }>> => {
+	for (const item of input.body) {
+		// oxlint-disable-next-line no-await-in-loop
+		const validationResult = await validateEventCreateInputForUser(
+			{ body: item, userId: input.userId },
+			deps,
+		);
+		if ("error" in validationResult) {
+			return validationResult;
+		}
+	}
+
+	await getQueues().eventsQueue.add(createEventsJobName, {
+		body: input.body,
+		userId: input.userId,
+	});
+
+	return serviceData({ count: input.body.length });
 };
 
 export const listEntityEvents = async (

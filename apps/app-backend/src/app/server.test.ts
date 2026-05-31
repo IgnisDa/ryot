@@ -1,9 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { registerInternalAppRequestHandler } from "./internal-request";
 import { getServer } from "./server";
-
-registerInternalAppRequestHandler(null);
 
 const app = getServer();
 const frontendOrigin = process.env.FRONTEND_URL ?? "https://frontend.example.com";
