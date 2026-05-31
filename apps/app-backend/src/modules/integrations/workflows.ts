@@ -4,7 +4,7 @@ import { Activity, Workflow } from "@effect/workflow";
 import type { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import { Cause, Context, Effect, Either, Layer, Schema } from "effect";
 
-import { DbRunner } from "#lib/db";
+import { DbRunner } from "#lib/db/service";
 import type { SandboxRunError } from "#lib/errors";
 import { unknownToMessage } from "#lib/errors";
 import type { ImportRunId } from "#lib/schema/brands";
@@ -30,7 +30,7 @@ import type { SandboxCompletedResult } from "#modules/sandbox/schemas";
 import { IntegrationRunError, IntegrationRunJobData } from "./jobs";
 import { IntegrationsRepository, type IntegrationRecord } from "./repository";
 import { ListedIntegration } from "./schemas";
-import { getSinkAdapterResult } from "./sinks";
+import { getSinkAdapterResult } from "./sinks/sink-adapters";
 import {
 	finalizeIntegrationRun,
 	loadYankAdapterResult,

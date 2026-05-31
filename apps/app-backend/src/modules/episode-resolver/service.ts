@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 
-import { DbRunner } from "#lib/db";
+import { DbRunner } from "#lib/db/service";
 import type { EntityId, UserId } from "#lib/schema/brands";
 
 import { EpisodeResolverRepository } from "./repository";

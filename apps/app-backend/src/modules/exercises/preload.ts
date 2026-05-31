@@ -3,9 +3,9 @@ import { generateId } from "better-auth";
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { Cause, Effect, Layer } from "effect";
 
-import { AppConfig } from "#lib/config";
-import { CurrentDb, DbRunner, dbEffect } from "#lib/db";
-import * as schema from "#lib/db/schema/tables";
+import { AppConfig } from "#lib/config/service";
+import * as schema from "#lib/db/schema/tables/combined";
+import { CurrentDb, DbRunner, dbEffect } from "#lib/db/service";
 import { dieOnDbError, unknownToMessage } from "#lib/errors";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { decodeEntitySearchResult } from "#modules/entity-import/population";

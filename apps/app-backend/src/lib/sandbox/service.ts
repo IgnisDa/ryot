@@ -3,7 +3,7 @@ import { isHttpMethod } from "@effect/platform/HttpMethod";
 import { generateId } from "better-auth";
 import { Clock, Duration, Effect, Match, Runtime, Schema } from "effect";
 
-import { AppConfig } from "../config";
+import { AppConfig } from "../config/service";
 import { SandboxRunError, TimeoutError, unknownToMessage } from "../errors";
 import { redisKeys, RedisService } from "../redis";
 import { makeAdditionalSandboxApiFunctions } from "./host-functions";

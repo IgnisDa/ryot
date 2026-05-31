@@ -4,9 +4,9 @@ import { Layer } from "effect";
 
 import { AuthService } from "#lib/auth";
 import { SeedService } from "#lib/builtins/seed";
-import { AppConfig } from "#lib/config";
-import { DbService, DbRunnerLive, TransactionRunnerLive } from "#lib/db";
+import { AppConfig } from "#lib/config/service";
 import { LegacyBootstrapMigrateDrop, MigrationsComplete } from "#lib/db/migrate";
+import { DbService, DbRunnerLive, TransactionRunnerLive } from "#lib/db/service";
 import { RedisService } from "#lib/redis";
 import { S3Service } from "#lib/s3";
 import { SandboxService } from "#lib/sandbox/service";

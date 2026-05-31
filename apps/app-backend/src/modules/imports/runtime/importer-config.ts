@@ -1,6 +1,6 @@
 import { Option, Redacted } from "effect";
 
-import type { AppConfigValue } from "#lib/config";
+import type { AppConfigValue } from "#lib/config/service";
 
 const toValue = (option: Option.Option<string>): string | undefined =>
 	Option.getOrUndefined(option);

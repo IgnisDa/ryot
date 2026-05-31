@@ -1,8 +1,8 @@
 import { and, eq, inArray, isNull, or } from "drizzle-orm";
 import { Effect } from "effect";
 
-import { CurrentDb, dbEffect } from "#lib/db";
-import * as dbSchema from "#lib/db/schema/tables";
+import * as dbSchema from "#lib/db/schema/tables/combined";
+import { CurrentDb, dbEffect } from "#lib/db/service";
 import { NotFound } from "#lib/errors";
 import type { AppSchema } from "#lib/schema/property-schema";
 

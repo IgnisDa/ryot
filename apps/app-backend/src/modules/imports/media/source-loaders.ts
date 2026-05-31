@@ -1,8 +1,8 @@
 import type { FileSystem, HttpClient, Path } from "@effect/platform";
 import { Effect, Schema } from "effect";
 
-import { AppConfig } from "#lib/config";
-import type { DbRunner } from "#lib/db";
+import { AppConfig } from "#lib/config/service";
+import type { DbRunner } from "#lib/db/service";
 import type { RedisService } from "#lib/redis";
 import { SandboxScriptId } from "#lib/schema/brands";
 import type { EntitiesRepository } from "#modules/entities/repository";

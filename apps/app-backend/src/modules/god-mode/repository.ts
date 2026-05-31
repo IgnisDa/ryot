@@ -1,8 +1,8 @@
 import { asc, eq, ilike, inArray, sql } from "drizzle-orm";
 import { Effect } from "effect";
 
-import { CurrentDb, dbEffect } from "#lib/db";
 import * as schema from "#lib/db/schema/tables/auth";
+import { CurrentDb, dbEffect } from "#lib/db/service";
 import type { UserId } from "#lib/schema/brands";
 
 const userSearchClause = (search?: string) =>

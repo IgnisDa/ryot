@@ -3,7 +3,7 @@ import type { WorkflowEngine, WorkflowInstance } from "@effect/workflow/Workflow
 import { Effect, Schema } from "effect";
 
 import type { CurrentUserValue } from "#lib/auth-middleware";
-import { DbRunner } from "#lib/db";
+import { DbRunner } from "#lib/db/service";
 import { EntitySchemaId } from "#lib/schema/brands";
 import { EntitiesService } from "#modules/entities/service";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";

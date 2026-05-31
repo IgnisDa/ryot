@@ -4,7 +4,7 @@ import * as PersistedQueueRedis from "@effect/experimental/PersistedQueue/Redis"
 import { PgClient } from "@effect/sql-pg";
 import { Config, Duration, Effect, Layer, Redacted } from "effect";
 
-import { AppConfig } from "./config";
+import { AppConfig } from "./config/service";
 
 const WorkflowPgClientLive = PgClient.layerConfig({
 	url: Config.redacted("DATABASE_URL"),

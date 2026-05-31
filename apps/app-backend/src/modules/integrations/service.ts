@@ -2,7 +2,7 @@ import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { Effect, Either, Schema } from "effect";
 
 import type { CurrentUserValue } from "#lib/auth-middleware";
-import { DbRunner } from "#lib/db";
+import { DbRunner } from "#lib/db/service";
 import { badRequest, notFound } from "#lib/errors";
 import type { ImportRunId, IntegrationId, UserId } from "#lib/schema/brands";
 import { ImportsService } from "#modules/imports/service";

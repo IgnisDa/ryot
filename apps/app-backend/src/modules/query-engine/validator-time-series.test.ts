@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import type { QueryDocument } from "./language";
-import { validateQueryDocument } from "./validator";
 import { createdAtRef, propertyRef } from "./validator.test-support";
+import { validateQueryDocument } from "./validator/document";
 
 const makeTimeSeriesDoc = (overrides: Partial<QueryDocument> = {}): QueryDocument => ({
 	source: { alias: "e", where: null, type: "entities", schemas: ["books"] },

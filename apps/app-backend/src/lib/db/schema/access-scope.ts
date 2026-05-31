@@ -1,4 +1,4 @@
-import { entitySchema } from "./tables";
+import { entitySchema } from "./tables/combined";
 
 export const entitySchemaAccessScopeSelection = {
 	id: entitySchema.id,

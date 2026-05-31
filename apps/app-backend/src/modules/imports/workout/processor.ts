@@ -1,7 +1,7 @@
 import { Effect } from "effect";
 
 import type { CurrentUserValue } from "#lib/auth-middleware";
-import { DbRunner } from "#lib/db";
+import { DbRunner } from "#lib/db/service";
 import { badRequest } from "#lib/errors";
 import { isObjectRecord } from "#lib/predicates";
 import type { EntitySchemaId, EventSchemaId, ImportRunId, UserId } from "#lib/schema/brands";

@@ -1,10 +1,10 @@
 import { and, desc, eq } from "drizzle-orm";
 import { Effect } from "effect";
 
-import { AppConfig } from "#lib/config";
-import { CurrentDb, dbEffect } from "#lib/db";
-import * as schema from "#lib/db/schema/tables";
+import { AppConfig } from "#lib/config/service";
 import { user } from "#lib/db/schema/tables/auth";
+import * as schema from "#lib/db/schema/tables/combined";
+import { CurrentDb, dbEffect } from "#lib/db/service";
 import { IntegrationId, UserId } from "#lib/schema/brands";
 
 import type {

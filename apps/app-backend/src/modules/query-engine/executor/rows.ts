@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import { Effect } from "effect";
 
-import { CurrentDb, dbEffect } from "#lib/db";
+import { CurrentDb, dbEffect } from "#lib/db/service";
 import { BadRequest, type DbError, type NotFound } from "#lib/errors";
 
 import type { Expr, FieldDef, IncludeEntry, RowItem, RowsResponse } from "../language";
