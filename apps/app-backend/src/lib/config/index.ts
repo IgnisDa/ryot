@@ -7,6 +7,11 @@ const isNonEmpty = (opt: Option.Option<string>) => Option.isSome(opt) && opt.val
 const isNonEmptyRedacted = (opt: Option.Option<Redacted.Redacted>) =>
 	Option.isSome(opt) && Redacted.value(opt.value).length > 0;
 
+export const isOidcEnabled = (config: SystemConfigValue): boolean => {
+	const { clientId, clientSecret, issuerUrl } = config.server.oidc;
+	return isNonEmpty(clientId) && isNonEmpty(issuerUrl) && isNonEmptyRedacted(clientSecret);
+};
+
 const validateSystemConfig = (
 	config: SystemConfigValue,
 ): Effect.Effect<SystemConfigValue, ConfigError.ConfigError> => {

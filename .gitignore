@@ -64,6 +64,7 @@ npm-debug.*
 yarn-debug.*
 yarn-error.*
 *.pem
+apps/app-backend/client
 apps/app-client*/ios
 apps/app-client*/android
 .env*.local
