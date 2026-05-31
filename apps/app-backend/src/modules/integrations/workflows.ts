@@ -111,7 +111,7 @@ const runMediaImportForIntegration = <RResolve, RImport, RLoad>(
 			importEntity: operations.importEntity,
 			resolveExternalId: operations.resolveExternalId,
 		},
-		{ skipMarkStarted: true },
+		{ integrationId: integration.id, skipMarkStarted: true },
 	).pipe(Effect.mapError((error) => new IntegrationRunError({ message: error.message })));
 
 const processSinkMedia = <RResolve, RImport>(
@@ -207,6 +207,17 @@ const processYoutubeMusicYank = <RResolve, RImport, RHistory>(
 				).pipe(Effect.mapError(toWorkflowError)),
 			});
 		});
+
+		if (adapterResult.entityGroups.length === 0 && adapterResult.failures.length > 0) {
+			yield* Activity.make({
+				error: IntegrationRunError,
+				name: "record-youtube-music-source-fetch-failure",
+				execute: failAdapterOnlyRun(payload.runId, adapterResult).pipe(
+					Effect.mapError(toWorkflowError),
+				),
+			});
+			return;
+		}
 
 		yield* runMediaImportForIntegration(integration, payload, executionId, operations, () =>
 			Effect.succeed({ adapterResult, cleanupPaths: [] }),
