@@ -48,6 +48,6 @@
 		"bun-types": "1.3.14",
 		"drizzle-kit": "0.31.10",
 		"typescript": "6.0.3",
-		"vitest": "3.2.6"
+		"vitest": "4.1.9"
 	}
 }
