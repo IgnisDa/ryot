@@ -7,12 +7,20 @@ import { DbError, conflict } from "../../lib/errors";
 import type { AppSchema } from "../../lib/schema";
 import { decodeStoredAppSchema } from "../../lib/schema";
 import { slugify } from "../../lib/slug";
-import type { ListedEntitySchema } from "./schemas";
+import type { ListedEntitySchema, Provider } from "./schemas";
 
-export type ProviderWithMetadata = {
-	readonly name: string;
-	readonly scriptId: string;
-	readonly scriptMetadata?: unknown;
+type BuildEntitySchemaRow = Pick<
+	typeof schema.entitySchema.$inferSelect,
+	"id" | "name" | "icon" | "slug" | "isBuiltin" | "accentColor" | "propertiesSchema"
+> & {
+	readonly trackerId: (typeof schema.trackerEntitySchema.$inferSelect)["trackerId"];
+	readonly scriptId: (typeof schema.entitySchemaScript.$inferSelect)["sandboxScriptId"] | null;
+	readonly scriptName: (typeof schema.sandboxScript.$inferSelect)["name"] | null;
+	readonly scriptMetadata: (typeof schema.sandboxScript.$inferSelect)["metadata"] | null;
+};
+
+export type ProviderWithMetadata = Provider & {
+	readonly scriptMetadata?: BuildEntitySchemaRow["scriptMetadata"];
 };
 
 export type ListedEntitySchemaWithMetadata = Omit<ListedEntitySchema, "providers"> & {
@@ -39,19 +47,7 @@ const entitySchemaUserSlugConstraint = "entity_schema_user_slug_unique";
 const savedViewUserSlugConstraint = "saved_view_user_slug_unique";
 
 const buildEntitySchemaRows = (
-	rows: Array<{
-		id: string;
-		name: string;
-		icon: string;
-		slug: string;
-		trackerId: string;
-		isBuiltin: boolean;
-		accentColor: string;
-		scriptId: string | null;
-		scriptName: string | null;
-		propertiesSchema: Record<string, unknown>;
-		scriptMetadata: Record<string, unknown> | null;
-	}>,
+	rows: Array<BuildEntitySchemaRow>,
 ): Effect.Effect<ListedEntitySchemaWithMetadata[], DbError> =>
 	Effect.gen(function* () {
 		const schemaMap = new Map<
@@ -295,14 +291,8 @@ export class EntitySchemasRepository extends Effect.Service<EntitySchemasReposit
 							trackerId: input.trackerId,
 							slug: defaultSavedViewSlug,
 							accentColor: input.accentColor,
-							queryDefinition: buildDefaultQueryDefinition([input.entitySchemaSlug]) as Record<
-								string,
-								unknown
-							>,
-							displayConfiguration: buildDisplayConfig(input.entitySchemaSlug) as Record<
-								string,
-								unknown
-							>,
+							queryDefinition: buildDefaultQueryDefinition([input.entitySchemaSlug]),
+							displayConfiguration: buildDisplayConfig(input.entitySchemaSlug),
 						}),
 					).pipe(
 						Effect.mapError((error) =>
