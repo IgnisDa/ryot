@@ -228,6 +228,13 @@ const server = group(
 	{
 		oidc,
 		smtp,
+		clientDir: stringField({
+			hidden: true,
+			defaultValue: "./client",
+			label: "Client directory",
+			envKey: "SERVER_CLIENT_DIR",
+			description: "Directory containing the client application",
+		}),
 		pluginsSystemDir: stringField({
 			hidden: true,
 			defaultValue: "./plugins",
