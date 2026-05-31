@@ -2,7 +2,7 @@ import { Effect } from "effect";
 
 import type { CurrentUserValue } from "../../lib/auth";
 import { DbRunner, TransactionRunner } from "../../lib/db";
-import { BadRequest, badRequest, conflict, notFound } from "../../lib/errors";
+import { badRequest, conflict, notFound } from "../../lib/errors";
 import { buildReorderedIds } from "../../lib/reorder";
 import { slugify } from "../../lib/slug";
 import { trimToNull } from "../../lib/validation";
@@ -30,24 +30,20 @@ const resolveCreatePayload = (payload: CreateTrackerBody) => {
 	if (!name) {
 		return badRequest("Tracker name is required");
 	}
-
 	if (!icon) {
 		return badRequest("Icon is required");
 	}
-
 	if (!accentColor) {
 		return badRequest("Accent color is required");
 	}
-
 	if (payload.description !== undefined && description === null) {
 		return badRequest("Description is required");
 	}
-
 	if (!slug) {
 		return badRequest("Tracker slug is required");
 	}
 
-	return { slug, name, icon, description, accentColor };
+	return Effect.succeed({ slug, name, icon, description, accentColor });
 };
 
 const resolveUpdatePayload = (input: {
@@ -69,7 +65,6 @@ const resolveUpdatePayload = (input: {
 	if (hasConfigUpdate && input.payload.icon === undefined) {
 		return badRequest("Icon is required");
 	}
-
 	if (hasConfigUpdate && input.payload.accentColor === undefined) {
 		return badRequest("Accent color is required");
 	}
@@ -86,11 +81,9 @@ const resolveUpdatePayload = (input: {
 	if (!name) {
 		return badRequest("Tracker name is required");
 	}
-
 	if (!icon) {
 		return badRequest("Icon is required");
 	}
-
 	if (!accentColor) {
 		return badRequest("Accent color is required");
 	}
@@ -100,10 +93,10 @@ const resolveUpdatePayload = (input: {
 		if (description === null || description === undefined) {
 			return badRequest("Description is required");
 		}
-		return { name, icon, description, accentColor, slug: input.current.slug };
+		return Effect.succeed({ name, icon, description, accentColor, slug: input.current.slug });
 	}
 
-	return {
+	return Effect.succeed({
 		name,
 		icon,
 		accentColor,
@@ -112,7 +105,7 @@ const resolveUpdatePayload = (input: {
 			input.payload.description === undefined
 				? input.current.description
 				: input.payload.description,
-	};
+	});
 };
 
 const resolveTrackerIds = (trackerIds: ReadonlyArray<string>) => {
@@ -124,12 +117,11 @@ const resolveTrackerIds = (trackerIds: ReadonlyArray<string>) => {
 	if (normalizedIds.some((trackerId) => trackerId.length === 0)) {
 		return badRequest("Tracker ids are required");
 	}
-
 	if (new Set(normalizedIds).size !== normalizedIds.length) {
 		return badRequest("Tracker ids must be unique");
 	}
 
-	return normalizedIds;
+	return Effect.succeed(normalizedIds);
 };
 
 export class TrackersService extends Effect.Service<TrackersService>()("TrackersService", {
@@ -143,10 +135,7 @@ export class TrackersService extends Effect.Service<TrackersService>()("Trackers
 				runWithDb(repository.listByUser(user.id, includeDisabled)),
 			create: (user: CurrentUserValue, payload: CreateTrackerBody) =>
 				Effect.gen(function* () {
-					const resolvedPayload = resolveCreatePayload(payload);
-					if (resolvedPayload instanceof BadRequest) {
-						return yield* resolvedPayload;
-					}
+					const resolvedPayload = yield* resolveCreatePayload(payload);
 
 					const existing = yield* runWithDb(repository.findBySlug(user.id, resolvedPayload.slug));
 					if (existing) {
@@ -167,10 +156,7 @@ export class TrackersService extends Effect.Service<TrackersService>()("Trackers
 						return yield* notFound("Tracker not found");
 					}
 
-					const resolvedPayload = resolveUpdatePayload({ current, payload });
-					if (resolvedPayload instanceof BadRequest) {
-						return yield* resolvedPayload;
-					}
+					const resolvedPayload = yield* resolveUpdatePayload({ current, payload });
 
 					const updated = yield* runWithDb(
 						repository.updateOwned({
@@ -188,10 +174,7 @@ export class TrackersService extends Effect.Service<TrackersService>()("Trackers
 				}),
 			reorder: (user: CurrentUserValue, payload: ReorderTrackersBody) =>
 				Effect.gen(function* () {
-					const trackerIds = resolveTrackerIds(payload.trackerIds);
-					if (trackerIds instanceof BadRequest) {
-						return yield* trackerIds;
-					}
+					const trackerIds = yield* resolveTrackerIds(payload.trackerIds);
 
 					return yield* runInTransaction(
 						Effect.gen(function* () {

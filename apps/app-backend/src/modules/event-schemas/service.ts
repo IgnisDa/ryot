@@ -3,7 +3,7 @@ import { Effect } from "effect";
 import type { CurrentUserValue } from "../../lib/auth";
 import { builtinEntitySchemas } from "../../lib/builtins/entity-schemas";
 import { DbRunner } from "../../lib/db";
-import { BadRequest, badRequest, conflict, notFound } from "../../lib/errors";
+import { badRequest, conflict, notFound } from "../../lib/errors";
 import { parseLabeledPropertySchemaInput } from "../../lib/property-schema-runtime";
 import { slugify } from "../../lib/slug";
 import { requireText } from "../../lib/validation";
@@ -27,22 +27,15 @@ const resolveEventSchemaSlug = (input: { name: string; slug?: string }) => {
 		return badRequest("Event schema slug is required");
 	}
 
-	return slug;
+	return Effect.succeed(slug);
 };
 
-const resolveEventSchemaCreateInput = (input: Pick<CreateEventSchemaBody, "name" | "slug">) => {
-	const name = requireText(input.name, "Event schema name is required");
-	if (name instanceof BadRequest) {
-		return name;
-	}
-
-	const slug = resolveEventSchemaSlug({ name, slug: input.slug });
-	if (slug instanceof BadRequest) {
-		return slug;
-	}
-
-	return { name, slug };
-};
+const resolveEventSchemaCreateInput = (input: Pick<CreateEventSchemaBody, "name" | "slug">) =>
+	Effect.gen(function* () {
+		const name = yield* requireText(input.name, "Event schema name is required");
+		const slug = yield* resolveEventSchemaSlug({ name, slug: input.slug });
+		return { name, slug };
+	});
 
 const validateEventSchemaSlugNotReserved = (slug: string, entitySchemaSlug: string) => {
 	const reservedSlugs = reservedEventSchemaSlugsByEntitySchema.get(entitySchemaSlug);
@@ -50,7 +43,7 @@ const validateEventSchemaSlugNotReserved = (slug: string, entitySchemaSlug: stri
 		return badRequest(`Event schema slug "${slug}" is reserved for built-in schemas`);
 	}
 
-	return undefined;
+	return Effect.void;
 };
 
 export class EventSchemasService extends Effect.Service<EventSchemasService>()(
@@ -63,13 +56,10 @@ export class EventSchemasService extends Effect.Service<EventSchemasService>()(
 			return {
 				list: (user: CurrentUserValue, input: { entitySchemaId: string }) =>
 					Effect.gen(function* () {
-						const entitySchemaId = requireText(
+						const entitySchemaId = yield* requireText(
 							input.entitySchemaId,
 							"Entity schema id is required",
 						);
-						if (entitySchemaId instanceof BadRequest) {
-							return yield* entitySchemaId;
-						}
 
 						const entitySchema = yield* runWithDb(
 							repository.getEntitySchemaScopeById({ entitySchemaId, userId: user.id }),
@@ -84,13 +74,10 @@ export class EventSchemasService extends Effect.Service<EventSchemasService>()(
 					}),
 				create: (user: CurrentUserValue, payload: CreateEventSchemaBody) =>
 					Effect.gen(function* () {
-						const entitySchemaId = requireText(
+						const entitySchemaId = yield* requireText(
 							payload.entitySchemaId,
 							"Entity schema id is required",
 						);
-						if (entitySchemaId instanceof BadRequest) {
-							return yield* entitySchemaId;
-						}
 
 						const entitySchema = yield* runWithDb(
 							repository.getEntitySchemaScopeById({ entitySchemaId, userId: user.id }),
@@ -104,26 +91,17 @@ export class EventSchemasService extends Effect.Service<EventSchemasService>()(
 							);
 						}
 
-						const resolved = resolveEventSchemaCreateInput({
+						const resolved = yield* resolveEventSchemaCreateInput({
 							name: payload.name,
 							slug: payload.slug,
 						});
-						if (resolved instanceof BadRequest) {
-							return yield* resolved;
-						}
 
 						const propertiesSchema = yield* parseLabeledPropertySchemaInput(
 							payload.propertiesSchema,
 							"Event schema properties",
 						).pipe(Effect.mapError((error) => badRequest(error.message)));
 
-						const reservedSlug = validateEventSchemaSlugNotReserved(
-							resolved.slug,
-							entitySchema.slug,
-						);
-						if (reservedSlug instanceof BadRequest) {
-							return yield* reservedSlug;
-						}
+						yield* validateEventSchemaSlugNotReserved(resolved.slug, entitySchema.slug);
 
 						const existing = yield* runWithDb(
 							repository.findBySlugForUser({

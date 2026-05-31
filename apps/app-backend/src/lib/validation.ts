@@ -1,4 +1,5 @@
-import type { BadRequest } from "./errors";
+import { Effect } from "effect";
+
 import { badRequest } from "./errors";
 
 export const trimToNull = (value: string): string | null => {
@@ -6,5 +7,7 @@ export const trimToNull = (value: string): string | null => {
 	return trimmed.length > 0 ? trimmed : null;
 };
 
-export const requireText = (value: string, message: string): string | BadRequest =>
-	trimToNull(value) ?? badRequest(message);
+export const requireText = (value: string, message: string) => {
+	const trimmed = trimToNull(value);
+	return trimmed !== null ? Effect.succeed(trimmed) : badRequest(message);
+};

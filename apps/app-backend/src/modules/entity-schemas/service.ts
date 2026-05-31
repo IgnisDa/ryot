@@ -3,7 +3,7 @@ import { Effect } from "effect";
 import type { CurrentUserValue } from "../../lib/auth";
 import { builtinEntitySchemas } from "../../lib/builtins/entity-schemas";
 import { DbRunner, TransactionRunner } from "../../lib/db";
-import { BadRequest, badRequest, conflict, notFound } from "../../lib/errors";
+import { badRequest, conflict, notFound } from "../../lib/errors";
 import { parseLabeledPropertySchemaInput } from "../../lib/property-schema-runtime";
 import { slugify } from "../../lib/slug";
 import { requireText, trimToNull } from "../../lib/validation";
@@ -19,38 +19,27 @@ const resolveEntitySchemaSlug = (input: { name: string; slug?: string }) => {
 	if (!slug) {
 		return badRequest("Entity schema slug is required");
 	}
-	return slug;
+	return Effect.succeed(slug);
 };
 
 const resolveEntitySchemaCreateInput = (
 	input: Pick<CreateEntitySchemaBody, "icon" | "name" | "slug" | "accentColor">,
-) => {
-	const icon = requireText(input.icon, "Entity schema icon is required");
-	if (icon instanceof BadRequest) {
-		return icon;
-	}
+) =>
+	Effect.gen(function* () {
+		const icon = yield* requireText(input.icon, "Entity schema icon is required");
+		const name = yield* requireText(input.name, "Entity schema name is required");
+		const accentColor = yield* requireText(
+			input.accentColor,
+			"Entity schema accent color is required",
+		);
+		const slug = yield* resolveEntitySchemaSlug({ name, slug: input.slug });
 
-	const name = requireText(input.name, "Entity schema name is required");
-	if (name instanceof BadRequest) {
-		return name;
-	}
+		if (reservedEntitySchemaSlugs.has(slug)) {
+			return yield* badRequest(`Entity schema slug "${slug}" is reserved for built-in schemas`);
+		}
 
-	const accentColor = requireText(input.accentColor, "Entity schema accent color is required");
-	if (accentColor instanceof BadRequest) {
-		return accentColor;
-	}
-
-	const slug = resolveEntitySchemaSlug({ name, slug: input.slug });
-	if (slug instanceof BadRequest) {
-		return slug;
-	}
-
-	if (reservedEntitySchemaSlugs.has(slug)) {
-		return badRequest(`Entity schema slug "${slug}" is reserved for built-in schemas`);
-	}
-
-	return { icon, name, slug, accentColor };
-};
+		return { icon, name, slug, accentColor };
+	});
 
 export class EntitySchemasService extends Effect.Service<EntitySchemasService>()(
 	"EntitySchemasService",
@@ -102,15 +91,12 @@ export class EntitySchemasService extends Effect.Service<EntitySchemasService>()
 							return yield* badRequest("Built-in trackers do not support entity schema creation");
 						}
 
-						const resolved = resolveEntitySchemaCreateInput({
+						const resolved = yield* resolveEntitySchemaCreateInput({
 							icon: payload.icon,
 							name: payload.name,
 							slug: payload.slug,
 							accentColor: payload.accentColor,
 						});
-						if (resolved instanceof BadRequest) {
-							return yield* resolved;
-						}
 
 						const propertiesSchema = yield* parseLabeledPropertySchemaInput(
 							payload.propertiesSchema,
