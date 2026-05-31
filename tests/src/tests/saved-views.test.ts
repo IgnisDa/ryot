@@ -409,7 +409,7 @@ describe("Saved views E2E", () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const builtinView = await findBuiltinSavedView(client, cookies);
 
-		const deleteResult = await client["saved-views"].delete({
+		const deleteResult = await client.savedViews.delete({
 			headers: { Cookie: cookies },
 			params: { path: { viewSlug: builtinView.slug } },
 		});
@@ -422,7 +422,7 @@ describe("Saved views E2E", () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const builtinView = await findBuiltinSavedView(client, cookies);
 
-		const invalidUpdate = await client["saved-views"].update({
+		const invalidUpdate = await client.savedViews.update({
 			headers: { Cookie: cookies },
 			params: { path: { viewSlug: builtinView.slug } },
 			body: buildUpdatedSavedViewBody({
@@ -434,7 +434,7 @@ describe("Saved views E2E", () => {
 		expect(invalidUpdate.response.status).toBe(400);
 		expect(invalidUpdate.error?.error.message).toBe(builtinViewError);
 
-		const disableResult = await client["saved-views"].update({
+		const disableResult = await client.savedViews.update({
 			headers: { Cookie: cookies },
 			params: { path: { viewSlug: builtinView.slug } },
 			body: {
@@ -450,7 +450,7 @@ describe("Saved views E2E", () => {
 		expect(disableResult.response.status).toBe(200);
 		expect(disableResult.data?.isDisabled).toBe(true);
 
-		const reEnableResult = await client["saved-views"].update({
+		const reEnableResult = await client.savedViews.update({
 			headers: { Cookie: cookies },
 			params: { path: { viewSlug: builtinView.slug } },
 			body: {
@@ -473,20 +473,20 @@ describe("Saved views E2E", () => {
 	it("returns 404 for missing views across read, update, clone, and delete", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
-		const readResult = await client["saved-views"].get({
+		const readResult = await client.savedViews.get({
 			headers: { Cookie: cookies },
 			params: { path: { viewSlug: missingViewSlug } },
 		});
-		const updateResult = await client["saved-views"].update({
+		const updateResult = await client.savedViews.update({
 			headers: { Cookie: cookies },
 			params: { path: { viewSlug: missingViewSlug } },
 			body: buildUpdatedSavedViewBody(),
 		});
-		const cloneResult = await client["saved-views"].clone({
+		const cloneResult = await client.savedViews.clone({
 			headers: { Cookie: cookies },
 			params: { path: { viewSlug: missingViewSlug } },
 		});
-		const deleteResult = await client["saved-views"].delete({
+		const deleteResult = await client.savedViews.delete({
 			headers: { Cookie: cookies },
 			params: { path: { viewSlug: missingViewSlug } },
 		});
@@ -701,7 +701,7 @@ describe("Saved views E2E", () => {
 			name: `Top Scope View ${crypto.randomUUID()}`,
 		});
 
-		const result = await client["saved-views"].reorder({
+		const result = await client.savedViews.reorder({
 			headers: { Cookie: cookies },
 			body: { trackerId, viewSlugs: [tracked.slug, standalone.slug] },
 		});
@@ -716,7 +716,7 @@ describe("Saved views E2E", () => {
 			name: "Sort Guard View",
 		});
 
-		const createResult = await client["saved-views"].create({
+		const createResult = await client.savedViews.create({
 			headers: { Cookie: cookies },
 			body: buildSavedViewBody({
 				name: "Broken Sort View",
@@ -729,7 +729,7 @@ describe("Saved views E2E", () => {
 				},
 			}),
 		});
-		const updateResult = await client["saved-views"].update({
+		const updateResult = await client.savedViews.update({
 			headers: { Cookie: cookies },
 			params: { path: { viewSlug: createdView.slug } },
 			body: buildUpdatedSavedViewBody({
@@ -761,7 +761,7 @@ describe("Saved views E2E", () => {
 	it("rejects creating saved views with aggregate query definitions", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
-		const { data, response, error } = await client["saved-views"].create({
+		const { data, response, error } = await client.savedViews.create({
 			headers: { Cookie: cookies },
 			body: buildSavedViewBody({
 				name: "Aggregate Stats View",
@@ -947,11 +947,11 @@ describe("Saved views E2E", () => {
 			],
 		} satisfies NonNullable<SavedViewBodyOverrides["queryDefinition"]>;
 
-		const createResult = await client["saved-views"].create({
+		const createResult = await client.savedViews.create({
 			headers: { Cookie: cookies },
 			body: buildSavedViewBody({ queryDefinition: invalidQueryDefinition }),
 		});
-		const updateResult = await client["saved-views"].update({
+		const updateResult = await client.savedViews.update({
 			headers: { Cookie: cookies },
 			params: { path: { viewSlug: createdView.slug } },
 			body: buildUpdatedSavedViewBody({
@@ -991,11 +991,11 @@ describe("Saved views E2E", () => {
 			],
 		} satisfies NonNullable<SavedViewBodyOverrides["queryDefinition"]>;
 
-		const createResult = await client["saved-views"].create({
+		const createResult = await client.savedViews.create({
 			headers: { Cookie: cookies },
 			body: buildSavedViewBody({ queryDefinition: invalidQueryDefinition }),
 		});
-		const updateResult = await client["saved-views"].update({
+		const updateResult = await client.savedViews.update({
 			headers: { Cookie: cookies },
 			params: { path: { viewSlug: createdView.slug } },
 			body: buildUpdatedSavedViewBody({
@@ -1019,7 +1019,7 @@ describe("Saved views E2E", () => {
 			name: "Qualification Guard View",
 		});
 
-		const createResult = await client["saved-views"].create({
+		const createResult = await client.savedViews.create({
 			headers: { Cookie: cookies },
 			// oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion
 			body: {
@@ -1037,7 +1037,7 @@ describe("Saved views E2E", () => {
 				},
 			} as never,
 		});
-		const updateResult = await client["saved-views"].update({
+		const updateResult = await client.savedViews.update({
 			headers: { Cookie: cookies },
 			params: { path: { viewSlug: createdView.slug } },
 			// oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion
@@ -1077,12 +1077,12 @@ describe("Saved views E2E", () => {
 			},
 		} satisfies NonNullable<SavedViewBodyOverrides["queryDefinition"]>;
 
-		const createResult = await client["saved-views"].create({
+		const createResult = await client.savedViews.create({
 			headers: { Cookie: cookies },
 			body: buildSavedViewBody({ queryDefinition: invalidQueryDefinition }),
 		});
 		const createdView = await createSavedView(client, cookies);
-		const updateResult = await client["saved-views"].update({
+		const updateResult = await client.savedViews.update({
 			headers: { Cookie: cookies },
 			params: { path: { viewSlug: createdView.slug } },
 			body: buildUpdatedSavedViewBody({
@@ -1101,7 +1101,7 @@ describe("Saved views E2E", () => {
 		const createBody = buildSavedViewBody();
 		const invalidTitleProperty = JSON.parse("null");
 
-		const result = await client["saved-views"].create({
+		const result = await client.savedViews.create({
 			headers: { Cookie: cookies },
 			body: {
 				...createBody,
@@ -1121,7 +1121,7 @@ describe("Saved views E2E", () => {
 	it("rejects a view with no table columns in the display config", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
-		const result = await client["saved-views"].create({
+		const result = await client.savedViews.create({
 			headers: { Cookie: cookies },
 			body: buildSavedViewBody({
 				displayConfiguration: {
@@ -1154,7 +1154,7 @@ describe("Saved views E2E", () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const createBody = buildSavedViewBody();
 
-		const result = await client["saved-views"].create({
+		const result = await client.savedViews.create({
 			headers: { Cookie: cookies },
 			body: {
 				...createBody,
@@ -1196,7 +1196,7 @@ describe("Saved views E2E", () => {
 		const invalidEntityIdProperty = JSON.parse('{"type":"literal","value":1}');
 
 		const createBody = buildSavedViewBody();
-		const createResult = await client["saved-views"].create({
+		const createResult = await client.savedViews.create({
 			headers: { Cookie: cookies },
 			body: {
 				...createBody,
@@ -1209,7 +1209,7 @@ describe("Saved views E2E", () => {
 
 		const createdView = await createSavedView(client, cookies);
 		const updateBody = buildUpdatedSavedViewBody();
-		const updateResult = await client["saved-views"].update({
+		const updateResult = await client.savedViews.update({
 			headers: { Cookie: cookies },
 			params: { path: { viewSlug: createdView.slug } },
 			body: {
@@ -1376,7 +1376,7 @@ describe("Saved views E2E", () => {
 	it("rejects a view referencing a schema slug that does not exist", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
-		const result = await client["saved-views"].create({
+		const result = await client.savedViews.create({
 			headers: { Cookie: cookies },
 			body: buildSavedViewBody({
 				queryDefinition: {

@@ -14,7 +14,7 @@ import {
 
 const viewSlugParam = HttpApiSchema.param("viewSlug", Schema.String);
 
-export const SavedViewsGroup = HttpApiGroup.make("saved-views")
+export const SavedViewsGroup = HttpApiGroup.make("savedViews")
 	.addError(Unauthorized, { status: 401 })
 	.addError(RateLimited, { status: 429 })
 	.add(
