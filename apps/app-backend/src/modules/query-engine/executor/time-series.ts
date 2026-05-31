@@ -49,6 +49,7 @@ const formatBoundary = (value: unknown): string => {
 export const executeTimeSeriesQuery = Effect.fn("executeTimeSeriesQuery")(function* (
 	userId: string,
 	language: string | null,
+	canonicalByScript: Record<string, string> | null,
 	doc: TimeSeriesQueryDocument,
 ) {
 	const { source, output } = doc;
@@ -61,7 +62,7 @@ export const executeTimeSeriesQuery = Effect.fn("executeTimeSeriesQuery")(functi
 	const rangeEnd = DateTime.formatIso(endAt.value);
 
 	const { bucket } = output.time;
-	const scope = rootScope(source, userId, language);
+	const scope = rootScope(source, userId, language, canonicalByScript);
 	const timeColSql = compileScalar(output.time.expr, scope, "date");
 	const conditions = [
 		...(source.where ? [compileBool(source.where, scope)] : []),

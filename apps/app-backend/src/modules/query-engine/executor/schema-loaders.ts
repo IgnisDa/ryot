@@ -33,6 +33,21 @@ export const loadVisibleEntityPropertySchemas = Effect.fn("loadVisibleEntityProp
 	},
 );
 
+// Every entity-schema slug the user can see (own + global builtins). Used by the interest reconciler
+// to pass a guaranteed-visible schema list to the query engine (which 404s on any invisible slug).
+export const loadVisibleEntitySchemaSlugs = Effect.fn("loadVisibleEntitySchemaSlugs")(function* (
+	userId: string,
+) {
+	const db = yield* CurrentDb;
+	const rows = yield* dbEffect(() =>
+		db
+			.select({ slug: dbSchema.entitySchema.slug })
+			.from(dbSchema.entitySchema)
+			.where(or(eq(dbSchema.entitySchema.userId, userId), isNull(dbSchema.entitySchema.userId))),
+	);
+	return rows.map((row) => row.slug);
+});
+
 export const loadVisibleEntitySchemas = Effect.fn("loadVisibleEntitySchemas")(function* (
 	userId: string,
 	slugs: readonly [string, ...string[]],

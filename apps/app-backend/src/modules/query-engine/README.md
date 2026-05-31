@@ -150,6 +150,20 @@ Schema metadata field selector — reads metadata about the row's schema:
 { "type": "schema", "name": "slug" }
 ```
 
+System-computed field selector — reads a server-derived value that is not a physical column,
+valid on the **root entity source only** (using it on an included, nested, event, or relationship
+source fails semantic validation):
+
+```json
+{ "type": "systemComputed", "name": "translationStatus" }
+```
+
+`translationStatus` reports the localization state of the row for the session language as a `text`
+value: `"pending"` (a translation is expected but not yet written), `"ready"` (a translation row is
+present), or `"none"` (localization does not apply — the script has no canonical language, the
+viewer already reads the canonical language, the row is not yet populated, or the translation row is
+a negative cache). Canonical readers (no session language) always get `"none"` with no extra SQL.
+
 ### System fields by source type
 
 Entity: `id`, `name`, `createdAt`, `updatedAt`, `externalId`, `sandboxScriptId`,
@@ -319,7 +333,7 @@ Grouped:
 - Grouped aggregate requires a `limit` (max 1000), non-empty `orderBy` (measureRef only),
   and includes `pageInfo: { "limit", "hasMore" }`.
 - `groupBy` keys and measure keys share one output namespace and must be unique among
-  siblings. Responses use `items`, not the legacy `values` shape.
+  siblings. Responses use `items`.
 
 ### Time-series return
 
@@ -443,14 +457,13 @@ field is a `(value, kind)` column pair; include lists arrive as `jsonb` arrays).
 
 ### Semantics
 
-Because expressions now execute in SQL rather than JavaScript, a few behaviors are defined
+Because expressions execute in SQL, a few behaviors are defined
 deliberately:
 
 - **Null-as-false.** Every boolean leaf compiles as `COALESCE(<predicate>, false)`, so a
   comparison with a null or absent operand is false — including `neq` (`x neq v` does _not_
   return a null-valued row). `not(expr)` negates the null-collapsed child, so `not(eq(x, v))`
-  _does_ return a null-valued row (eq is false, not is true). This matches the previous
-  evaluator exactly.
+  _does_ return a null-valued row (eq is false, not is true).
 - **Text collation is `C`** (byte order): text comparisons and ordering are deterministic with
   uppercase before lowercase. Numeric properties sort numerically; dates sort as `timestamptz`.
 - **Equality of composite values** (`eq`/`neq` over object/array JSON) is structural jsonb value

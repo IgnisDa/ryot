@@ -16,6 +16,9 @@ import { EventsRoutesLive } from "#modules/events/routes";
 import { GodModeRoutesLive } from "#modules/god-mode/routes";
 import { ImportsRoutesLive } from "#modules/imports/routes";
 import { IntegrationsRoutesLive } from "#modules/integrations/routes";
+import { makeInterestGateway, WS_PATH } from "#modules/interest/gateway";
+import { WsRegistry, type InterestSocket } from "#modules/interest/registry";
+import { InterestReconciler } from "#modules/interest/service";
 import { LibraryRoutesLive } from "#modules/library-membership/routes";
 import { QueryEngineRoutesLive } from "#modules/query-engine/routes";
 import { RelationshipSchemasRoutesLive } from "#modules/relationship-schemas/routes";
@@ -117,9 +120,12 @@ export const ServerLive = Layer.scopedDiscard(
 	Effect.gen(function* () {
 		const auth = yield* AuthService;
 		const config = yield* AppConfig;
+		const registry = yield* WsRegistry;
 		const runtime = yield* Effect.runtime();
 		const fs = yield* FileSystem.FileSystem;
+		const reconciler = yield* InterestReconciler;
 		const apiContext = yield* Effect.context<ApiContext>();
+		const gateway = makeInterestGateway({ auth, config, registry, reconciler });
 
 		const apiLayer = ApiWithScalarLive.pipe(
 			Layer.provide(Layer.succeedContext(apiContext)),
@@ -139,8 +145,11 @@ export const ServerLive = Layer.scopedDiscard(
 
 		const server = Bun.serve({
 			port: config.port,
-			fetch: (request) => {
+			fetch: (request, fetchServer) => {
 				const url = new URL(request.url);
+				if (url.pathname === WS_PATH) {
+					return runPromise(gateway.handleUpgrade(request, fetchServer));
+				}
 				if (url.pathname.startsWith("/api/auth/")) {
 					return auth.auth.handler(request);
 				}
@@ -153,6 +162,13 @@ export const ServerLive = Layer.scopedDiscard(
 					return handler(new Request(url.toString(), request));
 				}
 				return runPromise(serveStatic(url.pathname));
+			},
+			websocket: {
+				open: () => undefined,
+				close: (ws: InterestSocket) => gateway.handleClose(ws),
+				message: (ws: InterestSocket, message) => {
+					void runPromise(gateway.handleMessage(ws, message));
+				},
 			},
 		});
 
