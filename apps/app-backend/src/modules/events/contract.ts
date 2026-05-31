@@ -2,7 +2,7 @@ import { HttpApiEndpoint, HttpApiGroup } from "@effect/platform";
 import { Schema } from "effect";
 
 import { AuthMiddleware } from "../../lib/auth";
-import { NotFound, NotImplemented, Unauthorized } from "../../lib/errors";
+import { NotFound, NotImplemented, RateLimited, Unauthorized } from "../../lib/errors";
 
 export const ListedEvent = Schema.Struct({
 	id: Schema.String,
@@ -28,6 +28,8 @@ const CreateEventItem = Schema.Struct({
 const CreateEventsResponse = Schema.Struct({ count: Schema.Number });
 
 export const EventsGroup = HttpApiGroup.make("events")
+	.addError(Unauthorized, { status: 401 })
+	.addError(RateLimited, { status: 429 })
 	.add(
 		HttpApiEndpoint.get("list", "/events")
 			.setUrlParams(
@@ -39,14 +41,12 @@ export const EventsGroup = HttpApiGroup.make("events")
 			)
 			.addSuccess(Schema.Array(ListedEvent))
 			.addError(NotFound, { status: 404 })
-			.addError(Unauthorized, { status: 401 })
 			.middleware(AuthMiddleware),
 	)
 	.add(
 		HttpApiEndpoint.post("create", "/events")
 			.setPayload(Schema.Array(CreateEventItem))
 			.addSuccess(CreateEventsResponse, { status: 201 })
-			.addError(Unauthorized, { status: 401 })
 			.middleware(AuthMiddleware),
 	)
 	.addError(NotImplemented, { status: 501 });
