@@ -27,8 +27,8 @@ const heartbeats = Stream.fromSchedule(Schedule.spaced(HEARTBEAT_INTERVAL_MS)).p
 
 // Push-based: registry.add hands the fan-out an `enqueue` closure that feeds frames into this
 // stream. Registration and its teardown (registry.remove) run when the stream's scope closes, which
-// Stream.asyncPush ties to the client disconnecting.
-const events = (streamId: string, userId: UserId, registry: typeof StreamRegistry.Service) =>
+// Stream.asyncPush ties to the client disconnecting. Exported for the stream-lifecycle unit test.
+export const events = (streamId: string, userId: UserId, registry: typeof StreamRegistry.Service) =>
 	Stream.asyncPush<Uint8Array>((emit) =>
 		Effect.acquireRelease(
 			Effect.sync(() => {
