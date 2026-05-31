@@ -68,9 +68,8 @@ const makeEntitiesRepository = (overrides: Partial<EntitiesRepository> = {}) =>
 	makeMock<EntitiesRepository>(
 		{
 			_tag: "EntitiesRepository" as const,
-			createEntity: () => Effect.die("unused"),
+			saveEntity: () => Effect.die("unused"),
 			getByIdForUser: () => Effect.die("unused"),
-			getEntityScopeById: () => Effect.die("unused"),
 			insertRelationship: () => Effect.die("unused"),
 			upsertRelationship: () => Effect.die("unused"),
 			getEntityScopeForUser: () => Effect.die("unused"),
