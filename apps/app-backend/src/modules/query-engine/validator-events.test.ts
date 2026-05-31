@@ -5,7 +5,6 @@ import { validateQueryDocument } from "./validator";
 import { literal, makeDoc, nameRef, occurredAtRef, propertyRef } from "./validator.test-support";
 
 const makeEventDoc = (overrides: Partial<QueryDocument> = {}): QueryDocument => ({
-	version: 2,
 	source: {
 		where: null,
 		type: "events",

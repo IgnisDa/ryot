@@ -1,6 +1,6 @@
 # Query Engine Guide
 
-This document describes the v2 query language accepted by `POST /query-engine/execute`.
+This document describes the query language accepted by `POST /query-engine/execute`.
 
 For concrete executable examples, see:
 
@@ -20,7 +20,7 @@ currently implemented subset.
 `/query-engine/execute` accepts a `QueryDocument` and returns a typed response whose
 shape is discriminated by `output.type`.
 
-- Every document declares `version: 2`, a root `source`, and an `output` definition.
+- Every document declares a root `source` and an `output` definition.
 - A `source` produces a row set. The root source is the top-level row set; included
   sources and expression sources produce nested/correlated row sets.
 - Every source has a required `type`, required `alias`, non-empty unique `schemas`, and
