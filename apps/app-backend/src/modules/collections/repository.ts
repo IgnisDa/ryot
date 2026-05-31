@@ -1,8 +1,9 @@
 import { and, eq, isNull, or, sql } from "drizzle-orm";
 import { Effect } from "effect";
 
-import { CurrentDb, dbEffect, schema } from "../../lib/db";
-import { DbError } from "../../lib/errors";
+import { CurrentDb, dbEffect, schema } from "~/lib/db";
+import { DbError } from "~/lib/errors";
+
 import type { CollectionResponse, MembershipRelationship } from "./schemas";
 
 type CollectionEventSchema = Pick<typeof schema.eventSchema.$inferSelect, "id" | "name" | "slug">;

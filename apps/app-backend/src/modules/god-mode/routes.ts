@@ -1,8 +1,8 @@
 import { HttpApiBuilder } from "@effect/platform";
 import { Effect } from "effect";
 
-import { AppContract } from "../../lib/contract";
-import { notImplemented } from "../../lib/errors";
+import { AppContract } from "~/lib/contract";
+import { notImplemented } from "~/lib/errors";
 
 export const GodModeRoutesLive = HttpApiBuilder.group(AppContract, "god-mode", (handlers) =>
 	handlers

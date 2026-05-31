@@ -1,11 +1,12 @@
 import { expect, it } from "@effect/vitest";
 import { Effect, Exit, Layer } from "effect";
 
-import type { CurrentUserValue } from "../../lib/auth";
-import { CurrentDb, DbRunner, TransactionRunner } from "../../lib/db";
-import { BadRequest, Conflict, NotFound } from "../../lib/errors";
-import { SandboxApiService } from "../sandbox/service";
-import { TrackersRepository } from "../trackers/repository";
+import type { CurrentUserValue } from "~/lib/auth";
+import { CurrentDb, DbRunner, TransactionRunner } from "~/lib/db";
+import { BadRequest, Conflict, NotFound } from "~/lib/errors";
+import { SandboxApiService } from "~/modules/sandbox/service";
+import { TrackersRepository } from "~/modules/trackers/repository";
+
 import { EntitySchemasRepository } from "./repository";
 import { EntitySchemasService } from "./service";
 

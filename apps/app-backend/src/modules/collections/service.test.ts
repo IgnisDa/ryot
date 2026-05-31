@@ -1,13 +1,14 @@
 import { expect, it } from "@effect/vitest";
 import { Cause, Effect, Exit, Layer, Option } from "effect";
 
-import type { CurrentUserValue } from "../../lib/auth";
-import { CurrentDb, DbRunner, TransactionRunner } from "../../lib/db";
-import { BadRequest, NotFound } from "../../lib/errors";
-import { EntitiesRepository } from "../entities/repository";
-import { EventsRepository } from "../events/repository";
-import type { ListedEvent } from "../events/schemas";
-import { RelationshipSchemasRepository } from "../relationship-schemas/repository";
+import type { CurrentUserValue } from "~/lib/auth";
+import { CurrentDb, DbRunner, TransactionRunner } from "~/lib/db";
+import { BadRequest, NotFound } from "~/lib/errors";
+import { EntitiesRepository } from "~/modules/entities/repository";
+import { EventsRepository } from "~/modules/events/repository";
+import type { ListedEvent } from "~/modules/events/schemas";
+import { RelationshipSchemasRepository } from "~/modules/relationship-schemas/repository";
+
 import { CollectionsRepository } from "./repository";
 import { CollectionsService } from "./service";
 
