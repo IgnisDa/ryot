@@ -1,10 +1,10 @@
 import { expect, it } from "bun:test";
 
-import { sortBy } from "@ryot/ts-utils/lodash";
 import {
 	createEntityColumnExpression,
 	createEntityPropertyExpression,
-} from "@ryot/ts-utils/view-language";
+} from "@ryot/app-backend/query-language";
+import { sortBy } from "@ryot/ts-utils/lodash";
 
 import {
 	buildGridDisplayConfiguration,
