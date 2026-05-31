@@ -59,6 +59,28 @@ describe("sandbox async flow", () => {
 		expect(result.error).toBeNull();
 	});
 
+	it("returns not found when another user polls the job", async () => {
+		const owner = await createAuthenticatedClient();
+		const other = await createAuthenticatedClient();
+		const { id: scriptId } = await createSandboxScript(owner.client, owner.cookies, {
+			name: "cross-user-job",
+			slug: `cross-user-job-${crypto.randomUUID()}`,
+			code: 'driver("main", async function() { return 42; });',
+		});
+		const { jobId } = await enqueueSandboxScript(owner.client, owner.cookies, {
+			scriptId,
+			driverName: "main",
+		});
+
+		const response = await other.client.sandbox.getResult({
+			params: { path: { jobId } },
+			headers: { Cookie: other.cookies },
+		});
+
+		expect(response.response.status).toBe(404);
+		expect(response.error?.error.message).toBe("Sandbox job not found");
+	});
+
 	it("completes a script that uses httpCall", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { id: scriptId } = await createSandboxScript(client, cookies, {
