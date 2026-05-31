@@ -28,13 +28,6 @@ RUN bun turbo --filter=@ryot/fitness-plugin --filter=@ryot/media-plugin build
 RUN bun run --cwd apps/server assemble
 
 FROM builder-base AS client-builder
-# The Expo CLI requires Node: `bun run` only hands a `#!/usr/bin/env node` bin to Node
-# when the binary exists, and under Bun the config loader hits an unimplemented
-# `module._compile` path.
-# TODO: remove this Node copy once both Bun fixes ship in a release:
-# TODO: https://github.com/oven-sh/bun/pull/38090
-# TODO: https://github.com/oven-sh/bun/pull/38166
-COPY --from=node:24-bookworm-slim /usr/local/bin/node /usr/local/bin/node
 RUN bun turbo --filter=@ryot/kernel-client build
 
 FROM base AS sandbox-compiler-runtime
