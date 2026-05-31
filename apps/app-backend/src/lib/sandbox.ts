@@ -206,7 +206,9 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 				return runPromise(
 					redis.get(getCacheKey(input.scriptId, key.trim())).pipe(
 						Effect.flatMap((cached) => {
-							if (cached === null) {return Effect.succeed(apiSuccess(null));}
+							if (cached === null) {
+								return Effect.succeed(apiSuccess(null));
+							}
 							return Schema.decode(Schema.parseJson(Schema.Unknown))(cached).pipe(
 								Effect.map(apiSuccess),
 								Effect.orElseSucceed(() =>

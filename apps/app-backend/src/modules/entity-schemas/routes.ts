@@ -3,7 +3,7 @@ import { Effect } from "effect";
 
 import { CurrentUser } from "../../lib/auth";
 import { AppContract } from "../../lib/contract";
-import { dieOnDbError, notImplemented } from "../../lib/errors";
+import { dieOnDbError } from "../../lib/errors";
 import { EntitySchemasService } from "./service";
 
 export const EntitySchemasRoutesLive = HttpApiBuilder.group(
@@ -34,6 +34,18 @@ export const EntitySchemasRoutesLive = HttpApiBuilder.group(
 					return yield* service.getById(user, path.entitySchemaId).pipe(dieOnDbError);
 				}),
 			)
-			.handle("search", () => Effect.fail(notImplemented()))
-			.handle("getSearchResult", () => Effect.fail(notImplemented())),
+			.handle("search", ({ payload }) =>
+				Effect.gen(function* () {
+					const user = yield* CurrentUser;
+					const service = yield* EntitySchemasService;
+					return yield* service.search(user, payload).pipe(dieOnDbError);
+				}),
+			)
+			.handle("getSearchResult", ({ path }) =>
+				Effect.gen(function* () {
+					const user = yield* CurrentUser;
+					const service = yield* EntitySchemasService;
+					return yield* service.getSearchResult(user, path.jobId).pipe(dieOnDbError);
+				}),
+			),
 );
