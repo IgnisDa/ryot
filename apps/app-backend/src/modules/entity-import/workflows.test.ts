@@ -15,9 +15,11 @@ import {
 import { dbRunnerLayer, makeMock, makeWorkflowActivityEngine } from "#lib/test-support/effect";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { ListedEntity } from "#modules/entities/schemas";
+import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 
+import { processChildEntityTree } from "./population";
 import { EntityImportPayload, runEntityImportWorkflow } from "./workflows";
 
 const TestEntityImportWorkflow = Workflow.make({
@@ -79,6 +81,19 @@ const makeRelationshipsRepository = (overrides: Partial<RelationshipsRepository>
 		overrides,
 	);
 
+const makeEntitySchemasRepository = (overrides: Partial<EntitySchemasRepository> = {}) =>
+	makeMock<EntitySchemasRepository>(
+		{
+			_tag: "EntitySchemasRepository" as const,
+			listByUser: () => Effect.die("unused"),
+			findBySlug: () => Effect.die("unused"),
+			getBuiltinBySlug: () => Effect.succeed(null),
+			createEntitySchema: () => Effect.die("unused"),
+			listVisibleBySlugs: () => Effect.die("unused"),
+		},
+		overrides,
+	);
+
 const makeRelationshipSchemasRepository = (
 	overrides: Partial<RelationshipSchemasRepository> = {},
 ) =>
@@ -98,6 +113,7 @@ const makeRelationshipSchemasRepository = (
 
 type TestLayerOptions = {
 	entitiesRepository?: EntitiesRepository;
+	entitySchemasRepository?: EntitySchemasRepository;
 	relationshipsRepository?: RelationshipsRepository;
 	relationshipSchemasRepository?: RelationshipSchemasRepository;
 };
@@ -106,6 +122,10 @@ const makeTestLayer = (options: TestLayerOptions) =>
 	Layer.mergeAll(
 		dbRunnerLayer,
 		Layer.succeed(EntitiesRepository, options.entitiesRepository ?? makeEntitiesRepository()),
+		Layer.succeed(
+			EntitySchemasRepository,
+			options.entitySchemasRepository ?? makeEntitySchemasRepository(),
+		),
 		Layer.succeed(
 			RelationshipsRepository,
 			options.relationshipsRepository ?? makeRelationshipsRepository(),
@@ -241,6 +261,162 @@ it.effect("populates entity and writes related entities", () => {
 			expect(relationshipWritten).toBe(true);
 		}),
 	);
+});
+
+type StoredChildEntity = Omit<ListedEntity, "properties" | "sandboxScriptId"> & {
+	sandboxScriptId: SandboxScriptId;
+	properties: Record<string, unknown>;
+};
+
+it.effect("writes child entity trees idempotently", () => {
+	const storedRelationships = new Set<string>();
+	const storedEntities = new Map<string, StoredChildEntity>();
+	const entityWrites: Array<{
+		name: string;
+		externalId: string;
+		image: ListedEntity["image"];
+		entitySchemaId: EntitySchemaId;
+		sandboxScriptId: SandboxScriptId;
+		properties: Record<string, unknown>;
+	}> = [];
+	const relationshipSchemas = new Map([
+		[
+			"schema-1->schema-season",
+			{
+				isBuiltin: true,
+				name: "Show to Show Season",
+				slug: "show-to-show-season",
+				propertiesSchema: { fields: {} },
+				id: RelationshipSchemaId.make("rel-show-season"),
+				sourceEntitySchemaId: EntitySchemaId.make("schema-1"),
+				targetEntitySchemaId: EntitySchemaId.make("schema-season"),
+			},
+		],
+		[
+			"schema-season->schema-episode",
+			{
+				isBuiltin: true,
+				propertiesSchema: { fields: {} },
+				name: "Show Season to Show Episode",
+				slug: "show-season-to-show-episode",
+				id: RelationshipSchemaId.make("rel-season-episode"),
+				sourceEntitySchemaId: EntitySchemaId.make("schema-season"),
+				targetEntitySchemaId: EntitySchemaId.make("schema-episode"),
+			},
+		],
+	]);
+	const options = {
+		entitySchemasRepository: makeEntitySchemasRepository({
+			getBuiltinBySlug: (slug: string) =>
+				Effect.succeed(
+					slug === "show-season"
+						? { id: EntitySchemaId.make("schema-season") }
+						: slug === "show-episode"
+							? { id: EntitySchemaId.make("schema-episode") }
+							: null,
+				),
+		}),
+		relationshipSchemasRepository: makeRelationshipSchemasRepository({
+			findGlobalBySchemaIds: (input) =>
+				Effect.succeed(
+					relationshipSchemas.get(`${input.sourceEntitySchemaId}->${input.targetEntitySchemaId}`) ??
+						null,
+				),
+		}),
+		entitiesRepository: makeEntitiesRepository({
+			createOrUpdateGlobalEntity: (input) => {
+				entityWrites.push(input);
+				const key = `${input.entitySchemaId}:${input.externalId}:${input.sandboxScriptId}`;
+				const existing = storedEntities.get(key);
+				if (existing) {
+					return Effect.succeed(existing);
+				}
+
+				const entity = {
+					...baseEntity,
+					name: input.name,
+					image: input.image,
+					externalId: input.externalId,
+					properties: input.properties,
+					entitySchemaId: input.entitySchemaId,
+					sandboxScriptId: input.sandboxScriptId,
+					populatedAt: input.populatedAt?.toISOString() ?? null,
+					id: EntityId.make(`${input.entitySchemaId}-${input.externalId}`),
+				} satisfies StoredChildEntity;
+				storedEntities.set(key, entity);
+				return Effect.succeed(entity);
+			},
+		}),
+		relationshipsRepository: makeRelationshipsRepository({
+			upsertEntityRelationship: (input) =>
+				Effect.sync(() => {
+					storedRelationships.add(
+						`${input.relationshipSchemaId}:${input.sourceEntityId}->${input.targetEntityId}`,
+					);
+				}),
+		}),
+	} satisfies TestLayerOptions;
+
+	const runProcessor = (executionId: string) =>
+		withTestLayer(
+			options,
+			executionId,
+			processChildEntityTree({
+				activityPrefix: "",
+				parentEntityId: baseEntity.id,
+				sandboxScriptId: SandboxScriptId.make("script-1"),
+				parentEntitySchemaId: EntitySchemaId.make("schema-1"),
+				childEntities: [
+					{
+						name: "Season 1",
+						externalId: "season-1",
+						entitySchemaSlug: "show-season",
+						image: { type: "remote", url: RemoteImageUrl.make("https://example.com/season.jpg") },
+						properties: { seasonNumber: 1, description: "Season", releaseDate: "2026-01-01" },
+						childEntities: [
+							{
+								name: "Episode 1",
+								externalId: "episode-1",
+								entitySchemaSlug: "show-episode",
+								properties: {
+									runtime: 45,
+									seasonNumber: 1,
+									episodeNumber: 1,
+									description: "Episode",
+									publishDate: "2026-01-02",
+								},
+							},
+						],
+					},
+				],
+			}),
+		);
+
+	return Effect.gen(function* () {
+		yield* runProcessor("exec-child-tree-1");
+		yield* runProcessor("exec-child-tree-2");
+
+		expect(storedEntities.size).toBe(2);
+		expect(storedRelationships.size).toBe(2);
+		expect(entityWrites).toHaveLength(4);
+		expect(entityWrites[0]?.sandboxScriptId).toBe("script-1");
+		expect(entityWrites[0]?.image).toEqual({
+			type: "remote",
+			url: "https://example.com/season.jpg",
+		});
+		expect(storedEntities.get("schema-season:season-1:script-1")?.properties).toEqual({
+			description: "Season",
+			releaseDate: "2026-01-01",
+			seasonNumber: 1,
+		});
+		expect(storedEntities.get("schema-episode:episode-1:script-1")?.properties).toEqual({
+			runtime: 45,
+			seasonNumber: 1,
+			episodeNumber: 1,
+			description: "Episode",
+			publishDate: "2026-01-02",
+		});
+	});
 });
 
 it.effect("uses explicit details image for the primary entity", () => {

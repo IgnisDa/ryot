@@ -18,7 +18,9 @@ import {
 	musicPropertiesSchema,
 	personPropertiesSchema,
 	podcastPropertiesSchema,
+	showEpisodePropertiesSchema,
 	showPropertiesSchema,
+	showSeasonPropertiesSchema,
 	visualNovelPropertiesSchema,
 	animePropertiesSchema,
 	videoGamePropertiesSchema,
@@ -73,22 +75,6 @@ const progressPropertiesSchemaByEntity = (entitySchemaSlug: string | undefined):
 		return progressPercentPropertiesSchema();
 	}
 	switch (entitySchemaSlug) {
-		case "show":
-			return {
-				fields: {
-					...progressPercentPropertiesSchema().fields,
-					showSeason: {
-						label: "Show Season",
-						type: "integer" as const,
-						description: "Season number being tracked",
-					},
-					showEpisode: {
-						label: "Show Episode",
-						type: "integer" as const,
-						description: "Episode number within the current season",
-					},
-				},
-			};
 		case "anime":
 			return {
 				fields: {
@@ -132,6 +118,14 @@ const progressPropertiesSchemaByEntity = (entitySchemaSlug: string | undefined):
 	}
 };
 
+const lifecycleEventSchemaBySlug = (slug: string) => {
+	const eventSchema = mediaLifecycleEventSchemas().find((schema) => schema.slug === slug);
+	if (!eventSchema) {
+		throw new Error(`Missing builtin lifecycle event schema: ${slug}`);
+	}
+	return eventSchema;
+};
+
 const reviewBaseFields = () => ({
 	text: {
 		label: "Review",
@@ -156,22 +150,6 @@ const reviewPropertiesSchemaByEntity = (entitySchemaSlug: string | undefined): A
 		return { fields: reviewBaseFields() };
 	}
 	switch (entitySchemaSlug) {
-		case "show":
-			return {
-				fields: {
-					...reviewBaseFields(),
-					showSeason: {
-						label: "Show Season",
-						type: "integer" as const,
-						description: "Season number of the episode being reviewed",
-					},
-					showEpisode: {
-						label: "Show Episode",
-						type: "integer" as const,
-						description: "Episode number within the current season being reviewed",
-					},
-				},
-			};
 		case "anime":
 			return {
 				fields: {
@@ -375,7 +353,25 @@ export const builtinEntitySchemas = () => [
 		trackerSlug: "media",
 		accentColor: "#8B5CF6",
 		propertiesSchema: showPropertiesSchema,
-		eventSchemas: mediaLifecycleEventSchemas("show"),
+		eventSchemas: mediaLifecycleEventSchemas("show").filter((schema) => schema.slug !== "progress"),
+	},
+	{
+		icon: "list-video",
+		slug: "show-season",
+		name: "Show Season",
+		trackerSlug: undefined,
+		accentColor: "#A78BFA",
+		propertiesSchema: showSeasonPropertiesSchema,
+		eventSchemas: [lifecycleEventSchemaBySlug("complete")],
+	},
+	{
+		icon: "play-square",
+		slug: "show-episode",
+		name: "Show Episode",
+		trackerSlug: undefined,
+		accentColor: "#C4B5FD",
+		propertiesSchema: showEpisodePropertiesSchema,
+		eventSchemas: [lifecycleEventSchemaBySlug("progress"), lifecycleEventSchemaBySlug("complete")],
 	},
 	{
 		slug: "manga",
