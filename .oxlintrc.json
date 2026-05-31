@@ -30,6 +30,7 @@
 		"typescript/require-await": "warn",
 		"react/no-array-index-key": "warn",
 		"typescript/no-deprecated": "error",
+		"eslint/no-nested-ternary": "error",
 		"import/no-named-as-default": "off",
 		"typescript/no-explicit-any": "warn",
 		"typescript/await-thenable": "error",
