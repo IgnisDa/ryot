@@ -1,7 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "@effect/vitest";
+import { Effect } from "effect";
 
-import type { BrowserStorage } from "../../persistence/storage";
-import { BETTER_AUTH_STORAGE_KEYS, clearAuthStorage, getAuthClient } from "./client";
+import { clientStorageLayer, type BrowserStorage } from "../../persistence/storage";
+import {
+	AuthClient,
+	BETTER_AUTH_STORAGE_KEYS,
+	makeAuthSessionStore,
+	type AuthSessionSource,
+} from "./client";
 
 const makeStorage = (entries: readonly (readonly [string, string])[]) => {
 	const values = new Map(entries);
@@ -14,15 +20,51 @@ const makeStorage = (entries: readonly (readonly [string, string])[]) => {
 };
 
 describe("browser auth client", () => {
-	it("caches clients by normalized server origin", () => {
-		const first = getAuthClient(" https://one.test/// ");
+	it("adapts session changes into stable snapshots and releases subscriptions", () => {
+		let state: ReturnType<AuthSessionSource["get"]> = { data: null, isPending: true };
+		const listeners = new Set<() => void>();
+		const store = makeAuthSessionStore({
+			get: () => state,
+			listen: (listener) => {
+				listeners.add(listener);
+				return () => listeners.delete(listener);
+			},
+		});
+		const initial = store.getSnapshot();
+		let notifications = 0;
+		const unsubscribe = store.subscribe(() => {
+			notifications += 1;
+		});
 
-		expect(getAuthClient("https://one.test")).toBe(first);
-		expect(getAuthClient("https://two.test")).not.toBe(first);
+		expect(store.getSnapshot()).toBe(initial);
+		state = {
+			isPending: false,
+			data: { user: { email: "user@example.com", id: "user-1" } },
+		};
+		listeners.forEach((listener) => listener());
+		expect(notifications).toBe(1);
+		expect(store.getSnapshot()).toEqual({
+			status: "authenticated",
+			user: { email: "user@example.com", id: "user-1" },
+		});
+
+		unsubscribe();
+		listeners.forEach((listener) => listener());
+		expect(notifications).toBe(1);
 	});
 
-	it("clears only Better Auth storage and resets cached clients", () => {
-		const first = getAuthClient("https://one.test");
+	it.effect("caches session stores by normalized server origin", () => {
+		const { storage } = makeStorage([]);
+		return Effect.gen(function* () {
+			const client = yield* AuthClient;
+			const first = client.session(" https://one.test/// ");
+
+			expect(client.session("https://one.test")).toBe(first);
+			expect(client.session("https://two.test")).not.toBe(first);
+		}).pipe(Effect.provide(AuthClient.layer), Effect.provide(clientStorageLayer(storage)));
+	});
+
+	it.effect("clears only Better Auth storage and resets cached stores", () => {
 		const { storage, values } = makeStorage([
 			["unrelated", "keep"],
 			["ryot:theme", "dark"],
@@ -30,13 +72,17 @@ describe("browser auth client", () => {
 			[BETTER_AUTH_STORAGE_KEYS[0], "session-event"],
 		]);
 
-		clearAuthStorage(storage);
+		return Effect.gen(function* () {
+			const client = yield* AuthClient;
+			const first = client.session("https://one.test");
+			yield* client.clear();
 
-		expect(Object.fromEntries(values)).toEqual({
-			unrelated: "keep",
-			"ryot:theme": "dark",
-			"ryot:other-setting": "keep",
-		});
-		expect(getAuthClient("https://one.test")).not.toBe(first);
+			expect(Object.fromEntries(values)).toEqual({
+				unrelated: "keep",
+				"ryot:theme": "dark",
+				"ryot:other-setting": "keep",
+			});
+			expect(client.session("https://one.test")).not.toBe(first);
+		}).pipe(Effect.provide(AuthClient.layer), Effect.provide(clientStorageLayer(storage)));
 	});
 });

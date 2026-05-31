@@ -1,18 +1,23 @@
 // oxlint-disable-next-line import/no-unassigned-import
 import "../styles/index.css";
-import { Outlet, createRootRoute } from "@tanstack/react-router";
+import { Outlet, createRootRouteWithContext } from "@tanstack/react-router";
 
-import { ThemeController, ThemePreferenceControl } from "../modules/theme/controller";
+import { ThemeController } from "../modules/theme/controller";
+import type { ThemePreference } from "../modules/theme/preference";
+import type { ClientRuntime } from "../runtime";
 
-export const Route = createRootRoute({
-	component: RootComponent,
-});
+export type RouterContext = {
+	readonly runtime: ClientRuntime;
+	readonly initialThemePreference: ThemePreference;
+};
+
+export const Route = createRootRouteWithContext<RouterContext>()({ component: RootComponent });
 
 function RootComponent() {
+	const { initialThemePreference, runtime } = Route.useRouteContext();
 	return (
 		<>
-			<ThemeController />
-			<ThemePreferenceControl />
+			<ThemeController initialPreference={initialThemePreference} runtime={runtime} />
 			<Outlet />
 		</>
 	);

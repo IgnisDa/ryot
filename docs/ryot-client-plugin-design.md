@@ -199,6 +199,10 @@ Capacitor on iOS and Android
 
 TanStack Query is not part of the architecture. Ryot already uses Effect and `@effect/atom-react` for asynchronous and reactive application state.
 
+Application I/O and workflows are Effect services. Browser storage, transport, and third-party clients belong in live layers composed into one client `ManagedRuntime` at startup. TanStack Router receives that runtime through route context; routes resolve services and adapt their effects to React navigation and display state. Presentational components receive focused operations through props.
+
+Tests replace service dependencies with deterministic layers and use plain recording functions for component operations. They do not replace application modules, globals, hooks, or injected operations with test-framework mocks or spies.
+
 TanStack Router replaces React Router and Expo Router in the new client architecture.
 
 TanStack Start is not required. Ryot already has an independent backend and does not need a React server framework for the main client.
@@ -645,7 +649,7 @@ kernel
 Ryot backend
 ```
 
-The kernel may use Effect and `@effect/atom-react` internally for request state, reactivity, caching, and invalidation.
+The kernel uses Effect services and `@effect/atom-react` internally for application I/O, workflows, request state, reactivity, caching, and invalidation. These dependencies are resolved by the kernel runtime and do not cross the plugin boundary.
 
 Plugins do not need to know that internal implementation.
 
