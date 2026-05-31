@@ -18,7 +18,7 @@ async function createBuiltInMediaEvent(input: {
 	entityId: string;
 	entitySchemaId: string;
 	properties: Record<string, unknown>;
-	eventSchemaSlug: "backlog" | "progress" | "complete" | "review";
+	eventSchemaSlug: "backlog" | "progress" | "complete" | "review" | "dropped" | "on_hold";
 	client: Awaited<ReturnType<typeof createAuthenticatedClient>>["client"];
 }) {
 	const eventSchemas = await listEventSchemas(input.client, input.cookies, input.entitySchemaId);
@@ -635,6 +635,163 @@ describe("GET /media/overview/library", () => {
 		expect(data?.data.avgRating).toBe(40);
 		expect(data?.data.inProgress).toBe(1);
 		expect(data?.data.entityTypeCounts).toMatchObject({ book: 2, manga: 1 });
+	});
+
+	it("does not count dropped or on hold items as active statuses", async () => {
+		const { client, cookies, userId } = await createAuthenticatedClient();
+		const builtinTracker = await findBuiltinTracker(client, cookies);
+		const schemas = await listEntitySchemas(client, cookies, {
+			trackerId: builtinTracker.id,
+		});
+		const bookSchema = schemas.find((item) => item.slug === "book");
+		const mangaSchema = schemas.find((item) => item.slug === "manga");
+		assertPresent(bookSchema, "Missing built-in media schemas");
+		assertPresent(mangaSchema, "Missing built-in media schemas");
+		const bookProvider = bookSchema.providers[0];
+		const mangaProvider = mangaSchema.providers[0];
+		assertPresent(bookProvider, "Missing built-in providers");
+		assertPresent(mangaProvider, "Missing built-in providers");
+
+		const backlogBook = await seedMediaEntity({
+			userId,
+			image: null,
+			name: "Backlog Book",
+			entitySchemaId: bookSchema.id,
+			sandboxScriptId: bookProvider.scriptId,
+			properties: { publishYear: 2021, pages: 320 },
+			externalId: `book-backlog-${crypto.randomUUID()}`,
+		});
+
+		const inProgressManga = await seedMediaEntity({
+			userId,
+			image: null,
+			name: "In Progress Manga",
+			entitySchemaId: mangaSchema.id,
+			sandboxScriptId: mangaProvider.scriptId,
+			properties: { publishYear: 2023, chapters: 100 },
+			externalId: `manga-progress-${crypto.randomUUID()}`,
+		});
+
+		const completedBook = await seedMediaEntity({
+			userId,
+			image: null,
+			name: "Completed Book",
+			entitySchemaId: bookSchema.id,
+			sandboxScriptId: bookProvider.scriptId,
+			properties: { publishYear: 2020, pages: 250 },
+			externalId: `book-complete-${crypto.randomUUID()}`,
+		});
+
+		const droppedBook = await seedMediaEntity({
+			userId,
+			image: null,
+			name: "Dropped Book",
+			entitySchemaId: bookSchema.id,
+			sandboxScriptId: bookProvider.scriptId,
+			properties: { publishYear: 2019, pages: 180 },
+			externalId: `book-dropped-${crypto.randomUUID()}`,
+		});
+
+		const onHoldManga = await seedMediaEntity({
+			userId,
+			image: null,
+			name: "On Hold Manga",
+			entitySchemaId: mangaSchema.id,
+			sandboxScriptId: mangaProvider.scriptId,
+			properties: { publishYear: 2022, chapters: 60 },
+			externalId: `manga-on-hold-${crypto.randomUUID()}`,
+		});
+
+		await insertLibraryMembership({ userId, mediaEntityId: backlogBook.id });
+		await insertLibraryMembership({ userId, mediaEntityId: completedBook.id });
+		await insertLibraryMembership({ userId, mediaEntityId: inProgressManga.id });
+		await insertLibraryMembership({ userId, mediaEntityId: droppedBook.id });
+		await insertLibraryMembership({ userId, mediaEntityId: onHoldManga.id });
+
+		await createBuiltInMediaEvent({
+			client,
+			cookies,
+			properties: {},
+			entityId: backlogBook.id,
+			eventSchemaSlug: "backlog",
+			entitySchemaId: bookSchema.id,
+		});
+
+		await createBuiltInMediaEvent({
+			client,
+			cookies,
+			eventSchemaSlug: "progress",
+			entityId: inProgressManga.id,
+			entitySchemaId: mangaSchema.id,
+			properties: { progressPercent: 30 },
+		});
+
+		await createBuiltInMediaEvent({
+			client,
+			cookies,
+			entityId: completedBook.id,
+			eventSchemaSlug: "complete",
+			entitySchemaId: bookSchema.id,
+			properties: { completionMode: "just_now" },
+		});
+
+		await createBuiltInMediaEvent({
+			client,
+			cookies,
+			eventSchemaSlug: "review",
+			entityId: completedBook.id,
+			entitySchemaId: bookSchema.id,
+			properties: { rating: 40, text: "Great read" },
+		});
+
+		await createBuiltInMediaEvent({
+			client,
+			cookies,
+			eventSchemaSlug: "progress",
+			entityId: droppedBook.id,
+			entitySchemaId: bookSchema.id,
+			properties: { progressPercent: 45 },
+		});
+
+		await createBuiltInMediaEvent({
+			client,
+			cookies,
+			eventSchemaSlug: "dropped",
+			entityId: droppedBook.id,
+			entitySchemaId: bookSchema.id,
+			properties: { progressPercent: 45 },
+		});
+
+		await createBuiltInMediaEvent({
+			client,
+			cookies,
+			eventSchemaSlug: "progress",
+			entityId: onHoldManga.id,
+			entitySchemaId: mangaSchema.id,
+			properties: { progressPercent: 55 },
+		});
+
+		await createBuiltInMediaEvent({
+			client,
+			cookies,
+			eventSchemaSlug: "on_hold",
+			entityId: onHoldManga.id,
+			entitySchemaId: mangaSchema.id,
+			properties: { progressPercent: 55 },
+		});
+
+		const { data, response } = await client.GET("/media/overview/library", {
+			headers: { Cookie: cookies },
+		});
+
+		expect(data?.data).toBeDefined();
+		expect(response.status).toBe(200);
+		expect(data?.data.total).toBe(5);
+		expect(data?.data.inBacklog).toBe(1);
+		expect(data?.data.completed).toBe(1);
+		expect(data?.data.avgRating).toBe(40);
+		expect(data?.data.inProgress).toBe(1);
+		expect(data?.data.entityTypeCounts).toMatchObject({ book: 3, manga: 2 });
 	});
 
 	it("returns null avgRating when no reviews exist", async () => {
