@@ -1,5 +1,7 @@
+import { FetchHttpClient, HttpClient, HttpClientRequest } from "@effect/platform";
+import { isHttpMethod } from "@effect/platform/HttpMethod";
 import { and, eq, isNull, or } from "drizzle-orm";
-import { Clock, Duration, Effect, Runtime, Schema } from "effect";
+import { Clock, Duration, Effect, Match, Runtime, Schema } from "effect";
 
 import { AppConfig } from "./config";
 import { CurrentDb, DbRunner, dbEffect, schema } from "./db";
@@ -121,16 +123,8 @@ const requireSandboxRunInput = (args: ReadonlyArray<unknown>, index: number, fnN
 	return input;
 };
 
-const mapHeadersToObject = (headers: Headers) => {
-	const headerObject: Record<string, string> = {};
-	for (const [key, value] of headers.entries()) {
-		headerObject[key] = value;
-	}
-	return headerObject;
-};
-
 export class SandboxService extends Effect.Service<SandboxService>()("SandboxService", {
-	dependencies: [ProcessPool.Default, BridgeService.Default],
+	dependencies: [FetchHttpClient.layer, ProcessPool.Default, BridgeService.Default],
 	effect: Effect.gen(function* () {
 		const pool = yield* ProcessPool;
 		const config = yield* AppConfig;
@@ -139,6 +133,7 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 		const bridge = yield* BridgeService;
 		const runtime = yield* Effect.runtime();
 		const runPromise = Runtime.runPromise(runtime);
+		const httpClient = yield* HttpClient.HttpClient;
 
 		const apiFunctions: Record<string, BoundHostFunction> = {
 			executeQueryEngine: (...args) => {
@@ -252,44 +247,50 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 					return Promise.resolve(apiFailure("httpCall expects a non-empty URL string"));
 				}
 
-				let requestUrl: URL;
-				try {
-					requestUrl = new URL(url);
-				} catch {
-					return Promise.resolve(apiFailure("httpCall URL is invalid"));
-				}
+				return runPromise(
+					Effect.gen(function* () {
+						const requestUrl = yield* Effect.try({
+							try: () => new URL(url),
+							catch: () => apiFailure("httpCall URL is invalid"),
+						});
+						const parsedOptions = yield* Effect.try({
+							try: () => parseHttpCallOptions(options),
+							catch: (error) => apiFailure(unknownToMessage(error)),
+						});
 
-				let parsedOptions: HttpCallOptions;
-				try {
-					parsedOptions = parseHttpCallOptions(options);
-				} catch (error) {
-					return Promise.resolve(apiFailure(unknownToMessage(error)));
-				}
+						const httpMethod = yield* Match.value(method.trim().toUpperCase()).pipe(
+							Match.when(isHttpMethod, (m) => Effect.succeed(m)),
+							Match.orElse(() =>
+								Effect.fail(apiFailure("httpCall method is not a valid HTTP method")),
+							),
+						);
+						let request = HttpClientRequest.make(httpMethod)(requestUrl.toString()).pipe(
+							HttpClientRequest.setHeaders({ ...defaultHeaders, ...parsedOptions.headers }),
+						);
+						if (parsedOptions.body !== undefined) {
+							request = HttpClientRequest.bodyText(parsedOptions.body)(request);
+						}
 
-				return fetch(requestUrl.toString(), {
-					body: parsedOptions.body,
-					method: method.trim().toUpperCase(),
-					signal: AbortSignal.timeout(httpCallTimeoutMs),
-					headers: { ...defaultHeaders, ...parsedOptions.headers },
-				})
-					.then((response) =>
-						response.text().then((body) => {
-							if (!response.ok) {
-								return {
-									...apiFailure(`HTTP ${response.status} ${response.statusText}`),
-									data: { status: response.status },
-								};
-							}
+						const [response, body] = yield* httpClient.execute(request).pipe(
+							Effect.flatMap((res) => Effect.map(res.text, (text) => [res, text] as const)),
+							Effect.timeout(Duration.millis(httpCallTimeoutMs)),
+							Effect.mapError((error) => apiFailure(unknownToMessage(error))),
+						);
 
-							return apiSuccess({
-								body,
-								status: response.status,
-								statusText: response.statusText,
-								headers: mapHeadersToObject(response.headers),
-							});
-						}),
-					)
-					.catch((error) => apiFailure(unknownToMessage(error)));
+						if (response.status < 200 || response.status >= 300) {
+							return {
+								...apiFailure(`HTTP ${response.status}`),
+								data: { status: response.status },
+							};
+						}
+
+						return apiSuccess({
+							body,
+							status: response.status,
+							headers: response.headers,
+						});
+					}).pipe(Effect.catchAll((errorValue) => Effect.succeed(errorValue))),
+				);
 			},
 			setCachedValue: (...args) => {
 				const key = args[0];
