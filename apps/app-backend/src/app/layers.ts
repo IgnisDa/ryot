@@ -21,6 +21,7 @@ export const AppLive = RuntimeAfterMigrationsLive.pipe(
 	Layer.provide(TransactionRunnerLive),
 	Layer.provide(TrackersRepositoryLive),
 	Layer.provide(AuthLive),
+	Layer.provide(TransactionRunnerLive),
 	Layer.provide(DbLive),
 	Layer.provide(RedisLive),
 	Layer.provide(AppConfigLive),
