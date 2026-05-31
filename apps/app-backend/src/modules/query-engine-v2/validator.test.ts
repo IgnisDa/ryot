@@ -3,6 +3,10 @@ import { describe, expect, it } from "vitest";
 import type { EntitySourceV2, Expr, IncludeEntryV2, QueryDocumentV2 } from "./language";
 import { validateQueryDocumentV2 } from "./validator";
 
+type RowsQueryDocumentV2 = QueryDocumentV2 & {
+	output: Extract<QueryDocumentV2["output"], { type: "rows" }>;
+};
+
 const nameRef = (alias: string): Expr => ({
 	type: "ref",
 	sourceAlias: alias,
@@ -36,7 +40,7 @@ const descendantSource = (
 	via: { entityRef: anchor, alias: edgeAlias, direction: "outgoing", schema: edgeAlias },
 });
 
-const makeDoc = (overrides: Partial<QueryDocumentV2> = {}): QueryDocumentV2 => ({
+const makeDoc = (overrides: Partial<RowsQueryDocumentV2> = {}): RowsQueryDocumentV2 => ({
 	version: 2,
 	source: { alias: "e", where: null, type: "entities", schemas: ["books"] },
 	output: {
