@@ -328,7 +328,7 @@ function MobileTopBar(props: {
 				accessibilityLabel={`Switch workspace, current workspace ${props.workspaceName}`}
 				className="h-10 w-10 items-center justify-center rounded-pill border border-border-strong bg-surface-2"
 			>
-				<NavigationIcon className="text-accent" name={props.workspaceIcon} size={24} />
+				<NavigationIcon className="text-text-muted" name={props.workspaceIcon} size={24} />
 			</Pressable>
 		</View>
 	);
