@@ -28,7 +28,10 @@ export async function createTracker(
 	});
 
 	const tracker = requireResponseData(response, data, `Failed to create tracker '${name}'`);
-	return { trackerId: requirePresent(tracker.id, `Failed to create tracker '${name}'`) };
+	return {
+		tracker,
+		trackerId: requirePresent(tracker.id, `Failed to create tracker '${name}'`),
+	};
 }
 
 export async function listTrackers(
