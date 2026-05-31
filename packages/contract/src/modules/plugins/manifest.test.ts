@@ -295,6 +295,34 @@ describe("definePlugin", () => {
 		});
 	});
 
+	it("accepts a canonical client entry under client/", () => {
+		const client = { entry: "client/index.tsx", apiVersion: 1, capabilities: ["storage"] };
+		const decoded = Schema.decodeUnknownSync(PluginManifest)({ ...manifest, client });
+
+		expect(decoded.client).toEqual(client);
+	});
+
+	it("rejects client entries outside client/ or with noncanonical paths", () => {
+		for (const entry of [
+			"index.tsx",
+			"backend/index.ts",
+			"client/../index.tsx",
+			"client//index.tsx",
+			"client\\index.tsx",
+		]) {
+			expect(() =>
+				Schema.decodeUnknownSync(PluginManifest)({
+					...manifest,
+					client: { entry, apiVersion: 1, capabilities: [] },
+				}),
+			).toThrow();
+		}
+	});
+
+	it("keeps backend-only manifests valid", () => {
+		expect(Schema.decodeUnknownSync(PluginManifest)(manifest)).toEqual(manifest);
+	});
+
 	it("accepts import upload extensions from the supported upload policy", () => {
 		const [source] = manifest.importSources;
 		assert(source);
