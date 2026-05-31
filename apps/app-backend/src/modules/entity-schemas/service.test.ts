@@ -98,7 +98,7 @@ describe("parseEntitySchemaPropertiesSchema", () => {
 					title: { validation: { required: true } },
 				},
 			}),
-		).toThrow("Invalid input");
+		).toThrow("Invalid discriminator value");
 	});
 
 	it("rejects property with invalid type", () => {
@@ -106,7 +106,7 @@ describe("parseEntitySchemaPropertiesSchema", () => {
 			parseEntitySchemaPropertiesSchema({
 				fields: { title: { label: "Title", type: "invalid" } },
 			}),
-		).toThrow("Invalid input");
+		).toThrow("Invalid discriminator value");
 	});
 
 	it("rejects array property without items", () => {
