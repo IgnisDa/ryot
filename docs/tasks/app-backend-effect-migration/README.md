@@ -178,9 +178,9 @@ The module migration proceeds from infrastructure and leaf modules toward highly
 
 ## Tasks
 
-**Overall Progress:** 15 of 32 tasks completed
+**Overall Progress:** 16 of 32 tasks completed
 
-**Current Task:** [Task 16](./16-event-create-list-without-triggers.md) (todo)
+**Current Task:** [Task 17](./17-collections-and-library-membership.md) (todo)
 
 ### Task List
 
@@ -201,7 +201,7 @@ The module migration proceeds from infrastructure and leaf modules toward highly
 | 13  | [Entity Schema Basic CRUD](./13-entity-schema-basic-crud.md)                                         | AFK  | done   |
 | 14  | [Event Schema Basic CRUD](./14-event-schema-basic-crud.md)                                           | AFK  | done   |
 | 15  | [Entity Create Get Clear State](./15-entity-create-get-clear-state.md)                               | AFK  | done   |
-| 16  | [Event Create List Without Triggers](./16-event-create-list-without-triggers.md)                     | AFK  | todo   |
+| 16  | [Event Create List Without Triggers](./16-event-create-list-without-triggers.md)                     | AFK  | done   |
 | 17  | [Collections And Library Membership](./17-collections-and-library-membership.md)                     | AFK  | todo   |
 | 18  | [Uploads Temporary And Presigned](./18-uploads-temporary-and-presigned.md)                           | AFK  | todo   |
 | 19  | [Sandbox Runtime And Direct Runs](./19-sandbox-runtime-and-direct-runs.md)                           | AFK  | todo   |

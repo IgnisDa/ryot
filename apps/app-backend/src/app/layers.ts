@@ -13,6 +13,8 @@ import { EntitySchemasRepository } from "../modules/entity-schemas/repository";
 import { EntitySchemasService } from "../modules/entity-schemas/service";
 import { EventSchemasRepository } from "../modules/event-schemas/repository";
 import { EventSchemasService } from "../modules/event-schemas/service";
+import { EventsRepository } from "../modules/events/repository";
+import { EventsService } from "../modules/events/service";
 import { RelationshipSchemasRepository } from "../modules/relationship-schemas/repository";
 import { RelationshipSchemasService } from "../modules/relationship-schemas/service";
 import { TrackersRepository } from "../modules/trackers/repository";
@@ -28,12 +30,14 @@ export const AppLive = RuntimeAfterMigrationsLive.pipe(
 	Layer.provide(EntitiesService.Default),
 	Layer.provide(EntitySchemasService.Default),
 	Layer.provide(EventSchemasService.Default),
+	Layer.provide(EventsService.Default),
 	Layer.provide(RelationshipSchemasService.Default),
 	Layer.provide(DbRunnerLive),
 	Layer.provide(TrackersRepository.Default),
 	Layer.provide(EntitiesRepository.Default),
 	Layer.provide(EntitySchemasRepository.Default),
 	Layer.provide(EventSchemasRepository.Default),
+	Layer.provide(EventsRepository.Default),
 	Layer.provide(RelationshipSchemasRepository.Default),
 	Layer.provide(AuthService.Default),
 	Layer.provide(TransactionRunnerLive),
