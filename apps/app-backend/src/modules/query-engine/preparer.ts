@@ -85,31 +85,31 @@ export const normalizeRequestPerMode = (request: QueryEngineRequest): PrepareCon
 		.exhaustive();
 };
 
+const buildCardPreparedFields = (cardInput: {
+	configuration: DisplayConfiguration["grid"];
+	entityIdProperty: DisplayConfiguration["entityIdProperty"];
+}) => {
+	return [
+		{ key: "entityId", expression: cardInput.entityIdProperty },
+		{ key: "eyebrow", expression: cardInput.configuration.eyebrowProperty ?? nullViewExpression },
+		{ key: "image", expression: cardInput.configuration.imageProperty ?? nullViewExpression },
+		{ key: "title", expression: cardInput.configuration.titleProperty },
+		{
+			key: "primarySubtitle",
+			expression: cardInput.configuration.primarySubtitleProperty ?? nullViewExpression,
+		},
+		{
+			key: "secondarySubtitle",
+			expression: cardInput.configuration.secondarySubtitleProperty ?? nullViewExpression,
+		},
+		{ key: "callout", expression: cardInput.configuration.calloutProperty ?? nullViewExpression },
+	];
+};
+
 const buildPreparedFields = (input: {
 	layout: SavedViewLayout;
 	displayConfiguration: DisplayConfiguration;
 }): QueryEngineField[] => {
-	const buildCardPreparedFields = (cardInput: {
-		configuration: DisplayConfiguration["grid"];
-		entityIdProperty: DisplayConfiguration["entityIdProperty"];
-	}) => {
-		return [
-			{ key: "entityId", expression: cardInput.entityIdProperty },
-			{ key: "eyebrow", expression: cardInput.configuration.eyebrowProperty ?? nullViewExpression },
-			{ key: "image", expression: cardInput.configuration.imageProperty ?? nullViewExpression },
-			{ key: "title", expression: cardInput.configuration.titleProperty },
-			{
-				key: "primarySubtitle",
-				expression: cardInput.configuration.primarySubtitleProperty ?? nullViewExpression,
-			},
-			{
-				key: "secondarySubtitle",
-				expression: cardInput.configuration.secondarySubtitleProperty ?? nullViewExpression,
-			},
-			{ key: "callout", expression: cardInput.configuration.calloutProperty ?? nullViewExpression },
-		];
-	};
-
 	return match(input.layout)
 		.with("grid", () =>
 			buildCardPreparedFields({
