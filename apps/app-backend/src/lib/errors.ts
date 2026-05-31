@@ -53,6 +53,10 @@ export class Unauthorized extends Schema.TaggedError<Unauthorized>()("Unauthoriz
 	message: Schema.String,
 }) {}
 
+export class ValidationError extends Schema.TaggedError<ValidationError>()("ValidationError", {
+	message: Schema.String,
+}) {}
+
 export class RateLimited extends Schema.TaggedError<RateLimited>()("RateLimited", {
 	message: Schema.String,
 }) {}
@@ -72,6 +76,7 @@ export const notFound = (message: string) => new NotFound({ message });
 export const badRequest = (message: string) => new BadRequest({ message });
 export const rateLimited = (message: string) => new RateLimited({ message });
 export const unauthorized = () => new Unauthorized({ message: "Unauthorized" });
+export const validationError = (message: string) => new ValidationError({ message });
 export const internalError = (message: string) => new InternalError({ message });
 export const notImplemented = () => new NotImplemented({ message: "Not implemented" });
 

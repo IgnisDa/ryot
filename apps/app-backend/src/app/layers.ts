@@ -7,6 +7,7 @@ import { AppConfig } from "../lib/config";
 import { DbService, DbRunnerLive, TransactionRunnerLive } from "../lib/db";
 import { MigrationsComplete } from "../lib/db/migrate";
 import { RedisService } from "../lib/redis";
+import { S3Service } from "../lib/s3";
 import { CollectionsRepository } from "../modules/collections/repository";
 import { CollectionsService } from "../modules/collections/service";
 import { EntitiesRepository } from "../modules/entities/repository";
@@ -21,6 +22,7 @@ import { RelationshipSchemasRepository } from "../modules/relationship-schemas/r
 import { RelationshipSchemasService } from "../modules/relationship-schemas/service";
 import { TrackersRepository } from "../modules/trackers/repository";
 import { TrackersService } from "../modules/trackers/service";
+import { UploadsService } from "../modules/uploads/service";
 import { ServerLive } from "./server";
 
 const RuntimeAfterMigrationsLive = MigrationsComplete.Default.pipe(
@@ -45,12 +47,14 @@ export const AppLive = RuntimeAfterMigrationsLive.pipe(
 	Layer.provide(EventSchemasService.Default),
 	Layer.provide(EventsService.Default),
 	Layer.provide(RelationshipSchemasService.Default),
+	Layer.provide(UploadsService.Default),
 	Layer.provide(DbRunnerLive),
 	Layer.provide(RepositoriesLive),
 	Layer.provide(AuthService.Default),
 	Layer.provide(TransactionRunnerLive),
 	Layer.provide(DbService.Default),
 	Layer.provide(RedisService.Default),
+	Layer.provide(S3Service.Default),
 	Layer.provide(AppConfig.Default),
 	Layer.provide(BunContext.layer),
 );

@@ -27,4 +27,11 @@ export const systemConfigDef = Config.all({
 			clientSecret: Config.redacted("SERVER_OIDC_CLIENT_SECRET").pipe(Config.option),
 		}),
 	}),
+	fileStorage: Config.all({
+		url: Config.string("FILE_STORAGE_S3_URL").pipe(Config.option),
+		region: Config.string("FILE_STORAGE_S3_REGION").pipe(Config.option),
+		bucketName: Config.string("FILE_STORAGE_S3_BUCKET_NAME").pipe(Config.option),
+		accessKeyId: Config.redacted("FILE_STORAGE_S3_ACCESS_KEY_ID").pipe(Config.option),
+		secretAccessKey: Config.redacted("FILE_STORAGE_S3_SECRET_ACCESS_KEY").pipe(Config.option),
+	}),
 });
