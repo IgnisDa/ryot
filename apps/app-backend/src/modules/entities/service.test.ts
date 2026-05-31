@@ -1,10 +1,13 @@
 import { expect, it } from "@effect/vitest";
-import { Effect, Exit, Layer } from "effect";
+import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
+import { Effect, Exit, Layer, Option, Redacted } from "effect";
 
 import type { CurrentUserValue } from "../../lib/auth";
+import { AppConfig } from "../../lib/config";
 import { CurrentDb, DbRunner, TransactionRunner } from "../../lib/db";
 import { BadRequest, NotFound } from "../../lib/errors";
 import { RelationshipSchemasRepository } from "../relationship-schemas/repository";
+import { SandboxRepository } from "../sandbox/repository";
 import { EntitiesRepository } from "./repository";
 import { EntitiesService } from "./service";
 
@@ -36,10 +39,14 @@ const defaultEntitiesRepository = (): EntitiesRepository =>
 		getEntityScopeById: () => Effect.die("unused"),
 		insertRelationship: () => Effect.die("unused"),
 		upsertRelationship: () => Effect.die("unused"),
+		findEntitySchemaById: () => Effect.die("unused"),
 		getEntityScopeForUser: () => Effect.die("unused"),
 		upsertEntityRelationship: () => Effect.die("unused"),
 		deleteUserEventsForEntity: () => Effect.die("unused"),
+		createOrUpdateGlobalEntity: () => Effect.die("unused"),
 		getEntitySchemaScopeForUser: () => Effect.die("unused"),
+		findEntitySchemaScriptBySlug: () => Effect.die("unused"),
+		findGlobalEntityByExternalId: () => Effect.die("unused"),
 		findEntityByExternalIdForUser: () => Effect.die("unused"),
 		deleteUserRelationshipsForEntity: () => Effect.die("unused"),
 	});
@@ -59,6 +66,52 @@ const makeRelationshipSchemasRepository = (
 ): RelationshipSchemasRepository =>
 	Object.assign(Object.create(null), defaultRelationshipSchemasRepository(), overrides);
 
+const fakeAppConfigLayer = Layer.succeed(AppConfig, {
+	port: 3000,
+	_tag: "AppConfig" as const,
+	frontendUrl: "http://localhost:3000",
+	redisUrl: Redacted.make("unused"),
+	databaseUrl: Redacted.make("unused"),
+	frontend: { oidcButtonLabel: Option.none() },
+	users: { allowRegistration: true, disableLocalAuth: false },
+	sandbox: { denoDir: "/tmp", timeoutMs: 5_000, jobIdSecret: Redacted.make("test-secret") },
+	server: {
+		corsOrigins: Option.none(),
+		adminAccessToken: Redacted.make("unused"),
+		oidc: { clientId: Option.none(), issuerUrl: Option.none(), clientSecret: Option.none() },
+	},
+	fileStorage: {
+		url: Option.none(),
+		region: Option.none(),
+		bucketName: Option.none(),
+		accessKeyId: Option.none(),
+		secretAccessKey: Option.none(),
+	},
+});
+
+const makeWorkflowEngine = (): WorkflowEngine["Type"] =>
+	({
+		poll: () => Effect.die("not used in this test"),
+		resume: () => Effect.die("not used in this test"),
+		execute: () => Effect.die("not used in this test"),
+		register: () => Effect.die("not used in this test"),
+		interrupt: () => Effect.die("not used in this test"),
+		deferredDone: () => Effect.die("not used in this test"),
+		scheduleClock: () => Effect.die("not used in this test"),
+		deferredResult: () => Effect.die("not used in this test"),
+		activityExecute: () => Effect.die("not used in this test"),
+	}) as WorkflowEngine["Type"];
+
+const fakeWorkflowEngineLayer = Layer.succeed(WorkflowEngine, makeWorkflowEngine());
+
+const defaultSandboxRepository = (): SandboxRepository =>
+	Object.assign(Object.create(null), {
+		_tag: "SandboxRepository" as const,
+		createScript: () => Effect.die("unused"),
+		getScriptForUser: () => Effect.die("unused"),
+		findScriptBySlugForUser: () => Effect.die("unused"),
+	});
+
 const makeServiceLayer = (
 	repository: EntitiesRepository,
 	relationshipSchemasRepository: RelationshipSchemasRepository = makeRelationshipSchemasRepository(),
@@ -68,7 +121,10 @@ const makeServiceLayer = (
 			Layer.mergeAll(
 				dbRunnerLayer,
 				transactionLayer,
+				fakeAppConfigLayer,
+				fakeWorkflowEngineLayer,
 				Layer.succeed(EntitiesRepository, repository),
+				Layer.succeed(SandboxRepository, defaultSandboxRepository()),
 				Layer.succeed(RelationshipSchemasRepository, relationshipSchemasRepository),
 			),
 		),
@@ -84,10 +140,10 @@ it.effect("returns existing entity when provenance already exists", () => {
 					createCalled = true;
 					return {
 						image: null,
-						name: "Created",
 						createdAt: now,
 						updatedAt: now,
 						properties: {},
+						name: "Created",
 						populatedAt: null,
 						externalId: "ext-1",
 						id: "created-entity",
