@@ -2,7 +2,6 @@ import { Host, Icon, NavigationBar, NavigationBarItem, Text } from "@expo/ui/jet
 import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { MobileWorkspaceFrame } from "./mobile-workspace-frame";
 import { getAndroidNativeTabIcon } from "./native-tab-icons.android";
 import type { WorkspaceTabsViewProps } from "./workspace-tabs-view";
 
@@ -11,7 +10,7 @@ export function WorkspaceTabsView(props: WorkspaceTabsViewProps) {
 
 	return (
 		<View className="flex-1 bg-bg">
-			<MobileWorkspaceFrame navigation={props.navigation}>{props.children}</MobileWorkspaceFrame>
+			{props.children}
 			<View className="bg-surface" style={{ paddingBottom: insets.bottom }}>
 				<Host matchContents style={{ width: "100%" }}>
 					<NavigationBar>

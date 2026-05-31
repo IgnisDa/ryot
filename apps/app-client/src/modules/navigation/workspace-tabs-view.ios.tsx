@@ -3,7 +3,6 @@ import { frame, ignoreSafeArea, tabViewStyle } from "@expo/ui/swift-ui/modifiers
 import { startTransition } from "react";
 import { View } from "react-native";
 
-import { MobileWorkspaceFrame } from "./mobile-workspace-frame";
 import { getIosNativeTabIcon } from "./native-tab-icons";
 import type { WorkspaceTabsViewProps } from "./workspace-tabs-view";
 
@@ -27,16 +26,12 @@ export function WorkspaceTabsView(props: WorkspaceTabsViewProps) {
 						<VStack
 							modifiers={[
 								frame({ maxWidth: Infinity, maxHeight: Infinity }),
-								ignoreSafeArea({ regions: "container", edges: "bottom" }),
+								ignoreSafeArea({ regions: "container", edges: "vertical" }),
 							]}
 						>
 							<RNHostView>
 								<View className="flex-1 bg-bg">
-									{tab.key === props.selectedKey ? (
-										<MobileWorkspaceFrame topInset={0} navigation={props.navigation}>
-											{props.children}
-										</MobileWorkspaceFrame>
-									) : null}
+									{tab.key === props.selectedKey ? props.children : null}
 								</View>
 							</RNHostView>
 						</VStack>
