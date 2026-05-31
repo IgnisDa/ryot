@@ -6,6 +6,7 @@ const showActivityFixtureRecipe = showActivityRecipe({
 	entityId: "show-1",
 	parentEventLimit: 60,
 	episodeEventLimit: 100,
+	collectionEventLimit: 60,
 	episodeProgressLimit: 100,
 });
 
@@ -102,6 +103,24 @@ export const laterEpisodeCompletionEventRow = {
 	occurredAt: "2025-11-05T14:00:00.000Z",
 };
 
+export const collectionAddedEventRow = {
+	id: "watchlist-added",
+	collectionName: "Watchlist",
+	collectionId: "collection-1",
+	createdAt: "2025-11-02T09:00:05.000Z",
+	occurredAt: "2025-11-02T09:00:00.000Z",
+	eventSchemaSlug: "add-entity-to-collection",
+};
+
+export const collectionRemovedEventRow = {
+	id: "watchlist-removed",
+	collectionName: "Watchlist",
+	collectionId: "collection-1",
+	createdAt: "2025-11-07T15:00:05.000Z",
+	occurredAt: "2025-11-07T15:00:00.000Z",
+	eventSchemaSlug: "remove-entity-from-collection",
+};
+
 export const episodeProgressRow = {
 	...firstEpisode,
 	consumedOn: null,
@@ -125,6 +144,7 @@ type ActivityRows = {
 	readonly parentEvents?: readonly Record<string, unknown>[];
 	readonly episodeEvents?: readonly Record<string, unknown>[];
 	readonly episodeProgress?: readonly Record<string, unknown>[];
+	readonly collectionEvents?: readonly Record<string, unknown>[];
 };
 
 const activityRows = (items: readonly Record<string, unknown>[], hasMore: boolean) =>
@@ -162,10 +182,19 @@ export const decodeShowActivity = (input: ActivityRows = {}) => {
 					],
 					false,
 				),
+				collectionEvents: activityRows(
+					input.collectionEvents ?? [collectionRemovedEventRow, collectionAddedEventRow],
+					false,
+				),
 			},
 		}),
 	);
 };
 
 export const emptyShowActivity = () =>
-	decodeShowActivity({ parentEvents: [], episodeEvents: [], episodeProgress: [] });
+	decodeShowActivity({
+		parentEvents: [],
+		episodeEvents: [],
+		episodeProgress: [],
+		collectionEvents: [],
+	});
