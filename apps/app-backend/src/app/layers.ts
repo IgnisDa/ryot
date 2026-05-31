@@ -61,6 +61,8 @@ import { TranslationsService } from "#modules/translations/service";
 import { TranslationOverlayLive } from "#modules/translations/translation-overlay-live";
 import { TranslateEntityWorkflowDefinitionsLive } from "#modules/translations/workflows";
 import { UploadsService } from "#modules/uploads/service";
+import { UserPreferencesRepository } from "#modules/user-preferences/repository";
+import { UserPreferencesService } from "#modules/user-preferences/service";
 import { UserStateService } from "#modules/user-state/service";
 
 import { ServerLive } from "./server";
@@ -76,23 +78,29 @@ const BaseInfrastructureServicesLive = Layer.mergeAll(
 
 const BaseInfrastructureLive = Layer.provide(BaseInfrastructureServicesLive, ConfigLive);
 
-const RepositoriesLive = Layer.mergeAll(
+const ContentRepositoriesLive = Layer.mergeAll(
 	CollectionsRepository.Default,
 	EntitiesRepository.Default,
 	EntitySchemasRepository.Default,
 	EpisodeResolverRepository.Default,
 	EventSchemasRepository.Default,
 	EventsRepository.Default,
+	RelationshipSchemasRepository.Default,
+	RelationshipsRepository.Default,
+	TranslationsRepository.Default,
+);
+
+const PlatformRepositoriesLive = Layer.mergeAll(
 	GodModeRepository.Default,
 	ImportsRepository.Default,
 	IntegrationsRepository.Default,
-	RelationshipSchemasRepository.Default,
-	RelationshipsRepository.Default,
 	SandboxRepository.Default,
 	SavedViewsRepository.Default,
 	TrackersRepository.Default,
-	TranslationsRepository.Default,
+	UserPreferencesRepository.Default,
 );
+
+const RepositoriesLive = Layer.mergeAll(ContentRepositoriesLive, PlatformRepositoriesLive);
 
 const CoreInfrastructureDependenciesLive = Layer.mergeAll(BaseInfrastructureLive, ConfigLive);
 
@@ -136,7 +144,7 @@ const RuntimeSandboxServiceLive = Layer.provide(
 
 const SandboxServicesLive = Layer.mergeAll(SandboxApiService.Default, RuntimeSandboxServiceLive);
 
-const ServicesNeedingCollectionsScopeLive = Layer.mergeAll(
+const ContentServicesLive = Layer.mergeAll(
 	AuthService.Default,
 	EntitiesServiceLive,
 	LibraryImportService.Default,
@@ -144,19 +152,28 @@ const ServicesNeedingCollectionsScopeLive = Layer.mergeAll(
 	EpisodeResolverService.Default,
 	EventSchemasService.Default,
 	EventsServiceLive,
+	QueryEngineService.Default,
+	RelationshipSchemasService.Default,
+);
+
+const PlatformServicesLive = Layer.mergeAll(
+	RelationshipsService.Default,
+	Layer.provide(SavedViewsService.Default, QueryEngineService.Default),
+	TrackersService.Default,
+	UploadsService.Default,
+	UserPreferencesService.Default,
+	UserStateService.Default,
 	Layer.provide(GodModeService.Default, AuthService.Default),
 	Layer.provide(ImportsService.Default, UploadsService.Default),
 	Layer.provide(
 		IntegrationsService.Default,
 		Layer.provide(ImportsService.Default, UploadsService.Default),
 	),
-	QueryEngineService.Default,
-	RelationshipSchemasService.Default,
-	RelationshipsService.Default,
-	Layer.provide(SavedViewsService.Default, QueryEngineService.Default),
-	TrackersService.Default,
-	UploadsService.Default,
-	UserStateService.Default,
+);
+
+const ServicesNeedingCollectionsScopeLive = Layer.mergeAll(
+	ContentServicesLive,
+	PlatformServicesLive,
 );
 
 const CollectionsServiceLive = Layer.provide(

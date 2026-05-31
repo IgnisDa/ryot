@@ -12,15 +12,6 @@ type EntityTranslationRow = {
 	properties: Record<string, unknown> | null;
 };
 
-export async function setUserLanguage(input: { userId: string; language: string }) {
-	await getPgClient().query(
-		`update "user"
-		 set preferences = jsonb_set(preferences, '{language}', $2::jsonb)
-		 where id = $1`,
-		[input.userId, JSON.stringify(input.language)],
-	);
-}
-
 async function markEntityPopulated(entityId: string) {
 	await getPgClient().query(`update entity set populated_at = now() where id = $1`, [entityId]);
 }
