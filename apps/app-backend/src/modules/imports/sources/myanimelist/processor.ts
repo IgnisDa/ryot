@@ -4,13 +4,8 @@ import type {
 	LoadedMediaImportAdapterError,
 	LoadedMediaImportAdapterResult,
 } from "../../media/file-processor";
-import { processMediaImport } from "../../media/import-processor";
 import { sanitizeErrorMessage } from "../../runtime/failures";
-import {
-	cleanupImportFile,
-	getValidatedOptionalPath,
-	readImportFileBytes,
-} from "../../runtime/files";
+import { getValidatedOptionalPath, readImportFileBytes } from "../../runtime/files";
 import { adaptMyanimelistExports } from "./adapter";
 
 const MYANIMELIST_EXTENSIONS = ["gz", "xml"];
@@ -35,38 +30,6 @@ const decodeMyanimelistFile = (filePath: string) =>
 			},
 			catch: (error) => sanitizeErrorMessage(error, "Could not read import file"),
 		});
-	});
-
-export const processMyanimelistImport = (input: {
-	runId: string;
-	userId: string;
-	filePath?: string;
-	sourcePayload?: Record<string, unknown>;
-}) =>
-	Effect.gen(function* () {
-		let cleanupPaths: ReadonlyArray<string> = [];
-
-		yield* processMediaImport({
-			runId: input.runId,
-			userId: input.userId,
-			sourceName: "MyAnimeList",
-			adapterErrorFallback: "Could not parse MyAnimeList export data",
-			loadAdapterResult: loadMyanimelistAdapterResult(input).pipe(
-				Effect.tap(({ cleanupPaths: paths }) =>
-					Effect.sync(() => {
-						cleanupPaths = paths;
-					}),
-				),
-				Effect.map(({ adapterResult }) => adapterResult),
-				Effect.mapError((error) => error.message),
-			),
-		}).pipe(
-			Effect.ensuring(
-				Effect.suspend(() =>
-					Effect.forEach(new Set(cleanupPaths), cleanupImportFile, { discard: true }),
-				),
-			),
-		);
 	});
 
 export const loadMyanimelistAdapterResult = (input: {

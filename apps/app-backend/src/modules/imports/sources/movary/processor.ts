@@ -4,44 +4,11 @@ import type {
 	LoadedMediaImportAdapterError,
 	LoadedMediaImportAdapterResult,
 } from "../../media/file-processor";
-import { processMediaImport } from "../../media/import-processor";
 import { sanitizeErrorMessage } from "../../runtime/failures";
-import { cleanupImportFile, getValidatedOptionalPath, readImportFile } from "../../runtime/files";
+import { getValidatedOptionalPath, readImportFile } from "../../runtime/files";
 import { adaptMovaryExports } from "./adapter";
 
 const MOVARY_EXTENSIONS = ["csv"];
-
-export const processMovaryImport = (input: {
-	runId: string;
-	userId: string;
-	filePath?: string;
-	sourcePayload?: Record<string, unknown>;
-}) =>
-	Effect.gen(function* () {
-		let cleanupPaths: ReadonlyArray<string> = [];
-
-		yield* processMediaImport({
-			runId: input.runId,
-			userId: input.userId,
-			sourceName: "Movary",
-			adapterErrorFallback: "Could not parse Movary export data",
-			loadAdapterResult: loadMovaryAdapterResult(input).pipe(
-				Effect.tap(({ cleanupPaths: paths }) =>
-					Effect.sync(() => {
-						cleanupPaths = paths;
-					}),
-				),
-				Effect.map(({ adapterResult }) => adapterResult),
-				Effect.mapError((error) => error.message),
-			),
-		}).pipe(
-			Effect.ensuring(
-				Effect.suspend(() =>
-					Effect.forEach(new Set(cleanupPaths), cleanupImportFile, { discard: true }),
-				),
-			),
-		);
-	});
 
 export const loadMovaryAdapterResult = (input: {
 	runId: string;
