@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { checkResetEligibility, classifyAuthState, listUsers } from "./service";
+import { checkResetEligibility, classifyAuthState, listUsers, toggleUserBan } from "./service";
 
 describe("classifyAuthState", () => {
 	it("returns none when there are no accounts", () => {
@@ -33,6 +33,7 @@ describe("classifyAuthState", () => {
 describe("listUsers", () => {
 	const baseUser = {
 		id: "user_1",
+		bannedAt: null,
 		name: "Test User",
 		twoFactorEnabled: false,
 		email: "test@example.com",
@@ -55,6 +56,7 @@ describe("listUsers", () => {
 				users: [
 					{
 						id: "user_1",
+						bannedAt: null,
 						name: "Test User",
 						twoFactorEnabled: false,
 						authState: "credential",
@@ -159,6 +161,102 @@ describe("listUsers", () => {
 		);
 
 		expect(capturedWhere).toEqual([{ field: "email", value: "john", operator: "contains" }]);
+	});
+
+	it("returns the banned timestamp for disabled users", async () => {
+		const result = await listUsers(
+			{ limit: 50, offset: 0 },
+			{
+				countTotalUsers: () => Promise.resolve(1),
+				findAccounts: () => Promise.resolve([{ providerId: "credential" }]),
+				listUsers: () =>
+					Promise.resolve([{ ...baseUser, bannedAt: new Date("2024-02-03T04:05:06Z") }]),
+			},
+		);
+
+		if (!("data" in result)) {
+			throw new Error("Expected data");
+		}
+		expect(result.data.users[0]?.bannedAt).toBe("2024-02-03T04:05:06.000Z");
+	});
+});
+
+describe("toggleUserBan", () => {
+	const now = new Date("2024-03-04T05:06:07Z");
+	const baseUser = {
+		id: "user_1",
+		bannedAt: null,
+		name: "Test User",
+		twoFactorEnabled: false,
+		email: "test@example.com",
+		createdAt: new Date("2024-01-01T00:00:00Z"),
+	};
+
+	it("sets bannedAt and deletes sessions when banning an enabled user", async () => {
+		let deletedUserId = "";
+		let updatedInput: unknown;
+
+		const result = await toggleUserBan("user_1", {
+			now: () => now,
+			findUserById: () => Promise.resolve(baseUser),
+			deleteSessions: (userId) => {
+				deletedUserId = userId;
+				return Promise.resolve();
+			},
+			updateUser: (_userId, input) => {
+				updatedInput = input;
+				return Promise.resolve({});
+			},
+		});
+
+		expect(result).toEqual({ data: { id: "user_1", bannedAt: "2024-03-04T05:06:07.000Z" } });
+		expect(deletedUserId).toBe("user_1");
+		expect(updatedInput).toEqual({ updatedAt: now, bannedAt: now });
+	});
+
+	it("clears bannedAt without deleting sessions when enabling a disabled user", async () => {
+		let deleted = false;
+		let updatedInput: unknown;
+
+		const result = await toggleUserBan("user_1", {
+			now: () => now,
+			findUserById: () =>
+				Promise.resolve({ ...baseUser, bannedAt: new Date("2024-01-02T00:00:00Z") }),
+			deleteSessions: () => {
+				deleted = true;
+				return Promise.resolve();
+			},
+			updateUser: (_userId, input) => {
+				updatedInput = input;
+				return Promise.resolve({});
+			},
+		});
+
+		expect(result).toEqual({ data: { id: "user_1", bannedAt: null } });
+		expect(deleted).toBe(false);
+		expect(updatedInput).toEqual({ updatedAt: now, bannedAt: null });
+	});
+
+	it("returns validation when the user does not exist", () => {
+		return expect(
+			toggleUserBan("missing", {
+				now: () => now,
+				deleteSessions: () => Promise.resolve(),
+				updateUser: () => Promise.resolve({}),
+				findUserById: () => Promise.resolve(null),
+			}),
+		).resolves.toEqual({ error: "validation", message: "User with id 'missing' not found" });
+	});
+
+	it("returns internal error when persistence fails", () => {
+		return expect(
+			toggleUserBan("user_1", {
+				now: () => now,
+				deleteSessions: () => Promise.resolve(),
+				findUserById: () => Promise.resolve(baseUser),
+				updateUser: () => Promise.reject(new Error("db down")),
+			}),
+		).resolves.toEqual({ error: "internal", message: "db down" });
 	});
 });
 

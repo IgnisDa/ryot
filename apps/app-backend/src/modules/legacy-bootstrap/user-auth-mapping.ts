@@ -73,6 +73,7 @@ BEGIN
 		SELECT
 			old_user.id,
 			old_user.name,
+			old_user.is_disabled,
 			old_user.preferences,
 			old_user.created_on,
 			old_user.last_login_on,
@@ -93,6 +94,7 @@ BEGIN
 		"id",
 		"name",
 		"email",
+		"banned_at",
 		"preferences",
 		"email_verified",
 		"created_at",
@@ -104,6 +106,10 @@ BEGIN
 		CASE
 			WHEN legacy_users.base_email_count = 1 THEN legacy_users.base_email
 			ELSE split_part(legacy_users.base_email, '@', 1) || '+' || legacy_users.id || '@' || split_part(legacy_users.base_email, '@', 2)
+		END,
+		CASE
+			WHEN legacy_users.is_disabled THEN COALESCE(legacy_users.last_login_on, legacy_users.created_on + interval '90 days')
+			ELSE NULL
 		END,
 		jsonb_build_object(
 			'isNsfw', COALESCE((legacy_users.preferences -> 'general' ->> 'display_nsfw')::boolean, false),

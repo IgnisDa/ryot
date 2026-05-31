@@ -15,6 +15,13 @@
 			"when": 1779854144947,
 			"tag": "0001_swift_kitty_pryde",
 			"breakpoints": true
+		},
+		{
+			"idx": 2,
+			"version": "7",
+			"when": 1780200186735,
+			"tag": "0002_quick_veda",
+			"breakpoints": true
 		}
 	]
 }
