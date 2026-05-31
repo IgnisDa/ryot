@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import type { Expr } from "../../language";
 import { reconstructMeasureValue, reconstructOutputValue } from "../reconstruct";
 import { compileBool, compileValue } from "./expr";
-import { bucketStartSql, bucketStepSql } from "./fragments";
+import { bucketStartSql, bucketStepSql, entitySourceSql } from "./fragments";
 import { rootScope } from "./scope";
 
 type ComparisonOp = Extract<Expr, { type: "comparison" }>["operator"];
@@ -13,8 +13,12 @@ type ComparisonOp = Extract<Expr, { type: "comparison" }>["operator"];
 const dialect = new PgDialect();
 const render = (fragment: Parameters<typeof dialect.sqlToQuery>[0]) => dialect.sqlToQuery(fragment);
 
-const scope = () =>
-	rootScope({ type: "entities", alias: "course", schemas: ["course"], where: null }, "user-1");
+const scope = (language: string | null = null) =>
+	rootScope(
+		{ type: "entities", alias: "course", schemas: ["course"], where: null },
+		"user-1",
+		language,
+	);
 
 const ref = (name: string): Expr => ({
 	type: "ref",
@@ -173,6 +177,43 @@ describe("reconstructMeasureValue", () => {
 	it("maps a numeric aggregate and null-over-empty", () => {
 		expect(reconstructMeasureValue("5")).toEqual({ kind: "number", value: 5 });
 		expect(reconstructMeasureValue(null)).toEqual({ kind: "null", value: null });
+	});
+});
+
+describe("entity source localization", () => {
+	it("returns the bare entity table token for canonical (null language)", () => {
+		const { sql, params } = render(entitySourceSql(null));
+		expect(sql).toBe("entity");
+		expect(params).toHaveLength(0);
+	});
+
+	it("coalesces name and merges properties from the (entity_id, language) translation row", () => {
+		const { sql, params } = render(entitySourceSql("es"));
+		expect(sql).toContain("entity_translation");
+		expect(sql).toContain("COALESCE(et.name, e0.name) AS name");
+		expect(sql).toContain("e0.properties || COALESCE(et.properties, '{}'::jsonb) AS properties");
+		expect(sql).toContain("et.language =");
+		expect(params).toContain("es");
+	});
+
+	it("localizes the entity source inside a correlated sub-source when a language is set", () => {
+		const aggExpr: Expr = {
+			type: "aggregate",
+			aggregation: { function: "count" },
+			source: {
+				alias: "m",
+				where: null,
+				type: "entities",
+				schemas: ["module"],
+				via: { entityRef: "course", alias: "cm", direction: "outgoing", schema: "course-module" },
+			},
+		};
+		const localized = render(compileValue(aggExpr, scope("es")).value);
+		expect(localized.sql).toContain("entity_translation");
+		expect(localized.params).toContain("es");
+
+		const canonical = render(compileValue(aggExpr, scope()).value);
+		expect(canonical.sql).not.toContain("entity_translation");
 	});
 });
 

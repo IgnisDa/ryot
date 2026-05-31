@@ -3,6 +3,7 @@ import { Effect } from "effect";
 
 import * as schema from "#lib/db/schema/tables/combined";
 import { CurrentDb, dbEffect, TransactionRunner } from "#lib/db/service";
+import { isObjectRecord } from "#lib/predicates";
 
 import { builtinEntitySchemas } from "./entity-schemas";
 import { builtinSavedViews } from "./saved-views";
@@ -19,6 +20,18 @@ export const defaultUserPreferences: UserPreferences = {
 	isNsfw: false,
 	language: null,
 	disableIntegrations: false,
+};
+
+// Coerces an untrusted stored preferences blob (jsonb / session copy) into the typed shape, applying
+// defaults for missing or malformed fields.
+export const normalizeUserPreferences = (value: unknown): UserPreferences => {
+	const record = isObjectRecord(value) ? value : {};
+	return {
+		isNsfw: record.isNsfw === true,
+		disableIntegrations: record.disableIntegrations === true,
+		language:
+			typeof record.language === "string" && record.language.length > 0 ? record.language : null,
+	};
 };
 
 const createBuiltinTrackers = Effect.fn(function* (userId: string) {

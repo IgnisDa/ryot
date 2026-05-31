@@ -3,6 +3,7 @@ import type { WorkflowEngine, WorkflowInstance } from "@effect/workflow/Workflow
 import { Effect, Schema } from "effect";
 
 import type { CurrentUserValue } from "#lib/auth-middleware";
+import { defaultUserPreferences } from "#lib/builtins/bootstrap";
 import { DbRunner } from "#lib/db/service";
 import { EntitySchemaId } from "#lib/schema/brands";
 import { EntitiesService } from "#modules/entities/service";
@@ -58,7 +59,12 @@ export const prepareOpenScaleWrites = (
 		const runWithDb = yield* DbRunner;
 		const entities = yield* EntitiesService;
 		const entitySchemas = yield* EntitySchemasRepository;
-		const user: CurrentUserValue = { id: payload.userId, name: "", email: "" };
+		const user: CurrentUserValue = {
+			name: "",
+			email: "",
+			id: payload.userId,
+			preferences: defaultUserPreferences,
+		};
 
 		const measurementSchemaId = yield* Activity.make({
 			error: ImportRunError,
