@@ -89,7 +89,7 @@ export class GodModeService extends Effect.Service<GodModeService>()("GodModeSer
 						id: u.id,
 						name: u.name,
 						email: u.email,
-						bannedAt: u.bannedAt,
+						disabledAt: u.disabledAt,
 						createdAt: u.createdAt,
 						twoFactorEnabled: u.twoFactorEnabled,
 						authState: classifyAuthState(accountsByUser.get(u.id) ?? []),
@@ -131,26 +131,26 @@ export class GodModeService extends Effect.Service<GodModeService>()("GodModeSer
 			return { userId };
 		});
 
-		const setUserBan = Effect.fn("GodModeService.setUserBan")(function* (
+		const setUserDisabled = Effect.fn("GodModeService.setUserDisabled")(function* (
 			userId: UserId,
-			banned: boolean,
+			disabled: boolean,
 		) {
-			const user = yield* runWithDb(repository.findUserBanState(userId));
+			const user = yield* runWithDb(repository.findUserDisabledState(userId));
 
 			if (!user) {
 				return yield* badRequest(`User with id '${userId}' not found`);
 			}
 
 			const updatedAt = yield* DateTime.nowAsDate;
-			const bannedAt = banned ? (user.bannedAt ?? updatedAt) : null;
+			const disabledAt = disabled ? (user.disabledAt ?? updatedAt) : null;
 
-			yield* runWithDb(repository.updateUserBan({ userId, bannedAt, updatedAt }));
+			yield* runWithDb(repository.updateUserDisabled({ userId, disabledAt, updatedAt }));
 
-			if (banned) {
+			if (disabled) {
 				yield* deleteUserSessions(userId);
 			}
 
-			return { id: userId, bannedAt: bannedAt?.toISOString() ?? null };
+			return { id: userId, disabledAt: disabledAt?.toISOString() ?? null };
 		});
 
 		const resetUserPassword = Effect.fn("GodModeService.resetUserPassword")(function* (
@@ -258,6 +258,6 @@ export class GodModeService extends Effect.Service<GodModeService>()("GodModeSer
 			return { email: resetResult.email, resetUrl: resetResult.resetUrl };
 		});
 
-		return { listUsers, setUserBan, provisionUser, resetUserPassword };
+		return { listUsers, setUserDisabled, provisionUser, resetUserPassword };
 	}),
 }) {}

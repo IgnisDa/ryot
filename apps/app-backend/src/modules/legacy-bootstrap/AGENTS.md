@@ -51,7 +51,7 @@ Permitted silent-skip patterns: idempotent guards (work already done on a previo
 
 **integration**: `trigger_result` (V1 per-run history). V2 tracks integration runs in the `import_run` table instead, so the legacy run history is not carried over.
 
-**user**: OAuth redirect URL, sessions, `USERS_TOKEN_VALID_FOR_DAYS` (Better Auth owns session lifetime), `extra_information`, legacy admin `lot`. Legacy `is_disabled` migrates to `banned_at` using `last_login_on`, or `created_on + 90 days` when no last login exists. 2FA is dropped. Password users migrate without credential accounts and are recovered through god-mode reset links. OIDC identity links are migrated as minimal Better Auth account stubs so OIDC sign-in keeps working.
+**user**: OAuth redirect URL, sessions, `USERS_TOKEN_VALID_FOR_DAYS` (Better Auth owns session lifetime), `extra_information`, legacy admin `lot`. Legacy `is_disabled` migrates to `disabled_at` using `last_login_on`, or `created_on + 90 days` when no last login exists. 2FA is dropped. Password users migrate without credential accounts and are recovered through god-mode reset links. OIDC identity links are migrated as minimal Better Auth account stubs so OIDC sign-in keeps working.
 
 ## Local Testing
 

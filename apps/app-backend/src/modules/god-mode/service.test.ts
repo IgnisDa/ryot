@@ -22,13 +22,13 @@ type UserRow = {
 	name: string;
 	email: string;
 	createdAt: Date;
-	bannedAt: Date | null;
+	disabledAt: Date | null;
 	twoFactorEnabled: boolean | null;
 };
 
 const baseUser = {
 	id: "user_1",
-	bannedAt: null,
+	disabledAt: null,
 	name: "Test User",
 	twoFactorEnabled: false,
 	email: "test@example.com",
@@ -214,12 +214,12 @@ const makeListUsersDb = (options: {
 	return { db, state };
 };
 
-const makeSetUserBanDb = (options: {
+const makeSetUserDisabledDb = (options: {
 	updateError?: Error;
-	user: Pick<UserRow, "bannedAt" | "id"> | null;
+	user: Pick<UserRow, "disabledAt" | "id"> | null;
 }) => {
 	const state = {
-		updateInput: null as null | { bannedAt: Date | null; updatedAt: Date },
+		updateInput: null as null | { disabledAt: Date | null; updatedAt: Date },
 	};
 
 	const db = Object.assign(Object.create(null), {
@@ -232,7 +232,7 @@ const makeSetUserBanDb = (options: {
 			}),
 		}),
 		update: () => ({
-			set: (input: { bannedAt: Date | null; updatedAt: Date }) => {
+			set: (input: { disabledAt: Date | null; updatedAt: Date }) => {
 				state.updateInput = input;
 				return {
 					where: () =>
@@ -351,7 +351,7 @@ it.effect("returns users with total count and auth states", () => {
 			users: [
 				{
 					id: "user_1",
-					bannedAt: null,
+					disabledAt: null,
 					name: "Test User",
 					twoFactorEnabled: false,
 					authState: "credential",
@@ -448,103 +448,103 @@ it.effect("trims whitespace from the search input", () => {
 	}).pipe(Effect.provide(makeServiceLayer(db)));
 });
 
-it.effect("returns the banned timestamp for disabled users", () => {
+it.effect("returns the disabled timestamp for disabled users", () => {
 	const { db } = makeListUsersDb({
 		total: 1,
 		accounts: [{ userId: baseUser.id, providerId: "credential" }],
-		users: [{ ...baseUser, bannedAt: new Date("2024-02-03T04:05:06Z") }],
+		users: [{ ...baseUser, disabledAt: new Date("2024-02-03T04:05:06Z") }],
 	});
 
 	return Effect.gen(function* () {
 		const service = yield* GodModeService;
 		const result = yield* service.listUsers({ limit: 50, offset: 0 });
-		expect(result.users[0]?.bannedAt).toBe("2024-02-03T04:05:06.000Z");
+		expect(result.users[0]?.disabledAt).toBe("2024-02-03T04:05:06.000Z");
 	}).pipe(Effect.provide(makeServiceLayer(db)));
 });
 
-it.effect("bans an unbanned user and deletes sessions", () => {
-	const { db, state } = makeSetUserBanDb({ user: { id: "user_1", bannedAt: null } });
+it.effect("disables an enabled user and deletes sessions", () => {
+	const { db, state } = makeSetUserDisabledDb({ user: { id: "user_1", disabledAt: null } });
 	const authState = { deleteUserSessionsCalled: false };
 
 	return Effect.gen(function* () {
 		const service = yield* GodModeService;
-		const result = yield* service.setUserBan(UserId.make("user_1"), true);
+		const result = yield* service.setUserDisabled(UserId.make("user_1"), true);
 
 		expect(result.id).toBe("user_1");
-		expect(typeof result.bannedAt).toBe("string");
+		expect(typeof result.disabledAt).toBe("string");
 		expect(authState.deleteUserSessionsCalled).toBe(true);
-		expect(state.updateInput?.bannedAt?.toISOString()).toBe(result.bannedAt);
-		expect(state.updateInput?.updatedAt.toISOString()).toBe(result.bannedAt);
+		expect(state.updateInput?.disabledAt?.toISOString()).toBe(result.disabledAt);
+		expect(state.updateInput?.updatedAt.toISOString()).toBe(result.disabledAt);
 	}).pipe(Effect.provide(makeServiceLayer(db, false, authState)));
 });
 
-it.effect("preserves an existing bannedAt when banning an already-banned user", () => {
-	const existingBannedAt = new Date("2024-01-02T00:00:00Z");
-	const { db, state } = makeSetUserBanDb({
-		user: { id: "user_1", bannedAt: existingBannedAt },
+it.effect("preserves an existing disabledAt when disabling an already-disabled user", () => {
+	const existingDisabledAt = new Date("2024-01-02T00:00:00Z");
+	const { db, state } = makeSetUserDisabledDb({
+		user: { id: "user_1", disabledAt: existingDisabledAt },
 	});
 	const authState = { deleteUserSessionsCalled: false };
 
 	return Effect.gen(function* () {
 		const service = yield* GodModeService;
-		const result = yield* service.setUserBan(UserId.make("user_1"), true);
+		const result = yield* service.setUserDisabled(UserId.make("user_1"), true);
 
-		expect(result).toEqual({ id: "user_1", bannedAt: "2024-01-02T00:00:00.000Z" });
+		expect(result).toEqual({ id: "user_1", disabledAt: "2024-01-02T00:00:00.000Z" });
 		expect(authState.deleteUserSessionsCalled).toBe(true);
-		expect(state.updateInput?.bannedAt).toBe(existingBannedAt);
+		expect(state.updateInput?.disabledAt).toBe(existingDisabledAt);
 	}).pipe(Effect.provide(makeServiceLayer(db, false, authState)));
 });
 
-it.effect("unbans a banned user without deleting sessions", () => {
-	const { db, state } = makeSetUserBanDb({
-		user: { id: "user_1", bannedAt: new Date("2024-01-02T00:00:00Z") },
+it.effect("enables a disabled user without deleting sessions", () => {
+	const { db, state } = makeSetUserDisabledDb({
+		user: { id: "user_1", disabledAt: new Date("2024-01-02T00:00:00Z") },
 	});
 	const authState = { deleteUserSessionsCalled: false };
 
 	return Effect.gen(function* () {
 		const service = yield* GodModeService;
-		const result = yield* service.setUserBan(UserId.make("user_1"), false);
+		const result = yield* service.setUserDisabled(UserId.make("user_1"), false);
 
-		expect(result).toEqual({ id: "user_1", bannedAt: null });
+		expect(result).toEqual({ id: "user_1", disabledAt: null });
 		expect(authState.deleteUserSessionsCalled).toBe(false);
-		expect(state.updateInput).toMatchObject({ bannedAt: null });
+		expect(state.updateInput).toMatchObject({ disabledAt: null });
 	}).pipe(Effect.provide(makeServiceLayer(db, false, authState)));
 });
 
-it.effect("unbanning an already-unbanned user does not delete sessions", () => {
-	const { db } = makeSetUserBanDb({ user: { id: "user_1", bannedAt: null } });
+it.effect("enabling an already-enabled user does not delete sessions", () => {
+	const { db } = makeSetUserDisabledDb({ user: { id: "user_1", disabledAt: null } });
 	const authState = { deleteUserSessionsCalled: false };
 
 	return Effect.gen(function* () {
 		const service = yield* GodModeService;
-		const result = yield* service.setUserBan(UserId.make("user_1"), false);
+		const result = yield* service.setUserDisabled(UserId.make("user_1"), false);
 
-		expect(result).toEqual({ id: "user_1", bannedAt: null });
+		expect(result).toEqual({ id: "user_1", disabledAt: null });
 		expect(authState.deleteUserSessionsCalled).toBe(false);
 	}).pipe(Effect.provide(makeServiceLayer(db, false, authState)));
 });
 
-it.effect("returns a bad request when the user is not found while setting ban state", () => {
-	const { db } = makeSetUserBanDb({ user: null });
+it.effect("returns a bad request when the user is not found while setting disabled state", () => {
+	const { db } = makeSetUserDisabledDb({ user: null });
 
 	return Effect.gen(function* () {
 		const service = yield* GodModeService;
-		const exit = yield* Effect.exit(service.setUserBan(UserId.make("missing"), true));
+		const exit = yield* Effect.exit(service.setUserDisabled(UserId.make("missing"), true));
 		expect(exit).toEqual(
 			Exit.fail(new BadRequest({ message: "User with id 'missing' not found" })),
 		);
 	}).pipe(Effect.provide(makeServiceLayer(db)));
 });
 
-it.effect("returns a db error when persisting ban state fails", () => {
-	const { db } = makeSetUserBanDb({
-		user: { id: "user_1", bannedAt: null },
+it.effect("returns a db error when persisting disabled state fails", () => {
+	const { db } = makeSetUserDisabledDb({
+		user: { id: "user_1", disabledAt: null },
 		updateError: new Error("db down"),
 	});
 
 	return Effect.gen(function* () {
 		const service = yield* GodModeService;
-		const exit = yield* Effect.exit(service.setUserBan(UserId.make("user_1"), true));
+		const exit = yield* Effect.exit(service.setUserDisabled(UserId.make("user_1"), true));
 		expect(exit).toEqual(Exit.fail(new DbError({ message: "db down" })));
 	}).pipe(Effect.provide(makeServiceLayer(db)));
 });
