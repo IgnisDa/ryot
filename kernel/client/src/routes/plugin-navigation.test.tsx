@@ -154,8 +154,10 @@ describe("plugin navigation", () => {
 	});
 
 	it("keeps one plugin document across pushes, Back, and Forward", async () => {
-		const router = mount("/fixture");
+		const view = mountView("/fixture");
+		const { router } = view;
 		await waitFor(() => expect(frame()).toBeTruthy());
+		await waitFor(() => expect(view.events.isSubscribed()).toBe(true));
 		const document = frame();
 
 		await router.navigate({ href: "/fixture/details/item-1?tab=stats" });
@@ -169,19 +171,29 @@ describe("plugin navigation", () => {
 		router.history.forward();
 		await waitFor(() => expect(router.state.location.pathname).toBe("/fixture/details/item-1"));
 		expect(frame()).toBe(document);
+		expect(view.events.getSubscriptionCount()).toBe(1);
 	});
 
 	it("refreshes the mounted artifact without changing its private URL", async () => {
+		let loads = 0;
 		let entries = catalog;
 		const view = mountView("/fixture/details/item-1?tab=stats", entries, () =>
-			Effect.succeed(entries),
+			Effect.sync(() => {
+				loads += 1;
+				return entries;
+			}),
 		);
 
 		await waitFor(() => expect(frame().getAttribute("src")).toContain("/artifact-hash/index.html"));
+		await waitFor(() => expect(view.events.isSubscribed()).toBe(true));
+		expect(view.events.getSubscriptionCount()).toBe(1);
+		const loadsBeforeEvent = loads;
 		const initialFrame = frame();
 		entries = [{ ...catalog[0], sourceHash: "next-source-hash" }];
 		view.events.send();
+		await waitFor(() => expect(loads).toBe(loadsBeforeEvent + 1));
 		await waitFor(() => expect(frame()).not.toBe(initialFrame));
+		expect(view.events.getSubscriptionCount()).toBe(1);
 		const sourceRevisionFrame = frame();
 		expect(sourceRevisionFrame.getAttribute("src")).toContain("/artifact-hash/index.html");
 
