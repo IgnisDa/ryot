@@ -25,15 +25,7 @@ export const getComparablePropertyType = (
 	property: Pick<AppPropertyDefinition, "type">,
 ): AppPropertyPrimitiveType | undefined =>
 	Match.value(property.type).pipe(
-		Match.whenOr(
-			"boolean",
-			"date",
-			"datetime",
-			"integer",
-			"number",
-			"string",
-			(type) => type,
-		),
+		Match.whenOr("boolean", "date", "datetime", "integer", "number", "string", (type) => type),
 		Match.when("enum", () => "string" as const),
 		Match.orElse(() => undefined),
 	);

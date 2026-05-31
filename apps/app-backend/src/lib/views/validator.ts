@@ -947,8 +947,12 @@ export const validateQueryEngineReferences = (
 	Match.value(request).pipe(
 		Match.when({ mode: "entities" }, (req) => validateEntityQueryEngineReferences(req, context)),
 		Match.when({ mode: "events" }, (req) => validateEventsQueryEngineReferences(req, context)),
-		Match.when({ mode: "timeSeries" }, (req) => validateTimeSeriesQueryEngineReferences(req, context)),
-		Match.when({ mode: "aggregate" }, (req) => validateAggregateQueryEngineReferences(req, context)),
+		Match.when({ mode: "timeSeries" }, (req) =>
+			validateTimeSeriesQueryEngineReferences(req, context),
+		),
+		Match.when({ mode: "aggregate" }, (req) =>
+			validateAggregateQueryEngineReferences(req, context),
+		),
 		Match.exhaustive,
 	);
 };
