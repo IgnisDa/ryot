@@ -1,7 +1,5 @@
 # App Backend Guidelines
 
-> Inherits from root `AGENTS.md`. Keep this file limited to backend-specific rules.
-
 ## Module Boundaries
 
 - Routes stay thin: validate request data, check access, call services, and return OpenAPI helper responses.
