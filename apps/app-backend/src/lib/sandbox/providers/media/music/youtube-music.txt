@@ -1,0 +1,225 @@
+async function makeFetch(input, init) {
+  let url, method = "GET", headers = {}, body;
+  if (input && typeof input === "object" && typeof input.url === "string") {
+    url = input.url;
+    method = input.method ?? "GET";
+    if (input.headers && typeof input.headers.entries === "function") {
+      for (const [k, v] of input.headers.entries()) headers[k] = v;
+    }
+    try { const t = await input.text(); if (t) body = t; } catch {}
+  } else {
+    url = typeof input === "string" ? input : String(input);
+  }
+  if (init) {
+    if (init.method) method = init.method;
+    if (init.headers) {
+      if (typeof init.headers.entries === "function") {
+        for (const [k, v] of init.headers.entries()) headers[k] = v;
+      } else if (Array.isArray(init.headers)) {
+        for (const [k, v] of init.headers) headers[k] = v;
+      } else if (typeof init.headers === "object") {
+        Object.assign(headers, init.headers);
+      }
+    }
+    if (init.body != null) {
+      if (typeof init.body === "string") {
+        body = init.body;
+      } else if (ArrayBuffer.isView(init.body)) {
+        body = new TextDecoder().decode(init.body);
+      } else if (init.body instanceof ArrayBuffer) {
+        body = new TextDecoder().decode(new Uint8Array(init.body));
+      } else if (typeof init.body.toString === "function") {
+        body = init.body.toString();
+      }
+    }
+  }
+  const result = await httpCall(method, url, {
+    body,
+    headers: Object.keys(headers).length ? headers : undefined,
+  });
+  if (!result?.success) {
+    return new Response(result?.error ?? "Request failed", {
+      status: result?.data?.status ?? 500,
+    });
+  }
+  const { body: rb, status, statusText, headers: rh } = result.data;
+  return new Response(rb, { status, statusText, headers: rh ?? {} });
+}
+
+function getThumbnailUrls(thumbnail) {
+  const arr = Array.isArray(thumbnail)
+    ? thumbnail
+    : Array.isArray(thumbnail?.contents)
+      ? thumbnail.contents
+      : [];
+  return arr
+    .filter((t) => t?.url)
+    .sort(
+      (a, b) =>
+        (b.width || 0) * (b.height || 0) - (a.width || 0) * (a.height || 0),
+    )
+    .map((t) => t.url);
+}
+
+function getBestThumbnailUrl(thumbnail) {
+  return getThumbnailUrls(thumbnail)[0] ?? null;
+}
+
+driver("search", async function (context) {
+  const { z } = await import("npm:zod");
+  const { query, pageSize } = z.object({
+    query: z.string().trim().min(1, "query is required"),
+    pageSize: z.coerce.number().min(1).max(100).transform(Math.floor).catch(20),
+  }).parse(context ?? {});
+
+  const { Innertube } = await import("npm:youtubei.js");
+  const yt = await Innertube.create({
+    fetch: makeFetch,
+    generate_session_locally: true,
+  });
+  const results = await yt.music.search(query, { type: "song" });
+
+  const allItems = [];
+  for (const shelf of results.contents ?? []) {
+    for (const track of shelf.contents ?? []) {
+      const id = track.id;
+      if (!id) continue;
+
+      const title = track.title ?? id;
+      const year = track.year ?? null;
+      const thumb = getBestThumbnailUrl(track.thumbnail);
+
+      allItems.push({
+        externalId: String(id),
+        calloutProperty: { kind: "null", value: null },
+        titleProperty: { kind: "text", value: String(title) },
+        primarySubtitleProperty:
+          year === null
+            ? { kind: "null", value: null }
+            : { kind: "number", value: Number(year) },
+        secondarySubtitleProperty: { kind: "null", value: null },
+        imageProperty:
+          thumb === null
+            ? { kind: "null", value: null }
+            : { kind: "image", value: { type: "remote", url: thumb } },
+      });
+    }
+  }
+
+  const items = allItems.slice(0, pageSize);
+  return { items, details: { totalItems: items.length, nextPage: null } };
+});
+
+driver("details", async function (context) {
+  const { z } = await import("npm:zod");
+  const { externalId } = z.object({
+    externalId: z.string().trim().min(1, "externalId is required"),
+  }).parse(context ?? {});
+
+  const { Innertube } = await import("npm:youtubei.js");
+  const yt = await Innertube.create({
+    fetch: makeFetch,
+    generate_session_locally: true,
+  });
+  const queue = await yt.music.getUpNext(externalId);
+
+  const contents = queue.contents ?? [];
+  const trackItem =
+    contents.find((item) => item.video_id === externalId) ?? contents[0];
+
+  if (!trackItem) {
+    throw new Error(`YouTube Music track not found: ${externalId}`);
+  }
+
+  const title = trackItem.title?.text ?? String(trackItem.title ?? "");
+  if (!title) throw new Error("YouTube Music track is missing title");
+
+  const duration = trackItem.duration?.seconds ?? null;
+  const publishYear = trackItem.album?.year
+    ? parseInt(String(trackItem.album.year), 10) || null
+    : null;
+
+  const relatedEntityByKey = new Map();
+  const addRelatedEntity = (relatedEntity) => {
+    const key = `${relatedEntity.scriptSlug}:${relatedEntity.externalId}`;
+    const existing = relatedEntityByKey.get(key);
+    if (!existing) {
+      relatedEntityByKey.set(key, relatedEntity);
+      return;
+    }
+
+    const roles = new Set([
+      ...(Array.isArray(existing.relationshipProperties.roles)
+        ? existing.relationshipProperties.roles
+        : []),
+      ...(Array.isArray(relatedEntity.relationshipProperties.roles)
+        ? relatedEntity.relationshipProperties.roles
+        : []),
+    ]);
+    existing.relationshipProperties.roles = [...roles];
+    if (existing.name === "Loading..." && relatedEntity.name !== "Loading...") {
+      existing.name = relatedEntity.name;
+    }
+  };
+
+  for (const artist of trackItem.artists ?? []) {
+    const artistId =
+      typeof artist?.channel_id === "string" && artist.channel_id.trim()
+        ? artist.channel_id.trim()
+        : null;
+    if (!artistId) {
+      continue;
+    }
+
+    const artistName =
+      typeof artist?.name === "string" && artist.name.trim()
+        ? artist.name.trim()
+        : "Loading...";
+
+    addRelatedEntity({
+      name: artistName,
+      externalId: artistId,
+      scriptSlug: "person.youtube-music",
+      relationshipProperties: {
+        roles: ["Artist"],
+      },
+    });
+  }
+
+  const byVariousArtists =
+    relatedEntityByKey.size === 0 ? null : relatedEntityByKey.size > 1;
+
+  const album = trackItem.album;
+  const albumRelatedEntities =
+    album && typeof album === "object" &&
+    typeof album.id === "string" && album.id.trim() &&
+    typeof album.name === "string" && album.name.trim()
+      ? [
+        {
+          name: album.name.trim(),
+          externalId: album.id.trim(),
+          scriptSlug: "music-group.youtube-music",
+          relationshipProperties: {
+            roles: ["Member"],
+          },
+        },
+      ]
+      : [];
+
+  for (const albumRelatedEntity of albumRelatedEntities) {
+    addRelatedEntity(albumRelatedEntity);
+  }
+
+  return {
+    name: title,
+    properties: {
+      duration,
+      genres: [],
+      publishYear,
+      byVariousArtists,
+      sourceUrl: `https://music.youtube.com/watch?v=${externalId}`,
+      images: getThumbnailUrls(trackItem.thumbnail).map((url) => ({ type: "remote", url })),
+    },
+    relatedEntities: [...relatedEntityByKey.values()],
+  };
+});

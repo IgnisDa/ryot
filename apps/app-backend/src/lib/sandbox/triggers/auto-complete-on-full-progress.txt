@@ -1,0 +1,338 @@
+const SHOW_SPECIAL_SEASON_NAMES = ["Specials", "Extras"];
+
+function toPositiveInteger(value) {
+  return Number.isInteger(value) && value > 0 ? value : null;
+}
+
+function toPositiveNumber(value) {
+  return typeof value === "number" && Number.isFinite(value) && value > 0
+    ? value
+    : null;
+}
+
+function buildCountKeys(count) {
+  const keys = [];
+  for (let index = 1; index <= count; index++) {
+    keys.push(String(index));
+  }
+  return keys;
+}
+
+function buildMangaChapterKeys(totalChapters) {
+  const wholeChapters = Math.floor(totalChapters);
+  const keys = buildCountKeys(wholeChapters);
+  if (totalChapters !== wholeChapters) {
+    keys.push(String(totalChapters));
+  }
+  return keys;
+}
+
+function getCoverageKeyFromProperties(entitySchemaSlug, properties) {
+  if (!properties || properties.progressPercent !== 100) return null;
+
+  if (entitySchemaSlug === "show") {
+    const seasonNumber = toPositiveInteger(properties.showSeason);
+    const episodeNumber = toPositiveInteger(properties.showEpisode);
+    return seasonNumber !== null && episodeNumber !== null
+      ? String(seasonNumber) + "-" + String(episodeNumber)
+      : null;
+  }
+
+  if (entitySchemaSlug === "anime") {
+    const episodeNumber = toPositiveInteger(properties.animeEpisode);
+    return episodeNumber !== null ? String(episodeNumber) : null;
+  }
+
+  if (entitySchemaSlug === "manga") {
+    const chapterNumber = toPositiveNumber(properties.mangaChapter);
+    return chapterNumber !== null ? String(chapterNumber) : null;
+  }
+
+  if (entitySchemaSlug === "podcast") {
+    const episodeNumber = toPositiveInteger(properties.podcastEpisode);
+    return episodeNumber !== null ? String(episodeNumber) : null;
+  }
+
+  return null;
+}
+
+function getEventTimestamp(event) {
+  const value = event && typeof event.occurredAt === "string"
+    ? event.occurredAt
+    : event && event.createdAt;
+  const timestamp = typeof value === "string" ? Date.parse(value) : NaN;
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function getCreatedAtTimestamp(event) {
+  const value = event && event.createdAt;
+  const timestamp = typeof value === "string" ? Date.parse(value) : NaN;
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function compareCoverageEvents(a, b) {
+  const occurredAtDiff = getEventTimestamp(a) - getEventTimestamp(b);
+  if (occurredAtDiff !== 0) return occurredAtDiff;
+
+  const createdAtDiff = getCreatedAtTimestamp(a) - getCreatedAtTimestamp(b);
+  if (createdAtDiff !== 0) return createdAtDiff;
+
+  const aId = a && typeof a.id === "string" ? a.id : "";
+  const bId = b && typeof b.id === "string" ? b.id : "";
+  if (aId < bId) return -1;
+  if (aId > bId) return 1;
+  return 0;
+}
+
+function getShowCoverageKeys(properties) {
+  const seasons = Array.isArray(properties && properties.showSeasons)
+    ? properties.showSeasons
+    : [];
+  const keys = [];
+  let hasIncompleteCoverage = false;
+
+  seasons.forEach(function (season) {
+    if (!season || typeof season !== "object") return;
+    if (SHOW_SPECIAL_SEASON_NAMES.indexOf(season.name) !== -1) return;
+
+    const seasonNumber = toPositiveInteger(season.seasonNumber);
+    const episodes = Array.isArray(season.episodes) ? season.episodes : [];
+    if (seasonNumber === null || episodes.length === 0) {
+      hasIncompleteCoverage = true;
+      return;
+    }
+
+    let hasValidEpisode = false;
+    episodes.forEach(function (episode) {
+      if (!episode || typeof episode !== "object") return;
+
+      const episodeNumber = toPositiveInteger(episode.episodeNumber);
+      if (episodeNumber === null) {
+        hasIncompleteCoverage = true;
+        return;
+      }
+
+      hasValidEpisode = true;
+      keys.push(String(seasonNumber) + "-" + String(episodeNumber));
+    });
+
+    if (!hasValidEpisode) {
+      hasIncompleteCoverage = true;
+    }
+  });
+
+  return hasIncompleteCoverage ? null : keys;
+}
+
+function getPodcastCoverageKeys(properties) {
+  const episodes = Array.isArray(properties && properties.episodes)
+    ? properties.episodes
+    : null;
+  if (!episodes || episodes.length === 0) return null;
+
+  const keys = [];
+  episodes.forEach(function (episode) {
+    if (!episode || typeof episode !== "object") return;
+
+    const episodeNumber = toPositiveInteger(episode.number);
+    if (episodeNumber === null) return;
+
+    keys.push(String(episodeNumber));
+  });
+
+  return keys.length > 0 ? keys : null;
+}
+
+function getRequiredCoverageKeys(entitySchemaSlug, properties) {
+  if (entitySchemaSlug === "show") {
+    return getShowCoverageKeys(properties);
+  }
+
+  if (entitySchemaSlug === "anime") {
+    const episodeCount = toPositiveInteger(properties && properties.episodes);
+    return episodeCount === null ? null : buildCountKeys(episodeCount);
+  }
+
+  if (entitySchemaSlug === "manga") {
+    const chapterCount = toPositiveNumber(properties && properties.chapters);
+    return chapterCount === null ? null : buildMangaChapterKeys(chapterCount);
+  }
+
+  if (entitySchemaSlug === "podcast") {
+    return getPodcastCoverageKeys(properties);
+  }
+
+  return null;
+}
+
+function getCompletionCandidates(entitySchemaSlug, requiredKeys, events) {
+  const completionCandidates = [];
+  let coveredKeys = new Set();
+  const orderedEvents = events.slice().sort(compareCoverageEvents);
+
+  orderedEvents.forEach(function (event) {
+    const coverageKey = getCoverageKeyFromProperties(
+      entitySchemaSlug,
+      event && event.properties,
+    );
+    if (coverageKey === null) return;
+
+    coveredKeys.add(coverageKey);
+    if (!hasCoverageForAllRequiredKeys(requiredKeys, coveredKeys)) return;
+
+    if (event && typeof event.id === "string") {
+      completionCandidates.push({
+        completionEvent: event,
+        emitterEventId: event.id,
+      });
+    }
+
+    coveredKeys = new Set();
+  });
+
+  return completionCandidates;
+}
+
+function hasCoverageForAllRequiredKeys(requiredKeys, coveredKeys) {
+  return requiredKeys.every(function (requiredKey) {
+    return coveredKeys.has(requiredKey);
+  });
+}
+
+async function getCompleteSchema(trigger) {
+  const schemasResult = await listEventSchemas(trigger.entitySchemaId);
+  if (!schemasResult.success) {
+    throw new Error(schemasResult.error);
+  }
+
+  const schemas = schemasResult.data;
+  if (!Array.isArray(schemas)) return null;
+
+  return (
+    schemas.find(function (schema) {
+      return schema.slug === "complete";
+    }) || null
+  );
+}
+
+async function getEntityProperties(entityId) {
+  const entityResult = await getEntity(entityId);
+  if (!entityResult.success) {
+    throw new Error(entityResult.error);
+  }
+
+  const entity = entityResult.data;
+  return entity && entity.properties && typeof entity.properties === "object"
+    ? entity.properties
+    : {};
+}
+
+async function getProgressEvents(entityId) {
+  const eventsResult = await listEvents({
+    entityId: entityId,
+    eventSchemaSlug: "progress",
+  });
+  if (!eventsResult.success) {
+    throw new Error(eventsResult.error);
+  }
+
+  const events = eventsResult.data;
+  return Array.isArray(events) ? events : [];
+}
+
+function getCompletionOccurredAt(event) {
+  if (event && typeof event.occurredAt === "string") {
+    return event.occurredAt;
+  }
+
+  if (event && typeof event.createdAt === "string") {
+    return event.createdAt;
+  }
+
+  return null;
+}
+
+function getInheritedCompletionProperties(event) {
+  const properties = event && event.properties && typeof event.properties === "object"
+    ? event.properties
+    : {};
+  const inheritedProperties = event && event.inheritedProperties && typeof event.inheritedProperties === "object"
+    ? event.inheritedProperties
+    : {};
+  const consumedOn = typeof properties.consumedOn === "string"
+    ? properties.consumedOn
+    : inheritedProperties.consumedOn;
+
+  return typeof consumedOn === "string" ? { consumedOn } : {};
+}
+
+async function createCompletionEvent(trigger, completeSchema, sourceEvent) {
+  const occurredAt = getCompletionOccurredAt(sourceEvent) || trigger.occurredAt;
+  const completionResult = await createEvents([
+    {
+      entityId: trigger.entityId,
+      eventSchemaId: completeSchema.id,
+      occurredAt: occurredAt,
+      properties: Object.assign({}, getInheritedCompletionProperties(sourceEvent), {
+        completionMode: "custom_timestamps",
+        completedOn: occurredAt,
+      }),
+    },
+  ]);
+
+  if (!completionResult.success) {
+    throw new Error(completionResult.error);
+  }
+}
+
+driver("trigger", async function (context) {
+  const trigger = context.trigger;
+  if (!trigger) return;
+
+  if (trigger.properties.progressPercent !== 100) return;
+
+  const isEpisodic =
+    trigger.entitySchemaSlug === "show" ||
+    trigger.entitySchemaSlug === "anime" ||
+    trigger.entitySchemaSlug === "manga" ||
+    trigger.entitySchemaSlug === "podcast";
+
+  if (!isEpisodic) {
+    const completeSchema = await getCompleteSchema(trigger);
+    if (!completeSchema) return;
+    await createCompletionEvent(trigger, completeSchema, trigger);
+    return;
+  }
+
+  // For episodic media all three reads are independent — fetch in parallel.
+  const results = await Promise.all([
+    getCompleteSchema(trigger),
+    getEntityProperties(trigger.entityId),
+    getProgressEvents(trigger.entityId),
+  ]);
+  const completeSchema = results[0];
+  const entityProperties = results[1];
+  const progressEvents = results[2];
+
+  if (!completeSchema) return;
+
+  const requiredKeys = getRequiredCoverageKeys(
+    trigger.entitySchemaSlug,
+    entityProperties,
+  );
+
+  if (requiredKeys === null || requiredKeys.length === 0) return;
+
+  const completionCandidates = getCompletionCandidates(
+    trigger.entitySchemaSlug,
+    requiredKeys,
+    progressEvents,
+  );
+
+  const completionCandidate = completionCandidates.find(function (candidate) {
+    return candidate.emitterEventId === trigger.eventId;
+  });
+  if (!completionCandidate) return;
+
+  await createCompletionEvent(trigger, completeSchema, completionCandidate.completionEvent);
+});

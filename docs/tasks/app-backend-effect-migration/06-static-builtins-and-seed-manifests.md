@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -14,12 +14,12 @@ The seed path should run after migrations and before server runtime behavior nee
 
 ## Acceptance criteria
 
-- [ ] Startup seed creates or updates builtin entity schemas and their event schemas
-- [ ] Startup seed creates or updates builtin sandbox scripts and provider associations
-- [ ] Startup seed creates or updates builtin trigger links and relationship schemas
-- [ ] Seed ordering handles dependencies between schemas, scripts, links, triggers, and relationships
-- [ ] Seed behavior is idempotent across repeated startups
-- [ ] Backend code for this slice does not depend on `@ryot/ts-utils`
+- [x] Startup seed creates or updates builtin entity schemas and their event schemas
+- [x] Startup seed creates or updates builtin sandbox scripts and provider associations
+- [x] Startup seed creates or updates builtin trigger links and relationship schemas
+- [x] Seed ordering handles dependencies between schemas, scripts, links, triggers, and relationships
+- [x] Seed behavior is idempotent across repeated startups
+- [x] Backend code for this slice does not depend on `@ryot/ts-utils`
 
 ## User stories addressed
 

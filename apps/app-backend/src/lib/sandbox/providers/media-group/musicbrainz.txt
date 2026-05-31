@@ -1,0 +1,263 @@
+function parseJsonResponse(responseBody) {
+  try {
+    return JSON.parse(responseBody);
+  } catch {
+    throw new Error("MusicBrainz returned invalid JSON");
+  }
+}
+
+const MB_BASE = "https://musicbrainz.org/ws/2";
+const CAA_BASE = "https://coverartarchive.org";
+const MB_HEADERS = { Accept: "application/json" };
+
+async function mbGet(path, params) {
+  const search = new URLSearchParams({ fmt: "json", ...params });
+  const url = `${MB_BASE}/${path}?${search.toString()}`;
+  const response = await httpCall("GET", url, { headers: MB_HEADERS });
+  if (!response?.success) {
+    if (response?.data?.status === 404) return null;
+    throw new Error(response?.error ?? `MusicBrainz request failed: ${path}`);
+  }
+  return parseJsonResponse(response.data.body);
+}
+
+async function fetchCoverArtUrl(resourceType, resourceId) {
+  const url = `${CAA_BASE}/${resourceType}/${resourceId}`;
+  const response = await httpCall("GET", url, {
+    headers: { Accept: "application/json" },
+  });
+  if (!response?.success) return null;
+  try {
+    const data = parseJsonResponse(response.data.body);
+    if (!data || !Array.isArray(data.images)) return null;
+    const frontImage =
+      data.images.find((img) => img.front === true) || data.images[0];
+    if (!frontImage) return null;
+    const t = frontImage.thumbnails || {};
+    return (
+      (typeof t["1200"] === "string" && t["1200"]) ||
+      (typeof t["500"] === "string" && t["500"]) ||
+      (typeof t["250"] === "string" && t["250"]) ||
+      (typeof t.large === "string" && t.large) ||
+      (typeof t.small === "string" && t.small) ||
+      (typeof frontImage.image === "string" && frontImage.image) ||
+      null
+    );
+  } catch {
+    return null;
+  }
+}
+
+function buildLuceneQuery(query, fields) {
+  const escaped = query.replace(/([+\-!(){}[\]^"~*?:\\/])/g, "\\$1");
+  return fields.map((f) => `${f}:(${escaped})`).join(" OR ");
+}
+
+function releaseGroupDescription(releaseGroup) {
+  const parts = [];
+  const primaryType = getString(releaseGroup?.["primary-type"]);
+  if (primaryType) {
+    parts.push(primaryType);
+  }
+
+  const secondaryTypes = Array.isArray(releaseGroup?.["secondary-types"])
+    ? releaseGroup["secondary-types"]
+    : [];
+  const secondary = secondaryTypes
+    .map((type) => getString(type))
+    .filter((type) => type !== null && type.length > 0)
+    .join(", ");
+  if (secondary) {
+    parts.push(secondary);
+  }
+
+  const disambiguation = getString(releaseGroup?.disambiguation);
+  if (disambiguation) {
+    parts.push(disambiguation);
+  }
+
+  return parts.length > 0 ? parts.join(" - ") : null;
+}
+
+function chooseRelease(releases) {
+  if (!Array.isArray(releases) || releases.length === 0) {
+    return null;
+  }
+
+  const parseDate = (value) => {
+    if (typeof value !== "string" || !value.trim()) {
+      return null;
+    }
+    const parsed = new Date(value.trim());
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  };
+
+  const official = releases.filter((release) => release?.status === "Official");
+  const candidates = official.length > 0 ? official : releases;
+
+  return candidates.reduce((best, release) => {
+    if (!best) return release;
+    const bestDate = parseDate(best.date);
+    const releaseDate = parseDate(release.date);
+    if (bestDate && releaseDate) {
+      return releaseDate < bestDate ? release : best;
+    }
+    if (releaseDate && !bestDate) {
+      return release;
+    }
+    return best;
+  }, null);
+}
+
+driver("search", async function (context) {
+  const { z } = await import("npm:zod");
+  const dayjs = (await import("npm:dayjs")).default;
+
+  const { query, page: currentPage, pageSize } = z
+    .object({
+      query: z.string().trim().min(1, "query is required"),
+      page: z.coerce.number().min(1).transform(Math.floor).catch(1),
+      pageSize: z.coerce.number().min(1).max(100).transform(Math.floor).catch(20),
+    })
+    .parse(context ?? {});
+
+  const luceneQuery = buildLuceneQuery(query, ["release-group", "artist"]);
+  const data = await mbGet("release-group", {
+    query: luceneQuery,
+    limit: String(pageSize),
+    offset: String((currentPage - 1) * pageSize),
+  });
+
+  if (!data) throw new Error("MusicBrainz release-group search returned no data");
+
+  const totalItems =
+    typeof data.count === "number" ? Math.max(0, data.count) : 0;
+  const groups = Array.isArray(data["release-groups"]) ? data["release-groups"] : [];
+
+  const items = groups
+    .map((group) => {
+      const id =
+        typeof group?.id === "string" && group.id.trim() ? group.id.trim() : null;
+      if (!id) return null;
+      const title =
+        typeof group?.title === "string" && group.title.trim()
+          ? group.title.trim()
+          : id;
+      return {
+        externalId: id,
+        calloutProperty: { kind: "null", value: null },
+        titleProperty: { kind: "text", value: title },
+        primarySubtitleProperty: { kind: "null", value: null },
+        secondarySubtitleProperty: { kind: "null", value: null },
+        imageProperty: { kind: "null", value: null },
+      };
+    })
+    .filter((item) => item !== null);
+
+  return {
+    items,
+    details: {
+      totalItems,
+      nextPage: currentPage * pageSize < totalItems ? currentPage + 1 : null,
+    },
+  };
+});
+
+driver("details", async function (context) {
+  const { z } = await import("npm:zod");
+
+  const { externalId } = z
+    .object({ externalId: z.string().trim().min(1, "externalId is required") })
+    .parse(context ?? {});
+
+  // 1. Fetch release group with artists
+  const releaseGroup = await mbGet(`release-group/${externalId}`, {
+    inc: "artists",
+  });
+  if (!releaseGroup) throw new Error(`MusicBrainz release-group not found: ${externalId}`);
+
+  const title =
+    typeof releaseGroup?.title === "string" ? releaseGroup.title.trim() : null;
+  if (!title) throw new Error("MusicBrainz release-group is missing title");
+
+  const description = releaseGroupDescription(releaseGroup);
+
+  // 2. Browse releases in this release-group, pick the first one
+  const browseData = await mbGet("release", {
+    "release-group": externalId,
+    limit: "10",
+  });
+  const releases = Array.isArray(browseData?.releases) ? browseData.releases : [];
+  const bestRelease = chooseRelease(releases);
+
+  let coverUrl = null;
+  let trackCount = 0;
+
+  if (bestRelease) {
+    // Try to get cover art for the release
+    coverUrl = await fetchCoverArtUrl("release", bestRelease.id);
+
+    // Fetch recordings for track count
+    const releaseDetails = await mbGet(`release/${bestRelease.id}`, {
+      inc: "recordings",
+    });
+    if (releaseDetails?.media) {
+      for (const medium of releaseDetails.media) {
+        if (Array.isArray(medium?.tracks)) {
+          trackCount += medium.tracks.length;
+        }
+      }
+    }
+  }
+
+  // Fallback: cover art for release-group
+  if (!coverUrl) {
+    coverUrl = await fetchCoverArtUrl("release-group", externalId);
+  }
+
+  const images = coverUrl ? [{ type: "remote", url: coverUrl }] : [];
+  const parts_ = trackCount > 0 ? trackCount : null;
+
+  const relatedEntities = [];
+  if (bestRelease && releaseDetails?.media) {
+    let trackIdx = 0;
+    for (const medium of releaseDetails.media) {
+      if (Array.isArray(medium?.tracks)) {
+        for (const track of medium.tracks) {
+          const recording = track?.recording ?? track;
+          const memberId =
+            typeof recording?.id === "string" && recording.id.trim()
+              ? recording.id.trim()
+              : null;
+          if (!memberId) {
+            trackIdx++;
+            continue;
+          }
+          const memberName =
+            typeof recording?.title === "string" && recording.title.trim()
+              ? recording.title.trim()
+              : "Loading...";
+          relatedEntities.push({
+            name: memberName,
+            externalId: memberId,
+            reverseDirection: true,
+            scriptSlug: "music.musicbrainz",
+            relationshipProperties: { order: trackIdx + 1 },
+          });
+          trackIdx++;
+        }
+      }
+    }
+  }
+
+  return {
+    name: title,
+    relatedEntities,
+    properties: {
+      images,
+      description,
+      parts: parts_,
+      sourceUrl: `https://musicbrainz.org/release-group/${externalId}`,
+    },
+  };
+});

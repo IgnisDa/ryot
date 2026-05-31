@@ -1,0 +1,497 @@
+function parseJsonResponse(responseBody) {
+  try {
+    return JSON.parse(responseBody);
+  } catch {
+    throw new Error("TMDB returned invalid JSON");
+  }
+}
+
+const TMDB_BASE_URL = "https://api.themoviedb.org/3";
+const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/original";
+
+async function getUserIsNsfw() {
+  const prefsResult = await getUserPreferences();
+  if (!prefsResult?.success) {
+    return false;
+  }
+  return prefsResult?.data?.isNsfw === true;
+}
+
+async function getTmdbAccessToken() {
+  const resp = await getAppConfigValue("moviesAndShows.tmdb.accessToken");
+  if (!resp?.success) {
+    throw new Error(resp?.error ?? "Failed to retrieve TMDB access token");
+  }
+
+  const token = typeof resp.data === "string" ? resp.data.trim() : null;
+  if (!token) {
+    throw new Error(
+      "TMDB access token is not configured. Set MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN in your environment.",
+    );
+  }
+
+  return token;
+}
+
+function getImageUrl(path) {
+  if (typeof path !== "string" || !path.trim()) {
+    return null;
+  }
+  return `${TMDB_IMAGE_BASE}${path.trim()}`;
+}
+
+function parsePublishYear(dateStr, dayjs) {
+  if (typeof dateStr !== "string" || !dateStr.trim()) return null;
+  const d = dayjs(dateStr.trim());
+  return d.isValid() && d.year() > 0 ? d.year() : null;
+}
+
+async function tmdbGet(path, params, token) {
+  const query = new URLSearchParams(params);
+  const url = `${TMDB_BASE_URL}${path}?${query.toString()}`;
+  const response = await httpCall("GET", url, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!response?.success) {
+    throw new Error(response?.error ?? `TMDB request failed: ${path}`);
+  }
+
+  const payload = parseJsonResponse(response.data.body);
+
+  if (typeof payload?.status_code === "number" && payload.status_code !== 1) {
+    throw new Error(
+      payload.status_message ??
+        `TMDB API error (status ${payload.status_code})`,
+    );
+  }
+
+  return payload;
+}
+
+function collectImages(posterPath, backdropPath, postersArray, backdropsArray) {
+  const seen = new Set();
+  const images = [];
+
+  const addImage = (path) => {
+    const url = getImageUrl(path);
+    if (url && !seen.has(url)) {
+      seen.add(url);
+      images.push({ type: "remote", url });
+    }
+  };
+
+  addImage(posterPath);
+  addImage(backdropPath);
+
+  if (Array.isArray(postersArray)) {
+    for (const item of postersArray) {
+      addImage(item?.file_path);
+    }
+  }
+
+  if (Array.isArray(backdropsArray)) {
+    for (const item of backdropsArray) {
+      addImage(item?.file_path);
+    }
+  }
+
+  return images;
+}
+
+function collectGenres(genresArray) {
+  if (!Array.isArray(genresArray)) {
+    return [];
+  }
+
+  const genres = [];
+  for (const g of genresArray) {
+    const name = typeof g?.name === "string" ? g.name.trim() : "";
+    if (name) {
+      genres.push(name);
+    }
+  }
+
+  return genres;
+}
+
+function collectCompanies(productionCompanies) {
+  if (!Array.isArray(productionCompanies)) {
+    return [];
+  }
+
+  const companyByKey = new Map();
+
+  for (const company of productionCompanies) {
+    const id =
+      typeof company?.id === "number" && Number.isFinite(company.id)
+        ? Math.trunc(company.id)
+        : null;
+    if (id === null) {
+      continue;
+    }
+
+    const name =
+      typeof company?.name === "string" && company.name.trim()
+        ? company.name.trim()
+        : "Loading...";
+
+    const key = `company.tmdb:${id}`;
+    const existing = companyByKey.get(key);
+    if (existing) {
+      const roles = new Set([
+        ...(Array.isArray(existing.relationshipProperties.roles)
+          ? existing.relationshipProperties.roles
+          : []),
+        "Production Company",
+      ]);
+      existing.relationshipProperties.roles = [...roles];
+      if (existing.name === "Loading..." && name !== "Loading...") {
+        existing.name = name;
+      }
+      continue;
+    }
+
+    companyByKey.set(key, {
+      name,
+      externalId: String(id),
+      scriptSlug: "company.tmdb",
+      relationshipProperties: {
+        roles: ["Production Company"],
+      },
+    });
+  }
+
+  return [...companyByKey.values()];
+}
+
+function collectPeople(cast, crew) {
+  const relatedEntityByKey = new Map();
+  const unlinkedCreators = [];
+  const unlinkedByKey = new Set();
+
+  const addRelatedEntity = (relatedEntity) => {
+    const key = `${relatedEntity.scriptSlug}:${relatedEntity.externalId}`;
+    const existing = relatedEntityByKey.get(key);
+    if (!existing) {
+      relatedEntityByKey.set(key, relatedEntity);
+      return;
+    }
+
+    const roles = new Set([
+      ...(Array.isArray(existing.relationshipProperties.roles)
+        ? existing.relationshipProperties.roles
+        : []),
+      ...(Array.isArray(relatedEntity.relationshipProperties.roles)
+        ? relatedEntity.relationshipProperties.roles
+        : []),
+    ]);
+    existing.relationshipProperties.roles = [...roles];
+    if (existing.name === "Loading..." && relatedEntity.name !== "Loading...") {
+      existing.name = relatedEntity.name;
+    }
+  };
+
+  const addUnlinkedCreator = (name, role) => {
+    const key = `${name}:${role}`;
+    if (unlinkedByKey.has(key)) {
+      return;
+    }
+    unlinkedByKey.add(key);
+    unlinkedCreators.push({ name, role });
+  };
+
+  const castList = Array.isArray(cast) ? cast : [];
+  for (const member of castList.slice(0, 15)) {
+    const name =
+      typeof member?.name === "string" && member.name.trim()
+        ? member.name.trim()
+        : "Loading...";
+    const id =
+      typeof member?.id === "number" && Number.isFinite(member.id)
+        ? Math.trunc(member.id)
+        : null;
+    const role =
+      typeof member?.known_for_department === "string" &&
+      member.known_for_department.trim()
+        ? member.known_for_department.trim()
+        : "Acting";
+    if (id !== null) {
+      addRelatedEntity({
+        name,
+        externalId: String(id),
+        scriptSlug: "person.tmdb",
+        relationshipProperties: {
+          roles: [role],
+        },
+      });
+    } else {
+      addUnlinkedCreator(name, role);
+    }
+  }
+
+  const NOTABLE_JOBS = new Set([
+    "Director",
+    "Producer",
+    "Screenplay",
+    "Writer",
+    "Story",
+  ]);
+
+  const crewList = Array.isArray(crew) ? crew : [];
+  for (const member of crewList) {
+    const name =
+      typeof member?.name === "string" && member.name.trim()
+        ? member.name.trim()
+        : "Loading...";
+    const job = typeof member?.job === "string" ? member.job.trim() : "";
+    if (!job || !NOTABLE_JOBS.has(job)) {
+      continue;
+    }
+    const id =
+      typeof member?.id === "number" && Number.isFinite(member.id)
+        ? Math.trunc(member.id)
+        : null;
+    if (id !== null) {
+      addRelatedEntity({
+        name,
+        externalId: String(id),
+        scriptSlug: "person.tmdb",
+        relationshipProperties: {
+          roles: [job],
+        },
+      });
+    } else {
+      addUnlinkedCreator(name, job);
+    }
+  }
+
+  return { relatedEntities: [...relatedEntityByKey.values()], unlinkedCreators };
+}
+
+driver("search", async function (context) {
+  const { z } = await import("npm:zod");
+  const dayjs = (await import("npm:dayjs")).default;
+
+  const {
+    query,
+    page: currentPage,
+    pageSize,
+  } = z
+    .object({
+      query: z.string().trim().min(1, "query is required"),
+      page: z.coerce.number().min(1).transform(Math.floor).catch(1),
+      pageSize: z.coerce
+        .number()
+        .min(1)
+        .max(100)
+        .transform(Math.floor)
+        .catch(20),
+    })
+    .parse(context ?? {});
+
+  const token = await getTmdbAccessToken();
+  const showNsfw = await getUserIsNsfw();
+  const data = await tmdbGet(
+    "/search/movie",
+    {
+      query,
+      language: "en-US",
+      page: String(currentPage),
+      include_adult: showNsfw ? "true" : "false",
+    },
+    token,
+  );
+
+  const results = Array.isArray(data?.results) ? data.results : [];
+  const totalItems =
+    typeof data?.total_results === "number" &&
+    Number.isFinite(data.total_results)
+      ? data.total_results
+      : results.length;
+  const totalPages =
+    typeof data?.total_pages === "number" && Number.isFinite(data.total_pages)
+      ? data.total_pages
+      : 1;
+
+  const items = results
+    .map((movie) => {
+      const id =
+        typeof movie?.id === "number" && Number.isFinite(movie.id)
+          ? String(Math.trunc(movie.id))
+          : null;
+      if (!id) {
+        return null;
+      }
+
+      const title =
+        typeof movie?.title === "string" && movie.title.trim()
+          ? movie.title.trim()
+          : null;
+      if (!title) {
+        return null;
+      }
+
+      const publishYear = parsePublishYear(movie?.release_date, dayjs);
+      const image = getImageUrl(movie?.poster_path);
+
+      return {
+        externalId: id,
+        calloutProperty: { kind: "null", value: null },
+        titleProperty: { kind: "text", value: title },
+        primarySubtitleProperty:
+          publishYear === null
+            ? { kind: "null", value: null }
+            : { kind: "number", value: publishYear },
+        secondarySubtitleProperty: { kind: "null", value: null },
+        imageProperty:
+          image === null
+            ? { kind: "null", value: null }
+            : { kind: "image", value: { type: "remote", url: image } },
+      };
+    })
+    .filter((item) => item !== null)
+    .slice(0, pageSize);
+
+  return {
+    items,
+    details: {
+      totalItems,
+      nextPage: currentPage < totalPages ? currentPage + 1 : null,
+    },
+  };
+});
+
+driver("details", async function (context) {
+  const { z } = await import("npm:zod");
+  const dayjs = (await import("npm:dayjs")).default;
+
+  const { externalId } = z
+    .object({
+      externalId: z.string().trim().min(1, "externalId is required"),
+    })
+    .parse(context ?? {});
+
+  if (!/^\d+$/.test(externalId)) {
+    throw new Error("externalId must be a numeric TMDB movie ID");
+  }
+
+  const token = await getTmdbAccessToken();
+
+  const [movieData, creditsData, imagesData] = await Promise.all([
+    tmdbGet(`/movie/${externalId}`, { language: "en-US" }, token),
+    tmdbGet(`/movie/${externalId}/credits`, { language: "en-US" }, token),
+    tmdbGet(`/movie/${externalId}/images`, {}, token),
+  ]);
+
+  const title =
+    typeof movieData?.title === "string" && movieData.title.trim()
+      ? movieData.title.trim()
+      : null;
+  if (!title) {
+    throw new Error("TMDB returned no title for this movie");
+  }
+
+  const images = collectImages(
+    movieData?.poster_path,
+    movieData?.backdrop_path,
+    imagesData?.posters,
+    imagesData?.backdrops,
+  );
+
+  const runtime =
+    typeof movieData?.runtime === "number" &&
+    Number.isFinite(movieData.runtime) &&
+    movieData.runtime > 0
+      ? Math.trunc(movieData.runtime)
+      : null;
+
+  const providerRating =
+    typeof movieData?.vote_average === "number" &&
+    Number.isFinite(movieData.vote_average) &&
+    movieData.vote_average > 0
+      ? movieData.vote_average * 10
+      : null;
+
+  const collectionId =
+    movieData?.belongs_to_collection && typeof movieData.belongs_to_collection === "object"
+      ? typeof movieData.belongs_to_collection.id === "number" &&
+        Number.isFinite(movieData.belongs_to_collection.id)
+        ? String(Math.trunc(movieData.belongs_to_collection.id))
+        : null
+      : null;
+  const groups = collectionId
+    ? [
+      {
+        name:
+          typeof movieData.belongs_to_collection?.name === "string" &&
+          movieData.belongs_to_collection.name.trim()
+            ? movieData.belongs_to_collection.name.trim()
+            : "Loading...",
+        externalId: collectionId,
+        scriptSlug: "movie-group.tmdb",
+        relationshipProperties: {
+          roles: ["Member"],
+        },
+      },
+    ]
+    : [];
+
+  const { relatedEntities: peopleRelatedEntities, unlinkedCreators } = collectPeople(
+    creditsData?.cast,
+    creditsData?.crew,
+  );
+
+  const relatedEntities = [
+    ...peopleRelatedEntities,
+    ...collectCompanies(movieData?.production_companies),
+    ...groups,
+  ];
+
+  return {
+    name: title,
+    properties: {
+      images,
+      runtime,
+      providerRating,
+      genres: collectGenres(movieData?.genres),
+      isNsfw: movieData?.adult === true ? true : null,
+      sourceUrl: `https://www.themoviedb.org/movie/${externalId}`,
+      publishYear: parsePublishYear(movieData?.release_date, dayjs),
+      description:
+        typeof movieData?.overview === "string" && movieData.overview.trim()
+          ? movieData.overview.trim()
+          : null,
+      productionStatus:
+        typeof movieData?.status === "string" && movieData.status.trim()
+          ? movieData.status.trim()
+          : null,
+      unlinkedCreators,
+    },
+    relatedEntities,
+  };
+});
+
+driver("resolve", async function (context) {
+  if (!context || context.identifierType !== "imdb") {
+    throw new Error("TMDB movie resolve supports only imdb identifiers");
+  }
+  const value = typeof context.value === "string" ? context.value.trim() : "";
+  if (!value) {
+    throw new Error("TMDB movie resolve requires a non-empty imdb value");
+  }
+
+  const token = await getTmdbAccessToken();
+  const payload = await tmdbGet(
+    `/find/${encodeURIComponent(value)}`,
+    { external_source: "imdb_id" },
+    token,
+  );
+
+  const movieId = payload?.movie_results?.[0]?.id;
+  if (typeof movieId === "number" && Number.isFinite(movieId)) {
+    return { externalId: String(Math.trunc(movieId)) };
+  }
+
+  return { externalId: null };
+});
