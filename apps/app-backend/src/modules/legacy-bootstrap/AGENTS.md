@@ -30,6 +30,7 @@ Permitted silent-skip patterns: idempotent guards (work already done on a previo
 - After `old_user` is migrated, each legacy user is passed through `bootstrapNewUser` so migrated accounts receive the built-in trackers, saved views, and library entity that auth-created users get.
 - All V1 entities (`metadata`, `metadata_group`, `person`, `collection`, `exercise`, `workout_template`, `workout`) are migrated to the V2 `entity` table with `entity_schema_id`/`sandbox_script_id` derived from the V1 `lot`/`source`. Relationship tables are migrated to V2 `relationship` rows. Workout sets become `event` rows. The authoritative field-level mappings live in the migration SQL — do not duplicate them here.
 - V1 `seen` rows become V2 `event` rows. Each row expands into one or more events; the full expansion and clamping logic is in `seen-mapping.ts`, and the episodic completion backfill is in `seen-completion-mapping.ts`.
+- V1 scheduled a post-import workout revision job after workout writes. V2 does not have an equivalent workout revision scheduler, and legacy bootstrap intentionally does not schedule one after workout/entity/set-event migration.
 
 ## Ignored For Now
 
