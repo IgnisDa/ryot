@@ -14,12 +14,20 @@ import {
 	validateSchemaList,
 } from "./shared";
 
+const firstSourceAliases = (source: Source): ReadonlySet<string> =>
+	source.type === "events"
+		? new Set([source.alias, source.entityRef])
+		: new Set(
+				source.via === undefined
+					? [source.alias]
+					: [source.alias, source.via.alias, source.via.entityRef],
+			);
+
 export const validateExpr = (
 	expr: Expr,
 	scope: AliasScope,
 	aliases: AliasScope,
 	expressionSourceDepth = 0,
-	allowFirst = false,
 	measureKeys: ReadonlySet<string> | null = null,
 ): string | null => {
 	if (expr.type === "literal") {
@@ -75,17 +83,11 @@ export const validateExpr = (
 	}
 
 	if (expr.type === "first") {
-		if (!allowFirst) {
-			return "First expressions are currently valid only as output fields";
-		}
 		if (expressionSourceDepth + 1 > MAX_EXPRESSION_SOURCE_DEPTH) {
 			return `Expression source depth exceeds maximum of ${MAX_EXPRESSION_SOURCE_DEPTH}`;
 		}
-		if (expr.source.type !== "events") {
-			return "First expression currently supports event sources only";
-		}
 		if (expr.source.where !== null) {
-			return "First expression event source does not support where yet";
+			return "First expression source does not support where yet";
 		}
 
 		const sourceScope = new Map(scope);
@@ -99,6 +101,7 @@ export const validateExpr = (
 			return sourceError;
 		}
 
+		const allowedAliases = firstSourceAliases(expr.source);
 		for (const entry of expr.orderBy) {
 			const error = validateExpr(entry.expr, sourceScope, aliases, expressionSourceDepth + 1);
 			if (error) {
@@ -107,10 +110,7 @@ export const validateExpr = (
 			if (entry.expr.type !== "ref") {
 				return "First orderBy currently supports ref expressions only";
 			}
-			if (
-				entry.expr.sourceAlias !== expr.source.alias &&
-				entry.expr.sourceAlias !== expr.source.entityRef
-			) {
+			if (!allowedAliases.has(entry.expr.sourceAlias)) {
 				return `First orderBy cannot reference source alias '${entry.expr.sourceAlias}'`;
 			}
 		}
@@ -125,25 +125,22 @@ export const validateExpr = (
 		if (expr.select.type !== "ref") {
 			return "First select currently supports ref and literal expressions only";
 		}
-		if (
-			expr.select.sourceAlias !== expr.source.alias &&
-			expr.select.sourceAlias !== expr.source.entityRef
-		) {
+		if (!allowedAliases.has(expr.select.sourceAlias)) {
 			return `First select cannot reference source alias '${expr.select.sourceAlias}'`;
 		}
 		return null;
 	}
 
-	if (expr.type === "comparison") {
+	if (expr.type === "arithmetic" || expr.type === "comparison") {
 		return (
-			validateExpr(expr.left, scope, aliases, expressionSourceDepth, false) ??
-			validateExpr(expr.right, scope, aliases, expressionSourceDepth, false)
+			validateExpr(expr.left, scope, aliases, expressionSourceDepth) ??
+			validateExpr(expr.right, scope, aliases, expressionSourceDepth)
 		);
 	}
 
 	if (expr.type === "and" || expr.type === "or" || expr.type === "coalesce") {
 		for (const value of expr.values) {
-			const error = validateExpr(value, scope, aliases, expressionSourceDepth, false);
+			const error = validateExpr(value, scope, aliases, expressionSourceDepth);
 			if (error) {
 				return error;
 			}
@@ -152,12 +149,12 @@ export const validateExpr = (
 	}
 
 	if (expr.type === "not" || expr.type === "isNull" || expr.type === "isNotNull") {
-		return validateExpr(expr.expr, scope, aliases, expressionSourceDepth, false);
+		return validateExpr(expr.expr, scope, aliases, expressionSourceDepth);
 	}
 
 	return (
-		validateExpr(expr.left, scope, aliases, expressionSourceDepth, false) ??
-		validateExpr(expr.right, scope, aliases, expressionSourceDepth, false)
+		validateExpr(expr.left, scope, aliases, expressionSourceDepth) ??
+		validateExpr(expr.right, scope, aliases, expressionSourceDepth)
 	);
 };
 
@@ -209,7 +206,7 @@ export const validateEntitySource = (
 	return null;
 };
 
-const validateNestedEventSource = (
+export const validateNestedEventSource = (
 	source: NestedEventSource,
 	scope: AliasScope,
 	aliases: AliasScope,
@@ -337,11 +334,7 @@ export const validateRelationshipSource = (
 		return targetEntityAliasError;
 	}
 
-	if (source.where !== null) {
-		return `Root relationship source '${source.alias}' does not support where yet`;
-	}
-
-	return null;
+	return source.where !== null ? validateExpr(source.where, scope, aliases) : null;
 };
 
 export const validateSource = (

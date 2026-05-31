@@ -3,9 +3,11 @@ import { validateEntitySource, validateRelationshipSource, validateRootEventSour
 import { validateAggregateOutput, validateRowsOutput, validateTimeSeriesOutput } from "./output";
 import type { AliasScope } from "./shared";
 
-export const validateQueryDocument = (doc: QueryDocument): string | null => {
-	const scope: AliasScope = new Map();
-	const aliases: AliasScope = new Map();
+const runValidation = (
+	doc: QueryDocument,
+	scope: AliasScope,
+	aliases: AliasScope,
+): string | null => {
 	const { source } = doc;
 	if (source.type === "entities" && source.via !== undefined) {
 		return "Root entity source cannot specify via";
@@ -35,4 +37,13 @@ export const validateQueryDocument = (doc: QueryDocument): string | null => {
 		return validateAggregateOutput(doc.output, scope, aliases);
 	}
 	return validateTimeSeriesOutput(doc.output, scope, aliases);
+};
+
+export const validateQueryDocument = (doc: QueryDocument): string | null =>
+	runValidation(doc, new Map(), new Map());
+
+export const collectAliasScope = (doc: QueryDocument): AliasScope => {
+	const aliases: AliasScope = new Map();
+	runValidation(doc, new Map(), aliases);
+	return aliases;
 };

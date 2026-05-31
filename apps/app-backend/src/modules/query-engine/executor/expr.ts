@@ -18,8 +18,9 @@ import {
 	evalFieldSelector,
 	evalRelationshipFieldSelector,
 	fieldValueScalar,
-	valueToFieldValue,
+	literalToFieldValue,
 } from "./field-values";
+import { executeEntityFirst, executeEventFirst } from "./first";
 import { executeSourceMatches } from "./source-matches";
 import { MAX_AGGREGATE_EXPRESSION_SOURCE_ROWS, type RowContext, type SourceMatch } from "./types";
 
@@ -189,7 +190,7 @@ export const evalExprValue = (
 			return evalRefInContext(expr, context);
 		}
 		if (expr.type === "literal") {
-			return valueToFieldValue(expr.value);
+			return literalToFieldValue(expr);
 		}
 		if (expr.type === "exists") {
 			const matches = yield* executeSourceMatches(
@@ -204,10 +205,39 @@ export const evalExprValue = (
 		if (expr.type === "aggregate") {
 			return yield* evalAggregate(userId, context, expr.aggregation, expr.source);
 		}
+		if (expr.type === "first") {
+			const source = expr.source;
+			const anchorRef = source.type === "events" ? source.entityRef : source.via?.entityRef;
+			const anchor = anchorRef === undefined ? undefined : context.entities.get(anchorRef);
+			if (anchor === undefined) {
+				return { kind: "null" as const, value: null };
+			}
+			return source.type === "events"
+				? yield* executeEventFirst(userId, anchor, source, expr)
+				: yield* executeEntityFirst(userId, anchor, source, expr);
+		}
 		if (expr.type === "comparison") {
 			const left = fieldValueScalar(yield* evalExprValue(userId, expr.left, context));
 			const right = fieldValueScalar(yield* evalExprValue(userId, expr.right, context));
 			return { kind: "boolean" as const, value: compareValues(left, right, expr.operator) };
+		}
+		if (expr.type === "arithmetic") {
+			const left = fieldValueScalar(yield* evalExprValue(userId, expr.left, context));
+			const right = fieldValueScalar(yield* evalExprValue(userId, expr.right, context));
+			if (typeof left !== "number" || typeof right !== "number") {
+				return { kind: "null" as const, value: null };
+			}
+			return Match.value(expr.operator).pipe(
+				Match.when("add", () => ({ kind: "number" as const, value: left + right })),
+				Match.when("subtract", () => ({ kind: "number" as const, value: left - right })),
+				Match.when("multiply", () => ({ kind: "number" as const, value: left * right })),
+				Match.when("divide", () =>
+					right === 0
+						? { kind: "null" as const, value: null }
+						: { kind: "number" as const, value: left / right },
+				),
+				Match.exhaustive,
+			);
 		}
 		if (expr.type === "and") {
 			for (const value of expr.values) {
