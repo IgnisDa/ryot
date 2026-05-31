@@ -34,8 +34,8 @@ const fields = {
 	),
 	databaseStatementTimeoutMs: intField(
 		"DATABASE_STATEMENT_TIMEOUT_MS",
-		"Maximum milliseconds a single SQL statement may run before PostgreSQL aborts it; 0 disables. Transactions run uninterruptibly, so this bounds a stuck statement. Leave at 0 if long-running migrations are expected.",
-		{ default: 0 },
+		"Maximum milliseconds a single SQL statement may run before PostgreSQL aborts it; 0 disables. Bounds pathological statements (e.g. a deeply nested query-engine document). The pool is shared with migrations, so set to 0 or raise this when running long migrations or bulk backfills.",
+		{ default: 30_000 },
 	),
 	databaseIdleInTransactionTimeoutMs: intField(
 		"DATABASE_IDLE_IN_TRANSACTION_TIMEOUT_MS",

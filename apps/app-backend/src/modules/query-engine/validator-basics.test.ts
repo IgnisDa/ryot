@@ -188,6 +188,30 @@ describe("output field key uniqueness", () => {
 		});
 		expect(validateQueryDocument(doc)).toMatch(/Duplicate output field key 'title'/);
 	});
+
+	it("rejects an output field key longer than the maximum", () => {
+		const doc = makeDoc({
+			output: {
+				type: "rows",
+				pagination: { page: 1, limit: 10 },
+				orderBy: [{ order: "asc", expr: nameRef("e") }],
+				fields: [{ key: "k".repeat(59), expr: nameRef("e") }],
+			},
+		});
+		expect(validateQueryDocument(doc)).toMatch(/exceeds maximum length of 58 bytes/);
+	});
+
+	it("accepts an output field key at the maximum length", () => {
+		const doc = makeDoc({
+			output: {
+				type: "rows",
+				pagination: { page: 1, limit: 10 },
+				orderBy: [{ order: "asc", expr: nameRef("e") }],
+				fields: [{ key: "k".repeat(58), expr: nameRef("e") }],
+			},
+		});
+		expect(validateQueryDocument(doc)).toBeNull();
+	});
 });
 
 describe("unknown source alias", () => {

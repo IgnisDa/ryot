@@ -9,6 +9,7 @@ import {
 	MAX_INCLUDE_LIMIT,
 	MAX_ROOT_PAGE_SIZE,
 	MAX_TIME_SERIES_BUCKETS,
+	outputKeyLengthError,
 	type AliasScope,
 } from "./shared";
 
@@ -71,11 +72,19 @@ const validateIncludeEntry = (
 		if (outputKeys.has(field.key)) {
 			return `Duplicate output field key '${field.key}'`;
 		}
+		const lengthError = outputKeyLengthError(field.key);
+		if (lengthError) {
+			return lengthError;
+		}
 		outputKeys.add(field.key);
 	}
 	for (const childInclude of include.include ?? []) {
 		if (outputKeys.has(childInclude.key)) {
 			return `Duplicate output field key '${childInclude.key}'`;
+		}
+		const lengthError = outputKeyLengthError(childInclude.key);
+		if (lengthError) {
+			return lengthError;
 		}
 		outputKeys.add(childInclude.key);
 	}
@@ -117,11 +126,19 @@ export const validateRowsOutput = (output: RowsOutput, scope: AliasScope, aliase
 		if (fieldKeys.has(field.key)) {
 			return `Duplicate output field key '${field.key}'`;
 		}
+		const lengthError = outputKeyLengthError(field.key);
+		if (lengthError) {
+			return lengthError;
+		}
 		fieldKeys.add(field.key);
 	}
 	for (const include of output.include ?? []) {
 		if (fieldKeys.has(include.key)) {
 			return `Duplicate output field key '${include.key}'`;
+		}
+		const lengthError = outputKeyLengthError(include.key);
+		if (lengthError) {
+			return lengthError;
 		}
 		fieldKeys.add(include.key);
 	}
