@@ -51,17 +51,17 @@ const withTransaction = <A, E, R>(
 		// transaction. Keep transactions short and free of long I/O; see "Transaction Design".
 		const runtime = yield* Effect.runtime<Exclude<R, CurrentDb>>();
 		const exit = yield* Effect.tryPromise({
-			// @effect-diagnostics-next-line asyncFunction:off
 			try: () =>
-				db.transaction(async (tx) => {
-					const innerExit = await Runtime.runPromiseExit(runtime)(
-						effect.pipe(Effect.provideService(CurrentDb, tx)),
-					);
-					if (Exit.isFailure(innerExit)) {
-						throw new RollbackTransaction(innerExit);
-					}
-					return innerExit;
-				}),
+				db.transaction((tx) =>
+					Runtime.runPromiseExit(runtime)(effect.pipe(Effect.provideService(CurrentDb, tx))).then(
+						(innerExit) => {
+							if (Exit.isFailure(innerExit)) {
+								throw new RollbackTransaction(innerExit);
+							}
+							return innerExit;
+						},
+					),
+				),
 			catch: (cause) => (isRollbackTransaction<A, E>(cause) ? cause : unknownToDbError(cause)),
 		}).pipe(
 			Effect.catchAll((cause) =>

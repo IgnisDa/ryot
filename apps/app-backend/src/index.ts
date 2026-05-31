@@ -17,7 +17,7 @@ const onShutdownSignal = () => {
 process.on("SIGINT", onShutdownSignal);
 process.on("SIGTERM", onShutdownSignal);
 
-if (process.env.NODE_ENV !== "production") {
+if (Bun.env.NODE_ENV !== "production") {
 	await Effect.runPromise(
 		generateConfigDocs(
 			[systemConfigDefinition.meta, providerConfigDefinition.meta],
