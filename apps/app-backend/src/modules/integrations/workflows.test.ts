@@ -97,25 +97,34 @@ const makeIntegrationsRepository = (
 
 const makeEntitiesRepository = (overrides: MockOverrides<typeof mockEntitiesRepository> = {}) =>
 	mockEntitiesRepository({
-		findEntitySchemaScriptBySlug: (slug) =>
-			Effect.succeed(
-				slug === "movie.tmdb"
-					? {
-							entitySchemaId: EntitySchemaId.make("schema-movie"),
-							sandboxScriptId: SandboxScriptId.make("script-movie-tmdb"),
-						}
-					: slug === "manga.anilist"
-						? {
-								entitySchemaId: EntitySchemaId.make("schema-manga"),
-								sandboxScriptId: SandboxScriptId.make("script-manga-anilist"),
-							}
-						: slug === "music.youtube-music"
-							? {
-									entitySchemaId: EntitySchemaId.make("schema-music"),
-									sandboxScriptId: SandboxScriptId.make("script-youtube-music"),
-								}
-							: null,
-			),
+		findEntitySchemaScriptBySlug: (slug) => {
+			let result: { entitySchemaId: EntitySchemaId; sandboxScriptId: SandboxScriptId } | null =
+				null;
+			switch (slug) {
+				case "movie.tmdb": {
+					result = {
+						entitySchemaId: EntitySchemaId.make("schema-movie"),
+						sandboxScriptId: SandboxScriptId.make("script-movie-tmdb"),
+					};
+					break;
+				}
+				case "manga.anilist": {
+					result = {
+						entitySchemaId: EntitySchemaId.make("schema-manga"),
+						sandboxScriptId: SandboxScriptId.make("script-manga-anilist"),
+					};
+					break;
+				}
+				case "music.youtube-music": {
+					result = {
+						entitySchemaId: EntitySchemaId.make("schema-music"),
+						sandboxScriptId: SandboxScriptId.make("script-youtube-music"),
+					};
+					break;
+				}
+			}
+			return Effect.succeed(result);
+		},
 		...overrides,
 		_tag: "EntitiesRepository",
 	});

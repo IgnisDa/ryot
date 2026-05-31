@@ -248,15 +248,16 @@ function collectCompanies(involvedCompanies) {
 				? ic.company.name.trim()
 				: "Loading...";
 
-		const role = ic.developer
-			? "Developer"
-			: ic.publisher
-				? "Publisher"
-				: ic.porting
-					? "Porting"
-					: ic.supporting
-						? "Supporting"
-						: "Developer";
+		let role = "Developer";
+		if (ic.developer) {
+			role = "Developer";
+		} else if (ic.publisher) {
+			role = "Publisher";
+		} else if (ic.porting) {
+			role = "Porting";
+		} else if (ic.supporting) {
+			role = "Supporting";
+		}
 
 		const key = `company.igdb:${id}`;
 		const existing = companyByKey.get(key);

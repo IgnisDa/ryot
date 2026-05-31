@@ -132,11 +132,10 @@ export const parseDateTime = (value: string, formats: string[]): string | null =
 	}
 
 	const normalized = trimmed.replace(" ", "T");
-	const withZone = /[zZ]$|[+-]\d{2}:?\d{2}$/.test(normalized)
-		? normalized
-		: /\d{2}:\d{2}/.test(normalized)
-			? `${normalized}Z`
-			: normalized;
+	let withZone = normalized;
+	if (!/[zZ]$|[+-]\d{2}:?\d{2}$/.test(normalized) && /\d{2}:\d{2}/.test(normalized)) {
+		withZone = `${normalized}Z`;
+	}
 	return formatIsoFromUtc(withZone);
 };
 

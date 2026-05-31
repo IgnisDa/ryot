@@ -182,16 +182,9 @@ driver("details", async function (context, { metadata }) {
 		}
 	}
 
+	const TMDB_GENDER_MAP = { 1: "Female", 2: "Male", 3: "Non-Binary" };
 	const gender =
-		typeof personData?.gender === "number"
-			? personData.gender === 1
-				? "Female"
-				: personData.gender === 2
-					? "Male"
-					: personData.gender === 3
-						? "Non-Binary"
-						: null
-			: null;
+		typeof personData?.gender === "number" ? (TMDB_GENDER_MAP[personData.gender] ?? null) : null;
 
 	const alternateNames = Array.isArray(personData?.also_known_as)
 		? personData.also_known_as.filter((n) => typeof n === "string" && n.trim())

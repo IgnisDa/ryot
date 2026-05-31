@@ -63,11 +63,12 @@ async function makeFetch(input, init) {
 }
 
 function getThumbnailUrls(thumbnail) {
-	const arr = Array.isArray(thumbnail)
-		? thumbnail
-		: Array.isArray(thumbnail?.contents)
-			? thumbnail.contents
-			: [];
+	let arr = [];
+	if (Array.isArray(thumbnail)) {
+		arr = thumbnail;
+	} else if (Array.isArray(thumbnail?.contents)) {
+		arr = thumbnail.contents;
+	}
 	return arr
 		.filter((t) => t?.url)
 		.sort((a, b) => (b.width ?? 0) * (b.height ?? 0) - (a.width ?? 0) * (a.height ?? 0))
@@ -164,12 +165,12 @@ driver("details", async function (context, { metadata }) {
 		for (const section of sections) {
 			for (const item of section?.contents ?? []) {
 				const id = typeof item?.id === "string" && item.id ? item.id : null;
-				const title =
-					typeof item?.title === "string" && item.title
-						? item.title
-						: typeof item?.name === "string" && item.name
-							? item.name
-							: null;
+				let title = null;
+				if (typeof item?.title === "string" && item.title) {
+					title = item.title;
+				} else if (typeof item?.name === "string" && item.name) {
+					title = item.name;
+				}
 				if (id && title) {
 					albums.push({ id, title });
 				}

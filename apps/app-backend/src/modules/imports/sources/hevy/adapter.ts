@@ -125,14 +125,20 @@ const parseHevyDate = (value: string, timezone: string) => {
 };
 
 const toWorkoutSet = (row: HevyRow): WorkoutImportSet => {
-	const setLot =
-		row.setType === "warmup"
-			? "warm_up"
-			: row.setType === "failure"
-				? "failure"
-				: row.setType === "dropset"
-					? "drop"
-					: "normal";
+	let setLot: WorkoutImportSet["setLot"];
+	switch (row.setType) {
+		case "warmup":
+			setLot = "warm_up";
+			break;
+		case "failure":
+			setLot = "failure";
+			break;
+		case "dropset":
+			setLot = "drop";
+			break;
+		default:
+			setLot = "normal";
+	}
 
 	const set: WorkoutImportSet = { setLot };
 	if (row.exerciseNotes) {

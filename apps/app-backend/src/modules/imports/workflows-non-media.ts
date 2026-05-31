@@ -257,12 +257,11 @@ export const runOneTimeNonMediaImportWorkflow = Effect.fn("runOneTimeNonMediaImp
 						),
 					});
 
-					cleanupPaths =
-						loadOutcome._tag === "failed"
-							? loadOutcome.fallbackToInitialCleanupPaths
-								? mergeCleanupPaths(loadOutcome.cleanupPaths)
-								: [...loadOutcome.cleanupPaths]
-							: mergeCleanupPaths(loadOutcome.cleanupPaths);
+					if (loadOutcome._tag === "failed" && !loadOutcome.fallbackToInitialCleanupPaths) {
+						cleanupPaths = [...loadOutcome.cleanupPaths];
+					} else {
+						cleanupPaths = mergeCleanupPaths(loadOutcome.cleanupPaths);
+					}
 					if (loadOutcome._tag === "failed") {
 						yield* failRunAndCleanup({
 							cleanupPaths,

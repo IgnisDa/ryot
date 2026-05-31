@@ -217,9 +217,13 @@ export const executeRowsQuery = (
 	userId: string,
 	language: string | null,
 	doc: RowsQueryDocument,
-): Effect.Effect<RowsResponse, BadRequest | NotFound | DbError, CurrentDb> =>
-	doc.source.type === "events"
-		? executeEventRowsQuery(userId, language, doc)
-		: doc.source.type === "relationships"
-			? executeRelationshipRowsQuery(userId, language, doc)
-			: executeEntityRowsQuery(userId, language, doc);
+): Effect.Effect<RowsResponse, BadRequest | NotFound | DbError, CurrentDb> => {
+	switch (doc.source.type) {
+		case "events":
+			return executeEventRowsQuery(userId, language, doc);
+		case "relationships":
+			return executeRelationshipRowsQuery(userId, language, doc);
+		case "entities":
+			return executeEntityRowsQuery(userId, language, doc);
+	}
+};

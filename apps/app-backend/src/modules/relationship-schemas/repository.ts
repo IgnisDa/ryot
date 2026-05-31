@@ -1,4 +1,5 @@
 import { and, asc, desc, eq, inArray, isNull, or } from "drizzle-orm";
+import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { Effect } from "effect";
 
 import { entitySchemaAccessScopeSelection } from "#lib/db/schema/access-scope";
@@ -13,6 +14,19 @@ import type { AppSchema } from "#lib/schema/property-schema";
 type Row = typeof schema.relationshipSchema.$inferSelect;
 
 const relationshipSchemaUserSlugConstraint = "relationship_schema_user_slug_unique";
+
+const entitySchemaIdCondition = (column: AnyPgColumn, value: EntitySchemaId | null | undefined) => {
+	if (value === undefined) {
+		return undefined;
+	}
+	return value === null ? isNull(column) : eq(column, value);
+};
+
+const sourceEntitySchemaIdCondition = (value: EntitySchemaId | null | undefined) =>
+	entitySchemaIdCondition(schema.relationshipSchema.sourceEntitySchemaId, value);
+
+const targetEntitySchemaIdCondition = (value: EntitySchemaId | null | undefined) =>
+	entitySchemaIdCondition(schema.relationshipSchema.targetEntitySchemaId, value);
 
 const toScope = Effect.fn(function* (row: Row) {
 	const propertiesSchema = yield* decodeStoredAppSchema(
@@ -223,22 +237,8 @@ export class RelationshipSchemasRepository extends Effect.Service<RelationshipSc
 								input.slugs && input.slugs.length > 0
 									? inArray(schema.relationshipSchema.slug, [...input.slugs])
 									: undefined,
-								input.sourceEntitySchemaId === undefined
-									? undefined
-									: input.sourceEntitySchemaId === null
-										? isNull(schema.relationshipSchema.sourceEntitySchemaId)
-										: eq(
-												schema.relationshipSchema.sourceEntitySchemaId,
-												input.sourceEntitySchemaId,
-											),
-								input.targetEntitySchemaId === undefined
-									? undefined
-									: input.targetEntitySchemaId === null
-										? isNull(schema.relationshipSchema.targetEntitySchemaId)
-										: eq(
-												schema.relationshipSchema.targetEntitySchemaId,
-												input.targetEntitySchemaId,
-											),
+								sourceEntitySchemaIdCondition(input.sourceEntitySchemaId),
+								targetEntitySchemaIdCondition(input.targetEntitySchemaId),
 							),
 						)
 						.orderBy(asc(schema.relationshipSchema.name), asc(schema.relationshipSchema.createdAt)),

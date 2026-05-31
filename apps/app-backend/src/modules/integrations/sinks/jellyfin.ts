@@ -44,9 +44,10 @@ export const parseJellyfinSink: SinkParser = (input) =>
 		}
 
 		const metadataProvider = specs.metadataProvider ?? "tmdb";
-		const providerId =
-			metadataProvider === "tvdb"
-				? entitySchemaSlug === "show"
+		let providerId: string | undefined;
+		if (metadataProvider === "tvdb") {
+			providerId =
+				entitySchemaSlug === "show"
 					? getNestedString(payload, [
 							"SeriesProvider_tvdb",
 							"SeriesProviderTvdb",
@@ -54,8 +55,10 @@ export const parseJellyfinSink: SinkParser = (input) =>
 							"ProviderTvdb",
 							"Tvdb",
 						])
-					: getNestedString(payload, ["Provider_tvdb", "ProviderTvdb", "Tvdb"])
-				: entitySchemaSlug === "show"
+					: getNestedString(payload, ["Provider_tvdb", "ProviderTvdb", "Tvdb"]);
+		} else {
+			providerId =
+				entitySchemaSlug === "show"
 					? getNestedString(payload, [
 							"SeriesProvider_tmdb",
 							"SeriesProviderTmdb",
@@ -64,6 +67,7 @@ export const parseJellyfinSink: SinkParser = (input) =>
 							"Tmdb",
 						])
 					: getNestedString(payload, ["Provider_tmdb", "ProviderTmdb", "Tmdb"]);
+		}
 		if (!providerId) {
 			return sinkFailureResult(
 				`Jellyfin webhook payload is missing a ${metadataProvider.toUpperCase()} identifier`,

@@ -523,12 +523,12 @@ driver("search", async function (context) {
 				return null;
 			}
 
-			const title =
-				typeof item?.name === "string" && item.name.trim()
-					? item.name.trim()
-					: typeof item?.title === "string" && item.title.trim()
-						? item.title.trim()
-						: null;
+			let title = null;
+			if (typeof item?.name === "string" && item.name.trim()) {
+				title = item.name.trim();
+			} else if (typeof item?.title === "string" && item.title.trim()) {
+				title = item.title.trim();
+			}
 			if (!title) {
 				return null;
 			}

@@ -316,14 +316,20 @@ it.effect("writes child entity trees idempotently", () => {
 	]);
 	const options = {
 		entitySchemasRepository: makeEntitySchemasRepository({
-			getBuiltinBySlug: (slug: string) =>
-				Effect.succeed(
-					slug === "show-season"
-						? { id: EntitySchemaId.make("schema-season") }
-						: slug === "show-episode"
-							? { id: EntitySchemaId.make("schema-episode") }
-							: null,
-				),
+			getBuiltinBySlug: (slug: string) => {
+				let result: { id: EntitySchemaId } | null = null;
+				switch (slug) {
+					case "show-season": {
+						result = { id: EntitySchemaId.make("schema-season") };
+						break;
+					}
+					case "show-episode": {
+						result = { id: EntitySchemaId.make("schema-episode") };
+						break;
+					}
+				}
+				return Effect.succeed(result);
+			},
 		}),
 		relationshipSchemasRepository: makeRelationshipSchemasRepository({
 			findGlobalBySchemaIds: (input) =>
