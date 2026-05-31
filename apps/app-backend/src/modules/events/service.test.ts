@@ -20,7 +20,6 @@ import { EventSchemasRepository } from "#modules/event-schemas/repository";
 import { SandboxRepository } from "#modules/sandbox/repository";
 
 import { createEventsForUser } from "./create-core";
-import { GlobalEntityReferenceHook } from "./global-entity-reference-hook";
 import { EventsRepository } from "./repository";
 import type { CreateEventItem } from "./schemas";
 import { EventsService } from "./service";
@@ -145,7 +144,6 @@ const makeServiceLayer = (input: {
 		Layer.succeed(SandboxService, input.sandboxService ?? makeSandboxService()),
 		Layer.succeed(SandboxRepository, input.sandboxRepository ?? makeSandboxRepository()),
 		Layer.succeed(EntitiesRepository, input.entitiesRepository ?? makeEntitiesRepository()),
-		GlobalEntityReferenceHook.Default,
 		Layer.succeed(
 			EventSchemasRepository,
 			input.eventSchemasRepository ?? makeEventSchemasRepository(),
@@ -524,7 +522,7 @@ it.effect("before-create trigger skip prevents event creation", () => {
 			},
 		]);
 
-		expect(result).toEqual({ count: 0 });
+		expect(result).toEqual({ count: 0, referencedGlobalEntityIds: [] });
 	}).pipe(Effect.provide(layer));
 });
 
@@ -601,7 +599,7 @@ it.effect("before-create trigger replace modifies event properties", () => {
 			},
 		]);
 
-		expect(result).toEqual({ count: 1 });
+		expect(result).toEqual({ count: 1, referencedGlobalEntityIds: [] });
 		expect(createCalls).toMatchObject([{ properties: { rating: 10 } }]);
 	}).pipe(Effect.provide(layer));
 });

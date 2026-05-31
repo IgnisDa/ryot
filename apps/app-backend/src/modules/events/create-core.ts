@@ -224,11 +224,6 @@ const dispatchAfterCreateTriggers = (
 		);
 	});
 
-type OnGlobalEntityReferenced = (
-	userId: UserId,
-	entityId: EntityId,
-) => Effect.Effect<void, DbError>;
-
 export const provideCreateEventsContext = <A, E, R>(
 	effect: Effect.Effect<A, E, R>,
 	services: CreateEventsCoreServices,
@@ -259,11 +254,11 @@ export const createEventsForUser = Effect.fn("createEventsForUser")(function* (
 		readonly payload: ReadonlyArray<CreateEventItem>;
 	},
 	runSandboxScript: RunSandboxScript,
-	onGlobalEntityReferenced?: OnGlobalEntityReferenced,
 ) {
 	const runWithDb = yield* DbRunner;
 	const eventsRepository = yield* EventsRepository;
 	const createdEvents: CreatedEventWithContext[] = [];
+	const referencedGlobalEntityIds = new Set<EntityId>();
 	const eventSchemasRepository = yield* EventSchemasRepository;
 	const { userId, origin, payload, importRunId, integrationId } = input;
 
@@ -378,8 +373,8 @@ export const createEventsForUser = Effect.fn("createEventsForUser")(function* (
 			}),
 		);
 
-		if (entityScope.entityUserId === null && onGlobalEntityReferenced) {
-			yield* onGlobalEntityReferenced(userId, entityScope.entityId);
+		if (entityScope.entityUserId === null) {
+			referencedGlobalEntityIds.add(entityScope.entityId);
 		}
 
 		createdEvents.push({
@@ -403,5 +398,8 @@ export const createEventsForUser = Effect.fn("createEventsForUser")(function* (
 		}
 	}
 
-	return { count: createdEvents.length };
+	return {
+		count: createdEvents.length,
+		referencedGlobalEntityIds: [...referencedGlobalEntityIds],
+	};
 });
