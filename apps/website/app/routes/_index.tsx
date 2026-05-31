@@ -24,6 +24,7 @@ import {
 	assignPaymentProvider,
 	getDb,
 	getOauthCallbackUrl,
+	IS_DEVELOPMENT_ENV,
 	websiteAuthCookie,
 } from "~/lib/config.server";
 import { contactEmail, startUrl } from "~/lib/general";
@@ -41,6 +42,9 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			await validateTurnstile(request, submission.turnstileToken);
 
 			const otpCode = setOtpCode(submission.email);
+			if (IS_DEVELOPMENT_ENV) {
+				console.log("Generated OTP code for login:", { email: submission.email, otpCode });
+			}
 			await sendEmail({
 				recipient: submission.email,
 				subject: LoginCodeEmail.subject,
