@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { match } from "ts-pattern";
+import { Match } from "effect";
 
 import type { QueryExpression } from "~/lib/query-language";
 import { QueryEngineValidationError } from "~/lib/views/errors";
@@ -79,14 +79,15 @@ export const buildEntityExpression = (input: {
 
 	const expression = sqlCol
 		? sql`${sql.raw(`${safeAlias}.${sqlCol}`)}`
-		: match(column)
-				.with("name", () => sql`${sql.raw(safeAlias)}.name`)
-				.with("image", () => sql`${sql.raw(safeAlias)}.image`)
-				.with("externalId", () => sql`${sql.raw(safeAlias)}.external_id`)
-				.with("sandboxScriptId", () => sql`${sql.raw(safeAlias)}.sandbox_script_id`)
-				.otherwise(() => {
+		: Match.value(column).pipe(
+				Match.when("name", () => sql`${sql.raw(safeAlias)}.name`),
+				Match.when("image", () => sql`${sql.raw(safeAlias)}.image`),
+				Match.when("externalId", () => sql`${sql.raw(safeAlias)}.external_id`),
+				Match.when("sandboxScriptId", () => sql`${sql.raw(safeAlias)}.sandbox_script_id`),
+				Match.orElse(() => {
 					throw new QueryEngineValidationError(`Unsupported entity column '${column}'`);
-				});
+				}),
+			);
 
 	const actualType =
 		column === "image" ? undefined : (getEntityColumnPropertyType(column) ?? undefined);

@@ -1,4 +1,4 @@
-import { match } from "ts-pattern";
+import { Match } from "effect";
 
 import type { AppPropertyDefinition, AppPropertyPrimitiveType } from "~/lib/property-schema";
 
@@ -24,10 +24,19 @@ const propertyDisplayKinds = {
 export const getComparablePropertyType = (
 	property: Pick<AppPropertyDefinition, "type">,
 ): AppPropertyPrimitiveType | undefined =>
-	match(property.type)
-		.with("boolean", "date", "datetime", "integer", "number", "string", (type) => type)
-		.with("enum", () => "string" as const)
-		.otherwise(() => undefined);
+	Match.value(property.type).pipe(
+		Match.whenOr(
+			"boolean",
+			"date",
+			"datetime",
+			"integer",
+			"number",
+			"string",
+			(type) => type,
+		),
+		Match.when("enum", () => "string" as const),
+		Match.orElse(() => undefined),
+	);
 
 export const supportsComparableFilter = (propertyType: PropertyType) => {
 	return getComparablePropertyType({ type: propertyType }) !== undefined;

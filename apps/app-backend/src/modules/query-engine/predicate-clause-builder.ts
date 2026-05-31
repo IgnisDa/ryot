@@ -13,7 +13,7 @@ import {
 	or,
 	sql,
 } from "drizzle-orm";
-import { match } from "ts-pattern";
+import { Match } from "effect";
 
 import type { QueryFilter } from "~/lib/query-language";
 import { QueryEngineValidationError } from "~/lib/views/errors";
@@ -58,28 +58,29 @@ const buildContainsClause = (input: {
 		);
 	}
 
-	return match(expressionType.propertyType)
-		.with("string", () => {
+	return Match.value(expressionType.propertyType).pipe(
+		Match.when("string", () => {
 			const expression = input.compiler.compile(input.predicate.expression, "string");
 			const value = input.compiler.compile(input.predicate.value, "string");
 			return sql`${expression} ilike ${buildEscapedContainsPattern(value)} escape '\\'`;
-		})
-		.with("array", () => {
+		}),
+		Match.when("array", () => {
 			const expression = input.compiler.compile(input.predicate.expression, "array");
 			const valueType = input.compiler.getTypeInfo(input.predicate.value);
 			const value = input.compiler.compile(input.predicate.value);
 			return sql`${expression} @> jsonb_build_array(${valueType.kind === "property" && ["array", "object"].includes(valueType.propertyType) ? value : toJsonbExpression(value)})`;
-		})
-		.with("object", () => {
+		}),
+		Match.when("object", () => {
 			const expression = input.compiler.compile(input.predicate.expression, "object");
 			const value = toJsonbExpression(input.compiler.compile(input.predicate.value));
 			return sql`${expression} @> ${value}`;
-		})
-		.otherwise(() => {
+		}),
+		Match.orElse(() => {
 			throw new QueryEngineValidationError(
 				`Filter operator 'contains' is not supported for expression type '${expressionType.propertyType}'`,
 			);
-		});
+		}),
+	);
 };
 
 export const buildPredicateClause = (input: {
@@ -88,8 +89,8 @@ export const buildPredicateClause = (input: {
 }): SqlExpression => {
 	const { compiler } = input;
 
-	return match(input.predicate)
-		.with({ type: "and" }, (predicate) => {
+	return Match.value(input.predicate).pipe(
+		Match.when({ type: "and" }, (predicate) => {
 			const [first, ...rest] = predicate.predicates.map((p) =>
 				buildPredicateClause({ predicate: p, compiler }),
 			);
@@ -97,8 +98,8 @@ export const buildPredicateClause = (input: {
 				throw new QueryEngineValidationError("And predicates must not be empty");
 			}
 			return rest.length ? (and(first, ...rest) ?? first) : first;
-		})
-		.with({ type: "or" }, (predicate) => {
+		}),
+		Match.when({ type: "or" }, (predicate) => {
 			const [first, ...rest] = predicate.predicates.map((p) =>
 				buildPredicateClause({ predicate: p, compiler }),
 			);
@@ -106,27 +107,27 @@ export const buildPredicateClause = (input: {
 				throw new QueryEngineValidationError("Or predicates must not be empty");
 			}
 			return rest.length ? (or(first, ...rest) ?? first) : first;
-		})
-		.with({ type: "not" }, (predicate) =>
+		}),
+		Match.when({ type: "not" }, (predicate) =>
 			not(buildPredicateClause({ predicate: predicate.predicate, compiler })),
-		)
-		.with({ type: "isNull" }, (predicate) =>
+		),
+		Match.when({ type: "isNull" }, (predicate) =>
 			isNull(
 				normalizeJsonNullForNullChecks({
 					expression: compiler.compile(predicate.expression),
 					typeInfo: compiler.getTypeInfo(predicate.expression),
 				}),
 			),
-		)
-		.with({ type: "isNotNull" }, (predicate) =>
+		),
+		Match.when({ type: "isNotNull" }, (predicate) =>
 			isNotNull(
 				normalizeJsonNullForNullChecks({
 					expression: compiler.compile(predicate.expression),
 					typeInfo: compiler.getTypeInfo(predicate.expression),
 				}),
 			),
-		)
-		.with({ type: "comparison" }, (predicate) => {
+		),
+		Match.when({ type: "comparison" }, (predicate) => {
 			const leftType = compiler.getTypeInfo(predicate.left);
 			const rightType = compiler.getTypeInfo(predicate.right);
 			const targetType =
@@ -138,16 +139,17 @@ export const buildPredicateClause = (input: {
 			const left = compiler.compile(predicate.left, targetType);
 			const right = compiler.compile(predicate.right, targetType);
 
-			return match(predicate.operator)
-				.with("eq", () => eq(left, right))
-				.with("gt", () => gt(left, right))
-				.with("lt", () => lt(left, right))
-				.with("neq", () => ne(left, right))
-				.with("gte", () => gte(left, right))
-				.with("lte", () => lte(left, right))
-				.exhaustive();
-		})
-		.with({ type: "in" }, (predicate) => {
+			return Match.value(predicate.operator).pipe(
+				Match.when("eq", () => eq(left, right)),
+				Match.when("gt", () => gt(left, right)),
+				Match.when("lt", () => lt(left, right)),
+				Match.when("neq", () => ne(left, right)),
+				Match.when("gte", () => gte(left, right)),
+				Match.when("lte", () => lte(left, right)),
+				Match.exhaustive,
+			);
+		}),
+		Match.when({ type: "in" }, (predicate) => {
 			const expressionType = compiler.getTypeInfo(predicate.expression);
 			const targetType =
 				expressionType.kind === "property"
@@ -156,7 +158,8 @@ export const buildPredicateClause = (input: {
 			const expression = compiler.compile(predicate.expression, targetType);
 			const values = predicate.values.map((value) => compiler.compile(value, targetType));
 			return inArray(expression, values);
-		})
-		.with({ type: "contains" }, (predicate) => buildContainsClause({ predicate, compiler }))
-		.exhaustive();
+		}),
+		Match.when({ type: "contains" }, (predicate) => buildContainsClause({ predicate, compiler })),
+		Match.exhaustive,
+	);
 };

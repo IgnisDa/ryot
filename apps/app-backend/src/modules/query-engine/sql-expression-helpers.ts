@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { match } from "ts-pattern";
+import { Match } from "effect";
 
 import { QueryEngineValidationError } from "~/lib/views/errors";
 import {
@@ -96,13 +96,13 @@ export const buildLiteralExpression = (input: unknown, targetType?: PropertyType
 	const inferredLiteralType = inferLiteralType(value);
 	const propertyType = targetType ?? inferredLiteralType;
 
-	return match(propertyType)
-		.with("integer", () => sql`cast(${value} as integer)`)
-		.with("number", () => sql`cast(${value} as numeric)`)
-		.with("boolean", () => sql`cast(${value} as boolean)`)
-		.with("date", () => sql`cast(${value} as timestamptz)`)
-		.with("array", "object", () => sql`${JSON.stringify(value)}::jsonb`)
-		.otherwise(() => {
+	return Match.value(propertyType).pipe(
+		Match.when("integer", () => sql`cast(${value} as integer)`),
+		Match.when("number", () => sql`cast(${value} as numeric)`),
+		Match.when("boolean", () => sql`cast(${value} as boolean)`),
+		Match.when("date", () => sql`cast(${value} as timestamptz)`),
+		Match.whenOr("array", "object", () => sql`${JSON.stringify(value)}::jsonb`),
+		Match.orElse(() => {
 			if (typeof value === "object") {
 				return sql`${JSON.stringify(value)}::jsonb`;
 			}
@@ -112,7 +112,8 @@ export const buildLiteralExpression = (input: unknown, targetType?: PropertyType
 			}
 
 			return sql`${value}`;
-		});
+		}),
+	);
 };
 
 export const buildIntegerNormalizationExpression = (expression: SqlExpression) => {
@@ -120,13 +121,14 @@ export const buildIntegerNormalizationExpression = (expression: SqlExpression) =
 };
 
 export const castExpressionToType = (expression: SqlExpression, targetType: PropertyType) => {
-	return match(targetType)
-		.with("number", () => sql`(${expression})::numeric`)
-		.with("boolean", () => sql`(${expression})::boolean`)
-		.with("date", () => sql`(${expression})::timestamptz`)
-		.with("array", "object", () => sql`to_jsonb(${expression})`)
-		.with("integer", () => buildIntegerNormalizationExpression(expression))
-		.otherwise(() => sql`(${expression})::text`);
+	return Match.value(targetType).pipe(
+		Match.when("number", () => sql`(${expression})::numeric`),
+		Match.when("boolean", () => sql`(${expression})::boolean`),
+		Match.when("date", () => sql`(${expression})::timestamptz`),
+		Match.whenOr("array", "object", () => sql`to_jsonb(${expression})`),
+		Match.when("integer", () => buildIntegerNormalizationExpression(expression)),
+		Match.orElse(() => sql`(${expression})::text`),
+	);
 };
 
 export const buildTextValueExpression = (expression: SqlExpression) => {
@@ -154,13 +156,14 @@ export const buildCastedValueExpression = (
 	propertyType: PropertyType,
 	input: { propertyText: SqlExpression; propertyJson: SqlExpression },
 ) =>
-	match(propertyType)
-		.with("number", () => sql`(${input.propertyText})::numeric`)
-		.with("integer", () => sql`(${input.propertyText})::integer`)
-		.with("boolean", () => sql`(${input.propertyText})::boolean`)
-		.with("date", "datetime", () => sql`(${input.propertyText})::timestamptz`)
-		.with("array", "object", () => input.propertyJson)
-		.otherwise(() => input.propertyText);
+	Match.value(propertyType).pipe(
+		Match.when("number", () => sql`(${input.propertyText})::numeric`),
+		Match.when("integer", () => sql`(${input.propertyText})::integer`),
+		Match.when("boolean", () => sql`(${input.propertyText})::boolean`),
+		Match.whenOr("date", "datetime", () => sql`(${input.propertyText})::timestamptz`),
+		Match.whenOr("array", "object", () => input.propertyJson),
+		Match.orElse(() => input.propertyText),
+	);
 
 export const buildJsonColumnPropertyExpression = (input: {
 	propertyPath: string[];

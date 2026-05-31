@@ -1,6 +1,5 @@
 import { sql } from "drizzle-orm";
-import { Effect } from "effect";
-import { match } from "ts-pattern";
+import { Effect, Match } from "effect";
 
 import { CurrentDb, dbEffect } from "~/lib/db";
 import type { DbError } from "~/lib/errors";
@@ -103,9 +102,9 @@ export const executeAggregateQuery = (input: {
 			const columnName = `aggregation_${index}`;
 			const aggregation = aggregationField.aggregation;
 
-			const expression = match(aggregation)
-				.with({ type: "count" }, () => sql`to_jsonb(count(*)::integer)`)
-				.with({ type: "countWhere" }, (agg) => {
+			const expression = Match.value(aggregation).pipe(
+				Match.when({ type: "count" }, () => sql`to_jsonb(count(*)::integer)`),
+				Match.when({ type: "countWhere" }, (agg) => {
 					const predicateClause = buildFilterWhereClause({
 						context: runtime.queryContext,
 						compiler: aggregationExpressionCompiler,
@@ -113,8 +112,8 @@ export const executeAggregateQuery = (input: {
 						predicate: agg.predicate,
 					});
 					return sql`to_jsonb(count(*) filter (where ${predicateClause})::integer)`;
-				})
-				.with({ type: "countBy" }, (agg) => {
+				}),
+				Match.when({ type: "countBy" }, (agg) => {
 					const safeAlias = sanitizeIdentifier(ENTITY_CTE_ALIASES.filtered, "table alias");
 					const groupByExpression = aggregationCompiler.compile(agg.groupBy);
 					return sql`coalesce((
@@ -126,24 +125,25 @@ export const executeAggregateQuery = (input: {
 						) sub
 						where gk is not null
 					), '{}'::jsonb)`;
-				})
-				.with(
+				}),
+				Match.when(
 					{ type: "sum" },
 					(agg) => sql`to_jsonb(sum(${aggregationCompiler.compile(agg.expression, "number")}))`,
-				)
-				.with(
+				),
+				Match.when(
 					{ type: "avg" },
 					(agg) => sql`to_jsonb(avg(${aggregationCompiler.compile(agg.expression, "number")}))`,
-				)
-				.with(
+				),
+				Match.when(
 					{ type: "min" },
 					(agg) => sql`to_jsonb(min(${aggregationCompiler.compile(agg.expression, "number")}))`,
-				)
-				.with(
+				),
+				Match.when(
 					{ type: "max" },
 					(agg) => sql`to_jsonb(max(${aggregationCompiler.compile(agg.expression, "number")}))`,
-				)
-				.exhaustive();
+				),
+				Match.exhaustive,
+			);
 
 			return sql`${expression} as ${sql.raw(sanitizeIdentifier(columnName, "column alias"))}`;
 		});

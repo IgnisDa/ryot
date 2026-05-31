@@ -1,4 +1,4 @@
-import { match } from "ts-pattern";
+import { Match } from "effect";
 
 import type {
 	DisplayConfiguration,
@@ -196,13 +196,13 @@ export const validateRuntimeReferenceAgainstSchemas = (
 ): void => {
 	const primaryEventMode = isPrimaryEventMode(context);
 
-	match(reference)
-		.with({ type: "computed-field" }, () => {
+	Match.value(reference).pipe(
+		Match.when({ type: "computed-field" }, () => {
 			throw new QueryEngineValidationError(
 				"Computed field references are not allowed in this context",
 			);
-		})
-		.with({ type: "entity" }, (ref) => {
+		}),
+		Match.when({ type: "entity" }, (ref) => {
 			const schema = getSchemaForReference(context.schemaMap, ref);
 
 			if (ref.path[0] === "properties") {
@@ -234,8 +234,8 @@ export const validateRuntimeReferenceAgainstSchemas = (
 					`Unsupported entity column 'entity.${ref.slug}.${column}'`,
 				);
 			}
-		})
-		.with({ type: "event-aggregate" }, (ref) => {
+		}),
+		Match.when({ type: "event-aggregate" }, (ref) => {
 			if (primaryEventMode) {
 				throw new QueryEngineValidationError(
 					"event-aggregate references are not supported in this query mode",
@@ -275,8 +275,8 @@ export const validateRuntimeReferenceAgainstSchemas = (
 					`${ref.aggregation} event aggregate requires a numeric property, received '${propertyDefinition.type}'`,
 				);
 			}
-		})
-		.with({ type: "entity-schema" }, (ref) => {
+		}),
+		Match.when({ type: "entity-schema" }, (ref) => {
 			const [column] = ref.path;
 			if (!column) {
 				throw new QueryEngineValidationError("Entity schema reference path must not be empty");
@@ -296,8 +296,8 @@ export const validateRuntimeReferenceAgainstSchemas = (
 					`Entity schema column 'entity-schema.${column}' is not valid in this context`,
 				);
 			}
-		})
-		.with({ type: "event" }, (ref) => {
+		}),
+		Match.when({ type: "event" }, (ref) => {
 			if (!primaryEventMode || !context.eventSchemaMap) {
 				throw new QueryEngineValidationError(
 					"Primary event references are not supported in this query mode",
@@ -310,8 +310,8 @@ export const validateRuntimeReferenceAgainstSchemas = (
 				context.requirePrimaryEventSchemaSlug ?? false,
 				validBuiltins,
 			);
-		})
-		.with({ type: "event-schema" }, (ref) => {
+		}),
+		Match.when({ type: "event-schema" }, (ref) => {
 			if (!primaryEventMode || !context.eventSchemaMap) {
 				throw new QueryEngineValidationError(
 					"Primary event schema references are not supported in this query mode",
@@ -319,8 +319,8 @@ export const validateRuntimeReferenceAgainstSchemas = (
 			}
 
 			validateEventSchemaReference(ref, validBuiltins);
-		})
-		.with({ type: "relationship-join" }, (ref) => {
+		}),
+		Match.when({ type: "relationship-join" }, (ref) => {
 			if (primaryEventMode) {
 				throw new QueryEngineValidationError(
 					"Relationship join references are not supported in this query mode",
@@ -398,8 +398,8 @@ export const validateRuntimeReferenceAgainstSchemas = (
 				path: ref.path,
 				label: "Relationship join column",
 			});
-		})
-		.with({ type: "event-join" }, (ref) => {
+		}),
+		Match.when({ type: "event-join" }, (ref) => {
 			const join = getEventJoinForReference(context.eventJoinMap, ref);
 
 			if (ref.path[0] === "properties") {
@@ -418,8 +418,9 @@ export const validateRuntimeReferenceAgainstSchemas = (
 				);
 			}
 			validateBuiltinPathHasSingleSegment({ path: ref.path, label: "Event join column" });
-		})
-		.exhaustive();
+		}),
+		Match.exhaustive,
+	);
 };
 
 const collectComputedFieldChain = (
@@ -527,25 +528,25 @@ export const validateExpressionAgainstSchemas = (
 	validBuiltins: ReadonlySet<string>,
 	computedFieldMap: Map<string, QueryComputedField> = new Map(),
 ): void => {
-	match(expression)
-		.with({ type: "literal" }, () => undefined)
-		.with({ type: "isNotNull" }, (expr) => {
+	Match.value(expression).pipe(
+		Match.when({ type: "literal" }, () => undefined),
+		Match.when({ type: "isNotNull" }, (expr) => {
 			validateExpressionAgainstSchemas(expr.expression, context, validBuiltins, computedFieldMap);
-		})
-		.with({ type: "reference" }, (expr) => {
+		}),
+		Match.when({ type: "reference" }, (expr) => {
 			if (expr.reference.type === "computed-field") {
 				getComputedFieldOrThrow(computedFieldMap, expr.reference.key);
 				return;
 			}
 
 			validateRuntimeReferenceAgainstSchemas(expr.reference, context, validBuiltins);
-		})
-		.with({ type: "arithmetic" }, (expr) => {
+		}),
+		Match.when({ type: "arithmetic" }, (expr) => {
 			validateExpressionAgainstSchemas(expr.left, context, validBuiltins, computedFieldMap);
 			validateExpressionAgainstSchemas(expr.right, context, validBuiltins, computedFieldMap);
 			inferViewExpressionType({ context, expression: expr, computedFieldMap });
-		})
-		.with(
+		}),
+		Match.whenOr(
 			{ type: "round" },
 			{ type: "floor" },
 			{ type: "integer" },
@@ -554,8 +555,8 @@ export const validateExpressionAgainstSchemas = (
 				validateExpressionAgainstSchemas(expr.expression, context, validBuiltins, computedFieldMap);
 				inferViewExpressionType({ context, expression: expr, computedFieldMap });
 			},
-		)
-		.with({ type: "conditional" }, (expr) => {
+		),
+		Match.when({ type: "conditional" }, (expr) => {
 			validateViewPredicateAgainstSchemas({
 				context,
 				predicate: expr.condition,
@@ -579,15 +580,16 @@ export const validateExpressionAgainstSchemas = (
 			validateExpressionAgainstSchemas(expr.whenTrue, context, validBuiltins, computedFieldMap);
 			validateExpressionAgainstSchemas(expr.whenFalse, context, validBuiltins, computedFieldMap);
 			inferViewExpressionType({ context, expression: expr, computedFieldMap });
-		})
-		.with({ type: "coalesce" }, { type: "concat" }, (expr) => {
+		}),
+		Match.whenOr({ type: "coalesce" }, { type: "concat" }, (expr) => {
 			for (const value of expr.values) {
 				validateExpressionAgainstSchemas(value, context, validBuiltins, computedFieldMap);
 			}
 
 			inferViewExpressionType({ context, expression: expr, computedFieldMap });
-		})
-		.exhaustive();
+		}),
+		Match.exhaustive,
+	);
 };
 
 const validateComputedFields = (input: {
@@ -615,12 +617,12 @@ const validateJoinLocalFilterExpression = (
 	join: QueryEngineRelationshipJoinLike,
 	context: QueryEngineReferenceContext,
 ): void => {
-	match(expression)
-		.with({ type: "literal" }, () => undefined)
-		.with({ type: "isNotNull" }, (expr) => {
+	Match.value(expression).pipe(
+		Match.when({ type: "literal" }, () => undefined),
+		Match.when({ type: "isNotNull" }, (expr) => {
 			validateJoinLocalFilterExpression(expr.expression, joinKey, join, context);
-		})
-		.with({ type: "reference" }, (referenceExpression) => {
+		}),
+		Match.when({ type: "reference" }, (referenceExpression) => {
 			if (referenceExpression.reference.type !== "relationship-join") {
 				throw new QueryEngineValidationError(
 					`Join-local filter may only reference the current relationship join, received '${referenceExpression.reference.type}'`,
@@ -646,17 +648,17 @@ const validateJoinLocalFilterExpression = (
 				path: referenceExpression.reference.path,
 				label: "Relationship join column",
 			});
-		})
-		.with({ type: "coalesce" }, (coalesceExpression) => {
+		}),
+		Match.when({ type: "coalesce" }, (coalesceExpression) => {
 			for (const value of coalesceExpression.values) {
 				validateJoinLocalFilterExpression(value, joinKey, join, context);
 			}
-		})
-		.with({ type: "arithmetic" }, (arithmeticExpression) => {
+		}),
+		Match.when({ type: "arithmetic" }, (arithmeticExpression) => {
 			validateJoinLocalFilterExpression(arithmeticExpression.left, joinKey, join, context);
 			validateJoinLocalFilterExpression(arithmeticExpression.right, joinKey, join, context);
-		})
-		.with(
+		}),
+		Match.whenOr(
 			{ type: "round" },
 			{ type: "floor" },
 			{ type: "integer" },
@@ -664,18 +666,19 @@ const validateJoinLocalFilterExpression = (
 			(nestedExpression) => {
 				validateJoinLocalFilterExpression(nestedExpression.expression, joinKey, join, context);
 			},
-		)
-		.with({ type: "concat" }, (concatExpression) => {
+		),
+		Match.when({ type: "concat" }, (concatExpression) => {
 			for (const value of concatExpression.values) {
 				validateJoinLocalFilterExpression(value, joinKey, join, context);
 			}
-		})
-		.with({ type: "conditional" }, (conditionalExpression) => {
+		}),
+		Match.when({ type: "conditional" }, (conditionalExpression) => {
 			validateJoinLocalFilterExpression(conditionalExpression.whenTrue, joinKey, join, context);
 			validateJoinLocalFilterExpression(conditionalExpression.whenFalse, joinKey, join, context);
 			validateJoinLocalFilterPredicate(conditionalExpression.condition, joinKey, join, context);
-		})
-		.exhaustive();
+		}),
+		Match.exhaustive,
+	);
 };
 
 const validateJoinLocalFilterPredicate = (
@@ -941,12 +944,13 @@ export const validateQueryEngineReferences = (
 	request: QueryEngineRequest,
 	context: QueryEngineReferenceContext,
 ): void => {
-	match(request)
-		.with({ mode: "entities" }, (req) => validateEntityQueryEngineReferences(req, context))
-		.with({ mode: "events" }, (req) => validateEventsQueryEngineReferences(req, context))
-		.with({ mode: "timeSeries" }, (req) => validateTimeSeriesQueryEngineReferences(req, context))
-		.with({ mode: "aggregate" }, (req) => validateAggregateQueryEngineReferences(req, context))
-		.exhaustive();
+	Match.value(request).pipe(
+		Match.when({ mode: "entities" }, (req) => validateEntityQueryEngineReferences(req, context)),
+		Match.when({ mode: "events" }, (req) => validateEventsQueryEngineReferences(req, context)),
+		Match.when({ mode: "timeSeries" }, (req) => validateTimeSeriesQueryEngineReferences(req, context)),
+		Match.when({ mode: "aggregate" }, (req) => validateAggregateQueryEngineReferences(req, context)),
+		Match.exhaustive,
+	);
 };
 
 export const validateSavedViewDisplayConfiguration = (
