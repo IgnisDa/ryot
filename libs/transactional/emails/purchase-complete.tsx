@@ -8,9 +8,9 @@ export type PurchaseCompleteEmailProps = {
 	planType: string;
 	renewOn?: string;
 	details?:
-		| { __typename: "self_hosted"; key: string }
+		| { kind: "self_hosted"; key: string }
 		| {
-				__typename: "cloud";
+				kind: "cloud";
 				auth:
 					| { provider: "google"; email: string }
 					| {
@@ -27,12 +27,11 @@ const PurchaseCompleteEmail = (props: PurchaseCompleteEmailProps) =>
 	props.details ? (
 		<Layout headingText={subject}>
 			<Text>
-				You have successfully purchased a {props.planType} plan for Ryot Pro (
-				{props.details.__typename}).{" "}
+				You have successfully purchased a {props.planType} plan for Ryot Pro ({props.details.kind}).{" "}
 				{props.renewOn ? `Your subscription will renew on ${props.renewOn}.` : null}
 			</Text>
 			<Text>
-				{props.details.__typename === "self_hosted" ? (
+				{props.details.kind === "self_hosted" ? (
 					<>
 						Your Pro Key is <strong>{props.details.key}</strong>. Please follow{" "}
 						<Link href="https://docs.ryot.io#upgrading-to-pro">these</Link> instructions to

@@ -125,7 +125,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			const emailElement = PurchaseCompleteEmail({
 				planType: customer.planType,
 				renewOn: customer.renewOn ?? undefined,
-				details: { __typename: "self_hosted", key: created.key },
+				details: { kind: "self_hosted", key: created.key },
 			});
 			if (!emailElement) {
 				throw new Error("Failed to create email element");
