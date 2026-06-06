@@ -1,4 +1,3 @@
-import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { eq } from "drizzle-orm";
 import { Effect, Runtime, Schema } from "effect";
 
@@ -6,9 +5,8 @@ import { EntityId, EntitySchemaId, IntegrationId, UserId } from "#lib/schema/bra
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
-import { EventsRepository } from "#modules/events/repository";
 import { CreateEventItem } from "#modules/events/schemas";
-import { runEventCreate } from "#modules/events/workflows";
+import { EventsService } from "#modules/events/service";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { isIntegrationProvider } from "#modules/integrations/types";
 import { QueryDocument } from "#modules/query-engine/language";
@@ -24,6 +22,7 @@ import {
 	apiFailure,
 	apiSuccess,
 	type BoundHostFunction,
+	type UserSandboxRunInput,
 	isObjectRecord,
 	requireSandboxRunInput,
 	requireUserSandboxRunInput,
@@ -33,8 +32,7 @@ type SandboxHostFunctionContext =
 	| DbRunner
 	| AppConfig
 	| RedisService
-	| WorkflowEngine
-	| EventsRepository
+	| EventsService
 	| EntitiesRepository
 	| QueryEngineService
 	| IntegrationsRepository
@@ -42,8 +40,6 @@ type SandboxHostFunctionContext =
 	| EntitySchemasRepository;
 
 const entityNotFoundError = "Entity not found";
-const sessionEntityNotFoundError = "Session entity not found";
-const listScopeRequiredError = "Either entityId or sessionEntityId is required";
 
 const CreateEventsPayload = Schema.Array(CreateEventItem);
 const ListEventsQuery = Schema.Struct({
@@ -55,6 +51,26 @@ const ListEventsQuery = Schema.Struct({
 const decodeListEventsQuery = Schema.decodeUnknown(ListEventsQuery);
 const decodeCreateEventsPayload = Schema.decodeUnknown(CreateEventsPayload);
 const decodeQueryDocument = Schema.decodeUnknown(QueryDocument);
+
+const stableStringify = (value: unknown): string => {
+	if (value === undefined) {
+		return "null";
+	}
+	if (Array.isArray(value)) {
+		return `[${value.map(stableStringify).join(",")}]`;
+	}
+	if (value && typeof value === "object") {
+		return `{${Object.keys(value)
+			.sort()
+			.map((key) => `${JSON.stringify(key)}:${stableStringify(Reflect.get(value, key))}`)
+			.join(",")}}`;
+	}
+
+	return JSON.stringify(value);
+};
+
+const hashPayload = (payload: unknown) =>
+	new Bun.CryptoHasher("sha256").update(stableStringify(payload)).digest("base64url");
 
 const requireNonEmptyString = (value: unknown, message: string): Effect.Effect<string, string> => {
 	if (typeof value !== "string" || value.trim().length === 0) {
@@ -110,9 +126,8 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 		const config = yield* AppConfig;
 		const redis = yield* RedisService;
 		const runWithDb = yield* DbRunner;
+		const events = yield* EventsService;
 		const runtime = yield* Effect.runtime();
-		const workflowEngine = yield* WorkflowEngine;
-		const eventsRepository = yield* EventsRepository;
 		const entitiesRepository = yield* EntitiesRepository;
 		const queryEngineService = yield* QueryEngineService;
 		const integrationsRepository = yield* IntegrationsRepository;
@@ -151,12 +166,15 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 				}),
 			);
 
-		const createEvents = (userId: UserId, payload: ReadonlyArray<CreateEventItem>) =>
+		const createEvents = (input: UserSandboxRunInput, payload: ReadonlyArray<CreateEventItem>) =>
 			payload.length === 0
 				? Effect.succeed({ count: 0 })
-				: runEventCreate({ userId, origin: "sandbox", payload }).pipe(
-						Effect.provideService(WorkflowEngine, workflowEngine),
-					);
+				: events.create({
+						payload,
+						source: "sandbox",
+						userId: UserId.make(input.userId),
+						executionId: `${input.executionId}-create-events-${hashPayload(payload)}`,
+					});
 
 		return {
 			claimCachedValue: (...args) => {
@@ -212,7 +230,7 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 				return runHostEffect(
 					runPromise,
 					decodeCreateEventsPayload(body).pipe(
-						Effect.flatMap((payload) => createEvents(UserId.make(input.userId), payload)),
+						Effect.flatMap((payload) => createEvents(input, payload)),
 					),
 				);
 			},
@@ -372,45 +390,20 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 				return runHostEffect(
 					runPromise,
 					decodeListEventsQuery(query ?? {}).pipe(
-						Effect.flatMap((parsedQuery) =>
-							Effect.gen(function* () {
-								if (!parsedQuery.entityId && !parsedQuery.sessionEntityId) {
-									return yield* Effect.fail(listScopeRequiredError);
-								}
+						Effect.flatMap((parsedQuery) => {
+							const entityId = parsedQuery.entityId
+								? EntityId.make(parsedQuery.entityId)
+								: undefined;
+							const sessionEntityId = parsedQuery.sessionEntityId
+								? EntityId.make(parsedQuery.sessionEntityId)
+								: undefined;
 
-								const entityId = parsedQuery.entityId
-									? EntityId.make(parsedQuery.entityId)
-									: undefined;
-								const sessionEntityId = parsedQuery.sessionEntityId
-									? EntityId.make(parsedQuery.sessionEntityId)
-									: undefined;
-
-								if (entityId) {
-									yield* requireReadableEntity(
-										UserId.make(input.userId),
-										entityId,
-										entityNotFoundError,
-									);
-								}
-
-								if (sessionEntityId) {
-									yield* requireReadableEntity(
-										UserId.make(input.userId),
-										sessionEntityId,
-										sessionEntityNotFoundError,
-									);
-								}
-
-								return yield* runWithDb(
-									eventsRepository.listForUser({
-										entityId,
-										sessionEntityId,
-										userId: UserId.make(input.userId),
-										eventSchemaSlug: parsedQuery.eventSchemaSlug,
-									}),
-								);
-							}),
-						),
+							return events.listForUser(UserId.make(input.userId), {
+								entityId,
+								sessionEntityId,
+								eventSchemaSlug: parsedQuery.eventSchemaSlug,
+							});
+						}),
 					),
 				);
 			},
