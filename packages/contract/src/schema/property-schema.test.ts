@@ -199,6 +199,11 @@ describe("AppSchema rule semantics", () => {
 		],
 		["exists", { operator: "exists", path: ["present"] }, true],
 		["not_exists", { operator: "not_exists", path: ["undefined"] }, true],
+		["exists against null", { operator: "exists", path: ["explicitNull"] }, false],
+		["not_exists against null", { operator: "not_exists", path: ["explicitNull"] }, true],
+		["eq against null", { operator: "eq", path: ["explicitNull"], value: null }, true],
+		["neq against null", { operator: "neq", path: ["explicitNull"], value: null }, false],
+		["in against null", { operator: "in", path: ["explicitNull"], value: [null, 1] }, true],
 		["eq", { operator: "eq", path: ["notANumber"], value: Number.NaN }, true],
 		["neq", { operator: "neq", path: ["negativeZero"], value: 0 }, true],
 		["in", { operator: "in", path: ["notANumber"], value: [Number.NaN, 1] }, true],
@@ -206,11 +211,12 @@ describe("AppSchema rule semantics", () => {
 	] as const)("evaluates %s conditions", (_operator, condition, expected) => {
 		expect(
 			evaluateAppSchemaRuleCondition(condition, {
-				present: null,
-				status: "active",
 				undefined,
-				notANumber: Number.NaN,
+				present: "value",
+				status: "active",
 				negativeZero: -0,
+				explicitNull: null,
+				notANumber: Number.NaN,
 			}),
 		).toBe(expected);
 	});
