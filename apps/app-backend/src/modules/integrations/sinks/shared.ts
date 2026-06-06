@@ -1,4 +1,4 @@
-import type { Effect } from "effect";
+import { Effect } from "effect";
 
 import type {
 	MediaImportAdapterFailure,
@@ -32,6 +32,11 @@ export const createSinkFailure = (input: {
 	stage: input.stage,
 	message: input.message,
 	...(input.context ? { context: input.context } : {}),
+});
+
+export const sinkFailureResult = (message: string): MediaImportAdapterResult => ({
+	...emptySinkResult(),
+	failures: [createSinkFailure({ stage: "input_transformation", message })],
 });
 
 export const parseJsonRecord = (rawBody: string): JsonRecord => {
@@ -77,6 +82,17 @@ const findNestedValue = (input: unknown, keys: string[]): unknown => {
 		}
 	}
 
+	return undefined;
+};
+
+export const getMediaEntitySchemaSlug = (itemType: string | undefined) => {
+	const normalized = itemType?.trim().toLowerCase();
+	if (normalized === "movie") {
+		return "movie" as const;
+	}
+	if (normalized === "episode") {
+		return "show" as const;
+	}
 	return undefined;
 };
 
@@ -158,3 +174,10 @@ export const createProgressResult = (input: {
 		},
 	],
 });
+
+export const wrapSinkParser = (providerName: string, fn: () => MediaImportAdapterResult) =>
+	Effect.try(fn).pipe(
+		Effect.orElseSucceed(() =>
+			sinkFailureResult(`Could not parse ${providerName} webhook payload`),
+		),
+	);
