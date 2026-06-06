@@ -2,7 +2,7 @@ import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from "@effect/platform";
 import { Schema } from "effect";
 
 import { AuthMiddleware } from "#lib/auth-middleware";
-import { BadRequest, NotFound, NotImplemented, RateLimited, Unauthorized } from "#lib/errors";
+import { BadRequest, NotFound, RateLimited, Unauthorized } from "#lib/errors";
 
 import {
 	CreateSavedViewBody,
@@ -65,5 +65,4 @@ export const SavedViewsGroup = HttpApiGroup.make("savedViews")
 			.setPayload(ReorderSavedViewsBody)
 			.addSuccess(ReorderSavedViewsResponse)
 			.addError(BadRequest, { status: 400 }),
-	)
-	.addError(NotImplemented, { status: 501 });
+	);
