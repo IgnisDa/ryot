@@ -37,7 +37,6 @@ import { manifest as manifest153 } from "./scripts/imports/watcharr.sandbox";
 import { manifest as manifest155 } from "./scripts/imports/write-chunks.sandbox";
 import { manifest as manifest143 } from "./scripts/integrations/sinks/browser-extension.sandbox";
 import { manifest as manifest144 } from "./scripts/integrations/sinks/emby.sandbox";
-import { manifest as manifest145 } from "./scripts/integrations/sinks/generic-json.sandbox";
 import { manifest as manifest146 } from "./scripts/integrations/sinks/jellyfin.sandbox";
 import { manifest as manifest147 } from "./scripts/integrations/sinks/kodi.sandbox";
 import { manifest as manifest148 } from "./scripts/integrations/sinks/plex.sandbox";
@@ -247,7 +246,6 @@ export const mediaScripts = [
 	directScript(manifest174, "scripts/operations/media-monitoring-status.sandbox.ts"),
 	directScript(manifest143, "scripts/integrations/sinks/browser-extension.sandbox.ts"),
 	directScript(manifest144, "scripts/integrations/sinks/emby.sandbox.ts"),
-	directScript(manifest145, "scripts/integrations/sinks/generic-json.sandbox.ts"),
 	directScript(manifest146, "scripts/integrations/sinks/jellyfin.sandbox.ts"),
 	directScript(manifest147, "scripts/integrations/sinks/kodi.sandbox.ts"),
 	directScript(manifest148, "scripts/integrations/sinks/plex.sandbox.ts"),
