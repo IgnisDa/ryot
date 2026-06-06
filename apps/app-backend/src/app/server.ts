@@ -128,14 +128,13 @@ export const ServerLive = Layer.scopedDiscard(
 		const { dispose, handler } = HttpApiBuilder.toWebHandler(apiLayer);
 
 		const runPromise = Runtime.runPromise(runtime);
-		const serveStatic = (pathname: string) =>
-			Effect.gen(function* () {
-				const path = pathname === "/" ? "./client/index.html" : `./client${pathname}`;
-				const exists = yield* fs.exists(path);
-				const target = exists ? path : "./client/index.html";
-				const bytes = yield* fs.readFile(target);
-				return new Response(bytes, { headers: { "Content-Type": mimeType(target) } });
-			});
+		const serveStatic = Effect.fn("serveStatic")(function* (pathname: string) {
+			const path = pathname === "/" ? "./client/index.html" : `./client${pathname}`;
+			const exists = yield* fs.exists(path);
+			const target = exists ? path : "./client/index.html";
+			const bytes = yield* fs.readFile(target);
+			return new Response(bytes, { headers: { "Content-Type": mimeType(target) } });
+		});
 
 		const server = Bun.serve({
 			port: config.port,
