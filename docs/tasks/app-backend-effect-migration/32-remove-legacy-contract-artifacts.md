@@ -25,6 +25,7 @@ Do not run this before app-client and tests are migrated away from the legacy ge
 
 - `bun turbo --filter=@ryot/tests check` now passes again after switching broken tests imports from deleted `@ryot/ts-utils/view-language` helpers to `@ryot/app-backend/query-language`.
 - The initial tests-only cleanup removed a subset of `oxlint-disable` comments in polling and several query-engine/event test helpers while keeping the legacy adapter layer intact.
+- A follow-up cleanup slice removed more `oxlint-disable` comments from malformed-request tests, sandbox result assertions, event-schema loops, and query-engine scenario loops by using raw fetch, `Promise.all`, and small runtime-shape helpers.
 - The remaining work is concentrated in the legacy tests client compatibility layer (`backend-client.ts`, `backend-client-legacy.ts`) and in removing obsolete workspace artifacts/dependencies.
 
 ## User stories addressed

@@ -14,7 +14,22 @@ import {
 	pollSandboxResult,
 } from "../fixtures";
 import { getBackendClient } from "../setup";
-import { assertPresent } from "../test-support/assertions";
+import {
+	assertPresent,
+	requireArray,
+	requireObjectRecord,
+	requireString,
+} from "../test-support/assertions";
+
+const requireCompletedSandboxValue = (result: Awaited<ReturnType<typeof pollSandboxResult>>) => {
+	expect(result.status).toBe("completed");
+	if (result.status !== "completed") {
+		throw new Error("Expected sandbox job to complete");
+	}
+
+	expect(result.error).toBeNull();
+	return result.value;
+};
 
 let httpServerUrl: string;
 let httpServer: ReturnType<typeof Bun.serve>;
@@ -94,26 +109,16 @@ describe("sandbox async flow", () => {
 			driverName: "main",
 		});
 
-		const result = await pollSandboxResult(client, cookies, jobId);
-
-		expect(result.status).toBe("completed");
-		if (result.status !== "completed") {
-			throw new Error("Expected sandbox job to complete");
-		}
-
-		// oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion
-		const value = result.value as {
-			success?: boolean;
-			data?: { body: string; status: number };
-		};
-
+		const value = requireObjectRecord(
+			requireCompletedSandboxValue(await pollSandboxResult(client, cookies, jobId)),
+			"Expected sandbox httpCall result to be an object",
+		);
+		const data = requireObjectRecord(value.data, "Expected sandbox httpCall data to be an object");
 		expect(value.success).toBe(true);
-		expect(value.data?.status).toBe(200);
-		expect(JSON.parse(value.data?.body ?? "{}")).toEqual({
-			ok: true,
-			source: "sandbox-test-server",
-		});
-		expect(result.error).toBeNull();
+		expect(data.status).toBe(200);
+		expect(
+			JSON.parse(requireString(data.body, "Expected sandbox httpCall body to be a string")),
+		).toEqual({ ok: true, source: "sandbox-test-server" });
 	});
 
 	it("completes a script that uses executeQueryEngine", async () => {
@@ -160,25 +165,20 @@ driver("main", async function() {
 			driverName: "main",
 		});
 
-		const result = await pollSandboxResult(client, cookies, jobId);
-
-		expect(result.status).toBe("completed");
-		if (result.status !== "completed") {
-			throw new Error("Expected sandbox job to complete");
-		}
-
-		expect(result.error).toBeNull();
-
-		// oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion
-		const value = result.value as Array<{
-			id?: { kind: "text"; value: string };
-			name?: { kind: "text"; value: string };
-		}>;
-
+		const value = requireArray(
+			requireCompletedSandboxValue(await pollSandboxResult(client, cookies, jobId)),
+			"Expected executeQueryEngine sandbox result to be an array",
+		);
+		const first = requireObjectRecord(value[0], "Expected first query engine item to be an object");
+		const idField = requireObjectRecord(first.id, "Expected query engine id field to be an object");
+		const nameField = requireObjectRecord(
+			first.name,
+			"Expected query engine name field to be an object",
+		);
 		expect(Array.isArray(value)).toBe(true);
 		expect(value.length).toBe(1);
-		expect(value[0]?.name?.value).toBe("Test Entity");
-		expect(value[0]?.id?.value).toBeDefined();
+		expect(nameField.value).toBe("Test Entity");
+		expect(idField.value).toBeDefined();
 	});
 
 	it("returns an error when executeQueryEngine uses a missing schema slug", async () => {
@@ -244,22 +244,10 @@ driver("main", async function() {
 			driverName: "main",
 		});
 
-		const result = await pollSandboxResult(client, cookies, jobId);
-
-		expect(result.status).toBe("completed");
-		if (result.status !== "completed") {
-			throw new Error("Expected sandbox job to complete");
-		}
-
-		expect(result.error).toBeNull();
-
-		// oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion
-		const value = result.value as {
-			localAuthDisabled?: boolean;
-			oidcEnabled?: boolean;
-			signupAllowed?: boolean;
-		};
-
+		const value = requireObjectRecord(
+			requireCompletedSandboxValue(await pollSandboxResult(client, cookies, jobId)),
+			"Expected system config sandbox result to be an object",
+		);
 		expect(typeof value.localAuthDisabled).toBe("boolean");
 		expect(typeof value.oidcEnabled).toBe("boolean");
 		expect(typeof value.signupAllowed).toBe("boolean");
@@ -281,27 +269,20 @@ driver("main", async function() {
 });
 `,
 		});
-		const { jobId } = await enqueueSandboxScript(client, cookies, {
-			scriptId,
-			driverName: "main",
-		});
+		const { jobId } = await enqueueSandboxScript(client, cookies, { scriptId, driverName: "main" });
 
-		const result = await pollSandboxResult(client, cookies, jobId);
-
-		expect(result.status).toBe("completed");
-		if (result.status !== "completed") {
-			throw new Error("Expected sandbox job to complete");
-		}
-
-		expect(result.error).toBeNull();
-
-		// oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion
-		const prefs = result.value as {
-			languages: { providers: Array<{ source: string; preferredLanguage: string }> };
-		};
-		expect(prefs.languages.providers.length).toBeGreaterThan(1);
-		expect(prefs.languages.providers[0]?.source).toBe("audible");
-		expect(prefs.languages.providers[0]?.preferredLanguage).toBe("US");
+		const prefs = requireObjectRecord(
+			requireCompletedSandboxValue(await pollSandboxResult(client, cookies, jobId)),
+			"Expected user preferences sandbox result to be an object",
+		);
+		const languages = requireObjectRecord(prefs.languages, "Expected languages to be an object");
+		const providers = requireArray(
+			languages.providers,
+			"Expected languages providers to be an array",
+		).map((provider) => requireObjectRecord(provider, "Expected provider to be an object"));
+		expect(providers.length).toBeGreaterThan(1);
+		expect(providers[0]?.source).toBe("audible");
+		expect(providers[0]?.preferredLanguage).toBe("US");
 	});
 
 	it("returns a completed result when the script throws", async () => {
@@ -311,10 +292,7 @@ driver("main", async function() {
 			slug: `throws-error-${crypto.randomUUID()}`,
 			code: 'driver("main", async function() { throw new Error("intentional"); });',
 		});
-		const { jobId } = await enqueueSandboxScript(client, cookies, {
-			scriptId,
-			driverName: "main",
-		});
+		const { jobId } = await enqueueSandboxScript(client, cookies, { scriptId, driverName: "main" });
 
 		const result = await pollSandboxResult(client, cookies, jobId);
 
@@ -334,10 +312,7 @@ driver("main", async function() {
 			name: "syntax-error",
 			slug: `syntax-error-${crypto.randomUUID()}`,
 		});
-		const { jobId } = await enqueueSandboxScript(client, cookies, {
-			scriptId,
-			driverName: "main",
-		});
+		const { jobId } = await enqueueSandboxScript(client, cookies, { scriptId, driverName: "main" });
 
 		const result = await pollSandboxResult(client, cookies, jobId);
 
@@ -399,10 +374,7 @@ driver("main", async function() {
 			slug: `unauth-poll-${crypto.randomUUID()}`,
 			code: 'driver("main", async function() { return 42; });',
 		});
-		const { jobId } = await enqueueSandboxScript(client, cookies, {
-			scriptId,
-			driverName: "main",
-		});
+		const { jobId } = await enqueueSandboxScript(client, cookies, { scriptId, driverName: "main" });
 
 		const unauthenticatedClient = getBackendClient();
 		const { response, error } = await unauthenticatedClient.GET("/sandbox/result/{jobId}", {
@@ -433,14 +405,10 @@ describe("sandbox cache functions", () => {
 			driverName: "main",
 		});
 
-		const result = await pollSandboxResult(client, cookies, jobId);
-		expect(result.status).toBe("completed");
-		if (result.status !== "completed") {
-			throw new Error("Expected sandbox job to complete");
-		}
-		expect(result.error).toBeNull();
-		// oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion
-		const value = result.value as { success: boolean; data: unknown };
+		const value = requireObjectRecord(
+			requireCompletedSandboxValue(await pollSandboxResult(client, cookies, jobId)),
+			"Expected cache write result to be an object",
+		);
 		expect(value.success).toBe(true);
 		expect(value.data).toEqual({ value: 42 });
 	});
@@ -461,14 +429,10 @@ describe("sandbox cache functions", () => {
 			driverName: "main",
 		});
 
-		const result = await pollSandboxResult(client, cookies, jobId);
-		expect(result.status).toBe("completed");
-		if (result.status !== "completed") {
-			throw new Error("Expected sandbox job to complete");
-		}
-		expect(result.error).toBeNull();
-		// oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion
-		const value = result.value as { success: boolean; data: unknown };
+		const value = requireObjectRecord(
+			requireCompletedSandboxValue(await pollSandboxResult(client, cookies, jobId)),
+			"Expected cache miss result to be an object",
+		);
 		expect(value.success).toBe(true);
 		expect(value.data).toBeNull();
 	});
@@ -503,15 +467,10 @@ describe("sandbox cache functions", () => {
 			scriptId: readerScriptId,
 			driverName: "main",
 		});
-		const result = await pollSandboxResult(client, cookies, readJobId);
-
-		expect(result.status).toBe("completed");
-		if (result.status !== "completed") {
-			throw new Error("Expected sandbox job to complete");
-		}
-		expect(result.error).toBeNull();
-		// oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion
-		const value = result.value as { success: boolean; data: unknown };
+		const value = requireObjectRecord(
+			requireCompletedSandboxValue(await pollSandboxResult(client, cookies, readJobId)),
+			"Expected cache isolation read result to be an object",
+		);
 		expect(value.success).toBe(true);
 		expect(value.data).toBeNull();
 	});
@@ -550,15 +509,10 @@ describe("sandbox cache functions", () => {
 			driverName: "main",
 			scriptId: readerScriptId,
 		});
-		const result = await pollSandboxResult(clientB, cookiesB, readJobId);
-
-		expect(result.status).toBe("completed");
-		if (result.status !== "completed") {
-			throw new Error("Expected sandbox job to complete");
-		}
-		expect(result.error).toBeNull();
-		// oxlint-disable-next-line typescript-eslint/no-unsafe-type-assertion
-		const value = result.value as { success: boolean; data: unknown };
+		const value = requireObjectRecord(
+			requireCompletedSandboxValue(await pollSandboxResult(clientB, cookiesB, readJobId)),
+			"Expected cross-user cache result to be an object",
+		);
 		expect(value.success).toBe(true);
 		// User-owned scripts are isolated per scriptId — a different user's script
 		// cannot read this user's cache entry even with the same key.

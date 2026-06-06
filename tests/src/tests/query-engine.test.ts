@@ -2458,17 +2458,19 @@ describe("Query engine E2E", () => {
 			},
 		];
 
-		for (const scenario of scenarios) {
-			// oxlint-disable-next-line no-await-in-loop
-			const { data, response } = await executeQueryEngine(
-				client,
-				cookies,
-				buildGridRequest({
-					filter: scenario.filter,
-					scope: [schema.slug],
-				}),
-			);
+		const results = await Promise.all(
+			scenarios.map(async (scenario) => ({
+				scenario,
+				result: await executeQueryEngine(
+					client,
+					cookies,
+					buildGridRequest({ scope: [schema.slug], filter: scenario.filter }),
+				),
+			})),
+		);
 
+		for (const { result, scenario } of results) {
+			const { data, response } = result;
 			expect(response.status).toBe(200);
 			expect(getItemTitles(data.data.items)).toEqual(scenario.expected);
 		}
@@ -2837,17 +2839,19 @@ describe("Query engine E2E", () => {
 			},
 		];
 
-		for (const scenario of scenarios) {
-			// oxlint-disable-next-line no-await-in-loop
-			const { data, response } = await executeQueryEngine(
-				client,
-				cookies,
-				buildGridRequest({
-					pagination: scenario.pagination,
-					scope: [schema.slug],
-				}),
-			);
+		const results = await Promise.all(
+			scenarios.map(async (scenario) => ({
+				scenario,
+				result: await executeQueryEngine(
+					client,
+					cookies,
+					buildGridRequest({ scope: [schema.slug], pagination: scenario.pagination }),
+				),
+			})),
+		);
 
+		for (const { result, scenario } of results) {
+			const { data, response } = result;
 			expect(response.status).toBe(200);
 			expect(getItemTitles(data.data.items)).toEqual(scenario.expectedNames);
 			expect(data.data.meta.pagination).toEqual(scenario.expectedMeta);
