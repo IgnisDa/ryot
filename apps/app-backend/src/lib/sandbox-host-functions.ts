@@ -47,24 +47,11 @@ const entityNotFoundError = "Entity not found";
 const sessionEntityNotFoundError = "Session entity not found";
 const listScopeRequiredError = "Either entityId or sessionEntityId is required";
 
-const configEnvKeyByPath = {
-	"music.spotify.clientId": "MUSIC_SPOTIFY_CLIENT_ID",
-	"books.hardcover.apiKey": "BOOKS_HARDCOVER_API_KEY",
-	"books.googleBooks.apiKey": "BOOKS_GOOGLE_BOOKS_API_KEY",
-	"comicBooks.metron.password": "COMIC_BOOK_METRON_PASSWORD",
-	"comicBooks.metron.username": "COMIC_BOOK_METRON_USERNAME",
-	"music.spotify.clientSecret": "MUSIC_SPOTIFY_CLIENT_SECRET",
-	"videoGames.twitch.clientId": "VIDEO_GAMES_TWITCH_CLIENT_ID",
-	"podcasts.listenNotes.apiKey": "PODCASTS_LISTENNOTES_API_KEY",
-	"moviesAndShows.tvdb.apiKey": "MOVIES_AND_SHOWS_TVDB_API_KEY",
-	"animeAndManga.mal.clientId": "ANIME_AND_MANGA_MAL_CLIENT_ID",
-	"videoGames.giantBomb.apiKey": "VIDEO_GAMES_GIANT_BOMB_API_KEY",
-	"videoGames.twitch.clientSecret": "VIDEO_GAMES_TWITCH_CLIENT_SECRET",
-	"moviesAndShows.tmdb.accessToken": "MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN",
-} as const;
-
-const isSandboxConfigPath = (value: string): value is keyof typeof configEnvKeyByPath =>
-	value in configEnvKeyByPath;
+const dotPathToEnvKey = (path: string): string =>
+	path
+		.split(".")
+		.map((segment) => segment.replace(/([A-Z])/g, "_$1").toUpperCase())
+		.join("_");
 
 const CreateEventsPayload = Schema.Array(CreateEventItem);
 const ListEventsQuery = Schema.Struct({
@@ -104,10 +91,7 @@ const normalizePreferences = (value: unknown) => {
 
 				return [{ source: sourceValue, preferredLanguage }];
 			})
-		: [
-				{ source: "audible", preferredLanguage: "US" },
-				{ source: "anilist", preferredLanguage: "user_preferred" },
-			];
+		: [];
 
 	return {
 		languages: { providers },
@@ -229,12 +213,13 @@ export const makeAdditionalSandboxApiFunctions = (
 			return Promise.resolve(apiFailure("getAppConfigValue expects a non-empty key string"));
 		}
 
-		const trimmedKey = key.trim();
-		if (!isSandboxConfigPath(trimmedKey)) {
-			return Promise.resolve(apiFailure(`Config key "${trimmedKey}" does not exist`));
+		const envKey = dotPathToEnvKey(key.trim());
+		const value = Bun.env[envKey];
+		if (value === undefined) {
+			return Promise.resolve(apiFailure(`Config key "${key.trim()}" does not exist`));
 		}
 
-		return Promise.resolve(apiSuccess(Bun.env[configEnvKeyByPath[trimmedKey]] ?? null));
+		return Promise.resolve(apiSuccess(value));
 	},
 	getEntity: (...args) => {
 		const entityId = args[0];

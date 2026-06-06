@@ -123,7 +123,7 @@ export const builtinSandboxScripts = () => [
 		"books.googleBooks.apiKey",
 	]),
 	script("ListenNotes", "podcast.listennotes", listennotesPodcastScriptCode, [
-		"podcasts.listenNotes.apiKey",
+		"podcasts.listennotes.apiKey",
 	]),
 	script("GiantBomb", "video-game.giant-bomb", giantBombVideoGameScriptCode, [
 		"videoGames.giantBomb.apiKey",
@@ -147,12 +147,12 @@ export const builtinSandboxScripts = () => [
 		["animeAndManga.mal.clientId"],
 	),
 	script("Metron", "comic-book.metron", metronComicBookScriptCode, [
-		"comicBooks.metron.username",
-		"comicBooks.metron.password",
+		"comicBook.metron.username",
+		"comicBook.metron.password",
 	]),
 	script("Metron", "person.metron", metronPersonScriptCode, [
-		"comicBooks.metron.username",
-		"comicBooks.metron.password",
+		"comicBook.metron.username",
+		"comicBook.metron.password",
 	]),
 	script("Spotify", "music.spotify", spotifyMusicScriptCode, [
 		"music.spotify.clientId",
@@ -173,8 +173,8 @@ export const builtinSandboxScripts = () => [
 		"books.hardcover.apiKey",
 	]),
 	script("Metron", "comic-book-group.metron", metronComicBookGroupScriptCode, [
-		"comicBooks.metron.username",
-		"comicBooks.metron.password",
+		"comicBook.metron.username",
+		"comicBook.metron.password",
 	]),
 	script("Spotify", "music-group.spotify", spotifyMusicGroupScriptCode, [
 		"music.spotify.clientId",
