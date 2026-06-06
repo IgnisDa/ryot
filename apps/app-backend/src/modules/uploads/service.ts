@@ -29,6 +29,7 @@ const UploadIntentMetadata = Schema.Struct({
 	userId: UserId,
 	kind: UploadKind,
 	intentId: Schema.String,
+	fileName: Schema.String,
 	objectKey: Schema.String,
 	createdAt: Schema.Finite,
 	expiresAt: Schema.Finite,
@@ -146,6 +147,7 @@ export class UploadsService extends Context.Service<UploadsService>()("UploadsSe
 						};
 			const metadata = {
 				intentId,
+				fileName,
 				objectKey,
 				expiresAt,
 				contentType,
@@ -569,6 +571,7 @@ export class UploadsService extends Context.Service<UploadsService>()("UploadsSe
 					redisKeys.uploadToken(token),
 				);
 				return {
+					fileName: metadata.fileName,
 					intentId: tokenValue.intentId,
 					...(resolvedPath === null ? {} : { resolvedPath }),
 					locator: { type: metadata.provider, key: metadata.objectKey },

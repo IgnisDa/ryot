@@ -7,19 +7,35 @@ import { fitnessRelationshipSchemas } from "./schemas/relationship-schemas";
 import { fitnessSignalSchemas } from "./schemas/signal-schemas";
 import { fitnessScripts } from "./script-catalog";
 
+const importDocs = (page: string) => ({ docsUrl: `https://docs.ryot.io/importing/${page}.html` });
+
+const uploadInputSchema = (label: string, description: string) => ({
+	unknownKeys: "strict" as const,
+	fields: {
+		uploadToken: {
+			label,
+			position: 0,
+			description,
+			type: "string" as const,
+			validation: { required: true as const },
+			format: { kind: "upload" as const, allowedFileExtensions: ["csv"] },
+		},
+	},
+});
+
 export const fitnessPlugin = definePlugin({
 	crons: [],
 	operations: [],
 	userBootstrap: [],
 	httpRateLimits: [],
 	scripts: fitnessScripts,
-	configSchema: fitnessConfigSchema,
 	integrationProviders: [],
-	workflows: [{ slug: "import", scriptSlug: "workflow.import" }],
 	savedViews: fitnessSavedViews(),
+	configSchema: fitnessConfigSchema,
 	entitySchemas: fitnessEntitySchemas(),
 	signalSchemas: fitnessSignalSchemas(),
 	relationshipSchemas: fitnessRelationshipSchemas(),
+	workflows: [{ slug: "import", scriptSlug: "workflow.import" }],
 	boot: [
 		{
 			slug: "preload-exercises",
@@ -63,32 +79,29 @@ export const fitnessPlugin = definePlugin({
 		{
 			slug: "hevy",
 			name: "Hevy",
-			lot: "single",
-			input: "file",
 			workflowSlug: "import",
 			requiredPluginConfigKeys: [],
-			allowedFileExtensions: ["csv"],
+			exportHelp: importDocs("hevy"),
 			description: "Import workouts from a Hevy CSV export",
+			inputSchema: uploadInputSchema("Hevy export", "Hevy workout export CSV"),
 		},
 		{
-			lot: "single",
-			input: "file",
 			slug: "strong_app",
 			name: "Strong App",
 			workflowSlug: "import",
 			requiredPluginConfigKeys: [],
-			allowedFileExtensions: ["csv"],
+			exportHelp: importDocs("strong-app"),
 			description: "Import workouts from a Strong CSV export",
+			inputSchema: uploadInputSchema("Strong App export", "Strong App workout export CSV"),
 		},
 		{
-			lot: "single",
-			input: "file",
 			name: "OpenScale",
 			slug: "open_scale",
 			workflowSlug: "import",
 			requiredPluginConfigKeys: [],
-			allowedFileExtensions: ["csv"],
+			exportHelp: importDocs("open-scale"),
 			description: "Import measurements from an OpenScale CSV export",
+			inputSchema: uploadInputSchema("OpenScale export", "OpenScale measurements export CSV"),
 		},
 	],
 });

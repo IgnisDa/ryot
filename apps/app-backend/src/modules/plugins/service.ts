@@ -22,6 +22,7 @@ import {
 	decodePluginManifest,
 	PluginValidationError,
 	validateIntegrationProviderSettingsSchemas,
+	validateImportSourceInputSchemas,
 	validatePluginExecutableScripts,
 	validatePluginManifestReferences,
 	validatePluginSourcePaths,
@@ -147,6 +148,7 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 					(plugin) =>
 						validatePluginManifestReferences(plugin.manifest, snapshot.definitions).pipe(
 							Effect.andThen(validateIntegrationProviderSettingsSchemas(plugin.manifest)),
+							Effect.andThen(validateImportSourceInputSchemas(plugin.manifest)),
 							Effect.andThen(
 								validateCompiledScripts ? validatePluginExecutableScripts(plugin) : Effect.void,
 							),
