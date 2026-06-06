@@ -159,7 +159,7 @@ driver("search", async function (context) {
 			}
 
 			const hitTitle = typeof item?.hit_title === "string" ? item.hit_title : "";
-			const title = hitTitle || (typeof record.title === "string" ? record.title : "");
+			const title = hitTitle ?? (typeof record.title === "string" ? record.title : "");
 
 			const image = pickImage(record);
 			const publishYear = parsePublishYear(record.year, dayjs);
