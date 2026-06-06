@@ -59,14 +59,11 @@ export function requireNonEmptyArray<T>(
 	return value;
 }
 
-export function requireResponseData<T>(
-	response: { status: number },
-	data: T | undefined,
-	message: string,
-): T {
-	if (response.status < 200 || response.status >= 300 || data == null) {
-		throw new Error(message);
+export function assertTaggedError<E extends { readonly _tag: string }, T extends E["_tag"]>(
+	error: E,
+	tag: T,
+): asserts error is Extract<E, { readonly _tag: T }> {
+	if (error._tag !== tag) {
+		throw new Error(`Expected error tag '${tag}' but received '${error._tag}'`);
 	}
-
-	return data;
 }

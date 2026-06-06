@@ -1,16 +1,16 @@
 import type { AppPropertyDefinition, AppSchema } from "@ryot/app-backend/schema";
 
-import { assertPresent, requirePresent, requireResponseData } from "../test-support/assertions";
+import { assertPresent, requirePresent } from "../test-support/assertions";
 import type { Client } from "./auth";
-import type { ClientBody } from "./backend-client";
+import type { ContractPayload } from "./contract-client";
 import { type PollOptions, pollUntil } from "./polling";
 import { createTracker, listTrackers } from "./trackers";
 
 export type { AppPropertyDefinition, AppSchema };
 
-type EnqueueEntitySearchBody = ClientBody<"entitySchemas", "search">;
+type EnqueueEntitySearchBody = ContractPayload<"entitySchemas", "search">;
 
-type EnqueueEntityImportBody = ClientBody<"entities", "import">;
+type EnqueueEntityImportBody = ContractPayload<"entities", "import">;
 
 export interface CreateEntitySchemaOptions {
 	icon?: string;
@@ -37,19 +37,21 @@ export async function createEntitySchema(
 		},
 	} = options;
 
-	const { data, response } = await client.entitySchemas.create({
-		headers: { Cookie: cookies },
-		body: {
-			icon,
-			name,
-			slug,
-			trackerId,
-			accentColor,
-			propertiesSchema,
-		},
-	});
+	const schema = await client.run(
+		(c) =>
+			c.entitySchemas.create({
+				payload: {
+					icon,
+					name,
+					slug,
+					trackerId,
+					accentColor,
+					propertiesSchema,
+				},
+			}),
+		{ Cookie: cookies },
+	);
 
-	const schema = requireResponseData(response, data, `Failed to create entity schema '${name}'`);
 	return {
 		schemaId: requirePresent(schema.id, `Failed to create entity schema '${name}'`),
 		slug: requirePresent(schema.slug, `Failed to create entity schema '${name}'`),
@@ -62,21 +64,11 @@ export async function listEntitySchemas(
 	cookies: string,
 	options: { slugs?: string[]; trackerId?: string },
 ) {
-	const { data, response } = await client.entitySchemas.list({
-		body: options,
-		headers: { Cookie: cookies },
-	});
-
-	return requireResponseData(response, data, "Failed to list entity schemas");
+	return client.run((c) => c.entitySchemas.list({ payload: options }), { Cookie: cookies });
 }
 
 export async function getEntitySchema(client: Client, cookies: string, entitySchemaId: string) {
-	const { data, response } = await client.entitySchemas.get({
-		headers: { Cookie: cookies },
-		params: { path: { entitySchemaId } },
-	});
-
-	return requireResponseData(response, data, `Failed to get entity schema '${entitySchemaId}'`);
+	return client.run((c) => c.entitySchemas.get({ path: { entitySchemaId } }), { Cookie: cookies });
 }
 
 export async function findBuiltinEntitySchema(client: Client, cookies: string) {
@@ -132,16 +124,12 @@ export async function enqueueEntitySearch(
 	cookies: string,
 	body: EnqueueEntitySearchBody,
 ) {
-	const { data, response } = await client.entitySchemas.search({
-		body,
-		headers: { Cookie: cookies },
+	const result = await client.run((c) => c.entitySchemas.search({ payload: body }), {
+		Cookie: cookies,
 	});
 
 	return {
-		jobId: requirePresent(
-			requireResponseData(response, data, "Failed to enqueue entity search").jobId,
-			"Failed to enqueue entity search",
-		),
+		jobId: requirePresent(result.jobId, "Failed to enqueue entity search"),
 	};
 }
 
@@ -154,15 +142,9 @@ export async function pollEntitySearchResult(
 	return pollUntil(
 		`entity search job '${jobId}'`,
 		async () => {
-			const { data, response } = await client.entitySchemas.getSearchResult({
-				params: { path: { jobId } },
-				headers: { Cookie: cookies },
+			const result = await client.run((c) => c.entitySchemas.getSearchResult({ path: { jobId } }), {
+				Cookie: cookies,
 			});
-			const result = requireResponseData(
-				response,
-				data,
-				`Failed to poll entity search result '${jobId}'`,
-			);
 			return result.status !== "pending" ? result : null;
 		},
 		options,
@@ -174,16 +156,12 @@ export async function enqueueEntityImport(
 	cookies: string,
 	body: EnqueueEntityImportBody,
 ) {
-	const { data, response } = await client.entities.import({
-		body,
-		headers: { Cookie: cookies },
+	const result = await client.run((c) => c.entities.import({ payload: body }), {
+		Cookie: cookies,
 	});
 
 	return {
-		jobId: requirePresent(
-			requireResponseData(response, data, "Failed to enqueue entity import").jobId,
-			"Failed to enqueue entity import",
-		),
+		jobId: requirePresent(result.jobId, "Failed to enqueue entity import"),
 	};
 }
 
@@ -196,15 +174,9 @@ export async function pollEntityImportResult(
 	return pollUntil(
 		`entity import job '${jobId}'`,
 		async () => {
-			const { data, response } = await client.entities.getImportResult({
-				params: { path: { jobId } },
-				headers: { Cookie: cookies },
+			const result = await client.run((c) => c.entities.getImportResult({ path: { jobId } }), {
+				Cookie: cookies,
 			});
-			const result = requireResponseData(
-				response,
-				data,
-				`Failed to poll entity import result '${jobId}'`,
-			);
 			return result.status !== "pending" ? result : null;
 		},
 		options,

@@ -28,7 +28,7 @@ const waitForSeededExercise = async (client: Client, cookies: string) => {
 	return pollUntil(
 		`exercise '${seededExerciseName}' to be queryable`,
 		async () => {
-			const { data, response } = await executeQueryEngine(
+			const { data } = await executeQueryEngine(
 				client,
 				cookies,
 				buildGridRequest({
@@ -49,10 +49,6 @@ const waitForSeededExercise = async (client: Client, cookies: string) => {
 					},
 				}),
 			);
-
-			if (response.status !== 200) {
-				throw new Error("Failed to query seeded exercises");
-			}
 
 			return data.data.items[0] ?? null;
 		},

@@ -25,6 +25,7 @@ import {
 	waitForSessionEventCount,
 } from "../fixtures";
 import { getPgClient } from "../setup";
+import { assertTaggedError } from "../test-support/assertions";
 
 describe("Workouts E2E", () => {
 	it("links the built-in workout schema to the fitness tracker", async () => {
@@ -133,7 +134,6 @@ describe("Workouts E2E", () => {
 			}),
 		);
 
-		expect(result.response.status).toBe(200);
 		expect(result.data.data.items.length).toBeGreaterThan(0);
 		expect(getQueryEngineFieldOrThrow(result.data.data.items[0], "primarySubtitle").key).toBe(
 			"primarySubtitle",
@@ -146,26 +146,28 @@ describe("Workouts E2E", () => {
 		const { workoutSetEventSchema } = await findWorkoutSetEventSchema(client, cookies);
 		const exerciseId = await waitForSeededExerciseId(client, cookies);
 
-		const createResult = await client.events.create({
-			headers: { Cookie: cookies },
-			body: [
-				{
-					entityId: exerciseId,
-					sessionEntityId: workoutId,
-					eventSchemaId: workoutSetEventSchema.id,
-					properties: {
-						reps: 10,
-						weight: 60,
-						setOrder: 0,
-						setLot: "normal",
-						exerciseOrder: 0,
-					},
-				},
-			],
-		});
+		const createResult = await client.run(
+			(c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId: exerciseId,
+							sessionEntityId: workoutId,
+							eventSchemaId: workoutSetEventSchema.id,
+							properties: {
+								reps: 10,
+								weight: 60,
+								setOrder: 0,
+								setLot: "normal",
+								exerciseOrder: 0,
+							},
+						},
+					],
+				}),
+			{ Cookie: cookies },
+		);
 
-		expect(createResult.response.status).toBe(200);
-		expect(createResult.data?.count).toBe(1);
+		expect(createResult.count).toBe(1);
 
 		const events = await waitForSessionEventCount(client, cookies, workoutId, 1);
 		expect(events[0]?.sessionEntityId).toBe(workoutId);
@@ -179,44 +181,47 @@ describe("Workouts E2E", () => {
 		const { workoutSetEventSchema } = await findWorkoutSetEventSchema(client, cookies);
 		const exerciseId = await waitForSeededExerciseId(client, cookies);
 
-		await client.events.create({
-			headers: { Cookie: cookies },
-			body: [
-				{
-					entityId: exerciseId,
-					sessionEntityId: workoutOneId,
-					eventSchemaId: workoutSetEventSchema.id,
-					properties: {
-						reps: 10,
-						setOrder: 0,
-						setLot: "normal",
-						exerciseOrder: 0,
-					},
-				},
-				{
-					entityId: exerciseId,
-					sessionEntityId: workoutOneId,
-					eventSchemaId: workoutSetEventSchema.id,
-					properties: {
-						reps: 8,
-						setOrder: 1,
-						setLot: "normal",
-						exerciseOrder: 0,
-					},
-				},
-				{
-					entityId: exerciseId,
-					sessionEntityId: workoutTwoId,
-					eventSchemaId: workoutSetEventSchema.id,
-					properties: {
-						reps: 6,
-						setOrder: 0,
-						setLot: "normal",
-						exerciseOrder: 0,
-					},
-				},
-			],
-		});
+		await client.run(
+			(c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId: exerciseId,
+							sessionEntityId: workoutOneId,
+							eventSchemaId: workoutSetEventSchema.id,
+							properties: {
+								reps: 10,
+								setOrder: 0,
+								setLot: "normal",
+								exerciseOrder: 0,
+							},
+						},
+						{
+							entityId: exerciseId,
+							sessionEntityId: workoutOneId,
+							eventSchemaId: workoutSetEventSchema.id,
+							properties: {
+								reps: 8,
+								setOrder: 1,
+								setLot: "normal",
+								exerciseOrder: 0,
+							},
+						},
+						{
+							entityId: exerciseId,
+							sessionEntityId: workoutTwoId,
+							eventSchemaId: workoutSetEventSchema.id,
+							properties: {
+								reps: 6,
+								setOrder: 0,
+								setLot: "normal",
+								exerciseOrder: 0,
+							},
+						},
+					],
+				}),
+			{ Cookie: cookies },
+		);
 
 		const workoutOneEvents = await waitForSessionEventCount(client, cookies, workoutOneId, 2);
 		expect(workoutOneEvents).toHaveLength(2);
@@ -230,33 +235,36 @@ describe("Workouts E2E", () => {
 		const { workoutSetEventSchema } = await findWorkoutSetEventSchema(client, cookies);
 		const exerciseId = await waitForSeededExerciseId(client, cookies);
 
-		await client.events.create({
-			headers: { Cookie: cookies },
-			body: [
-				{
-					entityId: exerciseId,
-					sessionEntityId: workoutOneId,
-					eventSchemaId: workoutSetEventSchema.id,
-					properties: {
-						reps: 10,
-						setOrder: 0,
-						setLot: "normal",
-						exerciseOrder: 0,
-					},
-				},
-				{
-					entityId: exerciseId,
-					sessionEntityId: workoutTwoId,
-					eventSchemaId: workoutSetEventSchema.id,
-					properties: {
-						reps: 8,
-						setOrder: 0,
-						setLot: "normal",
-						exerciseOrder: 0,
-					},
-				},
-			],
-		});
+		await client.run(
+			(c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId: exerciseId,
+							sessionEntityId: workoutOneId,
+							eventSchemaId: workoutSetEventSchema.id,
+							properties: {
+								reps: 10,
+								setOrder: 0,
+								setLot: "normal",
+								exerciseOrder: 0,
+							},
+						},
+						{
+							entityId: exerciseId,
+							sessionEntityId: workoutTwoId,
+							eventSchemaId: workoutSetEventSchema.id,
+							properties: {
+								reps: 8,
+								setOrder: 0,
+								setLot: "normal",
+								exerciseOrder: 0,
+							},
+						},
+					],
+				}),
+			{ Cookie: cookies },
+		);
 
 		const exerciseEvents = await waitForEventCount(client, cookies, exerciseId, 2);
 		expect(exerciseEvents).toHaveLength(2);
@@ -268,11 +276,11 @@ describe("Workouts E2E", () => {
 	it("returns 400 when listing events without entityId or sessionEntityId", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
-		const result = await client.events.list({
-			headers: { Cookie: cookies },
+		const error = await client.runError((c) => c.events.list({ urlParams: {} }), {
+			Cookie: cookies,
 		});
 
-		expect(result.response.status).toBe(400);
+		assertTaggedError(error, "BadRequest");
 	});
 
 	it("creates a workout-repeated-from relationship between two workouts", async () => {
