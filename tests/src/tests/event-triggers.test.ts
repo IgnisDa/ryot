@@ -13,7 +13,7 @@ import {
 	waitForEventWithSchema,
 } from "../fixtures";
 import { getPgClient } from "../setup";
-import { assertTaggedError, requirePresent } from "../test-support/assertions";
+import { requirePresent } from "../test-support/assertions";
 
 const isoAt = (day: number) => `2024-01-${String(day).padStart(2, "0")}T00:00:00.000Z`;
 
@@ -844,7 +844,7 @@ describe("before_create triggers", () => {
 		expect(requirePresent(events[0], "Expected event").properties).toMatchObject({ value: 999 });
 	}, 40_000);
 
-	it("fail-closed: before-trigger error returns BadRequest and prevents event creation", async () => {
+	it("fail-closed: before-trigger error happens after enqueue and prevents event creation", async () => {
 		const { client, cookies, userId } = await createAuthenticatedClient();
 
 		const { entityId, eventSchemaId } = await createBeforeTriggerFixture(client, cookies, {
@@ -859,13 +859,14 @@ describe("before_create triggers", () => {
 
 		await insertBeforeCreateTrigger(userId, eventSchemaId, script.id, 100);
 
-		const error = await client.runError(
+		const result = await client.run(
 			(c) => c.events.create({ payload: [{ entityId, eventSchemaId, properties: {} }] }),
 			{ Cookie: cookies },
 		);
 
-		assertTaggedError(error, "BadRequest");
-		expect(error.message).toBe("Before trigger failed: test_error");
+		expect(result.count).toBe(1);
+
+		await new Promise<void>((resolve) => setTimeout(resolve, 8000));
 
 		const events = await listEventsForEntity(client, cookies, entityId);
 		expect(events).toHaveLength(0);

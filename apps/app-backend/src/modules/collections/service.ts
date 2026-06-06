@@ -1,4 +1,5 @@
-import { DateTime, Effect } from "effect";
+import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
+import { Cause, DateTime, Effect } from "effect";
 
 import type { CurrentUserValue } from "#lib/auth";
 import { DbRunner, TransactionRunner } from "#lib/db";
@@ -11,7 +12,7 @@ import {
 import { decodeStoredAppSchema } from "#lib/schema";
 import { requireText } from "#lib/validation";
 import { EntitiesRepository } from "#modules/entities/repository";
-import { EventsRepository } from "#modules/events/repository";
+import { enqueueEventCreate } from "#modules/events/workflows";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 
 import { CollectionsRepository } from "./repository";
@@ -68,8 +69,8 @@ type CollectionsServiceShape = {
 export class CollectionsService extends Effect.Service<CollectionsService>()("CollectionsService", {
 	effect: Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
+		const workflowEngine = yield* WorkflowEngine;
 		const repository = yield* CollectionsRepository;
-		const eventsRepository = yield* EventsRepository;
 		const runInTransaction = yield* TransactionRunner;
 		const entitiesRepository = yield* EntitiesRepository;
 		const relationshipSchemasRepository = yield* RelationshipSchemasRepository;
@@ -137,6 +138,31 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 				);
 			}),
 		);
+
+		const queueCollectionEvent = (input: {
+			readonly userId: string;
+			readonly entityId: string;
+			readonly occurredAt: string;
+			readonly eventSchemaId: string;
+			readonly properties: Record<string, unknown>;
+		}) =>
+			enqueueEventCreate({
+				userId: input.userId,
+				origin: "collection",
+				payload: [
+					{
+						entityId: input.entityId,
+						occurredAt: input.occurredAt,
+						properties: input.properties,
+						eventSchemaId: input.eventSchemaId,
+					},
+				],
+			}).pipe(
+				Effect.provideService(WorkflowEngine, workflowEngine),
+				Effect.catchAllCause((cause) =>
+					Effect.logWarning(`Failed to queue collection event: ${String(Cause.squash(cause))}`),
+				),
+			);
 
 		return {
 			create: (user: CurrentUserValue, payload: CreateCollectionBody) =>
@@ -248,7 +274,6 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 						validatedProperties = isPlainObject(rawProperties) ? rawProperties : {};
 					}
 
-					const now = yield* DateTime.nowAsDate;
 					const addEvent = yield* addEventSchema;
 					const inLibrary = yield* inLibrarySchema;
 					const memberOfRelationshipSchema = yield* memberOfSchema;
@@ -279,26 +304,25 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 								relationshipSchemaId: memberOfRelationshipSchema.id,
 							});
 
-							if (result.wasInserted && addEvent) {
-								yield* eventsRepository.createEvent({
-									userId: user.id,
-									occurredAt: now,
-									eventSchemaId: addEvent.id,
-									entityId: payload.collectionId,
-									eventSchemaName: addEvent.name,
-									eventSchemaSlug: addEvent.slug,
-									properties: {
-										entityId: entity.id,
-										relationshipId: result.id,
-										entitySchemaSlug: entity.entitySchemaSlug,
-										relationshipProperties: result.properties,
-									},
-								});
-							}
-
 							return result;
 						}),
 					);
+
+					if (membership.wasInserted && addEvent) {
+						const now = yield* DateTime.nowAsDate;
+						yield* queueCollectionEvent({
+							userId: user.id,
+							eventSchemaId: addEvent.id,
+							occurredAt: now.toISOString(),
+							entityId: payload.collectionId,
+							properties: {
+								entityId: entity.id,
+								relationshipId: membership.id,
+								entitySchemaSlug: entity.entitySchemaSlug,
+								relationshipProperties: membership.properties,
+							},
+						});
+					}
 
 					const { wasInserted: _, ...memberOf } = membership;
 					return { memberOf };
@@ -337,22 +361,18 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 					const removeEvent = yield* removeEventSchema;
 					if (removeEvent) {
 						const now = yield* DateTime.nowAsDate;
-						yield* runWithDb(
-							eventsRepository.createEvent({
-								userId: user.id,
-								occurredAt: now,
-								eventSchemaId: removeEvent.id,
-								entityId: payload.collectionId,
-								eventSchemaName: removeEvent.name,
-								eventSchemaSlug: removeEvent.slug,
-								properties: {
-									entityId: entity.id,
-									relationshipId: deleted.id,
-									entitySchemaSlug: entity.entitySchemaSlug,
-									relationshipProperties: deleted.properties,
-								},
-							}),
-						);
+						yield* queueCollectionEvent({
+							userId: user.id,
+							occurredAt: now.toISOString(),
+							eventSchemaId: removeEvent.id,
+							entityId: payload.collectionId,
+							properties: {
+								entityId: entity.id,
+								relationshipId: deleted.id,
+								entitySchemaSlug: entity.entitySchemaSlug,
+								relationshipProperties: deleted.properties,
+							},
+						});
 					}
 
 					return { memberOf: deleted };

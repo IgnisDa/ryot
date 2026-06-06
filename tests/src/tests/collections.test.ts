@@ -7,6 +7,7 @@ import {
 	createTrackerWithSchemaAndEntity,
 	listEventsForEntity,
 	queryInLibraryRelationship,
+	waitForEventWithSchema,
 } from "../fixtures";
 import { assertTaggedError } from "../test-support/assertions";
 
@@ -680,6 +681,7 @@ describe("collection events", () => {
 		);
 
 		const relationshipId = addData.memberOf.id;
+		await waitForEventWithSchema(client, cookies, collection.id, "add-entity-to-collection");
 
 		const events = await listEventsForEntity(client, cookies, collection.id);
 		const addEvents = events.filter((e) => e.eventSchemaSlug === "add-entity-to-collection");
@@ -708,6 +710,8 @@ describe("collection events", () => {
 			{ Cookie: cookies },
 		);
 
+		await waitForEventWithSchema(client, cookies, collection.id, "add-entity-to-collection");
+
 		const events = await listEventsForEntity(client, cookies, collection.id);
 		const addEvents = events.filter((e) => e.eventSchemaSlug === "add-entity-to-collection");
 
@@ -730,6 +734,8 @@ describe("collection events", () => {
 			(c) => c.collections.deleteMembership({ payload: { entityId, collectionId: collection.id } }),
 			{ Cookie: cookies },
 		);
+
+		await waitForEventWithSchema(client, cookies, collection.id, "remove-entity-from-collection");
 
 		const events = await listEventsForEntity(client, cookies, collection.id);
 		const removeEvents = events.filter(

@@ -19,7 +19,7 @@ import {
 	type BeforeCreateTriggerRow,
 } from "./repository";
 import { BeforeTriggerResult } from "./schemas";
-import type { CreateEventItem, ListedEvent } from "./schemas";
+import type { CreateEventItem, EventCreateOrigin, ListedEvent } from "./schemas";
 
 const entityNotFoundError = "Entity not found";
 const eventSchemaNotFoundError = "Event schema not found";
@@ -28,8 +28,6 @@ const invalidOccurredAtError = "occurredAt must be a valid date";
 const eventSchemaMismatchError = "Event schema does not belong to the entity schema";
 
 const decodeBeforeTriggerResult = Schema.decodeUnknown(BeforeTriggerResult);
-
-export type EventCreateOrigin = "api" | "sandbox" | "import" | "integration";
 export type RunSandboxScript = (
 	input: SandboxRunInput,
 ) => Effect.Effect<SandboxRunOutput, SandboxRunError | TimeoutError>;
@@ -46,6 +44,15 @@ type CreateEventsCoreContext =
 	| SandboxRepository
 	| EntitiesRepository
 	| EventSchemasRepository;
+
+type CreateEventsCoreServices = {
+	readonly dbRunner: DbRunner["Type"];
+	readonly eventsRepository: EventsRepository;
+	readonly sandboxRepository: SandboxRepository;
+	readonly workflowEngine: WorkflowEngine["Type"];
+	readonly entitiesRepository: EntitiesRepository;
+	readonly eventSchemasRepository: EventSchemasRepository;
+};
 
 const resolveOccurredAt = (occurredAt?: string): Effect.Effect<Date, BadRequest> => {
 	if (!occurredAt) {
@@ -70,6 +77,53 @@ const requireReadableEntity = (userId: string, entityId: string, notFoundMessage
 		}
 
 		return scope;
+	});
+
+const validateEventCreateItem = (input: {
+	readonly item: CreateEventItem;
+	readonly userId: string;
+}): Effect.Effect<
+	void,
+	BadRequest | DbError | NotFound,
+	DbRunner | EntitiesRepository | EventSchemasRepository
+> =>
+	Effect.gen(function* () {
+		const runWithDb = yield* DbRunner;
+		const eventSchemasRepository = yield* EventSchemasRepository;
+		const entityId = yield* requireText(input.item.entityId, "Entity id is required");
+		const eventSchemaId = yield* requireText(
+			input.item.eventSchemaId,
+			"Event schema id is required",
+		);
+
+		const entityScope = yield* requireReadableEntity(input.userId, entityId, entityNotFoundError);
+		const eventSchemaScope = yield* runWithDb(
+			eventSchemasRepository.getScopeForUser({ userId: input.userId, eventSchemaId }),
+		);
+		if (!eventSchemaScope) {
+			return yield* notFound(eventSchemaNotFoundError);
+		}
+
+		if (eventSchemaScope.entitySchemaId !== entityScope.entitySchemaId) {
+			return yield* badRequest(eventSchemaMismatchError);
+		}
+
+		if (input.item.sessionEntityId) {
+			yield* requireReadableEntity(
+				input.userId,
+				input.item.sessionEntityId,
+				sessionEntityNotFoundError,
+			);
+		}
+
+		yield* resolveOccurredAt(input.item.occurredAt);
+		yield* parseAppSchemaProperties({
+			kind: "Event",
+			properties: input.item.properties,
+			propertiesSchema: eventSchemaScope.propertiesSchema,
+		}).pipe(Effect.mapError((error) => badRequest(error.message)));
+
+		return yield* Effect.void;
 	});
 
 const runBeforeCreateTrigger = (
@@ -169,6 +223,31 @@ const dispatchAfterCreateTriggers = (
 	});
 
 type OnGlobalEntity = (userId: string, entityId: string) => Effect.Effect<void, DbError>;
+
+export const provideCreateEventsContext = <A, E, R>(
+	effect: Effect.Effect<A, E, R>,
+	services: CreateEventsCoreServices,
+) =>
+	effect.pipe(
+		Effect.provideService(DbRunner, services.dbRunner),
+		Effect.provideService(WorkflowEngine, services.workflowEngine),
+		Effect.provideService(EventsRepository, services.eventsRepository),
+		Effect.provideService(SandboxRepository, services.sandboxRepository),
+		Effect.provideService(EntitiesRepository, services.entitiesRepository),
+		Effect.provideService(EventSchemasRepository, services.eventSchemasRepository),
+	);
+
+export const validateEventCreateSubmission = (input: {
+	readonly userId: string;
+	readonly payload: ReadonlyArray<CreateEventItem>;
+}): Effect.Effect<
+	void,
+	BadRequest | DbError | NotFound,
+	DbRunner | EntitiesRepository | EventSchemasRepository
+> =>
+	Effect.forEach(input.payload, (item) => validateEventCreateItem({ item, userId: input.userId }), {
+		discard: true,
+	});
 
 export const createEventsForUser = (
 	input: {

@@ -7,6 +7,7 @@ import {
 	createEventTestFixture,
 	createTrackerWithSchema,
 	createTrackerWithSchemaAndEntity,
+	waitForEventCount,
 } from "../fixtures";
 import { getBackendUrl } from "../setup";
 import { assertTaggedError } from "../test-support/assertions";
@@ -37,7 +38,7 @@ describe("Entity write path — propertiesSchema validation", () => {
 		);
 
 		assertTaggedError(error, "BadRequest");
-		expect(error.message).toContain("Entity payload is invalid");
+		expect(error.message).toContain("title: is missing");
 	});
 
 	it("rejects entity creation when a field has the wrong type", async () => {
@@ -71,7 +72,7 @@ describe("Entity write path — propertiesSchema validation", () => {
 		assertTaggedError(error, "BadRequest");
 	});
 
-	it("rejects entity creation with properties not declared in the schema", async () => {
+	it("ignores undeclared entity properties when the schema does not opt into strict unknown keys", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { schemaId } = await createTrackerWithSchema(client, cookies, {
 			name: "Strict Schema",
@@ -80,19 +81,14 @@ describe("Entity write path — propertiesSchema validation", () => {
 			},
 		});
 
-		const error = await client.runError(
-			(c) =>
-				c.entities.create({
-					payload: {
-						name: "Extra Field",
-						entitySchemaId: schemaId,
-						properties: { title: "OK", undeclaredField: "should fail" },
-					},
-				}),
-			{ Cookie: cookies },
-		);
+		const entity = await createEntity(client, cookies, {
+			image: null,
+			name: "Extra Field",
+			entitySchemaId: schemaId,
+			properties: { title: "OK", undeclaredField: "should fail" },
+		});
 
-		assertTaggedError(error, "BadRequest");
+		expect(entity.properties).toEqual({ title: "OK" });
 	});
 
 	it("accepts entity creation when properties match the schema exactly", async () => {
@@ -135,7 +131,7 @@ describe("Event write path — propertiesSchema validation", () => {
 		);
 
 		assertTaggedError(error, "BadRequest");
-		expect(error.message).toContain("Event payload is invalid");
+		expect(error.message).toContain("rating: is missing");
 	});
 
 	it("rejects event creation when a field has the wrong type", async () => {
@@ -153,11 +149,11 @@ describe("Event write path — propertiesSchema validation", () => {
 		assertTaggedError(error, "BadRequest");
 	});
 
-	it("rejects event creation with unknown properties", async () => {
+	it("ignores undeclared event properties when the schema does not opt into strict unknown keys", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { entityId, eventSchemaId } = await createEventTestFixture(client, cookies);
 
-		const error = await client.runError(
+		const data = await client.run(
 			(c) =>
 				c.events.create({
 					payload: [{ entityId, eventSchemaId, properties: { rating: 4, undeclaredField: "bad" } }],
@@ -165,7 +161,10 @@ describe("Event write path — propertiesSchema validation", () => {
 			{ Cookie: cookies },
 		);
 
-		assertTaggedError(error, "BadRequest");
+		expect(data.count).toBe(1);
+
+		const [event] = await waitForEventCount(client, cookies, entityId, 1);
+		expect(event?.properties).toEqual({ rating: 4 });
 	});
 
 	it("accepts event creation when properties match the schema", async () => {
