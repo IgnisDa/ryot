@@ -159,6 +159,7 @@ export const processTraktImport = async (
 			});
 		}
 
+		const totalItems = providerEntityRefs.length + adapterFailureCount;
 		const result = await deps.populateMediaEntityRefs(job, token, {
 			runId,
 			userId,
@@ -170,6 +171,10 @@ export const processTraktImport = async (
 			failedIndices: providerFailedIndices,
 			startIndex: input.providerEntityIndex ?? 0,
 			currentSandboxJobId: input.providerSandboxJobId,
+			onEntityProcessed: async (processedCount) => {
+				const progress = totalItems > 0 ? Math.round((processedCount / totalItems) * 90) : 0;
+				await deps.updateImportRun({ runId, processedItems: processedCount, progress });
+			},
 		});
 		// WaitingChildrenError propagates naturally to pause the job
 
@@ -227,6 +232,20 @@ export const processTraktImport = async (
 			mediaWriteFailedItems = state.failedItems;
 			mediaWriteGroupIndex = state.nextGroupIndex;
 			mediaWriteImportedItems = state.importedItems;
+			const processedSoFar = adapterFailureCount + providerEntityRefs.length;
+			const writtenSoFar = state.nextGroupIndex;
+			const writeProgress =
+				mediaEntityGroups.length > 0
+					? Math.round((writtenSoFar / mediaEntityGroups.length) * 10)
+					: 0;
+			const progress = Math.min(90 + writeProgress, 99);
+			await deps.updateImportRun({
+				runId,
+				progress,
+				processedItems: processedSoFar,
+				importedItems: state.importedItems,
+				failedItems: adapterFailureCount + providerFailedIndices.length + state.failedItems,
+			});
 			await job.updateData({
 				runId,
 				userId,

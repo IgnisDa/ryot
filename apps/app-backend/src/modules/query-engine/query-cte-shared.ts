@@ -131,4 +131,5 @@ export type PaginatedQueryInput = PaginationConfig & {
 	filterClause: SqlExpression;
 	sortExpression: SqlExpression;
 	resolvedFields: SqlExpression;
+	tiebreakerExpressions?: SqlExpression;
 };
