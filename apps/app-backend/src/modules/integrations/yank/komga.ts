@@ -1,12 +1,12 @@
 import { Effect, Schema } from "effect";
 
-import { finalizeEntityGroups } from "#modules/imports/media/book/shared";
-import { nowIso } from "#modules/imports/media/dates";
-import { getOrCreateMediaEntityGroup } from "#modules/imports/media/groups";
+import { finalizeEntityGroups } from "#modules/imports/media/adapter-helpers";
 import type {
 	MediaImportAdapterFailure,
 	MediaImportAdapterResult,
-} from "#modules/imports/media/import-processor";
+} from "#modules/imports/media/adapter-result";
+import { nowIso } from "#modules/imports/media/dates";
+import { getOrCreateMediaEntityGroup } from "#modules/imports/media/groups";
 import type { ImportEntityRef, ImportMediaEntityGroup } from "#modules/imports/media/types";
 import { requestSourceJson } from "#modules/imports/runtime/source-api";
 

@@ -2,7 +2,7 @@ import { Activity } from "@effect/workflow";
 import { Effect } from "effect";
 
 import type { ImportRunJobData } from "../jobs";
-import { recordImportRunFailure } from "../runtime/failures";
+import { recordImportRunFailure } from "../runtime/import-run-status";
 import { ImportRunError, toWorkflowError } from "../runtime/workflow-helpers";
 import type { ImportMediaEntityGroup } from "./types";
 
