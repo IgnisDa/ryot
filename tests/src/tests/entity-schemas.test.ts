@@ -1,5 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
+import { EntitySchemaId, SandboxScriptId, TrackerId } from "@ryot/app-backend/schema/brands";
+
 import {
 	createAuthenticatedClient,
 	createEntitySchema,
@@ -106,7 +108,7 @@ describe("GET /entity-schemas", () => {
 
 		const nonExistentId = "00000000-0000-0000-0000-000000000000";
 		const error = await client.runError((c) =>
-			c.entitySchemas.list({ payload: { trackerId: nonExistentId } }),
+			c.entitySchemas.list({ payload: { trackerId: TrackerId.make(nonExistentId) } }),
 		);
 
 		assertTaggedError(error, "NotFound");
@@ -341,7 +343,7 @@ describe("POST /entity-schemas", () => {
 					name: "Schema",
 					slug: "schema",
 					accentColor: "#FF0000",
-					trackerId: nonExistentId,
+					trackerId: TrackerId.make(nonExistentId),
 					propertiesSchema: {
 						fields: {
 							field: { type: "string", label: "Field", description: "Field" },
@@ -488,7 +490,7 @@ describe("GET /entity-schemas/:entitySchemaId", () => {
 
 		const nonExistentId = "00000000-0000-0000-0000-000000000000";
 		const error = await client.runError((c) =>
-			c.entitySchemas.get({ path: { entitySchemaId: nonExistentId } }),
+			c.entitySchemas.get({ path: { entitySchemaId: EntitySchemaId.make(nonExistentId) } }),
 		);
 
 		assertTaggedError(error, "NotFound");
@@ -521,7 +523,7 @@ describe("POST /entity-schemas/search", () => {
 	it("returns 401 when unauthenticated", async () => {
 		const client = getBackendClient();
 		const error = await client.runError((c) =>
-			c.entitySchemas.search({ payload: { scriptId: crypto.randomUUID() } }),
+			c.entitySchemas.search({ payload: { scriptId: SandboxScriptId.make(crypto.randomUUID()) } }),
 		);
 
 		assertTaggedError(error, "Unauthorized");
@@ -531,7 +533,7 @@ describe("POST /entity-schemas/search", () => {
 		const { client } = await createAuthenticatedClient();
 
 		const error = await client.runError((c) =>
-			c.entitySchemas.search({ payload: { scriptId: crypto.randomUUID() } }),
+			c.entitySchemas.search({ payload: { scriptId: SandboxScriptId.make(crypto.randomUUID()) } }),
 		);
 
 		assertTaggedError(error, "NotFound");
@@ -617,8 +619,8 @@ describe("POST /entities/import", () => {
 			c.entities.import({
 				payload: {
 					externalId: "test-id",
-					scriptId: crypto.randomUUID(),
-					entitySchemaId: crypto.randomUUID(),
+					scriptId: SandboxScriptId.make(crypto.randomUUID()),
+					entitySchemaId: EntitySchemaId.make(crypto.randomUUID()),
 				},
 			}),
 		);
