@@ -84,24 +84,28 @@ export const makeWorkspaceRecorder = (): WorkspaceStorageRecorder => ({
 export const makeStorageStub = (
 	rememberedSlug: string | null = null,
 	recorder?: WorkspaceStorageRecorder,
-): ClientStorage["Service"] => ({
-	remove: () => Effect.void,
-	clearServerSelection: Effect.void,
-	setServerSelection: () => Effect.void,
-	setThemePreference: () => Effect.void,
-	getServerSelection: Effect.succeed(server),
-	getThemePreference: Effect.succeed("system" as const),
-	getLastWorkspace: (scope) =>
-		Effect.sync(() => {
-			recorder?.getScopes.push(scope);
-			return rememberedSlug;
-		}),
-	setLastWorkspace: (scope, slug) =>
-		Effect.sync(() => {
-			recorder?.setCalls.push({ scope, slug });
-			recorder?.popupOpenWhenSet.push(document.querySelector('[role="dialog"]') !== null);
-		}),
-});
+): ClientStorage["Service"] => {
+	let lastWorkspace = rememberedSlug;
+	return {
+		remove: () => Effect.void,
+		clearServerSelection: Effect.void,
+		setServerSelection: () => Effect.void,
+		setThemePreference: () => Effect.void,
+		getServerSelection: Effect.succeed(server),
+		getThemePreference: Effect.succeed("system" as const),
+		getLastWorkspace: (scope) =>
+			Effect.sync(() => {
+				recorder?.getScopes.push(scope);
+				return lastWorkspace;
+			}),
+		setLastWorkspace: (scope, slug) =>
+			Effect.sync(() => {
+				lastWorkspace = slug;
+				recorder?.setCalls.push({ scope, slug });
+				recorder?.popupOpenWhenSet.push(document.querySelector('[role="menu"]') !== null);
+			}),
+	};
+};
 
 export const makePublicApiStub = (isServerKeyValidated = false) =>
 	Layer.succeed(PublicApi, {
