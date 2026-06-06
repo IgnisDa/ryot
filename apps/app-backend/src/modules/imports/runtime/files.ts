@@ -43,6 +43,20 @@ export const readImportFile = async (
 	return file.text();
 };
 
+export const readImportFileBytes = async (
+	safePath: string,
+	maxBytes = MAX_FILE_BYTES,
+): Promise<Uint8Array> => {
+	const file = Bun.file(safePath);
+	const size = file.size;
+	if (size > maxBytes) {
+		throw new Error(
+			`Import file exceeds maximum allowed size of ${maxBytes} bytes (file is ${size} bytes)`,
+		);
+	}
+	return new Uint8Array(await file.arrayBuffer());
+};
+
 export const cleanupImportFile = async (safePath: string): Promise<void> => {
 	try {
 		await Bun.file(safePath).delete();
