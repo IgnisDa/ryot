@@ -1,4 +1,4 @@
-import { DateTime, Option } from "effect";
+import { DateTime, Either, Option } from "effect";
 
 import {
 	parseCsvText,
@@ -171,16 +171,17 @@ export const adaptHevyCsv = (csvText: string, timezone: string): WorkoutAdapterR
 		if (!row) {
 			continue;
 		}
-		try {
-			parsedRows.push(parseHevyRow(row, rowIdx));
-		} catch (error) {
+		const parsed = Either.try(() => parseHevyRow(row, rowIdx));
+		if (Either.isLeft(parsed)) {
 			failures.push({
 				itemIndex: rowIdx,
 				sourceLabel: `Row ${rowIdx + 1}`,
 				sourceIdentifier: String(rowIdx + 1),
-				message: error instanceof Error ? error.message : "Could not parse Hevy row",
+				message: parsed.left instanceof Error ? parsed.left.message : "Could not parse Hevy row",
 			});
+			continue;
 		}
+		parsedRows.push(parsed.right);
 	}
 
 	const workoutsBySourceKey = new Map<string, HevyRow[]>();

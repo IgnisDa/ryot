@@ -1,4 +1,4 @@
-import { Effect } from "effect";
+import { Effect, Either } from "effect";
 
 import {
 	assertRequiredHeaders,
@@ -32,6 +32,11 @@ type NetflixLookupTitle = (input: {
 	{ entityRef: ResolvedImportEntityRef; matchedTitle: string } | { error: string },
 	unknown
 >;
+
+type NetflixRatingRowResult =
+	| { skip: true }
+	| { ok: false; failure: MediaImportAdapterFailure }
+	| { ok: true; title: string; rating: number; occurredAt: string; sourceLabel: string };
 
 type NetflixImportAdapterDeps = {
 	now: () => string;
@@ -144,7 +149,7 @@ const getRowErrorMessage = (error: unknown) =>
 const parseViewingActivityRow = (row: Record<string, string>, itemIndex: number) => {
 	const title = row.Title?.trim() ?? "";
 	const sourceLabel = title || `Netflix ViewingActivity row ${itemIndex + 1}`;
-	try {
+	const parsed = Either.try(() => {
 		readRequiredCsvCell(row, ["Title"], "Title");
 		const occurredAtValue = readRequiredCsvCell(row, ["Start Time"], "Start Time");
 		const occurredAt = parseNetflixOccurredAt(occurredAtValue);
@@ -152,29 +157,38 @@ const parseViewingActivityRow = (row: Record<string, string>, itemIndex: number)
 			throw new Error("Start Time is invalid");
 		}
 		return {
-			title,
 			occurredAt,
-			sourceLabel,
-			ok: true as const,
 			episodeInfo: extractNetflixSeasonEpisode(title),
 		};
-	} catch (error) {
+	});
+	if (Either.isLeft(parsed)) {
 		return {
 			ok: false as const,
 			failure: {
-				sourceLabel,
 				itemIndex,
+				sourceLabel,
 				sourceIdentifier: title || undefined,
-				message: `ViewingActivity file: ${getRowErrorMessage(error)}`,
+				message: `ViewingActivity file: ${getRowErrorMessage(parsed.left)}`,
 			},
 		};
 	}
+	return {
+		title,
+		sourceLabel,
+		ok: true as const,
+		occurredAt: parsed.right.occurredAt,
+		episodeInfo: parsed.right.episodeInfo,
+	};
 };
 
-const parseRatingRow = (row: Record<string, string>, itemIndex: number, importedAt: string) => {
+const parseRatingRow = (
+	row: Record<string, string>,
+	itemIndex: number,
+	importedAt: string,
+): NetflixRatingRowResult => {
 	const title = row["Title Name"]?.trim() ?? "";
 	const sourceLabel = title || `Netflix Ratings row ${itemIndex + 1}`;
-	try {
+	const parsed = Either.try(() => {
 		readRequiredCsvCell(row, ["Title Name"], "Title Name");
 		const rating = convertNetflixRating({
 			starValue: row["Star Value"],
@@ -190,36 +204,40 @@ const parseRatingRow = (row: Record<string, string>, itemIndex: number, imported
 			ok: true as const,
 			occurredAt: parseNetflixOccurredAt(row["Event Utc Ts"]?.trim() ?? "") ?? importedAt,
 		};
-	} catch (error) {
+	});
+	if (Either.isLeft(parsed)) {
 		return {
 			ok: false as const,
 			failure: {
-				sourceLabel,
 				itemIndex,
+				sourceLabel,
 				sourceIdentifier: title || undefined,
-				message: `Ratings file: ${getRowErrorMessage(error)}`,
+				message: `Ratings file: ${getRowErrorMessage(parsed.left)}`,
 			},
 		};
 	}
+	if ("skip" in parsed.right) {
+		return parsed.right;
+	}
+	return parsed.right;
 };
 
 const parseMyListRow = (row: Record<string, string>, itemIndex: number) => {
 	const title = row["Title Name"]?.trim() ?? "";
 	const sourceLabel = title || `Netflix MyList row ${itemIndex + 1}`;
-	try {
-		readRequiredCsvCell(row, ["Title Name"], "Title Name");
-		return { title, sourceLabel, ok: true as const };
-	} catch (error) {
+	const parsed = Either.try(() => readRequiredCsvCell(row, ["Title Name"], "Title Name"));
+	if (Either.isLeft(parsed)) {
 		return {
 			ok: false as const,
 			failure: {
-				sourceLabel,
 				itemIndex,
+				sourceLabel,
 				sourceIdentifier: title || undefined,
-				message: `MyList file: ${getRowErrorMessage(error)}`,
+				message: `MyList file: ${getRowErrorMessage(parsed.left)}`,
 			},
 		};
 	}
+	return { title, sourceLabel, ok: true as const };
 };
 
 export const adaptNetflixExports = (
@@ -233,6 +251,7 @@ export const adaptNetflixExports = (
 ): Effect.Effect<MediaImportAdapterResult, string> =>
 	Effect.gen(function* () {
 		const { myListData, ratingsData, viewingData } = yield* Effect.try({
+			catch: getParseErrorMessage,
 			try: () => {
 				const parsedMyListData = parseCsvText(input.myListCsv);
 				const parsedRatingsData = parseCsvText(input.ratingsCsv);
@@ -258,7 +277,6 @@ export const adaptNetflixExports = (
 					viewingData: parsedViewingData,
 				};
 			},
-			catch: getParseErrorMessage,
 		});
 
 		const failures: MediaImportAdapterFailure[] = [];
@@ -309,10 +327,10 @@ export const adaptNetflixExports = (
 			if ("error" in lookup) {
 				failures.push(
 					createLookupFailure({
-						sourceLabel: rowResult.sourceLabel,
 						message: lookup.error,
-						sourceIdentifier: rowResult.title,
 						itemIndex: currentItemIndex,
+						sourceIdentifier: rowResult.title,
+						sourceLabel: rowResult.sourceLabel,
 					}),
 				);
 				continue;
@@ -322,9 +340,9 @@ export const adaptNetflixExports = (
 				if (!rowResult.episodeInfo) {
 					failures.push(
 						createLookupFailure({
-							sourceLabel: rowResult.sourceLabel,
-							sourceIdentifier: rowResult.title,
 							itemIndex: currentItemIndex,
+							sourceIdentifier: rowResult.title,
+							sourceLabel: rowResult.sourceLabel,
 							message:
 								"Viewing activity matched a show but no season or episode could be extracted",
 						}),
@@ -333,8 +351,8 @@ export const adaptNetflixExports = (
 				}
 				const group = getOrCreateMediaEntityGroup(groupMap, lookup.entityRef, currentItemIndex);
 				group.events.push({
-					occurredAt: rowResult.occurredAt,
 					eventSchemaSlug: "progress",
+					occurredAt: rowResult.occurredAt,
 					properties: {
 						progressPercent: 100,
 						showSeason: rowResult.episodeInfo.season,
@@ -381,10 +399,10 @@ export const adaptNetflixExports = (
 			if ("error" in lookup) {
 				failures.push(
 					createLookupFailure({
-						sourceLabel: rowResult.sourceLabel,
 						message: lookup.error,
-						sourceIdentifier: rowResult.title,
 						itemIndex: currentItemIndex,
+						sourceIdentifier: rowResult.title,
+						sourceLabel: rowResult.sourceLabel,
 					}),
 				);
 				continue;
@@ -427,10 +445,10 @@ export const adaptNetflixExports = (
 			if ("error" in lookup) {
 				failures.push(
 					createLookupFailure({
-						sourceLabel: rowResult.sourceLabel,
 						message: lookup.error,
-						sourceIdentifier: rowResult.title,
 						itemIndex: currentItemIndex,
+						sourceIdentifier: rowResult.title,
+						sourceLabel: rowResult.sourceLabel,
 					}),
 				);
 				continue;
