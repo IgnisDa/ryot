@@ -16,7 +16,7 @@ export async function uploadTemporaryFile(
 	mimeType: string,
 ): Promise<string> {
 	const formData = new FormData();
-	formData.append("files", new File([content], fileName, { type: mimeType }), fileName);
+	formData.append("files[]", new File([content], fileName, { type: mimeType }), fileName);
 
 	const response = await fetch(`${getBackendUrl()}/uploads/temporary`, {
 		body: formData,
