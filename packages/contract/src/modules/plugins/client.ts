@@ -66,13 +66,6 @@ export const PluginBridgeInit = strictStruct({
 
 export type PluginBridgeInit = Schema.Schema.Type<typeof PluginBridgeInit>;
 
-export const PluginBridgeReady = strictStruct({
-	sessionId: Schema.String,
-	artifactHash: Schema.String,
-	apiVersion: Schema.Literal(CLIENT_API_VERSION),
-	format: Schema.Literal(CLIENT_ARTIFACT_FORMAT),
-	compilerVersion: Schema.Literal(CLIENT_COMPILER_VERSION),
-	bridgeVersion: Schema.Literal(CLIENT_BRIDGE_PROTOCOL_VERSION),
-});
+export const PluginBridgeReady = strictStruct(PluginBridgeInit.fields);
 
 export type PluginBridgeReady = Schema.Schema.Type<typeof PluginBridgeReady>;

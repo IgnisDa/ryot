@@ -70,7 +70,7 @@ const loadManifest = Effect.fn("loadManifest")(function* (cwd: string) {
 	);
 });
 
-const collectBackend = Effect.fn("collectBackend")(function* (cwd: string) {
+const collectSources = Effect.fn("collectSources")(function* (cwd: string) {
 	const path = yield* Path.Path;
 	const fs = yield* FileSystem.FileSystem;
 	const backendPaths = yield* Stream.fromAsyncIterable(
@@ -166,7 +166,7 @@ const writeOutput = Effect.fn("writeOutput")(function* (
 const buildPlugin = Effect.fn("buildPlugin")(function* ({ cwd, output }: BuildOptions) {
 	const path = yield* Path.Path;
 	const manifest = yield* loadManifest(cwd);
-	const sources = yield* collectBackend(cwd);
+	const sources = yield* collectSources(cwd);
 	yield* validateScriptEntries(manifest, sources, cwd);
 	yield* writeOutput(
 		path.resolve(cwd, output ?? `dist/${manifest.metadata.slug}.zip`),
