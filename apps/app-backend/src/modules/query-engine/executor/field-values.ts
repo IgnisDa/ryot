@@ -28,11 +28,6 @@ export const evalSystemRef = (name: string, row: BaseEntityQueryRow): FieldValue
 	Match.value(name).pipe(
 		Match.when("id", () => ({ kind: "text" as const, value: row.id })),
 		Match.when("name", () => ({ kind: "text" as const, value: row.name })),
-		Match.when("image", () =>
-			row.image !== null && row.image !== undefined
-				? { kind: "image" as const, value: row.image }
-				: { kind: "null" as const, value: null },
-		),
 		Match.when("userId", () =>
 			row.userId !== null
 				? { kind: "text" as const, value: row.userId }

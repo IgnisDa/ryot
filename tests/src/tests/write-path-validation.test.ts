@@ -78,7 +78,6 @@ describe("Entity write path — propertiesSchema validation", () => {
 		});
 
 		const entity = await createEntity(client, {
-			image: null,
 			name: "Extra Field",
 			entitySchemaId: schemaId,
 			properties: { title: "OK", undeclaredField: "should fail" },
@@ -105,7 +104,6 @@ describe("Entity write path — propertiesSchema validation", () => {
 		});
 
 		const entity = await createEntity(client, {
-			image: null,
 			name: "Valid Entity",
 			entitySchemaId: schemaId,
 			properties: { title: "My Item", rating: 4 },

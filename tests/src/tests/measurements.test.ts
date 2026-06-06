@@ -90,8 +90,8 @@ describe("Measurements E2E", () => {
 			displayConfiguration: {
 				grid: {
 					calloutProperty: null,
+					imageProperty: null,
 					titleProperty: createEntityColumnExpression("measurement", "name"),
-					imageProperty: createEntityColumnExpression("measurement", "image"),
 					primarySubtitleProperty: createEntityPropertyExpression("measurement", "recordedAt"),
 					secondarySubtitleProperty: createEntityPropertyExpression("measurement", "comment"),
 				},
@@ -124,7 +124,6 @@ describe("Measurements E2E", () => {
 				schemas: ["measurement"],
 				fields: [
 					{ key: "title", expr: systemRef("measurement", "name") },
-					{ key: "image", expr: systemRef("measurement", "image") },
 					{
 						key: "primarySubtitle",
 						expr: propertyRef("measurement", "measurement", "recordedAt"),
