@@ -1,12 +1,12 @@
 import { expect, it } from "@effect/vitest";
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
-import { Effect, Exit, Layer, Option, Redacted } from "effect";
+import { Effect, Exit, Layer } from "effect";
 
 import type { CurrentUserValue } from "#lib/auth";
-import { AppConfig } from "#lib/config";
 import { BadRequest, NotFound } from "#lib/errors";
 import {
 	dbRunnerLayer,
+	makeAppConfigLayer,
 	makeMock,
 	makeWorkflowEngine,
 	transactionLayer,
@@ -69,36 +69,6 @@ const makeRelationshipSchemasRepository = (
 		overrides,
 	);
 
-const fakeAppConfigLayer = Layer.succeed(AppConfig, {
-	port: 3000,
-	timezone: "Etc/GMT",
-	_tag: "AppConfig" as const,
-	frontendUrl: "http://localhost:3000",
-	redisUrl: Redacted.make("unused"),
-	databaseUrl: Redacted.make("unused"),
-	frontend: { oidcButtonLabel: Option.none() },
-	users: { allowRegistration: true, disableLocalAuth: false },
-	scheduler: { frequentCronJobsSchedule: "every 5 minutes", progressUpdateThresholdHours: 2 },
-	sandbox: {
-		denoDir: "/tmp",
-		timeoutMs: 5_000,
-		workerConcurrency: 5,
-		jobIdSecret: Redacted.make("test-secret"),
-	},
-	server: {
-		corsOrigins: Option.none(),
-		adminAccessToken: Redacted.make("unused"),
-		oidc: { clientId: Option.none(), issuerUrl: Option.none(), clientSecret: Option.none() },
-	},
-	fileStorage: {
-		url: Option.none(),
-		region: Option.none(),
-		bucketName: Option.none(),
-		accessKeyId: Option.none(),
-		secretAccessKey: Option.none(),
-	},
-});
-
 const fakeWorkflowEngineLayer = Layer.succeed(WorkflowEngine, makeWorkflowEngine());
 
 const makeSandboxRepository = (overrides: Partial<SandboxRepository> = {}) =>
@@ -122,7 +92,7 @@ const makeServiceLayer = (
 			Layer.mergeAll(
 				dbRunnerLayer,
 				transactionLayer,
-				fakeAppConfigLayer,
+				makeAppConfigLayer(),
 				fakeWorkflowEngineLayer,
 				Layer.succeed(EntitiesRepository, repository),
 				Layer.succeed(SandboxRepository, makeSandboxRepository()),
