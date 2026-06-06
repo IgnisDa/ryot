@@ -52,9 +52,44 @@ const toOwnedTracker = (row: TrackerRow) => ({
 	description: row.description,
 });
 
+const countOwnedByIds = (userId: UserId, trackerIds: ReadonlyArray<TrackerId>) =>
+	trackerIds.length === 0
+		? Effect.succeed(0)
+		: Effect.gen(function* () {
+				const db = yield* CurrentDb;
+				const rows = yield* dbEffect(() =>
+					db
+						.select({ id: schema.tracker.id })
+						.from(schema.tracker)
+						.where(
+							and(eq(schema.tracker.userId, userId), inArray(schema.tracker.id, [...trackerIds])),
+						),
+				);
+
+				return rows.length;
+			});
+
+const persistOrder = (userId: UserId, trackerIds: ReadonlyArray<TrackerId>) =>
+	trackerIds.length === 0
+		? Effect.succeed([])
+		: Effect.gen(function* () {
+				const db = yield* CurrentDb;
+
+				for (const [index, trackerId] of trackerIds.entries()) {
+					yield* dbEffect(() =>
+						db
+							.update(schema.tracker)
+							.set({ sortOrder: index })
+							.where(and(eq(schema.tracker.id, trackerId), eq(schema.tracker.userId, userId))),
+					);
+				}
+
+				return trackerIds;
+			});
+
 export class TrackersRepository extends Effect.Service<TrackersRepository>()("TrackersRepository", {
-	sync: () => ({
-		listByUser: Effect.fn("TrackersRepository.listByUser")(function* (
+	sync: () => {
+		const listByUser = Effect.fn("TrackersRepository.listByUser")(function* (
 			userId: UserId,
 			includeDisabled: boolean,
 		) {
@@ -78,8 +113,9 @@ export class TrackersRepository extends Effect.Service<TrackersRepository>()("Tr
 			);
 
 			return rows.map(toListedTracker);
-		}),
-		create: Effect.fn("TrackersRepository.create")(function* (
+		});
+
+		const create = Effect.fn("TrackersRepository.create")(function* (
 			userId: UserId,
 			input: CreateTrackerInput,
 		) {
@@ -120,8 +156,9 @@ export class TrackersRepository extends Effect.Service<TrackersRepository>()("Tr
 			}
 
 			return toListedTracker(row);
-		}),
-		findBySlug: Effect.fn("TrackersRepository.findBySlug")(function* (
+		});
+
+		const findBySlug = Effect.fn("TrackersRepository.findBySlug")(function* (
 			userId: UserId,
 			slug: string,
 		) {
@@ -135,8 +172,9 @@ export class TrackersRepository extends Effect.Service<TrackersRepository>()("Tr
 			);
 
 			return row ? { id: TrackerId.make(row.id) } : null;
-		}),
-		getOwnedById: Effect.fn("TrackersRepository.getOwnedById")(function* (
+		});
+
+		const getOwnedById = Effect.fn("TrackersRepository.getOwnedById")(function* (
 			userId: UserId,
 			trackerId: TrackerId,
 		) {
@@ -150,8 +188,11 @@ export class TrackersRepository extends Effect.Service<TrackersRepository>()("Tr
 			);
 
 			return row ? toOwnedTracker(row) : null;
-		}),
-		updateOwned: Effect.fn("TrackersRepository.updateOwned")(function* (input: UpdateTrackerInput) {
+		});
+
+		const updateOwned = Effect.fn("TrackersRepository.updateOwned")(function* (
+			input: UpdateTrackerInput,
+		) {
 			const db = yield* CurrentDb;
 			const [row] = yield* dbEffect(() =>
 				db
@@ -171,27 +212,11 @@ export class TrackersRepository extends Effect.Service<TrackersRepository>()("Tr
 			);
 
 			return row ? toListedTracker(row) : null;
-		}),
-		countOwnedByIds: (userId: UserId, trackerIds: ReadonlyArray<TrackerId>) =>
-			trackerIds.length === 0
-				? Effect.succeed(0)
-				: Effect.gen(function* () {
-						const db = yield* CurrentDb;
-						const rows = yield* dbEffect(() =>
-							db
-								.select({ id: schema.tracker.id })
-								.from(schema.tracker)
-								.where(
-									and(
-										eq(schema.tracker.userId, userId),
-										inArray(schema.tracker.id, [...trackerIds]),
-									),
-								),
-						);
+		});
 
-						return rows.length;
-					}),
-		listIdsInOrder: Effect.fn("TrackersRepository.listIdsInOrder")(function* (userId: UserId) {
+		const listIdsInOrder = Effect.fn("TrackersRepository.listIdsInOrder")(function* (
+			userId: UserId,
+		) {
 			const db = yield* CurrentDb;
 			const rows = yield* dbEffect(() =>
 				db
@@ -202,25 +227,9 @@ export class TrackersRepository extends Effect.Service<TrackersRepository>()("Tr
 			);
 
 			return rows.map((row) => TrackerId.make(row.trackerId));
-		}),
-		persistOrder: (userId: UserId, trackerIds: ReadonlyArray<TrackerId>) =>
-			trackerIds.length === 0
-				? Effect.succeed([])
-				: Effect.gen(function* () {
-						const db = yield* CurrentDb;
+		});
 
-						for (const [index, trackerId] of trackerIds.entries()) {
-							yield* dbEffect(() =>
-								db
-									.update(schema.tracker)
-									.set({ sortOrder: index })
-									.where(and(eq(schema.tracker.id, trackerId), eq(schema.tracker.userId, userId))),
-							);
-						}
-
-						return trackerIds;
-					}),
-		linkEntitySchema: Effect.fn("TrackersRepository.linkEntitySchema")(function* (input: {
+		const linkEntitySchema = Effect.fn("TrackersRepository.linkEntitySchema")(function* (input: {
 			trackerId: TrackerId;
 			entitySchemaId: EntitySchemaId;
 		}) {
@@ -239,6 +248,18 @@ export class TrackersRepository extends Effect.Service<TrackersRepository>()("Tr
 			}
 
 			return TrackerId.make(row.trackerId);
-		}),
-	}),
+		});
+
+		return {
+			listByUser,
+			create,
+			findBySlug,
+			getOwnedById,
+			updateOwned,
+			countOwnedByIds,
+			listIdsInOrder,
+			persistOrder,
+			linkEntitySchema,
+		};
+	},
 }) {}

@@ -31,8 +31,10 @@ const toScript = (row: SandboxScriptRow) => ({
 });
 
 export class SandboxRepository extends Effect.Service<SandboxRepository>()("SandboxRepository", {
-	sync: () => ({
-		createScript: Effect.fn("SandboxRepository.createScript")(function* (input: CreateScriptInput) {
+	sync: () => {
+		const createScript = Effect.fn("SandboxRepository.createScript")(function* (
+			input: CreateScriptInput,
+		) {
 			const db = yield* CurrentDb;
 			const [row] = yield* dbEffect(() =>
 				db
@@ -58,8 +60,9 @@ export class SandboxRepository extends Effect.Service<SandboxRepository>()("Sand
 			}
 
 			return toScript(row);
-		}),
-		findScriptBySlugForUser: Effect.fn("SandboxRepository.findScriptBySlugForUser")(
+		});
+
+		const findScriptBySlugForUser = Effect.fn("SandboxRepository.findScriptBySlugForUser")(
 			function* (input: { readonly slug: string; readonly userId: UserId }) {
 				const db = yield* CurrentDb;
 				const [row] = yield* dbEffect(() =>
@@ -77,8 +80,9 @@ export class SandboxRepository extends Effect.Service<SandboxRepository>()("Sand
 
 				return row ? { id: SandboxScriptId.make(row.id) } : null;
 			},
-		),
-		getScriptForUser: Effect.fn("SandboxRepository.getScriptForUser")(function* (input: {
+		);
+
+		const getScriptForUser = Effect.fn("SandboxRepository.getScriptForUser")(function* (input: {
 			readonly scriptId: SandboxScriptId;
 			readonly userId: UserId | null;
 		}) {
@@ -108,6 +112,8 @@ export class SandboxRepository extends Effect.Service<SandboxRepository>()("Sand
 			);
 
 			return row ? { ...row, id: SandboxScriptId.make(row.id) } : null;
-		}),
-	}),
+		});
+
+		return { createScript, findScriptBySlugForUser, getScriptForUser };
+	},
 }) {}
