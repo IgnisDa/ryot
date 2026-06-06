@@ -4,7 +4,7 @@ import { showEpisodePropertiesSchema, showSeasonPropertiesSchema } from "./media
 import { builtinSandboxScripts } from "./registry";
 
 describe("builtinSandboxScripts", () => {
-	it("declares TMDB translation metadata for translated scripts", () => {
+	it("declares translation metadata for translated scripts", () => {
 		const scripts = builtinSandboxScripts();
 		const providerInformationFor = (slug: string) => {
 			const script = scripts.find((item) => item.slug === slug);
@@ -28,6 +28,14 @@ describe("builtinSandboxScripts", () => {
 		expect(providerInformationFor("movie-group.tmdb")).toEqual({
 			source: "tmdb",
 			canonicalLanguage: "en-US",
+		});
+		expect(providerInformationFor("anime.anilist")).toEqual({
+			source: "anilist",
+			canonicalLanguage: "english",
+		});
+		expect(providerInformationFor("manga.anilist")).toEqual({
+			source: "anilist",
+			canonicalLanguage: "english",
 		});
 	});
 
