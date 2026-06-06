@@ -16,7 +16,10 @@ import { ClientStorage } from "#/persistence/storage";
 
 const isSettingsPath = (pathname: string) => /^\/settings(?:\/|$)/.test(pathname);
 
-export function AuthenticatedShell(props: { readonly initialRememberedSlug: string | null }) {
+export function AuthenticatedShell(props: {
+	readonly isPro: boolean;
+	readonly initialRememberedSlug: string | null;
+}) {
 	const drawerId = useId();
 	const navigate = useNavigate();
 	const { pathname } = useLocation();
@@ -49,6 +52,7 @@ export function AuthenticatedShell(props: { readonly initialRememberedSlug: stri
 				current={current}
 				catalog={catalog}
 				session={session}
+				isPro={props.isPro}
 				activeHome={homeActive}
 				activeSettings={settingsActive}
 				onSelectWorkspace={selectWorkspace}
@@ -68,6 +72,7 @@ export function AuthenticatedShell(props: { readonly initialRememberedSlug: stri
 					current={current}
 					catalog={catalog}
 					session={session}
+					isPro={props.isPro}
 					drawerId={drawerId}
 					isOpen={drawerOpen}
 					triggerRef={triggerRef}

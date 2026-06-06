@@ -56,6 +56,7 @@ function Harness(props: HarnessProps) {
 				onClick={() => setIsOpen(true)}
 			/>
 			<MobileDrawer
+				isPro={false}
 				isOpen={isOpen}
 				session={session}
 				current={current}

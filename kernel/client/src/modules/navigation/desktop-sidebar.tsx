@@ -11,6 +11,7 @@ import { AppIcon } from "#/modules/navigation/app-icon";
 import { WorkspaceSwitcher } from "#/modules/navigation/workspace-switcher";
 
 type DesktopSidebarProps = {
+	readonly isPro: boolean;
 	readonly activeHome: boolean;
 	readonly activeSettings: boolean;
 	readonly session: AuthSessionStore;
@@ -54,6 +55,7 @@ export function DesktopSidebar(props: DesktopSidebarProps) {
 
 			<footer className="shrink-0 border-t border-border px-3 py-3">
 				<AccountSummary
+					isPro={props.isPro}
 					session={props.session}
 					active={props.activeSettings}
 					onNavigate={props.onNavigateSettings}

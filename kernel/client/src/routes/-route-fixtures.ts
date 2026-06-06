@@ -5,6 +5,7 @@ import {
 import type { PluginClientCatalog } from "@ryot/ryotql-recipes/plugin-client-catalog";
 import { Effect, Layer, Schema } from "effect";
 
+import { PublicApi } from "#/api/public";
 import type { ApiScope } from "#/api/scope";
 import { AuthService } from "#/modules/auth/service";
 import { ServerService } from "#/modules/server/service";
@@ -101,3 +102,19 @@ export const makeStorageStub = (
 			recorder?.popupOpenWhenSet.push(document.querySelector('[role="dialog"]') !== null);
 		}),
 });
+
+export const makePublicApiStub = (isServerKeyValidated = false) =>
+	Layer.succeed(PublicApi, {
+		checkHealth: () => Effect.void,
+		getSystemConfig: () =>
+			Effect.succeed({
+				analytics: {},
+				pro: { isServerKeyValidated },
+				notifications: { smtpEnabled: false },
+				auth: { oidcEnabled: false, signupAllowed: true, localAuthDisabled: false },
+				fileStorage: {
+					temporaryUploadProvider: "local",
+					preferredPermanentUploadProvider: "local",
+				},
+			}),
+	});
