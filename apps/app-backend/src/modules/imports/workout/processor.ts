@@ -1,4 +1,4 @@
-import { DateTime, Effect, Either } from "effect";
+import { Effect } from "effect";
 
 import type { CurrentUserValue } from "~/lib/auth";
 import { DbRunner } from "~/lib/db";
@@ -7,28 +7,20 @@ import { parseAppSchemaPropertiesSafe } from "~/lib/property-schema-runtime";
 import type { AppSchema } from "~/lib/schema";
 import { EntitiesRepository } from "~/modules/entities/repository";
 import type { ListedEntity } from "~/modules/entities/schemas";
-import { EntitiesService } from "~/modules/entities/service";
+import type { EntitiesService } from "~/modules/entities/service";
 import { EntitySchemasRepository } from "~/modules/entity-schemas/repository";
 import { EventSchemasRepository } from "~/modules/event-schemas/repository";
 import type { CreateEventItem } from "~/modules/events/schemas";
-import { EventsService } from "~/modules/events/service";
+import type { EventsService } from "~/modules/events/service";
 
-import { ImportsRepository } from "../repository";
-import {
-	PROGRESS_UPDATE_INTERVAL,
-	failImportRun,
-	recordImportRunFailure,
-	sanitizeErrorMessage,
-} from "../runtime/failures";
 import {
 	buildWorkoutSetEventProperties,
 	normalizeExerciseIdentityName,
-	type WorkoutAdapterResult,
 	type WorkoutImportExercise,
 	type WorkoutImportItem,
 } from "./domain";
 
-type WorkoutSchemas = {
+export type WorkoutSchemas = {
 	workoutSchemaId: string;
 	exerciseSchemaId: string;
 	workoutSetEventSchemaId: string;
@@ -93,7 +85,7 @@ const buildWorkoutEntityProperties = (workout: WorkoutImportItem): Record<string
 	return properties;
 };
 
-const commitWorkoutItem = (input: {
+export const commitWorkoutItem = (input: {
 	runId: string;
 	events: EventsService;
 	user: CurrentUserValue;
@@ -167,124 +159,45 @@ const commitWorkoutItem = (input: {
 		return yield* input.events.createForImport(input.user.id, eventBody, input.runId);
 	});
 
-export const processWorkoutImportResult = (input: {
-	runId: string;
-	userId: string;
-	adapterResult: WorkoutAdapterResult;
-}) =>
+export type WorkoutImportContext = {
+	schemas: WorkoutSchemas;
+	candidates: ReadonlyArray<ListedEntity>;
+};
+
+export const loadWorkoutImportContext = (userId: string) =>
 	Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
-		const events = yield* EventsService;
-		const entities = yield* EntitiesService;
-		const repository = yield* ImportsRepository;
 		const eventSchemas = yield* EventSchemasRepository;
 		const entitySchemas = yield* EntitySchemasRepository;
 		const entitiesRepository = yield* EntitiesRepository;
 
-		const user: CurrentUserValue = { id: input.userId, name: "", email: "" };
-		const { items, failures } = input.adapterResult;
-		const totalItems = items.length + failures.length;
-		yield* runWithDb(repository.updateRun({ runId: input.runId, totalItems }));
-
 		const exerciseSchema = yield* runWithDb(entitySchemas.getBuiltinBySlug("exercise"));
 		const workoutSchema = yield* runWithDb(entitySchemas.getBuiltinBySlug("workout"));
 		if (!exerciseSchema || !workoutSchema) {
-			yield* failImportRun(input.runId, "Workout import schemas are missing");
-			return;
+			return null;
 		}
 
 		const workoutSetEventSchema = yield* runWithDb(
 			eventSchemas.getBuiltinBySlug({ entitySchemaId: exerciseSchema.id, slug: "workout-set" }),
 		);
 		if (!workoutSetEventSchema) {
-			yield* failImportRun(input.runId, "Workout import schemas are missing");
-			return;
+			return null;
 		}
-
-		const schemas: WorkoutSchemas = {
-			workoutSchemaId: workoutSchema.id,
-			exerciseSchemaId: exerciseSchema.id,
-			workoutSetEventSchemaId: workoutSetEventSchema.id,
-			workoutSetEventPropertiesSchema: workoutSetEventSchema.propertiesSchema,
-		};
 
 		const candidates = yield* runWithDb(
 			entitiesRepository.listMatchCandidatesBySchema({
-				userId: input.userId,
+				userId,
 				entitySchemaId: exerciseSchema.id,
 			}),
 		);
 
-		let failedItems = 0;
-		let importedItems = 0;
-		let processedItems = 0;
-		const exerciseCache = new Map<string, ListedEntity>();
-
-		for (const failure of failures) {
-			yield* recordImportRunFailure({
-				runId: input.runId,
-				message: failure.message,
-				itemIndex: failure.itemIndex,
-				stage: "input_transformation",
-				sourceLabel: failure.sourceLabel,
-				sourceIdentifier: failure.sourceIdentifier,
-			});
-		}
-		failedItems += failures.length;
-		processedItems += failures.length;
-
-		for (const workout of items) {
-			const result = yield* commitWorkoutItem({
-				user,
-				events,
-				schemas,
-				workout,
-				entities,
-				candidates,
-				exerciseCache,
-				runId: input.runId,
-			}).pipe(Effect.either);
-
-			if (Either.isRight(result)) {
-				importedItems++;
-			} else {
-				yield* recordImportRunFailure({
-					runId: input.runId,
-					stage: "database_commit",
-					entitySchemaSlug: "workout",
-					itemIndex: workout.itemIndex,
-					sourceLabel: workout.sourceLabel,
-					sourceIdentifier: workout.sourceIdentifier,
-					message: sanitizeErrorMessage(result.left, "Failed to import workout"),
-				});
-				failedItems++;
-			}
-
-			processedItems++;
-			if (processedItems % PROGRESS_UPDATE_INTERVAL === 0 || processedItems === totalItems) {
-				const progress = totalItems > 0 ? Math.round((processedItems / totalItems) * 100) : 100;
-				yield* runWithDb(
-					repository.updateRun({
-						progress,
-						failedItems,
-						importedItems,
-						processedItems,
-						runId: input.runId,
-					}),
-				);
-			}
-		}
-
-		const finishedAt = yield* DateTime.nowAsDate;
-		yield* runWithDb(
-			repository.updateRun({
-				finishedAt,
-				failedItems,
-				progress: 100,
-				importedItems,
-				processedItems,
-				runId: input.runId,
-				status: "completed",
-			}),
-		);
+		return {
+			candidates,
+			schemas: {
+				workoutSchemaId: workoutSchema.id,
+				exerciseSchemaId: exerciseSchema.id,
+				workoutSetEventSchemaId: workoutSetEventSchema.id,
+				workoutSetEventPropertiesSchema: workoutSetEventSchema.propertiesSchema,
+			},
+		} satisfies WorkoutImportContext;
 	});
