@@ -96,11 +96,11 @@ driver("details", async function (context) {
 			sourceUrl: `https://openlibrary.org/authors/${requestedIdentifier}`,
 			birthDate:
 				typeof authorPayload?.birth_date === "string"
-					? authorPayload.birth_date.trim() ?? null
+					? (authorPayload.birth_date.trim() ?? null)
 					: null,
 			deathDate:
 				typeof authorPayload?.death_date === "string"
-					? authorPayload.death_date.trim() ?? null
+					? (authorPayload.death_date.trim() ?? null)
 					: null,
 		},
 	};

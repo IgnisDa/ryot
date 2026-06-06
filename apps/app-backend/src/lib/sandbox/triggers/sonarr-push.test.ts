@@ -2,9 +2,16 @@ import { describe, expect, it } from "vitest";
 
 import integrationPushHelperCode from "../script-helpers/integration-push.sandbox.js" with { type: "text" };
 import sonarrPushScriptCode from "./sonarr-push.sandbox.js" with { type: "text" };
-import { hostFailure, hostSuccess, httpSuccess, runTriggerScript, toRecord } from "./test-utils";
+import {
+	hostFailure,
+	hostSuccess,
+	httpSuccess,
+	runTriggerScript,
+	toRecord,
+	wrapWithPushHelpers,
+} from "./test-utils";
 
-const sonarrCode = `${integrationPushHelperCode}\n\n${sonarrPushScriptCode}`;
+const sonarrCode = wrapWithPushHelpers(integrationPushHelperCode, sonarrPushScriptCode);
 
 const runSonarrScript = (
 	context: unknown,
