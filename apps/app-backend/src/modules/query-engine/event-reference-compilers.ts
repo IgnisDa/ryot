@@ -1,12 +1,12 @@
 import { sql } from "drizzle-orm";
 import { Match } from "effect";
 
-import { schema } from "~/lib/db";
-import type { AppSchema } from "~/lib/property-schema";
-import type { QueryExpression } from "~/lib/query-language";
-import { QueryEngineValidationError } from "~/lib/views/errors";
-import { normalizeExpressionPropertyType } from "~/lib/views/expression-analysis";
-import type { PropertyType } from "~/lib/views/reference";
+import { schema } from "#lib/db";
+import type { AppSchema } from "#lib/property-schema";
+import type { QueryExpression } from "#lib/query-language";
+import { QueryEngineValidationError } from "#lib/views/errors";
+import { normalizeExpressionPropertyType } from "#lib/views/expression-analysis";
+import type { PropertyType } from "#lib/views/reference";
 import {
 	getEventColumnPropertyType,
 	getEventJoinColumnPropertyType,
@@ -14,7 +14,7 @@ import {
 	getEventJoinPropertyType,
 	getEventSchemaColumnPropertyType,
 	getPropertyType,
-} from "~/lib/views/reference";
+} from "#lib/views/reference";
 
 import type { QueryEngineContext } from "./context";
 import { buildSchemaReferenceExpression } from "./reference-compiler-shared";
