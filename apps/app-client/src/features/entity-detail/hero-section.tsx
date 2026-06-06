@@ -17,7 +17,9 @@ export function HeroSection(props: { creators: AppUnlinkedCreator[]; entity: Ent
 	const entity = props.entity;
 	const insets = useSafeAreaInsets();
 	const primaryCreator = getPrimaryCreator(props.creators);
-	const firstImage = entity.image ?? entity.properties.images[0];
+	const images = entity.properties.images ?? [];
+	const genres = entity.properties.genres ?? [];
+	const firstImage = entity.image ?? images[0];
 	const providerRating = entity.properties.providerRating ?? null;
 	const imageUrl = firstImage.type === "remote" ? firstImage.url : undefined;
 	const runtime = "runtime" in entity.properties ? (entity.properties.runtime ?? null) : null;
@@ -114,9 +116,9 @@ export function HeroSection(props: { creators: AppUnlinkedCreator[]; entity: Ent
 								)}
 							</Box>
 
-							{entity.properties.genres.length > 0 && (
+							{genres.length > 0 && (
 								<Box className="mt-4 flex-row flex-wrap gap-2">
-									{entity.properties.genres.map((genre) => (
+									{genres.map((genre) => (
 										<Box
 											key={genre}
 											className="rounded-full border border-white/10 bg-white/15 px-2.5 py-1"
