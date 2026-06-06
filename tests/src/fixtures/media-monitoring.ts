@@ -25,7 +25,7 @@ import { adminHeaders } from "./admin";
 import type { Client } from "./auth";
 import { getBackendClient } from "./contract-client";
 import { openInterestStreamScoped } from "./interest-sse";
-import { executeRyotQL } from "./ryotql";
+import { executeRyotQL, requireRows } from "./ryotql";
 
 export const triggerCronAndWaitForEntity = (
 	auth: { cookies: string; userId: string },
@@ -133,9 +133,6 @@ export const countMediaMonitoringRelationships = (input: {
 				}),
 			}),
 		);
-		const relationships = result.data.relationships;
-		if (relationships?.type !== "rows") {
-			throw new Error("Expected relationship rows");
-		}
+		const relationships = requireRows(result.data.relationships, "relationships");
 		return relationships.pageInfo.total;
 	});

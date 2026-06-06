@@ -25,9 +25,9 @@ import {
 	requireEventSchemaBySlug,
 	requireRelationshipSchemaBySlug,
 	requireRyotQLFieldValue,
+	requireRows,
 	seedMediaEntity,
 	type Client,
-	type RyotQLResponse,
 } from "~/fixtures";
 import { assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
@@ -100,14 +100,6 @@ const seedPodcast = (client: Client, episodeCount: number) =>
 			podcastCompleteEventSchemaSlug: requireEventSchemaBySlug(podcastEventSchemas, "complete").id,
 		};
 	});
-
-const readPodcastRows = (response: RyotQLResponse) => {
-	const result = response.data.podcasts;
-	if (result?.type !== "rows") {
-		throw new Error("Expected podcast rows result");
-	}
-	return result;
-};
 
 describe("Media RyotQL query recipe results", () => {
 	it.live("reconstructs show details with nested state and independent limits", () =>
@@ -257,10 +249,7 @@ describe("Media RyotQL query recipe results", () => {
 				client,
 				buildShowDetailQueryDocument({ seasonLimit: 2, episodeLimit: 1, entityId: show.id }),
 			);
-			const result = response.data.show;
-			if (result?.type !== "rows") {
-				throw new Error("Expected show rows result");
-			}
+			const result = requireRows(response.data.show, "show");
 			const showRow = result.items[0];
 			assertPresent(showRow, "Expected show row");
 			const seasons = showRow.seasons;
@@ -337,10 +326,7 @@ describe("Media RyotQL query recipe results", () => {
 				client,
 				buildPodcastDetailQueryDocument({ entityId: seeded.podcast.id, episodeLimit: 2 }),
 			);
-			const result = response.data.podcast;
-			if (result?.type !== "rows") {
-				throw new Error("Expected podcast rows result");
-			}
+			const result = requireRows(response.data.podcast, "podcast");
 			const podcastRow = result.items[0];
 			assertPresent(podcastRow, "Expected podcast row");
 			const episodes = podcastRow.episodes;
@@ -400,9 +386,15 @@ describe("Media RyotQL query recipe results", () => {
 				properties: { completionMode: "unknown" },
 				eventSchemaSlug: seeded.episodeCompleteEventSchemaSlug,
 			});
-			let response = readPodcastRows(yield* executeRyotQL(client, inProgressDocument));
+			let response = requireRows(
+				(yield* executeRyotQL(client, inProgressDocument)).data.podcasts,
+				"podcasts",
+			);
 			expect(response.items).toHaveLength(1);
-			response = readPodcastRows(yield* executeRyotQL(client, completedDocument));
+			response = requireRows(
+				(yield* executeRyotQL(client, completedDocument)).data.podcasts,
+				"podcasts",
+			);
 			expect(response.items).toHaveLength(0);
 
 			yield* createEventFixture(client, {
@@ -410,9 +402,15 @@ describe("Media RyotQL query recipe results", () => {
 				properties: { completionMode: "unknown" },
 				eventSchemaSlug: seeded.episodeCompleteEventSchemaSlug,
 			});
-			response = readPodcastRows(yield* executeRyotQL(client, inProgressDocument));
+			response = requireRows(
+				(yield* executeRyotQL(client, inProgressDocument)).data.podcasts,
+				"podcasts",
+			);
 			expect(response.items).toHaveLength(1);
-			response = readPodcastRows(yield* executeRyotQL(client, completedDocument));
+			response = requireRows(
+				(yield* executeRyotQL(client, completedDocument)).data.podcasts,
+				"podcasts",
+			);
 			expect(response.items).toHaveLength(1);
 
 			yield* createEventFixture(client, {
@@ -420,9 +418,15 @@ describe("Media RyotQL query recipe results", () => {
 				properties: { completionMode: "unknown" },
 				eventSchemaSlug: seeded.podcastCompleteEventSchemaSlug,
 			});
-			response = readPodcastRows(yield* executeRyotQL(client, inProgressDocument));
+			response = requireRows(
+				(yield* executeRyotQL(client, inProgressDocument)).data.podcasts,
+				"podcasts",
+			);
 			expect(response.items).toHaveLength(0);
-			response = readPodcastRows(yield* executeRyotQL(client, completedDocument));
+			response = requireRows(
+				(yield* executeRyotQL(client, completedDocument)).data.podcasts,
+				"podcasts",
+			);
 			expect(response.items).toHaveLength(1);
 		}),
 	);
@@ -657,10 +661,7 @@ describe("Media RyotQL query recipe results", () => {
 						entitySchemaSlug: bookSchema.slug,
 					}),
 				);
-				const result = response.data.trending;
-				if (result?.type !== "rows") {
-					throw new Error("Expected trending rows result");
-				}
+				const result = requireRows(response.data.trending, "trending");
 				expect(result.items).toHaveLength(2);
 				const first = result.items[0];
 				const secondResult = result.items[1];
