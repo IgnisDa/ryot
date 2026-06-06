@@ -7,6 +7,8 @@ import {
 	CLIENT_COMPILER_VERSION,
 	type PluginBridgeNavigate,
 	type PluginBridgeReady,
+	type PluginOperationOutcome,
+	type PluginOperationRequest,
 } from "@ryot/contract/modules/plugins/client";
 import { waitFor } from "@testing-library/dom";
 import { Schema } from "effect";
@@ -33,7 +35,25 @@ afterEach(() => {
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const connect = (options: { readonly timeoutMs?: number } = {}) => {
+function deferred<T>() {
+	let resolve!: (value: T) => void;
+	let reject!: (reason: unknown) => void;
+	const promise = new Promise<T>((res, rej) => {
+		resolve = res;
+		reject = rej;
+	});
+	return { promise, resolve, reject };
+}
+
+const connect = (
+	options: {
+		readonly timeoutMs?: number;
+		readonly onOperation?: (
+			request: PluginOperationRequest,
+			signal: AbortSignal,
+		) => Promise<PluginOperationOutcome>;
+	} = {},
+) => {
 	const readies: null[] = [];
 	const failures: null[] = [];
 	const origins: string[] = [];
@@ -41,6 +61,11 @@ const connect = (options: { readonly timeoutMs?: number } = {}) => {
 	let init: PluginBridgeInit | undefined;
 	let pluginPort: MessagePort | undefined;
 	const navigations: PluginBridgeNavigate[] = [];
+	const operationCalls: Array<{
+		readonly input: unknown;
+		readonly operationSlug: string;
+		readonly signal: AbortSignal;
+	}> = [];
 
 	const session = openPluginBridge({
 		artifactHash,
@@ -49,6 +74,12 @@ const connect = (options: { readonly timeoutMs?: number } = {}) => {
 		onReady: () => readies.push(null),
 		onFailure: () => failures.push(null),
 		onNavigate: (request) => navigations.push(request),
+		onOperation:
+			options.onOperation ??
+			((request, signal) => {
+				operationCalls.push({ signal, input: request.input, operationSlug: request.operationSlug });
+				return new Promise(() => {});
+			}),
 		target: {
 			postMessage: (message, targetOrigin, transfer) => {
 				const [transferred] = transfer;
@@ -69,7 +100,17 @@ const connect = (options: { readonly timeoutMs?: number } = {}) => {
 	if (init === undefined || pluginPort === undefined) {
 		throw new Error("The bridge never transferred a port to the plugin document.");
 	}
-	return { init, pluginPort, origins, readies, failures, received, navigations, session };
+	return {
+		init,
+		session,
+		origins,
+		readies,
+		failures,
+		received,
+		pluginPort,
+		navigations,
+		operationCalls,
+	};
 };
 
 const readyFor = (init: PluginBridgeInit): PluginBridgeReady => ({
@@ -221,5 +262,289 @@ describe("plugin bridge", () => {
 
 		expect(readies).toEqual([]);
 		expect(failures).toEqual([]);
+	});
+
+	it("round-trips a successful operation", async () => {
+		const calls: PluginOperationRequest[] = [];
+		const { init, pluginPort, received } = connect({
+			onOperation: (request) => {
+				calls.push(request);
+				return Promise.resolve({ outcome: "success", value: "ok" });
+			},
+		});
+		pluginPort.postMessage(readyFor(init));
+		await waitFor(() => expect(received).toHaveLength(1));
+
+		pluginPort.postMessage({
+			requestId: "request-1",
+			operationSlug: "greet",
+			type: "operation-request",
+			input: { greeting: "hi" },
+		});
+
+		await waitFor(() =>
+			expect(received).toContainEqual({
+				value: "ok",
+				outcome: "success",
+				requestId: "request-1",
+				type: "operation-result",
+			}),
+		);
+		expect(calls).toEqual([{ input: { greeting: "hi" }, operationSlug: "greet" }]);
+	});
+
+	it("round-trips an expected operation failure", async () => {
+		const { init, pluginPort, received } = connect({
+			onOperation: () => Promise.resolve({ outcome: "failure", reason: "operation-failed" }),
+		});
+		pluginPort.postMessage(readyFor(init));
+		await waitFor(() => expect(received).toHaveLength(1));
+
+		pluginPort.postMessage({
+			input: null,
+			requestId: "request-1",
+			operationSlug: "greet",
+			type: "operation-request",
+		});
+
+		await waitFor(() =>
+			expect(received).toContainEqual({
+				outcome: "failure",
+				requestId: "request-1",
+				type: "operation-result",
+				reason: "operation-failed",
+			}),
+		);
+	});
+
+	it("reports a transport failure when onOperation rejects", async () => {
+		const { init, pluginPort, received } = connect({
+			onOperation: () => Promise.reject(new Error("boom")),
+		});
+		pluginPort.postMessage(readyFor(init));
+		await waitFor(() => expect(received).toHaveLength(1));
+
+		pluginPort.postMessage({
+			input: null,
+			requestId: "request-1",
+			operationSlug: "greet",
+			type: "operation-request",
+		});
+
+		await waitFor(() =>
+			expect(received).toContainEqual({
+				outcome: "failure",
+				reason: "transport",
+				requestId: "request-1",
+				type: "operation-result",
+			}),
+		);
+	});
+
+	it("settles two concurrent calls out of order, each exactly once", async () => {
+		const calls: Array<ReturnType<typeof deferred<PluginOperationOutcome>>> = [];
+		const { init, pluginPort, received } = connect({
+			onOperation: () => {
+				const call = deferred<PluginOperationOutcome>();
+				calls.push(call);
+				return call.promise;
+			},
+		});
+		pluginPort.postMessage(readyFor(init));
+		await waitFor(() => expect(received).toHaveLength(1));
+
+		pluginPort.postMessage({
+			input: "a",
+			requestId: "request-a",
+			operationSlug: "greet",
+			type: "operation-request",
+		});
+		pluginPort.postMessage({
+			input: "b",
+			requestId: "request-b",
+			operationSlug: "greet",
+			type: "operation-request",
+		});
+		await waitFor(() => expect(calls).toHaveLength(2));
+
+		calls[1]?.resolve({ outcome: "success", value: "b-value" });
+		await waitFor(() =>
+			expect(received).toContainEqual({
+				value: "b-value",
+				outcome: "success",
+				requestId: "request-b",
+				type: "operation-result",
+			}),
+		);
+
+		calls[0]?.resolve({ outcome: "success", value: "a-value" });
+		await waitFor(() =>
+			expect(received).toContainEqual({
+				value: "a-value",
+				outcome: "success",
+				requestId: "request-a",
+				type: "operation-result",
+			}),
+		);
+
+		expect(received).toHaveLength(3);
+	});
+
+	it("ignores a second request that reuses an in-flight request id", async () => {
+		const calls: Array<ReturnType<typeof deferred<PluginOperationOutcome>>> = [];
+		const { init, pluginPort, received } = connect({
+			onOperation: () => {
+				const call = deferred<PluginOperationOutcome>();
+				calls.push(call);
+				return call.promise;
+			},
+		});
+		pluginPort.postMessage(readyFor(init));
+		await waitFor(() => expect(received).toHaveLength(1));
+
+		pluginPort.postMessage({
+			input: "a",
+			requestId: "request-a",
+			operationSlug: "greet",
+			type: "operation-request",
+		});
+		await waitFor(() => expect(calls).toHaveLength(1));
+
+		pluginPort.postMessage({
+			input: "a-again",
+			requestId: "request-a",
+			operationSlug: "greet",
+			type: "operation-request",
+		});
+		await delay(10);
+
+		expect(calls).toHaveLength(1);
+		calls[0]?.resolve({ outcome: "success", value: "a-value" });
+
+		await waitFor(() =>
+			expect(received).toContainEqual({
+				value: "a-value",
+				outcome: "success",
+				requestId: "request-a",
+				type: "operation-result",
+			}),
+		);
+		expect(received).toHaveLength(2);
+	});
+
+	it("forwards a request that omits input instead of dropping it unanswered", async () => {
+		const { init, pluginPort, received, operationCalls } = connect();
+		pluginPort.postMessage(readyFor(init));
+		await waitFor(() => expect(received).toHaveLength(1));
+
+		pluginPort.postMessage({
+			requestId: "request-1",
+			operationSlug: "greet",
+			type: "operation-request",
+		});
+		await waitFor(() => expect(operationCalls).toHaveLength(1));
+
+		expect(operationCalls[0]).toMatchObject({ input: undefined, operationSlug: "greet" });
+	});
+
+	it("never invokes onOperation for a request carrying extra identity fields", async () => {
+		const { init, pluginPort, received, operationCalls } = connect();
+		pluginPort.postMessage(readyFor(init));
+		await waitFor(() => expect(received).toHaveLength(1));
+
+		pluginPort.postMessage({
+			input: null,
+			requestId: "request-1",
+			operationSlug: "greet",
+			type: "operation-request",
+			installationId: "installation-2",
+		});
+		pluginPort.postMessage({
+			input: null,
+			requestId: "request-2",
+			operationSlug: "greet",
+			type: "operation-request",
+			pluginSlug: "another-plugin",
+		});
+		await delay(10);
+
+		expect(operationCalls).toEqual([]);
+		expect(received).toHaveLength(1);
+	});
+
+	it("aborts pending signals on close and posts nothing after a late resolution", async () => {
+		let signal: AbortSignal | undefined;
+		const call = deferred<PluginOperationOutcome>();
+		const { init, pluginPort, received, session } = connect({
+			onOperation: (_request, requestSignal) => {
+				signal = requestSignal;
+				return call.promise;
+			},
+		});
+		pluginPort.postMessage(readyFor(init));
+		await waitFor(() => expect(received).toHaveLength(1));
+
+		pluginPort.postMessage({
+			input: null,
+			requestId: "request-1",
+			operationSlug: "greet",
+			type: "operation-request",
+		});
+		await waitFor(() => expect(signal).toBeDefined());
+
+		session.close();
+		expect(signal?.aborted).toBe(true);
+
+		call.resolve({ outcome: "success", value: "too-late" });
+		await delay(10);
+
+		expect(received).toHaveLength(1);
+	});
+
+	it("never posts a Ryot credential, identity, or scope value to the plugin across a full session", async () => {
+		const { init, pluginPort, received, session } = connect({
+			onOperation: (request) =>
+				Promise.resolve(
+					request.operationSlug === "fail"
+						? ({ outcome: "failure", reason: "operation-failed" } as const)
+						: ({ outcome: "success", value: { echoed: request.input } } as const),
+				),
+		});
+		pluginPort.postMessage(readyFor(init));
+		await waitFor(() => expect(received).toHaveLength(1));
+
+		session.sendLocation({ path: "/details/1", search: "tab=stats" });
+
+		pluginPort.postMessage({
+			requestId: "request-1",
+			operationSlug: "greet",
+			type: "operation-request",
+			input: { greeting: "hi" },
+		});
+		pluginPort.postMessage({
+			input: null,
+			operationSlug: "fail",
+			requestId: "request-2",
+			type: "operation-request",
+		});
+
+		await waitFor(() => expect(received).toHaveLength(4));
+
+		expect(received).toEqual([
+			{ type: "location", location: home },
+			{ type: "location", location: { path: "/details/1", search: "tab=stats" } },
+			{
+				outcome: "success",
+				requestId: "request-1",
+				type: "operation-result",
+				value: { echoed: { greeting: "hi" } },
+			},
+			{
+				outcome: "failure",
+				requestId: "request-2",
+				type: "operation-result",
+				reason: "operation-failed",
+			},
+		]);
 	});
 });

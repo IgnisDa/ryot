@@ -542,6 +542,31 @@ lifecycle
 
 The exact methods should be added incrementally.
 
+### What V1 ships
+
+The namespace object is real and starts with one category:
+
+```ts
+import { ryot } from "@ryot/client-plugin-sdk";
+import { Schema } from "@ryot/client-plugin-sdk/effect";
+
+const Greeting = Schema.Struct({ greeting: Schema.String });
+
+const { greeting } = await ryot.data.invokeOperation({
+  slug: "greet",
+  input: { name },
+  output: Greeting,
+});
+```
+
+A rejected call throws `PluginOperationError` carrying one `reason`: `"operation-failed"` for a failure the backend declared, `"transport"` for an unexpected one, or `"malformed-result"` when the value does not decode against `output`.
+
+`@ryot/client-plugin-sdk/effect` re-exports `Schema` and nothing else, mirroring `@ryot/sandbox-sdk/effect` for backend scripts, so both halves of a plugin describe their operation payloads the same way. It costs nothing: the SDK already bundles `effect` to decode bridge messages. Plugin source must import `Schema` through that subpath; a bare `effect` import stays untrusted, keeping one ABI surface rather than two.
+
+`invokeOperation` takes an output codec but no input codec. The client cannot know what the operation accepts, and the backend already validates input and answers with a typed failure, so a second client-side declaration would only be a mirror that can drift.
+
+Navigation remains the hook surface introduced with plugin-private routes and has not moved under `ryot.navigation`.
+
 Possible examples:
 
 ```ts
@@ -604,6 +629,22 @@ The bridge needs:
 
 Plugin authors interact with the TypeScript SDK, not the wire protocol.
 
+### V1 request/response calls
+
+V1 implements request/response calls for one purpose: invoking a backend operation belonging to the bridge session's own installation.
+
+Plugin to kernel carries `{ type: "operation-request", requestId, operationSlug, input }`. Kernel to plugin answers `{ type: "operation-result", requestId, outcome }`, where `outcome` is `{ outcome: "success", value }` or `{ outcome: "failure", reason }` and `reason` is `"operation-failed"` for a failure the backend declared or `"transport"` for an unexpected one. The SDK adds a third plugin-side reason, `"malformed-result"`, when a success value does not decode against the caller's output schema.
+
+`input` is optional on the wire and the kernel forwards an absent one as JSON `null`, so a plugin that omits it gets the backend's typed input rejection rather than a call that never settles.
+
+The request carries no plugin, installation, package, artifact, user, or server identity, and every bridge message is a strict schema, so a request that smuggles such a field fails to decode and is dropped. The kernel binds identity from the session it established and invokes only through the ordinary authenticated backend operation route.
+
+Correlation is per-session: `requestId` need only be unique on one port, and the kernel ignores a request reusing an in-flight id, so a call settles exactly once.
+
+Teardown is kernel-side. Closing or replacing a bridge aborts every in-flight call, releases the kernel's request bookkeeping, and posts nothing further. The plugin half is released by destroying the plugin document: closing the kernel port raises no event on the plugin's port, so a plugin-side promise is not rejected but dies with the document. Every V1 path that closes a bridge also replaces the iframe, so the two are equivalent today. A future path that closes a bridge while keeping the document alive must first drain the plugin's pending calls.
+
+Only `outcome` and `reason` cross the port. Internal causes and backend diagnostics stay in the kernel.
+
 ### Bridge identity
 
 Browser origin alone is not the plugin's authority.
@@ -658,6 +699,20 @@ kernel
   ▼
 Ryot backend
 ```
+
+The concrete V1 path is:
+
+```text
+ryot.data.invokeOperation({ slug, input, output })
+  -> plugin SDK operation bridge on the session MessagePort
+  -> kernel bridge session, which supplies the installation's plugin slug
+  -> kernel authenticated transport (browser credentials, ApiScope)
+  -> POST /plugins/:pluginSlug/operations/:operationSlug
+  -> backend operation authorization for the authenticated user
+  -> plugin backend sandbox
+```
+
+The plugin names only an operation slug and its input. The installed plugin slug, the authenticated user, and the selected server all come from the kernel-owned session, so a plugin cannot reach another installation's operation or substitute another installation's identity.
 
 The kernel uses Effect services and `@effect/atom-react` internally for application I/O, workflows, request state, reactivity, caching, and invalidation. These dependencies are resolved by the kernel runtime and do not cross the plugin boundary.
 
