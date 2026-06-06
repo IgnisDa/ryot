@@ -20,7 +20,7 @@ import { LoadedMediaImportAdapterSuccess } from "./media/source-loaders";
 import { type ImportEntityRef, importEntityRefKey } from "./media/types";
 import { ImportsRepository } from "./repository";
 import { PROGRESS_UPDATE_INTERVAL, recordImportRunFailure } from "./runtime/failures";
-import { getTemporaryDirectory, resolveSafeImportFilePath } from "./runtime/files";
+import { resolveImportPath } from "./runtime/files";
 import {
 	createImportRunLifecycle,
 	ImportRunError,
@@ -126,15 +126,7 @@ export const runOneTimeMediaImportWorkflow = <
 		const collections = yield* CollectionsService;
 		const entitiesRepository = yield* EntitiesRepository;
 
-		const initialCleanupPaths = payload.filePath
-			? (() => {
-					const safePathResult = resolveSafeImportFilePath(
-						payload.filePath,
-						getTemporaryDirectory(),
-					);
-					return "path" in safePathResult ? [safePathResult.path] : [];
-				})()
-			: [];
+		const initialCleanupPaths = payload.filePath ? resolveImportPath(payload.filePath) : [];
 		let cleanupPaths: ReadonlyArray<string> = initialCleanupPaths;
 		const { cleanupArtifactsBestEffort, failRunAndCleanup } = createImportRunLifecycle(
 			payload,
