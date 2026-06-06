@@ -211,12 +211,7 @@ function toContractRequest(request: unknown) {
 
 	return {
 		headers: headers ?? {},
-		request:
-			Object.keys(contractRequest).length > 0
-				? contractRequest
-				: headers !== undefined || body !== undefined || params !== undefined
-					? contractRequest
-					: undefined,
+		request: Object.keys(contractRequest).length > 0 ? contractRequest : undefined,
 	};
 }
 
