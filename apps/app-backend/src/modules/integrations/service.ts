@@ -110,8 +110,9 @@ type IntegrationsServiceShape = {
 		integrationId: string,
 	) => Effect.Effect<readonly ListedImportRun[], NotFound | DbError>;
 	readonly handleWebhook: (input: {
+		rawBody?: string;
+		contentType?: string;
 		integrationId: string;
-		payload?: unknown;
 	}) => Effect.Effect<{ runId: string }, BadRequest | NotFound | DbError>;
 };
 
@@ -280,7 +281,7 @@ export class IntegrationsService extends Effect.Service<IntegrationsService>()(
 							importsRepository.listRunsByIntegrationId({ userId: user.id, integrationId }),
 						);
 					}),
-				handleWebhook: ({ integrationId, payload }) =>
+				handleWebhook: ({ integrationId, rawBody, contentType }) =>
 					Effect.gen(function* () {
 						const integration = yield* runWithDb(repository.getByIdAnyUser({ integrationId }));
 						if (!integration) {
@@ -320,7 +321,8 @@ export class IntegrationsService extends Effect.Service<IntegrationsService>()(
 									runId: run.id,
 									userId: integration.userId,
 									integrationId: integration.id,
-									...(payload !== undefined ? { payload } : {}),
+									...(rawBody !== undefined ? { rawBody } : {}),
+									...(contentType !== undefined ? { contentType } : {}),
 								},
 							})
 							.pipe(Effect.either);
