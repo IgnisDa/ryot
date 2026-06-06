@@ -89,84 +89,42 @@ const uploadTokenRunInput = <Source extends (typeof fileImportRunSources)[number
 	source: Source,
 ) => z.object({ uploadToken: nonEmptyStringSchema, source: z.literal(source) });
 
-export const openScaleRunInput = uploadTokenRunInput("open_scale");
-export type OpenScaleRunInput = z.infer<typeof openScaleRunInput>;
-
-export const hevyRunInput = uploadTokenRunInput("hevy");
-export type HevyRunInput = z.infer<typeof hevyRunInput>;
-
-export const strongAppRunInput = uploadTokenRunInput("strong_app");
-export type StrongAppRunInput = z.infer<typeof strongAppRunInput>;
-
-export const goodreadsRunInput = uploadTokenRunInput("goodreads");
-export type GoodreadsRunInput = z.infer<typeof goodreadsRunInput>;
-
-export const hardcoverRunInput = uploadTokenRunInput("hardcover");
-export type HardcoverRunInput = z.infer<typeof hardcoverRunInput>;
-
-export const storygraphRunInput = uploadTokenRunInput("storygraph");
-export type StorygraphRunInput = z.infer<typeof storygraphRunInput>;
-
-export const imdbRunInput = uploadTokenRunInput("imdb");
-export type ImdbRunInput = z.infer<typeof imdbRunInput>;
-
-export const netflixRunInput = uploadTokenRunInput("netflix").extend({
+const openScaleRunInput = uploadTokenRunInput("open_scale");
+const hevyRunInput = uploadTokenRunInput("hevy");
+const strongAppRunInput = uploadTokenRunInput("strong_app");
+const goodreadsRunInput = uploadTokenRunInput("goodreads");
+const hardcoverRunInput = uploadTokenRunInput("hardcover");
+const storygraphRunInput = uploadTokenRunInput("storygraph");
+const imdbRunInput = uploadTokenRunInput("imdb");
+const netflixRunInput = uploadTokenRunInput("netflix").extend({
 	profileName: z.string().trim().optional(),
 });
-export type NetflixRunInput = z.infer<typeof netflixRunInput>;
-
-export const grouveeRunInput = uploadTokenRunInput("grouvee");
-export type GrouveeRunInput = z.infer<typeof grouveeRunInput>;
-
-export const anilistRunInput = uploadTokenRunInput("anilist");
-export type AnilistRunInput = z.infer<typeof anilistRunInput>;
-
-export const watcharrRunInput = uploadTokenRunInput("watcharr");
-export type WatcharrRunInput = z.infer<typeof watcharrRunInput>;
-
-export const movaryRunInput = z.object({
+const grouveeRunInput = uploadTokenRunInput("grouvee");
+const anilistRunInput = uploadTokenRunInput("anilist");
+const watcharrRunInput = uploadTokenRunInput("watcharr");
+const movaryRunInput = z.object({
 	source: z.literal("movary"),
 	historyUploadToken: nonEmptyStringSchema,
 	ratingsUploadToken: nonEmptyStringSchema,
 	watchlistUploadToken: nonEmptyStringSchema,
 });
-export type MovaryRunInput = z.infer<typeof movaryRunInput>;
-
-export const igdbRunInput = uploadTokenRunInput("igdb").extend({
-	collection: nonEmptyStringSchema,
-});
-export type IgdbRunInput = z.infer<typeof igdbRunInput>;
-
-export const myanimelistRunInput = z.object({
+const igdbRunInput = uploadTokenRunInput("igdb").extend({ collection: nonEmptyStringSchema });
+const myanimelistRunInput = z.object({
 	source: z.literal("myanimelist"),
 	animeUploadToken: nonEmptyStringSchema.optional(),
 	mangaUploadToken: nonEmptyStringSchema.optional(),
 });
-export type MyanimelistRunInput = z.infer<typeof myanimelistRunInput>;
-
-export const traktRunInput = z.object({
-	username: nonEmptyStringSchema,
-	source: z.literal("trakt"),
-});
-export type TraktRunInput = z.infer<typeof traktRunInput>;
-
-export const plexRunInput = urlAndKeyRunInput("plex");
-export type PlexRunInput = z.infer<typeof plexRunInput>;
-
-export const mediaTrackerRunInput = urlAndKeyRunInput("media_tracker");
-export type MediaTrackerRunInput = z.infer<typeof mediaTrackerRunInput>;
-
-export const audiobookshelfRunInput = urlAndKeyRunInput("audiobookshelf");
-export type AudiobookshelfRunInput = z.infer<typeof audiobookshelfRunInput>;
-
-export const jellyfinRunInput = z.object({
+const traktRunInput = z.object({ username: nonEmptyStringSchema, source: z.literal("trakt") });
+const plexRunInput = urlAndKeyRunInput("plex");
+const mediaTrackerRunInput = urlAndKeyRunInput("media_tracker");
+const audiobookshelfRunInput = urlAndKeyRunInput("audiobookshelf");
+const jellyfinRunInput = z.object({
 	apiUrl: sourceApiUrlSchema,
 	username: nonEmptyStringSchema,
 	source: z.literal("jellyfin"),
 	password: nonEmptyStringSchema.optional(),
 	...allowInsecureConnectionsField,
 });
-export type JellyfinRunInput = z.infer<typeof jellyfinRunInput>;
 
 export const createImportRunBody = z.discriminatedUnion("source", [
 	hevyRunInput,

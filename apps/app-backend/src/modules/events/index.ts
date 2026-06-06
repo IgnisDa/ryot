@@ -5,8 +5,6 @@ export type {
 	CreatedEventData,
 	CreateEventsBestEffortData,
 	CreateEventsBestEffortFailure,
-	EventPropertiesShape,
-	EventServiceDeps,
 	EventServiceResult,
 } from "./service";
 export {

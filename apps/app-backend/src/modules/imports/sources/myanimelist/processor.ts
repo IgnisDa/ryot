@@ -3,8 +3,6 @@ import { gunzipSync } from "node:zlib";
 
 import type { Job } from "bullmq";
 
-import { getTemporaryDirectory } from "~/lib/bun";
-
 import {
 	processMediaImport,
 	type MediaImportAdapterResult,
@@ -12,9 +10,8 @@ import {
 } from "../../media/import-processor";
 import {
 	cleanupImportFile,
+	getValidatedOptionalPath,
 	readImportFileBytes,
-	resolveSafeImportFilePath,
-	validateFileExtension,
 } from "../../runtime/files";
 import { adaptMyanimelistExports } from "./adapter";
 
@@ -34,22 +31,6 @@ const myanimelistImportProcessorDeps: MyanimelistImportProcessorDeps = {
 	adaptMyanimelistExports,
 };
 
-const getValidatedOptionalPath = (value: unknown): string | undefined => {
-	if (typeof value !== "string" || value.trim().length === 0) {
-		return undefined;
-	}
-	const tempDir = getTemporaryDirectory();
-	const safePathResult = resolveSafeImportFilePath(value, tempDir);
-	if ("error" in safePathResult) {
-		throw new Error(safePathResult.error);
-	}
-	const extResult = validateFileExtension(safePathResult.path, MYANIMELIST_EXTENSIONS);
-	if ("error" in extResult) {
-		throw new Error(extResult.error);
-	}
-	return safePathResult.path;
-};
-
 const decodeMyanimelistFile = async (
 	filePath: string,
 	deps: MyanimelistImportProcessorDeps,
@@ -66,8 +47,14 @@ export const processMyanimelistImport = async (
 	input: MediaImportJobInput & { filePath?: string; sourcePayload?: Record<string, unknown> },
 	deps: MyanimelistImportProcessorDeps = myanimelistImportProcessorDeps,
 ): Promise<void> => {
-	const animeFilePath = getValidatedOptionalPath(input.sourcePayload?.animeFilePath);
-	const mangaFilePath = getValidatedOptionalPath(input.sourcePayload?.mangaFilePath);
+	const animeFilePath = getValidatedOptionalPath(
+		input.sourcePayload?.animeFilePath,
+		MYANIMELIST_EXTENSIONS,
+	);
+	const mangaFilePath = getValidatedOptionalPath(
+		input.sourcePayload?.mangaFilePath,
+		MYANIMELIST_EXTENSIONS,
+	);
 	const primaryFilePath = animeFilePath ?? mangaFilePath ?? input.filePath;
 	const resolvedAnimeFilePath = animeFilePath ?? (mangaFilePath ? undefined : primaryFilePath);
 	const cleanupPaths = [primaryFilePath, resolvedAnimeFilePath, mangaFilePath].filter(

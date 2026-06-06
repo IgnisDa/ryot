@@ -25,9 +25,7 @@ import {
 	type EntityPopulationDeps,
 	entityPopulationDeps,
 	getSandboxChildRunResult,
-	hasImportedEntityDetails,
 	populateGlobalEntity,
-	processRelatedEntities,
 	queueSandboxChildRun,
 	waitForSandboxChildRun,
 } from "./population";
@@ -45,8 +43,6 @@ const entitySearchResultSchema = z.object({
 		nextPage: z.number().int().positive().nullable().optional(),
 	}),
 });
-
-export { hasImportedEntityDetails, processRelatedEntities };
 
 export type EntityImportWorkerDeps = EntityPopulationDeps & {
 	ensureEntityInLibrary: typeof ensureEntityInLibrary;

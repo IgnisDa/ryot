@@ -16,6 +16,7 @@ import type {
 	MediaImportAdapterFailure,
 	MediaImportAdapterResult,
 } from "../../media/import-processor";
+import { parseDateInput } from "../shared/adapter-utils";
 
 const watcharrActivitySchema = z.object({
 	type: z.string(),
@@ -45,13 +46,8 @@ const watcharrItemSchema = z.object({
 	content: z.object({ type: z.string(), title: z.string(), tmdbId: z.number().int() }),
 });
 
-const normalizeOccurredAt = (value: string | null | undefined, fallback: string): string => {
-	if (!value) {
-		return fallback;
-	}
-	const parsed = dayjs(value);
-	return parsed.isValid() ? parsed.toISOString() : fallback;
-};
+const normalizeOccurredAt = (value: string | null | undefined, fallback: string): string =>
+	parseDateInput(value) ?? fallback;
 
 const getLatestOccurredAt = (left: string, right: string): string =>
 	dayjs(left).valueOf() >= dayjs(right).valueOf() ? left : right;

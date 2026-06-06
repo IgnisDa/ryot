@@ -25,7 +25,7 @@ const NETFLIX_DATETIME_FORMATS = ["YYYY-MM-DD HH:mm:ss"];
 
 type NetflixLookupResult = { entityRef: ResolvedImportEntityRef } | { error: string };
 
-export type NetflixLookupTitle = (input: {
+type NetflixLookupTitle = (input: {
 	title: string;
 	preferredEntitySchemaSlug?: "movie" | "show";
 }) => Promise<{ entityRef: ResolvedImportEntityRef; matchedTitle: string } | { error: string }>;
