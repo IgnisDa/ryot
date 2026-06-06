@@ -3,10 +3,14 @@ import type { Job } from "bullmq";
 import { config } from "~/lib/config";
 
 import type { ImportEntityRef, ImportMediaEntityGroup, ImportRunJobData } from "../../jobs";
+import {
+	entityRefKey,
+	populateMediaEntityRefs,
+	writeMediaEntityGroups,
+} from "../../media/processor";
 import { createImportRunFailure, updateImportRun } from "../../repository";
 import type { ImportRunFailureStage } from "../../schemas";
 import { adaptTraktData } from "./adapter";
-import { entityRefKey, populateMediaEntityRefs, writeMediaEntityGroups } from "./media-processor";
 
 const sanitizeErrorMessage = (error: unknown, fallback: string): string => {
 	if (!(error instanceof Error)) {
