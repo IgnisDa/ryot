@@ -16,6 +16,11 @@ Remove explicit return type annotations when TypeScript can trivially infer them
 
 - `bun test` does not work in this app. Use `bun run test` instead.
 
+## Runtime APIs And Diagnostics
+
+- Prefer Effect platform primitives over `node:*` imports in app-backend code. Use Bun APIs when Effect has no suitable primitive. Use Node built-ins only when neither Effect nor Bun provides a practical equivalent, and keep the reason local and explicit.
+- Do not add `@effect-diagnostics` or `oxlint-disable` comments by default. Prefer typed Effect errors, Effect Schema decoding/encoding, promise-returning callbacks, and small pure helpers that satisfy the diagnostics. If a suppression is unavoidable, keep it narrowly scoped and explain why the API cannot be expressed cleanly.
+
 ## Module Boundaries
 
 - Routes stay thin: validate request data via `HttpApiBuilder`, call services, and return direct values or typed tagged errors.

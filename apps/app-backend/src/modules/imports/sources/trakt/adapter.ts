@@ -1,5 +1,5 @@
 import { HttpClient, HttpClientRequest } from "@effect/platform";
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 
 import {
 	addCollectionMembership,
@@ -21,59 +21,68 @@ const TRAKT_API_VERSION = "2";
 const TRAKT_PAGE_LIMIT = "1000";
 const TRAKT_API_URL = "https://api.trakt.tv";
 
-type TraktIds = {
-	trakt: number;
-	tmdb?: number;
-	imdb?: string;
-	slug?: string;
-};
+const TraktIds = Schema.Struct({
+	trakt: Schema.Number,
+	tmdb: Schema.optional(Schema.Number),
+	imdb: Schema.optional(Schema.String),
+	slug: Schema.optional(Schema.String),
+});
 
-type TraktItem = {
-	ids: TraktIds;
-	year?: number;
-	title?: string;
-};
+const TraktItem = Schema.Struct({
+	ids: TraktIds,
+	year: Schema.optional(Schema.Number),
+	title: Schema.optional(Schema.String),
+});
 
-type TraktHistoryItem = {
-	id: number;
-	show?: TraktItem;
-	movie?: TraktItem;
-	watched_at: string;
-	type: "movie" | "episode";
-	episode?: { ids: TraktIds; season: number; number: number; title?: string };
-};
+const TraktEpisode = Schema.Struct({
+	ids: TraktIds,
+	number: Schema.Number,
+	season: Schema.Number,
+	title: Schema.optional(Schema.String),
+});
 
-type TraktRatingItem = {
-	rating: number;
-	rated_at: string;
-	show?: TraktItem;
-	movie?: TraktItem;
-	type: "movie" | "show" | "season" | "episode";
-};
+const TraktHistoryItem = Schema.Struct({
+	id: Schema.Number,
+	watched_at: Schema.String,
+	show: Schema.optional(TraktItem),
+	movie: Schema.optional(TraktItem),
+	type: Schema.Literal("movie", "episode"),
+	episode: Schema.optional(TraktEpisode),
+});
 
-type TraktWatchlistItem = {
-	show?: TraktItem;
-	movie?: TraktItem;
-	listed_at?: string;
-	type: "movie" | "show";
-};
+const TraktRatingItem = Schema.Struct({
+	rating: Schema.Number,
+	rated_at: Schema.String,
+	show: Schema.optional(TraktItem),
+	movie: Schema.optional(TraktItem),
+	type: Schema.Literal("movie", "show", "season", "episode"),
+});
 
-type TraktListItem = {
-	show?: TraktItem;
-	movie?: TraktItem;
-	type: "movie" | "show";
-};
+const TraktWatchlistItem = Schema.Struct({
+	type: Schema.Literal("movie", "show"),
+	show: Schema.optional(TraktItem),
+	movie: Schema.optional(TraktItem),
+	listed_at: Schema.optional(Schema.String),
+});
 
-type TraktList = {
-	name: string;
-	ids: TraktIds;
-	description?: string;
-};
+const TraktListItem = Schema.Struct({
+	type: Schema.Literal("movie", "show"),
+	show: Schema.optional(TraktItem),
+	movie: Schema.optional(TraktItem),
+});
 
-type TraktCollectionItem = {
-	show?: TraktItem;
-	movie?: TraktItem;
-};
+const TraktList = Schema.Struct({
+	ids: TraktIds,
+	name: Schema.String,
+	description: Schema.optional(Schema.String),
+});
+
+const TraktCollectionItem = Schema.Struct({
+	show: Schema.optional(TraktItem),
+	movie: Schema.optional(TraktItem),
+});
+
+type TraktItem = typeof TraktItem.Type;
 
 const buildTraktClient = (clientId: string) => {
 	const headers = {
@@ -107,7 +116,11 @@ const buildTraktClient = (clientId: string) => {
 			return response;
 		});
 
-	const fetchJson = <T>(path: string, query?: Record<string, string>) =>
+	const fetchJson = <A, I, R>(
+		path: string,
+		schema: Schema.Schema<A, I, R>,
+		query?: Record<string, string>,
+	) =>
 		Effect.gen(function* () {
 			const url = buildUrl(path, query);
 			const response = yield* execute(HttpClientRequest.get(url.toString()), path);
@@ -117,8 +130,7 @@ const buildTraktClient = (clientId: string) => {
 					message: `Trakt API error ${response.status}: ${path}`,
 				});
 			}
-			// oxlint-disable-next-line no-unsafe-type-assertion
-			return yield* response.json.pipe(Effect.map((value) => value as T));
+			return yield* response.json.pipe(Effect.flatMap(Schema.decodeUnknown(schema)));
 		});
 
 	const fetchPageCount = (path: string, query?: Record<string, string>) =>
@@ -136,12 +148,16 @@ const buildTraktClient = (clientId: string) => {
 			return Number.isFinite(totalPages) && totalPages > 0 ? totalPages : 1;
 		});
 
-	const fetchAll = <T>(path: string, query?: Record<string, string>) =>
+	const fetchAll = <A, I, R>(
+		path: string,
+		schema: Schema.Schema<A, I, R>,
+		query?: Record<string, string>,
+	) =>
 		Effect.gen(function* () {
 			const totalPages = yield* fetchPageCount(path, query);
-			const all: T[] = [];
+			const all: A[] = [];
 			for (let page = 1; page <= totalPages; page++) {
-				const pageItems = yield* fetchJson<T[]>(path, {
+				const pageItems = yield* fetchJson(path, Schema.Array(schema), {
 					...query,
 					limit: TRAKT_PAGE_LIMIT,
 					page: String(page),
@@ -222,7 +238,7 @@ export const adaptTraktData = (username: string, clientId: string) =>
 		const groupMap = new Map<string, ImportMediaEntityGroup>();
 		let itemIndex = 0;
 
-		const history = yield* client.fetchAll<TraktHistoryItem>(`${userUrl}/history`);
+		const history = yield* client.fetchAll(`${userUrl}/history`, TraktHistoryItem);
 		history.sort((a, b) => getOccurredAtValue(a.watched_at) - getOccurredAtValue(b.watched_at));
 		for (const item of history) {
 			itemIndex++;
@@ -266,7 +282,7 @@ export const adaptTraktData = (username: string, clientId: string) =>
 		}
 
 		for (const type of ["movies", "shows"] as const) {
-			const ratings = yield* client.fetchAll<TraktRatingItem>(`${userUrl}/ratings/${type}`);
+			const ratings = yield* client.fetchAll(`${userUrl}/ratings/${type}`, TraktRatingItem);
 			for (const item of ratings) {
 				itemIndex++;
 				const sourceItem = type === "movies" ? item.movie : item.show;
@@ -294,7 +310,7 @@ export const adaptTraktData = (username: string, clientId: string) =>
 			}
 		}
 
-		const watchlist = yield* client.fetchAll<TraktWatchlistItem>(`${userUrl}/watchlist`);
+		const watchlist = yield* client.fetchAll(`${userUrl}/watchlist`, TraktWatchlistItem);
 		for (const item of watchlist) {
 			itemIndex++;
 			const sourceItem = item.type === "movie" ? item.movie : item.show;
@@ -315,15 +331,16 @@ export const adaptTraktData = (username: string, clientId: string) =>
 			group.events.push(createBacklogEvent(item.listed_at ?? nowIso()));
 		}
 
-		const lists = yield* client.fetchAll<TraktList>(`${userUrl}/lists`);
+		const lists = yield* client.fetchAll(`${userUrl}/lists`, TraktList);
 		const lifecycleAliases = new Set(["watchlist"]);
 		for (const list of lists) {
 			const collectionName = list.name;
 			if (lifecycleAliases.has(collectionName.toLowerCase())) {
 				continue;
 			}
-			const items = yield* client.fetchAll<TraktListItem>(
+			const items = yield* client.fetchAll(
 				`${userUrl}/lists/${list.ids.trakt}/items`,
+				TraktListItem,
 			);
 			for (const item of items) {
 				itemIndex++;
@@ -347,7 +364,7 @@ export const adaptTraktData = (username: string, clientId: string) =>
 		}
 
 		for (const type of ["movies", "shows"] as const) {
-			const items = yield* client.fetchAll<TraktCollectionItem>(`${userUrl}/collection/${type}`);
+			const items = yield* client.fetchAll(`${userUrl}/collection/${type}`, TraktCollectionItem);
 			for (const item of items) {
 				itemIndex++;
 				const sourceItem = type === "movies" ? item.movie : item.show;
