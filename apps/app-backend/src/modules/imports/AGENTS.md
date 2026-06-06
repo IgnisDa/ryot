@@ -31,6 +31,10 @@ Media imports run in four phases:
 
 The pipeline is re-entrant. Resolution and population both enqueue sandbox child jobs and resume through BullMQ state stored in `ImportRunJobData`.
 
+After adapter load, persisted media pipeline snapshots must contain only normalized resume state such as `mediaEntityGroups`, refs, ids, failed indices, and phase indexes. Do not persist source credentials, API URLs, raw temp file paths, or source payloads in `job.updateData` snapshots once normalized groups exist.
+
+API source processors should validate credentials inside `loadAdapterResult`, not before calling `processMediaImport`, so resumed `resolving_entities`, `populating_entities`, and `writing_events` phases can continue without source credentials. File-backed media processors should require temp paths only for adapter loading; resumed media phases use normalized groups and must not require the upload file to still exist.
+
 ## Import refs
 
 `ImportEntityRef` is a discriminated union.

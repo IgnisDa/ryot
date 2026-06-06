@@ -63,7 +63,7 @@ const decodeMyanimelistFile = async (
 export const processMyanimelistImport = async (
 	job: Job,
 	token: string | undefined,
-	input: MediaImportJobInput & { filePath: string; sourcePayload?: Record<string, unknown> },
+	input: MediaImportJobInput & { filePath?: string; sourcePayload?: Record<string, unknown> },
 	deps: MyanimelistImportProcessorDeps = myanimelistImportProcessorDeps,
 ): Promise<void> => {
 	const animeFilePath = getValidatedOptionalPath(input.sourcePayload?.animeFilePath);
@@ -78,10 +78,6 @@ export const processMyanimelistImport = async (
 		...input,
 		sourceName: "MyAnimeList",
 		adapterErrorFallback: "Could not parse MyAnimeList export data",
-		jobData: {
-			filePath: input.filePath,
-			...(input.sourcePayload ? { sourcePayload: input.sourcePayload } : {}),
-		},
 		cleanup: async () => {
 			for (const filePath of new Set(cleanupPaths)) {
 				// oxlint-disable-next-line no-await-in-loop

@@ -61,6 +61,6 @@ export const cleanupImportFile = async (safePath: string): Promise<void> => {
 	try {
 		await Bun.file(safePath).delete();
 	} catch (error) {
-		console.warn(`Import file cleanup failed for path '${safePath}':`, error);
+		console.warn("Import file cleanup failed", error);
 	}
 };

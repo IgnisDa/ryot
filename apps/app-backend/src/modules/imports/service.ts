@@ -23,6 +23,10 @@ import {
 	getImportSourceStartError,
 	getImportSourceFileInputs,
 } from "./runtime/source-definitions";
+import {
+	deleteImportSourcePayload,
+	storeImportSourcePayload,
+} from "./runtime/source-payload-store";
 import type {
 	CreateImportRunBody,
 	ImportRunStatus,
@@ -127,19 +131,32 @@ export const startImportRun = async (input: {
 		return serviceData({ id: run.id });
 	}
 
+	const sourcePayload = buildSourcePayload(input.body);
 	const run = await createImportRun({
 		inputSummary,
 		userId: input.userId,
 		source: input.body.source,
 	});
 
+	if (sourcePayload) {
+		try {
+			await storeImportSourcePayload({ runId: run.id, sourcePayload });
+		} catch {
+			await failImportRun(run.id, "Failed to queue import credentials");
+			return serviceError("validation", "Could not queue the import job; please try again");
+		}
+	}
+
 	try {
 		await getQueues().importQueue.add(importRunJobName, {
 			runId: run.id,
 			userId: input.userId,
-			sourcePayload: buildSourcePayload(input.body),
+			...(sourcePayload ? { sourcePayloadKey: run.id } : {}),
 		});
 	} catch {
+		if (sourcePayload) {
+			await deleteImportSourcePayload(run.id);
+		}
 		await failImportRun(run.id, "Failed to enqueue import job");
 		return serviceError("validation", "Could not queue the import job; please try again");
 	}

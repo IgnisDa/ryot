@@ -50,7 +50,6 @@ export const populateMediaEntityRefs = async (
 	}
 
 	const baseSnapshot = {
-		...input.jobData,
 		runId: input.runId,
 		userId: input.userId,
 		providerEntityIds: entityIds,

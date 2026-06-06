@@ -48,7 +48,7 @@ describe("processBookCsvImport", () => {
 					return Promise.resolve();
 				},
 				processMediaImport: async (_job, _token, input) => {
-					expect(input.jobData).toEqual({ filePath: "/tmp/import.csv" });
+					expect(input.jobData).toBeUndefined();
 					expect(input.sourceName).toBe("Goodreads");
 					expect(input.adapterErrorFallback).toBe("Could not parse Goodreads import data");
 					expect(await input.loadAdapterResult()).toBe(adapterResult);

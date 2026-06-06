@@ -1,6 +1,7 @@
 import { dayjs } from "@ryot/ts-utils/dayjs";
 
 import type { ImportEntityRef, ImportMediaEntityGroup } from "../../jobs";
+import { finalizeEntityGroups } from "../../media/book/shared";
 import { getOrCreateMediaEntityGroup } from "../../media/groups";
 import type {
 	MediaImportAdapterFailure,
@@ -10,6 +11,7 @@ import type {
 const TRAKT_API_VERSION = "2";
 const TRAKT_PAGE_LIMIT = "1000";
 const TRAKT_API_URL = "https://api.trakt.tv";
+type TraktFetch = (url: string | URL, init?: RequestInit) => Promise<Response>;
 
 type TraktIds = {
 	trakt: number;
@@ -67,7 +69,17 @@ type TraktCollectionItem = {
 	movie?: TraktItem;
 };
 
-const buildTraktClient = (clientId: string) => {
+export type TraktImportAdapterDeps = {
+	fetch: TraktFetch;
+	now: () => string;
+};
+
+const traktImportAdapterDeps: TraktImportAdapterDeps = {
+	fetch,
+	now: () => dayjs().toISOString(),
+};
+
+const buildTraktClient = (clientId: string, doFetch: TraktFetch) => {
 	const headers = {
 		"trakt-api-key": clientId,
 		"Content-Type": "application/json",
@@ -86,7 +98,7 @@ const buildTraktClient = (clientId: string) => {
 
 	const fetchJson = async <T>(path: string, query?: Record<string, string>): Promise<T> => {
 		const url = buildUrl(path, query);
-		const response = await fetch(url.toString(), { headers });
+		const response = await doFetch(url.toString(), { headers });
 		if (!response.ok) {
 			throw new Error(`Trakt API error ${response.status}: ${path}`);
 		}
@@ -98,7 +110,7 @@ const buildTraktClient = (clientId: string) => {
 
 	const fetchPageCount = async (path: string, query?: Record<string, string>): Promise<number> => {
 		const url = buildUrl(path, { ...query, limit: TRAKT_PAGE_LIMIT });
-		const headResponse = await fetch(url.toString(), { headers, method: "HEAD" });
+		const headResponse = await doFetch(url.toString(), { headers, method: "HEAD" });
 		if (!headResponse.ok) {
 			throw new Error(`Trakt API error ${headResponse.status}: fetching page count for ${path}`);
 		}
@@ -188,9 +200,10 @@ const buildShowRef = (show: TraktItem): ImportEntityRef | undefined => {
 export const adaptTraktData = async (
 	username: string,
 	clientId: string,
+	deps: TraktImportAdapterDeps = traktImportAdapterDeps,
 ): Promise<MediaImportAdapterResult> => {
 	const userUrl = `/users/${username}`;
-	const client = buildTraktClient(clientId);
+	const client = buildTraktClient(clientId, deps.fetch);
 
 	const failures: MediaImportAdapterFailure[] = [];
 	const groupMap = new Map<string, ImportMediaEntityGroup>();
@@ -290,12 +303,12 @@ export const adaptTraktData = async (
 		group.events.push({
 			properties: {},
 			eventSchemaSlug: "backlog",
-			occurredAt: item.listed_at ?? dayjs().toISOString(),
+			occurredAt: item.listed_at ?? deps.now(),
 		});
 	}
 
 	const lists = await client.fetchAll<TraktList>(`${userUrl}/lists`);
-	const lifecycleAliases = new Set(["watchlist", "favorites"]);
+	const lifecycleAliases = new Set(["watchlist"]);
 	for (const list of lists) {
 		const collectionName = list.name;
 		if (lifecycleAliases.has(collectionName.toLowerCase())) {
@@ -357,5 +370,5 @@ export const adaptTraktData = async (
 		}
 	}
 
-	return { entityGroups: [...groupMap.values()], failures };
+	return { entityGroups: finalizeEntityGroups(groupMap), failures };
 };

@@ -23,7 +23,7 @@ export const processBookCsvImport = async (
 	job: Job,
 	token: string | undefined,
 	input: MediaImportJobInput & {
-		filePath: string;
+		filePath?: string;
 		sourceName: string;
 		adapt: (csvText: string) => Promise<MediaImportAdapterResult> | MediaImportAdapterResult;
 	},
@@ -33,10 +33,12 @@ export const processBookCsvImport = async (
 
 	await deps.processMediaImport(job, token, {
 		...input,
-		jobData: { filePath },
-		cleanup: () => deps.cleanupImportFile(filePath),
 		adapterErrorFallback: `Could not parse ${input.sourceName} import data`,
+		cleanup: () => (filePath ? deps.cleanupImportFile(filePath) : Promise.resolve()),
 		loadAdapterResult: async () => {
+			if (!filePath) {
+				throw new Error("Could not read import file");
+			}
 			let csvText: string;
 			try {
 				csvText = await deps.readImportFile(filePath);
