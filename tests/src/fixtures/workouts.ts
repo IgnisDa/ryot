@@ -45,11 +45,9 @@ export async function waitForSessionEventCount(
 	return pollUntil(
 		`${expectedCount} events on session ${sessionEntityId}`,
 		async () => {
-			const result = await client.events.list({
-				headers: { Cookie: cookies },
-				params: { query: { sessionEntityId } },
+			const events = await client.run((c) => c.events.list({ urlParams: { sessionEntityId } }), {
+				Cookie: cookies,
 			});
-			const events = result.data ?? [];
 			return events.length >= expectedCount ? events : null;
 		},
 		{ timeoutMs: 5000, intervalMs: 200, ...options },
@@ -71,10 +69,6 @@ async function pollSeededExerciseIds(client: Client, cookies: string, count: num
 					]),
 				}),
 			);
-
-			if (result.response.status !== 200) {
-				return null;
-			}
 
 			const ids = result.data.data.items.flatMap((item) => {
 				const field = item.column_0;
