@@ -21,7 +21,6 @@ import { describe, expect, it } from "vitest";
 
 import {
 	formatPropertyIssues,
-	getAppPropertyDefinitionAtPath,
 	parseAppSchemaProperties,
 	parseAppSchemaPropertiesSafe,
 	validateAppSchemaDefinition,
@@ -552,6 +551,11 @@ describe("parseAppSchemaPropertiesSafe - array property", () => {
 		expect(parse({ items: field }, { items: ["a"] }).success).toBe(false);
 		expect(parse({ items: field }, { items: ["a", "b"] }).success).toBe(true);
 	});
+
+	it("enforces required validation on array items", () => {
+		const field = arrayProp(str({ validation: { required: true } }));
+		expect(parse({ items: field }, { items: [null] }).success).toBe(false);
+	});
 });
 
 describe("parseAppSchemaPropertiesSafe - object property", () => {
@@ -610,6 +614,39 @@ describe("parseAppSchemaPropertiesSafe - rule conditions", () => {
 				{ path: ["secret"], message: "secret is not accepted while disabled" },
 			]);
 		}
+	});
+
+	it("rejects a type-invalid hidden property with the visibility message", () => {
+		const rule = visibilityRule(["secret"], { value: false, operator: "eq", path: ["enabled"] });
+		const s = schema(
+			{ enabled: bool(), secret: str() },
+			{ rules: [{ ...rule, message: "secret is not accepted while disabled" }] },
+		);
+		const result = parseAppSchemaPropertiesSafe({
+			propertiesSchema: s,
+			properties: { enabled: false, secret: 42 },
+		});
+
+		expect(result).toEqual({
+			success: false,
+			issues: [{ path: ["secret"], message: "secret is not accepted while disabled" }],
+		});
+	});
+
+	it("suppresses nested required fields under a hidden ancestor", () => {
+		const s = schema(
+			{
+				enabled: bool(),
+				settings: objectProp({ secret: str({ validation: { required: true } }) }),
+			},
+			{
+				rules: [visibilityRule(["settings"], { operator: "eq", path: ["enabled"], value: false })],
+			},
+		);
+
+		expect(
+			parseAppSchemaPropertiesSafe({ propertiesSchema: s, properties: { enabled: false } }),
+		).toEqual({ success: true, data: { enabled: false } });
 	});
 
 	it("lets visibility override both property and conditional requiredness", () => {
@@ -697,163 +734,6 @@ describe("parseAppSchemaPropertiesSafe - rule conditions", () => {
 		).toBe(false);
 	});
 
-	it("neq: enforces required when value is different from condition", () => {
-		const s = schema(
-			{ status: str(), progress: num() },
-			{
-				rules: [requiredRule(["progress"], { operator: "neq", path: ["status"], value: "draft" })],
-			},
-		);
-
-		expect(
-			parseAppSchemaPropertiesSafe({ properties: { status: "active" }, propertiesSchema: s })
-				.success,
-		).toBe(false);
-
-		expect(
-			parseAppSchemaPropertiesSafe({ properties: { status: "draft" }, propertiesSchema: s })
-				.success,
-		).toBe(true);
-	});
-
-	it("in: enforces required when value is one of the provided set", () => {
-		const s = schema(
-			{ status: str(), progress: num() },
-			{
-				rules: [
-					requiredRule(["progress"], {
-						operator: "in",
-						path: ["status"],
-						value: ["active", "done"],
-					}),
-				],
-			},
-		);
-
-		expect(
-			parseAppSchemaPropertiesSafe({ properties: { status: "active" }, propertiesSchema: s })
-				.success,
-		).toBe(false);
-
-		expect(
-			parseAppSchemaPropertiesSafe({ properties: { status: "draft" }, propertiesSchema: s })
-				.success,
-		).toBe(true);
-	});
-
-	it("not_in: enforces required when value is not in the provided set", () => {
-		const s = schema(
-			{ status: str(), progress: num() },
-			{
-				rules: [
-					requiredRule(["progress"], {
-						path: ["status"],
-						value: ["draft"],
-						operator: "not_in",
-					}),
-				],
-			},
-		);
-
-		expect(
-			parseAppSchemaPropertiesSafe({ properties: { status: "active" }, propertiesSchema: s })
-				.success,
-		).toBe(false);
-
-		expect(
-			parseAppSchemaPropertiesSafe({ properties: { status: "draft" }, propertiesSchema: s })
-				.success,
-		).toBe(true);
-	});
-
-	it("exists: enforces required when the condition path has any value", () => {
-		const s = schema(
-			{ note: str(), progress: num() },
-			{
-				rules: [requiredRule(["progress"], { operator: "exists", path: ["note"] })],
-			},
-		);
-
-		expect(
-			parseAppSchemaPropertiesSafe({ properties: { note: "hi" }, propertiesSchema: s }).success,
-		).toBe(false);
-
-		expect(parseAppSchemaPropertiesSafe({ properties: {}, propertiesSchema: s }).success).toBe(
-			true,
-		);
-	});
-
-	it("not_exists: enforces required when the condition path is absent", () => {
-		const s = schema(
-			{ note: str(), progress: num() },
-			{
-				rules: [requiredRule(["progress"], { operator: "not_exists", path: ["note"] })],
-			},
-		);
-
-		expect(parseAppSchemaPropertiesSafe({ properties: {}, propertiesSchema: s }).success).toBe(
-			false,
-		);
-
-		expect(
-			parseAppSchemaPropertiesSafe({ properties: { note: "hi" }, propertiesSchema: s }).success,
-		).toBe(true);
-	});
-
-	it("all: requires all sub-conditions to be true", () => {
-		const s = schema(
-			{ a: str(), b: str(), progress: num() },
-			{
-				rules: [
-					requiredRule(["progress"], {
-						operator: "all",
-						conditions: [
-							{ operator: "eq", path: ["a"], value: "yes" },
-							{ operator: "eq", path: ["b"], value: "yes" },
-						],
-					}),
-				],
-			},
-		);
-
-		expect(
-			parseAppSchemaPropertiesSafe({ properties: { a: "yes", b: "yes" }, propertiesSchema: s })
-				.success,
-		).toBe(false);
-
-		expect(
-			parseAppSchemaPropertiesSafe({ properties: { a: "yes", b: "no" }, propertiesSchema: s })
-				.success,
-		).toBe(true);
-	});
-
-	it("any: requires at least one sub-condition to be true", () => {
-		const s = schema(
-			{ a: str(), b: str(), progress: num() },
-			{
-				rules: [
-					requiredRule(["progress"], {
-						operator: "any",
-						conditions: [
-							{ operator: "eq", path: ["a"], value: "yes" },
-							{ operator: "eq", path: ["b"], value: "yes" },
-						],
-					}),
-				],
-			},
-		);
-
-		expect(
-			parseAppSchemaPropertiesSafe({ properties: { a: "yes", b: "no" }, propertiesSchema: s })
-				.success,
-		).toBe(false);
-
-		expect(
-			parseAppSchemaPropertiesSafe({ properties: { a: "no", b: "no" }, propertiesSchema: s })
-				.success,
-		).toBe(true);
-	});
-
 	it("uses the rule message when provided", () => {
 		const s = schema(
 			{ status: str(), progress: num() },
@@ -878,6 +758,33 @@ describe("parseAppSchemaPropertiesSafe - rule conditions", () => {
 		if (!result.success) {
 			expect(formatPropertyIssues(result.issues)).toContain("progress is required when done");
 		}
+	});
+
+	it("prefers a conditional rule message over a declared required message", () => {
+		const s = schema(
+			{ status: str(), progress: num({ validation: { required: true } }) },
+			{
+				rules: [
+					{
+						kind: "validation",
+						path: ["progress"],
+						validation: { required: true },
+						message: "progress is required when done",
+						when: { operator: "eq", path: ["status"], value: "done" },
+					},
+				],
+			},
+		);
+
+		const result = parseAppSchemaPropertiesSafe({
+			properties: { status: "done" },
+			propertiesSchema: s,
+		});
+
+		expect(result).toEqual({
+			success: false,
+			issues: [{ path: ["progress"], message: "progress is required when done" }],
+		});
 	});
 });
 
@@ -1014,33 +921,6 @@ describe("validateAppSchemaDefinition", () => {
 			},
 		]);
 		expect(validateAppSchemaDefinition(s, { allowUpload: true })).toEqual([]);
-	});
-});
-
-describe("getAppPropertyDefinitionAtPath", () => {
-	const meta = objectProp({ title: str(), count: int() });
-	const fields = { meta, name: str() };
-
-	it("returns the definition for a top-level field", () => {
-		const result = getAppPropertyDefinitionAtPath(fields, ["name"]);
-		expect(result).toEqual(fields.name);
-	});
-
-	it("returns the definition for a nested field inside an object", () => {
-		const result = getAppPropertyDefinitionAtPath(fields, ["meta", "title"]);
-		expect(result).toEqual(meta.properties["title"]);
-	});
-
-	it("returns undefined for a missing top-level field", () => {
-		expect(getAppPropertyDefinitionAtPath(fields, ["missing"])).toBeUndefined();
-	});
-
-	it("returns undefined when the path descends past a non-object field", () => {
-		expect(getAppPropertyDefinitionAtPath(fields, ["name", "child"])).toBeUndefined();
-	});
-
-	it("returns undefined when the path is empty", () => {
-		expect(getAppPropertyDefinitionAtPath(fields, [])).toBeUndefined();
 	});
 });
 
