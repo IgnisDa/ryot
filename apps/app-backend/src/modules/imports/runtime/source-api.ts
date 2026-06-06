@@ -24,7 +24,7 @@ export type ImportSourceAdapterFailure = {
 	context?: Record<string, unknown>;
 };
 
-export type SourceJsonRequestInput = {
+export type SourceRequestInput = {
 	path: string;
 	baseUrl: string;
 	sourceName: string;
@@ -33,6 +33,10 @@ export type SourceJsonRequestInput = {
 	method?: "GET" | "HEAD" | "POST";
 	allowInsecureConnections?: boolean;
 	query?: Record<string, SourceQueryValue>;
+};
+
+export type SourceJsonRequestInput = Omit<SourceRequestInput, "method"> & {
+	method?: "GET" | "POST";
 };
 
 const getSourceErrorMessage = (input: { host: string; status?: number; sourceName: string }) => {
@@ -98,8 +102,8 @@ export const createImportSourceFailure = (input: {
 	context: getImportSourceFailureContext(input.error, { host: input.host }),
 });
 
-export const requestSourceJson = Effect.fn("imports.requestSourceJson")(function* (
-	input: SourceJsonRequestInput,
+export const requestSourceResponse = Effect.fn("imports.requestSourceResponse")(function* (
+	input: SourceRequestInput,
 ) {
 	const httpClient = yield* HttpClient.HttpClient;
 	const host = getSourceApiHost(input.baseUrl);
@@ -144,6 +148,15 @@ export const requestSourceJson = Effect.fn("imports.requestSourceJson")(function
 			}),
 		});
 	}
+
+	return response;
+});
+
+export const requestSourceJson = Effect.fn("imports.requestSourceJson")(function* (
+	input: SourceJsonRequestInput,
+) {
+	const host = getSourceApiHost(input.baseUrl);
+	const response = yield* requestSourceResponse(input);
 
 	return yield* response.json.pipe(
 		Effect.mapError(
