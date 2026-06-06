@@ -50,6 +50,16 @@ export class EventsService extends Effect.Service<EventsService>()("EventsServic
 		const entitiesRepository = yield* EntitiesRepository;
 		const eventSchemasRepository = yield* EventSchemasRepository;
 
+		const provideCreateEventsContext = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+			effect.pipe(
+				Effect.provideService(DbRunner, runWithDb),
+				Effect.provideService(WorkflowEngine, engine),
+				Effect.provideService(EventsRepository, repository),
+				Effect.provideService(SandboxRepository, sandboxRepository),
+				Effect.provideService(EntitiesRepository, entitiesRepository),
+				Effect.provideService(EventSchemasRepository, eventSchemasRepository),
+			);
+
 		const requireReadableEntity = (userId: string, entityId: string, notFoundMessage: string) =>
 			Effect.gen(function* () {
 				const scope = yield* runWithDb(
@@ -84,49 +94,25 @@ export class EventsService extends Effect.Service<EventsService>()("EventsServic
 					return yield* runWithDb(repository.listForUser({ userId: user.id, ...query }));
 				}),
 			create: (user, payload) =>
-				createEventsForUser(
-					{
-						runWithDb,
-						sandboxRepository,
-						entitiesRepository,
-						eventSchemasRepository,
-						workflowEngine: engine,
-						eventsRepository: repository,
-						runSandboxScript: (sandboxInput) => sandbox.run(sandboxInput),
-					},
-					{ userId: user.id, origin: "api", payload },
+				provideCreateEventsContext(
+					createEventsForUser({ userId: user.id, origin: "api", payload }, sandbox.run),
 				),
 			createForImport: (userId, payload, importRunId) =>
-				createEventsForUser(
-					{
-						runWithDb,
-						sandboxRepository,
-						entitiesRepository,
-						eventSchemasRepository,
-						workflowEngine: engine,
-						eventsRepository: repository,
-						runSandboxScript: (sandboxInput) => sandbox.run(sandboxInput),
-					},
-					{ userId, payload, importRunId, origin: "import" },
+				provideCreateEventsContext(
+					createEventsForUser({ userId, payload, importRunId, origin: "import" }, sandbox.run),
 				),
 			createForIntegration: (input) =>
-				createEventsForUser(
-					{
-						runWithDb,
-						sandboxRepository,
-						entitiesRepository,
-						eventSchemasRepository,
-						workflowEngine: engine,
-						eventsRepository: repository,
-						runSandboxScript: (sandboxInput) => sandbox.run(sandboxInput),
-					},
-					{
-						userId: input.userId,
-						origin: "integration",
-						payload: input.payload,
-						importRunId: input.importRunId,
-						integrationId: input.integrationId,
-					},
+				provideCreateEventsContext(
+					createEventsForUser(
+						{
+							userId: input.userId,
+							origin: "integration",
+							payload: input.payload,
+							importRunId: input.importRunId,
+							integrationId: input.integrationId,
+						},
+						sandbox.run,
+					),
 				),
 		} satisfies EventsServiceShape;
 	}),

@@ -7,7 +7,7 @@ import {
 	createReviewEvent,
 	finalizeEntityGroups,
 } from "../../media/book/shared";
-import { nowIso, parseDateTime } from "../../media/dates";
+import { parseDateTime } from "../../media/dates";
 import { getOrCreateMediaEntityGroup } from "../../media/groups";
 import type {
 	MediaImportAdapterFailure,
@@ -37,16 +37,6 @@ type NetflixRatingRowResult =
 	| { skip: true }
 	| { ok: false; failure: MediaImportAdapterFailure }
 	| { ok: true; title: string; rating: number; occurredAt: string; sourceLabel: string };
-
-type NetflixImportAdapterDeps = {
-	now: () => string;
-	lookupTitle: NetflixLookupTitle;
-};
-
-const netflixImportAdapterDeps: NetflixImportAdapterDeps = {
-	now: () => nowIso(),
-	lookupTitle: () => Effect.succeed({ error: "Netflix title lookup is not configured" }),
-};
 
 const shouldSkipTitle = (title: string): boolean =>
 	title.includes("_hook_") ||
@@ -244,10 +234,11 @@ export const adaptNetflixExports = (
 	input: {
 		myListCsv: string;
 		ratingsCsv: string;
+		importedAt: string;
 		profileName?: string;
 		viewingActivityCsv: string;
 	},
-	deps: NetflixImportAdapterDeps = netflixImportAdapterDeps,
+	lookupTitle: NetflixLookupTitle,
 ): Effect.Effect<MediaImportAdapterResult, string> =>
 	Effect.gen(function* () {
 		const { myListData, ratingsData, viewingData } = yield* Effect.try({
@@ -281,7 +272,7 @@ export const adaptNetflixExports = (
 
 		const failures: MediaImportAdapterFailure[] = [];
 		const groupMap = new Map<string, ReturnType<typeof getOrCreateMediaEntityGroup>>();
-		const importedAt = deps.now();
+		const importedAt = input.importedAt;
 		const titleContext = new Map<string, "movie" | "show">();
 
 		for (const row of viewingData.rows) {
@@ -320,8 +311,8 @@ export const adaptNetflixExports = (
 			}
 
 			const lookup = yield* lookupNetflixTitle({
+				lookupTitle,
 				title: rowResult.title,
-				lookupTitle: deps.lookupTitle,
 				preferredEntitySchemaSlug: hasNetflixShowIndicators(rowResult.title) ? "show" : undefined,
 			});
 			if ("error" in lookup) {
@@ -392,8 +383,8 @@ export const adaptNetflixExports = (
 			}
 
 			const lookup = yield* lookupNetflixTitle({
+				lookupTitle,
 				title: rowResult.title,
-				lookupTitle: deps.lookupTitle,
 				preferredEntitySchemaSlug: titleContext.get(extractNetflixBaseTitle(rowResult.title)),
 			});
 			if ("error" in lookup) {
@@ -438,8 +429,8 @@ export const adaptNetflixExports = (
 			}
 
 			const lookup = yield* lookupNetflixTitle({
+				lookupTitle,
 				title: rowResult.title,
-				lookupTitle: deps.lookupTitle,
 				preferredEntitySchemaSlug: titleContext.get(extractNetflixBaseTitle(rowResult.title)),
 			});
 			if ("error" in lookup) {

@@ -20,6 +20,7 @@ describe("adaptNetflixExports", () => {
 		const result = Effect.runSync(
 			adaptNetflixExports(
 				{
+					importedAt: "2026-02-10T00:00:00.000Z",
 					profileName: "Kids",
 					myListCsv: ["Title Name,Profile Name", "The Queen's Gambit,Kids"].join("\n"),
 					ratingsCsv: [
@@ -34,48 +35,45 @@ describe("adaptNetflixExports", () => {
 						"Ozark,00:40:00,01:00:00,2026-01-07 10:00:00,,Other,,",
 					].join("\n"),
 				},
-				{
-					now: () => "2026-02-10T00:00:00.000Z",
-					lookupTitle: ({ title, preferredEntitySchemaSlug }) => {
-						lookupCalls.push({ title, preferredEntitySchemaSlug });
-						if (title.startsWith("Stranger Things")) {
-							return Effect.succeed({
-								matchedTitle: "Stranger Things",
-								entityRef: {
-									kind: "resolved",
-									externalId: "66732",
-									scriptSlug: "show.tmdb",
-									entitySchemaSlug: "show",
-									sourceLabel: "Stranger Things",
-								},
-							});
-						}
-						if (title === "The Irishman") {
-							return Effect.succeed({
-								matchedTitle: "The Irishman",
-								entityRef: {
-									kind: "resolved",
-									externalId: "398978",
-									scriptSlug: "movie.tmdb",
-									entitySchemaSlug: "movie",
-									sourceLabel: "The Irishman",
-								},
-							});
-						}
-						if (title === "The Queen's Gambit") {
-							return Effect.succeed({
-								matchedTitle: "The Queen's Gambit",
-								entityRef: {
-									kind: "resolved",
-									externalId: "87739",
-									scriptSlug: "show.tmdb",
-									entitySchemaSlug: "show",
-									sourceLabel: "The Queen's Gambit",
-								},
-							});
-						}
-						return Effect.succeed({ error: "Metadata not found" });
-					},
+				({ title, preferredEntitySchemaSlug }) => {
+					lookupCalls.push({ title, preferredEntitySchemaSlug });
+					if (title.startsWith("Stranger Things")) {
+						return Effect.succeed({
+							matchedTitle: "Stranger Things",
+							entityRef: {
+								kind: "resolved",
+								externalId: "66732",
+								scriptSlug: "show.tmdb",
+								entitySchemaSlug: "show",
+								sourceLabel: "Stranger Things",
+							},
+						});
+					}
+					if (title === "The Irishman") {
+						return Effect.succeed({
+							matchedTitle: "The Irishman",
+							entityRef: {
+								kind: "resolved",
+								externalId: "398978",
+								scriptSlug: "movie.tmdb",
+								entitySchemaSlug: "movie",
+								sourceLabel: "The Irishman",
+							},
+						});
+					}
+					if (title === "The Queen's Gambit") {
+						return Effect.succeed({
+							matchedTitle: "The Queen's Gambit",
+							entityRef: {
+								kind: "resolved",
+								externalId: "87739",
+								scriptSlug: "show.tmdb",
+								entitySchemaSlug: "show",
+								sourceLabel: "The Queen's Gambit",
+							},
+						});
+					}
+					return Effect.succeed({ error: "Metadata not found" });
 				},
 			),
 		);
@@ -160,6 +158,7 @@ describe("adaptNetflixExports", () => {
 		const result = Effect.runSync(
 			adaptNetflixExports(
 				{
+					importedAt: "2026-02-10T00:00:00.000Z",
 					myListCsv: ["Title Name,Profile Name", "Unknown Title,Main"].join("\n"),
 					ratingsCsv: ["Title Name,Profile Name,Event Utc Ts,Star Value,Thumbs Value"].join("\n"),
 					viewingActivityCsv: [
@@ -167,23 +166,20 @@ describe("adaptNetflixExports", () => {
 						"The Gentlemen: Season 1: The Gospel According to Bobby Glass,00:50:00,01:00:00,2026-01-03 10:00:00,,Main,,",
 					].join("\n"),
 				},
-				{
-					now: () => "2026-02-10T00:00:00.000Z",
-					lookupTitle: ({ title }) => {
-						if (title.startsWith("The Gentlemen")) {
-							return Effect.succeed({
-								matchedTitle: "The Gentlemen",
-								entityRef: {
-									kind: "resolved",
-									externalId: "123",
-									scriptSlug: "show.tmdb",
-									entitySchemaSlug: "show",
-									sourceLabel: "The Gentlemen",
-								},
-							});
-						}
-						return Effect.succeed({ error: "Metadata not found" });
-					},
+				({ title }) => {
+					if (title.startsWith("The Gentlemen")) {
+						return Effect.succeed({
+							matchedTitle: "The Gentlemen",
+							entityRef: {
+								kind: "resolved",
+								externalId: "123",
+								scriptSlug: "show.tmdb",
+								entitySchemaSlug: "show",
+								sourceLabel: "The Gentlemen",
+							},
+						});
+					}
+					return Effect.succeed({ error: "Metadata not found" });
 				},
 			),
 		);
