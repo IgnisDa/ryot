@@ -3,8 +3,8 @@ import { Effect } from "effect";
 
 import { CurrentDb, dbEffect, isUniqueConstraintError, schema } from "#lib/db";
 import { DbError, conflict } from "#lib/errors";
-import type { AppSchema } from "#lib/schema";
-import { decodeStoredAppSchema } from "#lib/schema";
+import type { AppSchema } from "#lib/schema/core";
+import { decodeStoredAppSchema } from "#lib/schema/core";
 
 import type { ListedEntitySchema, Provider } from "./schemas";
 

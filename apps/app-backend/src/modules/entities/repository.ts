@@ -3,8 +3,8 @@ import { Effect } from "effect";
 
 import { CurrentDb, dbEffect, schema } from "#lib/db";
 import { DbError } from "#lib/errors";
-import type { AppSchema } from "#lib/schema";
-import { decodeStoredAppSchema } from "#lib/schema";
+import type { AppSchema } from "#lib/schema/core";
+import { decodeStoredAppSchema } from "#lib/schema/core";
 
 import type { StoredEntityImage } from "./types";
 
