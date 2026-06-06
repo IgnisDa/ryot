@@ -517,6 +517,85 @@ useful than a vague "don't trust it":
 
 ---
 
+## External GitHub usage audit
+
+This pass searched live public GitHub usage, not just upstream source. Four read-only subagents
+cloned fresh copies of candidate repos under temporary directories and audited actual source usage
+for `@effect/workflow`, `effect/unstable/workflow`, `Workflow.make`, `Activity.make`,
+`WorkflowEngine`, `ClusterWorkflowEngine`, `SingleRunner`, `DurableClock`, `DurableDeferred`, and
+`DurableQueue`. GitHub code search was intermittently rate-limited and returned transient 5xx
+responses, so treat this as a strong sample rather than an exhaustive census.
+
+The main conclusion is uncomfortable but useful: public app usage is still sparse, young, and noisy.
+There are good patterns to copy, but there are also multiple production-looking repos with
+non-deterministic `idempotencyKey` or `executionId` construction. Do not cite a repo as a "known good"
+example just because it depends on `@effect/workflow`.
+
+Some high-quality examples import `effect/unstable/workflow` instead of `@effect/workflow`. Those
+are still useful because they exercise the same unstable workflow API family, but this guide labels
+them as adjacent examples rather than direct package consumers.
+
+### High-signal usage worth learning from
+
+| Repo | What looks good | Caveat |
+|---|---|---|
+| [`CapSoftware/Cap`](https://github.com/CapSoftware/Cap/tree/08839cf520f5d4b54f056ed26b339abe308622e6) | A small, direct package example: `Loom.ImportVideo` keys execution by stable payload fields (`userId`, Loom org/video id, attempt) ([workflow](https://github.com/CapSoftware/Cap/blob/08839cf520f5d4b54f056ed26b339abe308622e6/packages/web-domain/src/Loom.ts#L45-L67)), and wraps URL validation, DB record creation, and S3 download/upload in activities ([handler](https://github.com/CapSoftware/Cap/blob/08839cf520f5d4b54f056ed26b339abe308622e6/packages/web-backend/src/Loom/ImportVideo.ts#L17-L167)). | The S3 upload is still one streaming activity, so retry safety depends on deterministic object keys/overwrite semantics. Good simple identity example; not a complete template for large partial writes. |
+| [`baptisteArno/typebot.io`](https://github.com/baptisteArno/typebot.io/tree/ef1b4c67c520ff00018db709620dc101f717e9ac) | Adjacent `effect/unstable/workflow` example with pure payload keys for export/user workflows ([export key](https://github.com/baptisteArno/typebot.io/blob/ef1b4c67c520ff00018db709620dc101f717e9ac/packages/results/src/workflows/exportResultsWorkflow.ts#L87), [user key](https://github.com/baptisteArno/typebot.io/blob/ef1b4c67c520ff00018db709620dc101f717e9ac/packages/user/src/workflows/startUserOnboardingWorkflow.ts#L21)), real `DurableClock.sleep` ([sleep](https://github.com/baptisteArno/typebot.io/blob/ef1b4c67c520ff00018db709620dc101f717e9ac/packages/user/src/workflows/startUserOnboardingWorkflow.ts#L40)), `Activity.retry` ([retry](https://github.com/baptisteArno/typebot.io/blob/ef1b4c67c520ff00018db709620dc101f717e9ac/packages/results/src/workflows/exportResultsWorkflow.ts#L154), [retry](https://github.com/baptisteArno/typebot.io/blob/ef1b4c67c520ff00018db709620dc101f717e9ac/packages/results/src/workflows/exportResultsWorkflow.ts#L233)), and child workflow dispatch from workflow code ([dispatch](https://github.com/baptisteArno/typebot.io/blob/ef1b4c67c520ff00018db709620dc101f717e9ac/packages/results/src/workflows/exportResultsWorkflow.ts#L269)). | Email sends are activity-wrapped but do not appear to pass provider idempotency keys, and `SendExportToEmailWorkflow` keys by export id rather than recipient email ([key](https://github.com/baptisteArno/typebot.io/blob/ef1b4c67c520ff00018db709620dc101f717e9ac/packages/results/src/workflows/exportResultsWorkflow.ts#L251-L312)). |
+| [`PREreview/prereview.org`](https://github.com/PREreview/prereview.org/tree/0e3c1454499afca3795aee445b812ef812421785) | Real app workflows use pure payload ids for author invite, dataset review, and review request executions ([author](https://github.com/PREreview/prereview.org/blob/0e3c1454499afca3795aee445b812ef812421785/src/AuthorInvites/Workflows/index.ts#L15), [dataset](https://github.com/PREreview/prereview.org/blob/0e3c1454499afca3795aee445b812ef812421785/src/DatasetReviews/Workflows/index.ts#L17), [request](https://github.com/PREreview/prereview.org/blob/0e3c1454499afca3795aee445b812ef812421785/src/ReviewRequests/Workflows/index.ts#L18)), and review-request flows show `DurableClock.sleep` plus `Activity.retry` in ordinary domain code ([sleep/retry](https://github.com/PREreview/prereview.org/blob/0e3c1454499afca3795aee445b812ef812421785/src/ReviewRequests/Workflows/index.ts#L65-L119)). | Not a clean side-effect-idempotency model: Zenodo/Slack/email/COAR activities can perform an external action before recording the local marker, and one COAR notify path generates a fresh UUID inside the activity ([COAR](https://github.com/PREreview/prereview.org/blob/0e3c1454499afca3795aee445b812ef812421785/src/PreprintReviews/Workflows/NotifyPreprintServer.ts#L51)). |
+| [`gurdasnijor/firegrid`](https://github.com/gurdasnijor/firegrid/tree/eda2d76661730372b815524bd17b3854a9b19130) | Advanced example with mostly domain-derived keys for runtime/session/permission/tool workflows ([scheduled prompt](https://github.com/gurdasnijor/firegrid/blob/eda2d76661730372b815524bd17b3854a9b19130/packages/runtime/src/unified/subscribers/scheduled-webhook-peer.ts#L43-L48), [tool dispatch](https://github.com/gurdasnijor/firegrid/blob/eda2d76661730372b815524bd17b3854a9b19130/packages/runtime/src/unified/subscribers/permission-and-tool.ts#L213-L218)) and a custom engine that persists final results, activities, `DurableDeferred`, and `DurableClock` state ([engine](https://github.com/gurdasnijor/firegrid/blob/eda2d76661730372b815524bd17b3854a9b19130/packages/runtime/src/engine/internal/engine-runtime.ts#L327-L568)). | Do not copy it as a beginner template: it has a clock-derived fallback key when a public prompt caller omits an idempotency key ([fallback](https://github.com/gurdasnijor/firegrid/blob/eda2d76661730372b815524bd17b3854a9b19130/packages/runtime/src/unified/channel-bindings.ts#L116-L128)) and custom engine complexity. |
+
+### Bad or risky patterns found in the wild
+
+| Pattern | Examples | Why it matters |
+|---|---|---|
+| `idempotencyKey` reads the clock instead of projecting from payload | `HazelChat/hazel`'s `CleanupUploadsWorkflow` uses `new Date()` inside `idempotencyKey` ([source](https://github.com/HazelChat/hazel/blob/f033d6058021f0cac6a4e461c902122eab32ed91/packages/domain/src/cluster/workflows/cleanup-uploads-workflow.ts#L15)); `FaithBase-AI/openfaith` has clock-based keys across most workflow definitions, including `createOrgWorkflow` ([source](https://github.com/FaithBase-AI/openfaith/blob/ee1e1a7634caa01d246af56033fd841aa1b9cda9/backend/workers/workflows/createOrgWorkflow.ts#L26)); `fahad-islam/lawfirm-data-pipeline` uses `new Date().toISOString()` in two workflow keys ([sync](https://github.com/fahad-islam/lawfirm-data-pipeline/blob/0d1d8aca5adca88098bf339df7c326d2b26d4b18/src/workflows/syncCrmPlaceDetail/workflow.ts#L15), [scraper](https://github.com/fahad-islam/lawfirm-data-pipeline/blob/0d1d8aca5adca88098bf339df7c326d2b26d4b18/src/workflows/placeWebsiteScraper/workflow.ts#L19)). | The high-level `.execute()` path hashes `workflow.name` plus `idempotencyKey(payload)`. If the key function is non-deterministic, retrying the same logical request does not coalesce. |
+| Event or extension dispatch manufactures identity from clock/random | `kiritocode1/chronos` builds `executionId` with `Date.now()` at dispatch time ([dispatch](https://github.com/kiritocode1/chronos/blob/97dde0281c2ae742098e3d83b032b6f40019c1c0/src/workflows/dispatch.ts#L18-L46)); `Eventiva/Eventiva` creates missing message ids from `Date.now()` and `Math.random()` before `workflow.execute` ([pubsub](https://github.com/Eventiva/Eventiva/blob/527412e77694fa5438f22e55617d2607b6388c7f/packages/core/src/extensions/extension-hook-pubsub.ts#L82-L125), [execute](https://github.com/Eventiva/Eventiva/blob/527412e77694fa5438f22e55617d2607b6388c7f/packages/core/src/extensions/extension-hooks.ts#L114-L116)). | This is fine only for a truly fresh one-shot job. It is wrong for cron/event-source dispatch where the same source event or schedule tick might be retried; derive from the source event id or scheduled tick instead. |
+| Bare side effects in workflow bodies | `chronos` runs bash/webhook work in activities, then performs notification inserts directly after them ([notifications](https://github.com/kiritocode1/chronos/blob/97dde0281c2ae742098e3d83b032b6f40019c1c0/src/notifications/repo.ts#L48)); `Eventiva` runs hook publishes and arbitrary extension effects directly in the workflow body ([source](https://github.com/Eventiva/Eventiva/blob/527412e77694fa5438f22e55617d2607b6388c7f/packages/core/src/extensions/extension-hooks.ts#L95-L109)). | On workflow replay, those writes/effects can run again. Wrap them in an activity or make them deterministic-upsert/idempotent writes. |
+| A single long activity performs many externally-visible writes | `simple-rag` emits streaming LLM chunks from one activity and appends events with fresh random ids ([activity](https://github.com/arm-learning/simple-rag/blob/44c3ce5a6ba1ca09036d435af0f5dd701379229d/apps/cluster-runner/src/workflows/generate-message.ts#L291-L337), [append](https://github.com/arm-learning/simple-rag/blob/44c3ce5a6ba1ca09036d435af0f5dd701379229d/apps/cluster-runner/src/append-event.ts#L34-L56)); `pawelblaszczyk5/bella` has a long streaming message activity whose dedupe depends on hidden streamed-part handling ([source](https://github.com/pawelblaszczyk5/bella/blob/1852798602b84f1187f6c07f8e3b1e230a7c4483/apps/cluster-runner/src/generate-message.ts#L40-L54)); `lawfirm-data-pipeline` loops through scraped results and creates DB rows inside one retried activity ([source](https://github.com/fahad-islam/lawfirm-data-pipeline/blob/0d1d8aca5adca88098bf339df7c326d2b26d4b18/src/workflows/placesLocator/activities/extractGooglePlaces.ts#L292-L358)). | `Activity.make` memoizes only after the activity completes. If the fiber/process is interrupted after the 50th write but before completion is recorded, the activity body can run again from the start. Long activities that partially commit need their own idempotency strategy. |
+| Using `WorkflowEngine.layerMemory` in real runtime wiring | `0rdep/opencode-atlassian` has substantial workflow code but wires the app runtime to `WorkflowEngine.layerMemory` ([workflow](https://github.com/0rdep/opencode-atlassian/blob/0e2d62741688487d68269fa6f5824feb462ba921/src/workflows/TaskWorkflow.ts#L159-L181), [runtime](https://github.com/0rdep/opencode-atlassian/blob/0e2d62741688487d68269fa6f5824feb462ba921/src/index.ts#L47-L54)). | Memory engines are fine for tests and demos. They are not durable across process restarts, so citing them as production durability examples is misleading. |
+| Using `@effect/workflow` names for a custom non-durable bridge | `smithersai/smithers` constructs `DurableDeferred` values, but its bridge await/resolve functions ignore the deferred argument and store completions in an in-memory `Map` ([bridge](https://github.com/smithersai/smithers/blob/af9415908c7a4de368f9367dfbe7efe8737fe9b8/packages/engine/src/effect/durable-deferred-bridge.js#L114-L178)). | That may be a deliberate local adapter, but it is not an example of using `DurableDeferred.await` / `succeed` / `done` correctly. Do not cite it as a durable-deferred pattern. |
+| Hallucinated or stale API names spreading into docs/comments | `arm-learning/simple-rag` has commented-out `Activity.executionIdWithAttempt` ([source](https://github.com/arm-learning/simple-rag/blob/44c3ce5a6ba1ca09036d435af0f5dd701379229d/apps/cluster-runner/src/email-verification-live.ts#L16-L23)); `openfaith` docs show stale-looking `Activity.execute` / `handler` shapes ([docs](https://github.com/FaithBase-AI/openfaith/blob/ee1e1a7634caa01d246af56033fd841aa1b9cda9/docs/syncEngine/07-durable-workflows-in-practice.md#L51)). | These symbols/shapes do not match the package version this guide targets. Treat repo-local AI/docs files as low trust unless they compile. |
+
+### Other cloned repos and classifications
+
+| Repo | Commit audited | Classification |
+|---|---|---|
+| [`HazelChat/hazel`](https://github.com/HazelChat/hazel/tree/f033d6058021f0cac6a4e461c902122eab32ed91) | `f033d6058021f0cac6a4e461c902122eab32ed91` | Mixed/risky adjacent example. It has several good payload-derived keys, but also a `new Date()` workflow key, clock-bucketed RSS cron identity, and RSS posting that records dedupe after message inserts. |
+| [`arm-learning/simple-rag`](https://github.com/arm-learning/simple-rag/tree/44c3ce5a6ba1ca09036d435af0f5dd701379229d) | `44c3ce5a6ba1ca09036d435af0f5dd701379229d` | Risky/negative overall despite pure workflow keys: random event ids and streaming event appends inside one activity make retries duplication-prone. Its document embedding path has useful deterministic ids and `onConflictDoNothing`, but the repo is not a clean positive example. |
+| [`pawelblaszczyk5/bella`](https://github.com/pawelblaszczyk5/bella/tree/1852798602b84f1187f6c07f8e3b1e230a7c4483) | `1852798602b84f1187f6c07f8e3b1e230a7c4483` | Mixed. `GenerateMessage` keys by conversation plus assistant message id; `IngestKnowledge` keys by `payload.time.epochMillis`, which may be a schedule tick or may be "now" because the caller is not visible. |
+| [`Eventiva/Eventiva`](https://github.com/Eventiva/Eventiva/tree/527412e77694fa5438f22e55617d2607b6388c7f) | `527412e77694fa5438f22e55617d2607b6388c7f` | Negative. Missing message ids collapse to `extensionId-phase` or are generated from `Date.now()`/`Math.random()`, and hook effects run bare in workflow bodies. |
+| [`smithersai/smithers`](https://github.com/smithersai/smithers/tree/af9415908c7a4de368f9367dfbe7efe8737fe9b8) | `af9415908c7a4de368f9367dfbe7efe8737fe9b8` | Mixed. Good deterministic bridge/activity key construction and real `SingleRunner`/child-workflow plumbing, but its `DurableDeferred` bridge is in-memory and some CLI run ids use `Date.now()`. |
+| [`bsamiee/Parametric_Portal`](https://github.com/bsamiee/Parametric_Portal/tree/59f34e325cef50c5b758ce6f41cedb52173d587b) | `59f34e325cef50c5b758ce6f41cedb52173d587b` | Promising positive from spot audit: real clustered workflow usage with activities, retry, and compensation. Needs a deeper side-effect-idempotency pass before being promoted to a primary example. |
+| [`imkesin/one-kilo`](https://github.com/imkesin/one-kilo/tree/e27c038f20da2c8fadc0ef4f8b5d3e42d1a606d9) | `e27c038f20da2c8fadc0ef4f8b5d3e42d1a606d9` | Promising positive/mixed from spot audit: production-shaped clustered workflow; `WorkflowEngine.layerMemory` appears limited to a test HTTP layer. |
+| [`creatifcoding/gbg`](https://github.com/creatifcoding/gbg/tree/b6fc855cb533125f88747d7f4ecb28c985258710) | `b6fc855cb533125f88747d7f4ecb28c985258710` | Promising advanced example for `DurableDeferred` and `DurableClock` in a real alarm lifecycle. Windows checkout had an invalid-path caveat, so the audit used cloned Git objects. |
+| [`abdul-hamid-achik/blankcode`](https://github.com/abdul-hamid-achik/blankcode/tree/1065e8a961f3ba35159a226b82d3c0cc2a9c9424) | `1065e8a961f3ba35159a226b82d3c0cc2a9c9424` | Mixed: SQL-backed `SingleRunner` plus a real submission workflow, but one workflow is currently a stub. |
+| [`nickcomua/4chat`](https://github.com/nickcomua/4chat/tree/2812b9f478cf6f9d586d907b8cc6f44091e13894) | `2812b9f478cf6f9d586d907b8cc6f44091e13894` | Mixed/risky: real clustered SQL setup, but on very old `@effect/workflow` `^0.2.2`; `DurableClock`/`DurableDeferred` imports were unused. |
+| [`Mufraggi/cine_app`](https://github.com/Mufraggi/cine_app/tree/6ea7db843988a4533c0590dee2247be03dcd42de) | `6ea7db843988a4533c0590dee2247be03dcd42de` | Mixed/demo: cluster-backed workflow fan-out, but package manifests use `"latest"`, so examples are not reproducible. |
+
+Explicit repro/playground/article repos are lower-trust for guidance: `bismuth1991/effect-workflow-repro`,
+`pawelblaszczyk5/effect-workflow-cluster-playground`, `Mufraggi/etl-effect-cluster-article`, and
+example/test-only usages such as [`semyenov/n2`](https://github.com/semyenov/n2/tree/6995f3d5df3faead2dc20946a4fbb9cb26bf08ca).
+Package-only hits, planned wrappers, docs-only corpora, and vendored upstream copies were excluded
+from correctness conclusions. Examples: `graffle-js/graffle` was package-only; `fourcolors/luna`
+had internal/planned wrapper types but no live package import; `mpsuesser/pi-effect-harness` was a
+docs/skill corpus; partial clone attempts for `livestorejs/livestore` and `ComposioHQ/composio`
+timed out before a usable `HEAD`.
+
+### What the external audit changes in this guide
+
+- `idempotencyKey` must be a pure projection of payload. Never call `Date.now()`, `new Date()`,
+  `crypto.randomUUID()`, `generateId()`, or read mutable external state inside it.
+- For event/cron dispatch, the workflow key should be derived from the source event id, business id,
+  or scheduled tick. A fresh random id is only for a user-initiated "start a new job now" command.
+- Activity boundaries are completion-memoization boundaries, not transaction boundaries. If an
+  activity performs many writes or emits a stream of events, make every write idempotent or split
+  the work into smaller deterministic activities.
+- Treat public docs in application repos (`CLAUDE.md`, generated guides, comments) as low-trust
+  unless they compile against the real package. Several live repos contain plausible-sounding but
+  wrong guidance.
+
+---
+
 ## Audit: how this codebase measures up today
 
 This section is the result of reading every file in `apps/app-backend` that references
@@ -647,11 +726,19 @@ do; they just aren't the same pattern despite the shared name.
   parent's `executionId` plus stable loop indices or stable data — never `generateId()`/
   `crypto.randomUUID()`/a timestamp, unless the dispatching code is a genuine one-shot top-level
   call that can never itself be replayed or retried.
+- Every workflow `idempotencyKey` function is a pure projection of payload. It does not read the
+  clock, generate ids, call services, or inspect database state.
+- Every top-level event/cron dispatch derives the key from the source event, business id, or
+  scheduled tick rather than from "now", unless "now" is itself the user-visible business identity
+  of the job.
 - No child-workflow execution (`engine.execute(...)`, or a helper that transitively calls it, like
   `EventsService.create`) happens from inside an `Activity.make`'s `execute:` body — dispatch
   children directly from the workflow body.
 - No `Effect.all`/`Effect.forEach` with `concurrency > 1` wraps multiple `Activity.make` calls
   directly — put concurrent fan-out inside one Activity's `execute:` body instead.
+- Any long activity that performs multiple external writes has an idempotency story inside the
+  activity itself: deterministic ids, upserts, unique constraints, append dedupe keys, or a
+  transaction that fully rolls back on failure/interruption.
 - If you need cleanup that must survive suspension, use `Workflow.withCompensation`, not a bare
   `Effect.addFinalizer`/`Effect.ensuring` — and remember compensation doesn't cascade into nested
   activities.
