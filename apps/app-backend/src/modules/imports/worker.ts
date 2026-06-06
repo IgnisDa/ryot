@@ -48,14 +48,12 @@ const cleanupImportArtifacts = Effect.fn(function* (input: {
 		(path) =>
 			!path.trim()
 				? Effect.void
-				: Effect.gen(function* () {
-						const safePathResult = resolveSafeImportFilePath(path, tempDir);
-						if ("error" in safePathResult) {
-							return yield* new ImportRunError({ message: "Import cleanup path is invalid" });
-						}
-
-						return yield* fs.remove(safePathResult.path, { recursive: true });
-					}),
+				: resolveSafeImportFilePath(path, tempDir).pipe(
+						Effect.mapError(
+							() => new ImportRunError({ message: "Import cleanup path is invalid" }),
+						),
+						Effect.flatMap((safePath) => fs.remove(safePath, { recursive: true })),
+					),
 		{ discard: true },
 	);
 });

@@ -128,19 +128,18 @@ export class ImportsService extends Effect.Service<ImportsService>()("ImportsSer
 					}
 					claimedFilePaths.push(claim.right.resolvedPath);
 
-					const safePathResult = resolveSafeImportFilePath(claim.right.resolvedPath, tempDir);
-					if ("error" in safePathResult) {
-						yield* cleanupFiles(claimedFilePaths);
-						return yield* badRequest(safePathResult.error);
-					}
-					const safePath = safePathResult.path;
+					const safePath = yield* resolveSafeImportFilePath(claim.right.resolvedPath, tempDir).pipe(
+						Effect.catchAll((message) =>
+							cleanupFiles(claimedFilePaths).pipe(Effect.flatMap(() => badRequest(message))),
+						),
+					);
 					claimedFilePaths[claimedFilePaths.length - 1] = safePath;
 
-					const extResult = validateFileExtension(safePath, sourceFileInput.allowedExtensions);
-					if ("error" in extResult) {
-						yield* cleanupFiles(claimedFilePaths);
-						return yield* badRequest(extResult.error);
-					}
+					yield* validateFileExtension(safePath, sourceFileInput.allowedExtensions).pipe(
+						Effect.catchAll((message) =>
+							cleanupFiles(claimedFilePaths).pipe(Effect.flatMap(() => badRequest(message))),
+						),
+					);
 
 					queuedFilePaths.push(safePath);
 					if (sourceFileInput.payloadKey) {
