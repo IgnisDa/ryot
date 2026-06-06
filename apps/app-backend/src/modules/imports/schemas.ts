@@ -43,6 +43,7 @@ export const fileImportRunSources = [
 	"hevy",
 	"igdb",
 	"imdb",
+	"movary",
 	"anilist",
 	"grouvee",
 	"watcharr",
@@ -117,6 +118,14 @@ export type AnilistRunInput = z.infer<typeof anilistRunInput>;
 export const watcharrRunInput = uploadTokenRunInput("watcharr");
 export type WatcharrRunInput = z.infer<typeof watcharrRunInput>;
 
+export const movaryRunInput = z.object({
+	source: z.literal("movary"),
+	historyUploadToken: nonEmptyStringSchema,
+	ratingsUploadToken: nonEmptyStringSchema,
+	watchlistUploadToken: nonEmptyStringSchema,
+});
+export type MovaryRunInput = z.infer<typeof movaryRunInput>;
+
 export const igdbRunInput = uploadTokenRunInput("igdb").extend({
 	collection: nonEmptyStringSchema,
 });
@@ -159,6 +168,7 @@ export const createImportRunBody = z.discriminatedUnion("source", [
 	imdbRunInput,
 	plexRunInput,
 	traktRunInput,
+	movaryRunInput,
 	anilistRunInput,
 	grouveeRunInput,
 	jellyfinRunInput,

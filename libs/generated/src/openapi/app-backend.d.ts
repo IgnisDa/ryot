@@ -4620,6 +4620,12 @@ export interface paths {
                         /** @enum {string} */
                         source: "trakt";
                     } | {
+                        /** @enum {string} */
+                        source: "movary";
+                        historyUploadToken: string;
+                        ratingsUploadToken: string;
+                        watchlistUploadToken: string;
+                    } | {
                         uploadToken: string;
                         /** @enum {string} */
                         source: "anilist";
