@@ -1,6 +1,5 @@
 import { sql } from "drizzle-orm";
-import { Effect } from "effect";
-import { match } from "ts-pattern";
+import { Effect, Match } from "effect";
 
 import { CurrentDb, dbEffect } from "~/lib/db";
 import type { DbError } from "~/lib/errors";
@@ -21,12 +20,13 @@ type TimeSeriesRow = {
 };
 
 export const buildBucketInterval = (bucket: TimeSeriesQueryRequest["bucket"]): string =>
-	match(bucket)
-		.with("hour", () => "1 hour")
-		.with("day", () => "1 day")
-		.with("week", () => "1 week")
-		.with("month", () => "1 month")
-		.exhaustive();
+	Match.value(bucket).pipe(
+		Match.when("hour", () => "1 hour"),
+		Match.when("day", () => "1 day"),
+		Match.when("week", () => "1 week"),
+		Match.when("month", () => "1 month"),
+		Match.exhaustive,
+	);
 
 const startOfUtcHour = (isoString: string): Date => {
 	const d = new Date(isoString);
@@ -57,22 +57,24 @@ const startOfUtcMonth = (isoString: string): Date => {
 
 const addBucket = (d: Date, bucket: TimeSeriesQueryRequest["bucket"]): Date => {
 	const result = new Date(d);
-	match(bucket)
-		.with("hour", () => result.setUTCHours(result.getUTCHours() + 1))
-		.with("day", () => result.setUTCDate(result.getUTCDate() + 1))
-		.with("week", () => result.setUTCDate(result.getUTCDate() + 7))
-		.with("month", () => result.setUTCMonth(result.getUTCMonth() + 1))
-		.exhaustive();
+	Match.value(bucket).pipe(
+		Match.when("hour", () => result.setUTCHours(result.getUTCHours() + 1)),
+		Match.when("day", () => result.setUTCDate(result.getUTCDate() + 1)),
+		Match.when("week", () => result.setUTCDate(result.getUTCDate() + 7)),
+		Match.when("month", () => result.setUTCMonth(result.getUTCMonth() + 1)),
+		Match.exhaustive,
+	);
 	return result;
 };
 
 const startOfBucket = (isoString: string, bucket: TimeSeriesQueryRequest["bucket"]): Date => {
-	return match(bucket)
-		.with("hour", () => startOfUtcHour(isoString))
-		.with("day", () => startOfUtcDay(isoString))
-		.with("week", () => startOfIsoWeek(isoString))
-		.with("month", () => startOfUtcMonth(isoString))
-		.exhaustive();
+	return Match.value(bucket).pipe(
+		Match.when("hour", () => startOfUtcHour(isoString)),
+		Match.when("day", () => startOfUtcDay(isoString)),
+		Match.when("week", () => startOfIsoWeek(isoString)),
+		Match.when("month", () => startOfUtcMonth(isoString)),
+		Match.exhaustive,
+	);
 };
 
 export const alignDateRangeToBucket = (input: {
