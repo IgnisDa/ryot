@@ -1,32 +1,14 @@
 import { dayjs } from "@ryot/ts-utils/dayjs";
 
+import type { ImportEntityRef, ImportMediaEntityGroup } from "../../jobs";
 import type {
-	ImportEntityRef,
-	ImportMediaEvent,
-	ImportMediaEntityGroup,
-	ImportCollectionMembership,
-} from "../../jobs";
+	MediaImportAdapterFailure,
+	MediaImportAdapterResult,
+} from "../../media/import-processor";
 
 const TRAKT_API_VERSION = "2";
 const TRAKT_PAGE_LIMIT = "1000";
 const TRAKT_API_URL = "https://api.trakt.tv";
-
-export type TraktEntityRef = ImportEntityRef;
-export type TraktNormalizedEvent = ImportMediaEvent;
-export type TraktMediaEntityGroup = ImportMediaEntityGroup;
-export type TraktCollectionMembership = ImportCollectionMembership;
-
-export type TraktAdapterFailure = {
-	message: string;
-	itemIndex: number;
-	sourceLabel?: string;
-	sourceIdentifier?: string;
-};
-
-export type TraktAdapterResult = {
-	failures: TraktAdapterFailure[];
-	entityGroups: TraktMediaEntityGroup[];
-};
 
 type TraktIds = {
 	trakt: number;
@@ -146,7 +128,7 @@ const extractTmdbId = (item: TraktItem): string | undefined => {
 	return item.ids.tmdb !== undefined ? String(item.ids.tmdb) : undefined;
 };
 
-const buildMovieRef = (movie: TraktItem): TraktEntityRef | undefined => {
+const buildMovieRef = (movie: TraktItem): ImportEntityRef | undefined => {
 	const tmdbId = extractTmdbId(movie);
 	if (!tmdbId) {
 		return undefined;
@@ -159,7 +141,7 @@ const buildMovieRef = (movie: TraktItem): TraktEntityRef | undefined => {
 	};
 };
 
-const buildShowRef = (show: TraktItem): TraktEntityRef | undefined => {
+const buildShowRef = (show: TraktItem): ImportEntityRef | undefined => {
 	const tmdbId = extractTmdbId(show);
 	if (!tmdbId) {
 		return undefined;
@@ -172,21 +154,21 @@ const buildShowRef = (show: TraktItem): TraktEntityRef | undefined => {
 	};
 };
 
-const entityGroupKey = (ref: TraktEntityRef) =>
+const entityGroupKey = (ref: ImportEntityRef) =>
 	`${ref.entitySchemaSlug}|${ref.scriptSlug}|${ref.externalId}`;
 
 export const adaptTraktData = async (
 	username: string,
 	clientId: string,
-): Promise<TraktAdapterResult> => {
+): Promise<MediaImportAdapterResult> => {
 	const userUrl = `/users/${username}`;
 	const client = buildTraktClient(clientId);
 
-	const failures: TraktAdapterFailure[] = [];
-	const groupMap = new Map<string, TraktMediaEntityGroup>();
+	const failures: MediaImportAdapterFailure[] = [];
+	const groupMap = new Map<string, ImportMediaEntityGroup>();
 	let itemIndex = 0;
 
-	const getOrCreate = (ref: TraktEntityRef): TraktMediaEntityGroup => {
+	const getOrCreate = (ref: ImportEntityRef): ImportMediaEntityGroup => {
 		const key = entityGroupKey(ref);
 		let group = groupMap.get(key);
 		if (!group) {

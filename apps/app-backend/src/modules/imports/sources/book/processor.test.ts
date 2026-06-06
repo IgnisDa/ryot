@@ -2,45 +2,24 @@ import { describe, expect, it } from "bun:test";
 
 import { createJob } from "~/lib/test-fixtures";
 
-import type { ImportMediaEntityGroup } from "../../jobs";
+import type { MediaImportAdapterResult } from "../../media/import-processor";
 import { processBookCsvImport, type BookImportProcessorDeps } from "./processor";
 
-const createGroup = (externalId: string, sourceLabel: string): ImportMediaEntityGroup => ({
-	events: [],
-	collectionMemberships: [],
-	entityRef: { externalId, sourceLabel, scriptSlug: "book.openlibrary", entitySchemaSlug: "book" },
-});
-
 const createDeps = (overrides: Partial<BookImportProcessorDeps> = {}): BookImportProcessorDeps => ({
-	updateImportRun: () => Promise.resolve(),
-	cleanupImportFile: () => Promise.resolve(),
-	createImportRunFailure: () => Promise.resolve(),
 	readImportFile: () => Promise.resolve("csv-data"),
-	writeMediaEntityGroups: () => Promise.resolve({ failedItems: 0, importedItems: 0 }),
-	populateMediaEntityRefs: () => Promise.resolve({ entityIds: [], failedIndices: [] }),
+	cleanupImportFile: () => Promise.resolve(),
+	processMediaImport: () => Promise.resolve(),
 	...overrides,
 });
 
 describe("processBookCsvImport", () => {
-	it("reuses the shared media processor path for file-based book imports", async () => {
+	it("loads CSV data and delegates to the generic media processor", async () => {
 		const cleanedPaths: string[] = [];
-		const runUpdates: Array<Record<string, unknown>> = [];
-		const jobUpdates: Array<Record<string, unknown>> = [];
-		const failures: Array<{ itemIndex: number; message: string }> = [];
-		const groups = [createGroup("OL1W", "Book One")];
-
-		const firstGroup = groups[0];
-		if (!firstGroup) {
-			throw new Error("Expected first group to exist");
-		}
+		const adapterInputs: string[] = [];
+		const adapterResult: MediaImportAdapterResult = { entityGroups: [], failures: [] };
 
 		await processBookCsvImport(
-			Object.assign(createJob({}), {
-				updateData: (data: Record<string, unknown>) => {
-					jobUpdates.push(data);
-					return Promise.resolve();
-				},
-			}),
+			createJob({}),
 			undefined,
 			{
 				runId: "run_1",
@@ -58,60 +37,27 @@ describe("processBookCsvImport", () => {
 				providerFailedIndices: undefined,
 				mediaWriteFailedItems: undefined,
 				mediaWriteImportedItems: undefined,
-				adapt: () =>
-					Promise.resolve({
-						entityGroups: groups,
-						failures: [{ itemIndex: 9, message: "Bad row", sourceLabel: "Broken" }],
-					}),
+				adapt: (csvText) => {
+					adapterInputs.push(csvText);
+					return adapterResult;
+				},
 			},
 			createDeps({
 				cleanupImportFile: (path) => {
 					cleanedPaths.push(path);
 					return Promise.resolve();
 				},
-				createImportRunFailure: (input) => {
-					failures.push({ itemIndex: input.itemIndex, message: input.message });
-					return Promise.resolve();
-				},
-				populateMediaEntityRefs: (_job, _token, input) => {
+				processMediaImport: async (_job, _token, input) => {
 					expect(input.jobData).toEqual({ filePath: "/tmp/import.csv" });
-					expect(input.entityRefs).toEqual([firstGroup.entityRef]);
-					return Promise.resolve({ entityIds: ["entity_1"], failedIndices: [] });
-				},
-				writeMediaEntityGroups: async (input) => {
-					expect(input.entityGroups).toEqual(groups);
-					expect(input.entityIdsByKey.get("book|book.openlibrary|OL1W")).toBe("entity_1");
-					await input.onGroupComplete({ failedItems: 0, importedItems: 1, nextGroupIndex: 1 });
-					return { failedItems: 0, importedItems: 1 };
-				},
-				updateImportRun: (input) => {
-					runUpdates.push(input);
-					return Promise.resolve();
+					expect(input.sourceName).toBe("Goodreads");
+					expect(input.adapterErrorFallback).toBe("Could not parse Goodreads import data");
+					expect(await input.loadAdapterResult()).toBe(adapterResult);
+					await input.cleanup?.();
 				},
 			}),
 		);
 
-		expect(failures).toEqual([{ itemIndex: 9, message: "Bad row" }]);
-		expect(jobUpdates[0]).toMatchObject({
-			adapterFailureCount: 1,
-			mediaEntityGroups: groups,
-			filePath: "/tmp/import.csv",
-			importStep: "populating_entities",
-		});
-		expect(jobUpdates[1]).toMatchObject({
-			importStep: "writing_events",
-			providerEntityIds: ["entity_1"],
-		});
-		expect(jobUpdates[2]).toMatchObject({
-			mediaWriteGroupIndex: 1,
-			mediaWriteImportedItems: 1,
-		});
-		expect(runUpdates.at(-1)).toMatchObject({
-			failedItems: 1,
-			importedItems: 1,
-			processedItems: 2,
-			status: "completed",
-		});
+		expect(adapterInputs).toEqual(["csv-data"]);
 		expect(cleanedPaths).toEqual(["/tmp/import.csv"]);
 	});
 });
