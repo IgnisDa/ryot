@@ -413,9 +413,7 @@ describe("DELETE /entities/:id/user-state", () => {
 		const eventSchemas = await listEventSchemas(userA.client, schema.id);
 		const reviewEventSchema = requireEventSchemaBySlug(eventSchemas, "review");
 
-		const { entityId: extraTargetEntityId } = await createTrackerWithSchemaAndEntity(
-			userA.client,
-		);
+		const { entityId: extraTargetEntityId } = await createTrackerWithSchemaAndEntity(userA.client);
 
 		await insertUserEvent({
 			entityId: entity.id,
