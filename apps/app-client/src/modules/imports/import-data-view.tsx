@@ -155,6 +155,7 @@ export function ImportDataView(props: {
 	readonly onShowOlder: () => void;
 	readonly sourceNames: SourceNames;
 	readonly state: ImportRunListState;
+	readonly onStartImport: () => void;
 	readonly onOpenIntegrations: () => void;
 	readonly onOpenRun: (runId: string) => void;
 }) {
@@ -185,6 +186,16 @@ export function ImportDataView(props: {
 	return (
 		<View className="gap-6 pb-4">
 			<Text className="font-ui text-sm leading-6 text-text-muted">{INTRO}</Text>
+			{props.state.status === "empty" ? null : (
+				<AppButton
+					size="default"
+					variant="primary"
+					label="Start an import"
+					onPress={props.onStartImport}
+					className="w-full sm:w-auto sm:self-start sm:px-6"
+					leading={<AppIcon size={16} name="plus" className="text-accent-ink" />}
+				/>
+			)}
 			{live === undefined ? null : (
 				<LiveImportRunCard
 					run={live}
@@ -199,6 +210,15 @@ export function ImportDataView(props: {
 					title="No imports yet"
 					icon={<AppIcon size={40} name="clipboard-list" className="text-text-subtle" />}
 					detail="When you bring history over from another service, every run shows up here with its progress and anything it could not read."
+					action={
+						<AppButton
+							size="default"
+							variant="primary"
+							label="Start an import"
+							onPress={props.onStartImport}
+							className="w-full sm:w-auto sm:px-6"
+						/>
+					}
 				/>
 			) : (
 				<ImportHistory

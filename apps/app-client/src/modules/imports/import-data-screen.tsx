@@ -9,12 +9,14 @@ import { SettingsSectionFrame } from "@/modules/settings/settings-section-frame"
 
 import { IMPORT_RUNS_PAGE_SIZE, importRunsAtom, importSourcesAtom } from "./atoms";
 import { ImportDataView } from "./import-data-view";
+import { ImportStartHost, useImportStartFlow } from "./import-start-host";
 import { liveImportRun } from "./run-presentation";
 import { mapImportRunList, mapImportSourceNames } from "./state";
 import { IMPORT_LIST_POLL_MS, useImportRunPolling } from "./use-import-run-polling";
 
 export function ImportDataScreen() {
 	const scope = useApiScope();
+	const startFlow = useImportStartFlow();
 	const [limit, setLimit] = useState(IMPORT_RUNS_PAGE_SIZE);
 	const runsAtom = importRunsAtom({ limit, scope });
 	const result = useAtomValue(runsAtom);
@@ -42,6 +44,7 @@ export function ImportDataScreen() {
 				state={state}
 				onRetry={refresh}
 				nowMs={Date.now()}
+				onStartImport={startFlow.open}
 				sourceNames={mapImportSourceNames(sources)}
 				isLoadingOlder={result.waiting && loaded.length < limit}
 				onShowOlder={() => setLimit(limit + IMPORT_RUNS_PAGE_SIZE)}
@@ -50,6 +53,7 @@ export function ImportDataScreen() {
 					router.push({ params: { runId }, pathname: "/settings/import-data/[runId]" })
 				}
 			/>
+			<ImportStartHost />
 		</SettingsSectionFrame>
 	);
 }

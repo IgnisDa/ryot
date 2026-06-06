@@ -18,6 +18,11 @@ export type ImportRunListState = MappedRyotQLResultState<
 	  }
 >;
 
+export type ImportSourceListState = MappedRyotQLResultState<
+	| { readonly status: "empty" }
+	| { readonly status: "ready"; readonly sources: readonly ListedImportSource[] }
+>;
+
 export type ImportRunDetailState = MappedRyotQLResultState<
 	| { readonly status: "not-found" }
 	| {
@@ -65,6 +70,16 @@ export const mapImportRunDetail = (
 	};
 };
 
+export const mapImportSourceList = (
+	result: AsyncResult.AsyncResult<readonly ListedImportSource[], unknown>,
+): ImportSourceListState => {
+	const state = classifyRyotQLResult(result);
+	if (state.status !== "ready") {
+		return state;
+	}
+	return state.value.length === 0 ? { status: "empty" } : { status: "ready", sources: state.value };
+};
+
 export const mapImportSourceNames = (
 	result: AsyncResult.AsyncResult<readonly Pick<ListedImportSource, "slug" | "name">[], unknown>,
 ): ReadonlyMap<string, string> => {
@@ -80,6 +95,14 @@ export const importRunListError = (state: ImportFailureState) => ({
 		state.status === "transport-error"
 			? "Your import history could not be loaded. Check the server and try again."
 			: "Your import history came back in a form that could not be displayed. Try again later.",
+});
+
+export const importSourceListError = (state: ImportFailureState) => ({
+	title: "Unable to load services",
+	detail:
+		state.status === "transport-error"
+			? "The list of services could not be loaded. Check the server and try again."
+			: "The list of services came back in a form that could not be displayed. Try again later.",
 });
 
 export const importRunDetailError = (state: ImportFailureState) => ({
