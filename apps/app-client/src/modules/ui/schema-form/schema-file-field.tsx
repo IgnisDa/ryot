@@ -44,12 +44,12 @@ const attachedFile = (
 	return { size: undefined, uploading: false, name: ATTACHED_FILE_FALLBACK_NAME };
 };
 
-const attachedFileDetail = (file: AttachedFile) => {
+const attachedFileDetail = (file: AttachedFile, readyLabel: string) => {
 	if (file.size === undefined) {
-		return "Ready to import";
+		return readyLabel;
 	}
 	const size = formatFileSize(file.size);
-	return file.uploading ? `Uploading · ${size}` : `${size} · Ready to import`;
+	return file.uploading ? `Uploading · ${size}` : `${size} · ${readyLabel}`;
 };
 
 function SchemaFileRow(props: {
@@ -73,6 +73,7 @@ function SchemaFileRow(props: {
 
 export function SchemaFileField(props: {
 	readonly label: string;
+	readonly readyLabel?: string;
 	readonly value: string | undefined;
 	readonly pickFile: SchemaFilePicker;
 	readonly uploadFile: SchemaFileUpload;
@@ -159,7 +160,7 @@ export function SchemaFileField(props: {
 				) : (
 					<SchemaFileRow
 						name={attached.name}
-						detail={attachedFileDetail(attached)}
+						detail={attachedFileDetail(attached, props.readyLabel ?? "Ready to import")}
 						trailing={
 							attached.uploading ? (
 								<ActivityIndicator

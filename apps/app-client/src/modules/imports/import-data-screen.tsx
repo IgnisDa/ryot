@@ -6,11 +6,8 @@ import { useState } from "react";
 import { useApiScope } from "@/api/scope";
 import { useInternalRequestFailureLogging } from "@/api/use-internal-request-failure-logging";
 import { liveImportRun } from "@/modules/import-runs/run-presentation";
-import {
-	IMPORT_LIST_POLL_MS,
-	useImportRunPolling,
-} from "@/modules/import-runs/use-import-run-polling";
 import { SettingsSectionFrame } from "@/modules/settings/settings-section-frame";
+import { RUN_LIST_POLL_MS, useRunPolling } from "@/modules/ui/run/use-run-polling";
 import { SearchParamModalHost, useSearchParamModal } from "@/modules/ui/search-param-modal";
 
 import { IMPORT_RUNS_PAGE_SIZE, importRunsAtom, importSourcesAtom } from "./atoms";
@@ -36,9 +33,9 @@ export function ImportDataScreen() {
 		"import sources query failed",
 		AsyncResult.isFailure(sources) ? sources.cause : undefined,
 	);
-	useImportRunPolling({
+	useRunPolling({
 		refresh,
-		intervalMs: IMPORT_LIST_POLL_MS,
+		intervalMs: RUN_LIST_POLL_MS,
 		enabled: liveImportRun(loaded) !== undefined,
 	});
 

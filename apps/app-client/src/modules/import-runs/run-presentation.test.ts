@@ -8,21 +8,15 @@ import {
 } from "../imports/import-fixture";
 import {
 	canDeleteImportRun,
-	formatImportDuration,
-	formatImportRelativeTime,
 	humanizeImportSourceSlug,
 	importRunCountsLabel,
 	importRunDeleteConfirmation,
-	importRunDurationLabel,
 	importRunFailureNotice,
 	importRunOutcomeLabel,
 	importRunProgress,
 	importRunProgressValue,
 	importRunProvenanceLabel,
-	importRunStartedLabel,
-	importRunTimestampLabel,
 	importSourceName,
-	isTerminalImportRunStatus,
 	liveImportRun,
 } from "./run-presentation";
 
@@ -31,17 +25,11 @@ const runs = decodeImportRunList({
 }).items;
 const [running, preparing, failed] = runs;
 const completed = decodeImportRunList().items[0];
-const NOW = Date.parse("2026-03-13T09:02:00.000Z");
 
 describe("import run presentation", () => {
-	it("treats only finished runs as terminal and deletable", () => {
+	it("treats only finished runs as deletable", () => {
 		expect((["pending", "running"] as const).map(canDeleteImportRun)).toEqual([false, false]);
 		expect((["completed", "failed"] as const).map(canDeleteImportRun)).toEqual([true, true]);
-		expect((["pending", "running"] as const).map(isTerminalImportRunStatus)).toEqual([
-			false,
-			false,
-		]);
-		expect((["completed", "failed"] as const).map(isTerminalImportRunStatus)).toEqual([true, true]);
 	});
 
 	it("keeps an unknown total off the progress track instead of inventing a percentage", () => {
@@ -79,32 +67,6 @@ describe("import run presentation", () => {
 			label: "Stopped early",
 			detail: "This import stopped before it finished. Nothing further was added.",
 		});
-	});
-
-	it("formats durations and only reports one once a run has started", () => {
-		expect([900, 8_000, 72_000, 120_000, 7_500_000].map(formatImportDuration)).toEqual([
-			"1s",
-			"8s",
-			"1m 12s",
-			"2m",
-			"2h 5m",
-		]);
-		expect(importRunDurationLabel(completed, NOW)).toBe("4m 7s");
-		expect(importRunDurationLabel(running, NOW)).toBe("2m");
-		expect(importRunDurationLabel({ ...running, startedAt: null }, NOW)).toBeUndefined();
-	});
-
-	it("describes when a run happened in words", () => {
-		expect(formatImportRelativeTime("2026-03-13T09:01:50.000Z", NOW)).toBe("just now");
-		expect(formatImportRelativeTime("2026-03-13T09:00:00.000Z", NOW)).toBe("2 minutes ago");
-		expect(formatImportRelativeTime("2026-03-13T08:00:00.000Z", NOW)).toBe("1 hour ago");
-		expect(formatImportRelativeTime("2026-03-12T08:00:00.000Z", NOW)).toBe("yesterday");
-		expect(formatImportRelativeTime("2026-02-01T08:00:00.000Z", NOW)).toBe("Feb 1, 2026");
-		expect(importRunStartedLabel(running, NOW)).toBe("Started 2 minutes ago");
-	});
-
-	it("stamps the detail overline with the date and time of the run", () => {
-		expect(importRunTimestampLabel(completed.createdAt)).toBe("12 Mar 2026, 21:40");
 	});
 
 	it("names a source from the manifest and humanises an unknown slug", () => {
