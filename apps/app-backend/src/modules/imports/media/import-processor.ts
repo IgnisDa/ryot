@@ -35,6 +35,7 @@ export const processMediaImport = <E, R>(input: {
 	sourceName: string;
 	adapterErrorFallback: string;
 	loadAdapterResult: Effect.Effect<MediaImportAdapterResult, E, R>;
+	eventContext?: { origin: "import" | "integration"; integrationId?: string };
 }) =>
 	Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
@@ -108,6 +109,7 @@ export const processMediaImport = <E, R>(input: {
 			runId: input.runId,
 			userId: input.userId,
 			onProgress: makeReporter(90, 9),
+			eventContext: input.eventContext,
 		});
 
 		const failedItems = adapterFailureCount + resolveFailures + populateFailures + writeFailures;

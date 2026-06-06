@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, isNull } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, isNull } from "drizzle-orm";
 import { Effect } from "effect";
 
 import { CurrentDb, dbEffect, schema } from "~/lib/db";
@@ -97,6 +97,52 @@ export class ImportsRepository extends Effect.Service<ImportsRepository>()("Impo
 						.orderBy(desc(schema.importRun.createdAt)),
 				);
 				return rows.map(normalizeRun);
+			}),
+		listRunsByIntegrationId: (input: { userId: string; integrationId: string }) =>
+			Effect.gen(function* () {
+				const db = yield* CurrentDb;
+				const rows = yield* dbEffect(() =>
+					db
+						.select()
+						.from(schema.importRun)
+						.where(
+							and(
+								eq(schema.importRun.userId, input.userId),
+								eq(schema.importRun.integrationId, input.integrationId),
+							),
+						)
+						.orderBy(desc(schema.importRun.createdAt)),
+				);
+				return rows.map(normalizeRun);
+			}),
+		hasActiveRunForIntegration: (input: { integrationId: string }) =>
+			Effect.gen(function* () {
+				const db = yield* CurrentDb;
+				const [row] = yield* dbEffect(() =>
+					db
+						.select({ id: schema.importRun.id })
+						.from(schema.importRun)
+						.where(
+							and(
+								eq(schema.importRun.integrationId, input.integrationId),
+								inArray(schema.importRun.status, ["pending", "running"]),
+							),
+						)
+						.limit(1),
+				);
+				return row !== undefined;
+			}),
+		listRecentStatusesByIntegrationId: (input: { integrationId: string; limit: number }) =>
+			Effect.gen(function* () {
+				const db = yield* CurrentDb;
+				return yield* dbEffect(() =>
+					db
+						.select({ status: schema.importRun.status })
+						.from(schema.importRun)
+						.where(eq(schema.importRun.integrationId, input.integrationId))
+						.orderBy(desc(schema.importRun.createdAt))
+						.limit(input.limit),
+				);
 			}),
 		updateRun: (input: {
 			runId: string;

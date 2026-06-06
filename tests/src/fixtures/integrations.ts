@@ -1,16 +1,9 @@
 import { getBackendUrl } from "../setup";
 import { requirePresent, requireResponseData } from "../test-support/assertions";
 import type { Client } from "./auth";
-import type { ClientBody, ClientQuery, ClientSuccess } from "./backend-client";
+import type { ClientBody, ClientQuery } from "./backend-client";
 
 type CreateIntegrationBody = ClientBody<"integrations", "create">;
-type IntegrationRecord = Omit<
-	ClientSuccess<"integrations", "get">,
-	"extraSettings" | "providerSpecifics"
-> & {
-	extraSettings: Record<string, unknown>;
-	providerSpecifics: { kind?: string } & Record<string, unknown>;
-};
 
 export async function createIntegration(
 	client: Client,
@@ -51,13 +44,10 @@ export async function listIntegrations(
 	query?: ClientQuery<"integrations", "list">,
 ) {
 	const { data, response } = await client.integrations.list({
-		params: { query },
 		headers: { Cookie: cookies },
+		params: { query: query ?? {} },
 	});
-
-	// TODO(Task 22): Remove this tests-only integration assertion once the public
-	// AppContract exposes typed integration-specific fields.
-	return requireResponseData(response, data, "Failed to list integrations") as IntegrationRecord[];
+	return requireResponseData(response, data, "Failed to list integrations");
 }
 
 export async function getIntegration(client: Client, cookies: string, id: string) {
@@ -65,14 +55,7 @@ export async function getIntegration(client: Client, cookies: string, id: string
 		headers: { Cookie: cookies },
 		params: { path: { integrationId: id } },
 	});
-
-	// TODO(Task 22): Remove this tests-only integration assertion once the public
-	// AppContract exposes typed integration-specific fields.
-	return requireResponseData(
-		response,
-		data,
-		`Failed to get integration '${id}'`,
-	) as IntegrationRecord;
+	return requireResponseData(response, data, `Failed to get integration '${id}'`);
 }
 
 export async function deleteIntegration(client: Client, cookies: string, id: string) {
@@ -83,6 +66,17 @@ export async function deleteIntegration(client: Client, cookies: string, id: str
 	return requireResponseData(response, data, `Failed to delete integration '${id}'`);
 }
 
+export async function postIntegrationWebhook(
+	client: Client,
+	integrationId: string,
+	body?: unknown,
+) {
+	return client.integrations.webhook({
+		body,
+		params: { path: { integrationId } },
+	});
+}
+
 export async function postWebhook(integrationId: string, body?: unknown) {
 	const rootUrl = getBackendUrl().replace(/\/api$/, "");
 	const response = await fetch(`${rootUrl}/_i/${integrationId}`, {
@@ -90,7 +84,10 @@ export async function postWebhook(integrationId: string, body?: unknown) {
 		headers: { "Content-Type": "application/json" },
 		body: body !== undefined ? JSON.stringify(body) : undefined,
 	});
-	const data: { data?: { runId: string }; error?: { message: string; code: string } } =
-		await response.json();
+	const parsed = (await response.json()) as
+		| { runId?: string; message?: string }
+		| { data?: { runId?: string }; error?: { message?: string } };
+	const data =
+		typeof parsed === "object" && parsed !== null && "data" in parsed ? parsed.data : parsed;
 	return { response, data };
 }
