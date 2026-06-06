@@ -36,11 +36,11 @@ it.effect("keeps raw sandbox workflow execution at the allowed boundaries", () =
 			integrationWorkflow,
 		] = yield* Effect.all([
 			readModule("./service.ts"),
-			readModule("./workflows.ts"),
+			readModule("./sandbox-workflow-live.ts"),
 			readModule("../events/event-creation.ts"),
 			readModule("../exercises/preload.ts"),
-			readModule("../entity-import/workflows.ts"),
-			readModule("../library-membership/workflows.ts"),
+			readModule("../entity-import/entity-import-workflow.ts"),
+			readModule("../library-membership/library-entity-import-workflow.ts"),
 			readModules(mediaImportWorkflowModules),
 			readModules(integrationWorkflowModules),
 		]);
@@ -66,8 +66,8 @@ it.effect("keeps parent workflows as orchestrations instead of queue pass-throug
 	Effect.gen(function* () {
 		const [entityImportWorkflow, libraryWorkflow, mediaImportWorkflow, integrationWorkflow] =
 			yield* Effect.all([
-				readModule("../entity-import/workflows.ts"),
-				readModule("../library-membership/workflows.ts"),
+				readModule("../entity-import/entity-import-workflow.ts"),
+				readModule("../library-membership/library-entity-import-workflow.ts"),
 				readModules(mediaImportWorkflowModules),
 				readModules(integrationWorkflowModules),
 			]);
@@ -94,7 +94,7 @@ it.effect("keeps event workflow and repository primitives behind EventsService",
 		]);
 
 		for (const source of [collectionsService, sandboxHostFunctions]) {
-			expect(source).not.toContain("#modules/events/workflows");
+			expect(source).not.toContain("#modules/events/event-create-workflow");
 			expect(source).not.toContain("#modules/events/repository");
 			expect(source).not.toContain("EventsRepository");
 		}

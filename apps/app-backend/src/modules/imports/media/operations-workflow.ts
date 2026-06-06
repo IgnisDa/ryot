@@ -10,15 +10,13 @@ import { DbRunner } from "#lib/db/service";
 import { RedisService } from "#lib/redis";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
+import { runEntityImportWorkflow } from "#modules/entity-import/entity-import-workflow";
+import { EntityImportWorkflowOperations } from "#modules/entity-import/operations-workflow";
 import {
 	decodeEntityResolveResult,
 	decodeEntitySearchResult,
 	decodeSandboxDriverResult,
 } from "#modules/entity-import/population";
-import {
-	EntityImportWorkflowOperations,
-	runEntityImportWorkflow,
-} from "#modules/entity-import/workflows";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";

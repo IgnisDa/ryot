@@ -17,8 +17,8 @@ import { slugify } from "#lib/slug";
 import { trimToNull } from "#lib/validation";
 
 import { SandboxRepository } from "./repository";
-import { RunSandboxWorkflow } from "./workflow-definitions";
-import { toSandboxRunResult } from "./workflows";
+import { RunSandboxWorkflow } from "./sandbox-run-workflow";
+import { toSandboxRunResult } from "./sandbox-workflow-live";
 
 const allowedHostFunctions = new Set([
 	"httpCall",

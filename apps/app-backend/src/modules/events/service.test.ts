@@ -18,7 +18,7 @@ import { type MockOverrides, dbRunnerLayer, makeWorkflowEngine } from "#lib/test
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
 import { QueryEngineService } from "#modules/query-engine/service";
-import { RunSandboxWorkflow } from "#modules/sandbox/workflow-definitions";
+import { RunSandboxWorkflow } from "#modules/sandbox/sandbox-run-workflow";
 
 import { createEventsForUser } from "./event-creation";
 import { EventsRepository } from "./repository";

@@ -15,22 +15,18 @@ import { CollectionsRepository } from "#modules/collections/repository";
 import { CollectionsService } from "#modules/collections/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
+import { BuiltinEntityImportWorkflowDefinitionsLive } from "#modules/entity-import/entity-import-workflow";
+import { EntityImportWorkflowOperationsLive } from "#modules/entity-import/operations-workflow";
 import { EntityPopulationTriggerLive } from "#modules/entity-import/population-trigger-live";
-import {
-	BuiltinEntityImportWorkflowDefinitionsLive,
-	EntityImportWorkflowOperationsLive,
-} from "#modules/entity-import/workflows";
 import { StreamRegistry } from "#modules/entity-interest/registry";
 import { InterestReconciler } from "#modules/entity-interest/service";
+import { EntitySchemaWorkflowDefinitionsLive } from "#modules/entity-schemas/default-saved-view-workflow-live";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 import { EntitySchemasService } from "#modules/entity-schemas/service";
-import { EntitySchemaWorkflowDefinitionsLive } from "#modules/entity-schemas/workflows";
+import { TranslateEntityWorkflowDefinitionsLive } from "#modules/entity-translation/entity-translation-workflow";
+import { TranslateEntityWorkflowOperationsLive } from "#modules/entity-translation/operations-workflow";
 import { TranslationsRepository } from "#modules/entity-translation/repository";
 import { TranslationsService } from "#modules/entity-translation/service";
-import {
-	TranslateEntityWorkflowDefinitionsLive,
-	TranslateEntityWorkflowOperationsLive,
-} from "#modules/entity-translation/workflows";
 import { EpisodeResolverRepository } from "#modules/episode-resolver/repository";
 import { EpisodeResolverService } from "#modules/episode-resolver/service";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
@@ -49,8 +45,8 @@ import { IntegrationsRepository } from "#modules/integrations/repository";
 import { IntegrationsSchedulerLive } from "#modules/integrations/scheduler";
 import { IntegrationsService } from "#modules/integrations/service";
 import { GlobalEntityReferencedWorkerLive } from "#modules/library-membership/global-reference-worker";
+import { LibraryEntityImportWorkflowDefinitionsLive } from "#modules/library-membership/library-entity-import-workflow";
 import { LibraryImportService } from "#modules/library-membership/service";
-import { LibraryEntityImportWorkflowDefinitionsLive } from "#modules/library-membership/workflows";
 import { ProviderConfig } from "#modules/query-engine/provider-config";
 import { QueryEngineService } from "#modules/query-engine/service";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
@@ -58,8 +54,8 @@ import { RelationshipSchemasService } from "#modules/relationship-schemas/servic
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
 import { SandboxRepository } from "#modules/sandbox/repository";
+import { SandboxWorkflowDefinitionsLive } from "#modules/sandbox/sandbox-workflow-live";
 import { SandboxApiService } from "#modules/sandbox/service";
-import { SandboxWorkflowDefinitionsLive } from "#modules/sandbox/workflows";
 import { DefaultSavedViewWorkerLive } from "#modules/saved-views/default-view-worker";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
 import { SavedViewsService } from "#modules/saved-views/service";

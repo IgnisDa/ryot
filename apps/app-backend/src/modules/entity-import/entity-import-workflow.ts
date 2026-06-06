@@ -1,21 +1,16 @@
-import * as PersistedQueue from "@effect/experimental/PersistedQueue";
-import { Activity, DurableQueue, Workflow } from "@effect/workflow";
-import type { Result as WorkflowResult } from "@effect/workflow/Workflow";
-import type { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
-import { SandboxRunError, dieOnDbError, toSandboxRunError } from "@ryot/contract/errors";
+import { Activity, Workflow } from "@effect/workflow";
+import { SandboxRunError, dieOnDbError } from "@ryot/contract/errors";
 import { ListedEntity } from "@ryot/contract/modules/entities/schemas";
-import type { ImportEntityRunResult } from "@ryot/contract/modules/entity-import/schemas";
 import { encodeEntityUpdatedMessage } from "@ryot/contract/modules/entity-interest/messages";
-import type { SandboxCompletedResult as SandboxCompletedResultValue } from "@ryot/contract/modules/sandbox/schemas";
 import { EntitySchemaId, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
-import { Cause, Context, DateTime, Effect, Exit, Layer, Match, Option, Schema } from "effect";
+import { DateTime, Effect, Schema } from "effect";
 
 import { DbRunner } from "#lib/db/service";
 import { redisKeys, RedisService } from "#lib/redis";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
-import { SandboxExecutionQueue } from "#modules/sandbox/durable-queues";
 
+import { EntityImportWorkflowOperations } from "./operations-workflow";
 import {
 	EntityDetailsChildEntity,
 	EntityDetailsRelatedEntity,
@@ -35,33 +30,7 @@ export const EntityImportPayload = Schema.Struct({
 
 export type EntityImportPayload = typeof EntityImportPayload.Type;
 
-export type EntityImportRunResult = typeof ImportEntityRunResult.Type;
-
-const workflowFailureResult = (
-	cause: Cause.Cause<SandboxRunError>,
-): Extract<EntityImportRunResult, { status: "failed" }> =>
-	Option.match(Cause.failureOption(cause), {
-		onNone: () => ({ status: "failed", error: "Import failed" }),
-		onSome: (error) => ({ status: "failed", error: error.message }),
-	});
-
-export const toEntityImportRunResult = (
-	result: WorkflowResult<ListedEntity, SandboxRunError> | undefined,
-): EntityImportRunResult => {
-	if (!result) {
-		return { status: "pending" };
-	}
-
-	return Match.value(result).pipe(
-		Match.tag("Suspended", () => ({ status: "pending" as const })),
-		Match.orElse(({ exit }) =>
-			Exit.match(exit, {
-				onFailure: workflowFailureResult,
-				onSuccess: (data) => ({ status: "completed" as const, data }),
-			}),
-		),
-	);
-};
+type ActivityName = (name: string) => string;
 
 const ValidatedEntityDetails = Schema.Struct({
 	name: Schema.String,
@@ -70,59 +39,24 @@ const ValidatedEntityDetails = Schema.Struct({
 	relatedEntities: Schema.Array(EntityDetailsRelatedEntity),
 });
 
-const processSandboxEntityDetails = (payload: EntityImportPayload, executionId: string) =>
-	DurableQueue.process(SandboxExecutionQueue, {
-		driverName: "details",
-		userId: payload.userId,
-		scriptId: payload.scriptId,
-		context: { externalId: payload.externalId },
-		executionId: `${executionId}-sandbox-details`,
-	}).pipe(Effect.mapError(toSandboxRunError));
+type ValidatedEntityDetails = typeof ValidatedEntityDetails.Type;
 
-export type EntityImportWorkflowOperationsValue = {
-	processSandbox: (
-		payload: EntityImportPayload,
-		executionId: string,
-	) => Effect.Effect<
-		SandboxCompletedResultValue,
-		SandboxRunError,
-		WorkflowEngine | WorkflowInstance
-	>;
+type RelatedEntityGroups = {
+	inferred: ReadonlyArray<EntityDetailsRelatedEntity>;
+	explicitBySlug: ReadonlyMap<string, ReadonlyArray<EntityDetailsRelatedEntity>>;
 };
 
-export class EntityImportWorkflowOperations extends Context.Tag("EntityImportWorkflowOperations")<
-	EntityImportWorkflowOperations,
-	EntityImportWorkflowOperationsValue
->() {}
+const activityNameWithPrefix = (prefix: string | undefined) => (name: string) =>
+	prefix ? `${prefix}${name}` : name;
 
-export const EntityImportWorkflowOperationsLive = Layer.effect(
-	EntityImportWorkflowOperations,
-	Effect.map(
-		PersistedQueue.PersistedQueueFactory,
-		(queueFactory) =>
-			({
-				processSandbox: (payload, executionId) =>
-					processSandboxEntityDetails(payload, executionId).pipe(
-						Effect.provideService(PersistedQueue.PersistedQueueFactory, queueFactory),
-					),
-			}) satisfies EntityImportWorkflowOperationsValue,
-	),
-);
-
-export const runEntityImportWorkflow = Effect.fn("runEntityImportWorkflow")(function* (
+const checkExistingEntity = Effect.fn("checkExistingEntity")(function* (
 	payload: EntityImportPayload,
-	executionId: string,
-	options: { activityPrefix?: string } = {},
+	activityName: ActivityName,
 ) {
-	const redis = yield* RedisService;
 	const runWithDb = yield* DbRunner;
-	const entities = yield* EntitiesService;
 	const repository = yield* EntitiesRepository;
-	const operations = yield* EntityImportWorkflowOperations;
-	const activityName = (name: string) =>
-		options.activityPrefix ? `${options.activityPrefix}${name}` : name;
 
-	const existing = yield* Activity.make({
+	return yield* Activity.make({
 		success: Schema.NullOr(ListedEntity),
 		name: activityName("check-existing-entity"),
 		execute: runWithDb(
@@ -133,23 +67,18 @@ export const runEntityImportWorkflow = Effect.fn("runEntityImportWorkflow")(func
 			}),
 		).pipe(dieOnDbError),
 	});
+});
 
-	if (existing && existing.populatedAt !== null) {
-		return existing;
-	}
-
-	const sandboxResult = yield* operations.processSandbox(payload, executionId);
-
-	if (sandboxResult.error) {
-		return yield* new SandboxRunError({ message: sandboxResult.error });
-	}
-
-	const validatedDetails = yield* Activity.make({
+const validateEntityDetails = Effect.fn("validateEntityDetails")(function* (
+	value: unknown,
+	activityName: ActivityName,
+) {
+	return yield* Activity.make({
 		error: SandboxRunError,
 		success: ValidatedEntityDetails,
 		name: activityName("validate-entity-details"),
 		execute: Effect.gen(function* () {
-			const details = yield* decodeEntityDetailsResult(sandboxResult.value).pipe(
+			const details = yield* decodeEntityDetailsResult(value).pipe(
 				Effect.mapError(
 					(error) => new SandboxRunError({ message: `Invalid entity details: ${error.message}` }),
 				),
@@ -163,24 +92,40 @@ export const runEntityImportWorkflow = Effect.fn("runEntityImportWorkflow")(func
 			};
 		}),
 	});
+});
 
-	const inferredRelatedEntities = validatedDetails.relatedEntities.filter(
+const groupRelatedEntities = (
+	relatedEntities: ReadonlyArray<EntityDetailsRelatedEntity>,
+): RelatedEntityGroups => {
+	const inferred = relatedEntities.filter(
 		(relatedEntity) => relatedEntity.relationshipSchemaSlug === undefined,
 	);
-	const explicitRelatedEntitiesBySlug = new Map<string, EntityDetailsRelatedEntity[]>();
-	for (const relatedEntity of validatedDetails.relatedEntities) {
+	const explicitBySlug = new Map<string, EntityDetailsRelatedEntity[]>();
+
+	for (const relatedEntity of relatedEntities) {
 		if (relatedEntity.relationshipSchemaSlug === undefined) {
 			continue;
 		}
-		const group = explicitRelatedEntitiesBySlug.get(relatedEntity.relationshipSchemaSlug);
+
+		const group = explicitBySlug.get(relatedEntity.relationshipSchemaSlug);
 		if (group) {
 			group.push(relatedEntity);
 		} else {
-			explicitRelatedEntitiesBySlug.set(relatedEntity.relationshipSchemaSlug, [relatedEntity]);
+			explicitBySlug.set(relatedEntity.relationshipSchemaSlug, [relatedEntity]);
 		}
 	}
 
-	const entity = yield* Activity.make({
+	return { inferred, explicitBySlug };
+};
+
+const writePrimaryEntity = Effect.fn("writePrimaryEntity")(function* (
+	payload: EntityImportPayload,
+	details: ValidatedEntityDetails,
+	activityName: ActivityName,
+) {
+	const entities = yield* EntitiesService;
+
+	return yield* Activity.make({
 		success: ListedEntity,
 		error: SandboxRunError,
 		name: activityName("write-primary-entity"),
@@ -188,20 +133,27 @@ export const runEntityImportWorkflow = Effect.fn("runEntityImportWorkflow")(func
 			.save({
 				scope: "global",
 				populatedAt: null,
-				name: validatedDetails.name,
+				name: details.name,
 				externalId: payload.externalId,
 				sandboxScriptId: payload.scriptId,
 				entitySchemaId: payload.entitySchemaId,
-				properties: validatedDetails.properties,
+				properties: details.properties,
 			})
 			.pipe(
 				dieOnDbError,
 				Effect.mapError((error) => new SandboxRunError({ message: error.message })),
 			),
 	});
+});
 
+const writeRelatedEntities = Effect.fn("writeRelatedEntities")(function* (
+	payload: EntityImportPayload,
+	entity: ListedEntity,
+	groups: RelatedEntityGroups,
+	activityName: ActivityName,
+) {
 	yield* Effect.forEach(
-		inferredRelatedEntities,
+		groups.inferred,
 		(relatedEntity) =>
 			Activity.make({
 				error: SandboxRunError,
@@ -216,7 +168,7 @@ export const runEntityImportWorkflow = Effect.fn("runEntityImportWorkflow")(func
 	);
 
 	yield* Effect.forEach(
-		[...explicitRelatedEntitiesBySlug.entries()],
+		[...groups.explicitBySlug.entries()],
 		([relationshipSchemaSlug, relatedEntities]) =>
 			Activity.make({
 				error: SandboxRunError,
@@ -229,16 +181,32 @@ export const runEntityImportWorkflow = Effect.fn("runEntityImportWorkflow")(func
 			}),
 		{ discard: true },
 	);
+});
 
+const writeChildEntities = Effect.fn("writeChildEntities")(function* (
+	payload: EntityImportPayload,
+	entity: ListedEntity,
+	details: ValidatedEntityDetails,
+	activityName: ActivityName,
+) {
 	yield* processChildEntityTree({
 		parentEntityId: entity.id,
 		sandboxScriptId: payload.scriptId,
 		activityPrefix: activityName(""),
 		parentEntitySchemaId: payload.entitySchemaId,
-		childEntities: validatedDetails.childEntities,
+		childEntities: details.childEntities,
 	});
+});
 
-	const populatedEntity = yield* Activity.make({
+const markPrimaryEntityPopulated = Effect.fn("markPrimaryEntityPopulated")(function* (
+	payload: EntityImportPayload,
+	details: ValidatedEntityDetails,
+	activityName: ActivityName,
+) {
+	const redis = yield* RedisService;
+	const entities = yield* EntitiesService;
+
+	return yield* Activity.make({
 		success: ListedEntity,
 		error: SandboxRunError,
 		name: activityName("mark-primary-entity-populated"),
@@ -248,11 +216,11 @@ export const runEntityImportWorkflow = Effect.fn("runEntityImportWorkflow")(func
 				.save({
 					populatedAt,
 					scope: "global",
-					name: validatedDetails.name,
+					name: details.name,
 					externalId: payload.externalId,
 					sandboxScriptId: payload.scriptId,
 					entitySchemaId: payload.entitySchemaId,
-					properties: validatedDetails.properties,
+					properties: details.properties,
 				})
 				.pipe(
 					dieOnDbError,
@@ -265,8 +233,34 @@ export const runEntityImportWorkflow = Effect.fn("runEntityImportWorkflow")(func
 			return saved;
 		}),
 	});
+});
 
-	return populatedEntity;
+export const runEntityImportWorkflow = Effect.fn("runEntityImportWorkflow")(function* (
+	payload: EntityImportPayload,
+	executionId: string,
+	options: { activityPrefix?: string } = {},
+) {
+	const operations = yield* EntityImportWorkflowOperations;
+	const activityName = activityNameWithPrefix(options.activityPrefix);
+
+	const existing = yield* checkExistingEntity(payload, activityName);
+	if (existing && existing.populatedAt !== null) {
+		return existing;
+	}
+
+	const sandboxResult = yield* operations.processSandbox(payload, executionId);
+	if (sandboxResult.error) {
+		return yield* new SandboxRunError({ message: sandboxResult.error });
+	}
+
+	const details = yield* validateEntityDetails(sandboxResult.value, activityName);
+	const relatedEntities = groupRelatedEntities(details.relatedEntities);
+	const entity = yield* writePrimaryEntity(payload, details, activityName);
+
+	yield* writeRelatedEntities(payload, entity, relatedEntities, activityName);
+	yield* writeChildEntities(payload, entity, details, activityName);
+
+	return yield* markPrimaryEntityPopulated(payload, details, activityName);
 });
 
 export const BuiltinEntityImportWorkflow = Workflow.make({
