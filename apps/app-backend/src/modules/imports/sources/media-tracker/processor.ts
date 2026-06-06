@@ -5,23 +5,23 @@ import {
 	getOptionalSourcePayloadBoolean,
 	getRequiredSourcePayloadString,
 } from "../shared/source-payload";
-import { adaptMediatrackerData } from "./adapter";
+import { adaptMediaTrackerData } from "./adapter";
 
-export type MediatrackerImportProcessorDeps = {
+export type MediaTrackerImportProcessorDeps = {
 	processMediaImport: typeof processMediaImport;
-	adaptMediatrackerData: typeof adaptMediatrackerData;
+	adaptMediaTrackerData: typeof adaptMediaTrackerData;
 };
 
-const mediatrackerImportProcessorDeps: MediatrackerImportProcessorDeps = {
+const mediaTrackerImportProcessorDeps: MediaTrackerImportProcessorDeps = {
 	processMediaImport,
-	adaptMediatrackerData,
+	adaptMediaTrackerData,
 };
 
-export const processMediatrackerImport = async (
+export const processMediaTrackerImport = async (
 	job: Job,
 	token: string | undefined,
 	input: MediaImportJobInput & { sourcePayload: Record<string, unknown> | undefined },
-	deps: MediatrackerImportProcessorDeps = mediatrackerImportProcessorDeps,
+	deps: MediaTrackerImportProcessorDeps = mediaTrackerImportProcessorDeps,
 ): Promise<void> => {
 	const apiKey = getRequiredSourcePayloadString(input.sourcePayload, "apiKey");
 	const apiUrl = getRequiredSourcePayloadString(input.sourcePayload, "apiUrl");
@@ -38,7 +38,7 @@ export const processMediatrackerImport = async (
 			if (!apiKey || !apiUrl) {
 				throw new Error("Import job is missing MediaTracker credentials");
 			}
-			return deps.adaptMediatrackerData({ apiKey, apiUrl, allowInsecureConnections });
+			return deps.adaptMediaTrackerData({ apiKey, apiUrl, allowInsecureConnections });
 		},
 	});
 };

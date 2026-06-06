@@ -50,7 +50,7 @@ const processWithFailureHandling = async (
 };
 
 const hasResumableImportState = (input: SourceProcessorInput): boolean =>
-	Boolean(input.importStep || input.mediaEntityGroups || input.providerEntityRefs);
+	Boolean(input.importStep ?? input.mediaEntityGroups ?? input.providerEntityRefs);
 
 export const processImportJob = async (input: SourceProcessorInput): Promise<void> => {
 	const { runId, userId } = input;
