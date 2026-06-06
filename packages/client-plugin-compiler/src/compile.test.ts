@@ -49,7 +49,7 @@ it.effect(
 			expect(javascript).not.toContain("./styles.css");
 
 			const css = byName.get("plugin.css")?.contents ?? "";
-			expect(css).toContain(".fixture-logo");
+			expect(css).toContain(".plugin-logo");
 			expect(css).toContain("background-color: var(--accent)");
 			expect(css).toContain("color: var(--text-muted)");
 
