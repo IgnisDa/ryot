@@ -7,15 +7,21 @@ function parseJsonResponse(responseBody) {
 }
 
 function parsePublishYear(startDate, dayjs) {
-	if (typeof startDate !== "string" || !startDate.trim()) {return null;}
+	if (typeof startDate !== "string" || !startDate.trim()) {
+		return null;
+	}
 	const d = dayjs(startDate.trim());
 	return d.isValid() ? d.year() : null;
 }
 
 function parsePublishDate(startDate) {
-	if (typeof startDate !== "string" || !startDate.trim()) {return null;}
+	if (typeof startDate !== "string" || !startDate.trim()) {
+		return null;
+	}
 	const trimmed = startDate.trim();
-	if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {return null;}
+	if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+		return null;
+	}
 	return trimmed;
 }
 
@@ -125,7 +131,8 @@ async function getMalClientId() {
 
 driver("search", async function (context) {
 	const { z } = await import("npm:zod");
-	const dayjs = (await import("npm:dayjs")).default;
+	const dayjsModule = await import("npm:dayjs");
+	const dayjs = dayjsModule.default;
 
 	const {
 		query,
@@ -219,7 +226,8 @@ driver("search", async function (context) {
 
 driver("details", async function (context) {
 	const { z } = await import("npm:zod");
-	const dayjs = (await import("npm:dayjs")).default;
+	const dayjsModule = await import("npm:dayjs");
+	const dayjs = dayjsModule.default;
 
 	const { externalId: contextIdentifier } = z
 		.object({

@@ -131,16 +131,26 @@ function getLocalizedArtwork(artworks, language) {
 function buildTranslationResult(payload, image) {
 	const { name, description } = getTranslationFields(payload);
 	const result = {};
-	if (name) {result.name = name;}
-	if (image) {result.image = image;}
+	if (name) {
+		result.name = name;
+	}
+	if (image) {
+		result.image = image;
+	}
 	const properties = {};
-	if (description) {properties.description = description;}
-	if (Object.keys(properties).length > 0) {result.properties = properties;}
+	if (description) {
+		properties.description = description;
+	}
+	if (Object.keys(properties).length > 0) {
+		result.properties = properties;
+	}
 	return result;
 }
 
 function parsePublishYear(str, dayjs) {
-	if (typeof str !== "string" || !str.trim()) {return null;}
+	if (typeof str !== "string" || !str.trim()) {
+		return null;
+	}
 	const d = dayjs(str.trim());
 	return d.isValid() && d.year() > 0 ? d.year() : null;
 }
@@ -212,8 +222,8 @@ function collectCompanies(companiesObj) {
 					? company.name.trim()
 					: "Loading...";
 
-			const key = `company.tvdb:${id}`;
-			const existing = companyByKey.get(key);
+			const companyKey = `company.tvdb:${id}`;
+			const existing = companyByKey.get(companyKey);
 			if (existing) {
 				const roles = new Set([
 					...(Array.isArray(existing.relationshipProperties.roles)
@@ -228,7 +238,7 @@ function collectCompanies(companiesObj) {
 				continue;
 			}
 
-			companyByKey.set(key, {
+			companyByKey.set(companyKey, {
 				name,
 				externalId: String(id),
 				scriptSlug: "company.tvdb",
@@ -386,7 +396,8 @@ driver("search", async function (context) {
 
 driver("details", async function (context, { metadata }) {
 	const { z } = await import("npm:zod");
-	const dayjs = (await import("npm:dayjs")).default;
+	const dayjsModule = await import("npm:dayjs");
+	const dayjs = dayjsModule.default;
 
 	const { externalId } = z
 		.object({
@@ -446,16 +457,18 @@ driver("details", async function (context, { metadata }) {
 		? movie.lists
 				.filter((l) => l && (l.is_official === true || l.isOfficial === true))
 				.map((l) => {
-					const externalId =
+					const groupExternalId =
 						typeof l?.id === "number"
 							? String(Math.trunc(l.id))
 							: typeof l?.id === "string" && l.id.trim()
 								? l.id.trim()
 								: null;
-					if (!externalId) {return null;}
+					if (!groupExternalId) {
+						return null;
+					}
 
 					return {
-						externalId,
+						externalId: groupExternalId,
 						scriptSlug: "movie-group.tvdb",
 						name: typeof l?.name === "string" && l.name.trim() ? l.name.trim() : "Loading...",
 						relationshipProperties: {

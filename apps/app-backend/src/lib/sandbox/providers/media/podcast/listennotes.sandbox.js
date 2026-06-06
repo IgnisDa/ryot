@@ -37,13 +37,17 @@ function getNullableNumber(value) {
 }
 
 function getPublishYearFromTimestamp(value, dayjs) {
-	if (typeof value !== "number" || !Number.isFinite(value)) {return null;}
+	if (typeof value !== "number" || !Number.isFinite(value)) {
+		return null;
+	}
 	const d = dayjs(value);
 	return d.isValid() ? Number(d.toISOString().slice(0, 4)) : null;
 }
 
 function getIsoDateFromTimestamp(value, dayjs) {
-	if (typeof value !== "number" || !Number.isFinite(value)) {return null;}
+	if (typeof value !== "number" || !Number.isFinite(value)) {
+		return null;
+	}
 	const d = dayjs(value);
 	return d.isValid() ? d.toISOString().slice(0, 10) : null;
 }
@@ -160,7 +164,9 @@ async function getGenresById() {
 	if (cached?.success) {
 		const GenreMapSchema = z.record(z.string(), z.string());
 		const parsed = GenreMapSchema.safeParse(cached.data);
-		if (parsed.success) {return parsed.data;}
+		if (parsed.success) {
+			return parsed.data;
+		}
 	}
 
 	const payload = await listennotesGet("/genres");
@@ -205,8 +211,7 @@ function collectGenres(genreIds, genresById) {
 async function fetchPodcastDetails(externalId, nextEpisodePubDate) {
 	return listennotesGet(`/podcasts/${encodeURIComponent(externalId)}`, {
 		sort: "oldest_first",
-		next_episode_pub_date:
-			nextEpisodePubDate === null || nextEpisodePubDate === undefined ? "null" : nextEpisodePubDate,
+		next_episode_pub_date: nextEpisodePubDate ?? "null",
 	});
 }
 
@@ -222,7 +227,8 @@ async function fetchRecommendations(externalId) {
 
 driver("search", async function (context) {
 	const { z } = await import("npm:zod");
-	const dayjs = (await import("npm:dayjs")).default;
+	const dayjsModule = await import("npm:dayjs");
+	const dayjs = dayjsModule.default;
 
 	const {
 		query,
@@ -262,7 +268,8 @@ driver("search", async function (context) {
 
 driver("details", async function (context) {
 	const { z } = await import("npm:zod");
-	const dayjs = (await import("npm:dayjs")).default;
+	const dayjsModule = await import("npm:dayjs");
+	const dayjs = dayjsModule.default;
 
 	const { externalId } = z
 		.object({

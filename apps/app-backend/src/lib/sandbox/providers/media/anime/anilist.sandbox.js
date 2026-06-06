@@ -227,7 +227,9 @@ function parseAiringSchedule(airingSchedule, nextAiringEpisode, dayjs) {
 }
 
 async function cleanHtmlDescription(html) {
-	if (typeof html !== "string" || !html.trim()) {return null;}
+	if (typeof html !== "string" || !html.trim()) {
+		return null;
+	}
 	const { load } = await import("npm:cheerio");
 	const $ = load(html);
 	$("br").replaceWith("\n");
@@ -352,7 +354,8 @@ query MediaSearchQuery($page: Int!, $perPage: Int!, $search: String!, $type: Med
 
 driver("details", async function (context, { metadata }) {
 	const { z } = await import("npm:zod");
-	const dayjs = (await import("npm:dayjs")).default;
+	const dayjsModule = await import("npm:dayjs");
+	const dayjs = dayjsModule.default;
 
 	const { externalId: contextIdentifier } = z
 		.object({
@@ -546,7 +549,9 @@ query MediaTranslationQuery($id: Int!) {
 
 	const name = pickRequestedAnilistTitle(media.title, titleLang);
 	const result = {};
-	if (name) {result.name = name;}
+	if (name) {
+		result.name = name;
+	}
 
 	return result;
 });
