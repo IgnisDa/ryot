@@ -191,7 +191,7 @@ export function ProviderSearchPanel(props: {
 	);
 	const optionsSchema = options.status === "ready" ? options.schema : undefined;
 	const optionsForm = useSchemaForm({
-		schema: optionsSchema,
+		schemas: [optionsSchema],
 		onSubmit: () => dispatch({ type: "search-requested" }),
 	});
 	const uploadFile = temporaryFileUploadOperation(scope);

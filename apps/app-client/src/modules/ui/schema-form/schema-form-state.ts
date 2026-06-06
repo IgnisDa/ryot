@@ -24,6 +24,8 @@ export type SchemaFormValue =
 
 export type SchemaFormValues = Readonly<Record<string, SchemaFormValue>>;
 
+export type SchemaFormMode = "edit" | "create";
+
 export type SchemaFormTextFormat = "url" | "email";
 
 export type SchemaFormControl =
@@ -163,6 +165,29 @@ const schemaFieldControl = (
 const hasSchemaFormValue = (value: SchemaFormValue): value is Exclude<SchemaFormValue, undefined> =>
 	value !== undefined && value !== "" && (!Array.isArray(value) || value.length > 0);
 
+const isMissingSchemaFormValue = (value: unknown) =>
+	isMissingAppSchemaRequiredValue(value) || (Array.isArray(value) && value.length === 0);
+
+/**
+ * Condition input deliberately treats an emptied list as absent, so `exists` rules stay false.
+ * Validation still has to see the list the user actually holds, otherwise a field carrying a
+ * non-empty `defaultValue` would be checked against that default instead of the cleared value.
+ */
+const validatedFieldValue = (
+	field: SchemaFormField,
+	values: SchemaFormValues,
+	input: Readonly<Record<string, unknown>>,
+) =>
+	field.type === "array" && Array.isArray(values[field.key]) ? values[field.key] : input[field.key];
+
+/**
+ * Redaction strips stored secrets before they reach the client, so an edit form cannot tell
+ * "never set" from "set and hidden". Leaving a secret blank therefore means "keep the current
+ * value": the key is omitted from the payload and the server merges the stored one back in.
+ */
+export const isRetainedSecretField = (field: SchemaFormField, mode: SchemaFormMode) =>
+	mode === "edit" && field.secret;
+
 const effectiveConditionInput = (schema: AppSchema, values: SchemaFormValues) => {
 	const entries = getOrderedAppSchemaFieldEntries(schema.fields);
 	const supportedEntries = entries.filter(([, property]) => isSupportedProperty(property));
@@ -273,12 +298,17 @@ export const initialSchemaFormValues = (schema: AppSchema): SchemaFormValues =>
 export const validateSchemaFormValues = (
 	schema: AppSchema,
 	values: SchemaFormValues,
+	mode: SchemaFormMode = "create",
 ): ReadonlyMap<string, string> => {
 	const input = effectiveConditionInput(schema, values);
 	const { fields } = describeSchemaFormFieldsWithInput(schema, input);
 	const errors = new Map<string, string>();
 	for (const field of fields) {
-		if (field.required && isMissingAppSchemaRequiredValue(input[field.key])) {
+		const fieldValue = validatedFieldValue(field, values, input);
+		if (field.required && isMissingSchemaFormValue(fieldValue)) {
+			if (isRetainedSecretField(field, mode)) {
+				continue;
+			}
 			const conditionalMessage = (schema.rules ?? []).find(
 				(rule) =>
 					rule.kind === "validation" &&
@@ -289,7 +319,7 @@ export const validateSchemaFormValues = (
 			errors.set(field.key, conditionalMessage ?? `${field.label} is required`);
 			continue;
 		}
-		const value = input[field.key];
+		const value = fieldValue;
 		if (field.type !== "array" || !Array.isArray(value) || field.arrayItem === undefined) {
 			continue;
 		}
@@ -385,18 +415,27 @@ export const toSchemaFormPayload = (
 		describeSchemaFormFieldsWithInput(schema, input).fields.map((field) => field.key),
 	);
 	for (const [key, property] of getOrderedAppSchemaFieldEntries(schema.fields)) {
-		if (!isSupportedProperty(property) || !Object.hasOwn(input, key)) {
+		if (!isSupportedProperty(property)) {
 			continue;
 		}
 		if (isFixedEnumProperty(property)) {
-			payload[key] = property.defaultValue;
+			if (Object.hasOwn(input, key)) {
+				payload[key] = property.defaultValue;
+			}
+			continue;
+		}
+		if (!renderedKeys.has(key)) {
 			continue;
 		}
 		const value = values[key];
-		if (!renderedKeys.has(key) || !hasSchemaFormValue(value)) {
+		// An emptied list is a real edit, so it has to reach the server for a stored list to clear.
+		if (Array.isArray(value)) {
+			payload[key] = [...value];
 			continue;
 		}
-		payload[key] = Array.isArray(value) ? [...value] : value;
+		if (hasSchemaFormValue(value)) {
+			payload[key] = value;
+		}
 	}
 	return payload;
 };

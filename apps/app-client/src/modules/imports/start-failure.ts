@@ -1,28 +1,23 @@
-import { BadRequest } from "@ryot/contract/errors";
-import { Cause, Option } from "effect";
+import {
+	type RequestFailureRule,
+	resolveRequestFailure,
+	type ResolvedRequestFailure,
+} from "@/api/request-failure";
+import type { WizardStep } from "@/modules/ui/wizard/wizard-state";
 
-import type { ImportWizardStep } from "./start-wizard-state";
-
-export type ImportStartFailure = {
-	readonly detail: string;
-	readonly step: ImportWizardStep | undefined;
-};
+export type ImportStartFailure = ResolvedRequestFailure<WizardStep>;
 
 const FALLBACK_DETAIL = "This import could not be started. Try again.";
 
-const startFailureRules: readonly {
-	readonly detail: string;
-	readonly step: ImportWizardStep;
-	readonly matches: (message: string) => boolean;
-}[] = [
+const startFailureRules: readonly RequestFailureRule<WizardStep>[] = [
 	{
-		step: "input",
+		step: "configure",
 		detail: "That file is not a format this service can read. Choose a different file.",
 		matches: (message) =>
 			message.startsWith("Import file must have one of the following extensions"),
 	},
 	{
-		step: "input",
+		step: "configure",
 		detail: "Some of these details could not be used. Check them and try again.",
 		matches: (message) =>
 			message.startsWith("Import source input is invalid") ||
@@ -31,13 +26,13 @@ const startFailureRules: readonly {
 			message.startsWith("Import uploads must use local storage"),
 	},
 	{
-		step: "source",
+		step: "pick",
 		detail:
 			"This service is not configured on your server yet. Set what it needs, then choose it again.",
 		matches: (message) => message.includes("is not configured"),
 	},
 	{
-		step: "source",
+		step: "pick",
 		detail: "This service is no longer available on your server. Choose another one.",
 		matches: (message) =>
 			message.startsWith("Import source is not available") ||
@@ -45,17 +40,5 @@ const startFailureRules: readonly {
 	},
 ];
 
-export const importStartFailure = (message: string | undefined): ImportStartFailure => {
-	const rule =
-		message === undefined
-			? undefined
-			: startFailureRules.find((candidate) => candidate.matches(message));
-	return rule === undefined
-		? { step: undefined, detail: FALLBACK_DETAIL }
-		: { step: rule.step, detail: rule.detail };
-};
-
-export const importStartFailureMessage = (cause: Cause.Cause<unknown>) =>
-	Option.flatMap(Cause.findErrorOption(cause), (error) =>
-		error instanceof BadRequest ? Option.some(error.message) : Option.none(),
-	).pipe(Option.getOrUndefined);
+export const importStartFailure = (message: string | undefined) =>
+	resolveRequestFailure(startFailureRules, message, FALLBACK_DETAIL);
