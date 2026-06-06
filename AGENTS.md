@@ -4,7 +4,6 @@
 
 - **Monorepo**: Uses `turbo`. All frontend commands must use `turbo`.
 - **GitHub**: Use `gh` CLI; raw API only when `gh` doesn't support it.
-- **Documentation lookup**: Use the `find-docs` skill to verify against current docs before answering or coding.
 - **Dependencies**: `cd <app> && bun add -E` (exact versions, no ranges).
 - **Bash paths**: Always quote with single quotes (e.g., `git add 'path/file.ts'`).
 - **Linting and Formatting**: `bun turbo --filter=@ryot/app-backend check`.
