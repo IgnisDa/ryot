@@ -67,11 +67,7 @@ export const bootstrapClientPlugin = (definition: ClientPluginDefinition) => {
 			root = createRoot(rootElement);
 			root.render(
 				<RyotProvider client={runtime.client}>
-					<PluginRouter
-						definition={definition}
-						navigate={runtime.navigate}
-						locations={runtime.locations}
-					/>
+					<PluginRouter definition={definition} locations={runtime.locations} />
 				</RyotProvider>,
 			);
 		},
@@ -85,6 +81,5 @@ export {
 	usePluginParams,
 	usePluginSearch,
 	usePluginLocation,
-	usePluginNavigation,
 	type PluginRouteDefinition,
 } from "./routing";

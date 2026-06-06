@@ -524,13 +524,13 @@ For example, the chart API should remain a Ryot chart API even if its internal i
 
 `@ryot/client-sdk` is the shared, environment-neutral client contract between the Ryot kernel and plugin JavaScript.
 
-`RyotClient` exposes semantic Promise-based APIs, not kernel implementation details. Hosts construct it with an explicit adapter and pass the client to consumers through the provider/client boundary. It does not bind a global mutable bridge.
+`RyotClient` exposes semantic capability APIs, not kernel implementation details. Its asynchronous request APIs return Promises. Hosts construct it with an explicit adapter and pass the client to consumers through the provider/client boundary. It does not bind a global mutable bridge.
 
 The package has four public surfaces:
 
 - `@ryot/client-sdk` — the shared client contract and `RyotClient`
 - `@ryot/client-sdk/react` — React integration
-- `@ryot/client-sdk/plugin` — the plugin runtime adapter and plugin routing surface
+- `@ryot/client-sdk/plugin` — the plugin runtime adapter plus plugin React routing conveniences
 - `@ryot/client-sdk/effect` — the supported schema surface
 
 The kernel supplies a direct adapter to kernel services. The plugin runtime supplies a `MessageChannel` adapter. Both use the same environment-neutral client contract.
@@ -540,9 +540,9 @@ Each mounted plugin document has exactly one per-session client plugin runtime. 
 Initial categories should be approximately:
 
 ```text
-runtime
-navigation
 data
+operations
+navigation
 storage
 assets
 feedback
@@ -553,14 +553,22 @@ screen
 liveActivity
 system
 theme
-lifecycle
 ```
 
-The exact methods should be added incrementally.
+Runtime lifecycle is internal session machinery, not a public client category. The exact public capability methods should be added incrementally.
 
-### Current data API
+The canonical client taxonomy is:
 
-The client starts with one data category. An explicit client value is shown as `ryot` here:
+```ts
+await ryot.data.query(recipe);
+await ryot.operations.invoke({ slug, input, output });
+ryot.navigation.push({ path: "/workouts/456" });
+ryot.navigation.replace({ path: "/workouts/456" });
+```
+
+### Current data and operations API
+
+The client starts with data, operations, and navigation categories. An explicit client value is shown as `ryot` here:
 
 ```ts
 import { Schema } from "@ryot/client-sdk/effect";
@@ -570,7 +578,7 @@ import { useRyot } from "@ryot/client-sdk/react";
 const ryot = useRyot();
 const Greeting = Schema.Struct({ greeting: Schema.String });
 
-const { greeting } = await ryot.data.invokeOperation({
+const { greeting } = await ryot.operations.invoke({
 	slug: "greet",
 	input: { name },
 	output: Greeting,
@@ -585,19 +593,19 @@ const result = await ryot.data.query(recipe);
 
 The recipe owns its query document and result decoder. The client executes the document and decodes the result locally; consumers do not parse generic `RowItem` values directly. Query requests use the existing user-scoped backend authorization behavior rather than a client-specific bypass.
 
-`invokeOperation` remains the current plugin operation API. It takes an operation slug, a required JSON-compatible `input`, and an output codec, but no input codec. A no-input operation sends `input: null`; omission is invalid and is not converted to `null`. The SDK checks the input with the canonical `isJsonValue` guard from `@ryot/contract/schema/json` and rejects invalid input locally, before invoking the adapter. The client decodes a successful JSON result against `output`.
+`ryot.operations.invoke({ slug, input, output })` is the plugin operation API. It takes an operation slug, a required JSON-compatible `input`, and an output codec, but no input codec. A no-input operation sends `input: null`; omission is invalid and is not converted to `null`. The SDK checks the input with the canonical `isJsonValue` guard from `@ryot/contract/schema/json` and rejects invalid input locally, before invoking the adapter. The client decodes a successful JSON result against `output`.
 
 Expected plugin business/domain outcomes are successful typed values encoded by each operation output schema. They are never SDK errors. The public `PluginOperationError.reason` is exactly one of:
 
-| Reason | Meaning |
-| --- | --- |
-| `disposed` | Normal local or peer teardown. |
-| `protocol` | Malformed bridge/session data or a wire `lifecycle-close` reason of `failed`. |
-| `transport` | Communication, posting, or network failure. |
-| `invalid-input` | Invalid input found locally before dispatch. |
-| `operation-failed` | Opaque declared backend/platform operation execution failure; not a plugin business outcome. |
-| `malformed-result` | Non-JSON operation output before bridge delivery, or JSON output failing the caller's output schema. |
-| `unsupported-capability` | An unavailable or undeclared capability. |
+| Reason                   | Meaning                                                                                              |
+| ------------------------ | ---------------------------------------------------------------------------------------------------- |
+| `disposed`               | Normal local or peer teardown.                                                                       |
+| `protocol`               | Malformed bridge/session data or a wire `lifecycle-close` reason of `failed`.                        |
+| `transport`              | Communication, posting, or network failure.                                                          |
+| `invalid-input`          | Invalid input found locally before dispatch.                                                         |
+| `operation-failed`       | Opaque declared backend/platform operation execution failure; not a plugin business outcome.         |
+| `malformed-result`       | Non-JSON operation output before bridge delivery, or JSON output failing the caller's output schema. |
+| `unsupported-capability` | An unavailable or undeclared capability.                                                             |
 
 The wire value `failed` is not a public SDK error reason. Internal causes, messages, diagnostics, HTTP details, and stack traces never cross the bridge.
 
@@ -613,13 +621,12 @@ import {
 	bootstrapClientPlugin,
 	defineClientPlugin,
 	usePluginLocation,
-	usePluginNavigation,
 	usePluginParams,
 	usePluginSearch,
 } from "@ryot/client-sdk/plugin";
 ```
 
-Navigation remains this hook and link surface and has not moved under `ryot.navigation`.
+`PluginLink` and the reactive location, params, and search hooks remain React conveniences on `@ryot/client-sdk/plugin`. They use the same explicit client and plugin runtime as `ryot.navigation.push` and `ryot.navigation.replace`; they do not create a parallel client or bridge facade.
 
 Possible examples:
 
@@ -769,7 +776,7 @@ Conceptually:
 ```text
 plugin
   │
-  │ ryot.data / plugin operation
+  │ ryot.data.query / ryot.operations.invoke
   ▼
 kernel
   │
@@ -781,7 +788,7 @@ Ryot backend
 The concrete operation path is:
 
 ```text
-ryot.data.invokeOperation({ slug, input, output })
+ryot.operations.invoke({ slug, input, output })
   -> plugin SDK operation adapter on the session MessagePort
   -> kernel bridge session, which supplies the installation's plugin slug
   -> kernel authenticated transport (browser credentials, ApiScope)
@@ -1057,10 +1064,9 @@ The plugin's in-memory router renders the corresponding React route.
 When plugin code requests navigation:
 
 ```ts
-import { usePluginNavigation } from "@ryot/client-sdk/plugin";
+const ryot = useRyot();
 
-const { push } = usePluginNavigation();
-push({
+ryot.navigation.push({
 	path: "/workouts/456",
 });
 ```
@@ -1248,6 +1254,8 @@ A long-lived plugin document preserves:
 - same-document View Transitions
 
 The bridge session and the per-session client plugin runtime have the same lifetime. Route changes only update runtime location state. Theme changes only update runtime theme state. Crash recovery, artifact replacement, unmount, and host disposal all call the same idempotent runtime disposal path; none may add a theme-specific, crash-specific, reload-specific, or component-specific bridge teardown path.
+
+Artifact replacement then creates a fresh client and runtime through the same bootstrap/runtime factory used for an initial mount. Reload is a host lifecycle operation, not a public client capability.
 
 The kernel may discard inactive plugin iframes under memory pressure.
 
