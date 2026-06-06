@@ -14,13 +14,13 @@ export type LoadedMediaImportAdapterError = {
 	cleanupPaths: ReadonlyArray<string>;
 };
 
-export const loadMediaTextFileAdapterResult = (input: {
-	filePath?: string;
-	sourceName: string;
-	adapterErrorFallback?: string;
-	loadAdapterResult: (fileText: string) => MediaImportAdapterResult;
-}) =>
-	Effect.gen(function* () {
+export const loadMediaTextFileAdapterResult = Effect.fn("imports.loadMediaTextFileAdapterResult")(
+	function* (input: {
+		filePath?: string;
+		sourceName: string;
+		adapterErrorFallback?: string;
+		loadAdapterResult: (fileText: string) => MediaImportAdapterResult;
+	}) {
 		const filePath = input.filePath;
 		if (!filePath) {
 			return yield* Effect.fail({
@@ -51,4 +51,5 @@ export const loadMediaTextFileAdapterResult = (input: {
 		});
 
 		return { adapterResult, cleanupPaths: [filePath] } satisfies LoadedMediaImportAdapterResult;
-	});
+	},
+);

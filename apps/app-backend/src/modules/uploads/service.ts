@@ -100,109 +100,105 @@ export class UploadsService extends Effect.Service<UploadsService>()("UploadsSer
 		const redis = yield* RedisService;
 		const s3Service = yield* S3Service;
 
-		const createPresignedUpload = (
+		const createPresignedUpload = Effect.fn("UploadsService.createPresignedUpload")(function* (
 			_user: CurrentUserValue,
 			contentType: string,
-		): Effect.Effect<{ key: string; uploadUrl: string }, BadRequest> =>
-			Effect.gen(function* () {
-				const resolvedType = yield* resolveContentType(contentType);
-				const extension = resolveExtension(resolvedType);
-				const key = `uploads/${generateId()}.${extension}`;
+		) {
+			const resolvedType = yield* resolveContentType(contentType);
+			const extension = resolveExtension(resolvedType);
+			const key = `uploads/${generateId()}.${extension}`;
 
-				if (!s3Service.isConfigured) {
-					return yield* Effect.die("S3 uploads are not configured for app-backend");
-				}
+			if (!s3Service.isConfigured) {
+				return yield* Effect.die("S3 uploads are not configured for app-backend");
+			}
 
-				const uploadUrl = yield* s3Service.presignUpload(
-					key,
-					resolvedType,
-					UPLOAD_URL_EXPIRY_SECONDS,
-				);
-				return { key, uploadUrl };
-			});
+			const uploadUrl = yield* s3Service.presignUpload(
+				key,
+				resolvedType,
+				UPLOAD_URL_EXPIRY_SECONDS,
+			);
+			return { key, uploadUrl };
+		});
 
-		const createPresignedDownload = (
+		const createPresignedDownload = Effect.fn("UploadsService.createPresignedDownload")(function* (
 			user: CurrentUserValue,
 			keys: readonly string[],
-		): Effect.Effect<Array<{ key: string; downloadUrl: string }>, BadRequest> =>
-			Effect.gen(function* () {
-				if (!s3Service.isConfigured) {
-					return yield* Effect.die("S3 uploads are not configured for app-backend");
-				}
+		) {
+			if (!s3Service.isConfigured) {
+				return yield* Effect.die("S3 uploads are not configured for app-backend");
+			}
 
-				const results = yield* Effect.forEach(keys, (key) =>
-					Effect.gen(function* () {
-						const downloadUrl = yield* s3Service.presignDownload(key, UPLOAD_URL_EXPIRY_SECONDS);
-						return { key, downloadUrl };
-					}),
-				);
-				return results;
-			});
+			const results = yield* Effect.forEach(keys, (key) =>
+				Effect.gen(function* () {
+					const downloadUrl = yield* s3Service.presignDownload(key, UPLOAD_URL_EXPIRY_SECONDS);
+					return { key, downloadUrl };
+				}),
+			);
+			return results;
+		});
 
-		const uploadTemporary = (
+		const uploadTemporary = Effect.fn("UploadsService.uploadTemporary")(function* (
 			user: CurrentUserValue,
 			files: ReadonlyArray<Multipart.PersistedFile>,
-		): Effect.Effect<readonly string[], BadRequest> =>
-			Effect.gen(function* () {
-				if (files.length === 0) {
-					return yield* badRequest("At least one upload file is required");
-				}
+		) {
+			if (files.length === 0) {
+				return yield* badRequest("At least one upload file is required");
+			}
 
-				const tempDir = getTemporaryDirectory();
-				const resolvedFiles = yield* Effect.forEach(files, (file) =>
-					Effect.gen(function* () {
-						const fileName = yield* resolveFileName(file.name);
-						yield* resolveTemporaryUploadContentType(file.contentType, fileName);
+			const tempDir = getTemporaryDirectory();
+			const resolvedFiles = yield* Effect.forEach(files, (file) =>
+				Effect.gen(function* () {
+					const fileName = yield* resolveFileName(file.name);
+					yield* resolveTemporaryUploadContentType(file.contentType, fileName);
 
-						const info = yield* fs.stat(file.path).pipe(Effect.orDie);
-						if (Number(info.size) > TEMPORARY_UPLOAD_MAX_FILE_BYTES) {
-							return yield* badRequest(
-								`Upload file exceeds maximum allowed size of ${TEMPORARY_UPLOAD_MAX_FILE_BYTES} bytes (file is ${info.size} bytes)`,
-							);
-						}
+					const info = yield* fs.stat(file.path).pipe(Effect.orDie);
+					if (Number(info.size) > TEMPORARY_UPLOAD_MAX_FILE_BYTES) {
+						return yield* badRequest(
+							`Upload file exceeds maximum allowed size of ${TEMPORARY_UPLOAD_MAX_FILE_BYTES} bytes (file is ${info.size} bytes)`,
+						);
+					}
 
-						const id = generateId();
-						const destPath = `${tempDir.replace(/[\\/]+$/, "")}/${id}-${fileName}`;
+					const id = generateId();
+					const destPath = `${tempDir.replace(/[\\/]+$/, "")}/${id}-${fileName}`;
 
-						const bytes = yield* fs.readFile(file.path).pipe(Effect.orDie);
-						yield* fs.writeFile(destPath, bytes).pipe(Effect.orDie);
+					const bytes = yield* fs.readFile(file.path).pipe(Effect.orDie);
+					yield* fs.writeFile(destPath, bytes).pipe(Effect.orDie);
 
-						return { id, destPath };
-					}),
-				);
+					return { id, destPath };
+				}),
+			);
 
-				const tokens = yield* Effect.forEach(resolvedFiles, ({ id, destPath }) =>
-					Effect.gen(function* () {
-						const encoded = yield* Schema.encode(Schema.parseJson(UploadTokenValue))({
-							userId: user.id,
-							resolvedPath: destPath,
-						}).pipe(Effect.orDie);
-						const key = redisKeys.uploadToken(id);
-						yield* redis.set(key, encoded, UPLOAD_TOKEN_TTL_SECONDS);
-						return id;
-					}),
-				);
+			const tokens = yield* Effect.forEach(resolvedFiles, ({ id, destPath }) =>
+				Effect.gen(function* () {
+					const encoded = yield* Schema.encode(Schema.parseJson(UploadTokenValue))({
+						userId: user.id,
+						resolvedPath: destPath,
+					}).pipe(Effect.orDie);
+					const key = redisKeys.uploadToken(id);
+					yield* redis.set(key, encoded, UPLOAD_TOKEN_TTL_SECONDS);
+					return id;
+				}),
+			);
 
-				return tokens;
-			});
+			return tokens;
+		});
 
-		const claimUploadToken = (
+		const claimUploadToken = Effect.fn("UploadsService.claimUploadToken")(function* (
 			token: string,
 			userId: string,
-		): Effect.Effect<{ resolvedPath: string }, BadRequest> =>
-			Effect.gen(function* () {
-				const raw = yield* redis.getdel(redisKeys.uploadToken(token));
-				if (!raw) {
-					return yield* badRequest("Upload token is invalid or has expired");
-				}
-				const value = yield* Schema.decode(Schema.parseJson(UploadTokenValue))(raw).pipe(
-					Effect.mapError(() => badRequest("Upload token is invalid or has expired")),
-				);
-				if (value.userId !== userId) {
-					return yield* badRequest("Upload token does not belong to this user");
-				}
-				return { resolvedPath: value.resolvedPath };
-			});
+		) {
+			const raw = yield* redis.getdel(redisKeys.uploadToken(token));
+			if (!raw) {
+				return yield* badRequest("Upload token is invalid or has expired");
+			}
+			const value = yield* Schema.decode(Schema.parseJson(UploadTokenValue))(raw).pipe(
+				Effect.mapError(() => badRequest("Upload token is invalid or has expired")),
+			);
+			if (value.userId !== userId) {
+				return yield* badRequest("Upload token does not belong to this user");
+			}
+			return { resolvedPath: value.resolvedPath };
+		});
 
 		return {
 			uploadTemporary,

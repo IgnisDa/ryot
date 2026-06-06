@@ -22,17 +22,20 @@ type ImportRunFailureInput = {
 export const sanitizeErrorMessage = (error: unknown, fallback: string): string =>
 	error instanceof Error ? error.message : fallback;
 
-export const failImportRun = (runId: string, errorSummary: string) =>
-	Effect.gen(function* () {
-		const runWithDb = yield* DbRunner;
-		const repository = yield* ImportsRepository;
-		const finishedAt = yield* DateTime.nowAsDate;
-		yield* runWithDb(repository.updateRun({ runId, errorSummary, status: "failed", finishedAt }));
-	});
+export const failImportRun = Effect.fn("imports.failImportRun")(function* (
+	runId: string,
+	errorSummary: string,
+) {
+	const runWithDb = yield* DbRunner;
+	const repository = yield* ImportsRepository;
+	const finishedAt = yield* DateTime.nowAsDate;
+	yield* runWithDb(repository.updateRun({ runId, errorSummary, status: "failed", finishedAt }));
+});
 
-export const recordImportRunFailure = (input: ImportRunFailureInput) =>
-	Effect.gen(function* () {
-		const runWithDb = yield* DbRunner;
-		const repository = yield* ImportsRepository;
-		yield* runWithDb(repository.createFailure(input));
-	});
+export const recordImportRunFailure = Effect.fn("imports.recordImportRunFailure")(function* (
+	input: ImportRunFailureInput,
+) {
+	const runWithDb = yield* DbRunner;
+	const repository = yield* ImportsRepository;
+	yield* runWithDb(repository.createFailure(input));
+});

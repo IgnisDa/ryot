@@ -115,82 +115,83 @@ const getPodcastEpisodeNumber = (episode: AudiobookshelfEpisode): number | null 
 	return null;
 };
 
-export const adaptAudiobookshelfData = (input: AudiobookshelfAdapterInput) =>
-	Effect.gen(function* () {
-		const importedAt = nowIso();
-		const headers = createHeaders(input.apiKey);
-		const host = new URL(input.apiUrl).host;
-		const failures: MediaImportAdapterFailure[] = [];
-		const groupMap = new Map<string, ImportMediaEntityGroup>();
-		const baseUrl = input.apiUrl.endsWith("/api") ? input.apiUrl : `${input.apiUrl}/api`;
+export const adaptAudiobookshelfData = Effect.fn("audiobookshelfAdapter.adaptData")(function* (
+	input: AudiobookshelfAdapterInput,
+) {
+	const importedAt = nowIso();
+	const headers = createHeaders(input.apiKey);
+	const host = new URL(input.apiUrl).host;
+	const failures: MediaImportAdapterFailure[] = [];
+	const groupMap = new Map<string, ImportMediaEntityGroup>();
+	const baseUrl = input.apiUrl.endsWith("/api") ? input.apiUrl : `${input.apiUrl}/api`;
 
-		const librariesRaw = yield* requestSourceJson({
+	const librariesRaw = yield* requestSourceJson({
+		headers,
+		baseUrl,
+		path: "libraries",
+		sourceName: "Audiobookshelf",
+		allowInsecureConnections: input.allowInsecureConnections,
+	});
+	const librariesResponse = yield* decodeLibraries(librariesRaw);
+
+	let nextItemIndex = 0;
+	for (const library of librariesResponse.libraries) {
+		const startItemIndex = nextItemIndex;
+		const listResult = yield* requestSourceJson({
 			headers,
 			baseUrl,
-			path: "libraries",
 			sourceName: "Audiobookshelf",
+			path: `libraries/${library.id}/items`,
 			allowInsecureConnections: input.allowInsecureConnections,
-		});
-		const librariesResponse = yield* decodeLibraries(librariesRaw);
-
-		let nextItemIndex = 0;
-		for (const library of librariesResponse.libraries) {
-			const startItemIndex = nextItemIndex;
-			const listResult = yield* requestSourceJson({
-				headers,
-				baseUrl,
-				sourceName: "Audiobookshelf",
-				path: `libraries/${library.id}/items`,
-				allowInsecureConnections: input.allowInsecureConnections,
-				query: {
-					expanded: 1,
-					...(library.mediaType === "book" ? { filter: `progress.${FINISHED_FILTER}` } : {}),
-				},
-			}).pipe(Effect.flatMap(decodeList), Effect.either);
-			if (Either.isLeft(listResult)) {
-				failures.push(
-					createSourceFetchFailure({
-						host,
-						error: listResult.left,
-						itemIndex: startItemIndex,
-						sourceLabel: library.name,
-						sourceIdentifier: library.id,
-						message: "Failed to fetch Audiobookshelf library items",
-					}),
-				);
-				continue;
-			}
-
-			const items = listResult.right.results;
-			const libraryFailures = yield* Effect.forEach(
-				items,
-				(item, offset) =>
-					adaptAudiobookshelfItem({
-						host,
-						item,
-						headers,
-						baseUrl,
-						failures,
-						groupMap,
-						importedAt,
-						libraryName: library.name,
-						itemIndex: startItemIndex + offset,
-						allowInsecureConnections: input.allowInsecureConnections,
-					}),
-				{ concurrency: AUDIOBOOKSHELF_CONCURRENCY },
+			query: {
+				expanded: 1,
+				...(library.mediaType === "book" ? { filter: `progress.${FINISHED_FILTER}` } : {}),
+			},
+		}).pipe(Effect.flatMap(decodeList), Effect.either);
+		if (Either.isLeft(listResult)) {
+			failures.push(
+				createSourceFetchFailure({
+					host,
+					error: listResult.left,
+					itemIndex: startItemIndex,
+					sourceLabel: library.name,
+					sourceIdentifier: library.id,
+					message: "Failed to fetch Audiobookshelf library items",
+				}),
 			);
-
-			failures.push(...libraryFailures.filter(isNotNullAdapterFailure));
-			nextItemIndex += items.length;
+			continue;
 		}
 
-		return {
-			failures,
-			entityGroups: finalizeEntityGroups(groupMap),
-		} satisfies MediaImportAdapterResult;
-	});
+		const items = listResult.right.results;
+		const libraryFailures = yield* Effect.forEach(
+			items,
+			(item, offset) =>
+				adaptAudiobookshelfItem({
+					host,
+					item,
+					headers,
+					baseUrl,
+					failures,
+					groupMap,
+					importedAt,
+					libraryName: library.name,
+					itemIndex: startItemIndex + offset,
+					allowInsecureConnections: input.allowInsecureConnections,
+				}),
+			{ concurrency: AUDIOBOOKSHELF_CONCURRENCY },
+		);
 
-const adaptAudiobookshelfItem = (input: {
+		failures.push(...libraryFailures.filter(isNotNullAdapterFailure));
+		nextItemIndex += items.length;
+	}
+
+	return {
+		failures,
+		entityGroups: finalizeEntityGroups(groupMap),
+	} satisfies MediaImportAdapterResult;
+});
+
+const adaptAudiobookshelfItem = Effect.fn(function* (input: {
 	host: string;
 	baseUrl: string;
 	itemIndex: number;
@@ -201,189 +202,188 @@ const adaptAudiobookshelfItem = (input: {
 	allowInsecureConnections?: boolean;
 	failures: MediaImportAdapterFailure[];
 	groupMap: Map<string, ImportMediaEntityGroup>;
-}) =>
-	Effect.gen(function* () {
-		const { item, itemIndex, importedAt, host } = input;
-		const metadata = item.media?.metadata;
-		if (!metadata) {
-			return {
-				itemIndex,
-				sourceLabel: item.name,
-				sourceIdentifier: item.id,
-				stage: "input_transformation",
-				message: "Audiobookshelf item is missing media metadata",
-			} satisfies MediaImportAdapterFailure;
-		}
+}) {
+	const { item, itemIndex, importedAt, host } = input;
+	const metadata = item.media?.metadata;
+	if (!metadata) {
+		return {
+			itemIndex,
+			sourceLabel: item.name,
+			sourceIdentifier: item.id,
+			stage: "input_transformation",
+			message: "Audiobookshelf item is missing media metadata",
+		} satisfies MediaImportAdapterFailure;
+	}
 
-		const sourceLabel = metadata.title;
-		const libraryName = input.libraryName?.trim();
+	const sourceLabel = metadata.title;
+	const libraryName = input.libraryName?.trim();
 
-		if (item.media.ebookFormat === "epub") {
-			const isbn = metadata.isbn ? normalizeIsbn(metadata.isbn) : "";
-			if (!isbn || !isValidIsbn(isbn)) {
-				return {
-					itemIndex,
-					sourceLabel,
-					sourceIdentifier: item.id,
-					stage: "input_transformation",
-					message: "Audiobookshelf ebook is missing a valid ISBN",
-				} satisfies MediaImportAdapterFailure;
-			}
-			const group = getOrCreateMediaEntityGroup(
-				input.groupMap,
-				{
-					sourceLabel,
-					kind: "unresolved",
-					identifierValue: isbn,
-					identifierType: "isbn",
-					entitySchemaSlug: "book",
-				},
-				itemIndex,
-			);
-			group.events.push(createCompleteEvent({ occurredAt: importedAt, completedOn: importedAt }));
-			if (libraryName) {
-				addCollectionMembership(group, libraryName);
-			}
-			return null;
-		}
-
-		const asin = metadata.asin?.trim();
-		if (asin) {
-			const group = getOrCreateMediaEntityGroup(
-				input.groupMap,
-				{
-					sourceLabel,
-					kind: "resolved",
-					externalId: asin,
-					entitySchemaSlug: "audiobook",
-					scriptSlug: "audiobook.audible",
-				},
-				itemIndex,
-			);
-			group.events.push(createCompleteEvent({ occurredAt: importedAt, completedOn: importedAt }));
-			if (libraryName) {
-				addCollectionMembership(group, libraryName);
-			}
-			return null;
-		}
-
-		const itunesId = metadata.itunesId?.trim();
-		if (!itunesId) {
+	if (item.media.ebookFormat === "epub") {
+		const isbn = metadata.isbn ? normalizeIsbn(metadata.isbn) : "";
+		if (!isbn || !isValidIsbn(isbn)) {
 			return {
 				itemIndex,
 				sourceLabel,
 				sourceIdentifier: item.id,
 				stage: "input_transformation",
-				message: "Audiobookshelf item has no Audible, ISBN, or iTunes identifier",
+				message: "Audiobookshelf ebook is missing a valid ISBN",
 			} satisfies MediaImportAdapterFailure;
 		}
-
-		const itemDetails = yield* requestSourceJson({
-			headers: input.headers,
-			baseUrl: input.baseUrl,
-			path: `items/${item.id}`,
-			sourceName: "Audiobookshelf",
-			query: { expanded: 1, include: "progress" },
-			allowInsecureConnections: input.allowInsecureConnections,
-		}).pipe(Effect.flatMap(decodeItem), Effect.either);
-		if (Either.isLeft(itemDetails)) {
-			return createSourceFetchFailure({
-				host,
-				itemIndex,
+		const group = getOrCreateMediaEntityGroup(
+			input.groupMap,
+			{
 				sourceLabel,
-				error: itemDetails.left,
-				sourceIdentifier: item.id,
-				message: "Failed to fetch Audiobookshelf podcast details",
-			});
+				kind: "unresolved",
+				identifierValue: isbn,
+				identifierType: "isbn",
+				entitySchemaSlug: "book",
+			},
+			itemIndex,
+		);
+		group.events.push(createCompleteEvent({ occurredAt: importedAt, completedOn: importedAt }));
+		if (libraryName) {
+			addCollectionMembership(group, libraryName);
 		}
+		return null;
+	}
 
-		const episodes = itemDetails.right.media?.episodes ?? [];
-		if (episodes.length === 0) {
-			return {
-				itemIndex,
-				sourceLabel,
-				sourceIdentifier: item.id,
-				stage: "input_transformation",
-				message: "Audiobookshelf podcast has no episodes",
-			} satisfies MediaImportAdapterFailure;
-		}
-
-		const podcastEvents: Array<{
-			occurredAt: string;
-			eventSchemaSlug: string;
-			properties: Record<string, unknown>;
-		}> = [];
-		let importedEpisodeCount = 0;
-		for (const episode of episodes) {
-			if (!episode.id) {
-				continue;
-			}
-			const episodeDetails = yield* requestSourceJson({
-				headers: input.headers,
-				baseUrl: input.baseUrl,
-				path: `items/${item.id}`,
-				sourceName: "Audiobookshelf",
-				allowInsecureConnections: input.allowInsecureConnections,
-				query: { expanded: 1, include: "progress", episode: episode.id },
-			}).pipe(Effect.flatMap(decodeItem), Effect.either);
-			if (Either.isLeft(episodeDetails)) {
-				input.failures.push(
-					createSourceFetchFailure({
-						host,
-						itemIndex,
-						sourceLabel,
-						sourceIdentifier: item.id,
-						error: episodeDetails.left,
-						message: "Failed to fetch Audiobookshelf podcast episode progress",
-					}),
-				);
-				continue;
-			}
-			if (!episodeDetails.right.userMediaProgress?.isFinished) {
-				continue;
-			}
-			const podcastEpisode = getPodcastEpisodeNumber(episode);
-			if (podcastEpisode == null) {
-				continue;
-			}
-			podcastEvents.push({
-				occurredAt: importedAt,
-				eventSchemaSlug: "progress",
-				properties: { progressPercent: 100, podcastEpisode },
-			});
-			importedEpisodeCount += 1;
-		}
-
-		if (importedEpisodeCount === 0) {
-			return {
-				itemIndex,
-				sourceLabel,
-				sourceIdentifier: item.id,
-				stage: "input_transformation",
-				message: "Audiobookshelf podcast has no finished episodes with importable episode numbers",
-			} satisfies MediaImportAdapterFailure;
-		}
-
+	const asin = metadata.asin?.trim();
+	if (asin) {
 		const group = getOrCreateMediaEntityGroup(
 			input.groupMap,
 			{
 				sourceLabel,
 				kind: "resolved",
-				externalId: itunesId,
-				entitySchemaSlug: "podcast",
-				scriptSlug: "podcast.itunes",
+				externalId: asin,
+				entitySchemaSlug: "audiobook",
+				scriptSlug: "audiobook.audible",
 			},
 			itemIndex,
 		);
-		group.events.push(...podcastEvents);
+		group.events.push(createCompleteEvent({ occurredAt: importedAt, completedOn: importedAt }));
 		if (libraryName) {
 			addCollectionMembership(group, libraryName);
 		}
 		return null;
-	});
+	}
 
-export const syncAudiobookshelfOwnedItems = (input: AudiobookshelfAdapterInput) =>
-	Effect.gen(function* () {
+	const itunesId = metadata.itunesId?.trim();
+	if (!itunesId) {
+		return {
+			itemIndex,
+			sourceLabel,
+			sourceIdentifier: item.id,
+			stage: "input_transformation",
+			message: "Audiobookshelf item has no Audible, ISBN, or iTunes identifier",
+		} satisfies MediaImportAdapterFailure;
+	}
+
+	const itemDetails = yield* requestSourceJson({
+		headers: input.headers,
+		baseUrl: input.baseUrl,
+		path: `items/${item.id}`,
+		sourceName: "Audiobookshelf",
+		query: { expanded: 1, include: "progress" },
+		allowInsecureConnections: input.allowInsecureConnections,
+	}).pipe(Effect.flatMap(decodeItem), Effect.either);
+	if (Either.isLeft(itemDetails)) {
+		return createSourceFetchFailure({
+			host,
+			itemIndex,
+			sourceLabel,
+			error: itemDetails.left,
+			sourceIdentifier: item.id,
+			message: "Failed to fetch Audiobookshelf podcast details",
+		});
+	}
+
+	const episodes = itemDetails.right.media?.episodes ?? [];
+	if (episodes.length === 0) {
+		return {
+			itemIndex,
+			sourceLabel,
+			sourceIdentifier: item.id,
+			stage: "input_transformation",
+			message: "Audiobookshelf podcast has no episodes",
+		} satisfies MediaImportAdapterFailure;
+	}
+
+	const podcastEvents: Array<{
+		occurredAt: string;
+		eventSchemaSlug: string;
+		properties: Record<string, unknown>;
+	}> = [];
+	let importedEpisodeCount = 0;
+	for (const episode of episodes) {
+		if (!episode.id) {
+			continue;
+		}
+		const episodeDetails = yield* requestSourceJson({
+			headers: input.headers,
+			baseUrl: input.baseUrl,
+			path: `items/${item.id}`,
+			sourceName: "Audiobookshelf",
+			allowInsecureConnections: input.allowInsecureConnections,
+			query: { expanded: 1, include: "progress", episode: episode.id },
+		}).pipe(Effect.flatMap(decodeItem), Effect.either);
+		if (Either.isLeft(episodeDetails)) {
+			input.failures.push(
+				createSourceFetchFailure({
+					host,
+					itemIndex,
+					sourceLabel,
+					sourceIdentifier: item.id,
+					error: episodeDetails.left,
+					message: "Failed to fetch Audiobookshelf podcast episode progress",
+				}),
+			);
+			continue;
+		}
+		if (!episodeDetails.right.userMediaProgress?.isFinished) {
+			continue;
+		}
+		const podcastEpisode = getPodcastEpisodeNumber(episode);
+		if (podcastEpisode == null) {
+			continue;
+		}
+		podcastEvents.push({
+			occurredAt: importedAt,
+			eventSchemaSlug: "progress",
+			properties: { progressPercent: 100, podcastEpisode },
+		});
+		importedEpisodeCount += 1;
+	}
+
+	if (importedEpisodeCount === 0) {
+		return {
+			itemIndex,
+			sourceLabel,
+			sourceIdentifier: item.id,
+			stage: "input_transformation",
+			message: "Audiobookshelf podcast has no finished episodes with importable episode numbers",
+		} satisfies MediaImportAdapterFailure;
+	}
+
+	const group = getOrCreateMediaEntityGroup(
+		input.groupMap,
+		{
+			sourceLabel,
+			kind: "resolved",
+			externalId: itunesId,
+			entitySchemaSlug: "podcast",
+			scriptSlug: "podcast.itunes",
+		},
+		itemIndex,
+	);
+	group.events.push(...podcastEvents);
+	if (libraryName) {
+		addCollectionMembership(group, libraryName);
+	}
+	return null;
+});
+
+export const syncAudiobookshelfOwnedItems = Effect.fn("audiobookshelfAdapter.syncOwnedItems")(
+	function* (input: AudiobookshelfAdapterInput) {
 		const headers = createHeaders(input.apiKey);
 		const baseUrl = input.apiUrl.endsWith("/api") ? input.apiUrl : `${input.apiUrl}/api`;
 		const ownedItems: Array<{ entityRef: ImportEntityRef; provider: string }> = [];
@@ -466,4 +466,5 @@ export const syncAudiobookshelfOwnedItems = (input: AudiobookshelfAdapterInput) 
 		}
 
 		return ownedItems;
-	});
+	},
+);

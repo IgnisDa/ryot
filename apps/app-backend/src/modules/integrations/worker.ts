@@ -128,56 +128,55 @@ export const runYoutubeMusicHistorySandbox = (input: {
 		executionId: input.executionId,
 	});
 
-const markFailedRunCounts = (runId: string, failureCount: number) =>
-	Effect.gen(function* () {
-		const repository = yield* ImportsRepository;
-		const runWithDb = yield* DbRunner;
-		yield* runWithDb(
-			repository.updateRun({
-				runId,
-				progress: 100,
-				totalItems: failureCount,
-				failedItems: failureCount,
-				processedItems: failureCount,
-			}),
-		);
-	});
+const markFailedRunCounts = Effect.fn(function* (runId: string, failureCount: number) {
+	const repository = yield* ImportsRepository;
+	const runWithDb = yield* DbRunner;
+	yield* runWithDb(
+		repository.updateRun({
+			runId,
+			progress: 100,
+			totalItems: failureCount,
+			failedItems: failureCount,
+			processedItems: failureCount,
+		}),
+	);
+});
 
-export const failAdapterOnlyRun = (
+export const failAdapterOnlyRun = Effect.fn("integrationsWorker.failAdapterOnlyRun")(function* (
 	runId: string,
 	result: typeof MediaImportAdapterResultSchema.Type,
-) =>
-	Effect.gen(function* () {
-		for (const failure of result.failures) {
-			yield* recordImportRunFailure({
-				runId,
-				message: failure.message,
-				itemIndex: failure.itemIndex,
-				sourceLabel: failure.sourceLabel,
-				sourceIdentifier: failure.sourceIdentifier,
-				stage: failure.stage ?? "input_transformation",
-				context: failure.context ? { ...failure.context } : null,
-			});
-		}
-
-		yield* markFailedRunCounts(runId, result.failures.length);
-		yield* failImportRun(runId, result.failures[0]?.message ?? "Integration job failed");
-	});
-
-export const failUnsupportedIntegrationRun = (runId: string, provider: string) =>
-	Effect.gen(function* () {
+) {
+	for (const failure of result.failures) {
 		yield* recordImportRunFailure({
 			runId,
-			itemIndex: 0,
-			stage: "source_fetch",
-			message: `${provider} integration is not implemented in V2 yet`,
+			message: failure.message,
+			itemIndex: failure.itemIndex,
+			sourceLabel: failure.sourceLabel,
+			sourceIdentifier: failure.sourceIdentifier,
+			stage: failure.stage ?? "input_transformation",
+			context: failure.context ? { ...failure.context } : null,
 		});
-		yield* markFailedRunCounts(runId, 1);
-		yield* failImportRun(runId, `${provider} integration is not implemented in V2 yet`);
-	});
+	}
 
-export const finalizeIntegrationRun = (integration: IntegrationRecord, runId: string) =>
-	Effect.gen(function* () {
+	yield* markFailedRunCounts(runId, result.failures.length);
+	yield* failImportRun(runId, result.failures[0]?.message ?? "Integration job failed");
+});
+
+export const failUnsupportedIntegrationRun = Effect.fn(
+	"integrationsWorker.failUnsupportedIntegrationRun",
+)(function* (runId: string, provider: string) {
+	yield* recordImportRunFailure({
+		runId,
+		itemIndex: 0,
+		stage: "source_fetch",
+		message: `${provider} integration is not implemented in V2 yet`,
+	});
+	yield* markFailedRunCounts(runId, 1);
+	yield* failImportRun(runId, `${provider} integration is not implemented in V2 yet`);
+});
+
+export const finalizeIntegrationRun = Effect.fn("integrationsWorker.finalizeIntegrationRun")(
+	function* (integration: IntegrationRecord, runId: string) {
 		const repository = yield* ImportsRepository;
 		const integrationsRepository = yield* IntegrationsRepository;
 		const runWithDb = yield* DbRunner;
@@ -216,4 +215,5 @@ export const finalizeIntegrationRun = (integration: IntegrationRecord, runId: st
 				})
 				.pipe(Effect.asVoid),
 		);
-	});
+	},
+);

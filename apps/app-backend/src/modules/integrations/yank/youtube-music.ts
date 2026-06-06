@@ -42,11 +42,8 @@ export const deduplicateWindow = (timezone: string): { localDate: string; ttlSec
 		},
 	});
 
-export const buildYoutubeMusicAdapterResult = (
-	input: YoutubeMusicTransformInput,
-	sandboxValue: unknown,
-) =>
-	Effect.gen(function* () {
+export const buildYoutubeMusicAdapterResult = Effect.fn("youtubeMusic.buildAdapterResult")(
+	function* (input: YoutubeMusicTransformInput, sandboxValue: unknown) {
 		const redis = yield* RedisService;
 
 		const decoded = yield* decodeHistory(sandboxValue).pipe(Effect.either);
@@ -85,4 +82,5 @@ export const buildYoutubeMusicAdapterResult = (
 		);
 
 		return { failures: [], entityGroups: finalizeEntityGroups(groupMap) };
-	});
+	},
+);

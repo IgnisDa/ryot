@@ -89,8 +89,8 @@ export type NonMediaImportOperations<
 	prepareWrites: (payload: ImportRunJobData) => NonMediaPrepareWritesEffect<Item, RWrite, RPrepare>;
 };
 
-export const loadNonMediaImportText = (payload: ImportRunJobData) =>
-	Effect.gen(function* () {
+export const loadNonMediaImportText = Effect.fn("importsNonMedia.loadNonMediaImportText")(
+	function* (payload: ImportRunJobData) {
 		if (!payload.filePath) {
 			return yield* Effect.fail({
 				cleanupPaths: [] as ReadonlyArray<string>,
@@ -126,7 +126,8 @@ export const loadNonMediaImportText = (payload: ImportRunJobData) =>
 		);
 
 		return { text, cleanupPaths: [safePath] as ReadonlyArray<string> };
-	});
+	},
+);
 
 const validateImportExtension = (filePath: string): { ok: true } | { error: string } => {
 	const segment = filePath.split(/[\\/]/).pop() ?? "";
