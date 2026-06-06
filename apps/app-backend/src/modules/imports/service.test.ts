@@ -28,7 +28,6 @@ import { ImportsService, type CreateImportRunInput } from "./service";
 import { ImportWorkflowPinning } from "./workflow-pinning";
 
 const now = "2026-07-16T00:00:00.000Z";
-const token = (value: string) => ({ token: value, expiresAt: now });
 const configSchema = {
 	unknownKeys: "strict",
 	fields: {
@@ -45,7 +44,7 @@ const uploadProperty = (extensions: ReadonlyArray<string>, required = true) => (
 	type: "string" as const,
 	description: "Export file",
 	format: { kind: "upload" as const, allowedFileExtensions: extensions },
-	...(required ? { validation: { required: true as const } } : {}),
+	...(required ? { validation: { minLength: 1 as const, required: true as const } } : {}),
 });
 
 const createdRun = {
@@ -218,7 +217,7 @@ it.effect("validates extensions against the claimed original file name", () => {
 		const error = yield* Effect.flip(
 			(yield* ImportsService).startImportRun(user, {
 				source: "goodreads",
-				uploadToken: token("tok_goodreads"),
+				uploadToken: "tok_goodreads",
 			}),
 		);
 		expect(error.message).toBe("Import file must have one of the following extensions: json");
@@ -251,7 +250,7 @@ it.effect("rejects temporary uploads claimed from S3 storage", () => {
 		const error = yield* Effect.flip(
 			(yield* ImportsService).startImportRun(user, {
 				source: "goodreads",
-				uploadToken: token("tok_s3"),
+				uploadToken: "tok_s3",
 			}),
 		);
 		expect(error.message).toBe("Import uploads must use local storage");
@@ -333,7 +332,7 @@ it.effect("claims only the visible upload from mutually exclusive required field
 		yield* (yield* ImportsService).startImportRun(user, {
 			mode: "history",
 			source: "movary",
-			historyUploadToken: token("history"),
+			historyUploadToken: "history",
 		});
 
 		expect(claimedTokens).toEqual(["history"]);
@@ -373,8 +372,8 @@ it.effect("rejects undeclared upload token fields before claims or work", () => 
 		const error = yield* Effect.flip(
 			(yield* ImportsService).startImportRun(user, {
 				source: "goodreads",
-				uploadToken: token("goodreads"),
-				historyUploadToken: token("history"),
+				uploadToken: "goodreads",
+				historyUploadToken: "history",
 			}),
 		);
 		expect(error.message).toBe(
@@ -399,7 +398,7 @@ it.effect("rejects a source whose declared plugin config keys are unset", () => 
 		const error = yield* Effect.flip(
 			(yield* ImportsService).startImportRun(user, {
 				source: "goodreads",
-				uploadToken: token("goodreads"),
+				uploadToken: "goodreads",
 			}),
 		);
 		expect(error.message).toBe(
