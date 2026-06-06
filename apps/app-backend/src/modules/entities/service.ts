@@ -22,8 +22,8 @@ import {
 } from "./workflows";
 
 const entityNotFoundError = "Entity not found";
-const importJobNotFoundError = "Import job not found";
 const entitySchemaNotFoundError = "Entity schema not found";
+const importJobNotFoundError = "Entity import job not found";
 const sandboxScriptNotFoundError = "Sandbox script not found";
 const relationshipSchemaNotFoundError = "Relationship schema not found";
 const libraryEntityUserStateError = "Library entity user state cannot be cleared";

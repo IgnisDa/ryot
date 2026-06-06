@@ -331,12 +331,13 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 								Effect.fail(apiFailure("httpCall method is not a valid HTTP method")),
 							),
 						);
-						let request = HttpClientRequest.make(httpMethod)(requestUrl.toString()).pipe(
-							HttpClientRequest.setHeaders({ ...defaultHeaders, ...parsedOptions.headers }),
-						);
+						let request = HttpClientRequest.make(httpMethod)(requestUrl.toString());
 						if (parsedOptions.body !== undefined) {
 							request = HttpClientRequest.bodyText(parsedOptions.body)(request);
 						}
+						request = request.pipe(
+							HttpClientRequest.setHeaders({ ...defaultHeaders, ...parsedOptions.headers }),
+						);
 
 						const [response, body] = yield* httpClient.execute(request).pipe(
 							Effect.flatMap((res) => Effect.map(res.text, (text) => [res, text] as const)),

@@ -76,14 +76,14 @@ export const processRelatedEntity = (input: {
 		);
 
 		const { reverseDirection } = input.relatedEntity;
+		const sourceEntityId = reverseDirection ? input.sourceEntityId : relatedEntity.id;
+		const targetEntityId = reverseDirection ? relatedEntity.id : input.sourceEntityId;
 		const sourceSchemaId = reverseDirection
-			? entitySchemaScript.entitySchemaId
-			: input.sourceEntitySchemaId;
-		const targetSchemaId = reverseDirection
 			? input.sourceEntitySchemaId
 			: entitySchemaScript.entitySchemaId;
-		const sourceEntityId = reverseDirection ? relatedEntity.id : input.sourceEntityId;
-		const targetEntityId = reverseDirection ? input.sourceEntityId : relatedEntity.id;
+		const targetSchemaId = reverseDirection
+			? entitySchemaScript.entitySchemaId
+			: input.sourceEntitySchemaId;
 
 		const relationshipSchema = yield* runWithDb(
 			relationshipSchemasRepository.findGlobalBySchemaIds({
