@@ -14,27 +14,25 @@ import {
 export const CollectionsGroup = HttpApiGroup.make("collections")
 	.addError(Unauthorized, { status: 401 })
 	.addError(RateLimited, { status: 429 })
+	.middleware(AuthMiddleware)
 	.add(
 		HttpApiEndpoint.post("create", "/collections")
 			.setPayload(CreateCollectionBody)
 			.addSuccess(CollectionResponse, { status: 201 })
-			.addError(BadRequest, { status: 400 })
-			.middleware(AuthMiddleware),
+			.addError(BadRequest, { status: 400 }),
 	)
 	.add(
 		HttpApiEndpoint.post("createMembership", "/collections/memberships")
 			.setPayload(CreateMembershipBody)
 			.addSuccess(MembershipResponse, { status: 201 })
 			.addError(BadRequest, { status: 400 })
-			.addError(NotFound, { status: 404 })
-			.middleware(AuthMiddleware),
+			.addError(NotFound, { status: 404 }),
 	)
 	.add(
 		HttpApiEndpoint.del("deleteMembership", "/collections/memberships")
 			.setPayload(DeleteMembershipBody)
 			.addSuccess(MembershipResponse)
 			.addError(BadRequest, { status: 400 })
-			.addError(NotFound, { status: 404 })
-			.middleware(AuthMiddleware),
+			.addError(NotFound, { status: 404 }),
 	)
 	.addError(NotImplemented, { status: 501 });
