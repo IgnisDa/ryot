@@ -24,6 +24,21 @@ const fields = {
 	databaseUrl: secretField("DATABASE_URL", "PostgreSQL connection string", {
 		default: "postgres://postgres:postgres@localhost:5432/postgres",
 	}),
+	databaseConnectionTimeoutMs: intField(
+		"DATABASE_CONNECTION_TIMEOUT_MS",
+		"Maximum milliseconds to wait when acquiring a PostgreSQL connection from the pool",
+		{ default: 10_000 },
+	),
+	databaseStatementTimeoutMs: intField(
+		"DATABASE_STATEMENT_TIMEOUT_MS",
+		"Maximum milliseconds a single SQL statement may run before PostgreSQL aborts it; 0 disables. Transactions run uninterruptibly, so this bounds a stuck statement. Leave at 0 if long-running migrations are expected.",
+		{ default: 0 },
+	),
+	databaseIdleInTransactionTimeoutMs: intField(
+		"DATABASE_IDLE_IN_TRANSACTION_TIMEOUT_MS",
+		"Maximum milliseconds a transaction may sit idle holding locks before PostgreSQL aborts it; 0 disables",
+		{ default: 0 },
+	),
 	oidcButtonLabel: optField(
 		strField("FRONTEND_OIDC_BUTTON_LABEL", "Label for the OIDC sign-in button"),
 	),
@@ -174,6 +189,22 @@ const schedulerGroup = group(
 	},
 );
 
+const databaseGroup = group(
+	"PostgreSQL connection settings",
+	Config.all({
+		url: fields.databaseUrl.config,
+		statementTimeoutMs: fields.databaseStatementTimeoutMs.config,
+		connectionTimeoutMs: fields.databaseConnectionTimeoutMs.config,
+		idleInTransactionTimeoutMs: fields.databaseIdleInTransactionTimeoutMs.config,
+	}),
+	{
+		url: fields.databaseUrl.meta,
+		statementTimeoutMs: fields.databaseStatementTimeoutMs.meta,
+		connectionTimeoutMs: fields.databaseConnectionTimeoutMs.meta,
+		idleInTransactionTimeoutMs: fields.databaseIdleInTransactionTimeoutMs.meta,
+	},
+);
+
 const sandboxGroup = group(
 	"Sandbox execution settings",
 	Config.all({
@@ -246,12 +277,12 @@ export const systemConfigDefinition = group(
 		sandbox: sandboxGroup.config,
 		nodeEnv: fields.nodeEnv.config,
 		frontend: frontendGroup.config,
+		database: databaseGroup.config,
 		timezone: fields.timezone.config,
 		redisUrl: fields.redisUrl.config,
 		scheduler: schedulerGroup.config,
 		fileStorage: fileStorageGroup.config,
 		frontendUrl: fields.frontendUrl.config,
-		databaseUrl: fields.databaseUrl.config,
 		builtinExercisePreloadLimit: fields.builtinExercisePreloadLimit.config,
 	}),
 	{
@@ -262,12 +293,12 @@ export const systemConfigDefinition = group(
 		sandbox: sandboxGroup.meta,
 		nodeEnv: fields.nodeEnv.meta,
 		frontend: frontendGroup.meta,
+		database: databaseGroup.meta,
 		timezone: fields.timezone.meta,
 		redisUrl: fields.redisUrl.meta,
 		scheduler: schedulerGroup.meta,
 		fileStorage: fileStorageGroup.meta,
 		frontendUrl: fields.frontendUrl.meta,
-		databaseUrl: fields.databaseUrl.meta,
 		builtinExercisePreloadLimit: fields.builtinExercisePreloadLimit.meta,
 	},
 );
