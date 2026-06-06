@@ -116,8 +116,8 @@ export const ServerLive = Layer.scopedDiscard(
 	Effect.gen(function* () {
 		const auth = yield* AuthService;
 		const config = yield* AppConfig;
-		const fs = yield* FileSystem.FileSystem;
 		const runtime = yield* Effect.runtime();
+		const fs = yield* FileSystem.FileSystem;
 		const apiContext = yield* Effect.context<ApiContext>();
 
 		const apiLayer = ApiWithScalarLive.pipe(
