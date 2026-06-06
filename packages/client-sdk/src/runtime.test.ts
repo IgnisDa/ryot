@@ -12,6 +12,7 @@ import type { PreparedRecipe } from "@ryot/ryotql";
 import { Result, Schema } from "effect";
 import { afterEach, describe, expect, it } from "vitest";
 
+import { RyotClientError } from "./index";
 import { createPluginRuntime } from "./runtime";
 
 const metadata: PluginClientArtifactMetadata = {
@@ -98,6 +99,37 @@ describe("plugin runtime", () => {
 		await expect(failure).rejects.toMatchObject({ reason: "query-failed" });
 	});
 
+	it("fails a ready session through shared teardown", async () => {
+		const { channel, messages, runtime } = openRuntime();
+		runtime.fatal();
+		runtime.fatal();
+		await delay();
+
+		await expect(
+			runtime.client.data.query({ document, decode: Result.succeed }),
+		).rejects.toMatchObject({ reason: "protocol" });
+		await expect(
+			runtime.client.operations.invoke({ input: {}, slug: "late", output: Schema.Unknown }),
+		).rejects.toMatchObject({ reason: "protocol" });
+		expect(runtime.locations.getSnapshot()).toBeUndefined();
+		expect(() => runtime.client.theme.getSnapshot()).toThrow(new RyotClientError("protocol"));
+		expect(() => runtime.client.theme.subscribe(() => undefined)).toThrow(
+			new RyotClientError("protocol"),
+		);
+		activate(channel);
+		await delay();
+
+		expect(
+			messages.filter(
+				(message) =>
+					typeof message === "object" &&
+					message !== null &&
+					"type" in message &&
+					message.type === "lifecycle-close",
+			),
+		).toEqual([{ reason: "failed", type: "lifecycle-close" }]);
+	});
+
 	it("sends navigation through the client adapter after activation", async () => {
 		const { channel, messages, runtime } = openRuntime();
 		runtime.client.navigation.push({ path: "/early" });
@@ -155,6 +187,68 @@ describe("plugin runtime", () => {
 					message.type === "lifecycle-close",
 			),
 		).toEqual([{ reason: "disposed", type: "lifecycle-close" }]);
+	});
+
+	it("rejects simultaneous pending calls once on fatal failure and ignores late results", async () => {
+		const { channel, messages, runtime } = openRuntime();
+		activate(channel);
+		await delay();
+
+		let querySettlements = 0;
+		const query = runtime.client.data
+			.query({ document, decode: Result.succeed })
+			.catch((error: unknown) => {
+				querySettlements += 1;
+				throw error;
+			});
+		let operationSettlements = 0;
+		const operation = runtime.client.operations
+			.invoke({ input: {}, slug: "greet", output: Schema.Unknown })
+			.catch((error: unknown) => {
+				operationSettlements += 1;
+				throw error;
+			});
+		await delay();
+
+		runtime.fatal();
+		runtime.fatal();
+		channel.port1.postMessage({
+			outcome: "success",
+			type: "ryotql-result",
+			requestId: "ryotql-1",
+			response: { data: {} },
+		});
+		channel.port1.postMessage({
+			value: "late",
+			outcome: "success",
+			type: "operation-result",
+			requestId: "operation-2",
+		});
+
+		await expect(query).rejects.toMatchObject({ reason: "protocol" });
+		await expect(operation).rejects.toMatchObject({ reason: "protocol" });
+		expect(querySettlements).toBe(1);
+		expect(operationSettlements).toBe(1);
+		expect(runtime.locations.getSnapshot()).toBeUndefined();
+		await expect(
+			runtime.client.data.query({ document, decode: Result.succeed }),
+		).rejects.toMatchObject({ reason: "protocol" });
+		await expect(
+			runtime.client.operations.invoke({ input: {}, slug: "late", output: Schema.Unknown }),
+		).rejects.toMatchObject({ reason: "protocol" });
+		runtime.client.navigation.push({ path: "/late" });
+		await delay();
+
+		expect(
+			messages.filter(
+				(message) =>
+					typeof message === "object" &&
+					message !== null &&
+					"type" in message &&
+					message.type === "lifecycle-close",
+			),
+		).toEqual([{ reason: "failed", type: "lifecycle-close" }]);
+		expect(messages).not.toContainEqual(expect.objectContaining({ type: "navigate" }));
 	});
 
 	it("preserves operation success and failure semantics", async () => {

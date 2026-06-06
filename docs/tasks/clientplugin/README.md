@@ -2,9 +2,9 @@
 
 ## Tasks
 
-**Overall Progress:** 7 of 10 tasks completed
+**Overall Progress:** 8 of 10 tasks completed
 
-**Current Task:** [Task 07](./07-recover-from-plugin-crashes.md) (todo)
+**Current Task:** [Task 08](./08-reload-updated-plugin-artifacts.md) (todo)
 
 ### Task List
 
@@ -17,7 +17,7 @@
 | 05          | [Invoke an Authenticated Operation](./05-invoke-authenticated-operation.md)                   | done   |
 | 05-followup | [Establish Shared Client SDK Runtime](./05-followup-establish-shared-client-sdk-runtime.md)   | done   |
 | 06          | [Synchronize Kernel Theme](./06-synchronize-kernel-theme.md)                                  | done   |
-| 07          | [Recover From Plugin Crashes](./07-recover-from-plugin-crashes.md)                            | todo   |
+| 07          | [Recover From Plugin Crashes](./07-recover-from-plugin-crashes.md)                            | done   |
 | 08          | [Reload Updated Plugin Artifacts](./08-reload-updated-plugin-artifacts.md)                    | todo   |
 | 09          | [Clean Up the Web Tracer](./09-clean-up-web-tracer.md)                                        | todo   |
 
