@@ -71,5 +71,15 @@
 				"caughtErrorsIgnorePattern": "^_"
 			}
 		]
-	}
+	},
+	"overrides": [
+		{
+			"files": ["**/*.sandbox.js"],
+			"rules": {
+				"no-await-in-loop": "off",
+				"typescript/no-implied-eval": "off",
+				"typescript/no-unnecessary-condition": "off"
+			}
+		}
+	]
 }
