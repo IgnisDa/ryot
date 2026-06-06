@@ -6,7 +6,7 @@ import { AuthService } from "~/lib/auth";
 import { SeedService } from "~/lib/builtins/seed";
 import { AppConfig } from "~/lib/config";
 import { DbService, DbRunnerLive, TransactionRunnerLive } from "~/lib/db";
-import { MigrationsComplete } from "~/lib/db/migrate";
+import { LegacyBootstrapMigrateDrop, MigrationsComplete } from "~/lib/db/migrate";
 import { RedisService } from "~/lib/redis";
 import { S3Service } from "~/lib/s3";
 import { SandboxService } from "~/lib/sandbox";
@@ -122,7 +122,13 @@ const RuntimeLive = Layer.mergeAll(
 );
 
 const RuntimeAfterMigrationsLive = MigrationsComplete.Default.pipe(
-	Layer.flatMap(() => SeedService.Default.pipe(Layer.flatMap(() => RuntimeLive))),
+	Layer.flatMap(() =>
+		SeedService.Default.pipe(
+			Layer.flatMap(() =>
+				LegacyBootstrapMigrateDrop.Default.pipe(Layer.flatMap(() => RuntimeLive)),
+			),
+		),
+	),
 );
 
 const RuntimeDependenciesLive = Layer.mergeAll(
