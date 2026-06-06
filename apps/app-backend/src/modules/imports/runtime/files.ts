@@ -1,14 +1,5 @@
-// ZIP extraction relies on yauzl's callback/stream API and Node fs primitives.
-// @effect-diagnostics effect/nodeBuiltinImport:off
-// @effect-diagnostics effect/asyncFunction:off
-// @effect-diagnostics effect/newPromise:off
-import { createWriteStream } from "node:fs";
-import { mkdir, mkdtemp, rm } from "node:fs/promises";
-import node_path from "node:path";
-import { pipeline } from "node:stream/promises";
-
-import { FileSystem } from "@effect/platform";
-import { Effect } from "effect";
+import { FileSystem, Path } from "@effect/platform";
+import { Data, Effect } from "effect";
 import * as yauzl from "yauzl";
 
 const MAX_ZIP_ENTRY_COUNT = 100;
@@ -34,30 +25,45 @@ type ExtractImportZipArchiveOptions = {
 	maxTotalBytes?: number;
 };
 
-const openZipFile = async (safePath: string): Promise<yauzl.ZipFile> =>
-	new Promise((resolve, reject) => {
+class ImportZipArchiveError extends Data.TaggedError("ImportZipArchiveError")<{
+	message: string;
+	cause?: unknown;
+}> {}
+
+const zipArchiveError = (message: string) => new ImportZipArchiveError({ message });
+
+const unknownToZipArchiveError = (cause: unknown, fallback: string) =>
+	cause instanceof ImportZipArchiveError
+		? cause
+		: new ImportZipArchiveError({
+				cause,
+				message: cause instanceof Error ? cause.message : fallback,
+			});
+
+const openZipFile = (safePath: string) =>
+	Effect.async<yauzl.ZipFile, ImportZipArchiveError>((resume) => {
 		yauzl.open(safePath, { lazyEntries: true, validateEntrySizes: true }, (error, zipFile) => {
 			if (error) {
-				reject(error);
+				resume(Effect.fail(unknownToZipArchiveError(error, "Could not open ZIP archive")));
 				return;
 			}
-			resolve(zipFile);
+			resume(Effect.succeed(zipFile));
 		});
 	});
 
-const readNextZipEntry = async (zipFile: yauzl.ZipFile): Promise<yauzl.Entry | null> =>
-	new Promise((resolve, reject) => {
+const readNextZipEntry = (zipFile: yauzl.ZipFile) =>
+	Effect.async<yauzl.Entry | null, ImportZipArchiveError>((resume) => {
 		const onEntry = (entry: yauzl.Entry) => {
 			cleanup();
-			resolve(entry);
+			resume(Effect.succeed(entry));
 		};
 		const onEnd = () => {
 			cleanup();
-			resolve(null);
+			resume(Effect.succeed(null));
 		};
 		const onError = (error: Error) => {
 			cleanup();
-			reject(error);
+			resume(Effect.fail(unknownToZipArchiveError(error, "Could not read ZIP entry")));
 		};
 		const cleanup = () => {
 			zipFile.off("entry", onEntry);
@@ -71,18 +77,102 @@ const readNextZipEntry = async (zipFile: yauzl.ZipFile): Promise<yauzl.Entry | n
 		zipFile.readEntry();
 	});
 
-const openZipEntryReadStream = async (
+const openZipEntryReadStream = (
 	zipFile: yauzl.ZipFile,
 	entry: yauzl.Entry,
-): Promise<NodeJS.ReadableStream> =>
-	new Promise((resolve, reject) => {
+): Effect.Effect<NodeJS.ReadableStream, ImportZipArchiveError> =>
+	Effect.async<NodeJS.ReadableStream, ImportZipArchiveError>((resume) => {
 		zipFile.openReadStream(entry, (error, stream) => {
 			if (error) {
-				reject(error);
+				resume(Effect.fail(unknownToZipArchiveError(error, "Could not open ZIP entry")));
 				return;
 			}
-			resolve(stream);
+			resume(Effect.succeed(stream));
 		});
+	});
+
+const chunkToBytes = (chunk: unknown): Uint8Array => {
+	if (chunk instanceof Uint8Array) {
+		return chunk;
+	}
+	if (chunk instanceof ArrayBuffer) {
+		return new Uint8Array(chunk);
+	}
+	if (ArrayBuffer.isView(chunk)) {
+		return new Uint8Array(chunk.buffer, chunk.byteOffset, chunk.byteLength);
+	}
+	if (typeof chunk === "string") {
+		return new TextEncoder().encode(chunk);
+	}
+	throw zipArchiveError("ZIP entry stream emitted unsupported data");
+};
+
+const readZipEntryBytes = (
+	stream: NodeJS.ReadableStream,
+	maxEntryBytes: number,
+	fileName: string,
+) =>
+	Effect.async<Uint8Array, ImportZipArchiveError>((resume) => {
+		let totalBytes = 0;
+		const chunks: Uint8Array[] = [];
+
+		const cleanup = () => {
+			stream.off("data", onData);
+			stream.off("end", onEnd);
+			stream.off("error", onError);
+		};
+		const cancelStream = () => {
+			if (!("destroy" in stream)) {
+				return;
+			}
+			const destroy = stream.destroy;
+			if (typeof destroy === "function") {
+				destroy.call(stream);
+			}
+		};
+		const onData = (chunk: unknown) => {
+			let bytes: Uint8Array;
+			try {
+				bytes = chunkToBytes(chunk);
+			} catch (error) {
+				cleanup();
+				cancelStream();
+				resume(Effect.fail(unknownToZipArchiveError(error, "Could not read ZIP entry stream")));
+				return;
+			}
+			totalBytes += bytes.byteLength;
+			if (totalBytes > maxEntryBytes) {
+				cleanup();
+				cancelStream();
+				resume(
+					Effect.fail(
+						zipArchiveError(
+							`ZIP entry "${fileName}" exceeds maximum allowed size of ${maxEntryBytes} bytes`,
+						),
+					),
+				);
+				return;
+			}
+			chunks.push(bytes);
+		};
+		const onEnd = () => {
+			cleanup();
+			let offset = 0;
+			const bytes = new Uint8Array(totalBytes);
+			for (const chunk of chunks) {
+				bytes.set(chunk, offset);
+				offset += chunk.byteLength;
+			}
+			resume(Effect.succeed(bytes));
+		};
+		const onError = (error: Error) => {
+			cleanup();
+			resume(Effect.fail(unknownToZipArchiveError(error, "Could not read ZIP entry stream")));
+		};
+
+		stream.on("data", onData);
+		stream.once("end", onEnd);
+		stream.once("error", onError);
 	});
 
 export const getTemporaryDirectory = (): string => {
@@ -151,98 +241,108 @@ export const readImportFileBytes = (safePath: string, maxBytes = MAX_FILE_BYTES)
 		return yield* fs.readFile(safePath).pipe(Effect.mapError(() => "Could not read import file"));
 	});
 
-export const resolveSafeZipOutputPath = (directoryPath: string, fileName: string): string => {
+export const resolveSafeZipOutputPath = (
+	path: Path.Path,
+	directoryPath: string,
+	fileName: string,
+): string => {
 	const validationError = yauzl.validateFileName(fileName);
 	if (validationError) {
 		throw new Error(`ZIP entry "${fileName}" is invalid: ${validationError}`);
 	}
 
-	const resolvedDirectoryPath = node_path.resolve(directoryPath);
-	const outputPath = node_path.resolve(resolvedDirectoryPath, fileName);
-	if (!outputPath.startsWith(resolvedDirectoryPath + node_path.sep)) {
+	const resolvedDirectoryPath = path.resolve(directoryPath);
+	const outputPath = path.resolve(resolvedDirectoryPath, fileName);
+	if (!outputPath.startsWith(resolvedDirectoryPath + path.sep)) {
 		throw new Error(`ZIP entry "${fileName}" escapes the extraction directory`);
 	}
 
 	return outputPath;
 };
 
-export const extractImportZipArchive = async (
+export const extractImportZipArchive = (
 	safePath: string,
 	options: ExtractImportZipArchiveOptions = {},
-): Promise<ExtractImportZipArchiveResult> => {
-	const importFile = Bun.file(safePath);
-	if (importFile.size > MAX_FILE_BYTES) {
-		throw new Error(
-			`Import file exceeds maximum allowed size of ${MAX_FILE_BYTES} bytes (file is ${importFile.size} bytes)`,
-		);
-	}
-
-	const maxEntryBytes = options.maxEntryBytes ?? MAX_ZIP_ENTRY_BYTES;
-	const maxEntryCount = options.maxEntryCount ?? MAX_ZIP_ENTRY_COUNT;
-	const maxTotalBytes = options.maxTotalBytes ?? MAX_ZIP_TOTAL_BYTES;
-	const directoryPath = await mkdtemp(
-		node_path.join(getTemporaryDirectory(), ZIP_TEMP_DIRECTORY_PREFIX),
-	);
-	const entries: ImportZipEntry[] = [];
-	let totalUncompressedSize = 0;
-	let extractedEntryCount = 0;
-	let openedZipFile: yauzl.ZipFile | undefined;
-
-	try {
-		openedZipFile = await openZipFile(safePath);
-		const zipFile = openedZipFile;
-
-		// ZIP extraction is intentionally sequential so limits are enforced entry-by-entry.
-		// oxlint-disable no-await-in-loop
-		for (;;) {
-			const entry = await readNextZipEntry(zipFile);
-			if (entry === null) {
-				break;
-			}
-
-			const outputPath = resolveSafeZipOutputPath(directoryPath, entry.fileName);
-			extractedEntryCount += 1;
-			if (extractedEntryCount > maxEntryCount) {
-				throw new Error(`ZIP archive contains too many entries (maximum ${maxEntryCount})`);
-			}
-
-			if (entry.fileName.endsWith("/")) {
-				await mkdir(outputPath, { recursive: true });
-				continue;
-			}
-
-			if (entry.uncompressedSize > maxEntryBytes) {
-				throw new Error(
-					`ZIP entry "${entry.fileName}" exceeds maximum allowed size of ${maxEntryBytes} bytes`,
-				);
-			}
-
-			totalUncompressedSize += entry.uncompressedSize;
-			if (totalUncompressedSize > maxTotalBytes) {
-				throw new Error(
-					`ZIP archive exceeds maximum allowed uncompressed size of ${maxTotalBytes} bytes`,
-				);
-			}
-
-			await mkdir(node_path.dirname(outputPath), { recursive: true });
-			const readStream = await openZipEntryReadStream(zipFile, entry);
-			await pipeline(readStream, createWriteStream(outputPath));
-			entries.push({
-				filePath: outputPath,
-				fileName: entry.fileName,
-				uncompressedSize: entry.uncompressedSize,
-			});
+) =>
+	Effect.gen(function* () {
+		const fs = yield* FileSystem.FileSystem;
+		const path = yield* Path.Path;
+		const importFile = Bun.file(safePath);
+		if (importFile.size > MAX_FILE_BYTES) {
+			return yield* zipArchiveError(
+				`Import file exceeds maximum allowed size of ${MAX_FILE_BYTES} bytes (file is ${importFile.size} bytes)`,
+			);
 		}
-		// oxlint-enable no-await-in-loop
 
-		return { directoryPath, entries };
-	} catch (error) {
-		await rm(directoryPath, { force: true, recursive: true }).catch(() => {});
-		throw error;
-	} finally {
-		openedZipFile?.close();
-	}
-};
+		const maxEntryBytes = options.maxEntryBytes ?? MAX_ZIP_ENTRY_BYTES;
+		const maxEntryCount = options.maxEntryCount ?? MAX_ZIP_ENTRY_COUNT;
+		const maxTotalBytes = options.maxTotalBytes ?? MAX_ZIP_TOTAL_BYTES;
+		const directoryPath = yield* fs.makeTempDirectory({
+			prefix: ZIP_TEMP_DIRECTORY_PREFIX,
+			directory: getTemporaryDirectory(),
+		});
+
+		const extractEntries = (zipFile: yauzl.ZipFile) =>
+			Effect.gen(function* () {
+				const entries: ImportZipEntry[] = [];
+				let totalUncompressedSize = 0;
+				let extractedEntryCount = 0;
+
+				for (;;) {
+					const entry = yield* readNextZipEntry(zipFile);
+					if (entry === null) {
+						break;
+					}
+
+					const outputPath = yield* Effect.try({
+						try: () => resolveSafeZipOutputPath(path, directoryPath, entry.fileName),
+						catch: (error) => unknownToZipArchiveError(error, "Could not resolve ZIP entry path"),
+					});
+					extractedEntryCount += 1;
+					if (extractedEntryCount > maxEntryCount) {
+						return yield* zipArchiveError(
+							`ZIP archive contains too many entries (maximum ${maxEntryCount})`,
+						);
+					}
+
+					if (entry.fileName.endsWith("/")) {
+						yield* fs.makeDirectory(outputPath, { recursive: true });
+						continue;
+					}
+
+					if (entry.uncompressedSize > maxEntryBytes) {
+						return yield* zipArchiveError(
+							`ZIP entry "${entry.fileName}" exceeds maximum allowed size of ${maxEntryBytes} bytes`,
+						);
+					}
+
+					totalUncompressedSize += entry.uncompressedSize;
+					if (totalUncompressedSize > maxTotalBytes) {
+						return yield* zipArchiveError(
+							`ZIP archive exceeds maximum allowed uncompressed size of ${maxTotalBytes} bytes`,
+						);
+					}
+
+					yield* fs.makeDirectory(path.dirname(outputPath), { recursive: true });
+					const readStream = yield* openZipEntryReadStream(zipFile, entry);
+					const bytes = yield* readZipEntryBytes(readStream, maxEntryBytes, entry.fileName);
+					yield* fs.writeFile(outputPath, bytes);
+					entries.push({
+						filePath: outputPath,
+						fileName: entry.fileName,
+						uncompressedSize: entry.uncompressedSize,
+					});
+				}
+
+				return { directoryPath, entries };
+			});
+
+		return yield* Effect.acquireUseRelease(openZipFile(safePath), extractEntries, (zipFile) =>
+			Effect.sync(() => zipFile.close()),
+		).pipe(
+			Effect.tapError(() => fs.remove(directoryPath, { recursive: true }).pipe(Effect.ignore)),
+		);
+	});
 
 export const cleanupImportFile = (safePath: string) =>
 	Effect.gen(function* () {

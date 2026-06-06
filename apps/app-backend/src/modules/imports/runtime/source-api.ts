@@ -6,6 +6,9 @@ import type { ImportRunFailureStage } from "../types";
 
 type SourceQueryValue = boolean | number | string | undefined;
 type SourceRequestHeaders = Record<string, string>;
+type BunRequestInit = RequestInit & { tls: { rejectUnauthorized: boolean } };
+
+const insecureRequestInit: BunRequestInit = { tls: { rejectUnauthorized: false } };
 
 export class ImportSourceRequestError extends Data.TaggedError("ImportSourceRequestError")<{
 	message: string;
@@ -95,7 +98,7 @@ export const createImportSourceFailure = (input: {
 	context: getImportSourceFailureContext(input.error, { host: input.host }),
 });
 
-export const requestSourceJson = <T>(input: SourceJsonRequestInput) =>
+export const requestSourceJson = (input: SourceJsonRequestInput) =>
 	Effect.gen(function* () {
 		const httpClient = yield* HttpClient.HttpClient;
 		const host = getSourceApiHost(input.baseUrl);
@@ -123,12 +126,7 @@ export const requestSourceJson = <T>(input: SourceJsonRequestInput) =>
 
 		const response = yield* httpClient.execute(request).pipe(
 			input.allowInsecureConnections
-				? Effect.provideService(
-						FetchHttpClient.RequestInit,
-						// Bun's fetch supports a `tls` option that the standard RequestInit type omits.
-						// oxlint-disable-next-line no-unsafe-type-assertion
-						{ tls: { rejectUnauthorized: false } } as RequestInit,
-					)
+				? Effect.provideService(FetchHttpClient.RequestInit, insecureRequestInit)
 				: (effect) => effect,
 			Effect.mapError(
 				() =>
@@ -151,8 +149,6 @@ export const requestSourceJson = <T>(input: SourceJsonRequestInput) =>
 		}
 
 		return yield* response.json.pipe(
-			// oxlint-disable-next-line no-unsafe-type-assertion
-			Effect.map((value) => value as T),
 			Effect.mapError(
 				() =>
 					new ImportSourceRequestError({

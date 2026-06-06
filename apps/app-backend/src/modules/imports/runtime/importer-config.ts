@@ -1,5 +1,5 @@
 const readEnv = (name: string): string | undefined => {
-	const value = process.env[name];
+	const value = Bun.env[name];
 	return value && value.trim().length > 0 ? value.trim() : undefined;
 };
 

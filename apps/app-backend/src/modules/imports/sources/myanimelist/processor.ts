@@ -1,5 +1,3 @@
-import { gunzipSync } from "node:zlib";
-
 import { Effect, Either } from "effect";
 
 import { processMediaImport } from "../../media/import-processor";
@@ -14,11 +12,8 @@ import { adaptMyanimelistExports } from "./adapter";
 const MYANIMELIST_EXTENSIONS = ["gz", "xml"];
 const MAX_FILE_BYTES = 50 * 1024 * 1024;
 
-const isTooLargeGunzipError = (error: unknown): error is { code: string } =>
-	typeof error === "object" &&
-	error !== null &&
-	"code" in error &&
-	error.code === "ERR_BUFFER_TOO_LARGE";
+const createDecompressedFileTooLargeMessage = () =>
+	`Import file exceeds maximum allowed size of ${MAX_FILE_BYTES} bytes after decompression`;
 
 const decodeMyanimelistFile = (filePath: string) =>
 	Effect.gen(function* () {
@@ -27,14 +22,14 @@ const decodeMyanimelistFile = (filePath: string) =>
 			return new TextDecoder().decode(bytes);
 		}
 		return yield* Effect.try({
-			try: () =>
-				new TextDecoder().decode(
-					new Uint8Array(gunzipSync(bytes, { maxOutputLength: MAX_FILE_BYTES })),
-				),
-			catch: (error) =>
-				isTooLargeGunzipError(error)
-					? `Import file exceeds maximum allowed size of ${MAX_FILE_BYTES} bytes after decompression`
-					: sanitizeErrorMessage(error, "Could not read import file"),
+			try: () => {
+				const decompressed = Bun.gunzipSync(new Uint8Array(bytes));
+				if (decompressed.byteLength > MAX_FILE_BYTES) {
+					throw new Error(createDecompressedFileTooLargeMessage());
+				}
+				return new TextDecoder().decode(decompressed);
+			},
+			catch: (error) => sanitizeErrorMessage(error, "Could not read import file"),
 		});
 	});
 
