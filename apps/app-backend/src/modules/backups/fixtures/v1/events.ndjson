@@ -1,0 +1,1 @@
+{"id":"event-1","properties":{"completed":true,"score":5,"note":null},"createdAt":"2026-08-23T12:00:00.000Z","updatedAt":"2026-08-23T12:05:00.000Z","occurredAt":"2026-08-23T12:00:00.000Z","entityId":"entity-1","eventSchemaSlug":"fixture.read","sessionEntityId":null}

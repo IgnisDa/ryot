@@ -12,6 +12,10 @@ import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 
 type SavedViewRow = typeof schema.savedView.$inferSelect;
 
+type RestoreCustomSavedViewInput = Omit<SavedViewRow, "userId" | "isBuiltin"> & {
+	readonly userId: UserId;
+};
+
 type CreateSavedViewInput = {
 	readonly slug: string;
 	readonly name: string;
@@ -59,6 +63,33 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 	"SavedViewsRepository",
 	{
 		make: Effect.sync(() => {
+			const listForBackup = Effect.fn("SavedViewsRepository.listForBackup")(function* (
+				userId: UserId,
+			) {
+				const db = yield* Database;
+				const rows = yield* mapDatabaseErrors(
+					db
+						.select()
+						.from(schema.savedView)
+						.where(eq(schema.savedView.userId, userId))
+						.orderBy(asc(schema.savedView.id)),
+				);
+				return rows.map(toListedSavedView);
+			});
+
+			const restoreCustomView = Effect.fn("SavedViewsRepository.restoreCustomView")(function* (
+				input: RestoreCustomSavedViewInput,
+			) {
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
+					db
+						.insert(schema.savedView)
+						.values({ ...input, isBuiltin: false })
+						.returning(),
+				);
+				return row ? toListedSavedView(row) : null;
+			});
+
 			const listByUser = Effect.fn("SavedViewsRepository.listByUser")(function* (
 				userId: UserId,
 				input: { pluginSlug?: PluginSlug | undefined; includeDisabled: boolean },
@@ -285,6 +316,8 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 				countBySlugs,
 				updateBySlug,
 				deleteBySlug,
+				listForBackup,
+				restoreCustomView,
 				ensureBuiltinViews,
 				updateBuiltinStateBySlug,
 			};
