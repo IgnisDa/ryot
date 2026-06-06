@@ -50,8 +50,9 @@ if (Bun.env.NODE_ENV !== "production") {
 	await Effect.runPromise(
 		generateConfigDocs(
 			[appConfigMeta],
-			new URL("../../../apps/docs/src/includes/app-backend-config-schema.md", import.meta.url)
-				.pathname,
+			Bun.fileURLToPath(
+				new URL("../../../apps/docs/src/includes/app-backend-config-schema.md", import.meta.url),
+			),
 		).pipe(Effect.provide(BunFileSystem.layer)),
 	);
 }
