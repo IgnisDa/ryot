@@ -1,27 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import type { IntegrationRecord } from "../repository";
+import { makeIntegration } from "../test-support";
 import { getSinkAdapterResult } from "./index";
 import { parseKodiSinkPayload } from "./kodi";
-
-const makeIntegration = (overrides: Partial<IntegrationRecord> = {}): IntegrationRecord => ({
-	name: null,
-	id: "int_1",
-	lot: "sink",
-	userId: "user_1",
-	provider: "kodi",
-	isDisabled: false,
-	minimumProgress: 2,
-	maximumProgress: 95,
-	syncOwnership: false,
-	lastFinishedAt: null,
-	providerSpecifics: { kind: "kodi" },
-	createdAt: "2026-06-17T00:00:00.000Z",
-	updatedAt: "2026-06-17T00:00:00.000Z",
-	webhookUrl: "http://localhost:3000/_i/int_1",
-	extraSettings: { disableOnContinuousErrors: true },
-	...overrides,
-});
 
 const json = "application/json";
 
