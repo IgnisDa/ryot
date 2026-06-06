@@ -30,7 +30,7 @@ import { EventsService } from "#modules/events/service";
 import {
 	MediaImportWorkflowOperations,
 	type MediaImportWorkflowOperationsValue,
-} from "#modules/imports/media/workflow-types";
+} from "#modules/imports/media/types-workflow";
 import { ImportsRepository } from "#modules/imports/repository";
 import { ImportRunArtifacts } from "#modules/imports/runtime/workflow-helpers";
 

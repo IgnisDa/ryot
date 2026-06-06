@@ -8,12 +8,12 @@ const readModules = (paths: ReadonlyArray<string>) =>
 	Effect.all(paths.map(readModule)).pipe(Effect.map((sources) => sources.join("\n")));
 
 const mediaImportWorkflowModules = [
-	"../imports/workflows.ts",
-	"../imports/media/workflow-load.ts",
-	"../imports/media/workflow-resolution.ts",
-	"../imports/media/workflow-population.ts",
-	"../imports/media/workflow-writing.ts",
-	"../imports/media/workflow-writing-failures.ts",
+	"../imports/media-workflow.ts",
+	"../imports/media/load-workflow.ts",
+	"../imports/media/resolution-workflow.ts",
+	"../imports/media/population-workflow.ts",
+	"../imports/media/writing-workflow.ts",
+	"../imports/media/writing-failures-workflow.ts",
 ] as const;
 
 it.effect("keeps raw sandbox workflow execution at the allowed boundaries", () =>

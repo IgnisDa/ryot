@@ -15,15 +15,15 @@ import type { EventSchemasRepository } from "#modules/event-schemas/repository";
 import { EventsService } from "#modules/events/service";
 
 import type { ImportRunJobData } from "../jobs";
-import { sanitizeErrorMessage } from "../runtime/import-run-status";
-import { ImportRunError, toWorkflowError } from "../runtime/workflow-helpers";
-import { adaptHevyCsv } from "../sources/hevy/adapter";
-import { adaptStrongAppCsv } from "../sources/strong-app/adapter";
 import {
 	type NonMediaItemOutcome,
 	type NonMediaPrepareWritesEffect,
 	loadNonMediaImportText,
-} from "../workflows-non-media";
+} from "../non-media-workflow";
+import { sanitizeErrorMessage } from "../runtime/import-run-status";
+import { ImportRunError, toWorkflowError } from "../runtime/workflow-helpers";
+import { adaptHevyCsv } from "../sources/hevy/adapter";
+import { adaptStrongAppCsv } from "../sources/strong-app/adapter";
 import type { WorkoutImportItem } from "./domain";
 import { commitWorkoutItem, loadWorkoutImportContext } from "./processor";
 

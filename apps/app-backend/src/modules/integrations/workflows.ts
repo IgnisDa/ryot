@@ -12,12 +12,13 @@ import { Cause, Context, Effect, Either, Layer, Schema } from "effect";
 
 import { DbRunner } from "#lib/db/service";
 import { EntitiesRepository } from "#modules/entities/repository";
+import { runLoadedMediaImportWorkflow } from "#modules/imports/media-workflow";
 import {
 	MediaImportAdapterResultSchema,
 	type MediaImportAdapterFailure,
 	type MediaImportAdapterResult,
 } from "#modules/imports/media/adapter-result";
-import { MediaImportWorkflowOperationsLive } from "#modules/imports/media/workflow-operations";
+import { MediaImportWorkflowOperationsLive } from "#modules/imports/media/operations-workflow";
 import {
 	failImportRun,
 	failImportRunWithFailures,
@@ -26,7 +27,6 @@ import {
 	type ImportRunFailureDetails,
 } from "#modules/imports/runtime/import-run-status";
 import { ImportRunArtifacts } from "#modules/imports/runtime/workflow-helpers";
-import { runLoadedMediaImportWorkflow } from "#modules/imports/workflows";
 
 import { IntegrationRunError, IntegrationRunJobData } from "./jobs";
 import { IntegrationsRepository, type IntegrationRecord } from "./repository";
