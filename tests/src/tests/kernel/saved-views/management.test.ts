@@ -83,15 +83,15 @@ describe("saved views management", () => {
 		}),
 	);
 
-	it.live("seeds the Collections built-in view against the collection schema", () =>
+	it.live("seeds the All Collections built-in view against the collection schema", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const views = yield* listSavedViews(client);
-			const collectionsView = views.find((view) => view.name === "Collections");
+			const collectionsView = views.find((view) => view.name === "All Collections");
 
 			expect(collectionsView).toMatchObject({
 				isBuiltin: true,
-				name: "Collections",
+				name: "All Collections",
 				queryDocument: {
 					queries: { collections: { from: { table: "entity", alias: "collection" } } },
 				},
