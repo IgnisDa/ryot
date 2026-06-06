@@ -1,10 +1,6 @@
-// oxlint-disable eslint/no-await-in-loop -- Each reload cycle depends on the prior replacement
 // oxlint-disable unicorn/require-post-message-target-origin -- MessagePort has no target origin
 import {
 	CLIENT_API_VERSION,
-	CLIENT_ARTIFACT_FORMAT,
-	CLIENT_BRIDGE_PROTOCOL_VERSION,
-	CLIENT_COMPILER_VERSION,
 	PluginBridgeInit,
 	PluginThemeSnapshot,
 	REQUIRED_THEME_TOKEN_NAMES,
@@ -13,64 +9,26 @@ import {
 	type PluginRyotQLOutcome,
 } from "@ryot/contract/modules/plugins/client";
 import type { PluginClientCatalogEntry } from "@ryot/ryotql-recipes/plugin-client-catalog";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { Schema } from "effect";
-import { describe, expect, it } from "vitest";
+import { StrictMode } from "react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { PluginHost } from "#/modules/plugins/plugin-host";
+import {
+	PluginHost,
+	type CreatePluginArtifactSession,
+	type PluginArtifactSession,
+	type RenewPluginArtifactSession,
+	type RevokePluginArtifactSession,
+} from "#/modules/plugins/plugin-host";
 import type { PluginNavigationRequest } from "#/modules/plugins/plugin-location";
 import type { ThemeStore } from "#/modules/theme/store";
 
-const server = "https://ryot.example";
 const home: PluginLogicalLocation = { path: "/", search: "" };
-const artifactUrl = `${server}/api/plugins/artifacts/artifact-hash/index.html`;
-const themeSnapshot = (resolvedMode: "light" | "dark") =>
-	Schema.decodeUnknownSync(PluginThemeSnapshot)({
-		resolvedMode,
-		tokens: Object.fromEntries(
-			REQUIRED_THEME_TOKEN_NAMES.map((name) => [name, `${resolvedMode}-${name}`]),
-		),
-	});
-const queryDocument = {
-	queries: {
-		items: {
-			from: { alias: "item", table: "item" },
-			output: { fields: [], orderBy: [], pagination: { limit: 10 }, type: "rows" },
-		},
-	},
-} as const;
-
-function deferred<T>() {
-	let resolve!: (value: T) => void;
-	const promise = new Promise<T>((res) => {
-		resolve = res;
-	});
-	return { promise, resolve };
-}
-
-function createTheme() {
-	const listeners = new Set<() => void>();
-	let snapshot = themeSnapshot("light");
-	const theme: ThemeStore = {
-		destroy: () => undefined,
-		getSnapshot: () => snapshot,
-		getPreference: () => "light",
-		setPreference: () => undefined,
-		subscribe: (listener) => {
-			listeners.add(listener);
-			return () => listeners.delete(listener);
-		},
-	};
-	return {
-		theme,
-		setMode: (mode: "light" | "dark") => {
-			snapshot = themeSnapshot(mode);
-			for (const listener of listeners) {
-				listener();
-			}
-		},
-	};
-}
+const themeSnapshot = Schema.decodeUnknownSync(PluginThemeSnapshot)({
+	resolvedMode: "light",
+	tokens: Object.fromEntries(REQUIRED_THEME_TOKEN_NAMES.map((name) => [name, `light-${name}`])),
+});
 
 const installation = {
 	sortOrder: 0,
@@ -87,14 +45,141 @@ const installation = {
 } satisfies PluginClientCatalogEntry;
 
 type HostState = {
+	readonly scopeKey?: string;
 	readonly location: PluginLogicalLocation;
 	readonly overrides: Partial<PluginClientCatalogEntry>;
 };
 
-type PluginHostCallbacks = Pick<
-	Parameters<typeof PluginHost>[0],
-	"onQuery" | "onStaleSession" | "onInvokeOperation"
->;
+type CreateCall = {
+	readonly signal: AbortSignal;
+	readonly request: Parameters<CreatePluginArtifactSession>[0];
+};
+
+function deferred<T>() {
+	let reject!: (reason?: unknown) => void;
+	let resolve!: (value: T) => void;
+	const promise = new Promise<T>((res, rej) => {
+		reject = rej;
+		resolve = res;
+	});
+	return { promise, reject, resolve };
+}
+
+function createTheme(): ThemeStore {
+	const listeners = new Set<() => void>();
+	return {
+		destroy: () => undefined,
+		getPreference: () => "light",
+		setPreference: () => undefined,
+		getSnapshot: () => themeSnapshot,
+		subscribe: (listener) => {
+			listeners.add(listener);
+			return () => listeners.delete(listener);
+		},
+	};
+}
+
+const at = (milliseconds: number) => new Date(Date.now() + milliseconds).toISOString();
+const artifactSession = (sessionId: string, expiresAt = at(10 * 60_000)) => ({
+	expiresAt,
+	sessionId,
+	src: `https://artifacts.example/${sessionId}/index.html?token=secret-${sessionId}`,
+});
+
+function createRecorder(
+	options: {
+		readonly renew?: RenewPluginArtifactSession;
+		readonly create?: CreatePluginArtifactSession;
+		readonly revoke?: RevokePluginArtifactSession;
+	} = {},
+) {
+	let nextSession = 0;
+	const events: string[] = [];
+	const revokes: string[] = [];
+	const creates: CreateCall[] = [];
+	const renews: Array<{ readonly signal: AbortSignal; readonly sessionId: string }> = [];
+	const onCreateArtifactSession: CreatePluginArtifactSession = (request, signal) => {
+		creates.push({ request, signal });
+		events.push(`create:${request.artifactHash}`);
+		if (options.create !== undefined) {
+			return options.create(request, signal);
+		}
+		nextSession += 1;
+		return Promise.resolve(artifactSession(`session-${nextSession}`));
+	};
+	const onRenewArtifactSession: RenewPluginArtifactSession = (sessionId, signal) => {
+		renews.push({ sessionId, signal });
+		events.push(`renew:${sessionId}`);
+		return (
+			options.renew?.(sessionId, signal) ??
+			Promise.resolve({ expiresAt: at(10 * 60_000), outcome: "renewed" })
+		);
+	};
+	const onRevokeArtifactSession: RevokePluginArtifactSession = (sessionId) => {
+		revokes.push(sessionId);
+		events.push(`revoke:${sessionId}`);
+		return options.revoke?.(sessionId) ?? Promise.resolve();
+	};
+	return {
+		events,
+		renews,
+		revokes,
+		creates,
+		onRenewArtifactSession,
+		onCreateArtifactSession,
+		onRevokeArtifactSession,
+	};
+}
+
+function renderHost(
+	recorder = createRecorder(),
+	overrides: Partial<PluginClientCatalogEntry> = {},
+	location = home,
+	callbacks: {
+		readonly onStaleSession?: () => void;
+		readonly onQuery?: Parameters<typeof PluginHost>[0]["onQuery"];
+		readonly onInvokeOperation?: Parameters<typeof PluginHost>[0]["onInvokeOperation"];
+	} = {},
+) {
+	const theme = createTheme();
+	const navigations: PluginNavigationRequest[] = [];
+	const host = (state: HostState) => (
+		<PluginHost
+			theme={theme}
+			location={state.location}
+			installation={{ ...installation, ...state.overrides }}
+			onRenewArtifactSession={recorder.onRenewArtifactSession}
+			artifactSessionScopeKey={state.scopeKey ?? "server:user"}
+			onCreateArtifactSession={recorder.onCreateArtifactSession}
+			onRevokeArtifactSession={recorder.onRevokeArtifactSession}
+			onNavigate={(request) => navigations.push(request)}
+			onStaleSession={callbacks.onStaleSession ?? (() => undefined)}
+			onQuery={
+				callbacks.onQuery ??
+				(() => Promise.resolve({ outcome: "failure", reason: "transport" } as PluginRyotQLOutcome))
+			}
+			onInvokeOperation={
+				callbacks.onInvokeOperation ??
+				(() =>
+					Promise.resolve({ outcome: "failure", reason: "transport" } as PluginOperationOutcome))
+			}
+		/>
+	);
+	const view = render(host({ location, overrides }));
+	return {
+		...recorder,
+		navigations,
+		unmount: view.unmount,
+		moveTo: (next: HostState) => view.rerender(host(next)),
+	};
+}
+
+async function flush() {
+	await act(async () => {
+		await Promise.resolve();
+		await Promise.resolve();
+	});
+}
 
 function connectFrame(frame: HTMLIFrameElement) {
 	const messages: unknown[] = [];
@@ -115,7 +200,6 @@ function connectFrame(frame: HTMLIFrameElement) {
 			},
 		},
 	});
-
 	fireEvent.load(frame);
 	if (init === undefined || pluginPort === undefined) {
 		throw new Error("Plugin bridge did not connect");
@@ -123,429 +207,312 @@ function connectFrame(frame: HTMLIFrameElement) {
 	return { init, messages, pluginPort };
 }
 
-const renderHost = (
-	overrides: Partial<PluginClientCatalogEntry> = {},
-	location = home,
-	callbacks: Partial<PluginHostCallbacks> = {},
-) => {
-	const navigations: PluginNavigationRequest[] = [];
-	const { setMode, theme } = createTheme();
-	const host = (state: HostState) => (
-		<PluginHost
-			theme={theme}
-			server={server}
-			location={state.location}
-			installation={{ ...installation, ...state.overrides }}
-			onNavigate={(request) => navigations.push(request)}
-			onStaleSession={callbacks.onStaleSession ?? (() => undefined)}
-			onQuery={
-				callbacks.onQuery ??
-				(() => Promise.resolve({ outcome: "failure", reason: "transport" } as PluginRyotQLOutcome))
-			}
-			onInvokeOperation={
-				callbacks.onInvokeOperation ??
-				(() =>
-					Promise.resolve({ outcome: "failure", reason: "transport" } as PluginOperationOutcome))
-			}
-		/>
-	);
-	const view = render(host({ location, overrides }));
-	return { setMode, navigations, moveTo: (next: HostState) => view.rerender(host(next)) };
-};
+afterEach(() => vi.useRealTimers());
 
-describe("plugin host", () => {
-	it("loads the catalog artifact in an isolated iframe", () => {
-		renderHost();
+describe("plugin artifact session lifecycle", () => {
+	it("creates before rendering the isolated iframe and keeps credentials out of bridge metadata", async () => {
+		const pending = deferred<PluginArtifactSession>();
+		const recorder = createRecorder({ create: () => pending.promise });
+		renderHost(recorder);
 
+		expect(screen.queryByTitle("fixture plugin")).toBeNull();
+		expect(screen.getByRole("status").textContent).toBe("Preparing this plugin...");
+		expect(recorder.creates).toHaveLength(1);
+		expect(recorder.creates[0]?.request).toEqual({
+			sourceHash: "source-hash",
+			artifactHash: "artifact-hash",
+			installationId: "installation-1",
+		});
+
+		pending.resolve(artifactSession("artifact-session"));
+		await flush();
 		const frame = screen.getByTitle<HTMLIFrameElement>("fixture plugin");
-		expect(frame.getAttribute("src")).toBe(artifactUrl);
+		expect(frame.getAttribute("src")).toContain("token=secret-artifact-session");
 		expect(frame.getAttribute("sandbox")).toBe("allow-scripts");
 		expect(frame.getAttribute("referrerpolicy")).toBe("no-referrer");
-		expect(frame.getAttribute("class")).toContain("hidden");
-		expect(screen.getByRole("status").textContent).toBe("Preparing this plugin...");
+
+		const connected = connectFrame(frame);
+		expect(connected.init.artifactHash).toBe("artifact-hash");
+		expect(JSON.stringify(connected.init)).not.toContain("artifact-session");
+		expect(JSON.stringify(connected.init)).not.toContain("secret");
 	});
 
-	it("reveals after initial theme application and keeps the active frame for updates", async () => {
-		const { setMode } = renderHost();
-		const frame = screen.getByTitle<HTMLIFrameElement>("fixture plugin");
-		const connected = connectFrame(frame);
+	it.each([
+		{ health: "installing", clientArtifactHash: null },
+		{ health: "failed" },
+		{ health: "incompatible" },
+		{ clientArtifactHash: null },
+		{ clientApiVersion: null },
+		{ clientApiVersion: CLIENT_API_VERSION + 1 },
+	] satisfies Array<Partial<PluginClientCatalogEntry>>)(
+		"does not create a session for blocked catalog state %#",
+		(overrides) => {
+			const recorder = createRecorder();
+			renderHost(recorder, overrides);
+			expect(recorder.creates).toEqual([]);
+			expect(screen.queryByTitle("fixture plugin")).toBeNull();
+		},
+	);
 
-		connected.pluginPort.postMessage(connected.init);
-		await waitFor(() => expect(connected.messages).toHaveLength(1));
-		expect(frame.getAttribute("class")).toContain("hidden");
+	it("replaces and revokes when the server or user scope changes", async () => {
+		const host = renderHost();
+		await flush();
 
-		connected.pluginPort.postMessage({ generation: 1, type: "theme-applied" });
-		await waitFor(() => expect(frame.getAttribute("class")).not.toContain("hidden"));
-		expect(screen.queryByRole("status")).toBeNull();
+		host.moveTo({ scopeKey: "other-server:user", location: home, overrides: {} });
+		await flush();
 
-		setMode("dark");
-		await waitFor(() => expect(connected.messages).toHaveLength(3));
-		expect(connected.messages[2]).toEqual({
-			type: "theme",
-			generation: 2,
-			theme: themeSnapshot("dark"),
-		});
+		expect(host.creates).toHaveLength(2);
+		expect(host.revokes).toEqual(["session-1"]);
+	});
+
+	it("reuses the session and iframe across logical location changes", async () => {
+		const host = renderHost();
+		await flush();
+		const frame = screen.getByTitle("fixture plugin");
+
+		host.moveTo({ overrides: {}, location: { path: "/items/one", search: "tab=stats" } });
+		await flush();
+
+		expect(host.creates).toHaveLength(1);
+		expect(host.revokes).toEqual([]);
 		expect(screen.getByTitle("fixture plugin")).toBe(frame);
 	});
 
-	it("replaces the iframe after a pre-ready failure and reloads the same route", async () => {
-		const location = { path: "/details/item-1", search: "tab=stats" };
-		renderHost({}, location);
-		const firstFrame = screen.getByTitle<HTMLIFrameElement>("fixture plugin");
-		const first = connectFrame(firstFrame);
+	it.each([
+		{ installationId: "installation-2" },
+		{ sourceHash: "source-2" },
+		{ clientArtifactHash: "artifact-2" },
+	] satisfies Array<Partial<PluginClientCatalogEntry>>)(
+		"replaces and revokes for identity change %#",
+		async (overrides) => {
+			const host = renderHost();
+			await flush();
+			const frame = screen.getByTitle("fixture plugin");
 
-		first.pluginPort.postMessage({ reason: "failed", type: "lifecycle-close" });
-		await waitFor(() => expect(screen.queryByTitle("fixture plugin")).toBeNull());
+			host.moveTo({ location: home, overrides });
+			await flush();
 
-		expect(screen.getAllByRole("button")).toHaveLength(1);
-		expect(screen.getByRole("button", { name: "Reload plugin" })).toBeTruthy();
+			expect(host.creates).toHaveLength(2);
+			expect(host.revokes).toEqual(["session-1"]);
+			expect(screen.getByTitle("fixture plugin")).not.toBe(frame);
+			expect(host.events).toEqual([
+				"create:artifact-hash",
+				"revoke:session-1",
+				`create:${overrides.clientArtifactHash ?? "artifact-hash"}`,
+			]);
+		},
+	);
+
+	it("aborts and revokes a late create result under Strict Mode", async () => {
+		const first = deferred<PluginArtifactSession>();
+		const second = deferred<PluginArtifactSession>();
+		let call = 0;
+		const recorder = createRecorder({
+			create: () => {
+				call += 1;
+				return call === 1 ? first.promise : second.promise;
+			},
+		});
+		const theme = createTheme();
+		render(
+			<StrictMode>
+				<PluginHost
+					theme={theme}
+					location={home}
+					installation={installation}
+					onNavigate={() => undefined}
+					onStaleSession={() => undefined}
+					artifactSessionScopeKey="server:user"
+					onRenewArtifactSession={recorder.onRenewArtifactSession}
+					onCreateArtifactSession={recorder.onCreateArtifactSession}
+					onRevokeArtifactSession={recorder.onRevokeArtifactSession}
+					onQuery={() => Promise.resolve({ outcome: "failure", reason: "transport" })}
+					onInvokeOperation={() => Promise.resolve({ outcome: "failure", reason: "transport" })}
+				/>
+			</StrictMode>,
+		);
+
+		expect(recorder.creates).toHaveLength(2);
+		expect(recorder.creates[0]?.signal.aborted).toBe(true);
+		first.resolve(artifactSession("late"));
+		second.resolve(artifactSession("current"));
+		await flush();
+
+		expect(recorder.revokes).toEqual(["late"]);
+		expect(screen.getByTitle("fixture plugin").getAttribute("src")).toContain("current");
+	});
+
+	it("retries creation with a fresh generation", async () => {
+		let attempt = 0;
+		const recorder = createRecorder({
+			create: () => {
+				attempt += 1;
+				return attempt === 1
+					? Promise.reject(new Error("offline"))
+					: Promise.resolve(artifactSession("retry"));
+			},
+		});
+		renderHost(recorder);
+		await flush();
+
+		expect(screen.queryByTitle("fixture plugin")).toBeNull();
 		fireEvent.click(screen.getByRole("button", { name: "Reload plugin" }));
+		await flush();
 
-		const replacement = screen.getByTitle<HTMLIFrameElement>("fixture plugin");
-		expect(replacement).not.toBe(firstFrame);
-		expect(replacement.getAttribute("src")).toBe(artifactUrl);
-		const second = connectFrame(replacement);
-		expect(second.init.sessionId).not.toBe(first.init.sessionId);
-		second.pluginPort.postMessage(second.init);
-		await waitFor(() => expect(second.messages).toHaveLength(1));
-		second.pluginPort.postMessage({ generation: 1, type: "theme-applied" });
-		await waitFor(() => expect(second.messages).toContainEqual({ type: "location", location }));
+		expect(recorder.creates).toHaveLength(2);
+		expect(recorder.creates[0]?.signal.aborted).toBe(true);
+		expect(screen.getByTitle("fixture plugin").getAttribute("src")).toContain("retry");
 	});
 
-	it("replaces the iframe after a post-ready failure with one fresh session", async () => {
-		const location = { path: "/details/item-2", search: "" };
-		renderHost({}, location);
-		const firstFrame = screen.getByTitle<HTMLIFrameElement>("fixture plugin");
-		const first = connectFrame(firstFrame);
-		first.pluginPort.postMessage(first.init);
-		await waitFor(() => expect(first.messages).toHaveLength(1));
-		first.pluginPort.postMessage({ generation: 1, type: "theme-applied" });
-		await waitFor(() => expect(first.messages).toContainEqual({ type: "location", location }));
-
-		first.pluginPort.postMessage({ reason: "failed", type: "lifecycle-close" });
-		await waitFor(() => expect(screen.queryByTitle("fixture plugin")).toBeNull());
-		fireEvent.click(screen.getByRole("button", { name: "Reload plugin" }));
-
-		const replacement = screen.getByTitle<HTMLIFrameElement>("fixture plugin");
-		expect(replacement).not.toBe(firstFrame);
-		const second = connectFrame(replacement);
-		expect(second.init.sessionId).not.toBe(first.init.sessionId);
-		expect(replacement.getAttribute("src")).toBe(artifactUrl);
-	});
-
-	it("keeps only the fresh iframe through repeated crash and reload cycles", async () => {
-		const { navigations } = renderHost();
-		let frame = screen.getByTitle<HTMLIFrameElement>("fixture plugin");
-		const oldPorts: MessagePort[] = [];
-
-		for (let cycle = 0; cycle < 3; cycle += 1) {
-			const connected = connectFrame(frame);
-			oldPorts.push(connected.pluginPort);
-			connected.pluginPort.postMessage(connected.init);
-			await waitFor(() => expect(connected.messages).toHaveLength(1));
-			connected.pluginPort.postMessage({ generation: 1, type: "theme-applied" });
-			await waitFor(() => expect(frame.getAttribute("class")).not.toContain("hidden"));
-			connected.pluginPort.postMessage({ reason: "failed", type: "lifecycle-close" });
-			await waitFor(() => expect(screen.queryByTitle("fixture plugin")).toBeNull());
-			fireEvent.click(screen.getByRole("button", { name: "Reload plugin" }));
-			frame = screen.getByTitle<HTMLIFrameElement>("fixture plugin");
-			expect(screen.getAllByTitle("fixture plugin")).toHaveLength(1);
-		}
-
-		for (const port of oldPorts) {
-			port.postMessage({ location: home, mode: "push", type: "navigate" });
-		}
-		await waitFor(() => expect(navigations).toEqual([]));
-	});
-
-	it("keeps one iframe across logical location changes", () => {
-		const { moveTo } = renderHost();
-		const frame = screen.getByTitle<HTMLIFrameElement>("fixture plugin");
-
-		moveTo({ overrides: {}, location: { path: "/details/item-1", search: "tab=stats" } });
-
-		expect(screen.getByTitle("fixture plugin")).toBe(frame);
-		expect(frame.getAttribute("src")).toBe(artifactUrl);
-	});
-
-	it("replaces the iframe and binds operations when the source revision changes", async () => {
-		const invocations: Array<{ readonly operationSlug: string; readonly sourceHash: string }> = [];
-		const { moveTo } = renderHost({}, home, {
-			onInvokeOperation: (request, sourceHash) => {
-				invocations.push({ operationSlug: request.operationSlug, sourceHash });
-				return Promise.resolve({ outcome: "success", value: null });
-			},
-		});
-		const firstFrame = screen.getByTitle<HTMLIFrameElement>("fixture plugin");
-		const first = connectFrame(firstFrame);
-		first.pluginPort.postMessage(first.init);
-		await waitFor(() => expect(first.messages).toHaveLength(1));
-		first.pluginPort.postMessage({ generation: 1, type: "theme-applied" });
-		first.pluginPort.postMessage({
-			input: null,
-			operationSlug: "first",
-			type: "operation-request",
-			requestId: "first-operation",
-		});
-		await waitFor(() =>
-			expect(invocations).toEqual([{ operationSlug: "first", sourceHash: "source-hash" }]),
-		);
-
-		moveTo({ location: home, overrides: { sourceHash: "next-source-hash" } });
-		const replacement = screen.getByTitle<HTMLIFrameElement>("fixture plugin");
-		expect(replacement).not.toBe(firstFrame);
-		expect(replacement.getAttribute("src")).toBe(artifactUrl);
-		expect(screen.getAllByTitle("fixture plugin")).toHaveLength(1);
-		await waitFor(() =>
-			expect(first.messages).toContainEqual({ reason: "disposed", type: "lifecycle-close" }),
-		);
-
-		first.pluginPort.postMessage({
-			input: null,
-			operationSlug: "stale",
-			type: "operation-request",
-			requestId: "stale-operation",
-		});
-		const second = connectFrame(replacement);
-		expect(second.init.sessionId).not.toBe(first.init.sessionId);
-		second.pluginPort.postMessage(second.init);
-		await waitFor(() => expect(second.messages).toHaveLength(1));
-		second.pluginPort.postMessage({ generation: 1, type: "theme-applied" });
-		second.pluginPort.postMessage({
-			input: null,
-			operationSlug: "second",
-			type: "operation-request",
-			requestId: "second-operation",
-		});
-		await waitFor(() =>
-			expect(invocations).toEqual([
-				{ operationSlug: "first", sourceHash: "source-hash" },
-				{ operationSlug: "second", sourceHash: "next-source-hash" },
-			]),
-		);
-		await new Promise((resolve) => setTimeout(resolve, 10));
-		expect(invocations).toHaveLength(2);
-	});
-
-	it("closes a stale bridge and requests a catalog refresh without replying", async () => {
-		let refreshes = 0;
-		let invocations = 0;
-		renderHost({}, home, {
-			onStaleSession: () => {
-				refreshes += 1;
-			},
-			onInvokeOperation: () => {
-				invocations += 1;
-				return Promise.resolve({ outcome: "stale-session" });
-			},
-		});
-		const frame = screen.getByTitle<HTMLIFrameElement>("fixture plugin");
-		const connected = connectFrame(frame);
-		connected.pluginPort.postMessage(connected.init);
-		await waitFor(() => expect(connected.messages).toHaveLength(1));
-		connected.pluginPort.postMessage({ generation: 1, type: "theme-applied" });
-		connected.pluginPort.postMessage({
-			input: null,
-			operationSlug: "greet",
-			type: "operation-request",
-			requestId: "stale-operation",
-		});
-
-		await waitFor(() =>
-			expect(connected.messages).toContainEqual({ reason: "disposed", type: "lifecycle-close" }),
-		);
-		expect(invocations).toBe(1);
-		expect(refreshes).toBe(1);
-		expect(connected.messages).not.toContainEqual(
-			expect.objectContaining({ requestId: "stale-operation", type: "operation-result" }),
-		);
-		expect(screen.getByRole("status").textContent).toBe("Preparing this plugin...");
-
-		connected.pluginPort.postMessage({
-			input: null,
-			operationSlug: "late",
-			type: "operation-request",
-			requestId: "late-operation",
-		});
-		await new Promise((resolve) => setTimeout(resolve, 10));
-		expect(invocations).toBe(1);
-		expect(refreshes).toBe(1);
-	});
-
-	it("replaces a changed artifact through a fresh session lifecycle", async () => {
-		const querySignals: AbortSignal[] = [];
-		const operationSignals: AbortSignal[] = [];
-		const queryCall = deferred<PluginRyotQLOutcome>();
-		const operationCall = deferred<PluginOperationOutcome>();
-		const location = { path: "/details/item-3", search: "tab=stats" };
-		let queryAborts = 0;
-		let operationAborts = 0;
-		const { moveTo, navigations } = renderHost({}, location, {
+	it("closes bridge work, revokes, and creates on crash reload", async () => {
+		const query = deferred<PluginRyotQLOutcome>();
+		const recorder = createRecorder();
+		let querySignal: AbortSignal | undefined;
+		const host = renderHost(recorder, {}, home, {
 			onQuery: (_request, signal) => {
-				querySignals.push(signal);
-				signal.addEventListener("abort", () => {
-					queryAborts += 1;
-				});
-				return queryCall.promise;
-			},
-			onInvokeOperation: (_request, _sourceHash, signal) => {
-				operationSignals.push(signal);
-				signal.addEventListener("abort", () => {
-					operationAborts += 1;
-				});
-				return operationCall.promise;
+				querySignal = signal;
+				signal.addEventListener("abort", () => recorder.events.push("abort:query"));
+				return query.promise;
 			},
 		});
-		const firstFrame = screen.getByTitle<HTMLIFrameElement>("fixture plugin");
-		const first = connectFrame(firstFrame);
-
-		first.pluginPort.postMessage(first.init);
-		await waitFor(() => expect(first.messages).toHaveLength(1));
-		first.pluginPort.postMessage({ generation: 1, type: "theme-applied" });
-		await waitFor(() => expect(first.messages).toContainEqual({ type: "location", location }));
-
-		first.pluginPort.postMessage({
-			requestId: "query-1",
+		await flush();
+		const connected = connectFrame(screen.getByTitle("fixture plugin"));
+		connected.pluginPort.postMessage(connected.init);
+		await flush();
+		connected.pluginPort.postMessage({ generation: 1, type: "theme-applied" });
+		await flush();
+		connected.pluginPort.postMessage({
+			requestId: "query",
 			type: "ryotql-request",
-			document: queryDocument,
+			document: { queries: {} },
 		});
-		first.pluginPort.postMessage({
-			input: null,
-			operationSlug: "greet",
-			requestId: "operation-1",
-			type: "operation-request",
-		});
-		await waitFor(() => {
-			expect(querySignals).toHaveLength(1);
-			expect(operationSignals).toHaveLength(1);
-		});
+		await flush();
+		connected.pluginPort.postMessage({ reason: "failed", type: "lifecycle-close" });
+		await flush();
 
-		moveTo({ location, overrides: { clientArtifactHash: installation.clientArtifactHash } });
-		expect(screen.getByTitle("fixture plugin")).toBe(firstFrame);
-		expect(screen.getAllByTitle("fixture plugin")).toHaveLength(1);
-
-		const nextArtifactHash = "next-artifact-hash";
-		moveTo({ location, overrides: { clientArtifactHash: nextArtifactHash } });
-		const replacement = screen.getByTitle<HTMLIFrameElement>("fixture plugin");
-		expect(replacement).not.toBe(firstFrame);
-		expect(screen.getAllByTitle("fixture plugin")).toHaveLength(1);
-		expect(replacement.getAttribute("src")).toBe(
-			`${server}/api/plugins/artifacts/${nextArtifactHash}/index.html`,
-		);
-
-		await waitFor(() =>
-			expect(first.messages).toContainEqual({ reason: "disposed", type: "lifecycle-close" }),
-		);
-		expect(first.messages).toEqual([
-			{ generation: 1, theme: themeSnapshot("light"), type: "theme" },
-			{ type: "location", location },
-			{ reason: "disposed", type: "lifecycle-close" },
-		]);
-		expect(querySignals[0]?.aborted).toBe(true);
-		expect(operationSignals[0]?.aborted).toBe(true);
-		expect(queryAborts).toBe(1);
-		expect(operationAborts).toBe(1);
-
-		moveTo({ location, overrides: { clientArtifactHash: nextArtifactHash } });
-		expect(screen.getByTitle("fixture plugin")).toBe(replacement);
-		expect(queryAborts).toBe(1);
-		expect(operationAborts).toBe(1);
-
-		const second = connectFrame(replacement);
-		expect(second.init).toEqual({
-			format: CLIENT_ARTIFACT_FORMAT,
-			apiVersion: CLIENT_API_VERSION,
-			artifactHash: nextArtifactHash,
-			sessionId: second.init.sessionId,
-			compilerVersion: CLIENT_COMPILER_VERSION,
-			bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
-		});
-		expect(second.init.sessionId).not.toBe(first.init.sessionId);
-		second.pluginPort.postMessage(second.init);
-		await waitFor(() => expect(second.messages).toHaveLength(1));
-		second.pluginPort.postMessage({ generation: 1, type: "theme-applied" });
-		await waitFor(() => expect(second.messages).toContainEqual({ type: "location", location }));
-		expect(second.messages).toEqual([
-			{ generation: 1, theme: themeSnapshot("light"), type: "theme" },
-			{ type: "location", location },
-		]);
-
-		first.pluginPort.postMessage({
-			type: "ryotql-request",
-			document: queryDocument,
-			requestId: "stale-query",
-		});
-		first.pluginPort.postMessage({
-			input: null,
-			operationSlug: "stale",
-			type: "operation-request",
-			requestId: "stale-operation",
-		});
-		first.pluginPort.postMessage({
-			mode: "push",
-			type: "navigate",
-			location: { path: "/stale", search: "" },
-		});
-		queryCall.resolve({ outcome: "success", response: { data: {} } });
-		operationCall.resolve({ outcome: "success", value: "late" });
-		await new Promise((resolve) => setTimeout(resolve, 10));
-
-		expect(querySignals).toHaveLength(1);
-		expect(operationSignals).toHaveLength(1);
-		expect(navigations).toEqual([]);
-		expect(first.messages).toHaveLength(3);
-		expect(second.messages).toEqual([
-			{ generation: 1, theme: themeSnapshot("light"), type: "theme" },
-			{ type: "location", location },
-		]);
-	});
-
-	it("reports a missing artifact without rendering a frame", () => {
-		renderHost({ clientArtifactHash: null });
-
+		expect(querySignal?.aborted).toBe(true);
 		expect(screen.queryByTitle("fixture plugin")).toBeNull();
-		expect(screen.getByRole("alert").textContent).toBe("This plugin has no web experience yet.");
+		fireEvent.click(screen.getByRole("button", { name: "Reload plugin" }));
+		await flush();
+
+		expect(host.revokes).toEqual(["session-1"]);
+		expect(host.creates).toHaveLength(2);
+		expect(host.events).toEqual([
+			"create:artifact-hash",
+			"abort:query",
+			"revoke:session-1",
+			"create:artifact-hash",
+		]);
+		expect(screen.getByTitle("fixture plugin")).toBeTruthy();
 	});
 
-	it("blocks an incompatible installation without rendering a frame", () => {
-		renderHost({
-			health: "incompatible",
-			clientApiVersion: null,
-			clientArtifactHash: null,
+	it("renews five minutes before expiry and retries transient failure before expiry", async () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date("2026-08-31T12:00:00.000Z"));
+		let renewal = 0;
+		const recorder = createRecorder({
+			create: () => Promise.resolve(artifactSession("lease", at(10 * 60_000))),
+			renew: () => {
+				renewal += 1;
+				return renewal === 1
+					? Promise.reject(new Error("offline"))
+					: Promise.resolve({ expiresAt: at(10 * 60_000), outcome: "renewed" });
+			},
 		});
+		renderHost(recorder);
+		await flush();
 
-		expect(screen.getByRole("alert").textContent).toBe(
-			"This plugin is incompatible with this version of Ryot.",
-		);
-		expect(screen.queryByTitle("fixture plugin")).toBeNull();
+		await act(async () => vi.advanceTimersByTimeAsync(5 * 60_000));
+		expect(recorder.renews).toHaveLength(1);
+		await act(async () => vi.advanceTimersByTimeAsync(30_000));
+
+		expect(recorder.renews).toHaveLength(2);
+		expect(recorder.creates).toHaveLength(1);
+		expect(recorder.revokes).toEqual([]);
 	});
 
-	it("keeps an installing plugin in the loading notice", () => {
-		renderHost({ health: "installing", clientArtifactHash: null });
+	it("replaces at expiry while renewal is still pending", async () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date("2026-08-31T12:00:00.000Z"));
+		const renewal = deferred<Awaited<ReturnType<RenewPluginArtifactSession>>>();
+		const recorder = createRecorder({
+			create: () => Promise.resolve(artifactSession("lease", at(6 * 60_000))),
+			renew: () => renewal.promise,
+		});
+		renderHost(recorder);
+		await flush();
 
-		expect(screen.queryByTitle("fixture plugin")).toBeNull();
-		expect(screen.getByRole("status").textContent).toBe("Preparing this plugin...");
+		await act(async () => vi.advanceTimersByTimeAsync(6 * 60_000));
+		await flush();
+
+		expect(recorder.renews).toHaveLength(1);
+		expect(recorder.renews[0]?.signal.aborted).toBe(true);
+		expect(recorder.revokes).toEqual(["lease"]);
+		expect(recorder.creates).toHaveLength(2);
 	});
 
-	it("reports a failed installation as a compilation failure", () => {
-		renderHost({ health: "failed" });
+	it("renews on visibility restoration and replaces an expired session", async () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date("2026-08-31T12:00:00.000Z"));
+		const recorder = createRecorder({
+			create: () => Promise.resolve(artifactSession("lease", at(6 * 60_000))),
+		});
+		renderHost(recorder);
+		await flush();
+		Object.defineProperty(document, "visibilityState", { configurable: true, value: "visible" });
 
-		expect(screen.getByRole("alert").textContent).toBe("This plugin could not be prepared.");
+		vi.setSystemTime(new Date("2026-08-31T12:02:00.000Z"));
+		document.dispatchEvent(new Event("visibilitychange"));
+		await flush();
+		expect(recorder.renews).toHaveLength(1);
+
+		vi.setSystemTime(new Date("2026-08-31T12:20:00.000Z"));
+		document.dispatchEvent(new Event("visibilitychange"));
+		await flush();
+		expect(recorder.revokes).toEqual(["lease"]);
+		expect(recorder.creates).toHaveLength(2);
 	});
 
-	it("reports missing client API version metadata", () => {
-		renderHost({ clientApiVersion: null });
+	it.each(["stale", "not-found"] as const)(
+		"replaces a %s renewal and requests catalog refresh",
+		async (reason) => {
+			vi.useFakeTimers();
+			vi.setSystemTime(new Date("2026-08-31T12:00:00.000Z"));
+			let refreshes = 0;
+			const recorder = createRecorder({
+				create: () => Promise.resolve(artifactSession("lease", at(6 * 60_000))),
+				renew: () => Promise.resolve({ outcome: "replace", reason }),
+			});
+			renderHost(recorder, {}, home, {
+				onStaleSession: () => {
+					refreshes += 1;
+				},
+			});
+			await flush();
+			await act(async () => vi.advanceTimersByTimeAsync(60_000));
+			await flush();
 
-		expect(screen.getByRole("alert").textContent).toBe(
-			"This plugin needs a newer version of Ryot.",
-		);
-	});
+			expect(refreshes).toBe(1);
+			expect(recorder.revokes).toEqual(["lease"]);
+			expect(recorder.creates).toHaveLength(2);
+		},
+	);
 
-	it("reports an unsupported client API version", () => {
-		renderHost({ clientApiVersion: CLIENT_API_VERSION + 1 });
+	it("aborts lifecycle work and independently revokes on cleanup", async () => {
+		const renewal = deferred<Awaited<ReturnType<RenewPluginArtifactSession>>>();
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date("2026-08-31T12:00:00.000Z"));
+		const recorder = createRecorder({
+			create: () => Promise.resolve(artifactSession("lease", at(6 * 60_000))),
+			renew: () => renewal.promise,
+		});
+		const host = renderHost(recorder);
+		await flush();
+		await act(async () => vi.advanceTimersByTimeAsync(60_000));
+		expect(recorder.renews).toHaveLength(1);
 
-		expect(screen.getByRole("alert").textContent).toBe(
-			"This plugin needs a newer version of Ryot.",
-		);
+		host.unmount();
+		expect(recorder.renews[0]?.signal.aborted).toBe(true);
+		expect(recorder.revokes).toEqual(["lease"]);
 	});
 });

@@ -1,5 +1,11 @@
 import { DbError } from "@ryot/contract/errors";
-import type { PluginClientArtifact } from "@ryot/contract/modules/plugins/client";
+import {
+	CLIENT_API_VERSION,
+	CLIENT_ARTIFACT_FORMAT,
+	CLIENT_BRIDGE_PROTOCOL_VERSION,
+	CLIENT_COMPILER_VERSION,
+	type PluginClientArtifact,
+} from "@ryot/contract/modules/plugins/client";
 import type { PluginProviderOperation } from "@ryot/contract/modules/plugins/manifest";
 import { SandboxProviderId } from "@ryot/contract/schema/brands";
 import { and, asc, eq, exists, inArray, isNull, notExists, notInArray, or, sql } from "drizzle-orm";
@@ -421,10 +427,59 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			return row !== undefined;
 		});
 
-		const findClientArtifactFile = Effect.fn("PluginRepository.findClientArtifactFile")(function* (
-			artifactHash: string,
-			fileName: string,
-		) {
+		const findPrivateClientArtifact = Effect.fn("PluginRepository.findPrivateClientArtifact")(
+			function* (input: {
+				readonly userId: string;
+				readonly pluginSlug: string;
+				readonly sourceHash: string;
+				readonly artifactHash: string;
+				readonly installationId: string;
+			}) {
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
+					db
+						.select({
+							pluginId: schema.plugin.id,
+							pluginSlug: schema.plugin.slug,
+							sourceHash: schema.plugin.sourceHash,
+							health: schema.pluginInstallation.health,
+							artifactHash: schema.pluginClientArtifact.hash,
+							artifactFormat: schema.pluginClientArtifact.format,
+							clientApiVersion: schema.pluginClientArtifact.apiVersion,
+							bridgeVersion: schema.pluginClientArtifact.bridgeVersion,
+							compilerVersion: schema.pluginClientArtifact.compilerVersion,
+						})
+						.from(schema.pluginInstallation)
+						.innerJoin(schema.plugin, eq(schema.plugin.id, schema.pluginInstallation.pluginId))
+						.innerJoin(
+							schema.pluginClientArtifact,
+							eq(schema.pluginClientArtifact.hash, schema.plugin.clientArtifactHash),
+						)
+						.where(
+							and(
+								eq(schema.plugin.status, "active"),
+								eq(schema.plugin.slug, input.pluginSlug),
+								eq(schema.pluginInstallation.userId, input.userId),
+								eq(schema.pluginInstallation.id, input.installationId),
+							),
+						)
+						.limit(1),
+				);
+				return row ?? null;
+			},
+		);
+
+		const findPrivateClientArtifactFile = Effect.fn(
+			"PluginRepository.findPrivateClientArtifactFile",
+		)(function* (input: {
+			readonly userId: string;
+			readonly fileName: string;
+			readonly pluginId: string;
+			readonly pluginSlug: string;
+			readonly sourceHash: string;
+			readonly artifactHash: string;
+			readonly installationId: string;
+		}) {
 			const db = yield* Database;
 			const [row] = yield* mapDatabaseErrors(
 				db
@@ -433,11 +488,33 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 						contents: schema.pluginClientArtifactFile.contents,
 						contentType: schema.pluginClientArtifactFile.contentType,
 					})
-					.from(schema.pluginClientArtifactFile)
+					.from(schema.pluginInstallation)
+					.innerJoin(schema.plugin, eq(schema.plugin.id, schema.pluginInstallation.pluginId))
+					.innerJoin(
+						schema.pluginClientArtifact,
+						eq(schema.pluginClientArtifact.hash, schema.plugin.clientArtifactHash),
+					)
+					.innerJoin(
+						schema.pluginClientArtifactFile,
+						and(
+							eq(schema.pluginClientArtifactFile.artifactHash, schema.pluginClientArtifact.hash),
+							eq(schema.pluginClientArtifactFile.name, input.fileName),
+						),
+					)
 					.where(
 						and(
-							eq(schema.pluginClientArtifactFile.artifactHash, artifactHash),
-							eq(schema.pluginClientArtifactFile.name, fileName),
+							eq(schema.plugin.id, input.pluginId),
+							eq(schema.plugin.slug, input.pluginSlug),
+							eq(schema.plugin.status, "active"),
+							eq(schema.plugin.sourceHash, input.sourceHash),
+							eq(schema.pluginInstallation.userId, input.userId),
+							inArray(schema.pluginInstallation.health, ["ready", "needs-configuration"]),
+							eq(schema.pluginInstallation.id, input.installationId),
+							eq(schema.pluginClientArtifact.hash, input.artifactHash),
+							eq(schema.pluginClientArtifact.format, CLIENT_ARTIFACT_FORMAT),
+							eq(schema.pluginClientArtifact.apiVersion, CLIENT_API_VERSION),
+							eq(schema.pluginClientArtifact.bridgeVersion, CLIENT_BRIDGE_PROTOCOL_VERSION),
+							eq(schema.pluginClientArtifact.compilerVersion, CLIENT_COMPILER_VERSION),
 						),
 					)
 					.limit(1),
@@ -951,6 +1028,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			persist,
 			deactivate,
 			lockIngestion,
+			listSourceFiles,
 			findBySourceHash,
 			isActiveRevision,
 			listPrivateForUser,
@@ -958,13 +1036,13 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			hasEntityReferences,
 			listActiveManifests,
 			resolveProviderBySlugs,
-			findClientArtifactFile,
-			listSourceFiles,
 			findPrivateByIdForUser,
 			hasDefinitionReferences,
 			hasIntegrationReferences,
 			deleteUnreferencedScripts,
+			findPrivateClientArtifact,
 			listPortablePluginMetadata,
+			findPrivateClientArtifactFile,
 			deleteInactiveUnreferencedPlugins,
 			listPersistedLivenessContentHashes,
 		};
