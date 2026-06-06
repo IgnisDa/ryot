@@ -354,3 +354,42 @@ driver("details", async function(context) {
     relatedEntities,
   };
 });
+
+driver("resolve", async function(context) {
+  if (!context || context.identifierType !== "isbn") {
+    throw new Error("OpenLibrary resolve supports only isbn identifiers");
+  }
+  const value = typeof context.value === "string" ? context.value.trim() : "";
+  if (!value) {
+    throw new Error("OpenLibrary resolve requires a non-empty isbn value");
+  }
+
+  const response = await httpCall(
+    "GET",
+    `https://openlibrary.org/isbn/${value}.json`,
+  );
+  if (!response?.success) {
+    if (response?.data?.status === 404) {
+      return { externalId: null };
+    }
+    throw new Error(response?.error ?? "OpenLibrary ISBN lookup failed");
+  }
+
+  let payload;
+  try {
+    payload = JSON.parse(response.data.body);
+  } catch {
+    throw new Error("OpenLibrary returned invalid JSON");
+  }
+
+  const workKey = Array.isArray(payload?.works)
+    ? payload.works.map((work) => work?.key).find(Boolean)
+    : undefined;
+  const fromWorks = getKeySegment(workKey);
+  const fromKey =
+    typeof payload?.key === "string" && payload.key.startsWith("/works/")
+      ? getKeySegment(payload.key)
+      : "";
+
+  return { externalId: fromWorks || fromKey || null };
+});
