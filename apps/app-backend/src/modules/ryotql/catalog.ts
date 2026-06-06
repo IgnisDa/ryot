@@ -230,11 +230,33 @@ const notificationChannel: CatalogTable = {
 	},
 };
 
+const integration: CatalogTable = {
+	primaryKey: "id",
+	name: "integration",
+	visibility: { user: { type: "owned", column: "user_id", includeGlobal: false } },
+	fields: {
+		id: physicalField("id", "text"),
+		lot: physicalField("lot", "text"),
+		name: physicalField("name", "text"),
+		provider: physicalField("provider", "text"),
+		createdAt: physicalField("created_at", "date"),
+		updatedAt: physicalField("updated_at", "date"),
+		pluginSlug: physicalField("plugin_slug", "text"),
+		isDisabled: physicalField("is_disabled", "boolean"),
+		extraSettings: physicalField("extra_settings", "json"),
+		lastFinishedAt: physicalField("last_finished_at", "date"),
+		syncOwnership: physicalField("sync_ownership", "boolean"),
+		minimumProgress: physicalField("minimum_progress", "number"),
+		maximumProgress: physicalField("maximum_progress", "number"),
+	},
+};
+
 const tables: Readonly<Record<string, CatalogTable>> = {
 	event,
 	entity,
 	plugin,
 	savedView,
+	integration,
 	pluginState,
 	relationship,
 	notificationChannel,
