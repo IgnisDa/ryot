@@ -2,11 +2,12 @@ import { Activity } from "@effect/workflow";
 import type { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import { Effect, Schema } from "effect";
 
-import type { CurrentDb } from "#lib/db";
+import { DbRunner } from "#lib/db";
 import type { EntityId } from "#lib/schema/brands";
 import { EntitySchemaId, SandboxScriptId } from "#lib/schema/brands";
 
 import type { ImportRunJobData } from "../jobs";
+import { ImportsRepository } from "../repository";
 import { PROGRESS_UPDATE_INTERVAL } from "../runtime/failures";
 import { ImportRunError, toWorkflowError } from "../runtime/workflow-helpers";
 
@@ -22,21 +23,21 @@ export const PopulationScript = Schema.Struct({
 
 export const LoadMediaImportFailed = Schema.TaggedStruct("failed", {
 	message: Schema.String,
-	cleanupPaths: Schema.Array(Schema.String),
 	fallbackToInitialCleanupPaths: Schema.Boolean,
+	cleanupPaths: Schema.Array(Schema.String),
 });
 
 export const EnsureLibraryMembershipOutcome = Schema.Struct({
 	message: Schema.NullOr(Schema.String),
 });
 
-export type RunWithDb = <A, E, R>(
-	effect: Effect.Effect<A, E, R>,
-) => Effect.Effect<A, E, Exclude<R, CurrentDb>>;
-
 export type ProgressReporter = (
 	processed: number,
-) => Effect.Effect<void, ImportRunError, WorkflowEngine | WorkflowInstance>;
+) => Effect.Effect<
+	void,
+	ImportRunError,
+	WorkflowEngine | WorkflowInstance | DbRunner | ImportsRepository
+>;
 
 export const calculateProgress = (input: {
 	base: number;
@@ -62,19 +63,15 @@ export const createProgressReporter = (input: {
 	span: number;
 	phase: string;
 	groups: number;
-	runWithDb: RunWithDb;
 	payload: Pick<ImportRunJobData, "runId">;
-	repository: {
-		updateRun: (input: {
-			progress: number;
-			runId: ImportRunJobData["runId"];
-		}) => Effect.Effect<unknown, unknown, CurrentDb>;
-	};
 }): ProgressReporter => {
 	let last = -1;
 
 	return (processed: number) =>
 		Effect.gen(function* () {
+			const runWithDb = yield* DbRunner;
+			const repository = yield* ImportsRepository;
+
 			if (!isProgressUpdateDue(processed, input.groups)) {
 				return;
 			}
@@ -93,9 +90,9 @@ export const createProgressReporter = (input: {
 			yield* Activity.make({
 				error: ImportRunError,
 				name: `report-progress-${input.phase}-${processed}`,
-				execute: input
-					.runWithDb(input.repository.updateRun({ progress, runId: input.payload.runId }))
-					.pipe(Effect.mapError(toWorkflowError)),
+				execute: runWithDb(repository.updateRun({ progress, runId: input.payload.runId })).pipe(
+					Effect.mapError(toWorkflowError),
+				),
 			});
 		});
 };

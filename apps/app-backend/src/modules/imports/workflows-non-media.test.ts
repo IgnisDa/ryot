@@ -1,3 +1,4 @@
+import { BunFileSystem } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
 import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import { Effect, Layer } from "effect";
@@ -17,11 +18,23 @@ import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
 import { EventsService } from "#modules/events/service";
 
-import { OpenScaleImportItemSchema, prepareOpenScaleWrites } from "./measurement/workflow";
+import type { ImportRunJobData } from "./jobs";
+import {
+	OpenScaleImportItemSchema,
+	prepareOpenScaleWrites,
+	type OpenScaleImportItem,
+} from "./measurement/workflow";
 import { ImportsRepository } from "./repository";
+import { ImportRunArtifacts } from "./runtime/workflow-helpers";
 import { ProcessImportRunWorkflow } from "./worker";
-import { runOneTimeNonMediaImportWorkflow } from "./workflows-non-media";
-import { WorkoutImportItemSchema } from "./workout/domain";
+import {
+	NonMediaImportWorkflowOperations,
+	makeNonMediaImportOperationSet,
+	type NonMediaImportOperations,
+	type NonMediaImportOperationSet,
+	runOneTimeNonMediaImportWorkflow,
+} from "./workflows-non-media";
+import { WorkoutImportItemSchema, type WorkoutImportItem } from "./workout/domain";
 import { prepareWorkoutWrites } from "./workout/workflow";
 
 const now = "2026-06-17T00:00:00.000Z";
@@ -124,19 +137,66 @@ const makeEventsService = (overrides: Partial<EventsService> = {}) =>
 		overrides,
 	);
 
+const makeImportRunArtifacts = (
+	cleanupArtifacts: ImportRunArtifacts["cleanupArtifacts"] = () => Effect.void,
+) =>
+	makeMock<ImportRunArtifacts>({
+		cleanupArtifacts,
+		_tag: "ImportRunArtifacts" as const,
+	});
+
+const openScaleOperations = (input: {
+	loadAdapterResult: NonMediaImportOperations<
+		OpenScaleImportItem,
+		never,
+		never,
+		never
+	>["loadAdapterResult"];
+}): NonMediaImportOperationSet =>
+	makeNonMediaImportOperationSet({
+		itemSchema: OpenScaleImportItemSchema,
+		prepareWrites: prepareOpenScaleWrites,
+		loadAdapterResult: input.loadAdapterResult,
+	});
+
+const workoutOperations = (input: {
+	loadAdapterResult: NonMediaImportOperations<
+		WorkoutImportItem,
+		never,
+		never,
+		never
+	>["loadAdapterResult"];
+}): NonMediaImportOperationSet =>
+	makeNonMediaImportOperationSet({
+		itemSchema: WorkoutImportItemSchema,
+		prepareWrites: prepareWorkoutWrites,
+		loadAdapterResult: input.loadAdapterResult,
+	});
+
 type TestLayerOptions = {
 	eventsService?: EventsService;
 	entitiesService?: EntitiesService;
 	importsRepository?: ImportsRepository;
 	entitiesRepository?: EntitiesRepository;
+	importRunArtifacts?: ImportRunArtifacts;
 	eventSchemasRepository?: EventSchemasRepository;
 	entitySchemasRepository?: EntitySchemasRepository;
+	nonMediaOperations?: (payload: ImportRunJobData) => NonMediaImportOperationSet;
 };
 
 const makeTestLayer = (options: TestLayerOptions) =>
 	Layer.mergeAll(
 		dbRunnerLayer,
 		makeAppConfigLayer(),
+		BunFileSystem.layer,
+		Layer.succeed(ImportRunArtifacts, options.importRunArtifacts ?? makeImportRunArtifacts()),
+		Layer.succeed(NonMediaImportWorkflowOperations, {
+			getOperations: (payload) =>
+				Effect.succeed(
+					options.nonMediaOperations?.(payload) ??
+						openScaleOperations({ loadAdapterResult: () => Effect.die("unused") }),
+				),
+		}),
 		Layer.succeed(ImportsRepository, options.importsRepository ?? makeImportsRepository()),
 		Layer.succeed(EntitiesService, options.entitiesService ?? makeEntitiesService()),
 		Layer.succeed(EntitiesRepository, options.entitiesRepository ?? makeEntitiesRepository()),
@@ -201,29 +261,13 @@ it.effect("orchestrates open-scale measurement imports through workflow-owned ph
 				return Effect.void;
 			},
 		}),
-		entitiesService: makeEntitiesService({
-			create: (_user, payload) => {
-				createCalls.push(payload);
-				return createCalls.length === 2
-					? Effect.fail(badRequest("Measurement rejected"))
-					: Effect.succeed(
-							makeListedEntity({ id: EntityId.make(`measurement-${createCalls.length}`) }),
-						);
-			},
-		}),
-	} satisfies TestLayerOptions;
-
-	return withTestLayer(
-		options,
-		"workflow-measurement",
-		Effect.gen(function* () {
-			yield* runOneTimeNonMediaImportWorkflow(measurementPayload, {
-				itemSchema: OpenScaleImportItemSchema,
-				prepareWrites: prepareOpenScaleWrites,
-				cleanupArtifacts: (input) =>
-					Effect.sync(() => {
-						cleanupCalls.push(input);
-					}),
+		importRunArtifacts: makeImportRunArtifacts((input) =>
+			Effect.sync(() => {
+				cleanupCalls.push(input);
+			}),
+		),
+		nonMediaOperations: () =>
+			openScaleOperations({
 				loadAdapterResult: () =>
 					Effect.succeed({
 						cleanupPaths: ["/tmp/open-scale.csv"],
@@ -240,7 +284,24 @@ it.effect("orchestrates open-scale measurement imports through workflow-owned ph
 							openScaleItem({ itemIndex: 2, sourceLabel: "Weigh-in B" }),
 						],
 					}),
-			});
+			}),
+		entitiesService: makeEntitiesService({
+			create: (_user, payload) => {
+				createCalls.push(payload);
+				return createCalls.length === 2
+					? Effect.fail(badRequest("Measurement rejected"))
+					: Effect.succeed(
+							makeListedEntity({ id: EntityId.make(`measurement-${createCalls.length}`) }),
+						);
+			},
+		}),
+	} satisfies TestLayerOptions;
+
+	return withTestLayer(
+		options,
+		"workflow-measurement",
+		Effect.gen(function* () {
+			yield* runOneTimeNonMediaImportWorkflow(measurementPayload);
 
 			expect(createCalls).toHaveLength(2);
 			expect(createCalls[0]).toMatchObject({
@@ -299,6 +360,15 @@ it.effect("fails the open-scale run when the measurement entity schema is missin
 				return Effect.void;
 			},
 		}),
+		nonMediaOperations: () =>
+			openScaleOperations({
+				loadAdapterResult: () =>
+					Effect.succeed({
+						failures: [],
+						cleanupPaths: ["/tmp/open-scale.csv"],
+						items: [openScaleItem({ itemIndex: 0, sourceLabel: "Weigh-in A" })],
+					}),
+			}),
 		entitySchemasRepository: makeEntitySchemasRepository({
 			getBuiltinBySlug: () => Effect.succeed(null),
 		}),
@@ -315,17 +385,7 @@ it.effect("fails the open-scale run when the measurement entity schema is missin
 		options,
 		"workflow-measurement-missing-schema",
 		Effect.gen(function* () {
-			yield* runOneTimeNonMediaImportWorkflow(measurementPayload, {
-				itemSchema: OpenScaleImportItemSchema,
-				prepareWrites: prepareOpenScaleWrites,
-				cleanupArtifacts: () => Effect.void,
-				loadAdapterResult: () =>
-					Effect.succeed({
-						failures: [],
-						cleanupPaths: ["/tmp/open-scale.csv"],
-						items: [openScaleItem({ itemIndex: 0, sourceLabel: "Weigh-in A" })],
-					}),
-			});
+			yield* runOneTimeNonMediaImportWorkflow(measurementPayload);
 
 			expect(createCalled).toBe(false);
 			expect(recordedUpdates).toContainEqual(
@@ -380,6 +440,11 @@ it.effect("orchestrates workout imports through workflow-owned phases", () => {
 				return Effect.void;
 			},
 		}),
+		nonMediaOperations: () =>
+			workoutOperations({
+				loadAdapterResult: () =>
+					Effect.succeed({ failures: [], items: [workoutItem], cleanupPaths: ["/tmp/hevy.csv"] }),
+			}),
 		entitiesService: makeEntitiesService({
 			create: (_user, payload) => {
 				createCalls.push(payload);
@@ -398,13 +463,7 @@ it.effect("orchestrates workout imports through workflow-owned phases", () => {
 		options,
 		"workflow-workout",
 		Effect.gen(function* () {
-			yield* runOneTimeNonMediaImportWorkflow(workoutPayload, {
-				itemSchema: WorkoutImportItemSchema,
-				prepareWrites: prepareWorkoutWrites,
-				cleanupArtifacts: () => Effect.void,
-				loadAdapterResult: () =>
-					Effect.succeed({ failures: [], items: [workoutItem], cleanupPaths: ["/tmp/hevy.csv"] }),
-			});
+			yield* runOneTimeNonMediaImportWorkflow(workoutPayload);
 
 			expect(createCalls.map((payload) => payload.entitySchemaId)).toEqual([
 				"exercise-schema",
@@ -445,6 +504,11 @@ it.effect("fails the workout run when workout schemas are missing", () => {
 				return Effect.void;
 			},
 		}),
+		nonMediaOperations: () =>
+			workoutOperations({
+				loadAdapterResult: () =>
+					Effect.succeed({ failures: [], items: [workoutItem], cleanupPaths: ["/tmp/hevy.csv"] }),
+			}),
 		entitySchemasRepository: makeEntitySchemasRepository({
 			getBuiltinBySlug: () => Effect.succeed(null),
 		}),
@@ -454,13 +518,7 @@ it.effect("fails the workout run when workout schemas are missing", () => {
 		options,
 		"workflow-workout-missing-schema",
 		Effect.gen(function* () {
-			yield* runOneTimeNonMediaImportWorkflow(workoutPayload, {
-				itemSchema: WorkoutImportItemSchema,
-				prepareWrites: prepareWorkoutWrites,
-				cleanupArtifacts: () => Effect.void,
-				loadAdapterResult: () =>
-					Effect.succeed({ failures: [], items: [workoutItem], cleanupPaths: ["/tmp/hevy.csv"] }),
-			});
+			yield* runOneTimeNonMediaImportWorkflow(workoutPayload);
 
 			expect(recordedUpdates).toContainEqual(
 				expect.objectContaining({
@@ -485,21 +543,22 @@ it.effect("fails the run and cleans up when non-media adapter loading fails", ()
 				return Effect.void;
 			},
 		}),
+		importRunArtifacts: makeImportRunArtifacts((input) =>
+			Effect.sync(() => {
+				cleanupCalls.push(input);
+			}),
+		),
+		nonMediaOperations: () =>
+			openScaleOperations({
+				loadAdapterResult: () => Effect.die("Could not read import file"),
+			}),
 	} satisfies TestLayerOptions;
 
 	return withTestLayer(
 		options,
 		"workflow-measurement-load-failure",
 		Effect.gen(function* () {
-			yield* runOneTimeNonMediaImportWorkflow(defectPayload, {
-				itemSchema: OpenScaleImportItemSchema,
-				prepareWrites: prepareOpenScaleWrites,
-				cleanupArtifacts: (input) =>
-					Effect.sync(() => {
-						cleanupCalls.push(input);
-					}),
-				loadAdapterResult: () => Effect.die("Could not read import file"),
-			});
+			yield* runOneTimeNonMediaImportWorkflow(defectPayload);
 
 			expect(cleanupCalls).toEqual([{ cleanupPaths: [defectPayload.filePath] }]);
 			expect(recordedUpdates).toContainEqual(
@@ -525,25 +584,23 @@ it.effect("does not reintroduce invalid file paths during handled non-media load
 				return Effect.void;
 			},
 		}),
+		importRunArtifacts: makeImportRunArtifacts((input) =>
+			Effect.sync(() => {
+				cleanupCalls.push(input);
+			}),
+		),
+		nonMediaOperations: () =>
+			openScaleOperations({
+				loadAdapterResult: () =>
+					Effect.fail({ cleanupPaths: [], message: "Import job has an invalid file path" }),
+			}),
 	} satisfies TestLayerOptions;
 
 	return withTestLayer(
 		options,
 		"workflow-measurement-invalid-path",
 		Effect.gen(function* () {
-			yield* runOneTimeNonMediaImportWorkflow(invalidPayload, {
-				itemSchema: OpenScaleImportItemSchema,
-				prepareWrites: prepareOpenScaleWrites,
-				cleanupArtifacts: (input) =>
-					Effect.sync(() => {
-						cleanupCalls.push(input);
-					}),
-				loadAdapterResult: () =>
-					Effect.fail({
-						message: "Import job has an invalid file path",
-						cleanupPaths: [],
-					}),
-			});
+			yield* runOneTimeNonMediaImportWorkflow(invalidPayload);
 
 			expect(cleanupCalls).toEqual([{ cleanupPaths: [] }]);
 			expect(recordedUpdates).toContainEqual(
@@ -569,21 +626,22 @@ it.effect("does not attempt cleanup for invalid file paths when non-media loadin
 				return Effect.void;
 			},
 		}),
+		importRunArtifacts: makeImportRunArtifacts((input) =>
+			Effect.sync(() => {
+				cleanupCalls.push(input);
+			}),
+		),
+		nonMediaOperations: () =>
+			openScaleOperations({
+				loadAdapterResult: () => Effect.die("Could not read import file"),
+			}),
 	} satisfies TestLayerOptions;
 
 	return withTestLayer(
 		options,
 		"workflow-measurement-invalid-path-defect",
 		Effect.gen(function* () {
-			yield* runOneTimeNonMediaImportWorkflow(invalidPayload, {
-				itemSchema: OpenScaleImportItemSchema,
-				prepareWrites: prepareOpenScaleWrites,
-				loadAdapterResult: () => Effect.die("Could not read import file"),
-				cleanupArtifacts: (input) =>
-					Effect.sync(() => {
-						cleanupCalls.push(input);
-					}),
-			});
+			yield* runOneTimeNonMediaImportWorkflow(invalidPayload);
 
 			expect(cleanupCalls).toEqual([{ cleanupPaths: [] }]);
 			expect(recordedUpdates).toContainEqual(
