@@ -39,7 +39,7 @@ const listedEntitySchemaSelection = {
 	propertiesSchema: schema.entitySchema.propertiesSchema,
 };
 
-const toListedEntitySchema = (row: ListedEntitySchemaWithMetadata): ListedEntitySchema => {
+const toListedEntitySchema = (row: ListedEntitySchemaWithMetadata) => {
 	const { providers, ...rest } = row;
 	return { ...rest, providers: providers.map(({ scriptMetadata: _m, ...p }) => p) };
 };
@@ -47,9 +47,7 @@ const toListedEntitySchema = (row: ListedEntitySchemaWithMetadata): ListedEntity
 const entitySchemaUserSlugConstraint = "entity_schema_user_slug_unique";
 const savedViewUserSlugConstraint = "saved_view_user_slug_unique";
 
-const buildEntitySchemaRows = (
-	rows: Array<BuildEntitySchemaRow>,
-): Effect.Effect<ListedEntitySchemaWithMetadata[], DbError> =>
+const buildEntitySchemaRows = (rows: Array<BuildEntitySchemaRow>) =>
 	Effect.gen(function* () {
 		const schemaMap = new Map<
 			string,
