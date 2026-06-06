@@ -3,6 +3,21 @@ import { requirePresent, requireResponseData } from "../test-support/assertions"
 import type { Client } from "./auth";
 import type { ClientBody, ClientQuery } from "./backend-client";
 
+type WebhookResponseBody = { message?: string; runId?: string };
+
+const normalizeWebhookResponse = (parsed: unknown): WebhookResponseBody | undefined => {
+	if (typeof parsed !== "object" || parsed === null) {
+		return undefined;
+	}
+
+	if ("data" in parsed) {
+		const data = parsed.data;
+		return typeof data === "object" && data !== null ? data : undefined;
+	}
+
+	return parsed;
+};
+
 type CreateIntegrationBody = ClientBody<"integrations", "create">;
 
 export async function createIntegration(
@@ -67,14 +82,18 @@ export async function deleteIntegration(client: Client, cookies: string, id: str
 }
 
 export async function postIntegrationWebhook(
-	client: Client,
+	_client: Client,
 	integrationId: string,
 	body?: unknown,
 ) {
-	return client.integrations.webhook({
-		body,
-		params: { path: { integrationId } },
+	const response = await fetch(`${getBackendUrl()}/webhooks/integrations/${integrationId}`, {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: body !== undefined ? JSON.stringify(body) : undefined,
 	});
+	const parsed: unknown = await response.json();
+	const data = normalizeWebhookResponse(parsed);
+	return { data, response };
 }
 
 export async function postWebhook(integrationId: string, body?: unknown) {
@@ -84,10 +103,7 @@ export async function postWebhook(integrationId: string, body?: unknown) {
 		headers: { "Content-Type": "application/json" },
 		body: body !== undefined ? JSON.stringify(body) : undefined,
 	});
-	const parsed = (await response.json()) as
-		| { runId?: string; message?: string }
-		| { data?: { runId?: string }; error?: { message?: string } };
-	const data =
-		typeof parsed === "object" && parsed !== null && "data" in parsed ? parsed.data : parsed;
+	const parsed: unknown = await response.json();
+	const data = normalizeWebhookResponse(parsed);
 	return { response, data };
 }
