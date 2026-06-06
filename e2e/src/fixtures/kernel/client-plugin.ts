@@ -19,7 +19,9 @@ export const FIXTURE_CLIENT_REVISION_MARKERS = {
 const archiveUrl = new URL("../../../../plugins/fixture/dist/fixture.zip", import.meta.url);
 const homeEntry = "client/home.tsx";
 const clientEntry = "client/index.tsx";
+const archivedClientEntry = "client/unreachable.ts";
 const decoder = new TextDecoder("utf-8", { fatal: true });
+const semanticFailureSource = new TextEncoder().encode("export const semanticValue: string = 1;\n");
 
 type FixtureClientPluginRevision = keyof typeof FIXTURE_CLIENT_REVISION_MARKERS;
 type CreateArtifactSessionPayload = ContractPayload<"plugins", "createArtifactSession">;
@@ -39,7 +41,11 @@ export const renewClientArtifactSession = (client: Client, params: RenewArtifact
 export const revokeClientArtifactSession = (client: Client, params: RevokeArtifactSessionParams) =>
 	client.call((contract) => contract.plugins.revokeArtifactSession({ params }));
 
-export const fixtureClientPluginPackage = (revision: FixtureClientPluginRevision, variant = "") =>
+export const fixtureClientPluginPackage = (
+	revision: FixtureClientPluginRevision,
+	variant = "",
+	pluginSlug = FIXTURE_CLIENT_PLUGIN_SLUG,
+) =>
 	Effect.gen(function* () {
 		const archive = yield* Effect.promise(async () => {
 			const file = Bun.file(archiveUrl);
@@ -73,9 +79,19 @@ export const fixtureClientPluginPackage = (revision: FixtureClientPluginRevision
 				...pluginPackage.manifest,
 				metadata: {
 					...pluginPackage.manifest.metadata,
+					slug: pluginSlug,
 					version: revision === "A" ? "1.0.0" : "2.0.0",
 				},
 			},
+		};
+	});
+
+export const fixtureClientPluginPackageWithSemanticFailure = (pluginSlug: PluginSlug) =>
+	Effect.gen(function* () {
+		const pluginPackage = yield* fixtureClientPluginPackage("A", "", pluginSlug);
+		return {
+			...pluginPackage,
+			files: { ...pluginPackage.files, [clientEntry]: semanticFailureSource },
 		};
 	});
 
@@ -120,6 +136,23 @@ export const updateFixtureClientPluginWithCompileFailure = (client: Client, base
 					...pluginPackage.files,
 					[clientEntry]: new TextEncoder().encode("export default <;"),
 				},
+			},
+		});
+	});
+
+export const updateFixtureClientPluginWithArchivedSemanticFailure = (
+	client: Client,
+	baseUrl?: string,
+) =>
+	Effect.gen(function* () {
+		const pluginPackage = yield* fixtureClientPluginPackage("B");
+		return yield* updatePrivatePlugin({
+			client,
+			baseUrl,
+			pluginSlug: FIXTURE_CLIENT_PLUGIN_SLUG,
+			payload: {
+				...pluginPackage,
+				files: { ...pluginPackage.files, [archivedClientEntry]: semanticFailureSource },
 			},
 		});
 	});

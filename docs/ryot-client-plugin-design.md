@@ -1,6 +1,6 @@
 # Ryot Client Plugin Architecture
 
-**Status:** Accepted design
+**Status:** Accepted design; shared TypeScript compiler infrastructure implemented
 **Scope:** Ryot client kernel, client-side plugin runtime, shared client SDK, client UI SDK, web/native packaging, routing, and native capability boundaries.
 
 ## 1. Summary
@@ -254,6 +254,8 @@ client: {
 
 The client shape is exact. `entry` is a relative POSIX path under `client/`, ends in `.ts` or `.tsx`, and has no `./` prefix. There is no client capabilities field until a real capability is implemented and enforced.
 
+At installation, the client compiler semantically checks every archived non-test client `.ts`/`.tsx` file, including files outside the bundle graph. `.test.` and `.spec.` sources are excluded from this check. The check uses exact compiler-owned declarations for React, React DOM, `clsx`, and the published Ryot client SDK and UI SDK entry points. Type errors are fatal and are returned as normalized TypeScript diagnostics with archive-relative file names. This semantic check validates authoring types; it is not a security boundary.
+
 A plugin without client UI may omit the client entry.
 
 A client plugin conceptually bootstraps with:
@@ -289,6 +291,7 @@ Initially, valid external module imports are limited to approximately:
 ```text
 react
 react-dom
+react-dom/client
 react/jsx-runtime
 clsx
 
@@ -296,9 +299,9 @@ clsx
 @ryot/client-sdk/react
 @ryot/client-sdk/plugin
 @ryot/client-sdk/effect
+@ryot/client-sdk/ryotql
 
 @ryot/client-ui-sdk
-@ryot/client-ui-sdk/*
 ```
 
 Plugin-local relative imports are also allowed.
@@ -342,7 +345,9 @@ There is no alternate compatibility representation for client files.
 
 Bun is the client bundler/compiler.
 
-Client compilation is owned by a new `@ryot/client-plugin-compiler` package. `@ryot/sandbox-compiler` remains dedicated to backend sandbox definitions and output. These are separate compiler engines with separate import policies, output models, limits, and public compiler APIs.
+Client compilation is owned by `@ryot/client-plugin-compiler`. Generic TypeScript infrastructure is owned by the private `@ryot/typescript-compiler` package, which shares TypeScript 7 native compiler resolution, virtual project lifecycle, diagnostic collection, and diagnostic normalization between the client and backend compilers.
+
+`@ryot/client-plugin-compiler` and `@ryot/sandbox-compiler` remain separate compiler engines. They have independent import policies, limits, protocols, output models, and public APIs. The engines do not call or adapt to one another and have no shared execution mode, compiler bridge, or fallback. They share only the generic TypeScript infrastructure and the server-owned process-supervision boundary.
 
 Both compiler engines use the same server-owned process supervision boundary for child-process lifecycle, bounded concurrency, timeouts, process-tree memory sampling, and termination. Their compiler packages own their production dependencies and compiler-specific contracts; the production image installs those dependencies through filters for both compiler packages rather than from uploaded plugin manifests.
 
@@ -353,11 +358,14 @@ The compiler:
 1. validates the client entry, client file policy, and raw-byte limits
 2. rejects unsupported external imports
 3. resolves approved SDK imports to Ryot-controlled implementations
-4. compiles Tailwind for that plugin
-5. adds the compiler-owned Ryot fonts
-6. bundles React DOM code for the browser
-7. emits the plugin client artifact
-8. content-addresses the resulting artifact
+4. bundles only `manifest.client.entry` and its reachable module graph
+5. semantically checks every archived non-test client `.ts`/`.tsx` file against compiler-owned trusted types
+6. compiles Tailwind by scanning all archived client `.ts`/`.tsx` files
+7. adds the compiler-owned Ryot fonts
+8. emits the plugin client artifact
+9. content-addresses the resulting artifact
+
+Bun import, asset, and CSS validation, together with runtime schemas, remains authoritative for plugin boundaries. Semantic typing is not a security boundary. Backend semantic checking continues to use manifest-declared sandbox entries and their reachable module graph.
 
 Conceptually:
 
@@ -372,6 +380,8 @@ plugin source
 @ryot/client-plugin-compiler
           │
           ├── trusted module resolver
+          ├── semantic checker
+          │     └── @ryot/typescript-compiler
           ├── Tailwind compilation
           ├── Outfit and Lora font assets
           └── Bun browser build
@@ -467,7 +477,7 @@ export function WorkoutPage() {
 }
 ```
 
-The plugin compiler scans that plugin's source and emits the CSS required by that plugin.
+The plugin compiler scans all archived client `.ts`/`.tsx` sources and emits the CSS required by that plugin.
 
 The resulting structure is:
 
@@ -1712,6 +1722,8 @@ The same client artifact should be exercised on:
 Media and Fitness provide additional production dogfooding.
 
 Client boundary tests must verify the exact public `RyotClientError` reasons and their classifications: explicit `null` operation input, omitted input rejected locally as `invalid-input`, an exposed SDK category missing from the supplied adapter as `unsupported-capability`, declared query and operation execution failures as opaque `query-failed` and `operation-failed`, invalid or throwing result decoders as `malformed-result`, teardown as `disposed`, malformed bridge/session data and wire `failed` closes as `protocol`, and communication/posting/network failures as `transport`. Tests must prove the shared 64-request operation/RyotQL pending limit and its protocol teardown, that lifecycle termination classifies every pending and synchronous capability consistently, direct and bridge query adapters classify declared failures identically, expected plugin business/domain outcomes resolve as typed values, and internal causes, messages, diagnostics, HTTP details, and stack traces do not cross the bridge. Routing tests must cover consumer-cancelled links, prevented modifier and auxiliary navigation, explicit home matching, and plugin-supplied and default not-found states.
+
+Client compiler tests must also cover semantic checking of every archived non-test client `.ts`/`.tsx` file, fatal normalized TypeScript diagnostics, bundling from only the manifest entry's reachable graph, and Tailwind scanning of all archived client `.ts`/`.tsx` files.
 
 The browser lifecycle suite drives theme changes through `/settings/preferences` rather than a global theme selector, accepts that entering settings unmounts the plugin, and verifies that the fresh iframe mounted on return receives the persisted theme. Live theme synchronization on an already-mounted plugin host is covered by unit tests instead of the browser suite.
 
