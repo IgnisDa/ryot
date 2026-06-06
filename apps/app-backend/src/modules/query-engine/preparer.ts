@@ -2,7 +2,7 @@ import { Effect, Match } from "effect";
 
 import type { CurrentDb } from "#lib/db";
 import type { DbError } from "#lib/errors";
-import { BadRequest, NotFound } from "#lib/errors";
+import { BadRequest } from "#lib/errors";
 import type {
 	DisplayConfiguration,
 	QueryEngineRequest,
@@ -10,7 +10,6 @@ import type {
 	QueryRelationshipJoin,
 	SavedViewQueryDefinition,
 } from "#lib/query-language";
-import { QueryEngineNotFoundError } from "#lib/views/errors";
 import {
 	buildEventJoinMap,
 	buildRelationshipJoinMap,
@@ -33,21 +32,10 @@ import {
 	loadVisibleEventJoins,
 	loadVisibleRelationshipJoins,
 	loadVisibleSchemas,
+	type QueryEngineLoadEffect,
+	tryQueryEngineSync,
 } from "./loaders";
 import { executeTimeSeriesQuery } from "./time-series-query-builder";
-
-const tryQueryEngineSync = <T>(fn: () => T): Effect.Effect<T, NotFound | BadRequest> =>
-	Effect.try({
-		try: fn,
-		catch: (error) => {
-			if (error instanceof QueryEngineNotFoundError) {
-				return new NotFound({ message: error.message });
-			}
-			return new BadRequest({
-				message: error instanceof Error ? error.message : String(error),
-			});
-		},
-	});
 
 type PrepareContextInput = {
 	scope: string[];
@@ -100,7 +88,7 @@ const hasEventAggregateRef = (obj: unknown): boolean => {
 const prepareContext = (input: {
 	userId: string;
 	query: PrepareContextInput;
-}): Effect.Effect<PreparedQueryContext, NotFound | BadRequest | DbError, CurrentDb> =>
+}): QueryEngineLoadEffect<PreparedQueryContext> =>
 	Effect.gen(function* () {
 		const { query } = input;
 		const runtimeSchemas = yield* loadVisibleSchemas({
@@ -124,7 +112,7 @@ const prepareContext = (input: {
 				eventJoins: eventJoinsForMode,
 			}),
 			isEventMode
-				? Effect.succeed([] as PreparedQueryContext["relationshipJoins"])
+				? Effect.succeed([])
 				: loadVisibleRelationshipJoins({
 						runtimeSchemas,
 						userId: input.userId,
@@ -163,11 +151,7 @@ const loadOptionalEventSchemaMap = (input: {
 	shouldLoad: boolean;
 	eventSchemaSlugs: Iterable<string>;
 	runtimeSchemas: PreparedQueryContext["runtimeSchemas"];
-}): Effect.Effect<
-	Map<string, QueryEngineEventSchemaLike[]>,
-	NotFound | BadRequest | DbError,
-	CurrentDb
-> => {
+}): QueryEngineLoadEffect<Map<string, QueryEngineEventSchemaLike[]>> => {
 	if (!input.shouldLoad) {
 		return Effect.succeed(new Map());
 	}

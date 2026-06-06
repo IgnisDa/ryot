@@ -1,5 +1,8 @@
 import { sql } from "drizzle-orm";
+import type { Effect } from "effect";
 
+import type { CurrentDb } from "#lib/db";
+import type { DbError } from "#lib/errors";
 import type {
 	QueryComputedField,
 	QueryExpression,
@@ -24,6 +27,8 @@ import {
 } from "./relationship-join-ctes";
 import { buildSortExpression } from "./sort-builder";
 import type { SqlExpression } from "./sql-expression-helpers";
+
+export type QueryEngineExecutionEffect<TData> = Effect.Effect<TData, DbError, CurrentDb>;
 
 type QueryRuntimeInput = {
 	userId: string;

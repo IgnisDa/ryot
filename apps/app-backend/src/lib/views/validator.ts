@@ -46,11 +46,9 @@ import {
 	getSchemaForReference,
 	serializeComparablePropertyDefinition,
 	sortFilterBuiltins,
-	type QueryEngineEventJoinLike,
 	type QueryEngineEventSchemaLike,
 	type QueryEngineRelationshipJoinLike,
 	type QueryEngineReferenceContext,
-	type QueryEngineSchemaLike,
 } from "./reference";
 
 const validateBuiltinPathHasSingleSegment = (input: {
@@ -172,12 +170,8 @@ const validateEventSchemaReference = (
 	}
 };
 
-const isPrimaryEventMode = <
-	TSchema extends QueryEngineSchemaLike,
-	TJoin extends QueryEngineEventJoinLike,
->(
-	context: QueryEngineReferenceContext<TSchema, TJoin>,
-) => context.supportsPrimaryEventRefs === true;
+const isPrimaryEventMode = (context: QueryEngineReferenceContext) =>
+	context.supportsPrimaryEventRefs === true;
 
 const assertStringExpression = (input: ViewExpressionTypeInfo, context: string) => {
 	if (input.kind === "property" && input.propertyType === "string") {
@@ -468,12 +462,7 @@ const collectComputedFieldsInExpression = (
 	});
 };
 
-const withPrimaryEventSchemaSlugRequirement = <
-	TSchema extends QueryEngineSchemaLike,
-	TJoin extends QueryEngineEventJoinLike,
->(
-	context: QueryEngineReferenceContext<TSchema, TJoin>,
-) => ({
+const withPrimaryEventSchemaSlugRequirement = (context: QueryEngineReferenceContext) => ({
 	...context,
 	requirePrimaryEventSchemaSlug: true,
 });

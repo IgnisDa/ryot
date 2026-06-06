@@ -17,6 +17,7 @@ import type {
 	MediaImportAdapterFailure,
 	MediaImportAdapterResult,
 } from "../../media/import-processor";
+import type { ImportMediaEntityGroup } from "../../media/types";
 
 type MyanimelistLot = "anime" | "manga";
 
@@ -139,7 +140,7 @@ const parseMalDate = (value: string): string | null =>
 
 const addProgressCoverage = (
 	lot: MyanimelistLot,
-	group: ReturnType<typeof getOrCreateMediaEntityGroup>,
+	group: ImportMediaEntityGroup,
 	count: number,
 	occurredAt: string,
 ) => {
@@ -156,7 +157,7 @@ const addProgressCoverage = (
 };
 
 const adaptMyanimelistLot = (
-	groupMap: Map<string, ReturnType<typeof getOrCreateMediaEntityGroup>>,
+	groupMap: Map<string, ImportMediaEntityGroup>,
 	failures: MediaImportAdapterFailure[],
 	input: { itemIndex: number; lot: MyanimelistLot; xmlText: string },
 ): number => {
@@ -227,7 +228,7 @@ export const adaptMyanimelistExports = (input: {
 	mangaXml?: string;
 }): MediaImportAdapterResult => {
 	const failures: MediaImportAdapterFailure[] = [];
-	const groupMap = new Map<string, ReturnType<typeof getOrCreateMediaEntityGroup>>();
+	const groupMap = new Map<string, ImportMediaEntityGroup>();
 
 	let itemIndex = 0;
 	if (input.animeXml) {

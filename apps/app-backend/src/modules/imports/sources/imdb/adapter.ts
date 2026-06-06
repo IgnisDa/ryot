@@ -9,6 +9,7 @@ import type {
 	MediaImportAdapterFailure,
 	MediaImportAdapterResult,
 } from "../../media/import-processor";
+import type { ImportMediaEntityGroup } from "../../media/types";
 import { parseCsvText } from "../../runtime/csv";
 
 const getEntitySchemaSlug = (titleType: string): "movie" | "show" | undefined => {
@@ -26,7 +27,7 @@ export const adaptImdbCsv = (csvText: string): MediaImportAdapterResult => {
 	assertRequiredHeaders(headers, ["Const", "Title Type"], "IMDb");
 
 	const failures: MediaImportAdapterFailure[] = [];
-	const groupMap = new Map<string, ReturnType<typeof getOrCreateMediaEntityGroup>>();
+	const groupMap = new Map<string, ImportMediaEntityGroup>();
 	const importedAt = nowIso();
 
 	for (let itemIndex = 0; itemIndex < rows.length; itemIndex++) {

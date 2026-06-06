@@ -62,9 +62,7 @@ type RuntimeFieldsInput =
 	  };
 
 export function toQueryEngineItem(fields: QueryEngineField[]): QueryEngineResponseItem {
-	return Object.fromEntries(
-		fields.map(({ key, ...field }) => [key, field]),
-	) as QueryEngineResponseItem;
+	return Object.fromEntries(fields.map(({ key, ...field }) => [key, field]));
 }
 
 interface CreateEntityInput {

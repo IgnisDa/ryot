@@ -21,11 +21,8 @@ import {
 	getRelationshipJoinPropertyDefinition,
 	getSchemaForReference,
 	type PropertyType,
-	type QueryEngineEventJoinLike,
 	type QueryEngineEventSchemaLike,
 	type QueryEngineReferenceContext,
-	type QueryEngineRelationshipJoinLike,
-	type QueryEngineSchemaLike,
 } from "./reference";
 
 export type ViewExpressionTypeInfo =
@@ -206,15 +203,11 @@ export const assertConcatCompatibleExpression = (input: ViewExpressionTypeInfo) 
 	}
 };
 
-export const inferViewExpressionType = <
-	TSchema extends QueryEngineSchemaLike,
-	TJoin extends QueryEngineEventJoinLike,
-	TRelationshipJoin extends QueryEngineRelationshipJoinLike,
->(input: {
+export const inferViewExpressionType = (input: {
 	expression: QueryExpression;
+	context: QueryEngineReferenceContext;
 	typeCache?: Map<string, ViewExpressionTypeInfo>;
 	computedFieldMap?: Map<string, QueryComputedField>;
-	context: QueryEngineReferenceContext<TSchema, TJoin, TRelationshipJoin>;
 }): ViewExpressionTypeInfo => {
 	const typeCache = input.typeCache ?? new Map<string, ViewExpressionTypeInfo>();
 	const computedFieldMap = input.computedFieldMap ?? new Map<string, QueryComputedField>();
@@ -384,7 +377,7 @@ export const inferViewExpressionType = <
 						);
 					}
 					if (column === "image") {
-						return { kind: "image" } as ViewExpressionTypeInfo;
+						return { kind: "image" } satisfies ViewExpressionTypeInfo;
 					}
 
 					const propertyDefinition = getEntityColumnPropertyDefinition(column);
@@ -515,7 +508,7 @@ export const inferViewExpressionType = <
 									`Related entity column '${ref.path.slice(1).join(".")}' does not support nested paths`,
 								);
 							}
-							return { kind: "image" } as ViewExpressionTypeInfo;
+							return { kind: "image" } satisfies ViewExpressionTypeInfo;
 						}
 						if (column === "properties") {
 							const propertyPath = rest;
