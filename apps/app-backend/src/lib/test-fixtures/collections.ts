@@ -8,6 +8,7 @@ import type {
 	AddToCollectionServiceDeps,
 	CollectionResponse,
 	CollectionServiceDeps,
+	GetOrCreateCollectionServiceDeps,
 	RemoveFromCollectionServiceDeps,
 } from "~/modules/collections";
 
@@ -76,6 +77,14 @@ export const createCollectionDeps = (
 				entitySchemaId: input.entitySchemaId,
 			}),
 		),
+	...overrides,
+});
+
+export const createGetOrCreateCollectionDeps = (
+	overrides: Partial<GetOrCreateCollectionServiceDeps> = {},
+): GetOrCreateCollectionServiceDeps => ({
+	...createCollectionDeps(),
+	findCollectionByNameForUser: () => Promise.resolve(undefined),
 	...overrides,
 });
 

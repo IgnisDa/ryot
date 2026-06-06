@@ -1,4 +1,5 @@
 import { getTemporaryDirectory } from "~/lib/bun";
+import { config } from "~/lib/config";
 import { getQueues } from "~/lib/queue";
 import { type ServiceResult, serviceData, serviceError } from "~/lib/result";
 
@@ -36,6 +37,11 @@ const buildOpenScaleInputSummary = (originalFilePath: string): Record<string, un
 	return { source: "open_scale", fileName };
 };
 
+const buildTraktInputSummary = (username: string): Record<string, unknown> => ({
+	username,
+	source: "trakt",
+});
+
 export const isTerminalStatus = (status: ImportRunStatus): boolean =>
 	status === "completed" || status === "failed";
 
@@ -43,23 +49,59 @@ export const startImportRun = async (input: {
 	userId: string;
 	body: CreateImportRunBody;
 }): Promise<ImportServiceResult<{ id: string }>> => {
-	const tempDir = getTemporaryDirectory();
-	const allowedExtensions = allowedExtensionsBySource[input.body.source];
-	if (!allowedExtensions) {
-		return serviceError("validation", `Unsupported import source: ${input.body.source}`);
+	if (input.body.source === "open_scale") {
+		const tempDir = getTemporaryDirectory();
+		const allowedExtensions = allowedExtensionsBySource[input.body.source];
+		if (!allowedExtensions) {
+			return serviceError("validation", `Unsupported import source: ${input.body.source}`);
+		}
+
+		const safePathResult = resolveSafeImportFilePath(input.body.filePath, tempDir);
+		if ("error" in safePathResult) {
+			return serviceError("validation", safePathResult.error);
+		}
+
+		const extResult = validateFileExtension(safePathResult.path, allowedExtensions);
+		if ("error" in extResult) {
+			return serviceError("validation", extResult.error);
+		}
+
+		const inputSummary = buildOpenScaleInputSummary(input.body.filePath);
+
+		const run = await createImportRun({
+			inputSummary,
+			userId: input.userId,
+			source: input.body.source,
+		});
+
+		try {
+			await getQueues().importQueue.add(importRunJobName, {
+				runId: run.id,
+				userId: input.userId,
+				filePath: safePathResult.path,
+			});
+		} catch {
+			await updateImportRun({
+				runId: run.id,
+				status: "failed",
+				finishedAt: new Date(),
+				errorSummary: "Failed to enqueue import job",
+			});
+			await cleanupImportFile(safePathResult.path);
+			return serviceError("validation", "Could not queue the import job; please try again");
+		}
+
+		return serviceData({ id: run.id });
 	}
 
-	const safePathResult = resolveSafeImportFilePath(input.body.filePath, tempDir);
-	if ("error" in safePathResult) {
-		return serviceError("validation", safePathResult.error);
+	if (!config.importer.trakt.clientId) {
+		return serviceError(
+			"validation",
+			"Trakt importer is not configured. Set SERVER_IMPORTER_TRAKT_CLIENT_ID.",
+		);
 	}
 
-	const extResult = validateFileExtension(safePathResult.path, allowedExtensions);
-	if ("error" in extResult) {
-		return serviceError("validation", extResult.error);
-	}
-
-	const inputSummary = buildOpenScaleInputSummary(input.body.filePath);
+	const inputSummary = buildTraktInputSummary(input.body.username);
 
 	const run = await createImportRun({
 		inputSummary,
@@ -71,7 +113,7 @@ export const startImportRun = async (input: {
 		await getQueues().importQueue.add(importRunJobName, {
 			runId: run.id,
 			userId: input.userId,
-			filePath: safePathResult.path,
+			traktUsername: input.body.username,
 		});
 	} catch {
 		await updateImportRun({
@@ -80,7 +122,6 @@ export const startImportRun = async (input: {
 			finishedAt: new Date(),
 			errorSummary: "Failed to enqueue import job",
 		});
-		await cleanupImportFile(safePathResult.path);
 		return serviceError("validation", "Could not queue the import job; please try again");
 	}
 

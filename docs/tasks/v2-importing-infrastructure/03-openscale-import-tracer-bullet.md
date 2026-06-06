@@ -26,7 +26,7 @@ This slice should not add app-client import UI. It should update measurement sch
 - [x] Temporary upload paths are validated inside the configured temp upload directory, extension checks are enforced, file reads go through import file helpers, and worker-owned cleanup runs best-effort in `finally`.
 - [x] The measurement built-in schema uses `statistics` uniformly and no longer has special `weight` behavior.
 - [x] The All Measurements saved view sorts by `recordedAt desc` and uses `recordedAt`/`comment` defaults rather than `weight`.
-- [x] OpenScale CSV rows create user-owned measurement entities named from `recordedAt`, preserving every non-empty source statistic in `statistics`.
+- [x] OpenScale CSV rows create user-owned measurement entities through the entity service, named from `recordedAt`, preserving every non-empty source statistic in `statistics`.
 - [x] Measurement E2E tests and fixtures under `tests/src` are updated for the uniform statistics schema and saved-view defaults.
 - [x] Backend unit tests cover import run status transitions, counters, failure rows, file helper path safety, extension validation, read limits, and cleanup behavior.
 - [x] An E2E test covers the full OpenScale import flow through public API routes.
