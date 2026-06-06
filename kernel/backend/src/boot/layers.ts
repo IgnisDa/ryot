@@ -97,6 +97,7 @@ import { NotificationsRepository } from "#modules/notifications/repository";
 import { NotificationsService } from "#modules/notifications/service";
 import { PluginBackupRestore } from "#modules/plugins/backup-restore";
 import { SystemPluginBootstrap } from "#modules/plugins/boot";
+import { PluginClientArtifactService } from "#modules/plugins/client-artifact-service";
 import { PluginHttpRateLimitAuthority } from "#modules/plugins/http-rate-limit-authority";
 import { ImportSourceCatalogLive } from "#modules/plugins/import-source-catalog";
 import { PluginIngestionLock } from "#modules/plugins/ingestion-lock";
@@ -128,6 +129,7 @@ import { RelationshipSchemasRepository } from "#modules/relationship-schemas/rep
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
 import { RyotQLService } from "#modules/ryotql/service";
+import { ClientPluginCompiler } from "#modules/sandbox/client-compiler";
 import { SandboxRepository } from "#modules/sandbox/repository";
 import { SandboxWorkflowDefinitionsLive } from "#modules/sandbox/sandbox-workflow-live";
 import { SandboxExecutionService } from "#modules/sandbox/service";
@@ -231,6 +233,7 @@ const PluginIngestionServiceLive = Layer.provide(
 	Layer.mergeAll(
 		PluginLoaderLive,
 		PluginRepository.layer,
+		ClientPluginCompiler.layer,
 		ScriptGarbageCollectorLive,
 		SystemPlugins.layer,
 		SandboxWorkflowReferenceRepository.layer,
@@ -318,7 +321,9 @@ const BackupAccountCleanlinessLive = BackupAccountCleanliness.layer.pipe(
 );
 const BackupServicesLive = Layer.mergeAll(
 	BackupRestoreWriter.layer,
-	PluginBackupRestore.layer.pipe(Layer.provide(PluginIngestionLockLive)),
+	PluginBackupRestore.layer.pipe(
+		Layer.provide(Layer.mergeAll(PluginIngestionLockLive, ClientPluginCompiler.layer)),
+	),
 	BackupExportSnapshotLive,
 	BackupAccountCleanlinessLive,
 	BackupsService.layer.pipe(Layer.provide([BackupAccountCleanlinessLive, UploadServicesLive])),
@@ -329,6 +334,7 @@ const pluginInstallationServiceDependencies = Layer.mergeAll(
 	ObjectStorageServiceLive,
 	PluginRepository.layer,
 	PluginIngestionLockLive,
+	ClientPluginCompiler.layer,
 	PluginDefinitionMaterializerLive,
 	PluginInstallationRepository.layer,
 	SandboxWorkflowReferenceRepository.layer,
@@ -541,9 +547,14 @@ const OperationsServiceLive = OperationsService.layer.pipe(
 	Layer.provide([ContentAndSandboxServicesLive, IntegrationOperationScopeResolverLive]),
 );
 
+const PluginClientArtifactServiceLive = PluginClientArtifactService.layer.pipe(
+	Layer.provide(PluginRepository.layer),
+);
+
 const ServicesLive = Layer.mergeAll(
 	ContentAndSandboxServicesLive,
 	PluginIngestionServiceLive,
+	PluginClientArtifactServiceLive,
 	RuntimePluginInstallationServiceLive,
 	OperationsServiceLive,
 	InterestServicesLive,

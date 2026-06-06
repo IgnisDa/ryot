@@ -107,7 +107,20 @@ it("exposes only approved relationship fields", () => {
 
 it("exposes only approved application-table fields", () => {
 	expect(new Set(Object.keys(getCatalogTable("plugin")?.fields ?? {}))).toEqual(
-		new Set(["id", "icon", "name", "slug", "scope", "status", "version", "ingestedAt"]),
+		new Set([
+			"id",
+			"icon",
+			"name",
+			"slug",
+			"scope",
+			"status",
+			"version",
+			"sourceHash",
+			"ingestedAt",
+			"clientApiVersion",
+			"clientCapabilities",
+			"clientArtifactHash",
+		]),
 	);
 	expect(new Set(Object.keys(getCatalogTable("pluginInstallation")?.fields ?? {}))).toEqual(
 		new Set(["id", "health", "pluginId", "sortOrder", "isDisabled", "createdAt", "updatedAt"]),
@@ -265,10 +278,10 @@ it("exposes only approved application-table fields", () => {
 
 it("rejects hidden application-table fields", () => {
 	for (const [tableName, fieldName] of [
-		["plugin", "sourceHash"],
 		["plugin", "ownerId"],
 		["plugin", "sourceFiles"],
 		["plugin", "compiledHashes"],
+		["plugin", "clientArtifact"],
 		["pluginInstallation", "config"],
 		["pluginInstallation", "userId"],
 		["sandboxProviderOperation", "scriptId"],
