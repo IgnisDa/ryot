@@ -6,12 +6,14 @@ import {
 	type PluginBridgeReady,
 } from "@ryot/contract/modules/plugins/client";
 import { Result, Schema } from "effect";
-import { createElement, type ComponentType } from "react";
+import type { ComponentType } from "react";
 import { createRoot } from "react-dom/client";
 
+import { createRyotClient } from "./index";
 import { createPluginOperationBridge } from "./operations";
+import { createPluginQueryBridge } from "./queries";
+import { RyotProvider } from "./react";
 import { createPluginLocationStore, PluginRouter, type PluginRouteDefinition } from "./routing";
-import { bindOperationBridge } from "./ryot";
 
 export type ClientPluginDefinition = {
 	readonly home: ComponentType;
@@ -33,35 +35,27 @@ export const bootstrapClientPlugin = (definition: ClientPluginDefinition) => {
 
 	const artifactMetadata = metadata.success;
 	let initialized = false;
-
 	window.addEventListener("message", (event) => {
 		if (initialized || event.source !== window.parent || event.ports.length !== 1) {
 			return;
 		}
-
 		const decoded = Schema.decodeUnknownResult(PluginBridgeInit)(event.data);
-		if (Result.isFailure(decoded)) {
+		if (Result.isFailure(decoded) || decoded.success.artifactHash !== artifactMetadata.hash) {
 			return;
 		}
-
-		const init = decoded.success;
-		if (init.artifactHash !== artifactMetadata.hash) {
-			return;
-		}
-
 		const rootElement = document.getElementById(CLIENT_ARTIFACT_ROOT_ELEMENT_ID);
-		if (!rootElement) {
-			return;
-		}
-
 		const port = event.ports[0];
-		if (!port) {
+		if (!rootElement || !port) {
 			return;
 		}
 
 		initialized = true;
+		const init = decoded.success;
 		const locations = createPluginLocationStore(port);
-		bindOperationBridge(createPluginOperationBridge(port));
+		const client = createRyotClient({
+			query: createPluginQueryBridge(port),
+			invokeOperation: createPluginOperationBridge(port),
+		});
 		port.start();
 		port.postMessage({
 			sessionId: init.sessionId,
@@ -71,7 +65,11 @@ export const bootstrapClientPlugin = (definition: ClientPluginDefinition) => {
 			bridgeVersion: artifactMetadata.bridgeVersion,
 			compilerVersion: artifactMetadata.compilerVersion,
 		} satisfies PluginBridgeReady);
-		createRoot(rootElement).render(createElement(PluginRouter, { definition, port, locations }));
+		createRoot(rootElement).render(
+			<RyotProvider client={client}>
+				<PluginRouter definition={definition} port={port} locations={locations} />
+			</RyotProvider>,
+		);
 	});
 };
 
@@ -83,6 +81,3 @@ export {
 	usePluginSearch,
 	type PluginRouteDefinition,
 } from "./routing";
-
-export { PluginOperationError } from "./operations";
-export { ryot } from "./ryot";

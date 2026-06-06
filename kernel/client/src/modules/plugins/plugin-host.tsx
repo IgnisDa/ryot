@@ -3,6 +3,8 @@ import {
 	type PluginLogicalLocation,
 	type PluginOperationOutcome,
 	type PluginOperationRequest,
+	type PluginRyotQLOutcome,
+	type PluginRyotQLRequest,
 } from "@ryot/contract/modules/plugins/client";
 import type { PluginClientCatalogEntry } from "@ryot/ryotql-recipes/plugin-client-catalog";
 import { useEffect, useRef, useState } from "react";
@@ -62,6 +64,10 @@ export function PluginHost(props: {
 	readonly location: PluginLogicalLocation;
 	readonly installation: PluginClientCatalogEntry;
 	readonly onNavigate: (request: PluginNavigationRequest) => void;
+	readonly onQuery: (
+		request: PluginRyotQLRequest,
+		signal: AbortSignal,
+	) => Promise<PluginRyotQLOutcome>;
 	readonly onInvokeOperation: (
 		request: PluginOperationRequest,
 		signal: AbortSignal,
@@ -75,6 +81,7 @@ export function PluginHost(props: {
 	return (
 		<PluginFrame
 			server={props.server}
+			onQuery={props.onQuery}
 			location={props.location}
 			onNavigate={props.onNavigate}
 			pluginSlug={props.installation.slug}
@@ -91,6 +98,10 @@ function PluginFrame(props: {
 	readonly artifactHash: string;
 	readonly location: PluginLogicalLocation;
 	readonly onNavigate: (request: PluginNavigationRequest) => void;
+	readonly onQuery: (
+		request: PluginRyotQLRequest,
+		signal: AbortSignal,
+	) => Promise<PluginRyotQLOutcome>;
 	readonly onInvokeOperation: (
 		request: PluginOperationRequest,
 		signal: AbortSignal,
@@ -127,6 +138,7 @@ function PluginFrame(props: {
 			artifactHash: props.artifactHash,
 			location: latest.current.location,
 			onReady: () => setStatus("ready"),
+			onRyotQL: (request, signal) => latest.current.onQuery(request, signal),
 			onOperation: (request, signal) => latest.current.onInvokeOperation(request, signal),
 			onFailure: () => {
 				session.current = undefined;

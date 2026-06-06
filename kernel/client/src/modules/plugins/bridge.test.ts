@@ -9,6 +9,8 @@ import {
 	type PluginBridgeReady,
 	type PluginOperationOutcome,
 	type PluginOperationRequest,
+	type PluginRyotQLOutcome,
+	type PluginRyotQLRequest,
 } from "@ryot/contract/modules/plugins/client";
 import { waitFor } from "@testing-library/dom";
 import { Schema } from "effect";
@@ -20,6 +22,14 @@ const decodeInit = Schema.decodeUnknownSync(PluginBridgeInit);
 
 const artifactHash = "artifact-hash";
 const home = { path: "/", search: "" };
+const document = {
+	queries: {
+		items: {
+			from: { alias: "item", table: "item" },
+			output: { fields: [], orderBy: [], pagination: { limit: 10 }, type: "rows" },
+		},
+	},
+} as const;
 
 const ports: MessagePort[] = [];
 const sessions: PluginBridgeSession[] = [];
@@ -52,6 +62,10 @@ const connect = (
 			request: PluginOperationRequest,
 			signal: AbortSignal,
 		) => Promise<PluginOperationOutcome>;
+		readonly onRyotQL?: (
+			request: PluginRyotQLRequest,
+			signal: AbortSignal,
+		) => Promise<PluginRyotQLOutcome>;
 	} = {},
 ) => {
 	const readies: null[] = [];
@@ -74,6 +88,7 @@ const connect = (
 		onReady: () => readies.push(null),
 		onFailure: () => failures.push(null),
 		onNavigate: (request) => navigations.push(request),
+		onRyotQL: options.onRyotQL ?? (() => new Promise(() => {})),
 		onOperation:
 			options.onOperation ??
 			((request, signal) => {
@@ -123,7 +138,7 @@ const readyFor = (init: PluginBridgeInit): PluginBridgeReady => ({
 });
 
 describe("plugin bridge", () => {
-	it("transfers exactly one port with the exact V1 init markers", () => {
+	it("transfers exactly one port with the exact V2 init markers", () => {
 		const { init, origins } = connect();
 
 		expect(origins).toEqual(["*"]);
@@ -172,7 +187,7 @@ describe("plugin bridge", () => {
 		await waitFor(() => expect(malformed.failures).toHaveLength(1));
 
 		const outdated = connect();
-		outdated.pluginPort.postMessage({ ...readyFor(outdated.init), bridgeVersion: 2 });
+		outdated.pluginPort.postMessage({ ...readyFor(outdated.init), bridgeVersion: 1 });
 		await waitFor(() => expect(outdated.failures).toHaveLength(1));
 
 		const premature = connect();
@@ -496,6 +511,120 @@ describe("plugin bridge", () => {
 		expect(signal?.aborted).toBe(true);
 
 		call.resolve({ outcome: "success", value: "too-late" });
+		await delay(10);
+
+		expect(received).toHaveLength(1);
+	});
+
+	it("correlates concurrent RyotQL requests completed out of order", async () => {
+		const calls: Array<ReturnType<typeof deferred<PluginRyotQLOutcome>>> = [];
+		const { init, pluginPort, received } = connect({
+			onRyotQL: () => {
+				const call = deferred<PluginRyotQLOutcome>();
+				calls.push(call);
+				return call.promise;
+			},
+		});
+		pluginPort.postMessage(readyFor(init));
+		await waitFor(() => expect(received).toHaveLength(1));
+
+		pluginPort.postMessage({ document, requestId: "query-a", type: "ryotql-request" });
+		pluginPort.postMessage({ document, requestId: "query-b", type: "ryotql-request" });
+		await waitFor(() => expect(calls).toHaveLength(2));
+
+		calls[1]?.resolve({ outcome: "success", response: { data: {} } });
+		await waitFor(() =>
+			expect(received).toContainEqual({
+				outcome: "success",
+				requestId: "query-b",
+				type: "ryotql-result",
+				response: { data: {} },
+			}),
+		);
+		calls[0]?.resolve({ outcome: "failure", reason: "query-failed" });
+		await waitFor(() =>
+			expect(received).toContainEqual({
+				outcome: "failure",
+				requestId: "query-a",
+				type: "ryotql-result",
+				reason: "query-failed",
+			}),
+		);
+		expect(received).toHaveLength(3);
+	});
+
+	it("rejects duplicate in-flight IDs across query and operation requests", async () => {
+		const query = deferred<PluginRyotQLOutcome>();
+		const operationCalls: PluginOperationRequest[] = [];
+		const { init, pluginPort, received } = connect({
+			onRyotQL: () => query.promise,
+			onOperation: (request) => {
+				operationCalls.push(request);
+				return Promise.resolve({ outcome: "success", value: null });
+			},
+		});
+		pluginPort.postMessage(readyFor(init));
+		await waitFor(() => expect(received).toHaveLength(1));
+
+		pluginPort.postMessage({ document, requestId: "shared-id", type: "ryotql-request" });
+		pluginPort.postMessage({
+			requestId: "shared-id",
+			operationSlug: "greet",
+			type: "operation-request",
+		});
+		await delay(10);
+
+		expect(operationCalls).toEqual([]);
+		query.resolve({ outcome: "success", response: { data: {} } });
+		await waitFor(() => expect(received).toHaveLength(2));
+	});
+
+	it("ignores malformed RyotQL requests with identity or extra fields", async () => {
+		const calls: PluginRyotQLRequest[] = [];
+		const { init, pluginPort, received } = connect({
+			onRyotQL: (request) => {
+				calls.push(request);
+				return Promise.resolve({ outcome: "success", response: { data: {} } });
+			},
+		});
+		pluginPort.postMessage(readyFor(init));
+		await waitFor(() => expect(received).toHaveLength(1));
+
+		pluginPort.postMessage({
+			document,
+			userId: "user-1",
+			requestId: "query-a",
+			type: "ryotql-request",
+		});
+		pluginPort.postMessage({
+			document,
+			requestId: "query-b",
+			type: "ryotql-request",
+			serverUrl: "https://ryot.example",
+		});
+		await delay(10);
+
+		expect(calls).toEqual([]);
+		expect(received).toHaveLength(1);
+	});
+
+	it("aborts a pending RyotQL request and suppresses its late response", async () => {
+		let signal: AbortSignal | undefined;
+		const call = deferred<PluginRyotQLOutcome>();
+		const { init, pluginPort, received, session } = connect({
+			onRyotQL: (_request, requestSignal) => {
+				signal = requestSignal;
+				return call.promise;
+			},
+		});
+		pluginPort.postMessage(readyFor(init));
+		await waitFor(() => expect(received).toHaveLength(1));
+		pluginPort.postMessage({ document, requestId: "query-a", type: "ryotql-request" });
+		await waitFor(() => expect(signal).toBeDefined());
+
+		session.close();
+		expect(signal?.aborted).toBe(true);
+		call.resolve({ outcome: "failure", reason: "transport" });
 		await delay(10);
 
 		expect(received).toHaveLength(1);
