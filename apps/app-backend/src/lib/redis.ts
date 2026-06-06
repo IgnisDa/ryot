@@ -10,6 +10,8 @@ export const redisKeys = {
 	importSourcePayload: (runId: string) => `ryot:imports:source-payload:${runId}`,
 	godModeResetChannel: (correlationId: string) => `ryot:god-mode:reset:${correlationId}`,
 	sandboxCache: (scriptId: string, key: string) => `ryot:sandbox:cache:${scriptId}:${key}`,
+	integrationCache: (integrationId: string, key: string) =>
+		`ryot:integrations:cache:${integrationId}:${key}`,
 };
 
 export class RedisService extends Effect.Service<RedisService>()("RedisService", {
@@ -34,6 +36,11 @@ export class RedisService extends Effect.Service<RedisService>()("RedisService",
 				Effect.tryPromise(() =>
 					ttlSeconds ? client.set(key, value, "EX", ttlSeconds) : client.set(key, value),
 				).pipe(Effect.asVoid, Effect.orDie),
+			claim: (key: string, ttlSeconds: number) =>
+				Effect.tryPromise(() => client.set(key, "1", "EX", ttlSeconds, "NX")).pipe(
+					Effect.map((result) => result !== null),
+					Effect.orDie,
+				),
 		};
 	}),
 }) {}

@@ -223,3 +223,43 @@ driver("details", async function (context) {
     relatedEntities: [...relatedEntityByKey.values()],
   };
 });
+
+driver("history", async function (context) {
+  const { z } = await import("npm:zod");
+  const { authCookie, timezone } = z.object({
+    authCookie: z.string().trim().min(1, "authCookie is required"),
+    timezone: z.string().trim().min(1, "timezone is required"),
+  }).parse(context ?? {});
+
+  const isTodayHeader = (title) => {
+    const lower = title.toLowerCase();
+    if (lower === "today") return true;
+    const localDate = new Intl.DateTimeFormat("en-US", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      timeZone: timezone,
+    }).format(new Date()).toLowerCase();
+    return lower.includes(localDate);
+  };
+
+  const { Innertube, YTNodes } = await import("npm:youtubei.js");
+  const yt = await Innertube.create({ cookie: authCookie, fetch: makeFetch });
+  const history = await yt.getHistory();
+
+  const songs = [];
+  for (const section of history.sections ?? []) {
+    const header = section.header;
+    if (!header?.is(YTNodes.ItemSectionHeader)) continue;
+    if (!isTodayHeader(header.title.toString())) continue;
+
+    for (const node of section.contents ?? []) {
+      if (!node.is(YTNodes.Video)) continue;
+      const videoId = node.video_id;
+      if (videoId) songs.push({ videoId, title: node.title.toString() });
+    }
+    break;
+  }
+
+  return { songs };
+});
