@@ -1,6 +1,6 @@
 import { expect, it } from "@effect/vitest";
 import { UserId } from "@ryot/contract/schema/brands";
-import { Effect, Layer } from "effect";
+import { Effect, Encoding, Layer } from "effect";
 
 import { Database } from "#lib/infrastructure/db/service";
 import { DefinitionRegistry, type DefinitionSnapshot } from "#modules/definition-registry/service";
@@ -89,10 +89,11 @@ const makeLayer = (input?: {
 	);
 };
 
-it.effect("validates and compiles an exact private backup package before persistence", () => {
+it.effect("round-trips an invalid UTF-8 private plugin asset before persistence", () => {
 	const manifest = privateManifest();
-	const files = {};
-	const sourceHash = pluginSourceHash(manifest, files);
+	const sourceFiles = { "client/asset.png": new Uint8Array([0x00, 0xff, 0x80, 0x41]) };
+	const files = { "client/asset.png": Encoding.encodeBase64(sourceFiles["client/asset.png"]) };
+	const sourceHash = pluginSourceHash(manifest, sourceFiles);
 	return Effect.gen(function* () {
 		const service = yield* PluginBackupRestore;
 		const prepared = yield* service.prepare([
@@ -107,6 +108,7 @@ it.effect("validates and compiles an exact private backup package before persist
 		]);
 		expect(prepared).toHaveLength(1);
 		expect(prepared[0]?.normalized.sourceHash).toBe(sourceHash);
+		expect(prepared[0]?.files).toEqual(sourceFiles);
 	}).pipe(Effect.provide(makeLayer()), Effect.provideService(Database, database));
 });
 
@@ -208,8 +210,9 @@ it.effect("rejects compilation failure before private plugin persistence", () =>
 			},
 		],
 	};
-	const files = { [entry]: "export default {" };
-	const sourceHash = pluginSourceHash(manifest, files);
+	const sourceFiles = { [entry]: new TextEncoder().encode("export default {") };
+	const files = { [entry]: Encoding.encodeBase64(sourceFiles[entry]) };
+	const sourceHash = pluginSourceHash(manifest, sourceFiles);
 	return Effect.gen(function* () {
 		const service = yield* PluginBackupRestore;
 		yield* service

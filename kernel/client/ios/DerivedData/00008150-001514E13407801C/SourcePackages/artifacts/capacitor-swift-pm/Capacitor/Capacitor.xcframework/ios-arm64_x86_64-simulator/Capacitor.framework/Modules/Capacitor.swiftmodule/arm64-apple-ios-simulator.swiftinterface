@@ -1,0 +1,1167 @@
+// swift-interface-format-version: 1.0
+// swift-compiler-version: Apple Swift version 6.2 effective-5.10 (swiftlang-6.2.0.19.9 clang-1700.3.19.1)
+// swift-module-flags: -target arm64-apple-ios15.0-simulator -enable-objc-interop -enable-library-evolution -swift-version 5 -enforce-exclusivity=checked -Onone -enable-experimental-feature DebugDescriptionMacro -enable-bare-slash-regex -module-name Capacitor
+// swift-module-flags-ignorable: -no-verify-emitted-module-interface -formal-cxx-interoperability-mode=off -interface-compiler-version 6.2
+@_exported import Capacitor
+import Combine
+import CommonCrypto
+import Cordova
+import Dispatch
+import Foundation
+import Swift
+import UIKit
+import UniformTypeIdentifiers
+import WebKit
+import _Concurrency
+import _StringProcessing
+import _SwiftConcurrencyShims
+@_inheritsConvenienceInitializers @objc(CAPCookiesPlugin) public class CAPCookiesPlugin : Capacitor.CAPPlugin, Capacitor.CAPBridgedPlugin {
+  @objc final public let identifier: Swift.String
+  @objc final public let jsName: Swift.String
+  @objc final public let pluginMethods: [Capacitor.CAPPluginMethod]
+  @objc override dynamic public func load()
+  @available(*, deprecated, message: "This initializer is deprecated and is not suggested for use. Any data set through this init method will be overridden when it is loaded on the bridge.")
+  @objc override dynamic public init(bridge: any Capacitor.CAPBridgeProtocol, pluginId: Swift.String, pluginName: Swift.String)
+  @objc override dynamic public init()
+  @objc deinit
+}
+public protocol Router {
+  func route(for path: Swift.String) -> Swift.String
+  var basePath: Swift.String { get set }
+}
+public struct CapacitorRouter : Capacitor.Router {
+  public init()
+  public var basePath: Swift.String
+  public func route(for path: Swift.String) -> Swift.String
+}
+@objc open class CapacitorUrlRequest : ObjectiveC.NSObject, Foundation.URLSessionTaskDelegate {
+  public var request: Foundation.URLRequest
+  public var headers: [Swift.String : Swift.String]
+  public enum CapacitorUrlRequestError : Swift.Error {
+    case serializationError(Swift.String?)
+  }
+  public init(_ url: Foundation.URL, method: Swift.String)
+  #if compiler(>=5.3) && $NonescapableTypes
+  public func getRequestDataAsJson(_ data: any Capacitor.JSValue) throws -> Foundation.Data?
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  public func getRequestDataAsFormUrlEncoded(_ data: any Capacitor.JSValue) throws -> Foundation.Data?
+  #endif
+  public func getRequestDataAsMultipartFormData(_ data: any Capacitor.JSValue, _ contentType: Swift.String) throws -> Foundation.Data
+  public func getRequestDataAsString(_ data: any Capacitor.JSValue) throws -> Foundation.Data
+  #if compiler(>=5.3) && $NonescapableTypes
+  public func getRequestHeader(_ index: Swift.String) -> Any?
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  public func getRequestDataFromFormData(_ data: any Capacitor.JSValue, _ contentType: Swift.String) throws -> Foundation.Data?
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  public func getRequestData(_ body: any Capacitor.JSValue, _ contentType: Swift.String, _ dataType: Swift.String? = nil) throws -> Foundation.Data?
+  #endif
+  @available(*, deprecated, message: "Use newer function with passed headers of type [String: Any]")
+  public func setRequestHeaders(_ headers: [Swift.String : Swift.String])
+  public func setRequestHeaders(_ headers: [Swift.String : Any])
+  #if compiler(>=5.3) && $NonescapableTypes
+  public func setRequestBody(_ body: any Capacitor.JSValue, _ dataType: Swift.String? = nil) throws
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  public func setContentType(_ data: Swift.String?)
+  #endif
+  public func setTimeout(_ timeout: Foundation.TimeInterval)
+  public func getUrlRequest() -> Foundation.URLRequest
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc open func urlSession(_ session: Foundation.URLSession, task: Foundation.URLSessionTask, willPerformHTTPRedirection response: Foundation.HTTPURLResponse, newRequest request: Foundation.URLRequest, completionHandler: @escaping (Foundation.URLRequest?) -> Swift.Void)
+  #endif
+  open func getUrlSession(_ call: Capacitor.CAPPluginCall) -> Foundation.URLSession
+  @objc deinit
+}
+@_hasMissingDesignatedInitializers final public class JSValueDecoder : Combine.TopLevelDecoder {
+  public typealias DateDecodingStrategy = Foundation.JSONDecoder.DateDecodingStrategy
+  public typealias DataDecodingStrategy = Foundation.JSONDecoder.DataDecodingStrategy
+  public enum NonConformingFloatDecodingStrategy {
+    case deferred
+    case `throw`
+    case convertFromString(positiveInfinity: Swift.String, negativeInfinity: Swift.String, nan: Swift.String)
+  }
+  public init(dateDecodingStrategy: Capacitor.JSValueDecoder.DateDecodingStrategy = .deferredToDate, dataDecodingStrategy: Capacitor.JSValueDecoder.DataDecodingStrategy = .deferredToData, nonConformingFloatDecodingStrategy: Capacitor.JSValueDecoder.NonConformingFloatDecodingStrategy = .deferred)
+  final public var dateDecodingStrategy: Capacitor.JSValueDecoder.DateDecodingStrategy {
+    get
+    set
+  }
+  final public var dataDecodingStrategy: Capacitor.JSValueDecoder.DataDecodingStrategy {
+    get
+    set
+  }
+  final public var nonConformingFloatDecodingStrategy: Capacitor.JSValueDecoder.NonConformingFloatDecodingStrategy {
+    get
+    set
+  }
+  final public func decode<T>(_ type: T.Type, from data: any Capacitor.JSValue) throws -> T where T : Swift.Decodable
+  public typealias Input = any Capacitor.JSValue
+  @objc deinit
+}
+@_inheritsConvenienceInitializers @objc @_Concurrency.MainActor @preconcurrency open class CAPBridgeViewController : UIKit.UIViewController {
+  #if compiler(>=5.3) && $NonescapableTypes
+  @_Concurrency.MainActor @preconcurrency final public var bridge: (any Capacitor.CAPBridgeProtocol)? {
+    get
+  }
+  #endif
+  @_Concurrency.MainActor @preconcurrency public var webView: WebKit.WKWebView? {
+    get
+  }
+  @_Concurrency.MainActor @preconcurrency public var isStatusBarVisible: Swift.Bool
+  @_Concurrency.MainActor @preconcurrency public var statusBarStyle: UIKit.UIStatusBarStyle
+  @_Concurrency.MainActor @preconcurrency public var statusBarAnimation: UIKit.UIStatusBarAnimation
+  @objc @_Concurrency.MainActor @preconcurrency public var supportedOrientations: [Swift.Int]
+  @_Concurrency.MainActor @preconcurrency final public var isNewBinary: Swift.Bool {
+    get
+    set
+  }
+  @_Concurrency.MainActor @preconcurrency @objc override final public func loadView()
+  @_Concurrency.MainActor @preconcurrency @objc override dynamic open func viewDidLoad()
+  @_Concurrency.MainActor @preconcurrency @objc override dynamic open func viewDidAppear(_ animated: Swift.Bool)
+  @_Concurrency.MainActor @preconcurrency @objc override dynamic open func viewWillTransition(to size: CoreFoundation.CGSize, with coordinator: any UIKit.UIViewControllerTransitionCoordinator)
+  @_Concurrency.MainActor @preconcurrency @objc override dynamic open func canPerformUnwindSegueAction(_ action: ObjectiveC.Selector, from fromViewController: UIKit.UIViewController, withSender sender: Any) -> Swift.Bool
+  @_Concurrency.MainActor @preconcurrency open func instanceDescriptor() -> Capacitor.InstanceDescriptor
+  @_Concurrency.MainActor @preconcurrency open func router() -> any Capacitor.Router
+  @_Concurrency.MainActor @preconcurrency open func webViewConfiguration(for instanceConfiguration: Capacitor.InstanceConfiguration) -> WebKit.WKWebViewConfiguration
+  @_Concurrency.MainActor @preconcurrency open func webView(with frame: CoreFoundation.CGRect, configuration: WebKit.WKWebViewConfiguration) -> WebKit.WKWebView
+  @_Concurrency.MainActor @preconcurrency open func capacitorDidLoad()
+  @_Concurrency.MainActor @preconcurrency final public func loadWebView()
+  @_Concurrency.MainActor @preconcurrency open func setStatusBarDefaults()
+  @_Concurrency.MainActor @preconcurrency open func setScreenOrientationDefaults()
+  @_Concurrency.MainActor @preconcurrency @objc override dynamic open var prefersStatusBarHidden: Swift.Bool {
+    @objc get
+  }
+  @_Concurrency.MainActor @preconcurrency @objc override dynamic open var preferredStatusBarStyle: UIKit.UIStatusBarStyle {
+    @objc get
+  }
+  @_Concurrency.MainActor @preconcurrency @objc override dynamic open var preferredStatusBarUpdateAnimation: UIKit.UIStatusBarAnimation {
+    @objc get
+  }
+  @_Concurrency.MainActor @preconcurrency open func setStatusBarVisible(_ isStatusBarVisible: Swift.Bool)
+  @_Concurrency.MainActor @preconcurrency open func setStatusBarStyle(_ statusBarStyle: UIKit.UIStatusBarStyle)
+  @_Concurrency.MainActor @preconcurrency open func setStatusBarAnimation(_ statusBarAnimation: UIKit.UIStatusBarAnimation)
+  @_Concurrency.MainActor @preconcurrency @objc override dynamic open var supportedInterfaceOrientations: UIKit.UIInterfaceOrientationMask {
+    @objc get
+  }
+  #if compiler(>=5.3) && $NonescapableTypes
+  @_Concurrency.MainActor @preconcurrency @objc override dynamic public init(nibName nibNameOrNil: Swift.String?, bundle nibBundleOrNil: Foundation.Bundle?)
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  @_Concurrency.MainActor @preconcurrency @objc required dynamic public init?(coder: Foundation.NSCoder)
+  #endif
+  @objc deinit
+}
+extension Capacitor.CAPBridgeViewController {
+  @objc @_Concurrency.MainActor @preconcurrency dynamic public func getServerBasePath() -> Swift.String
+  @objc @_Concurrency.MainActor @preconcurrency dynamic public func setServerBasePath(path: Swift.String)
+}
+extension Capacitor.CAPBridgeViewController : Capacitor.CAPBridgeDelegate {
+  #if compiler(>=5.3) && $NonescapableTypes
+  @_Concurrency.MainActor @preconcurrency public var bridgedWebView: WebKit.WKWebView? {
+    get
+  }
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  @_Concurrency.MainActor @preconcurrency public var bridgedViewController: UIKit.UIViewController? {
+    get
+  }
+  #endif
+}
+@objc public protocol CAPBridgeProtocol : ObjectiveC.NSObjectProtocol {
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc var viewController: UIKit.UIViewController? { get }
+  #endif
+  @objc var config: Capacitor.InstanceConfiguration { get }
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc var webView: WebKit.WKWebView? { get }
+  #endif
+  @objc var notificationRouter: Capacitor.NotificationRouter { get }
+  @objc var isSimEnvironment: Swift.Bool { get }
+  @objc var isDevEnvironment: Swift.Bool { get }
+  @objc var userInterfaceStyle: UIKit.UIUserInterfaceStyle { get }
+  @objc var autoRegisterPlugins: Swift.Bool { get }
+  @objc var statusBarVisible: Swift.Bool { get set }
+  @objc var statusBarStyle: UIKit.UIStatusBarStyle { get set }
+  @objc var statusBarAnimation: UIKit.UIStatusBarAnimation { get set }
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc @available(*, deprecated, renamed: "webView")
+  func getWebView() -> WebKit.WKWebView?
+  #endif
+  @objc @available(*, deprecated, renamed: "isSimEnvironment")
+  func isSimulator() -> Swift.Bool
+  @objc @available(*, deprecated, renamed: "isDevEnvironment")
+  func isDevMode() -> Swift.Bool
+  @objc @available(*, deprecated, renamed: "statusBarVisible")
+  func getStatusBarVisible() -> Swift.Bool
+  @objc @available(*, deprecated, renamed: "statusBarStyle")
+  func getStatusBarStyle() -> UIKit.UIStatusBarStyle
+  @objc @available(*, deprecated, renamed: "userInterfaceStyle")
+  func getUserInterfaceStyle() -> UIKit.UIUserInterfaceStyle
+  @objc @available(*, deprecated, message: "Moved - equivalent is found on config.localURL")
+  func getLocalUrl() -> Swift.String
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc @available(*, deprecated, renamed: "savedCall(withID:)")
+  func getSavedCall(_ callbackId: Swift.String) -> Capacitor.CAPPluginCall?
+  #endif
+  @objc @available(*, deprecated, renamed: "releaseCall(withID:)")
+  func releaseCall(callbackId: Swift.String)
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc func plugin(withName: Swift.String) -> Capacitor.CAPPlugin?
+  #endif
+  @objc func saveCall(_ call: Capacitor.CAPPluginCall)
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc func savedCall(withID: Swift.String) -> Capacitor.CAPPluginCall?
+  #endif
+  @objc func releaseCall(_ call: Capacitor.CAPPluginCall)
+  @objc func releaseCall(withID: Swift.String)
+  @objc func evalWithPlugin(_ plugin: Capacitor.CAPPlugin, js: Swift.String)
+  @objc func eval(js: Swift.String)
+  @objc optional func injectScriptBeforeLoad(path: Swift.String)
+  @objc func triggerJSEvent(eventName: Swift.String, target: Swift.String)
+  @objc func triggerJSEvent(eventName: Swift.String, target: Swift.String, data: Swift.String)
+  @objc func triggerWindowJSEvent(eventName: Swift.String)
+  @objc func triggerWindowJSEvent(eventName: Swift.String, data: Swift.String)
+  @objc func triggerDocumentJSEvent(eventName: Swift.String)
+  @objc func triggerDocumentJSEvent(eventName: Swift.String, data: Swift.String)
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc func localURL(fromWebURL webURL: Foundation.URL?) -> Foundation.URL?
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc func portablePath(fromLocalURL localURL: Foundation.URL?) -> Foundation.URL?
+  #endif
+  @objc func setServerBasePath(_ path: Swift.String)
+  @objc func registerPluginType(_ pluginType: Capacitor.CAPPlugin.Type)
+  @objc func registerPluginInstance(_ pluginInstance: Capacitor.CAPPlugin)
+  @objc func showAlertWith(title: Swift.String, message: Swift.String, buttonTitle: Swift.String)
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc @available(*, deprecated, message: "Use self?.bridge?.viewController?.present")
+  func presentVC(_ viewControllerToPresent: UIKit.UIViewController, animated flag: Swift.Bool, completion: (() -> Swift.Void)?)
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc @available(*, deprecated, message: "Use self?.bridge?.viewController?.dismiss")
+  func dismissVC(animated flag: Swift.Bool, completion: (() -> Swift.Void)?)
+  #endif
+}
+extension Capacitor.CAPBridgeProtocol {
+  @available(*, deprecated, message: "Use CAPLog directly")
+  public func modulePrint(_ plugin: Capacitor.CAPPlugin, _ items: Any...)
+  public func alert(_ title: Swift.String, _ message: Swift.String, _ buttonTitle: Swift.String = "OK")
+  @available(*, deprecated, renamed: "statusBarVisible")
+  public func setStatusBarVisible(_ visible: Swift.Bool)
+  @available(*, deprecated, renamed: "statusBarStyle")
+  public func setStatusBarStyle(_ style: UIKit.UIStatusBarStyle)
+  @available(*, deprecated, renamed: "statusBarAnimation")
+  public func setStatusBarAnimation(_ animation: UIKit.UIStatusBarAnimation)
+}
+public enum CapacitorBridgeError : Swift.Error {
+  case errorExportingCoreJS
+  public static func == (a: Capacitor.CapacitorBridgeError, b: Capacitor.CapacitorBridgeError) -> Swift.Bool
+  public func hash(into hasher: inout Swift.Hasher)
+  public var hashValue: Swift.Int {
+    get
+  }
+}
+extension Capacitor.CapacitorBridgeError : Foundation.CustomNSError {
+  public static var errorDomain: Swift.String {
+    get
+  }
+  public var errorCode: Swift.Int {
+    get
+  }
+  public var errorUserInfo: [Swift.String : Any] {
+    get
+  }
+}
+extension Capacitor.CapacitorBridgeError : Foundation.LocalizedError {
+  #if compiler(>=5.3) && $NonescapableTypes
+  public var errorDescription: Swift.String? {
+    get
+  }
+  #endif
+}
+extension WebKit.WKWebView : Capacitor.CapacitorExtension {
+  @available(iOS 8.0, *)
+  public typealias CapacitorType = Capacitor.CapacitorExtensionTypeWrapper<WebKit.WKWebView>
+}
+extension Capacitor.CapacitorExtensionTypeWrapper where T == WebKit.WKWebView {
+  #if compiler(>=5.3) && $NonescapableTypes
+  public var keyboardShouldRequireUserInteraction: Swift.Bool? {
+    get
+  }
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  public func setKeyboardShouldRequireUserInteraction(_ flag: Swift.Bool? = nil)
+  #endif
+}
+extension Foundation.Data : Capacitor.CapacitorExtension {
+  @available(iOS 8.0, tvOS 9.0, watchOS 2.0, macOS 10.10, *)
+  public typealias CapacitorType = Capacitor.CapacitorExtensionTypeWrapper<Foundation.Data>
+}
+extension Capacitor.CapacitorExtensionTypeWrapper where T == Foundation.Data {
+  #if compiler(>=5.3) && $NonescapableTypes
+  public static func data(base64EncodedOrDataUrl: Swift.String) -> Foundation.Data?
+  #endif
+}
+@_inheritsConvenienceInitializers @objc(CAPWebViewDelegationHandler) @_Concurrency.MainActor @preconcurrency open class WebViewDelegationHandler : ObjectiveC.NSObject, WebKit.WKNavigationDelegate, WebKit.WKUIDelegate, WebKit.WKScriptMessageHandler, UIKit.UIScrollViewDelegate {
+  @_Concurrency.MainActor @preconcurrency weak public var bridge: Capacitor.CapacitorBridge? {
+    get
+  }
+  @_Concurrency.MainActor @preconcurrency open var contentController: WebKit.WKUserContentController {
+    get
+  }
+  @_Concurrency.MainActor @preconcurrency @objc override dynamic public init()
+  @_Concurrency.MainActor @preconcurrency open func cleanUp()
+  #if compiler(>=5.3) && $NonescapableTypes
+  @_Concurrency.MainActor @preconcurrency open func willLoadWebview(_ webView: WebKit.WKWebView?)
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  @_Concurrency.MainActor @preconcurrency @objc open func webView(_ webView: WebKit.WKWebView, didStartProvisionalNavigation navigation: WebKit.WKNavigation!)
+  #endif
+  @_Concurrency.MainActor @preconcurrency @objc open func webView(_ webView: WebKit.WKWebView, requestMediaCapturePermissionFor origin: WebKit.WKSecurityOrigin, initiatedByFrame frame: WebKit.WKFrameInfo, type: WebKit.WKMediaCaptureType, decisionHandler: @escaping (WebKit.WKPermissionDecision) -> Swift.Void)
+  @_Concurrency.MainActor @preconcurrency @objc open func webView(_ webView: WebKit.WKWebView, requestDeviceOrientationAndMotionPermissionFor origin: WebKit.WKSecurityOrigin, initiatedByFrame frame: WebKit.WKFrameInfo, decisionHandler: @escaping (WebKit.WKPermissionDecision) -> Swift.Void)
+  @_Concurrency.MainActor @preconcurrency @objc open func webView(_ webView: WebKit.WKWebView, decidePolicyFor navigationAction: WebKit.WKNavigationAction, decisionHandler: @escaping (WebKit.WKNavigationActionPolicy) -> Swift.Void)
+  #if compiler(>=5.3) && $NonescapableTypes
+  @_Concurrency.MainActor @preconcurrency @objc open func webView(_ webView: WebKit.WKWebView, didFinish navigation: WebKit.WKNavigation!)
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  @_Concurrency.MainActor @preconcurrency @objc open func webView(_ webView: WebKit.WKWebView, didFail navigation: WebKit.WKNavigation!, withError error: any Swift.Error)
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  @_Concurrency.MainActor @preconcurrency @objc open func webView(_ webView: WebKit.WKWebView, didFailProvisionalNavigation navigation: WebKit.WKNavigation!, withError error: any Swift.Error)
+  #endif
+  @_Concurrency.MainActor @preconcurrency @objc open func webViewWebContentProcessDidTerminate(_ webView: WebKit.WKWebView)
+  #if compiler(>=5.3) && $NonescapableTypes
+  @_Concurrency.MainActor @preconcurrency @objc open func webView(_ webView: WebKit.WKWebView, didReceive challenge: Foundation.URLAuthenticationChallenge, completionHandler: @escaping @_Concurrency.MainActor (Foundation.URLSession.AuthChallengeDisposition, Foundation.URLCredential?) -> Swift.Void)
+  #endif
+  @_Concurrency.MainActor @preconcurrency @objc open func userContentController(_ userContentController: WebKit.WKUserContentController, didReceive message: WebKit.WKScriptMessage)
+  @_Concurrency.MainActor @preconcurrency @objc open func webView(_ webView: WebKit.WKWebView, runJavaScriptAlertPanelWithMessage message: Swift.String, initiatedByFrame frame: WebKit.WKFrameInfo, completionHandler: @escaping () -> Swift.Void)
+  @_Concurrency.MainActor @preconcurrency @objc open func webView(_ webView: WebKit.WKWebView, runJavaScriptConfirmPanelWithMessage message: Swift.String, initiatedByFrame frame: WebKit.WKFrameInfo, completionHandler: @escaping (Swift.Bool) -> Swift.Void)
+  #if compiler(>=5.3) && $NonescapableTypes
+  @_Concurrency.MainActor @preconcurrency @objc open func webView(_ webView: WebKit.WKWebView, runJavaScriptTextInputPanelWithPrompt prompt: Swift.String, defaultText: Swift.String?, initiatedByFrame frame: WebKit.WKFrameInfo, completionHandler: @escaping (Swift.String?) -> Swift.Void)
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  @_Concurrency.MainActor @preconcurrency @objc open func webView(_ webView: WebKit.WKWebView, createWebViewWith configuration: WebKit.WKWebViewConfiguration, for navigationAction: WebKit.WKNavigationAction, windowFeatures: WebKit.WKWindowFeatures) -> WebKit.WKWebView?
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  @_Concurrency.MainActor @preconcurrency @objc open func scrollViewWillBeginZooming(_ scrollView: UIKit.UIScrollView, with view: UIKit.UIView?)
+  #endif
+  @objc deinit
+}
+extension Capacitor.CAPPluginMethod {
+  public enum ReturnType : Swift.String {
+    case promise, callback, none
+    #if compiler(>=5.3) && $NonescapableTypes
+    public init?(rawValue: Swift.String)
+    #endif
+    public typealias RawValue = Swift.String
+    public var rawValue: Swift.String {
+      get
+    }
+  }
+  convenience public init(_ selector: ObjectiveC.Selector, returnType: Capacitor.CAPPluginMethod.ReturnType = .promise)
+}
+public protocol JSValue {
+}
+extension Swift.String : Capacitor.JSValue {
+}
+extension Swift.Bool : Capacitor.JSValue {
+}
+extension Swift.Int : Capacitor.JSValue {
+}
+extension Swift.Float : Capacitor.JSValue {
+}
+extension Swift.Double : Capacitor.JSValue {
+}
+extension Foundation.NSNumber : Capacitor.JSValue {
+}
+extension Foundation.NSNull : Capacitor.JSValue {
+}
+extension Swift.Array : Capacitor.JSValue {
+}
+extension Foundation.Date : Capacitor.JSValue {
+}
+extension Swift.Dictionary : Capacitor.JSValue where Key == Swift.String, Value == any Capacitor.JSValue {
+}
+public typealias JSObject = [Swift.String : any Capacitor.JSValue]
+public typealias JSArray = [any Capacitor.JSValue]
+public protocol JSStringContainer {
+  func getString(_ key: Swift.String, _ defaultValue: Swift.String) -> Swift.String
+  #if compiler(>=5.3) && $NonescapableTypes
+  func getString(_ key: Swift.String) -> Swift.String?
+  #endif
+}
+extension Capacitor.JSStringContainer {
+  public func getString(_ key: Swift.String, _ defaultValue: Swift.String) -> Swift.String
+}
+public protocol JSBoolContainer {
+  func getBool(_ key: Swift.String, _ defaultValue: Swift.Bool) -> Swift.Bool
+  #if compiler(>=5.3) && $NonescapableTypes
+  func getBool(_ key: Swift.String) -> Swift.Bool?
+  #endif
+}
+extension Capacitor.JSBoolContainer {
+  public func getBool(_ key: Swift.String, _ defaultValue: Swift.Bool) -> Swift.Bool
+}
+public protocol JSIntContainer {
+  func getInt(_ key: Swift.String, _ defaultValue: Swift.Int) -> Swift.Int
+  #if compiler(>=5.3) && $NonescapableTypes
+  func getInt(_ key: Swift.String) -> Swift.Int?
+  #endif
+}
+extension Capacitor.JSIntContainer {
+  public func getInt(_ key: Swift.String, _ defaultValue: Swift.Int) -> Swift.Int
+}
+public protocol JSFloatContainer {
+  func getFloat(_ key: Swift.String, _ defaultValue: Swift.Float) -> Swift.Float
+  #if compiler(>=5.3) && $NonescapableTypes
+  func getFloat(_ key: Swift.String) -> Swift.Float?
+  #endif
+}
+extension Capacitor.JSFloatContainer {
+  public func getFloat(_ key: Swift.String, _ defaultValue: Swift.Float) -> Swift.Float
+}
+public protocol JSDoubleContainer {
+  func getDouble(_ key: Swift.String, _ defaultValue: Swift.Double) -> Swift.Double
+  #if compiler(>=5.3) && $NonescapableTypes
+  func getDouble(_ key: Swift.String) -> Swift.Double?
+  #endif
+}
+extension Capacitor.JSDoubleContainer {
+  public func getDouble(_ key: Swift.String, _ defaultValue: Swift.Double) -> Swift.Double
+}
+public protocol JSDateContainer {
+  func getDate(_ key: Swift.String, _ defaultValue: Foundation.Date) -> Foundation.Date
+  #if compiler(>=5.3) && $NonescapableTypes
+  func getDate(_ key: Swift.String) -> Foundation.Date?
+  #endif
+}
+extension Capacitor.JSDateContainer {
+  public func getDate(_ key: Swift.String, _ defaultValue: Foundation.Date) -> Foundation.Date
+}
+public protocol JSArrayContainer {
+  func getArray(_ key: Swift.String, _ defaultValue: Capacitor.JSArray) -> Capacitor.JSArray
+  #if compiler(>=5.3) && $NonescapableTypes
+  func getArray<T>(_ key: Swift.String, _ ofType: T.Type) -> [T]?
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  func getArray(_ key: Swift.String) -> Capacitor.JSArray?
+  #endif
+}
+extension Capacitor.JSArrayContainer {
+  public func getArray(_ key: Swift.String, _ defaultValue: Capacitor.JSArray) -> Capacitor.JSArray
+  #if compiler(>=5.3) && $NonescapableTypes
+  public func getArray<T>(_ key: Swift.String, _ ofType: T.Type) -> [T]?
+  #endif
+}
+public protocol JSObjectContainer {
+  func getObject(_ key: Swift.String, _ defaultValue: Capacitor.JSObject) -> Capacitor.JSObject
+  #if compiler(>=5.3) && $NonescapableTypes
+  func getObject(_ key: Swift.String) -> Capacitor.JSObject?
+  #endif
+}
+extension Capacitor.JSObjectContainer {
+  public func getObject(_ key: Swift.String, _ defaultValue: Capacitor.JSObject) -> Capacitor.JSObject
+}
+public protocol JSValueContainer : Capacitor.JSArrayContainer, Capacitor.JSBoolContainer, Capacitor.JSDateContainer, Capacitor.JSDoubleContainer, Capacitor.JSFloatContainer, Capacitor.JSIntContainer, Capacitor.JSObjectContainer, Capacitor.JSStringContainer {
+  static var jsDateFormatter: Foundation.ISO8601DateFormatter { get }
+  var jsObjectRepresentation: Capacitor.JSObject { get }
+}
+extension Capacitor.JSValueContainer {
+  #if compiler(>=5.3) && $NonescapableTypes
+  public func getValue(_ key: Swift.String) -> (any Capacitor.JSValue)?
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  @available(*, renamed: "getValue(_:)", message: "All values returned conform to JSValue, use getValue(_:) instead.")
+  public func getAny(_ key: Swift.String) -> Any?
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  public func getString(_ key: Swift.String) -> Swift.String?
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  public func getBool(_ key: Swift.String) -> Swift.Bool?
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  public func getInt(_ key: Swift.String) -> Swift.Int?
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  public func getFloat(_ key: Swift.String) -> Swift.Float?
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  public func getDouble(_ key: Swift.String) -> Swift.Double?
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  public func getDate(_ key: Swift.String) -> Foundation.Date?
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  public func getArray(_ key: Swift.String) -> Capacitor.JSArray?
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  public func getObject(_ key: Swift.String) -> Capacitor.JSObject?
+  #endif
+  public func decode<T>(_ type: T.Type, for key: Swift.String, with decoder: Capacitor.JSValueDecoder = JSValueDecoder()) throws -> T where T : Swift.Decodable
+}
+public enum JSTypes {
+}
+extension Capacitor.JSTypes {
+  #if compiler(>=5.3) && $NonescapableTypes
+  public static func coerceDictionaryToJSObject(_ dictionary: Foundation.NSDictionary?, formattingDatesAsStrings: Swift.Bool = false) -> Capacitor.JSObject?
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  public static func coerceDictionaryToJSObject(_ dictionary: [Swift.AnyHashable : Any]?, formattingDatesAsStrings: Swift.Bool = false) -> Capacitor.JSObject?
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  public static func coerceArrayToJSArray(_ array: [Any]?, formattingDatesAsStrings: Swift.Bool = false) -> Capacitor.JSArray?
+  #endif
+}
+@objc open class CapacitorBridge : ObjectiveC.NSObject, Capacitor.CAPBridgeProtocol {
+  public static var isDevEnvironment: Swift.Bool {
+    get
+  }
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc public var webView: WebKit.WKWebView? {
+    @objc get
+  }
+  #endif
+  @objc final public let autoRegisterPlugins: Swift.Bool
+  @objc public var notificationRouter: Capacitor.NotificationRouter
+  @objc public var isSimEnvironment: Swift.Bool {
+    @objc get
+  }
+  @objc public var isDevEnvironment: Swift.Bool {
+    @objc get
+  }
+  @objc public var userInterfaceStyle: UIKit.UIUserInterfaceStyle {
+    @objc get
+  }
+  @objc public var statusBarVisible: Swift.Bool {
+    @objc get
+    @objc set
+  }
+  @objc public var statusBarStyle: UIKit.UIStatusBarStyle {
+    @objc get
+    @objc set
+  }
+  @objc public var statusBarAnimation: UIKit.UIStatusBarAnimation {
+    @objc get
+    @objc set
+  }
+  public static let capacitorSite: Swift.String
+  public static let fileStartIdentifier: Swift.String
+  public static let httpInterceptorStartIdentifier: Swift.String
+  @available(*, deprecated, message: "`httpsInterceptorStartIdentifier` is no longer required. All proxied requests are handled via `httpInterceptorStartIdentifier` instead")
+  public static let httpsInterceptorStartIdentifier: Swift.String
+  public static let httpInterceptorUrlParam: Swift.String
+  public static let defaultScheme: Swift.String
+  public var webViewAssetHandler: Capacitor.WebViewAssetHandler {
+    get
+  }
+  public var webViewDelegationHandler: Capacitor.WebViewDelegationHandler {
+    get
+  }
+  weak public var bridgeDelegate: (any Capacitor.CAPBridgeDelegate)? {
+    get
+  }
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc public var viewController: UIKit.UIViewController? {
+    @objc get
+  }
+  #endif
+  @objc public var config: Capacitor.InstanceConfiguration
+  open var dispatchQueue: Dispatch.DispatchQueue {
+    get
+  }
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc public func getWebView() -> WebKit.WKWebView?
+  #endif
+  @objc public func isSimulator() -> Swift.Bool
+  @objc public func isDevMode() -> Swift.Bool
+  @objc public func getStatusBarVisible() -> Swift.Bool
+  @nonobjc public func setStatusBarVisible(_ visible: Swift.Bool)
+  @objc public func getStatusBarStyle() -> UIKit.UIStatusBarStyle
+  @nonobjc public func setStatusBarStyle(_ style: UIKit.UIStatusBarStyle)
+  @objc public func getUserInterfaceStyle() -> UIKit.UIUserInterfaceStyle
+  @objc public func getLocalUrl() -> Swift.String
+  @nonobjc public func setStatusBarAnimation(_ animation: UIKit.UIStatusBarAnimation)
+  @objc public func setServerBasePath(_ path: Swift.String)
+  public init(with configuration: Capacitor.InstanceConfiguration, delegate bridgeDelegate: any Capacitor.CAPBridgeDelegate, cordovaConfiguration: Cordova.CDVConfigParser, assetHandler: Capacitor.WebViewAssetHandler, delegationHandler: Capacitor.WebViewDelegationHandler, autoRegisterPlugins: Swift.Bool = true)
+  @objc deinit
+  @objc public func registerPluginType(_ pluginType: Capacitor.CAPPlugin.Type)
+  @objc public func registerPluginInstance(_ pluginInstance: Capacitor.CAPPlugin)
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc public func plugin(withName: Swift.String) -> Capacitor.CAPPlugin?
+  #endif
+  @objc public func saveCall(_ call: Capacitor.CAPPluginCall)
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc public func savedCall(withID: Swift.String) -> Capacitor.CAPPluginCall?
+  #endif
+  @objc public func releaseCall(_ call: Capacitor.CAPPluginCall)
+  @objc public func releaseCall(withID: Swift.String)
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc public func getSavedCall(_ callbackId: Swift.String) -> Capacitor.CAPPluginCall?
+  #endif
+  @objc public func releaseCall(callbackId: Swift.String)
+  @objc public func injectScriptBeforeLoad(path: Swift.String)
+  @objc public func evalWithPlugin(_ plugin: Capacitor.CAPPlugin, js: Swift.String)
+  @objc public func eval(js: Swift.String)
+  @objc public func triggerJSEvent(eventName: Swift.String, target: Swift.String)
+  @objc public func triggerJSEvent(eventName: Swift.String, target: Swift.String, data: Swift.String)
+  @objc public func triggerWindowJSEvent(eventName: Swift.String)
+  @objc public func triggerWindowJSEvent(eventName: Swift.String, data: Swift.String)
+  @objc public func triggerDocumentJSEvent(eventName: Swift.String)
+  @objc public func triggerDocumentJSEvent(eventName: Swift.String, data: Swift.String)
+  public func logToJs(_ message: Swift.String, _ level: Swift.String = "log")
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc public func localURL(fromWebURL webURL: Foundation.URL?) -> Foundation.URL?
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc public func portablePath(fromLocalURL localURL: Foundation.URL?) -> Foundation.URL?
+  #endif
+  @objc open func showAlertWith(title: Swift.String, message: Swift.String, buttonTitle: Swift.String)
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc open func presentVC(_ viewControllerToPresent: UIKit.UIViewController, animated flag: Swift.Bool, completion: (() -> Swift.Void)? = nil)
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc open func dismissVC(animated flag: Swift.Bool, completion: (() -> Swift.Void)? = nil)
+  #endif
+}
+final public class JSValueEncoder : Combine.TopLevelEncoder {
+  public enum OptionalEncodingStrategy {
+    case explicitNulls
+    case undefined
+    public static func == (a: Capacitor.JSValueEncoder.OptionalEncodingStrategy, b: Capacitor.JSValueEncoder.OptionalEncodingStrategy) -> Swift.Bool
+    public func hash(into hasher: inout Swift.Hasher)
+    public var hashValue: Swift.Int {
+      get
+    }
+  }
+  public enum NonConformingFloatEncodingStrategy : Swift.Equatable {
+    case `throw`
+    case convertToString(positiveInfinity: Swift.String, negativeInfinity: Swift.String, nan: Swift.String)
+    case deferred
+    public static func == (a: Capacitor.JSValueEncoder.NonConformingFloatEncodingStrategy, b: Capacitor.JSValueEncoder.NonConformingFloatEncodingStrategy) -> Swift.Bool
+  }
+  public typealias DateEncodingStrategy = Foundation.JSONEncoder.DateEncodingStrategy
+  public typealias DataEncodingStrategy = Foundation.JSONEncoder.DataEncodingStrategy
+  final public var optionalEncodingStrategy: Capacitor.JSValueEncoder.OptionalEncodingStrategy {
+    get
+    set
+  }
+  final public var dateEncodingStrategy: Capacitor.JSValueEncoder.DateEncodingStrategy {
+    get
+    set
+  }
+  final public var dataEncodingStrategy: Capacitor.JSValueEncoder.DataEncodingStrategy {
+    get
+    set
+  }
+  final public var nonConformingFloatEncodingStrategy: Capacitor.JSValueEncoder.NonConformingFloatEncodingStrategy {
+    get
+    set
+  }
+  public init(optionalEncodingStrategy: Capacitor.JSValueEncoder.OptionalEncodingStrategy = .undefined, dateEncodingStrategy: Capacitor.JSValueEncoder.DateEncodingStrategy = .deferredToDate, dataEncodingStrategy: Capacitor.JSValueEncoder.DataEncodingStrategy = .deferredToData, nonConformingFloatEncodingStategy: Capacitor.JSValueEncoder.NonConformingFloatEncodingStrategy = .deferred)
+  final public func encode<T>(_ value: T) throws -> any Capacitor.JSValue where T : Swift.Encodable
+  final public func encodeJSObject<T>(_ value: T) throws -> Capacitor.JSObject where T : Swift.Encodable
+  public typealias Output = any Capacitor.JSValue
+  @objc deinit
+}
+@_inheritsConvenienceInitializers @objc open class CAPInstancePlugin : Capacitor.CAPPlugin {
+  @available(*, deprecated, message: "This initializer is deprecated and is not suggested for use. Any data set through this init method will be overridden when it is loaded on the bridge.")
+  @objc override dynamic public init(bridge: any Capacitor.CAPBridgeProtocol, pluginId: Swift.String, pluginName: Swift.String)
+  @objc override dynamic public init()
+  @objc deinit
+}
+@objc @_inheritsConvenienceInitializers @_Concurrency.MainActor @preconcurrency public class CapacitorWKCookieObserver : ObjectiveC.NSObject, WebKit.WKHTTPCookieStoreObserver {
+  @_Concurrency.MainActor @preconcurrency @objc public func cookiesDidChange(in cookieStore: WebKit.WKHTTPCookieStore)
+  @_Concurrency.MainActor @preconcurrency @objc override dynamic public init()
+  @objc deinit
+}
+@_hasMissingDesignatedInitializers public class CapacitorCookieManager {
+  #if compiler(>=5.3) && $NonescapableTypes
+  public func getServerUrl() -> Foundation.URL?
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  public func getServerUrl(_ urlString: Swift.String?) -> Foundation.URL?
+  #endif
+  public func encode(_ value: Swift.String) -> Swift.String
+  public func decode(_ value: Swift.String) -> Swift.String
+  public func setCookie(_ domain: Swift.String, _ action: Swift.String)
+  #if compiler(>=5.3) && $NonescapableTypes
+  public func setCookie(_ url: Foundation.URL, _ key: Swift.String, _ value: Swift.String, _ expires: Swift.String?, _ path: Swift.String?)
+  #endif
+  public func getCookiesAsMap(_ url: Foundation.URL) -> [Swift.String : Swift.String]
+  public func getCookies() -> Swift.String
+  public func deleteCookie(_ url: Foundation.URL, _ key: Swift.String)
+  public func clearCookies(_ url: Foundation.URL)
+  public func clearAllCookies()
+  public func syncCookiesToWebView()
+  @objc deinit
+}
+@_inheritsConvenienceInitializers @objc public class CAPFileManager : ObjectiveC.NSObject {
+  #if compiler(>=5.3) && $NonescapableTypes
+  @available(*, deprecated, message: "Use portablePath(fromLocalURL:) on the Bridge")
+  public static func getPortablePath(host: Swift.String, uri: Foundation.URL?) -> Swift.String?
+  #endif
+  @objc override dynamic public init()
+  @objc deinit
+}
+@_inheritsConvenienceInitializers @objc(CAPSceneDelegateProxy) @_Concurrency.MainActor @preconcurrency public class SceneDelegateProxy : ObjectiveC.NSObject, UIKit.UISceneDelegate {
+  @_Concurrency.MainActor @preconcurrency public static let shared: Capacitor.SceneDelegateProxy
+  @_Concurrency.MainActor @preconcurrency public var lastURL: Foundation.URL? {
+    get
+  }
+  @_Concurrency.MainActor @preconcurrency @objc public func scene(_ scene: UIKit.UIScene, willConnectTo session: UIKit.UISceneSession, options connectionOptions: UIKit.UIScene.ConnectionOptions)
+  @_Concurrency.MainActor @preconcurrency @objc public func scene(_ scene: UIKit.UIScene, openURLContexts URLContexts: Swift.Set<UIKit.UIOpenURLContext>)
+  @_Concurrency.MainActor @preconcurrency @objc public func scene(_ scene: UIKit.UIScene, continue userActivity: Foundation.NSUserActivity)
+  @_Concurrency.MainActor @preconcurrency @objc override dynamic public init()
+  @objc deinit
+}
+@_inheritsConvenienceInitializers @available(*, deprecated, message: "'statusBarTappedNotification' has been moved to Notification.Name.capacitorStatusBarTapped. 'getLastUrl' and application delegate methods have been moved to ApplicationDelegateProxy.")
+@objc public class CAPBridge : ObjectiveC.NSObject {
+  @objc public static let statusBarTappedNotification: Foundation.Notification
+  #if compiler(>=5.3) && $NonescapableTypes
+  public static func getLastUrl() -> Foundation.URL?
+  #endif
+  public static func handleOpenUrl(_ url: Foundation.URL, _ options: [UIKit.UIApplication.OpenURLOptionsKey : Any]) -> Swift.Bool
+  #if compiler(>=5.3) && $NonescapableTypes
+  public static func handleContinueActivity(_ userActivity: Foundation.NSUserActivity, _ restorationHandler: @escaping ([any UIKit.UIUserActivityRestoring]?) -> Swift.Void) -> Swift.Bool
+  #endif
+  public static func handleAppBecameActive(_ application: UIKit.UIApplication)
+  @objc override dynamic public init()
+  @objc deinit
+}
+extension UIKit.UIColor : Capacitor.CapacitorExtension {
+  @available(iOS 2.0, *)
+  public typealias CapacitorType = Capacitor.CapacitorExtensionTypeWrapper<UIKit.UIColor>
+}
+extension Capacitor.CapacitorExtensionTypeWrapper where T : UIKit.UIColor {
+  public static func color(r: Swift.Int, g: Swift.Int, b: Swift.Int, a: Swift.Int = 0xFF) -> UIKit.UIColor
+  public static func color(argb: Swift.UInt32) -> UIKit.UIColor
+  #if compiler(>=5.3) && $NonescapableTypes
+  public static func color(fromHex: Swift.String) -> UIKit.UIColor?
+  #endif
+}
+public typealias PluginCallResultData = [Swift.String : Any]
+public enum PluginCallResult {
+  case dictionary(Capacitor.PluginCallResultData)
+}
+@objc public class CAPPluginCallResult : ObjectiveC.NSObject {
+  final public let resultData: Capacitor.PluginCallResult?
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc public var data: Capacitor.PluginCallResultData? {
+    @objc get
+  }
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc(init:) public init(_ data: Capacitor.PluginCallResultData?)
+  #endif
+  @objc deinit
+}
+@objc public class CAPPluginCallError : ObjectiveC.NSObject {
+  @objc final public let message: Swift.String
+  @objc final public let code: Swift.String?
+  @objc final public let error: (any Swift.Error)?
+  final public let resultData: Capacitor.PluginCallResult?
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc public var data: Capacitor.PluginCallResultData? {
+    @objc get
+  }
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc(init:code:error:data:) public init(message: Swift.String, code: Swift.String?, error: (any Swift.Error)?, data: Capacitor.PluginCallResultData?)
+  #endif
+  @objc deinit
+}
+extension Foundation.NSNotification.Name {
+  public static let capacitorOpenURL: Foundation.Notification.Name
+  public static let capacitorOpenUniversalLink: Foundation.Notification.Name
+  public static let capacitorContinueActivity: Foundation.Notification.Name
+  public static let capacitorDidRegisterForRemoteNotifications: Foundation.Notification.Name
+  public static let capacitorDidFailToRegisterForRemoteNotifications: Foundation.Notification.Name
+  public static let capacitorDecidePolicyForNavigationAction: Foundation.Notification.Name
+  public static let capacitorStatusBarTapped: Foundation.Notification.Name
+  public static let capacitorViewDidAppear: Foundation.Notification.Name
+  public static let capacitorViewWillTransition: Foundation.Notification.Name
+  public static let capacitorSceneWillConnect: Foundation.Notification.Name
+  public static let capacitorSceneOpenURL: Foundation.Notification.Name
+  public static let capacitorSceneOpenUniversalLink: Foundation.Notification.Name
+}
+@objc extension Foundation.NSNotification {
+  @objc public static let capacitorOpenURL: Foundation.Notification.Name
+  @objc public static let capacitorOpenUniversalLink: Foundation.Notification.Name
+  @objc public static let capacitorContinueActivity: Foundation.Notification.Name
+  @objc public static let capacitorDidRegisterForRemoteNotifications: Foundation.Notification.Name
+  @objc public static let capacitorDidFailToRegisterForRemoteNotifications: Foundation.Notification.Name
+  @objc public static let capacitorDecidePolicyForNavigationAction: Foundation.Notification.Name
+  @objc public static let capacitorStatusBarTapped: Foundation.Notification.Name
+  @objc public static let capacitorViewDidAppear: Foundation.Notification.Name
+  @objc public static let capacitorViewWillTransition: Foundation.Notification.Name
+  @objc public static let capacitorSceneWillConnect: Foundation.Notification.Name
+  @objc public static let capacitorSceneOpenURL: Foundation.Notification.Name
+  @objc public static let capacitorSceneOpenUniversalLink: Foundation.Notification.Name
+}
+@objc public enum CAPNotifications : Swift.Int {
+  @available(*, deprecated, message: "renamed to 'Notification.Name.capacitorOpenURL'")
+  case URLOpen
+  @available(*, deprecated, message: "renamed to 'Notification.Name.capacitorOpenUniversalLink'")
+  case UniversalLinkOpen
+  @available(*, deprecated, message: "Notification.Name.capacitorContinueActivity'")
+  case ContinueActivity
+  @available(*, deprecated, message: "renamed to 'Notification.Name.capacitorDidRegisterForRemoteNotifications'")
+  case DidRegisterForRemoteNotificationsWithDeviceToken
+  @available(*, deprecated, message: "renamed to 'Notification.Name.capacitorDidFailToRegisterForRemoteNotifications'")
+  case DidFailToRegisterForRemoteNotificationsWithError
+  @available(*, deprecated, message: "renamed to 'Notification.Name.capacitorDecidePolicyForNavigationAction'")
+  case DecidePolicyForNavigationAction
+  public func name() -> Swift.String
+  #if compiler(>=5.3) && $NonescapableTypes
+  public init?(rawValue: Swift.Int)
+  #endif
+  public typealias RawValue = Swift.Int
+  public var rawValue: Swift.Int {
+    get
+  }
+}
+@_hasMissingDesignatedInitializers public class JSDate {
+  @objc deinit
+}
+@available(*, deprecated, renamed: "PluginCallResultData")
+public typealias JSResultBody = [Swift.String : Any]
+@_inheritsConvenienceInitializers @objc(CAPNotificationRouter) public class NotificationRouter : ObjectiveC.NSObject, UserNotifications.UNUserNotificationCenterDelegate {
+  weak public var pushNotificationHandler: (any Capacitor.NotificationHandlerProtocol)? {
+    get
+    set
+  }
+  weak public var localNotificationHandler: (any Capacitor.NotificationHandlerProtocol)? {
+    get
+    set
+  }
+  @objc public func userNotificationCenter(_ center: UserNotifications.UNUserNotificationCenter, willPresent notification: UserNotifications.UNNotification, withCompletionHandler completionHandler: @escaping (UserNotifications.UNNotificationPresentationOptions) -> Swift.Void)
+  @objc public func userNotificationCenter(_ center: UserNotifications.UNUserNotificationCenter, didReceive response: UserNotifications.UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Swift.Void)
+  @objc override dynamic public init()
+  @objc deinit
+}
+@available(*, deprecated, renamed: "PluginCallResultData")
+public typealias PluginCallErrorData = [Swift.String : Any]
+@available(*, deprecated, renamed: "PluginCallResultData")
+public typealias PluginResultData = [Swift.String : Any]
+extension Capacitor.CAPPluginCall : Capacitor.JSValueContainer {
+  public var jsObjectRepresentation: Capacitor.JSObject {
+    get
+  }
+}
+@objc extension Capacitor.CAPPluginCall {
+  @objc dynamic public var dictionaryRepresentation: Foundation.NSDictionary {
+    @objc get
+  }
+  @objc public static var jsDateFormatter: Foundation.ISO8601DateFormatter
+}
+@objc extension Capacitor.CAPPluginCall {
+  @objc @available(*, deprecated, message: "Presence of a key should not be considered significant. Use typed accessors to check the value instead.")
+  dynamic public func hasOption(_ key: Swift.String) -> Swift.Bool
+  @objc dynamic public func resolve()
+  @objc dynamic public func resolve(_ data: Capacitor.PluginCallResultData = [:])
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc dynamic public func reject(_ message: Swift.String, _ code: Swift.String? = nil, _ error: (any Swift.Error)? = nil, _ data: Capacitor.PluginCallResultData? = nil)
+  #endif
+  @objc dynamic public func unimplemented()
+  @objc dynamic public func unimplemented(_ message: Swift.String)
+  @objc dynamic public func unavailable()
+  @objc dynamic public func unavailable(_ message: Swift.String)
+}
+extension Capacitor.CAPPluginCall {
+  public func resolve<T>(with data: T, encoder: Capacitor.JSValueEncoder = JSValueEncoder(), messageForRejectionFromError: (any Swift.Error) -> Swift.String = { _ in "Failed encoding response" }) where T : Swift.Encodable
+  public func decode<T>(_ type: T.Type, decoder: Capacitor.JSValueDecoder = JSValueDecoder()) throws -> T where T : Swift.Decodable
+}
+public protocol CapacitorExtension {
+  associatedtype CapacitorType
+  var capacitor: Self.CapacitorType { get }
+  static var capacitor: Self.CapacitorType.Type { get }
+}
+extension Capacitor.CapacitorExtension {
+  public var capacitor: Capacitor.CapacitorExtensionTypeWrapper<Self> {
+    get
+  }
+  public static var capacitor: Capacitor.CapacitorExtensionTypeWrapper<Self>.Type {
+    get
+  }
+}
+public struct CapacitorExtensionTypeWrapper<T> {
+}
+public enum ResponseType : Swift.String {
+  case arrayBuffer
+  case blob
+  case document
+  case json
+  case text
+  public static let `default`: Capacitor.ResponseType
+  #if compiler(>=5.3) && $NonescapableTypes
+  public init(string: Swift.String?)
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  public init?(rawValue: Swift.String)
+  #endif
+  public typealias RawValue = Swift.String
+  public var rawValue: Swift.String {
+    get
+  }
+}
+@_hasMissingDesignatedInitializers open class HttpRequestHandler {
+  open class CapacitorHttpRequestBuilder {
+    public var url: Foundation.URL?
+    public var method: Swift.String?
+    public var params: [Swift.String : Swift.String]?
+    open var request: Capacitor.CapacitorUrlRequest?
+    public init()
+    public func setUrl(_ urlString: Swift.String) throws -> Capacitor.HttpRequestHandler.CapacitorHttpRequestBuilder
+    public func setMethod(_ method: Swift.String) -> Capacitor.HttpRequestHandler.CapacitorHttpRequestBuilder
+    public func setUrlParams(_ params: [Swift.String : Any], _ shouldEncodeUrlParams: Swift.Bool = true) -> Capacitor.HttpRequestHandler.CapacitorHttpRequestBuilder
+    open func openConnection() -> Capacitor.HttpRequestHandler.CapacitorHttpRequestBuilder
+    public func build() -> Capacitor.CapacitorUrlRequest
+    @objc deinit
+  }
+  #if compiler(>=5.3) && $NonescapableTypes
+  public static func setCookiesFromResponse(_ response: Foundation.HTTPURLResponse, _ config: Capacitor.InstanceConfiguration?)
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  public static func buildResponse(_ data: Foundation.Data?, _ response: Foundation.HTTPURLResponse, responseType: Capacitor.ResponseType = .default) -> [Swift.String : Any]
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  public static func request(_ call: Capacitor.CAPPluginCall, _ httpMethod: Swift.String?, _ config: Capacitor.InstanceConfiguration?) throws
+  #endif
+  @objc deinit
+}
+@_inheritsConvenienceInitializers @objc(CAPSystemBarsPlugin) public class CAPSystemBarsPlugin : Capacitor.CAPPlugin, Capacitor.CAPBridgedPlugin {
+  @objc final public let identifier: Swift.String
+  @objc final public let jsName: Swift.String
+  @objc final public let pluginMethods: [Capacitor.CAPPluginMethod]
+  public var hideHomeIndicator: Swift.Bool {
+    get
+  }
+  @objc override dynamic public func load()
+  @available(*, deprecated, message: "This initializer is deprecated and is not suggested for use. Any data set through this init method will be overridden when it is loaded on the bridge.")
+  @objc override dynamic public init(bridge: any Capacitor.CAPBridgeProtocol, pluginId: Swift.String, pluginName: Swift.String)
+  @objc override dynamic public init()
+  @objc deinit
+}
+extension Capacitor.CAPBridgeViewController {
+  @_Concurrency.MainActor @preconcurrency @objc override dynamic public var prefersHomeIndicatorAutoHidden: Swift.Bool {
+    @objc get
+  }
+}
+extension Swift.Array : Capacitor.CapacitorExtension {
+  public typealias CapacitorType = Capacitor.CapacitorExtensionTypeWrapper<Swift.Array<Element>>
+}
+extension Capacitor.CapacitorExtensionTypeWrapper where T == [any Capacitor.JSValue] {
+  #if compiler(>=5.3) && $NonescapableTypes
+  public func replacingNullValues() -> [(any Capacitor.JSValue)?]
+  #endif
+  public func replacingOptionalValues() -> [any Capacitor.JSValue]
+}
+extension Capacitor.CapacitorExtensionTypeWrapper where T == [(any Capacitor.JSValue)?] {
+  #if compiler(>=5.3) && $NonescapableTypes
+  public func replacingNullValues() -> [(any Capacitor.JSValue)?]
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  public func replacingOptionalValues() -> [any Capacitor.JSValue]
+  #endif
+}
+public class KeyValueStore {
+  public enum Backend {
+    case ephemeral
+    case persistent(suiteName: Swift.String)
+  }
+  public init(backend: any Capacitor.KeyValueStoreBackend)
+  public init(type: Capacitor.KeyValueStore.Backend)
+  convenience public init(suiteName: Swift.String)
+  #if compiler(>=5.3) && $NonescapableTypes
+  public func get<T>(_ key: Swift.String, as type: T.Type = T.self) throws -> T? where T : Swift.Decodable
+  #endif
+  public func set<T>(_ key: Swift.String, value: T) throws where T : Swift.Encodable
+  public func delete(_ key: Swift.String) throws
+  #if compiler(>=5.3) && $NonescapableTypes
+  public subscript<T>(key: Swift.String, as type: T.Type = T.self) -> T? where T : Swift.Decodable, T : Swift.Encodable {
+    get
+    set
+  }
+  #endif
+  public static let standard: Capacitor.KeyValueStore
+  @objc deinit
+}
+public protocol KeyValueStoreBackend {
+  #if compiler(>=5.3) && $NonescapableTypes
+  func get<T>(_ key: Swift.String, as type: T.Type) throws -> T? where T : Swift.Decodable
+  #endif
+  func set<T>(_ key: Swift.String, value: T) throws where T : Swift.Encodable
+  func delete(_ key: Swift.String) throws
+}
+@objc(CAPNotificationHandlerProtocol) public protocol NotificationHandlerProtocol {
+  @objc func willPresent(notification: UserNotifications.UNNotification) -> UserNotifications.UNNotificationPresentationOptions
+  @objc func didReceive(response: UserNotifications.UNNotificationResponse)
+}
+extension Foundation.Data {
+  public var sha256: Swift.String {
+    get
+  }
+}
+@_hasMissingDesignatedInitializers public class AppUUID {
+  public static func getAppUUID() -> Swift.String
+  public static func regenerateAppUUID()
+  @objc deinit
+}
+@objc(CAPWebViewAssetHandler) @_Concurrency.MainActor @preconcurrency open class WebViewAssetHandler : ObjectiveC.NSObject, WebKit.WKURLSchemeHandler {
+  @_Concurrency.MainActor @preconcurrency public init(router: any Capacitor.Router)
+  @_Concurrency.MainActor @preconcurrency open func setAssetPath(_ assetPath: Swift.String)
+  #if compiler(>=5.3) && $NonescapableTypes
+  @_Concurrency.MainActor @preconcurrency open func setServerUrl(_ serverUrl: Foundation.URL?)
+  #endif
+  @_Concurrency.MainActor @preconcurrency @objc open func webView(_ webView: WebKit.WKWebView, start urlSchemeTask: any WebKit.WKURLSchemeTask)
+  @_Concurrency.MainActor @preconcurrency @objc open func webView(_ webView: WebKit.WKWebView, stop urlSchemeTask: any WebKit.WKURLSchemeTask)
+  @_Concurrency.MainActor @preconcurrency open func mimeTypeForExtension(pathExtension: Swift.String) -> Swift.String
+  @_Concurrency.MainActor @preconcurrency open func isMediaExtension(pathExtension: Swift.String) -> Swift.Bool
+  @_Concurrency.MainActor @preconcurrency final public let mimeTypes: [Swift.String : Swift.String]
+  @objc deinit
+}
+@_inheritsConvenienceInitializers @objc(CAPHttpPlugin) public class CAPHttpPlugin : Capacitor.CAPPlugin, Capacitor.CAPBridgedPlugin {
+  @objc final public let identifier: Swift.String
+  @objc final public let jsName: Swift.String
+  @objc final public let pluginMethods: [Capacitor.CAPPluginMethod]
+  @available(*, deprecated, message: "This initializer is deprecated and is not suggested for use. Any data set through this init method will be overridden when it is loaded on the bridge.")
+  @objc override dynamic public init(bridge: any Capacitor.CAPBridgeProtocol, pluginId: Swift.String, pluginName: Swift.String)
+  @objc override dynamic public init()
+  @objc deinit
+}
+@_hasMissingDesignatedInitializers @objc public class PluginConfig : ObjectiveC.NSObject {
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc public func getString(_ configKey: Swift.String, _ defaultValue: Swift.String? = nil) -> Swift.String?
+  #endif
+  @objc public func getBoolean(_ configKey: Swift.String, _ defaultValue: Swift.Bool) -> Swift.Bool
+  @objc public func getInt(_ configKey: Swift.String, _ defaultValue: Swift.Int) -> Swift.Int
+  @objc public func getDouble(_ configKey: Swift.String, _ defaultValue: Swift.Double) -> Swift.Double
+  #if compiler(>=5.3) && $NonescapableTypes
+  public func getArray(_ configKey: Swift.String, _ defaultValue: Capacitor.JSArray? = nil) -> Capacitor.JSArray?
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  public func getObject(_ configKey: Swift.String) -> Capacitor.JSObject?
+  #endif
+  @objc public func isEmpty() -> Swift.Bool
+  public func getConfigJSON() -> Capacitor.JSObject
+  @objc deinit
+}
+public protocol CAPBridgeDelegate : AnyObject {
+  #if compiler(>=5.3) && $NonescapableTypes
+  var bridgedWebView: WebKit.WKWebView? { get }
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  var bridgedViewController: UIKit.UIViewController? { get }
+  #endif
+}
+public struct KeyPath {
+}
+extension Capacitor.KeyPath : Swift.ExpressibleByStringLiteral {
+  public init(stringLiteral value: Swift.String)
+  public init(unicodeScalarLiteral value: Swift.String)
+  public init(extendedGraphemeClusterLiteral value: Swift.String)
+  public typealias ExtendedGraphemeClusterLiteralType = Swift.String
+  public typealias StringLiteralType = Swift.String
+  public typealias UnicodeScalarLiteralType = Swift.String
+}
+extension Swift.Dictionary where Key == Swift.String, Value == any Capacitor.JSValue {
+  #if compiler(>=5.3) && $NonescapableTypes
+  public subscript(keyPath keyPath: Capacitor.KeyPath) -> (any Capacitor.JSValue)? {
+    get
+  }
+  #endif
+}
+@_inheritsConvenienceInitializers @objc(CAPConsolePlugin) public class CAPConsolePlugin : Capacitor.CAPPlugin, Capacitor.CAPBridgedPlugin {
+  @objc final public let identifier: Swift.String
+  @objc final public let jsName: Swift.String
+  @objc final public let pluginMethods: [Capacitor.CAPPluginMethod]
+  @objc public func log(_ call: Capacitor.CAPPluginCall)
+  @available(*, deprecated, message: "This initializer is deprecated and is not suggested for use. Any data set through this init method will be overridden when it is loaded on the bridge.")
+  @objc override dynamic public init(bridge: any Capacitor.CAPBridgeProtocol, pluginId: Swift.String, pluginName: Swift.String)
+  @objc override dynamic public init()
+  @objc deinit
+}
+@_hasMissingDesignatedInitializers public class CAPLog {
+  public static var enableLogging: Swift.Bool
+  public static func print(_ items: Any..., separator: Swift.String = " ", terminator: Swift.String = "\n")
+  @objc deinit
+}
+extension Capacitor.InstanceConfiguration {
+  @objc dynamic public var appStartFileURL: Foundation.URL {
+    @objc get
+  }
+  @objc dynamic public var appStartServerURL: Foundation.URL {
+    @objc get
+  }
+  #if compiler(>=5.3) && $NonescapableTypes
+  @objc dynamic public var errorPathURL: Foundation.URL? {
+    @objc get
+  }
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  @available(*, deprecated, message: "Use getPluginConfig")
+  @objc dynamic public func getPluginConfigValue(_ pluginId: Swift.String, _ configKey: Swift.String) -> Any?
+  #endif
+  @objc dynamic public func getPluginConfig(_ pluginId: Swift.String) -> Capacitor.PluginConfig
+  @objc dynamic public func shouldAllowNavigation(to host: Swift.String) -> Swift.Bool
+  #if compiler(>=5.3) && $NonescapableTypes
+  @available(*, deprecated, message: "Use direct property accessors")
+  @objc dynamic public func getValue(_ key: Swift.String) -> Any?
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  @available(*, deprecated, message: "Use direct property accessors")
+  @objc dynamic public func getString(_ key: Swift.String) -> Swift.String?
+  #endif
+}
+public enum InstanceDescriptorDefaults {
+  public static let scheme: Swift.String
+  public static let hostname: Swift.String
+}
+extension Capacitor.InstanceDescriptor {
+  @objc dynamic public var cordovaDeployDisabled: Swift.Bool {
+    @objc get
+  }
+  @objc dynamic public func normalize()
+}
+@_inheritsConvenienceInitializers @objc(CAPApplicationDelegateProxy) @_Concurrency.MainActor @preconcurrency public class ApplicationDelegateProxy : ObjectiveC.NSObject, UIKit.UIApplicationDelegate {
+  @_Concurrency.MainActor @preconcurrency public static let shared: Capacitor.ApplicationDelegateProxy
+  @_Concurrency.MainActor @preconcurrency public var lastURL: Foundation.URL? {
+    get
+  }
+  @_Concurrency.MainActor @preconcurrency @objc public func application(_ app: UIKit.UIApplication, open url: Foundation.URL, options: [UIKit.UIApplication.OpenURLOptionsKey : Any] = [:]) -> Swift.Bool
+  #if compiler(>=5.3) && $NonescapableTypes
+  @_Concurrency.MainActor @preconcurrency @objc public func application(_ application: UIKit.UIApplication, continue userActivity: Foundation.NSUserActivity, restorationHandler: @escaping ([any UIKit.UIUserActivityRestoring]?) -> Swift.Void) -> Swift.Bool
+  #endif
+  @_Concurrency.MainActor @preconcurrency @objc override dynamic public init()
+  @objc deinit
+}
+@_inheritsConvenienceInitializers @objc(CAPWebViewPlugin) public class CAPWebViewPlugin : Capacitor.CAPPlugin, Capacitor.CAPBridgedPlugin {
+  @objc final public let identifier: Swift.String
+  @objc final public let jsName: Swift.String
+  @objc final public let pluginMethods: [Capacitor.CAPPluginMethod]
+  @available(*, deprecated, message: "This initializer is deprecated and is not suggested for use. Any data set through this init method will be overridden when it is loaded on the bridge.")
+  @objc override dynamic public init(bridge: any Capacitor.CAPBridgeProtocol, pluginId: Swift.String, pluginName: Swift.String)
+  @objc override dynamic public init()
+  @objc deinit
+}
+extension Capacitor.CapacitorBridgeError : Swift.Equatable {}
+extension Capacitor.CapacitorBridgeError : Swift.Hashable {}
+extension Capacitor.WebViewDelegationHandler : Swift.Sendable {}
+extension Capacitor.CAPPluginMethod.ReturnType : Swift.Equatable {}
+extension Capacitor.CAPPluginMethod.ReturnType : Swift.Hashable {}
+extension Capacitor.CAPPluginMethod.ReturnType : Swift.RawRepresentable {}
+extension Capacitor.JSValueEncoder.OptionalEncodingStrategy : Swift.Equatable {}
+extension Capacitor.JSValueEncoder.OptionalEncodingStrategy : Swift.Hashable {}
+extension Capacitor.CapacitorWKCookieObserver : Swift.Sendable {}
+extension Capacitor.SceneDelegateProxy : Swift.Sendable {}
+extension Capacitor.CAPNotifications : Swift.Equatable {}
+extension Capacitor.CAPNotifications : Swift.Hashable {}
+extension Capacitor.CAPNotifications : Swift.RawRepresentable {}
+extension Capacitor.ResponseType : Swift.Equatable {}
+extension Capacitor.ResponseType : Swift.Hashable {}
+extension Capacitor.ResponseType : Swift.RawRepresentable {}
+extension Capacitor.WebViewAssetHandler : Swift.Sendable {}
+extension Capacitor.ApplicationDelegateProxy : Swift.Sendable {}

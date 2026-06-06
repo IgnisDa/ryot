@@ -1,4 +1,4 @@
-import type { PluginPackage } from "@ryot/contract/modules/plugins/schemas";
+import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
 import { EntityId, EventSchemaSlug, PluginSlug } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
@@ -29,7 +29,7 @@ import {
 } from "~/support/assertions";
 import { assert, describe, expect, it } from "~/support/effect-test";
 
-type PluginScript = PluginPackage["manifest"]["scripts"][number];
+type PluginScript = PluginManifest["scripts"][number];
 
 describe("plugins", () => {
 	it.live("runs a third-party plugin lifecycle without restarting", () =>

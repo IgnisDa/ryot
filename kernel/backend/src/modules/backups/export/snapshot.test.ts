@@ -409,12 +409,15 @@ it.effect(
 						verifyManagedAssetOwnership: () => Effect.succeed([]),
 					}),
 					Layer.mock(PluginRepository, {
+						listSourceFiles: () =>
+							Effect.succeed({
+								"client/asset.png": new Uint8Array([0x00, 0xff, 0x80, 0x41]),
+							}),
 						listPrivateForUser: () =>
 							Effect.succeed([
 								{
 									scripts: [],
 									ownerId: userId,
-									sourceFiles: {},
 									slug: "private-plugin",
 									scope: "user" as const,
 									id: "private-plugin-id",
@@ -503,7 +506,7 @@ it.effect(
 			]);
 			expect(prepared.records.privatePlugins).toEqual([
 				expect.objectContaining({
-					files: {},
+					files: { "client/asset.png": "AP+AQQ==" },
 					slug: "private-plugin",
 					sourceHash: privateSourceHash,
 					key: `user:private-plugin:${privateSourceHash}`,
@@ -709,6 +712,7 @@ it.effect("reuses one export context across every event page", () => {
 						}),
 				}),
 				Layer.mock(PluginRepository, {
+					listSourceFiles: () => Effect.succeed({}),
 					listPortablePluginMetadata: () =>
 						Effect.sync(() => {
 							portableReads += 1;
@@ -723,7 +727,6 @@ it.effect("reuses one export context across every event page", () => {
 									sourceHash,
 									scripts: [],
 									ownerId: userId,
-									sourceFiles: {},
 									slug: "private-plugin",
 									scope: "user" as const,
 									id: "private-plugin-id",

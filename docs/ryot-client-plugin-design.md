@@ -323,7 +323,16 @@ backend/**
 client/**
 ```
 
-Client-local CSS and assets live under `client/**`. The source archive remains distinct from the compiled client artifact.
+Client-local CSS and supported assets live under `client/**`. The source archive remains distinct from the compiled client artifact.
+
+The canonical client file policy is deliberately narrow:
+
+- text sources use the exact extensions `.ts`, `.tsx`, and `.css`
+- binary assets use the exact lowercase extensions `.svg`, `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.avif`, `.ico`, `.woff2`, and `.wasm`
+
+The server/compiler derives an asset's MIME type from its extension; plugins do not supply one. Archive entries preserve their exact raw bytes. `backend/**` and client text sources require fatal UTF-8 validation, while client assets are never decoded as text. Archive limits are 1,024 entries, 256-byte paths, a 4 MiB manifest, 256 KiB per non-manifest entry, 16 MiB total uncompressed bytes, and 8 MiB compressed bytes.
+
+There is no alternate compatibility representation for client files.
 
 ---
 
@@ -339,7 +348,7 @@ The server runs the client compiler during plugin installation and update. The p
 
 The compiler:
 
-1. validates the client entry and source package
+1. validates the client entry, client file policy, and raw-byte limits
 2. rejects unsupported external imports
 3. resolves approved SDK imports to Ryot-controlled implementations
 4. compiles Tailwind for that plugin
@@ -353,7 +362,7 @@ Conceptually:
 plugin source
     │
     ├── local TS / TSX
-    ├── local CSS / assets
+    ├── local CSS / supported binary assets
     └── imports from approved Ryot SDKs
           │
           ▼
@@ -366,6 +375,10 @@ plugin source
           ▼
 content-addressed client artifact
 ```
+
+The compiler operates on raw `Uint8Array` file contents. It enforces a 512 KiB limit over all `client/**` input bytes, a 256 KiB limit per asset, and an 8 MiB limit over the emitted artifact. Asset names are `asset-<sha256>.<ext>`, where the SHA-256 is computed from the exact asset bytes. A TS/TSX import emits a `./asset-<sha256>.<ext>` URL, and CSS references use the same name, so the same asset is emitted only once.
+
+The JSON worker protocol encodes file and artifact bytes as strict canonical padded Base64 only for transport. It decodes them back to raw bytes before compilation and encodes results the same way; Base64 is not a source, persistence, or compatibility representation.
 
 The compiler owns the effective versions of:
 
@@ -409,6 +422,8 @@ The important invariants are:
 The package source revision and client artifact are both fixed for the lifetime of a bridge session. When either identity changes, the kernel force-reloads any mounted iframe for that installation. An old client document must not continue calling a newer backend plugin revision, including when a backend-only update leaves the compiled client artifact unchanged. For every operation, the kernel attaches the session's expected package source hash to the authenticated backend request. The backend compares it with the active revision while holding the plugin-ingestion lock and refuses a mismatch before selecting a script for execution. The stale-revision conflict remains internal to the kernel: it closes the bridge, refreshes the catalog, and replaces the iframe without delivering an ordinary operation outcome to the plugin.
 
 Artifact persistence is append-only. `plugin_client_artifact` stores metadata keyed by artifact hash, and `plugin_client_artifact_file` stores files keyed by `(artifact_hash, name)`. The plugin row stores only the nullable hash of its active client artifact. Installing or updating inserts an artifact before activating its hash and never updates an existing artifact record. Old artifacts remain addressable and are retained indefinitely; garbage collection requires a separate retention policy and is not implemented.
+
+`plugin_source_file.contents` and `plugin_client_artifact_file.contents` are PostgreSQL `bytea` values containing the original or emitted raw bytes. JSON worker, backup, and test-support boundaries use strict canonical padded Base64 only as transport encoding; neither database persistence nor the archive has a parallel string representation. Source identity is SHA-256-based over the manifest and per-file content hashes. Artifact identity is SHA-256-based over its metadata and each emitted file's name, content type, and content hash.
 
 ### Artifact identity is embedded, never authored
 
@@ -484,6 +499,8 @@ imports are rejected. Plugin-controlled CSS resolution never falls back to the c
 filesystem.
 
 They may also use normal web-platform animation, View Transitions, SVG, Canvas, and other browser technologies.
+
+Relative `url(...)` references to local assets are resolved against the CSS file that contains them, including CSS files reached through nested relative imports, and are rewritten to the corresponding `./asset-<sha256>.<ext>` URL. References from JavaScript and CSS to the same asset are deduplicated. External-scheme URLs, protocol-relative URLs, data URLs, and fragment URLs remain unchanged. Root-relative URLs, traversal outside `client/**`, missing local assets, and unsupported local asset extensions fail compilation.
 
 ### Dynamic Tailwind classes
 
@@ -779,6 +796,8 @@ The target model is an isolated iframe/document with:
 The kernel renders the plugin document in `<iframe sandbox="allow-scripts" referrerPolicy="no-referrer">`. This gives the plugin document an opaque origin: no kernel DOM access, no same-origin storage, and no readable Ryot credentials.
 
 The kernel serves artifact files from a public, unauthenticated, content-addressed route: `GET /api/plugins/artifacts/:artifactHash/:fileName`. The unguessable sha256 path means the sandboxed document never needs credentials to load. An unknown hash or file name returns 404. Every response carries its correct content type, `x-content-type-options: nosniff`, and `cache-control: public, max-age=31536000, immutable`; artifact routes do not emit an ETag. Artifact responses use wildcard, non-credentialed CORS because sandboxed documents have the opaque `null` origin, and the server's credentialed API CORS middleware does not overwrite that route policy. `index.html` additionally carries `content-security-policy: sandbox allow-scripts` as defence in depth.
+
+Artifact files are returned as raw byte HTTP responses. The server derives the MIME type for client assets from their canonical lowercase extensions; generated HTML, JavaScript, and CSS use their generated content types. The response policy applies to binary and text files alike: MIME, wildcard non-credentialed CORS, `nosniff`, immutable public caching, and the `index.html` sandbox CSP are server-owned.
 
 The invariant is more important than the mechanism:
 

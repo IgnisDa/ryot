@@ -1,5 +1,4 @@
-import type { PluginPackage } from "@ryot/contract/modules/plugins/schemas";
-import { readPluginArchive } from "@ryot/plugin-archive";
+import { readPluginArchive, type PluginArchivePackage } from "@ryot/plugin-archive";
 import { Context, Effect, FileSystem, Layer, Path } from "effect";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
@@ -12,7 +11,7 @@ export const discoverSystemPlugins = Effect.fn("discoverSystemPlugins")(function
 	}
 
 	const entries = yield* fs.readDirectory(root);
-	const sources: Array<PluginPackage> = [];
+	const sources: Array<PluginArchivePackage> = [];
 	for (const filename of entries.filter((entry) => entry.endsWith(".zip")).sort()) {
 		const archivePath = path.join(root, filename);
 		const info = yield* fs.stat(archivePath);

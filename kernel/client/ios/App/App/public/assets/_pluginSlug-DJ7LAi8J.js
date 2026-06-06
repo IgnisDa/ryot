@@ -1,0 +1,1 @@
+var e=()=>null;export{e as component};

@@ -37,6 +37,7 @@ import type { StoredPlugin } from "./types";
 import { PLUGIN_PACKAGE_LIMITS } from "./validation";
 
 const userId = UserId.make("user-1");
+const bytes = (value: string) => new TextEncoder().encode(value);
 
 const failureOf = (exit: Exit.Exit<unknown, unknown>) => {
 	assert(Exit.isFailure(exit));
@@ -65,7 +66,6 @@ const storedPrivatePlugin = (manifest: PluginManifest): StoredPlugin => ({
 	scripts: [],
 	scope: "user",
 	ownerId: userId,
-	sourceFiles: {},
 	status: "active",
 	slug: manifest.metadata.slug,
 	clientArtifactHash: null,
@@ -300,7 +300,6 @@ const systemEntry = (manifest: PluginManifest): PluginRegistryEntry => ({
 	manifest,
 	scripts: [],
 	ownerId: null,
-	sourceFiles: {},
 	scope: "system",
 	clientArtifactHash: null,
 	slug: manifest.metadata.slug,
@@ -400,7 +399,7 @@ it.effect("rejects an oversized package before compiling it", () => {
 	const files = Object.fromEntries(
 		Array.from({ length: PLUGIN_PACKAGE_LIMITS.fileCount + 1 }, (_unused, index) => [
 			`scripts/file-${index}.ts`,
-			"this is not valid typescript {{{",
+			bytes("this is not valid typescript {{{"),
 		]),
 	);
 	return Effect.gen(function* () {
@@ -1059,7 +1058,7 @@ it.effect("updates source while retaining plugin, installation, and omitted secr
 			manifest: nextManifest,
 			config: { region: "ca" },
 			pluginSlug: privatePlugin.slug,
-			files: { [operationScript.entry]: operationScriptSource },
+			files: { [operationScript.entry]: bytes(operationScriptSource) },
 		});
 
 		expect(persisted).toHaveLength(1);
@@ -1222,7 +1221,7 @@ it.effect("rejects an operation referencing an undeclared script slug", () => {
 			service.installPrivatePlugin({
 				userId,
 				config: {},
-				files: { [operationScript.entry]: operationScriptSource },
+				files: { [operationScript.entry]: bytes(operationScriptSource) },
 				manifest: privateManifest({
 					scripts: [operationScript],
 					operations: [
@@ -1257,7 +1256,7 @@ it.effect("rejects duplicate operation slugs before compiling the package", () =
 			service.installPrivatePlugin({
 				userId,
 				config: {},
-				files: { [operationScript.entry]: operationScriptSource },
+				files: { [operationScript.entry]: bytes(operationScriptSource) },
 				manifest: privateManifest({
 					operations: [operation, operation],
 					scripts: [operationScript],
@@ -1297,7 +1296,7 @@ it.effect(
 				userId,
 				config: {},
 				manifest: operationManifest,
-				files: { [operationScript.entry]: operationScriptSource },
+				files: { [operationScript.entry]: bytes(operationScriptSource) },
 			});
 			expect(installed.scope).toBe("user");
 			expect(installed.slug).toBe("private-fixture");
@@ -1318,7 +1317,7 @@ it.effect("marks the installation failed when its lifecycle cannot be dispatched
 			userId,
 			config: {},
 			manifest: operationManifest,
-			files: { [operationScript.entry]: operationScriptSource },
+			files: { [operationScript.entry]: bytes(operationScriptSource) },
 		});
 		expect(dispatched).toHaveLength(1);
 		expect(healthUpdates).toEqual([
@@ -1352,7 +1351,7 @@ it.effect("rejects user bootstrap for a private package update", () => {
 					userId,
 					manifest: nextManifest,
 					pluginSlug: privatePlugin.slug,
-					files: { [bootstrapScript.entry]: bootstrapScriptSource },
+					files: { [bootstrapScript.entry]: bytes(bootstrapScriptSource) },
 				}),
 			),
 		);

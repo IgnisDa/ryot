@@ -1,5 +1,5 @@
 import type { ContractPayload, ContractSuccess } from "@ryot/contract/client";
-import type { PluginPackage } from "@ryot/contract/modules/plugins/schemas";
+import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
 import { UserId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
@@ -18,7 +18,6 @@ type SandboxResult = Exclude<
 	ContractSuccess<"testSupport", "getSandboxResult">,
 	{ status: "pending" }
 >;
-type PluginManifest = PluginPackage["manifest"];
 type GenericTestPluginScript = Extract<TestPluginScript, { kind: "script" }>;
 type InstallSandboxScriptInput = Pick<GenericTestPluginScript, "name" | "slug"> &
 	Partial<
