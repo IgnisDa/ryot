@@ -9,7 +9,7 @@ import { EventSchemasService } from "./service";
 
 export const EventSchemasRoutesLive = HttpApiBuilder.group(
 	AppContract,
-	"event-schemas",
+	"eventSchemas",
 	(handlers) =>
 		handlers
 			.handle("list", ({ urlParams }) =>

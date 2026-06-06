@@ -37,14 +37,14 @@ type LegacyCapableBackendClient = {
 		getImportResult: RouteMethod;
 		import: RouteMethod;
 	};
-	"entity-schemas": {
+	entitySchemas: {
 		create: RouteMethod;
 		get: RouteMethod;
 		getSearchResult: RouteMethod;
 		list: RouteMethod;
 		search: RouteMethod;
 	};
-	"event-schemas": {
+	eventSchemas: {
 		create: RouteMethod;
 		list: RouteMethod;
 	};
@@ -52,7 +52,7 @@ type LegacyCapableBackendClient = {
 		create: RouteMethod;
 		list: RouteMethod;
 	};
-	"god-mode": {
+	godMode: {
 		listUsers: RouteMethod;
 		resetUserPassword: RouteMethod;
 		setUserBan: RouteMethod;
@@ -69,7 +69,7 @@ type LegacyCapableBackendClient = {
 		getRuns: RouteMethod;
 		update: RouteMethod;
 	};
-	"query-engine": {
+	queryEngine: {
 		execute: RouteMethod;
 	};
 	sandbox: {
@@ -124,14 +124,14 @@ const toLegacyResponse = async (path: string, response: LegacyResponse): LegacyR
 // Saved-views entries were removed as part of Task 23.
 const getHandlers: Record<string, LegacyRouteHandler> = {
 	"/entity-schemas/{entitySchemaId}": (client, request) =>
-		client["entity-schemas"].get(request as never),
+		client.entitySchemas.get(request as never),
 	"/entity-schemas/search/{jobId}": (client, request) =>
-		client["entity-schemas"].getSearchResult(request as never),
+		client.entitySchemas.getSearchResult(request as never),
 	"/entities/{entityId}": (client, request) => client.entities.get(request as never),
 	"/entities/import/{jobId}": (client, request) =>
 		client.entities.getImportResult(request as never),
 	"/events": (client, request) => client.events.list(request as never),
-	"/god-mode/users": (client, request) => client["god-mode"].listUsers(request as never),
+	"/god-mode/users": (client, request) => client.godMode.listUsers(request as never),
 	"/imports/runs": (client, request) => client.imports.listRuns(request as never),
 	"/imports/runs/{runId}": (client, request) => client.imports.getRun(request as never),
 	"/integrations/{integrationId}": (client, request) => client.integrations.get(request as never),
@@ -146,20 +146,20 @@ const postHandlers: Record<string, LegacyRouteHandler> = {
 	"/collections": (client, request) => client.collections.create(request as never),
 	"/collections/memberships": (client, request) =>
 		client.collections.createMembership(request as never),
-	"/entity-schemas": (client, request) => client["entity-schemas"].create(request as never),
-	"/entity-schemas/list": (client, request) => client["entity-schemas"].list(request as never),
-	"/entity-schemas/search": (client, request) => client["entity-schemas"].search(request as never),
+	"/entity-schemas": (client, request) => client.entitySchemas.create(request as never),
+	"/entity-schemas/list": (client, request) => client.entitySchemas.list(request as never),
+	"/entity-schemas/search": (client, request) => client.entitySchemas.search(request as never),
 	"/entities": (client, request) => client.entities.create(request as never),
 	"/entities/import": (client, request) => client.entities.import(request as never),
-	"/event-schemas": (client, request) => client["event-schemas"].create(request as never),
+	"/event-schemas": (client, request) => client.eventSchemas.create(request as never),
 	"/events": (client, request) => client.events.create(request as never),
 	"/god-mode/users/{userId}/ban/set": (client, request) =>
-		client["god-mode"].setUserBan(request as never),
+		client.godMode.setUserBan(request as never),
 	"/god-mode/users/{userId}/reset-password": (client, request) =>
-		client["god-mode"].resetUserPassword(request as never),
+		client.godMode.resetUserPassword(request as never),
 	"/imports/runs": (client, request) => client.imports.createRun(request as never),
 	"/integrations": (client, request) => client.integrations.create(request as never),
-	"/query-engine/execute": (client, request) => client["query-engine"].execute(request as never),
+	"/query-engine/execute": (client, request) => client.queryEngine.execute(request as never),
 	"/sandbox/enqueue": (client, request) => client.sandbox.enqueue(request as never),
 	"/uploads/presigned": (client, request) => client.uploads.createPresigned(request as never),
 	"/uploads/presigned/download": (client, request) =>

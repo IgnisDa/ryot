@@ -44,7 +44,7 @@ const QueryEngineResponse = Schema.Union(
 	}),
 );
 
-export const QueryEngineGroup = HttpApiGroup.make("query-engine")
+export const QueryEngineGroup = HttpApiGroup.make("queryEngine")
 	.addError(Unauthorized, { status: 401 })
 	.addError(RateLimited, { status: 429 })
 	.add(
