@@ -30,6 +30,10 @@ export const showSeasonPropertiesSchema: AppSchema = {
 	fields: {
 		description: stringField("Description", "Season overview or summary"),
 		releaseDate: stringField("Release Date", "Season release date as an ISO 8601 date string"),
+		parentShowExternalId: stringField(
+			"Parent Show External Id",
+			"Provider external id of the parent show",
+		),
 		seasonNumber: {
 			type: "integer",
 			label: "Season Number",
@@ -44,6 +48,10 @@ export const showEpisodePropertiesSchema: AppSchema = {
 		runtime: integerField("Runtime", "Runtime in minutes"),
 		description: stringField("Description", "Episode overview or summary"),
 		publishDate: stringField("Publish Date", "Episode air date as an ISO 8601 date string"),
+		parentShowExternalId: stringField(
+			"Parent Show External Id",
+			"Provider external id of the parent show",
+		),
 		seasonNumber: {
 			type: "integer",
 			label: "Season Number",
