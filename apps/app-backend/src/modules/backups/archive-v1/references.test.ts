@@ -1,7 +1,24 @@
 import { expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 
-import { backupV1EventReferenceRules, rewriteV1EventReferences } from "./v1-rewrites";
+import {
+	backupV1EventReferenceRules,
+	collectV1EmbeddedEntityIds,
+	rewriteV1EventReferences,
+} from "./references";
+
+it("collects otherwise unreferenced global entity IDs from V1 embedded rules", () => {
+	expect(
+		collectV1EmbeddedEntityIds([
+			{
+				entitySchemaSlug: "workout-template",
+				properties: {
+					exercises: [{ exerciseId: "global-exercise" }, { exerciseId: "global-exercise" }],
+				},
+			},
+		]),
+	).toEqual(["global-exercise"]);
+});
 
 const timestamp = "2026-08-23T12:00:00.000Z";
 
