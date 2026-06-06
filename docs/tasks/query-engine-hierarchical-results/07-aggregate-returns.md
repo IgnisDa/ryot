@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -14,14 +14,14 @@ This slice should absorb the old aggregate mode into the v2 source model while p
 
 ## Acceptance criteria
 
-- [ ] Ungrouped aggregate returns produce exactly one item and no pageInfo.
-- [ ] Grouped aggregate returns produce one item per group plus `pageInfo` with `limit` and `hasMore`.
-- [ ] Grouped aggregate returns require non-empty orderBy and a limit no greater than 1000.
-- [ ] Aggregate-return measures use `{ key, aggregation }` with the shared aggregation spec.
-- [ ] `measureRef` is valid only inside aggregate-return orderBy and resolves to a sibling measure key.
-- [ ] GroupBy keys and measure keys must be unique in the aggregate output namespace.
-- [ ] Count, sum, average, minimum, maximum, and count distinct behave according to the shared aggregation spec semantics.
-- [ ] E2E tests cover ungrouped count, grouped count by a property, ordering by `measureRef`, grouped pagination hasMore, and validation for duplicate aggregate output keys.
+- [x] Ungrouped aggregate returns produce exactly one item and no pageInfo.
+- [x] Grouped aggregate returns produce one item per group plus `pageInfo` with `limit` and `hasMore`.
+- [x] Grouped aggregate returns require non-empty orderBy and a limit no greater than 1000.
+- [x] Aggregate-return measures use `{ key, aggregation }` with the shared aggregation spec.
+- [x] `measureRef` is valid only inside aggregate-return orderBy and resolves to a sibling measure key.
+- [x] GroupBy keys and measure keys must be unique in the aggregate output namespace.
+- [x] Count, sum, average, minimum, maximum, and count distinct behave according to the shared aggregation spec semantics.
+- [x] E2E tests cover ungrouped count, grouped count by a property, ordering by `measureRef`, grouped pagination hasMore, and validation for duplicate aggregate output keys.
 
 ## User stories addressed
 

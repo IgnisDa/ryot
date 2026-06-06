@@ -3,6 +3,7 @@ import type {
 	Expr,
 	FieldSelector,
 	IncludeEntryV2,
+	RowsOutputV2,
 	NestedEventSourceV2,
 	QueryDocumentV2,
 	RootEventSourceV2,
@@ -12,6 +13,7 @@ import type {
 const MAX_ROOT_PAGE_SIZE = 100;
 const MAX_INCLUDE_LIMIT = 100;
 const MAX_INCLUDE_DEPTH = 3;
+const MAX_GROUPED_AGGREGATE_LIMIT = 1000;
 const MAX_EXPRESSION_SOURCE_DEPTH = 3;
 
 const ENTITY_SYSTEM_FIELDS = new Set([
@@ -96,6 +98,7 @@ const validateExpr = (
 	aliases: AliasScope,
 	expressionSourceDepth = 0,
 	allowFirst = false,
+	measureKeys: ReadonlySet<string> | null = null,
 ): string | null => {
 	if (expr.type === "literal") {
 		return null;
@@ -107,6 +110,13 @@ const validateExpr = (
 			return `Unknown source alias '${expr.sourceAlias}'`;
 		}
 		return validateFieldSelector(expr.field, entry);
+	}
+
+	if (expr.type === "measureRef") {
+		if (measureKeys === null) {
+			return "Measure references are valid only in aggregate orderBy";
+		}
+		return measureKeys.has(expr.key) ? null : `Unknown aggregate measure key '${expr.key}'`;
 	}
 
 	if (expr.type === "exists") {
@@ -437,23 +447,7 @@ const validateIncludeEntry = (
 	return null;
 };
 
-export const validateQueryDocumentV2 = (doc: QueryDocumentV2): string | null => {
-	const scope: AliasScope = new Map();
-	const aliases: AliasScope = new Map();
-	const { source } = doc;
-	if (source.type === "entities" && source.via !== undefined) {
-		return "Root entity source cannot specify via";
-	}
-	const sourceError =
-		source.type === "entities"
-			? validateEntitySource(source, scope, aliases)
-			: validateRootEventSource(source, scope, aliases);
-	if (sourceError) {
-		return sourceError;
-	}
-
-	const output = doc.output;
-
+const validateRowsOutput = (output: RowsOutputV2, scope: AliasScope, aliases: AliasScope) => {
 	if (output.pagination.limit > MAX_ROOT_PAGE_SIZE) {
 		return `Pagination limit ${output.pagination.limit} exceeds maximum of ${MAX_ROOT_PAGE_SIZE}`;
 	}
@@ -497,4 +491,98 @@ export const validateQueryDocumentV2 = (doc: QueryDocumentV2): string | null => 
 	}
 
 	return null;
+};
+
+const validateAggregateOutput = (
+	output: Extract<QueryDocumentV2["output"], { type: "aggregate" }>,
+	scope: AliasScope,
+	aliases: AliasScope,
+) => {
+	const outputKeys = new Set<string>();
+	for (const group of output.groupBy ?? []) {
+		if (outputKeys.has(group.key)) {
+			return `Duplicate aggregate output key '${group.key}'`;
+		}
+		outputKeys.add(group.key);
+	}
+
+	const measureKeys = new Set<string>();
+	for (const measure of output.measures) {
+		if (outputKeys.has(measure.key)) {
+			return `Duplicate aggregate output key '${measure.key}'`;
+		}
+		outputKeys.add(measure.key);
+		measureKeys.add(measure.key);
+	}
+
+	const isGrouped = (output.groupBy?.length ?? 0) > 0;
+	if (isGrouped) {
+		if (output.limit === undefined) {
+			return "Grouped aggregate returns require a limit";
+		}
+		if (output.limit > MAX_GROUPED_AGGREGATE_LIMIT) {
+			return `Grouped aggregate limit ${output.limit} exceeds maximum of ${MAX_GROUPED_AGGREGATE_LIMIT}`;
+		}
+		if (output.orderBy === undefined || output.orderBy.length === 0) {
+			return "Grouped aggregate returns require non-empty orderBy";
+		}
+	}
+
+	for (const group of output.groupBy ?? []) {
+		const error = validateExpr(group.expr, scope, aliases);
+		if (error) {
+			return error;
+		}
+	}
+
+	for (const measure of output.measures) {
+		const aggregation = measure.aggregation;
+		if (aggregation.function === "count") {
+			if (aggregation.distinctBy === undefined) {
+				continue;
+			}
+			const error = validateExpr(aggregation.distinctBy, scope, aliases);
+			if (error) {
+				return error;
+			}
+			continue;
+		}
+
+		const error = validateExpr(aggregation.expr, scope, aliases);
+		if (error) {
+			return error;
+		}
+	}
+
+	for (const entry of output.orderBy ?? []) {
+		const error = validateExpr(entry.expr, scope, aliases, 0, false, measureKeys);
+		if (error) {
+			return error;
+		}
+		if (entry.expr.type !== "measureRef") {
+			return "Aggregate orderBy currently supports measureRef expressions only";
+		}
+	}
+
+	return null;
+};
+
+export const validateQueryDocumentV2 = (doc: QueryDocumentV2): string | null => {
+	const scope: AliasScope = new Map();
+	const aliases: AliasScope = new Map();
+	const { source } = doc;
+	if (source.type === "entities" && source.via !== undefined) {
+		return "Root entity source cannot specify via";
+	}
+	const sourceError =
+		source.type === "entities"
+			? validateEntitySource(source, scope, aliases)
+			: validateRootEventSource(source, scope, aliases);
+	if (sourceError) {
+		return sourceError;
+	}
+
+	return doc.output.type === "rows"
+		? validateRowsOutput(doc.output, scope, aliases)
+		: validateAggregateOutput(doc.output, scope, aliases);
 };
