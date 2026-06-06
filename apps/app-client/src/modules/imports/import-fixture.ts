@@ -1,0 +1,144 @@
+import { importRunRecipe, manualImportRunsRecipe } from "@ryot/ryotql-recipes/import-runs";
+import { rowsResult } from "@ryot/ryotql-recipes/test-utils";
+import { Result } from "effect";
+
+const RUNS_LIMIT = 20;
+const FAILURES_LIMIT = 25;
+
+const pageInfo = (limit: number, hasMore: boolean) => ({
+	limit,
+	hasMore,
+	nextCursor: hasMore ? "next" : null,
+});
+
+export const completedRunRow = {
+	progress: 100,
+	failedItems: 31,
+	totalItems: 2_045,
+	errorSummary: null,
+	status: "completed",
+	source: "open_scale",
+	importedItems: 2_014,
+	processedItems: 2_045,
+	id: "run-completed-1",
+	createdAt: "2026-03-12T21:40:00.000Z",
+	updatedAt: "2026-03-12T21:44:12.000Z",
+	startedAt: "2026-03-12T21:40:05.000Z",
+	finishedAt: "2026-03-12T21:44:12.000Z",
+	inputSummary: { source: "open_scale", fileNames: ["goodreads_library_export.csv"] },
+};
+
+export const runningRunRow = {
+	progress: 34,
+	failedItems: 16,
+	finishedAt: null,
+	totalItems: 1_204,
+	status: "running",
+	errorSummary: null,
+	importedItems: 396,
+	processedItems: 412,
+	source: "goodreads",
+	id: "run-running-1",
+	inputSummary: { source: "goodreads" },
+	createdAt: "2026-03-13T09:00:00.000Z",
+	updatedAt: "2026-03-13T09:02:00.000Z",
+	startedAt: "2026-03-13T09:00:00.000Z",
+};
+
+export const preparingRunRow = {
+	progress: 0,
+	failedItems: 0,
+	source: "trakt",
+	totalItems: null,
+	finishedAt: null,
+	importedItems: 0,
+	processedItems: 0,
+	status: "pending",
+	errorSummary: null,
+	id: "run-pending-1",
+	inputSummary: { source: "trakt" },
+	createdAt: "2026-03-13T09:00:00.000Z",
+	updatedAt: "2026-03-13T09:00:00.000Z",
+	startedAt: "2026-03-13T09:00:00.000Z",
+};
+
+export const failedRunRow = {
+	progress: 12,
+	failedItems: 0,
+	totalItems: null,
+	importedItems: 0,
+	status: "failed",
+	processedItems: 0,
+	id: "run-failed-1",
+	source: "strong_app",
+	createdAt: "2026-03-10T08:00:00.000Z",
+	updatedAt: "2026-03-10T08:00:30.000Z",
+	startedAt: "2026-03-10T08:00:00.000Z",
+	finishedAt: "2026-03-10T08:00:30.000Z",
+	inputSummary: { source: "strong_app" },
+	errorSummary: "ETIMEDOUT while polling upstream chunk 4",
+};
+
+export const unreadableFailureRow = {
+	itemIndex: 4,
+	eventSchemaSlug: null,
+	entitySchemaSlug: null,
+	runId: "run-completed-1",
+	id: "failure-unreadable-1",
+	stage: "input_transformation",
+	sourceLabel: "The Long Way Home",
+	sourceIdentifier: "goodreads:8231",
+	createdAt: "2026-03-12T21:41:00.000Z",
+	message: "The rating column was not a number",
+	context: { column: "My Rating", rawValue: "four stars" },
+};
+
+export const unmatchedFailureRow = {
+	context: null,
+	itemIndex: 11,
+	sourceLabel: null,
+	eventSchemaSlug: null,
+	sourceIdentifier: null,
+	runId: "run-completed-1",
+	entitySchemaSlug: "book",
+	id: "failure-unmatched-1",
+	stage: "provider_resolution",
+	createdAt: "2026-03-12T21:42:00.000Z",
+	message: "No provider match was found",
+};
+
+export const decodeImportRunList = (
+	input: { readonly runs?: readonly unknown[]; readonly hasMore?: boolean } = {},
+) =>
+	Result.getOrThrow(
+		manualImportRunsRecipe({ limit: RUNS_LIMIT }).decode({
+			data: {
+				importRuns: rowsResult(
+					input.runs ?? [completedRunRow],
+					pageInfo(RUNS_LIMIT, input.hasMore ?? false),
+				),
+			},
+		}),
+	);
+
+export const decodeImportRunDetail = (
+	input: {
+		readonly run?: unknown;
+		readonly hasMore?: boolean;
+		readonly failures?: readonly unknown[];
+	} = {},
+) =>
+	Result.getOrThrow(
+		importRunRecipe({ runId: "run-completed-1", failureLimit: FAILURES_LIMIT }).decode({
+			data: {
+				run: rowsResult(
+					input.run === null ? [] : [input.run ?? completedRunRow],
+					pageInfo(2, false),
+				),
+				failures: rowsResult(
+					input.failures ?? [unreadableFailureRow, unmatchedFailureRow],
+					pageInfo(FAILURES_LIMIT, input.hasMore ?? false),
+				),
+			},
+		}),
+	);
