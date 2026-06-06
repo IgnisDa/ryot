@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { Effect, Match } from "effect";
+import { DateTime, Effect, Match, Option } from "effect";
 
 import { CurrentDb, dbEffect } from "#lib/db";
 import type { DbError } from "#lib/errors";
@@ -94,6 +94,17 @@ export const alignDateRangeToBucket = (input: {
 	};
 };
 
+export const normalizeBucketDate = (value: Date | string): string => {
+	if (value instanceof Date) {
+		return value.toISOString();
+	}
+
+	const normalized = value.trim().replace(" ", "T");
+	const withZone = /[zZ]$|[+-]\d{2}:?\d{2}$/.test(normalized) ? normalized : `${normalized}Z`;
+	const parsed = DateTime.make(withZone);
+	return Option.isSome(parsed) ? DateTime.formatIso(parsed.value) : value;
+};
+
 export const executeTimeSeriesQuery = (input: {
 	userId: string;
 	context: PreparedQueryContext;
@@ -184,11 +195,11 @@ export const executeTimeSeriesQuery = (input: {
 		return {
 			mode: "timeSeries" as const,
 			data: {
+				meta: { alignedDateRange },
 				buckets: result.rows.map((row) => ({
 					value: Number(row.value ?? 0),
-					date: row.date instanceof Date ? row.date.toISOString() : row.date,
+					date: normalizeBucketDate(row.date),
 				})),
-				meta: { alignedDateRange },
 			},
 		};
 	});
