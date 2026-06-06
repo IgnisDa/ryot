@@ -34,17 +34,17 @@ describe("adaptStrongAppCsv", () => {
 			{
 				name: "Run",
 				kind: "distance_and_duration",
-				sets: [{ setLot: "normal", distance: 5, duration: 1800 }],
+				sets: [{ setLot: "normal", distance: 5, duration: 30 }],
 			},
 			{
-				kind: "reps",
 				name: "Push Up",
-				sets: [{ setLot: "normal", reps: 12, weight: 0 }],
+				kind: "reps_and_weight",
+				sets: [{ setLot: "normal", reps: 12, weight: 1 }],
 			},
 			{
 				name: "Timed Push Up",
 				kind: "reps_and_duration",
-				sets: [{ setLot: "normal", reps: 10, duration: 60 }],
+				sets: [{ setLot: "normal", reps: 10, duration: 1 }],
 			},
 		]);
 	});
