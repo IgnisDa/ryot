@@ -6,11 +6,13 @@ import { BadRequest, NotFound } from "#lib/errors";
 import {
 	EntityId,
 	EntitySchemaId,
+	EventSchemaId,
 	RelationshipId,
 	RelationshipSchemaId,
 	UserId,
 } from "#lib/schema/brands";
-import { dbRunnerLayer, makeMock, transactionLayer } from "#lib/test-support/effect";
+import type { AppSchema } from "#lib/schema/property-schema";
+import { type MockOverrides, dbRunnerLayer, transactionLayer } from "#lib/test-support/effect";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { EventsService } from "#modules/events/service";
@@ -50,156 +52,122 @@ const inLibrarySchema = {
 	id: RelationshipSchemaId.make("in-library-schema-id"),
 };
 
-const collectionEntitySchema = {
-	id: "collection-schema-id",
-	entitySchemaId: EntitySchemaId.make("collection-schema-id"),
-	propertiesSchema: {
-		fields: {
-			description: { label: "Description", type: "string", description: "Description" },
-			membershipPropertiesSchema: {
-				type: "object",
-				properties: {},
-				unknownKeys: "passthrough",
-				label: "Membership Properties Schema",
-				description: "Membership Properties Schema",
-			},
+const collectionPropertiesSchema = {
+	fields: {
+		description: { label: "Description", type: "string" as const, description: "Description" },
+		membershipPropertiesSchema: {
+			type: "object" as const,
+			properties: {},
+			unknownKeys: "passthrough" as const,
+			label: "Membership Properties Schema",
+			description: "Membership Properties Schema",
 		},
 	},
+} satisfies AppSchema;
+
+const collectionEntitySchema = {
+	propertiesSchema: collectionPropertiesSchema,
+	id: EntitySchemaId.make("collection-schema-id"),
+	entitySchemaId: EntitySchemaId.make("collection-schema-id"),
 };
 
 const addEventSchema = {
-	id: "add-event-schema-id",
 	name: "Add Entity to Collection",
 	slug: "add-entity-to-collection",
+	id: EventSchemaId.make("add-event-schema-id"),
 };
 
 const removeEventSchema = {
-	id: "remove-event-schema-id",
 	name: "Remove Entity from Collection",
 	slug: "remove-entity-from-collection",
+	id: EventSchemaId.make("remove-event-schema-id"),
 };
 
-const makeCollectionsRepository = (overrides: Partial<CollectionsRepository> = {}) =>
-	makeMock<CollectionsRepository>(
-		{
-			_tag: "CollectionsRepository" as const,
-			getCollectionById: () => Effect.die("unused"),
-			getEntityForMembership: () => Effect.die("unused"),
-			getUserLibraryEntityId: () => Effect.die("unused"),
-			findLibraryEntityForUser: () => Effect.die("unused"),
-			findCollectionByNameForUser: () => Effect.die("unused"),
-			getBuiltinCollectionSchema: () => Effect.succeed(collectionEntitySchema),
-			findBuiltinEventSchemaBySlug: (_entitySchemaId: string, slug: string) =>
-				slug === "add-entity-to-collection"
-					? Effect.succeed(addEventSchema)
-					: Effect.succeed(removeEventSchema),
-		},
-		overrides,
-	);
+const mockCollectionsRepository = Layer.mock(CollectionsRepository);
 
-const makeEntitiesRepository = (overrides: Partial<EntitiesRepository> = {}) =>
-	makeMock<EntitiesRepository>(
-		{
-			_tag: "EntitiesRepository" as const,
-			saveEntity: () => Effect.die("unused"),
-			getByIdForUser: () => Effect.die("unused"),
-			findEntitySchemaById: () => Effect.die("unused"),
-			getEntityScopeForUser: () => Effect.die("unused"),
-			getEntityMergeScopeForUser: () => Effect.die("unused"),
-			listMatchCandidatesBySchema: () => Effect.die("unused"),
-			findEntitySchemaScriptBySlug: () => Effect.die("unused"),
-			findGlobalEntityByExternalId: () => Effect.die("unused"),
-			findEntityByExternalIdForUser: () => Effect.die("unused"),
-			getEntitySchemaScopeForUser: () =>
-				Effect.succeed({
-					userId: null,
-					isBuiltin: true,
-					slug: "collection",
-					id: EntitySchemaId.make("collection-schema-id"),
-					propertiesSchema: collectionEntitySchema.propertiesSchema,
-				}),
-		},
-		overrides,
-	);
+const makeCollectionsRepository = (
+	overrides: MockOverrides<typeof mockCollectionsRepository> = {},
+) =>
+	mockCollectionsRepository({
+		_tag: "CollectionsRepository",
+		getBuiltinCollectionSchema: () => Effect.succeed(collectionEntitySchema),
+		findBuiltinEventSchemaBySlug: (_entitySchemaId, slug) =>
+			slug === "add-entity-to-collection"
+				? Effect.succeed(addEventSchema)
+				: Effect.succeed(removeEventSchema),
+		...overrides,
+	});
 
-const makeRelationshipsRepository = (overrides: Partial<RelationshipsRepository> = {}) =>
-	makeMock<RelationshipsRepository>(
-		{
-			_tag: "RelationshipsRepository" as const,
-			saveRelationship: () => Effect.die("unused"),
-			deleteUserRelationship: () => Effect.die("unused"),
-			findRelationshipProperties: () => Effect.die("unused"),
-		},
-		overrides,
-	);
+const mockEntitiesRepository = Layer.mock(EntitiesRepository);
+
+const makeEntitiesRepository = (overrides: MockOverrides<typeof mockEntitiesRepository> = {}) =>
+	mockEntitiesRepository({
+		_tag: "EntitiesRepository",
+		getEntitySchemaScopeForUser: () =>
+			Effect.succeed({
+				userId: null,
+				isBuiltin: true,
+				slug: "collection",
+				id: EntitySchemaId.make("collection-schema-id"),
+				propertiesSchema: collectionEntitySchema.propertiesSchema,
+			}),
+		...overrides,
+	});
+
+const mockRelationshipsRepository = Layer.mock(RelationshipsRepository);
+
+const makeRelationshipsRepository = (
+	overrides: MockOverrides<typeof mockRelationshipsRepository> = {},
+) => mockRelationshipsRepository({ _tag: "RelationshipsRepository", ...overrides });
+
+const mockRelationshipSchemasRepository = Layer.mock(RelationshipSchemasRepository);
 
 const makeRelationshipSchemasRepository = (
-	overrides: Partial<RelationshipSchemasRepository> = {},
+	overrides: MockOverrides<typeof mockRelationshipSchemasRepository> = {},
 ) =>
-	makeMock<RelationshipSchemasRepository>(
-		{
-			findById: () => Effect.die("unused"),
-			listByUser: () => Effect.die("unused"),
-			_tag: "RelationshipSchemasRepository" as const,
-			findBySlugForUser: () => Effect.die("unused"),
-			findGlobalBySchemaIds: () => Effect.die("unused"),
-			getEntitySchemaScopeById: () => Effect.die("unused"),
-			createRelationshipSchema: () => Effect.die("unused"),
-			findBuiltinBySlug: (slug: string) =>
-				slug === "member-of" ? Effect.succeed(memberOfSchema) : Effect.succeed(inLibrarySchema),
-		},
-		overrides,
-	);
+	mockRelationshipSchemasRepository({
+		_tag: "RelationshipSchemasRepository",
+		findBuiltinBySlug: (slug: string) =>
+			slug === "member-of" ? Effect.succeed(memberOfSchema) : Effect.succeed(inLibrarySchema),
+		...overrides,
+	});
 
-const makeEventsService = (overrides: Partial<EventsService> = {}) =>
-	makeMock<EventsService>(
-		{
-			_tag: "EventsService" as const,
-			listForUser: () => Effect.die("unused"),
-			create: () => Effect.succeed({ count: 1 }),
-		},
-		overrides,
-	);
+const mockEventsService = Layer.mock(EventsService);
 
-const makeQueryEngine = (overrides: Partial<QueryEngineService> = {}) =>
-	makeMock<QueryEngineService>(
-		{
-			validate: () => Effect.void,
-			_tag: "QueryEngineService" as const,
-			execute: () => Effect.die("unused"),
-		},
-		overrides,
-	);
+const makeEventsService = (overrides: MockOverrides<typeof mockEventsService> = {}) =>
+	mockEventsService({
+		_tag: "EventsService",
+		create: () => Effect.succeed({ count: 1 }),
+		...overrides,
+	});
+
+const mockQueryEngine = Layer.mock(QueryEngineService);
+
+const makeQueryEngine = (overrides: MockOverrides<typeof mockQueryEngine> = {}) =>
+	mockQueryEngine({
+		_tag: "QueryEngineService",
+		validate: () => Effect.void.pipe(Effect.as(undefined)),
+		...overrides,
+	});
 
 const makeServiceLayer = (
 	options: {
-		eventsService?: EventsService;
-		entitiesRepository?: EntitiesRepository;
-		collectionsRepository?: CollectionsRepository;
-		relationshipsRepository?: RelationshipsRepository;
-		relationshipSchemasRepository?: RelationshipSchemasRepository;
+		eventsService?: ReturnType<typeof makeEventsService>;
+		entitiesRepository?: ReturnType<typeof makeEntitiesRepository>;
+		collectionsRepository?: ReturnType<typeof makeCollectionsRepository>;
+		relationshipsRepository?: ReturnType<typeof makeRelationshipsRepository>;
+		relationshipSchemasRepository?: ReturnType<typeof makeRelationshipSchemasRepository>;
 	} = {},
 ) => {
 	const entitiesRepository = options.entitiesRepository ?? makeEntitiesRepository();
 	const relationshipsRepository = options.relationshipsRepository ?? makeRelationshipsRepository();
 
 	const entitiesServiceLayer = EntitiesService.Default.pipe(
-		Layer.provide(
-			Layer.mergeAll(
-				dbRunnerLayer,
-				Layer.succeed(QueryEngineService, makeQueryEngine()),
-				Layer.succeed(EntitiesRepository, entitiesRepository),
-			),
-		),
+		Layer.provide(Layer.mergeAll(dbRunnerLayer, makeQueryEngine(), entitiesRepository)),
 	);
 
 	const relationshipsServiceLayer = RelationshipsService.Default.pipe(
-		Layer.provide(
-			Layer.mergeAll(
-				dbRunnerLayer,
-				Layer.succeed(RelationshipsRepository, relationshipsRepository),
-			),
-		),
+		Layer.provide(Layer.mergeAll(dbRunnerLayer, relationshipsRepository)),
 	);
 
 	return CollectionsService.Default.pipe(
@@ -208,17 +176,11 @@ const makeServiceLayer = (
 				dbRunnerLayer,
 				transactionLayer,
 				entitiesServiceLayer,
+				relationshipsRepository,
 				relationshipsServiceLayer,
-				Layer.succeed(EventsService, options.eventsService ?? makeEventsService()),
-				Layer.succeed(
-					CollectionsRepository,
-					options.collectionsRepository ?? makeCollectionsRepository(),
-				),
-				Layer.succeed(RelationshipsRepository, relationshipsRepository),
-				Layer.succeed(
-					RelationshipSchemasRepository,
-					options.relationshipSchemasRepository ?? makeRelationshipSchemasRepository(),
-				),
+				options.eventsService ?? makeEventsService(),
+				options.collectionsRepository ?? makeCollectionsRepository(),
+				options.relationshipSchemasRepository ?? makeRelationshipSchemasRepository(),
 			),
 		),
 	);

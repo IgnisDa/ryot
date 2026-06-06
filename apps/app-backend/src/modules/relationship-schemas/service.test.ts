@@ -4,7 +4,8 @@ import { Effect, Exit, Layer } from "effect";
 import type { CurrentUserValue } from "#lib/auth-middleware";
 import { BadRequest, Conflict, NotFound } from "#lib/errors";
 import { EntitySchemaId, RelationshipSchemaId, UserId } from "#lib/schema/brands";
-import { dbRunnerLayer, makeMock } from "#lib/test-support/effect";
+import type { MockOverrides } from "#lib/test-support/effect";
+import { dbRunnerLayer } from "#lib/test-support/effect";
 
 import { RelationshipSchemasRepository } from "./repository";
 import { RelationshipSchemasService } from "./service";
@@ -25,27 +26,16 @@ const user = {
 	email: "user@example.com",
 } satisfies CurrentUserValue;
 
-const makeRepository = (overrides: Partial<RelationshipSchemasRepository> = {}) =>
-	makeMock<RelationshipSchemasRepository>(
-		{
-			findById: () => Effect.die("unused"),
-			listByUser: () => Effect.die("unused"),
-			_tag: "RelationshipSchemasRepository" as const,
-			findBuiltinBySlug: () => Effect.die("unused"),
-			findBySlugForUser: () => Effect.die("unused"),
-			findGlobalBySchemaIds: () => Effect.die("unused"),
-			getEntitySchemaScopeById: () => Effect.die("unused"),
-			createRelationshipSchema: () => Effect.die("unused"),
-		},
-		overrides,
-	);
+const mockRelationshipSchemasRepository = Layer.mock(RelationshipSchemasRepository);
 
-const makeServiceLayer = (repository: RelationshipSchemasRepository) =>
-	RelationshipSchemasService.Default.pipe(
-		Layer.provide(
-			Layer.mergeAll(dbRunnerLayer, Layer.succeed(RelationshipSchemasRepository, repository)),
-		),
-	);
+const makeRepository = (overrides: MockOverrides<typeof mockRelationshipSchemasRepository> = {}) =>
+	mockRelationshipSchemasRepository({
+		...overrides,
+		_tag: "RelationshipSchemasRepository",
+	});
+
+const makeServiceLayer = (repository: ReturnType<typeof makeRepository>) =>
+	RelationshipSchemasService.Default.pipe(Layer.provide(Layer.mergeAll(dbRunnerLayer, repository)));
 
 it.effect("returns builtin relationship schema by slug", () => {
 	const layer = makeServiceLayer(
