@@ -443,14 +443,14 @@ it.effect("persists provider operation bindings and search options separately", 
 		yield* repository.persist(normalized, systemIdentity);
 		expect(operationValues).toEqual([
 			expect.objectContaining({
-				optionsSchema: null,
-				operation: "details",
-				scriptId: "fixture.details-id",
-			}),
-			expect.objectContaining({
 				operation: "search",
 				scriptId: "fixture.search-id",
 				optionsSchema: searchOptionsSchema,
+			}),
+			expect.objectContaining({
+				optionsSchema: null,
+				operation: "details",
+				scriptId: "fixture.details-id",
 			}),
 			expect.objectContaining({
 				optionsSchema: null,

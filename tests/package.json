@@ -14,6 +14,7 @@
 		"@faker-js/faker": "10.4.0",
 		"@ryot/contract": "workspace:*",
 		"@ryot/fitness-plugin": "workspace:*",
+		"@ryot/fixture-plugin": "workspace:*",
 		"@ryot/media-plugin": "workspace:*",
 		"@ryot/plugin-archive": "workspace:*",
 		"@ryot/plugin-kit": "workspace:*",
