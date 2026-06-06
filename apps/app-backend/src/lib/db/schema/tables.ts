@@ -417,7 +417,7 @@ export const importRun = pgTable(
 			.$onUpdate(() => /* @__PURE__ */ dayjs().toDate())
 			.notNull(),
 	},
-	(table) => [index("import_run_user_id_created_at_idx").on(table.userId, table.createdAt)],
+	(table) => [index("import_run_user_id_created_at_idx").on(table.userId, table.createdAt.desc())],
 );
 
 export const importRunFailure = pgTable(
