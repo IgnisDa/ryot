@@ -20,6 +20,22 @@ export function requireString(value: unknown, message: string): string {
 	return value;
 }
 
+export function requireNumber(value: unknown, message: string): number {
+	if (typeof value !== "number") {
+		throw new Error(message);
+	}
+
+	return value;
+}
+
+export function requireObjectRecord(value: unknown, message: string): Record<string, unknown> {
+	if (typeof value !== "object" || value === null || Array.isArray(value)) {
+		throw new Error(message);
+	}
+
+	return Object.fromEntries(Object.entries(value));
+}
+
 function isNonEmptyArray<T>(arr: readonly T[]): arr is [T, ...T[]] {
 	return arr.length > 0;
 }

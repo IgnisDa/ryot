@@ -20,7 +20,7 @@ import {
 	pollEntitySearchResult,
 } from "../fixtures";
 import { getBackendClient } from "../setup";
-import { assertPresent } from "../test-support/assertions";
+import { assertPresent, requireObjectRecord } from "../test-support/assertions";
 
 describe("GET /entity-schemas", () => {
 	it("returns 200 and lists built-in entity schemas for built-in tracker", async () => {
@@ -765,7 +765,10 @@ describe("GET /entities/import/{jobId}", () => {
 			throw new Error(`Expected import job to complete, got '${result.status}'`);
 		}
 
-		const properties = result.data.properties as Record<string, unknown>;
+		const properties = requireObjectRecord(
+			result.data.properties,
+			"Expected imported entity properties to be an object",
+		);
 		expect(properties).not.toEqual({});
 		expect(properties.studios).toBeUndefined();
 		expect(properties.populatedAt).toBeUndefined();

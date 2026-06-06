@@ -91,17 +91,20 @@ export async function findBuiltinSchemaBySlug(client: Client, cookies: string, s
 		includeDisabled: true,
 	});
 	const builtinTrackers = trackers.filter((tracker) => tracker.isBuiltin);
+	const schemasByTracker = await Promise.all(
+		builtinTrackers.map(async (builtinTracker) => {
+			const schemas = await listEntitySchemas(client, cookies, {
+				slugs: [slug],
+				trackerId: builtinTracker.id,
+			});
 
-	for (const builtinTracker of builtinTrackers) {
-		// oxlint-disable-next-line no-await-in-loop
-		const schemas = await listEntitySchemas(client, cookies, {
-			slugs: [slug],
-			trackerId: builtinTracker.id,
-		});
-		const schema = schemas[0];
+			return { builtinTracker, schema: schemas[0] };
+		}),
+	);
 
-		if (schema) {
-			return { schema, builtinTracker };
+	for (const result of schemasByTracker) {
+		if (result.schema) {
+			return { schema: result.schema, builtinTracker: result.builtinTracker };
 		}
 	}
 

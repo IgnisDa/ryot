@@ -1,17 +1,19 @@
-// oxlint-disable typescript-eslint/no-unsafe-type-assertion
-
 type RequestHeaders = Record<string, string>;
 
 type LegacyRequest = {
+	// oxlint-disable-next-line typescript-eslint/no-explicit-any
 	body?: any;
 	headers?: RequestHeaders;
 	params?: {
+		// oxlint-disable-next-line typescript-eslint/no-explicit-any
 		path?: any;
+		// oxlint-disable-next-line typescript-eslint/no-explicit-any
 		query?: any;
 	};
 };
 
 type LegacyResponse = Promise<{
+	// oxlint-disable-next-line typescript-eslint/no-explicit-any
 	data?: any;
 	error?: { error: { message: string } };
 	response: { status: number };
@@ -123,62 +125,54 @@ const toLegacyResponse = async (path: string, response: LegacyResponse): LegacyR
 // remaining tests call the contract client methods directly.
 // Saved-views entries were removed as part of Task 23.
 const getHandlers: Record<string, LegacyRouteHandler> = {
-	"/entity-schemas/{entitySchemaId}": (client, request) =>
-		client.entitySchemas.get(request as never),
+	"/entity-schemas/{entitySchemaId}": (client, request) => client.entitySchemas.get(request),
 	"/entity-schemas/search/{jobId}": (client, request) =>
-		client.entitySchemas.getSearchResult(request as never),
-	"/entities/{entityId}": (client, request) => client.entities.get(request as never),
-	"/entities/import/{jobId}": (client, request) =>
-		client.entities.getImportResult(request as never),
-	"/events": (client, request) => client.events.list(request as never),
-	"/god-mode/users": (client, request) => client.godMode.listUsers(request as never),
-	"/imports/runs": (client, request) => client.imports.listRuns(request as never),
-	"/imports/runs/{runId}": (client, request) => client.imports.getRun(request as never),
-	"/integrations/{integrationId}": (client, request) => client.integrations.get(request as never),
-	"/integrations/{integrationId}/runs": (client, request) =>
-		client.integrations.getRuns(request as never),
-	"/sandbox/result/{jobId}": (client, request) => client.sandbox.getResult(request as never),
-	"/system/config": (client, request) => client.system.config(request as never),
-	"/trackers": (client, request) => client.trackers.list(request as never),
+		client.entitySchemas.getSearchResult(request),
+	"/entities/{entityId}": (client, request) => client.entities.get(request),
+	"/entities/import/{jobId}": (client, request) => client.entities.getImportResult(request),
+	"/events": (client, request) => client.events.list(request),
+	"/god-mode/users": (client, request) => client.godMode.listUsers(request),
+	"/imports/runs": (client, request) => client.imports.listRuns(request),
+	"/imports/runs/{runId}": (client, request) => client.imports.getRun(request),
+	"/integrations/{integrationId}": (client, request) => client.integrations.get(request),
+	"/integrations/{integrationId}/runs": (client, request) => client.integrations.getRuns(request),
+	"/sandbox/result/{jobId}": (client, request) => client.sandbox.getResult(request),
+	"/system/config": (client, request) => client.system.config(request),
+	"/trackers": (client, request) => client.trackers.list(request),
 };
 
 const postHandlers: Record<string, LegacyRouteHandler> = {
-	"/collections": (client, request) => client.collections.create(request as never),
-	"/collections/memberships": (client, request) =>
-		client.collections.createMembership(request as never),
-	"/entity-schemas": (client, request) => client.entitySchemas.create(request as never),
-	"/entity-schemas/list": (client, request) => client.entitySchemas.list(request as never),
-	"/entity-schemas/search": (client, request) => client.entitySchemas.search(request as never),
-	"/entities": (client, request) => client.entities.create(request as never),
-	"/entities/import": (client, request) => client.entities.import(request as never),
-	"/event-schemas": (client, request) => client.eventSchemas.create(request as never),
-	"/events": (client, request) => client.events.create(request as never),
-	"/god-mode/users/{userId}/ban/set": (client, request) =>
-		client.godMode.setUserBan(request as never),
+	"/collections": (client, request) => client.collections.create(request),
+	"/collections/memberships": (client, request) => client.collections.createMembership(request),
+	"/entity-schemas": (client, request) => client.entitySchemas.create(request),
+	"/entity-schemas/list": (client, request) => client.entitySchemas.list(request),
+	"/entity-schemas/search": (client, request) => client.entitySchemas.search(request),
+	"/entities": (client, request) => client.entities.create(request),
+	"/entities/import": (client, request) => client.entities.import(request),
+	"/event-schemas": (client, request) => client.eventSchemas.create(request),
+	"/events": (client, request) => client.events.create(request),
+	"/god-mode/users/{userId}/ban/set": (client, request) => client.godMode.setUserBan(request),
 	"/god-mode/users/{userId}/reset-password": (client, request) =>
-		client.godMode.resetUserPassword(request as never),
-	"/imports/runs": (client, request) => client.imports.createRun(request as never),
-	"/integrations": (client, request) => client.integrations.create(request as never),
-	"/query-engine/execute": (client, request) => client.queryEngine.execute(request as never),
-	"/sandbox/enqueue": (client, request) => client.sandbox.enqueue(request as never),
-	"/uploads/presigned": (client, request) => client.uploads.createPresigned(request as never),
+		client.godMode.resetUserPassword(request),
+	"/imports/runs": (client, request) => client.imports.createRun(request),
+	"/integrations": (client, request) => client.integrations.create(request),
+	"/query-engine/execute": (client, request) => client.queryEngine.execute(request),
+	"/sandbox/enqueue": (client, request) => client.sandbox.enqueue(request),
+	"/uploads/presigned": (client, request) => client.uploads.createPresigned(request),
 	"/uploads/presigned/download": (client, request) =>
-		client.uploads.createPresignedDownload(request as never),
+		client.uploads.createPresignedDownload(request),
 };
 
 const patchHandlers: Record<string, LegacyRouteHandler> = {
-	"/integrations/{integrationId}": (client, request) =>
-		client.integrations.update(request as never),
+	"/integrations/{integrationId}": (client, request) => client.integrations.update(request),
 };
 
 const putHandlers: Record<string, LegacyRouteHandler> = {};
 
 const deleteHandlers: Record<string, LegacyRouteHandler> = {
-	"/collections/memberships": (client, request) =>
-		client.collections.deleteMembership(request as never),
-	"/entities/{entityId}/user-state": (client, request) =>
-		client.entities.clearUserState(request as never),
-	"/imports/runs/{runId}": (client, request) => client.imports.deleteRun(request as never),
+	"/collections/memberships": (client, request) => client.collections.deleteMembership(request),
+	"/entities/{entityId}/user-state": (client, request) => client.entities.clearUserState(request),
+	"/imports/runs/{runId}": (client, request) => client.imports.deleteRun(request),
 };
 
 export function withLegacyBackendClientMethods<T extends LegacyCapableBackendClient>(

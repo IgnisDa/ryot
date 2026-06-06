@@ -1,10 +1,9 @@
 import { describe, expect, it } from "bun:test";
 
-import type { WorkoutTemplateProperties } from "@ryot/app-backend-legacy/lib/fitness/workout-template";
 import {
 	createEntityColumnExpression,
 	createEntityPropertyExpression,
-} from "@ryot/ts-utils/view-language";
+} from "@ryot/app-backend/query-language";
 
 import {
 	buildGridRequest,
@@ -29,6 +28,29 @@ import {
 	waitForSeededExerciseIds,
 } from "../fixtures";
 import { assertPresent } from "../test-support/assertions";
+
+type WorkoutTemplateProperties = {
+	comment?: string;
+	exercises: Array<{
+		exerciseId: string;
+		exerciseOrder: number;
+		notes?: string[];
+		sets: Array<{
+			setOrder: number;
+			setLot: "normal" | "warm_up" | "drop" | "failure";
+			note?: string;
+			reps?: number | null;
+			weight?: number | null;
+			distance?: number | null;
+			duration?: number | null;
+			rpe?: number | null;
+		}>;
+	}>;
+	supersets?: Array<{
+		color: string;
+		exercises: number[];
+	}>;
+};
 
 describe("Workout Templates E2E", () => {
 	it("links the built-in workout-template schema to the fitness tracker", async () => {
