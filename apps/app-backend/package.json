@@ -20,7 +20,8 @@
 		"test": "bun --bun run vitest run --config vitest.config.ts",
 		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix",
 		"run-migration": "RUN_LEGACY_BOOTSTRAP_ONLY=true bun run src/index.ts",
-		"build": "bun build src/index.ts --outdir dist --target bun --sourcemap"
+		"build": "bun build src/index.ts --outdir dist --target bun --sourcemap",
+		"populate-sandbox-cache": "POPULATE_SANDBOX_CACHE_ONLY=true bun run src/index.ts"
 	},
 	"dependencies": {
 		"@better-auth/api-key": "1.6.15",
