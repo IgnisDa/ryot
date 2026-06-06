@@ -3,6 +3,7 @@ import type {
 	PluginClientCatalogEntry,
 } from "@ryot/ryotql-recipes/plugin-client-catalog";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
 import { WorkspaceSwitcher } from "#/modules/navigation/workspace-switcher";
@@ -63,10 +64,10 @@ describe("workspace switcher", () => {
 
 		fireEvent.click(screen.getByRole("button", { name: "Media workspace, media" }));
 
-		const dialog = screen.getByRole("dialog", { name: "Workspaces" });
+		const menu = screen.getByRole("menu", { name: "Workspaces" });
 		expect(
-			within(dialog)
-				.getAllByRole("button")
+			within(menu)
+				.getAllByRole("menuitemradio")
 				.map((item) => item.getAttribute("aria-label")),
 		).toEqual([
 			"Switch to Media workspace",
@@ -75,8 +76,61 @@ describe("workspace switcher", () => {
 			"Switch to Failed workspace",
 		]);
 		expect(
-			within(dialog).queryByRole("button", { name: "Switch to Disabled workspace" }),
+			within(menu).queryByRole("menuitemradio", { name: "Switch to Disabled workspace" }),
 		).toBeNull();
+	});
+
+	it("focuses the current workspace on open and exposes its selection", async () => {
+		const current = workspace();
+		render(<WorkspaceSwitcher current={current} catalog={[current]} onSelect={() => undefined} />);
+
+		fireEvent.click(screen.getByRole("button", { name: "Media workspace, media" }));
+
+		const item = screen.getByRole("menuitemradio", { name: "Switch to Media workspace" });
+		await waitFor(() => expect(document.activeElement).toBe(item));
+		expect(item.getAttribute("aria-checked")).toBe("true");
+	});
+
+	it("closes when its trigger is clicked while the menu owns focus", async () => {
+		const user = userEvent.setup();
+		const current = workspace();
+		render(<WorkspaceSwitcher current={current} catalog={[current]} onSelect={() => undefined} />);
+		const trigger = screen.getByRole("button", { name: "Media workspace, media" });
+		fireEvent.click(trigger);
+		await waitFor(() =>
+			expect(document.activeElement).toBe(
+				screen.getByRole("menuitemradio", { name: "Switch to Media workspace" }),
+			),
+		);
+
+		await user.click(trigger);
+
+		expect(screen.queryByRole("menu")).toBeNull();
+		expect(document.activeElement).toBe(trigger);
+	});
+
+	it("dismisses on outside pointer interaction without restoring trigger focus", async () => {
+		const current = workspace();
+		render(
+			<>
+				<WorkspaceSwitcher current={current} catalog={[current]} onSelect={() => undefined} />
+				<button type="button">Outside</button>
+			</>,
+		);
+		const trigger = screen.getByRole("button", { name: "Media workspace, media" });
+		fireEvent.click(trigger);
+		await waitFor(() =>
+			expect(document.activeElement).toBe(
+				screen.getByRole("menuitemradio", { name: "Switch to Media workspace" }),
+			),
+		);
+
+		const outside = screen.getByRole("button", { name: "Outside" });
+		fireEvent.pointerDown(outside);
+		outside.focus();
+
+		expect(screen.queryByRole("menu")).toBeNull();
+		expect(document.activeElement).toBe(outside);
 	});
 
 	it("does not select the current workspace and restores trigger focus", async () => {
@@ -94,39 +148,40 @@ describe("workspace switcher", () => {
 		const trigger = screen.getByRole("button", { name: "Media workspace, media" });
 		fireEvent.click(trigger);
 
-		fireEvent.click(screen.getByRole("button", { name: "Switch to Media workspace" }));
+		fireEvent.click(screen.getByRole("menuitemradio", { name: "Switch to Media workspace" }));
 
 		await waitFor(() => expect(document.activeElement).toBe(trigger));
-		expect(screen.queryByRole("dialog")).toBeNull();
+		expect(screen.queryByRole("menu")).toBeNull();
 		expect(selections).toEqual([]);
 	});
 
-	it("restores trigger focus before selecting another workspace", async () => {
+	it("closes and restores trigger focus before selecting another workspace", async () => {
 		const current = workspace();
-		let triggerFocused = false;
+		const observations: Array<{ focused: boolean; open: boolean; slug: string }> = [];
 		render(
 			<WorkspaceSwitcher
 				current={current}
-				onSelect={() => {
-					triggerFocused = document.activeElement === trigger;
+				onSelect={(slug) => {
+					observations.push({
+						slug,
+						focused: document.activeElement === trigger,
+						open: screen.queryByRole("menu") !== null,
+					});
 				}}
 				catalog={[
 					current,
-					workspace({
-						name: "Fitness",
-						slug: "fitness",
-						installationId: "installation-fitness",
-					}),
+					workspace({ name: "Fitness", slug: "fitness", installationId: "installation-fitness" }),
 				]}
 			/>,
 		);
 		const trigger = screen.getByRole("button", { name: "Media workspace, media" });
 		fireEvent.click(trigger);
 
-		fireEvent.click(screen.getByRole("button", { name: "Switch to Fitness workspace" }));
+		fireEvent.click(screen.getByRole("menuitemradio", { name: "Switch to Fitness workspace" }));
 
-		await waitFor(() => expect(triggerFocused).toBe(true));
-		expect(screen.queryByRole("dialog")).toBeNull();
+		await waitFor(() =>
+			expect(observations).toEqual([{ slug: "fitness", focused: true, open: false }]),
+		);
 	});
 
 	it("closes with Escape and restores trigger focus", async () => {
@@ -135,9 +190,73 @@ describe("workspace switcher", () => {
 		const trigger = screen.getByRole("button", { name: "Media workspace, media" });
 		fireEvent.click(trigger);
 
-		fireEvent.keyDown(trigger, { key: "Escape" });
+		fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
 
 		await waitFor(() => expect(document.activeElement).toBe(trigger));
-		expect(screen.queryByRole("dialog")).toBeNull();
+		expect(screen.queryByRole("menu")).toBeNull();
+	});
+
+	it("moves through workspace choices with arrow, Home, and End keys", async () => {
+		const current = workspace();
+		render(
+			<WorkspaceSwitcher
+				current={current}
+				onSelect={() => undefined}
+				catalog={[
+					current,
+					workspace({
+						sortOrder: 1,
+						name: "Fitness",
+						slug: "fitness",
+						installationId: "installation-fitness",
+					}),
+					workspace({
+						sortOrder: 2,
+						name: "Journal",
+						slug: "journal",
+						installationId: "installation-journal",
+					}),
+				]}
+			/>,
+		);
+		fireEvent.click(screen.getByRole("button", { name: "Media workspace, media" }));
+		const menu = screen.getByRole("menu");
+		const media = screen.getByRole("menuitemradio", { name: "Switch to Media workspace" });
+		const fitness = screen.getByRole("menuitemradio", { name: "Switch to Fitness workspace" });
+		const journal = screen.getByRole("menuitemradio", { name: "Switch to Journal workspace" });
+		await waitFor(() => expect(document.activeElement).toBe(media));
+
+		fireEvent.keyDown(menu, { key: "ArrowDown" });
+		await waitFor(() => expect(document.activeElement).toBe(fitness));
+		fireEvent.keyDown(menu, { key: "End" });
+		await waitFor(() => expect(document.activeElement).toBe(journal));
+		fireEvent.keyDown(menu, { key: "ArrowDown" });
+		await waitFor(() => expect(document.activeElement).toBe(media));
+		fireEvent.keyDown(menu, { key: "ArrowUp" });
+		await waitFor(() => expect(document.activeElement).toBe(journal));
+		fireEvent.keyDown(menu, { key: "Home" });
+		await waitFor(() => expect(document.activeElement).toBe(media));
+	});
+
+	it("closes on Tab departure without pulling focus back", async () => {
+		const user = userEvent.setup();
+		const current = workspace();
+		render(
+			<>
+				<WorkspaceSwitcher current={current} catalog={[current]} onSelect={() => undefined} />
+				<button type="button">After switcher</button>
+			</>,
+		);
+		fireEvent.click(screen.getByRole("button", { name: "Media workspace, media" }));
+		await waitFor(() =>
+			expect(document.activeElement).toBe(
+				screen.getByRole("menuitemradio", { name: "Switch to Media workspace" }),
+			),
+		);
+
+		await user.tab();
+
+		expect(screen.queryByRole("menu")).toBeNull();
+		expect(document.activeElement).toBe(screen.getByRole("button", { name: "After switcher" }));
 	});
 });

@@ -81,14 +81,16 @@ describe("plugin client bridge contract", () => {
 
 	it("allows unknown string tokens and rejects missing required tokens", () => {
 		const decode = Schema.decodeUnknownResult(PluginThemeSnapshot);
-		const { bg: _bg, ...missingBg } = tokens;
+		const { "nav-indicator": _navIndicator, ...missingNavIndicator } = tokens;
 
 		expect(
 			Result.isSuccess(
 				decode({ resolvedMode: "dark", tokens: { ...tokens, "future-token": "value" } }),
 			),
 		).toBe(true);
-		expect(Result.isFailure(decode({ resolvedMode: "dark", tokens: missingBg }))).toBe(true);
+		expect(Result.isFailure(decode({ resolvedMode: "dark", tokens: missingNavIndicator }))).toBe(
+			true,
+		);
 		expect(Result.isFailure(decode({ resolvedMode: "dark", tokens: { ...tokens, bg: "" } }))).toBe(
 			true,
 		);
