@@ -1,7 +1,5 @@
 # Tests Guidelines
 
-> Inherits from root `AGENTS.md` for testing philosophy and anti-patterns. Rules below are additive.
-
 This package contains end-to-end and integration-style tests for Ryot.
 
 ## Conventions
