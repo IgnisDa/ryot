@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -14,18 +14,18 @@ Follow the parent PRD section "Fitness Workouts And Exercises". Imported exercis
 
 ## Acceptance criteria
 
-- [ ] Hevy and StrongApp source input schemas and adapters are added under the imports module.
-- [ ] Adapters group source rows into workouts and exercises according to V1 semantics while returning V2-native normalized workout items and item failures.
-- [ ] Imported custom exercises reuse existing user-owned and global exercises by normalized name plus `kind` before creating a new user-owned exercise.
-- [ ] Imported custom exercises use `images: []`, `muscles: []`, `instructions: []`, inferred `kind`, and omit optional fields.
-- [ ] The exercise schema no longer requires `level`; existing exercise validation and tests are updated.
-- [ ] Each imported workout creates a user-owned `workout` entity with `startedAt`, `endedAt`, and comments where available.
-- [ ] Each imported set creates a `workout-set` event on the exercise entity with `sessionEntityId` pointing to the workout entity.
-- [ ] Workout-set `occurredAt` equals workout `startedAt`.
-- [ ] Set events include `exerciseOrder`, `setOrder`, `setLot`, raw stats, and computed `volume`, `pace`, and `oneRm` when possible.
-- [ ] No V2 workout revision scheduler is added or invoked.
-- [ ] Unit tests cover exercise matching, custom exercise creation, workout/set event creation, and derived field formulas.
-- [ ] The workout import slice tests assert computed `oneRm`, `pace`, and `volume`.
+- [x] Hevy and StrongApp source input schemas and adapters are added under the imports module.
+- [x] Adapters group source rows into workouts and exercises according to V1 semantics while returning V2-native normalized workout items and item failures.
+- [x] Imported custom exercises reuse existing user-owned and global exercises by normalized name plus `kind` before creating a new user-owned exercise.
+- [x] Imported custom exercises use `images: []`, `muscles: []`, `instructions: []`, inferred `kind`, and omit optional fields.
+- [x] The exercise schema no longer requires `level`; existing exercise validation and tests are updated.
+- [x] Each imported workout creates a user-owned `workout` entity with `startedAt`, `endedAt`, and comments where available.
+- [x] Each imported set creates a `workout-set` event on the exercise entity with `sessionEntityId` pointing to the workout entity.
+- [x] Workout-set `occurredAt` equals workout `startedAt`.
+- [x] Set events include `exerciseOrder`, `setOrder`, `setLot`, raw stats, and computed `volume`, `pace`, and `oneRm` when possible.
+- [x] No V2 workout revision scheduler is added or invoked.
+- [x] Unit tests cover exercise matching, custom exercise creation, workout/set event creation, and derived field formulas.
+- [x] The workout import slice tests assert computed `oneRm`, `pace`, and `volume`.
 
 ## User stories addressed
 
