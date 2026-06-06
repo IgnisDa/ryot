@@ -28,7 +28,7 @@ type PluginEntitySchema = PluginManifest["entitySchemas"][number];
 
 export const makeEntitySchemaSlug = Brand.nominal<EntitySchemaInputSlug>();
 export type CreateEntitySchemaOptions = Partial<
-	Pick<PluginEntitySchema, "icon" | "name" | "slug" | "accentColor" | "propertiesSchema">
+	Pick<PluginEntitySchema, "icon" | "name" | "slug" | "propertiesSchema">
 > & {
 	pluginSlug: PluginManifest["metadata"]["slug"];
 };
@@ -39,7 +39,6 @@ export const createEntitySchema = (_client: Client, options: CreateEntitySchemaO
 			pluginSlug,
 			icon = "book",
 			name = "Test Schema",
-			accentColor = "#00FF00",
 			slug = `schema-${crypto.randomUUID()}`,
 			propertiesSchema = {
 				fields: { title: { label: "Title", description: "Title", type: "string" as const } },
@@ -49,7 +48,6 @@ export const createEntitySchema = (_client: Client, options: CreateEntitySchemaO
 			icon,
 			name,
 			slug,
-			accentColor,
 			propertiesSchema,
 			eventSchemas: [],
 		};

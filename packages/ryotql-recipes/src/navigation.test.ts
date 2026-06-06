@@ -16,7 +16,6 @@ const navigationResponse = {
 					sortOrder: { kind: "null", value: null },
 					isDisabled: { kind: "null", value: null },
 					icon: { kind: "text", value: "clapperboard" },
-					accentColor: { kind: "text", value: "#fd7e14" },
 				},
 				{
 					sortOrder: { kind: "number", value: 2 },
@@ -24,7 +23,6 @@ const navigationResponse = {
 					slug: { kind: "text", value: "fitness" },
 					icon: { kind: "text", value: "dumbbell" },
 					isDisabled: { kind: "boolean", value: true },
-					accentColor: { kind: "text", value: "#3d6d2f" },
 				},
 			],
 		},
@@ -39,7 +37,6 @@ const navigationResponse = {
 					sortOrder: { kind: "number", value: 1 },
 					pluginSlug: { kind: "text", value: "media" },
 					isDisabled: { kind: "boolean", value: false },
-					accentColor: { kind: "text", value: "#fd7e14" },
 				},
 				{
 					sortOrder: { kind: "number", value: 2 },
@@ -48,7 +45,6 @@ const navigationResponse = {
 					name: { kind: "text", value: "Everything" },
 					slug: { kind: "text", value: "everything" },
 					isDisabled: { kind: "boolean", value: false },
-					accentColor: { kind: "text", value: "#a24e08" },
 				},
 			],
 		},
@@ -93,7 +89,6 @@ describe("navigation recipe", () => {
 					{ key: "slug" },
 					{ key: "name" },
 					{ key: "icon" },
-					{ key: "accentColor" },
 					{ key: "sortOrder" },
 					{ key: "isDisabled" },
 				],
@@ -110,7 +105,7 @@ describe("navigation recipe", () => {
 				}
 				return selection.key;
 			}),
-		).toEqual(["slug", "name", "icon", "accentColor", "sortOrder", "isDisabled", "pluginSlug"]);
+		).toEqual(["slug", "name", "icon", "sortOrder", "isDisabled", "pluginSlug"]);
 		expect(document.queries.savedViews.output.orderBy).toEqual([
 			{ direction: "asc", expr: { type: "column", tableAlias: "savedView", field: "pluginSlug" } },
 			{ direction: "asc", expr: { type: "column", tableAlias: "savedView", field: "sortOrder" } },
@@ -132,7 +127,6 @@ describe("navigation recipe", () => {
 				slug: "media",
 				isDisabled: false,
 				icon: "clapperboard",
-				accentColor: "#fd7e14",
 			},
 			{
 				sortOrder: 2,
@@ -140,7 +134,6 @@ describe("navigation recipe", () => {
 				slug: "fitness",
 				isDisabled: true,
 				icon: "dumbbell",
-				accentColor: "#3d6d2f",
 			},
 		]);
 		expect(data.savedViews.map((item) => [item.slug, item.pluginSlug])).toEqual([
@@ -150,7 +143,6 @@ describe("navigation recipe", () => {
 		expect(data.collections).toEqual([
 			{
 				sortOrder: 0,
-				accentColor: "",
 				pluginSlug: null,
 				icon: "layers-3",
 				isDisabled: false,

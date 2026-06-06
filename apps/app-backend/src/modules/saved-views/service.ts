@@ -40,21 +40,11 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 				repository.ensureBuiltinViews(
 					userId,
 					views.map(
-						({
+						({ slug, name, icon, sortOrder, pluginSlug, queryDocument, displayConfiguration }) => ({
 							slug,
 							name,
 							icon,
 							sortOrder,
-							pluginSlug,
-							accentColor,
-							queryDocument,
-							displayConfiguration,
-						}) => ({
-							slug,
-							name,
-							icon,
-							sortOrder,
-							accentColor,
 							queryDocument,
 							displayConfiguration,
 							pluginSlug: pluginSlug ? PluginSlug.make(pluginSlug) : null,
@@ -110,7 +100,6 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 					userId: user.id,
 					icon: payload.icon,
 					pluginSlug: payload.pluginSlug,
-					accentColor: payload.accentColor,
 					queryDocument: payload.queryDocument,
 					displayConfiguration: payload.displayConfiguration,
 				}),
@@ -128,7 +117,6 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 				if (
 					payload.name !== current.name ||
 					payload.icon !== current.icon ||
-					payload.accentColor !== current.accentColor ||
 					(payload.pluginSlug ?? null) !== current.pluginSlug ||
 					!Bun.deepEquals(payload.queryDocument, current.queryDocument) ||
 					!Bun.deepEquals(payload.displayConfiguration, current.displayConfiguration)
@@ -190,7 +178,6 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 			return yield* create(user, {
 				icon: source.icon,
 				name: `${source.name} (Copy)`,
-				accentColor: source.accentColor,
 				queryDocument: source.queryDocument,
 				displayConfiguration: source.displayConfiguration,
 				...(source.pluginSlug ? { pluginSlug: source.pluginSlug } : {}),

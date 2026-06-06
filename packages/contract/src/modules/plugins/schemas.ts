@@ -15,7 +15,6 @@ export const PluginListItem = Schema.Struct({
 	slug: Schema.String,
 	version: Schema.String,
 	sourceHash: Schema.String,
-	accentColor: Schema.String,
 	description: Schema.String,
 });
 

@@ -108,7 +108,6 @@ it("exposes only approved application-table fields", () => {
 			"slug",
 			"name",
 			"icon",
-			"accentColor",
 			"sortOrder",
 			"isBuiltin",
 			"isDisabled",

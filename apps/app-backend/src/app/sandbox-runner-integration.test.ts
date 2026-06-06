@@ -1723,7 +1723,6 @@ const domainEntitySchemaRecord = {
 	slug: "movie",
 	isBuiltin: true,
 	pluginSlug: "plugin-1",
-	accentColor: "#ffffff",
 	propertiesSchema: { fields: {} },
 	providers: [{ name: "TMDB", providerId: "tmdb" }],
 };
