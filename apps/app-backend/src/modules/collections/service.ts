@@ -28,6 +28,11 @@ import {
 	toCollectionResponse,
 } from "./service-core";
 
+const requireBuiltinOrDie =
+	<T>(message: string) =>
+	(found: T | null | undefined): Effect.Effect<T> =>
+		found != null ? Effect.succeed(found) : Effect.die(message);
+
 export class CollectionsService extends Effect.Service<CollectionsService>()("CollectionsService", {
 	effect: Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
@@ -41,30 +46,20 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 
 		const memberOfSchema = yield* Effect.cached(
 			runWithDb(relationshipSchemasRepository.findBuiltinBySlug("member-of")).pipe(
-				Effect.flatMap((found) =>
-					found
-						? Effect.succeed(found)
-						: Effect.die("member-of relationship schema not found in database"),
-				),
+				Effect.flatMap(requireBuiltinOrDie("member-of relationship schema not found in database")),
 			),
 		);
 
 		const inLibrarySchema = yield* Effect.cached(
 			runWithDb(relationshipSchemasRepository.findBuiltinBySlug("in-library")).pipe(
-				Effect.flatMap((found) =>
-					found
-						? Effect.succeed(found)
-						: Effect.die("in-library relationship schema not found in database"),
-				),
+				Effect.flatMap(requireBuiltinOrDie("in-library relationship schema not found in database")),
 			),
 		);
 
 		const collectionEntitySchema = yield* Effect.cached(
 			runWithDb(repository.getBuiltinCollectionSchema()).pipe(
-				Effect.flatMap((found) =>
-					found
-						? Effect.succeed(found)
-						: Effect.die("builtin collection entity schema not found in database"),
+				Effect.flatMap(
+					requireBuiltinOrDie("builtin collection entity schema not found in database"),
 				),
 			),
 		);
