@@ -108,21 +108,24 @@ const ApplicationInfrastructureLive = Layer.mergeAll(
 	CoreInfrastructureDependenciesLive,
 );
 
+const EntitiesServiceLive = Layer.provide(EntitiesService.Default, QueryEngineService.Default);
+const EventsServiceLive = Layer.provide(EventsService.Default, QueryEngineService.Default);
+
 const RuntimeSandboxServiceLive = Layer.provide(
 	SandboxService.Default,
-	Layer.mergeAll(EventsService.Default, QueryEngineService.Default),
+	Layer.mergeAll(EventsServiceLive, QueryEngineService.Default),
 );
 
 const SandboxServicesLive = Layer.mergeAll(SandboxApiService.Default, RuntimeSandboxServiceLive);
 
 const ServicesNeedingCollectionsScopeLive = Layer.mergeAll(
 	AuthService.Default,
-	EntitiesService.Default,
+	EntitiesServiceLive,
 	LibraryImportService.Default,
 	EntitySchemasService.Default,
 	EpisodeResolverService.Default,
 	EventSchemasService.Default,
-	EventsService.Default,
+	EventsServiceLive,
 	Layer.provide(GodModeService.Default, AuthService.Default),
 	Layer.provide(ImportsService.Default, UploadsService.Default),
 	Layer.provide(
@@ -140,7 +143,7 @@ const ServicesNeedingCollectionsScopeLive = Layer.mergeAll(
 
 const CollectionsServiceLive = Layer.provide(
 	CollectionsService.Default,
-	Layer.mergeAll(EntitiesService.Default, EventsService.Default, RelationshipsService.Default),
+	Layer.mergeAll(EntitiesServiceLive, EventsServiceLive, RelationshipsService.Default),
 );
 
 const ServicesBaseLive = Layer.provideMerge(
