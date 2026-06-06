@@ -73,7 +73,7 @@ export class TimeoutError extends Schema.TaggedError<TimeoutError>()("TimeoutErr
 	message: Schema.String,
 }) {}
 
-// TODO: Temporary marker error returned from all skeleton route handlers.
+// TODO: (effect-migration) Temporary marker error returned from all skeleton route handlers.
 // Remove module by module as behavior is migrated.
 export class NotImplemented extends Schema.TaggedError<NotImplemented>()("NotImplemented", {
 	message: Schema.String,
