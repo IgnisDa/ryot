@@ -126,6 +126,115 @@ it("exposes only approved application-table fields", () => {
 			"updatedAt",
 		]),
 	);
+	expect(new Set(Object.keys(getCatalogTable("notificationChannel")?.fields ?? {}))).toEqual(
+		new Set(["id", "channel", "description", "isDisabled", "createdAt", "updatedAt"]),
+	);
+	const notificationChannel = getCatalogTable("notificationChannel");
+	expect(notificationChannel?.name).toBe("notification_channel");
+	expect(notificationChannel?.primaryKey).toBe("id");
+	expect(notificationChannel?.visibility).toEqual({
+		user: { type: "owned", column: "user_id", includeGlobal: false },
+	});
+	expect(notificationChannel && "plugin" in notificationChannel.visibility).toBe(false);
+	const notificationSubscriptionState = getCatalogTable("notificationSubscriptionState");
+	expect(
+		Object.fromEntries(
+			Object.entries(notificationSubscriptionState?.fields ?? {}).map(([name, catalogField]) => [
+				name,
+				catalogField.kind,
+			]),
+		),
+	).toEqual({
+		id: "text",
+		createdAt: "date",
+		updatedAt: "date",
+		isActive: "boolean",
+		signalSchemaSlug: "text",
+	});
+	expect(notificationSubscriptionState?.name).toBe("notification_subscription_state");
+	expect(notificationSubscriptionState?.primaryKey).toBe("id");
+	expect(notificationSubscriptionState?.visibility).toEqual({
+		user: { type: "owned", column: "user_id", includeGlobal: false },
+	});
+	expect(
+		notificationSubscriptionState && "plugin" in notificationSubscriptionState.visibility,
+	).toBe(false);
+	expect(new Set(Object.keys(getCatalogTable("integration")?.fields ?? {}))).toEqual(
+		new Set([
+			"id",
+			"lot",
+			"name",
+			"provider",
+			"pluginSlug",
+			"isDisabled",
+			"syncOwnership",
+			"minimumProgress",
+			"maximumProgress",
+			"extraSettings",
+			"lastFinishedAt",
+			"createdAt",
+			"updatedAt",
+		]),
+	);
+	const integration = getCatalogTable("integration");
+	expect(integration?.name).toBe("integration");
+	expect(integration?.primaryKey).toBe("id");
+	expect(integration?.visibility).toEqual({
+		user: { type: "owned", column: "user_id", includeGlobal: false },
+	});
+	expect(integration && "plugin" in integration.visibility).toBe(false);
+	expect(new Set(Object.keys(getCatalogTable("importRun")?.fields ?? {}))).toEqual(
+		new Set([
+			"id",
+			"source",
+			"status",
+			"progress",
+			"totalItems",
+			"failedItems",
+			"importedItems",
+			"processedItems",
+			"errorSummary",
+			"inputSummary",
+			"integrationId",
+			"startedAt",
+			"finishedAt",
+			"createdAt",
+			"updatedAt",
+		]),
+	);
+	expect(new Set(Object.keys(getCatalogTable("importRunFailure")?.fields ?? {}))).toEqual(
+		new Set([
+			"id",
+			"runId",
+			"stage",
+			"message",
+			"context",
+			"itemIndex",
+			"sourceLabel",
+			"sourceIdentifier",
+			"eventSchemaSlug",
+			"entitySchemaSlug",
+			"createdAt",
+		]),
+	);
+	const importRun = getCatalogTable("importRun");
+	const importRunFailure = getCatalogTable("importRunFailure");
+	expect(importRun?.name).toBe("import_run");
+	expect(importRun?.visibility).toEqual({
+		user: { type: "owned", column: "user_id", includeGlobal: false },
+	});
+	expect(importRunFailure?.name).toBe("import_run_failure");
+	expect(importRunFailure?.visibility).toEqual({
+		user: {
+			column: "run_id",
+			parentColumn: "id",
+			type: "parentOwned",
+			parentTable: "import_run",
+			parentOwnerColumn: "user_id",
+		},
+	});
+	expect(importRun && "plugin" in importRun.visibility).toBe(false);
+	expect(importRunFailure && "plugin" in importRunFailure.visibility).toBe(false);
 });
 
 it("rejects hidden application-table fields", () => {
@@ -135,6 +244,15 @@ it("rejects hidden application-table fields", () => {
 		["pluginState", "config"],
 		["pluginState", "userId"],
 		["savedView", "userId"],
+		["notificationChannel", "userId"],
+		["notificationChannel", "channelSpecifics"],
+		["notificationChannel", "platform_specifics"],
+		["notificationSubscriptionState", "userId"],
+		["notificationSubscriptionState", "metadata"],
+		["integration", "userId"],
+		["integration", "providerSpecifics"],
+		["integration", "webhookUrl"],
+		["importRun", "userId"],
 	] as const) {
 		const source = table(tableName, "source");
 		const catalogName = getCatalogTable(tableName)?.name;
@@ -154,6 +272,31 @@ it("rejects hidden application-table fields", () => {
 			),
 		).toBe(`Query 'rows': Unknown field '${fieldName}' on table '${catalogName}'`);
 	}
+});
+
+it("denies import catalog tables to plugin execution", () => {
+	for (const tableName of ["importRun", "importRunFailure"] as const) {
+		const source = table(tableName, "source");
+		expect(
+			validateRyotQLDocument(document({ rows: rows(source, { fields: [] }) }), {
+				type: "plugin",
+			}),
+		).toBe(`Query 'rows': Table '${tableName}' is not available to plugin execution`);
+	}
+});
+
+it("accepts notification channel descriptions as text fields", () => {
+	const channel = table("notificationChannel", "channel");
+	expect(
+		validateRyotQLDocument(
+			document({
+				channels: rows(channel, {
+					fields: [field("description", column(channel, "description"))],
+					where: contains(column(channel, "description"), literal("configured")),
+				}),
+			}),
+		),
+	).toBeNull();
 });
 
 it("rejects unknown fields and tables", () => {

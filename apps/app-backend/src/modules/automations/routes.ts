@@ -20,22 +20,6 @@ export const AutomationsRoutesLive = HttpApiBuilder.group(AppContract, "automati
 				return yield* service.getCatalog(params.signalSchemaSlug).pipe(dieOnDbError);
 			}),
 		)
-		.handle("listRules", () =>
-			Effect.gen(function* () {
-				const user = yield* CurrentUser;
-				const service = yield* NotificationSubscriptionsService;
-				return yield* service.listRules(user.id).pipe(dieOnDbError);
-			}),
-		)
-		.handle("getRule", ({ params }) =>
-			Effect.gen(function* () {
-				const user = yield* CurrentUser;
-				const service = yield* NotificationSubscriptionsService;
-				return yield* service
-					.getRule({ userId: user.id, ruleId: params.ruleId })
-					.pipe(dieOnDbError);
-			}),
-		)
 		.handle("installRule", ({ payload }) =>
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;
