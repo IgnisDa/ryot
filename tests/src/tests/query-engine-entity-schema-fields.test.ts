@@ -20,8 +20,8 @@ import { assertTaggedError } from "../test-support/assertions";
 
 describe("entity-schema fields", () => {
 	it("returns entity schema slug as a field", async () => {
-		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
-		const { data } = await executeQueryEngine(client, cookies, {
+		const { client, schema } = await createSingleSchemaQueryEngineFixture();
+		const { data } = await executeQueryEngine(client, {
 			eventJoins: [],
 			scope: [schema.slug],
 			pagination: { page: 1, limit: 1 },
@@ -38,8 +38,8 @@ describe("entity-schema fields", () => {
 	});
 
 	it("returns entity schema name as a field", async () => {
-		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
-		const { data } = await executeQueryEngine(client, cookies, {
+		const { client, schema } = await createSingleSchemaQueryEngineFixture();
+		const { data } = await executeQueryEngine(client, {
 			eventJoins: [],
 			scope: [schema.slug],
 			pagination: { page: 1, limit: 1 },
@@ -56,8 +56,8 @@ describe("entity-schema fields", () => {
 	});
 
 	it("returns entity schema isBuiltin as a boolean field", async () => {
-		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
-		const { data } = await executeQueryEngine(client, cookies, {
+		const { client, schema } = await createSingleSchemaQueryEngineFixture();
+		const { data } = await executeQueryEngine(client, {
 			eventJoins: [],
 			scope: [schema.slug],
 			pagination: { page: 1, limit: 1 },
@@ -74,9 +74,9 @@ describe("entity-schema fields", () => {
 	});
 
 	it("returns correct entity schema slug per entity in multi-schema queries", async () => {
-		const { client, cookies, smartphoneSlug, tabletSlug } =
+		const { client, smartphoneSlug, tabletSlug } =
 			await createCrossSchemaQueryEngineFixture();
-		const { data } = await executeQueryEngine(client, cookies, {
+		const { data } = await executeQueryEngine(client, {
 			eventJoins: [],
 			pagination: { page: 1, limit: 20 },
 			scope: [smartphoneSlug, tabletSlug],
@@ -94,8 +94,8 @@ describe("entity-schema fields", () => {
 	});
 
 	it("can filter by entity schema slug", async () => {
-		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
-		const { data } = await executeQueryEngine(client, cookies, {
+		const { client, schema } = await createSingleSchemaQueryEngineFixture();
+		const { data } = await executeQueryEngine(client, {
 			fields: [],
 			eventJoins: [],
 			scope: [schema.slug],
@@ -116,9 +116,9 @@ describe("entity-schema fields", () => {
 	});
 
 	it("can sort by entity schema name", async () => {
-		const { client, cookies, smartphoneSlug, tabletSlug } =
+		const { client, smartphoneSlug, tabletSlug } =
 			await createCrossSchemaQueryEngineFixture();
-		const { data } = await executeQueryEngine(client, cookies, {
+		const { data } = await executeQueryEngine(client, {
 			scope: [smartphoneSlug, tabletSlug],
 			eventJoins: [],
 			pagination: { page: 1, limit: 20 },
@@ -134,8 +134,8 @@ describe("entity-schema fields", () => {
 	});
 
 	it("rejects invalid entity schema columns", async () => {
-		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
-		const error = await executeQueryEngineError(client, cookies, {
+		const { client, schema } = await createSingleSchemaQueryEngineFixture();
+		const error = await executeQueryEngineError(client, {
 			eventJoins: [],
 			scope: [schema.slug],
 			pagination: { page: 1, limit: 1 },
@@ -150,8 +150,8 @@ describe("entity-schema fields", () => {
 	});
 
 	it("rejects entity builtins masquerading as entity-schema columns", async () => {
-		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
-		const error = await executeQueryEngineError(client, cookies, {
+		const { client, schema } = await createSingleSchemaQueryEngineFixture();
+		const error = await executeQueryEngineError(client, {
 			eventJoins: [],
 			scope: [schema.slug],
 			pagination: { page: 1, limit: 1 },

@@ -22,16 +22,14 @@ export async function findBuiltinRelationshipSchemaId(slug: string) {
 
 export async function createWorkoutTemplateEntityFixture(
 	client: Client,
-	cookies: string,
 	options: { name?: string; comment?: string; exerciseId?: string } = {},
 ) {
 	const { schema: workoutTemplateSchema } = await findBuiltinSchemaBySlug(
 		client,
-		cookies,
 		"workout-template",
 	);
-	const exerciseId = options.exerciseId ?? (await waitForSeededExerciseId(client, cookies));
-	const workoutTemplate = await createEntity(client, cookies, {
+	const exerciseId = options.exerciseId ?? (await waitForSeededExerciseId(client));
+	const workoutTemplate = await createEntity(client, {
 		image: null,
 		entitySchemaId: workoutTemplateSchema.id,
 		name: options.name ?? `Workout Template ${crypto.randomUUID()}`,

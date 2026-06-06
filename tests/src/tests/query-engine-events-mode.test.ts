@@ -20,8 +20,8 @@ import { assertPresent, assertTaggedError } from "../test-support/assertions";
 
 describe("events mode", () => {
 	it("returns events as primary rows with mode discriminant and pagination metadata", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { trackerId } = await createTracker(client, cookies, {
+		const { client } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, {
 			name: "Events E2E Tracker",
 		});
 		const minimalSchema = {
@@ -33,12 +33,12 @@ describe("events mode", () => {
 				},
 			},
 		};
-		const schema = await createEntitySchema(client, cookies, {
+		const schema = await createEntitySchema(client, {
 			trackerId,
 			name: "WatchItem",
 			propertiesSchema: minimalSchema,
 		});
-		const watchSchema = await createEventSchema(client, cookies, {
+		const watchSchema = await createEventSchema(client, {
 			name: "Watch",
 			slug: "watch",
 			entitySchemaId: schema.schemaId,
@@ -54,56 +54,51 @@ describe("events mode", () => {
 		});
 		const entityId = await createQueryEngineEntity({
 			client,
-			cookies,
 			properties: {},
 			name: "My Movie",
 			entitySchemaId: schema.schemaId,
 		});
 		await createQueryEngineEvent({
 			client,
-			cookies,
 			entityId,
 			properties: {},
 			eventSchemaId: watchSchema.id,
 		});
 		await createQueryEngineEvent({
 			client,
-			cookies,
 			entityId,
 			properties: {},
 			eventSchemaId: watchSchema.id,
 		});
 
-		const data = await client.run(
-			(c) =>
-				c.queryEngine.execute({
-					payload: {
-						filter: null,
-						mode: "events",
-						eventJoins: [],
-						computedFields: [],
-						scope: [schema.slug],
-						eventSchemas: [watchSchema.slug],
-						pagination: { page: 1, limit: 10 },
-						sort: {
-							direction: "asc",
+		const data = await client.run((c) =>
+			c.queryEngine.execute({
+				payload: {
+					filter: null,
+					mode: "events",
+					eventJoins: [],
+					computedFields: [],
+					scope: [schema.slug],
+					eventSchemas: [watchSchema.slug],
+					pagination: { page: 1, limit: 10 },
+					sort: {
+						direction: "asc",
+						expression: {
+							type: "reference",
+							reference: { type: "event", path: ["createdAt"] },
+						},
+					},
+					fields: [
+						{
+							key: "eventId",
 							expression: {
 								type: "reference",
-								reference: { type: "event", path: ["createdAt"] },
+								reference: { type: "event", path: ["id"] },
 							},
 						},
-						fields: [
-							{
-								key: "eventId",
-								expression: {
-									type: "reference",
-									reference: { type: "event", path: ["id"] },
-								},
-							},
-						],
-					},
-				}),
-			{ Cookie: cookies },
+					],
+				},
+			}),
 		);
 
 		expect(data.mode).toBe("events");
@@ -118,8 +113,8 @@ describe("events mode", () => {
 	});
 
 	it("returns only events from the specified eventSchemas", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { trackerId } = await createTracker(client, cookies, {
+		const { client } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, {
 			name: "Events Schema Filter Tracker",
 		});
 		const minimalSchema = {
@@ -131,18 +126,18 @@ describe("events mode", () => {
 				},
 			},
 		};
-		const schema = await createEntitySchema(client, cookies, {
+		const schema = await createEntitySchema(client, {
 			trackerId,
 			name: "SchemaFilterItem",
 			propertiesSchema: minimalSchema,
 		});
-		const watchSchema = await createEventSchema(client, cookies, {
+		const watchSchema = await createEventSchema(client, {
 			name: "Watch",
 			slug: "watch",
 			entitySchemaId: schema.schemaId,
 			propertiesSchema: minimalSchema,
 		});
-		const reviewSchema = await createEventSchema(client, cookies, {
+		const reviewSchema = await createEventSchema(client, {
 			name: "Review",
 			slug: "review",
 			entitySchemaId: schema.schemaId,
@@ -150,56 +145,51 @@ describe("events mode", () => {
 		});
 		const entityId = await createQueryEngineEntity({
 			client,
-			cookies,
 			name: "Filtered Entity",
 			entitySchemaId: schema.schemaId,
 			properties: {},
 		});
 		await createQueryEngineEvent({
 			client,
-			cookies,
 			entityId,
 			properties: {},
 			eventSchemaId: watchSchema.id,
 		});
 		await createQueryEngineEvent({
 			client,
-			cookies,
 			entityId,
 			properties: {},
 			eventSchemaId: reviewSchema.id,
 		});
 
-		const data = await client.run(
-			(c) =>
-				c.queryEngine.execute({
-					payload: {
-						filter: null,
-						mode: "events",
-						eventJoins: [],
-						computedFields: [],
-						scope: [schema.slug],
-						eventSchemas: [watchSchema.slug],
-						pagination: { page: 1, limit: 10 },
-						sort: {
-							direction: "asc",
+		const data = await client.run((c) =>
+			c.queryEngine.execute({
+				payload: {
+					filter: null,
+					mode: "events",
+					eventJoins: [],
+					computedFields: [],
+					scope: [schema.slug],
+					eventSchemas: [watchSchema.slug],
+					pagination: { page: 1, limit: 10 },
+					sort: {
+						direction: "asc",
+						expression: {
+							type: "reference",
+							reference: { type: "event", path: ["createdAt"] },
+						},
+					},
+					fields: [
+						{
+							key: "schemaSlug",
 							expression: {
 								type: "reference",
-								reference: { type: "event", path: ["createdAt"] },
+								reference: { type: "event-schema", path: ["slug"] },
 							},
 						},
-						fields: [
-							{
-								key: "schemaSlug",
-								expression: {
-									type: "reference",
-									reference: { type: "event-schema", path: ["slug"] },
-								},
-							},
-						],
-					},
-				}),
-			{ Cookie: cookies },
+					],
+				},
+			}),
 		);
 
 		const result = data.mode === "events" ? data.data : undefined;
@@ -208,11 +198,11 @@ describe("events mode", () => {
 	});
 
 	it("sorts events by a numeric event property expression", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { trackerId } = await createTracker(client, cookies, {
+		const { client } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, {
 			name: "Events Sort Tracker",
 		});
-		const schema = await createEntitySchema(client, cookies, {
+		const schema = await createEntitySchema(client, {
 			trackerId,
 			name: "SortItem",
 			propertiesSchema: {
@@ -225,7 +215,7 @@ describe("events mode", () => {
 				},
 			},
 		});
-		const reviewSchema = await createEventSchema(client, cookies, {
+		const reviewSchema = await createEventSchema(client, {
 			name: "Review",
 			slug: "review",
 			entitySchemaId: schema.schemaId,
@@ -241,46 +231,53 @@ describe("events mode", () => {
 		});
 		const entityId = await createQueryEngineEntity({
 			client,
-			cookies,
 			properties: {},
 			name: "Sort Entity",
 			entitySchemaId: schema.schemaId,
 		});
 		await createQueryEngineEvent({
 			client,
-			cookies,
 			entityId,
 			properties: { rating: 3 },
 			eventSchemaId: reviewSchema.id,
 		});
 		await createQueryEngineEvent({
 			client,
-			cookies,
 			entityId,
 			properties: { rating: 1 },
 			eventSchemaId: reviewSchema.id,
 		});
 		await createQueryEngineEvent({
 			client,
-			cookies,
 			entityId,
 			properties: { rating: 5 },
 			eventSchemaId: reviewSchema.id,
 		});
 
-		const data = await client.run(
-			(c) =>
-				c.queryEngine.execute({
-					payload: {
-						filter: null,
-						mode: "events",
-						eventJoins: [],
-						computedFields: [],
-						scope: [schema.slug],
-						eventSchemas: [reviewSchema.slug],
-						pagination: { page: 1, limit: 10 },
-						sort: {
-							direction: "desc",
+		const data = await client.run((c) =>
+			c.queryEngine.execute({
+				payload: {
+					filter: null,
+					mode: "events",
+					eventJoins: [],
+					computedFields: [],
+					scope: [schema.slug],
+					eventSchemas: [reviewSchema.slug],
+					pagination: { page: 1, limit: 10 },
+					sort: {
+						direction: "desc",
+						expression: {
+							type: "reference",
+							reference: {
+								type: "event",
+								path: ["properties", "rating"],
+								eventSchemaSlug: reviewSchema.slug,
+							},
+						},
+					},
+					fields: [
+						{
+							key: "rating",
 							expression: {
 								type: "reference",
 								reference: {
@@ -290,22 +287,9 @@ describe("events mode", () => {
 								},
 							},
 						},
-						fields: [
-							{
-								key: "rating",
-								expression: {
-									type: "reference",
-									reference: {
-										type: "event",
-										path: ["properties", "rating"],
-										eventSchemaSlug: reviewSchema.slug,
-									},
-								},
-							},
-						],
-					},
-				}),
-			{ Cookie: cookies },
+					],
+				},
+			}),
 		);
 
 		const items = data.mode === "events" ? data.data.items : [];
@@ -317,11 +301,11 @@ describe("events mode", () => {
 	});
 
 	it("returns entity name and event schema slug alongside events", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { trackerId } = await createTracker(client, cookies, {
+		const { client } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, {
 			name: "Events Refs Tracker",
 		});
-		const schema = await createEntitySchema(client, cookies, {
+		const schema = await createEntitySchema(client, {
 			trackerId,
 			name: "RefsItem",
 			propertiesSchema: {
@@ -334,7 +318,7 @@ describe("events mode", () => {
 				},
 			},
 		});
-		const reviewSchema = await createEventSchema(client, cookies, {
+		const reviewSchema = await createEventSchema(client, {
 			name: "Review",
 			slug: "review",
 			entitySchemaId: schema.schemaId,
@@ -350,71 +334,67 @@ describe("events mode", () => {
 		});
 		const entityId = await createQueryEngineEntity({
 			client,
-			cookies,
 			properties: {},
 			name: "Named Entity",
 			entitySchemaId: schema.schemaId,
 		});
 		await createQueryEngineEvent({
 			client,
-			cookies,
 			entityId,
 			properties: { rating: 4 },
 			eventSchemaId: reviewSchema.id,
 		});
 
-		const data = await client.run(
-			(c) =>
-				c.queryEngine.execute({
-					payload: {
-						filter: null,
-						mode: "events",
-						eventJoins: [],
-						computedFields: [],
-						scope: [schema.slug],
-						eventSchemas: [reviewSchema.slug],
-						pagination: { page: 1, limit: 10 },
-						sort: {
-							direction: "asc",
+		const data = await client.run((c) =>
+			c.queryEngine.execute({
+				payload: {
+					filter: null,
+					mode: "events",
+					eventJoins: [],
+					computedFields: [],
+					scope: [schema.slug],
+					eventSchemas: [reviewSchema.slug],
+					pagination: { page: 1, limit: 10 },
+					sort: {
+						direction: "asc",
+						expression: {
+							type: "reference",
+							reference: { type: "event", path: ["createdAt"] },
+						},
+					},
+					fields: [
+						{
+							key: "entityName",
 							expression: {
 								type: "reference",
-								reference: { type: "event", path: ["createdAt"] },
+								reference: {
+									type: "entity",
+									path: ["name"],
+									slug: schema.slug,
+								},
 							},
 						},
-						fields: [
-							{
-								key: "entityName",
-								expression: {
-									type: "reference",
-									reference: {
-										type: "entity",
-										path: ["name"],
-										slug: schema.slug,
-									},
+						{
+							key: "eventSchemaSlug",
+							expression: {
+								type: "reference",
+								reference: { type: "event-schema", path: ["slug"] },
+							},
+						},
+						{
+							key: "rating",
+							expression: {
+								type: "reference",
+								reference: {
+									type: "event",
+									path: ["properties", "rating"],
+									eventSchemaSlug: reviewSchema.slug,
 								},
 							},
-							{
-								key: "eventSchemaSlug",
-								expression: {
-									type: "reference",
-									reference: { type: "event-schema", path: ["slug"] },
-								},
-							},
-							{
-								key: "rating",
-								expression: {
-									type: "reference",
-									reference: {
-										type: "event",
-										path: ["properties", "rating"],
-										eventSchemaSlug: reviewSchema.slug,
-									},
-								},
-							},
-						],
-					},
-				}),
-			{ Cookie: cookies },
+						},
+					],
+				},
+			}),
 		);
 
 		const items = data.mode === "events" ? data.data.items : [];
@@ -426,11 +406,11 @@ describe("events mode", () => {
 	});
 
 	it("returns correct paginated results and metadata in events mode", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { trackerId } = await createTracker(client, cookies, {
+		const { client } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, {
 			name: "Events Pagination Tracker",
 		});
-		const schema = await createEntitySchema(client, cookies, {
+		const schema = await createEntitySchema(client, {
 			trackerId,
 			name: "PaginationItem",
 			propertiesSchema: {
@@ -443,7 +423,7 @@ describe("events mode", () => {
 				},
 			},
 		});
-		const watchSchema = await createEventSchema(client, cookies, {
+		const watchSchema = await createEventSchema(client, {
 			name: "Watch",
 			slug: "watch",
 			entitySchemaId: schema.schemaId,
@@ -455,7 +435,6 @@ describe("events mode", () => {
 		});
 		const entityId = await createQueryEngineEntity({
 			client,
-			cookies,
 			name: "Pagination Entity",
 			entitySchemaId: schema.schemaId,
 			properties: {},
@@ -464,7 +443,6 @@ describe("events mode", () => {
 			[1, 2, 3, 4, 5].map((seq) =>
 				createQueryEngineEvent({
 					client,
-					cookies,
 					entityId,
 					properties: { seq },
 					eventSchemaId: watchSchema.id,
@@ -497,39 +475,35 @@ describe("events mode", () => {
 			},
 		];
 
-		const page1 = await client.run(
-			(c) =>
-				c.queryEngine.execute({
-					payload: {
-						fields,
-						filter: null,
-						sort: sortExpr,
-						mode: "events",
-						eventJoins: [],
-						computedFields: [],
-						scope: [schema.slug],
-						eventSchemas: [watchSchema.slug],
-						pagination: { page: 1, limit: 2 },
-					},
-				}),
-			{ Cookie: cookies },
+		const page1 = await client.run((c) =>
+			c.queryEngine.execute({
+				payload: {
+					fields,
+					filter: null,
+					sort: sortExpr,
+					mode: "events",
+					eventJoins: [],
+					computedFields: [],
+					scope: [schema.slug],
+					eventSchemas: [watchSchema.slug],
+					pagination: { page: 1, limit: 2 },
+				},
+			}),
 		);
-		const page3 = await client.run(
-			(c) =>
-				c.queryEngine.execute({
-					payload: {
-						fields,
-						filter: null,
-						mode: "events",
-						eventJoins: [],
-						sort: sortExpr,
-						computedFields: [],
-						scope: [schema.slug],
-						eventSchemas: [watchSchema.slug],
-						pagination: { page: 3, limit: 2 },
-					},
-				}),
-			{ Cookie: cookies },
+		const page3 = await client.run((c) =>
+			c.queryEngine.execute({
+				payload: {
+					fields,
+					filter: null,
+					mode: "events",
+					eventJoins: [],
+					sort: sortExpr,
+					computedFields: [],
+					scope: [schema.slug],
+					eventSchemas: [watchSchema.slug],
+					pagination: { page: 3, limit: 2 },
+				},
+			}),
 		);
 
 		const result1 = page1.mode === "events" ? page1.data : undefined;
@@ -559,11 +533,11 @@ describe("events mode", () => {
 	});
 
 	it("attaches event-join data to each event row via a lateral join", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { trackerId } = await createTracker(client, cookies, {
+		const { client } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, {
 			name: "Events Join Tracker",
 		});
-		const schema = await createEntitySchema(client, cookies, {
+		const schema = await createEntitySchema(client, {
 			trackerId,
 			name: "JoinItem",
 			propertiesSchema: {
@@ -576,7 +550,7 @@ describe("events mode", () => {
 				},
 			},
 		});
-		const watchSchema = await createEventSchema(client, cookies, {
+		const watchSchema = await createEventSchema(client, {
 			name: "Watch",
 			slug: "watch",
 			entitySchemaId: schema.schemaId,
@@ -590,7 +564,7 @@ describe("events mode", () => {
 				},
 			},
 		});
-		const reviewSchema = await createEventSchema(client, cookies, {
+		const reviewSchema = await createEventSchema(client, {
 			name: "Review",
 			slug: "review",
 			entitySchemaId: schema.schemaId,
@@ -606,77 +580,71 @@ describe("events mode", () => {
 		});
 		const entityId = await createQueryEngineEntity({
 			client,
-			cookies,
 			properties: {},
 			name: "Join Entity",
 			entitySchemaId: schema.schemaId,
 		});
 		await createQueryEngineEvent({
 			client,
-			cookies,
 			entityId,
 			eventSchemaId: watchSchema.id,
 			properties: { note: "first watch" },
 		});
 		await createQueryEngineEvent({
 			client,
-			cookies,
 			entityId,
 			eventSchemaId: watchSchema.id,
 			properties: { note: "second watch" },
 		});
 		await createQueryEngineEvent({
 			client,
-			cookies,
 			entityId,
 			properties: { rating: 7 },
 			eventSchemaId: reviewSchema.id,
 		});
 
-		const reviewEventSchemas = await listEventSchemas(client, cookies, schema.schemaId);
+		const reviewEventSchemas = await listEventSchemas(client, schema.schemaId);
 		const reviewEventSchema = reviewEventSchemas.find((s) => s.slug === reviewSchema.slug);
 		assertPresent(reviewEventSchema, "Review event schema not found");
 
-		const data = await client.run(
-			(c) =>
-				c.queryEngine.execute({
-					payload: {
-						filter: null,
-						mode: "events",
-						computedFields: [],
-						scope: [schema.slug],
-						eventSchemas: [watchSchema.slug],
-						pagination: { page: 1, limit: 10 },
-						sort: {
-							direction: "asc",
+		const data = await client.run((c) =>
+			c.queryEngine.execute({
+				payload: {
+					filter: null,
+					mode: "events",
+					computedFields: [],
+					scope: [schema.slug],
+					eventSchemas: [watchSchema.slug],
+					pagination: { page: 1, limit: 10 },
+					sort: {
+						direction: "asc",
+						expression: {
+							type: "reference",
+							reference: { type: "event", path: ["createdAt"] },
+						},
+					},
+					eventJoins: [
+						{
+							key: "review",
+							kind: "latestEvent",
+							eventSchemaSlug: reviewSchema.slug,
+						},
+					],
+					fields: [
+						{
+							key: "latestRating",
 							expression: {
 								type: "reference",
-								reference: { type: "event", path: ["createdAt"] },
-							},
-						},
-						eventJoins: [
-							{
-								key: "review",
-								kind: "latestEvent",
-								eventSchemaSlug: reviewSchema.slug,
-							},
-						],
-						fields: [
-							{
-								key: "latestRating",
-								expression: {
-									type: "reference",
-									reference: {
-										joinKey: "review",
-										type: "event-join",
-										path: ["properties", "rating"],
-									},
+								reference: {
+									joinKey: "review",
+									type: "event-join",
+									path: ["properties", "rating"],
 								},
 							},
-						],
-					},
-				}),
-			{ Cookie: cookies },
+						},
+					],
+				},
+			}),
 		);
 
 		const items = data.mode === "events" ? data.data.items : [];
@@ -688,11 +656,11 @@ describe("events mode", () => {
 	});
 
 	it("filters events by an event property predicate before returning rows", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { trackerId } = await createTracker(client, cookies, {
+		const { client } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, {
 			name: "Events Filter Tracker",
 		});
-		const schema = await createEntitySchema(client, cookies, {
+		const schema = await createEntitySchema(client, {
 			trackerId,
 			name: "FilterModeItem",
 			propertiesSchema: {
@@ -705,7 +673,7 @@ describe("events mode", () => {
 				},
 			},
 		});
-		const reviewSchema = await createEventSchema(client, cookies, {
+		const reviewSchema = await createEventSchema(client, {
 			name: "Review",
 			slug: "review",
 			entitySchemaId: schema.schemaId,
@@ -721,7 +689,6 @@ describe("events mode", () => {
 		});
 		const entityId = await createQueryEngineEntity({
 			client,
-			cookies,
 			name: "Filter Mode Entity",
 			entitySchemaId: schema.schemaId,
 			properties: {},
@@ -730,7 +697,6 @@ describe("events mode", () => {
 			[1, 2, 3, 4, 5].map((rating) =>
 				createQueryEngineEvent({
 					client,
-					cookies,
 					entityId,
 					properties: { rating },
 					eventSchemaId: reviewSchema.id,
@@ -747,27 +713,25 @@ describe("events mode", () => {
 			},
 		};
 
-		const data = await client.run(
-			(c) =>
-				c.queryEngine.execute({
-					payload: {
-						mode: "events",
-						eventJoins: [],
-						computedFields: [],
-						scope: [schema.slug],
-						eventSchemas: [reviewSchema.slug],
-						pagination: { page: 1, limit: 10 },
-						sort: { direction: "asc", expression: ratingRef },
-						fields: [{ key: "rating", expression: ratingRef }],
-						filter: {
-							operator: "gte",
-							left: ratingRef,
-							type: "comparison",
-							right: literalExpression(4),
-						},
+		const data = await client.run((c) =>
+			c.queryEngine.execute({
+				payload: {
+					mode: "events",
+					eventJoins: [],
+					computedFields: [],
+					scope: [schema.slug],
+					eventSchemas: [reviewSchema.slug],
+					pagination: { page: 1, limit: 10 },
+					sort: { direction: "asc", expression: ratingRef },
+					fields: [{ key: "rating", expression: ratingRef }],
+					filter: {
+						operator: "gte",
+						left: ratingRef,
+						type: "comparison",
+						right: literalExpression(4),
 					},
-				}),
-			{ Cookie: cookies },
+				},
+			}),
 		);
 
 		const items = data.mode === "events" ? data.data.items : [];
@@ -779,11 +743,11 @@ describe("events mode", () => {
 	});
 
 	it("rejects event-aggregate references in events mode", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { trackerId } = await createTracker(client, cookies, {
+		const { client } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, {
 			name: "Events Ref Rejection Tracker",
 		});
-		const schema = await createEntitySchema(client, cookies, {
+		const schema = await createEntitySchema(client, {
 			trackerId,
 			name: "RefRejectionItem",
 			propertiesSchema: {
@@ -796,7 +760,7 @@ describe("events mode", () => {
 				},
 			},
 		});
-		const reviewSchema = await createEventSchema(client, cookies, {
+		const reviewSchema = await createEventSchema(client, {
 			name: "Review",
 			slug: "review",
 			entitySchemaId: schema.schemaId,
@@ -811,41 +775,39 @@ describe("events mode", () => {
 			},
 		});
 
-		const error = await client.runError(
-			(c) =>
-				c.queryEngine.execute({
-					payload: {
-						filter: null,
-						mode: "events",
-						eventJoins: [],
-						computedFields: [],
-						scope: [schema.slug],
-						eventSchemas: [reviewSchema.slug],
-						pagination: { page: 1, limit: 10 },
-						sort: {
-							direction: "asc",
+		const error = await client.runError((c) =>
+			c.queryEngine.execute({
+				payload: {
+					filter: null,
+					mode: "events",
+					eventJoins: [],
+					computedFields: [],
+					scope: [schema.slug],
+					eventSchemas: [reviewSchema.slug],
+					pagination: { page: 1, limit: 10 },
+					sort: {
+						direction: "asc",
+						expression: {
+							type: "reference",
+							reference: { type: "event", path: ["createdAt"] },
+						},
+					},
+					fields: [
+						{
+							key: "avgRating",
 							expression: {
 								type: "reference",
-								reference: { type: "event", path: ["createdAt"] },
-							},
-						},
-						fields: [
-							{
-								key: "avgRating",
-								expression: {
-									type: "reference",
-									reference: {
-										aggregation: "avg",
-										type: "event-aggregate",
-										path: ["properties", "rating"],
-										eventSchemaSlug: reviewSchema.slug,
-									},
+								reference: {
+									aggregation: "avg",
+									type: "event-aggregate",
+									path: ["properties", "rating"],
+									eventSchemaSlug: reviewSchema.slug,
 								},
 							},
-						],
-					},
-				}),
-			{ Cookie: cookies },
+						},
+					],
+				},
+			}),
 		);
 
 		assertTaggedError(error, "BadRequest");
@@ -853,11 +815,11 @@ describe("events mode", () => {
 	});
 
 	it("rejects a missing event-join reference in events mode", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { trackerId } = await createTracker(client, cookies, {
+		const { client } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, {
 			name: "Events Join Ref Reject Tracker",
 		});
-		const schema = await createEntitySchema(client, cookies, {
+		const schema = await createEntitySchema(client, {
 			trackerId,
 			name: "JoinRefRejectItem",
 			propertiesSchema: {
@@ -870,7 +832,7 @@ describe("events mode", () => {
 				},
 			},
 		});
-		const watchSchema = await createEventSchema(client, cookies, {
+		const watchSchema = await createEventSchema(client, {
 			name: "Watch",
 			slug: "watch",
 			entitySchemaId: schema.schemaId,
@@ -885,40 +847,38 @@ describe("events mode", () => {
 			},
 		});
 
-		const error = await client.runError(
-			(c) =>
-				c.queryEngine.execute({
-					payload: {
-						filter: null,
-						mode: "events",
-						eventJoins: [],
-						computedFields: [],
-						scope: [schema.slug],
-						pagination: { page: 1, limit: 10 },
-						eventSchemas: [watchSchema.slug],
-						sort: {
-							direction: "asc",
+		const error = await client.runError((c) =>
+			c.queryEngine.execute({
+				payload: {
+					filter: null,
+					mode: "events",
+					eventJoins: [],
+					computedFields: [],
+					scope: [schema.slug],
+					pagination: { page: 1, limit: 10 },
+					eventSchemas: [watchSchema.slug],
+					sort: {
+						direction: "asc",
+						expression: {
+							type: "reference",
+							reference: { type: "event", path: ["createdAt"] },
+						},
+					},
+					fields: [
+						{
+							key: "reviewRating",
 							expression: {
 								type: "reference",
-								reference: { type: "event", path: ["createdAt"] },
-							},
-						},
-						fields: [
-							{
-								key: "reviewRating",
-								expression: {
-									type: "reference",
-									reference: {
-										type: "event-join",
-										joinKey: "review",
-										path: ["properties", "rating"],
-									},
+								reference: {
+									type: "event-join",
+									joinKey: "review",
+									path: ["properties", "rating"],
 								},
 							},
-						],
-					},
-				}),
-			{ Cookie: cookies },
+						},
+					],
+				},
+			}),
 		);
 
 		assertTaggedError(error, "BadRequest");
@@ -926,9 +886,9 @@ describe("events mode", () => {
 	});
 
 	it("rejects primary event references in entities mode", async () => {
-		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
+		const { client, schema } = await createSingleSchemaQueryEngineFixture();
 
-		const error = await executeQueryEngineError(client, cookies, {
+		const error = await executeQueryEngineError(client, {
 			eventJoins: [],
 			scope: [schema.slug],
 			pagination: { page: 1, limit: 1 },
@@ -949,11 +909,11 @@ describe("events mode", () => {
 	});
 
 	it("rejects primary event property sort expressions without eventSchemaSlug in events mode", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { trackerId } = await createTracker(client, cookies, {
+		const { client } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, {
 			name: "Primary Event Schema Slug Tracker",
 		});
-		const schema = await createEntitySchema(client, cookies, {
+		const schema = await createEntitySchema(client, {
 			trackerId,
 			name: "StrictEventProps",
 			propertiesSchema: {
@@ -966,7 +926,7 @@ describe("events mode", () => {
 				},
 			},
 		});
-		const reviewSchema = await createEventSchema(client, cookies, {
+		const reviewSchema = await createEventSchema(client, {
 			name: "Review",
 			slug: "review",
 			entitySchemaId: schema.schemaId,
@@ -982,44 +942,40 @@ describe("events mode", () => {
 		});
 		const entityId = await createQueryEngineEntity({
 			client,
-			cookies,
 			name: "Strict Event Entity",
 			entitySchemaId: schema.schemaId,
 			properties: {},
 		});
 		await createQueryEngineEvent({
 			client,
-			cookies,
 			entityId,
 			eventSchemaId: reviewSchema.id,
 			properties: { rating: 5 },
 		});
 
-		const error = await client.runError(
-			(c) =>
-				c.queryEngine.execute({
-					payload: {
-						filter: null,
-						mode: "events",
-						eventJoins: [],
-						computedFields: [],
-						scope: [schema.slug],
-						eventSchemas: [reviewSchema.slug],
-						pagination: { page: 1, limit: 10 },
-						sort: {
-							direction: "asc",
-							expression: {
-								type: "reference",
-								reference: {
-									type: "event",
-									path: ["properties", "rating"],
-								},
+		const error = await client.runError((c) =>
+			c.queryEngine.execute({
+				payload: {
+					filter: null,
+					mode: "events",
+					eventJoins: [],
+					computedFields: [],
+					scope: [schema.slug],
+					eventSchemas: [reviewSchema.slug],
+					pagination: { page: 1, limit: 10 },
+					sort: {
+						direction: "asc",
+						expression: {
+							type: "reference",
+							reference: {
+								type: "event",
+								path: ["properties", "rating"],
 							},
 						},
-						fields: [],
 					},
-				}),
-			{ Cookie: cookies },
+					fields: [],
+				},
+			}),
 		);
 
 		assertTaggedError(error, "BadRequest");
