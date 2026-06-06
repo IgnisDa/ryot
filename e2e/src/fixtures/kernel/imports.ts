@@ -377,13 +377,13 @@ export const installTestImportPinningPlugin = Effect.suspend(() => {
 });
 
 export const uploadImportFile = (
-	cookies: string,
+	authToken: string,
 	content: string,
 	fileName: string,
 	mimeType: string,
 ) =>
 	Effect.gen(function* () {
-		const headers = { Cookie: cookies };
+		const headers = { Authorization: `Bearer ${authToken}` };
 		const client = getApiClient();
 		const intent = yield* client.call(
 			(c) =>

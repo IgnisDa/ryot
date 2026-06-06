@@ -12,7 +12,7 @@ import {
 } from "effect/unstable/http";
 import { HttpApiBuilder, HttpApiError, HttpApiScalar } from "effect/unstable/httpapi";
 
-import { AppConfig, parseCorsOrigins } from "#lib/infrastructure/config/service";
+import { AppConfig } from "#lib/infrastructure/config/service";
 import { AdminMiddlewareLive, AuthMiddlewareLive, AuthService } from "#modules/auth/service";
 import { AutomationsRoutesLive } from "#modules/automations/routes";
 import { BackupsRoutesLive } from "#modules/backups/routes";
@@ -120,13 +120,12 @@ export const registerRootRoutes = Effect.fn("registerRootRoutes")(function* <E, 
 	authHandler: (request: Request) => Promise<Response>,
 	serveStatic: (pathname: string) => Effect.Effect<HttpServerResponse.HttpServerResponse, SE, SR>,
 	frontendUrl: string,
-	corsOrigins: ReadonlyArray<string>,
 ) {
-	const artifactCors = HttpMiddleware.cors({ allowedOrigins: ["*"], credentials: false });
+	const cors = HttpMiddleware.cors({ allowedOrigins: ["*"], credentials: false });
 	yield* router.addGlobalMiddleware((httpApp) =>
 		Effect.flatMap(HttpServerRequest.HttpServerRequest, (request) =>
 			new URL(request.originalUrl).pathname.startsWith("/api/plugin-artifact-sessions/")
-				? artifactCors(httpApp).pipe(
+				? cors(httpApp).pipe(
 						Effect.map(
 							HttpServerResponse.setHeaders({
 								"cache-control": "no-store",
@@ -135,19 +134,9 @@ export const registerRootRoutes = Effect.fn("registerRootRoutes")(function* <E, 
 							}),
 						),
 					)
-				: httpApp,
+				: cors(httpApp),
 		),
 	);
-	if (corsOrigins.length > 0) {
-		const cors = HttpMiddleware.cors({ allowedOrigins: corsOrigins, credentials: true });
-		yield* router.addGlobalMiddleware((httpApp) =>
-			Effect.flatMap(HttpServerRequest.HttpServerRequest, (request) =>
-				new URL(request.originalUrl).pathname.startsWith("/api/plugin-artifact-sessions/")
-					? httpApp
-					: cors(httpApp),
-			),
-		);
-	}
 	yield* router.add("*", "/api/auth/*", (request) =>
 		HttpEffect.fromWebHandler(authHandler).pipe(
 			Effect.provideService(HttpServerRequest.HttpServerRequest, request),
@@ -207,14 +196,7 @@ const RootRoutesLive = HttpRouter.use((router) =>
 			return HttpServerResponse.uint8Array(bytes, { contentType: mimeType(target) });
 		});
 
-		yield* registerRootRoutes(
-			router,
-			api,
-			auth.auth.handler,
-			serveStatic,
-			config.frontendUrl,
-			parseCorsOrigins(config.server.corsOrigins),
-		);
+		yield* registerRootRoutes(router, api, auth.auth.handler, serveStatic, config.frontendUrl);
 	}),
 );
 

@@ -27,7 +27,6 @@ it.effect(
 						(request) => Promise.resolve(new Response(`auth:${new URL(request.url).pathname}`)),
 						(pathname) => Effect.succeed(HttpServerResponse.text(`static:${pathname}`)),
 						"http://frontend.test",
-						["http://client.test"],
 					),
 				);
 				return HttpRouter.toWebHandler(RootLive, { disableLogger: true });
@@ -60,9 +59,28 @@ it.effect(
 						),
 					);
 					expect(preflight.status).toBe(204);
-					expect(preflight.headers.get("access-control-allow-origin")).toBe("http://client.test");
-					expect(preflight.headers.get("access-control-allow-credentials")).toBe("true");
+					expect(preflight.headers.get("access-control-allow-origin")).toBe("*");
+					expect(preflight.headers.has("access-control-allow-credentials")).toBe(false);
 					expect(preflight.headers.get("access-control-allow-headers")).toBe("b3,traceparent");
+
+					for (const origin of [
+						"null",
+						"https://localhost",
+						"capacitor://localhost",
+						"http://localhost:3005",
+					]) {
+						const response = yield* Effect.promise(() =>
+							handler(new Request("http://server.test/api/system/health", { headers: { origin } })),
+						);
+						expect([origin, response.headers.get("access-control-allow-origin")]).toEqual([
+							origin,
+							"*",
+						]);
+						expect([origin, response.headers.has("access-control-allow-credentials")]).toEqual([
+							origin,
+							false,
+						]);
+					}
 
 					const artifact = yield* Effect.promise(() =>
 						handler(
@@ -95,4 +113,44 @@ it.effect(
 				}),
 			({ dispose }) => Effect.promise(dispose),
 		),
+);
+
+it.effect("preserves the auth handler's own expose-headers on a sign-in response", () =>
+	Effect.acquireUseRelease(
+		Effect.sync(() => {
+			const RootLive = HttpRouter.use((router) =>
+				registerRootRoutes(
+					router,
+					Effect.succeed(HttpServerResponse.empty({ status: 404 })),
+					() =>
+						Promise.resolve(
+							new Response("signed-in", {
+								headers: {
+									"set-auth-token": "session-token",
+									"access-control-expose-headers": "set-auth-token",
+								},
+							}),
+						),
+					(pathname) => Effect.succeed(HttpServerResponse.text(`static:${pathname}`)),
+					"http://frontend.test",
+				),
+			);
+			return HttpRouter.toWebHandler(RootLive, { disableLogger: true });
+		}),
+		({ handler }) =>
+			Effect.gen(function* () {
+				const response = yield* Effect.promise(() =>
+					handler(
+						new Request("http://server.test/api/auth/sign-in/email", {
+							method: "POST",
+							headers: { origin: "https://localhost" },
+						}),
+					),
+				);
+				expect(response.headers.get("access-control-allow-origin")).toBe("*");
+				expect(response.headers.get("set-auth-token")).toBe("session-token");
+				expect(response.headers.get("access-control-expose-headers")).toBe("set-auth-token");
+			}),
+		({ dispose }) => Effect.promise(dispose),
+	),
 );

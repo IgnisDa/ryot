@@ -25,7 +25,6 @@
 |---|---|---|---|---|---|
 | `server.logLevel` | `SERVER_LOG_LEVEL` | Minimum application log level | No | No | `info` |
 | `server.logFile` | `SERVER_LOG_FILE` | File path for appended structured logs | No | No | — |
-| `server.corsOrigins` | `SERVER_CORS_ORIGINS` | Comma-separated list of allowed CORS origins | No | No | — |
 | `server.otlpEndpoint` | `SERVER_OTLP_ENDPOINT` | Base URL for OTLP trace export | No | No | — |
 | `server.adminAccessToken` | `SERVER_ADMIN_ACCESS_TOKEN` | Bearer token required for god-mode admin endpoints | Yes | Yes | — |
 | `server.proKey` | `SERVER_PRO_KEY` | The key that can be used to enable Ryot Pro features | No | Yes | — |

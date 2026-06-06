@@ -78,9 +78,9 @@ describe("Plugin Import Public Boundary", () => {
 
 	it.live("runs an installed source absent from the central contract to terminal success", () =>
 		Effect.gen(function* () {
-			const { client, cookies } = yield* createAuthenticatedClient();
+			const { client, token } = yield* createAuthenticatedClient();
 			const archiveUploadToken = yield* uploadImportFile(
-				cookies,
+				token,
 				"name,value\nfixture,1\n",
 				"fixture-archive.csv",
 				"text/csv",
@@ -158,8 +158,8 @@ describe("Plugin Import Public Boundary", () => {
 
 	it.live("rejects malformed import payloads", () =>
 		Effect.gen(function* () {
-			const { cookies } = yield* createAuthenticatedClient();
-			const response = yield* Effect.promise(() => postApiJson("/imports/runs", [], cookies));
+			const { token } = yield* createAuthenticatedClient();
+			const response = yield* Effect.promise(() => postApiJson("/imports/runs", [], token));
 
 			expect(response.status).toBe(400);
 		}),
@@ -167,10 +167,10 @@ describe("Plugin Import Public Boundary", () => {
 
 	it.live("rejects upload-token fields not declared by the selected source", () =>
 		Effect.gen(function* () {
-			const { client, cookies } = yield* createAuthenticatedClient();
+			const { client, token } = yield* createAuthenticatedClient();
 			const [archiveUploadToken, undeclaredUploadToken] = yield* Effect.all([
-				uploadImportFile(cookies, "fixture", "fixture.csv", "text/csv"),
-				uploadImportFile(cookies, "other", "other.csv", "text/csv"),
+				uploadImportFile(token, "fixture", "fixture.csv", "text/csv"),
+				uploadImportFile(token, "other", "other.csv", "text/csv"),
 			]);
 			const error = yield* Effect.flip(
 				client.call((c) =>
@@ -187,9 +187,9 @@ describe("Plugin Import Public Boundary", () => {
 
 	it.live("rejects reserved and schema-invalid fields before claiming uploads", () =>
 		Effect.gen(function* () {
-			const { client, cookies } = yield* createAuthenticatedClient();
+			const { client, token } = yield* createAuthenticatedClient();
 			const archiveUploadToken = yield* uploadImportFile(
-				cookies,
+				token,
 				"fixture",
 				"fixture.csv",
 				"text/csv",
@@ -243,9 +243,9 @@ describe("Plugin Import Public Boundary", () => {
 
 	it.live("rejects an invalid named artifact extension", () =>
 		Effect.gen(function* () {
-			const { client, cookies } = yield* createAuthenticatedClient();
+			const { client, token } = yield* createAuthenticatedClient();
 			const archiveUploadToken = yield* uploadImportFile(
-				cookies,
+				token,
 				"fixture",
 				"fixture.json",
 				"application/json",
@@ -262,9 +262,9 @@ describe("Plugin Import Public Boundary", () => {
 
 	it.live("rejects an unknown source before claiming uploads or starting a workflow", () =>
 		Effect.gen(function* () {
-			const { client, cookies } = yield* createAuthenticatedClient();
+			const { client, token } = yield* createAuthenticatedClient();
 			const archiveUploadToken = yield* uploadImportFile(
-				cookies,
+				token,
 				"fixture",
 				"fixture.csv",
 				"text/csv",
@@ -304,9 +304,9 @@ describe("Plugin Import Public Boundary", () => {
 			assertPresent(fixtureImportPlugin, "Fixture import plugin is missing");
 			yield* uninstallWhenReleased(fixtureImportPlugin);
 
-			const { client, cookies } = yield* createAuthenticatedClient();
+			const { client, token } = yield* createAuthenticatedClient();
 			const archiveUploadToken = yield* uploadImportFile(
-				cookies,
+				token,
 				"fixture",
 				"fixture.csv",
 				"text/csv",
@@ -322,7 +322,7 @@ describe("Plugin Import Public Boundary", () => {
 			fixtureImportPlugin = yield* installTestImportPlugin;
 			const reinstalled = yield* createAuthenticatedClient();
 			const reinstalledToken = yield* uploadImportFile(
-				reinstalled.cookies,
+				reinstalled.token,
 				"fixture",
 				"fixture.csv",
 				"text/csv",
