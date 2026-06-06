@@ -2,14 +2,15 @@ import type { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { eq } from "drizzle-orm";
 import { Effect, Option, Schema } from "effect";
 
-import type { EntitiesRepository } from "../modules/entities/repository";
-import type { EntitySchemasRepository } from "../modules/entity-schemas/repository";
-import type { EventSchemasRepository } from "../modules/event-schemas/repository";
-import { createEventsForUser } from "../modules/events/create-core";
-import type { EventsRepository } from "../modules/events/repository";
-import { CreateEventItem } from "../modules/events/schemas";
-import type { IntegrationsRepository } from "../modules/integrations/repository";
-import type { SandboxRepository } from "../modules/sandbox/repository";
+import type { EntitiesRepository } from "~/modules/entities/repository";
+import type { EntitySchemasRepository } from "~/modules/entity-schemas/repository";
+import type { EventSchemasRepository } from "~/modules/event-schemas/repository";
+import { createEventsForUser } from "~/modules/events/create-core";
+import type { EventsRepository } from "~/modules/events/repository";
+import { CreateEventItem } from "~/modules/events/schemas";
+import type { IntegrationsRepository } from "~/modules/integrations/repository";
+import type { SandboxRepository } from "~/modules/sandbox/repository";
+
 import type { AppConfigValue } from "./config";
 import { isOidcEnabled } from "./config";
 import { CurrentDb, dbEffect, type DbRunner, schema } from "./db";

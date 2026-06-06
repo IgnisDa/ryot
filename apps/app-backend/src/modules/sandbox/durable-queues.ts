@@ -1,9 +1,10 @@
 import { DurableQueue } from "@effect/workflow";
 import { Effect } from "effect";
 
-import { DbRunner } from "../../lib/db";
-import { SandboxRunError, unknownToMessage } from "../../lib/errors";
-import { SandboxService as RuntimeSandboxService } from "../../lib/sandbox";
+import { DbRunner } from "~/lib/db";
+import { SandboxRunError, unknownToMessage } from "~/lib/errors";
+import { SandboxService as RuntimeSandboxService } from "~/lib/sandbox";
+
 import { SandboxRepository } from "./repository";
 import { SandboxCompletedResult, SandboxExecutionPayload } from "./schemas";
 

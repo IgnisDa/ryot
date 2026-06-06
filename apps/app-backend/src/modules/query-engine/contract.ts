@@ -1,9 +1,9 @@
 import { HttpApiEndpoint, HttpApiGroup } from "@effect/platform";
 import { Schema } from "effect";
 
-import { AuthMiddleware } from "../../lib/auth";
-import { BadRequest, NotFound, NotImplemented, RateLimited, Unauthorized } from "../../lib/errors";
-import { DateRange, QueryEngineRequest } from "../../lib/query-language";
+import { AuthMiddleware } from "~/lib/auth";
+import { BadRequest, NotFound, NotImplemented, RateLimited, Unauthorized } from "~/lib/errors";
+import { DateRange, QueryEngineRequest } from "~/lib/query-language";
 
 // Response bodies
 const TableFieldValue = Schema.Struct({ kind: Schema.String, value: Schema.Unknown });

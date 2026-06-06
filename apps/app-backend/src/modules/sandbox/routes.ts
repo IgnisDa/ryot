@@ -1,9 +1,10 @@
 import { HttpApiBuilder } from "@effect/platform";
 import { Effect } from "effect";
 
-import { CurrentUser } from "../../lib/auth";
-import { AppContract } from "../../lib/contract";
-import { dieOnDbError } from "../../lib/errors";
+import { CurrentUser } from "~/lib/auth";
+import { AppContract } from "~/lib/contract";
+import { dieOnDbError } from "~/lib/errors";
+
 import { SandboxApiService } from "./service";
 
 export const SandboxRoutesLive = HttpApiBuilder.group(AppContract, "sandbox", (handlers) =>
