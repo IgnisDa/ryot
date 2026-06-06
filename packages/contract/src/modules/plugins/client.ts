@@ -7,6 +7,8 @@ export const CLIENT_BRIDGE_PROTOCOL_VERSION = 1 as const;
 export const CLIENT_ARTIFACT_FORMAT = 1 as const;
 export const CLIENT_COMPILER_VERSION = 1 as const;
 
+export const CLIENT_ARTIFACT_METADATA_ELEMENT_ID = "ryot-client-artifact";
+
 export const PluginClientCapability = Schema.Literals([
 	"files",
 	"audio",
@@ -35,13 +37,19 @@ export const PluginClientArtifactFile = strictStruct({
 
 export type PluginClientArtifactFile = Schema.Schema.Type<typeof PluginClientArtifactFile>;
 
-export const PluginClientArtifact = strictStruct({
+export const PluginClientArtifactMetadata = strictStruct({
 	hash: Schema.String,
-	files: Schema.Array(PluginClientArtifactFile),
 	format: Schema.Literal(CLIENT_ARTIFACT_FORMAT),
 	apiVersion: Schema.Literal(CLIENT_API_VERSION),
 	compilerVersion: Schema.Literal(CLIENT_COMPILER_VERSION),
 	bridgeVersion: Schema.Literal(CLIENT_BRIDGE_PROTOCOL_VERSION),
+});
+
+export type PluginClientArtifactMetadata = Schema.Schema.Type<typeof PluginClientArtifactMetadata>;
+
+export const PluginClientArtifact = strictStruct({
+	...PluginClientArtifactMetadata.fields,
+	files: Schema.Array(PluginClientArtifactFile),
 });
 
 export type PluginClientArtifact = Schema.Schema.Type<typeof PluginClientArtifact>;
