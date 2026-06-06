@@ -4,22 +4,18 @@ import { Effect, Schema } from "effect";
 
 import type { CurrentUserValue } from "~/lib/auth";
 import { DbRunner } from "~/lib/db";
-import { unknownToMessage } from "~/lib/errors";
 import { EntitiesService } from "~/modules/entities/service";
 import { EntitySchemasRepository } from "~/modules/entity-schemas/repository";
 
 import type { ImportRunJobData } from "../jobs";
 import { sanitizeErrorMessage } from "../runtime/failures";
+import { ImportRunError, toWorkflowError } from "../runtime/workflow-helpers";
 import { adaptOpenScaleCsv } from "../sources/open-scale/adapter";
-import { ImportRunError } from "../workflows";
 import {
 	type NonMediaItemOutcome,
 	type NonMediaPrepareResult,
 	loadNonMediaImportText,
 } from "../workflows-non-media";
-
-const toImportRunError = (cause: unknown) =>
-	new ImportRunError({ message: unknownToMessage(cause) });
 
 export const OpenScaleImportItemSchema = Schema.Struct({
 	itemIndex: Schema.Number,
@@ -68,7 +64,7 @@ export const prepareOpenScaleWrites = (
 			name: "load-measurement-entity-schema",
 			execute: runWithDb(entitySchemas.getBuiltinBySlug("measurement")).pipe(
 				Effect.map((schema) => schema?.id ?? null),
-				Effect.mapError(toImportRunError),
+				Effect.mapError(toWorkflowError),
 			),
 		});
 
@@ -88,7 +84,7 @@ export const prepareOpenScaleWrites = (
 							entitySchemaId: measurementSchemaId,
 							name: `Measurement - ${item.sourceLabel}`,
 						})
-						.pipe(Effect.asVoid, Effect.mapError(toImportRunError)),
+						.pipe(Effect.asVoid, Effect.mapError(toWorkflowError)),
 				}).pipe(
 					Effect.as({ _tag: "imported" } satisfies NonMediaItemOutcome),
 					Effect.catchAll((error) =>
