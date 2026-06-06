@@ -6,11 +6,13 @@ import type { QueryResultRow } from "pg";
 import {
 	createAuthenticatedClient,
 	getImportRun,
+	listEventSlugs,
 	pollImportRunUntilTerminal,
 	runHevyImportFixture,
 	runOpenScaleImportFixture,
 	startOpenScaleImport,
 	uploadTemporaryFile,
+	waitForEventSlugs,
 } from "../fixtures";
 import { getPgClient } from "../setup";
 import { assertTaggedError, requirePresent } from "../test-support/assertions";
@@ -144,16 +146,6 @@ async function querySingle<T extends QueryResultRow>(sql: string, params: unknow
 	return requirePresent(result.rows[0], `No row returned for: ${sql}`);
 }
 
-async function listEventSlugs(entityId: string): Promise<string[]> {
-	const result = await getPgClient().query<{ slug: string }>(
-		`select es.slug from event e
-		 join event_schema es on es.id = e.event_schema_id
-		 where e.entity_id = $1`,
-		[entityId],
-	);
-	return result.rows.map((row) => row.slug);
-}
-
 describe("Watcharr Show Import E2E (episode resolution)", () => {
 	it("attaches per-episode history to the episode entity and drops unresolvable locators", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
@@ -266,7 +258,7 @@ describe("Watcharr Show Import E2E (episode resolution)", () => {
 		expect(completedRun.progress).toBe(100);
 
 		// The resolvable episode's progress lands on the episode, never the show.
-		const episodeEvents = await listEventSlugs(episodeId);
+		const episodeEvents = await waitForEventSlugs(episodeId, "progress");
 		const showEvents = await listEventSlugs(showId);
 		expect(episodeEvents).toContain("progress");
 		expect(showEvents).not.toContain("progress");
