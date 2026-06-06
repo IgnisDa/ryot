@@ -4,6 +4,8 @@ import { Effect } from "effect";
 import { CurrentDb, dbEffect, isUniqueConstraintError, schema } from "#lib/db";
 import { DbError } from "#lib/errors";
 
+import type { ListedSavedView } from "./schemas";
+
 type SavedViewRow = typeof schema.savedView.$inferSelect;
 
 type CreateSavedViewInput = {
@@ -30,6 +32,18 @@ type UpdateSavedViewData = {
 
 const savedViewUserSlugConstraint = "saved_view_user_slug_unique";
 
+const normalizeQueryDefinition = (
+	queryDefinition: SavedViewRow["queryDefinition"],
+): ListedSavedView["queryDefinition"] => ({
+	mode: "entities",
+	sort: queryDefinition.sort,
+	scope: [...queryDefinition.scope],
+	filter: queryDefinition.filter ?? null,
+	eventJoins: [...queryDefinition.eventJoins],
+	computedFields: [...queryDefinition.computedFields],
+	relationshipJoins: [...(queryDefinition.relationshipJoins ?? [])],
+});
+
 const toListedSavedView = (row: SavedViewRow) => ({
 	id: row.id,
 	slug: row.slug,
@@ -40,10 +54,10 @@ const toListedSavedView = (row: SavedViewRow) => ({
 	isBuiltin: row.isBuiltin,
 	isDisabled: row.isDisabled,
 	accentColor: row.accentColor,
-	queryDefinition: row.queryDefinition,
 	createdAt: row.createdAt.toISOString(),
 	updatedAt: row.updatedAt.toISOString(),
 	displayConfiguration: row.displayConfiguration,
+	queryDefinition: normalizeQueryDefinition(row.queryDefinition),
 });
 
 const withSavedViewScope = (trackerId?: string) =>
