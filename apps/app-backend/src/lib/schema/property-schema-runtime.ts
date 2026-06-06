@@ -15,7 +15,6 @@ import {
 	type AppSchemaRuleValue,
 	type AppSchemaUnknownKeysPolicy,
 	createPropertySchemaMessage,
-	propertySchemaMessage,
 	type PropertyValidationError,
 	type PropertyValidationIssue,
 } from "./property-schema";
@@ -110,7 +109,7 @@ const isCompatibleRuleValue = (type: AppPropertyPrimitiveType, value: AppSchemaR
 	return typeof value === "string";
 };
 
-export const isAppPropertyRequired = (property: AppPropertyDefinition) =>
+const isAppPropertyRequired = (property: AppPropertyDefinition) =>
 	property.validation?.required === true;
 
 export const getAppPropertyDefinitionAtPath = (
@@ -345,7 +344,7 @@ const createObjectValueSchema = (
 	});
 };
 
-export const createPropertyValueSchema = (property: AppPropertyDefinition): PropertyValueSchema => {
+const createPropertyValueSchema = (property: AppPropertyDefinition): PropertyValueSchema => {
 	if (property.type === "string") {
 		const value = applyStringValidation(Schema.String, property.validation);
 		return isAppPropertyRequired(property) ? value : Schema.NullOr(value);
@@ -403,12 +402,10 @@ export const createPropertyValueSchema = (property: AppPropertyDefinition): Prop
 	return isAppPropertyRequired(property) ? value : Schema.NullOr(value);
 };
 
-export const createPropertiesValueSchema = (schema: AppSchema): ObjectValueSchema =>
+const createPropertiesValueSchema = (schema: AppSchema): ObjectValueSchema =>
 	createObjectValueSchema(schema.fields, schema.unknownKeys);
 
-export const createPropertySchemaObjectSchema = (
-	emptyFieldsMessage?: string,
-): Schema.Schema<AppSchema> =>
+const createPropertySchemaObjectSchema = (emptyFieldsMessage?: string): Schema.Schema<AppSchema> =>
 	emptyFieldsMessage
 		? AppSchema.pipe(
 				Schema.filter((value) => Object.keys(value.fields).length > 0, {
@@ -416,18 +413,6 @@ export const createPropertySchemaObjectSchema = (
 				}),
 			)
 		: AppSchema;
-
-export const createPropertySchemaInputSchema = (message: string): Schema.Schema<AppSchema> =>
-	createPropertySchemaObjectSchema(message);
-
-export const createLabeledPropertySchemas = (label: string) => ({
-	inputSchema: createPropertySchemaInputSchema(createPropertySchemaMessage(label)),
-	schema: createPropertySchemaObjectSchema(),
-});
-
-export const propertySchemaObjectSchema = createPropertySchemaObjectSchema();
-
-export const propertySchemaInputSchema = createPropertySchemaInputSchema(propertySchemaMessage);
 
 const decodeAppSchemaEither = (input: unknown, emptyFieldsMessage?: string) => {
 	const decoded = Schema.decodeUnknownEither(createPropertySchemaObjectSchema(emptyFieldsMessage))(
@@ -441,7 +426,7 @@ const decodeAppSchemaEither = (input: unknown, emptyFieldsMessage?: string) => {
 	return issues.length > 0 ? Either.left(toValidationError(issues)) : Either.right(appSchema);
 };
 
-export const parsePropertySchemaInput = (
+const parsePropertySchemaInput = (
 	input: unknown,
 	labels: { propertiesLabel: string },
 ): Effect.Effect<AppSchema, PropertyValidationError> => {

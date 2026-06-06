@@ -4,7 +4,7 @@ import { IntegrationId } from "#lib/schema/brands";
 
 import { integrationLots, integrationProviders } from "./types";
 
-export const IntegrationLot = Schema.Literal(...integrationLots);
+const IntegrationLot = Schema.Literal(...integrationLots);
 
 export type IntegrationLot = typeof IntegrationLot.Type;
 
@@ -103,7 +103,7 @@ export const IntegrationProviderSpecifics = Schema.Union(
 
 export type IntegrationProviderSpecifics = typeof IntegrationProviderSpecifics.Type;
 
-export const IntegrationExtraSettings = Schema.Struct({
+const IntegrationExtraSettings = Schema.Struct({
 	disableOnContinuousErrors: Schema.Boolean,
 });
 
