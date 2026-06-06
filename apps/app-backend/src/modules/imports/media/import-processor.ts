@@ -1,4 +1,4 @@
-import { DateTime, Effect, Either } from "effect";
+import { DateTime, Effect, Either, Schema } from "effect";
 
 import { DbRunner } from "~/lib/db";
 
@@ -9,20 +9,34 @@ import {
 	recordImportRunFailure,
 	sanitizeErrorMessage,
 } from "../runtime/failures";
-import type { ImportRunFailureStage } from "../types";
+import { ImportRunFailureStage } from "../schemas";
 import { populateMediaEntityRefs } from "./populate";
 import { resolveMediaEntityRefs } from "./resolve";
-import type { ImportMediaEntityGroup } from "./types";
+import { ImportMediaEntityGroupSchema, type ImportMediaEntityGroup } from "./types";
 import { writeMediaEntityGroups } from "./write";
+
+export const MediaImportAdapterFailureSchema = Schema.Struct({
+	message: Schema.String,
+	itemIndex: Schema.Number,
+	sourceLabel: Schema.optional(Schema.String),
+	stage: Schema.optional(ImportRunFailureStage),
+	sourceIdentifier: Schema.optional(Schema.String),
+	context: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
+});
 
 export type MediaImportAdapterFailure = {
 	message: string;
 	itemIndex: number;
 	sourceLabel?: string;
 	sourceIdentifier?: string;
-	stage?: ImportRunFailureStage;
 	context?: Record<string, unknown>;
+	stage?: typeof ImportRunFailureStage.Type;
 };
+
+export const MediaImportAdapterResultSchema = Schema.Struct({
+	failures: Schema.Array(MediaImportAdapterFailureSchema),
+	entityGroups: Schema.Array(ImportMediaEntityGroupSchema),
+});
 
 export type MediaImportAdapterResult = {
 	failures: MediaImportAdapterFailure[];
