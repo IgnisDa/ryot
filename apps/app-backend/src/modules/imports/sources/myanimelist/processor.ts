@@ -1,6 +1,3 @@
-import node_path from "node:path";
-import { gunzipSync } from "node:zlib";
-
 import type { Job } from "bullmq";
 
 import {
@@ -36,9 +33,10 @@ const decodeMyanimelistFile = async (
 	deps: MyanimelistImportProcessorDeps,
 ): Promise<string> => {
 	const bytes = await deps.readImportFileBytes(filePath);
-	return node_path.extname(filePath).toLowerCase() === ".gz"
-		? gunzipSync(bytes).toString("utf8")
-		: new TextDecoder().decode(bytes);
+	const decodedBytes = filePath.toLowerCase().endsWith(".gz")
+		? Bun.gunzipSync(new Uint8Array(bytes))
+		: bytes;
+	return new TextDecoder().decode(decodedBytes);
 };
 
 export const processMyanimelistImport = async (
