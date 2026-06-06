@@ -1,4 +1,5 @@
 import { pluginClientCatalogRecipe } from "@ryot/ryotql-recipes/plugin-client-catalog";
+import { sha256Hex } from "@ryot/ts-utils/crypto";
 import { Effect } from "effect";
 
 import {
@@ -86,7 +87,26 @@ describe("client plugin artifacts", () => {
 			expect(markup).toContain(`"hash":"${artifactHash}"`);
 			expect(markup).toContain('src="./plugin.js"');
 			expect(markup).toContain('href="./plugin.css"');
-			expect(yield* Effect.promise(() => stylesheet.text())).toContain(".plugin-logo");
+			const stylesheetText = yield* Effect.promise(() => stylesheet.text());
+			expect(stylesheetText).toContain(".plugin-logo");
+			expect(stylesheetText).toContain("Outfit Variable");
+			expect(stylesheetText).toContain("Lora Variable");
+			const fontNames = new Set(
+				[...stylesheetText.matchAll(/\.\/(asset-[0-9a-f]{64}\.woff2)/g)].map((match) =>
+					requirePresent(match[1], "Artifact CSS contains an invalid font URL"),
+				),
+			);
+			expect(fontNames.size).toBe(9);
+			const fontName = requirePresent(fontNames.values().next().value, "Artifact CSS has no font");
+			const font = yield* fetchArtifact(artifactHash, fontName);
+			const fontBytes = new Uint8Array(yield* Effect.promise(() => font.arrayBuffer()));
+			expect(font.status).toBe(200);
+			expect(font.headers.get("content-type")).toContain("font/woff2");
+			expect(font.headers.get("access-control-allow-origin")).toBe("*");
+			expect(font.headers.get("x-content-type-options")).toBe("nosniff");
+			expect(font.headers.get("cache-control")).toBe("public, max-age=31536000, immutable");
+			expect(new TextDecoder().decode(fontBytes.slice(0, 4))).toBe("wOF2");
+			expect(sha256Hex(fontBytes)).toBe(fontName.slice("asset-".length, -".woff2".length));
 
 			const unknownFile = yield* fetchArtifact(artifactHash, "secrets.json");
 			const unknownArtifact = yield* fetchArtifact("0".repeat(64), "index.html");

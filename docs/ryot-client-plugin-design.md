@@ -325,6 +325,8 @@ client/**
 
 Client-local CSS and supported assets live under `client/**`. The source archive remains distinct from the compiled client artifact.
 
+The Outfit and Lora files used by the Ryot design system are compiler-owned dependencies, not plugin source files. The compiler adds its own copy of those fonts to every client artifact.
+
 The canonical client file policy is deliberately narrow:
 
 - text sources use the exact extensions `.ts`, `.tsx`, and `.css`
@@ -352,9 +354,10 @@ The compiler:
 2. rejects unsupported external imports
 3. resolves approved SDK imports to Ryot-controlled implementations
 4. compiles Tailwind for that plugin
-5. bundles React DOM code for the browser
-6. emits the plugin client artifact
-7. content-addresses the resulting artifact
+5. adds the compiler-owned Ryot fonts
+6. bundles React DOM code for the browser
+7. emits the plugin client artifact
+8. content-addresses the resulting artifact
 
 Conceptually:
 
@@ -370,6 +373,7 @@ plugin source
           │
           ├── trusted module resolver
           ├── Tailwind compilation
+          ├── Outfit and Lora font assets
           └── Bun browser build
           │
           ▼
@@ -377,6 +381,8 @@ content-addressed client artifact
 ```
 
 The compiler operates on raw `Uint8Array` file contents. It enforces a 512 KiB limit over all `client/**` input bytes, a 256 KiB limit per asset, and an 8 MiB limit over the emitted artifact. Asset names are `asset-<sha256>.<ext>`, where the SHA-256 is computed from the exact asset bytes. A TS/TSX import emits a `./asset-<sha256>.<ext>` URL, and CSS references use the same name, so the same asset is emitted only once.
+
+The compiler also owns pinned `@fontsource-variable/outfit` and `@fontsource-variable/lora` dependencies matching the kernel. It reads their default normal-variable stylesheets, preserves their Unicode subsets and weight ranges, rewrites their local font URLs to content-addressed artifact names, and includes the resulting CSS and `.woff2` files in every artifact. Compiler-owned fonts count toward the emitted artifact limit, but not toward plugin source or per-asset input limits.
 
 The JSON worker protocol encodes file and artifact bytes as strict canonical padded Base64 only for transport. It decodes them back to raw bytes before compilation and encodes results the same way; Base64 is not a source, persistence, or compatibility representation.
 
@@ -389,6 +395,7 @@ The compiler owns the effective versions of:
 - client SDK
 - client UI SDK
 - UI implementation dependencies
+- Outfit and Lora variable fonts
 
 Plugins do not negotiate these dependencies with the running kernel.
 
@@ -409,7 +416,7 @@ The image build invokes `dist/smoke-compiler-workers.js` with the absolute path 
 
 The client artifact is an independently loadable web application.
 
-The artifact is a flat set of files with unique single-segment names: `index.html`, `plugin.js`, `plugin.css`, and content-hashed assets named `asset-<sha256>.<ext>`. Identical assets with the same extension share one emitted file. `index.html` references the other files with relative URLs (`./plugin.js`, `./plugin.css`, `./asset-<hash>.<ext>`).
+The artifact is a flat set of files with unique single-segment names: `index.html`, `plugin.js`, `plugin.css`, and content-hashed assets named `asset-<sha256>.<ext>`. Identical assets with the same extension share one emitted file. Every artifact contains its own Outfit and Lora `.woff2` files; there is no shared kernel font fallback or public font-asset dependency. `index.html` references the other files with relative URLs (`./plugin.js`, `./plugin.css`, `./asset-<hash>.<ext>`).
 
 The important invariants are:
 
@@ -485,6 +492,8 @@ font-display
 ```
 
 The kernel supplies the current theme to the plugin runtime. The plugin runtime applies corresponding CSS variables inside the iframe.
+
+The font-family tokens name the compiler-owned `Outfit Variable` and `Lora Variable` faces. Their `@font-face` declarations and content-addressed files are emitted into every plugin artifact, because an iframe cannot inherit the kernel document's font declarations. Font availability therefore does not depend on device-installed fonts or kernel CSS.
 
 Theme changes do not require recompiling a plugin.
 
@@ -795,7 +804,7 @@ The target model is an isolated iframe/document with:
 
 The kernel renders the plugin document in `<iframe sandbox="allow-scripts" referrerPolicy="no-referrer">`. This gives the plugin document an opaque origin: no kernel DOM access, no same-origin storage, and no readable Ryot credentials.
 
-The kernel serves artifact files from a public, unauthenticated, content-addressed route: `GET /api/plugins/artifacts/:artifactHash/:fileName`. The unguessable sha256 path means the sandboxed document never needs credentials to load. An unknown hash or file name returns 404. Every response carries its correct content type, `x-content-type-options: nosniff`, and `cache-control: public, max-age=31536000, immutable`; artifact routes do not emit an ETag. Artifact responses use wildcard, non-credentialed CORS because sandboxed documents have the opaque `null` origin, and the server's credentialed API CORS middleware does not overwrite that route policy. `index.html` additionally carries `content-security-policy: sandbox allow-scripts` as defence in depth.
+The kernel serves artifact files from a public, unauthenticated, content-addressed route: `GET /api/plugins/artifacts/:artifactHash/:fileName`. The unguessable sha256 path means the sandboxed document never needs credentials to load. An unknown hash or file name returns 404. Every response carries its correct content type, `x-content-type-options: nosniff`, and `cache-control: public, max-age=31536000, immutable`; artifact routes do not emit an ETag. Artifact responses, including compiler-owned font files, use wildcard, non-credentialed CORS because sandboxed documents have the opaque `null` origin, and the server's credentialed API CORS middleware does not overwrite that route policy. `index.html` additionally carries `content-security-policy: sandbox allow-scripts` as defence in depth.
 
 Artifact files are returned as raw byte HTTP responses. The server derives the MIME type for client assets from their canonical lowercase extensions; generated HTML, JavaScript, and CSS use their generated content types. The response policy applies to binary and text files alike: MIME, wildcard non-credentialed CORS, `nosniff`, immutable public caching, and the `index.html` sandbox CSP are server-owned.
 
