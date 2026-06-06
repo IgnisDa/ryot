@@ -14,7 +14,7 @@ import { sha256Hex } from "@ryot/ts-utils/crypto";
 import { stableStringify } from "@ryot/ts-utils/json";
 import { Effect, Match } from "effect";
 
-import { ClientPluginCompiler } from "#modules/sandbox/client-compiler";
+import { ClientPluginCompiler } from "#modules/plugins/client-plugin-compiler";
 
 import type { SchemaEvolutionError } from "./schema-evolution";
 import type { NormalizedPlugin, PluginScriptMetadata } from "./types";

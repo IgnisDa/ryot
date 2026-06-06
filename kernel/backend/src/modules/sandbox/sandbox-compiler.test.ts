@@ -4,7 +4,7 @@ import { Effect } from "effect";
 import {
 	compileSandboxSourceForTest as compile,
 	validSandboxSource as validSource,
-} from "./compiler-test-support";
+} from "./sandbox-compiler-test-support";
 
 const approvedDependencyImports = [
 	"@ryot/sandbox-sdk/effect",
@@ -21,10 +21,10 @@ import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineAutomation } from "@ryot/sandbox-sdk/automation";
 
 export const manifest = defineManifest({
+  capabilities: [],
   kind: "automation",
   name: "Automation",
   slug: "automation.test",
-  capabilities: [],
   requiredPluginConfigKeys: [],
   requiredSystemConfigKeys: [],
 });
@@ -172,10 +172,7 @@ it.effect("rejects computed dynamic imports before resolution", () =>
 		).pipe(Effect.flip);
 
 		expect(failure.diagnostics).toEqual([
-			expect.objectContaining({
-				code: "RYOT_IMPORT",
-				message: "Dynamic imports are not allowed",
-			}),
+			expect.objectContaining({ code: "RYOT_IMPORT", message: "Dynamic imports are not allowed" }),
 		]);
 	}),
 );

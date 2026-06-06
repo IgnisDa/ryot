@@ -98,6 +98,7 @@ import { NotificationsService } from "#modules/notifications/service";
 import { PluginBackupRestore } from "#modules/plugins/backup-restore";
 import { SystemPluginBootstrap } from "#modules/plugins/boot";
 import { PluginClientArtifactService } from "#modules/plugins/client-artifact-service";
+import { ClientPluginCompiler } from "#modules/plugins/client-plugin-compiler";
 import { PluginHttpRateLimitAuthority } from "#modules/plugins/http-rate-limit-authority";
 import { ImportSourceCatalogLive } from "#modules/plugins/import-source-catalog";
 import { PluginIngestionLock } from "#modules/plugins/ingestion-lock";
@@ -129,7 +130,6 @@ import { RelationshipSchemasRepository } from "#modules/relationship-schemas/rep
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
 import { RyotQLService } from "#modules/ryotql/service";
-import { ClientPluginCompiler } from "#modules/sandbox/client-compiler";
 import { SandboxRepository } from "#modules/sandbox/repository";
 import { SandboxWorkflowDefinitionsLive } from "#modules/sandbox/sandbox-workflow-live";
 import { SandboxExecutionService } from "#modules/sandbox/service";

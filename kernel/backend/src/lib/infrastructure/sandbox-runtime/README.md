@@ -57,7 +57,7 @@ while a request is dispatched.
 - Immutable input artifacts are pinned for the active workflow lifetime. Generated chunk handles remain
   resolvable until terminal completion or cancellation cleanup; TTLs are leak cleanup only.
 
-Compilation is implemented by the `@ryot/sandbox-compiler` workspace. Compiler concurrency, time, process-tree memory, and source-size limits apply during ingestion.
+Compilation uses two separate compiler engines: `@ryot/sandbox-compiler` compiles backend sandbox definitions, while `@ryot/client-plugin-compiler` compiles browser plugin artifacts. Both workers use the server-owned process supervision boundary for lifecycle, concurrency, timeout, process-tree memory, and termination controls. Each compiler package owns its production dependencies, limits, and output contract.
 
 ## Global HTTP Admission
 
@@ -305,7 +305,7 @@ These values retain distinct failure boundaries:
 | Durable calls         | One thousand supports established workflow fan-out while forcing larger batches into separate child executions.                                                     | An attempt cannot emit more than 1,000 durable requests; hitting the ceiling means the input must be chunked before dispatch. A lower value breaks valid fan-out, while a higher value enlarges replay journals and result envelopes.                            |
 | Concurrent host calls | Four matches the largest observed intentional per-execution fan-out.                                                                                                | Additional calls wait instead of failing. Excess queueing that contributes to timeout indicates undersizing; raising the limit creates larger bridge and downstream bursts without an observed workload requiring them.                                          |
 
-The compiler supervisor samples proportional set size for the Bun worker and its TypeScript descendants in the Linux production image. This avoids double-counting shared pages but is a sampled process supervisor, not a cgroup hard ceiling. Non-Linux development retains the process, timeout, and concurrency boundaries without claiming a portable memory ceiling; Bun's `--smol` flag reduces baseline memory but is not treated as enforcement.
+The compiler supervisor samples proportional set size for each Bun worker and its TypeScript descendants in the Linux production image. This avoids double-counting shared pages but is a sampled process supervisor, not a cgroup hard ceiling. Non-Linux development retains the process, timeout, and concurrency boundaries without claiming a portable memory ceiling; Bun's `--smol` flag reduces baseline memory but is not treated as enforcement.
 
 Each active bridge session owns its concurrency permits. Calls beyond the in-flight limit wait within
 that session while cumulative host-call and `httpCall` budgets continue counting independently.
