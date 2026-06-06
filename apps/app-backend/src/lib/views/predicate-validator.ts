@@ -1,5 +1,7 @@
-import { Match } from "effect";
+import { Either, Match, Schema } from "effect";
 
+import type { AppObjectProperty, AppPropertyDefinition } from "#lib/property-schema";
+import { createPropertyValueSchema } from "#lib/property-schema-runtime";
 import type { QueryComputedField, QueryExpression, QueryFilter } from "#lib/query-language";
 
 import { buildComputedFieldMap } from "./computed-fields";
@@ -16,6 +18,49 @@ import type {
 	QueryEngineReferenceContext,
 	QueryEngineSchemaLike,
 } from "./reference";
+
+type ContainsSchemaField =
+	| Schema.Schema.AnyNoContext
+	| Schema.PropertySignature<
+			Schema.PropertySignature.Token,
+			unknown,
+			PropertyKey,
+			Schema.PropertySignature.Token,
+			unknown,
+			boolean
+	  >;
+
+const validateLiteralAgainstSchema = (
+	value: unknown,
+	schema: Schema.Schema.AnyNoContext,
+	message: string,
+) => {
+	if (Either.isRight(Schema.decodeUnknownEither(schema)(value))) {
+		return;
+	}
+
+	throw new QueryEngineValidationError(message);
+};
+
+const createObjectContainsSchema = (property: AppObjectProperty) => {
+	const shape: Record<string, ContainsSchemaField> = {};
+
+	for (const [key, value] of Object.entries(property.properties)) {
+		shape[key] = Schema.optional(createContainsValueSchema(value));
+	}
+
+	return Schema.Struct(shape).annotations({
+		parseOptions: { onExcessProperty: "error" },
+	});
+};
+
+const createContainsValueSchema = (property: AppPropertyDefinition): Schema.Schema.AnyNoContext => {
+	if (property.type === "object") {
+		return createObjectContainsSchema(property);
+	}
+
+	return createPropertyValueSchema(property);
+};
 
 export const validateViewPredicateAgainstSchemas = <
 	TSchema extends QueryEngineSchemaLike,
@@ -104,6 +149,31 @@ export const validateViewPredicateAgainstSchemas = <
 					throw new QueryEngineValidationError(
 						"Filter operator 'contains' for object expressions requires an object expression value",
 					);
+				}
+
+				if (
+					expressionType.kind === "property" &&
+					expressionType.propertyDefinition &&
+					pred.value.type === "literal"
+				) {
+					const literalValue = pred.value.value;
+					const property = expressionType.propertyDefinition;
+
+					if (property.type === "array") {
+						validateLiteralAgainstSchema(
+							literalValue,
+							createContainsValueSchema(property.items),
+							"Filter operator 'contains' received a literal value incompatible with the array item schema",
+						);
+					}
+
+					if (property.type === "object") {
+						validateLiteralAgainstSchema(
+							literalValue,
+							createObjectContainsSchema(property),
+							"Filter operator 'contains' received a literal value incompatible with the object schema",
+						);
+					}
 				}
 			}),
 			Match.when({ type: "in" }, (pred) => {
