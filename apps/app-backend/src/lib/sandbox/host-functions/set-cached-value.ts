@@ -1,6 +1,7 @@
 import { extractErrorMessage } from "@ryot/ts-utils/error";
 
 import { redis } from "~/lib/redis";
+import { redisKeys, redisValues } from "~/lib/redis-keys";
 import {
 	apiFailure,
 	apiSuccess,
@@ -23,24 +24,21 @@ export const setCachedValue: HostFunction<CachedValueContext> = async (
 		return apiFailure("setCachedValue expects a non-empty key string");
 	}
 
+	const trimmedKey = key.trim();
+
 	if (typeof expiry !== "number" || !Number.isInteger(expiry) || expiry <= 0) {
 		return apiFailure("setCachedValue expects a positive integer expiry in seconds");
 	}
 
 	let serialized: string;
 	try {
-		const result = JSON.stringify(value);
-		// oxlint-disable-next-line no-unnecessary-condition
-		if (result === undefined) {
-			return apiFailure("setCachedValue value must be JSON-serializable");
-		}
-		serialized = result;
+		serialized = redisValues.sandbox.cache.stringify(value);
 	} catch {
 		return apiFailure("setCachedValue value must be JSON-serializable");
 	}
 
 	try {
-		await redis.setex(`sandbox:cache:${context.scriptId}:${key.trim()}`, expiry, serialized);
+		await redis.setex(redisKeys.sandbox.cache(context.scriptId, trimmedKey), expiry, serialized);
 		return apiSuccess(null);
 	} catch (error) {
 		return apiFailure(extractErrorMessage(error, "setCachedValue failed"));

@@ -28,6 +28,11 @@
 - Use deterministic `jobId` only when a job is intended to be idempotent.
 - After migrations, runtime startup initializes Redis, queues, sandbox service, workers, then built-in entity preload dispatch. Shutdown closes workers before queues, sandbox, and Redis.
 
+## Redis
+
+- Centralize all app-defined Redis keys and pub/sub channel names in `src/lib/redis-keys.ts`; do not construct them inline anywhere else in `src/`.
+- Access Redis-stored app payloads through the codecs in `src/lib/redis-keys.ts` so serialization and parsing stay typed in one place.
+
 ## Schema Write Path
 
 - `entity`, `event`, and `relationship` writes must validate `properties` against the matching schema table's `propertiesSchema`.

@@ -13,6 +13,7 @@ import {
 } from "~/lib/openapi";
 import { ERROR_CODES, errorResponse } from "~/lib/openapi/errors";
 import { redis } from "~/lib/redis";
+import { redisKeys, redisValues } from "~/lib/redis-keys";
 
 import {
 	provisionUserBodySchema,
@@ -213,7 +214,7 @@ const godModeApi = new OpenAPIHono()
 
 		const correlationId = crypto.randomUUID();
 		const subscriber = redis.duplicate();
-		const channel = `god-mode:reset:${correlationId}`;
+		const channel = redisKeys.godMode.resetChannel(correlationId);
 
 		try {
 			const stored = await storePendingReset(user.email, correlationId);
@@ -245,12 +246,9 @@ const godModeApi = new OpenAPIHono()
 						return;
 					}
 					clearTimeout(timeoutHandle);
-					try {
-						const parsed = JSON.parse(message);
-						settle(parsed);
-					} catch {
-						settle(null);
-					}
+
+					const parsed = redisValues.godMode.resetChannel.safeParse(message);
+					settle(parsed.success ? parsed.data : null);
 				});
 			});
 
