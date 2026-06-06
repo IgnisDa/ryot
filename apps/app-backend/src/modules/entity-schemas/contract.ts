@@ -1,7 +1,7 @@
 import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from "@effect/platform";
 import { Schema } from "effect";
 
-import { AuthMiddleware } from "~/lib/auth";
+import { AuthMiddleware } from "#lib/auth";
 import {
 	BadRequest,
 	Conflict,
@@ -9,8 +9,8 @@ import {
 	NotImplemented,
 	RateLimited,
 	Unauthorized,
-} from "~/lib/errors";
-import { SandboxRunResult } from "~/modules/sandbox/contract";
+} from "#lib/errors";
+import { SandboxRunResult } from "#modules/sandbox/contract";
 
 import {
 	CreateEntitySchemaBody,

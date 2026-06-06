@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createEntityPropertyExpression, createTransformExpression } from "~/lib/query-language";
+import { createEntityPropertyExpression, createTransformExpression } from "#lib/query-language";
 
 import { buildResolvedFieldsExpression } from "./display-sql-builder";
 import { dialect, singleSchemaContext } from "./test-support";

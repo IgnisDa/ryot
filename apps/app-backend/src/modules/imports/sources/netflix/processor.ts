@@ -1,8 +1,8 @@
 import { Effect } from "effect";
 
-import { DbRunner } from "~/lib/db";
-import type { EntitySearchItem } from "~/modules/entities/population";
-import { EntitiesRepository } from "~/modules/entities/repository";
+import { DbRunner } from "#lib/db";
+import type { EntitySearchItem } from "#modules/entities/population";
+import { EntitiesRepository } from "#modules/entities/repository";
 
 import { nowIso } from "../../media/dates";
 import type { LoadedMediaImportAdapterError } from "../../media/file-processor";

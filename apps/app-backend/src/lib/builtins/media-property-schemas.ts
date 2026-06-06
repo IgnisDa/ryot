@@ -7,7 +7,7 @@ import {
 	stringArrayField,
 	stringField,
 	type AppSchema,
-} from "~/lib/schema";
+} from "#lib/schema";
 
 export const moviePropertiesSchema: AppSchema = {
 	fields: {

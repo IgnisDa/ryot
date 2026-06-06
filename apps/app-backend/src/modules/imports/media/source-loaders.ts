@@ -1,10 +1,10 @@
 import type { FileSystem, HttpClient, Path } from "@effect/platform";
 import { Effect, Schema } from "effect";
 
-import { AppConfig } from "~/lib/config";
-import type { DbRunner } from "~/lib/db";
-import type { RedisService } from "~/lib/redis";
-import type { EntitiesRepository } from "~/modules/entities/repository";
+import { AppConfig } from "#lib/config";
+import type { DbRunner } from "#lib/db";
+import type { RedisService } from "#lib/redis";
+import type { EntitiesRepository } from "#modules/entities/repository";
 
 import type { ImportRunJobData } from "../jobs";
 import { sanitizeErrorMessage } from "../runtime/failures";

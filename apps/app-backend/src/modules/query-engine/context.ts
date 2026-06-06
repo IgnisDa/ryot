@@ -1,10 +1,10 @@
-import type { QueryFilter } from "~/lib/query-language";
+import type { QueryFilter } from "#lib/query-language";
 import type {
 	QueryEngineEventJoinLike,
 	QueryEngineEventSchemaLike,
 	QueryEngineReferenceContext,
 	QueryEngineRelationshipJoinLike,
-} from "~/lib/views/reference";
+} from "#lib/views/reference";
 
 import type { QueryEngineSchemaRow } from "./query-cte-shared";
 

@@ -1,14 +1,14 @@
 import { isNotNull, sql } from "drizzle-orm";
 import { Match } from "effect";
 
-import type { QueryComputedField, QueryExpression } from "~/lib/query-language";
-import { buildComputedFieldMap, getComputedFieldOrThrow } from "~/lib/views/computed-fields";
+import type { QueryComputedField, QueryExpression } from "#lib/query-language";
+import { buildComputedFieldMap, getComputedFieldOrThrow } from "#lib/views/computed-fields";
 import {
 	assertConcatCompatibleExpression,
 	assertNumericExpression,
 	type ViewExpressionTypeInfo,
-} from "~/lib/views/expression-analysis";
-import type { PropertyType } from "~/lib/views/reference";
+} from "#lib/views/expression-analysis";
+import type { PropertyType } from "#lib/views/reference";
 
 import type { QueryEngineContext } from "./context";
 import { buildEntityExpression, buildEntitySchemaExpression } from "./entity-reference-compilers";

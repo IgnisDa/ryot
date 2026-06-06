@@ -5,7 +5,7 @@ import {
 	createLiteralExpression,
 	type QueryComputedField,
 	type QueryFilter,
-} from "~/lib/query-language";
+} from "#lib/query-language";
 
 import { buildFilterWhereClause } from "./filter-builder";
 import {

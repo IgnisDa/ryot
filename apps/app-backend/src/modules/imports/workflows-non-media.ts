@@ -1,8 +1,8 @@
 import { Activity } from "@effect/workflow";
 import { Cause, DateTime, Effect, Schema } from "effect";
 
-import { DbRunner } from "~/lib/db";
-import { unknownToMessage } from "~/lib/errors";
+import { DbRunner } from "#lib/db";
+import { unknownToMessage } from "#lib/errors";
 
 import type { ImportRunJobData } from "./jobs";
 import { ImportsRepository } from "./repository";

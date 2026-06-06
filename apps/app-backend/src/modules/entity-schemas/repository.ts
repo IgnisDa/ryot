@@ -1,12 +1,12 @@
 import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import { Effect } from "effect";
 
-import { buildDefaultQueryDefinition, buildDisplayConfig } from "~/lib/builtins/view-helpers";
-import { CurrentDb, dbEffect, isUniqueConstraintError, schema } from "~/lib/db";
-import { DbError, conflict } from "~/lib/errors";
-import type { AppSchema } from "~/lib/schema";
-import { decodeStoredAppSchema } from "~/lib/schema";
-import { slugify } from "~/lib/slug";
+import { buildDefaultQueryDefinition, buildDisplayConfig } from "#lib/builtins/view-helpers";
+import { CurrentDb, dbEffect, isUniqueConstraintError, schema } from "#lib/db";
+import { DbError, conflict } from "#lib/errors";
+import type { AppSchema } from "#lib/schema";
+import { decodeStoredAppSchema } from "#lib/schema";
+import { slugify } from "#lib/slug";
 
 import type { ListedEntitySchema, Provider } from "./schemas";
 

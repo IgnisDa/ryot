@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 
-import { slugify } from "~/lib/slug";
+import { slugify } from "#lib/slug";
 
 export const workoutExerciseKinds = [
 	"reps",

@@ -15,13 +15,13 @@ import {
 } from "drizzle-orm";
 import { Match } from "effect";
 
-import type { QueryFilter } from "~/lib/query-language";
-import { QueryEngineValidationError } from "~/lib/views/errors";
+import type { QueryFilter } from "#lib/query-language";
+import { QueryEngineValidationError } from "#lib/views/errors";
 import {
 	assertContainsCompatibleExpression,
 	normalizeExpressionPropertyType,
 	type ViewExpressionTypeInfo,
-} from "~/lib/views/expression-analysis";
+} from "#lib/views/expression-analysis";
 
 import type { ExpressionCompiler } from "./expression-compiler";
 import type { SqlExpression } from "./sql-expression-helpers";

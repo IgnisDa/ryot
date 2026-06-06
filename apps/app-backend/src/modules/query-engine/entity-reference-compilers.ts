@@ -1,16 +1,16 @@
 import { sql } from "drizzle-orm";
 import { Match } from "effect";
 
-import type { QueryExpression } from "~/lib/query-language";
-import { QueryEngineValidationError } from "~/lib/views/errors";
-import { normalizeExpressionPropertyType } from "~/lib/views/expression-analysis";
-import type { EntityColumnOverrides, PropertyType } from "~/lib/views/reference";
+import type { QueryExpression } from "#lib/query-language";
+import { QueryEngineValidationError } from "#lib/views/errors";
+import { normalizeExpressionPropertyType } from "#lib/views/expression-analysis";
+import type { EntityColumnOverrides, PropertyType } from "#lib/views/reference";
 import {
 	getEntityColumnPropertyType,
 	getEntitySchemaColumnPropertyType,
 	getPropertyType,
 	getSchemaForReference,
-} from "~/lib/views/reference";
+} from "#lib/views/reference";
 
 import type { QueryEngineContext } from "./context";
 import { buildSchemaReferenceExpression } from "./reference-compiler-shared";

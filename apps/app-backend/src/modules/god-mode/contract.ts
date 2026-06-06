@@ -1,8 +1,8 @@
 import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from "@effect/platform";
 import { Schema } from "effect";
 
-import { AdminMiddleware } from "~/lib/auth";
-import { BadRequest, InternalError, NotImplemented, Unauthorized } from "~/lib/errors";
+import { AdminMiddleware } from "#lib/auth";
+import { BadRequest, InternalError, NotImplemented, Unauthorized } from "#lib/errors";
 
 const UserAuthState = Schema.Literal("credential", "oidc", "none", "mixed");
 

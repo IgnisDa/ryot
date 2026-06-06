@@ -4,6 +4,6 @@
 	"compilerOptions": {
 		"strict": true,
 		"types": ["bun-types"],
-		"paths": { "@/*": ["./src/*"], "~/*": ["../app-backend/src/*"] }
+		"paths": { "@/*": ["./src/*"] }
 	}
 }

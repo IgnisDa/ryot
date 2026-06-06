@@ -1,9 +1,9 @@
 import { sql } from "drizzle-orm";
 import { Effect } from "effect";
 
-import type { CurrentDb } from "~/lib/db";
-import type { DbError } from "~/lib/errors";
-import type { EntitiesQueryRequest } from "~/lib/query-language";
+import type { CurrentDb } from "#lib/db";
+import type { DbError } from "#lib/errors";
+import type { EntitiesQueryRequest } from "#lib/query-language";
 
 import type { PreparedQueryContext } from "./context";
 import { buildBaseEntitiesCte } from "./entity-query-ctes";

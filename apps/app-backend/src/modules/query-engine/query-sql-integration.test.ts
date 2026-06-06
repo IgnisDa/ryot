@@ -9,8 +9,8 @@ import {
 	createLiteralExpression,
 	type QueryExpression,
 	type QueryFilter,
-} from "~/lib/query-language";
-import { buildEventJoinMap, buildSchemaMap } from "~/lib/views/reference";
+} from "#lib/query-language";
+import { buildEventJoinMap, buildSchemaMap } from "#lib/views/reference";
 
 import { buildResolvedFieldsExpression } from "./display-sql-builder";
 import { createQueryCompiler, createScalarExpressionCompiler } from "./expression-compiler";

@@ -3,9 +3,9 @@ import { Workflow } from "@effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import { Effect, Layer } from "effect";
 
-import { CurrentDb, DbRunner } from "~/lib/db";
-import { CollectionsService } from "~/modules/collections/service";
-import { RelationshipSchemasRepository } from "~/modules/relationship-schemas/repository";
+import { CurrentDb, DbRunner } from "#lib/db";
+import { CollectionsService } from "#modules/collections/service";
+import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 
 import { EntitiesRepository } from "./repository";
 import type { ListedEntity } from "./schemas";

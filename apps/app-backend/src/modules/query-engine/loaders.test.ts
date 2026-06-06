@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { QueryEngineNotFoundError, QueryEngineValidationError } from "~/lib/views/errors";
-import type { QueryEngineEventSchemaLike } from "~/lib/views/reference";
+import { QueryEngineNotFoundError, QueryEngineValidationError } from "#lib/views/errors";
+import type { QueryEngineEventSchemaLike } from "#lib/views/reference";
 
 import {
 	validateEventSchemaSlugs,

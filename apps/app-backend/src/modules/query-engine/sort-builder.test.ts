@@ -6,7 +6,7 @@ import {
 	createLiteralExpression,
 	type QueryComputedField,
 	type QueryExpression,
-} from "~/lib/query-language";
+} from "#lib/query-language";
 
 import type { QueryEngineContext } from "./context";
 import { buildSortExpression } from "./sort-builder";
