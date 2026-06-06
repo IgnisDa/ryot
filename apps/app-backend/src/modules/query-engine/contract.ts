@@ -5,7 +5,6 @@ import { AuthMiddleware } from "~/lib/auth";
 import { BadRequest, NotFound, RateLimited, Unauthorized } from "~/lib/errors";
 import { DateRange, QueryEngineRequest } from "~/lib/query-language";
 
-// Response bodies
 const TableFieldValue = Schema.Struct({ kind: Schema.String, value: Schema.Unknown });
 
 const TableMeta = Schema.Struct({
