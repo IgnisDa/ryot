@@ -2,9 +2,9 @@ import type { Job } from "bullmq";
 
 import { config } from "~/lib/config";
 
-import { failImportRun } from "../../helpers";
 import { processMediaImport, type MediaImportJobInput } from "../../media/import-processor";
 import { updateImportRun } from "../../repository";
+import { failImportRun } from "../../runtime/failures";
 import { adaptTraktData } from "./adapter";
 
 export type TraktImportProcessorDeps = {
