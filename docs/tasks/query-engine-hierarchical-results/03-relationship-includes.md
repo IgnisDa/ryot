@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -14,14 +14,14 @@ This slice should prove `course -> modules` through a relationship schema, order
 
 ## Acceptance criteria
 
-- [ ] Rows returns can include a nested entity source traversed through one relationship edge.
-- [ ] `via.entityRef` anchors traversal to an in-scope entity alias, and `direction` correctly maps outgoing and incoming relationship rows.
-- [ ] Included rows are nested under the include key with `items` and limited result `pageInfo` containing `limit` and `hasMore`.
-- [ ] Include orderBy supports child entity fields and relationship edge fields through their aliases.
-- [ ] Include fields support child entity system/property/schema fields and relationship edge system/property fields.
-- [ ] Root pagination returns the requested number of root rows regardless of included row counts.
-- [ ] The 5000 serialized-row cap is enforced for root rows plus included rows.
-- [ ] E2E tests fetch courses with nested modules ordered by module number and verify include `hasMore` behavior with a low include limit.
+- [x] Rows returns can include a nested entity source traversed through one relationship edge.
+- [x] `via.entityRef` anchors traversal to an in-scope entity alias, and `direction` correctly maps outgoing and incoming relationship rows.
+- [x] Included rows are nested under the include key with `items` and limited result `pageInfo` containing `limit` and `hasMore`.
+- [x] Include orderBy supports child entity fields and relationship edge fields through their aliases.
+- [x] Include fields support child entity system/property/schema fields and relationship edge system/property fields.
+- [x] Root pagination returns the requested number of root rows regardless of included row counts.
+- [x] The 5000 serialized-row cap is enforced for root rows plus included rows.
+- [x] E2E tests fetch courses with nested modules ordered by module number and verify include `hasMore` behavior with a low include limit.
 
 ## User stories addressed
 
