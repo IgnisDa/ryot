@@ -9,9 +9,9 @@ export const entityTranslation = pgTable(
 	"entity_translation",
 	{
 		name: text(),
-		description: text(),
 		language: text().notNull(),
 		image: jsonb().$type<StoredEntityImage>(),
+		properties: jsonb().$type<Record<string, unknown>>(),
 		populatedAt: timestamp({ withTimezone: true }),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		entityId: text()

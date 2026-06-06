@@ -13,7 +13,7 @@ import {
 import type { AppSchema } from "#lib/schema/property-schema";
 import type { SandboxScriptMetadata } from "#modules/sandbox/schemas";
 
-import { user } from "../auth";
+import { user } from "./auth";
 
 export const tracker = pgTable(
 	"tracker",

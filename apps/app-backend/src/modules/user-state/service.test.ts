@@ -87,6 +87,7 @@ it.effect("rejects clearing library user state", () => {
 					entityId: EntityId.make("library-entity"),
 					entitySchemaSlug: "library",
 					entitySchemaId: EntitySchemaId.make("library-schema"),
+					propertiesSchema: { fields: {} },
 				}),
 		}),
 	});
