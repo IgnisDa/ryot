@@ -239,6 +239,19 @@ const notificationChannel: CatalogTable = {
 	},
 };
 
+const notificationSubscriptionState: CatalogTable = {
+	primaryKey: "id",
+	name: "notification_subscription_state",
+	visibility: { user: { type: "owned", column: "user_id", includeGlobal: false } },
+	fields: {
+		id: physicalField("id", "text"),
+		createdAt: physicalField("created_at", "date"),
+		updatedAt: physicalField("updated_at", "date"),
+		isActive: physicalField("is_active", "boolean"),
+		signalSchemaSlug: physicalField("signal_schema_slug", "text"),
+	},
+};
+
 const integration: CatalogTable = {
 	primaryKey: "id",
 	name: "integration",
@@ -321,6 +334,7 @@ const tables: Readonly<Record<string, CatalogTable>> = {
 	relationship,
 	importRunFailure,
 	notificationChannel,
+	notificationSubscriptionState,
 };
 
 export const getCatalogTable = (name: string) => tables[name];

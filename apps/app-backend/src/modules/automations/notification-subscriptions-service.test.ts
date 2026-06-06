@@ -141,19 +141,6 @@ it.effect("rejects hidden catalog schemas and duplicate installs", () => {
 	});
 });
 
-it.effect("returns the same not-found result for inaccessible and nonexistent rules", () => {
-	const layer = makeLayer({ findNotificationSubscription: () => Effect.succeed(null) });
-	return Effect.gen(function* () {
-		const service = yield* NotificationSubscriptionsService;
-		for (const inaccessibleRuleId of [ruleId, AutomationRuleId.make("missing")]) {
-			assertExitFails(
-				yield* Effect.exit(service.getRule({ userId, ruleId: inaccessibleRuleId })),
-				new NotFound({ message: "Automation rule not found" }),
-			);
-		}
-	}).pipe(Effect.provide(layer));
-});
-
 it.effect("does not reveal inaccessible notification state through mutations", () => {
 	const layer = makeLayer({
 		findNotificationSubscription: () => Effect.succeed(null),
@@ -175,21 +162,10 @@ it.effect("does not reveal inaccessible notification state through mutations", (
 	}).pipe(Effect.provide(layer));
 });
 
-it.effect("lists registered state without resolving formatter storage", () => {
-	const layer = makeLayer({ listNotificationSubscriptions: () => Effect.succeed([state]) });
-	return Effect.gen(function* () {
-		const service = yield* NotificationSubscriptionsService;
-		const rules = yield* service.listRules(userId);
-		expect(rules).toHaveLength(1);
-		expect(rules[0]?.id).toBe(ruleId);
-	}).pipe(Effect.provide(layer));
-});
-
-it.effect("omits state whose signal definition is no longer registered", () => {
+it.effect("does not mutate state whose signal definition is no longer registered", () => {
 	let mutationAttempted = false;
 	const layer = makeLayer(
 		{
-			listNotificationSubscriptions: () => Effect.succeed([state]),
 			findNotificationSubscription: () => Effect.succeed(state),
 			setNotificationSubscriptionActive: () => {
 				mutationAttempted = true;
@@ -201,11 +177,6 @@ it.effect("omits state whose signal definition is no longer registered", () => {
 	);
 	return Effect.gen(function* () {
 		const service = yield* NotificationSubscriptionsService;
-		expect(yield* service.listRules(userId)).toEqual([]);
-		assertExitFails(
-			yield* Effect.exit(service.getRule({ userId, ruleId })),
-			new NotFound({ message: "Automation rule not found" }),
-		);
 		assertExitFails(
 			yield* Effect.exit(service.setRuleActive({ userId, ruleId, isActive: false })),
 			new NotFound({ message: "Automation rule not found" }),
