@@ -34,6 +34,12 @@ import {
 import { ImportsRepository } from "#modules/imports/repository";
 import { ImportRunArtifacts } from "#modules/imports/runtime/workflow-helpers";
 
+import {
+	IntegrationRunOperations,
+	type IntegrationRunOperationsValue,
+	ProcessIntegrationRunWorkflow,
+	runIntegrationRunWorkflow,
+} from "./integration-workflow";
 import { IntegrationsRepository } from "./repository";
 import {
 	makeIntegration,
@@ -41,12 +47,6 @@ import {
 	makeRun,
 	makeYoutubeMusicIntegration,
 } from "./test-support";
-import {
-	IntegrationRunOperations,
-	type IntegrationRunOperationsValue,
-	ProcessIntegrationRunWorkflow,
-	runIntegrationRunWorkflow,
-} from "./workflows";
 
 const now = "2026-06-17T00:00:00.000Z";
 

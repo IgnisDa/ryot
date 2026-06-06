@@ -16,6 +16,13 @@ const mediaImportWorkflowModules = [
 	"../imports/media/writing-failures-workflow.ts",
 ] as const;
 
+const integrationWorkflowModules = [
+	"../integrations/integration-workflow.ts",
+	"../integrations/operations-workflow.ts",
+	"../integrations/failure-workflow.ts",
+	"../integrations/media-workflow.ts",
+] as const;
+
 it.effect("keeps raw sandbox workflow execution at the allowed boundaries", () =>
 	Effect.gen(function* () {
 		const [
@@ -35,7 +42,7 @@ it.effect("keeps raw sandbox workflow execution at the allowed boundaries", () =
 			readModule("../entity-import/workflows.ts"),
 			readModule("../library-membership/workflows.ts"),
 			readModules(mediaImportWorkflowModules),
-			readModule("../integrations/workflows.ts"),
+			readModules(integrationWorkflowModules),
 		]);
 
 		expect(sandboxService.match(/\.execute\(RunSandboxWorkflow,/g)?.length ?? 0).toBe(1);
@@ -62,7 +69,7 @@ it.effect("keeps parent workflows as orchestrations instead of queue pass-throug
 				readModule("../entity-import/workflows.ts"),
 				readModule("../library-membership/workflows.ts"),
 				readModules(mediaImportWorkflowModules),
-				readModule("../integrations/workflows.ts"),
+				readModules(integrationWorkflowModules),
 			]);
 
 		expect(entityImportWorkflow).toContain("validate-entity-details");
