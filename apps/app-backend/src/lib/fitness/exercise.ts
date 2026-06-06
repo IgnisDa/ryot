@@ -39,6 +39,7 @@ const exercisePropertiesZodSchema = z
 			.describe("Direction of force applied: pull, push, or static hold"),
 		level: z
 			.enum(["beginner", "intermediate", "expert"])
+			.optional()
 			.describe("Recommended experience level: beginner, intermediate, or expert"),
 		mechanic: z
 			.enum(["compound", "isolation"])

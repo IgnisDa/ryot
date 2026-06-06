@@ -18,13 +18,16 @@ import { createImportRunFailure, getImportRunById, updateImportRun } from "./rep
 import type { ImportRunFailureStage } from "./schemas";
 import { adaptOpenScaleCsv } from "./sources/open-scale";
 import type { OpenScaleNormalizedItem } from "./sources/open-scale";
+import { adaptStrongAppCsv } from "./sources/strong-app";
 import { adaptTraktData } from "./sources/trakt";
 import type { TraktAdapterResult } from "./sources/trakt";
+import { processWorkoutImportResult } from "./workout-processor";
 
 const PROGRESS_UPDATE_INTERVAL = 10;
 
 const allowedExtensionsBySource: Record<string, string[]> = {
 	open_scale: ["csv"],
+	strong_app: ["csv"],
 };
 
 const sanitizeErrorMessage = (error: unknown, fallback: string): string => {
@@ -211,6 +214,50 @@ export const processOpenScaleImport = async (input: {
 			runId: input.runId,
 			status: "completed",
 			finishedAt: new Date(),
+		});
+	} finally {
+		await cleanupImportFile(safePath);
+	}
+};
+
+export const processStrongAppImport = async (input: {
+	runId: string;
+	userId: string;
+	filePath: string;
+}): Promise<void> => {
+	const safePath = input.filePath;
+
+	try {
+		let csvText: string;
+		try {
+			csvText = await readImportFile(safePath);
+		} catch {
+			await updateImportRun({
+				status: "failed",
+				runId: input.runId,
+				finishedAt: new Date(),
+				errorSummary: "Could not read import file",
+			});
+			return;
+		}
+
+		let adapterResult: Awaited<ReturnType<typeof adaptStrongAppCsv>>;
+		try {
+			adapterResult = adaptStrongAppCsv(csvText);
+		} catch (error) {
+			await updateImportRun({
+				status: "failed",
+				runId: input.runId,
+				finishedAt: new Date(),
+				errorSummary: sanitizeErrorMessage(error, "Could not parse StrongApp CSV"),
+			});
+			return;
+		}
+
+		await processWorkoutImportResult({
+			adapterResult,
+			runId: input.runId,
+			userId: input.userId,
 		});
 	} finally {
 		await cleanupImportFile(safePath);
@@ -525,6 +572,8 @@ export const processImportJob = async (input: {
 	try {
 		if (run.source === "open_scale") {
 			await processOpenScaleImport({ runId, userId, filePath: safePath });
+		} else if (run.source === "strong_app") {
+			await processStrongAppImport({ runId, userId, filePath: safePath });
 		} else {
 			await updateImportRun({
 				runId,

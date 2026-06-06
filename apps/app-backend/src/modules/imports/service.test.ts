@@ -74,7 +74,8 @@ describe("import run schema enums", () => {
 		expect(importRunFailureStage.options).toContain("database_commit");
 	});
 
-	it("importRunSource includes open_scale", () => {
+	it("importRunSource includes implemented CSV sources", () => {
 		expect(importRunSource.options).toContain("open_scale");
+		expect(importRunSource.options).toContain("strong_app");
 	});
 });
