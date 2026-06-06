@@ -13,7 +13,7 @@ export const UserStateGroup = HttpApiGroup.make("userState")
 	.addError(RateLimited, { status: 429 })
 	.middleware(AuthMiddleware)
 	.add(
-		HttpApiEndpoint.del("clearUserState")`/entities/${entityIdParam}/user-state`
+		HttpApiEndpoint.del("clearUserState")`/user-state/clear/${entityIdParam}`
 			.addSuccess(ClearUserStateResponse)
 			.addError(BadRequest, { status: 400 })
 			.addError(NotFound, { status: 404 }),
