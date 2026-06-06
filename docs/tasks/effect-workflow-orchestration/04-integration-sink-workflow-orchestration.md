@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -14,14 +14,14 @@ This task may leave yank integration runs for the next task only if the temporar
 
 ## Acceptance criteria
 
-- [ ] Sink integration runs execute through explicit workflow phases instead of one opaque integration-run queue worker
-- [ ] The workflow loads the integration and handles not-found, disabled integration, and user-wide integrations-disabled cases with existing product-compatible run failures
-- [ ] Sink adapter parsing is represented as a durable activity or bounded durable step
-- [ ] Adapter-only sink failures record import-run failures and fail the run consistently with existing behavior
-- [ ] Successful sink adapter results flow through the shared media import orchestration from the one-time media import task
-- [ ] Integration run finalization updates import-run and integration state consistently with existing behavior
-- [ ] Webhook routes still start the appropriate top-level integration workflow and return product-compatible responses
-- [ ] Tests cover successful sink processing, adapter-only sink failure, disabled integration, user-wide integrations-disabled behavior, and integration finalization
+- [x] Sink integration runs execute through explicit workflow phases instead of one opaque integration-run queue worker
+- [x] The workflow loads the integration and handles not-found, disabled integration, and user-wide integrations-disabled cases with existing product-compatible run failures
+- [x] Sink adapter parsing is represented as a durable activity or bounded durable step
+- [x] Adapter-only sink failures record import-run failures and fail the run consistently with existing behavior
+- [x] Successful sink adapter results flow through the shared media import orchestration from the one-time media import task
+- [x] Integration run finalization updates import-run and integration state consistently with existing behavior
+- [x] Webhook routes still start the appropriate top-level integration workflow and return product-compatible responses
+- [x] Tests cover successful sink processing, adapter-only sink failure, disabled integration, user-wide integrations-disabled behavior, and integration finalization
 
 ## User stories addressed
 

@@ -12,10 +12,7 @@ import { EventsService } from "~/modules/events/service";
 
 import type { ImportRunJobData } from "./jobs";
 import { mediaEntityGroupItemIndex } from "./media/groups";
-import {
-	MediaImportAdapterResultSchema,
-	type MediaImportAdapterResult,
-} from "./media/import-processor";
+import { MediaImportAdapterResultSchema } from "./media/import-processor";
 import { getResolutionCandidates } from "./media/resolution-candidates";
 import { type ImportEntityRef, importEntityRefKey } from "./media/types";
 import { ImportsRepository } from "./repository";
@@ -64,10 +61,11 @@ type MediaImportWorkflowOperations<RLoad, RResolve, RImport, RCleanup> = {
 		cleanupPaths: ReadonlyArray<string>;
 		sourcePayloadKey?: string;
 	}) => Effect.Effect<void, unknown, RCleanup>;
-	loadAdapterResult: (
-		payload: ImportRunJobData,
-	) => Effect.Effect<
-		{ cleanupPaths: ReadonlyArray<string>; adapterResult: MediaImportAdapterResult },
+	loadAdapterResult: (payload: ImportRunJobData) => Effect.Effect<
+		{
+			cleanupPaths: ReadonlyArray<string>;
+			adapterResult: typeof MediaImportAdapterResultSchema.Type;
+		},
 		{ cleanupPaths: ReadonlyArray<string>; message: string },
 		RLoad
 	>;
@@ -113,6 +111,7 @@ export const runOneTimeMediaImportWorkflow = <RLoad, RResolve, RImport, RCleanup
 	payload: ImportRunJobData,
 	executionId: string,
 	operations: MediaImportWorkflowOperations<RLoad, RResolve, RImport, RCleanup>,
+	options: { skipMarkStarted?: boolean } = {},
 ) =>
 	Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
@@ -202,14 +201,16 @@ export const runOneTimeMediaImportWorkflow = <RLoad, RResolve, RImport, RCleanup
 				});
 		};
 		const processWorkflow = Effect.gen(function* () {
-			const startedAt = yield* DateTime.nowAsDate;
-			yield* Activity.make({
-				error: ImportRunError,
-				name: "mark-import-run-started",
-				execute: runWithDb(
-					repository.updateRun({ runId: payload.runId, status: "running", startedAt }),
-				).pipe(Effect.mapError(toWorkflowError)),
-			});
+			if (!options.skipMarkStarted) {
+				const startedAt = yield* DateTime.nowAsDate;
+				yield* Activity.make({
+					error: ImportRunError,
+					name: "mark-import-run-started",
+					execute: runWithDb(
+						repository.updateRun({ runId: payload.runId, status: "running", startedAt }),
+					).pipe(Effect.mapError(toWorkflowError)),
+				});
+			}
 
 			const loadOutcome = yield* Activity.make({
 				name: "load-media-import-adapter-result",

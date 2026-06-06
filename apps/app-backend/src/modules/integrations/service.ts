@@ -17,7 +17,7 @@ import type {
 } from "./schemas";
 import { IntegrationProviderSpecifics as IntegrationProviderSpecificsSchema } from "./schemas";
 import { providerLotByProvider } from "./types";
-import { ProcessIntegrationRunWorkflow } from "./worker";
+import { ProcessIntegrationRunWorkflow } from "./workflows";
 
 const defaultExtraSettings = {
 	disableOnContinuousErrors: false,
@@ -299,19 +299,6 @@ export class IntegrationsService extends Effect.Service<IntegrationsService>()(
 								inputSummary: buildIntegrationInputSummary(integration),
 							}),
 						);
-
-						if (integration.isDisabled) {
-							yield* failCreatedRun(run.id, "Integration is disabled");
-							return { runId: run.id };
-						}
-
-						const disableIntegrations = yield* runWithDb(
-							repository.getUserDisableIntegrations({ userId: integration.userId }),
-						);
-						if (disableIntegrations) {
-							yield* failCreatedRun(run.id, "Integrations are disabled for this user");
-							return { runId: run.id };
-						}
 
 						const started = yield* engine
 							.execute(ProcessIntegrationRunWorkflow, {

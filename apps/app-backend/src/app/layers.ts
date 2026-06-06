@@ -29,7 +29,7 @@ import { ImportWorkflowDefinitionsLive } from "~/modules/imports/worker";
 import { IntegrationsRepository } from "~/modules/integrations/repository";
 import { IntegrationsSchedulerLive } from "~/modules/integrations/scheduler";
 import { IntegrationsService } from "~/modules/integrations/service";
-import { IntegrationWorkflowDefinitionsLive } from "~/modules/integrations/worker";
+import { IntegrationWorkflowDefinitionsLive } from "~/modules/integrations/workflows";
 import { QueryEngineService } from "~/modules/query-engine/service";
 import { RelationshipSchemasRepository } from "~/modules/relationship-schemas/repository";
 import { RelationshipSchemasService } from "~/modules/relationship-schemas/service";
