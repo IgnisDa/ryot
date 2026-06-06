@@ -1,8 +1,9 @@
 import type { Job } from "bullmq";
 
-import type { ImportEntityRef, ImportMediaEntityGroup, ImportRunJobData } from "../jobs";
+import { failImportRun, recordImportRunFailure, sanitizeErrorMessage } from "../helpers";
+import { importEntityRefKey, type ImportMediaEntityGroup, type ImportRunJobData } from "../jobs";
 import { createImportRunFailure, updateImportRun } from "../repository";
-import { entityRefKey, populateMediaEntityRefs, writeMediaEntityGroups } from "./processor";
+import { populateMediaEntityRefs, writeMediaEntityGroups } from "./processor";
 
 export type MediaImportAdapterFailure = {
 	message: string;
@@ -16,6 +17,23 @@ export type MediaImportAdapterResult = {
 	failures: MediaImportAdapterFailure[];
 	entityGroups: ImportMediaEntityGroup[];
 };
+
+export type MediaImportJobInput = Pick<
+	ImportRunJobData,
+	| "runId"
+	| "userId"
+	| "importStep"
+	| "providerEntityIds"
+	| "mediaEntityGroups"
+	| "providerEntityRefs"
+	| "adapterFailureCount"
+	| "providerEntityIndex"
+	| "providerSandboxJobId"
+	| "mediaWriteGroupIndex"
+	| "providerFailedIndices"
+	| "mediaWriteFailedItems"
+	| "mediaWriteImportedItems"
+>;
 
 export type MediaImportProcessorDeps = {
 	updateImportRun: typeof updateImportRun;
@@ -31,58 +49,14 @@ const mediaImportProcessorDeps: MediaImportProcessorDeps = {
 	populateMediaEntityRefs,
 };
 
-const sanitizeErrorMessage = (error: unknown, fallback: string): string => {
-	if (!(error instanceof Error)) {
-		return fallback;
-	}
-	return error.message;
-};
-
-const recordItemFailure = async (
-	runId: string,
-	itemIndex: number,
-	message: string,
-	opts: {
-		sourceLabel?: string | null;
-		entitySchemaSlug?: string | null;
-		sourceIdentifier?: string | null;
-		context?: Record<string, unknown> | null;
-	},
-	createFailure: typeof createImportRunFailure,
-): Promise<void> => {
-	await createFailure({
-		runId,
-		message,
-		itemIndex,
-		stage: "input_transformation",
-		context: opts.context ?? null,
-		sourceLabel: opts.sourceLabel ?? null,
-		sourceIdentifier: opts.sourceIdentifier ?? null,
-		entitySchemaSlug: opts.entitySchemaSlug ?? null,
-	});
-};
-
 export const processMediaImport = async (
 	job: Job,
 	token: string | undefined,
-	input: {
-		runId: string;
-		userId: string;
+	input: MediaImportJobInput & {
 		sourceName: string;
-		jobData?: Partial<ImportRunJobData>;
-		cleanup?: () => Promise<void>;
-		adapterFailureCount: number | undefined;
-		providerEntityIndex: number | undefined;
-		providerSandboxJobId: string | undefined;
-		mediaWriteGroupIndex: number | undefined;
-		mediaWriteFailedItems: number | undefined;
 		adapterErrorFallback: string;
-		importStep: ImportRunJobData["importStep"];
-		providerFailedIndices: number[] | undefined;
-		mediaWriteImportedItems: number | undefined;
-		providerEntityRefs: ImportEntityRef[] | undefined;
-		providerEntityIds: Array<string | null> | undefined;
-		mediaEntityGroups: ImportMediaEntityGroup[] | undefined;
+		cleanup?: () => Promise<void>;
+		jobData?: Partial<ImportRunJobData>;
 		loadAdapterResult: () => Promise<MediaImportAdapterResult> | MediaImportAdapterResult;
 	},
 	deps: MediaImportProcessorDeps = mediaImportProcessorDeps,
@@ -106,22 +80,22 @@ export const processMediaImport = async (
 				try {
 					adapterResult = await input.loadAdapterResult();
 				} catch (error) {
-					await deps.updateImportRun({
+					await failImportRun(
 						runId,
-						status: "failed",
-						finishedAt: new Date(),
-						errorSummary: sanitizeErrorMessage(error, input.adapterErrorFallback),
-					});
+						sanitizeErrorMessage(error, input.adapterErrorFallback),
+						deps.updateImportRun,
+					);
 					return;
 				}
 
 				for (const failure of adapterResult.failures) {
 					// oxlint-disable-next-line no-await-in-loop
-					await recordItemFailure(
-						runId,
-						failure.itemIndex,
-						failure.message,
+					await recordImportRunFailure(
 						{
+							runId,
+							message: failure.message,
+							itemIndex: failure.itemIndex,
+							stage: "input_transformation",
 							context: failure.context ?? null,
 							sourceLabel: failure.sourceLabel,
 							sourceIdentifier: failure.sourceIdentifier,
@@ -199,12 +173,11 @@ export const processMediaImport = async (
 			!providerEntityRefs ||
 			providerEntityIds.length < providerEntityRefs.length
 		) {
-			await deps.updateImportRun({
+			await failImportRun(
 				runId,
-				status: "failed",
-				finishedAt: new Date(),
-				errorSummary: `Import job is missing normalized or populated ${input.sourceName} data`,
-			});
+				`Import job is missing normalized or populated ${input.sourceName} data`,
+				deps.updateImportRun,
+			);
 			return;
 		}
 
@@ -212,7 +185,7 @@ export const processMediaImport = async (
 		providerEntityRefs.forEach((ref, index) => {
 			const entityId = providerEntityIds[index];
 			if (!providerFailedIndices.includes(index) && entityId) {
-				entityIdsByKey.set(entityRefKey(ref), entityId);
+				entityIdsByKey.set(importEntityRefKey(ref), entityId);
 			}
 		});
 

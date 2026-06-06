@@ -4,42 +4,11 @@ import { createEntity } from "~/modules/entities";
 import { getBuiltinEntitySchemaBySlug } from "~/modules/entity-schemas";
 
 import { cleanupImportFile, readImportFile } from "../../files";
-import { createImportRunFailure, updateImportRun } from "../../repository";
-import type { ImportRunFailureStage } from "../../schemas";
+import { failImportRun, recordImportRunFailure, sanitizeErrorMessage } from "../../helpers";
+import { updateImportRun } from "../../repository";
 import { adaptOpenScaleCsv, type OpenScaleNormalizedItem } from "./adapter";
 
 const PROGRESS_UPDATE_INTERVAL = 10;
-
-const sanitizeErrorMessage = (error: unknown, fallback: string): string => {
-	if (!(error instanceof Error)) {
-		return fallback;
-	}
-	return error.message;
-};
-
-const recordItemFailure = async (
-	runId: string,
-	itemIndex: number,
-	stage: ImportRunFailureStage,
-	message: string,
-	opts?: {
-		sourceLabel?: string | null;
-		entitySchemaSlug?: string | null;
-		sourceIdentifier?: string | null;
-		context?: Record<string, unknown> | null;
-	},
-): Promise<void> => {
-	await createImportRunFailure({
-		runId,
-		stage,
-		message,
-		itemIndex,
-		context: opts?.context ?? null,
-		sourceLabel: opts?.sourceLabel ?? null,
-		sourceIdentifier: opts?.sourceIdentifier ?? null,
-		entitySchemaSlug: opts?.entitySchemaSlug ?? null,
-	});
-};
 
 const commitMeasurementEntity = async (
 	userId: string,
@@ -68,12 +37,7 @@ export const processOpenScaleImport = async (input: {
 		try {
 			csvText = await readImportFile(safePath);
 		} catch {
-			await updateImportRun({
-				status: "failed",
-				runId: input.runId,
-				finishedAt: new Date(),
-				errorSummary: "Could not read import file",
-			});
+			await failImportRun(input.runId, "Could not read import file");
 			return;
 		}
 
@@ -81,12 +45,10 @@ export const processOpenScaleImport = async (input: {
 		try {
 			adapterResult = adaptOpenScaleCsv(csvText);
 		} catch (error) {
-			await updateImportRun({
-				status: "failed",
-				runId: input.runId,
-				finishedAt: new Date(),
-				errorSummary: sanitizeErrorMessage(error, "Could not parse OpenScale CSV"),
-			});
+			await failImportRun(
+				input.runId,
+				sanitizeErrorMessage(error, "Could not parse OpenScale CSV"),
+			);
 			return;
 		}
 
@@ -97,12 +59,7 @@ export const processOpenScaleImport = async (input: {
 
 		const measurementSchema = await getBuiltinEntitySchemaBySlug("measurement");
 		if (!measurementSchema) {
-			await updateImportRun({
-				status: "failed",
-				runId: input.runId,
-				finishedAt: new Date(),
-				errorSummary: "Measurement entity schema not found",
-			});
+			await failImportRun(input.runId, "Measurement entity schema not found");
 			return;
 		}
 
@@ -112,16 +69,14 @@ export const processOpenScaleImport = async (input: {
 
 		// oxlint-disable no-await-in-loop
 		for (const adapterFailure of adapterFailures) {
-			await recordItemFailure(
-				input.runId,
-				adapterFailure.itemIndex,
-				"input_transformation",
-				adapterFailure.message,
-				{
-					sourceLabel: adapterFailure.sourceLabel,
-					sourceIdentifier: adapterFailure.sourceIdentifier,
-				},
-			);
+			await recordImportRunFailure({
+				runId: input.runId,
+				stage: "input_transformation",
+				message: adapterFailure.message,
+				itemIndex: adapterFailure.itemIndex,
+				sourceLabel: adapterFailure.sourceLabel,
+				sourceIdentifier: adapterFailure.sourceIdentifier,
+			});
 			failedItems++;
 			processedItems++;
 		}
@@ -138,17 +93,15 @@ export const processOpenScaleImport = async (input: {
 				await commitMeasurementEntity(input.userId, item, measurementSchema.id);
 				importedItems++;
 			} catch (error) {
-				await recordItemFailure(
-					input.runId,
+				await recordImportRunFailure({
 					itemIndex,
-					"database_commit",
-					sanitizeErrorMessage(error, "Failed to create measurement entity"),
-					{
-						sourceLabel: item.sourceLabel,
-						entitySchemaSlug: "measurement",
-						sourceIdentifier: item.sourceIdentifier,
-					},
-				);
+					runId: input.runId,
+					stage: "database_commit",
+					sourceLabel: item.sourceLabel,
+					entitySchemaSlug: "measurement",
+					sourceIdentifier: item.sourceIdentifier,
+					message: sanitizeErrorMessage(error, "Failed to create measurement entity"),
+				});
 				failedItems++;
 			}
 

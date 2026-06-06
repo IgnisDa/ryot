@@ -1,4 +1,5 @@
 import { cleanupImportFile, readImportFile } from "../files";
+import { failImportRun, sanitizeErrorMessage } from "../helpers";
 import { updateImportRun } from "../repository";
 import type { WorkoutAdapterResult } from "./domain";
 import { processWorkoutImportResult } from "./processor";
@@ -15,13 +16,6 @@ const workoutCsvImportProcessorDeps: WorkoutCsvImportProcessorDeps = {
 	updateImportRun,
 	cleanupImportFile,
 	processWorkoutImportResult,
-};
-
-const sanitizeErrorMessage = (error: unknown, fallback: string): string => {
-	if (!(error instanceof Error)) {
-		return fallback;
-	}
-	return error.message;
 };
 
 export const processWorkoutCsvImport = async (
@@ -41,12 +35,7 @@ export const processWorkoutCsvImport = async (
 		try {
 			csvText = await deps.readImportFile(safePath);
 		} catch {
-			await deps.updateImportRun({
-				runId: input.runId,
-				status: "failed",
-				finishedAt: new Date(),
-				errorSummary: "Could not read import file",
-			});
+			await failImportRun(input.runId, "Could not read import file", deps.updateImportRun);
 			return;
 		}
 
@@ -54,12 +43,11 @@ export const processWorkoutCsvImport = async (
 		try {
 			adapterResult = await input.adapt(csvText);
 		} catch (error) {
-			await deps.updateImportRun({
-				runId: input.runId,
-				status: "failed",
-				finishedAt: new Date(),
-				errorSummary: sanitizeErrorMessage(error, `Could not parse ${input.sourceName} CSV`),
-			});
+			await failImportRun(
+				input.runId,
+				sanitizeErrorMessage(error, `Could not parse ${input.sourceName} CSV`),
+				deps.updateImportRun,
+			);
 			return;
 		}
 

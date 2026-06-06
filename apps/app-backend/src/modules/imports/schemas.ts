@@ -30,48 +30,43 @@ export const importRunSource = z.enum([
 export type ImportRunSource = z.infer<typeof importRunSource>;
 
 export const importRunFailureStage = z.enum([
-	"source_fetch", // authentication or server reachability failures (future API sources)
+	"source_fetch",
 	"database_commit",
-	"provider_details", // provider enrichment failures (future media sources)
+	"provider_details",
 	"input_transformation",
 ]);
 
 export type ImportRunFailureStage = z.infer<typeof importRunFailureStage>;
 
-export const openScaleRunInput = z.object({
-	source: z.literal("open_scale"),
-	uploadToken: nonEmptyStringSchema,
-});
+export const fileImportRunSources = [
+	"hevy",
+	"goodreads",
+	"hardcover",
+	"open_scale",
+	"strong_app",
+	"storygraph",
+] as const;
+
+const uploadTokenRunInput = <Source extends (typeof fileImportRunSources)[number]>(
+	source: Source,
+) => z.object({ uploadToken: nonEmptyStringSchema, source: z.literal(source) });
+
+export const openScaleRunInput = uploadTokenRunInput("open_scale");
 export type OpenScaleRunInput = z.infer<typeof openScaleRunInput>;
 
-export const hevyRunInput = z.object({
-	source: z.literal("hevy"),
-	uploadToken: nonEmptyStringSchema,
-});
+export const hevyRunInput = uploadTokenRunInput("hevy");
 export type HevyRunInput = z.infer<typeof hevyRunInput>;
 
-export const strongAppRunInput = z.object({
-	source: z.literal("strong_app"),
-	uploadToken: nonEmptyStringSchema,
-});
+export const strongAppRunInput = uploadTokenRunInput("strong_app");
 export type StrongAppRunInput = z.infer<typeof strongAppRunInput>;
 
-export const goodreadsRunInput = z.object({
-	uploadToken: nonEmptyStringSchema,
-	source: z.literal("goodreads"),
-});
+export const goodreadsRunInput = uploadTokenRunInput("goodreads");
 export type GoodreadsRunInput = z.infer<typeof goodreadsRunInput>;
 
-export const hardcoverRunInput = z.object({
-	uploadToken: nonEmptyStringSchema,
-	source: z.literal("hardcover"),
-});
+export const hardcoverRunInput = uploadTokenRunInput("hardcover");
 export type HardcoverRunInput = z.infer<typeof hardcoverRunInput>;
 
-export const storygraphRunInput = z.object({
-	uploadToken: nonEmptyStringSchema,
-	source: z.literal("storygraph"),
-});
+export const storygraphRunInput = uploadTokenRunInput("storygraph");
 export type StorygraphRunInput = z.infer<typeof storygraphRunInput>;
 
 export const traktRunInput = z.object({
@@ -131,15 +126,14 @@ export const listImportRunFailuresQuery = z.object({
 	limit: positiveIntSchema.default(20),
 });
 
-const importRunsResponseSchema = listDataSchema(listedImportRunSchema);
-const importRunFailuresResponseData = z.object({
-	page: z.number().int(),
-	limit: z.number().int(),
-	total: z.number().int(),
-	items: z.array(listedImportRunFailureSchema),
-});
-
 export const createImportRunResponseSchema = itemDataSchema(z.object({ id: nonEmptyStringSchema }));
 export const getImportRunResponseSchema = itemDataSchema(listedImportRunSchema);
-export const listImportRunsResponseSchema = importRunsResponseSchema;
-export const listImportRunFailuresResponseSchema = dataSchema(importRunFailuresResponseData);
+export const listImportRunsResponseSchema = listDataSchema(listedImportRunSchema);
+export const listImportRunFailuresResponseSchema = dataSchema(
+	z.object({
+		page: z.number().int(),
+		limit: z.number().int(),
+		total: z.number().int(),
+		items: z.array(listedImportRunFailureSchema),
+	}),
+);
