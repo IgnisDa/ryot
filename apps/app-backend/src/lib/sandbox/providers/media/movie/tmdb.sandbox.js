@@ -149,6 +149,21 @@ function collectSuggestions(results) {
 	return [...suggestionByKey.values()];
 }
 
+async function fetchTrendingItems(path, language, token) {
+	const results = [];
+	for (const page of [1, 2, 3]) {
+		const data = await tmdbGet(path, { language, page: String(page) }, token);
+		if (Array.isArray(data?.results)) {
+			results.push(...data.results);
+		}
+	}
+
+	return collectSuggestions(results).map((item) => ({
+		name: item.name,
+		externalId: item.externalId,
+	}));
+}
+
 function collectCompanies(productionCompanies) {
 	if (!Array.isArray(productionCompanies)) {
 		return [];
@@ -370,6 +385,13 @@ driver("search", async function (context) {
 			nextPage: currentPage < totalPages ? currentPage + 1 : null,
 		},
 	};
+});
+
+driver("trending", async function (_context, { metadata }) {
+	const language = metadata?.providerInformation?.canonicalLanguage ?? "en";
+	const token = await getTmdbAccessToken();
+	const items = await fetchTrendingItems("/trending/movie/day", language, token);
+	return { items };
 });
 
 driver("details", async function (context, { metadata }) {
