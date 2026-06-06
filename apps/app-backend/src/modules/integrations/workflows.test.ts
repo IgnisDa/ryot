@@ -4,6 +4,7 @@ import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngin
 import { Effect, Layer } from "effect";
 
 import { CurrentDb, DbRunner } from "~/lib/db";
+import { RedisService } from "~/lib/redis";
 import { CollectionsService } from "~/modules/collections/service";
 import { EntitiesRepository } from "~/modules/entities/repository";
 import { EntitySchemasRepository } from "~/modules/entity-schemas/repository";
@@ -39,6 +40,26 @@ const makeIntegration = (overrides: Partial<IntegrationRecord> = {}): Integratio
 	...overrides,
 });
 
+const makeKomgaIntegration = (overrides: Partial<IntegrationRecord> = {}) =>
+	makeIntegration({
+		lot: "yank",
+		provider: "komga",
+		providerSpecifics: { kind: "komga", apiKey: "key", baseUrl: "http://komga" },
+		...overrides,
+	});
+
+const makeYoutubeMusicIntegration = (overrides: Partial<IntegrationRecord> = {}) =>
+	makeIntegration({
+		lot: "yank",
+		provider: "youtube_music",
+		providerSpecifics: {
+			authCookie: "cookie",
+			kind: "youtube_music",
+			timezone: "America/New_York",
+		},
+		...overrides,
+	});
+
 const makeRun = (status: "completed" | "failed") => ({
 	status,
 	progress: 0,
@@ -54,6 +75,20 @@ const makeRun = (status: "completed" | "failed") => ({
 	importedItems: 0,
 	processedItems: 0,
 	errorSummary: null,
+});
+
+const mangaGroup = (overrides: Record<string, unknown> = {}) => ({
+	itemIndex: 0,
+	collectionMemberships: [],
+	events: [{ occurredAt: now, eventSchemaSlug: "progress", properties: { progressPercent: 50 } }],
+	entityRef: {
+		externalId: "30002",
+		sourceLabel: "Berserk",
+		entitySchemaSlug: "manga",
+		kind: "resolved" as const,
+		scriptSlug: "manga.anilist",
+	},
+	...overrides,
 });
 
 const defaultImportsRepository = () =>
@@ -107,19 +142,23 @@ const defaultEntitiesRepository = () =>
 			Effect.succeed(
 				slug === "movie.tmdb"
 					? { entitySchemaId: "schema-movie", sandboxScriptId: "script-movie-tmdb" }
-					: null,
+					: slug === "manga.anilist"
+						? { entitySchemaId: "schema-manga", sandboxScriptId: "script-manga-anilist" }
+						: slug === "music.youtube-music"
+							? { entitySchemaId: "schema-music", sandboxScriptId: "script-youtube-music" }
+							: null,
 			),
 	});
 
 const defaultCollectionsService = () =>
 	Object.assign(Object.create(null), {
 		_tag: "CollectionsService" as const,
+		ensureEntityInLibrary: () => Effect.void,
 		create: () => Effect.die("unused"),
 		markEntityOwnedInLibrary: () => Effect.void,
 		addToCollection: () => Effect.die("unused"),
 		removeFromCollection: () => Effect.die("unused"),
 		getOrCreateCollection: () => Effect.die("unused"),
-		ensureEntityInLibrary: () => Effect.succeed(undefined),
 		ensureLibraryEntityForUser: () => Effect.die("unused"),
 	});
 
@@ -153,7 +192,13 @@ const defaultEntitySchemasRepository = () =>
 		createEntitySchema: () => Effect.die("unused"),
 		updateEntitySchema: () => Effect.die("unused"),
 		deleteEntitySchema: () => Effect.die("unused"),
-		getBuiltinBySlug: () => Effect.succeed({ id: "builtin-movie-schema" }),
+		getBuiltinBySlug: () => Effect.succeed({ id: "builtin-schema" }),
+	});
+
+const defaultRedisService = (claimed = true) =>
+	Object.assign(Object.create(null), {
+		_tag: "RedisService" as const,
+		claim: () => Effect.succeed(claimed),
 	});
 
 const makeImportsRepository = (overrides: Partial<ImportsRepository> = {}) =>
@@ -163,21 +208,24 @@ const makeIntegrationsRepository = (overrides: Partial<IntegrationsRepository> =
 	Object.assign(Object.create(null), defaultIntegrationsRepository(), overrides);
 
 type TestLayerOptions = {
+	claimed?: boolean;
 	eventsService?: EventsService;
 	importsRepository?: ImportsRepository;
+	collectionsService?: CollectionsService;
 	integrationsRepository?: IntegrationsRepository;
 };
 
 const makeTestLayer = (options: TestLayerOptions) =>
 	Layer.mergeAll(
 		dbRunnerLayer,
+		Layer.succeed(RedisService, defaultRedisService(options.claimed)),
 		Layer.succeed(ImportsRepository, options.importsRepository ?? makeImportsRepository()),
 		Layer.succeed(
 			IntegrationsRepository,
 			options.integrationsRepository ?? makeIntegrationsRepository(),
 		),
 		Layer.succeed(EntitiesRepository, defaultEntitiesRepository()),
-		Layer.succeed(CollectionsService, defaultCollectionsService()),
+		Layer.succeed(CollectionsService, options.collectionsService ?? defaultCollectionsService()),
 		Layer.succeed(EventsService, options.eventsService ?? defaultEventsService()),
 		Layer.succeed(EventSchemasRepository, defaultEventSchemasRepository()),
 		Layer.succeed(EntitySchemasRepository, defaultEntitySchemasRepository()),
@@ -234,10 +282,15 @@ const sinkPayload = {
 	rawBody: JSON.stringify({ lot: "movie", progress: 30, identifier: "603" }),
 };
 
+const yankPayload = { runId: "run_1", userId: "user_1", integrationId: "int_1" };
+
 const noopOperations = {
-	processYank: () => Effect.void,
 	importEntity: () => Effect.succeed({ id: "entity-1" }),
 	resolveExternalId: () => Effect.succeed({ externalId: null }),
+	loadYankAdapterResult: () =>
+		Effect.succeed({ cleanupPaths: [], adapterResult: { failures: [], entityGroups: [] } }),
+	runSandboxHistory: () =>
+		Effect.succeed({ status: "completed" as const, value: { songs: [] }, logs: [], error: null }),
 };
 
 it.effect("processes a successful sink run through shared media orchestration", () => {
@@ -273,8 +326,7 @@ it.effect("processes a successful sink run through shared media orchestration", 
 		"run_1",
 		Effect.gen(function* () {
 			yield* runIntegrationRunWorkflow(sinkPayload, "run_1", {
-				processYank: () => Effect.void,
-				resolveExternalId: () => Effect.succeed({ externalId: null }),
+				...noopOperations,
 				importEntity: (input) =>
 					Effect.sync(() => {
 						importedCalls.push(input);
@@ -463,7 +515,7 @@ it.effect("fails the run when integrations are disabled for the user", () => {
 });
 
 it.effect("fails the run when the integration is not found", () => {
-	let yankCalled = false;
+	let mediaProcessed = false;
 	const recordedUpdates: Array<Record<string, unknown>> = [];
 
 	const options = {
@@ -484,13 +536,14 @@ it.effect("fails the run when the integration is not found", () => {
 		Effect.gen(function* () {
 			yield* runIntegrationRunWorkflow(sinkPayload, "run_1", {
 				...noopOperations,
-				processYank: () =>
+				importEntity: () =>
 					Effect.sync(() => {
-						yankCalled = true;
+						mediaProcessed = true;
+						return { id: "entity-1" };
 					}),
 			});
 
-			expect(yankCalled).toBe(false);
+			expect(mediaProcessed).toBe(false);
 			expect(recordedUpdates).toEqual([
 				expect.objectContaining({
 					runId: "run_1",
@@ -502,20 +555,32 @@ it.effect("fails the run when the integration is not found", () => {
 	);
 });
 
-it.effect("delegates yank runs to the durable queue bridge", () => {
-	let parsed = false;
-	const yankPayloads: Array<Record<string, unknown>> = [];
+it.effect("processes a komga yank run through shared media orchestration", () => {
+	const importedCalls: Array<Record<string, unknown>> = [];
+	const integrationUpdates: Array<Record<string, unknown>> = [];
+	const recordedUpdates: Array<Record<string, unknown>> = [];
+	const createdEvents: Array<ReadonlyArray<Record<string, unknown>>> = [];
 
 	const options = {
+		eventsService: Object.assign(Object.create(null), defaultEventsService(), {
+			createForImport: (_userId: string, payload: ReadonlyArray<Record<string, unknown>>) => {
+				createdEvents.push(payload);
+				return Effect.succeed({ count: payload.length });
+			},
+		}),
+		importsRepository: makeImportsRepository({
+			getRunById: () => Effect.succeed(makeRun("completed")),
+			updateRun: (input) => {
+				recordedUpdates.push(input);
+				return Effect.void;
+			},
+		}),
 		integrationsRepository: makeIntegrationsRepository({
-			getByIdAnyUser: () =>
-				Effect.succeed(
-					makeIntegration({
-						lot: "yank",
-						provider: "audiobookshelf",
-						providerSpecifics: { kind: "audiobookshelf", token: "tok", baseUrl: "http://abs" },
-					}),
-				),
+			getByIdAnyUser: () => Effect.succeed(makeKomgaIntegration()),
+			updateForUser: (input) => {
+				integrationUpdates.push(input);
+				return Effect.succeed(makeKomgaIntegration());
+			},
 		}),
 	} satisfies TestLayerOptions;
 
@@ -523,21 +588,313 @@ it.effect("delegates yank runs to the durable queue bridge", () => {
 		options,
 		"run_1",
 		Effect.gen(function* () {
-			yield* runIntegrationRunWorkflow(sinkPayload, "run_1", {
+			yield* runIntegrationRunWorkflow(yankPayload, "run_1", {
 				...noopOperations,
-				processYank: (payload) =>
+				importEntity: (input) =>
 					Effect.sync(() => {
-						yankPayloads.push(payload);
-					}),
-				importEntity: () =>
-					Effect.sync(() => {
-						parsed = true;
+						importedCalls.push(input);
 						return { id: "entity-1" };
+					}),
+				loadYankAdapterResult: () =>
+					Effect.succeed({
+						cleanupPaths: [],
+						adapterResult: { failures: [], entityGroups: [mangaGroup()] },
 					}),
 			});
 
-			expect(parsed).toBe(false);
-			expect(yankPayloads).toEqual([sinkPayload]);
+			expect(importedCalls).toEqual([
+				{
+					userId: "user_1",
+					externalId: "30002",
+					activityPrefix: "populate-0-",
+					executionId: "run_1-entity-0",
+					entitySchemaId: "schema-manga",
+					scriptId: "script-manga-anilist",
+				},
+			]);
+			expect(createdEvents).toHaveLength(1);
+			expect(recordedUpdates).toContainEqual(
+				expect.objectContaining({
+					progress: 100,
+					runId: "run_1",
+					importedItems: 1,
+					processedItems: 1,
+					status: "completed",
+				}),
+			);
+			expect(integrationUpdates).toHaveLength(1);
+			expect(integrationUpdates[0]).toMatchObject({
+				userId: "user_1",
+				integrationId: "int_1",
+				lastFinishedAt: expect.any(Date),
+			});
+		}),
+	);
+});
+
+it.effect("fails the whole run on catastrophic yank provider failure", () => {
+	let importCalled = false;
+	const recordedUpdates: Array<Record<string, unknown>> = [];
+
+	const options = {
+		importsRepository: makeImportsRepository({
+			getRunById: () => Effect.succeed(makeRun("failed")),
+			updateRun: (input) => {
+				recordedUpdates.push(input);
+				return Effect.void;
+			},
+		}),
+		integrationsRepository: makeIntegrationsRepository({
+			getByIdAnyUser: () => Effect.succeed(makeKomgaIntegration()),
+		}),
+	} satisfies TestLayerOptions;
+
+	return withTestLayer(
+		options,
+		"run_1",
+		Effect.gen(function* () {
+			yield* runIntegrationRunWorkflow(yankPayload, "run_1", {
+				...noopOperations,
+				importEntity: () =>
+					Effect.sync(() => {
+						importCalled = true;
+						return { id: "entity-1" };
+					}),
+				loadYankAdapterResult: () =>
+					Effect.fail({ cleanupPaths: [], message: "Failed to fetch data from Komga" }),
+			});
+
+			expect(importCalled).toBe(false);
+			expect(recordedUpdates).toContainEqual(
+				expect.objectContaining({
+					runId: "run_1",
+					status: "failed",
+					errorSummary: "Failed to fetch data from Komga",
+				}),
+			);
+		}),
+	);
+});
+
+it.effect("marks ownership for synced yank items", () => {
+	const ownershipMarks: Array<Record<string, unknown>> = [];
+
+	const options = {
+		importsRepository: makeImportsRepository({
+			getRunById: () => Effect.succeed(makeRun("completed")),
+		}),
+		integrationsRepository: makeIntegrationsRepository({
+			getByIdAnyUser: () => Effect.succeed(makeKomgaIntegration({ syncOwnership: true })),
+			updateForUser: () => Effect.succeed(makeKomgaIntegration()),
+		}),
+		collectionsService: Object.assign(Object.create(null), defaultCollectionsService(), {
+			markEntityOwnedInLibrary: (input: Record<string, unknown>) => {
+				ownershipMarks.push(input);
+				return Effect.void;
+			},
+		}),
+	} satisfies TestLayerOptions;
+
+	return withTestLayer(
+		options,
+		"run_1",
+		Effect.gen(function* () {
+			yield* runIntegrationRunWorkflow(yankPayload, "run_1", {
+				...noopOperations,
+				loadYankAdapterResult: () =>
+					Effect.succeed({
+						cleanupPaths: [],
+						adapterResult: {
+							failures: [],
+							entityGroups: [mangaGroup({ events: [], ownershipProvider: "komga" })],
+						},
+					}),
+			});
+
+			expect(ownershipMarks).toEqual([
+				expect.objectContaining({ userId: "user_1", provider: "komga", entityId: "entity-1" }),
+			]);
+		}),
+	);
+});
+
+it.effect("processes a YouTube Music yank run through workflow-owned sandbox execution", () => {
+	const importedCalls: Array<Record<string, unknown>> = [];
+	const sandboxCalls: Array<Record<string, unknown>> = [];
+	const recordedUpdates: Array<Record<string, unknown>> = [];
+	const createdEvents: Array<ReadonlyArray<Record<string, unknown>>> = [];
+
+	const options = {
+		integrationsRepository: makeIntegrationsRepository({
+			updateForUser: () => Effect.succeed(makeYoutubeMusicIntegration()),
+			getByIdAnyUser: () => Effect.succeed(makeYoutubeMusicIntegration()),
+		}),
+		eventsService: Object.assign(Object.create(null), defaultEventsService(), {
+			createForImport: (_userId: string, payload: ReadonlyArray<Record<string, unknown>>) => {
+				createdEvents.push(payload);
+				return Effect.succeed({ count: payload.length });
+			},
+		}),
+		importsRepository: makeImportsRepository({
+			getRunById: () => Effect.succeed(makeRun("completed")),
+			updateRun: (input) => {
+				recordedUpdates.push(input);
+				return Effect.void;
+			},
+		}),
+	} satisfies TestLayerOptions;
+
+	return withTestLayer(
+		options,
+		"run_1",
+		Effect.gen(function* () {
+			yield* runIntegrationRunWorkflow(yankPayload, "run_1", {
+				...noopOperations,
+				importEntity: (input) =>
+					Effect.sync(() => {
+						importedCalls.push(input);
+						return { id: "entity-1" };
+					}),
+				runSandboxHistory: (input) =>
+					Effect.sync(() => {
+						sandboxCalls.push(input);
+						return {
+							logs: [],
+							error: null,
+							status: "completed" as const,
+							value: { songs: [{ title: "Song A", videoId: "vid1" }] },
+						};
+					}),
+			});
+
+			expect(sandboxCalls).toEqual([
+				{
+					userId: "user_1",
+					scriptId: "script-youtube-music",
+					executionId: "run_1-youtube-music-history",
+					context: { authCookie: "cookie", timezone: "America/New_York" },
+				},
+			]);
+			expect(importedCalls).toEqual([
+				expect.objectContaining({
+					userId: "user_1",
+					externalId: "vid1",
+					entitySchemaId: "schema-music",
+					scriptId: "script-youtube-music",
+				}),
+			]);
+			expect(createdEvents).toHaveLength(1);
+			expect(recordedUpdates).toContainEqual(
+				expect.objectContaining({
+					progress: 100,
+					runId: "run_1",
+					importedItems: 1,
+					status: "completed",
+				}),
+			);
+		}),
+	);
+});
+
+it.effect("records a YouTube Music sandbox failure as a source-fetch failure", () => {
+	let importCalled = false;
+	const recordedFailures: Array<Record<string, unknown>> = [];
+	const recordedUpdates: Array<Record<string, unknown>> = [];
+
+	const options = {
+		integrationsRepository: makeIntegrationsRepository({
+			getByIdAnyUser: () => Effect.succeed(makeYoutubeMusicIntegration()),
+			updateForUser: () => Effect.succeed(makeYoutubeMusicIntegration()),
+		}),
+		importsRepository: makeImportsRepository({
+			getRunById: () => Effect.succeed(makeRun("completed")),
+			createFailure: (input) => {
+				recordedFailures.push(input);
+				return Effect.void;
+			},
+			updateRun: (input) => {
+				recordedUpdates.push(input);
+				return Effect.void;
+			},
+		}),
+	} satisfies TestLayerOptions;
+
+	return withTestLayer(
+		options,
+		"run_1",
+		Effect.gen(function* () {
+			yield* runIntegrationRunWorkflow(yankPayload, "run_1", {
+				...noopOperations,
+				importEntity: () =>
+					Effect.sync(() => {
+						importCalled = true;
+						return { id: "entity-1" };
+					}),
+				runSandboxHistory: () =>
+					Effect.succeed({
+						logs: [],
+						value: null,
+						status: "completed" as const,
+						error: "history fetch failed",
+					}),
+			});
+
+			expect(importCalled).toBe(false);
+			expect(recordedFailures).toContainEqual(
+				expect.objectContaining({
+					itemIndex: 0,
+					runId: "run_1",
+					stage: "source_fetch",
+					message: "history fetch failed",
+				}),
+			);
+			expect(recordedUpdates).toContainEqual(
+				expect.objectContaining({ runId: "run_1", failedItems: 1, status: "completed" }),
+			);
+		}),
+	);
+});
+
+it.effect("disables a yank integration after continuous failures during finalization", () => {
+	const integrationUpdates: Array<Record<string, unknown>> = [];
+
+	const options = {
+		importsRepository: makeImportsRepository({
+			getRunById: () => Effect.succeed(makeRun("failed")),
+			listRecentStatusesByIntegrationId: () =>
+				Effect.succeed([
+					{ status: "failed" as const },
+					{ status: "failed" as const },
+					{ status: "failed" as const },
+					{ status: "failed" as const },
+					{ status: "failed" as const },
+				]),
+		}),
+		integrationsRepository: makeIntegrationsRepository({
+			getByIdAnyUser: () =>
+				Effect.succeed(
+					makeKomgaIntegration({ extraSettings: { disableOnContinuousErrors: true } }),
+				),
+			updateForUser: (input) => {
+				integrationUpdates.push(input);
+				return Effect.succeed(makeKomgaIntegration({ isDisabled: true }));
+			},
+		}),
+	} satisfies TestLayerOptions;
+
+	return withTestLayer(
+		options,
+		"run_1",
+		Effect.gen(function* () {
+			yield* runIntegrationRunWorkflow(yankPayload, "run_1", {
+				...noopOperations,
+				loadYankAdapterResult: () =>
+					Effect.fail({ cleanupPaths: [], message: "Failed to fetch data from Komga" }),
+			});
+
+			expect(integrationUpdates).toEqual([
+				{ userId: "user_1", isDisabled: true, integrationId: "int_1" },
+			]);
 		}),
 	);
 });
