@@ -1,24 +1,15 @@
 import { describe, expect, it } from "vitest";
 
-import {
-	hostFailure,
-	hostSuccess,
-	httpSuccess,
-	readScriptFile,
-	runTriggerScript,
-	toRecord,
-} from "./test-utils";
+import integrationPushHelperCode from "../script-helpers/integration-push.sandbox.js" with { type: "text" };
+import radarrPushScriptCode from "./radarr-push.sandbox.js" with { type: "text" };
+import { hostFailure, hostSuccess, httpSuccess, runTriggerScript, toRecord } from "./test-utils";
 
-const getRadarrCode = () =>
-	Promise.all([
-		readScriptFile("../script-helpers/integration-push.sandbox.js"),
-		readScriptFile("./radarr-push.sandbox.js"),
-	]).then(([helperCode, scriptCode]) => `${helperCode}\n\n${scriptCode}`);
+const radarrCode = `${integrationPushHelperCode}\n\n${radarrPushScriptCode}`;
 
 const runRadarrScript = (
 	context: unknown,
 	hostFunctions: Record<string, (...args: Array<unknown>) => unknown>,
-) => getRadarrCode().then((code) => runTriggerScript(code, context, hostFunctions));
+) => runTriggerScript(radarrCode, context, hostFunctions);
 
 type HttpCall = { url: string; method: string; options: Record<string, unknown> };
 
