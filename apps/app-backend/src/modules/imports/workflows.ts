@@ -83,6 +83,11 @@ type MediaImportWorkflowOperations<RLoad, RResolve, RImport, RSearch = never, RC
 	}) => Effect.Effect<{ id: string }, SandboxRunError, RImport>;
 };
 
+type MediaImportWorkflowOptions = {
+	integrationId?: string;
+	skipMarkStarted?: boolean;
+};
+
 const calculateProgress = (input: {
 	base: number;
 	span: number;
@@ -111,7 +116,7 @@ export const runOneTimeMediaImportWorkflow = <
 	payload: ImportRunJobData,
 	executionId: string,
 	operations: MediaImportWorkflowOperations<RLoad, RResolve, RImport, RSearch, RCleanup>,
-	options: { skipMarkStarted?: boolean } = {},
+	options: MediaImportWorkflowOptions = {},
 ) =>
 	Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
@@ -119,8 +124,8 @@ export const runOneTimeMediaImportWorkflow = <
 		const collections = yield* CollectionsService;
 		const entitiesRepository = yield* EntitiesRepository;
 
-		let cleanupPaths: ReadonlyArray<string> = [];
 		const initialCleanupPaths = payload.filePath ? [payload.filePath] : [];
+		let cleanupPaths: ReadonlyArray<string> = initialCleanupPaths;
 		const { cleanupArtifactsBestEffort, failRunAndCleanup } = createImportRunLifecycle(
 			payload,
 			operations.cleanupArtifacts,
@@ -202,11 +207,11 @@ export const runOneTimeMediaImportWorkflow = <
 				),
 			});
 
-			cleanupPaths = loadOutcome.cleanupPaths;
+			cleanupPaths = [...new Set([...initialCleanupPaths, ...loadOutcome.cleanupPaths])];
 			if (loadOutcome._tag === "failed") {
 				yield* failRunAndCleanup({
 					message: loadOutcome.message,
-					cleanupPaths: loadOutcome.cleanupPaths,
+					cleanupPaths,
 					failureName: "fail-import-run-on-load-error",
 					cleanupName: "cleanup-import-artifacts-on-load-failure",
 				});
@@ -766,26 +771,29 @@ export const runOneTimeMediaImportWorkflow = <
 						continue;
 					}
 
+					const eventPayload = [
+						{
+							entityId,
+							eventSchemaId,
+							occurredAt: event.occurredAt,
+							properties: event.properties,
+						},
+					];
 					const eventWrite = yield* Activity.make({
 						name: `write-event-${i}-${eventIndex}`,
 						success: EnsureLibraryMembershipOutcome,
-						execute: events
-							.createForImport(
-								payload.userId,
-								[
-									{
-										entityId,
-										eventSchemaId,
-										occurredAt: event.occurredAt,
-										properties: event.properties,
-									},
-								],
-								payload.runId,
-							)
-							.pipe(
-								Effect.as({ message: null }),
-								Effect.catchAll((error) => Effect.succeed({ message: unknownToMessage(error) })),
-							),
+						execute: (options.integrationId
+							? events.createForIntegration({
+									userId: payload.userId,
+									payload: eventPayload,
+									importRunId: payload.runId,
+									integrationId: options.integrationId,
+								})
+							: events.createForImport(payload.userId, eventPayload, payload.runId)
+						).pipe(
+							Effect.as({ message: null }),
+							Effect.catchAll((error) => Effect.succeed({ message: unknownToMessage(error) })),
+						),
 					});
 					if (eventWrite.message) {
 						groupFailed = true;

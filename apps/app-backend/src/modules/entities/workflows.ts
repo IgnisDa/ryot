@@ -187,6 +187,7 @@ export const runEntityImportWorkflow = <R>(
 			validatedDetails.relatedEntities,
 			(relatedEntity) =>
 				Activity.make({
+					error: SandboxRunError,
 					name: activityName(
 						`write-related-${relatedEntity.scriptSlug}-${relatedEntity.externalId}`,
 					),

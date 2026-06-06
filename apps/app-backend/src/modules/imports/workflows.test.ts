@@ -431,8 +431,7 @@ it.effect(
 						Effect.sync(() => {
 							cleanupCalls.push(input);
 						}),
-					loadAdapterResult: () =>
-						Effect.fail({ message: "Source credentials failed", cleanupPaths: [] }),
+					loadAdapterResult: () => Effect.die("Source credentials failed"),
 					resolveExternalId: () =>
 						Effect.sync(() => {
 							resolveCalled = true;
@@ -448,7 +447,9 @@ it.effect(
 
 				expect(resolveCalled).toBe(false);
 				expect(importCalled).toBe(false);
-				expect(cleanupCalls).toEqual([{ cleanupPaths: [], sourcePayloadKey: "payload-1" }]);
+				expect(cleanupCalls).toEqual([
+					{ cleanupPaths: ["/tmp/import.csv"], sourcePayloadKey: "payload-1" },
+				]);
 				expect(recordedUpdates).toContainEqual(
 					expect.objectContaining({ runId: "run-1", status: "running" }),
 				);
