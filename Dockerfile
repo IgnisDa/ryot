@@ -1,20 +1,16 @@
+# FIXME: This docker build is broken right now. upgrade effect to rc.113
+# (https://github.com/Effect-TS/effect/pull/7446) to fix this. Phase 6 of ~/.claude/plans/please-read-this-prd-purring-panda.md.
 FROM oven/bun:1.4.0-debian AS base
 WORKDIR /app
 
 FROM base AS prepare
-RUN --mount=type=cache,target=/root/.bun/install/cache \
-    bun install --global turbo@2.10.12
+RUN --mount=type=cache,target=/root/.bun/install/cache bun install --global turbo@2.10.12
 COPY . .
 RUN turbo prune @ryot/fitness-plugin @ryot/kernel-client @ryot/media-plugin @ryot/server @ryot/v10-rust-migration --docker
 
 FROM base AS builder-base
 COPY --from=prepare /app/out/json/ .
-# Force Bun's copyfile backend because the default Linux hardlink backend is flaky
-# under Docker BuildKit for some tarballs (for example, expo-modules-core).
-# Keep --ignore-scripts because removing it makes the backend build fail while
-# resolving msgpackr-extract during the Bun bundle step.
-RUN --mount=type=cache,target=/root/.bun/install/cache \
-    bun install --backend=copyfile --ignore-scripts
+RUN --mount=type=cache,target=/root/.bun/install/cache bun install
 COPY --from=prepare /app/out/full/ .
 COPY --from=prepare /app/tsconfig.options.json ./tsconfig.options.json
 
@@ -34,8 +30,7 @@ FROM base AS compiler-runtime
 COPY --from=prepare /app/out/json/ .
 COPY --from=prepare /app/out/full/packages ./packages
 RUN --mount=type=cache,target=/root/.bun/install/cache \
-    bun install --filter @ryot/sandbox-compiler --filter @ryot/client-plugin-compiler --production --frozen-lockfile \
-    --backend=copyfile --linker=hoisted --ignore-scripts
+    bun install --filter @ryot/sandbox-compiler --filter @ryot/client-plugin-compiler --production --frozen-lockfile
 
 FROM base AS runner
 RUN useradd -m -u 1001 ryot
