@@ -84,10 +84,13 @@ describe("plugin runtime", () => {
 		runtime.dispose();
 		runtime.dispose();
 		await expect(query).rejects.toMatchObject({ reason: "transport" });
-		await expect(operation).rejects.toMatchObject({ reason: "transport" });
+		await expect(operation).rejects.toMatchObject({ reason: "disposed" });
 		await expect(
 			runtime.client.data.query({ document, decode: Result.succeed }),
 		).rejects.toMatchObject({ reason: "transport" });
+		await expect(
+			runtime.client.data.invokeOperation({ input: {}, slug: "late", output: Schema.Unknown }),
+		).rejects.toMatchObject({ reason: "disposed" });
 		await delay();
 		expect(
 			messages.filter(
@@ -130,23 +133,104 @@ describe("plugin runtime", () => {
 			reason: "operation-failed",
 		});
 		await expect(failure).rejects.toMatchObject({ reason: "operation-failed" });
+
+		const malformed = runtime.client.data.invokeOperation({
+			input: {},
+			slug: "greet",
+			output: Schema.String,
+		});
+		channel.port1.postMessage({
+			outcome: "failure",
+			type: "operation-result",
+			requestId: "operation-3",
+			reason: "malformed-result",
+		});
+		await expect(malformed).rejects.toMatchObject({ reason: "malformed-result" });
 	});
 
-	it("rejects a non-JSON success message without settling the operation", async () => {
+	it("fails the session on a malformed correlated result and settles the operation once", async () => {
 		const { channel, runtime } = openRuntime();
 		channel.port1.postMessage({ type: "location", location: { path: "/", search: "" } });
 		await delay();
 
-		const operation = runtime.client.data.invokeOperation({
-			input: null,
-			slug: "greet",
-			output: Schema.String,
-		});
+		let settlements = 0;
+		const operation = runtime.client.data
+			.invokeOperation({ input: null, slug: "greet", output: Schema.String })
+			.catch((error: unknown) => {
+				settlements += 1;
+				throw error;
+			});
 		channel.port1.postMessage({
 			outcome: "success",
 			type: "operation-result",
 			requestId: "operation-1",
 			value: { invalid: undefined },
+		});
+
+		await expect(operation).rejects.toMatchObject({ reason: "protocol" });
+		channel.port1.postMessage({
+			value: "hello",
+			outcome: "success",
+			type: "operation-result",
+			requestId: "operation-1",
+		});
+		await delay();
+		expect(settlements).toBe(1);
+		await expect(
+			runtime.client.data.invokeOperation({ input: {}, slug: "late", output: Schema.Unknown }),
+		).rejects.toMatchObject({ reason: "protocol" });
+	});
+
+	it("classifies peer failure as protocol while keeping query errors compatible", async () => {
+		const { channel, messages, runtime } = openRuntime();
+		channel.port1.postMessage({ type: "location", location: { path: "/", search: "" } });
+		await delay();
+		const query = runtime.client.data.query({ document, decode: Result.succeed });
+		await delay();
+		channel.port1.postMessage({ reason: "failed", type: "lifecycle-close" });
+		await expect(query).rejects.toMatchObject({ reason: "transport" });
+		await expect(
+			runtime.client.data.invokeOperation({ input: {}, slug: "late", output: Schema.Unknown }),
+		).rejects.toMatchObject({ reason: "protocol" });
+		channel.port1.postMessage({
+			outcome: "success",
+			type: "ryotql-result",
+			requestId: "ryotql-1",
+			response: { data: {} },
+		});
+		runtime.navigate("push", { path: "/late" });
+		await delay();
+		expect(messages).not.toContainEqual(expect.objectContaining({ type: "navigate" }));
+	});
+
+	it("classifies peer disposal as disposed", async () => {
+		const { channel, runtime } = openRuntime();
+		channel.port1.postMessage({ type: "location", location: { path: "/", search: "" } });
+		await delay();
+		const operation = runtime.client.data.invokeOperation({
+			input: {},
+			slug: "greet",
+			output: Schema.Unknown,
+		});
+		channel.port1.postMessage({ reason: "disposed", type: "lifecycle-close" });
+
+		await expect(operation).rejects.toMatchObject({ reason: "disposed" });
+	});
+
+	it("ignores valid results with unknown request IDs", async () => {
+		const { channel, runtime } = openRuntime();
+		channel.port1.postMessage({ type: "location", location: { path: "/", search: "" } });
+		await delay();
+		const operation = runtime.client.data.invokeOperation({
+			input: {},
+			slug: "greet",
+			output: Schema.String,
+		});
+		channel.port1.postMessage({
+			value: "ignored",
+			outcome: "success",
+			type: "operation-result",
+			requestId: "operation-unknown",
 		});
 		channel.port1.postMessage({
 			value: "hello",
@@ -158,22 +242,22 @@ describe("plugin runtime", () => {
 		await expect(operation).resolves.toBe("hello");
 	});
 
-	it("honors peer failure and ignores late results and navigation", async () => {
-		const { channel, messages, runtime } = openRuntime();
+	it("classifies channel communication failures as transport", async () => {
+		const { channel, runtime } = openRuntime();
 		channel.port1.postMessage({ type: "location", location: { path: "/", search: "" } });
 		await delay();
-		const query = runtime.client.data.query({ document, decode: Result.succeed });
-		await delay();
-		channel.port1.postMessage({ reason: "failed", type: "lifecycle-close" });
-		await expect(query).rejects.toMatchObject({ reason: "transport" });
-		channel.port1.postMessage({
-			outcome: "success",
-			type: "ryotql-result",
-			requestId: "ryotql-1",
-			response: { data: {} },
+		channel.port2.postMessage = () => {
+			throw new Error("channel closed");
+		};
+		const operation = runtime.client.data.invokeOperation({
+			input: {},
+			slug: "greet",
+			output: Schema.Unknown,
 		});
-		runtime.navigate("push", { path: "/late" });
-		await delay();
-		expect(messages).not.toContainEqual(expect.objectContaining({ type: "navigate" }));
+
+		await expect(operation).rejects.toMatchObject({ reason: "transport" });
+		await expect(
+			runtime.client.data.invokeOperation({ input: {}, slug: "late", output: Schema.Unknown }),
+		).rejects.toMatchObject({ reason: "transport" });
 	});
 });

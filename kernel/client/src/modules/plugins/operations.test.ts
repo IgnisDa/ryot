@@ -73,7 +73,7 @@ describe("plugin operations service", () => {
 		}).pipe(Effect.provide(PluginOperationsService.layer), Effect.provide(dependencies));
 	});
 
-	const expectedFailures = [
+	const declaredFailures = [
 		new AuthUnauthorized({ reason: { code: "authentication-required" } }),
 		new AuthRateLimited({ reason: { code: "session-rate-limited", retryAfterMs: null } }),
 		new PluginNotFoundError({
@@ -83,8 +83,8 @@ describe("plugin operations service", () => {
 		new PluginInvocationError({ reason: { code: "runtime-failed", diagnostics: [] } }),
 	];
 
-	for (const cause of expectedFailures) {
-		it.effect(`classifies ${cause._tag} as an expected operation failure`, () => {
+	for (const cause of declaredFailures) {
+		it.effect(`classifies ${cause._tag} as a declared platform operation failure`, () => {
 			const dependencies = makeApi(() => Effect.fail(cause));
 
 			return Effect.gen(function* () {
@@ -112,6 +112,8 @@ describe("plugin operations service", () => {
 			});
 
 			expect(outcome).toEqual({ outcome: "failure", reason: "transport" });
+			expect(outcome).not.toHaveProperty("cause");
+			expect(JSON.stringify(outcome)).not.toContain("network down");
 		}).pipe(Effect.provide(PluginOperationsService.layer), Effect.provide(dependencies));
 	});
 });
