@@ -22,7 +22,7 @@ describe("Events bulk POST", () => {
 		const { client: apiClient, cookies } = await createAuthenticatedClient();
 		const { entityId, eventSchemaId } = await createEventTestFixture(apiClient, cookies);
 
-		const result = await apiClient.POST("/events", {
+		const result = await apiClient.events.create({
 			headers: { Cookie: cookies },
 			body: [
 				{
@@ -44,39 +44,39 @@ describe("Events bulk POST", () => {
 		});
 
 		expect(result.response.status).toBe(200);
-		expect(result.data?.data.count).toBe(3);
+		expect(result.data?.count).toBe(3);
 	});
 
 	it("returns zero count for an empty array", async () => {
 		const { client: apiClient, cookies } = await createAuthenticatedClient();
 
-		const result = await apiClient.POST("/events", {
+		const result = await apiClient.events.create({
 			headers: { Cookie: cookies },
 			body: [],
 		});
 
 		expect(result.response.status).toBe(200);
-		expect(result.data?.data.count).toBe(0);
+		expect(result.data?.count).toBe(0);
 	});
 
 	it("enforces conditional required rules end to end", async () => {
 		const { client: apiClient, cookies } = await createAuthenticatedClient();
 		const { entityId, eventSchemaId } = await createRuleEventFixture(apiClient, cookies);
 
-		const optionalResult = await apiClient.POST("/events", {
+		const optionalResult = await apiClient.events.create({
 			headers: { Cookie: cookies },
 			body: [{ entityId, eventSchemaId, properties: { status: "draft" } }],
 		});
 		expect(optionalResult.response.status).toBe(200);
-		expect(optionalResult.data?.data.count).toBe(1);
+		expect(optionalResult.data?.count).toBe(1);
 
-		const rejectedResult = await apiClient.POST("/events", {
+		const rejectedResult = await apiClient.events.create({
 			headers: { Cookie: cookies },
 			body: [{ entityId, eventSchemaId, properties: { status: "completed" } }],
 		});
 		expect(rejectedResult.response.status).toBe(400);
 
-		const acceptedResult = await apiClient.POST("/events", {
+		const acceptedResult = await apiClient.events.create({
 			headers: { Cookie: cookies },
 			body: [
 				{
@@ -87,7 +87,7 @@ describe("Events bulk POST", () => {
 			],
 		});
 		expect(acceptedResult.response.status).toBe(200);
-		expect(acceptedResult.data?.data.count).toBe(1);
+		expect(acceptedResult.data?.count).toBe(1);
 
 		const events = await waitForEventCount(apiClient, cookies, entityId, 2);
 		expect(events.map((event) => event.properties)).toEqual([
@@ -99,7 +99,7 @@ describe("Events bulk POST", () => {
 	it("returns 404 when listing events for a non-existent entity", async () => {
 		const { client: apiClient, cookies } = await createAuthenticatedClient();
 
-		const result = await apiClient.GET("/events", {
+		const result = await apiClient.events.list({
 			headers: { Cookie: cookies },
 			params: { query: { entityId: crypto.randomUUID() } },
 		});
@@ -111,7 +111,7 @@ describe("Events bulk POST", () => {
 		const { client: apiClient, cookies } = await createAuthenticatedClient();
 		const { entityId, eventSchemaId } = await createEventTestFixture(apiClient, cookies);
 
-		await apiClient.POST("/events", {
+		await apiClient.events.create({
 			headers: { Cookie: cookies },
 			body: [
 				{ entityId, eventSchemaId, properties: { rating: 4 } },
@@ -128,7 +128,7 @@ describe("Events bulk POST", () => {
 		const { entityId, completeEventSchemaId, progressEventSchemaId } =
 			await createBuiltinMediaLifecycleFixture(apiClient, cookies);
 
-		const createResult = await apiClient.POST("/events", {
+		const createResult = await apiClient.events.create({
 			headers: { Cookie: cookies },
 			body: [
 				{
@@ -145,45 +145,41 @@ describe("Events bulk POST", () => {
 		});
 
 		expect(createResult.response.status).toBe(200);
-		expect(createResult.data?.data.count).toBe(2);
+		expect(createResult.data?.count).toBe(2);
 
 		await waitForEventCount(apiClient, cookies, entityId, 2);
 
-		const allEventsResult = await apiClient.GET("/events", {
+		const allEventsResult = await apiClient.events.list({
 			headers: { Cookie: cookies },
 			params: { query: { entityId } },
 		});
 		expect(allEventsResult.response.status).toBe(200);
-		expect(allEventsResult.data?.data).toHaveLength(2);
+		expect(allEventsResult.data).toHaveLength(2);
 
-		const progressEventsResult = await apiClient.GET("/events", {
+		const progressEventsResult = await apiClient.events.list({
 			headers: { Cookie: cookies },
 			params: { query: { entityId, eventSchemaSlug: "progress" } },
 		});
 		expect(progressEventsResult.response.status).toBe(200);
 		expect(
-			progressEventsResult.data?.data.map(
-				(event: { eventSchemaSlug: string }) => event.eventSchemaSlug,
-			),
+			progressEventsResult.data?.map((event: { eventSchemaSlug: string }) => event.eventSchemaSlug),
 		).toEqual(["progress"]);
 
-		const completeEventsResult = await apiClient.GET("/events", {
+		const completeEventsResult = await apiClient.events.list({
 			headers: { Cookie: cookies },
 			params: { query: { entityId, eventSchemaSlug: "complete" } },
 		});
 		expect(completeEventsResult.response.status).toBe(200);
 		expect(
-			completeEventsResult.data?.data.map(
-				(event: { eventSchemaSlug: string }) => event.eventSchemaSlug,
-			),
+			completeEventsResult.data?.map((event: { eventSchemaSlug: string }) => event.eventSchemaSlug),
 		).toEqual(["complete"]);
 
-		const missingEventsResult = await apiClient.GET("/events", {
+		const missingEventsResult = await apiClient.events.list({
 			headers: { Cookie: cookies },
 			params: { query: { entityId, eventSchemaSlug: "nonexistent" } },
 		});
 		expect(missingEventsResult.response.status).toBe(200);
-		expect(missingEventsResult.data?.data).toEqual([]);
+		expect(missingEventsResult.data).toEqual([]);
 	});
 
 	it("creates repeated built-in backlog events and lists them", async () => {
@@ -193,7 +189,7 @@ describe("Events bulk POST", () => {
 			cookies,
 		);
 
-		const createResult = await apiClient.POST("/events", {
+		const createResult = await apiClient.events.create({
 			headers: { Cookie: cookies },
 			body: [
 				{ entityId, properties: {}, eventSchemaId: backlogEventSchemaId },
@@ -202,7 +198,7 @@ describe("Events bulk POST", () => {
 		});
 
 		expect(createResult.response.status).toBe(200);
-		expect(createResult.data?.data.count).toBe(2);
+		expect(createResult.data?.count).toBe(2);
 
 		const events = await waitForEventCount(apiClient, cookies, entityId, 2);
 		expect(events).toHaveLength(2);
@@ -217,7 +213,7 @@ describe("Events bulk POST", () => {
 			cookies,
 		);
 
-		const createResult = await apiClient.POST("/events", {
+		const createResult = await apiClient.events.create({
 			headers: { Cookie: cookies },
 			body: [
 				{
@@ -234,7 +230,7 @@ describe("Events bulk POST", () => {
 		});
 
 		expect(createResult.response.status).toBe(200);
-		expect(createResult.data?.data.count).toBe(2);
+		expect(createResult.data?.count).toBe(2);
 
 		const events = await waitForEventCount(apiClient, cookies, entityId, 2);
 		expect(events).toHaveLength(2);
@@ -251,7 +247,7 @@ describe("Events bulk POST", () => {
 			cookies,
 		);
 
-		const createResult = await apiClient.POST("/events", {
+		const createResult = await apiClient.events.create({
 			headers: { Cookie: cookies },
 			body: [
 				{
@@ -271,7 +267,7 @@ describe("Events bulk POST", () => {
 		});
 
 		expect(createResult.response.status).toBe(200);
-		expect(createResult.data?.data.count).toBe(2);
+		expect(createResult.data?.count).toBe(2);
 
 		const events = await waitForEventCount(apiClient, cookies, entityId, 2);
 		expect(events).toHaveLength(2);
@@ -292,7 +288,7 @@ describe("Events bulk POST", () => {
 			cookies,
 		);
 
-		const createResult = await apiClient.POST("/events", {
+		const createResult = await apiClient.events.create({
 			headers: { Cookie: cookies },
 			body: [
 				{
@@ -304,7 +300,7 @@ describe("Events bulk POST", () => {
 		});
 
 		expect(createResult.response.status).toBe(200);
-		expect(createResult.data?.data.count).toBe(1);
+		expect(createResult.data?.count).toBe(1);
 
 		const events = await waitForEventCount(apiClient, cookies, entityId, 1);
 		expect(events).toHaveLength(1);
@@ -319,7 +315,7 @@ describe("Events bulk POST", () => {
 			cookies,
 		);
 
-		const createResult = await apiClient.POST("/events", {
+		const createResult = await apiClient.events.create({
 			headers: { Cookie: cookies },
 			body: [
 				{
@@ -331,7 +327,7 @@ describe("Events bulk POST", () => {
 		});
 
 		expect(createResult.response.status).toBe(200);
-		expect(createResult.data?.data.count).toBe(1);
+		expect(createResult.data?.count).toBe(1);
 	});
 
 	it("rejects a complete event with a negative timeSpent", async () => {
@@ -341,7 +337,7 @@ describe("Events bulk POST", () => {
 			cookies,
 		);
 
-		const createResult = await apiClient.POST("/events", {
+		const createResult = await apiClient.events.create({
 			headers: { Cookie: cookies },
 			body: [
 				{
@@ -362,7 +358,7 @@ describe("Events bulk POST", () => {
 			cookies,
 		);
 
-		const createResult = await apiClient.POST("/events", {
+		const createResult = await apiClient.events.create({
 			headers: { Cookie: cookies },
 			body: [
 				{
@@ -379,7 +375,7 @@ describe("Events bulk POST", () => {
 		});
 
 		expect(createResult.response.status).toBe(200);
-		expect(createResult.data?.data.count).toBe(2);
+		expect(createResult.data?.count).toBe(2);
 
 		const events = await waitForEventCount(apiClient, cookies, entityId, 2);
 		expect(events).toHaveLength(2);
@@ -397,7 +393,7 @@ describe("Events bulk POST", () => {
 			cookies,
 		);
 
-		const createResult = await apiClient.POST("/events", {
+		const createResult = await apiClient.events.create({
 			headers: { Cookie: cookies },
 			body: [
 				{
@@ -409,7 +405,7 @@ describe("Events bulk POST", () => {
 		});
 
 		expect(createResult.response.status).toBe(200);
-		expect(createResult.data?.data.count).toBe(1);
+		expect(createResult.data?.count).toBe(1);
 
 		const events = await waitForEventCount(apiClient, cookies, entityId, 1);
 		expect(events[0]?.eventSchemaSlug).toBe("dropped");
@@ -423,7 +419,7 @@ describe("Events bulk POST", () => {
 			cookies,
 		);
 
-		const createResult = await apiClient.POST("/events", {
+		const createResult = await apiClient.events.create({
 			headers: { Cookie: cookies },
 			body: [
 				{
@@ -435,7 +431,7 @@ describe("Events bulk POST", () => {
 		});
 
 		expect(createResult.response.status).toBe(200);
-		expect(createResult.data?.data.count).toBe(1);
+		expect(createResult.data?.count).toBe(1);
 
 		const events = await waitForEventCount(apiClient, cookies, entityId, 1);
 		expect(events[0]?.eventSchemaSlug).toBe("on_hold");
@@ -449,7 +445,7 @@ describe("Events bulk POST", () => {
 			cookies,
 		);
 
-		const createResult = await apiClient.POST("/events", {
+		const createResult = await apiClient.events.create({
 			headers: { Cookie: cookies },
 			body: [
 				{
@@ -470,7 +466,7 @@ describe("Events bulk POST", () => {
 			cookies,
 		);
 
-		const createResult = await apiClient.POST("/events", {
+		const createResult = await apiClient.events.create({
 			headers: { Cookie: cookies },
 			body: [
 				{
@@ -487,7 +483,7 @@ describe("Events bulk POST", () => {
 		});
 
 		expect(createResult.response.status).toBe(200);
-		expect(createResult.data?.data.count).toBe(2);
+		expect(createResult.data?.count).toBe(2);
 
 		const events = await waitForEventCount(apiClient, cookies, entityId, 2);
 		expect(events).toHaveLength(2);
@@ -504,7 +500,7 @@ describe("Events bulk POST", () => {
 			cookies,
 		);
 
-		const createResult = await apiClient.POST("/events", {
+		const createResult = await apiClient.events.create({
 			headers: { Cookie: cookies },
 			body: [
 				{
@@ -521,7 +517,7 @@ describe("Events bulk POST", () => {
 		});
 
 		expect(createResult.response.status).toBe(200);
-		expect(createResult.data?.data.count).toBe(2);
+		expect(createResult.data?.count).toBe(2);
 
 		const events = await waitForEventCount(apiClient, cookies, entityId, 2);
 		expect(events).toHaveLength(2);
@@ -538,7 +534,7 @@ describe("Events bulk POST", () => {
 				entitySchemaSlug: "show",
 			});
 
-		const createResult = await apiClient.POST("/events", {
+		const createResult = await apiClient.events.create({
 			headers: { Cookie: cookies },
 			body: [
 				{
@@ -555,7 +551,7 @@ describe("Events bulk POST", () => {
 		});
 
 		expect(createResult.response.status).toBe(200);
-		expect(createResult.data?.data.count).toBe(2);
+		expect(createResult.data?.count).toBe(2);
 
 		const events = await waitForEventCount(apiClient, cookies, entityId, 2);
 		expect(events).toHaveLength(2);

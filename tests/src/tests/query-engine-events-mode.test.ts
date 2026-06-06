@@ -74,7 +74,7 @@ describe("events mode", () => {
 			eventSchemaId: watchSchema.id,
 		});
 
-		const { data, response } = await client.POST("/query-engine/execute", {
+		const { data, response } = await client.queryEngine.execute({
 			headers: { Cookie: cookies },
 			body: {
 				filter: null,
@@ -168,7 +168,7 @@ describe("events mode", () => {
 			eventSchemaId: reviewSchema.id,
 		});
 
-		const { data, response } = await client.POST("/query-engine/execute", {
+		const { data, response } = await client.queryEngine.execute({
 			headers: { Cookie: cookies },
 			body: {
 				filter: null,
@@ -264,7 +264,7 @@ describe("events mode", () => {
 			eventSchemaId: reviewSchema.id,
 		});
 
-		const { data, response } = await client.POST("/query-engine/execute", {
+		const { data, response } = await client.queryEngine.execute({
 			headers: { Cookie: cookies },
 			body: {
 				filter: null,
@@ -357,7 +357,7 @@ describe("events mode", () => {
 			eventSchemaId: reviewSchema.id,
 		});
 
-		const { data, response } = await client.POST("/query-engine/execute", {
+		const { data, response } = await client.queryEngine.execute({
 			headers: { Cookie: cookies },
 			body: {
 				filter: null,
@@ -489,7 +489,7 @@ describe("events mode", () => {
 			},
 		];
 
-		const page1 = await client.POST("/query-engine/execute", {
+		const page1 = await client.queryEngine.execute({
 			headers: { Cookie: cookies },
 			body: {
 				fields,
@@ -503,7 +503,7 @@ describe("events mode", () => {
 				pagination: { page: 1, limit: 2 },
 			},
 		});
-		const page3 = await client.POST("/query-engine/execute", {
+		const page3 = await client.queryEngine.execute({
 			headers: { Cookie: cookies },
 			body: {
 				fields,
@@ -625,7 +625,7 @@ describe("events mode", () => {
 		const reviewEventSchema = reviewEventSchemas.find((s) => s.slug === reviewSchema.slug);
 		assertPresent(reviewEventSchema, "Review event schema not found");
 
-		const { data, response } = await client.POST("/query-engine/execute", {
+		const { data, response } = await client.queryEngine.execute({
 			headers: { Cookie: cookies },
 			body: {
 				filter: null,
@@ -733,7 +733,7 @@ describe("events mode", () => {
 			},
 		};
 
-		const { data, response } = await client.POST("/query-engine/execute", {
+		const { data, response } = await client.queryEngine.execute({
 			headers: { Cookie: cookies },
 			body: {
 				mode: "events",
@@ -795,7 +795,7 @@ describe("events mode", () => {
 			},
 		});
 
-		const { error, response } = await client.POST("/query-engine/execute", {
+		const { error, response } = await client.queryEngine.execute({
 			headers: { Cookie: cookies },
 			body: {
 				filter: null,
@@ -868,7 +868,7 @@ describe("events mode", () => {
 			},
 		});
 
-		const { error, response } = await client.POST("/query-engine/execute", {
+		const { error, response } = await client.queryEngine.execute({
 			headers: { Cookie: cookies },
 			body: {
 				filter: null,
@@ -979,7 +979,7 @@ describe("events mode", () => {
 			properties: { rating: 5 },
 		});
 
-		const { error, response } = await client.POST("/query-engine/execute", {
+		const { error, response } = await client.queryEngine.execute({
 			headers: { Cookie: cookies },
 			body: {
 				filter: null,

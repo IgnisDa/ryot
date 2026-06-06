@@ -257,7 +257,7 @@ describe("POST /entities", () => {
 		const { client, cookies } = await createAuthenticatedClient();
 		const { schemaId } = await createTrackerWithSchema(client, cookies);
 
-		const { response, error } = await client.POST("/entities", {
+		const { response, error } = await client.entities.create({
 			headers: { Cookie: cookies },
 			body: {
 				entitySchemaId: schemaId,
@@ -279,7 +279,7 @@ describe("POST /entities", () => {
 		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
 		const sandboxScriptId = getFirstProviderScriptId(schema);
 
-		const { response, error } = await client.POST("/entities", {
+		const { response, error } = await client.entities.create({
 			headers: { Cookie: cookies },
 			body: {
 				sandboxScriptId,
@@ -373,10 +373,9 @@ describe("POST /entities — enum and enum-array property schema validation", ()
 		const { client, cookies } = await createAuthenticatedClient();
 		const { schemaId } = await createSchemaWithEnumFields(client, cookies);
 
-		const { response, error } = await client.POST("/entities", {
+		const { response, error } = await client.entities.create({
 			headers: { Cookie: cookies },
 			body: {
-				image: null,
 				name: "Invalid Status",
 				entitySchemaId: schemaId,
 				properties: { status: "deleted" },
@@ -391,10 +390,9 @@ describe("POST /entities — enum and enum-array property schema validation", ()
 		const { client, cookies } = await createAuthenticatedClient();
 		const { schemaId } = await createSchemaWithEnumFields(client, cookies);
 
-		const { response, error } = await client.POST("/entities", {
+		const { response, error } = await client.entities.create({
 			headers: { Cookie: cookies },
 			body: {
-				image: null,
 				name: "Invalid Genre",
 				entitySchemaId: schemaId,
 				properties: { genres: ["fiction", "horror"] },
@@ -485,7 +483,7 @@ describe("DELETE /entities/:id/user-state", () => {
 	it("rejects unauthenticated requests", async () => {
 		const { client } = await createAuthenticatedClient();
 
-		const { response } = await client.DELETE("/entities/{entityId}/user-state", {
+		const { response } = await client.entities.clearUserState({
 			params: { path: { entityId: "entity_1" } },
 		});
 
@@ -497,7 +495,7 @@ describe("POST /entity-schemas/search — provider entity search", () => {
 	it("returns 404 when the script does not exist", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
-		const { response, error } = await client.POST("/entity-schemas/search", {
+		const { response, error } = await client.entitySchemas.search({
 			headers: { Cookie: cookies },
 			body: { scriptId: crypto.randomUUID() },
 		});
@@ -523,7 +521,7 @@ describe("POST /entity-schemas/search — provider entity search", () => {
 	it("returns 401 for unauthenticated search requests", async () => {
 		const { client } = await createAuthenticatedClient();
 
-		const { response } = await client.POST("/entity-schemas/search", {
+		const { response } = await client.entitySchemas.search({
 			body: { scriptId: crypto.randomUUID() },
 		});
 
@@ -578,7 +576,7 @@ describe("POST /entities/import — provider entity import", () => {
 	it("returns 401 for unauthenticated import requests", async () => {
 		const { client } = await createAuthenticatedClient();
 
-		const { response } = await client.POST("/entities/import", {
+		const { response } = await client.entities.import({
 			body: {
 				externalId: "some-id",
 				scriptId: crypto.randomUUID(),

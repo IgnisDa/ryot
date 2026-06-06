@@ -60,7 +60,7 @@ describe("POST /collections", () => {
 	it("rejects collection creation with invalid membershipPropertiesSchema", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
-		const { response, error } = await client.POST("/collections", {
+		const { response, error } = await client.collections.create({
 			headers: { Cookie: cookies },
 			body: {
 				name: "Invalid Collection",
@@ -76,7 +76,7 @@ describe("POST /collections", () => {
 	it("rejects unauthenticated requests", async () => {
 		const { client } = await createAuthenticatedClient();
 
-		const { response } = await client.POST("/collections", {
+		const { response } = await client.collections.create({
 			body: {
 				name: "Test Collection",
 				description: "Should fail",
@@ -102,21 +102,9 @@ describe("POST /collections", () => {
 						label: "Recommendation Details",
 						description: "Recommendation Details",
 						properties: {
-							when: {
-								type: "date" as const,
-								label: "When",
-								description: "When",
-							},
-							where: {
-								type: "string" as const,
-								label: "Where",
-								description: "Where",
-							},
-							rating: {
-								type: "integer" as const,
-								label: "Rating",
-								description: "Rating",
-							},
+							when: { label: "When", description: "When", type: "date" as const },
+							where: { label: "Where", description: "Where", type: "string" as const },
+							rating: { label: "Rating", description: "Rating", type: "integer" as const },
 						},
 					},
 				},
@@ -138,14 +126,10 @@ describe("POST /collections", () => {
 			const membershipPropertiesSchema = {
 				fields: {
 					tags: {
-						type: "array" as const,
 						label: "Tags",
 						description: "Tags",
-						items: {
-							type: "string" as const,
-							label: "Tag",
-							description: "Tag",
-						},
+						type: "array" as const,
+						items: { label: "Tag", description: "Tag", type: "string" as const },
 					},
 					recommendations: {
 						type: "array" as const,
@@ -156,16 +140,8 @@ describe("POST /collections", () => {
 							label: "Recommendation",
 							description: "Recommendation",
 							properties: {
-								friend: {
-									type: "string" as const,
-									label: "Friend",
-									description: "Friend",
-								},
-								context: {
-									type: "string" as const,
-									label: "Context",
-									description: "Context",
-								},
+								friend: { label: "Friend", description: "Friend", type: "string" as const },
+								context: { label: "Context", description: "Context", type: "string" as const },
 							},
 						},
 					},
@@ -185,7 +161,7 @@ describe("POST /collections", () => {
 		it("rejects collection creation with invalid nested property type", async () => {
 			const { client, cookies } = await createAuthenticatedClient();
 
-			const { response, error } = await client.POST("/collections", {
+			const { response, error } = await client.collections.create({
 				headers: { Cookie: cookies },
 				body: {
 					description: "Should fail",
@@ -210,7 +186,7 @@ describe("POST /collections", () => {
 		it("rejects collection creation with invalid nested array item type", async () => {
 			const { client, cookies } = await createAuthenticatedClient();
 
-			const { response, error } = await client.POST("/collections", {
+			const { response, error } = await client.collections.create({
 				headers: { Cookie: cookies },
 				body: {
 					description: "Should fail",
@@ -311,7 +287,7 @@ describe("POST /collections", () => {
 				description: "The child collection to be added",
 			});
 
-			const { data, response } = await client.POST("/collections/memberships", {
+			const { data, response } = await client.collections.createMembership({
 				headers: { Cookie: cookies },
 				body: {
 					entityId: childCollection.id,
@@ -320,10 +296,10 @@ describe("POST /collections", () => {
 			});
 
 			expect(response.status).toBe(200);
-			expect(data?.data.memberOf.id).toBeDefined();
-			expect(data?.data.memberOf.relationshipSchemaId).toBeDefined();
-			expect(data?.data.memberOf.sourceEntityId).toBe(childCollection.id);
-			expect(data?.data.memberOf.targetEntityId).toBe(parentCollection.id);
+			expect(data?.memberOf.id).toBeDefined();
+			expect(data?.memberOf.relationshipSchemaId).toBeDefined();
+			expect(data?.memberOf.sourceEntityId).toBe(childCollection.id);
+			expect(data?.memberOf.targetEntityId).toBe(parentCollection.id);
 		});
 
 		it("returns validation error when trying to add a collection to itself", async () => {
@@ -335,7 +311,7 @@ describe("POST /collections", () => {
 			});
 
 			// Try to add the collection to itself
-			const { response, error } = await client.POST("/collections/memberships", {
+			const { response, error } = await client.collections.createMembership({
 				headers: { Cookie: cookies },
 				body: { entityId: collection.id, collectionId: collection.id },
 			});
@@ -354,16 +330,16 @@ describe("POST /collections", () => {
 
 			const { entityId } = await createTrackerWithSchemaAndEntity(client, cookies);
 
-			const { data, response } = await client.POST("/collections/memberships", {
+			const { data, response } = await client.collections.createMembership({
 				headers: { Cookie: cookies },
 				body: { entityId, collectionId: collection.id },
 			});
 
 			expect(response.status).toBe(200);
-			expect(data?.data.memberOf.id).toBeDefined();
-			expect(data?.data.memberOf.relationshipSchemaId).toBeDefined();
-			expect(data?.data.memberOf.sourceEntityId).toBe(entityId);
-			expect(data?.data.memberOf.targetEntityId).toBe(collection.id);
+			expect(data?.memberOf.id).toBeDefined();
+			expect(data?.memberOf.relationshipSchemaId).toBeDefined();
+			expect(data?.memberOf.sourceEntityId).toBe(entityId);
+			expect(data?.memberOf.targetEntityId).toBe(collection.id);
 		});
 
 		it("adds a global entity to a collection and upserts in_library", async () => {
@@ -375,14 +351,14 @@ describe("POST /collections", () => {
 				description: "For testing global entity membership",
 			});
 
-			const { data, response } = await client.POST("/collections/memberships", {
+			const { data, response } = await client.collections.createMembership({
 				headers: { Cookie: cookies },
 				body: { entityId: entity.id, collectionId: collection.id },
 			});
 
 			expect(response.status).toBe(200);
-			expect(data?.data.memberOf.sourceEntityId).toBe(entity.id);
-			expect(data?.data.memberOf.targetEntityId).toBe(collection.id);
+			expect(data?.memberOf.sourceEntityId).toBe(entity.id);
+			expect(data?.memberOf.targetEntityId).toBe(collection.id);
 
 			const membership = await queryInLibraryRelationship(entity.id, email);
 
@@ -409,7 +385,7 @@ describe("POST /collections", () => {
 
 			const { entityId } = await createTrackerWithSchemaAndEntity(client, cookies);
 
-			const { data, response } = await client.POST("/collections/memberships", {
+			const { data, response } = await client.collections.createMembership({
 				headers: { Cookie: cookies },
 				body: {
 					entityId,
@@ -419,7 +395,7 @@ describe("POST /collections", () => {
 			});
 
 			expect(response.status).toBe(200);
-			expect(data?.data.memberOf.properties).toMatchObject({
+			expect(data?.memberOf.properties).toMatchObject({
 				rating: 5,
 				recommendedBy: "John",
 			});
@@ -446,13 +422,13 @@ describe("POST /collections", () => {
 
 			const { entityId } = await createTrackerWithSchemaAndEntity(client, cookies);
 
-			const { data, response } = await client.POST("/collections/memberships", {
+			const { data, response } = await client.collections.createMembership({
 				headers: { Cookie: cookies },
 				body: { entityId, properties: { rating: 4 }, collectionId: collection.id },
 			});
 
 			expect(response.status).toBe(200);
-			expect(data?.data.memberOf.properties).toMatchObject({ rating: 4, source: "manual" });
+			expect(data?.memberOf.properties).toMatchObject({ rating: 4, source: "manual" });
 		});
 
 		it("upserts an existing membership instead of creating duplicates", async () => {
@@ -474,7 +450,7 @@ describe("POST /collections", () => {
 
 			const { entityId } = await createTrackerWithSchemaAndEntity(client, cookies);
 
-			const first = await client.POST("/collections/memberships", {
+			const first = await client.collections.createMembership({
 				headers: { Cookie: cookies },
 				body: {
 					entityId,
@@ -483,7 +459,7 @@ describe("POST /collections", () => {
 				},
 			});
 
-			const second = await client.POST("/collections/memberships", {
+			const second = await client.collections.createMembership({
 				headers: { Cookie: cookies },
 				body: {
 					entityId,
@@ -494,8 +470,8 @@ describe("POST /collections", () => {
 
 			expect(first.response.status).toBe(200);
 			expect(second.response.status).toBe(200);
-			expect(second.data?.data.memberOf.id).toBe(first.data?.data.memberOf.id);
-			expect(second.data?.data.memberOf.properties).toMatchObject({
+			expect(second.data?.memberOf.id).toBe(first.data?.memberOf.id);
+			expect(second.data?.memberOf.properties).toMatchObject({
 				rating: 5,
 				recommendedBy: "Bob",
 			});
@@ -506,7 +482,7 @@ describe("POST /collections", () => {
 
 			const { entityId } = await createTrackerWithSchemaAndEntity(client, cookies);
 
-			const { response, error } = await client.POST("/collections/memberships", {
+			const { response, error } = await client.collections.createMembership({
 				headers: { Cookie: cookies },
 				body: { entityId, collectionId: "nonexistent-collection-id" },
 			});
@@ -523,7 +499,7 @@ describe("POST /collections", () => {
 				description: "For testing add to collection",
 			});
 
-			const { response, error } = await client.POST("/collections/memberships", {
+			const { response, error } = await client.collections.createMembership({
 				headers: { Cookie: cookies },
 				body: { collectionId: collection.id, entityId: "nonexistent-entity-id" },
 			});
@@ -543,7 +519,7 @@ describe("POST /collections", () => {
 
 			const { entityId } = await createTrackerWithSchemaAndEntity(clientB, cookiesB);
 
-			const { response, error } = await clientB.POST("/collections/memberships", {
+			const { response, error } = await clientB.collections.createMembership({
 				headers: { Cookie: cookiesB },
 				body: { entityId, collectionId: collection.id },
 			});
@@ -555,7 +531,7 @@ describe("POST /collections", () => {
 		it("rejects unauthenticated requests", async () => {
 			const { client } = await createAuthenticatedClient();
 
-			const { response } = await client.POST("/collections/memberships", {
+			const { response } = await client.collections.createMembership({
 				body: { entityId: "some-entity-id", collectionId: "some-collection-id" },
 			});
 
@@ -573,23 +549,24 @@ describe("POST /collections", () => {
 
 		const { entityId } = await createTrackerWithSchemaAndEntity(client, cookies);
 
-		const { data: addData, response: addResponse } = await client.POST("/collections/memberships", {
+		const { data: addData, response: addResponse } = await client.collections.createMembership({
 			headers: { Cookie: cookies },
 			body: { entityId, collectionId: collection.id },
 		});
 
 		expect(addResponse.status).toBe(200);
-		expect(addData?.data.memberOf.relationshipSchemaId).toBeDefined();
+		expect(addData?.memberOf.relationshipSchemaId).toBeDefined();
 
-		const { data: removeData, response: removeResponse } = await client.DELETE(
-			"/collections/memberships",
-			{ headers: { Cookie: cookies }, body: { entityId, collectionId: collection.id } },
-		);
+		const { data: removeData, response: removeResponse } =
+			await client.collections.deleteMembership({
+				headers: { Cookie: cookies },
+				body: { entityId, collectionId: collection.id },
+			});
 
 		expect(removeResponse.status).toBe(200);
-		expect(removeData?.data.memberOf.relationshipSchemaId).toBeDefined();
-		expect(removeData?.data.memberOf.sourceEntityId).toBe(entityId);
-		expect(removeData?.data.memberOf.targetEntityId).toBe(collection.id);
+		expect(removeData?.memberOf.relationshipSchemaId).toBeDefined();
+		expect(removeData?.memberOf.sourceEntityId).toBe(entityId);
+		expect(removeData?.memberOf.targetEntityId).toBe(collection.id);
 	});
 
 	it("returns 404 when removing entity not in collection", async () => {
@@ -602,7 +579,7 @@ describe("POST /collections", () => {
 
 		const { entityId } = await createTrackerWithSchemaAndEntity(client, cookies);
 
-		const { response, error } = await client.DELETE("/collections/memberships", {
+		const { response, error } = await client.collections.deleteMembership({
 			headers: { Cookie: cookies },
 			body: { entityId, collectionId: collection.id },
 		});
@@ -616,7 +593,7 @@ describe("POST /collections", () => {
 
 		const { entityId } = await createTrackerWithSchemaAndEntity(client, cookies);
 
-		const { response, error } = await client.DELETE("/collections/memberships", {
+		const { response, error } = await client.collections.deleteMembership({
 			headers: { Cookie: cookies },
 			body: { entityId, collectionId: "nonexistent-collection-id" },
 		});
@@ -636,7 +613,7 @@ describe("POST /collections", () => {
 
 		const { entityId } = await createTrackerWithSchemaAndEntity(clientB, cookiesB);
 
-		const { response, error } = await clientB.DELETE("/collections/memberships", {
+		const { response, error } = await clientB.collections.deleteMembership({
 			headers: { Cookie: cookiesB },
 			body: { entityId, collectionId: collection.id },
 		});
@@ -648,7 +625,7 @@ describe("POST /collections", () => {
 	it("rejects unauthenticated requests", async () => {
 		const { client } = await createAuthenticatedClient();
 
-		const { response } = await client.DELETE("/collections/memberships", {
+		const { response } = await client.collections.deleteMembership({
 			body: { entityId: "some-entity-id", collectionId: "some-collection-id" },
 		});
 
@@ -663,13 +640,13 @@ describe("collection events", () => {
 		const collection = await createCollection(client, cookies, { name: "Event Test Collection" });
 		const { entityId } = await createTrackerWithSchemaAndEntity(client, cookies);
 
-		const { data: addData, response: addResponse } = await client.POST("/collections/memberships", {
+		const { data: addData, response: addResponse } = await client.collections.createMembership({
 			headers: { Cookie: cookies },
 			body: { entityId, collectionId: collection.id },
 		});
 
 		expect(addResponse.status).toBe(200);
-		const relationshipId = addData?.data.memberOf.id;
+		const relationshipId = addData?.memberOf.id;
 
 		const events = await listEventsForEntity(client, cookies, collection.id);
 		const addEvents = events.filter((e) => e.eventSchemaSlug === "add-entity-to-collection");
@@ -688,12 +665,12 @@ describe("collection events", () => {
 		const collection = await createCollection(client, cookies, { name: "Upsert Event Collection" });
 		const { entityId } = await createTrackerWithSchemaAndEntity(client, cookies);
 
-		await client.POST("/collections/memberships", {
+		await client.collections.createMembership({
 			headers: { Cookie: cookies },
 			body: { entityId, collectionId: collection.id },
 		});
 
-		await client.POST("/collections/memberships", {
+		await client.collections.createMembership({
 			headers: { Cookie: cookies },
 			body: { entityId, collectionId: collection.id },
 		});
@@ -710,13 +687,13 @@ describe("collection events", () => {
 		const collection = await createCollection(client, cookies, { name: "Remove Event Collection" });
 		const { entityId } = await createTrackerWithSchemaAndEntity(client, cookies);
 
-		const { data: addData } = await client.POST("/collections/memberships", {
+		const { data: addData } = await client.collections.createMembership({
 			headers: { Cookie: cookies },
 			body: { entityId, collectionId: collection.id },
 		});
-		const relationshipId = addData?.data.memberOf.id;
+		const relationshipId = addData?.memberOf.id;
 
-		await client.DELETE("/collections/memberships", {
+		await client.collections.deleteMembership({
 			headers: { Cookie: cookies },
 			body: { entityId, collectionId: collection.id },
 		});
@@ -742,7 +719,7 @@ describe("collection events", () => {
 		});
 		const { entityId } = await createTrackerWithSchemaAndEntity(client, cookies);
 
-		const { response } = await client.DELETE("/collections/memberships", {
+		const { response } = await client.collections.deleteMembership({
 			headers: { Cookie: cookies },
 			body: { entityId, collectionId: collection.id },
 		});

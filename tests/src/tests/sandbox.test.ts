@@ -326,7 +326,7 @@ driver("main", async function() {
 
 	it("returns 404 for a non-existent job id", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
-		const { response, error } = await client.GET("/sandbox/result/{jobId}", {
+		const { response, error } = await client.sandbox.getResult({
 			headers: { Cookie: cookies },
 			params: { path: { jobId: crypto.randomUUID() } },
 		});
@@ -348,7 +348,7 @@ driver("main", async function() {
 			driverName: "main",
 		});
 
-		const { response, error } = await clientB.GET("/sandbox/result/{jobId}", {
+		const { response, error } = await clientB.sandbox.getResult({
 			params: { path: { jobId } },
 			headers: { Cookie: cookiesB },
 		});
@@ -359,7 +359,7 @@ driver("main", async function() {
 
 	it("returns 401 for unauthenticated enqueue", async () => {
 		const client = getBackendClient();
-		const { response, error } = await client.POST("/sandbox/enqueue", {
+		const { response, error } = await client.sandbox.enqueue({
 			body: { scriptId: crypto.randomUUID(), driverName: "main" },
 		});
 
@@ -377,7 +377,7 @@ driver("main", async function() {
 		const { jobId } = await enqueueSandboxScript(client, cookies, { scriptId, driverName: "main" });
 
 		const unauthenticatedClient = getBackendClient();
-		const { response, error } = await unauthenticatedClient.GET("/sandbox/result/{jobId}", {
+		const { response, error } = await unauthenticatedClient.sandbox.getResult({
 			params: { path: { jobId } },
 		});
 
@@ -524,12 +524,9 @@ describe("sandbox enqueue by script ID", () => {
 	it("returns 404 when the scriptId does not exist", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
 
-		const { response } = await client.POST("/sandbox/enqueue", {
+		const { response } = await client.sandbox.enqueue({
 			headers: { Cookie: cookies },
-			body: {
-				driverName: "main",
-				scriptId: crypto.randomUUID(),
-			},
+			body: { driverName: "main", scriptId: crypto.randomUUID() },
 		});
 
 		expect(response.status).toBe(404);

@@ -74,7 +74,7 @@ describe("time-series mode", () => {
 		const startAt = toIso(startOfDay());
 		const endAt = toIso(add(startOfDay(), "3 days"));
 
-		const { data, response } = await client.POST("/query-engine/execute", {
+		const { data, response } = await client.queryEngine.execute({
 			headers: { Cookie: cookies },
 			body: {
 				filter: null,
@@ -128,7 +128,7 @@ describe("time-series mode", () => {
 		const startAt = toIso(startOfDay());
 		const endAt = toIso(add(startOfDay(), Duration.days(1)));
 
-		const { data, response } = await client.POST("/query-engine/execute", {
+		const { data, response } = await client.queryEngine.execute({
 			headers: { Cookie: cookies },
 			body: {
 				filter: null,
@@ -176,7 +176,7 @@ describe("time-series mode", () => {
 
 		const currentIso = toIso(currentTime());
 
-		const { response } = await client.POST("/query-engine/execute", {
+		const { response } = await client.queryEngine.execute({
 			headers: { Cookie: cookies },
 			body: {
 				filter: null,
@@ -242,7 +242,7 @@ describe("time-series mode", () => {
 		const startAt = toIso(add(futureDay, "10 hours"));
 		const endAt = toIso(add(futureDay, "12 hours"));
 
-		const { data, response } = await client.POST("/query-engine/execute", {
+		const { data, response } = await client.queryEngine.execute({
 			headers: { Cookie: cookies },
 			body: {
 				filter: null,
@@ -318,7 +318,7 @@ describe("time-series mode", () => {
 		const startAt = toIso(startOfDay());
 		const endAt = toIso(add(startOfDay(), Duration.days(1)));
 
-		const { data, response } = await client.POST("/query-engine/execute", {
+		const { data, response } = await client.queryEngine.execute({
 			headers: { Cookie: cookies },
 			body: {
 				filter: null,
@@ -383,7 +383,7 @@ describe("time-series mode", () => {
 		const startAt = toIso(pastBucketStart);
 		const endAt = toIso(add(pastBucketStart, Duration.days(1)));
 
-		const { data, response } = await client.POST("/query-engine/execute", {
+		const { data, response } = await client.queryEngine.execute({
 			headers: { Cookie: cookies },
 			body: {
 				filter: null,
@@ -459,7 +459,7 @@ describe("time-series mode", () => {
 		const startAt = toIso(startOfDay());
 		const endAt = toIso(add(startOfDay(), Duration.days(1)));
 
-		const { data, response } = await client.POST("/query-engine/execute", {
+		const { data, response } = await client.queryEngine.execute({
 			headers: { Cookie: cookies },
 			body: {
 				bucket: "day",
@@ -514,7 +514,7 @@ describe("time-series mode", () => {
 		const startAt = toIso(startOfDay());
 		const endAt = toIso(add(startOfDay(), Duration.days(1)));
 
-		const { error, response } = await client.POST("/query-engine/execute", {
+		const { error, response } = await client.queryEngine.execute({
 			headers: { Cookie: cookies },
 			body: {
 				filter: null,
@@ -563,7 +563,7 @@ describe("time-series mode", () => {
 		const startAt = toIso(startOfDay());
 		const endAt = toIso(add(startOfDay(), Duration.days(1)));
 
-		const { response } = await client.POST("/query-engine/execute", {
+		const { response } = await client.queryEngine.execute({
 			headers: { Cookie: cookies },
 			body: {
 				filter: null,

@@ -3,9 +3,9 @@ import { createAuthClient } from "better-auth/client";
 import { getBackendClient, getBackendUrl, getPgClient } from "../setup";
 import { requireNonEmptyArray, requirePresent } from "../test-support/assertions";
 import { cookieHeaderFromSetCookies } from "./auth-2fa";
-import type { BackendClient } from "./backend-client";
+import type { BackendClientCore } from "./backend-client";
 
-export type Client = BackendClient;
+export type Client = BackendClientCore;
 
 export const createTestAuthClient = (baseUrl = getBackendUrl()) =>
 	createAuthClient({ baseURL: new URL(baseUrl).origin });

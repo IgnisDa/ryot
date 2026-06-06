@@ -17,19 +17,13 @@ describe("POST /events with global entities", () => {
 		const eventSchemas = await listEventSchemas(client, cookies, schema.id);
 		const backlogEventSchema = requireEventSchemaBySlug(eventSchemas, "backlog");
 
-		const createResult = await client.POST("/events", {
+		const createResult = await client.events.create({
 			headers: { Cookie: cookies },
-			body: [
-				{
-					properties: {},
-					entityId: entity.id,
-					eventSchemaId: backlogEventSchema.id,
-				},
-			],
+			body: [{ properties: {}, entityId: entity.id, eventSchemaId: backlogEventSchema.id }],
 		});
 
 		expect(createResult.response.status).toBe(200);
-		expect(createResult.data?.data.count).toBe(1);
+		expect(createResult.data?.count).toBe(1);
 
 		const events = await waitForEventCount(client, cookies, entity.id, 1);
 		expect(events).toHaveLength(1);
