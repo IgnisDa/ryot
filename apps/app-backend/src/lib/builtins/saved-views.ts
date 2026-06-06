@@ -1,4 +1,8 @@
-import type { DisplayConfiguration, SavedViewQueryDefinition } from "~/lib/query-language";
+import type {
+	DisplayConfiguration,
+	QueryRelationshipJoin,
+	SavedViewQueryDefinition,
+} from "~/lib/query-language";
 import { slugify } from "~/lib/slug";
 
 import {
@@ -14,7 +18,7 @@ export type BuiltinSavedView = {
 	readonly trackerSlug?: string;
 	readonly accentColor?: string;
 	readonly entitySchemaSlug?: string;
-	readonly relationshipJoins?: unknown[];
+	readonly relationshipJoins?: QueryRelationshipJoin[];
 	readonly queryDefinition?: typeof SavedViewQueryDefinition.Type;
 	readonly displayConfiguration: typeof DisplayConfiguration.Type;
 };
@@ -124,8 +128,8 @@ export const builtinSavedViews = (): BuiltinSavedView[] => [
 			sort: {
 				direction: "desc",
 				expression: {
-					reference: { path: ["createdAt"], slug: "workout-template", type: "entity" },
 					type: "reference",
+					reference: { path: ["createdAt"], slug: "workout-template", type: "entity" },
 				},
 			},
 		},
@@ -134,9 +138,9 @@ export const builtinSavedViews = (): BuiltinSavedView[] => [
 		const name = mediaViewName[slug];
 		return {
 			name,
-			slug: slugify(name),
 			trackerSlug: "media",
 			entitySchemaSlug: slug,
+			slug: slugify(name),
 			relationshipJoins: [inLibraryRelationshipJoin],
 			displayConfiguration: buildDisplayConfig(slug),
 		};

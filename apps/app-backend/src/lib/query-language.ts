@@ -73,19 +73,31 @@ const RuntimeReference = Schema.Union(
 	}),
 );
 
+export type RuntimeRef = typeof RuntimeReference.Type;
+
 export type QueryExpression =
 	| { readonly type: "literal"; readonly value: unknown }
-	| { readonly type: "reference"; readonly reference: typeof RuntimeReference.Type }
+	| { readonly type: "reference"; readonly reference: RuntimeRef }
+	| { readonly type: "round"; readonly expression: QueryExpression }
+	| { readonly type: "floor"; readonly expression: QueryExpression }
+	| { readonly type: "integer"; readonly expression: QueryExpression }
+	| { readonly type: "isNotNull"; readonly expression: QueryExpression }
+	| { readonly type: "concat"; readonly values: ReadonlyArray<QueryExpression> }
+	| { readonly type: "coalesce"; readonly values: ReadonlyArray<QueryExpression> }
 	| {
 			readonly type: "transform";
-			readonly name: typeof ViewTransformName.Type;
 			readonly expression: QueryExpression;
+			readonly name: typeof ViewTransformName.Type;
 	  }
-	| { readonly type: "concat"; readonly values: ReadonlyArray<QueryExpression> }
-	| { readonly type: "isNotNull"; readonly expression: QueryExpression }
+	| {
+			readonly type: "arithmetic";
+			readonly left: QueryExpression;
+			readonly right: QueryExpression;
+			readonly operator: "add" | "subtract" | "multiply" | "divide";
+	  }
 	| {
 			readonly type: "conditional";
-			readonly condition: QueryExpression;
+			readonly condition: QueryFilter;
 			readonly whenTrue: QueryExpression;
 			readonly whenFalse: QueryExpression;
 	  };
@@ -93,54 +105,150 @@ export type QueryExpression =
 export const QueryExpression: Schema.Schema<QueryExpression> = Schema.suspend(() =>
 	Schema.Union(
 		strictStruct({ type: Schema.Literal("literal"), value: Schema.Unknown }),
+		strictStruct({ type: Schema.Literal("round"), expression: QueryExpression }),
+		strictStruct({ type: Schema.Literal("floor"), expression: QueryExpression }),
+		strictStruct({ type: Schema.Literal("integer"), expression: QueryExpression }),
 		strictStruct({ type: Schema.Literal("reference"), reference: RuntimeReference }),
+		strictStruct({ type: Schema.Literal("isNotNull"), expression: QueryExpression }),
+		strictStruct({ type: Schema.Literal("concat"), values: Schema.Array(QueryExpression) }),
+		strictStruct({ type: Schema.Literal("coalesce"), values: Schema.Array(QueryExpression) }),
 		strictStruct({
-			type: Schema.Literal("transform"),
 			name: ViewTransformName,
 			expression: QueryExpression,
+			type: Schema.Literal("transform"),
 		}),
-		strictStruct({ type: Schema.Literal("concat"), values: Schema.Array(QueryExpression) }),
-		strictStruct({ type: Schema.Literal("isNotNull"), expression: QueryExpression }),
 		strictStruct({
-			type: Schema.Literal("conditional"),
-			condition: QueryExpression,
+			left: QueryExpression,
+			right: QueryExpression,
+			type: Schema.Literal("arithmetic"),
+			operator: Schema.Literal("add", "subtract", "multiply", "divide"),
+		}),
+		strictStruct({
+			condition: QueryFilter,
 			whenTrue: QueryExpression,
 			whenFalse: QueryExpression,
+			type: Schema.Literal("conditional"),
 		}),
 	),
 ).pipe(Schema.annotations({ identifier: "QueryExpression", title: "Query Expression" }));
 
+export type QueryFilter =
+	| { readonly type: "not"; readonly predicate: QueryFilter }
+	| { readonly type: "isNull"; readonly expression: QueryExpression }
+	| { readonly type: "isNotNull"; readonly expression: QueryExpression }
+	| { readonly type: "or"; readonly predicates: ReadonlyArray<QueryFilter> }
+	| { readonly type: "and"; readonly predicates: ReadonlyArray<QueryFilter> }
+	| {
+			readonly type: "contains";
+			readonly value: QueryExpression;
+			readonly expression: QueryExpression;
+	  }
+	| {
+			readonly type: "in";
+			readonly expression: QueryExpression;
+			readonly values: ReadonlyArray<QueryExpression>;
+	  }
+	| {
+			readonly type: "comparison";
+			readonly left: QueryExpression;
+			readonly right: QueryExpression;
+			readonly operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte";
+	  };
+
+export const QueryFilter: Schema.Schema<QueryFilter> = Schema.suspend(() =>
+	Schema.Union(
+		strictStruct({ type: Schema.Literal("not"), predicate: QueryFilter }),
+		strictStruct({ type: Schema.Literal("isNull"), expression: QueryExpression }),
+		strictStruct({ type: Schema.Literal("isNotNull"), expression: QueryExpression }),
+		strictStruct({ type: Schema.Literal("or"), predicates: Schema.Array(QueryFilter) }),
+		strictStruct({ type: Schema.Literal("and"), predicates: Schema.Array(QueryFilter) }),
+		strictStruct({
+			value: QueryExpression,
+			expression: QueryExpression,
+			type: Schema.Literal("contains"),
+		}),
+		strictStruct({
+			type: Schema.Literal("in"),
+			expression: QueryExpression,
+			values: Schema.Array(QueryExpression),
+		}),
+		strictStruct({
+			left: QueryExpression,
+			right: QueryExpression,
+			type: Schema.Literal("comparison"),
+			operator: Schema.Literal("eq", "neq", "gt", "gte", "lt", "lte"),
+		}),
+	),
+).pipe(Schema.annotations({ identifier: "QueryFilter", title: "Query Filter" }));
+
 export const Pagination = strictStruct({ page: Schema.Number, limit: Schema.Number });
+export type Pagination = typeof Pagination.Type;
 
 export const DateRange = strictStruct({ endAt: Schema.String, startAt: Schema.String });
+export type DateRange = typeof DateRange.Type;
 
 export const SavedViewSort = strictStruct({
 	expression: QueryExpression,
 	direction: Schema.Literal("asc", "desc"),
 });
+export type SavedViewSort = typeof SavedViewSort.Type;
 
 export const SavedViewQueryField = strictStruct({
 	key: Schema.String,
 	expression: QueryExpression,
 });
+export type SavedViewQueryField = typeof SavedViewQueryField.Type;
 
 export const SavedViewAggregation = strictStruct({
 	key: Schema.String,
 	aggregation: strictStruct({ type: Schema.String, expression: Schema.optional(QueryExpression) }),
 });
+export type SavedViewAggregation = typeof SavedViewAggregation.Type;
+
+export const QueryEventJoin = strictStruct({
+	key: Schema.String,
+	eventSchemaSlug: Schema.String,
+	kind: Schema.Literal("latestEvent"),
+});
+export type QueryEventJoin = typeof QueryEventJoin.Type;
+
+export const QueryRelationshipJoin = strictStruct({
+	key: Schema.String,
+	required: Schema.Boolean,
+	relationshipSchemaSlug: Schema.String,
+	kind: Schema.Literal("latestRelationship"),
+	direction: Schema.Literal("incoming", "outgoing"),
+	sourceEntityId: Schema.optional(Schema.String),
+	targetEntityId: Schema.optional(Schema.String),
+	filter: Schema.optional(Schema.NullOr(QueryFilter)),
+});
+export type QueryRelationshipJoin = typeof QueryRelationshipJoin.Type;
+
+export const QueryComputedField = strictStruct({
+	key: Schema.String,
+	expression: QueryExpression,
+});
+export type QueryComputedField = typeof QueryComputedField.Type;
+
+export const RuntimeField = strictStruct({
+	key: Schema.String,
+	expression: QueryExpression,
+});
+export type RuntimeField = typeof RuntimeField.Type;
 
 export const SavedViewQueryDefinition = strictStruct({
+	filter: Schema.NullOr(QueryFilter),
 	scope: Schema.Array(Schema.String),
 	sort: Schema.optional(SavedViewSort),
-	filter: Schema.NullOr(Schema.Unknown),
 	pagination: Schema.optional(Pagination),
-	eventJoins: Schema.Array(Schema.Unknown),
-	computedFields: Schema.Array(Schema.Unknown),
+	eventJoins: Schema.Array(QueryEventJoin),
+	computedFields: Schema.Array(QueryComputedField),
 	mode: Schema.optional(Schema.Literal("aggregate", "entities")),
 	fields: Schema.optional(Schema.Array(SavedViewQueryField)),
-	relationshipJoins: Schema.optional(Schema.Array(Schema.Unknown)),
 	aggregations: Schema.optional(Schema.Array(SavedViewAggregation)),
+	relationshipJoins: Schema.optional(Schema.Array(QueryRelationshipJoin)),
 });
+export type SavedViewQueryDefinition = typeof SavedViewQueryDefinition.Type;
 
 const CardDisplayConfiguration = strictStruct({
 	titleProperty: QueryExpression,
@@ -162,50 +270,51 @@ export const DisplayConfiguration = strictStruct({
 	entityIdProperty: QueryExpression,
 	table: strictStruct({ columns: Schema.Array(DisplayColumn) }),
 });
+export type DisplayConfiguration = typeof DisplayConfiguration.Type;
 
 export const EntitiesQueryRequest = strictStruct({
-	fields: Schema.Unknown,
 	pagination: Pagination,
 	mode: Schema.Literal("entities"),
 	scope: Schema.Array(Schema.String),
-	sort: Schema.optional(Schema.Unknown),
-	filter: Schema.optional(Schema.Unknown),
-	eventJoins: Schema.optional(Schema.Unknown),
-	computedFields: Schema.optional(Schema.Unknown),
-	relationshipJoins: Schema.optional(Schema.Unknown),
+	fields: Schema.Array(RuntimeField),
+	sort: Schema.optional(SavedViewSort),
+	filter: Schema.optional(Schema.NullOr(QueryFilter)),
+	eventJoins: Schema.optional(Schema.Array(QueryEventJoin)),
+	computedFields: Schema.optional(Schema.Array(QueryComputedField)),
+	relationshipJoins: Schema.optional(Schema.Array(QueryRelationshipJoin)),
 });
 
 export const EventsQueryRequest = strictStruct({
-	fields: Schema.Unknown,
 	pagination: Pagination,
-	eventSchemas: Schema.Unknown,
 	mode: Schema.Literal("events"),
+	fields: Schema.Array(RuntimeField),
 	scope: Schema.Array(Schema.String),
-	sort: Schema.optional(Schema.Unknown),
-	filter: Schema.optional(Schema.Unknown),
-	eventJoins: Schema.optional(Schema.Unknown),
-	computedFields: Schema.optional(Schema.Unknown),
+	sort: Schema.optional(SavedViewSort),
+	eventSchemas: Schema.Array(Schema.String),
+	filter: Schema.optional(Schema.NullOr(QueryFilter)),
+	eventJoins: Schema.optional(Schema.Array(QueryEventJoin)),
+	computedFields: Schema.optional(Schema.Array(QueryComputedField)),
 });
 
 export const AggregateQueryRequest = strictStruct({
-	aggregations: Schema.Unknown,
 	mode: Schema.Literal("aggregate"),
 	scope: Schema.Array(Schema.String),
-	filter: Schema.optional(Schema.Unknown),
-	eventJoins: Schema.optional(Schema.Unknown),
-	computedFields: Schema.optional(Schema.Unknown),
-	relationshipJoins: Schema.optional(Schema.Unknown),
+	aggregations: Schema.Array(SavedViewAggregation),
+	filter: Schema.optional(Schema.NullOr(QueryFilter)),
+	eventJoins: Schema.optional(Schema.Array(QueryEventJoin)),
+	computedFields: Schema.optional(Schema.Array(QueryComputedField)),
+	relationshipJoins: Schema.optional(Schema.Array(QueryRelationshipJoin)),
 });
 
 export const TimeSeriesQueryRequest = strictStruct({
 	dateRange: DateRange,
 	metric: Schema.Unknown,
-	eventSchemas: Schema.Unknown,
 	mode: Schema.Literal("timeSeries"),
 	scope: Schema.Array(Schema.String),
-	filter: Schema.optional(Schema.Unknown),
-	computedFields: Schema.optional(Schema.Unknown),
+	eventSchemas: Schema.Array(Schema.String),
 	bucket: Schema.Literal("day", "hour", "month", "week"),
+	filter: Schema.optional(Schema.NullOr(QueryFilter)),
+	computedFields: Schema.optional(Schema.Array(QueryComputedField)),
 });
 
 export const QueryEngineRequest = Schema.Union(
@@ -214,6 +323,17 @@ export const QueryEngineRequest = Schema.Union(
 	AggregateQueryRequest,
 	TimeSeriesQueryRequest,
 );
+
+export function getQueryEngineField(
+	item: Readonly<Record<string, { kind: string; value: unknown }>> | undefined,
+	key: string,
+) {
+	if (!item) {
+		return undefined;
+	}
+	const field = item[key];
+	return field !== undefined ? { ...field, key } : undefined;
+}
 
 export const createLiteralExpression = (value: unknown): QueryExpression => ({
 	value,
@@ -256,13 +376,13 @@ export const createConcatExpression = (
 	values: ReadonlyArray<QueryExpression>,
 ): QueryExpression => ({ values, type: "concat" });
 
-export const createIsNotNullExpression = (expression: QueryExpression): QueryExpression => ({
+export const createIsNotNullExpression = (expression: QueryExpression) => ({
 	expression,
-	type: "isNotNull",
+	type: "isNotNull" as const,
 });
 
 export const createConditionalExpression = (input: {
+	condition: QueryFilter;
 	whenTrue: QueryExpression;
-	condition: QueryExpression;
 	whenFalse: QueryExpression;
 }): QueryExpression => ({ type: "conditional", ...input });
