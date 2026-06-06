@@ -11,6 +11,19 @@ export const IntegrationsRoutesLive = HttpApiBuilder.group(
 	"integrations",
 	(handlers) =>
 		handlers
+			.handle("listProviders", () =>
+				Effect.gen(function* () {
+					const service = yield* IntegrationsService;
+					return yield* service.listIntegrationProviders().pipe(dieOnDbError);
+				}),
+			)
+			.handle("get", ({ params }) =>
+				Effect.gen(function* () {
+					const user = yield* CurrentUser;
+					const service = yield* IntegrationsService;
+					return yield* service.getForClient(user.id, params.integrationId).pipe(dieOnDbError);
+				}),
+			)
 			.handle("create", ({ payload }) =>
 				Effect.gen(function* () {
 					const user = yield* CurrentUser;

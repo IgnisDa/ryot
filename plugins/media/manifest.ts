@@ -423,11 +423,16 @@ const integrationProviders = [
 		name: "Sonarr",
 		description: "Push collection shows to Sonarr",
 		settingsSchema: providerSettings("sonarr", {
-			tagIds: { type: "integer", label: "Tag ID", description: "Sonarr tag ID" },
 			baseUrl: stringSetting("Base URL", "Sonarr instance URL"),
 			profileId: stringSetting("Profile ID", "Sonarr quality profile ID"),
 			rootFolderPath: stringSetting("Root folder path", "Sonarr root folder path"),
 			apiKey: stringSetting("API key", "Sonarr API key", true, true),
+			tagIds: {
+				type: "array",
+				label: "Tag IDs",
+				description: "Sonarr tag IDs",
+				items: { type: "integer", label: "Tag ID", description: "Sonarr tag ID" },
+			},
 			syncCollectionIds: {
 				type: "array",
 				label: "Collections",

@@ -5,6 +5,7 @@ import type { ComponentProps, Ref } from "react";
 import { useRef } from "react";
 import { Text, type TextInput, View } from "react-native";
 
+import { AppButton } from "@/modules/ui/button";
 import { AppChip } from "@/modules/ui/chip";
 import { FormMessage, FormTextInput } from "@/modules/ui/form";
 import { AppSegmentedControl } from "@/modules/ui/segmented-control";
@@ -17,6 +18,7 @@ import {
 	describeSchemaFormFields,
 	schemaChoiceLabel,
 	type SchemaFormField,
+	type SchemaFormArrayValue,
 	type SchemaFormValue,
 	type SchemaFormValues,
 	validateSchemaFormValues,
@@ -63,8 +65,11 @@ type SchemaTextInputProps = Pick<
 const isNumericField = (field: SchemaFormField) =>
 	field.type === "number" || field.type === "integer";
 
+const schemaArray = (value: SchemaFormValue): readonly SchemaFormArrayValue[] =>
+	Array.isArray(value) ? value : [];
+
 const schemaStringArray = (value: SchemaFormValue): readonly string[] =>
-	typeof value === "object" ? value : [];
+	schemaArray(value).filter((item): item is string => typeof item === "string");
 
 const schemaText = (value: SchemaFormValue) =>
 	value === undefined || typeof value === "object" ? "" : String(value);
@@ -73,6 +78,15 @@ const parseNumericValue = (text: string) => {
 	const trimmed = text.trim();
 	const parsed = Number(trimmed);
 	return trimmed === "" || Number.isNaN(parsed) ? undefined : parsed;
+};
+
+const parseArrayNumericValue = (text: string) => {
+	const trimmed = text.trim();
+	if (trimmed === "") {
+		return "";
+	}
+	const parsed = Number(trimmed);
+	return Number.isNaN(parsed) ? text : parsed;
 };
 
 const schemaTextInputProps = (field: SchemaFormField): SchemaTextInputProps => {
@@ -103,6 +117,89 @@ const schemaTextInputProps = (field: SchemaFormField): SchemaTextInputProps => {
 	return { keyboardType: isNumericField(field) ? "numeric" : "default" };
 };
 
+function SchemaArrayControl(props: {
+	readonly isLastInput: boolean;
+	readonly field: SchemaFormField;
+	readonly value: SchemaFormValue;
+	readonly inputRef: Ref<TextInput>;
+	readonly onSubmitEditing: () => void;
+	readonly onChange: (value: SchemaFormValue) => void;
+}) {
+	const nextRowId = useRef(0);
+	const rowIds = useRef<string[]>([]);
+	const item = props.field.arrayItem;
+	if (item === undefined) {
+		return null;
+	}
+	const values = schemaArray(props.value);
+	while (rowIds.current.length < values.length) {
+		rowIds.current.push(`${props.field.key}-${nextRowId.current}`);
+		nextRowId.current += 1;
+	}
+	if (rowIds.current.length > values.length) {
+		rowIds.current.length = values.length;
+	}
+	const rows = rowIds.current.map((id, index) => ({ id, value: values[index] }));
+	const replace = (index: number, value: SchemaFormArrayValue) =>
+		props.onChange(
+			values.map((current, currentIndex) => (currentIndex === index ? value : current)),
+		);
+	const maximum = props.field.arrayValidation?.maxItems;
+	return (
+		<View className="gap-2">
+			{rows.map((row, index) => (
+				<View key={row.id} className="flex-row items-center gap-2">
+					<View className="min-w-0 flex-1">
+						{item.type === "boolean" ? (
+							<AppSwitch
+								checked={row.value === true}
+								label={`${item.label} ${index + 1}`}
+								onChange={(next) => replace(index, next)}
+							/>
+						) : (
+							<FormTextInput
+								density="compact"
+								value={String(row.value)}
+								secureTextEntry={item.secret === true}
+								onSubmitEditing={props.onSubmitEditing}
+								placeholder={item.description || undefined}
+								returnKeyType={props.isLastInput ? "go" : "next"}
+								inputRef={index === 0 ? props.inputRef : undefined}
+								autoCorrect={item.secret === true ? false : undefined}
+								autoComplete={item.secret === true ? "off" : undefined}
+								autoCapitalize={item.secret === true ? "none" : undefined}
+								keyboardType={item.type === "string" ? "default" : "numeric"}
+								accessibilityLabel={`${props.field.label} item ${index + 1}`}
+								onChangeText={(text) =>
+									replace(index, item.type === "string" ? text : parseArrayNumericValue(text))
+								}
+							/>
+						)}
+					</View>
+					<AppButton
+						label="Remove"
+						accessibilityLabel={`Remove ${props.field.label} item ${index + 1}`}
+						onPress={() => {
+							rowIds.current.splice(index, 1);
+							props.onChange(values.filter((_, currentIndex) => currentIndex !== index));
+						}}
+					/>
+				</View>
+			))}
+			<AppButton
+				label="Add row"
+				accessibilityLabel={`Add ${props.field.label} item`}
+				disabled={maximum !== undefined && values.length >= maximum}
+				onPress={() => {
+					rowIds.current.push(`${props.field.key}-${nextRowId.current}`);
+					nextRowId.current += 1;
+					props.onChange([...values, item.type === "boolean" ? false : ""]);
+				}}
+			/>
+		</View>
+	);
+}
+
 function SchemaFieldControl(props: {
 	readonly description: string;
 	readonly isLastInput: boolean;
@@ -115,6 +212,16 @@ function SchemaFieldControl(props: {
 }) {
 	const choices = props.field.choices ?? [];
 	return Match.value(props.field.control).pipe(
+		Match.when("list", () => (
+			<SchemaArrayControl
+				field={props.field}
+				value={props.value}
+				inputRef={props.inputRef}
+				onChange={props.onChange}
+				isLastInput={props.isLastInput}
+				onSubmitEditing={props.onSubmitEditing}
+			/>
+		)),
 		Match.when("switch", () => (
 			<View className="flex-row items-center gap-2">
 				<AppSwitch
@@ -204,6 +311,7 @@ function SchemaFieldRow(props: {
 		props.field.description !== "" &&
 		(props.field.control === "chips" ||
 			props.field.control === "file" ||
+			props.field.control === "list" ||
 			props.field.control === "segmented");
 	return (
 		<View className="gap-1.5">
@@ -241,7 +349,10 @@ export function SchemaForm(props: {
 			{(values) => {
 				const description = describeSchemaFormFields(props.schema, values);
 				const inputKeys = description.fields.flatMap((field) =>
-					field.control === "text" ? [field.key] : [],
+					field.control === "text" ||
+					(field.control === "list" && field.arrayItem?.type !== "boolean")
+						? [field.key]
+						: [],
 				);
 				const submitFrom = (key: string) => {
 					const next = inputKeys.at(inputKeys.indexOf(key) + 1);

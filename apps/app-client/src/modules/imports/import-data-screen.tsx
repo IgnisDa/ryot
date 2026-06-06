@@ -5,12 +5,12 @@ import { useState } from "react";
 
 import { useApiScope } from "@/api/scope";
 import { useInternalRequestFailureLogging } from "@/api/use-internal-request-failure-logging";
+import { liveImportRun } from "@/modules/import-runs/run-presentation";
 import { SettingsSectionFrame } from "@/modules/settings/settings-section-frame";
 
 import { IMPORT_RUNS_PAGE_SIZE, importRunsAtom, importSourcesAtom } from "./atoms";
 import { ImportDataView } from "./import-data-view";
 import { ImportStartHost, useImportStartFlow } from "./import-start-host";
-import { liveImportRun } from "./run-presentation";
 import { mapImportRunList, mapImportSourceNames } from "./state";
 import { IMPORT_LIST_POLL_MS, useImportRunPolling } from "./use-import-run-polling";
 
