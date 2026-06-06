@@ -11,7 +11,7 @@ import { EventSchemasRepository } from "#modules/event-schemas/repository";
 import { SandboxRepository } from "#modules/sandbox/repository";
 
 import { createEventsForUser } from "./create-core";
-import { GlobalEntityHook } from "./global-entity-hook";
+import { GlobalEntityReferenceHook } from "./global-entity-reference-hook";
 import { EventsRepository } from "./repository";
 import type { CreateEventItem } from "./schemas";
 import { EventsService } from "./service";
@@ -160,7 +160,7 @@ const makeServiceLayer = (input: {
 		Layer.succeed(SandboxService, input.sandboxService ?? makeSandboxService()),
 		Layer.succeed(SandboxRepository, input.sandboxRepository ?? defaultSandboxRepository()),
 		Layer.succeed(EntitiesRepository, input.entitiesRepository ?? makeEntitiesRepository()),
-		GlobalEntityHook.Default,
+		GlobalEntityReferenceHook.Default,
 		Layer.succeed(
 			EventSchemasRepository,
 			input.eventSchemasRepository ?? makeEventSchemasRepository(),
