@@ -466,10 +466,9 @@ driver("details", async function (context, { metadata }) {
 		name: title,
 		relatedEntities: [
 			...relatedEntities,
-			...collectSuggestions(recommendationsData?.results).map((suggestion) => ({
-				...suggestion,
-				relationshipSchemaSlug: "media-suggestion",
-			})),
+			...collectSuggestions(recommendationsData?.results).map((suggestion) =>
+				Object.assign(suggestion, { relationshipSchemaSlug: "media-suggestion" }),
+			),
 		],
 		properties: {
 			images,

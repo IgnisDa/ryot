@@ -294,10 +294,9 @@ driver("details", async function (context) {
 
 	const { volumes, productionStatus } = await extractStatus(payload?.status);
 	const suggestions = await Promise.resolve(collectSuggestions(payload));
-	const relatedEntities = suggestions.map((suggestion) => ({
-		...suggestion,
-		relationshipSchemaSlug: "media-suggestion",
-	}));
+	const relatedEntities = suggestions.map((suggestion) =>
+		Object.assign(suggestion, { relationshipSchemaSlug: "media-suggestion" }),
+	);
 
 	return {
 		name: title,

@@ -281,10 +281,9 @@ driver("details", async function (context, { metadata }) {
 		},
 		relatedEntities: [
 			...relatedEntityByKey.values(),
-			...suggestions.map((suggestion) => ({
-				...suggestion,
-				relationshipSchemaSlug: "media-suggestion",
-			})),
+			...suggestions.map((suggestion) =>
+				Object.assign(suggestion, { relationshipSchemaSlug: "media-suggestion" }),
+			),
 		],
 	};
 });
