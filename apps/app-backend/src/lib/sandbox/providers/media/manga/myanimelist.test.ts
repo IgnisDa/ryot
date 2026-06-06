@@ -22,7 +22,7 @@ const runMyanimelistMangaDetails = (
 ) => runProviderDriver(myanimelistCode, context, hostFunctions);
 
 describe("manga.myanimelist sandbox script", () => {
-	it("keeps MAL recommendations in suggestions", () => {
+	it("keeps MAL recommendations as related entities", () => {
 		return runMyanimelistMangaDetails(
 			{ externalId: "1" },
 			{
@@ -47,10 +47,25 @@ describe("manga.myanimelist sandbox script", () => {
 			},
 		).then((rawDetails) => {
 			const details = toRecord(rawDetails);
-			expect(details.suggestions).toEqual([
-				{ name: "Related Anime", externalId: "3", scriptSlug: "anime.myanimelist" },
-				{ name: "Related Manga", externalId: "4", scriptSlug: "manga.myanimelist" },
-				{ name: "Manga Pick", externalId: "2", scriptSlug: "manga.myanimelist" },
+			expect(details.relatedEntities).toEqual([
+				{
+					name: "Related Anime",
+					externalId: "3",
+					scriptSlug: "anime.myanimelist",
+					relationshipSchemaSlug: "media-suggestion",
+				},
+				{
+					name: "Related Manga",
+					externalId: "4",
+					scriptSlug: "manga.myanimelist",
+					relationshipSchemaSlug: "media-suggestion",
+				},
+				{
+					name: "Manga Pick",
+					externalId: "2",
+					scriptSlug: "manga.myanimelist",
+					relationshipSchemaSlug: "media-suggestion",
+				},
 			]);
 			return undefined;
 		});

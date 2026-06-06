@@ -7,7 +7,7 @@ const runMangaUpdatesDetails = (context: unknown, hostFunctions: Record<string, 
 	runProviderDriver(mangaUpdatesMangaScriptCode, context, hostFunctions);
 
 describe("manga.manga-updates sandbox script", () => {
-	it("keeps recommendation and related-series suggestions", () => {
+	it("keeps recommendation and related-series entities", () => {
 		return runMangaUpdatesDetails(
 			{ externalId: "1" },
 			{
@@ -31,9 +31,19 @@ describe("manga.manga-updates sandbox script", () => {
 			},
 		).then((rawDetails) => {
 			const details = toRecord(rawDetails);
-			expect(details.suggestions).toEqual([
-				{ name: "Recommendation", externalId: "2", scriptSlug: "manga.manga-updates" },
-				{ name: "Related", externalId: "3", scriptSlug: "manga.manga-updates" },
+			expect(details.relatedEntities).toEqual([
+				{
+					name: "Recommendation",
+					externalId: "2",
+					scriptSlug: "manga.manga-updates",
+					relationshipSchemaSlug: "media-suggestion",
+				},
+				{
+					name: "Related",
+					externalId: "3",
+					scriptSlug: "manga.manga-updates",
+					relationshipSchemaSlug: "media-suggestion",
+				},
 			]);
 			return undefined;
 		});

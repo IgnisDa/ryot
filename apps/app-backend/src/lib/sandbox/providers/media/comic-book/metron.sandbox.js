@@ -311,10 +311,12 @@ driver("details", async function (context) {
 		relatedEntities.push(groupRelatedEntity);
 	}
 	const suggestions = await Promise.resolve(collectSuggestions(externalId, payload?.arcs));
+	for (const suggestion of suggestions) {
+		relatedEntities.push({ ...suggestion, relationshipSchemaSlug: "media-suggestion" });
+	}
 
 	return {
 		name: title,
-		suggestions,
 		relatedEntities,
 		properties: {
 			genres: [],

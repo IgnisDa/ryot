@@ -15,7 +15,7 @@ const runTmdbMovieDetails = (context: unknown, hostFunctions: Record<string, Hos
 	});
 
 describe("movie.tmdb sandbox script", () => {
-	it("keeps TMDB recommendations in suggestions", () => {
+	it("keeps TMDB recommendations as related entities", () => {
 		return runTmdbMovieDetails(
 			{ externalId: "1" },
 			{
@@ -55,9 +55,19 @@ describe("movie.tmdb sandbox script", () => {
 			},
 		).then((rawDetails) => {
 			const details = toRecord(rawDetails);
-			expect(details.suggestions).toEqual([
-				{ name: "Pick One", externalId: "2", scriptSlug: "movie.tmdb" },
-				{ name: "Pick Two", externalId: "3", scriptSlug: "movie.tmdb" },
+			expect(details.relatedEntities).toEqual([
+				{
+					name: "Pick One",
+					externalId: "2",
+					scriptSlug: "movie.tmdb",
+					relationshipSchemaSlug: "media-suggestion",
+				},
+				{
+					name: "Pick Two",
+					externalId: "3",
+					scriptSlug: "movie.tmdb",
+					relationshipSchemaSlug: "media-suggestion",
+				},
 			]);
 			return undefined;
 		});

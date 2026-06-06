@@ -271,7 +271,6 @@ driver("details", async function (context, { metadata }) {
 
 	return {
 		name: title,
-		suggestions,
 		properties: {
 			duration,
 			genres: [],
@@ -280,7 +279,13 @@ driver("details", async function (context, { metadata }) {
 			sourceUrl: `https://music.youtube.com/watch?v=${externalId}`,
 			images: getThumbnailUrls(trackItem.thumbnail).map((url) => ({ type: "remote", url })),
 		},
-		relatedEntities: [...relatedEntityByKey.values()],
+		relatedEntities: [
+			...relatedEntityByKey.values(),
+			...suggestions.map((suggestion) => ({
+				...suggestion,
+				relationshipSchemaSlug: "media-suggestion",
+			})),
+		],
 	};
 });
 
