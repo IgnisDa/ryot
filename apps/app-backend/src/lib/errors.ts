@@ -73,20 +73,13 @@ export class TimeoutError extends Schema.TaggedError<TimeoutError>()("TimeoutErr
 	message: Schema.String,
 }) {}
 
-// TODO: (effect-migration) Temporary marker error returned from all skeleton route handlers.
-// Remove module by module as behavior is migrated.
-export class NotImplemented extends Schema.TaggedError<NotImplemented>()("NotImplemented", {
-	message: Schema.String,
-}) {}
-
 export const conflict = (message: string) => new Conflict({ message });
 export const notFound = (message: string) => new NotFound({ message });
 export const badRequest = (message: string) => new BadRequest({ message });
 export const rateLimited = (message: string) => new RateLimited({ message });
 export const unauthorized = () => new Unauthorized({ message: "Unauthorized" });
-export const validationError = (message: string) => new ValidationError({ message });
 export const internalError = (message: string) => new InternalError({ message });
-export const notImplemented = () => new NotImplemented({ message: "Not implemented" });
+export const validationError = (message: string) => new ValidationError({ message });
 
 // Unexpected database failures are not part of any route contract; convert them to
 // defects so they surface as 500s without leaking PostgreSQL metadata to clients.

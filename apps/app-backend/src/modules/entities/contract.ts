@@ -2,7 +2,7 @@ import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from "@effect/platform";
 import { Schema } from "effect";
 
 import { AuthMiddleware } from "#lib/auth-middleware";
-import { BadRequest, NotFound, NotImplemented, RateLimited, Unauthorized } from "#lib/errors";
+import { BadRequest, NotFound, RateLimited, Unauthorized } from "#lib/errors";
 
 import {
 	ClearUserStateResponse,
@@ -49,5 +49,4 @@ export const EntitiesGroup = HttpApiGroup.make("entities")
 		HttpApiEndpoint.get("getImportResult")`/entities/import/${jobIdParam}`
 			.addSuccess(ImportEntityRunResult)
 			.addError(NotFound, { status: 404 }),
-	)
-	.addError(NotImplemented, { status: 501 });
+	);
