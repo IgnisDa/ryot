@@ -58,7 +58,6 @@ export const IntegrationsGroup = HttpApiGroup.make("integrations")
 	.middlewareEndpoints(AuthMiddleware)
 	.add(
 		HttpApiEndpoint.post("webhook")`/webhooks/integrations/${integrationIdParam}`
-			.setPayload(Schema.Unknown)
 			.addSuccess(Schema.Struct({ runId: Schema.String }), { status: 202 })
 			.addError(BadRequest, { status: 400 })
 			.addError(NotFound, { status: 404 }),
