@@ -128,7 +128,9 @@ export default defineWorkflow({
 		const javascript = workflowBundle?.compiled.javascript ?? "";
 		const importedSchemaBindings = new Set(
 			Array.from(
-				javascript.matchAll(/import\s*\{([^}]*)\}\s*from\s*["']@ryot\/sandbox-sdk\/effect["'];/g),
+				javascript.matchAll(
+					/import\s*\{([^}]*)\}\s*from\s*["'](?:@ryot\/sandbox-sdk\/effect|effect)["'];/g,
+				),
 			).flatMap(([, bindings = ""]) =>
 				bindings.split(",").flatMap((binding) => {
 					const [imported, local = imported] = binding.trim().split(/\s+as\s+/);

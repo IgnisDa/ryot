@@ -10,7 +10,7 @@ Prove package update consistency with two fixture revisions. Revision B changes 
 
 When `PluginHost` observes that the active installation's artifact hash changed, it must dispose revision A's shared per-session runtime, reject pending calls exactly once, destroy A's iframe, and mount B at the current logical global URL. The kernel validates B's exact markers, including protocol V3, and starts a fresh bridge session/runtime. No request from A may execute against package revision B after activation. Kernel abort is best effort and cannot undo work from A that committed before the session closed.
 
-Keep artifacts immutable and hash-addressed. This slice does not add V2 support, aliases, version ranges, protocol adapters, fallback bridges, old-artifact execution, rollback UI, retention policy, or garbage collection. A failed update must leave the previously active package and artifact usable because activation did not complete. Update teardown must reuse the shared runtime lifecycle rather than adding an artifact-reload bridge or teardown path.
+Keep artifacts immutable and hash-addressed. This slice does not add V2 support, aliases, version ranges, protocol adapters, fallback bridges, old-artifact execution, rollback UI, retention policy, garbage collection, or an arbitrary reload protocol. Reload is a host lifecycle response to the normal catalog/artifact change; it must not add reload messages, request/ack fields, or a second bridge. A failed update must leave the previously active package and artifact usable because activation did not complete. Update teardown must reuse the shared runtime lifecycle rather than adding an artifact-reload bridge or teardown path.
 
 ## Acceptance criteria
 
@@ -25,6 +25,7 @@ Keep artifacts immutable and hash-addressed. This slice does not add V2 support,
 - [ ] Revision B opens at the same logical plugin URL and shows its changed output after a fresh exact-version handshake.
 - [ ] Revision A cannot issue an authenticated operation after revision B becomes active.
 - [ ] Immutable artifact responses cannot mutate revision A bytes at revision A's hash.
+- [ ] Reload uses the existing `PluginHost` lifecycle and exact V3 handshake only; no arbitrary reload protocol or reload-specific wire contract is introduced.
 - [ ] No compatibility negotiation, fallback bridge, dual-revision session, client-state migration, or separate theme/crash/reload bridge or teardown path is introduced; V3 is the only supported protocol.
 - [ ] Backend update atomicity, catalog reactivity, host remount, stale-port rejection, unchanged-hash stability, failed-update preservation, and browser update tests pass with all earlier tracer tests.
 

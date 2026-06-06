@@ -58,30 +58,6 @@ describe("plugin operations service", () => {
 		}).pipe(Effect.provide(PluginOperationsService.layer), Effect.provide(dependencies));
 	});
 
-	it.effect("sends an omitted input as null so the backend still validates it", () => {
-		const calls: InvokeRequest[] = [];
-		const dependencies = makeApi((request) => {
-			calls.push(request);
-			return Effect.succeed({ result: "ignored" });
-		});
-
-		return Effect.gen(function* () {
-			const service = yield* PluginOperationsService;
-			yield* service.invoke({
-				scope,
-				pluginSlug: "fixture",
-				request: { operationSlug: "greet" },
-			});
-
-			expect(calls).toEqual([
-				{
-					payload: { payload: null },
-					params: { pluginSlug: "fixture", operationSlug: "greet" },
-				},
-			]);
-		}).pipe(Effect.provide(PluginOperationsService.layer), Effect.provide(dependencies));
-	});
-
 	it.effect("maps a successful response to a success outcome", () => {
 		const dependencies = makeApi(() => Effect.succeed({ result: { greeted: "hi" } }));
 

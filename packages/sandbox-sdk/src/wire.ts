@@ -1,22 +1,15 @@
-import type { JsonValue } from "@ryot/contract/modules/ryotql/language";
-import type { JsonPrimitive } from "@ryot/contract/modules/sandbox/wire";
+import {
+	JsonValue as jsonValueSchema,
+	type JsonPrimitive,
+	type JsonValue,
+} from "@ryot/contract/schema/json";
 import { Schema } from "@ryot/sandbox-sdk/effect";
 
+export { jsonValueSchema };
 export type { JsonPrimitive, JsonValue };
 
 const strictStruct = <Fields extends Schema.Struct.Fields>(fields: Fields) =>
 	Schema.Struct(fields).annotate({ parseOptions: { onExcessProperty: "error" as const } });
-
-export const jsonValueSchema: Schema.Codec<JsonValue, JsonValue> = Schema.suspend(() =>
-	Schema.Union([
-		Schema.Null,
-		Schema.String,
-		Schema.Finite,
-		Schema.Boolean,
-		Schema.Array(jsonValueSchema),
-		Schema.Record(Schema.String, jsonValueSchema),
-	]),
-).pipe(Schema.annotate({ identifier: "JsonValue" }));
 
 export const sandboxHostErrorSchema = strictStruct({
 	message: Schema.String,
