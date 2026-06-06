@@ -1,4 +1,4 @@
-import { Schema } from "effect";
+import { Either, Schema } from "effect";
 
 import { importRunFailureStages, importRunStatuses } from "./types";
 
@@ -74,14 +74,10 @@ export const fileImportRunSources = [
 
 const SourceApiUrl = Schema.String.pipe(
 	Schema.filter((value) => {
-		try {
-			const url = new URL(value.trim());
-			return ["http:", "https:"].includes(url.protocol)
-				? true
-				: "Import source URL must be a valid http or https URL";
-		} catch {
-			return "Import source URL must be a valid http or https URL";
-		}
+		const url = Either.try(() => new URL(value.trim()));
+		return Either.isRight(url) && ["http:", "https:"].includes(url.right.protocol)
+			? true
+			: "Import source URL must be a valid http or https URL";
 	}),
 );
 
