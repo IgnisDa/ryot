@@ -18,7 +18,7 @@ export type SchemaFormValues = Readonly<Record<string, SchemaFormValue>>;
 
 export type SchemaFormTextFormat = "url" | "email";
 
-export type SchemaFormControl = "text" | "chips" | "switch" | "segmented" | "multi-select";
+export type SchemaFormControl = "text" | "file" | "chips" | "switch" | "segmented" | "multi-select";
 
 type SchemaFormFieldType =
 	| "date"
@@ -40,6 +40,7 @@ export type SchemaFormField = {
 	readonly control: SchemaFormControl;
 	readonly format: SchemaFormTextFormat | undefined;
 	readonly choices: readonly AppChoice[] | undefined;
+	readonly allowedFileExtensions: readonly string[] | undefined;
 };
 
 type SchemaFormFieldsDescription = {
@@ -75,10 +76,13 @@ const hasDynamicChoices = (property: AppPropertyDefinition) =>
 const isUploadProperty = (property: AppPropertyDefinition) =>
 	property.type === "string" && property.format?.kind === "upload";
 
+const schemaFieldFileExtensions = (property: AppPropertyDefinition) =>
+	property.type === "string" && property.format?.kind === "upload"
+		? property.format.allowedFileExtensions
+		: undefined;
+
 const isSupportedProperty = (property: AppPropertyDefinition) =>
-	schemaFieldType(property) !== undefined &&
-	!hasDynamicChoices(property) &&
-	!isUploadProperty(property);
+	schemaFieldType(property) !== undefined && !hasDynamicChoices(property);
 
 const schemaFieldControl = (
 	property: AppPropertyDefinition,
@@ -86,6 +90,9 @@ const schemaFieldControl = (
 ): SchemaFormControl => {
 	if (property.type === "boolean") {
 		return "switch";
+	}
+	if (isUploadProperty(property)) {
+		return "file";
 	}
 	if (property.type === "enum-array") {
 		return "multi-select";
@@ -151,6 +158,7 @@ const describeSchemaFormFieldsWithInput = (
 			description: property.description,
 			format: schemaFieldFormat(property),
 			control: schemaFieldControl(property, choices),
+			allowedFileExtensions: schemaFieldFileExtensions(property),
 			required: isAppSchemaPathEffectivelyRequired(schema, [key], input),
 		});
 	}
