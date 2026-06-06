@@ -1,16 +1,14 @@
 import {
 	getQueryEngineField,
 	type QueryComputedField,
-	type QueryEventJoin,
 	type QueryFilter,
 	type QueryRelationshipJoin,
 	type RuntimeField,
-	type SavedViewSort,
 } from "@ryot/app-backend/query-language";
 
 import { requirePresent } from "../test-support/assertions";
 import { type Client, createAuthenticatedClient } from "./auth";
-import type { ContractClient, ContractSuccess } from "./contract-client";
+import type { ContractPayload, ContractSuccess } from "./contract-client";
 import { createEntity } from "./entities";
 import { createEntitySchema } from "./entity-schemas";
 import { waitForEventCount } from "./events";
@@ -26,8 +24,13 @@ import {
 type QueryEngineFieldValue = { kind: string; value: unknown };
 type QueryEngineResponseItem = Readonly<Record<string, QueryEngineFieldValue>>;
 
-type EntitiesQueryEngineResponse = Extract<
+export type EntitiesQueryEngineResponse = Extract<
 	ContractSuccess<"queryEngine", "execute">,
+	{ mode: "entities" }
+>;
+
+type EntitiesQueryEngineRequest = Extract<
+	ContractPayload<"queryEngine", "execute">,
 	{ mode: "entities" }
 >;
 
@@ -37,29 +40,16 @@ type QueryEngineField = {
 	value: QueryEngineFieldValue["value"];
 };
 
-export type QueryEngineRequest = {
+export type QueryEngineRequest = Omit<EntitiesQueryEngineRequest, "mode" | "pagination"> & {
 	mode?: "entities";
-	sort?: SavedViewSort;
-	fields: RuntimeField[];
-	scope: readonly string[];
-	filter?: QueryFilter | null;
-	eventJoins?: ReadonlyArray<QueryEventJoin>;
-	pagination?: { page: number; limit: number };
-	computedFields?: ReadonlyArray<QueryComputedField>;
-	relationshipJoins?: ReadonlyArray<QueryRelationshipJoin>;
+	pagination?: EntitiesQueryEngineRequest["pagination"];
 };
 
 type TableDisplayConfiguration = DisplayConfigurationInput["table"];
 
 type RuntimeFieldsInput =
-	| {
-			layout: "table";
-			displayConfiguration: TableDisplayConfiguration;
-	  }
-	| {
-			layout: "grid" | "list";
-			displayConfiguration: CardDisplayConfigurationInput;
-	  };
+	| { layout: "table"; displayConfiguration: TableDisplayConfiguration }
+	| { layout: "grid" | "list"; displayConfiguration: CardDisplayConfigurationInput };
 
 export function toQueryEngineItem(fields: QueryEngineField[]): QueryEngineResponseItem {
 	return Object.fromEntries(fields.map(({ key, ...field }) => [key, field]));
@@ -71,7 +61,7 @@ interface CreateEntityInput {
 	cookies: string;
 	entitySchemaId: string;
 	properties: Record<string, unknown>;
-	image?: { type: "remote"; url: string } | null;
+	image?: string | null;
 }
 
 interface CreateQueryEngineEventInput {
@@ -87,7 +77,7 @@ type QueryEngineEntityFixture = {
 	name: string;
 	entitySchemaId: string;
 	properties: Record<string, unknown>;
-	image?: { type: "remote"; url: string } | null;
+	image?: string | null;
 };
 
 const buildCardDisplayConfiguration = (
@@ -121,12 +111,7 @@ export function buildTableDisplayConfiguration(
 		columns:
 			columns ??
 			(schemaSlugs.length
-				? [
-						{
-							label: "Name",
-							expression: qualifyBuiltinFields(schemaSlugs, "name"),
-						},
-					]
+				? [{ label: "Name", expression: qualifyBuiltinFields(schemaSlugs, "name") }]
 				: []),
 	};
 }
@@ -177,7 +162,7 @@ const buildQueryEngineRequest = (
 		scope: readonly string[];
 		sort?: QueryEngineRequest["sort"];
 	},
-): QueryEngineRequest => ({
+): EntitiesQueryEngineRequest => ({
 	filter: null,
 	eventJoins: [],
 	mode: "entities",
@@ -238,7 +223,7 @@ export function buildGridRequest(
 		scope: readonly string[];
 		displayConfiguration?: CardDisplayConfigurationInput;
 	},
-): QueryEngineRequest {
+): EntitiesQueryEngineRequest {
 	const {
 		scope,
 		displayConfiguration: displayConfigurationOverride,
@@ -259,7 +244,7 @@ export function buildListRequest(
 		scope: readonly string[];
 		displayConfiguration?: CardDisplayConfigurationInput;
 	},
-): QueryEngineRequest {
+): EntitiesQueryEngineRequest {
 	const {
 		scope,
 		displayConfiguration: displayConfigurationOverride,
@@ -280,7 +265,7 @@ export function buildTableRequest(
 		scope: readonly string[];
 		displayConfiguration?: TableDisplayConfiguration;
 	},
-): QueryEngineRequest {
+): EntitiesQueryEngineRequest {
 	const {
 		scope,
 		displayConfiguration: displayConfigurationOverride,
@@ -308,12 +293,23 @@ export function getQueryEngineFieldValue(
 	return getQueryEngineFieldOrThrow(item, key).value;
 }
 
-const toExecuteRequest = (
-	body: QueryEngineRequest,
-): Parameters<ContractClient["queryEngine"]["execute"]>[0] =>
-	// The tests-only QueryEngineRequest is structurally compatible with the contract payload
-	// but not nominally assignable; launder through a JSON clone to stay free of `any`/assertions.
-	JSON.parse(JSON.stringify({ payload: { ...body, mode: body.mode ?? "entities" } }));
+const toExecuteRequest = (body: QueryEngineRequest): { payload: EntitiesQueryEngineRequest } => ({
+	payload: {
+		...body,
+		mode: body.mode ?? "entities",
+		pagination: body.pagination ?? { page: 1, limit: 10 },
+	},
+});
+
+function requireEntitiesModeResponse(
+	result: ContractSuccess<"queryEngine", "execute">,
+): EntitiesQueryEngineResponse {
+	if (result.mode !== "entities") {
+		throw new Error(`Expected an entities-mode query engine response, received '${result.mode}'`);
+	}
+
+	return result;
+}
 
 export async function executeQueryEngine(
 	client: Client,
@@ -324,10 +320,7 @@ export async function executeQueryEngine(
 		Cookie: cookies,
 	});
 
-	// Tests only exercise entities-mode here; the JSON clone narrows to the entities member
-	// without an `any`-typed assertion.
-	const data: EntitiesQueryEngineResponse = JSON.parse(JSON.stringify(result));
-	return { data };
+	return { data: requireEntitiesModeResponse(result) };
 }
 
 export async function executeQueryEngineError(
@@ -347,10 +340,7 @@ export async function createQueryEngineEntity(input: CreateEntityInput) {
 		entitySchemaId: input.entitySchemaId,
 		image:
 			input.image === undefined
-				? {
-						type: "remote",
-						url: `https://example.com/${input.name.toLowerCase().replace(/\s+/g, "-")}.png`,
-					}
+				? `https://example.com/${input.name.toLowerCase().replace(/\s+/g, "-")}.png`
 				: input.image,
 	});
 
@@ -421,16 +411,8 @@ export async function createSingleSchemaQueryEngineFixture() {
 		propertiesSchema: {
 			fields: {
 				year: { type: "integer", label: "Year", description: "Year" },
-				category: {
-					type: "string",
-					label: "Category",
-					description: "Category",
-				},
-				manufacturer: {
-					type: "string",
-					label: "Manufacturer",
-					description: "Manufacturer",
-				},
+				category: { type: "string", label: "Category", description: "Category" },
+				manufacturer: { type: "string", label: "Manufacturer", description: "Manufacturer" },
 			},
 		},
 	});
@@ -483,16 +465,8 @@ export async function createCrossSchemaQueryEngineFixture() {
 		propertiesSchema: {
 			fields: {
 				year: { type: "integer", label: "Year", description: "Year" },
-				category: {
-					type: "string",
-					label: "Category",
-					description: "Category",
-				},
-				manufacturer: {
-					type: "string",
-					label: "Manufacturer",
-					description: "Manufacturer",
-				},
+				category: { type: "string", label: "Category", description: "Category" },
+				manufacturer: { type: "string", label: "Manufacturer", description: "Manufacturer" },
 			},
 		},
 	});
@@ -504,21 +478,9 @@ export async function createCrossSchemaQueryEngineFixture() {
 		propertiesSchema: {
 			fields: {
 				maker: { type: "string", label: "Maker", description: "Maker" },
-				category: {
-					type: "string",
-					label: "Category",
-					description: "Category",
-				},
-				releaseYear: {
-					type: "integer",
-					label: "Release Year",
-					description: "Release year",
-				},
-				releaseLabel: {
-					type: "string",
-					label: "Release Label",
-					description: "Release label",
-				},
+				category: { type: "string", label: "Category", description: "Category" },
+				releaseYear: { type: "integer", label: "Release Year", description: "Release year" },
+				releaseLabel: { type: "string", label: "Release Label", description: "Release label" },
 			},
 		},
 	});
@@ -542,29 +504,15 @@ export async function createCrossSchemaQueryEngineFixture() {
 		{
 			name: "Beta Tablet",
 			entitySchemaId: tabletSchema.schemaId,
-			properties: {
-				maker: "Tabula",
-				releaseYear: 2019,
-				category: "tablet",
-				releaseLabel: "2019",
-			},
+			properties: { maker: "Tabula", releaseYear: 2019, category: "tablet", releaseLabel: "2019" },
 		},
 		{
 			name: "Delta Tablet",
 			entitySchemaId: tabletSchema.schemaId,
-			properties: {
-				maker: "Slate",
-				releaseYear: 2021,
-				category: "tablet",
-				releaseLabel: "2021",
-			},
+			properties: { releaseYear: 2021, category: "tablet", releaseLabel: "2021" },
 		},
 	];
-	const entityIdsByName = await createQueryEngineEntities({
-		client,
-		cookies,
-		entities,
-	});
+	const entityIdsByName = await createQueryEngineEntities({ client, cookies, entities });
 
 	return {
 		client,
