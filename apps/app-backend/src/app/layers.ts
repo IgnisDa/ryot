@@ -27,7 +27,10 @@ import { EntitySchemasService } from "#modules/entity-schemas/service";
 import { EntitySchemaWorkflowDefinitionsLive } from "#modules/entity-schemas/workflows";
 import { TranslationsRepository } from "#modules/entity-translation/repository";
 import { TranslationsService } from "#modules/entity-translation/service";
-import { TranslateEntityWorkflowDefinitionsLive } from "#modules/entity-translation/workflows";
+import {
+	TranslateEntityWorkflowDefinitionsLive,
+	TranslateEntityWorkflowOperationsLive,
+} from "#modules/entity-translation/workflows";
 import { EpisodeResolverRepository } from "#modules/episode-resolver/repository";
 import { EpisodeResolverService } from "#modules/episode-resolver/service";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
@@ -221,6 +224,7 @@ const RuntimeDependenciesLive = Layer.mergeAll(
 	ServiceDependenciesLive,
 	ApplicationInfrastructureLive,
 	Layer.provide(EntityImportWorkflowOperationsLive, ApplicationInfrastructureLive),
+	Layer.provide(TranslateEntityWorkflowOperationsLive, ApplicationInfrastructureLive),
 );
 
 export const AppLive = Layer.provide(RuntimeAfterMigrationsLive, RuntimeDependenciesLive);
