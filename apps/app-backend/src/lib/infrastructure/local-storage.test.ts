@@ -33,6 +33,25 @@ const makeLayer = () => {
 	return Layer.merge(localStorage, platform);
 };
 
+const makePermanentOnlyLayer = () => {
+	const platform = BunServices.layer;
+	const localStorage = LocalStorageService.layer.pipe(
+		Layer.provide(
+			Layer.mergeAll(
+				makeAppConfigLayer({
+					fileStorage: {
+						localDir: ROOT,
+						localTempDir: "",
+						localSigningSecret: Option.some(Redacted.make("local-test-secret")),
+					},
+				}),
+				platform,
+			),
+		),
+	);
+	return Layer.merge(localStorage, platform);
+};
+
 it.effect("signs and validates local upload targets", () =>
 	Effect.gen(function* () {
 		const localStorage = yield* LocalStorageService;
@@ -61,6 +80,16 @@ it.effect("signs and validates local upload targets", () =>
 	}).pipe(Effect.provide(makeLayer())),
 );
 
+it.effect("signs permanent upload targets without temporary storage", () =>
+	Effect.gen(function* () {
+		const localStorage = yield* LocalStorageService;
+		const target = yield* localStorage.createUploadTarget("permanent-intent", 1_700_000_000);
+		yield* localStorage.verifyUploadTarget("PUT", target.uploadUrl, 1_700_000_899);
+		expect(localStorage.isConfiguredForKind("permanent")).toBe(true);
+		expect(localStorage.isConfiguredForKind("temporary")).toBe(false);
+	}).pipe(Effect.provide(makePermanentOnlyLayer())),
+);
+
 it.effect("binds local download signatures to the key and content type", () =>
 	Effect.gen(function* () {
 		const localStorage = yield* LocalStorageService;
@@ -84,6 +113,14 @@ it.effect("streams local objects through a staged file and deletes them idempote
 		const localStorage = yield* LocalStorageService;
 		const body = new TextEncoder().encode("hello local storage");
 		yield* localStorage.writeObject(key, Stream.make(body), String(body.byteLength));
+		const chunks = yield* localStorage.openObject(key).pipe(Effect.flatMap(Stream.runCollect));
+		const read = new Uint8Array(body.byteLength);
+		let offset = 0;
+		for (const chunk of chunks) {
+			read.set(chunk, offset);
+			offset += chunk.byteLength;
+		}
+		expect(read).toEqual(body);
 		const info = yield* localStorage.statObject(key);
 		expect(Number(info.size)).toBe(body.byteLength);
 		yield* localStorage.deleteObject(key);

@@ -1,4 +1,5 @@
 export const UPLOAD_MAX_FILE_BYTES = 50 * 1024 * 1024;
+export const UPLOAD_MAX_ARCHIVE_BYTES = 1088 * 1024 * 1024;
 
 export const uploadContentTypes = [
 	"text/csv",
@@ -19,6 +20,11 @@ export const uploadContentTypes = [
 ] as const;
 
 export type UploadContentType = (typeof uploadContentTypes)[number];
+
+export const uploadMaxBytes = (kind: "permanent" | "temporary", contentType: string) =>
+	kind === "temporary" && contentType === "application/zip"
+		? UPLOAD_MAX_ARCHIVE_BYTES
+		: UPLOAD_MAX_FILE_BYTES;
 
 export const uploadContentTypeExtensions: Record<UploadContentType, readonly string[]> = {
 	"text/csv": ["csv"],

@@ -106,8 +106,8 @@ it("declares the complete media-owned source", () => {
 		"https://coverartarchive.org",
 	);
 	expect(mediaPlugin.providers).toHaveLength(51);
-	expect(mediaPlugin.scripts).toHaveLength(183);
-	expect(mediaPlugin.integrationProviders).toHaveLength(13);
+	expect(mediaPlugin.scripts).toHaveLength(182);
+	expect(mediaPlugin.integrationProviders).toHaveLength(12);
 	expect(mediaPlugin.scripts.every((script) => !("providerInformation" in script))).toBe(true);
 	expect(mediaPlugin.scripts.find(({ slug }) => slug === "book.google-books.search")).toMatchObject(
 		{ searchOptionsSchema: { unknownKeys: "strict" } },
