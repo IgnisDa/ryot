@@ -34,6 +34,23 @@ const EntityResolveResult = Schema.Struct({ externalId: Schema.NullOr(Schema.Str
 
 const decodeEntityResolveResult = Schema.decodeUnknown(EntityResolveResult);
 
+const EntitySearchItem = Schema.Struct({
+	externalId: Schema.NonEmptyString,
+	titleProperty: Schema.Struct({ value: Schema.NonEmptyString, kind: Schema.Literal("text") }),
+	primarySubtitleProperty: Schema.optional(
+		Schema.Union(
+			Schema.Struct({ kind: Schema.Literal("null"), value: Schema.Null }),
+			Schema.Struct({ kind: Schema.Literal("number"), value: Schema.Number }),
+		),
+	),
+});
+
+export type EntitySearchItem = typeof EntitySearchItem.Type;
+
+const EntitySearchResult = Schema.Struct({ items: Schema.Array(EntitySearchItem) });
+
+const decodeEntitySearchResult = Schema.decodeUnknown(EntitySearchResult);
+
 const processRelatedEntity = (input: {
 	sourceEntityId: string;
 	sourceEntitySchemaId: string;
@@ -226,4 +243,41 @@ export const resolveGlobalEntityExternalId = (input: {
 		);
 
 		return { externalId: resolved.externalId };
+	});
+
+export const searchGlobalEntities = (input: {
+	query: string;
+	userId: string;
+	page?: number;
+	scriptId: string;
+	pageSize?: number;
+	executionId: string;
+}) =>
+	Effect.gen(function* () {
+		const engine = yield* WorkflowEngine;
+
+		const sandboxResult = yield* engine
+			.execute(RunSandboxWorkflow, {
+				executionId: input.executionId,
+				payload: {
+					userId: input.userId,
+					driverName: "search",
+					scriptId: input.scriptId,
+					executionId: input.executionId,
+					context: { query: input.query, page: input.page ?? 1, pageSize: input.pageSize ?? 5 },
+				},
+			})
+			.pipe(Effect.mapError((error) => new SandboxRunError({ message: unknownToMessage(error) })));
+
+		if (sandboxResult.error) {
+			return yield* new SandboxRunError({ message: sandboxResult.error });
+		}
+
+		const parsed = yield* decodeEntitySearchResult(sandboxResult.value).pipe(
+			Effect.mapError(
+				() => new SandboxRunError({ message: "Entity search script returned an unexpected shape" }),
+			),
+		);
+
+		return parsed.items;
 	});

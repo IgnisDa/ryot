@@ -1,12 +1,14 @@
 import { Schema } from "effect";
 
-const ResolvedImportEntityRef = Schema.Struct({
+export const ResolvedImportEntityRef = Schema.Struct({
 	sourceLabel: Schema.String,
 	kind: Schema.Literal("resolved"),
 	scriptSlug: Schema.NonEmptyString,
 	externalId: Schema.NonEmptyString,
 	entitySchemaSlug: Schema.NonEmptyString,
 });
+
+export type ResolvedImportEntityRef = typeof ResolvedImportEntityRef.Type;
 
 const UnresolvedImportEntityRef = Schema.Struct({
 	sourceLabel: Schema.String,

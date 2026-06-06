@@ -13,9 +13,15 @@ import {
 } from "./files";
 import { getImportSourceProcessor } from "./processor-registry";
 import { getKnownImportExtensions } from "./source-definitions";
+import { deleteImportSourcePayload, loadImportSourcePayload } from "./source-payload-store";
 
-const resolveImportJobFilePath = (input: { runId: string; filePath: string }) =>
+const resolveImportJobFilePath = (input: { runId: string; filePath: string | undefined }) =>
 	Effect.gen(function* () {
+		if (!input.filePath) {
+			yield* failImportRun(input.runId, "Import job is missing file path");
+			return null;
+		}
+
 		const tempDir = getTemporaryDirectory();
 		const safePathResult = resolveSafeImportFilePath(input.filePath, tempDir);
 		if ("error" in safePathResult) {
@@ -54,6 +60,30 @@ export const processImportJob = (payload: ImportRunJobData) =>
 			return;
 		}
 
+		const sourcePayload = payload.sourcePayloadKey
+			? ((yield* loadImportSourcePayload(payload.sourcePayloadKey)) ?? undefined)
+			: payload.sourcePayload;
+
+		const failOnError = (error: unknown) =>
+			failImportRun(
+				payload.runId,
+				sanitizeErrorMessage(error, "Import job failed unexpectedly"),
+			).pipe(Effect.ignore);
+
+		if (sourceProcessor.inputKind === "source_payload") {
+			yield* sourceProcessor
+				.process({ sourcePayload, runId: payload.runId, userId: payload.userId })
+				.pipe(
+					Effect.catchAll(failOnError),
+					Effect.ensuring(
+						payload.sourcePayloadKey
+							? deleteImportSourcePayload(payload.sourcePayloadKey)
+							: Effect.void,
+					),
+				);
+			return;
+		}
+
 		const safePath = yield* resolveImportJobFilePath({
 			runId: payload.runId,
 			filePath: payload.filePath,
@@ -63,13 +93,6 @@ export const processImportJob = (payload: ImportRunJobData) =>
 		}
 
 		yield* sourceProcessor
-			.process({ filePath: safePath, runId: payload.runId, userId: payload.userId })
-			.pipe(
-				Effect.catchAll((error) =>
-					failImportRun(
-						payload.runId,
-						sanitizeErrorMessage(error, "Import job failed unexpectedly"),
-					).pipe(Effect.ignore),
-				),
-			);
+			.process({ sourcePayload, filePath: safePath, runId: payload.runId, userId: payload.userId })
+			.pipe(Effect.catchAll(failOnError));
 	});

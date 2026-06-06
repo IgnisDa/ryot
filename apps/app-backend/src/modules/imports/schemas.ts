@@ -55,19 +55,90 @@ export const DetailedImportRun = Schema.Struct({
 
 export type DetailedImportRun = typeof DetailedImportRun.Type;
 
+export const fileImportRunSources = [
+	"hevy",
+	"igdb",
+	"imdb",
+	"netflix",
+	"movary",
+	"anilist",
+	"grouvee",
+	"watcharr",
+	"goodreads",
+	"hardcover",
+	"strong_app",
+	"open_scale",
+	"storygraph",
+	"myanimelist",
+] as const;
+
+const SourceApiUrl = Schema.String.pipe(
+	Schema.filter((value) => {
+		try {
+			const url = new URL(value.trim());
+			return ["http:", "https:"].includes(url.protocol)
+				? true
+				: "Import source URL must be a valid http or https URL";
+		} catch {
+			return "Import source URL must be a valid http or https URL";
+		}
+	}),
+);
+
 const uploadTokenInput = <const S extends string>(source: S) =>
 	Schema.Struct({ source: Schema.Literal(source), uploadToken: Schema.NonEmptyString });
+
+const urlAndKeyInput = <const S extends string>(source: S) =>
+	Schema.Struct({
+		apiUrl: SourceApiUrl,
+		source: Schema.Literal(source),
+		apiKey: Schema.NonEmptyString,
+		allowInsecureConnections: Schema.optional(Schema.Boolean),
+	});
 
 export const CreateImportRunBody = Schema.Union(
 	uploadTokenInput("hevy"),
 	uploadTokenInput("imdb"),
 	uploadTokenInput("grouvee"),
+	uploadTokenInput("anilist"),
 	uploadTokenInput("watcharr"),
 	uploadTokenInput("hardcover"),
 	uploadTokenInput("goodreads"),
 	uploadTokenInput("open_scale"),
 	uploadTokenInput("storygraph"),
 	uploadTokenInput("strong_app"),
+	Schema.Struct({
+		source: Schema.Literal("igdb"),
+		uploadToken: Schema.NonEmptyString,
+		collection: Schema.NonEmptyString,
+	}),
+	Schema.Struct({
+		source: Schema.Literal("netflix"),
+		uploadToken: Schema.NonEmptyString,
+		profileName: Schema.optional(Schema.String),
+	}),
+	Schema.Struct({
+		source: Schema.Literal("movary"),
+		historyUploadToken: Schema.NonEmptyString,
+		ratingsUploadToken: Schema.NonEmptyString,
+		watchlistUploadToken: Schema.NonEmptyString,
+	}),
+	Schema.Struct({
+		source: Schema.Literal("myanimelist"),
+		animeUploadToken: Schema.optional(Schema.NonEmptyString),
+		mangaUploadToken: Schema.optional(Schema.NonEmptyString),
+	}),
+	Schema.Struct({ source: Schema.Literal("trakt"), username: Schema.NonEmptyString }),
+	urlAndKeyInput("plex"),
+	urlAndKeyInput("media_tracker"),
+	urlAndKeyInput("audiobookshelf"),
+	Schema.Struct({
+		apiUrl: SourceApiUrl,
+		source: Schema.Literal("jellyfin"),
+		username: Schema.NonEmptyString,
+		password: Schema.optional(Schema.NonEmptyString),
+		allowInsecureConnections: Schema.optional(Schema.Boolean),
+	}),
 );
 
 export type CreateImportRunBody = typeof CreateImportRunBody.Type;
