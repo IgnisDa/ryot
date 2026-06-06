@@ -35,7 +35,6 @@
 	},
 	"devDependencies": {
 		"@effect/vitest": "0.29.0",
-		"@types/ioredis": "5.0.0",
 		"@types/papaparse": "5.5.2",
 		"@types/pg": "8.20.0",
 		"@types/yauzl": "3.3.0",
