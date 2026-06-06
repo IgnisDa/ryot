@@ -15,11 +15,10 @@ import {
 } from "./repository-helpers";
 import type { StoredEntityImage } from "./types";
 
-type SaveEntityInput = {
+export type SaveEntityInputBase = {
 	name: string;
 	entitySchemaId: EntitySchemaId;
 	image: StoredEntityImage | null;
-	properties: Record<string, unknown>;
 } & (
 	| {
 			scope: "global";
@@ -34,6 +33,8 @@ type SaveEntityInput = {
 			sandboxScriptId?: SandboxScriptId;
 	  }
 );
+
+export type SaveEntityInput = SaveEntityInputBase & { properties: Record<string, unknown> };
 
 export type {
 	EntityScope,
