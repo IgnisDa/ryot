@@ -167,20 +167,17 @@ export const runEntityImportWorkflow = <R>(
 		const entity = yield* Activity.make({
 			success: ListedEntity,
 			name: activityName("write-primary-entity"),
-			execute: Effect.gen(function* () {
-				const now = yield* DateTime.nowAsDate;
-				return yield* runWithDb(
-					repository.createOrUpdateGlobalEntity({
-						image: null,
-						populatedAt: now,
-						name: validatedDetails.name,
-						externalId: payload.externalId,
-						sandboxScriptId: payload.scriptId,
-						entitySchemaId: payload.entitySchemaId,
-						properties: validatedDetails.validatedProperties,
-					}),
-				).pipe(dieOnDbError);
-			}),
+			execute: runWithDb(
+				repository.createOrUpdateGlobalEntity({
+					image: null,
+					populatedAt: null,
+					name: validatedDetails.name,
+					externalId: payload.externalId,
+					sandboxScriptId: payload.scriptId,
+					entitySchemaId: payload.entitySchemaId,
+					properties: validatedDetails.validatedProperties,
+				}),
+			).pipe(dieOnDbError),
 		});
 
 		yield* Effect.forEach(
@@ -200,14 +197,35 @@ export const runEntityImportWorkflow = <R>(
 			{ discard: true },
 		);
 
+		const populatedEntity = yield* Activity.make({
+			success: ListedEntity,
+			name: activityName("mark-primary-entity-populated"),
+			execute: Effect.gen(function* () {
+				const populatedAt = yield* DateTime.nowAsDate;
+				return yield* runWithDb(
+					repository.createOrUpdateGlobalEntity({
+						image: null,
+						populatedAt,
+						name: validatedDetails.name,
+						externalId: payload.externalId,
+						sandboxScriptId: payload.scriptId,
+						entitySchemaId: payload.entitySchemaId,
+						properties: validatedDetails.validatedProperties,
+					}),
+				).pipe(dieOnDbError);
+			}),
+		});
+
 		if (!options.skipLibraryMembership) {
 			yield* Activity.make({
 				name: activityName("ensure-library-membership"),
-				execute: collections.ensureEntityInLibrary(payload.userId, entity.id).pipe(dieOnDbError),
+				execute: collections
+					.ensureEntityInLibrary(payload.userId, populatedEntity.id)
+					.pipe(dieOnDbError),
 			});
 		}
 
-		return entity;
+		return populatedEntity;
 	});
 
 const EntityImportWorkflowLive = EntityImportWorkflow.toLayer((payload, executionId) =>
