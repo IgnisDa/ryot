@@ -1,12 +1,3 @@
-export {
-	addEntityToCollection,
-	createCollectionForUser,
-	createLibraryEntityForUser,
-	getBuiltinCollectionSchema,
-	getCollectionById,
-	getEntityById,
-	removeEntityFromCollection,
-} from "./repository";
 export type {
 	AddToCollectionBody,
 	AddToCollectionData,
@@ -21,12 +12,14 @@ export type {
 	AddToCollectionServiceDeps,
 	CollectionServiceDeps,
 	CollectionServiceResult,
+	EnsureLibraryEntityForUserDeps,
 	GetOrCreateCollectionServiceDeps,
 	RemoveFromCollectionServiceDeps,
 } from "./service";
 export {
 	addToCollection,
 	createCollection,
+	ensureLibraryEntityForUser,
 	getOrCreateCollection,
 	removeFromCollection,
 	resolveCollectionName,

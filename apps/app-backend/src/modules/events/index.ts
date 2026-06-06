@@ -10,13 +10,10 @@ export type {
 	EventServiceResult,
 } from "./service";
 export {
-	createEvent,
-	createEvents,
 	createEventsBestEffortWithTriggers,
 	createEventsWithTriggers,
 	listEntityEvents,
 	parseEventProperties,
-	processEventSchemaTriggers,
 	resolveEventCreateInput,
 	resolveEventEntityId,
 	resolveEventSchemaId,

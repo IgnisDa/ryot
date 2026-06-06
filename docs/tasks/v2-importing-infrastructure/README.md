@@ -454,9 +454,9 @@ sources before porting every adapter.
 
 ## Tasks
 
-**Overall Progress:** 5 of 12 tasks completed
+**Overall Progress:** 6 of 12 tasks completed
 
-**Current Task:** [Task 06](./06-canonical-runtime-write-paths-cleanup.md) (todo)
+**Current Task:** [Task 07](./07-workout-import-tracer-bullet.md) (todo)
 
 ### Task List
 
@@ -467,7 +467,7 @@ sources before porting every adapter.
 | 03  | [OpenScale Import Tracer Bullet](./03-openscale-import-tracer-bullet.md)               | AFK  | done   |
 | 04  | [Shared Entity Population Refactor](./04-shared-entity-population-refactor.md)         | AFK  | done   |
 | 05  | [Provider-Backed Media Import Tracer](./05-provider-backed-media-import-tracer.md)     | AFK  | done   |
-| 06  | [Canonical Runtime Write Paths Cleanup](./06-canonical-runtime-write-paths-cleanup.md) | AFK  | todo   |
+| 06  | [Canonical Runtime Write Paths Cleanup](./06-canonical-runtime-write-paths-cleanup.md) | AFK  | done   |
 | 07  | [Workout Import Tracer Bullet](./07-workout-import-tracer-bullet.md)                   | AFK  | todo   |
 | 08  | [Book CSV Source Adapters](./08-book-csv-source-adapters.md)                           | AFK  | todo   |
 | 09  | [File-Based Media Source Adapters](./09-file-based-media-source-adapters.md)           | AFK  | todo   |
