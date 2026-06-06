@@ -17,7 +17,7 @@ function makeEntity(properties: Record<string, unknown>): EntityInput {
 		createdAt: "2024-01-01T00:00:00.000Z",
 		updatedAt: "2024-01-02T00:00:00.000Z",
 		populatedAt: "2024-01-03T00:00:00.000Z",
-		image: { type: "remote", url: "https://example.com/cover.jpg" },
+		image: "https://example.com/cover.jpg",
 	};
 }
 

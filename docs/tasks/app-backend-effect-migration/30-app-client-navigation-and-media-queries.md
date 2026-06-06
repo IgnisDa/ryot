@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -14,12 +14,12 @@ The goal is to remove app-client dependence on generated OpenAPI types and legac
 
 ## Acceptance criteria
 
-- [ ] App-client navigation loads trackers through the Effect client
-- [ ] App-client navigation loads saved views through the Effect client
-- [ ] Media overview query-engine calls use the Effect client
-- [ ] Media overview entity-schema list calls use the Effect client
-- [ ] Query expression builders are imported from pure backend public exports rather than legacy utility packages
-- [ ] App-client tests/checks covering navigation and media query helpers pass or are updated to the new client model
+- [x] App-client navigation loads trackers through the Effect client
+- [x] App-client navigation loads saved views through the Effect client
+- [x] Media overview query-engine calls use the Effect client
+- [x] Media overview entity-schema list calls use the Effect client
+- [x] Query expression builders are imported from pure backend public exports rather than legacy utility packages
+- [x] App-client tests/checks covering navigation and media query helpers pass or are updated to the new client model
 
 ## User stories addressed
 
