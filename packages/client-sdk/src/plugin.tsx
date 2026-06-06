@@ -27,6 +27,20 @@ export const bootstrapClientPlugin = (definition: ClientPluginDefinition) => {
 	const listener = new AbortController();
 	let root: Root | undefined;
 	let runtime: ReturnType<typeof createPluginRuntime> | undefined;
+	const mount = () => {
+		if (!root && runtime) {
+			const rootElement = document.getElementById(CLIENT_ARTIFACT_ROOT_ELEMENT_ID);
+			if (!rootElement) {
+				return;
+			}
+			root = createRoot(rootElement);
+			root.render(
+				<RyotProvider client={runtime.client}>
+					<PluginRouter definition={definition} locations={runtime.locations} />
+				</RyotProvider>,
+			);
+		}
+	};
 	const unmount = () => {
 		root?.unmount();
 		root = undefined;
@@ -55,20 +69,20 @@ export const bootstrapClientPlugin = (definition: ClientPluginDefinition) => {
 			if (Result.isFailure(decoded) || decoded.success.artifactHash !== artifactMetadata.hash) {
 				return;
 			}
-			const rootElement = document.getElementById(CLIENT_ARTIFACT_ROOT_ELEMENT_ID);
 			const port = event.ports[0];
-			if (!rootElement || !port) {
+			if (!document.getElementById(CLIENT_ARTIFACT_ROOT_ELEMENT_ID) || !port) {
 				return;
 			}
 
 			listener.abort();
 			const init = decoded.success;
-			runtime = createPluginRuntime(port, init, artifactMetadata, unmount);
-			root = createRoot(rootElement);
-			root.render(
-				<RyotProvider client={runtime.client}>
-					<PluginRouter definition={definition} locations={runtime.locations} />
-				</RyotProvider>,
+			runtime = createPluginRuntime(
+				port,
+				init,
+				artifactMetadata,
+				document.documentElement.style,
+				mount,
+				unmount,
 			);
 		},
 		{ signal: listener.signal },

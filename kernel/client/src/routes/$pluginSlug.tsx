@@ -17,7 +17,7 @@ export const Route = createFileRoute("/$pluginSlug")({
 	notFoundComponent: PluginNotFound,
 	beforeLoad: ({ context, location }) => protectedRouteGuard(context, location.href),
 	loader: async ({ context, params }) => {
-		const ryot = createKernelRyotClient(context.runtime, context.scope);
+		const ryot = createKernelRyotClient(context.runtime, context.scope, context.theme);
 		const catalog = await context.runtime.runPromise(
 			Effect.flatMap(PluginCatalogService, (service) => service.load(ryot)),
 		);
@@ -35,10 +35,11 @@ function PluginDestination() {
 	const { pluginSlug } = Route.useParams();
 	const { pathname, searchStr } = useLocation();
 	const { installation } = Route.useLoaderData();
-	const { runtime, scope, server } = Route.useRouteContext();
+	const { runtime, scope, server, theme } = Route.useRouteContext();
 
 	return (
 		<PluginHost
+			theme={theme}
 			server={server}
 			installation={installation}
 			location={toPluginLocation(pluginSlug, pathname, searchStr)}

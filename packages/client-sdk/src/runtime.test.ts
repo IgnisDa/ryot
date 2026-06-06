@@ -3,6 +3,8 @@ import {
 	CLIENT_ARTIFACT_FORMAT,
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
+	PluginBridgeThemeApplied,
+	REQUIRED_THEME_TOKEN_NAMES,
 	type PluginBridgeInit,
 	type PluginClientArtifactMetadata,
 } from "@ryot/contract/modules/plugins/client";
@@ -29,6 +31,10 @@ const init: PluginBridgeInit = {
 };
 const document = { queries: {}, output: {} } as PreparedRecipe<unknown>["document"];
 const channels: MessageChannel[] = [];
+const tokens = Object.fromEntries(
+	REQUIRED_THEME_TOKEN_NAMES.map((name) => [name, `light-${name}`]),
+);
+const theme = { resolvedMode: "light", tokens };
 
 const openRuntime = () => {
 	const channel = new MessageChannel();
@@ -36,10 +42,23 @@ const openRuntime = () => {
 	channel.port1.addEventListener("message", ({ data }) => messages.push(data));
 	channel.port1.start();
 	channels.push(channel);
-	return { channel, messages, runtime: createPluginRuntime(channel.port2, init, metadata) };
+	const properties = new Map<string, string>();
+	const style = {
+		setProperty: (property: string, value: string) => properties.set(property, value),
+	};
+	return {
+		channel,
+		messages,
+		properties,
+		runtime: createPluginRuntime(channel.port2, init, metadata, style),
+	};
 };
 
 const delay = () => new Promise((resolve) => setTimeout(resolve, 0));
+const activate = (channel: MessageChannel) => {
+	channel.port1.postMessage({ type: "location", location: { path: "/", search: "" } });
+	channel.port1.postMessage({ generation: 1, type: "theme", theme });
+};
 
 afterEach(() => {
 	for (const channel of channels.splice(0)) {
@@ -54,7 +73,7 @@ describe("plugin runtime", () => {
 		await expect(
 			runtime.client.data.query({ document, decode: Result.succeed }),
 		).rejects.toMatchObject({ reason: "transport" });
-		channel.port1.postMessage({ type: "location", location: { path: "/", search: "" } });
+		activate(channel);
 		await delay();
 
 		const query = runtime.client.data.query({ document, decode: Result.succeed });
@@ -83,7 +102,7 @@ describe("plugin runtime", () => {
 		const { channel, messages, runtime } = openRuntime();
 		runtime.client.navigation.push({ path: "/early" });
 		expect(messages).not.toContainEqual(expect.objectContaining({ type: "navigate" }));
-		channel.port1.postMessage({ type: "location", location: { path: "/", search: "" } });
+		activate(channel);
 		await delay();
 
 		expect(runtime).not.toHaveProperty("navigate");
@@ -105,7 +124,7 @@ describe("plugin runtime", () => {
 
 	it("rejects every pending call once and blocks new admissions after disposal", async () => {
 		const { channel, messages, runtime } = openRuntime();
-		channel.port1.postMessage({ type: "location", location: { path: "/", search: "" } });
+		activate(channel);
 		await delay();
 		const query = runtime.client.data.query({ document, decode: Result.succeed });
 		const operation = runtime.client.operations.invoke({
@@ -140,7 +159,7 @@ describe("plugin runtime", () => {
 
 	it("preserves operation success and failure semantics", async () => {
 		const { channel, runtime } = openRuntime();
-		channel.port1.postMessage({ type: "location", location: { path: "/", search: "" } });
+		activate(channel);
 		await delay();
 
 		const success = runtime.client.operations.invoke({
@@ -185,7 +204,7 @@ describe("plugin runtime", () => {
 
 	it("fails the session on a malformed correlated result and settles the operation once", async () => {
 		const { channel, runtime } = openRuntime();
-		channel.port1.postMessage({ type: "location", location: { path: "/", search: "" } });
+		activate(channel);
 		await delay();
 
 		let settlements = 0;
@@ -218,7 +237,7 @@ describe("plugin runtime", () => {
 
 	it("classifies peer failure as protocol for every pending call", async () => {
 		const { channel, messages, runtime } = openRuntime();
-		channel.port1.postMessage({ type: "location", location: { path: "/", search: "" } });
+		activate(channel);
 		await delay();
 		const query = runtime.client.data.query({ document, decode: Result.succeed });
 		await delay();
@@ -240,7 +259,7 @@ describe("plugin runtime", () => {
 
 	it("classifies peer disposal as disposed", async () => {
 		const { channel, runtime } = openRuntime();
-		channel.port1.postMessage({ type: "location", location: { path: "/", search: "" } });
+		activate(channel);
 		await delay();
 		const query = runtime.client.data.query({ document, decode: Result.succeed });
 		const operation = runtime.client.operations.invoke({
@@ -256,7 +275,7 @@ describe("plugin runtime", () => {
 
 	it("ignores valid results with unknown request IDs", async () => {
 		const { channel, runtime } = openRuntime();
-		channel.port1.postMessage({ type: "location", location: { path: "/", search: "" } });
+		activate(channel);
 		await delay();
 		const operation = runtime.client.operations.invoke({
 			input: {},
@@ -281,7 +300,7 @@ describe("plugin runtime", () => {
 
 	it("classifies channel communication failures as transport", async () => {
 		const { channel, runtime } = openRuntime();
-		channel.port1.postMessage({ type: "location", location: { path: "/", search: "" } });
+		activate(channel);
 		await delay();
 		channel.port2.postMessage = () => {
 			throw new Error("channel closed");
@@ -296,5 +315,90 @@ describe("plugin runtime", () => {
 		await expect(
 			runtime.client.operations.invoke({ input: {}, slug: "late", output: Schema.Unknown }),
 		).rejects.toMatchObject({ reason: "transport" });
+	});
+
+	it("applies the initial theme before acknowledging it and gates activation on both inputs", async () => {
+		const { channel, messages, properties, runtime } = openRuntime();
+		channel.port1.postMessage({ type: "location", location: { path: "/", search: "" } });
+		await delay();
+		await expect(
+			runtime.client.data.query({ document, decode: Result.succeed }),
+		).rejects.toMatchObject({ reason: "transport" });
+
+		channel.port1.postMessage({
+			type: "theme",
+			generation: 17,
+			theme: { resolvedMode: "light", tokens: { ...tokens, future: "ignored" } },
+		});
+		await delay();
+
+		expect(properties.get("--bg")).toBe("light-bg");
+		expect(properties.has("--future")).toBe(false);
+		expect(messages).toContainEqual({ generation: 17, type: "theme-applied" });
+		const query = runtime.client.data.query({ document, decode: Result.succeed });
+		await delay();
+		expect(messages).toContainEqual({ document, requestId: "ryotql-1", type: "ryotql-request" });
+		runtime.dispose();
+		await expect(query).rejects.toMatchObject({ reason: "disposed" });
+	});
+
+	it("publishes live themes without changing location, runtime identity, or pending calls", async () => {
+		const { channel, messages, properties, runtime } = openRuntime();
+		activate(channel);
+		await delay();
+		const client = runtime.client;
+		const location = runtime.locations.getSnapshot();
+		let notifications = 0;
+		const unsubscribe = client.theme.subscribe(() => {
+			notifications += 1;
+		});
+		const query = client.data.query({ document, decode: Result.succeed });
+		await delay();
+		channel.port1.postMessage({
+			generation: 2,
+			type: "theme",
+			theme: { resolvedMode: "dark", tokens: { ...tokens, bg: "dark-bg" } },
+		});
+		await delay();
+
+		expect(runtime.client).toBe(client);
+		expect(runtime.locations.getSnapshot()).toBe(location);
+		expect(client.theme.getSnapshot().resolvedMode).toBe("dark");
+		expect(properties.get("--bg")).toBe("dark-bg");
+		expect(notifications).toBe(1);
+		expect(
+			messages.filter((message) =>
+				Result.isSuccess(Schema.decodeUnknownResult(PluginBridgeThemeApplied)(message)),
+			),
+		).toHaveLength(1);
+
+		channel.port1.postMessage({
+			outcome: "success",
+			type: "ryotql-result",
+			requestId: "ryotql-1",
+			response: { data: {} },
+		});
+		await expect(query).resolves.toEqual({ data: {} });
+		unsubscribe();
+	});
+
+	it("fails the shared lifecycle when a live theme is malformed", async () => {
+		const { channel, messages, runtime } = openRuntime();
+		activate(channel);
+		await delay();
+		const query = runtime.client.data.query({ document, decode: Result.succeed });
+		await delay();
+		channel.port1.postMessage({
+			generation: 2,
+			type: "theme",
+			theme: { resolvedMode: "dark", tokens: {} },
+		});
+
+		await expect(query).rejects.toMatchObject({ reason: "protocol" });
+		await expect(
+			runtime.client.data.query({ document, decode: Result.succeed }),
+		).rejects.toMatchObject({ reason: "protocol" });
+		await delay();
+		expect(messages).toContainEqual({ reason: "failed", type: "lifecycle-close" });
 	});
 });

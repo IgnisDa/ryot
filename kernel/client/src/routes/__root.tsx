@@ -3,21 +3,21 @@ import "../styles/index.css";
 import { Outlet, createRootRouteWithContext } from "@tanstack/react-router";
 
 import { ThemeController } from "../modules/theme/controller";
-import type { ThemePreference } from "../modules/theme/preference";
+import type { ThemeStore } from "../modules/theme/store";
 import type { ClientRuntime } from "../runtime";
 
 export type RouterContext = {
 	readonly runtime: ClientRuntime;
-	readonly initialThemePreference: ThemePreference;
+	readonly theme: ThemeStore;
 };
 
 export const Route = createRootRouteWithContext<RouterContext>()({ component: RootComponent });
 
 function RootComponent() {
-	const { initialThemePreference, runtime } = Route.useRouteContext();
+	const { runtime, theme } = Route.useRouteContext();
 	return (
 		<>
-			<ThemeController initialPreference={initialThemePreference} runtime={runtime} />
+			<ThemeController runtime={runtime} theme={theme} />
 			<Outlet />
 		</>
 	);
