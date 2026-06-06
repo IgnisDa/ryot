@@ -2,7 +2,7 @@ import { afterAll, beforeAll } from "bun:test";
 import type { ChildProcess } from "node:child_process";
 
 import getPort from "get-port";
-import { Client as PgClient } from "pg";
+import { Pool as PgPool } from "pg";
 
 import { requirePresent } from "./test-support/assertions";
 import {
@@ -18,7 +18,7 @@ import {
 const S3_BUCKET_NAME = "ryot-test";
 
 let backendPort: number;
-let pgClient: PgClient | undefined;
+let pgPool: PgPool | undefined;
 let backendProcess: ChildProcess | undefined;
 let coreInfrastructure: Awaited<ReturnType<typeof startCoreTestInfrastructure>> | undefined;
 
@@ -26,8 +26,8 @@ function requireCoreInfrastructure() {
 	return requirePresent(coreInfrastructure, "Test infrastructure is not initialised");
 }
 
-function requirePgClient() {
-	return requirePresent(pgClient, "PG client is not initialised");
+function requirePgPool() {
+	return requirePresent(pgPool, "PG pool is not initialised");
 }
 
 beforeAll(async () => {
@@ -60,8 +60,8 @@ beforeAll(async () => {
 	const healthCheckUrl = `http://127.0.0.1:${backendPort}/api/system/health`;
 	await waitForHealthCheck(healthCheckUrl, "E2E Setup");
 
-	pgClient = new PgClient({ connectionString: infrastructure.dbUrl });
-	await pgClient.connect();
+	pgPool = new PgPool({ connectionString: infrastructure.dbUrl });
+	await pgPool.query("select 1");
 }, 120000);
 
 afterAll(async () => {
@@ -69,7 +69,7 @@ afterAll(async () => {
 		await stopBackendProcess(backendProcess);
 	}
 
-	await Promise.all([pgClient?.end(), stopCoreTestInfrastructure(coreInfrastructure)]);
+	await Promise.all([pgPool?.end(), stopCoreTestInfrastructure(coreInfrastructure)]);
 });
 
 export function getS3Client() {
@@ -85,5 +85,5 @@ export function getBackendUrl() {
 }
 
 export function getPgClient() {
-	return requirePgClient();
+	return requirePgPool();
 }
