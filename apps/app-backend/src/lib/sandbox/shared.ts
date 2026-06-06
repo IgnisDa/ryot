@@ -17,7 +17,8 @@ export const isSandboxRunInput = (value: unknown): value is SandboxRunInput => {
 		(userId === null || typeof userId === "string") &&
 		typeof Reflect.get(value, "scriptId") === "string" &&
 		typeof Reflect.get(value, "driverName") === "string" &&
-		typeof Reflect.get(value, "executionId") === "string"
+		typeof Reflect.get(value, "executionId") === "string" &&
+		typeof Reflect.get(value, "scriptIsBuiltin") === "boolean"
 	);
 };
 

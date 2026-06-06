@@ -30,6 +30,7 @@ export type SandboxRunInput = {
 	readonly driverName: string;
 	readonly executionId: string;
 	readonly userId: string | null;
+	readonly scriptIsBuiltin: boolean;
 	readonly allowedHostFunctions: readonly string[];
 };
 

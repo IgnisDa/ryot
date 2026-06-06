@@ -7,7 +7,7 @@ function parseJsonResponse(responseBody) {
 }
 
 async function getHardcoverApiKey() {
-  const configValueResponse = await getAppConfigValue("books.hardcover.apiKey");
+  const configValueResponse = await getAppConfigValue("providers.hardcoverApiKey");
   if (!configValueResponse?.success) {
     throw new Error(
       configValueResponse?.error ?? "Could not load Hardcover API key",

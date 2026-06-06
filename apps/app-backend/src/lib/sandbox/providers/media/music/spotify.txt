@@ -54,8 +54,8 @@ const TOKEN_CACHE_KEY = "spotify_access_token";
 
 async function getCredentials() {
   const [clientIdResp, clientSecretResp] = await Promise.all([
-    getAppConfigValue("music.spotify.clientId"),
-    getAppConfigValue("music.spotify.clientSecret"),
+    getAppConfigValue("providers.spotifyClientId"),
+    getAppConfigValue("providers.spotifyClientSecret"),
   ]);
 
   if (!clientIdResp?.success) {

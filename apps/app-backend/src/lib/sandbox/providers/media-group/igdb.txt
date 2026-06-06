@@ -13,8 +13,8 @@ const TOKEN_CACHE_KEY = "access_token";
 
 async function getCredentials() {
   const [clientIdResp, clientSecretResp] = await Promise.all([
-    getAppConfigValue("videoGames.twitch.clientId"),
-    getAppConfigValue("videoGames.twitch.clientSecret"),
+    getAppConfigValue("providers.twitchClientId"),
+    getAppConfigValue("providers.twitchClientSecret"),
   ]);
   if (!clientIdResp?.success) {
     throw new Error(clientIdResp?.error ?? "Failed to retrieve Twitch Client ID");
