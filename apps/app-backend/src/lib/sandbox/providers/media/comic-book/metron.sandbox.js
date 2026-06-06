@@ -52,6 +52,48 @@ function formatIssueTitle(seriesName, number) {
 	return resolvedNumber ? `${resolvedSeriesName} #${resolvedNumber}` : resolvedSeriesName;
 }
 
+async function collectSuggestions(sourceExternalId, arcs) {
+	if (!Array.isArray(arcs) || arcs.length === 0) {
+		return [];
+	}
+
+	const suggestionByKey = new Map();
+	const payloads = await Promise.all(
+		arcs.slice(0, 3).map(async (arc) => {
+			const arcId = getIdentifier(arc?.id);
+			if (!arcId) {
+				return null;
+			}
+
+			return loadMetronJson(
+				`https://metron.cloud/api/arc/${encodeURIComponent(arcId)}/issue_list/?page_size=20`,
+				"Metron arc issue list",
+			);
+		}),
+	);
+
+	for (const payload of payloads) {
+		if (!payload) {
+			continue;
+		}
+
+		for (const issue of Array.isArray(payload?.results) ? payload.results : []) {
+			const externalId = getIdentifier(issue?.id);
+			if (!externalId || externalId === sourceExternalId) {
+				continue;
+			}
+
+			suggestionByKey.set(`comic-book.metron:${externalId}`, {
+				externalId,
+				scriptSlug: "comic-book.metron",
+				name: formatIssueTitle(issue?.series?.name, issue?.number),
+			});
+		}
+	}
+
+	return [...suggestionByKey.values()];
+}
+
 async function getMetronCredentials() {
 	const usernameResponse = await getAppConfigValue("providers.metronUsername");
 	if (!usernameResponse?.success) {
@@ -268,9 +310,12 @@ driver("details", async function (context) {
 	for (const groupRelatedEntity of groupRelatedEntities) {
 		relatedEntities.push(groupRelatedEntity);
 	}
+	const suggestions = await Promise.resolve(collectSuggestions(externalId, payload?.arcs));
 
 	return {
 		name: title,
+		suggestions,
+		relatedEntities,
 		properties: {
 			genres: [],
 			pages: pageCount,
@@ -280,6 +325,5 @@ driver("details", async function (context) {
 			sourceUrl: `https://metron.cloud/issue/${externalId}`,
 			publishYear: parsePublishYear(payload?.cover_date, dayjs),
 		},
-		relatedEntities,
 	};
 });

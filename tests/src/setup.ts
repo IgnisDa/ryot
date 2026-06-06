@@ -17,10 +17,10 @@ import {
 
 const S3_BUCKET_NAME = "ryot-test";
 
-let coreInfrastructure: Awaited<ReturnType<typeof startCoreTestInfrastructure>> | undefined;
-let pgClient: PgClient | undefined;
 let backendPort: number;
+let pgClient: PgClient | undefined;
 let backendProcess: ChildProcess | undefined;
+let coreInfrastructure: Awaited<ReturnType<typeof startCoreTestInfrastructure>> | undefined;
 
 function requireCoreInfrastructure() {
 	return requirePresent(coreInfrastructure, "Test infrastructure is not initialised");
