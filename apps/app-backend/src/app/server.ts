@@ -21,6 +21,7 @@ import { SystemRoutesLive } from "#modules/system/routes";
 import { TrackersRoutesLive } from "#modules/trackers/routes";
 import { UploadBodyLimitMiddlewareLive } from "#modules/uploads/middleware";
 import { UploadsRoutesLive } from "#modules/uploads/routes";
+import { UserStateRoutesLive } from "#modules/user-state/routes";
 
 const mimeTypes: Record<string, string> = {
 	ttf: "font/ttf",
@@ -73,6 +74,7 @@ const ApiLive = HttpApiBuilder.api(AppContract).pipe(
 	Layer.provide(TrackersRoutesLive),
 	Layer.provide(EntitySchemasRoutesLive),
 	Layer.provide(EntitiesRoutesLive),
+	Layer.provide(UserStateRoutesLive),
 	Layer.provide(EventSchemasRoutesLive),
 	Layer.provide(EventsRoutesLive),
 	Layer.provide(UploadsRoutesLive),

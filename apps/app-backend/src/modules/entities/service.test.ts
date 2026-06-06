@@ -7,6 +7,7 @@ import { AppConfig } from "#lib/config";
 import { CurrentDb, DbRunner, TransactionRunner } from "#lib/db";
 import { BadRequest, NotFound } from "#lib/errors";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
+import { RelationshipsRepository } from "#modules/relationships/repository";
 import { SandboxRepository } from "#modules/sandbox/repository";
 
 import { EntitiesRepository } from "./repository";
@@ -36,17 +37,22 @@ const defaultEntitiesRepository = () =>
 		createEntity: () => Effect.die("unused"),
 		getByIdForUser: () => Effect.die("unused"),
 		getEntityScopeById: () => Effect.die("unused"),
-		insertRelationship: () => Effect.die("unused"),
-		upsertRelationship: () => Effect.die("unused"),
 		findEntitySchemaById: () => Effect.die("unused"),
 		getEntityScopeForUser: () => Effect.die("unused"),
-		upsertEntityRelationship: () => Effect.die("unused"),
-		deleteUserEventsForEntity: () => Effect.die("unused"),
 		createOrUpdateGlobalEntity: () => Effect.die("unused"),
 		getEntitySchemaScopeForUser: () => Effect.die("unused"),
 		findEntitySchemaScriptBySlug: () => Effect.die("unused"),
 		findGlobalEntityByExternalId: () => Effect.die("unused"),
 		findEntityByExternalIdForUser: () => Effect.die("unused"),
+	});
+
+const defaultRelationshipsRepository = () =>
+	Object.assign(Object.create(null), {
+		_tag: "RelationshipsRepository" as const,
+		insertRelationship: () => Effect.die("unused"),
+		upsertRelationship: () => Effect.die("unused"),
+		upsertEntityRelationship: () => Effect.die("unused"),
+		findRelationshipProperties: () => Effect.die("unused"),
 		deleteUserRelationshipsForEntity: () => Effect.die("unused"),
 	});
 
@@ -59,6 +65,9 @@ const defaultRelationshipSchemasRepository = () =>
 
 const makeEntitiesRepository = (overrides: Partial<EntitiesRepository> = {}) =>
 	Object.assign(Object.create(null), defaultEntitiesRepository(), overrides);
+
+const makeRelationshipsRepository = (overrides: Partial<RelationshipsRepository> = {}) =>
+	Object.assign(Object.create(null), defaultRelationshipsRepository(), overrides);
 
 const makeRelationshipSchemasRepository = (
 	overrides: Partial<RelationshipSchemasRepository> = {},
@@ -120,6 +129,7 @@ const defaultSandboxRepository = () =>
 const makeServiceLayer = (
 	repository: EntitiesRepository,
 	relationshipSchemasRepository: RelationshipSchemasRepository = makeRelationshipSchemasRepository(),
+	relationshipsRepository: RelationshipsRepository = makeRelationshipsRepository(),
 ) =>
 	EntitiesService.Default.pipe(
 		Layer.provide(
@@ -130,6 +140,7 @@ const makeServiceLayer = (
 				fakeWorkflowEngineLayer,
 				Layer.succeed(EntitiesRepository, repository),
 				Layer.succeed(SandboxRepository, defaultSandboxRepository()),
+				Layer.succeed(RelationshipsRepository, relationshipsRepository),
 				Layer.succeed(RelationshipSchemasRepository, relationshipSchemasRepository),
 			),
 		),
@@ -217,30 +228,6 @@ it.effect("returns not found when entity schema is not visible", () => {
 	}).pipe(Effect.provide(layer));
 });
 
-it.effect("rejects clearing library user state", () => {
-	const layer = makeServiceLayer(
-		makeEntitiesRepository({
-			getEntityScopeForUser: () =>
-				Effect.succeed({
-					isBuiltin: true,
-					entityUserId: user.id,
-					entityId: "library-entity",
-					entitySchemaSlug: "library",
-					entitySchemaId: "library-schema",
-				}),
-		}),
-	);
-
-	return Effect.gen(function* () {
-		const service = yield* EntitiesService;
-		const exit = yield* Effect.exit(service.clearUserState(user, "library-entity"));
-
-		expect(exit).toEqual(
-			Exit.fail(new BadRequest({ message: "Library entity user state cannot be cleared" })),
-		);
-	}).pipe(Effect.provide(layer));
-});
-
 it.effect("validates relationship properties before upserting user relationships", () => {
 	const layer = makeServiceLayer(
 		makeEntitiesRepository({
@@ -252,7 +239,6 @@ it.effect("validates relationship properties before upserting user relationships
 					entitySchemaSlug: "book",
 					entitySchemaId: "schema-id",
 				}),
-			upsertRelationship: () => Effect.die("should not be called"),
 		}),
 		makeRelationshipSchemasRepository({
 			findById: () =>
@@ -274,6 +260,9 @@ it.effect("validates relationship properties before upserting user relationships
 						},
 					},
 				}),
+		}),
+		makeRelationshipsRepository({
+			upsertRelationship: () => Effect.die("should not be called"),
 		}),
 	);
 

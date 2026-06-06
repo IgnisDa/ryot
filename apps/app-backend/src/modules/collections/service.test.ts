@@ -7,17 +7,14 @@ import { CurrentDb, DbRunner, TransactionRunner } from "#lib/db";
 import { BadRequest, NotFound } from "#lib/errors";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
+import { RelationshipsRepository } from "#modules/relationships/repository";
 
 import { CollectionsRepository } from "./repository";
 import { CollectionsService } from "./service";
 
 const now = "2026-06-14T00:00:00.000Z";
 
-const user: CurrentUserValue = {
-	id: "user-id",
-	name: "Test User",
-	email: "user@example.com",
-};
+const user: CurrentUserValue = { id: "user-id", name: "Test User", email: "user@example.com" };
 
 const dbRunnerLayer = Layer.succeed(DbRunner, <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 	Effect.provideService(effect, CurrentDb, Object.create(null)),
@@ -97,18 +94,32 @@ const removeEventSchema = {
 const defaultCollectionsRepository = () =>
 	Object.assign(Object.create(null), {
 		_tag: "CollectionsRepository" as const,
-		deleteMembership: () => Effect.die("unused"),
-		upsertMembership: () => Effect.die("unused"),
 		getCollectionById: () => Effect.die("unused"),
 		getEntityForMembership: () => Effect.die("unused"),
 		getUserLibraryEntityId: () => Effect.die("unused"),
-		createCollectionForUser: () => Effect.die("unused"),
-		createLibraryEntityForUser: () => Effect.die("unused"),
+		findLibraryEntityForUser: () => Effect.die("unused"),
+		findCollectionByNameForUser: () => Effect.die("unused"),
 		getBuiltinCollectionSchema: () => Effect.succeed(collectionEntitySchema),
 		findBuiltinEventSchemaBySlug: (_entitySchemaId: string, slug: string) =>
 			slug === "add-entity-to-collection"
 				? Effect.succeed(addEventSchema)
 				: Effect.succeed(removeEventSchema),
+	});
+
+const defaultEntitiesRepository = () =>
+	Object.assign(Object.create(null), {
+		_tag: "EntitiesRepository" as const,
+		createEntity: () => Effect.die("unused"),
+	});
+
+const defaultRelationshipsRepository = () =>
+	Object.assign(Object.create(null), {
+		insertRelationship: () => Effect.void,
+		_tag: "RelationshipsRepository" as const,
+		deleteMembership: () => Effect.die("unused"),
+		upsertMembership: () => Effect.die("unused"),
+		upsertRelationship: () => Effect.die("unused"),
+		findRelationshipProperties: () => Effect.die("unused"),
 	});
 
 const defaultRelationshipSchemasRepository = () =>
@@ -119,37 +130,46 @@ const defaultRelationshipSchemasRepository = () =>
 			slug === "member-of" ? Effect.succeed(memberOfSchema) : Effect.succeed(inLibrarySchema),
 	});
 
-const defaultEntitiesRepository = () =>
-	Object.assign(Object.create(null), {
-		_tag: "EntitiesRepository" as const,
-		insertRelationship: () => Effect.void,
-		createEntity: () => Effect.die("unused"),
-		getByIdForUser: () => Effect.die("unused"),
-		getEntityScopeById: () => Effect.die("unused"),
-		upsertRelationship: () => Effect.die("unused"),
-		getEntityScopeForUser: () => Effect.die("unused"),
-		upsertEntityRelationship: () => Effect.die("unused"),
-		deleteUserEventsForEntity: () => Effect.die("unused"),
-		getEntitySchemaScopeForUser: () => Effect.die("unused"),
-		findEntityByExternalIdForUser: () => Effect.die("unused"),
-		deleteUserRelationshipsForEntity: () => Effect.die("unused"),
-	});
+const makeEntitiesRepository = (overrides: Partial<EntitiesRepository> = {}) =>
+	Object.assign(Object.create(null), defaultEntitiesRepository(), overrides);
+
+const makeCollectionsRepository = (overrides: Partial<CollectionsRepository> = {}) =>
+	Object.assign(Object.create(null), defaultCollectionsRepository(), overrides);
+
+const makeRelationshipsRepository = (overrides: Partial<RelationshipsRepository> = {}) =>
+	Object.assign(Object.create(null), defaultRelationshipsRepository(), overrides);
 
 const makeServiceLayer = (
-	collectionsRepository: CollectionsRepository = defaultCollectionsRepository(),
-	entitiesRepository: EntitiesRepository = defaultEntitiesRepository(),
-	relationshipSchemasRepository: RelationshipSchemasRepository = defaultRelationshipSchemasRepository(),
-	workflowEngine: WorkflowEngine["Type"] = makeWorkflowEngine(),
+	options: {
+		workflowEngine?: WorkflowEngine["Type"];
+		entitiesRepository?: EntitiesRepository;
+		collectionsRepository?: CollectionsRepository;
+		relationshipsRepository?: RelationshipsRepository;
+		relationshipSchemasRepository?: RelationshipSchemasRepository;
+	} = {},
 ) =>
 	CollectionsService.Default.pipe(
 		Layer.provide(
 			Layer.mergeAll(
 				dbRunnerLayer,
 				transactionLayer,
-				Layer.succeed(WorkflowEngine, workflowEngine),
-				Layer.succeed(CollectionsRepository, collectionsRepository),
-				Layer.succeed(EntitiesRepository, entitiesRepository),
-				Layer.succeed(RelationshipSchemasRepository, relationshipSchemasRepository),
+				Layer.succeed(WorkflowEngine, options.workflowEngine ?? makeWorkflowEngine()),
+				Layer.succeed(
+					CollectionsRepository,
+					options.collectionsRepository ?? defaultCollectionsRepository(),
+				),
+				Layer.succeed(
+					EntitiesRepository,
+					options.entitiesRepository ?? defaultEntitiesRepository(),
+				),
+				Layer.succeed(
+					RelationshipsRepository,
+					options.relationshipsRepository ?? defaultRelationshipsRepository(),
+				),
+				Layer.succeed(
+					RelationshipSchemasRepository,
+					options.relationshipSchemasRepository ?? defaultRelationshipSchemasRepository(),
+				),
 			),
 		),
 	);
@@ -197,21 +217,25 @@ it.effect("rejects creating a collection with invalid membershipPropertiesSchema
 it.effect("creates a collection with valid inputs", () => {
 	let created = false;
 
-	const layer = makeServiceLayer(
-		Object.assign(Object.create(null), defaultCollectionsRepository(), {
-			createCollectionForUser: () => {
+	const layer = makeServiceLayer({
+		entitiesRepository: makeEntitiesRepository({
+			createEntity: () => {
 				created = true;
 				return Effect.succeed({
+					image: null,
 					createdAt: now,
 					updatedAt: now,
+					externalId: null,
 					name: "Favorites",
+					populatedAt: null,
 					id: "collection-id",
+					sandboxScriptId: null,
 					entitySchemaId: "collection-schema-id",
 					properties: { description: "My favorites" },
 				});
 			},
 		}),
-	);
+	});
 
 	return Effect.gen(function* () {
 		const service = yield* CollectionsService;
@@ -239,11 +263,11 @@ it.effect("rejects adding a collection to itself", () => {
 });
 
 it.effect("returns not found when collection does not exist for user", () => {
-	const layer = makeServiceLayer(
-		Object.assign(Object.create(null), defaultCollectionsRepository(), {
+	const layer = makeServiceLayer({
+		collectionsRepository: makeCollectionsRepository({
 			getCollectionById: () => Effect.succeed(null),
 		}),
-	);
+	});
 
 	return Effect.gen(function* () {
 		const service = yield* CollectionsService;
@@ -256,20 +280,23 @@ it.effect("returns not found when collection does not exist for user", () => {
 });
 
 it.effect("returns not found when entity does not exist", () => {
-	const layer = makeServiceLayer(
-		Object.assign(Object.create(null), defaultCollectionsRepository(), {
+	const layer = makeServiceLayer({
+		collectionsRepository: makeCollectionsRepository({
 			getEntityForMembership: () => Effect.succeed(null),
 			getCollectionById: () =>
 				Effect.succeed({
+					image: null,
 					name: "Coll",
 					id: "coll-id",
 					createdAt: now,
 					updatedAt: now,
 					properties: {},
+					externalId: null,
+					sandboxScriptId: null,
 					entitySchemaId: "collection-schema-id",
 				}),
 		}),
-	);
+	});
 
 	return Effect.gen(function* () {
 		const service = yield* CollectionsService;
@@ -300,25 +327,28 @@ it.effect("creates membership event only on first add, not on upsert", () => {
 		}) as WorkflowEngine["Type"]["execute"],
 	});
 
-	const layer = makeServiceLayer(
-		Object.assign(Object.create(null), defaultCollectionsRepository(), {
-			upsertMembership: () => Effect.succeed(membership),
+	const layer = makeServiceLayer({
+		workflowEngine,
+		collectionsRepository: makeCollectionsRepository({
 			getEntityForMembership: () =>
 				Effect.succeed({ id: "entity-id", userId: user.id, entitySchemaSlug: "book" }),
 			getCollectionById: () =>
 				Effect.succeed({
+					image: null,
 					name: "Coll",
 					id: "coll-id",
 					createdAt: now,
 					updatedAt: now,
 					properties: {},
+					externalId: null,
+					sandboxScriptId: null,
 					entitySchemaId: "collection-schema-id",
 				}),
 		}),
-		defaultEntitiesRepository(),
-		defaultRelationshipSchemasRepository(),
-		workflowEngine,
-	);
+		relationshipsRepository: makeRelationshipsRepository({
+			upsertMembership: () => Effect.succeed(membership),
+		}),
+	});
 
 	return Effect.gen(function* () {
 		const service = yield* CollectionsService;
@@ -347,25 +377,28 @@ it.effect("does not create membership event on upsert update", () => {
 		}) as WorkflowEngine["Type"]["execute"],
 	});
 
-	const layer = makeServiceLayer(
-		Object.assign(Object.create(null), defaultCollectionsRepository(), {
+	const layer = makeServiceLayer({
+		workflowEngine,
+		relationshipsRepository: makeRelationshipsRepository({
+			upsertMembership: () => Effect.succeed(membership),
+		}),
+		collectionsRepository: makeCollectionsRepository({
+			getEntityForMembership: () =>
+				Effect.succeed({ id: "entity-id", userId: user.id, entitySchemaSlug: "book" }),
 			getCollectionById: () =>
 				Effect.succeed({
+					image: null,
 					name: "Coll",
 					id: "coll-id",
 					createdAt: now,
 					updatedAt: now,
 					properties: {},
+					externalId: null,
+					sandboxScriptId: null,
 					entitySchemaId: "collection-schema-id",
 				}),
-			getEntityForMembership: () =>
-				Effect.succeed({ id: "entity-id", userId: user.id, entitySchemaSlug: "book" }),
-			upsertMembership: () => Effect.succeed(membership),
 		}),
-		defaultEntitiesRepository(),
-		defaultRelationshipSchemasRepository(),
-		workflowEngine,
-	);
+	});
 
 	return Effect.gen(function* () {
 		const service = yield* CollectionsService;
@@ -376,22 +409,27 @@ it.effect("does not create membership event on upsert update", () => {
 });
 
 it.effect("returns not found when removing entity not in collection", () => {
-	const layer = makeServiceLayer(
-		Object.assign(Object.create(null), defaultCollectionsRepository(), {
+	const layer = makeServiceLayer({
+		relationshipsRepository: makeRelationshipsRepository({
+			deleteMembership: () => Effect.succeed(null),
+		}),
+		collectionsRepository: makeCollectionsRepository({
+			getEntityForMembership: () =>
+				Effect.succeed({ id: "entity-id", userId: user.id, entitySchemaSlug: "book" }),
 			getCollectionById: () =>
 				Effect.succeed({
+					image: null,
 					name: "Coll",
 					id: "coll-id",
 					createdAt: now,
 					updatedAt: now,
 					properties: {},
+					externalId: null,
+					sandboxScriptId: null,
 					entitySchemaId: "collection-schema-id",
 				}),
-			getEntityForMembership: () =>
-				Effect.succeed({ id: "entity-id", userId: user.id, entitySchemaSlug: "book" }),
-			deleteMembership: () => Effect.succeed(null),
 		}),
-	);
+	});
 
 	return Effect.gen(function* () {
 		const service = yield* CollectionsService;
@@ -421,25 +459,28 @@ it.effect("creates remove event on successful membership deletion", () => {
 		}) as WorkflowEngine["Type"]["execute"],
 	});
 
-	const layer = makeServiceLayer(
-		Object.assign(Object.create(null), defaultCollectionsRepository(), {
+	const layer = makeServiceLayer({
+		workflowEngine,
+		relationshipsRepository: makeRelationshipsRepository({
 			deleteMembership: () => Effect.succeed(deletedMembership),
+		}),
+		collectionsRepository: makeCollectionsRepository({
 			getEntityForMembership: () =>
 				Effect.succeed({ id: "entity-id", userId: user.id, entitySchemaSlug: "book" }),
 			getCollectionById: () =>
 				Effect.succeed({
 					name: "Coll",
 					id: "coll-id",
+					image: null,
 					createdAt: now,
 					updatedAt: now,
 					properties: {},
+					externalId: null,
+					sandboxScriptId: null,
 					entitySchemaId: "collection-schema-id",
 				}),
 		}),
-		defaultEntitiesRepository(),
-		defaultRelationshipSchemasRepository(),
-		workflowEngine,
-	);
+	});
 
 	return Effect.gen(function* () {
 		const service = yield* CollectionsService;
@@ -456,19 +497,27 @@ it.effect("creates remove event on successful membership deletion", () => {
 it.effect("merges ownership sources when marking an entity owned in the library", () => {
 	let upserted: { properties: Record<string, unknown> } | undefined;
 
-	const collectionsRepository = Object.assign(defaultCollectionsRepository(), {
-		getUserLibraryEntityId: () => Effect.succeed("library-entity-id"),
+	const layer = makeServiceLayer({
+		collectionsRepository: makeCollectionsRepository({
+			getUserLibraryEntityId: () => Effect.succeed("library-entity-id"),
+		}),
+		relationshipsRepository: makeRelationshipsRepository({
+			findRelationshipProperties: () =>
+				Effect.succeed({ owned: true, ownershipSources: ["plex_yank"] }),
+			upsertRelationship: (input: { properties: Record<string, unknown> }) => {
+				upserted = input;
+				return Effect.succeed({
+					id: "rel-id",
+					createdAt: now,
+					wasInserted: true,
+					sourceEntityId: "entity-id",
+					properties: input.properties,
+					targetEntityId: "library-entity-id",
+					relationshipSchemaId: "in-library-schema-id",
+				});
+			},
+		}),
 	});
-	const entitiesRepository = Object.assign(defaultEntitiesRepository(), {
-		findRelationshipProperties: () =>
-			Effect.succeed({ owned: true, ownershipSources: ["plex_yank"] }),
-		upsertRelationship: (input: { properties: Record<string, unknown> }) => {
-			upserted = input;
-			return Effect.succeed({ id: "rel-id" });
-		},
-	});
-
-	const layer = makeServiceLayer(collectionsRepository, entitiesRepository);
 
 	return Effect.gen(function* () {
 		const service = yield* CollectionsService;
