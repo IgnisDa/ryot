@@ -166,9 +166,9 @@ The implementation should favor direct replacement over compatibility. Existing 
 
 ## Tasks
 
-**Overall Progress:** 6 of 7 tasks completed
+**Overall Progress:** 7 of 7 tasks completed
 
-**Current Task:** [Task 07](./07-codebase-cleanup.md) (todo)
+**Current Task:** None (all tasks complete)
 
 ### Task List
 
@@ -180,4 +180,4 @@ The implementation should favor direct replacement over compatibility. Existing 
 | 04  | [Integration Sink Workflow Orchestration](./04-integration-sink-workflow-orchestration.md)                   | AFK  | done   |
 | 05  | [Integration Yank Workflow Orchestration](./05-integration-yank-workflow-orchestration.md)                   | AFK  | done   |
 | 06  | [Sandbox Boundary And Raw Engine Audit](./06-sandbox-boundary-and-raw-engine-audit.md)                       | AFK  | done   |
-| 07  | [Codebase Cleanup](./07-codebase-cleanup.md)                                                                 | AFK  | todo   |
+| 07  | [Codebase Cleanup](./07-codebase-cleanup.md)                                                                 | AFK  | done   |
