@@ -22,7 +22,7 @@ import {
 	requireRyotQLFieldValue,
 	requireRows,
 } from "~/fixtures";
-import { assertPresent } from "~/support/assertions";
+import { assertCondition, assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 const savedViewEntity = table("entity", "entity");
@@ -132,9 +132,10 @@ describe("Workouts E2E", () => {
 			assertPresent(allWorkoutsView, "Expected the built-in All Workouts saved view");
 			const savedViewQuery = allWorkoutsView.queryDocument.queries.savedView;
 			assertPresent(savedViewQuery, "Expected the All Workouts saved-view query");
-			if (savedViewQuery.output.type !== "rows") {
-				throw new Error("Expected the All Workouts saved-view query to use rows output");
-			}
+			assertCondition(
+				savedViewQuery.output.type === "rows",
+				"Expected the All Workouts saved-view query to use rows output",
+			);
 
 			expect(allWorkoutsView).toMatchObject({
 				isBuiltin: true,
