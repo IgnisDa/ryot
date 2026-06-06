@@ -9,8 +9,8 @@ import { Button, ButtonSpinner, ButtonText } from "@/components/ui/button";
 import { Input, InputField } from "@/components/ui/input";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
-import { createApiClient } from "@/lib/api-client";
 import { useSetServerUrl } from "@/lib/atoms";
+import { createContractRunner } from "@/lib/contract-client";
 import { resolveServerUrl } from "@/lib/server";
 
 type ServerMode = "cloud" | "self-hosted";
@@ -42,8 +42,9 @@ export default function Onboarding() {
 					throw new Error("Please enter a valid URL");
 				}
 			}
-			const { error } = await createApiClient(targetUrl).GET("/system/health");
-			if (error) {
+			try {
+				await createContractRunner(targetUrl)((client) => client.system.health());
+			} catch {
 				throw new Error("Could not reach the server");
 			}
 			return targetUrl;
