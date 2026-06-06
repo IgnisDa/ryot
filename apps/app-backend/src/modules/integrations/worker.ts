@@ -1,11 +1,10 @@
 import { DurableQueue } from "@effect/workflow";
-import { DateTime, Effect, Schema } from "effect";
+import { DateTime, Effect } from "effect";
 
 import { DbRunner } from "~/lib/db";
-import {
-	processMediaImport,
-	type MediaImportAdapterResult,
-	type MediaImportAdapterResultSchema,
+import type {
+	MediaImportAdapterResult,
+	MediaImportAdapterResultSchema,
 } from "~/modules/imports/media/import-processor";
 import type { ImportEntityRef } from "~/modules/imports/media/types";
 import { ImportsRepository } from "~/modules/imports/repository";
@@ -19,11 +18,10 @@ import {
 	syncAudiobookshelfOwnedItems,
 } from "~/modules/imports/sources/audiobookshelf/adapter";
 import { adaptPlexData, syncPlexYankOwnedItems } from "~/modules/imports/sources/plex/adapter";
+import { SandboxExecutionQueue } from "~/modules/sandbox/durable-queues";
 
-import { IntegrationRunError, IntegrationRunJobData } from "./jobs";
 import { IntegrationsRepository, type IntegrationRecord } from "./repository";
 import { adaptKomgaData, syncKomgaOwnedItems } from "./yank/komga";
-import { adaptYoutubeMusicData } from "./yank/youtube-music";
 
 type OwnedItem = { entityRef: ImportEntityRef; provider: string };
 
@@ -56,6 +54,79 @@ const withOwnership = <EA, RA, EO, RO>(
 				return appendOwnedItems(progressResult, owned);
 			})
 		: progress;
+
+const resolveYankAdapter = (integration: IntegrationRecord) => {
+	const specs = integration.providerSpecifics;
+	if (specs.kind === "audiobookshelf") {
+		const credentials = { apiKey: specs.token, apiUrl: specs.baseUrl };
+		return {
+			fallback: "Failed to fetch data from Audiobookshelf",
+			load: withOwnership(
+				integration.syncOwnership,
+				adaptAudiobookshelfData(credentials),
+				syncAudiobookshelfOwnedItems(credentials),
+			),
+		};
+	}
+	if (specs.kind === "plex_yank") {
+		const credentials = { apiKey: specs.token, apiUrl: specs.baseUrl };
+		return {
+			fallback: "Failed to fetch data from Plex",
+			load: withOwnership(
+				integration.syncOwnership,
+				adaptPlexData(credentials),
+				syncPlexYankOwnedItems(credentials),
+			),
+		};
+	}
+	if (specs.kind === "komga") {
+		const credentials = { apiKey: specs.apiKey, baseUrl: specs.baseUrl };
+		return {
+			fallback: "Failed to fetch data from Komga",
+			load: withOwnership(
+				integration.syncOwnership,
+				adaptKomgaData(credentials),
+				syncKomgaOwnedItems(credentials),
+			),
+		};
+	}
+	return null;
+};
+
+export const loadYankAdapterResult = (integration: IntegrationRecord) => {
+	const adapter = resolveYankAdapter(integration);
+	if (!adapter) {
+		return Effect.fail({
+			cleanupPaths: [] as ReadonlyArray<string>,
+			message: `${integration.provider} integration is not implemented in V2 yet`,
+		});
+	}
+
+	return adapter.load.pipe(
+		Effect.map((adapterResult) => ({
+			adapterResult,
+			cleanupPaths: [] as ReadonlyArray<string>,
+		})),
+		Effect.mapError((error) => ({
+			cleanupPaths: [] as ReadonlyArray<string>,
+			message: sanitizeErrorMessage(error, adapter.fallback),
+		})),
+	);
+};
+
+export const runYoutubeMusicHistorySandbox = (input: {
+	userId: string;
+	scriptId: string;
+	executionId: string;
+	context: { authCookie: string; timezone: string };
+}) =>
+	DurableQueue.process(SandboxExecutionQueue, {
+		driverName: "history",
+		userId: input.userId,
+		context: input.context,
+		scriptId: input.scriptId,
+		executionId: input.executionId,
+	});
 
 const markFailedRunCounts = (runId: string, failureCount: number) =>
 	Effect.gen(function* () {
@@ -105,14 +176,6 @@ export const failUnsupportedIntegrationRun = (runId: string, provider: string) =
 		yield* failImportRun(runId, `${provider} integration is not implemented in V2 yet`);
 	});
 
-const markRunStarted = (runId: string) =>
-	Effect.gen(function* () {
-		const runWithDb = yield* DbRunner;
-		const repository = yield* ImportsRepository;
-		const startedAt = yield* DateTime.nowAsDate;
-		yield* runWithDb(repository.updateRun({ runId, status: "running", startedAt }));
-	});
-
 export const finalizeIntegrationRun = (integration: IntegrationRecord, runId: string) =>
 	Effect.gen(function* () {
 		const repository = yield* ImportsRepository;
@@ -154,130 +217,3 @@ export const finalizeIntegrationRun = (integration: IntegrationRecord, runId: st
 				.pipe(Effect.asVoid),
 		);
 	});
-
-const runYankIntegration = (integration: IntegrationRecord, runId: string) =>
-	Effect.gen(function* () {
-		const specs = integration.providerSpecifics;
-		const eventContext = { origin: "integration" as const, integrationId: integration.id };
-
-		if (specs.kind === "audiobookshelf") {
-			const credentials = { apiKey: specs.token, apiUrl: specs.baseUrl };
-			yield* processMediaImport({
-				runId,
-				eventContext,
-				userId: integration.userId,
-				sourceName: "Audiobookshelf",
-				adapterErrorFallback: "Failed to fetch data from Audiobookshelf",
-				loadAdapterResult: withOwnership(
-					integration.syncOwnership,
-					adaptAudiobookshelfData(credentials),
-					syncAudiobookshelfOwnedItems(credentials),
-				),
-			});
-			return;
-		}
-		if (specs.kind === "plex_yank") {
-			const credentials = { apiKey: specs.token, apiUrl: specs.baseUrl };
-			yield* processMediaImport({
-				runId,
-				eventContext,
-				sourceName: "Plex",
-				userId: integration.userId,
-				adapterErrorFallback: "Failed to fetch data from Plex",
-				loadAdapterResult: withOwnership(
-					integration.syncOwnership,
-					adaptPlexData(credentials),
-					syncPlexYankOwnedItems(credentials),
-				),
-			});
-			return;
-		}
-		if (specs.kind === "komga") {
-			const credentials = { apiKey: specs.apiKey, baseUrl: specs.baseUrl };
-			yield* processMediaImport({
-				runId,
-				eventContext,
-				sourceName: "Komga",
-				userId: integration.userId,
-				adapterErrorFallback: "Failed to fetch data from Komga",
-				loadAdapterResult: withOwnership(
-					integration.syncOwnership,
-					adaptKomgaData(credentials),
-					syncKomgaOwnedItems(credentials),
-				),
-			});
-			return;
-		}
-		if (specs.kind === "youtube_music") {
-			yield* processMediaImport({
-				runId,
-				eventContext,
-				userId: integration.userId,
-				sourceName: "YouTube Music",
-				adapterErrorFallback: "Failed to fetch data from YouTube Music",
-				loadAdapterResult: adaptYoutubeMusicData({
-					runId,
-					userId: integration.userId,
-					timezone: specs.timezone,
-					authCookie: specs.authCookie,
-					integrationId: integration.id,
-				}),
-			});
-			return;
-		}
-
-		yield* failUnsupportedIntegrationRun(runId, integration.provider);
-	});
-
-export const IntegrationRunQueue = DurableQueue.make({
-	success: Schema.Void,
-	error: IntegrationRunError,
-	payload: IntegrationRunJobData,
-	idempotencyKey: ({ runId }) => runId,
-	name: "IntegrationRunProcessingQueue",
-});
-
-const processIntegrationRunJob = (payload: IntegrationRunJobData) =>
-	Effect.gen(function* () {
-		const runWithDb = yield* DbRunner;
-		const repository = yield* IntegrationsRepository;
-
-		const integration = yield* runWithDb(
-			repository.getByIdAnyUser({ integrationId: payload.integrationId }),
-		);
-		if (!integration) {
-			yield* failImportRun(payload.runId, "Integration not found");
-			return;
-		}
-
-		if (integration.isDisabled) {
-			yield* failImportRun(payload.runId, "Integration is disabled");
-			return;
-		}
-
-		const disableIntegrations = yield* runWithDb(
-			repository.getUserDisableIntegrations({ userId: integration.userId }),
-		);
-		if (disableIntegrations) {
-			yield* failImportRun(payload.runId, "Integrations are disabled for this user");
-			return;
-		}
-
-		yield* markRunStarted(payload.runId);
-
-		yield* runYankIntegration(integration, payload.runId).pipe(
-			Effect.catchAll((error) =>
-				failImportRun(
-					payload.runId,
-					sanitizeErrorMessage(error, "Integration job failed unexpectedly"),
-				),
-			),
-		);
-		yield* finalizeIntegrationRun(integration, payload.runId);
-	});
-
-export const IntegrationRunQueueWorkerLive = DurableQueue.worker(
-	IntegrationRunQueue,
-	(payload) => processIntegrationRunJob(payload).pipe(Effect.orDie),
-	{ concurrency: 1 },
-);
