@@ -15,6 +15,11 @@ export const importerConfig = {
 				return readEnv("BOOKS_HARDCOVER_API_KEY");
 			},
 		},
+		googleBooks: {
+			get apiKey() {
+				return readEnv("BOOKS_GOOGLE_BOOKS_API_KEY");
+			},
+		},
 	},
 	animeAndManga: {
 		mal: {

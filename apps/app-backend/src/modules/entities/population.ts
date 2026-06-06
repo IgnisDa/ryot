@@ -30,6 +30,10 @@ const EntityDetailsResult = Schema.Struct({
 
 const decodeEntityDetailsResult = Schema.decodeUnknown(EntityDetailsResult);
 
+const EntityResolveResult = Schema.Struct({ externalId: Schema.NullOr(Schema.String) });
+
+const decodeEntityResolveResult = Schema.decodeUnknown(EntityResolveResult);
+
 const processRelatedEntity = (input: {
 	sourceEntityId: string;
 	sourceEntitySchemaId: string;
@@ -186,3 +190,40 @@ export const populateGlobalEntity = (input: {
 				: new SandboxRunError({ message: unknownToMessage(error) }),
 		),
 	);
+
+export const resolveGlobalEntityExternalId = (input: {
+	value: string;
+	userId: string;
+	scriptId: string;
+	executionId: string;
+	identifierType: string;
+}) =>
+	Effect.gen(function* () {
+		const engine = yield* WorkflowEngine;
+
+		const sandboxResult = yield* engine
+			.execute(RunSandboxWorkflow, {
+				executionId: input.executionId,
+				payload: {
+					userId: input.userId,
+					driverName: "resolve",
+					scriptId: input.scriptId,
+					executionId: input.executionId,
+					context: { value: input.value, identifierType: input.identifierType },
+				},
+			})
+			.pipe(Effect.mapError((error) => new SandboxRunError({ message: unknownToMessage(error) })));
+
+		if (sandboxResult.error) {
+			return yield* new SandboxRunError({ message: sandboxResult.error });
+		}
+
+		const resolved = yield* decodeEntityResolveResult(sandboxResult.value).pipe(
+			Effect.mapError(
+				() =>
+					new SandboxRunError({ message: "Entity resolve script returned an unexpected shape" }),
+			),
+		);
+
+		return { externalId: resolved.externalId };
+	});
