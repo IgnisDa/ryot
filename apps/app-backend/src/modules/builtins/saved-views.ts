@@ -1,5 +1,8 @@
 import { normalizeSlug } from "@ryot/ts-utils/slug";
-import { createEntityColumnExpression } from "@ryot/ts-utils/view-language";
+import {
+	createEntityColumnExpression,
+	createEntityPropertyExpression,
+} from "@ryot/ts-utils/view-language";
 import { match } from "ts-pattern";
 
 import {
@@ -101,6 +104,13 @@ export const builtinSavedViews = (): BuiltinSavedView[] => [
 		name: "All Measurements",
 		entitySchemaSlug: "measurement",
 		displayConfiguration: createDefaultDisplayConfiguration("measurement"),
+		queryDefinition: {
+			...createDefaultQueryDefinition(["measurement"]),
+			sort: {
+				direction: "desc",
+				expression: createEntityPropertyExpression("measurement", "recordedAt"),
+			},
+		},
 	},
 	{
 		trackerSlug: "fitness",

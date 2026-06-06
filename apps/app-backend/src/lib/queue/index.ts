@@ -8,6 +8,7 @@ export const initializeQueues = async () => {
 	await Promise.all([
 		queues.entityQueue.waitUntilReady(),
 		queues.eventsQueue.waitUntilReady(),
+		queues.importQueue.waitUntilReady(),
 		queues.sandboxQueue.waitUntilReady(),
 	]);
 	console.info("Queues initialized");
@@ -26,6 +27,7 @@ export const shutdownQueues = async () => {
 		await Promise.all([
 			queues.entityQueue.close(),
 			queues.eventsQueue.close(),
+			queues.importQueue.close(),
 			queues.sandboxQueue.close(),
 		]);
 		queues = null;

@@ -1,10 +1,12 @@
 import { createEntityImportWorker } from "~/modules/entities/worker";
 import { createEventsWorker } from "~/modules/events";
+import { createImportWorker } from "~/modules/imports";
 
 import { getSandboxService } from "../sandbox";
 
 const createWorkers = () => ({
 	eventsWorker: createEventsWorker(),
+	importWorker: createImportWorker(),
 	entityImportWorker: createEntityImportWorker(),
 	sandboxWorker: getSandboxService().createWorker(),
 });
@@ -30,6 +32,7 @@ export const shutdownWorkers = async () => {
 	if (workers) {
 		await Promise.all([
 			workers.eventsWorker.close(),
+			workers.importWorker.close(),
 			workers.sandboxWorker.close(),
 			workers.entityImportWorker.close(),
 		]);
