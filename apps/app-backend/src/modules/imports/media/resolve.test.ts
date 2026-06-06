@@ -189,4 +189,38 @@ describe("resolveMediaEntityRefs", () => {
 			externalId: "hc9",
 		});
 	});
+
+	it("uses schema-aware candidates for non-book identifiers", async () => {
+		const attempted: string[] = [];
+		const result = await runResolve(
+			[
+				{
+					events: [],
+					collectionMemberships: [],
+					entityRef: {
+						kind: "unresolved",
+						identifierType: "imdb",
+						sourceLabel: "Movie One",
+						identifierValue: "tt123",
+						entitySchemaSlug: "movie",
+					},
+				},
+			],
+			createResolveDeps({
+				getResolutionCandidates: ({ entitySchemaSlug, identifierType }) =>
+					entitySchemaSlug === "movie" && identifierType === "imdb" ? ["movie.tmdb"] : [],
+				resolveGlobalEntityExternalId: (_job, _token, input) => {
+					attempted.push(input.scriptId);
+					return Promise.resolve({ externalId: "tmdb_1" });
+				},
+			}),
+		);
+
+		expect(attempted).toEqual(["movie.tmdb"]);
+		expect(result.entityGroups[0]?.entityRef).toMatchObject({
+			kind: "resolved",
+			externalId: "tmdb_1",
+			scriptSlug: "movie.tmdb",
+		});
+	});
 });

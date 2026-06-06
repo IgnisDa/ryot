@@ -65,7 +65,7 @@ For a new source:
 
 - Goodreads and StoryGraph: emit unresolved ISBN refs and rely on sandbox resolution.
 - Hardcover CSV: emits resolved Hardcover book ids directly.
-- Trakt: source connector stays in app code, emits resolved TMDB refs directly.
+- Trakt: source connector stays in app code, emits resolved TMDB refs when present and unresolved IMDB refs when TMDB is missing.
 - Hevy and Strong: adapters normalize workout payloads into workout-domain items.
 - OpenScale: adapter normalizes measurement rows and writes them without provider resolution.
 
