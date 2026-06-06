@@ -106,6 +106,18 @@ describe("adaptHevyCsv", () => {
 		expect(result.items[0]?.exercises[0]?.sets[0]?.distance).toBe(10);
 	});
 
+	it("converts weight from pounds to kg", () => {
+		const csv = [
+			"title,start_time,end_time,description,exercise_title,superset_id,exercise_notes,set_order,weight_lbs,reps,set_type,distance_m,duration_seconds",
+			"Push Day,2026-01-01T10:00:00,2026-01-01T11:00:00,,Bench Press,,,1,220.462262,5,normal,,,",
+		].join("\n");
+
+		const result = adaptHevyCsv(csv);
+
+		expect(result.failures).toEqual([]);
+		expect(result.items[0]?.exercises[0]?.sets[0]?.weight).toBeCloseTo(100, 5);
+	});
+
 	it("records item failures for exercises without meaningful set statistics", () => {
 		const csv = [
 			HEVY_HEADERS,

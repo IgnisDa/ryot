@@ -1,4 +1,4 @@
-import { config } from "~/lib/config";
+import { appConfig, config } from "~/lib/config";
 
 import { fileImportRunSources, type CreateImportRunBody } from "../schemas";
 
@@ -16,6 +16,10 @@ export const getAllowedExtensionsForSource = (source: CreateImportRunBody["sourc
 const sourceStartValidators: Partial<
 	Record<CreateImportRunBody["source"], () => string | undefined>
 > = {
+	hardcover: () =>
+		appConfig.books.hardcover.apiKey
+			? undefined
+			: "Hardcover importer is not configured. Set BOOKS_HARDCOVER_API_KEY.",
 	trakt: () =>
 		config.importer.trakt.clientId
 			? undefined
