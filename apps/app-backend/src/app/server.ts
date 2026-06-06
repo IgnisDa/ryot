@@ -19,6 +19,7 @@ import { SandboxRoutesLive } from "#modules/sandbox/routes";
 import { SavedViewsRoutesLive } from "#modules/saved-views/routes";
 import { SystemRoutesLive } from "#modules/system/routes";
 import { TrackersRoutesLive } from "#modules/trackers/routes";
+import { UploadBodyLimitMiddlewareLive } from "#modules/uploads/middleware";
 import { UploadsRoutesLive } from "#modules/uploads/routes";
 
 const mimeTypes: Record<string, string> = {
@@ -83,6 +84,7 @@ const ApiLive = HttpApiBuilder.api(AppContract).pipe(
 	Layer.provide(QueryEngineRoutesLive),
 	Layer.provide(AuthMiddlewareLive),
 	Layer.provide(AdminMiddlewareLive),
+	Layer.provide(UploadBodyLimitMiddlewareLive),
 );
 
 const ScalarLive = HttpApiScalar.layer({ path: "/docs" }).pipe(Layer.provide(ApiLive));
