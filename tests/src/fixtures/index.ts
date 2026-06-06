@@ -10,6 +10,7 @@ export * from "./imports";
 export * from "./measurements";
 export * from "./media";
 export * from "./query-engine";
+export * from "./relationship-schemas";
 export * from "./sandbox";
 export * from "./saved-views";
 export * from "./trackers";
