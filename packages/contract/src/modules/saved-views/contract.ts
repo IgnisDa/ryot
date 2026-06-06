@@ -16,28 +16,28 @@ export const SavedViewsGroup = HttpApiGroup.make("savedViews")
 	.annotate(OpenApi.Description, "Manages saved views")
 	.add(
 		HttpApiEndpoint.get("list", "/saved-views", {
+			success: Schema.Array(ListedSavedView),
+			error: [BadRequest.pipe(HttpApiSchema.status(400))],
 			query: {
 				pluginSlug: Schema.optional(PluginSlug),
 				includeDisabled: Schema.Boolean.pipe(
 					(schema) =>
 						Schema.optional(schema).pipe(
 							Schema.decodeTo(Schema.toType(schema), {
-								decode: SchemaGetter.withDefault(Effect.sync(() => false)),
 								encode: SchemaGetter.required(),
+								decode: SchemaGetter.withDefault(Effect.sync(() => false)),
 							}),
 						),
 					Schema.withConstructorDefault(Effect.sync(() => false)),
 				),
 			},
-			success: Schema.Array(ListedSavedView),
-			error: [BadRequest.pipe(HttpApiSchema.status(400))],
 		}).annotate(OpenApi.Description, "Lists saved views with optional plugin and status filters"),
 	)
 	.add(
 		HttpApiEndpoint.post("create", "/saved-views", {
 			payload: CreateSavedViewBody,
-			success: ListedSavedView.pipe(HttpApiSchema.status(201)),
 			error: [BadRequest.pipe(HttpApiSchema.status(400))],
+			success: ListedSavedView.pipe(HttpApiSchema.status(201)),
 		}).annotate(OpenApi.Description, "Creates a saved view"),
 	)
 	.add(

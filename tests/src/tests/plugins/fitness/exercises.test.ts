@@ -1,10 +1,6 @@
-import {
-	createEntityColumnExpression,
-	createEntityPropertyExpression,
-	createEntityPropertyPathExpression,
-	createTransformExpression,
-} from "@ryot/contract/display-configuration";
+import type { FieldSelection } from "@ryot/contract/modules/ryotql/language";
 import { buildExerciseListQueryDocument } from "@ryot/fitness-plugin/query-recipes";
+import { column, field, jsonPath, literal, table, titleCase } from "@ryot/ryotql";
 import { Effect } from "effect";
 
 import {
@@ -24,12 +20,31 @@ import {
 	requireRyotQLFieldValue,
 	requireRows,
 } from "~/fixtures";
-import { assertTaggedError } from "~/support/assertions";
+import { assertPresent, assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 const seededExerciseName = "3/4 Sit-Up";
 const seededExerciseImageUrl =
 	"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/3_4_Sit-Up/0.jpg";
+const entity = table("entity", "entity");
+const expectedSavedViewFields = [
+	field("entityId", column(entity, "id")),
+	field("gridTitle", column(entity, "name")),
+	field("gridImage", jsonPath(column(entity, "properties"), "images", 0)),
+	field("gridEyebrow", literal("Exercise")),
+	field("gridCallout", titleCase(jsonPath(column(entity, "properties"), "level"))),
+	field("gridPrimarySubtitle", titleCase(jsonPath(column(entity, "properties"), "kind"))),
+	field("gridSecondarySubtitle", titleCase(jsonPath(column(entity, "properties"), "equipment"))),
+	field("listTitle", column(entity, "name")),
+	field("listImage", jsonPath(column(entity, "properties"), "images", 0)),
+	field("listEyebrow", literal("Exercise")),
+	field("listCallout", titleCase(jsonPath(column(entity, "properties"), "level"))),
+	field("listPrimarySubtitle", titleCase(jsonPath(column(entity, "properties"), "kind"))),
+	field("listSecondarySubtitle", titleCase(jsonPath(column(entity, "properties"), "equipment"))),
+	field("tableColumn0", column(entity, "name")),
+	field("tableColumn1", titleCase(jsonPath(column(entity, "properties"), "level"))),
+	field("tableColumn2", titleCase(jsonPath(column(entity, "properties"), "equipment"))),
+] satisfies readonly FieldSelection[];
 
 const waitForSeededExercise = (client: Client) =>
 	pollUntil(
@@ -96,8 +111,13 @@ describe("Exercises E2E", () => {
 				pluginSlug: fitnessPlugin.slug,
 			});
 			const allExercisesView = views.find((view) => view.name === "All Exercises");
+			assertPresent(allExercisesView, "Expected the built-in All Exercises saved view");
+			const savedViewQuery = allExercisesView.queryDocument.queries.savedView;
+			assertPresent(savedViewQuery, "Expected the All Exercises saved-view query");
+			if (savedViewQuery.output.type !== "rows") {
+				throw new Error("Expected the All Exercises saved-view query to use rows output");
+			}
 
-			expect(allExercisesView).toBeDefined();
 			expect(allExercisesView).toMatchObject({
 				isBuiltin: true,
 				name: "All Exercises",
@@ -115,57 +135,37 @@ describe("Exercises E2E", () => {
 				displayConfiguration: {
 					table: {
 						columns: [
-							{ label: "Name", expression: createEntityColumnExpression("exercise", "name") },
+							{ label: "Name", field: "tableColumn0" },
 							{
 								label: "Level",
-								expression: createTransformExpression(
-									"titleCase",
-									createEntityPropertyExpression("exercise", "level"),
-								),
+								field: "tableColumn1",
 							},
 							{
 								label: "Equipment",
-								expression: createTransformExpression(
-									"titleCase",
-									createEntityPropertyExpression("exercise", "equipment"),
-								),
+								field: "tableColumn2",
 							},
 						],
 					},
 					grid: {
-						titleProperty: createEntityColumnExpression("exercise", "name"),
-						imageProperty: createEntityPropertyPathExpression("exercise", ["images", "0"]),
-						calloutProperty: createTransformExpression(
-							"titleCase",
-							createEntityPropertyExpression("exercise", "level"),
-						),
-						primarySubtitleProperty: createTransformExpression(
-							"titleCase",
-							createEntityPropertyExpression("exercise", "kind"),
-						),
-						secondarySubtitleProperty: createTransformExpression(
-							"titleCase",
-							createEntityPropertyExpression("exercise", "equipment"),
-						),
+						titleField: "gridTitle",
+						imageField: "gridImage",
+						eyebrowField: "gridEyebrow",
+						calloutField: "gridCallout",
+						primarySubtitleField: "gridPrimarySubtitle",
+						secondarySubtitleField: "gridSecondarySubtitle",
 					},
 					list: {
-						titleProperty: createEntityColumnExpression("exercise", "name"),
-						imageProperty: createEntityPropertyPathExpression("exercise", ["images", "0"]),
-						calloutProperty: createTransformExpression(
-							"titleCase",
-							createEntityPropertyExpression("exercise", "level"),
-						),
-						primarySubtitleProperty: createTransformExpression(
-							"titleCase",
-							createEntityPropertyExpression("exercise", "kind"),
-						),
-						secondarySubtitleProperty: createTransformExpression(
-							"titleCase",
-							createEntityPropertyExpression("exercise", "equipment"),
-						),
+						titleField: "listTitle",
+						imageField: "listImage",
+						eyebrowField: "listEyebrow",
+						calloutField: "listCallout",
+						primarySubtitleField: "listPrimarySubtitle",
+						secondarySubtitleField: "listSecondarySubtitle",
 					},
+					entityIdField: "entityId",
 				},
 			});
+			expect(savedViewQuery.output.fields).toEqual(expectedSavedViewFields);
 		}),
 	);
 

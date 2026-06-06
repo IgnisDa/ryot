@@ -9,7 +9,9 @@ import {
 	castText,
 	coalesce,
 	column,
+	concat,
 	contains,
+	conditional,
 	count,
 	countDistinct,
 	divide,
@@ -17,16 +19,22 @@ import {
 	exists,
 	field,
 	first,
+	floor,
 	gte,
 	include,
 	inArray,
+	integer,
+	isNotNull,
 	join,
 	jsonPath,
+	kebabCase,
 	literal,
 	not,
 	rows,
+	round,
 	sum,
 	table,
+	titleCase,
 } from "@ryot/ryotql";
 import { buildAllCollectionsDocument } from "@ryot/ryotql-recipes/collections";
 import { buildNavigationDocument } from "@ryot/ryotql-recipes/navigation";
@@ -328,6 +336,46 @@ it.effect("pushes typed JSON expressions into one rows statement", () => {
 		expect(statement).toContain(" ILIKE ");
 		expect(statement).toContain(" @> ");
 		expect(statements.filter((value) => value.includes('"queryRows" AS ('))).toHaveLength(1);
+	}).pipe(Effect.provide(makeServiceLayer(statements)));
+});
+
+it.effect("compiles scalar text, conditional, and unary operations", () => {
+	const statements: string[] = [];
+	const entity = table("entity", "entity");
+	const document = {
+		queries: {
+			entities: rows(entity, {
+				fields: [
+					field("concat", concat(column(entity, "name"), literal(" suffix"))),
+					field(
+						"conditional",
+						conditional(eq(literal(true), literal(true)), literal("yes"), literal("no")),
+					),
+					field("title", titleCase(column(entity, "name"))),
+					field("kebab", kebabCase(column(entity, "name"))),
+					field("round", round(literal(1.5))),
+					field("floor", floor(literal(1.5))),
+					field("integer", integer(literal(-1.5))),
+					field("notNull", isNotNull(column(entity, "name"))),
+				],
+			}),
+		},
+	};
+
+	return Effect.gen(function* () {
+		const service = yield* RyotQLService;
+		yield* service.executeForUser("user-1", null, document);
+
+		const statement = statements[2];
+		expect(statement).toContain("concat(");
+		expect(statement).toContain("CASE WHEN");
+		expect(statement).toContain("initcap(");
+		expect(statement).toContain("btrim(lower(");
+		expect(statement).toContain("round(");
+		expect(statement).toContain("floor(");
+		expect(statement).toContain("trunc(");
+		expect(statement).toContain(" IS NOT NULL");
+		expect(statement?.match(/regexp_replace\(/g)?.length).toBeGreaterThanOrEqual(4);
 	}).pipe(Effect.provide(makeServiceLayer(statements)));
 });
 
