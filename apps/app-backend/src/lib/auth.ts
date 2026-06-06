@@ -90,10 +90,9 @@ const makeAuthInstance = (args: {
 							),
 						);
 					}).pipe(
-						Effect.tapErrorCause((cause) =>
+						Effect.catchAllCause((cause) =>
 							Effect.logError("[auth] sendResetPassword failed", user.email, cause),
 						),
-						Effect.catchAllCause(() => Effect.void),
 					),
 				),
 		},
@@ -122,10 +121,9 @@ const makeAuthInstance = (args: {
 					after: (user) =>
 						Runtime.runPromise(args.runtime)(
 							bootstrapNewUser(user.id).pipe(
-								Effect.tapErrorCause((cause) =>
+								Effect.catchAllCause((cause) =>
 									Effect.logError("[auth] bootstrapNewUser failed for user", user.id, cause),
 								),
-								Effect.catchAllCause(() => Effect.void),
 							),
 						),
 				},
