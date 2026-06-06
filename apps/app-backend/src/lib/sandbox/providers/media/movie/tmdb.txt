@@ -366,9 +366,10 @@ driver("details", async function (context) {
   const { z } = await import("npm:zod");
   const dayjs = (await import("npm:dayjs")).default;
 
-  const { externalId } = z
+  const { externalId, language } = z
     .object({
       externalId: z.string().trim().min(1, "externalId is required"),
+      language: z.string().trim().min(1).catch("en-US"),
     })
     .parse(context ?? {});
 
@@ -379,8 +380,8 @@ driver("details", async function (context) {
   const token = await getTmdbAccessToken();
 
   const [movieData, creditsData, imagesData] = await Promise.all([
-    tmdbGet(`/movie/${externalId}`, { language: "en-US" }, token),
-    tmdbGet(`/movie/${externalId}/credits`, { language: "en-US" }, token),
+    tmdbGet(`/movie/${externalId}`, { language }, token),
+    tmdbGet(`/movie/${externalId}/credits`, { language }, token),
     tmdbGet(`/movie/${externalId}/images`, {}, token),
   ]);
 
@@ -494,4 +495,67 @@ driver("resolve", async function (context) {
   }
 
   return { externalId: null };
+});
+
+driver("translate", async function (context) {
+  const { z } = await import("npm:zod");
+
+  const { externalId, language } = z
+    .object({
+      language: z.string().trim().min(1, "language is required"),
+      externalId: z.string().trim().min(1, "externalId is required"),
+    })
+    .parse(context ?? {});
+
+  if (!/^\d+$/.test(externalId)) {
+    throw new Error("externalId must be a numeric TMDB movie ID");
+  }
+
+  const [langPart, regionPart] = language.split("-");
+  const langCode = langPart.trim().toLowerCase();
+  const region = regionPart ? regionPart.trim().toUpperCase() : null;
+
+  const token = await getTmdbAccessToken();
+
+  const [translationsData, imagesData] = await Promise.all([
+    tmdbGet(`/movie/${externalId}/translations`, {}, token),
+    tmdbGet(`/movie/${externalId}/images`, { include_image_language: langCode }, token),
+  ]);
+
+  const translations = Array.isArray(translationsData?.translations)
+    ? translationsData.translations
+    : [];
+  const matchesLanguage = (entry) =>
+    typeof entry?.iso_639_1 === "string" && entry.iso_639_1.toLowerCase() === langCode;
+  const candidates = translations.filter(matchesLanguage);
+  const regionMatch = region
+    ? candidates.find(
+        (entry) =>
+          typeof entry?.iso_3166_1 === "string" && entry.iso_3166_1.toUpperCase() === region,
+      )
+    : null;
+  const match = regionMatch ?? candidates[0] ?? null;
+
+  const name =
+    typeof match?.data?.title === "string" && match.data.title.trim()
+      ? match.data.title.trim()
+      : null;
+  const description =
+    typeof match?.data?.overview === "string" && match.data.overview.trim()
+      ? match.data.overview.trim()
+      : null;
+
+  const posters = Array.isArray(imagesData?.posters) ? imagesData.posters : [];
+  const localizedPoster = posters.find(
+    (poster) =>
+      typeof poster?.iso_639_1 === "string" && poster.iso_639_1.toLowerCase() === langCode,
+  );
+  const imageUrl = localizedPoster ? getImageUrl(localizedPoster.file_path) : null;
+
+  const result = {};
+  if (name) result.name = name;
+  if (description) result.description = description;
+  if (imageUrl) result.image = { type: "remote", url: imageUrl };
+
+  return result;
 });
