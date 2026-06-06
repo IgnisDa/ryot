@@ -4,6 +4,7 @@ import { Effect } from "effect";
 import { CurrentDb, dbEffect } from "#lib/db";
 import * as schema from "#lib/db/schema/tables";
 import { DbError } from "#lib/errors";
+import { EntityId, EntitySchemaId, SandboxScriptId, UserId } from "#lib/schema/brands";
 import { decodeStoredAppSchema } from "#lib/schema/core";
 import type { AppSchema } from "#lib/schema/property-schema";
 
@@ -24,19 +25,19 @@ type EntityRow = Pick<
 >;
 
 export type EntitySchemaScope = {
-	readonly id: string;
+	readonly id: EntitySchemaId;
 	readonly slug: string;
 	readonly isBuiltin: boolean;
-	readonly userId: string | null;
+	readonly userId: UserId | null;
 	readonly propertiesSchema: AppSchema;
 };
 
 export type EntityScope = {
-	readonly entityId: string;
+	readonly entityId: EntityId;
 	readonly isBuiltin: boolean;
-	readonly entitySchemaId: string;
+	readonly entitySchemaId: EntitySchemaId;
 	readonly entitySchemaSlug: string;
-	readonly entityUserId: string | null;
+	readonly entityUserId: UserId | null;
 };
 
 export type EntityMergeScope = EntityScope & {
@@ -44,8 +45,8 @@ export type EntityMergeScope = EntityScope & {
 };
 
 export type EntitySchemaScriptScope = {
-	readonly entitySchemaId: string;
-	readonly sandboxScriptId: string;
+	readonly entitySchemaId: EntitySchemaId;
+	readonly sandboxScriptId: SandboxScriptId;
 };
 
 const entitySelection = {
@@ -61,29 +62,29 @@ const entitySelection = {
 	sandboxScriptId: schema.entity.sandboxScriptId,
 };
 
-const entitySchemaVisibleToUserClause = (userId: string) =>
+const entitySchemaVisibleToUserClause = (userId: UserId) =>
 	or(isNull(schema.entitySchema.userId), eq(schema.entitySchema.userId, userId));
 
-const entityVisibleToUserClause = (userId: string) =>
+const entityVisibleToUserClause = (userId: UserId) =>
 	or(isNull(schema.entity.userId), eq(schema.entity.userId, userId));
 
 const toListedEntity = (row: EntityRow) => ({
-	id: row.id,
+	id: EntityId.make(row.id),
 	name: row.name,
 	image: row.image,
 	properties: row.properties,
 	externalId: row.externalId,
-	entitySchemaId: row.entitySchemaId,
-	sandboxScriptId: row.sandboxScriptId,
+	entitySchemaId: EntitySchemaId.make(row.entitySchemaId),
 	createdAt: row.createdAt.toISOString(),
 	updatedAt: row.updatedAt.toISOString(),
 	populatedAt: row.populatedAt?.toISOString() ?? null,
+	sandboxScriptId: row.sandboxScriptId ? SandboxScriptId.make(row.sandboxScriptId) : null,
 });
 
 export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("EntitiesRepository", {
 	sync: () => ({
 		listMatchCandidatesBySchema: Effect.fn("EntitiesRepository.listMatchCandidatesBySchema")(
-			function* (input: { userId: string; entitySchemaId: string }) {
+			function* (input: { userId: UserId; entitySchemaId: EntitySchemaId }) {
 				const db = yield* CurrentDb;
 				const rows = yield* dbEffect(() =>
 					db
@@ -105,7 +106,7 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 			},
 		),
 		getEntitySchemaScopeForUser: Effect.fn("EntitiesRepository.getEntitySchemaScopeForUser")(
-			function* (input: { userId: string; entitySchemaId: string }) {
+			function* (input: { userId: UserId; entitySchemaId: EntitySchemaId }) {
 				const db = yield* CurrentDb;
 				const [row] = yield* dbEffect(() =>
 					db
@@ -136,17 +137,17 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 				);
 
 				return {
-					id: row.id,
+					id: EntitySchemaId.make(row.id),
 					slug: row.slug,
 					propertiesSchema,
-					userId: row.userId,
+					userId: row.userId ? UserId.make(row.userId) : null,
 					isBuiltin: row.isBuiltin,
 				};
 			},
 		),
 		getEntityScopeForUser: Effect.fn("EntitiesRepository.getEntityScopeForUser")(function* (input: {
-			userId: string;
-			entityId: string;
+			userId: UserId;
+			entityId: EntityId;
 		}) {
 			const db = yield* CurrentDb;
 			const [row] = yield* dbEffect(() =>
@@ -164,10 +165,17 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 					.limit(1),
 			);
 
-			return row ?? null;
+			return row
+				? {
+						...row,
+						entityId: EntityId.make(row.entityId),
+						entitySchemaId: EntitySchemaId.make(row.entitySchemaId),
+						entityUserId: row.entityUserId ? UserId.make(row.entityUserId) : null,
+					}
+				: null;
 		}),
 		getEntityMergeScopeForUser: Effect.fn("EntitiesRepository.getEntityMergeScopeForUser")(
-			function* (input: { userId: string; entityId: string }) {
+			function* (input: { userId: UserId; entityId: EntityId }) {
 				const db = yield* CurrentDb;
 				const [row] = yield* dbEffect(() =>
 					db
@@ -190,11 +198,18 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 						.limit(1),
 				);
 
-				return row ?? null;
+				return row
+					? {
+							...row,
+							entityId: EntityId.make(row.entityId),
+							entitySchemaId: EntitySchemaId.make(row.entitySchemaId),
+							entityUserId: row.entityUserId ? UserId.make(row.entityUserId) : null,
+						}
+					: null;
 			},
 		),
 		getEntityScopeById: Effect.fn("EntitiesRepository.getEntityScopeById")(function* (
-			entityId: string,
+			entityId: EntityId,
 		) {
 			const db = yield* CurrentDb;
 			const [row] = yield* dbEffect(() =>
@@ -212,11 +227,18 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 					.limit(1),
 			);
 
-			return row ?? null;
+			return row
+				? {
+						...row,
+						entityId: EntityId.make(row.entityId),
+						entitySchemaId: EntitySchemaId.make(row.entitySchemaId),
+						entityUserId: row.entityUserId ? UserId.make(row.entityUserId) : null,
+					}
+				: null;
 		}),
 		getByIdForUser: Effect.fn("EntitiesRepository.getByIdForUser")(function* (input: {
-			userId: string;
-			entityId: string;
+			userId: UserId;
+			entityId: EntityId;
 		}) {
 			const db = yield* CurrentDb;
 			const [row] = yield* dbEffect(() =>
@@ -231,10 +253,10 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 		}),
 		findEntityByExternalIdForUser: Effect.fn("EntitiesRepository.findEntityByExternalIdForUser")(
 			function* (input: {
-				userId: string;
+				userId: UserId;
 				externalId: string;
-				entitySchemaId: string;
-				sandboxScriptId: string;
+				entitySchemaId: EntitySchemaId;
+				sandboxScriptId: SandboxScriptId;
 			}) {
 				const db = yield* CurrentDb;
 				const [row] = yield* dbEffect(() =>
@@ -256,7 +278,11 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 			},
 		),
 		findGlobalEntityByExternalId: Effect.fn("EntitiesRepository.findGlobalEntityByExternalId")(
-			function* (input: { externalId: string; entitySchemaId: string; sandboxScriptId: string }) {
+			function* (input: {
+				externalId: string;
+				entitySchemaId: EntitySchemaId;
+				sandboxScriptId: SandboxScriptId;
+			}) {
 				const db = yield* CurrentDb;
 				const [row] = yield* dbEffect(() =>
 					db
@@ -277,7 +303,7 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 			},
 		),
 		findEntitySchemaById: Effect.fn("EntitiesRepository.findEntitySchemaById")(function* (
-			entitySchemaId: string,
+			entitySchemaId: EntitySchemaId,
 		) {
 			const db = yield* CurrentDb;
 			const [row] = yield* dbEffect(() =>
@@ -320,16 +346,21 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 						.limit(1),
 				);
 
-				return row ?? null;
+				return row
+					? {
+							entitySchemaId: EntitySchemaId.make(row.entitySchemaId),
+							sandboxScriptId: SandboxScriptId.make(row.sandboxScriptId),
+						}
+					: null;
 			},
 		),
 		createOrUpdateGlobalEntity: Effect.fn("EntitiesRepository.createOrUpdateGlobalEntity")(
 			function* (input: {
 				name: string;
 				externalId: string;
-				entitySchemaId: string;
-				sandboxScriptId: string;
+				entitySchemaId: EntitySchemaId;
 				populatedAt: Date | null;
+				sandboxScriptId: SandboxScriptId;
 				image: StoredEntityImage | null;
 				properties: Record<string, unknown>;
 			}) {
@@ -396,11 +427,11 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 		),
 		createEntity: Effect.fn("EntitiesRepository.createEntity")(function* (input: {
 			name: string;
-			userId: string;
+			userId: UserId;
 			externalId?: string;
-			entitySchemaId: string;
-			sandboxScriptId?: string;
+			entitySchemaId: EntitySchemaId;
 			image: StoredEntityImage | null;
+			sandboxScriptId?: SandboxScriptId;
 			properties: Record<string, unknown>;
 		}) {
 			const db = yield* CurrentDb;

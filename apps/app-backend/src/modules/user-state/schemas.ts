@@ -1,7 +1,9 @@
 import { Schema } from "effect";
 
+import { EntityId } from "#lib/schema/brands";
+
 export const ClearUserStateResponse = Schema.Struct({
-	entityId: Schema.String,
+	entityId: EntityId,
 	deletedEventsCount: Schema.Number,
 	deletedRelationshipsCount: Schema.Number,
 });
@@ -9,15 +11,15 @@ export const ClearUserStateResponse = Schema.Struct({
 export type ClearUserStateResponse = typeof ClearUserStateResponse.Type;
 
 export const MergeUserStateBody = Schema.Struct({
-	mergeFrom: Schema.String,
-	mergeInto: Schema.String,
+	mergeFrom: EntityId,
+	mergeInto: EntityId,
 });
 
 export type MergeUserStateBody = typeof MergeUserStateBody.Type;
 
 export const MergeUserStateResponse = Schema.Struct({
-	mergeFrom: Schema.String,
-	mergeInto: Schema.String,
+	mergeFrom: EntityId,
+	mergeInto: EntityId,
 	movedEventsCount: Schema.Number,
 	movedRelationshipsCount: Schema.Number,
 });

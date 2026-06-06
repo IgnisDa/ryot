@@ -1,9 +1,10 @@
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 
 import type { CurrentUserValue } from "#lib/auth-middleware";
 import { builtinEntitySchemas } from "#lib/builtins/entity-schemas";
 import { DbRunner, TransactionRunner } from "#lib/db";
 import { badRequest, conflict, notFound } from "#lib/errors";
+import { type EntitySchemaId, Slug, TrackerId } from "#lib/schema/brands";
 import { parseLabeledPropertySchemaInput } from "#lib/schema/property-schema-runtime";
 import { slugify } from "#lib/slug";
 import { requireText, trimToNull } from "#lib/validation";
@@ -22,7 +23,9 @@ const resolveEntitySchemaSlug = (input: { name: string; slug?: string }) => {
 	if (!slug) {
 		return badRequest("Entity schema slug is required");
 	}
-	return Effect.succeed(slug);
+	return Schema.decode(Slug)(slug).pipe(
+		Effect.mapError(() => badRequest("Entity schema slug is invalid")),
+	);
 };
 
 const resolveEntitySchemaCreateInput = Effect.fn(function* (
@@ -57,7 +60,7 @@ export class EntitySchemasService extends Effect.Service<EntitySchemasService>()
 			return {
 				list: Effect.fn("EntitySchemasService.list")(function* (
 					user: CurrentUserValue,
-					input: { trackerId?: string; slugs?: ReadonlyArray<string> },
+					input: { trackerId?: TrackerId; slugs?: ReadonlyArray<string> },
 				) {
 					if (input.trackerId) {
 						const trackerId = trimToNull(input.trackerId);
@@ -65,7 +68,9 @@ export class EntitySchemasService extends Effect.Service<EntitySchemasService>()
 							return yield* badRequest("Tracker id is required");
 						}
 
-						const tracker = yield* runWithDb(trackersRepository.getOwnedById(user.id, trackerId));
+						const tracker = yield* runWithDb(
+							trackersRepository.getOwnedById(user.id, TrackerId.make(trackerId)),
+						);
 						if (!tracker) {
 							return yield* notFound("Tracker not found");
 						}
@@ -88,7 +93,9 @@ export class EntitySchemasService extends Effect.Service<EntitySchemasService>()
 						return yield* badRequest("Tracker id is required");
 					}
 
-					const tracker = yield* runWithDb(trackersRepository.getOwnedById(user.id, trackerId));
+					const tracker = yield* runWithDb(
+						trackersRepository.getOwnedById(user.id, TrackerId.make(trackerId)),
+					);
 					if (!tracker) {
 						return yield* notFound("Tracker not found");
 					}
@@ -125,22 +132,22 @@ export class EntitySchemasService extends Effect.Service<EntitySchemasService>()
 							});
 
 							yield* trackersRepository.linkEntitySchema({
-								trackerId,
+								trackerId: TrackerId.make(trackerId),
 								entitySchemaId: createdEntitySchema.id,
 							});
 
 							yield* savedViewsRepository.createDefaultViewForSchema({
-								trackerId,
 								userId: user.id,
 								icon: resolved.icon,
+								trackerId: TrackerId.make(trackerId),
 								entitySchemaSlug: resolved.slug,
 								entitySchemaName: resolved.name,
 								accentColor: resolved.accentColor,
 							});
 
 							return {
-								trackerId,
 								providers: [],
+								trackerId: TrackerId.make(trackerId),
 								id: createdEntitySchema.id,
 								name: createdEntitySchema.name,
 								slug: createdEntitySchema.slug,
@@ -154,7 +161,7 @@ export class EntitySchemasService extends Effect.Service<EntitySchemasService>()
 				}),
 				getById: Effect.fn("EntitySchemasService.getById")(function* (
 					user: CurrentUserValue,
-					entitySchemaId: string,
+					entitySchemaId: EntitySchemaId,
 				) {
 					const result = yield* runWithDb(
 						repository.getByIdForUser({ userId: user.id, entitySchemaId }),

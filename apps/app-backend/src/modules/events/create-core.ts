@@ -6,6 +6,8 @@ import { DbRunner } from "#lib/db";
 import type { BadRequest, DbError, NotFound, SandboxRunError, TimeoutError } from "#lib/errors";
 import { badRequest, notFound, unknownToMessage } from "#lib/errors";
 import type { SandboxRunInput, SandboxRunOutput } from "#lib/sandbox/service";
+import { EntityId, EventSchemaId } from "#lib/schema/brands";
+import type { EntitySchemaId, ImportRunId, IntegrationId, UserId } from "#lib/schema/brands";
 import { parseAppSchemaProperties } from "#lib/schema/property-schema-runtime";
 import { requireText } from "#lib/validation";
 import { EntitiesRepository } from "#modules/entities/repository";
@@ -33,7 +35,7 @@ export type RunSandboxScript = (
 ) => Effect.Effect<SandboxRunOutput, SandboxRunError | TimeoutError>;
 
 export type CreatedEventWithContext = ListedEvent & {
-	readonly entitySchemaId: string;
+	readonly entitySchemaId: EntitySchemaId;
 	readonly entitySchemaSlug: string;
 };
 
@@ -68,8 +70,8 @@ const resolveOccurredAt = (occurredAt?: string): Effect.Effect<Date, BadRequest>
 };
 
 const requireReadableEntity = Effect.fn(function* (
-	userId: string,
-	entityId: string,
+	userId: UserId,
+	entityId: EntityId,
 	notFoundMessage: string,
 ) {
 	const runWithDb = yield* DbRunner;
@@ -84,15 +86,16 @@ const requireReadableEntity = Effect.fn(function* (
 
 const validateEventCreateItem = (input: {
 	readonly item: CreateEventItem;
-	readonly userId: string;
+	readonly userId: UserId;
 }): ValidateEventEffect =>
 	Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
 		const eventSchemasRepository = yield* EventSchemasRepository;
-		const entityId = yield* requireText(input.item.entityId, "Entity id is required");
-		const eventSchemaId = yield* requireText(
-			input.item.eventSchemaId,
-			"Event schema id is required",
+		const entityId = EntityId.make(
+			yield* requireText(input.item.entityId, "Entity id is required"),
+		);
+		const eventSchemaId = EventSchemaId.make(
+			yield* requireText(input.item.eventSchemaId, "Event schema id is required"),
 		);
 
 		const entityScope = yield* requireReadableEntity(input.userId, entityId, entityNotFoundError);
@@ -126,7 +129,7 @@ const validateEventCreateItem = (input: {
 	});
 
 const runBeforeCreateTrigger = Effect.fn(function* (
-	userId: string,
+	userId: UserId,
 	trigger: BeforeCreateTriggerRow,
 	context: unknown,
 	runSandboxScript: RunSandboxScript,
@@ -161,7 +164,7 @@ const runBeforeCreateTrigger = Effect.fn(function* (
 });
 
 const dispatchAfterCreateTriggers = (
-	userId: string,
+	userId: UserId,
 	createdEvents: CreatedEventWithContext[],
 	triggers: AfterCreateTriggerRow[],
 ) =>
@@ -221,7 +224,10 @@ const dispatchAfterCreateTriggers = (
 		);
 	});
 
-type OnGlobalEntityReferenced = (userId: string, entityId: string) => Effect.Effect<void, DbError>;
+type OnGlobalEntityReferenced = (
+	userId: UserId,
+	entityId: EntityId,
+) => Effect.Effect<void, DbError>;
 
 export const provideCreateEventsContext = <A, E, R>(
 	effect: Effect.Effect<A, E, R>,
@@ -237,7 +243,7 @@ export const provideCreateEventsContext = <A, E, R>(
 	);
 
 export const validateEventCreateSubmission = (input: {
-	readonly userId: string;
+	readonly userId: UserId;
 	readonly payload: ReadonlyArray<CreateEventItem>;
 }): ValidateEventEffect =>
 	Effect.forEach(input.payload, (item) => validateEventCreateItem({ item, userId: input.userId }), {
@@ -246,9 +252,9 @@ export const validateEventCreateSubmission = (input: {
 
 export const createEventsForUser = Effect.fn("createEventsForUser")(function* (
 	input: {
-		readonly userId: string;
-		readonly importRunId?: string;
-		readonly integrationId?: string;
+		readonly userId: UserId;
+		readonly importRunId?: ImportRunId;
+		readonly integrationId?: IntegrationId;
 		readonly origin: EventCreateOrigin;
 		readonly payload: ReadonlyArray<CreateEventItem>;
 	},
@@ -262,8 +268,10 @@ export const createEventsForUser = Effect.fn("createEventsForUser")(function* (
 	const { userId, origin, payload, importRunId, integrationId } = input;
 
 	for (const item of payload) {
-		const entityId = yield* requireText(item.entityId, "Entity id is required");
-		const eventSchemaId = yield* requireText(item.eventSchemaId, "Event schema id is required");
+		const entityId = EntityId.make(yield* requireText(item.entityId, "Entity id is required"));
+		const eventSchemaId = EventSchemaId.make(
+			yield* requireText(item.eventSchemaId, "Event schema id is required"),
+		);
 
 		const entityScope = yield* requireReadableEntity(userId, entityId, entityNotFoundError);
 
@@ -278,7 +286,7 @@ export const createEventsForUser = Effect.fn("createEventsForUser")(function* (
 			return yield* badRequest(eventSchemaMismatchError);
 		}
 
-		let sessionEntityId: string | undefined;
+		let sessionEntityId: EntityId | undefined;
 		if (item.sessionEntityId) {
 			const sessionScope = yield* requireReadableEntity(
 				userId,

@@ -3,6 +3,7 @@ import { Schema } from "effect";
 
 import { AuthMiddleware } from "#lib/auth-middleware";
 import { BadRequest, NotFound, RateLimited, Unauthorized } from "#lib/errors";
+import { ImportRunId, IntegrationId } from "#lib/schema/brands";
 import { ListedImportRun } from "#modules/imports/schemas";
 
 import {
@@ -12,7 +13,7 @@ import {
 	UpdateIntegrationBody,
 } from "./schemas";
 
-const integrationIdParam = HttpApiSchema.param("integrationId", Schema.String);
+const integrationIdParam = HttpApiSchema.param("integrationId", IntegrationId);
 
 export const IntegrationsGroup = HttpApiGroup.make("integrations")
 	.addError(Unauthorized, { status: 401 })
@@ -58,7 +59,7 @@ export const IntegrationsGroup = HttpApiGroup.make("integrations")
 	.middlewareEndpoints(AuthMiddleware)
 	.add(
 		HttpApiEndpoint.post("webhook")`/webhooks/integrations/${integrationIdParam}`
-			.addSuccess(Schema.Struct({ runId: Schema.String }), { status: 202 })
+			.addSuccess(Schema.Struct({ runId: ImportRunId }), { status: 202 })
 			.addError(BadRequest, { status: 400 })
 			.addError(NotFound, { status: 404 }),
 	);

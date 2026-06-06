@@ -1,6 +1,7 @@
 import { DateTime, Effect, Either, Option, Schema } from "effect";
 
 import { RedisService, redisKeys } from "#lib/redis";
+import type { IntegrationId, UserId } from "#lib/schema/brands";
 import { finalizeEntityGroups } from "#modules/imports/media/book/shared";
 import { nowIso } from "#modules/imports/media/dates";
 import { getOrCreateMediaEntityGroup } from "#modules/imports/media/groups";
@@ -16,9 +17,9 @@ const HistoryResult = Schema.Struct({
 const decodeHistory = Schema.decodeUnknown(HistoryResult);
 
 type YoutubeMusicTransformInput = {
-	userId: string;
+	userId: UserId;
 	timezone: string;
-	integrationId: string;
+	integrationId: IntegrationId;
 };
 
 export const sourceFetchFailure = (message: string): MediaImportAdapterResult => ({

@@ -8,6 +8,7 @@ import { AppConfig } from "#lib/config";
 import { type BadRequest, badRequest } from "#lib/errors";
 import { RedisService, redisKeys } from "#lib/redis";
 import { S3Service } from "#lib/s3";
+import { UserId } from "#lib/schema/brands";
 
 import { type UploadContentType, uploadContentTypeExtensions, uploadContentTypes } from "./shared";
 
@@ -16,7 +17,7 @@ const UPLOAD_URL_EXPIRY_SECONDS = 15 * 60;
 const TEMPORARY_UPLOAD_MAX_FILE_BYTES = 50 * 1024 * 1024;
 
 const UploadTokenValue = Schema.Struct({
-	userId: Schema.String,
+	userId: UserId,
 	resolvedPath: Schema.String,
 });
 
@@ -85,7 +86,7 @@ type UploadsServiceShape = {
 	) => Effect.Effect<readonly string[], BadRequest>;
 	readonly claimUploadToken: (
 		token: string,
-		userId: string,
+		userId: UserId,
 	) => Effect.Effect<{ resolvedPath: string }, BadRequest>;
 };
 
@@ -181,7 +182,7 @@ export class UploadsService extends Effect.Service<UploadsService>()("UploadsSer
 
 		const claimUploadToken = Effect.fn("UploadsService.claimUploadToken")(function* (
 			token: string,
-			userId: string,
+			userId: UserId,
 		) {
 			const raw = yield* redis.getdel(redisKeys.uploadToken(token));
 			if (!raw) {

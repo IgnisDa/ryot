@@ -5,6 +5,8 @@ import { buildDefaultQueryDefinition, buildDisplayConfig } from "#lib/builtins/v
 import { CurrentDb, dbEffect, isUniqueConstraintError } from "#lib/db";
 import * as schema from "#lib/db/schema/tables";
 import { DbError, conflict } from "#lib/errors";
+import type { UserId } from "#lib/schema/brands";
+import { SavedViewId, TrackerId } from "#lib/schema/brands";
 import { slugify } from "#lib/slug";
 
 import type { ListedSavedView } from "./schemas";
@@ -15,10 +17,10 @@ type CreateSavedViewInput = {
 	readonly slug: string;
 	readonly name: string;
 	readonly icon: string;
-	readonly userId: string;
+	readonly userId: UserId;
 	readonly isBuiltin: boolean;
 	readonly accentColor: string;
-	readonly trackerId: string | null | undefined;
+	readonly trackerId: TrackerId | null | undefined;
 	readonly queryDefinition: (typeof schema.savedView.$inferSelect)["queryDefinition"];
 	readonly displayConfiguration: (typeof schema.savedView.$inferSelect)["displayConfiguration"];
 };
@@ -26,7 +28,7 @@ type CreateSavedViewInput = {
 type UpdateSavedViewData = {
 	readonly icon: string;
 	readonly name: string;
-	readonly trackerId?: string;
+	readonly trackerId?: TrackerId;
 	readonly isDisabled: boolean;
 	readonly accentColor: string;
 	readonly queryDefinition: (typeof schema.savedView.$inferSelect)["queryDefinition"];
@@ -48,11 +50,11 @@ const normalizeQueryDefinition = (
 });
 
 const toListedSavedView = (row: SavedViewRow) => ({
-	id: row.id,
+	id: SavedViewId.make(row.id),
 	slug: row.slug,
 	name: row.name,
 	icon: row.icon,
-	trackerId: row.trackerId,
+	trackerId: row.trackerId === null ? null : TrackerId.make(row.trackerId),
 	sortOrder: row.sortOrder,
 	isBuiltin: row.isBuiltin,
 	isDisabled: row.isDisabled,
@@ -63,7 +65,7 @@ const toListedSavedView = (row: SavedViewRow) => ({
 	queryDefinition: normalizeQueryDefinition(row.queryDefinition),
 });
 
-const withSavedViewScope = (trackerId?: string) =>
+const withSavedViewScope = (trackerId?: TrackerId) =>
 	trackerId ? eq(schema.savedView.trackerId, trackerId) : isNull(schema.savedView.trackerId);
 
 export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()(
@@ -71,8 +73,8 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 	{
 		sync: () => ({
 			listByUser: Effect.fn("SavedViewsRepository.listByUser")(function* (
-				userId: string,
-				input: { trackerId?: string; includeDisabled: boolean },
+				userId: UserId,
+				input: { trackerId?: TrackerId; includeDisabled: boolean },
 			) {
 				const db = yield* CurrentDb;
 				const clauses = [eq(schema.savedView.userId, userId)];
@@ -100,7 +102,7 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 				return rows.map(toListedSavedView);
 			}),
 			findBySlug: Effect.fn("SavedViewsRepository.findBySlug")(function* (
-				userId: string,
+				userId: UserId,
 				viewSlug: string,
 			) {
 				const db = yield* CurrentDb;
@@ -115,7 +117,7 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 				return row ? toListedSavedView(row) : null;
 			}),
 			create: Effect.fn("SavedViewsRepository.create")(function* (
-				userId: string,
+				userId: UserId,
 				input: CreateSavedViewInput,
 			) {
 				const db = yield* CurrentDb;
@@ -166,8 +168,8 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 			createDefaultViewForSchema: Effect.fn("SavedViewsRepository.createDefaultViewForSchema")(
 				function* (input: {
 					icon: string;
-					userId: string;
-					trackerId: string;
+					userId: UserId;
+					trackerId: TrackerId;
 					accentColor: string;
 					entitySchemaSlug: string;
 					entitySchemaName: string;
@@ -198,10 +200,10 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 				},
 			),
 			updateBySlug: Effect.fn("SavedViewsRepository.updateBySlug")(function* (
-				userId: string,
+				userId: UserId,
 				viewSlug: string,
 				data: UpdateSavedViewData,
-				currentTrackerId: string | null,
+				currentTrackerId: TrackerId | null,
 			) {
 				const db = yield* CurrentDb;
 				const nextTrackerId = data.trackerId ?? null;
@@ -236,7 +238,7 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 				return row ? toListedSavedView(row) : null;
 			}),
 			updateDisabledBySlug: Effect.fn("SavedViewsRepository.updateDisabledBySlug")(function* (
-				userId: string,
+				userId: UserId,
 				viewSlug: string,
 				isDisabled: boolean,
 			) {
@@ -252,7 +254,7 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 				return row ? toListedSavedView(row) : null;
 			}),
 			deleteBySlug: Effect.fn("SavedViewsRepository.deleteBySlug")(function* (
-				userId: string,
+				userId: UserId,
 				viewSlug: string,
 			) {
 				const db = yield* CurrentDb;
@@ -272,9 +274,9 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 				return row ? toListedSavedView(row) : null;
 			}),
 			countBySlugs: Effect.fn("SavedViewsRepository.countBySlugs")(function* (
-				userId: string,
+				userId: UserId,
 				viewSlugs: ReadonlyArray<string>,
-				trackerId?: string,
+				trackerId?: TrackerId,
 			) {
 				if (viewSlugs.length === 0) {
 					return 0;
@@ -297,8 +299,8 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 				return rows.length;
 			}),
 			listSlugsInOrder: Effect.fn("SavedViewsRepository.listSlugsInOrder")(function* (
-				userId: string,
-				trackerId?: string,
+				userId: UserId,
+				trackerId?: TrackerId,
 			) {
 				const db = yield* CurrentDb;
 				const rows = yield* dbEffect(() =>
@@ -312,8 +314,8 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 				return rows.map((row) => row.viewSlug);
 			}),
 			persistOrder: Effect.fn("SavedViewsRepository.persistOrder")(function* (
-				userId: string,
-				trackerId: string | undefined,
+				userId: UserId,
+				trackerId: TrackerId | undefined,
 				viewSlugs: ReadonlyArray<string>,
 			) {
 				if (viewSlugs.length === 0) {
@@ -343,7 +345,7 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 	},
 ) {}
 
-const getNextSortOrder = Effect.fn(function* (userId: string, trackerId: string | null) {
+const getNextSortOrder = Effect.fn(function* (userId: UserId, trackerId: TrackerId | null) {
 	const db = yield* CurrentDb;
 	const [orderRow] = yield* dbEffect(() =>
 		db
