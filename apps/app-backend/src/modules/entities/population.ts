@@ -12,7 +12,7 @@ import { EntitiesRepository } from "./repository";
 const isPlainRecord = (v: unknown): v is Record<string, unknown> =>
 	v !== null && typeof v === "object" && !Array.isArray(v);
 
-const EntityDetailsRelatedEntity = Schema.Struct({
+export const EntityDetailsRelatedEntity = Schema.Struct({
 	name: Schema.String,
 	externalId: Schema.String,
 	scriptSlug: Schema.String,
@@ -20,7 +20,7 @@ const EntityDetailsRelatedEntity = Schema.Struct({
 	relationshipProperties: Schema.optional(Schema.Unknown),
 });
 
-type EntityDetailsRelatedEntity = typeof EntityDetailsRelatedEntity.Type;
+export type EntityDetailsRelatedEntity = typeof EntityDetailsRelatedEntity.Type;
 
 const EntityDetailsResult = Schema.Struct({
 	name: Schema.String,
@@ -28,7 +28,7 @@ const EntityDetailsResult = Schema.Struct({
 	relatedEntities: Schema.optional(Schema.Array(EntityDetailsRelatedEntity)),
 });
 
-const decodeEntityDetailsResult = Schema.decodeUnknown(EntityDetailsResult);
+export const decodeEntityDetailsResult = Schema.decodeUnknown(EntityDetailsResult);
 
 const EntityResolveResult = Schema.Struct({ externalId: Schema.NullOr(Schema.String) });
 
@@ -51,7 +51,7 @@ const EntitySearchResult = Schema.Struct({ items: Schema.Array(EntitySearchItem)
 
 const decodeEntitySearchResult = Schema.decodeUnknown(EntitySearchResult);
 
-const processRelatedEntity = (input: {
+export const processRelatedEntity = (input: {
 	sourceEntityId: string;
 	sourceEntitySchemaId: string;
 	relatedEntity: EntityDetailsRelatedEntity;
