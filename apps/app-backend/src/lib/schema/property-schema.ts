@@ -1,6 +1,6 @@
 import { Either, Schema } from "effect";
 
-import { strictStruct } from "./schema-utils";
+import { strictStruct } from "./utils";
 
 const nonEmptyTrimmedString = Schema.String.pipe(
 	Schema.filter((value) => value.trim().length > 0, {

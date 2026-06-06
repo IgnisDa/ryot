@@ -1,7 +1,7 @@
 import { PgDialect } from "drizzle-orm/pg-core";
 
-import type { AppSchema } from "#lib/property-schema";
 import type { QueryExpression, QueryFilter } from "#lib/query-language";
+import type { AppSchema } from "#lib/schema";
 import {
 	buildEventJoinMap,
 	buildRelationshipJoinMap,
