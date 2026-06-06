@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 
-import { schema } from "#lib/db";
+import * as schema from "#lib/db/schema/tables";
 import type { QueryEngineEventJoinLike } from "#lib/views/reference";
 
 import type { LoadedRelationshipJoin } from "./context";

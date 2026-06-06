@@ -3,9 +3,6 @@ import { Effect, Schema } from "effect";
 import { DbError } from "../errors";
 import { AppSchema, type AppPropertyDefinition } from "./property-schema";
 
-export * from "./property-schema";
-export * from "./property-schema-runtime";
-
 export const decodeStoredAppSchema = (value: unknown, message: string) =>
 	Schema.decodeUnknown(AppSchema)(value).pipe(Effect.mapError(() => new DbError({ message })));
 

@@ -2,7 +2,7 @@ import { FileSystem } from "@effect/platform";
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { DateTime, Effect, Either } from "effect";
 
-import type { CurrentUserValue } from "#lib/auth";
+import type { CurrentUserValue } from "#lib/auth-middleware";
 import { AppConfig } from "#lib/config";
 import { DbRunner } from "#lib/db";
 import { type BadRequest, type DbError, type NotFound, badRequest, notFound } from "#lib/errors";
