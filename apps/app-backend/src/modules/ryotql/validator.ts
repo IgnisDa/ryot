@@ -1,12 +1,12 @@
 import type {
 	AggregateOutput,
 	CorrelatedQuerySet,
-	FieldSelection,
 	Include,
 	NamedQuery,
 	OrderBy,
 	Predicate,
 	RyotQLDocument,
+	RowSelection,
 	ScalarExpression,
 	TableReference,
 	TimeSeriesOutput,
@@ -15,6 +15,7 @@ import { DateTime, Duration, Option } from "effect";
 
 import {
 	canAccessCatalogTable,
+	expandCatalogSelections,
 	getCatalogTable,
 	resolveCatalogField,
 	type CatalogTable,
@@ -302,7 +303,7 @@ const validateQuerySet = (
 };
 
 const validateSelections = (
-	fields: readonly FieldSelection[],
+	fields: readonly RowSelection[],
 	orderBy: readonly OrderBy[],
 	include: readonly Include[],
 	scope: AliasScope,
@@ -310,7 +311,11 @@ const validateSelections = (
 	executionScope: Pick<RyotQLExecutionScope, "type">,
 ): string | null => {
 	const keys = new Set<string>();
-	for (const field of fields) {
+	const expanded = expandCatalogSelections(fields, (alias) => scope.get(alias));
+	if (expanded.error) {
+		return expanded.error;
+	}
+	for (const field of expanded.fields) {
 		const keyError = requiredNameError(field.key, "Output field key");
 		if (keyError) {
 			return keyError;

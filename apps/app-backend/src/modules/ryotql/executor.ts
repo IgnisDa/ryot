@@ -12,7 +12,6 @@ import type {
 	Predicate,
 	RowItem,
 	RowsResult,
-	RowsOutput,
 	ScalarExpression,
 	TimeSeriesOutput,
 	TimeSeriesResult,
@@ -29,10 +28,11 @@ import {
 	type CatalogTable,
 	type RyotQLExecutionScope,
 } from "./catalog";
+import type { NormalizedInclude, NormalizedNamedQuery, NormalizedRowsOutput } from "./normalizer";
 
 type SqlFragment = ReturnType<typeof sql>;
 type CompileScope = ReadonlyMap<string, CompileTable>;
-type RowsQuery = NamedQuery & { readonly output: RowsOutput };
+type RowsQuery = Omit<NormalizedNamedQuery, "output"> & { readonly output: NormalizedRowsOutput };
 type AggregateQuery = NamedQuery & { readonly output: AggregateOutput };
 type TimeSeriesQuery = NamedQuery & { readonly output: TimeSeriesOutput };
 type QuerySet = Pick<NamedQuery, "from" | "joins" | "where"> | CorrelatedQuerySet | Include;
@@ -598,7 +598,7 @@ const compileAggregation = (aggregation: AggregationSpec, scope: CompileScope) =
 };
 
 const compileInclude = (
-	include: Include,
+	include: NormalizedInclude,
 	executionScope: RyotQLExecutionScope,
 	ancestors: CompileScope,
 	path: readonly number[],
@@ -798,7 +798,7 @@ const isFieldKind = (value: unknown): value is FieldValue["kind"] =>
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
 	typeof value === "object" && value !== null && !Array.isArray(value);
 
-const reconstructInclude = (raw: unknown, include: Include): IncludeResult => {
+const reconstructInclude = (raw: unknown, include: NormalizedInclude): IncludeResult => {
 	if (!isRecord(raw) || !Array.isArray(raw["items"]) || typeof raw["hasMore"] !== "boolean") {
 		throw new Error(`RyotQL received an invalid include value for '${include.key}'`);
 	}
@@ -889,7 +889,7 @@ const executeTimeSeriesQuery = Effect.fn("executeRyotQLTimeSeriesQuery")(functio
 
 export const executeNamedQuery = Effect.fn("executeRyotQLNamedQuery")(function* (
 	executionScope: RyotQLExecutionScope,
-	query: NamedQuery,
+	query: NormalizedNamedQuery,
 ) {
 	if (query.output.type === "aggregate") {
 		return yield* executeAggregateQuery(executionScope, { ...query, output: query.output });

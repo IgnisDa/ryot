@@ -43,7 +43,7 @@ describe("media query recipes", () => {
 			fetchedAt: "2024-01-02T00:00:00.000Z",
 		});
 		const fetchedAt = document.queries.trending.output.fields.find(
-			(field) => field.key === "fetchedAt",
+			(field) => "key" in field && field.key === "fetchedAt",
 		);
 
 		expect(fetchedAt).toMatchObject({ expr: { target: "date", type: "cast" } });
