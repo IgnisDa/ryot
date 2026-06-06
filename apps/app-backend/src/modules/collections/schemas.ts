@@ -1,5 +1,7 @@
 import { Schema } from "effect";
 
+import { EntityImage } from "#modules/entities/schemas";
+
 export const CollectionResponse = Schema.Struct({
 	id: Schema.String,
 	name: Schema.String,
@@ -7,6 +9,9 @@ export const CollectionResponse = Schema.Struct({
 	updatedAt: Schema.String,
 	properties: Schema.Unknown,
 	entitySchemaId: Schema.String,
+	image: Schema.NullOr(EntityImage),
+	externalId: Schema.NullOr(Schema.String),
+	sandboxScriptId: Schema.NullOr(Schema.String),
 });
 
 export type CollectionResponse = typeof CollectionResponse.Type;

@@ -15,7 +15,7 @@ import {
 } from "./population";
 import { EntitiesRepository } from "./repository";
 import type { ImportEntityRunResult } from "./schemas";
-import { ListedEntity } from "./schemas";
+import { EntityImage, ListedEntity } from "./schemas";
 
 export const EntityImportPayload = Schema.Struct({
 	userId: Schema.String,
@@ -63,7 +63,7 @@ const extractPrimaryRemoteImage = (images: unknown) => {
 		const url = Reflect.get(image, "url");
 		const type = Reflect.get(image, "type");
 		if (type === "remote" && typeof url === "string" && url.length > 0) {
-			return url;
+			return { type: "remote" as const, url };
 		}
 	}
 
@@ -90,7 +90,7 @@ export const toEntityImportRunResult = (
 
 const ValidatedEntityDetails = Schema.Struct({
 	name: Schema.String,
-	image: Schema.NullOr(Schema.String),
+	image: Schema.NullOr(EntityImage),
 	relatedEntities: Schema.Array(EntityDetailsRelatedEntity),
 	validatedProperties: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
 });
