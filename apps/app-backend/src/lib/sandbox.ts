@@ -216,7 +216,7 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 				),
 			);
 
-		const additionalApiFunctions = yield* makeAdditionalSandboxApiFunctions(runSandbox);
+		const additionalApiFunctions = yield* makeAdditionalSandboxApiFunctions();
 
 		apiFunctions = {
 			executeQueryEngine: (...args) => {

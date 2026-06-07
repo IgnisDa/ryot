@@ -5,12 +5,11 @@ import { Effect, Option, Runtime, Schema } from "effect";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
-import { createEventsForUser, type RunSandboxScript } from "#modules/events/create-core";
 import { EventsRepository } from "#modules/events/repository";
 import { CreateEventItem } from "#modules/events/schemas";
+import { runEventCreate } from "#modules/events/workflows";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { isIntegrationProvider } from "#modules/integrations/types";
-import { SandboxRepository } from "#modules/sandbox/repository";
 
 import { AppConfig, isOidcEnabled } from "./config";
 import { CurrentDb, DbRunner, dbEffect, schema } from "./db";
@@ -29,7 +28,6 @@ type SandboxHostFunctionContext =
 	| RedisService
 	| WorkflowEngine
 	| EventsRepository
-	| SandboxRepository
 	| EntitiesRepository
 	| IntegrationsRepository
 	| EventSchemasRepository
@@ -103,9 +101,11 @@ const runHostEffect = <A>(
 		),
 	);
 
-export const makeAdditionalSandboxApiFunctions = (
-	runSandboxScript: RunSandboxScript,
-): Effect.Effect<Record<string, BoundHostFunction>, never, SandboxHostFunctionContext> =>
+export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
+	Record<string, BoundHostFunction>,
+	never,
+	SandboxHostFunctionContext
+> =>
 	Effect.gen(function* () {
 		const config = yield* AppConfig;
 		const redis = yield* RedisService;
@@ -113,7 +113,6 @@ export const makeAdditionalSandboxApiFunctions = (
 		const runtime = yield* Effect.runtime();
 		const workflowEngine = yield* WorkflowEngine;
 		const eventsRepository = yield* EventsRepository;
-		const sandboxRepository = yield* SandboxRepository;
 		const entitiesRepository = yield* EntitiesRepository;
 		const integrationsRepository = yield* IntegrationsRepository;
 		const eventSchemasRepository = yield* EventSchemasRepository;
@@ -152,14 +151,11 @@ export const makeAdditionalSandboxApiFunctions = (
 			);
 
 		const createEvents = (userId: string, payload: ReadonlyArray<CreateEventItem>) =>
-			createEventsForUser({ userId, origin: "sandbox", payload }, runSandboxScript).pipe(
-				Effect.provideService(DbRunner, runWithDb),
-				Effect.provideService(WorkflowEngine, workflowEngine),
-				Effect.provideService(EventsRepository, eventsRepository),
-				Effect.provideService(SandboxRepository, sandboxRepository),
-				Effect.provideService(EntitiesRepository, entitiesRepository),
-				Effect.provideService(EventSchemasRepository, eventSchemasRepository),
-			);
+			payload.length === 0
+				? Effect.succeed({ count: 0 })
+				: runEventCreate({ userId, origin: "sandbox", payload }).pipe(
+						Effect.provideService(WorkflowEngine, workflowEngine),
+					);
 
 		return {
 			claimCachedValue: (...args) => {
