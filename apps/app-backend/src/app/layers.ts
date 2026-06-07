@@ -53,7 +53,6 @@ import { LibraryImportService } from "#modules/library-membership/service";
 import { MediaTrendingWorkflowOperationsLive } from "#modules/media-trending/operations-workflow";
 import { MediaTrendingWorkflowDefinitionsLive } from "#modules/media-trending/refresh-workflow";
 import { MediaTrendingRepository } from "#modules/media-trending/repository";
-import { MediaTrendingSchedulerLive } from "#modules/media-trending/scheduler";
 import { ProviderConfig } from "#modules/query-engine/provider-config";
 import { QueryEngineService } from "#modules/query-engine/service";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
@@ -66,6 +65,7 @@ import { SandboxApiService } from "#modules/sandbox/service";
 import { DefaultSavedViewWorkerLive } from "#modules/saved-views/default-view-worker";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
 import { SavedViewsService } from "#modules/saved-views/service";
+import { InfrequentCronSchedulerLive } from "#modules/scheduler/infrequent-cron";
 import { TrackersRepository } from "#modules/trackers/repository";
 import { TrackersService } from "#modules/trackers/service";
 import { UploadsService } from "#modules/uploads/service";
@@ -213,7 +213,7 @@ const RuntimeLive = Layer.mergeAll(
 	TranslateEntityWorkflowDefinitionsLive,
 	ServerLive,
 	IntegrationsSchedulerLive,
-	MediaTrendingSchedulerLive,
+	InfrequentCronSchedulerLive,
 );
 
 const RuntimeAfterMigrationsLive = MigrationsComplete.Default.pipe(

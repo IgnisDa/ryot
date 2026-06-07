@@ -68,6 +68,16 @@ const fields = {
 		"Interval phrase used to poll enabled yank integrations",
 		{ default: "every 5 minutes" },
 	),
+	infrequentCronJobsSchedule: strField(
+		"SCHEDULER_INFREQUENT_CRON_JOBS_SCHEDULE",
+		"Cron expression (or the phrase 'every midnight') for the infrequent cron tier",
+		{ default: "every midnight" },
+	),
+	disableBackgroundJobs: boolField(
+		"SERVER_DISABLE_BACKGROUND_JOBS",
+		"Disable all scheduled background jobs (both the frequent and infrequent cron tiers)",
+		{ default: false },
+	),
 	builtinExercisePreloadLimit: intField(
 		"BUILTIN_EXERCISE_PRELOAD_LIMIT",
 		"Maximum number of built-in exercise entities to preload",
@@ -172,10 +182,12 @@ const schedulerGroup = group(
 	"Scheduler settings",
 	Config.all({
 		frequentCronJobsSchedule: fields.frequentCronJobsSchedule.config,
+		infrequentCronJobsSchedule: fields.infrequentCronJobsSchedule.config,
 		progressUpdateThresholdHours: fields.progressUpdateThresholdHours.config,
 	}),
 	{
 		frequentCronJobsSchedule: fields.frequentCronJobsSchedule.meta,
+		infrequentCronJobsSchedule: fields.infrequentCronJobsSchedule.meta,
 		progressUpdateThresholdHours: fields.progressUpdateThresholdHours.meta,
 	},
 );
@@ -230,11 +242,13 @@ const serverGroup = group(
 		oidc: oidcGroup.config,
 		corsOrigins: fields.corsOrigins.config,
 		adminAccessToken: fields.adminAccessToken.config,
+		disableBackgroundJobs: fields.disableBackgroundJobs.config,
 	}),
 	{
 		oidc: oidcGroup.meta,
 		corsOrigins: fields.corsOrigins.meta,
 		adminAccessToken: fields.adminAccessToken.meta,
+		disableBackgroundJobs: fields.disableBackgroundJobs.meta,
 	},
 );
 
