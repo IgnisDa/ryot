@@ -65,9 +65,10 @@ Mapping files in this directory own exact field transforms, clamping, determinis
 
 ## Reporting
 
-Bootstrap statements write structured rows to `migration_report`. Each row contains a sequence,
-phase, level, message, optional count, and elapsed seconds. The orchestration logs new rows after each
-phase and retains the table for post-migration inspection.
+After Drizzle creates the V2 schema, bootstrap statements write structured rows to the
+Drizzle-owned `migration_report` table. Each row contains a sequence, timestamp, phase, level,
+message, optional count, and elapsed seconds. The orchestration logs new rows after each phase and
+retains the table for post-migration inspection. Pre-migration table renames do not write report rows.
 
 Information rows describe completed work. Warning rows are allowed for the documented unresolved
 episode omissions in seen and review migration and unresolved legacy S3 assets. Any other warning fails
@@ -87,4 +88,6 @@ Run backend migration-only mode:
 cd 'apps/app-backend' && bun run run-migration
 ```
 
-Inspect logs and migrated rows against same database. Test both normal and larger available dumps; generated-SQL tests alone do not validate full behavior.
+Inspect logs and migrated rows against the same database. The god-mode Migration Report panel shows
+warnings first, then newest rows. Test both normal and larger available dumps; generated-SQL tests
+alone do not validate full behavior.

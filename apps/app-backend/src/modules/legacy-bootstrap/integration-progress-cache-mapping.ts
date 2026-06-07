@@ -245,4 +245,5 @@ export const migrateIntegrationProgressCache = (cacheRows: ReadonlyArray<LegacyP
 				[],
 			),
 		);
+		return undefined;
 	});
