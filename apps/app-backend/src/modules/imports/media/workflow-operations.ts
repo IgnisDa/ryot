@@ -3,8 +3,8 @@ import { FileSystem, HttpClient, Path } from "@effect/platform";
 import { DurableQueue } from "@effect/workflow";
 import { Cause, Effect, Layer } from "effect";
 
-import { AppConfig } from "#lib/config";
-import { DbRunner } from "#lib/db";
+import { AppConfig } from "#lib/config/service";
+import { DbRunner } from "#lib/db/service";
 import { SandboxRunError, toSandboxRunError, unknownToMessage } from "#lib/errors";
 import { RedisService } from "#lib/redis";
 import type { EntitySchemaId, SandboxScriptId, UserId } from "#lib/schema/brands";

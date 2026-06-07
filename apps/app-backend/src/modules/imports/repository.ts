@@ -1,8 +1,8 @@
 import { and, asc, count, desc, eq, inArray, isNull } from "drizzle-orm";
 import { Effect } from "effect";
 
-import { CurrentDb, dbEffect } from "#lib/db";
-import * as schema from "#lib/db/schema/tables";
+import * as schema from "#lib/db/schema/tables/combined";
+import { CurrentDb, dbEffect } from "#lib/db/service";
 import { DbError } from "#lib/errors";
 import { ImportRunId, type IntegrationId, type UserId } from "#lib/schema/brands";
 

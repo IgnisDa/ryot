@@ -4,7 +4,7 @@ import { Effect, Schema } from "effect";
 
 import type { CurrentUserValue } from "#lib/auth-middleware";
 import { builtinEntitySchemas } from "#lib/builtins/entity-schemas";
-import { DbRunner, TransactionRunner } from "#lib/db";
+import { DbRunner, TransactionRunner } from "#lib/db/service";
 import { badRequest, conflict, notFound } from "#lib/errors";
 import { type EntitySchemaId, Slug, TrackerId } from "#lib/schema/brands";
 import { parseLabeledPropertySchemaInput } from "#lib/schema/property-schema-runtime";
