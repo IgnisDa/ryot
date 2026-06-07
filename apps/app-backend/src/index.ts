@@ -8,7 +8,7 @@ import { providerConfigDefinition, systemConfigDefinition } from "./lib/config/d
 import { generateConfigDocs } from "./lib/config/docs";
 import { DbService, TransactionRunnerLive } from "./lib/db";
 import { LegacyBootstrapMigrateDrop, MigrationsComplete } from "./lib/db/migrate";
-import { PackageCacheManager } from "./lib/sandbox-runtime";
+import { PackageCacheManager } from "./lib/sandbox/runtime";
 
 let shutdownTimer: ReturnType<typeof setTimeout> | undefined;
 

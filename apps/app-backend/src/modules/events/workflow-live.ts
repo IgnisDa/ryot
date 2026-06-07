@@ -3,7 +3,7 @@ import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { Effect, Layer } from "effect";
 
 import { DbRunner } from "#lib/db";
-import { SandboxService } from "#lib/sandbox";
+import { SandboxService } from "#lib/sandbox/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
 import { SandboxRepository } from "#modules/sandbox/repository";

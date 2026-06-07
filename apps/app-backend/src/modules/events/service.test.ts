@@ -5,7 +5,7 @@ import { Effect, Exit, Layer } from "effect";
 import type { CurrentUserValue } from "#lib/auth";
 import { CurrentDb, DbRunner } from "#lib/db";
 import { BadRequest, NotFound } from "#lib/errors";
-import { SandboxService } from "#lib/sandbox";
+import { SandboxService } from "#lib/sandbox/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
 import { SandboxRepository } from "#modules/sandbox/repository";

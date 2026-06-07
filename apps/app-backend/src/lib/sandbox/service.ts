@@ -4,18 +4,13 @@ import { generateId } from "better-auth";
 import { and, eq, isNull, or } from "drizzle-orm";
 import { Clock, Duration, Effect, Match, Runtime, Schema } from "effect";
 
-import { AppConfig } from "./config";
-import { CurrentDb, DbRunner, dbEffect, schema } from "./db";
-import { SandboxRunError, TimeoutError, unknownToMessage } from "./errors";
-import { redisKeys, RedisService } from "./redis";
-import { makeAdditionalSandboxApiFunctions } from "./sandbox-host-functions";
-import { BridgeService, invalidateProcess, ProcessPool } from "./sandbox-runtime";
-import {
-	apiFailure,
-	apiSuccess,
-	type BoundHostFunction,
-	requireSandboxRunInput,
-} from "./sandbox-shared";
+import { AppConfig } from "../config";
+import { CurrentDb, DbRunner, dbEffect, schema } from "../db";
+import { SandboxRunError, TimeoutError, unknownToMessage } from "../errors";
+import { redisKeys, RedisService } from "../redis";
+import { makeAdditionalSandboxApiFunctions } from "./host-functions";
+import { BridgeService, invalidateProcess, ProcessPool } from "./runtime";
+import { apiFailure, apiSuccess, type BoundHostFunction, requireSandboxRunInput } from "./shared";
 
 type HttpCallOptions = {
 	body?: string;
