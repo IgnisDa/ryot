@@ -22,11 +22,10 @@ function withRecordProperties<T extends { properties: unknown }>(
 	};
 }
 
-export async function createEntity(client: Client, cookies: string, body: CreateEntityInput) {
+export async function createEntity(client: Client, body: CreateEntityInput) {
 	const { image, ...rest } = body;
 	const entity = await client.run(
 		(c) => c.entities.create({ payload: { ...rest, ...(image != null && { image }) } }),
-		{ Cookie: cookies },
 	);
 
 	requirePresent(entity.id, "Failed to create entity");
@@ -34,20 +33,17 @@ export async function createEntity(client: Client, cookies: string, body: Create
 	return withRecordProperties(entity);
 }
 
-export async function getEntity(client: Client, cookies: string, entityId: string) {
-	const entity = await client.run((c) => c.entities.get({ path: { entityId } }), {
-		Cookie: cookies,
-	});
+export async function getEntity(client: Client, entityId: string) {
+	const entity = await client.run((c) => c.entities.get({ path: { entityId } }));
 
 	return withRecordProperties(entity);
 }
 
 export async function clearEntityUserState(
 	client: Client,
-	cookies: string,
 	entityId: string,
 ): Promise<ClearEntityUserStateData> {
-	return client.run((c) => c.entities.clearUserState({ path: { entityId } }), { Cookie: cookies });
+	return client.run((c) => c.entities.clearUserState({ path: { entityId } }));
 }
 
 export async function queryUserEntityStateCounts(input: { userId: string; entityId: string }) {
@@ -77,9 +73,9 @@ export async function queryUserEntityStateCounts(input: { userId: string; entity
 	};
 }
 
-export async function createTrackerWithSchemaAndEntity(client: Client, cookies: string) {
-	const { schemaId } = await createTrackerWithSchema(client, cookies);
-	const entity = await createEntity(client, cookies, {
+export async function createTrackerWithSchemaAndEntity(client: Client) {
+	const { schemaId } = await createTrackerWithSchema(client);
+	const entity = await createEntity(client, {
 		image: null,
 		name: "Test Entity",
 		entitySchemaId: schemaId,

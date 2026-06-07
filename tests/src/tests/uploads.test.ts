@@ -45,7 +45,7 @@ describe("POST /uploads/presigned", () => {
 	});
 
 	it("returns presigned upload URLs for csv, zip, and json", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 		const cases = [
 			["text/csv", "csv"],
 			["application/zip", "zip"],
@@ -56,7 +56,6 @@ describe("POST /uploads/presigned", () => {
 			cases.map(async ([contentType, extension]) => {
 				const data = await client.run(
 					(c) => c.uploads.createPresigned({ payload: { contentType } }),
-					{ Cookie: cookies },
 				);
 
 				expect(data.key).toBeString();
@@ -102,10 +101,9 @@ describe("POST /uploads/presigned/download", () => {
 			new PutObjectCommand({ Key: key, Body: "test content", Bucket: getS3BucketName() }),
 		);
 
-		const { client, cookies } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 		const data = await client.run(
 			(c) => c.uploads.createPresignedDownload({ payload: { keys: [key] } }),
-			{ Cookie: cookies },
 		);
 
 		expect(data).toHaveLength(1);

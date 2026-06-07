@@ -31,11 +31,11 @@ import {
 import { assertPresent, assertTaggedError } from "./assertions";
 
 async function createImageFallbackFixture() {
-	const { client, cookies } = await createAuthenticatedClient();
-	const { trackerId } = await createTracker(client, cookies, {
+	const { client } = await createAuthenticatedClient();
+	const { trackerId } = await createTracker(client, {
 		name: "Fallback Image Tracker",
 	});
-	const schema = await createEntitySchema(client, cookies, {
+	const schema = await createEntitySchema(client, {
 		trackerId,
 		name: "Fallback Image Device",
 		propertiesSchema: {
@@ -51,23 +51,22 @@ async function createImageFallbackFixture() {
 
 	await createQueryEngineEntity({
 		client,
-		cookies,
 		image: null,
 		name: "No Image Device",
 		entitySchemaId: schema.schemaId,
 		properties: { category: "fallback-image" },
 	});
 
-	return { client, cookies, schema };
+	return { client, schema };
 }
 
 async function createLatestEventJoinFixture() {
-	const { client, cookies, entityIdsByName, schema } = await createSingleSchemaQueryEngineFixture();
+	const { client, entityIdsByName, schema } = await createSingleSchemaQueryEngineFixture();
 	const alphaPhoneId = entityIdsByName["Alpha Phone"];
 	const gammaPhoneId = entityIdsByName["Gamma Phone"];
 	assertPresent(alphaPhoneId, "Missing runtime entity fixture ids for latest event join test");
 	assertPresent(gammaPhoneId, "Missing runtime entity fixture ids for latest event join test");
-	const reviewSchema = await createEventSchema(client, cookies, {
+	const reviewSchema = await createEventSchema(client, {
 		name: "Review",
 		slug: "review",
 		entitySchemaId: schema.schemaId,
@@ -81,31 +80,28 @@ async function createLatestEventJoinFixture() {
 
 	await createQueryEngineEvent({
 		client,
-		cookies,
 		entityId: alphaPhoneId,
 		eventSchemaId: reviewSchema.id,
 		properties: { rating: 2, note: "draft" },
 	});
 	await createQueryEngineEvent({
 		client,
-		cookies,
 		entityId: alphaPhoneId,
 		eventSchemaId: reviewSchema.id,
 		properties: { rating: 5, note: "final" },
 	});
 	await createQueryEngineEvent({
 		client,
-		cookies,
 		entityId: gammaPhoneId,
 		eventSchemaId: reviewSchema.id,
 		properties: { rating: 4, note: "solid" },
 	});
 
-	return { client, cookies, schema };
+	return { client, schema };
 }
 
 async function createMixedLatestEventJoinFixture() {
-	const { client, cookies, tabletSlug, smartphoneSlug, entityIdsByName, smartphoneSchema } =
+	const { client, tabletSlug, smartphoneSlug, entityIdsByName, smartphoneSchema } =
 		await createCrossSchemaQueryEngineFixture();
 	const alphaPhoneId = entityIdsByName["Alpha Phone"];
 	const gammaPhoneId = entityIdsByName["Gamma Phone"];
@@ -117,7 +113,7 @@ async function createMixedLatestEventJoinFixture() {
 		gammaPhoneId,
 		"Missing mixed runtime entity fixture ids for latest event join test",
 	);
-	const reviewSchema = await createEventSchema(client, cookies, {
+	const reviewSchema = await createEventSchema(client, {
 		name: "Review",
 		slug: "review",
 		entitySchemaId: smartphoneSchema.schemaId,
@@ -134,29 +130,26 @@ async function createMixedLatestEventJoinFixture() {
 
 	await createQueryEngineEvent({
 		client,
-		cookies,
 		entityId: alphaPhoneId,
 		properties: { rating: 5 },
 		eventSchemaId: reviewSchema.id,
 	});
 	await createQueryEngineEvent({
 		client,
-		cookies,
 		entityId: gammaPhoneId,
 		properties: { rating: 4 },
 		eventSchemaId: reviewSchema.id,
 	});
 
-	return { client, cookies, smartphoneSlug, tabletSlug };
+	return { client, smartphoneSlug, tabletSlug };
 }
 
 export function registerQueryEnginePresentationAndErrorTests() {
 	it("returns semantic keys for grid and list layouts with raw image unions", async () => {
-		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
+		const { client, schema } = await createSingleSchemaQueryEngineFixture();
 
 		const gridResult = await executeQueryEngine(
 			client,
-			cookies,
 			buildGridRequest({
 				scope: [schema.slug],
 				pagination: { page: 1, limit: 1 },
@@ -164,7 +157,6 @@ export function registerQueryEnginePresentationAndErrorTests() {
 		);
 		const listResult = await executeQueryEngine(
 			client,
-			cookies,
 			buildListRequest({
 				scope: [schema.slug],
 				pagination: { page: 1, limit: 1 },
@@ -248,10 +240,9 @@ export function registerQueryEnginePresentationAndErrorTests() {
 	});
 
 	it("returns null wrappers for empty grid display references", async () => {
-		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
+		const { client, schema } = await createSingleSchemaQueryEngineFixture();
 		const { data } = await executeQueryEngine(
 			client,
-			cookies,
 			buildGridRequest({
 				scope: [schema.slug],
 				pagination: { page: 1, limit: 1 },
@@ -290,10 +281,9 @@ export function registerQueryEnginePresentationAndErrorTests() {
 	});
 
 	it("returns ordered table fields and null wrappers for empty property references", async () => {
-		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
+		const { client, schema } = await createSingleSchemaQueryEngineFixture();
 		const { data } = await executeQueryEngine(
 			client,
-			cookies,
 			buildTableRequest({
 				scope: [schema.slug],
 				pagination: { page: 1, limit: 1 },
@@ -313,11 +303,10 @@ export function registerQueryEnginePresentationAndErrorTests() {
 	});
 
 	it("coalesces cross-schema display configuration values", async () => {
-		const { client, cookies, smartphoneSlug, tabletSlug } =
+		const { client, smartphoneSlug, tabletSlug } =
 			await createCrossSchemaQueryEngineFixture();
 		const { data } = await executeQueryEngine(
 			client,
-			cookies,
 			buildGridRequest({
 				scope: [smartphoneSlug, tabletSlug],
 				sort: {
@@ -370,11 +359,10 @@ export function registerQueryEnginePresentationAndErrorTests() {
 	});
 
 	it("rejects mixed image and text display fallbacks when @image is null", async () => {
-		const { client, cookies, schema } = await createImageFallbackFixture();
+		const { client, schema } = await createImageFallbackFixture();
 
 		const error = await executeQueryEngineError(
 			client,
-			cookies,
 			buildGridRequest({
 				scope: [schema.slug],
 				filter: {
@@ -397,11 +385,10 @@ export function registerQueryEnginePresentationAndErrorTests() {
 	});
 
 	it("rejects mixed image and text list fallbacks when @image is null", async () => {
-		const { client, cookies, schema } = await createImageFallbackFixture();
+		const { client, schema } = await createImageFallbackFixture();
 
 		const error = await executeQueryEngineError(
 			client,
-			cookies,
 			buildListRequest({
 				scope: [schema.slug],
 				filter: {
@@ -424,11 +411,10 @@ export function registerQueryEnginePresentationAndErrorTests() {
 	});
 
 	it("rejects mixed image and text table fallbacks when @image is null", async () => {
-		const { client, cookies, schema } = await createImageFallbackFixture();
+		const { client, schema } = await createImageFallbackFixture();
 
 		const error = await executeQueryEngineError(
 			client,
-			cookies,
 			buildTableRequest({
 				scope: [schema.slug],
 				filter: {
@@ -451,11 +437,10 @@ export function registerQueryEnginePresentationAndErrorTests() {
 	});
 
 	it("filters, sorts, and displays latest-event join data", async () => {
-		const { client, cookies, schema } = await createLatestEventJoinFixture();
+		const { client, schema } = await createLatestEventJoinFixture();
 		const reviewRatingRef = toRequiredExpression(["event.review.properties.rating"]);
 		const { data } = await executeQueryEngine(
 			client,
-			cookies,
 			buildTableRequest({
 				scope: [schema.slug],
 				sort: { expression: reviewRatingRef, direction: "desc" },
@@ -498,12 +483,11 @@ export function registerQueryEnginePresentationAndErrorTests() {
 	});
 
 	it("treats missing event schemas and missing event rows as null join values", async () => {
-		const { client, cookies, smartphoneSlug, tabletSlug } =
+		const { client, smartphoneSlug, tabletSlug } =
 			await createMixedLatestEventJoinFixture();
 		const reviewRatingRef = toRequiredExpression(["event.review.properties.rating"]);
 		const { data } = await executeQueryEngine(
 			client,
-			cookies,
 			buildGridRequest({
 				scope: [smartphoneSlug, tabletSlug],
 				filter: { type: "isNull", expression: reviewRatingRef },
@@ -534,12 +518,11 @@ export function registerQueryEnginePresentationAndErrorTests() {
 	});
 
 	it("returns only entities with a non-null event join value for isNotNull", async () => {
-		const { client, cookies, smartphoneSlug, tabletSlug } =
+		const { client, smartphoneSlug, tabletSlug } =
 			await createMixedLatestEventJoinFixture();
 		const reviewRatingRef = toRequiredExpression(["event.review.properties.rating"]);
 		const { data } = await executeQueryEngine(
 			client,
-			cookies,
 			buildGridRequest({
 				scope: [smartphoneSlug, tabletSlug],
 				filter: { type: "isNotNull", expression: reviewRatingRef },
@@ -565,15 +548,13 @@ export function registerQueryEnginePresentationAndErrorTests() {
 	});
 
 	it("returns 404 and 400 errors for invalid runtime requests", async () => {
-		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
+		const { client, schema } = await createSingleSchemaQueryEngineFixture();
 		const missingSchemaError = await executeQueryEngineError(
 			client,
-			cookies,
 			buildGridRequest({ scope: ["missing-schema"] }),
 		);
 		const missingPropertyError = await executeQueryEngineError(
 			client,
-			cookies,
 			buildGridRequest({
 				scope: [schema.slug],
 				filter: {
@@ -586,7 +567,6 @@ export function registerQueryEnginePresentationAndErrorTests() {
 		);
 		const mismatchedValueError = await executeQueryEngineError(
 			client,
-			cookies,
 			buildGridRequest({
 				scope: [schema.slug],
 				filter: {
