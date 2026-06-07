@@ -21,7 +21,6 @@ describe("interest authorization", () => {
 		)?.scriptId;
 		assertPresent(sandboxScriptId, "Anilist company provider script not found");
 
-		// A private, partial entity owned by user A. If it were visible to B, interest would populate it.
 		const privateEntity = await seedMediaEntity({
 			properties: {},
 			sandboxScriptId,
@@ -34,14 +33,11 @@ describe("interest authorization", () => {
 		const streamB = await openInterestStream(authB);
 		try {
 			await streamB.declareInterest([privateEntity.id]);
-			// B is not authorized to see the entity, so the reconciler never surfaces it: no catch-up, no
-			// completion event.
 			await streamB.expectNoEntityUpdated(privateEntity.id, { windowMs: 4000 });
 		} finally {
 			streamB.close();
 		}
 
-		// And nothing was enqueued on B's behalf: the entity is still unpopulated.
 		const result = await getPgClient().query<{ populatedAt: string | null }>(
 			`select populated_at::text as "populatedAt" from entity where id = $1`,
 			[privateEntity.id],

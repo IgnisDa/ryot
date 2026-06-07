@@ -29,9 +29,6 @@ import {
 const IMPORT_EXTERNAL_ID = "e2e-audiobook-1";
 const IMPORTED_NAME = "E2E Imported Audiobook";
 
-// A fake builtin provider registering both a `search` and a `details` driver, returning fixed data
-// with no network access. Search takes the scriptId directly; import pairs it with a real builtin
-// entity schema (no provider link is required by the import endpoint).
 let providerScript: SeededProviderScript;
 
 beforeAll(async () => {
