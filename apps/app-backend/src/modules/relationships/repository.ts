@@ -198,6 +198,75 @@ export class RelationshipsRepository extends Effect.Service<RelationshipsReposit
 
 					return rows.length;
 				}),
+			moveUserRelationshipsBetweenEntities: (input: {
+				userId: string;
+				mergeFrom: string;
+				mergeInto: string;
+			}) =>
+				Effect.gen(function* () {
+					const db = yield* CurrentDb;
+					const result = yield* dbEffect(() =>
+						db.execute<{ count: string }>(sql`
+							with candidates as (
+								select
+									md5("id" || ':merge:' || ${input.mergeInto}) as "id",
+									"user_id",
+									"properties",
+									"relationship_schema_id",
+									case
+										when "source_entity_id" = ${input.mergeFrom} then ${input.mergeInto}
+										else "source_entity_id"
+									end as "source_entity_id",
+									case
+										when "target_entity_id" = ${input.mergeFrom} then ${input.mergeInto}
+										else "target_entity_id"
+									end as "target_entity_id"
+								from "relationship"
+								where "user_id" = ${input.userId}
+									and (
+										"source_entity_id" = ${input.mergeFrom}
+										or "target_entity_id" = ${input.mergeFrom}
+									)
+							), inserted as (
+								insert into "relationship" (
+									"id",
+									"user_id",
+									"properties",
+									"source_entity_id",
+									"target_entity_id",
+									"relationship_schema_id"
+								)
+								select
+									"id",
+									"user_id",
+									"properties",
+									"source_entity_id",
+									"target_entity_id",
+									"relationship_schema_id"
+								from candidates
+								where "source_entity_id" <> "target_entity_id"
+								on conflict (
+									"user_id",
+									"source_entity_id",
+									"target_entity_id",
+									"relationship_schema_id"
+								) do nothing
+								returning "id"
+							), deleted as (
+								delete from "relationship"
+								where "user_id" = ${input.userId}
+									and (
+										"source_entity_id" = ${input.mergeFrom}
+										or "target_entity_id" = ${input.mergeFrom}
+									)
+								returning "id"
+							)
+							select count(*)::text as "count" from deleted
+						`),
+					);
+
+					return Number(result.rows[0]?.count ?? 0);
+				}),
 			upsertMembership: (input: {
 				userId: string;
 				entityId: string;

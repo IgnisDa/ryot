@@ -8,11 +8,19 @@ import { dieOnDbError } from "#lib/errors";
 import { UserStateService } from "./service";
 
 export const UserStateRoutesLive = HttpApiBuilder.group(AppContract, "userState", (handlers) =>
-	handlers.handle("clearUserState", ({ path }) =>
-		Effect.gen(function* () {
-			const user = yield* CurrentUser;
-			const service = yield* UserStateService;
-			return yield* service.clearUserState(user, path.entityId).pipe(dieOnDbError);
-		}),
-	),
+	handlers
+		.handle("clearUserState", ({ path }) =>
+			Effect.gen(function* () {
+				const user = yield* CurrentUser;
+				const service = yield* UserStateService;
+				return yield* service.clearUserState(user, path.entityId).pipe(dieOnDbError);
+			}),
+		)
+		.handle("mergeUserState", ({ payload }) =>
+			Effect.gen(function* () {
+				const user = yield* CurrentUser;
+				const service = yield* UserStateService;
+				return yield* service.mergeUserState(user, payload).pipe(dieOnDbError);
+			}),
+		),
 );
