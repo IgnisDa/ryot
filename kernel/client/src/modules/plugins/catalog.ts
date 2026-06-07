@@ -1,6 +1,7 @@
 import {
 	pluginClientCatalogRecipe,
 	type PluginClientCatalog,
+	type PluginClientCatalogEntry,
 } from "@ryot/ryotql-recipes/plugin-client-catalog";
 import { Context, Data, Effect, Layer } from "effect";
 import { Atom } from "effect/unstable/reactivity";
@@ -21,7 +22,24 @@ export class PluginCatalogService extends Context.Service<PluginCatalogService>(
 			const load = Effect.fn("PluginCatalogService.load")((ryot: KernelRyotClient) =>
 				Effect.tryPromise({
 					catch: (cause) => new PluginCatalogError({ cause }),
-					try: () => ryot.data.query(pluginClientCatalogRecipe()),
+					try: () => {
+						const loadPage = (
+							after: string | undefined,
+							catalog: PluginClientCatalogEntry[],
+						): Promise<PluginClientCatalog> =>
+							ryot.data.query(pluginClientCatalogRecipe({ after })).then((page) => {
+								catalog.push(...page.items);
+								if (!page.pageInfo.hasMore) {
+									return catalog;
+								}
+								if (page.pageInfo.nextCursor === null) {
+									throw new Error("Plugin catalog page omitted its next cursor");
+								}
+								return loadPage(page.pageInfo.nextCursor, catalog);
+							});
+
+						return loadPage(undefined, []);
+					},
 				}),
 			);
 

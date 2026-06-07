@@ -1,6 +1,7 @@
 import {
 	CLIENT_API_VERSION,
 	CLIENT_ARTIFACT_FORMAT,
+	CLIENT_BRIDGE_MAX_PENDING_REQUESTS,
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
 	PluginBridgeClientMessage,
@@ -171,6 +172,10 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 		if (pending.has(request.requestId)) {
 			return;
 		}
+		if (pending.size >= CLIENT_BRIDGE_MAX_PENDING_REQUESTS) {
+			fail();
+			return;
+		}
 		const controller = new AbortController();
 		pending.set(request.requestId, controller);
 		void Promise.resolve()
@@ -211,6 +216,10 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 
 	function handleRyotQL(request: PluginBridgeRyotQLRequest) {
 		if (pending.has(request.requestId)) {
+			return;
+		}
+		if (pending.size >= CLIENT_BRIDGE_MAX_PENDING_REQUESTS) {
+			fail();
 			return;
 		}
 		const controller = new AbortController();
