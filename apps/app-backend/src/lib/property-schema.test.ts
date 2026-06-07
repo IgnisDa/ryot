@@ -9,7 +9,7 @@ import {
 	parseAppSchemaPropertiesSafe,
 	parseLabeledPropertySchemaInput,
 	PropertyValidationError,
-} from "./schema";
+} from "./schema/core";
 
 describe("property schema DSL", () => {
 	it.effect("parses a valid schema definition", () =>

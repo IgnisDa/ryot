@@ -6,7 +6,7 @@ import { FetchHttpClient, HttpApiClient, HttpClient, HttpClientRequest } from "@
 import { faker } from "@faker-js/faker";
 import { AppContract } from "@ryot/app-backend/contract";
 import type { QueryExpression, QueryFilter, RuntimeRef } from "@ryot/app-backend/query-language";
-import type { AppSchema } from "@ryot/app-backend/schema";
+import type { AppSchema } from "@ryot/app-backend/schema/core";
 import { dayjs } from "@ryot/ts-utils/dayjs";
 import { createAuthClient } from "better-auth/client";
 import { config } from "dotenv";

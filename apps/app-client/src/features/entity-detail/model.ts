@@ -10,7 +10,7 @@ import {
 	ShowPropertiesSchema,
 	VideoGamePropertiesSchema,
 	VisualNovelPropertiesSchema,
-} from "@ryot/app-backend/media-types";
+} from "@ryot/app-backend/schema/media-types";
 import { Schema } from "effect";
 import { match } from "ts-pattern";
 

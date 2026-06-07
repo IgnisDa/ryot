@@ -1,4 +1,4 @@
-import type { AppSchema } from "#lib/schema";
+import type { AppSchema } from "#lib/schema/core";
 import { slugify } from "#lib/slug";
 
 type BuiltinRelationshipSchema = {
