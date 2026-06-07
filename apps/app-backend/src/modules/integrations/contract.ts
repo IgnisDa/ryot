@@ -2,7 +2,7 @@ import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from "@effect/platform";
 import { Schema } from "effect";
 
 import { AuthMiddleware } from "#lib/auth-middleware";
-import { BadRequest, NotFound, RateLimited, Unauthorized } from "#lib/errors";
+import { NotFound, RateLimited, Unauthorized } from "#lib/errors";
 import { ImportRunId, IntegrationId } from "#lib/schema/brands";
 import { ListedImportRun } from "#modules/imports/schemas";
 
@@ -31,7 +31,6 @@ export const IntegrationsGroup = HttpApiGroup.make("integrations")
 	.add(
 		HttpApiEndpoint.post("create", "/integrations")
 			.setPayload(CreateIntegrationBody)
-			.addError(BadRequest, { status: 400 })
 			.addSuccess(Schema.Struct({ id: Schema.String }), { status: 201 }),
 	)
 	.add(
@@ -43,7 +42,6 @@ export const IntegrationsGroup = HttpApiGroup.make("integrations")
 		HttpApiEndpoint.patch("update")`/integrations/${integrationIdParam}`
 			.setPayload(UpdateIntegrationBody)
 			.addSuccess(ListedIntegration)
-			.addError(BadRequest, { status: 400 })
 			.addError(NotFound, { status: 404 }),
 	)
 	.add(
@@ -60,6 +58,5 @@ export const IntegrationsGroup = HttpApiGroup.make("integrations")
 	.add(
 		HttpApiEndpoint.post("webhook")`/webhooks/integrations/${integrationIdParam}`
 			.addSuccess(Schema.Struct({ runId: ImportRunId }), { status: 202 })
-			.addError(BadRequest, { status: 400 })
 			.addError(NotFound, { status: 404 }),
 	);

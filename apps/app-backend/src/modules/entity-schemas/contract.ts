@@ -2,7 +2,7 @@ import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from "@effect/platform";
 import { Schema } from "effect";
 
 import { AuthMiddleware } from "#lib/auth-middleware";
-import { BadRequest, Conflict, NotFound, RateLimited, Unauthorized } from "#lib/errors";
+import { Conflict, NotFound, RateLimited, Unauthorized } from "#lib/errors";
 import { EntitySchemaId } from "#lib/schema/brands";
 import { SandboxRunResult } from "#modules/sandbox/schemas";
 
@@ -24,15 +24,13 @@ export const EntitySchemasGroup = HttpApiGroup.make("entitySchemas")
 		HttpApiEndpoint.post("list", "/entity-schemas/list")
 			.setPayload(ListEntitySchemasBody)
 			.addSuccess(Schema.Array(ListedEntitySchema))
-			.addError(NotFound, { status: 404 })
-			.addError(BadRequest, { status: 400 }),
+			.addError(NotFound, { status: 404 }),
 	)
 	.add(
 		HttpApiEndpoint.post("create", "/entity-schemas")
 			.setPayload(CreateEntitySchemaBody)
 			.addSuccess(ListedEntitySchema, { status: 201 })
 			.addError(NotFound, { status: 404 })
-			.addError(BadRequest, { status: 400 })
 			.addError(Conflict, { status: 409 }),
 	)
 	.add(

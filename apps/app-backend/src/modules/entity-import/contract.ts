@@ -2,7 +2,7 @@ import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from "@effect/platform";
 import { Schema } from "effect";
 
 import { AuthMiddleware } from "#lib/auth-middleware";
-import { BadRequest, NotFound, RateLimited, Unauthorized } from "#lib/errors";
+import { NotFound, RateLimited, Unauthorized } from "#lib/errors";
 
 import { ImportEntityBody, ImportEntityRunResult } from "./schemas";
 
@@ -16,7 +16,6 @@ export const EntityImportGroup = HttpApiGroup.make("entityImport")
 		HttpApiEndpoint.post("import", "/entity-import")
 			.setPayload(ImportEntityBody)
 			.addSuccess(Schema.Struct({ jobId: Schema.String }))
-			.addError(BadRequest, { status: 400 })
 			.addError(NotFound, { status: 404 }),
 	)
 	.add(
