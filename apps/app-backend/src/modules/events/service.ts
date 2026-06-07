@@ -46,17 +46,20 @@ export class EventsService extends Effect.Service<EventsService>()("EventsServic
 		const provideWorkflowEngine = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 			effect.pipe(Effect.provideService(WorkflowEngine, engine));
 
-		const requireReadableEntity = (userId: UserId, entityId: EntityId, notFoundMessage: string) =>
-			Effect.gen(function* () {
-				const scope = yield* runWithDb(
-					entitiesRepository.getEntityScopeForUser({ userId, entityId }),
-				);
-				if (!scope) {
-					return yield* notFound(notFoundMessage);
-				}
+		const requireReadableEntity = Effect.fn("EventsService.requireReadableEntity")(function* (
+			userId: UserId,
+			entityId: EntityId,
+			notFoundMessage: string,
+		) {
+			const scope = yield* runWithDb(
+				entitiesRepository.getEntityScopeForUser({ userId, entityId }),
+			);
+			if (!scope) {
+				return yield* notFound(notFoundMessage);
+			}
 
-				return scope;
-			});
+			return scope;
+		});
 
 		const listForUser = Effect.fn("EventsService.listForUser")(function* (
 			userId: UserId,
