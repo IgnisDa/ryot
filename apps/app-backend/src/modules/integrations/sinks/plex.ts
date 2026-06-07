@@ -12,7 +12,12 @@ import {
 
 const CoercedNumber = Schema.Union(Schema.Number, Schema.NumberFromString);
 
-const PlexGuid = Schema.Union(Schema.String, Schema.Struct({ id: Schema.String }));
+const PlexGuid = Schema.Union(
+	Schema.String,
+	Schema.Struct({ id: Schema.String }).pipe(
+		Schema.annotations({ identifier: "PlexGuidObject", title: "Plex Guid Object" }),
+	),
+);
 
 const PlexPayload = Schema.Struct({
 	event: Schema.String,
