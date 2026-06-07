@@ -14,7 +14,11 @@ import type { EventsService } from "#modules/events/service";
 
 import type { ImportRunJobData } from "./jobs";
 import { ImportsRepository } from "./repository";
-import { PROGRESS_UPDATE_INTERVAL, recordImportRunFailure } from "./runtime/failures";
+import {
+	markImportRunStarted,
+	PROGRESS_UPDATE_INTERVAL,
+	recordImportRunFailure,
+} from "./runtime/failures";
 import { readImportFile, resolveImportPath, resolveSafeImportFilePath } from "./runtime/files";
 import { getKnownImportExtensions } from "./runtime/source-definitions";
 import {
@@ -214,13 +218,10 @@ export const runOneTimeNonMediaImportWorkflow = Effect.fn("runOneTimeNonMediaImp
 			const operationSet = yield* operationsService.getOperations(payload);
 			yield* operationSet.withOperations((operations) =>
 				Effect.gen(function* () {
-					const startedAt = yield* DateTime.nowAsDate;
 					yield* Activity.make({
 						error: ImportRunError,
 						name: "mark-import-run-started",
-						execute: runWithDb(
-							repository.updateRun({ runId: payload.runId, status: "running", startedAt }),
-						).pipe(Effect.mapError(toWorkflowError)),
+						execute: markImportRunStarted(payload.runId).pipe(Effect.mapError(toWorkflowError)),
 					});
 
 					const loadOutcome = yield* Activity.make({

@@ -53,6 +53,5 @@ export class MediaImportWorkflowOperations extends Context.Tag("MediaImportWorkf
 >() {}
 
 export type MediaImportWorkflowOptions = {
-	skipMarkStarted?: boolean;
 	integrationId?: IntegrationId;
 };

@@ -11,6 +11,7 @@ import type { ImportRunId, IntegrationId, UserId } from "#lib/schema/brands";
 import { UploadsService } from "#modules/uploads/service";
 
 import { ImportsRepository } from "./repository";
+import { failImportRunWithFailures } from "./runtime/failures";
 import {
 	cleanupImportFile,
 	resolveSafeImportFilePath,
@@ -267,13 +268,11 @@ export class ImportsService extends Effect.Service<ImportsService>()("ImportsSer
 			runId: ImportRunId,
 			message: string,
 		) {
-			const finishedAt = yield* DateTime.nowAsDate;
-			yield* runWithDb(
-				repository.updateRun({ runId, finishedAt, status: "failed", errorSummary: message }),
-			);
-			yield* runWithDb(
-				repository.createFailure({ runId, message, itemIndex: 0, stage: "source_fetch" }),
-			);
+			yield* failImportRunWithFailures({
+				runId,
+				errorSummary: message,
+				failures: [{ message, itemIndex: 0, stage: "source_fetch" }],
+			});
 		});
 
 		return {
