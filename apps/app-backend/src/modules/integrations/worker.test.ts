@@ -2,6 +2,7 @@ import { it } from "@effect/vitest";
 import { Effect, Layer } from "effect";
 import { describe, expect as vitestExpect, it as vitestIt } from "vitest";
 
+import { ImportRunId } from "#lib/schema/brands";
 import { dbRunnerLayer, makeMock } from "#lib/test-support/effect";
 import { ImportsRepository } from "#modules/imports/repository";
 
@@ -129,7 +130,7 @@ it.effect("updates lastFinishedAt after a completed integration run", () => {
 	});
 
 	return Effect.gen(function* () {
-		yield* finalizeIntegrationRun(makeIntegration(), "run_1");
+		yield* finalizeIntegrationRun(makeIntegration(), ImportRunId.make("run_1"));
 
 		vitestExpect(updates).toHaveLength(1);
 		vitestExpect(updates[0]).toMatchObject({
@@ -163,7 +164,7 @@ it.effect("disables the integration after 5 consecutive failures", () => {
 	});
 
 	return Effect.gen(function* () {
-		yield* finalizeIntegrationRun(makeIntegration(), "run_1");
+		yield* finalizeIntegrationRun(makeIntegration(), ImportRunId.make("run_1"));
 
 		vitestExpect(updates).toEqual([{ userId: "user_1", isDisabled: true, integrationId: "int_1" }]);
 	}).pipe(Effect.provide(layer));
@@ -192,7 +193,7 @@ it.effect("does not disable integrations when recent runs are not all failures",
 	});
 
 	return Effect.gen(function* () {
-		yield* finalizeIntegrationRun(makeIntegration(), "run_1");
+		yield* finalizeIntegrationRun(makeIntegration(), ImportRunId.make("run_1"));
 
 		vitestExpect(updates).toEqual([]);
 	}).pipe(Effect.provide(layer));
@@ -216,7 +217,7 @@ it.effect("records failure counts for adapter-only sink runs", () => {
 	});
 
 	return Effect.gen(function* () {
-		yield* failAdapterOnlyRun("run_1", {
+		yield* failAdapterOnlyRun(ImportRunId.make("run_1"), {
 			entityGroups: [],
 			failures: [
 				{
@@ -274,7 +275,7 @@ it.effect("records failure counts for unsupported yank providers", () => {
 	});
 
 	return Effect.gen(function* () {
-		yield* failUnsupportedIntegrationRun("run_1", "komga");
+		yield* failUnsupportedIntegrationRun(ImportRunId.make("run_1"), "komga");
 
 		vitestExpect(failures).toEqual([
 			{

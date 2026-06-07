@@ -3,6 +3,7 @@ import { Schema } from "effect";
 
 import { AuthMiddleware } from "#lib/auth-middleware";
 import { BadRequest, Conflict, NotFound, RateLimited, Unauthorized } from "#lib/errors";
+import { EntitySchemaId } from "#lib/schema/brands";
 import { SandboxRunResult } from "#modules/sandbox/schemas";
 
 import {
@@ -12,7 +13,7 @@ import {
 	SearchEntitySchemasBody,
 } from "./schemas";
 
-const entitySchemaIdParam = HttpApiSchema.param("entitySchemaId", Schema.String);
+const entitySchemaIdParam = HttpApiSchema.param("entitySchemaId", EntitySchemaId);
 const jobIdParam = HttpApiSchema.param("jobId", Schema.String);
 
 export const EntitySchemasGroup = HttpApiGroup.make("entitySchemas")

@@ -5,6 +5,15 @@ import { Effect, Exit, Layer } from "effect";
 import type { CurrentUserValue } from "#lib/auth-middleware";
 import { BadRequest, NotFound } from "#lib/errors";
 import { SandboxService } from "#lib/sandbox/service";
+import {
+	EntityId,
+	EntitySchemaId,
+	EventId,
+	EventSchemaId,
+	ImportRunId,
+	SandboxScriptId,
+	UserId,
+} from "#lib/schema/brands";
 import { dbRunnerLayer, makeMock, makeWorkflowEngine } from "#lib/test-support/effect";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
@@ -19,24 +28,24 @@ import { EventsService } from "./service";
 const now = "2026-06-14T00:00:00.000Z";
 
 const user = {
-	id: "user-id",
+	id: UserId.make("user-id"),
 	name: "Test User",
 	email: "user@example.com",
 } satisfies CurrentUserValue;
 
 const entityScope = {
 	isBuiltin: false,
-	entityId: "entity-1",
+	entityId: EntityId.make("entity-1"),
 	entityUserId: user.id,
 	entitySchemaSlug: "book",
-	entitySchemaId: "entity-schema-1",
+	entitySchemaId: EntitySchemaId.make("entity-schema-1"),
 };
 
 const eventSchemaScope = {
 	slug: "finished",
 	name: "Finished",
-	id: "event-schema-1",
-	entitySchemaId: "entity-schema-1",
+	id: EventSchemaId.make("event-schema-1"),
+	entitySchemaId: EntitySchemaId.make("entity-schema-1"),
 	propertiesSchema: {
 		fields: {
 			rating: {
@@ -175,7 +184,7 @@ it.effect("returns not found when listing events for an inaccessible entity", ()
 
 	return Effect.gen(function* () {
 		const service = yield* EventsService;
-		const exit = yield* Effect.exit(service.list(user, { entityId: "entity-1" }));
+		const exit = yield* Effect.exit(service.list(user, { entityId: EntityId.make("entity-1") }));
 
 		expect(exit).toEqual(Exit.fail(new NotFound({ message: "Entity not found" })));
 	}).pipe(Effect.provide(layer));
@@ -190,7 +199,9 @@ it.effect("returns not found when listing events for an inaccessible session ent
 
 	return Effect.gen(function* () {
 		const service = yield* EventsService;
-		const exit = yield* Effect.exit(service.list(user, { sessionEntityId: "session-entity-1" }));
+		const exit = yield* Effect.exit(
+			service.list(user, { sessionEntityId: EntityId.make("session-entity-1") }),
+		);
 
 		expect(exit).toEqual(Exit.fail(new NotFound({ message: "Session entity not found" })));
 	}).pipe(Effect.provide(layer));
@@ -199,15 +210,15 @@ it.effect("returns not found when listing events for an inaccessible session ent
 it.effect("lists events for an accessible entity", () => {
 	const events = [
 		{
-			id: "event-1",
+			id: EventId.make("event-1"),
 			createdAt: now,
 			updatedAt: now,
 			occurredAt: now,
-			entityId: "entity-1",
+			entityId: EntityId.make("entity-1"),
 			properties: { rating: 5 },
 			eventSchemaName: "Finished",
 			eventSchemaSlug: "finished",
-			eventSchemaId: "event-schema-1",
+			eventSchemaId: EventSchemaId.make("event-schema-1"),
 		},
 	];
 
@@ -220,7 +231,7 @@ it.effect("lists events for an accessible entity", () => {
 
 	return Effect.gen(function* () {
 		const service = yield* EventsService;
-		const result = yield* service.list(user, { entityId: "entity-1" });
+		const result = yield* service.list(user, { entityId: EntityId.make("entity-1") });
 
 		expect(result).toEqual(events);
 	}).pipe(Effect.provide(layer));
@@ -237,7 +248,11 @@ it.effect("returns not found when creating an event for an inaccessible entity",
 		const service = yield* EventsService;
 		const exit = yield* Effect.exit(
 			service.create(user, [
-				{ properties: {}, entityId: "entity-1", eventSchemaId: "event-schema-1" },
+				{
+					properties: {},
+					entityId: EntityId.make("entity-1"),
+					eventSchemaId: EventSchemaId.make("event-schema-1"),
+				},
 			]),
 		);
 
@@ -259,7 +274,11 @@ it.effect("returns not found when the event schema is not visible to the user", 
 		const service = yield* EventsService;
 		const exit = yield* Effect.exit(
 			service.create(user, [
-				{ properties: {}, entityId: "entity-1", eventSchemaId: "event-schema-1" },
+				{
+					properties: {},
+					entityId: EntityId.make("entity-1"),
+					eventSchemaId: EventSchemaId.make("event-schema-1"),
+				},
 			]),
 		);
 
@@ -274,7 +293,10 @@ it.effect("returns bad request when the event schema does not belong to the enti
 		}),
 		eventSchemasRepository: makeEventSchemasRepository({
 			getScopeForUser: () =>
-				Effect.succeed({ ...eventSchemaScope, entitySchemaId: "other-entity-schema" }),
+				Effect.succeed({
+					...eventSchemaScope,
+					entitySchemaId: EntitySchemaId.make("other-entity-schema"),
+				}),
 		}),
 	});
 
@@ -282,7 +304,11 @@ it.effect("returns bad request when the event schema does not belong to the enti
 		const service = yield* EventsService;
 		const exit = yield* Effect.exit(
 			service.create(user, [
-				{ properties: {}, entityId: "entity-1", eventSchemaId: "event-schema-1" },
+				{
+					properties: {},
+					entityId: EntityId.make("entity-1"),
+					eventSchemaId: EventSchemaId.make("event-schema-1"),
+				},
 			]),
 		);
 
@@ -308,10 +334,10 @@ it.effect("returns not found when the session entity is not accessible", () => {
 		const exit = yield* Effect.exit(
 			service.create(user, [
 				{
-					entityId: "entity-1",
+					entityId: EntityId.make("entity-1"),
 					properties: { rating: 5 },
-					eventSchemaId: "event-schema-1",
-					sessionEntityId: "session-entity-1",
+					eventSchemaId: EventSchemaId.make("event-schema-1"),
+					sessionEntityId: EntityId.make("session-entity-1"),
 				},
 			]),
 		);
@@ -334,7 +360,11 @@ it.effect("returns bad request when event properties fail schema validation", ()
 		const service = yield* EventsService;
 		const exit = yield* Effect.exit(
 			service.create(user, [
-				{ properties: {}, entityId: "entity-1", eventSchemaId: "event-schema-1" },
+				{
+					properties: {},
+					entityId: EntityId.make("entity-1"),
+					eventSchemaId: EventSchemaId.make("event-schema-1"),
+				},
 			]),
 		);
 
@@ -364,7 +394,7 @@ it.effect("queues API event creation after validation and returns the requested 
 				Effect.sync(() => {
 					createCalled = true;
 					return {
-						id: "event-1",
+						id: EventId.make("event-1"),
 						createdAt: now,
 						updatedAt: now,
 						entityId: input.entityId,
@@ -383,9 +413,9 @@ it.effect("queues API event creation after validation and returns the requested 
 		const service = yield* EventsService;
 		const result = yield* service.create(user, [
 			{
-				entityId: "entity-1",
+				entityId: EntityId.make("entity-1"),
 				properties: { rating: 5 },
-				eventSchemaId: "event-schema-1",
+				eventSchemaId: EventSchemaId.make("event-schema-1"),
 				occurredAt: "2026-01-01T00:00:00.000Z",
 			},
 		]);
@@ -399,9 +429,9 @@ it.effect("queues API event creation after validation and returns the requested 
 				userId: user.id,
 				payload: [
 					{
-						entityId: "entity-1",
+						entityId: EntityId.make("entity-1"),
 						properties: { rating: 5 },
-						eventSchemaId: "event-schema-1",
+						eventSchemaId: EventSchemaId.make("event-schema-1"),
 						occurredAt: "2026-01-01T00:00:00.000Z",
 					},
 				],
@@ -427,8 +457,14 @@ it.effect("createForImport waits for the queued workflow result", () => {
 		const service = yield* EventsService;
 		const result = yield* service.createForImport(
 			user.id,
-			[{ entityId: "entity-1", properties: { rating: 5 }, eventSchemaId: "event-schema-1" }],
-			"run-1",
+			[
+				{
+					entityId: EntityId.make("entity-1"),
+					properties: { rating: 5 },
+					eventSchemaId: EventSchemaId.make("event-schema-1"),
+				},
+			],
+			ImportRunId.make("run-1"),
 		);
 
 		expect(result).toEqual({ count: 1 });
@@ -443,7 +479,7 @@ it.effect("before-create trigger skip prevents event creation", () => {
 	const sandboxRepo = makeSandboxRepository({
 		getScriptForUser: () =>
 			Effect.succeed({
-				id: "script-1",
+				id: SandboxScriptId.make("script-1"),
 				userId: user.id,
 				isBuiltin: false,
 				metadata: { allowedHostFunctions: [] },
@@ -472,8 +508,8 @@ it.effect("before-create trigger skip prevents event creation", () => {
 					{
 						position: 100,
 						id: "trigger-1",
-						sandboxScriptId: "script-1",
-						eventSchemaId: "event-schema-1",
+						eventSchemaId: EventSchemaId.make("event-schema-1"),
+						sandboxScriptId: SandboxScriptId.make("script-1"),
 					},
 				]),
 		}),
@@ -481,7 +517,11 @@ it.effect("before-create trigger skip prevents event creation", () => {
 
 	return Effect.gen(function* () {
 		const result = yield* runCreateCore([
-			{ properties: { rating: 5 }, entityId: "entity-1", eventSchemaId: "event-schema-1" },
+			{
+				properties: { rating: 5 },
+				entityId: EntityId.make("entity-1"),
+				eventSchemaId: EventSchemaId.make("event-schema-1"),
+			},
 		]);
 
 		expect(result).toEqual({ count: 0 });
@@ -493,7 +533,7 @@ it.effect("before-create trigger replace modifies event properties", () => {
 	const sandboxRepo = makeSandboxRepository({
 		getScriptForUser: () =>
 			Effect.succeed({
-				id: "script-1",
+				id: SandboxScriptId.make("script-1"),
 				userId: user.id,
 				isBuiltin: false,
 				metadata: { allowedHostFunctions: [] },
@@ -529,15 +569,15 @@ it.effect("before-create trigger replace modifies event properties", () => {
 					{
 						position: 100,
 						id: "trigger-1",
-						sandboxScriptId: "script-1",
-						eventSchemaId: "event-schema-1",
+						eventSchemaId: EventSchemaId.make("event-schema-1"),
+						sandboxScriptId: SandboxScriptId.make("script-1"),
 					},
 				]),
 			createEvent: (input) =>
 				Effect.sync(() => {
 					createCalls.push(input);
 					return {
-						id: "event-1",
+						id: EventId.make("event-1"),
 						entityId: input.entityId,
 						properties: input.properties,
 						eventSchemaId: input.eventSchemaId,
@@ -554,7 +594,11 @@ it.effect("before-create trigger replace modifies event properties", () => {
 
 	return Effect.gen(function* () {
 		const result = yield* runCreateCore([
-			{ properties: { rating: 1 }, entityId: "entity-1", eventSchemaId: "event-schema-1" },
+			{
+				properties: { rating: 1 },
+				entityId: EntityId.make("entity-1"),
+				eventSchemaId: EventSchemaId.make("event-schema-1"),
+			},
 		]);
 
 		expect(result).toEqual({ count: 1 });
@@ -566,7 +610,7 @@ it.effect("before-create trigger failure prevents event creation", () => {
 	const sandboxRepo = makeSandboxRepository({
 		getScriptForUser: () =>
 			Effect.succeed({
-				id: "script-1",
+				id: SandboxScriptId.make("script-1"),
 				userId: user.id,
 				isBuiltin: false,
 				metadata: { allowedHostFunctions: [] },
@@ -597,8 +641,8 @@ it.effect("before-create trigger failure prevents event creation", () => {
 					{
 						position: 100,
 						id: "trigger-1",
-						sandboxScriptId: "script-1",
-						eventSchemaId: "event-schema-1",
+						eventSchemaId: EventSchemaId.make("event-schema-1"),
+						sandboxScriptId: SandboxScriptId.make("script-1"),
 					},
 				]),
 		}),
@@ -607,7 +651,11 @@ it.effect("before-create trigger failure prevents event creation", () => {
 	return Effect.gen(function* () {
 		const exit = yield* Effect.exit(
 			runCreateCore([
-				{ properties: { rating: 5 }, entityId: "entity-1", eventSchemaId: "event-schema-1" },
+				{
+					properties: { rating: 5 },
+					entityId: EntityId.make("entity-1"),
+					eventSchemaId: EventSchemaId.make("event-schema-1"),
+				},
 			]),
 		);
 

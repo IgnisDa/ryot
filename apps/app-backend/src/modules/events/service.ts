@@ -5,6 +5,7 @@ import type { CurrentUserValue } from "#lib/auth-middleware";
 import { DbRunner } from "#lib/db";
 import type { BadRequest, DbError, NotFound } from "#lib/errors";
 import { badRequest, notFound } from "#lib/errors";
+import type { EntityId, ImportRunId, IntegrationId, UserId } from "#lib/schema/brands";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
 
@@ -20,21 +21,21 @@ const listScopeRequiredError = "Either entityId or sessionEntityId is required";
 type EventsServiceShape = {
 	readonly list: (
 		user: CurrentUserValue,
-		query: { entityId?: string; sessionEntityId?: string; eventSchemaSlug?: string },
+		query: { entityId?: EntityId; sessionEntityId?: EntityId; eventSchemaSlug?: string },
 	) => Effect.Effect<ListedEvent[], BadRequest | DbError | NotFound>;
 	readonly create: (
 		user: CurrentUserValue,
 		payload: ReadonlyArray<CreateEventItem>,
 	) => Effect.Effect<CreateEventsResponse, BadRequest | DbError | NotFound>;
 	readonly createForImport: (
-		userId: string,
+		userId: UserId,
 		payload: ReadonlyArray<CreateEventItem>,
-		importRunId?: string,
+		importRunId?: ImportRunId,
 	) => Effect.Effect<CreateEventsResponse, BadRequest | DbError | NotFound>;
 	readonly createForIntegration: (input: {
-		userId: string;
-		importRunId: string;
-		integrationId: string;
+		userId: UserId;
+		importRunId: ImportRunId;
+		integrationId: IntegrationId;
 		payload: ReadonlyArray<CreateEventItem>;
 	}) => Effect.Effect<CreateEventsResponse, BadRequest | DbError | NotFound>;
 };
@@ -57,7 +58,7 @@ export class EventsService extends Effect.Service<EventsService>()("EventsServic
 		const provideWorkflowEngine = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 			effect.pipe(Effect.provideService(WorkflowEngine, engine));
 
-		const requireReadableEntity = (userId: string, entityId: string, notFoundMessage: string) =>
+		const requireReadableEntity = (userId: UserId, entityId: EntityId, notFoundMessage: string) =>
 			Effect.gen(function* () {
 				const scope = yield* runWithDb(
 					entitiesRepository.getEntityScopeForUser({ userId, entityId }),
@@ -72,7 +73,7 @@ export class EventsService extends Effect.Service<EventsService>()("EventsServic
 		return {
 			list: Effect.fn("EventsService.list")(function* (
 				user: CurrentUserValue,
-				query: { entityId?: string; sessionEntityId?: string; eventSchemaSlug?: string },
+				query: { entityId?: EntityId; sessionEntityId?: EntityId; eventSchemaSlug?: string },
 			) {
 				if (!query.entityId && !query.sessionEntityId) {
 					return yield* badRequest(listScopeRequiredError);

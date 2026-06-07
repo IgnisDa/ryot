@@ -7,6 +7,7 @@ import { AppConfig } from "#lib/config";
 import { DbRunner } from "#lib/db";
 import { type BadRequest, type DbError, type NotFound, badRequest, notFound } from "#lib/errors";
 import { RedisService } from "#lib/redis";
+import type { ImportRunId, IntegrationId, UserId } from "#lib/schema/brands";
 import { UploadsService } from "#modules/uploads/service";
 
 import { ImportsRepository } from "./repository";
@@ -34,7 +35,10 @@ const isTerminalStatus = (status: ImportRunStatus): boolean =>
 	status === "completed" || status === "failed";
 
 type ImportsServiceShape = {
-	readonly failRunForIntegration: (runId: string, message: string) => Effect.Effect<void, DbError>;
+	readonly failRunForIntegration: (
+		runId: ImportRunId,
+		message: string,
+	) => Effect.Effect<void, DbError>;
 	readonly startImportRun: (
 		user: CurrentUserValue,
 		body: CreateImportRunBody,
@@ -44,23 +48,23 @@ type ImportsServiceShape = {
 	) => Effect.Effect<readonly ListedImportRun[], DbError>;
 	readonly getImportRun: (
 		user: CurrentUserValue,
-		runId: string,
+		runId: ImportRunId,
 		query: { page: number; limit: number },
 	) => Effect.Effect<DetailedImportRun, NotFound | DbError>;
 	readonly removeImportRun: (
 		user: CurrentUserValue,
-		runId: string,
+		runId: ImportRunId,
 	) => Effect.Effect<{ id: string }, BadRequest | NotFound | DbError>;
 	readonly hasActiveRunForIntegration: (input: {
-		integrationId: string;
+		integrationId: IntegrationId;
 	}) => Effect.Effect<boolean, DbError>;
 	readonly listRunsByIntegrationId: (input: {
-		userId: string;
-		integrationId: string;
+		userId: UserId;
+		integrationId: IntegrationId;
 	}) => Effect.Effect<readonly ListedImportRun[], DbError>;
 	readonly createRunForIntegration: (input: {
-		userId: string;
-		integrationId: string;
+		userId: UserId;
+		integrationId: IntegrationId;
 		source: ImportRunSource;
 		inputSummary: Record<string, unknown>;
 	}) => Effect.Effect<ListedImportRun, DbError>;
@@ -76,10 +80,12 @@ export class ImportsService extends Effect.Service<ImportsService>()("ImportsSer
 		const fs = yield* FileSystem.FileSystem;
 		const repository = yield* ImportsRepository;
 
-		const storeSourcePayload = (input: { runId: string; sourcePayload: Record<string, unknown> }) =>
-			storeImportSourcePayload(input).pipe(Effect.provideService(RedisService, redis));
+		const storeSourcePayload = (input: {
+			runId: ImportRunId;
+			sourcePayload: Record<string, unknown>;
+		}) => storeImportSourcePayload(input).pipe(Effect.provideService(RedisService, redis));
 
-		const deleteSourcePayload = (runId: string) =>
+		const deleteSourcePayload = (runId: ImportRunId) =>
 			deleteImportSourcePayload(runId).pipe(Effect.provideService(RedisService, redis));
 
 		const cleanupFiles = (paths: ReadonlyArray<string>) =>
@@ -89,7 +95,7 @@ export class ImportsService extends Effect.Service<ImportsService>()("ImportsSer
 				{ discard: true },
 			);
 
-		const failRun = (runId: string, errorSummary: string) =>
+		const failRun = (runId: ImportRunId, errorSummary: string) =>
 			Effect.gen(function* () {
 				const finishedAt = yield* DateTime.nowAsDate;
 				yield* runWithDb(
@@ -285,7 +291,7 @@ export class ImportsService extends Effect.Service<ImportsService>()("ImportsSer
 					}),
 				),
 			failRunForIntegration: Effect.fn("ImportsService.failRunForIntegration")(function* (
-				runId: string,
+				runId: ImportRunId,
 				message: string,
 			) {
 				const finishedAt = yield* DateTime.nowAsDate;

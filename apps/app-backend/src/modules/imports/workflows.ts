@@ -5,6 +5,8 @@ import { AppConfig } from "#lib/config";
 import { DbRunner } from "#lib/db";
 import type { SandboxRunError } from "#lib/errors";
 import { unknownToMessage } from "#lib/errors";
+import type { IntegrationId, UserId } from "#lib/schema/brands";
+import { EntityId, EntitySchemaId, EventSchemaId, SandboxScriptId } from "#lib/schema/brands";
 import { CollectionsService } from "#modules/collections/service";
 import type { EntitySearchItem } from "#modules/entities/population";
 import { EntitiesRepository } from "#modules/entities/repository";
@@ -32,12 +34,12 @@ import { buildNetflixAdapterResult } from "./sources/netflix/processor";
 
 const ResolutionCandidate = Schema.Struct({
 	scriptSlug: Schema.String,
-	sandboxScriptId: Schema.NullOr(Schema.String),
+	sandboxScriptId: Schema.NullOr(SandboxScriptId),
 });
 
 const PopulationScript = Schema.Struct({
-	entitySchemaId: Schema.String,
-	sandboxScriptId: Schema.String,
+	entitySchemaId: EntitySchemaId,
+	sandboxScriptId: SandboxScriptId,
 });
 
 const LoadMediaImportFailed = Schema.TaggedStruct("failed", {
@@ -66,29 +68,29 @@ type MediaImportWorkflowOperations<RLoad, RResolve, RImport, RSearch = never, RC
 	>;
 	resolveExternalId: (input: {
 		value: string;
-		userId: string;
-		scriptId: string;
+		userId: UserId;
+		scriptId: SandboxScriptId;
 		executionId: string;
 		identifierType: string;
 	}) => Effect.Effect<{ externalId: string | null }, SandboxRunError, RResolve>;
 	searchEntities?: (input: {
 		query: string;
-		userId: string;
-		scriptId: string;
+		userId: UserId;
+		scriptId: SandboxScriptId;
 		executionId: string;
 	}) => Effect.Effect<ReadonlyArray<EntitySearchItem>, SandboxRunError, RSearch>;
 	importEntity: (input: {
-		userId: string;
-		scriptId: string;
+		userId: UserId;
+		scriptId: SandboxScriptId;
 		externalId: string;
 		executionId: string;
-		entitySchemaId: string;
+		entitySchemaId: EntitySchemaId;
 		activityPrefix: string;
-	}) => Effect.Effect<{ id: string }, SandboxRunError, RImport>;
+	}) => Effect.Effect<{ id: EntityId }, SandboxRunError, RImport>;
 };
 
 type MediaImportWorkflowOptions = {
-	integrationId?: string;
+	integrationId?: IntegrationId;
 	skipMarkStarted?: boolean;
 };
 
@@ -463,7 +465,7 @@ export const runOneTimeMediaImportWorkflow = <
 				yield* reportResolutionProgress(i + 1);
 			}
 
-			const entityIdsByKey = new Map<string, string>();
+			const entityIdsByKey = new Map<string, EntityId>();
 			let populateFailures = 0;
 
 			for (let i = 0; i < entityGroups.length; i += 1) {
@@ -581,9 +583,9 @@ export const runOneTimeMediaImportWorkflow = <
 				base: 90,
 				phase: "writing-events",
 			});
-			const entitySchemaIdsBySlug = new Map<string, string>();
-			const collectionIdsByName = new Map<string, string>();
-			const eventSchemaIdsByKey = new Map<string, string>();
+			const entitySchemaIdsBySlug = new Map<string, EntitySchemaId>();
+			const collectionIdsByName = new Map<string, EntityId>();
+			const eventSchemaIdsByKey = new Map<string, EventSchemaId>();
 			const user = { id: payload.userId, name: "", email: "" };
 			const ownershipSyncedAt = yield* Activity.make({
 				error: ImportRunError,
@@ -605,7 +607,7 @@ export const runOneTimeMediaImportWorkflow = <
 					const entitySchemaId = yield* Activity.make({
 						error: ImportRunError,
 						name: `load-entity-schema-${activityKey(entitySchemaSlug)}`,
-						success: Schema.NullOr(Schema.String),
+						success: Schema.NullOr(EntitySchemaId),
 						execute: runWithDb(entitySchemas.getBuiltinBySlug(entitySchemaSlug)).pipe(
 							Effect.map((found) => found?.id ?? null),
 							Effect.mapError(toWorkflowError),
@@ -627,7 +629,7 @@ export const runOneTimeMediaImportWorkflow = <
 
 					const collectionId = yield* Activity.make({
 						error: ImportRunError,
-						success: Schema.String,
+						success: EntityId,
 						name: `get-or-create-collection-${activityKey(collectionName)}`,
 						execute: collections.getOrCreateCollection(payload.userId, collectionName).pipe(
 							Effect.map((collection) => collection.id),
@@ -638,7 +640,7 @@ export const runOneTimeMediaImportWorkflow = <
 					return collectionId;
 				});
 
-			const getEventSchemaId = (entitySchemaId: string, eventSchemaSlug: string) =>
+			const getEventSchemaId = (entitySchemaId: EntitySchemaId, eventSchemaSlug: string) =>
 				Effect.gen(function* () {
 					const schemaKey = `${entitySchemaId}:${eventSchemaSlug}`;
 					const cached = eventSchemaIdsByKey.get(schemaKey);
@@ -648,7 +650,7 @@ export const runOneTimeMediaImportWorkflow = <
 
 					const eventSchemaId = yield* Activity.make({
 						error: ImportRunError,
-						success: Schema.NullOr(Schema.String),
+						success: Schema.NullOr(EventSchemaId),
 						name: `load-event-schema-${activityKey(schemaKey)}`,
 						execute: runWithDb(
 							eventSchemas.getBuiltinBySlug({ entitySchemaId, slug: eventSchemaSlug }),

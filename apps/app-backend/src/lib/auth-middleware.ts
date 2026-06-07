@@ -2,9 +2,10 @@ import { HttpApiMiddleware, HttpApiSecurity } from "@effect/platform";
 import { Context, Schema } from "effect";
 
 import { RateLimited, Unauthorized } from "./errors";
+import type { UserId } from "./schema/brands";
 
 export type CurrentUserValue = {
-	readonly id: string;
+	readonly id: UserId;
 	readonly name: string;
 	readonly email: string;
 };

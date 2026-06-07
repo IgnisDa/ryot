@@ -2,6 +2,7 @@ import { Effect } from "effect";
 
 import { DbRunner } from "#lib/db";
 import { notFound } from "#lib/errors";
+import type { RelationshipSchemaId, UserId } from "#lib/schema/brands";
 
 import { RelationshipSchemasRepository } from "./repository";
 
@@ -23,8 +24,8 @@ export class RelationshipSchemasService extends Effect.Service<RelationshipSchem
 					return found;
 				}),
 				findById: Effect.fn("RelationshipSchemasService.findById")(function* (
-					id: string,
-					userId: string | null,
+					id: RelationshipSchemaId,
+					userId: UserId | null,
 				) {
 					const found = yield* runWithDb(repository.findById(id, userId));
 					if (!found) {

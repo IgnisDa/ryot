@@ -3,6 +3,8 @@ import { Effect } from "effect";
 
 import { CurrentDb, dbEffect } from "#lib/db";
 import * as schema from "#lib/db/schema/tables";
+import type { UserId } from "#lib/schema/brands";
+import { EntityId, EntitySchemaId, EventSchemaId, SandboxScriptId } from "#lib/schema/brands";
 
 type CollectionRow = Pick<
 	typeof schema.entity.$inferSelect,
@@ -30,15 +32,15 @@ const collectionSelection = {
 };
 
 const toCollectionResponse = (row: CollectionRow) => ({
-	id: row.id,
+	id: EntityId.make(row.id),
 	name: row.name,
 	image: row.image,
 	properties: row.properties,
 	externalId: row.externalId,
-	entitySchemaId: row.entitySchemaId,
-	sandboxScriptId: row.sandboxScriptId,
+	entitySchemaId: EntitySchemaId.make(row.entitySchemaId),
 	createdAt: row.createdAt.toISOString(),
 	updatedAt: row.updatedAt.toISOString(),
+	sandboxScriptId: row.sandboxScriptId ? SandboxScriptId.make(row.sandboxScriptId) : null,
 });
 
 export class CollectionsRepository extends Effect.Service<CollectionsRepository>()(
@@ -66,12 +68,18 @@ export class CollectionsRepository extends Effect.Service<CollectionsRepository>
 							.limit(1),
 					);
 
-					return row ?? null;
+					return row
+						? {
+								id: EntitySchemaId.make(row.id),
+								entitySchemaId: EntitySchemaId.make(row.entitySchemaId),
+								propertiesSchema: row.propertiesSchema,
+							}
+						: null;
 				},
 			),
 
 			findLibraryEntityForUser: Effect.fn("CollectionsRepository.findLibraryEntityForUser")(
-				function* (input: { userId: string; entitySchemaId: string }) {
+				function* (input: { userId: UserId; entitySchemaId: EntitySchemaId }) {
 					const db = yield* CurrentDb;
 					const [row] = yield* dbEffect(() =>
 						db
@@ -88,12 +96,12 @@ export class CollectionsRepository extends Effect.Service<CollectionsRepository>
 							.limit(1),
 					);
 
-					return row ?? null;
+					return row ? { id: EntityId.make(row.id) } : null;
 				},
 			),
 
 			getUserLibraryEntityId: Effect.fn("CollectionsRepository.getUserLibraryEntityId")(
-				function* (input: { userId: string }) {
+				function* (input: { userId: UserId }) {
 					const db = yield* CurrentDb;
 					const [row] = yield* dbEffect(() =>
 						db
@@ -113,12 +121,12 @@ export class CollectionsRepository extends Effect.Service<CollectionsRepository>
 							.limit(1),
 					);
 
-					return row?.id ?? null;
+					return row ? EntityId.make(row.id) : null;
 				},
 			),
 
 			findCollectionByNameForUser: Effect.fn("CollectionsRepository.findCollectionByNameForUser")(
-				function* (input: { name: string; userId: string; entitySchemaId: string }) {
+				function* (input: { name: string; userId: UserId; entitySchemaId: EntitySchemaId }) {
 					const db = yield* CurrentDb;
 					const [row] = yield* dbEffect(() =>
 						db
@@ -141,8 +149,8 @@ export class CollectionsRepository extends Effect.Service<CollectionsRepository>
 			),
 
 			getCollectionById: Effect.fn("CollectionsRepository.getCollectionById")(function* (
-				collectionId: string,
-				userId: string,
+				collectionId: EntityId,
+				userId: UserId,
 			) {
 				const db = yield* CurrentDb;
 				const [row] = yield* dbEffect(() =>
@@ -168,8 +176,8 @@ export class CollectionsRepository extends Effect.Service<CollectionsRepository>
 			}),
 
 			getEntityForMembership: Effect.fn("CollectionsRepository.getEntityForMembership")(function* (
-				entityId: string,
-				userId: string,
+				entityId: EntityId,
+				userId: UserId,
 			) {
 				const db = yield* CurrentDb;
 				const [row] = yield* dbEffect(() =>
@@ -194,11 +202,11 @@ export class CollectionsRepository extends Effect.Service<CollectionsRepository>
 						.limit(1),
 				);
 
-				return row ?? null;
+				return row ? { ...row, id: EntityId.make(row.id) } : null;
 			}),
 
 			findBuiltinEventSchemaBySlug: Effect.fn("CollectionsRepository.findBuiltinEventSchemaBySlug")(
-				function* (entitySchemaId: string, slug: string) {
+				function* (entitySchemaId: EntitySchemaId, slug: string) {
 					const db = yield* CurrentDb;
 					const [row] = yield* dbEffect(() =>
 						db
@@ -218,7 +226,7 @@ export class CollectionsRepository extends Effect.Service<CollectionsRepository>
 							.limit(1),
 					);
 
-					return row ?? null;
+					return row ? { ...row, id: EventSchemaId.make(row.id) } : null;
 				},
 			),
 		}),

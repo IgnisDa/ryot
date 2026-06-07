@@ -5,6 +5,8 @@ import { CurrentDb, dbEffect, isUniqueConstraintError } from "#lib/db";
 import { entitySchemaAccessScopeSelection } from "#lib/db/schema";
 import * as schema from "#lib/db/schema/tables";
 import { DbError, conflict } from "#lib/errors";
+import type { UserId } from "#lib/schema/brands";
+import { EntitySchemaId, EventSchemaId } from "#lib/schema/brands";
 import { decodeStoredAppSchema } from "#lib/schema/core";
 import type { AppSchema } from "#lib/schema/property-schema";
 
@@ -30,11 +32,11 @@ const toListedEventSchema = Effect.fn(function* (row: ListedEventSchemaRow) {
 	);
 
 	return {
-		id: row.id,
+		id: EventSchemaId.make(row.id),
 		slug: row.slug,
 		name: row.name,
 		propertiesSchema,
-		entitySchemaId: row.entitySchemaId,
+		entitySchemaId: EntitySchemaId.make(row.entitySchemaId),
 	};
 });
 
@@ -43,7 +45,7 @@ export class EventSchemasRepository extends Effect.Service<EventSchemasRepositor
 	{
 		sync: () => ({
 			getEntitySchemaScopeById: Effect.fn("EventSchemasRepository.getEntitySchemaScopeById")(
-				function* (input: { entitySchemaId: string; userId: string }) {
+				function* (input: { entitySchemaId: EntitySchemaId; userId: UserId }) {
 					const db = yield* CurrentDb;
 					const [row] = yield* dbEffect(() =>
 						db
@@ -61,12 +63,12 @@ export class EventSchemasRepository extends Effect.Service<EventSchemasRepositor
 							.limit(1),
 					);
 
-					return row ?? null;
+					return row ? { ...row, id: EntitySchemaId.make(row.id) } : null;
 				},
 			),
 			getScopeForUser: Effect.fn("EventSchemasRepository.getScopeForUser")(function* (input: {
-				eventSchemaId: string;
-				userId: string;
+				eventSchemaId: EventSchemaId;
+				userId: UserId;
 			}) {
 				const db = yield* CurrentDb;
 				const [row] = yield* dbEffect(() =>
@@ -89,7 +91,7 @@ export class EventSchemasRepository extends Effect.Service<EventSchemasRepositor
 				return yield* toListedEventSchema(row);
 			}),
 			getBuiltinBySlug: Effect.fn("EventSchemasRepository.getBuiltinBySlug")(function* (input: {
-				entitySchemaId: string;
+				entitySchemaId: EntitySchemaId;
 				slug: string;
 			}) {
 				const db = yield* CurrentDb;
@@ -117,13 +119,13 @@ export class EventSchemasRepository extends Effect.Service<EventSchemasRepositor
 					row.propertiesSchema,
 					"Invalid event properties schema in database",
 				);
-				return { id: row.id, propertiesSchema };
+				return { id: EventSchemaId.make(row.id), propertiesSchema };
 			}),
 			createEventSchema: Effect.fn("EventSchemasRepository.createEventSchema")(function* (input: {
 				name: string;
 				slug: string;
-				userId: string;
-				entitySchemaId: string;
+				userId: UserId;
+				entitySchemaId: EntitySchemaId;
 				propertiesSchema: AppSchema;
 			}) {
 				const db = yield* CurrentDb;
@@ -155,9 +157,9 @@ export class EventSchemasRepository extends Effect.Service<EventSchemasRepositor
 				return yield* toListedEventSchema(row);
 			}),
 			findBySlugForUser: Effect.fn("EventSchemasRepository.findBySlugForUser")(function* (input: {
-				entitySchemaId: string;
+				entitySchemaId: EntitySchemaId;
 				slug: string;
-				userId: string;
+				userId: UserId;
 			}) {
 				const db = yield* CurrentDb;
 				const [row] = yield* dbEffect(() =>
@@ -174,10 +176,10 @@ export class EventSchemasRepository extends Effect.Service<EventSchemasRepositor
 						.limit(1),
 				);
 
-				return row ?? null;
+				return row ? { id: EventSchemaId.make(row.id) } : null;
 			}),
 			listByEntitySchemaForUser: Effect.fn("EventSchemasRepository.listByEntitySchemaForUser")(
-				function* (input: { entitySchemaId: string; userId: string }) {
+				function* (input: { entitySchemaId: EntitySchemaId; userId: UserId }) {
 					const db = yield* CurrentDb;
 					const rows = yield* dbEffect(() =>
 						db

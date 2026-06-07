@@ -4,6 +4,7 @@ import type { CurrentUserValue } from "#lib/auth-middleware";
 import { DbRunner, TransactionRunner } from "#lib/db";
 import { badRequest, conflict, notFound } from "#lib/errors";
 import { buildReorderedIds } from "#lib/reorder";
+import { TrackerId } from "#lib/schema/brands";
 import { slugify } from "#lib/slug";
 import { trimToNull } from "#lib/validation";
 
@@ -109,12 +110,12 @@ const resolveUpdatePayload = (input: {
 	});
 };
 
-const resolveTrackerIds = (trackerIds: ReadonlyArray<string>) => {
+const resolveTrackerIds = (trackerIds: ReadonlyArray<TrackerId>) => {
 	if (trackerIds.length === 0) {
 		return badRequest("Tracker ids are required");
 	}
 
-	const normalizedIds = trackerIds.map((trackerId) => trackerId.trim());
+	const normalizedIds = trackerIds.map((trackerId) => TrackerId.make(trackerId.trim()));
 	if (normalizedIds.some((trackerId) => trackerId.length === 0)) {
 		return badRequest("Tracker ids are required");
 	}
@@ -153,13 +154,14 @@ export class TrackersService extends Effect.Service<TrackersService>()("Trackers
 			}),
 			update: Effect.fn("TrackersService.update")(function* (
 				user: CurrentUserValue,
-				trackerId: string,
+				trackerId: TrackerId,
 				payload: UpdateTrackerBody,
 			) {
-				const resolvedTrackerId = trimToNull(trackerId);
-				if (!resolvedTrackerId) {
+				const trimmedTrackerId = trimToNull(trackerId);
+				if (!trimmedTrackerId) {
 					return yield* badRequest("Tracker id is required");
 				}
+				const resolvedTrackerId = TrackerId.make(trimmedTrackerId);
 
 				const current = yield* runWithDb(repository.getOwnedById(user.id, resolvedTrackerId));
 				if (!current) {

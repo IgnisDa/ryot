@@ -4,6 +4,15 @@ import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngin
 import { Effect, Layer } from "effect";
 
 import {
+	EntityId,
+	EntitySchemaId,
+	ImportRunId,
+	RelationshipId,
+	RelationshipSchemaId,
+	SandboxScriptId,
+	UserId,
+} from "#lib/schema/brands";
+import {
 	dbRunnerLayer,
 	makeAppConfigLayer,
 	makeMock,
@@ -183,11 +192,11 @@ const withTestLayer = <A, E, R>(
 };
 
 const importPayload = {
-	runId: "run-1",
-	userId: "user-1",
+	userId: UserId.make("user-1"),
 	source: "goodreads",
 	filePath: "/tmp/import.csv",
 	sourcePayloadKey: "payload-1",
+	runId: ImportRunId.make("run-1"),
 };
 
 it.effect("orchestrates one-time media imports through workflow-owned phases", () => {
@@ -215,7 +224,10 @@ it.effect("orchestrates one-time media imports through workflow-owned phases", (
 			findEntitySchemaScriptBySlug: (slug) =>
 				Effect.succeed(
 					slug === "book.openlibrary"
-						? { entitySchemaId: "schema-book", sandboxScriptId: "script-book-openlibrary" }
+						? {
+								entitySchemaId: EntitySchemaId.make("schema-book"),
+								sandboxScriptId: SandboxScriptId.make("script-book-openlibrary"),
+							}
 						: null,
 				),
 		}),
@@ -233,9 +245,9 @@ it.effect("orchestrates one-time media imports through workflow-owned phases", (
 					updatedAt: now,
 					properties: {},
 					externalId: null,
-					id: `${name}-id`,
+					id: EntityId.make(`${name}-id`),
 					sandboxScriptId: null,
-					entitySchemaId: "schema-collection",
+					entitySchemaId: EntitySchemaId.make("schema-collection"),
 				}),
 			addToCollection: (_user, payload) => {
 				collectionAdds.push(payload);
@@ -243,10 +255,10 @@ it.effect("orchestrates one-time media imports through workflow-owned phases", (
 					memberOf: {
 						createdAt: now,
 						properties: {},
-						id: "membership-1",
+						id: RelationshipId.make("membership-1"),
 						sourceEntityId: payload.entityId,
 						targetEntityId: payload.collectionId,
-						relationshipSchemaId: "relationship-1",
+						relationshipSchemaId: RelationshipSchemaId.make("relationship-1"),
 					},
 				});
 			},
@@ -299,7 +311,7 @@ it.effect("orchestrates one-time media imports through workflow-owned phases", (
 				importEntity: (input) =>
 					Effect.sync(() => {
 						importedCalls.push(input);
-						return { id: "entity-1" };
+						return { id: EntityId.make("entity-1") };
 					}),
 			});
 
@@ -420,7 +432,7 @@ it.effect(
 					importEntity: () =>
 						Effect.sync(() => {
 							importCalled = true;
-							return { id: "entity-1" };
+							return { id: EntityId.make("entity-1") };
 						}),
 				});
 

@@ -6,6 +6,7 @@ import { CurrentDb, dbEffect } from "#lib/db";
 import { user } from "#lib/db/schema/auth";
 import * as schema from "#lib/db/schema/tables";
 import type { DbError } from "#lib/errors";
+import { IntegrationId, UserId } from "#lib/schema/brands";
 
 import type {
 	IntegrationExtraSettings,
@@ -33,7 +34,7 @@ type IntegrationRow = {
 	readonly providerSpecifics: IntegrationProviderSpecifics;
 };
 
-export type IntegrationRecord = ListedIntegration & { readonly userId: string };
+export type IntegrationRecord = ListedIntegration & { readonly userId: UserId };
 
 type IntegrationsDbEffect<A> = Effect.Effect<A, DbError, CurrentDb>;
 
@@ -55,10 +56,10 @@ const integrationSelection = {
 };
 
 const normalizeIntegration = (frontendUrl: string, row: IntegrationRow): IntegrationRecord => ({
-	id: row.id,
+	id: IntegrationId.make(row.id),
 	lot: row.lot,
 	name: row.name,
-	userId: row.userId,
+	userId: UserId.make(row.userId),
 	provider: row.provider,
 	isDisabled: row.isDisabled,
 	syncOwnership: row.syncOwnership,
@@ -74,7 +75,7 @@ const normalizeIntegration = (frontendUrl: string, row: IntegrationRow): Integra
 
 type IntegrationsRepositoryShape = {
 	readonly createForUser: (input: {
-		userId: string;
+		userId: UserId;
 		lot: IntegrationLot;
 		isDisabled: boolean;
 		name?: string | null;
@@ -86,24 +87,24 @@ type IntegrationsRepositoryShape = {
 		providerSpecifics: IntegrationProviderSpecifics;
 	}) => IntegrationsDbEffect<IntegrationRecord>;
 	readonly getByIdAnyUser: (input: {
-		integrationId: string;
+		integrationId: IntegrationId;
 	}) => IntegrationsDbEffect<IntegrationRecord | null>;
 	readonly getForUser: (input: {
-		userId: string;
-		integrationId: string;
+		userId: UserId;
+		integrationId: IntegrationId;
 	}) => IntegrationsDbEffect<ListedIntegration | null>;
-	readonly getUserDisableIntegrations: (input: { userId: string }) => IntegrationsDbEffect<boolean>;
+	readonly getUserDisableIntegrations: (input: { userId: UserId }) => IntegrationsDbEffect<boolean>;
 	readonly listEnabledYankIntegrations: () => IntegrationsDbEffect<IntegrationRecord[]>;
 	readonly listForUser: (input: {
-		userId: string;
+		userId: UserId;
 		isDisabled?: boolean;
 		provider?: IntegrationProvider;
 	}) => IntegrationsDbEffect<ListedIntegration[]>;
 	readonly updateForUser: (input: {
-		userId: string;
+		userId: UserId;
 		name?: string | null;
 		isDisabled?: boolean;
-		integrationId: string;
+		integrationId: IntegrationId;
 		syncOwnership?: boolean;
 		minimumProgress?: string;
 		maximumProgress?: string;
@@ -112,8 +113,8 @@ type IntegrationsRepositoryShape = {
 		providerSpecifics?: IntegrationProviderSpecifics;
 	}) => IntegrationsDbEffect<ListedIntegration | null>;
 	readonly deleteForUser: (input: {
-		userId: string;
-		integrationId: string;
+		userId: UserId;
+		integrationId: IntegrationId;
 	}) => IntegrationsDbEffect<void>;
 };
 

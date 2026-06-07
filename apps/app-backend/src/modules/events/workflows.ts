@@ -3,18 +3,19 @@ import { generateId } from "better-auth";
 import { Schema } from "effect";
 
 import { BadRequest, DbError, NotFound } from "#lib/errors";
+import { ImportRunId, IntegrationId, UserId } from "#lib/schema/brands";
 
 import { CreateEventItem, CreateEventsResponse, EventCreateOrigin } from "./schemas";
 
 export const EventCreateWorkflowError = Schema.Union(BadRequest, DbError, NotFound);
 
 export const EventCreateWorkflowPayload = Schema.Struct({
-	userId: Schema.String,
+	userId: UserId,
 	origin: EventCreateOrigin,
 	executionId: Schema.String,
 	payload: Schema.Array(CreateEventItem),
-	importRunId: Schema.optional(Schema.String),
-	integrationId: Schema.optional(Schema.String),
+	importRunId: Schema.optional(ImportRunId),
+	integrationId: Schema.optional(IntegrationId),
 });
 
 type EventCreateWorkflowInput = Omit<typeof EventCreateWorkflowPayload.Type, "executionId">;

@@ -3,6 +3,7 @@ import { Cause, DateTime, Effect, Exit, Match, Option, Schema } from "effect";
 
 import { DbRunner } from "#lib/db";
 import { SandboxRunError, dieOnDbError, unknownToMessage } from "#lib/errors";
+import { EntitySchemaId, SandboxScriptId, UserId } from "#lib/schema/brands";
 import { parseAppSchemaProperties } from "#lib/schema/property-schema-runtime";
 import { SandboxExecutionQueue } from "#modules/sandbox/durable-queues";
 import type { SandboxCompletedResult as SandboxCompletedResultValue } from "#modules/sandbox/schemas";
@@ -18,11 +19,11 @@ import type { ImportEntityRunResult } from "./schemas";
 import { EntityImage, ListedEntity } from "./schemas";
 
 export const EntityImportPayload = Schema.Struct({
-	userId: Schema.String,
-	scriptId: Schema.String,
+	userId: UserId,
+	scriptId: SandboxScriptId,
 	externalId: Schema.String,
 	executionId: Schema.String,
-	entitySchemaId: Schema.String,
+	entitySchemaId: EntitySchemaId,
 });
 
 export type EntityImportPayload = typeof EntityImportPayload.Type;

@@ -6,12 +6,13 @@ import type { CurrentUserValue } from "#lib/auth-middleware";
 import { BadRequest } from "#lib/errors";
 import { RedisService, redisKeys } from "#lib/redis";
 import { S3Service } from "#lib/s3";
+import { UserId } from "#lib/schema/brands";
 import { makeAppConfigLayer, makeMock } from "#lib/test-support/effect";
 
 import { UploadsService } from "./service";
 
 const user: CurrentUserValue = {
-	id: "user-id",
+	id: UserId.make("user-id"),
 	name: "Test User",
 	email: "user@example.com",
 };

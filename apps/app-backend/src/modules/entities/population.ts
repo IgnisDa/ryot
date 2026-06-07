@@ -2,6 +2,7 @@ import { Effect, Schema } from "effect";
 
 import { DbRunner } from "#lib/db";
 import { SandboxRunError, dieOnDbError } from "#lib/errors";
+import type { EntityId, EntitySchemaId } from "#lib/schema/brands";
 import { parseAppSchemaProperties } from "#lib/schema/property-schema-runtime";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
@@ -55,8 +56,8 @@ const EntitySearchResult = Schema.Struct({ items: Schema.Array(EntitySearchItem)
 export const decodeEntitySearchResult = Schema.decodeUnknown(EntitySearchResult);
 
 export const processRelatedEntity = Effect.fn("processRelatedEntity")(function* (input: {
-	sourceEntityId: string;
-	sourceEntitySchemaId: string;
+	sourceEntityId: EntityId;
+	sourceEntitySchemaId: EntitySchemaId;
 	relatedEntity: EntityDetailsRelatedEntity;
 }) {
 	const runWithDb = yield* DbRunner;

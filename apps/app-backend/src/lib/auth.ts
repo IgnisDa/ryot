@@ -19,6 +19,7 @@ import * as schemaRelations from "./db/schema/relations";
 import * as schemaTables from "./db/schema/tables";
 import { rateLimited, unauthorized } from "./errors";
 import { redisKeys, RedisService } from "./redis";
+import { UserId } from "./schema/brands";
 
 const schema = { ...schemaAuth, ...schemaTables, ...schemaRelations };
 
@@ -182,7 +183,7 @@ export class AuthService extends Effect.Service<AuthService>()("AuthService", {
 
 		return {
 			auth,
-			deleteUserSessions: (userId: string) =>
+			deleteUserSessions: (userId: UserId) =>
 				Effect.promise(() =>
 					auth.$context.then((ctx) => ctx.internalAdapter.deleteUserSessions(userId)),
 				).pipe(Effect.orDie),
@@ -202,7 +203,7 @@ export class AuthService extends Effect.Service<AuthService>()("AuthService", {
 							? session.user.bannedAt
 								? Effect.fail(unauthorized())
 								: Effect.succeed({
-										id: session.user.id,
+										id: UserId.make(session.user.id),
 										name: session.user.name,
 										email: session.user.email,
 									})

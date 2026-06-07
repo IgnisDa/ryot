@@ -1,5 +1,7 @@
 import { Schema } from "effect";
 
+import { SandboxScriptId, UserId } from "#lib/schema/brands";
+
 export const SandboxScriptMetadata = Schema.Struct({
 	allowedHostFunctions: Schema.optional(Schema.Array(Schema.String)),
 	requiredAppConfigKeys: Schema.optional(Schema.Array(Schema.String)),
@@ -8,7 +10,7 @@ export const SandboxScriptMetadata = Schema.Struct({
 export type SandboxScriptMetadata = Schema.Schema.Type<typeof SandboxScriptMetadata>;
 
 export const SandboxScript = Schema.Struct({
-	id: Schema.String,
+	id: SandboxScriptId,
 	slug: Schema.String,
 	code: Schema.String,
 	name: Schema.optional(Schema.String),
@@ -27,7 +29,7 @@ export const CreateSandboxScriptBody = Schema.Struct({
 export type CreateSandboxScriptBody = Schema.Schema.Type<typeof CreateSandboxScriptBody>;
 
 export const EnqueueSandboxBody = Schema.Struct({
-	scriptId: Schema.String,
+	scriptId: SandboxScriptId,
 	driverName: Schema.String,
 	context: Schema.optional(Schema.Unknown),
 });
@@ -38,10 +40,10 @@ export const EnqueueResponse = Schema.Struct({ jobId: Schema.String });
 
 export const SandboxExecutionPayload = Schema.Struct({
 	context: Schema.Unknown,
-	scriptId: Schema.String,
+	scriptId: SandboxScriptId,
 	driverName: Schema.String,
 	executionId: Schema.String,
-	userId: Schema.NullOr(Schema.String),
+	userId: Schema.NullOr(UserId),
 });
 
 export type SandboxExecutionPayload = Schema.Schema.Type<typeof SandboxExecutionPayload>;

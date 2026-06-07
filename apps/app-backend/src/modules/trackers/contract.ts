@@ -3,6 +3,7 @@ import { Schema } from "effect";
 
 import { AuthMiddleware } from "#lib/auth-middleware";
 import { BadRequest, Conflict, NotFound, RateLimited, Unauthorized } from "#lib/errors";
+import { TrackerId } from "#lib/schema/brands";
 
 import {
 	CreateTrackerBody,
@@ -12,7 +13,7 @@ import {
 	UpdateTrackerBody,
 } from "./schemas";
 
-const trackerIdParam = HttpApiSchema.param("trackerId", Schema.String);
+const trackerIdParam = HttpApiSchema.param("trackerId", TrackerId);
 
 export const TrackersGroup = HttpApiGroup.make("trackers")
 	.addError(Unauthorized, { status: 401 })

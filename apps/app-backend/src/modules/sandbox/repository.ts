@@ -4,6 +4,8 @@ import { Effect } from "effect";
 import { CurrentDb, dbEffect, isUniqueConstraintError } from "#lib/db";
 import * as schema from "#lib/db/schema/tables";
 import { DbError, conflict } from "#lib/errors";
+import type { UserId } from "#lib/schema/brands";
+import { SandboxScriptId } from "#lib/schema/brands";
 
 import type { SandboxScriptMetadata } from "./schemas";
 
@@ -13,14 +15,14 @@ type CreateScriptInput = {
 	readonly slug: string;
 	readonly name: string;
 	readonly code: string;
-	readonly userId: string;
+	readonly userId: UserId;
 	readonly metadata: SandboxScriptMetadata;
 };
 
 const sandboxScriptUserSlugConstraint = "sandbox_script_user_slug_unique";
 
 const toScript = (row: SandboxScriptRow) => ({
-	id: row.id,
+	id: SandboxScriptId.make(row.id),
 	slug: row.slug,
 	code: row.code,
 	name: row.name,
@@ -58,7 +60,7 @@ export class SandboxRepository extends Effect.Service<SandboxRepository>()("Sand
 			return toScript(row);
 		}),
 		findScriptBySlugForUser: Effect.fn("SandboxRepository.findScriptBySlugForUser")(
-			function* (input: { readonly slug: string; readonly userId: string }) {
+			function* (input: { readonly slug: string; readonly userId: UserId }) {
 				const db = yield* CurrentDb;
 				const [row] = yield* dbEffect(() =>
 					db
@@ -73,12 +75,12 @@ export class SandboxRepository extends Effect.Service<SandboxRepository>()("Sand
 						.limit(1),
 				);
 
-				return row ?? null;
+				return row ? { id: SandboxScriptId.make(row.id) } : null;
 			},
 		),
 		getScriptForUser: Effect.fn("SandboxRepository.getScriptForUser")(function* (input: {
-			readonly scriptId: string;
-			readonly userId: string | null;
+			readonly scriptId: SandboxScriptId;
+			readonly userId: UserId | null;
 		}) {
 			const db = yield* CurrentDb;
 			const [row] = yield* dbEffect(() =>
@@ -105,7 +107,7 @@ export class SandboxRepository extends Effect.Service<SandboxRepository>()("Sand
 					.limit(1),
 			);
 
-			return row ?? null;
+			return row ? { ...row, id: SandboxScriptId.make(row.id) } : null;
 		}),
 	}),
 }) {}
