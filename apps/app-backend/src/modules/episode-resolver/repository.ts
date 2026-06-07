@@ -8,6 +8,32 @@ export class EpisodeResolverRepository extends Effect.Service<EpisodeResolverRep
 	"EpisodeResolverRepository",
 	{
 		sync: () => ({
+			findPodcastEpisodeCandidates: Effect.fn(
+				"EpisodeResolverRepository.findPodcastEpisodeCandidates",
+			)(function* (input: { userId: UserId; episodeNumber: number; podcastEntityId: EntityId }) {
+				const db = yield* CurrentDb;
+				const rows = yield* dbEffect(() =>
+					db.execute<{ id: string }>(sql`
+						SELECT DISTINCT episode.id
+						FROM relationship podcast_episode_rel
+						JOIN relationship_schema podcast_episode_rs
+							ON podcast_episode_rs.id = podcast_episode_rel.relationship_schema_id
+						JOIN entity episode
+							ON episode.id = podcast_episode_rel.target_entity_id
+						JOIN entity_schema episode_schema
+							ON episode_schema.id = episode.entity_schema_id
+						WHERE podcast_episode_rel.source_entity_id = ${input.podcastEntityId}
+							AND podcast_episode_rs.slug = 'podcast-to-podcast-episode'
+							AND podcast_episode_rs.user_id IS NULL
+							AND episode_schema.slug = 'podcast-episode'
+							AND (podcast_episode_rel.user_id = ${input.userId} OR podcast_episode_rel.user_id IS NULL)
+							AND (episode.user_id = ${input.userId} OR episode.user_id IS NULL)
+							AND jsonb_extract_path(episode.properties, 'episodeNumber') = to_jsonb(${input.episodeNumber}::int)
+					`),
+				);
+
+				return rows.rows.map((row) => EntityId.make(row.id));
+			}),
 			findShowEpisodeCandidates: Effect.fn("EpisodeResolverRepository.findShowEpisodeCandidates")(
 				function* (input: {
 					userId: UserId;

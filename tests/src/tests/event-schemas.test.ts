@@ -11,7 +11,18 @@ import {
 	listBuiltinEntitySchemas,
 	listEventSchemas,
 } from "../fixtures";
+import { getPgClient } from "../setup";
 import { assertPresent, assertTaggedError, requireObjectRecord } from "../test-support/assertions";
+
+const getBuiltinEntitySchemaId = async (slug: string) => {
+	const result = await getPgClient().query<{ id: string }>(
+		`select id from entity_schema where slug = $1 and user_id is null and is_builtin = true limit 1`,
+		[slug],
+	);
+	const row = result.rows[0];
+	assertPresent(row, `Expected builtin entity schema '${slug}'`);
+	return row.id;
+};
 
 describe("GET /event-schemas", () => {
 	it("returns seeded built-in media lifecycle event schemas", async () => {
@@ -299,20 +310,23 @@ describe("GET /event-schemas", () => {
 		const { schemas } = await listBuiltinEntitySchemas(client);
 
 		const getProgressSchema = async (slug: string) => {
-			const mediaSchema = schemas.find((schema) => schema.slug === slug);
-			assertPresent(mediaSchema, `Missing built-in ${slug} schema`);
-
-			const eventSchemas = await listEventSchemas(client, mediaSchema.id);
+			const schemaId =
+				schemas.find((schema) => schema.slug === slug)?.id ??
+				(await getBuiltinEntitySchemaId(slug));
+			const eventSchemas = await listEventSchemas(client, schemaId);
 			const progressSchema = eventSchemas.find((schema) => schema.slug === "progress");
 			assertPresent(progressSchema, `Missing built-in progress schema for ${slug}`);
 
 			return progressSchema.propertiesSchema as Record<string, unknown>;
 		};
 
-		const showSchema = schemas.find((schema) => schema.slug === "show");
-		assertPresent(showSchema, "Missing built-in show schema");
-		const showEventSchemas = await listEventSchemas(client, showSchema.id);
+		const showEventSchemas = await listEventSchemas(client, await getBuiltinEntitySchemaId("show"));
 		expect(showEventSchemas.some((schema) => schema.slug === "progress")).toBe(false);
+		const podcastEventSchemas = await listEventSchemas(
+			client,
+			await getBuiltinEntitySchemaId("podcast"),
+		);
+		expect(podcastEventSchemas.some((schema) => schema.slug === "progress")).toBe(false);
 
 		const animeProgressSchema = await getProgressSchema("anime");
 		expect(animeProgressSchema).toMatchObject({
@@ -351,21 +365,21 @@ describe("GET /event-schemas", () => {
 			},
 		});
 
-		const podcastProgressSchema = await getProgressSchema("podcast");
-		expect(podcastProgressSchema).toMatchObject({
+		const podcastEpisodeProgressSchema = await getProgressSchema("podcast-episode");
+		const podcastEpisodeFields = requireObjectRecord(
+			podcastEpisodeProgressSchema.fields,
+			"Expected podcast episode progress schema fields to be an object",
+		);
+		expect(podcastEpisodeProgressSchema).toMatchObject({
 			fields: {
 				progressPercent: {
 					type: "number",
 					label: "Progress Percent",
 					description: "Percentage of the media completed so far (0 to 100)",
 				},
-				podcastEpisode: {
-					type: "integer",
-					label: "Podcast Episode",
-					description: "Episode number of the podcast being tracked",
-				},
 			},
 		});
+		expect(podcastEpisodeFields.podcastEpisode).toBeUndefined();
 
 		const movieProgressSchema = await getProgressSchema("movie");
 		const movieFields = requireObjectRecord(
@@ -395,6 +409,7 @@ describe("GET /event-schemas", () => {
 		for (const progressSchema of progressSchemas) {
 			expect(progressSchema).toEqual(movieProgressSchema);
 		}
+		expect(podcastEpisodeProgressSchema).toEqual(movieProgressSchema);
 
 		expect(animeProgressSchema).not.toEqual(movieProgressSchema);
 	});
@@ -431,7 +446,7 @@ describe("GET /event-schemas", () => {
 		};
 
 		const lifecycleSchemas = await Promise.all(
-			["anime", "manga", "podcast", "movie", "book"].map(async (slug) => ({
+			["anime", "manga", "movie", "book"].map(async (slug) => ({
 				droppedSchema: await getSchemaBySlug(slug, "dropped"),
 				onHoldSchema: await getSchemaBySlug(slug, "on_hold"),
 				progressSchema: await getSchemaBySlug(slug, "progress"),
@@ -439,6 +454,8 @@ describe("GET /event-schemas", () => {
 		);
 		const showDroppedSchema = await getSchemaBySlug("show", "dropped");
 		const showOnHoldSchema = await getSchemaBySlug("show", "on_hold");
+		const podcastDroppedSchema = await getSchemaBySlug("podcast", "dropped");
+		const podcastOnHoldSchema = await getSchemaBySlug("podcast", "on_hold");
 
 		for (const { progressSchema, droppedSchema, onHoldSchema } of lifecycleSchemas) {
 			expect(droppedSchema).toMatchObject(progressSchema);
@@ -457,6 +474,8 @@ describe("GET /event-schemas", () => {
 			},
 		});
 		expect(showOnHoldSchema).toMatchObject(showDroppedSchema);
+		expect(podcastDroppedSchema).toMatchObject(showDroppedSchema);
+		expect(podcastOnHoldSchema).toMatchObject(showDroppedSchema);
 	});
 
 	it("returns 404 when accessing another user's entity schema", async () => {

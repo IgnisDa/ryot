@@ -9,6 +9,9 @@ import {
 	createSandboxScript,
 	createTrackerWithSchema,
 	listEventsForEntity,
+	listEventSchemas,
+	requireEventSchemaBySlug,
+	seedMediaEntity,
 	waitForEventCount,
 	waitForEventWithSchema,
 } from "../fixtures";
@@ -16,6 +19,15 @@ import { getPgClient } from "../setup";
 import { requirePresent } from "../test-support/assertions";
 
 const isoAt = (day: number) => `2024-01-${String(day).padStart(2, "0")}T00:00:00.000Z`;
+
+const getBuiltinEntitySchemaId = async (slug: string) => {
+	const result = await getPgClient().query<{ id: string }>(
+		`select id from entity_schema where slug = $1 and user_id is null and is_builtin = true limit 1`,
+		[slug],
+	);
+	const row = result.rows[0];
+	return requirePresent(row, `Expected builtin entity schema '${slug}'`).id;
+};
 
 describe("Event trigger firing", () => {
 	it("logging 100% progress creates a completion event via builtin trigger", async () => {
@@ -230,34 +242,24 @@ describe("Event trigger firing", () => {
 		expect(events.filter((event) => event.eventSchemaSlug === "complete")).toHaveLength(0);
 	}, 20_000);
 
-	it("logging all podcast episodes creates a completion event", async () => {
+	it("logging 100% podcast episode progress creates a completion event", async () => {
 		const { client } = await createAuthenticatedClient();
 
-		const { entityId, progressEventSchemaId } = await createBuiltinMediaLifecycleFixture(client, {
-			entitySchemaSlug: "podcast",
+		const podcastEpisodeSchemaId = await getBuiltinEntitySchemaId("podcast-episode");
+		const eventSchemas = await listEventSchemas(client, podcastEpisodeSchemaId);
+		const progressEventSchema = requireEventSchemaBySlug(eventSchemas, "progress");
+		const entity = await seedMediaEntity({
+			image: null,
+			userId: null,
+			sandboxScriptId: null,
+			name: "Podcast Episode 1",
+			entitySchemaId: podcastEpisodeSchemaId,
+			externalId: `podcast-episode-${crypto.randomUUID()}`,
 			properties: {
-				images: [],
-				totalEpisodes: 2,
-				episodes: [
-					{
-						number: 1,
-						runtime: null,
-						overview: null,
-						thumbnail: null,
-						id: "episode-1",
-						title: "Episode 1",
-						publishDate: "2024-01-01",
-					},
-					{
-						number: 2,
-						runtime: null,
-						overview: null,
-						thumbnail: null,
-						id: "episode-2",
-						title: "Episode 2",
-						publishDate: "2024-01-02",
-					},
-				],
+				runtime: null,
+				episodeNumber: 1,
+				publishDate: "2024-01-01",
+				description: "First podcast episode",
 			},
 		});
 
@@ -265,20 +267,15 @@ describe("Event trigger firing", () => {
 			c.events.create({
 				payload: [
 					{
-						entityId,
-						eventSchemaId: progressEventSchemaId,
-						properties: { progressPercent: 100, podcastEpisode: 1 },
-					},
-					{
-						entityId,
-						eventSchemaId: progressEventSchemaId,
-						properties: { progressPercent: 100, podcastEpisode: 2 },
+						entityId: entity.id,
+						properties: { progressPercent: 100 },
+						eventSchemaId: progressEventSchema.id,
 					},
 				],
 			}),
 		);
 
-		const completeEvent = await waitForEventWithSchema(client, entityId, "complete");
+		const completeEvent = await waitForEventWithSchema(client, entity.id, "complete");
 
 		expect(completeEvent.eventSchemaSlug).toBe("complete");
 	}, 20_000);

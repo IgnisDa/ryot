@@ -312,6 +312,7 @@ const adaptAudiobookshelfItem = Effect.fn(function* (input: {
 		occurredAt: string;
 		eventSchemaSlug: string;
 		properties: Record<string, unknown>;
+		episodeLocator: { type: "podcast"; episodeNumber: number };
 	}> = [];
 	let importedEpisodeCount = 0;
 	for (const episode of episodes) {
@@ -349,7 +350,8 @@ const adaptAudiobookshelfItem = Effect.fn(function* (input: {
 		podcastEvents.push({
 			occurredAt: importedAt,
 			eventSchemaSlug: "progress",
-			properties: { progressPercent: 100, podcastEpisode },
+			properties: { progressPercent: 100 },
+			episodeLocator: { type: "podcast", episodeNumber: podcastEpisode },
 		});
 		importedEpisodeCount += 1;
 	}
