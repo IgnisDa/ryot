@@ -70,9 +70,7 @@ Remove explicit return type annotations when TypeScript can trivially infer them
 ## Schema Write Path
 
 - Writes to schema-backed entity, event, and relationship tables must validate their properties against the matching schema's property definition.
-- Each table has a single owning write path; every caller routes through it. Cross-cutting work that spans tables composes the owning repositories inside one transaction.
 - Provider-backed population in background flows composes the established import workflow rather than calling lower-level population helpers directly.
 - External event creation goes through the path that also dispatches schema-defined triggers.
-- Do not export repository write primitives through module barrels for runtime callers.
-- Migration and bootstrap code is the only exception to the write-path rules.
+- Migration and `legacy-bootstrap` code is the only exception to the write-path rules.
 - Allow arbitrary top-level keys in a property schema only when relationship or collection properties genuinely require passthrough; otherwise keep properties aligned with their built-in schemas.
