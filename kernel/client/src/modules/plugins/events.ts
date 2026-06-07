@@ -2,11 +2,13 @@ import {
 	PLUGIN_CATALOG_CONNECTED_EVENT,
 	PLUGIN_CATALOG_INVALIDATED_EVENT,
 } from "@ryot/contract/modules/plugins/contract";
+import { OAUTH_NATIVE_CLIENT_ID, OAUTH_WEB_CLIENT_ID } from "@ryot/contract/oauth";
 import { Context, Data, Duration, Effect, Layer, Match, Schedule } from "effect";
 
 import { serverApiUrl } from "#/api/origin";
 import { canonicalApiScope, type ApiScope } from "#/api/scope";
-import { ClientStorage } from "#/persistence/storage";
+import { OAuthTokenService } from "#/modules/auth/token-service";
+import { isNativePlatform } from "#/modules/navigation/native-navigation";
 
 type CatalogStreamResponse = {
 	readonly ok: boolean;
@@ -119,7 +121,7 @@ const openCatalogStream = async (
 };
 
 const makePluginCatalogEventsService = (
-	storage: ClientStorage["Service"],
+	tokens: OAuthTokenService["Service"],
 	open: CatalogStreamFactory,
 	reconnect: Schedule.Schedule<unknown>,
 ) => ({
@@ -133,7 +135,10 @@ const makePluginCatalogEventsService = (
 		};
 
 		return Effect.gen(function* () {
-			const token = yield* storage.getSessionToken(canonical.serverUrl);
+			const token = yield* tokens.accessToken(
+				canonical.serverUrl,
+				isNativePlatform() ? OAUTH_NATIVE_CLIENT_ID : OAUTH_WEB_CLIENT_ID,
+			);
 			yield* Effect.tryPromise({
 				try: (signal) => openCatalogStream(open, url, token, signal, onEvent),
 				catch: (cause) => new CatalogStreamClosed({ cause }),
@@ -149,9 +154,9 @@ export class PluginCatalogEventsService extends Context.Service<
 >()("PluginCatalogEventsService") {
 	static readonly layer = Layer.effect(
 		this,
-		Effect.map(ClientStorage, (storage) =>
+		Effect.map(OAuthTokenService, (tokens) =>
 			makePluginCatalogEventsService(
-				storage,
+				tokens,
 				(url, request) => fetch(url, { ...request, cache: "no-store", credentials: "omit" }),
 				reconnectSchedule,
 			),
@@ -165,7 +170,7 @@ export const makePluginCatalogEventsLayer = (
 ) =>
 	Layer.effect(
 		PluginCatalogEventsService,
-		Effect.map(ClientStorage, (storage) =>
-			makePluginCatalogEventsService(storage, open, reconnect),
+		Effect.map(OAuthTokenService, (tokens) =>
+			makePluginCatalogEventsService(tokens, open, reconnect),
 		),
 	);

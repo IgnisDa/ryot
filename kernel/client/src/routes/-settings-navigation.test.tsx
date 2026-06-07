@@ -6,7 +6,6 @@ import { describe, expect, it } from "vitest";
 
 import { AuthenticatedApi } from "#/api/authenticated";
 import { PublicApi, PublicApiError } from "#/api/public";
-import { AuthClient } from "#/modules/auth/client";
 import type { AuthService } from "#/modules/auth/service";
 import { ArtifactSessions } from "#/modules/plugins/artifact-sessions";
 import { PluginCatalogService } from "#/modules/plugins/catalog";
@@ -44,9 +43,7 @@ const mountView = (
 		Layer.mergeAll(
 			authLayer,
 			ServerStub,
-			OAuthRouteStubs,
 			publicLayer,
-			AuthClient.layer,
 			AuthenticatedApi.layer,
 			events.layer,
 			Layer.succeed(ArtifactSessions, {
@@ -62,7 +59,10 @@ const mountView = (
 			Layer.succeed(PluginCatalogService, { load: () => Effect.succeed(entries) }),
 			Layer.succeed(PluginOperationsService, { invoke: () => Effect.die("not used") }),
 			Layer.succeed(PluginQueriesService, { query: () => Effect.die("not used") }),
-		).pipe(Layer.provideMerge(Layer.succeed(ClientStorage, storage))),
+		).pipe(
+			Layer.provideMerge(OAuthRouteStubs),
+			Layer.provideMerge(Layer.succeed(ClientStorage, storage)),
+		),
 	);
 	const initialEntries = typeof initialEntry === "string" ? [initialEntry] : initialEntry;
 	const router = getRouter({ runtime, theme }, createMemoryHistory({ initialEntries }));

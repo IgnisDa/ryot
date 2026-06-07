@@ -14,7 +14,8 @@ const OAUTH_TOKEN_PREFIX = "ryot:oauth:tokens:";
 
 export type OAuthBrowserStorage = Pick<Storage, "getItem" | "removeItem" | "setItem">;
 
-export const oauthPendingKey = (state: string) => `${OAUTH_PENDING_PREFIX}${state}`;
+export const oauthPendingKey = (origin: ServerOrigin, state: string) =>
+	`${OAUTH_PENDING_PREFIX}${encodeURIComponent(normalizeServerOrigin(origin))}:${state}`;
 export const oauthTokenKey = (origin: ServerOrigin) =>
 	`${OAUTH_TOKEN_PREFIX}${normalizeServerOrigin(origin)}`;
 
@@ -27,9 +28,15 @@ const decodeStored = <A>(schema: Schema.Codec<A, unknown>, value: string | null)
 
 const makeStorage = (storage: OAuthBrowserStorage | undefined): OAuthStorage["Service"] => ({
 	setPending: (pending) =>
-		Effect.sync(() => storage?.setItem(oauthPendingKey(pending.state), JSON.stringify(pending))),
+		Effect.sync(() =>
+			storage?.setItem(
+				oauthPendingKey(pending.serverOrigin, pending.state),
+				JSON.stringify(pending),
+			),
+		),
 	setTokenSet: (origin, tokenSet) =>
 		Effect.sync(() => storage?.setItem(oauthTokenKey(origin), JSON.stringify(tokenSet))),
+	removeTokenSet: (origin) => Effect.sync(() => storage?.removeItem(oauthTokenKey(origin))),
 	getTokenSet: (origin) =>
 		Effect.sync(() => {
 			const key = oauthTokenKey(origin);
@@ -40,9 +47,9 @@ const makeStorage = (storage: OAuthBrowserStorage | undefined): OAuthStorage["Se
 				return null;
 			}
 		}),
-	getPending: (state) =>
+	getPending: (origin, state) =>
 		Effect.sync(() => {
-			const key = oauthPendingKey(state);
+			const key = oauthPendingKey(origin, state);
 			try {
 				const pending = decodeStored(PendingAuthorization, storage?.getItem(key) ?? null);
 				if (pending && Date.now() - pending.createdAt <= PENDING_AUTHORIZATION_TTL_MS) {
@@ -55,18 +62,40 @@ const makeStorage = (storage: OAuthBrowserStorage | undefined): OAuthStorage["Se
 				return null;
 			}
 		}),
+	takePending: (origin, state) =>
+		Effect.sync(() => {
+			const key = oauthPendingKey(origin, state);
+			try {
+				const pending = decodeStored(PendingAuthorization, storage?.getItem(key) ?? null);
+				storage?.removeItem(key);
+				return pending && Date.now() - pending.createdAt <= PENDING_AUTHORIZATION_TTL_MS
+					? pending
+					: null;
+			} catch {
+				storage?.removeItem(key);
+				return null;
+			}
+		}),
 });
 
 export class OAuthStorage extends Context.Service<
 	OAuthStorage,
 	{
+		readonly removeTokenSet: (origin: ServerOrigin) => Effect.Effect<void>;
 		readonly setPending: (pending: PendingAuthorizationValue) => Effect.Effect<void>;
-		readonly getPending: (state: string) => Effect.Effect<PendingAuthorizationValue | null>;
-		readonly getTokenSet: (origin: ServerOrigin) => Effect.Effect<StoredTokenSetValue | null>;
 		readonly setTokenSet: (
 			origin: ServerOrigin,
 			tokenSet: StoredTokenSetValue,
 		) => Effect.Effect<void>;
+		readonly getPending: (
+			origin: ServerOrigin,
+			state: string,
+		) => Effect.Effect<PendingAuthorizationValue | null>;
+		readonly takePending: (
+			origin: ServerOrigin,
+			state: string,
+		) => Effect.Effect<PendingAuthorizationValue | null>;
+		readonly getTokenSet: (origin: ServerOrigin) => Effect.Effect<StoredTokenSetValue | null>;
 	}
 >()("OAuthStorage") {
 	// TODO: Replace native localStorage with Keychain/Keystore-backed storage.

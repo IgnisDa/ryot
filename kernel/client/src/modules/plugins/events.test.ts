@@ -6,8 +6,8 @@ import { Effect, Fiber, Layer, ManagedRuntime, Schedule } from "effect";
 import { describe, expect, it } from "vitest";
 
 import type { ApiScope } from "#/api/scope";
+import { OAuthTokenService } from "#/modules/auth/token-service";
 import { makePluginCatalogEventsLayer, PluginCatalogEventsService } from "#/modules/plugins/events";
-import { clientStorageLayer, sessionTokenKey } from "#/persistence/storage";
 
 const scope: ApiScope = { userId: "user-1", serverUrl: "https://ryot.example/root/" };
 
@@ -50,19 +50,13 @@ const makeRuntime = (
 ) => {
 	const streams: TestStream[] = [];
 	const requests: Array<{ readonly url: string; readonly headers: Record<string, string> }> = [];
-	const values = new Map<string, string>();
-	if (options.token !== undefined) {
-		values.set(sessionTokenKey(scope.serverUrl), options.token);
-	}
-
-	const storage = clientStorageLayer({
-		getItem: (key) => values.get(key) ?? null,
-		removeItem: (key) => {
-			values.delete(key);
-		},
-		setItem: (key, value) => {
-			values.set(key, value);
-		},
+	let token = options.token ?? null;
+	const tokens = Layer.succeed(OAuthTokenService, {
+		clear: () => Effect.void,
+		userInfo: () => Effect.succeed(null),
+		accessToken: () => Effect.sync(() => token),
+		rejectAuthorization: () => Effect.die("not used"),
+		completeAuthorization: () => Effect.die("not used"),
 	});
 	const events = makePluginCatalogEventsLayer((url, request) => {
 		requests.push({ url, headers: request.headers });
@@ -75,10 +69,12 @@ const makeRuntime = (
 	}, Schedule.spaced("1 millis"));
 
 	return {
-		values,
 		streams,
 		requests,
-		runtime: ManagedRuntime.make(events.pipe(Layer.provide(storage))),
+		runtime: ManagedRuntime.make(events.pipe(Layer.provide(tokens))),
+		setToken: (value: string) => {
+			token = value;
+		},
 	};
 };
 
@@ -151,7 +147,7 @@ describe("plugin catalog events service", () => {
 	});
 
 	it("reconnects with a fresh token when the stream ends", async () => {
-		const { requests, runtime, streams, values } = makeRuntime({ token: "token-1" });
+		const { requests, runtime, setToken, streams } = makeRuntime({ token: "token-1" });
 		let refreshes = 0;
 		const subscription = runtime.runFork(
 			Effect.flatMap(PluginCatalogEventsService, (service) =>
@@ -163,7 +159,7 @@ describe("plugin catalog events service", () => {
 
 		try {
 			await waitUntil(() => streams.length === 1, "stream was never opened");
-			values.set(sessionTokenKey(scope.serverUrl), "token-2");
+			setToken("token-2");
 			streams[0]?.end();
 
 			await waitUntil(() => streams.length === 2, "stream was never reopened");
