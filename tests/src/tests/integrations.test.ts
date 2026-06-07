@@ -1,5 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
+import { ImportRunId, IntegrationId } from "@ryot/app-backend/schema/brands";
+
 import {
 	createAudiobookshelfIntegration,
 	createAuthenticatedClient,
@@ -70,7 +72,7 @@ describe("Integration CRUD", () => {
 		const integrationsA = await listIntegrations(clientA);
 		const ids = integrationsA.map((i) => i.id);
 
-		expect(ids).toContain(idA);
+		expect(ids).toContain(IntegrationId.make(idA));
 		expect(ids).toHaveLength(1);
 	});
 
@@ -90,7 +92,10 @@ describe("Integration CRUD", () => {
 
 		const { id } = await createKodiIntegration(client);
 		await client.run((c) =>
-			c.integrations.update({ payload: { isDisabled: true }, path: { integrationId: id } }),
+			c.integrations.update({
+				payload: { isDisabled: true },
+				path: { integrationId: IntegrationId.make(id) },
+			}),
 		);
 
 		await createKodiIntegration(client);
@@ -109,7 +114,7 @@ describe("Integration CRUD", () => {
 		const { id } = await createKodiIntegration(client);
 		const integration = await getIntegration(client, id);
 
-		expect(integration.id).toBe(id);
+		expect(integration.id).toBe(IntegrationId.make(id));
 		expect(integration.providerSpecifics).toMatchObject({ kind: "kodi" });
 		expect(integration.webhookUrl).toBeDefined();
 		expect(integration.webhookUrl).toContain(`/_i/${id}`);
@@ -130,7 +135,10 @@ describe("Integration CRUD", () => {
 		const { id } = await createAudiobookshelfIntegration(client);
 
 		const data = await client.run((c) =>
-			c.integrations.update({ payload: { name: "My ABS" }, path: { integrationId: id } }),
+			c.integrations.update({
+				payload: { name: "My ABS" },
+				path: { integrationId: IntegrationId.make(id) },
+			}),
 		);
 
 		expect(data.name).toBe("My ABS");
@@ -151,7 +159,7 @@ describe("Integration CRUD", () => {
 
 		const error = await client.runError((c) =>
 			c.integrations.update({
-				path: { integrationId: id },
+				path: { integrationId: IntegrationId.make(id) },
 				payload: { minimumProgress: 90, maximumProgress: 10 },
 			}),
 		);
@@ -166,7 +174,9 @@ describe("Integration CRUD", () => {
 		const { id } = await createKodiIntegration(client);
 		await deleteIntegration(client, id);
 
-		const error = await client.runError((c) => c.integrations.get({ path: { integrationId: id } }));
+		const error = await client.runError((c) =>
+			c.integrations.get({ path: { integrationId: IntegrationId.make(id) } }),
+		);
 
 		assertTaggedError(error, "NotFound");
 	});
@@ -209,7 +219,10 @@ describe("Webhook routes", () => {
 		const { id } = await createKodiIntegration(client);
 
 		await client.run((c) =>
-			c.integrations.update({ payload: { isDisabled: true }, path: { integrationId: id } }),
+			c.integrations.update({
+				payload: { isDisabled: true },
+				path: { integrationId: IntegrationId.make(id) },
+			}),
 		);
 
 		const { response, data } = await postWebhook(id, kodiPayload);
@@ -262,10 +275,10 @@ describe("Import run visibility", () => {
 		expect(allRuns.find((r) => r.id === runId)).toBeUndefined();
 
 		const run = await getImportRun(client, runId);
-		expect(run.id).toBe(runId);
+		expect(run.id).toBe(ImportRunId.make(runId));
 
 		const integrationRuns = await client.run((c) =>
-			c.integrations.getRuns({ path: { integrationId } }),
+			c.integrations.getRuns({ path: { integrationId: IntegrationId.make(integrationId) } }),
 		);
 		expect(integrationRuns.find((r) => r.id === runId)).toBeDefined();
 	});

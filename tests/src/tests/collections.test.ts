@@ -1,5 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
+import { EntityId } from "@ryot/app-backend/schema/brands";
+
 import {
 	createAuthenticatedClient,
 	createCollection,
@@ -487,7 +489,7 @@ describe("POST /collections", () => {
 
 			const error = await client.runError((c) =>
 				c.collections.createMembership({
-					payload: { entityId, collectionId: "nonexistent-collection-id" },
+					payload: { entityId, collectionId: EntityId.make("nonexistent-collection-id") },
 				}),
 			);
 
@@ -505,7 +507,10 @@ describe("POST /collections", () => {
 
 			const error = await client.runError((c) =>
 				c.collections.createMembership({
-					payload: { collectionId: collection.id, entityId: "nonexistent-entity-id" },
+					payload: {
+						collectionId: collection.id,
+						entityId: EntityId.make("nonexistent-entity-id"),
+					},
 				}),
 			);
 
@@ -537,7 +542,10 @@ describe("POST /collections", () => {
 
 			const error = await client.runError((c) =>
 				c.collections.createMembership({
-					payload: { entityId: "some-entity-id", collectionId: "some-collection-id" },
+					payload: {
+						entityId: EntityId.make("some-entity-id"),
+						collectionId: EntityId.make("some-collection-id"),
+					},
 				}),
 			);
 
@@ -595,7 +603,7 @@ describe("POST /collections", () => {
 
 		const error = await client.runError((c) =>
 			c.collections.deleteMembership({
-				payload: { entityId, collectionId: "nonexistent-collection-id" },
+				payload: { entityId, collectionId: EntityId.make("nonexistent-collection-id") },
 			}),
 		);
 
@@ -627,7 +635,10 @@ describe("POST /collections", () => {
 
 		const error = await client.runError((c) =>
 			c.collections.deleteMembership({
-				payload: { entityId: "some-entity-id", collectionId: "some-collection-id" },
+				payload: {
+					entityId: EntityId.make("some-entity-id"),
+					collectionId: EntityId.make("some-collection-id"),
+				},
 			}),
 		);
 

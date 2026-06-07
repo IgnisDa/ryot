@@ -1,12 +1,13 @@
-import type { AppPropertyDefinition, AppSchema } from "@ryot/app-backend/schema/core";
+import { EntitySchemaId, SandboxScriptId, TrackerId } from "@ryot/app-backend/schema/brands";
+import type { AppSchema } from "@ryot/app-backend/schema/property-schema";
 
 import { assertPresent, requirePresent } from "../test-support/assertions";
+
+export type { AppSchema };
 import type { Client } from "./auth";
 import type { ContractPayload } from "./contract-client";
 import { type PollOptions, pollUntil } from "./polling";
 import { createTracker, listTrackers } from "./trackers";
-
-export type { AppPropertyDefinition, AppSchema };
 
 type EnqueueEntitySearchBody = ContractPayload<"entitySchemas", "search">;
 
@@ -39,7 +40,7 @@ export async function createEntitySchema(client: Client, options: CreateEntitySc
 				icon,
 				name,
 				slug,
-				trackerId,
+				trackerId: TrackerId.make(trackerId),
 				accentColor,
 				propertiesSchema,
 			},
@@ -57,11 +58,20 @@ export async function listEntitySchemas(
 	client: Client,
 	options: { slugs?: string[]; trackerId?: string },
 ) {
-	return client.run((c) => c.entitySchemas.list({ payload: options }));
+	return client.run((c) =>
+		c.entitySchemas.list({
+			payload: {
+				slugs: options.slugs,
+				trackerId: options.trackerId ? TrackerId.make(options.trackerId) : undefined,
+			},
+		}),
+	);
 }
 
 export async function getEntitySchema(client: Client, entitySchemaId: string) {
-	return client.run((c) => c.entitySchemas.get({ path: { entitySchemaId } }));
+	return client.run((c) =>
+		c.entitySchemas.get({ path: { entitySchemaId: EntitySchemaId.make(entitySchemaId) } }),
+	);
 }
 
 export async function findBuiltinEntitySchema(client: Client) {
@@ -162,7 +172,7 @@ export function getFirstProviderScriptId(schema: {
 	providers: ReadonlyArray<{ scriptId: string }>;
 }) {
 	const scriptId = schema.providers[0]?.scriptId;
-	return requirePresent(scriptId, "No provider found for schema");
+	return SandboxScriptId.make(requirePresent(scriptId, "No provider found for schema"));
 }
 
 export async function createTrackerWithSchema(

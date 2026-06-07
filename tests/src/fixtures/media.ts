@@ -1,3 +1,5 @@
+import { EntityId } from "@ryot/app-backend/schema/brands";
+
 import { getPgClient } from "../setup";
 import { requirePresent } from "../test-support/assertions";
 import type { Client } from "./auth";
@@ -194,7 +196,7 @@ export async function seedMediaEntity(input: {
 	);
 
 	return {
-		id,
+		id: EntityId.make(id),
 		name: input.name,
 		image: input.image,
 		userId: input.userId ?? null,
