@@ -1,4 +1,6 @@
-export const notificationPlatformKinds = [
+import { Schema } from "effect";
+
+export const NotificationPlatformKind = Schema.Literal(
 	"ntfy",
 	"email",
 	"gotify",
@@ -8,11 +10,13 @@ export const notificationPlatformKinds = [
 	"push_bullet",
 	"push_safer",
 	"telegram",
-] as const;
+);
 
-export type NotificationPlatformKind = (typeof notificationPlatformKinds)[number];
+export type NotificationPlatformKind = typeof NotificationPlatformKind.Type;
 
-export const notificationEventTypes = [
+export const notificationPlatformKinds = NotificationPlatformKind.literals;
+
+export const NotificationEventType = Schema.Literal(
 	"review_posted",
 	"metadata_published",
 	"new_workout_created",
@@ -29,6 +33,8 @@ export const notificationEventTypes = [
 	"metadata_chapters_or_episodes_changed",
 	"integration_disabled_due_to_too_many_errors",
 	"metadata_moved_from_completed_to_watchlist_collection",
-] as const;
+);
 
-export type NotificationEventType = (typeof notificationEventTypes)[number];
+export type NotificationEventType = typeof NotificationEventType.Type;
+
+export const notificationEventTypes = NotificationEventType.literals;

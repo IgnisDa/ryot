@@ -48,10 +48,8 @@ describe("notification platform CRUD", () => {
 			platformSpecifics: { baseUrl: fakeAppriseUrl, key: "secret-key", kind: "apprise" },
 		});
 
-		const platform = requirePresent(
-			(await listNotificationPlatforms(client))[0],
-			"Expected created notification platform",
-		);
+		const platforms = await listNotificationPlatforms(client);
+		const platform = requirePresent(platforms[0], "Expected created notification platform");
 		expect(platform.configuredEvents).toEqual(notificationEventTypes);
 		expect(platform.isDisabled).toBe(false);
 		expect(platform.description).toBe(`Apprise at ${fakeAppriseUrl}`);
@@ -156,9 +154,8 @@ describe("notification delivery", () => {
 			platformSpecifics: { kind: "email", recipient: "recipient@example.com" },
 		});
 
-		await expect(testNotificationPlatforms(client)).resolves.toEqual([
-			{ platform: "email", platformId: id, status: "failed" },
-		]);
+		const results = await testNotificationPlatforms(client);
+		expect(results).toEqual([{ platform: "email", platformId: id, status: "failed" }]);
 	});
 
 	it("exposes SMTP capability and requires authentication", async () => {

@@ -1,8 +1,7 @@
 import { HttpClient, HttpClientRequest } from "@effect/platform";
 import type { NotificationPlatformSpecifics } from "@ryot/contract/modules/notifications/schemas";
-import { Data, Duration, Effect, Option, Redacted } from "effect";
+import { Data, Duration, Effect, Match, Option, Redacted } from "effect";
 import { createTransport } from "nodemailer";
-import { match } from "ts-pattern";
 
 import { AppConfig, isSmtpEnabled } from "#lib/infrastructure/config/service";
 
@@ -110,8 +109,8 @@ export class NotificationDeliveryService extends Effect.Service<NotificationDeli
 				platformSpecifics: NotificationPlatformSpecifics;
 			}) {
 				const { message, platformSpecifics } = input;
-				return yield* match(platformSpecifics)
-					.with({ kind: "apprise" }, (specifics) =>
+				return yield* Match.value(platformSpecifics).pipe(
+					Match.when({ kind: "apprise" }, (specifics) =>
 						sendHttp({
 							provider: "Apprise",
 							request: jsonRequest({
@@ -119,8 +118,8 @@ export class NotificationDeliveryService extends Effect.Service<NotificationDeli
 								url: `${originLessBaseUrl(specifics.baseUrl)}/notify/${encodePathSegment(specifics.key)}`,
 							}),
 						}),
-					)
-					.with({ kind: "discord" }, (specifics) =>
+					),
+					Match.when({ kind: "discord" }, (specifics) =>
 						sendHttp({
 							provider: "Discord",
 							request: jsonRequest({
@@ -128,11 +127,11 @@ export class NotificationDeliveryService extends Effect.Service<NotificationDeli
 								body: { content: message, avatar_url: AVATAR_URL, username: PROJECT_NAME },
 							}),
 						}),
-					)
-					.with({ kind: "email" }, (specifics) =>
+					),
+					Match.when({ kind: "email" }, (specifics) =>
 						sendEmail({ message, recipient: specifics.recipient }),
-					)
-					.with({ kind: "gotify" }, (specifics) =>
+					),
+					Match.when({ kind: "gotify" }, (specifics) =>
 						sendHttp({
 							provider: "Gotify",
 							request: jsonRequest({
@@ -146,8 +145,8 @@ export class NotificationDeliveryService extends Effect.Service<NotificationDeli
 								},
 							}),
 						}),
-					)
-					.with({ kind: "ntfy" }, (specifics) => {
+					),
+					Match.when({ kind: "ntfy" }, (specifics) => {
 						const headers: Record<string, string> = {
 							Attach: AVATAR_URL,
 							Title: PROJECT_NAME,
@@ -164,8 +163,8 @@ export class NotificationDeliveryService extends Effect.Service<NotificationDeli
 								url: `${originLessBaseUrl(specifics.baseUrl ?? "https://ntfy.sh")}/${encodePathSegment(specifics.topic)}`,
 							}),
 						});
-					})
-					.with({ kind: "push_bullet" }, (specifics) =>
+					}),
+					Match.when({ kind: "push_bullet" }, (specifics) =>
 						sendHttp({
 							provider: "PushBullet",
 							request: jsonRequest({
@@ -174,8 +173,8 @@ export class NotificationDeliveryService extends Effect.Service<NotificationDeli
 								body: { body: message, title: PROJECT_NAME, type: "note" },
 							}),
 						}),
-					)
-					.with({ kind: "push_over" }, (specifics) => {
+					),
+					Match.when({ kind: "push_over" }, (specifics) => {
 						const url = new URL("https://api.pushover.net/1/messages.json");
 						url.searchParams.set("user", specifics.userKey);
 						url.searchParams.set("title", PROJECT_NAME);
@@ -188,8 +187,8 @@ export class NotificationDeliveryService extends Effect.Service<NotificationDeli
 							provider: "PushOver",
 							request: textRequest({ url: url.toString(), body: "" }),
 						});
-					})
-					.with({ kind: "push_safer" }, (specifics) => {
+					}),
+					Match.when({ kind: "push_safer" }, (specifics) => {
 						const url = new URL("https://www.pushsafer.com/api");
 						url.searchParams.set("k", specifics.key);
 						url.searchParams.set("m", message);
@@ -198,8 +197,8 @@ export class NotificationDeliveryService extends Effect.Service<NotificationDeli
 							provider: "PushSafer",
 							request: textRequest({ url: url.toString(), body: "" }),
 						});
-					})
-					.with({ kind: "telegram" }, (specifics) =>
+					}),
+					Match.when({ kind: "telegram" }, (specifics) =>
 						sendHttp({
 							provider: "Telegram",
 							request: jsonRequest({
@@ -207,8 +206,9 @@ export class NotificationDeliveryService extends Effect.Service<NotificationDeli
 								url: `https://api.telegram.org/bot${encodePathSegment(specifics.botToken)}/sendMessage`,
 							}),
 						}),
-					)
-					.exhaustive();
+					),
+					Match.exhaustive,
+				);
 			});
 
 			return { send };
