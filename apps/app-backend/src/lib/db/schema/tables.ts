@@ -7,6 +7,7 @@ import {
 	index,
 	integer,
 	jsonb,
+	numeric,
 	pgTable,
 	text,
 	timestamp,
@@ -16,6 +17,11 @@ import {
 
 import type { EventSchemaTriggerMetadata, SandboxScriptMetadata } from "~/lib/sandbox/types";
 import type { ImportRunFailureStage, ImportRunSource, ImportRunStatus } from "~/modules/imports";
+import type {
+	IntegrationExtraSettings,
+	IntegrationLot,
+	IntegrationProviderSpecifics,
+} from "~/modules/integrations";
 import type { DisplayConfiguration, SavedViewQueryDefinition } from "~/modules/saved-views";
 
 import type { ImageSchemaType } from "../../zod";
@@ -356,8 +362,10 @@ export const eventSchemaTrigger = pgTable(
 	"event_schema_trigger",
 	{
 		name: text().notNull(),
+		position: integer().notNull().default(1000),
 		isActive: boolean().notNull().default(true),
 		isBuiltin: boolean().notNull().default(false),
+		phase: text().notNull().default("after_create"),
 		metadata: jsonb().$type<EventSchemaTriggerMetadata>().notNull(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
@@ -390,6 +398,40 @@ export const eventSchemaTrigger = pgTable(
 	],
 );
 
+export const integration = pgTable(
+	"integration",
+	{
+		name: text(),
+		provider: text().notNull(),
+		lot: text().notNull().$type<IntegrationLot>(),
+		isDisabled: boolean().notNull().default(false),
+		syncOwnership: boolean().notNull().default(false),
+		minimumProgress: numeric().notNull().default("2"),
+		maximumProgress: numeric().notNull().default("95"),
+		lastFinishedAt: timestamp({ withTimezone: true }),
+		extraSettings: jsonb().$type<IntegrationExtraSettings>().notNull(),
+		providerSpecifics: jsonb().$type<IntegrationProviderSpecifics>().notNull(),
+		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+		userId: text()
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		id: text()
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => /* @__PURE__ */ generateId()),
+		updatedAt: timestamp({ withTimezone: true })
+			.defaultNow()
+			.$onUpdate(() => /* @__PURE__ */ dayjs().toDate())
+			.notNull(),
+	},
+	(table) => [
+		index("integration_user_id_created_at_idx").on(table.userId, table.createdAt.desc()),
+		index("integration_user_id_provider_idx").on(table.userId, table.provider),
+		index("integration_lot_is_disabled_idx").on(table.lot, table.isDisabled),
+		index("integration_provider_is_disabled_idx").on(table.provider, table.isDisabled),
+	],
+);
+
 export const importRun = pgTable(
 	"import_run",
 	{
@@ -405,6 +447,7 @@ export const importRun = pgTable(
 		status: text().notNull().$type<ImportRunStatus>().default("pending"),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		inputSummary: jsonb().$type<Record<string, unknown>>().notNull().default({}),
+		integrationId: text().references(() => integration.id, { onDelete: "cascade" }),
 		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
@@ -417,7 +460,13 @@ export const importRun = pgTable(
 			.$onUpdate(() => /* @__PURE__ */ dayjs().toDate())
 			.notNull(),
 	},
-	(table) => [index("import_run_user_id_created_at_idx").on(table.userId, table.createdAt.desc())],
+	(table) => [
+		index("import_run_user_id_created_at_idx").on(table.userId, table.createdAt.desc()),
+		index("import_run_integration_id_created_at_idx").on(
+			table.integrationId,
+			table.createdAt.desc(),
+		),
+	],
 );
 
 export const importRunFailure = pgTable(

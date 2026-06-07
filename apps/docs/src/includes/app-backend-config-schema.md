@@ -59,6 +59,14 @@
 |---|---|---|---|---|
 | `SERVER_IMPORTER_TRAKT_CLIENT_ID` | Trakt API client ID required to enable the Trakt importer | No | `—` | Yes |
 
+### Integration scheduler settings
+
+| Variable | Description | Required | Default | Sensitive |
+|---|---|---|---|---|
+| `SCHEDULER_FREQUENT_CRON_JOBS_SCHEDULE` | English cron phrase for Yank integration polling frequency | No | `every 5 minutes` | No |
+| `SCHEDULER_INFREQUENT_CRON_JOBS_SCHEDULE` | English cron phrase for infrequent background jobs (ported for config parity) | No | `every midnight` | No |
+| `SERVER_PROGRESS_UPDATE_THRESHOLD` | Integer hours controlling how long after a completion event duplicate completions from integrations are suppressed | No | `2` | No |
+
 ## Provider integration configuration
 
 ### Book providers
