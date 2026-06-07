@@ -1,8 +1,7 @@
-import { and, eq, isNull, or, sql } from "drizzle-orm";
+import { and, eq, isNull, or } from "drizzle-orm";
 import { Effect } from "effect";
 
 import { CurrentDb, dbEffect, schema } from "#lib/db";
-import { DbError } from "#lib/errors";
 
 type CollectionRow = Pick<
 	typeof schema.entity.$inferSelect,
@@ -17,11 +16,6 @@ type CollectionRow = Pick<
 	| "sandboxScriptId"
 >;
 
-type MembershipRow = Pick<
-	typeof schema.relationship.$inferSelect,
-	"id" | "createdAt" | "properties" | "sourceEntityId" | "targetEntityId" | "relationshipSchemaId"
->;
-
 const collectionSelection = {
 	id: schema.entity.id,
 	name: schema.entity.name,
@@ -34,16 +28,6 @@ const collectionSelection = {
 	sandboxScriptId: schema.entity.sandboxScriptId,
 };
 
-const membershipSelection = {
-	id: schema.relationship.id,
-	createdAt: schema.relationship.createdAt,
-	properties: schema.relationship.properties,
-	sourceEntityId: schema.relationship.sourceEntityId,
-	targetEntityId: schema.relationship.targetEntityId,
-	relationshipSchemaId: schema.relationship.relationshipSchemaId,
-	wasInserted: sql<boolean>`(xmax = '0'::xid)`,
-};
-
 const toCollectionResponse = (row: CollectionRow) => ({
 	id: row.id,
 	name: row.name,
@@ -54,15 +38,6 @@ const toCollectionResponse = (row: CollectionRow) => ({
 	sandboxScriptId: row.sandboxScriptId,
 	createdAt: row.createdAt.toISOString(),
 	updatedAt: row.updatedAt.toISOString(),
-});
-
-const toMembershipRelationship = (row: MembershipRow) => ({
-	id: row.id,
-	properties: row.properties,
-	sourceEntityId: row.sourceEntityId,
-	targetEntityId: row.targetEntityId,
-	createdAt: row.createdAt.toISOString(),
-	relationshipSchemaId: row.relationshipSchemaId,
 });
 
 export class CollectionsRepository extends Effect.Service<CollectionsRepository>()(
@@ -93,10 +68,10 @@ export class CollectionsRepository extends Effect.Service<CollectionsRepository>
 					return row ?? null;
 				}),
 
-			createLibraryEntityForUser: (input: { userId: string; entitySchemaId: string }) =>
+			findLibraryEntityForUser: (input: { userId: string; entitySchemaId: string }) =>
 				Effect.gen(function* () {
 					const db = yield* CurrentDb;
-					const [existing] = yield* dbEffect(() =>
+					const [row] = yield* dbEffect(() =>
 						db
 							.select({ id: schema.entity.id })
 							.from(schema.entity)
@@ -111,29 +86,7 @@ export class CollectionsRepository extends Effect.Service<CollectionsRepository>
 							.limit(1),
 					);
 
-					if (existing) {
-						return existing;
-					}
-
-					const [created] = yield* dbEffect(() =>
-						db
-							.insert(schema.entity)
-							.values({
-								properties: {},
-								name: "Library",
-								externalId: null,
-								userId: input.userId,
-								sandboxScriptId: null,
-								entitySchemaId: input.entitySchemaId,
-							})
-							.returning({ id: schema.entity.id }),
-					);
-
-					if (!created) {
-						return yield* new DbError({ message: "Library entity insert returned no row" });
-					}
-
-					return created;
+					return row ?? null;
 				}),
 
 			getUserLibraryEntityId: (input: { userId: string }) =>
@@ -158,35 +111,6 @@ export class CollectionsRepository extends Effect.Service<CollectionsRepository>
 					);
 
 					return row?.id ?? null;
-				}),
-
-			createCollectionForUser: (input: {
-				name: string;
-				userId: string;
-				entitySchemaId: string;
-				properties: Record<string, unknown>;
-			}) =>
-				Effect.gen(function* () {
-					const db = yield* CurrentDb;
-					const [row] = yield* dbEffect(() =>
-						db
-							.insert(schema.entity)
-							.values({
-								externalId: null,
-								name: input.name,
-								userId: input.userId,
-								sandboxScriptId: null,
-								properties: input.properties,
-								entitySchemaId: input.entitySchemaId,
-							})
-							.returning(collectionSelection),
-					);
-
-					if (!row) {
-						return yield* new DbError({ message: "Collection insert returned no row" });
-					}
-
-					return toCollectionResponse(row);
 				}),
 
 			findCollectionByNameForUser: (input: {
@@ -266,79 +190,6 @@ export class CollectionsRepository extends Effect.Service<CollectionsRepository>
 					);
 
 					return row ?? null;
-				}),
-
-			upsertMembership: (input: {
-				userId: string;
-				entityId: string;
-				collectionId: string;
-				relationshipSchemaId: string;
-				properties: Record<string, unknown>;
-			}) =>
-				Effect.gen(function* () {
-					const db = yield* CurrentDb;
-					const [row] = yield* dbEffect(() =>
-						db
-							.insert(schema.relationship)
-							.values({
-								userId: input.userId,
-								properties: input.properties,
-								sourceEntityId: input.entityId,
-								targetEntityId: input.collectionId,
-								relationshipSchemaId: input.relationshipSchemaId,
-							})
-							.onConflictDoUpdate({
-								set: { properties: input.properties },
-								target: [
-									schema.relationship.userId,
-									schema.relationship.sourceEntityId,
-									schema.relationship.targetEntityId,
-									schema.relationship.relationshipSchemaId,
-								],
-							})
-							.returning(membershipSelection),
-					);
-
-					if (!row) {
-						return yield* new DbError({ message: "Membership upsert returned no row" });
-					}
-
-					return {
-						...toMembershipRelationship(row),
-						wasInserted: row.wasInserted,
-					};
-				}),
-
-			deleteMembership: (input: {
-				userId: string;
-				entityId: string;
-				collectionId: string;
-				relationshipSchemaId: string;
-			}) =>
-				Effect.gen(function* () {
-					const db = yield* CurrentDb;
-					const [row] = yield* dbEffect(() =>
-						db
-							.delete(schema.relationship)
-							.where(
-								and(
-									eq(schema.relationship.userId, input.userId),
-									eq(schema.relationship.sourceEntityId, input.entityId),
-									eq(schema.relationship.targetEntityId, input.collectionId),
-									eq(schema.relationship.relationshipSchemaId, input.relationshipSchemaId),
-								),
-							)
-							.returning({
-								id: schema.relationship.id,
-								createdAt: schema.relationship.createdAt,
-								properties: schema.relationship.properties,
-								sourceEntityId: schema.relationship.sourceEntityId,
-								targetEntityId: schema.relationship.targetEntityId,
-								relationshipSchemaId: schema.relationship.relationshipSchemaId,
-							}),
-					);
-
-					return row ? toMembershipRelationship(row) : null;
 				}),
 
 			findBuiltinEventSchemaBySlug: (entitySchemaId: string, slug: string) =>

@@ -1,14 +1,14 @@
-import { asc, eq, ilike, inArray, sql } from "drizzle-orm";
 import { DateTime, Effect, Either } from "effect";
 
 import { AuthService } from "#lib/auth";
-import { bootstrapNewUser, defaultUserPreferences } from "#lib/builtins/bootstrap";
+import { bootstrapNewUser } from "#lib/builtins/bootstrap";
 import { AppConfig } from "#lib/config";
-import { CurrentDb, DbRunner, dbEffect, schema } from "#lib/db";
+import { DbRunner } from "#lib/db";
 import { badRequest, internalError } from "#lib/errors";
 import { redisKeys, RedisService } from "#lib/redis";
 
 import type { ProvisionUserBody } from "./contract";
+import { GodModeRepository } from "./repository";
 
 const RESET_LINK_TIMEOUT_MS = 10_000;
 
@@ -56,40 +56,16 @@ export class GodModeService extends Effect.Service<GodModeService>()("GodModeSer
 		const config = yield* AppConfig;
 		const redis = yield* RedisService;
 		const runWithDb = yield* DbRunner;
+		const repository = yield* GodModeRepository;
 		const { auth, deleteUserSessions } = yield* AuthService;
 
 		return {
 			listUsers: (input: { search?: string; offset: number; limit: number }) =>
 				runWithDb(
 					Effect.gen(function* () {
-						const db = yield* CurrentDb;
-						const whereCondition = input.search
-							? ilike(schema.user.email, `%${input.search.trim()}%`)
-							: undefined;
-
 						const [total, userRows] = yield* Effect.all([
-							dbEffect(() =>
-								db
-									.select({ count: sql<string>`count(*)` })
-									.from(schema.user)
-									.where(whereCondition),
-							).pipe(Effect.map((rows) => Number(rows[0]?.count ?? 0))),
-							dbEffect(() =>
-								db
-									.select({
-										id: schema.user.id,
-										name: schema.user.name,
-										email: schema.user.email,
-										bannedAt: schema.user.bannedAt,
-										createdAt: schema.user.createdAt,
-										twoFactorEnabled: schema.user.twoFactorEnabled,
-									})
-									.from(schema.user)
-									.where(whereCondition)
-									.limit(input.limit)
-									.offset(input.offset)
-									.orderBy(asc(schema.user.createdAt)),
-							),
+							repository.countUsers(input.search),
+							repository.listUserRows(input),
 						]);
 
 						if (userRows.length === 0) {
@@ -97,12 +73,7 @@ export class GodModeService extends Effect.Service<GodModeService>()("GodModeSer
 						}
 
 						const userIds = userRows.map((u) => u.id);
-						const accountRows = yield* dbEffect(() =>
-							db
-								.select({ userId: schema.account.userId, providerId: schema.account.providerId })
-								.from(schema.account)
-								.where(inArray(schema.account.userId, userIds)),
-						);
+						const accountRows = yield* repository.listAccountsForUsers(userIds);
 
 						const accountsByUser = new Map<string, Array<{ providerId: string }>>();
 						for (const row of accountRows) {
@@ -114,9 +85,9 @@ export class GodModeService extends Effect.Service<GodModeService>()("GodModeSer
 							id: u.id,
 							name: u.name,
 							email: u.email,
-							createdAt: u.createdAt.toISOString(),
-							bannedAt: u.bannedAt?.toISOString() ?? null,
-							twoFactorEnabled: u.twoFactorEnabled ?? null,
+							bannedAt: u.bannedAt,
+							createdAt: u.createdAt,
+							twoFactorEnabled: u.twoFactorEnabled,
 							authState: classifyAuthState(accountsByUser.get(u.id) ?? []),
 						}));
 
@@ -126,19 +97,7 @@ export class GodModeService extends Effect.Service<GodModeService>()("GodModeSer
 
 			provisionUser: (input: ProvisionUserBody) =>
 				Effect.gen(function* () {
-					const existing = yield* runWithDb(
-						Effect.gen(function* () {
-							const db = yield* CurrentDb;
-							const [row] = yield* dbEffect(() =>
-								db
-									.select({ id: schema.user.id })
-									.from(schema.user)
-									.where(eq(schema.user.email, input.email))
-									.limit(1),
-							);
-							return row ?? null;
-						}),
-					);
+					const existing = yield* runWithDb(repository.findUserIdByEmail(input.email));
 
 					if (existing) {
 						return yield* badRequest(`User with email '${input.email}' already exists`);
@@ -148,26 +107,13 @@ export class GodModeService extends Effect.Service<GodModeService>()("GodModeSer
 
 					yield* runWithDb(
 						Effect.gen(function* () {
-							const db = yield* CurrentDb;
-							yield* dbEffect(() =>
-								db.insert(schema.user).values({
-									id: userId,
-									name: input.name,
-									email: input.email,
-									emailVerified: true,
-									preferences: defaultUserPreferences,
-								}),
-							);
+							yield* repository.insertUser({ id: userId, name: input.name, email: input.email });
 
 							if (input.provider === "oidc") {
-								yield* dbEffect(() =>
-									db.insert(schema.account).values({
-										userId,
-										providerId: "oidc",
-										id: crypto.randomUUID(),
-										accountId: input.oidcIssuerId,
-									}),
-								);
+								yield* repository.insertOidcAccount({
+									userId,
+									oidcIssuerId: input.oidcIssuerId,
+								});
 							}
 						}),
 					);
@@ -184,19 +130,7 @@ export class GodModeService extends Effect.Service<GodModeService>()("GodModeSer
 
 			setUserBan: (userId: string, banned: boolean) =>
 				Effect.gen(function* () {
-					const user = yield* runWithDb(
-						Effect.gen(function* () {
-							const db = yield* CurrentDb;
-							const [row] = yield* dbEffect(() =>
-								db
-									.select({ id: schema.user.id, bannedAt: schema.user.bannedAt })
-									.from(schema.user)
-									.where(eq(schema.user.id, userId))
-									.limit(1),
-							);
-							return row ?? null;
-						}),
-					);
+					const user = yield* runWithDb(repository.findUserBanState(userId));
 
 					if (!user) {
 						return yield* badRequest(`User with id '${userId}' not found`);
@@ -205,17 +139,7 @@ export class GodModeService extends Effect.Service<GodModeService>()("GodModeSer
 					const updatedAt = yield* DateTime.nowAsDate;
 					const bannedAt = banned ? (user.bannedAt ?? updatedAt) : null;
 
-					yield* runWithDb(
-						Effect.gen(function* () {
-							const db = yield* CurrentDb;
-							yield* dbEffect(() =>
-								db
-									.update(schema.user)
-									.set({ bannedAt, updatedAt })
-									.where(eq(schema.user.id, userId)),
-							);
-						}),
-					);
+					yield* runWithDb(repository.updateUserBan({ userId, bannedAt, updatedAt }));
 
 					if (banned) {
 						yield* deleteUserSessions(userId);
@@ -232,23 +156,11 @@ export class GodModeService extends Effect.Service<GodModeService>()("GodModeSer
 
 					const userData = yield* runWithDb(
 						Effect.gen(function* () {
-							const db = yield* CurrentDb;
-							const [userRow] = yield* dbEffect(() =>
-								db
-									.select({ id: schema.user.id, email: schema.user.email })
-									.from(schema.user)
-									.where(eq(schema.user.id, userId))
-									.limit(1),
-							);
+							const userRow = yield* repository.findUserById(userId);
 							if (!userRow) {
 								return null;
 							}
-							const accountRows = yield* dbEffect(() =>
-								db
-									.select({ providerId: schema.account.providerId })
-									.from(schema.account)
-									.where(eq(schema.account.userId, userId)),
-							);
+							const accountRows = yield* repository.listAccountsForUsers([userId]);
 							return { user: userRow, accounts: accountRows };
 						}),
 					);
