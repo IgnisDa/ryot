@@ -2,13 +2,13 @@ import { Activity } from "@effect/workflow";
 import type { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import { DateTime, Effect, Schema } from "effect";
 
-import { builtinEntitySchemas } from "#lib/builtins/entity-schemas";
 import { DbRunner } from "#lib/db";
 import { SandboxRunError, dieOnDbError } from "#lib/errors";
 import { EntitySchemaId, type EntityId, type SandboxScriptId } from "#lib/schema/brands";
 import { parseAppSchemaProperties } from "#lib/schema/property-schema-runtime";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntityImage, ListedEntity } from "#modules/entities/schemas";
+import { EntitiesService } from "#modules/entities/service";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
@@ -101,9 +101,6 @@ const ProcessedChildEntity = Schema.Struct({
 	entitySchemaId: EntitySchemaId,
 });
 
-const getBuiltinEntitySchemaProperties = (slug: string) =>
-	builtinEntitySchemas().find((schema) => schema.slug === slug)?.propertiesSchema ?? null;
-
 export const processChildEntityTree = (input: {
 	activityPrefix: string;
 	parentEntityId: EntityId;
@@ -113,7 +110,7 @@ export const processChildEntityTree = (input: {
 }) =>
 	Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
-		const repository = yield* EntitiesRepository;
+		const entities = yield* EntitiesService;
 		const entitySchemasRepository = yield* EntitySchemasRepository;
 		const relationshipsRepository = yield* RelationshipsRepository;
 		const relationshipSchemasRepository = yield* RelationshipSchemasRepository;
@@ -133,30 +130,28 @@ export const processChildEntityTree = (input: {
 						const entitySchema = yield* runWithDb(
 							entitySchemasRepository.getBuiltinBySlug(childEntity.entitySchemaSlug),
 						).pipe(dieOnDbError);
-						const propertiesSchema = getBuiltinEntitySchemaProperties(childEntity.entitySchemaSlug);
-						if (!entitySchema || !propertiesSchema) {
+						if (!entitySchema) {
 							return yield* new SandboxRunError({
 								message: `Child entity schema not found: ${childEntity.entitySchemaSlug}`,
 							});
 						}
 
-						const properties = yield* parseAppSchemaProperties({
-							kind: "Entity",
-							properties: childEntity.properties,
-							propertiesSchema,
-						}).pipe(Effect.mapError((error) => new SandboxRunError({ message: error.message })));
 						const populatedAt = yield* DateTime.nowAsDate;
-						const entity = yield* runWithDb(
-							repository.createOrUpdateGlobalEntity({
-								properties,
+						const entity = yield* entities
+							.save({
 								populatedAt,
+								scope: "global",
 								name: childEntity.name,
 								entitySchemaId: entitySchema.id,
 								image: childEntity.image ?? null,
 								externalId: childEntity.externalId,
+								properties: childEntity.properties,
 								sandboxScriptId: input.sandboxScriptId,
-							}),
-						).pipe(dieOnDbError);
+							})
+							.pipe(
+								dieOnDbError,
+								Effect.mapError((error) => new SandboxRunError({ message: error.message })),
+							);
 
 						return { entity, entitySchemaId: entitySchema.id };
 					}),
@@ -213,7 +208,7 @@ export const processChildEntityTree = (input: {
 				String(index),
 			);
 		}
-	}).pipe(dieOnDbError);
+	});
 
 export const processRelatedEntity = Effect.fn("processRelatedEntity")(function* (input: {
 	sourceEntityId: EntityId;
@@ -221,6 +216,7 @@ export const processRelatedEntity = Effect.fn("processRelatedEntity")(function* 
 	relatedEntity: EntityDetailsRelatedEntity;
 }) {
 	const runWithDb = yield* DbRunner;
+	const entities = yield* EntitiesService;
 	const repository = yield* EntitiesRepository;
 	const relationshipsRepository = yield* RelationshipsRepository;
 	const relationshipSchemasRepository = yield* RelationshipSchemasRepository;
@@ -232,17 +228,21 @@ export const processRelatedEntity = Effect.fn("processRelatedEntity")(function* 
 		return;
 	}
 
-	const relatedEntity = yield* runWithDb(
-		repository.createOrUpdateGlobalEntity({
+	const relatedEntity = yield* entities
+		.save({
 			image: null,
-			populatedAt: null,
 			properties: {},
+			scope: "global",
+			populatedAt: null,
 			name: input.relatedEntity.name,
 			externalId: input.relatedEntity.externalId,
 			entitySchemaId: entitySchemaScript.entitySchemaId,
 			sandboxScriptId: entitySchemaScript.sandboxScriptId,
-		}),
-	);
+		})
+		.pipe(
+			dieOnDbError,
+			Effect.mapError((error) => new SandboxRunError({ message: error.message })),
+		);
 
 	const { reverseDirection } = input.relatedEntity;
 	const sourceEntityId = reverseDirection ? input.sourceEntityId : relatedEntity.id;

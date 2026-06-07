@@ -35,13 +35,11 @@ const makeEntitiesRepository = (overrides: Partial<EntitiesRepository> = {}) =>
 	makeMock<EntitiesRepository>(
 		{
 			_tag: "EntitiesRepository" as const,
-			createEntity: () => Effect.die("unused"),
+			saveEntity: () => Effect.die("unused"),
 			getByIdForUser: () => Effect.die("unused"),
-			getEntityScopeById: () => Effect.die("unused"),
 			findEntitySchemaById: () => Effect.die("unused"),
 			getEntityScopeForUser: () => Effect.die("unused"),
 			getEntityMergeScopeForUser: () => Effect.die("unused"),
-			createOrUpdateGlobalEntity: () => Effect.die("unused"),
 			getEntitySchemaScopeForUser: () => Effect.die("unused"),
 			findEntitySchemaScriptBySlug: () => Effect.die("unused"),
 			findGlobalEntityByExternalId: () => Effect.die("unused"),
@@ -82,7 +80,7 @@ it.effect("returns existing entity when provenance already exists", () => {
 
 	const layer = makeServiceLayer(
 		makeEntitiesRepository({
-			createEntity: () =>
+			saveEntity: () =>
 				Effect.sync(() => {
 					createCalled = true;
 					return {
@@ -116,10 +114,10 @@ it.effect("returns existing entity when provenance already exists", () => {
 					name: "Existing",
 					populatedAt: null,
 					externalId: "ext-1",
+					properties: { title: "Existing" },
 					id: EntityId.make("existing-entity"),
 					entitySchemaId: EntitySchemaId.make("schema-id"),
 					sandboxScriptId: SandboxScriptId.make("script-id"),
-					properties: { title: "Existing" },
 				}),
 		}),
 	);
@@ -129,9 +127,9 @@ it.effect("returns existing entity when provenance already exists", () => {
 		const entity = yield* service.create(user, {
 			name: "Existing",
 			externalId: "ext-1",
+			properties: { title: "Existing" },
 			entitySchemaId: EntitySchemaId.make("schema-id"),
 			sandboxScriptId: SandboxScriptId.make("script-id"),
-			properties: { title: "Existing" },
 			image: { type: "remote", url: RemoteImageUrl.make("https://example.com/cover.jpg") },
 		});
 
@@ -150,8 +148,8 @@ it.effect("returns not found when entity schema is not visible", () => {
 		const exit = yield* Effect.exit(
 			service.create(user, {
 				properties: {},
-				entitySchemaId: EntitySchemaId.make("schema-id"),
 				name: "Hidden Schema Entity",
+				entitySchemaId: EntitySchemaId.make("schema-id"),
 			}),
 		);
 
