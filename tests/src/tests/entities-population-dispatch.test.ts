@@ -6,7 +6,7 @@ import {
 	findBuiltinSchemaBySlug,
 	getEntity,
 	getGlobalEntityByProvenance,
-	openInterestSocket,
+	openInterestStream,
 	seedMediaEntity,
 	seedPopulatedProviderEntity,
 	waitForEntityPopulated,
@@ -48,20 +48,20 @@ describe("entity population via client-declared interest", () => {
 		const afterGrace = await getGlobalEntityByProvenance(provenance);
 		expect(afterGrace.populatedAt).toBeNull();
 
-		const socket = await openInterestSocket(auth);
+		const stream = await openInterestStream(auth);
 		try {
-			socket.sendInterest([seeded.id]);
+			await stream.declareInterest([seeded.id]);
 
 			const populated = await waitForEntityPopulated(provenance);
 			expect(populated.populatedAt).not.toBeNull();
 			expect(populated.name).toBe("Sunrise");
 
-			const event = await socket.waitForEntityUpdated(seeded.id, "populated", {
+			const event = await stream.waitForEntityUpdated(seeded.id, "populated", {
 				timeoutMs: 30_000,
 			});
 			expect(event.reason).toBe("populated");
 		} finally {
-			socket.close();
+			stream.close();
 		}
 	}, 60_000);
 
@@ -83,16 +83,16 @@ describe("entity population via client-declared interest", () => {
 			externalId: `catchup-${crypto.randomUUID()}`,
 		});
 
-		const socket = await openInterestSocket(auth);
+		const stream = await openInterestStream(auth);
 		try {
-			socket.sendInterest([entity.id]);
-			// Populated + no localization for a no-language reader ⇒ terminal ⇒ direct catch-up frame.
-			const event = await socket.waitForEntityUpdated(entity.id, "populated", {
-				timeoutMs: 20_000,
-			});
-			expect(event.entityId).toBe(entity.id);
+			// Populated + no localization for a no-language reader ⇒ terminal ⇒ immediate catch-up in
+			// the declare-interest response itself (no SSE round-trip needed for already-terminal state).
+			const terminal = await stream.declareInterest([entity.id]);
+			const event = terminal.find((frame) => frame.entityId === entity.id);
+			assertPresent(event, `Expected an immediate catch-up frame for '${entity.id}'`);
+			expect(event.reason).toBe("populated");
 		} finally {
-			socket.close();
+			stream.close();
 		}
 	}, 30_000);
 });
