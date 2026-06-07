@@ -2,9 +2,11 @@ import { describe, expect, it } from "bun:test";
 
 import {
 	createAuthenticatedClient,
+	createEventSchema,
 	createRelationship,
 	createRelationshipSchema,
 	createV2Entity,
+	createV2Event,
 	createV2TrackerAndSchema,
 	executeQueryEngineV2,
 	executeQueryEngineV2Error,
@@ -421,6 +423,200 @@ describe("Query Engine V2 E2E", () => {
 			expect(requireV2FieldValue(firstModule, "name").value).toBe("Module One");
 			expect(requireV2FieldValue(firstModule, "moduleNumber").value).toBe(1);
 			expect(requireV2FieldValue(firstModule, "position").value).toBe(1);
+		});
+
+		it("returns deep entity includes with event existence fields", async () => {
+			const { client } = await createAuthenticatedClient();
+			const { schemaId: courseSchemaId, slug: courseSlug } = await createV2TrackerAndSchema(
+				client,
+				{ schemaName: "DeepCourse" },
+			);
+			const { schemaId: moduleSchemaId, slug: moduleSlug } = await createV2TrackerAndSchema(
+				client,
+				{
+					schemaName: "DeepModule",
+					propertiesSchema: {
+						fields: {
+							moduleNumber: { type: "integer", label: "Module Number", description: "Sort order" },
+						},
+					},
+				},
+			);
+			const { schemaId: lessonSchemaId, slug: lessonSlug } = await createV2TrackerAndSchema(
+				client,
+				{
+					schemaName: "DeepLesson",
+					propertiesSchema: {
+						fields: {
+							lessonNumber: { type: "integer", label: "Lesson Number", description: "Sort order" },
+						},
+					},
+				},
+			);
+			const completeSlug = `complete-${crypto.randomUUID()}`;
+			const completeSchema = await createEventSchema(client, {
+				slug: completeSlug,
+				name: "Complete",
+				entitySchemaId: lessonSchemaId,
+				propertiesSchema: {
+					fields: { note: { type: "string", label: "Note", description: "Completion note" } },
+				},
+			});
+			const courseModuleSlug = `deep-course-module-${crypto.randomUUID()}`;
+			const moduleLessonSlug = `deep-module-lesson-${crypto.randomUUID()}`;
+			const courseModuleSchema = await createRelationshipSchema(client, {
+				slug: courseModuleSlug,
+				name: "Deep Course Module",
+				propertiesSchema: { fields: {} },
+				targetEntitySchemaId: moduleSchemaId,
+				sourceEntitySchemaId: courseSchemaId,
+			});
+			const moduleLessonSchema = await createRelationshipSchema(client, {
+				slug: moduleLessonSlug,
+				name: "Deep Module Lesson",
+				propertiesSchema: { fields: {} },
+				targetEntitySchemaId: lessonSchemaId,
+				sourceEntitySchemaId: moduleSchemaId,
+			});
+
+			const course = await createV2Entity(client, {
+				name: "Course",
+				entitySchemaId: courseSchemaId,
+			});
+			const module = await createV2Entity(client, {
+				name: "Module",
+				entitySchemaId: moduleSchemaId,
+				properties: { moduleNumber: 1 },
+			});
+			const secondLesson = await createV2Entity(client, {
+				name: "Lesson Two",
+				entitySchemaId: lessonSchemaId,
+				properties: { lessonNumber: 2 },
+			});
+			const firstLesson = await createV2Entity(client, {
+				name: "Lesson One",
+				entitySchemaId: lessonSchemaId,
+				properties: { lessonNumber: 1 },
+			});
+
+			await createRelationship(client, {
+				targetEntityId: module.id,
+				sourceEntityId: course.id,
+				relationshipSchemaId: courseModuleSchema.id,
+			});
+			await createRelationship(client, {
+				sourceEntityId: module.id,
+				targetEntityId: secondLesson.id,
+				relationshipSchemaId: moduleLessonSchema.id,
+			});
+			await createRelationship(client, {
+				sourceEntityId: module.id,
+				targetEntityId: firstLesson.id,
+				relationshipSchemaId: moduleLessonSchema.id,
+			});
+			await createV2Event(client, { entityId: firstLesson.id, eventSchemaId: completeSchema.id });
+
+			const doc = buildRowsDoc({
+				limit: 1,
+				alias: "course",
+				schemas: [courseSlug],
+				fields: [{ key: "name", expr: systemRef("course", "name") }],
+				output: {
+					fields: [{ key: "name", expr: systemRef("course", "name") }],
+					type: "rows",
+					pagination: { page: 1, limit: 1 },
+					orderBy: [{ order: "asc", expr: systemRef("course", "name") }],
+					include: [
+						{
+							limit: 10,
+							key: "modules",
+							fields: [{ key: "name", expr: systemRef("module", "name") }],
+							orderBy: [{ order: "asc", expr: propertyRef("module", moduleSlug, "moduleNumber") }],
+							source: {
+								where: null,
+								alias: "module",
+								type: "entities",
+								schemas: [moduleSlug],
+								via: {
+									entityRef: "course",
+									alias: "courseModule",
+									direction: "outgoing",
+									schema: courseModuleSlug,
+								},
+							},
+							include: [
+								{
+									limit: 10,
+									key: "lessons",
+									orderBy: [
+										{ order: "asc", expr: propertyRef("lesson", lessonSlug, "lessonNumber") },
+									],
+									fields: [
+										{ key: "name", expr: systemRef("lesson", "name") },
+										{
+											key: "lessonNumber",
+											expr: propertyRef("lesson", lessonSlug, "lessonNumber"),
+										},
+										{
+											key: "isComplete",
+											expr: {
+												type: "exists",
+												source: {
+													where: null,
+													type: "events",
+													entityRef: "lesson",
+													schemas: [completeSlug],
+													alias: "lessonCompletion",
+												},
+											},
+										},
+									],
+									source: {
+										where: null,
+										alias: "lesson",
+										type: "entities",
+										schemas: [lessonSlug],
+										via: {
+											entityRef: "module",
+											alias: "moduleLesson",
+											direction: "outgoing",
+											schema: moduleLessonSlug,
+										},
+									},
+								},
+							],
+						},
+					],
+				},
+			});
+
+			const result = await executeQueryEngineV2(client, doc);
+
+			expect(result.data.items).toHaveLength(1);
+			const courseItem = result.data.items[0];
+			assertPresent(courseItem, "Expected course row");
+			const modules = requireV2IncludeValue(courseItem, "modules");
+			expect(modules.items).toHaveLength(1);
+			const moduleItem = modules.items[0];
+			assertPresent(moduleItem, "Expected module row");
+			const lessons = requireV2IncludeValue(moduleItem, "lessons");
+			expect(lessons.items).toHaveLength(2);
+
+			const lessonOne = lessons.items[0];
+			const lessonTwo = lessons.items[1];
+			assertPresent(lessonOne, "Expected first lesson row");
+			assertPresent(lessonTwo, "Expected second lesson row");
+			expect(requireV2FieldValue(lessonOne, "name").value).toBe("Lesson One");
+			expect(requireV2FieldValue(lessonOne, "lessonNumber").value).toBe(1);
+			expect(requireV2FieldValue(lessonOne, "isComplete")).toEqual({
+				value: true,
+				kind: "boolean",
+			});
+			expect(requireV2FieldValue(lessonTwo, "name").value).toBe("Lesson Two");
+			expect(requireV2FieldValue(lessonTwo, "isComplete")).toEqual({
+				value: false,
+				kind: "boolean",
+			});
 		});
 	});
 
