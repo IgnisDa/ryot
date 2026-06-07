@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -37,14 +37,14 @@ Slice-specific constraints:
 
 ## Acceptance criteria
 
-- [ ] The migration creates `show-season` / `show-episode` / `podcast-episode`
+- [x] The migration creates `show-season` / `show-episode` / `podcast-episode`
       entities (using the stored native ids) and the linking relationship rows,
       sequenced after metadata and before events.
-- [ ] Migrated seen and review events resolve to the correct episode entity
+- [x] Migrated seen and review events resolve to the correct episode entity
       positionally; per-episode progress and review events are produced.
-- [ ] The completion backfill still emits entity-level show/podcast `complete`
+- [x] The completion backfill still emits entity-level show/podcast `complete`
       events.
-- [ ] The build passes and the existing legacy-bootstrap suite is green; no new
+- [x] The build passes and the existing legacy-bootstrap suite is green; no new
       end-to-end test is required (deferred per the parent PRD).
 
 ## User stories addressed
