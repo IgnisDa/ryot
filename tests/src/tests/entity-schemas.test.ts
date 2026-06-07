@@ -730,27 +730,27 @@ describe("GET /entities/import/{jobId}", () => {
 
 	it("returns entity with populated properties in the completed import result", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
-		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
-		const detailsScriptId = schema.providers.find((p) => p.name === "OpenLibrary")?.scriptId;
-		assertPresent(detailsScriptId, "OpenLibrary provider script not found");
+		const { schema } = await findBuiltinSchemaBySlug(client, cookies, "anime");
+		const detailsScriptId = schema.providers.find((p) => p.name === "Anilist")?.scriptId;
+		assertPresent(detailsScriptId, "Anilist provider script not found");
 
-		const { schema: personSchema } = await findBuiltinSchemaBySlug(client, cookies, "person");
-		const personScriptId = personSchema.providers.find((p) => p.name === "OpenLibrary")?.scriptId;
-		assertPresent(personScriptId, "OpenLibrary person provider script not found");
+		const { schema: companySchema } = await findBuiltinSchemaBySlug(client, cookies, "company");
+		const companyScriptId = companySchema.providers.find((p) => p.name === "Anilist")?.scriptId;
+		assertPresent(companyScriptId, "Anilist company provider script not found");
 
 		await deleteGlobalEntityByProvenance({
-			externalId: "OL151749A",
-			entitySchemaId: personSchema.id,
-			sandboxScriptId: personScriptId,
+			externalId: "14",
+			entitySchemaId: companySchema.id,
+			sandboxScriptId: companyScriptId,
 		});
 		await deleteGlobalEntityByProvenance({
-			externalId: "OL267933W",
+			externalId: "1",
 			entitySchemaId: schema.id,
 			sandboxScriptId: detailsScriptId,
 		});
 
 		const { jobId } = await enqueueEntityImport(client, cookies, {
-			externalId: "OL267933W",
+			externalId: "1",
 			scriptId: detailsScriptId,
 			entitySchemaId: schema.id,
 		});
@@ -765,35 +765,35 @@ describe("GET /entities/import/{jobId}", () => {
 
 		const properties = result.data.properties as Record<string, unknown>;
 		expect(properties).not.toEqual({});
-		expect(properties.people).toBeUndefined();
+		expect(properties.studios).toBeUndefined();
 		expect(properties.populatedAt).toBeUndefined();
 
 		const relatedEntity = await getGlobalEntityByProvenance({
-			externalId: "OL151749A",
-			entitySchemaId: personSchema.id,
-			sandboxScriptId: personScriptId,
+			externalId: "14",
+			entitySchemaId: companySchema.id,
+			sandboxScriptId: companyScriptId,
 		});
-		expect(relatedEntity.name).toBe("Margaret Mitchell");
+		expect(relatedEntity.name).toBe("Sunrise");
 		expect(relatedEntity.populatedAt).toBeNull();
 
 		const relationship = await getRelationshipBySchemaSlug({
-			relationshipSchemaSlug: "person-to-book",
+			relationshipSchemaSlug: "company-to-anime",
 			sourceEntityId: relatedEntity.id,
 			targetEntityId: result.data.id,
 		});
 		expect(relationship.sourceEntityId).toBe(relatedEntity.id);
 		expect(relationship.targetEntityId).toBe(result.data.id);
-		expect(relationship.properties).toMatchObject({ roles: ["Author"] });
+		expect(relationship.properties).toMatchObject({ roles: ["Animation Studio"] });
 	}, 30_000);
 
 	it("sets populatedAt as a UTC ISO timestamp column on the imported entity", async () => {
 		const { client, cookies } = await createAuthenticatedClient();
-		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
-		const detailsScriptId = schema.providers.find((p) => p.name === "OpenLibrary")?.scriptId;
-		assertPresent(detailsScriptId, "OpenLibrary provider script not found");
+		const { schema } = await findBuiltinSchemaBySlug(client, cookies, "anime");
+		const detailsScriptId = schema.providers.find((p) => p.name === "Anilist")?.scriptId;
+		assertPresent(detailsScriptId, "Anilist provider script not found");
 
 		const { jobId } = await enqueueEntityImport(client, cookies, {
-			externalId: "OL267933W",
+			externalId: "1",
 			scriptId: detailsScriptId,
 			entitySchemaId: schema.id,
 		});
