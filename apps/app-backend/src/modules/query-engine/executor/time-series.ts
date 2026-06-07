@@ -1,31 +1,19 @@
-import { DateTime, Duration, Effect, Option } from "effect";
+import { DateTime, Effect, Option } from "effect";
 
 import type { CurrentDb } from "#lib/db";
 import type { BadRequest, DbError, NotFound } from "#lib/errors";
 
 import type { FieldValue, TimeSeriesResponse } from "../language";
+import {
+	addTimeSeriesBucket,
+	alignDateRangeToBucket,
+	startOfTimeSeriesBucket,
+} from "../time-series-buckets";
 import { evalAggregateMeasure, evalExprAsBoolean, evalExprValue } from "./expr";
 import { executeRootSourceMatches } from "./source-matches";
 import type { SourceMatch, TimeSeriesQueryDocument } from "./types";
 
-type TimeSeriesBucket = TimeSeriesQueryDocument["output"]["time"]["bucket"];
 type TimeSeriesRange = { endAt: DateTime.DateTime; startAt: DateTime.DateTime };
-
-const addBucket = (value: DateTime.DateTime, bucket: TimeSeriesBucket) => {
-	if (bucket === "hour") {
-		return DateTime.addDuration(value, Duration.hours(1));
-	}
-	if (bucket === "day") {
-		return DateTime.addDuration(value, Duration.days(1));
-	}
-	if (bucket === "week") {
-		return DateTime.addDuration(value, Duration.days(7));
-	}
-	return DateTime.add(value, { months: 1 });
-};
-
-const startOfBucket = (value: DateTime.DateTime, bucket: TimeSeriesBucket) =>
-	DateTime.startOf(value, bucket);
 
 const parseTimeValue = (value: unknown): Option.Option<DateTime.DateTime> => {
 	if (DateTime.isDateTime(value)) {
@@ -51,19 +39,6 @@ const parseTimeValue = (value: unknown): Option.Option<DateTime.DateTime> => {
 		}
 	}
 	return Option.none();
-};
-
-export const alignDateRangeToBucket = (input: {
-	bucket: TimeSeriesBucket;
-	endAt: DateTime.DateTime;
-	startAt: DateTime.DateTime;
-}) => {
-	const startAt = startOfBucket(input.startAt, input.bucket);
-	const endAt = addBucket(
-		startOfBucket(DateTime.subtractDuration(input.endAt, Duration.millis(1)), input.bucket),
-		input.bucket,
-	);
-	return { endAt, startAt };
 };
 
 const isWithinHalfOpenRange = (value: DateTime.DateTime, range: TimeSeriesRange) =>
@@ -94,7 +69,7 @@ export const executeTimeSeriesQuery = (
 				continue;
 			}
 
-			const bucketStart = startOfBucket(timeValue.value, doc.output.time.bucket);
+			const bucketStart = startOfTimeSeriesBucket(timeValue.value, doc.output.time.bucket);
 			const bucketKey = DateTime.formatIso(bucketStart);
 			const bucketMatches = groups.get(bucketKey);
 			if (bucketMatches === undefined) {
@@ -113,7 +88,7 @@ export const executeTimeSeriesQuery = (
 		let cursor = alignedRange.startAt;
 		while (DateTime.lessThan(cursor, alignedRange.endAt)) {
 			const bucketKey = DateTime.formatIso(cursor);
-			const next = addBucket(cursor, doc.output.time.bucket);
+			const next = addTimeSeriesBucket(cursor, doc.output.time.bucket);
 			const bucketMatches = groups.get(bucketKey) ?? [];
 			const aggregateValue =
 				bucketMatches.length === 0

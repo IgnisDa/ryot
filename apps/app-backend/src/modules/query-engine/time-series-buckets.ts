@@ -18,7 +18,7 @@ export const addTimeSeriesBucket = (value: DateTime.DateTime, bucket: TimeSeries
 };
 
 export const startOfTimeSeriesBucket = (value: DateTime.DateTime, bucket: TimeSeriesBucket) =>
-	DateTime.startOf(value, bucket);
+	DateTime.startOf(value, bucket, { weekStartsOn: 1 });
 
 export const alignDateRangeToBucket = (input: {
 	bucket: TimeSeriesBucket;
