@@ -129,10 +129,11 @@
       "name": "@ryot/browser-extension",
       "version": "0.1.0",
       "dependencies": {
+        "@effect/platform": "0.96.1",
+        "@ryot/contract": "workspace:*",
         "@ryot/ts-utils": "workspace:*",
         "@tailwindcss/vite": "4.1.18",
-        "graphql": "16.12.0",
-        "graphql-request": "7.4.0",
+        "effect": "3.21.3",
         "lucide-react": "0.563.0",
         "react": "19.2.4",
         "react-dom": "19.2.4",

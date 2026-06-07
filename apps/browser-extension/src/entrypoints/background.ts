@@ -1,22 +1,12 @@
-import { MetadataLookupDocument } from "@ryot/generated/graphql/backend/graphql";
 import { isFiniteNumber } from "@ryot/ts-utils/lodash";
-import { GraphQLClient } from "graphql-request";
 
 import { storage } from "#imports";
 
 import { MESSAGE_TYPES, STORAGE_KEYS } from "../lib/constants";
+import { lookupMetadata, postIntegrationWebhook } from "../lib/contract-client";
 import type { ProgressDataWithMetadata } from "../lib/extension-types";
 import { ExtensionStatus } from "../lib/extension-types";
 import { logger } from "../lib/logger";
-
-function extractGraphQLEndpoint(integrationUrl: string) {
-	try {
-		const url = new URL(integrationUrl);
-		return `${url.origin}/backend/graphql`;
-	} catch (_error) {
-		throw new Error(`Invalid integration URL: ${integrationUrl}`, { cause: _error });
-	}
-}
 
 export default defineBackground(() => {
 	logger.info("Background script initialized");
@@ -86,21 +76,16 @@ export default defineBackground(() => {
 			throw new Error("Integration URL not found in storage");
 		}
 
-		const graphqlEndpoint = extractGraphQLEndpoint(integrationUrl);
-		const client = new GraphQLClient(graphqlEndpoint);
-
 		logger.debug("Making metadata lookup request", {
 			title: data.title,
-			endpoint: graphqlEndpoint,
+			url: integrationUrl,
 		});
 
-		const result = await client.request(MetadataLookupDocument, {
-			title: data.title,
-		});
+		const result = await lookupMetadata(integrationUrl, data.title);
 
 		logger.debug("Metadata lookup response", { result });
 
-		return result.metadataLookup;
+		return result;
 	}
 
 	async function handleProgressData(progressData: ProgressDataWithMetadata, tabUrl?: string) {
@@ -113,19 +98,25 @@ export default defineBackground(() => {
 
 			const { rawData, metadata } = progressData;
 
-			if (!isFiniteNumber(rawData.progress) || !tabUrl || "notFound" in metadata) {
+			if (!isFiniteNumber(rawData.progress) || !tabUrl || metadata.status === "notFound") {
 				return;
 			}
 
+			const mediaSeen = {
+				lot: metadata.data.lot,
+				progress: rawData.progress,
+				identifier: metadata.data.identifier,
+				...(metadata.showInformation
+					? {
+							show_season_number: metadata.showInformation.season,
+							show_episode_number: metadata.showInformation.episode,
+						}
+					: {}),
+			};
+
 			const integrationPayload = {
 				url: tabUrl,
-				data: {
-					progress: rawData.progress,
-					identifier: metadata.data.identifier,
-					lot: metadata.data.lot.toLowerCase(),
-					show_season_number: metadata.showInformation?.season,
-					show_episode_number: metadata.showInformation?.episode,
-				},
+				data: mediaSeen,
 			};
 
 			logger.debug("Sending integration data", {
@@ -133,11 +124,7 @@ export default defineBackground(() => {
 				payload: integrationPayload,
 			});
 
-			await fetch(integrationUrl, {
-				method: "POST",
-				body: JSON.stringify(integrationPayload),
-				headers: { "Content-Type": "application/json" },
-			});
+			await postIntegrationWebhook(integrationUrl, integrationPayload);
 
 			logger.info("Integration data sent successfully");
 
