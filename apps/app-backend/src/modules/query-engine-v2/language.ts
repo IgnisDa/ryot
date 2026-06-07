@@ -30,6 +30,12 @@ export type Expr =
 	| { readonly type: "isNull"; readonly expr: Expr }
 	| { readonly type: "isNotNull"; readonly expr: Expr }
 	| { readonly type: "exists"; readonly source: SourceV2 }
+	| {
+			type: "first";
+			readonly source: SourceV2;
+			readonly select: Expr;
+			readonly orderBy: readonly [typeof OrderByEntry.Type, ...Array<typeof OrderByEntry.Type>];
+	  }
 	| { readonly type: "or"; readonly values: readonly [Expr, ...Expr[]] }
 	| { readonly type: "and"; readonly values: readonly [Expr, ...Expr[]] }
 	| { readonly type: "contains"; readonly left: Expr; readonly right: Expr }
@@ -63,6 +69,12 @@ export const Expr: Schema.Schema<Expr> = Schema.suspend(() =>
 		strictStruct({ expr: Expr, type: Schema.Literal("isNull") }),
 		strictStruct({ expr: Expr, type: Schema.Literal("isNotNull") }),
 		strictStruct({ source: SourceV2, type: Schema.Literal("exists") }),
+		strictStruct({
+			select: Expr,
+			source: SourceV2,
+			type: Schema.Literal("first"),
+			orderBy: Schema.NonEmptyArray(OrderByEntry),
+		}),
 		strictStruct({ left: Expr, right: Expr, type: Schema.Literal("contains") }),
 		strictStruct({ type: Schema.Literal("or"), values: Schema.NonEmptyArray(Expr) }),
 		strictStruct({ type: Schema.Literal("and"), values: Schema.NonEmptyArray(Expr) }),
@@ -93,19 +105,44 @@ export const EntitySourceV2 = strictStruct({
 }).annotations({ identifier: "EntitySourceV2" });
 export type EntitySourceV2 = typeof EntitySourceV2.Type;
 
-export const EventSourceV2 = strictStruct({
+const RootEventEntityV2 = strictStruct({
+	alias: Schema.String,
+	schemas: Schema.NonEmptyArray(Schema.String),
+}).annotations({ identifier: "RootEventEntityV2" });
+export type RootEventEntityV2 = typeof RootEventEntityV2.Type;
+
+export const NestedEventSourceV2 = strictStruct({
 	alias: Schema.String,
 	entityRef: Schema.String,
 	type: Schema.Literal("events"),
 	where: Schema.NullOr(Expr),
 	schemas: Schema.NonEmptyArray(Schema.String),
-}).annotations({ identifier: "EventSourceV2" });
+}).annotations({ identifier: "NestedEventSourceV2" });
+export type NestedEventSourceV2 = typeof NestedEventSourceV2.Type;
+
+export const RootEventSourceV2 = strictStruct({
+	alias: Schema.String,
+	entity: RootEventEntityV2,
+	type: Schema.Literal("events"),
+	where: Schema.NullOr(Expr),
+	schemas: Schema.NonEmptyArray(Schema.String),
+}).annotations({ identifier: "RootEventSourceV2" });
+export type RootEventSourceV2 = typeof RootEventSourceV2.Type;
+
+export const EventSourceV2 = Schema.Union(NestedEventSourceV2, RootEventSourceV2).annotations({
+	identifier: "EventSourceV2",
+});
 export type EventSourceV2 = typeof EventSourceV2.Type;
 
-export const SourceV2 = Schema.Union(EntitySourceV2, EventSourceV2).annotations({
+export const SourceV2 = Schema.Union(EntitySourceV2, NestedEventSourceV2).annotations({
 	identifier: "SourceV2",
 });
 export type SourceV2 = typeof SourceV2.Type;
+
+export const RootSourceV2 = Schema.Union(EntitySourceV2, RootEventSourceV2).annotations({
+	identifier: "RootSourceV2",
+});
+export type RootSourceV2 = typeof RootSourceV2.Type;
 
 const Pagination = strictStruct({
 	page: Schema.Int.pipe(Schema.positive()),
@@ -151,7 +188,7 @@ export type RowsOutputV2 = typeof RowsOutputV2.Type;
 
 export const QueryDocumentV2 = strictStruct({
 	output: RowsOutputV2,
-	source: EntitySourceV2,
+	source: RootSourceV2,
 	version: Schema.Literal(2),
 }).annotations({ identifier: "QueryDocumentV2" });
 export type QueryDocumentV2 = typeof QueryDocumentV2.Type;

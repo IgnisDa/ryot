@@ -165,6 +165,53 @@ describe("Expr", () => {
 		expect(result.type).toBe("exists");
 	});
 
+	it("decodes a 'first' expression over an ordered event source", () => {
+		const result = decodeSync(Expr)({
+			type: "first",
+			select: {
+				type: "ref",
+				sourceAlias: "completion",
+				field: { type: "system", name: "occurredAt" },
+			},
+			source: {
+				where: null,
+				type: "events",
+				alias: "completion",
+				entityRef: "lesson",
+				schemas: ["complete"],
+			},
+			orderBy: [
+				{
+					order: "desc",
+					expr: {
+						type: "ref",
+						sourceAlias: "completion",
+						field: { type: "system", name: "occurredAt" },
+					},
+				},
+			],
+		});
+
+		expect(result.type).toBe("first");
+	});
+
+	it("throws when a 'first' expression has empty orderBy", () => {
+		expect(() =>
+			decodeSync(Expr)({
+				orderBy: [],
+				type: "first",
+				select: { type: "literal", value: null },
+				source: {
+					where: null,
+					type: "events",
+					alias: "completion",
+					entityRef: "lesson",
+					schemas: ["complete"],
+				},
+			}),
+		).toThrow();
+	});
+
 	it("decodes deeply nested recursive expressions", () => {
 		const result = decodeSync(Expr)({
 			type: "and",
@@ -415,6 +462,34 @@ describe("QueryDocumentV2", () => {
 		const result = decodeSync(QueryDocumentV2)(minimal);
 		expect(result.version).toBe(2);
 		expect(result.source.alias).toBe("e");
+	});
+
+	it("decodes a root event source document", () => {
+		const result = decodeSync(QueryDocumentV2)({
+			...minimal,
+			source: {
+				where: null,
+				type: "events",
+				alias: "completion",
+				schemas: ["complete"],
+				entity: { alias: "lesson", schemas: ["lesson"] },
+			},
+			output: {
+				...minimal.output,
+				orderBy: [
+					{
+						order: "desc",
+						expr: {
+							type: "ref",
+							sourceAlias: "completion",
+							field: { type: "system", name: "occurredAt" },
+						},
+					},
+				],
+			},
+		});
+
+		expect(result.source.type).toBe("events");
 	});
 
 	it("decodes a document with a non-null where clause", () => {
