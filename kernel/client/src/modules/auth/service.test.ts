@@ -2,6 +2,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { Effect, Layer } from "effect";
 
 import { decodeServerOrigin } from "#/api/origin";
+import { makeRuntimeOAuthClient, RuntimeOAuthClientService } from "#/modules/auth/runtime-client";
 import { AuthService } from "#/modules/auth/service";
 import { OAuthTokenError, OAuthTokenService } from "#/modules/auth/token-service";
 import { ClientStorage } from "#/persistence/storage";
@@ -47,13 +48,24 @@ const makeStorage = (clearServerSelection: Effect.Effect<void> = Effect.void) =>
 		getThemePreference: Effect.succeed("system" as const),
 	});
 
+const runtimeClient = (isNative = false) =>
+	Layer.succeed(
+		RuntimeOAuthClientService,
+		makeRuntimeOAuthClient({
+			isNative: () => isNative,
+			getApplicationId: () => Promise.resolve("io.ryot.app"),
+		}),
+	);
+
 const authLayer = (
 	tokens: OAuthTokenService["Service"],
 	storage: Layer.Layer<ClientStorage> = makeStorage(),
+	client: Layer.Layer<RuntimeOAuthClientService> = runtimeClient(),
 ) =>
 	AuthService.layer.pipe(
 		Layer.provide(Layer.succeed(OAuthTokenService, tokens)),
 		Layer.provide(storage),
+		Layer.provide(client),
 	);
 
 describe("authentication service", () => {
@@ -287,6 +299,61 @@ describe("authentication service", () => {
 					makeTokens({
 						logout: (server) => Effect.sync(() => (calls.push(`clear:${server}`), null)),
 					}),
+				),
+			),
+		);
+	});
+
+	it.effect("uses the native client descriptor for session restoration and logout", () => {
+		const calls: Array<{ readonly clientId: string; readonly logoutUri?: string }> = [];
+		return Effect.gen(function* () {
+			const auth = yield* AuthService;
+			yield* auth.settledSession(origin);
+			expect(yield* auth.signOut(origin)).toBe(false);
+			expect(calls).toEqual([
+				{ clientId: "ryot-native" },
+				{ clientId: "ryot-native", logoutUri: "io.ryot.app:/auth/logout/callback" },
+			]);
+		}).pipe(
+			Effect.provide(
+				authLayer(
+					makeTokens({
+						accessToken: (_server, clientId) => Effect.sync(() => (calls.push({ clientId }), null)),
+						logout: (_server, clientId, logoutUri) =>
+							Effect.sync(() => {
+								calls.push({ clientId, logoutUri });
+								return null;
+							}),
+					}),
+					makeStorage(),
+					runtimeClient(true),
+				),
+			),
+		);
+	});
+
+	it.effect("clears local authentication when native application validation fails", () => {
+		const calls: string[] = [];
+		const invalidClient = Layer.succeed(
+			RuntimeOAuthClientService,
+			makeRuntimeOAuthClient({
+				isNative: () => true,
+				getApplicationId: () => Promise.resolve("io.ryot.unknown"),
+			}),
+		);
+		return Effect.gen(function* () {
+			const auth = yield* AuthService;
+			expect(yield* auth.signOut(origin)).toBe(false);
+			expect(calls).toEqual(["clear"]);
+		}).pipe(
+			Effect.provide(
+				authLayer(
+					makeTokens({
+						clear: () => Effect.sync(() => calls.push("clear")),
+						logout: () => Effect.die("not used"),
+					}),
+					makeStorage(),
+					invalidClient,
 				),
 			),
 		);
