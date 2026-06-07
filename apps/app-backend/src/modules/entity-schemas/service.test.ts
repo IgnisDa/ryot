@@ -5,6 +5,7 @@ import type { CurrentUserValue } from "#lib/auth";
 import { CurrentDb, DbRunner, TransactionRunner } from "#lib/db";
 import { BadRequest, Conflict, NotFound } from "#lib/errors";
 import { SandboxApiService } from "#modules/sandbox/service";
+import { SavedViewsRepository } from "#modules/saved-views/repository";
 import { TrackersRepository } from "#modules/trackers/repository";
 
 import { EntitySchemasRepository } from "./repository";
@@ -36,22 +37,6 @@ const fakeSandboxApiService = () =>
 
 const fakeSandboxApiServiceLayer = Layer.succeed(SandboxApiService, fakeSandboxApiService());
 
-const makeEntitySchemasServiceLayer = (
-	repository: EntitySchemasRepository,
-	trackers: TrackersRepository,
-) =>
-	EntitySchemasService.Default.pipe(
-		Layer.provide(
-			Layer.mergeAll(
-				dbRunnerLayer,
-				transactionLayer,
-				fakeSandboxApiServiceLayer,
-				Layer.succeed(EntitySchemasRepository, repository),
-				Layer.succeed(TrackersRepository, trackers),
-			),
-		),
-	);
-
 const defaultTrackersRepository = () =>
 	Object.assign(Object.create(null), {
 		_tag: "TrackersRepository" as const,
@@ -63,6 +48,7 @@ const defaultTrackersRepository = () =>
 		persistOrder: () => Effect.die("unused"),
 		listIdsInOrder: () => Effect.die("unused"),
 		countOwnedByIds: () => Effect.die("unused"),
+		linkEntitySchema: () => Effect.die("unused"),
 	});
 
 const defaultEntitySchemasRepository = () =>
@@ -70,10 +56,23 @@ const defaultEntitySchemasRepository = () =>
 		_tag: "EntitySchemasRepository" as const,
 		findBySlug: () => Effect.die("unused"),
 		listByUser: () => Effect.die("unused"),
-		linkToTracker: () => Effect.die("unused"),
 		getByIdForUser: () => Effect.die("unused"),
 		createEntitySchema: () => Effect.die("unused"),
-		createDefaultSavedView: () => Effect.die("unused"),
+	});
+
+const defaultSavedViewsRepository = () =>
+	Object.assign(Object.create(null), {
+		_tag: "SavedViewsRepository" as const,
+		create: () => Effect.die("unused"),
+		findBySlug: () => Effect.die("unused"),
+		listByUser: () => Effect.die("unused"),
+		deleteBySlug: () => Effect.die("unused"),
+		updateBySlug: () => Effect.die("unused"),
+		countBySlugs: () => Effect.die("unused"),
+		persistOrder: () => Effect.die("unused"),
+		listSlugsInOrder: () => Effect.die("unused"),
+		updateDisabledBySlug: () => Effect.die("unused"),
+		createDefaultViewForSchema: () => Effect.die("unused"),
 	});
 
 const makeTrackersRepository = (overrides: Partial<TrackersRepository> = {}) =>
@@ -81,6 +80,27 @@ const makeTrackersRepository = (overrides: Partial<TrackersRepository> = {}) =>
 
 const makeEntitySchemasRepository = (overrides: Partial<EntitySchemasRepository> = {}) =>
 	Object.assign(Object.create(null), defaultEntitySchemasRepository(), overrides);
+
+const makeSavedViewsRepository = (overrides: Partial<SavedViewsRepository> = {}) =>
+	Object.assign(Object.create(null), defaultSavedViewsRepository(), overrides);
+
+const makeEntitySchemasServiceLayer = (
+	repository: EntitySchemasRepository,
+	trackers: TrackersRepository,
+	savedViews: SavedViewsRepository = makeSavedViewsRepository(),
+) =>
+	EntitySchemasService.Default.pipe(
+		Layer.provide(
+			Layer.mergeAll(
+				dbRunnerLayer,
+				transactionLayer,
+				fakeSandboxApiServiceLayer,
+				Layer.succeed(EntitySchemasRepository, repository),
+				Layer.succeed(TrackersRepository, trackers),
+				Layer.succeed(SavedViewsRepository, savedViews),
+			),
+		),
+	);
 
 it.effect("returns not found when tracker does not exist during creation", () => {
 	const layer = makeEntitySchemasServiceLayer(
@@ -225,9 +245,6 @@ it.effect("returns conflict when default saved view creation conflicts", () => {
 	const layer = makeEntitySchemasServiceLayer(
 		makeEntitySchemasRepository({
 			findBySlug: () => Effect.succeed(null),
-			linkToTracker: () => Effect.succeed("tracker-id"),
-			createDefaultSavedView: () =>
-				Effect.fail(new Conflict({ message: "Entity schema default saved view already exists" })),
 			createEntitySchema: (input) =>
 				Effect.succeed({
 					id: "schema-id",
@@ -250,6 +267,11 @@ it.effect("returns conflict when default saved view creation conflicts", () => {
 					description: null,
 					accentColor: "#000000",
 				}),
+			linkEntitySchema: () => Effect.succeed("tracker-id"),
+		}),
+		makeSavedViewsRepository({
+			createDefaultViewForSchema: () =>
+				Effect.fail(new Conflict({ message: "Entity schema default saved view already exists" })),
 		}),
 	);
 
@@ -278,9 +300,7 @@ it.effect("normalizes slugs before creating entity schemas", () => {
 
 	const layer = makeEntitySchemasServiceLayer(
 		makeEntitySchemasRepository({
-			createDefaultSavedView: () => Effect.void,
 			findBySlug: () => Effect.succeed(null),
-			linkToTracker: () => Effect.succeed("tracker-id"),
 			createEntitySchema: (input) =>
 				Effect.sync(() => {
 					createdSlug = input.slug;
@@ -296,6 +316,7 @@ it.effect("normalizes slugs before creating entity schemas", () => {
 				}),
 		}),
 		makeTrackersRepository({
+			linkEntitySchema: () => Effect.succeed("tracker-id"),
 			getOwnedById: () =>
 				Effect.succeed({
 					icon: "star",
@@ -307,6 +328,7 @@ it.effect("normalizes slugs before creating entity schemas", () => {
 					accentColor: "#000000",
 				}),
 		}),
+		makeSavedViewsRepository({ createDefaultViewForSchema: () => Effect.void }),
 	);
 
 	return Effect.gen(function* () {
