@@ -31,6 +31,7 @@ These V1 areas have a working home in V2. Several are **partial** ports — the 
 | Media translation (localized title/overview)                                        | `modules/entity-translation` (sandbox `translate` driver + `TranslateEntityWorkflow`); localized `name`/`properties` and a `translationStatus` field via `modules/query-engine`; filled on demand through client-declared interest (`modules/entity-interest`) rather than V1's periodic refresh job | Functionally equivalent; drops per-variant (title/image/description) granularity and show/podcast episode-scoped translation — low priority |
 | Integration progress normalization (clamp above configured maximum to 100%, filter below configured minimum, auto-fill a missing completion timestamp with "now") | Builtin `before_create` sandbox trigger `trigger.integration-progress-policy` (`lib/sandbox/triggers/integration-progress-policy.sandbox.js`); timestamp fallback is structural via `modules/integrations/sinks/shared.ts`'s `createProgressResult` | Full — see `lib/builtins/AGENTS.md` ("Integration Progress Policy Trigger"); regression coverage in `tests/src/tests/integrations.test.ts` ("Progress normalization") |
 | Media & collection recommendations (`user_metadata_recommendations`, `collection_recommendations`) | `media-suggestion` relationship schema (`lib/builtins/relationship-schemas.ts`) populated by `modules/entity-import/population.ts`'s `syncEntitySuggestions()`, triggered from `modules/entity-import/entity-import-workflow.ts`; consumed via ad hoc `modules/query-engine` documents | **Partial** — see [Recommendations — known gaps](#recommendations--known-gaps) |
+| Media trending metadata                                                            | `media-trending` relationship schema (`lib/builtins/relationship-schemas.ts`) populated by `modules/media-trending` refresh workflow/scheduler; TMDB movie/show sandbox `trending` drivers persist global media self-edges and clients read them through relationship-root `modules/query-engine` documents | Full for V1 provider parity (TMDB movie/show); no dedicated endpoint or saved view |
 
 ## Cache & Invalidation Architecture
 
@@ -42,7 +43,7 @@ What genuinely has no V2 equivalent yet, and will need a scoped solution alongsi
 - Short-window rate-limit counters (e.g. 2FA verification: 1 attempt/second)
 - Ephemeral session-style caches (password-change session, single-use log-download token)
 - Version-tagged settings cache (invalidate cached provider settings on server restart)
-- List-level result caching for features that don't exist yet anyway (recommendations, trending, analytics) — tracked under those features, not separately
+- List-level result caching for features that do not exist yet anyway (analytics) — tracked under those features, not separately
 
 ## Remaining Backlog (In-Scope)
 
@@ -92,8 +93,6 @@ Foundational; several behaviors depend on it. Build first.
 
 - **Data export** — job serializing a user's data into a downloadable archive, plus a listing query and a download URL. V1 exports 8 categories (people, metadata, workouts, exercises, collections, measurements, metadata groups, workout templates) paginated at 1000 items/page, tags the resulting file with start/end timestamps as S3 object metadata, and skips exercises that have neither reviews nor collection memberships. None of this exists in V2 — no exporter module, no job, no listing endpoint.
   - V1: `deploy_export_job`, `user_exports` (`crates/resolvers/exporter`); `PerformExport` job; `crates/services/exporter/*`.
-- **Trending metadata** — fetch trending lists from every configured provider across every media type, commit newly-discovered items to the database, drop cached IDs that no longer resolve to a DB record, and expose the result ordered by last-updated. Surfaced as a query or built-in saved view.
-  - V1: `trending_metadata` (`crates/resolvers/miscellaneous/search`); population logic in `crates/services/miscellaneous/trending-and-events`.
 
 #### Collections management completeness
 

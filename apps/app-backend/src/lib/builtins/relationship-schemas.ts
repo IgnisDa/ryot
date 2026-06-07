@@ -2,6 +2,8 @@ import type { AppSchema } from "@ryot/contract/schema/property-schema";
 
 import { slugify } from "#lib/slug";
 
+import { builtinMediaEntitySchemaSlugs } from "./media-schema-slugs";
+
 type BuiltinRelationshipSchema = {
 	slug: string;
 	name: string;
@@ -9,20 +11,6 @@ type BuiltinRelationshipSchema = {
 	sourceEntitySchemaSlug: string | null;
 	targetEntitySchemaSlug: string | null;
 };
-
-const builtinMediaEntitySchemaSlugs = [
-	"book",
-	"comic-book",
-	"anime",
-	"movie",
-	"show",
-	"manga",
-	"audiobook",
-	"podcast",
-	"video-game",
-	"music",
-	"visual-novel",
-];
 
 const groupRolesPropertiesSchema = {
 	fields: {
@@ -50,7 +38,7 @@ const buildCreditRelationshipSchemas = (input: {
 	rolesDescription: string;
 	rolesItemDescription: string;
 	characterDescription?: string;
-	targetEntitySchemaSlugs?: string[];
+	targetEntitySchemaSlugs?: ReadonlyArray<string>;
 }) =>
 	(input.targetEntitySchemaSlugs ?? builtinMediaEntitySchemaSlugs).map((mediaSlug) => ({
 		sourceEntitySchemaSlug: input.sourceSlug,
@@ -124,6 +112,26 @@ export const builtinRelationshipSchemas = (): BuiltinRelationshipSchema[] => [
 		sourceEntitySchemaSlug: null,
 		targetEntitySchemaSlug: null,
 		propertiesSchema: { fields: {} },
+	},
+	{
+		slug: "media-trending",
+		name: "Media Trending",
+		sourceEntitySchemaSlug: null,
+		targetEntitySchemaSlug: null,
+		propertiesSchema: {
+			fields: {
+				rank: {
+					label: "Rank",
+					type: "number" as const,
+					description: "Provider trend rank, ascending from the top item",
+				},
+				fetchedAt: {
+					label: "Fetched At",
+					type: "datetime" as const,
+					description: "When this trend entry was refreshed",
+				},
+			},
+		},
 	},
 	{
 		slug: "member-of",
