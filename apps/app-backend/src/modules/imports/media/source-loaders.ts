@@ -8,12 +8,8 @@ import type { EntitiesRepository } from "#modules/entities/repository";
 
 import type { ImportRunJobData } from "../jobs";
 import { sanitizeErrorMessage } from "../runtime/failures";
-import {
-	getTemporaryDirectory,
-	resolveSafeImportFilePath,
-	validateFileExtension,
-} from "../runtime/files";
-import { importerConfig } from "../runtime/importer-config";
+import { resolveSafeImportFilePath, validateFileExtension } from "../runtime/files";
+import { makeImporterConfig } from "../runtime/importer-config";
 import { getKnownImportExtensions } from "../runtime/source-definitions";
 import { loadImportSourcePayload } from "../runtime/source-payload-store";
 import { adaptAnilistExport } from "../sources/anilist/adapter";
@@ -106,25 +102,27 @@ const noCleanup = <R>(
 		),
 	);
 
-const validateImportJobFilePath = (filePath: string) => {
-	const safePathResult = resolveSafeImportFilePath(filePath, getTemporaryDirectory());
-	if ("error" in safePathResult) {
-		return Effect.fail({
-			cleanupPaths: [],
-			message: "Import job has an invalid file path",
-		} satisfies LoadedMediaImportAdapterError);
-	}
+const validateImportJobFilePath = (filePath: string) =>
+	Effect.gen(function* () {
+		const config = yield* AppConfig;
+		const safePathResult = resolveSafeImportFilePath(filePath, config.tmpDir);
+		if ("error" in safePathResult) {
+			return yield* Effect.fail({
+				cleanupPaths: [],
+				message: "Import job has an invalid file path",
+			} satisfies LoadedMediaImportAdapterError);
+		}
 
-	const extResult = validateFileExtension(safePathResult.path, getKnownImportExtensions());
-	if ("error" in extResult) {
-		return Effect.fail({
-			cleanupPaths: [safePathResult.path],
-			message: "Import job has an invalid file extension",
-		} satisfies LoadedMediaImportAdapterError);
-	}
+		const extResult = validateFileExtension(safePathResult.path, getKnownImportExtensions());
+		if ("error" in extResult) {
+			return yield* Effect.fail({
+				cleanupPaths: [safePathResult.path],
+				message: "Import job has an invalid file extension",
+			} satisfies LoadedMediaImportAdapterError);
+		}
 
-	return Effect.succeed(safePathResult.path);
-};
+		return safePathResult.path;
+	});
 
 const withLoadFallback = <R>(
 	fallback: string,
@@ -261,8 +259,9 @@ const oneTimeMediaImportSourceLoaders: Partial<
 			"Failed to fetch data from Trakt",
 			noCleanup(
 				Effect.gen(function* () {
+					const config = yield* AppConfig;
+					const clientId = makeImporterConfig(config).trakt.clientId;
 					const username = getRequiredSourcePayloadString(input.sourcePayload, "username");
-					const clientId = importerConfig.trakt.clientId;
 					if (!username) {
 						return yield* Effect.fail("Import job is missing Trakt username");
 					}

@@ -1,9 +1,15 @@
+import { BunFileSystem } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
 import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import { Effect, Layer } from "effect";
 
 import { RedisService } from "#lib/redis";
-import { dbRunnerLayer, makeMock, makeWorkflowActivityEngine } from "#lib/test-support/effect";
+import {
+	dbRunnerLayer,
+	makeAppConfigLayer,
+	makeMock,
+	makeWorkflowActivityEngine,
+} from "#lib/test-support/effect";
 import { CollectionsService } from "#modules/collections/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
@@ -178,6 +184,8 @@ type TestLayerOptions = {
 const makeTestLayer = (options: TestLayerOptions) =>
 	Layer.mergeAll(
 		dbRunnerLayer,
+		makeAppConfigLayer(),
+		BunFileSystem.layer,
 		Layer.succeed(RedisService, makeRedisService(options.claimed)),
 		Layer.succeed(ImportsRepository, options.importsRepository ?? makeImportsRepository()),
 		Layer.succeed(

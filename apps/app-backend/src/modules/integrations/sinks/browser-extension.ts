@@ -79,20 +79,16 @@ const providerNameByHostname: Record<string, string> = {
 };
 
 const deriveProviderName = (urlValue?: string): string => {
-	if (!urlValue) {
+	if (!urlValue || !URL.canParse(urlValue)) {
 		return "ryot_browser_extension";
 	}
 
-	try {
-		const hostname = toRegisteredHostname(new URL(urlValue).hostname);
-		const mapped = providerNameByHostname[hostname];
-		if (mapped) {
-			return mapped;
-		}
-		return hostname.split(".")[0] ?? "ryot_browser_extension";
-	} catch {
-		return "ryot_browser_extension";
+	const hostname = toRegisteredHostname(new URL(urlValue).hostname);
+	const mapped = providerNameByHostname[hostname];
+	if (mapped) {
+		return mapped;
 	}
+	return hostname.split(".")[0] ?? "ryot_browser_extension";
 };
 
 export const parseBrowserExtensionSink: SinkParser = (input) =>

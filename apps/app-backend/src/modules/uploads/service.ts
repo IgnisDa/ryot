@@ -4,6 +4,7 @@ import { generateId } from "better-auth";
 import { Effect, Schema } from "effect";
 
 import type { CurrentUserValue } from "#lib/auth";
+import { AppConfig } from "#lib/config";
 import { type BadRequest, badRequest } from "#lib/errors";
 import { RedisService, redisKeys } from "#lib/redis";
 import { S3Service } from "#lib/s3";
@@ -57,12 +58,6 @@ const resolveTemporaryUploadContentType = (
 	return resolveContentType(normalized);
 };
 
-const getTemporaryDirectory = () => {
-	const candidates = [Bun.env.TMPDIR, Bun.env.TMP, Bun.env.TEMP];
-	const dir = candidates.find((v) => v && v.length > 0);
-	return dir ?? "/tmp";
-};
-
 const resolveFileName = (name: string): Effect.Effect<string, BadRequest> => {
 	const segments = name
 		.replace(/[\\/]+$/, "")
@@ -96,9 +91,10 @@ type UploadsServiceShape = {
 
 export class UploadsService extends Effect.Service<UploadsService>()("UploadsService", {
 	effect: Effect.gen(function* () {
-		const fs = yield* FileSystem.FileSystem;
+		const config = yield* AppConfig;
 		const redis = yield* RedisService;
 		const s3Service = yield* S3Service;
+		const fs = yield* FileSystem.FileSystem;
 
 		const createPresignedUpload = Effect.fn("UploadsService.createPresignedUpload")(function* (
 			_user: CurrentUserValue,
@@ -145,7 +141,7 @@ export class UploadsService extends Effect.Service<UploadsService>()("UploadsSer
 				return yield* badRequest("At least one upload file is required");
 			}
 
-			const tempDir = getTemporaryDirectory();
+			const tempDir = config.tmpDir;
 			const resolvedFiles = yield* Effect.forEach(files, (file) =>
 				Effect.gen(function* () {
 					const fileName = yield* resolveFileName(file.name);

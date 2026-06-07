@@ -41,6 +41,8 @@ export const makeWorkflowEngine = (
 export const makeAppConfigLayer = (overrides?: Partial<AppConfigValue>): Layer.Layer<AppConfig> => {
 	const defaults = {
 		port: 3000,
+		tmpDir: "/tmp",
+		nodeEnv: "test",
 		timezone: "Etc/GMT",
 		_tag: "AppConfig" as const,
 		frontendUrl: "http://localhost:3000",
@@ -66,6 +68,16 @@ export const makeAppConfigLayer = (overrides?: Partial<AppConfigValue>): Layer.L
 			bucketName: Option.none(),
 			accessKeyId: Option.none(),
 			secretAccessKey: Option.none(),
+		},
+		providers: {
+			malClientId: Option.none(),
+			traktClientId: Option.none(),
+			twitchClientId: Option.none(),
+			tmdbAccessToken: Option.none(),
+			hardcoverApiKey: Option.none(),
+			giantBombApiKey: Option.none(),
+			googleBooksApiKey: Option.none(),
+			twitchClientSecret: Option.none(),
 		},
 	};
 	return Layer.succeed(AppConfig, { ...defaults, ...overrides });

@@ -3,7 +3,12 @@ import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngin
 import { Effect, Layer } from "effect";
 
 import { badRequest } from "#lib/errors";
-import { dbRunnerLayer, makeMock, makeWorkflowActivityEngine } from "#lib/test-support/effect";
+import {
+	dbRunnerLayer,
+	makeAppConfigLayer,
+	makeMock,
+	makeWorkflowActivityEngine,
+} from "#lib/test-support/effect";
 import { EntitiesRepository } from "#modules/entities/repository";
 import type { ListedEntity } from "#modules/entities/schemas";
 import { EntitiesService } from "#modules/entities/service";
@@ -13,7 +18,6 @@ import { EventsService } from "#modules/events/service";
 
 import { OpenScaleImportItemSchema, prepareOpenScaleWrites } from "./measurement/workflow";
 import { ImportsRepository } from "./repository";
-import { getTemporaryDirectory } from "./runtime/files";
 import { ProcessImportRunWorkflow } from "./worker";
 import { runOneTimeNonMediaImportWorkflow } from "./workflows-non-media";
 import { WorkoutImportItemSchema } from "./workout/domain";
@@ -131,6 +135,7 @@ type TestLayerOptions = {
 const makeTestLayer = (options: TestLayerOptions) =>
 	Layer.mergeAll(
 		dbRunnerLayer,
+		makeAppConfigLayer(),
 		Layer.succeed(ImportsRepository, options.importsRepository ?? makeImportsRepository()),
 		Layer.succeed(EntitiesService, options.entitiesService ?? makeEntitiesService()),
 		Layer.succeed(EntitiesRepository, options.entitiesRepository ?? makeEntitiesRepository()),
@@ -468,10 +473,7 @@ it.effect("fails the workout run when workout schemas are missing", () => {
 it.effect("fails the run and cleans up when non-media adapter loading fails", () => {
 	const cleanupCalls: Array<Record<string, unknown>> = [];
 	const recordedUpdates: Array<Record<string, unknown>> = [];
-	const defectPayload = {
-		...measurementPayload,
-		filePath: `${getTemporaryDirectory()}/open-scale.csv`,
-	};
+	const defectPayload = { ...measurementPayload, filePath: "/tmp/open-scale.csv" };
 
 	const options = {
 		importsRepository: makeImportsRepository({

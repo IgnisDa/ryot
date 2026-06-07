@@ -1,18 +1,14 @@
 import { Activity } from "@effect/workflow";
 import { Cause, DateTime, Effect, Schema } from "effect";
 
+import { AppConfig } from "#lib/config";
 import { DbRunner } from "#lib/db";
 import { unknownToMessage } from "#lib/errors";
 
 import type { ImportRunJobData } from "./jobs";
 import { ImportsRepository } from "./repository";
 import { PROGRESS_UPDATE_INTERVAL, recordImportRunFailure } from "./runtime/failures";
-import {
-	getTemporaryDirectory,
-	readImportFile,
-	resolveImportPath,
-	resolveSafeImportFilePath,
-} from "./runtime/files";
+import { readImportFile, resolveImportPath, resolveSafeImportFilePath } from "./runtime/files";
 import { getKnownImportExtensions } from "./runtime/source-definitions";
 import {
 	createImportRunLifecycle,
@@ -98,7 +94,8 @@ export const loadNonMediaImportText = Effect.fn("importsNonMedia.loadNonMediaImp
 			} satisfies NonMediaLoadError);
 		}
 
-		const safePathResult = resolveSafeImportFilePath(payload.filePath, getTemporaryDirectory());
+		const config = yield* AppConfig;
+		const safePathResult = resolveSafeImportFilePath(payload.filePath, config.tmpDir);
 		if ("error" in safePathResult) {
 			return yield* Effect.fail({
 				cleanupPaths: [] as ReadonlyArray<string>,
@@ -162,9 +159,12 @@ export const runOneTimeNonMediaImportWorkflow = <
 ) =>
 	Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
+		const config = yield* AppConfig;
 		const repository = yield* ImportsRepository;
 
-		const initialCleanupPaths = payload.filePath ? resolveImportPath(payload.filePath) : [];
+		const initialCleanupPaths = payload.filePath
+			? resolveImportPath(payload.filePath, config.tmpDir)
+			: [];
 		let cleanupPaths: ReadonlyArray<string> = initialCleanupPaths;
 		const { cleanupArtifactsBestEffort, failRunAndCleanup } = createImportRunLifecycle(
 			payload,

@@ -1,13 +1,16 @@
-import { importerConfig } from "../runtime/importer-config";
+import type { ImporterConfig } from "../runtime/importer-config";
 
-const resolutionCandidatesBySchema: Record<string, Partial<Record<string, () => string[]>>> = {
-	show: { imdb: () => (importerConfig.moviesAndShows.tmdb.accessToken ? ["show.tmdb"] : []) },
-	movie: { imdb: () => (importerConfig.moviesAndShows.tmdb.accessToken ? ["movie.tmdb"] : []) },
+const resolutionCandidatesBySchema: Record<
+	string,
+	Partial<Record<string, (importer: ImporterConfig) => string[]>>
+> = {
+	show: { imdb: (importer) => (importer.moviesAndShows.tmdb.accessToken ? ["show.tmdb"] : []) },
+	movie: { imdb: (importer) => (importer.moviesAndShows.tmdb.accessToken ? ["movie.tmdb"] : []) },
 	book: {
-		isbn: () => [
+		isbn: (importer) => [
 			"book.openlibrary",
-			...(importerConfig.books.googleBooks.apiKey ? ["book.google-book"] : []),
-			...(importerConfig.books.hardcover.apiKey ? ["book.hardcover"] : []),
+			...(importer.books.googleBooks.apiKey ? ["book.google-book"] : []),
+			...(importer.books.hardcover.apiKey ? ["book.hardcover"] : []),
 		],
 	},
 };
@@ -15,5 +18,7 @@ const resolutionCandidatesBySchema: Record<string, Partial<Record<string, () => 
 export const getResolutionCandidates = (input: {
 	identifierType: string;
 	entitySchemaSlug: string;
+	importer: ImporterConfig;
 }): string[] =>
-	resolutionCandidatesBySchema[input.entitySchemaSlug]?.[input.identifierType]?.() ?? [];
+	resolutionCandidatesBySchema[input.entitySchemaSlug]?.[input.identifierType]?.(input.importer) ??
+	[];

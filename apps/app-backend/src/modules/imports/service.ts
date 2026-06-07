@@ -3,6 +3,7 @@ import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { DateTime, Effect, Either } from "effect";
 
 import type { CurrentUserValue } from "#lib/auth";
+import { AppConfig } from "#lib/config";
 import { DbRunner } from "#lib/db";
 import { type BadRequest, type DbError, type NotFound, badRequest, notFound } from "#lib/errors";
 import { RedisService } from "#lib/redis";
@@ -11,10 +12,10 @@ import { UploadsService } from "#modules/uploads/service";
 import { ImportsRepository } from "./repository";
 import {
 	cleanupImportFile,
-	getTemporaryDirectory,
 	resolveSafeImportFilePath,
 	validateFileExtension,
 } from "./runtime/files";
+import { makeImporterConfig } from "./runtime/importer-config";
 import {
 	buildInputSummary,
 	buildSourcePayload,
@@ -67,6 +68,7 @@ type ImportsServiceShape = {
 
 export class ImportsService extends Effect.Service<ImportsService>()("ImportsService", {
 	effect: Effect.gen(function* () {
+		const config = yield* AppConfig;
 		const redis = yield* RedisService;
 		const runWithDb = yield* DbRunner;
 		const engine = yield* WorkflowEngine;
@@ -102,10 +104,10 @@ export class ImportsService extends Effect.Service<ImportsService>()("ImportsSer
 			sourceFileInputs: ReturnType<typeof getImportSourceFileInputs>,
 		) =>
 			Effect.gen(function* () {
+				const tempDir = config.tmpDir;
 				const queuedFilePaths: string[] = [];
 				const claimedFilePaths: string[] = [];
 
-				const tempDir = getTemporaryDirectory();
 				const sourcePayload = buildSourcePayload(body) ?? {};
 
 				for (const sourceFileInput of sourceFileInputs) {
@@ -225,7 +227,7 @@ export class ImportsService extends Effect.Service<ImportsService>()("ImportsSer
 			user: CurrentUserValue,
 			body: CreateImportRunBody,
 		) {
-			const startError = getImportSourceStartError(body.source);
+			const startError = getImportSourceStartError(body.source, makeImporterConfig(config));
 			if (startError) {
 				return yield* badRequest(startError);
 			}

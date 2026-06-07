@@ -26,9 +26,9 @@ export {
 import { AdminMiddleware, AuthMiddleware } from "./auth-middleware";
 
 const makeAuthInstance = (args: {
-	readonly config: AppConfigValue;
 	readonly db: DbRoot;
 	readonly redis: Redis;
+	readonly config: AppConfigValue;
 	readonly runtime: Runtime.Runtime<DbService | RedisService | TransactionRunner>;
 }) => {
 	const corsOrigins = Option.match(args.config.server.corsOrigins, {
@@ -143,7 +143,7 @@ const makeAuthInstance = (args: {
 				rateLimit: {
 					maxRequests: 60,
 					timeWindow: 60 * 1000,
-					enabled: Bun.env.NODE_ENV === "production",
+					enabled: args.config.nodeEnv === "production",
 				},
 			}),
 			...(oidcEnabled
