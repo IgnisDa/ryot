@@ -27,6 +27,7 @@ const renderView = (
 	overrides: {
 		readonly onRetry?: () => void;
 		readonly onConnect?: () => void;
+		readonly onSyncAll?: () => void;
 		readonly onShowMore?: () => void;
 		readonly isLoadingMore?: boolean;
 		readonly onOpenImports?: () => void;
@@ -42,6 +43,7 @@ const renderView = (
 			onRetry={overrides.onRetry ?? (() => undefined)}
 			isLoadingMore={overrides.isLoadingMore ?? false}
 			onConnect={overrides.onConnect ?? (() => undefined)}
+			onSyncAll={overrides.onSyncAll ?? (() => undefined)}
 			onShowMore={overrides.onShowMore ?? (() => undefined)}
 			onOpenImports={overrides.onOpenImports ?? (() => undefined)}
 		/>,
@@ -112,6 +114,21 @@ describe("integrations screen", () => {
 		await user.press(screen.getByRole("button", { name: "Open the Shelf integration" }));
 
 		expect(opened).toEqual(["int_1"]);
+	});
+
+	it("only offers to sync all when there is something to sync", async () => {
+		const user = userEvent.setup();
+		const synced: string[] = [];
+		await renderView(listState([]));
+
+		expect(screen.queryByRole("button", { name: "Sync all integrations" })).not.toBeOnTheScreen();
+
+		await renderView(listState([makeIntegrationSummary()]), {
+			onSyncAll: () => synced.push("sync"),
+		});
+		await user.press(screen.getByRole("button", { name: "Sync all integrations" }));
+
+		expect(synced).toEqual(["sync"]);
 	});
 
 	it("only offers more when the page reports more", async () => {
