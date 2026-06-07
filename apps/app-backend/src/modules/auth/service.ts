@@ -191,6 +191,29 @@ export class AuthService extends Effect.Service<AuthService>()("AuthService", {
 				Effect.promise(() =>
 					auth.$context.then((ctx) => ctx.internalAdapter.deleteUserSessions(userId)),
 				).pipe(Effect.orDie),
+			// The api-key plugin caches keys in secondary storage but has no admin/server-side API to
+			// invalidate another user's keys (deletion only works through the owning user's session), so
+			// we purge the cache directly via Better Auth's secondaryStorage (its wrapper adds the
+			// `better-auth:` prefix). The `api-key:*` shapes mirror the plugin's internal
+			// getStorageKeyBy* helpers and are pinned to @better-auth/api-key.
+			// TODO: drop this once upstream ships admin-managed api-key deletion.
+			// https://github.com/better-auth/better-auth/discussions/7907
+			purgeApiKeyCaches: (userId: UserId, apiKeys: ReadonlyArray<{ id: string; key: string }>) =>
+				Effect.promise(() =>
+					auth.$context.then((ctx) => {
+						const storage = ctx.secondaryStorage;
+						if (!storage) {
+							return undefined;
+						}
+						return Promise.all([
+							storage.delete(`api-key:by-ref:${userId}`),
+							...apiKeys.flatMap((entry) => [
+								storage.delete(`api-key:${entry.key}`),
+								storage.delete(`api-key:by-id:${entry.id}`),
+							]),
+						]);
+					}),
+				).pipe(Effect.orDie),
 			// Writing preferences through better-auth refreshes the cached session copies in secondary
 			// storage, so a later getSession (and thus CurrentUserValue) reflects the new value.
 			updateUserPreferences: (userId: UserId, preferences: CachedUserPreferences) =>
