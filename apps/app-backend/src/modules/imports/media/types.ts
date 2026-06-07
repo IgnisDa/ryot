@@ -31,6 +31,13 @@ export const ImportMediaEventSchema = Schema.Struct({
 	occurredAt: Schema.String,
 	eventSchemaSlug: Schema.String,
 	properties: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+	episodeLocator: Schema.optional(
+		Schema.Struct({
+			type: Schema.Literal("show"),
+			seasonNumber: Schema.Int.pipe(Schema.greaterThanOrEqualTo(0)),
+			episodeNumber: Schema.Int.pipe(Schema.greaterThanOrEqualTo(0)),
+		}),
+	),
 });
 
 export type ImportMediaEvent = typeof ImportMediaEventSchema.Type;

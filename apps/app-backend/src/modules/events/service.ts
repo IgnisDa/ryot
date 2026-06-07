@@ -31,9 +31,11 @@ type EventsServiceShape = {
 		userId: UserId,
 		payload: ReadonlyArray<CreateEventItem>,
 		importRunId?: ImportRunId,
+		executionId?: string,
 	) => Effect.Effect<CreateEventsResponse, BadRequest | DbError | NotFound>;
 	readonly createForIntegration: (input: {
 		userId: UserId;
+		executionId?: string;
 		importRunId: ImportRunId;
 		integrationId: IntegrationId;
 		payload: ReadonlyArray<CreateEventItem>;
@@ -106,11 +108,11 @@ export class EventsService extends Effect.Service<EventsService>()("EventsServic
 
 				return { count: payload.length };
 			}),
-			createForImport: (userId, payload, importRunId) =>
+			createForImport: (userId, payload, importRunId, executionId) =>
 				payload.length === 0
 					? Effect.succeed({ count: 0 })
 					: provideWorkflowEngine(
-							runEventCreate({ userId, payload, importRunId, origin: "import" }),
+							runEventCreate({ userId, payload, importRunId, executionId, origin: "import" }),
 						),
 			createForIntegration: (input) =>
 				input.payload.length === 0
@@ -121,6 +123,7 @@ export class EventsService extends Effect.Service<EventsService>()("EventsServic
 								origin: "integration",
 								payload: input.payload,
 								importRunId: input.importRunId,
+								executionId: input.executionId,
 								integrationId: input.integrationId,
 							}),
 						),
