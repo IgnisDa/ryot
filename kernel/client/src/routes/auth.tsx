@@ -1,6 +1,6 @@
 import { Button } from "@ryot/client-ui-sdk";
 import { createFileRoute, redirect, useRouter } from "@tanstack/react-router";
-import { Effect } from "effect";
+import { Effect, Match } from "effect";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 
 import { OAuthLauncher, type OAuthLaunchPlan } from "#/modules/auth/oauth-launcher";
@@ -37,10 +37,14 @@ export const Route = createFileRoute("/auth")({
 function OAuthLaunchUnavailable({ error }: { error: Error }) {
 	const router = useRouter();
 	const reason = "reason" in error ? error.reason : undefined;
-	const message =
-		reason === "unknown-native-application"
-			? "This native application identifier is not registered for Ryot sign-in."
-			: "The server could not prepare a secure sign-in request.";
+	const message = Match.value(reason).pipe(
+		Match.when(
+			"unknown-native-application",
+			() => "This native application identifier is not registered for Ryot sign-in.",
+		),
+		Match.when("storage-failed", () => "This device would not store the sign-in request securely."),
+		Match.orElse(() => "The server could not prepare a secure sign-in request."),
+	);
 	return (
 		<AuthStatus
 			title="Could not start sign-in"

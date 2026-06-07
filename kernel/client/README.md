@@ -88,6 +88,50 @@ current entry for a launch URL, and maps the Android hardware back button onto t
 history, exiting the app only when there is nothing left to pop. The kernel remains the sole owner
 of history, per the single-navigation-stack rule in the design document.
 
+## Secure Storage
+
+`OAuthStorage` owns every OAuth record: the access, refresh, and ID tokens, and the short-lived
+PKCE transaction that produces them. Native builds back it with
+`@aparajita/capacitor-secure-storage`, which stores values in the iOS Keychain and, on Android,
+encrypts them with AES-GCM under an Android Keystore key. The web build keeps `localStorage`,
+because a browser has no equivalent; that threat model is unchanged.
+
+The motivation is native-specific. A WebView's `localStorage` is plaintext in the app container,
+so a refresh token that lives 30 days was readable from a rooted or jailbroken device and, while
+`android:allowBackup` was `true`, eligible for off-device auto-backup. The manifest now sets
+`allowBackup="false"`: a Keystore key is never backed up, so a restored copy would be
+undecryptable anyway, and refusing the backup states that intent honestly.
+
+The native adapter reaches the plugin through a dynamic import, so it never enters the web bundle
+and the plugin's own web implementation — unencrypted `localStorage`, documented as debugging-only
+— can never be reached. It applies three settings before the first operation:
+
+- `setKeyPrefix("ryot_")`. The plugin prepends its prefix on write and strips it from `keys()`,
+  and its default is `capacitor-storage_`. Setting it explicitly is what keeps both adapters
+  enumerating the same logical `ryot:oauth:*` keys, which is what `clearPending` scans for.
+- `setSynchronize(false)`, so refresh tokens never reach the iCloud Keychain.
+- `setDefaultKeychainAccess(afterFirstUnlockThisDeviceOnly)`, which keeps records readable at a
+  cold launch while blocking migration to another device.
+
+A native build whose plugin is missing fails loudly rather than degrading to plaintext, which
+would defeat the point.
+
+Reads distinguish a malformed record from an unreadable store. Malformed data is evidence the
+record is bad, so it is evicted; a Keychain or Keystore failure is not, so it reports "no session"
+and leaves the record in place — a locked device must not cost the user their refresh token.
+Writes carry a typed error instead, because a silently dropped record surfaces much later as an
+unexplained `missing-authorization`.
+
+Two behaviours are worth knowing rather than rediscovering. iOS does not delete keychain data when
+an app is deleted, so a reinstall inherits the previous install's tokens. And a failed write during
+`completeAuthorization` cannot be recovered in-flow: the pending record and the authorization code
+are both already spent, so sign-in has to start over.
+
+Adding or removing a Capacitor plugin regenerates `android/capacitor.settings.gradle`,
+`android/app/capacitor.build.gradle`, and `ios/App/CapApp-SPM/Package.swift` through `bun run
+sync`; all three are tracked and must be committed.
+`android/app/src/main/assets/capacitor.plugins.json` is generated as well but is gitignored.
+
 ## Commands
 
 ```sh

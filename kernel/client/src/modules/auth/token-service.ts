@@ -20,7 +20,7 @@ import {
 	postOAuthFormRequest,
 	type OAuthFetch,
 } from "#/modules/auth/oauth-endpoint";
-import { OAuthStorage } from "#/modules/auth/oauth-storage";
+import { OAuthStorage, OAuthStorageError } from "#/modules/auth/oauth-storage";
 
 const REFRESH_WINDOW_MS = 60_000;
 const IdTokenClaims = Schema.Struct({ nonce: Schema.String });
@@ -61,6 +61,7 @@ export class OAuthTokenError extends Data.TaggedError("OAuthTokenError")<{
 		| "invalid-grant"
 		| "invalid-nonce"
 		| "request-failed"
+		| "storage-failed"
 		| "invalid-callback"
 		| "missing-authorization"
 		| "authorization-rejected";
@@ -76,10 +77,14 @@ const makeTokenService = (
 	const run = <A>(promise: () => Promise<A>) =>
 		Effect.tryPromise({
 			try: promise,
-			catch: (cause) =>
-				cause instanceof OAuthTokenError
-					? cause
-					: new OAuthTokenError({ reason: "request-failed", cause }),
+			catch: (cause) => {
+				if (cause instanceof OAuthTokenError) {
+					return cause;
+				}
+				return cause instanceof OAuthStorageError
+					? new OAuthTokenError({ reason: "storage-failed", cause })
+					: new OAuthTokenError({ reason: "request-failed", cause });
+			},
 		});
 	const refresh = (origin: ServerOrigin, clientId: string) => {
 		const canonical = normalizeServerOrigin(origin);
@@ -106,7 +111,11 @@ const makeTokenService = (
 					OAuthTokenResponse,
 				);
 				const tokens = storedTokenSet(response, current);
-				await Effect.runPromise(storage.setTokenSet(canonical, tokens));
+				await Effect.runPromise(
+					storage
+						.setTokenSet(canonical, tokens)
+						.pipe(Effect.tapError(() => storage.removeTokenSet(canonical))),
+				);
 				return tokens;
 			} catch (cause) {
 				if (cause instanceof OAuthEndpointError && cause.code === "invalid_grant") {

@@ -852,7 +852,7 @@ This matters to the plugin architecture because credentials remain kernel-owned.
 The consequences that shape everything else in this document:
 
 - **CORS is wildcard and non-credentialed API-wide.** There is no operator-configured origin allowlist. Explicit OAuth and API-key credentials are not ambient. Hosted login cookies are same-origin and do not depend on API CORS. Section 7's artifact routes use the same policy.
-- **OAuth tokens live behind asynchronous storage, keyed by server origin.** The current implementation uses `localStorage`; plugin documents run sandboxed on an opaque `null` origin and cannot read it.
+- **OAuth tokens live behind asynchronous storage, keyed by server origin.** Native builds keep them in the iOS Keychain or under an Android Keystore key; the web build uses `localStorage`. Plugin documents run sandboxed on an opaque `null` origin and can read neither.
 - **The kernel's authenticated transport attaches the header.** Where this document says "authenticated transport" or "browser credentials", that is now a bearer header the kernel injects per `ApiScope`, never an ambient cookie the browser attaches.
 - **Server-sent events use a `fetch` reader, not `EventSource`.** `EventSource` cannot send an `Authorization` header, so the plugin catalog stream parses `text/event-stream` itself and reconnects on its own schedule.
 
