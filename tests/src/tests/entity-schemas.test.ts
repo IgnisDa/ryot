@@ -612,11 +612,11 @@ describe("GET /entity-schemas/search/{jobId}", () => {
 	}, 30_000);
 });
 
-describe("POST /entities/import", () => {
+describe("POST /entity-import", () => {
 	it("returns 401 when unauthenticated", async () => {
 		const client = getBackendClient();
 		const error = await client.runError((c) =>
-			c.entities.import({
+			c.entityImport.import({
 				payload: {
 					externalId: "test-id",
 					scriptId: SandboxScriptId.make(crypto.randomUUID()),
@@ -644,11 +644,11 @@ describe("POST /entities/import", () => {
 	});
 });
 
-describe("GET /entities/import/{jobId}", () => {
+describe("GET /entity-import/{jobId}", () => {
 	it("returns 401 when unauthenticated", async () => {
 		const client = getBackendClient();
 		const error = await client.runError((c) =>
-			c.entities.getImportResult({ path: { jobId: crypto.randomUUID() } }),
+			c.entityImport.getImportResult({ path: { jobId: crypto.randomUUID() } }),
 		);
 
 		assertTaggedError(error, "Unauthorized");
@@ -658,7 +658,7 @@ describe("GET /entities/import/{jobId}", () => {
 		const { client } = await createAuthenticatedClient();
 
 		const error = await client.runError((c) =>
-			c.entities.getImportResult({ path: { jobId: crypto.randomUUID() } }),
+			c.entityImport.getImportResult({ path: { jobId: crypto.randomUUID() } }),
 		);
 
 		assertTaggedError(error, "NotFound");
@@ -678,7 +678,7 @@ describe("GET /entities/import/{jobId}", () => {
 			entitySchemaId: schema.id,
 		});
 
-		const error = await clientB.runError((c) => c.entities.getImportResult({ path: { jobId } }));
+		const error = await clientB.runError((c) => c.entityImport.getImportResult({ path: { jobId } }));
 
 		assertTaggedError(error, "NotFound");
 		expect(error.message).toBe("Entity import job not found");

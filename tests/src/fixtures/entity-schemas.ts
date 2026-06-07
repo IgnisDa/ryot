@@ -11,7 +11,7 @@ import { createTracker, listTrackers } from "./trackers";
 
 type EnqueueEntitySearchBody = ContractPayload<"entitySchemas", "search">;
 
-type EnqueueEntityImportBody = ContractPayload<"entities", "import">;
+type EnqueueEntityImportBody = ContractPayload<"entityImport", "import">;
 
 export interface CreateEntitySchemaOptions {
 	icon?: string;
@@ -146,7 +146,7 @@ export async function pollEntitySearchResult(
 }
 
 export async function enqueueEntityImport(client: Client, body: EnqueueEntityImportBody) {
-	const result = await client.run((c) => c.entities.import({ payload: body }));
+	const result = await client.run((c) => c.entityImport.import({ payload: body }));
 
 	return {
 		jobId: requirePresent(result.jobId, "Failed to enqueue entity import"),
@@ -161,7 +161,7 @@ export async function pollEntityImportResult(
 	return pollUntil(
 		`entity import job '${jobId}'`,
 		async () => {
-			const result = await client.run((c) => c.entities.getImportResult({ path: { jobId } }));
+			const result = await client.run((c) => c.entityImport.getImportResult({ path: { jobId } }));
 			return result.status !== "pending" ? result : null;
 		},
 		options,
