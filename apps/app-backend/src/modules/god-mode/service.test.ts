@@ -1,4 +1,5 @@
 import { expect, it } from "@effect/vitest";
+import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { BadRequest, DbError } from "@ryot/contract/errors";
 import { UserId } from "@ryot/contract/schema/brands";
 import type { ilike } from "drizzle-orm";
@@ -11,7 +12,7 @@ import { defaultUserPreferences } from "#lib/builtins/bootstrap";
 import * as schema from "#lib/db/schema/tables/auth";
 import { CurrentDb, DbRunner, DbService, TransactionRunner } from "#lib/db/service";
 import { RedisService } from "#lib/redis";
-import { makeAppConfigLayer, makeRedisService } from "#lib/test-support/effect";
+import { makeAppConfigLayer, makeRedisService, makeWorkflowEngine } from "#lib/test-support/effect";
 
 import { GodModeRepository } from "./repository";
 import { checkResetEligibility, classifyAuthState, GodModeService } from "./service";
@@ -119,6 +120,11 @@ const transactionLayer = Layer.succeed(
 		Effect.provideService(effect, CurrentDb, makeBootstrapDb()),
 );
 
+const workflowEngineLayer = Layer.succeed(
+	WorkflowEngine,
+	makeWorkflowEngine({ execute: () => Effect.void.pipe(Effect.as(undefined)) }),
+);
+
 const makeServiceLayer = (
 	db: object,
 	disableLocalAuth = false,
@@ -134,6 +140,7 @@ const makeServiceLayer = (
 				makeAppConfigLayer({ users: { allowRegistration: true, disableLocalAuth } }),
 				Layer.succeed(AuthService, makeAuthMock(authState)),
 				Layer.succeed(RedisService, makeRedisMock()),
+				workflowEngineLayer,
 			),
 		),
 	);
@@ -152,6 +159,7 @@ const makeProvisionLayer = (
 				makeAppConfigLayer({ users: { allowRegistration: true, disableLocalAuth: false } }),
 				Layer.succeed(AuthService, auth),
 				Layer.succeed(RedisService, makeRedisMock()),
+				workflowEngineLayer,
 			),
 		),
 	);
