@@ -6,15 +6,15 @@ import { user } from "./auth";
 export const managedAsset = snakeCase.table(
 	"managed_asset",
 	{
-		provider: text().notNull().$type<ManagedAssetLocator["type"]>(),
 		key: text().notNull(),
+		sha256: text().notNull(),
+		size: integer().notNull(),
+		contentType: text().notNull(),
+		provider: text().notNull().$type<ManagedAssetLocator["type"]>(),
+		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		ownerUserId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
-		size: integer().notNull(),
-		contentType: text().notNull(),
-		sha256: text().notNull(),
-		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 	},
 	(table) => [
 		primaryKey({ columns: [table.provider, table.key] }),

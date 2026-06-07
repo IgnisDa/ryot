@@ -12,10 +12,13 @@ import {
 	createTestUser,
 	findBuiltinPluginBySlug,
 	getBackendClient,
+	pollUserLifecycleOperation,
+	requestUserReset,
+	resetUserAndWait,
 	signInWithPassword,
 	updatePluginState,
 } from "~/fixtures";
-import { assertPresent, assertTaggedError } from "~/support/assertions";
+import { assertPresent, assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 const WRONG_TOKEN = "wrong-token";
@@ -94,7 +97,7 @@ describe("Reset user admin token enforcement", () => {
 					adminAccessTokenHeaders(ADMIN_TOKEN),
 				),
 			);
-			assertTaggedError(error, "BadRequest");
+			assertTaggedError(error, "NotFound");
 		}),
 	);
 });
@@ -126,14 +129,8 @@ describe("Reset user for credential user", () => {
 			});
 			expect(configuredPlugin.config).toEqual({ fixture: true });
 
-			const resetData = yield* client.call(
-				(c) => c.godMode.resetUser({ params: { userId } }),
-				adminAccessTokenHeaders(ADMIN_TOKEN),
-			);
-			expect(resetData.userId).toBe(userId);
-			expect(resetData.email).toBe(email);
-			assertPresent(resetData.resetUrl, "expected a reset url for a credential user");
-			expect(resetData.resetUrl).toMatch(/\/reset-password\?token=.+/);
+			const accepted = yield* requestUserReset(userId);
+			expect(accepted).toMatchObject({ kind: "reset", userId });
 
 			const oldSession = yield* Effect.flip(
 				client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
@@ -148,6 +145,14 @@ describe("Reset user for credential user", () => {
 				}),
 			);
 			assertTaggedError(oldApiKey, "Unauthorized");
+
+			const reset = yield* pollUserLifecycleOperation(accepted.id);
+			expect(reset.status).toBe("completed");
+			const resetData = requirePresent(reset.resetResult, "expected a completed reset result");
+			expect(resetData.userId).toBe(userId);
+			expect(resetData.email).toBe(email);
+			assertPresent(resetData.resetUrl, "expected a reset url for a credential user");
+			expect(resetData.resetUrl).toMatch(/\/reset-password\?token=.+/);
 
 			const token = new URL(resetData.resetUrl).searchParams.get("token");
 			assertPresent(token, "missing token");
@@ -182,10 +187,8 @@ describe("Reset user for no-account user", () => {
 			const client = getBackendClient();
 			const { email, userId } = yield* createNoAccountUser("ResetNone");
 
-			const resetData = yield* client.call(
-				(c) => c.godMode.resetUser({ params: { userId } }),
-				adminAccessTokenHeaders(ADMIN_TOKEN),
-			);
+			const reset = yield* resetUserAndWait(userId);
+			const resetData = requirePresent(reset.resetResult, "expected a completed reset result");
 			expect(resetData.email).toBe(email);
 			assertPresent(resetData.resetUrl, "expected a reset url for a no-account user");
 
@@ -208,6 +211,7 @@ describe("Reset user for no-account user", () => {
 				adminAccessTokenHeaders(ADMIN_TOKEN),
 			);
 			expect(listData.users[0]?.authState).toBe("credential");
+			expect(listData.users[0]?.id).toBe(userId);
 		}),
 	);
 });
@@ -218,10 +222,8 @@ describe("Reset user for OIDC user", () => {
 			const client = getBackendClient();
 			const { email, userId } = yield* createOidcUser("ResetOidc");
 
-			const resetData = yield* client.call(
-				(c) => c.godMode.resetUser({ params: { userId } }),
-				adminAccessTokenHeaders(ADMIN_TOKEN),
-			);
+			const reset = yield* resetUserAndWait(userId);
+			const resetData = requirePresent(reset.resetResult, "expected a completed reset result");
 			expect(resetData.email).toBe(email);
 			expect(resetData.resetUrl).toBeNull();
 
@@ -230,6 +232,7 @@ describe("Reset user for OIDC user", () => {
 				adminAccessTokenHeaders(ADMIN_TOKEN),
 			);
 			expect(listData.users[0]?.authState).toBe("oidc");
+			expect(listData.users[0]?.id).toBe(userId);
 		}),
 	);
 });

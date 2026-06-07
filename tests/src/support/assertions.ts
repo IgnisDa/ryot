@@ -64,7 +64,7 @@ export function requireNonEmptyArray<T>(
 export function assertCompleted<T extends { status: string }>(
 	result: T,
 	label: string,
-): asserts result is Extract<T, { status: "completed" }> {
+): asserts result is T & { status: "completed" } {
 	if (result.status !== "completed") {
 		const detail = "error" in result && typeof result.error === "string" ? `: ${result.error}` : "";
 		throw new Error(`Expected ${label} to complete, got '${result.status}'${detail}`);

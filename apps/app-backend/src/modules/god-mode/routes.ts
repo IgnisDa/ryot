@@ -42,5 +42,11 @@ export const GodModeRoutesLive = HttpApiBuilder.group(AppContract, "godMode", (h
 				const service = yield* GodModeService;
 				return yield* service.deleteUser(params.userId).pipe(dieOnDbError);
 			}),
+		)
+		.handle("getUserLifecycleOperation", ({ params }) =>
+			Effect.gen(function* () {
+				const service = yield* GodModeService;
+				return yield* service.getUserLifecycleOperation(params.operationId).pipe(dieOnDbError);
+			}),
 		),
 );

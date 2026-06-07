@@ -2,25 +2,30 @@ import type { BackupRunId } from "@ryot/contract/schema/brands";
 import { Cause, Effect, Stream } from "effect";
 
 import { appClient } from "./client";
+import { prepareDownload, pruneDownloadCache, saveDownload } from "./files/save-download";
 import type { ApiScope } from "./request-key";
-import { saveDownload } from "./save-download";
 
 const BACKUP_ARCHIVE_CONTENT_TYPE = "application/zip";
 
 const BACKUP_DOWNLOAD_FAILURE_MESSAGE = "Could not download this backup. Try again.";
 
-// The archive is buffered in memory so both platforms share one network path. Personal
-// archives stay far below the temporary-upload ZIP ceiling this trade is bounded by.
-export const downloadBackupArchive = (scope: ApiScope, runId: BackupRunId) =>
+const backupFileName = (runId: BackupRunId) => `ryot-backup-${runId}.zip`;
+
+export const downloadBackupArchive = (
+	scope: ApiScope,
+	runId: BackupRunId,
+	target: ReturnType<typeof prepareDownload>,
+) =>
 	Effect.gen(function* () {
+		const prepared = yield* Effect.promise(() => target);
 		const client = yield* appClient(scope).request;
 		const stream = yield* client.backups.downloadRun({ params: { id: runId } });
-		const chunks = yield* Stream.runCollect(stream);
 		return yield* Effect.promise(() =>
 			saveDownload({
-				chunks,
-				fileName: `ryot-backup-${runId}.zip`,
+				target: prepared,
+				fileName: backupFileName(runId),
 				contentType: BACKUP_ARCHIVE_CONTENT_TYPE,
+				chunks: Stream.toAsyncIterable(stream),
 			}),
 		);
 	}).pipe(
@@ -31,5 +36,12 @@ export const downloadBackupArchive = (scope: ApiScope, runId: BackupRunId) =>
 		),
 	);
 
-export const backupArchiveDownloadOperation = (scope: ApiScope) => (runId: BackupRunId) =>
-	Effect.runPromise(downloadBackupArchive(scope, runId));
+export const backupArchiveDownloadOperation = (scope: ApiScope) => (runId: BackupRunId) => {
+	const target = prepareDownload({
+		fileName: backupFileName(runId),
+		contentType: BACKUP_ARCHIVE_CONTENT_TYPE,
+	});
+	return Effect.runPromise(downloadBackupArchive(scope, runId, target));
+};
+
+export const pruneBackupDownloadCache = pruneDownloadCache;

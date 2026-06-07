@@ -1,12 +1,29 @@
-import { Context, Effect, Layer, Redacted } from "effect";
+import { jsonValueSchema } from "@ryot/contract/modules/sandbox/wire";
+import { SandboxScriptId } from "@ryot/contract/schema/brands";
+import { Context, Effect, Layer, Redacted, Schema } from "effect";
 import Redis from "ioredis";
 
 import { AppConfig } from "./config/service";
 
 export const ENTITY_INTEREST_SESSION_TTL_SECONDS = 15 * 60;
 export const ENTITY_INTEREST_PROGRESSION_LEASE_SECONDS = 30;
-export const ENTITY_INTEREST_SESSION_RENEWAL_INTERVAL_SECONDS = 5 * 60;
+export const IMPORT_SOURCE_STATE_PENDING_TTL_SECONDS = 24 * 60 * 60;
+export const IMPORT_SOURCE_STATE_CLAIMED_TTL_SECONDS = 24 * 60 * 60;
 export const PROVIDER_SEARCH_OPTIONS_CACHE_TTL_SECONDS = 24 * 60 * 60;
+export const ENTITY_INTEREST_SESSION_RENEWAL_INTERVAL_SECONDS = 5 * 60;
+
+export const ImportSourceState = Schema.Struct({
+	source: Schema.String,
+	pluginSlug: Schema.String,
+	workflowScriptId: SandboxScriptId,
+	uploadIntentIds: Schema.Array(Schema.String),
+	sourcePayload: Schema.Record(Schema.String, jsonValueSchema),
+	namedArtifactPaths: Schema.Record(Schema.String, Schema.String),
+});
+
+export type ImportSourceState = typeof ImportSourceState.Type;
+
+export const ImportSourceStateFromJson = Schema.fromJsonString(ImportSourceState);
 
 export const redisKeys = {
 	entityUpdatedChannel: "ryot:entity:updated",
@@ -16,8 +33,10 @@ export const redisKeys = {
 	uploadIntent: (intentId: string) => `ryot:upload:intent:${intentId}`,
 	godModePendingReset: (email: string) => `ryot:god-mode:pending:${email}`,
 	uploadIntentLock: (intentId: string) => `ryot:upload:intent-lock:${intentId}`,
-	importSourcePayload: (runId: string) => `ryot:imports:source-payload:${runId}`,
 	importAdapterResult: (runId: string) => `ryot:imports:adapter-result:${runId}`,
+	importSourceState: (stateId: string) => `ryot:imports:source-state:${stateId}`,
+	importSourceStateClaim: (stateId: string, claimId: string) =>
+		`ryot:imports:source-state:${stateId}:claim:${claimId}`,
 	godModeResetChannel: (correlationId: string) => `ryot:god-mode:reset:${correlationId}`,
 	entityInterestSession: (sessionId: string) => `ryot:entity-interest:session:${sessionId}`,
 	uploadIntentCleanupLock: (intentId: string) => `ryot:upload:intent-cleanup-lock:${intentId}`,
@@ -50,6 +69,19 @@ export class RedisService extends Context.Service<RedisService>()("RedisService"
 
 		return {
 			client,
+			claim: (key: string, claimKey: string, ttlSeconds: number) =>
+				Effect.tryPromise(() =>
+					client.eval(
+						"local claimed = redis.call('get', KEYS[2]); if claimed then return claimed end; local pending = redis.call('get', KEYS[1]); if not pending then return false end; redis.call('set', KEYS[2], pending, 'EX', ARGV[1]); redis.call('del', KEYS[1]); return pending",
+						2,
+						key,
+						claimKey,
+						String(ttlSeconds),
+					),
+				).pipe(
+					Effect.map((value) => (typeof value === "string" ? value : null)),
+					Effect.orDie,
+				),
 			get: (key: string) => Effect.tryPromise(() => client.get(key)).pipe(Effect.orDie),
 			del: (...keys: ReadonlyArray<string>) =>
 				Effect.tryPromise(() => client.del(...keys)).pipe(Effect.orDie),

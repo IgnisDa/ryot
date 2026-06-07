@@ -4,7 +4,7 @@ import { Pressable, Text, View } from "react-native";
 import { AppIcon } from "@/modules/icons";
 import { AppButton } from "@/modules/ui/button";
 import { FormMessage } from "@/modules/ui/form";
-import type { SchemaFileUpload } from "@/modules/ui/schema-form/file-upload";
+import type { SchemaFileUpload } from "@/modules/ui/schema-form/file/file-upload";
 import { SchemaForm, type SchemaFormApi } from "@/modules/ui/schema-form/schema-form";
 
 import type { ImportWizardSource } from "./source-selection";

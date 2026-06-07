@@ -1,6 +1,13 @@
+import { SandboxScriptId } from "@ryot/contract/schema/brands";
+import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
-import { redisKeys } from "./redis";
+import {
+	IMPORT_SOURCE_STATE_CLAIMED_TTL_SECONDS,
+	IMPORT_SOURCE_STATE_PENDING_TTL_SECONDS,
+	ImportSourceStateFromJson,
+	redisKeys,
+} from "./redis";
 
 describe("sandbox cache keys", () => {
 	it("includes the executing user in sandbox cache keys", () => {
@@ -37,5 +44,30 @@ describe("sandbox cache keys", () => {
 		expect(redisKeys.providerSearchOptions("provider-1", "script-1")).not.toBe(
 			redisKeys.providerSearchOptions("provider-1", "script-2"),
 		);
+	});
+});
+
+describe("import source state", () => {
+	it("uses bounded pending and execution-specific claimed keys", () => {
+		expect(IMPORT_SOURCE_STATE_PENDING_TTL_SECONDS).toBeGreaterThan(0);
+		expect(IMPORT_SOURCE_STATE_CLAIMED_TTL_SECONDS).toBeGreaterThan(0);
+		expect(redisKeys.importSourceState("state-1")).toBe("ryot:imports:source-state:state-1");
+		expect(redisKeys.importSourceStateClaim("state-1", "execution-1")).toBe(
+			"ryot:imports:source-state:state-1:claim:execution-1",
+		);
+	});
+
+	it("round-trips secret-bearing file source state through the shared codec", () => {
+		const state = {
+			source: "movary",
+			pluginSlug: "media",
+			uploadIntentIds: ["intent-1"],
+			namedArtifactPaths: { history: "/tmp/history.csv" },
+			sourcePayload: { apiKey: "secret", history: "history" },
+			workflowScriptId: SandboxScriptId.make("script-1"),
+		};
+		const encoded = Schema.encodeSync(ImportSourceStateFromJson)(state);
+
+		expect(Schema.decodeUnknownSync(ImportSourceStateFromJson)(encoded)).toEqual(state);
 	});
 });

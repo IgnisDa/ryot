@@ -1,19 +1,20 @@
 import { unknownToMessage } from "@ryot/contract/errors";
 import type { JsonValue } from "@ryot/contract/modules/ryotql/language";
 import { SandboxExecutionGrants } from "@ryot/contract/modules/sandbox/schemas";
+import { jsonValueSchema } from "@ryot/contract/modules/sandbox/wire";
 import { genericImportWorkflowInputSchema } from "@ryot/sandbox-sdk/imports";
-import { jsonValueSchema } from "@ryot/sandbox-sdk/wire";
 import { Cause, Effect, Schema } from "effect";
 import { Activity } from "effect/unstable/workflow";
 import { WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
+import { ImportSourceState } from "#lib/infrastructure/redis";
 import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
 import { withoutWorkflowParent } from "#lib/infrastructure/workflow";
 import { SandboxExecutionService } from "#modules/sandbox/service";
 
 import type { ImportRunJobData } from "./jobs";
 import { markImportRunStarted } from "./runtime/import-run-status";
-import { loadImportSourcePayload } from "./runtime/source-payload-store";
+import { claimImportSourceState } from "./runtime/source-state-store";
 import { ImportRunError, toWorkflowError } from "./runtime/workflow-errors";
 import { createImportRunLifecycle } from "./runtime/workflow-helpers";
 
@@ -25,11 +26,9 @@ export const runPluginImportWorkflow = Effect.fn("runPluginImportWorkflow")(func
 	const artifactOwnerExecutionId = `${executionId}-import`;
 	const artifactReferenceExecutionId = `${executionId}-import-orchestrator`;
 	const artifactDispatchReferenceExecutionId = `${executionId}-import-dispatch`;
-	const grants: SandboxExecutionGrants | undefined = payload.namedArtifactPaths
-		? { namedArtifactPaths: { ...payload.namedArtifactPaths } }
-		: undefined;
+	let uploadIntentIds: ReadonlyArray<string> = [];
 	const { failRunAndCleanup, cleanupArtifactsBestEffort, cleanupUploadsBestEffort } =
-		createImportRunLifecycle(payload);
+		createImportRunLifecycle(payload, executionId);
 	const releaseImportWorkflowPin = Activity.make({
 		name: "release-import-workflow-pin",
 		execute: sandbox.releaseWorkflowRegistration(artifactOwnerExecutionId).pipe(Effect.ignore),
@@ -66,17 +65,26 @@ export const runPluginImportWorkflow = Effect.fn("runPluginImportWorkflow")(func
 			execute: markImportRunStarted(payload.runId).pipe(Effect.mapError(toWorkflowError)),
 		});
 
-		const storedSourcePayload = payload.sourcePayloadKey
-			? yield* Activity.make({
-					error: ImportRunError,
-					name: "load-import-source-payload",
-					success: Schema.NullOr(Schema.Record(Schema.String, jsonValueSchema)),
-					execute: loadImportSourcePayload(payload.sourcePayloadKey).pipe(
-						Effect.mapError(toWorkflowError),
-					),
-				})
-			: null;
-		const sourcePayload = payload.sourcePayload ?? storedSourcePayload ?? undefined;
+		const sourceState = yield* Activity.make({
+			error: ImportRunError,
+			name: "claim-import-source-state",
+			success: Schema.NullOr(ImportSourceState),
+			execute: claimImportSourceState(payload.sourceStateId, executionId).pipe(
+				Effect.mapError(toWorkflowError),
+			),
+		});
+		if (sourceState === null) {
+			return yield* new ImportRunError({ message: "Import source state is unavailable" });
+		}
+		uploadIntentIds = sourceState.uploadIntentIds;
+		yield* Effect.annotateCurrentSpan({
+			pluginSlug: sourceState.pluginSlug,
+			workflowScriptId: sourceState.workflowScriptId,
+		});
+		const grants: SandboxExecutionGrants | undefined =
+			Object.keys(sourceState.namedArtifactPaths).length > 0
+				? { namedArtifactPaths: { ...sourceState.namedArtifactPaths } }
+				: undefined;
 		const pinnedGrants = grants
 			? yield* Activity.make({
 					error: ImportRunError,
@@ -94,8 +102,10 @@ export const runPluginImportWorkflow = Effect.fn("runPluginImportWorkflow")(func
 			: undefined;
 		const workflowInput = yield* Schema.encodeUnknownEffect(genericImportWorkflowInputSchema)({
 			runId: payload.runId,
-			source: payload.source,
-			...(sourcePayload ? { sourcePayload } : {}),
+			source: sourceState.source,
+			...(Object.keys(sourceState.sourcePayload).length > 0
+				? { sourcePayload: sourceState.sourcePayload }
+				: {}),
 		}).pipe(
 			Effect.flatMap(Schema.decodeUnknownEffect(jsonValueSchema)),
 			Effect.mapError(toWorkflowError),
@@ -105,8 +115,8 @@ export const runPluginImportWorkflow = Effect.fn("runPluginImportWorkflow")(func
 		yield* sandbox
 			.executeWorkflow({
 				input: workflowInput,
-				scriptId: payload.workflowScriptId,
 				executionId: artifactOwnerExecutionId,
+				scriptId: sourceState.workflowScriptId,
 				...(pinnedGrants ? { grants: pinnedGrants } : {}),
 				authority: { type: "user", userId: payload.userId },
 			})
@@ -115,7 +125,8 @@ export const runPluginImportWorkflow = Effect.fn("runPluginImportWorkflow")(func
 		yield* releaseImportDispatchArtifacts;
 		yield* releaseImportArtifacts;
 		yield* cleanupArtifactsBestEffort("cleanup-import-artifacts-on-success");
-		yield* cleanupUploadsBestEffort("cleanup-import-uploads-on-success");
+		yield* cleanupUploadsBestEffort("cleanup-import-uploads-on-success", uploadIntentIds);
+		return yield* Effect.void;
 	});
 
 	yield* processWorkflow.pipe(
@@ -128,6 +139,7 @@ export const runPluginImportWorkflow = Effect.fn("runPluginImportWorkflow")(func
 							Effect.andThen(releaseImportArtifacts),
 							Effect.andThen(
 								failRunAndCleanup({
+									uploadIntentIds,
 									failureName: "fail-import-run-unexpected",
 									message: unknownToMessage(Cause.squash(cause)),
 									cleanupName: "cleanup-import-artifacts-on-unexpected-failure",

@@ -1,11 +1,8 @@
-import { UserId } from "@ryot/contract/schema/brands";
 import { column, document, eq, field, literal, rows, table } from "@ryot/ryotql";
 import { Effect } from "effect";
 
 import {
-	ADMIN_TOKEN,
 	type Client,
-	adminAccessTokenHeaders,
 	createAuthenticatedClient,
 	createEntity,
 	createEntitySchema,
@@ -13,13 +10,13 @@ import {
 	createPluginScope,
 	createRelationship,
 	createRelationshipSchema,
+	deleteUserAndWait,
 	enqueueProviderEntityImport,
 	executeRyotQL,
 	exportAndDownloadBackup,
 	fakeProviderDetailsResult,
 	findBuiltinPluginBySlug,
 	findBuiltinSavedView,
-	getBackendClient,
 	getEntity,
 	getEntitySchema,
 	getGlobalEntityByProvenance,
@@ -98,12 +95,6 @@ const getRelationship = (client: Client, relationshipId: string) =>
 			),
 		};
 	});
-
-const deleteUser = (userId: string) =>
-	getBackendClient().call(
-		(c) => c.godMode.deleteUser({ params: { userId: UserId.make(userId) } }),
-		adminAccessTokenHeaders(ADMIN_TOKEN),
-	);
 
 describe("backup export and restore round trip", () => {
 	it.live("restores portable user state into a clean account exactly once", () =>
@@ -286,7 +277,7 @@ describe("backup export and restore round trip", () => {
 			yield* updatePluginState(source.client, "media", { isDisabled: true, sortOrder: 73 });
 
 			const { bytes } = yield* exportAndDownloadBackup(source.client, source.cookies);
-			yield* deleteUser(source.userId);
+			yield* deleteUserAndWait(source.userId);
 			const restored = yield* restoreBackup(target.client, bytes);
 			assertCompleted(restored.run, "backup restore");
 
@@ -479,7 +470,7 @@ describe("backup export and restore round trip", () => {
 				properties: { owned: true, ownershipSources: ["backup-round-trip"] },
 			});
 			const { bytes } = yield* exportAndDownloadBackup(source.client, source.cookies);
-			yield* deleteUser(source.userId);
+			yield* deleteUserAndWait(source.userId);
 
 			const reinstalled = yield* installProvider("Current Provider Entity", currentProperties);
 			const reinstalledSchema = yield* getEntitySchema(updater.client, entitySchemaSlug);

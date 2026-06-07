@@ -4,66 +4,58 @@ import type { AppPropertyDefinition, AppSchema } from "@ryot/contract/schema/pro
 import { Effect } from "effect";
 
 import { archiveError, type BackupArchiveError } from "./error";
-import { isV1JsonObject, type V1Event, type V1Relationship, type V1UserEntity } from "./schemas";
+import { isV1JsonObject, type V1Event, type V1Relationship } from "./schemas";
 
 type JsonObject = Record<string, JsonValue>;
 type ReferenceMap = ReadonlyMap<string, string>;
 
-export const backupV1EventReferenceRules = [
-	{
-		entityIdProperty: "entityId",
-		relationshipIdProperty: "relationshipId",
-		eventSchemaSlugs: [
-			["collection", "add-entity-to-collection"].join(":"),
-			["collection", "remove-entity-from-collection"].join(":"),
-		],
-	},
-] as const;
-
-export const backupV1EntityReferenceRules = [
-	{
-		itemsProperty: "exercises",
-		referenceProperty: ["exer", "ciseId"].join(""),
-		entitySchemaSlug: ["work", "out-template"].join(""),
-	},
-] as const;
+const collectPropertyEntityIds = (
+	definition: AppPropertyDefinition,
+	value: unknown,
+	ids: Set<string>,
+) => {
+	if (
+		definition.type === "string" &&
+		definition.reference?.kind === "entity-id" &&
+		typeof value === "string"
+	) {
+		ids.add(value);
+		return;
+	}
+	if (definition.type === "object" && isV1JsonObject(value)) {
+		for (const [key, child] of Object.entries(definition.properties)) {
+			collectPropertyEntityIds(child, value[key], ids);
+		}
+		return;
+	}
+	if (definition.type === "array" && Array.isArray(value)) {
+		for (const item of value) {
+			collectPropertyEntityIds(definition.items, item, ids);
+		}
+	}
+};
 
 export const collectV1EmbeddedEntityIds = (
-	entities: ReadonlyArray<{
-		readonly entitySchemaSlug: string;
-		readonly properties: Record<string, unknown>;
+	records: ReadonlyArray<{
+		readonly propertiesSchema: AppSchema;
+		readonly properties: Readonly<Record<string, unknown>>;
 	}>,
 ) => {
 	const ids = new Set<string>();
-	for (const entity of entities) {
-		const rule = backupV1EntityReferenceRules.find(
-			({ entitySchemaSlug }) => entitySchemaSlug === entity.entitySchemaSlug,
-		);
-		if (!rule) {
-			continue;
-		}
-		const items = entity.properties[rule.itemsProperty];
-		if (!Array.isArray(items)) {
-			continue;
-		}
-		for (const item of items) {
-			const reference = isV1JsonObject(item) ? item[rule.referenceProperty] : undefined;
-			if (typeof reference === "string") {
-				ids.add(reference);
-			}
+	for (const { properties, propertiesSchema } of records) {
+		for (const [key, definition] of Object.entries(propertiesSchema.fields)) {
+			collectPropertyEntityIds(definition, properties[key], ids);
 		}
 	}
 	return [...ids].sort();
 };
-
-const lookup = (mapping: ReferenceMap, id: string) => mapping.get(id);
 
 const requiredReference = (
 	mapping: ReferenceMap,
 	id: string,
 	kind: "asset" | "entity" | "relationship",
 ) => {
-	const replacement = lookup(mapping, id);
+	const replacement = mapping.get(id);
 	return replacement === undefined
 		? Effect.fail(
 				archiveError("missing_reference_mapping", `Missing ${kind} reference mapping for '${id}'`),
@@ -82,68 +74,88 @@ export const rewriteV1RelationshipReferences = Effect.fn(function* (
 
 export const rewriteV1EventReferences = Effect.fn(function* (
 	event: V1Event,
+	propertiesSchema: AppSchema,
 	entityIds: ReferenceMap,
 	relationshipIds: ReferenceMap,
-	rules: ReadonlyArray<{
-		readonly entityIdProperty: string;
-		readonly relationshipIdProperty: string;
-		readonly eventSchemaSlugs: ReadonlyArray<string>;
-	}> = [],
 ) {
 	const entityId = yield* requiredReference(entityIds, event.entityId, "entity");
 	const sessionEntityId =
 		event.sessionEntityId === null
 			? null
 			: yield* requiredReference(entityIds, event.sessionEntityId, "entity");
-	const rule = rules.find(({ eventSchemaSlugs }) =>
-		eventSchemaSlugs.includes(event.eventSchemaSlug),
+	const properties = yield* rewriteV1PropertyReferences(
+		event.properties,
+		propertiesSchema,
+		entityIds,
+		relationshipIds,
 	);
-	if (!rule) {
-		return { ...event, entityId, sessionEntityId };
-	}
-	const properties = { ...event.properties };
-	const propertyEntityId = properties[rule.entityIdProperty];
-	const relationshipId = properties[rule.relationshipIdProperty];
-	if (typeof propertyEntityId !== "string" || typeof relationshipId !== "string") {
-		return yield* archiveError("invalid_entry", "Embedded event references must be strings");
-	}
-	properties[rule.entityIdProperty] = entityIds.get(propertyEntityId) ?? propertyEntityId;
-	properties[rule.relationshipIdProperty] = relationshipIds.get(relationshipId) ?? relationshipId;
 	return { ...event, entityId, sessionEntityId, properties };
 });
 
-export const rewriteV1EntityEmbeddedReferences = Effect.fn(function* (
-	entity: V1UserEntity,
+const rewritePropertyReferences = (
+	definition: AppPropertyDefinition,
+	value: JsonValue,
 	entityIds: ReferenceMap,
-	rules: ReadonlyArray<{
-		readonly itemsProperty: string;
-		readonly entitySchemaSlug: string;
-		readonly referenceProperty: string;
-	}> = [],
-) {
-	const rule = rules.find(({ entitySchemaSlug }) => entitySchemaSlug === entity.entitySchemaSlug);
-	if (!rule) {
-		return entity;
-	}
-	const items = entity.properties[rule.itemsProperty];
-	if (items === null || items === undefined) {
-		return entity;
-	}
-	if (!Array.isArray(items)) {
-		return yield* archiveError("invalid_entry", "Embedded entity references must be an array");
-	}
-	const rewritten: JsonValue[] = [];
-	for (const item of items) {
-		const reference = isV1JsonObject(item) ? item[rule.referenceProperty] : undefined;
-		if (!isV1JsonObject(item) || typeof reference !== "string") {
-			return yield* archiveError("invalid_entry", "Embedded entity reference must be a string");
+	relationshipIds: ReferenceMap,
+): Effect.Effect<JsonValue, BackupArchiveError> =>
+	Effect.gen(function* () {
+		if (definition.type === "string" && definition.reference && typeof value === "string") {
+			const kind = definition.reference.kind === "entity-id" ? "entity" : "relationship";
+			const mapping = kind === "entity" ? entityIds : relationshipIds;
+			const replacement = mapping.get(value);
+			if (replacement !== undefined) {
+				return replacement;
+			}
+			return definition.reference.required === true
+				? yield* requiredReference(mapping, value, kind)
+				: value;
 		}
-		rewritten.push({
-			...item,
-			[rule.referenceProperty]: yield* requiredReference(entityIds, reference, "entity"),
-		});
+		if (definition.type === "object" && isV1JsonObject(value)) {
+			const rewritten: JsonObject = { ...value };
+			for (const [key, child] of Object.entries(definition.properties)) {
+				const childValue = value[key];
+				if (childValue !== undefined) {
+					rewritten[key] = yield* rewritePropertyReferences(
+						child,
+						childValue,
+						entityIds,
+						relationshipIds,
+					);
+				}
+			}
+			return rewritten;
+		}
+		if (definition.type === "array" && Array.isArray(value)) {
+			const rewritten: JsonValue[] = [];
+			for (const item of value) {
+				rewritten.push(
+					yield* rewritePropertyReferences(definition.items, item, entityIds, relationshipIds),
+				);
+			}
+			return rewritten;
+		}
+		return value;
+	});
+
+export const rewriteV1PropertyReferences = Effect.fn(function* (
+	value: JsonObject,
+	schema: AppSchema,
+	entityIds: ReferenceMap,
+	relationshipIds: ReferenceMap,
+) {
+	const rewritten: JsonObject = { ...value };
+	for (const [key, definition] of Object.entries(schema.fields)) {
+		const property = value[key];
+		if (property !== undefined) {
+			rewritten[key] = yield* rewritePropertyReferences(
+				definition,
+				property,
+				entityIds,
+				relationshipIds,
+			);
+		}
 	}
-	return { ...entity, properties: { ...entity.properties, [rule.itemsProperty]: rewritten } };
+	return rewritten;
 });
 
 type V1ManagedAssetLocator = Exclude<AssetLocator, { readonly type: "remote" }>;
