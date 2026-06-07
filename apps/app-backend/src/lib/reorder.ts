@@ -1,6 +1,6 @@
-export const buildReorderedIds = (input: {
-	readonly currentIds: ReadonlyArray<string>;
-	readonly requestedIds: ReadonlyArray<string>;
+export const buildReorderedIds = <T extends string>(input: {
+	readonly currentIds: ReadonlyArray<T>;
+	readonly requestedIds: ReadonlyArray<T>;
 }) => {
 	const deduplicatedIds = [...new Set(input.requestedIds)];
 	const requestedIdSet = new Set(deduplicatedIds);

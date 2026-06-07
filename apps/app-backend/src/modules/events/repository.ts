@@ -4,6 +4,8 @@ import { Effect } from "effect";
 import { CurrentDb, dbEffect } from "#lib/db";
 import * as schema from "#lib/db/schema/tables";
 import { DbError } from "#lib/errors";
+import type { UserId } from "#lib/schema/brands";
+import { EntityId, EventId, EventSchemaId, SandboxScriptId } from "#lib/schema/brands";
 
 import type { EventTriggerMetadata, ListedEvent } from "./schemas";
 
@@ -25,51 +27,51 @@ type EventRow = Pick<
 export type BeforeCreateTriggerRow = {
 	readonly id: string;
 	readonly position: number;
-	readonly eventSchemaId: string;
-	readonly sandboxScriptId: string;
+	readonly eventSchemaId: EventSchemaId;
+	readonly sandboxScriptId: SandboxScriptId;
 };
 
 export type AfterCreateTriggerRow = {
 	readonly id: string;
-	readonly eventSchemaId: string;
-	readonly sandboxScriptId: string;
+	readonly eventSchemaId: EventSchemaId;
 	readonly metadata: EventTriggerMetadata;
+	readonly sandboxScriptId: SandboxScriptId;
 };
 
 type EventsDbEffect<A> = Effect.Effect<A, DbError, CurrentDb>;
 
 type EventsRepositoryShape = {
 	readonly deleteUserEventsForEntity: (input: {
-		userId: string;
-		entityId: string;
+		userId: UserId;
+		entityId: EntityId;
 	}) => EventsDbEffect<number>;
 	readonly moveUserEventsBetweenEntities: (input: {
-		userId: string;
-		mergeFrom: string;
-		mergeInto: string;
+		userId: UserId;
+		mergeFrom: EntityId;
+		mergeInto: EntityId;
 	}) => EventsDbEffect<number>;
 	readonly getActiveBeforeCreateTriggers: (input: {
-		userId: string;
-		eventSchemaIds: string[];
+		userId: UserId;
+		eventSchemaIds: EventSchemaId[];
 	}) => EventsDbEffect<BeforeCreateTriggerRow[]>;
 	readonly getActiveAfterCreateTriggers: (input: {
-		userId: string;
-		eventSchemaIds: string[];
+		userId: UserId;
+		eventSchemaIds: EventSchemaId[];
 	}) => EventsDbEffect<AfterCreateTriggerRow[]>;
 	readonly listForUser: (input: {
-		userId: string;
-		entityId?: string;
-		sessionEntityId?: string;
+		userId: UserId;
+		entityId?: EntityId;
+		sessionEntityId?: EntityId;
 		eventSchemaSlug?: string;
 	}) => EventsDbEffect<ListedEvent[]>;
 	readonly createEvent: (input: {
-		userId: string;
-		entityId: string;
+		userId: UserId;
+		entityId: EntityId;
 		occurredAt: Date;
-		eventSchemaId: string;
+		eventSchemaId: EventSchemaId;
 		eventSchemaName: string;
 		eventSchemaSlug: string;
-		sessionEntityId?: string;
+		sessionEntityId?: EntityId;
 		properties: Record<string, unknown>;
 	}) => EventsDbEffect<ListedEvent>;
 };
@@ -99,24 +101,24 @@ const createdEventSelection = {
 };
 
 const toListedEvent = (row: EventRow) => ({
-	id: row.id,
-	entityId: row.entityId,
+	id: EventId.make(row.id),
+	entityId: EntityId.make(row.entityId),
 	properties: row.properties,
-	eventSchemaId: row.eventSchemaId,
+	eventSchemaId: EventSchemaId.make(row.eventSchemaId),
 	eventSchemaName: row.eventSchemaName,
 	eventSchemaSlug: row.eventSchemaSlug,
 	createdAt: row.createdAt.toISOString(),
 	updatedAt: row.updatedAt.toISOString(),
 	occurredAt: row.occurredAt.toISOString(),
-	sessionEntityId: row.sessionEntityId ?? undefined,
+	sessionEntityId: row.sessionEntityId ? EntityId.make(row.sessionEntityId) : undefined,
 });
 
 export class EventsRepository extends Effect.Service<EventsRepository>()("EventsRepository", {
 	sync: (): EventsRepositoryShape => ({
 		listForUser: Effect.fn("EventsRepository.listForUser")(function* (input: {
-			userId: string;
-			entityId?: string;
-			sessionEntityId?: string;
+			userId: UserId;
+			entityId?: EntityId;
+			sessionEntityId?: EntityId;
 			eventSchemaSlug?: string;
 		}) {
 			const db = yield* CurrentDb;
@@ -147,13 +149,13 @@ export class EventsRepository extends Effect.Service<EventsRepository>()("Events
 			return rows.map(toListedEvent);
 		}),
 		createEvent: Effect.fn("EventsRepository.createEvent")(function* (input: {
-			userId: string;
-			entityId: string;
+			userId: UserId;
+			entityId: EntityId;
 			occurredAt: Date;
-			eventSchemaId: string;
+			eventSchemaId: EventSchemaId;
 			eventSchemaName: string;
 			eventSchemaSlug: string;
-			sessionEntityId?: string;
+			sessionEntityId?: EntityId;
 			properties: Record<string, unknown>;
 		}) {
 			const db = yield* CurrentDb;
@@ -182,7 +184,7 @@ export class EventsRepository extends Effect.Service<EventsRepository>()("Events
 			});
 		}),
 		deleteUserEventsForEntity: Effect.fn("EventsRepository.deleteUserEventsForEntity")(
-			function* (input: { userId: string; entityId: string }) {
+			function* (input: { userId: UserId; entityId: EntityId }) {
 				const db = yield* CurrentDb;
 				const rows = yield* dbEffect(() =>
 					db
@@ -203,7 +205,7 @@ export class EventsRepository extends Effect.Service<EventsRepository>()("Events
 			},
 		),
 		moveUserEventsBetweenEntities: Effect.fn("EventsRepository.moveUserEventsBetweenEntities")(
-			function* (input: { userId: string; mergeFrom: string; mergeInto: string }) {
+			function* (input: { userId: UserId; mergeFrom: EntityId; mergeInto: EntityId }) {
 				const db = yield* CurrentDb;
 				const result = yield* dbEffect(() =>
 					db.execute<{ count: string }>(sql`
@@ -230,13 +232,13 @@ export class EventsRepository extends Effect.Service<EventsRepository>()("Events
 			},
 		),
 		getActiveBeforeCreateTriggers: Effect.fn("EventsRepository.getActiveBeforeCreateTriggers")(
-			function* (input: { userId: string; eventSchemaIds: string[] }) {
+			function* (input: { userId: UserId; eventSchemaIds: EventSchemaId[] }) {
 				if (input.eventSchemaIds.length === 0) {
 					return [];
 				}
 
 				const db = yield* CurrentDb;
-				return yield* dbEffect(() =>
+				const rows = yield* dbEffect(() =>
 					db
 						.select({
 							id: schema.eventSchemaTrigger.id,
@@ -258,16 +260,22 @@ export class EventsRepository extends Effect.Service<EventsRepository>()("Events
 						)
 						.orderBy(schema.eventSchemaTrigger.position),
 				);
+				return rows.map((row) => ({
+					id: row.id,
+					position: row.position,
+					eventSchemaId: EventSchemaId.make(row.eventSchemaId),
+					sandboxScriptId: SandboxScriptId.make(row.sandboxScriptId),
+				}));
 			},
 		),
 		getActiveAfterCreateTriggers: Effect.fn("EventsRepository.getActiveAfterCreateTriggers")(
-			function* (input: { userId: string; eventSchemaIds: string[] }) {
+			function* (input: { userId: UserId; eventSchemaIds: EventSchemaId[] }) {
 				if (input.eventSchemaIds.length === 0) {
 					return [];
 				}
 
 				const db = yield* CurrentDb;
-				return yield* dbEffect(() =>
+				const rows = yield* dbEffect(() =>
 					db
 						.select({
 							id: schema.eventSchemaTrigger.id,
@@ -288,6 +296,12 @@ export class EventsRepository extends Effect.Service<EventsRepository>()("Events
 							),
 						),
 				);
+				return rows.map((row) => ({
+					id: row.id,
+					metadata: row.metadata,
+					eventSchemaId: EventSchemaId.make(row.eventSchemaId),
+					sandboxScriptId: SandboxScriptId.make(row.sandboxScriptId),
+				}));
 			},
 		),
 	}),

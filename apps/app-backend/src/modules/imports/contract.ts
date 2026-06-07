@@ -3,6 +3,7 @@ import { Schema } from "effect";
 
 import { AuthMiddleware } from "#lib/auth-middleware";
 import { BadRequest, NotFound, RateLimited, Unauthorized } from "#lib/errors";
+import { ImportRunId } from "#lib/schema/brands";
 
 import {
 	CreateImportRunBody,
@@ -11,7 +12,7 @@ import {
 	ListedImportRun,
 } from "./schemas";
 
-const runIdParam = HttpApiSchema.param("runId", Schema.String);
+const runIdParam = HttpApiSchema.param("runId", ImportRunId);
 
 export const ImportsGroup = HttpApiGroup.make("imports")
 	.addError(Unauthorized, { status: 401 })

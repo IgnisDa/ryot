@@ -3,6 +3,7 @@ import { Effect } from "effect";
 import type { CurrentUserValue } from "#lib/auth-middleware";
 import { DbRunner } from "#lib/db";
 import { badRequest } from "#lib/errors";
+import type { EntitySchemaId, EventSchemaId, ImportRunId, UserId } from "#lib/schema/brands";
 import type { AppSchema } from "#lib/schema/property-schema";
 import { parseAppSchemaPropertiesSafe } from "#lib/schema/property-schema-runtime";
 import { EntitiesRepository } from "#modules/entities/repository";
@@ -21,9 +22,9 @@ import {
 } from "./domain";
 
 export type WorkoutSchemas = {
-	workoutSchemaId: string;
-	exerciseSchemaId: string;
-	workoutSetEventSchemaId: string;
+	workoutSchemaId: EntitySchemaId;
+	exerciseSchemaId: EntitySchemaId;
+	workoutSetEventSchemaId: EventSchemaId;
 	workoutSetEventPropertiesSchema: AppSchema;
 };
 
@@ -46,7 +47,7 @@ const matchExerciseCandidate = (
 
 const findOrCreateExercise = Effect.fn(function* (input: {
 	user: CurrentUserValue;
-	exerciseSchemaId: string;
+	exerciseSchemaId: EntitySchemaId;
 	entities: EntitiesService;
 	exercise: WorkoutImportExercise;
 	candidates: ReadonlyArray<ListedEntity>;
@@ -85,7 +86,7 @@ const buildWorkoutEntityProperties = (workout: WorkoutImportItem): Record<string
 };
 
 export const commitWorkoutItem = Effect.fn("imports.commitWorkoutItem")(function* (input: {
-	runId: string;
+	runId: ImportRunId;
 	events: EventsService;
 	user: CurrentUserValue;
 	schemas: WorkoutSchemas;
@@ -163,7 +164,7 @@ export type WorkoutImportContext = {
 };
 
 export const loadWorkoutImportContext = Effect.fn("imports.loadWorkoutImportContext")(function* (
-	userId: string,
+	userId: UserId,
 ) {
 	const runWithDb = yield* DbRunner;
 	const eventSchemas = yield* EventSchemasRepository;

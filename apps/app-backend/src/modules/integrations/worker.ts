@@ -2,6 +2,7 @@ import { DurableQueue } from "@effect/workflow";
 import { DateTime, Effect } from "effect";
 
 import { DbRunner } from "#lib/db";
+import type { ImportRunId, SandboxScriptId, UserId } from "#lib/schema/brands";
 import type {
 	MediaImportAdapterResult,
 	MediaImportAdapterResultSchema,
@@ -115,8 +116,8 @@ export const loadYankAdapterResult = (integration: IntegrationRecord) => {
 };
 
 export const runYoutubeMusicHistorySandbox = (input: {
-	userId: string;
-	scriptId: string;
+	userId: UserId;
+	scriptId: SandboxScriptId;
 	executionId: string;
 	context: { authCookie: string; timezone: string };
 }) =>
@@ -128,7 +129,7 @@ export const runYoutubeMusicHistorySandbox = (input: {
 		executionId: input.executionId,
 	});
 
-const markFailedRunCounts = Effect.fn(function* (runId: string, failureCount: number) {
+const markFailedRunCounts = Effect.fn(function* (runId: ImportRunId, failureCount: number) {
 	const repository = yield* ImportsRepository;
 	const runWithDb = yield* DbRunner;
 	yield* runWithDb(
@@ -143,7 +144,7 @@ const markFailedRunCounts = Effect.fn(function* (runId: string, failureCount: nu
 });
 
 export const failAdapterOnlyRun = Effect.fn("integrationsWorker.failAdapterOnlyRun")(function* (
-	runId: string,
+	runId: ImportRunId,
 	result: typeof MediaImportAdapterResultSchema.Type,
 ) {
 	for (const failure of result.failures) {
@@ -164,7 +165,7 @@ export const failAdapterOnlyRun = Effect.fn("integrationsWorker.failAdapterOnlyR
 
 export const failUnsupportedIntegrationRun = Effect.fn(
 	"integrationsWorker.failUnsupportedIntegrationRun",
-)(function* (runId: string, provider: string) {
+)(function* (runId: ImportRunId, provider: string) {
 	yield* recordImportRunFailure({
 		runId,
 		itemIndex: 0,
@@ -176,7 +177,7 @@ export const failUnsupportedIntegrationRun = Effect.fn(
 });
 
 export const finalizeIntegrationRun = Effect.fn("integrationsWorker.finalizeIntegrationRun")(
-	function* (integration: IntegrationRecord, runId: string) {
+	function* (integration: IntegrationRecord, runId: ImportRunId) {
 		const repository = yield* ImportsRepository;
 		const integrationsRepository = yield* IntegrationsRepository;
 		const runWithDb = yield* DbRunner;

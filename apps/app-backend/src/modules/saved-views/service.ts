@@ -4,6 +4,7 @@ import type { CurrentUserValue } from "#lib/auth-middleware";
 import { DbRunner, TransactionRunner } from "#lib/db";
 import { badRequest, notFound } from "#lib/errors";
 import { buildReorderedIds } from "#lib/reorder";
+import type { TrackerId } from "#lib/schema/brands";
 import { slugify } from "#lib/slug";
 import { trimToNull } from "#lib/validation";
 import { QueryEngineService } from "#modules/query-engine/service";
@@ -48,7 +49,7 @@ const ensureBuiltinUpdateIsAllowed = (
 		icon: string;
 		isBuiltin: boolean;
 		accentColor: string;
-		trackerId: string | null;
+		trackerId: TrackerId | null;
 		queryDefinition: unknown;
 		displayConfiguration: unknown;
 	},
@@ -85,7 +86,7 @@ export class SavedViewsService extends Effect.Service<SavedViewsService>()("Save
 		return {
 			list: Effect.fn("SavedViewsService.list")(function* (
 				user: CurrentUserValue,
-				input: { trackerId?: string; includeDisabled: boolean },
+				input: { trackerId?: TrackerId; includeDisabled: boolean },
 			) {
 				return yield* runWithDb(repository.listByUser(user.id, input));
 			}),
