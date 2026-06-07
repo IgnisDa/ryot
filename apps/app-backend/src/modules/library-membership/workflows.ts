@@ -14,21 +14,23 @@ export const LibraryEntityImportWorkflow = Workflow.make({
 	idempotencyKey: ({ executionId }) => executionId,
 });
 
-const LibraryEntityImportWorkflowLive = LibraryEntityImportWorkflow.toLayer(
-	(payload, executionId) =>
-		Effect.gen(function* () {
-			const collections = yield* CollectionsService;
-			const entity = yield* runEntityImportWorkflow(payload, executionId);
+export const runLibraryEntityImportWorkflow = Effect.fn("runLibraryEntityImportWorkflow")(
+	function* (payload: EntityImportPayload, executionId: string) {
+		const collections = yield* CollectionsService;
+		const entity = yield* runEntityImportWorkflow(payload, executionId);
 
-			yield* Activity.make({
-				name: "ensure-library-membership",
-				execute: payload.userId
-					? collections.ensureEntityInLibrary(payload.userId, entity.id).pipe(dieOnDbError)
-					: Effect.die("LibraryEntityImportWorkflow: userId is required"),
-			});
+		yield* Activity.make({
+			name: "ensure-library-membership",
+			execute: payload.userId
+				? collections.ensureEntityInLibrary(payload.userId, entity.id).pipe(dieOnDbError)
+				: Effect.die("LibraryEntityImportWorkflow: userId is required"),
+		});
 
-			return entity;
-		}),
+		return entity;
+	},
 );
 
+const LibraryEntityImportWorkflowLive = LibraryEntityImportWorkflow.toLayer(
+	runLibraryEntityImportWorkflow,
+);
 export const LibraryEntityImportWorkflowDefinitionsLive = LibraryEntityImportWorkflowLive;
