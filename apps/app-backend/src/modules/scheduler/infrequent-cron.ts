@@ -1,26 +1,11 @@
+import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { unknownToMessage } from "@ryot/contract/errors";
 import { Cause, Clock, Cron, Duration, Effect, Either, Layer } from "effect";
 
 import { AppConfig } from "#lib/config/service";
-import { mediaTrendingInfrequentTask } from "#modules/media-trending/infrequent-task";
 
 import { DEFAULT_INFREQUENT_CRON, parseInfrequentCron } from "./cron";
-import type { InfrequentCronTask } from "./types";
-
-const infrequentCronTasks: ReadonlyArray<InfrequentCronTask> = [mediaTrendingInfrequentTask];
-
-const runAllInfrequentTasks = Effect.forEach(
-	infrequentCronTasks,
-	(task) =>
-		task.run.pipe(
-			Effect.catchAllCause((cause) =>
-				Effect.logError(
-					`Infrequent cron task '${task.name}' failed: ${unknownToMessage(Cause.squash(cause))}`,
-				),
-			),
-		),
-	{ discard: true },
-);
+import { InfrequentCronWorkflow } from "./cron-workflow";
 
 export const InfrequentCronSchedulerLive = Layer.scopedDiscard(
 	Effect.gen(function* () {
@@ -30,6 +15,8 @@ export const InfrequentCronSchedulerLive = Layer.scopedDiscard(
 			yield* Effect.logInfo("Background jobs disabled; skipping infrequent cron scheduler");
 			return;
 		}
+
+		const engine = yield* WorkflowEngine;
 
 		const parsed = parseInfrequentCron(
 			config.scheduler.infrequentCronJobsSchedule,
@@ -47,9 +34,23 @@ export const InfrequentCronSchedulerLive = Layer.scopedDiscard(
 		// fire only at each cron instant (no forced boot run)
 		const tick = Effect.gen(function* () {
 			const nowMs = yield* Clock.currentTimeMillis;
-			const waitMs = Cron.next(cron, nowMs).getTime() - nowMs;
-			yield* Effect.sleep(Duration.millis(Math.max(0, waitMs)));
-			yield* runAllInfrequentTasks;
+			const nextMs = Cron.next(cron, nowMs).getTime();
+			yield* Effect.sleep(Duration.millis(Math.max(0, nextMs - nowMs)));
+
+			const executionId = `infrequent-cron-${nextMs}`;
+			yield* engine
+				.execute(InfrequentCronWorkflow, {
+					executionId,
+					discard: true,
+					payload: { executionId },
+				})
+				.pipe(
+					Effect.catchAllCause((cause) =>
+						Effect.logError(
+							`Failed to enqueue infrequent cron run: ${unknownToMessage(Cause.squash(cause))}`,
+						),
+					),
+				);
 		});
 
 		yield* tick.pipe(Effect.forever, Effect.forkScoped);

@@ -50,7 +50,6 @@ import { GlobalEntityReferencedWorkerLive } from "#modules/library-membership/gl
 import { LibraryEntityImportWorkflowDefinitionsLive } from "#modules/library-membership/library-entity-import-workflow";
 import { LibraryImportService } from "#modules/library-membership/service";
 import { MediaTrendingWorkflowOperationsLive } from "#modules/media-trending/operations-workflow";
-import { MediaTrendingWorkflowDefinitionsLive } from "#modules/media-trending/refresh-workflow";
 import { MediaTrendingRepository } from "#modules/media-trending/repository";
 import { ProviderConfig } from "#modules/query-engine/provider-config";
 import { QueryEngineService } from "#modules/query-engine/service";
@@ -64,6 +63,10 @@ import { SandboxApiService } from "#modules/sandbox/service";
 import { DefaultSavedViewWorkerLive } from "#modules/saved-views/default-view-worker";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
 import { SavedViewsService } from "#modules/saved-views/service";
+import {
+	FrequentCronWorkflowDefinitionsLive,
+	InfrequentCronWorkflowDefinitionsLive,
+} from "#modules/scheduler/cron-workflow";
 import { FrequentCronSchedulerLive } from "#modules/scheduler/frequent-cron";
 import { InfrequentCronSchedulerLive } from "#modules/scheduler/infrequent-cron";
 import { TrackersRepository } from "#modules/trackers/repository";
@@ -208,10 +211,11 @@ const RuntimeLive = Layer.mergeAll(
 	BuiltinEntityPreloaderLive,
 	ImportWorkflowDefinitionsLive,
 	IntegrationWorkflowDefinitionsLive,
-	MediaTrendingWorkflowDefinitionsLive,
 	SandboxWorkflowDefinitionsLive,
 	TranslateEntityWorkflowDefinitionsLive,
 	ServerLive,
+	FrequentCronWorkflowDefinitionsLive,
+	InfrequentCronWorkflowDefinitionsLive,
 	FrequentCronSchedulerLive,
 	InfrequentCronSchedulerLive,
 );

@@ -1,4 +1,4 @@
-import { Activity, Workflow } from "@effect/workflow";
+import { Activity } from "@effect/workflow";
 import { SandboxRunError, unknownToMessage } from "@ryot/contract/errors";
 import { EntityId } from "@ryot/contract/schema/brands";
 import { Cause, DateTime, Effect, Schema } from "effect";
@@ -13,17 +13,9 @@ import { MediaTrendingRepository } from "./repository";
 import type { TrendingDriverItem } from "./schemas";
 import { TrendingProviderTarget } from "./schemas";
 
-export const RefreshMediaTrendingPayload = Schema.Struct({
-	executionId: Schema.String,
-});
-
-export type RefreshMediaTrendingPayload = typeof RefreshMediaTrendingPayload.Type;
-
-const RefreshMediaTrendingResult = Schema.Struct({
-	synced: Schema.Boolean,
-	itemCount: Schema.Number,
-	providerCount: Schema.Number,
-});
+export type MediaTrendingRefreshInput = {
+	executionId: string;
+};
 
 const SavedTrendingItem = Schema.Struct({
 	entityId: EntityId,
@@ -163,54 +155,40 @@ const fetchProviderTrendingItems = Effect.fn("fetchProviderTrendingItems")(funct
 	});
 });
 
-export const runRefreshMediaTrendingWorkflow = Effect.fn("runRefreshMediaTrendingWorkflow")(
-	function* (payload: RefreshMediaTrendingPayload) {
-		let providerCount = 0;
-		const savedItems: SavedTrendingItem[] = [];
-		const providers = yield* listProviderTargets();
+export const runMediaTrendingRefresh = Effect.fn("runMediaTrendingRefresh")(function* (
+	payload: MediaTrendingRefreshInput,
+) {
+	let providerCount = 0;
+	const savedItems: SavedTrendingItem[] = [];
+	const providers = yield* listProviderTargets();
 
-		for (const provider of providers) {
-			const result = yield* fetchProviderTrendingItems({
-				provider,
-				executionId: payload.executionId,
-			}).pipe(Effect.exit);
+	for (const provider of providers) {
+		const result = yield* fetchProviderTrendingItems({
+			provider,
+			executionId: payload.executionId,
+		}).pipe(Effect.exit);
 
-			if (result._tag === "Failure") {
-				yield* Effect.logWarning(
-					`Skipping trending provider ${provider.scriptSlug}: ${unknownToMessage(Cause.squash(result.cause))}`,
-				);
-				continue;
-			}
-
-			providerCount += 1;
-			savedItems.push(...result.value);
+		if (result._tag === "Failure") {
+			yield* Effect.logWarning(
+				`Skipping trending provider ${provider.scriptSlug}: ${unknownToMessage(Cause.squash(result.cause))}`,
+			);
+			continue;
 		}
 
-		if (providerCount === 0) {
-			return { providerCount, itemCount: 0, synced: false };
-		}
+		providerCount += 1;
+		savedItems.push(...result.value);
+	}
 
-		const rankedItems = rankTrendingItems(savedItems);
-		yield* syncTrendingEdges(rankedItems);
+	if (providerCount === 0) {
+		return { providerCount, itemCount: 0, synced: false };
+	}
 
-		return {
-			synced: true,
-			providerCount,
-			itemCount: rankedItems.length,
-		};
-	},
-);
+	const rankedItems = rankTrendingItems(savedItems);
+	yield* syncTrendingEdges(rankedItems);
 
-export const RefreshMediaTrendingWorkflow = Workflow.make({
-	error: SandboxRunError,
-	success: RefreshMediaTrendingResult,
-	name: "RefreshMediaTrendingWorkflow",
-	payload: RefreshMediaTrendingPayload,
-	idempotencyKey: ({ executionId }) => executionId,
+	return {
+		synced: true,
+		providerCount,
+		itemCount: rankedItems.length,
+	};
 });
-
-const RefreshMediaTrendingWorkflowLive = RefreshMediaTrendingWorkflow.toLayer((payload) =>
-	runRefreshMediaTrendingWorkflow(payload),
-);
-
-export const MediaTrendingWorkflowDefinitionsLive = RefreshMediaTrendingWorkflowLive;

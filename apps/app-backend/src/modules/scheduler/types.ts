@@ -1,9 +1,10 @@
-import type { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import type { Effect } from "effect";
 
-export type CronTask<R> = {
-	name: string;
-	run: Effect.Effect<void, never, R>;
+export type CronTaskContext = {
+	executionId: string;
 };
 
-export type InfrequentCronTask = CronTask<WorkflowEngine>;
+export type CronTask<E, R> = {
+	name: string;
+	run: (ctx: CronTaskContext) => Effect.Effect<void, E, R>;
+};
