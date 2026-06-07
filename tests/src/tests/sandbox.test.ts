@@ -53,18 +53,18 @@ afterAll(() => {
 
 describe("sandbox async flow", () => {
 	it("completes a script that returns a plain value", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { id: scriptId } = await createSandboxScript(client, cookies, {
+		const { client } = await createAuthenticatedClient();
+		const { id: scriptId } = await createSandboxScript(client, {
 			name: "plain-value",
 			slug: `plain-value-${crypto.randomUUID()}`,
 			code: 'driver("main", async function() { return 42; });',
 		});
-		const { jobId } = await enqueueSandboxScript(client, cookies, {
+		const { jobId } = await enqueueSandboxScript(client, {
 			scriptId,
 			driverName: "main",
 		});
 
-		const result = await pollSandboxResult(client, cookies, jobId);
+		const result = await pollSandboxResult(client, jobId);
 
 		expect(result.status).toBe("completed");
 		if (result.status !== "completed") {
@@ -78,39 +78,37 @@ describe("sandbox async flow", () => {
 	it("returns not found when another user polls the job", async () => {
 		const owner = await createAuthenticatedClient();
 		const other = await createAuthenticatedClient();
-		const { id: scriptId } = await createSandboxScript(owner.client, owner.cookies, {
+		const { id: scriptId } = await createSandboxScript(owner.client, {
 			name: "cross-user-job",
 			slug: `cross-user-job-${crypto.randomUUID()}`,
 			code: 'driver("main", async function() { return 42; });',
 		});
-		const { jobId } = await enqueueSandboxScript(owner.client, owner.cookies, {
+		const { jobId } = await enqueueSandboxScript(owner.client, {
 			scriptId,
 			driverName: "main",
 		});
 
-		const error = await other.client.runError((c) => c.sandbox.getResult({ path: { jobId } }), {
-			Cookie: other.cookies,
-		});
+		const error = await other.client.runError((c) => c.sandbox.getResult({ path: { jobId } }));
 
 		assertTaggedError(error, "NotFound");
 		expect(error.message).toBe("Sandbox job not found");
 	});
 
 	it("completes a script that uses httpCall", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { id: scriptId } = await createSandboxScript(client, cookies, {
+		const { client } = await createAuthenticatedClient();
+		const { id: scriptId } = await createSandboxScript(client, {
 			name: "http-call",
 			slug: `http-call-${crypto.randomUUID()}`,
 			metadata: { allowedHostFunctions: ["httpCall"] },
 			code: `driver("main", async function() { return await httpCall("GET", ${JSON.stringify(httpServerUrl)}); });`,
 		});
-		const { jobId } = await enqueueSandboxScript(client, cookies, {
+		const { jobId } = await enqueueSandboxScript(client, {
 			scriptId,
 			driverName: "main",
 		});
 
 		const value = requireObjectRecord(
-			requireCompletedSandboxValue(await pollSandboxResult(client, cookies, jobId)),
+			requireCompletedSandboxValue(await pollSandboxResult(client, jobId)),
 			"Expected sandbox httpCall result to be an object",
 		);
 		const data = requireObjectRecord(value.data, "Expected sandbox httpCall data to be an object");
@@ -122,22 +120,22 @@ describe("sandbox async flow", () => {
 	});
 
 	it("completes a script that uses executeQueryEngine", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { trackerId } = await createTracker(client, cookies, {
+		const { client } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, {
 			name: "Sandbox Schema Tracker",
 		});
-		const { data: schema, slug } = await createEntitySchema(client, cookies, {
+		const { data: schema, slug } = await createEntitySchema(client, {
 			trackerId,
 			name: "Sandbox Schema",
 			slug: `sandbox-schema-${crypto.randomUUID()}`,
 		});
-		await createEntity(client, cookies, {
+		await createEntity(client, {
 			image: null,
 			properties: {},
 			name: "Test Entity",
 			entitySchemaId: schema.id,
 		});
-		const { id: scriptId } = await createSandboxScript(client, cookies, {
+		const { id: scriptId } = await createSandboxScript(client, {
 			name: "execute-query-engine",
 			slug: `execute-query-engine-${crypto.randomUUID()}`,
 			metadata: { allowedHostFunctions: ["executeQueryEngine"] },
@@ -160,13 +158,13 @@ driver("main", async function() {
 });
 `,
 		});
-		const { jobId } = await enqueueSandboxScript(client, cookies, {
+		const { jobId } = await enqueueSandboxScript(client, {
 			scriptId,
 			driverName: "main",
 		});
 
 		const value = requireArray(
-			requireCompletedSandboxValue(await pollSandboxResult(client, cookies, jobId)),
+			requireCompletedSandboxValue(await pollSandboxResult(client, jobId)),
 			"Expected executeQueryEngine sandbox result to be an array",
 		);
 		const first = requireObjectRecord(value[0], "Expected first query engine item to be an object");
@@ -182,8 +180,8 @@ driver("main", async function() {
 	});
 
 	it("returns an error when executeQueryEngine uses a missing schema slug", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { id: scriptId } = await createSandboxScript(client, cookies, {
+		const { client } = await createAuthenticatedClient();
+		const { id: scriptId } = await createSandboxScript(client, {
 			name: "execute-query-engine-missing-schema",
 			metadata: { allowedHostFunctions: ["executeQueryEngine"] },
 			slug: `execute-query-engine-missing-schema-${crypto.randomUUID()}`,
@@ -208,12 +206,12 @@ driver("main", async function() {
 });
 `,
 		});
-		const { jobId } = await enqueueSandboxScript(client, cookies, {
+		const { jobId } = await enqueueSandboxScript(client, {
 			scriptId,
 			driverName: "main",
 		});
 
-		const result = await pollSandboxResult(client, cookies, jobId);
+		const result = await pollSandboxResult(client, jobId);
 
 		expect(result.status).toBe("completed");
 		if (result.status !== "completed") {
@@ -224,8 +222,8 @@ driver("main", async function() {
 	});
 
 	it("completes a script that uses getSystemConfig", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { id: scriptId } = await createSandboxScript(client, cookies, {
+		const { client } = await createAuthenticatedClient();
+		const { id: scriptId } = await createSandboxScript(client, {
 			name: "get-system-config",
 			slug: `get-system-config-${crypto.randomUUID()}`,
 			metadata: { allowedHostFunctions: ["getSystemConfig"] },
@@ -239,13 +237,13 @@ driver("main", async function() {
 });
 `,
 		});
-		const { jobId } = await enqueueSandboxScript(client, cookies, {
+		const { jobId } = await enqueueSandboxScript(client, {
 			scriptId,
 			driverName: "main",
 		});
 
 		const value = requireObjectRecord(
-			requireCompletedSandboxValue(await pollSandboxResult(client, cookies, jobId)),
+			requireCompletedSandboxValue(await pollSandboxResult(client, jobId)),
 			"Expected system config sandbox result to be an object",
 		);
 		expect(typeof value.localAuthDisabled).toBe("boolean");
@@ -254,8 +252,8 @@ driver("main", async function() {
 	});
 
 	it("completes a script that uses getUserPreferences", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { id: scriptId } = await createSandboxScript(client, cookies, {
+		const { client } = await createAuthenticatedClient();
+		const { id: scriptId } = await createSandboxScript(client, {
 			name: "get-user-prefs",
 			slug: `get-user-prefs-${crypto.randomUUID()}`,
 			metadata: { allowedHostFunctions: ["getUserPreferences"] },
@@ -269,10 +267,10 @@ driver("main", async function() {
 });
 `,
 		});
-		const { jobId } = await enqueueSandboxScript(client, cookies, { scriptId, driverName: "main" });
+		const { jobId } = await enqueueSandboxScript(client, { scriptId, driverName: "main" });
 
 		const prefs = requireObjectRecord(
-			requireCompletedSandboxValue(await pollSandboxResult(client, cookies, jobId)),
+			requireCompletedSandboxValue(await pollSandboxResult(client, jobId)),
 			"Expected user preferences sandbox result to be an object",
 		);
 		const languages = requireObjectRecord(prefs.languages, "Expected languages to be an object");
@@ -286,15 +284,15 @@ driver("main", async function() {
 	});
 
 	it("returns a completed result when the script throws", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { id: scriptId } = await createSandboxScript(client, cookies, {
+		const { client } = await createAuthenticatedClient();
+		const { id: scriptId } = await createSandboxScript(client, {
 			name: "throws-error",
 			slug: `throws-error-${crypto.randomUUID()}`,
 			code: 'driver("main", async function() { throw new Error("intentional"); });',
 		});
-		const { jobId } = await enqueueSandboxScript(client, cookies, { scriptId, driverName: "main" });
+		const { jobId } = await enqueueSandboxScript(client, { scriptId, driverName: "main" });
 
-		const result = await pollSandboxResult(client, cookies, jobId);
+		const result = await pollSandboxResult(client, jobId);
 
 		expect(result.status).toBe("completed");
 		if (result.status !== "completed") {
@@ -306,15 +304,15 @@ driver("main", async function() {
 	});
 
 	it("returns a completed result when the script has a syntax error", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { id: scriptId } = await createSandboxScript(client, cookies, {
+		const { client } = await createAuthenticatedClient();
+		const { id: scriptId } = await createSandboxScript(client, {
 			code: "{{{",
 			name: "syntax-error",
 			slug: `syntax-error-${crypto.randomUUID()}`,
 		});
-		const { jobId } = await enqueueSandboxScript(client, cookies, { scriptId, driverName: "main" });
+		const { jobId } = await enqueueSandboxScript(client, { scriptId, driverName: "main" });
 
-		const result = await pollSandboxResult(client, cookies, jobId);
+		const result = await pollSandboxResult(client, jobId);
 
 		expect(result.status).toBe("completed");
 		if (result.status !== "completed") {
@@ -325,10 +323,9 @@ driver("main", async function() {
 	});
 
 	it("returns 404 for a non-existent job id", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 		const error = await client.runError(
 			(c) => c.sandbox.getResult({ path: { jobId: crypto.randomUUID() } }),
-			{ Cookie: cookies },
 		);
 
 		assertTaggedError(error, "NotFound");
@@ -336,21 +333,19 @@ driver("main", async function() {
 	});
 
 	it("returns 404 when another user polls the job", async () => {
-		const { client: clientA, cookies: cookiesA } = await createAuthenticatedClient();
-		const { client: clientB, cookies: cookiesB } = await createAuthenticatedClient();
-		const { id: scriptId } = await createSandboxScript(clientA, cookiesA, {
+		const { client: clientA } = await createAuthenticatedClient();
+		const { client: clientB } = await createAuthenticatedClient();
+		const { id: scriptId } = await createSandboxScript(clientA, {
 			name: "cross-user-job",
 			slug: `cross-user-job-${crypto.randomUUID()}`,
 			code: 'driver("main", async function() { return 42; });',
 		});
-		const { jobId } = await enqueueSandboxScript(clientA, cookiesA, {
+		const { jobId } = await enqueueSandboxScript(clientA, {
 			scriptId,
 			driverName: "main",
 		});
 
-		const error = await clientB.runError((c) => c.sandbox.getResult({ path: { jobId } }), {
-			Cookie: cookiesB,
-		});
+		const error = await clientB.runError((c) => c.sandbox.getResult({ path: { jobId } }));
 
 		assertTaggedError(error, "NotFound");
 		expect(error.message).toBe("Sandbox job not found");
@@ -366,13 +361,13 @@ driver("main", async function() {
 	});
 
 	it("returns 401 for unauthenticated poll", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { id: scriptId } = await createSandboxScript(client, cookies, {
+		const { client } = await createAuthenticatedClient();
+		const { id: scriptId } = await createSandboxScript(client, {
 			name: "unauth-poll",
 			slug: `unauth-poll-${crypto.randomUUID()}`,
 			code: 'driver("main", async function() { return 42; });',
 		});
-		const { jobId } = await enqueueSandboxScript(client, cookies, { scriptId, driverName: "main" });
+		const { jobId } = await enqueueSandboxScript(client, { scriptId, driverName: "main" });
 
 		const unauthenticatedClient = getBackendClient();
 		const error = await unauthenticatedClient.runError((c) =>
@@ -385,9 +380,9 @@ driver("main", async function() {
 
 describe("sandbox cache functions", () => {
 	it("setCachedValue stores a value that getCachedValue retrieves within the same script", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 		const cacheKey = `cache-test-${crypto.randomUUID()}`;
-		const { id: scriptId } = await createSandboxScript(client, cookies, {
+		const { id: scriptId } = await createSandboxScript(client, {
 			name: "cache-round-trip",
 			slug: `cache-round-trip-${crypto.randomUUID()}`,
 			metadata: { allowedHostFunctions: ["setCachedValue", "getCachedValue"] },
@@ -397,13 +392,13 @@ describe("sandbox cache functions", () => {
   return await getCachedValue(${JSON.stringify(cacheKey)});
 });`,
 		});
-		const { jobId } = await enqueueSandboxScript(client, cookies, {
+		const { jobId } = await enqueueSandboxScript(client, {
 			scriptId,
 			driverName: "main",
 		});
 
 		const value = requireObjectRecord(
-			requireCompletedSandboxValue(await pollSandboxResult(client, cookies, jobId)),
+			requireCompletedSandboxValue(await pollSandboxResult(client, jobId)),
 			"Expected cache write result to be an object",
 		);
 		expect(value.success).toBe(true);
@@ -411,9 +406,9 @@ describe("sandbox cache functions", () => {
 	});
 
 	it("getCachedValue returns null for a key that was never set", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 		const missingKey = `cache-missing-${crypto.randomUUID()}`;
-		const { id: scriptId } = await createSandboxScript(client, cookies, {
+		const { id: scriptId } = await createSandboxScript(client, {
 			name: "cache-miss",
 			slug: `cache-miss-${crypto.randomUUID()}`,
 			metadata: { allowedHostFunctions: ["getCachedValue"] },
@@ -421,13 +416,13 @@ describe("sandbox cache functions", () => {
   return await getCachedValue(${JSON.stringify(missingKey)});
 });`,
 		});
-		const { jobId } = await enqueueSandboxScript(client, cookies, {
+		const { jobId } = await enqueueSandboxScript(client, {
 			scriptId,
 			driverName: "main",
 		});
 
 		const value = requireObjectRecord(
-			requireCompletedSandboxValue(await pollSandboxResult(client, cookies, jobId)),
+			requireCompletedSandboxValue(await pollSandboxResult(client, jobId)),
 			"Expected cache miss result to be an object",
 		);
 		expect(value.success).toBe(true);
@@ -435,9 +430,9 @@ describe("sandbox cache functions", () => {
 	});
 
 	it("cache is isolated between different scripts for the same key", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 		const sharedKey = `cache-isolation-${crypto.randomUUID()}`;
-		const { id: writerScriptId } = await createSandboxScript(client, cookies, {
+		const { id: writerScriptId } = await createSandboxScript(client, {
 			name: "cache-writer",
 			slug: `cache-writer-${crypto.randomUUID()}`,
 			metadata: { allowedHostFunctions: ["setCachedValue"] },
@@ -445,7 +440,7 @@ describe("sandbox cache functions", () => {
   return await setCachedValue(${JSON.stringify(sharedKey)}, { secret: true }, 60);
 });`,
 		});
-		const { id: readerScriptId } = await createSandboxScript(client, cookies, {
+		const { id: readerScriptId } = await createSandboxScript(client, {
 			name: "cache-reader",
 			slug: `cache-reader-${crypto.randomUUID()}`,
 			metadata: { allowedHostFunctions: ["getCachedValue"] },
@@ -454,18 +449,18 @@ describe("sandbox cache functions", () => {
 });`,
 		});
 
-		const { jobId: writeJobId } = await enqueueSandboxScript(client, cookies, {
+		const { jobId: writeJobId } = await enqueueSandboxScript(client, {
 			scriptId: writerScriptId,
 			driverName: "main",
 		});
-		await pollSandboxResult(client, cookies, writeJobId);
+		await pollSandboxResult(client, writeJobId);
 
-		const { jobId: readJobId } = await enqueueSandboxScript(client, cookies, {
+		const { jobId: readJobId } = await enqueueSandboxScript(client, {
 			scriptId: readerScriptId,
 			driverName: "main",
 		});
 		const value = requireObjectRecord(
-			requireCompletedSandboxValue(await pollSandboxResult(client, cookies, readJobId)),
+			requireCompletedSandboxValue(await pollSandboxResult(client, readJobId)),
 			"Expected cache isolation read result to be an object",
 		);
 		expect(value.success).toBe(true);
@@ -473,12 +468,12 @@ describe("sandbox cache functions", () => {
 	});
 
 	it("built-in scripts share a cache partition across users for the same key", async () => {
-		const { client: clientA, cookies: cookiesA } = await createAuthenticatedClient();
-		const { client: clientB, cookies: cookiesB } = await createAuthenticatedClient();
+		const { client: clientA } = await createAuthenticatedClient();
+		const { client: clientB } = await createAuthenticatedClient();
 
 		const cacheKey = `builtin-shared-cache-${crypto.randomUUID()}`;
 
-		const { id: writerScriptId } = await createSandboxScript(clientA, cookiesA, {
+		const { id: writerScriptId } = await createSandboxScript(clientA, {
 			name: "builtin-cache-writer",
 			slug: `builtin-cache-writer-${crypto.randomUUID()}`,
 			metadata: { allowedHostFunctions: ["setCachedValue"] },
@@ -487,13 +482,13 @@ describe("sandbox cache functions", () => {
 });`,
 		});
 
-		const { jobId: writeJobId } = await enqueueSandboxScript(clientA, cookiesA, {
+		const { jobId: writeJobId } = await enqueueSandboxScript(clientA, {
 			scriptId: writerScriptId,
 			driverName: "main",
 		});
-		await pollSandboxResult(clientA, cookiesA, writeJobId);
+		await pollSandboxResult(clientA, writeJobId);
 
-		const { id: readerScriptId } = await createSandboxScript(clientB, cookiesB, {
+		const { id: readerScriptId } = await createSandboxScript(clientB, {
 			name: "builtin-cache-reader",
 			slug: `builtin-cache-reader-${crypto.randomUUID()}`,
 			metadata: { allowedHostFunctions: ["getCachedValue"] },
@@ -502,12 +497,12 @@ describe("sandbox cache functions", () => {
 });`,
 		});
 
-		const { jobId: readJobId } = await enqueueSandboxScript(clientB, cookiesB, {
+		const { jobId: readJobId } = await enqueueSandboxScript(clientB, {
 			driverName: "main",
 			scriptId: readerScriptId,
 		});
 		const value = requireObjectRecord(
-			requireCompletedSandboxValue(await pollSandboxResult(clientB, cookiesB, readJobId)),
+			requireCompletedSandboxValue(await pollSandboxResult(clientB, readJobId)),
 			"Expected cross-user cache result to be an object",
 		);
 		expect(value.success).toBe(true);
@@ -519,34 +514,33 @@ describe("sandbox cache functions", () => {
 
 describe("sandbox enqueue by script ID", () => {
 	it("returns 404 when the scriptId does not exist", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 
 		const error = await client.runError(
 			(c) => c.sandbox.enqueue({ payload: { driverName: "main", scriptId: crypto.randomUUID() } }),
-			{ Cookie: cookies },
 		);
 
 		assertTaggedError(error, "NotFound");
 	});
 
 	it("enqueues a built-in script and reaches a terminal state", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
+		const { client } = await createAuthenticatedClient();
+		const { schema } = await findBuiltinSchemaWithProviders(client);
 		const searchScriptId = getFirstProviderScriptId(schema);
 
-		const { jobId } = await enqueueSandboxScript(client, cookies, {
+		const { jobId } = await enqueueSandboxScript(client, {
 			driverName: "search",
 			scriptId: searchScriptId,
 			context: { page: 1, pageSize: 5, query: "test" },
 		});
 
-		const result = await pollSandboxResult(client, cookies, jobId);
+		const result = await pollSandboxResult(client, jobId);
 		expect(result.status).not.toBe("pending");
 	}, 30_000);
 
 	it("completes with a host-function error when executeQueryEngine is not allowed", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { id: scriptId } = await createSandboxScript(client, cookies, {
+		const { client } = await createAuthenticatedClient();
+		const { id: scriptId } = await createSandboxScript(client, {
 			metadata: {},
 			name: "no-host-functions",
 			slug: `no-host-functions-${crypto.randomUUID()}`,
@@ -555,9 +549,9 @@ describe("sandbox enqueue by script ID", () => {
 });`,
 		});
 
-		const { jobId } = await enqueueSandboxScript(client, cookies, { scriptId, driverName: "main" });
+		const { jobId } = await enqueueSandboxScript(client, { scriptId, driverName: "main" });
 
-		const result = await pollSandboxResult(client, cookies, jobId);
+		const result = await pollSandboxResult(client, jobId);
 		expect(result.status).toBe("completed");
 		if (result.status !== "completed") {
 			throw new Error("Expected sandbox job to complete");
@@ -569,15 +563,15 @@ describe("sandbox enqueue by script ID", () => {
 
 describe("sandbox result observability", () => {
 	it("completed result includes timing with totalMs and executionMs", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { id: scriptId } = await createSandboxScript(client, cookies, {
+		const { client } = await createAuthenticatedClient();
+		const { id: scriptId } = await createSandboxScript(client, {
 			name: "observability-check",
 			slug: `observability-check-${crypto.randomUUID()}`,
 			code: 'driver("main", async function() { return true; });',
 		});
-		const { jobId } = await enqueueSandboxScript(client, cookies, { scriptId, driverName: "main" });
+		const { jobId } = await enqueueSandboxScript(client, { scriptId, driverName: "main" });
 
-		const result = await pollSandboxResult(client, cookies, jobId);
+		const result = await pollSandboxResult(client, jobId);
 		expect(result.status).toBe("completed");
 		if (result.status !== "completed") {
 			throw new Error("Expected sandbox job to complete");

@@ -61,8 +61,8 @@ const getAggregateValue = <T extends { key: string; kind?: string; value?: unkno
 
 describe("Query engine E2E", () => {
 	it("includes a global media entity when the user has it in their library", async () => {
-		const { client, cookies, userId } = await createAuthenticatedClient();
-		const { entity, schema } = await createGlobalBookEntityFixture(client, cookies, {
+		const { client, userId } = await createAuthenticatedClient();
+		const { entity, schema } = await createGlobalBookEntityFixture(client, {
 			name: `Library Query Entity ${crypto.randomUUID()}`,
 			externalId: `library-query-entity-${crypto.randomUUID()}`,
 		});
@@ -70,7 +70,6 @@ describe("Query engine E2E", () => {
 
 		const { data } = await executeQueryEngine(
 			client,
-			cookies,
 			buildGridRequest({
 				scope: [schema.slug],
 				relationshipJoins: [buildInLibraryRelationshipJoin()],
@@ -97,7 +96,7 @@ describe("Query engine E2E", () => {
 	it("computes entity averageRating from the current user's review events only", async () => {
 		const userA = await createAuthenticatedClient();
 		const userB = await createAuthenticatedClient();
-		const { schema } = await findBuiltinSchemaBySlug(userA.client, userA.cookies, "show");
+		const { schema } = await findBuiltinSchemaBySlug(userA.client, "show");
 
 		const entity = await seedMediaEntity({
 			image: null,
@@ -128,43 +127,39 @@ describe("Query engine E2E", () => {
 			mediaEntityId: entity.id,
 		});
 
-		const eventSchemas = await listEventSchemas(userA.client, userA.cookies, schema.id);
+		const eventSchemas = await listEventSchemas(userA.client, schema.id);
 		const reviewEventSchemaId = eventSchemas.find((item) => item.slug === "review")?.id;
 		assertPresent(reviewEventSchemaId, "Missing review event schema");
 
-		await userA.client.run(
-			(c) =>
-				c.events.create({
-					payload: [
-						{
-							entityId: entity.id,
-							eventSchemaId: reviewEventSchemaId,
-							properties: { rating: 2, text: "Fine" },
-						},
-						{
-							entityId: entity.id,
-							eventSchemaId: reviewEventSchemaId,
-							properties: { rating: 4, text: "Better" },
-						},
-					],
-				}),
-			{ Cookie: userA.cookies },
+		await userA.client.run((c) =>
+			c.events.create({
+				payload: [
+					{
+						entityId: entity.id,
+						eventSchemaId: reviewEventSchemaId,
+						properties: { rating: 2, text: "Fine" },
+					},
+					{
+						entityId: entity.id,
+						eventSchemaId: reviewEventSchemaId,
+						properties: { rating: 4, text: "Better" },
+					},
+				],
+			}),
 		);
-		await userB.client.run(
-			(c) =>
-				c.events.create({
-					payload: [
-						{
-							entityId: entity.id,
-							eventSchemaId: reviewEventSchemaId,
-							properties: { rating: 5, text: "Excellent" },
-						},
-					],
-				}),
-			{ Cookie: userB.cookies },
+		await userB.client.run((c) =>
+			c.events.create({
+				payload: [
+					{
+						entityId: entity.id,
+						eventSchemaId: reviewEventSchemaId,
+						properties: { rating: 5, text: "Excellent" },
+					},
+				],
+			}),
 		);
-		await waitForEventCount(userA.client, userA.cookies, entity.id, 2);
-		await waitForEventCount(userB.client, userB.cookies, entity.id, 1);
+		await waitForEventCount(userA.client, entity.id, 2);
+		await waitForEventCount(userB.client, entity.id, 1);
 
 		const request = buildGridRequest({
 			scope: [schema.slug],
@@ -188,8 +183,8 @@ describe("Query engine E2E", () => {
 			},
 		});
 
-		const userAResult = await executeQueryEngine(userA.client, userA.cookies, request);
-		const userBResult = await executeQueryEngine(userB.client, userB.cookies, request);
+		const userAResult = await executeQueryEngine(userA.client, request);
+		const userBResult = await executeQueryEngine(userB.client, request);
 
 		expect(getQueryEngineFieldOrThrow(userAResult.data.data.items[0], "callout")).toEqual({
 			value: 3,
@@ -206,7 +201,7 @@ describe("Query engine E2E", () => {
 	it("isolates global media entities by library membership per user", async () => {
 		const userA = await createAuthenticatedClient();
 		const userB = await createAuthenticatedClient();
-		const { entity, schema } = await createGlobalBookEntityFixture(userA.client, userA.cookies, {
+		const { entity, schema } = await createGlobalBookEntityFixture(userA.client, {
 			name: `Isolated Library Entity ${crypto.randomUUID()}`,
 			externalId: `isolated-library-entity-${crypto.randomUUID()}`,
 		});
@@ -230,35 +225,32 @@ describe("Query engine E2E", () => {
 			},
 		});
 
-		const userAResult = await executeQueryEngine(userA.client, userA.cookies, request);
-		const userBResult = await executeQueryEngine(userB.client, userB.cookies, request);
+		const userAResult = await executeQueryEngine(userA.client, request);
+		const userBResult = await executeQueryEngine(userB.client, request);
 
 		expect(getItemTitles(userAResult.data.data.items)).toEqual([entity.name]);
 		expect(userBResult.data.data.items).toEqual([]);
 	});
 
 	it("deduplicates global entities that match multiple relationship filters", async () => {
-		const { client, cookies, userId } = await createAuthenticatedClient();
-		const { entity, schema } = await createGlobalBookEntityFixture(client, cookies, {
+		const { client, userId } = await createAuthenticatedClient();
+		const { entity, schema } = await createGlobalBookEntityFixture(client, {
 			name: `Multi Relationship Entity ${crypto.randomUUID()}`,
 			externalId: `multi-relationship-entity-${crypto.randomUUID()}`,
 		});
 		await insertLibraryMembership({ mediaEntityId: entity.id, userId });
 
-		const collection = await createCollection(client, cookies, {
+		const collection = await createCollection(client, {
 			name: `Query Engine Multi Match ${crypto.randomUUID()}`,
 		});
-		await client.run(
-			(c) =>
-				c.collections.createMembership({
-					payload: { entityId: entity.id, collectionId: collection.id },
-				}),
-			{ Cookie: cookies },
+		await client.run((c) =>
+			c.collections.createMembership({
+				payload: { entityId: entity.id, collectionId: collection.id },
+			}),
 		);
 
 		const { data } = await executeQueryEngine(
 			client,
-			cookies,
 			buildGridRequest({
 				scope: [schema.slug],
 				relationshipJoins: [
@@ -289,32 +281,30 @@ describe("Query engine E2E", () => {
 		expect(getItemTitles(data.data.items)).toEqual([entity.name]);
 		expect(data.data.meta.pagination.total).toBe(1);
 
-		const aggregateResult = await client.run(
-			(c) =>
-				c.queryEngine.execute({
-					payload: {
-						eventJoins: [],
-						mode: "aggregate",
-						computedFields: [],
-						scope: [schema.slug],
-						aggregations: [{ key: "total", aggregation: { type: "count" } }],
-						filter: {
-							operator: "eq",
-							type: "comparison",
-							right: literalExpression(entity.name),
-							left: createEntityColumnExpression(schema.slug, "name"),
-						},
-						relationshipJoins: [
-							buildInLibraryRelationshipJoin(),
-							buildRequiredLatestRelationshipJoin({
-								key: "memberOf",
-								direction: "outgoing",
-								relationshipSchemaSlug: "member-of",
-							}),
-						],
+		const aggregateResult = await client.run((c) =>
+			c.queryEngine.execute({
+				payload: {
+					eventJoins: [],
+					mode: "aggregate",
+					computedFields: [],
+					scope: [schema.slug],
+					aggregations: [{ key: "total", aggregation: { type: "count" } }],
+					filter: {
+						operator: "eq",
+						type: "comparison",
+						right: literalExpression(entity.name),
+						left: createEntityColumnExpression(schema.slug, "name"),
 					},
-				}),
-			{ Cookie: cookies },
+					relationshipJoins: [
+						buildInLibraryRelationshipJoin(),
+						buildRequiredLatestRelationshipJoin({
+							key: "memberOf",
+							direction: "outgoing",
+							relationshipSchemaSlug: "member-of",
+						}),
+					],
+				},
+			}),
 		);
 
 		const aggregateValues = aggregateResult.mode === "aggregate" ? aggregateResult.data.values : [];
@@ -326,9 +316,9 @@ describe("Query engine E2E", () => {
 	});
 
 	it("optional join produces null values without excluding the entity", async () => {
-		const { client, cookies, userId } = await createAuthenticatedClient();
-		const { trackerId } = await createTracker(client, cookies, { name: "Optional Join Tracker" });
-		const schema = await createEntitySchema(client, cookies, {
+		const { client, userId } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, { name: "Optional Join Tracker" });
+		const schema = await createEntitySchema(client, {
 			trackerId,
 			name: "Optional Join Entity",
 			propertiesSchema: {
@@ -337,7 +327,6 @@ describe("Query engine E2E", () => {
 		});
 		await createQueryEngineEntity({
 			client,
-			cookies,
 			image: null,
 			properties: {},
 			entitySchemaId: schema.schemaId,
@@ -350,7 +339,7 @@ describe("Query engine E2E", () => {
 			slug: `optional-rel-${crypto.randomUUID()}`,
 		});
 
-		const { data } = await executeQueryEngine(client, cookies, {
+		const { data } = await executeQueryEngine(client, {
 			eventJoins: [],
 			mode: "entities",
 			computedFields: [],
@@ -377,11 +366,11 @@ describe("Query engine E2E", () => {
 	});
 
 	it("required join excludes entities with no matching relationship row", async () => {
-		const { client, cookies, userId } = await createAuthenticatedClient();
-		const { trackerId } = await createTracker(client, cookies, {
+		const { client, userId } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, {
 			name: "Required Join Tracker",
 		});
-		const schema = await createEntitySchema(client, cookies, {
+		const schema = await createEntitySchema(client, {
 			trackerId,
 			name: "Required Join Entity",
 			propertiesSchema: {
@@ -398,7 +387,6 @@ describe("Query engine E2E", () => {
 		const nameB = `No Rel ${crypto.randomUUID()}`;
 		const entityAId = await createQueryEngineEntity({
 			client,
-			cookies,
 			name: nameA,
 			image: null,
 			properties: {},
@@ -406,7 +394,6 @@ describe("Query engine E2E", () => {
 		});
 		await createQueryEngineEntity({
 			client,
-			cookies,
 			name: nameB,
 			image: null,
 			properties: {},
@@ -415,7 +402,6 @@ describe("Query engine E2E", () => {
 
 		const targetId = await createQueryEngineEntity({
 			client,
-			cookies,
 			image: null,
 			properties: {},
 			entitySchemaId: schema.schemaId,
@@ -428,7 +414,7 @@ describe("Query engine E2E", () => {
 			relationshipSchemaId: relSchema.id,
 		});
 
-		const { data } = await executeQueryEngine(client, cookies, {
+		const { data } = await executeQueryEngine(client, {
 			eventJoins: [],
 			mode: "entities",
 			computedFields: [],
@@ -469,14 +455,14 @@ describe("Query engine E2E", () => {
 	});
 
 	it("returns a relationship built-in createdAt as a display field", async () => {
-		const { client, cookies, userId } = await createAuthenticatedClient();
-		const { entity, schema } = await createGlobalBookEntityFixture(client, cookies, {
+		const { client, userId } = await createAuthenticatedClient();
+		const { entity, schema } = await createGlobalBookEntityFixture(client, {
 			externalId: `rel-createdat-${crypto.randomUUID()}`,
 			name: `Rel CreatedAt Entity ${crypto.randomUUID()}`,
 		});
 		await insertLibraryMembership({ userId, mediaEntityId: entity.id });
 
-		const { data } = await executeQueryEngine(client, cookies, {
+		const { data } = await executeQueryEngine(client, {
 			eventJoins: [],
 			mode: "entities",
 			computedFields: [],
@@ -503,11 +489,11 @@ describe("Query engine E2E", () => {
 	});
 
 	it("returns a relationship property as a display field", async () => {
-		const { client, cookies, userId } = await createAuthenticatedClient();
-		const { trackerId } = await createTracker(client, cookies, {
+		const { client, userId } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, {
 			name: "Rel Property Tracker",
 		});
-		const schema = await createEntitySchema(client, cookies, {
+		const schema = await createEntitySchema(client, {
 			trackerId,
 			name: "Rel Property Entity",
 			propertiesSchema: {
@@ -525,7 +511,6 @@ describe("Query engine E2E", () => {
 		const entityName = `Rated Entity ${crypto.randomUUID()}`;
 		const entityId = await createQueryEngineEntity({
 			client,
-			cookies,
 			image: null,
 			properties: {},
 			name: entityName,
@@ -533,7 +518,6 @@ describe("Query engine E2E", () => {
 		});
 		const targetId = await createQueryEngineEntity({
 			client,
-			cookies,
 			image: null,
 			properties: {},
 			entitySchemaId: schema.schemaId,
@@ -547,7 +531,7 @@ describe("Query engine E2E", () => {
 			relationshipSchemaId: relSchema.id,
 		});
 
-		const { data } = await executeQueryEngine(client, cookies, {
+		const { data } = await executeQueryEngine(client, {
 			eventJoins: [],
 			mode: "entities",
 			computedFields: [],
@@ -585,11 +569,11 @@ describe("Query engine E2E", () => {
 	});
 
 	it("sorts by a relationship-derived scalar", async () => {
-		const { client, cookies, userId } = await createAuthenticatedClient();
-		const { trackerId } = await createTracker(client, cookies, {
+		const { client, userId } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, {
 			name: "Rel Sort Tracker",
 		});
-		const schema = await createEntitySchema(client, cookies, {
+		const schema = await createEntitySchema(client, {
 			trackerId,
 			name: "Rel Sort Entity",
 			propertiesSchema: {
@@ -608,7 +592,6 @@ describe("Query engine E2E", () => {
 		const nameHigh = `Sort High ${crypto.randomUUID()}`;
 		const lowId = await createQueryEngineEntity({
 			client,
-			cookies,
 			image: null,
 			name: nameLow,
 			properties: {},
@@ -616,7 +599,6 @@ describe("Query engine E2E", () => {
 		});
 		const highId = await createQueryEngineEntity({
 			client,
-			cookies,
 			image: null,
 			name: nameHigh,
 			properties: {},
@@ -624,7 +606,6 @@ describe("Query engine E2E", () => {
 		});
 		const targetId = await createQueryEngineEntity({
 			client,
-			cookies,
 			image: null,
 			properties: {},
 			entitySchemaId: schema.schemaId,
@@ -654,7 +635,7 @@ describe("Query engine E2E", () => {
 			},
 		};
 
-		const { data } = await executeQueryEngine(client, cookies, {
+		const { data } = await executeQueryEngine(client, {
 			eventJoins: [],
 			mode: "entities",
 			computedFields: [],
@@ -700,11 +681,11 @@ describe("Query engine E2E", () => {
 	});
 
 	it("filters by a relationship property using a comparison operator", async () => {
-		const { client, cookies, userId } = await createAuthenticatedClient();
-		const { trackerId } = await createTracker(client, cookies, {
+		const { client, userId } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, {
 			name: "Rel Filter Tracker",
 		});
-		const schema = await createEntitySchema(client, cookies, {
+		const schema = await createEntitySchema(client, {
 			trackerId,
 			name: "Rel Filter Entity",
 			propertiesSchema: {
@@ -724,7 +705,6 @@ describe("Query engine E2E", () => {
 		const nameC = `Filter C ${crypto.randomUUID()}`;
 		const targetId = await createQueryEngineEntity({
 			client,
-			cookies,
 			image: null,
 			properties: {},
 			entitySchemaId: schema.schemaId,
@@ -732,7 +712,6 @@ describe("Query engine E2E", () => {
 		});
 		const idA = await createQueryEngineEntity({
 			client,
-			cookies,
 			name: nameA,
 			image: null,
 			properties: {},
@@ -740,7 +719,6 @@ describe("Query engine E2E", () => {
 		});
 		const idB = await createQueryEngineEntity({
 			client,
-			cookies,
 			name: nameB,
 			image: null,
 			properties: {},
@@ -748,7 +726,6 @@ describe("Query engine E2E", () => {
 		});
 		const idC = await createQueryEngineEntity({
 			client,
-			cookies,
 			name: nameC,
 			image: null,
 			properties: {},
@@ -785,7 +762,7 @@ describe("Query engine E2E", () => {
 			},
 		};
 
-		const { data } = await executeQueryEngine(client, cookies, {
+		const { data } = await executeQueryEngine(client, {
 			eventJoins: [],
 			mode: "entities",
 			computedFields: [],
@@ -849,11 +826,11 @@ describe("Query engine E2E", () => {
 	});
 
 	it("filters by a relationship array property using contains", async () => {
-		const { client, cookies, userId } = await createAuthenticatedClient();
-		const { trackerId } = await createTracker(client, cookies, {
+		const { client, userId } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, {
 			name: "Rel Array Filter Tracker",
 		});
-		const schema = await createEntitySchema(client, cookies, {
+		const schema = await createEntitySchema(client, {
 			trackerId,
 			name: "Rel Array Filter Entity",
 			propertiesSchema: {
@@ -879,7 +856,6 @@ describe("Query engine E2E", () => {
 		const actorName = `Actor Entity ${crypto.randomUUID()}`;
 		const targetId = await createQueryEngineEntity({
 			client,
-			cookies,
 			image: null,
 			properties: {},
 			entitySchemaId: schema.schemaId,
@@ -887,7 +863,6 @@ describe("Query engine E2E", () => {
 		});
 		const directorId = await createQueryEngineEntity({
 			client,
-			cookies,
 			image: null,
 			properties: {},
 			name: directorName,
@@ -895,7 +870,6 @@ describe("Query engine E2E", () => {
 		});
 		const actorId = await createQueryEngineEntity({
 			client,
-			cookies,
 			image: null,
 			properties: {},
 			name: actorName,
@@ -925,7 +899,7 @@ describe("Query engine E2E", () => {
 			},
 		};
 
-		const { data } = await executeQueryEngine(client, cookies, {
+		const { data } = await executeQueryEngine(client, {
 			eventJoins: [],
 			mode: "entities",
 			computedFields: [],
@@ -976,11 +950,11 @@ describe("Query engine E2E", () => {
 	});
 
 	it("join-local filter selects from pre-filtered rows, not latest overall", async () => {
-		const { client, cookies, userId } = await createAuthenticatedClient();
-		const { trackerId } = await createTracker(client, cookies, {
+		const { client, userId } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, {
 			name: "Join Local Filter Tracker",
 		});
-		const schema = await createEntitySchema(client, cookies, {
+		const schema = await createEntitySchema(client, {
 			trackerId,
 			name: "Join Local Filter Entity",
 			propertiesSchema: {
@@ -998,7 +972,6 @@ describe("Query engine E2E", () => {
 		const entityName = `Local Filter Entity ${crypto.randomUUID()}`;
 		const entityId = await createQueryEngineEntity({
 			client,
-			cookies,
 			image: null,
 			properties: {},
 			name: entityName,
@@ -1006,7 +979,6 @@ describe("Query engine E2E", () => {
 		});
 		const target1Id = await createQueryEngineEntity({
 			client,
-			cookies,
 			image: null,
 			properties: {},
 			entitySchemaId: schema.schemaId,
@@ -1014,7 +986,6 @@ describe("Query engine E2E", () => {
 		});
 		const target2Id = await createQueryEngineEntity({
 			client,
-			cookies,
 			image: null,
 			properties: {},
 			entitySchemaId: schema.schemaId,
@@ -1045,7 +1016,7 @@ describe("Query engine E2E", () => {
 			},
 		};
 
-		const { data } = await executeQueryEngine(client, cookies, {
+		const { data } = await executeQueryEngine(client, {
 			eventJoins: [],
 			mode: "entities",
 			computedFields: [],
@@ -1089,11 +1060,11 @@ describe("Query engine E2E", () => {
 	});
 
 	it("sourceEntityId constraint filters relationship rows to a specific source", async () => {
-		const { client, cookies, userId } = await createAuthenticatedClient();
-		const { trackerId } = await createTracker(client, cookies, {
+		const { client, userId } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, {
 			name: "Source Entity Id Tracker",
 		});
-		const entitySchema = await createEntitySchema(client, cookies, {
+		const entitySchema = await createEntitySchema(client, {
 			trackerId,
 			name: "Source Entity Id Entity",
 			propertiesSchema: {
@@ -1109,7 +1080,6 @@ describe("Query engine E2E", () => {
 		const memberName = `Source Member ${crypto.randomUUID()}`;
 		const memberId = await createQueryEngineEntity({
 			client,
-			cookies,
 			image: null,
 			properties: {},
 			name: memberName,
@@ -1118,7 +1088,6 @@ describe("Query engine E2E", () => {
 		const collBName = `Source Coll B ${crypto.randomUUID()}`;
 		const collBId = await createQueryEngineEntity({
 			client,
-			cookies,
 			image: null,
 			properties: {},
 			name: collBName,
@@ -1126,7 +1095,6 @@ describe("Query engine E2E", () => {
 		});
 		const collCId = await createQueryEngineEntity({
 			client,
-			cookies,
 			image: null,
 			properties: {},
 			entitySchemaId: entitySchema.schemaId,
@@ -1145,7 +1113,7 @@ describe("Query engine E2E", () => {
 			relationshipSchemaId: relSchema.id,
 		});
 
-		const { data } = await executeQueryEngine(client, cookies, {
+		const { data } = await executeQueryEngine(client, {
 			eventJoins: [],
 			mode: "entities",
 			computedFields: [],
@@ -1185,11 +1153,11 @@ describe("Query engine E2E", () => {
 	});
 
 	it("targetEntityId constraint returns entity with the correct relationship target", async () => {
-		const { client, cookies, userId } = await createAuthenticatedClient();
-		const { trackerId } = await createTracker(client, cookies, {
+		const { client, userId } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, {
 			name: "Target Entity Id Tracker",
 		});
-		const entitySchema = await createEntitySchema(client, cookies, {
+		const entitySchema = await createEntitySchema(client, {
 			trackerId,
 			name: "Target Entity Id Entity",
 			propertiesSchema: {
@@ -1205,7 +1173,6 @@ describe("Query engine E2E", () => {
 		const memberName = `Target Member ${crypto.randomUUID()}`;
 		const memberId = await createQueryEngineEntity({
 			client,
-			cookies,
 			image: null,
 			properties: {},
 			name: memberName,
@@ -1213,7 +1180,6 @@ describe("Query engine E2E", () => {
 		});
 		const collBId = await createQueryEngineEntity({
 			client,
-			cookies,
 			image: null,
 			properties: {},
 			entitySchemaId: entitySchema.schemaId,
@@ -1221,7 +1187,6 @@ describe("Query engine E2E", () => {
 		});
 		const collCId = await createQueryEngineEntity({
 			client,
-			cookies,
 			image: null,
 			properties: {},
 			entitySchemaId: entitySchema.schemaId,
@@ -1240,7 +1205,7 @@ describe("Query engine E2E", () => {
 			relationshipSchemaId: relSchema.id,
 		});
 
-		const { data } = await executeQueryEngine(client, cookies, {
+		const { data } = await executeQueryEngine(client, {
 			eventJoins: [],
 			mode: "entities",
 			computedFields: [],
@@ -1280,22 +1245,18 @@ describe("Query engine E2E", () => {
 	});
 
 	it("incoming direction returns the collection entity when a member entity is added", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 
-		const collection = await createCollection(client, cookies, {
+		const collection = await createCollection(client, {
 			name: `Incoming Dir Collection ${crypto.randomUUID()}`,
 		});
 
-		const { schema: collectionEntitySchema } = await findBuiltinSchemaBySlug(
-			client,
-			cookies,
-			"collection",
-		);
+		const { schema: collectionEntitySchema } = await findBuiltinSchemaBySlug(client, "collection");
 
-		const { trackerId } = await createTracker(client, cookies, {
+		const { trackerId } = await createTracker(client, {
 			name: "Incoming Dir Tracker",
 		});
-		const memberSchema = await createEntitySchema(client, cookies, {
+		const memberSchema = await createEntitySchema(client, {
 			trackerId,
 			name: "Incoming Dir Member",
 			propertiesSchema: {
@@ -1305,22 +1266,19 @@ describe("Query engine E2E", () => {
 		const memberName = `Incoming Member ${crypto.randomUUID()}`;
 		const memberId = await createQueryEngineEntity({
 			client,
-			cookies,
 			image: null,
 			properties: {},
 			name: memberName,
 			entitySchemaId: memberSchema.schemaId,
 		});
 
-		await client.run(
-			(c) =>
-				c.collections.createMembership({
-					payload: { entityId: memberId, collectionId: collection.id },
-				}),
-			{ Cookie: cookies },
+		await client.run((c) =>
+			c.collections.createMembership({
+				payload: { entityId: memberId, collectionId: collection.id },
+			}),
 		);
 
-		const { data } = await executeQueryEngine(client, cookies, {
+		const { data } = await executeQueryEngine(client, {
 			eventJoins: [],
 			mode: "entities",
 			computedFields: [],
@@ -1352,15 +1310,15 @@ describe("Query engine E2E", () => {
 	});
 
 	it("returns related entity built-in targetEntity.name as a display field", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 
 		const collectionName = `Target Name Collection ${crypto.randomUUID()}`;
-		const collection = await createCollection(client, cookies, { name: collectionName });
+		const collection = await createCollection(client, { name: collectionName });
 
-		const { trackerId } = await createTracker(client, cookies, {
+		const { trackerId } = await createTracker(client, {
 			name: "Target Name Tracker",
 		});
-		const schema = await createEntitySchema(client, cookies, {
+		const schema = await createEntitySchema(client, {
 			trackerId,
 			name: "Target Name Entity",
 			propertiesSchema: {
@@ -1370,19 +1328,17 @@ describe("Query engine E2E", () => {
 		const entityName = `Target Name Member ${crypto.randomUUID()}`;
 		const entityId = await createQueryEngineEntity({
 			client,
-			cookies,
 			image: null,
 			properties: {},
 			name: entityName,
 			entitySchemaId: schema.schemaId,
 		});
 
-		await client.run(
-			(c) => c.collections.createMembership({ payload: { entityId, collectionId: collection.id } }),
-			{ Cookie: cookies },
+		await client.run((c) =>
+			c.collections.createMembership({ payload: { entityId, collectionId: collection.id } }),
 		);
 
-		const { data } = await executeQueryEngine(client, cookies, {
+		const { data } = await executeQueryEngine(client, {
 			eventJoins: [],
 			mode: "entities",
 			computedFields: [],
@@ -1419,19 +1375,19 @@ describe("Query engine E2E", () => {
 	});
 
 	it("sorts by related entity built-in targetEntity.name", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 
-		const zCollection = await createCollection(client, cookies, {
+		const zCollection = await createCollection(client, {
 			name: `Zulu Sort Collection ${crypto.randomUUID()}`,
 		});
-		const aCollection = await createCollection(client, cookies, {
+		const aCollection = await createCollection(client, {
 			name: `Alpha Sort Collection ${crypto.randomUUID()}`,
 		});
 
-		const { trackerId } = await createTracker(client, cookies, {
+		const { trackerId } = await createTracker(client, {
 			name: "Target Name Sort Tracker",
 		});
-		const schema = await createEntitySchema(client, cookies, {
+		const schema = await createEntitySchema(client, {
 			trackerId,
 			name: "Target Name Sort Entity",
 			propertiesSchema: {
@@ -1442,7 +1398,6 @@ describe("Query engine E2E", () => {
 		const aEntityName = `Target Name A Member ${crypto.randomUUID()}`;
 		const zEntityId = await createQueryEngineEntity({
 			client,
-			cookies,
 			image: null,
 			properties: {},
 			name: zEntityName,
@@ -1450,7 +1405,6 @@ describe("Query engine E2E", () => {
 		});
 		const aEntityId = await createQueryEngineEntity({
 			client,
-			cookies,
 			image: null,
 			properties: {},
 			name: aEntityName,
@@ -1463,13 +1417,11 @@ describe("Query engine E2E", () => {
 		] as const;
 		await Promise.all(
 			membershipPairs.map(([entityId, collectionId]) =>
-				client.run((c) => c.collections.createMembership({ payload: { entityId, collectionId } }), {
-					Cookie: cookies,
-				}),
+				client.run((c) => c.collections.createMembership({ payload: { entityId, collectionId } })),
 			),
 		);
 
-		const { data } = await executeQueryEngine(client, cookies, {
+		const { data } = await executeQueryEngine(client, {
 			eventJoins: [],
 			mode: "entities",
 			computedFields: [],
@@ -1513,18 +1465,18 @@ describe("Query engine E2E", () => {
 	});
 
 	it("rejects a relationship-join reference in events mode", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { trackerId } = await createTracker(client, cookies, {
+		const { client } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, {
 			name: "Events Mode Rel Join Rejection Tracker",
 		});
-		const schema = await createEntitySchema(client, cookies, {
+		const schema = await createEntitySchema(client, {
 			trackerId,
 			name: "Events Mode Rel Join Entity",
 			propertiesSchema: {
 				fields: { title: { type: "string", label: "Title", description: "Title" } },
 			},
 		});
-		const eventSchema = await createEventSchema(client, cookies, {
+		const eventSchema = await createEventSchema(client, {
 			name: "Test Event",
 			slug: "test-event",
 			entitySchemaId: schema.schemaId,
@@ -1533,45 +1485,43 @@ describe("Query engine E2E", () => {
 			},
 		});
 
-		const error = await client.runError(
-			(c) =>
-				c.queryEngine.execute({
-					payload: {
-						mode: "events",
-						scope: [schema.slug],
-						eventSchemas: [eventSchema.slug],
-						pagination: { page: 1, limit: 10 },
-						sort: {
-							direction: "asc",
-							expression: createEntityColumnExpression(schema.slug, "name"),
-						},
-						fields: [
-							{
-								key: "relField",
-								expression: {
-									type: "reference",
-									reference: {
-										joinKey: "someRel",
-										path: ["createdAt"],
-										type: "relationship-join",
-									},
+		const error = await client.runError((c) =>
+			c.queryEngine.execute({
+				payload: {
+					mode: "events",
+					scope: [schema.slug],
+					eventSchemas: [eventSchema.slug],
+					pagination: { page: 1, limit: 10 },
+					sort: {
+						direction: "asc",
+						expression: createEntityColumnExpression(schema.slug, "name"),
+					},
+					fields: [
+						{
+							key: "relField",
+							expression: {
+								type: "reference",
+								reference: {
+									joinKey: "someRel",
+									path: ["createdAt"],
+									type: "relationship-join",
 								},
 							},
-						],
-					},
-				}),
-			{ Cookie: cookies },
+						},
+					],
+				},
+			}),
 		);
 
 		assertTaggedError(error, "BadRequest");
 	});
 
 	it("rejects join-local filter referencing a computed field", async () => {
-		const { client, cookies, userId } = await createAuthenticatedClient();
-		const { trackerId } = await createTracker(client, cookies, {
+		const { client, userId } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, {
 			name: "Local Filter Computed Rejection Tracker",
 		});
-		const schema = await createEntitySchema(client, cookies, {
+		const schema = await createEntitySchema(client, {
 			trackerId,
 			name: "Local Filter Computed Entity",
 			propertiesSchema: {
@@ -1585,56 +1535,53 @@ describe("Query engine E2E", () => {
 			slug: `computed-filter-rel-${crypto.randomUUID()}`,
 		});
 
-		const error = await client.runError(
-			(c) =>
-				c.queryEngine.execute({
-					payload: {
-						eventJoins: [],
-						mode: "entities",
-						scope: [schema.slug],
-						pagination: { page: 1, limit: 10 },
-						sort: {
-							direction: "asc",
+		const error = await client.runError((c) =>
+			c.queryEngine.execute({
+				payload: {
+					eventJoins: [],
+					mode: "entities",
+					scope: [schema.slug],
+					pagination: { page: 1, limit: 10 },
+					sort: {
+						direction: "asc",
+						expression: createEntityColumnExpression(schema.slug, "name"),
+					},
+					computedFields: [
+						{
+							key: "computedTitle",
 							expression: createEntityColumnExpression(schema.slug, "name"),
 						},
-						computedFields: [
-							{
-								key: "computedTitle",
-								expression: createEntityColumnExpression(schema.slug, "name"),
-							},
-						],
-						relationshipJoins: [
-							{
-								required: false,
-								direction: "outgoing",
-								key: "computedFilterRel",
-								kind: "latestRelationship",
-								relationshipSchemaSlug: relSchema.slug,
-								filter: {
-									operator: "eq",
-									type: "comparison",
-									right: literalExpression("test"),
-									left: {
-										type: "reference",
-										reference: { key: "computedTitle", type: "computed-field" },
-									},
+					],
+					relationshipJoins: [
+						{
+							required: false,
+							direction: "outgoing",
+							key: "computedFilterRel",
+							kind: "latestRelationship",
+							relationshipSchemaSlug: relSchema.slug,
+							filter: {
+								operator: "eq",
+								type: "comparison",
+								right: literalExpression("test"),
+								left: {
+									type: "reference",
+									reference: { key: "computedTitle", type: "computed-field" },
 								},
 							},
-						],
-						fields: [buildQueryEngineField("title", [entityField(schema.slug, "name")])],
-					},
-				}),
-			{ Cookie: cookies },
+						},
+					],
+					fields: [buildQueryEngineField("title", [entityField(schema.slug, "name")])],
+				},
+			}),
 		);
 
 		assertTaggedError(error, "BadRequest");
 	});
 
 	it("executes a simple single-schema query with the full response shape", async () => {
-		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
+		const { client, schema } = await createSingleSchemaQueryEngineFixture();
 		const { data } = await executeQueryEngine(
 			client,
-			cookies,
 			buildGridRequest({ scope: [schema.slug] }),
 		);
 		const result = data.data;
@@ -1682,68 +1629,66 @@ describe("Query engine E2E", () => {
 	});
 
 	it("executes aggregate mode counts and numeric aggregations inside the filtered set", async () => {
-		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
+		const { client, schema } = await createSingleSchemaQueryEngineFixture();
 
-		const data = await client.run(
-			(c) =>
-				c.queryEngine.execute({
-					payload: {
-						eventJoins: [],
-						mode: "aggregate",
-						computedFields: [],
-						scope: [schema.slug],
-						relationshipJoins: [],
-						filter: {
-							type: "in",
-							expression: createEntityPropertyExpression(schema.slug, "category"),
-							values: [literalExpression("phone"), literalExpression("wearable")],
-						},
-						aggregations: [
-							{ key: "total", aggregation: { type: "count" } },
-							{
-								key: "recent",
-								aggregation: {
-									type: "countWhere",
-									predicate: {
-										operator: "gte",
-										type: "comparison",
-										right: literalExpression(2020),
-										left: createEntityPropertyExpression(schema.slug, "year"),
-									},
-								},
-							},
-							{
-								key: "sumYear",
-								aggregation: {
-									type: "sum",
-									expression: createEntityPropertyExpression(schema.slug, "year"),
-								},
-							},
-							{
-								key: "avgYear",
-								aggregation: {
-									type: "avg",
-									expression: createEntityPropertyExpression(schema.slug, "year"),
-								},
-							},
-							{
-								key: "minYear",
-								aggregation: {
-									type: "min",
-									expression: createEntityPropertyExpression(schema.slug, "year"),
-								},
-							},
-							{
-								key: "maxYear",
-								aggregation: {
-									type: "max",
-									expression: createEntityPropertyExpression(schema.slug, "year"),
-								},
-							},
-						],
+		const data = await client.run((c) =>
+			c.queryEngine.execute({
+				payload: {
+					eventJoins: [],
+					mode: "aggregate",
+					computedFields: [],
+					scope: [schema.slug],
+					relationshipJoins: [],
+					filter: {
+						type: "in",
+						expression: createEntityPropertyExpression(schema.slug, "category"),
+						values: [literalExpression("phone"), literalExpression("wearable")],
 					},
-				}),
-			{ Cookie: cookies },
+					aggregations: [
+						{ key: "total", aggregation: { type: "count" } },
+						{
+							key: "recent",
+							aggregation: {
+								type: "countWhere",
+								predicate: {
+									operator: "gte",
+									type: "comparison",
+									right: literalExpression(2020),
+									left: createEntityPropertyExpression(schema.slug, "year"),
+								},
+							},
+						},
+						{
+							key: "sumYear",
+							aggregation: {
+								type: "sum",
+								expression: createEntityPropertyExpression(schema.slug, "year"),
+							},
+						},
+						{
+							key: "avgYear",
+							aggregation: {
+								type: "avg",
+								expression: createEntityPropertyExpression(schema.slug, "year"),
+							},
+						},
+						{
+							key: "minYear",
+							aggregation: {
+								type: "min",
+								expression: createEntityPropertyExpression(schema.slug, "year"),
+							},
+						},
+						{
+							key: "maxYear",
+							aggregation: {
+								type: "max",
+								expression: createEntityPropertyExpression(schema.slug, "year"),
+							},
+						},
+					],
+				},
+			}),
 		);
 
 		expect(data.mode).toBe("aggregate");
@@ -1777,30 +1722,28 @@ describe("Query engine E2E", () => {
 	});
 
 	it("returns countBy maps and SQL empty-set defaults in aggregate mode", async () => {
-		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
+		const { client, schema } = await createSingleSchemaQueryEngineFixture();
 
-		const aggregateResult = await client.run(
-			(c) =>
-				c.queryEngine.execute({
-					payload: {
-						filter: null,
-						eventJoins: [],
-						mode: "aggregate",
-						computedFields: [],
-						scope: [schema.slug],
-						relationshipJoins: [],
-						aggregations: [
-							{
-								key: "byCategory",
-								aggregation: {
-									type: "countBy",
-									groupBy: createEntityPropertyExpression(schema.slug, "category"),
-								},
+		const aggregateResult = await client.run((c) =>
+			c.queryEngine.execute({
+				payload: {
+					filter: null,
+					eventJoins: [],
+					mode: "aggregate",
+					computedFields: [],
+					scope: [schema.slug],
+					relationshipJoins: [],
+					aggregations: [
+						{
+							key: "byCategory",
+							aggregation: {
+								type: "countBy",
+								groupBy: createEntityPropertyExpression(schema.slug, "category"),
 							},
-						],
-					},
-				}),
-			{ Cookie: cookies },
+						},
+					],
+				},
+			}),
 		);
 
 		const aggregateValues = aggregateResult.mode === "aggregate" ? aggregateResult.data.values : [];
@@ -1810,41 +1753,39 @@ describe("Query engine E2E", () => {
 			value: { phone: 2, tablet: 1, wearable: 1 },
 		});
 
-		const emptyResult = await client.run(
-			(c) =>
-				c.queryEngine.execute({
-					payload: {
-						eventJoins: [],
-						mode: "aggregate",
-						computedFields: [],
-						scope: [schema.slug],
-						relationshipJoins: [],
-						filter: {
-							operator: "eq",
-							type: "comparison",
-							right: literalExpression("Missing Device"),
-							left: createEntityColumnExpression(schema.slug, "name"),
-						},
-						aggregations: [
-							{ key: "total", aggregation: { type: "count" } },
-							{
-								key: "avgYear",
-								aggregation: {
-									type: "avg",
-									expression: createEntityPropertyExpression(schema.slug, "year"),
-								},
-							},
-							{
-								key: "byCategory",
-								aggregation: {
-									type: "countBy",
-									groupBy: createEntityPropertyExpression(schema.slug, "category"),
-								},
-							},
-						],
+		const emptyResult = await client.run((c) =>
+			c.queryEngine.execute({
+				payload: {
+					eventJoins: [],
+					mode: "aggregate",
+					computedFields: [],
+					scope: [schema.slug],
+					relationshipJoins: [],
+					filter: {
+						operator: "eq",
+						type: "comparison",
+						right: literalExpression("Missing Device"),
+						left: createEntityColumnExpression(schema.slug, "name"),
 					},
-				}),
-			{ Cookie: cookies },
+					aggregations: [
+						{ key: "total", aggregation: { type: "count" } },
+						{
+							key: "avgYear",
+							aggregation: {
+								type: "avg",
+								expression: createEntityPropertyExpression(schema.slug, "year"),
+							},
+						},
+						{
+							key: "byCategory",
+							aggregation: {
+								type: "countBy",
+								groupBy: createEntityPropertyExpression(schema.slug, "category"),
+							},
+						},
+					],
+				},
+			}),
 		);
 
 		const emptyValues = emptyResult.mode === "aggregate" ? emptyResult.data.values : [];
@@ -1866,30 +1807,28 @@ describe("Query engine E2E", () => {
 	});
 
 	it("rejects non-numeric aggregate expressions at request time", async () => {
-		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
+		const { client, schema } = await createSingleSchemaQueryEngineFixture();
 
-		const error = await client.runError(
-			(c) =>
-				c.queryEngine.execute({
-					payload: {
-						filter: null,
-						eventJoins: [],
-						mode: "aggregate",
-						computedFields: [],
-						scope: [schema.slug],
-						relationshipJoins: [],
-						aggregations: [
-							{
-								key: "sumName",
-								aggregation: {
-									type: "sum",
-									expression: createEntityColumnExpression(schema.slug, "name"),
-								},
+		const error = await client.runError((c) =>
+			c.queryEngine.execute({
+				payload: {
+					filter: null,
+					eventJoins: [],
+					mode: "aggregate",
+					computedFields: [],
+					scope: [schema.slug],
+					relationshipJoins: [],
+					aggregations: [
+						{
+							key: "sumName",
+							aggregation: {
+								type: "sum",
+								expression: createEntityColumnExpression(schema.slug, "name"),
 							},
-						],
-					},
-				}),
-			{ Cookie: cookies },
+						},
+					],
+				},
+			}),
 		);
 
 		assertTaggedError(error, "BadRequest");
@@ -1897,8 +1836,8 @@ describe("Query engine E2E", () => {
 	});
 
 	it("rejects non-numeric event-aggregate expressions at request time", async () => {
-		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
-		await createEventSchema(client, cookies, {
+		const { client, schema } = await createSingleSchemaQueryEngineFixture();
+		await createEventSchema(client, {
 			name: "Review",
 			slug: "review",
 			entitySchemaId: schema.schemaId,
@@ -1907,7 +1846,7 @@ describe("Query engine E2E", () => {
 			},
 		});
 
-		const error = await executeQueryEngineError(client, cookies, {
+		const error = await executeQueryEngineError(client, {
 			filter: null,
 			eventJoins: [],
 			computedFields: [],
@@ -1929,30 +1868,28 @@ describe("Query engine E2E", () => {
 	});
 
 	it("rejects primary event references in aggregate mode", async () => {
-		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
+		const { client, schema } = await createSingleSchemaQueryEngineFixture();
 
-		const error = await client.runError(
-			(c) =>
-				c.queryEngine.execute({
-					payload: {
-						filter: null,
-						eventJoins: [],
-						mode: "aggregate",
-						computedFields: [],
-						scope: [schema.slug],
-						relationshipJoins: [],
-						aggregations: [
-							{
-								key: "byEvent",
-								aggregation: {
-									type: "countBy",
-									groupBy: { type: "reference", reference: { type: "event", path: ["createdAt"] } },
-								},
+		const error = await client.runError((c) =>
+			c.queryEngine.execute({
+				payload: {
+					filter: null,
+					eventJoins: [],
+					mode: "aggregate",
+					computedFields: [],
+					scope: [schema.slug],
+					relationshipJoins: [],
+					aggregations: [
+						{
+							key: "byEvent",
+							aggregation: {
+								type: "countBy",
+								groupBy: { type: "reference", reference: { type: "event", path: ["createdAt"] } },
 							},
-						],
-					},
-				}),
-			{ Cookie: cookies },
+						},
+					],
+				},
+			}),
 		);
 
 		assertTaggedError(error, "BadRequest");
@@ -1960,8 +1897,8 @@ describe("Query engine E2E", () => {
 	});
 
 	it("accepts literal and coalesce expressions in raw runtime fields", async () => {
-		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
-		const { data } = await executeQueryEngine(client, cookies, {
+		const { client, schema } = await createSingleSchemaQueryEngineFixture();
+		const { data } = await executeQueryEngine(client, {
 			eventJoins: [],
 			scope: [schema.slug],
 			pagination: { page: 1, limit: 1 },
@@ -1991,8 +1928,8 @@ describe("Query engine E2E", () => {
 	});
 
 	it("reuses computed fields in raw output and preserves null latest-event values", async () => {
-		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
-		await createEventSchema(client, cookies, {
+		const { client, schema } = await createSingleSchemaQueryEngineFixture();
+		await createEventSchema(client, {
 			name: "Review",
 			slug: "review",
 			entitySchemaId: schema.schemaId,
@@ -2004,7 +1941,7 @@ describe("Query engine E2E", () => {
 			},
 		});
 
-		const { data } = await executeQueryEngine(client, cookies, {
+		const { data } = await executeQueryEngine(client, {
 			scope: [schema.slug],
 			pagination: { page: 1, limit: 5 },
 			eventJoins: [{ key: "review", kind: "latestEvent", eventSchemaSlug: "review" }],
@@ -2037,12 +1974,12 @@ describe("Query engine E2E", () => {
 	});
 
 	it("sorts and filters by computed fields in raw runtime requests", async () => {
-		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
+		const { client, schema } = await createSingleSchemaQueryEngineFixture();
 		const yearExpression = createEntityPropertyExpression(schema.slug, "year");
 		const nextYearReference = createComputedFieldExpression("nextYear");
 		const labelReference = createComputedFieldExpression("label");
 
-		const { data } = await executeQueryEngine(client, cookies, {
+		const { data } = await executeQueryEngine(client, {
 			eventJoins: [],
 			scope: [schema.slug],
 			pagination: { page: 1, limit: 5 },
@@ -2096,8 +2033,8 @@ describe("Query engine E2E", () => {
 	});
 
 	it("rejects invalid computed field references and cycles in raw runtime requests", async () => {
-		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
-		const missingComputedFieldError = await executeQueryEngineError(client, cookies, {
+		const { client, schema } = await createSingleSchemaQueryEngineFixture();
+		const missingComputedFieldError = await executeQueryEngineError(client, {
 			eventJoins: [],
 			computedFields: [],
 			scope: [schema.slug],
@@ -2109,7 +2046,7 @@ describe("Query engine E2E", () => {
 			filter: null,
 			fields: [buildQueryEngineField("title", ["computed.missingLabel"])],
 		});
-		const cycleError = await executeQueryEngineError(client, cookies, {
+		const cycleError = await executeQueryEngineError(client, {
 			eventJoins: [],
 			scope: [schema.slug],
 			pagination: { page: 1, limit: 5 },
@@ -2136,8 +2073,8 @@ describe("Query engine E2E", () => {
 	});
 
 	it("rejects invalid computed field types and non-display image usage in raw runtime requests", async () => {
-		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
-		const imageSortError = await executeQueryEngineError(client, cookies, {
+		const { client, schema } = await createSingleSchemaQueryEngineFixture();
+		const imageSortError = await executeQueryEngineError(client, {
 			filter: null,
 			eventJoins: [],
 			scope: [schema.slug],
@@ -2154,7 +2091,7 @@ describe("Query engine E2E", () => {
 			],
 			fields: [buildQueryEngineField("image", [entityField(schema.slug, "image")])],
 		});
-		const mismatchedFilterError = await executeQueryEngineError(client, cookies, {
+		const mismatchedFilterError = await executeQueryEngineError(client, {
 			eventJoins: [],
 			scope: [schema.slug],
 			pagination: { page: 1, limit: 5 },
@@ -2200,10 +2137,9 @@ describe("Query engine E2E", () => {
 	});
 
 	it("returns 404 when the runtime request references a schema slug that is not visible", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 		const error = await executeQueryEngineError(
 			client,
-			cookies,
 			buildGridRequest({ scope: ["does-not-exist"] }),
 		);
 
@@ -2212,12 +2148,12 @@ describe("Query engine E2E", () => {
 	});
 
 	it("supports arithmetic, normalization, concat, and conditionals in runtime expressions", async () => {
-		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
+		const { client, schema } = await createSingleSchemaQueryEngineFixture();
 		const categoryExpression = createEntityPropertyExpression(schema.slug, "category");
 		const nameExpression = createEntityColumnExpression(schema.slug, "name");
 		const yearExpression = createEntityPropertyExpression(schema.slug, "year");
 
-		const { data } = await executeQueryEngine(client, cookies, {
+		const { data } = await executeQueryEngine(client, {
 			eventJoins: [],
 			scope: [schema.slug],
 			pagination: { page: 1, limit: 1 },
@@ -2299,8 +2235,8 @@ describe("Query engine E2E", () => {
 	});
 
 	it("supports titleCase and kebabCase transforms in runtime expressions", async () => {
-		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
-		const { data } = await executeQueryEngine(client, cookies, {
+		const { client, schema } = await createSingleSchemaQueryEngineFixture();
+		const { data } = await executeQueryEngine(client, {
 			eventJoins: [],
 			computedFields: [],
 			scope: [schema.slug],
@@ -2338,10 +2274,10 @@ describe("Query engine E2E", () => {
 	});
 
 	it("truncates integer normalization toward zero for fractional values", async () => {
-		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
+		const { client, schema } = await createSingleSchemaQueryEngineFixture();
 		const yearExpression = createEntityPropertyExpression(schema.slug, "year");
 
-		const { data } = await executeQueryEngine(client, cookies, {
+		const { data } = await executeQueryEngine(client, {
 			eventJoins: [],
 			computedFields: [],
 			scope: [schema.slug],
@@ -2375,7 +2311,7 @@ describe("Query engine E2E", () => {
 	});
 
 	it("supports eq, neq, gt, gte, lt, lte, in, isNull, and isNotNull filters", async () => {
-		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
+		const { client, schema } = await createSingleSchemaQueryEngineFixture();
 		const scenarios = [
 			{
 				expected: ["Alpha Phone", "Gamma Phone"],
@@ -2460,7 +2396,6 @@ describe("Query engine E2E", () => {
 				scenario,
 				result: await executeQueryEngine(
 					client,
-					cookies,
 					buildGridRequest({ scope: [schema.slug], filter: scenario.filter }),
 				),
 			})),
@@ -2473,10 +2408,9 @@ describe("Query engine E2E", () => {
 	});
 
 	it("supports not predicate to negate filters", async () => {
-		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
+		const { client, schema } = await createSingleSchemaQueryEngineFixture();
 		const { data } = await executeQueryEngine(
 			client,
-			cookies,
 			buildGridRequest({
 				scope: [schema.slug],
 				filter: {
@@ -2495,10 +2429,9 @@ describe("Query engine E2E", () => {
 	});
 
 	it("ands multiple filters within a single schema", async () => {
-		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
+		const { client, schema } = await createSingleSchemaQueryEngineFixture();
 		const { data } = await executeQueryEngine(
 			client,
-			cookies,
 			buildGridRequest({
 				scope: [schema.slug],
 				filter: {
@@ -2525,11 +2458,9 @@ describe("Query engine E2E", () => {
 	});
 
 	it("applies explicit entity name filters across every schema", async () => {
-		const { client, cookies, smartphoneSlug, tabletSlug } =
-			await createCrossSchemaQueryEngineFixture();
+		const { client, smartphoneSlug, tabletSlug } = await createCrossSchemaQueryEngineFixture();
 		const { data } = await executeQueryEngine(
 			client,
-			cookies,
 			buildGridRequest({
 				scope: [smartphoneSlug, tabletSlug],
 				displayConfiguration: buildGridDisplayConfiguration(
@@ -2562,11 +2493,9 @@ describe("Query engine E2E", () => {
 	});
 
 	it("ors schema-qualified filters across different schemas", async () => {
-		const { client, cookies, smartphoneSlug, tabletSlug } =
-			await createCrossSchemaQueryEngineFixture();
+		const { client, smartphoneSlug, tabletSlug } = await createCrossSchemaQueryEngineFixture();
 		const { data } = await executeQueryEngine(
 			client,
-			cookies,
 			buildGridRequest({
 				scope: [smartphoneSlug, tabletSlug],
 				displayConfiguration: buildGridDisplayConfiguration(
@@ -2601,15 +2530,13 @@ describe("Query engine E2E", () => {
 	});
 
 	it("sorts by name in both directions and by schema properties", async () => {
-		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
+		const { client, schema } = await createSingleSchemaQueryEngineFixture();
 		const ascResult = await executeQueryEngine(
 			client,
-			cookies,
 			buildGridRequest({ scope: [schema.slug] }),
 		);
 		const descResult = await executeQueryEngine(
 			client,
-			cookies,
 			buildGridRequest({
 				scope: [schema.slug],
 				sort: {
@@ -2620,7 +2547,6 @@ describe("Query engine E2E", () => {
 		);
 		const yearResult = await executeQueryEngine(
 			client,
-			cookies,
 			buildGridRequest({
 				scope: [schema.slug],
 				sort: {
@@ -2654,14 +2580,12 @@ describe("Query engine E2E", () => {
 	});
 
 	it("filters, sorts, and displays entity @id", async () => {
-		const { client, cookies, entityIdsByName, schema } =
-			await createSingleSchemaQueryEngineFixture();
+		const { client, entityIdsByName, schema } = await createSingleSchemaQueryEngineFixture();
 		const targetId = entityIdsByName["Gamma Phone"];
 		assertPresent(targetId, "Missing runtime entity fixture id for @id test");
 
 		const { data } = await executeQueryEngine(
 			client,
-			cookies,
 			buildTableRequest({
 				scope: [schema.slug],
 				sort: {
@@ -2692,15 +2616,13 @@ describe("Query engine E2E", () => {
 	});
 
 	it("filters entity @id with contains", async () => {
-		const { client, cookies, entityIdsByName, schema } =
-			await createSingleSchemaQueryEngineFixture();
+		const { client, entityIdsByName, schema } = await createSingleSchemaQueryEngineFixture();
 		const targetId = entityIdsByName["Beta Tablet"];
 		assertPresent(targetId, "Missing runtime entity fixture id for @id contains test");
 		const suffix = targetId.slice(-8);
 
 		const { data } = await executeQueryEngine(
 			client,
-			cookies,
 			buildGridRequest({
 				scope: [schema.slug],
 				displayConfiguration: buildGridDisplayConfiguration(
@@ -2728,7 +2650,7 @@ describe("Query engine E2E", () => {
 	});
 
 	it("sorts across schemas with COALESCE and keeps null values last", async () => {
-		const { client, cookies, smartphoneSlug, tabletSchema, tabletSlug } =
+		const { client, smartphoneSlug, tabletSchema, tabletSlug } =
 			await createCrossSchemaQueryEngineFixture();
 		const neutralDisplay = buildGridDisplayConfiguration(
 			{
@@ -2750,7 +2672,6 @@ describe("Query engine E2E", () => {
 		};
 		const coalesceResult = await executeQueryEngine(
 			client,
-			cookies,
 			buildGridRequest({
 				displayConfiguration: neutralDisplay,
 				scope: [smartphoneSlug, tabletSlug],
@@ -2760,7 +2681,6 @@ describe("Query engine E2E", () => {
 
 		await createQueryEngineEntity({
 			client,
-			cookies,
 			name: "Null Tablet",
 			entitySchemaId: tabletSchema.schemaId,
 			properties: { maker: "Ghost" },
@@ -2768,7 +2688,6 @@ describe("Query engine E2E", () => {
 
 		const nullsLastResult = await executeQueryEngine(
 			client,
-			cookies,
 			buildGridRequest({
 				displayConfiguration: neutralDisplay,
 				scope: [smartphoneSlug, tabletSlug],
@@ -2787,7 +2706,7 @@ describe("Query engine E2E", () => {
 	});
 
 	it("returns correct pagination metadata for first, middle, and last pages", async () => {
-		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
+		const { client, schema } = await createSingleSchemaQueryEngineFixture();
 		const scenarios = [
 			{
 				pagination: { page: 1, limit: 2 },
@@ -2832,7 +2751,6 @@ describe("Query engine E2E", () => {
 				scenario,
 				result: await executeQueryEngine(
 					client,
-					cookies,
 					buildGridRequest({ scope: [schema.slug], pagination: scenario.pagination }),
 				),
 			})),
@@ -2846,10 +2764,9 @@ describe("Query engine E2E", () => {
 	});
 
 	it("returns empty out-of-range pages and zero-result pagination metadata", async () => {
-		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
+		const { client, schema } = await createSingleSchemaQueryEngineFixture();
 		const emptyPageResult = await executeQueryEngine(
 			client,
-			cookies,
 			buildGridRequest({
 				scope: [schema.slug],
 				pagination: { page: 100, limit: 2 },
@@ -2857,7 +2774,6 @@ describe("Query engine E2E", () => {
 		);
 		const emptyResult = await executeQueryEngine(
 			client,
-			cookies,
 			buildGridRequest({
 				scope: [schema.slug],
 				filter: {
@@ -2891,10 +2807,9 @@ describe("Query engine E2E", () => {
 	});
 
 	it("keeps empty pages aligned with filtered totals in the single-query path", async () => {
-		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
+		const { client, schema } = await createSingleSchemaQueryEngineFixture();
 		const outOfRangeFilteredResult = await executeQueryEngine(
 			client,
-			cookies,
 			buildGridRequest({
 				scope: [schema.slug],
 				pagination: { page: 2, limit: 5 },
@@ -2908,7 +2823,6 @@ describe("Query engine E2E", () => {
 		);
 		const zeroResultsLaterPage = await executeQueryEngine(
 			client,
-			cookies,
 			buildGridRequest({
 				scope: [schema.slug],
 				pagination: { page: 3, limit: 2 },
@@ -2943,10 +2857,9 @@ describe("Query engine E2E", () => {
 	});
 
 	it("rejects empty runtime sort fields at payload validation time", async () => {
-		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
+		const { client, schema } = await createSingleSchemaQueryEngineFixture();
 		const error = await executeQueryEngineError(
 			client,
-			cookies,
 			buildGridRequest({
 				scope: [schema.slug],
 				sort: { expression: literalExpression(null), direction: "asc" },
@@ -2958,11 +2871,10 @@ describe("Query engine E2E", () => {
 	});
 
 	it("filters with contains using ilike on string properties and entity @name", async () => {
-		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
+		const { client, schema } = await createSingleSchemaQueryEngineFixture();
 
 		const nameResult = await executeQueryEngine(
 			client,
-			cookies,
 			buildGridRequest({
 				scope: [schema.slug],
 				filter: {
@@ -2974,7 +2886,6 @@ describe("Query engine E2E", () => {
 		);
 		const categoryResult = await executeQueryEngine(
 			client,
-			cookies,
 			buildGridRequest({
 				scope: [schema.slug],
 				filter: {
@@ -2990,11 +2901,11 @@ describe("Query engine E2E", () => {
 	});
 
 	it("filters with contains using jsonb containment for array properties", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { trackerId } = await createTracker(client, cookies, {
+		const { client } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, {
 			name: "Tag Tracker",
 		});
-		const schema = await createEntitySchema(client, cookies, {
+		const schema = await createEntitySchema(client, {
 			trackerId,
 			name: "Tagged Movie",
 			propertiesSchema: {
@@ -3011,7 +2922,6 @@ describe("Query engine E2E", () => {
 
 		await createQueryEngineEntity({
 			client,
-			cookies,
 			image: null,
 			name: "Sci-Fi Movie",
 			entitySchemaId: schema.schemaId,
@@ -3019,7 +2929,6 @@ describe("Query engine E2E", () => {
 		});
 		await createQueryEngineEntity({
 			client,
-			cookies,
 			image: null,
 			name: "Drama Movie",
 			properties: { tags: ["drama"] },
@@ -3027,7 +2936,6 @@ describe("Query engine E2E", () => {
 		});
 		await createQueryEngineEntity({
 			client,
-			cookies,
 			image: null,
 			name: "Action Movie",
 			entitySchemaId: schema.schemaId,
@@ -3036,7 +2944,6 @@ describe("Query engine E2E", () => {
 
 		const { data } = await executeQueryEngine(
 			client,
-			cookies,
 			buildGridRequest({
 				scope: [schema.slug],
 				displayConfiguration: buildGridDisplayConfiguration(
@@ -3059,11 +2966,11 @@ describe("Query engine E2E", () => {
 	});
 
 	it("treats % and _ as literals in contains filters, not as ilike wildcards", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { trackerId } = await createTracker(client, cookies, {
+		const { client } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, {
 			name: "Metachar Tracker",
 		});
-		const schema = await createEntitySchema(client, cookies, {
+		const schema = await createEntitySchema(client, {
 			trackerId,
 			name: "Product",
 			propertiesSchema: {
@@ -3073,7 +2980,6 @@ describe("Query engine E2E", () => {
 
 		await createQueryEngineEntity({
 			client,
-			cookies,
 			image: null,
 			name: "Percent Item",
 			properties: { sku: "A%B" },
@@ -3081,7 +2987,6 @@ describe("Query engine E2E", () => {
 		});
 		await createQueryEngineEntity({
 			client,
-			cookies,
 			image: null,
 			name: "Underscore Item",
 			properties: { sku: "A_B" },
@@ -3089,7 +2994,6 @@ describe("Query engine E2E", () => {
 		});
 		await createQueryEngineEntity({
 			client,
-			cookies,
 			image: null,
 			name: "Middle Item",
 			properties: { sku: "AXB" },
@@ -3107,7 +3011,6 @@ describe("Query engine E2E", () => {
 
 		const percentResult = await executeQueryEngine(
 			client,
-			cookies,
 			buildGridRequest({
 				scope: [schema.slug],
 				displayConfiguration: neutralDisplay,
@@ -3120,7 +3023,6 @@ describe("Query engine E2E", () => {
 		);
 		const underscoreResult = await executeQueryEngine(
 			client,
-			cookies,
 			buildGridRequest({
 				scope: [schema.slug],
 				displayConfiguration: neutralDisplay,
@@ -3137,11 +3039,11 @@ describe("Query engine E2E", () => {
 	});
 
 	it("rejects contains filter on array property when the value is itself an array", async () => {
-		const { client, cookies } = await createAuthenticatedClient();
-		const { trackerId } = await createTracker(client, cookies, {
+		const { client } = await createAuthenticatedClient();
+		const { trackerId } = await createTracker(client, {
 			name: "Array Guard Tracker",
 		});
-		const schema = await createEntitySchema(client, cookies, {
+		const schema = await createEntitySchema(client, {
 			trackerId,
 			name: "Tagged Item",
 			propertiesSchema: {
@@ -3158,7 +3060,6 @@ describe("Query engine E2E", () => {
 
 		const error = await executeQueryEngineError(
 			client,
-			cookies,
 			buildGridRequest({
 				scope: [schema.slug],
 				displayConfiguration: buildGridDisplayConfiguration({
@@ -3179,9 +3080,9 @@ describe("Query engine E2E", () => {
 	});
 
 	it("displays and filters by externalId and sandboxScriptId on global entities", async () => {
-		const { client, cookies, userId } = await createAuthenticatedClient();
+		const { client, userId } = await createAuthenticatedClient();
 		const externalId = `ext-id-test-${crypto.randomUUID()}`;
-		const { entity, schema } = await createGlobalBookEntityFixture(client, cookies, {
+		const { entity, schema } = await createGlobalBookEntityFixture(client, {
 			externalId,
 			name: `External ID Entity ${crypto.randomUUID()}`,
 		});
@@ -3190,7 +3091,6 @@ describe("Query engine E2E", () => {
 
 		const { data } = await executeQueryEngine(
 			client,
-			cookies,
 			buildTableRequest({
 				scope: [schema.slug],
 				displayConfiguration: buildTableDisplayConfiguration([
@@ -3222,11 +3122,10 @@ describe("Query engine E2E", () => {
 	});
 
 	it("resolves externalId and sandboxScriptId as null for regular user entities", async () => {
-		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
+		const { client, schema } = await createSingleSchemaQueryEngineFixture();
 
 		const { data } = await executeQueryEngine(
 			client,
-			cookies,
 			buildTableRequest({
 				scope: [schema.slug],
 				pagination: { page: 1, limit: 1 },
@@ -3259,11 +3158,10 @@ describe("Query engine E2E", () => {
 	});
 
 	it("filters with isNull on externalId to find entities without an external id", async () => {
-		const { client, cookies, schema } = await createSingleSchemaQueryEngineFixture();
+		const { client, schema } = await createSingleSchemaQueryEngineFixture();
 
 		const { data } = await executeQueryEngine(
 			client,
-			cookies,
 			buildGridRequest({
 				scope: [schema.slug],
 				displayConfiguration: buildGridDisplayConfiguration({
@@ -3285,19 +3183,18 @@ describe("Query engine E2E", () => {
 	});
 
 	it("resolves externalId correctly in a cross-schema query with both global and user entities", async () => {
-		const { client, cookies, userId } = await createAuthenticatedClient();
+		const { client, userId } = await createAuthenticatedClient();
 		const externalId = `cross-schema-ext-${crypto.randomUUID()}`;
 		const { entity: globalEntity, schema: mediaSchema } = await createGlobalBookEntityFixture(
 			client,
-			cookies,
 			{ externalId, name: `Cross Schema Global ${crypto.randomUUID()}` },
 		);
 		await insertLibraryMembership({ userId, mediaEntityId: globalEntity.id });
 
-		const { trackerId } = await createTracker(client, cookies, {
+		const { trackerId } = await createTracker(client, {
 			name: "Cross Schema Tracker",
 		});
-		const userSchema = await createEntitySchema(client, cookies, {
+		const userSchema = await createEntitySchema(client, {
 			trackerId,
 			name: "UserItem",
 			propertiesSchema: {
@@ -3313,7 +3210,6 @@ describe("Query engine E2E", () => {
 		const userEntityName = `Cross Schema User ${crypto.randomUUID()}`;
 		await createQueryEngineEntity({
 			client,
-			cookies,
 			image: null,
 			properties: {},
 			name: userEntityName,
@@ -3322,7 +3218,6 @@ describe("Query engine E2E", () => {
 
 		const { data } = await executeQueryEngine(
 			client,
-			cookies,
 			buildTableRequest({
 				scope: [mediaSchema.slug, userSchema.slug],
 				displayConfiguration: buildTableDisplayConfiguration([

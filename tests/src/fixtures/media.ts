@@ -207,10 +207,9 @@ export async function seedMediaEntity(input: {
 
 export async function createGlobalBookEntityFixture(
 	client: Client,
-	cookies: string,
 	options: { name?: string; externalId?: string } = {},
 ) {
-	const { schema } = await findBuiltinSchemaWithProviders(client, cookies);
+	const { schema } = await findBuiltinSchemaWithProviders(client);
 	const entity = await seedMediaEntity({
 		image: null,
 		userId: null,
