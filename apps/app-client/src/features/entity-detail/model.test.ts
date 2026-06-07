@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
+import { EntityId, EntitySchemaId } from "@ryot/app-backend/schema/brands";
 import type { BookProperties } from "@ryot/app-backend/schema/media-types";
 
 import { isEntitySchemaSlug, toEntityDetail } from "./model";
@@ -9,14 +10,14 @@ type EntityInput = Parameters<typeof toEntityDetail>[0];
 function makeEntity(properties: Record<string, unknown>): EntityInput {
 	return {
 		properties,
-		id: "entity-1",
 		externalId: null,
 		name: "Example Title",
 		sandboxScriptId: null,
-		entitySchemaId: "schema-1",
+		id: EntityId.make("entity-1"),
 		createdAt: "2024-01-01T00:00:00.000Z",
 		updatedAt: "2024-01-02T00:00:00.000Z",
 		populatedAt: "2024-01-03T00:00:00.000Z",
+		entitySchemaId: EntitySchemaId.make("schema-1"),
 		image: { type: "remote", url: "https://example.com/cover.jpg" },
 	};
 }
