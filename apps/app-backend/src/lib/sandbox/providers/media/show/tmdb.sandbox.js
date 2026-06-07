@@ -602,7 +602,7 @@ driver("details", async function (context, { metadata }) {
 			externalId: z.string().trim().min(1, "externalId is required"),
 		})
 		.parse(context ?? {});
-	const language = metadata?.providerInformation?.canonicalLanguage ?? "en-US";
+	const language = metadata?.providerInformation?.canonicalLanguage ?? "en";
 
 	if (!/^\d+$/.test(externalId)) {
 		throw new Error("externalId must be a numeric TMDB show ID");
