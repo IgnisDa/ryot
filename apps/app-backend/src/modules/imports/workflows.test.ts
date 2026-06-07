@@ -1,9 +1,8 @@
 import { expect, it } from "@effect/vitest";
-import { Workflow } from "@effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import { Effect, Layer } from "effect";
 
-import { CurrentDb, DbRunner } from "#lib/db";
+import { dbRunnerLayer, makeMock, makeWorkflowActivityEngine } from "#lib/test-support/effect";
 import { CollectionsService } from "#modules/collections/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
@@ -17,127 +16,123 @@ import { runOneTimeMediaImportWorkflow } from "./workflows";
 
 const now = "2026-06-17T00:00:00.000Z";
 
-const dbRunnerLayer = Layer.succeed(DbRunner, <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-	Effect.provideService(effect, CurrentDb, Object.create(null)),
-);
-
-const defaultImportsRepository = () =>
-	Object.assign(Object.create(null), {
-		updateRun: () => Effect.void,
-		createFailure: () => Effect.void,
-		_tag: "ImportsRepository" as const,
-		createRun: () => Effect.die("unused"),
-		getRunById: () => Effect.die("unused"),
-		deleteRunById: () => Effect.die("unused"),
-		listRunsByUser: () => Effect.die("unused"),
-		listFailuresByRunId: () => Effect.die("unused"),
-		listRunsByIntegrationId: () => Effect.die("unused"),
-		hasActiveRunForIntegration: () => Effect.die("unused"),
-		listRecentStatusesByIntegrationId: () => Effect.die("unused"),
-	});
-
-const defaultEntitiesRepository = () =>
-	Object.assign(Object.create(null), {
-		_tag: "EntitiesRepository" as const,
-		createEntity: () => Effect.die("unused"),
-		getByIdForUser: () => Effect.die("unused"),
-		getEntityScopeById: () => Effect.die("unused"),
-		insertRelationship: () => Effect.die("unused"),
-		upsertRelationship: () => Effect.die("unused"),
-		findEntitySchemaById: () => Effect.die("unused"),
-		getEntityScopeForUser: () => Effect.die("unused"),
-		upsertEntityRelationship: () => Effect.die("unused"),
-		deleteUserEventsForEntity: () => Effect.die("unused"),
-		createOrUpdateGlobalEntity: () => Effect.die("unused"),
-		findRelationshipProperties: () => Effect.die("unused"),
-		listMatchCandidatesBySchema: () => Effect.die("unused"),
-		getEntitySchemaScopeForUser: () => Effect.die("unused"),
-		findEntitySchemaScriptBySlug: () => Effect.succeed(null),
-		findGlobalEntityByExternalId: () => Effect.die("unused"),
-		findEntityByExternalIdForUser: () => Effect.die("unused"),
-		deleteUserRelationshipsForEntity: () => Effect.die("unused"),
-	});
-
-const defaultCollectionsService = () =>
-	Object.assign(Object.create(null), {
-		_tag: "CollectionsService" as const,
-		create: () => Effect.die("unused"),
-		markEntityOwnedInLibrary: () => Effect.void,
-		removeFromCollection: () => Effect.die("unused"),
-		ensureEntityInLibrary: () => Effect.die("unused"),
-		ensureLibraryEntityForUser: () => Effect.die("unused"),
-		getOrCreateCollection: () =>
-			Effect.succeed({
-				createdAt: now,
-				updatedAt: now,
-				properties: {},
-				id: "collection-1",
-				name: "Collection",
-				entitySchemaId: "schema-collection",
-			}),
-		addToCollection: () =>
-			Effect.succeed({
-				memberOf: {
-					createdAt: now,
-					properties: {},
-					id: "membership-1",
-					sourceEntityId: "entity-1",
-					targetEntityId: "collection-1",
-					relationshipSchemaId: "relationship-1",
-				},
-			}),
-	});
-
-const defaultEventsService = () =>
-	Object.assign(Object.create(null), {
-		_tag: "EventsService" as const,
-		list: () => Effect.die("unused"),
-		create: () => Effect.die("unused"),
-		createForIntegration: () => Effect.die("unused"),
-		createForImport: () => Effect.succeed({ count: 1 }),
-	});
-
-const defaultEventSchemasRepository = () =>
-	Object.assign(Object.create(null), {
-		_tag: "EventSchemasRepository" as const,
-		listForUser: () => Effect.die("unused"),
-		getScopeForUser: () => Effect.die("unused"),
-		createEventSchema: () => Effect.die("unused"),
-		updateEventSchema: () => Effect.die("unused"),
-		deleteEventSchema: () => Effect.die("unused"),
-		getEntitySchemaScopeById: () => Effect.die("unused"),
-		getBuiltinBySlug: () => Effect.succeed({ id: "event-schema-1" }),
-	});
-
-const defaultEntitySchemasRepository = () =>
-	Object.assign(Object.create(null), {
-		_tag: "EntitySchemasRepository" as const,
-		listByUser: () => Effect.die("unused"),
-		findBySlug: () => Effect.die("unused"),
-		getByIdForUser: () => Effect.die("unused"),
-		createEntitySchema: () => Effect.die("unused"),
-		updateEntitySchema: () => Effect.die("unused"),
-		deleteEntitySchema: () => Effect.die("unused"),
-		getBuiltinBySlug: () => Effect.succeed({ id: "builtin-book-schema" }),
-	});
-
 const makeImportsRepository = (overrides: Partial<ImportsRepository> = {}) =>
-	Object.assign(Object.create(null), defaultImportsRepository(), overrides);
+	makeMock<ImportsRepository>(
+		{
+			updateRun: () => Effect.void,
+			createFailure: () => Effect.void,
+			_tag: "ImportsRepository" as const,
+			createRun: () => Effect.die("unused"),
+			getRunById: () => Effect.die("unused"),
+			deleteRunById: () => Effect.die("unused"),
+			listRunsByUser: () => Effect.die("unused"),
+			listFailuresByRunId: () => Effect.die("unused"),
+			listRunsByIntegrationId: () => Effect.die("unused"),
+			hasActiveRunForIntegration: () => Effect.die("unused"),
+			listRecentStatusesByIntegrationId: () => Effect.die("unused"),
+		},
+		overrides,
+	);
 
 const makeEntitiesRepository = (overrides: Partial<EntitiesRepository> = {}) =>
-	Object.assign(Object.create(null), defaultEntitiesRepository(), overrides);
+	makeMock<EntitiesRepository>(
+		{
+			_tag: "EntitiesRepository" as const,
+			createEntity: () => Effect.die("unused"),
+			getByIdForUser: () => Effect.die("unused"),
+			getEntityScopeById: () => Effect.die("unused"),
+			insertRelationship: () => Effect.die("unused"),
+			upsertRelationship: () => Effect.die("unused"),
+			findEntitySchemaById: () => Effect.die("unused"),
+			getEntityScopeForUser: () => Effect.die("unused"),
+			upsertEntityRelationship: () => Effect.die("unused"),
+			deleteUserEventsForEntity: () => Effect.die("unused"),
+			createOrUpdateGlobalEntity: () => Effect.die("unused"),
+			findRelationshipProperties: () => Effect.die("unused"),
+			listMatchCandidatesBySchema: () => Effect.die("unused"),
+			getEntitySchemaScopeForUser: () => Effect.die("unused"),
+			findEntitySchemaScriptBySlug: () => Effect.succeed(null),
+			findGlobalEntityByExternalId: () => Effect.die("unused"),
+			findEntityByExternalIdForUser: () => Effect.die("unused"),
+			deleteUserRelationshipsForEntity: () => Effect.die("unused"),
+		},
+		overrides,
+	);
 
 const makeCollectionsService = (overrides: Partial<CollectionsService> = {}) =>
-	Object.assign(Object.create(null), defaultCollectionsService(), overrides);
+	makeMock<CollectionsService>(
+		{
+			_tag: "CollectionsService" as const,
+			create: () => Effect.die("unused"),
+			markEntityOwnedInLibrary: () => Effect.void,
+			removeFromCollection: () => Effect.die("unused"),
+			ensureEntityInLibrary: () => Effect.die("unused"),
+			ensureLibraryEntityForUser: () => Effect.die("unused"),
+			getOrCreateCollection: () =>
+				Effect.succeed({
+					createdAt: now,
+					updatedAt: now,
+					properties: {},
+					id: "collection-1",
+					name: "Collection",
+					entitySchemaId: "schema-collection",
+				}),
+			addToCollection: () =>
+				Effect.succeed({
+					memberOf: {
+						createdAt: now,
+						properties: {},
+						id: "membership-1",
+						sourceEntityId: "entity-1",
+						targetEntityId: "collection-1",
+						relationshipSchemaId: "relationship-1",
+					},
+				}),
+		},
+		overrides,
+	);
 
 const makeEventsService = (overrides: Partial<EventsService> = {}) =>
-	Object.assign(Object.create(null), defaultEventsService(), overrides);
+	makeMock<EventsService>(
+		{
+			_tag: "EventsService" as const,
+			list: () => Effect.die("unused"),
+			create: () => Effect.die("unused"),
+			createForIntegration: () => Effect.die("unused"),
+			createForImport: () => Effect.succeed({ count: 1 }),
+		},
+		overrides,
+	);
 
 const makeEventSchemasRepository = (overrides: Partial<EventSchemasRepository> = {}) =>
-	Object.assign(Object.create(null), defaultEventSchemasRepository(), overrides);
+	makeMock<EventSchemasRepository>(
+		{
+			_tag: "EventSchemasRepository" as const,
+			listForUser: () => Effect.die("unused"),
+			getScopeForUser: () => Effect.die("unused"),
+			createEventSchema: () => Effect.die("unused"),
+			updateEventSchema: () => Effect.die("unused"),
+			deleteEventSchema: () => Effect.die("unused"),
+			getEntitySchemaScopeById: () => Effect.die("unused"),
+			getBuiltinBySlug: () => Effect.succeed({ id: "event-schema-1" }),
+		},
+		overrides,
+	);
 
 const makeEntitySchemasRepository = (overrides: Partial<EntitySchemasRepository> = {}) =>
-	Object.assign(Object.create(null), defaultEntitySchemasRepository(), overrides);
+	makeMock<EntitySchemasRepository>(
+		{
+			_tag: "EntitySchemasRepository" as const,
+			listByUser: () => Effect.die("unused"),
+			findBySlug: () => Effect.die("unused"),
+			getByIdForUser: () => Effect.die("unused"),
+			createEntitySchema: () => Effect.die("unused"),
+			updateEntitySchema: () => Effect.die("unused"),
+			deleteEntitySchema: () => Effect.die("unused"),
+			getBuiltinBySlug: () => Effect.succeed({ id: "builtin-book-schema" }),
+		},
+		overrides,
+	);
 
 type TestLayerOptions = {
 	eventsService?: EventsService;
@@ -165,41 +160,13 @@ const makeTestLayer = (options: TestLayerOptions) =>
 		),
 	);
 
-const makeWorkflowEngine = (instance: WorkflowInstance["Type"]) => {
-	let engine: WorkflowEngine["Type"];
-
-	engine = {
-		poll: () => Effect.die("unused"),
-		resume: () => Effect.die("unused"),
-		execute: () => Effect.die("unused"),
-		register: () => Effect.die("unused"),
-		interrupt: () => Effect.die("unused"),
-		deferredDone: () => Effect.die("unused"),
-		scheduleClock: () => Effect.die("unused"),
-		deferredResult: () => Effect.die("unused"),
-		activityExecute: (activity) =>
-			Effect.gen(function* () {
-				const exit = yield* Effect.exit(
-					activity.execute.pipe(
-						Effect.provideService(WorkflowEngine, engine),
-						Effect.provideService(WorkflowInstance, instance),
-					),
-				);
-
-				return new Workflow.Complete({ exit });
-			}),
-	} as WorkflowEngine["Type"];
-
-	return engine;
-};
-
 const withTestLayer = <A, E, R>(
 	options: TestLayerOptions,
 	executionId: string,
 	effect: Effect.Effect<A, E, R>,
 ) => {
 	const instance = WorkflowInstance.initial(ProcessImportRunWorkflow, executionId);
-	const engine = makeWorkflowEngine(instance);
+	const engine = makeWorkflowActivityEngine(instance);
 
 	return effect.pipe(
 		Effect.provideService(WorkflowEngine, engine),
