@@ -5,10 +5,10 @@ import { Atom, Reactivity } from "effect/unstable/reactivity";
 
 import { adminClient, type AdminSession, canonicalAdminSession } from "@/api/admin-api";
 import { adminRequestKey } from "@/api/request-key";
-import { GOD_MODE_PAGE_SIZE } from "@/modules/god-mode/pagination";
 import { runUserLifecycleOperation } from "@/modules/god-mode/user-lifecycle";
 
 export type GodModeUser = ContractSuccess<"godMode", "listUsers">["users"][number];
+export const GOD_MODE_USERS_PAGE_SIZE = 50;
 export type MigrationReportEntry = ContractSuccess<
 	"godMode",
 	"getMigrationReport"
@@ -38,7 +38,7 @@ const usersPageFamily = Atom.family((request: GodModeUsersRequest) =>
 		reactivityKeys: usersReactivityKey(request),
 		query: {
 			offset: request.offset,
-			limit: GOD_MODE_PAGE_SIZE,
+			limit: GOD_MODE_USERS_PAGE_SIZE,
 			...(request.search === "" ? {} : { search: request.search }),
 		},
 	}),

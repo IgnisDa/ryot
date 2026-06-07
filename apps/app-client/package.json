@@ -28,6 +28,7 @@
 		"@tailwindcss/postcss": "^4.1.13",
 		"@tanstack/react-form": "2.0.0-alpha.1",
 		"@tanstack/react-hotkeys": "^0.10.0",
+		"@tanstack/react-table": "9.1.2",
 		"better-auth": "1.7.0-rc.6",
 		"clsx": "^2.1.1",
 		"effect": "4.0.0-rc.111",

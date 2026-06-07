@@ -1,3 +1,4 @@
+import { FlexRender, type Row } from "@tanstack/react-table";
 import clsx from "clsx";
 import { Cause, Effect, Exit } from "effect";
 import { useEffect, useRef, useState } from "react";
@@ -9,48 +10,13 @@ import type {
 	GodModeUser,
 } from "@/modules/god-mode/atoms";
 import { isUnauthorizedCause } from "@/modules/god-mode/errors";
-import { godModeUserColumns } from "@/modules/god-mode/user-columns";
 import type {
 	GodModeUserLifecycleOperation,
 	GodModeUserResetResult,
 } from "@/modules/god-mode/user-lifecycle";
-import { formatLocalDateLabel } from "@/modules/ui/date";
+import type { godModeUserTableFeatures } from "@/modules/god-mode/user-table-model";
 import { DestructiveActionSheet } from "@/modules/ui/destructive-action-sheet";
 import { AppRowActionMenu } from "@/modules/ui/row-action-menu";
-
-const authBadges = {
-	oidc: { label: "OIDC", box: "bg-info-soft", text: "text-info" },
-	none: { label: "None", box: "bg-surface-2", text: "text-text-subtle" },
-	mixed: { label: "Mixed", box: "bg-accent-soft", text: "text-accent-text" },
-	credential: { label: "Password", box: "bg-surface-2", text: "text-text-muted" },
-} satisfies Record<GodModeUser["authState"], { box: string; text: string; label: string }>;
-
-function StatusBadge(props: { disabledAt: string | null }) {
-	const isDisabled = props.disabledAt !== null;
-
-	return (
-		<View
-			className={clsx(
-				"self-start rounded-pill px-2.5 py-0.5",
-				isDisabled ? "bg-surface-2" : "bg-success-soft",
-			)}
-		>
-			<Text className={clsx("font-ui-medium text-xs", isDisabled ? "text-danger" : "text-success")}>
-				{isDisabled ? "Disabled" : "Enabled"}
-			</Text>
-		</View>
-	);
-}
-
-function AuthBadge(props: { state: GodModeUser["authState"] }) {
-	const badge = authBadges[props.state];
-
-	return (
-		<View className={clsx("self-start rounded-pill px-2.5 py-0.5", badge.box)}>
-			<Text className={clsx("font-ui-medium text-xs", badge.text)}>{badge.label}</Text>
-		</View>
-	);
-}
 
 type GodModeAction<T> = () => Promise<Exit.Exit<T, unknown>>;
 
@@ -67,10 +33,11 @@ const logActionFailure = (label: string, cause: Cause.Cause<unknown>) =>
 	Effect.runSync(Effect.logWarning(label, Cause.pretty(cause)));
 
 export function GodModeUserRow(props: {
-	readonly user: GodModeUser;
 	readonly onUnauthorized: () => void;
 	readonly actions: GodModeUserActions;
+	readonly row: Row<typeof godModeUserTableFeatures, GodModeUser>;
 }) {
+	const user = props.row.original;
 	const mounted = useRef(true);
 	const [copied, setCopied] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -93,8 +60,8 @@ export function GodModeUserRow(props: {
 		};
 	}, []);
 
-	const isDisabled = props.user.disabledAt !== null;
-	const canReset = props.user.authState === "credential" || props.user.authState === "none";
+	const isDisabled = user.disabledAt !== null;
+	const canReset = user.authState === "credential" || user.authState === "none";
 	let disabledActionLabel = isDisabled ? "Enable user" : "Disable user";
 	if (pending === "disabled") {
 		disabledActionLabel = isDisabled ? "Enabling..." : "Disabling...";
@@ -223,85 +190,55 @@ export function GodModeUserRow(props: {
 	let resetHint: string | undefined;
 	if (!canReset) {
 		resetHint =
-			props.user.authState === "oidc" ? "OIDC-only user" : "Mixed auth — manual recovery needed";
+			user.authState === "oidc" ? "OIDC-only user" : "Mixed auth — manual recovery needed";
 	}
-
 	return (
 		<View className="border-b border-border">
 			<View className="min-h-14 flex-row items-center gap-3 py-2 md:gap-4">
-				<View className={clsx(godModeUserColumns.email, "gap-0.5")}>
-					<Text
-						numberOfLines={1}
-						className={clsx(
-							"font-ui-medium text-[15px]",
-							isDisabled ? "text-text-muted line-through" : "text-text",
+				{props.row.getAllCells().map((cell) => (
+					<View key={cell.id} className={clsx(cell.column.columnDef.meta?.className)}>
+						{cell.column.id === "actions" ? (
+							<AppRowActionMenu
+								note={resetHint}
+								title="User actions"
+								subject={user.email}
+								items={[
+									{
+										disabled: !canReset || pending !== null,
+										onPress: () => void handleGenerateResetLink(),
+										label: pending === "password" ? "Generating..." : "Generate reset link",
+									},
+									{
+										label: disabledActionLabel,
+										disabled: pending !== null,
+										isDestructive: !isDisabled,
+										onPress: () => void handleToggleDisabled(),
+									},
+									{
+										isDestructive: true,
+										disabled: pending !== null,
+										label: pending === "reset" ? "Resetting..." : "Reset account",
+										onPress: () => {
+											setDestructiveError(undefined);
+											setConfirmation("reset");
+										},
+									},
+									{
+										isDestructive: true,
+										disabled: pending !== null,
+										label: pending === "delete" ? "Deleting..." : "Delete user",
+										onPress: () => {
+											setDestructiveError(undefined);
+											setConfirmation("delete");
+										},
+									},
+								]}
+							/>
+						) : (
+							<FlexRender cell={cell} />
 						)}
-					>
-						{props.user.email}
-					</Text>
-					<Text numberOfLines={1} className="font-ui text-[13px] text-text-muted md:hidden">
-						{props.user.name}
-					</Text>
-					{props.user.disabledAt && (
-						<Text className="font-ui text-xs text-text-subtle">
-							Disabled since {formatLocalDateLabel(props.user.disabledAt)}
-						</Text>
-					)}
-				</View>
-				<View className={godModeUserColumns.name}>
-					<Text numberOfLines={1} className="font-ui text-sm text-text-muted">
-						{props.user.name}
-					</Text>
-				</View>
-				<View className={godModeUserColumns.auth}>
-					<AuthBadge state={props.user.authState} />
-				</View>
-				<View className={godModeUserColumns.status}>
-					<StatusBadge disabledAt={props.user.disabledAt} />
-				</View>
-				<View className={godModeUserColumns.created}>
-					<Text numberOfLines={1} className="font-ui text-sm text-text-muted">
-						{formatLocalDateLabel(props.user.createdAt)}
-					</Text>
-				</View>
-				<View className={godModeUserColumns.actions}>
-					<AppRowActionMenu
-						note={resetHint}
-						title="User actions"
-						subject={props.user.email}
-						items={[
-							{
-								disabled: !canReset || pending !== null,
-								onPress: () => void handleGenerateResetLink(),
-								label: pending === "password" ? "Generating..." : "Generate reset link",
-							},
-							{
-								label: disabledActionLabel,
-								disabled: pending !== null,
-								isDestructive: !isDisabled,
-								onPress: () => void handleToggleDisabled(),
-							},
-							{
-								isDestructive: true,
-								disabled: pending !== null,
-								label: pending === "reset" ? "Resetting..." : "Reset account",
-								onPress: () => {
-									setDestructiveError(undefined);
-									setConfirmation("reset");
-								},
-							},
-							{
-								isDestructive: true,
-								disabled: pending !== null,
-								label: pending === "delete" ? "Deleting..." : "Delete user",
-								onPress: () => {
-									setDestructiveError(undefined);
-									setConfirmation("delete");
-								},
-							},
-						]}
-					/>
-				</View>
+					</View>
+				))}
 			</View>
 			{error && <Text className="pb-2 font-ui text-xs text-danger">{error}</Text>}
 			{result?.resetUrl && (
