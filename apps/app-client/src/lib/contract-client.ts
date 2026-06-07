@@ -1,5 +1,4 @@
-import { FetchHttpClient, HttpApiClient, HttpClient, HttpClientRequest } from "@effect/platform";
-import { AppContract } from "@ryot/contract/contract";
+import { runContract, type ContractClient, type RequestHeaders } from "@ryot/contract/client";
 import { useQuery } from "@tanstack/react-query";
 import { Effect } from "effect";
 import { useMemo } from "react";
@@ -7,22 +6,7 @@ import { useMemo } from "react";
 import { useAuthClient, useServerUrl } from "@/lib/atoms";
 import { CLOUD_URL } from "@/lib/server";
 
-type RequestHeaders = Record<string, string>;
-type ContractMethod = (...args: never[]) => Effect.Effect<unknown, unknown, unknown>;
-type StripResponseMeta<T> = T extends readonly [infer Data, unknown] ? Data : T;
-
-const makeContractClient = (serverUrl: string, headers: RequestHeaders) =>
-	HttpApiClient.make(AppContract, {
-		baseUrl: `${serverUrl}/api`,
-		...(Object.keys(headers).length
-			? { transformClient: HttpClient.mapRequest(HttpClientRequest.setHeaders(headers)) }
-			: {}),
-	});
-
-export type ContractClient = Effect.Effect.Success<ReturnType<typeof makeContractClient>>;
-export type ContractSuccess<T extends ContractMethod> = StripResponseMeta<
-	Effect.Effect.Success<ReturnType<T>>
->;
+export type { ContractClient, ContractSuccess } from "@ryot/contract/client";
 
 export type ContractRunner = <A, E>(
 	run: (client: ContractClient) => Effect.Effect<A, E>,
@@ -32,13 +16,7 @@ export function createContractRunner(
 	serverUrl: string,
 	headers: RequestHeaders = {},
 ): ContractRunner {
-	return (run) =>
-		makeContractClient(serverUrl, headers).pipe(
-			Effect.flatMap(run),
-			Effect.provideService(FetchHttpClient.RequestInit, { credentials: "include" }),
-			Effect.provide(FetchHttpClient.layer),
-			Effect.runPromise,
-		);
+	return (run) => runContract(run, { baseUrl: `${serverUrl}/api`, headers, credentials: "include" });
 }
 
 export function useContractClient(): ContractRunner {

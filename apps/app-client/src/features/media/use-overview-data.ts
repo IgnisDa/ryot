@@ -1,11 +1,7 @@
 import { getQueryEngineField } from "@ryot/ts-utils/query-engine";
 import { useQuery } from "@tanstack/react-query";
 
-import {
-	type ContractClient,
-	type ContractSuccess,
-	useContractClient,
-} from "@/lib/contract-client";
+import { type ContractSuccess, useContractClient } from "@/lib/contract-client";
 import { toEntityImage } from "@/lib/entity-image";
 import { useResolvedImageUrls } from "@/lib/image";
 
@@ -59,7 +55,7 @@ const COMMON_ENTITY_FIELDS = [
 	},
 ];
 
-type QueryEngineResponse = ContractSuccess<ContractClient["queryEngine"]["execute"]>;
+type QueryEngineResponse = ContractSuccess<"queryEngine", "execute">;
 type QueryEngineItem = Extract<
 	QueryEngineResponse,
 	{ mode: "entities" | "events" }

@@ -14,12 +14,11 @@ import { Text } from "@/components/ui/text";
 import { useServerUrl } from "@/lib/atoms";
 import {
 	createContractRunner,
-	type ContractClient,
 	type ContractRunner,
 	type ContractSuccess,
 } from "@/lib/contract-client";
 
-type GodModeUser = ContractSuccess<ContractClient["godMode"]["listUsers"]>["users"][number];
+type GodModeUser = ContractSuccess<"godMode", "listUsers">["users"][number];
 
 const godModeUsersQueryKey = (token: string) => ["god-mode-users", token] as const;
 
