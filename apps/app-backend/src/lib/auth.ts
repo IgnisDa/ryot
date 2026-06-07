@@ -62,7 +62,7 @@ const makeAuthInstance = (args: {
 		},
 		user: {
 			additionalFields: {
-				bannedAt: { type: "date", required: false, input: false },
+				disabledAt: { type: "date", required: false, input: false },
 				preferences: { type: "json", required: true, defaultValue: defaultUserPreferences },
 			},
 		},
@@ -106,12 +106,12 @@ const makeAuthInstance = (args: {
 				create: {
 					before: (session) =>
 						args.db
-							.select({ bannedAt: schema.user.bannedAt })
+							.select({ disabledAt: schema.user.disabledAt })
 							.from(schema.user)
 							.where(eq(schema.user.id, session.userId))
 							.limit(1)
 							.then(([foundUser]) => {
-								if (foundUser?.bannedAt) {
+								if (foundUser?.disabledAt) {
 									throw APIError.from("FORBIDDEN", {
 										code: "USER_DISABLED",
 										message: "This user has been disabled.",
@@ -234,7 +234,7 @@ export class AuthService extends Effect.Service<AuthService>()("AuthService", {
 						if (!session) {
 							return Effect.fail(unauthorized());
 						}
-						if (session.user.bannedAt) {
+						if (session.user.disabledAt) {
 							return Effect.fail(unauthorized());
 						}
 						return Effect.succeed({
