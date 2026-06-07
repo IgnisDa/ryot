@@ -1,4 +1,4 @@
-import { IntegrationId } from "@ryot/app-backend/schema/brands";
+import { IntegrationId } from "@ryot/contract/schema/brands";
 
 import { getBackendUrl } from "../setup";
 import { requirePresent } from "../test-support/assertions";

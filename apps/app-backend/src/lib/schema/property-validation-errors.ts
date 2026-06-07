@@ -1,6 +1,8 @@
+import {
+	PropertyValidationError,
+	type PropertyValidationIssue,
+} from "@ryot/contract/schema/property-schema";
 import { ParseResult } from "effect";
-
-import { PropertyValidationError, type PropertyValidationIssue } from "./property-schema";
 
 export const formatValidationError = (issues: ReadonlyArray<PropertyValidationIssue>) =>
 	issues.map((issue) =>

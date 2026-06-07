@@ -1,7 +1,7 @@
+import type { EntityId, UserId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
 import { DbRunner } from "#lib/db/service";
-import type { EntityId, UserId } from "#lib/schema/brands";
 
 import { EpisodeResolverRepository } from "./repository";
 

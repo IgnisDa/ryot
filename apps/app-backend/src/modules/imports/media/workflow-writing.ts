@@ -1,10 +1,15 @@
 import { Activity } from "@effect/workflow";
+import { unknownToMessage } from "@ryot/contract/errors";
+import {
+	EntityId,
+	EntitySchemaId,
+	EventSchemaId,
+	type IntegrationId,
+} from "@ryot/contract/schema/brands";
 import { DateTime, Effect, Schema } from "effect";
 
 import { defaultUserPreferences } from "#lib/builtins/bootstrap";
 import { DbRunner } from "#lib/db/service";
-import { unknownToMessage } from "#lib/errors";
-import { EntityId, EntitySchemaId, EventSchemaId, type IntegrationId } from "#lib/schema/brands";
 import { CollectionsService } from "#modules/collections/service";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 import { EpisodeResolverService } from "#modules/episode-resolver/service";

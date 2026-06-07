@@ -1,4 +1,4 @@
-import { EntityId } from "@ryot/app-backend/schema/brands";
+import { EntityId } from "@ryot/contract/schema/brands";
 import { useQuery } from "@tanstack/react-query";
 
 import { Box } from "@/components/ui/box";

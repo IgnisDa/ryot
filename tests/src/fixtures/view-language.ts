@@ -6,7 +6,7 @@ import {
 	type QueryFilter,
 	relationshipJoinBuiltinColumns,
 	type RuntimeRef,
-} from "@ryot/app-backend/display-configuration";
+} from "@ryot/contract/display-configuration";
 
 export type { QueryExpression as ViewExpression, QueryFilter as ViewPredicate };
 

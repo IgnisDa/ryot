@@ -1,6 +1,6 @@
+import type { QueryDocument } from "@ryot/contract/modules/query-engine/language";
 import { describe, expect, it } from "vitest";
 
-import type { QueryDocument } from "./language";
 import { createdAtRef, propertyRef } from "./validator.test-support";
 import { validateQueryDocument } from "./validator/document";
 

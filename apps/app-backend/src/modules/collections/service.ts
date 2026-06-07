@@ -1,10 +1,15 @@
+import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
+import { badRequest, notFound } from "@ryot/contract/errors";
+import type {
+	CreateCollectionBody,
+	CreateMembershipBody,
+	DeleteMembershipBody,
+} from "@ryot/contract/modules/collections/schemas";
+import type { EntityId, EntitySchemaId, EventSchemaId, UserId } from "@ryot/contract/schema/brands";
+import { decodeStoredAppSchema } from "@ryot/contract/schema/core";
 import { Cause, DateTime, Effect } from "effect";
 
-import type { CurrentUserValue } from "#lib/auth-middleware";
 import { DbRunner, TransactionRunner } from "#lib/db/service";
-import { badRequest, notFound } from "#lib/errors";
-import type { EntityId, EntitySchemaId, EventSchemaId, UserId } from "#lib/schema/brands";
-import { decodeStoredAppSchema } from "#lib/schema/core";
 import {
 	parseAppSchemaProperties,
 	parseLabeledPropertySchemaInput,
@@ -17,7 +22,6 @@ import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
 
 import { CollectionsRepository } from "./repository";
-import type { CreateCollectionBody, CreateMembershipBody, DeleteMembershipBody } from "./schemas";
 import {
 	circularReferenceError,
 	collectionNotFoundError,

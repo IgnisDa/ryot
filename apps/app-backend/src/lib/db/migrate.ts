@@ -1,7 +1,7 @@
+import { unknownToDbError } from "@ryot/contract/errors";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { Effect } from "effect";
 
-import { unknownToDbError } from "#lib/errors";
 import { dropLegacyTables } from "#modules/legacy-bootstrap/drop-tables";
 import { migrateLegacyTables } from "#modules/legacy-bootstrap/migrate-data";
 import { renameLegacyTables } from "#modules/legacy-bootstrap/rename-tables";

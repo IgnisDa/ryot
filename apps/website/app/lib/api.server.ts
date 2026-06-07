@@ -1,5 +1,6 @@
 import { FetchHttpClient, HttpApiClient, HttpClient, HttpClientRequest } from "@effect/platform";
-import { AppContract } from "@ryot/app-backend/contract";
+import { AppContract } from "@ryot/contract/contract";
+import type { UserId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
 import { getServerVariables } from "./config.server";
@@ -55,10 +56,8 @@ export const provisionUser = (body: ProvisionUserBody) =>
 			: client.godMode.provisionUser({ payload: body }),
 	);
 
-export const resetUserPassword = (userId: string) =>
+export const resetUserPassword = (userId: UserId) =>
 	runAdmin((client) => client.godMode.resetUserPassword({ path: { userId } }));
 
-export const setUserDisabled = (userId: string, disabled: boolean) =>
-	runAdmin((client) =>
-		client.godMode.setUserDisabled({ path: { userId }, payload: { disabled } }),
-	);
+export const setUserDisabled = (userId: UserId, disabled: boolean) =>
+	runAdmin((client) => client.godMode.setUserDisabled({ path: { userId }, payload: { disabled } }));

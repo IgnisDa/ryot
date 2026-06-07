@@ -1,4 +1,4 @@
-import { ImportRunId } from "@ryot/app-backend/schema/brands";
+import { ImportRunId } from "@ryot/contract/schema/brands";
 
 import { getBackendUrl } from "../setup";
 import { requirePresent } from "../test-support/assertions";

@@ -1,6 +1,6 @@
-import { isObjectRecord } from "#lib/predicates";
+import type { IncludeEntry, RowItem, RowValue } from "@ryot/contract/modules/query-engine/language";
+import { isObjectRecord } from "@ryot/ts-utils/predicates";
 
-import type { IncludeEntry, RowItem, RowValue } from "../language";
 import { reconstructRowItem } from "./compile/select-list";
 
 // Turns the `<key>__inc` jsonb arrays produced by the include LATERALs into IncludedRowsValue trees.

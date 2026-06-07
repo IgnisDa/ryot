@@ -1,11 +1,11 @@
 import { HttpApiBuilder } from "@effect/platform";
+import { CurrentUser } from "@ryot/contract/auth-middleware";
+import { AppContract } from "@ryot/contract/contract";
+import { badRequest, dieOnDbError, notFound } from "@ryot/contract/errors";
+import type { EntitySchemaId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
-import { CurrentUser } from "#lib/auth-middleware";
-import { AppContract } from "#lib/contract";
 import { DbRunner } from "#lib/db/service";
-import { badRequest, dieOnDbError, notFound } from "#lib/errors";
-import type { EntitySchemaId } from "#lib/schema/brands";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 

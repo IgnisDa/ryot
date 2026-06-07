@@ -1,10 +1,8 @@
 import { assert, expect, it } from "@effect/vitest";
 import { Workflow } from "@effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
-import { Effect, Layer } from "effect";
-
-import { SandboxRunError } from "#lib/errors";
-import { RedisService } from "#lib/redis";
+import { SandboxRunError } from "@ryot/contract/errors";
+import { ListedEntity } from "@ryot/contract/modules/entities/schemas";
 import {
 	EntityId,
 	EntitySchemaId,
@@ -12,7 +10,10 @@ import {
 	RelationshipSchemaId,
 	SandboxScriptId,
 	UserId,
-} from "#lib/schema/brands";
+} from "@ryot/contract/schema/brands";
+import { Effect, Layer } from "effect";
+
+import { RedisService } from "#lib/redis";
 import type { MockOverrides } from "#lib/test-support/effect";
 import {
 	dbRunnerLayer,
@@ -20,7 +21,6 @@ import {
 	makeWorkflowActivityEngine,
 } from "#lib/test-support/effect";
 import { EntitiesRepository } from "#modules/entities/repository";
-import { ListedEntity } from "#modules/entities/schemas";
 import { EntitiesService } from "#modules/entities/service";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
