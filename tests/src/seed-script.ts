@@ -1,17 +1,19 @@
-// @ts-ignore
 /* oxlint-disable */
-// TODO: delete this file eventually
 
 import { fileURLToPath } from "node:url";
 
+import { FetchHttpClient, HttpApiClient, HttpClient, HttpClientRequest } from "@effect/platform";
 import { faker } from "@faker-js/faker";
-import type { components, paths } from "@ryot/generated/openapi/app-backend";
+import { AppContract } from "@ryot/app-backend/contract";
+import type { QueryExpression, QueryFilter, RuntimeRef } from "@ryot/app-backend/query-language";
+import type { AppSchema } from "@ryot/app-backend/schema";
 import { dayjs } from "@ryot/ts-utils/dayjs";
 import { createAuthClient } from "better-auth/client";
 import { config } from "dotenv";
-import createClient from "openapi-fetch";
+import { Effect } from "effect";
 
 import { cookieHeaderFromSetCookies, enableTwoFactorForSession } from "./fixtures/auth-2fa";
+import type { ContractPayload, ContractSuccess } from "./fixtures/contract-client";
 import { requirePresent } from "./test-support/assertions";
 
 config({ path: fileURLToPath(new URL("../.env", import.meta.url)) });
@@ -81,23 +83,14 @@ async function createAndSignIn(): Promise<{
 	};
 }
 
-type Client = ReturnType<typeof createClient<paths>>;
-type CreateCollectionBody = {
-	name: string;
-	description?: string;
-	membershipPropertiesSchema?: Record<string, unknown>;
-};
-type AddToCollectionBody = NonNullable<
-	paths["/collections/memberships"]["post"]["requestBody"]
->["content"]["application/json"];
-type CreateSavedViewBody = NonNullable<
-	paths["/saved-views"]["post"]["requestBody"]
->["content"]["application/json"];
+type CreateCollectionBody = ContractPayload<"collections", "create">;
+type AddToCollectionBody = ContractPayload<"collections", "createMembership">;
+type CreateSavedViewBody = ContractPayload<"savedViews", "create">;
 type SavedViewQueryDefinition = CreateSavedViewBody["queryDefinition"];
-type EntitySavedViewQueryDefinition = Extract<SavedViewQueryDefinition, { mode: "entities" }>;
+type SavedViewSortByExpr = NonNullable<SavedViewQueryDefinition["sort"]>;
 type SavedViewQueryInput = {
 	scope: string[];
-	eventJoins?: EntitySavedViewQueryDefinition["eventJoins"];
+	eventJoins?: SavedViewQueryDefinition["eventJoins"];
 	computedFields?: SavedViewQueryDefinition["computedFields"];
 	filter?: SavedViewQueryDefinition["filter"];
 	filters?: Array<{
@@ -105,7 +98,7 @@ type SavedViewQueryInput = {
 		field: string;
 		value?: unknown;
 	}>;
-	sort: EntitySavedViewQueryDefinition["sort"] | { direction: "asc" | "desc"; fields: string[] };
+	sort: SavedViewSortByExpr | { direction: "asc" | "desc"; fields: string[] };
 };
 type SavedViewDisplayConfiguration = CreateSavedViewBody["displayConfiguration"];
 type SavedViewTableColumn = {
@@ -113,11 +106,11 @@ type SavedViewTableColumn = {
 	expression?: SavedViewDisplayConfiguration["table"]["columns"][number]["expression"];
 	property?: string[];
 };
-type SavedViewExpression = EntitySavedViewQueryDefinition["sort"]["expression"];
-type SavedViewPredicate = NonNullable<SavedViewQueryDefinition["filter"]>;
-type SavedViewQueryEngineRef = Extract<SavedViewExpression, { type: "reference" }>["reference"];
+type SavedViewExpression = QueryExpression;
+type SavedViewPredicate = QueryFilter;
+type SavedViewQueryEngineRef = RuntimeRef;
 type ComputedFieldDef = NonNullable<SavedViewQueryDefinition["computedFields"]>[number];
-type EventJoinDef = NonNullable<EntitySavedViewQueryDefinition["eventJoins"]>[number];
+type EventJoinDef = NonNullable<SavedViewQueryDefinition["eventJoins"]>[number];
 type SavedViewSortInput = Extract<SavedViewQueryInput["sort"], { fields: string[] }>;
 type SavedViewDisplayConfigInput = {
 	entityIdProperty?: string[] | null;
@@ -149,39 +142,30 @@ type SavedViewSpec = {
 	displayConfiguration: SavedViewDisplayConfigInput;
 };
 
-type PropertiesSchemaField = {
-	type: string;
-	label?: string;
-	description: string;
-	unknownKeys?: string;
-	items?: PropertiesSchemaField;
-	transform?: Record<string, unknown>;
-	validation?: Record<string, unknown>;
-	properties?: Record<string, PropertiesSchemaField>;
-};
+const makeContractClient = (cookies: string) =>
+	HttpApiClient.make(AppContract, {
+		baseUrl: API_BASE_URL,
+		transformClient: HttpClient.mapRequest(HttpClientRequest.setHeaders({ Cookie: cookies })),
+	});
 
-type PropertiesSchema = {
-	fields: Record<string, PropertiesSchemaField>;
-	rules?: components["schemas"]["AppSchemaRule"][];
-};
+type ContractClient = Effect.Effect.Success<ReturnType<typeof makeContractClient>>;
+type ContractProgram<A, E> = (client: ContractClient) => Effect.Effect<A, E>;
 
 class APIClient {
-	private client: Client;
+	private cookies: string;
 	private requestCount = 0;
 
 	constructor(cookies: string) {
-		this.client = createClient<paths>({
-			baseUrl: API_BASE_URL,
-			headers: { Cookie: cookies },
-		});
+		this.cookies = cookies;
 	}
 
-	getClient(): Client {
-		return this.client;
-	}
-
-	incrementRequestCount(): void {
+	run<A, E>(program: ContractProgram<A, E>): Promise<A> {
 		this.requestCount++;
+		return makeContractClient(this.cookies).pipe(
+			Effect.flatMap(program),
+			Effect.provide(FetchHttpClient.layer),
+			Effect.runPromise,
+		);
 	}
 
 	getRequestCount(): number {
@@ -210,18 +194,12 @@ async function createTracker(
 	description?: string,
 ) {
 	console.log(`  Creating tracker: ${name}...`);
-	apiClient.incrementRequestCount();
-	const client = apiClient.getClient();
-	const { data, response } = await client.POST("/trackers", {
-		body: { name, slug, icon, accentColor, description },
-	});
+	const tracker = await apiClient.run((c) =>
+		c.trackers.create({ payload: { name, slug, icon, accentColor, description } }),
+	);
 
-	if (!response.ok || !data?.data) {
-		throw new Error(`Failed to create tracker: ${response.statusText}`);
-	}
-
-	console.log(`  ✓ Created tracker: ${name} (${data.data.id})`);
-	return data.data;
+	console.log(`  ✓ Created tracker: ${name} (${tracker.id})`);
+	return tracker;
 }
 
 async function createEntitySchema(
@@ -231,28 +209,17 @@ async function createEntitySchema(
 	trackerId: string,
 	icon: string,
 	accentColor: string,
-	propertiesSchema: PropertiesSchema,
+	propertiesSchema: AppSchema,
 ) {
 	console.log(`    Creating entity schema: ${name}...`);
-	apiClient.incrementRequestCount();
-	const client = apiClient.getClient();
-	const { data, response } = await client.POST("/entity-schemas", {
-		body: {
-			name,
-			slug,
-			icon,
-			trackerId,
-			accentColor,
-			propertiesSchema,
-		} as never,
-	});
+	const schema = await apiClient.run((c) =>
+		c.entitySchemas.create({
+			payload: { name, slug, icon, trackerId, accentColor, propertiesSchema },
+		}),
+	);
 
-	if (!response.ok || !data?.data) {
-		throw new Error(`Failed to create entity schema: ${response.statusText}`);
-	}
-
-	console.log(`    ✓ Created entity schema: ${name} (${data.data.id})`);
-	return data.data;
+	console.log(`    ✓ Created entity schema: ${name} (${schema.id})`);
+	return schema;
 }
 
 async function createEventSchema(
@@ -260,21 +227,15 @@ async function createEventSchema(
 	name: string,
 	slug: string,
 	entitySchemaId: string,
-	propertiesSchema: PropertiesSchema,
+	propertiesSchema: AppSchema,
 ) {
 	console.log(`      Creating event schema: ${name}...`);
-	apiClient.incrementRequestCount();
-	const client = apiClient.getClient();
-	const { data, response } = await client.POST("/event-schemas", {
-		body: { name, slug, entitySchemaId, propertiesSchema } as never,
-	});
+	const schema = await apiClient.run((c) =>
+		c.eventSchemas.create({ payload: { name, slug, entitySchemaId, propertiesSchema } }),
+	);
 
-	if (!response.ok || !data?.data) {
-		throw new Error(`Failed to create event schema: ${response.statusText}`);
-	}
-
-	console.log(`      ✓ Created event schema: ${name} (${data.data.id})`);
-	return data.data;
+	console.log(`      ✓ Created event schema: ${name} (${schema.id})`);
+	return schema;
 }
 
 async function createEntity(
@@ -284,76 +245,39 @@ async function createEntity(
 	properties: Record<string, unknown>,
 	imageUrl: string | null,
 ) {
-	apiClient.incrementRequestCount();
-	const client = apiClient.getClient();
-	const { data, response } = await client.POST("/entities", {
-		body: {
-			name,
-			properties,
-			entitySchemaId,
-			image: imageUrl ? { type: "remote", url: imageUrl } : null,
-		},
-	});
-
-	if (!response.ok || !data?.data) {
-		throw new Error(`Failed to create entity: ${response.statusText}`);
-	}
-
-	return data.data;
+	return apiClient.run((c) =>
+		c.entities.create({
+			payload: {
+				name,
+				properties,
+				entitySchemaId,
+				image: imageUrl ? { type: "remote", url: imageUrl } : null,
+			},
+		}),
+	);
 }
 
 async function createCollection(apiClient: APIClient, body: CreateCollectionBody) {
 	console.log(`  Creating collection: ${body.name}...`);
-	apiClient.incrementRequestCount();
-	const client = apiClient.getClient();
-	const { data, error, response } = await client.POST("/collections", {
-		body: body as never,
-	});
+	const collection = await apiClient.run((c) => c.collections.create({ payload: body }));
 
-	if (!response.ok || !data?.data) {
-		const details = error ? ` ${JSON.stringify(error)}` : "";
-		throw new Error(
-			`Failed to create collection '${body.name}': ${response.status} ${response.statusText}${details}`,
-		);
-	}
-
-	console.log(`  ✓ Created collection: ${body.name} (${data.data.id})`);
-	return data.data;
+	console.log(`  ✓ Created collection: ${body.name} (${collection.id})`);
+	return collection;
 }
 
 async function addEntityToCollection(apiClient: APIClient, body: AddToCollectionBody) {
-	apiClient.incrementRequestCount();
-	const client = apiClient.getClient();
-	const { data, error, response } = await client.POST("/collections/memberships", { body });
-
-	if (!response.ok || !data?.data) {
-		const details = error ? ` ${JSON.stringify(error)}` : "";
-		throw new Error(
-			`Failed to add entity '${body.entityId}' to collection '${body.collectionId}': ${response.status} ${response.statusText}${details}`,
-		);
-	}
-
-	return data.data;
+	return apiClient.run((c) => c.collections.createMembership({ payload: body }));
 }
 
 type SeedEntity = Awaited<ReturnType<typeof createEntity>>;
 
-type EventPayload = NonNullable<
-	paths["/events"]["post"]["requestBody"]
->["content"]["application/json"][number];
+type EventPayload = ContractPayload<"events", "create">[number];
 
 async function createEvents(apiClient: APIClient, events: EventPayload[]): Promise<void> {
 	if (events.length === 0) {
 		return;
 	}
-	apiClient.incrementRequestCount();
-	const client = apiClient.getClient();
-	const { data, response } = await client.POST("/events", { body: events });
-
-	if (!response.ok) {
-		const details = data ? ` ${JSON.stringify(data)}` : "";
-		throw new Error(`Failed to create events: ${response.statusText}${details}`);
-	}
+	await apiClient.run((c) => c.events.create({ payload: events }));
 }
 
 const literalExpression = (value: unknown): SavedViewExpression => ({
@@ -655,27 +579,18 @@ async function createSavedView(
 		},
 	};
 
-	apiClient.incrementRequestCount();
-	const client = apiClient.getClient();
-	const { data, error, response } = await client.POST("/saved-views", {
-		body: {
-			name,
-			icon,
-			accentColor,
-			trackerId,
-			queryDefinition: normalizedQueryDefinition,
-			displayConfiguration: normalizedDisplayConfiguration,
-		},
-	});
-
-	if (!response.ok || !data?.data) {
-		const details = error ? ` ${JSON.stringify(error)}` : "";
-		throw new Error(
-			`Failed to create saved view: ${response.status} ${response.statusText}${details}`,
-		);
-	}
-
-	return data.data;
+	return apiClient.run((c) =>
+		c.savedViews.create({
+			payload: {
+				name,
+				icon,
+				accentColor,
+				trackerId,
+				queryDefinition: normalizedQueryDefinition,
+				displayConfiguration: normalizedDisplayConfiguration,
+			},
+		}),
+	);
 }
 
 // ─── Expression builders ────────────────────────────────────────────────────
@@ -789,7 +704,7 @@ function eventJoin(key: string, eventSchemaSlug: string): EventJoinDef {
 function sortByExpr(
 	direction: "asc" | "desc",
 	expression: SavedViewExpression,
-): EntitySavedViewQueryDefinition["sort"] {
+): SavedViewSortByExpr {
 	return { direction, expression };
 }
 
@@ -1546,17 +1461,11 @@ async function seedMobilePhones(client: APIClient) {
 // ─── Builtin media tracker helpers ─────────────────────────────────────────
 
 async function getBuiltinTracker(apiClient: APIClient) {
-	apiClient.incrementRequestCount();
-	const client = apiClient.getClient();
-	const { data, response } = await client.GET("/trackers", {
-		params: { query: { includeDisabled: "true" } },
-	});
+	const trackers = await apiClient.run((c) =>
+		c.trackers.list({ urlParams: { includeDisabled: true } }),
+	);
 
-	if (!response.ok || !data?.data) {
-		throw new Error("Failed to list trackers");
-	}
-
-	const builtinTracker = data.data.find((t) => t.isBuiltin);
+	const builtinTracker = trackers.find((t) => t.isBuiltin);
 	if (!builtinTracker) {
 		throw new Error("Built-in media tracker not found");
 	}
@@ -1565,34 +1474,18 @@ async function getBuiltinTracker(apiClient: APIClient) {
 }
 
 async function listMediaEntitySchemas(apiClient: APIClient, trackerId: string) {
-	apiClient.incrementRequestCount();
-	const client = apiClient.getClient();
-	const { data, response } = await client.POST("/entity-schemas/list", {
-		body: { trackerId },
-	});
-
-	if (!response.ok || !data?.data) {
-		throw new Error("Failed to list media entity schemas");
-	}
-
-	return data.data;
+	return apiClient.run((c) => c.entitySchemas.list({ payload: { trackerId } }));
 }
 
 async function getMediaLifecycleEventSchemas(apiClient: APIClient, entitySchemaId: string) {
-	apiClient.incrementRequestCount();
-	const client = apiClient.getClient();
-	const { data, response } = await client.GET("/event-schemas", {
-		params: { query: { entitySchemaId } },
-	});
+	const schemas = await apiClient.run((c) =>
+		c.eventSchemas.list({ urlParams: { entitySchemaId } }),
+	);
 
-	if (!response.ok || !data?.data) {
-		throw new Error(`Failed to list event schemas for entity schema ${entitySchemaId}`);
-	}
-
-	const backlog = data.data.find((s) => s.slug === "backlog");
-	const progress = data.data.find((s) => s.slug === "progress");
-	const complete = data.data.find((s) => s.slug === "complete");
-	const review = data.data.find((s) => s.slug === "review");
+	const backlog = schemas.find((s) => s.slug === "backlog");
+	const progress = schemas.find((s) => s.slug === "progress");
+	const complete = schemas.find((s) => s.slug === "complete");
+	const review = schemas.find((s) => s.slug === "review");
 
 	if (!backlog || !progress || !complete || !review) {
 		throw new Error(`Missing lifecycle event schemas for entity schema ${entitySchemaId}`);
@@ -1641,18 +1534,11 @@ async function pollSearchJob(
 	apiClient: APIClient,
 	jobId: string,
 ): Promise<Array<{ externalId: string }>> {
-	const client = apiClient.getClient();
 	const startedAt = Date.now();
 	while (true) {
-		apiClient.incrementRequestCount();
 		// oxlint-disable-next-line no-await-in-loop
-		const { data, response } = await client.GET("/entity-schemas/search/{jobId}", {
-			params: { path: { jobId } },
-		});
-		if (!response.ok || !data?.data) {
-			throw new Error(`Failed to poll search job ${jobId}`);
-		}
-		if (data.data.status === "pending") {
+		const result = await apiClient.run((c) => c.entitySchemas.getSearchResult({ path: { jobId } }));
+		if (result.status === "pending") {
 			if (Date.now() - startedAt > 60000) {
 				throw new Error(`Search job ${jobId} timed out`);
 			}
@@ -1660,12 +1546,10 @@ async function pollSearchJob(
 			await sleep(500);
 			continue;
 		}
-		if (data.data.status === "failed") {
-			throw new Error(`Search job failed: ${data.data.error}`);
+		if (result.status === "failed") {
+			throw new Error(`Search job failed: ${result.error}`);
 		}
-		const value = (data.data as { status: "completed"; value: unknown }).value as {
-			items?: Array<{ externalId: string }>;
-		};
+		const value = result.value as { items?: Array<{ externalId: string }> };
 		return value?.items ?? [];
 	}
 }
@@ -1676,15 +1560,10 @@ async function searchMediaPage(
 	query: string,
 	page: number,
 ): Promise<Array<{ externalId: string }>> {
-	const client = apiClient.getClient();
-	apiClient.incrementRequestCount();
-	const { data, response } = await client.POST("/entity-schemas/search", {
-		body: { scriptId, context: { query, page, pageSize: 10 } },
-	});
-	if (!response.ok || !data?.data) {
-		throw new Error(`Failed to enqueue search for "${query}" page ${page}`);
-	}
-	return pollSearchJob(apiClient, data.data.jobId);
+	const result = await apiClient.run((c) =>
+		c.entitySchemas.search({ payload: { scriptId, context: { query, page, pageSize: 10 } } }),
+	);
+	return pollSearchJob(apiClient, result.jobId);
 }
 
 async function importMediaEntity(
@@ -1693,27 +1572,25 @@ async function importMediaEntity(
 	externalId: string,
 	entitySchemaId: string,
 ): Promise<SeedEntity | null> {
-	const client = apiClient.getClient();
-	apiClient.incrementRequestCount();
-	const { data: importData, response: importResp } = await client.POST("/entities/import", {
-		body: { scriptId, externalId, entitySchemaId },
-	});
-	if (!importResp.ok || !importData?.data) {
+	let jobId: string;
+	try {
+		const importResult = await apiClient.run((c) =>
+			c.entities.import({ payload: { scriptId, externalId, entitySchemaId } }),
+		);
+		jobId = importResult.jobId;
+	} catch {
 		return null;
 	}
-	const jobId = importData.data.jobId;
 	const startedAt = Date.now();
 	while (true) {
-		apiClient.incrementRequestCount();
-		// oxlint-disable-next-line no-await-in-loop
-		const { data: pollData, response: pollResp } = await client.GET("/entities/import/{jobId}", {
-			params: { path: { jobId } },
-		});
-		if (!pollResp.ok || !pollData?.data) {
+		let result: ContractSuccess<"entities", "getImportResult">;
+		try {
+			// oxlint-disable-next-line no-await-in-loop
+			result = await apiClient.run((c) => c.entities.getImportResult({ path: { jobId } }));
+		} catch {
 			return null;
 		}
-		const status = pollData.data.status;
-		if (status === "pending") {
+		if (result.status === "pending") {
 			if (Date.now() - startedAt > 60000) {
 				return null;
 			}
@@ -1721,10 +1598,10 @@ async function importMediaEntity(
 			await sleep(500);
 			continue;
 		}
-		if (status === "failed") {
+		if (result.status === "failed") {
 			return null;
 		}
-		return (pollData.data as { status: "completed"; data: SeedEntity }).data;
+		return result.data;
 	}
 }
 

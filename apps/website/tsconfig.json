@@ -20,7 +20,6 @@
 		"paths": {
 			"~/*": ["./app/*"],
 			"@ryot/ts-utils/*": ["../../libs/ts-utils/src/*"],
-			"@ryot/generated/*": ["../../libs/generated/src/*"],
 			"@ryot/transactional/*": ["../../libs/transactional/*"]
 		}
 	}

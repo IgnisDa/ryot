@@ -6,7 +6,15 @@ import { DbError } from "#lib/errors";
 
 type CollectionRow = Pick<
 	typeof schema.entity.$inferSelect,
-	"id" | "name" | "createdAt" | "updatedAt" | "properties" | "entitySchemaId"
+	| "id"
+	| "name"
+	| "image"
+	| "createdAt"
+	| "updatedAt"
+	| "externalId"
+	| "properties"
+	| "entitySchemaId"
+	| "sandboxScriptId"
 >;
 
 type MembershipRow = Pick<
@@ -17,10 +25,13 @@ type MembershipRow = Pick<
 const collectionSelection = {
 	id: schema.entity.id,
 	name: schema.entity.name,
+	image: schema.entity.image,
 	createdAt: schema.entity.createdAt,
 	updatedAt: schema.entity.updatedAt,
+	externalId: schema.entity.externalId,
 	properties: schema.entity.properties,
 	entitySchemaId: schema.entity.entitySchemaId,
+	sandboxScriptId: schema.entity.sandboxScriptId,
 };
 
 const membershipSelection = {
@@ -36,8 +47,11 @@ const membershipSelection = {
 const toCollectionResponse = (row: CollectionRow) => ({
 	id: row.id,
 	name: row.name,
+	image: row.image,
 	properties: row.properties,
+	externalId: row.externalId,
 	entitySchemaId: row.entitySchemaId,
+	sandboxScriptId: row.sandboxScriptId,
 	createdAt: row.createdAt.toISOString(),
 	updatedAt: row.updatedAt.toISOString(),
 });
