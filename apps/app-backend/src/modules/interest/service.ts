@@ -65,8 +65,6 @@ const chunk = <T>(items: readonly T[], size: number): T[][] => {
 	return chunks;
 };
 
-// One chunk of ids → a purely-read root entities query. There is no `in` operator, so the id filter is
-// an `or`-of-`eq`; schemas are the caller's guaranteed-visible slugs (authz falls out of the engine).
 const buildInterestDocument = (
 	entityIds: readonly [string, ...string[]],
 	schemas: readonly [string, ...string[]],
@@ -117,9 +115,6 @@ const toInterestRow = Effect.fn("toInterestRow")(function* (row: RowItem) {
 	} satisfies InterestRow;
 });
 
-// Glue over existing bricks: read the interest set via the query engine (authz + localization +
-// translationStatus for free), then enqueue the idempotent population / translation triggers. Returns
-// the already-terminal entities so the caller can return them directly as catch-up.
 export class InterestReconciler extends Effect.Service<InterestReconciler>()("InterestReconciler", {
 	effect: Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
@@ -133,7 +128,6 @@ export class InterestReconciler extends Effect.Service<InterestReconciler>()("In
 		): Effect.Effect<TerminalUpdate | null> =>
 			Effect.gen(function* () {
 				if (row.populatedAt === null) {
-					// Populate-before-translate: only ever enqueue population here, never translation.
 					if (row.externalId !== null && row.sandboxScriptId !== null) {
 						yield* populationTrigger.request({
 							userId: user.id,
@@ -144,7 +138,6 @@ export class InterestReconciler extends Effect.Service<InterestReconciler>()("In
 						});
 						return null;
 					}
-					// A user-authored entity with no provider provenance cannot be populated — already terminal.
 					return { entityId: row.id, reason: "populated" };
 				}
 
