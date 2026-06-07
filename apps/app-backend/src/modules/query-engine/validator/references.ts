@@ -9,7 +9,7 @@ import type {
 } from "@ryot/contract/modules/query-engine/language";
 import { Effect } from "effect";
 
-import type { CurrentDb } from "#lib/db/service";
+import type { CurrentDb } from "#lib/infrastructure/db/service";
 
 import {
 	loadVisibleEntitySchemas,

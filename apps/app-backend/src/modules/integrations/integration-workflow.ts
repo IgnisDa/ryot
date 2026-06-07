@@ -3,7 +3,7 @@ import { ListedIntegration } from "@ryot/contract/modules/integrations/schemas";
 import { UserId } from "@ryot/contract/schema/brands";
 import { Cause, Effect, Layer, Schema } from "effect";
 
-import { DbRunner } from "#lib/db/service";
+import { DbRunner } from "#lib/infrastructure/db/service";
 import { MediaImportWorkflowOperationsLive } from "#modules/imports/media/operations-workflow";
 import {
 	markImportRunStarted,

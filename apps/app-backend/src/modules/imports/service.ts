@@ -7,9 +7,9 @@ import type { ImportRunSource, ImportRunStatus } from "@ryot/contract/modules/im
 import type { ImportRunId, IntegrationId, UserId } from "@ryot/contract/schema/brands";
 import { DateTime, Effect, Either } from "effect";
 
-import { AppConfig } from "#lib/config/service";
-import { DbRunner } from "#lib/db/service";
-import { RedisService } from "#lib/redis";
+import { AppConfig } from "#lib/infrastructure/config/service";
+import { DbRunner } from "#lib/infrastructure/db/service";
+import { RedisService } from "#lib/infrastructure/redis";
 import { UploadsService } from "#modules/uploads/service";
 
 import { ProcessImportRunWorkflow } from "./import-run-workflow";

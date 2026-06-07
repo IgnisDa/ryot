@@ -5,7 +5,7 @@ import { SandboxRunError } from "@ryot/contract/errors";
 import { EntityId, SandboxScriptId } from "@ryot/contract/schema/brands";
 import { Effect, Layer, Schema } from "effect";
 
-import { RedisService } from "#lib/redis";
+import { RedisService } from "#lib/infrastructure/redis";
 import type { MockOverrides } from "#lib/test-support/effect";
 import {
 	dbRunnerLayer,

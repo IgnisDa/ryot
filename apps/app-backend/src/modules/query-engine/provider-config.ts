@@ -1,8 +1,8 @@
 import { dieOnDbError } from "@ryot/contract/errors";
 import { Effect, Option, Ref } from "effect";
 
-import * as schema from "#lib/db/schema/tables/combined";
-import { CurrentDb, DbRunner, dbEffect } from "#lib/db/service";
+import * as schema from "#lib/infrastructure/db/schema/tables/combined";
+import { CurrentDb, DbRunner, dbEffect } from "#lib/infrastructure/db/service";
 
 const readCanonicalByScript = Effect.gen(function* () {
 	const db = yield* CurrentDb;

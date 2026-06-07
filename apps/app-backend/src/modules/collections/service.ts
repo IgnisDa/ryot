@@ -9,12 +9,12 @@ import type { EntityId, EntitySchemaId, EventSchemaId, UserId } from "@ryot/cont
 import { decodeStoredAppSchema } from "@ryot/contract/schema/core";
 import { Cause, DateTime, Effect } from "effect";
 
-import { DbRunner, TransactionRunner } from "#lib/db/service";
+import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
 import {
 	parseAppSchemaProperties,
 	parseLabeledPropertySchemaInput,
-} from "#lib/schema/property-schema-runtime";
-import { requireText } from "#lib/validation";
+} from "#lib/property-schema/property-schema-runtime";
+import { requireText } from "#lib/shared/validation";
 import { EntitiesService } from "#modules/entities/service";
 import { EventsService } from "#modules/events/service";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";

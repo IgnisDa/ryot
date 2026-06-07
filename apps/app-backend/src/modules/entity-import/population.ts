@@ -5,7 +5,7 @@ import { ListedEntity } from "@ryot/contract/modules/entities/schemas";
 import { EntitySchemaId, type EntityId, type SandboxScriptId } from "@ryot/contract/schema/brands";
 import { DateTime, Effect, Schema } from "effect";
 
-import { DbRunner } from "#lib/db/service";
+import { DbRunner } from "#lib/infrastructure/db/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";

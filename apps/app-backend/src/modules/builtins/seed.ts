@@ -3,8 +3,8 @@ import { generateId } from "better-auth";
 import { and, eq, isNull, notInArray, sql } from "drizzle-orm";
 import { Effect } from "effect";
 
-import * as schema from "#lib/db/schema/tables/combined";
-import { CurrentDb, dbEffect, TransactionRunner } from "#lib/db/service";
+import * as schema from "#lib/infrastructure/db/schema/tables/combined";
+import { CurrentDb, dbEffect, TransactionRunner } from "#lib/infrastructure/db/service";
 
 import { builtinEntitySchemas } from "./entity-schemas";
 import {

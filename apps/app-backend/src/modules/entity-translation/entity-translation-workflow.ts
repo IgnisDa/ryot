@@ -4,8 +4,8 @@ import { encodeEntityUpdatedMessage } from "@ryot/contract/modules/entity-intere
 import { EntityId, SandboxScriptId } from "@ryot/contract/schema/brands";
 import { DateTime, Effect, Schema } from "effect";
 
-import { DbRunner } from "#lib/db/service";
-import { redisKeys, RedisService } from "#lib/redis";
+import { DbRunner } from "#lib/infrastructure/db/service";
+import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 
 import { TranslateEntityWorkflowOperations } from "./operations-workflow";
 import { TranslationsRepository } from "./repository";

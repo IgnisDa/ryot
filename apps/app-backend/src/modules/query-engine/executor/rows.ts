@@ -9,7 +9,7 @@ import type {
 import { sql } from "drizzle-orm";
 import { Effect } from "effect";
 
-import { CurrentDb, dbEffect } from "#lib/db/service";
+import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
 
 import { compileBool, compileOrderBySql } from "./compile/expr";
 import { entitySourceSql, userVisibleSql, type SqlFragment } from "./compile/fragments";

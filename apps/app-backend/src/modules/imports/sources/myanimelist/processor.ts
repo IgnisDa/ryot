@@ -1,7 +1,7 @@
 import type { ImportRunId, UserId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
-import { AppConfig } from "#lib/config/service";
+import { AppConfig } from "#lib/infrastructure/config/service";
 
 import type {
 	LoadedMediaImportAdapterError,

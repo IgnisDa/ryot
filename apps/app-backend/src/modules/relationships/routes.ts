@@ -5,7 +5,7 @@ import { badRequest, dieOnDbError, notFound } from "@ryot/contract/errors";
 import type { EntitySchemaId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
-import { DbRunner } from "#lib/db/service";
+import { DbRunner } from "#lib/infrastructure/db/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 

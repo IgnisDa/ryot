@@ -7,7 +7,7 @@ import type { Exit } from "effect";
 import { Effect, Layer } from "effect";
 import { assert } from "vitest";
 
-import { createWorkflowJobId } from "#lib/job-id";
+import { createWorkflowJobId } from "#lib/shared/job-id";
 import {
 	type MockOverrides,
 	dbRunnerLayer,

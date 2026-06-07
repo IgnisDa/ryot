@@ -1,7 +1,7 @@
 import type { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import type { SandboxRunError } from "@ryot/contract/errors";
 
-import type { DbRunner } from "#lib/db/service";
+import type { DbRunner } from "#lib/infrastructure/db/service";
 import type { EntitiesService } from "#modules/entities/service";
 import type { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import type { RelationshipsRepository } from "#modules/relationships/repository";

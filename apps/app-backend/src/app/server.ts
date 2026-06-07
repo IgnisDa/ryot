@@ -7,8 +7,8 @@ import { UploadBodyLimitMiddlewareLive } from "@ryot/contract/modules/uploads/mi
 import { Effect, Layer, Runtime } from "effect";
 import type * as LayerTypes from "effect/Layer";
 
-import { AdminMiddlewareLive, AuthMiddlewareLive, AuthService } from "#lib/auth";
-import { AppConfig } from "#lib/config/service";
+import { AppConfig } from "#lib/infrastructure/config/service";
+import { AdminMiddlewareLive, AuthMiddlewareLive, AuthService } from "#modules/auth/service";
 import { CollectionsRoutesLive } from "#modules/collections/routes";
 import { EntitiesRoutesLive } from "#modules/entities/routes";
 import { InterestRoutesLive } from "#modules/entity-interest/routes";

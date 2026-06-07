@@ -4,8 +4,8 @@ import { decodeStoredAppSchema } from "@ryot/contract/schema/core";
 import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 import { Effect } from "effect";
 
-import * as schema from "#lib/db/schema/tables/combined";
-import { CurrentDb, dbEffect } from "#lib/db/service";
+import * as schema from "#lib/infrastructure/db/schema/tables/combined";
+import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
 
 import {
 	entitySelection,

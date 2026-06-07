@@ -7,7 +7,7 @@ import {
 import { UserId } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
-import { AuthService } from "#lib/auth";
+import { AuthService } from "#modules/auth/service";
 
 import { UserPreferencesService } from "./service";
 

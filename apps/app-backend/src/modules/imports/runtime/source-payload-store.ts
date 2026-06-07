@@ -1,6 +1,6 @@
 import { Effect, Schema } from "effect";
 
-import { RedisService, redisKeys } from "#lib/redis";
+import { RedisService, redisKeys } from "#lib/infrastructure/redis";
 
 const IMPORT_SOURCE_PAYLOAD_TTL_SECONDS = 24 * 60 * 60;
 

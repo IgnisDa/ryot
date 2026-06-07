@@ -9,11 +9,11 @@ import { type EntitySchemaId, Slug, TrackerId } from "@ryot/contract/schema/bran
 import { generateId } from "better-auth";
 import { Effect, Schema } from "effect";
 
-import { builtinEntitySchemas } from "#lib/builtins/entity-schemas";
-import { DbRunner, TransactionRunner } from "#lib/db/service";
-import { parseLabeledPropertySchemaInput } from "#lib/schema/property-schema-runtime";
-import { slugify } from "#lib/slug";
-import { requireText, trimToNull } from "#lib/validation";
+import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
+import { parseLabeledPropertySchemaInput } from "#lib/property-schema/property-schema-runtime";
+import { slugify } from "#lib/shared/slug";
+import { requireText, trimToNull } from "#lib/shared/validation";
+import { builtinEntitySchemas } from "#modules/builtins/entity-schemas";
 import { SandboxApiService } from "#modules/sandbox/service";
 import { TrackersRepository } from "#modules/trackers/repository";
 

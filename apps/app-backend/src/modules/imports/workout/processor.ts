@@ -7,8 +7,8 @@ import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { isObjectRecord } from "@ryot/ts-utils/predicates";
 import { Effect } from "effect";
 
-import { DbRunner } from "#lib/db/service";
-import { parseAppSchemaPropertiesSafe } from "#lib/schema/property-schema-runtime";
+import { DbRunner } from "#lib/infrastructure/db/service";
+import { parseAppSchemaPropertiesSafe } from "#lib/property-schema/property-schema-runtime";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";

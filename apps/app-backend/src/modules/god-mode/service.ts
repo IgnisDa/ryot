@@ -5,11 +5,11 @@ import { UserId } from "@ryot/contract/schema/brands";
 import { generateId } from "better-auth";
 import { DateTime, Effect, Either } from "effect";
 
-import { AuthService } from "#lib/auth";
-import { defaultUserPreferences } from "#lib/builtins/bootstrap";
-import { AppConfig } from "#lib/config/service";
-import { DbRunner } from "#lib/db/service";
-import { redisKeys, RedisService } from "#lib/redis";
+import { AppConfig } from "#lib/infrastructure/config/service";
+import { DbRunner } from "#lib/infrastructure/db/service";
+import { redisKeys, RedisService } from "#lib/infrastructure/redis";
+import { AuthService } from "#modules/auth/service";
+import { defaultUserPreferences } from "#modules/builtins/bootstrap";
 import { InfrequentCronWorkflow } from "#modules/scheduler/cron-workflow";
 
 import { GodModeRepository } from "./repository";
