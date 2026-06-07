@@ -1,7 +1,7 @@
 import {
 	and,
 	average,
-	castText,
+	castJson,
 	column,
 	concat,
 	conditional,
@@ -19,7 +19,7 @@ type ViewExpressions = Omit<SavedViewProjectionInput, "entityId">;
 const entity = table("entity", "entity");
 const entityColumn = (name: string) => column(entity, name);
 const entityProperty = (property: string) => jsonPath(column(entity, "properties"), property);
-const entityImage = () => castText(jsonPath(column(entity, "properties"), "images", 0, "url"));
+const entityImage = () => castJson(jsonPath(column(entity, "properties"), "images", 0));
 
 const reviewRatingAverage = () => {
 	const review = table("event", "review");

@@ -1,6 +1,6 @@
 import type { FieldSelection } from "@ryot/contract/modules/ryotql/language";
 import { buildExerciseListQueryDocument } from "@ryot/fitness-plugin/query-recipes";
-import { castText, column, field, jsonPath, literal, table, titleCase } from "@ryot/ryotql";
+import { castJson, column, field, jsonPath, literal, table, titleCase } from "@ryot/ryotql";
 import { Effect } from "effect";
 
 import {
@@ -12,6 +12,7 @@ import {
 	findBuiltinPluginBySlug,
 	findBuiltinSchemaBySlug,
 	findWorkoutSetEventSchema,
+	getSavedView,
 	listEntitySchemas,
 	listEventsForEntity,
 	listSavedViews,
@@ -30,18 +31,18 @@ const entity = table("entity", "entity");
 const expectedSavedViewFields = [
 	field("entityId", column(entity, "id")),
 	field("gridTitle", column(entity, "name")),
-	field("gridImage", castText(jsonPath(column(entity, "properties"), "images", 0, "url"))),
+	field("gridImage", castJson(jsonPath(column(entity, "properties"), "images", 0))),
 	field("gridOverline", literal("Exercise")),
 	field("gridCallout", titleCase(jsonPath(column(entity, "properties"), "level"))),
 	field("gridPrimaryMetadata", titleCase(jsonPath(column(entity, "properties"), "kind"))),
 	field("gridSecondaryMetadata", titleCase(jsonPath(column(entity, "properties"), "equipment"))),
 	field("listTitle", column(entity, "name")),
-	field("listImage", castText(jsonPath(column(entity, "properties"), "images", 0, "url"))),
+	field("listImage", castJson(jsonPath(column(entity, "properties"), "images", 0))),
 	field("listOverline", literal("Exercise")),
 	field("listCallout", titleCase(jsonPath(column(entity, "properties"), "level"))),
 	field("listPrimaryMetadata", titleCase(jsonPath(column(entity, "properties"), "kind"))),
 	field("listSecondaryMetadata", titleCase(jsonPath(column(entity, "properties"), "equipment"))),
-	field("tableImage", castText(jsonPath(column(entity, "properties"), "images", 0, "url"))),
+	field("tableImage", castJson(jsonPath(column(entity, "properties"), "images", 0))),
 	field("tableColumn0", column(entity, "name")),
 	field("tableColumn1", titleCase(jsonPath(column(entity, "properties"), "level"))),
 	field("tableColumn2", titleCase(jsonPath(column(entity, "properties"), "equipment"))),
@@ -191,6 +192,22 @@ describe("Exercises E2E", () => {
 				kind: "text",
 				value: "body_only",
 			});
+
+			const savedView = yield* getSavedView(client, "all-exercises");
+			const savedViewResult = requireRows(
+				(yield* executeRyotQL(client, savedView.queryDocument)).data.savedView,
+				"savedView",
+			);
+			const savedViewExercise = savedViewResult.items.find(
+				(item) => requireRyotQLFieldValue(item, "gridTitle").value === seededExerciseName,
+			);
+			assertPresent(savedViewExercise, "Expected the seeded exercise in the built-in saved view");
+			for (const imageField of ["gridImage", "listImage", "tableImage"]) {
+				expect(requireRyotQLFieldValue(savedViewExercise, imageField)).toEqual({
+					kind: "json",
+					value: { type: "remote", url: seededExerciseImageUrl },
+				});
+			}
 		}),
 	);
 

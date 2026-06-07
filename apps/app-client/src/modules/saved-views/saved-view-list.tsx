@@ -12,7 +12,10 @@ function Value(props: { value: SavedViewScalarValue; className: string }) {
 	);
 }
 
-export function SavedViewList(props: { items: readonly SavedViewDisplayItem[] }) {
+export function SavedViewList(props: {
+	items: readonly SavedViewDisplayItem[];
+	managedUrls: ReadonlyMap<string, string>;
+}) {
 	return (
 		<View className="border-t border-border">
 			{props.items.map((item) => (
@@ -22,6 +25,7 @@ export function SavedViewList(props: { items: readonly SavedViewDisplayItem[] })
 				>
 					<SavedViewImageView
 						image={item.list.image}
+						managedUrls={props.managedUrls}
 						className="h-24 w-16 rounded-md bg-surface-2 md:h-16 md:w-11 md:rounded-sm"
 					/>
 					<View className="min-w-0 flex-1 gap-0.5">
