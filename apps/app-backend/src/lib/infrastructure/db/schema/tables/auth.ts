@@ -89,7 +89,6 @@ export const apikey = pgTable(
 		id: text().primaryKey(),
 		refillAmount: integer(),
 		refillInterval: integer(),
-		referenceId: text().notNull(),
 		enabled: boolean().default(true),
 		requestCount: integer().default(0),
 		rateLimitMax: integer().default(10),
@@ -101,6 +100,9 @@ export const apikey = pgTable(
 		rateLimitTimeWindow: integer().default(86400000),
 		createdAt: timestamp({ withTimezone: true }).notNull(),
 		updatedAt: timestamp({ withTimezone: true }).notNull(),
+		referenceId: text()
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
 	},
 	(table) => [
 		index("apikey_configId_idx").on(table.configId),

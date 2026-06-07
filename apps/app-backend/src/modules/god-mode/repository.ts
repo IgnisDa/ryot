@@ -120,14 +120,84 @@ export class GodModeRepository extends Effect.Service<GodModeRepository>()("GodM
 			);
 		});
 
+		const loadResetSnapshot = Effect.fn("GodModeRepository.loadResetSnapshot")(function* (
+			userId: UserId,
+		) {
+			const db = yield* CurrentDb;
+			const [user] = yield* dbEffect(() =>
+				db
+					.select({
+						id: schema.user.id,
+						name: schema.user.name,
+						email: schema.user.email,
+						emailVerified: schema.user.emailVerified,
+					})
+					.from(schema.user)
+					.where(eq(schema.user.id, userId))
+					.limit(1),
+			);
+			if (!user) {
+				return null;
+			}
+			const accounts = yield* dbEffect(() =>
+				db
+					.select({ providerId: schema.account.providerId, accountId: schema.account.accountId })
+					.from(schema.account)
+					.where(eq(schema.account.userId, userId)),
+			);
+			const apiKeys = yield* dbEffect(() =>
+				db
+					.select({ id: schema.apikey.id, key: schema.apikey.key })
+					.from(schema.apikey)
+					.where(eq(schema.apikey.referenceId, userId)),
+			);
+			return { user, accounts, apiKeys };
+		});
+
+		const deleteAndRecreateUser = Effect.fn("GodModeRepository.deleteAndRecreateUser")(
+			function* (input: {
+				user: { id: string; email: string; name: string; emailVerified: boolean };
+				preferences: Record<string, unknown>;
+				oidcAccountId: string | null;
+				now: Date;
+			}) {
+				const db = yield* CurrentDb;
+				const { oidcAccountId } = input;
+				yield* dbEffect(() => db.delete(schema.user).where(eq(schema.user.id, input.user.id)));
+				yield* dbEffect(() =>
+					db.insert(schema.user).values({
+						id: input.user.id,
+						name: input.user.name,
+						email: input.user.email,
+						preferences: input.preferences,
+						emailVerified: input.user.emailVerified,
+					}),
+				);
+				if (oidcAccountId !== null) {
+					yield* dbEffect(() =>
+						db.insert(schema.account).values({
+							providerId: "oidc",
+							createdAt: input.now,
+							updatedAt: input.now,
+							userId: input.user.id,
+							id: crypto.randomUUID(),
+							accountId: oidcAccountId,
+						}),
+					);
+				}
+			},
+		);
+
 		return {
 			countUsers,
 			listUserRows,
 			findUserById,
-			updateUserDisabled,
-			findUserDisabledState,
+			loadResetSnapshot,
 			findUserIdByEmail,
+			updateUserDisabled,
 			listAccountsForUsers,
+			deleteAndRecreateUser,
+			findUserDisabledState,
 		};
 	},
 }) {}
