@@ -74,11 +74,20 @@ export const Expr: Schema.Schema<Expr> = Schema.suspend(() =>
 	),
 ).annotations({ identifier: "Expr" });
 
+const RelationshipViaV2 = strictStruct({
+	alias: Schema.String,
+	schema: Schema.String,
+	entityRef: Schema.String,
+	direction: Schema.Literal("outgoing", "incoming"),
+}).annotations({ identifier: "RelationshipViaV2" });
+export type RelationshipViaV2 = typeof RelationshipViaV2.Type;
+
 export const EntitySourceV2 = strictStruct({
 	alias: Schema.String,
 	where: Schema.NullOr(Expr),
 	type: Schema.Literal("entities"),
 	schemas: Schema.NonEmptyArray(Schema.String),
+	via: Schema.optional(RelationshipViaV2),
 }).annotations({ identifier: "EntitySourceV2" });
 export type EntitySourceV2 = typeof EntitySourceV2.Type;
 
@@ -95,16 +104,26 @@ const FieldDef = strictStruct({ expr: Expr, key: Schema.String }).annotations({
 	identifier: "FieldDef",
 });
 
-export const RowsReturnV2 = strictStruct({
+export const IncludeEntryV2 = strictStruct({
+	key: Schema.String,
+	limit: Schema.Int.pipe(Schema.positive()),
+	source: EntitySourceV2,
+	fields: Schema.Array(FieldDef),
+	orderBy: Schema.NonEmptyArray(OrderByEntry),
+}).annotations({ identifier: "IncludeEntryV2" });
+export type IncludeEntryV2 = typeof IncludeEntryV2.Type;
+
+export const RowsOutputV2 = strictStruct({
 	pagination: Pagination,
 	type: Schema.Literal("rows"),
 	fields: Schema.Array(FieldDef),
+	include: Schema.optional(Schema.Array(IncludeEntryV2)),
 	orderBy: Schema.NonEmptyArray(OrderByEntry),
-}).annotations({ identifier: "RowsReturnV2" });
-export type RowsReturnV2 = typeof RowsReturnV2.Type;
+}).annotations({ identifier: "RowsOutputV2" });
+export type RowsOutputV2 = typeof RowsOutputV2.Type;
 
 export const QueryDocumentV2 = strictStruct({
-	return: RowsReturnV2,
+	output: RowsOutputV2,
 	source: EntitySourceV2,
 	version: Schema.Literal(2),
 }).annotations({ identifier: "QueryDocumentV2" });
@@ -115,6 +134,29 @@ export const FieldValue = strictStruct({
 	kind: Schema.Literal("boolean", "date", "image", "json", "null", "number", "text"),
 }).annotations({ identifier: "FieldValue" });
 export type FieldValue = typeof FieldValue.Type;
+
+const LimitedPageInfo = strictStruct({
+	limit: Schema.Int,
+	hasMore: Schema.Boolean,
+}).annotations({ identifier: "LimitedPageInfo" });
+
+export type IncludedRowsValue = {
+	readonly items: readonly RowItem[];
+	readonly pageInfo: typeof LimitedPageInfo.Type;
+};
+
+export type RowValue = FieldValue | IncludedRowsValue;
+export type RowItem = Readonly<Record<string, RowValue>>;
+
+export const RowValue: Schema.Schema<RowValue> = Schema.suspend(() =>
+	Schema.Union(
+		FieldValue,
+		strictStruct({
+			pageInfo: LimitedPageInfo,
+			items: Schema.Array(Schema.Record({ key: Schema.String, value: RowValue })),
+		}),
+	),
+).annotations({ identifier: "RowValue" });
 
 const RowsPageInfo = strictStruct({
 	page: Schema.Int,
@@ -127,7 +169,7 @@ export const RowsResponseV2 = strictStruct({
 	type: Schema.Literal("rows"),
 	data: strictStruct({
 		pageInfo: RowsPageInfo,
-		items: Schema.Array(Schema.Record({ key: Schema.String, value: FieldValue })),
+		items: Schema.Array(Schema.Record({ key: Schema.String, value: RowValue })),
 	}),
 }).annotations({ identifier: "RowsResponseV2" });
 export type RowsResponseV2 = typeof RowsResponseV2.Type;

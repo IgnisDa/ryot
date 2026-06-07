@@ -14,7 +14,7 @@ This slice should integrate saved-view create/update/get validation with the v2 
 
 ## Acceptance criteria
 
-- [ ] Saved views can persist a full v2 query document without stripping fields, return definitions, includes, sources, or aggregation/time-series definitions.
+- [ ] Saved views can persist a full v2 query document without stripping fields, output definitions, includes, sources, or aggregation/time-series definitions.
 - [ ] Saved-view create and update paths validate v2 query documents using the same parse-time and semantic validation rules as v2 execution where applicable.
 - [ ] Saved views can store rows, aggregate, and time-series return documents.
 - [ ] Saved-view retrieval returns the stored v2 query document unchanged except for normal persistence serialization.

@@ -6,8 +6,10 @@ import { createEntity } from "./entities";
 import { createEntitySchema } from "./entity-schemas";
 import { createTracker } from "./trackers";
 
-export type V2FieldValue = V2RowItem[string];
+export type V2RowValue = V2RowItem[string];
 export type V2RowItem = V2RowsResponse["data"]["items"][number];
+export type V2FieldValue = Extract<V2RowValue, { kind: string }>;
+export type V2IncludeValue = Extract<V2RowValue, { items: readonly V2RowItem[] }>;
 export type V2RowsResponse = Extract<V2ExecuteResponse, { type: "rows" }>;
 export type V2ExecutePayload = ContractPayload<"queryEngineV2", "execute">;
 export type V2ExecuteResponse = ContractSuccess<"queryEngineV2", "execute">;
@@ -55,7 +57,7 @@ export async function createV2Entity(
 export const systemRef = (
 	alias: string,
 	name: string,
-): V2ExecutePayload["return"]["orderBy"][number]["expr"] => ({
+): V2ExecutePayload["output"]["orderBy"][number]["expr"] => ({
 	type: "ref",
 	sourceAlias: alias,
 	field: { type: "system", name },
@@ -65,7 +67,7 @@ export const propertyRef = (
 	alias: string,
 	schema: string,
 	...path: [string, ...string[]]
-): V2ExecutePayload["return"]["orderBy"][number]["expr"] => ({
+): V2ExecutePayload["output"]["orderBy"][number]["expr"] => ({
 	type: "ref",
 	sourceAlias: alias,
 	field: { type: "property", schema, path },
@@ -74,19 +76,26 @@ export const propertyRef = (
 export const schemaMetaRef = (
 	alias: string,
 	name: "slug" | "name",
-): V2ExecutePayload["return"]["orderBy"][number]["expr"] => ({
+): V2ExecutePayload["output"]["orderBy"][number]["expr"] => ({
 	type: "ref",
 	sourceAlias: alias,
 	field: { type: "schema", name },
 });
 
-export const getV2FieldValue = (item: V2RowItem, key: string): V2FieldValue | undefined =>
-	item[key];
+export const getV2FieldValue = (item: V2RowItem, key: string): V2RowValue | undefined => item[key];
 
 export const requireV2FieldValue = (item: V2RowItem, key: string): V2FieldValue => {
 	const val = getV2FieldValue(item, key);
-	if (val === undefined) {
+	if (val === undefined || !("kind" in val)) {
 		throw new Error(`Expected field '${key}' in row`);
+	}
+	return val;
+};
+
+export const requireV2IncludeValue = (item: V2RowItem, key: string): V2IncludeValue => {
+	const val = getV2FieldValue(item, key);
+	if (val === undefined || !("items" in val)) {
+		throw new Error(`Expected include '${key}' in row`);
 	}
 	return val;
 };
