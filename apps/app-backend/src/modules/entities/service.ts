@@ -8,7 +8,7 @@ import { DbRunner, TransactionRunner } from "#lib/db";
 import type { BadRequest, DbError, NotFound } from "#lib/errors";
 import { badRequest, notFound } from "#lib/errors";
 import { createWorkflowJobId, resolveWorkflowExecutionId } from "#lib/job-id";
-import { parseAppSchemaProperties } from "#lib/property-schema-runtime";
+import { parseAppSchemaProperties } from "#lib/schema";
 import { requireText, trimToNull } from "#lib/validation";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { SandboxRepository } from "#modules/sandbox/repository";

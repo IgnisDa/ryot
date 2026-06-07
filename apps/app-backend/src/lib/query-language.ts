@@ -1,6 +1,6 @@
 import { DateTime, Option, Schema } from "effect";
 
-import { strictStruct } from "./schema-utils";
+import { strictStruct } from "./schema/utils";
 
 export const entityBuiltinColumns: ReadonlySet<string> = new Set([
 	"id",

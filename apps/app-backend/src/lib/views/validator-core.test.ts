@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import { buildDisplayConfig } from "#lib/builtins/view-helpers";
-import type { AppSchema } from "#lib/property-schema";
 import {
 	createComputedFieldExpression,
 	createEntityColumnExpression,
 	createEventAggregateExpression,
 	createLiteralExpression,
 } from "#lib/query-language";
+import type { AppSchema } from "#lib/schema";
 
 import { displayBuiltins } from "./reference";
 import { context, createEventSchema } from "./test-support";

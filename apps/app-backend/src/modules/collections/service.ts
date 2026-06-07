@@ -6,10 +6,10 @@ import { DbRunner, TransactionRunner } from "#lib/db";
 import type { BadRequest, DbError, NotFound } from "#lib/errors";
 import { badRequest, notFound } from "#lib/errors";
 import {
+	decodeStoredAppSchema,
 	parseAppSchemaProperties,
 	parseLabeledPropertySchemaInput,
-} from "#lib/property-schema-runtime";
-import { decodeStoredAppSchema } from "#lib/schema";
+} from "#lib/schema";
 import { requireText } from "#lib/validation";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { enqueueEventCreate } from "#modules/events/workflows";
