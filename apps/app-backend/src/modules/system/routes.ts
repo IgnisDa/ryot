@@ -4,7 +4,7 @@ import { healthCheckFailed, unknownToMessage } from "@ryot/contract/errors";
 import { sql } from "drizzle-orm";
 import { Effect, Option } from "effect";
 
-import { AppConfig, isOidcEnabled } from "#lib/infrastructure/config/service";
+import { AppConfig, isOidcEnabled, isSmtpEnabled } from "#lib/infrastructure/config/service";
 import { DbService } from "#lib/infrastructure/db/service";
 import { RedisService } from "#lib/infrastructure/redis";
 
@@ -32,6 +32,7 @@ export const SystemRoutesLive = HttpApiBuilder.group(AppContract, "system", (han
 			Effect.gen(function* () {
 				const config = yield* AppConfig;
 				return {
+					notifications: { smtpEnabled: isSmtpEnabled(config) },
 					auth: {
 						oidcEnabled: isOidcEnabled(config),
 						localAuthDisabled: config.users.disableLocalAuth,

@@ -19,6 +19,17 @@
 | `users.disableLocalAuth` | `USERS_DISABLE_LOCAL_AUTH` | Disable local email/password authentication, requiring OIDC | No | No | `false` |
 | `users.allowRegistration` | `USERS_ALLOW_REGISTRATION` | Allow new users to register via email and password | No | No | `true` |
 
+### Notification delivery settings
+
+#### SMTP delivery settings
+
+| App Config Key | Variable | Description | Required | Sensitive | Default |
+|---|---|---|---|---|---|
+| `notifications.smtp.server` | `SERVER_SMTP_SERVER` | SMTP server hostname | No | No | — |
+| `notifications.smtp.user` | `SERVER_SMTP_USER` | SMTP username | No | Yes | — |
+| `notifications.smtp.password` | `SERVER_SMTP_PASSWORD` | SMTP password | No | Yes | — |
+| `notifications.smtp.mailbox` | `SERVER_SMTP_MAILBOX` | SMTP sender mailbox | No | No | `Ryot <no-reply@ryot.io>` |
+
 ### Server settings
 
 | App Config Key | Variable | Description | Required | Sensitive | Default |
