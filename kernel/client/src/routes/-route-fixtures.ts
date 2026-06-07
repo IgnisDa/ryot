@@ -58,8 +58,8 @@ export const makeAuthStub = (
 	session: typeof authenticated | typeof unauthenticated = authenticated,
 ) =>
 	Layer.succeed(AuthService, {
-		signOut: () => Effect.void,
 		changeServer: () => Effect.void,
+		signOut: () => Effect.succeed(false),
 		settledSession: () => Effect.succeed(session),
 		session: () => ({ subscribe: () => () => undefined, getSnapshot: () => session }),
 		...overrides,
@@ -80,6 +80,7 @@ export const makeOAuthRouteStubs = (tokenOverrides: Partial<OAuthTokenService["S
 		Layer.succeed(OAuthStorage, {
 			setPending: () => Effect.void,
 			setTokenSet: () => Effect.void,
+			clearPending: () => Effect.void,
 			removeTokenSet: () => Effect.void,
 			getPending: () => Effect.succeed(null),
 			takePending: () => Effect.succeed(null),
@@ -87,6 +88,7 @@ export const makeOAuthRouteStubs = (tokenOverrides: Partial<OAuthTokenService["S
 		}),
 		Layer.succeed(OAuthTokenService, {
 			clear: () => Effect.void,
+			logout: () => Effect.succeed(null),
 			userInfo: () => Effect.succeed(null),
 			accessToken: () => Effect.succeed(null),
 			rejectAuthorization: () => Effect.die("not used"),

@@ -40,6 +40,7 @@ import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 
 import { effectPostgresAuthAdapter } from "./effect-postgres-adapter";
 import { isUserLifecycleActive, LifecycleWriteGuard } from "./lifecycle-write-guard";
+import { AuthRepository } from "./repository";
 import { gateSessionCreation } from "./session-gate";
 
 const RESET_LINK_TIMEOUT_MS = 10_000;
@@ -415,6 +416,7 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 		const db = yield* Database;
 		const config = yield* AppConfig;
 		const redis = yield* RedisService;
+		const repository = yield* AuthRepository;
 		const userBootstrap = yield* AuthUserBootstrap;
 		const runtime = yield* Effect.context<Database | RedisService>();
 		const auth = makeAuthInstance({
@@ -529,6 +531,8 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 		return {
 			auth,
 			requestPasswordResetLink,
+			revokeUserOAuthTokens: (userId: UserId) =>
+				repository.revokeUserOAuthTokens(userId).pipe(Effect.orDie),
 			deleteUserSessions: (userId: UserId) =>
 				withInternalAdapter(({ internalAdapter }) =>
 					internalAdapter.deleteUserSessions(userId),
@@ -673,9 +677,9 @@ export const makeAuthMiddleware = (
 		}).pipe(HttpMiddleware.withLoggerDisabled);
 
 	return {
-		oauth: (httpEffect, { credential }) =>
+		oauth: (httpEffect, { credential }: { readonly credential: Redacted.Redacted }) =>
 			authenticate(httpEffect, auth.oauthUser(Redacted.value(credential))),
-		apiKey: (httpEffect, { credential }) =>
+		apiKey: (httpEffect, { credential }: { readonly credential: Redacted.Redacted }) =>
 			authenticate(httpEffect, auth.apiKeyUser(Redacted.value(credential))),
 	} satisfies AuthMiddleware["Service"];
 };

@@ -53,6 +53,7 @@ const makeRuntime = (
 	let token = options.token ?? null;
 	const tokens = Layer.succeed(OAuthTokenService, {
 		clear: () => Effect.void,
+		logout: () => Effect.succeed(null),
 		userInfo: () => Effect.succeed(null),
 		accessToken: () => Effect.sync(() => token),
 		rejectAuthorization: () => Effect.die("not used"),

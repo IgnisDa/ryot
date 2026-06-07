@@ -1,4 +1,4 @@
-export const DEEP_LINK_SCHEMES = ["ryot", "io.ryot.app", "io.ryot.app.dev"] as const;
+export const DEEP_LINK_SCHEMES = ["io.ryot.app", "io.ryot.app.dev"] as const;
 
 export type NativeAppSource = {
 	readonly exitApp: () => void;
@@ -29,8 +29,8 @@ export function resolveDeepLinkHref(rawUrl: string): string | null {
 		return null;
 	}
 
-	// A custom-scheme link puts the first path segment in the authority
-	// (`ryot://settings/account`), so it has to be folded back into the path.
+	// A custom-scheme link puts the first path segment in the authority, so it has to be
+	// folded back into the path.
 	const path = isAppScheme(scheme) && url.host ? `/${url.host}${url.pathname}` : url.pathname;
 	return `${path === "" ? "/" : path}${url.search}`;
 }

@@ -390,7 +390,10 @@ const AuthUserBootstrapProvidedLive = AuthUserBootstrapLive.pipe(
 const AuthAndBootstrapServicesLive = Layer.mergeAll(
 	BootstrapServicesLive,
 	UserLifecycleGuardLive,
-	AuthService.layer.pipe(Layer.provide(AuthUserBootstrapProvidedLive)),
+	AuthService.layer.pipe(
+		Layer.provide(AuthUserBootstrapProvidedLive),
+		Layer.provide(AuthRepository.layer),
+	),
 );
 const UserLifecycleServiceLive = UserLifecycleService.layer.pipe(
 	Layer.provideMerge(AuthAndBootstrapServicesLive),
