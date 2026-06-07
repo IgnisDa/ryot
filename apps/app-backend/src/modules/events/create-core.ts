@@ -5,7 +5,7 @@ import { DateTime, Effect, Option, Schema } from "effect";
 import { DbRunner } from "#lib/db";
 import type { BadRequest, DbError, NotFound, SandboxRunError, TimeoutError } from "#lib/errors";
 import { badRequest, notFound, unknownToMessage } from "#lib/errors";
-import type { SandboxRunInput, SandboxRunOutput } from "#lib/sandbox";
+import type { SandboxRunInput, SandboxRunOutput } from "#lib/sandbox/service";
 import { parseAppSchemaProperties } from "#lib/schema";
 import { requireText } from "#lib/validation";
 import { EntitiesRepository } from "#modules/entities/repository";
