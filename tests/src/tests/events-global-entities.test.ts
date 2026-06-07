@@ -4,9 +4,9 @@ import {
 	createAuthenticatedClient,
 	createGlobalBookEntityFixture,
 	listEventSchemas,
-	queryInLibraryRelationship,
 	requireEventSchemaBySlug,
 	waitForEventCount,
+	waitForInLibraryRelationship,
 } from "../fixtures";
 
 describe("POST /events with global entities", () => {
@@ -29,7 +29,7 @@ describe("POST /events with global entities", () => {
 		expect(events).toHaveLength(1);
 		expect(events[0]?.eventSchemaSlug).toBe("backlog");
 
-		const membership = await queryInLibraryRelationship(client, entity.id, email);
+		const membership = await waitForInLibraryRelationship(client, entity.id, email);
 		expect(membership.rowCount).toBe(1);
 	});
 });

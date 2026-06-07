@@ -10,14 +10,16 @@ it.effect("keeps raw sandbox workflow execution at the allowed boundaries", () =
 			sandboxService,
 			sandboxWorkflow,
 			eventCreateCore,
-			entityWorkflow,
+			entityImportWorkflow,
+			libraryWorkflow,
 			mediaImportWorkflow,
 			integrationWorkflow,
 		] = yield* Effect.all([
 			readModule("./service.ts"),
 			readModule("./workflows.ts"),
 			readModule("../events/create-core.ts"),
-			readModule("../entities/workflows.ts"),
+			readModule("../entity-import/workflows.ts"),
+			readModule("../library/workflows.ts"),
 			readModule("../imports/workflows.ts"),
 			readModule("../integrations/workflows.ts"),
 		]);
@@ -26,7 +28,12 @@ it.effect("keeps raw sandbox workflow execution at the allowed boundaries", () =
 		expect(eventCreateCore.match(/\.execute\(RunSandboxWorkflow,/g)?.length ?? 0).toBe(1);
 		expect(sandboxWorkflow).toContain("DurableQueue.process(SandboxExecutionQueue, payload)");
 
-		for (const source of [entityWorkflow, mediaImportWorkflow, integrationWorkflow]) {
+		for (const source of [
+			entityImportWorkflow,
+			libraryWorkflow,
+			mediaImportWorkflow,
+			integrationWorkflow,
+		]) {
 			expect(source).not.toContain("execute(RunSandboxWorkflow");
 			expect(source).not.toContain("WorkflowEngine");
 		}
@@ -35,15 +42,17 @@ it.effect("keeps raw sandbox workflow execution at the allowed boundaries", () =
 
 it.effect("keeps parent workflows as orchestrations instead of queue pass-through wrappers", () =>
 	Effect.gen(function* () {
-		const [entityWorkflow, mediaImportWorkflow, integrationWorkflow] = yield* Effect.all([
-			readModule("../entities/workflows.ts"),
-			readModule("../imports/workflows.ts"),
-			readModule("../integrations/workflows.ts"),
-		]);
+		const [entityImportWorkflow, libraryWorkflow, mediaImportWorkflow, integrationWorkflow] =
+			yield* Effect.all([
+				readModule("../entity-import/workflows.ts"),
+				readModule("../library/workflows.ts"),
+				readModule("../imports/workflows.ts"),
+				readModule("../integrations/workflows.ts"),
+			]);
 
-		expect(entityWorkflow).toContain("validate-entity-details");
-		expect(entityWorkflow).toContain("write-primary-entity");
-		expect(entityWorkflow).toContain("ensure-library-membership");
+		expect(entityImportWorkflow).toContain("validate-entity-details");
+		expect(entityImportWorkflow).toContain("write-primary-entity");
+		expect(libraryWorkflow).toContain("ensure-library-membership");
 
 		expect(mediaImportWorkflow).toContain("load-media-import-adapter-result");
 		expect(mediaImportWorkflow).toContain("record-total-items");
