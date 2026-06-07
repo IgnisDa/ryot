@@ -4,79 +4,72 @@
 
 Remove explicit return type annotations when TypeScript can trivially infer them. Keep them when:
 
-- **Discriminated union narrowing**: Functions returning a discriminated union (e.g. `AppSchema`, `AppPropertyDefinition`) need the explicit return type since TS widens string literal `type` discriminants to `string`.
-- **Contextual parameter inference**: object literal methods passed to `Effect.Service`'s `sync` need the shape type return if method parameters rely on contextual typing.
-- **`as const` preservation**: Use `as const` on return values instead of an explicit type to preserve literal types for nested objects (e.g. `sort.direction: "asc"` in `buildDefaultQueryDefinition`).
-- **Effect type inference**: Functions returning `Effect.Effect<A, E, R>` need explicit annotation when the return contains both `Effect.fail(E)` and `Effect.succeed(A)` branches, as the inferred union breaks `.pipe(Effect.flatMap(...))` inference.
-- **Type predicates**: Keep `value is X` return types — they are not inferrable. Omit `X` on `as X` assertions.
-- **Array factory functions**: Factory functions returning arrays of objects with different optional fields (e.g. `builtinSavedViews`, `builtinRelationshipSchemas`) need the explicit return type to prevent the union element type from widening optional fields to `undefined`.
-- **`satisfies`**: Prefer `satisfies T` over a trailing return type when only the return value (not all callers) needs the constraint.
+- **Discriminated union narrowing**: a function returning a discriminated union needs the explicit type, because TypeScript widens string-literal discriminants to `string`.
+- **Contextual parameter inference**: object-literal methods whose parameters rely on contextual typing need an explicit shape return type to recover that inference.
+- **`as const` preservation**: prefer `as const` on the returned value over an explicit type to keep nested literal types.
+- **Effect inference**: annotate when a function returns an effect with both a failure and a success branch whose inferred union would otherwise break downstream chaining.
+- **Type predicates**: keep `value is X` predicate returns — they are not inferrable. Omit the type on `as X` assertions.
+- **Array factory functions**: annotate factories returning arrays of objects with differing optional fields, so the element type does not widen optional fields to `undefined`.
+- **`satisfies`**: prefer `satisfies T` over a trailing return type when only the value, not every caller, needs the constraint.
 
 ## Testing
 
-- `bun test` does not work in this app. Use `bun run test` instead.
+- Use `bun run test` instead. `bun test` does not work in this app.
 
 ## Runtime APIs And Diagnostics
 
-- Prefer Effect platform primitives over `node:*` imports in app-backend code. Use Bun APIs when Effect has no suitable primitive. Use Node built-ins only when neither Effect nor Bun provides a practical equivalent, and keep the reason local and explicit.
-- Prefer Effect exception-capture primitives over raw `try/catch` in app-backend TypeScript. Use `Effect.try` / `Effect.tryPromise` when the surrounding API is already Effect-based, and `Either.try` for synchronous parsing or row-level fallback logic. Sandbox scripts are the exception when they need direct host-style error handling.
-- Do not add `@effect-diagnostics` or `oxlint-disable` comments by default. Prefer typed Effect errors, Effect Schema decoding/encoding, promise-returning callbacks, and small pure helpers that satisfy the diagnostics. If a suppression is unavoidable, keep it narrowly scoped and explain why the API cannot be expressed cleanly.
+- Prefer Effect's platform primitives over Bun built-in modules. Use Bun APIs when Effect offers no suitable primitive, and Bun built-ins only when neither has a practical equivalent — keep that reason local and explicit.
+- Prefer Effect's exception-capture primitives over raw `try`/`catch`: the promise-aware variant for promise-based APIs, the synchronous variant for parsing or row-level fallbacks. Sandbox scripts may use host-style error handling when they need it.
+- Do not add diagnostic- or lint-suppression comments by default. Prefer typed errors, schema decoding and encoding, promise-returning callbacks, and small pure helpers that satisfy the checks. If a suppression is unavoidable, scope it narrowly and explain why the API cannot be expressed cleanly.
 
 ## Module Boundaries
 
-- Routes stay thin: validate request data via `HttpApiBuilder`, call services, and return direct values or typed tagged errors.
-- Define HTTP routes with `HttpApiBuilder.group` and wire handlers per endpoint.
-- Services own business rules and return `Effect.Effect<A, E, R>` with typed errors. No legacy `ServiceResult` wrappers.
-- Repositories own persistence and row-to-domain normalization only. They return `Effect`s and use `CurrentDb` for the active executor.
-- Use `Effect.Service` classes for services and repositories. Dependencies are provided through Layer composition, not `deps` parameters.
-- Access control lives in services as pure helpers or direct checks after loading the smallest resource scope.
+- Routes stay thin: validate request data, call a service, and return direct values or typed tagged errors. Define one handler per endpoint.
+- Services own business rules and return effects with typed errors.
+- Repositories own persistence and row-to-domain normalization only. They return effects and read the active database executor from shared context.
+- Define services and repositories as Effect service classes; provide dependencies through layer composition, not hand-passed dependency parameters.
+- Access control lives in services, as pure helpers or direct checks after loading the smallest resource scope.
 
 ## Cross-Module Infrastructure
 
-- Feature modules form a dependency gradient, from most generic to most specific: `entity-schemas`/`event-schemas`/`relationship-schemas`/`relationships` → `entities`/`events` → `collections`/`user-state` → `imports` → `integrations`. `relationships` is generic (it owns the `relationship` table) and is depended on by `entities`, `collections`, and `user-state`; `user-state` depends on `entities` + `events` + `relationships`. `sandbox` is orthogonal execution infrastructure. Module dependencies may only point toward more generic modules; a generic module must never import a more specific one.
-- When a generic module needs a side effect that a more specific module owns, invert the dependency instead of importing it: the generic module defines an abstract `Context.Tag` hook (with a no-op `Default` layer), the specific module provides the implementing `Layer`, and `app/layers.ts` wires them. See `EntityImportHook` (`modules/entities`) and `GlobalEntityReferenceHook` (`modules/events`), both implemented by `modules/collections/event-hooks.ts`.
-- Every Postgres table has exactly one owning repository that performs its writes (insert/update/delete); every other consumer routes through that repository, and `service.ts` files never issue raw table writes. Owners that recently moved: `relationship` writes (generic relationship and collection membership) → `relationships` module; per-entity `event` deletion → `events`; `user`/`account` administrative writes → `god-mode` repository; collection and library `entity` rows → `entities` (`createEntity`). The `lib/builtins` seed/bootstrap path and `modules/legacy-bootstrap` remain the migration-only exceptions.
-- Cross-module side effects go through the owning module's service, and must never write another module's schema tables directly. Reach into another module's repository only when atomicity inside a shared `TransactionRunner` requires it, and only to write tables that module owns — for example, `entity-schemas` creation calls `TrackersRepository.linkEntitySchema` and `SavedViewsRepository.createDefaultViewForSchema` within one transaction.
-- Importers, background jobs, sandbox callbacks, and bootstrap paths follow the same entity, event, relationship, and collection write paths as HTTP modules.
-- Provider API knowledge belongs in sandbox scripts, not app modules. App modules can normalize source input and choose provider fallback policy, but provider-specific HTTP stays in sandbox drivers.
-- If app code only has a foreign identifier such as an ISBN or IMDB id, resolve it through sandbox `resolve` drivers before provider-backed population.
-- If app code already has a provider-native identifier such as a TMDB id or Hardcover id, pass it as a resolved provider ref/input directly.
+- Feature modules form a dependency gradient from most generic to most specific. A module may depend only on more generic modules; a generic module must never import a more specific one. Sandbox execution is orthogonal infrastructure.
+- When a generic module needs a side effect owned by a more specific module, invert the dependency instead of importing it: the generic module defines an abstract hook with a no-op default, the specific module provides the implementation, and application wiring composes them.
+- Every table has exactly one owning repository that performs its writes; every other consumer routes through that repository, and service code never issues raw table writes.
+- Cross-module side effects go through the owning module's service and never write another module's tables directly. Reach into another module's repository only when atomicity within one shared transaction requires it, and only to write tables that module owns.
+- Importers, background jobs, sandbox callbacks, and bootstrap paths use the same write paths as HTTP request handling.
+- Provider-specific knowledge belongs in sandbox scripts, not application modules. Application modules may normalize source input and choose provider fallback policy, but provider-specific network calls stay in sandbox drivers.
+- When app code has only a foreign identifier, resolve it through a sandbox resolution driver before provider-backed population. When it already has a provider-native identifier, pass it through as a resolved provider input.
 
 ## Validation And Persistence
 
 - Runtime schemas, persisted JSON structures, and TypeScript types must stay aligned.
-- Reusable request/response schemas belong in module `schemas.ts` files.
-- Drizzle schema timestamps must use `timestamp({ withTimezone: true })`.
-- Persist JSONB date values as ISO 8601 UTC strings.
-- Use Effect Schema for all HTTP payloads, service boundaries, and domain types. Zod is not used in application code.
+- Reusable request and response schemas live in their module's schema definitions.
+- Database timestamps must be timezone-aware.
+- Persist JSON date values as ISO 8601 UTC strings.
+- Use Effect Schema for all HTTP payloads, service boundaries, and domain types. Do not use Zod in application code.
 
 ## Transactions
 
-- `TransactionRunner` runs an Effect inside a PostgreSQL transaction. Services depend on it directly and choose the transaction boundary.
-- Repository effects read the active executor from `CurrentDb`. `TransactionRunner` replaces `CurrentDb` with the transaction executor.
-- Expected Effect failures throw an internal rollback sentinel through Drizzle. After rollback, the original typed failure is restored.
-- Do not hold a transaction across sandbox execution, HTTP calls, durable workflow boundaries, sleeps, or fan-out work.
+- A shared transaction runner runs an effect inside one PostgreSQL transaction; services depend on it and choose the transaction boundary.
+- Repository effects read the active executor from shared context; the transaction runner swaps that executor for the transactional one.
+- Expected failures roll back through an internal sentinel, after which the original typed failure is restored.
+- Do not hold a transaction across sandbox execution, network calls, durable workflow boundaries, sleeps, or fan-out work.
 
 ## Queues
 
-- BullMQ is not used in the new backend. Background work uses Effect Workflow, durable queues, and durable deferred signals.
+- Do not introduce a third-party job-queue library. Background work uses the durable workflow engine, durable queues, and durable deferred signals.
 
 ## Redis
 
-- Centralize all app-defined Redis keys and pub/sub channel names in `src/lib/redis-keys.ts`; do not construct them inline anywhere else in `src/`.
-- Access Redis-stored app payloads through the codecs in `src/lib/redis-keys.ts` so serialization and parsing stay typed in one place.
+- Centralize all app-defined Redis keys and pub/sub channel names in one module; never construct them inline elsewhere.
+- Access Redis-stored payloads through that module's codecs, so serialization and parsing stay typed in one place.
 
 ## Schema Write Path
 
-- `entity`, `event`, and `relationship` writes must validate `properties` against the matching schema table's `propertiesSchema`.
-- Table writes have single owners: `entity` → `entities` (`createEntity`), `event` → `events` (including per-entity deletion), `relationship` → `relationships` (generic relationships and collection membership). Clearing a user's per-entity events and relationships is the `user-state` module (`UserStateService.clearUserState`), which composes the `events` and `relationships` repositories inside one transaction.
-- User-owned entity creation goes through `modules/entities: createEntity`.
-- Provider-backed global population inside background flows should compose the entity import workflow or its workflow-friendly helpers; do not reintroduce direct sandbox details helpers outside workflow orchestration.
-- Create user-owned `in-library` relationships through `modules/entities: ensureEntityInLibrary`.
-- External event creation goes through event APIs that also dispatch event-schema triggers, such as `createEventsWithTriggers` or `createEventsBestEffortWithTriggers`.
-- Collection membership creation goes through `modules/collections: addToCollection`.
-- Generic relationship writes go through `writeRelationship` or `writeEntityRelationship`; collection membership validation belongs in `addToCollection`.
-- Repository-level write primitives must not be exported through module barrels for runtime callers.
-- `modules/legacy-bootstrap` is the migration-only exception to runtime write-path rules.
-- Use `AppSchema.unknownKeys: "passthrough"` only when relationship or collection property schemas must accept arbitrary top-level keys.
-- Keep collection properties and person/company relationship properties aligned with their built-in schemas.
+- Writes to schema-backed entity, event, and relationship tables must validate their properties against the matching schema's property definition.
+- Each table has a single owning write path; every caller routes through it. Cross-cutting work that spans tables composes the owning repositories inside one transaction.
+- Provider-backed population in background flows composes the established import workflow rather than calling lower-level population helpers directly.
+- External event creation goes through the path that also dispatches schema-defined triggers.
+- Do not export repository write primitives through module barrels for runtime callers.
+- Migration and bootstrap code is the only exception to the write-path rules.
+- Allow arbitrary top-level keys in a property schema only when relationship or collection properties genuinely require passthrough; otherwise keep properties aligned with their built-in schemas.

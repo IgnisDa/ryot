@@ -14,8 +14,8 @@ const makeContractClient = (baseUrl: string, headers: RequestHeaders) =>
 			: {}),
 	});
 
-export type ContractClient = Effect.Effect.Success<ReturnType<typeof makeContractClient>>;
-export type ContractProgram<A, E> = (client: ContractClient) => Effect.Effect<A, E>;
+type ContractClient = Effect.Effect.Success<ReturnType<typeof makeContractClient>>;
+type ContractProgram<A, E> = (client: ContractClient) => Effect.Effect<A, E>;
 
 const runProgram = <A, E>(
 	program: ContractProgram<A, E>,
@@ -28,13 +28,13 @@ const runProgram = <A, E>(
 		Effect.runPromise,
 	);
 
-export const runContract = <A, E>(
+const runContract = <A, E>(
 	program: ContractProgram<A, E>,
 	headers: RequestHeaders = {},
 	baseUrl = getBackendUrl(),
 ): Promise<A> => runProgram(program, headers, baseUrl);
 
-export const runContractError = <A, E>(
+const runContractError = <A, E>(
 	program: ContractProgram<A, E>,
 	headers: RequestHeaders = {},
 	baseUrl = getBackendUrl(),
