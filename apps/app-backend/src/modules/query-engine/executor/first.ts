@@ -9,7 +9,7 @@ import {
 	evalEventFieldSelector,
 	evalFieldSelector,
 	evalRelationshipFieldSelector,
-	valueToFieldValue,
+	literalToFieldValue,
 } from "./field-values";
 import {
 	loadVisibleEntitySchemas,
@@ -86,7 +86,7 @@ const evalEventFirstSelect = (
 		return evalFieldSelector(expr.field, anchor);
 	}
 	if (expr.type === "literal") {
-		return valueToFieldValue(expr.value);
+		return literalToFieldValue(expr);
 	}
 	return { kind: "null", value: null };
 };
@@ -107,7 +107,7 @@ const evalEntityFirstSelect = (
 		return evalFieldSelector(expr.field, anchor);
 	}
 	if (expr.type === "literal") {
-		return valueToFieldValue(expr.value);
+		return literalToFieldValue(expr);
 	}
 	return { kind: "null", value: null };
 };

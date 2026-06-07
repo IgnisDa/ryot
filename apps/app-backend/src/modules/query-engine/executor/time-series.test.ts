@@ -33,4 +33,15 @@ describe("time-series bucket alignment", () => {
 		expect(DateTime.formatIso(range.startAt)).toBe("2026-01-01T00:00:00.000Z");
 		expect(DateTime.formatIso(range.endAt)).toBe("2026-01-03T00:00:00.000Z");
 	});
+
+	it("aligns a week range to ISO Monday-start week buckets", () => {
+		const range = alignDateRangeToBucket({
+			bucket: "week",
+			endAt: parse("2026-01-05T00:00:00.000Z"),
+			startAt: parse("2026-01-01T10:00:00.000Z"),
+		});
+
+		expect(DateTime.formatIso(range.startAt)).toBe("2025-12-29T00:00:00.000Z");
+		expect(DateTime.formatIso(range.endAt)).toBe("2026-01-05T00:00:00.000Z");
+	});
 });
