@@ -279,7 +279,10 @@ describe("Workouts E2E", () => {
 		const { workoutId: originalWorkoutId } = await createWorkoutEntityFixture(client);
 		const { workoutId: copiedWorkoutId } = await createWorkoutEntityFixture(client);
 
-		const relationshipSchemaId = await findBuiltinRelationshipSchemaId("workout-repeated-from");
+		const relationshipSchemaId = await findBuiltinRelationshipSchemaId(
+			client,
+			"workout-repeated-from",
+		);
 
 		await insertRelationshipRow({
 			userId,
@@ -294,12 +297,11 @@ describe("Workouts E2E", () => {
 		}>(
 			`select r.source_entity_id, r.target_entity_id
 			 from relationship r
-			 inner join relationship_schema rs on rs.id = r.relationship_schema_id
-			 where rs.slug = 'workout-repeated-from'
-			   and r.user_id = $1
-			   and r.source_entity_id = $2
-			   and r.target_entity_id = $3`,
-			[userId, copiedWorkoutId, originalWorkoutId],
+			 where r.relationship_schema_id = $1
+			   and r.user_id = $2
+			   and r.source_entity_id = $3
+			   and r.target_entity_id = $4`,
+			[relationshipSchemaId, userId, copiedWorkoutId, originalWorkoutId],
 		);
 
 		expect(result.rows).toHaveLength(1);

@@ -322,6 +322,7 @@ describe("Workout Templates E2E", () => {
 			},
 		});
 		const relationshipSchemaId = await findBuiltinRelationshipSchemaId(
+			client,
 			"workout-to-workout-template",
 		);
 
@@ -393,6 +394,7 @@ describe("Workout Templates E2E", () => {
 			},
 		});
 		const relationshipSchemaId = await findBuiltinRelationshipSchemaId(
+			client,
 			"workout-to-workout-template",
 		);
 

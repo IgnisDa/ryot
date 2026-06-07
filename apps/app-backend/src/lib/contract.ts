@@ -9,6 +9,7 @@ import { GodModeGroup } from "#modules/god-mode/contract";
 import { ImportsGroup } from "#modules/imports/contract";
 import { IntegrationsGroup } from "#modules/integrations/contract";
 import { QueryEngineGroup } from "#modules/query-engine/contract";
+import { RelationshipSchemasGroup } from "#modules/relationship-schemas/contract";
 import { SandboxGroup } from "#modules/sandbox/contract";
 import { SavedViewsGroup } from "#modules/saved-views/contract";
 import { SystemGroup } from "#modules/system/contract";
@@ -21,6 +22,7 @@ export const AppContract = HttpApi.make("ryot")
 	.add(SandboxGroup)
 	.add(TrackersGroup)
 	.add(EntitySchemasGroup)
+	.add(RelationshipSchemasGroup)
 	.add(EntitiesGroup)
 	.add(UserStateGroup)
 	.add(EventSchemasGroup)

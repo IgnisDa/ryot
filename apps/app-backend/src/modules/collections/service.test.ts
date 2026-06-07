@@ -124,7 +124,12 @@ const makeRelationshipSchemasRepository = (
 	makeMock<RelationshipSchemasRepository>(
 		{
 			findById: () => Effect.die("unused"),
+			listByUser: () => Effect.die("unused"),
 			_tag: "RelationshipSchemasRepository" as const,
+			findBySlugForUser: () => Effect.die("unused"),
+			findGlobalBySchemaIds: () => Effect.die("unused"),
+			getEntitySchemaScopeById: () => Effect.die("unused"),
+			createRelationshipSchema: () => Effect.die("unused"),
 			findBuiltinBySlug: (slug: string) =>
 				slug === "member-of" ? Effect.succeed(memberOfSchema) : Effect.succeed(inLibrarySchema),
 		},
