@@ -1,4 +1,4 @@
-import { Either, Effect, ParseResult, Schema } from "effect";
+import { Either, Effect, Schema } from "effect";
 
 import {
 	type AppPropertyDefinition,
@@ -16,9 +16,14 @@ import {
 	type AppSchemaUnknownKeysPolicy,
 	createPropertySchemaMessage,
 	propertySchemaMessage,
-	PropertyValidationError,
+	type PropertyValidationError,
 	type PropertyValidationIssue,
 } from "./property-schema";
+import {
+	formatValidationError,
+	parseErrorToIssues,
+	toValidationError,
+} from "./property-schema-runtime-errors";
 
 type ArrayValueSchema<A = unknown, I = A, R = never> = Schema.Schema<
 	ReadonlyArray<A>,
@@ -47,25 +52,6 @@ type ValidationResult =
 
 const dateDecoder = Schema.decodeUnknownEither(Schema.Date);
 const dateTimeDecoder = Schema.decodeUnknownEither(Schema.DateTimeUtc);
-
-const formatValidationError = (issues: ReadonlyArray<PropertyValidationIssue>) =>
-	issues.map((issue) =>
-		issue.path.length ? `${issue.path.join(".")}: ${issue.message}` : issue.message,
-	);
-
-const toValidationError = (issues: ReadonlyArray<PropertyValidationIssue>) =>
-	new PropertyValidationError({
-		issues: [...issues],
-		message: formatValidationError(issues).join("; ") || "Property validation failed",
-	});
-
-const parseErrorToIssues = (
-	error: ParseResult.ParseError,
-): ReadonlyArray<PropertyValidationIssue> =>
-	ParseResult.ArrayFormatter.formatErrorSync(error).map((issue) => ({
-		message: issue.message,
-		path: issue.path.map((segment) => String(segment)),
-	}));
 
 const isStringRecord = (value: unknown): value is Record<string, unknown> =>
 	typeof value === "object" && value !== null && !Array.isArray(value);
