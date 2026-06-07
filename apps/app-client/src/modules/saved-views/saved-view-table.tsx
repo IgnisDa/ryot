@@ -16,7 +16,7 @@ export function SavedViewTable(props: { items: readonly SavedViewDisplayItem[] }
 				<View className="h-8.5 flex-row border-b border-border bg-surface-2">
 					{headers.map((cell, index) => (
 						<View
-							key={`${cell.label}:${index}`}
+							key={cell.label}
 							style={{ width: index === 0 ? FIRST_COLUMN_WIDTH : COLUMN_WIDTH }}
 							className="justify-center border-r border-border px-3 last:border-r-0"
 						>
@@ -30,14 +30,14 @@ export function SavedViewTable(props: { items: readonly SavedViewDisplayItem[] }
 					<View key={item.id} className="h-14 flex-row border-b border-border md:h-12">
 						{item.table.cells.map((cell, index) => (
 							<View
-								key={`${item.id}:${index}`}
+								key={`${item.id}:${cell.label}`}
 								style={{ width: index === 0 ? FIRST_COLUMN_WIDTH : COLUMN_WIDTH }}
 								className="flex-row items-center gap-2.5 border-r border-border px-3 last:border-r-0"
 							>
 								{index === 0 && (
 									<SavedViewImageView
 										image={item.table.image}
-										className="h-8 w-[22px] shrink-0 rounded-sm bg-surface-2 md:h-9 md:w-6.5"
+										className="h-8 w-5.5 shrink-0 rounded-sm bg-surface-2 md:h-9 md:w-6.5"
 									/>
 								)}
 								<Text className="min-w-0 flex-1 font-ui text-sm text-text" numberOfLines={1}>
