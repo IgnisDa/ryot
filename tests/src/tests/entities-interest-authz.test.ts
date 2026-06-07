@@ -43,7 +43,6 @@ describe("interest authorization", () => {
 			[privateEntity.id],
 		);
 		expect(result.rows[0]?.populatedAt ?? null).toBeNull();
-	}, 20_000);
 
 	it("rejects an unauthenticated stream connection", async () => {
 		const response = await fetch(

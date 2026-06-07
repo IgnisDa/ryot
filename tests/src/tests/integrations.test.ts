@@ -248,7 +248,6 @@ describe("Webhook routes", () => {
 		const showEvents = await listEventSlugs(client, showId);
 		expect(showEvents).not.toContain("progress");
 		expect(episodeEvents).toContain("progress");
-	}, 60_000);
 
 	it("POST to a disabled integration returns 202 with a failed run", async () => {
 		const { client } = await createAuthenticatedClient();
@@ -338,7 +337,6 @@ describe("Progress normalization", () => {
 		// fill, not just the progress event's own occurredAt.
 		const completeEvent = await waitForEventWithSchema(client, episodeId, "complete");
 		expect(completeEvent.properties).toMatchObject({ completedOn: progressEvent.occurredAt });
-	}, 90_000);
 
 	it("filters out progress below the integration's minimum threshold without failing the run", async () => {
 		const { client } = await createAuthenticatedClient();
@@ -387,7 +385,6 @@ describe("Progress normalization", () => {
 		expect(requirePresent(progressEvents[0], "Expected progress event").properties).toMatchObject({
 			progressPercent: 50,
 		});
-	}, 90_000);
 });
 
 describe("Import run visibility", () => {
