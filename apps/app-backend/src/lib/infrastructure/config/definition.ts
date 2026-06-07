@@ -135,13 +135,6 @@ const fileStorage = group(
 			envKey: "FILE_STORAGE_LOCAL_TEMP_DIR",
 			description: "Directory used for temporary uploads, imports, and sandbox working files",
 		}),
-		localSigningSecret: stringField({
-			secret: true,
-			label: "Local signing secret",
-			validation: { required: true },
-			envKey: "FILE_STORAGE_LOCAL_SIGNING_SECRET",
-			description: "Secret used to sign local upload and download paths",
-		}),
 		url: stringField({
 			label: "S3 URL",
 			envKey: "FILE_STORAGE_S3_URL",
