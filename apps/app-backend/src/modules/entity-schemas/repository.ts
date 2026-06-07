@@ -20,7 +20,9 @@ type BuildEntitySchemaRow = Pick<
 	"id" | "name" | "icon" | "slug" | "isBuiltin" | "accentColor" | "propertiesSchema"
 > & {
 	readonly trackerId: (typeof schema.trackerEntitySchema.$inferSelect)["trackerId"];
-	readonly scriptId: (typeof schema.entitySchemaScript.$inferSelect)["sandboxScriptId"] | null;
+	readonly scriptId:
+		| (typeof schema.entitySchemaSandboxScript.$inferSelect)["sandboxScriptId"]
+		| null;
 	readonly scriptName: (typeof schema.sandboxScript.$inferSelect)["name"] | null;
 	readonly scriptMetadata: (typeof schema.sandboxScript.$inferSelect)["metadata"] | null;
 };
@@ -140,7 +142,7 @@ export class EntitySchemasRepository extends Effect.Service<EntitySchemasReposit
 							...listedEntitySchemaSelection,
 							scriptName: schema.sandboxScript.name,
 							scriptMetadata: schema.sandboxScript.metadata,
-							scriptId: schema.entitySchemaScript.sandboxScriptId,
+							scriptId: schema.entitySchemaSandboxScript.sandboxScriptId,
 						})
 						.from(schema.trackerEntitySchema)
 						.innerJoin(schema.tracker, eq(schema.tracker.id, schema.trackerEntitySchema.trackerId))
@@ -149,12 +151,12 @@ export class EntitySchemasRepository extends Effect.Service<EntitySchemasReposit
 							eq(schema.entitySchema.id, schema.trackerEntitySchema.entitySchemaId),
 						)
 						.leftJoin(
-							schema.entitySchemaScript,
-							eq(schema.entitySchemaScript.entitySchemaId, schema.entitySchema.id),
+							schema.entitySchemaSandboxScript,
+							eq(schema.entitySchemaSandboxScript.entitySchemaId, schema.entitySchema.id),
 						)
 						.leftJoin(
 							schema.sandboxScript,
-							eq(schema.sandboxScript.id, schema.entitySchemaScript.sandboxScriptId),
+							eq(schema.sandboxScript.id, schema.entitySchemaSandboxScript.sandboxScriptId),
 						)
 						.where(and(...clauses))
 						.orderBy(asc(schema.entitySchema.name), asc(schema.entitySchema.createdAt)),
@@ -175,7 +177,7 @@ export class EntitySchemasRepository extends Effect.Service<EntitySchemasReposit
 							...listedEntitySchemaSelection,
 							scriptName: schema.sandboxScript.name,
 							scriptMetadata: schema.sandboxScript.metadata,
-							scriptId: schema.entitySchemaScript.sandboxScriptId,
+							scriptId: schema.entitySchemaSandboxScript.sandboxScriptId,
 						})
 						.from(schema.entitySchema)
 						.innerJoin(
@@ -184,12 +186,12 @@ export class EntitySchemasRepository extends Effect.Service<EntitySchemasReposit
 						)
 						.innerJoin(schema.tracker, eq(schema.tracker.id, schema.trackerEntitySchema.trackerId))
 						.leftJoin(
-							schema.entitySchemaScript,
-							eq(schema.entitySchemaScript.entitySchemaId, schema.entitySchema.id),
+							schema.entitySchemaSandboxScript,
+							eq(schema.entitySchemaSandboxScript.entitySchemaId, schema.entitySchema.id),
 						)
 						.leftJoin(
 							schema.sandboxScript,
-							eq(schema.sandboxScript.id, schema.entitySchemaScript.sandboxScriptId),
+							eq(schema.sandboxScript.id, schema.entitySchemaSandboxScript.sandboxScriptId),
 						)
 						.where(
 							and(

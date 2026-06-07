@@ -97,7 +97,7 @@ const makeIntegrationsRepository = (
 
 const makeEntitiesRepository = (overrides: MockOverrides<typeof mockEntitiesRepository> = {}) =>
 	mockEntitiesRepository({
-		findEntitySchemaScriptBySlug: (slug) => {
+		findEntitySchemaSandboxScriptBySlug: (slug) => {
 			let result: { entitySchemaId: EntitySchemaId; sandboxScriptId: SandboxScriptId } | null =
 				null;
 			switch (slug) {
