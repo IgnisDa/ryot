@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -133,16 +133,16 @@ Export `writeOwnershipToLibrary` from `src/modules/entities/index.ts` for use by
 
 ## Acceptance criteria
 
-- [ ] `add-entity-to-collection` and `remove-entity-from-collection` event schemas exist in the DB after seeding, attached to the builtin `collection` entity schema.
-- [ ] `createEventBySchemaSlugWithTriggers` is exported from the events module barrel and resolves event schema by slug for a given entity.
-- [ ] `addToCollection` emits an `add-entity-to-collection` event only when the membership relationship was newly inserted.
-- [ ] `addToCollection` does not emit an event when the membership relationship already existed and was merely updated.
-- [ ] If `add-entity-to-collection` event creation fails, the entire add-to-collection operation fails and neither the relationship nor the event is persisted.
-- [ ] `removeFromCollection` emits a `remove-entity-from-collection` event only when an existing relationship row was deleted.
-- [ ] `writeOwnershipToLibrary` sets `owned = true`, appends the provider to `ownershipSources` without duplication, and sets `ownershipSyncedAt`.
-- [ ] Calling `writeOwnershipToLibrary` twice with the same provider does not duplicate the provider in `ownershipSources`.
-- [ ] `writeOwnershipToLibrary` is exported from the entities module barrel.
-- [ ] Unit tests cover: add event emitted on first insert, no event on upsert update, remove event on deletion, no event when entity was not in collection, transaction rollback on add event failure, ownership merge correctness. Prior art: `src/modules/entities/service.test.ts`, `src/modules/collections/service.ts`.
+- [x] `add-entity-to-collection` and `remove-entity-from-collection` event schemas exist in the DB after seeding, attached to the builtin `collection` entity schema.
+- [x] `createEventBySchemaSlugWithTriggers` is exported from the events module barrel and resolves event schema by slug for a given entity.
+- [x] `addToCollection` emits an `add-entity-to-collection` event only when the membership relationship was newly inserted.
+- [x] `addToCollection` does not emit an event when the membership relationship already existed and was merely updated.
+- [x] If `add-entity-to-collection` event creation fails, the entire add-to-collection operation fails and neither the relationship nor the event is persisted.
+- [x] `removeFromCollection` emits a `remove-entity-from-collection` event only when an existing relationship row was deleted.
+- [x] `writeOwnershipToLibrary` sets `owned = true`, appends the provider to `ownershipSources` without duplication, and sets `ownershipSyncedAt`.
+- [x] Calling `writeOwnershipToLibrary` twice with the same provider does not duplicate the provider in `ownershipSources`.
+- [x] `writeOwnershipToLibrary` is exported from the entities module barrel.
+- [x] Unit tests cover: add event emitted on first insert, no event on upsert update, remove event on deletion, no event when entity was not in collection, transaction rollback on add event failure, ownership merge correctness. Prior art: `src/modules/entities/service.test.ts`, `src/modules/collections/service.ts`.
 
 ## User stories addressed
 

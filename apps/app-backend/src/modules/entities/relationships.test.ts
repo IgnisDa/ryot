@@ -32,6 +32,7 @@ describe("writeCollectionMembership", () => {
 						relationshipInput = input;
 						return Promise.resolve({
 							id: "rel_1",
+							wasInserted: true,
 							createdAt: new Date("2024-01-01T00:00:00.000Z"),
 							properties: input.properties,
 							sourceEntityId: input.sourceEntityId,
@@ -50,11 +51,12 @@ describe("writeCollectionMembership", () => {
 			targetEntityId: "collection_1",
 			relationshipSchemaId: "rel_schema_member_of",
 		});
+		expect(result.wasInserted).toBe(true);
 		expect(result.memberOf).toEqual({
 			id: "rel_1",
-			properties: { priority: "high" },
 			sourceEntityId: "entity_1",
 			targetEntityId: "collection_1",
+			properties: { priority: "high" },
 			createdAt: "2024-01-01T00:00:00.000Z",
 			relationshipSchemaId: "rel_schema_member_of",
 		});
@@ -67,10 +69,11 @@ describe("writeCollectionMembership", () => {
 			{ userId: "user_1", entityId: "entity_1", collectionId: "collection_1", properties: {} },
 			{
 				getBuiltinRelationshipSchemaBySlug: () => Promise.resolve(undefined),
-				upsertRelationship: () => {
+				// oxlint-disable-next-line no-unsafe-type-assertion
+				upsertRelationship: (() => {
 					writeCalls++;
 					throw new Error("Should not write without schema");
-				},
+				}) as never,
 			},
 		);
 

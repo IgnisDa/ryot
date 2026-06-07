@@ -1,12 +1,12 @@
 import { describe, expect, it } from "bun:test";
 
 import {
-	createAddToCollectionData,
 	createAddToCollectionDeps,
 	createCollectionDeps,
 	createCollectionResponse,
 	createGetOrCreateCollectionDeps,
 	createRemoveFromCollectionDeps,
+	createWriteCollectionMembershipResult,
 } from "~/lib/test-fixtures";
 import { expectDataResult, expectErrorResult } from "~/lib/test-helpers";
 
@@ -530,8 +530,8 @@ describe("addToCollection", () => {
 				},
 				createAddToCollectionDeps({
 					writeCollectionMembership: (input) =>
-						Promise.resolve({
-							data: createAddToCollectionData({
+						Promise.resolve(
+							createWriteCollectionMembershipResult({
 								memberOf: {
 									id: "rel_1",
 									properties: input.properties,
@@ -541,7 +541,7 @@ describe("addToCollection", () => {
 									relationshipSchemaId: "rel_schema_member_of",
 								},
 							}),
-						}),
+						),
 				}),
 			),
 		);
@@ -556,7 +556,8 @@ describe("addToCollection", () => {
 			await addToCollection(
 				{ userId: "user-1", body: { collectionId: "collection-1", entityId: "entity-1" } },
 				createAddToCollectionDeps({
-					getEntityById: () => Promise.resolve({ id: "entity-1", userId: null }),
+					getEntityById: () =>
+						Promise.resolve({ id: "entity-1", userId: null, entitySchemaSlug: "movie" }),
 					ensureEntityInLibrary: (input) => {
 						calls.push(input);
 						return Promise.resolve({ data: undefined });
@@ -575,7 +576,8 @@ describe("addToCollection", () => {
 			await addToCollection(
 				{ userId: "user-1", body: { collectionId: "collection-1", entityId: "entity-1" } },
 				createAddToCollectionDeps({
-					getEntityById: () => Promise.resolve({ id: "entity-1", userId: null }),
+					getEntityById: () =>
+						Promise.resolve({ id: "entity-1", userId: null, entitySchemaSlug: "movie" }),
 					ensureEntityInLibrary: () => {
 						ensureCalls++;
 						return Promise.resolve({ data: undefined });
@@ -609,7 +611,8 @@ describe("addToCollection", () => {
 		const result = await addToCollection(
 			{ userId: "user-1", body: { collectionId: "collection-1", entityId: "entity-1" } },
 			createAddToCollectionDeps({
-				getEntityById: () => Promise.resolve({ id: "entity-1", userId: null }),
+				getEntityById: () =>
+					Promise.resolve({ id: "entity-1", userId: null, entitySchemaSlug: "movie" }),
 				ensureEntityInLibrary: () =>
 					Promise.resolve({ error: "validation", message: "User library entity not found" }),
 			}),
@@ -631,7 +634,8 @@ describe("addToCollection", () => {
 				},
 			},
 			createAddToCollectionDeps({
-				getEntityById: () => Promise.resolve({ id: "entity-1", userId: null }),
+				getEntityById: () =>
+					Promise.resolve({ id: "entity-1", userId: null, entitySchemaSlug: "movie" }),
 				getCollectionById: () =>
 					Promise.resolve(
 						createCollectionResponse({
@@ -689,8 +693,8 @@ describe("addToCollection", () => {
 						),
 					writeCollectionMembership: (input) => {
 						receivedProperties = input.properties;
-						return Promise.resolve({
-							data: createAddToCollectionData({
+						return Promise.resolve(
+							createWriteCollectionMembershipResult({
 								memberOf: {
 									id: "rel_1",
 									properties: input.properties,
@@ -700,7 +704,7 @@ describe("addToCollection", () => {
 									relationshipSchemaId: "rel_schema_member_of",
 								},
 							}),
-						});
+						);
 					},
 				}),
 			),
@@ -930,7 +934,7 @@ describe("addToCollection", () => {
 				createAddToCollectionDeps({
 					writeCollectionMembership: (input) => {
 						receivedProperties = input.properties;
-						return Promise.resolve({ data: createAddToCollectionData() });
+						return Promise.resolve(createWriteCollectionMembershipResult());
 					},
 				}),
 			),
@@ -979,8 +983,8 @@ describe("addToCollection", () => {
 						),
 					writeCollectionMembership: (input) => {
 						receivedProperties = input.properties;
-						return Promise.resolve({
-							data: createAddToCollectionData({
+						return Promise.resolve(
+							createWriteCollectionMembershipResult({
 								memberOf: {
 									id: "rel_1",
 									properties: input.properties,
@@ -990,7 +994,7 @@ describe("addToCollection", () => {
 									relationshipSchemaId: "rel_schema_member_of",
 								},
 							}),
-						});
+						);
 					},
 				}),
 			),
@@ -1096,7 +1100,7 @@ describe("addToCollection", () => {
 				createAddToCollectionDeps({
 					writeCollectionMembership: (input) => {
 						receivedProperties = input.properties;
-						return Promise.resolve({ data: createAddToCollectionData() });
+						return Promise.resolve(createWriteCollectionMembershipResult());
 					},
 				}),
 			),
@@ -1118,8 +1122,8 @@ describe("addToCollection", () => {
 				},
 				createAddToCollectionDeps({
 					writeCollectionMembership: (input) =>
-						Promise.resolve({
-							data: createAddToCollectionData({
+						Promise.resolve(
+							createWriteCollectionMembershipResult({
 								memberOf: {
 									id: "existing-rel-1",
 									properties: input.properties,
@@ -1129,7 +1133,7 @@ describe("addToCollection", () => {
 									relationshipSchemaId: "rel_schema_member_of",
 								},
 							}),
-						}),
+						),
 				}),
 			),
 		);
@@ -1143,12 +1147,13 @@ describe("addToCollection", () => {
 		const writeCollectionMembership = (input: {
 			userId: string;
 			entityId: string;
+			database?: unknown;
 			collectionId: string;
 			properties: Record<string, unknown>;
 		}) => {
 			callCount++;
-			return Promise.resolve({
-				data: createAddToCollectionData({
+			return Promise.resolve(
+				createWriteCollectionMembershipResult({
 					memberOf: {
 						id: `rel_${callCount}`,
 						properties: input.properties,
@@ -1158,7 +1163,7 @@ describe("addToCollection", () => {
 						relationshipSchemaId: "rel_schema_member_of",
 					},
 				}),
-			});
+			);
 		};
 
 		await addToCollection(
@@ -1280,5 +1285,149 @@ describe("removeFromCollection", () => {
 				}),
 			),
 		).rejects.toThrow("Database connection lost");
+	});
+
+	it("emits remove-entity-from-collection event when entity is removed", async () => {
+		let emittedEventSchemaSlug: string | undefined;
+		let emittedProperties: Record<string, unknown> | undefined;
+
+		expectDataResult(
+			await removeFromCollection(
+				{ userId: "user-1", body: { collectionId: "collection-1", entityId: "entity-1" } },
+				createRemoveFromCollectionDeps({
+					createEventBySchemaSlugWithTriggers: (input) => {
+						emittedEventSchemaSlug = input.eventSchemaSlug;
+						emittedProperties = input.properties;
+						return Promise.resolve({
+							data: {
+								id: "event_1",
+								properties: {},
+								sessionEntityId: null,
+								entityId: "collection-1",
+								entitySchemaSlug: "collection",
+								entitySchemaId: "schema_collection",
+								eventSchemaId: "schema_remove_event",
+								createdAt: new Date("2024-01-01"),
+								updatedAt: new Date("2024-01-01"),
+								occurredAt: new Date("2024-01-01"),
+								eventSchemaName: "Remove Entity from Collection",
+								eventSchemaSlug: "remove-entity-from-collection",
+							},
+						});
+					},
+				}),
+			),
+		);
+
+		expect(emittedEventSchemaSlug).toBe("remove-entity-from-collection");
+		expect(emittedProperties).toMatchObject({
+			entityId: "entity-1",
+			entitySchemaSlug: "movie",
+			relationshipId: "rel_1",
+		});
+	});
+
+	it("does not emit event when entity is not in collection", async () => {
+		let eventEmitCalled = false;
+
+		const result = await removeFromCollection(
+			{ userId: "user-1", body: { collectionId: "collection-1", entityId: "entity-1" } },
+			createRemoveFromCollectionDeps({
+				deleteCollectionMembership: () => Promise.resolve({ data: undefined }),
+				createEventBySchemaSlugWithTriggers: () => {
+					eventEmitCalled = true;
+					return Promise.resolve({ data: {} as never }); // oxlint-disable-line no-unsafe-type-assertion
+				},
+			}),
+		);
+
+		expect(result).toMatchObject({ error: "not_found" });
+		expect(eventEmitCalled).toBe(false);
+	});
+
+	it("returns error when remove event creation fails", async () => {
+		const result = await removeFromCollection(
+			{ userId: "user-1", body: { collectionId: "collection-1", entityId: "entity-1" } },
+			createRemoveFromCollectionDeps({
+				createEventBySchemaSlugWithTriggers: () =>
+					Promise.resolve({ error: "validation" as const, message: "Event schema not found" }),
+			}),
+		);
+
+		expect(result).toEqual({ error: "validation", message: "Event schema not found" });
+	});
+});
+
+describe("addToCollection — event emission", () => {
+	it("emits add-entity-to-collection event when entity is newly added", async () => {
+		let emittedEventSchemaSlug: string | undefined;
+		let emittedProperties: Record<string, unknown> | undefined;
+
+		expectDataResult(
+			await addToCollection(
+				{ userId: "user-1", body: { collectionId: "collection-1", entityId: "entity-1" } },
+				createAddToCollectionDeps({
+					createEventBySchemaSlugWithTriggers: (input) => {
+						emittedEventSchemaSlug = input.eventSchemaSlug;
+						emittedProperties = input.properties;
+						return Promise.resolve({
+							data: {
+								id: "event_1",
+								properties: {},
+								sessionEntityId: null,
+								entityId: "collection-1",
+								entitySchemaSlug: "collection",
+								eventSchemaId: "schema_add_event",
+								entitySchemaId: "schema_collection",
+								createdAt: new Date("2024-01-01"),
+								updatedAt: new Date("2024-01-01"),
+								occurredAt: new Date("2024-01-01"),
+								eventSchemaName: "Add Entity to Collection",
+								eventSchemaSlug: "add-entity-to-collection",
+							},
+						});
+					},
+				}),
+			),
+		);
+
+		expect(emittedEventSchemaSlug).toBe("add-entity-to-collection");
+		expect(emittedProperties).toMatchObject({
+			entityId: "entity-1",
+			relationshipId: "rel_1",
+			entitySchemaSlug: "movie",
+		});
+	});
+
+	it("does not emit event when entity was already in collection (wasInserted: false)", async () => {
+		let eventEmitCalled = false;
+
+		expectDataResult(
+			await addToCollection(
+				{ userId: "user-1", body: { collectionId: "collection-1", entityId: "entity-1" } },
+				createAddToCollectionDeps({
+					writeCollectionMembership: () =>
+						Promise.resolve(createWriteCollectionMembershipResult({}, false)),
+					createEventBySchemaSlugWithTriggers: () => {
+						eventEmitCalled = true;
+						return Promise.resolve({ data: {} as never }); // oxlint-disable-line no-unsafe-type-assertion
+					},
+				}),
+			),
+		);
+
+		expect(eventEmitCalled).toBe(false);
+	});
+
+	it("returns error and rolls back when add event creation fails", async () => {
+		const result = await addToCollection(
+			{ userId: "user-1", body: { collectionId: "collection-1", entityId: "entity-1" } },
+			createAddToCollectionDeps({
+				createEventBySchemaSlugWithTriggers: () =>
+					Promise.resolve({ error: "not_found" as const, message: "Event schema not found" }),
+			}),
+		);
+
+		expect(result).toEqual({ error: "not_found", message: "Event schema not found" });
 	});
 });

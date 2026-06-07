@@ -125,8 +125,12 @@ describe("GET /event-schemas", () => {
 
 		const eventSchemas = await listEventSchemas(client, cookies, collectionSchema.id);
 
-		expect(eventSchemas.map((schema) => schema.slug)).toEqual(["review"]);
-		const reviewSchema = eventSchemas[0];
+		expect(eventSchemas.map((schema) => schema.slug)).toEqual([
+			"add-entity-to-collection",
+			"remove-entity-from-collection",
+			"review",
+		]);
+		const reviewSchema = eventSchemas.find((schema) => schema.slug === "review");
 		assertPresent(reviewSchema, "Missing built-in review schema for collection");
 		expect(reviewSchema.propertiesSchema).toMatchObject({
 			fields: {
