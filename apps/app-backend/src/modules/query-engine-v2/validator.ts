@@ -23,6 +23,17 @@ const registerAlias = (scope: AliasScope, alias: string, entry: ScopeEntry): str
 	return null;
 };
 
+const validateSchemaList = (schemas: readonly string[]) => {
+	const seen = new Set<string>();
+	for (const schema of schemas) {
+		if (seen.has(schema)) {
+			return `Duplicate schema '${schema}' in source schemas`;
+		}
+		seen.add(schema);
+	}
+	return null;
+};
+
 const validateFieldSelector = (field: FieldSelector, entry: ScopeEntry): string | null => {
 	if (field.type === "system") {
 		if (!ENTITY_SYSTEM_FIELDS.has(field.name)) {
@@ -80,6 +91,10 @@ const validateExpr = (expr: Expr, scope: AliasScope): string | null => {
 export const validateQueryDocumentV2 = (doc: QueryDocumentV2): string | null => {
 	const scope: AliasScope = new Map();
 	const { source } = doc;
+	const schemaError = validateSchemaList(source.schemas);
+	if (schemaError) {
+		return schemaError;
+	}
 
 	const aliasError = registerAlias(scope, source.alias, {
 		type: "entitySource",
