@@ -158,14 +158,32 @@ export const EventSourceV2 = Schema.Union(NestedEventSourceV2, RootEventSourceV2
 });
 export type EventSourceV2 = typeof EventSourceV2.Type;
 
+const RelationshipEndpointV2 = strictStruct({
+	alias: Schema.String,
+	schemas: Schema.NonEmptyArray(Schema.String),
+}).annotations({ identifier: "RelationshipEndpointV2" });
+export type RelationshipEndpointV2 = typeof RelationshipEndpointV2.Type;
+
+export const RelationshipSourceV2 = strictStruct({
+	alias: Schema.String,
+	where: Schema.NullOr(Expr),
+	sourceEntity: RelationshipEndpointV2,
+	targetEntity: RelationshipEndpointV2,
+	type: Schema.Literal("relationships"),
+	schemas: Schema.NonEmptyArray(Schema.String),
+}).annotations({ identifier: "RelationshipSourceV2" });
+export type RelationshipSourceV2 = typeof RelationshipSourceV2.Type;
+
 export const SourceV2 = Schema.Union(EntitySourceV2, NestedEventSourceV2).annotations({
 	identifier: "SourceV2",
 });
 export type SourceV2 = typeof SourceV2.Type;
 
-export const RootSourceV2 = Schema.Union(EntitySourceV2, RootEventSourceV2).annotations({
-	identifier: "RootSourceV2",
-});
+export const RootSourceV2 = Schema.Union(
+	EntitySourceV2,
+	RootEventSourceV2,
+	RelationshipSourceV2,
+).annotations({ identifier: "RootSourceV2" });
 export type RootSourceV2 = typeof RootSourceV2.Type;
 
 const Pagination = strictStruct({
