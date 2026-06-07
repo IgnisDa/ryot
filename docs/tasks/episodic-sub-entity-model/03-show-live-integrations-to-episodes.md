@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -34,14 +34,14 @@ Slice-specific constraints:
 
 ## Acceptance criteria
 
-- [ ] Live "now watching S#E#" events from the five show sinks attach to the
+- [x] Live "now watching S#E#" events from the five show sinks attach to the
       resolved episode entity; events lacking enough coordinates are dropped and
       logged.
-- [ ] Two progress events for the same episode with the same `consumedOn` and
+- [x] Two progress events for the same episode with the same `consumedOn` and
       `progressPercent` are de-duplicated; anime/manga de-duplication is unchanged.
-- [ ] The show/podcast positional keys are removed from the progress-policy
+- [x] The show/podcast positional keys are removed from the progress-policy
       sub-item key set, with anime/manga keys retained.
-- [ ] Tests pass: progress-resolution E2E for the sink path; de-duplication
+- [x] Tests pass: progress-resolution E2E for the sink path; de-duplication
       behavior test (see *Testing Decisions*).
 
 ## User stories addressed
