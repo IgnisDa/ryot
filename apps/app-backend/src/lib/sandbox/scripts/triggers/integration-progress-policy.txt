@@ -1,0 +1,195 @@
+const SUBITEM_KEYS = [
+  "showSeason",
+  "showEpisode",
+  "animeEpisode",
+  "mangaVolume",
+  "mangaChapter",
+  "podcastEpisode",
+];
+
+const DEFAULT_THRESHOLD_SECONDS = 7200;
+
+function getApiResponseData(result) {
+  const body = result && result.data && result.data.body;
+  return body && body.data;
+}
+
+function parseProgressPercent(value) {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : null;
+  }
+  if (typeof value === "string" && value.trim() !== "") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function toFiniteNumber(value, fallback) {
+  const parsed = typeof value === "string" ? Number(value) : value;
+  return typeof parsed === "number" && Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function subitemSignature(properties) {
+  const parts = [];
+  for (const key of SUBITEM_KEYS) {
+    const value = properties[key];
+    if (value !== undefined && value !== null) {
+      parts.push(key + "=" + String(value));
+    }
+  }
+  return parts.join(",");
+}
+
+function consumedOnValue(properties) {
+  return typeof properties.consumedOn === "string" ? properties.consumedOn : "";
+}
+
+function buildFingerprint(trigger, properties) {
+  return [
+    trigger.entityId,
+    trigger.eventSchemaSlug,
+    consumedOnValue(properties),
+    subitemSignature(properties),
+  ].join("|");
+}
+
+function hasSameIdentity(eventProperties, triggerProperties) {
+  if (consumedOnValue(eventProperties) !== consumedOnValue(triggerProperties)) {
+    return false;
+  }
+  return subitemSignature(eventProperties) === subitemSignature(triggerProperties);
+}
+
+function eventTimestamp(value) {
+  const timestamp = typeof value === "string" ? Date.parse(value) : NaN;
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function sortLatestFirst(a, b) {
+  const occurredDiff = eventTimestamp(b.occurredAt) - eventTimestamp(a.occurredAt);
+  if (occurredDiff !== 0) return occurredDiff;
+  return eventTimestamp(b.createdAt) - eventTimestamp(a.createdAt);
+}
+
+async function getThresholdSeconds() {
+  const configResult = await appApiCall("GET", "/api/system/config");
+  if (!configResult.success) {
+    return DEFAULT_THRESHOLD_SECONDS;
+  }
+
+  const config = getApiResponseData(configResult);
+  const scheduler = config && config.system && config.system.scheduler;
+  const hours = toFiniteNumber(scheduler && scheduler.progressUpdateThresholdHours, null);
+  if (hours === null || hours <= 0) {
+    return DEFAULT_THRESHOLD_SECONDS;
+  }
+
+  return Math.round(hours * 3600);
+}
+
+async function getMatchingEvents(trigger, properties) {
+  const eventsResult = await appApiCall(
+    "GET",
+    "/api/events?entityId=" +
+      encodeURIComponent(trigger.entityId) +
+      "&eventSchemaSlug=progress",
+  );
+  if (!eventsResult.success) {
+    return [];
+  }
+
+  const events = getApiResponseData(eventsResult);
+  if (!Array.isArray(events)) {
+    return [];
+  }
+
+  return events
+    .filter(function (event) {
+      return (
+        event &&
+        event.properties &&
+        typeof event.properties === "object" &&
+        hasSameIdentity(event.properties, properties)
+      );
+    })
+    .sort(sortLatestFirst);
+}
+
+driver("trigger", async function (context) {
+  const trigger = context.trigger;
+  if (!trigger || trigger.origin !== "integration") {
+    return { action: "allow" };
+  }
+
+  const properties =
+    trigger.properties && typeof trigger.properties === "object" ? trigger.properties : {};
+
+  let progressPercent = parseProgressPercent(properties.progressPercent);
+  if (progressPercent === null) {
+    return { action: "skip", reason: "invalid_progress" };
+  }
+
+  if (!trigger.integrationId) {
+    return { action: "allow" };
+  }
+
+  const integrationResult = await appApiCall(
+    "GET",
+    "/api/integrations/" + encodeURIComponent(trigger.integrationId),
+  );
+  if (!integrationResult.success) {
+    return { action: "allow" };
+  }
+
+  const integration = getApiResponseData(integrationResult);
+  const minimumProgress = toFiniteNumber(integration && integration.minimumProgress, 0);
+  const maximumProgress = toFiniteNumber(integration && integration.maximumProgress, 100);
+
+  if (progressPercent < minimumProgress) {
+    return { action: "skip", reason: "below_minimum_progress" };
+  }
+
+  let replaced = false;
+  if (progressPercent > maximumProgress) {
+    progressPercent = 100;
+    replaced = true;
+  }
+
+  const matchingEvents = await getMatchingEvents(trigger, properties);
+
+  const latestEvent = matchingEvents[0];
+  if (
+    latestEvent &&
+    parseProgressPercent(latestEvent.properties.progressPercent) === progressPercent
+  ) {
+    return { action: "skip", reason: "duplicate_progress" };
+  }
+
+  if (progressPercent >= 100) {
+    const thresholdSeconds = await getThresholdSeconds();
+    const fingerprint = buildFingerprint(trigger, properties);
+    const claim = await claimCachedValue(fingerprint, true, thresholdSeconds);
+
+    if (claim.success && claim.data.claimed === false) {
+      const recentCompletion = matchingEvents.find(function (event) {
+        return parseProgressPercent(event.properties.progressPercent) === 100;
+      });
+      if (recentCompletion) {
+        const occurredAtMs = eventTimestamp(recentCompletion.occurredAt);
+        if (occurredAtMs > 0 && Date.now() - occurredAtMs <= thresholdSeconds * 1000) {
+          return { action: "skip", reason: "completed_recently" };
+        }
+      }
+    }
+  }
+
+  if (replaced) {
+    return {
+      action: "replace",
+      body: { properties: Object.assign({}, properties, { progressPercent: 100 }) },
+    };
+  }
+
+  return { action: "allow" };
+});
