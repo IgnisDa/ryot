@@ -5,8 +5,8 @@ import {
 	createEntityPropertyExpression,
 	createLiteralExpression,
 } from "#lib/query-language";
+import type { QueryComputedField } from "#lib/query-language";
 
-import type { ViewComputedField } from "./computed-fields";
 import { inferViewExpressionType } from "./expression-analysis";
 import { context } from "./test-support";
 
@@ -117,7 +117,7 @@ describe("inferViewExpressionType", () => {
 	});
 
 	it("infers computed-field references and rejects missing computed fields", () => {
-		const computedFieldMap = new Map<string, ViewComputedField>([
+		const computedFieldMap = new Map<string, QueryComputedField>([
 			[
 				"displayName",
 				{

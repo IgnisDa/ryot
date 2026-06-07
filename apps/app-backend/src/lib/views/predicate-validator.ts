@@ -1,12 +1,11 @@
 import { Either, Match, Schema } from "effect";
 
 import type { QueryComputedField, QueryExpression, QueryFilter } from "#lib/query-language";
+import type { AppObjectProperty, AppPropertyDefinition } from "#lib/schema/property-schema";
 import {
 	createPropertyValueSchema,
-	type AppObjectProperty,
-	type AppPropertyDefinition,
 	type PropertyValueField,
-} from "#lib/schema/core";
+} from "#lib/schema/property-schema-runtime";
 
 import { buildComputedFieldMap } from "./computed-fields";
 import { QueryEngineValidationError } from "./errors";

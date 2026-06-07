@@ -2,7 +2,7 @@ import { Effect, Schema } from "effect";
 
 import { DbRunner } from "#lib/db";
 import { SandboxRunError, dieOnDbError } from "#lib/errors";
-import { parseAppSchemaProperties } from "#lib/schema/core";
+import { parseAppSchemaProperties } from "#lib/schema/property-schema-runtime";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 

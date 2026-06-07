@@ -1,10 +1,10 @@
 import { Effect } from "effect";
 
-import type { CurrentUserValue } from "#lib/auth";
+import type { CurrentUserValue } from "#lib/auth-middleware";
 import { DbRunner } from "#lib/db";
 import { badRequest } from "#lib/errors";
-import { parseAppSchemaPropertiesSafe } from "#lib/schema/core";
-import type { AppSchema } from "#lib/schema/core";
+import type { AppSchema } from "#lib/schema/property-schema";
+import { parseAppSchemaPropertiesSafe } from "#lib/schema/property-schema-runtime";
 import { EntitiesRepository } from "#modules/entities/repository";
 import type { ListedEntity } from "#modules/entities/schemas";
 import type { EntitiesService } from "#modules/entities/service";

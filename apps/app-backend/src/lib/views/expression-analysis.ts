@@ -1,7 +1,7 @@
 import { Match } from "effect";
 
 import type { QueryComputedField, QueryExpression } from "#lib/query-language";
-import type { AppPropertyDefinition } from "#lib/schema/core";
+import type { AppPropertyDefinition } from "#lib/schema/property-schema";
 
 import { getComputedFieldOrThrow } from "./computed-fields";
 import { QueryEngineValidationError } from "./errors";

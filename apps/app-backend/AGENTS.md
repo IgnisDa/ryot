@@ -29,6 +29,7 @@ Remove explicit return type annotations when TypeScript can trivially infer them
 - Repositories own persistence and row-to-domain normalization only. They return effects and read the active database executor from shared context.
 - Define services and repositories as Effect service classes; provide dependencies through layer composition, not hand-passed dependency parameters.
 - Access control lives in services, as pure helpers or direct checks after loading the smallest resource scope.
+- Do not add barrel re-exports in app-backend; import from the defining module directly.
 
 ## Cross-Module Infrastructure
 

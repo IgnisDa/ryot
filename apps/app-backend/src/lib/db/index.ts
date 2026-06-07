@@ -5,8 +5,11 @@ import { Pool } from "pg";
 import { AppConfig } from "#lib/config";
 import { DbError, unknownToDbError } from "#lib/errors";
 
-import * as schema from "./schema";
+import * as schemaAuth from "./schema/auth";
+import * as schemaRelations from "./schema/relations";
+import * as schemaTables from "./schema/tables";
 
+const schema = { ...schemaAuth, ...schemaTables, ...schemaRelations };
 const makeDb = (pool: Pool) => drizzle(pool, { schema, casing: "snake_case" });
 
 export type DbRoot = ReturnType<typeof makeDb>;
@@ -105,5 +108,3 @@ export const TransactionRunnerLive = Layer.effect(
 			withTransaction(effect).pipe(Effect.provideService(DbService, dbService));
 	}),
 );
-
-export { schema };

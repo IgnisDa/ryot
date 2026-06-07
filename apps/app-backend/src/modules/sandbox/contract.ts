@@ -8,11 +8,9 @@ import {
 	CreateSandboxScriptBody,
 	EnqueueResponse,
 	EnqueueSandboxBody,
-	SandboxScript,
 	SandboxRunResult,
+	SandboxScript,
 } from "./schemas";
-
-export { SandboxRunResult } from "./schemas";
 
 const jobIdParam = HttpApiSchema.param("jobId", Schema.String);
 

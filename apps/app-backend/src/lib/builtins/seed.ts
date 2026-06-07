@@ -3,8 +3,8 @@ import { and, eq, isNull, notInArray, sql } from "drizzle-orm";
 import { Effect } from "effect";
 
 import { CurrentDb, dbEffect, TransactionRunner } from "#lib/db";
-import * as schema from "#lib/db/schema";
-import type { AppSchema } from "#lib/schema/core";
+import * as schema from "#lib/db/schema/tables";
+import type { AppSchema } from "#lib/schema/property-schema";
 
 import { builtinEntitySchemas } from "./entity-schemas";
 import {

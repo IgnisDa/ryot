@@ -1,7 +1,8 @@
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { Effect } from "effect";
 
-import { CurrentDb, dbEffect, isUniqueConstraintError, schema } from "#lib/db";
+import { CurrentDb, dbEffect, isUniqueConstraintError } from "#lib/db";
+import * as schema from "#lib/db/schema/tables";
 import { DbError, conflict } from "#lib/errors";
 
 type TrackerRow = typeof schema.tracker.$inferSelect;

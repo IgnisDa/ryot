@@ -1,7 +1,7 @@
 import { HttpApiBuilder } from "@effect/platform";
 import { Effect } from "effect";
 
-import { CurrentUser } from "#lib/auth";
+import { CurrentUser } from "#lib/auth-middleware";
 import { AppContract } from "#lib/contract";
 
 import { QueryEngineService } from "./service";

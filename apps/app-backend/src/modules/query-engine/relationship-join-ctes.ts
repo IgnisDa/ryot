@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import { Match } from "effect";
 
-import { schema } from "#lib/db";
+import * as schema from "#lib/db/schema/tables";
 import type { QueryExpression } from "#lib/query-language";
 import { QueryEngineValidationError } from "#lib/views/errors";
 import {
