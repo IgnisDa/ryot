@@ -10,7 +10,6 @@
 		"**/.wxt/**",
 		"**/build/**",
 		"**/.vitepress/**",
-		"libs/generated/**",
 		"apps/frontend/app/styles/*.css",
 		"apps/docs/src/includes/export-schema.ts"
 	],

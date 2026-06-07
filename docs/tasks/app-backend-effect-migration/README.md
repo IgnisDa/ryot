@@ -178,9 +178,9 @@ The module migration proceeds from infrastructure and leaf modules toward highly
 
 ## Tasks
 
-**Overall Progress:** 31 of 33 tasks completed
+**Overall Progress:** 32 of 33 tasks completed
 
-**Current Task:** [Task 32](./32-remove-legacy-contract-artifacts.md) (in_progress)
+**Current Task:** [Task 33](./33-codebase-cleanup.md) (todo)
 
 ### Task List
 
@@ -217,5 +217,5 @@ The module migration proceeds from infrastructure and leaf modules toward highly
 | 29  | [App Client Effect Client Foundation](./29-app-client-effect-client-foundation.md)                   | AFK  | done   |
 | 30  | [App Client Navigation And Media Queries](./30-app-client-navigation-and-media-queries.md)           | AFK  | done   |
 | 31  | [App Client Admin Detail Upload Saved Views](./31-app-client-admin-detail-upload-saved-views.md)     | AFK  | done   |
-| 32  | [Remove Legacy Contract Artifacts](./32-remove-legacy-contract-artifacts.md)                         | AFK  | in_progress   |
+| 32  | [Remove Legacy Contract Artifacts](./32-remove-legacy-contract-artifacts.md)                         | AFK  | done   |
 | 33  | [Codebase Cleanup](./33-codebase-cleanup.md)                                                         | AFK  | todo   |
