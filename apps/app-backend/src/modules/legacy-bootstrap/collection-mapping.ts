@@ -43,6 +43,47 @@ BEGIN
 END $$;
 `;
 
+// The V1 default "Owned" collection is migrated as a normal V2 collection (entity + member-of
+// relationships) by the functions above. Additionally, every entity that was a member of an "Owned"
+// collection has its existing in-library relationship marked as owned so ownership survives as
+// library state, mirroring the runtime ownership shape written by the integrations media pipeline.
+export const buildOwnedCollectionOwnershipMigrationSql = (
+	inLibraryRelationshipSchemaId: string,
+) => `
+DO $$
+DECLARE
+	rows_updated int;
+	started_at timestamptz := clock_timestamp();
+BEGIN
+	IF to_regclass('"collection"') IS NULL THEN
+		RAISE EXCEPTION 'Expected collection table to exist in a V1 database but it was not found';
+	END IF;
+
+	IF to_regclass('"collection_to_entity"') IS NULL THEN
+		RAISE EXCEPTION 'Expected collection_to_entity table to exist in a V1 database but it was not found';
+	END IF;
+
+	RAISE NOTICE 'Owned collection -> in-library ownership: migration started (% seconds elapsed)', 0.0;
+
+	UPDATE "relationship" rel
+	SET "properties" = rel.properties || jsonb_build_object(
+		'owned', true,
+		'ownershipSources', jsonb_build_array('legacy'),
+		'ownershipSyncedAt', to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
+	)
+	FROM "collection_to_entity" cte
+	INNER JOIN "collection" coll ON coll.id = cte.collection_id AND coll.name = 'Owned'
+	WHERE rel.relationship_schema_id = ${quoteSqlString(inLibraryRelationshipSchemaId)}
+		AND rel.source_entity_id = cte.entity_id
+		AND rel.user_id = coll.user_id;
+
+	GET DIAGNOSTICS rows_updated = ROW_COUNT;
+	RAISE NOTICE 'Owned collection -> in-library ownership: % relationship(s) updated (% seconds elapsed)',
+		rows_updated,
+		round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
+END $$;
+`;
+
 export const buildCollectionEntityMigrationSql = (entitySchemaId: string) => `
 DO $$
 DECLARE
