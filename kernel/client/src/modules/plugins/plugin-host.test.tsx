@@ -475,4 +475,12 @@ describe("plugin host", () => {
 			"This plugin needs a newer version of Ryot.",
 		);
 	});
+
+	it("reports an unsupported client API version", () => {
+		renderHost({ clientApiVersion: CLIENT_API_VERSION + 1 });
+
+		expect(screen.getByRole("alert").textContent).toBe(
+			"This plugin needs a newer version of Ryot.",
+		);
+	});
 });
