@@ -1,5 +1,7 @@
 # Query Engine Hierarchical Results
 
+**NOTE**: This feature has already been implemented.
+
 ## Problem
 
 The query engine supports single-hop relationship traversal only. All
