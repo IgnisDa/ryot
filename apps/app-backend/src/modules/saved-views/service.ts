@@ -1,10 +1,11 @@
 import { Effect } from "effect";
 
 import type { CurrentUserValue } from "#lib/auth-middleware";
+import { buildDefaultQueryDocument, buildDisplayConfig } from "#lib/builtins/view-helpers";
 import { DbRunner, TransactionRunner } from "#lib/db";
-import { badRequest, notFound } from "#lib/errors";
+import { badRequest, conflict, notFound } from "#lib/errors";
 import { buildReorderedIds } from "#lib/reorder";
-import type { TrackerId } from "#lib/schema/brands";
+import type { TrackerId, UserId } from "#lib/schema/brands";
 import { slugify } from "#lib/slug";
 import { trimToNull } from "#lib/validation";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
@@ -16,6 +17,15 @@ import type { CreateSavedViewBody, ReorderSavedViewsBody, UpdateSavedViewBody } 
 
 const savedViewNotFound = "Saved view not found";
 const builtinViewMutationMessage = "Cannot modify built-in saved views";
+
+type CreateDefaultSavedViewInput = {
+	readonly icon: string;
+	readonly userId: UserId;
+	readonly accentColor: string;
+	readonly trackerId: TrackerId;
+	readonly entitySchemaName: string;
+	readonly entitySchemaSlug: string;
+};
 
 const resolveSavedViewName = Effect.fn(function* (name: string) {
 	const trimmed = trimToNull(name);
@@ -122,6 +132,33 @@ export class SavedViewsService extends Effect.Service<SavedViewsService>()("Save
 					queryDocument: payload.queryDocument,
 					displayConfiguration: payload.displayConfiguration,
 				}),
+			).pipe(Effect.catchTag("Conflict", (error) => Effect.fail(badRequest(error.message))));
+
+			return created;
+		});
+
+		const createDefaultForSchema = Effect.fn("SavedViewsService.createDefaultForSchema")(function* (
+			input: CreateDefaultSavedViewInput,
+		) {
+			const name = `All ${input.entitySchemaName}s`;
+			const slug = slugify(`all ${input.entitySchemaSlug}`);
+			const existing = yield* runWithDb(repository.findBySlug(input.userId, slug));
+			if (existing) {
+				return yield* conflict("Entity schema default saved view already exists");
+			}
+
+			const created = yield* runWithDb(
+				repository.create(input.userId, {
+					slug,
+					name,
+					isBuiltin: true,
+					icon: input.icon,
+					userId: input.userId,
+					trackerId: input.trackerId,
+					accentColor: input.accentColor,
+					displayConfiguration: buildDisplayConfig(input.entitySchemaSlug),
+					queryDocument: buildDefaultQueryDocument([input.entitySchemaSlug]),
+				}),
 			);
 
 			return created;
@@ -225,7 +262,7 @@ export class SavedViewsService extends Effect.Service<SavedViewsService>()("Save
 					queryDocument: source.queryDocument,
 					displayConfiguration: source.displayConfiguration,
 				}),
-			);
+			).pipe(Effect.catchTag("Conflict", (error) => Effect.fail(badRequest(error.message))));
 
 			return created;
 		});
@@ -265,6 +302,15 @@ export class SavedViewsService extends Effect.Service<SavedViewsService>()("Save
 			);
 		});
 
-		return { get, list, clone, create, update, reorder, delete: deleteView };
+		return {
+			get,
+			list,
+			clone,
+			create,
+			update,
+			reorder,
+			delete: deleteView,
+			createDefaultForSchema,
+		};
 	}),
 }) {}
