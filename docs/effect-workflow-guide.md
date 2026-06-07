@@ -70,11 +70,11 @@ import { Effect, Schema } from "effect";
 const ChargeError = Schema.Struct({ _tag: Schema.Literal("ChargeError"), reason: Schema.String });
 
 const ProcessOrder = Workflow.make({
-	name: "ProcessOrder",
-	payload: { orderId: Schema.String, amount: Schema.Number },
-	success: Schema.Struct({ transactionId: Schema.String }),
-	error: ChargeError,
-	idempotencyKey: (payload) => payload.orderId,
+  name: "ProcessOrder",
+  payload: { orderId: Schema.String, amount: Schema.Number },
+  success: Schema.Struct({ transactionId: Schema.String }),
+  error: ChargeError,
+  idempotencyKey: (payload) => payload.orderId,
 });
 ```
 
@@ -116,9 +116,9 @@ import { WorkflowEngine } from "@effect/workflow";
 
 const engine = yield* WorkflowEngine.WorkflowEngine;
 yield* engine.execute(ProcessOrder, {
-	payload: { orderId, amount },
-	executionId: `order-${orderId}`,
-	discard: true,
+  payload: { orderId, amount },
+  executionId: `order-${orderId}`,
+  discard: true,
 });
 ```
 
@@ -154,10 +154,10 @@ retries.
 import { Activity } from "@effect/workflow";
 
 const charge = yield* Activity.make({
-	name: "charge-payment",
-	success: Schema.Struct({ transactionId: Schema.String }),
-	error: ChargeError,
-	execute: Effect.succeed({ transactionId: `txn-${executionId}` }),
+  name: "charge-payment",
+  success: Schema.Struct({ transactionId: Schema.String }),
+  error: ChargeError,
+  execute: Effect.succeed({ transactionId: `txn-${executionId}` }),
 });
 ```
 
@@ -178,7 +178,7 @@ transient interruption. None use business-logic retries either (see next).
 
 ```ts
 yield* Activity.make({ name: "SendEmail", error: SendEmailError, execute: sendEmail(payload) }).pipe(
-	Activity.retry({ times: 5 }),
+  Activity.retry({ times: 5 }),
 );
 ```
 
@@ -210,17 +210,17 @@ workflow, or you get a new, never-deduplicated child every time it runs.
 // Good: deterministic, derived from the parent's own executionId plus a stable loop index.
 // Replaying this loop dispatches the *same* child every time.
 yield* engine.execute(ChildWorkflow, {
-	executionId: `${parentExecutionId}-item-${item.index}`,
-	discard: true,
-	payload: { parentExecutionId, index: item.index },
+  executionId: `${parentExecutionId}-item-${item.index}`,
+  discard: true,
+  payload: { parentExecutionId, index: item.index },
 });
 
 // Bad: a fresh id on every invocation. Every re-run — a parent replay, or this code being
 // retried inside an Activity after an interruption — spawns a brand new child.
 yield* engine.execute(ChildWorkflow, {
-	executionId: crypto.randomUUID(),
-	discard: true,
-	payload: { parentExecutionId, index: item.index },
+  executionId: crypto.randomUUID(),
+  discard: true,
+  payload: { parentExecutionId, index: item.index },
 });
 ```
 
@@ -238,14 +238,14 @@ The rule only bites when the dispatching code itself can run more than once.
 ```ts
 // resolution-workflow.ts:89-96
 const result = yield* operations
-	.resolveExternalId({
-		value: ref.identifierValue,
-		userId: input.payload.userId,
-		identifierType: ref.identifierType,
-		scriptId: candidate.sandboxScriptId,
-		executionId: `${input.executionId}-resolve-${i}-${candidateIndex}`,
-	})
-	.pipe(Effect.either);
+  .resolveExternalId({
+    value: ref.identifierValue,
+    userId: input.payload.userId,
+    identifierType: ref.identifierType,
+    scriptId: candidate.sandboxScriptId,
+    executionId: `${input.executionId}-resolve-${i}-${candidateIndex}`,
+  })
+  .pipe(Effect.either);
 ```
 
 Parent `executionId` plus two stable loop indices — exactly the shape to copy.
@@ -273,47 +273,47 @@ verified against the real 0.18.2 types:
 ```ts
 // DurableClock
 const ReminderWorkflowLive = ReminderWorkflow.toLayer((payload) =>
-	Effect.gen(function* () {
-		yield* DurableClock.sleep({ name: "wait-a-week", duration: "7 days" });
-		yield* Activity.make({ name: "send-reminder", execute: Effect.log(`reminding ${payload.userId}`) });
-	}),
+  Effect.gen(function* () {
+    yield* DurableClock.sleep({ name: "wait-a-week", duration: "7 days" });
+    yield* Activity.make({ name: "send-reminder", execute: Effect.log(`reminding ${payload.userId}`) });
+  }),
 );
 
 // DurableDeferred — token/webhook pattern
 const ApprovalReceived = DurableDeferred.make("ApprovalReceived", {
-	success: Schema.Struct({ approvedBy: Schema.String }),
+  success: Schema.Struct({ approvedBy: Schema.String }),
 });
 
 const ApprovalWorkflowLive = ApprovalWorkflow.toLayer((_payload) =>
-	Effect.gen(function* () {
-		const token = yield* DurableDeferred.token(ApprovalReceived);
-		yield* Effect.log(`share this token with the approver: ${token}`);
-		return yield* DurableDeferred.await(ApprovalReceived);
-	}),
+  Effect.gen(function* () {
+    const token = yield* DurableDeferred.token(ApprovalReceived);
+    yield* Effect.log(`share this token with the approver: ${token}`);
+    return yield* DurableDeferred.await(ApprovalReceived);
+  }),
 );
 
 // Called later from a plain HTTP handler, outside any workflow:
 const resolveApproval = (token: DurableDeferred.Token, approvedBy: string) =>
-	DurableDeferred.succeed(ApprovalReceived, { token, value: { approvedBy } });
+  DurableDeferred.succeed(ApprovalReceived, { token, value: { approvedBy } });
 
 // DurableQueue — this is the package's own doc-comment example (DurableQueue.ts:36-83)
 const ApiQueue = DurableQueue.make({
-	name: "ApiQueue",
-	payload: { id: Schema.String },
-	success: Schema.Void,
-	error: Schema.Never,
-	idempotencyKey(payload) { return payload.id; },
+  name: "ApiQueue",
+  payload: { id: Schema.String },
+  success: Schema.Void,
+  error: Schema.Never,
+  idempotencyKey(payload) { return payload.id; },
 });
 
 const MyWorkflowLive = MyWorkflow.toLayer(Effect.fn(function* (payload) {
-	yield* DurableQueue.process(ApiQueue, { id: payload.id });
-	yield* Effect.log("Workflow succeeded!");
+  yield* DurableQueue.process(ApiQueue, { id: payload.id });
+  yield* Effect.log("Workflow succeeded!");
 }));
 
 const ApiWorker = DurableQueue.worker(
-	ApiQueue,
-	Effect.fn(function* ({ id }) { yield* Effect.log(`Worker processing API call with id: ${id}`); }),
-	{ concurrency: 5 },
+  ApiQueue,
+  Effect.fn(function* ({ id }) { yield* Effect.log(`Worker processing API call with id: ${id}`); }),
+  { concurrency: 5 },
 );
 ```
 
@@ -348,10 +348,10 @@ need per-step rollback.
 // failed attempts register nothing, matching the package's own test pattern
 // (ClusterWorkflowEngine.test.ts:394-411).
 yield* Activity.make({ name: "SendEmail", error: SendEmailError, execute: sendEmail(payload) }).pipe(
-	EmailWorkflow.withCompensation((_value, _cause) =>
-		Effect.log("compensating: permanently failed to send email"),
-	),
-	Activity.retry({ times: 5 }),
+  EmailWorkflow.withCompensation((_value, _cause) =>
+    Effect.log("compensating: permanently failed to send email"),
+  ),
+  Activity.retry({ times: 5 }),
 );
 ```
 
@@ -368,13 +368,13 @@ expecting Temporal-style "runs once, at the end" semantics.
 
 ```ts
 export const WorkflowEngineLive = ClusterWorkflowEngine.layer.pipe(
-	Layer.provide(
-		SingleRunner.layer({
-			runnerStorage: "sql",
-			shardingConfig: { entityMessagePollInterval: Duration.millis(250) },
-		}),
-	),
-	Layer.provide(WorkflowPgClientLive),
+  Layer.provide(
+    SingleRunner.layer({
+      runnerStorage: "sql",
+      shardingConfig: { entityMessagePollInterval: Duration.millis(250) },
+    }),
+  ),
+  Layer.provide(WorkflowPgClientLive),
 );
 ```
 
