@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document captures what remains to port from V1 (`apps/backend`, Rust) to V2 (`apps/app-backend`, TypeScript), as of 2026-06-10.
+This document captures what remains to port from V1 (`apps/backend`, Rust) to V2 (`apps/app-backend`, TypeScript), as of 2026-06-20. As items are completed they should be removed.
 
 It was produced by mapping V1's full API surface — 116 GraphQL operations across 18 resolver crates under `crates/resolvers/` — against V2's modules and routes under `apps/app-backend/src/modules/`. V1 is a behavior reference only; V2 deliberately replaces V1's domain-specific resolvers with a generic `entity_schema → entity → event → relationship` model queried through `modules/query-engine`.
 
@@ -56,8 +56,6 @@ Foundational; three behaviors depend on it. Build first.
 
 ### Tier 3 — Metadata-management ops
 
-- **Merge** (metadata/exercise) — reassign events, relationships, and collection memberships from source → target, then delete source.
-  - V1: `merge_metadata`, `merge_exercise`.
 - **Mark as partial** — decide whether to add a population-state flag or treat as obsolete given V2's on-demand population; reconcile with the population pipeline.
   - V1: `mark_entity_as_partial`.
 - **Metadata lookup** — single-best-match wrapper over the existing search/resolve drivers (distinct from paginated search).
