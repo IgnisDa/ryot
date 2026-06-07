@@ -1,4 +1,3 @@
-import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { Cause, DateTime, Effect } from "effect";
 
 import type { CurrentUserValue } from "#lib/auth-middleware";
@@ -12,7 +11,7 @@ import {
 } from "#lib/schema/property-schema-runtime";
 import { requireText } from "#lib/validation";
 import { EntitiesService } from "#modules/entities/service";
-import { enqueueEventCreate } from "#modules/events/workflows";
+import { EventsService } from "#modules/events/service";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 
@@ -31,8 +30,8 @@ import {
 export class CollectionsService extends Effect.Service<CollectionsService>()("CollectionsService", {
 	effect: Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
+		const events = yield* EventsService;
 		const entities = yield* EntitiesService;
-		const workflowEngine = yield* WorkflowEngine;
 		const repository = yield* CollectionsRepository;
 		const runInTransaction = yield* TransactionRunner;
 		const relationshipsRepository = yield* RelationshipsRepository;
@@ -99,23 +98,24 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 			readonly eventSchemaId: EventSchemaId;
 			readonly properties: Record<string, unknown>;
 		}) =>
-			enqueueEventCreate({
-				userId: input.userId,
-				origin: "collection",
-				payload: [
-					{
-						entityId: input.entityId,
-						occurredAt: input.occurredAt,
-						properties: input.properties,
-						eventSchemaId: input.eventSchemaId,
-					},
-				],
-			}).pipe(
-				Effect.provideService(WorkflowEngine, workflowEngine),
-				Effect.catchAllCause((cause) =>
-					Effect.logWarning(`Failed to queue collection event: ${String(Cause.squash(cause))}`),
-				),
-			);
+			events
+				.create({
+					userId: input.userId,
+					source: "collection",
+					payload: [
+						{
+							entityId: input.entityId,
+							occurredAt: input.occurredAt,
+							properties: input.properties,
+							eventSchemaId: input.eventSchemaId,
+						},
+					],
+				})
+				.pipe(
+					Effect.catchAllCause((cause) =>
+						Effect.logWarning(`Failed to queue collection event: ${String(Cause.squash(cause))}`),
+					),
+				);
 
 		const create = Effect.fn("CollectionsService.create")(function* (
 			user: CurrentUserValue,
