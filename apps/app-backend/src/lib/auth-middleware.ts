@@ -1,6 +1,7 @@
 import { HttpApiMiddleware, HttpApiSecurity } from "@effect/platform";
 import { Context, Schema } from "effect";
 
+import type { UserPreferences } from "./builtins/bootstrap";
 import { RateLimited, Unauthorized } from "./errors";
 import type { UserId } from "./schema/brands";
 
@@ -8,6 +9,7 @@ export type CurrentUserValue = {
 	readonly id: UserId;
 	readonly name: string;
 	readonly email: string;
+	readonly preferences: UserPreferences;
 };
 
 export class CurrentUser extends Context.Tag("CurrentUser")<CurrentUser, CurrentUserValue>() {}

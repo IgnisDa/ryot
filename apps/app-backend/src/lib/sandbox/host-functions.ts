@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { Effect, Runtime, Schema } from "effect";
 
+import { defaultUserPreferences } from "#lib/builtins/bootstrap";
 import { isObjectRecord } from "#lib/predicates";
 import { EntityId, EntitySchemaId, IntegrationId, UserId } from "#lib/schema/brands";
 import { EntitiesRepository } from "#modules/entities/repository";
@@ -224,7 +225,12 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 					decodeQueryDocument(query).pipe(
 						Effect.flatMap((doc) =>
 							queryEngineService.execute(
-								{ id: UserId.make(input.userId), name: "", email: "" },
+								{
+									name: "",
+									email: "",
+									id: UserId.make(input.userId),
+									preferences: defaultUserPreferences,
+								},
 								doc,
 							),
 						),

@@ -27,9 +27,10 @@ import { EventsService } from "./service";
 const now = "2026-06-14T00:00:00.000Z";
 
 const user = {
-	id: UserId.make("user-id"),
 	name: "Test User",
 	email: "user@example.com",
+	id: UserId.make("user-id"),
+	preferences: { isNsfw: false, language: null, disableIntegrations: false },
 } satisfies CurrentUserValue;
 
 const entityScope = {
