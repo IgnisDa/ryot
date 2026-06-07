@@ -13,17 +13,21 @@ export type OnboardingGateDecision =
 			readonly redirectTo: SafeRedirect | undefined;
 	  };
 
-export const decideRootGate = (server: ServerOrigin | null): RootGateDecision => ({
+export const decideRootGate = (
+	isNative: boolean,
+	server: ServerOrigin | null,
+): RootGateDecision => ({
 	action: "redirect",
-	to: server === null ? "/onboarding" : "/auth",
+	to: isNative && server === null ? "/onboarding" : "/auth",
 });
 
 export function decideOnboardingGate(
+	isNative: boolean,
 	server: ServerOrigin | null,
 	redirectIntent: unknown,
 ): OnboardingGateDecision {
 	const redirectTo = sanitizeRedirect(redirectIntent);
-	return server === null
+	return isNative && server === null
 		? { action: "stay", redirectTo }
 		: { action: "redirect", redirectTo, to: "/auth" };
 }

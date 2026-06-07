@@ -2,9 +2,9 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Effect } from "effect";
 
 import { AuthService } from "#/modules/auth/service";
+import { AuthStatus } from "#/modules/auth/status";
 import { sanitizeRedirect } from "#/modules/server/redirect";
 import { ServerService } from "#/modules/server/service";
-import { AuthStatus } from "#/routes/auth";
 
 export const Route = createFileRoute("/auth_/callback")({
 	component: CompletingSignIn,
