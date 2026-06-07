@@ -3,8 +3,7 @@ import { Schema } from "effect";
 
 import { AuthMiddleware } from "#lib/auth-middleware";
 import { NotFound, RateLimited, Unauthorized } from "#lib/errors";
-
-import { ImportEntityBody, ImportEntityRunResult } from "./schemas";
+import { ImportEntityBody, ImportEntityRunResult } from "#modules/entity-import/schemas";
 
 const jobIdParam = HttpApiSchema.param("jobId", Schema.String);
 
@@ -13,13 +12,13 @@ export const EntityImportGroup = HttpApiGroup.make("entityImport")
 	.addError(RateLimited, { status: 429 })
 	.middleware(AuthMiddleware)
 	.add(
-		HttpApiEndpoint.post("import", "/entity-import")
+		HttpApiEndpoint.post("import", "/library/import")
 			.setPayload(ImportEntityBody)
 			.addSuccess(Schema.Struct({ jobId: Schema.String }))
 			.addError(NotFound, { status: 404 }),
 	)
 	.add(
-		HttpApiEndpoint.get("getImportResult")`/entity-import/${jobIdParam}`
+		HttpApiEndpoint.get("getImportResult")`/library/import/${jobIdParam}`
 			.addSuccess(ImportEntityRunResult)
 			.addError(NotFound, { status: 404 }),
 	);
