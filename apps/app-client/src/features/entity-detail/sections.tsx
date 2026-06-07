@@ -264,12 +264,13 @@ export function DetailsSection(props: { creators: AppUnlinkedCreator[]; entity: 
 					: [],
 			)
 			.with({ entitySchemaSlug: "show" }, (show) => {
-				const episodes = show.properties.showSeasons.reduce(
+				const showSeasons = show.properties.showSeasons ?? [];
+				const episodes = showSeasons.reduce(
 					(count: number, season) => count + season.episodes.length,
 					0,
 				);
 				return [
-					{ label: "Seasons", value: String(show.properties.showSeasons.length) },
+					{ label: "Seasons", value: String(showSeasons.length) },
 					{ label: "Episodes", value: String(episodes) },
 				];
 			})
