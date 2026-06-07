@@ -1,5 +1,7 @@
+import type { Config } from "effect";
 import { ConfigError, Effect, Option, Redacted } from "effect";
 
+import { providerConfigDefinition } from "./definition";
 import { SystemConfigSource, type SystemConfigValue } from "./system";
 
 const isNonEmpty = (opt: Option.Option<string>) => Option.isSome(opt) && opt.value.length > 0;
@@ -44,11 +46,18 @@ const validateSystemConfig = (
 	return Effect.succeed(config);
 };
 
+export type ProviderConfigValue = Config.Config.Success<typeof providerConfigDefinition.config>;
+
 export class AppConfig extends Effect.Service<AppConfig>()("AppConfig", {
-	effect: Effect.flatMap(SystemConfigSource, validateSystemConfig),
+	effect: Effect.gen(function* () {
+		const system = yield* SystemConfigSource;
+		const validated = yield* validateSystemConfig(system);
+		const providers = yield* providerConfigDefinition.config;
+		return { ...validated, providers };
+	}),
 }) {}
 
-export type AppConfigValue = SystemConfigValue;
+export type AppConfigValue = SystemConfigValue & { providers: ProviderConfigValue };
 
 export { SystemConfigSource };
 

@@ -67,3 +67,14 @@
 | `FILE_STORAGE_S3_SECRET_ACCESS_KEY` | S3 secret access key | No | — |
 
 ## Provider integration configuration
+
+| Variable | Description | Required | Default |
+|---|---|---|---|
+| `ANIME_AND_MANGA_MAL_CLIENT_ID` | MyAnimeList client ID for anime and manga lookups | No | — |
+| `SERVER_IMPORTER_TRAKT_CLIENT_ID` | Trakt client ID for the Trakt importer | No | — |
+| `VIDEO_GAMES_TWITCH_CLIENT_ID` | Twitch client ID for IGDB video game lookups | No | — |
+| `MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN` | TMDB access token for movie and show lookups | No | — |
+| `BOOKS_HARDCOVER_API_KEY` | Hardcover API key for the Hardcover book importer | No | — |
+| `VIDEO_GAMES_GIANT_BOMB_API_KEY` | Giant Bomb API key for the Grouvee importer | No | — |
+| `BOOKS_GOOGLE_BOOKS_API_KEY` | Google Books API key for ISBN book lookups | No | — |
+| `VIDEO_GAMES_TWITCH_CLIENT_SECRET` | Twitch client secret for IGDB video game lookups | No | — |
