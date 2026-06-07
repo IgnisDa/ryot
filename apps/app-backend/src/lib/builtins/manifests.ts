@@ -204,7 +204,12 @@ export const builtinSandboxScripts = () => [
 		code: integrationProgressPolicyScriptCode,
 		slug: "trigger.integration-progress-policy",
 		metadata: {
-			allowedHostFunctions: ["listEvents", "getIntegration", "claimCachedValue", "getSystemConfig"],
+			allowedHostFunctions: [
+				"listEvents",
+				"getIntegration",
+				"claimCachedValue",
+				"getAppConfigValue",
+			],
 		},
 	},
 	{
