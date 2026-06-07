@@ -63,7 +63,7 @@ export async function openInterestStream(
 	options: WaitOptions = {},
 ): Promise<InterestStream> {
 	const streamId = crypto.randomUUID();
-	const url = `${getBackendUrl()}/stream?streamId=${streamId}`;
+	const url = `${getBackendUrl()}/interest/stream?streamId=${streamId}`;
 
 	const controller = new AbortController();
 
