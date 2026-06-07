@@ -22,11 +22,11 @@ describe("server origins", () => {
 		});
 	});
 
-	it("preserves a self-hosted base path and constructs its API URL", () => {
-		const result = resolveServerOrigin("self-hosted", " https://example.com:8443/ryot/ ");
-		expect(result).toEqual({ ok: true, origin: "https://example.com:8443/ryot" });
+	it("normalizes a self-hosted origin and constructs its API URL", () => {
+		const result = resolveServerOrigin("self-hosted", " https://example.com:8443/ ");
+		expect(result).toEqual({ ok: true, origin: "https://example.com:8443" });
 		if (result.ok) {
-			expect(serverApiUrl(result.origin)).toBe("https://example.com:8443/ryot/api");
+			expect(serverApiUrl(result.origin)).toBe("https://example.com:8443/api");
 		}
 	});
 
@@ -36,6 +36,7 @@ describe("server origins", () => {
 		"ftp://example.com",
 		"https://",
 		"https://user@example.com",
+		"https://example.com/ryot",
 		"https://example.com/path?query=1",
 		"https://example.com/#fragment",
 	])("rejects malformed or unsupported self-hosted origin %s", (value) => {
