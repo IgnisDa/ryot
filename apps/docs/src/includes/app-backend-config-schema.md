@@ -41,6 +41,7 @@
 | `SANDBOX_DENO_DIR` | Directory used by Deno for caching modules inside the sandbox | No | `/tmp/ryot-sandbox-deno` |
 | `SANDBOX_TIMEOUT_MS` | Maximum execution time for a sandbox job in milliseconds | No | `10000` |
 | `SANDBOX_JOB_ID_SECRET` | Secret used to sign sandbox job identifiers | No | `changeme` |
+| `SANDBOX_WORKER_CONCURRENCY` | Maximum number of concurrent sandbox jobs | No | `5` |
 
 ### Frontend display settings
 

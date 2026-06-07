@@ -68,6 +68,13 @@ const makeSpawnDenoProcess = (bridgePort: number, denoDir: string, runnerPath: s
 		const denoProcess = yield* Command.make(
 			"deno",
 			"run",
+			"--deny-run",
+			"--deny-env",
+			"--deny-ffi",
+			"--deny-write",
+			"--no-prompt",
+			"--no-remote",
+			`--allow-read=${runnerPath}`,
 			`--allow-net=127.0.0.1:${bridgePort}`,
 			runnerPath,
 		).pipe(
@@ -218,7 +225,7 @@ export class ProcessPool extends Effect.Service<ProcessPool>()("ProcessPool", {
 		const runner = yield* RunnerFile;
 		const bridge = yield* BridgeService;
 		return yield* Pool.make({
-			size: 5,
+			size: config.sandbox.workerConcurrency + 2,
 			acquire: makeSpawnDenoProcess(bridge.port, config.sandbox.denoDir, runner.path),
 		});
 	}),

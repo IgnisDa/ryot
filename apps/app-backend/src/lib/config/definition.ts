@@ -62,6 +62,11 @@ const fields = {
 		"Maximum execution time for a sandbox job in milliseconds",
 		{ default: 10_000 },
 	),
+	workerConcurrency: intField(
+		"SANDBOX_WORKER_CONCURRENCY",
+		"Maximum number of concurrent sandbox jobs",
+		{ default: 5 },
+	),
 	denoDir: strField(
 		"SANDBOX_DENO_DIR",
 		"Directory used by Deno for caching modules inside the sandbox",
@@ -110,11 +115,13 @@ const sandboxGroup = group(
 		denoDir: fields.denoDir.config,
 		timeoutMs: fields.timeoutMs.config,
 		jobIdSecret: fields.jobIdSecret.config,
+		workerConcurrency: fields.workerConcurrency.config,
 	}),
 	{
 		denoDir: fields.denoDir.meta,
 		timeoutMs: fields.timeoutMs.meta,
 		jobIdSecret: fields.jobIdSecret.meta,
+		workerConcurrency: fields.workerConcurrency.meta,
 	},
 );
 
