@@ -53,6 +53,7 @@ Provider targets resolve against active plugin-loader declarations. Persisted pr
 ### Integrations, Notifications, And Preferences
 
 - Rename V1 `integration` before Drizzle creates V2 table. Convert provider settings using active manifest schema, skip removed `generic_json` rows with a report entry, and fail on other unknown providers or missing required fields. Omit trigger history.
+- Migrate unexpired YouTube Music listening cache rows to V2 persistent Redis claims for every matching user integration. A pending V1 row creates the `seen` claim; a completed row creates both `seen` and `completed`. Writes use the remaining V1 expiry and do not replace claims created by an earlier bootstrap attempt.
 - Rename `notification_platform` and convert supported specifics into V2 channels. Drop credential-bearing descriptions and event filters; bootstrap installs default subscriptions.
 - Migrate V1 `general.display_nsfw` to `allowNsfw`, preserving V1's `true` default, and migrate `disableIntegrations`.
 - Migrate legacy feature preferences into built-in saved-view disabled state. Media parent and child flags control media-lot, people/company, and group views; fitness parent and child flags control fitness views; the collections flag controls the kernel collections view.
