@@ -25,19 +25,23 @@ describe("OpenAPI documentation", () => {
 
 	it("documents the user plugin installation surface", () => {
 		const spec = OpenApi.fromApi(AppContract);
-		expect(spec.paths["/plugins"]?.get?.security).toEqual([{ apiKey: [] }]);
+		expect(spec.paths["/plugins"]?.get?.security).toEqual([{ oauth: [] }, { apiKey: [] }]);
 		expect(spec.paths["/plugins"]?.post?.description).toContain("source file map");
 		expect(spec.paths["/plugins/{pluginSlug}"]?.delete?.responses["409"]).toBeDefined();
 		expect(spec.paths["/test-support/system-plugins"]?.get?.security).toEqual([{ adminToken: [] }]);
 	});
 
-	it("documents API key authentication without Better Auth cookie internals", () => {
+	it("documents OAuth and API-key authentication without Better Auth cookie internals", () => {
 		const spec = OpenApi.fromApi(AppContract);
-		expect(spec.paths["/ryotql/execute"]?.post?.security).toEqual([{ apiKey: [] }]);
+		expect(spec.paths["/ryotql/execute"]?.post?.security).toEqual([{ oauth: [] }, { apiKey: [] }]);
+		expect(spec.components.securitySchemes["oauth"]).toEqual({
+			type: "http",
+			scheme: "Bearer",
+		});
 		expect(spec.components.securitySchemes["apiKey"]).toEqual({
 			in: "header",
-			name: "x-api-key",
 			type: "apiKey",
+			name: "x-api-key",
 		});
 	});
 
