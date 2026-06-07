@@ -143,7 +143,6 @@ describe("sandbox async flow", () => {
 			code: `
 driver("main", async function() {
   const result = await executeQueryEngine({
-    version: 2,
     source: { type: "entities", alias: "entity", schemas: [${JSON.stringify(slug)}], where: null },
     output: {
       type: "rows",
@@ -192,7 +191,6 @@ driver("main", async function() {
 			code: `
 driver("main", async function() {
   const result = await executeQueryEngine({
-    version: 2,
     source: { type: "entities", alias: "entity", schemas: ["does-not-exist"], where: null },
     output: {
       type: "rows",
@@ -547,7 +545,7 @@ describe("sandbox enqueue by script ID", () => {
 			name: "no-host-functions",
 			slug: `no-host-functions-${crypto.randomUUID()}`,
 			code: `driver("main", async function() {
-  return await executeQueryEngine({ version: 2, source: { type: "entities", alias: "entity", schemas: ["movie"], where: null }, output: { type: "rows", fields: [], pagination: { page: 1, limit: 1 }, orderBy: [{ order: "asc", expr: { type: "ref", sourceAlias: "entity", field: { type: "system", name: "name" } } }] } });
+  return await executeQueryEngine({ source: { type: "entities", alias: "entity", schemas: ["movie"], where: null }, output: { type: "rows", fields: [], pagination: { page: 1, limit: 1 }, orderBy: [{ order: "asc", expr: { type: "ref", sourceAlias: "entity", field: { type: "system", name: "name" } } }] } });
 });`,
 		});
 

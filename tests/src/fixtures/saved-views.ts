@@ -132,7 +132,6 @@ const defaultDisplayConfiguration = {
 } satisfies DisplayConfigurationInput;
 
 const defaultQueryDocument: SavedViewQueryDocument = {
-	version: 2,
 	source: { type: "entities", alias: "book", schemas: ["book"], where: null },
 	output: {
 		type: "rows",

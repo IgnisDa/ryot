@@ -24,7 +24,6 @@ import {
 } from "../fixtures";
 
 const rowsDocument: SavedViewQueryDocument = {
-	version: 2,
 	source: { type: "entities", alias: "book", schemas: ["book"], where: null },
 	output: {
 		type: "rows",
@@ -35,7 +34,6 @@ const rowsDocument: SavedViewQueryDocument = {
 };
 
 const aggregateDocument: SavedViewQueryDocument = {
-	version: 2,
 	source: { type: "entities", alias: "book", schemas: ["book"], where: null },
 	output: {
 		type: "aggregate",
@@ -45,7 +43,6 @@ const aggregateDocument: SavedViewQueryDocument = {
 };
 
 const buildSchemaRowsDocument = (slug: string): SavedViewQueryDocument => ({
-	version: 2,
 	source: { type: "entities", alias: "item", schemas: [slug], where: null },
 	output: {
 		type: "rows",

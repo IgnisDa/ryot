@@ -19,7 +19,6 @@ const user = {
 } satisfies CurrentUserValue;
 
 const sampleQueryDocument = {
-	version: 2,
 	source: { type: "entities", alias: "book", schemas: ["book"], where: null },
 	output: {
 		fields: [],
