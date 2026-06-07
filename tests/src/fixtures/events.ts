@@ -145,6 +145,31 @@ export async function createRuleEventFixture(client: Client, cookies: string) {
 	return { entityId: entity.id, eventSchemaId: eventSchema.id };
 }
 
+export async function listEventsForEntity(client: Client, cookies: string, entityId: string) {
+	const result = await client.GET("/events", {
+		headers: { Cookie: cookies },
+		params: { query: { entityId } },
+	});
+	return result.data?.data ?? [];
+}
+
+export async function waitForEventWithSchema(
+	client: Client,
+	cookies: string,
+	entityId: string,
+	eventSchemaSlug: string,
+	options: PollOptions = {},
+) {
+	return pollUntil(
+		`${eventSchemaSlug} event on entity ${entityId}`,
+		async () => {
+			const events = await listEventsForEntity(client, cookies, entityId);
+			return events.find((event) => event.eventSchemaSlug === eventSchemaSlug) ?? null;
+		},
+		{ timeoutMs: 15000, intervalMs: 500, ...options },
+	);
+}
+
 export async function createBuiltinMediaLifecycleFixture(
 	client: Client,
 	cookies: string,

@@ -9,6 +9,7 @@ import {
 	buildGridRequest,
 	createAuthenticatedClient,
 	createMeasurementEntityFixture,
+	entityField,
 	executeQueryEngine,
 	findBuiltinSchemaBySlug,
 	findBuiltinTrackerBySlug,
@@ -119,10 +120,10 @@ describe("Measurements E2E", () => {
 				pagination: { page: 1, limit: 10 },
 				displayConfiguration: {
 					calloutProperty: null,
-					titleProperty: ["entity.measurement.name"],
-					imageProperty: ["entity.measurement.image"],
-					primarySubtitleProperty: ["entity.measurement.properties.recordedAt"],
-					secondarySubtitleProperty: ["entity.measurement.properties.comment"],
+					titleProperty: [entityField("measurement", "name")],
+					imageProperty: [entityField("measurement", "image")],
+					primarySubtitleProperty: [entityField("measurement", "recordedAt")],
+					secondarySubtitleProperty: [entityField("measurement", "comment")],
 				},
 			}),
 		);
