@@ -13,7 +13,12 @@ import {
 } from "./expr";
 import { executeRowsQuery as runRowsQuery } from "./rows";
 import { executeRootSourceMatches } from "./source-matches";
-import type { AggregateQueryDocumentV2, RowsQueryDocumentV2 } from "./types";
+import { executeTimeSeriesQuery as runTimeSeriesQuery } from "./time-series";
+import type {
+	AggregateQueryDocumentV2,
+	RowsQueryDocumentV2,
+	TimeSeriesQueryDocumentV2,
+} from "./types";
 
 export const executeAggregateQuery = (
 	userId: string,
@@ -80,3 +85,6 @@ export const executeRowsQuery = (
 	doc: RowsQueryDocumentV2,
 ): Effect.Effect<RowsResponseV2, BadRequest | NotFound | DbError, CurrentDb> =>
 	runRowsQuery(userId, doc);
+
+export const executeTimeSeriesQuery = (userId: string, doc: TimeSeriesQueryDocumentV2) =>
+	runTimeSeriesQuery(userId, doc);
