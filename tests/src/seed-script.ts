@@ -546,6 +546,24 @@ async function createSavedView(
 						literalExpression(null)),
 		},
 	} satisfies SavedViewQueryDefinition;
+	const documentScope: [string, ...string[]] = queryDefinition.scope[0]
+		? [queryDefinition.scope[0], ...queryDefinition.scope.slice(1)]
+		: ["entity"];
+	const documentNameRef = {
+		type: "ref" as const,
+		sourceAlias: documentScope[0],
+		field: { type: "system" as const, name: "name" },
+	};
+	const normalizedQueryDocument: CreateSavedViewBody["queryDocument"] = {
+		version: 2,
+		source: { type: "entities", alias: documentScope[0], schemas: documentScope, where: null },
+		output: {
+			type: "rows",
+			pagination: { page: 1, limit: 20 },
+			fields: [{ key: "name", expr: documentNameRef }],
+			orderBy: [{ order: "asc", expr: documentNameRef }],
+		},
+	};
 	const normalizedDisplayConfiguration: SavedViewDisplayConfiguration = {
 		entityIdProperty:
 			toExpression(
@@ -593,6 +611,7 @@ async function createSavedView(
 				accentColor,
 				trackerId,
 				queryDefinition: normalizedQueryDefinition,
+				queryDocument: normalizedQueryDocument,
 				displayConfiguration: normalizedDisplayConfiguration,
 			},
 		}),
