@@ -38,7 +38,7 @@ export type EntityMergeScope = EntityScope & {
 	readonly properties: Record<string, unknown>;
 };
 
-export type EntitySchemaScriptScope = {
+export type EntitySchemaSandboxScriptScope = {
 	readonly entitySchemaId: EntitySchemaId;
 	readonly sandboxScriptId: SandboxScriptId;
 };

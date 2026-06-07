@@ -122,8 +122,8 @@ export const sandboxScript = pgTable(
 	],
 );
 
-export const entitySchemaScript = pgTable(
-	"entity_schema_script",
+export const entitySchemaSandboxScript = pgTable(
+	"entity_schema_sandbox_script",
 	{
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		entitySchemaId: text()
@@ -142,8 +142,8 @@ export const entitySchemaScript = pgTable(
 			.notNull(),
 	},
 	(table) => [
-		index("entity_schema_script_entity_schema_id_idx").on(table.entitySchemaId),
-		index("entity_schema_script_sandbox_script_id_idx").on(table.sandboxScriptId),
-		unique("entity_schema_script_unique").on(table.entitySchemaId, table.sandboxScriptId),
+		index("entity_schema_sandbox_script_entity_schema_id_idx").on(table.entitySchemaId),
+		index("entity_schema_sandbox_script_sandbox_script_id_idx").on(table.sandboxScriptId),
+		unique("entity_schema_sandbox_script_unique").on(table.entitySchemaId, table.sandboxScriptId),
 	],
 );

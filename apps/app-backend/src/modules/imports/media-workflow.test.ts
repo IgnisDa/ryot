@@ -56,7 +56,7 @@ const makeImportsRepository = (overrides: MockOverrides<typeof mockImportsReposi
 
 const makeEntitiesRepository = (overrides: MockOverrides<typeof mockEntitiesRepository> = {}) =>
 	mockEntitiesRepository({
-		findEntitySchemaScriptBySlug: () => Effect.succeed(null),
+		findEntitySchemaSandboxScriptBySlug: () => Effect.succeed(null),
 		...overrides,
 		_tag: "EntitiesRepository",
 	});
@@ -252,7 +252,7 @@ it.effect("orchestrates one-time media imports through workflow-owned phases", (
 				}),
 		}),
 		entitiesRepository: makeEntitiesRepository({
-			findEntitySchemaScriptBySlug: (slug) =>
+			findEntitySchemaSandboxScriptBySlug: (slug) =>
 				Effect.succeed(
 					slug === "book.openlibrary"
 						? {
@@ -442,7 +442,7 @@ it.effect("resolves imported show episode progress and drops unresolved locators
 				}),
 		}),
 		entitiesRepository: makeEntitiesRepository({
-			findEntitySchemaScriptBySlug: (slug) =>
+			findEntitySchemaSandboxScriptBySlug: (slug) =>
 				Effect.succeed(
 					slug === "show.tmdb"
 						? {
@@ -590,7 +590,7 @@ it.effect("resolves imported podcast episode progress and drops unresolved locat
 				}),
 		}),
 		entitiesRepository: makeEntitiesRepository({
-			findEntitySchemaScriptBySlug: (slug) =>
+			findEntitySchemaSandboxScriptBySlug: (slug) =>
 				Effect.succeed(
 					slug === "podcast.itunes"
 						? {

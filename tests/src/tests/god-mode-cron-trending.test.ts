@@ -25,7 +25,7 @@ const TRENDING_CODE = `driver("trending", async function () {
 
 let scriptId: string;
 let movieSchemaId: string;
-let entitySchemaScriptId: string;
+let entitySchemaSandboxScriptId: string;
 let mediaTrendingSchemaId: string;
 
 describe("POST /god-mode/cron/infrequent (media-trending durable workflow)", () => {
@@ -54,11 +54,11 @@ describe("POST /god-mode/cron/infrequent (media-trending durable workflow)", () 
 			[scriptId, SCRIPT_SLUG, "E2E Test Trending", TRENDING_CODE],
 		);
 
-		entitySchemaScriptId = randomUUID();
+		entitySchemaSandboxScriptId = randomUUID();
 		await pg.query(
-			`insert into entity_schema_script (id, entity_schema_id, sandbox_script_id)
+			`insert into entity_schema_sandbox_script (id, entity_schema_id, sandbox_script_id)
 			 values ($1, $2, $3)`,
-			[entitySchemaScriptId, movieSchemaId, scriptId],
+			[entitySchemaSandboxScriptId, movieSchemaId, scriptId],
 		);
 	});
 
@@ -72,7 +72,9 @@ describe("POST /god-mode/cron/infrequent (media-trending durable workflow)", () 
 				[scriptId],
 			);
 			await pg.query(`delete from entity where sandbox_script_id = $1`, [scriptId]);
-			await pg.query(`delete from entity_schema_script where id = $1`, [entitySchemaScriptId]);
+			await pg.query(`delete from entity_schema_sandbox_script where id = $1`, [
+				entitySchemaSandboxScriptId,
+			]);
 			await pg.query(`delete from sandbox_script where id = $1`, [scriptId]);
 		} catch (error) {
 			console.error("[god-mode-cron-trending] cleanup failed (non-fatal)", error);
@@ -92,27 +94,25 @@ describe("POST /god-mode/cron/infrequent (media-trending durable workflow)", () 
 		assertTaggedError(wrong, "Unauthorized");
 	});
 
-	it(
-		"runs the media-trending workflow end-to-end and writes ranked self-edges",
-		async () => {
-			const pg = getPgClient();
+	it("runs the media-trending workflow end-to-end and writes ranked self-edges", async () => {
+		const pg = getPgClient();
 
-			const { executionId } = await getBackendClient().run(
-				(c) => c.godMode.triggerInfrequentCron(),
-				adminHeaders(ADMIN_TOKEN),
-			);
-			expect(typeof executionId).toBe("string");
-			expect(executionId.length).toBeGreaterThan(0);
+		const { executionId } = await getBackendClient().run(
+			(c) => c.godMode.triggerInfrequentCron(),
+			adminHeaders(ADMIN_TOKEN),
+		);
+		expect(typeof executionId).toBe("string");
+		expect(executionId.length).toBeGreaterThan(0);
 
-			const rows = await pollUntil(
-				"media-trending self-edges for seeded provider",
-				async () => {
-					const result = await pg.query<{
-						rank: string | null;
-						fetched_at: string | null;
-						external_id: string;
-					}>(
-						`select e.external_id,
+		const rows = await pollUntil(
+			"media-trending self-edges for seeded provider",
+			async () => {
+				const result = await pg.query<{
+					rank: string | null;
+					fetched_at: string | null;
+					external_id: string;
+				}>(
+					`select e.external_id,
 						        r.properties->>'rank' as rank,
 						        r.properties->>'fetchedAt' as fetched_at
 						 from relationship r
@@ -123,28 +123,26 @@ describe("POST /god-mode/cron/infrequent (media-trending durable workflow)", () 
 						   and e.sandbox_script_id = $2
 						   and e.external_id in ($3, $4)
 						 order by (r.properties->>'rank')::int asc`,
-						[mediaTrendingSchemaId, scriptId, EXTERNAL_ID_ONE, EXTERNAL_ID_TWO],
-					);
-					return result.rows.length === 2 ? result.rows : null;
-				},
-				{ timeoutMs: 90_000, intervalMs: 1_000 },
-			);
+					[mediaTrendingSchemaId, scriptId, EXTERNAL_ID_ONE, EXTERNAL_ID_TWO],
+				);
+				return result.rows.length === 2 ? result.rows : null;
+			},
+			{ timeoutMs: 90_000, intervalMs: 1_000 },
+		);
 
-			expect(rows).toHaveLength(2);
-			for (const row of rows) {
-				expect(row.rank).not.toBeNull();
-				expect(row.fetched_at).not.toBeNull();
-				expect(Number(row.rank)).toBeGreaterThan(0);
-			}
+		expect(rows).toHaveLength(2);
+		for (const row of rows) {
+			expect(row.rank).not.toBeNull();
+			expect(row.fetched_at).not.toBeNull();
+			expect(Number(row.rank)).toBeGreaterThan(0);
+		}
 
-			const rankByExternalId = new Map(rows.map((row) => [row.external_id, Number(row.rank)]));
-			const rankOne = rankByExternalId.get(EXTERNAL_ID_ONE);
-			const rankTwo = rankByExternalId.get(EXTERNAL_ID_TWO);
-			assertPresent(rankOne, "missing rank for first trending item");
-			assertPresent(rankTwo, "missing rank for second trending item");
-			// Ranks follow save order deterministically; the first-saved item ranks ahead.
-			expect(rankOne).toBeLessThan(rankTwo);
-		},
-		120_000,
-	);
+		const rankByExternalId = new Map(rows.map((row) => [row.external_id, Number(row.rank)]));
+		const rankOne = rankByExternalId.get(EXTERNAL_ID_ONE);
+		const rankTwo = rankByExternalId.get(EXTERNAL_ID_TWO);
+		assertPresent(rankOne, "missing rank for first trending item");
+		assertPresent(rankTwo, "missing rank for second trending item");
+		// Ranks follow save order deterministically; the first-saved item ranks ahead.
+		expect(rankOne).toBeLessThan(rankTwo);
+	}, 120_000);
 });

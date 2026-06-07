@@ -74,7 +74,7 @@ export const BuiltinEntityPreloaderLive = Layer.scopedDiscard(
 		const sandboxRepository = yield* SandboxRepository;
 
 		const preloadTarget = yield* runWithDb(
-			repository.findEntitySchemaScriptBySlug(builtinExerciseScriptSlug),
+			repository.findEntitySchemaSandboxScriptBySlug(builtinExerciseScriptSlug),
 		);
 		if (!preloadTarget) {
 			yield* Effect.logWarning(
