@@ -38,6 +38,18 @@ export type AfterCreateTriggerRow = {
 type EventsDbEffect<A> = Effect.Effect<A, DbError, CurrentDb>;
 
 type EventsRepositoryShape = {
+	readonly deleteUserEventsForEntity: (input: {
+		userId: string;
+		entityId: string;
+	}) => EventsDbEffect<number>;
+	readonly getActiveBeforeCreateTriggers: (input: {
+		userId: string;
+		eventSchemaIds: string[];
+	}) => EventsDbEffect<BeforeCreateTriggerRow[]>;
+	readonly getActiveAfterCreateTriggers: (input: {
+		userId: string;
+		eventSchemaIds: string[];
+	}) => EventsDbEffect<AfterCreateTriggerRow[]>;
 	readonly listForUser: (input: {
 		userId: string;
 		entityId?: string;
@@ -54,14 +66,6 @@ type EventsRepositoryShape = {
 		sessionEntityId?: string;
 		properties: Record<string, unknown>;
 	}) => EventsDbEffect<ListedEvent>;
-	readonly getActiveBeforeCreateTriggers: (input: {
-		userId: string;
-		eventSchemaIds: string[];
-	}) => EventsDbEffect<BeforeCreateTriggerRow[]>;
-	readonly getActiveAfterCreateTriggers: (input: {
-		userId: string;
-		eventSchemaIds: string[];
-	}) => EventsDbEffect<AfterCreateTriggerRow[]>;
 };
 
 const listedEventSelection = {
@@ -158,6 +162,26 @@ export class EventsRepository extends Effect.Service<EventsRepository>()("Events
 					eventSchemaName: input.eventSchemaName,
 					eventSchemaSlug: input.eventSchemaSlug,
 				});
+			}),
+		deleteUserEventsForEntity: (input) =>
+			Effect.gen(function* () {
+				const db = yield* CurrentDb;
+				const rows = yield* dbEffect(() =>
+					db
+						.delete(schema.event)
+						.where(
+							and(
+								eq(schema.event.userId, input.userId),
+								or(
+									eq(schema.event.entityId, input.entityId),
+									eq(schema.event.sessionEntityId, input.entityId),
+								),
+							),
+						)
+						.returning({ id: schema.event.id }),
+				);
+
+				return rows.length;
 			}),
 		getActiveBeforeCreateTriggers: (input) =>
 			Effect.gen(function* () {
