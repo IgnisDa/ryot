@@ -205,6 +205,7 @@ const Pagination = strictStruct({
 const OrderByEntry = strictStruct({ expr: Expr, order: Schema.Literal("asc", "desc") }).annotations(
 	{ identifier: "OrderByEntry" },
 );
+export type OrderByEntry = typeof OrderByEntry.Type;
 
 const FieldDef = strictStruct({ expr: Expr, key: Schema.String }).annotations({
 	identifier: "FieldDef",
