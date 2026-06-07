@@ -1,5 +1,7 @@
+import * as PersistedQueue from "@effect/experimental/PersistedQueue";
 import { Activity, DurableQueue, Workflow } from "@effect/workflow";
-import { Cause, DateTime, Effect, Exit, Match, Option, Schema } from "effect";
+import type { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
+import { Cause, Context, DateTime, Effect, Exit, Layer, Match, Option, Schema } from "effect";
 
 import { DbRunner } from "#lib/db";
 import { SandboxRunError, dieOnDbError, unknownToMessage } from "#lib/errors";
@@ -79,18 +81,45 @@ export const processSandboxEntityDetails = (payload: EntityImportPayload, execut
 		executionId: `${executionId}-sandbox-details`,
 	}).pipe(Effect.mapError(toWorkflowError));
 
-export const runEntityImportWorkflow = Effect.fn("runEntityImportWorkflow")(function* <R>(
-	payload: EntityImportPayload,
-	executionId: string,
+export type EntityImportWorkflowOperationsValue = {
 	processSandbox: (
 		payload: EntityImportPayload,
 		executionId: string,
-	) => Effect.Effect<SandboxCompletedResultValue, SandboxRunError, R>,
+	) => Effect.Effect<
+		SandboxCompletedResultValue,
+		SandboxRunError,
+		WorkflowEngine | WorkflowInstance
+	>;
+};
+
+export class EntityImportWorkflowOperations extends Context.Tag("EntityImportWorkflowOperations")<
+	EntityImportWorkflowOperations,
+	EntityImportWorkflowOperationsValue
+>() {}
+
+export const EntityImportWorkflowOperationsLive = Layer.effect(
+	EntityImportWorkflowOperations,
+	Effect.map(
+		PersistedQueue.PersistedQueueFactory,
+		(queueFactory) =>
+			({
+				processSandbox: (payload, executionId) =>
+					processSandboxEntityDetails(payload, executionId).pipe(
+						Effect.provideService(PersistedQueue.PersistedQueueFactory, queueFactory),
+					),
+			}) satisfies EntityImportWorkflowOperationsValue,
+	),
+);
+
+export const runEntityImportWorkflow = Effect.fn("runEntityImportWorkflow")(function* (
+	payload: EntityImportPayload,
+	executionId: string,
 	options: { activityPrefix?: string } = {},
 ) {
 	const runWithDb = yield* DbRunner;
 	const entities = yield* EntitiesService;
 	const repository = yield* EntitiesRepository;
+	const operations = yield* EntityImportWorkflowOperations;
 	const activityName = (name: string) =>
 		options.activityPrefix ? `${options.activityPrefix}${name}` : name;
 
@@ -110,7 +139,7 @@ export const runEntityImportWorkflow = Effect.fn("runEntityImportWorkflow")(func
 		return existing;
 	}
 
-	const sandboxResult = yield* processSandbox(payload, executionId);
+	const sandboxResult = yield* operations.processSandbox(payload, executionId);
 
 	if (sandboxResult.error) {
 		return yield* new SandboxRunError({ message: sandboxResult.error });
@@ -217,8 +246,7 @@ export const BuiltinEntityImportWorkflow = Workflow.make({
 });
 
 const BuiltinEntityImportWorkflowLive = BuiltinEntityImportWorkflow.toLayer(
-	(payload, executionId) =>
-		runEntityImportWorkflow(payload, executionId, processSandboxEntityDetails),
+	(payload, executionId) => runEntityImportWorkflow(payload, executionId),
 );
 
 export const BuiltinEntityImportWorkflowDefinitionsLive = BuiltinEntityImportWorkflowLive;
