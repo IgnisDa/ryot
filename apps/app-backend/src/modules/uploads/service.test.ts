@@ -6,6 +6,7 @@ import type { CurrentUserValue } from "#lib/auth";
 import { BadRequest } from "#lib/errors";
 import { RedisService, redisKeys } from "#lib/redis";
 import { S3Service } from "#lib/s3";
+import { makeMock } from "#lib/test-support/effect";
 
 import { UploadsService } from "./service";
 
@@ -30,18 +31,22 @@ const fakeFile = (name: string, contentType: string): Multipart.PersistedFile =>
 });
 
 const makeS3Mock = (overrides: Record<string, unknown> = {}) =>
-	Object.assign(Object.create(null), {
-		isConfigured: true,
-		presignUpload: () => Effect.die("unused"),
-		presignDownload: () => Effect.die("unused"),
-		...overrides,
-	});
+	Object.assign(
+		makeMock<S3Service>({
+			isConfigured: true,
+			presignUpload: () => Effect.die("unused"),
+			presignDownload: () => Effect.die("unused"),
+		}),
+		overrides,
+	);
 
 const makeRedisMock = (overrides: Record<string, unknown> = {}) =>
-	Object.assign(Object.create(null), {
-		set: () => Effect.die("unused"),
-		...overrides,
-	});
+	Object.assign(
+		makeMock<RedisService>({
+			set: () => Effect.die("unused"),
+		}),
+		overrides,
+	);
 
 const makeFsLayer = (overrides: Record<string, unknown> = {}) =>
 	FileSystem.layerNoop({
@@ -68,6 +73,23 @@ const defaultFileInfo = {
 	blksize: Option.none<FileSystem.Size>(),
 } satisfies FileSystem.File.Info;
 
+const makeUploadsLayer = (
+	options: {
+		fsLayer?: ReturnType<typeof makeFsLayer>;
+		redisService?: ReturnType<typeof makeRedisMock>;
+		s3Service?: ReturnType<typeof makeS3Mock>;
+	} = {},
+) =>
+	UploadsService.Default.pipe(
+		Layer.provide(
+			Layer.mergeAll(
+				Layer.succeed(S3Service, options.s3Service ?? makeS3Mock()),
+				Layer.succeed(RedisService, options.redisService ?? makeRedisMock()),
+				options.fsLayer ?? makeFsLayer(),
+			),
+		),
+	);
+
 it.effect("rejects unsupported content types for presigned upload", () =>
 	Effect.gen(function* () {
 		const service = yield* UploadsService;
@@ -75,19 +97,7 @@ it.effect("rejects unsupported content types for presigned upload", () =>
 		expect(exit).toEqual(
 			Exit.fail(new BadRequest({ message: "Upload content type must be a supported MIME type" })),
 		);
-	}).pipe(
-		Effect.provide(
-			UploadsService.Default.pipe(
-				Layer.provide(
-					Layer.mergeAll(
-						Layer.succeed(S3Service, makeS3Mock()),
-						Layer.succeed(RedisService, makeRedisMock()),
-						makeFsLayer(),
-					),
-				),
-			),
-		),
-	),
+	}).pipe(Effect.provide(makeUploadsLayer())),
 );
 
 it.effect("generates presigned upload key with png extension", () =>
@@ -98,20 +108,11 @@ it.effect("generates presigned upload key with png extension", () =>
 		expect(result.uploadUrl).toBeTruthy();
 	}).pipe(
 		Effect.provide(
-			UploadsService.Default.pipe(
-				Layer.provide(
-					Layer.mergeAll(
-						Layer.succeed(
-							S3Service,
-							makeS3Mock({
-								presignUpload: (_key: string) => Effect.succeed(`https://example.com/${_key}`),
-							}),
-						),
-						Layer.succeed(RedisService, makeRedisMock()),
-						makeFsLayer(),
-					),
-				),
-			),
+			makeUploadsLayer({
+				s3Service: makeS3Mock({
+					presignUpload: (_key: string) => Effect.succeed(`https://example.com/${_key}`),
+				}),
+			}),
 		),
 	),
 );
@@ -123,20 +124,11 @@ it.effect("uses mime-based extension for jpeg presigned upload", () =>
 		expect(result.key).toMatch(/^uploads\/.+\.jpg$/);
 	}).pipe(
 		Effect.provide(
-			UploadsService.Default.pipe(
-				Layer.provide(
-					Layer.mergeAll(
-						Layer.succeed(
-							S3Service,
-							makeS3Mock({
-								presignUpload: (_key: string) => Effect.succeed(`https://example.com/${_key}`),
-							}),
-						),
-						Layer.succeed(RedisService, makeRedisMock()),
-						makeFsLayer(),
-					),
-				),
-			),
+			makeUploadsLayer({
+				s3Service: makeS3Mock({
+					presignUpload: (_key: string) => Effect.succeed(`https://example.com/${_key}`),
+				}),
+			}),
 		),
 	),
 );
@@ -159,20 +151,11 @@ it.effect("uses mime-based extensions for csv, zip, and json presigned uploads",
 		);
 	}).pipe(
 		Effect.provide(
-			UploadsService.Default.pipe(
-				Layer.provide(
-					Layer.mergeAll(
-						Layer.succeed(
-							S3Service,
-							makeS3Mock({
-								presignUpload: (_key: string) => Effect.succeed(`https://example.com/${_key}`),
-							}),
-						),
-						Layer.succeed(RedisService, makeRedisMock()),
-						makeFsLayer(),
-					),
-				),
-			),
+			makeUploadsLayer({
+				s3Service: makeS3Mock({
+					presignUpload: (_key: string) => Effect.succeed(`https://example.com/${_key}`),
+				}),
+			}),
 		),
 	),
 );
@@ -186,19 +169,7 @@ it.effect("dies when S3 is not configured for presigned upload", () =>
 		} else {
 			throw new Error("Expected failure");
 		}
-	}).pipe(
-		Effect.provide(
-			UploadsService.Default.pipe(
-				Layer.provide(
-					Layer.mergeAll(
-						Layer.succeed(S3Service, makeS3Mock({ isConfigured: false })),
-						Layer.succeed(RedisService, makeRedisMock()),
-						makeFsLayer(),
-					),
-				),
-			),
-		),
-	),
+	}).pipe(Effect.provide(makeUploadsLayer({ s3Service: makeS3Mock({ isConfigured: false }) }))),
 );
 
 it.effect("returns presigned download URLs for multiple keys", () =>
@@ -213,20 +184,11 @@ it.effect("returns presigned download URLs for multiple keys", () =>
 		expect(result[1]?.downloadUrl).toBeTruthy();
 	}).pipe(
 		Effect.provide(
-			UploadsService.Default.pipe(
-				Layer.provide(
-					Layer.mergeAll(
-						Layer.succeed(
-							S3Service,
-							makeS3Mock({
-								presignDownload: (_key: string) => Effect.succeed(`https://example.com/${_key}`),
-							}),
-						),
-						Layer.succeed(RedisService, makeRedisMock()),
-						makeFsLayer(),
-					),
-				),
-			),
+			makeUploadsLayer({
+				s3Service: makeS3Mock({
+					presignDownload: (_key: string) => Effect.succeed(`https://example.com/${_key}`),
+				}),
+			}),
 		),
 	),
 );
@@ -240,19 +202,7 @@ it.effect("dies when S3 is not configured for presigned download", () =>
 		} else {
 			throw new Error("Expected failure");
 		}
-	}).pipe(
-		Effect.provide(
-			UploadsService.Default.pipe(
-				Layer.provide(
-					Layer.mergeAll(
-						Layer.succeed(S3Service, makeS3Mock({ isConfigured: false })),
-						Layer.succeed(RedisService, makeRedisMock()),
-						makeFsLayer(),
-					),
-				),
-			),
-		),
-	),
+	}).pipe(Effect.provide(makeUploadsLayer({ s3Service: makeS3Mock({ isConfigured: false }) }))),
 );
 
 it.effect("writes supported files to temporary directory and returns tokens", () => {
@@ -287,30 +237,22 @@ it.effect("writes supported files to temporary directory and returns tokens", ()
 		});
 	}).pipe(
 		Effect.provide(
-			UploadsService.Default.pipe(
-				Layer.provide(
-					Layer.mergeAll(
-						Layer.succeed(S3Service, makeS3Mock()),
-						Layer.succeed(
-							RedisService,
-							makeRedisMock({
-								set: (_key: string, _value: string, _ttl: number) => {
-									storedTokens.push({ key: _key, value: _value, ttl: _ttl });
-									return Effect.void;
-								},
-							}),
-						),
-						makeFsLayer({
-							stat: () => Effect.succeed(defaultFileInfo),
-							readFile: () => Effect.succeed(new Uint8Array([99, 115, 118])),
-							writeFile: (_path: string, _bytes: Uint8Array) => {
-								writtenPaths.push({ path: _path, bytes: _bytes });
-								return Effect.void;
-							},
-						}),
-					),
-				),
-			),
+			makeUploadsLayer({
+				redisService: makeRedisMock({
+					set: (_key: string, _value: string, _ttl: number) => {
+						storedTokens.push({ key: _key, value: _value, ttl: _ttl });
+						return Effect.void;
+					},
+				}),
+				fsLayer: makeFsLayer({
+					stat: () => Effect.succeed(defaultFileInfo),
+					readFile: () => Effect.succeed(new Uint8Array([99, 115, 118])),
+					writeFile: (_path: string, _bytes: Uint8Array) => {
+						writtenPaths.push({ path: _path, bytes: _bytes });
+						return Effect.void;
+					},
+				}),
+			}),
 		),
 	);
 });
@@ -327,27 +269,17 @@ it.effect("strips trailing separators from file names", () => {
 		expect(writtenPaths[0]).toMatch(/\/tmp\/ryot-test-uploads\/.+?-report\.csv$/);
 	}).pipe(
 		Effect.provide(
-			UploadsService.Default.pipe(
-				Layer.provide(
-					Layer.mergeAll(
-						Layer.succeed(S3Service, makeS3Mock()),
-						Layer.succeed(
-							RedisService,
-							makeRedisMock({
-								set: () => Effect.void,
-							}),
-						),
-						makeFsLayer({
-							stat: () => Effect.succeed(defaultFileInfo),
-							readFile: () => Effect.succeed(new Uint8Array()),
-							writeFile: (path: string) => {
-								writtenPaths.push(path);
-								return Effect.void;
-							},
-						}),
-					),
-				),
-			),
+			makeUploadsLayer({
+				redisService: makeRedisMock({ set: () => Effect.void }),
+				fsLayer: makeFsLayer({
+					stat: () => Effect.succeed(defaultFileInfo),
+					readFile: () => Effect.succeed(new Uint8Array()),
+					writeFile: (path: string) => {
+						writtenPaths.push(path);
+						return Effect.void;
+					},
+				}),
+			}),
 		),
 	);
 });
@@ -361,19 +293,7 @@ it.effect("rejects unsupported temporary upload file types", () =>
 		expect(exit).toEqual(
 			Exit.fail(new BadRequest({ message: "Upload content type must be a supported MIME type" })),
 		);
-	}).pipe(
-		Effect.provide(
-			UploadsService.Default.pipe(
-				Layer.provide(
-					Layer.mergeAll(
-						Layer.succeed(S3Service, makeS3Mock()),
-						Layer.succeed(RedisService, makeRedisMock()),
-						makeFsLayer(),
-					),
-				),
-			),
-		),
-	),
+	}).pipe(Effect.provide(makeUploadsLayer())),
 );
 
 it.effect("rejects oversized temporary upload files", () => {
@@ -394,17 +314,11 @@ it.effect("rejects oversized temporary upload files", () => {
 		}
 	}).pipe(
 		Effect.provide(
-			UploadsService.Default.pipe(
-				Layer.provide(
-					Layer.mergeAll(
-						Layer.succeed(S3Service, makeS3Mock()),
-						Layer.succeed(RedisService, makeRedisMock()),
-						makeFsLayer({
-							stat: () => Effect.succeed(oversizedStat),
-						}),
-					),
-				),
-			),
+			makeUploadsLayer({
+				fsLayer: makeFsLayer({
+					stat: () => Effect.succeed(oversizedStat),
+				}),
+			}),
 		),
 	);
 });
@@ -416,17 +330,5 @@ it.effect("rejects empty temporary upload requests", () =>
 		expect(exit).toEqual(
 			Exit.fail(new BadRequest({ message: "At least one upload file is required" })),
 		);
-	}).pipe(
-		Effect.provide(
-			UploadsService.Default.pipe(
-				Layer.provide(
-					Layer.mergeAll(
-						Layer.succeed(S3Service, makeS3Mock()),
-						Layer.succeed(RedisService, makeRedisMock()),
-						makeFsLayer(),
-					),
-				),
-			),
-		),
-	),
+	}).pipe(Effect.provide(makeUploadsLayer())),
 );

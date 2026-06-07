@@ -2,8 +2,8 @@ import { expect, it } from "@effect/vitest";
 import { Effect, Exit, Layer } from "effect";
 
 import type { CurrentUserValue } from "#lib/auth";
-import { CurrentDb, DbRunner, TransactionRunner } from "#lib/db";
 import { BadRequest, NotFound } from "#lib/errors";
+import { dbRunnerLayer, makeMock, transactionLayer } from "#lib/test-support/effect";
 
 import { TrackersRepository } from "./repository";
 import { TrackersService } from "./service";
@@ -14,31 +14,21 @@ const user = {
 	email: "user@example.com",
 } satisfies CurrentUserValue;
 
-const dbRunnerLayer = Layer.succeed(DbRunner, <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-	Effect.provideService(effect, CurrentDb, Object.create(null)),
-);
-
-const transactionLayer = Layer.succeed(
-	TransactionRunner,
-	<A, E, R>(effect: Effect.Effect<A, E, R>) =>
-		Effect.provideService(effect, CurrentDb, Object.create(null)),
-);
-
-const defaultTrackersRepository = () =>
-	Object.assign(Object.create(null), {
-		_tag: "TrackersRepository" as const,
-		create: () => Effect.die("unused"),
-		findBySlug: () => Effect.die("unused"),
-		listByUser: () => Effect.die("unused"),
-		updateOwned: () => Effect.die("unused"),
-		getOwnedById: () => Effect.die("unused"),
-		persistOrder: () => Effect.die("unused"),
-		listIdsInOrder: () => Effect.die("unused"),
-		countOwnedByIds: () => Effect.die("unused"),
-	});
-
 const makeTrackersRepository = (overrides: Partial<TrackersRepository> = {}) =>
-	Object.assign(Object.create(null), defaultTrackersRepository(), overrides);
+	makeMock<TrackersRepository>(
+		{
+			_tag: "TrackersRepository" as const,
+			create: () => Effect.die("unused"),
+			findBySlug: () => Effect.die("unused"),
+			listByUser: () => Effect.die("unused"),
+			updateOwned: () => Effect.die("unused"),
+			getOwnedById: () => Effect.die("unused"),
+			persistOrder: () => Effect.die("unused"),
+			listIdsInOrder: () => Effect.die("unused"),
+			countOwnedByIds: () => Effect.die("unused"),
+		},
+		overrides,
+	);
 
 const makeServiceLayer = (repository: TrackersRepository) =>
 	TrackersService.Default.pipe(

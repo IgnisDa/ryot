@@ -2,8 +2,8 @@ import { expect, it } from "@effect/vitest";
 import { Effect, Exit, Layer } from "effect";
 
 import type { CurrentUserValue } from "#lib/auth";
-import { CurrentDb, DbRunner, TransactionRunner } from "#lib/db";
 import { BadRequest, Conflict, NotFound } from "#lib/errors";
+import { dbRunnerLayer, makeMock, transactionLayer } from "#lib/test-support/effect";
 import { SandboxApiService } from "#modules/sandbox/service";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
 import { TrackersRepository } from "#modules/trackers/repository";
@@ -17,72 +17,62 @@ const user = {
 	email: "user@example.com",
 } satisfies CurrentUserValue;
 
-const dbRunnerLayer = Layer.succeed(DbRunner, <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-	Effect.provideService(effect, CurrentDb, Object.create(null)),
-);
-
-const transactionLayer = Layer.succeed(
-	TransactionRunner,
-	<A, E, R>(effect: Effect.Effect<A, E, R>) =>
-		Effect.provideService(effect, CurrentDb, Object.create(null)),
-);
-
-const fakeSandboxApiService = () =>
-	Object.assign(Object.create(null), {
+const makeSandboxApiService = () =>
+	makeMock<SandboxApiService>({
 		_tag: "SandboxApiService" as const,
 		enqueue: () => Effect.die("not used in this test"),
 		getResult: () => Effect.die("not used in this test"),
 		createScript: () => Effect.die("not used in this test"),
 	});
 
-const fakeSandboxApiServiceLayer = Layer.succeed(SandboxApiService, fakeSandboxApiService());
-
-const defaultTrackersRepository = () =>
-	Object.assign(Object.create(null), {
-		_tag: "TrackersRepository" as const,
-		create: () => Effect.die("unused"),
-		listByUser: () => Effect.die("unused"),
-		findBySlug: () => Effect.die("unused"),
-		updateOwned: () => Effect.die("unused"),
-		getOwnedById: () => Effect.die("unused"),
-		persistOrder: () => Effect.die("unused"),
-		listIdsInOrder: () => Effect.die("unused"),
-		countOwnedByIds: () => Effect.die("unused"),
-		linkEntitySchema: () => Effect.die("unused"),
-	});
-
-const defaultEntitySchemasRepository = () =>
-	Object.assign(Object.create(null), {
-		_tag: "EntitySchemasRepository" as const,
-		findBySlug: () => Effect.die("unused"),
-		listByUser: () => Effect.die("unused"),
-		getByIdForUser: () => Effect.die("unused"),
-		createEntitySchema: () => Effect.die("unused"),
-	});
-
-const defaultSavedViewsRepository = () =>
-	Object.assign(Object.create(null), {
-		_tag: "SavedViewsRepository" as const,
-		create: () => Effect.die("unused"),
-		findBySlug: () => Effect.die("unused"),
-		listByUser: () => Effect.die("unused"),
-		deleteBySlug: () => Effect.die("unused"),
-		updateBySlug: () => Effect.die("unused"),
-		countBySlugs: () => Effect.die("unused"),
-		persistOrder: () => Effect.die("unused"),
-		listSlugsInOrder: () => Effect.die("unused"),
-		updateDisabledBySlug: () => Effect.die("unused"),
-		createDefaultViewForSchema: () => Effect.die("unused"),
-	});
+const fakeSandboxApiServiceLayer = Layer.succeed(SandboxApiService, makeSandboxApiService());
 
 const makeTrackersRepository = (overrides: Partial<TrackersRepository> = {}) =>
-	Object.assign(Object.create(null), defaultTrackersRepository(), overrides);
+	makeMock<TrackersRepository>(
+		{
+			_tag: "TrackersRepository" as const,
+			create: () => Effect.die("unused"),
+			listByUser: () => Effect.die("unused"),
+			findBySlug: () => Effect.die("unused"),
+			updateOwned: () => Effect.die("unused"),
+			getOwnedById: () => Effect.die("unused"),
+			persistOrder: () => Effect.die("unused"),
+			listIdsInOrder: () => Effect.die("unused"),
+			countOwnedByIds: () => Effect.die("unused"),
+			linkEntitySchema: () => Effect.die("unused"),
+		},
+		overrides,
+	);
 
 const makeEntitySchemasRepository = (overrides: Partial<EntitySchemasRepository> = {}) =>
-	Object.assign(Object.create(null), defaultEntitySchemasRepository(), overrides);
+	makeMock<EntitySchemasRepository>(
+		{
+			_tag: "EntitySchemasRepository" as const,
+			findBySlug: () => Effect.die("unused"),
+			listByUser: () => Effect.die("unused"),
+			getByIdForUser: () => Effect.die("unused"),
+			createEntitySchema: () => Effect.die("unused"),
+		},
+		overrides,
+	);
 
 const makeSavedViewsRepository = (overrides: Partial<SavedViewsRepository> = {}) =>
-	Object.assign(Object.create(null), defaultSavedViewsRepository(), overrides);
+	makeMock<SavedViewsRepository>(
+		{
+			_tag: "SavedViewsRepository" as const,
+			create: () => Effect.die("unused"),
+			findBySlug: () => Effect.die("unused"),
+			listByUser: () => Effect.die("unused"),
+			deleteBySlug: () => Effect.die("unused"),
+			updateBySlug: () => Effect.die("unused"),
+			countBySlugs: () => Effect.die("unused"),
+			persistOrder: () => Effect.die("unused"),
+			listSlugsInOrder: () => Effect.die("unused"),
+			updateDisabledBySlug: () => Effect.die("unused"),
+			createDefaultViewForSchema: () => Effect.die("unused"),
+		},
+		overrides,
+	);
 
 const makeEntitySchemasServiceLayer = (
 	repository: EntitySchemasRepository,
