@@ -1,12 +1,13 @@
 import { expect, it } from "@effect/vitest";
 import { Workflow } from "@effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
+import type { Context } from "effect";
 import { Effect, Layer } from "effect";
 
 import { CurrentDb, DbRunner } from "#lib/db";
-import { CollectionsService } from "#modules/collections/service";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 
+import { EntityImportHook } from "./entity-import-hook";
 import { EntitiesRepository } from "./repository";
 import type { ListedEntity } from "./schemas";
 import { EntityImportWorkflow, runEntityImportWorkflow } from "./workflows";
@@ -18,8 +19,8 @@ const baseEntity = {
 	createdAt: now,
 	updatedAt: now,
 	id: "entity-1",
-	name: "Test Book",
 	populatedAt: now,
+	name: "Test Book",
 	externalId: "ext-1",
 	entitySchemaId: "schema-1",
 	sandboxScriptId: "script-1",
@@ -78,25 +79,14 @@ const makeRelationshipSchemasRepository = (
 	overrides: Partial<RelationshipSchemasRepository> = {},
 ) => Object.assign(Object.create(null), defaultRelationshipSchemasRepository(), overrides);
 
-const makeCollectionsService = (
-	onEnsureEntityInLibrary: (userId: string, entityId: string) => Effect.Effect<void> = () =>
-		Effect.void,
-) =>
-	Object.assign(Object.create(null), {
-		_tag: "CollectionsService" as const,
-		create: () => Effect.die("unused"),
-		ensureEntityInLibrary: onEnsureEntityInLibrary,
-		addToCollection: () => Effect.die("unused"),
-		removeFromCollection: () => Effect.die("unused"),
-		getOrCreateCollection: () => Effect.die("unused"),
-		markEntityOwnedInLibrary: () => Effect.die("unused"),
-		ensureLibraryEntityForUser: () => Effect.die("unused"),
-	});
+const makeEntityImportHook = (
+	onEntityImported: (userId: string, entityId: string) => Effect.Effect<void> = () => Effect.void,
+): Context.Tag.Service<typeof EntityImportHook> => ({ onEntityImported });
 
 type TestLayerOptions = {
 	entitiesRepository?: EntitiesRepository;
-	collectionsService?: CollectionsService;
 	relationshipSchemasRepository?: RelationshipSchemasRepository;
+	entityImportHook?: Context.Tag.Service<typeof EntityImportHook>;
 };
 
 const makeTestLayer = (options: TestLayerOptions) =>
@@ -107,7 +97,7 @@ const makeTestLayer = (options: TestLayerOptions) =>
 			RelationshipSchemasRepository,
 			options.relationshipSchemasRepository ?? makeRelationshipSchemasRepository(),
 		),
-		Layer.succeed(CollectionsService, options.collectionsService ?? makeCollectionsService()),
+		Layer.succeed(EntityImportHook, options.entityImportHook ?? makeEntityImportHook()),
 	);
 
 const makeWorkflowEngine = (instance: WorkflowInstance["Type"]) => {
@@ -168,9 +158,19 @@ it.effect("populates entity, writes related entities, and ensures library member
 	let libraryMembershipUserId: string | undefined;
 	let libraryMembershipEntityId: string | undefined;
 
+	const payload = { ...importPayload, executionId: "exec-full" };
 	const relatedEntitySchemaScript = {
 		entitySchemaId: "schema-person",
 		sandboxScriptId: "person-script",
+	};
+	const relationshipSchema = {
+		isBuiltin: true,
+		id: "rel-schema-1",
+		slug: "authored-by",
+		name: "Authored By",
+		propertiesSchema: { fields: {} },
+		sourceEntitySchemaId: "schema-1",
+		targetEntitySchemaId: "schema-person",
 	};
 	const relatedEntity = {
 		image: null,
@@ -184,21 +184,11 @@ it.effect("populates entity, writes related entities, and ensures library member
 		entitySchemaId: "schema-person",
 		sandboxScriptId: "person-script-id",
 	} satisfies ListedEntity;
-	const relationshipSchema = {
-		isBuiltin: true,
-		id: "rel-schema-1",
-		slug: "authored-by",
-		name: "Authored By",
-		propertiesSchema: { fields: {} },
-		sourceEntitySchemaId: "schema-1",
-		targetEntitySchemaId: "schema-person",
-	};
-	const payload = { ...importPayload, executionId: "exec-full" };
 	const options = {
 		relationshipSchemasRepository: makeRelationshipSchemasRepository({
 			findGlobalBySchemaIds: () => Effect.succeed(relationshipSchema),
 		}),
-		collectionsService: makeCollectionsService((userId, entityId) => {
+		entityImportHook: makeEntityImportHook((userId, entityId) => {
 			libraryMembershipUserId = userId;
 			libraryMembershipEntityId = entityId;
 			return Effect.void;
@@ -266,7 +256,7 @@ it.effect("short-circuits sandbox when global entity is already populated", () =
 		entitiesRepository: makeEntitiesRepository({
 			findGlobalEntityByExternalId: () => Effect.succeed(populatedEntity),
 		}),
-		collectionsService: makeCollectionsService(() => {
+		entityImportHook: makeEntityImportHook(() => {
 			libraryMembershipCalled = true;
 			return Effect.void;
 		}),
