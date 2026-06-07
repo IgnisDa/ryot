@@ -54,69 +54,68 @@ const EntitySearchResult = Schema.Struct({ items: Schema.Array(EntitySearchItem)
 
 export const decodeEntitySearchResult = Schema.decodeUnknown(EntitySearchResult);
 
-export const processRelatedEntity = (input: {
+export const processRelatedEntity = Effect.fn("processRelatedEntity")(function* (input: {
 	sourceEntityId: string;
 	sourceEntitySchemaId: string;
 	relatedEntity: EntityDetailsRelatedEntity;
-}) =>
-	Effect.gen(function* () {
-		const runWithDb = yield* DbRunner;
-		const repository = yield* EntitiesRepository;
-		const relationshipsRepository = yield* RelationshipsRepository;
-		const relationshipSchemasRepository = yield* RelationshipSchemasRepository;
+}) {
+	const runWithDb = yield* DbRunner;
+	const repository = yield* EntitiesRepository;
+	const relationshipsRepository = yield* RelationshipsRepository;
+	const relationshipSchemasRepository = yield* RelationshipSchemasRepository;
 
-		const entitySchemaScript = yield* runWithDb(
-			repository.findEntitySchemaScriptBySlug(input.relatedEntity.scriptSlug),
-		);
-		if (!entitySchemaScript) {
-			return;
-		}
+	const entitySchemaScript = yield* runWithDb(
+		repository.findEntitySchemaScriptBySlug(input.relatedEntity.scriptSlug),
+	);
+	if (!entitySchemaScript) {
+		return;
+	}
 
-		const relatedEntity = yield* runWithDb(
-			repository.createOrUpdateGlobalEntity({
-				image: null,
-				populatedAt: null,
-				properties: {},
-				name: input.relatedEntity.name,
-				externalId: input.relatedEntity.externalId,
-				entitySchemaId: entitySchemaScript.entitySchemaId,
-				sandboxScriptId: entitySchemaScript.sandboxScriptId,
-			}),
-		);
+	const relatedEntity = yield* runWithDb(
+		repository.createOrUpdateGlobalEntity({
+			image: null,
+			populatedAt: null,
+			properties: {},
+			name: input.relatedEntity.name,
+			externalId: input.relatedEntity.externalId,
+			entitySchemaId: entitySchemaScript.entitySchemaId,
+			sandboxScriptId: entitySchemaScript.sandboxScriptId,
+		}),
+	);
 
-		const { reverseDirection } = input.relatedEntity;
-		const sourceEntityId = reverseDirection ? input.sourceEntityId : relatedEntity.id;
-		const targetEntityId = reverseDirection ? relatedEntity.id : input.sourceEntityId;
-		const sourceSchemaId = reverseDirection
-			? input.sourceEntitySchemaId
-			: entitySchemaScript.entitySchemaId;
-		const targetSchemaId = reverseDirection
-			? entitySchemaScript.entitySchemaId
-			: input.sourceEntitySchemaId;
+	const { reverseDirection } = input.relatedEntity;
+	const sourceEntityId = reverseDirection ? input.sourceEntityId : relatedEntity.id;
+	const targetEntityId = reverseDirection ? relatedEntity.id : input.sourceEntityId;
+	const sourceSchemaId = reverseDirection
+		? input.sourceEntitySchemaId
+		: entitySchemaScript.entitySchemaId;
+	const targetSchemaId = reverseDirection
+		? entitySchemaScript.entitySchemaId
+		: input.sourceEntitySchemaId;
 
-		const relationshipSchema = yield* runWithDb(
-			relationshipSchemasRepository.findGlobalBySchemaIds({
-				sourceEntitySchemaId: sourceSchemaId,
-				targetEntitySchemaId: targetSchemaId,
-			}),
-		);
-		if (!relationshipSchema) {
-			return;
-		}
+	const relationshipSchema = yield* runWithDb(
+		relationshipSchemasRepository.findGlobalBySchemaIds({
+			sourceEntitySchemaId: sourceSchemaId,
+			targetEntitySchemaId: targetSchemaId,
+		}),
+	);
+	if (!relationshipSchema) {
+		return;
+	}
 
-		const relProps = input.relatedEntity.relationshipProperties;
-		const properties = yield* parseAppSchemaProperties({
-			kind: "Relationship",
-			properties: relProps === undefined ? {} : relProps,
-			propertiesSchema: relationshipSchema.propertiesSchema,
-		}).pipe(Effect.mapError((error) => new SandboxRunError({ message: error.message })));
+	const relProps = input.relatedEntity.relationshipProperties;
+	const properties = yield* parseAppSchemaProperties({
+		kind: "Relationship",
+		properties: relProps === undefined ? {} : relProps,
+		propertiesSchema: relationshipSchema.propertiesSchema,
+	}).pipe(Effect.mapError((error) => new SandboxRunError({ message: error.message })));
 
-		yield* runWithDb(
-			relationshipsRepository.upsertEntityRelationship({
-				properties,
-				sourceEntityId,
-				targetEntityId,
-				relationshipSchemaId: relationshipSchema.id,
-			}),
-		);
-	}).pipe(dieOnDbError);
+	yield* runWithDb(
+		relationshipsRepository.upsertEntityRelationship({
+			properties,
+			sourceEntityId,
+			targetEntityId,
+			relationshipSchemaId: relationshipSchema.id,
+		}),
+	);
+}, dieOnDbError);

@@ -14,31 +14,30 @@ const MAX_FILE_BYTES = 50 * 1024 * 1024;
 const createDecompressedFileTooLargeMessage = () =>
 	`Import file exceeds maximum allowed size of ${MAX_FILE_BYTES} bytes after decompression`;
 
-const decodeMyanimelistFile = (filePath: string) =>
-	Effect.gen(function* () {
-		const bytes = yield* readImportFileBytes(filePath, MAX_FILE_BYTES);
-		if (!filePath.toLowerCase().endsWith(".gz")) {
-			return new TextDecoder().decode(bytes);
-		}
-		return yield* Effect.try({
-			try: () => {
-				const decompressed = Bun.gunzipSync(new Uint8Array(bytes));
-				if (decompressed.byteLength > MAX_FILE_BYTES) {
-					throw new Error(createDecompressedFileTooLargeMessage());
-				}
-				return new TextDecoder().decode(decompressed);
-			},
-			catch: (error) => sanitizeErrorMessage(error, "Could not read import file"),
-		});
+const decodeMyanimelistFile = Effect.fn(function* (filePath: string) {
+	const bytes = yield* readImportFileBytes(filePath, MAX_FILE_BYTES);
+	if (!filePath.toLowerCase().endsWith(".gz")) {
+		return new TextDecoder().decode(bytes);
+	}
+	return yield* Effect.try({
+		try: () => {
+			const decompressed = Bun.gunzipSync(new Uint8Array(bytes));
+			if (decompressed.byteLength > MAX_FILE_BYTES) {
+				throw new Error(createDecompressedFileTooLargeMessage());
+			}
+			return new TextDecoder().decode(decompressed);
+		},
+		catch: (error) => sanitizeErrorMessage(error, "Could not read import file"),
 	});
+});
 
-export const loadMyanimelistAdapterResult = (input: {
-	runId: string;
-	userId: string;
-	filePath?: string;
-	sourcePayload?: Record<string, unknown>;
-}) =>
-	Effect.gen(function* () {
+export const loadMyanimelistAdapterResult = Effect.fn("myanimelistProcessor.load")(
+	function* (input: {
+		runId: string;
+		userId: string;
+		filePath?: string;
+		sourcePayload?: Record<string, unknown>;
+	}) {
 		const paths = yield* Effect.try({
 			try: () => {
 				const animeFilePath = getValidatedOptionalPath(
@@ -93,4 +92,5 @@ export const loadMyanimelistAdapterResult = (input: {
 		});
 
 		return { adapterResult, cleanupPaths } satisfies LoadedMediaImportAdapterResult;
-	});
+	},
+);

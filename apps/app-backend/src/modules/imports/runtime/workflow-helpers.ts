@@ -45,25 +45,24 @@ export const createImportRunLifecycle = <RCleanup>(
 			execute: failImportRun(payload.runId, message).pipe(Effect.mapError(toWorkflowError)),
 		});
 
-	const failRunAndCleanup = (input: {
+	const failRunAndCleanup = Effect.fn(function* (input: {
 		message: string;
 		cleanupName: string;
 		failureName: string;
 		cleanupPaths: ReadonlyArray<string>;
-	}) =>
-		Effect.gen(function* () {
-			const failedRun = yield* Effect.exit(markRunFailed(input.failureName, input.message));
-			const cleanedUp = yield* Effect.exit(cleanupArtifacts(input.cleanupName, input.cleanupPaths));
+	}) {
+		const failedRun = yield* Effect.exit(markRunFailed(input.failureName, input.message));
+		const cleanedUp = yield* Effect.exit(cleanupArtifacts(input.cleanupName, input.cleanupPaths));
 
-			if (cleanedUp._tag === "Failure") {
-				return yield* Effect.failCause(cleanedUp.cause);
-			}
-			if (failedRun._tag === "Failure") {
-				return yield* Effect.failCause(failedRun.cause);
-			}
+		if (cleanedUp._tag === "Failure") {
+			return yield* Effect.failCause(cleanedUp.cause);
+		}
+		if (failedRun._tag === "Failure") {
+			return yield* Effect.failCause(failedRun.cause);
+		}
 
-			return undefined;
-		});
+		return undefined;
+	});
 
 	return { cleanupArtifacts, failRunAndCleanup, cleanupArtifactsBestEffort };
 };

@@ -229,89 +229,119 @@ const buildShowRef = (show: TraktItem): ImportEntityRef | undefined => {
 	};
 };
 
-export const adaptTraktData = (username: string, clientId: string) =>
-	Effect.gen(function* () {
-		const userUrl = `/users/${username}`;
-		const client = buildTraktClient(clientId);
+export const adaptTraktData = Effect.fn("traktAdapter.adaptData")(function* (
+	username: string,
+	clientId: string,
+) {
+	const userUrl = `/users/${username}`;
+	const client = buildTraktClient(clientId);
 
-		const failures: MediaImportAdapterFailure[] = [];
-		const groupMap = new Map<string, ImportMediaEntityGroup>();
-		let itemIndex = 0;
+	const failures: MediaImportAdapterFailure[] = [];
+	const groupMap = new Map<string, ImportMediaEntityGroup>();
+	let itemIndex = 0;
 
-		const history = yield* client.fetchAll(`${userUrl}/history`, TraktHistoryItem);
-		history.sort((a, b) => getOccurredAtValue(a.watched_at) - getOccurredAtValue(b.watched_at));
-		for (const item of history) {
+	const history = yield* client.fetchAll(`${userUrl}/history`, TraktHistoryItem);
+	history.sort((a, b) => getOccurredAtValue(a.watched_at) - getOccurredAtValue(b.watched_at));
+	for (const item of history) {
+		itemIndex++;
+		if (item.type === "movie" && item.movie) {
+			const ref = buildMovieRef(item.movie);
+			if (!ref) {
+				failures.push({
+					itemIndex,
+					sourceLabel: item.movie.title,
+					message: missingProviderIdMessage("Movie"),
+					sourceIdentifier: String(item.movie.ids.trakt),
+				});
+				continue;
+			}
+			const group = getOrCreateMediaEntityGroup(groupMap, ref, itemIndex);
+			group.events.push(
+				createCompleteEvent({ occurredAt: item.watched_at, completedOn: item.watched_at }),
+			);
+		} else if (item.type === "episode" && item.show && item.episode) {
+			const ref = buildShowRef(item.show);
+			if (!ref) {
+				failures.push({
+					itemIndex,
+					sourceLabel: item.show.title,
+					message: missingProviderIdMessage("Show"),
+					sourceIdentifier: String(item.show.ids.trakt),
+				});
+				continue;
+			}
+			const group = getOrCreateMediaEntityGroup(groupMap, ref, itemIndex);
+			group.events.push({
+				eventSchemaSlug: "progress",
+				occurredAt: item.watched_at,
+				properties: {
+					progressPercent: 100,
+					showSeason: item.episode.season,
+					showEpisode: item.episode.number,
+				},
+			});
+		}
+	}
+
+	for (const type of ["movies", "shows"] as const) {
+		const ratings = yield* client.fetchAll(`${userUrl}/ratings/${type}`, TraktRatingItem);
+		for (const item of ratings) {
 			itemIndex++;
-			if (item.type === "movie" && item.movie) {
-				const ref = buildMovieRef(item.movie);
-				if (!ref) {
-					failures.push({
-						itemIndex,
-						sourceLabel: item.movie.title,
-						message: missingProviderIdMessage("Movie"),
-						sourceIdentifier: String(item.movie.ids.trakt),
-					});
-					continue;
-				}
-				const group = getOrCreateMediaEntityGroup(groupMap, ref, itemIndex);
-				group.events.push(
-					createCompleteEvent({ occurredAt: item.watched_at, completedOn: item.watched_at }),
-				);
-			} else if (item.type === "episode" && item.show && item.episode) {
-				const ref = buildShowRef(item.show);
-				if (!ref) {
-					failures.push({
-						itemIndex,
-						sourceLabel: item.show.title,
-						message: missingProviderIdMessage("Show"),
-						sourceIdentifier: String(item.show.ids.trakt),
-					});
-					continue;
-				}
-				const group = getOrCreateMediaEntityGroup(groupMap, ref, itemIndex);
-				group.events.push({
-					eventSchemaSlug: "progress",
-					occurredAt: item.watched_at,
-					properties: {
-						progressPercent: 100,
-						showSeason: item.episode.season,
-						showEpisode: item.episode.number,
-					},
+			const sourceItem = type === "movies" ? item.movie : item.show;
+			if (!sourceItem) {
+				continue;
+			}
+			const ref = type === "movies" ? buildMovieRef(sourceItem) : buildShowRef(sourceItem);
+			if (!ref) {
+				failures.push({
+					itemIndex,
+					sourceLabel: sourceItem.title,
+					sourceIdentifier: String(sourceItem.ids.trakt),
+					message: missingProviderIdMessage(type === "movies" ? "Movie" : "Show"),
 				});
+				continue;
+			}
+			const group = getOrCreateMediaEntityGroup(groupMap, ref, itemIndex);
+			const reviewEvent = createReviewEvent({
+				occurredAt: item.rated_at,
+				rating: item.rating * 10,
+			});
+			if (reviewEvent) {
+				group.events.push(reviewEvent);
 			}
 		}
+	}
 
-		for (const type of ["movies", "shows"] as const) {
-			const ratings = yield* client.fetchAll(`${userUrl}/ratings/${type}`, TraktRatingItem);
-			for (const item of ratings) {
-				itemIndex++;
-				const sourceItem = type === "movies" ? item.movie : item.show;
-				if (!sourceItem) {
-					continue;
-				}
-				const ref = type === "movies" ? buildMovieRef(sourceItem) : buildShowRef(sourceItem);
-				if (!ref) {
-					failures.push({
-						itemIndex,
-						sourceLabel: sourceItem.title,
-						sourceIdentifier: String(sourceItem.ids.trakt),
-						message: missingProviderIdMessage(type === "movies" ? "Movie" : "Show"),
-					});
-					continue;
-				}
-				const group = getOrCreateMediaEntityGroup(groupMap, ref, itemIndex);
-				const reviewEvent = createReviewEvent({
-					occurredAt: item.rated_at,
-					rating: item.rating * 10,
-				});
-				if (reviewEvent) {
-					group.events.push(reviewEvent);
-				}
-			}
+	const watchlist = yield* client.fetchAll(`${userUrl}/watchlist`, TraktWatchlistItem);
+	for (const item of watchlist) {
+		itemIndex++;
+		const sourceItem = item.type === "movie" ? item.movie : item.show;
+		if (!sourceItem) {
+			continue;
 		}
+		const ref = item.type === "movie" ? buildMovieRef(sourceItem) : buildShowRef(sourceItem);
+		if (!ref) {
+			failures.push({
+				itemIndex,
+				sourceLabel: sourceItem.title,
+				sourceIdentifier: String(sourceItem.ids.trakt),
+				message: missingProviderIdMessage(item.type === "movie" ? "Movie" : "Show"),
+			});
+			continue;
+		}
+		const group = getOrCreateMediaEntityGroup(groupMap, ref, itemIndex);
+		group.events.push(createBacklogEvent(item.listed_at ?? nowIso()));
+	}
 
-		const watchlist = yield* client.fetchAll(`${userUrl}/watchlist`, TraktWatchlistItem);
-		for (const item of watchlist) {
+	const lists = yield* client.fetchAll(`${userUrl}/lists`, TraktList);
+	const lifecycleAliases = new Set(["watchlist"]);
+	for (const list of lists) {
+		const collectionName = list.name;
+		if (lifecycleAliases.has(collectionName.toLowerCase())) {
+			continue;
+		}
+		const items = yield* client.fetchAll(`${userUrl}/lists/${list.ids.trakt}/items`, TraktListItem);
+		for (const item of items) {
 			itemIndex++;
 			const sourceItem = item.type === "movie" ? item.movie : item.show;
 			if (!sourceItem) {
@@ -328,66 +358,35 @@ export const adaptTraktData = (username: string, clientId: string) =>
 				continue;
 			}
 			const group = getOrCreateMediaEntityGroup(groupMap, ref, itemIndex);
-			group.events.push(createBacklogEvent(item.listed_at ?? nowIso()));
+			addCollectionMembership(group, collectionName);
 		}
+	}
 
-		const lists = yield* client.fetchAll(`${userUrl}/lists`, TraktList);
-		const lifecycleAliases = new Set(["watchlist"]);
-		for (const list of lists) {
-			const collectionName = list.name;
-			if (lifecycleAliases.has(collectionName.toLowerCase())) {
+	for (const type of ["movies", "shows"] as const) {
+		const items = yield* client.fetchAll(`${userUrl}/collection/${type}`, TraktCollectionItem);
+		for (const item of items) {
+			itemIndex++;
+			const sourceItem = type === "movies" ? item.movie : item.show;
+			if (!sourceItem) {
 				continue;
 			}
-			const items = yield* client.fetchAll(
-				`${userUrl}/lists/${list.ids.trakt}/items`,
-				TraktListItem,
-			);
-			for (const item of items) {
-				itemIndex++;
-				const sourceItem = item.type === "movie" ? item.movie : item.show;
-				if (!sourceItem) {
-					continue;
-				}
-				const ref = item.type === "movie" ? buildMovieRef(sourceItem) : buildShowRef(sourceItem);
-				if (!ref) {
-					failures.push({
-						itemIndex,
-						sourceLabel: sourceItem.title,
-						sourceIdentifier: String(sourceItem.ids.trakt),
-						message: missingProviderIdMessage(item.type === "movie" ? "Movie" : "Show"),
-					});
-					continue;
-				}
-				const group = getOrCreateMediaEntityGroup(groupMap, ref, itemIndex);
-				addCollectionMembership(group, collectionName);
+			const ref = type === "movies" ? buildMovieRef(sourceItem) : buildShowRef(sourceItem);
+			if (!ref) {
+				failures.push({
+					itemIndex,
+					sourceLabel: sourceItem.title,
+					sourceIdentifier: String(sourceItem.ids.trakt),
+					message: missingProviderIdMessage(type === "movies" ? "Movie" : "Show"),
+				});
+				continue;
 			}
+			const group = getOrCreateMediaEntityGroup(groupMap, ref, itemIndex);
+			addCollectionMembership(group, "Owned");
 		}
+	}
 
-		for (const type of ["movies", "shows"] as const) {
-			const items = yield* client.fetchAll(`${userUrl}/collection/${type}`, TraktCollectionItem);
-			for (const item of items) {
-				itemIndex++;
-				const sourceItem = type === "movies" ? item.movie : item.show;
-				if (!sourceItem) {
-					continue;
-				}
-				const ref = type === "movies" ? buildMovieRef(sourceItem) : buildShowRef(sourceItem);
-				if (!ref) {
-					failures.push({
-						itemIndex,
-						sourceLabel: sourceItem.title,
-						sourceIdentifier: String(sourceItem.ids.trakt),
-						message: missingProviderIdMessage(type === "movies" ? "Movie" : "Show"),
-					});
-					continue;
-				}
-				const group = getOrCreateMediaEntityGroup(groupMap, ref, itemIndex);
-				addCollectionMembership(group, "Owned");
-			}
-		}
-
-		return {
-			failures,
-			entityGroups: finalizeEntityGroups(groupMap),
-		} satisfies MediaImportAdapterResult;
-	});
+	return {
+		failures,
+		entityGroups: finalizeEntityGroups(groupMap),
+	} satisfies MediaImportAdapterResult;
+});

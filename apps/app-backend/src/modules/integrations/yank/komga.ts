@@ -98,95 +98,91 @@ export const extractMangaRef = (
 	return null;
 };
 
-const fetchAllKomgaBooks = (input: KomgaInput, readStatus?: string) =>
-	Effect.gen(function* () {
-		const headers = buildHeaders(input.apiKey);
-		const books: KomgaBook[] = [];
-		let page = 0;
-		let totalPages = 1;
+const fetchAllKomgaBooks = Effect.fn(function* (input: KomgaInput, readStatus?: string) {
+	const headers = buildHeaders(input.apiKey);
+	const books: KomgaBook[] = [];
+	let page = 0;
+	let totalPages = 1;
 
-		while (page < totalPages) {
-			const resp = yield* requestSourceJson({
-				headers,
-				sourceName: "Komga",
-				path: "api/v1/books",
-				baseUrl: input.baseUrl,
-				query: { page, size: KOMGA_PAGE_SIZE, ...(readStatus ? { read_status: readStatus } : {}) },
-			}).pipe(Effect.flatMap(decodeBooksPage));
-			books.push(...resp.content);
-			totalPages = resp.totalPages ?? 1;
-			page += 1;
+	while (page < totalPages) {
+		const resp = yield* requestSourceJson({
+			headers,
+			sourceName: "Komga",
+			path: "api/v1/books",
+			baseUrl: input.baseUrl,
+			query: { page, size: KOMGA_PAGE_SIZE, ...(readStatus ? { read_status: readStatus } : {}) },
+		}).pipe(Effect.flatMap(decodeBooksPage));
+		books.push(...resp.content);
+		totalPages = resp.totalPages ?? 1;
+		page += 1;
+	}
+
+	return books;
+});
+
+export const adaptKomgaData = Effect.fn("komga.adaptKomgaData")(function* (input: KomgaInput) {
+	const now = nowIso();
+	const failures: MediaImportAdapterFailure[] = [];
+	const groupMap = new Map<string, ImportMediaEntityGroup>();
+
+	const books = yield* fetchAllKomgaBooks(input, "IN_PROGRESS");
+
+	books.forEach((book, idx) => {
+		const title = book.metadata.title;
+		const readProgress = book.readProgress;
+		if (!readProgress || readProgress.completed) {
+			return;
 		}
 
-		return books;
-	});
+		const pagesCount = book.media?.pagesCount;
+		const currentPage = readProgress.page;
+		if (!pagesCount || !currentPage || pagesCount <= 0) {
+			return;
+		}
 
-export const adaptKomgaData = (input: KomgaInput) =>
-	Effect.gen(function* () {
-		const now = nowIso();
-		const failures: MediaImportAdapterFailure[] = [];
-		const groupMap = new Map<string, ImportMediaEntityGroup>();
+		const progressPercent = Math.min(Math.round((currentPage / pagesCount) * 100 * 100) / 100, 99);
+		if (progressPercent <= 0) {
+			return;
+		}
 
-		const books = yield* fetchAllKomgaBooks(input, "IN_PROGRESS");
-
-		books.forEach((book, idx) => {
-			const title = book.metadata.title;
-			const readProgress = book.readProgress;
-			if (!readProgress || readProgress.completed) {
-				return;
-			}
-
-			const pagesCount = book.media?.pagesCount;
-			const currentPage = readProgress.page;
-			if (!pagesCount || !currentPage || pagesCount <= 0) {
-				return;
-			}
-
-			const progressPercent = Math.min(
-				Math.round((currentPage / pagesCount) * 100 * 100) / 100,
-				99,
-			);
-			if (progressPercent <= 0) {
-				return;
-			}
-
-			const ref = extractMangaRef(book.metadata.links, title);
-			if (!ref) {
-				failures.push({
-					itemIndex: idx,
-					sourceLabel: title,
-					sourceIdentifier: book.id,
-					stage: "input_transformation",
-					message: "Komga book has no resolvable external identifier",
-				});
-				return;
-			}
-
-			const group = getOrCreateMediaEntityGroup(groupMap, ref, idx);
-			group.events.push({
-				occurredAt: now,
-				eventSchemaSlug: "progress",
-				properties: { progressPercent, consumedOn: "komga" },
+		const ref = extractMangaRef(book.metadata.links, title);
+		if (!ref) {
+			failures.push({
+				itemIndex: idx,
+				sourceLabel: title,
+				sourceIdentifier: book.id,
+				stage: "input_transformation",
+				message: "Komga book has no resolvable external identifier",
 			});
-		});
-
-		return {
-			failures,
-			entityGroups: finalizeEntityGroups(groupMap),
-		} satisfies MediaImportAdapterResult;
-	});
-
-export const syncKomgaOwnedItems = (input: KomgaInput) =>
-	Effect.gen(function* () {
-		const books = yield* fetchAllKomgaBooks(input);
-		const ownedItems: Array<{ entityRef: ImportEntityRef; provider: string }> = [];
-
-		for (const book of books) {
-			const ref = extractMangaRef(book.metadata.links, book.metadata.title);
-			if (ref) {
-				ownedItems.push({ provider: "komga", entityRef: ref });
-			}
+			return;
 		}
 
-		return ownedItems;
+		const group = getOrCreateMediaEntityGroup(groupMap, ref, idx);
+		group.events.push({
+			occurredAt: now,
+			eventSchemaSlug: "progress",
+			properties: { progressPercent, consumedOn: "komga" },
+		});
 	});
+
+	return {
+		failures,
+		entityGroups: finalizeEntityGroups(groupMap),
+	} satisfies MediaImportAdapterResult;
+});
+
+export const syncKomgaOwnedItems = Effect.fn("komga.syncKomgaOwnedItems")(function* (
+	input: KomgaInput,
+) {
+	const books = yield* fetchAllKomgaBooks(input);
+	const ownedItems: Array<{ entityRef: ImportEntityRef; provider: string }> = [];
+
+	for (const book of books) {
+		const ref = extractMangaRef(book.metadata.links, book.metadata.title);
+		if (ref) {
+			ownedItems.push({ provider: "komga", entityRef: ref });
+		}
+	}
+
+	return ownedItems;
+});

@@ -125,12 +125,10 @@ const processSinkMedia = <RResolve, RImport>(
 			error: IntegrationRunError,
 			name: "parse-sink-adapter",
 			success: MediaImportAdapterResultSchema,
-			execute: Effect.sync(() =>
-				getSinkAdapterResult(
-					integration,
-					payload.rawBody ?? "",
-					payload.contentType ?? "application/json",
-				),
+			execute: getSinkAdapterResult(
+				integration,
+				payload.rawBody ?? "",
+				payload.contentType ?? "application/json",
 			),
 		});
 

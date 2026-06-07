@@ -36,27 +36,32 @@ export class S3Service extends Effect.Service<S3Service>()("S3Service", {
 
 		const isConfigured = client !== null;
 
-		const presignUpload = (key: string, contentType: string, expiresInSeconds: number) =>
-			Effect.gen(function* () {
-				if (!client) {
-					return yield* Effect.die("S3 is not configured");
-				}
-				return yield* Effect.sync(() =>
-					client
-						.file(key)
-						.presign({ type: contentType, method: "PUT" as const, expiresIn: expiresInSeconds }),
-				).pipe(Effect.orDie);
-			});
+		const presignUpload = Effect.fn("S3Service.presignUpload")(function* (
+			key: string,
+			contentType: string,
+			expiresInSeconds: number,
+		) {
+			if (!client) {
+				return yield* Effect.die("S3 is not configured");
+			}
+			return yield* Effect.sync(() =>
+				client
+					.file(key)
+					.presign({ type: contentType, method: "PUT" as const, expiresIn: expiresInSeconds }),
+			).pipe(Effect.orDie);
+		});
 
-		const presignDownload = (key: string, expiresInSeconds: number) =>
-			Effect.gen(function* () {
-				if (!client) {
-					return yield* Effect.die("S3 is not configured");
-				}
-				return yield* Effect.sync(() =>
-					client.file(key).presign({ expiresIn: expiresInSeconds }),
-				).pipe(Effect.orDie);
-			});
+		const presignDownload = Effect.fn("S3Service.presignDownload")(function* (
+			key: string,
+			expiresInSeconds: number,
+		) {
+			if (!client) {
+				return yield* Effect.die("S3 is not configured");
+			}
+			return yield* Effect.sync(() =>
+				client.file(key).presign({ expiresIn: expiresInSeconds }),
+			).pipe(Effect.orDie);
+		});
 
 		return { isConfigured, presignUpload, presignDownload };
 	}),

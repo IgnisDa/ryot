@@ -358,28 +358,29 @@ const oneTimeMediaImportSourceLoaders: Partial<
 export const isOneTimeMediaImportSource = (source: string): boolean =>
 	source in oneTimeMediaImportSourceLoaders;
 
-export const loadOneTimeMediaImportAdapterResult = (payload: ImportRunJobData) =>
-	Effect.gen(function* () {
-		const loader = oneTimeMediaImportSourceLoaders[payload.source];
-		if (!loader) {
-			return yield* Effect.fail({
-				message: `Unsupported import source: ${payload.source}`,
-				cleanupPaths: [],
-			} satisfies LoadedMediaImportAdapterError);
-		}
+export const loadOneTimeMediaImportAdapterResult = Effect.fn(
+	"imports.loadOneTimeMediaImportAdapterResult",
+)(function* (payload: ImportRunJobData) {
+	const loader = oneTimeMediaImportSourceLoaders[payload.source];
+	if (!loader) {
+		return yield* Effect.fail({
+			message: `Unsupported import source: ${payload.source}`,
+			cleanupPaths: [],
+		} satisfies LoadedMediaImportAdapterError);
+	}
 
-		const sourcePayload = payload.sourcePayloadKey
-			? ((yield* loadImportSourcePayload(payload.sourcePayloadKey)) ?? undefined)
-			: payload.sourcePayload;
-		const filePath = payload.filePath
-			? yield* validateImportJobFilePath(payload.filePath)
-			: undefined;
+	const sourcePayload = payload.sourcePayloadKey
+		? ((yield* loadImportSourcePayload(payload.sourcePayloadKey)) ?? undefined)
+		: payload.sourcePayload;
+	const filePath = payload.filePath
+		? yield* validateImportJobFilePath(payload.filePath)
+		: undefined;
 
-		return yield* loader({
-			filePath,
-			sourcePayload,
-			runId: payload.runId,
-			source: payload.source,
-			userId: payload.userId,
-		});
+	return yield* loader({
+		filePath,
+		sourcePayload,
+		runId: payload.runId,
+		source: payload.source,
+		userId: payload.userId,
 	});
+});

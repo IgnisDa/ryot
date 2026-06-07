@@ -22,10 +22,7 @@ export async function clearEntityUserState(
 	return client.run((c) => c.userState.clearUserState({ path: { entityId } }));
 }
 
-export async function queryUserEntityStateCounts(input: {
-	userId: string;
-	entityId: string;
-}) {
+export async function queryUserEntityStateCounts(input: { userId: string; entityId: string }) {
 	const pg = getPgClient();
 	const [events, relationships] = await Promise.all([
 		pg.query<{ count: string }>(

@@ -60,8 +60,12 @@ export class GodModeService extends Effect.Service<GodModeService>()("GodModeSer
 		const { auth, deleteUserSessions } = yield* AuthService;
 
 		return {
-			listUsers: (input: { search?: string; offset: number; limit: number }) =>
-				runWithDb(
+			listUsers: Effect.fn("GodModeService.listUsers")(function* (input: {
+				search?: string;
+				offset: number;
+				limit: number;
+			}) {
+				return yield* runWithDb(
 					Effect.gen(function* () {
 						const [total, userRows] = yield* Effect.all([
 							repository.countUsers(input.search),
@@ -93,168 +97,167 @@ export class GodModeService extends Effect.Service<GodModeService>()("GodModeSer
 
 						return { total, users };
 					}),
-				),
+				);
+			}),
 
-			provisionUser: (input: ProvisionUserBody) =>
-				Effect.gen(function* () {
-					const existing = yield* runWithDb(repository.findUserIdByEmail(input.email));
+			provisionUser: Effect.fn("GodModeService.provisionUser")(function* (
+				input: ProvisionUserBody,
+			) {
+				const existing = yield* runWithDb(repository.findUserIdByEmail(input.email));
 
-					if (existing) {
-						return yield* badRequest(`User with email '${input.email}' already exists`);
-					}
+				if (existing) {
+					return yield* badRequest(`User with email '${input.email}' already exists`);
+				}
 
-					const userId = crypto.randomUUID();
+				const userId = crypto.randomUUID();
 
-					yield* runWithDb(
-						Effect.gen(function* () {
-							yield* repository.insertUser({ id: userId, name: input.name, email: input.email });
+				yield* runWithDb(
+					Effect.gen(function* () {
+						yield* repository.insertUser({ id: userId, name: input.name, email: input.email });
 
-							if (input.provider === "oidc") {
-								yield* repository.insertOidcAccount({
-									userId,
-									oidcIssuerId: input.oidcIssuerId,
-								});
-							}
-						}),
+						if (input.provider === "oidc") {
+							yield* repository.insertOidcAccount({
+								userId,
+								oidcIssuerId: input.oidcIssuerId,
+							});
+						}
+					}),
+				);
+
+				yield* bootstrapNewUser(userId).pipe(
+					Effect.tapErrorCause((cause) =>
+						Effect.logError("[god-mode] bootstrapNewUser failed for user", userId, cause),
+					),
+					Effect.catchAllCause(() => Effect.void),
+				);
+
+				return { userId };
+			}),
+
+			setUserBan: Effect.fn("GodModeService.setUserBan")(function* (
+				userId: string,
+				banned: boolean,
+			) {
+				const user = yield* runWithDb(repository.findUserBanState(userId));
+
+				if (!user) {
+					return yield* badRequest(`User with id '${userId}' not found`);
+				}
+
+				const updatedAt = yield* DateTime.nowAsDate;
+				const bannedAt = banned ? (user.bannedAt ?? updatedAt) : null;
+
+				yield* runWithDb(repository.updateUserBan({ userId, bannedAt, updatedAt }));
+
+				if (banned) {
+					yield* deleteUserSessions(userId);
+				}
+
+				return { id: userId, bannedAt: bannedAt?.toISOString() ?? null };
+			}),
+
+			resetUserPassword: Effect.fn("GodModeService.resetUserPassword")(function* (userId: string) {
+				if (config.users.disableLocalAuth) {
+					return yield* badRequest("Local authentication is disabled on this instance");
+				}
+
+				const userData = yield* runWithDb(
+					Effect.gen(function* () {
+						const userRow = yield* repository.findUserById(userId);
+						if (!userRow) {
+							return null;
+						}
+						const accountRows = yield* repository.listAccountsForUsers([userId]);
+						return { user: userRow, accounts: accountRows };
+					}),
+				);
+
+				if (!userData) {
+					return yield* badRequest(`User with id '${userId}' not found`);
+				}
+
+				const authState = classifyAuthState(userData.accounts);
+				const eligibilityError = checkResetEligibility(authState);
+				if (eligibilityError) {
+					return yield* badRequest(eligibilityError);
+				}
+
+				const correlationId = crypto.randomUUID();
+				const pendingKey = redisKeys.godModePendingReset(userData.user.email);
+				const channel = redisKeys.godModeResetChannel(correlationId);
+
+				const stored = yield* Effect.tryPromise(() =>
+					redis.client.set(pendingKey, correlationId, "EX", 60, "NX"),
+				).pipe(Effect.orDie);
+
+				if (stored !== "OK") {
+					return yield* badRequest(
+						"A password reset link is already being generated for this user. Please try again shortly.",
 					);
+				}
 
-					yield* bootstrapNewUser(userId).pipe(
-						Effect.tapErrorCause((cause) =>
-							Effect.logError("[god-mode] bootstrapNewUser failed for user", userId, cause),
+				const resetResult = yield* Effect.acquireUseRelease(
+					Effect.sync(() => redis.client.duplicate()),
+					(subscriber) =>
+						Effect.async<{ email: string; resetUrl: string } | null>((resume) => {
+							let settled = false;
+
+							const onMessage = (_channel: string, message: string) => {
+								if (_channel !== channel) {
+									return;
+								}
+								settle(parseResetLinkMessage(message));
+							};
+
+							const settle = (value: { email: string; resetUrl: string } | null) => {
+								if (settled) {
+									return;
+								}
+								settled = true;
+								clearTimeout(timeout);
+								subscriber.off("message", onMessage);
+								resume(Effect.succeed(value));
+							};
+
+							subscriber.on("message", onMessage);
+							const timeout = setTimeout(() => settle(null), RESET_LINK_TIMEOUT_MS);
+
+							void subscriber
+								.subscribe(channel)
+								.then(() => auth.api.requestPasswordReset({ body: { email: userData.user.email } }))
+								.catch(() => settle(null));
+
+							return Effect.sync(() => {
+								clearTimeout(timeout);
+								subscriber.off("message", onMessage);
+							});
+						}),
+					(subscriber, _exit) =>
+						Effect.all(
+							[
+								Effect.tryPromise(() =>
+									redis.client.eval(
+										"if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end",
+										1,
+										pendingKey,
+										correlationId,
+									),
+								).pipe(Effect.catchAll(() => Effect.void)),
+								Effect.tryPromise(() => subscriber.unsubscribe(channel)).pipe(
+									Effect.catchAll(() => Effect.void),
+								),
+								Effect.tryPromise(() => subscriber.quit()).pipe(Effect.catchAll(() => Effect.void)),
+							],
+							{ discard: true },
 						),
-						Effect.catchAllCause(() => Effect.void),
-					);
+				);
 
-					return { userId };
-				}),
+				if (!resetResult?.resetUrl) {
+					return yield* internalError("Reset link capture timed out — please try again");
+				}
 
-			setUserBan: (userId: string, banned: boolean) =>
-				Effect.gen(function* () {
-					const user = yield* runWithDb(repository.findUserBanState(userId));
-
-					if (!user) {
-						return yield* badRequest(`User with id '${userId}' not found`);
-					}
-
-					const updatedAt = yield* DateTime.nowAsDate;
-					const bannedAt = banned ? (user.bannedAt ?? updatedAt) : null;
-
-					yield* runWithDb(repository.updateUserBan({ userId, bannedAt, updatedAt }));
-
-					if (banned) {
-						yield* deleteUserSessions(userId);
-					}
-
-					return { id: userId, bannedAt: bannedAt?.toISOString() ?? null };
-				}),
-
-			resetUserPassword: (userId: string) =>
-				Effect.gen(function* () {
-					if (config.users.disableLocalAuth) {
-						return yield* badRequest("Local authentication is disabled on this instance");
-					}
-
-					const userData = yield* runWithDb(
-						Effect.gen(function* () {
-							const userRow = yield* repository.findUserById(userId);
-							if (!userRow) {
-								return null;
-							}
-							const accountRows = yield* repository.listAccountsForUsers([userId]);
-							return { user: userRow, accounts: accountRows };
-						}),
-					);
-
-					if (!userData) {
-						return yield* badRequest(`User with id '${userId}' not found`);
-					}
-
-					const authState = classifyAuthState(userData.accounts);
-					const eligibilityError = checkResetEligibility(authState);
-					if (eligibilityError) {
-						return yield* badRequest(eligibilityError);
-					}
-
-					const correlationId = crypto.randomUUID();
-					const pendingKey = redisKeys.godModePendingReset(userData.user.email);
-					const channel = redisKeys.godModeResetChannel(correlationId);
-
-					const stored = yield* Effect.tryPromise(() =>
-						redis.client.set(pendingKey, correlationId, "EX", 60, "NX"),
-					).pipe(Effect.orDie);
-
-					if (stored !== "OK") {
-						return yield* badRequest(
-							"A password reset link is already being generated for this user. Please try again shortly.",
-						);
-					}
-
-					const resetResult = yield* Effect.acquireUseRelease(
-						Effect.sync(() => redis.client.duplicate()),
-						(subscriber) =>
-							Effect.async<{ email: string; resetUrl: string } | null>((resume) => {
-								let settled = false;
-
-								const onMessage = (_channel: string, message: string) => {
-									if (_channel !== channel) {
-										return;
-									}
-									settle(parseResetLinkMessage(message));
-								};
-
-								const settle = (value: { email: string; resetUrl: string } | null) => {
-									if (settled) {
-										return;
-									}
-									settled = true;
-									clearTimeout(timeout);
-									subscriber.off("message", onMessage);
-									resume(Effect.succeed(value));
-								};
-
-								subscriber.on("message", onMessage);
-								const timeout = setTimeout(() => settle(null), RESET_LINK_TIMEOUT_MS);
-
-								void subscriber
-									.subscribe(channel)
-									.then(() =>
-										auth.api.requestPasswordReset({ body: { email: userData.user.email } }),
-									)
-									.catch(() => settle(null));
-
-								return Effect.sync(() => {
-									clearTimeout(timeout);
-									subscriber.off("message", onMessage);
-								});
-							}),
-						(subscriber, _exit) =>
-							Effect.all(
-								[
-									Effect.tryPromise(() =>
-										redis.client.eval(
-											"if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end",
-											1,
-											pendingKey,
-											correlationId,
-										),
-									).pipe(Effect.catchAll(() => Effect.void)),
-									Effect.tryPromise(() => subscriber.unsubscribe(channel)).pipe(
-										Effect.catchAll(() => Effect.void),
-									),
-									Effect.tryPromise(() => subscriber.quit()).pipe(
-										Effect.catchAll(() => Effect.void),
-									),
-								],
-								{ discard: true },
-							),
-					);
-
-					if (!resetResult?.resetUrl) {
-						return yield* internalError("Reset link capture timed out — please try again");
-					}
-
-					return { email: resetResult.email, resetUrl: resetResult.resetUrl };
-				}),
+				return { email: resetResult.email, resetUrl: resetResult.resetUrl };
+			}),
 		};
 	}),
 }) {}
