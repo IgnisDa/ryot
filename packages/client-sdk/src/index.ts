@@ -76,7 +76,11 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 		if (!adapter.navigate) {
 			throw new RyotClientError("unsupported-capability");
 		}
-		adapter.navigate(mode, target);
+		try {
+			adapter.navigate(mode, target);
+		} catch (error) {
+			throw asTransportError(error);
+		}
 	};
 
 	return {
@@ -92,7 +96,12 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 				} catch (error) {
 					throw asTransportError(error);
 				}
-				const decoded = recipe.decode(response);
+				let decoded: ReturnType<typeof recipe.decode>;
+				try {
+					decoded = recipe.decode(response);
+				} catch {
+					throw new RyotClientError("malformed-result");
+				}
 				if (Result.isFailure(decoded)) {
 					throw new RyotClientError("malformed-result");
 				}

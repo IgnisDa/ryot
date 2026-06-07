@@ -61,19 +61,20 @@ export const compileClientStyles = ({
 		try: async () => {
 			const compiled = await compile(`${stylesheet?.content ?? ""}\n${themeStylesheet}`, {
 				base: stylesheet === undefined ? "client" : directoryOf(stylesheet.path),
-				loadStylesheet: async (id, base) => {
-					if (id === "tailwindcss") {
-						return { ...tailwindStylesheet, base: directoryOf(tailwindStylesheet.path) };
-					}
+				loadStylesheet: (id, base) =>
+					Promise.resolve().then(() => {
+						if (id === "tailwindcss") {
+							return { ...tailwindStylesheet, base: directoryOf(tailwindStylesheet.path) };
+						}
 
-					const path = resolveClientStylesheet(id, base, files);
-					if (path === null) {
-						throw new Error(
-							`Stylesheet import "${id}" from "${base}" is not allowed; client plugins may only import "tailwindcss" and relative CSS files from client sources`,
-						);
-					}
-					return { path, base: directoryOf(path), content: files[path] ?? "" };
-				},
+						const path = resolveClientStylesheet(id, base, files);
+						if (path === null) {
+							throw new Error(
+								`Stylesheet import "${id}" from "${base}" is not allowed; client plugins may only import "tailwindcss" and relative CSS files from client sources`,
+							);
+						}
+						return { path, base: directoryOf(path), content: files[path] ?? "" };
+					}),
 			});
 			const candidates = new Scanner({}).scanFiles([...scanSources]);
 			return compiled.build(sortBy(candidates));
