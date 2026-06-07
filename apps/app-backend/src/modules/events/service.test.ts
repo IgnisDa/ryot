@@ -36,6 +36,7 @@ import {
 	resolveEventSchemaId,
 	resolveOccurredAt,
 	resolveSessionEntityId,
+	type EventServiceDeps,
 } from "./service";
 
 describe("resolveEventEntityId", () => {
@@ -530,7 +531,7 @@ describe("createEvent", () => {
 		});
 	});
 
-	it("does not ensure in-library when payload validation fails for a global entity", async () => {
+	it("ensures in-library before validation for a global entity (before-trigger requires library membership)", async () => {
 		let ensureCalls = 0;
 
 		const result = await createEvent(
@@ -555,7 +556,7 @@ describe("createEvent", () => {
 			error: "validation",
 			message: expect.stringContaining("Event payload is invalid"),
 		});
-		expect(ensureCalls).toBe(0);
+		expect(ensureCalls).toBe(1);
 	});
 
 	it("returns validation when the event schema belongs to another entity schema", async () => {
@@ -1369,6 +1370,7 @@ describe("createEventsBestEffortWithTriggers", () => {
 		);
 
 		expect(result.count).toBe(2);
+		expect(result.skipped).toEqual([]);
 		expect(result.failures).toEqual([
 			{ error: "validation", itemIndex: 1, message: "Entity id is required" },
 		]);
@@ -1376,6 +1378,419 @@ describe("createEventsBestEffortWithTriggers", () => {
 			"event-schema-trigger-trigger_1-event_1",
 			"event-schema-trigger-trigger_1-event_2",
 		]);
+	});
+
+	it("puts before-trigger skips into skipped and not failures", async () => {
+		const result = expectDataResult(
+			await createEventsBestEffortWithTriggers(
+				{
+					userId: "user_1",
+					body: [createEventBody(), createEventBody(), createEventBody()],
+				},
+				createEventDeps({
+					getActiveBeforeCreateTriggersForEventSchemas: () =>
+						Promise.resolve([
+							{
+								position: 100,
+								id: "trigger_1",
+								sandboxScriptId: "script_1",
+								eventSchemaId: "event_schema_1",
+							},
+						]),
+					runBeforeCreateTrigger: (input) => {
+						const props = input.context.trigger.properties;
+						if ((props as { rating?: number }).rating === 4) {
+							return Promise.resolve({
+								outcome: "result",
+								result: { action: "skip", reason: "duplicate_progress" },
+							});
+						}
+						return Promise.resolve({ outcome: "result", result: { action: "allow" } });
+					},
+				}),
+			),
+		);
+
+		expect(result.skipped).toHaveLength(3);
+		expect(result.failures).toHaveLength(0);
+		expect(result.count).toBe(0);
+		expect(result.skipped[0]).toMatchObject({ itemIndex: 0, reason: "duplicate_progress" });
+	});
+
+	it("before-trigger failure is recorded as a failure (fail closed)", async () => {
+		const result = expectDataResult(
+			await createEventsBestEffortWithTriggers(
+				{ userId: "user_1", body: [createEventBody()] },
+				createEventDeps({
+					getActiveBeforeCreateTriggersForEventSchemas: () =>
+						Promise.resolve([
+							{
+								position: 100,
+								id: "trigger_1",
+								sandboxScriptId: "script_1",
+								eventSchemaId: "event_schema_1",
+							},
+						]),
+					runBeforeCreateTrigger: () =>
+						Promise.resolve({ outcome: "error", error: "Script timed out" }),
+				}),
+			),
+		);
+
+		expect(result.failures).toHaveLength(1);
+		expect(result.failures[0]).toMatchObject({
+			itemIndex: 0,
+			error: "validation",
+			message: expect.stringContaining("Before trigger failed: Script timed out"),
+		});
+		expect(result.skipped).toHaveLength(0);
+		expect(result.count).toBe(0);
+	});
+});
+
+describe("createEvent before-trigger flow", () => {
+	it("allow: passes through and creates the event normally", async () => {
+		const result = await createEvent(
+			{ userId: "user_1", body: createEventBody() },
+			createEventDeps({
+				getActiveBeforeCreateTriggersForEventSchemas: () =>
+					Promise.resolve([
+						{
+							position: 100,
+							id: "trigger_1",
+							sandboxScriptId: "script_1",
+							eventSchemaId: "event_schema_1",
+						},
+					]),
+				runBeforeCreateTrigger: () =>
+					Promise.resolve({ outcome: "result", result: { action: "allow" } }),
+			}),
+		);
+
+		expect("data" in result).toBe(true);
+	});
+
+	it("skip: returns skip result without inserting event", async () => {
+		let createCalled = false;
+		const result = await createEvent(
+			{ userId: "user_1", body: createEventBody() },
+			createEventDeps({
+				getActiveBeforeCreateTriggersForEventSchemas: () =>
+					Promise.resolve([
+						{
+							position: 100,
+							id: "trigger_1",
+							sandboxScriptId: "script_1",
+							eventSchemaId: "event_schema_1",
+						},
+					]),
+				runBeforeCreateTrigger: () =>
+					Promise.resolve({
+						outcome: "result",
+						result: { action: "skip", reason: "below_minimum_progress" },
+					}),
+				createEventForUser: () => {
+					createCalled = true;
+					throw new Error("should not be called");
+				},
+			}),
+		);
+
+		expect("skipped" in result).toBe(true);
+		if ("skipped" in result) {
+			expect(result.skipped).toBe(true);
+			expect(result.reason).toBe("below_minimum_progress");
+			expect(result.eventSchemaSlug).toBe("finished");
+		}
+		expect(createCalled).toBe(false);
+	});
+
+	it("replace: merges properties into the event before validation and insert", async () => {
+		let capturedProperties: Record<string, unknown> | undefined;
+		const result = await createEvent(
+			{
+				userId: "user_1",
+				body: createEventBody({
+					properties: { rating: 3 },
+					eventSchemaId: "event_schema_1",
+				}),
+			},
+			createEventDeps({
+				getActiveBeforeCreateTriggersForEventSchemas: () =>
+					Promise.resolve([
+						{
+							position: 100,
+							id: "trigger_1",
+							sandboxScriptId: "script_1",
+							eventSchemaId: "event_schema_1",
+						},
+					]),
+				runBeforeCreateTrigger: () =>
+					Promise.resolve({
+						outcome: "result",
+						result: { action: "replace", body: { properties: { rating: 5 } } },
+					}),
+				createEventForUser: (input) => {
+					capturedProperties = input.properties;
+					return Promise.resolve(
+						createListedEvent({
+							entityId: input.entityId,
+							occurredAt: input.occurredAt,
+							properties: input.properties,
+							eventSchemaId: input.eventSchemaId,
+							eventSchemaName: input.eventSchemaName,
+							eventSchemaSlug: input.eventSchemaSlug,
+							sessionEntityId: input.sessionEntityId ?? null,
+						}),
+					);
+				},
+			}),
+		);
+
+		expect("data" in result).toBe(true);
+		expect(capturedProperties).toEqual({ rating: 5 });
+	});
+
+	it("replace: merges occurredAt into the event", async () => {
+		const newOccurredAt = "2025-01-15T08:00:00.000Z";
+		let capturedOccurredAt: Date | undefined;
+		await createEvent(
+			{ userId: "user_1", body: createEventBody() },
+			createEventDeps({
+				getActiveBeforeCreateTriggersForEventSchemas: () =>
+					Promise.resolve([
+						{
+							position: 100,
+							id: "trigger_1",
+							sandboxScriptId: "script_1",
+							eventSchemaId: "event_schema_1",
+						},
+					]),
+				runBeforeCreateTrigger: () =>
+					Promise.resolve({
+						outcome: "result",
+						result: { action: "replace", body: { occurredAt: newOccurredAt } },
+					}),
+				createEventForUser: (input) => {
+					capturedOccurredAt = input.occurredAt;
+					return Promise.resolve(
+						createListedEvent({
+							entityId: input.entityId,
+							occurredAt: input.occurredAt,
+							properties: input.properties,
+							eventSchemaId: input.eventSchemaId,
+							eventSchemaName: input.eventSchemaName,
+							eventSchemaSlug: input.eventSchemaSlug,
+							sessionEntityId: input.sessionEntityId ?? null,
+						}),
+					);
+				},
+			}),
+		);
+
+		expect(capturedOccurredAt?.toISOString()).toBe(newOccurredAt);
+	});
+
+	it("before-trigger failure: fails closed with validation error", async () => {
+		let createCalled = false;
+		const result = await createEvent(
+			{ userId: "user_1", body: createEventBody() },
+			createEventDeps({
+				getActiveBeforeCreateTriggersForEventSchemas: () =>
+					Promise.resolve([
+						{
+							position: 100,
+							id: "trigger_1",
+							sandboxScriptId: "script_1",
+							eventSchemaId: "event_schema_1",
+						},
+					]),
+				runBeforeCreateTrigger: () =>
+					Promise.resolve({ outcome: "error", error: "Sandbox timed out" }),
+				createEventForUser: () => {
+					createCalled = true;
+					throw new Error("should not be called");
+				},
+			}),
+		);
+
+		expect(result).toEqual({
+			error: "validation",
+			message: "Before trigger failed: Sandbox timed out",
+		});
+		expect(createCalled).toBe(false);
+	});
+
+	it("runs triggers in the order returned by the dep (repository orders by position ascending)", async () => {
+		const executionOrder: string[] = [];
+
+		await createEvent(
+			{ userId: "user_1", body: createEventBody() },
+			createEventDeps({
+				getActiveBeforeCreateTriggersForEventSchemas: () =>
+					Promise.resolve([
+						{
+							position: 50,
+							id: "trigger_low",
+							sandboxScriptId: "script_50",
+							eventSchemaId: "event_schema_1",
+						},
+						{
+							position: 100,
+							id: "trigger_mid",
+							sandboxScriptId: "script_100",
+							eventSchemaId: "event_schema_1",
+						},
+						{
+							position: 200,
+							id: "trigger_high",
+							sandboxScriptId: "script_200",
+							eventSchemaId: "event_schema_1",
+						},
+					]),
+				runBeforeCreateTrigger: (input) => {
+					executionOrder.push(input.scriptId);
+					return Promise.resolve({ outcome: "result", result: { action: "allow" } });
+				},
+			}),
+		);
+
+		expect(executionOrder).toEqual(["script_50", "script_100", "script_200"]);
+	});
+
+	it("stops at first skip without running subsequent triggers", async () => {
+		const runScriptIds: string[] = [];
+
+		const result = await createEvent(
+			{ userId: "user_1", body: createEventBody() },
+			createEventDeps({
+				getActiveBeforeCreateTriggersForEventSchemas: () =>
+					Promise.resolve([
+						{
+							id: "t1",
+							position: 50,
+							sandboxScriptId: "script_1",
+							eventSchemaId: "event_schema_1",
+						},
+						{
+							id: "t2",
+							position: 100,
+							sandboxScriptId: "script_2",
+							eventSchemaId: "event_schema_1",
+						},
+					]),
+				runBeforeCreateTrigger: (input) => {
+					runScriptIds.push(input.scriptId);
+					if (input.scriptId === "script_1") {
+						return Promise.resolve({
+							outcome: "result",
+							result: { action: "skip", reason: "dedup" },
+						});
+					}
+					return Promise.resolve({ outcome: "result", result: { action: "allow" } });
+				},
+			}),
+		);
+
+		expect("skipped" in result).toBe(true);
+		expect(runScriptIds).toEqual(["script_1"]);
+	});
+
+	it("passes EventWriteContext (origin, integrationId, importRunId) to before-trigger context", async () => {
+		let capturedContext:
+			| Parameters<EventServiceDeps["runBeforeCreateTrigger"]>[0]["context"]["trigger"]
+			| undefined;
+
+		await createEvent(
+			{
+				userId: "user_1",
+				body: createEventBody(),
+				writeContext: { origin: "integration", importRunId: "run_xyz", integrationId: "int_abc" },
+			},
+			createEventDeps({
+				getActiveBeforeCreateTriggersForEventSchemas: () =>
+					Promise.resolve([
+						{
+							id: "t1",
+							position: 100,
+							sandboxScriptId: "script_1",
+							eventSchemaId: "event_schema_1",
+						},
+					]),
+				runBeforeCreateTrigger: (input) => {
+					capturedContext = input.context.trigger;
+					return Promise.resolve({ outcome: "result", result: { action: "allow" } });
+				},
+			}),
+		);
+
+		expect(capturedContext?.phase).toBe("before_create");
+		expect(capturedContext?.origin).toBe("integration");
+		expect(capturedContext?.integrationId).toBe("int_abc");
+		expect(capturedContext?.importRunId).toBe("run_xyz");
+	});
+
+	it("defaults writeContext to origin: api when not provided", async () => {
+		let capturedOrigin: string | undefined;
+
+		await createEvent(
+			{ userId: "user_1", body: createEventBody() },
+			createEventDeps({
+				getActiveBeforeCreateTriggersForEventSchemas: () =>
+					Promise.resolve([
+						{
+							id: "t1",
+							position: 100,
+							sandboxScriptId: "script_1",
+							eventSchemaId: "event_schema_1",
+						},
+					]),
+				runBeforeCreateTrigger: (input) => {
+					capturedOrigin = input.context.trigger.origin;
+					return Promise.resolve({ outcome: "result", result: { action: "allow" } });
+				},
+			}),
+		);
+
+		expect(capturedOrigin).toBe("api");
+	});
+
+	it("does not run after-triggers when event is skipped by before-trigger", async () => {
+		const queuedJobIds: string[] = [];
+		await createEventsBestEffortWithTriggers(
+			{ userId: "user_1", body: [createEventBody()] },
+			createEventDeps({
+				getActiveBeforeCreateTriggersForEventSchemas: () =>
+					Promise.resolve([
+						{
+							id: "t1",
+							position: 100,
+							sandboxScriptId: "script_1",
+							eventSchemaId: "event_schema_1",
+						},
+					]),
+				runBeforeCreateTrigger: () =>
+					Promise.resolve({
+						outcome: "result",
+						result: { action: "skip", reason: "test_skip" },
+					}),
+				getActiveEventSchemaTriggersForEventSchemas: () =>
+					Promise.resolve([
+						{
+							metadata: {},
+							id: "after_t",
+							eventSchemaId: "event_schema_1",
+							sandboxScriptId: "script_after",
+						},
+					]),
+				enqueueEventSchemaTriggerJob: (input) => {
+					queuedJobIds.push(input.jobId);
+					return Promise.resolve();
+				},
+			}),
+		);
+
+		expect(queuedJobIds).toHaveLength(0);
 	});
 });
 

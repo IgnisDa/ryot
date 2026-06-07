@@ -1,4 +1,5 @@
 import { appApiCall } from "./host-functions/app-api-call";
+import { claimCachedValue } from "./host-functions/claim-cached-value";
 import { getAppConfigValue } from "./host-functions/get-app-config-value";
 import { getCachedValue } from "./host-functions/get-cached-value";
 import { getUserPreferences } from "./host-functions/get-user-preferences";
@@ -20,6 +21,7 @@ export const hostFunctionRegistry = {
 	appApiCall: createHostFunctionFactory(appApiCall),
 	getCachedValue: createHostFunctionFactory(getCachedValue),
 	setCachedValue: createHostFunctionFactory(setCachedValue),
+	claimCachedValue: createHostFunctionFactory(claimCachedValue),
 	getAppConfigValue: createHostFunctionFactory(getAppConfigValue),
 	getUserPreferences: createHostFunctionFactory(getUserPreferences),
 } satisfies Record<string, HostFunctionFactory>;
@@ -29,7 +31,11 @@ const buildFunctionContext = (
 	userId: string,
 	scriptId: string,
 ): Record<string, unknown> => {
-	if (functionKey === "getCachedValue" || functionKey === "setCachedValue") {
+	if (
+		functionKey === "getCachedValue" ||
+		functionKey === "setCachedValue" ||
+		functionKey === "claimCachedValue"
+	) {
 		return { scriptId };
 	}
 	if (functionKey === "appApiCall" || functionKey === "getUserPreferences") {
