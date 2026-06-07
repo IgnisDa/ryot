@@ -1,7 +1,5 @@
 # Query Engine Agent Notes
 
-> Inherits from `apps/app-backend/AGENTS.md`. Rules below are additive.
-
 ## Module Purpose
 
 Accepts a declarative query (scope, fields, expressions, filters, sorts, pagination) and returns typed, display-ready results for grids, lists, and tables.
