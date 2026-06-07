@@ -164,15 +164,20 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 
 			const listEnabledYankIntegrations = Effect.fn(
 				"IntegrationsRepository.listEnabledYankIntegrations",
-			)(function* () {
+			)(function* (input: { userId: UserId | null }) {
 				const db = yield* Database;
+				const conditions = [
+					eq(schema.integration.lot, "yank"),
+					eq(schema.integration.isDisabled, false),
+				];
+				if (input.userId !== null) {
+					conditions.push(eq(schema.integration.userId, input.userId));
+				}
 				const rows = yield* mapDatabaseErrors(
 					db
 						.select(integrationSelection)
 						.from(schema.integration)
-						.where(
-							and(eq(schema.integration.lot, "yank"), eq(schema.integration.isDisabled, false)),
-						)
+						.where(and(...conditions))
 						.orderBy(desc(schema.integration.createdAt)),
 				);
 
