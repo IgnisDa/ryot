@@ -20,7 +20,7 @@ import {
 } from "#modules/entity-import/workflows";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
-import { RelationshipsRepository } from "#modules/relationships/repository";
+import { RelationshipsService } from "#modules/relationships/service";
 import { SandboxExecutionQueue } from "#modules/sandbox/durable-queues";
 
 import { loadOneTimeMediaImportAdapterResult } from "./source-loaders";
@@ -124,8 +124,8 @@ export const MediaImportWorkflowOperationsLive = Layer.effect(
 		const entities = yield* EntitiesService;
 		const fs = yield* FileSystem.FileSystem;
 		const httpClient = yield* HttpClient.HttpClient;
+		const relationships = yield* RelationshipsService;
 		const entitiesRepository = yield* EntitiesRepository;
-		const relationshipsRepository = yield* RelationshipsRepository;
 		const entitySchemasRepository = yield* EntitySchemasRepository;
 		const queueFactory = yield* PersistedQueue.PersistedQueueFactory;
 		const entityImportOperations = yield* EntityImportWorkflowOperations;
@@ -151,8 +151,8 @@ export const MediaImportWorkflowOperationsLive = Layer.effect(
 					Effect.provideService(DbRunner, runWithDb),
 					Effect.provideService(EntitiesService, entities),
 					Effect.provideService(EntitiesRepository, entitiesRepository),
+					Effect.provideService(RelationshipsService, relationships),
 					Effect.provideService(EntitySchemasRepository, entitySchemasRepository),
-					Effect.provideService(RelationshipsRepository, relationshipsRepository),
 					Effect.provideService(EntityImportWorkflowOperations, entityImportOperations),
 					Effect.provideService(RelationshipSchemasRepository, relationshipSchemasRepository),
 				),
