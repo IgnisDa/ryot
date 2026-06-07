@@ -15,6 +15,7 @@ import { PublicApi } from "../api/public";
 import { AuthClient } from "../modules/auth/client";
 import { AuthService } from "../modules/auth/service";
 import { PluginCatalogService } from "../modules/plugins/catalog";
+import { makePluginCatalogEventsTestLayer } from "../modules/plugins/events.test-layer";
 import { PluginOperationsService } from "../modules/plugins/operations";
 import { PluginQueriesService } from "../modules/plugins/queries";
 import { ServerService } from "../modules/server/service";
@@ -83,6 +84,7 @@ const mountView = (
 	load = () => Effect.succeed(entries),
 	invoke: PluginOperationsService["Service"]["invoke"] = () => Effect.die("not used"),
 ) => {
+	const events = makePluginCatalogEventsTestLayer();
 	const runtime = ManagedRuntime.make(
 		Layer.mergeAll(
 			AuthStub,
@@ -90,6 +92,7 @@ const mountView = (
 			PublicApi.layer,
 			AuthClient.layer,
 			AuthenticatedApi.layer,
+			events.layer,
 			Layer.succeed(PluginCatalogService, { load }),
 			Layer.succeed(PluginOperationsService, { invoke }),
 			Layer.succeed(PluginQueriesService, { query: () => Effect.die("not used") }),
@@ -100,7 +103,7 @@ const mountView = (
 		createMemoryHistory({ initialEntries: [initialEntry] }),
 	);
 	const view = render(<RouterProvider router={router} />);
-	return { ...view, router };
+	return { ...view, events, router };
 };
 
 const mount = (initialEntry: string, entries: PluginClientCatalog = catalog) =>
@@ -170,32 +173,26 @@ describe("plugin navigation", () => {
 
 	it("refreshes the mounted artifact without changing its private URL", async () => {
 		let entries = catalog;
-		let loadCount = 0;
-		const view = mountView("/fixture/details/item-1?tab=stats", entries, () => {
-			loadCount += 1;
-			return Effect.succeed(entries);
-		});
+		const view = mountView("/fixture/details/item-1?tab=stats", entries, () =>
+			Effect.succeed(entries),
+		);
 
 		await waitFor(() => expect(frame().getAttribute("src")).toContain("/artifact-hash/index.html"));
 		const initialFrame = frame();
 		entries = [{ ...catalog[0], sourceHash: "next-source-hash" }];
-		await waitFor(() => expect(frame()).not.toBe(initialFrame), { timeout: 2_000 });
+		view.events.send();
+		await waitFor(() => expect(frame()).not.toBe(initialFrame));
 		const sourceRevisionFrame = frame();
 		expect(sourceRevisionFrame.getAttribute("src")).toContain("/artifact-hash/index.html");
 
 		entries = [{ ...entries[0], clientArtifactHash: "next-artifact-hash" }];
-		await waitFor(
-			() => expect(frame().getAttribute("src")).toContain("/next-artifact-hash/index.html"),
-			{ timeout: 2_000 },
+		view.events.send();
+		await waitFor(() =>
+			expect(frame().getAttribute("src")).toContain("/next-artifact-hash/index.html"),
 		);
 		expect(frame()).not.toBe(sourceRevisionFrame);
 		expect(view.router.state.location.pathname).toBe("/fixture/details/item-1");
 		expect(view.router.state.location.searchStr).toBe("?tab=stats");
-
-		view.unmount();
-		const unmountedLoadCount = loadCount;
-		await new Promise((resolve) => setTimeout(resolve, 1_100));
-		expect(loadCount).toBe(unmountedLoadCount);
 	});
 
 	it("unmounts a removed plugin and stops stale access after a catalog refresh", async () => {
@@ -226,9 +223,8 @@ describe("plugin navigation", () => {
 		await waitFor(() => expect(operationCalls).toBe(1));
 
 		entries = [];
-		await waitFor(() => expect(screen.queryByTitle("fixture plugin")).toBeNull(), {
-			timeout: 2_000,
-		});
+		view.events.send();
+		await waitFor(() => expect(screen.queryByTitle("fixture plugin")).toBeNull());
 		expect(initialFrame.isConnected).toBe(false);
 		expect(screen.getByRole("status").textContent).toBe("This page does not exist.");
 		await waitFor(() =>
@@ -241,10 +237,28 @@ describe("plugin navigation", () => {
 			requestId: "after-removal",
 			operationSlug: "after-removal",
 		});
-		await new Promise((resolve) => setTimeout(resolve, 10));
 		expect(operationCalls).toBe(1);
 
 		view.unmount();
+	});
+
+	it("stops catalog queries when the plugin destination unmounts", async () => {
+		let unmounted = false;
+		let queriedAfterUnmount = false;
+		const view = mountView("/fixture", catalog, () => {
+			if (unmounted) {
+				queriedAfterUnmount = true;
+			}
+			return Effect.succeed(catalog);
+		});
+		await waitFor(() => expect(frame()).toBeTruthy());
+		await waitFor(() => expect(view.events.isSubscribed()).toBe(true));
+
+		view.unmount();
+		unmounted = true;
+		await waitFor(() => expect(view.events.isSubscribed()).toBe(false));
+		view.events.send();
+		expect(queriedAfterUnmount).toBe(false);
 	});
 
 	it("drops a replaced entry out of the kernel history stack", async () => {

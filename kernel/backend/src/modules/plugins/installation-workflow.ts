@@ -8,6 +8,7 @@ import { Database } from "#lib/infrastructure/db/service";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
 import { SandboxExecutionService } from "#modules/sandbox/service";
 
+import { PluginCatalogInvalidator } from "./catalog-events";
 import { PluginDefinitionMaterializer } from "./definition-materializer";
 import { PluginInstallationRepository } from "./installation-repository";
 import { PluginRuntimeResolver } from "./runtime-resolver";
@@ -67,6 +68,7 @@ export const PluginInstallationWorkflowOperationsLive = Layer.effect(
 		const database = yield* Database;
 		const runtime = yield* PluginRuntimeResolver;
 		const sandbox = yield* SandboxExecutionService;
+		const invalidator = yield* PluginCatalogInvalidator;
 		const installations = yield* PluginInstallationRepository;
 		const definitionMaterializer = yield* PluginDefinitionMaterializer;
 
@@ -93,7 +95,16 @@ export const PluginInstallationWorkflowOperationsLive = Layer.effect(
 
 		const fail = (installationId: string, healthReason: string) =>
 			asInternal(
-				installations.updateHealth({ healthReason, id: installationId, health: "failed" }),
+				Effect.gen(function* () {
+					const installation = yield* installations.findById(installationId);
+					if (installation) {
+						yield* Effect.uninterruptible(
+							installations
+								.updateHealth({ healthReason, id: installationId, health: "failed" })
+								.pipe(Effect.andThen(invalidator.user(UserId.make(installation.userId)))),
+						);
+					}
+				}),
 				"Plugin installation failure could not be recorded",
 			);
 
@@ -101,11 +112,11 @@ export const PluginInstallationWorkflowOperationsLive = Layer.effect(
 			asInternal(
 				Effect.gen(function* () {
 					yield* definitionMaterializer.materialize(userId);
-					yield* installations.updateHealth({
-						health: "ready",
-						id: installationId,
-						healthReason: null,
-					});
+					yield* Effect.uninterruptible(
+						installations
+							.updateHealth({ health: "ready", id: installationId, healthReason: null })
+							.pipe(Effect.andThen(invalidator.user(userId))),
+					);
 				}),
 				"Plugin installation completion could not be recorded",
 			);

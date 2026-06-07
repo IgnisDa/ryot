@@ -1,7 +1,8 @@
+import { decodePluginCatalogInvalidatedMessage } from "@ryot/contract/modules/plugins/contract";
 import { PluginConflictError, PluginNotFoundError } from "@ryot/contract/modules/plugins/schemas";
 import { PluginSlug } from "@ryot/contract/schema/brands";
 import { stableStringify } from "@ryot/ts-utils/json";
-import { Cause, Context, Effect, FiberSet, Layer, Semaphore } from "effect";
+import { Cause, Context, Effect, FiberSet, Layer, Result, Semaphore } from "effect";
 
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
@@ -9,6 +10,7 @@ import { kernelDefinitionSource, kernelScripts } from "#modules/definition-regis
 import { ClientPluginCompiler } from "#modules/plugins/client-plugin-compiler";
 import { SandboxWorkflowReferenceRepository } from "#modules/sandbox/workflow-reference-repository";
 
+import { PluginCatalogHub } from "./catalog-events";
 import { PluginLoader, type PluginRegistryEntry } from "./loader";
 import {
 	compilePluginPackage,
@@ -402,30 +404,51 @@ export class PluginInvalidationSubscriber extends Context.Service<PluginInvalida
 	{
 		make: Effect.gen(function* () {
 			const redis = yield* RedisService;
+			const hub = yield* PluginCatalogHub;
 			const runFork = yield* FiberSet.makeRuntime();
 			const subscriber = redis.client.duplicate();
 			const ingestion = yield* PluginIngestionService;
 			const rebuildLock = yield* Semaphore.make(1);
-			const channel = redisKeys.pluginRegistryChannel;
-			const onMessage = (incoming: string) => {
-				runFork(
-					rebuildLock
-						.withPermits(1)(handlePluginRegistryInvalidation(incoming, ingestion))
-						.pipe(Effect.catchCause((cause) => Effect.logError(cause))),
-				);
-			};
+			const channels = [redisKeys.pluginCatalogUserChannel, redisKeys.pluginRegistryChannel];
+			const dispatch = Effect.fn("PluginInvalidationSubscriber.dispatch")(function* (
+				incoming: string,
+				message: string,
+			) {
+				if (incoming === redisKeys.pluginRegistryChannel) {
+					yield* rebuildLock
+						.withPermits(1)(ingestion.rebuild())
+						.pipe(Effect.ensuring(hub.broadcastAll()));
+					return;
+				}
+				if (incoming !== redisKeys.pluginCatalogUserChannel) {
+					return;
+				}
+				const decoded = decodePluginCatalogInvalidatedMessage(message);
+				if (Result.isSuccess(decoded)) {
+					yield* hub.broadcast(decoded.success.userId);
+				}
+			});
+			const recover = Effect.tryPromise(() => subscriber.subscribe(...channels)).pipe(
+				Effect.andThen(hub.broadcastAll()),
+				Effect.catchCause((cause) =>
+					Effect.logError("plugin invalidation subscription failed", cause),
+				),
+			);
 			yield* runPluginRegistryReconciliation(
 				Effect.sleep(PLUGIN_REGISTRY_RECONCILIATION_INTERVAL),
 				ingestion,
 			).pipe(Effect.forkScoped);
-			subscriber.on("message", onMessage);
-			yield* Effect.tryPromise(() => subscriber.subscribe(channel)).pipe(Effect.orDie);
+			subscriber.on("message", (incoming, message) =>
+				runFork(dispatch(incoming, message).pipe(Effect.catchCause(Effect.logError))),
+			);
+			subscriber.on("ready", () => runFork(recover));
+			yield* recover;
 			yield* Effect.addFinalizer(() =>
 				Effect.sync(() => subscriber.removeAllListeners()).pipe(
 					Effect.andThen(Effect.tryPromise(() => subscriber.quit()).pipe(Effect.ignore)),
 				),
 			);
-			return { subscribed: true as const };
+			return { dispatch, recover, subscribed: true as const };
 		}),
 	},
 ) {
