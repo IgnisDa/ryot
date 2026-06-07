@@ -2,18 +2,20 @@ import { PgDialect } from "drizzle-orm/pg-core";
 import { assert, describe, expect, it } from "vitest";
 
 import {
-	entityJsonbObjectSql,
 	evalExprForField,
 	evalFieldSelector,
 	evalSystemRef,
+	getNestedValue,
+	valueToFieldValue,
+} from "./executor/field-values";
+import { serializeRow } from "./executor/serialize";
+import {
+	entityJsonbObjectSql,
 	exprToOrderSql,
 	fieldSelectorToOrderSql,
-	getNestedValue,
 	relationshipRootOrderSql,
-	serializeRow,
-	valueToFieldValue,
-	type EntityQueryRow,
-} from "./executor";
+} from "./executor/sql";
+import type { EntityQueryRow } from "./executor/types";
 import type { FieldSelector, RelationshipSourceV2, RowsOutputV2 } from "./language";
 
 const dialect = new PgDialect();
