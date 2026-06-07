@@ -117,6 +117,15 @@ describe("FRONTEND_URL validation", () => {
 		expect(result.value.frontendUrl).toBe("https://ryot.example");
 	});
 
+	it.each(["http://ryot.local:8000", "http://192.168.1.50:8000", "http://localhost:3005"])(
+		"accepts plain-HTTP origin %s for self-hosters without TLS",
+		(frontendUrl) => {
+			const result = validate({ frontendUrl });
+			assert(Exit.isSuccess(result));
+			expect(result.value.frontendUrl).toBe(frontendUrl);
+		},
+	);
+
 	it.each([
 		"ryot.example",
 		"ftp://ryot.example",
