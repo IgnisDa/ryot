@@ -46,11 +46,19 @@ type AuthAdapterFactory = ReturnType<typeof createAdapterFactory>;
 
 const tables: Record<string, AuthTable> = {
 	user: authSchema.user,
+	jwks: authSchema.jwks,
 	apikey: authSchema.apikey,
 	account: authSchema.account,
 	session: authSchema.session,
 	twoFactor: authSchema.twoFactor,
+	oauthClient: authSchema.oauthClient,
+	oauthConsent: authSchema.oauthConsent,
 	verification: authSchema.verification,
+	oauthResource: authSchema.oauthResource,
+	oauthAccessToken: authSchema.oauthAccessToken,
+	oauthRefreshToken: authSchema.oauthRefreshToken,
+	oauthClientResource: authSchema.oauthClientResource,
+	oauthClientAssertion: authSchema.oauthClientAssertion,
 };
 
 const getTable = (model: string) => {
