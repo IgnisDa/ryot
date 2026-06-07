@@ -588,7 +588,7 @@ describe("POST /entities/import — provider entity import", () => {
 		);
 
 		assertTaggedError(error, "NotFound");
-		expect(error.message).toBe("Import job not found");
+		expect(error.message).toBe("Entity Import job not found");
 	});
 
 	it("returns 401 for unauthenticated import requests", async () => {
