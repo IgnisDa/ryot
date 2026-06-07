@@ -21,7 +21,7 @@ import {
 	waitForEventWithSchema,
 } from "../fixtures";
 import { getBackendUrl } from "../setup";
-import { assertTaggedError, requirePresent } from "../test-support/assertions";
+import { assertTaggedError, requireObjectRecord, requirePresent } from "../test-support/assertions";
 
 const kodiPayload = { identifier: "tt1234567", lot: "movie", progress: 50 };
 
@@ -141,9 +141,14 @@ describe("Integration CRUD", () => {
 			}),
 		];
 
-		for (const created of integrations) {
-			const integration = await getIntegration(client, created.id);
+		const createdIntegrations = await Promise.all(
+			integrations.map(async (created) => ({
+				created,
+				integration: await getIntegration(client, created.id),
+			})),
+		);
 
+		for (const { created, integration } of createdIntegrations) {
 			expect(integration.id).toBe(IntegrationId.make(created.id));
 			expect(integration.webhookUrl).toBeDefined();
 			expect(integration.webhookUrl).toContain(`/_i/${created.id}`);
@@ -246,7 +251,7 @@ describe("Webhook routes", () => {
 			body: JSON.stringify(kodiPayload),
 			headers: { "Content-Type": "application/json" },
 		});
-		const data = (await response.json()) as { runId?: string };
+		const data = requireObjectRecord(await response.json(), "Expected webhook response");
 
 		expect(response.status).toBe(202);
 		expect(data.runId).toBeDefined();

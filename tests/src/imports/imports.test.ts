@@ -204,4 +204,5 @@ describe("Watcharr Show Import E2E (episode resolution)", () => {
 		);
 		const failureMessages = runWithFailures.failures.items.map((failure) => failure.message);
 		expect(failureMessages.some((message) => message.includes("S1E99"))).toBe(true);
+	});
 });
