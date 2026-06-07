@@ -4,4 +4,6 @@ import { systemConfigDefinition } from "./definition";
 
 export const SystemConfigSource = systemConfigDefinition.config;
 
+export { systemConfigDefinition };
+
 export type SystemConfigValue = Config.Config.Success<typeof SystemConfigSource>;
