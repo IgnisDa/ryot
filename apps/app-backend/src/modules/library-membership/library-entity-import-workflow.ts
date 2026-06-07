@@ -4,7 +4,10 @@ import { ListedEntity } from "@ryot/contract/modules/entities/schemas";
 import { Effect } from "effect";
 
 import { CollectionsService } from "#modules/collections/service";
-import { EntityImportPayload, runEntityImportWorkflow } from "#modules/entity-import/workflows";
+import {
+	EntityImportPayload,
+	runEntityImportWorkflow,
+} from "#modules/entity-import/entity-import-workflow";
 
 export const LibraryEntityImportWorkflow = Workflow.make({
 	success: ListedEntity,

@@ -9,7 +9,7 @@ import type {
 import { Cause, Effect, Exit, Layer, Match, Option } from "effect";
 
 import { SandboxExecutionQueue, SandboxExecutionQueueWorkerLive } from "./durable-queues";
-import { RunSandboxWorkflow } from "./workflow-definitions";
+import { RunSandboxWorkflow } from "./sandbox-run-workflow";
 
 const workflowFailureResult = (
 	cause: Cause.Cause<SandboxRunError>,

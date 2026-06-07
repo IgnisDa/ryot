@@ -27,13 +27,12 @@ import { RelationshipSchemasRepository } from "#modules/relationship-schemas/rep
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
 
-import { processChildEntityTree } from "./population";
+import { EntityImportPayload, runEntityImportWorkflow } from "./entity-import-workflow";
 import {
-	EntityImportPayload,
 	EntityImportWorkflowOperations,
 	type EntityImportWorkflowOperationsValue,
-	runEntityImportWorkflow,
-} from "./workflows";
+} from "./operations-workflow";
+import { processChildEntityTree } from "./population";
 
 const TestEntityImportWorkflow = Workflow.make({
 	success: ListedEntity,
