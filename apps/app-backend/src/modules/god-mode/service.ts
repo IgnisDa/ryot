@@ -1,5 +1,5 @@
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
-import { badRequest, internalError } from "@ryot/contract/errors";
+import { badRequest, internalError, notFound } from "@ryot/contract/errors";
 import type { ProvisionUserBody } from "@ryot/contract/modules/god-mode/contract";
 import { UserId } from "@ryot/contract/schema/brands";
 import { generateId } from "better-auth";
@@ -157,6 +157,25 @@ export class GodModeService extends Effect.Service<GodModeService>()("GodModeSer
 			}
 
 			return { id: userId, disabledAt: disabledAt?.toISOString() ?? null };
+		});
+
+		const deleteUser = Effect.fn("GodModeService.deleteUser")(function* (userId: UserId) {
+			const apiKeys = yield* runInTransaction(
+				Effect.gen(function* () {
+					const snapshot = yield* repository.loadDeleteSnapshot(userId);
+					if (!snapshot) {
+						return yield* notFound(`User with id '${userId}' not found`);
+					}
+
+					yield* repository.deleteUser(userId);
+					return snapshot.apiKeys;
+				}),
+			);
+
+			yield* deleteUserSessions(userId);
+			yield* purgeApiKeyCaches(userId, apiKeys);
+
+			return { id: userId };
 		});
 
 		const captureResetLink = Effect.fn("GodModeService.captureResetLink")(function* (
@@ -334,6 +353,7 @@ export class GodModeService extends Effect.Service<GodModeService>()("GodModeSer
 		return {
 			resetUser,
 			listUsers,
+			deleteUser,
 			provisionUser,
 			setUserDisabled,
 			resetUserPassword,
