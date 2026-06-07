@@ -8,7 +8,6 @@ import { type ServiceResult, serviceData, serviceError } from "~/lib/result";
 import { userPreferencesSchema } from "~/modules/builtins";
 import { createImportRun } from "~/modules/imports/repository";
 import { failImportRun, recordImportRunFailure } from "~/modules/imports/runtime/failures";
-import type { ImportRunSource } from "~/modules/imports/schemas";
 
 import { integrationRunJobName } from "./jobs";
 import {
@@ -22,13 +21,18 @@ import {
 	updateIntegrationRow,
 } from "./repository";
 import { addYankRepeatJob, removeYankRepeatJob } from "./scheduler";
-import type { CreateIntegrationBody, ListedIntegration, PatchIntegrationBody } from "./schemas";
+import type {
+	CreateIntegrationBody,
+	IntegrationProvider,
+	ListedIntegration,
+	PatchIntegrationBody,
+} from "./schemas";
 import { integrationProviderSpecifics as providerSpecificsSchema, isSinkProvider } from "./schemas";
 
 type IntegrationServiceError = "not_found" | "validation";
 type IntegrationServiceResult<T> = ServiceResult<T, IntegrationServiceError>;
 
-const providerLotMap: Record<string, "yank" | "sink" | "push"> = {
+const providerLotMap: Record<IntegrationProvider, "yank" | "sink" | "push"> = {
 	kodi: "sink",
 	emby: "sink",
 	komga: "yank",
@@ -55,6 +59,15 @@ const addWebhookUrl = (
 	}
 	return integration;
 };
+
+export const buildIntegrationInputSummary = (
+	integration: Pick<ListedIntegration, "id" | "lot" | "name" | "provider">,
+) => ({
+	lot: integration.lot,
+	integrationId: integration.id,
+	provider: integration.provider,
+	...(integration.name ? { name: integration.name } : {}),
+});
 
 export const validateProgressThresholds = (
 	minimumProgress: number,
@@ -83,9 +96,6 @@ export const createIntegration = async (input: {
 	}
 
 	const lot = providerLotMap[body.provider];
-	if (!lot) {
-		return serviceError("validation", `Unknown provider: ${body.provider}`);
-	}
 
 	const minimumProgress = body.minimumProgress ?? 2;
 	const maximumProgress = body.maximumProgress ?? 95;
@@ -127,7 +137,7 @@ export const getIntegration = async (input: {
 
 export const listIntegrations = async (input: {
 	userId: string;
-	provider?: string;
+	provider?: IntegrationProvider;
 	isDisabled?: boolean;
 }): Promise<IntegrationServiceResult<ListedIntegration[]>> => {
 	const rows = await listIntegrationsByUser(input);
@@ -225,14 +235,14 @@ export const listIntegrationRuns = async (input: {
 	return serviceData(runs);
 };
 
-const getUserPrefsFromDb = async (userId: string): Promise<{ disableIntegrations: boolean }> => {
+export const getUserDisableIntegrations = async (userId: string): Promise<boolean> => {
 	const [row] = await db
 		.select({ preferences: user.preferences })
 		.from(user)
 		.where(eq(user.id, userId))
 		.limit(1);
 	const parsed = userPreferencesSchema.safeParse(row?.preferences);
-	return { disableIntegrations: parsed.success ? parsed.data.disableIntegrations : false };
+	return parsed.success ? parsed.data.disableIntegrations : false;
 };
 
 export const handleWebhook = async (input: {
@@ -248,20 +258,13 @@ export const handleWebhook = async (input: {
 		return { notSink: true };
 	}
 
-	const userPreferences = await getUserPrefsFromDb(integration.userId);
-	const inputSummary = {
-		lot: integration.lot,
-		integrationId: integration.id,
-		provider: integration.provider,
-		...(integration.name ? { name: integration.name } : {}),
-	};
+	const inputSummary = buildIntegrationInputSummary(integration);
 
-	// oxlint-disable-next-line no-unsafe-type-assertion
-	const source = integration.provider as ImportRunSource;
+	const disableIntegrations = await getUserDisableIntegrations(integration.userId);
 
-	if (userPreferences.disableIntegrations) {
+	if (disableIntegrations) {
 		const run = await createImportRun({
-			source,
+			source: integration.provider,
 			inputSummary,
 			userId: integration.userId,
 			integrationId: integration.id,
@@ -278,7 +281,7 @@ export const handleWebhook = async (input: {
 
 	if (integration.isDisabled) {
 		const run = await createImportRun({
-			source,
+			source: integration.provider,
 			inputSummary,
 			userId: integration.userId,
 			integrationId: integration.id,
@@ -294,7 +297,7 @@ export const handleWebhook = async (input: {
 	}
 
 	const run = await createImportRun({
-		source,
+		source: integration.provider,
 		inputSummary,
 		userId: integration.userId,
 		integrationId: integration.id,
