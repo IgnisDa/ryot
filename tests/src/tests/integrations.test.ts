@@ -32,16 +32,15 @@ describe("Integration CRUD", () => {
 	it("rejects minimumProgress > maximumProgress", async () => {
 		const { client } = await createAuthenticatedClient();
 
-		const error = await client.runError(
-			(c) =>
-				c.integrations.create({
-					payload: {
-						provider: "kodi",
-						minimumProgress: 80,
-						maximumProgress: 20,
-						providerSpecifics: { kind: "kodi" },
-					},
-				}),
+		const error = await client.runError((c) =>
+			c.integrations.create({
+				payload: {
+					provider: "kodi",
+					minimumProgress: 80,
+					maximumProgress: 20,
+					providerSpecifics: { kind: "kodi" },
+				},
+			}),
 		);
 
 		assertTaggedError(error, "BadRequest");
@@ -51,11 +50,10 @@ describe("Integration CRUD", () => {
 	it("rejects provider !== providerSpecifics.kind", async () => {
 		const { client } = await createAuthenticatedClient();
 
-		const error = await client.runError(
-			(c) =>
-				c.integrations.create({
-					payload: { provider: "emby", providerSpecifics: { kind: "kodi" } },
-				}),
+		const error = await client.runError((c) =>
+			c.integrations.create({
+				payload: { provider: "emby", providerSpecifics: { kind: "kodi" } },
+			}),
 		);
 
 		assertTaggedError(error, "BadRequest");
@@ -91,8 +89,8 @@ describe("Integration CRUD", () => {
 		const { client } = await createAuthenticatedClient();
 
 		const { id } = await createKodiIntegration(client);
-		await client.run(
-			(c) => c.integrations.update({ payload: { isDisabled: true }, path: { integrationId: id } }),
+		await client.run((c) =>
+			c.integrations.update({ payload: { isDisabled: true }, path: { integrationId: id } }),
 		);
 
 		await createKodiIntegration(client);
@@ -131,8 +129,8 @@ describe("Integration CRUD", () => {
 
 		const { id } = await createAudiobookshelfIntegration(client);
 
-		const data = await client.run(
-			(c) => c.integrations.update({ payload: { name: "My ABS" }, path: { integrationId: id } }),
+		const data = await client.run((c) =>
+			c.integrations.update({ payload: { name: "My ABS" }, path: { integrationId: id } }),
 		);
 
 		expect(data.name).toBe("My ABS");
@@ -151,12 +149,11 @@ describe("Integration CRUD", () => {
 
 		const { id } = await createKodiIntegration(client);
 
-		const error = await client.runError(
-			(c) =>
-				c.integrations.update({
-					path: { integrationId: id },
-					payload: { minimumProgress: 90, maximumProgress: 10 },
-				}),
+		const error = await client.runError((c) =>
+			c.integrations.update({
+				path: { integrationId: id },
+				payload: { minimumProgress: 90, maximumProgress: 10 },
+			}),
 		);
 
 		assertTaggedError(error, "BadRequest");
@@ -169,9 +166,7 @@ describe("Integration CRUD", () => {
 		const { id } = await createKodiIntegration(client);
 		await deleteIntegration(client, id);
 
-		const error = await client.runError(
-			(c) => c.integrations.get({ path: { integrationId: id } }),
-		);
+		const error = await client.runError((c) => c.integrations.get({ path: { integrationId: id } }));
 
 		assertTaggedError(error, "NotFound");
 	});
@@ -213,8 +208,8 @@ describe("Webhook routes", () => {
 		const { client } = await createAuthenticatedClient();
 		const { id } = await createKodiIntegration(client);
 
-		await client.run(
-			(c) => c.integrations.update({ payload: { isDisabled: true }, path: { integrationId: id } }),
+		await client.run((c) =>
+			c.integrations.update({ payload: { isDisabled: true }, path: { integrationId: id } }),
 		);
 
 		const { response, data } = await postWebhook(id, kodiPayload);
@@ -269,8 +264,8 @@ describe("Import run visibility", () => {
 		const run = await getImportRun(client, runId);
 		expect(run.id).toBe(runId);
 
-		const integrationRuns = await client.run(
-			(c) => c.integrations.getRuns({ path: { integrationId } }),
+		const integrationRuns = await client.run((c) =>
+			c.integrations.getRuns({ path: { integrationId } }),
 		);
 		expect(integrationRuns.find((r) => r.id === runId)).toBeDefined();
 	});

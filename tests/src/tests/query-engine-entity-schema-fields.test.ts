@@ -74,8 +74,7 @@ describe("entity-schema fields", () => {
 	});
 
 	it("returns correct entity schema slug per entity in multi-schema queries", async () => {
-		const { client, smartphoneSlug, tabletSlug } =
-			await createCrossSchemaQueryEngineFixture();
+		const { client, smartphoneSlug, tabletSlug } = await createCrossSchemaQueryEngineFixture();
 		const { data } = await executeQueryEngine(client, {
 			eventJoins: [],
 			pagination: { page: 1, limit: 20 },
@@ -116,8 +115,7 @@ describe("entity-schema fields", () => {
 	});
 
 	it("can sort by entity schema name", async () => {
-		const { client, smartphoneSlug, tabletSlug } =
-			await createCrossSchemaQueryEngineFixture();
+		const { client, smartphoneSlug, tabletSlug } = await createCrossSchemaQueryEngineFixture();
 		const { data } = await executeQueryEngine(client, {
 			scope: [smartphoneSlug, tabletSlug],
 			eventJoins: [],

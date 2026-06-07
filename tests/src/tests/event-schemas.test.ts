@@ -119,10 +119,7 @@ describe("GET /event-schemas", () => {
 
 	it("returns the seeded review event schema for collection", async () => {
 		const { client } = await createAuthenticatedClient();
-		const { schema: collectionSchema } = await findBuiltinSchemaBySlug(
-			client,
-			"collection",
-		);
+		const { schema: collectionSchema } = await findBuiltinSchemaBySlug(client, "collection");
 
 		const eventSchemas = await listEventSchemas(client, collectionSchema.id);
 
@@ -480,8 +477,8 @@ describe("GET /event-schemas", () => {
 			slug: "owner-entity",
 		});
 
-		const error = await intruder.client.runError(
-			(c) => c.eventSchemas.list({ urlParams: { entitySchemaId } }),
+		const error = await intruder.client.runError((c) =>
+			c.eventSchemas.list({ urlParams: { entitySchemaId } }),
 		);
 
 		assertTaggedError(error, "NotFound");
@@ -501,18 +498,17 @@ describe("POST /event-schemas", () => {
 			slug: "custom-entity",
 		});
 
-		const data = await client.run(
-			(c) =>
-				c.eventSchemas.create({
-					payload: {
-						entitySchemaId,
-						name: "My Event",
-						slug: "my-event",
-						propertiesSchema: {
-							fields: { note: { type: "string", label: "Note", description: "Note" } },
-						},
+		const data = await client.run((c) =>
+			c.eventSchemas.create({
+				payload: {
+					entitySchemaId,
+					name: "My Event",
+					slug: "my-event",
+					propertiesSchema: {
+						fields: { note: { type: "string", label: "Note", description: "Note" } },
 					},
-				}),
+				},
+			}),
 		);
 
 		expect(data.name).toBe("My Event");
@@ -531,26 +527,25 @@ describe("POST /event-schemas", () => {
 			slug: "custom-entity",
 		});
 
-		const error = await client.runError(
-			(c) =>
-				c.eventSchemas.create({
-					payload: {
-						entitySchemaId,
-						name: "Invalid Event",
-						slug: "invalid-event",
-						propertiesSchema: {
-							fields: { status: { type: "string", label: "Status", description: "Status" } },
-							rules: [
-								{
-									path: ["missing"],
-									kind: "validation",
-									validation: { required: true },
-									when: { operator: "eq", path: ["status"], value: "completed" },
-								},
-							],
-						},
+		const error = await client.runError((c) =>
+			c.eventSchemas.create({
+				payload: {
+					entitySchemaId,
+					name: "Invalid Event",
+					slug: "invalid-event",
+					propertiesSchema: {
+						fields: { status: { type: "string", label: "Status", description: "Status" } },
+						rules: [
+							{
+								path: ["missing"],
+								kind: "validation",
+								validation: { required: true },
+								when: { operator: "eq", path: ["status"], value: "completed" },
+							},
+						],
 					},
-				}),
+				},
+			}),
 		);
 
 		assertTaggedError(error, "BadRequest");
@@ -577,18 +572,17 @@ describe("POST /event-schemas", () => {
 			},
 		});
 
-		const error = await client.runError(
-			(c) =>
-				c.eventSchemas.create({
-					payload: {
-						entitySchemaId,
-						name: "Second Event",
-						slug: "duplicate-event-slug",
-						propertiesSchema: {
-							fields: { note: { type: "string", label: "Note", description: "Note" } },
-						},
+		const error = await client.runError((c) =>
+			c.eventSchemas.create({
+				payload: {
+					entitySchemaId,
+					name: "Second Event",
+					slug: "duplicate-event-slug",
+					propertiesSchema: {
+						fields: { note: { type: "string", label: "Note", description: "Note" } },
 					},
-				}),
+				},
+			}),
 		);
 
 		assertTaggedError(error, "Conflict");

@@ -110,43 +110,42 @@ describe("Event trigger firing", () => {
 		const { client } = await createAuthenticatedClient();
 
 		const { entityId, progressEventSchemaId } = await createBuiltinMediaLifecycleFixture(client, {
-				entitySchemaSlug: "show",
-				properties: {
-					images: [],
-					showSeasons: [
-						{
-							id: 1,
-							overview: null,
-							seasonNumber: 1,
-							name: "Season 1",
-							posterImages: [],
-							publishDate: null,
-							backdropImages: [],
-							episodes: [
-								{
-									id: 101,
-									runtime: null,
-									overview: null,
-									posterImages: [],
-									episodeNumber: 1,
-									name: "Episode 1",
-									publishDate: null,
-								},
-								{
-									id: 102,
-									runtime: null,
-									overview: null,
-									posterImages: [],
-									episodeNumber: 2,
-									publishDate: null,
-									name: "Episode 2",
-								},
-							],
-						},
-					],
-				},
+			entitySchemaSlug: "show",
+			properties: {
+				images: [],
+				showSeasons: [
+					{
+						id: 1,
+						overview: null,
+						seasonNumber: 1,
+						name: "Season 1",
+						posterImages: [],
+						publishDate: null,
+						backdropImages: [],
+						episodes: [
+							{
+								id: 101,
+								runtime: null,
+								overview: null,
+								posterImages: [],
+								episodeNumber: 1,
+								name: "Episode 1",
+								publishDate: null,
+							},
+							{
+								id: 102,
+								runtime: null,
+								overview: null,
+								posterImages: [],
+								episodeNumber: 2,
+								publishDate: null,
+								name: "Episode 2",
+							},
+						],
+					},
+				],
 			},
-		);
+		});
 
 		await client.run((c) =>
 			c.events.create({
@@ -170,43 +169,42 @@ describe("Event trigger firing", () => {
 		const { client } = await createAuthenticatedClient();
 
 		const { entityId, progressEventSchemaId } = await createBuiltinMediaLifecycleFixture(client, {
-				entitySchemaSlug: "show",
-				properties: {
-					images: [],
-					showSeasons: [
-						{
-							id: 1,
-							overview: null,
-							seasonNumber: 1,
-							name: "Season 1",
-							posterImages: [],
-							publishDate: null,
-							backdropImages: [],
-							episodes: [
-								{
-									id: 101,
-									runtime: null,
-									overview: null,
-									posterImages: [],
-									episodeNumber: 1,
-									name: "Episode 1",
-									publishDate: null,
-								},
-								{
-									id: 102,
-									runtime: null,
-									overview: null,
-									posterImages: [],
-									episodeNumber: 2,
-									name: "Episode 2",
-									publishDate: null,
-								},
-							],
-						},
-					],
-				},
+			entitySchemaSlug: "show",
+			properties: {
+				images: [],
+				showSeasons: [
+					{
+						id: 1,
+						overview: null,
+						seasonNumber: 1,
+						name: "Season 1",
+						posterImages: [],
+						publishDate: null,
+						backdropImages: [],
+						episodes: [
+							{
+								id: 101,
+								runtime: null,
+								overview: null,
+								posterImages: [],
+								episodeNumber: 1,
+								name: "Episode 1",
+								publishDate: null,
+							},
+							{
+								id: 102,
+								runtime: null,
+								overview: null,
+								posterImages: [],
+								episodeNumber: 2,
+								name: "Episode 2",
+								publishDate: null,
+							},
+						],
+					},
+				],
 			},
-		);
+		});
 
 		await client.run((c) =>
 			c.events.create({
@@ -244,54 +242,53 @@ describe("Event trigger firing", () => {
 		const { client } = await createAuthenticatedClient();
 
 		const { entityId, progressEventSchemaId } = await createBuiltinMediaLifecycleFixture(client, {
-				entitySchemaSlug: "show",
-				properties: {
-					images: [],
-					showSeasons: [
-						{
-							id: 1,
-							overview: null,
-							seasonNumber: 1,
-							posterImages: [],
-							name: "Season 1",
-							publishDate: null,
-							backdropImages: [],
-							episodes: [
-								{
-									id: 101,
-									runtime: null,
-									overview: null,
-									episodeNumber: 1,
-									posterImages: [],
-									name: "Episode 1",
-									publishDate: null,
-								},
-							],
-						},
-						{
-							id: 2,
-							overview: null,
-							seasonNumber: 0,
-							name: "Specials",
-							posterImages: [],
-							publishDate: null,
-							backdropImages: [],
-							episodes: [
-								{
-									id: 201,
-									runtime: null,
-									overview: null,
-									posterImages: [],
-									episodeNumber: 1,
-									publishDate: null,
-									name: "Special 1",
-								},
-							],
-						},
-					],
-				},
+			entitySchemaSlug: "show",
+			properties: {
+				images: [],
+				showSeasons: [
+					{
+						id: 1,
+						overview: null,
+						seasonNumber: 1,
+						posterImages: [],
+						name: "Season 1",
+						publishDate: null,
+						backdropImages: [],
+						episodes: [
+							{
+								id: 101,
+								runtime: null,
+								overview: null,
+								episodeNumber: 1,
+								posterImages: [],
+								name: "Episode 1",
+								publishDate: null,
+							},
+						],
+					},
+					{
+						id: 2,
+						overview: null,
+						seasonNumber: 0,
+						name: "Specials",
+						posterImages: [],
+						publishDate: null,
+						backdropImages: [],
+						episodes: [
+							{
+								id: 201,
+								runtime: null,
+								overview: null,
+								posterImages: [],
+								episodeNumber: 1,
+								publishDate: null,
+								name: "Special 1",
+							},
+						],
+					},
+				],
 			},
-		);
+		});
 
 		await client.run((c) =>
 			c.events.create({
@@ -317,34 +314,33 @@ describe("Event trigger firing", () => {
 		const { client } = await createAuthenticatedClient();
 
 		const { entityId, progressEventSchemaId } = await createBuiltinMediaLifecycleFixture(client, {
-				entitySchemaSlug: "show",
-				properties: {
-					images: [],
-					showSeasons: [
-						{
-							id: 2,
-							overview: null,
-							seasonNumber: 0,
-							posterImages: [],
-							name: "Specials",
-							publishDate: null,
-							backdropImages: [],
-							episodes: [
-								{
-									id: 201,
-									runtime: null,
-									overview: null,
-									posterImages: [],
-									episodeNumber: 1,
-									name: "Special 1",
-									publishDate: null,
-								},
-							],
-						},
-					],
-				},
+			entitySchemaSlug: "show",
+			properties: {
+				images: [],
+				showSeasons: [
+					{
+						id: 2,
+						overview: null,
+						seasonNumber: 0,
+						posterImages: [],
+						name: "Specials",
+						publishDate: null,
+						backdropImages: [],
+						episodes: [
+							{
+								id: 201,
+								runtime: null,
+								overview: null,
+								posterImages: [],
+								episodeNumber: 1,
+								name: "Special 1",
+								publishDate: null,
+							},
+						],
+					},
+				],
 			},
-		);
+		});
 
 		await client.run((c) =>
 			c.events.create({
@@ -470,18 +466,17 @@ describe("Event trigger firing", () => {
 			properties: { images: [], volumes: null, chapters: null },
 		});
 
-		await client.run(
-			(c) =>
-				c.events.create({
-					payload: [
-						{
-							entityId,
-							occurredAt: isoAt(1),
-							eventSchemaId: progressEventSchemaId,
-							properties: { progressPercent: 100, mangaChapter: 1 },
-						},
-					],
-				}),
+		await client.run((c) =>
+			c.events.create({
+				payload: [
+					{
+						entityId,
+						occurredAt: isoAt(1),
+						eventSchemaId: progressEventSchemaId,
+						properties: { progressPercent: 100, mangaChapter: 1 },
+					},
+				],
+			}),
 		);
 
 		await waitForEventCount(client, entityId, 1);
