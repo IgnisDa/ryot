@@ -25,6 +25,7 @@ export const PluginArtifactsRoutesLive = HttpApiBuilder.group(
 				return HttpServerResponse.text(file.contents, {
 					contentType: file.contentType,
 					headers: {
+						"access-control-allow-origin": "*",
 						"x-content-type-options": "nosniff",
 						"cache-control": "public, max-age=31536000, immutable",
 						...(file.contentType.startsWith("text/html")
