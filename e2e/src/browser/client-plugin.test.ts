@@ -236,7 +236,9 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 					await page.getByLabel("Password").fill(password);
 					const entriesBeforeBootstrap = await page.evaluate(() => history.length);
 					await page.getByRole("button", { name: "Sign in", exact: true }).last().click();
-					await page.waitForURL(`${frontendUrl}/fitness`);
+					// Sign-in lands on the first enabled workspace by (sortOrder, slug), which earlier
+					// suites change by installing system plugins into the shared database.
+					await page.waitForURL((url) => /^\/[^/]+$/.test(url.pathname));
 					expect(await page.evaluate(() => history.length)).toBe(entriesBeforeBootstrap + 1);
 				});
 

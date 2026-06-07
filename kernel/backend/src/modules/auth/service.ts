@@ -120,6 +120,7 @@ const makeAuthInstance = (args: {
 	readonly db: Database["Service"];
 	readonly runtime: Context.Context<Database | RedisService>;
 	readonly bootstrapNewUser: (userId: string) => Effect.Effect<void, unknown>;
+	readonly revokeOAuthTokens: (userId: UserId) => Effect.Effect<void, unknown, Database>;
 }) => {
 	const oidcEnabled = isOidcEnabled(args.config);
 
@@ -174,6 +175,8 @@ const makeAuthInstance = (args: {
 			autoSignIn: true,
 			revokeSessionsOnPasswordReset: true,
 			disableSignUp: !args.config.users.allowRegistration || args.config.users.disableLocalAuth,
+			onPasswordReset: ({ user }) =>
+				Effect.runPromiseWith(args.runtime)(args.revokeOAuthTokens(UserId.make(user.id))),
 			sendResetPassword: ({ user, token }) =>
 				Effect.runPromiseWith(args.runtime)(
 					Effect.gen(function* () {
@@ -425,6 +428,7 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 			runtime,
 			redis: redis.client,
 			bootstrapNewUser: userBootstrap.run,
+			revokeOAuthTokens: repository.revokeUserOAuthTokens,
 		});
 		const findUserById = (userId: string) =>
 			db

@@ -369,10 +369,12 @@ describe("isolated deployment-global sandbox HTTP rate limiting", () => {
 				s3Endpoint: infrastructure.s3Endpoint,
 				extraEnv: { SCHEDULER_DISABLE_DISPATCHERS: "true" },
 			});
+			// Both processes share a FRONTEND_URL: the internal OAuth client and API resource are
+			// provisioned from it, as they are for replicas of a single deployment.
 			apiEnvB = buildApiEnv({
 				port: apiPortB,
+				frontendUrl: apiOriginA(),
 				dbUrl: infrastructure.dbUrl,
-				frontendUrl: apiOriginB(),
 				redisUrl: infrastructure.redisUrl,
 				s3BucketName: ISOLATED_BUCKET_NAME,
 				label: "Global Rate Limit API B",
