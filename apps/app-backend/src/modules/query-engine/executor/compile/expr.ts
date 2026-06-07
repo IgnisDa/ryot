@@ -55,6 +55,32 @@ const literalScalarType = (expr: Extract<Expr, { type: "literal" }>): ScalarType
 	return "json";
 };
 
+// `translationStatus`: a server-derived, text-valued computed field (see language.ts). For canonical
+// readers (language === null) it constant-folds to 'none' with no join, keeping SQL byte-identical to
+// a query that never referenced translations. Otherwise it runs its own correlated reads of
+// entity_translation — the localized entity source coalesces that row away, so its merged columns
+// cannot distinguish pending from ready. Arm order matters: the cheap NULL/canonical guards short-
+// circuit before the EXISTS and negative-cache subqueries ever run.
+const translationStatusSql = (scope: CompileScope, sqlAlias: string): SqlFragment => {
+	const language = scope.language;
+	if (language === null) {
+		return sql`'none'::text`;
+	}
+	const id = sql.raw(`${sqlAlias}.id`);
+	const scriptId = sql.raw(`${sqlAlias}.sandbox_script_id`);
+	const populatedAt = sql.raw(`${sqlAlias}.populated_at`);
+	const canonical = sql`${JSON.stringify(scope.canonicalByScript ?? {})}::jsonb`;
+	return sql`CASE
+		WHEN ${scriptId} IS NULL THEN 'none'
+		WHEN (${canonical} ->> ${scriptId}) IS NULL THEN 'none'
+		WHEN (${canonical} ->> ${scriptId}) = ${language} THEN 'none'
+		WHEN ${populatedAt} IS NULL THEN 'none'
+		WHEN NOT EXISTS (SELECT 1 FROM entity_translation t WHERE t.entity_id = ${id} AND t.language = ${language}) THEN 'pending'
+		WHEN (SELECT t.name IS NULL AND (t.properties IS NULL OR t.properties = '{}'::jsonb) FROM entity_translation t WHERE t.entity_id = ${id} AND t.language = ${language}) THEN 'none'
+		ELSE 'ready'
+	END`;
+};
+
 const refScalarType = (
 	field: FieldSelector,
 	scope: CompileScope,
@@ -62,6 +88,9 @@ const refScalarType = (
 ): ScalarType => {
 	if (field.type === "schema") {
 		return field.name === "isBuiltin" ? "boolean" : "text";
+	}
+	if (field.type === "systemComputed") {
+		return "text";
 	}
 	if (field.type === "system") {
 		if (field.name === "properties") {
@@ -224,6 +253,9 @@ const refScalarSql = (
 	want: ScalarType,
 ): SqlFragment => {
 	const ref = scope.resolve(expr.sourceAlias);
+	if (expr.field.type === "systemComputed") {
+		return translationStatusSql(scope, ref.sqlAlias);
+	}
 	if (expr.field.type === "system") {
 		return systemColumnSql(ref.kind, expr.field.name, ref.sqlAlias) ?? sql`NULL`;
 	}
@@ -457,6 +489,9 @@ const nullableKindSql = (column: SqlFragment, kind: string): SqlFragment =>
 
 const refValue = (expr: Extract<Expr, { type: "ref" }>, scope: CompileScope): CompiledValue => {
 	const ref = scope.resolve(expr.sourceAlias);
+	if (expr.field.type === "systemComputed") {
+		return { value: toJsonbValue(translationStatusSql(scope, ref.sqlAlias)), kind: sql`'text'` };
+	}
 	if (expr.field.type === "system") {
 		const column = systemColumnSql(ref.kind, expr.field.name, ref.sqlAlias) ?? sql`NULL`;
 		if (expr.field.name === "properties") {

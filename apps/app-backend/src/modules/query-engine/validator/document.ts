@@ -15,7 +15,7 @@ const runValidation = (
 	let sourceError: string | null;
 	switch (source.type) {
 		case "entities":
-			sourceError = validateEntitySource(source, scope, aliases);
+			sourceError = validateEntitySource(source, scope, aliases, 0, true);
 			break;
 		case "events":
 			sourceError = validateRootEventSource(source, scope, aliases);
