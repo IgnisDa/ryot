@@ -33,7 +33,9 @@ Remove explicit return type annotations when TypeScript can trivially infer them
 
 ## Cross-Module Infrastructure
 
-- Modules must reuse the owning module's service or intentionally-internal infrastructure for cross-module side effects; do not write another module's schema tables directly.
+- Feature modules form a dependency gradient, from most generic to most specific: `entity-schemas`/`event-schemas`/`relationship-schemas` → `entities`/`events` → `collections` → `imports` → `integrations`. `sandbox` is orthogonal execution infrastructure. Module dependencies may only point toward more generic modules; a generic module must never import a more specific one.
+- When a generic module needs a side effect that a more specific module owns, invert the dependency instead of importing it: the generic module defines an abstract `Context.Tag` hook (with a no-op `Default` layer), the specific module provides the implementing `Layer`, and `app/layers.ts` wires them. See `EntityImportHook` (`modules/entities`) and `GlobalEntityReferenceHook` (`modules/events`), both implemented by `modules/collections/event-hooks.ts`.
+- Cross-module side effects go through the owning module's service, and must never write another module's schema tables directly. Reach into another module's repository only when atomicity inside a shared `TransactionRunner` requires it, and only to write tables that module owns — for example, `entity-schemas` creation calls `TrackersRepository.linkEntitySchema` and `SavedViewsRepository.createDefaultViewForSchema` within one transaction.
 - Importers, background jobs, sandbox callbacks, and bootstrap paths follow the same entity, event, relationship, and collection write paths as HTTP modules.
 - Provider API knowledge belongs in sandbox scripts, not app modules. App modules can normalize source input and choose provider fallback policy, but provider-specific HTTP stays in sandbox drivers.
 - If app code only has a foreign identifier such as an ISBN or IMDB id, resolve it through sandbox `resolve` drivers before provider-backed population.
