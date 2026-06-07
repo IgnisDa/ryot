@@ -1,7 +1,7 @@
 import type { CommandExecutor } from "@effect/platform";
 import { Command, FileSystem } from "@effect/platform";
 import type { PlatformError } from "@effect/platform/Error";
-import { Clock, Effect, Pool, Queue, Runtime, Schema, Stream } from "effect";
+import { Clock, Effect, Fiber, Pool, Queue, Runtime, Schema, Sink, Stream } from "effect";
 
 import { AppConfig } from "./config";
 import { badRequest, internalError, unknownToMessage } from "./errors";
@@ -74,6 +74,7 @@ const makeSpawnDenoProcess = (bridgePort: number, denoDir: string, runnerPath: s
 			"--deny-write",
 			"--no-prompt",
 			"--no-remote",
+			"--cached-only",
 			`--allow-read=${runnerPath}`,
 			`--allow-net=127.0.0.1:${bridgePort}`,
 			runnerPath,
@@ -219,7 +220,71 @@ export class RunnerFile extends Effect.Service<RunnerFile>()("RunnerFile", {
 	}),
 }) {}
 
+const vendoredPackages = ["npm:zod", "npm:dayjs", "npm:cheerio", "npm:youtubei.js"] as const;
+const cacheMarkerContent = vendoredPackages.join("\n");
+
+const runDenoCache = (denoDir: string) =>
+	Effect.scoped(
+		Effect.gen(function* () {
+			const proc = yield* Command.make("deno", "cache", "--no-config", ...vendoredPackages).pipe(
+				Command.stdout("pipe"),
+				Command.stderr("pipe"),
+				Command.env({ DENO_DIR: denoDir }),
+				Command.start,
+			);
+			yield* proc.stdout.pipe(Stream.run(Sink.drain), Effect.forkScoped);
+			const stderrFiber = yield* proc.stderr.pipe(
+				Stream.decodeText("utf-8"),
+				Stream.run(Sink.mkString),
+				Effect.forkScoped,
+			);
+			const exitCode = yield* proc.exitCode;
+			const stderr = yield* Fiber.join(stderrFiber);
+			return { exitCode, stderr: stderr.trim() };
+		}),
+	);
+
+export class PackageCacheManager extends Effect.Service<PackageCacheManager>()(
+	"PackageCacheManager",
+	{
+		scoped: Effect.gen(function* () {
+			const config = yield* AppConfig;
+			const fs = yield* FileSystem.FileSystem;
+			const denoDir = config.sandbox.denoDir;
+			const markerPath = `${denoDir}/.ryot-sandbox-cache-complete`;
+
+			const cached = yield* fs.readFileString(markerPath).pipe(
+				Effect.map((content) => content === cacheMarkerContent),
+				Effect.orElseSucceed(() => false),
+			);
+
+			if (!cached) {
+				yield* fs.makeDirectory(denoDir, { recursive: true }).pipe(Effect.ignore);
+
+				const { exitCode, stderr } = yield* runDenoCache(denoDir);
+				if (exitCode !== 0) {
+					const hasMarker = yield* fs.exists(markerPath);
+					if (hasMarker) {
+						yield* Effect.logWarning(
+							`Sandbox package cache refresh failed; using existing cache. ${stderr}`,
+						);
+					} else {
+						return yield* Effect.die(
+							new Error(`Sandbox package cache population failed (exit ${exitCode}): ${stderr}`),
+						);
+					}
+				} else {
+					yield* fs.writeFileString(markerPath, cacheMarkerContent);
+				}
+			}
+
+			return {};
+		}),
+	},
+) {}
+
 export class ProcessPool extends Effect.Service<ProcessPool>()("ProcessPool", {
+	dependencies: [BridgeService.Default, RunnerFile.Default, PackageCacheManager.Default],
 	scoped: Effect.gen(function* () {
 		const config = yield* AppConfig;
 		const runner = yield* RunnerFile;
@@ -229,5 +294,4 @@ export class ProcessPool extends Effect.Service<ProcessPool>()("ProcessPool", {
 			acquire: makeSpawnDenoProcess(bridge.port, config.sandbox.denoDir, runner.path),
 		});
 	}),
-	dependencies: [BridgeService.Default, RunnerFile.Default],
 }) {}

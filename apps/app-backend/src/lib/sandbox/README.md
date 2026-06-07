@@ -64,6 +64,7 @@ The sandbox service infrastructure is still being migrated to Effect patterns.
 - **Deno restrictions:**
   - denied: `--deny-run`, `--deny-env`, `--deny-ffi`, `--deny-write`, `--no-prompt`, `--no-remote`
   - allowed: `--allow-read=<runner-file>`, `--allow-net=127.0.0.1:<bridge-port>`
+  - import enforcement: `--cached-only` (only pre-approved packages loadable; see **Vendored packages**)
 - **Network boundary:** sandbox can only talk to the local bridge; external network access must go through explicit host functions. `--allow-net` is bridge-only, so even code inside imported packages cannot reach external hosts.
 - **Auth boundary:** each execution has a random bearer token checked by bridge routes.
 - **Timeout enforcement:** timeout guard sends `SIGTERM`, then `SIGKILL` after a short delay.
@@ -98,13 +99,13 @@ driver("parse", async function (context) {
 });
 ```
 
-The allowlist lives in `constants.ts` (`vendoredPackages`). At service startup, `PackageCacheManager.populate()` runs a single `deno cache --no-config` invocation with all packages as arguments into a persistent local directory (default: `~/ryot/tmp`, overridable via `RYOT_SANDBOX_DENO_DIR`). The `--cached-only` Deno flag then enforces that only cached packages can be imported — attempting to import anything not in the allowlist fails with a clear error surfaced in the sandbox result.
+The allowlist is `vendoredPackages` in `src/lib/sandbox-runtime.ts`. At service startup, `PackageCacheManager` runs `deno cache --no-config` with all packages into `SANDBOX_DENO_DIR` (default: `/tmp/ryot-sandbox-deno`). A marker file (`.ryot-sandbox-cache-complete`) records the cached package list so the download is skipped on subsequent restarts if the list is unchanged. The `--cached-only` Deno flag then enforces that only cached packages can be imported — attempting to import anything not in the allowlist fails with a clear error surfaced in the sandbox result.
 
 ### Adding a new vendored package
 
-1. Append the specifier (e.g. `"npm:cheerio"`) to `vendoredPackages` in `constants.ts`.
-2. Restart the service. `PackageCacheManager.populate()` downloads the new package on startup.
-3. If the cache already exists and the network is unavailable at startup, the service logs a warning and continues with the existing cache.
+1. Append the specifier (e.g. `"npm:cheerio"`) to `vendoredPackages` in `src/lib/sandbox-runtime.ts`.
+2. Restart the service. `PackageCacheManager` downloads the new package on startup (the marker file content changes, triggering a re-download).
+3. If the cache refresh fails but an existing marker is present, the service logs a warning and continues with the existing cache.
 
 ### Cache directory
 
