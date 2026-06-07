@@ -4,7 +4,7 @@ import type { WorkflowEngine, WorkflowInstance } from "@effect/workflow/Workflow
 import { Cause, Context, DateTime, Effect, Exit, Layer, Match, Option, Schema } from "effect";
 
 import { DbRunner } from "#lib/db";
-import { SandboxRunError, dieOnDbError, unknownToMessage } from "#lib/errors";
+import { SandboxRunError, dieOnDbError, toSandboxRunError } from "#lib/errors";
 import { EntitySchemaId, SandboxScriptId, UserId } from "#lib/schema/brands";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntityImage, ListedEntity } from "#modules/entities/schemas";
@@ -32,11 +32,6 @@ export const EntityImportPayload = Schema.Struct({
 export type EntityImportPayload = typeof EntityImportPayload.Type;
 
 export type EntityImportRunResult = typeof ImportEntityRunResult.Type;
-
-const toWorkflowError = (cause: unknown) =>
-	cause instanceof SandboxRunError
-		? cause
-		: new SandboxRunError({ message: unknownToMessage(cause) });
 
 const workflowFailureResult = (
 	cause: Cause.Cause<SandboxRunError>,
@@ -79,7 +74,7 @@ export const processSandboxEntityDetails = (payload: EntityImportPayload, execut
 		scriptId: payload.scriptId,
 		context: { externalId: payload.externalId },
 		executionId: `${executionId}-sandbox-details`,
-	}).pipe(Effect.mapError(toWorkflowError));
+	}).pipe(Effect.mapError(toSandboxRunError));
 
 export type EntityImportWorkflowOperationsValue = {
 	processSandbox: (

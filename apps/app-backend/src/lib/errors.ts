@@ -69,6 +69,11 @@ export class SandboxRunError extends Schema.TaggedError<SandboxRunError>()("Sand
 	message: Schema.String,
 }) {}
 
+export const toSandboxRunError = (cause: unknown): SandboxRunError =>
+	cause instanceof SandboxRunError
+		? cause
+		: new SandboxRunError({ message: unknownToMessage(cause) });
+
 export class TimeoutError extends Schema.TaggedError<TimeoutError>()("TimeoutError", {
 	message: Schema.String,
 }) {}
