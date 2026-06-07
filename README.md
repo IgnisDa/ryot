@@ -118,19 +118,6 @@ bun run dev
 
 Configure `apps/app-backend/.env` with at minimum `DATABASE_URL`, `REDIS_URL`, `SERVER_ADMIN_ACCESS_TOKEN`, `FRONTEND_URL`. Other commands: `bun run test`, `bun run check`.
 
-## Project Structure
-
-```
-apps/
-  app-backend/       TypeScript backend (Hono, Drizzle, BullMQ)
-  app-frontend/      React frontend (TanStack Router, Mantine)
-libs/
-  generated/         Auto-generated OpenAPI types
-  ts-utils/          Shared TypeScript utilities
-tests/               End-to-end and integration tests
-docs/tasks/          Feature PRDs and task breakdowns
-```
-
 ## Community
 
 Questions or feedback? Join the [Discord server](https://discord.gg/D9XTg2a7R8) or open a [GitHub issue](https://github.com/ignisda/ryot/issues).
