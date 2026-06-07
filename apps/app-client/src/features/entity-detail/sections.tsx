@@ -10,11 +10,11 @@ import type { RelatedCompany } from "./companies";
 import { formatMinutes, formatSeconds } from "./duration";
 import { ExpandableText } from "./expandable-text";
 import { formatRoleLabel, getPrimaryCreator } from "./people";
-import type { EntityDetail, UnlinkedCreator } from "./types";
+import type { EntityDetail, AppUnlinkedCreator } from "./types";
 
 const ACCENT = "#C9943A";
 
-export function AboutSection(props: { creators: UnlinkedCreator[]; entity: EntityDetail }) {
+export function AboutSection(props: { creators: AppUnlinkedCreator[]; entity: EntityDetail }) {
 	const description = props.entity.properties.description;
 	if (!description) {
 		return null;
@@ -58,7 +58,7 @@ export function AboutSection(props: { creators: UnlinkedCreator[]; entity: Entit
 	);
 }
 
-export function CreatorsSection(props: { creators: UnlinkedCreator[] }) {
+export function CreatorsSection(props: { creators: AppUnlinkedCreator[] }) {
 	if (props.creators.length === 0) {
 		return null;
 	}
@@ -237,7 +237,7 @@ function DetailRow(props: { label: string; value: string }) {
 	);
 }
 
-export function DetailsSection(props: { creators: UnlinkedCreator[]; entity: EntityDetail }) {
+export function DetailsSection(props: { creators: AppUnlinkedCreator[]; entity: EntityDetail }) {
 	const entity = props.entity;
 	const rows: { label: string; value: string }[] = [];
 	const primaryCreator = getPrimaryCreator(props.creators);
