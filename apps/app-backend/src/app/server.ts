@@ -17,6 +17,7 @@ import { ImportsRoutesLive } from "#modules/imports/routes";
 import { IntegrationsRoutesLive } from "#modules/integrations/routes";
 import { QueryEngineRoutesLive } from "#modules/query-engine/routes";
 import { RelationshipSchemasRoutesLive } from "#modules/relationship-schemas/routes";
+import { RelationshipsRoutesLive } from "#modules/relationships/routes";
 import { SandboxRoutesLive } from "#modules/sandbox/routes";
 import { SavedViewsRoutesLive } from "#modules/saved-views/routes";
 import { SystemRoutesLive } from "#modules/system/routes";
@@ -75,7 +76,7 @@ const ApiLive = HttpApiBuilder.api(AppContract).pipe(
 	Layer.provide(SandboxRoutesLive),
 	Layer.provide(TrackersRoutesLive),
 	Layer.provide(EntitySchemasRoutesLive),
-	Layer.provide(RelationshipSchemasRoutesLive),
+	Layer.provide(Layer.mergeAll(RelationshipSchemasRoutesLive, RelationshipsRoutesLive)),
 	Layer.provide(EntitiesRoutesLive),
 	Layer.provide(EntityImportRoutesLive),
 	Layer.provide(UserStateRoutesLive),

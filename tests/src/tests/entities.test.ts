@@ -9,6 +9,7 @@ import {
 	createEventSchema,
 	createEntitySchema,
 	createGlobalBookEntityFixture,
+	createRelationship,
 	createTracker,
 	createTrackerWithSchemaAndEntity,
 	createTrackerWithSchema,
@@ -37,37 +38,22 @@ import { assertTaggedError } from "../test-support/assertions";
 
 async function insertUserRelationship(input: {
 	client: Awaited<ReturnType<typeof createAuthenticatedClient>>["client"];
-	userId: string;
 	sourceEntityId: string;
 	targetEntityId: string;
 	relationshipSchemaSlug: string;
 	properties?: Record<string, unknown>;
 }) {
-	const pg = getPgClient();
 	const schemas = await listRelationshipSchemas(input.client, {
 		slugs: [input.relationshipSchemaSlug],
 	});
 	const relationshipSchema = requireRelationshipSchemaBySlug(schemas, input.relationshipSchemaSlug);
 
-	await pg.query(
-		`insert into relationship (
-			id,
-			user_id,
-			relationship_schema_id,
-			properties,
-			source_entity_id,
-			target_entity_id
-		) values ($1, $2, $3, $4::jsonb, $5, $6)
-		 on conflict (user_id, source_entity_id, target_entity_id, relationship_schema_id) do nothing`,
-		[
-			crypto.randomUUID(),
-			input.userId,
-			relationshipSchema.id,
-			JSON.stringify(input.properties ?? {}),
-			input.sourceEntityId,
-			input.targetEntityId,
-		],
-	);
+	await createRelationship(input.client, {
+		properties: input.properties,
+		sourceEntityId: EntityId.make(input.sourceEntityId),
+		targetEntityId: EntityId.make(input.targetEntityId),
+		relationshipSchemaId: relationshipSchema.id,
+	});
 }
 
 async function getLibraryEntityId(userId: string) {
@@ -414,10 +400,9 @@ describe("DELETE /user-state/clear/:id", () => {
 		await insertLibraryMembership(userA.client, { userId: userA.userId, mediaEntityId: entity.id });
 		await insertUserRelationship({
 			client: userA.client,
-			userId: userA.userId,
 			sourceEntityId: entity.id,
 			targetEntityId: extraTargetEntityId,
-			relationshipSchemaSlug: "member-of",
+			relationshipSchemaSlug: "media-suggestion",
 		});
 
 		await pollUntil("user A event setup", async () => {
@@ -522,17 +507,15 @@ describe("POST /user-state/merge", () => {
 		);
 		await insertUserRelationship({
 			client,
-			userId,
 			sourceEntityId: source.id,
 			targetEntityId: related.id,
-			relationshipSchemaSlug: "member-of",
+			relationshipSchemaSlug: "media-suggestion",
 		});
 		await insertUserRelationship({
 			client,
-			userId,
 			sourceEntityId: target.id,
 			targetEntityId: related.id,
-			relationshipSchemaSlug: "member-of",
+			relationshipSchemaSlug: "media-suggestion",
 		});
 		await pollUntil("source event setup", async () => {
 			const counts = await queryUserEntityStateCounts({ userId, entityId: source.id });

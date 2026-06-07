@@ -11,6 +11,7 @@ import { ImportsGroup } from "#modules/imports/contract";
 import { IntegrationsGroup } from "#modules/integrations/contract";
 import { QueryEngineGroup } from "#modules/query-engine/contract";
 import { RelationshipSchemasGroup } from "#modules/relationship-schemas/contract";
+import { RelationshipsGroup } from "#modules/relationships/contract";
 import { SandboxGroup } from "#modules/sandbox/contract";
 import { SavedViewsGroup } from "#modules/saved-views/contract";
 import { SystemGroup } from "#modules/system/contract";
@@ -24,6 +25,7 @@ export const AppContract = HttpApi.make("ryot")
 	.add(TrackersGroup)
 	.add(EntitySchemasGroup)
 	.add(RelationshipSchemasGroup)
+	.add(RelationshipsGroup)
 	.add(EntitiesGroup)
 	.add(EntityImportGroup)
 	.add(UserStateGroup)
