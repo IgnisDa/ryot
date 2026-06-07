@@ -9,7 +9,6 @@ import { EventsGroup } from "#modules/events/contract";
 import { GodModeGroup } from "#modules/god-mode/contract";
 import { ImportsGroup } from "#modules/imports/contract";
 import { IntegrationsGroup } from "#modules/integrations/contract";
-import { QueryEngineV2Group } from "#modules/query-engine-v2/contract";
 import { QueryEngineGroup } from "#modules/query-engine/contract";
 import { RelationshipSchemasGroup } from "#modules/relationship-schemas/contract";
 import { RelationshipsGroup } from "#modules/relationships/contract";
@@ -39,6 +38,5 @@ export const AppContract = HttpApi.make("ryot")
 	.add(ImportsGroup)
 	.add(IntegrationsGroup)
 	.add(QueryEngineGroup)
-	.add(QueryEngineV2Group)
 	.annotate(OpenApi.Title, "Ryot API")
 	.annotate(OpenApi.Description, "API documentation for the Ryot backend");

@@ -7,9 +7,10 @@ import { buildReorderedIds } from "#lib/reorder";
 import type { TrackerId } from "#lib/schema/brands";
 import { slugify } from "#lib/slug";
 import { trimToNull } from "#lib/validation";
-import { validateQueryDocumentV2 } from "#modules/query-engine-v2/validator";
+import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 import { QueryEngineService } from "#modules/query-engine/service";
 
+import { validateDisplayConfiguration } from "./display-configuration-validation";
 import { SavedViewsRepository } from "./repository";
 import type { CreateSavedViewBody, ReorderSavedViewsBody, UpdateSavedViewBody } from "./schemas";
 
@@ -32,23 +33,6 @@ const resolveSavedViewSlug = Effect.fn(function* (name: string) {
 	return slug;
 });
 
-const normalizeSavedViewQueryDefinition = (
-	queryDefinition: CreateSavedViewBody["queryDefinition"],
-) => ({
-	mode: "entities" as const,
-	sort: queryDefinition.sort,
-	scope: [...queryDefinition.scope],
-	filter: queryDefinition.filter ?? null,
-	eventJoins: [...(queryDefinition.eventJoins ?? [])],
-	computedFields: [...(queryDefinition.computedFields ?? [])],
-	relationshipJoins: [...(queryDefinition.relationshipJoins ?? [])],
-});
-
-const validateSavedViewQueryDocument = (queryDocument: CreateSavedViewBody["queryDocument"]) => {
-	const validationError = validateQueryDocumentV2(queryDocument);
-	return validationError ? badRequest(validationError) : Effect.void;
-};
-
 const ensureBuiltinUpdateIsAllowed = (
 	currentView: {
 		name: string;
@@ -56,7 +40,6 @@ const ensureBuiltinUpdateIsAllowed = (
 		isBuiltin: boolean;
 		accentColor: string;
 		queryDocument: unknown;
-		queryDefinition: unknown;
 		trackerId: TrackerId | null;
 		displayConfiguration: unknown;
 	},
@@ -66,14 +49,11 @@ const ensureBuiltinUpdateIsAllowed = (
 		return Effect.void;
 	}
 
-	const nextQueryDefinition = normalizeSavedViewQueryDefinition(payload.queryDefinition);
-
 	const attemptsMutation =
 		payload.name !== currentView.name ||
 		payload.icon !== currentView.icon ||
 		(payload.trackerId ?? null) !== currentView.trackerId ||
 		payload.accentColor !== currentView.accentColor ||
-		!Bun.deepEquals(nextQueryDefinition, currentView.queryDefinition) ||
 		!Bun.deepEquals(payload.queryDocument, currentView.queryDocument) ||
 		!Bun.deepEquals(payload.displayConfiguration, currentView.displayConfiguration);
 
@@ -87,8 +67,9 @@ const ensureBuiltinUpdateIsAllowed = (
 export class SavedViewsService extends Effect.Service<SavedViewsService>()("SavedViewsService", {
 	effect: Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
-		const queryEngine = yield* QueryEngineService;
+		const entitySchemasRepository = yield* EntitySchemasRepository;
 		const repository = yield* SavedViewsRepository;
+		const queryEngine = yield* QueryEngineService;
 		const runInTransaction = yield* TransactionRunner;
 
 		return {
@@ -112,25 +93,24 @@ export class SavedViewsService extends Effect.Service<SavedViewsService>()("Save
 			) {
 				const name = yield* resolveSavedViewName(payload.name);
 				const slug = yield* resolveSavedViewSlug(name);
-				const queryDefinition = normalizeSavedViewQueryDefinition(payload.queryDefinition);
-				yield* validateSavedViewQueryDocument(payload.queryDocument);
+				yield* queryEngine.validate(user, payload.queryDocument);
+				yield* validateDisplayConfiguration({
+					doc: payload.queryDocument,
+					displayConfig: payload.displayConfiguration,
+					loadSchemas: (slugs) =>
+						runWithDb(entitySchemasRepository.listVisibleBySlugs(user.id, slugs)),
+				});
 
 				const existing = yield* runWithDb(repository.findBySlug(user.id, slug));
 				if (existing) {
 					return yield* badRequest("A saved view with this name already exists");
 				}
 
-				yield* queryEngine.validateSavedView(user, {
-					queryDefinition,
-					displayConfiguration: payload.displayConfiguration,
-				});
-
 				const created = yield* runWithDb(
 					repository.create(user.id, {
 						slug,
 						name,
 						userId: user.id,
-						queryDefinition,
 						isBuiltin: false,
 						icon: payload.icon,
 						trackerId: payload.trackerId,
@@ -165,12 +145,12 @@ export class SavedViewsService extends Effect.Service<SavedViewsService>()("Save
 				}
 
 				const name = yield* resolveSavedViewName(payload.name);
-				const queryDefinition = normalizeSavedViewQueryDefinition(payload.queryDefinition);
-				yield* validateSavedViewQueryDocument(payload.queryDocument);
-
-				yield* queryEngine.validateSavedView(user, {
-					queryDefinition,
-					displayConfiguration: payload.displayConfiguration,
+				yield* queryEngine.validate(user, payload.queryDocument);
+				yield* validateDisplayConfiguration({
+					doc: payload.queryDocument,
+					displayConfig: payload.displayConfiguration,
+					loadSchemas: (slugs) =>
+						runWithDb(entitySchemasRepository.listVisibleBySlugs(user.id, slugs)),
 				});
 
 				const updated = yield* runWithDb(
@@ -179,7 +159,6 @@ export class SavedViewsService extends Effect.Service<SavedViewsService>()("Save
 						viewSlug,
 						{
 							name,
-							queryDefinition,
 							icon: payload.icon,
 							trackerId: payload.trackerId,
 							isDisabled: payload.isDisabled,
@@ -223,23 +202,15 @@ export class SavedViewsService extends Effect.Service<SavedViewsService>()("Save
 				if (!source) {
 					return yield* notFound(savedViewNotFound);
 				}
-				const queryDefinition = normalizeSavedViewQueryDefinition(source.queryDefinition);
-
 				const clonedName = `${source.name} (Copy)`;
 				const name = yield* resolveSavedViewName(clonedName);
 				const slug = yield* resolveSavedViewSlug(name);
-
-				yield* queryEngine.validateSavedView(user, {
-					queryDefinition,
-					displayConfiguration: source.displayConfiguration,
-				});
 
 				const created = yield* runWithDb(
 					repository.create(user.id, {
 						slug,
 						name,
 						userId: user.id,
-						queryDefinition,
 						isBuiltin: false,
 						icon: source.icon,
 						trackerId: source.trackerId,

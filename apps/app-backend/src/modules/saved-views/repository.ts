@@ -1,19 +1,13 @@
 import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { Effect } from "effect";
 
-import {
-	buildDefaultQueryDefinition,
-	buildDefaultQueryDocument,
-	buildDisplayConfig,
-} from "#lib/builtins/view-helpers";
+import { buildDefaultQueryDocument, buildDisplayConfig } from "#lib/builtins/view-helpers";
 import { CurrentDb, dbEffect, isUniqueConstraintError } from "#lib/db";
 import * as schema from "#lib/db/schema/tables";
 import { DbError, conflict } from "#lib/errors";
 import type { UserId } from "#lib/schema/brands";
 import { SavedViewId, TrackerId } from "#lib/schema/brands";
 import { slugify } from "#lib/slug";
-
-import type { ListedSavedView } from "./schemas";
 
 type SavedViewRow = typeof schema.savedView.$inferSelect;
 
@@ -26,7 +20,6 @@ type CreateSavedViewInput = {
 	readonly accentColor: string;
 	readonly trackerId: TrackerId | null | undefined;
 	readonly queryDocument: (typeof schema.savedView.$inferSelect)["queryDocument"];
-	readonly queryDefinition: (typeof schema.savedView.$inferSelect)["queryDefinition"];
 	readonly displayConfiguration: (typeof schema.savedView.$inferSelect)["displayConfiguration"];
 };
 
@@ -37,23 +30,10 @@ type UpdateSavedViewData = {
 	readonly accentColor: string;
 	readonly trackerId?: TrackerId;
 	readonly queryDocument: (typeof schema.savedView.$inferSelect)["queryDocument"];
-	readonly queryDefinition: (typeof schema.savedView.$inferSelect)["queryDefinition"];
 	readonly displayConfiguration: (typeof schema.savedView.$inferSelect)["displayConfiguration"];
 };
 
 const savedViewUserSlugConstraint = "saved_view_user_slug_unique";
-
-const normalizeQueryDefinition = (
-	queryDefinition: SavedViewRow["queryDefinition"],
-): ListedSavedView["queryDefinition"] => ({
-	mode: "entities",
-	sort: queryDefinition.sort,
-	scope: [...queryDefinition.scope],
-	filter: queryDefinition.filter ?? null,
-	eventJoins: [...queryDefinition.eventJoins],
-	computedFields: [...queryDefinition.computedFields],
-	relationshipJoins: [...(queryDefinition.relationshipJoins ?? [])],
-});
 
 const toListedSavedView = (row: SavedViewRow) => ({
 	slug: row.slug,
@@ -68,7 +48,6 @@ const toListedSavedView = (row: SavedViewRow) => ({
 	createdAt: row.createdAt.toISOString(),
 	updatedAt: row.updatedAt.toISOString(),
 	displayConfiguration: row.displayConfiguration,
-	queryDefinition: normalizeQueryDefinition(row.queryDefinition),
 	trackerId: row.trackerId === null ? null : TrackerId.make(row.trackerId),
 });
 
@@ -154,7 +133,6 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 							accentColor: input.accentColor,
 							queryDocument: input.queryDocument,
 							trackerId: input.trackerId ?? null,
-							queryDefinition: input.queryDefinition,
 							sortOrder: (orderRow?.maxSortOrder ?? -1) + 1,
 							displayConfiguration: input.displayConfiguration,
 						})
@@ -197,7 +175,6 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 							accentColor: input.accentColor,
 							displayConfiguration: buildDisplayConfig(input.entitySchemaSlug),
 							queryDocument: buildDefaultQueryDocument([input.entitySchemaSlug]),
-							queryDefinition: buildDefaultQueryDefinition([input.entitySchemaSlug]),
 						}),
 					).pipe(
 						Effect.mapError((error) =>
@@ -231,7 +208,6 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 							isDisabled: data.isDisabled,
 							accentColor: data.accentColor,
 							queryDocument: data.queryDocument,
-							queryDefinition: data.queryDefinition,
 							displayConfiguration: data.displayConfiguration,
 							...(sortOrder === undefined ? {} : { sortOrder }),
 						})

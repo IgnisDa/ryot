@@ -2,7 +2,6 @@ import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { eq } from "drizzle-orm";
 import { Effect, Runtime, Schema } from "effect";
 
-import { QueryEngineRequest } from "#lib/query-language";
 import { EntityId, EntitySchemaId, IntegrationId, UserId } from "#lib/schema/brands";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
@@ -12,6 +11,7 @@ import { CreateEventItem } from "#modules/events/schemas";
 import { runEventCreate } from "#modules/events/workflows";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { isIntegrationProvider } from "#modules/integrations/types";
+import { QueryDocument } from "#modules/query-engine/language";
 import { QueryEngineService } from "#modules/query-engine/service";
 
 import { AppConfig } from "../config";
@@ -54,7 +54,7 @@ const ListEventsQuery = Schema.Struct({
 
 const decodeListEventsQuery = Schema.decodeUnknown(ListEventsQuery);
 const decodeCreateEventsPayload = Schema.decodeUnknown(CreateEventsPayload);
-const decodeQueryEngineRequest = Schema.decodeUnknown(QueryEngineRequest);
+const decodeQueryDocument = Schema.decodeUnknown(QueryDocument);
 
 const requireNonEmptyString = (value: unknown, message: string): Effect.Effect<string, string> => {
 	if (typeof value !== "string" || value.trim().length === 0) {
@@ -222,11 +222,11 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 
 				return runHostEffect(
 					runPromise,
-					decodeQueryEngineRequest(query).pipe(
-						Effect.flatMap((request) =>
+					decodeQueryDocument(query).pipe(
+						Effect.flatMap((doc) =>
 							queryEngineService.execute(
 								{ id: UserId.make(input.userId), name: "", email: "" },
-								request,
+								doc,
 							),
 						),
 					),

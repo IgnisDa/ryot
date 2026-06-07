@@ -8,11 +8,10 @@ import {
 
 import type { Client } from "../fixtures";
 import {
-	buildGridRequest,
+	buildEntityRowsQueryDocument,
 	createEntity,
 	createAuthenticatedClient,
 	createWorkoutEntityFixture,
-	entityField,
 	executeQueryEngine,
 	findBuiltinTrackerBySlug,
 	findBuiltinSchemaBySlug,
@@ -20,8 +19,10 @@ import {
 	getQueryEngineFieldOrThrow,
 	listEntitySchemas,
 	listSavedViews,
-	literalExpression,
+	literalExpr,
 	mergeUserState,
+	propertyRef,
+	systemRef,
 } from "../fixtures";
 import { pollUntil } from "../fixtures/polling";
 import { assertTaggedError } from "../test-support/assertions";
@@ -36,26 +37,27 @@ const waitForSeededExercise = async (client: Client) => {
 		async () => {
 			const { data } = await executeQueryEngine(
 				client,
-				buildGridRequest({
-					scope: ["exercise"],
-					pagination: { page: 1, limit: 1 },
-					displayConfiguration: {
-						titleProperty: [entityField("exercise", "name")],
-						imageProperty: [entityField("exercise", "image")],
-						calloutProperty: [entityField("exercise", "level")],
-						primarySubtitleProperty: [entityField("exercise", "kind")],
-						secondarySubtitleProperty: [entityField("exercise", "equipment")],
-					},
-					filter: {
-						operator: "eq",
+				buildEntityRowsQueryDocument({
+					limit: 1,
+					alias: "exercise",
+					schemas: ["exercise"],
+					fields: [
+						{ key: "title", expr: systemRef("exercise", "name") },
+						{ key: "image", expr: systemRef("exercise", "image") },
+						{ key: "callout", expr: propertyRef("exercise", "exercise", "level") },
+						{ key: "primarySubtitle", expr: propertyRef("exercise", "exercise", "kind") },
+						{ key: "secondarySubtitle", expr: propertyRef("exercise", "exercise", "equipment") },
+					],
+					where: {
 						type: "comparison",
-						right: literalExpression(seededExerciseName),
-						left: createEntityColumnExpression("exercise", "name"),
+						operator: "eq",
+						left: systemRef("exercise", "name"),
+						right: literalExpr(seededExerciseName),
 					},
 				}),
 			);
 
-			return data.data.items[0] ?? null;
+			return data.items[0] ?? null;
 		},
 		{ intervalMs: 1000, timeoutMs: 60000 },
 	);
@@ -108,17 +110,7 @@ describe("Exercises E2E", () => {
 			isBuiltin: true,
 			name: "All Exercises",
 			trackerId: fitnessTracker.id,
-			queryDefinition: {
-				filter: null,
-				eventJoins: [],
-				computedFields: [],
-				scope: ["exercise"],
-				relationshipJoins: [],
-				sort: {
-					direction: "asc",
-					expression: createEntityColumnExpression("exercise", "name"),
-				},
-			},
+			queryDocument: { source: { schemas: ["exercise"] } },
 			displayConfiguration: {
 				table: {
 					columns: [
