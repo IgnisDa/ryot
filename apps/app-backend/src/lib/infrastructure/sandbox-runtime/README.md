@@ -80,7 +80,7 @@ Script-scoped functions use execution metadata such as `scriptId`. User-scoped f
 
 Sandbox scripts must register at least one driver with `driver(name, fn)`. The enqueue request chooses which driver to run with `driverName`.
 
-Drivers receive `(context, meta)`. `context` is caller-provided input. `meta` includes `{ sandboxScriptId }` when running from a stored script.
+Drivers receive `(context, meta)`. `context` is caller-provided input. `meta` includes `{ metadata, sandboxScriptId }` when running from a stored script.
 
 ```js
 driver("search", async function (context, meta) {
