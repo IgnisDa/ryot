@@ -3,7 +3,7 @@ import { Effect } from "effect";
 
 import { CurrentDb, dbEffect, schema } from "#lib/db";
 import type { DbError } from "#lib/errors";
-import { decodeStoredAppSchema } from "#lib/schema";
+import { decodeStoredAppSchema } from "#lib/schema/core";
 
 import type { RelationshipSchemaScope } from "./schemas";
 

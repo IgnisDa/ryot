@@ -6,7 +6,7 @@ import { DbRunner } from "#lib/db";
 import type { BadRequest, DbError, NotFound, SandboxRunError, TimeoutError } from "#lib/errors";
 import { badRequest, notFound, unknownToMessage } from "#lib/errors";
 import type { SandboxRunInput, SandboxRunOutput } from "#lib/sandbox/service";
-import { parseAppSchemaProperties } from "#lib/schema";
+import { parseAppSchemaProperties } from "#lib/schema/core";
 import { requireText } from "#lib/validation";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
