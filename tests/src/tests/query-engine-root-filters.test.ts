@@ -63,7 +63,6 @@ const setupItems = async () => {
 			entitySchemaId: schemaId,
 			properties: { difficulty: "beginner", durationMinutes: 120, archived: true },
 		}),
-		// Echo has no properties, so difficulty/durationMinutes/archived read as null.
 		createQueryEngineEntity(client, { name: "Echo", entitySchemaId: schemaId, properties: {} }),
 	]);
 	return { client, slug };
@@ -257,8 +256,6 @@ describe("Query engine root property filters", () => {
 			}),
 		);
 
-		// Only book rows are matched: the movie row's schema does not match the property's schema,
-		// so its value reads as null and is excluded even though its rating is >= 5.
 		expect(namesOf(result)).toEqual(["HighBook"]);
 	});
 
@@ -271,7 +268,6 @@ describe("Query engine root property filters", () => {
 				compare("neq", propertyRef("item", slug, "difficulty"), literalExpr("advanced")),
 			),
 		);
-		// Bravo/Charlie are advanced (excluded); Echo's difficulty is null so `neq` is false (excluded).
 		expect(namesOf(result)).toEqual(["Alpha", "Delta"]);
 	});
 
@@ -284,7 +280,6 @@ describe("Query engine root property filters", () => {
 				notW(compare("eq", propertyRef("item", slug, "difficulty"), literalExpr("advanced"))),
 			),
 		);
-		// eq is false for Echo (null), and NOT false is true — so Echo is kept, unlike neq above.
 		expect(namesOf(result)).toEqual(["Alpha", "Delta", "Echo"]);
 	});
 

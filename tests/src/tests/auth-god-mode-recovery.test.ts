@@ -182,7 +182,6 @@ describe("User listing with correct admin token", () => {
 		const { email } = await createTestUser();
 		const userId = await getUserIdByEmail(email);
 
-		// Linking a second (oidc) account to an existing credential user has no API.
 		await getPgClient().query(
 			`INSERT INTO "account" (id, account_id, provider_id, user_id, created_at, updated_at)
 			 VALUES ($1, $2, 'oidc', $3, NOW(), NOW())`,
@@ -446,7 +445,6 @@ describe("Mixed auth user restrictions", () => {
 		const { email } = await createTestUser();
 		const userId = await getUserIdByEmail(email);
 
-		// Linking a second (oidc) account to an existing credential user has no API.
 		await getPgClient().query(
 			`INSERT INTO "account" (id, account_id, provider_id, user_id, created_at, updated_at)
 			 VALUES ($1, $2, 'oidc', $3, NOW(), NOW())`,

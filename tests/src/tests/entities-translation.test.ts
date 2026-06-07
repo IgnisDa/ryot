@@ -27,11 +27,6 @@ const TRANSLATED_ES_DESCRIPTION = "Descripción traducida E2E.";
 const POPULATED_NAME = "E2E Populated Movie";
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// One fake builtin provider drives every case. Its `translate` driver returns a fixed Spanish overlay
-// for "es" and an empty object (→ negative-cache, all-null overlay) for any other non-canonical
-// language. It always registers a `translate` driver — including for the unpopulated-entity case —
-// so an erroneous premature translate would still write an all-null overlay the test can catch.
-// `canonicalLanguage: "en"` in metadata is what the read path uses to compute translationStatus.
 let providerScript: SeededProviderScript;
 
 async function seedPopulatedMovie(
@@ -87,14 +82,12 @@ describe("entity translation via client-declared interest", () => {
 
 		await setUserLanguage(client, "es");
 
-		// A read reports the pending translation status.
 		const beforeInterest = await getEntity(client, movie.id);
 		expect(beforeInterest.translationStatus).toBe("pending");
 		expect(beforeInterest.name).toBe("Canonical Fight Club");
 
 		const stream = await declareInterest(auth, [movie.id]);
 		try {
-			// Interest triggers the fill; completion fans out over the stream.
 			const event = await stream.waitForEntityUpdated(movie.id, "translated", {
 				timeoutMs: 30_000,
 			});
@@ -105,7 +98,6 @@ describe("entity translation via client-declared interest", () => {
 			});
 			expect(localizedRead.name).toBe(TRANSLATED_ES_NAME);
 
-			// A second non-canonical user reads the shared overlay directly — no interest needed.
 			const { client: clientB } = await createAuthenticatedClient();
 			await setUserLanguage(clientB, "es");
 			const sharedRead = await getEntity(clientB, movie.id);
@@ -181,8 +173,6 @@ describe("entity translation via client-declared interest", () => {
 			sandboxScriptId: providerScript.scriptId,
 		});
 
-		// A non-canonical language must NOT cause a premature translate on an unpopulated entity (which
-		// would write an all-null overlay and permanently mislabel the status as "none").
 		await setUserLanguage(client, "es");
 
 		const stream = await declareInterest(auth, [seeded.id]);

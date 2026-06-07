@@ -5,8 +5,6 @@ export async function oidcSignIn(
 	backendUrl: string,
 	claims?: Record<string, unknown>,
 ): Promise<string> {
-	// Step 1: POST to /auth/sign-in/oauth2 to get the authorization URL.
-	// Better Auth returns JSON { url, redirect } and sets a state cookie on this response.
 	const step1Response = await fetch(`${backendUrl}/auth/sign-in/oauth2`, {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
@@ -24,8 +22,6 @@ export async function oidcSignIn(
 	);
 	const [stateCookie] = stateCookieHeader.split(";");
 
-	// Step 2: POST the authorization URL to the mock OIDC server with the username.
-	// mock-oauth2-server auto-approves any username posted to the authorize endpoint.
 	const resolvedClaims = {
 		email: `${username}@example.com`,
 		name: username,
@@ -45,8 +41,6 @@ export async function oidcSignIn(
 		"oidcSignIn step 2 failed: no location header",
 	);
 
-	// Step 3: GET the backend callback URL with the state cookie.
-	// Better Auth exchanges the code, creates/looks up the user, and sets a session cookie.
 	const cookieValue = stateCookie ?? "";
 	const step3Response = await fetch(callbackUrl, {
 		redirect: "manual",
