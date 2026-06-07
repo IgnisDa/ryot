@@ -18,6 +18,7 @@ import type { MockOverrides } from "#lib/test-support/effect";
 import {
 	dbRunnerLayer,
 	makeAppConfigLayer,
+	makeRedisService,
 	makeWorkflowActivityEngine,
 } from "#lib/test-support/effect";
 import { CollectionsService } from "#modules/collections/service";
@@ -57,7 +58,6 @@ const mockEventsService = Layer.mock(EventsService);
 const mockEpisodeResolverService = Layer.mock(EpisodeResolverService);
 const mockEventSchemasRepository = Layer.mock(EventSchemasRepository);
 const mockEntitySchemasRepository = Layer.mock(EntitySchemasRepository);
-const mockRedisService = Layer.mock(RedisService);
 const mockImportRunArtifacts = Layer.mock(ImportRunArtifacts);
 
 const mangaGroup = (overrides: Record<string, unknown> = {}) => ({
@@ -174,17 +174,16 @@ const makeEntitySchemasRepository = (
 		_tag: "EntitySchemasRepository",
 	});
 
-const makeRedisService = (claimed = true) =>
-	mockRedisService({
-		claim: () => Effect.succeed(claimed),
-		client: makeRedisClient(),
-		_tag: "RedisService",
-	});
-
 const makeRedisClient = (): RedisService["client"] =>
 	Object.assign(Object.create(Redis.prototype), {
 		duplicate: makeRedisClient,
 	});
+
+const makeRedisLayer = (claimed = true) =>
+	Layer.succeed(
+		RedisService,
+		makeRedisService({ claim: () => Effect.succeed(claimed), client: makeRedisClient() }),
+	);
 
 const makeImportRunArtifacts = () =>
 	mockImportRunArtifacts({ cleanupArtifacts: () => Effect.void, _tag: "ImportRunArtifacts" });
@@ -220,7 +219,7 @@ const makeTestLayer = (options: TestLayerOptions) =>
 		dbRunnerLayer,
 		makeAppConfigLayer(),
 		BunFileSystem.layer,
-		makeRedisService(options.claimed),
+		makeRedisLayer(options.claimed),
 		makeImportRunArtifacts(),
 		makeMediaOperations(options.mediaOperations),
 		makeIntegrationOperations(options.integrationOperations),
