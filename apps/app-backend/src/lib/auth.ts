@@ -230,18 +230,20 @@ export class AuthService extends Effect.Service<AuthService>()("AuthService", {
 						return unauthorized();
 					},
 				}).pipe(
-					Effect.flatMap((session) =>
-						session
-							? session.user.bannedAt
-								? Effect.fail(unauthorized())
-								: Effect.succeed({
-										id: UserId.make(session.user.id),
-										name: session.user.name,
-										email: session.user.email,
-										preferences: normalizeUserPreferences(session.user.preferences),
-									})
-							: Effect.fail(unauthorized()),
-					),
+					Effect.flatMap((session) => {
+						if (!session) {
+							return Effect.fail(unauthorized());
+						}
+						if (session.user.bannedAt) {
+							return Effect.fail(unauthorized());
+						}
+						return Effect.succeed({
+							id: UserId.make(session.user.id),
+							name: session.user.name,
+							email: session.user.email,
+							preferences: normalizeUserPreferences(session.user.preferences),
+						});
+					}),
 				),
 		};
 	}),
