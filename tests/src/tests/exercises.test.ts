@@ -24,7 +24,6 @@ import {
 	mergeUserState,
 } from "../fixtures";
 import { pollUntil } from "../fixtures/polling";
-import { getPgClient } from "../setup";
 import { assertTaggedError } from "../test-support/assertions";
 
 const seededExerciseName = "3/4 Sit-Up";
@@ -61,35 +60,6 @@ const waitForSeededExercise = async (client: Client) => {
 		{ intervalMs: 1000, timeoutMs: 60000 },
 	);
 };
-
-async function insertWorkoutSetEvent(input: {
-	userId: string;
-	entityId: string;
-	sessionEntityId: string;
-	eventSchemaId: string;
-}) {
-	const pg = getPgClient();
-
-	await pg.query(
-		`insert into event (
-			id,
-			user_id,
-			entity_id,
-			event_schema_id,
-			session_entity_id,
-			occurred_at,
-			properties
-		) values ($1, $2, $3, $4, $5, now(), $6::jsonb)`,
-		[
-			crypto.randomUUID(),
-			input.userId,
-			input.entityId,
-			input.eventSchemaId,
-			input.sessionEntityId,
-			JSON.stringify({ setOrder: 0, exerciseOrder: 0 }),
-		],
-	);
-}
 
 describe("Exercises E2E", () => {
 	it("links the built-in exercise schema to the fitness tracker", async () => {
@@ -240,7 +210,7 @@ describe("Exercises E2E", () => {
 	});
 
 	it("merges workout-set events between exercises with the same kind", async () => {
-		const { client, userId } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 		const { schema: exerciseSchema } = await findBuiltinSchemaBySlug(client, "exercise");
 		const { workoutId } = await createWorkoutEntityFixture(client);
 		const { workoutSetEventSchema } = await findWorkoutSetEventSchema(client);
@@ -257,11 +227,21 @@ describe("Exercises E2E", () => {
 			properties: { kind: "reps", muscles: ["abdominals"] },
 		});
 
-		await insertWorkoutSetEvent({
-			userId,
-			entityId: source.id,
-			sessionEntityId: workoutId,
-			eventSchemaId: workoutSetEventSchema.id,
+		await client.run((c) =>
+			c.events.create({
+				payload: [
+					{
+						entityId: source.id,
+						sessionEntityId: workoutId,
+						eventSchemaId: workoutSetEventSchema.id,
+						properties: { setOrder: 0, exerciseOrder: 0 },
+					},
+				],
+			}),
+		);
+		await pollUntil("source workout set event", async () => {
+			const events = await client.run((c) => c.events.list({ urlParams: { entityId: source.id } }));
+			return events.length === 1 ? events : null;
 		});
 
 		const result = await mergeUserState(client, { mergeFrom: source.id, mergeInto: target.id });
