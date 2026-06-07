@@ -17,6 +17,7 @@ import type {
 	MediaImportAdapterFailure,
 	MediaImportAdapterResult,
 } from "../../media/import-processor";
+import type { ImportMediaEntityGroup } from "../../media/types";
 
 const AnilistList = Schema.Struct({
 	id: Schema.Int,
@@ -152,7 +153,7 @@ export const adaptAnilistExport = (
 	const importedAt = nowIso();
 	const failures: MediaImportAdapterFailure[] = [];
 	const data = decodeAnilistRoot(JSON.parse(jsonText) as unknown);
-	const groupMap = new Map<string, ReturnType<typeof getOrCreateMediaEntityGroup>>();
+	const groupMap = new Map<string, ImportMediaEntityGroup>();
 
 	const animeCustomLists = data.user?.custom_lists?.anime;
 	const mangaCustomLists = data.user?.custom_lists?.manga;
