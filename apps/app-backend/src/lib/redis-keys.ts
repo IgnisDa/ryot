@@ -18,6 +18,7 @@ const godModeResetChannelPrefix = "god-mode:reset:";
 const godModePendingResetKeyPrefix = "god-mode:pending:";
 const importUploadTokenKeyPrefix = "import:upload:token:";
 const importSourcePayloadKeyPrefix = "import:source-payload:";
+const integrationCacheKeyPrefix = "integration:cache:";
 
 const safeDecode = <T>(decode: () => T): RedisDecodeResult<T> => {
 	try {
@@ -93,6 +94,10 @@ export const redisKeys = {
 	godMode: {
 		pendingReset: (email: string) => `${godModePendingResetKeyPrefix}${email}`,
 		resetChannel: (correlationId: string) => `${godModeResetChannelPrefix}${correlationId}`,
+	},
+	integrations: {
+		cache: (integrationId: string, key: string) =>
+			`${integrationCacheKeyPrefix}${integrationId}:${key}`,
 	},
 	sandbox: {
 		sessionPattern: () => `${sandboxSessionKeyPrefix}*`,

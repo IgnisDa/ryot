@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -135,19 +135,19 @@ The imports `processMediaImport` function must accept an optional `EventWriteCon
 
 ## Acceptance criteria
 
-- [ ] Audiobookshelf Yank integration creates `import_run` records and persists progress events for in-progress audiobooks, podcasts, and books.
-- [ ] Audiobookshelf items with no resolvable identifier produce `import_run_failure` rows with `stage = "input_transformation"`.
-- [ ] Audiobookshelf owned items sync writes `owned = true` on `in-library` relationships when `syncOwnership = true`.
-- [ ] Komga Yank integration resolves manga/comics via unresolved-ref identifier chain.
-- [ ] PlexYank emits no progress events; only writes owned items when `syncOwnership = true`.
-- [ ] YoutubeMusic first-sighting emits `progressPercent = 35`; second-sighting emits `progressPercent = 100`.
-- [ ] YoutubeMusic uses `claimCachedValue` keyed by userId + integrationId + songId + localDate.
-- [ ] All adapters set correct `consumedOn` provider ID string.
-- [ ] `integration.lastFinishedAt` is updated only on successful run completion.
-- [ ] Auto-disable check runs after each Yank execution.
-- [ ] Yank jobs no-op without creating an import_run when `user.preferences.disableIntegrations = true`.
-- [ ] `EventWriteContext { origin: "integration" }` is passed through to event creation.
-- [ ] Unit tests for each adapter: happy-path parse, unresolvable item failure, empty response. Prior art: `imports/sources/goodreads/adapter.test.ts`.
+- [x] Audiobookshelf Yank integration creates `import_run` records and persists progress events for in-progress audiobooks, podcasts, and books.
+- [x] Audiobookshelf items with no resolvable identifier produce `import_run_failure` rows with `stage = "input_transformation"`.
+- [x] Audiobookshelf owned items sync writes `owned = true` on `in-library` relationships when `syncOwnership = true`.
+- [x] Komga Yank integration resolves manga/comics via unresolved-ref identifier chain.
+- [x] PlexYank emits no progress events; only writes owned items when `syncOwnership = true`.
+- [x] YoutubeMusic first-sighting emits `progressPercent = 35`; second-sighting emits `progressPercent = 100`.
+- [x] YoutubeMusic uses `claimCachedValue` keyed by userId + integrationId + songId + localDate.
+- [x] All adapters set correct `consumedOn` provider ID string.
+- [x] `integration.lastFinishedAt` is updated only on successful run completion.
+- [x] Auto-disable check runs after each Yank execution.
+- [x] Yank jobs no-op without creating an import_run when `user.preferences.disableIntegrations = true`.
+- [x] `EventWriteContext { origin: "integration" }` is passed through to event creation.
+- [x] Unit tests for each adapter: happy-path parse, unresolvable item failure, empty response. Prior art: `imports/sources/goodreads/adapter.test.ts`.
 
 ## User stories addressed
 

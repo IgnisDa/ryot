@@ -279,6 +279,19 @@ export const upsertEntityRelationship = async (input: {
 		});
 };
 
+export const findEntityIdForUserBySchemaId = async (
+	input: { userId: string; entitySchemaId: string },
+	database: DbClient = db,
+) => {
+	const [found] = await database
+		.select({ id: entity.id })
+		.from(entity)
+		.where(and(eq(entity.userId, input.userId), eq(entity.entitySchemaId, input.entitySchemaId)))
+		.limit(1);
+
+	return found?.id;
+};
+
 export const getUserLibraryEntityId = async (
 	input: { userId: string },
 	database: DbClient = db,
@@ -381,6 +394,27 @@ export const deleteRelationship = async (input: {
 		.returning(relationshipSelection);
 
 	return deletedRelationship;
+};
+
+export const getRelationshipForUser = async (input: {
+	userId: string;
+	sourceEntityId: string;
+	targetEntityId: string;
+	relationshipSchemaId: string;
+}): Promise<Record<string, unknown> | undefined> => {
+	const [found] = await db
+		.select({ properties: relationship.properties })
+		.from(relationship)
+		.where(
+			and(
+				eq(relationship.userId, input.userId),
+				eq(relationship.sourceEntityId, input.sourceEntityId),
+				eq(relationship.targetEntityId, input.targetEntityId),
+				eq(relationship.relationshipSchemaId, input.relationshipSchemaId),
+			),
+		)
+		.limit(1);
+	return found?.properties ?? undefined;
 };
 
 export const upsertInLibraryRelationship = async (
