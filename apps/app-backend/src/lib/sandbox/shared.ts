@@ -7,6 +7,9 @@ export type UserSandboxRunInput = SandboxRunInput & { readonly userId: string };
 export const apiSuccess = <T>(data: T) => ({ data, success: true as const });
 export const apiFailure = (error: string) => ({ error, success: false as const });
 
+export const isObjectRecord = (value: unknown): value is Record<string, unknown> =>
+	typeof value === "object" && value !== null && !Array.isArray(value);
+
 export const isSandboxRunInput = (value: unknown): value is SandboxRunInput => {
 	if (value === null || typeof value !== "object") {
 		return false;

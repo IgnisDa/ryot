@@ -7,8 +7,7 @@ import { AppConfig } from "../config";
 import { badRequest, internalError, unknownToMessage } from "../errors";
 import { redisKeys, RedisService } from "../redis";
 import sandboxRunnerSource from "./runner-source.txt";
-
-type BoundHostFunction = (...args: ReadonlyArray<unknown>) => Promise<unknown>;
+import type { BoundHostFunction } from "./shared";
 
 const SandboxSessionRecord = Schema.Struct({
 	token: Schema.String,
