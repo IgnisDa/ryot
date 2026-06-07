@@ -1,7 +1,7 @@
-import { assert, describe, expect, it } from "@effect/vitest";
+import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 
-import { parseServerOrigin } from "#/api/origin";
+import { decodeServerOrigin } from "#/api/origin";
 import {
 	ClientStorage,
 	clientStorageLayer,
@@ -10,6 +10,9 @@ import {
 	THEME_PREFERENCE_KEY,
 	type BrowserStorage,
 } from "#/persistence/storage";
+
+const oneOrigin = decodeServerOrigin("https://one.example.com");
+const twoOrigin = decodeServerOrigin("https://two.example.com/");
 
 const makeStorage = (entries: readonly (readonly [string, string])[] = []) => {
 	const values = new Map(entries);
@@ -28,15 +31,11 @@ describe("browser persistence", () => {
 			[THEME_PREFERENCE_KEY, "dark"],
 			["ryot:other-setting", "keep-too"],
 		]);
-		const first = parseServerOrigin("https://one.example.com");
-		const second = parseServerOrigin("https://two.example.com/");
-		assert(first.ok && second.ok);
-
 		return Effect.gen(function* () {
 			const service = yield* ClientStorage;
-			yield* service.setServerSelection(first.origin);
-			yield* service.setServerSelection(second.origin);
-			expect(yield* service.getServerSelection).toBe("https://two.example.com");
+			yield* service.setServerSelection(oneOrigin);
+			yield* service.setServerSelection(twoOrigin);
+			expect(yield* service.getServerSelection).toBe(twoOrigin);
 			yield* service.clearServerSelection;
 
 			expect(values.has(SERVER_SELECTION_KEY)).toBe(false);
@@ -60,11 +59,11 @@ describe("browser persistence", () => {
 		}).pipe(Effect.provide(clientStorageLayer(storage)));
 	});
 
-	it.effect("partitions the last workspace by normalized server and user scope", () => {
+	it.effect("partitions the last workspace by canonical server and user scope", () => {
 		const { storage, values } = makeStorage();
-		const secondUser = { serverUrl: "https://one.example.com", userId: "user-2" };
-		const secondServer = { serverUrl: "https://two.example.com", userId: "user-1" };
-		const firstScope = { serverUrl: " https://one.example.com/// ", userId: "user-1" };
+		const secondUser = { serverUrl: oneOrigin, userId: "user-2" };
+		const secondServer = { serverUrl: twoOrigin, userId: "user-1" };
+		const firstScope = { serverUrl: oneOrigin, userId: "user-1" };
 
 		return Effect.gen(function* () {
 			const service = yield* ClientStorage;
@@ -73,16 +72,14 @@ describe("browser persistence", () => {
 			yield* service.setLastWorkspace(secondServer, "books");
 
 			expect(values.get('ryot:workspace:["https://one.example.com","user-1"]')).toBe("media");
-			expect(
-				yield* service.getLastWorkspace({ ...firstScope, serverUrl: "https://one.example.com" }),
-			).toBe("media");
+			expect(yield* service.getLastWorkspace(firstScope)).toBe("media");
 			expect(yield* service.getLastWorkspace(secondUser)).toBe("fitness");
 			expect(yield* service.getLastWorkspace(secondServer)).toBe("books");
 		}).pipe(Effect.provide(clientStorageLayer(storage)));
 	});
 
 	it.effect("returns null for missing or malformed last workspaces", () => {
-		const scope = { serverUrl: "https://one.example.com", userId: "user-1" };
+		const scope = { serverUrl: oneOrigin, userId: "user-1" };
 		const { storage, values } = makeStorage();
 
 		return Effect.gen(function* () {

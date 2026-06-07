@@ -9,6 +9,7 @@ import { PluginSlug } from "@ryot/contract/schema/brands";
 import { Cause, Effect, Exit, Fiber, Layer } from "effect";
 
 import { AuthenticatedApi, AuthenticatedApiError } from "#/api/authenticated";
+import { decodeServerOrigin } from "#/api/origin";
 import type { ApiScope } from "#/api/scope";
 import {
 	ArtifactSessionCreationError,
@@ -16,7 +17,8 @@ import {
 	ArtifactSessionTemporaryError,
 } from "#/modules/plugins/artifact-sessions";
 
-const scope: ApiScope = { userId: "user-1", serverUrl: "https://ryot.example/" };
+const serverOrigin = decodeServerOrigin("https://ryot.example");
+const scope: ApiScope = { userId: "user-1", serverUrl: serverOrigin };
 
 type CreateRequest = {
 	readonly payload: ContractPayload<"plugins", "createArtifactSession">;
@@ -84,7 +86,7 @@ describe("artifact sessions", () => {
 				expect(created).toEqual({
 					sessionId: "session-1",
 					expiresAt: "2026-09-01T00:00:00.000Z",
-					src: "https://ryot.example/api/plugin-artifact-sessions/token%20%2F%20value/index.html",
+					src: `${serverOrigin}/api/plugin-artifact-sessions/token%20%2F%20value/index.html`,
 				});
 				expect(created).not.toHaveProperty("token");
 			}),

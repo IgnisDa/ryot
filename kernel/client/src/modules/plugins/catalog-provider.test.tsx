@@ -6,12 +6,16 @@ import { Deferred, Effect, Layer, ManagedRuntime } from "effect";
 import type { ReactNode } from "react";
 import { describe, expect, it } from "vitest";
 
+import { decodeServerOrigin } from "#/api/origin";
 import type { ApiScope } from "#/api/scope";
 import { PluginCatalogService } from "#/modules/plugins/catalog";
 import { PluginCatalogProvider, usePluginCatalog } from "#/modules/plugins/catalog-provider";
 import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/events.test-layer";
 
-const scope: ApiScope = { userId: "user-1", serverUrl: "https://ryot.example" };
+const scope: ApiScope = {
+	userId: "user-1",
+	serverUrl: decodeServerOrigin("https://ryot.example"),
+};
 const catalog: PluginClientCatalog = [
 	{
 		sortOrder: 0,
