@@ -221,20 +221,22 @@ export class ImportsService extends Effect.Service<ImportsService>()("ImportsSer
 				return { id: run.id };
 			});
 
-		const startImportRun: ImportsServiceShape["startImportRun"] = (user, body) =>
-			Effect.gen(function* () {
-				const startError = getImportSourceStartError(body.source);
-				if (startError) {
-					return yield* badRequest(startError);
-				}
+		const startImportRun = Effect.fn("ImportsService.startImportRun")(function* (
+			user: CurrentUserValue,
+			body: CreateImportRunBody,
+		) {
+			const startError = getImportSourceStartError(body.source);
+			if (startError) {
+				return yield* badRequest(startError);
+			}
 
-				const inputSummary = buildInputSummary(body);
-				const sourceFileInputs = getImportSourceFileInputs(body);
+			const inputSummary = buildInputSummary(body);
+			const sourceFileInputs = getImportSourceFileInputs(body);
 
-				return sourceFileInputs.length > 0
-					? yield* startFileImportRun(user, body, inputSummary, sourceFileInputs)
-					: yield* startSourcePayloadImportRun(user, body, inputSummary);
-			});
+			return sourceFileInputs.length > 0
+				? yield* startFileImportRun(user, body, inputSummary, sourceFileInputs)
+				: yield* startSourcePayloadImportRun(user, body, inputSummary);
+		});
 
 		const listImportRuns: ImportsServiceShape["listImportRuns"] = (user) =>
 			runWithDb(repository.listRunsByUser({ userId: user.id }));
@@ -281,16 +283,18 @@ export class ImportsService extends Effect.Service<ImportsService>()("ImportsSer
 						integrationId: input.integrationId,
 					}),
 				),
-			failRunForIntegration: (runId, message) =>
-				Effect.gen(function* () {
-					const finishedAt = yield* DateTime.nowAsDate;
-					yield* runWithDb(
-						repository.updateRun({ runId, finishedAt, status: "failed", errorSummary: message }),
-					);
-					yield* runWithDb(
-						repository.createFailure({ runId, message, itemIndex: 0, stage: "source_fetch" }),
-					);
-				}),
+			failRunForIntegration: Effect.fn("ImportsService.failRunForIntegration")(function* (
+				runId: string,
+				message: string,
+			) {
+				const finishedAt = yield* DateTime.nowAsDate;
+				yield* runWithDb(
+					repository.updateRun({ runId, finishedAt, status: "failed", errorSummary: message }),
+				);
+				yield* runWithDb(
+					repository.createFailure({ runId, message, itemIndex: 0, stage: "source_fetch" }),
+				);
+			}),
 		} satisfies ImportsServiceShape;
 	}),
 }) {}

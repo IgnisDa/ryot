@@ -32,8 +32,8 @@ export const OpenScaleImportItemSchema = Schema.Struct({
 
 export type OpenScaleImportItem = typeof OpenScaleImportItemSchema.Type;
 
-export const loadOpenScaleAdapterResult = (payload: ImportRunJobData) =>
-	Effect.gen(function* () {
+export const loadOpenScaleAdapterResult = Effect.fn("imports.loadOpenScaleAdapterResult")(
+	function* (payload: ImportRunJobData) {
 		const { text, cleanupPaths } = yield* loadNonMediaImportText(payload);
 		const result = yield* Effect.try({
 			try: () => adaptOpenScaleCsv(text),
@@ -43,7 +43,8 @@ export const loadOpenScaleAdapterResult = (payload: ImportRunJobData) =>
 			}),
 		});
 		return { cleanupPaths, items: result.items, failures: result.failures };
-	});
+	},
+);
 
 export const prepareOpenScaleWrites = (
 	payload: ImportRunJobData,
