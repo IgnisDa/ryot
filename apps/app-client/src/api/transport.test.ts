@@ -82,9 +82,9 @@ describe("server-bound transport", () => {
 
 	it("keeps admin headers local to each request layer", async () => {
 		const harness = makeTransportHarness();
-		await harness.request(adminTokenRequestLayer("https://one.test", "admin-one"));
+		await harness.request(adminTokenRequestLayer("https://one.test", () => "admin-one"));
 		await harness.request(authenticatedRequestLayer("https://one.test"));
-		await harness.request(adminTokenRequestLayer("https://one.test", "admin-two"));
+		await harness.request(adminTokenRequestLayer("https://one.test", () => "admin-two"));
 
 		expect(requestDetails(harness.fetchCalls[0]).options?.headers).toMatchObject({
 			"admin-access-token": "admin-one",
