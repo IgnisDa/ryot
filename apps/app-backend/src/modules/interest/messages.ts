@@ -21,6 +21,13 @@ export type ConnectedFrame = typeof ConnectedFrame.Type;
 
 export const encodeConnectedFrame = (frame: ConnectedFrame): string => JSON.stringify(frame);
 
+// Upper bound on how many entity ids one interest declaration reconciles. reconcile runs ⌈N/100⌉
+// sequential query-engine transactions per POST (each holding a DB connection), so an unbounded set
+// — even a legit huge saved view — would turn one POST into a slow, connection-hogging request. The
+// handler truncates to this many ids (and logs) rather than rejecting, so an oversized view still
+// gets partial real-time updates. Enforced in modules/interest/routes.ts.
+export const MAX_INTEREST_ENTITY_IDS = 500;
+
 // POST /api/interest request body. Replace semantics: each call supersedes the interest set
 // previously declared for that stream.
 export const DeclareInterestBody = Schema.Struct({
