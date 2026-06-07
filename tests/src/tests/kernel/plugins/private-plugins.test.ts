@@ -257,10 +257,21 @@ describe("private plugins", () => {
 				config: { [PRIVATE_PLUGIN_CONFIG_KEY]: "beta" },
 			});
 			expect(updated.sourceHash).not.toBe(installed.installation.sourceHash);
+			const stale = yield* Effect.flip(
+				invokePrivatePluginOperation({
+					client,
+					prefix: "run",
+					pluginSlug: installed.pluginSlug,
+					operationSlug: installed.operationSlug,
+					sourceHash: installed.installation.sourceHash,
+				}),
+			);
+			assertTaggedError(stale, "PluginNotFoundError");
 			expect(
 				(yield* invokePrivatePluginOperation({
 					client,
 					prefix: "run",
+					sourceHash: updated.sourceHash,
 					pluginSlug: installed.pluginSlug,
 					operationSlug: installed.operationSlug,
 				})).result,

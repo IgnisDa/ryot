@@ -2,9 +2,9 @@
 
 ## Tasks
 
-**Overall Progress:** 8 of 10 tasks completed
+**Overall Progress:** 9 of 10 tasks completed
 
-**Current Task:** [Task 08](./08-reload-updated-plugin-artifacts.md) (todo)
+**Current Task:** [Task 09](./09-clean-up-web-tracer.md) (todo)
 
 ### Task List
 
@@ -18,7 +18,7 @@
 | 05-followup | [Establish Shared Client SDK Runtime](./05-followup-establish-shared-client-sdk-runtime.md)   | done   |
 | 06          | [Synchronize Kernel Theme](./06-synchronize-kernel-theme.md)                                  | done   |
 | 07          | [Recover From Plugin Crashes](./07-recover-from-plugin-crashes.md)                            | done   |
-| 08          | [Reload Updated Plugin Artifacts](./08-reload-updated-plugin-artifacts.md)                    | todo   |
+| 08          | [Reload Updated Plugin Artifacts](./08-reload-updated-plugin-artifacts.md)                    | done   |
 | 09          | [Clean Up the Web Tracer](./09-clean-up-web-tracer.md)                                        | todo   |
 
 Task 05-followup is complete after Task 05 and before Task 06. It is a follow-up entry, not a renumbering of Tasks 06-09; Task 06 remains the next normal task.

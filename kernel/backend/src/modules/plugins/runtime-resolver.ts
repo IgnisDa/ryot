@@ -104,6 +104,7 @@ export class InvalidProviderEntityImportAutomationError extends Data.TaggedError
 export type AvailablePlugin = {
 	readonly id: string;
 	readonly slug: string;
+	readonly sourceHash: string;
 	readonly installationId: string;
 	readonly scope: "system" | "user";
 	readonly manifest: PluginManifest;
@@ -425,6 +426,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 						config: {},
 						scope: "system",
 						installationId: state.id,
+						sourceHash: plugin.sourceHash,
 						...bindingPluginFromEntry(plugin),
 					});
 				}
@@ -435,6 +437,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 							id: schema.plugin.id,
 							slug: schema.plugin.slug,
 							manifest: schema.plugin.manifest,
+							sourceHash: schema.plugin.sourceHash,
 							compiledHashes: schema.plugin.compiledHashes,
 						})
 						.from(schema.plugin)

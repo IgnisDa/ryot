@@ -46,12 +46,13 @@ describe("plugin operations service", () => {
 			yield* service.invoke({
 				scope,
 				pluginSlug: "fixture",
+				sourceHash: "source-hash",
 				request: { input: { greeting: "hi" }, operationSlug: "greet" },
 			});
 
 			expect(calls).toEqual([
 				{
-					payload: { payload: { greeting: "hi" } },
+					payload: { payload: { greeting: "hi" }, sourceHash: "source-hash" },
 					params: { pluginSlug: "fixture", operationSlug: "greet" },
 				},
 			]);
@@ -66,6 +67,7 @@ describe("plugin operations service", () => {
 			const outcome = yield* service.invoke({
 				scope,
 				pluginSlug: "fixture",
+				sourceHash: "source-hash",
 				request: { input: null, operationSlug: "greet" },
 			});
 
@@ -92,6 +94,7 @@ describe("plugin operations service", () => {
 				const outcome = yield* service.invoke({
 					scope,
 					pluginSlug: "fixture",
+					sourceHash: "source-hash",
 					request: { input: null, operationSlug: "greet" },
 				});
 
@@ -108,6 +111,7 @@ describe("plugin operations service", () => {
 			const outcome = yield* service.invoke({
 				scope,
 				pluginSlug: "fixture",
+				sourceHash: "source-hash",
 				request: { input: null, operationSlug: "greet" },
 			});
 
