@@ -15,7 +15,13 @@ import { AppConfig, isOidcEnabled } from "../config";
 import { CurrentDb, DbRunner, dbEffect, schema } from "../db";
 import { unknownToMessage } from "../errors";
 import { RedisService, redisKeys } from "../redis";
-import { apiFailure, apiSuccess, type BoundHostFunction, requireSandboxRunInput } from "./shared";
+import {
+	apiFailure,
+	apiSuccess,
+	type BoundHostFunction,
+	requireSandboxRunInput,
+	requireUserSandboxRunInput,
+} from "./shared";
 
 type SandboxHostFunctionContext =
 	| DbRunner
@@ -202,7 +208,7 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 			},
 			createEvents: (...args) => {
 				const body = args[0];
-				const input = requireSandboxRunInput(args, 1, "createEvents");
+				const input = requireUserSandboxRunInput(args, 1, "createEvents");
 				return runHostEffect(
 					runPromise,
 					decodeCreateEventsPayload(body).pipe(
@@ -226,7 +232,7 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 			},
 			getEntity: (...args) => {
 				const entityId = args[0];
-				const input = requireSandboxRunInput(args, 1, "getEntity");
+				const input = requireUserSandboxRunInput(args, 1, "getEntity");
 				return runHostEffect(
 					runPromise,
 					requireNonEmptyString(entityId, "getEntity expects a non-empty entityId").pipe(
@@ -251,7 +257,7 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 			},
 			getEntitySchema: (...args) => {
 				const entitySchemaId = args[0];
-				const input = requireSandboxRunInput(args, 1, "getEntitySchema");
+				const input = requireUserSandboxRunInput(args, 1, "getEntitySchema");
 				return runHostEffect(
 					runPromise,
 					requireNonEmptyString(
@@ -279,7 +285,7 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 			},
 			getIntegration: (...args) => {
 				const integrationId = args[0];
-				const input = requireSandboxRunInput(args, 1, "getIntegration");
+				const input = requireUserSandboxRunInput(args, 1, "getIntegration");
 				return runHostEffect(
 					runPromise,
 					requireNonEmptyString(
@@ -325,12 +331,12 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 					}),
 				),
 			getUserPreferences: (...args) => {
-				const input = requireSandboxRunInput(args, 0, "getUserPreferences");
+				const input = requireUserSandboxRunInput(args, 0, "getUserPreferences");
 				return runHostEffect(runPromise, readUserPreferences(input.userId));
 			},
 			listEventSchemas: (...args) => {
 				const entitySchemaId = args[0];
-				const input = requireSandboxRunInput(args, 1, "listEventSchemas");
+				const input = requireUserSandboxRunInput(args, 1, "listEventSchemas");
 				return runHostEffect(
 					runPromise,
 					requireNonEmptyString(
@@ -362,7 +368,7 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 			},
 			listEvents: (...args) => {
 				const query = args[0];
-				const input = requireSandboxRunInput(args, 1, "listEvents");
+				const input = requireUserSandboxRunInput(args, 1, "listEvents");
 				return runHostEffect(
 					runPromise,
 					decodeListEventsQuery(query ?? {}).pipe(
@@ -398,7 +404,7 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 			},
 			listIntegrations: (...args) => {
 				const options = args[0] ?? {};
-				const input = requireSandboxRunInput(args, 1, "listIntegrations");
+				const input = requireUserSandboxRunInput(args, 1, "listIntegrations");
 				if (!isObjectRecord(options)) {
 					return Promise.resolve(apiFailure("listIntegrations expects an object"));
 				}
