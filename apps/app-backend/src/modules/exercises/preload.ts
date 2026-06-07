@@ -1,28 +1,19 @@
+import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { and, eq, isNull, sql } from "drizzle-orm";
-import { Cause, DateTime, Effect, Layer, Schema } from "effect";
+import { Cause, Effect, Layer } from "effect";
 
 import { CurrentDb, DbRunner, dbEffect } from "#lib/db";
 import * as schema from "#lib/db/schema/tables";
 import { dieOnDbError, unknownToMessage } from "#lib/errors";
 import { SandboxService } from "#lib/sandbox/service";
-import { parseAppSchemaProperties } from "#lib/schema/property-schema-runtime";
 import { EntitiesRepository } from "#modules/entities/repository";
-import {
-	decodeEntityDetailsResult,
-	decodeEntitySearchResult,
-	processRelatedEntity,
-} from "#modules/entity-import/population";
+import { decodeEntitySearchResult } from "#modules/entity-import/population";
+import { BuiltinEntityImportWorkflow } from "#modules/entity-import/workflows";
 import { SandboxRepository } from "#modules/sandbox/repository";
 
 const builtinExercisePageSize = 100;
 const builtinExerciseExpectedCount = 873;
-const builtinExerciseImportConcurrency = 5;
 const builtinExerciseScriptSlug = "exercise.free-exercise-db";
-
-class BuiltinEntityPreloadError extends Schema.TaggedError<BuiltinEntityPreloadError>()(
-	"BuiltinEntityPreloadError",
-	{ message: Schema.String },
-) {}
 
 const countImportedGlobalEntities = Effect.fn(function* (input: {
 	entitySchemaId: string;
@@ -42,13 +33,13 @@ const countImportedGlobalEntities = Effect.fn(function* (input: {
 			)
 			.limit(1),
 	);
-
 	return row?.count ?? 0;
 });
 
 export const BuiltinEntityPreloaderLive = Layer.scopedDiscard(
 	Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
+		const engine = yield* WorkflowEngine;
 		const sandbox = yield* SandboxService;
 		const repository = yield* EntitiesRepository;
 		const sandboxRepository = yield* SandboxRepository;
@@ -83,138 +74,45 @@ export const BuiltinEntityPreloaderLive = Layer.scopedDiscard(
 			return;
 		}
 
-		const runDriver = (input: {
-			driverName: string;
-			executionId: string;
-			context: Record<string, unknown>;
-		}) =>
+		const searchPage = (page: number) =>
 			sandbox
 				.run({
 					userId: null,
 					code: script.code,
 					scriptId: script.id,
-					context: input.context,
-					driverName: input.driverName,
-					executionId: input.executionId,
+					driverName: "search",
 					scriptIsBuiltin: script.isBuiltin,
+					executionId: `builtin-exercise-search-${page}`,
+					context: { query: "", page, pageSize: builtinExercisePageSize },
 					allowedHostFunctions: script.metadata.allowedHostFunctions ?? [],
 				})
 				.pipe(
-					Effect.mapError((error) => new BuiltinEntityPreloadError({ message: error.message })),
-				);
-
-		const searchBuiltinExercises = (page: number) =>
-			runDriver({
-				driverName: "search",
-				executionId: `builtin-exercise-search-${page}`,
-				context: { query: "", page, pageSize: builtinExercisePageSize },
-			}).pipe(
-				Effect.flatMap((result) =>
-					result.error
-						? Effect.fail(new BuiltinEntityPreloadError({ message: result.error }))
-						: decodeEntitySearchResult(result.value).pipe(
-								Effect.mapError(
-									(error) =>
-										new BuiltinEntityPreloadError({
-											message: `Builtin exercise search returned an unexpected shape: ${error.message}`,
-										}),
+					Effect.flatMap((result) =>
+						result.error
+							? Effect.logError(
+									`Builtin exercise search failed on page ${page}: ${result.error}`,
+								).pipe(Effect.as<string[]>([]))
+							: decodeEntitySearchResult(result.value).pipe(
+									Effect.map(({ items }) => [...new Set(items.map((item) => item.externalId))]),
+									Effect.catchAll(() => Effect.succeed<string[]>([])),
 								),
-							),
-				),
-				Effect.map(({ items }) => [...new Set(items.map((item) => item.externalId))]),
-			);
-
-		const loadBuiltinExerciseDetails = (externalId: string) =>
-			runDriver({
-				driverName: "details",
-				context: { externalId },
-				executionId: `builtin-exercise-details-${externalId}`,
-			}).pipe(
-				Effect.flatMap((result) =>
-					result.error
-						? Effect.fail(new BuiltinEntityPreloadError({ message: result.error }))
-						: Effect.succeed(result.value),
-				),
-			);
-
-		const importBuiltinExercise = (externalId: string) =>
-			Effect.gen(function* () {
-				const existing = yield* runWithDb(
-					repository.findGlobalEntityByExternalId({
-						externalId,
-						entitySchemaId: preloadTarget.entitySchemaId,
-						sandboxScriptId: preloadTarget.sandboxScriptId,
-					}),
-				);
-				if (existing && existing.populatedAt !== null) {
-					return;
-				}
-
-				const detailsValue = yield* loadBuiltinExerciseDetails(externalId);
-				const entitySchemaScope = yield* runWithDb(
-					repository.findEntitySchemaById(preloadTarget.entitySchemaId),
-				).pipe(
-					Effect.flatMap((scope) =>
-						scope
-							? Effect.succeed(scope)
-							: new BuiltinEntityPreloadError({ message: "Entity schema not found" }),
 					),
 				);
 
-				const details = yield* decodeEntityDetailsResult(detailsValue).pipe(
-					Effect.mapError(
-						(error) =>
-							new BuiltinEntityPreloadError({
-								message: `Invalid entity details: ${error.message}`,
-							}),
-					),
-				);
-				const validatedProperties = yield* parseAppSchemaProperties({
-					kind: "Entity",
-					properties: details.properties,
-					propertiesSchema: entitySchemaScope.propertiesSchema,
-				}).pipe(
-					Effect.mapError((error) => new BuiltinEntityPreloadError({ message: error.message })),
-				);
-
-				const entity = yield* runWithDb(
-					repository.createOrUpdateGlobalEntity({
+		const scheduleImport = (externalId: string) =>
+			engine
+				.execute(BuiltinEntityImportWorkflow, {
+					discard: true,
+					executionId: `builtin-exercise-${externalId}`,
+					payload: {
 						externalId,
-						image: null,
-						populatedAt: null,
-						name: details.name,
-						properties: validatedProperties,
+						userId: null,
+						scriptId: preloadTarget.sandboxScriptId,
 						entitySchemaId: preloadTarget.entitySchemaId,
-						sandboxScriptId: preloadTarget.sandboxScriptId,
-					}),
-				);
-
-				yield* Effect.forEach(
-					details.relatedEntities ?? [],
-					(relatedEntity) =>
-						processRelatedEntity({
-							relatedEntity,
-							sourceEntityId: entity.id,
-							sourceEntitySchemaId: preloadTarget.entitySchemaId,
-						}).pipe(
-							Effect.mapError((error) => new BuiltinEntityPreloadError({ message: error.message })),
-						),
-					{ discard: true },
-				);
-
-				const populatedAt = yield* DateTime.nowAsDate;
-				yield* runWithDb(
-					repository.createOrUpdateGlobalEntity({
-						externalId,
-						populatedAt,
-						name: details.name,
-						image: details.image ?? null,
-						properties: validatedProperties,
-						entitySchemaId: preloadTarget.entitySchemaId,
-						sandboxScriptId: preloadTarget.sandboxScriptId,
-					}),
-				);
-			});
+						executionId: `builtin-exercise-${externalId}`,
+					},
+				})
+				.pipe(Effect.orDie);
 
 		const runPreload = Effect.gen(function* () {
 			yield* Effect.logInfo(
@@ -224,34 +122,17 @@ export const BuiltinEntityPreloaderLive = Layer.scopedDiscard(
 			let page = 1;
 
 			for (;;) {
-				const externalIds = yield* searchBuiltinExercises(page).pipe(
-					Effect.catchAll((error) =>
-						Effect.logError(
-							`Builtin exercise preload search failed on page ${page}: ${error.message}`,
-						).pipe(Effect.as<string[]>([])),
-					),
-				);
+				const externalIds = yield* searchPage(page);
 
 				if (externalIds.length === 0) {
 					break;
 				}
 
 				yield* Effect.logInfo(
-					`Importing ${externalIds.length} builtin exercises from page ${page}`,
+					`Scheduling ${externalIds.length} builtin exercises from page ${page}`,
 				);
 
-				yield* Effect.forEach(
-					externalIds,
-					(externalId) =>
-						importBuiltinExercise(externalId).pipe(
-							Effect.catchAll((error) =>
-								Effect.logError(
-									`Failed to import builtin exercise '${externalId}': ${error.message}`,
-								),
-							),
-						),
-					{ concurrency: builtinExerciseImportConcurrency, discard: true },
-				);
+				yield* Effect.forEach(externalIds, scheduleImport, { discard: true });
 
 				if (externalIds.length < builtinExercisePageSize) {
 					break;
