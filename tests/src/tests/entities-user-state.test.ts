@@ -44,6 +44,31 @@ async function insertUserRelationship(input: {
 	});
 }
 
+async function insertUserEvent(input: {
+	userId: string;
+	entityId: string;
+	eventSchemaId: string;
+	properties?: Record<string, unknown>;
+}) {
+	await getPgClient().query(
+		`insert into event (
+			id,
+			user_id,
+			properties,
+			entity_id,
+			occurred_at,
+			event_schema_id
+		) values ($1, $2, $3::jsonb, $4, now(), $5)`,
+		[
+			crypto.randomUUID(),
+			input.userId,
+			JSON.stringify(input.properties ?? {}),
+			input.entityId,
+			input.eventSchemaId,
+		],
+	);
+}
+
 async function getLibraryEntityId(userId: string) {
 	const pg = getPgClient();
 	const result = await pg.query<{ id: string }>(
@@ -72,30 +97,41 @@ describe("DELETE /user-state/clear/:id", () => {
 		const eventSchemas = await listEventSchemas(userA.client, schema.id);
 		const reviewEventSchema = requireEventSchemaBySlug(eventSchemas, "review");
 
-		const { entityId: extraTargetEntityId } = await createTrackerWithSchemaAndEntity(userA.client);
-
-		await userA.client.run((c) =>
-			c.events.create({
-				payload: [
-					{
-						entityId: entity.id,
-						eventSchemaId: reviewEventSchema.id,
-						properties: { rating: 4, text: "User A review" },
-					},
-				],
+		const [
+			userALibraryEntityId,
+			userBLibraryEntityId,
+			{ entityId: extraTargetEntityId },
+		] = await Promise.all([
+			getLibraryEntityId(userA.userId),
+			getLibraryEntityId(userB.userId),
+			createTrackerWithSchemaAndEntity(userA.client),
+		]);
+		await Promise.all([
+			insertUserEvent({
+				entityId: entity.id,
+				userId: userA.userId,
+				eventSchemaId: reviewEventSchema.id,
+				properties: { rating: 4, text: "User A review" },
 			}),
-		);
-		await userB.client.run((c) =>
-			c.events.create({
-				payload: [
-					{
-						entityId: entity.id,
-						eventSchemaId: reviewEventSchema.id,
-						properties: { rating: 5, text: "User B review" },
-					},
-				],
+			insertUserEvent({
+				entityId: entity.id,
+				userId: userB.userId,
+				eventSchemaId: reviewEventSchema.id,
+				properties: { rating: 5, text: "User B review" },
 			}),
-		);
+			insertUserRelationship({
+				sourceEntityId: entity.id,
+				client: userA.client,
+				targetEntityId: userALibraryEntityId,
+				relationshipSchemaSlug: "in-library",
+			}),
+			insertUserRelationship({
+				sourceEntityId: entity.id,
+				client: userB.client,
+				targetEntityId: userBLibraryEntityId,
+				relationshipSchemaSlug: "in-library",
+			}),
+		]);
 		await insertUserRelationship({
 			client: userA.client,
 			sourceEntityId: entity.id,
