@@ -148,30 +148,30 @@ Do not create a second copy of the saved-view contract.
 
 ### Shared behavior
 
-- [ ] Add one pure scalar formatter for text, number, date, boolean, JSON, and null.
-- [ ] Use locale-aware number and date formatting.
-- [ ] Never display `[object Object]`; use compact JSON as the conservative JSON fallback.
-- [ ] Add one shared image treatment using `expo-image`.
-- [ ] Render no image region for an unconfigured image slot.
-- [ ] Render the same stable placeholder for a configured image with a missing or failed URL.
+- [x] Add one pure scalar formatter for text, number, date, boolean, JSON, and null.
+- [x] Use locale-aware number and date formatting.
+- [x] Never display `[object Object]`; use compact JSON as the conservative JSON fallback.
+- [x] Add one shared image treatment using `expo-image`.
+- [x] Render no image region for an unconfigured image slot.
+- [x] Render the same stable placeholder for a configured image with a missing or failed URL.
 
 ### Layouts
 
-- [ ] Build the responsive grid from the grid display slots.
-- [ ] Build compact mobile/web list rows from the list display slots.
-- [ ] Build the table from its ordered columns.
-- [ ] Place the optional table image in the leading region of the first configured column's cell; it is not a separate labeled column.
-- [ ] Keep empty table cells and headers aligned.
-- [ ] Use horizontal overflow on narrow screens rather than hiding configured columns.
-- [ ] Use entity ID as the stable item key.
-- [ ] Do not make cards or rows interactive in this phase.
+- [x] Build the responsive grid from the grid display slots.
+- [x] Build compact mobile/web list rows from the list display slots.
+- [x] Build the table from its ordered columns.
+- [x] Place the optional table image in the leading region of the first configured column's cell; it is not a separate labeled column.
+- [x] Keep empty table cells and headers aligned.
+- [x] Use horizontal overflow on narrow screens rather than hiding configured columns.
+- [x] Use entity ID as the stable item key.
+- [x] Do not make cards or rows interactive in this phase.
 
 ### Selector
 
-- [ ] Build an accessible grid/list/table selector.
-- [ ] Bind it to the per-slug layout atom.
-- [ ] Expose selected state and clear labels.
-- [ ] Add supported selector icons to `modules/icons.tsx` or use concrete styled Lucide icons; do not rely on fallback circles.
+- [x] Build an accessible grid/list/table selector.
+- [x] Bind it to the per-slug layout atom.
+- [x] Expose selected state and clear labels.
+- [x] Add supported selector icons to `modules/icons.tsx` or use concrete styled Lucide icons; do not rely on fallback circles.
 
 ## Phase 5: Integrate Route And States
 
