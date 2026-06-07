@@ -19,6 +19,7 @@ BEGIN
 	DROP TABLE IF EXISTS "old_user" CASCADE;
 	DROP TABLE IF EXISTS "user_measurement" CASCADE;
 	DROP TABLE IF EXISTS "seen" CASCADE;
+	DROP TABLE IF EXISTS "collection_to_entity" CASCADE;
 	DROP TABLE IF EXISTS "collection" CASCADE;
 	DROP TABLE IF EXISTS "review" CASCADE;
 	RAISE NOTICE 'legacy tables dropped (% seconds elapsed)',
