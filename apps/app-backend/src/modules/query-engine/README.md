@@ -480,8 +480,8 @@ Validation runs in three phases before execution:
 
 1. Pure structural + semantic validation (`validateQueryDocument`): alias uniqueness,
    scope resolution, field selector validity, safety limits.
-2. DB-aware reference validation (`validateQueryDocumentReferences`): resolves visible
-   schemas for every source and expression, enforcing user isolation.
+2. DB-aware reference validation (part of `validateQueryDocumentReferencesAndTypes`):
+   resolves visible schemas for every source and expression, enforcing user isolation.
 3. DB-aware type-compatibility validation (`validateQueryDocumentTypeCompatibility`):
    infers a coarse type (`number`, `string`, `boolean`, `date`, or `unknown`) for each
    operand from system-field maps and entity property schemas, then rejects known

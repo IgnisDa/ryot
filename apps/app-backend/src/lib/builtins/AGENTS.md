@@ -35,17 +35,21 @@ user started the current consumption session.
 
 ### Episode-Specific Progress Properties
 
-For episodic media, progress/dropped/on_hold events carry additional fields:
+For `anime` and `manga`, progress/dropped/on_hold events carry additional fields directly:
 
-| Entity    | Extra fields                  |
-| --------- | ----------------------------- |
-| `show`    | `showSeason`, `showEpisode`   |
-| `anime`   | `animeEpisode`                |
-| `manga`   | `mangaVolume`, `mangaChapter` |
-| `podcast` | `podcastEpisode`              |
+| Entity  | Extra fields                  |
+| ------- | ----------------------------- |
+| `anime` | `animeEpisode`                |
+| `manga` | `mangaVolume`, `mangaChapter` |
 
-`showSeason` and `showEpisode` are mutually required: if one is present, both must be.
-`complete` events carry **none** of these fields — completion is always at the whole-entity level.
+`show` and `podcast` track episode-level progress differently: each has a dedicated
+`show-episode` / `podcast-episode` entity schema (with `seasonNumber`/`episodeNumber` on
+`show-episode` and `episodeNumber` on `podcast-episode`), and progress/dropped/on_hold events are
+logged against those episode entities instead of the parent `show`/`podcast` entity. The `show`
+and `podcast` entity schemas themselves exclude the `progress` event schema.
+
+`complete` events carry **none** of the episode-specific fields above — completion is always at
+the whole-entity level.
 
 ### `complete` Event Properties
 
@@ -61,7 +65,8 @@ For episodic media, progress/dropped/on_hold events carry additional fields:
 
 Current lifecycle state is **derived** from the latest event per type ordered by `occurredAt`,
 then `createdAt`, then `id` — there is no stored "current state" column. The query engine's
-`latestEvent` join returns the most recent event per entity per schema slug using that ordering.
+generic `first` expression (a top-1 `ORDER BY ... LIMIT 1` subquery) is used to fetch the most
+recent event per entity per schema slug using that ordering.
 An event type is current when it exists and all other lifecycle event types are either absent or
 older than it.
 
@@ -110,18 +115,20 @@ logged after a `dropped` or `on_hold` event resumes the in-progress state.
 The built-in sandbox trigger (`trigger.auto-complete-on-full-progress`) fires when a `progress`
 event is created with `progressPercent = 100`.
 
-- **Non-episodic media** (movie, book, audiobook, etc.): creates a `complete` event immediately
-  using the triggering progress event's `occurredAt` for both the event timestamp and
-  `completedOn`.
-- **Episodic media** (show, anime, manga, podcast): only creates a `complete` event when **all**
+- **Non-episodic media** (movie, book, audiobook, show-episode, podcast-episode, etc.): creates a
+  `complete` event immediately using the triggering progress event's `occurredAt` for both the
+  event timestamp and `completedOn`.
+- **Episodic media** (`anime`, `manga` only): only creates a `complete` event when **all**
   required coverage keys are satisfied — i.e., every episode/chapter of the entity has a
   `progress(100%)` event. If required coverage is missing or empty, the trigger exits without
   creating a `complete` event.
 
-This means a `complete` event for a show represents the whole show being finished, not an
-individual episode. The trigger logic walks coverage cycles chronologically and can emit repeated
+This means a `complete` event for an anime/manga entity represents the whole series being
+finished, not an individual episode/chapter. `show` and `podcast` progress is tracked per
+`show-episode`/`podcast-episode` entity instead, so each episode completes independently like
+non-episodic media. The trigger logic walks coverage cycles chronologically and can emit repeated
 completions. The trigger logic lives in:
-`src/lib/sandbox/triggers/auto-complete-on-full-progress.txt`.
+`src/lib/sandbox/triggers/auto-complete-on-full-progress.sandbox.js`.
 
 `consumedOn` is propagated from the triggering progress event to the created complete event via
 `event_schema_trigger.metadata.inheritedProperties: ["consumedOn"]`.
