@@ -6,12 +6,20 @@ import {
 	createQueryEngineEntity,
 	createQueryEngineTrackerAndSchema,
 	executeQueryEngine,
-	executeQueryEngineError,
+	postBackendJson,
 	requireQueryEngineFieldValue,
 	schemaMetaRef,
 	systemRef,
 } from "../fixtures";
-import { assertPresent, assertTaggedError } from "../test-support/assertions";
+import { assertPresent, requireObjectRecord, requireString } from "../test-support/assertions";
+
+const expectQueryDecodeBadRequest = async (body: unknown, cookies: string) => {
+	const response = await postBackendJson("/query-engine/execute", body, cookies);
+	const error = requireObjectRecord(await response.json(), "Expected BadRequest response");
+
+	expect(response.status).toBe(400);
+	expect(requireString(error._tag, "Expected error tag")).toBe("BadRequest");
+};
 
 describe("entity schema fields", () => {
 	it("returns entity schema slug, name, and isBuiltin fields", async () => {
@@ -100,7 +108,7 @@ describe("entity schema fields", () => {
 	});
 
 	it("rejects invalid entity schema columns", async () => {
-		const { client } = await createAuthenticatedClient();
+		const { client, cookies } = await createAuthenticatedClient();
 		const { slug } = await createQueryEngineTrackerAndSchema(client, {
 			schemaName: "InvalidSchemaColItem",
 		});
@@ -108,20 +116,18 @@ describe("entity schema fields", () => {
 			'{"type":"ref","sourceAlias":"item","field":{"type":"schema","name":"propertiesSchema"}}',
 		);
 
-		const error = await executeQueryEngineError(
-			client,
+		await expectQueryDecodeBadRequest(
 			buildEntityRowsQueryDocument({
 				alias: "item",
 				schemas: [slug],
 				fields: [{ key: "bad", expr: invalidSchemaField }],
 			}),
+			cookies,
 		);
-
-		assertTaggedError(error, "ParseError");
 	});
 
 	it("rejects entity builtins masquerading as entity-schema columns", async () => {
-		const { client } = await createAuthenticatedClient();
+		const { client, cookies } = await createAuthenticatedClient();
 		const { slug } = await createQueryEngineTrackerAndSchema(client, {
 			schemaName: "MasqueradeItem",
 		});
@@ -129,15 +135,13 @@ describe("entity schema fields", () => {
 			'{"type":"ref","sourceAlias":"item","field":{"type":"schema","name":"externalId"}}',
 		);
 
-		const error = await executeQueryEngineError(
-			client,
+		await expectQueryDecodeBadRequest(
 			buildEntityRowsQueryDocument({
 				alias: "item",
 				schemas: [slug],
 				fields: [{ key: "bad", expr: masqueradeField }],
 			}),
+			cookies,
 		);
-
-		assertTaggedError(error, "ParseError");
 	});
 });
