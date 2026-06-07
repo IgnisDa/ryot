@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq } from "drizzle-orm";
+import { and, asc, count, desc, eq, isNull } from "drizzle-orm";
 
 import { assertPersisted, db } from "~/lib/db";
 import { importRun, importRunFailure } from "~/lib/db/schema";
@@ -82,6 +82,7 @@ const normalizeFailure = (row: ImportRunFailureRow): ListedImportRunFailure => (
 export const createImportRun = async (input: {
 	userId: string;
 	source: ImportRunSource;
+	integrationId?: string | null;
 	inputSummary: Record<string, unknown>;
 }): Promise<ListedImportRun> => {
 	const [created] = await db
@@ -90,6 +91,7 @@ export const createImportRun = async (input: {
 			userId: input.userId,
 			source: input.source,
 			inputSummary: input.inputSummary,
+			integrationId: input.integrationId ?? null,
 		})
 		.returning(importRunSelection);
 	return normalizeRun(assertPersisted(created, "import_run"));
@@ -113,7 +115,7 @@ export const listImportRunsByUser = async (input: {
 	const rows = await db
 		.select(importRunSelection)
 		.from(importRun)
-		.where(eq(importRun.userId, input.userId))
+		.where(and(eq(importRun.userId, input.userId), isNull(importRun.integrationId)))
 		.orderBy(desc(importRun.createdAt));
 	return rows.map(normalizeRun);
 };

@@ -27,6 +27,7 @@
         "better-auth": "1.6.13",
         "bullmq": "5.77.6",
         "drizzle-orm": "0.45.2",
+        "english-to-cron": "0.1.3",
         "fast-xml-parser": "5.8.0",
         "fast-xml-validator": "1.1.0",
         "hono": "4.12.23",
@@ -2397,6 +2398,8 @@
     "engine.io": ["engine.io@6.6.6", "", { "dependencies": { "@types/cors": "^2.8.12", "@types/node": ">=10.0.0", "@types/ws": "^8.5.12", "accepts": "~1.3.4", "base64id": "2.0.0", "cookie": "~0.7.2", "cors": "~2.8.5", "debug": "~4.4.1", "engine.io-parser": "~5.2.1", "ws": "~8.18.3" } }, "sha512-U2SN0w3OpjFRVlrc17E6TMDmH58Xl9rai1MblNjAdwWp07Kk+llmzX0hjDpQdrDGzwmvOtgM5yI+meYX6iZ2xA=="],
 
     "engine.io-parser": ["engine.io-parser@5.2.3", "", {}, "sha512-HqD3yTBfnBxIrbnM1DoD6Pcq8NECnh8d4As1Qgh0z5Gg3jRRIqijury0CL3ghu/edArpUYiYqQiDUQBIs4np3Q=="],
+
+    "english-to-cron": ["english-to-cron@0.1.3", "", {}, "sha512-awJrcBeYfXqLH9HcRrJnHF1CUZau9q26PF8w5THe19iNZHnGQq2h53FLjf0Ym2i4djpMSWlz9aCRtFiln9fX9g=="],
 
     "enhanced-resolve": ["enhanced-resolve@5.20.1", "", { "dependencies": { "graceful-fs": "^4.2.4", "tapable": "^2.3.0" } }, "sha512-Qohcme7V1inbAfvjItgw0EaxVX5q2rdVEZHRBrEQdRZTssLDGsL8Lwrznl8oQ/6kuTJONLaDcGjkNP247XEhcA=="],
 
