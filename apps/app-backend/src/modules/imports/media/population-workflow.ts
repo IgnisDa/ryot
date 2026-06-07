@@ -10,15 +10,15 @@ import type { ImportRunJobData } from "../jobs";
 import { recordImportRunFailure } from "../runtime/import-run-status";
 import { ImportRunError, toWorkflowError } from "../runtime/workflow-helpers";
 import { mediaEntityGroupItemIndex } from "./groups";
-import type { ImportMediaEntityGroup } from "./types";
-import { importEntityRefKey } from "./types";
 import {
 	EnsureLibraryMembershipOutcome,
 	PopulationScript,
 	type EntityIdsByKey,
 	type ProgressReporter,
-} from "./workflow-shared";
-import { MediaImportWorkflowOperations } from "./workflow-types";
+} from "./shared-workflow";
+import type { ImportMediaEntityGroup } from "./types";
+import { importEntityRefKey } from "./types";
+import { MediaImportWorkflowOperations } from "./types-workflow";
 
 export const populateMediaEntityGroups = Effect.fn("populateMediaEntityGroups")(function* (input: {
 	executionId: string;
