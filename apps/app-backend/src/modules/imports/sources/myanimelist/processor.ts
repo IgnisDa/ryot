@@ -1,4 +1,4 @@
-import { Effect, Either } from "effect";
+import { Effect } from "effect";
 
 import { AppConfig } from "#lib/config";
 
@@ -41,34 +41,24 @@ export const loadMyanimelistAdapterResult = Effect.fn("myanimelistProcessor.load
 		sourcePayload?: Record<string, unknown>;
 	}) {
 		const config = yield* AppConfig;
-		const paths = yield* Effect.try({
-			try: () => {
-				const animeFilePath = getValidatedOptionalPath(
-					input.sourcePayload?.animeFilePath,
-					MYANIMELIST_EXTENSIONS,
-					config.tmpDir,
-				);
-				const mangaFilePath = getValidatedOptionalPath(
-					input.sourcePayload?.mangaFilePath,
-					MYANIMELIST_EXTENSIONS,
-					config.tmpDir,
-				);
-				const primaryFilePath = animeFilePath ?? mangaFilePath ?? input.filePath;
-				const resolvedAnimeFilePath =
-					animeFilePath ?? (mangaFilePath ? undefined : primaryFilePath);
-				return { mangaFilePath, primaryFilePath, resolvedAnimeFilePath };
-			},
-			catch: (error) => sanitizeErrorMessage(error, "Import job has invalid MyAnimeList files"),
-		}).pipe(Effect.either);
-
-		if (Either.isLeft(paths)) {
-			return yield* Effect.fail({
-				cleanupPaths: [],
-				message: paths.left,
-			} satisfies LoadedMediaImportAdapterError);
-		}
-
-		const { mangaFilePath, primaryFilePath, resolvedAnimeFilePath } = paths.right;
+		const { animeFilePath, mangaFilePath } = yield* Effect.all({
+			animeFilePath: getValidatedOptionalPath(
+				input.sourcePayload?.animeFilePath,
+				MYANIMELIST_EXTENSIONS,
+				config.tmpDir,
+			),
+			mangaFilePath: getValidatedOptionalPath(
+				input.sourcePayload?.mangaFilePath,
+				MYANIMELIST_EXTENSIONS,
+				config.tmpDir,
+			),
+		}).pipe(
+			Effect.mapError(
+				(message) => ({ cleanupPaths: [], message }) satisfies LoadedMediaImportAdapterError,
+			),
+		);
+		const primaryFilePath = animeFilePath ?? mangaFilePath ?? input.filePath;
+		const resolvedAnimeFilePath = animeFilePath ?? (mangaFilePath ? undefined : primaryFilePath);
 		const cleanupPaths = [primaryFilePath, resolvedAnimeFilePath, mangaFilePath].filter(
 			(filePath): filePath is string => Boolean(filePath),
 		);
