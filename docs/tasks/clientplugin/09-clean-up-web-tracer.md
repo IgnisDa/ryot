@@ -2,7 +2,7 @@
 
 **Parent Plan:** [Web Client Plugin Tracer](./README.md)
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -20,24 +20,24 @@ The cleanup must preserve and enforce the one per-session client plugin runtime:
 
 ## Acceptance criteria
 
-- [ ] The `codebase-cleanup` skill is loaded and followed for this pass.
-- [ ] Every file changed by Tasks 01-08 and each directly affected module is reviewed for verified cleanup opportunities.
-- [ ] No file under `crates/**` is modified, moved, renamed, or deleted.
-- [ ] Authentication has no hardcoded user, bypass route, fixture credential, or temporary session injection in application code.
-- [ ] The kernel has no Expo, React Native, NativeWind, legacy-router, or migration adapter left from tracer implementation.
-- [ ] The client compiler and sandbox compiler retain distinct policies and APIs; only proven shared utilities remain shared.
-- [ ] No hardcoded fixture catalog row, static fixture UI import, alternate artifact loader, test-only bridge runtime, mutable artifact path, or inline artifact payload on the active plugin row remains.
-- [ ] Bootstrap validates metadata before accepting one port and owns the bootstrap listener and React root/unmount coordinator; the runtime owns one session listener/dispatcher, location/theme state, pending calls, client, and idempotent disposal, while `PluginHost` owns the iframe and kernel session handle.
-- [ ] Bridge listeners, ports, pending-call registries, iframe lifecycle state, and catalog subscriptions have clear ownership and teardown; pending query and operation calls reject exactly once before port/iframe release.
-- [ ] Exact markers, including protocol version 1, remain simple equality checks.
-- [ ] Every bridge value uses a strict contract or a domain schema built on the canonical JSON boundary; operation input is required with explicit `null` for no input, invalid SDK input is `invalid-input`, and non-JSON operation output becomes `malformed-result` before bridge delivery.
-- [ ] `RyotClientError.reason` has exactly the eight public reasons and fixed classifications from the parent plan; expected business/domain outcomes are typed successful values, `query-failed` and `operation-failed` are opaque declared backend/platform execution failures, and no theme-, crash-, reload-, or capability-specific error union exists.
-- [ ] `lifecycle-close` remains the payload-free `{ type: "lifecycle-close", reason: "disposed" | "failed" }` message; wire `failed` maps to public `protocol` and is not a public SDK error reason, with no stack, error, request, or diagnostic expansion.
-- [ ] Kernel and plugin consumers use the explicit Task 05-followup `RyotClient` adapters; no global mutable client, parallel capability facade, direct catalog transport, or bridge-specific component API remains.
-- [ ] Kernel and plugin consumers use the canonical `data`, `operations`, and `navigation` client categories; no stale operation/navigation names or parallel routing, reload, lifecycle, or capability facades remain. `PluginLink` and the reactive location, params, and search hooks remain only as plugin React conveniences on the shared runtime.
-- [ ] Kernel abort remains best effort and is not documented or implemented as rollback for work that committed before abort.
-- [ ] No `@ryot/client-plugin-sdk` package, import, generated residue, or stale documentation remains.
-- [ ] Package exports, workspace references, task-specific documentation, architecture decisions resolved during implementation, and public API names match the final code.
+- [x] The `codebase-cleanup` skill is loaded and followed for this pass.
+- [x] Every file changed by Tasks 01-08 and each directly affected module is reviewed for verified cleanup opportunities.
+- [x] No file under `crates/**` is modified, moved, renamed, or deleted.
+- [x] Authentication has no hardcoded user, bypass route, fixture credential, or temporary session injection in application code.
+- [x] The kernel has no Expo, React Native, NativeWind, legacy-router, or migration adapter left from tracer implementation.
+- [x] The client compiler and sandbox compiler retain distinct policies and APIs; only proven shared utilities remain shared.
+- [x] No hardcoded fixture catalog row, static fixture UI import, alternate artifact loader, test-only bridge runtime, mutable artifact path, or inline artifact payload on the active plugin row remains.
+- [x] Bootstrap validates metadata before accepting one port and owns the bootstrap listener and React root/unmount coordinator; the runtime owns one session listener/dispatcher, location/theme state, pending calls, client, and idempotent disposal, while `PluginHost` owns the iframe and kernel session handle.
+- [x] Bridge listeners, ports, pending-call registries, iframe lifecycle state, and catalog subscriptions have clear ownership and teardown; pending query and operation calls reject exactly once before port/iframe release.
+- [x] Exact markers, including protocol version 1, remain simple equality checks.
+- [x] Every bridge value uses a strict contract or a domain schema built on the canonical JSON boundary; operation input is required with explicit `null` for no input, invalid SDK input is `invalid-input`, and non-JSON operation output becomes `malformed-result` before bridge delivery.
+- [x] `RyotClientError.reason` has exactly the eight public reasons and fixed classifications from the parent plan; expected business/domain outcomes are typed successful values, `query-failed` and `operation-failed` are opaque declared backend/platform execution failures, and no theme-, crash-, reload-, or capability-specific error union exists.
+- [x] `lifecycle-close` remains the payload-free `{ type: "lifecycle-close", reason: "disposed" | "failed" }` message; wire `failed` maps to public `protocol` and is not a public SDK error reason, with no stack, error, request, or diagnostic expansion.
+- [x] Kernel and plugin consumers use the explicit Task 05-followup `RyotClient` adapters; no global mutable client, parallel capability facade, direct catalog transport, or bridge-specific component API remains.
+- [x] Kernel and plugin consumers use the canonical `data`, `operations`, and `navigation` client categories; no stale operation/navigation names or parallel routing, reload, lifecycle, or capability facades remain. `PluginLink` and the reactive location, params, and search hooks remain only as plugin React conveniences on the shared runtime.
+- [x] Kernel abort remains best effort and is not documented or implemented as rollback for work that committed before abort.
+- [x] No `@ryot/client-plugin-sdk` package, import, generated residue, or stale documentation remains.
+- [x] Package exports, workspace references, task-specific documentation, architecture decisions resolved during implementation, and public API names match the final code.
 - [ ] Formatting, linting, type checks, focused package tests, backend tests, kernel tests, browser tracer tests, and production builds all pass, including exact operation-error classification and shared pending-call/teardown coverage.
 - [ ] Manual verification proves onboarding, authentication, fixture home, private navigation, authenticated operation, theme synchronization, crash recovery, and forced update reload through one production path and one reused runtime lifecycle.
 
@@ -56,3 +56,12 @@ The cleanup must preserve and enforce the one per-session client plugin runtime:
 ## Implementor Notes
 
 The cleanup task is mandatory and must not be skipped or merged into an earlier task. Record any deferred work as explicit later-plan scope rather than leaving TODOs, dead flags, or speculative hooks in the tracer.
+
+## Implementation Notes
+
+- **Complete tracer audit.** Reconstructed the 42 Task 01-08 commits and reviewed their 227 current files plus directly affected modules across the kernel client, shared SDK and contract packages, compiler and fixture, backend persistence and serving, archive and CLI, server assembly, and focused end-to-end support. No `crates/**` file changed.
+- **Verified cleanup.** Removed two unused authentication result types and a mocked artifact-service test that only repeated repository forwarding already covered by repository and production artifact-route tests. Retained semantic service boundaries, test-only malformed-boundary casts, required lint suppressions, compiler serialization, and the sandbox log-limit fixture because each has a current verified purpose.
+- **Canonical JSON boundaries.** Plugin configuration request and response schemas and aggregate RyotQL rows now use the shared `JsonValue` schema. Backend configuration sanitization and aggregate reconstruction validate with `isJsonValue` before values enter the HTTP boundary. SDK tests no longer use permissive `Schema.Unknown` output codecs, and the unused parallel JSON schema alias and unnecessary codec cast were removed.
+- **Contract and documentation alignment.** Preserved the exact eight `RyotClientError` reasons, protocol version 1, payload-free lifecycle close, final `data`/`operations`/`navigation` taxonomy, one per-session runtime, immutable artifact identities, and revision-bound operation dispatch. Corrected stale protocol wording and architecture text that described theme integration as future work or required deleting the read-only `crates/` references.
+- **Verification.** `bun turbo --output-logs=full check` passed all 26 packages with zero warnings and zero errors. Focused tests and builds passed for the contract, archive, CLI, SDK, UI SDK, client compiler, fixture, kernel client, and kernel backend. Six directly affected backend files passed 153 tests. The affected end-to-end files `client-artifact.test.ts`, `client-operation.test.ts`, `operations.test.ts`, `private-plugins.test.ts`, and `sandbox/integrations.test.ts` passed 5 files and 29 tests together.
+- **Known repository limitation.** The full backend unit command passed 1,247 tests but retained five unrelated sandbox compiler/runtime failures, including one timeout, in the existing Effect rc.111 worker path. The existing Dockerfile `FIXME` and real-browser manual verification remain unresolved; fixing either requires work outside this cleanup task, so the final two acceptance criteria remain unchecked.

@@ -5,5 +5,3 @@ export const deriveAuthMethods = (config: SystemConfigResponse) => ({
 	emailSignUp: !config.auth.localAuthDisabled && config.auth.signupAllowed,
 	oidc: config.auth.oidcEnabled ? { buttonLabel: config.auth.oidcButtonLabel } : undefined,
 });
-
-export type AuthMethods = ReturnType<typeof deriveAuthMethods>;

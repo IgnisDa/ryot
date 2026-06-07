@@ -74,6 +74,4 @@ export const isJsonValue = (value: unknown): value is JsonValue => {
 
 export const JsonValue = Schema.declare<JsonValue>(isJsonValue).annotate({
 	identifier: "JsonValue",
-}) as Schema.Codec<JsonValue, JsonValue>;
-
-export const jsonValueSchema = JsonValue;
+});
