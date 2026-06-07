@@ -24,8 +24,8 @@ function withRecordProperties<T extends { properties: unknown }>(
 
 export async function createEntity(client: Client, body: CreateEntityInput) {
 	const { image, ...rest } = body;
-	const entity = await client.run(
-		(c) => c.entities.create({ payload: { ...rest, ...(image != null && { image }) } }),
+	const entity = await client.run((c) =>
+		c.entities.create({ payload: { ...rest, ...(image != null && { image }) } }),
 	);
 
 	requirePresent(entity.id, "Failed to create entity");

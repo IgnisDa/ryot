@@ -12,6 +12,7 @@ import { isEntitySchemaSlug, toEntityDetail } from "./model";
 import { loadRelatedCreators, mergeCreators } from "./people";
 import { createQueryEngineClient } from "./query-engine";
 import { EntityDetailTabs } from "./tabs";
+import type { EntityDetail } from "./types";
 
 function ScreenState(props: {
 	title: string;
@@ -163,10 +164,15 @@ export function EntityDetailScreen(props: { entityId: string }) {
 
 	const entityData = entityQuery.data;
 	const entitySchemaSlug = entitySchemaQuery.data?.slug;
-	const entity =
-		entityData && entitySchemaSlug && isEntitySchemaSlug(entitySchemaSlug)
-			? toEntityDetail(entityData, entitySchemaSlug)
-			: null;
+
+	let entity: EntityDetail | null = null;
+	if (entityData && entitySchemaSlug && isEntitySchemaSlug(entitySchemaSlug)) {
+		try {
+			entity = toEntityDetail(entityData, entitySchemaSlug);
+		} catch {
+			entity = null;
+		}
+	}
 	const baseCreators = entity
 		? "unlinkedCreators" in entity.properties
 			? (entity.properties.unlinkedCreators ?? [])

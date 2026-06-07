@@ -21,10 +21,7 @@ export interface CreateEntitySchemaOptions {
 	propertiesSchema?: AppSchema;
 }
 
-export async function createEntitySchema(
-	client: Client,
-	options: CreateEntitySchemaOptions,
-) {
+export async function createEntitySchema(client: Client, options: CreateEntitySchemaOptions) {
 	const {
 		trackerId,
 		icon = "book",
@@ -36,18 +33,17 @@ export async function createEntitySchema(
 		},
 	} = options;
 
-	const schema = await client.run(
-		(c) =>
-			c.entitySchemas.create({
-				payload: {
-					icon,
-					name,
-					slug,
-					trackerId,
-					accentColor,
-					propertiesSchema,
-				},
-			}),
+	const schema = await client.run((c) =>
+		c.entitySchemas.create({
+			payload: {
+				icon,
+				name,
+				slug,
+				trackerId,
+				accentColor,
+				propertiesSchema,
+			},
+		}),
 	);
 
 	return {
@@ -116,10 +112,7 @@ export async function findBuiltinSchemaWithProviders(client: Client) {
 	return findBuiltinSchemaBySlug(client, "book");
 }
 
-export async function enqueueEntitySearch(
-	client: Client,
-	body: EnqueueEntitySearchBody,
-) {
+export async function enqueueEntitySearch(client: Client, body: EnqueueEntitySearchBody) {
 	const result = await client.run((c) => c.entitySchemas.search({ payload: body }));
 
 	return {
@@ -142,10 +135,7 @@ export async function pollEntitySearchResult(
 	);
 }
 
-export async function enqueueEntityImport(
-	client: Client,
-	body: EnqueueEntityImportBody,
-) {
+export async function enqueueEntityImport(client: Client, body: EnqueueEntityImportBody) {
 	const result = await client.run((c) => c.entities.import({ payload: body }));
 
 	return {

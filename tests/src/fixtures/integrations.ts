@@ -20,10 +20,7 @@ const normalizeWebhookResponse = (parsed: unknown): WebhookResponseBody | undefi
 
 type CreateIntegrationBody = ContractPayload<"integrations", "create">;
 
-export async function createIntegration(
-	client: Client,
-	body: CreateIntegrationBody,
-) {
+export async function createIntegration(client: Client, body: CreateIntegrationBody) {
 	const result = await client.run((c) => c.integrations.create({ payload: body }));
 	requirePresent(result.id, "Failed to create integration");
 	return result;

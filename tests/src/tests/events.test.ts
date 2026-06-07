@@ -22,27 +22,26 @@ describe("Events bulk POST", () => {
 		const { client: apiClient } = await createAuthenticatedClient();
 		const { entityId, eventSchemaId } = await createEventTestFixture(apiClient);
 
-		const result = await apiClient.run(
-			(c) =>
-				c.events.create({
-					payload: [
-						{
-							entityId,
-							eventSchemaId,
-							properties: { rating: 4 },
-						},
-						{
-							entityId,
-							eventSchemaId,
-							properties: { rating: 5 },
-						},
-						{
-							entityId,
-							eventSchemaId,
-							properties: { rating: 3 },
-						},
-					],
-				}),
+		const result = await apiClient.run((c) =>
+			c.events.create({
+				payload: [
+					{
+						entityId,
+						eventSchemaId,
+						properties: { rating: 4 },
+					},
+					{
+						entityId,
+						eventSchemaId,
+						properties: { rating: 5 },
+					},
+					{
+						entityId,
+						eventSchemaId,
+						properties: { rating: 3 },
+					},
+				],
+			}),
 		);
 
 		expect(result.count).toBe(3);
@@ -60,33 +59,30 @@ describe("Events bulk POST", () => {
 		const { client: apiClient } = await createAuthenticatedClient();
 		const { entityId, eventSchemaId } = await createRuleEventFixture(apiClient);
 
-		const optionalResult = await apiClient.run(
-			(c) =>
-				c.events.create({
-					payload: [{ entityId, eventSchemaId, properties: { status: "draft" } }],
-				}),
+		const optionalResult = await apiClient.run((c) =>
+			c.events.create({
+				payload: [{ entityId, eventSchemaId, properties: { status: "draft" } }],
+			}),
 		);
 		expect(optionalResult.count).toBe(1);
 
-		const rejectedError = await apiClient.runError(
-			(c) =>
-				c.events.create({
-					payload: [{ entityId, eventSchemaId, properties: { status: "completed" } }],
-				}),
+		const rejectedError = await apiClient.runError((c) =>
+			c.events.create({
+				payload: [{ entityId, eventSchemaId, properties: { status: "completed" } }],
+			}),
 		);
 		assertTaggedError(rejectedError, "BadRequest");
 
-		const acceptedResult = await apiClient.run(
-			(c) =>
-				c.events.create({
-					payload: [
-						{
-							entityId,
-							eventSchemaId,
-							properties: { status: "completed", progressPercent: 75 },
-						},
-					],
-				}),
+		const acceptedResult = await apiClient.run((c) =>
+			c.events.create({
+				payload: [
+					{
+						entityId,
+						eventSchemaId,
+						properties: { status: "completed", progressPercent: 75 },
+					},
+				],
+			}),
 		);
 		expect(acceptedResult.count).toBe(1);
 
@@ -100,8 +96,8 @@ describe("Events bulk POST", () => {
 	it("returns 404 when listing events for a non-existent entity", async () => {
 		const { client: apiClient } = await createAuthenticatedClient();
 
-		const error = await apiClient.runError(
-			(c) => c.events.list({ urlParams: { entityId: crypto.randomUUID() } }),
+		const error = await apiClient.runError((c) =>
+			c.events.list({ urlParams: { entityId: crypto.randomUUID() } }),
 		);
 
 		assertTaggedError(error, "NotFound");
@@ -111,14 +107,13 @@ describe("Events bulk POST", () => {
 		const { client: apiClient } = await createAuthenticatedClient();
 		const { entityId, eventSchemaId } = await createEventTestFixture(apiClient);
 
-		await apiClient.run(
-			(c) =>
-				c.events.create({
-					payload: [
-						{ entityId, eventSchemaId, properties: { rating: 4 } },
-						{ entityId, eventSchemaId, properties: { rating: 5 } },
-					],
-				}),
+		await apiClient.run((c) =>
+			c.events.create({
+				payload: [
+					{ entityId, eventSchemaId, properties: { rating: 4 } },
+					{ entityId, eventSchemaId, properties: { rating: 5 } },
+				],
+			}),
 		);
 
 		const events = await waitForEventCount(apiClient, entityId, 2);
@@ -130,22 +125,21 @@ describe("Events bulk POST", () => {
 		const { entityId, completeEventSchemaId, progressEventSchemaId } =
 			await createBuiltinMediaLifecycleFixture(apiClient);
 
-		const createResult = await apiClient.run(
-			(c) =>
-				c.events.create({
-					payload: [
-						{
-							entityId,
-							eventSchemaId: progressEventSchemaId,
-							properties: { progressPercent: 25 },
-						},
-						{
-							entityId,
-							eventSchemaId: completeEventSchemaId,
-							properties: { completionMode: "just_now" },
-						},
-					],
-				}),
+		const createResult = await apiClient.run((c) =>
+			c.events.create({
+				payload: [
+					{
+						entityId,
+						eventSchemaId: progressEventSchemaId,
+						properties: { progressPercent: 25 },
+					},
+					{
+						entityId,
+						eventSchemaId: completeEventSchemaId,
+						properties: { completionMode: "just_now" },
+					},
+				],
+			}),
 		);
 
 		expect(createResult.count).toBe(2);
@@ -155,18 +149,18 @@ describe("Events bulk POST", () => {
 		const allEvents = await apiClient.run((c) => c.events.list({ urlParams: { entityId } }));
 		expect(allEvents).toHaveLength(2);
 
-		const progressEvents = await apiClient.run(
-			(c) => c.events.list({ urlParams: { entityId, eventSchemaSlug: "progress" } }),
+		const progressEvents = await apiClient.run((c) =>
+			c.events.list({ urlParams: { entityId, eventSchemaSlug: "progress" } }),
 		);
 		expect(progressEvents.map((event) => event.eventSchemaSlug)).toEqual(["progress"]);
 
-		const completeEvents = await apiClient.run(
-			(c) => c.events.list({ urlParams: { entityId, eventSchemaSlug: "complete" } }),
+		const completeEvents = await apiClient.run((c) =>
+			c.events.list({ urlParams: { entityId, eventSchemaSlug: "complete" } }),
 		);
 		expect(completeEvents.map((event) => event.eventSchemaSlug)).toEqual(["complete"]);
 
-		const missingEvents = await apiClient.run(
-			(c) => c.events.list({ urlParams: { entityId, eventSchemaSlug: "nonexistent" } }),
+		const missingEvents = await apiClient.run((c) =>
+			c.events.list({ urlParams: { entityId, eventSchemaSlug: "nonexistent" } }),
 		);
 		expect(missingEvents).toEqual([]);
 	});
@@ -175,14 +169,13 @@ describe("Events bulk POST", () => {
 		const { client: apiClient } = await createAuthenticatedClient();
 		const { entityId, backlogEventSchemaId } = await createBuiltinMediaLifecycleFixture(apiClient);
 
-		const createResult = await apiClient.run(
-			(c) =>
-				c.events.create({
-					payload: [
-						{ entityId, properties: {}, eventSchemaId: backlogEventSchemaId },
-						{ entityId, properties: {}, eventSchemaId: backlogEventSchemaId },
-					],
-				}),
+		const createResult = await apiClient.run((c) =>
+			c.events.create({
+				payload: [
+					{ entityId, properties: {}, eventSchemaId: backlogEventSchemaId },
+					{ entityId, properties: {}, eventSchemaId: backlogEventSchemaId },
+				],
+			}),
 		);
 
 		expect(createResult.count).toBe(2);
@@ -197,22 +190,21 @@ describe("Events bulk POST", () => {
 		const { client: apiClient } = await createAuthenticatedClient();
 		const { entityId, progressEventSchemaId } = await createBuiltinMediaLifecycleFixture(apiClient);
 
-		const createResult = await apiClient.run(
-			(c) =>
-				c.events.create({
-					payload: [
-						{
-							entityId,
-							eventSchemaId: progressEventSchemaId,
-							properties: { progressPercent: 25.555 },
-						},
-						{
-							entityId,
-							eventSchemaId: progressEventSchemaId,
-							properties: { progressPercent: 50.444 },
-						},
-					],
-				}),
+		const createResult = await apiClient.run((c) =>
+			c.events.create({
+				payload: [
+					{
+						entityId,
+						eventSchemaId: progressEventSchemaId,
+						properties: { progressPercent: 25.555 },
+					},
+					{
+						entityId,
+						eventSchemaId: progressEventSchemaId,
+						properties: { progressPercent: 50.444 },
+					},
+				],
+			}),
 		);
 
 		expect(createResult.count).toBe(2);
@@ -229,25 +221,24 @@ describe("Events bulk POST", () => {
 		const { client: apiClient } = await createAuthenticatedClient();
 		const { entityId, completeEventSchemaId } = await createBuiltinMediaLifecycleFixture(apiClient);
 
-		const createResult = await apiClient.run(
-			(c) =>
-				c.events.create({
-					payload: [
-						{
-							entityId,
-							eventSchemaId: completeEventSchemaId,
-							properties: { completionMode: "just_now" },
+		const createResult = await apiClient.run((c) =>
+			c.events.create({
+				payload: [
+					{
+						entityId,
+						eventSchemaId: completeEventSchemaId,
+						properties: { completionMode: "just_now" },
+					},
+					{
+						entityId,
+						eventSchemaId: completeEventSchemaId,
+						properties: {
+							completionMode: "custom_timestamps",
+							completedOn: "2026-03-27T18:30:00Z",
 						},
-						{
-							entityId,
-							eventSchemaId: completeEventSchemaId,
-							properties: {
-								completionMode: "custom_timestamps",
-								completedOn: "2026-03-27T18:30:00Z",
-							},
-						},
-					],
-				}),
+					},
+				],
+			}),
 		);
 
 		expect(createResult.count).toBe(2);
@@ -268,17 +259,16 @@ describe("Events bulk POST", () => {
 		const { client: apiClient } = await createAuthenticatedClient();
 		const { entityId, completeEventSchemaId } = await createBuiltinMediaLifecycleFixture(apiClient);
 
-		const createResult = await apiClient.run(
-			(c) =>
-				c.events.create({
-					payload: [
-						{
-							entityId,
-							eventSchemaId: completeEventSchemaId,
-							properties: { completionMode: "just_now", timeSpent: 120 },
-						},
-					],
-				}),
+		const createResult = await apiClient.run((c) =>
+			c.events.create({
+				payload: [
+					{
+						entityId,
+						eventSchemaId: completeEventSchemaId,
+						properties: { completionMode: "just_now", timeSpent: 120 },
+					},
+				],
+			}),
 		);
 
 		expect(createResult.count).toBe(1);
@@ -293,17 +283,16 @@ describe("Events bulk POST", () => {
 		const { client: apiClient } = await createAuthenticatedClient();
 		const { entityId, completeEventSchemaId } = await createBuiltinMediaLifecycleFixture(apiClient);
 
-		const createResult = await apiClient.run(
-			(c) =>
-				c.events.create({
-					payload: [
-						{
-							entityId,
-							eventSchemaId: completeEventSchemaId,
-							properties: { completionMode: "unknown" },
-						},
-					],
-				}),
+		const createResult = await apiClient.run((c) =>
+			c.events.create({
+				payload: [
+					{
+						entityId,
+						eventSchemaId: completeEventSchemaId,
+						properties: { completionMode: "unknown" },
+					},
+				],
+			}),
 		);
 
 		expect(createResult.count).toBe(1);
@@ -313,17 +302,16 @@ describe("Events bulk POST", () => {
 		const { client: apiClient } = await createAuthenticatedClient();
 		const { entityId, completeEventSchemaId } = await createBuiltinMediaLifecycleFixture(apiClient);
 
-		const error = await apiClient.runError(
-			(c) =>
-				c.events.create({
-					payload: [
-						{
-							entityId,
-							eventSchemaId: completeEventSchemaId,
-							properties: { completionMode: "just_now", timeSpent: -10 },
-						},
-					],
-				}),
+		const error = await apiClient.runError((c) =>
+			c.events.create({
+				payload: [
+					{
+						entityId,
+						eventSchemaId: completeEventSchemaId,
+						properties: { completionMode: "just_now", timeSpent: -10 },
+					},
+				],
+			}),
 		);
 
 		assertTaggedError(error, "BadRequest");
@@ -333,22 +321,21 @@ describe("Events bulk POST", () => {
 		const { client: apiClient } = await createAuthenticatedClient();
 		const { entityId, reviewEventSchemaId } = await createBuiltinMediaLifecycleFixture(apiClient);
 
-		const createResult = await apiClient.run(
-			(c) =>
-				c.events.create({
-					payload: [
-						{
-							entityId,
-							properties: { rating: 4 },
-							eventSchemaId: reviewEventSchemaId,
-						},
-						{
-							entityId,
-							eventSchemaId: reviewEventSchemaId,
-							properties: { text: "Even better", rating: 5 },
-						},
-					],
-				}),
+		const createResult = await apiClient.run((c) =>
+			c.events.create({
+				payload: [
+					{
+						entityId,
+						properties: { rating: 4 },
+						eventSchemaId: reviewEventSchemaId,
+					},
+					{
+						entityId,
+						eventSchemaId: reviewEventSchemaId,
+						properties: { text: "Even better", rating: 5 },
+					},
+				],
+			}),
 		);
 
 		expect(createResult.count).toBe(2);
@@ -366,17 +353,16 @@ describe("Events bulk POST", () => {
 		const { client: apiClient } = await createAuthenticatedClient();
 		const { entityId, droppedEventSchemaId } = await createBuiltinMediaLifecycleFixture(apiClient);
 
-		const createResult = await apiClient.run(
-			(c) =>
-				c.events.create({
-					payload: [
-						{
-							entityId,
-							eventSchemaId: droppedEventSchemaId,
-							properties: { progressPercent: 40, timeSpent: 90 },
-						},
-					],
-				}),
+		const createResult = await apiClient.run((c) =>
+			c.events.create({
+				payload: [
+					{
+						entityId,
+						eventSchemaId: droppedEventSchemaId,
+						properties: { progressPercent: 40, timeSpent: 90 },
+					},
+				],
+			}),
 		);
 
 		expect(createResult.count).toBe(1);
@@ -390,17 +376,16 @@ describe("Events bulk POST", () => {
 		const { client: apiClient } = await createAuthenticatedClient();
 		const { entityId, onHoldEventSchemaId } = await createBuiltinMediaLifecycleFixture(apiClient);
 
-		const createResult = await apiClient.run(
-			(c) =>
-				c.events.create({
-					payload: [
-						{
-							entityId,
-							eventSchemaId: onHoldEventSchemaId,
-							properties: { progressPercent: 60, timeSpent: 45 },
-						},
-					],
-				}),
+		const createResult = await apiClient.run((c) =>
+			c.events.create({
+				payload: [
+					{
+						entityId,
+						eventSchemaId: onHoldEventSchemaId,
+						properties: { progressPercent: 60, timeSpent: 45 },
+					},
+				],
+			}),
 		);
 
 		expect(createResult.count).toBe(1);
@@ -414,17 +399,16 @@ describe("Events bulk POST", () => {
 		const { client: apiClient } = await createAuthenticatedClient();
 		const { entityId, droppedEventSchemaId } = await createBuiltinMediaLifecycleFixture(apiClient);
 
-		const error = await apiClient.runError(
-			(c) =>
-				c.events.create({
-					payload: [
-						{
-							entityId,
-							eventSchemaId: droppedEventSchemaId,
-							properties: { progressPercent: 50, timeSpent: -5 },
-						},
-					],
-				}),
+		const error = await apiClient.runError((c) =>
+			c.events.create({
+				payload: [
+					{
+						entityId,
+						eventSchemaId: droppedEventSchemaId,
+						properties: { progressPercent: 50, timeSpent: -5 },
+					},
+				],
+			}),
 		);
 
 		assertTaggedError(error, "BadRequest");
@@ -434,22 +418,21 @@ describe("Events bulk POST", () => {
 		const { client: apiClient } = await createAuthenticatedClient();
 		const { entityId, droppedEventSchemaId } = await createBuiltinMediaLifecycleFixture(apiClient);
 
-		const createResult = await apiClient.run(
-			(c) =>
-				c.events.create({
-					payload: [
-						{
-							entityId,
-							eventSchemaId: droppedEventSchemaId,
-							properties: { progressPercent: 33.333 },
-						},
-						{
-							entityId,
-							eventSchemaId: droppedEventSchemaId,
-							properties: { progressPercent: 66.666 },
-						},
-					],
-				}),
+		const createResult = await apiClient.run((c) =>
+			c.events.create({
+				payload: [
+					{
+						entityId,
+						eventSchemaId: droppedEventSchemaId,
+						properties: { progressPercent: 33.333 },
+					},
+					{
+						entityId,
+						eventSchemaId: droppedEventSchemaId,
+						properties: { progressPercent: 66.666 },
+					},
+				],
+			}),
 		);
 
 		expect(createResult.count).toBe(2);
@@ -466,22 +449,21 @@ describe("Events bulk POST", () => {
 		const { client: apiClient } = await createAuthenticatedClient();
 		const { entityId, onHoldEventSchemaId } = await createBuiltinMediaLifecycleFixture(apiClient);
 
-		const createResult = await apiClient.run(
-			(c) =>
-				c.events.create({
-					payload: [
-						{
-							entityId,
-							eventSchemaId: onHoldEventSchemaId,
-							properties: { progressPercent: 45.555 },
-						},
-						{
-							entityId,
-							eventSchemaId: onHoldEventSchemaId,
-							properties: { progressPercent: 75.444 },
-						},
-					],
-				}),
+		const createResult = await apiClient.run((c) =>
+			c.events.create({
+				payload: [
+					{
+						entityId,
+						eventSchemaId: onHoldEventSchemaId,
+						properties: { progressPercent: 45.555 },
+					},
+					{
+						entityId,
+						eventSchemaId: onHoldEventSchemaId,
+						properties: { progressPercent: 75.444 },
+					},
+				],
+			}),
 		);
 
 		expect(createResult.count).toBe(2);
@@ -501,22 +483,21 @@ describe("Events bulk POST", () => {
 				entitySchemaSlug: "show",
 			});
 
-		const createResult = await apiClient.run(
-			(c) =>
-				c.events.create({
-					payload: [
-						{
-							entityId,
-							eventSchemaId: droppedEventSchemaId,
-							properties: { progressPercent: 50, showSeason: 2, showEpisode: 5 },
-						},
-						{
-							entityId,
-							eventSchemaId: onHoldEventSchemaId,
-							properties: { progressPercent: 75, showSeason: 3, showEpisode: 10 },
-						},
-					],
-				}),
+		const createResult = await apiClient.run((c) =>
+			c.events.create({
+				payload: [
+					{
+						entityId,
+						eventSchemaId: droppedEventSchemaId,
+						properties: { progressPercent: 50, showSeason: 2, showEpisode: 5 },
+					},
+					{
+						entityId,
+						eventSchemaId: onHoldEventSchemaId,
+						properties: { progressPercent: 75, showSeason: 3, showEpisode: 10 },
+					},
+				],
+			}),
 		);
 
 		expect(createResult.count).toBe(2);
