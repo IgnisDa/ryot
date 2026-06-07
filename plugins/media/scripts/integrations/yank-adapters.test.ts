@@ -58,16 +58,39 @@ const historyClient = (
 ): HistoryClient => ({
 	getHistory: () =>
 		Promise.resolve({
-			sections: [
-				{
-					header: { type: "ItemSectionHeader", title: { text: "January 1, 2026" } },
-					contents: songs.map((song) => ({
-						type: "Video",
-						video_id: song.videoId,
-						title: { text: song.title },
-					})),
+			contents: {
+				singleColumnBrowseResultsRenderer: {
+					tabs: [
+						{
+							tabRenderer: {
+								content: {
+									sectionListRenderer: {
+										contents: [
+											{
+												musicShelfRenderer: {
+													title: { runs: [{ text: "January 1, 2026" }] },
+													contents: songs.map((song) => ({
+														musicResponsiveListItemRenderer: {
+															playlistItemData: { videoId: song.videoId },
+															flexColumns: [
+																{
+																	musicResponsiveListItemFlexColumnRenderer: {
+																		text: { runs: [{ text: song.title }] },
+																	},
+																},
+															],
+														},
+													})),
+												},
+											},
+										],
+									},
+								},
+							},
+						},
+					],
 				},
-			],
+			},
 		}),
 });
 
