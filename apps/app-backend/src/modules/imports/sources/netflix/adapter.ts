@@ -20,15 +20,10 @@ import {
 
 const NETFLIX_DATETIME_FORMATS = ["YYYY-MM-DD HH:mm:ss"];
 
-type NetflixLookupResult = { entityRef: ResolvedImportEntityRef } | { error: string };
-
 type NetflixLookupTitle = (input: {
 	title: string;
 	preferredEntitySchemaSlug?: "movie" | "show";
-}) => Effect.Effect<
-	{ entityRef: ResolvedImportEntityRef; matchedTitle: string } | { error: string },
-	unknown
->;
+}) => Effect.Effect<{ entityRef: ResolvedImportEntityRef; matchedTitle: string }, string>;
 
 type NetflixRatingRowResult =
 	| { skip: true }
@@ -91,28 +86,6 @@ const convertNetflixRating = (input: {
 
 const parseNetflixOccurredAt = (value: string): string | null =>
 	parseDateTime(value, NETFLIX_DATETIME_FORMATS);
-
-const lookupNetflixTitle = (input: {
-	lookupTitle: NetflixLookupTitle;
-	title: string;
-	preferredEntitySchemaSlug?: "movie" | "show";
-}) =>
-	input
-		.lookupTitle({
-			title: input.title,
-			preferredEntitySchemaSlug: input.preferredEntitySchemaSlug,
-		})
-		.pipe(
-			Effect.map(
-				(lookup): NetflixLookupResult =>
-					"entityRef" in lookup ? { entityRef: lookup.entityRef } : { error: lookup.error },
-			),
-			Effect.catchAll((error) =>
-				Effect.succeed({
-					error: error instanceof Error ? error.message : "Netflix title lookup failed",
-				}),
-			),
-		);
 
 const createLookupFailure = (input: {
 	message: string;
@@ -306,15 +279,16 @@ export const adaptNetflixExports = Effect.fn("netflixAdapter.adaptExports")(func
 			continue;
 		}
 
-		const lookup = yield* lookupNetflixTitle({
-			lookupTitle,
-			title: rowResult.title,
-			preferredEntitySchemaSlug: hasNetflixShowIndicators(rowResult.title) ? "show" : undefined,
-		});
-		if ("error" in lookup) {
+		const lookupResult = yield* Effect.either(
+			lookupTitle({
+				title: rowResult.title,
+				preferredEntitySchemaSlug: hasNetflixShowIndicators(rowResult.title) ? "show" : undefined,
+			}),
+		);
+		if (Either.isLeft(lookupResult)) {
 			failures.push(
 				createLookupFailure({
-					message: lookup.error,
+					message: lookupResult.left,
 					itemIndex: currentItemIndex,
 					sourceIdentifier: rowResult.title,
 					sourceLabel: rowResult.sourceLabel,
@@ -323,7 +297,8 @@ export const adaptNetflixExports = Effect.fn("netflixAdapter.adaptExports")(func
 			continue;
 		}
 
-		if (lookup.entityRef.entitySchemaSlug === "show") {
+		const { entityRef } = lookupResult.right;
+		if (entityRef.entitySchemaSlug === "show") {
 			if (!rowResult.episodeInfo) {
 				failures.push(
 					createLookupFailure({
@@ -335,7 +310,7 @@ export const adaptNetflixExports = Effect.fn("netflixAdapter.adaptExports")(func
 				);
 				continue;
 			}
-			const group = getOrCreateMediaEntityGroup(groupMap, lookup.entityRef, currentItemIndex);
+			const group = getOrCreateMediaEntityGroup(groupMap, entityRef, currentItemIndex);
 			group.events.push({
 				eventSchemaSlug: "progress",
 				occurredAt: rowResult.occurredAt,
@@ -348,7 +323,7 @@ export const adaptNetflixExports = Effect.fn("netflixAdapter.adaptExports")(func
 			continue;
 		}
 
-		const group = getOrCreateMediaEntityGroup(groupMap, lookup.entityRef, currentItemIndex);
+		const group = getOrCreateMediaEntityGroup(groupMap, entityRef, currentItemIndex);
 		group.events.push(
 			createCompleteEvent({
 				occurredAt: rowResult.occurredAt,
@@ -377,15 +352,16 @@ export const adaptNetflixExports = Effect.fn("netflixAdapter.adaptExports")(func
 			continue;
 		}
 
-		const lookup = yield* lookupNetflixTitle({
-			lookupTitle,
-			title: rowResult.title,
-			preferredEntitySchemaSlug: titleContext.get(extractNetflixBaseTitle(rowResult.title)),
-		});
-		if ("error" in lookup) {
+		const lookupResult = yield* Effect.either(
+			lookupTitle({
+				title: rowResult.title,
+				preferredEntitySchemaSlug: titleContext.get(extractNetflixBaseTitle(rowResult.title)),
+			}),
+		);
+		if (Either.isLeft(lookupResult)) {
 			failures.push(
 				createLookupFailure({
-					message: lookup.error,
+					message: lookupResult.left,
 					itemIndex: currentItemIndex,
 					sourceIdentifier: rowResult.title,
 					sourceLabel: rowResult.sourceLabel,
@@ -402,7 +378,11 @@ export const adaptNetflixExports = Effect.fn("netflixAdapter.adaptExports")(func
 			continue;
 		}
 
-		const group = getOrCreateMediaEntityGroup(groupMap, lookup.entityRef, currentItemIndex);
+		const group = getOrCreateMediaEntityGroup(
+			groupMap,
+			lookupResult.right.entityRef,
+			currentItemIndex,
+		);
 		group.events.push(reviewEvent);
 	}
 
@@ -423,15 +403,16 @@ export const adaptNetflixExports = Effect.fn("netflixAdapter.adaptExports")(func
 			continue;
 		}
 
-		const lookup = yield* lookupNetflixTitle({
-			lookupTitle,
-			title: rowResult.title,
-			preferredEntitySchemaSlug: titleContext.get(extractNetflixBaseTitle(rowResult.title)),
-		});
-		if ("error" in lookup) {
+		const lookupResult = yield* Effect.either(
+			lookupTitle({
+				title: rowResult.title,
+				preferredEntitySchemaSlug: titleContext.get(extractNetflixBaseTitle(rowResult.title)),
+			}),
+		);
+		if (Either.isLeft(lookupResult)) {
 			failures.push(
 				createLookupFailure({
-					message: lookup.error,
+					message: lookupResult.left,
 					itemIndex: currentItemIndex,
 					sourceIdentifier: rowResult.title,
 					sourceLabel: rowResult.sourceLabel,
@@ -440,7 +421,11 @@ export const adaptNetflixExports = Effect.fn("netflixAdapter.adaptExports")(func
 			continue;
 		}
 
-		const group = getOrCreateMediaEntityGroup(groupMap, lookup.entityRef, currentItemIndex);
+		const group = getOrCreateMediaEntityGroup(
+			groupMap,
+			lookupResult.right.entityRef,
+			currentItemIndex,
+		);
 		group.events.push(createBacklogEvent(importedAt));
 	}
 
