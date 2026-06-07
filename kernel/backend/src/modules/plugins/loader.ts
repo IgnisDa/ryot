@@ -11,9 +11,9 @@ import {
 } from "#modules/definition-registry/service";
 
 import { buildHttpRateLimitLookups, type HttpRateLimitLookups } from "./http-rate-limits";
-import type { NormalizedPlugin, StoredPluginIdentity } from "./types";
+import type { PluginRevision, StoredPluginIdentity } from "./types";
 
-export type PluginRegistryEntry = NormalizedPlugin & StoredPluginIdentity;
+export type PluginRegistryEntry = PluginRevision & StoredPluginIdentity;
 
 export type PluginRegistrySnapshot = {
 	readonly bindings: PluginBindings;

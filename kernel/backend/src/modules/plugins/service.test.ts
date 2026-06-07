@@ -59,7 +59,6 @@ const makeStoredPlugin = (manifest: PluginManifest, sourceHash: string): StoredP
 		scope: "system",
 		sourceFiles: {},
 		status: "active",
-		clientArtifact: null,
 		clientArtifactHash: null,
 		slug: manifest.metadata.slug,
 		id: `${manifest.metadata.slug}-plugin-id`,
@@ -253,7 +252,14 @@ const makeLayer = (input?: {
 				const pluginId = `${identity.slug}-plugin-id`;
 				yield* Effect.sync(() => {
 					input?.persisted?.push(plugin);
-					const stored = { ...plugin, ...identity, id: pluginId, status: "active" };
+					const { clientArtifact, ...revision } = plugin;
+					const stored = {
+						...revision,
+						...identity,
+						id: pluginId,
+						status: "active",
+						clientArtifactHash: clientArtifact?.hash ?? null,
+					};
 					const index = installed.findIndex((candidate) => candidate.slug === identity.slug);
 					if (index >= 0) {
 						installed.splice(index, 1, stored);
@@ -331,7 +337,6 @@ it.effect("validates, compiles, content-addresses, persists, loads, and publishe
 			{
 				clientArtifact: null,
 				scripts: plugin.scripts,
-				clientArtifactHash: null,
 				manifest: plugin.manifest,
 				sourceHash: plugin.sourceHash,
 				sourceFiles: plugin.sourceFiles,
@@ -420,7 +425,6 @@ it.effect("returns a committed install when Redis publication fails", () => {
 			{
 				clientArtifact: null,
 				scripts: plugin.scripts,
-				clientArtifactHash: null,
 				manifest: plugin.manifest,
 				sourceHash: plugin.sourceHash,
 				sourceFiles: plugin.sourceFiles,
@@ -480,7 +484,6 @@ it.effect("accepts user bootstrap declarations through explicit system ingestion
 			{
 				clientArtifact: null,
 				scripts: plugin.scripts,
-				clientArtifactHash: null,
 				manifest: plugin.manifest,
 				sourceHash: plugin.sourceHash,
 				sourceFiles: plugin.sourceFiles,
@@ -1292,9 +1295,7 @@ it.effect("compiles the declared client entry and persists its artifact", () => 
 		expect(requests).toEqual([
 			{ apiVersion: 1, entry: "client/index.tsx", files: plugin.sourceFiles },
 		]);
-		expect(persisted).toEqual([
-			expect.objectContaining({ clientArtifact: artifact, clientArtifactHash: artifact.hash }),
-		]);
+		expect(persisted).toEqual([expect.objectContaining({ clientArtifact: artifact })]);
 	}).pipe(
 		Effect.provide(
 			makeLayer({
