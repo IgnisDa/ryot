@@ -68,13 +68,13 @@ function CollapsibleContent(props: { isOpen: boolean; children: React.ReactNode 
 
 export function ShowSeasonsList(props: { entity: ShowDetail }) {
 	const [openId, setOpenId] = useState<number | null>(null);
-	const seasons = props.entity.properties.showSeasons;
+	const seasons = props.entity.properties.showSeasons ?? [];
 
 	return (
 		<Box>
 			{seasons.map((season) => {
 				const isOpen = openId === season.id;
-				const seasonPoster = season.posterImages[0] ?? null;
+				const seasonPoster = season.posterImages?.[0] ?? null;
 				return (
 					<Box key={season.id} className="mb-2">
 						<Pressable
@@ -120,7 +120,7 @@ export function ShowSeasonsList(props: { entity: ShowDetail }) {
 									</Text>
 								) : null}
 								{season.episodes.map((episode) => {
-									const episodePoster = episode.posterImages[0] ?? null;
+									const episodePoster = episode.posterImages?.[0] ?? null;
 									return (
 										<Box key={episode.id} className="border-b border-[rgba(201,148,58,0.1)] py-2.5">
 											<Box className="flex-row items-start gap-3">
@@ -177,7 +177,7 @@ export function ShowSeasonsList(props: { entity: ShowDetail }) {
 }
 
 export function PodcastEpisodesList(props: { entity: PodcastDetail }) {
-	const episodes = props.entity.properties.episodes;
+	const episodes = props.entity.properties.episodes ?? [];
 
 	return (
 		<Box>
