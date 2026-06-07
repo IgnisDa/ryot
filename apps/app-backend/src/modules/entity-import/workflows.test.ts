@@ -1,8 +1,9 @@
 import { expect, it } from "@effect/vitest";
+import { Workflow } from "@effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
-import type { Context } from "effect";
 import { Effect, Layer } from "effect";
 
+import { SandboxRunError } from "#lib/errors";
 import {
 	EntityId,
 	EntitySchemaId,
@@ -12,12 +13,19 @@ import {
 } from "#lib/schema/brands";
 import { dbRunnerLayer, makeMock, makeWorkflowActivityEngine } from "#lib/test-support/effect";
 import { EntitiesRepository } from "#modules/entities/repository";
-import type { ListedEntity } from "#modules/entities/schemas";
+import { ListedEntity } from "#modules/entities/schemas";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 
-import { EntityImportHook } from "./entity-import-hook";
-import { EntityImportWorkflow, runEntityImportWorkflow } from "./workflows";
+import { EntityImportPayload, runEntityImportWorkflow } from "./workflows";
+
+const TestEntityImportWorkflow = Workflow.make({
+	success: ListedEntity,
+	error: SandboxRunError,
+	payload: EntityImportPayload,
+	name: "TestEntityImportWorkflow",
+	idempotencyKey: ({ executionId }) => executionId,
+});
 
 const now = "2026-06-14T00:00:00.000Z";
 
@@ -87,15 +95,10 @@ const makeRelationshipSchemasRepository = (
 		overrides,
 	);
 
-const makeEntityImportHook = (
-	onEntityImported: (userId: string, entityId: string) => Effect.Effect<void> = () => Effect.void,
-): Context.Tag.Service<typeof EntityImportHook> => ({ onEntityImported });
-
 type TestLayerOptions = {
 	entitiesRepository?: EntitiesRepository;
 	relationshipsRepository?: RelationshipsRepository;
 	relationshipSchemasRepository?: RelationshipSchemasRepository;
-	entityImportHook?: Context.Tag.Service<typeof EntityImportHook>;
 };
 
 const makeTestLayer = (options: TestLayerOptions) =>
@@ -110,7 +113,6 @@ const makeTestLayer = (options: TestLayerOptions) =>
 			RelationshipSchemasRepository,
 			options.relationshipSchemasRepository ?? makeRelationshipSchemasRepository(),
 		),
-		Layer.succeed(EntityImportHook, options.entityImportHook ?? makeEntityImportHook()),
 	);
 
 const withTestLayer = <A, E, R>(
@@ -118,7 +120,7 @@ const withTestLayer = <A, E, R>(
 	executionId: string,
 	effect: Effect.Effect<A, E, R>,
 ) => {
-	const instance = WorkflowInstance.initial(EntityImportWorkflow, executionId);
+	const instance = WorkflowInstance.initial(TestEntityImportWorkflow, executionId);
 	const engine = makeWorkflowActivityEngine(instance);
 
 	return effect.pipe(
@@ -136,12 +138,10 @@ const importPayload = {
 	entitySchemaId: EntitySchemaId.make("schema-1"),
 };
 
-it.effect("populates entity, writes related entities, and ensures library membership", () => {
+it.effect("populates entity and writes related entities", () => {
 	let relationshipWritten = false;
 	let globalEntityWritten = false;
 	let relatedEntityWritten = false;
-	let libraryMembershipUserId: string | undefined;
-	let libraryMembershipEntityId: string | undefined;
 
 	const payload = { ...importPayload, executionId: "exec-full" };
 	const relatedEntitySchemaScript = {
@@ -172,11 +172,6 @@ it.effect("populates entity, writes related entities, and ensures library member
 	const options = {
 		relationshipSchemasRepository: makeRelationshipSchemasRepository({
 			findGlobalBySchemaIds: () => Effect.succeed(relationshipSchema),
-		}),
-		entityImportHook: makeEntityImportHook((userId, entityId) => {
-			libraryMembershipUserId = userId;
-			libraryMembershipEntityId = entityId;
-			return Effect.void;
 		}),
 		relationshipsRepository: makeRelationshipsRepository({
 			upsertEntityRelationship: () => {
@@ -227,25 +222,18 @@ it.effect("populates entity, writes related entities, and ensures library member
 			expect(globalEntityWritten).toBe(true);
 			expect(relatedEntityWritten).toBe(true);
 			expect(relationshipWritten).toBe(true);
-			expect(libraryMembershipUserId).toBe("user-1");
-			expect(libraryMembershipEntityId).toBe("entity-1");
 		}),
 	);
 });
 
 it.effect("short-circuits sandbox when global entity is already populated", () => {
 	let sandboxCalled = false;
-	let libraryMembershipCalled = false;
 
 	const populatedEntity = { ...baseEntity, populatedAt: now };
 	const payload = { ...importPayload, executionId: "exec-short-circuit" };
 	const options = {
 		entitiesRepository: makeEntitiesRepository({
 			findGlobalEntityByExternalId: () => Effect.succeed(populatedEntity),
-		}),
-		entityImportHook: makeEntityImportHook(() => {
-			libraryMembershipCalled = true;
-			return Effect.void;
 		}),
 	} satisfies TestLayerOptions;
 
@@ -265,7 +253,6 @@ it.effect("short-circuits sandbox when global entity is already populated", () =
 
 			expect(result.id).toBe("entity-1");
 			expect(sandboxCalled).toBe(false);
-			expect(libraryMembershipCalled).toBe(true);
 		}),
 	);
 });
