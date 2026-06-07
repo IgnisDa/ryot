@@ -93,33 +93,34 @@ const relationshipConflictTarget = (input: SaveRelationshipInput) =>
 export class RelationshipsRepository extends Effect.Service<RelationshipsRepository>()(
 	"RelationshipsRepository",
 	{
-		sync: () => ({
-			findRelationshipProperties: Effect.fn("RelationshipsRepository.findRelationshipProperties")(
-				function* (input: {
-					userId: UserId;
-					sourceEntityId: EntityId;
-					targetEntityId: EntityId;
-					relationshipSchemaId: RelationshipSchemaId;
-				}) {
-					const db = yield* CurrentDb;
-					const [row] = yield* dbEffect(() =>
-						db
-							.select({ properties: schema.relationship.properties })
-							.from(schema.relationship)
-							.where(
-								and(
-									eq(schema.relationship.userId, input.userId),
-									eq(schema.relationship.sourceEntityId, input.sourceEntityId),
-									eq(schema.relationship.targetEntityId, input.targetEntityId),
-									eq(schema.relationship.relationshipSchemaId, input.relationshipSchemaId),
-								),
-							)
-							.limit(1),
-					);
-					return row?.properties ?? null;
-				},
-			),
-			saveRelationship: Effect.fn("RelationshipsRepository.saveRelationship")(function* (
+		sync: () => {
+			const findRelationshipProperties = Effect.fn(
+				"RelationshipsRepository.findRelationshipProperties",
+			)(function* (input: {
+				userId: UserId;
+				sourceEntityId: EntityId;
+				targetEntityId: EntityId;
+				relationshipSchemaId: RelationshipSchemaId;
+			}) {
+				const db = yield* CurrentDb;
+				const [row] = yield* dbEffect(() =>
+					db
+						.select({ properties: schema.relationship.properties })
+						.from(schema.relationship)
+						.where(
+							and(
+								eq(schema.relationship.userId, input.userId),
+								eq(schema.relationship.sourceEntityId, input.sourceEntityId),
+								eq(schema.relationship.targetEntityId, input.targetEntityId),
+								eq(schema.relationship.relationshipSchemaId, input.relationshipSchemaId),
+							),
+						)
+						.limit(1),
+				);
+				return row?.properties ?? null;
+			});
+
+			const saveRelationship = Effect.fn("RelationshipsRepository.saveRelationship")(function* (
 				input: SaveRelationshipInput,
 			) {
 				const db = yield* CurrentDb;
@@ -175,8 +176,9 @@ export class RelationshipsRepository extends Effect.Service<RelationshipsReposit
 				}
 
 				return toSavedRelationship(row);
-			}),
-			deleteUserRelationshipsForEntity: Effect.fn(
+			});
+
+			const deleteUserRelationshipsForEntity = Effect.fn(
 				"RelationshipsRepository.deleteUserRelationshipsForEntity",
 			)(function* (input: { userId: UserId; entityId: EntityId }) {
 				const db = yield* CurrentDb;
@@ -196,8 +198,9 @@ export class RelationshipsRepository extends Effect.Service<RelationshipsReposit
 				);
 
 				return rows.length;
-			}),
-			moveUserRelationshipsBetweenEntities: Effect.fn(
+			});
+
+			const moveUserRelationshipsBetweenEntities = Effect.fn(
 				"RelationshipsRepository.moveUserRelationshipsBetweenEntities",
 			)(function* (input: { userId: UserId; mergeFrom: EntityId; mergeInto: EntityId }) {
 				const db = yield* CurrentDb;
@@ -262,8 +265,9 @@ export class RelationshipsRepository extends Effect.Service<RelationshipsReposit
 				);
 
 				return Number(result.rows[0]?.count ?? 0);
-			}),
-			deleteUserRelationship: Effect.fn("RelationshipsRepository.deleteUserRelationship")(
+			});
+
+			const deleteUserRelationship = Effect.fn("RelationshipsRepository.deleteUserRelationship")(
 				function* (input: {
 					userId: UserId;
 					sourceEntityId: EntityId;
@@ -294,7 +298,15 @@ export class RelationshipsRepository extends Effect.Service<RelationshipsReposit
 
 					return row ? toDeletedRelationship(row) : null;
 				},
-			),
-		}),
+			);
+
+			return {
+				findRelationshipProperties,
+				saveRelationship,
+				deleteUserRelationshipsForEntity,
+				moveUserRelationshipsBetweenEntities,
+				deleteUserRelationship,
+			};
+		},
 	},
 ) {}
