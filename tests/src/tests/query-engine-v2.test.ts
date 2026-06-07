@@ -637,12 +637,12 @@ describe("Query Engine V2 E2E", () => {
 				},
 			});
 			const firstLesson = await createV2Entity(client, {
-				name: "First Lesson With Events",
 				entitySchemaId: lessonSchemaId,
+				name: "First Lesson With Events",
 			});
 			const latestLesson = await createV2Entity(client, {
-				name: "Latest Lesson With Events",
 				entitySchemaId: lessonSchemaId,
+				name: "Latest Lesson With Events",
 			});
 
 			await createV2Event(client, {
