@@ -6,6 +6,7 @@ export type FieldMeta = {
 	envKey: string;
 	hidden: boolean;
 	required: boolean;
+	sensitive: boolean;
 	description: string;
 	default: string | undefined;
 };
@@ -23,16 +24,18 @@ export type ConfigLeaf<A, M extends AnyMeta = AnyMeta> = {
 	readonly config: Config.Config<A>;
 };
 
-type FieldOptions<D> = { default?: D; hidden?: boolean };
+type FieldOptions<D> = { default?: D; hidden?: boolean; sensitive?: boolean };
 
 const makeFieldMeta = (
 	envKey: string,
 	description: string,
 	defaultStr: string | undefined,
 	hidden: boolean,
+	sensitive: boolean,
 ): FieldMeta => ({
 	envKey,
 	hidden,
+	sensitive,
 	description,
 	kind: "field",
 	default: defaultStr,
@@ -46,7 +49,16 @@ export const strField = (
 ): ConfigLeaf<string, FieldMeta> => {
 	const base = Config.string(envKey);
 	const config = opts?.default !== undefined ? base.pipe(Config.withDefault(opts.default)) : base;
-	return { config, meta: makeFieldMeta(envKey, description, opts?.default, opts?.hidden ?? false) };
+	return {
+		config,
+		meta: makeFieldMeta(
+			envKey,
+			description,
+			opts?.default,
+			opts?.hidden ?? false,
+			opts?.sensitive ?? false,
+		),
+	};
 };
 
 export const secretField = (
@@ -57,7 +69,16 @@ export const secretField = (
 	const base = Config.redacted(envKey);
 	const config =
 		opts?.default !== undefined ? base.pipe(Config.withDefault(Redacted.make(opts.default))) : base;
-	return { config, meta: makeFieldMeta(envKey, description, opts?.default, opts?.hidden ?? false) };
+	return {
+		config,
+		meta: makeFieldMeta(
+			envKey,
+			description,
+			opts?.default,
+			opts?.hidden ?? false,
+			opts?.sensitive ?? true,
+		),
+	};
 };
 
 export const boolField = (
@@ -69,7 +90,13 @@ export const boolField = (
 	const config = opts?.default !== undefined ? base.pipe(Config.withDefault(opts.default)) : base;
 	return {
 		config,
-		meta: makeFieldMeta(envKey, description, opts?.default?.toString(), opts?.hidden ?? false),
+		meta: makeFieldMeta(
+			envKey,
+			description,
+			opts?.default?.toString(),
+			opts?.hidden ?? false,
+			opts?.sensitive ?? false,
+		),
 	};
 };
 
@@ -82,7 +109,13 @@ export const intField = (
 	const config = opts?.default !== undefined ? base.pipe(Config.withDefault(opts.default)) : base;
 	return {
 		config,
-		meta: makeFieldMeta(envKey, description, opts?.default?.toString(), opts?.hidden ?? false),
+		meta: makeFieldMeta(
+			envKey,
+			description,
+			opts?.default?.toString(),
+			opts?.hidden ?? false,
+			opts?.sensitive ?? false,
+		),
 	};
 };
 
