@@ -17,8 +17,12 @@ import {
 	DailyUserActivitiesResponseGroupedBy,
 	DashboardElementLot,
 	GraphqlSortOrder,
+	MediaLot,
+	MediaSortBy,
 	MinimalUserAnalyticsDocument,
 	TrendingMetadataDocument,
+	UserMetadataListDocument,
+	type UserMetadataListInput,
 	UserMetadataRecommendationsDocument,
 	type UserUpcomingCalendarEventInput,
 	UserUpcomingCalendarEventsDocument,
@@ -31,7 +35,7 @@ import {
 } from "@tabler/icons-react";
 import { skipToken, useQuery } from "@tanstack/react-query";
 import CryptoJS from "crypto-js";
-import { type ReactNode, useMemo } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 import { redirect } from "react-router";
 import { ClientOnly } from "remix-utils/client-only";
 import { match } from "ts-pattern";
@@ -43,6 +47,7 @@ import {
 	SkeletonLoader,
 } from "~/components/common";
 import { ApplicationGrid } from "~/components/common/layout";
+import { DebouncedSearchInput } from "~/components/common/filters";
 import { DisplaySummarySection } from "~/components/common/summary";
 import { MetadataDisplayItem } from "~/components/media/display-items";
 import { dayjsLib } from "~/lib/shared/date-utils";
@@ -86,6 +91,10 @@ export default function Page() {
 	const userDetails = useUserDetails();
 	const userCollections = useUserCollections();
 	const userPreferences = useUserPreferences();
+	const [dashboardSearchLot, setDashboardSearchLot] = useState<MediaLot | "ALL">(
+		"ALL",
+	);
+	const [dashboardSearchQuery, setDashboardSearchQuery] = useState("");
 	const { startOnboardingTour } = useOnboardingTour();
 	const isOnboardingTourCompleted = useIsOnboardingTourCompleted();
 
@@ -155,6 +164,28 @@ export default function Page() {
 			}),
 	});
 
+	const dashboardSearchInput: UserMetadataListInput = useMemo(
+		() => ({
+			lot: dashboardSearchLot === "ALL" ? undefined : dashboardSearchLot,
+			search: {
+				page: 1,
+				take: 24,
+				query: dashboardSearchQuery || undefined,
+			},
+			sort: { by: MediaSortBy.LastUpdated, order: GraphqlSortOrder.Desc },
+		}),
+		[dashboardSearchLot, dashboardSearchQuery],
+	);
+
+	const dashboardSearchResultsQuery = useQuery({
+		enabled: dashboardSearchQuery.length > 0,
+		queryKey: queryFactory.media.userMetadataList(dashboardSearchInput).queryKey,
+		queryFn: () =>
+			clientGqlService.request(UserMetadataListDocument, {
+				input: dashboardSearchInput,
+			}),
+	});
+
 	const latestUserSummary =
 		userAnalyticsQuery.data?.userAnalytics.response.activities.items.at(0);
 
@@ -187,6 +218,63 @@ export default function Page() {
 						</>
 					)}
 				</ClientOnly>
+				<Stack gap="sm">
+					<SectionTitle text="Discover your library" />
+					<DebouncedSearchInput
+						value={dashboardSearchQuery}
+						onChange={setDashboardSearchQuery}
+						placeholder="Search across all media..."
+					/>
+					<Group gap="xs" wrap="nowrap" style={{ overflowX: "auto" }}>
+						{(
+							[
+								{ label: "All", value: "ALL" as const },
+								{ label: "Anime", value: MediaLot.Anime },
+								{ label: "Books", value: MediaLot.Book },
+								{ label: "Manga", value: MediaLot.Manga },
+								{ label: "Movies", value: MediaLot.Movie },
+								{ label: "Music", value: MediaLot.Music },
+								{ label: "Shows", value: MediaLot.Show },
+								{ label: "Podcasts", value: MediaLot.Podcast },
+								{ label: "Games", value: MediaLot.VideoGame },
+								{ label: "Comics", value: MediaLot.ComicBook },
+								{ label: "Audiobooks", value: MediaLot.AudioBook },
+								{ label: "Visual Novels", value: MediaLot.VisualNovel },
+							] as const
+						).map((o) => (
+							<Button
+								key={o.value}
+								size="compact-sm"
+								variant={dashboardSearchLot === o.value ? "light" : "default"}
+								onClick={() => setDashboardSearchLot(o.value)}
+							>
+								{o.label}
+							</Button>
+						))}
+					</Group>
+					{dashboardSearchQuery.length > 0 ? (
+						dashboardSearchResultsQuery.data ? (
+							dashboardSearchResultsQuery.data.userMetadataList.response.items
+								.length > 0 ? (
+								<ApplicationGrid>
+									{dashboardSearchResultsQuery.data.userMetadataList.response.items.map(
+										(m) => (
+											<MetadataDisplayItem
+												key={m}
+												metadataId={m}
+												shouldHighlightNameIfInteracted
+											/>
+										),
+									)}
+								</ApplicationGrid>
+							) : (
+								<Text c="dimmed">No media found matching your query.</Text>
+							)
+						) : (
+							<SkeletonLoader />
+						)
+					) : null}
+				</Stack>
 				{userPreferences.general.dashboard.map((de) =>
 					match([de.section, de.hidden])
 						.with([DashboardElementLot.Upcoming, false], ([v, _]) => (
