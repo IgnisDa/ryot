@@ -69,7 +69,7 @@ export type EventCreateSkipResult = {
 	eventSchemaSlug: string;
 };
 
-const beforeTriggerResultSchema = z.discriminatedUnion("action", [
+export const beforeTriggerResultSchema = z.discriminatedUnion("action", [
 	z.object({ action: z.literal("allow") }),
 	z.object({ action: z.literal("skip"), reason: z.string() }),
 	z.object({
@@ -128,10 +128,24 @@ export type EventServiceDeps = {
 
 export type EventServiceResult<T> = ServiceResult<T, EventMutationError>;
 
+export type ResolvedCreateEventScope = {
+	sessionEntityId?: string;
+	eventScope: NonNullable<Awaited<ReturnType<typeof getEventCreateScopeForUser>>> & {
+		eventSchemaId: string;
+		eventSchemaName: string;
+		eventSchemaSlug: string;
+		propertiesSchema: AppSchema;
+		eventSchemaEntitySchemaId: string;
+	};
+};
+
 const entityNotFoundError = "Entity not found";
 const eventSchemaNotFoundError = "Event schema not found";
 const eventSchemaMismatchError = "Event schema does not belong to the entity schema";
 const sessionEntityNotFoundError = "Session entity not found";
+
+const isJobWaitTimeoutError = (message: string) =>
+	message.includes("timed out before finishing") || message.includes("no finish notification");
 
 export const resolveOccurredAt = (input: { occurredAt?: string }): Date => {
 	if (input.occurredAt) {
@@ -175,48 +189,74 @@ const enqueueEventSchemaTriggerJob = async (input: {
 	);
 };
 
+export const resolveBeforeCreateTriggerOutput = (
+	returnValue: QueuedRunResult | undefined,
+): RunBeforeCreateTriggerOutput => {
+	if (!returnValue?.success) {
+		return { outcome: "error", error: returnValue?.error ?? "Before trigger execution failed" };
+	}
+
+	const parsed = beforeTriggerResultSchema.safeParse(returnValue.value);
+	if (!parsed.success) {
+		return { outcome: "error", error: "Before trigger returned invalid shape" };
+	}
+
+	return { outcome: "result", result: parsed.data };
+};
+
 const runBeforeCreateTrigger = async (
 	input: RunBeforeCreateTriggerInput,
 ): Promise<RunBeforeCreateTriggerOutput> => {
 	const { sandboxQueue } = getQueues();
-
-	const job = await sandboxQueue.add(
-		sandboxRunJobName,
-		{
-			userId: input.userId,
-			driverName: "trigger",
-			context: input.context,
-			scriptId: input.scriptId,
-		},
-		{ attempts: 1 },
-	);
-
 	const queueEvents = new QueueEvents("sandbox", { connection: getRedisConnection() });
+	let jobId: string | undefined;
 
 	try {
+		await queueEvents.waitUntilReady();
+
+		const job = await sandboxQueue.add(
+			sandboxRunJobName,
+			{
+				userId: input.userId,
+				driverName: "trigger",
+				context: input.context,
+				scriptId: input.scriptId,
+			},
+			{ attempts: 1 },
+		);
+		jobId = job.id ?? undefined;
+
 		// oxlint-disable-next-line no-unsafe-type-assertion
 		const returnValue = (await job.waitUntilFinished(queueEvents, defaultTimeoutMs)) as
 			| QueuedRunResult
 			| undefined;
 
-		if (!returnValue?.success) {
-			return { outcome: "error", error: returnValue?.error ?? "Before trigger execution failed" };
-		}
-
-		const parsed = beforeTriggerResultSchema.safeParse(returnValue.value);
-		if (!parsed.success) {
-			return { outcome: "error", error: "Before trigger returned invalid shape" };
-		}
-
-		return { outcome: "result", result: parsed.data };
+		return resolveBeforeCreateTriggerOutput(returnValue);
 	} catch (error) {
-		return { outcome: "error", error: extractErrorMessage(error, "Before trigger failed") };
+		const message = extractErrorMessage(error, "Before trigger failed");
+		if (jobId && isJobWaitTimeoutError(message)) {
+			const refreshedJob = await sandboxQueue.getJob(jobId);
+			if (refreshedJob) {
+				const state = await refreshedJob.getState();
+				if (state === "completed") {
+					return resolveBeforeCreateTriggerOutput(
+						// oxlint-disable-next-line no-unsafe-type-assertion
+						refreshedJob.returnvalue as QueuedRunResult | undefined,
+					);
+				}
+				if (state === "failed") {
+					return { outcome: "error", error: refreshedJob.failedReason };
+				}
+			}
+		}
+
+		return { outcome: "error", error: message };
 	} finally {
 		await queueEvents.close();
 	}
 };
 
-const eventServiceDeps: EventServiceDeps = {
+export const eventServiceDeps: EventServiceDeps = {
 	createEventForUser,
 	ensureEntityInLibrary,
 	getEntityScopeForUser,
@@ -228,6 +268,83 @@ const eventServiceDeps: EventServiceDeps = {
 	getActiveEventSchemaTriggersForEventSchemas,
 	getActiveBeforeCreateTriggersForEventSchemas,
 	getSessionEntityScopeForUser: getEntityScopeForUser,
+};
+
+export const resolveCreateEventScope = async (
+	input: { body: CreateEventBody; userId: string },
+	options: { ensureLibraryMembership?: boolean } = {},
+	deps: EventServiceDeps = eventServiceDeps,
+): Promise<EventServiceResult<ResolvedCreateEventScope>> => {
+	const entityIdResult = resolveEventEntityIdResult(input.body.entityId);
+	if ("error" in entityIdResult) {
+		return entityIdResult;
+	}
+
+	const eventSchemaIdResult = resolveEventSchemaIdResult(input.body.eventSchemaId);
+	if ("error" in eventSchemaIdResult) {
+		return eventSchemaIdResult;
+	}
+
+	let sessionEntityId: string | undefined;
+	if (input.body.sessionEntityId) {
+		const sessionEntityIdResult = await resolveReadableSessionEntityId(
+			{ userId: input.userId, sessionEntityId: input.body.sessionEntityId },
+			deps,
+		);
+		if ("error" in sessionEntityIdResult) {
+			return sessionEntityIdResult;
+		}
+
+		sessionEntityId = sessionEntityIdResult.data;
+	}
+
+	const eventScope = await deps.getEventCreateScopeForUser({
+		userId: input.userId,
+		entityId: entityIdResult.data,
+		eventSchemaId: eventSchemaIdResult.data,
+	});
+
+	if (!eventScope) {
+		return serviceError("not_found", entityNotFoundError);
+	}
+
+	if (
+		!eventScope.eventSchemaId ||
+		!eventScope.eventSchemaName ||
+		!eventScope.eventSchemaSlug ||
+		!eventScope.propertiesSchema ||
+		!eventScope.eventSchemaEntitySchemaId
+	) {
+		return serviceError("not_found", eventSchemaNotFoundError);
+	}
+
+	if (eventScope.eventSchemaEntitySchemaId !== eventScope.entitySchemaId) {
+		return serviceError("validation", eventSchemaMismatchError);
+	}
+
+	if (options.ensureLibraryMembership !== false && eventScope.entityUserId === null) {
+		const libraryResult = await deps.ensureEntityInLibrary({
+			userId: input.userId,
+			entityId: eventScope.entityId,
+		});
+		if ("error" in libraryResult) {
+			return libraryResult;
+		}
+	}
+	const resolvedEventScope: ResolvedCreateEventScope["eventScope"] = {
+		entityId: eventScope.entityId,
+		entityUserId: eventScope.entityUserId,
+		eventSchemaId: eventScope.eventSchemaId,
+		isBuiltin: eventScope.isBuiltin,
+		eventSchemaName: eventScope.eventSchemaName,
+		eventSchemaSlug: eventScope.eventSchemaSlug,
+		entitySchemaSlug: eventScope.entitySchemaSlug,
+		entitySchemaId: eventScope.entitySchemaId,
+		propertiesSchema: eventScope.propertiesSchema,
+		eventSchemaEntitySchemaId: eventScope.eventSchemaEntitySchemaId,
+	};
+
+	return serviceData({ eventScope: resolvedEventScope, sessionEntityId });
 };
 
 const resolveEventEntityIdResult = (entityId: string) =>
@@ -314,59 +431,21 @@ export const validateEventCreateInputForUser = async (
 	input: { body: CreateEventBody; userId: string },
 	deps: EventServiceDeps = eventServiceDeps,
 ): Promise<EventServiceResult<void>> => {
-	const entityIdResult = resolveEventEntityIdResult(input.body.entityId);
-	if ("error" in entityIdResult) {
-		return entityIdResult;
-	}
-
-	const eventSchemaIdResult = resolveEventSchemaIdResult(input.body.eventSchemaId);
-	if ("error" in eventSchemaIdResult) {
-		return eventSchemaIdResult;
-	}
-
-	let sessionEntityId: string | undefined;
-	if (input.body.sessionEntityId) {
-		const sessionEntityIdResult = await resolveReadableSessionEntityId(
-			{ userId: input.userId, sessionEntityId: input.body.sessionEntityId },
-			deps,
-		);
-		if ("error" in sessionEntityIdResult) {
-			return sessionEntityIdResult;
-		}
-
-		sessionEntityId = sessionEntityIdResult.data;
-	}
-
-	const eventScope = await deps.getEventCreateScopeForUser({
-		userId: input.userId,
-		entityId: entityIdResult.data,
-		eventSchemaId: eventSchemaIdResult.data,
-	});
-
-	if (!eventScope) {
-		return serviceError("not_found", entityNotFoundError);
-	}
-
-	if (
-		!eventScope.eventSchemaId ||
-		!eventScope.eventSchemaName ||
-		!eventScope.eventSchemaSlug ||
-		!eventScope.propertiesSchema ||
-		!eventScope.eventSchemaEntitySchemaId
-	) {
-		return serviceError("not_found", eventSchemaNotFoundError);
-	}
-
-	if (eventScope.eventSchemaEntitySchemaId !== eventScope.entitySchemaId) {
-		return serviceError("validation", eventSchemaMismatchError);
+	const resolvedScope = await resolveCreateEventScope(
+		input,
+		{ ensureLibraryMembership: false },
+		deps,
+	);
+	if ("error" in resolvedScope) {
+		return resolvedScope;
 	}
 
 	const eventInput = resolveEventCreateInputResult({
-		sessionEntityId,
 		entityId: input.body.entityId,
 		properties: input.body.properties,
 		eventSchemaId: input.body.eventSchemaId,
-		propertiesSchema: eventScope.propertiesSchema,
+		sessionEntityId: resolvedScope.data.sessionEntityId,
+		propertiesSchema: resolvedScope.data.eventScope.propertiesSchema,
 	});
 	if ("error" in eventInput) {
 		return eventInput;
@@ -454,66 +533,17 @@ export const createEvent = async (
 	input: { body: CreateEventBody; userId: string; writeContext?: EventWriteContext },
 	deps: EventServiceDeps = eventServiceDeps,
 ): Promise<EventServiceResult<CreatedEventData> | EventCreateSkipResult> => {
-	const entityIdResult = resolveEventEntityIdResult(input.body.entityId);
-	if ("error" in entityIdResult) {
-		return entityIdResult;
+	const resolvedScope = await resolveCreateEventScope(
+		{ body: input.body, userId: input.userId },
+		undefined,
+		deps,
+	);
+	if ("error" in resolvedScope) {
+		return resolvedScope;
 	}
 
-	const eventSchemaIdResult = resolveEventSchemaIdResult(input.body.eventSchemaId);
-	if ("error" in eventSchemaIdResult) {
-		return eventSchemaIdResult;
-	}
-
-	let sessionEntityId: string | undefined;
-	if (input.body.sessionEntityId) {
-		const sessionEntityIdResult = await resolveReadableSessionEntityId(
-			{ userId: input.userId, sessionEntityId: input.body.sessionEntityId },
-			deps,
-		);
-		if ("error" in sessionEntityIdResult) {
-			return sessionEntityIdResult;
-		}
-
-		sessionEntityId = sessionEntityIdResult.data;
-	}
-
-	const eventScope = await deps.getEventCreateScopeForUser({
-		userId: input.userId,
-		entityId: entityIdResult.data,
-		eventSchemaId: eventSchemaIdResult.data,
-	});
-
-	// scope === undefined means the entity itself was not found (INNER JOIN anchor)
-	if (!eventScope) {
-		return serviceError("not_found", entityNotFoundError);
-	}
-
-	// eventSchemaId is null when the LEFT JOIN missed — event schema not found or not visible.
-	// When the join succeeds, the DB NOT NULL constraints on the event_schema table guarantee
-	// that name, slug, propertiesSchema, and eventSchemaEntitySchemaId are also non-null.
-	if (
-		!eventScope.eventSchemaId ||
-		!eventScope.eventSchemaName ||
-		!eventScope.eventSchemaSlug ||
-		!eventScope.propertiesSchema ||
-		!eventScope.eventSchemaEntitySchemaId
-	) {
-		return serviceError("not_found", eventSchemaNotFoundError);
-	}
-
-	if (eventScope.eventSchemaEntitySchemaId !== eventScope.entitySchemaId) {
-		return serviceError("validation", eventSchemaMismatchError);
-	}
-
-	if (eventScope.entityUserId === null) {
-		const libraryResult = await deps.ensureEntityInLibrary({
-			userId: input.userId,
-			entityId: eventScope.entityId,
-		});
-		if ("error" in libraryResult) {
-			return libraryResult;
-		}
-	}
+	const { eventScope } = resolvedScope.data;
+	let rawSessionEntityId = resolvedScope.data.sessionEntityId;
 
 	const occurredAt = resolveOccurredAt({ occurredAt: input.body.occurredAt });
 	const writeContext = input.writeContext ?? { origin: "api" };
@@ -525,7 +555,6 @@ export const createEvent = async (
 	});
 
 	let rawOccurredAt: Date = occurredAt;
-	let rawSessionEntityId: string | undefined = sessionEntityId;
 	let rawProperties: Record<string, unknown> = input.body.properties;
 
 	for (const trigger of beforeTriggers) {
