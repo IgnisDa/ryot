@@ -15,6 +15,7 @@ import { Result, Schema } from "effect";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { RyotClientError } from "./index";
+import { createPluginNavigationStore } from "./navigation/store";
 import { createPluginRuntime } from "./runtime";
 
 const metadata: PluginClientArtifactMetadata = {
@@ -38,6 +39,7 @@ const tokens = Object.fromEntries(
 	REQUIRED_THEME_TOKEN_NAMES.map((name) => [name, `light-${name}`]),
 );
 const theme = { resolvedMode: "light", tokens };
+const routeResolver = () => ({ component: () => null, header: null, params: {} });
 
 const openRuntime = () => {
 	const channel = new MessageChannel();
@@ -53,7 +55,13 @@ const openRuntime = () => {
 		channel,
 		messages,
 		properties,
-		runtime: createPluginRuntime(channel.port2, init, metadata, style),
+		runtime: createPluginRuntime(
+			channel.port2,
+			init,
+			metadata,
+			style,
+			createPluginNavigationStore(routeResolver),
+		),
 	};
 };
 
@@ -78,6 +86,30 @@ afterEach(() => {
 });
 
 describe("plugin runtime", () => {
+	it("publishes one atomic navigation snapshot and its active header", async () => {
+		const { channel, messages, runtime } = openRuntime();
+		const snapshots: unknown[] = [];
+		runtime.navigation.subscribe(() => snapshots.push(runtime.navigation.getSnapshot()));
+
+		channel.port1.postMessage({
+			index: 0,
+			key: "k0",
+			compact: true,
+			edgeBack: false,
+			type: "location",
+			location: { path: "/", search: "" },
+		});
+		await delay();
+
+		expect(snapshots).toHaveLength(1);
+		expect(snapshots[0]).toMatchObject({
+			compact: true,
+			entry: { index: 0, key: "k0" },
+			screens: [{ key: "k0", header: null }],
+		});
+		expect(messages).toContainEqual({ index: 0, key: "k0", header: null, type: "header" });
+	});
+
 	it("owns handshake, activation, dispatch, and correlated calls", async () => {
 		const { channel, messages, runtime } = openRuntime();
 		await expect(

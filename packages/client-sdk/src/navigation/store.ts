@@ -1,5 +1,7 @@
 import type { PluginLogicalLocation } from "@ryot/contract/modules/plugins/client";
 
+import { reconcileStack, type PluginScreen, type ResolvePluginScreen } from "./stack";
+
 export type PluginNavigationEntry = {
 	readonly key: string;
 	readonly index: number;
@@ -9,10 +11,22 @@ export type PluginNavigationEntry = {
 export type PluginNavigationSnapshot = {
 	readonly compact: boolean;
 	readonly edgeBack: boolean;
+	readonly screens: readonly PluginScreen[];
 	readonly entry: PluginNavigationEntry | undefined;
+	readonly transition: PluginNavigationTransition | undefined;
 };
 
-export type PluginEdgeState = Omit<PluginNavigationSnapshot, "entry">;
+export type PluginNavigationLocation = {
+	readonly compact: boolean;
+	readonly edgeBack: boolean;
+	readonly entry: PluginNavigationEntry;
+};
+
+export type PluginNavigationTransition = {
+	readonly id: number;
+	readonly leaving: PluginScreen;
+	readonly incoming: string | undefined;
+};
 
 export type PluginNavigationStore = {
 	readonly getSnapshot: () => PluginNavigationSnapshot;
@@ -21,17 +35,29 @@ export type PluginNavigationStore = {
 
 export type PluginRouterNavigation = PluginNavigationStore & {
 	readonly back: () => void;
+	readonly completeTransition: (id: number) => void;
 };
 
 export type PluginNavigationController = PluginNavigationStore & {
 	readonly clear: () => void;
-	readonly setEdge: (edge: PluginEdgeState) => void;
-	readonly setEntry: (entry: PluginNavigationEntry) => void;
+	readonly completeTransition: (id: number) => void;
+	readonly setLocation: (location: PluginNavigationLocation) => PluginNavigationSnapshot;
 };
 
-export const createPluginNavigationStore = (): PluginNavigationController => {
+const initialSnapshot = (): PluginNavigationSnapshot => ({
+	screens: [],
+	compact: false,
+	edgeBack: false,
+	entry: undefined,
+	transition: undefined,
+});
+
+export const createPluginNavigationStore = (
+	resolve: ResolvePluginScreen,
+): PluginNavigationController => {
 	const listeners = new Set<() => void>();
-	let snapshot: PluginNavigationSnapshot = { compact: false, edgeBack: false, entry: undefined };
+	let nextTransitionId = 0;
+	let snapshot = initialSnapshot();
 
 	const emit = (next: PluginNavigationSnapshot) => {
 		snapshot = next;
@@ -42,16 +68,30 @@ export const createPluginNavigationStore = (): PluginNavigationController => {
 
 	return {
 		getSnapshot: () => snapshot,
-		setEntry: (entry) => emit({ ...snapshot, entry }),
-		clear: () => emit({ compact: false, edgeBack: false, entry: undefined }),
+		clear: () => emit(initialSnapshot()),
 		subscribe: (listener) => {
 			listeners.add(listener);
 			return () => listeners.delete(listener);
 		},
-		setEdge: ({ compact, edgeBack }) => {
-			if (compact !== snapshot.compact || edgeBack !== snapshot.edgeBack) {
-				emit({ ...snapshot, compact, edgeBack });
+		completeTransition: (id) => {
+			if (snapshot.transition?.id === id) {
+				emit({ ...snapshot, transition: undefined });
 			}
+		},
+		setLocation: ({ compact, edgeBack, entry }) => {
+			const previousTop = snapshot.screens.at(-1);
+			const result = reconcileStack(snapshot.screens, entry, resolve);
+			const transition =
+				compact && result.transition === "pop" && previousTop !== undefined
+					? {
+							leaving: previousTop,
+							id: (nextTransitionId += 1),
+							incoming: result.stack.at(-1)?.key,
+						}
+					: undefined;
+			const next = { compact, edgeBack, entry, transition, screens: result.stack };
+			emit(next);
+			return next;
 		},
 	};
 };
