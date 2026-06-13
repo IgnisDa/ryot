@@ -4,11 +4,7 @@ import { Effect } from "effect";
 import { SandboxRunError, dieOnDbError } from "#lib/errors";
 import { CollectionsService } from "#modules/collections/service";
 import { ListedEntity } from "#modules/entities/schemas";
-import {
-	EntityImportPayload,
-	processSandboxEntityDetails,
-	runEntityImportWorkflow,
-} from "#modules/entity-import/workflows";
+import { EntityImportPayload, runEntityImportWorkflow } from "#modules/entity-import/workflows";
 
 export const LibraryEntityImportWorkflow = Workflow.make({
 	success: ListedEntity,
@@ -22,11 +18,7 @@ const LibraryEntityImportWorkflowLive = LibraryEntityImportWorkflow.toLayer(
 	(payload, executionId) =>
 		Effect.gen(function* () {
 			const collections = yield* CollectionsService;
-			const entity = yield* runEntityImportWorkflow(
-				payload,
-				executionId,
-				processSandboxEntityDetails,
-			);
+			const entity = yield* runEntityImportWorkflow(payload, executionId);
 
 			yield* Activity.make({
 				name: "ensure-library-membership",

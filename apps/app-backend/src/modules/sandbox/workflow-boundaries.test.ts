@@ -50,7 +50,7 @@ it.effect("keeps raw sandbox workflow execution at the allowed boundaries", () =
 			integrationWorkflow,
 		]) {
 			expect(source).not.toContain("execute(RunSandboxWorkflow");
-			expect(source).not.toContain("WorkflowEngine");
+			expect(source).not.toMatch(/^import\s+(?!type\b)[^\n;]*\bWorkflowEngine\b/m);
 		}
 	}),
 );
@@ -75,7 +75,7 @@ it.effect("keeps parent workflows as orchestrations instead of queue pass-throug
 
 		expect(integrationWorkflow).toContain("mark-integration-run-started");
 		expect(integrationWorkflow).toContain("finalize-integration-run");
-		expect(integrationWorkflow).toContain("runOneTimeMediaImportWorkflow(");
+		expect(integrationWorkflow).toContain("runLoadedMediaImportWorkflow({");
 	}),
 );
 
