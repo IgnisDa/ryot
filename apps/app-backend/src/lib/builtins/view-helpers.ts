@@ -225,6 +225,25 @@ export const buildDefaultQueryDefinition = (
 		},
 	}) as const;
 
+export const buildDefaultQueryDocument = (scope: readonly [string, ...string[]]) => {
+	const nameRef = {
+		type: "ref" as const,
+		sourceAlias: "entity",
+		field: { type: "system" as const, name: "name" },
+	};
+
+	return {
+		version: 2 as const,
+		source: { type: "entities" as const, alias: "entity", schemas: scope, where: null },
+		output: {
+			type: "rows" as const,
+			pagination: { page: 1, limit: 20 },
+			orderBy: [{ order: "asc" as const, expr: nameRef }] as const,
+			fields: [{ key: "name", expr: nameRef }],
+		},
+	};
+};
+
 export const inLibraryRelationshipJoin: QueryRelationshipJoin = {
 	required: true,
 	key: "inLibrary",

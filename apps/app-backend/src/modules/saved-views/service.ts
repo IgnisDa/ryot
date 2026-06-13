@@ -7,6 +7,7 @@ import { buildReorderedIds } from "#lib/reorder";
 import type { TrackerId } from "#lib/schema/brands";
 import { slugify } from "#lib/slug";
 import { trimToNull } from "#lib/validation";
+import { validateQueryDocumentV2 } from "#modules/query-engine-v2/validator";
 import { QueryEngineService } from "#modules/query-engine/service";
 
 import { SavedViewsRepository } from "./repository";
@@ -43,14 +44,20 @@ const normalizeSavedViewQueryDefinition = (
 	relationshipJoins: [...(queryDefinition.relationshipJoins ?? [])],
 });
 
+const validateSavedViewQueryDocument = (queryDocument: CreateSavedViewBody["queryDocument"]) => {
+	const validationError = validateQueryDocumentV2(queryDocument);
+	return validationError ? badRequest(validationError) : Effect.void;
+};
+
 const ensureBuiltinUpdateIsAllowed = (
 	currentView: {
 		name: string;
 		icon: string;
 		isBuiltin: boolean;
 		accentColor: string;
-		trackerId: TrackerId | null;
+		queryDocument: unknown;
 		queryDefinition: unknown;
+		trackerId: TrackerId | null;
 		displayConfiguration: unknown;
 	},
 	payload: UpdateSavedViewBody,
@@ -67,6 +74,7 @@ const ensureBuiltinUpdateIsAllowed = (
 		(payload.trackerId ?? null) !== currentView.trackerId ||
 		payload.accentColor !== currentView.accentColor ||
 		!Bun.deepEquals(nextQueryDefinition, currentView.queryDefinition) ||
+		!Bun.deepEquals(payload.queryDocument, currentView.queryDocument) ||
 		!Bun.deepEquals(payload.displayConfiguration, currentView.displayConfiguration);
 
 	if (attemptsMutation) {
@@ -105,6 +113,7 @@ export class SavedViewsService extends Effect.Service<SavedViewsService>()("Save
 				const name = yield* resolveSavedViewName(payload.name);
 				const slug = yield* resolveSavedViewSlug(name);
 				const queryDefinition = normalizeSavedViewQueryDefinition(payload.queryDefinition);
+				yield* validateSavedViewQueryDocument(payload.queryDocument);
 
 				const existing = yield* runWithDb(repository.findBySlug(user.id, slug));
 				if (existing) {
@@ -126,6 +135,7 @@ export class SavedViewsService extends Effect.Service<SavedViewsService>()("Save
 						icon: payload.icon,
 						trackerId: payload.trackerId,
 						accentColor: payload.accentColor,
+						queryDocument: payload.queryDocument,
 						displayConfiguration: payload.displayConfiguration,
 					}),
 				);
@@ -156,6 +166,7 @@ export class SavedViewsService extends Effect.Service<SavedViewsService>()("Save
 
 				const name = yield* resolveSavedViewName(payload.name);
 				const queryDefinition = normalizeSavedViewQueryDefinition(payload.queryDefinition);
+				yield* validateSavedViewQueryDocument(payload.queryDocument);
 
 				yield* queryEngine.validateSavedView(user, {
 					queryDefinition,
@@ -173,6 +184,7 @@ export class SavedViewsService extends Effect.Service<SavedViewsService>()("Save
 							trackerId: payload.trackerId,
 							isDisabled: payload.isDisabled,
 							accentColor: payload.accentColor,
+							queryDocument: payload.queryDocument,
 							displayConfiguration: payload.displayConfiguration,
 						},
 						current.trackerId,
@@ -232,6 +244,7 @@ export class SavedViewsService extends Effect.Service<SavedViewsService>()("Save
 						icon: source.icon,
 						trackerId: source.trackerId,
 						accentColor: source.accentColor,
+						queryDocument: source.queryDocument,
 						displayConfiguration: source.displayConfiguration,
 					}),
 				);

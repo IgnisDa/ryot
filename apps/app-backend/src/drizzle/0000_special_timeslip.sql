@@ -1,44 +1,3 @@
-CREATE TABLE "account" (
-	"scope" text,
-	"id_token" text,
-	"password" text,
-	"access_token" text,
-	"refresh_token" text,
-	"id" text PRIMARY KEY NOT NULL,
-	"account_id" text NOT NULL,
-	"provider_id" text NOT NULL,
-	"access_token_expires_at" timestamp with time zone,
-	"refresh_token_expires_at" timestamp with time zone,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"user_id" text NOT NULL,
-	"updated_at" timestamp with time zone NOT NULL
-);
---> statement-breakpoint
-CREATE TABLE "apikey" (
-	"name" text,
-	"start" text,
-	"prefix" text,
-	"metadata" text,
-	"permissions" text,
-	"remaining" integer,
-	"key" text NOT NULL,
-	"id" text PRIMARY KEY NOT NULL,
-	"refill_amount" integer,
-	"refill_interval" integer,
-	"reference_id" text NOT NULL,
-	"enabled" boolean DEFAULT true,
-	"request_count" integer DEFAULT 0,
-	"rate_limit_max" integer DEFAULT 10,
-	"rate_limit_enabled" boolean DEFAULT true,
-	"config_id" text DEFAULT 'default' NOT NULL,
-	"expires_at" timestamp with time zone,
-	"last_request" timestamp with time zone,
-	"last_refill_at" timestamp with time zone,
-	"rate_limit_time_window" integer DEFAULT 86400000,
-	"created_at" timestamp with time zone NOT NULL,
-	"updated_at" timestamp with time zone NOT NULL
-);
---> statement-breakpoint
 CREATE TABLE "entity" (
 	"external_id" text,
 	"name" text NOT NULL,
@@ -153,9 +112,9 @@ CREATE TABLE "import_run_failure" (
 --> statement-breakpoint
 CREATE TABLE "integration" (
 	"name" text,
-	"provider" text NOT NULL,
 	"lot" text NOT NULL,
 	"is_disabled" boolean DEFAULT false NOT NULL,
+	"provider" text NOT NULL,
 	"sync_ownership" boolean DEFAULT false NOT NULL,
 	"minimum_progress" numeric DEFAULT '2' NOT NULL,
 	"maximum_progress" numeric DEFAULT '95' NOT NULL,
@@ -214,26 +173,15 @@ CREATE TABLE "saved_view" (
 	"sort_order" integer DEFAULT 0 NOT NULL,
 	"is_builtin" boolean DEFAULT false NOT NULL,
 	"is_disabled" boolean DEFAULT false NOT NULL,
-	"query_definition" jsonb NOT NULL,
-	"display_configuration" jsonb NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"query_definition" jsonb NOT NULL,
+	"query_document" jsonb NOT NULL,
+	"display_configuration" jsonb NOT NULL,
 	"tracker_id" text,
 	"id" text PRIMARY KEY NOT NULL,
 	"user_id" text NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "saved_view_user_slug_unique" UNIQUE("user_id","slug")
-);
---> statement-breakpoint
-CREATE TABLE "session" (
-	"ip_address" text,
-	"user_agent" text,
-	"id" text PRIMARY KEY NOT NULL,
-	"token" text NOT NULL,
-	"expires_at" timestamp with time zone NOT NULL,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"updated_at" timestamp with time zone NOT NULL,
-	"user_id" text NOT NULL,
-	CONSTRAINT "session_token_unique" UNIQUE("token")
 );
 --> statement-breakpoint
 CREATE TABLE "tracker" (
@@ -242,11 +190,11 @@ CREATE TABLE "tracker" (
 	"name" text NOT NULL,
 	"icon" text NOT NULL,
 	"accent_color" text NOT NULL,
-	"config" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	"sort_order" integer DEFAULT 0 NOT NULL,
 	"is_builtin" boolean DEFAULT false NOT NULL,
 	"is_disabled" boolean DEFAULT false NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"config" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	"user_id" text NOT NULL,
 	"id" text PRIMARY KEY NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
@@ -260,6 +208,59 @@ CREATE TABLE "tracker_entity_schema" (
 	"id" text PRIMARY KEY NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "tracker_entity_schema_unique" UNIQUE("tracker_id","entity_schema_id")
+);
+--> statement-breakpoint
+CREATE TABLE "account" (
+	"scope" text,
+	"id_token" text,
+	"password" text,
+	"access_token" text,
+	"refresh_token" text,
+	"id" text PRIMARY KEY NOT NULL,
+	"account_id" text NOT NULL,
+	"provider_id" text NOT NULL,
+	"access_token_expires_at" timestamp with time zone,
+	"refresh_token_expires_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"user_id" text NOT NULL,
+	"updated_at" timestamp with time zone NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "apikey" (
+	"name" text,
+	"start" text,
+	"prefix" text,
+	"metadata" text,
+	"permissions" text,
+	"remaining" integer,
+	"key" text NOT NULL,
+	"id" text PRIMARY KEY NOT NULL,
+	"refill_amount" integer,
+	"refill_interval" integer,
+	"reference_id" text NOT NULL,
+	"enabled" boolean DEFAULT true,
+	"request_count" integer DEFAULT 0,
+	"rate_limit_max" integer DEFAULT 10,
+	"rate_limit_enabled" boolean DEFAULT true,
+	"config_id" text DEFAULT 'default' NOT NULL,
+	"expires_at" timestamp with time zone,
+	"last_request" timestamp with time zone,
+	"last_refill_at" timestamp with time zone,
+	"rate_limit_time_window" integer DEFAULT 86400000,
+	"created_at" timestamp with time zone NOT NULL,
+	"updated_at" timestamp with time zone NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "session" (
+	"ip_address" text,
+	"user_agent" text,
+	"id" text PRIMARY KEY NOT NULL,
+	"token" text NOT NULL,
+	"expires_at" timestamp with time zone NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone NOT NULL,
+	"user_id" text NOT NULL,
+	CONSTRAINT "session_token_unique" UNIQUE("token")
 );
 --> statement-breakpoint
 CREATE TABLE "two_factor" (
@@ -293,7 +294,6 @@ CREATE TABLE "verification" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-ALTER TABLE "account" ADD CONSTRAINT "account_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "entity" ADD CONSTRAINT "entity_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "entity" ADD CONSTRAINT "entity_entity_schema_id_entity_schema_id_fk" FOREIGN KEY ("entity_schema_id") REFERENCES "public"."entity_schema"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "entity" ADD CONSTRAINT "entity_sandbox_script_id_sandbox_script_id_fk" FOREIGN KEY ("sandbox_script_id") REFERENCES "public"."sandbox_script"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -323,15 +323,12 @@ ALTER TABLE "relationship_schema" ADD CONSTRAINT "relationship_schema_target_ent
 ALTER TABLE "sandbox_script" ADD CONSTRAINT "sandbox_script_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "saved_view" ADD CONSTRAINT "saved_view_tracker_id_tracker_id_fk" FOREIGN KEY ("tracker_id") REFERENCES "public"."tracker"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "saved_view" ADD CONSTRAINT "saved_view_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "session" ADD CONSTRAINT "session_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "tracker" ADD CONSTRAINT "tracker_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "tracker_entity_schema" ADD CONSTRAINT "tracker_entity_schema_tracker_id_tracker_id_fk" FOREIGN KEY ("tracker_id") REFERENCES "public"."tracker"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "tracker_entity_schema" ADD CONSTRAINT "tracker_entity_schema_entity_schema_id_entity_schema_id_fk" FOREIGN KEY ("entity_schema_id") REFERENCES "public"."entity_schema"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "account" ADD CONSTRAINT "account_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "session" ADD CONSTRAINT "session_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "two_factor" ADD CONSTRAINT "two_factor_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-CREATE INDEX "account_userId_idx" ON "account" USING btree ("user_id");--> statement-breakpoint
-CREATE INDEX "apikey_configId_idx" ON "apikey" USING btree ("config_id");--> statement-breakpoint
-CREATE INDEX "apikey_referenceId_idx" ON "apikey" USING btree ("reference_id");--> statement-breakpoint
-CREATE INDEX "apikey_key_idx" ON "apikey" USING btree ("key");--> statement-breakpoint
 CREATE INDEX "entity_user_id_idx" ON "entity" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "entity_external_id_idx" ON "entity" USING btree ("external_id");--> statement-breakpoint
 CREATE INDEX "entity_entity_schema_id_idx" ON "entity" USING btree ("entity_schema_id");--> statement-breakpoint
@@ -372,8 +369,12 @@ CREATE UNIQUE INDEX "relationship_schema_builtin_slug_unique" ON "relationship_s
 CREATE INDEX "sandbox_script_user_id_idx" ON "sandbox_script" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "saved_view_user_id_idx" ON "saved_view" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "saved_view_tracker_id_idx" ON "saved_view" USING btree ("tracker_id");--> statement-breakpoint
-CREATE INDEX "session_userId_idx" ON "session" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "tracker_user_id_idx" ON "tracker" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "tracker_entity_schema_tracker_id_idx" ON "tracker_entity_schema" USING btree ("tracker_id");--> statement-breakpoint
 CREATE INDEX "tracker_entity_schema_entity_schema_id_idx" ON "tracker_entity_schema" USING btree ("entity_schema_id");--> statement-breakpoint
+CREATE INDEX "account_userId_idx" ON "account" USING btree ("user_id");--> statement-breakpoint
+CREATE INDEX "apikey_configId_idx" ON "apikey" USING btree ("config_id");--> statement-breakpoint
+CREATE INDEX "apikey_referenceId_idx" ON "apikey" USING btree ("reference_id");--> statement-breakpoint
+CREATE INDEX "apikey_key_idx" ON "apikey" USING btree ("key");--> statement-breakpoint
+CREATE INDEX "session_userId_idx" ON "session" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "verification_identifier_idx" ON "verification" USING btree ("identifier");
