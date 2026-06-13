@@ -240,11 +240,13 @@ driver("details", async function (context) {
 		relatedEntityGroups: [
 			{
 				direction: "outgoing",
+				synchronization: "authoritative",
 				entities: movieEntities,
 				relationshipSchemaSlug: "company-to-movie",
 			},
 			{
 				direction: "outgoing",
+				synchronization: "authoritative",
 				entities: showEntities,
 				relationshipSchemaSlug: "company-to-show",
 			},

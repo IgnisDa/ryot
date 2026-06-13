@@ -737,16 +737,19 @@ driver("details", async function (context, { metadata }) {
 		relatedEntityGroups: [
 			{
 				direction: "incoming",
+				synchronization: "additive",
 				entities: peopleRelatedEntities,
 				relationshipSchemaSlug: "person-to-show",
 			},
 			{
 				direction: "incoming",
+				synchronization: "additive",
 				entities: companies,
 				relationshipSchemaSlug: "company-to-show",
 			},
 			{
 				direction: "outgoing",
+				synchronization: "authoritative",
 				entities: suggestions,
 				relationshipSchemaSlug: "media-suggestion",
 			},

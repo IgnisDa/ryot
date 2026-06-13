@@ -234,6 +234,39 @@ describe("diffMediaMonitoringSnapshots", () => {
 		expect(diffMediaMonitoringSnapshots(before, after)).toHaveLength(1);
 	});
 
+	it("reports episodes from a replacement season when the season count stays the same", () => {
+		const before = snapshot({
+			entitySchemaSlug: "show",
+			seasons: [{ episodes: [], seasonNumber: 1, name: "Season 1", externalId: "season-1" }],
+		});
+		const after = snapshot({
+			entitySchemaSlug: "show",
+			seasons: [
+				{
+					seasonNumber: 2,
+					name: "Season 2",
+					externalId: "season-2",
+					episodes: [
+						{
+							images: [],
+							name: "Premiere",
+							episodeNumber: 1,
+							publishDate: null,
+							externalId: "season-2-episode-1",
+						},
+					],
+				},
+			],
+		});
+
+		expect(diffMediaMonitoringSnapshots(before, after)).toMatchObject([
+			{
+				eventType: "metadata_episode_released",
+				message: "Number of episodes changed from 0 to 1 (Season 2) for Example",
+			},
+		]);
+	});
+
 	it("does not report episode releases when episodes are only removed", () => {
 		const episode = {
 			images: [],
@@ -246,9 +279,9 @@ describe("diffMediaMonitoringSnapshots", () => {
 			entitySchemaSlug: "show",
 			seasons: [
 				{
+					seasonNumber: 1,
 					name: "Season 1",
 					externalId: "season-1",
-					seasonNumber: 1,
 					episodes: [episode, { ...episode, externalId: "episode-2", episodeNumber: 2 }],
 				},
 			],

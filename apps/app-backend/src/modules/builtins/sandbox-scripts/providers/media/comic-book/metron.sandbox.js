@@ -315,15 +315,18 @@ driver("details", async function (context) {
 			{
 				entities: people,
 				direction: "incoming",
+				synchronization: "authoritative",
 				relationshipSchemaSlug: "person-to-comic-book",
 			},
 			{
 				direction: "incoming",
+				synchronization: "additive",
 				entities: groupRelatedEntities,
 				relationshipSchemaSlug: "comic-book-group-to-comic-book",
 			},
 			{
 				direction: "outgoing",
+				synchronization: "authoritative",
 				entities: suggestions,
 				relationshipSchemaSlug: "media-suggestion",
 			},

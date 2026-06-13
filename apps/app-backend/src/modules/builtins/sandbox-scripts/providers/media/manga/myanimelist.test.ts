@@ -50,6 +50,7 @@ describe("manga.myanimelist sandbox script", () => {
 			expect(details.relatedEntityGroups).toEqual([
 				{
 					direction: "outgoing",
+					synchronization: "authoritative",
 					relationshipSchemaSlug: "media-suggestion",
 					entities: [
 						{ name: "Related Anime", externalId: "3", scriptSlug: "anime.myanimelist" },
