@@ -1,6 +1,7 @@
-import { Either, Schema } from "effect";
+import { Schema } from "effect";
 
 import { ImportRunId } from "../../schema/brands";
+import { HttpUrl } from "../../schema/utils";
 import { importRunFailureStages, importRunStatuses } from "./types";
 
 const ImportRunStatus = Schema.Literal(...importRunStatuses);
@@ -56,15 +57,6 @@ export const DetailedImportRun = Schema.Struct({
 
 export type DetailedImportRun = typeof DetailedImportRun.Type;
 
-const SourceApiUrl = Schema.String.pipe(
-	Schema.filter((value) => {
-		const url = Either.try(() => new URL(value.trim()));
-		return Either.isRight(url) && ["http:", "https:"].includes(url.right.protocol)
-			? true
-			: "Import source URL must be a valid http or https URL";
-	}),
-);
-
 const uploadTokenInput = <const S extends string>(source: S) =>
 	Schema.Struct({ source: Schema.Literal(source), uploadToken: Schema.NonEmptyString }).pipe(
 		Schema.annotations({ identifier: `ImportInput_${source}` }),
@@ -72,7 +64,7 @@ const uploadTokenInput = <const S extends string>(source: S) =>
 
 const urlAndKeyInput = <const S extends string>(source: S) =>
 	Schema.Struct({
-		apiUrl: SourceApiUrl,
+		apiUrl: HttpUrl,
 		source: Schema.Literal(source),
 		apiKey: Schema.NonEmptyString,
 		allowInsecureConnections: Schema.optional(Schema.Boolean),
@@ -117,9 +109,9 @@ export const CreateImportRunBody = Schema.Union(
 	urlAndKeyInput("media_tracker"),
 	urlAndKeyInput("audiobookshelf"),
 	Schema.Struct({
-		apiUrl: SourceApiUrl,
-		source: Schema.Literal("jellyfin"),
+		apiUrl: HttpUrl,
 		username: Schema.NonEmptyString,
+		source: Schema.Literal("jellyfin"),
 		password: Schema.optional(Schema.NonEmptyString),
 		allowInsecureConnections: Schema.optional(Schema.Boolean),
 	}).pipe(Schema.annotations({ identifier: "ImportInput_jellyfin" })),

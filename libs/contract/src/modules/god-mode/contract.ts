@@ -4,6 +4,7 @@ import { Schema } from "effect";
 import { AdminMiddleware } from "../../auth-middleware";
 import { InternalError, NotFound, Unauthorized } from "../../errors";
 import { UserId } from "../../schema/brands";
+import { Email } from "../../schema/utils";
 
 const UserAuthState = Schema.Literal("credential", "oidc", "none", "mixed");
 
@@ -21,8 +22,6 @@ const ListUsersResponse = Schema.Struct({
 	total: Schema.Number,
 	users: Schema.Array(UserListItem),
 });
-
-const Email = Schema.String.pipe(Schema.pattern(/^[^\s@]+@[^\s@]+\.[^\s@]+$/));
 
 const ProvisionUserBody = Schema.Union(
 	Schema.Struct({
