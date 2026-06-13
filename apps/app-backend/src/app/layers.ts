@@ -18,6 +18,7 @@ import { EntitiesService } from "#modules/entities/service";
 import { BuiltinEntityImportWorkflowDefinitionsLive } from "#modules/entity-import/workflows";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 import { EntitySchemasService } from "#modules/entity-schemas/service";
+import { EntitySchemaWorkflowDefinitionsLive } from "#modules/entity-schemas/workflows";
 import { EpisodeResolverRepository } from "#modules/episode-resolver/repository";
 import { EpisodeResolverService } from "#modules/episode-resolver/service";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
@@ -46,6 +47,7 @@ import { RelationshipsService } from "#modules/relationships/service";
 import { SandboxRepository } from "#modules/sandbox/repository";
 import { SandboxApiService } from "#modules/sandbox/service";
 import { SandboxWorkflowDefinitionsLive } from "#modules/sandbox/workflows";
+import { DefaultSavedViewWorkerLive } from "#modules/saved-views/default-view-worker";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
 import { SavedViewsService } from "#modules/saved-views/service";
 import { TrackersRepository } from "#modules/trackers/repository";
@@ -141,9 +143,11 @@ const ServiceDependenciesLive = Layer.provide(ServicesLive, ApplicationInfrastru
 
 const RuntimeLive = Layer.mergeAll(
 	BuiltinEntityImportWorkflowDefinitionsLive,
+	EntitySchemaWorkflowDefinitionsLive,
 	EventCreateWorkflowDefinitionsLive,
 	LibraryEntityImportWorkflowDefinitionsLive,
 	GlobalEntityReferencedWorkerLive,
+	DefaultSavedViewWorkerLive,
 	BuiltinEntityPreloaderLive,
 	ImportWorkflowDefinitionsLive,
 	IntegrationWorkflowDefinitionsLive,
