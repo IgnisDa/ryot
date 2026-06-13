@@ -2,7 +2,6 @@ import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import { extractErrorMessage } from "@ryot/ts-utils/error";
 import { sql } from "drizzle-orm";
 
-import { appConfigEnvIndex, config, getMaskedConfig, systemConfigEnvIndex } from "~/lib/config";
 import { db } from "~/lib/db";
 import {
 	commonErrors,
@@ -14,7 +13,7 @@ import {
 } from "~/lib/openapi";
 import { redis } from "~/lib/redis";
 
-import { getMetricsAsText } from "./service";
+import { getMaskedSystemConfig, getMetricsAsText } from "./service";
 
 const healthResponseSchema = dataSchema(
 	z.object({
@@ -99,22 +98,6 @@ export const systemApi = new OpenAPIHono()
 		});
 	})
 	.openapi(configRoute, (c) => {
-		const masked = getMaskedConfig({
-			system: systemConfigEnvIndex,
-			providers: appConfigEnvIndex,
-		});
-		const { oidc } = config.server;
-		const response = createSuccessResult({
-			// oxlint-disable-next-line no-unsafe-type-assertion
-			system: masked.system as Record<string, unknown>,
-			// oxlint-disable-next-line no-unsafe-type-assertion
-			providers: masked.providers as Record<string, unknown>,
-			auth: {
-				oidcEnabled: oidc.enabled,
-				oidcButtonLabel: config.frontend.oidcButtonLabel,
-				localAuthDisabled: config.users.disableLocalAuth,
-				signupAllowed: config.users.allowRegistration && !config.users.disableLocalAuth,
-			},
-		});
+		const response = createSuccessResult(getMaskedSystemConfig());
 		return c.json(response.body, response.status);
 	});

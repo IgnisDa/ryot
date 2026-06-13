@@ -1,4 +1,5 @@
 export { loadAndValidateQueryContext, prepareAndExecute } from "./preparer";
+export { queryEngineRequestSchema } from "./schemas";
 export type {
 	AggregateQueryEngineRequest,
 	EntityQueryEngineRequest,

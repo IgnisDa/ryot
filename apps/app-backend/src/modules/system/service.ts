@@ -1,5 +1,6 @@
 import promClient from "prom-client";
 
+import { appConfigEnvIndex, config, getMaskedConfig, systemConfigEnvIndex } from "~/lib/config";
 import { pool } from "~/lib/db";
 import { redis } from "~/lib/redis";
 
@@ -81,6 +82,27 @@ export const updateDbMetrics = () => {
 };
 
 let lastCommandsProcessed = 0;
+
+export const getMaskedSystemConfig = () => {
+	const masked = getMaskedConfig({
+		system: systemConfigEnvIndex,
+		providers: appConfigEnvIndex,
+	});
+	const { oidc } = config.server;
+
+	return {
+		// oxlint-disable-next-line no-unsafe-type-assertion
+		system: masked.system as Record<string, unknown>,
+		// oxlint-disable-next-line no-unsafe-type-assertion
+		providers: masked.providers as Record<string, unknown>,
+		auth: {
+			oidcEnabled: oidc.enabled,
+			oidcButtonLabel: config.frontend.oidcButtonLabel,
+			localAuthDisabled: config.users.disableLocalAuth,
+			signupAllowed: config.users.allowRegistration && !config.users.disableLocalAuth,
+		},
+	};
+};
 
 export const updateRedisMetrics = async () => {
 	try {

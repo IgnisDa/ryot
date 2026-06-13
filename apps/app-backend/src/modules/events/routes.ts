@@ -7,16 +7,14 @@ import {
 	createSuccessResult,
 	jsonBody,
 } from "~/lib/openapi";
-import { getQueues } from "~/lib/queue";
 
-import { createEventsJobName } from "./jobs";
 import {
 	createEventBulkBody,
 	createEventBulkResponseSchema,
 	listEventsQuery,
 	listEventsResponseSchema,
 } from "./schemas";
-import { listEntityEvents, validateEventCreateInputForUser } from "./service";
+import { enqueueEventsForUser, listEntityEvents } from "./service";
 
 const listEventsRoute = createAuthRoute(
 	createRoute({
@@ -72,22 +70,12 @@ export const eventsApi = new OpenAPIHono<{ Variables: AuthType }>()
 		const user = c.get("user");
 		const body = c.req.valid("json");
 
-		const validationResults = await Promise.all(
-			body.map((item) => validateEventCreateInputForUser({ body: item, userId: user.id })),
-		);
-
-		for (const validationResult of validationResults) {
-			if ("error" in validationResult) {
-				const response = createServiceErrorResult(validationResult);
-				return c.json(response.body, response.status);
-			}
+		const result = await enqueueEventsForUser({ body, userId: user.id });
+		if ("error" in result) {
+			const response = createServiceErrorResult(result);
+			return c.json(response.body, response.status);
 		}
 
-		await getQueues().eventsQueue.add(createEventsJobName, {
-			body,
-			userId: user.id,
-		});
-
-		const response = createSuccessResult({ count: body.length });
+		const response = createSuccessResult(result.data);
 		return c.json(response.body, response.status);
 	});

@@ -8,13 +8,14 @@ import {
 	jsonBody,
 } from "~/lib/openapi";
 
+import { listEventSchemas } from "./read-service";
 import {
 	createEventSchemaBody,
 	createEventSchemaResponseSchema,
 	listEventSchemasQuery,
 	listEventSchemasResponseSchema,
 } from "./schemas";
-import { createEventSchema, listEventSchemas } from "./service";
+import { createEventSchema } from "./service";
 
 const listEventSchemasRoute = createAuthRoute(
 	createRoute({
