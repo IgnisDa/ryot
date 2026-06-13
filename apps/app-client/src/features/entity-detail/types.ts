@@ -1,15 +1,15 @@
-import type { AnimeProperties } from "@ryot/app-backend/lib/media/anime";
-import type { AudiobookProperties } from "@ryot/app-backend/lib/media/audiobook";
-import type { BookProperties } from "@ryot/app-backend/lib/media/book";
-import type { ComicBookProperties } from "@ryot/app-backend/lib/media/comic-book";
-import type { UnlinkedCreator as BackendUnlinkedCreator } from "@ryot/app-backend/lib/media/common";
-import type { MangaProperties } from "@ryot/app-backend/lib/media/manga";
-import type { MovieProperties } from "@ryot/app-backend/lib/media/movie";
-import type { MusicProperties } from "@ryot/app-backend/lib/media/music";
-import type { PodcastProperties } from "@ryot/app-backend/lib/media/podcast";
-import type { ShowProperties } from "@ryot/app-backend/lib/media/show";
-import type { VideoGameProperties } from "@ryot/app-backend/lib/media/video-game";
-import type { VisualNovelProperties } from "@ryot/app-backend/lib/media/visual-novel";
+import type { AnimeProperties } from "@ryot/app-backend-legacy/lib/media/anime";
+import type { AudiobookProperties } from "@ryot/app-backend-legacy/lib/media/audiobook";
+import type { BookProperties } from "@ryot/app-backend-legacy/lib/media/book";
+import type { ComicBookProperties } from "@ryot/app-backend-legacy/lib/media/comic-book";
+import type { UnlinkedCreator as BackendUnlinkedCreator } from "@ryot/app-backend-legacy/lib/media/common";
+import type { MangaProperties } from "@ryot/app-backend-legacy/lib/media/manga";
+import type { MovieProperties } from "@ryot/app-backend-legacy/lib/media/movie";
+import type { MusicProperties } from "@ryot/app-backend-legacy/lib/media/music";
+import type { PodcastProperties } from "@ryot/app-backend-legacy/lib/media/podcast";
+import type { ShowProperties } from "@ryot/app-backend-legacy/lib/media/show";
+import type { VideoGameProperties } from "@ryot/app-backend-legacy/lib/media/video-game";
+import type { VisualNovelProperties } from "@ryot/app-backend-legacy/lib/media/visual-novel";
 import type { paths } from "@ryot/generated/openapi/app-backend";
 
 import type { EntityImage } from "@/lib/entity-image";
