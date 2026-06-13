@@ -62,7 +62,7 @@ Core platform delivery is in the baseline; the remaining gaps are notification-p
 - **Calendar event materialization** — a nightly job that deletes stale `calendar_event` rows and inserts new ones from each metadata item's season/episode/publish-date schedule. This is distinct from the _read_ side already listed under [Deferred](#deferred--build-on-query-engine) — even once a calendar query exists, nothing currently computes what the events are.
   - V1: `recalculate_calendar_events` (`.../background/src/calendar.rs`).
 - **Library-membership reason recomputation & auto-GC** — recomputes _why_ an entity is in a user's library (seen / reviewed / collected / monitored / watchlisted / owned / has-a-reminder) whenever it's flagged dirty, and deletes the association entirely once no reason remains.
-  - V1: `cleanup_user_and_metadata_association` (`.../background/src/user.rs`). V2's closest analog, `modules/library-membership` (`GlobalEntityReferencedWorker`), only _adds_ an entity to the Owned collection the first time it's referenced — nothing recomputes membership reasons or removes stale ones.
+  - V1: `cleanup_user_and_metadata_association` (`.../background/src/user.rs`). V2's closest analog, the `EnsureLibraryMembershipQueue` worker in `modules/library-membership` (`membership-worker.ts`), only _adds_ an entity to the Owned collection the first time it's referenced — nothing recomputes membership reasons or removes stale ones.
 - **Smart collection auto-management** — state-driven collection membership that currently requires no user action in V1:
   - Marking something in-progress auto-adds it to both the Watchlist and Monitoring collections.
   - Any new seen/progress record auto-removes the item from Watchlist.
