@@ -49,3 +49,32 @@ it.effect("enqueues a fire-and-forget test delivery without delivering synchrono
 		expect(typeof capturedOptions?.payload.executionId).toBe("string");
 	}).pipe(Effect.provide(makeServiceLayer(workflowEngine)));
 });
+
+it.effect("enqueues a fire-and-forget event delivery with the event payload", () => {
+	let capturedOptions: Parameters<WorkflowEngine["Type"]["execute"]>[1] | undefined;
+
+	const workflowEngine = makeWorkflowEngine({
+		execute: (_workflow, options) => {
+			capturedOptions = options;
+			return Effect.succeed(options.executionId);
+		},
+	});
+
+	return Effect.gen(function* () {
+		const service = yield* NotificationsService;
+		yield* service.trigger({
+			userId: user.id,
+			eventType: "review_posted",
+			message: "A review was posted",
+		});
+
+		expect(capturedOptions).toMatchObject({
+			discard: true,
+			payload: {
+				userId: user.id,
+				request: { kind: "event", eventType: "review_posted", message: "A review was posted" },
+			},
+		});
+		expect(typeof capturedOptions?.payload.executionId).toBe("string");
+	}).pipe(Effect.provide(makeServiceLayer(workflowEngine)));
+});

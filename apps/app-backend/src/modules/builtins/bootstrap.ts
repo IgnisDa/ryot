@@ -1,24 +1,15 @@
-import { DbError } from "@ryot/contract/errors";
-import type { ListedEntity } from "@ryot/contract/modules/entities/schemas";
-import type { EntityId } from "@ryot/contract/schema/brands";
-import { EntitySchemaId, UserId } from "@ryot/contract/schema/brands";
 import { buildDefaultSavedViewQueryDocument } from "@ryot/query-engine";
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
-import { DateTime, Effect } from "effect";
+import { Effect } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { CurrentDb, dbEffect, TransactionRunner } from "#lib/infrastructure/db/service";
-import {
-	buildNotificationRuleValues,
-	NOTIFICATION_SCRIPT_SLUG,
-} from "#modules/automations/notification-install";
-import { EntitiesService } from "#modules/entities/service";
 
 import { builtinEntitySchemas } from "./entity-schemas";
 import { builtinSavedViews } from "./saved-views";
 import { builtinTrackers } from "./trackers";
 
-export { defaultUserPreferences } from "@ryot/contract/auth-middleware";
+export { defaultUserPreferences, normalizeUserPreferences } from "@ryot/contract/auth-middleware";
 export type { CachedUserPreferences } from "@ryot/contract/auth-middleware";
 
 const createBuiltinTrackers = Effect.fn(function* (userId: string) {
@@ -72,14 +63,7 @@ const listBuiltinEntitySchemas = Effect.gen(function* () {
 });
 
 type TrackerRow = { id: string; slug: string };
-type BootstrapLibraryEntity = { entity: ListedEntity; schema: EntitySchemaRow };
 type EntitySchemaRow = { accentColor: string; icon: string; id: string; slug: string };
-
-export type BootstrapUserEnvelope = {
-	entitySchemaSlug: string;
-	entitySchemaId: EntitySchemaId;
-	entity: { id: EntityId; name: string; createdAt: string; properties: unknown };
-};
 
 const createTrackerEntitySchemaLinks = Effect.fn(function* (
 	trackers: TrackerRow[],
@@ -207,14 +191,13 @@ const createBuiltinSavedViews = Effect.fn(function* (
 
 const ensureLibraryEntity = Effect.fn(function* (userId: string, entitySchemas: EntitySchemaRow[]) {
 	const db = yield* CurrentDb;
-	const entities = yield* EntitiesService;
 	const librarySchema = entitySchemas.find((s) => s.slug === "library");
 
 	if (!librarySchema) {
 		yield* Effect.logWarning(
 			"Missing builtin library entity schema; skipping library entity creation",
 		);
-		return null;
+		return;
 	}
 
 	const [existing] = yield* dbEffect(() =>
@@ -233,124 +216,32 @@ const ensureLibraryEntity = Effect.fn(function* (userId: string, entitySchemas: 
 	);
 
 	if (existing) {
-		return null;
+		return;
 	}
 
-	const outcome = yield* entities
-		.save({
-			scope: "user",
+	yield* dbEffect(() =>
+		db.insert(schema.entity).values({
+			userId,
 			properties: {},
 			name: "Library",
-			userId: UserId.make(userId),
-			entitySchemaId: EntitySchemaId.make(librarySchema.id),
-		})
-		.pipe(Effect.mapError((error) => new DbError({ message: error.message })));
-	return outcome.operation === "create"
-		? ({ entity: outcome.entity, schema: librarySchema } satisfies BootstrapLibraryEntity)
-		: null;
-});
-
-const createDefaultNotificationRules = Effect.fn(function* (userId: string) {
-	const db = yield* CurrentDb;
-	const [script] = yield* dbEffect(() =>
-		db
-			.select({ id: schema.sandboxScript.id })
-			.from(schema.sandboxScript)
-			.where(
-				and(
-					eq(schema.sandboxScript.slug, NOTIFICATION_SCRIPT_SLUG),
-					eq(schema.sandboxScript.isBuiltin, true),
-					isNull(schema.sandboxScript.userId),
-				),
-			)
-			.limit(1),
+			externalId: null,
+			sandboxScriptId: null,
+			entitySchemaId: librarySchema.id,
+		}),
 	);
-	if (!script) {
-		return yield* Effect.die(new Error("Missing built-in notification sandbox script"));
-	}
-	const signalSchemas = yield* dbEffect(() =>
-		db
-			.select({ id: schema.signalSchema.id, name: schema.signalSchema.name })
-			.from(schema.signalSchema)
-			.where(
-				and(
-					eq(schema.signalSchema.isBuiltin, true),
-					eq(schema.signalSchema.catalogState, "active"),
-					isNull(schema.signalSchema.userId),
-					isNull(schema.signalSchema.archivedAt),
-				),
-			),
-	);
-	yield* dbEffect(() =>
-		db
-			.insert(schema.automationRule)
-			.values(
-				signalSchemas.map((signalSchema) =>
-					buildNotificationRuleValues({
-						userId,
-						sandboxScriptId: script.id,
-						signalSchemaId: signalSchema.id,
-						signalSchemaName: signalSchema.name,
-					}),
-				),
-			)
-			.onConflictDoNothing(),
-	);
-	return undefined;
 });
 
 export const performBootstrap = Effect.fn(function* (userId: string) {
-	const db = yield* CurrentDb;
-	const completedAt = yield* DateTime.nowAsDate;
-	const entitySchemas = yield* listBuiltinEntitySchemas;
-
 	const trackers = yield* createBuiltinTrackers(userId);
+	const entitySchemas = yield* listBuiltinEntitySchemas;
 	yield* createTrackerEntitySchemaLinks(trackers, entitySchemas);
-	const libraryEntity = yield* ensureLibraryEntity(userId, entitySchemas);
 	yield* createBuiltinSavedViews(userId, trackers, entitySchemas);
-	yield* createDefaultNotificationRules(userId);
-	yield* dbEffect(() =>
-		db
-			.update(schema.user)
-			.set({ bootstrapCompletedAt: completedAt })
-			.where(eq(schema.user.id, userId)),
-	);
+	yield* ensureLibraryEntity(userId, entitySchemas);
 	yield* Effect.logInfo("Bootstrap complete", { userId });
-	return { libraryEntity };
 });
 
 export const bootstrapNewUser = (userId: string) =>
 	Effect.gen(function* () {
 		const runner = yield* TransactionRunner;
-		const libraryEntity = yield* runner(
-			Effect.gen(function* () {
-				const db = yield* CurrentDb;
-				const [user] = yield* dbEffect(() =>
-					db
-						.select({ bootstrapCompletedAt: schema.user.bootstrapCompletedAt })
-						.from(schema.user)
-						.where(eq(schema.user.id, userId))
-						.for("update")
-						.limit(1),
-				);
-				if (!user || user.bootstrapCompletedAt) {
-					return null;
-				}
-				const result = yield* performBootstrap(userId);
-				return result.libraryEntity;
-			}),
-		);
-		if (!libraryEntity) {
-			return null;
-		}
-		return {
-			entitySchemaSlug: libraryEntity.schema.slug,
-			entitySchemaId: EntitySchemaId.make(libraryEntity.schema.id),
-			entity: {
-				id: libraryEntity.entity.id,
-				name: libraryEntity.entity.name,
-				createdAt: libraryEntity.entity.createdAt,
-				properties: libraryEntity.entity.properties,
-			},
-		} satisfies BootstrapUserEnvelope;
+		yield* runner(performBootstrap(userId));
 	}).pipe(Effect.withSpan("bootstrapNewUser", { attributes: { userId } }));
