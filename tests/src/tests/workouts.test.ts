@@ -284,8 +284,7 @@ describe("Workouts E2E", () => {
 			"workout-repeated-from",
 		);
 
-		await insertRelationshipRow({
-			userId,
+		await insertRelationshipRow(client, {
 			relationshipSchemaId,
 			sourceEntityId: copiedWorkoutId,
 			targetEntityId: originalWorkoutId,

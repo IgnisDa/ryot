@@ -1,55 +1,27 @@
-import { EntityId } from "@ryot/app-backend/schema/brands";
+import { EntityId, RelationshipSchemaId } from "@ryot/app-backend/schema/brands";
 
 import { getPgClient } from "../setup";
 import { requirePresent } from "../test-support/assertions";
 import type { Client } from "./auth";
 import { findBuiltinSchemaWithProviders, getFirstProviderScriptId } from "./entity-schemas";
 import { listRelationshipSchemas, requireRelationshipSchemaBySlug } from "./relationship-schemas";
+import { createRelationship } from "./relationships";
 
-export async function insertRelationshipRow(input: {
-	userId: string;
-	createdAt?: Date;
-	sourceEntityId: string;
-	targetEntityId: string;
-	relationshipSchemaId: string;
-	properties?: Record<string, unknown>;
-}) {
-	const pg = getPgClient();
-	const id = crypto.randomUUID();
-	const properties = input.properties ?? {};
-
-	if (input.createdAt) {
-		await pg.query(
-			`insert into relationship (id, user_id, relationship_schema_id, properties, source_entity_id, target_entity_id, created_at)
-			 values ($1, $2, $3, $4::jsonb, $5, $6, $7)
-			 on conflict (user_id, source_entity_id, target_entity_id, relationship_schema_id) do nothing`,
-			[
-				id,
-				input.userId,
-				input.relationshipSchemaId,
-				JSON.stringify(properties),
-				input.sourceEntityId,
-				input.targetEntityId,
-				input.createdAt.toISOString(),
-			],
-		);
-	} else {
-		await pg.query(
-			`insert into relationship (id, user_id, relationship_schema_id, properties, source_entity_id, target_entity_id)
-			 values ($1, $2, $3, $4::jsonb, $5, $6)
-			 on conflict (user_id, source_entity_id, target_entity_id, relationship_schema_id) do nothing`,
-			[
-				id,
-				input.userId,
-				input.relationshipSchemaId,
-				JSON.stringify(properties),
-				input.sourceEntityId,
-				input.targetEntityId,
-			],
-		);
-	}
-
-	return { id };
+export async function insertRelationshipRow(
+	client: Client,
+	input: {
+		sourceEntityId: string;
+		targetEntityId: string;
+		relationshipSchemaId: string;
+		properties?: Record<string, unknown>;
+	},
+) {
+	return createRelationship(client, {
+		properties: input.properties,
+		sourceEntityId: EntityId.make(input.sourceEntityId),
+		targetEntityId: EntityId.make(input.targetEntityId),
+		relationshipSchemaId: RelationshipSchemaId.make(input.relationshipSchemaId),
+	});
 }
 
 export async function queryInLibraryRelationship(client: Client, entityId: string, email: string) {
@@ -230,29 +202,18 @@ export async function insertLibraryMembership(
 		 limit 1`,
 		[input.userId],
 	);
-	const libraryEntityId = libraryResult.rows[0]?.id;
-	requirePresent(libraryEntityId, `Missing library entity for user '${input.userId}'`);
+	const libraryEntityId = requirePresent(
+		libraryResult.rows[0]?.id,
+		`Missing library entity for user '${input.userId}'`,
+	);
 
 	const schemas = await listRelationshipSchemas(client, { slugs: ["in-library"] });
 	const inLibrarySchema = requireRelationshipSchemaBySlug(schemas, "in-library");
 
-	await pg.query(
-		`insert into relationship (
-				id,
-				user_id,
-				relationship_schema_id,
-				properties,
-				source_entity_id,
-				target_entity_id
-			) values ($1, $2, $3, $4::jsonb, $5, $6)
-			on conflict (user_id, source_entity_id, target_entity_id, relationship_schema_id) do nothing`,
-		[
-			crypto.randomUUID(),
-			input.userId,
-			inLibrarySchema.id,
-			JSON.stringify({}),
-			input.mediaEntityId,
-			libraryEntityId,
-		],
-	);
+	await createRelationship(client, {
+		properties: {},
+		sourceEntityId: EntityId.make(input.mediaEntityId),
+		targetEntityId: EntityId.make(libraryEntityId),
+		relationshipSchemaId: inLibrarySchema.id,
+	});
 }
