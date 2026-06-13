@@ -1,6 +1,6 @@
-import type { MetadataLookupQuery } from "@ryot/generated/graphql/backend/graphql";
+import type { MetadataLookupResponse } from "@ryot/contract/modules/metadata-lookup/schemas";
 
-export type MetadataLookupData = MetadataLookupQuery["metadataLookup"]["response"];
+export type MetadataLookupData = MetadataLookupResponse;
 
 export interface RawMediaData {
 	title: string;

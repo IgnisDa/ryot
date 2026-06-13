@@ -1,6 +1,12 @@
 import { Effect, Either } from "effect";
 
 import {
+	extractMetadataLookupBaseTitle,
+	extractMetadataLookupSeasonEpisode,
+	hasMetadataLookupShowIndicators,
+} from "#lib/metadata-lookup/title-parsing";
+
+import {
 	assertRequiredHeaders,
 	createBacklogEvent,
 	createCompleteEvent,
@@ -12,11 +18,6 @@ import { parseDateTime } from "../../media/dates";
 import { getOrCreateMediaEntityGroup } from "../../media/groups";
 import type { ImportMediaEntityGroup, ResolvedImportEntityRef } from "../../media/types";
 import { parseCsvText, readRequiredCsvCell } from "../../runtime/csv";
-import {
-	extractNetflixSeasonEpisode,
-	extractNetflixBaseTitle,
-	hasNetflixShowIndicators,
-} from "./title-parsing";
 
 const NETFLIX_DATETIME_FORMATS = ["YYYY-MM-DD HH:mm:ss"];
 
@@ -116,7 +117,7 @@ const parseViewingActivityRow = (row: Record<string, string>, itemIndex: number)
 		if (!occurredAt) {
 			throw new Error("Start Time is invalid");
 		}
-		return { occurredAt, episodeInfo: extractNetflixSeasonEpisode(title) };
+		return { occurredAt, episodeInfo: extractMetadataLookupSeasonEpisode(title) };
 	});
 	if (Either.isLeft(parsed)) {
 		return {
@@ -252,11 +253,11 @@ export const adaptNetflixExports = Effect.fn("netflixAdapter.adaptExports")(func
 		if (!title) {
 			continue;
 		}
-		const baseTitle = extractNetflixBaseTitle(title);
+		const baseTitle = extractMetadataLookupBaseTitle(title);
 		if (!baseTitle) {
 			continue;
 		}
-		titleContext.set(baseTitle, hasNetflixShowIndicators(title) ? "show" : "movie");
+		titleContext.set(baseTitle, hasMetadataLookupShowIndicators(title) ? "show" : "movie");
 	}
 
 	let itemIndex = 0;
@@ -279,7 +280,9 @@ export const adaptNetflixExports = Effect.fn("netflixAdapter.adaptExports")(func
 		const lookupResult = yield* Effect.either(
 			lookupTitle({
 				title: rowResult.title,
-				preferredEntitySchemaSlug: hasNetflixShowIndicators(rowResult.title) ? "show" : undefined,
+				preferredEntitySchemaSlug: hasMetadataLookupShowIndicators(rowResult.title)
+					? "show"
+					: undefined,
 			}),
 		);
 		if (Either.isLeft(lookupResult)) {
@@ -353,7 +356,9 @@ export const adaptNetflixExports = Effect.fn("netflixAdapter.adaptExports")(func
 		const lookupResult = yield* Effect.either(
 			lookupTitle({
 				title: rowResult.title,
-				preferredEntitySchemaSlug: titleContext.get(extractNetflixBaseTitle(rowResult.title)),
+				preferredEntitySchemaSlug: titleContext.get(
+					extractMetadataLookupBaseTitle(rowResult.title),
+				),
 			}),
 		);
 		if (Either.isLeft(lookupResult)) {
@@ -404,7 +409,9 @@ export const adaptNetflixExports = Effect.fn("netflixAdapter.adaptExports")(func
 		const lookupResult = yield* Effect.either(
 			lookupTitle({
 				title: rowResult.title,
-				preferredEntitySchemaSlug: titleContext.get(extractNetflixBaseTitle(rowResult.title)),
+				preferredEntitySchemaSlug: titleContext.get(
+					extractMetadataLookupBaseTitle(rowResult.title),
+				),
 			}),
 		);
 		if (Either.isLeft(lookupResult)) {
