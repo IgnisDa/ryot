@@ -24,6 +24,7 @@ import {
 	apiFailure,
 	apiSuccess,
 	type BoundHostFunction,
+	isObjectRecord,
 	requireSandboxRunInput,
 	requireUserSandboxRunInput,
 } from "./shared";
@@ -54,9 +55,6 @@ const ListEventsQuery = Schema.Struct({
 const decodeListEventsQuery = Schema.decodeUnknown(ListEventsQuery);
 const decodeCreateEventsPayload = Schema.decodeUnknown(CreateEventsPayload);
 const decodeQueryEngineRequest = Schema.decodeUnknown(QueryEngineRequest);
-
-const isObjectRecord = (value: unknown): value is Record<string, unknown> =>
-	typeof value === "object" && value !== null && !Array.isArray(value);
 
 const requireNonEmptyString = (value: unknown, message: string): Effect.Effect<string, string> => {
 	if (typeof value !== "string" || value.trim().length === 0) {

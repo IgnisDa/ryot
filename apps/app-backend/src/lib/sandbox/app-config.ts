@@ -2,9 +2,7 @@ import { Effect, Option, Redacted } from "effect";
 
 import { appConfigMeta } from "../config";
 import type { AnyMeta, FieldMeta, GroupMeta } from "../config/builder";
-
-const isObjectRecord = (value: unknown): value is Record<string, unknown> =>
-	typeof value === "object" && value !== null && !Array.isArray(value);
+import { isObjectRecord } from "./shared";
 
 const isEffectOption = (value: unknown): value is Option.Option<unknown> =>
 	isObjectRecord(value) &&
