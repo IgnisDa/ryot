@@ -50,12 +50,12 @@ import { IntegrationsService } from "#modules/integrations/service";
 import { GlobalEntityReferencedWorkerLive } from "#modules/library-membership/global-reference-worker";
 import { LibraryEntityImportWorkflowDefinitionsLive } from "#modules/library-membership/library-entity-import-workflow";
 import { LibraryImportService } from "#modules/library-membership/service";
+import { MediaMonitoringRefreshWorkflowDefinitionsLive } from "#modules/media-monitoring/refresh-workflow";
+import { MediaMonitoringRepository } from "#modules/media-monitoring/repository";
+import { MediaMonitoringService } from "#modules/media-monitoring/service";
 import { MediaTrendingWorkflowOperationsLive } from "#modules/media-trending/operations-workflow";
 import { MediaTrendingRepository } from "#modules/media-trending/repository";
 import { MetadataLookupService } from "#modules/metadata-lookup/service";
-import { MonitoringRefreshWorkflowDefinitionsLive } from "#modules/monitoring/refresh-workflow";
-import { MonitoringRepository } from "#modules/monitoring/repository";
-import { MonitoringService } from "#modules/monitoring/service";
 import { NotificationDeliveryService } from "#modules/notifications/delivery";
 import { NotificationDeliveryWorkflowDefinitionsLive } from "#modules/notifications/notification-delivery-workflow-live";
 import { NotificationsRepository } from "#modules/notifications/repository";
@@ -102,7 +102,7 @@ const ContentRepositoriesLive = Layer.mergeAll(
 	CollectionsRepository.Default,
 	EntitiesRepository.Default,
 	MediaTrendingRepository.Default,
-	MonitoringRepository.Default,
+	MediaMonitoringRepository.Default,
 	EntitySchemasRepository.Default,
 	EpisodeResolverRepository.Default,
 	EventSchemasRepository.Default,
@@ -208,26 +208,26 @@ const ServicesBaseLive = Layer.provideMerge(
 	CollectionsServiceLive,
 );
 
-const MonitoringRelationshipsServiceLive = Layer.provide(
+const MediaMonitoringRelationshipsServiceLive = Layer.provide(
 	RelationshipsService.Default,
 	RelationshipsRepository.Default,
 );
 
-const MonitoringCollectionsServiceLive = Layer.provideMerge(
+const MediaMonitoringCollectionsServiceLive = Layer.provideMerge(
 	CollectionsServiceLive,
 	Layer.mergeAll(RelationshipSchemasRepository.Default, RelationshipsRepository.Default),
 );
 
-const MonitoringServiceDependenciesLive = Layer.mergeAll(
-	MonitoringCollectionsServiceLive,
+const MediaMonitoringServiceDependenciesLive = Layer.mergeAll(
+	MediaMonitoringCollectionsServiceLive,
 	QueryEngineServiceLive,
-	MonitoringRepository.Default,
-	MonitoringRelationshipsServiceLive,
+	MediaMonitoringRepository.Default,
+	MediaMonitoringRelationshipsServiceLive,
 );
 
-const MonitoringServiceLive = Layer.provide(
-	MonitoringService.Default,
-	MonitoringServiceDependenciesLive,
+const MediaMonitoringServiceLive = Layer.provide(
+	MediaMonitoringService.Default,
+	MediaMonitoringServiceDependenciesLive,
 );
 
 const MetadataLookupServiceLive = Layer.provide(
@@ -238,7 +238,7 @@ const MetadataLookupServiceLive = Layer.provide(
 const ServicesLive = Layer.mergeAll(
 	Layer.provideMerge(ServicesBaseLive, SandboxServicesLive),
 	MetadataLookupServiceLive,
-	MonitoringServiceLive,
+	MediaMonitoringServiceLive,
 	InterestServicesLive,
 );
 
@@ -250,7 +250,7 @@ const RuntimeLive = Layer.mergeAll(
 	EventCreateWorkflowDefinitionsLive,
 	LibraryEntityImportWorkflowDefinitionsLive,
 	NotificationDeliveryWorkflowDefinitionsLive,
-	MonitoringRefreshWorkflowDefinitionsLive,
+	MediaMonitoringRefreshWorkflowDefinitionsLive,
 	GlobalEntityReferencedWorkerLive,
 	DefaultSavedViewWorkerLive,
 	BuiltinEntityPreloaderLive,

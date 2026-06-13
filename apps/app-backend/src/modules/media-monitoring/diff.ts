@@ -1,13 +1,13 @@
 import { isObjectRecord } from "@ryot/ts-utils/predicates";
 import { Schema } from "effect";
 
-import { monitoringMessages, type MonitoringChange } from "./messages";
+import { mediaMonitoringMessages, type MediaMonitoringChange } from "./messages";
 
-const MonitoringEntityKind = Schema.Literal("company", "person", "media");
+const MediaMonitoringEntityKind = Schema.Literal("company", "person", "media");
 
-export type MonitoringEntityKind = typeof MonitoringEntityKind.Type;
+export type MediaMonitoringEntityKind = typeof MediaMonitoringEntityKind.Type;
 
-const MonitoringEpisodeSnapshot = Schema.Struct({
+const MediaMonitoringEpisodeSnapshot = Schema.Struct({
 	images: Schema.Unknown,
 	name: Schema.NullOr(Schema.String),
 	externalId: Schema.NullOr(Schema.String),
@@ -15,41 +15,41 @@ const MonitoringEpisodeSnapshot = Schema.Struct({
 	episodeNumber: Schema.NullOr(Schema.Number),
 });
 
-export type MonitoringEpisodeSnapshot = typeof MonitoringEpisodeSnapshot.Type;
+export type MediaMonitoringEpisodeSnapshot = typeof MediaMonitoringEpisodeSnapshot.Type;
 
-const MonitoringSeasonSnapshot = Schema.Struct({
+const MediaMonitoringSeasonSnapshot = Schema.Struct({
 	name: Schema.String,
 	externalId: Schema.NullOr(Schema.String),
 	seasonNumber: Schema.NullOr(Schema.Number),
-	episodes: Schema.Array(MonitoringEpisodeSnapshot),
+	episodes: Schema.Array(MediaMonitoringEpisodeSnapshot),
 });
 
-export type MonitoringSeasonSnapshot = typeof MonitoringSeasonSnapshot.Type;
+export type MediaMonitoringSeasonSnapshot = typeof MediaMonitoringSeasonSnapshot.Type;
 
-const MonitoringAssociationSnapshot = Schema.Struct({
+const MediaMonitoringAssociationSnapshot = Schema.Struct({
 	id: Schema.String,
 	name: Schema.String,
 	role: Schema.String,
 	kind: Schema.Literal("group", "metadata"),
 });
 
-export type MonitoringAssociationSnapshot = typeof MonitoringAssociationSnapshot.Type;
+export type MediaMonitoringAssociationSnapshot = typeof MediaMonitoringAssociationSnapshot.Type;
 
-export const MonitoringSnapshot = Schema.Struct({
+export const MediaMonitoringSnapshot = Schema.Struct({
 	name: Schema.String,
 	entityId: Schema.String,
 	entitySchemaSlug: Schema.String,
-	entityKind: MonitoringEntityKind,
+	entityKind: MediaMonitoringEntityKind,
 	populatedAt: Schema.NullOr(Schema.String),
 	mangaChapters: Schema.NullOr(Schema.Number),
 	animeEpisodes: Schema.NullOr(Schema.Number),
-	seasons: Schema.Array(MonitoringSeasonSnapshot),
-	podcastEpisodes: Schema.Array(MonitoringEpisodeSnapshot),
-	associations: Schema.Array(MonitoringAssociationSnapshot),
+	seasons: Schema.Array(MediaMonitoringSeasonSnapshot),
+	podcastEpisodes: Schema.Array(MediaMonitoringEpisodeSnapshot),
+	associations: Schema.Array(MediaMonitoringAssociationSnapshot),
 	properties: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
 });
 
-export type MonitoringSnapshot = typeof MonitoringSnapshot.Type;
+export type MediaMonitoringSnapshot = typeof MediaMonitoringSnapshot.Type;
 
 const asRecord = (value: unknown): Record<string, unknown> | null =>
 	isObjectRecord(value) ? value : null;
@@ -110,8 +110,8 @@ const matchByIdentity = <T>(
 };
 
 const diffShowEpisodes = (
-	before: MonitoringSeasonSnapshot,
-	after: MonitoringSeasonSnapshot,
+	before: MediaMonitoringSeasonSnapshot,
+	after: MediaMonitoringSeasonSnapshot,
 	entityName: string,
 ) => {
 	if (isSpecialSeason(before.name) && isSpecialSeason(after.name)) {
@@ -119,7 +119,7 @@ const diffShowEpisodes = (
 	}
 	if (before.episodes.length !== after.episodes.length) {
 		return [
-			monitoringMessages.episodeReleased({
+			mediaMonitoringMessages.episodeReleased({
 				entityName,
 				newCount: after.episodes.length,
 				oldCount: before.episodes.length,
@@ -128,7 +128,7 @@ const diffShowEpisodes = (
 		];
 	}
 
-	const changes: MonitoringChange[] = [];
+	const changes: MediaMonitoringChange[] = [];
 	for (const pair of matchByIdentity(before.episodes, after.episodes, (episode) => ({
 		externalId: episode.externalId,
 		number: episode.episodeNumber,
@@ -140,7 +140,7 @@ const diffShowEpisodes = (
 		}
 		if (pair.before.name !== pair.after.name) {
 			changes.push(
-				monitoringMessages.episodeNameChanged({
+				mediaMonitoringMessages.episodeNameChanged({
 					entityName,
 					seasonNumber,
 					episodeNumber,
@@ -151,7 +151,7 @@ const diffShowEpisodes = (
 		}
 		if (!sameImageSet(pair.before.images, pair.after.images)) {
 			changes.push(
-				monitoringMessages.episodeImagesChanged({ entityName, episodeNumber, seasonNumber }),
+				mediaMonitoringMessages.episodeImagesChanged({ entityName, episodeNumber, seasonNumber }),
 			);
 		}
 		if (
@@ -160,7 +160,7 @@ const diffShowEpisodes = (
 			pair.before.publishDate !== pair.after.publishDate
 		) {
 			changes.push(
-				monitoringMessages.episodeReleaseDateChanged({
+				mediaMonitoringMessages.episodeReleaseDateChanged({
 					entityName,
 					seasonNumber,
 					episodeNumber,
@@ -173,10 +173,10 @@ const diffShowEpisodes = (
 	return changes;
 };
 
-const diffShows = (before: MonitoringSnapshot, after: MonitoringSnapshot) => {
+const diffShows = (before: MediaMonitoringSnapshot, after: MediaMonitoringSnapshot) => {
 	if (before.seasons.length !== after.seasons.length) {
 		return [
-			monitoringMessages.seasonsChanged({
+			mediaMonitoringMessages.seasonsChanged({
 				entityName: after.name,
 				newCount: after.seasons.length,
 				oldCount: before.seasons.length,
@@ -190,10 +190,10 @@ const diffShows = (before: MonitoringSnapshot, after: MonitoringSnapshot) => {
 	})).flatMap((pair) => diffShowEpisodes(pair.before, pair.after, after.name));
 };
 
-const diffPodcastEpisodes = (before: MonitoringSnapshot, after: MonitoringSnapshot) => {
+const diffPodcastEpisodes = (before: MediaMonitoringSnapshot, after: MediaMonitoringSnapshot) => {
 	if (before.podcastEpisodes.length !== after.podcastEpisodes.length) {
 		return [
-			monitoringMessages.episodeReleased({
+			mediaMonitoringMessages.episodeReleased({
 				seasonNumber: null,
 				entityName: after.name,
 				newCount: after.podcastEpisodes.length,
@@ -202,7 +202,7 @@ const diffPodcastEpisodes = (before: MonitoringSnapshot, after: MonitoringSnapsh
 		];
 	}
 
-	const changes: MonitoringChange[] = [];
+	const changes: MediaMonitoringChange[] = [];
 	for (const pair of matchByIdentity(before.podcastEpisodes, after.podcastEpisodes, (episode) => ({
 		externalId: episode.externalId,
 		number: episode.episodeNumber,
@@ -213,7 +213,7 @@ const diffPodcastEpisodes = (before: MonitoringSnapshot, after: MonitoringSnapsh
 		}
 		if (pair.before.name !== pair.after.name) {
 			changes.push(
-				monitoringMessages.episodeNameChanged({
+				mediaMonitoringMessages.episodeNameChanged({
 					episodeNumber,
 					seasonNumber: null,
 					entityName: after.name,
@@ -224,7 +224,7 @@ const diffPodcastEpisodes = (before: MonitoringSnapshot, after: MonitoringSnapsh
 		}
 		if (!sameImageSet(pair.before.images, pair.after.images)) {
 			changes.push(
-				monitoringMessages.episodeImagesChanged({
+				mediaMonitoringMessages.episodeImagesChanged({
 					episodeNumber,
 					seasonNumber: null,
 					entityName: after.name,
@@ -235,7 +235,7 @@ const diffPodcastEpisodes = (before: MonitoringSnapshot, after: MonitoringSnapsh
 	return changes;
 };
 
-const diffAssociations = (before: MonitoringSnapshot, after: MonitoringSnapshot) => {
+const diffAssociations = (before: MediaMonitoringSnapshot, after: MediaMonitoringSnapshot) => {
 	const entityKind = after.entityKind;
 	if (entityKind === "media") {
 		return [];
@@ -253,7 +253,7 @@ const diffAssociations = (before: MonitoringSnapshot, after: MonitoringSnapshot)
 		}
 		seen.add(key);
 		return [
-			monitoringMessages.associationAdded({
+			mediaMonitoringMessages.associationAdded({
 				entityKind,
 				entityName: after.name,
 				role: association.role,
@@ -264,20 +264,20 @@ const diffAssociations = (before: MonitoringSnapshot, after: MonitoringSnapshot)
 	});
 };
 
-export const diffMonitoringSnapshots = (
-	before: MonitoringSnapshot,
-	after: MonitoringSnapshot,
-): ReadonlyArray<MonitoringChange> => {
+export const diffMediaMonitoringSnapshots = (
+	before: MediaMonitoringSnapshot,
+	after: MediaMonitoringSnapshot,
+): ReadonlyArray<MediaMonitoringChange> => {
 	if (before.populatedAt === null || after.populatedAt === null) {
 		return [];
 	}
 
-	const changes: MonitoringChange[] = [];
+	const changes: MediaMonitoringChange[] = [];
 	const beforeStatus = asString(before.properties.productionStatus);
 	const afterStatus = asString(after.properties.productionStatus);
 	if (beforeStatus !== null && afterStatus !== null && beforeStatus !== afterStatus) {
 		changes.push(
-			monitoringMessages.statusChanged({
+			mediaMonitoringMessages.statusChanged({
 				entityName: after.name,
 				newStatus: afterStatus,
 				oldStatus: beforeStatus,
@@ -292,7 +292,7 @@ export const diffMonitoringSnapshots = (
 		beforePublishYear !== afterPublishYear
 	) {
 		changes.push(
-			monitoringMessages.publishYearChanged({
+			mediaMonitoringMessages.publishYearChanged({
 				entityName: after.name,
 				newYear: afterPublishYear,
 				oldYear: beforePublishYear,
@@ -309,7 +309,7 @@ export const diffMonitoringSnapshots = (
 		before.animeEpisodes !== after.animeEpisodes
 	) {
 		changes.push(
-			monitoringMessages.chaptersOrEpisodesChanged({
+			mediaMonitoringMessages.chaptersOrEpisodesChanged({
 				entityName: after.name,
 				contentType: "episodes",
 				newCount: after.animeEpisodes,
@@ -324,7 +324,7 @@ export const diffMonitoringSnapshots = (
 		before.mangaChapters !== after.mangaChapters
 	) {
 		changes.push(
-			monitoringMessages.chaptersOrEpisodesChanged({
+			mediaMonitoringMessages.chaptersOrEpisodesChanged({
 				entityName: after.name,
 				contentType: "chapters",
 				newCount: after.mangaChapters,
@@ -345,7 +345,7 @@ export const snapshotSeason = (input: {
 	name: string;
 	properties: unknown;
 	externalId: string | null;
-}): MonitoringSeasonSnapshot => {
+}): MediaMonitoringSeasonSnapshot => {
 	const properties = snapshotProperties(input.properties);
 	return {
 		episodes: [],
@@ -359,7 +359,7 @@ export const snapshotEpisode = (input: {
 	name: string;
 	properties: unknown;
 	externalId: string | null;
-}): MonitoringEpisodeSnapshot => {
+}): MediaMonitoringEpisodeSnapshot => {
 	const properties = snapshotProperties(input.properties);
 	return {
 		name: input.name,
