@@ -15,6 +15,11 @@ export const isOidcEnabled = (config: SystemConfigValue): boolean => {
 	return isNonEmpty(clientId) && isNonEmpty(issuerUrl) && isNonEmptyRedacted(clientSecret);
 };
 
+export const isSmtpEnabled = (config: SystemConfigValue): boolean => {
+	const { password, server, user } = config.notifications.smtp;
+	return isNonEmpty(server) && isNonEmptyRedacted(user) && isNonEmptyRedacted(password);
+};
+
 const validateSystemConfig = (
 	config: SystemConfigValue,
 ): Effect.Effect<SystemConfigValue, ConfigError.ConfigError> => {
@@ -40,6 +45,21 @@ const validateSystemConfig = (
 			ConfigError.InvalidData(
 				[],
 				"USERS_DISABLE_LOCAL_AUTH is set but OIDC credentials are incomplete. Set SERVER_OIDC_CLIENT_ID, SERVER_OIDC_ISSUER_URL, and SERVER_OIDC_CLIENT_SECRET.",
+			),
+		);
+	}
+
+	const { password, server, user } = config.notifications.smtp;
+	const smtpSetCount = [
+		isNonEmpty(server),
+		isNonEmptyRedacted(user),
+		isNonEmptyRedacted(password),
+	].filter(Boolean).length;
+	if (smtpSetCount > 0 && smtpSetCount < 3) {
+		return Effect.fail(
+			ConfigError.InvalidData(
+				[],
+				"Partial SMTP configuration detected. Set all three of SERVER_SMTP_SERVER, SERVER_SMTP_USER, and SERVER_SMTP_PASSWORD, or none of them.",
 			),
 		);
 	}
