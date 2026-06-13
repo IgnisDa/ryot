@@ -14,7 +14,7 @@ Replace the current backend with a new Effect implementation that keeps the prod
 
 The new backend uses Effect-native direct success responses and `Schema.TaggedError` failures instead of the old `{ data }` and `{ error }` response envelopes. During the skeleton phase, all route handlers decode path, query, payload, and auth middleware first, then return a temporary typed `NotImplemented` error with status `501`. The `NotImplemented` error is removed module by module as behavior is migrated.
 
-Every implementation task in this plan MUST follow the rules and migration guidance in `apps/app-backend-reference/README.md`. That reference README is the pattern authority for services, layers, HTTP contracts, repositories, transactions, workflows, sandbox execution, schema definitions, E2E client migration, Effect Schema migration, service-layer migration, and dependency-injection migration. If this PRD and the reference README appear to conflict, stop and resolve the conflict before implementing the task.
+Every implementation task in this plan MUST follow the rules and migration guidance in `apps/app-backend-reference/README.md`. That reference README is the pattern authority for services, layers, HTTP contracts, repositories, transactions, workflows, sandbox execution, schema definitions, E2E client migration, Effect Schema migration, service-layer migration, and dependency-injection migration. Each implementor should also use the necessary code in the legacy backend as the starting point for current product behavior, route semantics, database schema, seed data, validation rules, and edge cases to port. Legacy backend code is source material for what behavior exists; it must not override the architectural and migration decisions in the reference README. If this PRD, the reference README, and the legacy backend appear to conflict, stop and resolve the conflict before implementing the task.
 
 E2E tests keep spawning a real backend process and keep using raw fetch or Better Auth clients for Better Auth endpoints and intentionally malformed HTTP cases. For contract-valid app-owned routes, E2E tests use `HttpApiClient` against the exported `AppContract`. Backend unit tests migrate with modules and use Vitest plus `@effect/vitest`.
 
@@ -93,6 +93,7 @@ The module migration proceeds from infrastructure and leaf modules toward highly
 - The old backend may break after being renamed. It exists only as temporary reference material until final cleanup.
 - The new backend is a full rewrite using Effect patterns from the reference implementation.
 - Every task in this plan must follow `apps/app-backend-reference/README.md` as mandatory migration guidance and pattern authority.
+- Every task implementor should use the necessary legacy backend code as the starting point for behavior to port, while treating the reference README as authoritative for how that behavior is implemented in the new Effect backend.
 - The new backend must not wrap old `ServiceResult` or `deps` patterns. Services return `Effect` values with typed success, failure, and dependency channels.
 - The new backend must not introduce BullMQ. Background work should use Effect Workflow, durable queues, durable deferred signals, activities, and workflow-friendly service boundaries.
 - The real current database schema and migration history are the source of truth. The reference backend schema must not be copied except as conceptual pattern material.
@@ -167,6 +168,7 @@ The module migration proceeds from infrastructure and leaf modules toward highly
 
 - The most important sequencing constraint is user bootstrap. Static builtins and seed data can migrate early, but full bootstrap depends on trackers, entity schemas, saved views, and collections.
 - The reference README is mandatory reading for every implementation task in this plan and must be treated as authoritative for the target Effect patterns.
+- The legacy backend is mandatory source material for product behavior, data model details, route semantics, and edge cases, but not for architecture when it conflicts with the reference README.
 - The `saved-views` and `query-engine` cycle should be handled deliberately by moving shared query-language concepts to pure exports and migrating saved-view validation and query execution together.
 - The `imports` and `integrations` cycle should be handled late because those modules depend on most of the domain model and have the most complex background orchestration.
 - App-client migration is intentionally late because the backend contract and domain modules should stabilize first.
