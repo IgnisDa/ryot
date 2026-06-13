@@ -1,13 +1,11 @@
 import { DateTime } from "effect";
-import { describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 
 import { alignDateRangeToBucket } from "../time-series-buckets";
 
 const parse = (value: string) => {
 	const parsed = DateTime.make(value);
-	if (parsed._tag === "None") {
-		throw new Error(`Invalid test date: ${value}`);
-	}
+	assert(parsed._tag !== "None", `Invalid test date: ${value}`);
 	return parsed.value;
 };
 

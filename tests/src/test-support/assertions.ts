@@ -2,7 +2,6 @@ export function requirePresent<T>(value: T, message: string): NonNullable<T> {
 	if (!value) {
 		throw new Error(message);
 	}
-
 	return value;
 }
 
@@ -12,11 +11,16 @@ export function assertPresent<T>(value: T, message: string): asserts value is No
 	}
 }
 
+export function assertCondition(condition: boolean, message: string): asserts condition {
+	if (!condition) {
+		throw new Error(message);
+	}
+}
+
 export function requireString(value: unknown, message: string): string {
 	if (typeof value !== "string") {
 		throw new Error(message);
 	}
-
 	return value;
 }
 
@@ -24,7 +28,6 @@ export function requireNumber(value: unknown, message: string): number {
 	if (typeof value !== "number") {
 		throw new Error(message);
 	}
-
 	return value;
 }
 
@@ -32,7 +35,6 @@ export function requireObjectRecord(value: unknown, message: string): Record<str
 	if (typeof value !== "object" || value === null || Array.isArray(value)) {
 		throw new Error(message);
 	}
-
 	return Object.fromEntries(Object.entries(value));
 }
 
@@ -40,7 +42,6 @@ export function requireArray(value: unknown, message: string): unknown[] {
 	if (!Array.isArray(value)) {
 		throw new Error(message);
 	}
-
 	return value;
 }
 
@@ -55,7 +56,6 @@ export function requireNonEmptyArray<T>(
 	if (!value || !isNonEmptyArray(value)) {
 		throw new Error(message);
 	}
-
 	return value;
 }
 
