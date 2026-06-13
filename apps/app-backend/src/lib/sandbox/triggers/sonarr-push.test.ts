@@ -11,8 +11,8 @@ import {
 
 const getSonarrCode = () =>
 	Promise.all([
-		readScriptFile("../script-helpers/integration-push.txt"),
-		readScriptFile("./sonarr-push.txt"),
+		readScriptFile("../script-helpers/integration-push.sandbox.js"),
+		readScriptFile("./sonarr-push.sandbox.js"),
 	]).then(([helperCode, scriptCode]) => `${helperCode}\n\n${scriptCode}`);
 
 const runSonarrScript = (
