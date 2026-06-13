@@ -11,7 +11,9 @@ type ExistingImageListProps = {
 export function ExistingImageList(props: ExistingImageListProps) {
 	const presignedUrls = useS3PresignedUrls(props.keys);
 
-	if (props.keys.length === 0) return null;
+	if (props.keys.length === 0) {
+		return null;
+	}
 
 	return (
 		<Stack gap="xs">

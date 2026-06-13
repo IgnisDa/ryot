@@ -172,12 +172,18 @@ const DisplayCollection = (props: { index: number; collection: Collection }) => 
 			});
 			const images = [];
 			for (const content of collectionContents.response.results.items) {
-				if (images.length === 5) break;
-				if (content.entityLot !== EntityLot.Metadata) continue;
+				if (images.length === 5) {
+					break;
+				}
+				if (content.entityLot !== EntityLot.Metadata) {
+					continue;
+				}
 				const { assets } = await queryClient.ensureQueryData(
 					getMetadataDetailsQuery(content.entityId),
 				);
-				if (assets.remoteImages.length > 0) images.push(assets.remoteImages[0]);
+				if (assets.remoteImages.length > 0) {
+					images.push(assets.remoteImages[0]);
+				}
 			}
 			return images;
 		},
@@ -191,11 +197,15 @@ const DisplayCollection = (props: { index: number; collection: Collection }) => 
 
 	const currentlyHovered = hoveredStates.findIndex((h) => h);
 
-	if (props.collection.creator.id !== userDetails.id)
+	if (props.collection.creator.id !== userDetails.id) {
 		additionalDisplay.push(`By ${props.collection.creator.name}`);
-	if (props.collection.count > 0) additionalDisplay.push(`${props.collection.count} items`);
-	if (props.collection.collaborators.length > 1)
+	}
+	if (props.collection.count > 0) {
+		additionalDisplay.push(`${props.collection.count} items`);
+	}
+	if (props.collection.collaborators.length > 1) {
 		additionalDisplay.push(`${props.collection.collaborators.length - 1} collaborators`);
+	}
 
 	const FallBackImage = () => (
 		<Image src={fallbackImageUrl} h="100%" flex="none" mx="auto" radius="md" />

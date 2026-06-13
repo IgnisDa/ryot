@@ -217,10 +217,12 @@ export default function Page() {
 			/>
 			<BulkCollectionEditingAffix
 				bulkAddEntities={async () => {
-					if (bulkEditingState?.data.action !== "add") return [];
+					if (bulkEditingState?.data.action !== "add") {
+						return [];
+					}
 					const bulkQueryInput = cloneDeep(queryInput);
 					bulkQueryInput.search = {
-						...(bulkQueryInput.search ?? {}),
+						...bulkQueryInput.search,
 						take: Number.MAX_SAFE_INTEGER,
 						page: 1,
 					};
@@ -459,8 +461,12 @@ const ExerciseItemDisplay = (props: {
 										lot: exercise.lot,
 										id: props.exerciseId,
 									});
-									if (isTourTargetExercise) advanceOnboardingTourStep();
-								} else props.setSelectedExercises.filter((item) => item.id !== props.exerciseId);
+									if (isTourTargetExercise) {
+										advanceOnboardingTourStep();
+									}
+								} else {
+									props.setSelectedExercises.filter((item) => item.id !== props.exerciseId);
+								}
 							}}
 						/>
 					) : null}
@@ -478,14 +484,18 @@ const ExerciseItemDisplay = (props: {
 						style={{ all: "unset", cursor: "pointer" }}
 						to={getExerciseDetailsPath(props.exerciseId)}
 						onClick={(e) => {
-							if (props.allowAddingExerciseToWorkout) return;
+							if (props.allowAddingExerciseToWorkout) {
+								return;
+							}
 							if (props.mergingExercise) {
 								e.preventDefault();
 								openConfirmationModal(
 									"Are you sure you want to merge this exercise? This will replace this exercise in all workouts.",
 									() => {
 										const formData = new FormData();
-										if (props.mergingExercise) formData.append("mergeFrom", props.mergingExercise);
+										if (props.mergingExercise) {
+											formData.append("mergeFrom", props.mergingExercise);
+										}
 										formData.append("mergeInto", props.exerciseId);
 										props.setMergingExercise(null);
 										submit(formData, {
@@ -502,7 +512,9 @@ const ExerciseItemDisplay = (props: {
 								e.preventDefault();
 								setCurrentWorkout(
 									produce(currentWorkout, (draft) => {
-										if (!isNumber(currentWorkout.replacingExerciseIdx)) return;
+										if (!isNumber(currentWorkout.replacingExerciseIdx)) {
+											return;
+										}
 										draft.exercises[currentWorkout.replacingExerciseIdx].exerciseId =
 											props.exerciseId;
 										draft.replacingExerciseIdx = undefined;
@@ -532,8 +544,11 @@ const ExerciseItemDisplay = (props: {
 							variant={isAdded ? "filled" : "outline"}
 							disabled={bulkEditingState.data.isLoading}
 							onClick={() => {
-								if (isAdded) bulkEditingState.remove(becItem);
-								else bulkEditingState.add(becItem);
+								if (isAdded) {
+									bulkEditingState.remove(becItem);
+								} else {
+									bulkEditingState.add(becItem);
+								}
 							}}
 						>
 							<IconCheck size={18} />

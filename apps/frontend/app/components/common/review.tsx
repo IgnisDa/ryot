@@ -54,7 +54,9 @@ import { getThreePointSmileyEmoji } from "~/lib/types";
 import classes from "~/styles/common.module.css";
 
 export const DisplayThreePointReview = (props: { size?: number; rating?: number | null }) => {
-	if (props.rating == null) return null;
+	if (props.rating == null) {
+		return null;
+	}
 	const smileyRating = convertDecimalToThreePointSmiley(props.rating);
 	const fontSize = props.size ? `${props.size}px` : "20px";
 

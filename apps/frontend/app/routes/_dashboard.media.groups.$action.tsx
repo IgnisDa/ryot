@@ -139,7 +139,9 @@ export default function Page(props: { params: { action: string } }) {
 		const lot = coreDetails.metadataGroupSourceLotMappings.find(
 			(m) => m.source === searchFilters.source,
 		)?.lot;
-		if (!lot) throw new Error("Invalid source selected");
+		if (!lot) {
+			throw new Error("Invalid source selected");
+		}
 		return {
 			lot,
 			source: searchFilters.source,
@@ -174,7 +176,9 @@ export default function Page(props: { params: { action: string } }) {
 			/>
 			<BulkCollectionEditingAffix
 				bulkAddEntities={async () => {
-					if (action !== "list") return [];
+					if (action !== "list") {
+						return [];
+					}
 					const input = cloneDeep(listInput);
 					input.search = { ...input.search, take: Number.MAX_SAFE_INTEGER };
 					return await clientGqlService
@@ -194,7 +198,9 @@ export default function Page(props: { params: { action: string } }) {
 						variant="default"
 						value={action}
 						onChange={(v) => {
-							if (v) navigate($path("/media/groups/:action", { action: v }));
+							if (v) {
+								navigate($path("/media/groups/:action", { action: v }));
+							}
 						}}
 					>
 						<Tabs.List style={{ alignItems: "center" }}>
@@ -212,8 +218,11 @@ export default function Page(props: { params: { action: string } }) {
 							value={searchInputValue}
 							placeholder="Search for groups"
 							onChange={(value) => {
-								if (action === "list") updateListFilters({ query: value });
-								else updateSearchFilters({ query: value });
+								if (action === "list") {
+									updateListFilters({ query: value });
+								} else {
+									updateSearchFilters({ query: value });
+								}
 							}}
 						/>
 						{action === "list" ? (
@@ -381,8 +390,11 @@ const MetadataGroupListItem = (props: MetadataGroupListItemProps) => {
 						color="green"
 						variant={isAdded ? "filled" : "transparent"}
 						onClick={() => {
-							if (isAdded) bulkEditingState.remove(becItem);
-							else bulkEditingState.add(becItem);
+							if (isAdded) {
+								bulkEditingState.remove(becItem);
+							} else {
+								bulkEditingState.add(becItem);
+							}
 						}}
 					>
 						<IconCheck size={18} />

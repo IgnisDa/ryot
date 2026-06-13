@@ -29,7 +29,9 @@ export const ReorderDrawer = (props: {
 		if (!isEqual(oldOrder, newOrder)) {
 			setCurrentWorkout(
 				produce(currentWorkout, (draft) => {
-					if (!draft) return;
+					if (!draft) {
+						return;
+					}
 					draft.exercises = exerciseElements.map(
 						(de) => draft.exercises.find((e) => e.identifier === de.identifier) as Exercise,
 					);
@@ -43,7 +45,9 @@ export const ReorderDrawer = (props: {
 		<Drawer size="sm" styles={styles} opened={props.opened} onClose={props.onClose}>
 			<DragDropContext
 				onDragEnd={({ destination, source }) => {
-					if (!destination) return;
+					if (!destination) {
+						return;
+					}
 					const reorderedExerciseDestinationIndex = destination.index;
 					exerciseElementsHandlers.reorder({
 						from: source.index,

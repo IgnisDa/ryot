@@ -20,9 +20,7 @@ const errorMessage = (error: unknown): string =>
 		? error.message
 		: "Failed to reach the backend server";
 
-const runAdmin = <A, E>(
-	program: ContractProgram<A, E>,
-): Promise<ApiResult<A>> => {
+const runAdmin = <A, E>(program: ContractProgram<A, E>): Promise<ApiResult<A>> => {
 	const serverVariables = getServerVariables();
 
 	return makeContractClient(`${serverVariables.RYOT_BASE_URL}/api`, {

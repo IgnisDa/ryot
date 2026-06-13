@@ -234,7 +234,9 @@ export const currentWorkoutToCreateWorkoutInput = (
 		for (const set of exercise.sets) {
 			if (isCreatingTemplate || set.confirmedAt) {
 				const note = isString(set.note) ? set.note : undefined;
-				if (Object.keys(set.statistic).length === 0) continue;
+				if (Object.keys(set.statistic).length === 0) {
+					continue;
+				}
 				sets.push({
 					note,
 					rpe: set.rpe,
@@ -254,7 +256,9 @@ export const currentWorkoutToCreateWorkoutInput = (
 		}
 		const notes: string[] = [];
 		for (const note of exercise.notes) {
-			if (note) notes.push(note);
+			if (note) {
+				notes.push(note);
+			}
 		}
 		input.input.exercises.push({
 			sets,

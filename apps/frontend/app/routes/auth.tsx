@@ -70,7 +70,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			const submission = parseWithZod(formData, {
 				schema: registerSchema,
 			});
-			if (submission.status !== "success")
+			if (submission.status !== "success") {
 				return data({} as const, {
 					headers: await createToastHeaders({
 						type: "error",
@@ -80,6 +80,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 							"Invalid form data",
 					}),
 				});
+			}
 			const { registerUser } = await serverGqlService.request(RegisterUserDocument, {
 				input: {
 					data: {

@@ -54,7 +54,9 @@ export function ActionsTabPanel(props: ActionsTabPanelProps) {
 				w="100%"
 				variant="outline"
 				onClick={() => {
-					if (!props.colDetails) return;
+					if (!props.colDetails) {
+						return;
+					}
 					props.bulkEditingCollection.start(props.colDetails, "add");
 					navigate(
 						$path("/media/:action/:lot", {
@@ -71,7 +73,9 @@ export function ActionsTabPanel(props: ActionsTabPanelProps) {
 				variant="outline"
 				disabled={props.details.results.details.totalItems === 0}
 				onClick={() => {
-					if (!props.colDetails) return;
+					if (!props.colDetails) {
+						return;
+					}
 					props.bulkEditingCollection.start(props.colDetails, "remove");
 					props.setTab(props.contentsTabValue);
 				}}

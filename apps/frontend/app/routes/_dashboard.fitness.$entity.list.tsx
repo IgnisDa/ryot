@@ -182,7 +182,9 @@ export default function Page(props: { params: { entity: FitnessEntity } }) {
 			/>
 			<BulkCollectionEditingAffix
 				bulkAddEntities={async () => {
-					if (bulkEditingState?.data.action !== "add") return [];
+					if (bulkEditingState?.data.action !== "add") {
+						return [];
+					}
 
 					const queryInput = buildQueryInput(filters, {
 						search: { page: 1, take: Number.MAX_SAFE_INTEGER },
@@ -349,7 +351,7 @@ const DisplayFitnessEntity = (props: {
 				.exhaustive(),
 	});
 
-	if (!entityInformation)
+	if (!entityInformation) {
 		return (
 			<Stack gap={4} ref={ref}>
 				<Skeleton height={76} />
@@ -359,6 +361,7 @@ const DisplayFitnessEntity = (props: {
 				</Group>
 			</Stack>
 		);
+	}
 
 	const personalBestsAchieved = entityInformation.summary.total?.personalBestsAchieved || 0;
 	const repsData = (entityInformation.information.exercises || [])
@@ -435,8 +438,11 @@ const DisplayFitnessEntity = (props: {
 								variant={isAdded ? "filled" : "outline"}
 								disabled={bulkEditingState.data.isLoading}
 								onClick={() => {
-									if (isAdded) bulkEditingState.remove(becItem);
-									else bulkEditingState.add(becItem);
+									if (isAdded) {
+										bulkEditingState.remove(becItem);
+									} else {
+										bulkEditingState.add(becItem);
+									}
 								}}
 							>
 								<IconCheck size={16} />

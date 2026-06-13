@@ -42,11 +42,12 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 		if (
 			registerUser.__typename === "RegisterError" &&
 			registerUser.error === RegisterErrorVariant.Disabled
-		)
+		) {
 			return redirectWithToast($path("/auth"), {
 				message: "Registration is disabled",
 				type: "error",
 			});
+		}
 	}
 	await getCoreDetails();
 	const { loginUser } = await serverGqlService.request(LoginUserDocument, {

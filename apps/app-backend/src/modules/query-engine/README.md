@@ -34,10 +34,10 @@ Root entity source:
 
 ```json
 {
-  "type": "entities",
-  "alias": "course",
-  "schemas": ["course"],
-  "where": null
+	"type": "entities",
+	"alias": "course",
+	"schemas": ["course"],
+	"where": null
 }
 ```
 
@@ -45,16 +45,16 @@ Nested entity source reached through one relationship edge (`via`):
 
 ```json
 {
-  "type": "entities",
-  "alias": "module",
-  "schemas": ["module"],
-  "where": null,
-  "via": {
-    "entityRef": "course",
-    "alias": "courseModule",
-    "direction": "outgoing",
-    "schema": "course-module"
-  }
+	"type": "entities",
+	"alias": "module",
+	"schemas": ["module"],
+	"where": null,
+	"via": {
+		"entityRef": "course",
+		"alias": "courseModule",
+		"direction": "outgoing",
+		"schema": "course-module"
+	}
 }
 ```
 
@@ -71,14 +71,14 @@ Root event source with an explicit attached entity declaration:
 
 ```json
 {
-  "type": "events",
-  "alias": "completion",
-  "schemas": ["complete"],
-  "where": null,
-  "entity": {
-    "alias": "lesson",
-    "schemas": ["lesson"]
-  }
+	"type": "events",
+	"alias": "completion",
+	"schemas": ["complete"],
+	"where": null,
+	"entity": {
+		"alias": "lesson",
+		"schemas": ["lesson"]
+	}
 }
 ```
 
@@ -86,11 +86,11 @@ Nested event source attached to an existing entity alias:
 
 ```json
 {
-  "type": "events",
-  "alias": "completion",
-  "schemas": ["complete"],
-  "where": null,
-  "entityRef": "lesson"
+	"type": "events",
+	"alias": "completion",
+	"schemas": ["complete"],
+	"where": null,
+	"entityRef": "lesson"
 }
 ```
 
@@ -105,18 +105,18 @@ Root relationship source with explicit endpoint entity declarations:
 
 ```json
 {
-  "type": "relationships",
-  "alias": "membership",
-  "schemas": ["member-of"],
-  "where": null,
-  "sourceEntity": {
-    "alias": "member",
-    "schemas": ["book", "movie"]
-  },
-  "targetEntity": {
-    "alias": "collectionEntity",
-    "schemas": ["collection"]
-  }
+	"type": "relationships",
+	"alias": "membership",
+	"schemas": ["member-of"],
+	"where": null,
+	"sourceEntity": {
+		"alias": "member",
+		"schemas": ["book", "movie"]
+	},
+	"targetEntity": {
+		"alias": "collectionEntity",
+		"schemas": ["collection"]
+	}
 }
 ```
 
@@ -311,9 +311,9 @@ Ungrouped:
 
 ```json
 {
-  "type": "aggregate",
-  "groupBy": [],
-  "measures": [{ "key": "courseCount", "aggregation": { "function": "count" } }]
+	"type": "aggregate",
+	"groupBy": [],
+	"measures": [{ "key": "courseCount", "aggregation": { "function": "count" } }]
 }
 ```
 
@@ -362,19 +362,19 @@ Rows:
 
 ```json
 {
-  "type": "rows",
-  "data": {
-    "items": [
-      {
-        "name": { "kind": "text", "value": "Course A" },
-        "modules": {
-          "items": [{ "name": { "kind": "text", "value": "Module 1" } }],
-          "pageInfo": { "limit": 20, "hasMore": false }
-        }
-      }
-    ],
-    "pageInfo": { "page": 1, "limit": 20, "total": 1, "hasMore": false }
-  }
+	"type": "rows",
+	"data": {
+		"items": [
+			{
+				"name": { "kind": "text", "value": "Course A" },
+				"modules": {
+					"items": [{ "name": { "kind": "text", "value": "Module 1" } }],
+					"pageInfo": { "limit": 20, "hasMore": false }
+				}
+			}
+		],
+		"pageInfo": { "page": 1, "limit": 20, "total": 1, "hasMore": false }
+	}
 }
 ```
 
@@ -382,16 +382,16 @@ Aggregate (grouped):
 
 ```json
 {
-  "type": "aggregate",
-  "data": {
-    "items": [
-      {
-        "difficulty": { "kind": "text", "value": "beginner" },
-        "count": { "kind": "number", "value": 12 }
-      }
-    ],
-    "pageInfo": { "limit": 100, "hasMore": false }
-  }
+	"type": "aggregate",
+	"data": {
+		"items": [
+			{
+				"difficulty": { "kind": "text", "value": "beginner" },
+				"count": { "kind": "number", "value": 12 }
+			}
+		],
+		"pageInfo": { "limit": 100, "hasMore": false }
+	}
 }
 ```
 
@@ -399,13 +399,13 @@ Time series:
 
 ```json
 {
-  "type": "timeSeries",
-  "data": {
-    "buckets": [
-      { "startAt": "2026-01-01T00:00:00.000Z", "endAt": "2026-01-08T00:00:00.000Z", "value": 3 },
-      { "startAt": "2026-01-08T00:00:00.000Z", "endAt": "2026-01-15T00:00:00.000Z", "value": 0 }
-    ]
-  }
+	"type": "timeSeries",
+	"data": {
+		"buckets": [
+			{ "startAt": "2026-01-01T00:00:00.000Z", "endAt": "2026-01-08T00:00:00.000Z", "value": 3 },
+			{ "startAt": "2026-01-08T00:00:00.000Z", "endAt": "2026-01-15T00:00:00.000Z", "value": 0 }
+		]
+	}
 }
 ```
 
