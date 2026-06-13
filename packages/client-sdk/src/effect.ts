@@ -1,1 +1,1 @@
-export { Schema } from "effect";
+export { Result, Schema } from "effect";

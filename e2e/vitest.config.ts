@@ -15,9 +15,9 @@ export default mergeConfig(
 			isolate: false,
 			testTimeout: 180_000,
 			hookTimeout: 180_000,
-			globalSetup: ["./global-setup.api.ts"],
-			include: ["src/api/**/*.test.ts"],
+			globalSetup: ["./global-setup.ts"],
 			reporters: ["hanging-process", "default"],
+			include: ["src/api/**/*.test.ts", "src/browser/**/*.test.ts"],
 		},
 	}),
 );
