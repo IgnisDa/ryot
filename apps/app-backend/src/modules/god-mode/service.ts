@@ -69,7 +69,7 @@ export class GodModeService extends Effect.Service<GodModeService>()("GodModeSer
 		const listUsers = Effect.fn("GodModeService.listUsers")(function* (input: {
 			limit: number;
 			offset: number;
-			search?: string;
+			search?: string | undefined;
 		}) {
 			return yield* runWithDb(
 				Effect.gen(function* () {

@@ -305,8 +305,8 @@ export class MediaMonitoringRepository extends Effect.Service<MediaMonitoringRep
 						if (!isMediaMonitoringAssociationTargetSchema(edge.entitySchemaSlug)) {
 							continue;
 						}
-						const roles = Array.isArray(edge.relationshipProperties.roles)
-							? edge.relationshipProperties.roles.filter(
+						const roles = Array.isArray(edge.relationshipProperties["roles"])
+							? edge.relationshipProperties["roles"].filter(
 									(item): item is string => typeof item === "string",
 								)
 							: [""];
@@ -333,9 +333,13 @@ export class MediaMonitoringRepository extends Effect.Service<MediaMonitoringRep
 					properties: snapshotProperties(entity.properties),
 					seasons,
 					animeEpisodes:
-						typeof entity.properties.episodes === "number" ? entity.properties.episodes : null,
+						typeof entity.properties["episodes"] === "number"
+							? entity.properties["episodes"]
+							: null,
 					mangaChapters:
-						typeof entity.properties.chapters === "number" ? entity.properties.chapters : null,
+						typeof entity.properties["chapters"] === "number"
+							? entity.properties["chapters"]
+							: null,
 					podcastEpisodes,
 					associations,
 				};

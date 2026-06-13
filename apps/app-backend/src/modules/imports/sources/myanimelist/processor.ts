@@ -38,18 +38,18 @@ export const loadMyanimelistAdapterResult = Effect.fn("myanimelistProcessor.load
 	function* (input: {
 		runId: ImportRunId;
 		userId: UserId;
-		filePath?: string;
-		sourcePayload?: Record<string, unknown>;
+		filePath?: string | undefined;
+		sourcePayload?: Record<string, unknown> | undefined;
 	}) {
 		const config = yield* AppConfig;
 		const { animeFilePath, mangaFilePath } = yield* Effect.all({
 			animeFilePath: getValidatedOptionalPath(
-				input.sourcePayload?.animeFilePath,
+				input.sourcePayload?.["animeFilePath"],
 				MYANIMELIST_EXTENSIONS,
 				config.tmpDir,
 			),
 			mangaFilePath: getValidatedOptionalPath(
-				input.sourcePayload?.mangaFilePath,
+				input.sourcePayload?.["mangaFilePath"],
 				MYANIMELIST_EXTENSIONS,
 				config.tmpDir,
 			),

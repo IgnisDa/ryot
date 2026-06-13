@@ -102,7 +102,7 @@ export class UploadsService extends Effect.Service<UploadsService>()("UploadsSer
 		});
 
 		const createPresignedDownload = Effect.fn("UploadsService.createPresignedDownload")(function* (
-			user: CurrentUserValue,
+			_user: CurrentUserValue,
 			keys: readonly string[],
 		) {
 			if (!s3Service.isConfigured) {
