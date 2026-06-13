@@ -71,7 +71,7 @@ const stableJson = (value: unknown): string => {
 			.map(([key, item]) => `${JSON.stringify(key)}:${stableJson(item)}`)
 			.join(",")}}`;
 	}
-	return JSON.stringify(value) ?? "undefined";
+	return JSON.stringify(value) || "undefined";
 };
 
 const sameImageSet = (before: unknown, after: unknown) => {
