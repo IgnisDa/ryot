@@ -16,9 +16,9 @@ import { CollectionsRepository } from "#modules/collections/repository";
 import { CollectionsService } from "#modules/collections/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
-import { BuiltinEntityImportWorkflowDefinitionsLive } from "#modules/entity-import/entity-import-workflow";
 import { EntityImportWorkflowOperationsLive } from "#modules/entity-import/operations-workflow";
 import { EntityPopulationTriggerLive } from "#modules/entity-import/population-trigger-live";
+import { ProviderEntityPopulationWorkflowDefinitionsLive } from "#modules/entity-import/provider-entity-population-workflow";
 import { StreamRegistry } from "#modules/entity-interest/registry";
 import { InterestReconciler } from "#modules/entity-interest/service";
 import { EntitySchemaWorkflowDefinitionsLive } from "#modules/entity-schemas/default-saved-view-workflow-live";
@@ -245,7 +245,7 @@ const ServicesLive = Layer.mergeAll(
 const ServiceDependenciesLive = Layer.provide(ServicesLive, ApplicationInfrastructureLive);
 
 const RuntimeLive = Layer.mergeAll(
-	BuiltinEntityImportWorkflowDefinitionsLive,
+	ProviderEntityPopulationWorkflowDefinitionsLive,
 	EntitySchemaWorkflowDefinitionsLive,
 	EventCreateWorkflowDefinitionsLive,
 	LibraryEntityImportWorkflowDefinitionsLive,

@@ -8,8 +8,8 @@ import { AppConfig } from "#lib/infrastructure/config/service";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { CurrentDb, DbRunner, dbEffect } from "#lib/infrastructure/db/service";
 import { EntitiesRepository } from "#modules/entities/repository";
-import { BuiltinEntityImportWorkflow } from "#modules/entity-import/entity-import-workflow";
 import { decodeEntitySearchResult } from "#modules/entity-import/population";
+import { ProviderEntityPopulationWorkflow } from "#modules/entity-import/provider-entity-population-workflow";
 import { SandboxRepository } from "#modules/sandbox/repository";
 import { RunSandboxWorkflow } from "#modules/sandbox/sandbox-run-workflow";
 
@@ -136,12 +136,13 @@ export const BuiltinEntityPreloaderLive = Layer.scopedDiscard(
 
 		const scheduleImport = (externalId: string) =>
 			engine
-				.execute(BuiltinEntityImportWorkflow, {
+				.execute(ProviderEntityPopulationWorkflow, {
 					discard: true,
 					executionId: `builtin-exercise-${externalId}`,
 					payload: {
 						externalId,
 						userId: null,
+						mode: "ensure",
 						scriptId: preloadTarget.sandboxScriptId,
 						entitySchemaId: preloadTarget.entitySchemaId,
 						executionId: `builtin-exercise-${externalId}`,
