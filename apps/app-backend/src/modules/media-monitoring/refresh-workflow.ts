@@ -6,7 +6,7 @@ import { Effect, Layer, Schema } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
 import { ProviderEntityPopulationWorkflow } from "#modules/entity-import/provider-entity-population-workflow";
-import { NotificationsService } from "#modules/notifications/service";
+import { NotificationDeliveryWorkflow } from "#modules/notifications/notification-delivery-workflow";
 
 import { diffMediaMonitoringSnapshots, MediaMonitoringSnapshot } from "./diff";
 import { MediaMonitoringRepository, type MediaMonitoringTarget } from "./repository";
@@ -42,7 +42,6 @@ export const runMediaMonitoringRefreshWorkflow = Effect.fn("runMediaMonitoringRe
 		const runWithDb = yield* DbRunner;
 		const engine = yield* WorkflowEngine;
 		const repository = yield* MediaMonitoringRepository;
-		const notifications = yield* NotificationsService;
 		const loadSnapshot = (entityId: EntityId, phase: "after" | "before") =>
 			Activity.make({
 				error: SandboxRunError,
@@ -97,19 +96,26 @@ export const runMediaMonitoringRefreshWorkflow = Effect.fn("runMediaMonitoringRe
 
 		for (const change of changes) {
 			for (const userId of subscribers) {
-				yield* Activity.make({
-					success: Schema.Void,
-					error: SandboxRunError,
-					name: `media-monitoring-notification-${payload.entityId}-${change.fingerprint}-${userId}`,
-					execute: notifications
-						.trigger({
-							message: change.message,
-							eventType: change.eventType,
+				const deliveryExecutionId = `${payload.executionId}-${userId}-${change.fingerprint}`;
+				yield* engine
+					.execute(NotificationDeliveryWorkflow, {
+						discard: true,
+						executionId: deliveryExecutionId,
+						payload: {
 							userId: UserId.make(userId),
-							executionId: `${payload.executionId}-${userId}-${change.fingerprint}`,
-						})
-						.pipe(Effect.mapError(asSandboxRunError)),
-				});
+							executionId: deliveryExecutionId,
+							request: {
+								kind: "event",
+								message: change.message,
+								eventType: change.eventType,
+							},
+						},
+					})
+					.pipe(
+						Effect.catchAllCause((cause) =>
+							Effect.logError("media monitoring notification dispatch failed", userId, cause),
+						),
+					);
 			}
 		}
 	},

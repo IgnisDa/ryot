@@ -1,27 +1,28 @@
-import { Activity } from "@effect/workflow";
-import type { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
-import { Effect, Schema } from "effect";
+import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
+import { Effect } from "effect";
 
-import type { DbRunner } from "#lib/infrastructure/db/service";
-import type { ImportsRepository } from "#modules/imports/repository";
 import type { CronTask } from "#modules/scheduler/types";
 
-import { IntegrationsService } from "./service";
+import { IntegrationReconciliationWorkflow } from "./reconciliation-workflow";
 
-export type FrequentCronTask = CronTask<
-	never,
-	IntegrationsService | DbRunner | ImportsRepository | WorkflowEngine | WorkflowInstance
->;
+export type FrequentCronTask = CronTask<never, WorkflowEngine>;
 
 export const integrationsFrequentTask: FrequentCronTask = {
 	name: "integrations-reconcile",
-	run: () =>
+	run: ({ executionId }) =>
 		Effect.gen(function* () {
-			const service = yield* IntegrationsService;
-			yield* Activity.make({
-				error: Schema.Never,
-				name: "integrations-reconcile",
-				execute: service.reconcileScheduledYankRuns().pipe(Effect.orDie),
-			});
+			const engine = yield* WorkflowEngine;
+			const reconcileExecutionId = `${executionId}-integrations-reconcile`;
+			yield* engine
+				.execute(IntegrationReconciliationWorkflow, {
+					discard: true,
+					executionId: reconcileExecutionId,
+					payload: { executionId: reconcileExecutionId },
+				})
+				.pipe(
+					Effect.catchAllCause((cause) =>
+						Effect.logError("integrations reconcile enqueue failed", cause),
+					),
+				);
 		}),
 };
