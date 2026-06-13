@@ -18,6 +18,7 @@ import {
 	findWorkoutSetEventSchema,
 	getQueryEngineFieldOrThrow,
 	listEntitySchemas,
+	listEventsForEntity,
 	listSavedViews,
 	literalExpr,
 	mergeUserState,
@@ -232,17 +233,13 @@ describe("Exercises E2E", () => {
 			}),
 		);
 		await pollUntil("source workout set event", async () => {
-			const events = await client.run((c) => c.events.list({ urlParams: { entityId: source.id } }));
+			const events = await listEventsForEntity(client, source.id);
 			return events.length === 1 ? events : null;
 		});
 
 		const result = await mergeUserState(client, { mergeFrom: source.id, mergeInto: target.id });
-		const sourceEvents = await client.run((c) =>
-			c.events.list({ urlParams: { entityId: source.id } }),
-		);
-		const targetEvents = await client.run((c) =>
-			c.events.list({ urlParams: { entityId: target.id } }),
-		);
+		const sourceEvents = await listEventsForEntity(client, source.id);
+		const targetEvents = await listEventsForEntity(client, target.id);
 
 		expect(result.movedEventsCount).toBe(1);
 		expect(sourceEvents).toHaveLength(0);
