@@ -26,7 +26,13 @@ export const ImportEntityRunResult = Schema.Union([
 			identifier: "PendingImportEntityRunResult",
 		}),
 	),
-	Schema.Struct({ status: Schema.Literal("failed"), error: Schema.String }).pipe(
+	Schema.Struct({
+		status: Schema.Literal("failed"),
+		reason: Schema.Struct({
+			code: Schema.Literal("import-failed"),
+			stage: Schema.Literals(["population", "provider-import-automation", "unexpected"]),
+		}),
+	}).pipe(
 		Schema.annotate({
 			title: "Failed Import Run Result",
 			identifier: "FailedImportEntityRunResult",
@@ -85,3 +91,43 @@ export const SearchProviderEntitiesResponse = strictStruct({
 	),
 });
 export type SearchProviderEntitiesResponse = typeof SearchProviderEntitiesResponse.Type;
+
+const ProviderEntityBadRequestReason = Schema.Union([
+	strictStruct({ code: Schema.Literal("search-failed") }),
+	strictStruct({ code: Schema.Literal("invalid-search-result") }),
+	strictStruct({ code: Schema.Literal("invalid-search-options") }),
+	strictStruct({ code: Schema.Literal("search-options-unavailable") }),
+	strictStruct({ code: Schema.Literal("search-unsupported"), providerId: SandboxProviderId }),
+	strictStruct({
+		code: Schema.Literal("invalid-import-input"),
+		field: Schema.Literals(["providerId", "externalId"]),
+	}),
+	strictStruct({
+		providerId: SandboxProviderId,
+		code: Schema.Literal("search-options-unsupported"),
+	}),
+]);
+
+const ProviderEntityNotFoundReason = Schema.Union([
+	strictStruct({ code: Schema.Literal("import-job-not-found"), jobId: Schema.String }),
+	strictStruct({ code: Schema.Literal("provider-not-found"), providerId: SandboxProviderId }),
+	strictStruct({
+		entitySchemaSlug: EntitySchemaSlug,
+		code: Schema.Literal("entity-schema-not-found"),
+	}),
+]);
+
+export class ProviderEntityBadRequest extends Schema.TaggedError<ProviderEntityBadRequest>()(
+	"ProviderEntityBadRequest",
+	{ reason: ProviderEntityBadRequestReason },
+) {}
+
+export class ProviderEntityNotFound extends Schema.TaggedError<ProviderEntityNotFound>()(
+	"ProviderEntityNotFound",
+	{ reason: ProviderEntityNotFoundReason },
+) {}
+
+export class ProviderEntityInternalError extends Schema.TaggedError<ProviderEntityInternalError>()(
+	"ProviderEntityInternalError",
+	{ reason: strictStruct({ code: Schema.Literal("unexpected-error") }) },
+) {}
