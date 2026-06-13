@@ -143,6 +143,7 @@ const makeEpisodeResolverService = () =>
 	makeMock<EpisodeResolverService>({
 		_tag: "EpisodeResolverService" as const,
 		resolveShowEpisode: () => Effect.die("unused"),
+		resolvePodcastEpisode: () => Effect.die("unused"),
 	});
 
 const makeEventSchemasRepository = (overrides: Partial<EventSchemasRepository> = {}) =>

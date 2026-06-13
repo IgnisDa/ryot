@@ -13,6 +13,13 @@ export class EpisodeResolverService extends Effect.Service<EpisodeResolverServic
 			const repository = yield* EpisodeResolverRepository;
 
 			return {
+				resolvePodcastEpisode: Effect.fn("EpisodeResolverService.resolvePodcastEpisode")(
+					function* (input: { userId: UserId; episodeNumber: number; podcastEntityId: EntityId }) {
+						const candidates = yield* runWithDb(repository.findPodcastEpisodeCandidates(input));
+
+						return candidates.length === 1 ? (candidates[0] ?? null) : null;
+					},
+				),
 				resolveShowEpisode: Effect.fn("EpisodeResolverService.resolveShowEpisode")(
 					function* (input: {
 						userId: UserId;
