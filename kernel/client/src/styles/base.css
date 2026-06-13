@@ -5,12 +5,18 @@
 		min-height: 100%;
 	}
 
+	html {
+		overscroll-behavior: none;
+		-webkit-tap-highlight-color: transparent;
+	}
+
 	body {
 		background: var(--bg);
 		color: var(--text);
 		font-family: var(--font-family-ui);
 		font-size: 16px;
 		line-height: 1.5;
+		overscroll-behavior: none;
 	}
 
 	:where(button, input, select, a):focus-visible {
