@@ -43,6 +43,10 @@ describe("FieldSelector", () => {
 		expect(() => decodeSync(FieldSelector)({ type: "unknown" })).toThrow();
 	});
 
+	it("throws when a field selector has an excess property", () => {
+		expect(() => decodeSync(FieldSelector)({ type: "system", name: "id", path: ["id"] })).toThrow();
+	});
+
 	it("throws for a schema metadata selector with an invalid name", () => {
 		expect(() => decodeSync(FieldSelector)({ type: "schema", name: "id" })).toThrow();
 	});
@@ -170,6 +174,22 @@ describe("Expr", () => {
 	it("throws for an unknown expression type", () => {
 		expect(() => decodeSync(Expr)({ type: "between", value: 5 })).toThrow();
 	});
+
+	it("throws when a boolean expression uses the old predicates key", () => {
+		expect(() =>
+			decodeSync(Expr)({ type: "and", predicates: [{ type: "literal", value: true }] }),
+		).toThrow();
+	});
+
+	it("throws when a unary expression uses the old predicate key", () => {
+		expect(() =>
+			decodeSync(Expr)({ type: "not", predicate: { type: "literal", value: true } }),
+		).toThrow();
+	});
+
+	it("throws when an expression has an excess property", () => {
+		expect(() => decodeSync(Expr)({ type: "literal", value: 42, filter: true })).toThrow();
+	});
 });
 
 describe("RowsReturnV2", () => {
@@ -231,6 +251,38 @@ describe("RowsReturnV2", () => {
 			}),
 		).toThrow();
 	});
+
+	it("throws when fields are missing", () => {
+		expect(() =>
+			decodeSync(RowsReturnV2)({
+				type: "rows",
+				pagination: { page: 1, limit: 10 },
+				orderBy: [{ order: "asc", expr: { type: "literal", value: 1 } }],
+			}),
+		).toThrow();
+	});
+
+	it("throws when pagination is missing", () => {
+		expect(() =>
+			decodeSync(RowsReturnV2)({
+				fields: [],
+				type: "rows",
+				orderBy: [{ order: "asc", expr: { type: "literal", value: 1 } }],
+			}),
+		).toThrow();
+	});
+
+	it("throws when rows return has an unsupported include key", () => {
+		expect(() =>
+			decodeSync(RowsReturnV2)({
+				fields: [],
+				include: [],
+				type: "rows",
+				pagination: { page: 1, limit: 10 },
+				orderBy: [{ order: "asc", expr: { type: "literal", value: 1 } }],
+			}),
+		).toThrow();
+	});
 });
 
 describe("QueryDocumentV2", () => {
@@ -274,6 +326,15 @@ describe("QueryDocumentV2", () => {
 			decodeSync(QueryDocumentV2)({
 				...minimal,
 				source: { ...minimal.source, schemas: [] },
+			}),
+		).toThrow();
+	});
+
+	it("throws when a source has an unsupported filter key", () => {
+		expect(() =>
+			decodeSync(QueryDocumentV2)({
+				...minimal,
+				source: { ...minimal.source, filter: { type: "literal", value: true } },
 			}),
 		).toThrow();
 	});
