@@ -80,7 +80,6 @@ describe("entity population via client-declared interest", () => {
 		} finally {
 			stream.close();
 		}
-	}, 60_000);
 
 	it("emits an immediate catch-up event for an already-terminal entity", async () => {
 		const auth = await createAuthenticatedClient();
@@ -105,5 +104,4 @@ describe("entity population via client-declared interest", () => {
 		} finally {
 			stream.close();
 		}
-	}, 30_000);
 });
