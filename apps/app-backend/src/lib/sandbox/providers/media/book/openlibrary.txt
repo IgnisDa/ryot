@@ -1,0 +1,395 @@
+function parseJsonResponse(responseBody) {
+  try {
+    return JSON.parse(responseBody);
+  } catch {
+    throw new Error("OpenLibrary returned invalid JSON");
+  }
+}
+
+function getKeySegment(value) {
+  if (typeof value !== "string") {
+    return "";
+  }
+  const segments = value.split("/").filter(Boolean);
+  return segments.length > 0 ? segments[segments.length - 1] : "";
+}
+
+function parseDescription(value) {
+  if (typeof value === "string") {
+    return value;
+  }
+  if (value && typeof value === "object" && typeof value.value === "string") {
+    return value.value;
+  }
+  return null;
+}
+
+function parseFlexibleDate(value, dayjs) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  for (const fmt of ["MMM D, YYYY", "YYYY"]) {
+    const d = dayjs(trimmed, fmt, true);
+    if (d.isValid()) return new Date(Date.UTC(d.year(), d.month(), d.date()));
+  }
+  return null;
+}
+
+async function loadOpenLibraryJson(url, errorPrefix) {
+  const response = await httpCall("GET", url);
+  if (!response?.success) {
+    throw new Error(response?.error ?? `${errorPrefix} request failed`);
+  }
+
+  return parseJsonResponse(response.data.body);
+}
+
+driver("search", async function(context) {
+  const { z } = await import("npm:zod");
+  const { query, page: currentPage, pageSize } = z.object({
+    query: z.string().trim().min(1, "query is required"),
+    page: z.coerce.number().min(1).transform(Math.floor).catch(1),
+    pageSize: z.coerce.number().min(1).max(100).transform(Math.floor).catch(20),
+  }).parse(context ?? {});
+
+  const params = new URLSearchParams({
+    q: query,
+    type: "work",
+    limit: String(pageSize),
+    offset: String((currentPage - 1) * pageSize),
+    fields: "key,title,author_name,cover_i,first_publish_year",
+  });
+
+  const response = await httpCall(
+    "GET",
+    `https://openlibrary.org/search.json?${params.toString()}`,
+  );
+
+  if (!response?.success) {
+    throw new Error(response?.error ?? "OpenLibrary search request failed");
+  }
+
+  let payload;
+  try {
+    payload = JSON.parse(response.data.body);
+  } catch {
+    throw new Error("OpenLibrary returned invalid JSON");
+  }
+
+  const totalItems =
+    typeof payload?.num_found === "number" && Number.isFinite(payload.num_found)
+      ? payload.num_found
+      : 0;
+
+  const docs = Array.isArray(payload?.docs) ? payload.docs : [];
+  const items = docs
+    .map((doc) => {
+      const key = typeof doc?.key === "string" ? doc.key : "";
+      const externalId = key.split("/").filter(Boolean).pop();
+      if (!externalId) {
+        return null;
+      }
+
+      const title = typeof doc?.title === "string" ? doc.title : "";
+      const publishYear =
+        typeof doc?.first_publish_year === "number" &&
+        Number.isFinite(doc.first_publish_year)
+          ? Math.trunc(doc.first_publish_year)
+          : null;
+      const coverId =
+        typeof doc?.cover_i === "number" && Number.isFinite(doc.cover_i)
+          ? doc.cover_i
+          : null;
+
+      const imageUrl =
+        coverId === null
+          ? null
+          : "https://covers.openlibrary.org/b/id/" +
+            String(coverId) +
+            "-M.jpg?default=false";
+
+      return {
+        externalId,
+        calloutProperty: { kind: "null", value: null },
+        titleProperty: { kind: "text", value: title },
+        primarySubtitleProperty:
+          publishYear === null
+            ? { kind: "null", value: null }
+            : { kind: "number", value: publishYear },
+        secondarySubtitleProperty: { kind: "null", value: null },
+        imageProperty:
+          imageUrl === null
+            ? { kind: "null", value: null }
+            : { kind: "image", value: { type: "remote", url: imageUrl } },
+      };
+    })
+    .filter((item) => item !== null);
+
+  return {
+    items,
+    details: {
+      totalItems,
+      nextPage: currentPage * pageSize < totalItems ? currentPage + 1 : null,
+    },
+  };
+});
+
+driver("details", async function(context) {
+  const { z } = await import("npm:zod");
+  const dayjs = (await import("npm:dayjs")).default;
+  // dayjs has no `exports` field in package.json, so Deno requires the explicit .js extension for sub-path imports (https://github.com/iamkun/dayjs/issues/2562)
+  const customParseFormat = (await import("npm:dayjs/plugin/customParseFormat.js")).default;
+  dayjs.extend(customParseFormat);
+
+  const { externalId: contextIdentifier } = z.object({
+    externalId: z.string().trim().min(1, "externalId is required"),
+  }).parse(context ?? {});
+
+  const requestedIdentifier = getKeySegment(contextIdentifier);
+  if (!requestedIdentifier) {
+    throw new Error("externalId is required");
+  }
+
+  const workPayload = await loadOpenLibraryJson(
+    `https://openlibrary.org/works/${requestedIdentifier}.json`,
+    "OpenLibrary work",
+  );
+
+  let editionsPayload;
+  try {
+    editionsPayload = await loadOpenLibraryJson(
+      `https://openlibrary.org/works/${requestedIdentifier}/editions.json`,
+      "OpenLibrary editions",
+    );
+  } catch {
+    editionsPayload = null;
+  }
+
+  const title = typeof workPayload?.title === "string" ? workPayload.title : "";
+  if (!title) {
+    throw new Error("OpenLibrary work payload is missing title");
+  }
+
+  const externalId =
+    getKeySegment(typeof workPayload?.key === "string" ? workPayload.key : "") ||
+    requestedIdentifier;
+
+  const editions = Array.isArray(editionsPayload?.entries)
+    ? editionsPayload.entries
+    : [];
+
+  let pages = null;
+  let earliestDate = null;
+  const coverIdSet = new Set();
+
+  const addCoverId = (value) => {
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+      return;
+    }
+    const integerValue = Math.trunc(value);
+    if (integerValue <= 0) {
+      return;
+    }
+    coverIdSet.add(integerValue);
+  };
+
+  if (Array.isArray(workPayload?.covers)) {
+    for (const coverId of workPayload.covers) {
+      addCoverId(coverId);
+    }
+  }
+
+  for (const entry of editions) {
+    if (
+      typeof entry?.number_of_pages === "number" &&
+      Number.isFinite(entry.number_of_pages)
+    ) {
+      const numberOfPages = Math.trunc(entry.number_of_pages);
+      if (numberOfPages >= 0 && (pages === null || numberOfPages > pages)) {
+        pages = numberOfPages;
+      }
+    }
+
+    const parsedDate = parseFlexibleDate(entry?.publish_date, dayjs);
+    if (parsedDate && (earliestDate === null || parsedDate < earliestDate)) {
+      earliestDate = parsedDate;
+    }
+
+    if (Array.isArray(entry?.covers)) {
+      for (const coverId of entry.covers) {
+        addCoverId(coverId);
+      }
+    }
+  }
+
+  const publishYear = earliestDate ? earliestDate.getUTCFullYear() : null;
+
+  const relatedEntities = [];
+  const relatedEntityByKey = new Map();
+  const addRelatedEntity = (relatedEntity) => {
+    const key = `${relatedEntity.scriptSlug}:${relatedEntity.externalId}`;
+    const existing = relatedEntityByKey.get(key);
+    if (!existing) {
+      relatedEntityByKey.set(key, relatedEntity);
+      relatedEntities.push(relatedEntity);
+      return;
+    }
+
+    const roles = new Set([
+      ...(Array.isArray(existing.relationshipProperties.roles)
+        ? existing.relationshipProperties.roles
+        : []),
+      ...(Array.isArray(relatedEntity.relationshipProperties.roles)
+        ? relatedEntity.relationshipProperties.roles
+        : []),
+    ]);
+    existing.relationshipProperties.roles = [...roles];
+    if (existing.name === "Loading..." && relatedEntity.name !== "Loading...") {
+      existing.name = relatedEntity.name;
+    }
+  };
+  const authorNameByKey = new Map();
+  const loadAuthorName = async (authorKey) => {
+    const requestedIdentifier = getKeySegment(authorKey);
+    if (!requestedIdentifier) {
+      return "Loading...";
+    }
+
+    const cachedName = authorNameByKey.get(requestedIdentifier);
+    if (cachedName !== undefined) {
+      return cachedName;
+    }
+
+    try {
+      const authorPayload = await loadOpenLibraryJson(
+        `https://openlibrary.org/authors/${requestedIdentifier}.json`,
+        "OpenLibrary author",
+      );
+      const name =
+        typeof authorPayload?.name === "string" && authorPayload.name.trim()
+          ? authorPayload.name.trim()
+          : "Loading...";
+      authorNameByKey.set(requestedIdentifier, name);
+      return name;
+    } catch {
+      authorNameByKey.set(requestedIdentifier, "Loading...");
+      return "Loading...";
+    }
+  };
+  const authors = Array.isArray(workPayload?.authors) ? workPayload.authors : [];
+
+  for (const authorEntry of authors) {
+    if (!authorEntry || typeof authorEntry !== "object") {
+      continue;
+    }
+
+    let authorKey = "";
+
+    if (typeof authorEntry.key === "string") {
+      authorKey = authorEntry.key;
+    } else {
+      if (
+        authorEntry.author &&
+        typeof authorEntry.author === "object" &&
+        typeof authorEntry.author.key === "string"
+      ) {
+        authorKey = authorEntry.author.key;
+      }
+    }
+
+    const personIdentifier = getKeySegment(authorKey);
+    if (!personIdentifier) {
+      continue;
+    }
+
+    const inlineName =
+      typeof authorEntry.author?.name === "string" && authorEntry.author.name.trim()
+        ? authorEntry.author.name.trim()
+        : typeof authorEntry.name === "string" && authorEntry.name.trim()
+          ? authorEntry.name.trim()
+          : "";
+    const authorName = inlineName || (await loadAuthorName(authorKey));
+
+    addRelatedEntity({
+      name: authorName,
+      externalId: personIdentifier,
+      scriptSlug: "person.openlibrary",
+      relationshipProperties: {
+        roles: ["Author"],
+      },
+    });
+  }
+
+  const genreSet = new Set();
+  const subjects = Array.isArray(workPayload?.subjects)
+    ? workPayload.subjects
+    : [];
+
+  for (const subject of subjects) {
+    if (typeof subject !== "string") {
+      continue;
+    }
+
+    for (const token of subject.split(", ")) {
+      const titleToken = toTitleCase(token.trim());
+      if (titleToken) {
+        genreSet.add(titleToken);
+      }
+    }
+  }
+
+  return {
+    name: title,
+    properties: {
+      pages,
+      genres: [...genreSet],
+      publishYear: publishYear,
+      description: parseDescription(workPayload?.description),
+      sourceUrl: `https://openlibrary.org/works/${externalId}/${title}`,
+      images: [...coverIdSet].map((coverId) => ({
+        type: "remote",
+        url: `https://covers.openlibrary.org/b/id/${coverId}-M.jpg?default=false`,
+      })),
+    },
+    relatedEntities,
+  };
+});
+
+driver("resolve", async function(context) {
+  if (!context || context.identifierType !== "isbn") {
+    throw new Error("OpenLibrary resolve supports only isbn identifiers");
+  }
+  const value = typeof context.value === "string" ? context.value.trim() : "";
+  if (!value) {
+    throw new Error("OpenLibrary resolve requires a non-empty isbn value");
+  }
+
+  const response = await httpCall(
+    "GET",
+    `https://openlibrary.org/isbn/${value}.json`,
+  );
+  if (!response?.success) {
+    if (response?.data?.status === 404) {
+      return { externalId: null };
+    }
+    throw new Error(response?.error ?? "OpenLibrary ISBN lookup failed");
+  }
+
+  let payload;
+  try {
+    payload = JSON.parse(response.data.body);
+  } catch {
+    throw new Error("OpenLibrary returned invalid JSON");
+  }
+
+  const workKey = Array.isArray(payload?.works)
+    ? payload.works.map((work) => work?.key).find(Boolean)
+    : undefined;
+  const fromWorks = getKeySegment(workKey);
+  const fromKey =
+    typeof payload?.key === "string" && payload.key.startsWith("/works/")
+      ? getKeySegment(payload.key)
+      : "";
+
+  return { externalId: fromWorks || fromKey || null };
+});

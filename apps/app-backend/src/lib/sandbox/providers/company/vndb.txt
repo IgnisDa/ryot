@@ -1,0 +1,151 @@
+function parseJsonResponse(responseBody) {
+  try {
+    return JSON.parse(responseBody);
+  } catch {
+    throw new Error("VNDB returned invalid JSON");
+  }
+}
+
+const BASE_URL = "https://api.vndb.org/kana";
+
+driver("search", async function (context) {
+  const { z } = await import("npm:zod");
+  const { query, page: currentPage } = z.object({
+    query: z.string().trim().min(1, "query is required"),
+    page: z.coerce.number().min(1).transform(Math.floor).catch(1),
+  }).parse(context ?? {});
+
+  const pageSize = 20;
+
+  const response = await httpCall("POST", `${BASE_URL}/producer`, {
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      page: currentPage,
+      count: true,
+      results: pageSize,
+      fields: "id,name",
+      filters: ["search", "=", query],
+    }),
+  });
+
+  if (!response?.success) {
+    throw new Error(response?.error ?? "VNDB producer search request failed");
+  }
+
+  const payload = parseJsonResponse(response.data.body);
+
+  const totalItems =
+    typeof payload?.count === "number" && Number.isFinite(payload.count)
+      ? Math.max(0, Math.trunc(payload.count))
+      : 0;
+
+  const results = Array.isArray(payload?.results) ? payload.results : [];
+
+  const items = results
+    .map((producer) => {
+      if (!producer || typeof producer !== "object") {
+        return null;
+      }
+
+      const externalId =
+        typeof producer.id === "string" && producer.id.trim()
+          ? producer.id.trim()
+          : null;
+      if (!externalId) {
+        return null;
+      }
+
+      const name =
+        typeof producer.name === "string" && producer.name.trim()
+          ? producer.name.trim()
+          : null;
+      if (!name) {
+        return null;
+      }
+
+      return {
+        externalId,
+        calloutProperty: { kind: "null", value: null },
+        titleProperty: { kind: "text", value: name },
+        primarySubtitleProperty: { kind: "null", value: null },
+        secondarySubtitleProperty: { kind: "null", value: null },
+        imageProperty: { kind: "null", value: null },
+      };
+    })
+    .filter((item) => item !== null);
+
+  return {
+    items,
+    details: {
+      totalItems,
+      nextPage: payload?.more === true ? currentPage + 1 : null,
+    },
+  };
+});
+
+driver("details", async function (context) {
+  const { z } = await import("npm:zod");
+  const { externalId } = z.object({
+    externalId: z.string().trim().min(1, "externalId is required"),
+  }).parse(context ?? {});
+
+  if (!/^p\d+$/.test(externalId)) {
+    throw new Error(
+      "externalId must be a VNDB producer ID (e.g., 'p1')",
+    );
+  }
+
+  const response = await httpCall("POST", `${BASE_URL}/producer`, {
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      fields: "id,name,description,lang,type,aliases",
+      filters: ["id", "=", externalId],
+    }),
+  });
+
+  if (!response?.success) {
+    throw new Error(response?.error ?? "VNDB producer details request failed");
+  }
+
+  const payload = parseJsonResponse(response.data.body);
+  const results = Array.isArray(payload?.results) ? payload.results : [];
+
+  if (results.length === 0) {
+    throw new Error("VNDB returned no data for this producer externalId");
+  }
+
+  const producer = results[0];
+
+  const name =
+    typeof producer.name === "string" && producer.name.trim()
+      ? producer.name.trim()
+      : null;
+  if (!name) {
+    throw new Error("VNDB producer payload is missing name");
+  }
+
+  const description =
+    typeof producer.description === "string" && producer.description.trim()
+      ? producer.description.trim()
+      : null;
+
+  const alternateNames = Array.isArray(producer.aliases)
+    ? producer.aliases.filter((a) => typeof a === "string" && a.trim()).map((a) => a.trim())
+    : [];
+
+  return {
+    name,
+    properties: {
+      images: [],
+      description,
+      alternateNames,
+      sourceUrl: `https://vndb.org/${externalId}`,
+    },
+  };
+});

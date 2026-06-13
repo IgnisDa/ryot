@@ -1,0 +1,277 @@
+function parseJsonResponse(responseBody) {
+  try {
+    return JSON.parse(responseBody);
+  } catch {
+    throw new Error("Metron returned invalid JSON");
+  }
+}
+
+function getString(value) {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+function getIdentifier(value) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return String(Math.trunc(value));
+  }
+  if (typeof value === "string" && value.trim()) {
+    return value.trim();
+  }
+
+  return null;
+}
+
+function parsePublishYear(value, dayjs) {
+  const date = getString(value);
+  if (!date) return null;
+  const d = dayjs(date);
+  return d.isValid() ? d.year() : null;
+}
+
+function parsePublishDate(value) {
+  const date = getString(value);
+  if (!date) return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+  return date;
+}
+
+function formatIssueTitle(seriesName, number) {
+  const resolvedSeriesName = getString(seriesName) ?? "Unknown Series";
+  const resolvedNumber = getString(number);
+  return resolvedNumber
+    ? `${resolvedSeriesName} #${resolvedNumber}`
+    : resolvedSeriesName;
+}
+
+async function getMetronCredentials() {
+  const usernameResponse = await getAppConfigValue("comicBooks.metron.username");
+  if (!usernameResponse?.success) {
+    throw new Error(
+      usernameResponse?.error ?? "Could not load Metron username",
+    );
+  }
+
+  const passwordResponse = await getAppConfigValue("comicBooks.metron.password");
+  if (!passwordResponse?.success) {
+    throw new Error(
+      passwordResponse?.error ?? "Could not load Metron password",
+    );
+  }
+
+  const username = getString(usernameResponse.data);
+  const password = getString(passwordResponse.data);
+  if (!username || !password) {
+    throw new Error("Metron credentials are not configured");
+  }
+
+  return { username, password };
+}
+
+async function loadMetronJson(url, errorPrefix) {
+  const credentials = await getMetronCredentials();
+  const response = await httpCall("GET", url, {
+    headers: {
+      Authorization: `Basic ${btoa(`${credentials.username}:${credentials.password}`)}`,
+    },
+  });
+
+  if (!response?.success) {
+    throw new Error(response?.error ?? `${errorPrefix} request failed`);
+  }
+
+  return parseJsonResponse(response.data.body);
+}
+
+function buildPeople(credits) {
+  if (!Array.isArray(credits)) {
+    return [];
+  }
+
+  const relatedEntityByKey = new Map();
+  const addRelatedEntity = (relatedEntity) => {
+    const key = `${relatedEntity.scriptSlug}:${relatedEntity.externalId}`;
+    const existing = relatedEntityByKey.get(key);
+    if (!existing) {
+      relatedEntityByKey.set(key, relatedEntity);
+      return;
+    }
+
+    const roles = new Set([
+      ...(Array.isArray(existing.relationshipProperties.roles)
+        ? existing.relationshipProperties.roles
+        : []),
+      ...(Array.isArray(relatedEntity.relationshipProperties.roles)
+        ? relatedEntity.relationshipProperties.roles
+        : []),
+    ]);
+    existing.relationshipProperties.roles = [...roles];
+    if (existing.name === "Loading..." && relatedEntity.name !== "Loading...") {
+      existing.name = relatedEntity.name;
+    }
+  };
+
+  const seen = new Set();
+
+  for (const credit of credits) {
+    if (!credit || typeof credit !== "object") {
+      continue;
+    }
+
+    const externalId = getIdentifier(credit.id);
+    const name = getString(credit.creator) ?? "Loading...";
+    if (!externalId) {
+      continue;
+    }
+
+    const roleNames = Array.isArray(credit.role)
+      ? credit.role
+          .map((role) =>
+            role && typeof role === "object" ? getString(role.name) : null,
+          )
+          .filter((roleName) => roleName !== null)
+      : [];
+    const roles = roleNames.length > 0 ? roleNames : ["Contributor"];
+
+    for (const role of roles) {
+      const key = `${externalId}:${role}`;
+      if (seen.has(key)) {
+        continue;
+      }
+
+      seen.add(key);
+      addRelatedEntity({
+        name,
+        externalId,
+        scriptSlug: "person.metron",
+        relationshipProperties: {
+          roles: [role],
+        },
+      });
+    }
+  }
+
+  return [...relatedEntityByKey.values()];
+}
+
+driver("search", async function(context) {
+  const { z } = await import("npm:zod");
+  const dayjs = (await import("npm:dayjs")).default;
+
+  const { query, page: currentPage, pageSize } = z.object({
+    query: z.string().trim().min(1, "query is required"),
+    page: z.coerce.number().min(1).transform(Math.floor).catch(1),
+    pageSize: z.coerce.number().min(1).max(100).transform(Math.floor).catch(20),
+  }).parse(context ?? {});
+
+  const params = new URLSearchParams({
+    page: String(currentPage),
+    page_size: String(pageSize),
+    series_name: query,
+  });
+
+  const payload = await loadMetronJson(
+    `https://metron.cloud/api/issue/?${params.toString()}`,
+    "Metron issue search",
+  );
+
+  const totalItems =
+    typeof payload?.count === "number" && Number.isFinite(payload.count)
+      ? Math.max(0, Math.trunc(payload.count))
+      : 0;
+
+  const issues = Array.isArray(payload?.results) ? payload.results : [];
+  const items = issues
+    .map((issue) => {
+      const externalId = getIdentifier(issue?.id);
+      if (!externalId) {
+        return null;
+      }
+
+      const image = getString(issue?.image);
+      const title = formatIssueTitle(issue?.series?.name, issue?.number);
+      const publishYear = parsePublishYear(issue?.cover_date, dayjs);
+
+      return {
+        externalId,
+        calloutProperty: { kind: "null", value: null },
+        titleProperty: { kind: "text", value: title },
+        primarySubtitleProperty:
+          publishYear === null
+            ? { kind: "null", value: null }
+            : { kind: "number", value: publishYear },
+        secondarySubtitleProperty: { kind: "null", value: null },
+        imageProperty:
+          image === null
+            ? { kind: "null", value: null }
+            : { kind: "image", value: { type: "remote", url: image } },
+      };
+    })
+    .filter((item) => item !== null)
+    .slice(0, pageSize);
+
+  return {
+    items,
+    details: {
+      totalItems,
+      nextPage: currentPage * pageSize < totalItems ? currentPage + 1 : null,
+    },
+  };
+});
+
+driver("details", async function(context) {
+  const { z } = await import("npm:zod");
+  const dayjs = (await import("npm:dayjs")).default;
+
+  const { externalId } = z.object({
+    externalId: z.string().trim().min(1, "externalId is required"),
+  }).parse(context ?? {});
+
+  const payload = await loadMetronJson(
+    `https://metron.cloud/api/issue/${encodeURIComponent(externalId)}/`,
+    "Metron issue details",
+  );
+
+  const title = formatIssueTitle(payload?.series?.name, payload?.number);
+  const pageCount =
+    typeof payload?.page_count === "number" && Number.isFinite(payload.page_count)
+      ? Math.trunc(payload.page_count)
+      : null;
+  const image = getString(payload?.image);
+  const relatedEntities = buildPeople(payload?.credits);
+  const groupRelatedEntities =
+    payload?.series && typeof payload.series === "object"
+      ? [
+        {
+          scriptSlug: "comic-book-group.metron",
+          externalId: getIdentifier(payload.series.id),
+          name: getString(payload.series.name) ?? "Loading...",
+          relationshipProperties: {
+            roles: ["Member"],
+          },
+        },
+      ].filter((group) => group.externalId !== null)
+      : [];
+
+  for (const groupRelatedEntity of groupRelatedEntities) {
+    relatedEntities.push(groupRelatedEntity);
+  }
+
+  return {
+    name: title,
+    properties: {
+      genres: [],
+      pages: pageCount,
+      description: getString(payload?.desc),
+      publishDate: parsePublishDate(payload?.cover_date),
+      images: image ? [{ type: "remote", url: image }] : [],
+      sourceUrl: `https://metron.cloud/issue/${externalId}`,
+      publishYear: parsePublishYear(payload?.cover_date, dayjs),
+    },
+    relatedEntities,
+  };
+});

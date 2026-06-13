@@ -1,0 +1,255 @@
+function parseJsonResponse(responseBody) {
+  try {
+    return JSON.parse(responseBody);
+  } catch {
+    throw new Error("Hardcover returned invalid JSON");
+  }
+}
+
+async function getHardcoverApiKey() {
+  const configValueResponse = await getAppConfigValue("books.hardcover.apiKey");
+  if (!configValueResponse?.success) {
+    throw new Error(
+      configValueResponse?.error ?? "Could not load Hardcover API key",
+    );
+  }
+
+  const apiKey =
+    typeof configValueResponse.data === "string"
+      ? configValueResponse.data.trim()
+      : "";
+  if (!apiKey) {
+    throw new Error("BOOKS_HARDCOVER_API_KEY is not configured");
+  }
+
+  return apiKey;
+}
+
+driver("search", async function(context) {
+  const { z } = await import("npm:zod");
+  const { query, page: currentPage, pageSize } = z.object({
+    query: z.string().trim().min(1, "query is required"),
+    page: z.coerce.number().min(1).transform(Math.floor).catch(1),
+    pageSize: z.coerce.number().min(1).max(100).transform(Math.floor).catch(20),
+  }).parse(context ?? {});
+
+  const apiKey = await getHardcoverApiKey();
+
+  const graphqlQuery = `
+query {
+  search(
+    page: ${currentPage},
+    per_page: ${pageSize},
+    query: "${query.replace(/"/g, '\\"')}",
+    query_type: "author"
+  ) {
+    results
+  }
+}
+`;
+
+  const response = await httpCall(
+    "POST",
+    "https://api.hardcover.app/v1/graphql",
+    {
+      body: JSON.stringify({ query: graphqlQuery }),
+      headers: {
+        Authorization: apiKey,
+        "Content-Type": "application/json",
+      },
+    },
+  );
+
+  if (!response?.success) {
+    throw new Error(response?.error ?? "Hardcover person search request failed");
+  }
+
+  let payload;
+  try {
+    payload = JSON.parse(response.data.body);
+  } catch {
+    throw new Error("Hardcover returned invalid JSON");
+  }
+
+  const resultsData =
+    payload?.data?.search?.results &&
+    typeof payload.data.search.results === "object"
+      ? payload.data.search.results
+      : null;
+
+  if (!resultsData) {
+    throw new Error("Hardcover returned invalid response structure");
+  }
+
+  const totalItems =
+    typeof resultsData.found === "number" && Number.isFinite(resultsData.found)
+      ? Math.max(0, Math.trunc(resultsData.found))
+      : 0;
+
+  const hits = Array.isArray(resultsData.hits) ? resultsData.hits : [];
+  const items = hits
+    .map((hit) => {
+      const doc = hit?.document;
+      if (!doc || typeof doc !== "object") {
+        return null;
+      }
+
+      const externalId = doc.id;
+      if (!externalId) {
+        return null;
+      }
+
+      const name = typeof doc.name === "string" ? doc.name : "";
+
+      let image = null;
+      if (
+        doc.image &&
+        typeof doc.image === "object" &&
+        typeof doc.image.url === "string"
+      ) {
+        image = doc.image.url;
+      }
+
+      return {
+        externalId,
+        calloutProperty: { kind: "null", value: null },
+        titleProperty: { kind: "text", value: name },
+        primarySubtitleProperty: { kind: "null", value: null },
+        secondarySubtitleProperty: { kind: "null", value: null },
+        imageProperty:
+          image === null
+            ? { kind: "null", value: null }
+            : { kind: "image", value: { type: "remote", url: image } },
+      };
+    })
+    .filter((item) => item !== null);
+
+  return {
+    items,
+    details: {
+      totalItems: totalItems,
+      nextPage: currentPage * pageSize < totalItems ? currentPage + 1 : null,
+    },
+  };
+});
+
+driver("details", async function(context) {
+  const { z } = await import("npm:zod");
+  const apiKey = await getHardcoverApiKey();
+
+  const { externalId: contextIdentifier } = z.object({
+    externalId: z.string().trim().min(1, "externalId is required"),
+  }).parse(context ?? {});
+
+  if (!/^\d+$/.test(contextIdentifier)) {
+    throw new Error("externalId must be a numeric Hardcover author id");
+  }
+
+  const authorId = Number(contextIdentifier);
+  if (!Number.isSafeInteger(authorId)) {
+    throw new Error("externalId must be a safe integer Hardcover author id");
+  }
+
+  const graphqlQuery = `
+query GetHardcoverAuthorDetails($id: Int!) {
+  authors_by_pk(id: $id) {
+    id
+    bio
+    name
+    slug
+    links
+    born_date
+    death_date
+    image { url }
+    alternate_names
+  }
+}
+`;
+
+  const response = await httpCall(
+    "POST",
+    "https://api.hardcover.app/v1/graphql",
+    {
+      body: JSON.stringify({ query: graphqlQuery, variables: { id: authorId } }),
+      headers: {
+        Authorization: apiKey,
+        "Content-Type": "application/json",
+      },
+    },
+  );
+
+  if (!response?.success) {
+    throw new Error(response?.error ?? "Hardcover author details request failed");
+  }
+
+  const payload = parseJsonResponse(response.data.body);
+
+  if (Array.isArray(payload?.errors) && payload.errors.length > 0) {
+    const firstError = payload.errors[0];
+    const errorMessage =
+      firstError && typeof firstError.message === "string"
+        ? firstError.message
+        : "unknown GraphQL error";
+    throw new Error(`Hardcover author details GraphQL error: ${errorMessage}`);
+  }
+
+  const authorData =
+    payload?.data?.authors_by_pk &&
+    typeof payload.data.authors_by_pk === "object"
+      ? payload.data.authors_by_pk
+      : null;
+
+  if (!authorData) {
+    throw new Error("Hardcover returned no author data");
+  }
+
+  const name = typeof authorData.name === "string" ? authorData.name.trim() : "";
+  if (!name) {
+    throw new Error("Hardcover author data is missing name");
+  }
+
+  const image =
+    authorData.image &&
+    typeof authorData.image === "object" &&
+    typeof authorData.image.url === "string" &&
+    authorData.image.url.trim()
+      ? authorData.image.url.trim()
+      : null;
+
+  const slug =
+    typeof authorData.slug === "string" ? authorData.slug.trim() : "";
+  const sourceUrl = slug
+    ? `https://hardcover.app/authors/${slug}`
+    : null;
+
+  const links = Array.isArray(authorData.links) ? authorData.links : [];
+  const website =
+    links
+      .map((link) =>
+        link && typeof link === "object" && typeof link.url === "string"
+          ? link.url.trim()
+          : null,
+      )
+      .find((url) => url) ?? null;
+
+  const alternateNames = Array.isArray(authorData.alternate_names)
+    ? authorData.alternate_names.filter((n) => typeof n === "string" && n.trim())
+    : [];
+
+  return {
+    name,
+    properties: {
+      website,
+      sourceUrl,
+      alternateNames,
+      images: image ? [{ type: "remote", url: image }] : [],
+      description: typeof authorData.bio === "string" ? authorData.bio : null,
+      birthDate:
+        typeof authorData.born_date === "string" ? authorData.born_date : null,
+      deathDate:
+        typeof authorData.death_date === "string"
+          ? authorData.death_date
+          : null,
+    },
+  };
+});
