@@ -28,6 +28,16 @@ After adapter load, later phases should operate only on normalized adapter resul
 
 API source loaders should validate credentials inside `loadAdapterResult`, not in later workflow phases. File-backed media loaders should require temp paths only for adapter loading; later phases should work from normalized groups and durable workflow state.
 
+## Provider And Source I/O Boundary
+
+Source-ingestion I/O is allowed only in adapter loading. App-side source connectors may fetch a user's source data from services such as Plex, Jellyfin, Trakt, Audiobookshelf, MediaTracker, or Komga, and then must emit normalized adapter results.
+
+Provider catalog I/O for enrichment stays in sandbox drivers. App adapters may emit resolved provider-native refs or unresolved foreign refs, but must not call metadata providers directly to search, resolve, or populate entities.
+
+Unresolved refs must go through sandbox `resolve` drivers. Resolved refs must go through sandbox `details` drivers during population.
+
+YouTube Music history is the deliberate exception for source-ingestion I/O: it stays in the sandbox because it reuses the `music.youtube-music` sandbox script and its vendored `youtubei.js` driver.
+
 ## Import refs
 
 `ImportEntityRef` is a discriminated union.
@@ -53,9 +63,9 @@ For a new source:
 
 1. Add source metadata and validation in `runtime/source-definitions.ts` if needed.
 2. Register the loader or dispatcher in `media/source-loaders.ts` or `worker.ts`, depending on whether the source is media or non-media.
-3. Prefer a small source adapter in `sources/<source>/adapter.ts` that only parses and maps source data.
+3. Prefer a small source adapter in `sources/<source>/adapter.ts` that only fetches, parses, and maps source data.
 4. Reuse `runOneTimeMediaImportWorkflow` or `runOneTimeNonMediaImportWorkflow` and keep source-specific code bounded to loading, parsing, or write preparation.
-5. Follow the backend provider/sandbox boundary rules.
+5. Follow the source-ingestion versus provider catalog boundary rules.
 6. Add focused adapter, helper, or workflow tests beside the new source or workflow.
 
 ## Existing source patterns
@@ -63,6 +73,8 @@ For a new source:
 - Goodreads and StoryGraph: emit unresolved ISBN refs and rely on sandbox resolution.
 - Hardcover CSV: emits resolved Hardcover book ids directly.
 - Trakt: source connector stays in app code, emits resolved TMDB refs when present and unresolved IMDB refs when TMDB is missing.
+- Plex, Jellyfin, Audiobookshelf, MediaTracker, and Komga: source connectors stay in app code, fetch user source data, and emit normalized refs.
+- YouTube Music history: source fetch stays in the sandbox `history` driver, then app code normalizes the returned songs.
 - Hevy and Strong: adapters normalize workout payloads into workout-domain items.
 - OpenScale: adapter normalizes measurement rows and writes them without provider resolution.
 
