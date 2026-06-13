@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 
+import { SandboxScriptId } from "@ryot/app-backend/schema/brands";
 import getPort from "get-port";
 
 import {
@@ -354,7 +355,9 @@ driver("main", async function() {
 	it("returns 401 for unauthenticated enqueue", async () => {
 		const client = getBackendClient();
 		const error = await client.runError((c) =>
-			c.sandbox.enqueue({ payload: { scriptId: crypto.randomUUID(), driverName: "main" } }),
+			c.sandbox.enqueue({
+				payload: { scriptId: SandboxScriptId.make(crypto.randomUUID()), driverName: "main" },
+			}),
 		);
 
 		assertTaggedError(error, "Unauthorized");
@@ -517,7 +520,9 @@ describe("sandbox enqueue by script ID", () => {
 		const { client } = await createAuthenticatedClient();
 
 		const error = await client.runError((c) =>
-			c.sandbox.enqueue({ payload: { driverName: "main", scriptId: crypto.randomUUID() } }),
+			c.sandbox.enqueue({
+				payload: { driverName: "main", scriptId: SandboxScriptId.make(crypto.randomUUID()) },
+			}),
 		);
 
 		assertTaggedError(error, "NotFound");

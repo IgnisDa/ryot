@@ -1,3 +1,5 @@
+import { EntityId } from "@ryot/app-backend/schema/brands";
+
 import { requireString } from "../test-support/assertions";
 import type { Client } from "./auth";
 import { createEntity } from "./entities";
@@ -44,7 +46,9 @@ export async function waitForSessionEventCount(
 	return pollUntil(
 		`${expectedCount} events on session ${sessionEntityId}`,
 		async () => {
-			const events = await client.run((c) => c.events.list({ urlParams: { sessionEntityId } }));
+			const events = await client.run((c) =>
+				c.events.list({ urlParams: { sessionEntityId: EntityId.make(sessionEntityId) } }),
+			);
 			return events.length >= expectedCount ? events : null;
 		},
 		{ timeoutMs: 5000, intervalMs: 200, ...options },
@@ -72,7 +76,9 @@ async function pollSeededExerciseIds(client: Client, count: number) {
 					return [];
 				}
 
-				return [requireString(field.value, "Expected seeded exercise id to be text")];
+				return [
+					EntityId.make(requireString(field.value, "Expected seeded exercise id to be text")),
+				];
 			});
 
 			return ids.length >= count ? ids.slice(0, count) : null;
@@ -83,7 +89,7 @@ async function pollSeededExerciseIds(client: Client, count: number) {
 
 export async function waitForSeededExerciseId(client: Client) {
 	const ids = await pollSeededExerciseIds(client, 1);
-	return requireString(ids[0], "Expected at least one seeded exercise id");
+	return EntityId.make(requireString(ids[0], "Expected at least one seeded exercise id"));
 }
 
 export async function waitForSeededExerciseIds(client: Client, count: number) {
