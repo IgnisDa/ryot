@@ -1,7 +1,8 @@
 import { createFileRoute, useLocation, useNavigate } from "@tanstack/react-router";
 import { Effect } from "effect";
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 
+import { useSetPluginHeaderTitle } from "#/modules/navigation/authenticated-shell";
 import { ArtifactSessions, ArtifactSessionStaleError } from "#/modules/plugins/artifact-sessions";
 import { usePluginCatalog } from "#/modules/plugins/catalog-provider";
 import { PluginOperationsService } from "#/modules/plugins/operations";
@@ -31,6 +32,7 @@ function PluginInstallation(props: {
 	readonly installation: Parameters<typeof PluginHost>[0]["installation"];
 }) {
 	const navigate = useNavigate();
+	const setHeaderTitle = useSetPluginHeaderTitle();
 	const { pluginSlug } = Route.useParams();
 	const { pathname, searchStr } = useLocation();
 	const { runtime, scope, theme } = Route.useRouteContext();
@@ -85,10 +87,16 @@ function PluginInstallation(props: {
 		[runtime, serverUrl, userId],
 	);
 
+	useEffect(() => {
+		setHeaderTitle(null);
+		return () => setHeaderTitle(null);
+	}, [pathname, setHeaderTitle]);
+
 	return (
 		<PluginHost
 			theme={theme}
 			onStaleSession={refetch}
+			onHeader={setHeaderTitle}
 			installation={installation}
 			onRenewArtifactSession={onRenewArtifactSession}
 			onCreateArtifactSession={onCreateArtifactSession}
