@@ -20,7 +20,6 @@ import {
 import { evalExprValue } from "./expr";
 import {
 	evalEventFieldSelector,
-	evalExprForField,
 	evalFieldSelector,
 	evalRelationshipFieldSelector,
 	literalToFieldValue,
@@ -72,14 +71,6 @@ const evalRelationshipRootExprForField = (
 		return Effect.succeed(literalToFieldValue(expr));
 	}
 	return evalExprValue(userId, expr, makeRelationshipRootContext(source, row));
-};
-
-export const serializeRow = (row: EntityQueryRow, fields: RowsOutput["fields"]): RowItem => {
-	const result: Record<string, RowValue> = {};
-	for (const field of fields) {
-		result[field.key] = evalExprForField(field.expr, row);
-	}
-	return result;
 };
 
 export const serializeRootRow = (

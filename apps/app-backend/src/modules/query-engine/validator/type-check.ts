@@ -380,9 +380,9 @@ const collectEntitySlugs = (scope: AliasScope): string[] => {
 export const validateQueryDocumentTypeCompatibility = (
 	userId: string,
 	doc: QueryDocument,
+	scope: AliasScope = collectAliasScope(doc),
 ): Effect.Effect<void, BadRequest | DbError, CurrentDb> =>
 	Effect.gen(function* () {
-		const scope = collectAliasScope(doc);
 		const schemas = yield* loadVisibleEntityPropertySchemas(userId, collectEntitySlugs(scope));
 		const propertiesBySlug = new Map(
 			schemas.map((schema) => [schema.slug, schema.propertiesSchema] as const),

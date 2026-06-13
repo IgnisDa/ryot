@@ -1,6 +1,7 @@
 import type { AggregateOutput, QueryDocument, RowsOutput, TimeSeriesOutput } from "../language";
 
 export const MAX_ROOT_FILTER_SCAN_ROWS = 5000;
+export const MAX_ROOT_SOURCE_SCAN_ROWS = 50000;
 export const MAX_SERIALIZED_ROW_OBJECTS = 5000;
 export const MAX_INCLUDE_FILTER_SCAN_ROWS = 5000;
 export const MAX_AGGREGATE_EXPRESSION_SOURCE_ROWS = 10000;

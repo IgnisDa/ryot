@@ -174,6 +174,9 @@ validation fails. `path` is a non-empty array navigating into the JSONB `propert
 column (deep nesting is allowed). A schema-qualified property evaluated against a row of
 another schema resolves to `null`.
 
+In `orderBy`, properties sort by their extracted `jsonb` value, so numeric properties sort
+numerically (2 before 10) rather than lexicographically.
+
 ## Expressions
 
 One expression AST is used everywhere — output fields, `where` clauses, `orderBy`, and
@@ -402,6 +405,7 @@ Field value kinds: `text`, `number`, `boolean`, `date`, `image`, `json`, `null`.
 | Max time-series buckets                       | 1000                                       |
 | Max serialized row objects per response       | 5000                                       |
 | Max root filter scan rows                     | 5000                                       |
+| Max root aggregate/time-series scan rows      | 50000                                      |
 | Max correlated expression rows per parent row | 10000                                      |
 
 If the serialized row-object cap is exceeded, the engine fails the query rather than
@@ -412,6 +416,10 @@ Correlated `aggregate` expressions and correlated `exists` expressions (whose so
 carries a `where`) consider at most 10000 candidate rows per parent row and fail rather
 than considering a truncated set. An `exists` without a `where` short-circuits with a
 top-1 probe and is not subject to this cap.
+
+Aggregate and time-series returns materialize their root source and aggregate in app, so
+the root source is bounded to 50000 scanned rows; a larger source fails rather than loading
+an unbounded set into memory (`Root source candidate rows exceeds maximum of 50000`).
 
 ## Visibility
 
@@ -463,6 +471,7 @@ Example errors:
 - `Entity schema 'reviw' not found`
 - `First expression entity source 'latest' must specify via`
 - `Expression source candidate rows exceeds maximum of 10000`
+- `Root source candidate rows exceeds maximum of 50000`
 - `Comparison operands are not type-compatible: string and number`
 - `Arithmetic operands must be numeric: string`
 - `Contains operands are not type-compatible: number and number`
