@@ -155,16 +155,22 @@ driver("details", async function (context, { metadata }) {
 
 	const description = artist.header?.description?.text ?? null;
 
-	const relatedEntities = (() => {
-		const albums = [];
+	const { groupEntities, mediaEntities } = (() => {
+		const groupEntities = [];
+		const mediaEntities = [];
 		const sections = artist?.sections;
 		if (!Array.isArray(sections)) {
-			return [];
+			return { groupEntities, mediaEntities };
 		}
 
 		for (const section of sections) {
+			const sectionTitle = String(
+				section?.title?.text ?? section?.header?.title?.text ?? section?.title ?? "",
+			).toLowerCase();
+			const isTrackSection = /song|track|video/.test(sectionTitle);
 			for (const item of section?.contents ?? []) {
-				const id = typeof item?.id === "string" && item.id ? item.id : null;
+				const videoId = typeof item?.video_id === "string" && item.video_id ? item.video_id : null;
+				const id = videoId ?? (typeof item?.id === "string" && item.id ? item.id : null);
 				let title = null;
 				if (typeof item?.title === "string" && item.title) {
 					title = item.title;
@@ -172,22 +178,29 @@ driver("details", async function (context, { metadata }) {
 					title = item.name;
 				}
 				if (id && title) {
-					albums.push({ id, title });
+					const target = videoId || isTrackSection ? mediaEntities : groupEntities;
+					target.push({ id, title });
 				}
 			}
 		}
 
-		return albums.map((album) => ({
-			name: album.title,
-			externalId: album.id,
-			reverseDirection: true,
+		return {
+			mediaEntities: mediaEntities.map((track) => ({
+				name: track.title,
+				externalId: track.id,
+				scriptSlug: "music.youtube-music",
+				relationshipProperties: { roles: ["Artist"] },
+			})),
+			groupEntities: groupEntities.map((album) => ({
+				name: album.title,
+				externalId: album.id,
 			scriptSlug: "music-group.youtube-music",
 			relationshipProperties: { roles: ["Artist"] },
-		}));
+			})),
+		};
 	})();
 
 	return {
-		relatedEntities,
 		name,
 		properties: {
 			description,
@@ -195,6 +208,18 @@ driver("details", async function (context, { metadata }) {
 			sourceUrl: `https://music.youtube.com/channel/${externalId}`,
 			images: getThumbnailUrls(artist.header?.thumbnail).map((url) => ({ type: "remote", url })),
 		},
+		relatedEntityGroups: [
+			{
+				direction: "outgoing",
+				entities: mediaEntities,
+				relationshipSchemaSlug: "person-to-music",
+			},
+			{
+				direction: "outgoing",
+				entities: groupEntities,
+				relationshipSchemaSlug: "person-to-music-group",
+			},
+		],
 	};
 });
 

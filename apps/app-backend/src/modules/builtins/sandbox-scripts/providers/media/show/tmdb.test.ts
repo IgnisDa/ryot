@@ -62,18 +62,16 @@ describe("show.tmdb sandbox script", () => {
 			},
 		).then((rawDetails) => {
 			const details = toRecord(rawDetails);
-			expect(details.relatedEntities).toEqual([
+			expect(details.relatedEntityGroups).toEqual([
+				{ direction: "incoming", entities: [], relationshipSchemaSlug: "person-to-show" },
+				{ direction: "incoming", entities: [], relationshipSchemaSlug: "company-to-show" },
 				{
-					name: "Pick One",
-					externalId: "2",
-					scriptSlug: "show.tmdb",
+					direction: "outgoing",
 					relationshipSchemaSlug: "media-suggestion",
-				},
-				{
-					name: "Pick Two",
-					externalId: "3",
-					scriptSlug: "show.tmdb",
-					relationshipSchemaSlug: "media-suggestion",
+					entities: [
+						{ name: "Pick One", externalId: "2", scriptSlug: "show.tmdb" },
+						{ name: "Pick Two", externalId: "3", scriptSlug: "show.tmdb" },
+					],
 				},
 			]);
 			return undefined;
