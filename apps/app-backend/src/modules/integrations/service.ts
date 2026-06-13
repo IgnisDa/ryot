@@ -3,9 +3,8 @@ import { Effect, Either, Schema } from "effect";
 
 import type { CurrentUserValue } from "#lib/auth-middleware";
 import { DbRunner } from "#lib/db";
-import { type BadRequest, type DbError, type NotFound, badRequest, notFound } from "#lib/errors";
+import { badRequest, notFound } from "#lib/errors";
 import type { ImportRunId, IntegrationId, UserId } from "#lib/schema/brands";
-import type { ListedImportRun } from "#modules/imports/schemas";
 import { ImportsService } from "#modules/imports/service";
 
 import { IntegrationsRepository, type IntegrationRecord } from "./repository";
@@ -13,7 +12,6 @@ import type {
 	CreateIntegrationBody,
 	IntegrationExtraSettings,
 	IntegrationProviderSpecifics,
-	ListedIntegration,
 	UpdateIntegrationBody,
 } from "./schemas";
 import { IntegrationProviderSpecifics as IntegrationProviderSpecificsSchema } from "./schemas";
@@ -49,40 +47,6 @@ export const validateProgressThresholds = (
 		return "minimumProgress must not exceed maximumProgress";
 	}
 	return null;
-};
-
-type IntegrationsServiceShape = {
-	readonly reconcileScheduledYankRuns: () => Effect.Effect<void, DbError>;
-	readonly create: (
-		user: CurrentUserValue,
-		body: CreateIntegrationBody,
-	) => Effect.Effect<{ id: string }, BadRequest | DbError>;
-	readonly get: (
-		user: CurrentUserValue,
-		integrationId: IntegrationId,
-	) => Effect.Effect<ListedIntegration, NotFound | DbError>;
-	readonly list: (
-		user: CurrentUserValue,
-		query: { provider?: CreateIntegrationBody["provider"]; isDisabled?: boolean },
-	) => Effect.Effect<readonly ListedIntegration[], DbError>;
-	readonly update: (
-		user: CurrentUserValue,
-		integrationId: IntegrationId,
-		body: UpdateIntegrationBody,
-	) => Effect.Effect<ListedIntegration, BadRequest | NotFound | DbError>;
-	readonly delete: (
-		user: CurrentUserValue,
-		integrationId: IntegrationId,
-	) => Effect.Effect<{ id: string }, NotFound | DbError>;
-	readonly listRuns: (
-		user: CurrentUserValue,
-		integrationId: IntegrationId,
-	) => Effect.Effect<readonly ListedImportRun[], NotFound | DbError>;
-	readonly handleWebhook: (input: {
-		rawBody?: string;
-		contentType?: string;
-		integrationId: IntegrationId;
-	}) => Effect.Effect<{ runId: ImportRunId }, BadRequest | NotFound | DbError>;
 };
 
 export class IntegrationsService extends Effect.Service<IntegrationsService>()(
@@ -172,11 +136,13 @@ export class IntegrationsService extends Effect.Service<IntegrationsService>()(
 				return { id: created.id };
 			});
 
-			const get: IntegrationsServiceShape["get"] = (user, integrationId) =>
+			const get = (user: CurrentUserValue, integrationId: IntegrationId) =>
 				requireIntegration(user.id, integrationId);
 
-			const list: IntegrationsServiceShape["list"] = (user, query) =>
-				runWithDb(repository.listForUser({ userId: user.id, ...query }));
+			const list = (
+				user: CurrentUserValue,
+				query: { provider?: CreateIntegrationBody["provider"]; isDisabled?: boolean },
+			) => runWithDb(repository.listForUser({ userId: user.id, ...query }));
 
 			const update = Effect.fn("IntegrationsService.update")(function* (
 				user: CurrentUserValue,
@@ -347,7 +313,7 @@ export class IntegrationsService extends Effect.Service<IntegrationsService>()(
 				handleWebhook,
 				delete: deleteIntegration,
 				reconcileScheduledYankRuns,
-			} satisfies IntegrationsServiceShape;
+			};
 		}),
 	},
 ) {}
