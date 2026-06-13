@@ -20,7 +20,7 @@ Media imports run in four phases:
 
 1. Adapter load: parse source input and emit `ImportMediaEntityGroup[]` plus row-level transformation failures.
 2. `resolving-entities`: convert unresolved refs into resolved refs through sandbox `resolve` drivers.
-3. `populating-entities`: populate or reuse global entities through sandbox `details` drivers.
+3. `populating-entities`: populate or reuse global entities and ensure library membership by awaiting `LibraryEntityImportWorkflow` per item (it composes provider population then the durable membership queue). Its `LibraryEntityImportError` stage maps to the `provider_details` (population) and `database_commit` (membership) failure stages.
 4. `writing-events`: write collection memberships and events for resolved entity ids.
 
 The workflow body owns these phases directly. Resolution and population call sandbox or entity-import work through durable workflow steps instead of a hidden pass-through processor.

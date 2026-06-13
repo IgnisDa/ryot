@@ -25,6 +25,7 @@ import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 import { EpisodeResolverService } from "#modules/episode-resolver/service";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
 import { EventsService } from "#modules/events/service";
+import { LibraryEntityImportError } from "#modules/library-membership/library-entity-import-workflow";
 
 import { ProcessImportRunWorkflow } from "./import-run-workflow";
 import { runOneTimeMediaImportWorkflow } from "./media-workflow";
@@ -190,6 +191,19 @@ const importPayload = {
 	sourcePayloadKey: "payload-1",
 	runId: ImportRunId.make("run-1"),
 };
+
+const resolvedBookGroup = (input: { externalId: string; sourceLabel: string }) => ({
+	itemIndex: 1,
+	collectionMemberships: [],
+	events: [],
+	entityRef: {
+		kind: "resolved" as const,
+		scriptSlug: "book.openlibrary",
+		entitySchemaSlug: "book",
+		externalId: input.externalId,
+		sourceLabel: input.sourceLabel,
+	},
+});
 
 it.effect("orchestrates one-time media imports through workflow-owned phases", () => {
 	const cleanupCalls: Array<Record<string, unknown>> = [];
@@ -824,3 +838,76 @@ it.effect("does not attempt cleanup for invalid file paths when adapter loading 
 		}),
 	);
 });
+
+it.effect(
+	"records provider_details and database_commit stages from library import failures",
+	() => {
+		const recordedFailures: Array<Record<string, unknown>> = [];
+
+		const options = {
+			importsRepository: makeImportsRepository({
+				createFailure: (input) => {
+					recordedFailures.push(input);
+					return Effect.void;
+				},
+			}),
+			mediaOperations: makeMediaOperations({
+				importEntity: (input) =>
+					input.externalId === "ext-mem"
+						? Effect.fail(
+								new LibraryEntityImportError({ stage: "membership", message: "mem fail" }),
+							)
+						: Effect.fail(
+								new LibraryEntityImportError({ stage: "population", message: "pop fail" }),
+							),
+				loadAdapterResult: () =>
+					Effect.succeed({
+						cleanupPaths: [],
+						adapterResult: {
+							failures: [],
+							entityGroups: [
+								resolvedBookGroup({ externalId: "ext-pop", sourceLabel: "Population Book" }),
+								resolvedBookGroup({ externalId: "ext-mem", sourceLabel: "Membership Book" }),
+							],
+						},
+					}),
+			}),
+			entitiesRepository: makeEntitiesRepository({
+				findEntitySchemaSandboxScriptBySlug: (slug) =>
+					Effect.succeed(
+						slug === "book.openlibrary"
+							? {
+									entitySchemaId: EntitySchemaId.make("schema-book"),
+									sandboxScriptId: SandboxScriptId.make("script-book-openlibrary"),
+								}
+							: null,
+					),
+			}),
+		} satisfies TestLayerOptions;
+
+		return withTestLayer(
+			options,
+			"workflow-stage-failures",
+			Effect.gen(function* () {
+				yield* runOneTimeMediaImportWorkflow(importPayload, "workflow-stage-failures");
+
+				expect(recordedFailures).toContainEqual(
+					expect.objectContaining({
+						runId: "run-1",
+						message: "pop fail",
+						stage: "provider_details",
+						sourceIdentifier: "ext-pop",
+					}),
+				);
+				expect(recordedFailures).toContainEqual(
+					expect.objectContaining({
+						runId: "run-1",
+						message: "mem fail",
+						stage: "database_commit",
+						sourceIdentifier: "ext-mem",
+					}),
+				);
+			}),
+		);
+	},
+);

@@ -1,21 +1,14 @@
 import { Activity } from "@effect/workflow";
-import { unknownToMessage } from "@ryot/contract/errors";
 import { Effect, Schema } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
-import { CollectionsService } from "#modules/collections/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 
 import type { ImportRunJobData } from "../jobs";
 import { recordImportRunFailure } from "../runtime/import-run-status";
 import { ImportRunError, toWorkflowError } from "../runtime/workflow-helpers";
 import { mediaEntityGroupItemIndex } from "./groups";
-import {
-	EnsureLibraryMembershipOutcome,
-	PopulationScript,
-	type EntityIdsByKey,
-	type ProgressReporter,
-} from "./shared-workflow";
+import { PopulationScript, type EntityIdsByKey, type ProgressReporter } from "./shared-workflow";
 import type { ImportMediaEntityGroup } from "./types";
 import { importEntityRefKey } from "./types";
 import { MediaImportWorkflowOperations } from "./types-workflow";
@@ -27,7 +20,6 @@ export const populateMediaEntityGroups = Effect.fn("populateMediaEntityGroups")(
 	payload: Pick<ImportRunJobData, "runId" | "userId">;
 }) {
 	const runWithDb = yield* DbRunner;
-	const collections = yield* CollectionsService;
 	const entitiesRepository = yield* EntitiesRepository;
 	const operations = yield* MediaImportWorkflowOperations;
 	const entityIdsByKey: EntityIdsByKey = new Map();
@@ -90,45 +82,20 @@ export const populateMediaEntityGroups = Effect.fn("populateMediaEntityGroups")(
 
 		if (populated._tag === "Left") {
 			failures += 1;
+			// LibraryEntityImportWorkflow composes provider population then library membership; its
+			// stage discriminant maps back onto the pre-consolidation import failure stages.
+			const stage = populated.left.stage === "membership" ? "database_commit" : "provider_details";
 			yield* Activity.make({
 				error: ImportRunError,
 				name: `record-populate-failure-${i}`,
 				execute: recordImportRunFailure({
+					stage,
 					itemIndex,
 					context: null,
-					stage: "provider_details",
 					runId: input.payload.runId,
 					sourceLabel: ref.sourceLabel,
 					message: populated.left.message,
 					sourceIdentifier: ref.externalId,
-					entitySchemaSlug: ref.entitySchemaSlug,
-				}).pipe(Effect.mapError(toWorkflowError)),
-			});
-			yield* input.reportProgress(i + 1);
-			continue;
-		}
-
-		const libraryMembership = yield* Activity.make({
-			name: `ensure-library-membership-${i}`,
-			success: EnsureLibraryMembershipOutcome,
-			execute: collections.ensureEntityInLibrary(input.payload.userId, populated.right.id).pipe(
-				Effect.as({ message: null }),
-				Effect.catchAll((error) => Effect.succeed({ message: unknownToMessage(error) })),
-			),
-		});
-		if (libraryMembership.message) {
-			failures += 1;
-			yield* Activity.make({
-				error: ImportRunError,
-				name: `record-library-membership-failure-${i}`,
-				execute: recordImportRunFailure({
-					itemIndex,
-					context: null,
-					stage: "database_commit",
-					runId: input.payload.runId,
-					sourceLabel: ref.sourceLabel,
-					sourceIdentifier: ref.externalId,
-					message: libraryMembership.message,
 					entitySchemaSlug: ref.entitySchemaSlug,
 				}).pipe(Effect.mapError(toWorkflowError)),
 			});
