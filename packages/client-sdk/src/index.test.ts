@@ -3,7 +3,7 @@ import type { PreparedRecipe } from "@ryot-app/ryotql";
 import { Result, Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
-import { createRyotClient, RyotClientError } from "./index";
+import { createRyotClient, RyotClientError, type TemporaryUploadRequest } from "./index";
 
 let notify: () => void = () => undefined;
 const Greeting = Schema.Struct({ greeting: Schema.String });
@@ -11,6 +11,7 @@ const QueryResponse = Schema.Struct({ value: Schema.String });
 const document = { queries: {}, output: {} } as PreparedRecipe<string>["document"];
 const tokens = Object.fromEntries(REQUIRED_THEME_TOKEN_NAMES.map((name) => [name, name]));
 const theme = { resolvedMode: "light", tokens };
+const uploadToken = { token: "temporary-1", expiresAt: "2026-01-01T00:00:00.000Z" };
 
 describe("createRyotClient", () => {
 	it("sends only a recipe document and decodes the response locally", async () => {
@@ -157,6 +158,49 @@ describe("createRyotClient", () => {
 		await expect(
 			client.operations.invoke({ slug: "greet", input: {}, output: Greeting }),
 		).rejects.toMatchObject({ reason: "unsupported-capability" });
+	});
+
+	it("hides the upload transfer behind a single call and decodes the token", async () => {
+		const requests: TemporaryUploadRequest[] = [];
+		const source = new Blob(["id,title"], { type: "text/csv" });
+		const client = createRyotClient({
+			query: () => Promise.resolve({}),
+			uploadTemporary: (request) => {
+				requests.push(request);
+				return Promise.resolve(uploadToken);
+			},
+		});
+
+		const request = { source, fileName: "items.csv", contentType: "text/csv" };
+		await expect(client.uploads.uploadTemporary(request)).resolves.toEqual(uploadToken);
+		expect(requests).toEqual([request]);
+	});
+
+	it("rejects uploads when the environment does not provide that capability", async () => {
+		const client = createRyotClient({ query: () => Promise.resolve({}) });
+
+		await expect(
+			client.uploads.uploadTemporary({
+				fileName: "items.csv",
+				contentType: "text/csv",
+				source: new Blob(["id,title"]),
+			}),
+		).rejects.toMatchObject({ reason: "unsupported-capability" });
+	});
+
+	it("rejects an upload result that is not a temporary upload token", async () => {
+		const client = createRyotClient({
+			query: () => Promise.resolve({}),
+			uploadTemporary: () => Promise.resolve({ key: "assets/items.csv", type: "local" }),
+		});
+
+		await expect(
+			client.uploads.uploadTemporary({
+				fileName: "items.csv",
+				contentType: "text/csv",
+				source: new Blob(["id,title"]),
+			}),
+		).rejects.toEqual(new RyotClientError("malformed-result"));
 	});
 
 	it("delegates navigation through the adapter", () => {

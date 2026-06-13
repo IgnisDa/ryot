@@ -198,6 +198,9 @@ export const createPluginRuntime = (
 		}
 	};
 
+	// TODO: `uploadTemporary` is intentionally omitted here until the plugin bridge can carry
+	// binary payloads. Every bridge message is validated against a `JsonValue` payload schema,
+	// so a `Blob` cannot cross the port and a plugin calling it gets `unsupported-capability`.
 	const client = createRyotClient({
 		query,
 		navigate,
