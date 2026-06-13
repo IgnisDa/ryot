@@ -258,7 +258,7 @@ export class EventsRepository extends Effect.Service<EventsRepository>()("Events
 								),
 							),
 						)
-						.orderBy(schema.eventSchemaTrigger.position),
+						.orderBy(schema.eventSchemaTrigger.position, schema.eventSchemaTrigger.id),
 				);
 				return rows.map((row) => ({
 					id: row.id,
