@@ -152,6 +152,7 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 						updateFixtureClientPlugin(client, "B", "", apiUrl),
 					);
 					await expectVisibleText(home, FIXTURE_CLIENT_REVISION_MARKERS.B);
+					await expectVisibleText(home, "Revision B is active.");
 					const revisionBArtifact = await frame.getAttribute("src");
 					expect(revisionBArtifact).not.toBe(revisionAArtifact);
 					expect(await frame.getAttribute("data-e2e-revision")).toBeNull();
