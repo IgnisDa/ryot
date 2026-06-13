@@ -13,6 +13,7 @@ import { EntitiesService } from "#modules/entities/service";
 import {
 	decodeEntityResolveResult,
 	decodeEntitySearchResult,
+	decodeSandboxDriverResult,
 } from "#modules/entity-import/population";
 import {
 	EntityImportWorkflowOperations,
@@ -42,16 +43,11 @@ const resolveSandboxEntityExternalId = (input: {
 	}).pipe(
 		Effect.mapError(toSandboxRunError),
 		Effect.flatMap((result) =>
-			result.error
-				? Effect.fail(new SandboxRunError({ message: result.error }))
-				: decodeEntityResolveResult(result.value).pipe(
-						Effect.mapError(
-							() =>
-								new SandboxRunError({
-									message: "Entity resolve script returned an unexpected shape",
-								}),
-						),
-					),
+			decodeSandboxDriverResult(
+				result,
+				decodeEntityResolveResult,
+				"Entity resolve script returned an unexpected shape",
+			),
 		),
 	);
 
@@ -70,17 +66,11 @@ const searchSandboxEntities = (input: {
 	}).pipe(
 		Effect.mapError(toSandboxRunError),
 		Effect.flatMap((result) =>
-			result.error
-				? Effect.fail(new SandboxRunError({ message: result.error }))
-				: decodeEntitySearchResult(result.value).pipe(
-						Effect.map((parsed) => parsed.items),
-						Effect.mapError(
-							() =>
-								new SandboxRunError({
-									message: "Entity search script returned an unexpected shape",
-								}),
-						),
-					),
+			decodeSandboxDriverResult(
+				result,
+				decodeEntitySearchResult,
+				"Entity search script returned an unexpected shape",
+			).pipe(Effect.map((parsed) => parsed.items)),
 		),
 	);
 

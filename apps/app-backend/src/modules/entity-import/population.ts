@@ -95,6 +95,17 @@ const EntitySearchResult = Schema.Struct({ items: Schema.Array(EntitySearchItem)
 
 export const decodeEntitySearchResult = Schema.decodeUnknown(EntitySearchResult);
 
+export const decodeSandboxDriverResult = <A, E, R>(
+	result: { error: string | null; value: unknown },
+	decode: (input: unknown) => Effect.Effect<A, E, R>,
+	errorMessage: string,
+): Effect.Effect<A, SandboxRunError, R> =>
+	result.error
+		? Effect.fail(new SandboxRunError({ message: result.error }))
+		: decode(result.value).pipe(
+				Effect.mapError(() => new SandboxRunError({ message: errorMessage })),
+			);
+
 const ProcessedChildEntity = Schema.Struct({
 	entity: ListedEntity,
 	entitySchemaId: EntitySchemaId,
