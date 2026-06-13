@@ -6,6 +6,7 @@ import {
 	type PluginBridgeNavigate,
 	type PluginBridgeOperationRequest,
 	type PluginBridgeReady,
+	type PluginBridgeRyotQLCancel,
 	type PluginBridgeRyotQLRequest,
 	type PluginBridgeThemeApplied,
 	type PluginClientArtifactMetadata,
@@ -22,7 +23,8 @@ import { createPluginLocationStore } from "./routing";
 type PluginRuntimeState = "ready" | "active" | "closing" | "failed" | "disposed";
 
 type PendingCall = {
-	readonly reject: (error: Error) => void;
+	readonly cleanup?: () => void;
+	readonly reject: (error: unknown) => void;
 	readonly resolve: (value: unknown) => void;
 };
 
@@ -67,6 +69,7 @@ export const createPluginRuntime = (
 		operations.clear();
 		queries.clear();
 		for (const pending of pendingCalls) {
+			pending.cleanup?.();
 			pending.reject(new RyotClientError(reason));
 		}
 	};
@@ -118,17 +121,36 @@ export const createPluginRuntime = (
 		return true;
 	};
 
-	const query = (document: PreparedRecipe<unknown>["document"]) =>
+	const query = (document: PreparedRecipe<unknown>["document"], signal?: AbortSignal) =>
 		new Promise<unknown>((resolve, reject) => {
 			if (state !== "active") {
 				reject(new RyotClientError(terminalReason ?? "transport"));
 				return;
 			}
-			nextRequestId += 1;
-			const requestId = `ryotql-${nextRequestId}`;
-			if (!admit(queries, requestId, { reject, resolve })) {
+			if (signal?.aborted) {
+				reject(signal.reason);
 				return;
 			}
+			nextRequestId += 1;
+			const requestId = `ryotql-${nextRequestId}`;
+			const onAbort = () => {
+				if (!queries.delete(requestId)) {
+					return;
+				}
+				signal?.removeEventListener("abort", onAbort);
+				reject(signal?.reason);
+				post({ requestId, type: "ryotql-cancel" } satisfies PluginBridgeRyotQLCancel);
+			};
+			if (
+				!admit(queries, requestId, {
+					reject,
+					resolve,
+					cleanup: () => signal?.removeEventListener("abort", onAbort),
+				})
+			) {
+				return;
+			}
+			signal?.addEventListener("abort", onAbort, { once: true });
 			post({
 				document,
 				requestId,
@@ -237,6 +259,7 @@ export const createPluginRuntime = (
 					if (!pending || !operations.delete(result.requestId)) {
 						return;
 					}
+					pending.cleanup?.();
 					if (result.outcome === "failure") {
 						pending.reject(new RyotClientError(result.reason));
 					} else {
@@ -248,6 +271,7 @@ export const createPluginRuntime = (
 					if (!pending || !queries.delete(result.requestId)) {
 						return;
 					}
+					pending.cleanup?.();
 					if (result.outcome === "failure") {
 						pending.reject(new RyotClientError(result.reason));
 					} else {
@@ -276,10 +300,5 @@ export const createPluginRuntime = (
 		finish("failed", "transport", false);
 	}
 
-	return {
-		fatal,
-		client,
-		locations,
-		dispose: () => finish("disposed", "disposed", true),
-	};
+	return { fatal, client, locations, dispose: () => finish("disposed", "disposed", true) };
 };
