@@ -242,20 +242,24 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 						if (!libraryEntityId) {
 							return yield* Effect.die("Library entity not found for user");
 						}
-						yield* relationshipsRepository.insertRelationship({
+						yield* relationshipsRepository.saveRelationship({
+							scope: "user",
 							properties: {},
 							userId: user.id,
 							sourceEntityId: entity.id,
+							onConflict: "preserveExisting",
 							targetEntityId: libraryEntityId,
 							relationshipSchemaId: inLibrary.id,
 						});
 					}
 
-					const result = yield* relationshipsRepository.upsertMembership({
+					const result = yield* relationshipsRepository.saveRelationship({
+						scope: "user",
 						userId: user.id,
-						entityId: payload.entityId,
 						properties: validatedProperties,
-						collectionId: payload.collectionId,
+						onConflict: "replaceProperties",
+						sourceEntityId: payload.entityId,
+						targetEntityId: payload.collectionId,
 						relationshipSchemaId: memberOfRelationshipSchema.id,
 					});
 
@@ -301,11 +305,11 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 
 			const memberOf = yield* memberOfSchema;
 			const deleted = yield* runWithDb(
-				relationshipsRepository.deleteMembership({
+				relationshipsRepository.deleteUserRelationship({
 					userId: user.id,
-					entityId: payload.entityId,
+					sourceEntityId: payload.entityId,
 					relationshipSchemaId: memberOf.id,
-					collectionId: payload.collectionId,
+					targetEntityId: payload.collectionId,
 				}),
 			);
 
@@ -372,10 +376,12 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 
 			const inLibrary = yield* inLibrarySchema;
 			yield* runWithDb(
-				relationshipsRepository.insertRelationship({
+				relationshipsRepository.saveRelationship({
 					userId,
+					scope: "user",
 					properties: {},
 					sourceEntityId: entityId,
+					onConflict: "preserveExisting",
 					targetEntityId: libraryEntityId,
 					relationshipSchemaId: inLibrary.id,
 				}),
@@ -386,9 +392,9 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 		const markEntityOwnedInLibrary = Effect.fn("CollectionsService.markEntityOwnedInLibrary")(
 			function* (input: {
 				userId: UserId;
-				entityId: EntityId;
 				provider: string;
 				syncedAt: string;
+				entityId: EntityId;
 			}) {
 				const libraryEntityId = yield* runWithDb(
 					repository.getUserLibraryEntityId({ userId: input.userId }),
@@ -414,9 +420,11 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 					: [];
 
 				yield* runWithDb(
-					relationshipsRepository.upsertRelationship({
+					relationshipsRepository.saveRelationship({
+						scope: "user",
 						userId: input.userId,
 						sourceEntityId: input.entityId,
+						onConflict: "replaceProperties",
 						targetEntityId: libraryEntityId,
 						relationshipSchemaId: inLibrary.id,
 						properties: {
