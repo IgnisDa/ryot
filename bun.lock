@@ -231,6 +231,7 @@
         "@tanstack/react-form": "2.0.0-alpha.1",
         "@tanstack/react-router": "latest",
         "better-auth": "1.7.0-rc.6",
+        "clsx": "2.1.1",
         "effect": "4.0.0-rc.111",
         "lucide-react": "^1.37.0",
         "react": "^19.2.0",
@@ -296,6 +297,7 @@
         "@ryot/contract": "workspace:*",
         "@ryot/ts-utils": "workspace:*",
         "@tailwindcss/oxide": "^4.1.18",
+        "clsx": "2.1.1",
         "effect": "4.0.0-rc.111",
         "react": "^19.2.0",
         "react-dom": "^19.2.0",
@@ -335,6 +337,7 @@
     "packages/client-ui-sdk": {
       "name": "@ryot/client-ui-sdk",
       "dependencies": {
+        "clsx": "2.1.1",
         "react": "^19.2.0",
       },
       "devDependencies": {
@@ -536,6 +539,7 @@
         "@ryot/client-ui-sdk": "workspace:*",
         "@types/react": "^19.2.0",
         "@types/react-dom": "^19.2.0",
+        "clsx": "2.1.1",
       },
     },
     "plugins/media": {

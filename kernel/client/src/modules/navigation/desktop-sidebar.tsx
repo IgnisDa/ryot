@@ -3,6 +3,7 @@ import type {
 	PluginClientCatalogEntry,
 } from "@ryot/ryotql-recipes/plugin-client-catalog";
 import { Link } from "@tanstack/react-router";
+import clsx from "clsx";
 
 import type { AuthSessionStore } from "#/modules/auth/client";
 import { AccountSummary } from "#/modules/navigation/account-summary";
@@ -39,10 +40,10 @@ export function DesktopSidebar(props: DesktopSidebarProps) {
 							activeOptions={{ exact: true }}
 							params={{ pluginSlug: props.current.slug }}
 							aria-current={props.activeHome ? "page" : undefined}
-							className={[
+							className={clsx(
 								"flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-text",
 								props.activeHome ? "bg-nav-indicator" : "hover:bg-surface-2",
-							].join(" ")}
+							)}
 						>
 							<AppIcon name="house" size={16} className="text-text-muted" />
 							<span>Home</span>
