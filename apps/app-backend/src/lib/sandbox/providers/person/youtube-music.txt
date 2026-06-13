@@ -65,17 +65,31 @@ function getBestThumbnailUrl(thumbnail) {
   return getThumbnailUrls(thumbnail)[0] ?? null;
 }
 
+function getYoutubeMusicLanguage(metadata) {
+  return metadata?.providerInformation?.canonicalLanguage ?? "en";
+}
+
+async function createYoutubeMusicClient(language) {
+  const { Innertube } = await import("npm:youtubei.js");
+  return Innertube.create({
+    fetch: makeFetch,
+    generate_session_locally: true,
+    ...(language ? { lang: language } : {}),
+  });
+}
+
+function getArtistName(artist) {
+  const name = artist?.header?.title?.text ?? artist?.name ?? "";
+  return typeof name === "string" ? name.trim() : String(name).trim();
+}
+
 driver("search", async function (context) {
   const { z } = await import("npm:zod");
   const { query } = z.object({
     query: z.string().trim().min(1, "query is required"),
   }).parse(context ?? {});
 
-  const { Innertube } = await import("npm:youtubei.js");
-  const yt = await Innertube.create({
-    fetch: makeFetch,
-    generate_session_locally: true,
-  });
+  const yt = await createYoutubeMusicClient();
   const results = await yt.music.search(query, { type: "artist" });
 
   const items = [];
@@ -104,20 +118,17 @@ driver("search", async function (context) {
   return { items, details: { totalItems: items.length, nextPage: null } };
 });
 
-driver("details", async function (context) {
+driver("details", async function (context, { metadata }) {
   const { z } = await import("npm:zod");
   const { externalId } = z.object({
     externalId: z.string().trim().min(1, "externalId is required"),
   }).parse(context ?? {});
 
-  const { Innertube } = await import("npm:youtubei.js");
-  const yt = await Innertube.create({
-    fetch: makeFetch,
-    generate_session_locally: true,
-  });
+  const language = getYoutubeMusicLanguage(metadata);
+  const yt = await createYoutubeMusicClient(language);
   const artist = await yt.music.getArtist(externalId);
 
-  const name = artist.header?.title?.text ?? null;
+  const name = getArtistName(artist);
   if (!name) throw new Error("YouTube Music artist is missing name");
 
   const description = artist.header?.description?.text ?? null;
@@ -159,4 +170,16 @@ driver("details", async function (context) {
       images: getThumbnailUrls(artist.header?.thumbnail).map((url) => ({ type: "remote", url })),
     },
   };
+});
+
+driver("translate", async function (context) {
+  const { z } = await import("npm:zod");
+  const { externalId, language } = z.object({
+    language: z.string().trim().min(1, "language is required"),
+    externalId: z.string().trim().min(1, "externalId is required"),
+  }).parse(context ?? {});
+
+  const yt = await createYoutubeMusicClient(language);
+  const name = getArtistName(await yt.music.getArtist(externalId));
+  return name ? { name } : {};
 });
