@@ -1,5 +1,5 @@
 import { and, asc, desc, eq, isNull, or, sql } from "drizzle-orm";
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 
 import { CurrentDb, dbEffect } from "#lib/db";
 import * as schema from "#lib/db/schema/tables";
@@ -8,6 +8,7 @@ import { EntityId, EntitySchemaId, SandboxScriptId, UserId } from "#lib/schema/b
 import { decodeStoredAppSchema } from "#lib/schema/core";
 import type { AppSchema } from "#lib/schema/property-schema";
 
+import { EntityImage } from "./schemas";
 import type { StoredEntityImage } from "./types";
 
 type EntityRow = Pick<
@@ -68,17 +69,28 @@ const entitySchemaVisibleToUserClause = (userId: UserId) =>
 const entityVisibleToUserClause = (userId: UserId) =>
 	or(isNull(schema.entity.userId), eq(schema.entity.userId, userId));
 
-const toListedEntity = (row: EntityRow) => ({
-	id: EntityId.make(row.id),
-	name: row.name,
-	image: row.image,
-	properties: row.properties,
-	externalId: row.externalId,
-	entitySchemaId: EntitySchemaId.make(row.entitySchemaId),
-	createdAt: row.createdAt.toISOString(),
-	updatedAt: row.updatedAt.toISOString(),
-	populatedAt: row.populatedAt?.toISOString() ?? null,
-	sandboxScriptId: row.sandboxScriptId ? SandboxScriptId.make(row.sandboxScriptId) : null,
+const decodeStoredEntityImage = (image: EntityRow["image"]) =>
+	image === null
+		? Effect.succeed(null)
+		: Schema.decodeUnknown(EntityImage)(image).pipe(
+				Effect.mapError(() => new DbError({ message: "Invalid entity image in database" })),
+			);
+
+const toListedEntity = Effect.fn("toListedEntity")(function* (row: EntityRow) {
+	const image = yield* decodeStoredEntityImage(row.image);
+
+	return {
+		image,
+		name: row.name,
+		properties: row.properties,
+		externalId: row.externalId,
+		id: EntityId.make(row.id),
+		createdAt: row.createdAt.toISOString(),
+		updatedAt: row.updatedAt.toISOString(),
+		populatedAt: row.populatedAt?.toISOString() ?? null,
+		entitySchemaId: EntitySchemaId.make(row.entitySchemaId),
+		sandboxScriptId: row.sandboxScriptId ? SandboxScriptId.make(row.sandboxScriptId) : null,
+	};
 });
 
 export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("EntitiesRepository", {
@@ -102,7 +114,7 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 							asc(schema.entity.createdAt),
 						),
 				);
-				return rows.map(toListedEntity);
+				return yield* Effect.forEach(rows, toListedEntity);
 			},
 		),
 		getEntitySchemaScopeForUser: Effect.fn("EntitiesRepository.getEntitySchemaScopeForUser")(
@@ -249,7 +261,7 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 					.limit(1),
 			);
 
-			return row ? toListedEntity(row) : null;
+			return row ? yield* toListedEntity(row) : null;
 		}),
 		findEntityByExternalIdForUser: Effect.fn("EntitiesRepository.findEntityByExternalIdForUser")(
 			function* (input: {
@@ -274,7 +286,7 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 						.limit(1),
 				);
 
-				return row ? toListedEntity(row) : null;
+				return row ? yield* toListedEntity(row) : null;
 			},
 		),
 		findGlobalEntityByExternalId: Effect.fn("EntitiesRepository.findGlobalEntityByExternalId")(
@@ -299,7 +311,7 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 						.limit(1),
 				);
 
-				return row ? toListedEntity(row) : null;
+				return row ? yield* toListedEntity(row) : null;
 			},
 		),
 		findEntitySchemaById: Effect.fn("EntitiesRepository.findEntitySchemaById")(function* (
@@ -381,7 +393,7 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 				);
 
 				if (inserted[0]) {
-					return toListedEntity(inserted[0]);
+					return yield* toListedEntity(inserted[0]);
 				}
 
 				const [existing] = yield* dbEffect(() =>
@@ -418,11 +430,11 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 					);
 
 					if (updated) {
-						return toListedEntity(updated);
+						return yield* toListedEntity(updated);
 					}
 				}
 
-				return toListedEntity(existing);
+				return yield* toListedEntity(existing);
 			},
 		),
 		createEntity: Effect.fn("EntitiesRepository.createEntity")(function* (input: {
@@ -465,7 +477,7 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 
 				const created = rows[0];
 				if (created) {
-					return toListedEntity(created);
+					return yield* toListedEntity(created);
 				}
 
 				const existing = yield* Effect.flatMap(Effect.succeed(input), (repositoryInput) =>
@@ -485,7 +497,7 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 								.limit(1),
 						);
 
-						return row ? toListedEntity(row) : null;
+						return row ? yield* toListedEntity(row) : null;
 					}),
 				);
 
@@ -504,7 +516,7 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 				return yield* new DbError({ message: "Entity insert returned no row" });
 			}
 
-			return toListedEntity(row);
+			return yield* toListedEntity(row);
 		}),
 	}),
 }) {}

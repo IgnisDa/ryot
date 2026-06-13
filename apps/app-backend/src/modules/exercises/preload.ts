@@ -24,26 +24,6 @@ class BuiltinEntityPreloadError extends Schema.TaggedError<BuiltinEntityPreloadE
 	{ message: Schema.String },
 ) {}
 
-const extractPrimaryRemoteImage = (images: unknown) => {
-	if (!Array.isArray(images)) {
-		return null;
-	}
-
-	for (const image of images) {
-		if (typeof image !== "object" || image === null) {
-			continue;
-		}
-
-		const type = Reflect.get(image, "type");
-		const url = Reflect.get(image, "url");
-		if (type === "remote" && typeof url === "string" && url.length > 0) {
-			return { type: "remote" as const, url };
-		}
-	}
-
-	return null;
-};
-
 const countImportedGlobalEntities = Effect.fn(function* (input: {
 	entitySchemaId: string;
 	sandboxScriptId: string;
@@ -228,10 +208,10 @@ export const BuiltinEntityPreloaderLive = Layer.scopedDiscard(
 						externalId,
 						populatedAt,
 						name: details.name,
+						image: details.image ?? null,
 						properties: validatedProperties,
 						entitySchemaId: preloadTarget.entitySchemaId,
 						sandboxScriptId: preloadTarget.sandboxScriptId,
-						image: extractPrimaryRemoteImage(validatedProperties.images),
 					}),
 				);
 			});
