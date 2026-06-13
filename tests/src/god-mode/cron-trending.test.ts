@@ -143,4 +143,5 @@ describe("POST /god-mode/cron/infrequent (media-trending durable workflow)", () 
 		assertPresent(rankTwo, "missing rank for second trending item");
 		// Ranks follow save order deterministically; the first-saved item ranks ahead.
 		expect(rankOne).toBeLessThan(rankTwo);
+	});
 });
