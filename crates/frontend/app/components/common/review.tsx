@@ -22,9 +22,9 @@ import {
 	type MediaLot,
 	type ReviewItem,
 	UserReviewScale,
-} from "@ryot/generated/graphql/backend/graphql";
-import { isNumber } from "@ryot/ts-utils/lodash";
-import { getInitials } from "@ryot/ts-utils/string";
+} from "@ryot-app/generated/graphql/backend/graphql";
+import { isNumber } from "@ryot-app/ts-utils/lodash";
+import { getInitials } from "@ryot-app/ts-utils/string";
 import {
 	IconArrowBigUp,
 	IconCheck,

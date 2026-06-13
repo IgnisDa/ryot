@@ -1,6 +1,6 @@
-import type { ContractPayload, ContractSuccess } from "@ryot/contract/client";
-import type { RowItem, RowsResult, RyotQLResult } from "@ryot/contract/modules/ryotql/language";
-import type { PreparedRecipe } from "@ryot/ryotql";
+import type { ContractPayload, ContractSuccess } from "@ryot-app/contract/client";
+import type { RowItem, RowsResult, RyotQLResult } from "@ryot-app/contract/modules/ryotql/language";
+import type { PreparedRecipe } from "@ryot-app/ryotql";
 import { Effect } from "effect";
 
 import { requireString, resultToEffect } from "~/support/assertions";

@@ -1,4 +1,4 @@
-import type { RowItem } from "@ryot/contract/modules/ryotql/language";
+import type { RowItem } from "@ryot-app/contract/modules/ryotql/language";
 import {
 	add,
 	and,
@@ -28,7 +28,7 @@ import {
 	subtract,
 	sum,
 	table,
-} from "@ryot/ryotql";
+} from "@ryot-app/ryotql";
 import { Effect } from "effect";
 
 import {

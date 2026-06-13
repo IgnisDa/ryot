@@ -1,5 +1,5 @@
-import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
-import type { ImportRunFailureReason } from "@ryot/contract/modules/imports/schemas";
+import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
+import type { ImportRunFailureReason } from "@ryot-app/contract/modules/imports/schemas";
 import {
 	type CreateIntegrationBody,
 	type IntegrationExtraSettings,
@@ -9,9 +9,9 @@ import {
 	IntegrationNotFoundError,
 	IntegrationRequestError,
 	type IntegrationRequestFailureReason,
-} from "@ryot/contract/modules/integrations/schemas";
-import type { ImportRunId, IntegrationId, UserId } from "@ryot/contract/schema/brands";
-import type { AppSchema } from "@ryot/contract/schema/property-schema";
+} from "@ryot-app/contract/modules/integrations/schemas";
+import type { ImportRunId, IntegrationId, UserId } from "@ryot-app/contract/schema/brands";
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { generateId } from "better-auth";
 import { Context, Effect, Result, Layer } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";

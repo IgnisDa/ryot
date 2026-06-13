@@ -2,7 +2,7 @@ import type {
 	NavigationData,
 	NavigationView,
 	NavigationWorkspace,
-} from "@ryot/ryotql-recipes/navigation";
+} from "@ryot-app/ryotql-recipes/navigation";
 
 export type NavigationItem = NavigationView & { kind: "view" | "collection" | "home" };
 

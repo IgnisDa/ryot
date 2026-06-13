@@ -1,5 +1,5 @@
-import type { ContractPayload } from "@ryot/contract/client";
-import { PluginSlug } from "@ryot/contract/schema/brands";
+import type { ContractPayload } from "@ryot-app/contract/client";
+import { PluginSlug } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
 import { requirePresent } from "~/support/assertions";

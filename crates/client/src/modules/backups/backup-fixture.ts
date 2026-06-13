@@ -1,5 +1,5 @@
-import type { BackupRun, ListRunsResponse } from "@ryot/contract/modules/backups/schemas";
-import { BackupRunId } from "@ryot/contract/schema/brands";
+import type { BackupRun, ListRunsResponse } from "@ryot-app/contract/modules/backups/schemas";
+import { BackupRunId } from "@ryot-app/contract/schema/brands";
 
 export const NOW_MS = Date.parse("2026-03-13T12:00:00.000Z");
 

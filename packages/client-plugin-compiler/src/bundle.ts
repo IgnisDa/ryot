@@ -1,4 +1,4 @@
-import { sortBy } from "@ryot/ts-utils/lodash";
+import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { Effect } from "effect";
 
 import { isTrustedClientModule } from "./dependencies";

@@ -1,7 +1,7 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
-import type { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
-import type { SavedViewRecord } from "@ryot/ryotql-recipes/saved-view-records";
-import { savedViewRecipe } from "@ryot/ryotql-recipes/saved-views";
+import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
+import type { SavedViewRecord } from "@ryot-app/ryotql-recipes/saved-view-records";
+import { savedViewRecipe } from "@ryot-app/ryotql-recipes/saved-views";
 import { Effect } from "effect";
 import { useEffect, useEffectEvent, useLayoutEffect, useReducer, useRef } from "react";
 

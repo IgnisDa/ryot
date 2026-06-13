@@ -1,4 +1,4 @@
-import type { PluginClientCatalogEntry } from "@ryot/ryotql-recipes/plugin-client-catalog";
+import type { PluginClientCatalogEntry } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { describe, expect, it } from "vitest";
 
 import { resolveRouteTarget } from "#/modules/plugins/route-resolver";

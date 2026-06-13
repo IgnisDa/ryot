@@ -1,6 +1,6 @@
 import { expect, it } from "@effect/vitest";
-import { encodeEntityUpdatedMessage } from "@ryot/contract/modules/entity-interest/messages";
-import { EntityId } from "@ryot/contract/schema/brands";
+import { encodeEntityUpdatedMessage } from "@ryot-app/contract/modules/entity-interest/messages";
+import { EntityId } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer } from "effect";
 import Redis from "ioredis";
 

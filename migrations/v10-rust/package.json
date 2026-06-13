@@ -1,5 +1,5 @@
 {
-	"name": "@ryot/v10-rust-migration",
+	"name": "@ryot-app/v10-rust-migration",
 	"exports": {
 		"./*": "./src/*.ts"
 	},
@@ -9,8 +9,8 @@
 	"dependencies": {
 		"@better-auth/core": "1.7.2",
 		"@effect/sql-pg": "4.0.0-beta.107",
-		"@ryot/contract": "workspace:*",
-		"@ryot/kernel-backend": "workspace:*",
+		"@ryot-app/contract": "workspace:*",
+		"@ryot-app/kernel-backend": "workspace:*",
 		"drizzle-orm": "1.0.0-rc.5-169397b",
 		"effect": "4.0.0-rc.111"
 	},

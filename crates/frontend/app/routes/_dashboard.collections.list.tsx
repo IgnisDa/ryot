@@ -21,8 +21,8 @@ import {
 	EntityLot,
 	GraphqlSortOrder,
 	type UserCollectionsListQuery,
-} from "@ryot/generated/graphql/backend/graphql";
-import { truncate } from "@ryot/ts-utils/lodash";
+} from "@ryot-app/generated/graphql/backend/graphql";
+import { truncate } from "@ryot-app/ts-utils/lodash";
 import { IconEdit, IconPlus, IconTrashFilled } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { parseAsBoolean, parseAsString } from "nuqs";

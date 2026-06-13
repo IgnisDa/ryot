@@ -1,6 +1,6 @@
-import { JsonValue } from "@ryot/contract/modules/ryotql/language";
-import { EntityId, EntitySchemaSlug, SandboxProviderId } from "@ryot/contract/schema/brands";
-import type { Recipe } from "@ryot/ryotql";
+import { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
+import { EntityId, EntitySchemaSlug, SandboxProviderId } from "@ryot-app/contract/schema/brands";
+import type { Recipe } from "@ryot-app/ryotql";
 import {
 	ascending,
 	column,
@@ -10,7 +10,7 @@ import {
 	selectedField,
 	selectedRows,
 	table,
-} from "@ryot/ryotql";
+} from "@ryot-app/ryotql";
 import { Result, Schema } from "effect";
 
 import { IsoDateString } from "./codecs";

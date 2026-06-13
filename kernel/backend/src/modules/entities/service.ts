@@ -1,16 +1,16 @@
-import type { AutomationOrigin } from "@ryot/contract/modules/automations/schemas";
+import type { AutomationOrigin } from "@ryot-app/contract/modules/automations/schemas";
 import {
 	EntityBadRequest,
 	EntityNotFound,
 	type ListedEntity,
-} from "@ryot/contract/modules/entities/schemas";
+} from "@ryot-app/contract/modules/entities/schemas";
 import type {
 	EntityId,
 	EntitySchemaSlug,
 	SandboxProviderId,
 	UserId,
-} from "@ryot/contract/schema/brands";
-import { isObjectRecord } from "@ryot/ts-utils/predicates";
+} from "@ryot-app/contract/schema/brands";
+import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { generateId } from "better-auth";
 import { Context, DateTime, Effect, Layer } from "effect";
 

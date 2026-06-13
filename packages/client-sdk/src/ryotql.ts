@@ -1,1 +1,1 @@
-export * from "@ryot/ryotql";
+export * from "@ryot-app/ryotql";

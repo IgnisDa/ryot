@@ -1,17 +1,17 @@
-import type { BadRequest, DbError, NotFound } from "@ryot/contract/errors";
+import type { BadRequest, DbError, NotFound } from "@ryot-app/contract/errors";
 import {
 	PluginConflictError,
 	PluginInvocationError,
 	PluginNotFoundError,
 	PluginRequestError,
-} from "@ryot/contract/modules/plugins/schemas";
+} from "@ryot-app/contract/modules/plugins/schemas";
 import {
 	type IntegrationId,
 	PluginSlug,
 	type SandboxScriptId,
 	type UserId,
-} from "@ryot/contract/schema/brands";
-import { isJsonValue, type JsonValue } from "@ryot/contract/schema/json";
+} from "@ryot-app/contract/schema/brands";
+import { isJsonValue, type JsonValue } from "@ryot-app/contract/schema/json";
 import { generateId } from "better-auth";
 import { Context, Effect, Layer, Option, Result } from "effect";
 import type { Headers as PlatformHeaders } from "effect/unstable/http";

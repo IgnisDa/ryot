@@ -1,7 +1,7 @@
 import { BunFileSystem } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
-import { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
-import { sortBy } from "@ryot/ts-utils/lodash";
+import { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { Effect, FileSystem, Schema } from "effect";
 
 import { mediaLibraryEligibleEntitySchemaSlugs } from "./backend/schemas/media-schema-slugs";

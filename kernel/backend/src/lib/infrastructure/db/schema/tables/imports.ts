@@ -1,12 +1,15 @@
-import type { ImportRunFailureReason } from "@ryot/contract/modules/imports/schemas";
-import type { ImportRunFailureStage, ImportRunSource } from "@ryot/contract/modules/imports/types";
+import type { ImportRunFailureReason } from "@ryot-app/contract/modules/imports/schemas";
+import type {
+	ImportRunFailureStage,
+	ImportRunSource,
+} from "@ryot-app/contract/modules/imports/types";
 import type {
 	IntegrationExtraSettings,
 	IntegrationProvider,
 	IntegrationProviderSettings,
-} from "@ryot/contract/modules/integrations/schemas";
-import type { IntegrationLot } from "@ryot/contract/modules/integrations/types";
-import type { RunStatus } from "@ryot/contract/schema/run-status";
+} from "@ryot-app/contract/modules/integrations/schemas";
+import type { IntegrationLot } from "@ryot-app/contract/modules/integrations/types";
+import type { RunStatus } from "@ryot-app/contract/schema/run-status";
 import { generateId } from "better-auth";
 import { sql } from "drizzle-orm";
 import {

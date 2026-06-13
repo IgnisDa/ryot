@@ -21,8 +21,8 @@ import {
 	type MediaLot,
 	UserReviewScale,
 	UserToMediaReason,
-} from "@ryot/generated/graphql/backend/graphql";
-import { changeCase, getInitials } from "@ryot/ts-utils/string";
+} from "@ryot-app/generated/graphql/backend/graphql";
+import { changeCase, getInitials } from "@ryot-app/ts-utils/string";
 import {
 	IconArchive,
 	IconBackpack,

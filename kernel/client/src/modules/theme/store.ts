@@ -1,7 +1,7 @@
 import {
 	PluginThemeSnapshot,
 	REQUIRED_THEME_TOKEN_NAMES,
-} from "@ryot/contract/modules/plugins/client";
+} from "@ryot-app/contract/modules/plugins/client";
 import { Schema } from "effect";
 
 import {

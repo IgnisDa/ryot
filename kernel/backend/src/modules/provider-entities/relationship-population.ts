@@ -1,14 +1,14 @@
-import { SandboxRunError, dieOnDbError, mapDbErrorToSandbox } from "@ryot/contract/errors";
+import { SandboxRunError, dieOnDbError, mapDbErrorToSandbox } from "@ryot-app/contract/errors";
 import {
 	EntitySchemaSlug,
 	RelationshipSchemaSlug,
 	type EntityId,
 	type UserId,
-} from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/schema/brands";
 import type {
 	ProviderDetailsRelatedEntity,
 	ProviderDetailsRelatedEntityGroup,
-} from "@ryot/sandbox-sdk/provider";
+} from "@ryot-app/sandbox-sdk/provider";
 import { Effect, Option } from "effect";
 
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";

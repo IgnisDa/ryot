@@ -1,4 +1,4 @@
-import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 import {
 	createLogCollector,
@@ -58,11 +58,13 @@ const bridgeFetch = globalThis.fetch.bind(globalThis);
 const exitDeno: (code?: number) => never = Deno.exit.bind(Deno);
 const getOwnPropertyDescriptor = Object.getOwnPropertyDescriptor;
 const performanceNow = performance.now.bind(performance);
-const filesystemKey = Symbol.for("@ryot/sandbox-sdk/filesystem");
+const filesystemKey = Symbol.for("@ryot-app/sandbox-sdk/filesystem");
 const generatorFunction = Object.getPrototypeOf(function* () {}).constructor as Function;
 const asyncFunction = Object.getPrototypeOf(async function () {}).constructor as Function;
 const stringIncludes = String.prototype.includes.call.bind(String.prototype.includes);
-const approvedDependencyRuntimeKey = Symbol.for("@ryot/sandbox-sdk/approved-dependency-runtime");
+const approvedDependencyRuntimeKey = Symbol.for(
+	"@ryot-app/sandbox-sdk/approved-dependency-runtime",
+);
 const asyncGeneratorFunction = Object.getPrototypeOf(async function* () {}).constructor as Function;
 
 const strictStruct = <Fields extends Schema.Struct.Fields>(fields: Fields) =>

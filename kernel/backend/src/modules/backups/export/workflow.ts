@@ -1,5 +1,5 @@
-import { InternalError, internalError } from "@ryot/contract/errors";
-import { BackupRunId, UserId } from "@ryot/contract/schema/brands";
+import { InternalError, internalError } from "@ryot-app/contract/errors";
+import { BackupRunId, UserId } from "@ryot-app/contract/schema/brands";
 import { Context, DateTime, Effect, FileSystem, Layer, Result, Schema, Stream } from "effect";
 import { Activity, Workflow } from "effect/unstable/workflow";
 

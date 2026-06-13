@@ -1,12 +1,12 @@
-import { DbError } from "@ryot/contract/errors";
+import { DbError } from "@ryot-app/contract/errors";
 import type {
 	UserLifecycleOperation,
 	UserLifecycleOperationFailure,
 	UserLifecycleOperationKind,
 	UserResetResult,
-} from "@ryot/contract/modules/god-mode/user-lifecycle";
-import { ManagedAssetLocator } from "@ryot/contract/modules/uploads/schemas";
-import { UserId } from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/modules/god-mode/user-lifecycle";
+import { ManagedAssetLocator } from "@ryot-app/contract/modules/uploads/schemas";
+import { UserId } from "@ryot-app/contract/schema/brands";
 import { and, desc, eq, inArray, isNotNull, isNull, lt, or, sql } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Schema } from "effect";
 

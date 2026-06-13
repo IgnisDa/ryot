@@ -1,8 +1,8 @@
-import { reservedPluginSlugs } from "@ryot/contract/modules/plugins/schemas";
+import { reservedPluginSlugs } from "@ryot-app/contract/modules/plugins/schemas";
 import type {
 	PluginClientCatalog,
 	PluginClientCatalogEntry,
-} from "@ryot/ryotql-recipes/plugin-client-catalog";
+} from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 
 export type RouteTarget =
 	| { readonly owner: "kernel"; readonly surface: { readonly kind: "not-found" } }

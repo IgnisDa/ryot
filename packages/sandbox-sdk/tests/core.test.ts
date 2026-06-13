@@ -8,9 +8,9 @@ import {
 	spanArgsSchema,
 	upsertGlobalEntitiesArgsSchema,
 	upsertGlobalRelationshipsArgsSchema,
-} from "@ryot/sandbox-sdk/core";
-import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
-import { defineSandboxTestHost, runSandboxTestScript } from "@ryot/sandbox-sdk/testing";
+} from "@ryot-app/sandbox-sdk/core";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/sandbox-sdk/testing";
 import { describe, expect, test } from "vitest";
 
 import { SANDBOX_SCRIPT_DEFINITION, defineManifest, defineScript } from "../src/driver";

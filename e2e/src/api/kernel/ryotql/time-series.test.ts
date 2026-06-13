@@ -1,4 +1,4 @@
-import type { RyotQLResult, TimeSeriesResult } from "@ryot/contract/modules/ryotql/language";
+import type { RyotQLResult, TimeSeriesResult } from "@ryot-app/contract/modules/ryotql/language";
 import {
 	and,
 	castDate,
@@ -11,7 +11,7 @@ import {
 	literal,
 	table,
 	timeSeries,
-} from "@ryot/ryotql";
+} from "@ryot-app/ryotql";
 import { Effect } from "effect";
 
 import {

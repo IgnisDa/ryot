@@ -1,7 +1,7 @@
 import type {
 	PluginBridgeNavigate,
 	PluginLogicalLocation,
-} from "@ryot/contract/modules/plugins/client";
+} from "@ryot-app/contract/modules/plugins/client";
 
 export type PluginNavigationRequest = {
 	readonly href: string;

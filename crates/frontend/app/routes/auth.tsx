@@ -8,10 +8,10 @@ import {
 	LoginUserDocument,
 	RegisterErrorVariant,
 	RegisterUserDocument,
-} from "@ryot/generated/graphql/backend/graphql";
-import { startCase } from "@ryot/ts-utils/lodash";
-import { getActionIntent, parseSearchQuery, processSubmission } from "@ryot/ts-utils/request";
-import { zodBoolAsString, zodNumAsString } from "@ryot/ts-utils/zod";
+} from "@ryot-app/generated/graphql/backend/graphql";
+import { startCase } from "@ryot-app/ts-utils/lodash";
+import { getActionIntent, parseSearchQuery, processSubmission } from "@ryot-app/ts-utils/request";
+import { zodBoolAsString, zodNumAsString } from "@ryot-app/ts-utils/zod";
 import { IconAt } from "@tabler/icons-react";
 import { data, Form, Link, redirect, useLoaderData } from "react-router";
 import { $path } from "safe-routes";

@@ -1,6 +1,6 @@
-import { notFound } from "@ryot/contract/errors";
-import { MAX_INTEREST_ENTITY_IDS } from "@ryot/contract/modules/entity-interest/messages";
-import { UserId } from "@ryot/contract/schema/brands";
+import { notFound } from "@ryot-app/contract/errors";
+import { MAX_INTEREST_ENTITY_IDS } from "@ryot-app/contract/modules/entity-interest/messages";
+import { UserId } from "@ryot-app/contract/schema/brands";
 import { Clock, Context, Effect, Layer, Schema } from "effect";
 
 import {

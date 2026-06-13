@@ -8,7 +8,7 @@ import {
 	MediaTranslationPendingStatus,
 	type PodcastTranslationExtraInformationInput,
 	type ShowTranslationExtraInformationInput,
-} from "@ryot/generated/graphql/backend/graphql";
+} from "@ryot-app/generated/graphql/backend/graphql";
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 

@@ -4,7 +4,7 @@ import {
 	collectSecretProperties,
 	collectTranslatableProperties,
 	isAppPropertyRequired,
-} from "@ryot/contract/schema/property-schema";
+} from "@ryot-app/contract/schema/property-schema";
 import { describe, expect, it } from "vitest";
 
 import {

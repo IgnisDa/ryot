@@ -1,8 +1,8 @@
 import {
 	limitSandboxCompilationDiagnostics,
 	sandboxCompilerDiagnostic,
-} from "@ryot/sandbox-compiler/diagnostics";
-import { jsonByteLength, utf8ByteLength } from "@ryot/sandbox-compiler/limits";
+} from "@ryot-app/sandbox-compiler/diagnostics";
+import { jsonByteLength, utf8ByteLength } from "@ryot-app/sandbox-compiler/limits";
 import { describe, expect, it } from "vitest";
 
 import {

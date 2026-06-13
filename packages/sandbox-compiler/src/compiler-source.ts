@@ -1,11 +1,11 @@
-import type { SandboxManifest } from "@ryot/sandbox-sdk/core";
+import type { SandboxManifest } from "@ryot-app/sandbox-sdk/core";
 import {
 	SANDBOX_SDK_AUTOMATION_IMPORT,
 	SANDBOX_SDK_IMPORTS,
 	SANDBOX_SDK_PROVIDER_IMPORT,
 	SANDBOX_SDK_ROOT_IMPORT,
 	SANDBOX_SDK_WORKFLOW_IMPORT,
-} from "@ryot/sandbox-sdk/imports";
+} from "@ryot-app/sandbox-sdk/imports";
 import * as ts from "typescript/unstable/ast";
 
 import {
@@ -170,7 +170,7 @@ export const inspectWorkflowImports = (file: ts.SourceFile) => {
 	for (const statement of file.statements) {
 		if (
 			(ts.isImportDeclaration(statement) || ts.isExportDeclaration(statement)) &&
-			getModuleSpecifier(statement) === "@ryot/sandbox-sdk/effect"
+			getModuleSpecifier(statement) === "@ryot-app/sandbox-sdk/effect"
 		) {
 			diagnostics.push(
 				diagnosticAt(
@@ -227,8 +227,8 @@ const inspectImports = (file: ts.SourceFile, allowRelativeImports: boolean) => {
 					specifier === SANDBOX_SDK_AUTOMATION_IMPORT ||
 					specifier === SANDBOX_SDK_PROVIDER_IMPORT ||
 					specifier === SANDBOX_SDK_WORKFLOW_IMPORT ||
-					specifier === "@ryot/sandbox-sdk/driver" ||
-					specifier === "@ryot/sandbox-sdk/operation")
+					specifier === "@ryot-app/sandbox-sdk/driver" ||
+					specifier === "@ryot-app/sandbox-sdk/operation")
 			) {
 				const bindings = statement.importClause?.namedBindings;
 				if (bindings && ts.isNamedImports(bindings)) {

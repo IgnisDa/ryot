@@ -1,16 +1,19 @@
-import { unknownToMessage } from "@ryot/contract/errors";
-import { CreateEventItem, type CreateEventsResponse } from "@ryot/contract/modules/events/schemas";
-import { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
+import { unknownToMessage } from "@ryot-app/contract/errors";
+import {
+	CreateEventItem,
+	type CreateEventsResponse,
+} from "@ryot-app/contract/modules/events/schemas";
+import { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 import {
 	EntityId,
 	EntitySchemaSlug,
 	IntegrationId,
 	RelationshipSchemaSlug,
 	UserId,
-} from "@ryot/contract/schema/brands";
-import { sha256Base64Url } from "@ryot/ts-utils/crypto";
-import { stableStringify } from "@ryot/ts-utils/json";
-import { isObjectRecord } from "@ryot/ts-utils/predicates";
+} from "@ryot-app/contract/schema/brands";
+import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
+import { stableStringify } from "@ryot-app/ts-utils/json";
+import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { eq } from "drizzle-orm";
 import { Effect, Schema } from "effect";
 

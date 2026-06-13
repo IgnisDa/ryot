@@ -1,10 +1,10 @@
-import { defaultUserPreferences } from "@ryot/contract/auth-middleware";
+import { defaultUserPreferences } from "@ryot-app/contract/auth-middleware";
 import {
 	AutomationRuleId,
 	EntitySchemaSlug,
 	SignalSchemaSlug,
 	UserId,
-} from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/schema/brands";
 import { describe, expect, it } from "vitest";
 
 import { type AccountCleanlinessState, classifyAccountCleanliness } from "./account-cleanliness";

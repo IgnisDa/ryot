@@ -1,11 +1,11 @@
 import { expect, it } from "@effect/vitest";
-import { SandboxRunError } from "@ryot/contract/errors";
+import { SandboxRunError } from "@ryot-app/contract/errors";
 import {
 	EntityId,
 	EntitySchemaSlug,
 	SandboxProviderId,
 	UserId,
-} from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 

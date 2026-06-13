@@ -1,5 +1,5 @@
 import { expect, it } from "@effect/vitest";
-import { UserId } from "@ryot/contract/schema/brands";
+import { UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Fiber } from "effect";
 import { TestClock } from "effect/testing";
 

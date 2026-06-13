@@ -20,9 +20,9 @@ import {
 	ExerciseSource,
 	UpdateCustomExerciseDocument,
 	type UpdateCustomExerciseInput,
-} from "@ryot/generated/graphql/backend/graphql";
-import { startCase } from "@ryot/ts-utils/lodash";
-import { parseParameters, parseSearchQuery } from "@ryot/ts-utils/request";
+} from "@ryot-app/generated/graphql/backend/graphql";
+import { startCase } from "@ryot-app/ts-utils/lodash";
+import { parseParameters, parseSearchQuery } from "@ryot-app/ts-utils/request";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo } from "react";
 import { useLoaderData, useNavigate } from "react-router";

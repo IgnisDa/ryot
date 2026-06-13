@@ -1,4 +1,4 @@
-import type { NavigationData } from "@ryot/ryotql-recipes/navigation";
+import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import { AsyncResult } from "effect/unstable/reactivity";
 import { describe, expect, it } from "vitest";
 

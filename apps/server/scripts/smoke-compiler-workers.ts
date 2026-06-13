@@ -4,8 +4,8 @@ import { BunServices, BunRuntime } from "@effect/platform-bun";
 import {
 	decodeClientCompilerWorkerResponse,
 	encodeClientCompilerWorkerRequest,
-} from "@ryot/client-plugin-compiler/protocol";
-import { CompilerWorkerResponse } from "@ryot/sandbox-compiler/protocol";
+} from "@ryot-app/client-plugin-compiler/protocol";
+import { CompilerWorkerResponse } from "@ryot-app/sandbox-compiler/protocol";
 import { Data, Effect, Schema, Stream } from "effect";
 import { ChildProcess } from "effect/unstable/process";
 
@@ -14,7 +14,7 @@ class CompilerWorkerSmokeError extends Data.TaggedError("CompilerWorkerSmokeErro
 }> {}
 
 const sandboxSource = `
-import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot/sandbox-sdk/workflow";
+import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/sandbox-sdk/workflow";
 
 export const manifest = defineManifest({
 	name: "Smoke",
@@ -39,8 +39,8 @@ const clientRequest = encodeClientCompilerWorkerRequest({
 	files: {
 		"client/index.tsx": new TextEncoder().encode(`
 import "./styles.css";
-import { bootstrapClientPlugin } from "@ryot/client-sdk/plugin";
-import { Button } from "@ryot/client-ui-sdk";
+import { bootstrapClientPlugin } from "@ryot-app/client-sdk/plugin";
+import { Button } from "@ryot-app/client-ui-sdk";
 import { useState } from "react";
 import logo from "./logo.svg";
 

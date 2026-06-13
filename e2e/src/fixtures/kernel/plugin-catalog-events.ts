@@ -1,7 +1,7 @@
 import {
 	PLUGIN_CATALOG_CONNECTED_EVENT,
 	PLUGIN_CATALOG_INVALIDATED_EVENT,
-} from "@ryot/contract/modules/plugins/contract";
+} from "@ryot-app/contract/modules/plugins/contract";
 import { Effect, Fiber, Stream } from "effect";
 
 import type { ContractSession } from "./contract-client";

@@ -1,5 +1,5 @@
-import type { CoreSandboxHostMethodMap } from "@ryot/sandbox-sdk/core";
-import { Effect } from "@ryot/sandbox-sdk/effect";
+import type { CoreSandboxHostMethodMap } from "@ryot-app/sandbox-sdk/core";
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
 
 export type HttpHost = { readonly httpCall: CoreSandboxHostMethodMap["httpCall"] };
 type QueryValue = boolean | number | string | undefined;

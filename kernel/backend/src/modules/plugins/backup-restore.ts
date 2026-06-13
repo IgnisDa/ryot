@@ -1,6 +1,6 @@
-import { badRequest } from "@ryot/contract/errors";
-import type { UserId } from "@ryot/contract/schema/brands";
-import { stableStringify } from "@ryot/ts-utils/json";
+import { badRequest } from "@ryot-app/contract/errors";
+import type { UserId } from "@ryot-app/contract/schema/brands";
+import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import type { V2PrivatePlugin } from "#modules/backups/archive-v2/schemas";

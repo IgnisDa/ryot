@@ -1,7 +1,7 @@
 import { expect, it } from "@effect/vitest";
-import { DbError } from "@ryot/contract/errors";
-import { BackupConflict } from "@ryot/contract/modules/backups/schemas";
-import { BackupRunId, UserId } from "@ryot/contract/schema/brands";
+import { DbError } from "@ryot-app/contract/errors";
+import { BackupConflict } from "@ryot-app/contract/modules/backups/schemas";
+import { BackupRunId, UserId } from "@ryot-app/contract/schema/brands";
 import type { SQLWrapper } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Effect, Layer } from "effect";

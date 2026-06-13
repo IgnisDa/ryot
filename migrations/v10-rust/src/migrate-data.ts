@@ -1,9 +1,9 @@
 import {
 	formatPropertyIssues,
 	parseAppSchemaProperties,
-} from "@ryot/kernel-backend/lib/property-schema/property-schema-runtime";
-import { bootstrapNewUser } from "@ryot/kernel-backend/modules/user-bootstrap/bootstrap";
-import { PluginUserBootstrapDispatcher } from "@ryot/kernel-backend/modules/user-bootstrap/plugin-dispatch";
+} from "@ryot-app/kernel-backend/lib/property-schema/property-schema-runtime";
+import { bootstrapNewUser } from "@ryot-app/kernel-backend/modules/user-bootstrap/bootstrap";
+import { PluginUserBootstrapDispatcher } from "@ryot-app/kernel-backend/modules/user-bootstrap/plugin-dispatch";
 import { Clock, Effect } from "effect";
 
 import {

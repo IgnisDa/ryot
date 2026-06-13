@@ -1,12 +1,12 @@
-import { badRequest, DbError } from "@ryot/contract/errors";
-import type { AssetLocator } from "@ryot/contract/modules/uploads/schemas";
+import { badRequest, DbError } from "@ryot-app/contract/errors";
+import type { AssetLocator } from "@ryot-app/contract/modules/uploads/schemas";
 import {
 	EntityId,
 	EntitySchemaSlug,
 	SignalSchemaSlug,
 	type UserId,
-} from "@ryot/contract/schema/brands";
-import type { AppPropertyDefinition, AppSchema } from "@ryot/contract/schema/property-schema";
+} from "@ryot-app/contract/schema/brands";
+import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { Context, Data, Effect, Layer, Stream } from "effect";
 
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";

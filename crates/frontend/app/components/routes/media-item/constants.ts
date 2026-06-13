@@ -1,4 +1,4 @@
-import { MediaLot } from "@ryot/generated/graphql/backend/graphql";
+import { MediaLot } from "@ryot-app/generated/graphql/backend/graphql";
 
 import { dayjsLib } from "~/lib/shared/date-utils";
 

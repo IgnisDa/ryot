@@ -1,7 +1,7 @@
-import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
-import type { AppPropertyDefinition, AppSchema } from "@ryot/contract/schema/property-schema";
-import { isAppPropertyRequired } from "@ryot/contract/schema/property-schema";
-import { stableStringify } from "@ryot/ts-utils/json";
+import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { isAppPropertyRequired } from "@ryot-app/contract/schema/property-schema";
+import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Data, Effect } from "effect";
 
 export type SchemaEvolutionIssue = {

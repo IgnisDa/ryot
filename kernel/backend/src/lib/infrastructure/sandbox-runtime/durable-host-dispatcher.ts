@@ -1,11 +1,11 @@
-import { SandboxRunError, unknownToMessage } from "@ryot/contract/errors";
-import { PluginHttpRateLimit } from "@ryot/contract/modules/plugins/manifest";
-import { UserId } from "@ryot/contract/schema/brands";
-import { createEventItemSchema } from "@ryot/sandbox-sdk/core";
+import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
+import { PluginHttpRateLimit } from "@ryot-app/contract/modules/plugins/manifest";
+import { UserId } from "@ryot-app/contract/schema/brands";
+import { createEventItemSchema } from "@ryot-app/sandbox-sdk/core";
 import {
 	type WorkflowDurableResult,
 	workflowDurableResultSchema,
-} from "@ryot/sandbox-sdk/workflow";
+} from "@ryot-app/sandbox-sdk/workflow";
 import { Cause, Clock, Duration, Effect, Layer, Schema } from "effect";
 import { Activity, DurableClock } from "effect/unstable/workflow";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";

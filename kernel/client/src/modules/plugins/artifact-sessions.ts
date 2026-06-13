@@ -2,8 +2,8 @@ import {
 	PluginArtifactSessionNotFoundError,
 	PluginArtifactSessionUnavailableError,
 	PluginConflictError,
-} from "@ryot/contract/modules/plugins/schemas";
-import { PluginSlug } from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/modules/plugins/schemas";
+import { PluginSlug } from "@ryot-app/contract/schema/brands";
 import { Context, Data, Effect, Layer, Schema } from "effect";
 import { HttpClientError } from "effect/unstable/http";
 

@@ -41,7 +41,7 @@ Native application
                     ├── kernel screens
                     └── plugin iframe — React DOM
                           │
-                           └── @ryot/client-sdk/plugin
+                           └── @ryot-app/client-sdk/plugin
 
 Kernel JavaScript
   │
@@ -227,11 +227,11 @@ React DOM
 TypeScript / TSX
 Tailwind CSS
 clsx
-@ryot/client-sdk
-@ryot/client-sdk/react
-@ryot/client-sdk/plugin
-@ryot/client-sdk/effect
-@ryot/client-ui-sdk
+@ryot-app/client-sdk
+@ryot-app/client-sdk/react
+@ryot-app/client-sdk/plugin
+@ryot-app/client-sdk/effect
+@ryot-app/client-ui-sdk
 browser APIs
 ```
 
@@ -304,13 +304,13 @@ react-dom/client
 react/jsx-runtime
 clsx
 
-@ryot/client-sdk
-@ryot/client-sdk/react
-@ryot/client-sdk/plugin
-@ryot/client-sdk/effect
-@ryot/client-sdk/ryotql
+@ryot-app/client-sdk
+@ryot-app/client-sdk/react
+@ryot-app/client-sdk/plugin
+@ryot-app/client-sdk/effect
+@ryot-app/client-sdk/ryotql
 
-@ryot/client-ui-sdk
+@ryot-app/client-ui-sdk
 ```
 
 Plugin-local relative imports are also allowed.
@@ -354,9 +354,9 @@ There is no alternate compatibility representation for client files.
 
 Bun is the client bundler/compiler.
 
-Client compilation is owned by `@ryot/client-plugin-compiler`. Generic TypeScript infrastructure is owned by the private `@ryot/typescript-compiler` package, which shares TypeScript 7 native compiler resolution, virtual project lifecycle, diagnostic collection, and diagnostic normalization between the client and backend compilers.
+Client compilation is owned by `@ryot-app/client-plugin-compiler`. Generic TypeScript infrastructure is owned by the private `@ryot-app/typescript-compiler` package, which shares TypeScript 7 native compiler resolution, virtual project lifecycle, diagnostic collection, and diagnostic normalization between the client and backend compilers.
 
-`@ryot/client-plugin-compiler` and `@ryot/sandbox-compiler` remain separate compiler engines. They have independent import policies, limits, protocols, output models, and public APIs. The engines do not call or adapt to one another and have no shared execution mode, compiler bridge, or fallback. They share only the generic TypeScript infrastructure and the server-owned process-supervision boundary.
+`@ryot-app/client-plugin-compiler` and `@ryot-app/sandbox-compiler` remain separate compiler engines. They have independent import policies, limits, protocols, output models, and public APIs. The engines do not call or adapt to one another and have no shared execution mode, compiler bridge, or fallback. They share only the generic TypeScript infrastructure and the server-owned process-supervision boundary.
 
 Both compiler engines use the same server-owned process supervision boundary for child-process lifecycle, bounded concurrency, timeouts, process-tree memory sampling, and termination. Their compiler packages own their production dependencies and compiler-specific contracts; the production image installs those dependencies through filters for both compiler packages rather than from uploaded plugin manifests.
 
@@ -386,11 +386,11 @@ plugin source
     └── imports from approved Ryot SDKs
           │
           ▼
-@ryot/client-plugin-compiler
+@ryot-app/client-plugin-compiler
           │
           ├── trusted module resolver
           ├── semantic checker
-          │     └── @ryot/typescript-compiler
+          │     └── @ryot-app/typescript-compiler
           ├── Tailwind compilation
           ├── Outfit and Lora font assets
           └── Bun browser build
@@ -549,9 +549,9 @@ Normal Tailwind static-analysis rules apply. Plugins must not assume that arbitr
 
 ---
 
-## 9. `@ryot/client-ui-sdk`
+## 9. `@ryot-app/client-ui-sdk`
 
-`@ryot/client-ui-sdk` is the supported React UI platform for plugins. It remains separate from `@ryot/client-sdk`.
+`@ryot-app/client-ui-sdk` is the supported React UI platform for plugins. It remains separate from `@ryot-app/client-sdk`.
 
 It is also suitable for use by the kernel so that kernel screens and plugin screens share the same DOM-based design-system implementation.
 
@@ -560,13 +560,13 @@ It should provide Ryot-owned APIs rather than blindly re-exporting third-party l
 Examples:
 
 ```ts
-import { Button, Card, Dialog, Input, Select, Tabs } from "@ryot/client-ui-sdk";
+import { Button, Card, Dialog, Input, Select, Tabs } from "@ryot-app/client-ui-sdk";
 
-import { DataTable } from "@ryot/client-ui-sdk/table";
+import { DataTable } from "@ryot-app/client-ui-sdk/table";
 
-import { LineChart, BarChart } from "@ryot/client-ui-sdk/charts";
+import { LineChart, BarChart } from "@ryot-app/client-ui-sdk/charts";
 
-import { SwipeActions, ReorderableList } from "@ryot/client-ui-sdk/gestures";
+import { SwipeActions, ReorderableList } from "@ryot-app/client-ui-sdk/gestures";
 ```
 
 Internally the SDK may use:
@@ -584,18 +584,18 @@ For example, the chart API should remain a Ryot chart API even if its internal i
 
 ---
 
-## 10. `@ryot/client-sdk`
+## 10. `@ryot-app/client-sdk`
 
-`@ryot/client-sdk` is the shared, environment-neutral client contract between the Ryot kernel and plugin JavaScript.
+`@ryot-app/client-sdk` is the shared, environment-neutral client contract between the Ryot kernel and plugin JavaScript.
 
 `RyotClient` is a framework-neutral Promise capability. It exposes semantic capability APIs, not kernel implementation details. Hosts construct it with an explicit adapter and pass the client to consumers through the provider/client boundary. It does not bind a global mutable bridge.
 
 The package has four public surfaces:
 
-- `@ryot/client-sdk` — the shared client contract and `RyotClient`
-- `@ryot/client-sdk/react` — React integration, including `RyotProvider`, `useRyot`, `createRyotQuery`, `useRyotQuery`, `createRyotMutation`, and `useRyotMutation`
-- `@ryot/client-sdk/plugin` — the plugin runtime adapter plus plugin React routing conveniences
-- `@ryot/client-sdk/effect` — the supported schema surface
+- `@ryot-app/client-sdk` — the shared client contract and `RyotClient`
+- `@ryot-app/client-sdk/react` — React integration, including `RyotProvider`, `useRyot`, `createRyotQuery`, `useRyotQuery`, `createRyotMutation`, and `useRyotMutation`
+- `@ryot-app/client-sdk/plugin` — the plugin runtime adapter plus plugin React routing conveniences
+- `@ryot-app/client-sdk/effect` — the supported schema surface
 
 The kernel supplies a direct adapter to kernel services. The plugin runtime supplies a `MessageChannel` adapter. Both use the same environment-neutral client contract.
 
@@ -660,9 +660,9 @@ deferred surfaces in §16 that would drive them.
 The client starts with data, operations, and navigation categories. An explicit client value is shown as `ryot` here:
 
 ```ts
-import { Schema } from "@ryot/client-sdk/effect";
+import { Schema } from "@ryot-app/client-sdk/effect";
 
-import { useRyot } from "@ryot/client-sdk/react";
+import { useRyot } from "@ryot-app/client-sdk/react";
 
 const ryot = useRyot();
 const Greeting = Schema.Struct({ greeting: Schema.String });
@@ -699,7 +699,7 @@ const saveGreeting = useRyotMutation(
 
 `useRyotQuery` returns plain React Query-like result state: `data`, `error`, `status`, `isPending`, `isFetching`, `isError`, `isSuccess`, and `refetch`. `useRyotMutation` returns plain `idle`/`pending`/`error`/`success` state with `data`, `error`, `mutate`, `mutateAsync`, and `reset`. These are SDK result objects, not TanStack Query objects.
 
-`ryot.operations.invoke({ slug, input, output })` is the plugin operation API. It takes an operation slug, a required JSON-compatible `input`, and an output codec, but no input codec. A no-input operation sends `input: null`; omission is invalid and is not converted to `null`. The SDK checks the input with the canonical `isJsonValue` guard from `@ryot/contract/schema/json` and rejects invalid input locally, before invoking the adapter. The client decodes a successful JSON result against `output`.
+`ryot.operations.invoke({ slug, input, output })` is the plugin operation API. It takes an operation slug, a required JSON-compatible `input`, and an output codec, but no input codec. A no-input operation sends `input: null`; omission is invalid and is not converted to `null`. The SDK checks the input with the canonical `isJsonValue` guard from `@ryot-app/contract/schema/json` and rejects invalid input locally, before invoking the adapter. The client decodes a successful JSON result against `output`.
 
 Expected plugin business/domain outcomes are successful typed values encoded by each operation output schema. They are never SDK errors. Queries, operations, navigation, and later capabilities use one public `RyotClientError`; its `reason` is exactly one of:
 
@@ -716,9 +716,9 @@ Expected plugin business/domain outcomes are successful typed values encoded by 
 
 The wire value `failed` is not a public SDK error reason. Internal causes, messages, diagnostics, HTTP details, and stack traces never cross the bridge. Synchronous capabilities either dispatch or throw a `RyotClientError`: navigation after teardown uses the stored terminal reason, and a failed adapter call or `postMessage` uses `transport`.
 
-The canonical `JsonValue` type and schema value, also from `@ryot/contract/schema/json`, define the dynamic value boundary for the SDK and bridge. Strict schemas reject values outside that boundary; values are never normalized with `JSON.stringify` or another lossy conversion. The kernel validates a successful operation value before sending it over the bridge, so a non-JSON value becomes `malformed-result` and never crosses the port. A JSON value that fails the caller's output schema is also `malformed-result`. `Schema.Unknown`, duplicated validators, and unchecked casts are not part of this contract.
+The canonical `JsonValue` type and schema value, also from `@ryot-app/contract/schema/json`, define the dynamic value boundary for the SDK and bridge. Strict schemas reject values outside that boundary; values are never normalized with `JSON.stringify` or another lossy conversion. The kernel validates a successful operation value before sending it over the bridge, so a non-JSON value becomes `malformed-result` and never crosses the port. A JSON value that fails the caller's output schema is also `malformed-result`. `Schema.Unknown`, duplicated validators, and unchecked casts are not part of this contract.
 
-`@ryot/client-sdk/effect` re-exports `Schema` and nothing else, mirroring `@ryot/sandbox-sdk/effect` for backend scripts, so both halves of a plugin describe their operation payloads the same way. Plugin source must import `Schema` through that subpath; a bare `effect` import stays untrusted.
+`@ryot-app/client-sdk/effect` re-exports `Schema` and nothing else, mirroring `@ryot-app/sandbox-sdk/effect` for backend scripts, so both halves of a plugin describe their operation payloads the same way. Plugin source must import `Schema` through that subpath; a bare `effect` import stays untrusted.
 
 Plugin bootstrap and routing imports come from the plugin surface:
 
@@ -729,10 +729,10 @@ import {
 	usePluginLocation,
 	usePluginParams,
 	usePluginSearch,
-} from "@ryot/client-sdk/plugin";
+} from "@ryot-app/client-sdk/plugin";
 ```
 
-`PluginLink` and the reactive location, params, and search hooks remain React conveniences on `@ryot/client-sdk/plugin`. They use the same explicit client and plugin runtime as `ryot.navigation.push` and `ryot.navigation.replace`; they do not create a parallel client or bridge facade. Until the kernel supplies an authoritative public URL, `PluginLink` does not support `target` or `download`, prevents modifier and auxiliary clicks from navigating the artifact document, and composes a consumer `onClick` before dispatch. Plugin routing renders home only for `/`; unmatched logical paths render the plugin's optional `notFound` component or the SDK's semantic default.
+`PluginLink` and the reactive location, params, and search hooks remain React conveniences on `@ryot-app/client-sdk/plugin`. They use the same explicit client and plugin runtime as `ryot.navigation.push` and `ryot.navigation.replace`; they do not create a parallel client or bridge facade. Until the kernel supplies an authoritative public URL, `PluginLink` does not support `target` or `download`, prevents modifier and auxiliary clicks from navigating the artifact document, and composes a consumer `onClick` before dispatch. Plugin routing renders home only for `/`; unmatched logical paths render the plugin's optional `notFound` component or the SDK's semantic default.
 
 Possible examples:
 
@@ -1765,7 +1765,7 @@ Plugin updates force-reload the mounted iframe so one bridge session never spans
 
 The kernel and plugins use the same framework-neutral `RyotClient` Promise capability and the same React SDK surface. The kernel uses a direct adapter into its Effect services; a plugin session uses the `MessageChannel` adapter. There is no compatibility path between these environments.
 
-`@ryot/client-sdk/react` provides `createRyotQuery`/`useRyotQuery` and `createRyotMutation`/`useRyotMutation`. They expose plain result objects and use `@effect/atom-react` internally: one `RegistryProvider` and atom registry/cache per `RyotProvider`/session, `Atom.family` for query inputs, SWR refresh on mount and focus, and a five-minute idle TTL. The shared Promise client remains the capability boundary; these React helpers do not introduce TanStack Query.
+`@ryot-app/client-sdk/react` provides `createRyotQuery`/`useRyotQuery` and `createRyotMutation`/`useRyotMutation`. They expose plain result objects and use `@effect/atom-react` internally: one `RegistryProvider` and atom registry/cache per `RyotProvider`/session, `Atom.family` for query inputs, SWR refresh on mount and focus, and a five-minute idle TTL. The shared Promise client remains the capability boundary; these React helpers do not introduce TanStack Query.
 
 A conceptual kernel data flow remains:
 
@@ -1773,7 +1773,7 @@ A conceptual kernel data flow remains:
 React screen / feature
   │
   ▼
-@ryot/client-sdk/react result state
+@ryot-app/client-sdk/react result state
   │
   ▼
 RyotClient Promise capability
@@ -1805,11 +1805,11 @@ Third-party authors should install the SDK packages locally for:
 For example:
 
 ```text
-@ryot/client-sdk
-@ryot/client-sdk/react
-@ryot/client-sdk/plugin
-@ryot/client-sdk/effect
-@ryot/client-ui-sdk
+@ryot-app/client-sdk
+@ryot-app/client-sdk/react
+@ryot-app/client-sdk/plugin
+@ryot-app/client-sdk/effect
+@ryot-app/client-ui-sdk
 ```
 
 Their local project may use Bun normally.

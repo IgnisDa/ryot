@@ -1,5 +1,5 @@
-import { AppContract } from "@ryot/contract/contract";
-import type { PreparedRecipe } from "@ryot/ryotql";
+import { AppContract } from "@ryot-app/contract/contract";
+import type { PreparedRecipe } from "@ryot-app/ryotql";
 import { Effect, Layer, Result, Schedule } from "effect";
 import type { AsyncResult } from "effect/unstable/reactivity";
 import { AsyncResult as AsyncResultValue, Atom, AtomHttpApi } from "effect/unstable/reactivity";

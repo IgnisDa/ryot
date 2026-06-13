@@ -3,8 +3,8 @@ import { notifications } from "@mantine/notifications";
 import {
 	CreateOrUpdateUserWorkoutDocument,
 	CreateOrUpdateUserWorkoutTemplateDocument,
-} from "@ryot/generated/graphql/backend/graphql";
-import { sum } from "@ryot/ts-utils/lodash";
+} from "@ryot-app/generated/graphql/backend/graphql";
+import { sum } from "@ryot-app/ts-utils/lodash";
 import { RESET } from "jotai/utils";
 import { useNavigate } from "react-router";
 import { $path } from "safe-routes";

@@ -1,4 +1,4 @@
-import { getOAuthEndpoint } from "@ryot/contract/oauth";
+import { getOAuthEndpoint } from "@ryot-app/contract/oauth";
 import { Data, Effect, Schema } from "effect";
 
 import type { ServerOrigin } from "#/api/origin";

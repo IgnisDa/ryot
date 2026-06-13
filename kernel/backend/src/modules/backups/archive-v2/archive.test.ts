@@ -1,7 +1,7 @@
 import { BunFileSystem } from "@effect/platform-bun";
 import { assert, expect, it } from "@effect/vitest";
-import { ascending, column, document, field, rows, table } from "@ryot/ryotql";
-import { stableStringify } from "@ryot/ts-utils/json";
+import { ascending, column, document, field, rows, table } from "@ryot-app/ryotql";
+import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Effect, FileSystem, Schema, Stream } from "effect";
 import { unzipSync, Zip, zipSync, ZipPassThrough } from "fflate";
 

@@ -1,7 +1,7 @@
-import { runContract, type ContractProgram } from "@ryot/contract/client";
-import { IntegrationId, PluginSlug } from "@ryot/contract/schema/brands";
-import { metadataLookupRecipe } from "@ryot/media-plugin/operations/recipes";
-import { invokeOperationRecipe } from "@ryot/plugin-kit/operations";
+import { runContract, type ContractProgram } from "@ryot-app/contract/client";
+import { IntegrationId, PluginSlug } from "@ryot-app/contract/schema/brands";
+import { metadataLookupRecipe } from "@ryot-app/media-plugin/operations/recipes";
+import { invokeOperationRecipe } from "@ryot-app/plugin-kit/operations";
 import { Effect } from "effect";
 
 const resolveConnection = (integrationUrl: string) => {

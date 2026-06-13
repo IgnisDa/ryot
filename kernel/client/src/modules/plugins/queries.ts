@@ -1,7 +1,7 @@
 import type {
 	PluginRyotQLOutcome,
 	PluginRyotQLRequest,
-} from "@ryot/contract/modules/plugins/client";
+} from "@ryot-app/contract/modules/plugins/client";
 import { Context, Effect, Layer } from "effect";
 
 import { AuthenticatedApi } from "#/api/authenticated";

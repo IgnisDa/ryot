@@ -2,8 +2,8 @@ import { notifications } from "@mantine/notifications";
 import {
 	MediaLot,
 	type MetadataProgressUpdateCommonInput,
-} from "@ryot/generated/graphql/backend/graphql";
-import { isFiniteNumber } from "@ryot/ts-utils/lodash";
+} from "@ryot-app/generated/graphql/backend/graphql";
+import { isFiniteNumber } from "@ryot-app/ts-utils/lodash";
 import { match } from "ts-pattern";
 
 import { WatchTimes } from "~/components/routes/dashboard/types";

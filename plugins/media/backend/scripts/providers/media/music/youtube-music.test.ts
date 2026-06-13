@@ -1,4 +1,4 @@
-import { Effect } from "@ryot/sandbox-sdk/effect";
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { describe, expect, it } from "vitest";
 
 import type { YoutubeMusicHost } from "../../youtube-music-shared";

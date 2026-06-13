@@ -1,6 +1,9 @@
-import { ImportRunFailureReason, ListedImportRun } from "@ryot/contract/modules/imports/schemas";
-import { importRunFailureStages } from "@ryot/contract/modules/imports/types";
-import { EntitySchemaSlug, EventSchemaSlug, ImportRunId } from "@ryot/contract/schema/brands";
+import {
+	ImportRunFailureReason,
+	ListedImportRun,
+} from "@ryot-app/contract/modules/imports/schemas";
+import { importRunFailureStages } from "@ryot-app/contract/modules/imports/types";
+import { EntitySchemaSlug, EventSchemaSlug, ImportRunId } from "@ryot-app/contract/schema/brands";
 import {
 	ascending,
 	column,
@@ -14,7 +17,7 @@ import {
 	selectedOptionalRow,
 	selectedRows,
 	type Recipe,
-} from "@ryot/ryotql";
+} from "@ryot-app/ryotql";
 import { Result, Schema } from "effect";
 
 import { IsoDateString } from "./codecs";

@@ -1,18 +1,18 @@
-import { SandboxRunError, mapDbErrorToSandbox } from "@ryot/contract/errors";
-import { ListedEntity } from "@ryot/contract/modules/entities/schemas";
-import { encodeEntityUpdatedMessage } from "@ryot/contract/modules/entity-interest/messages";
-import type { EntityId, EntitySchemaSlug } from "@ryot/contract/schema/brands";
+import { SandboxRunError, mapDbErrorToSandbox } from "@ryot-app/contract/errors";
+import { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
+import { encodeEntityUpdatedMessage } from "@ryot-app/contract/modules/entity-interest/messages";
+import type { EntityId, EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import {
 	providerDetailsChildEntitySchema,
 	providerDetailsRelatedEntityGroupSchema,
 	providerDetailsResultSchema,
 	type ProviderDetailsChildEntity,
 	type ProviderDetailsRelatedEntityGroup,
-} from "@ryot/sandbox-sdk/provider";
-import { jsonValueSchema } from "@ryot/sandbox-sdk/wire";
-import { sha256Base64Url } from "@ryot/ts-utils/crypto";
-import { stableStringify } from "@ryot/ts-utils/json";
-import { asRecord } from "@ryot/ts-utils/predicates";
+} from "@ryot-app/sandbox-sdk/provider";
+import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
+import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
+import { stableStringify } from "@ryot-app/ts-utils/json";
+import { asRecord } from "@ryot-app/ts-utils/predicates";
 import { Cause, DateTime, Effect, Schedule, Schema } from "effect";
 import { Activity, Workflow } from "effect/unstable/workflow";
 

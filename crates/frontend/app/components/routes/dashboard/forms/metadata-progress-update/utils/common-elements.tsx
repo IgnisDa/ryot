@@ -1,6 +1,6 @@
 import { MultiSelect, Select } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
-import type { MediaLot } from "@ryot/generated/graphql/backend/graphql";
+import type { MediaLot } from "@ryot-app/generated/graphql/backend/graphql";
 
 import { METADATA_LOTS_WITH_GRANULAR_UPDATES } from "~/components/routes/media-item/constants";
 import { useGetWatchProviders } from "~/lib/shared/hooks";

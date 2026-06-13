@@ -9,7 +9,7 @@ import {
 	selectedField,
 	selectedRows,
 	type Recipe,
-} from "@ryot/ryotql";
+} from "@ryot-app/ryotql";
 import { Result, Schema } from "effect";
 
 const plugin = table("plugin", "plugin");

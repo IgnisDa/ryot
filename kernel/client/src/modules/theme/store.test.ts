@@ -1,7 +1,7 @@
 import {
 	REQUIRED_THEME_TOKEN_NAMES,
 	type PluginThemeSnapshot,
-} from "@ryot/contract/modules/plugins/client";
+} from "@ryot-app/contract/modules/plugins/client";
 import { describe, expect, it } from "vitest";
 
 import { createThemeStore } from "#/modules/theme/store";

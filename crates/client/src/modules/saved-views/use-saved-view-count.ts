@@ -1,5 +1,5 @@
-import type { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
-import { savedViewCountRecipe } from "@ryot/ryotql-recipes/saved-views";
+import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
+import { savedViewCountRecipe } from "@ryot-app/ryotql-recipes/saved-views";
 import { Effect, Result } from "effect";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 

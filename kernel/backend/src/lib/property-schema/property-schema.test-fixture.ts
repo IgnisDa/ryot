@@ -1,5 +1,5 @@
-import { managedAssetItemSchema } from "@ryot/contract/schema/core";
-import type { AppPropertyDefinition, AppSchema } from "@ryot/contract/schema/property-schema";
+import { managedAssetItemSchema } from "@ryot-app/contract/schema/core";
+import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
 
 const imagePurposes = ["cover", "backdrop", "profile", "still"] as const;
 

@@ -2,7 +2,7 @@ import {
 	makeContractClient,
 	type ContractProgram,
 	type RequestHeaders,
-} from "@ryot/contract/client";
+} from "@ryot-app/contract/client";
 import { Effect } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
 

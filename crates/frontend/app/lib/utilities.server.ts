@@ -4,7 +4,7 @@ import {
 	BackendError,
 	CoreDetailsDocument,
 	UserDetailsDocument,
-} from "@ryot/generated/graphql/backend/graphql";
+} from "@ryot-app/generated/graphql/backend/graphql";
 import { parse, type SerializeOptions, serialize } from "cookie";
 import { ClientError, GraphQLClient, type RequestDocument, type Variables } from "graphql-request";
 import type { VariablesAndRequestHeadersArgs } from "node_modules/graphql-request/build/legacy/helpers/types";

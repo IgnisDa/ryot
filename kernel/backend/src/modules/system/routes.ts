@@ -1,8 +1,8 @@
-import { AppContract } from "@ryot/contract/contract";
+import { AppContract } from "@ryot-app/contract/contract";
 import {
 	SystemHealthFailure,
 	type SystemConfigResponse,
-} from "@ryot/contract/modules/system/contract";
+} from "@ryot-app/contract/modules/system/contract";
 import { sql } from "drizzle-orm";
 import { Effect, Option } from "effect";
 import { HttpApiBuilder } from "effect/unstable/httpapi";

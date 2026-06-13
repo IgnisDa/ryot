@@ -1,5 +1,5 @@
-import { AuthRateLimited, AuthUnauthorized } from "@ryot/contract/auth-middleware";
-import { RyotQLBadRequest, RyotQLInternalError } from "@ryot/contract/modules/ryotql/contract";
+import { AuthRateLimited, AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
+import { RyotQLBadRequest, RyotQLInternalError } from "@ryot-app/contract/modules/ryotql/contract";
 import { Schema } from "effect";
 
 import { AuthenticatedApiError } from "#/api/authenticated";

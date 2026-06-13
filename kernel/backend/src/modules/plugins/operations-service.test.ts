@@ -1,14 +1,14 @@
 import { expect, it } from "@effect/vitest";
-import { AuthUnauthorized } from "@ryot/contract/auth-middleware";
-import type { PluginOperationAuth } from "@ryot/contract/modules/plugins/manifest";
+import { AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
+import type { PluginOperationAuth } from "@ryot-app/contract/modules/plugins/manifest";
 import {
 	PluginConflictError,
 	PluginInvocationError,
 	PluginNotFoundError,
 	PluginRequestError,
-} from "@ryot/contract/modules/plugins/schemas";
-import { SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
-import type { JsonValue } from "@ryot/contract/schema/json";
+} from "@ryot-app/contract/modules/plugins/schemas";
+import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
+import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { Cause, Effect, Exit, Layer, Option } from "effect";
 import { Headers } from "effect/unstable/http";
 import { assert } from "vitest";

@@ -1,6 +1,6 @@
-import type { EntityId } from "@ryot/contract/schema/brands";
-import type { ProviderEntityLinksResult } from "@ryot/ryotql-recipes/provider-entity-links";
-import type { ProviderSearchResult } from "@ryot/ryotql-recipes/provider-search";
+import type { EntityId } from "@ryot-app/contract/schema/brands";
+import type { ProviderEntityLinksResult } from "@ryot-app/ryotql-recipes/provider-entity-links";
+import type { ProviderSearchResult } from "@ryot-app/ryotql-recipes/provider-search";
 import { Match } from "effect";
 import type { AsyncResult } from "effect/unstable/reactivity";
 

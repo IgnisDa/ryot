@@ -1,4 +1,4 @@
-import { hmacDigest } from "@ryot/ts-utils/crypto";
+import { hmacDigest } from "@ryot-app/ts-utils/crypto";
 import { base32 } from "rfc4648";
 
 import { requireNonEmptyArray, requirePresent, requireString } from "~/support/assertions";

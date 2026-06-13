@@ -1,4 +1,4 @@
-import { definePlugin } from "@ryot/contract/modules/plugins/manifest";
+import { definePlugin } from "@ryot-app/contract/modules/plugins/manifest";
 
 import { mediaEntitySchemas } from "./backend/schemas/entity-schemas";
 import {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import type { AppSchema } from "@ryot/contract/schema/property-schema";
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { render, screen, userEvent } from "@testing-library/react-native";
 import { useEffect } from "react";
 import { Pressable, Text } from "react-native";

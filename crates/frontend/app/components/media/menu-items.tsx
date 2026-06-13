@@ -3,7 +3,7 @@ import { notifications } from "@mantine/notifications";
 import {
 	type EntityLot,
 	MarkEntityAsPartialDocument,
-} from "@ryot/generated/graphql/backend/graphql";
+} from "@ryot-app/generated/graphql/backend/graphql";
 import { IconSearch } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 

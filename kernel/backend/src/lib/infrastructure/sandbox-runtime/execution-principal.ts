@@ -1,9 +1,9 @@
 import {
 	SandboxExecutionSubject,
 	SandboxScriptMetadata,
-} from "@ryot/contract/modules/sandbox/schemas";
-import { SandboxProviderId, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
-import { AppSchema } from "@ryot/contract/schema/property-schema";
+} from "@ryot-app/contract/modules/sandbox/schemas";
+import { SandboxProviderId, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
+import { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { Schema } from "effect";
 
 export const SandboxPluginRevision = Schema.Struct({

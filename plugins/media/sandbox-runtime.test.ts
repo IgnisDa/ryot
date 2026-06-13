@@ -1,4 +1,4 @@
-import { verifyPluginSandboxScriptsLoad } from "@ryot/kernel-backend/lib/infrastructure/sandbox-runtime/plugin-load.test-support";
+import { verifyPluginSandboxScriptsLoad } from "@ryot-app/kernel-backend/lib/infrastructure/sandbox-runtime/plugin-load.test-support";
 import { Effect } from "effect";
 import { it } from "vitest";
 

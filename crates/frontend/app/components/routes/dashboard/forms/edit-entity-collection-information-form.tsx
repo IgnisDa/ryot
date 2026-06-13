@@ -1,6 +1,6 @@
 import { Button, Stack, Text } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import type { Scalars } from "@ryot/generated/graphql/backend/graphql";
+import type { Scalars } from "@ryot-app/generated/graphql/backend/graphql";
 import { type FormEvent, useState } from "react";
 import { Form } from "react-router";
 

@@ -1,5 +1,5 @@
-import type { CoreSandboxHostMethodMap, ExecutionMetadata } from "@ryot/sandbox-sdk/core";
-import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
+import type { CoreSandboxHostMethodMap, ExecutionMetadata } from "@ryot-app/sandbox-sdk/core";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 import type {
 	ImportEntityRef,

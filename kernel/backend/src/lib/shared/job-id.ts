@@ -1,4 +1,4 @@
-import { hmacSha256Base64Url } from "@ryot/ts-utils/crypto";
+import { hmacSha256Base64Url } from "@ryot-app/ts-utils/crypto";
 
 const separator = ".";
 const keyDomain = "sandbox-job-id";

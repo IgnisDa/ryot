@@ -1,4 +1,4 @@
-import { EntitySchemaSlug } from "@ryot/contract/schema/brands";
+import { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import { Result } from "effect";
 import { assert, describe, expect, it } from "vitest";
 

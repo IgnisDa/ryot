@@ -1,6 +1,6 @@
-import type { ImportRunFailureReason } from "@ryot/contract/modules/imports/schemas";
-import type { RunStatus } from "@ryot/contract/schema/run-status";
-import type { ImportRunSummary } from "@ryot/ryotql-recipes/import-runs";
+import type { ImportRunFailureReason } from "@ryot-app/contract/modules/imports/schemas";
+import type { RunStatus } from "@ryot-app/contract/schema/run-status";
+import type { ImportRunSummary } from "@ryot-app/ryotql-recipes/import-runs";
 import { Match } from "effect";
 
 import {

@@ -3,8 +3,8 @@ import {
 	type CachedUserPreferences,
 	type CurrentUserValue,
 	defaultUserPreferences,
-} from "@ryot/contract/auth-middleware";
-import { UserId } from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/auth-middleware";
+import { UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
 import { AuthService } from "#modules/auth/service";

@@ -1,11 +1,11 @@
-import type { JsonValue } from "@ryot/contract/modules/ryotql/language";
-import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
+import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 import {
 	entityReadRecipe,
 	executeRyotqlRecipe,
 	type EntityReadResult,
-} from "@ryot/sandbox-sdk/ryotql";
-import { defineSandboxTestHost } from "@ryot/sandbox-sdk/testing";
+} from "@ryot-app/sandbox-sdk/ryotql";
+import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
 
 import type { LogEntry, SpanEntry } from "../src/core.js";
 import { defineManifest, defineScript } from "../src/driver.js";

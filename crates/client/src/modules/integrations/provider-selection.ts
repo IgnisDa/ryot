@@ -1,5 +1,5 @@
-import type { ListedIntegrationProvider } from "@ryot/contract/modules/integrations/schemas";
-import type { IntegrationLot } from "@ryot/contract/modules/integrations/types";
+import type { ListedIntegrationProvider } from "@ryot-app/contract/modules/integrations/schemas";
+import type { IntegrationLot } from "@ryot-app/contract/modules/integrations/types";
 
 import type { CatalogEntry } from "@/modules/ui/plugin-catalog/catalog-selection";
 

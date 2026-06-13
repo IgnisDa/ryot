@@ -4,7 +4,7 @@ import {
 	type EntityInterestAppliedMessage,
 	type EntityInterestEntityUpdatedMessage,
 	type EntityInterestReadyMessage,
-} from "@ryot/contract/modules/entity-interest/messages";
+} from "@ryot-app/contract/modules/entity-interest/messages";
 import { Effect, Result } from "effect";
 
 import { getApiUrl } from "~/support/api";

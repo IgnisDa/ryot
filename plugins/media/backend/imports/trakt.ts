@@ -1,4 +1,4 @@
-import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 import { getOccurredAtValue, nowIso } from "./dates";
 import { getOrCreateMediaEntityGroup, type ImportMediaEntityGroupBuilder } from "./groups";

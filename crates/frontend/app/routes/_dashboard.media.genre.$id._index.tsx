@@ -1,5 +1,5 @@
 import { Box, Container, Group, Stack, Text, Title } from "@mantine/core";
-import { GenreDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
+import { GenreDetailsDocument } from "@ryot-app/generated/graphql/backend/graphql";
 import { useQuery } from "@tanstack/react-query";
 import { parseAsInteger } from "nuqs";
 import invariant from "tiny-invariant";

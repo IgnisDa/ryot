@@ -17,8 +17,8 @@ import {
 	type MediaCollectionFilter,
 	MediaCollectionPresenceFilter,
 	MediaCollectionStrategyFilter,
-} from "@ryot/generated/graphql/backend/graphql";
-import { changeCase } from "@ryot/ts-utils/string";
+} from "@ryot-app/generated/graphql/backend/graphql";
+import { changeCase } from "@ryot-app/ts-utils/string";
 import {
 	IconDeviceFloppy,
 	IconFilterOff,

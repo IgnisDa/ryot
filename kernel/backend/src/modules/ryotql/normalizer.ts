@@ -6,7 +6,7 @@ import type {
 	RyotQLDocument,
 	RowsOutput,
 	TimeSeriesOutput,
-} from "@ryot/contract/modules/ryotql/language";
+} from "@ryot-app/contract/modules/ryotql/language";
 
 import { expandCatalogSelections, getCatalogTable, type CatalogTable } from "./catalog";
 

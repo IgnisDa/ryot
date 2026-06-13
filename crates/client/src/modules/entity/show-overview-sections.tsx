@@ -1,4 +1,4 @@
-import type { AssetLocator } from "@ryot/contract/modules/uploads/schemas";
+import type { AssetLocator } from "@ryot-app/contract/modules/uploads/schemas";
 import { Link } from "expo-router";
 import type { ReactNode } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";

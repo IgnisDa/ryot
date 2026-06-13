@@ -1,5 +1,5 @@
-import { definePluginConfig, integerField, stringField } from "@ryot/config";
-import type { AppNumberPropertyValidation } from "@ryot/contract/schema/property-schema";
+import { definePluginConfig, integerField, stringField } from "@ryot-app/config";
+import type { AppNumberPropertyValidation } from "@ryot-app/contract/schema/property-schema";
 
 const nonNegativeValidation: AppNumberPropertyValidation = { minimum: 0 };
 

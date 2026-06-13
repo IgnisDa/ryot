@@ -1,5 +1,5 @@
-import type { PluginClientArtifact } from "@ryot/contract/modules/plugins/client";
-import type { PluginManifest, PluginScript } from "@ryot/contract/modules/plugins/manifest";
+import type { PluginClientArtifact } from "@ryot-app/contract/modules/plugins/client";
+import type { PluginManifest, PluginScript } from "@ryot-app/contract/modules/plugins/manifest";
 
 export type PluginScriptMetadata = PluginScript extends infer Script
 	? Script extends { readonly entry: string }

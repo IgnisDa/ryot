@@ -1,6 +1,6 @@
 import { fileURLToPath } from "node:url";
 
-import sharedConfig from "@ryot/testing/vitest.shared";
+import sharedConfig from "@ryot-app/testing/vitest.shared";
 import { configDefaults, defineConfig, mergeConfig } from "vitest/config";
 
 export default mergeConfig(

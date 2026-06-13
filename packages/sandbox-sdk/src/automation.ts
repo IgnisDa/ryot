@@ -1,4 +1,4 @@
-import { Schema } from "@ryot/sandbox-sdk/effect";
+import { Schema } from "@ryot-app/sandbox-sdk/effect";
 
 import type { SandboxManifest } from "./core";
 import { type GenericScriptDefinition, SANDBOX_SCRIPT_DEFINITION } from "./driver";

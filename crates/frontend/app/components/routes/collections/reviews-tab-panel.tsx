@@ -1,5 +1,5 @@
 import { Stack, Text } from "@mantine/core";
-import { EntityLot } from "@ryot/generated/graphql/backend/graphql";
+import { EntityLot } from "@ryot-app/generated/graphql/backend/graphql";
 
 import { ReviewItemDisplay } from "~/components/common/review";
 import type { CollectionContents } from "~/components/routes/collections/filters-state";

@@ -1,5 +1,5 @@
-import { Schema } from "@ryot/sandbox-sdk/effect";
-import type { JsonValue } from "@ryot/sandbox-sdk/wire";
+import { Schema } from "@ryot-app/sandbox-sdk/effect";
+import type { JsonValue } from "@ryot-app/sandbox-sdk/wire";
 
 const workoutExerciseKinds = [
 	"reps",

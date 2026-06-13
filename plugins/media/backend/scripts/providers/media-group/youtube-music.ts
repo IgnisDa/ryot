@@ -1,5 +1,5 @@
-import { load } from "@ryot/sandbox-sdk/cheerio";
-import { Effect } from "@ryot/sandbox-sdk/effect";
+import { load } from "@ryot-app/sandbox-sdk/cheerio";
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
 
 import { type UnknownRecord, asRecord, stringValue } from "../../../shared/records";
 import {
