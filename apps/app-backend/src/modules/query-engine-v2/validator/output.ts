@@ -1,10 +1,14 @@
+import { DateTime, Option } from "effect";
+
 import type { IncludeEntryV2, QueryDocumentV2, RowsOutputV2 } from "../language";
+import { countAlignedTimeSeriesBuckets } from "../time-series-buckets";
 import { validateEntitySource, validateExpr } from "./core";
 import {
+	MAX_GROUPED_AGGREGATE_LIMIT,
 	MAX_INCLUDE_DEPTH,
 	MAX_INCLUDE_LIMIT,
-	MAX_GROUPED_AGGREGATE_LIMIT,
 	MAX_ROOT_PAGE_SIZE,
+	MAX_TIME_SERIES_BUCKETS,
 	type AliasScope,
 } from "./shared";
 
@@ -209,4 +213,43 @@ export const validateAggregateOutput = (
 	}
 
 	return null;
+};
+
+export const validateTimeSeriesOutput = (
+	output: Extract<QueryDocumentV2["output"], { type: "timeSeries" }>,
+	scope: AliasScope,
+	aliases: AliasScope,
+) => {
+	const startAt = DateTime.make(output.time.range.startAt);
+	const endAt = DateTime.make(output.time.range.endAt);
+	if (Option.isNone(startAt) || Option.isNone(endAt)) {
+		return "Time-series range startAt and endAt must be valid dates";
+	}
+	if (!DateTime.lessThan(startAt.value, endAt.value)) {
+		return "Time-series range startAt must be before endAt";
+	}
+
+	const bucketCount = countAlignedTimeSeriesBuckets({
+		endAt: endAt.value,
+		startAt: startAt.value,
+		bucket: output.time.bucket,
+	});
+	if (bucketCount > MAX_TIME_SERIES_BUCKETS) {
+		return `Time-series bucket count ${bucketCount} exceeds maximum of ${MAX_TIME_SERIES_BUCKETS}`;
+	}
+
+	const timeExprError = validateExpr(output.time.expr, scope, aliases);
+	if (timeExprError) {
+		return timeExprError;
+	}
+	if (output.time.expr.type === "measureRef") {
+		return "Measure references are valid only in aggregate orderBy";
+	}
+
+	const aggregation = output.measure.aggregation;
+	if (aggregation.function === "count") {
+		return aggregation.distinctBy ? validateExpr(aggregation.distinctBy, scope, aliases) : null;
+	}
+
+	return validateExpr(aggregation.expr, scope, aliases);
 };

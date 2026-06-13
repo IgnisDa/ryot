@@ -80,6 +80,27 @@ describe("QueryDocumentV2", () => {
 		expect(result.source.type).toBe("relationships");
 	});
 
+	it("decodes a time-series output document", () => {
+		const result = decodeSync(QueryDocumentV2)({
+			...minimal,
+			output: {
+				type: "timeSeries",
+				measure: { aggregation: { function: "count" } },
+				time: {
+					bucket: "day",
+					range: { endAt: "2026-01-03T00:00:00.000Z", startAt: "2026-01-01T00:00:00.000Z" },
+					expr: {
+						type: "ref",
+						sourceAlias: "e",
+						field: { type: "system", name: "createdAt" },
+					},
+				},
+			},
+		});
+
+		expect(result.output.type).toBe("timeSeries");
+	});
+
 	it("throws when a relationship source is missing sourceEntity", () => {
 		expect(() =>
 			decodeSync(QueryDocumentV2)({

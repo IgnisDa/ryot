@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -14,15 +14,15 @@ This slice should prove time series over event, entity, and relationship sources
 
 ## Acceptance criteria
 
-- [ ] Time-series return supports one measure using `{ aggregation }` with the shared aggregation spec.
-- [ ] Time-series date range inclusion is `[startAt, endAt)`.
-- [ ] Buckets include `startAt`, `endAt`, and numeric `value`.
-- [ ] Empty buckets are zero-filled and cannot be disabled by query JSON.
-- [ ] Bucket count greater than 1000 after alignment fails validation.
-- [ ] Time series works over an event source using an event timestamp.
-- [ ] Time series works over an entity source using a date property or system date field.
-- [ ] Time series works over a relationship source using relationship created timestamp.
-- [ ] E2E tests cover event, entity, and relationship time series plus zero-fill and bucket-cap validation.
+- [x] Time-series return supports one measure using `{ aggregation }` with the shared aggregation spec.
+- [x] Time-series date range inclusion is `[startAt, endAt)`.
+- [x] Buckets include `startAt`, `endAt`, and numeric `value`.
+- [x] Empty buckets are zero-filled and cannot be disabled by query JSON.
+- [x] Bucket count greater than 1000 after alignment fails validation.
+- [x] Time series works over an event source using an event timestamp.
+- [x] Time series works over an entity source using a date property or system date field.
+- [x] Time series works over a relationship source using relationship created timestamp.
+- [x] E2E tests cover event, entity, and relationship time series plus zero-fill and bucket-cap validation.
 
 ## User stories addressed
 

@@ -1,7 +1,12 @@
-import type { AggregateOutputV2, QueryDocumentV2, RowsOutputV2 } from "../language";
+import type {
+	AggregateOutputV2,
+	QueryDocumentV2,
+	RowsOutputV2,
+	TimeSeriesOutputV2,
+} from "../language";
 
-export const MAX_SERIALIZED_ROW_OBJECTS = 5000;
 export const MAX_ROOT_FILTER_SCAN_ROWS = 5000;
+export const MAX_SERIALIZED_ROW_OBJECTS = 5000;
 export const MAX_AGGREGATE_EXPRESSION_SOURCE_ROWS = 10000;
 
 export type VisibleSchema = { id: string; slug: string };
@@ -10,6 +15,7 @@ export type VisibleRelationshipSchema = { id: string; slug: string };
 
 export type RowsQueryDocumentV2 = QueryDocumentV2 & { output: RowsOutputV2 };
 export type AggregateQueryDocumentV2 = QueryDocumentV2 & { output: AggregateOutputV2 };
+export type TimeSeriesQueryDocumentV2 = QueryDocumentV2 & { output: TimeSeriesOutputV2 };
 
 export type BaseEntityQueryRow = {
 	id: string;
@@ -51,9 +57,8 @@ export type EventFields = {
 	eventProperties: Record<string, unknown>;
 };
 
-export type EventQueryRow = BaseEntityQueryRow & EventFields & { totalCount: string | bigint };
-
 export type RelationshipEntityFields = Omit<BaseEntityQueryRow, "totalCount">;
+export type EventQueryRow = BaseEntityQueryRow & EventFields & { totalCount: string | bigint };
 
 export type RelationshipRootQueryRow = RelationshipFields & {
 	totalCount: string | bigint;
