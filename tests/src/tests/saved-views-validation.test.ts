@@ -11,37 +11,35 @@ import {
 	createAuthenticatedClient,
 	createSavedView,
 	entityField,
+	postBackendJson,
 } from "../fixtures";
-import { assertTaggedError } from "../test-support/assertions";
+import { assertTaggedError, requireObjectRecord, requireString } from "../test-support/assertions";
 
 describe("saved views validation", () => {
 	it("rejects a view with a null title property in the display config", async () => {
-		const { client } = await createAuthenticatedClient();
+		const { cookies } = await createAuthenticatedClient();
 		const createBody = buildSavedViewBody();
 		const invalidTitleProperty = JSON.parse("null");
 
-		const error = await client.runError((c) =>
-			c.savedViews.create({
-				payload: {
-					...createBody,
-					displayConfiguration: {
-						...createBody.displayConfiguration,
-						grid: {
-							...createBody.displayConfiguration.grid,
-							titleProperty: invalidTitleProperty,
-						},
-						list: {
-							...createBody.displayConfiguration.list,
-							titleProperty: invalidTitleProperty,
-						},
-					},
+		const response = await postBackendJson(
+			"/saved-views",
+			{
+				...createBody,
+				displayConfiguration: {
+					...createBody.displayConfiguration,
+					grid: { ...createBody.displayConfiguration.grid, titleProperty: invalidTitleProperty },
+					list: { ...createBody.displayConfiguration.list, titleProperty: invalidTitleProperty },
 				},
-			}),
+			},
+			cookies,
 		);
+		const error = requireObjectRecord(await response.json(), "Expected BadRequest response");
+		const message = requireString(error.message, "Expected BadRequest message");
 
-		assertTaggedError(error, "ParseError");
-		expect(error.message).toContain("displayConfiguration");
-		expect(error.message).toContain("titleProperty");
+		expect(response.status).toBe(400);
+		expect(requireString(error._tag, "Expected error tag")).toBe("BadRequest");
+		expect(message).toContain("displayConfiguration");
+		expect(message).toContain("titleProperty");
 	});
 
 	it("rejects a view with no table columns in the display config", async () => {

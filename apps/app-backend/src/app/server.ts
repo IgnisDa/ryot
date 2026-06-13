@@ -1,4 +1,5 @@
 import { FileSystem, HttpApiBuilder, HttpApiScalar } from "@effect/platform";
+import type { HttpApiError, HttpApp } from "@effect/platform";
 import { BunHttpServer } from "@effect/platform-bun";
 import { Effect, Layer, Runtime } from "effect";
 import type * as LayerTypes from "effect/Layer";
@@ -6,6 +7,7 @@ import type * as LayerTypes from "effect/Layer";
 import { AdminMiddlewareLive, AuthMiddlewareLive, AuthService } from "#lib/auth";
 import { AppConfig } from "#lib/config";
 import { AppContract } from "#lib/contract";
+import { BadRequest } from "#lib/errors";
 import { CollectionsRoutesLive } from "#modules/collections/routes";
 import { EntitiesRoutesLive } from "#modules/entities/routes";
 import { EntitySchemasRoutesLive } from "#modules/entity-schemas/routes";
@@ -54,6 +56,18 @@ const mimeType = (path: string) => {
 	return mimeTypes[extension] ?? "text/html; charset=utf-8";
 };
 
+const decodeErrorsAsBadRequest: HttpApiBuilder.MiddlewareFn<BadRequest> = (httpApp) =>
+	(httpApp as HttpApp.Default<HttpApiError.HttpApiDecodeError>).pipe(
+		Effect.catchTag("HttpApiDecodeError", (error) =>
+			Effect.fail(new BadRequest({ message: error.message })),
+		),
+	);
+
+const DecodeErrorsAsBadRequestLive = HttpApiBuilder.middleware(
+	AppContract,
+	decodeErrorsAsBadRequest,
+);
+
 const buildWebhookForwardRequest = (request: Request, url: URL) => {
 	if (request.body !== null) {
 		return new Request(url.toString(), request);
@@ -64,14 +78,10 @@ const buildWebhookForwardRequest = (request: Request, url: URL) => {
 		headers.set("content-type", "application/json");
 	}
 
-	return new Request(url.toString(), {
-		headers,
-		body: "null",
-		method: request.method,
-	});
+	return new Request(url.toString(), { headers, body: "null", method: request.method });
 };
 
-const ApiLive = HttpApiBuilder.api(AppContract).pipe(
+const ApiBaseLive = HttpApiBuilder.api(AppContract).pipe(
 	Layer.provide(SystemRoutesLive),
 	Layer.provide(SandboxRoutesLive),
 	Layer.provide(TrackersRoutesLive),
@@ -93,6 +103,8 @@ const ApiLive = HttpApiBuilder.api(AppContract).pipe(
 	Layer.provide(AdminMiddlewareLive),
 	Layer.provide(UploadBodyLimitMiddlewareLive),
 );
+
+const ApiLive = Layer.provide(ApiBaseLive, DecodeErrorsAsBadRequestLive);
 
 const ScalarLive = HttpApiScalar.layer({ path: "/docs" }).pipe(Layer.provide(ApiLive));
 
