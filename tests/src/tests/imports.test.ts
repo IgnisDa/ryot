@@ -120,13 +120,12 @@ describe("OpenScale Import E2E", () => {
 		expect(completedRun.failedItems).toBeGreaterThan(0);
 		expect(completedRun.importedItems).toBeGreaterThan(0);
 
-		const { data: failuresData, response } = await client.GET("/imports/runs/{runId}/failures", {
-			params: { path: { runId } },
+		const { data: runData, response } = await client.GET("/imports/runs/{runId}", {
 			headers: { Cookie: cookies },
-			query: { page: 1, limit: 20 },
+			params: { path: { runId }, query: { page: 1, limit: 20 } },
 		});
 
 		expect(response.status).toBe(200);
-		expect(failuresData?.data.items.length).toBeGreaterThan(0);
+		expect(runData?.data.failures.items.length).toBeGreaterThan(0);
 	});
 });
