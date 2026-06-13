@@ -8,7 +8,7 @@ import { getBackendClient } from "../fixtures";
 import { createTestAuthClient, createTestUser } from "../fixtures/auth";
 import { cookieHeaderFromSetCookies } from "../fixtures/auth-2fa";
 import { getBackendUrl, getPgClient } from "../setup";
-import { assertTaggedError, requireNonEmptyArray } from "../test-support/assertions";
+import { assertPresent, assertTaggedError, requireNonEmptyArray } from "../test-support/assertions";
 
 const WRONG_TOKEN = "wrong-token";
 const ADMIN_TOKEN = "test-admin-token";
@@ -29,9 +29,7 @@ async function getUserIdByEmail(email: string) {
 		[email],
 	);
 	const row = result.rows[0];
-	if (!row) {
-		throw new Error("missing user row");
-	}
+	assertPresent(row, "missing user row");
 	return UserId.make(row.id);
 }
 
@@ -188,9 +186,7 @@ describe("User listing with correct admin token", () => {
 			email,
 		]);
 		const row = result.rows[0];
-		if (!row) {
-			throw new Error("missing user row");
-		}
+		assertPresent(row, "missing user row");
 		const userId = row.id;
 
 		await pg.query(
@@ -336,9 +332,7 @@ describe("Reset link generation and completion for credential user", () => {
 
 		const token = new URL(resetData.resetUrl).searchParams.get("token");
 		expect(typeof token).toBe("string");
-		if (!token) {
-			throw new Error("missing token");
-		}
+		assertPresent(token, "missing token");
 
 		const newPassword = "new-password-456!";
 		const { error: resetError } = await createTestAuthClient().resetPassword({
@@ -378,9 +372,7 @@ describe("Reset link generation and completion for credential user", () => {
 		);
 		const token = new URL(resetData.resetUrl).searchParams.get("token");
 		expect(typeof token).toBe("string");
-		if (!token) {
-			throw new Error("missing token");
-		}
+		assertPresent(token, "missing token");
 
 		const newPassword = "revoked-session-pw!";
 		const { error: resetError } = await createTestAuthClient().resetPassword({
@@ -420,9 +412,7 @@ describe("Reset link generation and completion for no-account user", () => {
 		expect(resetData.email).toBe(email);
 		const token = new URL(resetData.resetUrl).searchParams.get("token");
 		expect(typeof token).toBe("string");
-		if (!token) {
-			throw new Error("missing token");
-		}
+		assertPresent(token, "missing token");
 
 		const newPassword = "none-state-password-456!";
 		const { error: resetError } = await createTestAuthClient().resetPassword({

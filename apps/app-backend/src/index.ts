@@ -1,6 +1,3 @@
-// TODO:
-// - audit remaining test files and replace `if (x === null) { throw }` type-narrowing
-// guards with `assert(x !== null)` from vitest
 import { BunFileSystem, BunRuntime, BunContext } from "@effect/platform-bun";
 import { Effect, Layer } from "effect";
 
