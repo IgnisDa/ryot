@@ -6,7 +6,7 @@ import { DbRunner } from "#lib/db";
 import { unknownToMessage } from "#lib/errors";
 
 import type { ImportRunJobData } from "./jobs";
-import type { MediaImportAdapterResult } from "./media/import-processor";
+import type { MediaImportAdapterResult } from "./media/adapter-result";
 import { loadMediaAdapterResult } from "./media/workflow-load";
 import { populateMediaEntityGroups } from "./media/workflow-population";
 import { resolveMediaEntityGroups } from "./media/workflow-resolution";
@@ -14,8 +14,8 @@ import { createProgressReporter } from "./media/workflow-shared";
 import type { MediaImportWorkflowOptions } from "./media/workflow-types";
 import { writeMediaEntityGroups } from "./media/workflow-writing";
 import { ImportsRepository } from "./repository";
-import { markImportRunStarted, recordImportRunFailure } from "./runtime/failures";
-import { resolveImportPath } from "./runtime/files";
+import { resolveImportPath } from "./runtime/import-files";
+import { markImportRunStarted, recordImportRunFailure } from "./runtime/import-run-status";
 import {
 	createImportRunLifecycle,
 	ImportRunError,

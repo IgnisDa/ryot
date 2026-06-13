@@ -30,10 +30,10 @@ it.effect("keeps raw sandbox workflow execution at the allowed boundaries", () =
 		] = yield* Effect.all([
 			readModule("./service.ts"),
 			readModule("./workflows.ts"),
-			readModule("../events/create-core.ts"),
+			readModule("../events/event-creation.ts"),
 			readModule("../exercises/preload.ts"),
 			readModule("../entity-import/workflows.ts"),
-			readModule("../library/workflows.ts"),
+			readModule("../library-membership/workflows.ts"),
 			readModules(mediaImportWorkflowModules),
 			readModule("../integrations/workflows.ts"),
 		]);
@@ -60,7 +60,7 @@ it.effect("keeps parent workflows as orchestrations instead of queue pass-throug
 		const [entityImportWorkflow, libraryWorkflow, mediaImportWorkflow, integrationWorkflow] =
 			yield* Effect.all([
 				readModule("../entity-import/workflows.ts"),
-				readModule("../library/workflows.ts"),
+				readModule("../library-membership/workflows.ts"),
 				readModules(mediaImportWorkflowModules),
 				readModule("../integrations/workflows.ts"),
 			]);
