@@ -59,6 +59,21 @@ const frontend = group(
 			envKey: "FRONTEND_OIDC_BUTTON_LABEL",
 			description: "Label for the OIDC sign-in button",
 		}),
+		umami: group(
+			{ label: "Umami", description: "Umami analytics settings" },
+			{
+				hostUrl: stringField({
+					label: "Umami host URL",
+					envKey: "FRONTEND_UMAMI_HOST_URL",
+					description: "Origin of the Umami instance that receives analytics events",
+				}),
+				websiteId: stringField({
+					label: "Umami website ID",
+					envKey: "FRONTEND_UMAMI_WEBSITE_ID",
+					description: "Umami website identifier reported alongside analytics events",
+				}),
+			},
+		),
 	},
 );
 
@@ -291,6 +306,12 @@ export const appConfigDefinition = defineConfig(
 			envKey: "FRONTEND_URL",
 			defaultValue: "https://app.ryot.io",
 			description: "Public URL of the frontend application",
+		}),
+		disableTelemetry: booleanField({
+			defaultValue: false,
+			label: "Disable telemetry",
+			envKey: "DISABLE_TELEMETRY",
+			description: "Disable anonymous usage analytics reported by the client",
 		}),
 	},
 	{ description: "Application configuration" },

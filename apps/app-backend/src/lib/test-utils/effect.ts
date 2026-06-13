@@ -103,11 +103,15 @@ export const makeAppConfigLayer = (
 		port: 3000,
 		nodeEnv: "test",
 		timezone: "Etc/GMT",
+		disableTelemetry: false,
 		frontendUrl: "http://localhost:3000",
 		redisUrl: Redacted.make("unused"),
-		frontend: { oidcButtonLabel: Option.none() },
 		sandbox: { denoDir: "/tmp", processMode: "on-demand" },
 		users: { allowRegistration: true, disableLocalAuth: false },
+		frontend: {
+			oidcButtonLabel: Option.none(),
+			umami: { hostUrl: Option.none(), websiteId: Option.none() },
+		},
 		scheduler: {
 			disableDispatchers: false,
 			infrequentCronJobsSchedule: "0 0 * * *",
@@ -148,10 +152,14 @@ export const makeAppConfigLayer = (
 		...overrides,
 		users: { ...defaults.users, ...overrides?.users },
 		sandbox: { ...defaults.sandbox, ...overrides?.sandbox },
-		frontend: { ...defaults.frontend, ...overrides?.frontend },
 		database: { ...defaults.database, ...overrides?.database },
 		scheduler: { ...defaults.scheduler, ...overrides?.scheduler },
 		fileStorage: { ...defaults.fileStorage, ...overrides?.fileStorage },
+		frontend: {
+			...defaults.frontend,
+			...overrides?.frontend,
+			umami: { ...defaults.frontend.umami, ...overrides?.frontend?.umami },
+		},
 		server: {
 			...defaults.server,
 			...overrides?.server,
