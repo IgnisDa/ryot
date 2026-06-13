@@ -21,98 +21,40 @@ export const showPropertiesSchema: AppSchema = {
 	fields: {
 		...mediaBaseFields,
 		images: imagesField("Cover and promotional images for this show"),
-		showSeasons: {
-			type: "array",
-			label: "Show Seasons",
-			description: "Seasons in this show, each containing episodes",
-			items: {
-				label: "Item",
-				type: "object",
-				description: "Item",
-				unknownKeys: "strict",
-				properties: {
-					name: {
-						label: "Name",
-						type: "string",
-						description: "Name",
-						validation: { required: true },
-					},
-					seasonNumber: {
-						type: "integer",
-						label: "Season Number",
-						description: "Season Number",
-						validation: { required: true },
-					},
-					id: {
-						label: "Id",
-						type: "integer",
-						description: "Id",
-						validation: { required: true },
-					},
-					posterImages: {
-						type: "array",
-						label: "Poster Images",
-						description: "Poster Images",
-						items: { type: "string", label: "Item", description: "Item" },
-					},
-					overview: { type: "string", label: "Overview", description: "Overview" },
-					backdropImages: {
-						type: "array",
-						label: "Backdrop Images",
-						description: "Backdrop Images",
-						items: { type: "string", label: "Item", description: "Item" },
-					},
-					publishDate: {
-						type: "string",
-						label: "Publish Date",
-						description: "Publish Date",
-					},
-					episodes: {
-						type: "array",
-						label: "Episodes",
-						description: "Episodes",
-						items: {
-							label: "Item",
-							type: "object",
-							description: "Item",
-							unknownKeys: "strict",
-							properties: {
-								name: {
-									label: "Name",
-									type: "string",
-									description: "Name",
-									validation: { required: true },
-								},
-								runtime: { type: "integer", label: "Runtime", description: "Runtime" },
-								id: {
-									label: "Id",
-									type: "integer",
-									description: "Id",
-									validation: { required: true },
-								},
-								overview: { type: "string", label: "Overview", description: "Overview" },
-								episodeNumber: {
-									type: "integer",
-									label: "Episode Number",
-									description: "Episode Number",
-									validation: { required: true },
-								},
-								posterImages: {
-									type: "array",
-									label: "Poster Images",
-									description: "Poster Images",
-									items: { type: "string", label: "Item", description: "Item" },
-								},
-								publishDate: {
-									type: "string",
-									label: "Publish Date",
-									description: "Publish Date",
-								},
-							},
-						},
-					},
-				},
-			},
+		totalSeasons: integerField("Total Seasons", "Total number of seasons in this show"),
+		totalEpisodes: integerField("Total Episodes", "Total number of episodes in this show"),
+	},
+};
+
+export const showSeasonPropertiesSchema: AppSchema = {
+	fields: {
+		description: stringField("Description", "Season overview or summary"),
+		releaseDate: stringField("Release Date", "Season release date as an ISO 8601 date string"),
+		seasonNumber: {
+			type: "integer",
+			label: "Season Number",
+			validation: { minimum: 0, required: true },
+			description: "Season number within the show, with 0 reserved for specials",
+		},
+	},
+};
+
+export const showEpisodePropertiesSchema: AppSchema = {
+	fields: {
+		runtime: integerField("Runtime", "Runtime in minutes"),
+		description: stringField("Description", "Episode overview or summary"),
+		publishDate: stringField("Publish Date", "Episode air date as an ISO 8601 date string"),
+		seasonNumber: {
+			type: "integer",
+			label: "Season Number",
+			validation: { minimum: 0, required: true },
+			description: "Season number within the show, with 0 reserved for specials",
+		},
+		episodeNumber: {
+			type: "integer",
+			label: "Episode Number",
+			validation: { minimum: 0, required: true },
+			description: "Episode number within the season",
 		},
 	},
 };
