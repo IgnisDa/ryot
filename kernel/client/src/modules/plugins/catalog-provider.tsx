@@ -53,10 +53,10 @@ export function PluginCatalogProvider(props: {
 		};
 	}, [props.runtime, serverUrl, userId]);
 
+	const value = useMemo(() => ({ catalog, refetch }), [catalog, refetch]);
+
 	return (
-		<PluginCatalogContext.Provider value={{ catalog, refetch }}>
-			{props.children}
-		</PluginCatalogContext.Provider>
+		<PluginCatalogContext.Provider value={value}>{props.children}</PluginCatalogContext.Provider>
 	);
 }
 
