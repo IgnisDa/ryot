@@ -53,6 +53,9 @@ import { LibraryImportService } from "#modules/library-membership/service";
 import { MediaTrendingWorkflowOperationsLive } from "#modules/media-trending/operations-workflow";
 import { MediaTrendingRepository } from "#modules/media-trending/repository";
 import { MetadataLookupService } from "#modules/metadata-lookup/service";
+import { MonitoringRefreshWorkflowDefinitionsLive } from "#modules/monitoring/refresh-workflow";
+import { MonitoringRepository } from "#modules/monitoring/repository";
+import { MonitoringService } from "#modules/monitoring/service";
 import { NotificationDeliveryService } from "#modules/notifications/delivery";
 import { NotificationDeliveryWorkflowDefinitionsLive } from "#modules/notifications/notification-delivery-workflow-live";
 import { NotificationsRepository } from "#modules/notifications/repository";
@@ -99,6 +102,7 @@ const ContentRepositoriesLive = Layer.mergeAll(
 	CollectionsRepository.Default,
 	EntitiesRepository.Default,
 	MediaTrendingRepository.Default,
+	MonitoringRepository.Default,
 	EntitySchemasRepository.Default,
 	EpisodeResolverRepository.Default,
 	EventSchemasRepository.Default,
@@ -204,6 +208,28 @@ const ServicesBaseLive = Layer.provideMerge(
 	CollectionsServiceLive,
 );
 
+const MonitoringRelationshipsServiceLive = Layer.provide(
+	RelationshipsService.Default,
+	RelationshipsRepository.Default,
+);
+
+const MonitoringCollectionsServiceLive = Layer.provideMerge(
+	CollectionsServiceLive,
+	Layer.mergeAll(RelationshipSchemasRepository.Default, RelationshipsRepository.Default),
+);
+
+const MonitoringServiceDependenciesLive = Layer.mergeAll(
+	MonitoringCollectionsServiceLive,
+	QueryEngineServiceLive,
+	MonitoringRepository.Default,
+	MonitoringRelationshipsServiceLive,
+);
+
+const MonitoringServiceLive = Layer.provide(
+	MonitoringService.Default,
+	MonitoringServiceDependenciesLive,
+);
+
 const MetadataLookupServiceLive = Layer.provide(
 	MetadataLookupService.Default,
 	RuntimeSandboxServiceLive,
@@ -212,6 +238,7 @@ const MetadataLookupServiceLive = Layer.provide(
 const ServicesLive = Layer.mergeAll(
 	Layer.provideMerge(ServicesBaseLive, SandboxServicesLive),
 	MetadataLookupServiceLive,
+	MonitoringServiceLive,
 	InterestServicesLive,
 );
 
@@ -223,6 +250,7 @@ const RuntimeLive = Layer.mergeAll(
 	EventCreateWorkflowDefinitionsLive,
 	LibraryEntityImportWorkflowDefinitionsLive,
 	NotificationDeliveryWorkflowDefinitionsLive,
+	MonitoringRefreshWorkflowDefinitionsLive,
 	GlobalEntityReferencedWorkerLive,
 	DefaultSavedViewWorkerLive,
 	BuiltinEntityPreloaderLive,

@@ -23,12 +23,14 @@ export type SaveEntityInputBase = {
 			externalId: string;
 			populatedAt: Date | null;
 			sandboxScriptId: SandboxScriptId;
+			onConflict?: "preserveExisting" | "replaceExisting";
 	  }
 	| {
 			scope: "user";
 			userId: UserId;
 			externalId?: string;
 			sandboxScriptId?: SandboxScriptId;
+			onConflict?: "preserveExisting" | "replaceExisting";
 	  }
 );
 
@@ -349,6 +351,24 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 
 				if (!existing) {
 					return yield* new DbError({ message: "Global entity insert conflict but not found" });
+				}
+
+				if (input.onConflict === "replaceExisting") {
+					const [updated] = yield* dbEffect(() =>
+						db
+							.update(schema.entity)
+							.set({
+								name: input.name,
+								properties: input.properties,
+								populatedAt: input.populatedAt,
+							})
+							.where(eq(schema.entity.id, existing.id))
+							.returning(entitySelection),
+					);
+
+					if (updated) {
+						return toListedEntity(updated);
+					}
 				}
 
 				if (input.populatedAt !== null && existing.populatedAt === null) {

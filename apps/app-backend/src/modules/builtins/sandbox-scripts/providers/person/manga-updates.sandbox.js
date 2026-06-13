@@ -172,9 +172,43 @@ driver("details", async function (context) {
 	const images = image ? [{ type: "remote", url: image }] : [];
 
 	const sourceUrl = `https://www.mangaupdates.com/authors/${encodeURIComponent(externalId)}`;
+	const seriesResponse = await httpCall(
+		"POST",
+		`https://api.mangaupdates.com/v1/authors/${encodeURIComponent(externalId)}/series`,
+		{
+			body: JSON.stringify({ orderby: "year" }),
+			headers: { "Content-Type": "application/json" },
+		},
+	);
+	if (!seriesResponse?.success) {
+		throw new Error(seriesResponse?.error ?? "MangaUpdates person series request failed");
+	}
+	const seriesPayload = parseJsonResponse(seriesResponse.data.body);
+	const mediaEntities = (Array.isArray(seriesPayload?.series_list) ? seriesPayload.series_list : [])
+		.map((series) => {
+			const seriesId =
+				typeof series?.series_id === "number" && Number.isFinite(series.series_id)
+					? String(Math.trunc(series.series_id))
+					: null;
+			const seriesName = getNullableString(series?.title);
+			return {
+				externalId: seriesId,
+				name: seriesName ?? "Loading...",
+				scriptSlug: "manga.manga-updates",
+				relationshipProperties: { roles: ["Author"] },
+			};
+		})
+		.filter((entity) => entity.externalId !== null);
 
 	return {
 		name,
+		relatedEntityGroups: [
+			{
+				direction: "outgoing",
+				entities: mediaEntities,
+				relationshipSchemaSlug: "person-to-manga",
+			},
+		],
 		properties: {
 			images,
 			gender,

@@ -51,12 +51,18 @@ beforeAll(async () => {
 		code: detailsDriverCode({
 			name: ANIME_IMPORT_NAME,
 			properties: { description: "Imported anime from the e2e fake provider." },
-			relatedEntities: [
+			relatedEntityGroups: [
 				{
-					scriptSlug: companyProvider.slug,
-					name: RELATED_COMPANY_NAME,
-					externalId: RELATED_COMPANY_EXTERNAL_ID,
-					relationshipProperties: { roles: ["E2E Animation Studio"] },
+					direction: "incoming",
+					relationshipSchemaSlug: "company-to-anime",
+					entities: [
+						{
+							name: RELATED_COMPANY_NAME,
+							scriptSlug: companyProvider.slug,
+							externalId: RELATED_COMPANY_EXTERNAL_ID,
+							relationshipProperties: { roles: ["E2E Animation Studio"] },
+						},
+					],
 				},
 			],
 		}),

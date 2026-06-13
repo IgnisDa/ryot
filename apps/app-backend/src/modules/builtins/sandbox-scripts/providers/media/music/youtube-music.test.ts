@@ -43,30 +43,38 @@ describe("music.youtube-music sandbox script", () => {
 			testClient,
 		).then((rawDetails) => {
 			const details = toRecord(rawDetails);
-			expect(details.relatedEntities).toEqual([
+			expect(details.relatedEntityGroups).toEqual([
 				{
-					name: "Artist",
-					externalId: "artist-1",
-					scriptSlug: "person.youtube-music",
-					relationshipProperties: { roles: ["Artist"] },
+					direction: "incoming",
+					relationshipSchemaSlug: "person-to-music",
+					entities: [
+						{
+							name: "Artist",
+							externalId: "artist-1",
+							scriptSlug: "person.youtube-music",
+							relationshipProperties: { roles: ["Artist"] },
+						},
+					],
 				},
 				{
-					name: "Album",
-					externalId: "album-1",
-					scriptSlug: "music-group.youtube-music",
-					relationshipProperties: { roles: ["Member"] },
+					direction: "incoming",
+					relationshipSchemaSlug: "music-group-to-music",
+					entities: [
+						{
+							name: "Album",
+							externalId: "album-1",
+							scriptSlug: "music-group.youtube-music",
+							relationshipProperties: { roles: ["Member"] },
+						},
+					],
 				},
 				{
-					name: "Pick One",
-					externalId: "track-2",
-					scriptSlug: "music.youtube-music",
+					direction: "outgoing",
 					relationshipSchemaSlug: "media-suggestion",
-				},
-				{
-					name: "Pick Two",
-					externalId: "track-3",
-					scriptSlug: "music.youtube-music",
-					relationshipSchemaSlug: "media-suggestion",
+					entities: [
+						{ name: "Pick One", externalId: "track-2", scriptSlug: "music.youtube-music" },
+						{ name: "Pick Two", externalId: "track-3", scriptSlug: "music.youtube-music" },
+					],
 				},
 			]);
 			return undefined;

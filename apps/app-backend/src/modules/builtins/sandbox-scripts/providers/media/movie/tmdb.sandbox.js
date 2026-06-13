@@ -10,11 +10,11 @@ const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/original";
 
 async function getUserIsNsfw() {
-	const prefsResult = await getUserPreferences();
-	if (!prefsResult?.success) {
+	const preferencesResult = await getUserPreferences();
+	if (!preferencesResult?.success) {
 		return false;
 	}
-	return prefsResult?.data?.isNsfw === true;
+	return preferencesResult?.data?.isNsfw === true;
 }
 
 async function getTmdbAccessToken() {
@@ -478,26 +478,40 @@ driver("details", async function (context, { metadata }) {
 		creditsData?.crew,
 	);
 
-	const relatedEntities = [
-		...peopleRelatedEntities,
-		...collectCompanies(movieData?.production_companies),
-		...groups,
-	];
+	const companies = collectCompanies(movieData?.production_companies);
+	const suggestions = collectSuggestions(recommendationsData?.results);
 
 	return {
 		name: title,
-		relatedEntities: [
-			...relatedEntities,
-			...collectSuggestions(recommendationsData?.results).map((suggestion) =>
-				Object.assign(suggestion, { relationshipSchemaSlug: "media-suggestion" }),
-			),
+		relatedEntityGroups: [
+			{
+				direction: "incoming",
+				entities: peopleRelatedEntities,
+				relationshipSchemaSlug: "person-to-movie",
+			},
+			{
+				direction: "incoming",
+				entities: companies,
+				relationshipSchemaSlug: "company-to-movie",
+			},
+			{
+				direction: "incoming",
+				entities: groups,
+				relationshipSchemaSlug: "movie-group-to-movie",
+			},
+			{
+				direction: "outgoing",
+				entities: suggestions,
+				relationshipSchemaSlug: "media-suggestion",
+			},
 		],
 		properties: {
 			images,
 			runtime,
 			providerRating,
-			genres: collectGenres(movieData?.genres),
+			unlinkedCreators,
 			isNsfw: movieData?.adult === true ? true : null,
+			genres: collectGenres(movieData?.genres),
 			sourceUrl: `https://www.themoviedb.org/movie/${externalId}`,
 			publishYear: parsePublishYear(movieData?.release_date, dayjs),
 			description:
@@ -508,7 +522,6 @@ driver("details", async function (context, { metadata }) {
 				typeof movieData?.status === "string" && movieData.status.trim()
 					? movieData.status.trim()
 					: null,
-			unlinkedCreators,
 		},
 	};
 });

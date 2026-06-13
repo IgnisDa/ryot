@@ -281,6 +281,22 @@ driver("details", async function (context) {
 
 	return {
 		name: title,
+		relatedEntityGroups: [
+			{
+				direction: "incoming",
+				relationshipSchemaSlug: "person-to-music",
+				entities: [...relatedEntityByKey.values()].filter(
+					(entity) => entity.scriptSlug === "person.music-brainz",
+				),
+			},
+			{
+				direction: "incoming",
+				relationshipSchemaSlug: "music-group-to-music",
+				entities: [...relatedEntityByKey.values()].filter(
+					(entity) => entity.scriptSlug === "music-group.music-brainz",
+				),
+			},
+		],
 		properties: {
 			duration,
 			genres: [],
@@ -289,6 +305,5 @@ driver("details", async function (context) {
 			images: coverUrl ? [{ type: "remote", url: coverUrl }] : [],
 			sourceUrl: `https://musicbrainz.org/recording/${externalId}`,
 		},
-		relatedEntities: [...relatedEntityByKey.values()],
 	};
 });

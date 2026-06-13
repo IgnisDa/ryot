@@ -62,18 +62,15 @@ describe("anime.anilist sandbox script", () => {
 			},
 		).then((rawDetails) => {
 			const details = toRecord(rawDetails);
-			expect(details.relatedEntities).toEqual([
+			expect(details.relatedEntityGroups).toEqual([
+				{ direction: "incoming", entities: [], relationshipSchemaSlug: "company-to-anime" },
 				{
-					name: "Anime Pick",
-					externalId: "2",
-					scriptSlug: "anime.anilist",
+					direction: "outgoing",
 					relationshipSchemaSlug: "media-suggestion",
-				},
-				{
-					name: "Manga Pick",
-					externalId: "3",
-					scriptSlug: "manga.anilist",
-					relationshipSchemaSlug: "media-suggestion",
+					entities: [
+						{ name: "Anime Pick", externalId: "2", scriptSlug: "anime.anilist" },
+						{ name: "Manga Pick", externalId: "3", scriptSlug: "manga.anilist" },
+					],
 				},
 			]);
 			return undefined;

@@ -423,19 +423,23 @@ query MediaDetailsQuery($id: Int!) {
 
 	return {
 		name: title,
-		relatedEntities: collectSuggestions(media.recommendations, titleLang).map((suggestion) =>
-			Object.assign(suggestion, { relationshipSchemaSlug: "media-suggestion" }),
-		),
+		relatedEntityGroups: [
+			{
+				direction: "outgoing",
+				relationshipSchemaSlug: "media-suggestion",
+				entities: collectSuggestions(media.recommendations, titleLang),
+			},
+		],
 		properties: {
 			volumes,
 			chapters,
+			description,
 			productionStatus: productionStatus,
 			publishYear: parsePublishYear(media.startDate),
 			genres: collectGenres(media.genres, media.tags),
+			images: collectImages(media.coverImage, media.bannerImage),
 			isNsfw: typeof media?.isAdult === "boolean" ? media.isAdult : null,
 			sourceUrl: `https://anilist.co/manga/${payloadIdentifier}/${encodeURIComponent(title)}`,
-			description,
-			images: collectImages(media.coverImage, media.bannerImage),
 			providerRating:
 				typeof media?.averageScore === "number" && Number.isFinite(media.averageScore)
 					? media.averageScore

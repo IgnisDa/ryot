@@ -52,12 +52,17 @@ describe("video-game.igdb sandbox script", () => {
 			},
 		).then((rawDetails) => {
 			const details = toRecord(rawDetails);
-			expect(details.relatedEntities).toEqual([
+			expect(details.relatedEntityGroups).toEqual([
+				{ direction: "incoming", entities: [], relationshipSchemaSlug: "company-to-video-game" },
 				{
-					name: "Pick One",
-					externalId: "2",
-					scriptSlug: "video-game.igdb",
+					entities: [],
+					direction: "incoming",
+					relationshipSchemaSlug: "video-game-group-to-video-game",
+				},
+				{
+					direction: "outgoing",
 					relationshipSchemaSlug: "media-suggestion",
+					entities: [{ name: "Pick One", externalId: "2", scriptSlug: "video-game.igdb" }],
 				},
 			]);
 			return undefined;

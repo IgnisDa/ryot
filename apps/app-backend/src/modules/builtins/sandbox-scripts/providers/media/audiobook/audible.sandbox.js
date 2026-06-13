@@ -336,11 +336,26 @@ driver("details", async function (context) {
 
 	return {
 		name: title,
-		relatedEntities: [
-			...relatedEntityByKey.values(),
-			...suggestions.map((suggestion) =>
-				Object.assign(suggestion, { relationshipSchemaSlug: "media-suggestion" }),
-			),
+		relatedEntityGroups: [
+			{
+				direction: "incoming",
+				relationshipSchemaSlug: "person-to-audiobook",
+				entities: [...relatedEntityByKey.values()].filter(
+					(entity) => entity.scriptSlug === "person.audible",
+				),
+			},
+			{
+				direction: "incoming",
+				relationshipSchemaSlug: "audiobook-group-to-audiobook",
+				entities: [...relatedEntityByKey.values()].filter(
+					(entity) => entity.scriptSlug === "audiobook-group.audible",
+				),
+			},
+			{
+				direction: "outgoing",
+				entities: suggestions,
+				relationshipSchemaSlug: "media-suggestion",
+			},
 		],
 		properties: {
 			images,

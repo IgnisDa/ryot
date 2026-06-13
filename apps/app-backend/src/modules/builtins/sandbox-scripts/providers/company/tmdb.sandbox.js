@@ -144,7 +144,11 @@ driver("details", async function (context) {
 
 	const token = await getTmdbAccessToken();
 
-	const companyData = await tmdbGet(`/company/${externalId}`, { language: "en-US" }, token);
+	const [companyData, movieData, showData] = await Promise.all([
+		tmdbGet(`/company/${externalId}`, { language: "en-US" }, token),
+		tmdbGet(`/company/${externalId}/movies`, { language: "en-US" }, token),
+		tmdbGet(`/company/${externalId}/tv`, { language: "en-US" }, token),
+	]);
 
 	const name =
 		typeof companyData?.name === "string" && companyData.name.trim()
@@ -166,9 +170,47 @@ driver("details", async function (context) {
 	} else if (typeof companyData?.origin_country === "string" && companyData.origin_country.trim()) {
 		headquarters = companyData.origin_country.trim();
 	}
+	const movieEntities = (Array.isArray(movieData?.results) ? movieData.results : [])
+		.map((movie) => {
+			const movieId =
+				typeof movie?.id === "number" && Number.isFinite(movie.id) ? String(Math.trunc(movie.id)) : null;
+			const movieName = typeof movie?.title === "string" && movie.title.trim() ? movie.title.trim() : null;
+			return {
+				externalId: movieId,
+				scriptSlug: "movie.tmdb",
+				name: movieName ?? "Loading...",
+				relationshipProperties: { roles: ["Production Company"] },
+			};
+		})
+		.filter((entity) => entity.externalId !== null);
+	const showEntities = (Array.isArray(showData?.results) ? showData.results : [])
+		.map((show) => {
+			const showId =
+				typeof show?.id === "number" && Number.isFinite(show.id) ? String(Math.trunc(show.id)) : null;
+			const showName = typeof show?.name === "string" && show.name.trim() ? show.name.trim() : null;
+			return {
+				externalId: showId,
+				scriptSlug: "show.tmdb",
+				name: showName ?? "Loading...",
+				relationshipProperties: { roles: ["Production Company"] },
+			};
+		})
+		.filter((entity) => entity.externalId !== null);
 
 	return {
 		name,
+		relatedEntityGroups: [
+			{
+				direction: "outgoing",
+				entities: movieEntities,
+				relationshipSchemaSlug: "company-to-movie",
+			},
+			{
+				direction: "outgoing",
+				entities: showEntities,
+				relationshipSchemaSlug: "company-to-show",
+			},
+		],
 		properties: {
 			images,
 			headquarters,

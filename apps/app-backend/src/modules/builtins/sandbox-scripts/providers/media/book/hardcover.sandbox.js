@@ -440,6 +440,23 @@ query GetHardcoverBookDetails($id: Int!) {
 
 	return {
 		name: title,
+		relatedEntityGroups: [
+			{
+				direction: "incoming",
+				relationshipSchemaSlug: "person-to-book",
+				entities: relatedEntities.filter((entity) => entity.scriptSlug === "person.hardcover"),
+			},
+			{
+				direction: "incoming",
+				relationshipSchemaSlug: "company-to-book",
+				entities: relatedEntities.filter((entity) => entity.scriptSlug === "company.hardcover"),
+			},
+			{
+				direction: "incoming",
+				relationshipSchemaSlug: "book-group-to-book",
+				entities: relatedEntities.filter((entity) => entity.scriptSlug === "book-group.hardcover"),
+			},
+		],
 		properties: {
 			pages,
 			sourceUrl: sourceUrl,
@@ -447,13 +464,10 @@ query GetHardcoverBookDetails($id: Int!) {
 			publishDate: releaseDate,
 			publishYear: releaseYear,
 			genres: collectGenres(bookData.cached_tags),
-			images: collectImages(bookData.image, bookData.images).map((url) => ({
-				type: "remote",
-				url,
-			})),
 			description: typeof bookData.description === "string" ? bookData.description : null,
+			images: collectImages(bookData.image, bookData.images).map((url) => ({				url,type: "remote",
+			})),
 		},
-		relatedEntities,
 	};
 });
 

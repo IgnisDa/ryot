@@ -12,6 +12,7 @@ import { ImportsGroup } from "./modules/imports/contract";
 import { IntegrationsGroup } from "./modules/integrations/contract";
 import { EntityImportGroup } from "./modules/library-membership/contract";
 import { MetadataLookupGroup } from "./modules/metadata-lookup/contract";
+import { MonitoringGroup } from "./modules/monitoring/contract";
 import { NotificationsGroup } from "./modules/notifications/contract";
 import { QueryEngineGroup } from "./modules/query-engine/contract";
 import { RelationshipSchemasGroup } from "./modules/relationship-schemas/contract";
@@ -47,6 +48,7 @@ export const AppContract = HttpApi.make("ryot")
 	.add(MetadataLookupGroup)
 	.add(QueryEngineGroup)
 	.add(InterestGroup)
+	.add(MonitoringGroup)
 	.add(NotificationsGroup)
 	.annotate(OpenApi.Title, "Ryot API")
 	.annotate(OpenApi.Description, "API documentation for the Ryot backend");

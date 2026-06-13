@@ -415,9 +415,6 @@ driver("details", async function (context) {
 		throw new Error(`Exercise not found: ${externalId}`);
 	}
 
-	return {
-		name: row.name,
-		relatedEntities: [],
-		properties: row.properties,
+	return {name: row.name,properties: row.properties,
 	};
 });

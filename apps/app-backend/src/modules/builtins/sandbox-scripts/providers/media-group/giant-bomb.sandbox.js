@@ -223,7 +223,6 @@ driver("details", async function (context) {
 			return {
 				name: memberName,
 				externalId: memberId,
-				reverseDirection: true,
 				scriptSlug: "video-game.giant-bomb",
 				relationshipProperties: { order: idx + 1 },
 			};
@@ -232,7 +231,13 @@ driver("details", async function (context) {
 
 	return {
 		name,
-		relatedEntities,
+		relatedEntityGroups: [
+			{
+				direction: "outgoing",
+				entities: relatedEntities,
+				relationshipSchemaSlug: "video-game-group-to-video-game",
+			},
+		],
 		properties: {
 			images,
 			parts: franchiseGames.length,

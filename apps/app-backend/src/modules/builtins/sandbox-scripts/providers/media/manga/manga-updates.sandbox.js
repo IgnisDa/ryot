@@ -294,19 +294,23 @@ driver("details", async function (context) {
 
 	const { volumes, productionStatus } = await extractStatus(payload?.status);
 	const suggestions = await Promise.resolve(collectSuggestions(payload));
-	const relatedEntities = suggestions.map((suggestion) =>
-		Object.assign(suggestion, { relationshipSchemaSlug: "media-suggestion" }),
-	);
+	const relatedEntities = suggestions;
 
 	return {
 		name: title,
-		relatedEntities,
+		relatedEntityGroups: [
+			{
+				direction: "outgoing",
+				entities: relatedEntities,
+				relationshipSchemaSlug: "media-suggestion",
+			},
+		],
 		properties: {
 			volumes,
 			chapters,
 			productionStatus: productionStatus,
-			publishYear: parsePublishYear(payload?.year, dayjs),
 			images: collectImages(payload?.image),
+			publishYear: parsePublishYear(payload?.year, dayjs),
 			genres: collectGenres(payload?.genres, payload?.categories),
 			sourceUrl: typeof payload?.url === "string" ? payload.url : null,
 			description: typeof payload?.description === "string" ? payload.description : null,

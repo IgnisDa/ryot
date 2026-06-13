@@ -236,7 +236,6 @@ driver("details", async function (context) {
 			return {
 				name: memberName,
 				externalId: memberId,
-				reverseDirection: true,
 				scriptSlug: "video-game.igdb",
 				relationshipProperties: { order: idx + 1 },
 			};
@@ -247,11 +246,13 @@ driver("details", async function (context) {
 
 	return {
 		name: title,
-		relatedEntities,
-		properties: {
-			parts,
-			sourceUrl,
-			images: [],
-		},
+		properties: {parts,			sourceUrl,			images: [],},
+		relatedEntityGroups: [
+			{
+				direction: "outgoing",
+				entities: relatedEntities,
+				relationshipSchemaSlug: "video-game-group-to-video-game",
+			},
+		],
 	};
 });

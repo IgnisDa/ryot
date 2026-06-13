@@ -344,6 +344,13 @@ driver("details", async function (context) {
 
 	return {
 		name: title,
+		relatedEntityGroups: [
+			{
+				direction: "incoming",
+				entities: relatedEntities,
+				relationshipSchemaSlug: "person-to-book",
+			},
+		],
 		properties: {
 			pages,
 			genres: [...genreSet],
@@ -355,7 +362,6 @@ driver("details", async function (context) {
 				url: `https://covers.openlibrary.org/b/id/${coverId}-M.jpg?default=false`,
 			})),
 		},
-		relatedEntities,
 	};
 });
 

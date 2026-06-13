@@ -83,19 +83,23 @@ export class NotificationsService extends Effect.Service<NotificationsService>()
 				yield* provideWorkflowEngine(
 					enqueueNotificationDelivery({ userId: user.id, request: { kind: "test" } }),
 				);
+				return undefined;
 			});
 
 			const trigger = Effect.fn("NotificationsService.trigger")(function* (input: {
 				userId: UserId;
 				message: string;
+				executionId?: string;
 				eventType: NotificationEventType;
 			}) {
 				yield* provideWorkflowEngine(
 					enqueueNotificationDelivery({
 						userId: input.userId,
+						executionId: input.executionId,
 						request: { kind: "event", message: input.message, eventType: input.eventType },
 					}),
 				);
+				return undefined;
 			});
 
 			return { create, delete: remove, list, test, trigger, update };
