@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -16,6 +16,22 @@ affected modules, not unrelated opportunistic refactors.
 
 ## Acceptance criteria
 
-- [ ] The task is executed using the `codebase-cleanup` skill
-- [ ] The cleanup pass covers all files touched by this plan and any directly affected modules
-- [ ] Any removals or simplifications are reflected in the changed code before the plan is considered complete
+- [x] The task is executed using the `codebase-cleanup` skill
+- [x] The cleanup pass covers all files touched by this plan and any directly affected modules
+- [x] Any removals or simplifications are reflected in the changed code before the plan is considered complete
+
+## Implementation Notes
+
+- Removed unused and unnecessary translation-module exports, including internal helper result
+  types and the workflow payload schema/type.
+- Simplified `TranslationsRepository.upsertOverlay` so it no longer returns an unused id, and
+  stopped selecting `entity_translation.populatedAt` on overlay reads where only merge fields are
+  needed.
+- Removed the shallow built-in registry `provider` wrapper and consolidated repeated translated
+  provider metadata assertions into a table-driven check.
+- Moved reusable translation e2e setup helpers into `tests/src/fixtures/translations.ts`, making
+  `tests/src/tests/entities-translation.test.ts` shorter and focused on behavior.
+- Removed the unused translation fixture polling helper and made the entity-populated marker
+  private to the fixture.
+- Verification was limited to static inspection and repository searches because this environment
+  does not have the required Bun/Deno application dependencies.
