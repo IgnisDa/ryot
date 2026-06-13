@@ -14,6 +14,7 @@ import {
 import { CollectionsService } from "#modules/collections/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
+import { EpisodeResolverService } from "#modules/episode-resolver/service";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
 import { EventsService } from "#modules/events/service";
 import { ImportsRepository } from "#modules/imports/repository";
@@ -138,6 +139,12 @@ const makeEventsService = (overrides: Partial<EventsService> = {}) =>
 		overrides,
 	);
 
+const makeEpisodeResolverService = () =>
+	makeMock<EpisodeResolverService>({
+		_tag: "EpisodeResolverService" as const,
+		resolveShowEpisode: () => Effect.die("unused"),
+	});
+
 const makeEventSchemasRepository = (overrides: Partial<EventSchemasRepository> = {}) =>
 	makeMock<EventSchemasRepository>(
 		{
@@ -196,6 +203,7 @@ const makeTestLayer = (options: TestLayerOptions) =>
 		),
 		Layer.succeed(EntitiesRepository, makeEntitiesRepository()),
 		Layer.succeed(CollectionsService, options.collectionsService ?? makeCollectionsService()),
+		Layer.succeed(EpisodeResolverService, makeEpisodeResolverService()),
 		Layer.succeed(EventsService, options.eventsService ?? makeEventsService()),
 		Layer.succeed(EventSchemasRepository, makeEventSchemasRepository()),
 		Layer.succeed(EntitySchemasRepository, makeEntitySchemasRepository()),

@@ -6,6 +6,7 @@ import { Effect, Layer } from "effect";
 import {
 	EntityId,
 	EntitySchemaId,
+	EventSchemaId,
 	ImportRunId,
 	RelationshipId,
 	RelationshipSchemaId,
@@ -21,6 +22,7 @@ import {
 import { CollectionsService } from "#modules/collections/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
+import { EpisodeResolverService } from "#modules/episode-resolver/service";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
 import { EventsService } from "#modules/events/service";
 
@@ -118,6 +120,12 @@ const makeEventsService = (overrides: Partial<EventsService> = {}) =>
 		overrides,
 	);
 
+const makeEpisodeResolverService = (overrides: Partial<EpisodeResolverService> = {}) =>
+	makeMock<EpisodeResolverService>(
+		{ _tag: "EpisodeResolverService" as const, resolveShowEpisode: () => Effect.die("unused") },
+		overrides,
+	);
+
 const makeEventSchemasRepository = (overrides: Partial<EventSchemasRepository> = {}) =>
 	makeMock<EventSchemasRepository>(
 		{
@@ -153,6 +161,7 @@ type TestLayerOptions = {
 	eventsService?: EventsService;
 	importsRepository?: ImportsRepository;
 	entitiesRepository?: EntitiesRepository;
+	episodeResolverService?: EpisodeResolverService;
 	collectionsService?: CollectionsService;
 	eventSchemasRepository?: EventSchemasRepository;
 	entitySchemasRepository?: EntitySchemasRepository;
@@ -166,6 +175,10 @@ const makeTestLayer = (options: TestLayerOptions) =>
 		Layer.succeed(ImportsRepository, options.importsRepository ?? makeImportsRepository()),
 		Layer.succeed(EntitiesRepository, options.entitiesRepository ?? makeEntitiesRepository()),
 		Layer.succeed(CollectionsService, options.collectionsService ?? makeCollectionsService()),
+		Layer.succeed(
+			EpisodeResolverService,
+			options.episodeResolverService ?? makeEpisodeResolverService(),
+		),
 		Layer.succeed(EventsService, options.eventsService ?? makeEventsService()),
 		Layer.succeed(
 			EventSchemasRepository,
@@ -389,6 +402,155 @@ it.effect("orchestrates one-time media imports through workflow-owned phases", (
 					failedItems: 1,
 					importedItems: 1,
 					processedItems: 2,
+					status: "completed",
+				}),
+			);
+		}),
+	);
+});
+
+it.effect("resolves imported show episode progress and drops unresolved locators", () => {
+	const resolverCalls: Array<Record<string, unknown>> = [];
+	const recordedUpdates: Array<Record<string, unknown>> = [];
+	const recordedFailures: Array<Record<string, unknown>> = [];
+	const createdEvents: Array<ReadonlyArray<Record<string, unknown>>> = [];
+
+	const options = {
+		importsRepository: makeImportsRepository({
+			createFailure: (input) => {
+				recordedFailures.push(input);
+				return Effect.void;
+			},
+			updateRun: (input) => {
+				recordedUpdates.push(input);
+				return Effect.void;
+			},
+		}),
+		entitiesRepository: makeEntitiesRepository({
+			findEntitySchemaScriptBySlug: (slug) =>
+				Effect.succeed(
+					slug === "show.tmdb"
+						? {
+								entitySchemaId: EntitySchemaId.make("schema-show"),
+								sandboxScriptId: SandboxScriptId.make("script-show-tmdb"),
+							}
+						: null,
+				),
+		}),
+		collectionsService: makeCollectionsService({
+			ensureEntityInLibrary: () => Effect.void,
+		}),
+		episodeResolverService: makeEpisodeResolverService({
+			resolveShowEpisode: (input) =>
+				Effect.sync(() => {
+					resolverCalls.push(input);
+					return input.episodeNumber === 2 ? EntityId.make("episode-1") : null;
+				}),
+		}),
+		eventSchemasRepository: makeEventSchemasRepository({
+			getBuiltinBySlug: (input) =>
+				Effect.succeed(
+					input.entitySchemaId === "schema-show-episode" && input.slug === "progress"
+						? { id: EventSchemaId.make("event-schema-progress"), propertiesSchema: { fields: {} } }
+						: null,
+				),
+		}),
+		entitySchemasRepository: makeEntitySchemasRepository({
+			getBuiltinBySlug: (slug) =>
+				Effect.succeed(
+					slug === "show"
+						? { id: EntitySchemaId.make("schema-show") }
+						: slug === "show-episode"
+							? { id: EntitySchemaId.make("schema-show-episode") }
+							: null,
+				),
+		}),
+		eventsService: makeEventsService({
+			createForImport: (_userId, payload) => {
+				createdEvents.push(payload as ReadonlyArray<Record<string, unknown>>);
+				return Effect.succeed({ count: payload.length });
+			},
+		}),
+	} satisfies TestLayerOptions;
+
+	return withTestLayer(
+		options,
+		"workflow-show-episode-resolution",
+		Effect.gen(function* () {
+			yield* runOneTimeMediaImportWorkflow(importPayload, "workflow-show-episode-resolution", {
+				cleanupArtifacts: () => Effect.void,
+				searchEntities: () => Effect.die("unused"),
+				resolveExternalId: () => Effect.die("unused"),
+				importEntity: () => Effect.succeed({ id: EntityId.make("show-entity-1") }),
+				loadAdapterResult: () =>
+					Effect.succeed({
+						cleanupPaths: [],
+						adapterResult: {
+							failures: [],
+							entityGroups: [
+								{
+									itemIndex: 1,
+									collectionMemberships: [],
+									entityRef: {
+										kind: "resolved",
+										externalId: "show-1",
+										scriptSlug: "show.tmdb",
+										sourceLabel: "Test Show",
+										entitySchemaSlug: "show",
+									},
+									events: [
+										{
+											occurredAt: now,
+											eventSchemaSlug: "progress",
+											properties: { progressPercent: 100 },
+											episodeLocator: { type: "show", seasonNumber: 1, episodeNumber: 2 },
+										},
+										{
+											occurredAt: now,
+											eventSchemaSlug: "progress",
+											properties: { progressPercent: 100 },
+											episodeLocator: { type: "show", seasonNumber: 1, episodeNumber: 99 },
+										},
+									],
+								},
+							],
+						},
+					}),
+			});
+
+			expect(resolverCalls).toEqual([
+				{ seasonNumber: 1, episodeNumber: 2, userId: "user-1", showEntityId: "show-entity-1" },
+				{ seasonNumber: 1, userId: "user-1", episodeNumber: 99, showEntityId: "show-entity-1" },
+			]);
+			expect(createdEvents).toEqual([
+				[
+					{
+						occurredAt: now,
+						entityId: "episode-1",
+						properties: { progressPercent: 100 },
+						eventSchemaId: "event-schema-progress",
+					},
+				],
+			]);
+			expect(recordedFailures).toEqual([
+				expect.objectContaining({
+					itemIndex: 1,
+					runId: "run-1",
+					sourceLabel: "Test Show",
+					entitySchemaSlug: "show",
+					sourceIdentifier: "show-1",
+					eventSchemaSlug: "progress",
+					stage: "provider_resolution",
+					message: "Could not resolve show episode S1E99",
+					context: { seasonNumber: 1, episodeNumber: 99 },
+				}),
+			]);
+			expect(recordedUpdates).toContainEqual(
+				expect.objectContaining({
+					progress: 100,
+					failedItems: 1,
+					importedItems: 0,
+					processedItems: 1,
 					status: "completed",
 				}),
 			);

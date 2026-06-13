@@ -314,10 +314,11 @@ export const adaptNetflixExports = Effect.fn("netflixAdapter.adaptExports")(func
 			group.events.push({
 				eventSchemaSlug: "progress",
 				occurredAt: rowResult.occurredAt,
-				properties: {
-					progressPercent: 100,
-					showSeason: rowResult.episodeInfo.season,
-					showEpisode: rowResult.episodeInfo.episode,
+				properties: { progressPercent: 100 },
+				episodeLocator: {
+					type: "show",
+					seasonNumber: rowResult.episodeInfo.season,
+					episodeNumber: rowResult.episodeInfo.episode,
 				},
 			});
 			continue;

@@ -172,10 +172,11 @@ export const adaptPlexData = Effect.fn("plexAdapter.adaptData")(function* (
 						group.events.push({
 							occurredAt: leafOccurredAt,
 							eventSchemaSlug: "progress",
-							properties: {
-								progressPercent: 100,
-								showEpisode: leaf.index,
-								showSeason: leaf.parentIndex,
+							properties: { progressPercent: 100 },
+							episodeLocator: {
+								type: "show",
+								episodeNumber: leaf.index,
+								seasonNumber: leaf.parentIndex,
 							},
 						});
 					}

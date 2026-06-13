@@ -11,6 +11,7 @@ import { CollectionsService } from "#modules/collections/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import type { EntitySearchItem } from "#modules/entity-import/population";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
+import { EpisodeResolverService } from "#modules/episode-resolver/service";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
 import { EventsService } from "#modules/events/service";
 
@@ -128,6 +129,7 @@ export const runOneTimeMediaImportWorkflow = Effect.fn("runOneTimeMediaImportWor
 	const repository = yield* ImportsRepository;
 	const collections = yield* CollectionsService;
 	const entitiesRepository = yield* EntitiesRepository;
+	const episodeResolver = yield* EpisodeResolverService;
 
 	const config = yield* AppConfig;
 	const initialCleanupPaths = payload.filePath
@@ -764,8 +766,74 @@ export const runOneTimeMediaImportWorkflow = Effect.fn("runOneTimeMediaImportWor
 				if (!event) {
 					continue;
 				}
+				let targetEntityId = entityId;
+				let targetEntitySchemaId = entitySchemaId;
+				let targetEntitySchemaSlug = ref.entitySchemaSlug;
 
-				const eventSchemaId = yield* getEventSchemaId(entitySchemaId, event.eventSchemaSlug);
+				if (event.episodeLocator?.type === "show") {
+					const resolvedEpisodeId = yield* Activity.make({
+						error: ImportRunError,
+						success: Schema.NullOr(EntityId),
+						name: `resolve-show-episode-${i}-${eventIndex}`,
+						execute: episodeResolver
+							.resolveShowEpisode({
+								showEntityId: entityId,
+								userId: payload.userId,
+								seasonNumber: event.episodeLocator.seasonNumber,
+								episodeNumber: event.episodeLocator.episodeNumber,
+							})
+							.pipe(Effect.mapError(toWorkflowError)),
+					});
+
+					if (!resolvedEpisodeId) {
+						groupFailed = true;
+						yield* Activity.make({
+							error: ImportRunError,
+							name: `record-show-episode-resolution-failure-${i}-${eventIndex}`,
+							execute: recordImportRunFailure({
+								itemIndex,
+								runId: payload.runId,
+								stage: "provider_resolution",
+								sourceLabel: ref.sourceLabel,
+								sourceIdentifier: ref.externalId,
+								eventSchemaSlug: event.eventSchemaSlug,
+								entitySchemaSlug: ref.entitySchemaSlug,
+								message: `Could not resolve show episode S${event.episodeLocator.seasonNumber}E${event.episodeLocator.episodeNumber}`,
+								context: {
+									episodeNumber: event.episodeLocator.episodeNumber,
+									seasonNumber: event.episodeLocator.seasonNumber,
+								},
+							}).pipe(Effect.mapError(toWorkflowError)),
+						});
+						continue;
+					}
+
+					const episodeEntitySchemaId = yield* getEntitySchemaId("show-episode");
+					if (!episodeEntitySchemaId) {
+						groupFailed = true;
+						yield* Activity.make({
+							error: ImportRunError,
+							name: `record-show-episode-schema-missing-${i}-${eventIndex}`,
+							execute: recordImportRunFailure({
+								itemIndex,
+								context: null,
+								runId: payload.runId,
+								stage: "database_commit",
+								sourceLabel: ref.sourceLabel,
+								sourceIdentifier: ref.externalId,
+								entitySchemaSlug: "show-episode",
+								message: "Entity schema not found: show-episode",
+							}).pipe(Effect.mapError(toWorkflowError)),
+						});
+						continue;
+					}
+
+					targetEntityId = resolvedEpisodeId;
+					targetEntitySchemaId = episodeEntitySchemaId;
+					targetEntitySchemaSlug = "show-episode";
+				}
+
+				const eventSchemaId = yield* getEventSchemaId(targetEntitySchemaId, event.eventSchemaSlug);
 				if (!eventSchemaId) {
 					groupFailed = true;
 					yield* Activity.make({
@@ -779,7 +847,7 @@ export const runOneTimeMediaImportWorkflow = Effect.fn("runOneTimeMediaImportWor
 							sourceLabel: ref.sourceLabel,
 							sourceIdentifier: ref.externalId,
 							eventSchemaSlug: event.eventSchemaSlug,
-							entitySchemaSlug: ref.entitySchemaSlug,
+							entitySchemaSlug: targetEntitySchemaSlug,
 							message: `Event schema not found: ${event.eventSchemaSlug}`,
 						}).pipe(Effect.mapError(toWorkflowError)),
 					});
@@ -788,28 +856,27 @@ export const runOneTimeMediaImportWorkflow = Effect.fn("runOneTimeMediaImportWor
 
 				const eventPayload = [
 					{
-						entityId,
 						eventSchemaId,
+						entityId: targetEntityId,
 						occurredAt: event.occurredAt,
 						properties: event.properties,
 					},
 				];
-				const eventWrite = yield* Activity.make({
-					name: `write-event-${i}-${eventIndex}`,
-					success: EnsureLibraryMembershipOutcome,
-					execute: (options.integrationId
+				const eventExecutionId = `${executionId}-event-${i}-${eventIndex}`;
+				const eventWrite = yield* (
+					options.integrationId
 						? events.createForIntegration({
 								userId: payload.userId,
 								payload: eventPayload,
 								importRunId: payload.runId,
+								executionId: eventExecutionId,
 								integrationId: options.integrationId,
 							})
-						: events.createForImport(payload.userId, eventPayload, payload.runId)
-					).pipe(
-						Effect.as({ message: null }),
-						Effect.catchAll((error) => Effect.succeed({ message: unknownToMessage(error) })),
-					),
-				});
+						: events.createForImport(payload.userId, eventPayload, payload.runId, eventExecutionId)
+				).pipe(
+					Effect.as({ message: null as string | null }),
+					Effect.catchAll((error) => Effect.succeed({ message: unknownToMessage(error) })),
+				);
 				if (eventWrite.message) {
 					groupFailed = true;
 					yield* Activity.make({
@@ -824,7 +891,7 @@ export const runOneTimeMediaImportWorkflow = Effect.fn("runOneTimeMediaImportWor
 							sourceLabel: ref.sourceLabel,
 							sourceIdentifier: ref.externalId,
 							eventSchemaSlug: event.eventSchemaSlug,
-							entitySchemaSlug: ref.entitySchemaSlug,
+							entitySchemaSlug: targetEntitySchemaSlug,
 						}).pipe(Effect.mapError(toWorkflowError)),
 					});
 				}
