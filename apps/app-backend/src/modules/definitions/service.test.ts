@@ -1,6 +1,6 @@
 import { expect, it } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
-import { NotFound } from "@ryot/contract/errors";
+import { DefinitionNotFound } from "@ryot/contract/modules/definitions/schemas";
 import { PluginSlug, UserId } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
@@ -157,6 +157,11 @@ it.effect("returns not found when updating an unknown plugin", () => {
 			service.updatePluginState(user, PluginSlug.make("unknown"), { isDisabled: true }),
 		);
 
-		assertExitFails(exit, new NotFound({ message: "Plugin not found" }));
+		assertExitFails(
+			exit,
+			new DefinitionNotFound({
+				reason: { code: "plugin-not-found", pluginSlug: PluginSlug.make("unknown") },
+			}),
+		);
 	}).pipe(Effect.provide(layer));
 });

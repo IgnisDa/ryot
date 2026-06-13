@@ -224,10 +224,16 @@ export default defineScript({
 
 - Host-function failures cross the private bridge wire format and become typed `Effect` failures
   in the runner stub.
-- Completed script failures contain a structured error with a `load`, `input`, `execute`, or `output` phase, message, optional mapped `script.ts` line and column, and an allowlisted source stack.
+- Completed script failures contain structured failure data with a `load`, `input`, `execute`, or
+  `output` phase, optional mapped `script.ts` line and column, and an allowlisted source stack.
 - Returned stacks contain only mapped `script.ts` frames. Data URLs, runner and dependency paths, bridge URLs, execution identifiers, and bearer tokens are removed.
 - Bridge validation returns 400 for bad body, 401 for invalid token, 404 for unknown function, and 410 for expired session.
-- Timeout and unexpected process termination remain workflow-level job failures; when available, their messages include the last 20 Deno stderr lines, capped at 64 KiB. Module import failures are completed results in the `load` phase.
+- Timeout and unexpected process termination remain workflow-level job failures. Their bounded Deno
+  stderr tail and other raw compiler/runtime diagnostics are exposed only on explicit plugin-author,
+  admin, and test surfaces; unexpected causes stay in backend logs. Module import failures are
+  completed results in the `load` phase.
+- Normal application APIs and persisted workflow failures use structured module-owned reasons with
+  kebab-case codes and parameters, not diagnostic prose.
 - Console calls are captured in the completed result's `logs` field. Oversized logs append one `[sandbox logs truncated]` marker and do not fail execution.
 - Accepted `log` and `span` entries are deterministically serialized into the same completed-result `logs` field after console logs. Their shared observability budget rejects an entire host-call batch before emitting or recording any item.
 - An oversized final value is rejected as an `output`-phase error and is never returned partially.

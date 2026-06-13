@@ -289,7 +289,7 @@ it.effect("keeps earlier writes when a later policy replacement is invalid", () 
 		expect(test.created).toHaveLength(1);
 		expect(result.count).toBe(1);
 		expect(result.outcomes).toHaveLength(1);
-		expect(result.failure).toMatchObject({ index: 1, reason: { kind: "bad_request" } });
+		expect(result.failure).toEqual({ index: 1, reason: { code: "invalid-properties" } });
 	});
 });
 
@@ -307,7 +307,7 @@ it.effect("reauthorizes a replacement session entity", () => {
 		expect(test.created).toHaveLength(0);
 		expect(result.failure).toEqual({
 			index: 0,
-			reason: { kind: "not_found", message: "Session entity not found" },
+			reason: { code: "session-entity-not-found", entityId: inaccessibleId },
 		});
 	});
 });
@@ -327,7 +327,7 @@ it.effect("rejects replacement fields outside the event-create policy contract",
 		expect(test.created).toHaveLength(0);
 		expect(result.failure).toEqual({
 			index: 0,
-			reason: { kind: "bad_request", message: "Policy returned invalid shape" },
+			reason: { code: "policy-failed" },
 		});
 	});
 });

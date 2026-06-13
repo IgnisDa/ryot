@@ -1,5 +1,8 @@
 import { DbError } from "@ryot/contract/errors";
-import type { ListedImportRun } from "@ryot/contract/modules/imports/schemas";
+import type {
+	ImportRunFailureReason,
+	ListedImportRun,
+} from "@ryot/contract/modules/imports/schemas";
 import type { ImportRunFailureStage, ImportRunSource } from "@ryot/contract/modules/imports/types";
 import { ImportRunId, type IntegrationId, type UserId } from "@ryot/contract/schema/brands";
 import type { RunStatus } from "@ryot/contract/schema/run-status";
@@ -18,8 +21,8 @@ const normalizeRun = (row: ImportRunRow): ListedImportRun => ({
 	progress: row.progress,
 	totalItems: row.totalItems,
 	failedItems: row.failedItems,
-	errorSummary: row.errorSummary,
 	inputSummary: row.inputSummary,
+	failureReason: row.failureReason,
 	importedItems: row.importedItems,
 	processedItems: row.processedItems,
 	createdAt: row.createdAt.toISOString(),
@@ -112,10 +115,10 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			status?: RunStatus;
 			totalItems?: number;
 			failedItems?: number;
-			errorSummary?: string;
 			importedItems?: number;
 			processedItems?: number;
 			inputSummary?: Record<string, unknown>;
+			failureReason?: ImportRunFailureReason;
 		}) {
 			const db = yield* Database;
 			const updates: Partial<typeof schema.importRun.$inferInsert> = {};
@@ -137,8 +140,8 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			if (input.failedItems !== undefined) {
 				updates.failedItems = input.failedItems;
 			}
-			if (input.errorSummary !== undefined) {
-				updates.errorSummary = input.errorSummary;
+			if (input.failureReason !== undefined) {
+				updates.failureReason = input.failureReason;
 			}
 			if (input.inputSummary !== undefined) {
 				updates.inputSummary = input.inputSummary;
@@ -173,23 +176,21 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 
 		const createFailure = Effect.fn("ImportsRepository.createFailure")(function* (input: {
 			runId: string;
-			message: string;
 			itemIndex: number;
 			stage: ImportRunFailureStage;
+			reason: ImportRunFailureReason;
 			sourceLabel?: string | null | undefined;
 			eventSchemaSlug?: string | null | undefined;
 			sourceIdentifier?: string | null | undefined;
 			entitySchemaSlug?: string | null | undefined;
-			context?: Record<string, unknown> | null | undefined;
 		}) {
 			const db = yield* Database;
 			yield* mapDatabaseErrors(
 				db.insert(schema.importRunFailure).values({
 					runId: input.runId,
 					stage: input.stage,
-					message: input.message,
+					reason: input.reason,
 					itemIndex: input.itemIndex,
-					context: input.context ?? null,
 					sourceLabel: input.sourceLabel ?? null,
 					eventSchemaSlug: input.eventSchemaSlug ?? null,
 					sourceIdentifier: input.sourceIdentifier ?? null,

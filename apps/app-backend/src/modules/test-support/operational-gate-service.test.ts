@@ -44,7 +44,7 @@ const importRun = {
 	finishedAt: null,
 	importedItems: 0,
 	processedItems: 0,
-	errorSummary: null,
+	failureReason: null,
 	source: gateInput.source,
 	status: "pending" as const,
 	createdAt: "2026-07-30T00:00:00.000Z",

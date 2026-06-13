@@ -1,6 +1,6 @@
-import { badRequest } from "@ryot/contract/errors";
 import type { AutomationOrigin } from "@ryot/contract/modules/automations/schemas";
 import type { CreateEventItem, EventCreateOrigin } from "@ryot/contract/modules/events/schemas";
+import { EventsBadRequest } from "@ryot/contract/modules/events/schemas";
 import type { ImportRunId, IntegrationId, UserId } from "@ryot/contract/schema/brands";
 import { Context, Effect, Layer, Match } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
@@ -60,7 +60,7 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 			}
 
 			if (input.source === "integration" && !input.metadata?.integrationId) {
-				return yield* badRequest("integrationId is required for integration event creation");
+				return yield* new EventsBadRequest({ reason: { code: "integration-id-required" } });
 			}
 
 			return yield* provideWorkflowEngine(

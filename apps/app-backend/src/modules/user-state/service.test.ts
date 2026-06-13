@@ -1,6 +1,6 @@
 import { expect, it } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
-import { BadRequest, NotFound } from "@ryot/contract/errors";
+import { UserStateBadRequest, UserStateNotFound } from "@ryot/contract/modules/user-state/schemas";
 import {
 	EntityId,
 	EntitySchemaSlug,
@@ -175,7 +175,12 @@ it.effect("rejects clearing user state when the entity schema denies it", () => 
 		const service = yield* UserStateService;
 		const exit = yield* Effect.exit(service.clearUserState(user, EntityId.make("library-entity")));
 
-		assertExitFails(exit, new BadRequest({ message: "Entity user state cannot be cleared" }));
+		assertExitFails(
+			exit,
+			new UserStateBadRequest({
+				reason: { code: "operation-denied", operation: "clear" },
+			}),
+		);
 	}).pipe(Effect.provide(layer));
 });
 
@@ -234,7 +239,7 @@ it.effect("rejects merging an entity into itself", () => {
 			}),
 		);
 
-		assertExitFails(exit, new BadRequest({ message: "Cannot merge an entity into itself" }));
+		assertExitFails(exit, new UserStateBadRequest({ reason: { code: "same-entity-merge" } }));
 	}).pipe(Effect.provide(layer));
 });
 
@@ -255,7 +260,15 @@ it.effect("returns not found when one merge entity is not visible", () => {
 			}),
 		);
 
-		assertExitFails(exit, new NotFound({ message: "Entity not found" }));
+		assertExitFails(
+			exit,
+			new UserStateNotFound({
+				reason: {
+					code: "entity-not-found",
+					entityIds: [EntityId.make("from"), EntityId.make("into")],
+				},
+			}),
+		);
 	}).pipe(Effect.provide(layer));
 });
 
@@ -288,7 +301,9 @@ it.effect("rejects merging when either source or destination schema denies it", 
 			}),
 		);
 
-		const expected = new BadRequest({ message: "Entity user state cannot be merged" });
+		const expected = new UserStateBadRequest({
+			reason: { code: "operation-denied", operation: "merge" },
+		});
 		assertExitFails(sourceDenied, expected);
 		assertExitFails(destinationDenied, expected);
 	}).pipe(Effect.provide(layer));
@@ -316,7 +331,7 @@ it.effect("rejects merging entities from different schemas", () => {
 			}),
 		);
 
-		assertExitFails(exit, new BadRequest({ message: "Entities must belong to the same schema" }));
+		assertExitFails(exit, new UserStateBadRequest({ reason: { code: "entity-schema-mismatch" } }));
 	}).pipe(Effect.provide(layer));
 });
 
@@ -376,7 +391,9 @@ it.effect("rejects merging entities with mismatched declared identity properties
 
 		assertExitFails(
 			exit,
-			new BadRequest({ message: "Entities must have the same 'kind' property" }),
+			new UserStateBadRequest({
+				reason: { code: "identity-property-mismatch", property: "kind" },
+			}),
 		);
 	}).pipe(Effect.provide(layer));
 });

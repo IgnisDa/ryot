@@ -1,6 +1,7 @@
 import { CurrentUser } from "@ryot/contract/auth-middleware";
 import { AppContract } from "@ryot/contract/contract";
-import { BadRequest, badRequest, dieOnDbError } from "@ryot/contract/errors";
+import { BadRequest } from "@ryot/contract/errors";
+import { UploadBadRequest, UploadInternalError } from "@ryot/contract/modules/uploads/schemas";
 import { Effect, FileSystem } from "effect";
 import { HttpServerResponse } from "effect/unstable/http";
 import { HttpApiBuilder } from "effect/unstable/httpapi";
@@ -8,6 +9,24 @@ import { HttpApiBuilder } from "effect/unstable/httpapi";
 import { UploadIntentsService } from "./intents/service";
 import { ManagedAssetsService } from "./managed-assets/service";
 import { ObjectStorageService } from "./object-storage/service";
+
+const mapUploadError = <A, E, R>(
+	effect: Effect.Effect<A, E, R>,
+): Effect.Effect<A, UploadBadRequest | UploadInternalError, R> =>
+	effect.pipe(
+		Effect.catch((error): Effect.Effect<never, UploadBadRequest | UploadInternalError> => {
+			const cause: unknown = error;
+			if (cause instanceof UploadBadRequest) {
+				return Effect.fail(cause);
+			}
+			if (cause instanceof BadRequest) {
+				return Effect.fail(new UploadBadRequest({ reason: { code: "invalid-download-target" } }));
+			}
+			return Effect.logError("upload request failed", cause).pipe(
+				Effect.andThen(new UploadInternalError({ reason: { code: "unexpected-error" } })),
+			);
+		}),
+	);
 
 const parseRange = (value: string | undefined, size: number) => {
 	if (!value) {
@@ -74,11 +93,7 @@ const localDownloadResponse = (
 				status: range ? 206 : 200,
 			},
 		);
-	}).pipe(
-		Effect.mapError((error) =>
-			error instanceof BadRequest ? error : badRequest("Local file could not be served"),
-		),
-	);
+	}).pipe(mapUploadError);
 
 export const UploadsRoutesLive = HttpApiBuilder.group(AppContract, "uploads", (handlers) =>
 	handlers
@@ -86,21 +101,21 @@ export const UploadsRoutesLive = HttpApiBuilder.group(AppContract, "uploads", (h
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;
 				const service = yield* UploadIntentsService;
-				return yield* service.createUploadIntent(user, payload).pipe(dieOnDbError);
+				return yield* service.createUploadIntent(user, payload).pipe(mapUploadError);
 			}),
 		)
 		.handle("completeIntent", ({ params }) =>
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;
 				const service = yield* UploadIntentsService;
-				return yield* service.completeUploadIntent(user, params.intentId).pipe(dieOnDbError);
+				return yield* service.completeUploadIntent(user, params.intentId).pipe(mapUploadError);
 			}),
 		)
 		.handle("resolveDownloads", ({ payload }) =>
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;
 				const service = yield* ManagedAssetsService;
-				return yield* service.resolveDownloads(user, payload.assets).pipe(dieOnDbError);
+				return yield* service.resolveDownloads(user, payload.assets).pipe(mapUploadError);
 			}),
 		),
 );
@@ -113,14 +128,16 @@ export const LocalUploadsRoutesLive = HttpApiBuilder.group(
 			.handle("put", ({ params, request }) =>
 				Effect.gen(function* () {
 					const service = yield* UploadIntentsService;
-					yield* service.putLocalIntent(
-						params.intentId,
-						request.method,
-						request.url,
-						request.headers["content-type"],
-						request.headers["content-length"],
-						request.stream,
-					);
+					yield* service
+						.putLocalIntent(
+							params.intentId,
+							request.method,
+							request.url,
+							request.headers["content-type"],
+							request.headers["content-length"],
+							request.stream,
+						)
+						.pipe(mapUploadError);
 					return void 0;
 				}),
 			)

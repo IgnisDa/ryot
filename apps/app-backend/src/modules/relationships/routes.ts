@@ -1,6 +1,10 @@
 import { CurrentUser } from "@ryot/contract/auth-middleware";
 import { AppContract } from "@ryot/contract/contract";
-import { badRequest, dieOnDbError, notFound } from "@ryot/contract/errors";
+import { dieOnDbError } from "@ryot/contract/errors";
+import {
+	RelationshipBadRequest,
+	RelationshipNotFound,
+} from "@ryot/contract/modules/relationships/schemas";
 import type { EntityId, EntitySchemaSlug } from "@ryot/contract/schema/brands";
 import { generateId } from "better-auth";
 import { DateTime, Effect } from "effect";
@@ -29,7 +33,12 @@ export const RelationshipsRoutesLive = HttpApiBuilder.group(
 
 				const schema = yield* schemasRepository.findById(payload.relationshipSchemaSlug, user.id);
 				if (!schema) {
-					return yield* notFound("Relationship schema not found");
+					return yield* new RelationshipNotFound({
+						reason: {
+							code: "relationship-schema-not-found",
+							relationshipSchemaSlug: payload.relationshipSchemaSlug,
+						},
+					});
 				}
 
 				const [sourceScope, targetScope] = yield* Effect.all([
@@ -43,7 +52,12 @@ export const RelationshipsRoutesLive = HttpApiBuilder.group(
 					}),
 				]);
 				if (!sourceScope || !targetScope) {
-					return yield* notFound("Entity not found");
+					return yield* new RelationshipNotFound({
+						reason: {
+							code: "entity-not-found",
+							entityIds: [payload.sourceEntityId, payload.targetEntityId],
+						},
+					});
 				}
 
 				yield* validateSchemaTargets(
@@ -121,10 +135,22 @@ const validateSchemaTargets = (
 	targetEntitySchemaSlug: EntitySchemaSlug,
 ) => {
 	if (schema.sourceEntitySchemaSlug && schema.sourceEntitySchemaSlug !== sourceEntitySchemaSlug) {
-		return badRequest("Relationship source entity schema does not match");
+		return new RelationshipBadRequest({
+			reason: {
+				code: "source-schema-mismatch",
+				actual: sourceEntitySchemaSlug,
+				expected: schema.sourceEntitySchemaSlug,
+			},
+		});
 	}
 	if (schema.targetEntitySchemaSlug && schema.targetEntitySchemaSlug !== targetEntitySchemaSlug) {
-		return badRequest("Relationship target entity schema does not match");
+		return new RelationshipBadRequest({
+			reason: {
+				code: "target-schema-mismatch",
+				actual: targetEntitySchemaSlug,
+				expected: schema.targetEntitySchemaSlug,
+			},
+		});
 	}
 	return Effect.void;
 };

@@ -1,5 +1,4 @@
-import { badRequest } from "@ryot/contract/errors";
-import type { ManagedAssetLocator } from "@ryot/contract/modules/uploads/schemas";
+import { type ManagedAssetLocator, UploadBadRequest } from "@ryot/contract/modules/uploads/schemas";
 import { Clock, Context, Effect, Layer, Stream } from "effect";
 
 import { LocalStorageService } from "#lib/infrastructure/local-storage";
@@ -11,7 +10,11 @@ const limitStreamBytes = (stream: Stream.Stream<Uint8Array, unknown>, maxBytes: 
 		Stream.mapEffect((chunk) => {
 			size += chunk.byteLength;
 			return size > maxBytes
-				? Effect.fail(badRequest(`Upload exceeds maximum allowed size of ${maxBytes} bytes`))
+				? Effect.fail(
+						new UploadBadRequest({
+							reason: { code: "upload-too-large", actualBytes: size, maxBytes },
+						}),
+					)
 				: Effect.succeed(chunk);
 		}),
 	);
@@ -40,26 +43,33 @@ export class ObjectStorageService extends Context.Service<ObjectStorageService>(
 				maxBytes: number,
 			) {
 				if (contentLength !== undefined && contentLength > maxBytes) {
-					return yield* badRequest(`Upload exceeds maximum allowed size of ${maxBytes} bytes`);
+					return yield* new UploadBadRequest({
+						reason: { code: "upload-too-large", actualBytes: contentLength, maxBytes },
+					});
 				}
 				if (locator.type === "local") {
-					return yield* localStorage.writeObject(
-						locator.key,
-						stream,
-						contentLength === undefined ? undefined : String(contentLength),
-						maxBytes,
-					);
+					return yield* localStorage
+						.writeObject(
+							locator.key,
+							stream,
+							contentLength === undefined ? undefined : String(contentLength),
+							maxBytes,
+						)
+						.pipe(
+							Effect.tapError((error) => Effect.logError("local object write failed", error)),
+							Effect.mapError(() => new UploadBadRequest({ reason: { code: "upload-failed" } })),
+						);
 				}
 				const bounded = limitStreamBytes(stream, maxBytes);
-				return yield* s3Service
-					.writeObject(locator.key, bounded, contentType)
-					.pipe(
-						Effect.catchCause((cause) =>
-							s3Service
-								.deleteObject(locator.key)
-								.pipe(Effect.ignore, Effect.andThen(Effect.failCause(cause))),
-						),
-					);
+				return yield* s3Service.writeObject(locator.key, bounded, contentType).pipe(
+					Effect.catchCause((cause) =>
+						s3Service
+							.deleteObject(locator.key)
+							.pipe(Effect.ignore, Effect.andThen(Effect.failCause(cause))),
+					),
+					Effect.tapError((error) => Effect.logError("S3 object write failed", error)),
+					Effect.mapError(() => new UploadBadRequest({ reason: { code: "upload-failed" } })),
+				);
 			});
 
 			const writeObjectIfAbsent = Effect.fn("ObjectStorageService.writeObjectIfAbsent")(function* (
@@ -70,15 +80,17 @@ export class ObjectStorageService extends Context.Service<ObjectStorageService>(
 				maxBytes: number,
 			) {
 				if (contentLength > maxBytes) {
-					return yield* badRequest(`Upload exceeds maximum allowed size of ${maxBytes} bytes`);
+					return yield* new UploadBadRequest({
+						reason: { code: "upload-too-large", actualBytes: contentLength, maxBytes },
+					});
 				}
 				if (locator.type === "local") {
-					return yield* localStorage.writeObjectIfAbsent(
-						locator.key,
-						stream,
-						String(contentLength),
-						maxBytes,
-					);
+					return yield* localStorage
+						.writeObjectIfAbsent(locator.key, stream, String(contentLength), maxBytes)
+						.pipe(
+							Effect.tapError((error) => Effect.logError("local object write failed", error)),
+							Effect.mapError(() => new UploadBadRequest({ reason: { code: "upload-failed" } })),
+						);
 				}
 				return yield* s3Service.writeObjectIfAbsent(
 					locator.key,
@@ -92,7 +104,7 @@ export class ObjectStorageService extends Context.Service<ObjectStorageService>(
 				function* (kind: "permanent" | "temporary") {
 					if (kind === "temporary") {
 						if (!localStorage.isConfiguredForKind("temporary")) {
-							return yield* badRequest("Local temporary storage is not configured");
+							return yield* new UploadBadRequest({ reason: { code: "storage-unavailable", kind } });
 						}
 						return "local" as const;
 					}
@@ -102,7 +114,7 @@ export class ObjectStorageService extends Context.Service<ObjectStorageService>(
 					if (localStorage.isConfiguredForKind("permanent")) {
 						return "local" as const;
 					}
-					return yield* badRequest("No object storage provider is configured");
+					return yield* new UploadBadRequest({ reason: { code: "storage-unavailable", kind } });
 				},
 			);
 
@@ -135,10 +147,18 @@ export class ObjectStorageService extends Context.Service<ObjectStorageService>(
 					);
 					const path = yield* localStorage
 						.resolveObjectPath(target.key)
-						.pipe(Effect.mapError(() => badRequest("Local download object is missing or invalid")));
+						.pipe(
+							Effect.mapError(
+								() => new UploadBadRequest({ reason: { code: "invalid-download-target" } }),
+							),
+						);
 					const info = yield* localStorage
 						.statObject(target.key)
-						.pipe(Effect.mapError(() => badRequest("Local download object is missing or invalid")));
+						.pipe(
+							Effect.mapError(
+								() => new UploadBadRequest({ reason: { code: "invalid-download-target" } }),
+							),
+						);
 					return { contentType: target.contentType, path, size: Number(info.size) };
 				},
 			);

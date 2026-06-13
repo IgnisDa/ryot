@@ -1,5 +1,9 @@
 import { defaultUserPreferences } from "@ryot/contract/auth-middleware";
-import { badRequest, conflict } from "@ryot/contract/errors";
+import {
+	BackupBadRequest,
+	BackupConflict,
+	type BackupAccountDataCategory,
+} from "@ryot/contract/modules/backups/schemas";
 import type { UserId } from "@ryot/contract/schema/brands";
 import { isEqual } from "@ryot/ts-utils/lodash";
 import { Context, Effect, Layer } from "effect";
@@ -78,7 +82,9 @@ const sameUnorderedRecords = (actual: ReadonlyArray<unknown>, expected: Readonly
 	return true;
 };
 
-export const classifyAccountCleanliness = (state: AccountCleanlinessState) => {
+export const classifyAccountCleanliness = (
+	state: AccountCleanlinessState,
+): BackupAccountDataCategory | null => {
 	if (!state.profile || !isEqual(state.profile.preferences, state.defaultPreferences)) {
 		return "preferences";
 	}
@@ -176,7 +182,7 @@ export class BackupAccountCleanliness extends Context.Service<BackupAccountClean
 				function* (userId: UserId) {
 					const profile = yield* auth.getPortableProfile(userId);
 					if (!profile) {
-						return yield* badRequest("Account does not exist");
+						return yield* new BackupBadRequest({ reason: { code: "account-not-found" } });
 					}
 					const ownedEntities = yield* entities.listUserEntitiesForBackup(userId);
 					const ownedRelationships = yield* relationships.listUserRelationshipsForBackup(userId);
@@ -193,7 +199,9 @@ export class BackupAccountCleanliness extends Context.Service<BackupAccountClean
 						sourceDefinition?.pluginSlug !== V1_BOOTSTRAP_SOURCE.pluginSlug ||
 						sourceDefinition.name !== V1_BOOTSTRAP_SOURCE.name
 					) {
-						return yield* badRequest("Current V1 bootstrap source definition is unavailable");
+						return yield* new BackupBadRequest({
+							reason: { code: "bootstrap-definition-unavailable" },
+						});
 					}
 					const category = classifyAccountCleanliness({
 						profile,
@@ -224,7 +232,9 @@ export class BackupAccountCleanliness extends Context.Service<BackupAccountClean
 							.map(({ slug }) => slug),
 					});
 					if (category) {
-						return yield* conflict(`Account is not clean: ${category}`);
+						return yield* new BackupConflict({
+							reason: { code: "account-not-clean", category },
+						});
 					}
 					return undefined;
 				},

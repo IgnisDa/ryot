@@ -1,7 +1,11 @@
 import { createOAuthAccountIssuer } from "@better-auth/core/db";
 import { defaultUserPreferences } from "@ryot/contract/auth-middleware";
-import { badRequest } from "@ryot/contract/errors";
-import type { ProvisionUserBody } from "@ryot/contract/modules/god-mode/contract";
+import {
+	GodModeInternalFailure,
+	GodModeNotFound,
+	GodModeRequestFailure,
+	type ProvisionUserBody,
+} from "@ryot/contract/modules/god-mode/contract";
 import { UserId } from "@ryot/contract/schema/brands";
 import { Context, DateTime, Effect, Layer } from "effect";
 
@@ -14,7 +18,7 @@ import { GodModeRepository } from "./repository";
 
 export const checkResetEligibility = (authState: ReturnType<typeof classifyAuthState>) => {
 	if (authState !== "credential" && authState !== "none") {
-		return `Cannot generate reset link for user with auth state '${authState}'. Only 'credential' and 'none' users are eligible.`;
+		return { code: "password-reset-unsupported", authState } as const;
 	}
 
 	return null;
@@ -79,7 +83,9 @@ export class GodModeService extends Context.Service<GodModeService>()("GodModeSe
 			const existing = yield* repository.findUserIdByEmail(input.email);
 
 			if (existing) {
-				return yield* badRequest(`User with email '${input.email}' already exists`);
+				return yield* new GodModeRequestFailure({
+					reason: { code: "user-already-exists", email: input.email },
+				});
 			}
 
 			const userId = UserId.make(crypto.randomUUID());
@@ -112,7 +118,7 @@ export class GodModeService extends Context.Service<GodModeService>()("GodModeSe
 			const user = yield* repository.findUserDisabledState(userId);
 
 			if (!user) {
-				return yield* badRequest(`User with id '${userId}' not found`);
+				return yield* new GodModeNotFound({ reason: { code: "user-not-found", userId } });
 			}
 
 			const updatedAt = yield* DateTime.nowAsDate;
@@ -131,7 +137,7 @@ export class GodModeService extends Context.Service<GodModeService>()("GodModeSe
 			userId: UserId,
 		) {
 			if (config.users.disableLocalAuth) {
-				return yield* badRequest("Local authentication is disabled on this instance");
+				return yield* new GodModeRequestFailure({ reason: { code: "local-auth-disabled" } });
 			}
 
 			const userRow = yield* repository.findUserById(userId);
@@ -140,16 +146,23 @@ export class GodModeService extends Context.Service<GodModeService>()("GodModeSe
 				: null;
 
 			if (!userData) {
-				return yield* badRequest(`User with id '${userId}' not found`);
+				return yield* new GodModeNotFound({ reason: { code: "user-not-found", userId } });
 			}
 
 			const authState = classifyAuthState(userData.accounts);
 			const eligibilityError = checkResetEligibility(authState);
 			if (eligibilityError) {
-				return yield* badRequest(eligibilityError);
+				return yield* new GodModeRequestFailure({ reason: eligibilityError });
 			}
 
-			return yield* requestPasswordResetLink(userData.user.email);
+			return yield* requestPasswordResetLink(userData.user.email).pipe(
+				Effect.catchTags({
+					BadRequest: () =>
+						new GodModeRequestFailure({ reason: { code: "password-reset-in-progress" } }),
+					InternalError: () =>
+						new GodModeInternalFailure({ reason: { code: "password-reset-failed" } }),
+				}),
+			);
 		});
 
 		return {

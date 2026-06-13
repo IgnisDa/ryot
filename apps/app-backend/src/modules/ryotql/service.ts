@@ -1,8 +1,9 @@
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
-import { BadRequest, DbError, dieOnDbError } from "@ryot/contract/errors";
+import { DbError } from "@ryot/contract/errors";
+import { RyotQLBadRequest, RyotQLInternalError } from "@ryot/contract/modules/ryotql/contract";
 import type { RyotQLDocument, RyotQLResult } from "@ryot/contract/modules/ryotql/language";
 import { sql } from "drizzle-orm";
-import { Context, Effect, Layer } from "effect";
+import { Context, Effect, Layer, Match } from "effect";
 
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 
@@ -23,7 +24,8 @@ export class RyotQLService extends Context.Service<RyotQLService>()("RyotQLServi
 		) {
 			const validationError = validateRyotQLDocument(document, scope);
 			if (validationError) {
-				return yield* new BadRequest({ message: validationError });
+				yield* Effect.logWarning("RyotQL validation failed", { diagnostic: validationError });
+				return yield* new RyotQLBadRequest({ reason: { code: "invalid-query" } });
 			}
 			const normalizedDocument = normalizeRyotQLDocument(document);
 
@@ -47,16 +49,25 @@ export class RyotQLService extends Context.Service<RyotQLService>()("RyotQLServi
 				Effect.catchIf(
 					(error): error is DbError => error instanceof DbError,
 					(error) =>
-						Effect.fail(
-							error.code === "57014"
-								? new BadRequest({
-										message: `Query exceeded the maximum execution time of ${RYOTQL_STATEMENT_TIMEOUT_MS}ms`,
-									})
-								: error,
+						Effect.logError("RyotQL database execution failed", error).pipe(
+							Effect.andThen(
+								Match.value(error.code).pipe(
+									Match.when("57014", () =>
+										Effect.fail(
+											new RyotQLBadRequest({
+												reason: { code: "query-timeout", limitMs: RYOTQL_STATEMENT_TIMEOUT_MS },
+											}),
+										),
+									),
+									Match.orElse(() =>
+										Effect.fail(new RyotQLInternalError({ reason: { code: "execution-failed" } })),
+									),
+								),
+							),
 						),
 				),
 			);
-		}, dieOnDbError);
+		});
 
 		const executeForUser = (userId: string, language: string | null, document: RyotQLDocument) =>
 			executeWithScope({ type: "user", userId, language }, document);
@@ -69,7 +80,8 @@ export class RyotQLService extends Context.Service<RyotQLService>()("RyotQLServi
 		const validate = Effect.fn("RyotQLService.validate")(function* (document: RyotQLDocument) {
 			const validationError = validateRyotQLDocument(document, { type: "user" });
 			if (validationError) {
-				return yield* new BadRequest({ message: validationError });
+				yield* Effect.logWarning("RyotQL validation failed", { diagnostic: validationError });
+				return yield* new RyotQLBadRequest({ reason: { code: "invalid-query" } });
 			}
 			return yield* Effect.void;
 		});

@@ -1,8 +1,9 @@
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
-import { badRequest, notFound } from "@ryot/contract/errors";
-import type {
-	CreateNotificationChannelBody,
-	UpdateNotificationChannelBody,
+import {
+	NotificationNotFoundError,
+	NotificationRequestError,
+	type CreateNotificationChannelBody,
+	type UpdateNotificationChannelBody,
 } from "@ryot/contract/modules/notifications/schemas";
 import type { NotificationChannelId, UserId } from "@ryot/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
@@ -26,7 +27,13 @@ export class NotificationsService extends Context.Service<NotificationsService>(
 				body: CreateNotificationChannelBody,
 			) {
 				if (body.channel !== body.channelSpecifics.kind) {
-					return yield* badRequest("channel must match channelSpecifics.kind");
+					return yield* new NotificationRequestError({
+						reason: {
+							channel: body.channel,
+							code: "channel-kind-mismatch",
+							specificsKind: body.channelSpecifics.kind,
+						},
+					});
 				}
 
 				const channel = yield* repository.createForUser({
@@ -45,7 +52,9 @@ export class NotificationsService extends Context.Service<NotificationsService>(
 			) {
 				const channel = yield* repository.updateForUser({ body, channelId, userId: user.id });
 				if (!channel) {
-					return yield* notFound("Notification channel not found");
+					return yield* new NotificationNotFoundError({
+						reason: { code: "channel-not-found", channelId },
+					});
 				}
 				return channel;
 			});
@@ -56,7 +65,9 @@ export class NotificationsService extends Context.Service<NotificationsService>(
 			) {
 				const deleted = yield* repository.deleteForUser({ channelId, userId: user.id });
 				if (!deleted) {
-					return yield* notFound("Notification channel not found");
+					return yield* new NotificationNotFoundError({
+						reason: { code: "channel-not-found", channelId },
+					});
 				}
 				return { id: channelId };
 			});

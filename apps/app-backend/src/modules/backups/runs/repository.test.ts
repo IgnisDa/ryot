@@ -1,5 +1,6 @@
 import { expect, it } from "@effect/vitest";
-import { Conflict, DbError } from "@ryot/contract/errors";
+import { DbError } from "@ryot/contract/errors";
+import { BackupConflict } from "@ryot/contract/modules/backups/schemas";
 import { BackupRunId, UserId } from "@ryot/contract/schema/brands";
 import type { SQLWrapper } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
@@ -16,8 +17,8 @@ const startedAt = new Date(1).toISOString();
 const row = {
 	userId,
 	id: runId,
-	error: null,
 	progress: 90,
+	failure: null,
 	expiresAt: null,
 	finishedAt: null,
 	artifactKey: null,
@@ -49,7 +50,11 @@ it.effect("scopes every workflow run mutation by run and user IDs", () => {
 		yield* repository.markRunRunning({ runId, userId, progress: 5 });
 		yield* repository.updateProgress({ runId, userId, progress: 90 });
 		yield* repository.completeRun({ runId, userId });
-		yield* repository.failRun({ runId, userId, error: "safe failure" });
+		yield* repository.failRun({
+			runId,
+			userId,
+			failure: { code: "unexpected-failure", operation: "restore" },
+		});
 
 		expect(predicates).toHaveLength(4);
 		for (const predicate of predicates) {
@@ -145,10 +150,7 @@ it.effect("translates the concurrent active-run insert loser to Conflict", () =>
 		const failure = exits.find((exit) => exit._tag === "Failure");
 		expect(failure?._tag).toBe("Failure");
 		if (failure?._tag === "Failure") {
-			assertExitFails(
-				failure,
-				new Conflict({ message: "A backup operation is already pending or running" }),
-			);
+			assertExitFails(failure, new BackupConflict({ reason: { code: "active-run-exists" } }));
 		}
 	}).pipe(
 		Effect.provide(
