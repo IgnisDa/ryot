@@ -3,26 +3,26 @@ import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from "@effect/platform";
 import { AuthMiddleware } from "../../auth-middleware";
 import { NotFound, RateLimited, Unauthorized } from "../../errors";
 import { EntityId } from "../../schema/brands";
-import { MonitoringStatus } from "./schemas";
+import { MediaMonitoringStatus } from "./schemas";
 
 const entityIdParam = HttpApiSchema.param("entityId", EntityId);
 
-export const MonitoringGroup = HttpApiGroup.make("monitoring")
+export const MediaMonitoringGroup = HttpApiGroup.make("mediaMonitoring")
 	.addError(Unauthorized, { status: 401 })
 	.addError(RateLimited, { status: 429 })
 	.middleware(AuthMiddleware)
 	.add(
-		HttpApiEndpoint.get("status")`/monitoring/${entityIdParam}`
-			.addSuccess(MonitoringStatus)
+		HttpApiEndpoint.get("status")`/media-monitoring/${entityIdParam}`
+			.addSuccess(MediaMonitoringStatus)
 			.addError(NotFound, { status: 404 }),
 	)
 	.add(
-		HttpApiEndpoint.put("enable")`/monitoring/${entityIdParam}`
-			.addSuccess(MonitoringStatus)
+		HttpApiEndpoint.put("enable")`/media-monitoring/${entityIdParam}`
+			.addSuccess(MediaMonitoringStatus)
 			.addError(NotFound, { status: 404 }),
 	)
 	.add(
-		HttpApiEndpoint.del("disable")`/monitoring/${entityIdParam}`
-			.addSuccess(MonitoringStatus)
+		HttpApiEndpoint.del("disable")`/media-monitoring/${entityIdParam}`
+			.addSuccess(MediaMonitoringStatus)
 			.addError(NotFound, { status: 404 }),
 	);
