@@ -1,8 +1,8 @@
+import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { badRequest, notFound } from "@ryot/contract/errors";
 import type {
 	CreateNotificationPlatformBody,
-	NotificationDeliveryResult,
 	UpdateNotificationPlatformBody,
 } from "@ryot/contract/modules/notifications/schemas";
 import {
@@ -14,27 +14,21 @@ import { Effect } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
 
-import { NotificationDeliveryService } from "./delivery";
-import { NotificationsRepository, type NotificationPlatformRecord } from "./repository";
+import { enqueueNotificationDelivery } from "./notification-delivery-workflow";
+import { NotificationsRepository } from "./repository";
 
 const defaultConfiguredEvents = [...notificationEventTypes];
-
-const toDeliveryResult = (
-	platform: NotificationPlatformRecord,
-	status: NotificationDeliveryResult["status"],
-): NotificationDeliveryResult => ({
-	status,
-	platformId: platform.id,
-	platform: platform.platform,
-});
 
 export class NotificationsService extends Effect.Service<NotificationsService>()(
 	"NotificationsService",
 	{
 		effect: Effect.gen(function* () {
 			const runWithDb = yield* DbRunner;
+			const engine = yield* WorkflowEngine;
 			const repository = yield* NotificationsRepository;
-			const delivery = yield* NotificationDeliveryService;
+
+			const provideWorkflowEngine = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+				effect.pipe(Effect.provideService(WorkflowEngine, engine));
 
 			const requirePlatform = Effect.fn("NotificationsService.requirePlatform")(function* (
 				userId: UserId,
@@ -45,19 +39,6 @@ export class NotificationsService extends Effect.Service<NotificationsService>()
 					return yield* notFound("Notification platform not found");
 				}
 				return platform;
-			});
-
-			const deliver = Effect.fn("NotificationsService.deliver")(function* (input: {
-				message: string;
-				platform: NotificationPlatformRecord;
-			}) {
-				const status = yield* delivery
-					.send({ message: input.message, platformSpecifics: input.platform.platformSpecifics })
-					.pipe(
-						Effect.as<NotificationDeliveryResult["status"]>("sent"),
-						Effect.catchAll(() => Effect.succeed<NotificationDeliveryResult["status"]>("failed")),
-					);
-				return toDeliveryResult(input.platform, status);
 			});
 
 			const list = Effect.fn("NotificationsService.list")(function* (user: CurrentUserValue) {
@@ -111,34 +92,25 @@ export class NotificationsService extends Effect.Service<NotificationsService>()
 			});
 
 			const test = Effect.fn("NotificationsService.test")(function* (user: CurrentUserValue) {
-				const platforms = yield* runWithDb(repository.listEnabledForUser({ userId: user.id }));
-				return yield* Effect.forEach(
-					platforms,
-					(platform) =>
-						deliver({
-							platform,
-							message: `This is a test notification for platform: ${platform.platform}`,
-						}),
-					{ concurrency: 4 },
+				yield* provideWorkflowEngine(
+					enqueueNotificationDelivery({ userId: user.id, request: { kind: "test" } }),
 				);
 			});
 
-			const triggerForUser = Effect.fn("NotificationsService.triggerForUser")(function* (input: {
+			const trigger = Effect.fn("NotificationsService.trigger")(function* (input: {
 				userId: UserId;
 				message: string;
 				eventType: NotificationEventType;
 			}) {
-				const platforms = yield* runWithDb(
-					repository.listEnabledForUser({ eventType: input.eventType, userId: input.userId }),
-				);
-				return yield* Effect.forEach(
-					platforms,
-					(platform) => deliver({ message: input.message, platform }),
-					{ concurrency: 4 },
+				yield* provideWorkflowEngine(
+					enqueueNotificationDelivery({
+						userId: input.userId,
+						request: { kind: "event", message: input.message, eventType: input.eventType },
+					}),
 				);
 			});
 
-			return { create, delete: remove, list, test, triggerForUser, update };
+			return { create, delete: remove, list, test, trigger, update };
 		}),
 	},
 ) {}

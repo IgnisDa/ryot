@@ -1,0 +1,29 @@
+import { Activity } from "@effect/workflow";
+import { DbError } from "@ryot/contract/errors";
+import { NotificationDeliveryResult } from "@ryot/contract/modules/notifications/schemas";
+import { Effect, Layer, Schema } from "effect";
+
+import { deliverEnabledPlatforms } from "./deliver-enabled-platforms";
+import {
+	NotificationDeliveryWorkflow,
+	type NotificationDeliveryWorkflowPayload,
+} from "./notification-delivery-workflow";
+
+export const runNotificationDeliveryWorkflow = Effect.fn("runNotificationDeliveryWorkflow")(
+	function* (payload: NotificationDeliveryWorkflowPayload) {
+		return yield* Activity.make({
+			error: DbError,
+			name: "deliver-enabled-platforms",
+			execute: deliverEnabledPlatforms(payload),
+			success: Schema.Array(NotificationDeliveryResult),
+		});
+	},
+);
+
+const NotificationDeliveryWorkflowLive = NotificationDeliveryWorkflow.toLayer((payload) =>
+	runNotificationDeliveryWorkflow(payload),
+);
+
+export const NotificationDeliveryWorkflowDefinitionsLive = Layer.mergeAll(
+	NotificationDeliveryWorkflowLive,
+);
