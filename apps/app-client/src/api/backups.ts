@@ -21,7 +21,7 @@ export const downloadBackupArchive = (scope: ApiScope, runId: BackupRunId) =>
 			url: backupArchiveDownloadUrl(scope.serverUrl, runId),
 			headers: async (): Promise<Record<string, string>> => {
 				const cookie = await getAuthCookie(scope.serverUrl);
-				return cookie === undefined ? {} : { Cookie: cookie };
+				return { Cookie: cookie };
 			},
 		}),
 	).pipe(
