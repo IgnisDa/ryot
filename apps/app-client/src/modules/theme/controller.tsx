@@ -2,7 +2,7 @@ import { useAtomValue } from "@effect/atom-react";
 import { useEffect } from "react";
 import { Appearance, Platform } from "react-native";
 
-import { themeAtom } from "@/api/atoms";
+import { themeAtom } from "@/modules/theme/atoms";
 
 export function ThemeController() {
 	const theme = useAtomValue(themeAtom);
