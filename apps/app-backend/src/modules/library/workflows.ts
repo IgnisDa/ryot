@@ -30,7 +30,9 @@ const LibraryEntityImportWorkflowLive = LibraryEntityImportWorkflow.toLayer(
 
 			yield* Activity.make({
 				name: "ensure-library-membership",
-				execute: collections.ensureEntityInLibrary(payload.userId, entity.id).pipe(dieOnDbError),
+				execute: payload.userId
+					? collections.ensureEntityInLibrary(payload.userId, entity.id).pipe(dieOnDbError)
+					: Effect.die("LibraryEntityImportWorkflow: userId is required"),
 			});
 
 			return entity;
