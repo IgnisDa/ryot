@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -14,12 +14,12 @@ This slice should make it possible for E2E tests to create a real authenticated 
 
 ## Acceptance criteria
 
-- [ ] `/api/auth/*` delegates to Better Auth's native handler
-- [ ] Email sign-up creates a user row using the real auth schema
-- [ ] Email sign-in returns usable session cookies
-- [ ] Session lookup can be called from Effect auth middleware code
-- [ ] Better Auth uses the migrated database and Redis storage where required
-- [ ] E2E auth helpers can create a test user against the new backend
+- [x] `/api/auth/*` delegates to Better Auth's native handler
+- [x] Email sign-up creates a user row using the real auth schema
+- [x] Email sign-in returns usable session cookies
+- [x] Session lookup can be called from Effect auth middleware code
+- [x] Better Auth uses the migrated database and Redis storage where required
+- [x] E2E auth helpers can create a test user against the new backend
 
 ## User stories addressed
 
