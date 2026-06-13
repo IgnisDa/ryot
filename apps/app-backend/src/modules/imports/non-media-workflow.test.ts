@@ -302,7 +302,7 @@ it.effect("orchestrates open-scale measurement imports through workflow-owned ph
 				}),
 			);
 
-			expect(cleanupCalls).toEqual([{ cleanupPaths: ["/tmp/open-scale.csv"] }]);
+			expect(cleanupCalls).toEqual([{ cleanupPaths: ["/tmp/open-scale.csv"], runId: "run-1" }]);
 			expect(recordedUpdates).toContainEqual(
 				expect.objectContaining({ runId: "run-1", status: "running" }),
 			);
@@ -534,7 +534,7 @@ it.effect("fails the run and cleans up when non-media adapter loading fails", ()
 		Effect.gen(function* () {
 			yield* runOneTimeNonMediaImportWorkflow(defectPayload);
 
-			expect(cleanupCalls).toEqual([{ cleanupPaths: [defectPayload.filePath] }]);
+			expect(cleanupCalls).toEqual([{ cleanupPaths: [defectPayload.filePath], runId: "run-1" }]);
 			expect(recordedUpdates).toContainEqual(
 				expect.objectContaining({
 					runId: "run-1",
@@ -576,7 +576,7 @@ it.effect("does not reintroduce invalid file paths during handled non-media load
 		Effect.gen(function* () {
 			yield* runOneTimeNonMediaImportWorkflow(invalidPayload);
 
-			expect(cleanupCalls).toEqual([{ cleanupPaths: [] }]);
+			expect(cleanupCalls).toEqual([{ cleanupPaths: [], runId: "run-1" }]);
 			expect(recordedUpdates).toContainEqual(
 				expect.objectContaining({
 					runId: "run-1",
@@ -617,7 +617,7 @@ it.effect("does not attempt cleanup for invalid file paths when non-media loadin
 		Effect.gen(function* () {
 			yield* runOneTimeNonMediaImportWorkflow(invalidPayload);
 
-			expect(cleanupCalls).toEqual([{ cleanupPaths: [] }]);
+			expect(cleanupCalls).toEqual([{ cleanupPaths: [], runId: "run-1" }]);
 			expect(recordedUpdates).toContainEqual(
 				expect.objectContaining({
 					runId: "run-1",
