@@ -65,6 +65,7 @@ type EventsRepositoryShape = {
 		eventSchemaSlug?: string;
 	}) => EventsDbEffect<ListedEvent[]>;
 	readonly createEvent: (input: {
+		id?: EventId;
 		userId: UserId;
 		entityId: EntityId;
 		occurredAt: Date;
@@ -149,20 +150,22 @@ export class EventsRepository extends Effect.Service<EventsRepository>()("Events
 			return rows.map(toListedEvent);
 		}),
 		createEvent: Effect.fn("EventsRepository.createEvent")(function* (input: {
+			id?: EventId;
 			userId: UserId;
-			entityId: EntityId;
 			occurredAt: Date;
-			eventSchemaId: EventSchemaId;
+			entityId: EntityId;
 			eventSchemaName: string;
 			eventSchemaSlug: string;
 			sessionEntityId?: EntityId;
+			eventSchemaId: EventSchemaId;
 			properties: Record<string, unknown>;
 		}) {
 			const db = yield* CurrentDb;
-			const [row] = yield* dbEffect(() =>
+			const [inserted] = yield* dbEffect(() =>
 				db
 					.insert(schema.event)
 					.values({
+						id: input.id,
 						userId: input.userId,
 						entityId: input.entityId,
 						properties: input.properties,
@@ -170,8 +173,21 @@ export class EventsRepository extends Effect.Service<EventsRepository>()("Events
 						eventSchemaId: input.eventSchemaId,
 						sessionEntityId: input.sessionEntityId ?? null,
 					})
+					.onConflictDoNothing()
 					.returning(createdEventSelection),
 			);
+			let row = inserted;
+			const eventId = input.id;
+			if (!row && eventId) {
+				const [existing] = yield* dbEffect(() =>
+					db
+						.select(createdEventSelection)
+						.from(schema.event)
+						.where(and(eq(schema.event.id, eventId), eq(schema.event.userId, input.userId)))
+						.limit(1),
+				);
+				row = existing;
+			}
 
 			if (!row) {
 				return yield* new DbError({ message: "Event insert returned no row" });
