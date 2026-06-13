@@ -43,59 +43,59 @@ export class RelationshipsService extends Effect.Service<RelationshipsService>()
 			const entitiesRepository = yield* EntitiesRepository;
 			const relationshipSchemasRepository = yield* RelationshipSchemasRepository;
 
-			return {
-				create: Effect.fn("RelationshipsService.create")(function* (
-					user: CurrentUserValue,
-					payload: CreateRelationshipBody,
-				) {
-					const relationshipSchema = yield* runWithDb(
-						relationshipSchemasRepository.findById(payload.relationshipSchemaId, user.id),
-					);
-					if (!relationshipSchema) {
-						return yield* notFound("Relationship schema not found");
-					}
+			const create = Effect.fn("RelationshipsService.create")(function* (
+				user: CurrentUserValue,
+				payload: CreateRelationshipBody,
+			) {
+				const relationshipSchema = yield* runWithDb(
+					relationshipSchemasRepository.findById(payload.relationshipSchemaId, user.id),
+				);
+				if (!relationshipSchema) {
+					return yield* notFound("Relationship schema not found");
+				}
 
-					const [sourceEntityScope, targetEntityScope] = yield* Effect.all([
-						runWithDb(
-							entitiesRepository.getEntityScopeForUser({
-								userId: user.id,
-								entityId: payload.sourceEntityId,
-							}),
-						),
-						runWithDb(
-							entitiesRepository.getEntityScopeForUser({
-								userId: user.id,
-								entityId: payload.targetEntityId,
-							}),
-						),
-					]);
-					if (!sourceEntityScope || !targetEntityScope) {
-						return yield* notFound("Entity not found");
-					}
-
-					yield* validateRelationshipSchemaTargets({
-						relationshipSchema,
-						sourceEntitySchemaId: sourceEntityScope.entitySchemaId,
-						targetEntitySchemaId: targetEntityScope.entitySchemaId,
-					});
-
-					const properties = yield* parseAppSchemaProperties({
-						kind: "Relationship",
-						properties: payload.properties ?? {},
-						propertiesSchema: relationshipSchema.propertiesSchema,
-					}).pipe(Effect.mapError((error) => badRequest(error.message)));
-
-					return yield* runWithDb(
-						repository.upsertRelationship({
-							properties,
+				const [sourceEntityScope, targetEntityScope] = yield* Effect.all([
+					runWithDb(
+						entitiesRepository.getEntityScopeForUser({
 							userId: user.id,
-							sourceEntityId: payload.sourceEntityId,
-							targetEntityId: payload.targetEntityId,
-							relationshipSchemaId: payload.relationshipSchemaId,
+							entityId: payload.sourceEntityId,
 						}),
-					);
-				}),
-			};
+					),
+					runWithDb(
+						entitiesRepository.getEntityScopeForUser({
+							userId: user.id,
+							entityId: payload.targetEntityId,
+						}),
+					),
+				]);
+				if (!sourceEntityScope || !targetEntityScope) {
+					return yield* notFound("Entity not found");
+				}
+
+				yield* validateRelationshipSchemaTargets({
+					relationshipSchema,
+					sourceEntitySchemaId: sourceEntityScope.entitySchemaId,
+					targetEntitySchemaId: targetEntityScope.entitySchemaId,
+				});
+
+				const properties = yield* parseAppSchemaProperties({
+					kind: "Relationship",
+					properties: payload.properties ?? {},
+					propertiesSchema: relationshipSchema.propertiesSchema,
+				}).pipe(Effect.mapError((error) => badRequest(error.message)));
+
+				return yield* runWithDb(
+					repository.upsertRelationship({
+						properties,
+						userId: user.id,
+						sourceEntityId: payload.sourceEntityId,
+						targetEntityId: payload.targetEntityId,
+						relationshipSchemaId: payload.relationshipSchemaId,
+					}),
+				);
+			});
+
+			return { create };
 		}),
 	},
 ) {}

@@ -78,81 +78,82 @@ export class RelationshipSchemasService extends Effect.Service<RelationshipSchem
 				return yield* Effect.void;
 			});
 
-			return {
-				findBuiltinBySlug: Effect.fn("RelationshipSchemasService.findBuiltinBySlug")(function* (
-					slug: string,
-				) {
+			const findBuiltinBySlug = Effect.fn("RelationshipSchemasService.findBuiltinBySlug")(
+				function* (slug: string) {
 					const found = yield* runWithDb(repository.findBuiltinBySlug(slug));
 					if (!found) {
 						return yield* notFound(relationshipSchemaNotFoundError);
 					}
 					return found;
-				}),
-				findById: Effect.fn("RelationshipSchemasService.findById")(function* (
-					id: RelationshipSchemaId,
-					userId: UserId | null,
-				) {
-					const found = yield* runWithDb(repository.findById(id, userId));
-					if (!found) {
-						return yield* notFound(relationshipSchemaNotFoundError);
-					}
-					return found;
-				}),
-				list: Effect.fn("RelationshipSchemasService.list")(function* (
-					user: CurrentUserValue,
-					input: ListRelationshipSchemasBody,
-				) {
-					if (input.sourceEntitySchemaId !== undefined) {
-						yield* validateEntitySchemaAccess(user, input.sourceEntitySchemaId);
-					}
-					if (input.targetEntitySchemaId !== undefined) {
-						yield* validateEntitySchemaAccess(user, input.targetEntitySchemaId);
-					}
+				},
+			);
 
-					return yield* runWithDb(
-						repository.listByUser({
-							userId: user.id,
-							slugs: input.slugs,
-							sourceEntitySchemaId: input.sourceEntitySchemaId,
-							targetEntitySchemaId: input.targetEntitySchemaId,
-						}),
-					);
-				}),
-				create: Effect.fn("RelationshipSchemasService.create")(function* (
-					user: CurrentUserValue,
-					payload: CreateRelationshipSchemaBody,
-				) {
-					yield* validateEntitySchemaAccess(user, payload.sourceEntitySchemaId);
-					yield* validateEntitySchemaAccess(user, payload.targetEntitySchemaId);
+			const findById = Effect.fn("RelationshipSchemasService.findById")(function* (
+				id: RelationshipSchemaId,
+				userId: UserId | null,
+			) {
+				const found = yield* runWithDb(repository.findById(id, userId));
+				if (!found) {
+					return yield* notFound(relationshipSchemaNotFoundError);
+				}
+				return found;
+			});
 
-					const resolved = yield* resolveRelationshipSchemaCreateInput({
-						name: payload.name,
-						slug: payload.slug,
-					});
+			const list = Effect.fn("RelationshipSchemasService.list")(function* (
+				user: CurrentUserValue,
+				input: ListRelationshipSchemasBody,
+			) {
+				if (input.sourceEntitySchemaId !== undefined) {
+					yield* validateEntitySchemaAccess(user, input.sourceEntitySchemaId);
+				}
+				if (input.targetEntitySchemaId !== undefined) {
+					yield* validateEntitySchemaAccess(user, input.targetEntitySchemaId);
+				}
 
-					const propertiesSchema = yield* parseRelationshipPropertiesSchema(
-						payload.propertiesSchema,
-					);
+				return yield* runWithDb(
+					repository.listByUser({
+						userId: user.id,
+						slugs: input.slugs,
+						sourceEntitySchemaId: input.sourceEntitySchemaId,
+						targetEntitySchemaId: input.targetEntitySchemaId,
+					}),
+				);
+			});
 
-					const existing = yield* runWithDb(
-						repository.findBySlugForUser({ userId: user.id, slug: resolved.slug }),
-					);
-					if (existing) {
-						return yield* conflict("Relationship schema slug already exists");
-					}
+			const create = Effect.fn("RelationshipSchemasService.create")(function* (
+				user: CurrentUserValue,
+				payload: CreateRelationshipSchemaBody,
+			) {
+				yield* validateEntitySchemaAccess(user, payload.sourceEntitySchemaId);
+				yield* validateEntitySchemaAccess(user, payload.targetEntitySchemaId);
 
-					return yield* runWithDb(
-						repository.createRelationshipSchema({
-							userId: user.id,
-							propertiesSchema,
-							name: resolved.name,
-							slug: resolved.slug,
-							sourceEntitySchemaId: payload.sourceEntitySchemaId ?? null,
-							targetEntitySchemaId: payload.targetEntitySchemaId ?? null,
-						}),
-					);
-				}),
-			};
+				const resolved = yield* resolveRelationshipSchemaCreateInput({
+					name: payload.name,
+					slug: payload.slug,
+				});
+
+				const propertiesSchema = yield* parseRelationshipPropertiesSchema(payload.propertiesSchema);
+
+				const existing = yield* runWithDb(
+					repository.findBySlugForUser({ userId: user.id, slug: resolved.slug }),
+				);
+				if (existing) {
+					return yield* conflict("Relationship schema slug already exists");
+				}
+
+				return yield* runWithDb(
+					repository.createRelationshipSchema({
+						userId: user.id,
+						propertiesSchema,
+						name: resolved.name,
+						slug: resolved.slug,
+						sourceEntitySchemaId: payload.sourceEntitySchemaId ?? null,
+						targetEntitySchemaId: payload.targetEntitySchemaId ?? null,
+					}),
+				);
+			});
+
+			return { list, create, findById, findBuiltinBySlug };
 		}),
 	},
 ) {}
