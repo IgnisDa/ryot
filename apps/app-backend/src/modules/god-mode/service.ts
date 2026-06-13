@@ -6,10 +6,10 @@ import { generateId } from "better-auth";
 import { DateTime, Effect, Either } from "effect";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
-import { DbRunner } from "#lib/infrastructure/db/service";
+import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 import { AuthService } from "#modules/auth/service";
-import { defaultUserPreferences } from "#modules/builtins/bootstrap";
+import { defaultUserPreferences, performBootstrap } from "#modules/builtins/bootstrap";
 import { InfrequentCronWorkflow } from "#modules/scheduler/cron-workflow";
 
 import { GodModeRepository } from "./repository";
@@ -60,6 +60,7 @@ export class GodModeService extends Effect.Service<GodModeService>()("GodModeSer
 		const config = yield* AppConfig;
 		const redis = yield* RedisService;
 		const runWithDb = yield* DbRunner;
+		const runInTransaction = yield* TransactionRunner;
 		const repository = yield* GodModeRepository;
 		const engine = yield* WorkflowEngine;
 		const { auth, createAuthUser, deleteUserSessions, linkAuthAccount } = yield* AuthService;
@@ -157,36 +158,11 @@ export class GodModeService extends Effect.Service<GodModeService>()("GodModeSer
 			return { id: userId, disabledAt: disabledAt?.toISOString() ?? null };
 		});
 
-		const resetUserPassword = Effect.fn("GodModeService.resetUserPassword")(function* (
-			userId: UserId,
+		const captureResetLink = Effect.fn("GodModeService.captureResetLink")(function* (
+			email: string,
 		) {
-			if (config.users.disableLocalAuth) {
-				return yield* badRequest("Local authentication is disabled on this instance");
-			}
-
-			const userData = yield* runWithDb(
-				Effect.gen(function* () {
-					const userRow = yield* repository.findUserById(userId);
-					if (!userRow) {
-						return null;
-					}
-					const accountRows = yield* repository.listAccountsForUsers([userId]);
-					return { user: userRow, accounts: accountRows };
-				}),
-			);
-
-			if (!userData) {
-				return yield* badRequest(`User with id '${userId}' not found`);
-			}
-
-			const authState = classifyAuthState(userData.accounts);
-			const eligibilityError = checkResetEligibility(authState);
-			if (eligibilityError) {
-				return yield* badRequest(eligibilityError);
-			}
-
 			const correlationId = crypto.randomUUID();
-			const pendingKey = redisKeys.godModePendingReset(userData.user.email);
+			const pendingKey = redisKeys.godModePendingReset(email);
 			const channel = redisKeys.godModeResetChannel(correlationId);
 
 			const stored = yield* Effect.tryPromise(() =>
@@ -227,7 +203,7 @@ export class GodModeService extends Effect.Service<GodModeService>()("GodModeSer
 
 						void subscriber
 							.subscribe(channel)
-							.then(() => auth.api.requestPasswordReset({ body: { email: userData.user.email } }))
+							.then(() => auth.api.requestPasswordReset({ body: { email } }))
 							.catch(() => settle(null));
 
 						return Effect.sync(() => {
@@ -262,6 +238,97 @@ export class GodModeService extends Effect.Service<GodModeService>()("GodModeSer
 			return { email: resetResult.email, resetUrl: resetResult.resetUrl };
 		});
 
+		const purgeApiKeyCaches = (
+			userId: string,
+			apiKeys: ReadonlyArray<{ id: string; key: string }>,
+		) =>
+			redis.del(
+				redisKeys.betterAuthApiKeyByReference(userId),
+				...apiKeys.flatMap((apiKey) => [
+					redisKeys.betterAuthApiKeyByHash(apiKey.key),
+					redisKeys.betterAuthApiKeyById(apiKey.id),
+				]),
+			);
+
+		const resetUserPassword = Effect.fn("GodModeService.resetUserPassword")(function* (
+			userId: UserId,
+		) {
+			if (config.users.disableLocalAuth) {
+				return yield* badRequest("Local authentication is disabled on this instance");
+			}
+
+			const userData = yield* runWithDb(
+				Effect.gen(function* () {
+					const userRow = yield* repository.findUserById(userId);
+					if (!userRow) {
+						return null;
+					}
+					const accountRows = yield* repository.listAccountsForUsers([userId]);
+					return { user: userRow, accounts: accountRows };
+				}),
+			);
+
+			if (!userData) {
+				return yield* badRequest(`User with id '${userId}' not found`);
+			}
+
+			const authState = classifyAuthState(userData.accounts);
+			const eligibilityError = checkResetEligibility(authState);
+			if (eligibilityError) {
+				return yield* badRequest(eligibilityError);
+			}
+
+			return yield* captureResetLink(userData.user.email);
+		});
+
+		const resetUser = Effect.fn("GodModeService.resetUser")(function* (userId: UserId) {
+			const snapshot = yield* runWithDb(repository.loadResetSnapshot(userId));
+
+			if (!snapshot) {
+				return yield* badRequest(`User with id '${userId}' not found`);
+			}
+
+			const authState = classifyAuthState(snapshot.accounts);
+			if (authState === "mixed") {
+				return yield* badRequest(
+					"Cannot reset a user with mixed authentication (both credential and OIDC accounts).",
+				);
+			}
+
+			const usesLocalAuth = authState === "credential" || authState === "none";
+			if (usesLocalAuth && config.users.disableLocalAuth) {
+				return yield* badRequest("Local authentication is disabled on this instance");
+			}
+
+			const oidcAccountId =
+				authState === "oidc"
+					? (snapshot.accounts.find((account) => account.providerId === "oidc")?.accountId ?? null)
+					: null;
+
+			const now = yield* DateTime.nowAsDate;
+
+			yield* runInTransaction(
+				Effect.gen(function* () {
+					yield* repository.deleteAndRecreateUser({
+						now,
+						oidcAccountId,
+						user: snapshot.user,
+						preferences: defaultUserPreferences,
+					});
+					yield* performBootstrap(userId);
+				}),
+			);
+
+			yield* deleteUserSessions(userId);
+			yield* purgeApiKeyCaches(userId, snapshot.apiKeys);
+
+			const resetUrl = usesLocalAuth
+				? (yield* captureResetLink(snapshot.user.email)).resetUrl
+				: null;
+
+			return { userId, email: snapshot.user.email, resetUrl };
+		});
+
 		const triggerInfrequentCron = () =>
 			Effect.gen(function* () {
 				const executionId = `infrequent-cron-manual-${generateId()}`;
@@ -276,9 +343,10 @@ export class GodModeService extends Effect.Service<GodModeService>()("GodModeSer
 			});
 
 		return {
+			resetUser,
 			listUsers,
-			setUserDisabled,
 			provisionUser,
+			setUserDisabled,
 			resetUserPassword,
 			triggerInfrequentCron,
 		};
