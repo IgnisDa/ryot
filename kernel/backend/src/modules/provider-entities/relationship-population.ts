@@ -9,37 +9,30 @@ import type {
 	ProviderDetailsRelatedEntity,
 	ProviderDetailsRelatedEntityGroup,
 } from "@ryot-app/sandbox-sdk/provider";
-import { Effect, Option } from "effect";
+import { Effect } from "effect";
 
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
+import type { DefinitionSnapshot } from "#modules/definition-registry/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
-import {
-	RelationshipSchemasRepository,
-	type RelationshipSchemaScope,
-} from "#modules/relationship-schemas/repository";
 
 import { synchronizeGlobalRelationships } from "./relationship-synchronization";
 
 export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(function* (
 	input: {
+		definitions: DefinitionSnapshot;
 		primaryEntityId: EntityId;
 		primaryEntitySchemaSlug: EntitySchemaSlug;
 		group: ProviderDetailsRelatedEntityGroup;
-	} & ({ scope?: "global" } | { scope: "user"; userId: UserId }),
+	} & ({ scope: "global" } | { scope: "user"; userId: UserId }),
 ) {
 	const entities = yield* EntitiesService;
 	const repository = yield* EntitiesRepository;
-	const relationshipSchemasRepository = yield* RelationshipSchemasRepository;
-	const pluginRuntime = Option.getOrUndefined(yield* Effect.serviceOption(PluginRuntimeResolver));
-
-	const effective =
-		input.scope === "user" && pluginRuntime
-			? yield* pluginRuntime.getEffectiveDefinitions(input.userId).pipe(mapDbErrorToSandbox)
-			: null;
-	const relationshipDefinition = effective?.relationshipSchemas[input.group.relationshipSchemaSlug];
-	let relationshipSchema: RelationshipSchemaScope | null = relationshipDefinition
+	const pluginRuntime = yield* PluginRuntimeResolver;
+	const relationshipDefinition =
+		input.definitions.relationshipSchemas[input.group.relationshipSchemaSlug];
+	const relationshipSchema = relationshipDefinition
 		? ({
 				isBuiltin: true,
 				name: relationshipDefinition.name,
@@ -55,11 +48,6 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 					: null,
 			} as const)
 		: null;
-	if (!effective) {
-		relationshipSchema = yield* relationshipSchemasRepository
-			.findBuiltinBySlug(input.group.relationshipSchemaSlug)
-			.pipe(mapDbErrorToSandbox);
-	}
 	if (!relationshipSchema) {
 		return yield* new SandboxRunError({
 			message: `Relationship schema not found: ${input.group.relationshipSchemaSlug}`,
@@ -77,7 +65,7 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 
 	for (const relatedEntity of uniqueRelatedEntities.values()) {
 		const availableProvider =
-			input.scope === "user" && pluginRuntime
+			input.scope === "user"
 				? yield* pluginRuntime
 						.findProviderAvailableToUserBySlug(input.userId, relatedEntity.providerSlug)
 						.pipe(mapDbErrorToSandbox)

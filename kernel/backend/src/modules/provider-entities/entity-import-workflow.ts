@@ -33,7 +33,7 @@ export const runEntityImportWorkflow = Effect.fn("EntityImportWorkflow")(functio
 		providerId: payload.providerId,
 		externalId: payload.externalId,
 		entitySchemaSlug: payload.entitySchemaSlug,
-		...(payload.userId ? { userId: payload.userId } : {}),
+		...(payload.entityScope.userId ? { userId: payload.entityScope.userId } : {}),
 	});
 	const engine = yield* WorkflowEngine;
 	const populationExecutionId = `${executionId}-provider-population`;
@@ -43,7 +43,6 @@ export const runEntityImportWorkflow = Effect.fn("EntityImportWorkflow")(functio
 			payload: {
 				mode: "ensure",
 				origin: payload.origin,
-				userId: payload.userId,
 				providerId: payload.providerId,
 				externalId: payload.externalId,
 				entityScope: payload.entityScope,

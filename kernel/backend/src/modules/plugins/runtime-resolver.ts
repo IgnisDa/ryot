@@ -290,6 +290,9 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				"PluginRuntimeResolver.getEffectiveDefinitions",
 			)(function* (userId: UserId, includeUnavailable = false) {
 				const states = yield* installations.listForUser(userId);
+				const systemPluginIds = new Set(
+					Object.values(loader.getSnapshot().plugins).map(({ id }) => id),
+				);
 				const included = new Set(
 					states
 						.filter((state) =>
@@ -298,9 +301,9 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 									// its definitions must never participate in a composed view; its persisted rows
 									// stay attributable through their own qualified plugin id.
 									state.health !== "incompatible"
-								: // A private installation runs its user-bootstrap entries while it is still
-									// installing, and those scripts must be able to read their own schemas.
-									(state.health === "ready" || state.health === "installing") && !state.isDisabled,
+								: (state.health === "ready" ||
+										(state.health === "installing" && systemPluginIds.has(state.pluginId))) &&
+									!state.isDisabled,
 						)
 						.map(({ pluginId }) => pluginId),
 				);
@@ -395,16 +398,6 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 					}),
 				);
 				return buildDefinitionSnapshot(mergeManifestDefinitions(base, composable));
-			});
-
-			const availablePluginIdsForUser = Effect.fn(
-				"PluginRuntimeResolver.availablePluginIdsForUser",
-			)(function* (userId: UserId) {
-				return new Set(
-					(yield* installations.listForUser(userId))
-						.filter((installation) => installation.health === "ready" && !installation.isDisabled)
-						.map(({ pluginId }) => pluginId),
-				);
 			});
 
 			const listPluginsAvailableToUser: (
@@ -996,45 +989,49 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				return { provider, entitySchemaSlug: EntitySchemaSlug.make(input.entitySchemaSlug) };
 			});
 
-			const listSchemaProviders = Effect.fn("PluginRuntimeResolver.listSchemaProviders")(function* (
-				entitySchemaSlugs?: ReadonlyArray<string>,
-				userId?: UserId,
-			) {
-				const snapshot = loader.getSnapshot();
-				const db = yield* Database;
-				const activePluginIds = Object.values(snapshot.plugins).map(({ id }) => id);
-				const rows = yield* mapDatabaseErrors(
-					db
-						.select()
-						.from(schema.sandboxProvider)
-						.where(
-							activePluginIds.length > 0
-								? inArray(schema.sandboxProvider.pluginId, activePluginIds)
-								: sql`false`,
-						),
-				);
-				const availablePluginIds = userId ? yield* availablePluginIdsForUser(userId) : null;
-				return rows
-					.filter((provider) => {
-						const plugin = findPluginEntryById(snapshot, provider.pluginId);
-						return (
-							(availablePluginIds === null || availablePluginIds.has(provider.pluginId)) &&
-							plugin?.manifest.providers.some(({ slug }) => slug === provider.slug) === true &&
-							snapshot.definitions.entitySchemas[provider.rootEntitySchemaSlug] !== undefined &&
-							(entitySchemaSlugs === undefined ||
-								entitySchemaSlugs.includes(provider.rootEntitySchemaSlug))
-						);
-					})
-					.map((provider) => ({
-						provider: { ...provider, id: SandboxProviderId.make(provider.id) },
-						entitySchemaSlug: EntitySchemaSlug.make(provider.rootEntitySchemaSlug),
-					}))
-					.sort(
-						(left, right) =>
-							left.entitySchemaSlug.localeCompare(right.entitySchemaSlug) ||
-							left.provider.slug.localeCompare(right.provider.slug),
+			const listSchemaProviders = Effect.fn("PluginRuntimeResolver.listSchemaProviders")(
+				function* (input: {
+					readonly entitySchemaSlugs?: ReadonlyArray<string>;
+					readonly userId: UserId;
+				}) {
+					const availablePlugins = yield* listPluginsAvailableToUser(input.userId);
+					const availablePluginsById = new Map(
+						availablePlugins.map((plugin) => [plugin.id, plugin]),
 					);
-			});
+					const definitions = yield* getEffectiveDefinitions(input.userId);
+					const db = yield* Database;
+					const availablePluginIds = [...availablePluginsById.keys()];
+					const rows = yield* mapDatabaseErrors(
+						db
+							.select()
+							.from(schema.sandboxProvider)
+							.where(
+								availablePluginIds.length > 0
+									? inArray(schema.sandboxProvider.pluginId, availablePluginIds)
+									: sql`false`,
+							),
+					);
+					return rows
+						.filter((provider) => {
+							const plugin = availablePluginsById.get(provider.pluginId);
+							return (
+								plugin?.manifest.providers.some(({ slug }) => slug === provider.slug) === true &&
+								definitions.entitySchemas[provider.rootEntitySchemaSlug] !== undefined &&
+								(input.entitySchemaSlugs === undefined ||
+									input.entitySchemaSlugs.includes(provider.rootEntitySchemaSlug))
+							);
+						})
+						.map((provider) => ({
+							provider: { ...provider, id: SandboxProviderId.make(provider.id) },
+							entitySchemaSlug: EntitySchemaSlug.make(provider.rootEntitySchemaSlug),
+						}))
+						.sort(
+							(left, right) =>
+								left.entitySchemaSlug.localeCompare(right.entitySchemaSlug) ||
+								left.provider.slug.localeCompare(right.provider.slug),
+						);
+				},
+			);
 
 			const findProviderOperationScriptInSnapshot = Effect.fn(
 				"PluginRuntimeResolver.findProviderOperationScriptInSnapshot",

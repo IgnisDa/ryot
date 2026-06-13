@@ -10,11 +10,10 @@ import {
 } from "@ryot-app/contract/modules/saved-views/schemas";
 import type { PluginSlug, UserId } from "@ryot-app/contract/schema/brands";
 import { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
-import { Context, Effect, Layer, Option } from "effect";
+import { Context, Effect, Layer } from "effect";
 
 import { slugify } from "#lib/shared/slug";
 import { trimToNull } from "#lib/shared/validation";
-import { DefinitionRegistry } from "#modules/definition-registry/service";
 import { PluginDefinitionMaterializer } from "#modules/plugins/definition-materializer";
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
@@ -24,23 +23,16 @@ import { SavedViewsRepository } from "./repository";
 
 export class SavedViewsService extends Context.Service<SavedViewsService>()("SavedViewsService", {
 	make: Effect.gen(function* () {
-		const definitions = yield* DefinitionRegistry;
 		const repository = yield* SavedViewsRepository;
-		const pluginRuntime = Option.getOrUndefined(yield* Effect.serviceOption(PluginRuntimeResolver));
-		const installations = Option.getOrUndefined(
-			yield* Effect.serviceOption(PluginInstallationRepository),
-		);
+		const pluginRuntime = yield* PluginRuntimeResolver;
+		const installations = yield* PluginInstallationRepository;
 		const effectiveForUser = (userId: CurrentUserValue["id"], includeUnavailable = false) =>
-			pluginRuntime
-				? pluginRuntime.getEffectiveDefinitions(userId, includeUnavailable)
-				: Effect.succeed(definitions.getSnapshot());
+			pluginRuntime.getEffectiveDefinitions(userId, includeUnavailable);
 		const resolvePluginInstallation = Effect.fn(function* (
 			userId: CurrentUserValue["id"],
 			pluginSlug: PluginSlug,
 		) {
-			const available = pluginRuntime
-				? yield* pluginRuntime.listPluginsAvailableToUser(userId)
-				: [];
+			const available = yield* pluginRuntime.listPluginsAvailableToUser(userId);
 			const plugin =
 				available.find(
 					(candidate) => candidate.scope === "system" && candidate.slug === pluginSlug,
@@ -54,10 +46,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 			const effective = yield* effectiveForUser(userId, true);
 			const views = Object.values(effective.savedViews);
 			const installationByPluginId = new Map(
-				(installations ? yield* installations.listForUser(userId) : []).map((state) => [
-					state.pluginId,
-					state.id,
-				]),
+				(yield* installations.listForUser(userId)).map((state) => [state.pluginId, state.id]),
 			);
 			yield* repository.ensureBuiltinViews(
 				userId,
