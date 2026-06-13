@@ -9,22 +9,6 @@ type LegacyEpisodicSubEntityMigrationInput = {
 	podcastToEpisodeRelationshipSchemaId: string;
 };
 
-const buildRemoteImageFromJsonArraySql = (expression: string) => `CASE
-	WHEN jsonb_typeof(${expression}) = 'array' AND jsonb_array_length(${expression}) > 0 THEN jsonb_build_object(
-		'type', 'remote',
-		'url', ${expression} ->> 0
-	)
-	ELSE NULL
-END`;
-
-const buildRemoteImageFromTextSql = (expression: string) => `CASE
-	WHEN NULLIF(${expression}, '') IS NOT NULL THEN jsonb_build_object(
-		'type', 'remote',
-		'url', ${expression}
-	)
-	ELSE NULL
-END`;
-
 export const buildLegacyEpisodicSubEntityMigrationSql = (
 	input: LegacyEpisodicSubEntityMigrationInput,
 ) => `
@@ -214,7 +198,6 @@ BEGIN
 		"id",
 		"external_id",
 		"name",
-		"image",
 		"created_at",
 		"populated_at",
 		"user_id",
@@ -230,7 +213,6 @@ BEGIN
 			NULLIF(show_seasons.value ->> 'name', ''),
 			'Season ' || show_seasons.season_number::text
 		),
-		${buildRemoteImageFromJsonArraySql("COALESCE(show_seasons.value -> 'poster_images', '[]'::jsonb)")},
 		show_seasons.created_at,
 		NOW(),
 		NULL,
@@ -254,7 +236,6 @@ BEGIN
 	ON CONFLICT ("id") DO UPDATE
 		SET
 			"name" = EXCLUDED."name",
-			"image" = EXCLUDED."image",
 			"properties" = EXCLUDED."properties",
 			"populated_at" = EXCLUDED."populated_at",
 			"updated_at" = EXCLUDED."updated_at";
@@ -264,7 +245,6 @@ BEGIN
 		"id",
 		"external_id",
 		"name",
-		"image",
 		"created_at",
 		"populated_at",
 		"user_id",
@@ -280,7 +260,6 @@ BEGIN
 			NULLIF(show_episodes.episode_value ->> 'name', ''),
 			'Episode ' || (show_episodes.episode_value ->> 'episode_number')
 		),
-		${buildRemoteImageFromJsonArraySql("COALESCE(show_episodes.episode_value -> 'poster_images', '[]'::jsonb)")},
 		show_episodes.created_at,
 		NOW(),
 		NULL,
@@ -307,7 +286,6 @@ BEGIN
 	ON CONFLICT ("id") DO UPDATE
 		SET
 			"name" = EXCLUDED."name",
-			"image" = EXCLUDED."image",
 			"properties" = EXCLUDED."properties",
 			"populated_at" = EXCLUDED."populated_at",
 			"updated_at" = EXCLUDED."updated_at";
@@ -317,7 +295,6 @@ BEGIN
 		"id",
 		"external_id",
 		"name",
-		"image",
 		"created_at",
 		"populated_at",
 		"user_id",
@@ -333,7 +310,6 @@ BEGIN
 			NULLIF(podcast_episodes.value ->> 'title', ''),
 			'Episode ' || (podcast_episodes.value ->> 'number')
 		),
-		${buildRemoteImageFromTextSql("podcast_episodes.value ->> 'thumbnail'")},
 		podcast_episodes.created_at,
 		NOW(),
 		NULL,
@@ -359,7 +335,6 @@ BEGIN
 	ON CONFLICT ("id") DO UPDATE
 		SET
 			"name" = EXCLUDED."name",
-			"image" = EXCLUDED."image",
 			"properties" = EXCLUDED."properties",
 			"populated_at" = EXCLUDED."populated_at",
 			"updated_at" = EXCLUDED."updated_at";

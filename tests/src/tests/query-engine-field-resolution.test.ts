@@ -75,16 +75,41 @@ describe("query engine field resolution", () => {
 		expect(requireQueryEngineFieldValue(movieRow, "creator").value).toBe("Director B");
 	});
 
-	it("returns image fields with image kind", async () => {
+	it("returns the first image from the images property as json", async () => {
 		const { client } = await createAuthenticatedClient();
 		const { schemaId, slug } = await createQueryEngineTrackerAndSchema(client, {
 			schemaName: "ImageFieldItem",
+			propertiesSchema: {
+				fields: {
+					images: {
+						type: "array",
+						label: "Images",
+						description: "Images",
+						items: {
+							type: "object",
+							label: "Item",
+							description: "Item",
+							unknownKeys: "strict",
+							properties: {
+								key: { type: "string", label: "Key", description: "Key" },
+								url: { type: "string", label: "Url", description: "Url" },
+								type: {
+									type: "enum",
+									label: "Type",
+									description: "Type",
+									options: ["s3", "remote"],
+									validation: { required: true },
+								},
+							},
+						},
+					},
+				},
+			},
 		});
 		await createEntity(client, {
 			name: "Image Entity",
 			entitySchemaId: schemaId,
-			properties: {},
-			image: { type: "remote", url: imageUrl },
+			properties: { images: [{ type: "remote", url: imageUrl }] },
 		});
 
 		const result = await executeQueryEngine(
@@ -92,14 +117,14 @@ describe("query engine field resolution", () => {
 			buildEntityRowsQueryDocument({
 				alias: "item",
 				schemas: [slug],
-				fields: [{ key: "image", expr: systemRef("item", "image") }],
+				fields: [{ key: "image", expr: propertyRef("item", slug, "images", "0") }],
 			}),
 		);
 
 		const imageRow = result.data.items[0];
 		assertPresent(imageRow, "Missing image row");
 		expect(requireQueryEngineFieldValue(imageRow, "image")).toEqual({
-			kind: "image",
+			kind: "json",
 			value: { type: "remote", url: imageUrl },
 		});
 	});

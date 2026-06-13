@@ -9,7 +9,6 @@ import {
 	EntitySchemaId,
 	RelationshipId,
 	RelationshipSchemaId,
-	RemoteImageUrl,
 	SandboxScriptId,
 	UserId,
 } from "#lib/schema/brands";
@@ -42,7 +41,6 @@ const TestEntityImportWorkflow = Workflow.make({
 const now = "2026-06-14T00:00:00.000Z";
 
 const baseEntity = {
-	image: null,
 	createdAt: now,
 	updatedAt: now,
 	populatedAt: now,
@@ -184,15 +182,9 @@ const importPayload = {
 it.effect("populates entity and writes related entities", () => {
 	let relationshipWritten = false;
 	let globalEntityWritten = false;
-	let relatedEntityImage: unknown;
 	let relatedEntityWritten = false;
-	const primaryImages: Array<ListedEntity["image"]> = [];
 
 	const payload = { ...importPayload, executionId: "exec-full" };
-	const expectedImage = {
-		type: "remote" as const,
-		url: RemoteImageUrl.make("https://example.com/image.jpg"),
-	};
 	const relatedEntitySchemaScript = {
 		entitySchemaId: EntitySchemaId.make("schema-person"),
 		sandboxScriptId: SandboxScriptId.make("person-script"),
@@ -207,7 +199,6 @@ it.effect("populates entity and writes related entities", () => {
 		targetEntitySchemaId: EntitySchemaId.make("schema-person"),
 	};
 	const relatedEntity = {
-		image: null,
 		name: "Author",
 		createdAt: now,
 		updatedAt: now,
@@ -226,7 +217,6 @@ it.effect("populates entity and writes related entities", () => {
 				status: "completed" as const,
 				value: {
 					name: "Test Book",
-					image: expectedImage,
 					properties: { title: "Test Book" },
 					relatedEntities: [
 						{
@@ -256,15 +246,12 @@ it.effect("populates entity and writes related entities", () => {
 					return Effect.die("unexpected user entity save");
 				}
 				if (input.entitySchemaId === "schema-1") {
-					primaryImages.push(input.image);
 					globalEntityWritten = true;
 					return Effect.succeed({
 						...baseEntity,
-						image: input.image,
 						populatedAt: input.populatedAt === null ? null : now,
 					});
 				}
-				relatedEntityImage = input.image;
 				relatedEntityWritten = true;
 				return Effect.succeed(relatedEntity);
 			},
@@ -278,10 +265,7 @@ it.effect("populates entity and writes related entities", () => {
 			const result = yield* runEntityImportWorkflow(payload, payload.executionId);
 			expect(result.id).toBe("entity-1");
 			expect(result.name).toBe("Test Book");
-			expect(result.image).toEqual(expectedImage);
 			expect(result.populatedAt).toBe(now);
-			expect(primaryImages).toEqual([null, expectedImage]);
-			expect(relatedEntityImage).toBeNull();
 			expect(globalEntityWritten).toBe(true);
 			expect(relatedEntityWritten).toBe(true);
 			expect(relationshipWritten).toBe(true);
@@ -301,7 +285,6 @@ it.effect("writes child entity trees idempotently", () => {
 		name: string;
 		externalId: string;
 		properties: unknown;
-		image: ListedEntity["image"];
 		entitySchemaId: EntitySchemaId;
 		sandboxScriptId: SandboxScriptId;
 	}> = [];
@@ -367,7 +350,6 @@ it.effect("writes child entity trees idempotently", () => {
 					...baseEntity,
 					properties,
 					name: input.name,
-					image: input.image,
 					externalId: input.externalId,
 					entitySchemaId: input.entitySchemaId,
 					sandboxScriptId: input.sandboxScriptId,
@@ -403,8 +385,12 @@ it.effect("writes child entity trees idempotently", () => {
 						name: "Season 1",
 						externalId: "season-1",
 						entitySchemaSlug: "show-season",
-						image: { type: "remote", url: RemoteImageUrl.make("https://example.com/season.jpg") },
-						properties: { seasonNumber: 1, description: "Season", releaseDate: "2026-01-01" },
+						properties: {
+							seasonNumber: 1,
+							description: "Season",
+							releaseDate: "2026-01-01",
+							images: [{ type: "remote", url: "https://example.com/season.jpg" }],
+						},
 						childEntities: [
 							{
 								name: "Episode 1",
@@ -432,14 +418,11 @@ it.effect("writes child entity trees idempotently", () => {
 		expect(storedRelationships.size).toBe(2);
 		expect(entityWrites).toHaveLength(4);
 		expect(entityWrites[0]?.sandboxScriptId).toBe("script-1");
-		expect(entityWrites[0]?.image).toEqual({
-			type: "remote",
-			url: "https://example.com/season.jpg",
-		});
 		expect(storedEntities.get("schema-season:season-1:script-1")?.properties).toEqual({
 			description: "Season",
 			releaseDate: "2026-01-01",
 			seasonNumber: 1,
+			images: [{ type: "remote", url: "https://example.com/season.jpg" }],
 		});
 		expect(storedEntities.get("schema-episode:episode-1:script-1")?.properties).toEqual({
 			runtime: 45,
@@ -451,28 +434,30 @@ it.effect("writes child entity trees idempotently", () => {
 	});
 });
 
-it.effect("uses explicit details image for the primary entity", () => {
-	const primaryImages: Array<ListedEntity["image"]> = [];
+it.effect("propagates images through properties for the primary entity", () => {
+	const savedProperties: unknown[] = [];
 
-	const payload = { ...importPayload, executionId: "exec-explicit-image" };
-	const explicitImage = { type: "s3" as const, key: "entities/test-book.jpg" };
+	const payload = { ...importPayload, executionId: "exec-images-properties" };
+	const images = [{ type: "s3" as const, key: "entities/test-book.jpg" }];
 	const options = {
 		processSandbox: () =>
 			Effect.succeed({
 				logs: [],
 				error: null,
 				status: "completed" as const,
-				value: { name: "Test Book", image: explicitImage, properties: { title: "Test Book" } },
+				value: { name: "Test Book", properties: { title: "Test Book", images } },
 			}),
 		entitiesService: makeEntitiesService({
 			save: (input) => {
 				if (input.scope !== "global") {
 					return Effect.die("unexpected user entity save");
 				}
-				primaryImages.push(input.image);
+				const properties: unknown = input.properties;
+				assertRecord(properties);
+				savedProperties.push(input.properties);
 				return Effect.succeed({
 					...baseEntity,
-					image: input.image,
+					properties,
 					populatedAt: input.populatedAt === null ? null : now,
 				});
 			},
@@ -483,10 +468,12 @@ it.effect("uses explicit details image for the primary entity", () => {
 		options,
 		payload.executionId,
 		Effect.gen(function* () {
-			const result = yield* runEntityImportWorkflow(payload, payload.executionId);
+			yield* runEntityImportWorkflow(payload, payload.executionId);
 
-			expect(result.image).toEqual(explicitImage);
-			expect(primaryImages).toEqual([null, explicitImage]);
+			expect(savedProperties).toEqual([
+				{ title: "Test Book", images },
+				{ title: "Test Book", images },
+			]);
 		}),
 	);
 });

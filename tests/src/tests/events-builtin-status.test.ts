@@ -339,7 +339,6 @@ describe("Events built-in status schemas", () => {
 		const droppedEventSchema = requireEventSchemaBySlug(eventSchemas, "dropped");
 		const onHoldEventSchema = requireEventSchemaBySlug(eventSchemas, "on_hold");
 		const entity = await seedMediaEntity({
-			image: null,
 			userId: null,
 			entitySchemaId: schema.id,
 			name: `Show Events ${crypto.randomUUID()}`,

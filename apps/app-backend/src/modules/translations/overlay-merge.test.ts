@@ -1,24 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { RemoteImageUrl } from "#lib/schema/brands";
-import type { StoredEntityImage } from "#modules/entities/types";
-
 import { mergeTranslationOverlay, type TranslationFields } from "./overlay-merge";
 
-const canonicalImage: StoredEntityImage = {
-	type: "remote",
-	url: RemoteImageUrl.make("https://example.com/canonical.jpg"),
-};
-
-const overlayImage: StoredEntityImage = {
-	type: "remote",
-	url: RemoteImageUrl.make("https://example.com/overlay.jpg"),
-};
+const canonicalImages = [{ type: "remote", url: "https://example.com/canonical.jpg" }];
+const overlayImages = [{ type: "remote", url: "https://example.com/overlay.jpg" }];
 
 const canonical: TranslationFields = {
 	name: "Fight Club",
-	image: canonicalImage,
-	properties: { description: "An insomniac office worker..." },
+	properties: { description: "An insomniac office worker...", images: canonicalImages },
 };
 
 describe("mergeTranslationOverlay", () => {
@@ -29,42 +18,39 @@ describe("mergeTranslationOverlay", () => {
 		expect(result.fields).toEqual(canonical);
 	});
 
-	it("merges name, translatable properties, and image over the canonical fields", () => {
+	it("merges name and translatable properties (including images) over the canonical fields", () => {
 		const result = mergeTranslationOverlay({
 			canonical,
 			overlay: {
-				image: overlayImage,
 				name: "El club de la lucha",
-				properties: { description: "Un trabajador de oficina insomne..." },
+				properties: { description: "Un trabajador de oficina insomne...", images: overlayImages },
 			},
 		});
 
 		expect(result.status).toBe("ready");
 		expect(result.fields).toEqual({
-			image: overlayImage,
 			name: "El club de la lucha",
-			properties: { description: "Un trabajador de oficina insomne..." },
+			properties: { description: "Un trabajador de oficina insomne...", images: overlayImages },
 		});
 	});
 
 	it("keeps canonical values for the fields a partial overlay omits", () => {
 		const result = mergeTranslationOverlay({
 			canonical,
-			overlay: { name: "El club de la lucha", image: null, properties: {} },
+			overlay: { name: "El club de la lucha", properties: {} },
 		});
 
 		expect(result.status).toBe("ready");
 		expect(result.fields).toEqual({
-			image: canonicalImage,
 			name: "El club de la lucha",
-			properties: { description: "An insomniac office worker..." },
+			properties: { description: "An insomniac office worker...", images: canonicalImages },
 		});
 	});
 
 	it("returns status none for an empty negative-cache row", () => {
 		const result = mergeTranslationOverlay({
 			canonical,
-			overlay: { name: null, image: null, properties: {} },
+			overlay: { name: null, properties: {} },
 		});
 
 		expect(result.status).toBe("none");

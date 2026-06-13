@@ -24,7 +24,6 @@ describe("GET /entities/:entityId — partial entity population", () => {
 		// Start from a clean, partial stub: provider provenance set, populatedAt null.
 		await deleteGlobalEntityByProvenance(provenance);
 		const seeded = await seedMediaEntity({
-			image: null,
 			userId: null,
 			properties: {},
 			sandboxScriptId,
