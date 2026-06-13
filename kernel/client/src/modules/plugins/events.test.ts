@@ -52,33 +52,40 @@ const makeRuntime = (
 	options: {
 		readonly token?: string;
 		readonly isNative?: boolean;
+		readonly refreshedToken?: string;
 		readonly rejectAttempts?: number;
+		readonly responseStatuses?: readonly number[];
 	} = {},
 ) => {
 	const streams: TestStream[] = [];
 	const requests: Array<{ readonly url: string; readonly headers: Record<string, string> }> = [];
 	let token = options.token ?? null;
 	const clientIds: string[] = [];
+	const tokenRequests: boolean[] = [];
 	const tokens = Layer.succeed(OAuthTokenService, {
 		clear: () => Effect.void,
 		logout: () => Effect.succeed(null),
 		userInfo: () => Effect.succeed(null),
 		rejectAuthorization: () => Effect.die("not used"),
 		completeAuthorization: () => Effect.die("not used"),
-		accessToken: (_origin, clientId) =>
+		accessToken: (_origin, clientId, forceRefresh = false) =>
 			Effect.sync(() => {
 				clientIds.push(clientId);
-				return token;
+				tokenRequests.push(forceRefresh);
+				return forceRefresh ? (options.refreshedToken ?? token) : token;
 			}),
 	});
 	const events = makePluginCatalogEventsLayer((url, request) => {
 		requests.push({ url, headers: request.headers });
-		if (requests.length <= (options.rejectAttempts ?? 0)) {
-			return Promise.resolve({ ok: false, body: null });
+		const status =
+			options.responseStatuses?.[requests.length - 1] ??
+			(requests.length <= (options.rejectAttempts ?? 0) ? 503 : 200);
+		if (status < 200 || status >= 300) {
+			return Promise.resolve({ ok: false, status, body: null });
 		}
 		const stream = new TestStream(request.signal);
 		streams.push(stream);
-		return Promise.resolve({ ok: true, body: stream.body });
+		return Promise.resolve({ ok: true, status, body: stream.body });
 	}, Schedule.spaced("1 millis"));
 	const runtimeClient = Layer.succeed(
 		RuntimeOAuthClientService,
@@ -92,6 +99,7 @@ const makeRuntime = (
 		streams,
 		requests,
 		clientIds,
+		tokenRequests,
 		runtime: ManagedRuntime.make(events.pipe(Layer.provide(tokens), Layer.provide(runtimeClient))),
 		setToken: (value: string) => {
 			token = value;
@@ -227,8 +235,8 @@ describe("plugin catalog events service", () => {
 		await runtime.dispose();
 	});
 
-	it("subscribes without an authorization header when no token is stored", async () => {
-		const { requests, runtime, streams } = makeRuntime();
+	it("does not open a stream when no token is stored", async () => {
+		const { requests, runtime, tokenRequests } = makeRuntime();
 		const subscription = runtime.runFork(
 			Effect.flatMap(PluginCatalogEventsService, (service) =>
 				service.subscribe(scope, () => undefined),
@@ -236,8 +244,55 @@ describe("plugin catalog events service", () => {
 		);
 
 		try {
-			await waitUntil(() => streams.length === 1, "stream was never opened");
-			expect(requests[0]?.headers.authorization).toBeUndefined();
+			await waitUntil(() => tokenRequests.length === 1, "token was never requested");
+			expect(requests).toHaveLength(0);
+		} finally {
+			await Effect.runPromise(Fiber.interrupt(subscription));
+			await runtime.dispose();
+		}
+	});
+
+	it("force-refreshes once and retries once after an unauthorized response", async () => {
+		const { requests, runtime, streams, tokenRequests } = makeRuntime({
+			token: "token-1",
+			refreshedToken: "token-2",
+			responseStatuses: [401, 200],
+		});
+		const subscription = runtime.runFork(
+			Effect.flatMap(PluginCatalogEventsService, (service) =>
+				service.subscribe(scope, () => undefined),
+			),
+		);
+
+		try {
+			await waitUntil(() => streams.length === 1, "refreshed stream was never opened");
+			expect(requests).toHaveLength(2);
+			expect(requests[0]?.headers.authorization).toBe("Bearer token-1");
+			expect(requests[1]?.headers.authorization).toBe("Bearer token-2");
+			expect(tokenRequests).toEqual([false, true]);
+		} finally {
+			await Effect.runPromise(Fiber.interrupt(subscription));
+			await runtime.dispose();
+		}
+	});
+
+	it("stops after a second unauthorized response", async () => {
+		const { requests, runtime, tokenRequests } = makeRuntime({
+			token: "token-1",
+			refreshedToken: "token-2",
+			responseStatuses: [401, 401],
+		});
+		const subscription = runtime.runFork(
+			Effect.flatMap(PluginCatalogEventsService, (service) =>
+				service.subscribe(scope, () => undefined),
+			),
+		);
+
+		try {
+			await waitUntil(() => requests.length === 2, "unauthorized stream was never retried");
+			await new Promise((resolve) => setTimeout(resolve, 20));
+			expect(requests).toHaveLength(2);
+			expect(tokenRequests).toEqual([false, true]);
 		} finally {
 			await Effect.runPromise(Fiber.interrupt(subscription));
 			await runtime.dispose();
@@ -245,7 +300,7 @@ describe("plugin catalog events service", () => {
 	});
 
 	it("uses the native OAuth client for an installed application", async () => {
-		const { clientIds, runtime, streams } = makeRuntime({ isNative: true });
+		const { clientIds, runtime, streams } = makeRuntime({ isNative: true, token: "token-1" });
 		const subscription = runtime.runFork(
 			Effect.flatMap(PluginCatalogEventsService, (service) =>
 				service.subscribe(scope, () => undefined),
