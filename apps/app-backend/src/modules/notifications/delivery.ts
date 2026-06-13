@@ -99,7 +99,7 @@ export class NotificationDeliveryService extends Effect.Service<NotificationDeli
 				platformSpecifics: NotificationPlatformSpecifics;
 			}) {
 				const { message, platformSpecifics } = input;
-				if (config.notifications.disabled) {
+				if (config.server.disableNotifications) {
 					return yield* Effect.logWarning("Notification delivery disabled; skipping send", {
 						platform: platformSpecifics.kind,
 					});
