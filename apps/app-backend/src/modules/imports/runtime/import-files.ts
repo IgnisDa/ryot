@@ -206,7 +206,7 @@ export const extractImportZipArchive = Effect.fn("imports.extractImportZipArchiv
 		}
 
 		return { directoryPath, entries };
-	}).pipe(Effect.tapError(() => fs.remove(directoryPath, { recursive: true }).pipe(Effect.ignore)));
+	}).pipe(Effect.tapError(() => fs.remove(directoryPath, { recursive: true }).pipe(Effect.ignoreLogged)));
 
 	return yield* extractEntries;
 });
@@ -224,5 +224,5 @@ export const cleanupImportFile = Effect.fn("imports.cleanupImportFile")(function
 		return;
 	}
 	const fs = yield* FileSystem.FileSystem;
-	yield* fs.remove(safePath, { recursive: true }).pipe(Effect.ignore);
+	yield* fs.remove(safePath, { recursive: true }).pipe(Effect.ignoreLogged);
 });
