@@ -49,7 +49,36 @@ export const makeRedisService = (overrides: Partial<RedisService> = {}): RedisSe
 		...overrides,
 	});
 
-export const makeAppConfigLayer = (overrides?: Partial<AppConfigValue>): Layer.Layer<AppConfig> => {
+type ConfigLeafValue = Option.Option<unknown> | Redacted.Redacted<unknown>;
+
+type DeepPartial<T> = T extends ConfigLeafValue
+	? T
+	: T extends object
+		? { [K in keyof T]?: DeepPartial<T[K]> }
+		: T;
+
+const isPlainConfigObject = (value: unknown): value is Record<string, unknown> => {
+	if (value === null || typeof value !== "object") {
+		return false;
+	}
+	const proto = Object.getPrototypeOf(value);
+	return proto === Object.prototype || proto === null;
+};
+
+const deepMergeConfig = (base: unknown, override: unknown): unknown => {
+	if (!isPlainConfigObject(base) || !isPlainConfigObject(override)) {
+		return override ?? base;
+	}
+	const result: Record<string, unknown> = { ...base };
+	for (const key of Object.keys(override)) {
+		result[key] = deepMergeConfig(base[key], override[key]);
+	}
+	return result;
+};
+
+export const makeAppConfigLayer = (
+	overrides?: DeepPartial<AppConfigValue>,
+): Layer.Layer<AppConfig> => {
 	const defaults = {
 		port: 3000,
 		tmpDir: "/tmp",
@@ -112,7 +141,8 @@ export const makeAppConfigLayer = (overrides?: Partial<AppConfigValue>): Layer.L
 			spotifyClientSecret: Option.none(),
 		},
 	};
-	return Layer.succeed(AppConfig, { ...defaults, ...overrides });
+	// oxlint-disable-next-line no-unsafe-type-assertion -- deepMergeConfig is an untyped structural merge; the result is always the complete defaults with overrides applied, so it matches typeof defaults
+	return Layer.succeed(AppConfig, deepMergeConfig(defaults, overrides ?? {}) as typeof defaults);
 };
 
 export const makeWorkflowActivityEngine = (instance: WorkflowInstance["Type"]) => {
