@@ -38,7 +38,6 @@
 		"nodemailer": "8.0.10",
 		"papaparse": "5.5.3",
 		"pg": "8.21.0",
-		"ts-pattern": "5.9.0",
 		"unzipit": "2.0.3"
 	},
 	"devDependencies": {
