@@ -31,12 +31,12 @@ export async function createKodiIntegration(client: Client, cookies: string) {
 
 export async function createAudiobookshelfIntegration(client: Client, cookies: string) {
 	return createIntegration(client, cookies, {
-		provider: "audiobookshelf",
 		isDisabled: true,
+		provider: "audiobookshelf",
 		providerSpecifics: {
+			token: "test-token",
 			kind: "audiobookshelf",
 			baseUrl: "https://abs.example.com",
-			token: "test-token",
 		},
 	});
 }
@@ -44,7 +44,7 @@ export async function createAudiobookshelfIntegration(client: Client, cookies: s
 export async function listIntegrations(
 	client: Client,
 	cookies: string,
-	query?: { provider?: string; isDisabled?: string },
+	query?: NonNullable<paths["/integrations"]["get"]["parameters"]>["query"],
 ) {
 	const { data, response } = await client.GET("/integrations", {
 		params: { query },
