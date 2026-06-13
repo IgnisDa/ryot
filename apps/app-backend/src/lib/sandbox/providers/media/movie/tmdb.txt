@@ -362,16 +362,17 @@ driver("search", async function (context) {
   };
 });
 
-driver("details", async function (context) {
+driver("details", async function (context, { metadata }) {
   const { z } = await import("npm:zod");
   const dayjs = (await import("npm:dayjs")).default;
 
-  const { externalId, language } = z
+  const { externalId } = z
     .object({
       externalId: z.string().trim().min(1, "externalId is required"),
-      language: z.string().trim().min(1).catch("en-US"),
     })
     .parse(context ?? {});
+
+  const language = metadata?.providerInformation?.canonicalLanguage ?? "en-US";
 
   if (!/^\d+$/.test(externalId)) {
     throw new Error("externalId must be a numeric TMDB movie ID");
