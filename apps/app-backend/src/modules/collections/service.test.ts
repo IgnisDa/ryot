@@ -13,10 +13,13 @@ import { expectDataResult, expectErrorResult } from "~/lib/test-helpers";
 import {
 	addToCollection,
 	createCollection,
+	ensureEntityInLibrary,
 	getOrCreateCollection,
 	removeFromCollection,
 	resolveCollectionName,
 } from "./service";
+
+type EnsureEntityInLibraryTestDeps = NonNullable<Parameters<typeof ensureEntityInLibrary>[1]>;
 
 describe("resolveCollectionName", () => {
 	it("returns the name when valid", () => {
@@ -29,6 +32,56 @@ describe("resolveCollectionName", () => {
 
 	it("throws when name is whitespace", () => {
 		expect(() => resolveCollectionName("   ")).toThrow("Collection name is required");
+	});
+});
+
+describe("ensureEntityInLibrary", () => {
+	it("writes the in-library relationship for the user's library entity", async () => {
+		let relationshipInput:
+			| Parameters<EnsureEntityInLibraryTestDeps["writeRelationship"]>[0]
+			| undefined;
+
+		const result = await ensureEntityInLibrary(
+			{ userId: "user_1", entityId: "entity_1" },
+			{
+				getUserLibraryEntityId: () => Promise.resolve("library_1"),
+				getBuiltinRelationshipSchemaBySlug: () =>
+					Promise.resolve({ id: "rel_in_library", propertiesSchema: { fields: {} } }),
+				writeRelationship: (input) => {
+					relationshipInput = input;
+					return Promise.resolve({ data: undefined });
+				},
+			},
+		);
+
+		expectDataResult(result);
+		expect(relationshipInput).toEqual({
+			properties: {},
+			userId: "user_1",
+			sourceEntityId: "entity_1",
+			targetEntityId: "library_1",
+			relationshipSchemaId: "rel_in_library",
+		});
+	});
+
+	it("returns validation when the user library entity is missing", async () => {
+		let relationshipWrites = 0;
+
+		const result = await ensureEntityInLibrary(
+			{ userId: "user_1", entityId: "entity_1" },
+			{
+				getUserLibraryEntityId: () => Promise.resolve(undefined),
+				getBuiltinRelationshipSchemaBySlug: () =>
+					Promise.resolve({ id: "rel_in_library", propertiesSchema: { fields: {} } }),
+				writeRelationship: () => {
+					relationshipWrites++;
+					return Promise.resolve({ data: undefined });
+				},
+			},
+		);
+
+		expect(result).toEqual({ error: "validation", message: "User library entity not found" });
+		expect(relationshipWrites).toBe(0);
 	});
 });
 

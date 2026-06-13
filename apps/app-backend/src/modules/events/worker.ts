@@ -25,6 +25,7 @@ import {
 	resolveOccurredAt,
 	type CreatedEventData,
 	type EventServiceDeps,
+	type GlobalEntityEventHook,
 } from "./service";
 
 type EventWorkerDeps = {
@@ -131,14 +132,15 @@ const createEventFromResolvedBody = async (input: {
 };
 
 const resolveCurrentEventScope = async (input: {
-	body: CreateEventsJobData["body"][number];
 	userId: string;
 	deps: EventWorkerDeps;
-	ensureLibraryMembership?: boolean;
+	runGlobalEntityHook?: boolean;
+	body: CreateEventsJobData["body"][number];
 }) => {
 	const result = await input.deps.resolveCreateEventScope(
 		{ body: input.body, userId: input.userId },
-		{ ensureLibraryMembership: input.ensureLibraryMembership },
+		{ runGlobalEntityHook: input.runGlobalEntityHook },
+		input.deps.eventServiceDeps,
 	);
 	if ("error" in result) {
 		throw new Error(result.message);
@@ -149,14 +151,14 @@ const resolveCurrentEventScope = async (input: {
 
 const queueNextBeforeTrigger = async (input: {
 	job: Job;
-	body: CreateEventsJobData["body"];
-	deps: EventWorkerDeps;
 	userId: string;
-	createdEvents: CreatedEventData[];
 	eventIndex: number;
 	triggerIndex: number;
+	deps: EventWorkerDeps;
+	runGlobalEntityHook?: boolean;
+	body: CreateEventsJobData["body"];
+	createdEvents: CreatedEventData[];
 	beforeTriggers: BeforeTriggerState[];
-	ensureLibraryMembership?: boolean;
 }) => {
 	const currentBody = input.body[input.eventIndex];
 	const currentTrigger = input.beforeTriggers[input.triggerIndex];
@@ -168,7 +170,7 @@ const queueNextBeforeTrigger = async (input: {
 		deps: input.deps,
 		body: currentBody,
 		userId: input.userId,
-		ensureLibraryMembership: input.ensureLibraryMembership,
+		runGlobalEntityHook: input.runGlobalEntityHook,
 	});
 	const childJobId = createBeforeTriggerChildJobId(input.job, {
 		eventIndex: input.eventIndex,
@@ -276,10 +278,10 @@ export const processCreateEventsJob = async (
 					body,
 					userId,
 					createdEvents,
+					runGlobalEntityHook: false,
 					eventIndex: currentEventIndex,
 					triggerIndex: currentTriggerIndex,
 					beforeTriggers: currentBeforeTriggers,
-					ensureLibraryMembership: false,
 				});
 				await deps.waitForSandboxChildRun(job, token);
 				currentChildJobId = createBeforeTriggerChildJobId(job, {
@@ -311,9 +313,9 @@ export const processCreateEventsJob = async (
 
 		const resolvedScope = await resolveCurrentEventScope({
 			deps,
-			body: currentBody,
 			userId,
-			ensureLibraryMembership: true,
+			body: currentBody,
+			runGlobalEntityHook: true,
 		});
 		const beforeTriggers = await deps.getActiveBeforeCreateTriggersForEventSchemas({
 			userId,
@@ -347,10 +349,10 @@ export const processCreateEventsJob = async (
 			body,
 			userId,
 			createdEvents,
+			runGlobalEntityHook: false,
 			eventIndex: currentEventIndex,
 			triggerIndex: currentTriggerIndex,
 			beforeTriggers: currentBeforeTriggers,
-			ensureLibraryMembership: false,
 		});
 		currentChildJobId = createBeforeTriggerChildJobId(job, {
 			eventIndex: currentEventIndex,
@@ -364,16 +366,26 @@ export const processCreateEventsJob = async (
 	return { count: createdEvents.length };
 };
 
-const processEventsJob = async (job: Job, token?: string) => {
+const processEventsJob = async (
+	job: Job,
+	token: string | undefined,
+	deps: EventWorkerDeps = eventWorkerDeps,
+) => {
 	if (job.name === createEventsJobName) {
-		return processCreateEventsJob(job, token);
+		return processCreateEventsJob(job, token, deps);
 	}
 
 	throw new Error(`Unsupported events job: ${job.name}`);
 };
 
-export const createEventsWorker = () => {
-	const worker = new Worker("event", processEventsJob, {
+export const createEventsWorker = (
+	options: { onGlobalEntityScope?: GlobalEntityEventHook } = {},
+) => {
+	const deps: EventWorkerDeps = {
+		...eventWorkerDeps,
+		eventServiceDeps: { ...eventServiceDeps, onGlobalEntityScope: options.onGlobalEntityScope },
+	};
+	const worker = new Worker("event", (job, token) => processEventsJob(job, token, deps), {
 		connection: getRedisConnection(),
 	});
 	worker.on("error", onWorkerError("event"));

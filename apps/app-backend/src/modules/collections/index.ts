@@ -12,6 +12,7 @@ export type {
 	AddToCollectionServiceDeps,
 	CollectionServiceDeps,
 	CollectionServiceResult,
+	EnsureEntityInLibraryDeps,
 	EnsureLibraryEntityForUserDeps,
 	GetOrCreateCollectionServiceDeps,
 	RemoveFromCollectionServiceDeps,
@@ -19,6 +20,7 @@ export type {
 export {
 	addToCollection,
 	createCollection,
+	ensureEntityInLibrary,
 	ensureLibraryEntityForUser,
 	getOrCreateCollection,
 	removeFromCollection,

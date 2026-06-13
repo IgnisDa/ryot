@@ -4,13 +4,14 @@ import { resolveRequiredString } from "@ryot/ts-utils/slug";
 import { formatValidationIssues, parseAppSchemaPropertiesSafe } from "~/lib/app/schema-validation";
 import { db, type DbClient } from "~/lib/db";
 import { type ServiceResult, serviceData, serviceError, wrapServiceValidator } from "~/lib/result";
-import { ensureEntityInLibrary } from "~/modules/entities";
+import { writeRelationship } from "~/modules/entities";
 import {
 	deleteCollectionMembership,
 	writeCollectionMembership,
 } from "~/modules/entities/relationships";
 import { createEventBySchemaSlugWithTriggers } from "~/modules/events";
 import { parseLabeledPropertySchemaInput } from "~/modules/property-schemas";
+import { getBuiltinRelationshipSchemaBySlug } from "~/modules/relationship-schemas";
 
 import {
 	createCollectionForUser,
@@ -19,6 +20,7 @@ import {
 	getBuiltinCollectionSchema,
 	getCollectionById,
 	getEntityById,
+	getUserLibraryEntityId,
 } from "./repository";
 import type {
 	AddToCollectionBody,
@@ -31,9 +33,12 @@ import type {
 
 const entityNotFoundError = "Entity not found";
 const collectionNotFoundError = "Collection not found";
+const inLibraryRelationshipSchemaSlug = "in-library";
 const circularReferenceError = "Cannot add a collection to itself";
+const libraryEntityNotFoundError = "User library entity not found";
 const collectionSchemaNotFoundError = "Collection entity schema not found";
 const invalidCollectionPropertiesError = "Collection properties are invalid";
+const inLibrarySchemaNotFoundError = "in-library relationship schema not found";
 const invalidMembershipPropertiesError = "Membership properties validation failed";
 const invalidMembershipSchemaError = "membershipPropertiesSchema must be a valid AppSchema";
 
@@ -58,6 +63,12 @@ export type CollectionServiceDeps = {
 
 export type EnsureLibraryEntityForUserDeps = {
 	createLibraryEntityForUser: typeof createLibraryEntityForUser;
+};
+
+export type EnsureEntityInLibraryDeps = {
+	writeRelationship: typeof writeRelationship;
+	getUserLibraryEntityId: typeof getUserLibraryEntityId;
+	getBuiltinRelationshipSchemaBySlug: typeof getBuiltinRelationshipSchemaBySlug;
 };
 
 export type GetOrCreateCollectionServiceDeps = CollectionServiceDeps & {
@@ -91,6 +102,12 @@ const ensureLibraryEntityForUserDeps: EnsureLibraryEntityForUserDeps = {
 	createLibraryEntityForUser,
 };
 
+const ensureEntityInLibraryDeps: EnsureEntityInLibraryDeps = {
+	writeRelationship,
+	getUserLibraryEntityId,
+	getBuiltinRelationshipSchemaBySlug,
+};
+
 const getOrCreateCollectionServiceDeps: GetOrCreateCollectionServiceDeps = {
 	...collectionServiceDeps,
 	findCollectionByNameForUser,
@@ -108,6 +125,36 @@ export const ensureLibraryEntityForUser = async (
 ) => {
 	const { database, ...body } = input;
 	return deps.createLibraryEntityForUser(body, database);
+};
+
+export const ensureEntityInLibrary = async (
+	input: { userId: string; entityId: string },
+	deps: EnsureEntityInLibraryDeps = ensureEntityInLibraryDeps,
+): Promise<ServiceResult<void, "validation">> => {
+	const libraryEntityId = await deps.getUserLibraryEntityId({ userId: input.userId });
+	if (!libraryEntityId) {
+		return serviceError("validation", libraryEntityNotFoundError);
+	}
+
+	const relationshipSchema = await deps.getBuiltinRelationshipSchemaBySlug(
+		inLibraryRelationshipSchemaSlug,
+	);
+	if (!relationshipSchema) {
+		throw new Error(inLibrarySchemaNotFoundError);
+	}
+
+	const result = await deps.writeRelationship({
+		properties: {},
+		userId: input.userId,
+		sourceEntityId: input.entityId,
+		targetEntityId: libraryEntityId,
+		relationshipSchemaId: relationshipSchema.id,
+	});
+	if ("error" in result) {
+		return serviceError("validation", result.message);
+	}
+
+	return serviceData(undefined);
 };
 
 export const createCollection = async (

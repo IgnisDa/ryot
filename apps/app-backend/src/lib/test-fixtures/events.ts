@@ -69,7 +69,6 @@ export const createEventCreateScope = (
 
 export const createEventDeps = (overrides: Partial<EventServiceDeps> = {}): EventServiceDeps => ({
 	enqueueEventSchemaTriggerJob: () => Promise.resolve(),
-	ensureEntityInLibrary: () => Promise.resolve({ data: undefined }),
 	getActiveEventSchemaTriggersForEventSchemas: () => Promise.resolve([]),
 	getActiveBeforeCreateTriggersForEventSchemas: () => Promise.resolve([]),
 	listEventsByEntityForUser: () => Promise.resolve([createListedEvent()]),
