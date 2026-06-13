@@ -10,16 +10,33 @@ import { createTracker } from "./trackers";
 export type V2RowValue = V2RowItem[string];
 export type V2RowItem = V2RowsResponse["data"]["items"][number];
 export type V2FieldValue = Extract<V2RowValue, { kind: string }>;
-export type V2IncludeValue = Extract<V2RowValue, { items: readonly V2RowItem[] }>;
+type V2RowsOutput = Extract<V2ExecutePayload["output"], { type: "rows" }>;
 export type V2RowsResponse = Extract<V2ExecuteResponse, { type: "rows" }>;
 export type V2ExecutePayload = ContractPayload<"queryEngineV2", "execute">;
 export type V2ExecuteResponse = ContractSuccess<"queryEngineV2", "execute">;
+export type V2IncludeValue = Extract<V2RowValue, { items: readonly V2RowItem[] }>;
+export type V2AggregateResponse = Extract<V2ExecuteResponse, { type: "aggregate" }>;
 
 export async function executeQueryEngineV2(
 	client: Client,
 	doc: V2ExecutePayload,
 ): Promise<V2RowsResponse> {
-	return client.run((c) => c.queryEngineV2.execute({ payload: doc }));
+	const result = await client.run((c) => c.queryEngineV2.execute({ payload: doc }));
+	if (result.type !== "rows") {
+		throw new Error(`Expected rows response, received ${result.type}`);
+	}
+	return result;
+}
+
+export async function executeAggregateQueryEngineV2(
+	client: Client,
+	doc: V2ExecutePayload,
+): Promise<V2AggregateResponse> {
+	const result = await client.run((c) => c.queryEngineV2.execute({ payload: doc }));
+	if (result.type !== "aggregate") {
+		throw new Error(`Expected aggregate response, received ${result.type}`);
+	}
+	return result;
 }
 
 export async function executeQueryEngineV2Error(client: Client, doc: V2ExecutePayload) {
@@ -100,7 +117,7 @@ export async function createV2Event(
 export const systemRef = (
 	alias: string,
 	name: string,
-): V2ExecutePayload["output"]["orderBy"][number]["expr"] => ({
+): V2RowsOutput["orderBy"][number]["expr"] => ({
 	type: "ref",
 	sourceAlias: alias,
 	field: { type: "system", name },
@@ -110,7 +127,7 @@ export const propertyRef = (
 	alias: string,
 	schema: string,
 	...path: [string, ...string[]]
-): V2ExecutePayload["output"]["orderBy"][number]["expr"] => ({
+): V2RowsOutput["orderBy"][number]["expr"] => ({
 	type: "ref",
 	sourceAlias: alias,
 	field: { type: "property", schema, path },
@@ -119,7 +136,7 @@ export const propertyRef = (
 export const schemaMetaRef = (
 	alias: string,
 	name: "slug" | "name",
-): V2ExecutePayload["output"]["orderBy"][number]["expr"] => ({
+): V2RowsOutput["orderBy"][number]["expr"] => ({
 	type: "ref",
 	sourceAlias: alias,
 	field: { type: "schema", name },
