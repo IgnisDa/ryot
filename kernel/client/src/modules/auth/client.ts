@@ -114,7 +114,9 @@ export class AuthClient extends Context.Service<
 	{
 		readonly clear: () => Effect.Effect<void>;
 		readonly session: (origin: ServerOrigin) => AuthSessionStore;
+		readonly signOut: (origin: ServerOrigin) => Effect.Effect<void, AuthClientError>;
 		readonly settledSession: (origin: ServerOrigin) => Effect.Effect<SettledAuthSession>;
+		readonly refreshSession: (origin: ServerOrigin) => Effect.Effect<void, AuthClientError>;
 		readonly signIn: (
 			origin: ServerOrigin,
 			values: CredentialsValues,
@@ -123,7 +125,6 @@ export class AuthClient extends Context.Service<
 			origin: ServerOrigin,
 			callbackURL: string,
 		) => Effect.Effect<void, AuthClientError>;
-		readonly signOut: (origin: ServerOrigin) => Effect.Effect<void, AuthClientError>;
 		readonly signUp: (
 			origin: ServerOrigin,
 			values: CredentialsValues & { readonly name: string },
@@ -178,6 +179,14 @@ export class AuthClient extends Context.Service<
 			).pipe(Effect.asVoid);
 		const signOut = (origin: ServerOrigin) =>
 			request(() => getClient(origin).signOut(), "Could not sign out.").pipe(Effect.asVoid);
+		const refreshSession = (origin: ServerOrigin) =>
+			Effect.tryPromise({
+				catch: (cause) =>
+					new AuthClientError({
+						message: cause instanceof Error ? cause.message : "Could not refresh the session.",
+					}),
+				try: () => getClient(origin).useSession.get().refetch(),
+			});
 		const verifyTwoFactor = (origin: ServerOrigin, method: TwoFactorMethod, code: string) =>
 			request(
 				() =>
@@ -195,6 +204,7 @@ export class AuthClient extends Context.Service<
 			signUp,
 			session,
 			signOut,
+			refreshSession,
 			settledSession,
 			signInWithOidc,
 			verifyTwoFactor,
