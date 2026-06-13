@@ -9,7 +9,9 @@ export const VideoIframe = (props: { videoId: string; videoSource: EntityRemoteV
 	const [isMounted, setIsMounted] = useState(false);
 
 	useDidUpdate(() => {
-		if (inViewport) setIsMounted(true);
+		if (inViewport) {
+			setIsMounted(true);
+		}
 	}, [inViewport]);
 
 	return (

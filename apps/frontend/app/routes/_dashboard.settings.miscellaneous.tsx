@@ -233,7 +233,9 @@ const DisplayJobBtn = (props: { job: BackgroundJob }) => {
 	const jobDetails = getJobDetails(props.job);
 	const [icon, title, description, isAdminOnly] = jobDetails;
 
-	if (isAdminOnly && userDetails.lot !== UserLot.Admin) return null;
+	if (isAdminOnly && userDetails.lot !== UserLot.Admin) {
+		return null;
+	}
 
 	return (
 		<Form replace method="POST">
@@ -284,7 +286,9 @@ const DownloadLogsButton = () => {
 		},
 	});
 
-	if (userDetails.lot !== UserLot.Admin) return null;
+	if (userDetails.lot !== UserLot.Admin) {
+		return null;
+	}
 
 	return (
 		<SettingsActionCard

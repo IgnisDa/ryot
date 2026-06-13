@@ -189,7 +189,9 @@ export default function Page() {
 												key={range}
 												color={timeSpanSettings.range === range ? "blue" : undefined}
 												onClick={() => {
-													if (range === "Custom") return setCustomRangeOpened(true);
+													if (range === "Custom") {
+														return setCustomRangeOpened(true);
+													}
 													setTimeSpanSettings(
 														produce(timeSpanSettings, (draft) => {
 															draft.range = range;
@@ -249,14 +251,17 @@ export default function Page() {
 						loading={isCaptureLoading}
 						leftSection={<IconImageInPicture />}
 						onClick={() => {
-							if (!coreDetails.isServerKeyValidated)
+							if (!coreDetails.isServerKeyValidated) {
 								return notifications.show({
 									color: "red",
 									title: "Pro required",
 									message: PRO_REQUIRED_MESSAGE,
 								});
+							}
 							const current = toCaptureRef.current;
-							if (!current) return;
+							if (!current) {
+								return;
+							}
 							setIsCaptureLoading(true);
 							setTimeout(async () => {
 								let downloadUrl: string | undefined;
@@ -267,7 +272,9 @@ export default function Page() {
 									if (canvas.toBlob) {
 										blob = await new Promise<Blob>((resolve, reject) => {
 											canvas.toBlob((value) => {
-												if (value) return resolve(value);
+												if (value) {
+													return resolve(value);
+												}
 												reject(new Error("Failed to create canvas blob"));
 											}, "image/png");
 										});
@@ -283,7 +290,9 @@ export default function Page() {
 										message: "Something went wrong while capturing the image",
 									});
 								} finally {
-									if (downloadUrl) URL.revokeObjectURL(downloadUrl);
+									if (downloadUrl) {
+										URL.revokeObjectURL(downloadUrl);
+									}
 									setIsCaptureLoading(false);
 								}
 							}, 1500);
@@ -320,7 +329,9 @@ const ActivitySection = () => {
 				[snakeCase(key.replace("Count", "").replace("total", "")).toUpperCase()]: value,
 			}))
 			.reduce(Object.assign, {});
-		for (const key in data) if (isBoolean(trackSeries[key])) trackSeries[key] = true;
+		for (const key in data) {
+			if (isBoolean(trackSeries[key])) trackSeries[key] = true;
+		}
 		return data;
 	});
 	const series = pickBy(trackSeries);
@@ -515,7 +526,9 @@ const TimeOfDayChart = () => {
 								?.entities.filter((e) => e.entityLot === mKey || (e.metadataLot || "") === mKey)
 								.length || 0;
 						obj[mKey] = count;
-						if (count > 0) trackSeries.add(mKey);
+						if (count > 0) {
+							trackSeries.add(mKey);
+						}
 					}
 					obj.hour = dayjsLib().hour(convertUtcHourToLocalHour(h)).format("h a");
 					return obj;
