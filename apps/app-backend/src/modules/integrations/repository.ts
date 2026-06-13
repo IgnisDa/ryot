@@ -3,8 +3,8 @@ import { Effect } from "effect";
 
 import { AppConfig } from "#lib/config";
 import { CurrentDb, dbEffect } from "#lib/db";
-import { user } from "#lib/db/schema/tables/auth";
 import * as schema from "#lib/db/schema/tables";
+import { user } from "#lib/db/schema/tables/auth";
 import { IntegrationId, UserId } from "#lib/schema/brands";
 
 import type {
