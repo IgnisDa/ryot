@@ -1,4 +1,4 @@
-import { expect, it } from "@effect/vitest";
+import { assert, expect, it } from "@effect/vitest";
 import { Workflow } from "@effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import { Effect, Layer } from "effect";
@@ -15,6 +15,7 @@ import {
 import { dbRunnerLayer, makeMock, makeWorkflowActivityEngine } from "#lib/test-support/effect";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { ListedEntity } from "#modules/entities/schemas";
+import { EntitiesService } from "#modules/entities/service";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
@@ -56,13 +57,16 @@ type StoredEntity = Omit<typeof baseEntity, "populatedAt" | "properties"> & {
 	properties: Record<string, unknown>;
 };
 
+const assertRecord: (value: unknown) => asserts value is Record<string, unknown> = (value) => {
+	assert(typeof value === "object" && value !== null && !Array.isArray(value));
+};
+
 const makeEntitiesRepository = (overrides: Partial<EntitiesRepository> = {}) =>
 	makeMock<EntitiesRepository>(
 		{
 			_tag: "EntitiesRepository" as const,
-			createEntity: () => Effect.die("unused"),
+			saveEntity: () => Effect.die("unused"),
 			getByIdForUser: () => Effect.die("unused"),
-			getEntityScopeById: () => Effect.die("unused"),
 			getEntityScopeForUser: () => Effect.die("unused"),
 			listMatchCandidatesBySchema: () => Effect.die("unused"),
 			getEntitySchemaScopeForUser: () => Effect.die("unused"),
@@ -70,7 +74,17 @@ const makeEntitiesRepository = (overrides: Partial<EntitiesRepository> = {}) =>
 			findGlobalEntityByExternalId: () => Effect.succeed(null),
 			findEntityByExternalIdForUser: () => Effect.die("unused"),
 			findEntitySchemaById: () => Effect.succeed(baseEntitySchema),
-			createOrUpdateGlobalEntity: () => Effect.succeed(baseEntity),
+		},
+		overrides,
+	);
+
+const makeEntitiesService = (overrides: Partial<EntitiesService> = {}) =>
+	makeMock<EntitiesService>(
+		{
+			_tag: "EntitiesService" as const,
+			create: () => Effect.die("unused"),
+			getById: () => Effect.die("unused"),
+			save: () => Effect.succeed(baseEntity),
 		},
 		overrides,
 	);
@@ -112,6 +126,7 @@ const makeRelationshipSchemasRepository = (
 	);
 
 type TestLayerOptions = {
+	entitiesService?: EntitiesService;
 	entitiesRepository?: EntitiesRepository;
 	entitySchemasRepository?: EntitySchemasRepository;
 	relationshipsRepository?: RelationshipsRepository;
@@ -121,6 +136,7 @@ type TestLayerOptions = {
 const makeTestLayer = (options: TestLayerOptions) =>
 	Layer.mergeAll(
 		dbRunnerLayer,
+		Layer.succeed(EntitiesService, options.entitiesService ?? makeEntitiesService()),
 		Layer.succeed(EntitiesRepository, options.entitiesRepository ?? makeEntitiesRepository()),
 		Layer.succeed(
 			EntitySchemasRepository,
@@ -200,14 +216,20 @@ it.effect("populates entity and writes related entities", () => {
 		relationshipSchemasRepository: makeRelationshipSchemasRepository({
 			findGlobalBySchemaIds: () => Effect.succeed(relationshipSchema),
 		}),
+		entitiesRepository: makeEntitiesRepository({
+			findEntitySchemaScriptBySlug: () => Effect.succeed(relatedEntitySchemaScript),
+		}),
 		relationshipsRepository: makeRelationshipsRepository({
 			upsertEntityRelationship: () => {
 				relationshipWritten = true;
 				return Effect.void;
 			},
 		}),
-		entitiesRepository: makeEntitiesRepository({
-			createOrUpdateGlobalEntity: (input) => {
+		entitiesService: makeEntitiesService({
+			save: (input) => {
+				if (input.scope !== "global") {
+					return Effect.die("unexpected user entity save");
+				}
 				if (input.entitySchemaId === "schema-1") {
 					primaryImages.push(input.image);
 					globalEntityWritten = true;
@@ -221,7 +243,6 @@ it.effect("populates entity and writes related entities", () => {
 				relatedEntityWritten = true;
 				return Effect.succeed(relatedEntity);
 			},
-			findEntitySchemaScriptBySlug: () => Effect.succeed(relatedEntitySchemaScript),
 		}),
 	} satisfies TestLayerOptions;
 
@@ -274,10 +295,10 @@ it.effect("writes child entity trees idempotently", () => {
 	const entityWrites: Array<{
 		name: string;
 		externalId: string;
+		properties: unknown;
 		image: ListedEntity["image"];
 		entitySchemaId: EntitySchemaId;
 		sandboxScriptId: SandboxScriptId;
-		properties: Record<string, unknown>;
 	}> = [];
 	const relationshipSchemas = new Map([
 		[
@@ -323,8 +344,13 @@ it.effect("writes child entity trees idempotently", () => {
 						null,
 				),
 		}),
-		entitiesRepository: makeEntitiesRepository({
-			createOrUpdateGlobalEntity: (input) => {
+		entitiesService: makeEntitiesService({
+			save: (input) => {
+				if (input.scope !== "global") {
+					return Effect.die("unexpected user entity save");
+				}
+				const properties: unknown = input.properties;
+				assertRecord(properties);
 				entityWrites.push(input);
 				const key = `${input.entitySchemaId}:${input.externalId}:${input.sandboxScriptId}`;
 				const existing = storedEntities.get(key);
@@ -334,10 +360,10 @@ it.effect("writes child entity trees idempotently", () => {
 
 				const entity = {
 					...baseEntity,
+					properties,
 					name: input.name,
 					image: input.image,
 					externalId: input.externalId,
-					properties: input.properties,
 					entitySchemaId: input.entitySchemaId,
 					sandboxScriptId: input.sandboxScriptId,
 					populatedAt: input.populatedAt?.toISOString() ?? null,
@@ -425,8 +451,11 @@ it.effect("uses explicit details image for the primary entity", () => {
 	const payload = { ...importPayload, executionId: "exec-explicit-image" };
 	const explicitImage = { type: "s3" as const, key: "entities/test-book.jpg" };
 	const options = {
-		entitiesRepository: makeEntitiesRepository({
-			createOrUpdateGlobalEntity: (input) => {
+		entitiesService: makeEntitiesService({
+			save: (input) => {
+				if (input.scope !== "global") {
+					return Effect.die("unexpected user entity save");
+				}
 				primaryImages.push(input.image);
 				return Effect.succeed({
 					...baseEntity,
@@ -522,10 +551,7 @@ it.effect("workflow body executes the sandbox step as part of orchestration", ()
 
 	const payload = { ...importPayload, executionId: "exec-orchestration" };
 	const options = {
-		entitiesRepository: makeEntitiesRepository({
-			findEntitySchemaById: () => Effect.succeed(baseEntitySchema),
-			createOrUpdateGlobalEntity: () => Effect.succeed(baseEntity),
-		}),
+		entitiesService: makeEntitiesService({ save: () => Effect.succeed(baseEntity) }),
 	} satisfies TestLayerOptions;
 
 	return withTestLayer(
@@ -580,12 +606,19 @@ it.effect("fails workflow when related relationship properties are invalid", () 
 					entitySchemaId: EntitySchemaId.make("schema-person"),
 					sandboxScriptId: SandboxScriptId.make("person-script"),
 				}),
-			createOrUpdateGlobalEntity: (input) => {
+		}),
+		entitiesService: makeEntitiesService({
+			save: (input) => {
+				if (input.scope !== "global") {
+					return Effect.die("unexpected user entity save");
+				}
+				const properties: unknown = input.properties;
+				assertRecord(properties);
 				const nextEntity = {
 					...baseEntity,
+					properties,
 					name: input.name,
 					externalId: input.externalId,
-					properties: input.properties,
 					entitySchemaId: input.entitySchemaId,
 					sandboxScriptId: input.sandboxScriptId,
 					populatedAt: input.populatedAt?.toISOString() ?? null,
@@ -750,12 +783,19 @@ it.effect("retries related writes after a failed related validation", () => {
 					entitySchemaId: EntitySchemaId.make("schema-person"),
 					sandboxScriptId: SandboxScriptId.make("person-script"),
 				}),
-			createOrUpdateGlobalEntity: (input) => {
+		}),
+		entitiesService: makeEntitiesService({
+			save: (input) => {
+				if (input.scope !== "global") {
+					return Effect.die("unexpected user entity save");
+				}
+				const properties: unknown = input.properties;
+				assertRecord(properties);
 				const nextEntity = {
 					...baseEntity,
+					properties,
 					name: input.name,
 					externalId: input.externalId,
-					properties: input.properties,
 					entitySchemaId: input.entitySchemaId,
 					sandboxScriptId: input.sandboxScriptId,
 					populatedAt: input.populatedAt?.toISOString() ?? null,

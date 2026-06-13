@@ -4,9 +4,9 @@ import { Cause, DateTime, Effect, Exit, Match, Option, Schema } from "effect";
 import { DbRunner } from "#lib/db";
 import { SandboxRunError, dieOnDbError, unknownToMessage } from "#lib/errors";
 import { EntitySchemaId, SandboxScriptId, UserId } from "#lib/schema/brands";
-import { parseAppSchemaProperties } from "#lib/schema/property-schema-runtime";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntityImage, ListedEntity } from "#modules/entities/schemas";
+import { EntitiesService } from "#modules/entities/service";
 import { SandboxExecutionQueue } from "#modules/sandbox/durable-queues";
 import type { SandboxCompletedResult as SandboxCompletedResultValue } from "#modules/sandbox/schemas";
 
@@ -64,10 +64,10 @@ export const toEntityImportRunResult = (
 
 const ValidatedEntityDetails = Schema.Struct({
 	name: Schema.String,
+	properties: Schema.Unknown,
 	image: Schema.NullOr(EntityImage),
 	childEntities: Schema.Array(EntityDetailsChildEntity),
 	relatedEntities: Schema.Array(EntityDetailsRelatedEntity),
-	validatedProperties: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
 });
 
 export const processSandboxEntityDetails = (payload: EntityImportPayload, executionId: string) =>
@@ -89,6 +89,7 @@ export const runEntityImportWorkflow = Effect.fn("runEntityImportWorkflow")(func
 	options: { activityPrefix?: string } = {},
 ) {
 	const runWithDb = yield* DbRunner;
+	const entities = yield* EntitiesService;
 	const repository = yield* EntitiesRepository;
 	const activityName = (name: string) =>
 		options.activityPrefix ? `${options.activityPrefix}${name}` : name;
@@ -120,30 +121,16 @@ export const runEntityImportWorkflow = Effect.fn("runEntityImportWorkflow")(func
 		success: ValidatedEntityDetails,
 		name: activityName("validate-entity-details"),
 		execute: Effect.gen(function* () {
-			const entitySchemaScope = yield* runWithDb(
-				repository.findEntitySchemaById(payload.entitySchemaId),
-			).pipe(dieOnDbError);
-
-			if (!entitySchemaScope) {
-				return yield* new SandboxRunError({ message: "Entity schema not found" });
-			}
-
 			const details = yield* decodeEntityDetailsResult(sandboxResult.value).pipe(
 				Effect.mapError(
 					(error) => new SandboxRunError({ message: `Invalid entity details: ${error.message}` }),
 				),
 			);
 
-			const validatedProperties = yield* parseAppSchemaProperties({
-				kind: "Entity",
-				properties: details.properties,
-				propertiesSchema: entitySchemaScope.propertiesSchema,
-			}).pipe(Effect.mapError((error) => new SandboxRunError({ message: error.message })));
-
 			return {
 				name: details.name,
-				validatedProperties,
 				image: details.image ?? null,
+				properties: details.properties,
 				childEntities: details.childEntities ?? [],
 				relatedEntities: details.relatedEntities ?? [],
 			};
@@ -152,18 +139,23 @@ export const runEntityImportWorkflow = Effect.fn("runEntityImportWorkflow")(func
 
 	const entity = yield* Activity.make({
 		success: ListedEntity,
+		error: SandboxRunError,
 		name: activityName("write-primary-entity"),
-		execute: runWithDb(
-			repository.createOrUpdateGlobalEntity({
+		execute: entities
+			.save({
 				image: null,
+				scope: "global",
 				populatedAt: null,
 				name: validatedDetails.name,
 				externalId: payload.externalId,
 				sandboxScriptId: payload.scriptId,
 				entitySchemaId: payload.entitySchemaId,
-				properties: validatedDetails.validatedProperties,
-			}),
-		).pipe(dieOnDbError),
+				properties: validatedDetails.properties,
+			})
+			.pipe(
+				dieOnDbError,
+				Effect.mapError((error) => new SandboxRunError({ message: error.message })),
+			),
 	});
 
 	yield* Effect.forEach(
@@ -190,21 +182,26 @@ export const runEntityImportWorkflow = Effect.fn("runEntityImportWorkflow")(func
 	});
 
 	const populatedEntity = yield* Activity.make({
+		error: SandboxRunError,
 		success: ListedEntity,
 		name: activityName("mark-primary-entity-populated"),
 		execute: Effect.gen(function* () {
 			const populatedAt = yield* DateTime.nowAsDate;
-			return yield* runWithDb(
-				repository.createOrUpdateGlobalEntity({
+			return yield* entities
+				.save({
 					populatedAt,
+					scope: "global",
 					name: validatedDetails.name,
 					image: validatedDetails.image,
 					externalId: payload.externalId,
 					sandboxScriptId: payload.scriptId,
 					entitySchemaId: payload.entitySchemaId,
-					properties: validatedDetails.validatedProperties,
-				}),
-			).pipe(dieOnDbError);
+					properties: validatedDetails.properties,
+				})
+				.pipe(
+					dieOnDbError,
+					Effect.mapError((error) => new SandboxRunError({ message: error.message })),
+				);
 		}),
 	});
 
