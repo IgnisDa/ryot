@@ -2,7 +2,7 @@ import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from "@effect/platform";
 import { Schema } from "effect";
 
 import { AuthMiddleware } from "../../lib/auth";
-import { NotFound, NotImplemented, Unauthorized } from "../../lib/errors";
+import { NotFound, NotImplemented, RateLimited, Unauthorized } from "../../lib/errors";
 import { ListedImportRun } from "../imports/contract";
 
 export const ListedIntegration = Schema.Struct({
@@ -46,6 +46,8 @@ const UpdateIntegrationBody = Schema.Struct({
 const integrationIdParam = HttpApiSchema.param("integrationId", Schema.String);
 
 export const IntegrationsGroup = HttpApiGroup.make("integrations")
+	.addError(Unauthorized, { status: 401 })
+	.addError(RateLimited, { status: 429 })
 	.add(
 		HttpApiEndpoint.get("list", "/integrations")
 			.setUrlParams(
@@ -55,21 +57,18 @@ export const IntegrationsGroup = HttpApiGroup.make("integrations")
 				}),
 			)
 			.addSuccess(Schema.Array(ListedIntegration))
-			.addError(Unauthorized, { status: 401 })
 			.middleware(AuthMiddleware),
 	)
 	.add(
 		HttpApiEndpoint.post("create", "/integrations")
 			.setPayload(CreateIntegrationBody)
 			.addSuccess(Schema.Struct({ id: Schema.String }), { status: 201 })
-			.addError(Unauthorized, { status: 401 })
 			.middleware(AuthMiddleware),
 	)
 	.add(
 		HttpApiEndpoint.get("get")`/integrations/${integrationIdParam}`
 			.addSuccess(ListedIntegration)
 			.addError(NotFound, { status: 404 })
-			.addError(Unauthorized, { status: 401 })
 			.middleware(AuthMiddleware),
 	)
 	.add(
@@ -77,21 +76,18 @@ export const IntegrationsGroup = HttpApiGroup.make("integrations")
 			.setPayload(UpdateIntegrationBody)
 			.addSuccess(ListedIntegration)
 			.addError(NotFound, { status: 404 })
-			.addError(Unauthorized, { status: 401 })
 			.middleware(AuthMiddleware),
 	)
 	.add(
 		HttpApiEndpoint.del("delete")`/integrations/${integrationIdParam}`
 			.addSuccess(Schema.Struct({ id: Schema.String }))
 			.addError(NotFound, { status: 404 })
-			.addError(Unauthorized, { status: 401 })
 			.middleware(AuthMiddleware),
 	)
 	.add(
 		HttpApiEndpoint.get("getRuns")`/integrations/${integrationIdParam}/runs`
 			.addSuccess(Schema.Array(ListedImportRun))
 			.addError(NotFound, { status: 404 })
-			.addError(Unauthorized, { status: 401 })
 			.middleware(AuthMiddleware),
 	)
 	.add(

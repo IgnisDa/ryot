@@ -2,7 +2,7 @@ import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from "@effect/platform";
 import { Schema } from "effect";
 
 import { AuthMiddleware } from "../../lib/auth";
-import { Conflict, NotFound, NotImplemented, Unauthorized } from "../../lib/errors";
+import { Conflict, NotFound, NotImplemented, RateLimited, Unauthorized } from "../../lib/errors";
 
 export const ListedTracker = Schema.Struct({
 	id: Schema.String,
@@ -39,6 +39,8 @@ const ReorderTrackersResponse = Schema.Struct({ trackerIds: Schema.Array(Schema.
 const trackerIdParam = HttpApiSchema.param("trackerId", Schema.String);
 
 export const TrackersGroup = HttpApiGroup.make("trackers")
+	.addError(Unauthorized, { status: 401 })
+	.addError(RateLimited, { status: 429 })
 	.add(
 		HttpApiEndpoint.get("list", "/trackers")
 			.setUrlParams(
@@ -49,7 +51,6 @@ export const TrackersGroup = HttpApiGroup.make("trackers")
 				}),
 			)
 			.addSuccess(Schema.Array(ListedTracker))
-			.addError(Unauthorized, { status: 401 })
 			.middleware(AuthMiddleware),
 	)
 	.add(
@@ -57,7 +58,6 @@ export const TrackersGroup = HttpApiGroup.make("trackers")
 			.setPayload(CreateTrackerBody)
 			.addSuccess(ListedTracker, { status: 201 })
 			.addError(Conflict, { status: 409 })
-			.addError(Unauthorized, { status: 401 })
 			.middleware(AuthMiddleware),
 	)
 	.add(
@@ -65,14 +65,12 @@ export const TrackersGroup = HttpApiGroup.make("trackers")
 			.setPayload(UpdateTrackerBody)
 			.addSuccess(ListedTracker)
 			.addError(NotFound, { status: 404 })
-			.addError(Unauthorized, { status: 401 })
 			.middleware(AuthMiddleware),
 	)
 	.add(
 		HttpApiEndpoint.post("reorder", "/trackers/reorder")
 			.setPayload(ReorderTrackersBody)
 			.addSuccess(ReorderTrackersResponse)
-			.addError(Unauthorized, { status: 401 })
 			.middleware(AuthMiddleware),
 	)
 	.addError(NotImplemented, { status: 501 });

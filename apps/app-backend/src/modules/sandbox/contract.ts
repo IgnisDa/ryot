@@ -2,7 +2,7 @@ import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from "@effect/platform";
 import { Schema } from "effect";
 
 import { AuthMiddleware } from "../../lib/auth";
-import { NotFound, NotImplemented, Unauthorized } from "../../lib/errors";
+import { NotFound, NotImplemented, RateLimited, Unauthorized } from "../../lib/errors";
 
 const SandboxScript = Schema.Struct({
 	id: Schema.String,
@@ -42,11 +42,12 @@ export const SandboxRunResult = Schema.Union(
 const jobIdParam = HttpApiSchema.param("jobId", Schema.String);
 
 export const SandboxGroup = HttpApiGroup.make("sandbox")
+	.addError(Unauthorized, { status: 401 })
+	.addError(RateLimited, { status: 429 })
 	.add(
 		HttpApiEndpoint.post("createScript", "/sandbox/scripts")
 			.setPayload(CreateSandboxScriptBody)
 			.addSuccess(SandboxScript, { status: 201 })
-			.addError(Unauthorized, { status: 401 })
 			.middleware(AuthMiddleware),
 	)
 	.add(
@@ -54,14 +55,12 @@ export const SandboxGroup = HttpApiGroup.make("sandbox")
 			.setPayload(EnqueueSandboxBody)
 			.addSuccess(EnqueueResponse)
 			.addError(NotFound, { status: 404 })
-			.addError(Unauthorized, { status: 401 })
 			.middleware(AuthMiddleware),
 	)
 	.add(
 		HttpApiEndpoint.get("getResult")`/sandbox/result/${jobIdParam}`
 			.addSuccess(SandboxRunResult)
 			.addError(NotFound, { status: 404 })
-			.addError(Unauthorized, { status: 401 })
 			.middleware(AuthMiddleware),
 	)
 	.addError(NotImplemented, { status: 501 });

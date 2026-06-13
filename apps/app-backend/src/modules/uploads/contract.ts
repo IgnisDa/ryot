@@ -2,7 +2,7 @@ import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, Multipart } from "@effect
 import { Schema } from "effect";
 
 import { AuthMiddleware } from "../../lib/auth";
-import { InternalError, NotImplemented, Unauthorized } from "../../lib/errors";
+import { InternalError, NotImplemented, RateLimited, Unauthorized } from "../../lib/errors";
 
 const CreatePresignedUploadBody = Schema.Struct({ contentType: Schema.String });
 
@@ -18,12 +18,13 @@ const PresignedDownloadResponse = Schema.Array(
 );
 
 export const UploadsGroup = HttpApiGroup.make("uploads")
+	.addError(Unauthorized, { status: 401 })
+	.addError(RateLimited, { status: 429 })
 	.add(
 		HttpApiEndpoint.post("createPresigned", "/uploads/presigned")
 			.setPayload(CreatePresignedUploadBody)
 			.addSuccess(PresignedUploadResponse)
 			.addError(InternalError, { status: 500 })
-			.addError(Unauthorized, { status: 401 })
 			.middleware(AuthMiddleware),
 	)
 	.add(
@@ -31,7 +32,6 @@ export const UploadsGroup = HttpApiGroup.make("uploads")
 			.setPayload(CreatePresignedDownloadBody)
 			.addSuccess(PresignedDownloadResponse)
 			.addError(InternalError, { status: 500 })
-			.addError(Unauthorized, { status: 401 })
 			.middleware(AuthMiddleware),
 	)
 	.add(
@@ -40,7 +40,6 @@ export const UploadsGroup = HttpApiGroup.make("uploads")
 			.addSuccess(Schema.Array(Schema.String), { status: 201 })
 			.addError(Multipart.MultipartError, { status: 413 })
 			.addError(InternalError, { status: 500 })
-			.addError(Unauthorized, { status: 401 })
 			.middleware(AuthMiddleware),
 	)
 	.addError(NotImplemented, { status: 501 });
