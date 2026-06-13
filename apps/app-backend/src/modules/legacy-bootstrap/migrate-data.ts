@@ -9,10 +9,12 @@ import {
 } from "#lib/infrastructure/db/schema/tables/combined";
 import { dbEffect, DbService } from "#lib/infrastructure/db/service";
 import { bootstrapNewUser } from "#modules/builtins/bootstrap";
+import { builtinMediaEntitySchemaSlugs } from "#modules/builtins/media-schema-slugs";
 
 import {
 	buildCollectionEntityMigrationSql,
 	buildCollectionToEntityRelationshipMigrationSql,
+	buildMonitoringCollectionMigrationSql,
 	buildOwnedCollectionOwnershipMigrationSql,
 } from "./collection-mapping";
 import { buildLegacyEpisodicSubEntityMigrationSql } from "./episodic-sub-entity-mapping";
@@ -216,6 +218,16 @@ export const migrateLegacyTables = Effect.gen(function* () {
 		relationshipSchemaIds,
 		"in-library",
 		"relationship schema",
+	);
+
+	const mediaMonitoringRelationshipSchemaId = requireSchemaId(
+		relationshipSchemaIds,
+		"media-monitoring",
+		"relationship schema",
+	);
+
+	const monitorableEntitySchemaIds = ["company", "person", ...builtinMediaEntitySchemaSlugs].map(
+		(slug) => requireSchemaId(entitySchemaIds, slug, "entity schema"),
 	);
 
 	const mediaSuggestionRelationshipSchemaId = requireSchemaId(
@@ -451,6 +463,15 @@ export const migrateLegacyTables = Effect.gen(function* () {
 			)
 			.then(() =>
 				client.query(buildOwnedCollectionOwnershipMigrationSql(inLibraryRelationshipSchemaId)),
+			)
+			.then(() =>
+				client.query(
+					buildMonitoringCollectionMigrationSql({
+						libraryEntitySchemaId,
+						monitorableEntitySchemaIds,
+						mediaMonitoringRelationshipSchemaId,
+					}),
+				),
 			)
 			.then(() => client.query(buildIntegrationMigrationSql()))
 			.then(() => client.query(buildNotificationPlatformMigrationSql())),
