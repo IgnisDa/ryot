@@ -2,11 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { createEntityColumnExpression } from "#lib/query-language";
 
-import {
-	buildDefaultQueryDefinition,
-	buildDisplayConfig,
-	inLibraryRelationshipJoin,
-} from "./view-helpers";
+import { buildDisplayConfig } from "./view-helpers";
 
 describe("buildDisplayConfig", () => {
 	it("always sets entityIdProperty to the id column for the slug", () => {
@@ -133,44 +129,5 @@ describe("buildDisplayConfig", () => {
 			expect(table.columns).toHaveLength(3);
 			expect(table.columns.map((c) => c.label)).toEqual(["Name", "Year", "Episodes"]);
 		});
-	});
-});
-
-describe("buildDefaultQueryDefinition", () => {
-	it("returns entities mode with null filter and empty joins", () => {
-		const def = buildDefaultQueryDefinition(["movie"]);
-		expect(def.mode).toBe("entities");
-		expect(def.filter).toBeNull();
-		expect(def.eventJoins).toEqual([]);
-		expect(def.relationshipJoins).toEqual([]);
-		expect(def.computedFields).toEqual([]);
-	});
-
-	it("sets the scope to the provided slugs", () => {
-		const def = buildDefaultQueryDefinition(["book", "audiobook"]);
-		expect(def.scope).toEqual(["book", "audiobook"]);
-	});
-
-	it("defaults sort direction to ascending by name", () => {
-		const def = buildDefaultQueryDefinition(["movie"]);
-		expect(def.sort.direction).toBe("asc");
-	});
-
-	it("includes provided relationship joins", () => {
-		const def = buildDefaultQueryDefinition(["movie"], {
-			relationshipJoins: [inLibraryRelationshipJoin],
-		});
-		expect(def.relationshipJoins).toEqual([inLibraryRelationshipJoin]);
-	});
-});
-
-describe("inLibraryRelationshipJoin", () => {
-	it("uses the in-library relationship schema slug", () => {
-		expect(inLibraryRelationshipJoin.relationshipSchemaSlug).toBe("in-library");
-	});
-
-	it("is required and outgoing", () => {
-		expect(inLibraryRelationshipJoin.required).toBe(true);
-		expect(inLibraryRelationshipJoin.direction).toBe("outgoing");
 	});
 });

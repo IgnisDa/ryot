@@ -13,7 +13,7 @@ import {
 	uniqueIndex,
 } from "drizzle-orm/pg-core";
 
-import type { DisplayConfiguration, SavedViewQueryDefinition } from "#lib/query-language";
+import type { DisplayConfiguration } from "#lib/query-language";
 import type { AppSchema } from "#lib/schema/property-schema";
 import type { StoredEntityImage } from "#modules/entities/types";
 import type { EventTriggerMetadata } from "#modules/events/schemas";
@@ -28,7 +28,7 @@ import type {
 	IntegrationProviderSpecifics,
 } from "#modules/integrations/schemas";
 import type { IntegrationLot } from "#modules/integrations/types";
-import type { QueryDocumentV2 } from "#modules/query-engine-v2/language";
+import type { QueryDocument } from "#modules/query-engine/language";
 import type { SandboxScriptMetadata } from "#modules/sandbox/schemas";
 
 import { user } from "./auth";
@@ -508,9 +508,8 @@ export const savedView = pgTable(
 		sortOrder: integer().notNull().default(0),
 		isBuiltin: boolean().default(false).notNull(),
 		isDisabled: boolean().notNull().default(false),
-		queryDocument: jsonb().$type<typeof QueryDocumentV2.Type>().notNull(),
+		queryDocument: jsonb().$type<typeof QueryDocument.Type>().notNull(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-		queryDefinition: jsonb().$type<typeof SavedViewQueryDefinition.Type>().notNull(),
 		displayConfiguration: jsonb().$type<typeof DisplayConfiguration.Type>().notNull(),
 		trackerId: text().references(() => tracker.id, { onDelete: "set null" }),
 		id: text()
