@@ -16,7 +16,7 @@ const toSandboxError = (cause: unknown) =>
 		: new SandboxRunError({ message: unknownToMessage(cause) });
 
 const processSandboxEntityDetails = (
-	payload: { userId: UserId; scriptId: SandboxScriptId; externalId: string },
+	payload: { userId: UserId | null; scriptId: SandboxScriptId; externalId: string },
 	executionId: string,
 ) =>
 	DurableQueue.process(SandboxExecutionQueue, {
