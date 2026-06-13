@@ -5,18 +5,14 @@ import { CurrentDb, dbEffect } from "#lib/db";
 import { BadRequest, type DbError, type NotFound } from "#lib/errors";
 
 import type { RowItem, RowsResponse } from "../language";
-import { makeEntityContext, makeEventRootContext } from "./context";
+import { makeEntityContext, makeEventRootContext, makeRelationshipRootContext } from "./context";
 import { evalExprAsBoolean } from "./expr";
+import { serializeIncludesForRow } from "./includes";
 import {
 	loadVisibleEntitySchemas,
 	loadVisibleEventSchemasForEntitySchemas,
 } from "./schema-loaders";
-import {
-	serializeEventRootRow,
-	serializeIncludesForRow,
-	serializeRelationshipRootRow,
-	serializeRootRow,
-} from "./serialize";
+import { serializeEventRootRow, serializeRelationshipRootRow, serializeRootRow } from "./serialize";
 import { loadRelationshipRootVisibleSchemas } from "./source-matches";
 import {
 	eventRootOrderSql,
@@ -140,7 +136,12 @@ const executeEntityRowsQuery = (
 		const items: RowItem[] = [];
 		for (const row of rows) {
 			const item = yield* serializeRootRow(userId, row, source.alias, output.fields);
-			const includeValues = yield* serializeIncludesForRow(userId, row, output.include ?? []);
+			const includeValues = yield* serializeIncludesForRow(
+				userId,
+				row,
+				output.include ?? [],
+				makeEntityContext(source.alias, row),
+			);
 			serializedRowCount += includeValues.rowCount;
 			if (serializedRowCount > MAX_SERIALIZED_ROW_OBJECTS) {
 				return yield* new BadRequest({
@@ -272,7 +273,12 @@ const executeEventRowsQuery = (
 		const items: RowItem[] = [];
 		for (const row of rows) {
 			const item = yield* serializeEventRootRow(userId, row, source, output.fields);
-			const includeValues = yield* serializeIncludesForRow(userId, row, output.include ?? []);
+			const includeValues = yield* serializeIncludesForRow(
+				userId,
+				row,
+				output.include ?? [],
+				makeEventRootContext(source, row),
+			);
 			serializedRowCount += includeValues.rowCount;
 			if (serializedRowCount > MAX_SERIALIZED_ROW_OBJECTS) {
 				return yield* new BadRequest({
@@ -328,6 +334,13 @@ const executeRelationshipRowsQuery = (
 		const orderSql = relationshipRootOrderSql(source, output);
 		const db = yield* CurrentDb;
 		const offset = (output.pagination.page - 1) * output.pagination.limit;
+		const paginationSql =
+			source.where === null
+				? sql`
+					LIMIT ${output.pagination.limit}
+					OFFSET ${offset}
+				`
+				: sql``;
 
 		const rawRows = yield* dbEffect(() =>
 			db.execute<RelationshipRootQueryRow>(sql`
@@ -338,13 +351,38 @@ const executeRelationshipRowsQuery = (
 					userId,
 				)}
 				ORDER BY ${orderSql}
-				LIMIT ${output.pagination.limit}
-				OFFSET ${offset}
+				${paginationSql}
 			`),
 		);
 
-		const rows = rawRows.rows;
-		const total = rows[0]?.totalCount !== undefined ? Number(rows[0].totalCount) : 0;
+		const filteredRows: RelationshipRootQueryRow[] = [];
+		if (source.where === null) {
+			filteredRows.push(...rawRows.rows);
+		} else {
+			if (rawRows.rows.length > MAX_ROOT_FILTER_SCAN_ROWS) {
+				return yield* new BadRequest({
+					message: `Root filter candidate rows exceeds maximum of ${MAX_ROOT_FILTER_SCAN_ROWS}`,
+				});
+			}
+			for (const row of rawRows.rows) {
+				if (
+					yield* evalExprAsBoolean(userId, source.where, makeRelationshipRootContext(source, row))
+				) {
+					filteredRows.push(row);
+				}
+			}
+		}
+
+		const total =
+			source.where === null
+				? rawRows.rows[0]?.totalCount !== undefined
+					? Number(rawRows.rows[0].totalCount)
+					: 0
+				: filteredRows.length;
+		const rows =
+			source.where === null
+				? filteredRows
+				: filteredRows.slice(offset, offset + output.pagination.limit);
 		const items: RowItem[] = [];
 		for (const row of rows) {
 			items.push(yield* serializeRelationshipRootRow(userId, row, source, output.fields));

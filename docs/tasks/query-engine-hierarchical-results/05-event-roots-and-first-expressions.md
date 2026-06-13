@@ -32,3 +32,29 @@ Reference by number from the parent PRD:
 - User story 19
 - User story 30
 - User story 32
+
+## Follow-up (post-review)
+
+A review found the initial `first` implementation was far narrower than the PRD model
+(event sources only, output fields only). `first` is now a fully general catalog
+expression:
+
+- It operates over the same `Source` types `exists`/`aggregate` accept: entity sources
+  (traversed through `via`) and nested event sources (attached through `entityRef`),
+  sharing source parsing, alias/scope validation, schema validation, visibility
+  enforcement, and expression-source depth limits.
+- It is usable in any expression position — output fields, `where` clauses, and inside
+  `aggregate`/`comparison`/`coalesce`/`arithmetic` — because it is evaluated centrally in
+  `executor/expr.ts` (`evalExprValue`) rather than intercepted in the serializers.
+- Both source kinds keep top-1 SQL semantics (`ORDER BY ... LIMIT 1` with full
+  visibility); `orderBy`/`select` stay `ref`-only (`select` also allows `literal`) so they
+  remain SQL-expressible, and refs may target the first source's own alias, its edge alias
+  (`via.alias`) for entity sources, and its anchor (`via.entityRef` / `entityRef`).
+
+Out of scope: "latest-relationship" via a relationship source. There is no
+nested-relationship source type to point `first` at, so `first` stays limited to entity
+and nested-event sources. The first source still cannot carry a `where`: the top-1 query
+applies its filter directly in SQL and the engine has no SQL translation for arbitrary
+`where` expressions, so allowing one would split validation from execution. CountWhere-style
+filtering remains available through `exists`/`aggregate`, whose `where` runs in TypeScript
+over scanned rows.

@@ -2,6 +2,7 @@ import type { AggregateOutput, QueryDocument, RowsOutput, TimeSeriesOutput } fro
 
 export const MAX_ROOT_FILTER_SCAN_ROWS = 5000;
 export const MAX_SERIALIZED_ROW_OBJECTS = 5000;
+export const MAX_INCLUDE_FILTER_SCAN_ROWS = 5000;
 export const MAX_AGGREGATE_EXPRESSION_SOURCE_ROWS = 10000;
 
 export type VisibleSchema = { id: string; slug: string };

@@ -35,3 +35,10 @@ Reference by number from the parent PRD:
 - User story 31
 - User story 32
 - User story 34
+
+## Follow-up (post-review)
+
+A post-implementation review found that date literals (`valueType: "date"`) were parsed but
+ignored at evaluation, so they serialized as `text`. Date literals now resolve to the `date`
+field-value kind (the value remains the string); plain string literals still resolve to
+`text`.

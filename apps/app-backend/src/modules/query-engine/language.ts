@@ -47,6 +47,12 @@ export type Expr =
 	| {
 			readonly left: Expr;
 			readonly right: Expr;
+			readonly type: "arithmetic";
+			readonly operator: "add" | "subtract" | "multiply" | "divide";
+	  }
+	| {
+			readonly left: Expr;
+			readonly right: Expr;
 			readonly type: "comparison";
 			readonly operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte";
 	  };
@@ -95,6 +101,12 @@ export const Expr: Schema.Schema<Expr> = Schema.suspend(() =>
 			source: Source,
 			type: Schema.Literal("first"),
 			orderBy: Schema.NonEmptyArray(OrderByEntry),
+		}),
+		strictStruct({
+			left: Expr,
+			right: Expr,
+			type: Schema.Literal("arithmetic"),
+			operator: Schema.Literal("add", "subtract", "multiply", "divide"),
 		}),
 		strictStruct({
 			left: Expr,
@@ -209,7 +221,7 @@ export type AggregateMeasureDef = typeof AggregateMeasureDef.Type;
 export type IncludeEntry = {
 	readonly key: string;
 	readonly limit: number;
-	readonly source: EntitySource;
+	readonly source: EntitySource | NestedEventSource;
 	readonly include?: readonly IncludeEntry[];
 	readonly fields: readonly (typeof FieldDef.Type)[];
 	readonly orderBy: readonly [typeof OrderByEntry.Type, ...Array<typeof OrderByEntry.Type>];
@@ -218,10 +230,10 @@ export type IncludeEntry = {
 export const IncludeEntry: Schema.Schema<IncludeEntry> = Schema.suspend(() =>
 	strictStruct({
 		key: Schema.String,
-		source: EntitySource,
 		fields: Schema.Array(FieldDef),
 		limit: Schema.Int.pipe(Schema.positive()),
 		orderBy: Schema.NonEmptyArray(OrderByEntry),
+		source: Schema.Union(EntitySource, NestedEventSource),
 		include: Schema.optional(Schema.Array(IncludeEntry)),
 	}),
 ).annotations({ identifier: "IncludeEntry" });

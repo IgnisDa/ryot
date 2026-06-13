@@ -124,7 +124,10 @@ describe("RowsOutput", () => {
 		});
 
 		expect(result.include).toHaveLength(1);
-		expect(result.include?.[0]?.source.via?.schema).toBe("course-module");
+		const decodedSource = result.include?.[0]?.source;
+		expect(decodedSource?.type === "entities" ? decodedSource.via?.schema : undefined).toBe(
+			"course-module",
+		);
 	});
 
 	it("decodes nested entity includes", () => {

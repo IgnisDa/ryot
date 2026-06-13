@@ -19,6 +19,11 @@ export const valueToFieldValue = (value: unknown): FieldValue => {
 	return { kind: "json", value };
 };
 
+export const literalToFieldValue = (expr: Extract<Expr, { type: "literal" }>): FieldValue =>
+	expr.valueType === "date" && expr.value !== null && expr.value !== undefined
+		? { kind: "date", value: expr.value }
+		: valueToFieldValue(expr.value);
+
 export const evalSystemRef = (name: string, row: BaseEntityQueryRow): FieldValue =>
 	Match.value(name).pipe(
 		Match.when("id", () => ({ kind: "text" as const, value: row.id })),
@@ -152,7 +157,7 @@ export const evalExprForField = (expr: Expr, row: EntityQueryRow): FieldValue =>
 		return evalFieldSelector(expr.field, row);
 	}
 	if (expr.type === "literal") {
-		return valueToFieldValue(expr.value);
+		return literalToFieldValue(expr);
 	}
 	return { kind: "null", value: null };
 };

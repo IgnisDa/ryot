@@ -35,3 +35,15 @@ Reference by number from the parent PRD:
 - User story 30
 - User story 31
 - User story 32
+
+## Follow-up (post-review)
+
+A post-implementation review found the `arithmetic` expression from the PRD expression
+catalog was missing. It is now supported wherever an expression is valid: computed output
+fields, source `where` clauses, and aggregation operands. Operators are `add`, `subtract`,
+`multiply`, and `divide`. Both operands must resolve to numbers (otherwise the result is
+null), and division by zero returns null rather than throwing.
+
+- [x] `arithmetic` expressions (`add`, `subtract`, `multiply`, `divide`) work in computed
+      output fields, `where` clauses, and aggregation operands, with non-numeric operands
+      and division by zero resolving to null.
