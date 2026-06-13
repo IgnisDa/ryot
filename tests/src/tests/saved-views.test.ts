@@ -31,7 +31,6 @@ import {
 import { assertTaggedError } from "../test-support/assertions";
 
 const rowsDocument: SavedViewQueryDocument = {
-	version: 2,
 	source: { type: "entities", alias: "book", schemas: ["book"], where: null },
 	output: {
 		type: "rows",
@@ -42,7 +41,6 @@ const rowsDocument: SavedViewQueryDocument = {
 };
 
 const aggregateDocument: SavedViewQueryDocument = {
-	version: 2,
 	source: { type: "entities", alias: "book", schemas: ["book"], where: null },
 	output: {
 		groupBy: [],
@@ -52,7 +50,6 @@ const aggregateDocument: SavedViewQueryDocument = {
 };
 
 const timeSeriesDocument: SavedViewQueryDocument = {
-	version: 2,
 	source: { type: "entities", alias: "book", schemas: ["book"], where: null },
 	output: {
 		type: "timeSeries",
@@ -161,7 +158,6 @@ describe("Saved views query documents E2E", () => {
 		});
 
 		const hierarchicalDocument: SavedViewQueryDocument = {
-			version: 2,
 			source: {
 				alias: "course",
 				type: "entities",

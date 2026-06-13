@@ -271,11 +271,9 @@ export const Output = Schema.Union(RowsOutput, AggregateOutput, TimeSeriesOutput
 });
 export type Output = typeof Output.Type;
 
-export const QueryDocument = strictStruct({
-	output: Output,
-	source: RootSource,
-	version: Schema.Literal(2),
-}).annotations({ identifier: "QueryDocument" });
+export const QueryDocument = strictStruct({ output: Output, source: RootSource }).annotations({
+	identifier: "QueryDocument",
+});
 export type QueryDocument = typeof QueryDocument.Type;
 
 export const FieldValue = strictStruct({
@@ -284,10 +282,9 @@ export const FieldValue = strictStruct({
 }).annotations({ identifier: "FieldValue" });
 export type FieldValue = typeof FieldValue.Type;
 
-const LimitedPageInfo = strictStruct({
-	limit: Schema.Int,
-	hasMore: Schema.Boolean,
-}).annotations({ identifier: "LimitedPageInfo" });
+const LimitedPageInfo = strictStruct({ limit: Schema.Int, hasMore: Schema.Boolean }).annotations({
+	identifier: "LimitedPageInfo",
+});
 
 export type IncludedRowsValue = {
 	readonly items: readonly RowItem[];

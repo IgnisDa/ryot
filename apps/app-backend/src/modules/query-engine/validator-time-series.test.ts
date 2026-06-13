@@ -5,7 +5,6 @@ import { validateQueryDocument } from "./validator";
 import { createdAtRef, propertyRef } from "./validator.test-support";
 
 const makeTimeSeriesDoc = (overrides: Partial<QueryDocument> = {}): QueryDocument => ({
-	version: 2,
 	source: { alias: "e", where: null, type: "entities", schemas: ["books"] },
 	output: {
 		type: "timeSeries",
