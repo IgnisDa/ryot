@@ -483,16 +483,16 @@ deferred).
 
 ## Tasks
 
-**Overall Progress:** 1 of 6 tasks completed
+**Overall Progress:** 2 of 6 tasks completed
 
-**Current Task:** [Task 02](./02-show-import-history-to-episodes.md) (todo)
+**Current Task:** [Task 03](./03-show-live-integrations-to-episodes.md) (todo)
 
 ### Task List
 
 | #   | Task                                                                                           | Type | Status |
 | --- | ---------------------------------------------------------------------------------------------- | ---- | ------ |
 | 01  | [Show episodes: structure, tracking & read](./01-show-episodes-structure-tracking-and-read.md) | AFK  | done   |
-| 02  | [Show import history → episodes](./02-show-import-history-to-episodes.md)                      | AFK  | todo   |
+| 02  | [Show import history → episodes](./02-show-import-history-to-episodes.md)                      | AFK  | done   |
 | 03  | [Show live integrations → episodes](./03-show-live-integrations-to-episodes.md)                | AFK  | todo   |
 | 04  | [Podcast episodes end-to-end](./04-podcast-episodes-end-to-end.md)                             | AFK  | todo   |
 | 05  | [Legacy data migration → episodes](./05-legacy-data-migration-to-episodes.md)                  | AFK  | todo   |
