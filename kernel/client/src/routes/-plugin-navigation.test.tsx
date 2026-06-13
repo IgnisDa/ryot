@@ -55,10 +55,15 @@ const catalog: PluginClientCatalog = [
 
 type WorkspaceStorageRecorder = {
 	readonly getScopes: ApiScope[];
+	readonly popupOpenWhenSet: boolean[];
 	readonly setCalls: Array<{ readonly scope: ApiScope; readonly slug: string }>;
 };
 
-const makeWorkspaceRecorder = (): WorkspaceStorageRecorder => ({ getScopes: [], setCalls: [] });
+const makeWorkspaceRecorder = (): WorkspaceStorageRecorder => ({
+	setCalls: [],
+	getScopes: [],
+	popupOpenWhenSet: [],
+});
 
 const makeStorageStub = (
 	rememberedSlug: string | null = null,
@@ -70,14 +75,15 @@ const makeStorageStub = (
 	setThemePreference: () => Effect.void,
 	getServerSelection: Effect.succeed(server),
 	getThemePreference: Effect.succeed("system" as const),
-	setLastWorkspace: (scope, slug) =>
-		Effect.sync(() => {
-			recorder?.setCalls.push({ scope, slug });
-		}),
 	getLastWorkspace: (scope) =>
 		Effect.sync(() => {
 			recorder?.getScopes.push(scope);
 			return rememberedSlug;
+		}),
+	setLastWorkspace: (scope, slug) =>
+		Effect.sync(() => {
+			recorder?.setCalls.push({ scope, slug });
+			recorder?.popupOpenWhenSet.push(document.querySelector('[role="dialog"]') !== null);
 		}),
 });
 
@@ -98,7 +104,7 @@ const AuthStub = Layer.succeed(AuthService, {
 
 const authenticated = {
 	status: "authenticated",
-	user: { id: "user-1", email: "user@ryot.example" },
+	user: { image: null, id: "user-1", name: "Test User", email: "user@ryot.example" },
 } as const;
 
 const mountView = (
@@ -180,6 +186,17 @@ describe("plugin navigation", () => {
 		expect(router.state.location.pathname).toBe("/fixture");
 	});
 
+	it("keeps a disabled direct-route workspace as the sidebar identity", async () => {
+		mount(
+			"/fixture",
+			catalog.map((entry) => ({ ...entry, isDisabled: true })),
+		);
+
+		await waitFor(() => expect(frame()).toBeTruthy());
+		expect(screen.getByRole("button", { name: "Fixture workspace, fixture" })).toBeTruthy();
+		expect(screen.getByRole("link", { name: "Home" }).getAttribute("aria-current")).toBe("page");
+	});
+
 	it("keeps the authenticated shell stable across plugin child routes", async () => {
 		const view = mountView("/fixture");
 		const { router } = view;
@@ -201,8 +218,8 @@ describe("plugin navigation", () => {
 		expect(shell.getAttribute("class")).toContain("h-dvh");
 		expect(shell.getAttribute("class")).toContain("min-h-0");
 		expect(screen.getByTestId("desktop-sidebar").getAttribute("class")).toContain("hidden");
-		expect(screen.getByTestId("desktop-sidebar").getAttribute("class")).toContain("md:block");
-		expect(screen.getByTestId("desktop-sidebar").getAttribute("class")).toContain("md:w-66");
+		expect(screen.getByTestId("desktop-sidebar").getAttribute("class")).toContain("md:flex");
+		expect(screen.getByTestId("desktop-sidebar").getAttribute("class")).toContain("w-66");
 		expect(screen.getByTestId("mobile-header").getAttribute("class")).toContain("h-16");
 		expect(screen.getByTestId("mobile-header").getAttribute("class")).toContain("md:hidden");
 		expect(screen.getByTestId("mobile-drawer").getAttribute("class")).toContain("hidden");
@@ -423,6 +440,87 @@ describe("plugin navigation", () => {
 	});
 });
 
+describe("desktop navigation", () => {
+	it("shows workspace metadata and marks Home active only at the workspace root", async () => {
+		const view = mountView("/fixture");
+		await waitFor(() => expect(frame()).toBeTruthy());
+		const trigger = screen.getByRole("button", { name: "Fixture workspace, fixture" });
+		const home = screen.getByRole("link", { name: "Home" });
+
+		expect(trigger.getAttribute("aria-haspopup")).toBe("dialog");
+		expect(trigger.getAttribute("aria-expanded")).toBe("false");
+		expect(trigger.getAttribute("aria-controls")).toBeTruthy();
+		expect(trigger.querySelector('[data-app-icon="puzzle"]')).not.toBeNull();
+		expect(home.getAttribute("href")).toBe("/fixture");
+		expect(home.getAttribute("aria-current")).toBe("page");
+		expect(home.getAttribute("class")).toContain("bg-nav-indicator");
+
+		await view.router.navigate({ href: "/fixture/details/item-1" });
+		await waitFor(() =>
+			expect(view.router.state.location.pathname).toBe("/fixture/details/item-1"),
+		);
+		expect(home.getAttribute("aria-current")).toBeNull();
+		expect(home.getAttribute("class")).not.toContain("bg-nav-indicator");
+	});
+
+	it("uses the remembered workspace around settings and marks all settings paths active", async () => {
+		const view = mountView(
+			"/settings/account",
+			catalog,
+			() => Effect.succeed(catalog),
+			() => Effect.die("not used"),
+			makeStorageStub("fixture"),
+		);
+		const settings = await screen.findByRole("link", { name: "Open settings" });
+
+		expect(screen.getByRole("button", { name: "Fixture workspace, fixture" })).toBeTruthy();
+		expect(screen.getByRole("link", { name: "Home" }).getAttribute("aria-current")).toBeNull();
+		expect(settings.getAttribute("href")).toBe("/settings");
+		expect(settings.getAttribute("aria-current")).toBe("page");
+		expect(settings.getAttribute("class")).toContain("bg-nav-indicator");
+		expect(settings.textContent).toContain("Test User");
+		expect(settings.textContent).toContain("user@ryot.example");
+		expect(settings.querySelector('[data-avatar="root"]')).not.toBeNull();
+		expect(view.router.state.location.pathname).toBe("/settings/account");
+	});
+
+	it("closes, persists the scoped workspace, and replaces history before navigating", async () => {
+		const recorder = makeWorkspaceRecorder();
+		const entries: PluginClientCatalog = [
+			catalog[0],
+			{
+				...catalog[0],
+				sortOrder: 1,
+				name: "Journal",
+				slug: "journal",
+				pluginId: "plugin-2",
+				installationId: "installation-2",
+			},
+		];
+		const view = mountView(
+			["/before", "/fixture/details/item-1"],
+			entries,
+			() => Effect.succeed(entries),
+			() => Effect.die("not used"),
+			makeStorageStub("fixture", recorder),
+		);
+		await screen.findByRole("button", { name: "Fixture workspace, fixture" });
+		fireEvent.click(screen.getByRole("button", { name: "Fixture workspace, fixture" }));
+
+		fireEvent.click(screen.getByRole("button", { name: "Switch to Journal workspace" }));
+
+		await waitFor(() => expect(view.router.state.location.pathname).toBe("/journal"));
+		expect(recorder.setCalls).toEqual([
+			{ scope: { serverUrl: server, userId: authenticated.user.id }, slug: "journal" },
+		]);
+		expect(recorder.popupOpenWhenSet).toEqual([false]);
+		expect(screen.queryByRole("dialog")).toBeNull();
+
+		view.router.history.back();
+		await waitFor(() => expect(view.router.state.location.pathname).toBe("/before"));
+	});
+});
+
 describe("authenticated root bootstrap", () => {
 	const scope = { serverUrl: server, userId: authenticated.user.id };
 
@@ -494,6 +592,13 @@ describe("authenticated root bootstrap", () => {
 
 		await screen.findByRole("heading", { name: "No workspaces enabled" });
 		expect(view.router.state.location.pathname).toBe("/");
+		expect(
+			screen
+				.getByRole("button", { name: "No workspace, Plugin workspace" })
+				.hasAttribute("disabled"),
+		).toBe(true);
+		expect(screen.queryByRole("link", { name: "Home" })).toBeNull();
+		expect(screen.getByRole("link", { name: "Open settings" }).textContent).toContain("Test User");
 		expect(screen.getByRole("link", { name: "Account settings" }).getAttribute("href")).toBe(
 			"/settings/account",
 		);
