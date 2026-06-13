@@ -117,6 +117,28 @@ const validateExpr = (
 		return validateSource(expr.source, sourceScope, aliases, expressionSourceDepth + 1);
 	}
 
+	if (expr.type === "aggregate") {
+		if (expressionSourceDepth + 1 > MAX_EXPRESSION_SOURCE_DEPTH) {
+			return `Expression source depth exceeds maximum of ${MAX_EXPRESSION_SOURCE_DEPTH}`;
+		}
+		const sourceScope = new Map(scope);
+		const sourceError = validateSource(
+			expr.source,
+			sourceScope,
+			aliases,
+			expressionSourceDepth + 1,
+		);
+		if (sourceError) {
+			return sourceError;
+		}
+		if (expr.aggregation.function === "count") {
+			return expr.aggregation.distinctBy
+				? validateExpr(expr.aggregation.distinctBy, sourceScope, aliases, expressionSourceDepth + 1)
+				: null;
+		}
+		return validateExpr(expr.aggregation.expr, sourceScope, aliases, expressionSourceDepth + 1);
+	}
+
 	if (expr.type === "first") {
 		if (!allowFirst) {
 			return "First expressions are currently valid only as output fields";
@@ -126,6 +148,9 @@ const validateExpr = (
 		}
 		if (expr.source.type !== "events") {
 			return "First expression currently supports event sources only";
+		}
+		if (expr.source.where !== null) {
+			return "First expression event source does not support where yet";
 		}
 		const sourceScope = new Map(scope);
 		const sourceError = validateSource(
@@ -198,7 +223,12 @@ const validateExpr = (
 	);
 };
 
-const validateEntitySource = (source: EntitySourceV2, scope: AliasScope, aliases: AliasScope) => {
+const validateEntitySource = (
+	source: EntitySourceV2,
+	scope: AliasScope,
+	aliases: AliasScope,
+	expressionSourceDepth = 0,
+) => {
 	const schemaError = validateSchemaList(source.schemas);
 	if (schemaError) {
 		return schemaError;
@@ -235,7 +265,7 @@ const validateEntitySource = (source: EntitySourceV2, scope: AliasScope, aliases
 	}
 
 	if (source.where !== null) {
-		return validateExpr(source.where, scope, aliases);
+		return validateExpr(source.where, scope, aliases, expressionSourceDepth);
 	}
 
 	return null;
@@ -245,6 +275,7 @@ const validateNestedEventSource = (
 	source: NestedEventSourceV2,
 	scope: AliasScope,
 	aliases: AliasScope,
+	expressionSourceDepth = 0,
 ) => {
 	const schemaError = validateSchemaList(source.schemas);
 	if (schemaError) {
@@ -270,7 +301,7 @@ const validateNestedEventSource = (
 	}
 
 	if (source.where !== null) {
-		return `Event source '${source.alias}' does not support where yet`;
+		return validateExpr(source.where, scope, aliases, expressionSourceDepth);
 	}
 
 	return null;
@@ -321,11 +352,11 @@ const validateSource = (
 	source: SourceV2,
 	scope: AliasScope,
 	aliases: AliasScope,
-	_expressionSourceDepth = 0,
+	expressionSourceDepth = 0,
 ) =>
 	source.type === "entities"
-		? validateEntitySource(source, scope, aliases)
-		: validateNestedEventSource(source, scope, aliases);
+		? validateEntitySource(source, scope, aliases, expressionSourceDepth)
+		: validateNestedEventSource(source, scope, aliases, expressionSourceDepth);
 
 const validateIncludeEntry = (
 	include: IncludeEntryV2,
@@ -384,6 +415,9 @@ const validateIncludeEntry = (
 		if (error) {
 			return error;
 		}
+		if (entry.expr.type !== "ref") {
+			return "Rows orderBy currently supports ref expressions only";
+		}
 	}
 
 	for (const field of include.fields) {
@@ -410,10 +444,6 @@ export const validateQueryDocumentV2 = (doc: QueryDocumentV2): string | null => 
 	if (source.type === "entities" && source.via !== undefined) {
 		return "Root entity source cannot specify via";
 	}
-	if (source.type === "entities" && source.where !== null) {
-		return "Root entity source does not support where yet";
-	}
-
 	const sourceError =
 		source.type === "entities"
 			? validateEntitySource(source, scope, aliases)
@@ -446,6 +476,9 @@ export const validateQueryDocumentV2 = (doc: QueryDocumentV2): string | null => 
 		const error = validateExpr(entry.expr, scope, aliases);
 		if (error) {
 			return error;
+		}
+		if (entry.expr.type !== "ref") {
+			return "Rows orderBy currently supports ref expressions only";
 		}
 	}
 
