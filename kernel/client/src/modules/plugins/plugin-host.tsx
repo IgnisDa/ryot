@@ -12,6 +12,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { serverApiUrl, type ServerOrigin } from "#/api/origin";
 import { openPluginBridge, type PluginBridgeSession } from "#/modules/plugins/bridge";
+import type { PluginOperationDispatchOutcome } from "#/modules/plugins/operations";
 import {
 	toNavigationRequest,
 	type PluginNavigationRequest,
@@ -68,6 +69,7 @@ function resolvePluginArtifact(installation: PluginClientCatalogEntry): PluginAr
 export function PluginHost(props: {
 	readonly theme: ThemeStore;
 	readonly server: ServerOrigin;
+	readonly onStaleSession: () => void;
 	readonly location: PluginLogicalLocation;
 	readonly installation: PluginClientCatalogEntry;
 	readonly onNavigate: (request: PluginNavigationRequest) => void;
@@ -79,7 +81,7 @@ export function PluginHost(props: {
 		request: PluginOperationRequest,
 		sourceHash: string,
 		signal: AbortSignal,
-	) => Promise<PluginOperationOutcome>;
+	) => Promise<PluginOperationDispatchOutcome>;
 }) {
 	const resolution = resolvePluginArtifact(props.installation);
 	if (resolution.kind === "blocked") {
@@ -96,6 +98,7 @@ export function PluginHost(props: {
 			pluginSlug={props.installation.slug}
 			artifactHash={resolution.artifactHash}
 			sourceHash={props.installation.sourceHash}
+			onStaleSession={props.onStaleSession}
 			onInvokeOperation={props.onInvokeOperation}
 			key={`${props.installation.installationId}:${props.installation.sourceHash}:${resolution.artifactHash}`}
 		/>
@@ -108,6 +111,7 @@ function PluginFrame(props: {
 	readonly sourceHash: string;
 	readonly server: ServerOrigin;
 	readonly artifactHash: string;
+	readonly onStaleSession: () => void;
 	readonly location: PluginLogicalLocation;
 	readonly onNavigate: (request: PluginNavigationRequest) => void;
 	readonly onQuery: (
@@ -118,7 +122,7 @@ function PluginFrame(props: {
 		request: PluginOperationRequest,
 		sourceHash: string,
 		signal: AbortSignal,
-	) => Promise<PluginOperationOutcome>;
+	) => Promise<PluginOperationDispatchOutcome>;
 }) {
 	const { path, search } = props.location;
 	const latest = useRef(props);
@@ -156,7 +160,7 @@ function PluginFrame(props: {
 			return;
 		}
 		setStatus("loading");
-		const connection = { failed: false };
+		const connection: { failed: boolean; session?: PluginBridgeSession } = { failed: false };
 		const nextSession = openPluginBridge({
 			target: plugin,
 			artifactHash: props.artifactHash,
@@ -164,8 +168,18 @@ function PluginFrame(props: {
 			onReady: () => setStatus("ready"),
 			theme: latest.current.theme.getSnapshot(),
 			onRyotQL: (request, signal) => latest.current.onQuery(request, signal),
-			onOperation: (request, signal) =>
-				latest.current.onInvokeOperation(request, sourceHash, signal),
+			onOperation: async (request, signal) => {
+				const outcome = await latest.current.onInvokeOperation(request, sourceHash, signal);
+				if (outcome.outcome !== "stale-session") {
+					return outcome;
+				}
+				if (session.current === connection.session) {
+					closeBridge();
+					setStatus("loading");
+					latest.current.onStaleSession();
+				}
+				return { outcome: "failure", reason: "transport" } satisfies PluginOperationOutcome;
+			},
 			onFailure: () => {
 				connection.failed = true;
 				closeBridge();
@@ -179,6 +193,7 @@ function PluginFrame(props: {
 			},
 		});
 		if (!connection.failed) {
+			connection.session = nextSession;
 			session.current = nextSession;
 		}
 	}

@@ -2,6 +2,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { AuthRateLimited, AuthUnauthorized } from "@ryot/contract/auth-middleware";
 import type { ContractClient, ContractPathParams, ContractPayload } from "@ryot/contract/client";
 import {
+	PluginConflictError,
 	PluginInvocationError,
 	PluginNotFoundError,
 	PluginRequestError,
@@ -75,6 +76,28 @@ describe("plugin operations service", () => {
 		}).pipe(Effect.provide(PluginOperationsService.layer), Effect.provide(dependencies));
 	});
 
+	it.effect("returns a kernel-only stale session result for a changed source revision", () => {
+		const dependencies = makeApi(() =>
+			Effect.fail(
+				new PluginConflictError({
+					reason: { code: "source-revision-stale", pluginSlug: PluginSlug.make("fixture") },
+				}),
+			),
+		);
+
+		return Effect.gen(function* () {
+			const service = yield* PluginOperationsService;
+			const outcome = yield* service.invoke({
+				scope,
+				pluginSlug: "fixture",
+				sourceHash: "source-hash",
+				request: { input: null, operationSlug: "greet" },
+			});
+
+			expect(outcome).toEqual({ outcome: "stale-session" });
+		}).pipe(Effect.provide(PluginOperationsService.layer), Effect.provide(dependencies));
+	});
+
 	const declaredFailures = [
 		new AuthUnauthorized({ reason: { code: "authentication-required" } }),
 		new AuthRateLimited({ reason: { code: "session-rate-limited", retryAfterMs: null } }),
@@ -83,6 +106,9 @@ describe("plugin operations service", () => {
 		}),
 		new PluginRequestError({ reason: { code: "upload-unavailable" } }),
 		new PluginInvocationError({ reason: { code: "runtime-failed", diagnostics: [] } }),
+		new PluginConflictError({
+			reason: { code: "already-installed", pluginSlug: PluginSlug.make("fixture") },
+		}),
 	];
 
 	for (const cause of declaredFailures) {

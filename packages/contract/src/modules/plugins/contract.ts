@@ -106,6 +106,7 @@ export const PluginsGroup = HttpApiGroup.make("plugins")
 			params: { pluginSlug: PluginSlug, operationSlug: Schema.String },
 			error: [
 				AuthUnauthorized.pipe(HttpApiSchema.status(401)),
+				PluginConflictError.pipe(HttpApiSchema.status(409)),
 				PluginNotFoundError.pipe(HttpApiSchema.status(404)),
 				PluginRequestError.pipe(HttpApiSchema.status(400)),
 				AuthRateLimited.pipe(HttpApiSchema.status(429)),
