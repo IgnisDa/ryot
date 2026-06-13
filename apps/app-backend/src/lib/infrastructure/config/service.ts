@@ -5,9 +5,12 @@ import type { GroupMeta } from "./builder";
 import { providerConfigDefinition, systemConfigDefinition } from "./definition";
 import { SystemConfigSource, type SystemConfigValue } from "./system";
 
-const isNonEmpty = (opt: Option.Option<string>) => Option.isSome(opt) && opt.value.length > 0;
+const isNonEmpty = (opt: Option.Option<string>): opt is Option.Some<string> =>
+	Option.isSome(opt) && opt.value.length > 0;
 
-const isNonEmptyRedacted = (opt: Option.Option<Redacted.Redacted>) =>
+const isNonEmptyRedacted = (
+	opt: Option.Option<Redacted.Redacted>,
+): opt is Option.Some<Redacted.Redacted> =>
 	Option.isSome(opt) && Redacted.value(opt.value).length > 0;
 
 export const isOidcEnabled = (config: SystemConfigValue): boolean => {
@@ -15,10 +18,18 @@ export const isOidcEnabled = (config: SystemConfigValue): boolean => {
 	return isNonEmpty(clientId) && isNonEmpty(issuerUrl) && isNonEmptyRedacted(clientSecret);
 };
 
-export const isSmtpEnabled = (config: SystemConfigValue): boolean => {
+export const getSmtpCredentials = (
+	config: SystemConfigValue,
+): Option.Option<{ server: string; user: Redacted.Redacted; password: Redacted.Redacted }> => {
 	const { password, server, user } = config.notifications.smtp;
-	return isNonEmpty(server) && isNonEmptyRedacted(user) && isNonEmptyRedacted(password);
+	if (!isNonEmpty(server) || !isNonEmptyRedacted(user) || !isNonEmptyRedacted(password)) {
+		return Option.none();
+	}
+	return Option.some({ server: server.value, user: user.value, password: password.value });
 };
+
+export const isSmtpEnabled = (config: SystemConfigValue): boolean =>
+	Option.isSome(getSmtpCredentials(config));
 
 const validateSystemConfig = (
 	config: SystemConfigValue,
