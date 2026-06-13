@@ -34,7 +34,7 @@ Remove explicit return type annotations when TypeScript can trivially infer them
 ## Cross-Module Infrastructure
 
 - Feature modules form a dependency gradient from most generic to most specific. A module may depend only on more generic modules; a generic module must never import a more specific one. Sandbox execution is orthogonal infrastructure.
-- When a generic module needs a side effect owned by a more specific module, invert the dependency instead of importing it: the generic module defines an abstract hook with a no-op default, the specific module provides the implementation, and application wiring composes them.
+- When a generic module needs a side effect owned by a more specific module, invert the dependency instead of importing it: the generic module defines a `DurableQueue` (the hook), enqueues work without knowing the handler, the specific module registers a worker via `DurableQueue.worker()`, and `app/layers.ts` wires the two together.
 - Every table has exactly one owning repository that performs its writes; every other consumer routes through that repository, and service code never issues raw table writes.
 - Cross-module side effects go through the owning module's service and never write another module's tables directly. Reach into another module's repository only when atomicity within one shared transaction requires it, and only to write tables that module owns.
 - Importers, background jobs, sandbox callbacks, and bootstrap paths use the same write paths as HTTP request handling.
