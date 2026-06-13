@@ -13,7 +13,12 @@ import { QueryEngineService } from "#modules/query-engine/service";
 
 import { validateDisplayConfiguration } from "./display-configuration-validation";
 import { SavedViewsRepository } from "./repository";
-import type { CreateSavedViewBody, ReorderSavedViewsBody, UpdateSavedViewBody } from "./schemas";
+import type {
+	CreateSavedViewBody,
+	ListedSavedView,
+	ReorderSavedViewsBody,
+	UpdateSavedViewBody,
+} from "./schemas";
 
 const savedViewNotFound = "Saved view not found";
 const builtinViewMutationMessage = "Cannot modify built-in saved views";
@@ -44,15 +49,7 @@ const resolveSavedViewSlug = Effect.fn(function* (name: string) {
 });
 
 const ensureBuiltinUpdateIsAllowed = (
-	currentView: {
-		name: string;
-		icon: string;
-		isBuiltin: boolean;
-		accentColor: string;
-		queryDocument: unknown;
-		trackerId: TrackerId | null;
-		displayConfiguration: unknown;
-	},
+	currentView: ListedSavedView,
 	payload: UpdateSavedViewBody,
 ) => {
 	if (!currentView.isBuiltin) {
