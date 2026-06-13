@@ -6,6 +6,7 @@ import {
 	numberField,
 	stringArrayField,
 	stringField,
+	translatableStringField,
 } from "#lib/schema/core";
 import type { AppSchema } from "#lib/schema/property-schema";
 
@@ -28,7 +29,7 @@ export const showPropertiesSchema: AppSchema = {
 
 export const showSeasonPropertiesSchema: AppSchema = {
 	fields: {
-		description: stringField("Description", "Season overview or summary"),
+		description: translatableStringField("Description", "Season overview or summary"),
 		releaseDate: stringField("Release Date", "Season release date as an ISO 8601 date string"),
 		parentShowExternalId: stringField(
 			"Parent Show External Id",
@@ -46,7 +47,7 @@ export const showSeasonPropertiesSchema: AppSchema = {
 export const showEpisodePropertiesSchema: AppSchema = {
 	fields: {
 		runtime: integerField("Runtime", "Runtime in minutes"),
-		description: stringField("Description", "Episode overview or summary"),
+		description: translatableStringField("Description", "Episode overview or summary"),
 		publishDate: stringField("Publish Date", "Episode air date as an ISO 8601 date string"),
 		parentShowExternalId: stringField(
 			"Parent Show External Id",
@@ -70,7 +71,7 @@ export const showEpisodePropertiesSchema: AppSchema = {
 export const podcastEpisodePropertiesSchema: AppSchema = {
 	fields: {
 		runtime: integerField("Runtime", "Runtime in minutes"),
-		description: stringField("Description", "Episode overview or summary"),
+		description: translatableStringField("Description", "Episode overview or summary"),
 		publishDate: stringField("Publish Date", "Episode publish date as an ISO 8601 date string"),
 		parentPodcastExternalId: stringField(
 			"Parent Podcast External Id",
@@ -254,7 +255,10 @@ export const personPropertiesSchema: AppSchema = {
 		deathDate: stringField("Death Date", "Date of death, if applicable"),
 		birthPlace: stringField("Birth Place", "City or country where this person was born"),
 		website: stringField("Website", "Official website or online presence of this person"),
-		description: stringField("Description", "Biography or summary provided by the data provider"),
+		description: translatableStringField(
+			"Description",
+			"Biography or summary provided by the data provider",
+		),
 		alternateNames: stringArrayField(
 			"Alternate Names",
 			"Other names or aliases this person is known by",
@@ -271,7 +275,10 @@ export const companyPropertiesSchema: AppSchema = {
 		images: imagesField("Logos or images associated with this company"),
 		website: stringField("Website", "Official website of this company"),
 		foundedYear: integerField("Founded Year", "Year this company was founded"),
-		description: stringField("Description", "Overview or biography provided by the data provider"),
+		description: translatableStringField(
+			"Description",
+			"Overview or biography provided by the data provider",
+		),
 		alternateNames: stringArrayField(
 			"Alternate Names",
 			"Other names or aliases this company is known by",
@@ -292,7 +299,7 @@ export const mediaGroupPropertiesSchema: AppSchema = {
 		images: imagesField("Cover and promotional images for this group"),
 		parts: integerField("Parts", "Number of items in this group"),
 		sourceUrl: stringField("Source Url", "Link to the original source or external provider page"),
-		description: stringField(
+		description: translatableStringField(
 			"Description",
 			"Overview or description provided by the data provider",
 		),
