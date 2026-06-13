@@ -1,5 +1,5 @@
 import { EntityId, EntitySchemaId, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
-import { isObjectRecord } from "@ryot/ts-utils/predicates";
+import { asRecord } from "@ryot/ts-utils/predicates";
 import { and, asc, eq, inArray, isNotNull, isNull } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { Effect } from "effect";
@@ -40,8 +40,6 @@ type Edge = {
 	sourceSchemaSlug: string;
 	targetSchemaSlug: string;
 };
-
-const asRecord = (value: unknown): Record<string, unknown> => (isObjectRecord(value) ? value : {});
 
 const toKind = (slug: string): MediaMonitoringEntityKind =>
 	slug === "person" || slug === "company" ? slug : "media";
@@ -142,15 +140,15 @@ export class MediaMonitoringRepository extends Effect.Service<MediaMonitoringRep
 				return rows.map(
 					(row) =>
 						({
-							entityId: EntityId.make(row.entityId),
-							externalId: row.externalId,
-							entitySchemaSlug: row.entitySchemaSlug,
 							name: row.name,
-							properties: asRecord(row.properties),
-							relationshipProperties: asRecord(row.relationshipProperties),
+							externalId: row.externalId,
 							sandboxScriptId: row.sandboxScriptId,
+							entitySchemaSlug: row.entitySchemaSlug,
+							entityId: EntityId.make(row.entityId),
 							sourceSchemaSlug: row.sourceSchemaSlug ?? "",
+							properties: asRecord(row.properties) ?? {},
 							targetSchemaSlug: row.targetSchemaSlug ?? row.entitySchemaSlug,
+							relationshipProperties: asRecord(row.relationshipProperties) ?? {},
 						}) satisfies Edge,
 				);
 			});
@@ -202,15 +200,15 @@ export class MediaMonitoringRepository extends Effect.Service<MediaMonitoringRep
 				return rows.map(
 					(row) =>
 						({
-							entityId: EntityId.make(row.entityId),
-							externalId: row.externalId,
-							entitySchemaSlug: row.entitySchemaSlug,
 							name: row.name,
-							properties: asRecord(row.properties),
-							relationshipProperties: asRecord(row.relationshipProperties),
+							externalId: row.externalId,
 							sandboxScriptId: row.sandboxScriptId,
-							sourceSchemaSlug: row.sourceSchemaSlug ?? row.entitySchemaSlug,
+							entitySchemaSlug: row.entitySchemaSlug,
+							entityId: EntityId.make(row.entityId),
 							targetSchemaSlug: row.targetSchemaSlug ?? "",
+							properties: asRecord(row.properties) ?? {},
+							sourceSchemaSlug: row.sourceSchemaSlug ?? row.entitySchemaSlug,
+							relationshipProperties: asRecord(row.relationshipProperties) ?? {},
 						}) satisfies Edge,
 				);
 			});
@@ -293,27 +291,33 @@ export class MediaMonitoringRepository extends Effect.Service<MediaMonitoringRep
 				return rows.flatMap((row) => (row.userId ? [UserId.make(row.userId)] : []));
 			});
 
-			const getLibraryEntityId = Effect.fn("MediaMonitoringRepository.getLibraryEntityId")(
-				function* (userId: UserId) {
+			const isMonitoredByUser = Effect.fn("MediaMonitoringRepository.isMonitoredByUser")(
+				function* (input: { entityId: EntityId; userId: UserId }) {
 					const db = yield* CurrentDb;
 					const [row] = yield* dbEffect(() =>
 						db
-							.select({ id: schema.entity.id })
-							.from(schema.entity)
+							.select({ userId: schema.relationship.userId })
+							.from(schema.relationship)
+							.innerJoin(
+								schema.relationshipSchema,
+								eq(schema.relationship.relationshipSchemaId, schema.relationshipSchema.id),
+							)
+							.innerJoin(schema.entity, eq(schema.relationship.targetEntityId, schema.entity.id))
 							.innerJoin(
 								schema.entitySchema,
 								eq(schema.entity.entitySchemaId, schema.entitySchema.id),
 							)
 							.where(
 								and(
-									eq(schema.entity.userId, userId),
+									eq(schema.relationship.sourceEntityId, input.entityId),
+									eq(schema.relationship.userId, input.userId),
+									eq(schema.relationshipSchema.slug, "media-monitoring"),
 									eq(schema.entitySchema.slug, "library"),
-									isNull(schema.entitySchema.userId),
 								),
 							)
 							.limit(1),
 					);
-					return row ? EntityId.make(row.id) : null;
+					return row !== undefined;
 				},
 			);
 
@@ -413,11 +417,11 @@ export class MediaMonitoringRepository extends Effect.Service<MediaMonitoringRep
 			});
 
 			return {
-				getLibraryEntityId,
-				getProviderProvenance,
+				listTargets,
 				getSnapshot,
 				listSubscribers,
-				listTargets,
+				isMonitoredByUser,
+				getProviderProvenance,
 			};
 		},
 	},

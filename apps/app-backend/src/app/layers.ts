@@ -220,7 +220,6 @@ const MediaMonitoringCollectionsServiceLive = Layer.provideMerge(
 
 const MediaMonitoringServiceDependenciesLive = Layer.mergeAll(
 	MediaMonitoringCollectionsServiceLive,
-	QueryEngineServiceLive,
 	MediaMonitoringRepository.Default,
 	MediaMonitoringRelationshipsServiceLive,
 );
