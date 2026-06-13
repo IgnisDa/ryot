@@ -3,7 +3,9 @@ const encoder = new TextEncoder();
 let buffer = "";
 
 const formatArg = (value) => {
-	if (typeof value === "string") {return value;}
+	if (typeof value === "string") {
+		return value;
+	}
 	try {
 		return JSON.stringify(value);
 	} catch {
@@ -13,9 +15,11 @@ const formatArg = (value) => {
 
 async function readLine() {
 	const chunk = new Uint8Array(65536);
-	while (true) {
+	for (;;) {
 		const count = await Deno.stdin.read(chunk);
-		if (count === null) {Deno.exit(0);}
+		if (count === null) {
+			Deno.exit(0);
+		}
 		buffer += decoder.decode(chunk.subarray(0, count));
 		const newlineIdx = buffer.indexOf("\n");
 		if (newlineIdx !== -1) {
@@ -41,7 +45,9 @@ const createApiStub =
 			},
 		);
 		const body = await response.json();
-		if (!response.ok) {throw new Error(body.error ?? "API call failed");}
+		if (!response.ok) {
+			throw new Error(body.error ?? "API call failed");
+		}
 		return body.result;
 	};
 
@@ -57,95 +63,99 @@ const createRequestConsole = (logs) => ({
 	error: (...args) => logs.push("[error] " + args.map(formatArg).join(" ")),
 });
 
-while (true) {
-	const line = await readLine();
-	if (!line.trim()) {continue;}
+void (async () => {
+	for (;;) {
+		const line = await readLine();
+		if (!line.trim()) {
+			continue;
+		}
 
-	const logs = [];
-	const startedAt = performance.now();
-	const previousConsole = {
-		log: console.log,
-		info: console.info,
-		warn: console.warn,
-		debug: console.debug,
-		error: console.error,
-	};
-
-	try {
-		const payload = JSON.parse(line);
-		const apiFunctions = Array.isArray(payload.apiFunctions) ? payload.apiFunctions : [];
-		const requestConsole = createRequestConsole(logs);
-		console.log = requestConsole.log;
-		console.info = requestConsole.info;
-		console.warn = requestConsole.warn;
-		console.debug = requestConsole.debug;
-		console.error = requestConsole.error;
-
-		const driverRegistry = {};
-		const driver = (name, fn) => {
-			driverRegistry[name] = fn;
+		const logs = [];
+		const startedAt = performance.now();
+		const previousConsole = {
+			log: console.log,
+			info: console.info,
+			warn: console.warn,
+			debug: console.debug,
+			error: console.error,
 		};
-		const stubs = {};
-		for (const fnName of apiFunctions) {
-			stubs[fnName] = createApiStub(fnName, payload.apiBase, payload.executionId, payload.token);
-		}
 
-		const stubNames = Object.keys(stubs);
-		const wrapperCode =
-			"const driver = arguments[0]; " +
-			"return (async function sandboxMain({ " +
-			stubNames.join(", ") +
-			" }, context) {\n" +
-			payload.code +
-			"\n})";
+		try {
+			const payload = JSON.parse(line);
+			const apiFunctions = Array.isArray(payload.apiFunctions) ? payload.apiFunctions : [];
+			const requestConsole = createRequestConsole(logs);
+			console.log = requestConsole.log;
+			console.info = requestConsole.info;
+			console.warn = requestConsole.warn;
+			console.debug = requestConsole.debug;
+			console.error = requestConsole.error;
 
-		const factory = new Function(wrapperCode);
-		const userFunction = factory(driver);
-		await userFunction(stubs, payload.context ?? {});
+			const driverRegistry = {};
+			const driver = (name, fn) => {
+				driverRegistry[name] = fn;
+			};
+			const stubs = {};
+			for (const fnName of apiFunctions) {
+				stubs[fnName] = createApiStub(fnName, payload.apiBase, payload.executionId, payload.token);
+			}
 
-		if (!payload.driverName) {
+			const stubNames = Object.keys(stubs);
+			const wrapperCode =
+				"const driver = arguments[0]; " +
+				"return (async function sandboxMain({ " +
+				stubNames.join(", ") +
+				" }, context) {\n" +
+				payload.code +
+				"\n})";
+
+			const factory = new Function(wrapperCode);
+			const userFunction = factory(driver);
+			await userFunction(stubs, payload.context ?? {});
+
+			if (!payload.driverName) {
+				await writeResult({
+					success: false,
+					error: "driverName is required",
+					logs,
+					timing: { executionMs: performance.now() - startedAt },
+				});
+				continue;
+			}
+
+			const driverFn = driverRegistry[payload.driverName];
+			if (!driverFn) {
+				await writeResult({
+					success: false,
+					logs,
+					error: 'Driver "' + payload.driverName + '" is not defined in this script',
+					timing: { executionMs: performance.now() - startedAt },
+				});
+				continue;
+			}
+
+			const value = await driverFn(payload.context ?? {}, {
+				metadata: payload.metadata ?? {},
+				sandboxScriptId: payload.scriptId,
+			});
 			await writeResult({
-				success: false,
-				error: "driverName is required",
+				success: true,
 				logs,
+				value: value ?? null,
 				timing: { executionMs: performance.now() - startedAt },
 			});
-			continue;
-		}
-
-		const driverFn = driverRegistry[payload.driverName];
-		if (!driverFn) {
+		} catch (error) {
 			await writeResult({
 				success: false,
 				logs,
-				error: 'Driver "' + payload.driverName + '" is not defined in this script',
+				error: error instanceof Error ? error.message : String(error),
 				timing: { executionMs: performance.now() - startedAt },
 			});
-			continue;
+		} finally {
+			console.log = previousConsole.log;
+			console.info = previousConsole.info;
+			console.warn = previousConsole.warn;
+			console.debug = previousConsole.debug;
+			console.error = previousConsole.error;
 		}
-
-		const value = await driverFn(payload.context ?? {}, {
-			metadata: payload.metadata ?? {},
-			sandboxScriptId: payload.scriptId,
-		});
-		await writeResult({
-			success: true,
-			logs,
-			value: value ?? null,
-			timing: { executionMs: performance.now() - startedAt },
-		});
-	} catch (error) {
-		await writeResult({
-			success: false,
-			logs,
-			error: error instanceof Error ? error.message : String(error),
-			timing: { executionMs: performance.now() - startedAt },
-		});
-	} finally {
-		console.log = previousConsole.log;
-		console.info = previousConsole.info;
-		console.warn = previousConsole.warn;
-		console.debug = previousConsole.debug;
-		console.error = previousConsole.error;
 	}
-}
+})();

@@ -22,9 +22,13 @@ const LOCALE_SUFFIX_MAP = {
 
 async function getAudibleLocale() {
 	const prefsResult = await getUserPreferences();
-	if (!prefsResult?.success) {return "com";}
+	if (!prefsResult?.success) {
+		return "com";
+	}
 	const providers = prefsResult?.data?.languages?.providers;
-	if (!Array.isArray(providers)) {return "com";}
+	if (!Array.isArray(providers)) {
+		return "com";
+	}
 	const audiblePref = providers.find((p) => p && typeof p === "object" && p.source === "audible");
 	const lang =
 		audiblePref &&
@@ -35,7 +39,7 @@ async function getAudibleLocale() {
 	return LOCALE_SUFFIX_MAP[lang] ?? "com";
 }
 
-driver("search", async function () {
+driver("search", function () {
 	throw new Error("Audible does not support audiobook group search");
 });
 
@@ -64,7 +68,9 @@ driver("details", async function (context) {
 	}
 
 	const title = typeof product.title === "string" ? product.title : "";
-	if (!title) {throw new Error("Audible series product is missing title");}
+	if (!title) {
+		throw new Error("Audible series product is missing title");
+	}
 
 	// Relationships are the member items, sorted by `sort` field.
 	const rawRelationships = Array.isArray(product.relationships) ? product.relationships : [];
@@ -79,7 +85,9 @@ driver("details", async function (context) {
 
 	const relatedEntities = sortedAsins
 		.map((asin, idx) => {
-			if (!asin) {return null;}
+			if (!asin) {
+				return null;
+			}
 			return {
 				externalId: asin,
 				name: "Loading...",

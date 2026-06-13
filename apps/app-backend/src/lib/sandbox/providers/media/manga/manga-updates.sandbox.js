@@ -7,9 +7,13 @@ function parseJsonResponse(responseBody) {
 }
 
 function parsePublishYear(value, dayjs) {
-	if (typeof value !== "string") {return null;}
+	if (typeof value !== "string") {
+		return null;
+	}
 	const trimmed = value.trim();
-	if (!trimmed) {return null;}
+	if (!trimmed) {
+		return null;
+	}
 	const d = dayjs(trimmed);
 	return d.isValid() ? d.year() : null;
 }
@@ -98,7 +102,8 @@ function collectImages(image) {
 
 driver("search", async function (context) {
 	const { z } = await import("npm:zod");
-	const dayjs = (await import("npm:dayjs")).default;
+	const dayjsModule = await import("npm:dayjs");
+	const dayjs = dayjsModule.default;
 
 	const {
 		query,
@@ -187,7 +192,8 @@ driver("search", async function (context) {
 
 driver("details", async function (context) {
 	const { z } = await import("npm:zod");
-	const dayjs = (await import("npm:dayjs")).default;
+	const dayjsModule = await import("npm:dayjs");
+	const dayjs = dayjsModule.default;
 
 	const { externalId: contextIdentifier } = z
 		.object({
@@ -205,11 +211,6 @@ driver("details", async function (context) {
 	}
 
 	const payload = parseJsonResponse(response.data.body);
-
-	const payloadIdentifier =
-		typeof payload?.series_id === "number" && Number.isFinite(payload.series_id)
-			? String(Math.trunc(payload.series_id))
-			: contextIdentifier;
 
 	const title = typeof payload?.title === "string" ? payload.title : "";
 	if (!title) {

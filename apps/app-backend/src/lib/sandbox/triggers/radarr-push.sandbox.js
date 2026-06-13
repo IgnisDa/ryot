@@ -1,7 +1,9 @@
 async function pushMovieToRadarr(integration, tmdbId) {
-	const specifics = integration.providerSpecifics || {};
+	const specifics = integration.providerSpecifics ?? {};
 	const baseUrl = normalizeBaseUrl(specifics.baseUrl);
-	if (!baseUrl || typeof specifics.apiKey !== "string") {return;}
+	if (!baseUrl || typeof specifics.apiKey !== "string") {
+		return;
+	}
 
 	const requestBody = {
 		monitored: true,
@@ -25,31 +27,45 @@ async function pushMovieToRadarr(integration, tmdbId) {
 
 driver("trigger", async function (context) {
 	const trigger = context.trigger;
-	if (!trigger) {return;}
+	if (!trigger) {
+		return;
+	}
 
 	const properties =
 		trigger.properties && typeof trigger.properties === "object" ? trigger.properties : {};
-	if (properties.entitySchemaSlug !== "movie") {return;}
+	if (properties.entitySchemaSlug !== "movie") {
+		return;
+	}
 
 	// Both checks are independent — run in parallel.
 	const preamble = await Promise.all([
 		integrationsDisabledForUser(),
 		listActiveIntegrations("radarr"),
 	]);
-	if (preamble[0]) {return;}
+	if (preamble[0]) {
+		return;
+	}
 	const matchingIntegrations = preamble[1].filter(function (integration) {
 		return collectionSyncMatches(integration, trigger.entityId);
 	});
-	if (matchingIntegrations.length === 0) {return;}
+	if (matchingIntegrations.length === 0) {
+		return;
+	}
 
 	const entity = await fetchEntity(properties.entityId);
-	if (!entity) {return;}
+	if (!entity) {
+		return;
+	}
 
 	const providerName = await resolveEntityProviderName(entity);
-	if (providerName !== "TMDB") {return;}
+	if (providerName !== "TMDB") {
+		return;
+	}
 
 	const tmdbId = typeof entity.externalId === "string" ? entity.externalId : null;
-	if (!tmdbId) {return;}
+	if (!tmdbId) {
+		return;
+	}
 
 	for (const integration of matchingIntegrations) {
 		await pushMovieToRadarr(integration, tmdbId);

@@ -63,7 +63,7 @@ function buildArtistDescription(artist) {
 		const begin = getNullableString(lifeSpan.begin);
 		const end = getNullableString(lifeSpan.end);
 		if (begin || end) {
-			parts.push(`Active: ${begin || "?"} - ${end || "?"}`);
+			parts.push(`Active: ${begin ?? "?"} - ${end ?? "?"}`);
 		}
 	}
 
@@ -162,7 +162,7 @@ driver("details", async function (context) {
 
 	const beginArea = artist?.["begin-area"];
 	const area = artist?.area;
-	const birthPlace = getNullableString(beginArea?.name) || getNullableString(area?.name);
+	const birthPlace = getNullableString(beginArea?.name) ?? getNullableString(area?.name);
 
 	const description = buildArtistDescription(artist);
 

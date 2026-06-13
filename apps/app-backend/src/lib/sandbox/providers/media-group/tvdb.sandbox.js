@@ -113,14 +113,20 @@ function getTranslationFields(value) {
 function buildTranslationResult(value) {
 	const { name, description } = getTranslationFields(value);
 	const result = {};
-	if (name) {result.name = name;}
+	if (name) {
+		result.name = name;
+	}
 	const properties = {};
-	if (description) {properties.description = description;}
-	if (Object.keys(properties).length > 0) {result.properties = properties;}
+	if (description) {
+		properties.description = description;
+	}
+	if (Object.keys(properties).length > 0) {
+		result.properties = properties;
+	}
 	return result;
 }
 
-driver("search", async function () {
+driver("search", function () {
 	throw new Error("TVDB does not support movie group search");
 });
 
@@ -168,7 +174,9 @@ driver("details", async function (context, { metadata }) {
 		.map((entity, idx) => {
 			const memberId =
 				typeof entity.movieId === "string" && entity.movieId.trim() ? entity.movieId.trim() : null;
-			if (!memberId) {return null;}
+			if (!memberId) {
+				return null;
+			}
 			const memberName =
 				typeof entity.name === "string" && entity.name.trim() ? entity.name.trim() : "Loading...";
 			return {
