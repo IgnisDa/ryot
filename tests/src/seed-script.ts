@@ -14,6 +14,12 @@ import {
 import { imagesField } from "@ryot/contract/schema/core";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { dayjs } from "@ryot/ts-utils/dayjs";
+import {
+	buildQueryEngineEntityRowsDocument,
+	queryEngineField,
+	queryEngineOrder,
+	queryEngineSystemRef,
+} from "@ryot/query-engine";
 import { createAuthClient } from "better-auth/client";
 import { Effect } from "effect";
 
@@ -333,21 +339,14 @@ function savedViewQueryDocument(scope: readonly string[]): SavedViewQueryDocumen
 	}
 
 	const schemas = [first, ...rest] as [string, ...string[]];
-	const nameRef = {
-		type: "ref" as const,
-		sourceAlias: first,
-		field: { type: "system" as const, name: "name" as const },
-	};
-
-	return {
-		source: { type: "entities", alias: first, schemas, where: null },
-		output: {
-			type: "rows",
-			pagination: { page: 1, limit: 20 },
-			fields: [{ key: "name", expr: nameRef }],
-			orderBy: [{ order: "asc", expr: nameRef }],
-		},
-	};
+	const nameRef = queryEngineSystemRef(first, "name");
+	return buildQueryEngineEntityRowsDocument({
+		alias: first,
+		limit: 20,
+		schemas,
+		fields: [queryEngineField("name", nameRef)],
+		orderBy: [queryEngineOrder("asc", nameRef)],
+	});
 }
 
 async function createSavedView(
