@@ -7,18 +7,15 @@ import { CurrentDb } from "#lib/db";
 import { makeEmptyContext } from "./executor/context";
 import { evalExprValue } from "./executor/expr";
 import {
-	evalExprForField,
 	evalFieldSelector,
 	evalSystemRef,
 	getNestedValue,
 	valueToFieldValue,
 } from "./executor/field-values";
 import { entityFirstOrderSql, eventFirstOrderSql } from "./executor/first";
-import { serializeRow } from "./executor/serialize";
 import {
 	entityJsonbObjectSql,
 	eventIncludeOrderSql,
-	exprToOrderSql,
 	fieldSelectorToOrderSql,
 	includeOrderSql,
 	relationshipRootOrderSql,
@@ -230,29 +227,6 @@ describe("evalFieldSelector", () => {
 	});
 });
 
-describe("evalExprForField", () => {
-	it("evaluates a ref expression", () => {
-		const result = evalExprForField(
-			{ type: "ref", sourceAlias: "e", field: { type: "system", name: "name" } },
-			baseRow,
-		);
-		expect(result).toEqual({ kind: "text", value: "Dune" });
-	});
-
-	it("evaluates a literal expression", () => {
-		expect(evalExprForField({ type: "literal", value: 99 }, baseRow)).toEqual({
-			value: 99,
-			kind: "number",
-		});
-	});
-
-	it("returns null for unsupported expression types", () => {
-		expect(
-			evalExprForField({ type: "isNull", expr: { type: "literal", value: null } }, baseRow),
-		).toEqual({ kind: "null", value: null });
-	});
-});
-
 describe("evalExprValue date literal", () => {
 	it("resolves a date literal to {kind: 'date'} keeping the string value", () => {
 		expect(
@@ -319,26 +293,6 @@ describe("evalExprValue arithmetic", () => {
 	});
 });
 
-describe("serializeRow", () => {
-	it("returns an empty object when fields is empty", () => {
-		expect(serializeRow(baseRow, [])).toEqual({});
-	});
-
-	it("maps field keys to evaluated FieldValues", () => {
-		const result = serializeRow(baseRow, [
-			{
-				key: "title",
-				expr: { type: "ref", sourceAlias: "e", field: { type: "system", name: "name" } },
-			},
-			{ key: "const", expr: { type: "literal", value: "static" } },
-		]);
-		expect(result).toEqual({
-			title: { kind: "text", value: "Dune" },
-			const: { kind: "text", value: "static" },
-		});
-	});
-});
-
 describe("fieldSelectorToOrderSql", () => {
 	const toSql = (field: FieldSelector, schemas: [string, ...string[]] = ["books"]) => {
 		const result = fieldSelectorToOrderSql(field, schemas);
@@ -365,9 +319,10 @@ describe("fieldSelectorToOrderSql", () => {
 		expect(fieldSelectorToOrderSql({ type: "system", name: "bogus" }, ["books"])).toBeNull();
 	});
 
-	it("uses plain jsonb_extract_path_text for a single-schema property field", () => {
+	it("uses numeric-safe jsonb_extract_path (not _text) for a single-schema property field", () => {
 		const query = toSql({ type: "property", schema: "books", path: ["title"] }, ["books"]);
-		expect(query.sql.toLowerCase()).toContain("jsonb_extract_path_text");
+		expect(query.sql.toLowerCase()).toContain("jsonb_extract_path(");
+		expect(query.sql.toLowerCase()).not.toContain("jsonb_extract_path_text");
 		expect(query.sql.toLowerCase()).not.toContain("case when");
 	});
 
@@ -377,7 +332,8 @@ describe("fieldSelectorToOrderSql", () => {
 			"movies",
 		]);
 		expect(query.sql.toLowerCase()).toContain("case when");
-		expect(query.sql.toLowerCase()).toContain("jsonb_extract_path_text");
+		expect(query.sql.toLowerCase()).toContain("jsonb_extract_path(");
+		expect(query.sql.toLowerCase()).not.toContain("jsonb_extract_path_text");
 	});
 
 	it("returns es.slug for schema 'slug' metadata field", () => {
@@ -393,27 +349,6 @@ describe("fieldSelectorToOrderSql", () => {
 	it("returns es.is_builtin for schema 'isBuiltin' metadata field", () => {
 		const query = toSql({ type: "schema", name: "isBuiltin" });
 		expect(query.sql).toContain("es.is_builtin");
-	});
-});
-
-describe("exprToOrderSql", () => {
-	it("returns SQL for a ref expression", () => {
-		const result = exprToOrderSql(
-			{ type: "ref", sourceAlias: "e", field: { type: "system", name: "name" } },
-			["books"],
-		);
-		assert(result !== null, "expected non-null SQL result");
-		expect(dialect.sqlToQuery(result).sql).toContain("e.name");
-	});
-
-	it("returns null for a literal expression", () => {
-		expect(exprToOrderSql({ type: "literal", value: 1 }, ["books"])).toBeNull();
-	});
-
-	it("returns null for other expression types", () => {
-		expect(
-			exprToOrderSql({ type: "isNull", expr: { type: "literal", value: null } }, ["books"]),
-		).toBeNull();
 	});
 });
 
