@@ -161,6 +161,17 @@ CREATE TABLE "managed_asset" (
 	CONSTRAINT "managed_asset_pkey" PRIMARY KEY("provider","key")
 );
 --> statement-breakpoint
+CREATE TABLE "migration_report" (
+	"seq" serial PRIMARY KEY,
+	"count" integer,
+	"phase" text NOT NULL,
+	"level" text NOT NULL,
+	"message" text NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"elapsed_seconds" double precision,
+	CONSTRAINT "migration_report_level_check" CHECK ("level" in ('info', 'warning'))
+);
+--> statement-breakpoint
 CREATE TABLE "notification_channel" (
 	"description" text NOT NULL,
 	"is_disabled" boolean DEFAULT false NOT NULL,
