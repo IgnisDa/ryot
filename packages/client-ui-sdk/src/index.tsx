@@ -1,10 +1,19 @@
 import clsx from "clsx";
 import type { ComponentProps } from "react";
 
+export { Menu } from "./menu";
+export { Chip } from "./chips";
 export { Badge } from "./badge";
+export { Modal } from "./modal";
+export { Switch } from "./switch";
+export type { MenuItem } from "./menu";
 export { useShortcut } from "./shortcut";
+export { MultiSelect } from "./multi-select";
 export { SearchField } from "./search-field";
+export { FieldMessage, TextField } from "./text-field";
 export { SegmentedControl } from "./segmented-control";
+export type { MultiSelectChoice } from "./multi-select";
+export { useFocusTrap, useScrollLock, useRestoreFocus, useDismissOnOutside } from "./overlay";
 
 const variantClasses = {
 	text: "min-h-10 cursor-pointer font-semibold text-text-muted",
