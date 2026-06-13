@@ -20,10 +20,10 @@ import { Context, DateTime, Effect, Layer, Option, Schema } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
-import { EnsureLibraryMembershipQueue } from "#modules/library-membership/durable-queues";
 import { SandboxExecutionQueue } from "#modules/sandbox/durable-queues";
 import { RunSandboxWorkflow } from "#modules/sandbox/sandbox-run-workflow";
 
+import { EnsureLibraryMembershipQueue } from "./durable-queues";
 import {
 	EventCreateWorkflow,
 	EventCreateWorkflowError,
