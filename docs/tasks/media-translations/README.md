@@ -338,9 +338,9 @@ Modules to be tested (planned for long-term health):
 
 ## Tasks
 
-**Overall Progress:** 3 of 8 tasks completed
+**Overall Progress:** 4 of 8 tasks completed
 
-**Current Task:** [Task 04](./04-anilist-translation-and-details-refactor.md) (todo)
+**Current Task:** [Task 05](./05-itunes-podcasts-and-youtube-music.md) (todo)
 
 ### Task List
 
@@ -349,7 +349,7 @@ Modules to be tested (planned for long-term health):
 | 01  | [TMDB Movie Translation — Spine](./01-tmdb-movie-translation-spine.md)                                 | AFK  | done   |
 | 02  | [TMDB People and Movie Groups](./02-tmdb-people-and-movie-groups.md)                                   | AFK  | done   |
 | 03  | [TMDB Shows, Seasons, and Episodes](./03-tmdb-shows-seasons-episodes.md)                               | AFK  | done   |
-| 04  | [Anilist Translation and Canonical details Refactor](./04-anilist-translation-and-details-refactor.md) | AFK  | todo   |
+| 04  | [Anilist Translation and Canonical details Refactor](./04-anilist-translation-and-details-refactor.md) | AFK  | done   |
 | 05  | [iTunes Podcasts and YouTube Music](./05-itunes-podcasts-and-youtube-music.md)                         | AFK  | todo   |
 | 06  | [TVDB Translation](./06-tvdb-translation.md)                                                           | AFK  | todo   |
 | 07  | [Source-Key Rename and Legacy-Bootstrap](./07-source-key-rename-and-legacy-bootstrap.md)               | HITL | todo   |
