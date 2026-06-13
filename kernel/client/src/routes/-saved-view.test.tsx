@@ -516,4 +516,16 @@ describe("saved-view route", () => {
 			await view.runtime.dispose();
 		}
 	});
+
+	it("keeps the remembered workspace as the sidebar identity", async () => {
+		const view = mountView();
+		try {
+			await screen.findByRole("heading", { name: "Books" });
+			expect(screen.getByRole("button", { name: "Fixture workspace, fixture" })).toBeTruthy();
+			expect(screen.getByRole("link", { name: "Home" }).getAttribute("href")).toBe("/fixture");
+		} finally {
+			view.unmount();
+			await view.runtime.dispose();
+		}
+	});
 });
