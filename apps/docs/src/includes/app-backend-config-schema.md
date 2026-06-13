@@ -9,6 +9,7 @@
 | `port` | `PORT` | HTTP port the server listens on | No | No | `8000` |
 | `timezone` | `TZ` | IANA timezone used for interpreting timezone-less datetimes during imports | No | No | `Etc/GMT` |
 | `redisUrl` | `REDIS_URL` | Redis connection string | No | Yes | `redis://localhost:6379` |
+| `builtinExercisePreloadLimit` | `BUILTIN_EXERCISE_PRELOAD_LIMIT` | Maximum number of built-in exercise entities to preload | No | No | `873` |
 | `frontendUrl` | `FRONTEND_URL` | Public URL of the frontend application | No | No | `http://localhost:3000` |
 | `databaseUrl` | `DATABASE_URL` | PostgreSQL connection string | No | Yes | `postgres://postgres:postgres@localhost:5432/postgres` |
 

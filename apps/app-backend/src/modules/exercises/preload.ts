@@ -1,8 +1,9 @@
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { generateId } from "better-auth";
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { Cause, Effect, Layer } from "effect";
 
+import { AppConfig } from "#lib/config";
 import { CurrentDb, DbRunner, dbEffect } from "#lib/db";
 import * as schema from "#lib/db/schema/tables";
 import { dieOnDbError, unknownToMessage } from "#lib/errors";
@@ -37,8 +38,36 @@ const countImportedGlobalEntities = Effect.fn(function* (input: {
 	return row?.count ?? 0;
 });
 
+const findImportedGlobalExternalIds = Effect.fn(function* (input: {
+	externalIds: string[];
+	entitySchemaId: string;
+	sandboxScriptId: string;
+}) {
+	if (input.externalIds.length === 0) {
+		return new Set<string>();
+	}
+
+	const db = yield* CurrentDb;
+	const rows = yield* dbEffect(() =>
+		db
+			.select({ externalId: schema.entity.externalId })
+			.from(schema.entity)
+			.where(
+				and(
+					isNull(schema.entity.userId),
+					eq(schema.entity.entitySchemaId, input.entitySchemaId),
+					eq(schema.entity.sandboxScriptId, input.sandboxScriptId),
+					inArray(schema.entity.externalId, input.externalIds),
+				),
+			),
+	);
+
+	return new Set(rows.flatMap((row) => (row.externalId ? [row.externalId] : [])));
+});
+
 export const BuiltinEntityPreloaderLive = Layer.scopedDiscard(
 	Effect.gen(function* () {
+		const config = yield* AppConfig;
 		const runWithDb = yield* DbRunner;
 		const engine = yield* WorkflowEngine;
 		const repository = yield* EntitiesRepository;
@@ -57,7 +86,11 @@ export const BuiltinEntityPreloaderLive = Layer.scopedDiscard(
 		const importedCount = yield* runWithDb(countImportedGlobalEntities(preloadTarget)).pipe(
 			dieOnDbError,
 		);
-		if (importedCount >= builtinExerciseExpectedCount) {
+		const preloadLimit = Math.min(
+			builtinExerciseExpectedCount,
+			Math.max(0, config.builtinExercisePreloadLimit),
+		);
+		if (importedCount >= preloadLimit) {
 			return;
 		}
 
@@ -118,10 +151,11 @@ export const BuiltinEntityPreloaderLive = Layer.scopedDiscard(
 
 		const runPreload = Effect.gen(function* () {
 			yield* Effect.logInfo(
-				`Starting builtin exercise preload (${importedCount}/${builtinExerciseExpectedCount} imported)`,
+				`Starting builtin exercise preload (${importedCount}/${preloadLimit} imported)`,
 			);
 
 			let page = 1;
+			let remaining = preloadLimit - importedCount;
 
 			for (;;) {
 				const externalIds = yield* searchPage(page);
@@ -130,13 +164,21 @@ export const BuiltinEntityPreloaderLive = Layer.scopedDiscard(
 					break;
 				}
 
+				const importedExternalIds = yield* runWithDb(
+					findImportedGlobalExternalIds({ ...preloadTarget, externalIds }),
+				).pipe(dieOnDbError);
+				const scheduledIds = externalIds
+					.filter((externalId) => !importedExternalIds.has(externalId))
+					.slice(0, remaining);
+
 				yield* Effect.logInfo(
-					`Scheduling ${externalIds.length} builtin exercises from page ${page}`,
+					`Scheduling ${scheduledIds.length} builtin exercises from page ${page}`,
 				);
 
-				yield* Effect.forEach(externalIds, scheduleImport, { discard: true });
+				yield* Effect.forEach(scheduledIds, scheduleImport, { discard: true });
+				remaining -= scheduledIds.length;
 
-				if (externalIds.length < builtinExercisePageSize) {
+				if (remaining <= 0 || externalIds.length < builtinExercisePageSize) {
 					break;
 				}
 

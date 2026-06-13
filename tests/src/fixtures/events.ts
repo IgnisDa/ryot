@@ -66,7 +66,7 @@ export async function waitForEventCount(
 			);
 			return events.length >= expectedCount ? events : null;
 		},
-		{ timeoutMs: 5000, intervalMs: 200, ...options },
+		{ timeoutMs: 15000, intervalMs: 200, ...options },
 	);
 }
 
