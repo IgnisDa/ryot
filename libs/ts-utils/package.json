@@ -8,7 +8,6 @@
 	},
 	"scripts": {
 		"build": "tsc",
-		"test": "bun test --only-failures",
 		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
 	},
 	"dependencies": {
