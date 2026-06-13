@@ -55,7 +55,7 @@ const pageInfo = { limit: 2, hasMore: true, nextCursor: "next" } as const;
 const rowsResult = (items: readonly unknown[]) => ({ type: "rows", items, pageInfo });
 
 describe("SavedViewsService", () => {
-	it("loads a record and executes only its persisted grid document first page", async () => {
+	it("loads a record and executes its persisted grid document", async () => {
 		const documents: unknown[] = [];
 		const client = createRyotClient({
 			query: (query) => {
@@ -83,12 +83,17 @@ describe("SavedViewsService", () => {
 		});
 		const runtime = ManagedRuntime.make(SavedViewsService.layer);
 		try {
-			const result = await runtime.runPromise(
-				Effect.flatMap(SavedViewsService, (service) => service.loadGrid(client, "books")),
+			const loadedRecord = await runtime.runPromise(
+				Effect.flatMap(SavedViewsService, (service) => service.loadRecord(client, "books")),
+			);
+			const page = await runtime.runPromise(
+				Effect.flatMap(SavedViewsService, (service) =>
+					service.loadPage(client, "grid", record.layouts.grid, queryDocument),
+				),
 			);
 
-			expect(result?.record.name).toBe("Books");
-			expect(result?.page.items[0]).toMatchObject({
+			expect(loadedRecord?.name).toBe("Books");
+			expect(page.items[0]).toMatchObject({
 				title: "Piranesi",
 				entityId: "book-1",
 				callout: { displayKind: "number", value: 4.5 },
@@ -105,7 +110,7 @@ describe("SavedViewsService", () => {
 		}
 	});
 
-	it("returns null when the saved-view record does not exist", async () => {
+	it("returns undefined when the saved-view record does not exist", async () => {
 		const client = createRyotClient({
 			query: () => Promise.resolve({ data: { savedView: rowsResult([]) } }),
 		});
@@ -113,9 +118,9 @@ describe("SavedViewsService", () => {
 		try {
 			await expect(
 				runtime.runPromise(
-					Effect.flatMap(SavedViewsService, (service) => service.loadGrid(client, "missing")),
+					Effect.flatMap(SavedViewsService, (service) => service.loadRecord(client, "missing")),
 				),
-			).resolves.toBeNull();
+			).resolves.toBeUndefined();
 		} finally {
 			await runtime.dispose();
 		}

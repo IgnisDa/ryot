@@ -1,4 +1,5 @@
 import { Button } from "@ryot-app/client-ui-sdk";
+import { DataTable, type DataTableColumn } from "@ryot-app/client-ui-sdk/table";
 import clsx from "clsx";
 import { Cause, Effect, Exit } from "effect";
 import {
@@ -47,9 +48,28 @@ type UserActionItem = {
 	readonly label: string;
 	readonly key: UserAction;
 	readonly disabled: boolean;
-	readonly destructive: boolean;
 	readonly onSelect: () => void;
+	readonly destructive: boolean;
 };
+
+function UserPageStatus(props: {
+	readonly page: Extract<Page, { readonly state: "loading" | "error" }>;
+	readonly onRetry: (offset: number) => void;
+}) {
+	if (props.page.state === "loading") {
+		return <p role="status">Loading users...</p>;
+	}
+	return (
+		<div className="grid justify-items-center gap-3">
+			<p role="alert" className="text-danger">
+				Could not load users. Check the server and try again.
+			</p>
+			<Button type="button" variant="secondary" onClick={() => props.onRetry(props.page.offset)}>
+				Retry
+			</Button>
+		</div>
+	);
+}
 
 const getEnabledIndices = (items: ReadonlyArray<UserActionItem>) =>
 	items.reduce<Array<number>>((indices, item, index) => {
@@ -83,6 +103,27 @@ type UsersAdministrationProps = {
 
 const formatDate = (value: string) =>
 	new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(value));
+
+const userColumns: ReadonlyArray<DataTableColumn<GodModeUser>> = [
+	{ id: "email", header: "Email", headerClassName: "px-2 py-3 font-semibold" },
+	{
+		id: "name",
+		header: "Name",
+		headerClassName: "hidden px-2 py-3 font-semibold md:table-cell",
+	},
+	{
+		id: "auth",
+		header: "Auth",
+		headerClassName: "hidden px-2 py-3 font-semibold md:table-cell",
+	},
+	{ id: "status", header: "Status", headerClassName: "px-2 py-3 font-semibold" },
+	{
+		id: "created",
+		header: "Created",
+		headerClassName: "hidden px-2 py-3 font-semibold lg:table-cell",
+	},
+	{ id: "actions", header: "Actions", headerClassName: "px-2 py-3 font-semibold" },
+];
 
 const logFailure = (label: string, cause: Cause.Cause<unknown>) =>
 	Effect.runSync(Effect.logWarning(label, Cause.pretty(cause)));
@@ -183,6 +224,17 @@ export function UsersAdministration(props: UsersAdministrationProps) {
 		event.preventDefault();
 		setQuery(search.trim());
 	};
+	const bodyEndRows = pages.flatMap((page) =>
+		page.state === "loaded"
+			? []
+			: [
+					{
+						id: String(page.offset),
+						cellClassName: "px-2 py-10 text-center text-text-muted",
+						content: <UserPageStatus page={page} onRetry={retry} />,
+					},
+				],
+	);
 
 	return (
 		<section aria-labelledby="god-mode-users-title" className="ui-card max-w-6xl">
@@ -208,69 +260,25 @@ export function UsersAdministration(props: UsersAdministrationProps) {
 				</Button>
 			</form>
 			<div className="mt-5 overflow-x-auto">
-				<table className="w-full border-collapse text-left text-sm">
-					<thead className="border-b border-border text-xs text-text-muted">
-						<tr>
-							<th scope="col" className="px-2 py-3 font-semibold">
-								Email
-							</th>
-							<th scope="col" className="hidden px-2 py-3 font-semibold md:table-cell">
-								Name
-							</th>
-							<th scope="col" className="hidden px-2 py-3 font-semibold md:table-cell">
-								Auth
-							</th>
-							<th scope="col" className="px-2 py-3 font-semibold">
-								Status
-							</th>
-							<th scope="col" className="hidden px-2 py-3 font-semibold lg:table-cell">
-								Created
-							</th>
-							<th scope="col" className="px-2 py-3 font-semibold">
-								Actions
-							</th>
-						</tr>
-					</thead>
-					<tbody>
-						{pages.map((page) =>
-							page.state === "loaded" ? (
-								page.value.users.map((user) => (
-									<UserRow
-										user={user}
-										key={user.id}
-										operations={props.operations}
-										onUnauthorized={props.onUnauthorized}
-										backInterceptors={props.backInterceptors}
-										transferResetLink={props.transferResetLink}
-										onRemoved={() => removeUser(user.id)}
-										onChanged={(update) => updateUser(user.id, update)}
-									/>
-								))
-							) : (
-								<tr key={page.offset}>
-									<td colSpan={6} className="px-2 py-10 text-center text-text-muted">
-										{page.state === "loading" ? (
-											<p role="status">Loading users...</p>
-										) : (
-											<div className="grid justify-items-center gap-3">
-												<p role="alert" className="text-danger">
-													Could not load users. Check the server and try again.
-												</p>
-												<Button
-													type="button"
-													variant="secondary"
-													onClick={() => retry(page.offset)}
-												>
-													Retry
-												</Button>
-											</div>
-										)}
-									</td>
-								</tr>
-							),
-						)}
-					</tbody>
-				</table>
+				<DataTable
+					columns={userColumns}
+					bodyEndRows={bodyEndRows}
+					getRowId={(user) => user.id}
+					className="w-full border-collapse text-left text-sm"
+					data={loadedPages.flatMap((page) => page.value.users)}
+					headerClassName="border-b border-border text-xs text-text-muted"
+					renderRow={(user) => (
+						<UserRow
+							user={user}
+							operations={props.operations}
+							onUnauthorized={props.onUnauthorized}
+							backInterceptors={props.backInterceptors}
+							transferResetLink={props.transferResetLink}
+							onRemoved={() => removeUser(user.id)}
+							onChanged={(update) => updateUser(user.id, update)}
+						/>
+					)}
+				/>
 			</div>
 			{last?.state === "loaded" && loaded === 0 && (
 				<div className="py-12 text-center">
