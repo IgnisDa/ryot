@@ -1,3 +1,4 @@
+import { useFocusTrap, useScrollLock } from "@ryot-app/client-ui-sdk";
 import type {
 	PluginClientCatalog,
 	PluginClientCatalogEntry,
@@ -11,7 +12,7 @@ import {
 	useReducedMotion,
 	useTransform,
 } from "motion/react";
-import { type KeyboardEvent, type RefObject, useEffect, useRef, useState } from "react";
+import { type RefObject, useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 
 import type { AuthSessionStore } from "#/modules/auth/service";
@@ -39,56 +40,24 @@ type MobileDrawerProps = {
 	readonly onSelectWorkspace: (slug: string) => void | Promise<void>;
 };
 
-const focusable =
-	'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
-
 const restoreFocus = (trigger: RefObject<HTMLButtonElement | null>) =>
 	queueMicrotask(() => trigger.current?.focus());
 
 export function MobileDrawer(props: MobileDrawerProps) {
-	const panelRef = useRef<HTMLDivElement>(null);
-	const previousOverflow = useRef<string | null>(null);
+	const rootRef = useRef<HTMLDivElement>(null);
 	const [isSettling, setIsSettling] = useState(false);
 	const reduceMotion = useReducedMotion() === true;
 	const x = useTransform(props.progress, [0, 1], ["-100%", "0%"]);
 	const presented = props.isOpen || isSettling;
+	const { unlock } = useScrollLock(props.isOpen);
 	const close = () => {
-		if (previousOverflow.current !== null) {
-			document.body.style.overflow = previousOverflow.current;
-			previousOverflow.current = null;
-		}
+		unlock();
 		props.onClose();
 		restoreFocus(props.triggerRef);
 	};
 	const closeThen = (operation: () => void | Promise<void>) => {
 		flushSync(close);
 		queueMicrotask(() => void operation());
-	};
-	const containFocus = (event: KeyboardEvent<HTMLDivElement>) => {
-		if (event.defaultPrevented || !props.isOpen) {
-			return;
-		}
-		if (event.key === "Escape") {
-			event.preventDefault();
-			close();
-			return;
-		}
-		if (event.key !== "Tab") {
-			return;
-		}
-		const items = Array.from(panelRef.current?.querySelectorAll<HTMLElement>(focusable) ?? []);
-		if (items.length === 0) {
-			return;
-		}
-		const first = items[0];
-		const last = items[items.length - 1];
-		if (event.shiftKey && document.activeElement === first) {
-			event.preventDefault();
-			last.focus();
-		} else if (!event.shiftKey && document.activeElement === last) {
-			event.preventDefault();
-			first.focus();
-		}
 	};
 
 	useMotionValueEvent(props.progress, "change", (value) => setIsSettling(value > 0));
@@ -102,19 +71,7 @@ export function MobileDrawer(props: MobileDrawerProps) {
 		return () => controls.stop();
 	}, [props.isOpen, props.progress, reduceMotion]);
 
-	useEffect(() => {
-		if (!props.isOpen) {
-			return undefined;
-		}
-		previousOverflow.current = document.body.style.overflow;
-		document.body.style.overflow = "hidden";
-		return () => {
-			if (previousOverflow.current !== null) {
-				document.body.style.overflow = previousOverflow.current;
-				previousOverflow.current = null;
-			}
-		};
-	}, [props.isOpen]);
+	useFocusTrap(rootRef, { enabled: props.isOpen, onEscape: close });
 
 	if (!props.hasDrawer && !presented) {
 		return null;
@@ -122,9 +79,9 @@ export function MobileDrawer(props: MobileDrawerProps) {
 
 	return (
 		<div
+			ref={rootRef}
 			id={props.drawerId}
 			hidden={!presented}
-			onKeyDown={containFocus}
 			data-testid="mobile-drawer"
 			role={props.isOpen ? "dialog" : undefined}
 			aria-labelledby={`${props.drawerId}-title`}
@@ -141,7 +98,6 @@ export function MobileDrawer(props: MobileDrawerProps) {
 			/>
 			<motion.div
 				style={{ x }}
-				ref={panelRef}
 				className="absolute inset-y-0 left-0 flex w-[min(320px,82vw)] flex-col border-r border-border bg-surface pt-[max(env(safe-area-inset-top),1rem)] pb-[max(env(safe-area-inset-bottom),0.75rem)] text-text shadow-card"
 			>
 				<div className="flex shrink-0 items-center justify-between gap-3 px-4 pb-3">
