@@ -259,7 +259,10 @@ function buildSeason(seasonData) {
 		Number.isFinite(seasonData.id) &&
 		seasonData.id > 0
 			? Math.trunc(seasonData.id)
-			: -1;
+			: null;
+	if (id === null) {
+		return null;
+	}
 
 	const seasonNumber =
 		typeof seasonData?.number === "number" && Number.isFinite(seasonData.number)
@@ -288,13 +291,16 @@ function buildSeason(seasonData) {
 	const episodeList = Array.isArray(seasonData?.episodes)
 		? seasonData.episodes
 		: [];
-	const episodes = episodeList.map((ep) => {
+	const childEntities = episodeList.map((ep) => {
 		const epId =
 			typeof ep?.id === "number" && Number.isFinite(ep.id) && ep.id > 0
 				? Math.trunc(ep.id)
-				: -1;
+				: null;
+		if (epId === null) {
+			return null;
+		}
 		const epName =
-			typeof ep?.name === "string" && ep.name.trim() ? ep.name.trim() : "";
+			typeof ep?.name === "string" && ep.name.trim() ? ep.name.trim() : null;
 		const epRuntime =
 			typeof ep?.runtime === "number" &&
 			Number.isFinite(ep.runtime) &&
@@ -311,28 +317,35 @@ function buildSeason(seasonData) {
 				: 0;
 		const epPublishDate =
 			typeof ep?.aired === "string" && ep.aired.trim() ? ep.aired.trim() : null;
-		const epPosterImages =
-			typeof ep?.image === "string" && ep.image.trim() ? [ep.image.trim()] : [];
+		const epImage = typeof ep?.image === "string" && ep.image.trim() ? ep.image.trim() : null;
 
 		return {
-			id: epId,
-			name: epName,
-			runtime: epRuntime,
-			overview: epOverview,
-			episodeNumber: epNumber,
-			publishDate: epPublishDate,
-			posterImages: epPosterImages,
+			entitySchemaSlug: "show-episode",
+			externalId: String(epId),
+			name: epName || `Episode ${epNumber}`,
+			image: epImage ? { type: "remote", url: epImage } : null,
+			properties: {
+				seasonNumber,
+				runtime: epRuntime,
+				description: epOverview,
+				episodeNumber: epNumber,
+				publishDate: epPublishDate,
+			},
 		};
-	});
+	}).filter((episode) => episode !== null);
+
+	const posterImage = posterImages[0] ?? null;
 
 	return {
-		id,
-		episodes,
-		publishDate,
-		seasonNumber,
-		posterImages,
-		backdropImages: [],
+		childEntities,
+		externalId: String(id),
 		name: `Season ${seasonNumber}`,
+		entitySchemaSlug: "show-season",
+		image: posterImage ? { type: "remote", url: posterImage } : null,
+		properties: {
+			seasonNumber,
+			releaseDate: publishDate,
+		},
 	};
 }
 
@@ -507,7 +520,11 @@ driver("details", async function (context) {
 				(typeof b?.number === "number" ? b.number : 0),
 		);
 
-	const showSeasons = officialSeasons.map(buildSeason);
+	const childEntities = officialSeasons.map(buildSeason).filter((season) => season !== null);
+	const totalEpisodes = childEntities.reduce(
+		(count, season) => count + season.childEntities.length,
+		0,
+	);
 
 	const slug =
 		typeof show?.slug === "string" && show.slug.trim()
@@ -524,18 +541,20 @@ driver("details", async function (context) {
 
 	return {
 		name: title,
+		childEntities,
+		relatedEntities,
 		properties: {
 			images,
 			genres,
 			sourceUrl,
 			publishYear,
-			showSeasons,
+			totalEpisodes,
+			totalSeasons: childEntities.length,
 			unlinkedCreators,
 			description:
 				typeof show?.overview === "string" && show.overview.trim()
 					? show.overview.trim()
 					: null,
 		},
-		relatedEntities,
 	};
 });

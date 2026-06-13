@@ -309,29 +309,10 @@ describe("GET /event-schemas", () => {
 			return progressSchema.propertiesSchema as Record<string, unknown>;
 		};
 
-		const showProgressSchema = await getProgressSchema("show");
-		expect(showProgressSchema).toMatchObject({
-			fields: {
-				progressPercent: {
-					type: "number",
-					label: "Progress Percent",
-					transform: { round: { mode: "half_up", scale: 2 } },
-					validation: { maximum: 100, required: true, exclusiveMinimum: 0 },
-					description: "Percentage of the media completed so far (0 to 100)",
-				},
-				showSeason: {
-					type: "integer",
-					label: "Show Season",
-					description: "Season number being tracked",
-				},
-				showEpisode: {
-					type: "integer",
-					label: "Show Episode",
-					description: "Episode number within the current season",
-				},
-			},
-		});
-		expect(showProgressSchema).not.toHaveProperty("rules");
+		const showSchema = schemas.find((schema) => schema.slug === "show");
+		assertPresent(showSchema, "Missing built-in show schema");
+		const showEventSchemas = await listEventSchemas(client, showSchema.id);
+		expect(showEventSchemas.some((schema) => schema.slug === "progress")).toBe(false);
 
 		const animeProgressSchema = await getProgressSchema("anime");
 		expect(animeProgressSchema).toMatchObject({
@@ -415,7 +396,7 @@ describe("GET /event-schemas", () => {
 			expect(progressSchema).toEqual(movieProgressSchema);
 		}
 
-		expect(showProgressSchema).not.toEqual(movieProgressSchema);
+		expect(animeProgressSchema).not.toEqual(movieProgressSchema);
 	});
 
 	it("exposes per-entity dropped and on_hold schema variants extending progress", async () => {
@@ -450,12 +431,14 @@ describe("GET /event-schemas", () => {
 		};
 
 		const lifecycleSchemas = await Promise.all(
-			["show", "anime", "manga", "podcast", "movie", "book"].map(async (slug) => ({
+			["anime", "manga", "podcast", "movie", "book"].map(async (slug) => ({
 				droppedSchema: await getSchemaBySlug(slug, "dropped"),
 				onHoldSchema: await getSchemaBySlug(slug, "on_hold"),
 				progressSchema: await getSchemaBySlug(slug, "progress"),
 			})),
 		);
+		const showDroppedSchema = await getSchemaBySlug("show", "dropped");
+		const showOnHoldSchema = await getSchemaBySlug("show", "on_hold");
 
 		for (const { progressSchema, droppedSchema, onHoldSchema } of lifecycleSchemas) {
 			expect(droppedSchema).toMatchObject(progressSchema);
@@ -463,6 +446,17 @@ describe("GET /event-schemas", () => {
 			expect(droppedSchema).toMatchObject({ fields: sessionFields });
 			expect(onHoldSchema).toMatchObject({ fields: sessionFields });
 		}
+		expect(showDroppedSchema).toMatchObject({
+			fields: {
+				...sessionFields,
+				progressPercent: {
+					type: "number",
+					label: "Progress Percent",
+					description: "Percentage of the media completed so far (0 to 100)",
+				},
+			},
+		});
+		expect(showOnHoldSchema).toMatchObject(showDroppedSchema);
 	});
 
 	it("returns 404 when accessing another user's entity schema", async () => {

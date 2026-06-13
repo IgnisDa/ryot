@@ -8,6 +8,11 @@ import {
 	createBuiltinMediaLifecycleFixture,
 	createEventTestFixture,
 	createRuleEventFixture,
+	findBuiltinSchemaBySlug,
+	getFirstProviderScriptId,
+	listEventSchemas,
+	requireEventSchemaBySlug,
+	seedMediaEntity,
 	waitForEventCount,
 } from "../fixtures";
 import { assertTaggedError, requireNumber, requireObjectRecord } from "../test-support/assertions";
@@ -477,25 +482,46 @@ describe("Events bulk POST", () => {
 		]);
 	});
 
-	it("creates dropped and on_hold events with episodic media fields for shows", async () => {
+	it("creates dropped and on_hold events without positional episode fields for shows", async () => {
 		const { client: apiClient } = await createAuthenticatedClient();
-		const { entityId, droppedEventSchemaId, onHoldEventSchemaId } =
-			await createBuiltinMediaLifecycleFixture(apiClient, {
-				entitySchemaSlug: "show",
-			});
+		const { schema } = await findBuiltinSchemaBySlug(apiClient, "show");
+		const eventSchemas = await listEventSchemas(apiClient, schema.id);
+		const droppedEventSchema = requireEventSchemaBySlug(eventSchemas, "dropped");
+		const onHoldEventSchema = requireEventSchemaBySlug(eventSchemas, "on_hold");
+		const entity = await seedMediaEntity({
+			image: null,
+			userId: null,
+			entitySchemaId: schema.id,
+			name: `Show Events ${crypto.randomUUID()}`,
+			externalId: `show-events-${crypto.randomUUID()}`,
+			sandboxScriptId: getFirstProviderScriptId(schema),
+			properties: {
+				genres: [],
+				images: [],
+				isNsfw: null,
+				sourceUrl: null,
+				description: null,
+				publishDate: null,
+				publishYear: null,
+				totalSeasons: null,
+				totalEpisodes: null,
+				providerRating: null,
+				productionStatus: null,
+			},
+		});
 
 		const createResult = await apiClient.run((c) =>
 			c.events.create({
 				payload: [
 					{
-						entityId,
-						eventSchemaId: droppedEventSchemaId,
-						properties: { progressPercent: 50, showSeason: 2, showEpisode: 5 },
+						entityId: entity.id,
+						properties: { progressPercent: 50 },
+						eventSchemaId: droppedEventSchema.id,
 					},
 					{
-						entityId,
-						eventSchemaId: onHoldEventSchemaId,
-						properties: { progressPercent: 75, showSeason: 3, showEpisode: 10 },
+						entityId: entity.id,
+						properties: { progressPercent: 75 },
+						eventSchemaId: onHoldEventSchema.id,
 					},
 				],
 			}),
@@ -503,13 +529,13 @@ describe("Events bulk POST", () => {
 
 		expect(createResult.count).toBe(2);
 
-		const events = await waitForEventCount(apiClient, entityId, 2);
+		const events = await waitForEventCount(apiClient, entity.id, 2);
 		expect(events).toHaveLength(2);
 		expect(sortBy(events.map((event) => event.eventSchemaSlug))).toEqual(["dropped", "on_hold"]);
 		const sortedEvents = sortBy(events, (event) => event.eventSchemaSlug);
 		expect(sortedEvents.map((event) => event.properties)).toEqual([
-			{ progressPercent: 50, showSeason: 2, showEpisode: 5 },
-			{ progressPercent: 75, showSeason: 3, showEpisode: 10 },
+			{ progressPercent: 50 },
+			{ progressPercent: 75 },
 		]);
 	});
 });
