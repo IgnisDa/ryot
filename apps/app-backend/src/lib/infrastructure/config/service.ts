@@ -31,52 +31,73 @@ export const getSmtpCredentials = (
 export const isSmtpEnabled = (config: SystemConfigValue): boolean =>
 	Option.isSome(getSmtpCredentials(config));
 
-const validateSystemConfig = (
+export const validateSystemConfig = (
 	config: SystemConfigValue,
-): Effect.Effect<SystemConfigValue, ConfigError.ConfigError> => {
-	const { clientId, clientSecret, issuerUrl } = config.server.oidc;
-	const oidcSetCount = [
-		isNonEmpty(clientId),
-		isNonEmpty(issuerUrl),
-		isNonEmptyRedacted(clientSecret),
-	].filter(Boolean).length;
+): Effect.Effect<SystemConfigValue, ConfigError.ConfigError> =>
+	Effect.gen(function* () {
+		const { clientId, clientSecret, issuerUrl } = config.server.oidc;
+		const oidcSetCount = [
+			isNonEmpty(clientId),
+			isNonEmpty(issuerUrl),
+			isNonEmptyRedacted(clientSecret),
+		].filter(Boolean).length;
 
-	if (oidcSetCount > 0 && oidcSetCount < 3) {
-		return Effect.fail(
-			ConfigError.InvalidData(
-				[],
-				"Partial OIDC configuration detected. Set all three of SERVER_OIDC_CLIENT_ID, SERVER_OIDC_ISSUER_URL, and SERVER_OIDC_CLIENT_SECRET, or none of them.",
-			),
-		);
-	}
+		if (oidcSetCount > 0 && oidcSetCount < 3) {
+			return yield* Effect.fail(
+				ConfigError.InvalidData(
+					[],
+					"Partial OIDC configuration detected. Set all three of SERVER_OIDC_CLIENT_ID, SERVER_OIDC_ISSUER_URL, and SERVER_OIDC_CLIENT_SECRET, or none of them.",
+				),
+			);
+		}
 
-	const oidcEnabled = oidcSetCount === 3;
-	if (config.users.disableLocalAuth && !oidcEnabled) {
-		return Effect.fail(
-			ConfigError.InvalidData(
-				[],
-				"USERS_DISABLE_LOCAL_AUTH is set but OIDC credentials are incomplete. Set SERVER_OIDC_CLIENT_ID, SERVER_OIDC_ISSUER_URL, and SERVER_OIDC_CLIENT_SECRET.",
-			),
-		);
-	}
+		const oidcEnabled = oidcSetCount === 3;
+		if (config.users.disableLocalAuth && !oidcEnabled) {
+			return yield* Effect.fail(
+				ConfigError.InvalidData(
+					[],
+					"USERS_DISABLE_LOCAL_AUTH is set but OIDC credentials are incomplete. Set SERVER_OIDC_CLIENT_ID, SERVER_OIDC_ISSUER_URL, and SERVER_OIDC_CLIENT_SECRET.",
+				),
+			);
+		}
 
-	const { password, server, user } = config.notifications.smtp;
-	const smtpSetCount = [
-		isNonEmpty(server),
-		isNonEmptyRedacted(user),
-		isNonEmptyRedacted(password),
-	].filter(Boolean).length;
-	if (smtpSetCount > 0 && smtpSetCount < 3) {
-		return Effect.fail(
-			ConfigError.InvalidData(
-				[],
-				"Partial SMTP configuration detected. Set all three of SERVER_SMTP_SERVER, SERVER_SMTP_USER, and SERVER_SMTP_PASSWORD, or none of them.",
-			),
-		);
-	}
+		const { password, server, user } = config.notifications.smtp;
+		const smtpSetCount = [
+			isNonEmpty(server),
+			isNonEmptyRedacted(user),
+			isNonEmptyRedacted(password),
+		].filter(Boolean).length;
+		if (smtpSetCount > 0 && smtpSetCount < 3) {
+			return yield* Effect.fail(
+				ConfigError.InvalidData(
+					[],
+					"Partial SMTP configuration detected. Set all three of SERVER_SMTP_SERVER, SERVER_SMTP_USER, and SERVER_SMTP_PASSWORD, or none of them.",
+				),
+			);
+		}
 
-	return Effect.succeed(config);
-};
+		// The cluster runner's shard advisory lock permanently holds one workflow-pool
+		// connection, so usable connections = DATABASE_WORKFLOW_POOL_MAX - 1.
+		const usableWorkflowConnections = config.database.workflowPoolMax - 1;
+		if (config.sandbox.workerConcurrency > usableWorkflowConnections) {
+			return yield* Effect.fail(
+				ConfigError.InvalidData(
+					[],
+					`SANDBOX_WORKER_CONCURRENCY (${config.sandbox.workerConcurrency}) exceeds the usable workflow-pool connections (${usableWorkflowConnections}). The cluster runner's shard advisory lock permanently holds one connection of DATABASE_WORKFLOW_POOL_MAX (${config.database.workflowPoolMax}), so usable connections = DATABASE_WORKFLOW_POOL_MAX - 1; a higher sandbox worker concurrency starves the workflow engine. Raise DATABASE_WORKFLOW_POOL_MAX or lower SANDBOX_WORKER_CONCURRENCY.`,
+				),
+			);
+		}
+
+		// The +2 accounts for the two always-on DurableQueue workers
+		// (EnsureLibraryMembershipQueue and DefaultSavedViewQueue, concurrency 1 each).
+		if (config.sandbox.workerConcurrency + 2 > usableWorkflowConnections) {
+			yield* Effect.logWarning(
+				`SANDBOX_WORKER_CONCURRENCY (${config.sandbox.workerConcurrency}) plus the two always-on queue workers leaves no headroom below the usable workflow-pool connections (${usableWorkflowConnections}). Concurrent workflow chains (imports, triggers) may stall; consider raising DATABASE_WORKFLOW_POOL_MAX.`,
+			);
+		}
+
+		return config;
+	});
 
 export type ProviderConfigValue = Config.Config.Success<typeof providerConfigDefinition.config>;
 
