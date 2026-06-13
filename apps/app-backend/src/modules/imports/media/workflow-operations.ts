@@ -5,7 +5,7 @@ import { Cause, Effect, Layer } from "effect";
 
 import { AppConfig } from "#lib/config";
 import { DbRunner } from "#lib/db";
-import { SandboxRunError, unknownToMessage } from "#lib/errors";
+import { SandboxRunError, toSandboxRunError, unknownToMessage } from "#lib/errors";
 import { RedisService } from "#lib/redis";
 import type { EntitySchemaId, SandboxScriptId, UserId } from "#lib/schema/brands";
 import { EntitiesRepository } from "#modules/entities/repository";
@@ -26,11 +26,6 @@ import { SandboxExecutionQueue } from "#modules/sandbox/durable-queues";
 import { loadOneTimeMediaImportAdapterResult } from "./source-loaders";
 import { MediaImportWorkflowOperations } from "./workflow-types";
 
-const toSandboxError = (cause: unknown) =>
-	cause instanceof SandboxRunError
-		? cause
-		: new SandboxRunError({ message: unknownToMessage(cause) });
-
 const resolveSandboxEntityExternalId = (input: {
 	value: string;
 	userId: UserId;
@@ -45,7 +40,7 @@ const resolveSandboxEntityExternalId = (input: {
 		executionId: input.executionId,
 		context: { value: input.value, identifierType: input.identifierType },
 	}).pipe(
-		Effect.mapError(toSandboxError),
+		Effect.mapError(toSandboxRunError),
 		Effect.flatMap((result) =>
 			result.error
 				? Effect.fail(new SandboxRunError({ message: result.error }))
@@ -73,7 +68,7 @@ const searchSandboxEntities = (input: {
 		executionId: input.executionId,
 		context: { query: input.query, page: 1, pageSize: 5 },
 	}).pipe(
-		Effect.mapError(toSandboxError),
+		Effect.mapError(toSandboxRunError),
 		Effect.flatMap((result) =>
 			result.error
 				? Effect.fail(new SandboxRunError({ message: result.error }))
