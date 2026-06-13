@@ -364,7 +364,7 @@ BEGIN
 		SELECT DISTINCT parent_entity_id, entity_id
 		FROM _legacy_show_seasons
 	) show_seasons
-	ON CONFLICT ("source_entity_id", "target_entity_id", "relationship_schema_slug") WHERE user_id IS NULL DO NOTHING;
+	ON CONFLICT ("user_id", "source_entity_id", "target_entity_id", "relationship_schema_slug", "relationship_schema_plugin_id") DO NOTHING;
 	GET DIAGNOSTICS show_season_relationships_inserted = ROW_COUNT;
 
 	INSERT INTO "relationship" (
@@ -390,7 +390,7 @@ BEGIN
 		SELECT DISTINCT season_entity_id, entity_id
 		FROM _legacy_show_episodes
 	) show_episodes
-	ON CONFLICT ("source_entity_id", "target_entity_id", "relationship_schema_slug") WHERE user_id IS NULL DO NOTHING;
+	ON CONFLICT ("user_id", "source_entity_id", "target_entity_id", "relationship_schema_slug", "relationship_schema_plugin_id") DO NOTHING;
 	GET DIAGNOSTICS show_episode_relationships_inserted = ROW_COUNT;
 
 	INSERT INTO "relationship" (
@@ -416,7 +416,7 @@ BEGIN
 		SELECT DISTINCT parent_entity_id, entity_id
 		FROM _legacy_podcast_episodes
 	) podcast_episodes
-	ON CONFLICT ("source_entity_id", "target_entity_id", "relationship_schema_slug") WHERE user_id IS NULL DO NOTHING;
+	ON CONFLICT ("user_id", "source_entity_id", "target_entity_id", "relationship_schema_slug", "relationship_schema_plugin_id") DO NOTHING;
 	GET DIAGNOSTICS podcast_episode_relationships_inserted = ROW_COUNT;
 
 	${buildReportSql("legacy episodic sub-entities", [
