@@ -22,19 +22,5 @@ export const EntitiesRoutesLive = HttpApiBuilder.group(AppContract, "entities", 
 				const service = yield* EntitiesService;
 				return yield* service.getById(user, path.entityId).pipe(dieOnDbError);
 			}),
-		)
-		.handle("import", ({ payload }) =>
-			Effect.gen(function* () {
-				const user = yield* CurrentUser;
-				const service = yield* EntitiesService;
-				return yield* service.import(user, payload).pipe(dieOnDbError);
-			}),
-		)
-		.handle("getImportResult", ({ path }) =>
-			Effect.gen(function* () {
-				const user = yield* CurrentUser;
-				const service = yield* EntitiesService;
-				return yield* service.getImportResult(user, path.jobId);
-			}),
 		),
 );

@@ -2,6 +2,7 @@ import { HttpApi, OpenApi } from "@effect/platform";
 
 import { CollectionsGroup } from "#modules/collections/contract";
 import { EntitiesGroup } from "#modules/entities/contract";
+import { EntityImportGroup } from "#modules/entity-import/contract";
 import { EntitySchemasGroup } from "#modules/entity-schemas/contract";
 import { EventSchemasGroup } from "#modules/event-schemas/contract";
 import { EventsGroup } from "#modules/events/contract";
@@ -24,6 +25,7 @@ export const AppContract = HttpApi.make("ryot")
 	.add(EntitySchemasGroup)
 	.add(RelationshipSchemasGroup)
 	.add(EntitiesGroup)
+	.add(EntityImportGroup)
 	.add(UserStateGroup)
 	.add(EventSchemasGroup)
 	.add(EventsGroup)
