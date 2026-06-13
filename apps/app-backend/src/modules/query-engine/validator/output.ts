@@ -2,7 +2,7 @@ import { DateTime, Option } from "effect";
 
 import type { IncludeEntry, QueryDocument, RowsOutput } from "../language";
 import { countAlignedTimeSeriesBuckets } from "../time-series-buckets";
-import { validateEntitySource, validateExpr } from "./core";
+import { validateEntitySource, validateExpr, validateNestedEventSource } from "./core";
 import {
 	MAX_GROUPED_AGGREGATE_LIMIT,
 	MAX_INCLUDE_DEPTH,
@@ -11,6 +11,27 @@ import {
 	MAX_TIME_SERIES_BUCKETS,
 	type AliasScope,
 } from "./shared";
+
+const buildIncludeOutputScope = (include: IncludeEntry, scope: AliasScope): AliasScope | string => {
+	const outputScope: AliasScope = new Map();
+	const sourceEntry = scope.get(include.source.alias);
+	if (sourceEntry === undefined) {
+		return `Unknown source alias '${include.source.alias}'`;
+	}
+	outputScope.set(include.source.alias, sourceEntry);
+
+	const attachedAlias =
+		include.source.type === "events" ? include.source.entityRef : include.source.via?.alias;
+	if (attachedAlias === undefined) {
+		return outputScope;
+	}
+	const attachedEntry = scope.get(attachedAlias);
+	if (attachedEntry === undefined) {
+		return `Unknown source alias '${attachedAlias}'`;
+	}
+	outputScope.set(attachedAlias, attachedEntry);
+	return outputScope;
+};
 
 const validateIncludeEntry = (
 	include: IncludeEntry,
@@ -24,31 +45,26 @@ const validateIncludeEntry = (
 	if (include.limit > MAX_INCLUDE_LIMIT) {
 		return `Include limit ${include.limit} exceeds maximum of ${MAX_INCLUDE_LIMIT}`;
 	}
-	if (include.source.via === undefined) {
-		return `Included entity source '${include.source.alias}' must specify via`;
+	if (include.source.type === "events" && (include.include?.length ?? 0) > 0) {
+		return `Included event source '${include.source.alias}' does not support nested includes`;
 	}
-	if (include.source.where !== null) {
-		return `Included entity source '${include.source.alias}' does not support where yet`;
+	if (include.source.type === "entities" && include.source.via === undefined) {
+		return `Included entity source '${include.source.alias}' must specify via`;
 	}
 
 	const scope = new Map(parentScope);
-	const sourceError = validateEntitySource(include.source, scope, aliases);
+	const sourceError =
+		include.source.type === "events"
+			? validateNestedEventSource(include.source, scope, aliases)
+			: validateEntitySource(include.source, scope, aliases);
 	if (sourceError) {
 		return sourceError;
 	}
 
-	const outputScope: AliasScope = new Map();
-	const sourceEntry = scope.get(include.source.alias);
-	if (sourceEntry === undefined) {
-		return `Unknown source alias '${include.source.alias}'`;
+	const outputScope = buildIncludeOutputScope(include, scope);
+	if (typeof outputScope === "string") {
+		return outputScope;
 	}
-	outputScope.set(include.source.alias, sourceEntry);
-
-	const edgeEntry = scope.get(include.source.via.alias);
-	if (edgeEntry === undefined) {
-		return `Unknown source alias '${include.source.via.alias}'`;
-	}
-	outputScope.set(include.source.via.alias, edgeEntry);
 
 	const outputKeys = new Set<string>();
 	for (const field of include.fields) {
@@ -75,7 +91,7 @@ const validateIncludeEntry = (
 	}
 
 	for (const field of include.fields) {
-		const error = validateExpr(field.expr, outputScope, aliases, 0, true);
+		const error = validateExpr(field.expr, outputScope, aliases);
 		if (error) {
 			return error;
 		}
@@ -121,7 +137,7 @@ export const validateRowsOutput = (output: RowsOutput, scope: AliasScope, aliase
 	}
 
 	for (const field of output.fields) {
-		const error = validateExpr(field.expr, scope, aliases, 0, true);
+		const error = validateExpr(field.expr, scope, aliases);
 		if (error) {
 			return error;
 		}
@@ -199,7 +215,7 @@ export const validateAggregateOutput = (
 	}
 
 	for (const entry of output.orderBy ?? []) {
-		const error = validateExpr(entry.expr, scope, aliases, 0, false, measureKeys);
+		const error = validateExpr(entry.expr, scope, aliases, 0, measureKeys);
 		if (error) {
 			return error;
 		}
