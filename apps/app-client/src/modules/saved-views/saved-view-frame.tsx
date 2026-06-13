@@ -47,10 +47,7 @@ export function SavedViewFrame(props: {
 			</ScrollView>
 			<View
 				style={{ paddingTop: insets.top }}
-				className={clsx(
-					"absolute inset-x-0 top-0 z-20 border-b border-border bg-bg px-4",
-					TOP_BAR_WEB_HIDDEN,
-				)}
+				className={clsx("absolute inset-x-0 top-0 z-20 bg-bg px-4", TOP_BAR_WEB_HIDDEN)}
 			>
 				<View className="h-11 flex-row items-center gap-2.5">
 					<Pressable
