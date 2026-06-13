@@ -84,49 +84,46 @@ const requireReadableEntity = Effect.fn(function* (
 	return scope;
 });
 
-const validateEventCreateItem = (input: {
+const validateEventCreateItem = Effect.fn("validateEventCreateItem")(function* (input: {
 	readonly item: CreateEventItem;
 	readonly userId: UserId;
-}): ValidateEventEffect =>
-	Effect.gen(function* () {
-		const runWithDb = yield* DbRunner;
-		const eventSchemasRepository = yield* EventSchemasRepository;
-		const entityId = EntityId.make(
-			yield* requireText(input.item.entityId, "Entity id is required"),
+}) {
+	const runWithDb = yield* DbRunner;
+	const eventSchemasRepository = yield* EventSchemasRepository;
+	const entityId = EntityId.make(yield* requireText(input.item.entityId, "Entity id is required"));
+	const eventSchemaId = EventSchemaId.make(
+		yield* requireText(input.item.eventSchemaId, "Event schema id is required"),
+	);
+
+	const entityScope = yield* requireReadableEntity(input.userId, entityId, entityNotFoundError);
+	const eventSchemaScope = yield* runWithDb(
+		eventSchemasRepository.getScopeForUser({ userId: input.userId, eventSchemaId }),
+	);
+	if (!eventSchemaScope) {
+		return yield* notFound(eventSchemaNotFoundError);
+	}
+
+	if (eventSchemaScope.entitySchemaId !== entityScope.entitySchemaId) {
+		return yield* badRequest(eventSchemaMismatchError);
+	}
+
+	if (input.item.sessionEntityId) {
+		yield* requireReadableEntity(
+			input.userId,
+			input.item.sessionEntityId,
+			sessionEntityNotFoundError,
 		);
-		const eventSchemaId = EventSchemaId.make(
-			yield* requireText(input.item.eventSchemaId, "Event schema id is required"),
-		);
+	}
 
-		const entityScope = yield* requireReadableEntity(input.userId, entityId, entityNotFoundError);
-		const eventSchemaScope = yield* runWithDb(
-			eventSchemasRepository.getScopeForUser({ userId: input.userId, eventSchemaId }),
-		);
-		if (!eventSchemaScope) {
-			return yield* notFound(eventSchemaNotFoundError);
-		}
+	yield* resolveOccurredAt(input.item.occurredAt);
+	yield* parseAppSchemaProperties({
+		kind: "Event",
+		properties: input.item.properties,
+		propertiesSchema: eventSchemaScope.propertiesSchema,
+	}).pipe(Effect.mapError((error) => badRequest(error.message)));
 
-		if (eventSchemaScope.entitySchemaId !== entityScope.entitySchemaId) {
-			return yield* badRequest(eventSchemaMismatchError);
-		}
-
-		if (input.item.sessionEntityId) {
-			yield* requireReadableEntity(
-				input.userId,
-				input.item.sessionEntityId,
-				sessionEntityNotFoundError,
-			);
-		}
-
-		yield* resolveOccurredAt(input.item.occurredAt);
-		yield* parseAppSchemaProperties({
-			kind: "Event",
-			properties: input.item.properties,
-			propertiesSchema: eventSchemaScope.propertiesSchema,
-		}).pipe(Effect.mapError((error) => badRequest(error.message)));
-
-		return yield* Effect.void;
-	});
+	return yield* Effect.void;
+});
 
 const runBeforeCreateTrigger = Effect.fn(function* (
 	userId: UserId,
@@ -163,66 +160,65 @@ const runBeforeCreateTrigger = Effect.fn(function* (
 	);
 });
 
-const dispatchAfterCreateTriggers = (
+const dispatchAfterCreateTriggers = Effect.fn("dispatchAfterCreateTriggers")(function* (
 	userId: UserId,
 	createdEvents: CreatedEventWithContext[],
 	triggers: AfterCreateTriggerRow[],
-) =>
-	Effect.gen(function* () {
-		const workflowEngine = yield* WorkflowEngine;
-		const pairs = createdEvents.flatMap((event) => {
-			const matching = triggers.filter((trigger) => trigger.eventSchemaId === event.eventSchemaId);
-			return matching.map((trigger) => ({ event, trigger }));
-		});
+) {
+	const workflowEngine = yield* WorkflowEngine;
+	const pairs = createdEvents.flatMap((event) => {
+		const matching = triggers.filter((trigger) => trigger.eventSchemaId === event.eventSchemaId);
+		return matching.map((trigger) => ({ event, trigger }));
+	});
 
-		yield* Effect.forEach(
-			pairs,
-			({ event, trigger }) => {
-				const inheritedKeys = trigger.metadata.inheritedProperties ?? [];
-				const inheritedProperties = Object.fromEntries(
-					inheritedKeys
-						.filter((key) => key in event.properties)
-						.map((key) => [key, event.properties[key]]),
-				);
+	yield* Effect.forEach(
+		pairs,
+		({ event, trigger }) => {
+			const inheritedKeys = trigger.metadata.inheritedProperties ?? [];
+			const inheritedProperties = Object.fromEntries(
+				inheritedKeys
+					.filter((key) => key in event.properties)
+					.map((key) => [key, event.properties[key]]),
+			);
 
-				const executionId = `event-schema-trigger-${trigger.id}-${event.id}`;
-				return workflowEngine
-					.execute(RunSandboxWorkflow, {
+			const executionId = `event-schema-trigger-${trigger.id}-${event.id}`;
+			return workflowEngine
+				.execute(RunSandboxWorkflow, {
+					executionId,
+					discard: true,
+					payload: {
+						userId,
 						executionId,
-						discard: true,
-						payload: {
-							userId,
-							executionId,
-							driverName: "trigger",
-							scriptId: trigger.sandboxScriptId,
-							context: {
-								trigger: {
-									eventId: event.id,
-									inheritedProperties,
-									entityId: event.entityId,
-									createdAt: event.createdAt,
-									updatedAt: event.updatedAt,
-									occurredAt: event.occurredAt,
-									properties: event.properties,
-									eventSchemaId: event.eventSchemaId,
-									entitySchemaId: event.entitySchemaId,
-									eventSchemaSlug: event.eventSchemaSlug,
-									entitySchemaSlug: event.entitySchemaSlug,
-								},
+						driverName: "trigger",
+						scriptId: trigger.sandboxScriptId,
+						context: {
+							trigger: {
+								eventId: event.id,
+								inheritedProperties,
+								entityId: event.entityId,
+								createdAt: event.createdAt,
+								updatedAt: event.updatedAt,
+								occurredAt: event.occurredAt,
+								properties: event.properties,
+								eventSchemaId: event.eventSchemaId,
+								entitySchemaId: event.entitySchemaId,
+								eventSchemaSlug: event.eventSchemaSlug,
+								entitySchemaSlug: event.entitySchemaSlug,
 							},
 						},
-					})
-					.pipe(
-						Effect.catchAll((error) =>
-							Effect.logWarning(
-								`Failed to dispatch after-create trigger: ${unknownToMessage(error)}`,
-							),
+					},
+				})
+				.pipe(
+					Effect.catchAll((error) =>
+						Effect.logWarning(
+							`Failed to dispatch after-create trigger: ${unknownToMessage(error)}`,
 						),
-					);
-			},
-			{ discard: true },
-		);
-	});
+					),
+				);
+		},
+		{ discard: true },
+	);
+});
 
 export const provideCreateEventsContext = <A, E, R>(
 	effect: Effect.Effect<A, E, R>,

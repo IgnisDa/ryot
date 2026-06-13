@@ -1,7 +1,7 @@
 import { Effect, Option, Redacted } from "effect";
 
 import { appConfigMeta } from "../config";
-import type { AnyMeta, FieldMeta, GroupMeta } from "../config/builder";
+import type { AnyMeta, GroupMeta } from "../config/builder";
 import { isObjectRecord } from "./shared";
 
 const isEffectOption = (value: unknown): value is Option.Option<unknown> =>
@@ -44,26 +44,25 @@ const resolveAppConfigFieldMeta = (key: string) => {
 	return node.kind === "field" ? node : null;
 };
 
-const resolveAppConfigValue = (
+const resolveAppConfigValue = Effect.fn("resolveAppConfigValue")(function* (
 	config: unknown,
 	key: string,
-): Effect.Effect<{ meta: FieldMeta; value: unknown }, string> =>
-	Effect.gen(function* () {
-		const meta = resolveAppConfigFieldMeta(key);
-		if (!meta) {
+) {
+	const meta = resolveAppConfigFieldMeta(key);
+	if (!meta) {
+		return yield* Effect.fail(`Config key "${key}" does not exist`);
+	}
+
+	let value = config;
+	for (const segment of key.split(".")) {
+		if (!isObjectRecord(value) || !Object.hasOwn(value, segment)) {
 			return yield* Effect.fail(`Config key "${key}" does not exist`);
 		}
+		value = value[segment];
+	}
 
-		let value = config;
-		for (const segment of key.split(".")) {
-			if (!isObjectRecord(value) || !Object.hasOwn(value, segment)) {
-				return yield* Effect.fail(`Config key "${key}" does not exist`);
-			}
-			value = value[segment];
-		}
-
-		return { meta, value };
-	});
+	return { meta, value };
+});
 
 export const getSandboxAppConfigValue = (
 	config: unknown,

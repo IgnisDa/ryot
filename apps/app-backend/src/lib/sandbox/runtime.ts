@@ -62,52 +62,55 @@ export const invalidateProcess = (
 	worker: PooledProcess,
 ) => pool.invalidate(worker).pipe(Effect.zipRight(killProcess(worker)));
 
-const makeSpawnDenoProcess = (bridgePort: number, denoDir: string, runnerPath: string) =>
-	Effect.gen(function* () {
-		const denoProcess = yield* Command.make(
-			"deno",
-			"run",
-			"--deny-run",
-			"--deny-env",
-			"--deny-ffi",
-			"--deny-write",
-			"--no-prompt",
-			"--no-remote",
-			"--cached-only",
-			`--allow-read=${runnerPath}`,
-			`--allow-net=127.0.0.1:${bridgePort}`,
-			runnerPath,
-		).pipe(
-			Command.stdin("pipe"),
-			Command.stdout("pipe"),
-			Command.stderr("pipe"),
-			Command.env({ DENO_DIR: denoDir }),
-			Command.start,
-		);
+const makeSpawnDenoProcess = Effect.fn("makeSpawnDenoProcess")(function* (
+	bridgePort: number,
+	denoDir: string,
+	runnerPath: string,
+) {
+	const denoProcess = yield* Command.make(
+		"deno",
+		"run",
+		"--deny-run",
+		"--deny-env",
+		"--deny-ffi",
+		"--deny-write",
+		"--no-prompt",
+		"--no-remote",
+		"--cached-only",
+		`--allow-read=${runnerPath}`,
+		`--allow-net=127.0.0.1:${bridgePort}`,
+		runnerPath,
+	).pipe(
+		Command.stdin("pipe"),
+		Command.stdout("pipe"),
+		Command.stderr("pipe"),
+		Command.env({ DENO_DIR: denoDir }),
+		Command.start,
+	);
 
-		yield* Effect.addFinalizer(() => killProcessHandle(denoProcess));
+	yield* Effect.addFinalizer(() => killProcessHandle(denoProcess));
 
-		const stdinQueue = yield* Queue.unbounded<Uint8Array>();
-		const responseQueue = yield* Queue.unbounded<string>();
+	const stdinQueue = yield* Queue.unbounded<Uint8Array>();
+	const responseQueue = yield* Queue.unbounded<string>();
 
-		yield* Stream.fromQueue(stdinQueue).pipe(Stream.run(denoProcess.stdin), Effect.forkScoped);
+	yield* Stream.fromQueue(stdinQueue).pipe(Stream.run(denoProcess.stdin), Effect.forkScoped);
 
-		yield* denoProcess.stdout.pipe(
-			Stream.decodeText("utf-8"),
-			Stream.splitLines,
-			Stream.runForEach((line) => responseQueue.offer(line).pipe(Effect.asVoid)),
-			Effect.forkScoped,
-		);
+	yield* denoProcess.stdout.pipe(
+		Stream.decodeText("utf-8"),
+		Stream.splitLines,
+		Stream.runForEach((line) => responseQueue.offer(line).pipe(Effect.asVoid)),
+		Effect.forkScoped,
+	);
 
-		yield* denoProcess.stderr.pipe(
-			Stream.decodeText("utf-8"),
-			Stream.splitLines,
-			Stream.runForEach(() => Effect.void),
-			Effect.forkScoped,
-		);
+	yield* denoProcess.stderr.pipe(
+		Stream.decodeText("utf-8"),
+		Stream.splitLines,
+		Stream.runForEach(() => Effect.void),
+		Effect.forkScoped,
+	);
 
-		return { process: denoProcess, stdinQueue, responseQueue };
-	});
+	return { process: denoProcess, stdinQueue, responseQueue };
+});
 
 export class BridgeService extends Effect.Service<BridgeService>()("BridgeService", {
 	scoped: Effect.gen(function* () {
