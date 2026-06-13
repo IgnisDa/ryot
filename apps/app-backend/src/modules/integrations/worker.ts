@@ -3,17 +3,10 @@ import { DateTime, Effect } from "effect";
 
 import { DbRunner } from "#lib/db";
 import type { ImportRunId, SandboxScriptId, UserId } from "#lib/schema/brands";
-import type {
-	MediaImportAdapterResult,
-	MediaImportAdapterResultSchema,
-} from "#modules/imports/media/import-processor";
+import type { MediaImportAdapterResult } from "#modules/imports/media/import-processor";
 import type { ImportEntityRef } from "#modules/imports/media/types";
 import { ImportsRepository } from "#modules/imports/repository";
-import {
-	failImportRun,
-	recordImportRunFailure,
-	sanitizeErrorMessage,
-} from "#modules/imports/runtime/failures";
+import { sanitizeErrorMessage } from "#modules/imports/runtime/failures";
 import {
 	adaptAudiobookshelfData,
 	syncAudiobookshelfOwnedItems,
@@ -128,53 +121,6 @@ export const runYoutubeMusicHistorySandbox = (input: {
 		scriptId: input.scriptId,
 		executionId: input.executionId,
 	});
-
-const markFailedRunCounts = Effect.fn(function* (runId: ImportRunId, failureCount: number) {
-	const repository = yield* ImportsRepository;
-	const runWithDb = yield* DbRunner;
-	yield* runWithDb(
-		repository.updateRun({
-			runId,
-			progress: 100,
-			totalItems: failureCount,
-			failedItems: failureCount,
-			processedItems: failureCount,
-		}),
-	);
-});
-
-export const failAdapterOnlyRun = Effect.fn("integrationsWorker.failAdapterOnlyRun")(function* (
-	runId: ImportRunId,
-	result: typeof MediaImportAdapterResultSchema.Type,
-) {
-	for (const failure of result.failures) {
-		yield* recordImportRunFailure({
-			runId,
-			message: failure.message,
-			itemIndex: failure.itemIndex,
-			sourceLabel: failure.sourceLabel,
-			sourceIdentifier: failure.sourceIdentifier,
-			stage: failure.stage ?? "input_transformation",
-			context: failure.context ? { ...failure.context } : null,
-		});
-	}
-
-	yield* markFailedRunCounts(runId, result.failures.length);
-	yield* failImportRun(runId, result.failures[0]?.message ?? "Integration job failed");
-});
-
-export const failUnsupportedIntegrationRun = Effect.fn(
-	"integrationsWorker.failUnsupportedIntegrationRun",
-)(function* (runId: ImportRunId, provider: string) {
-	yield* recordImportRunFailure({
-		runId,
-		itemIndex: 0,
-		stage: "source_fetch",
-		message: `${provider} integration is not implemented in V2 yet`,
-	});
-	yield* markFailedRunCounts(runId, 1);
-	yield* failImportRun(runId, `${provider} integration is not implemented in V2 yet`);
-});
 
 export const finalizeIntegrationRun = Effect.fn("integrationsWorker.finalizeIntegrationRun")(
 	function* (integration: IntegrationRecord, runId: ImportRunId) {

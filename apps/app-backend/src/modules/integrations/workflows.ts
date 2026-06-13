@@ -2,7 +2,7 @@ import * as PersistedQueue from "@effect/experimental/PersistedQueue";
 import { HttpClient } from "@effect/platform";
 import { Activity, Workflow } from "@effect/workflow";
 import type { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
-import { Cause, Context, DateTime, Effect, Either, Layer, Schema } from "effect";
+import { Cause, Context, Effect, Either, Layer, Schema } from "effect";
 
 import { DbRunner } from "#lib/db";
 import type { SandboxRunError } from "#lib/errors";
@@ -10,10 +10,19 @@ import { unknownToMessage } from "#lib/errors";
 import type { ImportRunId } from "#lib/schema/brands";
 import { SandboxScriptId, UserId } from "#lib/schema/brands";
 import { EntitiesRepository } from "#modules/entities/repository";
-import { MediaImportAdapterResultSchema } from "#modules/imports/media/import-processor";
+import {
+	MediaImportAdapterResultSchema,
+	type MediaImportAdapterFailure,
+	type MediaImportAdapterResult,
+} from "#modules/imports/media/import-processor";
 import { MediaImportWorkflowOperationsLive } from "#modules/imports/media/workflow-operations";
-import { ImportsRepository } from "#modules/imports/repository";
-import { failImportRun, sanitizeErrorMessage } from "#modules/imports/runtime/failures";
+import {
+	failImportRun,
+	failImportRunWithFailures,
+	markImportRunStarted,
+	sanitizeErrorMessage,
+	type ImportRunFailureDetails,
+} from "#modules/imports/runtime/failures";
 import { ImportRunArtifacts } from "#modules/imports/runtime/workflow-helpers";
 import { runLoadedMediaImportWorkflow } from "#modules/imports/workflows";
 import type { SandboxCompletedResult } from "#modules/sandbox/schemas";
@@ -23,8 +32,6 @@ import { IntegrationsRepository, type IntegrationRecord } from "./repository";
 import { ListedIntegration } from "./schemas";
 import { getSinkAdapterResult } from "./sinks";
 import {
-	failAdapterOnlyRun,
-	failUnsupportedIntegrationRun,
 	finalizeIntegrationRun,
 	loadYankAdapterResult,
 	runYoutubeMusicHistorySandbox,
@@ -90,6 +97,37 @@ const failRun = (name: string, runId: ImportRunId, message: string) =>
 		execute: failImportRun(runId, message).pipe(Effect.mapError(toWorkflowError)),
 	});
 
+const toImportFailure = (failure: MediaImportAdapterFailure): ImportRunFailureDetails => ({
+	message: failure.message,
+	itemIndex: failure.itemIndex,
+	sourceLabel: failure.sourceLabel,
+	sourceIdentifier: failure.sourceIdentifier,
+	stage: failure.stage ?? "input_transformation",
+	context: failure.context ? { ...failure.context } : null,
+});
+
+const failRunWithFailures = (input: {
+	name: string;
+	runId: ImportRunId;
+	errorSummary?: string;
+	failures: ReadonlyArray<ImportRunFailureDetails>;
+}) =>
+	Activity.make({
+		name: input.name,
+		error: IntegrationRunError,
+		execute: failImportRunWithFailures({
+			runId: input.runId,
+			failures: input.failures,
+			...(input.errorSummary !== undefined ? { errorSummary: input.errorSummary } : {}),
+		}).pipe(Effect.mapError(toWorkflowError)),
+	});
+
+const failRunWithAdapterFailures = (
+	name: string,
+	runId: ImportRunId,
+	result: MediaImportAdapterResult,
+) => failRunWithFailures({ name, runId, failures: result.failures.map(toImportFailure) });
+
 const IntegrationMediaLoadOutcome = Schema.Union(
 	Schema.TaggedStruct("failed", {
 		message: Schema.String,
@@ -115,8 +153,8 @@ const runMediaImportForIntegration = (
 		cleanupOnSuccess: false,
 		cleanupPaths: loaded.cleanupPaths,
 		adapterResult: loaded.adapterResult,
+		options: { integrationId: integration.id },
 		payload: { runId: payload.runId, userId: integration.userId, source: integration.provider },
-		options: { integrationId: integration.id, skipMarkStarted: true },
 	}).pipe(
 		Effect.mapError((error) => new IntegrationRunError({ message: unknownToMessage(error) })),
 	);
@@ -138,13 +176,11 @@ const processSinkMedia = Effect.fn("processSinkMedia")(function* (
 	});
 
 	if (adapterResult.entityGroups.length === 0 && adapterResult.failures.length > 0) {
-		yield* Activity.make({
-			error: IntegrationRunError,
-			name: "record-adapter-only-sink-failure",
-			execute: failAdapterOnlyRun(payload.runId, adapterResult).pipe(
-				Effect.mapError(toWorkflowError),
-			),
-		});
+		yield* failRunWithAdapterFailures(
+			"record-adapter-only-sink-failure",
+			payload.runId,
+			adapterResult,
+		);
 		return;
 	}
 
@@ -211,13 +247,11 @@ const processYoutubeMusicYank = Effect.fn("processYoutubeMusicYank")(function* (
 	});
 
 	if (adapterResult.entityGroups.length === 0 && adapterResult.failures.length > 0) {
-		yield* Activity.make({
-			error: IntegrationRunError,
-			name: "record-youtube-music-source-fetch-failure",
-			execute: failAdapterOnlyRun(payload.runId, adapterResult).pipe(
-				Effect.mapError(toWorkflowError),
-			),
-		});
+		yield* failRunWithAdapterFailures(
+			"record-youtube-music-source-fetch-failure",
+			payload.runId,
+			adapterResult,
+		);
 		return;
 	}
 
@@ -277,12 +311,12 @@ const processYankMedia = Effect.fn("processYankMedia")(function* (
 		return;
 	}
 
-	yield* Activity.make({
-		error: IntegrationRunError,
+	const message = `${integration.provider} integration is not implemented in V2 yet`;
+	yield* failRunWithFailures({
+		runId: payload.runId,
+		errorSummary: message,
 		name: "record-unsupported-yank-run",
-		execute: failUnsupportedIntegrationRun(payload.runId, integration.provider).pipe(
-			Effect.mapError(toWorkflowError),
-		),
+		failures: [{ message, itemIndex: 0, stage: "source_fetch" }],
 	});
 });
 
@@ -300,16 +334,10 @@ const runIntegrationRun = Effect.fn("runIntegrationRun")(function* (
 	payload: IntegrationRunJobData,
 	executionId: string,
 ) {
-	const runWithDb = yield* DbRunner;
-	const repository = yield* ImportsRepository;
-
-	const startedAt = yield* DateTime.nowAsDate;
 	yield* Activity.make({
 		error: IntegrationRunError,
 		name: "mark-integration-run-started",
-		execute: runWithDb(
-			repository.updateRun({ runId: payload.runId, status: "running", startedAt }),
-		).pipe(Effect.mapError(toWorkflowError)),
+		execute: markImportRunStarted(payload.runId).pipe(Effect.mapError(toWorkflowError)),
 	});
 
 	yield* processIntegrationMedia(integration, payload, executionId).pipe(
