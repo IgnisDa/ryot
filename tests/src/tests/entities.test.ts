@@ -590,7 +590,7 @@ describe("POST /entity-schemas/search — provider entity search", () => {
 	});
 });
 
-describe("POST /entity-import — provider entity import", () => {
+describe("POST /library/import — provider entity import", () => {
 	it("returns 404 when the script does not exist", async () => {
 		const { client } = await createAuthenticatedClient();
 		const { schema } = await findBuiltinSchemaWithProviders(client);
@@ -654,7 +654,7 @@ describe("POST /entity-import — provider entity import", () => {
 	});
 });
 
-describe("GET /entity-import/:jobId — provider entity import result", () => {
+describe("GET /library/import/:jobId — provider entity import result", () => {
 	it("enqueues a provider import and adds entity to library when completed", async () => {
 		const { client, email } = await createAuthenticatedClient();
 		const { schema } = await findBuiltinSchemaBySlug(client, "audiobook");
