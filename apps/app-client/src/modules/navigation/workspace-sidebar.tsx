@@ -16,6 +16,7 @@ export function WorkspaceSidebar(props: {
 		<Sidebar
 			className={props.className}
 			onNavigate={props.onNavigate}
+			isPro={props.navigation.isPro}
 			items={props.navigation.items}
 			onOpenSearch={props.onOpenSearch}
 			onEditSection={props.onEditSection}

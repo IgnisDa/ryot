@@ -15,6 +15,7 @@ import {
 	isSmtpEnabled,
 } from "#lib/infrastructure/config/service";
 import { Database } from "#lib/infrastructure/db/service";
+import { ProKeyService } from "#lib/infrastructure/pro-key";
 import { RedisService } from "#lib/infrastructure/redis";
 
 const nonEmpty = (value: Option.Option<string>) =>
@@ -32,8 +33,9 @@ const umamiAnalytics = (config: AppConfigValue) => {
 	return { hostUrl: hostUrl.value, websiteId: websiteId.value };
 };
 
-export const publicSystemConfig = (config: AppConfigValue) =>
+export const publicSystemConfig = (config: AppConfigValue, isServerKeyValidated: boolean) =>
 	({
+		pro: { isServerKeyValidated },
 		analytics: { umami: umamiAnalytics(config) },
 		notifications: { smtpEnabled: isSmtpEnabled(config) },
 		fileStorage: {
@@ -78,7 +80,9 @@ export const SystemRoutesLive = HttpApiBuilder.group(AppContract, "system", (han
 		.handle("config", () =>
 			Effect.gen(function* () {
 				const config = yield* AppConfig;
-				return publicSystemConfig(config);
+				const proKey = yield* ProKeyService;
+				const isServerKeyValidated = yield* proKey.isValidated;
+				return publicSystemConfig(config, isServerKeyValidated);
 			}),
 		),
 );

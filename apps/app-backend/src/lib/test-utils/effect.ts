@@ -133,10 +133,12 @@ export const makeAppConfigLayer = (
 		},
 		server: {
 			logLevel: "Info",
+			proKey: Option.none(),
 			logFile: Option.none(),
 			corsOrigins: Option.none(),
 			otlpEndpoint: Option.none(),
 			disableNotifications: false,
+			proKeyVerificationUrl: "https://api.unkey.com",
 			adminAccessToken: Redacted.make("test-admin-token"),
 			oidc: { clientId: Option.none(), issuerUrl: Option.none(), clientSecret: Option.none() },
 			smtp: {

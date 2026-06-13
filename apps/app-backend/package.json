@@ -10,7 +10,7 @@
 		"run-migration": "bun run sandbox:compile-runner && RUN_MIGRATION_ONLY=true bun run src/main.ts",
 		"sandbox:check-runner": "deno check --config src/lib/infrastructure/sandbox-runtime/deno.json src/lib/infrastructure/sandbox-runtime/runner-source.sandbox.ts",
 		"check": "bun run purity:check && bun run sandbox:compile-runner && bun run sandbox:check-runner && tsc && oxfmt . --write && oxlint . --type-aware --fix",
-		"build": "bun run sandbox:compile-runner && bun build src/main.ts --outdir dist --target bun --sourcemap && bun build scripts/prepare-sandbox-runtime.ts --outdir dist --target bun --sourcemap && bun build scripts/smoke-compiler-worker.ts --outdir dist --target bun --sourcemap"
+		"build": "bun run sandbox:compile-runner && bun build src/main.ts --outdir dist --target bun --sourcemap --define process.env.UNKEY_ROOT_KEY=\"\\\"${UNKEY_ROOT_KEY:-}\\\"\" && bun build scripts/prepare-sandbox-runtime.ts --outdir dist --target bun --sourcemap && bun build scripts/smoke-compiler-worker.ts --outdir dist --target bun --sourcemap"
 	},
 	"dependencies": {
 		"@better-auth/api-key": "1.7.0-rc.6",
@@ -33,6 +33,7 @@
 		"@ryot/sandbox-sdk": "workspace:*",
 		"@ryot/transactional": "workspace:*",
 		"@ryot/ts-utils": "workspace:*",
+		"@unkey/api": "2.3.5",
 		"better-auth": "1.7.0-rc.6",
 		"drizzle-orm": "1.0.0-rc.5-169397b",
 		"effect": "4.0.0-rc.111",

@@ -257,6 +257,19 @@ const server = group(
 			envKey: "SERVER_ADMIN_ACCESS_TOKEN",
 			description: "Bearer token required for god-mode admin endpoints",
 		}),
+		proKey: stringField({
+			secret: true,
+			label: "Pro key",
+			envKey: "SERVER_PRO_KEY",
+			description: "The key that can be used to enable Ryot Pro features",
+		}),
+		proKeyVerificationUrl: stringField({
+			hidden: true,
+			label: "Pro key verification URL",
+			defaultValue: "https://api.unkey.com",
+			envKey: "SERVER_PRO_KEY_VERIFICATION_URL",
+			description: "Base URL used to verify the Pro key",
+		}),
 		disableNotifications: booleanField({
 			defaultValue: false,
 			label: "Disable notifications",
