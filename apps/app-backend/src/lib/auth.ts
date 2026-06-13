@@ -17,7 +17,7 @@ import { DbService } from "./db";
 import * as schemaAuth from "./db/schema/auth";
 import * as schemaRelations from "./db/schema/relations";
 import * as schemaTables from "./db/schema/tables";
-import { rateLimited, unauthorized } from "./errors";
+import { rateLimited, unauthorized, unknownToDbError } from "./errors";
 import { redisKeys, RedisService } from "./redis";
 import { UserId } from "./schema/brands";
 
@@ -194,18 +194,20 @@ export class AuthService extends Effect.Service<AuthService>()("AuthService", {
 				emailVerified: boolean;
 				preferences: Record<string, unknown>;
 			}) =>
-				Effect.promise(() =>
-					auth.$context.then((ctx) => ctx.internalAdapter.createUser(user)),
-				).pipe(Effect.orDie),
+				Effect.tryPromise({
+					try: () => auth.$context.then((ctx) => ctx.internalAdapter.createUser(user)),
+					catch: unknownToDbError,
+				}),
 			linkAuthAccount: (account: {
 				id: string;
 				userId: string;
 				accountId: string;
 				providerId: string;
 			}) =>
-				Effect.promise(() =>
-					auth.$context.then((ctx) => ctx.internalAdapter.linkAccount(account)),
-				).pipe(Effect.orDie),
+				Effect.tryPromise({
+					try: () => auth.$context.then((ctx) => ctx.internalAdapter.linkAccount(account)),
+					catch: unknownToDbError,
+				}),
 			currentUser: (headers: Headers) =>
 				Effect.tryPromise({
 					try: () => auth.api.getSession({ headers }),
