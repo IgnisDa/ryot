@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import { Effect } from "effect";
 
-import { CurrentDb, dbEffect } from "#lib/db";
+import { CurrentDb, dbEffect } from "#lib/db/service";
 import { EntityId, type UserId } from "#lib/schema/brands";
 
 export class EpisodeResolverRepository extends Effect.Service<EpisodeResolverRepository>()(

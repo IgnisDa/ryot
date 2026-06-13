@@ -1,8 +1,8 @@
 import { and, asc, eq, inArray, isNull, or } from "drizzle-orm";
 import { Effect } from "effect";
 
-import { CurrentDb, dbEffect, isUniqueConstraintError } from "#lib/db";
-import * as schema from "#lib/db/schema/tables";
+import * as schema from "#lib/db/schema/tables/combined";
+import { CurrentDb, dbEffect, isUniqueConstraintError } from "#lib/db/service";
 import { DbError, conflict } from "#lib/errors";
 import {
 	EntitySchemaId,

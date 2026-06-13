@@ -13,9 +13,9 @@ import { isIntegrationProvider } from "#modules/integrations/types";
 import { QueryDocument } from "#modules/query-engine/language";
 import { QueryEngineService } from "#modules/query-engine/service";
 
-import { AppConfig } from "../config";
-import { CurrentDb, DbRunner, dbEffect } from "../db";
+import { AppConfig } from "../config/service";
 import * as schema from "../db/schema/tables/auth";
+import { CurrentDb, DbRunner, dbEffect } from "../db/service";
 import { unknownToMessage } from "../errors";
 import { RedisService, redisKeys } from "../redis";
 import { getSandboxAppConfigValue } from "./app-config";
