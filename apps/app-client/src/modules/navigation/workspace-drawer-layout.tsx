@@ -1,16 +1,8 @@
 import { Stack } from "expo-router";
-import type { ComponentProps } from "react";
 
 import { NavigationStatus } from "./navigation-status";
 import { useWorkspaceNavigation } from "./use-workspace-navigation";
 import { WorkspaceDrawer } from "./workspace-drawer";
-import { WorkspaceScreenFrame } from "./workspace-screen-frame";
-
-type ScreenLayoutProps = Parameters<NonNullable<ComponentProps<typeof Stack>["screenLayout"]>>[0];
-
-function renderWorkspaceScreen(props: ScreenLayoutProps) {
-	return <WorkspaceScreenFrame>{props.children}</WorkspaceScreenFrame>;
-}
 
 export function WorkspaceDrawerLayout() {
 	const navigation = useWorkspaceNavigation();
@@ -24,7 +16,7 @@ export function WorkspaceDrawerLayout() {
 
 	return (
 		<WorkspaceDrawer navigation={navigation}>
-			<Stack screenLayout={renderWorkspaceScreen} screenOptions={{ headerShown: false }}>
+			<Stack screenOptions={{ headerShown: false }}>
 				<Stack.Screen name="[workspace]/index" options={{ gestureEnabled: false }} />
 			</Stack>
 		</WorkspaceDrawer>

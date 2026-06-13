@@ -21,7 +21,7 @@ export function SavedViewLayoutSelector(props: { viewSlug: string }) {
 	return (
 		<View
 			accessibilityRole="radiogroup"
-			className="h-9 flex-row self-start rounded-pill border border-border-strong bg-surface-2 p-0.75 md:h-8.5 md:rounded-md"
+			className="h-9 flex-row items-center self-start rounded-pill bg-surface-2 p-0.75 md:h-8.5 md:items-stretch md:rounded-md md:border md:border-border-strong"
 		>
 			{layouts.map((option) => {
 				const selected = layout === option.value;
