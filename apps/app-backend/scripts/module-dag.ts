@@ -394,6 +394,7 @@ ${safeMermaid}
     import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs"
 
     const toViewBox = (box) => [box.x, box.y, box.width, box.height].join(" ")
+    const copyViewBox = (box) => ({ x: box.x, y: box.y, width: box.width, height: box.height })
 
     const ensureViewBox = (svg) => {
       if (svg.getAttribute("viewBox")) return
@@ -403,8 +404,9 @@ ${safeMermaid}
 
     const setupZoom = (svg) => {
       ensureViewBox(svg)
-      const original = { ...svg.viewBox.baseVal }
+      const original = copyViewBox(svg.viewBox.baseVal)
       const state = { pointer: null, viewBox: { ...original } }
+      const zoomStep = 1.08
       const minWidth = original.width * 0.18
       const maxWidth = original.width * 4
 
@@ -429,7 +431,7 @@ ${safeMermaid}
 
       svg.addEventListener("wheel", (event) => {
         event.preventDefault()
-        zoom(event.deltaY < 0 ? 1.15 : 1 / 1.15, event.clientX, event.clientY)
+        zoom(event.deltaY < 0 ? zoomStep : 1 / zoomStep, event.clientX, event.clientY)
       }, { passive: false })
 
       svg.addEventListener("pointerdown", (event) => {
@@ -461,8 +463,8 @@ ${safeMermaid}
       svg.addEventListener("pointerup", stopDragging)
       svg.addEventListener("pointercancel", stopDragging)
 
-      document.querySelector('[data-action="zoom-in"]')?.addEventListener("click", () => zoom(1.15))
-      document.querySelector('[data-action="zoom-out"]')?.addEventListener("click", () => zoom(1 / 1.15))
+      document.querySelector('[data-action="zoom-in"]')?.addEventListener("click", () => zoom(zoomStep))
+      document.querySelector('[data-action="zoom-out"]')?.addEventListener("click", () => zoom(1 / zoomStep))
       document.querySelector('[data-action="reset"]')?.addEventListener("click", () => {
         state.viewBox = { ...original }
         apply()
