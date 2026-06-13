@@ -3,8 +3,22 @@ import { BunHttpServer } from "@effect/platform-bun";
 import { Effect, Layer, Runtime } from "effect";
 
 import { AppContract } from "../contract";
+import { AdminMiddlewareLive, AuthMiddlewareLive } from "../lib/auth";
 import { AppConfig } from "../lib/config";
+import { CollectionsRoutesLive } from "../modules/collections/routes";
+import { EntitiesRoutesLive } from "../modules/entities/routes";
+import { EntitySchemasRoutesLive } from "../modules/entity-schemas/routes";
+import { EventSchemasRoutesLive } from "../modules/event-schemas/routes";
+import { EventsRoutesLive } from "../modules/events/routes";
+import { GodModeRoutesLive } from "../modules/god-mode/routes";
+import { ImportsRoutesLive } from "../modules/imports/routes";
+import { IntegrationsRoutesLive } from "../modules/integrations/routes";
+import { QueryEngineRoutesLive } from "../modules/query-engine/routes";
+import { SandboxRoutesLive } from "../modules/sandbox/routes";
+import { SavedViewsRoutesLive } from "../modules/saved-views/routes";
 import { SystemRoutesLive } from "../modules/system/routes";
+import { TrackersRoutesLive } from "../modules/trackers/routes";
+import { UploadsRoutesLive } from "../modules/uploads/routes";
 
 const mimeType = (path: string) => {
 	if (path.endsWith(".css")) {
@@ -16,7 +30,24 @@ const mimeType = (path: string) => {
 	return "text/html; charset=utf-8";
 };
 
-const ApiLive = HttpApiBuilder.api(AppContract).pipe(Layer.provide(SystemRoutesLive));
+const ApiLive = HttpApiBuilder.api(AppContract).pipe(
+	Layer.provide(SystemRoutesLive),
+	Layer.provide(SandboxRoutesLive),
+	Layer.provide(TrackersRoutesLive),
+	Layer.provide(EntitySchemasRoutesLive),
+	Layer.provide(EntitiesRoutesLive),
+	Layer.provide(EventSchemasRoutesLive),
+	Layer.provide(EventsRoutesLive),
+	Layer.provide(UploadsRoutesLive),
+	Layer.provide(SavedViewsRoutesLive),
+	Layer.provide(CollectionsRoutesLive),
+	Layer.provide(GodModeRoutesLive),
+	Layer.provide(ImportsRoutesLive),
+	Layer.provide(IntegrationsRoutesLive),
+	Layer.provide(QueryEngineRoutesLive),
+	Layer.provide(AuthMiddlewareLive),
+	Layer.provide(AdminMiddlewareLive),
+);
 
 export const ServerLive = Layer.scopedDiscard(
 	Effect.gen(function* () {
