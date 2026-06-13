@@ -14,8 +14,12 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated.index'
 import { Route as AuthenticatedPluginSlugRouteImport } from './routes/_authenticated.$pluginSlug'
+import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated.settings'
 import { Route as AuthenticatedPluginSlugIndexRouteImport } from './routes/_authenticated.$pluginSlug.index'
 import { Route as AuthenticatedPluginSlugSplatRouteImport } from './routes/_authenticated.$pluginSlug.$'
+import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated.settings.index'
+import { Route as AuthenticatedSettingsAccountRouteImport } from './routes/_authenticated.settings.account'
+import { Route as AuthenticatedSettingsPreferencesRouteImport } from './routes/_authenticated.settings.preferences'
 
 const AuthenticatedRoute = AuthenticatedRouteImport.update({
   id: '/_authenticated',
@@ -41,6 +45,11 @@ const AuthenticatedPluginSlugRoute = AuthenticatedPluginSlugRouteImport.update({
   path: '/$pluginSlug',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedPluginSlugIndexRoute =
   AuthenticatedPluginSlugIndexRouteImport.update({
     id: '/',
@@ -53,21 +62,46 @@ const AuthenticatedPluginSlugSplatRoute =
     path: '/$',
     getParentRoute: () => AuthenticatedPluginSlugRoute,
   } as any)
+const AuthenticatedSettingsIndexRoute =
+  AuthenticatedSettingsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
+const AuthenticatedSettingsAccountRoute =
+  AuthenticatedSettingsAccountRouteImport.update({
+    id: '/account',
+    path: '/account',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
+const AuthenticatedSettingsPreferencesRoute =
+  AuthenticatedSettingsPreferencesRouteImport.update({
+    id: '/preferences',
+    path: '/preferences',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
   '/auth': typeof AuthRoute
   '/onboarding': typeof OnboardingRoute
   '/$pluginSlug': typeof AuthenticatedPluginSlugRouteWithChildren
+  '/settings': typeof AuthenticatedSettingsRouteWithChildren
   '/$pluginSlug/$': typeof AuthenticatedPluginSlugSplatRoute
+  '/settings/account': typeof AuthenticatedSettingsAccountRoute
+  '/settings/preferences': typeof AuthenticatedSettingsPreferencesRoute
   '/$pluginSlug/': typeof AuthenticatedPluginSlugIndexRoute
+  '/settings/': typeof AuthenticatedSettingsIndexRoute
 }
 export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/onboarding': typeof OnboardingRoute
   '/': typeof AuthenticatedIndexRoute
   '/$pluginSlug/$': typeof AuthenticatedPluginSlugSplatRoute
+  '/settings/account': typeof AuthenticatedSettingsAccountRoute
+  '/settings/preferences': typeof AuthenticatedSettingsPreferencesRoute
   '/$pluginSlug': typeof AuthenticatedPluginSlugIndexRoute
+  '/settings': typeof AuthenticatedSettingsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -75,9 +109,13 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/onboarding': typeof OnboardingRoute
   '/_authenticated/$pluginSlug': typeof AuthenticatedPluginSlugRouteWithChildren
+  '/_authenticated/settings': typeof AuthenticatedSettingsRouteWithChildren
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/$pluginSlug/$': typeof AuthenticatedPluginSlugSplatRoute
+  '/_authenticated/settings/account': typeof AuthenticatedSettingsAccountRoute
+  '/_authenticated/settings/preferences': typeof AuthenticatedSettingsPreferencesRoute
   '/_authenticated/$pluginSlug/': typeof AuthenticatedPluginSlugIndexRoute
+  '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -86,19 +124,35 @@ export interface FileRouteTypes {
     | '/auth'
     | '/onboarding'
     | '/$pluginSlug'
+    | '/settings'
     | '/$pluginSlug/$'
+    | '/settings/account'
+    | '/settings/preferences'
     | '/$pluginSlug/'
+    | '/settings/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/auth' | '/onboarding' | '/' | '/$pluginSlug/$' | '/$pluginSlug'
+  to:
+    | '/auth'
+    | '/onboarding'
+    | '/'
+    | '/$pluginSlug/$'
+    | '/settings/account'
+    | '/settings/preferences'
+    | '/$pluginSlug'
+    | '/settings'
   id:
     | '__root__'
     | '/_authenticated'
     | '/auth'
     | '/onboarding'
     | '/_authenticated/$pluginSlug'
+    | '/_authenticated/settings'
     | '/_authenticated/'
     | '/_authenticated/$pluginSlug/$'
+    | '/_authenticated/settings/account'
+    | '/_authenticated/settings/preferences'
     | '/_authenticated/$pluginSlug/'
+    | '/_authenticated/settings/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -144,6 +198,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPluginSlugRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/settings': {
+      id: '/_authenticated/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AuthenticatedSettingsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/$pluginSlug/': {
       id: '/_authenticated/$pluginSlug/'
       path: '/'
@@ -157,6 +218,27 @@ declare module '@tanstack/react-router' {
       fullPath: '/$pluginSlug/$'
       preLoaderRoute: typeof AuthenticatedPluginSlugSplatRouteImport
       parentRoute: typeof AuthenticatedPluginSlugRoute
+    }
+    '/_authenticated/settings/': {
+      id: '/_authenticated/settings/'
+      path: '/'
+      fullPath: '/settings/'
+      preLoaderRoute: typeof AuthenticatedSettingsIndexRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
+    '/_authenticated/settings/account': {
+      id: '/_authenticated/settings/account'
+      path: '/account'
+      fullPath: '/settings/account'
+      preLoaderRoute: typeof AuthenticatedSettingsAccountRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
+    '/_authenticated/settings/preferences': {
+      id: '/_authenticated/settings/preferences'
+      path: '/preferences'
+      fullPath: '/settings/preferences'
+      preLoaderRoute: typeof AuthenticatedSettingsPreferencesRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
     }
   }
 }
@@ -177,13 +259,32 @@ const AuthenticatedPluginSlugRouteWithChildren =
     AuthenticatedPluginSlugRouteChildren,
   )
 
+interface AuthenticatedSettingsRouteChildren {
+  AuthenticatedSettingsAccountRoute: typeof AuthenticatedSettingsAccountRoute
+  AuthenticatedSettingsPreferencesRoute: typeof AuthenticatedSettingsPreferencesRoute
+  AuthenticatedSettingsIndexRoute: typeof AuthenticatedSettingsIndexRoute
+}
+
+const AuthenticatedSettingsRouteChildren: AuthenticatedSettingsRouteChildren = {
+  AuthenticatedSettingsAccountRoute: AuthenticatedSettingsAccountRoute,
+  AuthenticatedSettingsPreferencesRoute: AuthenticatedSettingsPreferencesRoute,
+  AuthenticatedSettingsIndexRoute: AuthenticatedSettingsIndexRoute,
+}
+
+const AuthenticatedSettingsRouteWithChildren =
+  AuthenticatedSettingsRoute._addFileChildren(
+    AuthenticatedSettingsRouteChildren,
+  )
+
 interface AuthenticatedRouteChildren {
   AuthenticatedPluginSlugRoute: typeof AuthenticatedPluginSlugRouteWithChildren
+  AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRouteWithChildren
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedPluginSlugRoute: AuthenticatedPluginSlugRouteWithChildren,
+  AuthenticatedSettingsRoute: AuthenticatedSettingsRouteWithChildren,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
 }
 

@@ -66,31 +66,35 @@ export function AuthenticatedShell(props: { readonly initialRememberedSlug: stri
 				onSelectWorkspace={selectWorkspace}
 				onNavigateSettings={() => navigate({ href: "/settings" })}
 			/>
-			<MobileHeader
-				current={current}
-				drawerId={drawerId}
-				isOpen={drawerOpen}
-				triggerRef={triggerRef}
-				onOpen={() => setDrawerOpen(true)}
-			/>
-			<MobileDrawer
-				current={current}
-				catalog={catalog}
-				session={session}
-				drawerId={drawerId}
-				isOpen={drawerOpen}
-				triggerRef={triggerRef}
-				activeHome={homeActive}
-				activeSettings={settingsActive}
-				onSelectWorkspace={selectWorkspace}
-				onClose={() => setDrawerOpen(false)}
-				onNavigateSettings={() => navigate({ href: "/settings" })}
-				onNavigateHome={() =>
-					current === null
-						? undefined
-						: navigate({ to: "/$pluginSlug", params: { pluginSlug: current.slug } })
-				}
-			/>
+			{!settingsActive && (
+				<MobileHeader
+					current={current}
+					drawerId={drawerId}
+					isOpen={drawerOpen}
+					triggerRef={triggerRef}
+					onOpen={() => setDrawerOpen(true)}
+				/>
+			)}
+			{!settingsActive && (
+				<MobileDrawer
+					current={current}
+					catalog={catalog}
+					session={session}
+					drawerId={drawerId}
+					isOpen={drawerOpen}
+					triggerRef={triggerRef}
+					activeHome={homeActive}
+					activeSettings={settingsActive}
+					onSelectWorkspace={selectWorkspace}
+					onClose={() => setDrawerOpen(false)}
+					onNavigateSettings={() => navigate({ href: "/settings" })}
+					onNavigateHome={() =>
+						current === null
+							? undefined
+							: navigate({ to: "/$pluginSlug", params: { pluginSlug: current.slug } })
+					}
+				/>
+			)}
 			<div data-testid="shell-content" className="min-h-0 min-w-0 flex-1 overflow-hidden">
 				<Outlet />
 			</div>
