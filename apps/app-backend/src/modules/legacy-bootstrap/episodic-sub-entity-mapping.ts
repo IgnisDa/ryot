@@ -243,6 +243,14 @@ BEGIN
 		show_seasons.sandbox_script_id,
 		show_seasons.updated_at
 	FROM _legacy_show_season_entities show_seasons
+	WHERE NOT EXISTS (
+		SELECT 1
+		FROM "entity" existing
+		WHERE existing.user_id IS NULL
+		  AND existing.external_id = show_seasons.external_id
+		  AND existing.entity_schema_id = ${quoteSqlString(input.showSeasonEntitySchemaId)}
+		  AND existing.sandbox_script_id IS NOT DISTINCT FROM show_seasons.sandbox_script_id
+	)
 	ON CONFLICT ("id") DO UPDATE
 		SET
 			"name" = EXCLUDED."name",
@@ -288,6 +296,14 @@ BEGIN
 		show_episodes.sandbox_script_id,
 		show_episodes.updated_at
 	FROM _legacy_show_episode_entities show_episodes
+	WHERE NOT EXISTS (
+		SELECT 1
+		FROM "entity" existing
+		WHERE existing.user_id IS NULL
+		  AND existing.external_id = show_episodes.external_id
+		  AND existing.entity_schema_id = ${quoteSqlString(input.showEpisodeEntitySchemaId)}
+		  AND existing.sandbox_script_id IS NOT DISTINCT FROM show_episodes.sandbox_script_id
+	)
 	ON CONFLICT ("id") DO UPDATE
 		SET
 			"name" = EXCLUDED."name",
@@ -332,6 +348,14 @@ BEGIN
 		podcast_episodes.sandbox_script_id,
 		podcast_episodes.updated_at
 	FROM _legacy_podcast_episode_entities podcast_episodes
+	WHERE NOT EXISTS (
+		SELECT 1
+		FROM "entity" existing
+		WHERE existing.user_id IS NULL
+		  AND existing.external_id = podcast_episodes.external_id
+		  AND existing.entity_schema_id = ${quoteSqlString(input.podcastEpisodeEntitySchemaId)}
+		  AND existing.sandbox_script_id IS NOT DISTINCT FROM podcast_episodes.sandbox_script_id
+	)
 	ON CONFLICT ("id") DO UPDATE
 		SET
 			"name" = EXCLUDED."name",
