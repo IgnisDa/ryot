@@ -2,7 +2,7 @@ import { createRyotClient } from "@ryot/client-sdk";
 import { RyotProvider } from "@ryot/client-sdk/react";
 import type { PluginClientCatalog } from "@ryot/ryotql-recipes/plugin-client-catalog";
 import { act, render, screen, waitFor } from "@testing-library/react";
-import { Effect, Layer, ManagedRuntime } from "effect";
+import { Deferred, Effect, Layer, ManagedRuntime } from "effect";
 import type { ReactNode } from "react";
 import { describe, expect, it } from "vitest";
 
@@ -56,7 +56,14 @@ const makeView = (
 			</PluginCatalogProvider>
 		</RyotProvider>
 	);
-	return { events, runtime, tree, ...render(tree(children)) };
+	const view = render(tree(children));
+	return {
+		...view,
+		tree,
+		events,
+		runtime,
+		removeProvider: () => view.rerender(<RyotProvider client={client}>{null}</RyotProvider>),
+	};
 };
 
 describe("plugin catalog provider", () => {
@@ -127,6 +134,25 @@ describe("plugin catalog provider", () => {
 		await Promise.resolve();
 
 		expect(loads).toBe(0);
+		await view.runtime.dispose();
+	});
+
+	it("interrupts an in-flight event refresh when the provider unmounts", async () => {
+		const started = Effect.runSync(Deferred.make<void>());
+		const cancelled = Effect.runSync(Deferred.make<void>());
+		const view = makeView(() =>
+			Effect.acquireRelease(Deferred.succeed(started, undefined), () =>
+				Deferred.succeed(cancelled, undefined),
+			).pipe(Effect.andThen(Effect.never), Effect.scoped),
+		);
+		await waitFor(() => expect(view.events.isSubscribed()).toBe(true));
+
+		act(() => view.events.send());
+		await Effect.runPromise(Deferred.await(started));
+		view.removeProvider();
+
+		await Effect.runPromise(Deferred.await(cancelled));
+		await waitFor(() => expect(view.events.isSubscribed()).toBe(false));
 		await view.runtime.dispose();
 	});
 

@@ -156,6 +156,68 @@ describe("useRyotQuery", () => {
 		expect(calls).toBe(1);
 	});
 
+	it("cancels opted-in in-flight queries when the final consumer unmounts", async () => {
+		let signal: AbortSignal | undefined;
+		const query = createRyotQuery(
+			({ signal: requestSignal }) => {
+				signal = requestSignal;
+				return new Promise<never>((_resolve, reject) => {
+					requestSignal.addEventListener("abort", () => reject(requestSignal.reason), {
+						once: true,
+					});
+				});
+			},
+			{ cancelOnUnmount: true },
+		);
+		const View = () => <p>{useRyotQuery(query).status}</p>;
+		const container = document.createElement("div");
+		document.body.append(container);
+		const root = createRoot(container);
+		roots.push(root);
+		act(() =>
+			root.render(
+				<RyotProvider client={client}>
+					<View />
+				</RyotProvider>,
+			),
+		);
+		await waitFor(() => expect(signal).toBeDefined());
+
+		act(() => root.render(<RyotProvider client={client}>{null}</RyotProvider>));
+
+		await waitFor(() => expect(signal?.aborted).toBe(true));
+	});
+
+	it("retains default query data across consumer unmounts", async () => {
+		let calls = 0;
+		const query = createRyotQuery(() => Promise.resolve(++calls));
+		const View = () => <p>{useRyotQuery(query).data ?? "pending"}</p>;
+		const container = document.createElement("div");
+		document.body.append(container);
+		const root = createRoot(container);
+		roots.push(root);
+		act(() =>
+			root.render(
+				<RyotProvider client={client}>
+					<View />
+				</RyotProvider>,
+			),
+		);
+		await waitFor(() => expect(container.textContent).toBe("1"));
+
+		act(() => root.render(<RyotProvider client={client}>{null}</RyotProvider>));
+		act(() =>
+			root.render(
+				<RyotProvider client={client}>
+					<View />
+				</RyotProvider>,
+			),
+		);
+
+		await waitFor(() => expect(container.textContent).toBe("1"));
+		expect(calls).toBe(1);
+	});
+
 	it("isolates caches between providers", async () => {
 		let calls = 0;
 		const query = createRyotQuery(() => Promise.resolve(++calls));
