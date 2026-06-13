@@ -4,11 +4,11 @@ import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngin
 import { Effect, Layer } from "effect";
 
 import { badRequest } from "#lib/errors";
-import { EntityId, EntitySchemaId, ImportRunId, UserId } from "#lib/schema/brands";
+import { EntityId, EntitySchemaId, EventSchemaId, ImportRunId, UserId } from "#lib/schema/brands";
+import type { MockOverrides } from "#lib/test-support/effect";
 import {
 	dbRunnerLayer,
 	makeAppConfigLayer,
-	makeMock,
 	makeWorkflowActivityEngine,
 } from "#lib/test-support/effect";
 import { EntitiesRepository } from "#modules/entities/repository";
@@ -39,6 +39,14 @@ import { prepareWorkoutWrites } from "./workout/workflow";
 
 const now = "2026-06-17T00:00:00.000Z";
 
+const mockImportsRepository = Layer.mock(ImportsRepository);
+const mockEntitiesService = Layer.mock(EntitiesService);
+const mockEntitiesRepository = Layer.mock(EntitiesRepository);
+const mockEntitySchemasRepository = Layer.mock(EntitySchemasRepository);
+const mockEventSchemasRepository = Layer.mock(EventSchemasRepository);
+const mockEventsService = Layer.mock(EventsService);
+const mockImportRunArtifacts = Layer.mock(ImportRunArtifacts);
+
 const makeListedEntity = (
 	overrides: Partial<Omit<ListedEntity, "properties">> = {},
 ): Omit<ListedEntity, "properties"> & { properties: Record<string, unknown> } => ({
@@ -55,94 +63,73 @@ const makeListedEntity = (
 	...overrides,
 });
 
-const makeImportsRepository = (overrides: Partial<ImportsRepository> = {}) =>
-	makeMock<ImportsRepository>(
-		{
-			updateRun: () => Effect.void,
-			createFailure: () => Effect.void,
-			_tag: "ImportsRepository" as const,
-			createRun: () => Effect.die("unused"),
-			getRunById: () => Effect.die("unused"),
-			deleteRunById: () => Effect.die("unused"),
-			listRunsByUser: () => Effect.die("unused"),
-			listFailuresByRunId: () => Effect.die("unused"),
-			listRunsByIntegrationId: () => Effect.die("unused"),
-			hasActiveRunForIntegration: () => Effect.die("unused"),
-			listRecentStatusesByIntegrationId: () => Effect.die("unused"),
-		},
-		overrides,
-	);
+const makeImportsRepository = (overrides: MockOverrides<typeof mockImportsRepository> = {}) =>
+	mockImportsRepository({
+		updateRun: () => Effect.void,
+		createFailure: () => Effect.void,
+		...overrides,
+		_tag: "ImportsRepository",
+	});
 
-const makeEntitiesService = (overrides: Partial<EntitiesService> = {}) =>
-	makeMock<EntitiesService>(
-		{
-			_tag: "EntitiesService" as const,
-			getById: () => Effect.die("unused"),
-			import: () => Effect.die("unused"),
-			create: () => Effect.die("unused"),
-			getImportResult: () => Effect.die("unused"),
-			upsertUserRelationship: () => Effect.die("unused"),
-			insertUserRelationship: () => Effect.die("unused"),
-			writeEntityRelationship: () => Effect.die("unused"),
-		},
-		overrides,
-	);
+const makeEntitiesService = (overrides: MockOverrides<typeof mockEntitiesService> = {}) =>
+	mockEntitiesService({ ...overrides, _tag: "EntitiesService" });
 
-const makeEntitiesRepository = (overrides: Partial<EntitiesRepository> = {}) =>
-	makeMock<EntitiesRepository>(
-		{
-			_tag: "EntitiesRepository" as const,
-			saveEntity: () => Effect.die("unused"),
-			getByIdForUser: () => Effect.die("unused"),
-			listMatchCandidatesBySchema: () => Effect.succeed([]),
-			findEntitySchemaScriptBySlug: () => Effect.die("unused"),
-		},
-		overrides,
-	);
+const makeEntitiesRepository = (overrides: MockOverrides<typeof mockEntitiesRepository> = {}) =>
+	mockEntitiesRepository({
+		listMatchCandidatesBySchema: () => Effect.succeed([]),
+		...overrides,
+		_tag: "EntitiesRepository",
+	});
 
-const makeEntitySchemasRepository = (overrides: Partial<EntitySchemasRepository> = {}) =>
-	makeMock<EntitySchemasRepository>(
-		{
-			_tag: "EntitySchemasRepository" as const,
-			listByUser: () => Effect.die("unused"),
-			findBySlug: () => Effect.die("unused"),
-			getByIdForUser: () => Effect.die("unused"),
-			listVisibleBySlugs: () => Effect.die("unused"),
-			getBuiltinBySlug: (slug: string) => Effect.succeed({ id: `${slug}-schema` }),
-		},
-		overrides,
-	);
+const makeEntitySchemasRepository = (
+	overrides: MockOverrides<typeof mockEntitySchemasRepository> = {},
+) =>
+	mockEntitySchemasRepository({
+		getBuiltinBySlug: (slug) => Effect.succeed({ id: EntitySchemaId.make(`${slug}-schema`) }),
+		...overrides,
+		_tag: "EntitySchemasRepository",
+	});
 
-const makeEventSchemasRepository = (overrides: Partial<EventSchemasRepository> = {}) =>
-	makeMock<EventSchemasRepository>(
-		{
-			_tag: "EventSchemasRepository" as const,
-			getBuiltinBySlug: () =>
-				Effect.succeed({
-					id: "workout-set-event",
-					propertiesSchema: { fields: {}, unknownKeys: "passthrough" },
-				}),
-		},
-		overrides,
-	);
+const makeEventSchemasRepository = (
+	overrides: MockOverrides<typeof mockEventSchemasRepository> = {},
+) =>
+	mockEventSchemasRepository({
+		getBuiltinBySlug: () =>
+			Effect.succeed({
+				id: EventSchemaId.make("workout-set-event"),
+				propertiesSchema: { fields: {}, unknownKeys: "passthrough" },
+			}),
+		...overrides,
+		_tag: "EventSchemasRepository",
+	});
 
-const makeEventsService = (overrides: Partial<EventsService> = {}) =>
-	makeMock<EventsService>(
-		{
-			_tag: "EventsService" as const,
-			listForUser: () => Effect.die("unused"),
-			create: () => Effect.succeed({ count: 1 }),
-		},
-		overrides,
-	);
+const makeEventsService = (overrides: MockOverrides<typeof mockEventsService> = {}) =>
+	mockEventsService({
+		create: () => Effect.succeed({ count: 1 }),
+		...overrides,
+		_tag: "EventsService",
+	});
 
 const makeImportRunArtifacts = (
-	cleanupArtifacts: ImportRunArtifacts["cleanupArtifacts"] = () => Effect.void,
+	cleanupArtifacts: NonNullable<
+		MockOverrides<typeof mockImportRunArtifacts>["cleanupArtifacts"]
+	> = () => Effect.void,
 ) =>
-	makeMock<ImportRunArtifacts>({
+	mockImportRunArtifacts({
 		cleanupArtifacts,
-		_tag: "ImportRunArtifacts" as const,
+		_tag: "ImportRunArtifacts",
 	});
+
+type TestLayerOptions = {
+	eventsService?: Layer.Layer<EventsService>;
+	entitiesService?: Layer.Layer<EntitiesService>;
+	importsRepository?: Layer.Layer<ImportsRepository>;
+	entitiesRepository?: Layer.Layer<EntitiesRepository>;
+	importRunArtifacts?: Layer.Layer<ImportRunArtifacts>;
+	eventSchemasRepository?: Layer.Layer<EventSchemasRepository>;
+	entitySchemasRepository?: Layer.Layer<EntitySchemasRepository>;
+	nonMediaOperations?: (payload: ImportRunJobData) => NonMediaImportOperationSet;
+};
 
 const openScaleOperations = (input: {
 	loadAdapterResult: NonMediaImportOperations<
@@ -172,42 +159,25 @@ const workoutOperations = (input: {
 		loadAdapterResult: input.loadAdapterResult,
 	});
 
-type TestLayerOptions = {
-	eventsService?: EventsService;
-	entitiesService?: EntitiesService;
-	importsRepository?: ImportsRepository;
-	entitiesRepository?: EntitiesRepository;
-	importRunArtifacts?: ImportRunArtifacts;
-	eventSchemasRepository?: EventSchemasRepository;
-	entitySchemasRepository?: EntitySchemasRepository;
-	nonMediaOperations?: (payload: ImportRunJobData) => NonMediaImportOperationSet;
-};
-
 const makeTestLayer = (options: TestLayerOptions) =>
 	Layer.mergeAll(
 		dbRunnerLayer,
 		makeAppConfigLayer(),
 		BunFileSystem.layer,
-		Layer.succeed(ImportRunArtifacts, options.importRunArtifacts ?? makeImportRunArtifacts()),
-		Layer.succeed(NonMediaImportWorkflowOperations, {
+		options.importRunArtifacts ?? makeImportRunArtifacts(),
+		Layer.mock(NonMediaImportWorkflowOperations, {
 			getOperations: (payload) =>
 				Effect.succeed(
 					options.nonMediaOperations?.(payload) ??
 						openScaleOperations({ loadAdapterResult: () => Effect.die("unused") }),
 				),
 		}),
-		Layer.succeed(ImportsRepository, options.importsRepository ?? makeImportsRepository()),
-		Layer.succeed(EntitiesService, options.entitiesService ?? makeEntitiesService()),
-		Layer.succeed(EntitiesRepository, options.entitiesRepository ?? makeEntitiesRepository()),
-		Layer.succeed(EventsService, options.eventsService ?? makeEventsService()),
-		Layer.succeed(
-			EventSchemasRepository,
-			options.eventSchemasRepository ?? makeEventSchemasRepository(),
-		),
-		Layer.succeed(
-			EntitySchemasRepository,
-			options.entitySchemasRepository ?? makeEntitySchemasRepository(),
-		),
+		options.importsRepository ?? makeImportsRepository(),
+		options.entitiesService ?? makeEntitiesService(),
+		options.entitiesRepository ?? makeEntitiesRepository(),
+		options.eventsService ?? makeEventsService(),
+		options.eventSchemasRepository ?? makeEventSchemasRepository(),
+		options.entitySchemasRepository ?? makeEntitySchemasRepository(),
 	);
 
 const withTestLayer = <A, E, R>(
