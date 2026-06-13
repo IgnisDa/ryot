@@ -190,8 +190,6 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 			return toCollectionResponse(created);
 		});
 
-		// The transactional membership write, run inside AddEntityToCollectionWorkflow's activity. The
-		// deterministic event dispatch happens in the workflow body, outside this transaction.
 		const writeMembership = Effect.fn("CollectionsService.writeMembership")(function* (input: {
 			userId: UserId;
 			entityId: EntityId;
@@ -291,7 +289,6 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 			user: CurrentUserValue,
 			payload: CreateMembershipBody,
 		) {
-			// A genuinely fresh, top-level dispatch from HTTP: a random executionId is correct here.
 			const executionId = generateId();
 			return yield* engine.execute(AddEntityToCollectionWorkflow, {
 				executionId,

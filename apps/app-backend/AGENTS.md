@@ -65,10 +65,19 @@ Remove explicit return type annotations when TypeScript can trivially infer them
 - Expected failures roll back through an internal sentinel, after which the original typed failure is restored.
 - Do not hold a transaction across sandbox execution, network calls, durable workflow boundaries, sleeps, or fan-out work.
 
+## Durable Ownership
+
+- Every business operation that runs durably has exactly one owner: a single workflow definition or durable-queue worker. No two workflows may implement the same operation. When a workflow needs work another owns, it composes the owner — awaiting the child when it needs the result, or dispatching it fire-and-forget with a deterministic execution id when it does not.
+- Parent workflows are orchestration shells. Cron ticks and multi-stage pipelines fan out to feature-owned child workflows instead of inlining another feature's activities.
+- A durable-queue worker is the canonical owner when the module gradient requires dependency inversion (hook in the generic module, worker in the specific one); otherwise prefer a workflow.
+- Activities never start durable work: no `engine.execute`, workflow `.execute`, or `DurableQueue.process` from inside an `Activity.make` execute body, including transitively through service calls — dispatch from the workflow body. `sandbox/workflow-boundaries.test.ts` pins the current owners.
+- Single ownership is not single-flight: different parents may run the owner concurrently for the same target, so owners must be idempotent (ensure-mode short-circuits, preserve-existing upserts). Add cross-execution coordination only when duplicate in-flight work is measurably harmful.
+- `docs/effect-workflow-guide.md` documents the mechanics and the audit of current owners.
+
 ## Queues
 
 - Do not introduce a third-party job-queue library. Background work uses the durable workflow engine, durable queues, and durable deferred signals.
-- When a workflow runs a child workflow (e.g. an import writing events via `EventCreateWorkflow`), give the child a deterministic `executionId` derived from the parent (parent executionId + loop indices), never a fresh random one. A child that durably suspends — e.g. an event firing an after-create trigger — replays the parent, and a random id spawns a new child each replay, looping forever. Match the keying used by `populateMediaEntityGroups` (`imports/media/population-workflow.ts`) and `resolveMediaEntityGroups` (`imports/media/resolution-workflow.ts`). Note: `library-membership/service.ts`'s own `importEntity` is an unrelated top-level dispatch, not an example of this pattern.
+- When a workflow runs a child workflow (e.g. an import writing events via `EventCreateWorkflow`), give the child a deterministic `executionId` derived from the parent (parent executionId + loop indices), never a fresh random one. A child that durably suspends — e.g. an event firing an after-create trigger — replays the parent, and a random id spawns a new child each replay, looping forever. Match the keying used by `populateMediaEntityGroups` (`imports/media/population-workflow.ts`) and `resolveMediaEntityGroups` (`imports/media/resolution-workflow.ts`). Note: `library-membership/service.ts`'s own `importEntity` and `collections/service.ts`'s `addToCollection` are unrelated top-level dispatches, not examples of this pattern.
 
 ## Redis
 

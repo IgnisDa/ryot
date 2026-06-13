@@ -30,9 +30,6 @@ export async function pollSandboxResult(client: Client, jobId: string, options: 
 
 			return result.status !== "pending" ? result : null;
 		},
-		// Sandbox jobs run through the same durable-queue/worker pipeline as trigger chains, whose
-		// drain latency spikes under full-suite load. Give the default budget headroom below the 180s
-		// outer per-test timeout; callers can still override.
 		{ timeoutMs: 120_000, ...options },
 	);
 }
