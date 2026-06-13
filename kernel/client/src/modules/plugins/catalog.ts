@@ -20,12 +20,12 @@ export class PluginCatalogService extends Context.Service<PluginCatalogService>(
 			const load = Effect.fn("PluginCatalogService.load")((ryot: KernelRyotClient) =>
 				Effect.tryPromise({
 					catch: (cause) => new PluginCatalogError({ cause }),
-					try: () => {
+					try: (signal) => {
 						const loadPage = (
 							after: string | undefined,
 							catalog: PluginClientCatalogEntry[],
 						): Promise<PluginClientCatalog> =>
-							ryot.data.query(pluginClientCatalogRecipe({ after })).then((page) => {
+							ryot.data.query(pluginClientCatalogRecipe({ after }), { signal }).then((page) => {
 								catalog.push(...page.items);
 								if (!page.pageInfo.hasMore) {
 									return catalog;
