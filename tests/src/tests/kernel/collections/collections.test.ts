@@ -72,8 +72,11 @@ describe("POST /collections", () => {
 				),
 			);
 
-			assertTaggedError(error, "BadRequest");
-			expect(error.message).toContain("membershipPropertiesSchema must be a valid AppSchema");
+			assertTaggedError(error, "CollectionBadRequest");
+			expect(error.reason).toMatchObject({
+				code: "invalid-membership-schema",
+				field: "membershipPropertiesSchema",
+			});
 		}),
 	);
 
@@ -89,7 +92,7 @@ describe("POST /collections", () => {
 				),
 			);
 
-			assertTaggedError(error, "Unauthorized");
+			assertTaggedError(error, "AuthUnauthorized");
 		}),
 	);
 
@@ -196,8 +199,11 @@ describe("POST /collections", () => {
 					),
 				);
 
-				assertTaggedError(error, "BadRequest");
-				expect(error.message).toContain("membershipPropertiesSchema must be a valid AppSchema");
+				assertTaggedError(error, "CollectionBadRequest");
+				expect(error.reason).toMatchObject({
+					code: "invalid-membership-schema",
+					field: "membershipPropertiesSchema",
+				});
 			}),
 		);
 
@@ -219,8 +225,11 @@ describe("POST /collections", () => {
 					),
 				);
 
-				assertTaggedError(error, "BadRequest");
-				expect(error.message).toContain("membershipPropertiesSchema must be a valid AppSchema");
+				assertTaggedError(error, "CollectionBadRequest");
+				expect(error.reason).toMatchObject({
+					code: "invalid-membership-schema",
+					field: "membershipPropertiesSchema",
+				});
 			}),
 		);
 

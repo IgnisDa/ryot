@@ -71,7 +71,7 @@ describe("Reset user admin token enforcement", () => {
 			const error = yield* Effect.flip(
 				client.call((c) => c.godMode.resetUser({ params: { userId: UserId.make("any-id") } })),
 			);
-			assertTaggedError(error, "Unauthorized");
+			assertTaggedError(error, "AuthUnauthorized");
 		}),
 	);
 
@@ -84,7 +84,7 @@ describe("Reset user admin token enforcement", () => {
 					adminAccessTokenHeaders(WRONG_TOKEN),
 				),
 			);
-			assertTaggedError(error, "Unauthorized");
+			assertTaggedError(error, "AuthUnauthorized");
 		}),
 	);
 
@@ -97,7 +97,8 @@ describe("Reset user admin token enforcement", () => {
 					adminAccessTokenHeaders(ADMIN_TOKEN),
 				),
 			);
-			assertTaggedError(error, "NotFound");
+			assertTaggedError(error, "GodModeNotFound");
+			expect(error.reason.code).toBe("user-not-found");
 		}),
 	);
 });
@@ -137,14 +138,14 @@ describe("Reset user for credential user", () => {
 					Cookie: cookies,
 				}),
 			);
-			assertTaggedError(oldSession, "Unauthorized");
+			assertTaggedError(oldSession, "AuthUnauthorized");
 
 			const oldApiKey = yield* Effect.flip(
 				client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
 					"X-Api-Key": apiKey,
 				}),
 			);
-			assertTaggedError(oldApiKey, "Unauthorized");
+			assertTaggedError(oldApiKey, "AuthUnauthorized");
 
 			const reset = yield* pollUserLifecycleOperation(accepted.id);
 			expect(reset.status).toBe("completed");
@@ -262,8 +263,8 @@ describe("Reset user for mixed-auth user", () => {
 					adminAccessTokenHeaders(ADMIN_TOKEN),
 				),
 			);
-			assertTaggedError(error, "BadRequest");
-			expect(error.message).toMatch(/mixed/i);
+			assertTaggedError(error, "GodModeRequestFailure");
+			expect(error.reason.code).toBe("mixed-auth-reset-unsupported");
 
 			// The reset is rejected before any mutation, so the pre-existing session keeps working.
 			yield* client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {

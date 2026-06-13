@@ -46,7 +46,7 @@ describe("Two-factor sign-in flow", () => {
 					Cookie: signInCookies,
 				}),
 			);
-			assertTaggedError(unauthorizedError, "Unauthorized");
+			assertTaggedError(unauthorizedError, "AuthUnauthorized");
 
 			const verification = yield* Effect.promise(() =>
 				verifyBackupCodeForSession({ code: backupCode, cookies: signInCookies, baseUrl }),

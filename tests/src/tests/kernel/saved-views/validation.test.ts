@@ -40,10 +40,13 @@ describe("saved views validation", () => {
 
 			const error = yield* Effect.flip(client.call((c) => c.savedViews.create({ payload: body })));
 
-			assertTaggedError(error, "BadRequest");
-			expect(error.message).toBe(
-				"Grid layout: mapping field 'missing' is not in its root projection",
-			);
+			assertTaggedError(error, "SavedViewBadRequest");
+			expect(error.reason).toEqual({
+				field: "missing",
+				layout: "grid",
+				code: "invalid-definition",
+				issue: "mapping-field-missing",
+			});
 		}),
 	);
 
@@ -64,8 +67,13 @@ describe("saved views validation", () => {
 
 			const error = yield* Effect.flip(client.call((c) => c.savedViews.create({ payload: body })));
 
-			assertTaggedError(error, "BadRequest");
-			expect(error.message).toBe("Grid layout: entityIdField must resolve to text");
+			assertTaggedError(error, "SavedViewBadRequest");
+			expect(error.reason).toEqual({
+				layout: "grid",
+				issue: "field-kind",
+				field: "entityIdField",
+				code: "invalid-definition",
+			});
 		}),
 	);
 
@@ -83,8 +91,12 @@ describe("saved views validation", () => {
 
 			const error = yield* Effect.flip(client.call((c) => c.savedViews.create({ payload: body })));
 
-			assertTaggedError(error, "BadRequest");
-			expect(error.message).toBe("Grid layout: must contain exactly one named query");
+			assertTaggedError(error, "SavedViewBadRequest");
+			expect(error.reason).toEqual({
+				layout: "grid",
+				issue: "query-count",
+				code: "invalid-definition",
+			});
 		}),
 	);
 
@@ -101,8 +113,12 @@ describe("saved views validation", () => {
 
 			const error = yield* Effect.flip(client.call((c) => c.savedViews.create({ payload: body })));
 
-			assertTaggedError(error, "BadRequest");
-			expect(error.message).toBe("Grid layout: query must have rows output");
+			assertTaggedError(error, "SavedViewBadRequest");
+			expect(error.reason).toEqual({
+				layout: "grid",
+				issue: "output-kind",
+				code: "invalid-definition",
+			});
 		}),
 	);
 
@@ -117,8 +133,12 @@ describe("saved views validation", () => {
 
 			const error = yield* Effect.flip(client.call((c) => c.savedViews.create({ payload: body })));
 
-			assertTaggedError(error, "BadRequest");
-			expect(error.message).toBe("Grid layout: query must use explicit field selections");
+			assertTaggedError(error, "SavedViewBadRequest");
+			expect(error.reason).toEqual({
+				layout: "grid",
+				code: "invalid-definition",
+				issue: "explicit-fields-required",
+			});
 		}),
 	);
 
@@ -143,8 +163,12 @@ describe("saved views validation", () => {
 
 			const error = yield* Effect.flip(client.call((c) => c.savedViews.create({ payload: body })));
 
-			assertTaggedError(error, "BadRequest");
-			expect(error.message).toBe("Grid layout: query must not include nested results");
+			assertTaggedError(error, "SavedViewBadRequest");
+			expect(error.reason).toEqual({
+				layout: "grid",
+				issue: "nested-results",
+				code: "invalid-definition",
+			});
 		}),
 	);
 
@@ -162,8 +186,12 @@ describe("saved views validation", () => {
 
 			const error = yield* Effect.flip(client.call((c) => c.savedViews.create({ payload: body })));
 
-			assertTaggedError(error, "BadRequest");
-			expect(error.message).toBe("Grid layout: query pagination must not contain a cursor");
+			assertTaggedError(error, "SavedViewBadRequest");
+			expect(error.reason).toEqual({
+				layout: "grid",
+				code: "invalid-definition",
+				issue: "cursor-pagination",
+			});
 		}),
 	);
 });

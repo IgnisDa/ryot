@@ -196,8 +196,8 @@ describe("DELETE /user-state/clear/:id", () => {
 				client.call((c) => c.userState.clearUserState({ params: { entityId: libraryEntityId } })),
 			);
 
-			assertTaggedError(error, "BadRequest");
-			expect(error.message).toBe("Entity user state cannot be cleared");
+			assertTaggedError(error, "UserStateBadRequest");
+			expect(error.reason).toEqual({ code: "operation-denied", operation: "clear" });
 		}),
 	);
 
@@ -211,7 +211,7 @@ describe("DELETE /user-state/clear/:id", () => {
 				),
 			);
 
-			assertTaggedError(error, "Unauthorized");
+			assertTaggedError(error, "AuthUnauthorized");
 		}),
 	);
 });
@@ -322,8 +322,8 @@ describe("POST /user-state/merge", () => {
 				),
 			);
 
-			assertTaggedError(error, "BadRequest");
-			expect(error.message).toBe("Entities must belong to the same schema");
+			assertTaggedError(error, "UserStateBadRequest");
+			expect(error.reason).toEqual({ code: "entity-schema-mismatch" });
 		}),
 	);
 });

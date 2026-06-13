@@ -141,7 +141,7 @@ describe("POST /test-support/plugin-boot (custom plugin boot dispatch)", () => {
 			const client = getBackendClient();
 
 			const missing = yield* Effect.flip(client.call((c) => c.testSupport.triggerPluginBoot()));
-			assertTaggedError(missing, "Unauthorized");
+			assertTaggedError(missing, "AuthUnauthorized");
 
 			const wrong = yield* Effect.flip(
 				client.call(
@@ -149,7 +149,7 @@ describe("POST /test-support/plugin-boot (custom plugin boot dispatch)", () => {
 					adminAccessTokenHeaders("wrong-token"),
 				),
 			);
-			assertTaggedError(wrong, "Unauthorized");
+			assertTaggedError(wrong, "AuthUnauthorized");
 		}),
 	);
 
