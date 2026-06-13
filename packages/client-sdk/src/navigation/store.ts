@@ -7,9 +7,12 @@ export type PluginNavigationEntry = {
 };
 
 export type PluginNavigationSnapshot = {
+	readonly compact: boolean;
 	readonly edgeBack: boolean;
 	readonly entry: PluginNavigationEntry | undefined;
 };
+
+export type PluginEdgeState = Omit<PluginNavigationSnapshot, "entry">;
 
 export type PluginNavigationStore = {
 	readonly getSnapshot: () => PluginNavigationSnapshot;
@@ -22,13 +25,13 @@ export type PluginRouterNavigation = PluginNavigationStore & {
 
 export type PluginNavigationController = PluginNavigationStore & {
 	readonly clear: () => void;
-	readonly setEdgeBack: (enabled: boolean) => void;
+	readonly setEdge: (edge: PluginEdgeState) => void;
 	readonly setEntry: (entry: PluginNavigationEntry) => void;
 };
 
 export const createPluginNavigationStore = (): PluginNavigationController => {
 	const listeners = new Set<() => void>();
-	let snapshot: PluginNavigationSnapshot = { edgeBack: false, entry: undefined };
+	let snapshot: PluginNavigationSnapshot = { compact: false, edgeBack: false, entry: undefined };
 
 	const emit = (next: PluginNavigationSnapshot) => {
 		snapshot = next;
@@ -40,14 +43,14 @@ export const createPluginNavigationStore = (): PluginNavigationController => {
 	return {
 		getSnapshot: () => snapshot,
 		setEntry: (entry) => emit({ ...snapshot, entry }),
-		clear: () => emit({ edgeBack: false, entry: undefined }),
+		clear: () => emit({ compact: false, edgeBack: false, entry: undefined }),
 		subscribe: (listener) => {
 			listeners.add(listener);
 			return () => listeners.delete(listener);
 		},
-		setEdgeBack: (edgeBack) => {
-			if (edgeBack !== snapshot.edgeBack) {
-				emit({ ...snapshot, edgeBack });
+		setEdge: ({ compact, edgeBack }) => {
+			if (compact !== snapshot.compact || edgeBack !== snapshot.edgeBack) {
+				emit({ ...snapshot, compact, edgeBack });
 			}
 		},
 	};

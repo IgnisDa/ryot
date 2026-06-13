@@ -62,6 +62,7 @@ const activate = (channel: MessageChannel) => {
 	channel.port1.postMessage({
 		index: 0,
 		key: "k0",
+		compact: false,
 		edgeBack: false,
 		type: "location",
 		location: { path: "/", search: "" },
@@ -535,6 +536,7 @@ describe("plugin runtime", () => {
 		channel.port1.postMessage({
 			index: 0,
 			key: "k0",
+			compact: false,
 			edgeBack: false,
 			type: "location",
 			location: { path: "/", search: "" },
