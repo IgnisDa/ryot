@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { FetchHttpClient, HttpApiClient, HttpClient, HttpClientRequest } from "@effect/platform";
 import { faker } from "@faker-js/faker";
 import { AppContract } from "@ryot/app-backend/contract";
-import type { QueryExpression, QueryFilter, RuntimeRef } from "@ryot/app-backend/query-language";
+import type { QueryExpression, RuntimeRef } from "@ryot/app-backend/query-language";
 import {
 	EntitySchemaId,
 	RemoteImageUrl,
@@ -92,20 +92,7 @@ async function createAndSignIn(): Promise<{
 type CreateCollectionBody = ContractPayload<"collections", "create">;
 type AddToCollectionBody = ContractPayload<"collections", "createMembership">;
 type CreateSavedViewBody = ContractPayload<"savedViews", "create">;
-type SavedViewQueryDefinition = CreateSavedViewBody["queryDefinition"];
-type SavedViewSortByExpr = NonNullable<SavedViewQueryDefinition["sort"]>;
-type SavedViewQueryInput = {
-	scope: string[];
-	eventJoins?: SavedViewQueryDefinition["eventJoins"];
-	computedFields?: SavedViewQueryDefinition["computedFields"];
-	filter?: SavedViewQueryDefinition["filter"];
-	filters?: Array<{
-		op: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "contains" | "isNull" | "isNotNull";
-		field: string;
-		value?: unknown;
-	}>;
-	sort: SavedViewSortByExpr | { direction: "asc" | "desc"; fields: string[] };
-};
+type SavedViewQueryDocument = CreateSavedViewBody["queryDocument"];
 type SavedViewDisplayConfiguration = CreateSavedViewBody["displayConfiguration"];
 type SavedViewTableColumn = {
 	label: string;
@@ -113,11 +100,7 @@ type SavedViewTableColumn = {
 	property?: string[];
 };
 type SavedViewExpression = QueryExpression;
-type SavedViewPredicate = QueryFilter;
 type SavedViewQueryEngineRef = RuntimeRef;
-type ComputedFieldDef = NonNullable<SavedViewQueryDefinition["computedFields"]>[number];
-type EventJoinDef = NonNullable<SavedViewQueryDefinition["eventJoins"]>[number];
-type SavedViewSortInput = Extract<SavedViewQueryInput["sort"], { fields: string[] }>;
 type SavedViewDisplayConfigInput = {
 	entityIdProperty?: string[] | null;
 	grid: {
@@ -144,7 +127,7 @@ type SavedViewSpec = {
 	icon: string;
 	trackerId?: TrackerId;
 	accentColor: string;
-	queryDefinition: SavedViewQueryInput;
+	queryDocument: SavedViewQueryDocument;
 	displayConfiguration: SavedViewDisplayConfigInput;
 };
 
@@ -346,15 +329,47 @@ const parseReference = (reference: string): SavedViewQueryEngineRef => {
 	throw new Error(`Invalid saved view reference '${reference}'`);
 };
 
+function savedViewQueryDocument(scope: readonly string[]): SavedViewQueryDocument {
+	const [first, ...rest] = scope;
+
+	if (!first) {
+		throw new Error("Saved view query document requires at least one schema");
+	}
+
+	const schemas = [first, ...rest] as [string, ...string[]];
+	const nameRef = {
+		type: "ref" as const,
+		sourceAlias: first,
+		field: { type: "system" as const, name: "name" as const },
+	};
+
+	return {
+		version: 2,
+		source: { type: "entities", alias: first, schemas, where: null },
+		output: {
+			type: "rows",
+			pagination: { page: 1, limit: 20 },
+			fields: [{ key: "name", expr: nameRef }],
+			orderBy: [{ order: "asc", expr: nameRef }],
+		},
+	};
+}
+
 async function createSavedView(
 	apiClient: APIClient,
 	name: string,
 	icon: string,
 	accentColor: string,
-	queryDefinition: SavedViewQueryInput,
+	queryDocument: SavedViewQueryDocument,
 	displayConfiguration: SavedViewDisplayConfigInput,
 	trackerId?: TrackerId,
 ) {
+	const sourceSchemas =
+		queryDocument.source.type === "entities"
+			? queryDocument.source.schemas
+			: queryDocument.source.type === "events"
+				? queryDocument.source.entity.schemas
+				: queryDocument.source.sourceEntity.schemas;
 	const toExpression = (
 		input: string[] | SavedViewExpression | null,
 	): SavedViewExpression | null => {
@@ -404,171 +419,16 @@ async function createSavedView(
 		}
 
 		const column = value.slice(1);
-		return queryDefinition.scope.map((schemaSlug) => {
+		return sourceSchemas.map((schemaSlug) => {
 			return `entity.${schemaSlug}.${column}`;
 		});
 	};
 
-	const normalizeFilterReference = (value: string) => {
-		if (value.startsWith("event.") || value.startsWith("entity.")) {
-			return value;
-		}
-
-		if (value.startsWith("@")) {
-			if (queryDefinition.scope.length !== 1) {
-				throw new Error(
-					`Cannot normalize ambiguous filter reference '${value}' for saved view '${name}'`,
-				);
-			}
-
-			const column = value.slice(1);
-			return `entity.${queryDefinition.scope[0]}.${column}`;
-		}
-
-		if (value.split(".").length === 2) {
-			const [schemaSlug, prop] = value.split(".");
-			return `entity.${schemaSlug}.properties.${prop}`;
-		}
-
-		return value;
-	};
-
-	const normalizeSortFields = (values: string[]) => {
-		return values.flatMap((value) => {
-			if (value.startsWith("event.") || value.startsWith("entity.")) {
-				return [value];
-			}
-
-			if (value.startsWith("@")) {
-				return expandEntityBuiltinReference(value);
-			}
-
-			if (value.split(".").length === 2) {
-				const [schemaSlug, prop] = value.split(".");
-				return [`entity.${schemaSlug}.properties.${prop}`];
-			}
-
-			return [value];
-		});
-	};
-
-	const toPredicate = (filter: NonNullable<SavedViewQueryInput["filters"]>[number]) => {
-		const expression =
-			toExpression([normalizeFilterReference(filter.field)]) ?? literalExpression(null);
-		if (filter.op === "isNull") {
-			return { type: "isNull", expression } satisfies SavedViewPredicate;
-		}
-
-		if (filter.op === "isNotNull") {
-			return { type: "isNotNull", expression } satisfies SavedViewPredicate;
-		}
-
-		if (filter.op === "contains") {
-			return {
-				type: "contains",
-				expression,
-				value: literalExpression(filter.value ?? null),
-			} satisfies SavedViewPredicate;
-		}
-
-		if (filter.op === "in") {
-			return {
-				type: "in",
-				expression,
-				values: Array.isArray(filter.value)
-					? filter.value.map((value) => literalExpression(value))
-					: [literalExpression(filter.value ?? null)],
-			} satisfies SavedViewPredicate;
-		}
-
-		return {
-			type: "comparison",
-			left: expression,
-			right: literalExpression(filter.value ?? null),
-			operator: filter.op,
-		} satisfies SavedViewPredicate;
-	};
-
-	const getFilterGroupKey = (filter: NonNullable<SavedViewQueryInput["filters"]>[number]) => {
-		const reference = parseReference(normalizeFilterReference(filter.field));
-		return reference.type === "entity"
-			? reference.slug
-			: `${reference.type}:${JSON.stringify(reference)}`;
-	};
-
-	const combinePredicates = (predicates: SavedViewPredicate[], type: "and" | "or") => {
-		if (!predicates.length) {
-			return null;
-		}
-
-		if (predicates.length === 1) {
-			return predicates[0] ?? null;
-		}
-
-		return { type, predicates } satisfies SavedViewPredicate;
-	};
-
-	const toFilterPredicate = (): SavedViewQueryDefinition["filter"] => {
-		if (queryDefinition.filter !== undefined) {
-			return queryDefinition.filter;
-		}
-
-		if (!queryDefinition.filters?.length) {
-			return null;
-		}
-
-		const grouped = new Map<string, SavedViewPredicate[]>();
-		for (const filter of queryDefinition.filters) {
-			const key = getFilterGroupKey(filter);
-			const existing = grouped.get(key) ?? [];
-			existing.push(toPredicate(filter));
-			grouped.set(key, existing);
-		}
-
-		const groupedPredicates = Array.from(grouped.values())
-			.map((predicates) => combinePredicates(predicates, "and"))
-			.filter((predicate): predicate is SavedViewPredicate => predicate !== null);
-
-		return combinePredicates(groupedPredicates, "or");
-	};
-
-	const normalizedQueryDefinition = {
-		computedFields: queryDefinition.computedFields ?? [],
-		eventJoins: queryDefinition.eventJoins ?? [],
-		scope: queryDefinition.scope,
-		filter: toFilterPredicate(),
-		sort: {
-			direction: queryDefinition.sort.direction,
-			expression:
-				"expression" in queryDefinition.sort
-					? queryDefinition.sort.expression
-					: (toExpression(normalizeSortFields(queryDefinition.sort.fields)) ??
-						literalExpression(null)),
-		},
-	} satisfies SavedViewQueryDefinition;
-	const documentScope: [string, ...string[]] = queryDefinition.scope[0]
-		? [queryDefinition.scope[0], ...queryDefinition.scope.slice(1)]
-		: ["entity"];
-	const documentNameRef = {
-		type: "ref" as const,
-		sourceAlias: documentScope[0],
-		field: { type: "system" as const, name: "name" },
-	};
-	const normalizedQueryDocument: CreateSavedViewBody["queryDocument"] = {
-		version: 2,
-		source: { type: "entities", alias: documentScope[0], schemas: documentScope, where: null },
-		output: {
-			type: "rows",
-			pagination: { page: 1, limit: 20 },
-			fields: [{ key: "name", expr: documentNameRef }],
-			orderBy: [{ order: "asc", expr: documentNameRef }],
-		},
-	};
 	const normalizedDisplayConfiguration: SavedViewDisplayConfiguration = {
 		entityIdProperty:
 			toExpression(
 				displayConfiguration.entityIdProperty ??
-					queryDefinition.scope.map((slug) => schemaField(slug, "id")),
+					sourceSchemas.map((slug) => schemaField(slug, "id")),
 			) ?? literalExpression(null),
 		grid: {
 			...displayConfiguration.grid,
@@ -610,127 +470,11 @@ async function createSavedView(
 				icon,
 				accentColor,
 				trackerId,
-				queryDefinition: normalizedQueryDefinition,
-				queryDocument: normalizedQueryDocument,
+				queryDocument,
 				displayConfiguration: normalizedDisplayConfiguration,
 			},
 		}),
 	);
-}
-
-// ─── Expression builders ────────────────────────────────────────────────────
-
-function ref(reference: SavedViewQueryEngineRef): SavedViewExpression {
-	return { type: "reference", reference };
-}
-
-function literal(value: unknown): SavedViewExpression {
-	return { type: "literal", value };
-}
-
-function schemaProp(slug: string, property: string): SavedViewExpression {
-	return ref({ type: "entity", slug, path: ["properties", property] });
-}
-
-export function computedRef(key: string): SavedViewExpression {
-	return ref({ type: "computed-field", key });
-}
-
-function eventProp(joinKey: string, property: string): SavedViewExpression {
-	return ref({ type: "event-join", joinKey, path: ["properties", property] });
-}
-
-function eventCol(joinKey: string, column: string): SavedViewExpression {
-	return ref({ type: "event-join", joinKey, path: [column] });
-}
-
-function arithmetic(
-	operator: "add" | "subtract" | "multiply" | "divide",
-	left: SavedViewExpression,
-	right: SavedViewExpression,
-): SavedViewExpression {
-	return { type: "arithmetic", operator, left, right };
-}
-
-function concat(...values: SavedViewExpression[]): SavedViewExpression {
-	return { type: "concat", values };
-}
-
-function conditional(
-	condition: SavedViewPredicate,
-	whenTrue: SavedViewExpression,
-	whenFalse: SavedViewExpression,
-): SavedViewExpression {
-	return { type: "conditional", condition, whenTrue, whenFalse };
-}
-
-function roundExpr(expression: SavedViewExpression): SavedViewExpression {
-	return { type: "round", expression };
-}
-
-function coalesceExpr(...values: SavedViewExpression[]): SavedViewExpression {
-	return { type: "coalesce", values };
-}
-
-// ─── Predicate builders ─────────────────────────────────────────────────────
-
-function compare(
-	operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte",
-	left: SavedViewExpression,
-	right: SavedViewExpression,
-): SavedViewPredicate {
-	return { type: "comparison", operator, left, right };
-}
-
-function inPred(
-	expression: SavedViewExpression,
-	values: SavedViewExpression[],
-): SavedViewPredicate {
-	return { type: "in", expression, values };
-}
-
-function isNullPred(expression: SavedViewExpression): SavedViewPredicate {
-	return { type: "isNull", expression };
-}
-
-function isNotNullPred(expression: SavedViewExpression): SavedViewPredicate {
-	return { type: "isNotNull", expression };
-}
-
-function containsPred(
-	expression: SavedViewExpression,
-	value: SavedViewExpression,
-): SavedViewPredicate {
-	return { type: "contains", expression, value };
-}
-
-function andPred(...predicates: SavedViewPredicate[]): SavedViewPredicate {
-	return { type: "and", predicates };
-}
-
-function orPred(...predicates: SavedViewPredicate[]): SavedViewPredicate {
-	return { type: "or", predicates };
-}
-
-function notPred(predicate: SavedViewPredicate): SavedViewPredicate {
-	return { type: "not", predicate };
-}
-
-// ─── Query definition builders ───────────────────────────────────────────────
-
-function computedField(key: string, expression: SavedViewExpression): ComputedFieldDef {
-	return { key, expression };
-}
-
-function eventJoin(key: string, eventSchemaSlug: string): EventJoinDef {
-	return { key, kind: "latestEvent", eventSchemaSlug };
-}
-
-function sortByExpr(
-	direction: "asc" | "desc",
-	expression: SavedViewExpression,
-): SavedViewSortByExpr {
-	return { direction, expression };
 }
 
 // ─── Display helpers ─────────────────────────────────────────────────────────
@@ -783,10 +527,6 @@ function cardConfig(
 
 function tableColumn(label: string, ...property: string[]): SavedViewTableColumn {
 	return { label, property };
-}
-
-function sortDefinition(direction: "asc" | "desc", ...fields: string[]): SavedViewSortInput {
-	return { fields, direction };
 }
 
 function buildDisplayConfiguration(
@@ -2151,11 +1891,7 @@ async function seedSavedViews(
 			name: "Premium Aged Whiskeys",
 			icon: "wine",
 			accentColor: "#D97706",
-			queryDefinition: {
-				filters: [{ op: "gte", field: schemaField("whiskey", "age"), value: 18 }],
-				scope: ["whiskey"],
-				sort: sortDefinition("desc", schemaField("whiskey", "age")),
-			},
+			queryDocument: savedViewQueryDocument(["whiskey"]),
 			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
@@ -2176,11 +1912,7 @@ async function seedSavedViews(
 			name: "Scotch Whiskeys",
 			icon: "wine",
 			accentColor: "#B45309",
-			queryDefinition: {
-				filters: [{ op: "eq", field: schemaField("whiskey", "type"), value: "Scotch" }],
-				scope: ["whiskey"],
-				sort: sortDefinition("asc", "@name"),
-			},
+			queryDocument: savedViewQueryDocument(["whiskey"]),
 			displayConfiguration: buildDisplayConfiguration(
 				defaultCard,
 				[
@@ -2201,11 +1933,7 @@ async function seedSavedViews(
 			name: "High Proof Whiskeys",
 			icon: "flame",
 			accentColor: "#DC2626",
-			queryDefinition: {
-				filters: [{ op: "gte", field: schemaField("whiskey", "proof"), value: 100 }],
-				scope: ["whiskey"],
-				sort: sortDefinition("desc", schemaField("whiskey", "proof")),
-			},
+			queryDocument: savedViewQueryDocument(["whiskey"]),
 			displayConfiguration: buildDisplayConfiguration(
 				defaultCard,
 				[
@@ -2227,11 +1955,7 @@ async function seedSavedViews(
 			name: "Recent Whiskey Additions",
 			icon: "clock",
 			accentColor: "#F59E0B",
-			queryDefinition: {
-				filters: [],
-				scope: ["whiskey"],
-				sort: sortDefinition("desc", "@createdAt"),
-			},
+			queryDocument: savedViewQueryDocument(["whiskey"]),
 			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
@@ -2251,17 +1975,7 @@ async function seedSavedViews(
 			name: "Japanese Whiskeys",
 			icon: "wine",
 			accentColor: "#DC2626",
-			queryDefinition: {
-				filters: [
-					{
-						op: "eq",
-						field: schemaField("whiskey", "type"),
-						value: "Japanese",
-					},
-				],
-				scope: ["whiskey"],
-				sort: sortDefinition("desc", schemaField("whiskey", "age")),
-			},
+			queryDocument: savedViewQueryDocument(["whiskey"]),
 			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
@@ -2281,15 +1995,7 @@ async function seedSavedViews(
 			name: "Whiskey Regions Atlas",
 			icon: "map",
 			accentColor: "#7C3AED",
-			queryDefinition: {
-				filters: [],
-				scope: ["whiskey"],
-				sort: sortDefinition(
-					"asc",
-					schemaField("whiskey", "region"),
-					schemaField("whiskey", "distillery"),
-				),
-			},
+			queryDocument: savedViewQueryDocument(["whiskey"]),
 			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
@@ -2311,15 +2017,7 @@ async function seedSavedViews(
 			name: "Cask Strength Candidates",
 			icon: "flame",
 			accentColor: "#991B1B",
-			queryDefinition: {
-				filters: [{ op: "gte", field: schemaField("whiskey", "proof"), value: 120 }],
-				scope: ["whiskey"],
-				sort: sortDefinition(
-					"desc",
-					schemaField("whiskey", "proof"),
-					schemaField("whiskey", "age"),
-				),
-			},
+			queryDocument: savedViewQueryDocument(["whiskey"]),
 			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
@@ -2343,17 +2041,7 @@ async function seedSavedViews(
 			name: "Restaurants & Cafes",
 			icon: "utensils",
 			accentColor: "#EF4444",
-			queryDefinition: {
-				filters: [
-					{
-						op: "in",
-						field: schemaField("place", "type"),
-						value: ["Restaurant", "Cafe"],
-					},
-				],
-				scope: ["place"],
-				sort: sortDefinition("asc", "@name"),
-			},
+			queryDocument: savedViewQueryDocument(["place"]),
 			displayConfiguration: buildDisplayConfiguration(
 				defaultCard,
 				[
@@ -2374,17 +2062,7 @@ async function seedSavedViews(
 			name: "Cultural Venues",
 			icon: "landmark",
 			accentColor: "#8B5CF6",
-			queryDefinition: {
-				filters: [
-					{
-						op: "in",
-						field: schemaField("place", "type"),
-						value: ["Museum", "Gallery", "Theater"],
-					},
-				],
-				scope: ["place"],
-				sort: sortDefinition("asc", schemaField("place", "city")),
-			},
+			queryDocument: savedViewQueryDocument(["place"]),
 			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
@@ -2405,11 +2083,7 @@ async function seedSavedViews(
 			name: "Parks & Outdoor Spaces",
 			icon: "tree",
 			accentColor: "#10B981",
-			queryDefinition: {
-				filters: [{ op: "eq", field: schemaField("place", "type"), value: "Park" }],
-				scope: ["place"],
-				sort: sortDefinition("asc", "@name"),
-			},
+			queryDocument: savedViewQueryDocument(["place"]),
 			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
@@ -2429,11 +2103,7 @@ async function seedSavedViews(
 			name: "Recently Added Places",
 			icon: "clock",
 			accentColor: "#3B82F6",
-			queryDefinition: {
-				filters: [],
-				scope: ["place"],
-				sort: sortDefinition("desc", "@createdAt"),
-			},
+			queryDocument: savedViewQueryDocument(["place"]),
 			displayConfiguration: buildDisplayConfiguration(
 				defaultCard,
 				[
@@ -2454,11 +2124,7 @@ async function seedSavedViews(
 			name: "Places by Country",
 			icon: "globe",
 			accentColor: "#06B6D4",
-			queryDefinition: {
-				filters: [],
-				scope: ["place"],
-				sort: sortDefinition("asc", schemaField("place", "country"), schemaField("place", "city")),
-			},
+			queryDocument: savedViewQueryDocument(["place"]),
 			displayConfiguration: buildDisplayConfiguration(
 				defaultCard,
 				[
@@ -2480,11 +2146,7 @@ async function seedSavedViews(
 			name: "Mapped Places",
 			icon: "map-pin",
 			accentColor: "#0F766E",
-			queryDefinition: {
-				filters: [],
-				scope: ["place"],
-				sort: sortDefinition("asc", schemaField("place", "country"), "@name"),
-			},
+			queryDocument: savedViewQueryDocument(["place"]),
 			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
@@ -2505,11 +2167,7 @@ async function seedSavedViews(
 			name: "City Address Book",
 			icon: "book-open",
 			accentColor: "#1D4ED8",
-			queryDefinition: {
-				filters: [],
-				scope: ["place"],
-				sort: sortDefinition("asc", schemaField("place", "city"), schemaField("place", "address")),
-			},
+			queryDocument: savedViewQueryDocument(["place"]),
 			displayConfiguration: buildDisplayConfiguration(
 				defaultCard,
 				[
@@ -2534,11 +2192,7 @@ async function seedSavedViews(
 			name: "Modern Smartphones",
 			icon: "smartphone",
 			accentColor: "#6366F1",
-			queryDefinition: {
-				filters: [{ op: "gte", field: schemaField("smartphone", "year"), value: 2020 }],
-				scope: ["smartphone"],
-				sort: sortDefinition("desc", schemaField("smartphone", "year")),
-			},
+			queryDocument: savedViewQueryDocument(["smartphone"]),
 			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
@@ -2559,14 +2213,7 @@ async function seedSavedViews(
 			name: "High Storage Devices",
 			icon: "hard-drive",
 			accentColor: "#EC4899",
-			queryDefinition: {
-				filters: [
-					{ op: "gte", field: "smartphone.storage_gb", value: 256 },
-					{ op: "gte", field: "tablet.storage_gb", value: 256 },
-				],
-				scope: ["smartphone", "tablet"],
-				sort: sortDefinition("desc", "smartphone.storage_gb", "tablet.storage_gb"),
-			},
+			queryDocument: savedViewQueryDocument(["smartphone", "tablet"]),
 			displayConfiguration: buildDisplayConfiguration(
 				defaultCard,
 				[
@@ -2588,14 +2235,7 @@ async function seedSavedViews(
 			name: "Apple Ecosystem Devices",
 			icon: "apple",
 			accentColor: "#6B7280",
-			queryDefinition: {
-				filters: [
-					{ op: "eq", field: "smartphone.os", value: "iOS" },
-					{ op: "eq", field: "tablet.os", value: "iPadOS" },
-				],
-				scope: ["smartphone", "tablet"],
-				sort: sortDefinition("desc", "smartphone.year", "tablet.year"),
-			},
+			queryDocument: savedViewQueryDocument(["smartphone", "tablet"]),
 			displayConfiguration: buildDisplayConfiguration(
 				defaultCard,
 				[
@@ -2617,14 +2257,7 @@ async function seedSavedViews(
 			name: "Android Devices",
 			icon: "android",
 			accentColor: "#22C55E",
-			queryDefinition: {
-				filters: [
-					{ op: "eq", field: "smartphone.os", value: "Android" },
-					{ op: "eq", field: "tablet.os", value: "Android" },
-				],
-				scope: ["smartphone", "tablet"],
-				sort: sortDefinition("asc", "@name"),
-			},
+			queryDocument: savedViewQueryDocument(["smartphone", "tablet"]),
 			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
@@ -2645,17 +2278,7 @@ async function seedSavedViews(
 			name: "Premium Smartphones",
 			icon: "gem",
 			accentColor: "#A855F7",
-			queryDefinition: {
-				filters: [
-					{
-						op: "gte",
-						field: schemaField("smartphone", "price_usd"),
-						value: 999,
-					},
-				],
-				scope: ["smartphone"],
-				sort: sortDefinition("desc", schemaField("smartphone", "price_usd")),
-			},
+			queryDocument: savedViewQueryDocument(["smartphone"]),
 			displayConfiguration: buildDisplayConfiguration(
 				defaultCard,
 				[
@@ -2678,17 +2301,7 @@ async function seedSavedViews(
 			name: "Budget-Friendly Phones",
 			icon: "dollar-sign",
 			accentColor: "#10B981",
-			queryDefinition: {
-				filters: [
-					{
-						op: "lte",
-						field: schemaField("smartphone", "price_usd"),
-						value: 399,
-					},
-				],
-				scope: ["smartphone"],
-				sort: sortDefinition("asc", schemaField("smartphone", "price_usd")),
-			},
+			queryDocument: savedViewQueryDocument(["smartphone"]),
 			displayConfiguration: buildDisplayConfiguration(
 				defaultCard,
 				[
@@ -2709,14 +2322,7 @@ async function seedSavedViews(
 			name: "Large Screen Devices",
 			icon: "smartphone",
 			accentColor: "#F97316",
-			queryDefinition: {
-				filters: [
-					{ op: "gte", field: "smartphone.screen_size", value: 6.5 },
-					{ op: "gte", field: "tablet.screen_size", value: 11 },
-				],
-				scope: ["smartphone", "tablet"],
-				sort: sortDefinition("desc", "smartphone.screen_size", "tablet.screen_size"),
-			},
+			queryDocument: savedViewQueryDocument(["smartphone", "tablet"]),
 			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
@@ -2737,17 +2343,7 @@ async function seedSavedViews(
 			name: "Tablets with Cellular",
 			icon: "signal",
 			accentColor: "#EA580C",
-			queryDefinition: {
-				filters: [
-					{
-						op: "eq",
-						field: schemaField("tablet", "has_cellular"),
-						value: true,
-					},
-				],
-				scope: ["tablet"],
-				sort: sortDefinition("desc", schemaField("tablet", "screen_size")),
-			},
+			queryDocument: savedViewQueryDocument(["tablet"]),
 			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
@@ -2768,17 +2364,7 @@ async function seedSavedViews(
 			name: "Feature Phones with Camera",
 			icon: "camera",
 			accentColor: "#84CC16",
-			queryDefinition: {
-				filters: [
-					{
-						op: "eq",
-						field: schemaField("feature-phone", "has_camera"),
-						value: true,
-					},
-				],
-				scope: ["feature-phone"],
-				sort: sortDefinition("desc", schemaField("feature-phone", "year")),
-			},
+			queryDocument: savedViewQueryDocument(["feature-phone"]),
 			displayConfiguration: buildDisplayConfiguration(
 				defaultCard,
 				[
@@ -2800,11 +2386,7 @@ async function seedSavedViews(
 			name: "All Mobile Devices",
 			icon: "tablet",
 			accentColor: "#475569",
-			queryDefinition: {
-				filters: [],
-				scope: ["smartphone", "feature-phone", "tablet"],
-				sort: sortDefinition("asc", "@name"),
-			},
+			queryDocument: savedViewQueryDocument(["smartphone", "feature-phone", "tablet"]),
 			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
@@ -2836,11 +2418,7 @@ async function seedSavedViews(
 			name: "Everything Recently Added",
 			icon: "star",
 			accentColor: "#FFD700",
-			queryDefinition: {
-				filters: [],
-				scope: allSchemaSlugs,
-				sort: sortDefinition("desc", "@createdAt"),
-			},
+			queryDocument: savedViewQueryDocument(allSchemaSlugs),
 			displayConfiguration: buildDisplayConfiguration(
 				defaultCard,
 				[
@@ -2879,11 +2457,7 @@ async function seedSavedViews(
 			name: "All Items A-Z",
 			icon: "book",
 			accentColor: "#1F2937",
-			queryDefinition: {
-				filters: [],
-				scope: allSchemaSlugs,
-				sort: sortDefinition("asc", "@name"),
-			},
+			queryDocument: savedViewQueryDocument(allSchemaSlugs),
 			displayConfiguration: buildDisplayConfiguration(
 				defaultCard,
 				[
@@ -2921,11 +2495,7 @@ async function seedSavedViews(
 			name: "Collection Showcase",
 			icon: "image",
 			accentColor: "#0F172A",
-			queryDefinition: {
-				filters: [],
-				scope: allSchemaSlugs,
-				sort: sortDefinition("desc", "@updatedAt"),
-			},
+			queryDocument: savedViewQueryDocument(allSchemaSlugs),
 			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
@@ -2969,11 +2539,7 @@ async function seedSavedViews(
 			name: "Demo: Whiskeys – Latest Tasting",
 			icon: "star",
 			accentColor: "#F59E0B",
-			queryDefinition: {
-				scope: ["whiskey"],
-				eventJoins: [eventJoin("tasting", "tasting")],
-				sort: sortByExpr("desc", eventCol("tasting", "createdAt")),
-			},
+			queryDocument: savedViewQueryDocument(["whiskey"]),
 			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
@@ -2995,12 +2561,7 @@ async function seedSavedViews(
 			name: "Demo: Whiskeys – Highly Rated",
 			icon: "trophy",
 			accentColor: "#D97706",
-			queryDefinition: {
-				scope: ["whiskey"],
-				eventJoins: [eventJoin("tasting", "tasting")],
-				filter: compare("gte", eventProp("tasting", "rating"), literal(8)),
-				sort: sortByExpr("desc", eventProp("tasting", "rating")),
-			},
+			queryDocument: savedViewQueryDocument(["whiskey"]),
 			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
@@ -3022,12 +2583,7 @@ async function seedSavedViews(
 			name: "Demo: Whiskeys – Latest Purchase",
 			icon: "shopping-cart",
 			accentColor: "#059669",
-			queryDefinition: {
-				scope: ["whiskey"],
-				eventJoins: [eventJoin("purchase", "purchase")],
-				filter: isNotNullPred(eventProp("purchase", "price")),
-				sort: sortByExpr("desc", eventProp("purchase", "price")),
-			},
+			queryDocument: savedViewQueryDocument(["whiskey"]),
 			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
@@ -3049,12 +2605,7 @@ async function seedSavedViews(
 			name: "Demo: Places – Last Visited",
 			icon: "calendar",
 			accentColor: "#3B82F6",
-			queryDefinition: {
-				scope: ["place"],
-				eventJoins: [eventJoin("visit", "visit")],
-				filter: isNotNullPred(eventProp("visit", "date")),
-				sort: sortByExpr("desc", eventCol("visit", "createdAt")),
-			},
+			queryDocument: savedViewQueryDocument(["place"]),
 			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
@@ -3077,16 +2628,7 @@ async function seedSavedViews(
 			name: "Demo: Whiskeys – ABV Reference",
 			icon: "percent",
 			accentColor: "#7C3AED",
-			queryDefinition: {
-				scope: ["whiskey"],
-				computedFields: [
-					computedField(
-						"abv",
-						roundExpr(arithmetic("divide", schemaProp("whiskey", "proof"), literal(2))),
-					),
-				],
-				sort: sortByExpr("desc", computedRef("abv")),
-			},
+			queryDocument: savedViewQueryDocument(["whiskey"]),
 			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
@@ -3108,28 +2650,7 @@ async function seedSavedViews(
 			name: "Demo: Whiskeys – Quality Tiers",
 			icon: "layers",
 			accentColor: "#BE185D",
-			queryDefinition: {
-				scope: ["whiskey"],
-				computedFields: [
-					computedField(
-						"tier",
-						conditional(
-							compare("gte", schemaProp("whiskey", "age"), literal(18)),
-							literal("Rare"),
-							conditional(
-								compare("gte", schemaProp("whiskey", "age"), literal(12)),
-								literal("Premium"),
-								conditional(
-									compare("gte", schemaProp("whiskey", "age"), literal(8)),
-									literal("Standard"),
-									literal("Young"),
-								),
-							),
-						),
-					),
-				],
-				sort: sortByExpr("desc", schemaProp("whiskey", "age")),
-			},
+			queryDocument: savedViewQueryDocument(["whiskey"]),
 			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
@@ -3151,23 +2672,7 @@ async function seedSavedViews(
 			name: "Demo: Whiskeys – Full Description",
 			icon: "file-text",
 			accentColor: "#0284C7",
-			queryDefinition: {
-				scope: ["whiskey"],
-				computedFields: [
-					computedField(
-						"description",
-						concat(
-							coalesceExpr(schemaProp("whiskey", "type"), literal("Unknown")),
-							literal(" from "),
-							coalesceExpr(schemaProp("whiskey", "region"), literal("Unknown Region")),
-							literal(" ("),
-							coalesceExpr(schemaProp("whiskey", "distillery"), literal("Unknown Distillery")),
-							literal(")"),
-						),
-					),
-				],
-				sort: sortDefinition("asc", "@name"),
-			},
+			queryDocument: savedViewQueryDocument(["whiskey"]),
 			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
@@ -3187,29 +2692,7 @@ async function seedSavedViews(
 			name: "Demo: Whiskeys – Rating with ABV",
 			icon: "activity",
 			accentColor: "#C026D3",
-			queryDefinition: {
-				scope: ["whiskey"],
-				eventJoins: [eventJoin("tasting", "tasting")],
-				computedFields: [
-					computedField(
-						"abv",
-						roundExpr(arithmetic("divide", schemaProp("whiskey", "proof"), literal(2))),
-					),
-					computedField(
-						"value_score",
-						conditional(
-							andPred(
-								compare("gte", eventProp("tasting", "rating"), literal(7)),
-								compare("lte", computedRef("abv"), literal(50)),
-							),
-							literal("Great Value"),
-							literal("Standard"),
-						),
-					),
-				],
-				filter: isNotNullPred(eventProp("tasting", "rating")),
-				sort: sortByExpr("desc", eventProp("tasting", "rating")),
-			},
+			queryDocument: savedViewQueryDocument(["whiskey"]),
 			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
@@ -3231,15 +2714,7 @@ async function seedSavedViews(
 			name: "Demo: Whiskeys – Rare Bourbons",
 			icon: "award",
 			accentColor: "#92400E",
-			queryDefinition: {
-				scope: ["whiskey"],
-				filter: andPred(
-					compare("eq", schemaProp("whiskey", "type"), literal("Bourbon")),
-					compare("gte", schemaProp("whiskey", "age"), literal(15)),
-					compare("gte", schemaProp("whiskey", "proof"), literal(100)),
-				),
-				sort: sortDefinition("desc", schemaField("whiskey", "age")),
-			},
+			queryDocument: savedViewQueryDocument(["whiskey"]),
 			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
@@ -3260,11 +2735,7 @@ async function seedSavedViews(
 			name: "Demo: Whiskeys – Not Rye",
 			icon: "x-circle",
 			accentColor: "#6B7280",
-			queryDefinition: {
-				scope: ["whiskey"],
-				filter: notPred(compare("eq", schemaProp("whiskey", "type"), literal("Rye"))),
-				sort: sortDefinition("asc", "@name"),
-			},
+			queryDocument: savedViewQueryDocument(["whiskey"]),
 			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
@@ -3285,14 +2756,7 @@ async function seedSavedViews(
 			name: "Demo: Whiskeys – Bourbon or Scotch, High Proof",
 			icon: "zap",
 			accentColor: "#B45309",
-			queryDefinition: {
-				scope: ["whiskey"],
-				filter: andPred(
-					inPred(schemaProp("whiskey", "type"), [literal("Bourbon"), literal("Scotch")]),
-					compare("gte", schemaProp("whiskey", "proof"), literal(100)),
-				),
-				sort: sortByExpr("desc", coalesceExpr(schemaProp("whiskey", "age"), literal(0))),
-			},
+			queryDocument: savedViewQueryDocument(["whiskey"]),
 			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
@@ -3314,11 +2778,7 @@ async function seedSavedViews(
 			name: "Demo: Whiskeys – Unknown Region",
 			icon: "help-circle",
 			accentColor: "#9CA3AF",
-			queryDefinition: {
-				scope: ["whiskey"],
-				filter: isNullPred(schemaProp("whiskey", "region")),
-				sort: sortDefinition("asc", "@name"),
-			},
+			queryDocument: savedViewQueryDocument(["whiskey"]),
 			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
@@ -3339,14 +2799,7 @@ async function seedSavedViews(
 			name: "Demo: Places – Has Full Address",
 			icon: "map-pin",
 			accentColor: "#0F766E",
-			queryDefinition: {
-				scope: ["place"],
-				filter: andPred(
-					isNotNullPred(schemaProp("place", "address")),
-					isNotNullPred(schemaProp("place", "city")),
-				),
-				sort: sortDefinition("asc", schemaField("place", "city")),
-			},
+			queryDocument: savedViewQueryDocument(["place"]),
 			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
@@ -3368,11 +2821,7 @@ async function seedSavedViews(
 			name: "Demo: Whiskeys – Speyside",
 			icon: "map",
 			accentColor: "#064E3B",
-			queryDefinition: {
-				scope: ["whiskey"],
-				filter: containsPred(schemaProp("whiskey", "region"), literal("side")),
-				sort: sortDefinition("asc", schemaField("whiskey", "distillery")),
-			},
+			queryDocument: savedViewQueryDocument(["whiskey"]),
 			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
@@ -3393,14 +2842,7 @@ async function seedSavedViews(
 			name: "Demo: Phones – Non-Apple",
 			icon: "smartphone",
 			accentColor: "#1E40AF",
-			queryDefinition: {
-				scope: ["smartphone", "tablet"],
-				filter: orPred(
-					compare("neq", schemaProp("smartphone", "manufacturer"), literal("Apple")),
-					compare("neq", schemaProp("tablet", "manufacturer"), literal("Apple")),
-				),
-				sort: sortDefinition("asc", "@name"),
-			},
+			queryDocument: savedViewQueryDocument(["smartphone", "tablet"]),
 			displayConfiguration: buildDisplayConfiguration(
 				cardConfig(
 					propertyReference("@image"),
@@ -3437,7 +2879,7 @@ async function seedSavedViews(
 					view.name,
 					view.icon,
 					view.accentColor,
-					view.queryDefinition,
+					view.queryDocument,
 					view.displayConfiguration,
 					view.trackerId,
 				),
