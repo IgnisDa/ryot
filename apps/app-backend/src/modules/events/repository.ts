@@ -188,6 +188,23 @@ export const createEventForUser = async (
 	};
 };
 
+export const deleteEventsForEntityForUser = async (
+	input: { userId: string; entityId: string },
+	database: DbClient = db,
+) => {
+	const deletedEvents = await database
+		.delete(event)
+		.where(
+			and(
+				eq(event.userId, input.userId),
+				or(eq(event.entityId, input.entityId), eq(event.sessionEntityId, input.entityId)),
+			),
+		)
+		.returning({ id: event.id });
+
+	return deletedEvents.length;
+};
+
 export type ActiveEventSchemaTriggerRow = {
 	id: string;
 	eventSchemaId: string;

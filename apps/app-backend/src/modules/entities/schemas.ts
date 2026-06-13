@@ -29,6 +29,14 @@ export const getEntityResponseSchema = entityResponseSchema;
 
 export const createEntityResponseSchema = entityResponseSchema;
 
+export const clearEntityUserStateResponseSchema = itemDataSchema(
+	z.object({
+		entityId: z.string(),
+		deletedEventsCount: z.number().int(),
+		deletedRelationshipsCount: z.number().int(),
+	}),
+);
+
 export const entityParams = createIdParamsSchema("entityId");
 
 export const createEntityBody = z.object({
@@ -67,3 +75,4 @@ export type ListedEntity = z.infer<typeof listedEntitySchema>;
 export type ImportEntityBody = z.infer<typeof importEntityBody>;
 export type CreateEntityBody = z.infer<typeof createEntityBody>;
 export type ImportEntityResult = z.infer<typeof importEntityResultResponseSchema.shape.data>;
+export type ClearEntityUserStateResponse = z.infer<typeof clearEntityUserStateResponseSchema>;
