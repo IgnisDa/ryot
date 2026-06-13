@@ -1,14 +1,16 @@
 import { Activity, Workflow } from "@effect/workflow";
+import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { ListedIntegration } from "@ryot/contract/modules/integrations/schemas";
-import { UserId } from "@ryot/contract/schema/brands";
-import { Cause, Effect, Layer, Schema } from "effect";
+import { SignalId, SignalSchemaId, UserId } from "@ryot/contract/schema/brands";
+import { Cause, DateTime, Effect, Layer, Schema } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
+import { AutomationsRepository } from "#modules/automations/repository";
+import { emitAndDispatchSignal } from "#modules/automations/signal-dispatch";
 import {
 	markImportRunStarted,
 	sanitizeErrorMessage,
 } from "#modules/imports/runtime/import-run-status";
-import { enqueueNotificationDelivery } from "#modules/notifications/notification-delivery-workflow";
 
 import { failRun, toIntegrationWorkflowError } from "./failure-workflow";
 import { IntegrationRunError, IntegrationRunJobData } from "./jobs";
@@ -58,14 +60,45 @@ const runIntegrationRun = Effect.fn("runIntegrationRun")(function* (
 	});
 
 	if (wasDisabled) {
-		const deliveryExecutionId = `${executionId}-integration-disabled`;
-		yield* enqueueNotificationDelivery({
-			userId: integration.userId,
-			executionId: deliveryExecutionId,
-			request: {
-				kind: "event",
-				eventType: "integration_disabled_due_to_too_many_errors",
-				message: `Integration ${integration.provider} has been disabled due to too many errors`,
+		const engine = yield* WorkflowEngine;
+		const runWithDb = yield* DbRunner;
+		const automationsRepository = yield* AutomationsRepository;
+		const signalId = SignalId.make(
+			new Bun.CryptoHasher("sha256")
+				.update(`${executionId}-integration-disabled`)
+				.digest("base64url"),
+		);
+		const disabledSignal = yield* Activity.make({
+			error: IntegrationRunError,
+			name: "resolve-integration-disabled-signal",
+			success: Schema.Struct({ signalSchemaId: SignalSchemaId, occurredAt: Schema.Date }),
+			execute: Effect.gen(function* () {
+				const signalSchemaId = yield* runWithDb(
+					automationsRepository.getBuiltinSignalSchemaBySlug("integration.disabled"),
+				).pipe(Effect.mapError(toIntegrationWorkflowError));
+				if (!signalSchemaId) {
+					return yield* new IntegrationRunError({
+						message: "Missing built-in integration.disabled signal schema",
+					});
+				}
+				const occurredAt = yield* DateTime.nowAsDate;
+				return { signalSchemaId, occurredAt };
+			}),
+		});
+		yield* emitAndDispatchSignal(engine, {
+			id: signalId,
+			trusted: true,
+			automationDepth: 0,
+			causationId: executionId,
+			correlationId: executionId,
+			occurredAt: disabledSignal.occurredAt,
+			signalSchemaId: disabledSignal.signalSchemaId,
+			principal: { kind: "user", userId: integration.userId },
+			properties: { integrationId: integration.id, providerName: integration.provider },
+			origin: {
+				kind: "integration",
+				importRunId: payload.runId,
+				integrationId: integration.id,
 			},
 		}).pipe(Effect.mapError(toIntegrationWorkflowError));
 	}

@@ -1,9 +1,10 @@
 import { BunFileSystem } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
 import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
-import { badRequest } from "@ryot/contract/errors";
+import { badRequest, DbError } from "@ryot/contract/errors";
 import type { ListedEntity } from "@ryot/contract/modules/entities/schemas";
 import {
+	AutomationRuleId,
 	EntityId,
 	EntitySchemaId,
 	EventSchemaId,
@@ -11,13 +12,16 @@ import {
 	UserId,
 } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
+import Redis from "ioredis";
 
+import { RedisService } from "#lib/infrastructure/redis";
 import type { MockOverrides } from "#lib/test-support/effect";
 import {
 	dbRunnerLayer,
 	makeAppConfigLayer,
 	makeWorkflowActivityEngine,
 } from "#lib/test-support/effect";
+import { AutomationsRepository } from "#modules/automations/repository";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
@@ -36,8 +40,8 @@ import {
 	makeNonMediaImportOperationSet,
 	type NonMediaImportOperations,
 	type NonMediaImportOperationSet,
-	runOneTimeNonMediaImportWorkflow,
-} from "./non-media-workflow";
+} from "./non-media-types";
+import { runOneTimeNonMediaImportWorkflow } from "./non-media-workflow";
 import { ImportsRepository } from "./repository";
 import { ImportRunArtifacts } from "./runtime/workflow-helpers";
 import { WorkoutImportItemSchema, type WorkoutImportItem } from "./workout/domain";
@@ -46,12 +50,31 @@ import { prepareWorkoutWrites } from "./workout/workout-workflow";
 const now = "2026-06-17T00:00:00.000Z";
 
 const mockImportsRepository = Layer.mock(ImportsRepository);
+const mockAutomationsRepository = Layer.mock(AutomationsRepository);
 const mockEntitiesService = Layer.mock(EntitiesService);
 const mockEntitiesRepository = Layer.mock(EntitiesRepository);
 const mockEntitySchemasRepository = Layer.mock(EntitySchemasRepository);
 const mockEventSchemasRepository = Layer.mock(EventSchemasRepository);
 const mockEventsService = Layer.mock(EventsService);
 const mockImportRunArtifacts = Layer.mock(ImportRunArtifacts);
+const mockRedisService = Layer.mock(RedisService);
+
+const makeRedisService = () => {
+	const values = new Map<string, string>();
+	return mockRedisService({
+		client: new Redis({ lazyConnect: true }),
+		get: (key) => Effect.succeed(values.get(key) ?? null),
+		set: (key, value) => Effect.sync(() => values.set(key, value)).pipe(Effect.asVoid),
+		del: (...keys) =>
+			Effect.sync(() => {
+				for (const key of keys) {
+					values.delete(key);
+				}
+				return keys.length;
+			}),
+		_tag: "RedisService",
+	});
+};
 
 const makeListedEntity = (
 	overrides: Partial<Omit<ListedEntity, "properties">> = {},
@@ -68,6 +91,12 @@ const makeListedEntity = (
 	...overrides,
 });
 
+const makeCreateResult = (entity = makeListedEntity()) => ({
+	entity,
+	operation: "create" as const,
+	entitySchemaSlug: entity.entitySchemaId,
+});
+
 const makeImportsRepository = (overrides: MockOverrides<typeof mockImportsRepository> = {}) =>
 	mockImportsRepository({
 		updateRun: () => Effect.void,
@@ -78,6 +107,15 @@ const makeImportsRepository = (overrides: MockOverrides<typeof mockImportsReposi
 
 const makeEntitiesService = (overrides: MockOverrides<typeof mockEntitiesService> = {}) =>
 	mockEntitiesService({ ...overrides, _tag: "EntitiesService" });
+
+const makeAutomationsRepository = (
+	overrides: MockOverrides<typeof mockAutomationsRepository> = {},
+) =>
+	mockAutomationsRepository({
+		listLifecycleSubscriptions: () => Effect.succeed([]),
+		...overrides,
+		_tag: "AutomationsRepository",
+	});
 
 const makeEntitiesRepository = (overrides: MockOverrides<typeof mockEntitiesRepository> = {}) =>
 	mockEntitiesRepository({
@@ -110,7 +148,7 @@ const makeEventSchemasRepository = (
 
 const makeEventsService = (overrides: MockOverrides<typeof mockEventsService> = {}) =>
 	mockEventsService({
-		create: () => Effect.succeed({ count: 1 }),
+		create: () => Effect.succeed({ count: 1, skipped: 0 }),
 		...overrides,
 		_tag: "EventsService",
 	});
@@ -133,7 +171,11 @@ type TestLayerOptions = {
 	importRunArtifacts?: Layer.Layer<ImportRunArtifacts>;
 	eventSchemasRepository?: Layer.Layer<EventSchemasRepository>;
 	entitySchemasRepository?: Layer.Layer<EntitySchemasRepository>;
+	automationsRepository?: Layer.Layer<AutomationsRepository>;
 	nonMediaOperations?: (payload: ImportRunJobData) => NonMediaImportOperationSet;
+	execute?: (
+		...args: Parameters<WorkflowEngine["Type"]["execute"]>
+	) => Effect.Effect<unknown, unknown>;
 };
 
 const openScaleOperations = (input: {
@@ -168,6 +210,7 @@ const makeTestLayer = (options: TestLayerOptions) =>
 	Layer.mergeAll(
 		dbRunnerLayer,
 		makeAppConfigLayer(),
+		makeRedisService(),
 		BunFileSystem.layer,
 		options.importRunArtifacts ?? makeImportRunArtifacts(),
 		Layer.mock(NonMediaImportWorkflowOperations, {
@@ -183,6 +226,7 @@ const makeTestLayer = (options: TestLayerOptions) =>
 		options.eventsService ?? makeEventsService(),
 		options.eventSchemasRepository ?? makeEventSchemasRepository(),
 		options.entitySchemasRepository ?? makeEntitySchemasRepository(),
+		options.automationsRepository ?? makeAutomationsRepository(),
 	);
 
 const withTestLayer = <A, E, R>(
@@ -191,7 +235,10 @@ const withTestLayer = <A, E, R>(
 	effect: Effect.Effect<A, E, R>,
 ) => {
 	const instance = WorkflowInstance.initial(ProcessImportRunWorkflow, executionId);
-	const engine = makeWorkflowActivityEngine(instance);
+	const engine = makeWorkflowActivityEngine(
+		instance,
+		options.execute ? { execute: options.execute } : {},
+	);
 
 	return effect.pipe(
 		Effect.provideService(WorkflowEngine, engine),
@@ -260,12 +307,14 @@ it.effect("orchestrates open-scale measurement imports through workflow-owned ph
 					}),
 			}),
 		entitiesService: makeEntitiesService({
-			create: (_user, payload) => {
+			create: (_userId, payload) => {
 				createCalls.push(payload);
 				return createCalls.length === 2
 					? Effect.fail(badRequest("Measurement rejected"))
 					: Effect.succeed(
-							makeListedEntity({ id: EntityId.make(`measurement-${createCalls.length}`) }),
+							makeCreateResult(
+								makeListedEntity({ id: EntityId.make(`measurement-${createCalls.length}`) }),
+							),
 						);
 			},
 		}),
@@ -350,7 +399,7 @@ it.effect("fails the open-scale run when the measurement entity schema is missin
 			create: () =>
 				Effect.sync(() => {
 					createCalled = true;
-					return makeListedEntity();
+					return makeCreateResult();
 				}),
 		}),
 	} satisfies TestLayerOptions;
@@ -405,7 +454,7 @@ it.effect("orchestrates workout imports through workflow-owned phases", () => {
 		eventsService: makeEventsService({
 			create: (input) => {
 				eventCalls.push(input.payload as ReadonlyArray<Record<string, unknown>>);
-				return Effect.succeed({ count: input.payload.length });
+				return Effect.succeed({ count: input.payload.length, skipped: 0 });
 			},
 		}),
 		importsRepository: makeImportsRepository({
@@ -420,14 +469,16 @@ it.effect("orchestrates workout imports through workflow-owned phases", () => {
 					Effect.succeed({ failures: [], items: [workoutItem], cleanupPaths: ["/tmp/hevy.csv"] }),
 			}),
 		entitiesService: makeEntitiesService({
-			create: (_user, payload) => {
+			create: (_userId, payload) => {
 				createCalls.push(payload);
 				return Effect.succeed(
-					makeListedEntity({
-						name: payload.name,
-						entitySchemaId: payload.entitySchemaId,
-						id: EntityId.make(`${payload.entitySchemaId}-entity`),
-					}),
+					makeCreateResult(
+						makeListedEntity({
+							name: payload.name,
+							entitySchemaId: payload.entitySchemaId,
+							id: EntityId.make(`${payload.entitySchemaId}-entity`),
+						}),
+					),
 				);
 			},
 		}),
@@ -464,6 +515,205 @@ it.effect("orchestrates workout imports through workflow-owned phases", () => {
 					status: "completed",
 				}),
 			);
+		}),
+	);
+});
+
+const ruleId = AutomationRuleId.make("rule-1");
+
+const twoExerciseWorkout = {
+	...workoutItem,
+	exercises: [
+		{
+			name: "Bench Press",
+			kind: "reps_and_weight" as const,
+			sets: [{ setLot: "normal" as const, reps: 5, weight: 80 }],
+		},
+		{
+			name: "Squat",
+			kind: "reps_and_weight" as const,
+			sets: [{ setLot: "normal" as const, reps: 5, weight: 100 }],
+		},
+	],
+};
+
+it.effect(
+	"dispatches import entity-create occurrences only for newly created workout entities",
+	() => {
+		const captured: Array<Record<string, unknown>> = [];
+
+		const existingBench = {
+			...makeListedEntity({ id: EntityId.make("existing-bench"), name: "Bench Press" }),
+			properties: { kind: "reps_and_weight" },
+		};
+
+		const options = {
+			execute: (_workflow, execOptions) => {
+				captured.push(execOptions as Record<string, unknown>);
+				return Effect.void;
+			},
+			automationsRepository: makeAutomationsRepository({
+				listLifecycleSubscriptions: () => Effect.succeed([{ id: ruleId }]),
+			}),
+			entitiesRepository: makeEntitiesRepository({
+				listMatchCandidatesBySchema: () => Effect.succeed([existingBench]),
+			}),
+			nonMediaOperations: () =>
+				workoutOperations({
+					loadAdapterResult: () =>
+						Effect.succeed({
+							failures: [],
+							cleanupPaths: ["/tmp/hevy.csv"],
+							items: [twoExerciseWorkout],
+						}),
+				}),
+			entitiesService: makeEntitiesService({
+				create: (_userId, payload) =>
+					Effect.succeed(
+						makeCreateResult(
+							makeListedEntity({
+								name: payload.name,
+								entitySchemaId: payload.entitySchemaId,
+								id: EntityId.make(`${payload.name}-entity`),
+							}),
+						),
+					),
+			}),
+		} satisfies TestLayerOptions;
+
+		return withTestLayer(
+			options,
+			"workflow-workout-dispatch",
+			Effect.gen(function* () {
+				yield* runOneTimeNonMediaImportWorkflow(workoutPayload);
+
+				expect(captured).toHaveLength(2);
+				expect(captured[0]).toMatchObject({
+					executionId: "lifecycle-subscription-entity-create-Squat-entity-rule-1",
+					payload: {
+						ruleId,
+						correlationId: "entity-create-Squat-entity",
+						automation: {
+							automationDepth: 1,
+							operation: "create",
+							occurrenceId: "entity-create-Squat-entity",
+							origin: { kind: "import", importRunId: "run-2" },
+							source: { kind: "entity", after: { id: "Squat-entity", name: "Squat" } },
+						},
+					},
+				});
+				expect(captured[1]).toMatchObject({
+					executionId: "lifecycle-subscription-entity-create-Morning Workout-entity-rule-1",
+					payload: {
+						correlationId: "entity-create-Morning Workout-entity",
+						automation: { origin: { kind: "import", importRunId: "run-2" } },
+					},
+				});
+			}),
+		);
+	},
+);
+
+it.effect("marks the workout item failed when entity-create dispatch fails", () => {
+	const recordedUpdates: Array<Record<string, unknown>> = [];
+
+	const options = {
+		execute: () => Effect.fail(new DbError({ message: "dispatch boom" })),
+		automationsRepository: makeAutomationsRepository({
+			listLifecycleSubscriptions: () => Effect.succeed([{ id: ruleId }]),
+		}),
+		importsRepository: makeImportsRepository({
+			updateRun: (input) => {
+				recordedUpdates.push(input);
+				return Effect.void;
+			},
+		}),
+		nonMediaOperations: () =>
+			workoutOperations({
+				loadAdapterResult: () =>
+					Effect.succeed({ failures: [], items: [workoutItem], cleanupPaths: ["/tmp/hevy.csv"] }),
+			}),
+		entitiesService: makeEntitiesService({
+			create: (_userId, payload) =>
+				Effect.succeed(
+					makeCreateResult(
+						makeListedEntity({
+							name: payload.name,
+							entitySchemaId: payload.entitySchemaId,
+							id: EntityId.make(`${payload.entitySchemaId}-entity`),
+						}),
+					),
+				),
+		}),
+	} satisfies TestLayerOptions;
+
+	return withTestLayer(
+		options,
+		"workflow-workout-dispatch-failure",
+		Effect.gen(function* () {
+			yield* runOneTimeNonMediaImportWorkflow(workoutPayload);
+
+			expect(recordedUpdates).toContainEqual(
+				expect.objectContaining({
+					progress: 100,
+					runId: "run-2",
+					failedItems: 1,
+					importedItems: 0,
+					processedItems: 1,
+					status: "completed",
+				}),
+			);
+		}),
+	);
+});
+
+it.effect("dispatches an import entity-create occurrence for each measurement entity", () => {
+	const captured: Array<Record<string, unknown>> = [];
+
+	const options = {
+		execute: (_workflow, execOptions) => {
+			captured.push(execOptions as Record<string, unknown>);
+			return Effect.void;
+		},
+		automationsRepository: makeAutomationsRepository({
+			listLifecycleSubscriptions: () => Effect.succeed([{ id: ruleId }]),
+		}),
+		nonMediaOperations: () =>
+			openScaleOperations({
+				loadAdapterResult: () =>
+					Effect.succeed({
+						failures: [],
+						cleanupPaths: ["/tmp/open-scale.csv"],
+						items: [openScaleItem({ itemIndex: 1, sourceLabel: "Weigh-in A" })],
+					}),
+			}),
+		entitiesService: makeEntitiesService({
+			create: () =>
+				Effect.succeed(
+					makeCreateResult(makeListedEntity({ id: EntityId.make("measurement-entity") })),
+				),
+		}),
+	} satisfies TestLayerOptions;
+
+	return withTestLayer(
+		options,
+		"workflow-measurement-dispatch",
+		Effect.gen(function* () {
+			yield* runOneTimeNonMediaImportWorkflow(measurementPayload);
+
+			expect(captured).toHaveLength(1);
+			expect(captured[0]).toMatchObject({
+				executionId: "lifecycle-subscription-entity-create-measurement-entity-rule-1",
+				payload: {
+					ruleId,
+					correlationId: "entity-create-measurement-entity",
+					automation: {
+						operation: "create",
+						occurrenceId: "entity-create-measurement-entity",
+						origin: { kind: "import", importRunId: "run-1" },
+					},
+				},
+			});
 		}),
 	);
 });
