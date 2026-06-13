@@ -1,9 +1,10 @@
 import { expect, it } from "@effect/vitest";
-import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
+import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import { EntityId, EntitySchemaId, SandboxScriptId } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
 import { dbRunnerLayer, makeWorkflowEngine, type MockOverrides } from "#lib/test-support/effect";
+import { InfrequentCronWorkflow } from "#modules/scheduler/cron-workflow";
 
 import { mediaMonitoringInfrequentTask } from "./infrequent-task";
 import { MediaMonitoringRepository, type MediaMonitoringTarget } from "./repository";
@@ -40,18 +41,14 @@ it.effect(
 	"fans out stable media monitoring workflow ids and continues after an enqueue failure",
 	() => {
 		const captured: Array<Parameters<WorkflowEngine["Type"]["execute"]>[1]> = [];
+		const instance = WorkflowInstance.initial(InfrequentCronWorkflow, "cron-run");
 		const engine = makeWorkflowEngine({
-			execute: (_workflow, options) =>
-				Effect.sync(() => {
-					captured.push(options);
-					return options;
-				}).pipe(
-					Effect.flatMap((capturedOptions) =>
-						capturedOptions.payload.executionId === "cron-run-entity-a"
-							? Effect.fail(new Error("first enqueue failed"))
-							: Effect.succeed(capturedOptions.executionId),
-					),
-				),
+			execute: (_workflow, options) => {
+				captured.push(options);
+				return options.payload.executionId === "cron-run-entity-a"
+					? Effect.die("first enqueue failed")
+					: Effect.succeed(options.executionId);
+			},
 		});
 
 		return Effect.gen(function* () {
@@ -86,6 +83,7 @@ it.effect(
 				Layer.mergeAll(
 					dbRunnerLayer,
 					Layer.succeed(WorkflowEngine, engine),
+					Layer.succeed(WorkflowInstance, instance),
 					makeMediaMonitoringRepository({ listTargets: () => Effect.succeed([...targets]) }),
 				),
 			),

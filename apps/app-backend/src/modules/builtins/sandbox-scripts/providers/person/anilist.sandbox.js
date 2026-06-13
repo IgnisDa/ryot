@@ -261,24 +261,26 @@ query StaffQuery($id: Int!) {
 	const relatedByKey = new Map();
 	const addMedia = (media, role) => {
 		const mediaId =
-			typeof media?.id === "number" && Number.isFinite(media.id) ? String(Math.trunc(media.id)) : null;
-		const scriptSlug =
-			media?.type === "ANIME"
-				? "anime.anilist"
-				: media?.type === "MANGA"
-					? "manga.anilist"
-					: null;
+			typeof media?.id === "number" && Number.isFinite(media.id)
+				? String(Math.trunc(media.id))
+				: null;
+		let scriptSlug = null;
+		if (media?.type === "ANIME") {
+			scriptSlug = "anime.anilist";
+		} else if (media?.type === "MANGA") {
+			scriptSlug = "manga.anilist";
+		}
 		if (!mediaId || !scriptSlug) {
 			return;
 		}
-		const mediaName =
-			typeof media?.title?.userPreferred === "string" && media.title.userPreferred.trim()
-				? media.title.userPreferred.trim()
-				: typeof media?.title?.english === "string" && media.title.english.trim()
-					? media.title.english.trim()
-					: typeof media?.title?.romaji === "string" && media.title.romaji.trim()
-						? media.title.romaji.trim()
-						: "Loading...";
+		let mediaName = "Loading...";
+		if (typeof media?.title?.userPreferred === "string" && media.title.userPreferred.trim()) {
+			mediaName = media.title.userPreferred.trim();
+		} else if (typeof media?.title?.english === "string" && media.title.english.trim()) {
+			mediaName = media.title.english.trim();
+		} else if (typeof media?.title?.romaji === "string" && media.title.romaji.trim()) {
+			mediaName = media.title.romaji.trim();
+		}
 		const key = `${scriptSlug}:${mediaId}`;
 		const existing = relatedByKey.get(key);
 		if (existing) {

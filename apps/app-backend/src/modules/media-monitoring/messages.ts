@@ -28,17 +28,24 @@ export const mediaMonitoringMessages = {
 		associationName: string;
 		entityName: string;
 		role: string;
-	}) =>
-		change(
-			input.entityKind === "company"
-				? input.associationKind === "group"
+	}) => {
+		let eventType: NotificationEventType;
+		if (input.entityKind === "company") {
+			eventType =
+				input.associationKind === "group"
 					? "company_metadata_group_associated"
-					: "company_metadata_associated"
-				: input.associationKind === "group"
+					: "company_metadata_associated";
+		} else {
+			eventType =
+				input.associationKind === "group"
 					? "person_metadata_group_associated"
-					: "person_metadata_associated",
+					: "person_metadata_associated";
+		}
+		return change(
+			eventType,
 			`${input.entityName} has been associated with ${input.associationName} as ${input.role}`,
-		),
+		);
+	},
 	chaptersOrEpisodesChanged: (input: {
 		newCount: number;
 		oldCount: number;

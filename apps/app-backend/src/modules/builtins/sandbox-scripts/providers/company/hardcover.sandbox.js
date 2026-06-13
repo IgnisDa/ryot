@@ -183,7 +183,8 @@ query GetHardcoverPublisherDetails($id: Int!) {
 		.map((edition) => {
 			const book = edition?.book;
 			const bookId = book?.id != null ? String(book.id) : null;
-			const bookName = typeof book?.title === "string" && book.title.trim() ? book.title.trim() : null;
+			const bookName =
+				typeof book?.title === "string" && book.title.trim() ? book.title.trim() : null;
 			return {
 				externalId: bookId,
 				scriptSlug: "book.hardcover",
@@ -195,7 +196,7 @@ query GetHardcoverPublisherDetails($id: Int!) {
 
 	return {
 		name,
-		properties: {website,images: [],alternateNames: [],},
+		properties: { website, images: [], alternateNames: [] },
 		relatedEntityGroups: [
 			{
 				entities: mediaEntities,

@@ -75,5 +75,6 @@ describe("person.anilist sandbox script", () => {
 					],
 				},
 			]);
+			return undefined;
 		}));
 });
