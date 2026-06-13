@@ -52,17 +52,14 @@ export type ProviderConfigValue = Config.Config.Success<typeof providerConfigDef
 export const appConfigMeta: GroupMeta = {
 	kind: "group",
 	description: "Application configuration",
-	children: {
-		...systemConfigDefinition.meta.children,
-		providers: providerConfigDefinition.meta,
-	},
+	children: { ...systemConfigDefinition.meta.children, providers: providerConfigDefinition.meta },
 };
 
 export class AppConfig extends Effect.Service<AppConfig>()("AppConfig", {
 	effect: Effect.gen(function* () {
 		const system = yield* SystemConfigSource;
-		const validated = yield* validateSystemConfig(system);
 		const providers = yield* providerConfigDefinition.config;
+		const validated = yield* validateSystemConfig(system);
 		return { ...validated, providers };
 	}),
 }) {}
