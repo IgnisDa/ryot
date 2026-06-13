@@ -244,6 +244,10 @@ const PluginIngestionServiceLive = Layer.provide(
 		SandboxWorkflowReferenceRepository.layer,
 	),
 );
+const PluginCatalogStateLive = Layer.mergeAll(PluginCatalogHub.layer, PluginIngestionServiceLive);
+const PluginInvalidationSubscriberLive = PluginInvalidationSubscriber.layer.pipe(
+	Layer.provide(PluginCatalogStateLive),
+);
 const RepositoriesLive = Layer.provideMerge(
 	Layer.mergeAll(ContentRepositoriesLive, PlatformRepositoriesLive),
 	Layer.mergeAll(SandboxPluginScriptResolverLive, PluginRuntimeResolverLive),
@@ -566,9 +570,9 @@ const PluginClientArtifactServiceLive = PluginClientArtifactService.layer.pipe(
 );
 
 const ServicesLive = Layer.mergeAll(
-	PluginCatalogHub.layer,
+	PluginCatalogStateLive,
+	PluginInvalidationSubscriberLive,
 	ContentAndSandboxServicesLive,
-	PluginIngestionServiceLive,
 	PluginClientArtifactServiceLive,
 	RuntimePluginInstallationServiceLive,
 	OperationsServiceLive,
@@ -693,11 +697,6 @@ export const RuntimeDependenciesLive = Layer.provideMerge(
 	ApplicationInfrastructureLive,
 );
 
-export const RuntimeServerLive = Layer.provideMerge(
-	RuntimeLive,
-	PluginInvalidationSubscriber.layer.pipe(
-		Layer.provide(Layer.mergeAll(PluginCatalogHub.layer, PluginIngestionServiceLive)),
-	),
-).pipe(Layer.provide(RuntimeDependenciesLive));
+export const RuntimeServerLive = RuntimeLive.pipe(Layer.provide(RuntimeDependenciesLive));
 
 export const ObservabilityProvidedLive = ObservabilityLive.pipe(Layer.provide(ConfigLive));

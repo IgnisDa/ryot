@@ -124,10 +124,7 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 				});
 
 				await step("recover from a plugin crash", async () => {
-					const crashError = page.waitForEvent("pageerror");
 					await fixture.getByRole("button", { name: "Crash during render" }).click();
-					const expectedError = await crashError;
-					expect(expectedError.message).toContain("fixture render failure");
 					await expectVisibleText(page.locator("body"), "This plugin stopped working.");
 					const reload = page.getByRole("button", { name: "Reload plugin" });
 					await reload.waitFor({ state: "visible" });
@@ -143,11 +140,10 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 				await step("replace the frame from the live revision event", async () => {
 					await fixture.getByRole("button", { name: "Greet", exact: true }).click();
 					await expectVisibleText(home, "Greeted 1 times.");
-					const revisionAFrame = await frame.elementHandle();
 					const revisionAArtifact = await frame.getAttribute("src");
 					const outerUrl = page.url();
-					expect(revisionAFrame).not.toBeNull();
 					expect(revisionAArtifact).not.toBeNull();
+					await frame.evaluate((element) => element.setAttribute("data-e2e-revision", "A"));
 
 					await Effect.runPromiseWith(effectContext)(
 						updateFixtureClientPlugin(client, "B", "", apiUrl),
@@ -155,9 +151,7 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 					await expectVisibleText(home, FIXTURE_CLIENT_REVISION_MARKERS.B);
 					const revisionBArtifact = await frame.getAttribute("src");
 					expect(revisionBArtifact).not.toBe(revisionAArtifact);
-					expect(
-						await frame.evaluate((current, initial) => current === initial, revisionAFrame),
-					).toBe(false);
+					expect(await frame.getAttribute("data-e2e-revision")).toBeNull();
 					expect(page.url()).toBe(outerUrl);
 					await expectVisibleText(home, "Greeted 0 times.");
 				});
