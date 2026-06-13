@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -14,14 +14,14 @@ This slice should prove both required cross-schema filter capabilities: courses 
 
 ## Acceptance criteria
 
-- [ ] Parent entity source `where` clauses can contain `exists` over nested descendant entity sources.
-- [ ] Parent entity source `where` clauses can contain aggregate expressions over descendant sources using shared aggregation specs.
-- [ ] Multi-hop traversal is expressed by nested source-consuming expressions, not by a synthetic multi-edge `via`.
-- [ ] Comparisons involving null evaluate to false except explicit null checks.
-- [ ] `coalesce` works in output fields to display zero instead of null for empty aggregate results.
-- [ ] Count aggregations support `distinctBy` for unique-value counting and ignore null distinct values.
-- [ ] Expression-source depth and aggregate expression-source matched-row limits are enforced.
-- [ ] E2E tests filter courses by completed lesson count and by at least one lesson with `durationMinutes` greater than a threshold.
+- [x] Parent entity source `where` clauses can contain `exists` over nested descendant entity sources.
+- [x] Parent entity source `where` clauses can contain aggregate expressions over descendant sources using shared aggregation specs.
+- [x] Multi-hop traversal is expressed by nested source-consuming expressions, not by a synthetic multi-edge `via`.
+- [x] Comparisons involving null evaluate to false except explicit null checks.
+- [x] `coalesce` works in output fields to display zero instead of null for empty aggregate results.
+- [x] Count aggregations support `distinctBy` for unique-value counting and ignore null distinct values.
+- [x] Expression-source depth and aggregate expression-source matched-row limits are enforced.
+- [x] E2E tests filter courses by completed lesson count and by at least one lesson with `durationMinutes` greater than a threshold.
 
 ## User stories addressed
 
