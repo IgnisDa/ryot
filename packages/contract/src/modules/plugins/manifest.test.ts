@@ -3,8 +3,33 @@ import { assert, describe, expect, it } from "vitest";
 
 import { definePlugin, PluginManifest } from "./manifest";
 
+const queryDocument = {
+	queries: {
+		entities: {
+			from: { alias: "entity", table: "entity" },
+			output: {
+				orderBy: [],
+				type: "rows",
+				pagination: { limit: 20, page: 1 },
+				fields: [
+					{ key: "itemId", expr: { field: "id", tableAlias: "entity", type: "column" } },
+					{ key: "title", expr: { field: "name", tableAlias: "entity", type: "column" } },
+				],
+			},
+		},
+	},
+} as const;
+
+const cardMapping = {
+	imageField: null,
+	calloutField: null,
+	titleField: "title",
+	overlineField: null,
+	primaryMetadataField: null,
+	secondaryMetadataField: null,
+} as const;
+
 const manifest = definePlugin({
-	savedViews: [],
 	entitySchemas: [],
 	httpRateLimits: [],
 	relationshipSchemas: [],
@@ -20,6 +45,25 @@ const manifest = definePlugin({
 			},
 		},
 	},
+	savedViews: [
+		{
+			sortOrder: 0,
+			icon: "bookmark",
+			pluginSlug: "test",
+			name: "All entities",
+			slug: "all-entities",
+			layouts: {
+				grid: { queryDocument, ...cardMapping, itemIdField: "itemId" },
+				list: { queryDocument, ...cardMapping, itemIdField: "itemId" },
+				table: {
+					queryDocument,
+					imageField: null,
+					itemIdField: "itemId",
+					columns: [{ label: "Title", field: "title" }],
+				},
+			},
+		},
+	],
 	boot: [{ slug: "boot.test", scriptSlug: "automation.test", description: "Boot test data" }],
 	userBootstrap: [
 		{
@@ -218,6 +262,17 @@ describe("definePlugin", () => {
 
 	it("decodes the manifest with the canonical Effect schema", () => {
 		expect(Schema.decodeUnknownSync(PluginManifest)(manifest)).toEqual(manifest);
+	});
+
+	it("requires and decodes every saved-view layout", () => {
+		const [savedView] = Schema.decodeUnknownSync(PluginManifest)(manifest).savedViews;
+		assert(savedView);
+
+		expect(Object.keys(savedView.layouts)).toEqual(["grid", "list", "table"]);
+		for (const layout of ["grid", "list", "table"] as const) {
+			expect(savedView.layouts[layout].queryDocument).toEqual(queryDocument);
+			expect(savedView.layouts[layout].itemIdField).toBe("itemId");
+		}
 	});
 
 	it("normalizes strict HTTP rate limit declarations", () => {

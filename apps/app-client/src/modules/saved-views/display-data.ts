@@ -7,7 +7,7 @@ import {
 	TextFieldValue,
 	rowsResultSchema,
 } from "@ryot/contract/modules/ryotql/language";
-import type { SavedViewDisplayConfiguration } from "@ryot/contract/modules/saved-views/schemas";
+import type { SavedViewLayouts } from "@ryot/contract/modules/saved-views/schemas";
 import {
 	AssetLocator,
 	type AssetLocator as AssetLocatorType,
@@ -39,7 +39,8 @@ export type SavedViewImage =
 	| { readonly type: "unconfigured" }
 	| { readonly type: "asset"; readonly locator: AssetLocatorType };
 
-export type SavedViewCardData = {
+export type SavedViewCardItem = {
+	readonly id: string;
 	readonly title: string;
 	readonly image: SavedViewImage;
 	readonly callout?: SavedViewScalarValue | undefined;
@@ -48,27 +49,24 @@ export type SavedViewCardData = {
 	readonly secondaryMetadata?: SavedViewScalarValue | undefined;
 };
 
-export type SavedViewDisplayItem = {
+export type SavedViewTableItem = {
 	readonly id: string;
-	readonly grid: SavedViewCardData;
-	readonly list: SavedViewCardData;
-	readonly table: {
-		readonly image: SavedViewImage;
-		readonly cells: readonly {
-			readonly key: string;
-			readonly label: string;
-			readonly value: SavedViewScalarValue;
-		}[];
-	};
+	readonly image: SavedViewImage;
+	readonly cells: readonly {
+		readonly key: string;
+		readonly label: string;
+		readonly value: SavedViewScalarValue;
+	}[];
 };
 
-export type SavedViewDisplayData = {
-	readonly items: readonly SavedViewDisplayItem[];
+export type SavedViewDisplayData<Item extends SavedViewCardItem | SavedViewTableItem> = {
+	readonly items: readonly Item[];
 	readonly pageInfo: (typeof savedViewRowsResponse.Type)["data"][string]["pageInfo"];
 };
 
+type CardLayout = SavedViewLayouts["grid"];
+type TableLayout = SavedViewLayouts["table"];
 type ScalarRow = Readonly<Record<string, SavedViewScalarValue>>;
-type CardConfiguration = SavedViewDisplayConfiguration["grid"];
 
 const missingField = (field: string) =>
 	Result.fail(new Error(`Missing saved-view field: ${field}`));
@@ -105,12 +103,11 @@ const getImage = (row: ScalarRow, field: string | null): Result.Result<SavedView
 export const managedAssetKey = (asset: ManagedAssetLocator) => `${asset.type}:${asset.key}`;
 
 export const collectManagedAssets = (
-	items: readonly SavedViewDisplayItem[],
-	layout: "grid" | "list" | "table",
+	items: readonly (SavedViewCardItem | SavedViewTableItem)[],
 ) => {
 	const assets = new Map<string, ManagedAssetLocator>();
 	for (const item of items) {
-		const image = item[layout].image;
+		const { image } = item;
 		if (image.type === "asset" && image.locator.type !== "remote") {
 			assets.set(managedAssetKey(image.locator), image.locator);
 		}
@@ -147,15 +144,16 @@ const getOptionalValue = (row: ScalarRow, field: string | null) => {
 	return Result.map(getField(row, field), (value) => (value.kind === "null" ? undefined : value));
 };
 
-const decodeCard = (row: ScalarRow, configuration: CardConfiguration) =>
+const decodeCard = (row: ScalarRow, layout: CardLayout) =>
 	Result.gen(function* () {
-		const title = yield* getText(row, configuration.titleField);
-		const image = yield* getImage(row, configuration.imageField);
-		const callout = yield* getOptionalValue(row, configuration.calloutField);
-		const overline = yield* getOptionalValue(row, configuration.overlineField);
-		const primaryMetadata = yield* getOptionalValue(row, configuration.primaryMetadataField);
-		const secondaryMetadata = yield* getOptionalValue(row, configuration.secondaryMetadataField);
-		return { title, image, callout, overline, primaryMetadata, secondaryMetadata };
+		const id = yield* getText(row, layout.itemIdField);
+		const title = yield* getText(row, layout.titleField);
+		const image = yield* getImage(row, layout.imageField);
+		const callout = yield* getOptionalValue(row, layout.calloutField);
+		const overline = yield* getOptionalValue(row, layout.overlineField);
+		const primaryMetadata = yield* getOptionalValue(row, layout.primaryMetadataField);
+		const secondaryMetadata = yield* getOptionalValue(row, layout.secondaryMetadataField);
+		return { id, title, image, callout, overline, primaryMetadata, secondaryMetadata };
 	});
 
 const validateDates = (row: ScalarRow) => {
@@ -167,24 +165,22 @@ const validateDates = (row: ScalarRow) => {
 	return Result.succeed(row);
 };
 
-const decodeItem = (row: ScalarRow, configuration: SavedViewDisplayConfiguration) =>
+const decodeTable = (row: ScalarRow, layout: TableLayout) =>
 	Result.gen(function* () {
 		yield* validateDates(row);
-		const id = yield* getText(row, configuration.entityIdField);
-		const grid = yield* decodeCard(row, configuration.grid);
-		const list = yield* decodeCard(row, configuration.list);
-		const image = yield* getImage(row, configuration.table.imageField);
+		const id = yield* getText(row, layout.itemIdField);
+		const image = yield* getImage(row, layout.imageField);
 		const cells = yield* Result.all(
-			configuration.table.columns.map(({ field, label }) =>
+			layout.columns.map(({ field, label }) =>
 				Result.map(getField(row, field), (value) => ({ key: field, label, value })),
 			),
 		);
-		return { id, grid, list, table: { image, cells } };
+		return { id, image, cells };
 	});
 
-export const decodeSavedViewDisplayData = (
+const decodeRows = <Item>(
 	response: unknown,
-	configuration: SavedViewDisplayConfiguration,
+	decodeItem: (row: ScalarRow) => Result.Result<Item, Error>,
 ) =>
 	Result.gen(function* () {
 		const { data } = yield* Schema.decodeUnknownResult(savedViewRowsResponse)(response);
@@ -193,6 +189,14 @@ export const decodeSavedViewDisplayData = (
 			return yield* Result.fail(new Error("Expected one saved-view rows result"));
 		}
 		const [result] = results;
-		const items = yield* Result.all(result.items.map((row) => decodeItem(row, configuration)));
-		return { items, pageInfo: result.pageInfo } satisfies SavedViewDisplayData;
+		const items = yield* Result.all(result.items.map(decodeItem));
+		return { items, pageInfo: result.pageInfo };
 	});
+
+export const decodeSavedViewCardData = (response: unknown, layout: CardLayout) =>
+	decodeRows(response, (row) =>
+		Result.flatMap(validateDates(row), (validRow) => decodeCard(validRow, layout)),
+	);
+
+export const decodeSavedViewTableData = (response: unknown, layout: TableLayout) =>
+	decodeRows(response, (row) => decodeTable(row, layout));
