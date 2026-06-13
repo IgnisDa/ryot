@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { applyThemePreference, resolveTheme } from "./preference";
+import { applyThemePreference, resolveTheme } from "#/modules/theme/preference";
 
 describe("theme preference", () => {
 	it("resolves system and explicit preferences", () => {

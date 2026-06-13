@@ -2,7 +2,7 @@ import { runContract } from "@ryot/contract/client";
 import type { SystemConfigResponse } from "@ryot/contract/modules/system/contract";
 import { Context, Data, Effect, Layer } from "effect";
 
-import { serverApiUrl, type ServerOrigin } from "./origin";
+import { serverApiUrl, type ServerOrigin } from "#/api/origin";
 
 export class PublicApiError extends Data.TaggedError("PublicApiError")<{
 	readonly cause: unknown;

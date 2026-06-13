@@ -1,9 +1,9 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect, Layer } from "effect";
 
-import { ClientStorage } from "../../persistence/storage";
-import { AuthClient, AuthClientError, type AuthSessionStore } from "./client";
-import { AuthService } from "./service";
+import { AuthClient, AuthClientError, type AuthSessionStore } from "#/modules/auth/client";
+import { AuthService } from "#/modules/auth/service";
+import { ClientStorage } from "#/persistence/storage";
 
 const session: AuthSessionStore = {
 	subscribe: () => () => undefined,

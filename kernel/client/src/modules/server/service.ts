@@ -1,8 +1,8 @@
 import { Context, Effect, Layer } from "effect";
 
-import type { ServerOrigin } from "../../api/origin";
-import { PublicApi } from "../../api/public";
-import { ClientStorage } from "../../persistence/storage";
+import type { ServerOrigin } from "#/api/origin";
+import { PublicApi } from "#/api/public";
+import { ClientStorage } from "#/persistence/storage";
 
 export class ServerService extends Context.Service<ServerService>()("ServerService", {
 	make: Effect.gen(function* () {

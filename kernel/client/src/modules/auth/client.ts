@@ -2,10 +2,10 @@ import { createAuthClient } from "better-auth/client";
 import { twoFactorClient } from "better-auth/client/plugins";
 import { Context, Data, Effect, Layer } from "effect";
 
-import { normalizeServerOrigin, type ServerOrigin } from "../../api/origin";
-import { ClientStorage } from "../../persistence/storage";
-import type { TwoFactorMethod } from "./flow";
-import type { CredentialsValues } from "./form-values";
+import { normalizeServerOrigin, type ServerOrigin } from "#/api/origin";
+import type { TwoFactorMethod } from "#/modules/auth/flow";
+import type { CredentialsValues } from "#/modules/auth/form-values";
+import { ClientStorage } from "#/persistence/storage";
 
 export const BETTER_AUTH_STORAGE_KEYS = ["better-auth.message"] as const;
 

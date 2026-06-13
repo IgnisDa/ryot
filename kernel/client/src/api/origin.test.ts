@@ -6,7 +6,7 @@ import {
 	parseServerOrigin,
 	resolveServerOrigin,
 	serverApiUrl,
-} from "./origin";
+} from "#/api/origin";
 
 describe("server origins", () => {
 	it("normalizes whitespace and trailing slashes", () => {

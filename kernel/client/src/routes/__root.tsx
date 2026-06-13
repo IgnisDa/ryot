@@ -1,10 +1,10 @@
 // oxlint-disable-next-line import/no-unassigned-import
-import "../styles/index.css";
+import "#/styles/index.css";
 import { Outlet, createRootRouteWithContext } from "@tanstack/react-router";
 
-import { ThemeController } from "../modules/theme/controller";
-import type { ThemeStore } from "../modules/theme/store";
-import type { ClientRuntime } from "../runtime";
+import { ThemeController } from "#/modules/theme/controller";
+import type { ThemeStore } from "#/modules/theme/store";
+import type { ClientRuntime } from "#/runtime";
 
 export type RouterContext = {
 	readonly runtime: ClientRuntime;

@@ -5,8 +5,8 @@ import {
 import { Effect, Fiber, ManagedRuntime } from "effect";
 import { describe, expect, it } from "vitest";
 
-import type { ApiScope } from "../../api/scope";
-import { makePluginCatalogEventsLayer, PluginCatalogEventsService } from "./events";
+import type { ApiScope } from "#/api/scope";
+import { makePluginCatalogEventsLayer, PluginCatalogEventsService } from "#/modules/plugins/events";
 
 const scope: ApiScope = {
 	userId: "user-1",

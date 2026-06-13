@@ -1,10 +1,10 @@
 import { Effect } from "effect";
 import { useEffect, useState } from "react";
 
-import { ClientStorage } from "../../persistence/storage";
-import type { ClientRuntime } from "../../runtime";
-import { THEME_PREFERENCES, isThemePreference } from "./preference";
-import type { ThemeStore } from "./store";
+import { THEME_PREFERENCES, isThemePreference } from "#/modules/theme/preference";
+import type { ThemeStore } from "#/modules/theme/store";
+import { ClientStorage } from "#/persistence/storage";
+import type { ClientRuntime } from "#/runtime";
 
 export function ThemeController(props: {
 	readonly runtime: ClientRuntime;

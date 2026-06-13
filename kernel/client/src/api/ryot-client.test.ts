@@ -8,9 +8,9 @@ import type { PreparedRecipe } from "@ryot/ryotql";
 import { Effect, Layer, ManagedRuntime, Result, Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
-import type { ThemeStore } from "../modules/theme/store";
-import { AuthenticatedApi, AuthenticatedApiError } from "./authenticated";
-import { createKernelRyotClient } from "./ryot-client";
+import { AuthenticatedApi, AuthenticatedApiError } from "#/api/authenticated";
+import { createKernelRyotClient } from "#/api/ryot-client";
+import type { ThemeStore } from "#/modules/theme/store";
 
 const scope = { userId: "user-1", serverUrl: "https://ryot.example" };
 const document = { queries: {}, output: {} } as PreparedRecipe<unknown>["document"];

@@ -1,5 +1,5 @@
-import type { ServerOrigin } from "../../api/origin";
-import { sanitizeRedirect, type SafeRedirect } from "./redirect";
+import type { ServerOrigin } from "#/api/origin";
+import { sanitizeRedirect, type SafeRedirect } from "#/modules/server/redirect";
 
 export type RootGateDecision =
 	| { readonly action: "redirect"; readonly to: "/auth" }

@@ -20,7 +20,7 @@ import { waitFor } from "@testing-library/dom";
 import { Schema } from "effect";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { openPluginBridge, type PluginBridgeSession } from "./bridge";
+import { openPluginBridge, type PluginBridgeSession } from "#/modules/plugins/bridge";
 
 const decodeInit = Schema.decodeUnknownSync(PluginBridgeInit);
 

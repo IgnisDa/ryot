@@ -12,8 +12,8 @@ import {
 import { PluginSlug } from "@ryot/contract/schema/brands";
 import { Context, Effect, Layer, Schema } from "effect";
 
-import { AuthenticatedApi } from "../../api/authenticated";
-import type { ApiScope } from "../../api/scope";
+import { AuthenticatedApi } from "#/api/authenticated";
+import type { ApiScope } from "#/api/scope";
 
 const isDeclaredFailure = Schema.is(
 	Schema.Union([

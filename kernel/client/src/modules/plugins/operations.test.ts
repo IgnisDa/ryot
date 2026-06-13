@@ -9,9 +9,9 @@ import {
 import { PluginSlug } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
-import { AuthenticatedApi, AuthenticatedApiError } from "../../api/authenticated";
-import type { ApiScope } from "../../api/scope";
-import { PluginOperationsService } from "./operations";
+import { AuthenticatedApi, AuthenticatedApiError } from "#/api/authenticated";
+import type { ApiScope } from "#/api/scope";
+import { PluginOperationsService } from "#/modules/plugins/operations";
 
 const scope: ApiScope = { userId: "user-1", serverUrl: "https://ryot.example" };
 

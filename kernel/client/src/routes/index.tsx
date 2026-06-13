@@ -2,10 +2,10 @@ import { Button } from "@ryot/client-ui-sdk";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
-import type { ServerOrigin } from "../api/origin";
-import type { ApiScope } from "../api/scope";
-import { protectedRouteGuard } from "../modules/auth/route-gates";
-import { AuthService } from "../modules/auth/service";
+import type { ServerOrigin } from "#/api/origin";
+import type { ApiScope } from "#/api/scope";
+import { protectedRouteGuard } from "#/modules/auth/route-gates";
+import { AuthService } from "#/modules/auth/service";
 
 export const Route = createFileRoute("/")({
 	component: KernelDestination,
