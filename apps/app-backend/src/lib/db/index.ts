@@ -24,6 +24,7 @@ export class DbService extends Effect.Service<DbService>()("DbService", {
 	scoped: Effect.gen(function* () {
 		const config = yield* AppConfig;
 		const pool = new Pool({
+			max: config.database.poolMax,
 			statement_timeout: config.database.statementTimeoutMs,
 			connectionString: Redacted.value(config.database.url),
 			connectionTimeoutMillis: config.database.connectionTimeoutMs,
