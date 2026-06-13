@@ -115,13 +115,106 @@ describe("contains operands", () => {
 	});
 });
 
+describe("new entity system field types", () => {
+	it("allows ordering a populatedAt date field against a date literal", () => {
+		expect(
+			checkWhere(
+				comparison(
+					"lt",
+					{ type: "ref", sourceAlias: "e", field: { type: "system", name: "populatedAt" } },
+					{ type: "literal", value: "2026-01-01", valueType: "date" },
+				),
+			),
+		).toBeNull();
+	});
+
+	it("rejects ordering a userId string field against a number literal", () => {
+		const error = checkWhere(
+			comparison(
+				"gt",
+				{ type: "ref", sourceAlias: "e", field: { type: "system", name: "userId" } },
+				literal(5),
+			),
+		);
+		expect(error).toMatch(/Comparison operands are not type-compatible/);
+	});
+
+	it("treats properties as unknown and does not reject ordering", () => {
+		expect(
+			checkWhere(
+				comparison(
+					"gt",
+					{ type: "ref", sourceAlias: "e", field: { type: "system", name: "properties" } },
+					literal(5),
+				),
+			),
+		).toBeNull();
+	});
+});
+
+describe("new event system field types", () => {
+	const checkEventWhere = (where: Expr) => {
+		const doc: QueryDocument = {
+			source: {
+				where,
+				alias: "ev",
+				type: "events",
+				schemas: ["complete"],
+				entity: { alias: "ent", schemas: ["books"] },
+			},
+			output: {
+				fields: [],
+				type: "rows",
+				pagination: { page: 1, limit: 10 },
+				orderBy: [{ order: "asc", expr: nameRef("ent") }],
+			},
+		};
+		return checkQueryDocumentTypes(collectAliasScope(doc), doc, propertiesBySlug);
+	};
+
+	it("allows comparing eventSchemaId string against a string literal", () => {
+		expect(
+			checkEventWhere(
+				comparison(
+					"eq",
+					{ type: "ref", sourceAlias: "ev", field: { type: "system", name: "eventSchemaId" } },
+					literal("schema-1"),
+				),
+			),
+		).toBeNull();
+	});
+
+	it("rejects ordering entityId string against a number literal", () => {
+		const error = checkEventWhere(
+			comparison(
+				"gt",
+				{ type: "ref", sourceAlias: "ev", field: { type: "system", name: "entityId" } },
+				literal(5),
+			),
+		);
+		expect(error).toMatch(/Comparison operands are not type-compatible/);
+	});
+
+	it("treats event properties as unknown and does not reject ordering", () => {
+		expect(
+			checkEventWhere(
+				comparison(
+					"gt",
+					{ type: "ref", sourceAlias: "ev", field: { type: "system", name: "properties" } },
+					literal(5),
+				),
+			),
+		).toBeNull();
+	});
+});
+
 describe("conservative source coverage", () => {
 	it("treats event property operands as unknown", () => {
 		const doc: QueryDocument = {
 			source: {
-				alias: "lesson",
-				type: "events",
 				where: null,
+				type: "events",
+				alias: "lesson",
 				schemas: ["complete"],
 				entity: { alias: "course", schemas: ["books"] },
 			},
