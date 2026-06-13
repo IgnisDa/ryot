@@ -4,6 +4,7 @@ import {
 	createEntityColumnExpression,
 	createEntityPropertyExpression,
 } from "@ryot/app-backend/query-language";
+import { SavedViewId } from "@ryot/app-backend/schema/brands";
 
 import type { QueryEngineEntityItem } from "../entity-detail/query-engine";
 import type { EntitySavedView } from "./runtime";
@@ -19,7 +20,6 @@ import {
 } from "./runtime";
 
 const view = {
-	id: "view-1",
 	icon: "book",
 	sortOrder: 1,
 	slug: "library",
@@ -28,6 +28,7 @@ const view = {
 	isBuiltin: false,
 	isDisabled: false,
 	accentColor: "#aa7733",
+	id: SavedViewId.make("view-1"),
 	createdAt: "2024-01-01T00:00:00Z",
 	updatedAt: "2024-01-02T00:00:00Z",
 	queryDefinition: {

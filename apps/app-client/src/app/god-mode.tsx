@@ -1,3 +1,4 @@
+import { UserId } from "@ryot/app-backend/schema/brands";
 import { dayjs } from "@ryot/ts-utils/dayjs";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import clsx from "clsx";
@@ -196,7 +197,9 @@ function UserRowWithReset(props: {
 			setResult(null);
 		},
 		mutationFn: () =>
-			runContract((client) => client.godMode.resetUserPassword({ path: { userId: user.id } })),
+			runContract((client) =>
+				client.godMode.resetUserPassword({ path: { userId: UserId.make(user.id) } }),
+			),
 	});
 
 	const setBanMutation = useMutation({
@@ -210,7 +213,7 @@ function UserRowWithReset(props: {
 		},
 		mutationFn: (banned: boolean) =>
 			runContract((client) =>
-				client.godMode.setUserBan({ path: { userId: user.id }, payload: { banned } }),
+				client.godMode.setUserBan({ path: { userId: UserId.make(user.id) }, payload: { banned } }),
 			),
 	});
 
