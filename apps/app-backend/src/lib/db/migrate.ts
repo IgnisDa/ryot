@@ -13,7 +13,7 @@ const migrateDB = Effect.gen(function* () {
 
 	yield* renameLegacyTables;
 	yield* Effect.logInfo("running database migrations");
-	const migrationsFolder = new URL("../../drizzle", import.meta.url).pathname;
+	const migrationsFolder = Bun.fileURLToPath(new URL("../../drizzle", import.meta.url));
 	yield* Effect.tryPromise({
 		catch: unknownToDbError,
 		try: () => migrate(db, { migrationsFolder }),
