@@ -1,5 +1,6 @@
 import { Layer } from "effect";
 
+import { AdminApi } from "#/api/admin";
 import { AuthenticatedApi } from "#/api/authenticated";
 import { PublicApi } from "#/api/public";
 import { ManagedAssetsService } from "#/modules/assets/managed-assets";
@@ -9,6 +10,8 @@ import { OAuthStorage } from "#/modules/auth/oauth-storage";
 import { RuntimeOAuthClientService } from "#/modules/auth/runtime-client";
 import { AuthService } from "#/modules/auth/service";
 import { OAuthTokenService } from "#/modules/auth/token-service";
+import { GodModeService } from "#/modules/god-mode/service";
+import { GodModeSessionService } from "#/modules/god-mode/session";
 import { ArtifactSessions } from "#/modules/plugins/artifact-sessions";
 import { PluginCatalogService } from "#/modules/plugins/catalog";
 import { PluginCatalogEventsService } from "#/modules/plugins/events";
@@ -19,10 +22,11 @@ import { ServerService } from "#/modules/server/service";
 import { ClientStorage } from "#/persistence/storage";
 
 const OAuthTokenLive = OAuthTokenService.layer.pipe(Layer.provideMerge(OAuthStorage.layer));
-const InfrastructureLive = Layer.mergeAll(PublicApi.layer, AuthenticatedApi.layer).pipe(
-	Layer.provideMerge(OAuthTokenLive),
-	Layer.provideMerge(RuntimeOAuthClientService.layer),
-);
+const InfrastructureLive = Layer.mergeAll(
+	AdminApi.layer,
+	PublicApi.layer,
+	AuthenticatedApi.layer,
+).pipe(Layer.provideMerge(OAuthTokenLive), Layer.provideMerge(RuntimeOAuthClientService.layer));
 
 const ServerLive = ServerService.layer.pipe(
 	Layer.provideMerge(ClientStorage.layer),
@@ -40,11 +44,16 @@ const OAuthLauncherLive = OAuthLauncher.layer.pipe(
 	Layer.provideMerge(InfrastructureLive),
 	Layer.provideMerge(RuntimeOAuthClientService.layer),
 );
+const GodModeLive = GodModeService.layer.pipe(
+	Layer.provideMerge(GodModeSessionService.layer),
+	Layer.provideMerge(InfrastructureLive),
+);
 
 export const ClientLive = Layer.mergeAll(
 	AuthLive,
 	OAuthLauncherLive,
 	HostedAuthService.layer,
+	GodModeLive,
 	ManagedAssetsService.layer,
 	ServerLive,
 	ArtifactSessions.layer,

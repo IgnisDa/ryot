@@ -16,6 +16,7 @@ import { PluginQueriesService } from "#/modules/plugins/queries";
 import { ClientStorage } from "#/persistence/storage";
 import { getRouter } from "#/router";
 import {
+	GodModeRouteStubs,
 	ServerStub,
 	SavedViewRouteStubs,
 	authenticated,
@@ -44,6 +45,7 @@ const mountView = (
 	const runtime = ManagedRuntime.make(
 		Layer.mergeAll(
 			authLayer,
+			GodModeRouteStubs,
 			ServerStub,
 			SavedViewRouteStubs,
 			publicLayer,
@@ -260,6 +262,23 @@ describe("account settings", () => {
 		expect(profile?.textContent).toContain("user@ryot.example");
 		expect(profile?.textContent).toContain("ID: user-1");
 		expect(profile?.textContent).toContain("https://ryot.example");
+	});
+
+	it("opens standalone God Mode from the server administration card", async () => {
+		const view = mountView("/settings/account");
+		const administration = await screen.findByRole("heading", { name: "Server administration" });
+		const section = administration.closest("section");
+		if (section === null) {
+			throw new Error("Server administration heading must be inside a section");
+		}
+		expect(section.textContent).toContain("Requires an admin access token");
+
+		fireEvent.click(within(section).getByRole("link", { name: /God Mode/ }));
+		await screen.findByRole("heading", { name: "God Mode" });
+		expect(view.router.state.location.pathname).toBe("/god-mode/users");
+		expect(screen.queryByTestId("authenticated-shell")).toBeNull();
+		expect(screen.queryByTestId("mobile-drawer")).toBeNull();
+		expect(screen.queryByTitle("fixture plugin")).toBeNull();
 	});
 
 	it("disables both actions while sign out is pending and navigates to /auth on success", async () => {
