@@ -71,70 +71,67 @@ const validateExpr = (userId: string, expr: Expr, aliases: EntityAliasSchemas): 
 		}
 	});
 
-const validateSource = (
+const validateSource = Effect.fn("validateSource")(function* (
 	userId: string,
 	source: Source,
 	aliases: EntityAliasSchemas,
-): Effect.Effect<EntityAliasSchemas, NotFound | DbError, CurrentDb> =>
-	Effect.gen(function* () {
-		if (source.type === "events") {
-			const entitySchemaIds = aliases.get(source.entityRef) ?? [];
-			yield* loadVisibleEventSchemasForEntitySchemas(userId, entitySchemaIds, source.schemas);
-			if (source.where) {
-				yield* validateExpr(userId, source.where, aliases);
-			}
-			return aliases;
-		}
-
-		const visibleSchemas = yield* loadVisibleEntitySchemas(userId, source.schemas);
-		if (source.via) {
-			yield* loadVisibleRelationshipSchema(userId, source.via.schema);
-		}
-
-		const nextAliases = new Map(aliases);
-		nextAliases.set(
-			source.alias,
-			visibleSchemas.map((schema) => schema.id),
-		);
-		if (source.where) {
-			yield* validateExpr(userId, source.where, nextAliases);
-		}
-
-		return nextAliases;
-	});
-
-const validateRootEventSource = (userId: string, source: RootEventSource) =>
-	Effect.gen(function* () {
-		const entitySchemas = yield* loadVisibleEntitySchemas(userId, source.entity.schemas);
-		const entitySchemaIds = entitySchemas.map((schema) => schema.id);
+) {
+	if (source.type === "events") {
+		const entitySchemaIds = aliases.get(source.entityRef) ?? [];
 		yield* loadVisibleEventSchemasForEntitySchemas(userId, entitySchemaIds, source.schemas);
-		const aliases = new Map<string, readonly string[]>([[source.entity.alias, entitySchemaIds]]);
 		if (source.where) {
 			yield* validateExpr(userId, source.where, aliases);
 		}
 		return aliases;
-	});
+	}
 
-const validateRelationshipRootSource = (userId: string, source: RelationshipSource) =>
-	Effect.gen(function* () {
-		yield* loadVisibleRelationshipSchemas(userId, source.schemas);
-		const sourceEntitySchemas = yield* loadVisibleEntitySchemas(
-			userId,
-			source.sourceEntity.schemas,
-		);
-		const targetEntitySchemas = yield* loadVisibleEntitySchemas(
-			userId,
-			source.targetEntity.schemas,
-		);
-		const aliases = new Map<string, readonly string[]>([
-			[source.sourceEntity.alias, sourceEntitySchemas.map((schema) => schema.id)],
-			[source.targetEntity.alias, targetEntitySchemas.map((schema) => schema.id)],
-		]);
-		if (source.where) {
-			yield* validateExpr(userId, source.where, aliases);
-		}
-		return aliases;
-	});
+	const visibleSchemas = yield* loadVisibleEntitySchemas(userId, source.schemas);
+	if (source.via) {
+		yield* loadVisibleRelationshipSchema(userId, source.via.schema);
+	}
+
+	const nextAliases = new Map(aliases);
+	nextAliases.set(
+		source.alias,
+		visibleSchemas.map((schema) => schema.id),
+	);
+	if (source.where) {
+		yield* validateExpr(userId, source.where, nextAliases);
+	}
+
+	return nextAliases;
+});
+
+const validateRootEventSource = Effect.fn("validateRootEventSource")(function* (
+	userId: string,
+	source: RootEventSource,
+) {
+	const entitySchemas = yield* loadVisibleEntitySchemas(userId, source.entity.schemas);
+	const entitySchemaIds = entitySchemas.map((schema) => schema.id);
+	yield* loadVisibleEventSchemasForEntitySchemas(userId, entitySchemaIds, source.schemas);
+	const aliases = new Map<string, readonly string[]>([[source.entity.alias, entitySchemaIds]]);
+	if (source.where) {
+		yield* validateExpr(userId, source.where, aliases);
+	}
+	return aliases;
+});
+
+const validateRelationshipRootSource = Effect.fn("validateRelationshipRootSource")(function* (
+	userId: string,
+	source: RelationshipSource,
+) {
+	yield* loadVisibleRelationshipSchemas(userId, source.schemas);
+	const sourceEntitySchemas = yield* loadVisibleEntitySchemas(userId, source.sourceEntity.schemas);
+	const targetEntitySchemas = yield* loadVisibleEntitySchemas(userId, source.targetEntity.schemas);
+	const aliases = new Map<string, readonly string[]>([
+		[source.sourceEntity.alias, sourceEntitySchemas.map((schema) => schema.id)],
+		[source.targetEntity.alias, targetEntitySchemas.map((schema) => schema.id)],
+	]);
+	if (source.where) {
+		yield* validateExpr(userId, source.where, aliases);
+	}
+	return aliases;
+});
 
 const validateRootSource = (userId: string, doc: QueryDocument) => {
 	const source = doc.source;
@@ -165,8 +162,8 @@ const validateInclude = (
 		}
 	});
 
-export const validateQueryDocumentReferences = (userId: string, doc: QueryDocument) =>
-	Effect.gen(function* () {
+export const validateQueryDocumentReferences = Effect.fn("validateQueryDocumentReferences")(
+	function* (userId: string, doc: QueryDocument) {
 		const aliases = yield* validateRootSource(userId, doc);
 
 		if (doc.output.type === "rows") {
@@ -204,10 +201,12 @@ export const validateQueryDocumentReferences = (userId: string, doc: QueryDocume
 			yield* validateExpr(userId, doc.output.measure.aggregation.expr, aliases);
 		}
 		yield* validateExpr(userId, doc.output.time.expr, aliases);
-	});
+	},
+);
 
-export const validateQueryDocumentReferencesAndTypes = (userId: string, doc: QueryDocument) =>
-	Effect.gen(function* () {
-		yield* validateQueryDocumentReferences(userId, doc);
-		yield* validateQueryDocumentTypeCompatibility(userId, doc);
-	});
+export const validateQueryDocumentReferencesAndTypes = Effect.fn(
+	"validateQueryDocumentReferencesAndTypes",
+)(function* (userId: string, doc: QueryDocument) {
+	yield* validateQueryDocumentReferences(userId, doc);
+	yield* validateQueryDocumentTypeCompatibility(userId, doc);
+});

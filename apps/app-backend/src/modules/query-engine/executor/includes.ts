@@ -41,40 +41,39 @@ const limitFilteredRows = <TRow>(rows: TRow[], limit: number): IncludeRows<TRow>
 	hasMore: rows.length > limit,
 });
 
-const executeEntityIncludeForParentRow = (
+const executeEntityIncludeForParentRow = Effect.fn("executeEntityIncludeForParentRow")(function* (
 	userId: string,
 	parentRow: BaseEntityQueryRow,
 	include: IncludeEntry,
 	parentContext: RowContext,
-): Effect.Effect<IncludeRows<IncludeQueryRow>, BadRequest | NotFound | DbError, CurrentDb> =>
-	Effect.gen(function* () {
-		const source = include.source;
-		if (source.type !== "entities" || source.via === undefined) {
-			return { rows: [], hasMore: false };
-		}
-		const via = source.via;
+) {
+	const source = include.source;
+	if (source.type !== "entities" || source.via === undefined) {
+		return { rows: [], hasMore: false };
+	}
+	const via = source.via;
 
-		const [relationshipSchema, visibleSchemas] = yield* Effect.all([
-			loadVisibleRelationshipSchema(userId, via.schema),
-			loadVisibleEntitySchemas(userId, source.schemas),
-		]);
-		const schemaIdsSql = sql.join(
-			visibleSchemas.map((schema) => sql`${schema.id}`),
-			sql`, `,
-		);
-		const anchorColumn =
-			via.direction === "outgoing" ? sql`r.source_entity_id` : sql`r.target_entity_id`;
-		const childColumn =
-			via.direction === "outgoing" ? sql`r.target_entity_id` : sql`r.source_entity_id`;
-		const orderSql = includeOrderSql(source, include.orderBy);
-		const limitSql =
-			source.where === null
-				? sql`LIMIT ${include.limit + 1}`
-				: sql`LIMIT ${MAX_INCLUDE_FILTER_SCAN_ROWS + 1}`;
-		const db = yield* CurrentDb;
+	const [relationshipSchema, visibleSchemas] = yield* Effect.all([
+		loadVisibleRelationshipSchema(userId, via.schema),
+		loadVisibleEntitySchemas(userId, source.schemas),
+	]);
+	const schemaIdsSql = sql.join(
+		visibleSchemas.map((schema) => sql`${schema.id}`),
+		sql`, `,
+	);
+	const anchorColumn =
+		via.direction === "outgoing" ? sql`r.source_entity_id` : sql`r.target_entity_id`;
+	const childColumn =
+		via.direction === "outgoing" ? sql`r.target_entity_id` : sql`r.source_entity_id`;
+	const orderSql = includeOrderSql(source, include.orderBy);
+	const limitSql =
+		source.where === null
+			? sql`LIMIT ${include.limit + 1}`
+			: sql`LIMIT ${MAX_INCLUDE_FILTER_SCAN_ROWS + 1}`;
+	const db = yield* CurrentDb;
 
-		const rawRows = yield* dbEffect(() =>
-			db.execute<IncludeQueryRow>(sql`
+	const rawRows = yield* dbEffect(() =>
+		db.execute<IncludeQueryRow>(sql`
 				SELECT
 					${entitySelectColumnsSql},
 					${relationshipEdgeColumnsSql},
@@ -92,49 +91,48 @@ const executeEntityIncludeForParentRow = (
 				ORDER BY ${orderSql}
 				${limitSql}
 			`),
-		);
+	);
 
-		if (source.where === null) {
-			return limitFilteredRows(rawRows.rows, include.limit);
-		}
-		if (rawRows.rows.length > MAX_INCLUDE_FILTER_SCAN_ROWS) {
-			return yield* new BadRequest({
-				message: `Include filter candidate rows exceeds maximum of ${MAX_INCLUDE_FILTER_SCAN_ROWS}`,
-			});
-		}
+	if (source.where === null) {
+		return limitFilteredRows(rawRows.rows, include.limit);
+	}
+	if (rawRows.rows.length > MAX_INCLUDE_FILTER_SCAN_ROWS) {
+		return yield* new BadRequest({
+			message: `Include filter candidate rows exceeds maximum of ${MAX_INCLUDE_FILTER_SCAN_ROWS}`,
+		});
+	}
 
-		const filtered: IncludeQueryRow[] = [];
-		for (const row of rawRows.rows) {
-			const context = makeIncludeContext(include, row, parentContext);
-			if (yield* evalExprAsBoolean(userId, source.where, context)) {
-				filtered.push(row);
-			}
+	const filtered: IncludeQueryRow[] = [];
+	for (const row of rawRows.rows) {
+		const context = makeIncludeContext(include, row, parentContext);
+		if (yield* evalExprAsBoolean(userId, source.where, context)) {
+			filtered.push(row);
 		}
-		return limitFilteredRows(filtered, include.limit);
-	});
+	}
+	return limitFilteredRows(filtered, include.limit);
+});
 
-const executeEventIncludeForParentRow = (
+const executeEventIncludeForParentRow = Effect.fn("executeEventIncludeForParentRow")(function* (
 	userId: string,
 	parentRow: BaseEntityQueryRow,
 	include: IncludeEntry,
 	source: NestedEventSource,
 	parentContext: RowContext,
-): Effect.Effect<IncludeRows<EventQueryRow>, BadRequest | NotFound | DbError, CurrentDb> =>
-	Effect.gen(function* () {
-		const eventSchemas = yield* loadVisibleEventSchemas(userId, parentRow.schemaId, source.schemas);
-		const eventSchemaIdsSql = sql.join(
-			eventSchemas.map((schema) => sql`${schema.id}`),
-			sql`, `,
-		);
-		const orderSql = eventIncludeOrderSql(source, include.orderBy);
-		const limitSql =
-			source.where === null
-				? sql`LIMIT ${include.limit + 1}`
-				: sql`LIMIT ${MAX_INCLUDE_FILTER_SCAN_ROWS + 1}`;
-		const db = yield* CurrentDb;
+) {
+	const eventSchemas = yield* loadVisibleEventSchemas(userId, parentRow.schemaId, source.schemas);
+	const eventSchemaIdsSql = sql.join(
+		eventSchemas.map((schema) => sql`${schema.id}`),
+		sql`, `,
+	);
+	const orderSql = eventIncludeOrderSql(source, include.orderBy);
+	const limitSql =
+		source.where === null
+			? sql`LIMIT ${include.limit + 1}`
+			: sql`LIMIT ${MAX_INCLUDE_FILTER_SCAN_ROWS + 1}`;
+	const db = yield* CurrentDb;
 
-		const rawRows = yield* dbEffect(() =>
-			db.execute<EventQueryRow>(sql`
+	const rawRows = yield* dbEffect(() =>
+		db.execute<EventQueryRow>(sql`
 				SELECT
 					${entitySelectColumnsSql},
 					${eventSelectColumnsSql},
@@ -151,26 +149,26 @@ const executeEventIncludeForParentRow = (
 				ORDER BY ${orderSql}
 				${limitSql}
 			`),
-		);
+	);
 
-		if (source.where === null) {
-			return limitFilteredRows(rawRows.rows, include.limit);
-		}
-		if (rawRows.rows.length > MAX_INCLUDE_FILTER_SCAN_ROWS) {
-			return yield* new BadRequest({
-				message: `Include filter candidate rows exceeds maximum of ${MAX_INCLUDE_FILTER_SCAN_ROWS}`,
-			});
-		}
+	if (source.where === null) {
+		return limitFilteredRows(rawRows.rows, include.limit);
+	}
+	if (rawRows.rows.length > MAX_INCLUDE_FILTER_SCAN_ROWS) {
+		return yield* new BadRequest({
+			message: `Include filter candidate rows exceeds maximum of ${MAX_INCLUDE_FILTER_SCAN_ROWS}`,
+		});
+	}
 
-		const filtered: EventQueryRow[] = [];
-		for (const row of rawRows.rows) {
-			const context = makeEventIncludeContext(source, row, parentContext);
-			if (yield* evalExprAsBoolean(userId, source.where, context)) {
-				filtered.push(row);
-			}
+	const filtered: EventQueryRow[] = [];
+	for (const row of rawRows.rows) {
+		const context = makeEventIncludeContext(source, row, parentContext);
+		if (yield* evalExprAsBoolean(userId, source.where, context)) {
+			filtered.push(row);
 		}
-		return limitFilteredRows(filtered, include.limit);
-	});
+	}
+	return limitFilteredRows(filtered, include.limit);
+});
 
 const evalEntityIncludeExprForField = (
 	userId: string,
@@ -214,75 +212,68 @@ const evalEventIncludeExprForField = (
 	return evalExprValue(userId, expr, makeEventIncludeContext(source, row, parentContext));
 };
 
-const serializeEntityIncludeRow = (
+const serializeEntityIncludeRow = Effect.fn("serializeEntityIncludeRow")(function* (
 	userId: string,
 	row: IncludeQueryRow,
 	include: IncludeEntry,
 	parentContext: RowContext,
-): Effect.Effect<RowItem, BadRequest | NotFound | DbError, CurrentDb> =>
-	Effect.gen(function* () {
-		const result: Record<string, RowValue> = {};
-		for (const field of include.fields) {
-			result[field.key] = yield* evalEntityIncludeExprForField(
-				userId,
-				field.expr,
-				row,
-				include,
-				parentContext,
-			);
-		}
-		return result;
-	});
+) {
+	const result: Record<string, RowValue> = {};
+	for (const field of include.fields) {
+		result[field.key] = yield* evalEntityIncludeExprForField(
+			userId,
+			field.expr,
+			row,
+			include,
+			parentContext,
+		);
+	}
+	return result;
+});
 
-const serializeEventIncludeRow = (
+const serializeEventIncludeRow = Effect.fn("serializeEventIncludeRow")(function* (
 	userId: string,
 	row: EventQueryRow,
 	include: IncludeEntry,
 	source: NestedEventSource,
 	parentContext: RowContext,
-): Effect.Effect<RowItem, BadRequest | NotFound | DbError, CurrentDb> =>
-	Effect.gen(function* () {
-		const result: Record<string, RowValue> = {};
-		for (const field of include.fields) {
-			result[field.key] = yield* evalEventIncludeExprForField(
-				userId,
-				field.expr,
-				row,
-				source,
-				parentContext,
-			);
-		}
-		return result;
-	});
+) {
+	const result: Record<string, RowValue> = {};
+	for (const field of include.fields) {
+		result[field.key] = yield* evalEventIncludeExprForField(
+			userId,
+			field.expr,
+			row,
+			source,
+			parentContext,
+		);
+	}
+	return result;
+});
 
-const serializeEventInclude = (
+const serializeEventInclude = Effect.fn("serializeEventInclude")(function* (
 	userId: string,
 	parentRow: BaseEntityQueryRow,
 	include: IncludeEntry,
 	source: NestedEventSource,
 	parentContext: RowContext,
-): Effect.Effect<
-	{ rowCount: number; value: RowValue },
-	BadRequest | NotFound | DbError,
-	CurrentDb
-> =>
-	Effect.gen(function* () {
-		const includeResult = yield* executeEventIncludeForParentRow(
-			userId,
-			parentRow,
-			include,
-			source,
-			parentContext,
-		);
-		const items: RowItem[] = [];
-		for (const eventRow of includeResult.rows) {
-			items.push(yield* serializeEventIncludeRow(userId, eventRow, include, source, parentContext));
-		}
-		return {
-			rowCount: includeResult.rows.length,
-			value: { items, pageInfo: { limit: include.limit, hasMore: includeResult.hasMore } },
-		};
-	});
+) {
+	const includeResult = yield* executeEventIncludeForParentRow(
+		userId,
+		parentRow,
+		include,
+		source,
+		parentContext,
+	);
+	const items: RowItem[] = [];
+	for (const eventRow of includeResult.rows) {
+		items.push(yield* serializeEventIncludeRow(userId, eventRow, include, source, parentContext));
+	}
+	return {
+		rowCount: includeResult.rows.length,
+		value: { items, pageInfo: { limit: include.limit, hasMore: includeResult.hasMore } },
+	};
+});
 
 export const serializeIncludesForRow = (
 	userId: string,

@@ -3,14 +3,7 @@ import { Effect } from "effect";
 import type { CurrentDb } from "#lib/db";
 import type { BadRequest, DbError, NotFound } from "#lib/errors";
 
-import type {
-	Expr,
-	RelationshipSource,
-	RootEventSource,
-	RowItem,
-	RowValue,
-	RowsOutput,
-} from "../language";
+import type { Expr, RelationshipSource, RootEventSource, RowValue, RowsOutput } from "../language";
 import {
 	makeEntityContext,
 	makeEventRootContext,
@@ -73,44 +66,41 @@ const evalRelationshipRootExprForField = (
 	return evalExprValue(userId, expr, makeRelationshipRootContext(source, row));
 };
 
-export const serializeRootRow = (
+export const serializeRootRow = Effect.fn("serializeRootRow")(function* (
 	userId: string,
 	row: EntityQueryRow,
 	entityAlias: string,
 	fields: RowsOutput["fields"],
-): Effect.Effect<RowItem, BadRequest | NotFound | DbError, CurrentDb> =>
-	Effect.gen(function* () {
-		const result: Record<string, RowValue> = {};
-		for (const field of fields) {
-			result[field.key] = yield* evalRootExprForField(userId, field.expr, row, entityAlias);
-		}
-		return result;
-	});
+) {
+	const result: Record<string, RowValue> = {};
+	for (const field of fields) {
+		result[field.key] = yield* evalRootExprForField(userId, field.expr, row, entityAlias);
+	}
+	return result;
+});
 
-export const serializeEventRootRow = (
+export const serializeEventRootRow = Effect.fn("serializeEventRootRow")(function* (
 	userId: string,
 	row: EventQueryRow,
 	source: RootEventSource,
 	fields: RowsOutput["fields"],
-): Effect.Effect<RowItem, BadRequest | NotFound | DbError, CurrentDb> =>
-	Effect.gen(function* () {
-		const result: Record<string, RowValue> = {};
-		for (const field of fields) {
-			result[field.key] = yield* evalEventRootExprForField(userId, field.expr, row, source);
-		}
-		return result;
-	});
+) {
+	const result: Record<string, RowValue> = {};
+	for (const field of fields) {
+		result[field.key] = yield* evalEventRootExprForField(userId, field.expr, row, source);
+	}
+	return result;
+});
 
-export const serializeRelationshipRootRow = (
+export const serializeRelationshipRootRow = Effect.fn("serializeRelationshipRootRow")(function* (
 	userId: string,
 	row: RelationshipRootQueryRow,
 	source: RelationshipSource,
 	fields: RowsOutput["fields"],
-): Effect.Effect<RowItem, BadRequest | NotFound | DbError, CurrentDb> =>
-	Effect.gen(function* () {
-		const result: Record<string, RowValue> = {};
-		for (const field of fields) {
-			result[field.key] = yield* evalRelationshipRootExprForField(userId, field.expr, row, source);
-		}
-		return result;
-	});
+) {
+	const result: Record<string, RowValue> = {};
+	for (const field of fields) {
+		result[field.key] = yield* evalRelationshipRootExprForField(userId, field.expr, row, source);
+	}
+	return result;
+});

@@ -103,29 +103,30 @@ const noCleanup = <R>(
 		),
 	);
 
-const validateImportJobFilePath = (filePath: string) =>
-	Effect.gen(function* () {
-		const config = yield* AppConfig;
-		const safePath = yield* resolveSafeImportFilePath(filePath, config.tmpDir).pipe(
-			Effect.mapError(
-				() =>
-					({
-						cleanupPaths: [],
-						message: "Import job has an invalid file path",
-					}) satisfies LoadedMediaImportAdapterError,
-			),
-		);
-		yield* validateFileExtension(safePath, getKnownImportExtensions()).pipe(
-			Effect.mapError(
-				() =>
-					({
-						cleanupPaths: [safePath],
-						message: "Import job has an invalid file extension",
-					}) satisfies LoadedMediaImportAdapterError,
-			),
-		);
-		return safePath;
-	});
+const validateImportJobFilePath = Effect.fn("validateImportJobFilePath")(function* (
+	filePath: string,
+) {
+	const config = yield* AppConfig;
+	const safePath = yield* resolveSafeImportFilePath(filePath, config.tmpDir).pipe(
+		Effect.mapError(
+			() =>
+				({
+					cleanupPaths: [],
+					message: "Import job has an invalid file path",
+				}) satisfies LoadedMediaImportAdapterError,
+		),
+	);
+	yield* validateFileExtension(safePath, getKnownImportExtensions()).pipe(
+		Effect.mapError(
+			() =>
+				({
+					cleanupPaths: [safePath],
+					message: "Import job has an invalid file extension",
+				}) satisfies LoadedMediaImportAdapterError,
+		),
+	);
+	return safePath;
+});
 
 const withLoadFallback = <R>(
 	fallback: string,

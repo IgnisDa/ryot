@@ -116,145 +116,151 @@ const runMediaImportForIntegration = <RResolve, RImport, RLoad>(
 		{ integrationId: integration.id, skipMarkStarted: true },
 	).pipe(Effect.mapError((error) => new IntegrationRunError({ message: error.message })));
 
-const processSinkMedia = <RResolve, RImport>(
+const processSinkMedia = Effect.fn("processSinkMedia")(function* <RResolve, RImport>(
 	integration: IntegrationRecord,
 	payload: IntegrationRunJobData,
 	executionId: string,
 	operations: SinkMediaOperations<RResolve, RImport>,
-) =>
-	Effect.gen(function* () {
-		const adapterResult = yield* Activity.make({
-			error: IntegrationRunError,
-			name: "parse-sink-adapter",
-			success: MediaImportAdapterResultSchema,
-			execute: getSinkAdapterResult(
-				integration,
-				payload.rawBody ?? "",
-				payload.contentType ?? "application/json",
-			),
-		});
-
-		if (adapterResult.entityGroups.length === 0 && adapterResult.failures.length > 0) {
-			yield* Activity.make({
-				error: IntegrationRunError,
-				name: "record-adapter-only-sink-failure",
-				execute: failAdapterOnlyRun(payload.runId, adapterResult).pipe(
-					Effect.mapError(toWorkflowError),
-				),
-			});
-			return;
-		}
-
-		yield* runMediaImportForIntegration(integration, payload, executionId, operations, () =>
-			Effect.succeed({ adapterResult, cleanupPaths: [] }),
-		);
+) {
+	const adapterResult = yield* Activity.make({
+		error: IntegrationRunError,
+		name: "parse-sink-adapter",
+		success: MediaImportAdapterResultSchema,
+		execute: getSinkAdapterResult(
+			integration,
+			payload.rawBody ?? "",
+			payload.contentType ?? "application/json",
+		),
 	});
 
-const processYoutubeMusicYank = <RResolve, RImport, RHistory>(
+	if (adapterResult.entityGroups.length === 0 && adapterResult.failures.length > 0) {
+		yield* Activity.make({
+			error: IntegrationRunError,
+			name: "record-adapter-only-sink-failure",
+			execute: failAdapterOnlyRun(payload.runId, adapterResult).pipe(
+				Effect.mapError(toWorkflowError),
+			),
+		});
+		return;
+	}
+
+	yield* runMediaImportForIntegration(integration, payload, executionId, operations, () =>
+		Effect.succeed({ adapterResult, cleanupPaths: [] }),
+	);
+});
+
+const processYoutubeMusicYank = Effect.fn("processYoutubeMusicYank")(function* <
+	RResolve,
+	RImport,
+	RHistory,
+>(
 	integration: IntegrationRecord,
 	payload: IntegrationRunJobData,
 	executionId: string,
 	operations: SinkMediaOperations<RResolve, RImport> &
 		Pick<YankMediaOperations<never, RHistory>, "runSandboxHistory">,
 	credentials: { authCookie: string; timezone: string },
-) =>
-	Effect.gen(function* () {
-		const runWithDb = yield* DbRunner;
-		const entitiesRepository = yield* EntitiesRepository;
+) {
+	const runWithDb = yield* DbRunner;
+	const entitiesRepository = yield* EntitiesRepository;
 
-		const adapterResult = yield* Effect.gen(function* () {
-			const scriptId = yield* Activity.make({
-				error: IntegrationRunError,
-				name: "load-youtube-music-history-script",
-				success: Schema.NullOr(SandboxScriptId),
-				execute: runWithDb(
-					entitiesRepository.findEntitySchemaScriptBySlug(YOUTUBE_MUSIC_SCRIPT_SLUG),
-				).pipe(
-					Effect.map((script) => script?.sandboxScriptId ?? null),
-					Effect.mapError(toWorkflowError),
-				),
-			});
-			if (!scriptId) {
-				return sourceFetchFailure("YouTube Music sandbox script is not available");
-			}
-
-			const sandbox = yield* operations
-				.runSandboxHistory({
-					scriptId,
-					context: credentials,
-					userId: integration.userId,
-					executionId: `${executionId}-youtube-music-history`,
-				})
-				.pipe(Effect.either);
-			if (Either.isLeft(sandbox)) {
-				return sourceFetchFailure(sandbox.left.message);
-			}
-			if (sandbox.right.error) {
-				return sourceFetchFailure(sandbox.right.error);
-			}
-
-			return yield* Activity.make({
-				error: IntegrationRunError,
-				success: MediaImportAdapterResultSchema,
-				name: "build-youtube-music-adapter-result",
-				execute: buildYoutubeMusicAdapterResult(
-					{
-						userId: integration.userId,
-						integrationId: integration.id,
-						timezone: credentials.timezone,
-					},
-					sandbox.right.value,
-				).pipe(Effect.mapError(toWorkflowError)),
-			});
+	const adapterResult = yield* Effect.gen(function* () {
+		const scriptId = yield* Activity.make({
+			error: IntegrationRunError,
+			name: "load-youtube-music-history-script",
+			success: Schema.NullOr(SandboxScriptId),
+			execute: runWithDb(
+				entitiesRepository.findEntitySchemaScriptBySlug(YOUTUBE_MUSIC_SCRIPT_SLUG),
+			).pipe(
+				Effect.map((script) => script?.sandboxScriptId ?? null),
+				Effect.mapError(toWorkflowError),
+			),
 		});
-
-		if (adapterResult.entityGroups.length === 0 && adapterResult.failures.length > 0) {
-			yield* Activity.make({
-				error: IntegrationRunError,
-				name: "record-youtube-music-source-fetch-failure",
-				execute: failAdapterOnlyRun(payload.runId, adapterResult).pipe(
-					Effect.mapError(toWorkflowError),
-				),
-			});
-			return;
+		if (!scriptId) {
+			return sourceFetchFailure("YouTube Music sandbox script is not available");
 		}
 
-		yield* runMediaImportForIntegration(integration, payload, executionId, operations, () =>
-			Effect.succeed({ adapterResult, cleanupPaths: [] }),
-		);
+		const sandbox = yield* operations
+			.runSandboxHistory({
+				scriptId,
+				context: credentials,
+				userId: integration.userId,
+				executionId: `${executionId}-youtube-music-history`,
+			})
+			.pipe(Effect.either);
+		if (Either.isLeft(sandbox)) {
+			return sourceFetchFailure(sandbox.left.message);
+		}
+		if (sandbox.right.error) {
+			return sourceFetchFailure(sandbox.right.error);
+		}
+
+		return yield* Activity.make({
+			error: IntegrationRunError,
+			success: MediaImportAdapterResultSchema,
+			name: "build-youtube-music-adapter-result",
+			execute: buildYoutubeMusicAdapterResult(
+				{
+					userId: integration.userId,
+					integrationId: integration.id,
+					timezone: credentials.timezone,
+				},
+				sandbox.right.value,
+			).pipe(Effect.mapError(toWorkflowError)),
+		});
 	});
 
-const processYankMedia = <RResolve, RImport, RYank, RHistory>(
+	if (adapterResult.entityGroups.length === 0 && adapterResult.failures.length > 0) {
+		yield* Activity.make({
+			error: IntegrationRunError,
+			name: "record-youtube-music-source-fetch-failure",
+			execute: failAdapterOnlyRun(payload.runId, adapterResult).pipe(
+				Effect.mapError(toWorkflowError),
+			),
+		});
+		return;
+	}
+
+	yield* runMediaImportForIntegration(integration, payload, executionId, operations, () =>
+		Effect.succeed({ adapterResult, cleanupPaths: [] }),
+	);
+});
+
+const processYankMedia = Effect.fn("processYankMedia")(function* <
+	RResolve,
+	RImport,
+	RYank,
+	RHistory,
+>(
 	integration: IntegrationRecord,
 	payload: IntegrationRunJobData,
 	executionId: string,
 	operations: IntegrationRunOperations<RResolve, RImport, RYank, RHistory>,
-) =>
-	Effect.gen(function* () {
-		const specs = integration.providerSpecifics;
-		if (specs.kind === "youtube_music") {
-			yield* processYoutubeMusicYank(integration, payload, executionId, operations, {
-				timezone: specs.timezone,
-				authCookie: specs.authCookie,
-			});
-			return;
-		}
-
-		if (specs.kind === "audiobookshelf" || specs.kind === "plex_yank" || specs.kind === "komga") {
-			yield* runMediaImportForIntegration(integration, payload, executionId, operations, () =>
-				operations.loadYankAdapterResult(integration),
-			);
-			return;
-		}
-
-		yield* Activity.make({
-			error: IntegrationRunError,
-			name: "record-unsupported-yank-run",
-			execute: failUnsupportedIntegrationRun(payload.runId, integration.provider).pipe(
-				Effect.mapError(toWorkflowError),
-			),
+) {
+	const specs = integration.providerSpecifics;
+	if (specs.kind === "youtube_music") {
+		yield* processYoutubeMusicYank(integration, payload, executionId, operations, {
+			timezone: specs.timezone,
+			authCookie: specs.authCookie,
 		});
+		return;
+	}
+
+	if (specs.kind === "audiobookshelf" || specs.kind === "plex_yank" || specs.kind === "komga") {
+		yield* runMediaImportForIntegration(integration, payload, executionId, operations, () =>
+			operations.loadYankAdapterResult(integration),
+		);
+		return;
+	}
+
+	yield* Activity.make({
+		error: IntegrationRunError,
+		name: "record-unsupported-yank-run",
+		execute: failUnsupportedIntegrationRun(payload.runId, integration.provider).pipe(
+			Effect.mapError(toWorkflowError),
+		),
 	});
+});
 
 const processIntegrationMedia = <RResolve, RImport, RYank, RHistory>(
 	integration: IntegrationRecord,
@@ -266,69 +272,77 @@ const processIntegrationMedia = <RResolve, RImport, RYank, RHistory>(
 		? processSinkMedia(integration, payload, executionId, operations)
 		: processYankMedia(integration, payload, executionId, operations);
 
-const runIntegrationRun = <RResolve, RImport, RYank, RHistory>(
+const runIntegrationRun = Effect.fn("runIntegrationRun")(function* <
+	RResolve,
+	RImport,
+	RYank,
+	RHistory,
+>(
 	integration: IntegrationRecord,
 	payload: IntegrationRunJobData,
 	executionId: string,
 	operations: IntegrationRunOperations<RResolve, RImport, RYank, RHistory>,
-) =>
-	Effect.gen(function* () {
-		const runWithDb = yield* DbRunner;
-		const repository = yield* ImportsRepository;
+) {
+	const runWithDb = yield* DbRunner;
+	const repository = yield* ImportsRepository;
 
-		const startedAt = yield* DateTime.nowAsDate;
-		yield* Activity.make({
-			error: IntegrationRunError,
-			name: "mark-integration-run-started",
-			execute: runWithDb(
-				repository.updateRun({ runId: payload.runId, status: "running", startedAt }),
-			).pipe(Effect.mapError(toWorkflowError)),
-		});
-
-		yield* processIntegrationMedia(integration, payload, executionId, operations).pipe(
-			Effect.catchAllCause((cause) =>
-				failRun(
-					"fail-integration-run-unexpected",
-					payload.runId,
-					sanitizeErrorMessage(Cause.squash(cause), "Integration job failed unexpectedly"),
-				),
-			),
-		);
-
-		yield* Activity.make({
-			error: IntegrationRunError,
-			name: "finalize-integration-run",
-			execute: finalizeIntegrationRun(integration, payload.runId).pipe(
-				Effect.mapError(toWorkflowError),
-			),
-		});
+	const startedAt = yield* DateTime.nowAsDate;
+	yield* Activity.make({
+		error: IntegrationRunError,
+		name: "mark-integration-run-started",
+		execute: runWithDb(
+			repository.updateRun({ runId: payload.runId, status: "running", startedAt }),
+		).pipe(Effect.mapError(toWorkflowError)),
 	});
 
-export const runIntegrationRunWorkflow = <RResolve, RImport, RYank, RHistory>(
+	yield* processIntegrationMedia(integration, payload, executionId, operations).pipe(
+		Effect.catchAllCause((cause) =>
+			failRun(
+				"fail-integration-run-unexpected",
+				payload.runId,
+				sanitizeErrorMessage(Cause.squash(cause), "Integration job failed unexpectedly"),
+			),
+		),
+	);
+
+	yield* Activity.make({
+		error: IntegrationRunError,
+		name: "finalize-integration-run",
+		execute: finalizeIntegrationRun(integration, payload.runId).pipe(
+			Effect.mapError(toWorkflowError),
+		),
+	});
+});
+
+export const runIntegrationRunWorkflow = Effect.fn("runIntegrationRunWorkflow")(function* <
+	RResolve,
+	RImport,
+	RYank,
+	RHistory,
+>(
 	payload: IntegrationRunJobData,
 	executionId: string,
 	operations: IntegrationRunOperations<RResolve, RImport, RYank, RHistory>,
-) =>
-	Effect.gen(function* () {
-		const runWithDb = yield* DbRunner;
-		const integrationsRepository = yield* IntegrationsRepository;
+) {
+	const runWithDb = yield* DbRunner;
+	const integrationsRepository = yield* IntegrationsRepository;
 
-		const integration = yield* Activity.make({
-			name: "load-integration",
-			error: IntegrationRunError,
-			success: Schema.NullOr(IntegrationRecordSchema),
-			execute: runWithDb(
-				integrationsRepository.getByIdAnyUser({ integrationId: payload.integrationId }),
-			).pipe(Effect.mapError(toWorkflowError)),
-		});
-
-		if (!integration) {
-			yield* failRun("fail-run-integration-not-found", payload.runId, "Integration not found");
-			return;
-		}
-
-		yield* runIntegrationRun(integration, payload, executionId, operations);
+	const integration = yield* Activity.make({
+		name: "load-integration",
+		error: IntegrationRunError,
+		success: Schema.NullOr(IntegrationRecordSchema),
+		execute: runWithDb(
+			integrationsRepository.getByIdAnyUser({ integrationId: payload.integrationId }),
+		).pipe(Effect.mapError(toWorkflowError)),
 	});
+
+	if (!integration) {
+		yield* failRun("fail-run-integration-not-found", payload.runId, "Integration not found");
+		return;
+	}
+
+	yield* runIntegrationRun(integration, payload, executionId, operations);
+});
 
 export const ProcessIntegrationRunWorkflow = Workflow.make({
 	success: Schema.Void,

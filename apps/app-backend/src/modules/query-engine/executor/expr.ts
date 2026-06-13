@@ -124,16 +124,15 @@ const aggregateValues = (
 	return { kind: "number", value: result };
 };
 
-const evalAggregate = (
+const evalAggregate = Effect.fn("evalAggregate")(function* (
 	userId: string,
 	context: RowContext,
 	aggregation: AggregationSpec,
 	source: Source,
-): Effect.Effect<FieldValue, BadRequest | NotFound | DbError, CurrentDb> =>
-	Effect.gen(function* () {
-		const matches = yield* executeSourceMatches(userId, context, source, evalExprAsBoolean);
-		return yield* evalAggregateMeasure(userId, matches, aggregation);
-	});
+) {
+	const matches = yield* executeSourceMatches(userId, context, source, evalExprAsBoolean);
+	return yield* evalAggregateMeasure(userId, matches, aggregation);
+});
 
 export const evalExprValue = (
 	userId: string,
@@ -272,48 +271,46 @@ const compareAggregateOrderValues = (left: unknown, right: unknown) => {
 	return 0;
 };
 
-export const evalAggregateMeasure = (
+export const evalAggregateMeasure = Effect.fn("evalAggregateMeasure")(function* (
 	userId: string,
 	matches: readonly SourceMatch[],
 	aggregation: AggregationSpec,
-): Effect.Effect<FieldValue, BadRequest | NotFound | DbError, CurrentDb> =>
-	Effect.gen(function* () {
-		if (aggregation.function === "count") {
-			if (aggregation.distinctBy === undefined) {
-				return { kind: "number" as const, value: matches.length };
-			}
-
-			const distinct = new Set<string>();
-			for (const match of matches) {
-				const value = fieldValueScalar(
-					yield* evalExprValue(userId, aggregation.distinctBy, match.context),
-				);
-				if (value !== null && value !== undefined) {
-					distinct.add(aggregateDistinctKey(value));
-				}
-			}
-			return { kind: "number" as const, value: distinct.size };
+) {
+	if (aggregation.function === "count") {
+		if (aggregation.distinctBy === undefined) {
+			return { kind: "number" as const, value: matches.length };
 		}
 
-		const values: FieldValue[] = [];
+		const distinct = new Set<string>();
 		for (const match of matches) {
-			values.push(yield* evalExprValue(userId, aggregation.expr, match.context));
+			const value = fieldValueScalar(
+				yield* evalExprValue(userId, aggregation.distinctBy, match.context),
+			);
+			if (value !== null && value !== undefined) {
+				distinct.add(aggregateDistinctKey(value));
+			}
 		}
-		return aggregateValues(values, aggregation);
-	});
+		return { kind: "number" as const, value: distinct.size };
+	}
 
-export const evalAggregateGroupFields = (
+	const values: FieldValue[] = [];
+	for (const match of matches) {
+		values.push(yield* evalExprValue(userId, aggregation.expr, match.context));
+	}
+	return aggregateValues(values, aggregation);
+});
+
+export const evalAggregateGroupFields = Effect.fn("evalAggregateGroupFields")(function* (
 	userId: string,
 	groupBy: readonly FieldDef[],
 	match: SourceMatch,
-): Effect.Effect<FieldValue[], BadRequest | NotFound | DbError, CurrentDb> =>
-	Effect.gen(function* () {
-		const values: FieldValue[] = [];
-		for (const field of groupBy) {
-			values.push(yield* evalExprValue(userId, field.expr, match.context));
-		}
-		return values;
-	});
+) {
+	const values: FieldValue[] = [];
+	for (const field of groupBy) {
+		values.push(yield* evalExprValue(userId, field.expr, match.context));
+	}
+	return values;
+});
 
 const aggregateOrderValue = (value: RowValue | undefined) =>
 	value !== undefined && "kind" in value ? value.value : null;
