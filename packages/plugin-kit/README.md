@@ -177,6 +177,9 @@ System-scope plugins are deployment-controlled and cannot be uninstalled through
 installation path. User-scope plugins can be uninstalled only when no running/suspended workflow,
 entity, active schema, or binding still references them. Script rows and materialized modules remain live while active packages,
 source-zero, or durable references need their content hashes; runtime reference owns GC details.
+Callers may retry uninstall while a running or suspended workflow releases its reference after
+terminal completion. Other conflicts require explicit removal of the reported persistent reference
+and must not be treated as polling state.
 
 This is package authoring and deployment-controlled system-install behavior only. Phase 5 owns user-level
 installation, package-versus-installation identity, per-user visibility/state, assigned namespaces,

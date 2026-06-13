@@ -109,7 +109,7 @@ export const PluginsGroup = HttpApiGroup.make("plugins")
 			],
 		}).annotate(
 			OpenApi.Description,
-			"Uninstalls the caller's private plugin unless its definitions are still referenced.",
+			"Uninstalls the caller's private plugin unless a workflow or persistent resource still references it.",
 		),
 	)
 	.add(
