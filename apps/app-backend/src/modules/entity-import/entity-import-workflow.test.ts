@@ -892,9 +892,13 @@ it.effect("workflow body executes the sandbox step as part of orchestration", ()
 	);
 });
 
-it.effect("fails workflow when related relationship properties are invalid", () => {
+it.effect("keeps the refresh baseline when related relationship properties are invalid", () => {
 	let relationshipWritten = false;
-	let storedEntity: StoredEntity | null = null;
+	let primaryOnConflict: "preserveExisting" | "replaceExisting" | undefined;
+	let storedEntity: StoredEntity | null = {
+		...baseEntity,
+		properties: { title: "Previous Book" },
+	};
 	const payload = { ...importPayload, executionId: "exec-related-validation" };
 	const options = {
 		processSandbox: () =>
@@ -968,7 +972,12 @@ it.effect("fails workflow when related relationship properties are invalid", () 
 					id: EntityId.make(input.entitySchemaId === "schema-1" ? "entity-1" : "person-1"),
 				};
 				if (input.entitySchemaId === "schema-1") {
-					storedEntity = nextEntity;
+					primaryOnConflict = input.onConflict;
+					assert(storedEntity);
+					if (input.onConflict === "replaceExisting") {
+						storedEntity = nextEntity;
+					}
+					return Effect.succeed(storedEntity);
 				}
 
 				return Effect.succeed(nextEntity);
@@ -988,11 +997,18 @@ it.effect("fails workflow when related relationship properties are invalid", () 
 		payload.executionId,
 		Effect.gen(function* () {
 			const exit = yield* Effect.exit(
-				runProviderEntityPopulationWorkflow({ ...payload, mode: "ensure" }, payload.executionId),
+				runProviderEntityPopulationWorkflow(
+					{ ...payload, mode: "refresh", entitySchemaSlug: "book" },
+					payload.executionId,
+				),
 			);
 
 			expect(relationshipWritten).toBe(false);
-			expect(storedEntity?.populatedAt).toBeNull();
+			expect(primaryOnConflict).toBeUndefined();
+			expect(storedEntity).toMatchObject({
+				populatedAt: now,
+				properties: { title: "Previous Book" },
+			});
 			expect(exit._tag).toBe("Failure");
 			if (exit._tag === "Failure") {
 				const cause = exit.cause;
@@ -1285,7 +1301,7 @@ it.effect("refresh synchronization replaces provider-owned primary and child val
 			expect(writes[0]).toMatchObject({
 				populatedAt: null,
 				name: "Updated Show",
-				onConflict: "replaceExisting",
+				onConflict: undefined,
 				properties: { title: "Updated Show", productionStatus: "Ended" },
 			});
 			expect(writes[1]).toMatchObject({

@@ -43,6 +43,85 @@ BEGIN
 END $$;
 `;
 
+export const buildMonitoringCollectionMigrationSql = (input: {
+	libraryEntitySchemaId: string;
+	mediaMonitoringRelationshipSchemaId: string;
+	monitorableEntitySchemaIds: ReadonlyArray<string>;
+}) => `
+DO $$
+DECLARE
+	rows_inserted int;
+	started_at timestamptz := clock_timestamp();
+BEGIN
+	IF to_regclass('"collection"') IS NULL THEN
+		RAISE EXCEPTION 'Expected collection table to exist in a V1 database but it was not found';
+	END IF;
+
+	IF to_regclass('"collection_to_entity"') IS NULL THEN
+		RAISE EXCEPTION 'Expected collection_to_entity table to exist in a V1 database but it was not found';
+	END IF;
+
+	IF EXISTS (
+		SELECT 1
+		FROM "collection_to_entity" cte
+		INNER JOIN "collection" coll ON coll.id = cte.collection_id AND coll.name = 'Monitoring'
+		INNER JOIN "entity" src_entity ON src_entity.id = cte.entity_id
+		WHERE src_entity.user_id IS NULL
+			AND src_entity.external_id IS NOT NULL
+			AND src_entity.sandbox_script_id IS NOT NULL
+			AND src_entity.entity_schema_id IN (${input.monitorableEntitySchemaIds.map(quoteSqlString).join(", ")})
+			AND NOT EXISTS (
+				SELECT 1
+				FROM "entity" library_entity
+				WHERE library_entity.user_id = coll.user_id
+					AND library_entity.entity_schema_id = ${quoteSqlString(input.libraryEntitySchemaId)}
+					AND library_entity.external_id IS NULL
+					AND library_entity.sandbox_script_id IS NULL
+			)
+	) THEN
+		RAISE EXCEPTION 'Expected each legacy Monitoring collection owner to have a V2 library entity';
+	END IF;
+
+	RAISE NOTICE 'Monitoring collection -> media-monitoring: migration started (% seconds elapsed)', 0.0;
+
+	INSERT INTO "relationship" (
+		"id",
+		"user_id",
+		"source_entity_id",
+		"target_entity_id",
+		"relationship_schema_id",
+		"properties",
+		"created_at"
+	)
+	SELECT
+		md5(cte.id::text || ':media-monitoring'),
+		coll.user_id,
+		cte.entity_id,
+		library_entity.id,
+		${quoteSqlString(input.mediaMonitoringRelationshipSchemaId)},
+		'{}'::jsonb,
+		cte.created_on
+	FROM "collection_to_entity" cte
+	INNER JOIN "collection" coll ON coll.id = cte.collection_id AND coll.name = 'Monitoring'
+	INNER JOIN "entity" src_entity ON src_entity.id = cte.entity_id
+	INNER JOIN "entity" library_entity
+		ON library_entity.user_id = coll.user_id
+		AND library_entity.entity_schema_id = ${quoteSqlString(input.libraryEntitySchemaId)}
+		AND library_entity.external_id IS NULL
+		AND library_entity.sandbox_script_id IS NULL
+	WHERE src_entity.user_id IS NULL
+		AND src_entity.external_id IS NOT NULL
+		AND src_entity.sandbox_script_id IS NOT NULL
+		AND src_entity.entity_schema_id IN (${input.monitorableEntitySchemaIds.map(quoteSqlString).join(", ")})
+	ON CONFLICT DO NOTHING;
+
+	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
+	RAISE NOTICE 'Monitoring collection -> media-monitoring: % relationship(s) migrated (% seconds elapsed)',
+		rows_inserted,
+		round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
+END $$;
+`;
+
 // The V1 default "Owned" collection is migrated as a normal V2 collection (entity + member-of
 // relationships) by the functions above. Additionally, every entity that was a member of an "Owned"
 // collection has its existing in-library relationship marked as owned so ownership survives as

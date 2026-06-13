@@ -31,6 +31,32 @@ export const syncGlobalRelationshipsWithProperties = Effect.fn(
 
 	yield* dbEffect(() =>
 		db.transaction((tx) => {
+			if (!isOutgoing) {
+				const insert =
+					entries.length > 0
+						? tx
+								.insert(schema.relationship)
+								.values(
+									entries.map((entry) => ({
+										userId: null,
+										properties: entry.properties,
+										relationshipSchemaId: input.relationshipSchemaId,
+										targetEntityId: input.anchorEntityId,
+										sourceEntityId: entry.entityId,
+									})),
+								)
+								.onConflictDoNothing({
+									where: isNull(schema.relationship.userId),
+									target: [
+										schema.relationship.sourceEntityId,
+										schema.relationship.targetEntityId,
+										schema.relationship.relationshipSchemaId,
+									],
+								})
+						: Promise.resolve();
+				return insert.then(() => undefined);
+			}
+
 			const upsert =
 				entries.length > 0
 					? tx
@@ -40,8 +66,8 @@ export const syncGlobalRelationshipsWithProperties = Effect.fn(
 									userId: null,
 									properties: entry.properties,
 									relationshipSchemaId: input.relationshipSchemaId,
-									targetEntityId: isOutgoing ? entry.entityId : input.anchorEntityId,
-									sourceEntityId: isOutgoing ? input.anchorEntityId : entry.entityId,
+									targetEntityId: entry.entityId,
+									sourceEntityId: input.anchorEntityId,
 								})),
 							)
 							.onConflictDoUpdate({
