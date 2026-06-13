@@ -11,7 +11,7 @@ The sandbox runs untrusted user code in single-use Deno subprocesses, exposes se
 - `runner-source.sandbox.js`: source executed by each Deno subprocess.
 - `host-functions.ts`: app-bound bridge functions for user, entity, event, integration, query-engine, and config access.
 - `shared.ts`: shared types and helpers for host-function implementations.
-- `providers/`, `triggers/`, `script-helpers/`: sandbox scripts and script-side helpers.
+- Sandbox scripts and script-side helpers (`providers/`, `triggers/`, `script-helpers/`) live under `modules/builtins/sandbox-scripts/`, not here — this folder is only the execution runtime.
 
 ## Execution Flow
 

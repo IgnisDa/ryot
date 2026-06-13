@@ -16,7 +16,7 @@ import { providerLotByProvider } from "@ryot/contract/modules/integrations/types
 import type { ImportRunId, IntegrationId, UserId } from "@ryot/contract/schema/brands";
 import { Effect, Either, Schema } from "effect";
 
-import { DbRunner } from "#lib/db/service";
+import { DbRunner } from "#lib/infrastructure/db/service";
 import { ImportsService } from "#modules/imports/service";
 
 import { ProcessIntegrationRunWorkflow } from "./integration-workflow";

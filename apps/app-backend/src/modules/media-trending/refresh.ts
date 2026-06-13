@@ -3,7 +3,7 @@ import { SandboxRunError, unknownToMessage } from "@ryot/contract/errors";
 import { EntityId } from "@ryot/contract/schema/brands";
 import { Cause, DateTime, Effect, Schema } from "effect";
 
-import { DbRunner } from "#lib/db/service";
+import { DbRunner } from "#lib/infrastructure/db/service";
 import { EntitiesService } from "#modules/entities/service";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";

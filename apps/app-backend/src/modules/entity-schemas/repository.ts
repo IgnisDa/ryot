@@ -12,8 +12,8 @@ import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { and, asc, eq, inArray, isNull, or } from "drizzle-orm";
 import { Effect } from "effect";
 
-import * as schema from "#lib/db/schema/tables/combined";
-import { CurrentDb, dbEffect, isUniqueConstraintError } from "#lib/db/service";
+import * as schema from "#lib/infrastructure/db/schema/tables/combined";
+import { CurrentDb, dbEffect, isUniqueConstraintError } from "#lib/infrastructure/db/service";
 
 type BuildEntitySchemaRow = Pick<
 	typeof schema.entitySchema.$inferSelect,

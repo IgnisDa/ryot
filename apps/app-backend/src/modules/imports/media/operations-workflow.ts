@@ -5,9 +5,9 @@ import { SandboxRunError, toSandboxRunError, unknownToMessage } from "@ryot/cont
 import type { EntitySchemaId, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import { Cause, Effect, Layer } from "effect";
 
-import { AppConfig } from "#lib/config/service";
-import { DbRunner } from "#lib/db/service";
-import { RedisService } from "#lib/redis";
+import { AppConfig } from "#lib/infrastructure/config/service";
+import { DbRunner } from "#lib/infrastructure/db/service";
+import { RedisService } from "#lib/infrastructure/redis";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { runEntityImportWorkflow } from "#modules/entity-import/entity-import-workflow";

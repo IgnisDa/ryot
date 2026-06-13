@@ -3,8 +3,8 @@ import { Activity } from "@effect/workflow";
 import { unknownToMessage } from "@ryot/contract/errors";
 import { Effect, Schema } from "effect";
 
-import { AppConfig } from "#lib/config/service";
-import { RedisService } from "#lib/redis";
+import { AppConfig } from "#lib/infrastructure/config/service";
+import { RedisService } from "#lib/infrastructure/redis";
 
 import type { ImportRunJobData } from "../jobs";
 import { resolveSafeImportFilePath } from "./import-files";
