@@ -69,15 +69,18 @@ const LoadedMediaImportAdapterLoaded = Schema.TaggedStruct("loaded", {
 	adapterResult: MediaImportAdapterResultSchema,
 });
 
-const LoadedMediaImportAdapterNetflixSearchPlanned = Schema.TaggedStruct("netflix-search-planned", {
-	importedAt: Schema.String,
-	myListPath: Schema.String,
-	ratingsPath: Schema.String,
-	viewingActivityPath: Schema.String,
-	cleanupPaths: Schema.Array(Schema.String),
-	profileName: Schema.optional(Schema.String),
-	searchJobs: Schema.Array(MediaImportEntitySearchJob),
-});
+export const LoadedMediaImportAdapterNetflixSearchPlanned = Schema.TaggedStruct(
+	"netflix-search-planned",
+	{
+		importedAt: Schema.String,
+		myListPath: Schema.String,
+		ratingsPath: Schema.String,
+		viewingActivityPath: Schema.String,
+		cleanupPaths: Schema.Array(Schema.String),
+		profileName: Schema.optional(Schema.String),
+		searchJobs: Schema.Array(MediaImportEntitySearchJob),
+	},
+);
 
 export const LoadedMediaImportAdapterSuccess = Schema.Union(
 	LoadedMediaImportAdapterLoaded,

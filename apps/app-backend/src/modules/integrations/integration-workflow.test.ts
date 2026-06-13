@@ -2,37 +2,25 @@ import { BunFileSystem } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
 import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import {
-	EntityId,
 	EntitySchemaId,
-	EventSchemaId,
 	ImportRunId,
 	IntegrationId,
 	SandboxScriptId,
 	UserId,
 } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
-import Redis from "ioredis";
 
 import { RedisService } from "#lib/infrastructure/redis";
-import type { MockOverrides } from "#lib/test-support/effect";
+import type { MockOverrides, WorkflowEngineOverrides } from "#lib/test-support/effect";
 import {
 	dbRunnerLayer,
 	makeAppConfigLayer,
 	makeRedisService,
 	makeWorkflowActivityEngine,
 } from "#lib/test-support/effect";
-import { CollectionsService } from "#modules/collections/service";
 import { EntitiesRepository } from "#modules/entities/repository";
-import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
-import { EpisodeResolverService } from "#modules/episode-resolver/service";
-import { EventSchemasRepository } from "#modules/event-schemas/repository";
-import { EventsService } from "#modules/events/service";
-import {
-	MediaImportWorkflowOperations,
-	type MediaImportWorkflowOperationsValue,
-} from "#modules/imports/media/types-workflow";
 import { ImportsRepository } from "#modules/imports/repository";
-import { ImportRunArtifacts } from "#modules/imports/runtime/workflow-helpers";
+import { loadImportAdapterResult } from "#modules/imports/runtime/source-payload-store";
 
 import {
 	IntegrationRunOperations,
@@ -53,12 +41,6 @@ const now = "2026-06-17T00:00:00.000Z";
 const mockImportsRepository = Layer.mock(ImportsRepository);
 const mockIntegrationsRepository = Layer.mock(IntegrationsRepository);
 const mockEntitiesRepository = Layer.mock(EntitiesRepository);
-const mockCollectionsService = Layer.mock(CollectionsService);
-const mockEventsService = Layer.mock(EventsService);
-const mockEpisodeResolverService = Layer.mock(EpisodeResolverService);
-const mockEventSchemasRepository = Layer.mock(EventSchemasRepository);
-const mockEntitySchemasRepository = Layer.mock(EntitySchemasRepository);
-const mockImportRunArtifacts = Layer.mock(ImportRunArtifacts);
 
 const mangaGroup = (overrides: Record<string, unknown> = {}) => ({
 	itemIndex: 0,
@@ -129,81 +111,36 @@ const makeEntitiesRepository = (overrides: MockOverrides<typeof mockEntitiesRepo
 		_tag: "EntitiesRepository",
 	});
 
-const makeCollectionsService = (overrides: MockOverrides<typeof mockCollectionsService> = {}) =>
-	mockCollectionsService({
-		ensureEntityInLibrary: () => Effect.void,
-		markEntityOwnedInLibrary: () => Effect.void,
-		...overrides,
-		_tag: "CollectionsService",
-	});
-
-const makeEventsService = (overrides: MockOverrides<typeof mockEventsService> = {}) =>
-	mockEventsService({
-		create: () => Effect.succeed({ count: 1 }),
-		...overrides,
-		_tag: "EventsService",
-	});
-
-const makeEpisodeResolverService = (
-	overrides: MockOverrides<typeof mockEpisodeResolverService> = {},
-) =>
-	mockEpisodeResolverService({
-		...overrides,
-		_tag: "EpisodeResolverService",
-	});
-
-const makeEventSchemasRepository = (
-	overrides: MockOverrides<typeof mockEventSchemasRepository> = {},
-) =>
-	mockEventSchemasRepository({
-		getBuiltinBySlug: () =>
-			Effect.succeed({
-				id: EventSchemaId.make("event-schema-1"),
-				propertiesSchema: { fields: {}, unknownKeys: "passthrough" as const },
-			}),
-		...overrides,
-		_tag: "EventSchemasRepository",
-	});
-
-const makeEntitySchemasRepository = (
-	overrides: MockOverrides<typeof mockEntitySchemasRepository> = {},
-) =>
-	mockEntitySchemasRepository({
-		getBuiltinBySlug: () => Effect.succeed({ id: EntitySchemaId.make("builtin-schema") }),
-		...overrides,
-		_tag: "EntitySchemasRepository",
-	});
-
-const makeRedisClient = (): RedisService["client"] =>
-	Object.assign(Object.create(Redis.prototype), {
-		duplicate: makeRedisClient,
-	});
-
-const makeRedisLayer = (claimed = true) =>
-	Layer.succeed(
+const makeRedisLayer = () => {
+	const store = new Map<string, string>();
+	return Layer.succeed(
 		RedisService,
-		makeRedisService({ claim: () => Effect.succeed(claimed), client: makeRedisClient() }),
+		makeRedisService({
+			claim: () => Effect.succeed(true),
+			get: (key) => Effect.succeed(store.get(key) ?? null),
+			set: (key, value) =>
+				Effect.sync(() => {
+					store.set(key, value);
+				}),
+			del: (...keys) =>
+				Effect.sync(() => {
+					let removed = 0;
+					for (const key of keys) {
+						if (store.delete(key)) {
+							removed += 1;
+						}
+					}
+					return removed;
+				}),
+		}),
 	);
-
-const makeImportRunArtifacts = () =>
-	mockImportRunArtifacts({ cleanupArtifacts: () => Effect.void, _tag: "ImportRunArtifacts" });
-
-type TestLayerOptions = {
-	claimed?: boolean;
-	eventsService?: Layer.Layer<EventsService>;
-	importsRepository?: Layer.Layer<ImportsRepository>;
-	collectionsService?: Layer.Layer<CollectionsService>;
-	integrationsRepository?: Layer.Layer<IntegrationsRepository>;
-	mediaOperations?: Partial<MediaImportWorkflowOperationsValue>;
-	integrationOperations?: Partial<IntegrationRunOperationsValue>;
 };
 
-const makeMediaOperations = (overrides: Partial<MediaImportWorkflowOperationsValue> = {}) =>
-	Layer.mock(MediaImportWorkflowOperations, {
-		resolveExternalId: () => Effect.succeed({ externalId: null }),
-		importEntity: () => Effect.succeed({ id: EntityId.make("entity-1") }),
-		...overrides,
-	});
+type TestLayerOptions = {
+	importsRepository?: Layer.Layer<ImportsRepository>;
+	integrationsRepository?: Layer.Layer<IntegrationsRepository>;
+	integrationOperations?: Partial<IntegrationRunOperationsValue>;
+};
 
 const makeIntegrationOperations = (overrides: Partial<IntegrationRunOperationsValue> = {}) =>
 	Layer.mock(IntegrationRunOperations, {
@@ -219,27 +156,21 @@ const makeTestLayer = (options: TestLayerOptions) =>
 		dbRunnerLayer,
 		makeAppConfigLayer(),
 		BunFileSystem.layer,
-		makeRedisLayer(options.claimed),
-		makeImportRunArtifacts(),
-		makeMediaOperations(options.mediaOperations),
+		makeRedisLayer(),
 		makeIntegrationOperations(options.integrationOperations),
 		options.importsRepository ?? makeImportsRepository(),
 		options.integrationsRepository ?? makeIntegrationsRepository(),
 		makeEntitiesRepository(),
-		options.collectionsService ?? makeCollectionsService(),
-		makeEpisodeResolverService(),
-		options.eventsService ?? makeEventsService(),
-		makeEventSchemasRepository(),
-		makeEntitySchemasRepository(),
 	);
 
 const withTestLayer = <A, E, R>(
 	options: TestLayerOptions,
 	executionId: string,
 	effect: Effect.Effect<A, E, R>,
+	engineOverrides: WorkflowEngineOverrides = {},
 ) => {
 	const instance = WorkflowInstance.initial(ProcessIntegrationRunWorkflow, executionId);
-	const engine = makeWorkflowActivityEngine(instance);
+	const engine = makeWorkflowActivityEngine(instance, engineOverrides);
 
 	return effect.pipe(
 		Effect.provideService(WorkflowEngine, engine),
@@ -247,6 +178,16 @@ const withTestLayer = <A, E, R>(
 		Effect.provide(makeTestLayer(options)),
 	);
 };
+
+const captureChildExecute = (
+	childDispatches: Array<Record<string, unknown>>,
+): WorkflowEngineOverrides => ({
+	execute: (_workflow, dispatch) =>
+		Effect.sync(() => {
+			childDispatches.push({ executionId: dispatch.executionId, payload: dispatch.payload });
+			return undefined;
+		}),
+});
 
 const sinkPayload = {
 	userId: UserId.make("user_1"),
@@ -262,26 +203,12 @@ const yankPayload = {
 	integrationId: IntegrationId.make("int_1"),
 };
 
-it.effect("processes a successful sink run through shared media orchestration", () => {
-	const importedCalls: Array<Record<string, unknown>> = [];
-	const createdEvents: Array<Record<string, unknown>> = [];
+it.effect("persists the sink adapter result and dispatches the normalized child", () => {
+	const childDispatches: Array<Record<string, unknown>> = [];
 	const recordedUpdates: Array<Record<string, unknown>> = [];
 	const integrationUpdates: Array<Record<string, unknown>> = [];
 
 	const options = {
-		mediaOperations: {
-			importEntity: (input) =>
-				Effect.sync(() => {
-					importedCalls.push(input);
-					return { id: EntityId.make("entity-1") };
-				}),
-		},
-		eventsService: makeEventsService({
-			create: (input) => {
-				createdEvents.push(input);
-				return Effect.succeed({ count: input.payload.length });
-			},
-		}),
 		importsRepository: makeImportsRepository({
 			getRunById: () => Effect.succeed(makeRun("completed")),
 			updateRun: (input) => {
@@ -303,34 +230,23 @@ it.effect("processes a successful sink run through shared media orchestration", 
 		Effect.gen(function* () {
 			yield* runIntegrationRunWorkflow(sinkPayload, "run_1");
 
-			expect(importedCalls).toEqual([
-				{
+			const stored = yield* loadImportAdapterResult("run_1");
+			expect(stored?.entityGroups).toHaveLength(1);
+			expect(stored?.entityGroups[0]?.entityRef).toMatchObject({ externalId: "603" });
+
+			expect(childDispatches).toHaveLength(1);
+			expect(childDispatches[0]).toMatchObject({
+				executionId: "run_1-normalized",
+				payload: {
+					runId: "run_1",
 					userId: "user_1",
-					externalId: "603",
-					executionId: "run_1-entity-0",
-					scriptId: "script-movie-tmdb",
-					entitySchemaId: "schema-movie",
+					integrationId: "int_1",
+					executionId: "run_1-normalized",
 				},
-			]);
-			expect(createdEvents).toHaveLength(1);
-			expect(createdEvents[0]).toMatchObject({
-				userId: "user_1",
-				metadata: { importRunId: "run_1", integrationId: "int_1" },
-				payload: [
-					expect.objectContaining({ entityId: "entity-1", eventSchemaId: "event-schema-1" }),
-				],
 			});
+
 			expect(recordedUpdates).toContainEqual(
 				expect.objectContaining({ runId: "run_1", status: "running" }),
-			);
-			expect(recordedUpdates).toContainEqual(
-				expect.objectContaining({
-					progress: 100,
-					runId: "run_1",
-					importedItems: 1,
-					processedItems: 1,
-					status: "completed",
-				}),
 			);
 			expect(integrationUpdates).toHaveLength(1);
 			expect(integrationUpdates[0]).toMatchObject({
@@ -339,94 +255,85 @@ it.effect("processes a successful sink run through shared media orchestration", 
 				lastFinishedAt: expect.any(Date),
 			});
 		}),
+		captureChildExecute(childDispatches),
 	);
 });
 
-it.effect("records adapter-only sink failures and fails the run", () => {
-	let importCalled = false;
-	const recordedFailures: Array<Record<string, unknown>> = [];
-	const recordedUpdates: Array<Record<string, unknown>> = [];
+it.effect(
+	"records adapter-only sink failures and fails the run without dispatching a child",
+	() => {
+		const childDispatches: Array<Record<string, unknown>> = [];
+		const recordedFailures: Array<Record<string, unknown>> = [];
+		const recordedUpdates: Array<Record<string, unknown>> = [];
 
-	const options = {
-		mediaOperations: {
-			importEntity: () =>
-				Effect.sync(() => {
-					importCalled = true;
-					return { id: EntityId.make("entity-1") };
-				}),
-		},
-		importsRepository: makeImportsRepository({
-			getRunById: () => Effect.succeed(makeRun("failed")),
-			createFailure: (input) => {
-				recordedFailures.push(input);
-				return Effect.void;
-			},
-			updateRun: (input) => {
-				recordedUpdates.push(input);
-				return Effect.void;
-			},
-		}),
-	} satisfies TestLayerOptions;
-
-	return withTestLayer(
-		options,
-		"run_1",
-		Effect.gen(function* () {
-			yield* runIntegrationRunWorkflow(
-				{
-					rawBody: "{}",
-					userId: UserId.make("user_1"),
-					runId: ImportRunId.make("run_1"),
-					contentType: "application/json",
-					integrationId: IntegrationId.make("int_1"),
+		const options = {
+			importsRepository: makeImportsRepository({
+				getRunById: () => Effect.succeed(makeRun("failed")),
+				createFailure: (input) => {
+					recordedFailures.push(input);
+					return Effect.void;
 				},
-				"run_1",
-			);
-
-			expect(importCalled).toBe(false);
-			expect(recordedFailures).toEqual([
-				{
-					itemIndex: 0,
-					context: null,
-					runId: "run_1",
-					sourceLabel: undefined,
-					sourceIdentifier: undefined,
-					stage: "input_transformation",
-					message: "Could not parse Kodi webhook payload",
+				updateRun: (input) => {
+					recordedUpdates.push(input);
+					return Effect.void;
 				},
-			]);
-			expect(recordedUpdates).toContainEqual(
-				expect.objectContaining({
-					runId: "run_1",
-					progress: 100,
-					totalItems: 1,
-					failedItems: 1,
-					processedItems: 1,
-				}),
-			);
-			expect(recordedUpdates).toContainEqual(
-				expect.objectContaining({
-					runId: "run_1",
-					status: "failed",
-					errorSummary: "Could not parse Kodi webhook payload",
-				}),
-			);
-		}),
-	);
-});
+			}),
+		} satisfies TestLayerOptions;
+
+		return withTestLayer(
+			options,
+			"run_1",
+			Effect.gen(function* () {
+				yield* runIntegrationRunWorkflow(
+					{
+						rawBody: "{}",
+						userId: UserId.make("user_1"),
+						runId: ImportRunId.make("run_1"),
+						contentType: "application/json",
+						integrationId: IntegrationId.make("int_1"),
+					},
+					"run_1",
+				);
+
+				expect(childDispatches).toHaveLength(0);
+				expect(recordedFailures).toEqual([
+					{
+						itemIndex: 0,
+						context: null,
+						runId: "run_1",
+						sourceLabel: undefined,
+						sourceIdentifier: undefined,
+						stage: "input_transformation",
+						message: "Could not parse Kodi webhook payload",
+					},
+				]);
+				expect(recordedUpdates).toContainEqual(
+					expect.objectContaining({
+						runId: "run_1",
+						progress: 100,
+						totalItems: 1,
+						failedItems: 1,
+						processedItems: 1,
+					}),
+				);
+				expect(recordedUpdates).toContainEqual(
+					expect.objectContaining({
+						runId: "run_1",
+						status: "failed",
+						errorSummary: "Could not parse Kodi webhook payload",
+					}),
+				);
+			}),
+			captureChildExecute(childDispatches),
+		);
+	},
+);
 
 it.effect("fails the run when the integration is not found", () => {
-	let mediaProcessed = false;
+	const childDispatches: Array<Record<string, unknown>> = [];
 	const recordedUpdates: Array<Record<string, unknown>> = [];
 
 	const options = {
-		mediaOperations: {
-			importEntity: () =>
-				Effect.sync(() => {
-					mediaProcessed = true;
-					return { id: EntityId.make("entity-1") };
-				}),
-		},
 		importsRepository: makeImportsRepository({
 			updateRun: (input) => {
 				recordedUpdates.push(input);
@@ -444,7 +351,7 @@ it.effect("fails the run when the integration is not found", () => {
 		Effect.gen(function* () {
 			yield* runIntegrationRunWorkflow(sinkPayload, "run_1");
 
-			expect(mediaProcessed).toBe(false);
+			expect(childDispatches).toHaveLength(0);
 			expect(recordedUpdates).toEqual([
 				expect.objectContaining({
 					runId: "run_1",
@@ -453,23 +360,16 @@ it.effect("fails the run when the integration is not found", () => {
 				}),
 			]);
 		}),
+		captureChildExecute(childDispatches),
 	);
 });
 
-it.effect("processes a komga yank run through shared media orchestration", () => {
-	const importedCalls: Array<Record<string, unknown>> = [];
-	const createdEvents: Array<Record<string, unknown>> = [];
+it.effect("persists the komga yank adapter result and dispatches the normalized child", () => {
+	const childDispatches: Array<Record<string, unknown>> = [];
 	const recordedUpdates: Array<Record<string, unknown>> = [];
 	const integrationUpdates: Array<Record<string, unknown>> = [];
 
 	const options = {
-		mediaOperations: {
-			importEntity: (input) =>
-				Effect.sync(() => {
-					importedCalls.push(input);
-					return { id: EntityId.make("entity-1") };
-				}),
-		},
 		integrationOperations: {
 			loadYankAdapterResult: () =>
 				Effect.succeed({
@@ -477,12 +377,6 @@ it.effect("processes a komga yank run through shared media orchestration", () =>
 					adapterResult: { failures: [], entityGroups: [mangaGroup()] },
 				}),
 		},
-		eventsService: makeEventsService({
-			create: (input) => {
-				createdEvents.push(input);
-				return Effect.succeed({ count: input.payload.length });
-			},
-		}),
 		importsRepository: makeImportsRepository({
 			getRunById: () => Effect.succeed(makeRun("completed")),
 			updateRun: (input) => {
@@ -505,29 +399,16 @@ it.effect("processes a komga yank run through shared media orchestration", () =>
 		Effect.gen(function* () {
 			yield* runIntegrationRunWorkflow(yankPayload, "run_1");
 
-			expect(importedCalls).toEqual([
-				{
-					userId: "user_1",
-					externalId: "30002",
-					executionId: "run_1-entity-0",
-					entitySchemaId: "schema-manga",
-					scriptId: "script-manga-anilist",
-				},
-			]);
-			expect(createdEvents).toHaveLength(1);
-			expect(createdEvents[0]).toMatchObject({
-				userId: "user_1",
-				metadata: { importRunId: "run_1", integrationId: "int_1" },
+			const stored = yield* loadImportAdapterResult("run_1");
+			expect(stored?.entityGroups).toHaveLength(1);
+			expect(stored?.entityGroups[0]?.entityRef).toMatchObject({ externalId: "30002" });
+
+			expect(childDispatches).toHaveLength(1);
+			expect(childDispatches[0]).toMatchObject({
+				executionId: "run_1-normalized",
+				payload: { runId: "run_1", integrationId: "int_1", executionId: "run_1-normalized" },
 			});
-			expect(recordedUpdates).toContainEqual(
-				expect.objectContaining({
-					progress: 100,
-					runId: "run_1",
-					importedItems: 1,
-					processedItems: 1,
-					status: "completed",
-				}),
-			);
+
 			expect(integrationUpdates).toHaveLength(1);
 			expect(integrationUpdates[0]).toMatchObject({
 				userId: "user_1",
@@ -535,21 +416,15 @@ it.effect("processes a komga yank run through shared media orchestration", () =>
 				lastFinishedAt: expect.any(Date),
 			});
 		}),
+		captureChildExecute(childDispatches),
 	);
 });
 
 it.effect("fails the whole run on catastrophic yank provider failure", () => {
-	let importCalled = false;
+	const childDispatches: Array<Record<string, unknown>> = [];
 	const recordedUpdates: Array<Record<string, unknown>> = [];
 
 	const options = {
-		mediaOperations: {
-			importEntity: () =>
-				Effect.sync(() => {
-					importCalled = true;
-					return { id: EntityId.make("entity-1") };
-				}),
-		},
 		integrationOperations: {
 			loadYankAdapterResult: () =>
 				Effect.fail({ cleanupPaths: [], message: "Failed to fetch data from Komga" }),
@@ -572,7 +447,7 @@ it.effect("fails the whole run on catastrophic yank provider failure", () => {
 		Effect.gen(function* () {
 			yield* runIntegrationRunWorkflow(yankPayload, "run_1");
 
-			expect(importCalled).toBe(false);
+			expect(childDispatches).toHaveLength(0);
 			expect(recordedUpdates).toContainEqual(
 				expect.objectContaining({
 					runId: "run_1",
@@ -581,11 +456,12 @@ it.effect("fails the whole run on catastrophic yank provider failure", () => {
 				}),
 			);
 		}),
+		captureChildExecute(childDispatches),
 	);
 });
 
-it.effect("marks ownership for synced yank items", () => {
-	const ownershipMarks: Array<Record<string, unknown>> = [];
+it.effect("persists synced yank ownership items into the adapter artifact", () => {
+	const childDispatches: Array<Record<string, unknown>> = [];
 
 	const options = {
 		integrationOperations: {
@@ -605,12 +481,6 @@ it.effect("marks ownership for synced yank items", () => {
 			getByIdAnyUser: () => Effect.succeed(makeKomgaIntegration({ syncOwnership: true })),
 			updateForUser: () => Effect.succeed(makeKomgaIntegration()),
 		}),
-		collectionsService: makeCollectionsService({
-			markEntityOwnedInLibrary: (input: Record<string, unknown>) => {
-				ownershipMarks.push(input);
-				return Effect.void;
-			},
-		}),
 	} satisfies TestLayerOptions;
 
 	return withTestLayer(
@@ -619,27 +489,20 @@ it.effect("marks ownership for synced yank items", () => {
 		Effect.gen(function* () {
 			yield* runIntegrationRunWorkflow(yankPayload, "run_1");
 
-			expect(ownershipMarks).toEqual([
-				expect.objectContaining({ userId: "user_1", provider: "komga", entityId: "entity-1" }),
-			]);
+			const stored = yield* loadImportAdapterResult("run_1");
+			expect(stored?.entityGroups[0]).toMatchObject({ ownershipProvider: "komga" });
+			expect(childDispatches).toHaveLength(1);
 		}),
+		captureChildExecute(childDispatches),
 	);
 });
 
-it.effect("processes a YouTube Music yank run through workflow-owned sandbox execution", () => {
+it.effect("runs a YouTube Music yank through workflow-owned sandbox execution", () => {
+	const childDispatches: Array<Record<string, unknown>> = [];
 	const sandboxCalls: Array<Record<string, unknown>> = [];
-	const importedCalls: Array<Record<string, unknown>> = [];
-	const createdEvents: Array<Record<string, unknown>> = [];
 	const recordedUpdates: Array<Record<string, unknown>> = [];
 
 	const options = {
-		mediaOperations: {
-			importEntity: (input) =>
-				Effect.sync(() => {
-					importedCalls.push(input);
-					return { id: EntityId.make("entity-1") };
-				}),
-		},
 		integrationOperations: {
 			runSandboxHistory: (input) =>
 				Effect.sync(() => {
@@ -655,12 +518,6 @@ it.effect("processes a YouTube Music yank run through workflow-owned sandbox exe
 		integrationsRepository: makeIntegrationsRepository({
 			updateForUser: () => Effect.succeed(makeYoutubeMusicIntegration()),
 			getByIdAnyUser: () => Effect.succeed(makeYoutubeMusicIntegration()),
-		}),
-		eventsService: makeEventsService({
-			create: (input) => {
-				createdEvents.push(input);
-				return Effect.succeed({ count: input.payload.length });
-			},
 		}),
 		importsRepository: makeImportsRepository({
 			getRunById: () => Effect.succeed(makeRun("completed")),
@@ -685,46 +542,25 @@ it.effect("processes a YouTube Music yank run through workflow-owned sandbox exe
 					context: { authCookie: "cookie", timezone: "America/New_York" },
 				},
 			]);
-			expect(importedCalls).toEqual([
-				expect.objectContaining({
-					userId: "user_1",
-					externalId: "vid1",
-					entitySchemaId: "schema-music",
-					scriptId: "script-youtube-music",
-				}),
-			]);
-			expect(createdEvents).toHaveLength(1);
-			expect(createdEvents[0]).toMatchObject({
-				userId: "user_1",
-				metadata: { importRunId: "run_1", integrationId: "int_1" },
-				payload: [expect.objectContaining({ entityId: "entity-1" })],
-			});
-			expect(recordedUpdates).toContainEqual(
-				expect.objectContaining({
-					progress: 100,
-					runId: "run_1",
-					importedItems: 1,
-					status: "completed",
-				}),
-			);
+
+			const stored = yield* loadImportAdapterResult("run_1");
+			expect(stored?.entityGroups).toHaveLength(1);
+			expect(stored?.entityGroups[0]?.entityRef).toMatchObject({ externalId: "vid1" });
+
+			expect(childDispatches).toHaveLength(1);
+			expect(childDispatches[0]).toMatchObject({ executionId: "run_1-normalized" });
 		}),
+		captureChildExecute(childDispatches),
 	);
 });
 
 it.effect("records a YouTube Music sandbox failure as a source-fetch failure", () => {
-	let importCalled = false;
+	const childDispatches: Array<Record<string, unknown>> = [];
 	const recordedUpdates: Array<Record<string, unknown>> = [];
 	const recordedFailures: Array<Record<string, unknown>> = [];
 	const integrationUpdates: Array<Record<string, unknown>> = [];
 
 	const options = {
-		mediaOperations: {
-			importEntity: () =>
-				Effect.sync(() => {
-					importCalled = true;
-					return { id: EntityId.make("entity-1") };
-				}),
-		},
 		integrationOperations: {
 			runSandboxHistory: () =>
 				Effect.succeed({
@@ -760,7 +596,7 @@ it.effect("records a YouTube Music sandbox failure as a source-fetch failure", (
 		Effect.gen(function* () {
 			yield* runIntegrationRunWorkflow(yankPayload, "run_1");
 
-			expect(importCalled).toBe(false);
+			expect(childDispatches).toHaveLength(0);
 			expect(recordedFailures).toContainEqual(
 				expect.objectContaining({
 					itemIndex: 0,
@@ -777,6 +613,7 @@ it.effect("records a YouTube Music sandbox failure as a source-fetch failure", (
 				expect.objectContaining({ runId: "run_1", status: "failed" }),
 			);
 		}),
+		captureChildExecute(childDispatches),
 	);
 });
 
