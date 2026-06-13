@@ -214,7 +214,7 @@ aggregation operands.
   Returns the selected scalar from the first row of an ordered source, or `null` when the
   source has no rows, using top-1 SQL (`ORDER BY ... LIMIT 1`). This is how latest-event
   and latest-relationship-child patterns are represented. The source may be an entity
-  source (with `via`) or a nested event source (with `entityRef`), matching `exists` and
+  source (which must specify `via`) or a nested event source (with `entityRef`), matching `exists` and
   `aggregate`. `first` is valid in any expression position (output fields, `where` clauses,
   and inside other expressions). `orderBy` is `ref`-only and `select` is `ref`/`literal`
   only so they stay SQL-expressible; both may reference the source's own alias, its edge
@@ -396,21 +396,26 @@ Field value kinds: `text`, `number`, `boolean`, `date`, `image`, `json`, `null`.
 
 ## Safety Limits
 
-| Limit                                               | Value                                      |
-| --------------------------------------------------- | ------------------------------------------ |
-| Max root page size                                  | 100                                        |
-| Max include depth                                   | 3 (root is depth 0)                        |
-| Max include limit                                   | 100                                        |
-| Max expression source depth                         | 3 (root is depth 0, counted independently) |
-| Max grouped aggregate limit                         | 1000                                       |
-| Max time-series buckets                             | 1000                                       |
-| Max serialized row objects per response             | 5000                                       |
-| Max root filter scan rows                           | 5000                                       |
-| Max aggregate-expression source rows per parent row | 10000                                      |
+| Limit                                         | Value                                      |
+| --------------------------------------------- | ------------------------------------------ |
+| Max root page size                            | 100                                        |
+| Max include depth                             | 3 (root is depth 0)                        |
+| Max include limit                             | 100                                        |
+| Max expression source depth                   | 3 (root is depth 0, counted independently) |
+| Max grouped aggregate limit                   | 1000                                       |
+| Max time-series buckets                       | 1000                                       |
+| Max serialized row objects per response       | 5000                                       |
+| Max root filter scan rows                     | 5000                                       |
+| Max correlated expression rows per parent row | 10000                                      |
 
 If the serialized row-object cap is exceeded, the engine fails the query rather than
 silently truncating. A grouped aggregate limit greater than 1000 fails validation rather
 than being clamped.
+
+Correlated `aggregate` expressions and correlated `exists` expressions (whose source
+carries a `where`) consider at most 10000 candidate rows per parent row and fail rather
+than considering a truncated set. An `exists` without a `where` short-circuits with a
+top-1 probe and is not subject to this cap.
 
 ## Visibility
 
@@ -460,6 +465,8 @@ Example errors:
 - `Grouped aggregate returns require a limit`
 - `Time-series bucket count 1200 exceeds maximum of 1000`
 - `Entity schema 'reviw' not found`
+- `First expression entity source 'latest' must specify via`
+- `Expression source candidate rows exceeds maximum of 10000`
 - `Comparison operands are not type-compatible: string and number`
 - `Arithmetic operands must be numeric: string`
 - `Contains operands are not type-compatible: number and number`
