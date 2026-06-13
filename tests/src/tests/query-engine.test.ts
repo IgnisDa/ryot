@@ -37,7 +37,6 @@ const buildRowsDoc = (
 ): QueryEnginePayload => {
 	const { alias, schemas, fields = [], orderByExpr, page = 1, limit = 10, ...rest } = overrides;
 	return {
-		version: 2,
 		source: { type: "entities", alias, schemas, where: null },
 		output: {
 			fields,
@@ -922,7 +921,6 @@ describe("Query Engine E2E", () => {
 			]);
 
 			const doc: QueryEnginePayload = {
-				version: 2,
 				source: { type: "entities", alias: "lesson", schemas: [slug], where: null },
 				output: {
 					type: "aggregate",
@@ -1011,7 +1009,6 @@ describe("Query Engine E2E", () => {
 			]);
 
 			const doc: QueryEnginePayload = {
-				version: 2,
 				source: { type: "entities", alias: "lesson", schemas: [slug], where: null },
 				output: {
 					limit: 1,
@@ -1038,7 +1035,6 @@ describe("Query Engine E2E", () => {
 				schemaName: "DuplicateAggregateKeys",
 			});
 			const doc: QueryEnginePayload = {
-				version: 2,
 				source: { type: "entities", alias: "entity", schemas: [slug], where: null },
 				output: {
 					limit: 10,
@@ -1091,7 +1087,6 @@ describe("Query Engine E2E", () => {
 			});
 
 			const doc: QueryEnginePayload = {
-				version: 2,
 				source: {
 					where: null,
 					type: "events",
@@ -1248,7 +1243,6 @@ describe("Query Engine E2E", () => {
 			});
 
 			const doc: QueryEnginePayload = {
-				version: 2,
 				source: {
 					where: null,
 					alias: "membership",
@@ -1337,7 +1331,6 @@ describe("Query Engine E2E", () => {
 			});
 
 			const docA: QueryEnginePayload = {
-				version: 2,
 				source: {
 					where: null,
 					alias: "membership",
@@ -1438,7 +1431,6 @@ describe("Query Engine E2E", () => {
 			});
 
 			const doc: QueryEnginePayload = {
-				version: 2,
 				source: {
 					where: null,
 					type: "events",
@@ -1489,7 +1481,6 @@ describe("Query Engine E2E", () => {
 			]);
 
 			const doc: QueryEnginePayload = {
-				version: 2,
 				source: { where: null, type: "entities", alias: "entity", schemas: [slug] },
 				output: {
 					type: "timeSeries",
@@ -1538,7 +1529,6 @@ describe("Query Engine E2E", () => {
 			});
 
 			const doc: QueryEnginePayload = {
-				version: 2,
 				output: {
 					type: "timeSeries",
 					measure: { aggregation: { function: "count" } },
@@ -1569,7 +1559,6 @@ describe("Query Engine E2E", () => {
 				schemaName: "TimeSeriesBucketCap",
 			});
 			const doc: QueryEnginePayload = {
-				version: 2,
 				source: { where: null, type: "entities", alias: "entity", schemas: [slug] },
 				output: {
 					type: "timeSeries",
@@ -1675,7 +1664,6 @@ describe("Query Engine E2E", () => {
 			});
 
 			const doc: QueryEnginePayload = {
-				version: 2,
 				source: {
 					alias: "entity",
 					schemas: [schema.slug],

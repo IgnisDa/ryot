@@ -171,7 +171,6 @@ export const buildEntityRowsQueryDocument = (input: {
 	schemas: [string, ...string[]];
 	where?: Extract<QueryEnginePayload["source"], { type: "entities" }>["where"];
 }): QueryEnginePayload => ({
-	version: 2,
 	source: {
 		type: "entities",
 		alias: input.alias,
