@@ -407,20 +407,20 @@ function buildSeedLayouts(
 		throw new Error("Seed saved view requires at least one schema");
 	}
 	const projections = buildSavedViewLayoutProjections({
-		grid: { itemId: column(seedEntity, "id"), card: grid },
-		list: { itemId: column(seedEntity, "id"), card: list },
+		grid: { entityId: column(seedEntity, "id"), card: grid },
+		list: { entityId: column(seedEntity, "id"), card: list },
 		table: {
-			itemId: column(seedEntity, "id"),
 			image: seedImage(),
+			entityId: column(seedEntity, "id"),
 			columns: columns as [SeedTableColumn, ...SeedTableColumn[]],
 		},
 	});
 	const documentFor = (fields: readonly FieldSelection[]) =>
 		buildSavedViewDocument({
+			fields,
 			page: 1,
 			limit: 20,
 			entitySchemaSlugs: scope as [string, ...string[]],
-			fields,
 		});
 	return {
 		grid: { ...projections.grid.mappings, queryDocument: documentFor(projections.grid.fields) },

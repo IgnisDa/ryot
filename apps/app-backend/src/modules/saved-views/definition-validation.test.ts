@@ -29,6 +29,7 @@ const queryDocument = document({
 			field("name", column(book, "name")),
 			field("image", castJson(jsonPath(column(book, "properties"), "images", 0))),
 			field("imageUrl", jsonPath(column(book, "properties"), "images", 0, "url")),
+			field("textId", literal("not-an-entity-id")),
 			field("count", literal(1)),
 		],
 	}),
@@ -36,10 +37,10 @@ const queryDocument = document({
 
 const cardLayout = {
 	queryDocument,
-	itemIdField: "id",
 	titleField: "name",
 	calloutField: null,
 	imageField: "image",
+	entityIdField: "id",
 	overlineField: null,
 	primaryMetadataField: null,
 	secondaryMetadataField: null,
@@ -50,8 +51,8 @@ const layouts = {
 	list: cardLayout,
 	table: {
 		queryDocument,
-		itemIdField: "id",
 		imageField: "image",
+		entityIdField: "id",
 		columns: [{ label: "Name", field: "name" }],
 	},
 } satisfies SavedViewLayouts;
@@ -65,18 +66,26 @@ it.effect("accepts three independently valid layouts", () =>
 
 it.effect("prefixes validation failures with the layout name", () =>
 	Effect.gen(function* () {
-		const invalid = { ...layouts, list: { ...layouts.list, itemIdField: "count" } };
+		const invalid = { ...layouts, list: { ...layouts.list, entityIdField: "count" } };
 		const exit = yield* Effect.exit(validateSavedViewDefinition({ layouts: invalid }));
 
 		expect(getSavedViewValidationError({ layouts: invalid })).toBe(
-			"List layout: itemIdField must resolve to text",
+			"List layout: entityIdField must resolve to text",
 		);
 		assertExitFails(
 			exit,
-			new BadRequest({ message: "List layout: itemIdField must resolve to text" }),
+			new BadRequest({ message: "List layout: entityIdField must resolve to text" }),
 		);
 	}),
 );
+
+it("requires the entity ID mapping to project an entity primary key", () => {
+	const invalid = { ...layouts, grid: { ...layouts.grid, entityIdField: "textId" } };
+
+	expect(getSavedViewValidationError({ layouts: invalid })).toBe(
+		"Grid layout: entityIdField must project an entity primary key",
+	);
+});
 
 it("validates mappings against only their layout projection", () => {
 	const tableDocument = document({

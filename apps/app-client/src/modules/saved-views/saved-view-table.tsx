@@ -1,5 +1,8 @@
 import clsx from "clsx";
-import { ScrollView, Text, View } from "react-native";
+import { Link } from "expo-router";
+import { Pressable, ScrollView, Text, View } from "react-native";
+
+import { getEntityHref } from "@/modules/navigation/navigation-data";
 
 import type { SavedViewTableItem } from "./display-data";
 import { formatSavedViewValue } from "./display-value";
@@ -41,35 +44,40 @@ export function SavedViewTable(props: {
 					))}
 				</View>
 				{props.items.map((item) => (
-					<View key={item.id} className="h-12 flex-row items-center gap-4 border-b border-border">
-						{item.cells.map((cell, index) => (
-							<View
-								key={`${item.id}:${cell.key}`}
-								style={index === 0 ? undefined : { width: columnWidth(index) }}
-								className={
-									index === 0 ? "min-w-0 flex-1 flex-row items-center gap-2.5" : "justify-center"
-								}
-							>
-								{index === 0 && (
-									<SavedViewImageView
-										image={item.image}
-										managedUrls={props.managedUrls}
-										className="h-9 w-6.5 shrink-0 rounded-[3px] bg-surface-2"
-									/>
-								)}
-								<Text
-									numberOfLines={1}
+					<Link asChild key={item.entityId} href={getEntityHref(item.entityId)}>
+						<Pressable
+							accessibilityRole="link"
+							className="h-12 flex-row items-center gap-4 border-b border-border focus-visible:outline-2 focus-visible:outline-accent"
+						>
+							{item.cells.map((cell, index) => (
+								<View
+									key={`${item.entityId}:${cell.key}`}
+									style={index === 0 ? undefined : { width: columnWidth(index) }}
 									className={
-										index === 0
-											? "min-w-0 flex-1 font-ui text-sm text-text"
-											: "font-ui text-right text-[13.5px] text-text-muted"
+										index === 0 ? "min-w-0 flex-1 flex-row items-center gap-2.5" : "justify-center"
 									}
 								>
-									{formatSavedViewValue(cell.value)}
-								</Text>
-							</View>
-						))}
-					</View>
+									{index === 0 && (
+										<SavedViewImageView
+											image={item.image}
+											managedUrls={props.managedUrls}
+											className="h-9 w-6.5 shrink-0 rounded-[3px] bg-surface-2"
+										/>
+									)}
+									<Text
+										numberOfLines={1}
+										className={
+											index === 0
+												? "min-w-0 flex-1 font-ui text-sm text-text"
+												: "font-ui text-right text-[13.5px] text-text-muted"
+										}
+									>
+										{formatSavedViewValue(cell.value)}
+									</Text>
+								</View>
+							))}
+						</Pressable>
+					</Link>
 				))}
 			</View>
 		</ScrollView>

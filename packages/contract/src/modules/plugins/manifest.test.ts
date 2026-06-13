@@ -12,7 +12,7 @@ const queryDocument = {
 				type: "rows",
 				pagination: { limit: 20, page: 1 },
 				fields: [
-					{ key: "itemId", expr: { field: "id", tableAlias: "entity", type: "column" } },
+					{ key: "entityId", expr: { field: "id", tableAlias: "entity", type: "column" } },
 					{ key: "title", expr: { field: "name", tableAlias: "entity", type: "column" } },
 				],
 			},
@@ -53,12 +53,12 @@ const manifest = definePlugin({
 			name: "All entities",
 			slug: "all-entities",
 			layouts: {
-				grid: { queryDocument, ...cardMapping, itemIdField: "itemId" },
-				list: { queryDocument, ...cardMapping, itemIdField: "itemId" },
+				grid: { queryDocument, ...cardMapping, entityIdField: "entityId" },
+				list: { queryDocument, ...cardMapping, entityIdField: "entityId" },
 				table: {
 					queryDocument,
 					imageField: null,
-					itemIdField: "itemId",
+					entityIdField: "entityId",
 					columns: [{ label: "Title", field: "title" }],
 				},
 			},
@@ -271,7 +271,7 @@ describe("definePlugin", () => {
 		expect(Object.keys(savedView.layouts)).toEqual(["grid", "list", "table"]);
 		for (const layout of ["grid", "list", "table"] as const) {
 			expect(savedView.layouts[layout].queryDocument).toEqual(queryDocument);
-			expect(savedView.layouts[layout].itemIdField).toBe("itemId");
+			expect(savedView.layouts[layout].entityIdField).toBe("entityId");
 		}
 	});
 

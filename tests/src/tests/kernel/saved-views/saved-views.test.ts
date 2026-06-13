@@ -43,7 +43,7 @@ describe("Saved views query documents E2E", () => {
 							type: "rows",
 							pagination: { page: 1 },
 							fields: expect.arrayContaining([
-								expect.objectContaining({ key: "itemId" }),
+								expect.objectContaining({ key: "entityId" }),
 								expect.objectContaining({ key: "title" }),
 							]),
 						},
@@ -78,7 +78,7 @@ describe("Saved views query documents E2E", () => {
 
 			expect(createdView.layouts).toEqual(rowsLayouts);
 			expect(fetchedView.layouts).toEqual(rowsLayouts);
-			expect(fetchedView.layouts.grid.itemIdField).toBe("itemId");
+			expect(fetchedView.layouts.grid.entityIdField).toBe("entityId");
 			expect(fetchedView.layouts.grid.titleField).toBe("title");
 			expect(fetchedView.layouts.list.titleField).toBe("title");
 			expect(fetchedView.layouts.table.columns[0].field).toBe("column0");
@@ -125,7 +125,7 @@ describe("Saved views query documents E2E", () => {
 			expect(output.include).toBeUndefined();
 			expect(output.fields.every((selection) => "key" in selection)).toBe(true);
 			expect(output.fields.map((selection) => "key" in selection && selection.key)).toEqual(
-				expect.arrayContaining(["itemId", "title", "image"]),
+				expect.arrayContaining(["entityId", "title", "image"]),
 			);
 		}),
 	);
