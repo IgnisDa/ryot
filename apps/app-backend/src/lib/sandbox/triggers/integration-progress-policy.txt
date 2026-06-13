@@ -1,10 +1,7 @@
 const SUBITEM_KEYS = [
-  "showSeason",
-  "showEpisode",
   "animeEpisode",
   "mangaVolume",
   "mangaChapter",
-  "podcastEpisode",
 ];
 
 const DEFAULT_THRESHOLD_SECONDS = 7200;
