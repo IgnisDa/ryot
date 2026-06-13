@@ -106,9 +106,8 @@ const makeEventsService = (overrides: Partial<EventsService> = {}) =>
 		{
 			_tag: "EventsService" as const,
 			list: () => Effect.die("unused"),
-			create: () => Effect.die("unused"),
-			createForIntegration: () => Effect.die("unused"),
-			createForImport: () => Effect.succeed({ count: 1 }),
+			create: () => Effect.succeed({ count: 1 }),
+			listForUser: () => Effect.die("unused"),
 		},
 		overrides,
 	);
@@ -275,9 +274,9 @@ it.effect("orchestrates one-time media imports through workflow-owned phases", (
 			},
 		}),
 		eventsService: makeEventsService({
-			createForImport: (_userId, payload) => {
-				createdEvents.push(payload as ReadonlyArray<Record<string, unknown>>);
-				return Effect.succeed({ count: payload.length });
+			create: (input) => {
+				createdEvents.push(input.payload as ReadonlyArray<Record<string, unknown>>);
+				return Effect.succeed({ count: input.payload.length });
 			},
 		}),
 	} satisfies TestLayerOptions;
@@ -463,9 +462,9 @@ it.effect("resolves imported show episode progress and drops unresolved locators
 				),
 		}),
 		eventsService: makeEventsService({
-			createForImport: (_userId, payload) => {
-				createdEvents.push(payload as ReadonlyArray<Record<string, unknown>>);
-				return Effect.succeed({ count: payload.length });
+			create: (input) => {
+				createdEvents.push(input.payload as ReadonlyArray<Record<string, unknown>>);
+				return Effect.succeed({ count: input.payload.length });
 			},
 		}),
 	} satisfies TestLayerOptions;
@@ -612,9 +611,9 @@ it.effect("resolves imported podcast episode progress and drops unresolved locat
 				),
 		}),
 		eventsService: makeEventsService({
-			createForImport: (_userId, payload) => {
-				createdEvents.push(payload as ReadonlyArray<Record<string, unknown>>);
-				return Effect.succeed({ count: payload.length });
+			create: (input) => {
+				createdEvents.push(input.payload as ReadonlyArray<Record<string, unknown>>);
+				return Effect.succeed({ count: input.payload.length });
 			},
 		}),
 	} satisfies TestLayerOptions;
