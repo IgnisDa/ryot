@@ -13,6 +13,7 @@ import {
 import { HttpApiBuilder, HttpApiError, HttpApiScalar } from "effect/unstable/httpapi";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
+import { RequestLogUrl } from "#lib/infrastructure/request-log-url";
 import { AdminMiddlewareLive, AuthMiddlewareLive, AuthService } from "#modules/auth/service";
 import { AutomationsRoutesLive } from "#modules/automations/routes";
 import { BackupsRoutesLive } from "#modules/backups/routes";
@@ -97,8 +98,7 @@ const ApiLive = HttpApiBuilder.layer(AppContract).pipe(
 	Layer.provide(ImportsRoutesLive),
 	Layer.provide(Layer.mergeAll(IntegrationsRoutesLive, NotificationsRoutesLive)),
 	Layer.provide(Layer.mergeAll(RyotQLRoutesLive, InterestRoutesLive)),
-	Layer.provide(AuthMiddlewareLive),
-	Layer.provide(AdminMiddlewareLive),
+	Layer.provide(Layer.mergeAll(AuthMiddlewareLive, AdminMiddlewareLive)),
 );
 
 const ScalarLive = HttpApiScalar.layer(AppContract, { path: "/docs" });
@@ -122,21 +122,7 @@ export const registerRootRoutes = Effect.fn("registerRootRoutes")(function* <E, 
 	frontendUrl: string,
 ) {
 	const cors = HttpMiddleware.cors({ allowedOrigins: ["*"], credentials: false });
-	yield* router.addGlobalMiddleware((httpApp) =>
-		Effect.flatMap(HttpServerRequest.HttpServerRequest, (request) =>
-			new URL(request.originalUrl).pathname.startsWith("/api/plugin-artifact-sessions/")
-				? cors(httpApp).pipe(
-						Effect.map(
-							HttpServerResponse.setHeaders({
-								"cache-control": "no-store",
-								"referrer-policy": "no-referrer",
-								"x-content-type-options": "nosniff",
-							}),
-						),
-					)
-				: cors(httpApp),
-		),
-	);
+	yield* router.addGlobalMiddleware(cors);
 	yield* router.add("*", "/api/auth/*", (request) =>
 		HttpEffect.fromWebHandler(authHandler).pipe(
 			Effect.provideService(HttpServerRequest.HttpServerRequest, request),
@@ -162,19 +148,19 @@ export const registerRootRoutes = Effect.fn("registerRootRoutes")(function* <E, 
 	});
 });
 
-export const redactPluginArtifactSessionUrl = (url: string) =>
-	url.replace(/(\/api\/plugin-artifact-sessions\/)[A-Za-z0-9_-]{43}(?=\/)/, "$1<redacted>");
-
 const requestLogger = HttpMiddleware.make((httpApp) =>
-	Effect.flatMap(HttpServerRequest.HttpServerRequest, (request) =>
-		Effect.provideService(
+	Effect.gen(function* () {
+		const logUrl = yield* RequestLogUrl;
+		const request = yield* HttpServerRequest.HttpServerRequest;
+		const url = yield* logUrl.resolve(request);
+		return yield* Effect.provideService(
 			HttpMiddleware.logger(
 				Effect.provideService(httpApp, HttpServerRequest.HttpServerRequest, request),
 			),
 			HttpServerRequest.HttpServerRequest,
-			request.modify({ url: redactPluginArtifactSessionUrl(request.url) }),
-		),
-	),
+			request.modify({ url }),
+		);
+	}),
 );
 
 // oxlint-disable-next-line react-hooks/rules-of-hooks -- Effect router registration, not React.
@@ -227,4 +213,4 @@ export const ServerLive = Layer.mergeAll(
 		middleware: requestLogger,
 	}),
 	ListeningLive,
-).pipe(Layer.provide(BunServerLive));
+).pipe(Layer.provide(RequestLogUrl.layer), Layer.provide(BunServerLive));

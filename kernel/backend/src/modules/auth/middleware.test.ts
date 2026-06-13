@@ -5,6 +5,7 @@ import {
 	AuthorizationContext,
 	CurrentUser,
 } from "@ryot/contract/auth-middleware";
+import { PluginsGroup } from "@ryot/contract/modules/plugins/contract";
 import { UserId } from "@ryot/contract/schema/brands";
 import { Effect, Redacted } from "effect";
 import { HttpRouter, HttpServerResponse } from "effect/unstable/http";
@@ -164,7 +165,7 @@ it.effect("provides both authentication services to handlers", () => {
 				expect(authorization.credential).toEqual({ kind: "oauth", clientId: "ryot-web" });
 				return HttpServerResponse.empty();
 			}),
-			{ credential: Redacted.make("token") },
+			{ credential: Redacted.make("token"), endpoint: PluginsGroup.endpoints.list },
 		),
 	);
 
@@ -192,7 +193,7 @@ it.effect("rejects authenticated writes while a lifecycle operation is active", 
 				handlerCalled = true;
 				return HttpServerResponse.empty();
 			}),
-			{ credential: Redacted.make("token") },
+			{ credential: Redacted.make("token"), endpoint: PluginsGroup.endpoints.list },
 		),
 	);
 
