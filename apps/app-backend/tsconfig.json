@@ -22,6 +22,22 @@
 		"exactOptionalPropertyTypes": true,
 		"noFallthroughCasesInSwitch": true,
 		"noPropertyAccessFromIndexSignature": true,
-		"plugins": [{ "name": "@effect/language-service" }]
+		"plugins": [
+			{
+				"name": "@effect/language-service",
+				"diagnosticSeverity": {
+					"newPromise": "error",
+					"asyncFunction": "error",
+					"nodeBuiltinImport": "error",
+					"globalDateInEffect": "error",
+					"processEnvInEffect": "error",
+					"globalFetchInEffect": "error",
+					"globalTimersInEffect": "error",
+					"preferSchemaOverJson": "error",
+					"globalConsoleInEffect": "error",
+					"globalErrorInEffectFailure": "error"
+				}
+			}
+		]
 	}
 }
