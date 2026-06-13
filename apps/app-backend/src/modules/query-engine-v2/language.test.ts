@@ -516,6 +516,81 @@ describe("QueryDocumentV2", () => {
 		expect(result.source.type).toBe("events");
 	});
 
+	it("decodes a root relationship source document", () => {
+		const result = decodeSync(QueryDocumentV2)({
+			...minimal,
+			source: {
+				where: null,
+				alias: "membership",
+				type: "relationships",
+				schemas: ["member-of"],
+				sourceEntity: { alias: "memberEntity", schemas: ["books", "movies"] },
+				targetEntity: { alias: "collectionEntity", schemas: ["collections"] },
+			},
+			output: {
+				...minimal.output,
+				orderBy: [
+					{
+						order: "desc",
+						expr: {
+							type: "ref",
+							sourceAlias: "membership",
+							field: { type: "system", name: "createdAt" },
+						},
+					},
+				],
+			},
+		});
+
+		expect(result.source.type).toBe("relationships");
+	});
+
+	it("throws when a relationship source is missing sourceEntity", () => {
+		expect(() =>
+			decodeSync(QueryDocumentV2)({
+				...minimal,
+				source: {
+					where: null,
+					alias: "membership",
+					type: "relationships",
+					schemas: ["member-of"],
+					targetEntity: { alias: "collectionEntity", schemas: ["collections"] },
+				},
+			}),
+		).toThrow();
+	});
+
+	it("throws when a relationship source is missing targetEntity", () => {
+		expect(() =>
+			decodeSync(QueryDocumentV2)({
+				...minimal,
+				source: {
+					where: null,
+					alias: "membership",
+					type: "relationships",
+					schemas: ["member-of"],
+					sourceEntity: { alias: "memberEntity", schemas: ["books"] },
+				},
+			}),
+		).toThrow();
+	});
+
+	it("throws when a relationship source schemas list is empty", () => {
+		expect(() =>
+			decodeSync(QueryDocumentV2)({
+				...minimal,
+				source: {
+					where: null,
+					schemas: [],
+					alias: "membership",
+					type: "relationships",
+					sourceEntity: { alias: "memberEntity", schemas: ["books"] },
+					targetEntity: { alias: "collectionEntity", schemas: ["collections"] },
+				},
+			}),
+		).toThrow();
+	});
+
 	it("decodes a document with a non-null where clause", () => {
 		const result = decodeSync(QueryDocumentV2)({
 			...minimal,

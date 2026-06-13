@@ -1183,6 +1183,205 @@ describe("Query Engine V2 E2E", () => {
 		});
 	});
 
+	describe("Relationship root sources", () => {
+		it("returns relationship rows with relationship and endpoint entity fields sorted by relationship createdAt", async () => {
+			const { client } = await createAuthenticatedClient();
+			const { schemaId: memberSchemaId, slug: memberSlug } = await createV2TrackerAndSchema(
+				client,
+				{ schemaName: "RelRootMember" },
+			);
+			const { schemaId: collectionSchemaId, slug: collectionSlug } = await createV2TrackerAndSchema(
+				client,
+				{ schemaName: "RelRootCollection" },
+			);
+			const relationshipSlug = `rel-root-membership-${crypto.randomUUID()}`;
+			const relationshipSchema = await createRelationshipSchema(client, {
+				name: "Rel Root Membership",
+				slug: relationshipSlug,
+				sourceEntitySchemaId: memberSchemaId,
+				targetEntitySchemaId: collectionSchemaId,
+				propertiesSchema: {
+					fields: { role: { type: "string", label: "Role", description: "Membership role" } },
+				},
+			});
+
+			const memberOne = await createV2Entity(client, {
+				name: "Member One",
+				entitySchemaId: memberSchemaId,
+			});
+			const memberTwo = await createV2Entity(client, {
+				name: "Member Two",
+				entitySchemaId: memberSchemaId,
+			});
+			const collection = await createV2Entity(client, {
+				name: "Collection",
+				entitySchemaId: collectionSchemaId,
+			});
+
+			await createRelationship(client, {
+				sourceEntityId: memberOne.id,
+				targetEntityId: collection.id,
+				properties: { role: "first" },
+				relationshipSchemaId: relationshipSchema.id,
+			});
+			await createRelationship(client, {
+				sourceEntityId: memberTwo.id,
+				targetEntityId: collection.id,
+				properties: { role: "second" },
+				relationshipSchemaId: relationshipSchema.id,
+			});
+
+			const doc: V2ExecutePayload = {
+				version: 2,
+				source: {
+					where: null,
+					alias: "membership",
+					type: "relationships",
+					schemas: [relationshipSlug],
+					sourceEntity: { alias: "memberEntity", schemas: [memberSlug] },
+					targetEntity: { alias: "collectionEntity", schemas: [collectionSlug] },
+				},
+				output: {
+					type: "rows",
+					pagination: { page: 1, limit: 10 },
+					orderBy: [{ order: "desc", expr: systemRef("membership", "createdAt") }],
+					fields: [
+						{ key: "createdAt", expr: systemRef("membership", "createdAt") },
+						{ key: "sourceEntityId", expr: systemRef("membership", "sourceEntityId") },
+						{ key: "memberName", expr: systemRef("memberEntity", "name") },
+						{ key: "collectionName", expr: systemRef("collectionEntity", "name") },
+						{ key: "role", expr: propertyRef("membership", relationshipSlug, "role") },
+					],
+				},
+			};
+
+			const result = await executeQueryEngineV2(client, doc);
+
+			expect(result.data.items).toHaveLength(2);
+			expect(result.data.pageInfo.total).toBe(2);
+
+			const [first, second] = result.data.items;
+			assertPresent(first, "Expected first relationship row");
+			assertPresent(second, "Expected second relationship row");
+			const firstCreatedAt = new Date(String(requireV2FieldValue(first, "createdAt").value));
+			const secondCreatedAt = new Date(String(requireV2FieldValue(second, "createdAt").value));
+			expect(firstCreatedAt.getTime()).toBeGreaterThanOrEqual(secondCreatedAt.getTime());
+
+			const byMember = new Map(
+				result.data.items.map((item) => [requireV2FieldValue(item, "sourceEntityId").value, item]),
+			);
+			const memberOneRow = byMember.get(memberOne.id);
+			const memberTwoRow = byMember.get(memberTwo.id);
+			assertPresent(memberOneRow, "Expected Member One's relationship row");
+			assertPresent(memberTwoRow, "Expected Member Two's relationship row");
+			expect(requireV2FieldValue(memberOneRow, "memberName").value).toBe("Member One");
+			expect(requireV2FieldValue(memberOneRow, "collectionName").value).toBe("Collection");
+			expect(requireV2FieldValue(memberOneRow, "role").value).toBe("first");
+			expect(requireV2FieldValue(memberTwoRow, "memberName").value).toBe("Member Two");
+			expect(requireV2FieldValue(memberTwoRow, "role").value).toBe("second");
+		});
+
+		it("enforces visibility on relationship rows and both endpoint entities", async () => {
+			const userA = await createAuthenticatedClient();
+			const userB = await createAuthenticatedClient();
+
+			const { schemaId: memberSchemaIdA, slug: memberSlugA } = await createV2TrackerAndSchema(
+				userA.client,
+				{ schemaName: "RelRootIsoMember" },
+			);
+			const { schemaId: collectionSchemaIdA, slug: collectionSlugA } =
+				await createV2TrackerAndSchema(userA.client, { schemaName: "RelRootIsoCollection" });
+			const relationshipSlugA = `rel-root-iso-${crypto.randomUUID()}`;
+			const relationshipSchemaA = await createRelationshipSchema(userA.client, {
+				name: "Rel Root Iso",
+				slug: relationshipSlugA,
+				propertiesSchema: { fields: {} },
+				sourceEntitySchemaId: memberSchemaIdA,
+				targetEntitySchemaId: collectionSchemaIdA,
+			});
+			const memberA = await createV2Entity(userA.client, {
+				name: "User A Member",
+				entitySchemaId: memberSchemaIdA,
+			});
+			const collectionA = await createV2Entity(userA.client, {
+				name: "User A Collection",
+				entitySchemaId: collectionSchemaIdA,
+			});
+			await createRelationship(userA.client, {
+				sourceEntityId: memberA.id,
+				targetEntityId: collectionA.id,
+				relationshipSchemaId: relationshipSchemaA.id,
+			});
+
+			const docA: V2ExecutePayload = {
+				version: 2,
+				source: {
+					where: null,
+					alias: "membership",
+					type: "relationships",
+					schemas: [relationshipSlugA],
+					sourceEntity: { alias: "memberEntity", schemas: [memberSlugA] },
+					targetEntity: { alias: "collectionEntity", schemas: [collectionSlugA] },
+				},
+				output: {
+					type: "rows",
+					pagination: { page: 1, limit: 10 },
+					orderBy: [{ order: "desc", expr: systemRef("membership", "createdAt") }],
+					fields: [{ key: "memberName", expr: systemRef("memberEntity", "name") }],
+				},
+			};
+
+			const errorForUserB = await executeQueryEngineV2Error(userB.client, docA);
+			expect(errorForUserB).toMatchObject({ _tag: "NotFound" });
+
+			const { schemaId: memberSchemaIdB, slug: memberSlugB } = await createV2TrackerAndSchema(
+				userB.client,
+				{ schemaName: "RelRootIsoMember" },
+			);
+			const { schemaId: collectionSchemaIdB, slug: collectionSlugB } =
+				await createV2TrackerAndSchema(userB.client, { schemaName: "RelRootIsoCollection" });
+			const relationshipSlugB = `rel-root-iso-${crypto.randomUUID()}`;
+			const relationshipSchemaB = await createRelationshipSchema(userB.client, {
+				name: "Rel Root Iso",
+				slug: relationshipSlugB,
+				propertiesSchema: { fields: {} },
+				sourceEntitySchemaId: memberSchemaIdB,
+				targetEntitySchemaId: collectionSchemaIdB,
+			});
+			const memberB = await createV2Entity(userB.client, {
+				name: "User B Member",
+				entitySchemaId: memberSchemaIdB,
+			});
+			const collectionB = await createV2Entity(userB.client, {
+				name: "User B Collection",
+				entitySchemaId: collectionSchemaIdB,
+			});
+			await createRelationship(userB.client, {
+				sourceEntityId: memberB.id,
+				targetEntityId: collectionB.id,
+				relationshipSchemaId: relationshipSchemaB.id,
+			});
+
+			const docB: V2ExecutePayload = {
+				...docA,
+				source: {
+					where: null,
+					alias: "membership",
+					type: "relationships",
+					schemas: [relationshipSlugB],
+					sourceEntity: { alias: "memberEntity", schemas: [memberSlugB] },
+					targetEntity: { alias: "collectionEntity", schemas: [collectionSlugB] },
+				},
+			};
+
+			const resultB = await executeQueryEngineV2(userB.client, docB);
+			expect(resultB.data.items).toHaveLength(1);
+			const itemB = resultB.data.items[0];
+			assertPresent(itemB, "Expected User B's relationship row");
+			expect(requireV2FieldValue(itemB, "memberName").value).toBe("User B Member");
+		});
+	});
+
 	describe("Visibility boundary", () => {
 		it("does not allow a user to query another user's private entity schema", async () => {
 			const userA = await createAuthenticatedClient();

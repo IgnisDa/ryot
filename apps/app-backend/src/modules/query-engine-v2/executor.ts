@@ -17,6 +17,7 @@ import type {
 	IncludeEntryV2,
 	NestedEventSourceV2,
 	QueryDocumentV2,
+	RelationshipSourceV2,
 	RootEventSourceV2,
 	RowItem,
 	RowValue,
@@ -94,6 +95,39 @@ const loadVisibleRelationshipSchema = (
 			return yield* new NotFound({ message: `Relationship schema '${slug}' not found` });
 		}
 		return schema;
+	});
+
+const loadVisibleRelationshipSchemas = (
+	userId: string,
+	slugs: readonly [string, ...string[]],
+): Effect.Effect<VisibleRelationshipSchema[], NotFound | DbError, CurrentDb> =>
+	Effect.gen(function* () {
+		const db = yield* CurrentDb;
+		const uniqueSlugs = [...new Set(slugs)];
+
+		const rows = yield* dbEffect(() =>
+			db
+				.select({ id: dbSchema.relationshipSchema.id, slug: dbSchema.relationshipSchema.slug })
+				.from(dbSchema.relationshipSchema)
+				.where(
+					and(
+						inArray(dbSchema.relationshipSchema.slug, uniqueSlugs),
+						or(
+							eq(dbSchema.relationshipSchema.userId, userId),
+							isNull(dbSchema.relationshipSchema.userId),
+						),
+					),
+				),
+		);
+
+		const visibleSlugs = new Set(rows.map((r) => r.slug));
+		for (const slug of uniqueSlugs) {
+			if (!visibleSlugs.has(slug)) {
+				return yield* new NotFound({ message: `Relationship schema '${slug}' not found` });
+			}
+		}
+
+		return rows;
 	});
 
 const loadVisibleEventSchemas = (
@@ -277,6 +311,30 @@ type EventFields = {
 };
 
 type EventQueryRow = BaseEntityQueryRow & EventFields & { totalCount: string | bigint };
+
+type RelationshipEntityFields = Omit<BaseEntityQueryRow, "totalCount">;
+
+type RelationshipRootQueryRow = RelationshipFields & {
+	totalCount: string | bigint;
+	sourceEntity: RelationshipEntityFields;
+	targetEntity: RelationshipEntityFields;
+};
+
+export const entityJsonbObjectSql = (entityAlias: string, schemaAlias: string) => sql`
+	jsonb_build_object(
+		'id', ${sql.raw(entityAlias)}.id,
+		'name', ${sql.raw(entityAlias)}.name,
+		'image', ${sql.raw(entityAlias)}.image,
+		'createdAt', ${sql.raw(entityAlias)}.created_at,
+		'updatedAt', ${sql.raw(entityAlias)}.updated_at,
+		'properties', ${sql.raw(entityAlias)}.properties,
+		'externalId', ${sql.raw(entityAlias)}.external_id,
+		'sandboxScriptId', ${sql.raw(entityAlias)}.sandbox_script_id,
+		'schemaId', ${sql.raw(schemaAlias)}.id,
+		'schemaSlug', ${sql.raw(schemaAlias)}.slug,
+		'schemaName', ${sql.raw(schemaAlias)}.name
+	)
+`;
 
 export const valueToFieldValue = (value: unknown): FieldValue => {
 	if (value === null || value === undefined) {
@@ -538,6 +596,23 @@ const makeEventRootContext = (source: RootEventSourceV2, row: EventQueryRow): Ro
 	events: new Map([[source.alias, row]]),
 });
 
+const relationshipEntityRow = (entity: RelationshipEntityFields): BaseEntityQueryRow => ({
+	...entity,
+	totalCount: "1",
+});
+
+const makeRelationshipRootContext = (
+	source: RelationshipSourceV2,
+	row: RelationshipRootQueryRow,
+): RowContext => ({
+	events: new Map(),
+	relationships: new Map([[source.alias, row]]),
+	entities: new Map([
+		[source.sourceEntity.alias, relationshipEntityRow(row.sourceEntity)],
+		[source.targetEntity.alias, relationshipEntityRow(row.targetEntity)],
+	]),
+});
+
 const makeIncludeContext = (include: IncludeEntryV2, row: IncludeQueryRow): RowContext => {
 	const context = makeEntityContext(include.source.alias, row);
 	if (include.source.via !== undefined) {
@@ -785,6 +860,90 @@ const executeRootEventSourceMatches = (
 		return matches;
 	});
 
+const loadRelationshipRootVisibleSchemas = (userId: string, source: RelationshipSourceV2) =>
+	Effect.all(
+		[
+			loadVisibleRelationshipSchemas(userId, source.schemas),
+			loadVisibleEntitySchemas(userId, source.sourceEntity.schemas),
+			loadVisibleEntitySchemas(userId, source.targetEntity.schemas),
+		],
+		{ concurrency: "unbounded" },
+	);
+
+const relationshipRootSelectSql = (
+	relationshipSchemaIdsSql: ReturnType<typeof sql>,
+	sourceEntitySchemaIdsSql: ReturnType<typeof sql>,
+	targetEntitySchemaIdsSql: ReturnType<typeof sql>,
+	userId: string,
+) => sql`
+	SELECT
+		r.id AS "relationshipId",
+		r.created_at AS "relationshipCreatedAt",
+		r.source_entity_id AS "relationshipSourceEntityId",
+		r.target_entity_id AS "relationshipTargetEntityId",
+		r.properties AS "relationshipProperties",
+		rs.slug AS "relationshipSchemaSlug",
+		rs.name AS "relationshipSchemaName",
+		${entityJsonbObjectSql("se", "ses")} AS "sourceEntity",
+		${entityJsonbObjectSql("te", "tes")} AS "targetEntity",
+		COUNT(*) OVER() AS "totalCount"
+	FROM relationship r
+	JOIN relationship_schema rs ON rs.id = r.relationship_schema_id
+	JOIN entity se ON se.id = r.source_entity_id
+	JOIN entity_schema ses ON ses.id = se.entity_schema_id
+	JOIN entity te ON te.id = r.target_entity_id
+	JOIN entity_schema tes ON tes.id = te.entity_schema_id
+	WHERE
+		r.relationship_schema_id IN (${relationshipSchemaIdsSql})
+		AND se.entity_schema_id IN (${sourceEntitySchemaIdsSql})
+		AND te.entity_schema_id IN (${targetEntitySchemaIdsSql})
+		AND (r.user_id = ${userId} OR r.user_id IS NULL)
+		AND (se.user_id = ${userId} OR se.user_id IS NULL)
+		AND (te.user_id = ${userId} OR te.user_id IS NULL)
+`;
+
+const executeRootRelationshipSourceMatches = (
+	userId: string,
+	source: RelationshipSourceV2,
+): Effect.Effect<SourceMatch[], BadRequest | NotFound | DbError, CurrentDb> =>
+	Effect.gen(function* () {
+		const [visibleRelationshipSchemas, visibleSourceEntitySchemas, visibleTargetEntitySchemas] =
+			yield* loadRelationshipRootVisibleSchemas(userId, source);
+
+		const relationshipSchemaIdsSql = sql.join(
+			visibleRelationshipSchemas.map((s) => sql`${s.id}`),
+			sql`, `,
+		);
+		const sourceEntitySchemaIdsSql = sql.join(
+			visibleSourceEntitySchemas.map((s) => sql`${s.id}`),
+			sql`, `,
+		);
+		const targetEntitySchemaIdsSql = sql.join(
+			visibleTargetEntitySchemas.map((s) => sql`${s.id}`),
+			sql`, `,
+		);
+		const db = yield* CurrentDb;
+		const rawRows = yield* dbEffect(() =>
+			db.execute<RelationshipRootQueryRow>(
+				relationshipRootSelectSql(
+					relationshipSchemaIdsSql,
+					sourceEntitySchemaIdsSql,
+					targetEntitySchemaIdsSql,
+					userId,
+				),
+			),
+		);
+
+		const matches: SourceMatch[] = [];
+		for (const row of rawRows.rows) {
+			const context = makeRelationshipRootContext(source, row);
+			if (source.where === null || (yield* evalExprAsBoolean(userId, source.where, context))) {
+				matches.push({ context, row: relationshipEntityRow(row.sourceEntity) });
+			}
+		}
+		return matches;
+	});
+
 const executeRootSourceMatches = (
 	userId: string,
 	source: QueryDocumentV2["source"],
@@ -792,7 +951,10 @@ const executeRootSourceMatches = (
 	if (source.type === "entities") {
 		return executeEntitySourceMatches(userId, makeEmptyContext(), source, null);
 	}
-	return executeRootEventSourceMatches(userId, source);
+	if (source.type === "events") {
+		return executeRootEventSourceMatches(userId, source);
+	}
+	return executeRootRelationshipSourceMatches(userId, source);
 };
 
 const executeSourceMatches = (
@@ -1259,6 +1421,39 @@ const evalEventRootExprForField = (
 	return evalExprValue(userId, expr, makeEventRootContext(source, row));
 };
 
+const evalRelationshipRootExprForField = (
+	userId: string,
+	expr: Expr,
+	row: RelationshipRootQueryRow,
+	source: RelationshipSourceV2,
+): Effect.Effect<FieldValue, BadRequest | NotFound | DbError, CurrentDb> => {
+	if (expr.type === "first") {
+		if (expr.source.type !== "events") {
+			return Effect.succeed({ kind: "null", value: null });
+		}
+		if (expr.source.entityRef === source.sourceEntity.alias) {
+			return executeEventFirst(userId, relationshipEntityRow(row.sourceEntity), expr);
+		}
+		if (expr.source.entityRef === source.targetEntity.alias) {
+			return executeEventFirst(userId, relationshipEntityRow(row.targetEntity), expr);
+		}
+		return Effect.succeed({ kind: "null", value: null });
+	}
+	if (expr.type === "ref" && expr.sourceAlias === source.alias) {
+		return Effect.succeed(evalRelationshipFieldSelector(expr.field, row));
+	}
+	if (expr.type === "ref" && expr.sourceAlias === source.sourceEntity.alias) {
+		return Effect.succeed(evalFieldSelector(expr.field, relationshipEntityRow(row.sourceEntity)));
+	}
+	if (expr.type === "ref" && expr.sourceAlias === source.targetEntity.alias) {
+		return Effect.succeed(evalFieldSelector(expr.field, relationshipEntityRow(row.targetEntity)));
+	}
+	if (expr.type === "literal") {
+		return Effect.succeed(valueToFieldValue(expr.value));
+	}
+	return evalExprValue(userId, expr, makeRelationshipRootContext(source, row));
+};
+
 const evalIncludeExprForField = (
 	userId: string,
 	expr: Expr,
@@ -1315,6 +1510,20 @@ const serializeEventRootRow = (
 		const result: Record<string, RowValue> = {};
 		for (const field of fields) {
 			result[field.key] = yield* evalEventRootExprForField(userId, field.expr, row, source);
+		}
+		return result;
+	});
+
+const serializeRelationshipRootRow = (
+	userId: string,
+	row: RelationshipRootQueryRow,
+	source: RelationshipSourceV2,
+	fields: RowsOutputV2["fields"],
+): Effect.Effect<RowItem, BadRequest | NotFound | DbError, CurrentDb> =>
+	Effect.gen(function* () {
+		const result: Record<string, RowValue> = {};
+		for (const field of fields) {
+			result[field.key] = yield* evalRelationshipRootExprForField(userId, field.expr, row, source);
 		}
 		return result;
 	});
@@ -1460,6 +1669,20 @@ const serializeIncludesForRow = (
 
 		return { values, rowCount };
 	});
+
+export const relationshipRootOrderSql = (source: RelationshipSourceV2, output: RowsOutputV2) => {
+	const orderParts = output.orderBy.map((entry) => {
+		if (entry.expr.type !== "ref" || entry.expr.sourceAlias !== source.alias) {
+			return sql`1`;
+		}
+		const exprSql = fieldSelectorToOrderSql(entry.expr.field, source.schemas, "r");
+		if (!exprSql) {
+			return sql`1`;
+		}
+		return entry.order === "asc" ? sql`${exprSql} ASC` : sql`${exprSql} DESC`;
+	});
+	return sql.join(orderParts, sql`, `);
+};
 
 const eventRootOrderSql = (source: RootEventSourceV2, output: RowsOutputV2) => {
 	const orderParts = output.orderBy.map((entry) => {
@@ -1720,10 +1943,79 @@ export const executeEventRowsQuery = (
 		};
 	});
 
+export const executeRelationshipRowsQuery = (
+	userId: string,
+	doc: RowsQueryDocumentV2,
+): Effect.Effect<RowsResponseV2, BadRequest | NotFound | DbError, CurrentDb> =>
+	Effect.gen(function* () {
+		const { source } = doc;
+		const output = doc.output;
+		if (source.type !== "relationships") {
+			return yield* new BadRequest({
+				message: "Relationship rows query requires a relationship source",
+			});
+		}
+
+		const [visibleRelationshipSchemas, visibleSourceEntitySchemas, visibleTargetEntitySchemas] =
+			yield* loadRelationshipRootVisibleSchemas(userId, source);
+
+		const relationshipSchemaIdsSql = sql.join(
+			visibleRelationshipSchemas.map((s) => sql`${s.id}`),
+			sql`, `,
+		);
+		const sourceEntitySchemaIdsSql = sql.join(
+			visibleSourceEntitySchemas.map((s) => sql`${s.id}`),
+			sql`, `,
+		);
+		const targetEntitySchemaIdsSql = sql.join(
+			visibleTargetEntitySchemas.map((s) => sql`${s.id}`),
+			sql`, `,
+		);
+		const orderSql = relationshipRootOrderSql(source, output);
+		const db = yield* CurrentDb;
+		const offset = (output.pagination.page - 1) * output.pagination.limit;
+
+		const rawRows = yield* dbEffect(() =>
+			db.execute<RelationshipRootQueryRow>(sql`
+				${relationshipRootSelectSql(
+					relationshipSchemaIdsSql,
+					sourceEntitySchemaIdsSql,
+					targetEntitySchemaIdsSql,
+					userId,
+				)}
+				ORDER BY ${orderSql}
+				LIMIT ${output.pagination.limit}
+				OFFSET ${offset}
+			`),
+		);
+
+		const rows = rawRows.rows;
+		const total = rows[0]?.totalCount !== undefined ? Number(rows[0].totalCount) : 0;
+		const items: RowItem[] = [];
+		for (const row of rows) {
+			items.push(yield* serializeRelationshipRootRow(userId, row, source, output.fields));
+		}
+
+		return {
+			type: "rows" as const,
+			data: {
+				items,
+				pageInfo: {
+					total,
+					page: output.pagination.page,
+					limit: output.pagination.limit,
+					hasMore: offset + rows.length < total,
+				},
+			},
+		};
+	});
+
 export const executeRowsQuery = (
 	userId: string,
 	doc: RowsQueryDocumentV2,
 ): Effect.Effect<RowsResponseV2, BadRequest | NotFound | DbError, CurrentDb> =>
 	doc.source.type === "events"
 		? executeEventRowsQuery(userId, doc)
-		: executeEntityRowsQuery(userId, doc);
+		: doc.source.type === "relationships"
+			? executeRelationshipRowsQuery(userId, doc)
+			: executeEntityRowsQuery(userId, doc);
