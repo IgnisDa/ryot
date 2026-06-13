@@ -8,7 +8,9 @@
 	},
 	"devDependencies": {
 		"@aws-sdk/client-s3": "3.1032.0",
+		"@effect/platform": "0.96.1",
 		"@faker-js/faker": "10.4.0",
+		"@ryot/app-backend": "workspace:*",
 		"@ryot/app-backend-legacy": "workspace:*",
 		"@ryot/generated": "workspace:*",
 		"@ryot/ts-utils": "workspace:*",
@@ -16,6 +18,7 @@
 		"@types/pg": "8.20.0",
 		"better-auth": "1.6.5",
 		"dotenv": "17.4.2",
+		"effect": "3.21.3",
 		"get-port": "7.2.0",
 		"openapi-fetch": "0.17.0",
 		"pg": "8.20.0",

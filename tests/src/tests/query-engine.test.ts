@@ -1,6 +1,5 @@
 import { describe, expect, it } from "bun:test";
 
-import type { paths } from "@ryot/generated/openapi/app-backend";
 import {
 	createComputedFieldExpression,
 	createEntityColumnExpression,
@@ -42,11 +41,12 @@ import {
 	toQueryEngineItem,
 	waitForEventCount,
 } from "../fixtures";
+import type { ClientSuccess } from "../fixtures/backend-client";
 import { assertPresent } from "../test-support/assertions";
 import { registerQueryEnginePresentationAndErrorTests } from "../test-support/query-engine-suite";
 
 type QueryEngineItems = Extract<
-	paths["/query-engine/execute"]["post"]["responses"][200]["content"]["application/json"],
+	ClientSuccess<"query-engine", "execute">,
 	{ mode: "entities" }
 >["data"]["items"];
 
@@ -56,7 +56,7 @@ const getItemFieldValue = (item: Parameters<typeof getQueryEngineFieldOrThrow>[0
 const getItemTitles = (items: QueryEngineItems | undefined) =>
 	items?.map((item) => getItemFieldValue(item, "title"));
 
-const getAggregateValue = <T extends { key: string; value?: unknown }>(
+const getAggregateValue = <T extends { key: string; kind?: string; value?: unknown }>(
 	values: readonly T[] | undefined,
 	key: string,
 ) => values?.find((value) => value.key === key);
