@@ -6,8 +6,6 @@ import {
 	EntitySchemaId,
 	EventSchemaId,
 	ImportRunId,
-	RelationshipId,
-	RelationshipSchemaId,
 	SandboxScriptId,
 	UserId,
 } from "@ryot/contract/schema/brands";
@@ -75,17 +73,6 @@ const makeCollectionsService = (overrides: MockOverrides<typeof mockCollectionsS
 				sandboxScriptId: null,
 				id: EntityId.make("collection-1"),
 				entitySchemaId: EntitySchemaId.make("schema-collection"),
-			}),
-		addToCollection: () =>
-			Effect.succeed({
-				memberOf: {
-					createdAt: now,
-					properties: {},
-					id: RelationshipId.make("membership-1"),
-					sourceEntityId: EntityId.make("entity-1"),
-					targetEntityId: EntityId.make("collection-1"),
-					relationshipSchemaId: RelationshipSchemaId.make("relationship-1"),
-				},
 			}),
 		...overrides,
 		_tag: "CollectionsService",
@@ -264,6 +251,10 @@ it.effect("orchestrates one-time media imports through workflow-owned phases", (
 					importedCalls.push(input);
 					return { id: EntityId.make("entity-1") };
 				}),
+			writeCollectionMembership: (input) =>
+				Effect.sync(() => {
+					collectionAdds.push(input);
+				}),
 		}),
 		entitiesRepository: makeEntitiesRepository({
 			findEntitySchemaSandboxScriptBySlug: (slug) =>
@@ -293,19 +284,6 @@ it.effect("orchestrates one-time media imports through workflow-owned phases", (
 					id: EntityId.make(`${name}-id`),
 					entitySchemaId: EntitySchemaId.make("schema-collection"),
 				}),
-			addToCollection: (_user, payload) => {
-				collectionAdds.push(payload);
-				return Effect.succeed({
-					memberOf: {
-						createdAt: now,
-						properties: {},
-						sourceEntityId: payload.entityId,
-						targetEntityId: payload.collectionId,
-						id: RelationshipId.make("membership-1"),
-						relationshipSchemaId: RelationshipSchemaId.make("relationship-1"),
-					},
-				});
-			},
 		}),
 		eventsService: makeEventsService({
 			create: (input) => {
@@ -347,7 +325,12 @@ it.effect("orchestrates one-time media imports through workflow-owned phases", (
 				stage: "input_transformation",
 			});
 			expect(collectionAdds).toEqual([
-				{ collectionId: "Favorites-id", entityId: "entity-1", properties: {} },
+				{
+					userId: "user-1",
+					entityId: "entity-1",
+					collectionId: "Favorites-id",
+					executionId: "workflow-1-collection-0-0",
+				},
 			]);
 			expect(createdEvents).toEqual([
 				[
