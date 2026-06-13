@@ -55,14 +55,16 @@ describe("import run presentation", () => {
 	it("summarises an outcome, and rewrites the error for a failed run", () => {
 		expect(importRunOutcomeLabel(completed)).toBe("2,014 added · 31 failed");
 		expect(importRunOutcomeLabel({ ...completed, failedItems: 0 })).toBe("2,014 added");
-		expect(importRunOutcomeLabel(failed)).toBe("Ran out of time");
-		expect(importRunOutcomeLabel(failed)).not.toContain("ETIMEDOUT");
+		expect(importRunOutcomeLabel(failed)).toBe("Source unavailable");
 	});
 
-	it("rewrites known failure summaries and falls back to a stable sentence", () => {
-		expect(importRunFailureNotice("Upload was malformed").label).toBe("File unreadable");
-		expect(importRunFailureNotice("401 unauthorized").label).toBe("Access refused");
-		expect(importRunFailureNotice("connection reset").label).toBe("Source unreachable");
+	it("presents structured failure reasons and falls back for a missing reason", () => {
+		expect(importRunFailureNotice({ code: "input-transformation-failed" }).label).toBe(
+			"Data unreadable",
+		);
+		expect(importRunFailureNotice({ code: "source-fetch-failed" }).label).toBe(
+			"Source unavailable",
+		);
 		expect(importRunFailureNotice(null)).toEqual({
 			label: "Stopped early",
 			detail: "This import stopped before it finished. Nothing further was added.",
