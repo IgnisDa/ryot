@@ -280,6 +280,45 @@ describe("Event trigger firing", () => {
 		expect(completeEvent.eventSchemaSlug).toBe("complete");
 	}, 20_000);
 
+	it("logging 100% show episode progress creates a completion event", async () => {
+		const { client } = await createAuthenticatedClient();
+
+		const showEpisodeSchemaId = await getBuiltinEntitySchemaId("show-episode");
+		const eventSchemas = await listEventSchemas(client, showEpisodeSchemaId);
+		const progressEventSchema = requireEventSchemaBySlug(eventSchemas, "progress");
+		const entity = await seedMediaEntity({
+			image: null,
+			userId: null,
+			sandboxScriptId: null,
+			name: "Show Episode 1",
+			entitySchemaId: showEpisodeSchemaId,
+			externalId: `show-episode-${crypto.randomUUID()}`,
+			properties: {
+				runtime: 45,
+				seasonNumber: 1,
+				episodeNumber: 1,
+				publishDate: null,
+				description: "First show episode",
+			},
+		});
+
+		await client.run((c) =>
+			c.events.create({
+				payload: [
+					{
+						entityId: entity.id,
+						properties: { progressPercent: 100 },
+						eventSchemaId: progressEventSchema.id,
+					},
+				],
+			}),
+		);
+
+		const completeEvent = await waitForEventWithSchema(client, entity.id, "complete");
+
+		expect(completeEvent.eventSchemaSlug).toBe("complete");
+	}, 20_000);
+
 	it("logging 100% progress creates a timestamped completion event via builtin trigger", async () => {
 		const { client } = await createAuthenticatedClient();
 
