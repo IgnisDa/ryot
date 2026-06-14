@@ -1,0 +1,383 @@
+function parseJsonResponse(responseBody) {
+	try {
+		return JSON.parse(responseBody);
+	} catch {
+		throw new Error("iTunes returned invalid JSON");
+	}
+}
+
+function getString(value) {
+	return typeof value === "string" ? value.trim() : "";
+}
+
+function getNullableString(value) {
+	const parsed = getString(value);
+	return parsed ? parsed : null;
+}
+
+function getNullableInt(value) {
+	if (typeof value !== "number" || !Number.isFinite(value)) {
+		return null;
+	}
+
+	return Math.trunc(value);
+}
+
+function getPositiveInt(value) {
+	const parsed = getNullableInt(value);
+	return parsed !== null && parsed > 0 ? parsed : null;
+}
+
+function getObjectProperties(value) {
+	return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
+function getStringProperty(properties, key) {
+	const value = properties[key];
+	return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function getCanonicalLanguage(metadata) {
+	return metadata?.providerInformation?.canonicalLanguage ?? "en_us";
+}
+
+function getPublishYear(value, dayjs) {
+	const s = getNullableString(value);
+	if (!s) {return null;}
+	const d = dayjs(s);
+	return d.isValid() ? Number(d.toISOString().slice(0, 4)) : null;
+}
+
+function getIsoDate(value, dayjs) {
+	const s = getNullableString(value);
+	if (!s) {return null;}
+	const d = dayjs(s);
+	return d.isValid() ? d.toISOString().slice(0, 10) : null;
+}
+
+function collectImages(item) {
+	const images = [];
+	for (const key of ["artworkUrl600", "artworkUrl100", "artworkUrl60", "artworkUrl30"]) {
+		const image = getNullableString(item?.[key]);
+		if (image && !images.includes(image)) {
+			images.push(image);
+		}
+	}
+	return images;
+}
+
+function collectGenres(item) {
+	const genres = Array.isArray(item?.genres) ? item.genres : [];
+	const values = new Set();
+
+	for (const genre of genres) {
+		if (typeof genre === "string") {
+			const value = genre.trim();
+			if (value) {
+				values.add(value);
+			}
+			continue;
+		}
+
+		const value = getString(genre?.name);
+		if (value) {
+			values.add(value);
+		}
+	}
+
+	return [...values];
+}
+
+function buildSourceUrl(externalId, title) {
+	const slug = encodeURIComponent(title.toLowerCase().replace(/\s+/g, "-"));
+	return `https://podcasts.apple.com/us/podcast/${slug}/id${externalId}`;
+}
+
+async function lookup(params) {
+	const search = new URLSearchParams(params);
+	const response = await httpCall("GET", `https://itunes.apple.com/lookup?${search.toString()}`);
+	if (!response?.success) {
+		throw new Error(response?.error ?? "iTunes lookup request failed");
+	}
+
+	return parseJsonResponse(response.data.body);
+}
+
+async function searchItunes(params) {
+	const search = new URLSearchParams(params);
+	const response = await httpCall("GET", `https://itunes.apple.com/search?${search.toString()}`);
+	if (!response?.success) {
+		throw new Error(response?.error ?? "iTunes search request failed");
+	}
+
+	return parseJsonResponse(response.data.body);
+}
+
+function findPodcastEpisode(payload, externalId) {
+	const results = Array.isArray(payload?.results) ? payload.results : [];
+	return results.find((item) => String(item?.trackId ?? "").trim() === externalId) ?? null;
+}
+
+function getPodcastTranslationResult(item) {
+	if (!item || typeof item !== "object") {
+		throw new Error("iTunes podcast not found");
+	}
+
+	const result = {};
+	const name = getNullableString(item?.collectionName);
+	const description = getNullableString(item?.description);
+	if (!name) {
+		throw new Error("iTunes podcast is missing title");
+	}
+
+	result.name = name;
+	const properties = {};
+	if (description) {properties.description = description;}
+	if (Object.keys(properties).length > 0) {result.properties = properties;}
+	return result;
+}
+
+function getPodcastEpisodeTranslationResult(item) {
+	if (!item || typeof item !== "object") {
+		throw new Error("iTunes podcast episode not found");
+	}
+
+	const result = {};
+	const name = getNullableString(item?.trackName);
+	const description = getNullableString(item?.description);
+	if (!name) {
+		throw new Error("iTunes podcast episode is missing title");
+	}
+
+	result.name = name;
+	const properties = {};
+	if (description) {properties.description = description;}
+	if (Object.keys(properties).length > 0) {result.properties = properties;}
+	return result;
+}
+
+driver("search", async function (context) {
+	const { z } = await import("npm:zod");
+	const dayjs = (await import("npm:dayjs")).default;
+
+	const {
+		query,
+		page: currentPage,
+		pageSize,
+	} = z
+		.object({
+			query: z.string().trim().min(1, "query is required"),
+			page: z.coerce.number().min(1).transform(Math.floor).catch(1),
+			pageSize: z.coerce.number().min(1).max(100).transform(Math.floor).catch(20),
+		})
+		.parse(context ?? {});
+
+	const resultLimit = Math.min(currentPage * pageSize, 200);
+
+	const payload = await searchItunes({
+		term: query,
+		media: "podcast",
+		entity: "podcast",
+		lang: "en_us",
+		limit: String(resultLimit),
+	});
+
+	const results = Array.isArray(payload?.results) ? payload.results : [];
+	const totalItems = results.length;
+	const pagedResults = results.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+	const items = pagedResults
+		.map((item) => {
+			const externalId = String(item?.collectionId ?? "").trim();
+			const title = getString(item?.collectionName);
+			if (!externalId || !title) {
+				return null;
+			}
+
+			const image = collectImages(item)[0] ?? null;
+			const publishYear = getPublishYear(item?.releaseDate, dayjs);
+
+			return {
+				externalId,
+				calloutProperty: { kind: "null", value: null },
+				titleProperty: { kind: "text", value: title },
+				primarySubtitleProperty:
+					publishYear === null
+						? { kind: "null", value: null }
+						: { kind: "number", value: publishYear },
+				secondarySubtitleProperty: { kind: "null", value: null },
+				imageProperty:
+					image === null
+						? { kind: "null", value: null }
+						: { kind: "image", value: { type: "remote", url: image } },
+			};
+		})
+		.filter((item) => item !== null);
+
+	return {
+		items,
+		details: {
+			totalItems,
+			nextPage: currentPage * pageSize < totalItems ? currentPage + 1 : null,
+		},
+	};
+});
+
+driver("details", async function (context, { metadata }) {
+	const { z } = await import("npm:zod");
+	const dayjs = (await import("npm:dayjs")).default;
+
+	const { externalId } = z
+		.object({
+			externalId: z.string().trim().min(1, "externalId is required"),
+		})
+		.parse(context ?? {});
+
+	const language = getCanonicalLanguage(metadata);
+
+	const detailsPayload = await lookup({
+		id: externalId,
+		media: "podcast",
+		entity: "podcast",
+		lang: language,
+	});
+	const podcast = Array.isArray(detailsPayload?.results) ? detailsPayload.results[0] : null;
+	if (!podcast || typeof podcast !== "object") {
+		throw new Error("Podcast not found");
+	}
+
+	const title = getString(podcast?.collectionName);
+	if (!title) {
+		throw new Error("Podcast is missing title");
+	}
+
+	const totalEpisodes = getPositiveInt(podcast?.trackCount);
+	const episodeLookup = {
+		id: externalId,
+		media: "podcast",
+		entity: "podcastEpisode",
+		lang: language,
+	};
+	if (totalEpisodes !== null) {
+		episodeLookup.limit = String(totalEpisodes);
+	}
+
+	const episodesPayload = await lookup(episodeLookup);
+
+	const unlinkedCreators = [];
+	const artistName = getString(podcast?.artistName);
+	if (artistName) {
+		unlinkedCreators.push({ role: "Artist", name: artistName });
+	}
+
+	const episodes = (Array.isArray(episodesPayload?.results) ? episodesPayload.results : [])
+		.map((episode) => {
+			const id = String(episode?.trackId ?? "").trim();
+			const episodeTitle = getString(episode?.trackName);
+			const publishDate = getIsoDate(episode?.releaseDate, dayjs);
+			if (!id || !episodeTitle || !publishDate) {
+				return null;
+			}
+
+			return {
+				id,
+				title: episodeTitle,
+				publishDate,
+				number: 0,
+				overview: getNullableString(episode?.description),
+				thumbnail:
+					getNullableString(episode?.artworkUrl600) ??
+					getNullableString(episode?.artworkUrl100) ??
+					getNullableString(episode?.artworkUrl60) ??
+					getNullableString(episode?.artworkUrl30),
+				runtime:
+					typeof episode?.trackTimeMillis === "number" && Number.isFinite(episode.trackTimeMillis)
+						? Math.trunc(episode.trackTimeMillis / 1000 / 60)
+						: null,
+			};
+		})
+		.filter((episode) => episode !== null)
+		.sort((left, right) => {
+			const publishDateDiff = left.publishDate.localeCompare(right.publishDate);
+			if (publishDateDiff !== 0) {
+				return publishDateDiff;
+			}
+			return left.id.localeCompare(right.id);
+		})
+		.map((episode, index) => ({ ...episode, number: index + 1 }));
+
+	const image = collectImages(podcast);
+	const publishYear = getPublishYear(podcast?.releaseDate, dayjs);
+	const publishDate = getIsoDate(podcast?.releaseDate, dayjs);
+	const childEntities = episodes.map((episode) => ({
+		entitySchemaSlug: "podcast-episode",
+		externalId: episode.id,
+		name: episode.title || `Episode ${episode.number}`,
+		image: episode.thumbnail ? { type: "remote", url: episode.thumbnail } : null,
+		properties: {
+			runtime: episode.runtime,
+			publishDate: episode.publishDate,
+			description: episode.overview,
+			episodeNumber: episode.number,
+			parentPodcastExternalId: externalId,
+		},
+	}));
+
+	return {
+		name: title,
+		childEntities,
+		properties: {
+			publishDate,
+			publishYear,
+			unlinkedCreators,
+			genres: collectGenres(podcast),
+			sourceUrl: buildSourceUrl(externalId, title),
+			totalEpisodes: totalEpisodes ?? episodes.length,
+			description: getNullableString(podcast?.description),
+			images: image.map((url) => ({ type: "remote", url })),
+		},
+	};
+});
+
+driver("translate", async function (context) {
+	const { z } = await import("npm:zod");
+
+	const { externalId, language, properties, entitySchemaSlug } = z
+		.object({
+			properties: z.unknown().optional(),
+			language: z.string().trim().min(1, "language is required"),
+			externalId: z.string().trim().min(1, "externalId is required"),
+			entitySchemaSlug: z.string().trim().min(1, "entitySchemaSlug is required"),
+		})
+		.parse(context ?? {});
+
+	if (entitySchemaSlug === "podcast") {
+		const payload = await lookup({
+			id: externalId,
+			media: "podcast",
+			entity: "podcast",
+			lang: language,
+		});
+		const item = Array.isArray(payload?.results) ? payload.results[0] : null;
+		return getPodcastTranslationResult(item);
+	}
+
+	if (entitySchemaSlug === "podcast-episode") {
+		const objectProperties = getObjectProperties(properties);
+		const parentPodcastExternalId = getStringProperty(objectProperties, "parentPodcastExternalId");
+		if (!parentPodcastExternalId) {
+			throw new Error("parentPodcastExternalId is required for iTunes episode translation");
+		}
+
+		const parentPayload = await lookup({
+			limit: "200",
+			media: "podcast",
+			lang: language,
+			entity: "podcastEpisode",
+			id: parentPodcastExternalId,
+		});
+		return getPodcastEpisodeTranslationResult(findPodcastEpisode(parentPayload, externalId));
+	}
+
+	throw new Error("podcast.itunes translate supports only podcast and podcast-episode");
+});

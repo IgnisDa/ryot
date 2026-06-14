@@ -1,0 +1,277 @@
+function parseJsonResponse(responseBody) {
+	try {
+		return JSON.parse(responseBody);
+	} catch {
+		throw new Error("TMDB returned invalid JSON");
+	}
+}
+
+const TMDB_BASE_URL = "https://api.themoviedb.org/3";
+const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/original";
+
+async function getTmdbAccessToken() {
+	const resp = await getAppConfigValue("providers.tmdbAccessToken");
+	if (!resp?.success) {
+		throw new Error(resp?.error ?? "Failed to retrieve TMDB access token");
+	}
+	const token = typeof resp.data === "string" ? resp.data.trim() : null;
+	if (!token) {
+		throw new Error(
+			"TMDB access token is not configured. Set MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN in your environment.",
+		);
+	}
+	return token;
+}
+
+function getImageUrl(path) {
+	if (typeof path !== "string" || !path.trim()) {return null;}
+	return `${TMDB_IMAGE_BASE}${path.trim()}`;
+}
+
+async function tmdbGet(path, params, token) {
+	const query = new URLSearchParams(params);
+	const url = `${TMDB_BASE_URL}${path}?${query.toString()}`;
+	const response = await httpCall("GET", url, {
+		headers: { Authorization: `Bearer ${token}` },
+	});
+	if (!response?.success) {
+		throw new Error(response?.error ?? `TMDB request failed: ${path}`);
+	}
+	const payload = parseJsonResponse(response.data.body);
+	if (typeof payload?.status_code === "number" && payload.status_code !== 1) {
+		throw new Error(payload.status_message ?? `TMDB API error (status ${payload.status_code})`);
+	}
+	return payload;
+}
+
+function collectImages(posterPath, backdropPath, postersArray, backdropsArray) {
+	const seen = new Set();
+	const images = [];
+	const addImage = (path) => {
+		const url = getImageUrl(path);
+		if (url && !seen.has(url)) {
+			seen.add(url);
+			images.push({ type: "remote", url });
+		}
+	};
+	addImage(posterPath);
+	addImage(backdropPath);
+	if (Array.isArray(postersArray)) {
+		for (const item of postersArray) {addImage(item?.file_path);}
+	}
+	if (Array.isArray(backdropsArray)) {
+		for (const item of backdropsArray) {addImage(item?.file_path);}
+	}
+	return images;
+}
+
+driver("search", async function (context) {
+	const { z } = await import("npm:zod");
+
+	const {
+		query,
+		page: currentPage,
+		pageSize,
+	} = z
+		.object({
+			query: z.string().trim().min(1, "query is required"),
+			page: z.coerce.number().min(1).transform(Math.floor).catch(1),
+			pageSize: z.coerce.number().min(1).max(100).transform(Math.floor).catch(20),
+		})
+		.parse(context ?? {});
+
+	const token = await getTmdbAccessToken();
+	const data = await tmdbGet(
+		"/search/collection",
+		{ query, language: "en-US", page: String(currentPage) },
+		token,
+	);
+
+	const results = Array.isArray(data?.results) ? data.results : [];
+	const totalItems = typeof data?.total_results === "number" ? data.total_results : results.length;
+	const totalPages = typeof data?.total_pages === "number" ? data.total_pages : 1;
+
+	const items = results
+		.map((c) => {
+			const id = typeof c?.id === "number" ? String(Math.trunc(c.id)) : null;
+			if (!id) {return null;}
+			const name = typeof c?.name === "string" && c.name.trim() ? c.name.trim() : null;
+			if (!name) {return null;}
+			const image = getImageUrl(c?.poster_path);
+			return {
+				externalId: id,
+				calloutProperty: { kind: "null", value: null },
+				titleProperty: { kind: "text", value: name },
+				primarySubtitleProperty: { kind: "null", value: null },
+				secondarySubtitleProperty: { kind: "null", value: null },
+				imageProperty:
+					image === null
+						? { kind: "null", value: null }
+						: { kind: "image", value: { type: "remote", url: image } },
+			};
+		})
+		.filter((item) => item !== null)
+		.slice(0, pageSize);
+
+	return {
+		items,
+		details: {
+			totalItems,
+			nextPage: currentPage < totalPages ? currentPage + 1 : null,
+		},
+	};
+});
+
+driver("details", async function (context, { metadata }) {
+	const { z } = await import("npm:zod");
+
+	const { externalId } = z
+		.object({ externalId: z.string().trim().min(1, "externalId is required") })
+		.parse(context ?? {});
+
+	if (!/^\d+$/.test(externalId)) {
+		throw new Error("externalId must be a numeric TMDB collection ID");
+	}
+
+	const language = metadata?.providerInformation?.canonicalLanguage ?? "en-US";
+	const token = await getTmdbAccessToken();
+
+	const [collectionData, imagesData] = await Promise.all([
+		tmdbGet(`/collection/${externalId}`, { language }, token),
+		tmdbGet(`/collection/${externalId}/images`, {}, token),
+	]);
+
+	let title = typeof collectionData?.name === "string" ? collectionData.name : "";
+	if (!title) {throw new Error("TMDB returned no name for this collection");}
+
+	// Strip trailing " Collection" suffix (matches V1 behaviour)
+	const suffixIndex = title.lastIndexOf(" Collection");
+	if (suffixIndex !== -1 && suffixIndex + " Collection".length === title.length) {
+		title = title.slice(0, suffixIndex);
+	}
+
+	const images = collectImages(
+		collectionData?.poster_path,
+		collectionData?.backdrop_path,
+		imagesData?.posters,
+		imagesData?.backdrops,
+	);
+
+	const partsData = Array.isArray(collectionData?.parts) ? collectionData.parts : [];
+	const parts = partsData.length || null;
+
+	const relatedEntities = partsData
+		.map((part, idx) => {
+			const memberId = typeof part?.id === "number" ? String(Math.trunc(part.id)) : null;
+			if (!memberId) {return null;}
+			const memberName =
+				typeof part?.title === "string" && part.title.trim() ? part.title.trim() : "Loading...";
+			return {
+				name: memberName,
+				externalId: memberId,
+				reverseDirection: true,
+				scriptSlug: "movie.tmdb",
+				relationshipProperties: { order: idx + 1 },
+			};
+		})
+		.filter((e) => e !== null);
+
+	const description =
+		typeof collectionData?.overview === "string" && collectionData.overview.trim()
+			? collectionData.overview.trim()
+			: null;
+
+	return {
+		name: title,
+		relatedEntities,
+		properties: {
+			parts,
+			images,
+			description,
+			sourceUrl: `https://www.themoviedb.org/collections/${externalId}-${title}`,
+		},
+	};
+});
+
+driver("translate", async function (context) {
+	const { z } = await import("npm:zod");
+
+	const { externalId, language } = z
+		.object({
+			language: z.string().trim().min(1, "language is required"),
+			externalId: z.string().trim().min(1, "externalId is required"),
+		})
+		.parse(context ?? {});
+
+	if (!/^\d+$/.test(externalId)) {
+		throw new Error("externalId must be a numeric TMDB collection ID");
+	}
+
+	const [langPart, regionPart] = language.split("-");
+	const langCode = langPart.trim().toLowerCase();
+	const region = regionPart ? regionPart.trim().toUpperCase() : null;
+
+	const token = await getTmdbAccessToken();
+	const translationsData = await tmdbGet(`/collection/${externalId}/translations`, {}, token);
+	let imagesData = {};
+	try {
+		imagesData = await tmdbGet(
+			`/collection/${externalId}/images`,
+			{ include_image_language: langCode },
+			token,
+		);
+	} catch {}
+
+	const translations = Array.isArray(translationsData?.translations)
+		? translationsData.translations
+		: [];
+	const matchesLanguage = (entry) =>
+		typeof entry?.iso_639_1 === "string" && entry.iso_639_1.toLowerCase() === langCode;
+	const candidates = translations.filter(matchesLanguage);
+	const regionMatch = region
+		? candidates.find(
+				(entry) =>
+					typeof entry?.iso_3166_1 === "string" && entry.iso_3166_1.toUpperCase() === region,
+			)
+		: null;
+	const orderedCandidates = regionMatch
+		? [regionMatch, ...candidates.filter((entry) => entry !== regionMatch)]
+		: candidates;
+	const firstValue = (extract) => {
+		for (const entry of orderedCandidates) {
+			const value = extract(entry);
+			if (typeof value === "string" && value.trim()) {return value.trim();}
+		}
+		return null;
+	};
+
+	let name = firstValue((entry) =>
+		typeof entry?.data?.title === "string" && entry.data.title.trim()
+			? entry.data.title
+			: entry?.data?.name,
+	);
+	if (name) {
+		const suffixIndex = name.lastIndexOf(" Collection");
+		if (suffixIndex !== -1 && suffixIndex + " Collection".length === name.length) {
+			name = name.slice(0, suffixIndex);
+		}
+	}
+
+	const description = firstValue((entry) => entry?.data?.overview);
+
+	const posters = Array.isArray(imagesData?.posters) ? imagesData.posters : [];
+	const localizedPoster = posters.find(
+		(poster) =>
+			typeof poster?.iso_639_1 === "string" && poster.iso_639_1.toLowerCase() === langCode,
+	);
+	const imageUrl = localizedPoster ? getImageUrl(localizedPoster.file_path) : null;
+
+	const result = {};
+	if (name) {result.name = name;}
+	if (imageUrl) {result.image = { type: "remote", url: imageUrl };}
+	const properties = {};
+	if (description) {properties.description = description;}
+	if (Object.keys(properties).length > 0) {result.properties = properties;}
+
+	return result;
+});
