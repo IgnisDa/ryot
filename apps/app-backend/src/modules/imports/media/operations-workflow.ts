@@ -26,7 +26,7 @@ import { RelationshipsService } from "#modules/relationships/service";
 import { SandboxExecutionQueue } from "#modules/sandbox/durable-queues";
 
 import { loadOneTimeMediaImportAdapterResult } from "./source-loaders";
-import { MediaImportWorkflowOperations } from "./workflow-types";
+import { MediaImportWorkflowOperations } from "./types-workflow";
 
 const resolveSandboxEntityExternalId = (input: {
 	value: string;
