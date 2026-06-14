@@ -1,8 +1,9 @@
 import { defineManifest } from "@ryot/sandbox-sdk";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
+import { parsePublishYear } from "../../../script-helpers/parse-publish-year";
+import { asRecord, numberValue, recordsValue, stringValue } from "../../../script-helpers/records";
 import {
-	asRecord,
 	bcp47ToTvdb,
 	buildTranslationResult,
 	collectCompanies,
@@ -11,11 +12,7 @@ import {
 	collectPeople,
 	getLocalizedArtwork,
 	getTranslationFields,
-	numberValue,
-	parsePublishYear,
-	recordsValue,
 	searchTvdb,
-	stringValue,
 	tvdbGet,
 	tvdbGetOptional,
 } from "../../tvdb-shared";

@@ -10,8 +10,8 @@ import { builtinEventSchemaTriggerLinks, builtinSandboxScripts } from "./registr
 describe("builtinSandboxScripts", () => {
 	it("uses generated format-1 representations for the complete TMDB family", () => {
 		const scripts = builtinSandboxScripts().filter(
-			({ metadata }) =>
-				"providerInformation" in metadata && metadata.providerInformation.source === "tmdb",
+			({ manifest }) =>
+				"providerInformation" in manifest && manifest.providerInformation.source === "tmdb",
 		);
 
 		expect(scripts.map(({ slug }) => slug).sort()).toEqual([
@@ -24,7 +24,6 @@ describe("builtinSandboxScripts", () => {
 		for (const script of scripts) {
 			assert("compiledCode" in script && "manifest" in script);
 			expect(script.compiledFormat).toBe(1);
-			expect(script.metadata).toBe(script.manifest);
 			expect(script.source).toContain("defineProvider");
 			expect(script.compiledCode).toContain("ryot:sandbox-script");
 			expect(script.compiledCode).toContain("sourceMappingURL=data:application/json;base64,");
@@ -33,8 +32,8 @@ describe("builtinSandboxScripts", () => {
 
 	it("uses generated format-1 representations for the complete TVDB family", () => {
 		const scripts = builtinSandboxScripts().filter(
-			({ metadata }) =>
-				"providerInformation" in metadata && metadata.providerInformation.source === "tvdb",
+			({ manifest }) =>
+				"providerInformation" in manifest && manifest.providerInformation.source === "tvdb",
 		);
 
 		expect(scripts.map(({ slug }) => slug).sort()).toEqual([
@@ -47,7 +46,6 @@ describe("builtinSandboxScripts", () => {
 		for (const script of scripts) {
 			assert("compiledCode" in script && "manifest" in script);
 			expect(script.compiledFormat).toBe(1);
-			expect(script.metadata).toBe(script.manifest);
 			expect(script.source).toContain("defineProvider");
 			expect(script.compiledCode).toContain("ryot:sandbox-script");
 			expect(script.compiledCode).toContain("sourceMappingURL=data:application/json;base64,");
@@ -57,8 +55,8 @@ describe("builtinSandboxScripts", () => {
 	it("uses generated format-1 representations for the anime and manga provider families", () => {
 		const sources = new Set(["anilist", "myanimelist", "manga-updates"]);
 		const scripts = builtinSandboxScripts().filter(
-			({ metadata }) =>
-				"providerInformation" in metadata && sources.has(metadata.providerInformation.source),
+			({ manifest }) =>
+				"providerInformation" in manifest && sources.has(manifest.providerInformation.source),
 		);
 
 		expect(scripts.map(({ slug }) => slug).sort()).toEqual([
@@ -74,7 +72,6 @@ describe("builtinSandboxScripts", () => {
 		for (const script of scripts) {
 			assert("compiledCode" in script && "manifest" in script);
 			expect(script.compiledFormat).toBe(1);
-			expect(script.metadata).toBe(script.manifest);
 			expect(script.source).toContain("defineProvider");
 			expect(script.compiledCode).toContain("ryot:sandbox-script");
 			expect(script.compiledCode).toContain("sourceMappingURL=data:application/json;base64,");
@@ -84,8 +81,8 @@ describe("builtinSandboxScripts", () => {
 	it("uses generated format-1 representations for the book provider families", () => {
 		const sources = new Set(["hardcover", "openlibrary", "google-books"]);
 		const scripts = builtinSandboxScripts().filter(
-			({ metadata }) =>
-				"providerInformation" in metadata && sources.has(metadata.providerInformation.source),
+			({ manifest }) =>
+				"providerInformation" in manifest && sources.has(manifest.providerInformation.source),
 		);
 
 		expect(scripts.map(({ slug }) => slug).sort()).toEqual([
@@ -100,7 +97,6 @@ describe("builtinSandboxScripts", () => {
 		for (const script of scripts) {
 			assert("compiledCode" in script && "manifest" in script);
 			expect(script.compiledFormat).toBe(1);
-			expect(script.metadata).toBe(script.manifest);
 			expect(script.source).toContain("defineProvider");
 			expect(script.compiledCode).toContain("ryot:sandbox-script");
 			expect(script.compiledCode).toContain("sourceMappingURL=data:application/json;base64,");
@@ -110,8 +106,8 @@ describe("builtinSandboxScripts", () => {
 	it("uses generated format-1 representations for the audiobook and podcast provider families", () => {
 		const sources = new Set(["audible", "itunes", "listennotes"]);
 		const scripts = builtinSandboxScripts().filter(
-			({ metadata }) =>
-				"providerInformation" in metadata && sources.has(metadata.providerInformation.source),
+			({ manifest }) =>
+				"providerInformation" in manifest && sources.has(manifest.providerInformation.source),
 		);
 
 		expect(scripts.map(({ slug }) => slug).sort()).toEqual([
@@ -124,7 +120,6 @@ describe("builtinSandboxScripts", () => {
 		for (const script of scripts) {
 			assert("compiledCode" in script && "manifest" in script);
 			expect(script.compiledFormat).toBe(1);
-			expect(script.metadata).toBe(script.manifest);
 			expect(script.source).toContain("defineProvider");
 			expect(script.compiledCode).toContain("ryot:sandbox-script");
 			expect(script.compiledCode).toContain("sourceMappingURL=data:application/json;base64,");
@@ -134,8 +129,8 @@ describe("builtinSandboxScripts", () => {
 	it("uses generated format-1 representations for the music provider families", () => {
 		const sources = new Set(["music-brainz", "spotify", "youtube-music"]);
 		const scripts = builtinSandboxScripts().filter(
-			({ metadata }) =>
-				"providerInformation" in metadata && sources.has(metadata.providerInformation.source),
+			({ manifest }) =>
+				"providerInformation" in manifest && sources.has(manifest.providerInformation.source),
 		);
 
 		expect(scripts.map(({ slug }) => slug).sort()).toEqual([
@@ -152,7 +147,6 @@ describe("builtinSandboxScripts", () => {
 		for (const script of scripts) {
 			assert("compiledCode" in script && "manifest" in script);
 			expect(script.compiledFormat).toBe(1);
-			expect(script.metadata).toBe(script.manifest);
 			expect(script.source).toContain("defineProvider");
 			expect(script.compiledCode).toContain("ryot:sandbox-script");
 			expect(script.compiledCode).toContain("sourceMappingURL=data:application/json;base64,");
@@ -162,8 +156,8 @@ describe("builtinSandboxScripts", () => {
 	it("uses generated format-1 representations for the GiantBomb and IGDB game provider families", () => {
 		const sources = new Set(["giant-bomb", "igdb"]);
 		const scripts = builtinSandboxScripts().filter(
-			({ metadata }) =>
-				"providerInformation" in metadata && sources.has(metadata.providerInformation.source),
+			({ manifest }) =>
+				"providerInformation" in manifest && sources.has(manifest.providerInformation.source),
 		);
 
 		expect(scripts.map(({ slug }) => slug).sort()).toEqual([
@@ -178,7 +172,6 @@ describe("builtinSandboxScripts", () => {
 		for (const script of scripts) {
 			assert("compiledCode" in script && "manifest" in script);
 			expect(script.compiledFormat).toBe(1);
-			expect(script.metadata).toBe(script.manifest);
 			expect(script.source).toContain("defineProvider");
 			expect(script.compiledCode).toContain("ryot:sandbox-script");
 			expect(script.compiledCode).toContain("sourceMappingURL=data:application/json;base64,");
@@ -188,8 +181,8 @@ describe("builtinSandboxScripts", () => {
 	it("uses generated format-1 representations for the comic, visual-novel, and fitness families", () => {
 		const sources = new Set(["metron", "vndb", "free-exercise-db"]);
 		const scripts = builtinSandboxScripts().filter(
-			({ metadata }) =>
-				"providerInformation" in metadata && sources.has(metadata.providerInformation.source),
+			({ manifest }) =>
+				"providerInformation" in manifest && sources.has(manifest.providerInformation.source),
 		);
 
 		expect(scripts.map(({ slug }) => slug).sort()).toEqual([
@@ -203,7 +196,6 @@ describe("builtinSandboxScripts", () => {
 		for (const script of scripts) {
 			assert("compiledCode" in script && "manifest" in script);
 			expect(script.compiledFormat).toBe(1);
-			expect(script.metadata).toBe(script.manifest);
 			expect(script.source).toContain("defineProvider");
 			expect(script.compiledCode).toContain("ryot:sandbox-script");
 			expect(script.compiledCode).toContain("sourceMappingURL=data:application/json;base64,");
@@ -226,7 +218,6 @@ describe("builtinSandboxScripts", () => {
 		for (const trigger of triggers) {
 			assert("compiledCode" in trigger && "manifest" in trigger);
 			expect(trigger.compiledFormat).toBe(1);
-			expect(trigger.metadata).toBe(trigger.manifest);
 			expect(trigger.manifest.kind).toBe("trigger");
 			expect(trigger.source).toMatch(/define(?:Before|After)CreateTrigger/);
 			expect(trigger.compiledCode).toContain("ryot:sandbox-script");
@@ -250,8 +241,8 @@ describe("builtinSandboxScripts", () => {
 				const slugParts = script.slug.split(".");
 				const expectedSource = slugParts[slugParts.length - 1];
 				const actualSource =
-					"providerInformation" in script.metadata
-						? script.metadata.providerInformation.source
+					"providerInformation" in script.manifest
+						? script.manifest.providerInformation.source
 						: undefined;
 				return actualSource === expectedSource
 					? []
@@ -266,7 +257,7 @@ describe("builtinSandboxScripts", () => {
 		const providerInformationBySlug = new Map(
 			scripts.map((script) => [
 				script.slug,
-				"providerInformation" in script.metadata ? script.metadata.providerInformation : undefined,
+				"providerInformation" in script.manifest ? script.manifest.providerInformation : undefined,
 			]),
 		);
 		const translatedScripts = [

@@ -1,31 +1,17 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk";
 import dayjs from "@ryot/sandbox-sdk/dayjs";
 
+import {
+	asRecord,
+	numberValue,
+	parseJsonResponse,
+	stringValue,
+	type UnknownRecord,
+} from "../script-helpers/records";
+
 export type VndbHost = SandboxHost<readonly ["httpCall"]>;
 
-export type UnknownRecord = Record<string, unknown>;
-
-const isRecord = (value: unknown): value is UnknownRecord =>
-	value !== null && typeof value === "object" && !Array.isArray(value);
-
-export const asRecord = (value: unknown): UnknownRecord | null => (isRecord(value) ? value : null);
-
-export const stringValue = (value: unknown) =>
-	typeof value === "string" && value.trim() ? value.trim() : null;
-
-export const numberValue = (value: unknown) =>
-	typeof value === "number" && Number.isFinite(value) ? value : null;
-
 const BASE_URL = "https://api.vndb.org/kana";
-
-const parseJsonResponse = (responseBody: string) => {
-	try {
-		const value: unknown = JSON.parse(responseBody);
-		return value;
-	} catch {
-		throw new Error("VNDB returned invalid JSON");
-	}
-};
 
 // VNDB partial dates are "YYYY-MM-DD", "YYYY-MM", or "YYYY".
 export const extractYear = (value: unknown) => {
@@ -60,7 +46,7 @@ export const vndbPost = (
 			if (!response.success) {
 				throw new Error(response.error || failureMessage);
 			}
-			return parseJsonResponse(response.data.body);
+			return parseJsonResponse(response.data.body, "VNDB");
 		});
 
 export const readResults = (payload: unknown) => {

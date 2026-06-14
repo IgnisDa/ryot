@@ -1,14 +1,8 @@
 import { defineManifest } from "@ryot/sandbox-sdk";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
-import {
-	asRecord,
-	readNextPage,
-	readResults,
-	readTotalItems,
-	stringValue,
-	vndbPost,
-} from "../vndb-shared";
+import { asRecord, stringValue } from "../../script-helpers/records";
+import { readNextPage, readResults, readTotalItems, vndbPost } from "../vndb-shared";
 
 export const manifest = defineManifest({
 	kind: "provider",

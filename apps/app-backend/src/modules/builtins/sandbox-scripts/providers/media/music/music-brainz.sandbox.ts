@@ -1,16 +1,13 @@
 import { defineManifest } from "@ryot/sandbox-sdk";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
+import { asRecord, numberValue, stringValue, trimmedString } from "../../../script-helpers/records";
+import { createRoleAccumulator } from "../../../script-helpers/role-accumulator";
 import {
-	asRecord,
 	buildLuceneQuery,
-	createRoleAccumulator,
 	findCoverArtFromReleases,
 	getPublishYear,
 	mbGet,
-	numberValue,
-	stringValue,
-	trimmedString,
 } from "../../music-brainz-shared";
 
 export const manifest = defineManifest({
