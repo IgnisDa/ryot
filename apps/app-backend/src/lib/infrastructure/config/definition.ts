@@ -159,6 +159,8 @@ const fields = {
 	),
 };
 
+export const sandboxDenoDirConfig = fields.denoDir.config;
+
 const tmpDir: ConfigLeaf<string, FieldMeta> = {
 	config: Config.string("TMPDIR").pipe(
 		Config.orElse(() => Config.string("TMP")),
@@ -249,7 +251,7 @@ const databaseGroup = group(
 const sandboxGroup = group(
 	"Sandbox execution settings",
 	Config.all({
-		denoDir: fields.denoDir.config,
+		denoDir: sandboxDenoDirConfig,
 		timeoutMs: fields.timeoutMs.config,
 		jobIdSecret: fields.jobIdSecret.config,
 		workerConcurrency: fields.workerConcurrency.config,
