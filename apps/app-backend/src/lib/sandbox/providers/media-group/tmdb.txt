@@ -272,8 +272,10 @@ driver("translate", async function (context) {
 
   const result = {};
   if (name) result.name = name;
-  if (description) result.description = description;
   if (imageUrl) result.image = { type: "remote", url: imageUrl };
+  const properties = {};
+  if (description) properties.description = description;
+  if (Object.keys(properties).length > 0) result.properties = properties;
 
   return result;
 });

@@ -137,7 +137,9 @@ function getPodcastTranslationResult(item) {
   }
 
   result.name = name;
-  if (description) result.description = description;
+  const properties = {};
+  if (description) properties.description = description;
+  if (Object.keys(properties).length > 0) result.properties = properties;
   return result;
 }
 
@@ -154,7 +156,9 @@ function getPodcastEpisodeTranslationResult(item) {
   }
 
   result.name = name;
-  if (description) result.description = description;
+  const properties = {};
+  if (description) properties.description = description;
+  if (Object.keys(properties).length > 0) result.properties = properties;
   return result;
 }
 

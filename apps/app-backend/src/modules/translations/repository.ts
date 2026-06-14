@@ -2,8 +2,8 @@ import { and, eq } from "drizzle-orm";
 import { Effect } from "effect";
 
 import { CurrentDb, dbEffect } from "#lib/db";
-import { user } from "#lib/db/schema/auth";
 import * as schema from "#lib/db/schema/tables";
+import { user } from "#lib/db/schema/tables/auth";
 import { isObjectRecord } from "#lib/predicates";
 import type { EntityId, UserId } from "#lib/schema/brands";
 import type { StoredEntityImage } from "#modules/entities/types";
@@ -15,8 +15,8 @@ type UpsertOverlayInput = {
 	populatedAt: Date;
 	entityId: EntityId;
 	name: string | null;
-	description: string | null;
 	image: StoredEntityImage | null;
+	properties: Record<string, unknown> | null;
 };
 
 const extractLanguagePreferences = (preferences: Record<string, unknown>): LanguagePreference[] => {
@@ -53,7 +53,7 @@ export class TranslationsRepository extends Effect.Service<TranslationsRepositor
 						.select({
 							name: schema.entityTranslation.name,
 							image: schema.entityTranslation.image,
-							description: schema.entityTranslation.description,
+							properties: schema.entityTranslation.properties,
 						})
 						.from(schema.entityTranslation)
 						.where(
@@ -80,16 +80,16 @@ export class TranslationsRepository extends Effect.Service<TranslationsRepositor
 							image: input.image,
 							entityId: input.entityId,
 							language: input.language,
+							properties: input.properties,
 							populatedAt: input.populatedAt,
-							description: input.description,
 						})
 						.onConflictDoUpdate({
 							target: [schema.entityTranslation.entityId, schema.entityTranslation.language],
 							set: {
 								name: input.name,
 								image: input.image,
+								properties: input.properties,
 								populatedAt: input.populatedAt,
-								description: input.description,
 							},
 						}),
 				);

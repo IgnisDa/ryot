@@ -120,6 +120,7 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 							isBuiltin: schema.entitySchema.isBuiltin,
 							entitySchemaSlug: schema.entitySchema.slug,
 							entitySchemaId: schema.entity.entitySchemaId,
+							propertiesSchema: schema.entitySchema.propertiesSchema,
 						})
 						.from(schema.entity)
 						.innerJoin(
@@ -132,14 +133,22 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 						.limit(1),
 				);
 
-				return row
-					? {
-							...row,
-							entityId: EntityId.make(row.entityId),
-							entitySchemaId: EntitySchemaId.make(row.entitySchemaId),
-							entityUserId: row.entityUserId ? UserId.make(row.entityUserId) : null,
-						}
-					: null;
+				if (!row) {
+					return null;
+				}
+
+				const propertiesSchema = yield* decodeStoredAppSchema(
+					row.propertiesSchema,
+					"Invalid entity properties schema in database",
+				);
+
+				return {
+					...row,
+					propertiesSchema,
+					entityId: EntityId.make(row.entityId),
+					entitySchemaId: EntitySchemaId.make(row.entitySchemaId),
+					entityUserId: row.entityUserId ? UserId.make(row.entityUserId) : null,
+				};
 			},
 		);
 

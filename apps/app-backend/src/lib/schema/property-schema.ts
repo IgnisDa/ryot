@@ -68,6 +68,7 @@ type AppPropertyBase<TValidation> = {
 	readonly label: string;
 	readonly description: string;
 	readonly validation?: TValidation;
+	readonly translatable?: true;
 	readonly transform?: AppPropertyTransform;
 };
 
@@ -280,6 +281,7 @@ const enumOptionsSchema = Schema.Array(nonEmptyTrimmedString).pipe(
 const propertyBaseFields = {
 	label: nonEmptyTrimmedString,
 	description: nonEmptyTrimmedString,
+	translatable: Schema.optional(Schema.Literal(true)),
 };
 
 const stringPropertySchema = strictStruct({
@@ -446,3 +448,13 @@ const appSchemaBase = strictStruct({
 }).pipe(Schema.annotations({ identifier: "AppSchema", title: "App Schema" }));
 
 export const AppSchema: Schema.Schema<AppSchema> = appSchemaBase;
+
+/**
+ * Returns the top-level property keys a schema declares as translatable. These are
+ * the only properties a translation overlay is allowed to localize; everything else
+ * (genres, runtimes, dates, ...) always renders in the canonical language.
+ */
+export const collectTranslatableProperties = (schema: AppSchema): ReadonlyArray<string> =>
+	Object.entries(schema.fields).flatMap(([key, definition]) =>
+		definition.translatable === true ? [key] : [],
+	);

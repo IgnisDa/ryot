@@ -9,6 +9,9 @@ export const decodeStoredAppSchema = (value: unknown, message: string) =>
 export const stringField = (label: string, description: string) =>
 	({ label, description, type: "string" }) as const;
 
+export const translatableStringField = (label: string, description: string) =>
+	({ label, description, type: "string", translatable: true }) as const;
+
 export const integerField = (label: string, description: string) =>
 	({ label, description, type: "integer" }) as const;
 
@@ -56,7 +59,10 @@ export const mediaBaseFields = {
 	genres: stringArrayField("Genres", "List of genres this media is categorized under"),
 	publishYear: integerField("Publish Year", "Year this media was first published or released"),
 	sourceUrl: stringField("Source Url", "Link to the original source or external provider page"),
-	description: stringField("Description", "Synopsis or overview provided by the data provider"),
+	description: translatableStringField(
+		"Description",
+		"Synopsis or overview provided by the data provider",
+	),
 	isNsfw: booleanField("Is Nsfw", "Whether this media contains adult or not-safe-for-work content"),
 	providerRating: numberField("Provider Rating", "Aggregate score from the external data provider"),
 	publishDate: stringField(

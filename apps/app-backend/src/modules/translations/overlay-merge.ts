@@ -3,14 +3,14 @@ import type { StoredEntityImage } from "#modules/entities/types";
 
 export type TranslationFields = {
 	readonly name: string;
-	readonly description: string | null;
 	readonly image: StoredEntityImage | null;
+	readonly properties: Record<string, unknown>;
 };
 
 type TranslationOverlayRow = {
 	readonly name: string | null;
-	readonly description: string | null;
 	readonly image: StoredEntityImage | null;
+	readonly properties: Record<string, unknown>;
 };
 
 type OverlayMergeResult = {
@@ -29,7 +29,7 @@ export const mergeTranslationOverlay = (input: {
 	}
 
 	const hasTranslation =
-		overlay.name !== null || overlay.description !== null || overlay.image !== null;
+		overlay.name !== null || overlay.image !== null || Object.keys(overlay.properties).length > 0;
 	if (!hasTranslation) {
 		return { fields: canonical, status: "none" };
 	}
@@ -39,7 +39,7 @@ export const mergeTranslationOverlay = (input: {
 		fields: {
 			name: overlay.name ?? canonical.name,
 			image: overlay.image ?? canonical.image,
-			description: overlay.description ?? canonical.description,
+			properties: { ...canonical.properties, ...overlay.properties },
 		},
 	};
 };

@@ -2,7 +2,7 @@ import { asc, eq, ilike, inArray, sql } from "drizzle-orm";
 import { Effect } from "effect";
 
 import { CurrentDb, dbEffect } from "#lib/db";
-import * as schema from "#lib/db/schema/auth";
+import * as schema from "#lib/db/schema/tables/auth";
 import type { UserId } from "#lib/schema/brands";
 
 const userSearchClause = (search?: string) =>

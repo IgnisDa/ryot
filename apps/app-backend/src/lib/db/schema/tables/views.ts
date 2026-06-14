@@ -13,7 +13,7 @@ import {
 import type { DisplayConfiguration } from "#lib/display-configuration";
 import type { QueryDocument } from "#modules/query-engine/language";
 
-import { user } from "../auth";
+import { user } from "./auth";
 import { tracker } from "./core";
 
 export const savedView = pgTable(

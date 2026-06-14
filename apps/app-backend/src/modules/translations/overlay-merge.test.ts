@@ -18,7 +18,7 @@ const overlayImage: StoredEntityImage = {
 const canonical: TranslationFields = {
 	name: "Fight Club",
 	image: canonicalImage,
-	description: "An insomniac office worker...",
+	properties: { description: "An insomniac office worker..." },
 };
 
 describe("mergeTranslationOverlay", () => {
@@ -29,13 +29,13 @@ describe("mergeTranslationOverlay", () => {
 		expect(result.fields).toEqual(canonical);
 	});
 
-	it("merges name, description, and image over the canonical fields", () => {
+	it("merges name, translatable properties, and image over the canonical fields", () => {
 		const result = mergeTranslationOverlay({
 			canonical,
 			overlay: {
 				image: overlayImage,
 				name: "El club de la lucha",
-				description: "Un trabajador de oficina insomne...",
+				properties: { description: "Un trabajador de oficina insomne..." },
 			},
 		});
 
@@ -43,28 +43,28 @@ describe("mergeTranslationOverlay", () => {
 		expect(result.fields).toEqual({
 			image: overlayImage,
 			name: "El club de la lucha",
-			description: "Un trabajador de oficina insomne...",
+			properties: { description: "Un trabajador de oficina insomne..." },
 		});
 	});
 
-	it("keeps canonical values for the null fields of a partial overlay", () => {
+	it("keeps canonical values for the fields a partial overlay omits", () => {
 		const result = mergeTranslationOverlay({
 			canonical,
-			overlay: { name: "El club de la lucha", description: null, image: null },
+			overlay: { name: "El club de la lucha", image: null, properties: {} },
 		});
 
 		expect(result.status).toBe("ready");
 		expect(result.fields).toEqual({
 			image: canonicalImage,
 			name: "El club de la lucha",
-			description: canonical.description,
+			properties: { description: "An insomniac office worker..." },
 		});
 	});
 
-	it("returns status none for an all-null negative-cache row", () => {
+	it("returns status none for an empty negative-cache row", () => {
 		const result = mergeTranslationOverlay({
 			canonical,
-			overlay: { name: null, description: null, image: null },
+			overlay: { name: null, image: null, properties: {} },
 		});
 
 		expect(result.status).toBe("none");

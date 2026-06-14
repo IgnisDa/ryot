@@ -38,6 +38,7 @@ const entityScope = {
 	entityUserId: user.id,
 	entitySchemaSlug: "book",
 	entitySchemaId: EntitySchemaId.make("entity-schema-1"),
+	propertiesSchema: { fields: {} },
 };
 
 const eventSchemaScope = {
