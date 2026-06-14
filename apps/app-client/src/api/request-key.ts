@@ -34,12 +34,18 @@ export const keyedRequestFamily = <Request, Value extends object>(
 	requestKey: (request: Request) => string,
 	make: (request: Request) => Value,
 ) => {
-	const requests = new Map<string, Request>();
-	const family = Atom.family((key: string) => make(requests.get(key)!));
+	const requests = new Map<string, { value: Request }>();
+	const family = Atom.family((key: string) => {
+		const request = requests.get(key);
+		if (!request) {
+			throw new Error("Missing atom family request");
+		}
+		return make(request.value);
+	});
 
 	return (request: Request) => {
 		const key = requestKey(request);
-		requests.set(key, request);
+		requests.set(key, { value: request });
 		try {
 			return family(key);
 		} finally {
