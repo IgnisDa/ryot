@@ -1,4 +1,3 @@
-import { REQUIRED_THEME_TOKEN_NAMES } from "@ryot-app/contract/modules/plugins/client";
 import type { PreparedRecipe } from "@ryot-app/ryotql";
 import { Result, Schema } from "effect";
 import { describe, expect, it } from "vitest";
@@ -9,8 +8,7 @@ let notify: () => void = () => undefined;
 const Greeting = Schema.Struct({ greeting: Schema.String });
 const QueryResponse = Schema.Struct({ value: Schema.String });
 const document = { queries: {}, output: {} } as PreparedRecipe<string>["document"];
-const tokens = Object.fromEntries(REQUIRED_THEME_TOKEN_NAMES.map((name) => [name, name]));
-const theme = { resolvedMode: "light", tokens };
+const theme = { resolvedMode: "light" };
 const uploadToken = { token: "temporary-1", expiresAt: "2026-01-01T00:00:00.000Z" };
 
 describe("createRyotClient", () => {
@@ -265,11 +263,11 @@ describe("createRyotClient", () => {
 		const unsubscribe = client.theme.subscribe(() => {
 			notifications += 1;
 		});
-		current = { resolvedMode: "dark", tokens: { ...tokens, bg: "black" } };
+		current = { resolvedMode: "dark" };
 		notify();
 		expect(notifications).toBe(1);
 		expect(client.theme.getSnapshot()).toEqual(current);
-		current = { resolvedMode: "dark", tokens: {} };
+		current = { resolvedMode: "system" };
 		expect(() => notify()).toThrow(new RyotClientError("malformed-result"));
 		expect(notifications).toBe(1);
 		unsubscribe();
@@ -283,7 +281,7 @@ describe("createRyotClient", () => {
 			query: () => Promise.resolve({}),
 			theme: {
 				subscribe: () => () => {},
-				getSnapshot: () => ({ resolvedMode: "light", tokens: {} }),
+				getSnapshot: () => ({ resolvedMode: "system" }),
 			},
 		});
 

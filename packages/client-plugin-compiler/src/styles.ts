@@ -16,12 +16,13 @@ type CompileClientStylesInput = {
 	readonly entry: string;
 	readonly fontStylesheet: string;
 	readonly themeStylesheet: string;
+	readonly paletteStylesheet: string;
 	readonly scanSources: readonly ScanSource[];
 	readonly tailwindStylesheet: StylesheetSource;
-	readonly files: Readonly<Record<string, Uint8Array>>;
-	readonly sourceFiles: Readonly<Record<string, string>>;
-	readonly assetNames: Readonly<Record<string, string>>;
 	readonly stylesheet: StylesheetSource | undefined;
+	readonly files: Readonly<Record<string, Uint8Array>>;
+	readonly assetNames: Readonly<Record<string, string>>;
+	readonly sourceFiles: Readonly<Record<string, string>>;
 };
 
 const clientBaseStylesheet = `@layer base {
@@ -192,6 +193,7 @@ export const compileClientStyles = ({
 	scanSources,
 	fontStylesheet,
 	themeStylesheet,
+	paletteStylesheet,
 	tailwindStylesheet,
 }: CompileClientStylesInput) =>
 	Effect.tryPromise({
@@ -208,7 +210,7 @@ export const compileClientStyles = ({
 				));
 			const rootStylesheet =
 				stylesheet === undefined ? "" : rewrite(stylesheet.path, stylesheet.content);
-			const inputStylesheet = `@import "tailwindcss";\n${fontStylesheet}\n${clientBaseStylesheet}\n${rootStylesheet}\n${themeStylesheet}`;
+			const inputStylesheet = `@import "tailwindcss";\n${fontStylesheet}\n${clientBaseStylesheet}\n${rootStylesheet}\n${themeStylesheet}\n${paletteStylesheet}`;
 			let tailwindLoaded = false;
 			const compiled = await compile(inputStylesheet, {
 				base: stylesheet === undefined ? "client" : directoryOf(stylesheet.path),
