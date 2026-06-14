@@ -4,6 +4,7 @@ import {
 	createAuthenticatedClient,
 	createGlobalBookEntityFixture,
 	executeQueryEngine,
+	findBuiltinSchemaBySlug,
 	insertGlobalRelationship,
 	listRelationshipSchemas,
 	literalExpr,
@@ -19,7 +20,7 @@ import { assertPresent } from "../test-support/assertions";
 describe("Query engine media trending", () => {
 	it("reads trending media from persisted media-trending self edges", async () => {
 		const { client } = await createAuthenticatedClient();
-		const { schema } = await createGlobalBookEntityFixture(client);
+		const { schema } = await findBuiltinSchemaBySlug(client, "book");
 		const [top, second, notTrending] = await Promise.all([
 			createGlobalBookEntityFixture(client, {
 				name: `Trending Top ${crypto.randomUUID()}`,
