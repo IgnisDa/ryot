@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+﻿import { describe, expect, it } from "bun:test";
 
 import { SandboxScriptId } from "@ryot/contract/schema/brands";
 
@@ -10,7 +10,7 @@ import {
 	getFirstProviderScriptId,
 	pollSandboxResult,
 } from "../fixtures";
-import { assertCondition, assertTaggedError } from "../test-support/assertions";
+import { assertCompleted, assertTaggedError } from "../test-support/assertions";
 
 describe("sandbox enqueue by script ID", () => {
 	it("returns 404 when the scriptId does not exist", async () => {
@@ -54,8 +54,7 @@ describe("sandbox enqueue by script ID", () => {
 		const { jobId } = await enqueueSandboxScript(client, { scriptId, driverName: "main" });
 
 		const result = await pollSandboxResult(client, jobId);
-		expect(result.status).toBe("completed");
-		assertCondition(result.status === "completed", "Expected sandbox job to complete");
+		assertCompleted(result, "sandbox job");
 
 		expect(result.error).toContain("executeQueryEngine is not defined");
 	});

@@ -1,4 +1,5 @@
 import { type ChildProcess, spawn } from "node:child_process";
+import { appendFileSync } from "node:fs";
 
 import { CreateBucketCommand, S3Client } from "@aws-sdk/client-s3";
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
@@ -163,10 +164,21 @@ export function spawnBackendProcess(env: NodeJS.ProcessEnv, cwd = "../apps/app-b
 export function attachProcessLogs(proc: ChildProcess, label: string) {
 	processLogBuffers.set(proc, { flushed: false, stderr: "", stdout: "" });
 
+	const persistedLogPath = process.env.E2E_BACKEND_LOG_FILE;
+	const persist = (data: unknown) => {
+		if (!persistedLogPath) {
+			return;
+		}
+		try {
+			appendFileSync(persistedLogPath, String(data));
+		} catch {}
+	};
+
 	proc.stdout?.setEncoding("utf8");
 	proc.stderr?.setEncoding("utf8");
 
 	proc.stdout?.on("data", (data) => {
+		persist(data);
 		const state = processLogBuffers.get(proc);
 		if (state) {
 			state.stdout = appendLog(state.stdout, data);
@@ -174,6 +186,7 @@ export function attachProcessLogs(proc: ChildProcess, label: string) {
 	});
 
 	proc.stderr?.on("data", (data) => {
+		persist(data);
 		const state = processLogBuffers.get(proc);
 		if (state) {
 			state.stderr = appendLog(state.stderr, data);

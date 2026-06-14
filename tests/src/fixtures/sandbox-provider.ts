@@ -96,6 +96,7 @@ export type FakeRelatedEntityGroup = {
 	relationshipSchemaSlug: string;
 	direction: "incoming" | "outgoing";
 	entities: ReadonlyArray<FakeRelatedEntity>;
+	synchronization: "authoritative" | "additive";
 };
 
 export function detailsDriverCode(result: {
