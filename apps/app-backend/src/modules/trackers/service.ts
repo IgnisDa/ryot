@@ -1,18 +1,11 @@
-import { Context, Effect, Layer } from "effect";
+import { Effect } from "effect";
 
 import type { CurrentUserValue } from "../../lib/auth";
 import { DbRunner, TransactionRunner } from "../../lib/db";
-import type { Conflict, DbError, NotFound } from "../../lib/errors";
 import { BadRequest, badRequest, conflict, notFound } from "../../lib/errors";
 import { buildReorderedIds } from "../../lib/reorder";
 import { TrackersRepository } from "./repository";
-import type {
-	CreateTrackerBody,
-	ListedTracker,
-	ReorderTrackersBody,
-	ReorderTrackersResponse,
-	UpdateTrackerBody,
-} from "./schemas";
+import type { CreateTrackerBody, ReorderTrackersBody, UpdateTrackerBody } from "./schemas";
 
 const normalizeSlug = (value: string): string =>
 	value
@@ -157,39 +150,16 @@ const resolveTrackerIds = (trackerIds: ReadonlyArray<string>) => {
 	return normalizedIds;
 };
 
-export class TrackersService extends Context.Tag("TrackersService")<
-	TrackersService,
-	{
-		readonly list: (
-			user: CurrentUserValue,
-			includeDisabled: boolean,
-		) => Effect.Effect<ReadonlyArray<ListedTracker>, DbError>;
-		readonly create: (
-			user: CurrentUserValue,
-			payload: CreateTrackerBody,
-		) => Effect.Effect<ListedTracker, BadRequest | Conflict | DbError>;
-		readonly update: (
-			user: CurrentUserValue,
-			trackerId: string,
-			payload: UpdateTrackerBody,
-		) => Effect.Effect<ListedTracker, BadRequest | DbError | NotFound>;
-		readonly reorder: (
-			user: CurrentUserValue,
-			payload: ReorderTrackersBody,
-		) => Effect.Effect<ReorderTrackersResponse, BadRequest | DbError>;
-	}
->() {}
-
-export const TrackersServiceLive = Layer.effect(
-	TrackersService,
-	Effect.gen(function* () {
+export class TrackersService extends Effect.Service<TrackersService>()("TrackersService", {
+	effect: Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
 		const repository = yield* TrackersRepository;
 		const runInTransaction = yield* TransactionRunner;
 
 		return {
-			list: (user, includeDisabled) => runWithDb(repository.listByUser(user.id, includeDisabled)),
-			create: (user, payload) =>
+			list: (user: CurrentUserValue, includeDisabled: boolean) =>
+				runWithDb(repository.listByUser(user.id, includeDisabled)),
+			create: (user: CurrentUserValue, payload: CreateTrackerBody) =>
 				Effect.gen(function* () {
 					const resolvedPayload = resolveCreatePayload(payload);
 					if (resolvedPayload instanceof BadRequest) {
@@ -203,7 +173,7 @@ export const TrackersServiceLive = Layer.effect(
 
 					return yield* runWithDb(repository.create(user.id, resolvedPayload));
 				}),
-			update: (user, trackerId, payload) =>
+			update: (user: CurrentUserValue, trackerId: string, payload: UpdateTrackerBody) =>
 				Effect.gen(function* () {
 					const resolvedTrackerId = resolveRequiredTrackerId(trackerId);
 					if (!resolvedTrackerId) {
@@ -234,7 +204,7 @@ export const TrackersServiceLive = Layer.effect(
 
 					return updated;
 				}),
-			reorder: (user, payload) =>
+			reorder: (user: CurrentUserValue, payload: ReorderTrackersBody) =>
 				Effect.gen(function* () {
 					const trackerIds = resolveTrackerIds(payload.trackerIds);
 					if (trackerIds instanceof BadRequest) {
@@ -264,4 +234,4 @@ export const TrackersServiceLive = Layer.effect(
 				}),
 		};
 	}),
-);
+}) {}

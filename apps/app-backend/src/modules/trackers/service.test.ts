@@ -5,7 +5,7 @@ import type { CurrentUserValue } from "../../lib/auth";
 import { CurrentDb, DbRunner, TransactionRunner } from "../../lib/db";
 import { BadRequest, NotFound } from "../../lib/errors";
 import { TrackersRepository } from "./repository";
-import { TrackersService, TrackersServiceLive } from "./service";
+import { TrackersService } from "./service";
 
 const user = {
 	id: "user-id",
@@ -28,12 +28,13 @@ const transactionLayer = Layer.succeed(
 it.effect("normalizes tracker slugs before creating custom trackers", () => {
 	let createdSlug = "";
 
-	const layer = TrackersServiceLive.pipe(
+	const layer = TrackersService.Default.pipe(
 		Layer.provide(
 			Layer.mergeAll(
 				dbRunnerLayer,
 				transactionLayer,
 				Layer.mock(TrackersRepository, {
+					_tag: "TrackersRepository" as const,
 					listByUser: () => Effect.succeed([]),
 					findBySlug: () => Effect.succeed(null),
 					getOwnedById: () => Effect.succeed(null),
@@ -76,12 +77,13 @@ it.effect("normalizes tracker slugs before creating custom trackers", () => {
 });
 
 it.effect("returns not found when updating a tracker the user does not own", () => {
-	const layer = TrackersServiceLive.pipe(
+	const layer = TrackersService.Default.pipe(
 		Layer.provide(
 			Layer.mergeAll(
 				dbRunnerLayer,
 				transactionLayer,
 				Layer.mock(TrackersRepository, {
+					_tag: "TrackersRepository" as const,
 					create: () => Effect.die("unused"),
 					listByUser: () => Effect.succeed([]),
 					findBySlug: () => Effect.succeed(null),
@@ -106,12 +108,13 @@ it.effect("returns not found when updating a tracker the user does not own", () 
 it.effect("reorders requested trackers and appends the remaining ids", () => {
 	let persistedIds: ReadonlyArray<string> = [];
 
-	const layer = TrackersServiceLive.pipe(
+	const layer = TrackersService.Default.pipe(
 		Layer.provide(
 			Layer.mergeAll(
 				dbRunnerLayer,
 				transactionLayer,
 				Layer.mock(TrackersRepository, {
+					_tag: "TrackersRepository" as const,
 					create: () => Effect.die("unused"),
 					listByUser: () => Effect.succeed([]),
 					findBySlug: () => Effect.succeed(null),
@@ -139,12 +142,13 @@ it.effect("reorders requested trackers and appends the remaining ids", () => {
 });
 
 it.effect("rejects reorder requests containing unknown tracker ids", () => {
-	const layer = TrackersServiceLive.pipe(
+	const layer = TrackersService.Default.pipe(
 		Layer.provide(
 			Layer.mergeAll(
 				dbRunnerLayer,
 				transactionLayer,
 				Layer.mock(TrackersRepository, {
+					_tag: "TrackersRepository" as const,
 					create: () => Effect.die("unused"),
 					listByUser: () => Effect.succeed([]),
 					findBySlug: () => Effect.succeed(null),
