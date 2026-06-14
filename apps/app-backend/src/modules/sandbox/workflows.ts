@@ -1,4 +1,5 @@
-import { DurableQueue, type Workflow } from "@effect/workflow";
+import { DurableQueue } from "@effect/workflow";
+import type { Result as WorkflowResult } from "@effect/workflow/Workflow";
 import { Cause, Effect, Exit, Layer, Match, Option } from "effect";
 
 import type { SandboxRunError } from "#lib/errors";
@@ -20,7 +21,7 @@ const workflowFailureResult = (
 	});
 
 export const toSandboxRunResult = (
-	result: Workflow.Result<SandboxCompletedResultValue, SandboxRunError> | undefined,
+	result: WorkflowResult<SandboxCompletedResultValue, SandboxRunError> | undefined,
 ): SandboxRunResult => {
 	if (!result) {
 		return { status: "pending" };

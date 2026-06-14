@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createEntityColumnExpression } from "#lib/query-language";
+import { createEntityColumnExpression } from "#lib/display-configuration";
 
 import { buildDisplayConfig } from "./view-helpers";
 

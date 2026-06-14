@@ -1,5 +1,5 @@
-import { getOccurredAtValue } from "../dates";
-import type { ImportMediaEntityGroup, ImportMediaEvent } from "../types";
+import { getOccurredAtValue } from "./dates";
+import type { ImportMediaEntityGroup, ImportMediaEvent } from "./types";
 
 export const assertRequiredHeaders = (
 	headers: string[],

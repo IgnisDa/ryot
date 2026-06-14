@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 
-import { DisplayConfiguration } from "#lib/query-language";
+import { DisplayConfiguration } from "#lib/display-configuration";
 import { SavedViewId, TrackerId } from "#lib/schema/brands";
 import { QueryDocument } from "#modules/query-engine/language";
 

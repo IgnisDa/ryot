@@ -16,7 +16,7 @@ import { EventsRoutesLive } from "#modules/events/routes";
 import { GodModeRoutesLive } from "#modules/god-mode/routes";
 import { ImportsRoutesLive } from "#modules/imports/routes";
 import { IntegrationsRoutesLive } from "#modules/integrations/routes";
-import { LibraryRoutesLive } from "#modules/library/routes";
+import { LibraryRoutesLive } from "#modules/library-membership/routes";
 import { QueryEngineRoutesLive } from "#modules/query-engine/routes";
 import { RelationshipSchemasRoutesLive } from "#modules/relationship-schemas/routes";
 import { RelationshipsRoutesLive } from "#modules/relationships/routes";
