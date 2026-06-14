@@ -67,7 +67,7 @@ describe("RyotQL builders", () => {
 					from: { table: "entity", alias: "entity" },
 					output: {
 						type: "rows",
-						pagination: { page: 1, limit: 20 },
+						pagination: { limit: 20 },
 						fields: [{ key: "id", expr: { type: "column", tableAlias: "entity", field: "id" } }],
 						orderBy: [
 							{ direction: "asc", expr: { type: "column", tableAlias: "entity", field: "id" } },
@@ -89,7 +89,7 @@ describe("RyotQL builders", () => {
 	it("preserves table aliases in expressions and explicit rows options", () => {
 		const entity = table("entity", "collection");
 		const query = rows(entity, {
-			page: 2,
+			after: "cursor",
 			limit: 7,
 			orderBy: [ascending(column(entity, "name"))],
 			fields: [field("name", column(entity, "name"))],
@@ -97,7 +97,7 @@ describe("RyotQL builders", () => {
 		});
 
 		expect(query).toMatchObject({
-			output: { pagination: { page: 2, limit: 7 } },
+			output: { pagination: { after: "cursor", limit: 7 } },
 			where: { left: { tableAlias: "collection" }, right: { value: "collection" } },
 		});
 	});

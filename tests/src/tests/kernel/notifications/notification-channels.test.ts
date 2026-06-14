@@ -311,7 +311,7 @@ describe("notification delivery", () => {
 
 			const error = yield* Effect.flip(
 				getBackendClient().call((c) =>
-					c.ryotql.execute({ payload: buildNotificationChannelsDocument({ limit: 100, page: 1 }) }),
+					c.ryotql.execute({ payload: buildNotificationChannelsDocument({ limit: 100 }) }),
 				),
 			);
 			assertTaggedError(error, "Unauthorized");

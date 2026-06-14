@@ -9,7 +9,7 @@ import definition, { manifest } from "./media-monitoring-targets.sandbox";
 const field = (value: string) => ({ kind: "text", value });
 
 describe("media monitoring targets", () => {
-	it("extracts provider ids from global monitorable roots and preserves pagination", async () => {
+	it("extracts provider ids from global monitorable roots and preserves cursor pagination", async () => {
 		const documents: unknown[] = [];
 		const host = defineSandboxTestHost(manifest, {
 			executeRyotql: (document) =>
@@ -19,7 +19,7 @@ describe("media monitoring targets", () => {
 						data: {
 							targets: {
 								type: "rows",
-								pageInfo: { page: 2, limit: 100, total: 201, hasMore: true },
+								pageInfo: { hasMore: true, limit: 100, nextCursor: "next-targets" },
 								items: [
 									{
 										entityId: field("entity-a"),
@@ -35,9 +35,10 @@ describe("media monitoring targets", () => {
 		});
 
 		await expect(
-			Effect.runPromise(runSandboxTestScript(definition, { page: 2, limit: 100 }, host, execution)),
+			Effect.runPromise(
+				runSandboxTestScript(definition, { after: "targets-cursor", limit: 100 }, host, execution),
+			),
 		).resolves.toEqual({
-			hasMore: true,
 			items: [
 				{
 					entityId: "entity-a",
@@ -46,6 +47,7 @@ describe("media monitoring targets", () => {
 					entitySchemaSlug: "movie",
 				},
 			],
+			nextCursor: "next-targets",
 		});
 		expect(Schema.is(RyotQLDocument)(documents[0])).toBe(true);
 		expect(documents[0]).toMatchObject({
@@ -53,7 +55,10 @@ describe("media monitoring targets", () => {
 				targets: {
 					from: { table: "entity", alias: "entity" },
 					where: { type: "and" },
-					output: { type: "rows", pagination: { page: 2, limit: 100 } },
+					output: {
+						type: "rows",
+						pagination: { after: "targets-cursor", limit: 100 },
+					},
 				},
 			},
 		});

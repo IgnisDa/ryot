@@ -57,7 +57,7 @@ describe("OpenScale Import E2E", () => {
 			const { client, cookies } = yield* createAuthenticatedClient();
 			const { runId } = yield* runOpenScaleImportFixture(client, cookies);
 
-			const detail = yield* getImportRun(client, runId, 1, 20);
+			const detail = yield* getImportRun(client, runId, undefined, 20);
 			const run = requirePresent(detail.run, "Expected completed import run");
 			expect(run.id).toBe(ImportRunId.make(runId));
 			expect(run.status).toBe("completed");
@@ -69,7 +69,7 @@ describe("OpenScale Import E2E", () => {
 			const { client, cookies } = yield* createAuthenticatedClient();
 			yield* runOpenScaleImportFixture(client, cookies);
 
-			const data = yield* listManualImportRuns(client, 1, 20);
+			const data = yield* listManualImportRuns(client, undefined, 20);
 
 			expect(data.items.length).toBeGreaterThan(0);
 			expect(data.items[0]?.source).toBe("open_scale");
@@ -80,7 +80,7 @@ describe("OpenScale Import E2E", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 
-			const detail = yield* getImportRun(client, "nonexistent-run-id", 1, 20);
+			const detail = yield* getImportRun(client, "nonexistent-run-id", undefined, 20);
 			expect(detail.run).toBeNull();
 		}),
 	);
@@ -127,7 +127,7 @@ describe("OpenScale Import E2E", () => {
 				c.imports.deleteRun({ params: { runId: ImportRunId.make(runId) } }),
 			);
 
-			expect((yield* getImportRun(client, runId, 1, 20)).run).toBeNull();
+			expect((yield* getImportRun(client, runId, undefined, 20)).run).toBeNull();
 		}),
 	);
 
@@ -150,7 +150,7 @@ describe("OpenScale Import E2E", () => {
 			expect(completedRun.importedItems).toBe(1);
 			expect(completedRun.failedItems).toBe(2);
 
-			const runData = yield* getImportRun(client, runId, 1, 20);
+			const runData = yield* getImportRun(client, runId, undefined, 20);
 
 			expect(runData.failures.items.length).toBeGreaterThan(0);
 			expect(runData.failures.items).toMatchObject([

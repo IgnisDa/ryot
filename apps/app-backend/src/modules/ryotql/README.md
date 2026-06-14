@@ -54,7 +54,7 @@ RyotQL validates the complete document before execution. Named queries execute s
 						"expr": { "type": "column", "tableAlias": "collection", "field": "name" }
 					}
 				],
-				"pagination": { "page": 1, "limit": 20 }
+				"pagination": { "limit": 20 }
 			}
 		}
 	}
@@ -69,13 +69,13 @@ The response is keyed by the same query name:
 		"collections": {
 			"type": "rows",
 			"items": [{ "id": { "kind": "text", "value": "collection-id" } }],
-			"pageInfo": { "page": 1, "limit": 20, "total": 1, "hasMore": false }
+			"pageInfo": { "limit": 20, "hasMore": false, "nextCursor": null }
 		}
 	}
 }
 ```
 
-Rows default to page 1, limit 20, and root primary-key ascending order when built with the SDK. The compiler appends joined and root primary keys when needed to keep multiplied rows deterministic, uses `NULLS LAST` in both directions, and reports the true total for pages beyond the final row.
+Root row requests use `{ limit: number; after?: string }`; initial requests omit `after`, and the SDK builder defaults `limit` to 20. Root row page info is `{ limit: number; hasMore: boolean; nextCursor: string | null }`. Pagination is forward-only: the backend requests `limit + 1` rows, returns at most `limit` items, and sets `nextCursor` only when an extra row exists; otherwise it is `null`. Cursors are opaque client values, and malformed cursors are rejected. Root rows use primary-key ascending order when built with the SDK. The compiler appends joined and root primary keys when needed to keep multiplied rows deterministic and uses `NULLS LAST` in both directions. Saved-view root documents must omit cursors.
 
 ## Application Tables
 
@@ -195,7 +195,7 @@ rows(membership, {
 
 An include is a row query with its own `from`, optional joins and predicate, selected fields, non-empty ordering, and explicit limit. Its expressions can reference aliases from the parent scope. Sibling aliases are not shared. Any catalog table can be an include root or join.
 
-Includes return `{ items, pageInfo: { limit, hasMore } }` under their key. They run as correlated SQL inside the named query statement, fetch at most limit plus one rows to derive `hasMore`, and return an empty `items` list without removing the parent. Includes can be nested to depth three.
+Includes return `{ items, pageInfo: { limit, hasMore } }` under their key. State includes use the same page-info shape. They run as correlated SQL inside the named query statement, fetch at most limit plus one rows to derive `hasMore`, and return an empty `items` list without removing the parent. Includes can be nested to depth three.
 
 ```ts
 const course = table("entity", "course");
@@ -262,7 +262,7 @@ rows(course, {
 
 Root aggregate outputs run over the same generic table, joins, predicates, localized field resolvers, and authorized relations as rows. Measures support count, count distinct, sum, average, minimum, and maximum. Count operations return zero for an empty input; the other measures return null. Ordinary SQL join multiplicity applies, so use count distinct when multiplied rows must count once.
 
-Ungrouped aggregates return one item without `pageInfo`. Grouped aggregates require at least one group field, an explicit limit, and non-empty ordering by measure key. They return `{ limit, hasMore }`, support at most 1000 groups, and do not support aggregate pagination or ordering by arbitrary expressions. Group values retain their runtime `text`, `date`, `number`, `boolean`, `json`, or `null` kind. Both aggregate ordering directions place null measures last.
+Ungrouped aggregates return one item without `pageInfo` and otherwise remain unchanged. Grouped aggregates require at least one group field, an explicit limit, and non-empty ordering by measure key. Their page info remains `{ limit, hasMore }`; they support at most 1000 groups and do not support aggregate pagination or ordering by arbitrary expressions. Group values retain their runtime `text`, `date`, `number`, `boolean`, `json`, or `null` kind. Both aggregate ordering directions place null measures last.
 
 ```ts
 const lesson = table("entity", "lesson");
@@ -306,7 +306,7 @@ document({
 
 - 10 named queries per document.
 - 8 joins per named query.
-- 100 rows per page.
+- 100 root rows per request.
 - 100 rows per include.
 - 1000 grouped aggregate rows.
 - 1000 aligned time-series buckets.

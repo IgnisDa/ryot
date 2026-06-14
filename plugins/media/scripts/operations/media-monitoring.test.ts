@@ -25,7 +25,7 @@ const rows = (items: unknown[]) => ({
 		targets: {
 			type: "rows",
 			items,
-			pageInfo: { page: 1, limit: 50, total: items.length, hasMore: false },
+			pageInfo: { hasMore: false, limit: 50, nextCursor: null },
 		},
 	},
 });
@@ -35,7 +35,7 @@ const libraryRows = (items: unknown[]) => ({
 		library: {
 			type: "rows",
 			items,
-			pageInfo: { page: 1, limit: 1, total: items.length, hasMore: false },
+			pageInfo: { hasMore: false, limit: 1, nextCursor: null },
 		},
 	},
 });
@@ -76,7 +76,7 @@ describe("media monitoring operations", () => {
 					where: { type: "and" },
 					output: {
 						type: "rows",
-						pagination: { page: 1, limit: 3 },
+						pagination: { limit: 3 },
 						include: [
 							expect.objectContaining({
 								key: "monitoringLibraries",

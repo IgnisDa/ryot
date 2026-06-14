@@ -5,18 +5,7 @@ import {
 	mediaMonitoringStatusRecipe,
 } from "@ryot/media-plugin/operations/recipes";
 import { invokeOperationRecipe } from "@ryot/plugin-kit/operations";
-import {
-	and,
-	ascending,
-	column,
-	document,
-	eq,
-	field,
-	join,
-	literal,
-	rows,
-	table,
-} from "@ryot/ryotql";
+import { aggregate, and, column, document, eq, join, literal, measure, table } from "@ryot/ryotql";
 import { Effect } from "effect";
 
 import { assertCondition } from "~/support/assertions";
@@ -25,7 +14,7 @@ import { adminHeaders } from "./admin";
 import type { Client } from "./auth";
 import { getBackendClient } from "./contract-client";
 import { openInterestStreamScoped } from "./interest-sse";
-import { executeRyotQL, requireRows } from "./ryotql";
+import { executeRyotQL, requireRyotQLFieldValue } from "./ryotql";
 
 export const triggerCronAndWaitForEntity = (
 	auth: { cookies: string; userId: string },
@@ -112,10 +101,8 @@ export const countMediaMonitoringRelationships = (input: {
 		const result = yield* executeRyotQL(
 			input.client,
 			document({
-				relationships: rows(relationship, {
-					limit: 1,
-					fields: [field("id", column(relationship, "id"))],
-					orderBy: [ascending(column(relationship, "id"))],
+				relationships: aggregate(relationship, {
+					measures: [measure("count", { function: "count" })],
 					where: and(
 						eq(column(relationship, "relationshipSchemaSlug"), literal("media-monitoring")),
 						eq(column(media, "id"), literal(input.entityId)),
@@ -133,6 +120,10 @@ export const countMediaMonitoringRelationships = (input: {
 				}),
 			}),
 		);
-		const relationships = requireRows(result.data.relationships, "relationships");
-		return relationships.pageInfo.total;
+		const relationships = result.data.relationships;
+		if (relationships?.type !== "aggregate") {
+			throw new Error("Expected 'relationships' aggregate");
+		}
+		const count = relationships.items[0];
+		return count ? requireRyotQLFieldValue(count, "count").value : 0;
 	});

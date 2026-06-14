@@ -41,7 +41,7 @@ const failureItem = {
 	createdAt: { kind: "date", value: "2026-01-01T01:06:00+02:00" },
 } as const;
 
-const pageInfo = { hasMore: true, limit: 2, page: 3, total: 7 } as const;
+const pageInfo = { hasMore: true, limit: 2, nextCursor: "next" } as const;
 const rowsResponse = (items: readonly unknown[], type = "rows") => ({ type, pageInfo, items });
 
 const importRunsResponse = { data: { importRuns: rowsResponse([runItem]) } };
@@ -62,9 +62,9 @@ const fieldKeys = (query: NamedQuery) =>
 
 describe("import-run recipes", () => {
 	it("builds manual and integration lists with exact fields, pagination, filters, and stable order", () => {
-		const manualDocument = buildManualImportRunsDocument({ page: 3, limit: 7 });
+		const manualDocument = buildManualImportRunsDocument({ after: "manual-cursor", limit: 7 });
 		const integrationDocument = buildIntegrationImportRunsDocument({
-			page: 2,
+			after: "integration-cursor",
 			limit: 5,
 			integrationId: "integration-1",
 		});
@@ -72,8 +72,8 @@ describe("import-run recipes", () => {
 		const integration = integrationDocument.queries.importRuns;
 
 		expect(Object.keys(manualDocument.queries)).toEqual(["importRuns"]);
-		expect(manual.output.pagination).toEqual({ limit: 7, page: 3 });
-		expect(integration.output.pagination).toEqual({ limit: 5, page: 2 });
+		expect(manual.output.pagination).toEqual({ after: "manual-cursor", limit: 7 });
+		expect(integration.output.pagination).toEqual({ after: "integration-cursor", limit: 5 });
 		expect(fieldKeys(manual)).toEqual([
 			"id",
 			"source",
@@ -109,15 +109,15 @@ describe("import-run recipes", () => {
 	it("builds detail roots in one document with independent pagination, filters, fields, and order", () => {
 		const document = buildImportRunDocument({
 			runId: "run-1",
-			failurePage: 4,
+			failureAfter: "failure-cursor",
 			failureLimit: 6,
 		});
 		const run = document.queries.run;
 		const failures = document.queries.failures;
 
 		expect(Object.keys(document.queries)).toEqual(["run", "failures"]);
-		expect(run.output.pagination).toEqual({ limit: 1, page: 1 });
-		expect(failures.output.pagination).toEqual({ limit: 6, page: 4 });
+		expect(run.output.pagination).toEqual({ limit: 1 });
+		expect(failures.output.pagination).toEqual({ after: "failure-cursor", limit: 6 });
 		expect(run.where).toMatchObject({ left: { field: "id" }, right: { value: "run-1" } });
 		expect(failures.where).toMatchObject({
 			right: { value: "run-1" },

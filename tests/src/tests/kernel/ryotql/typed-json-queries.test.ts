@@ -1,4 +1,5 @@
 import {
+	aggregate,
 	and,
 	ascending,
 	castBoolean,
@@ -20,6 +21,7 @@ import {
 	isNull,
 	jsonPath,
 	literal,
+	measure,
 	not,
 	or,
 	rows,
@@ -174,11 +176,15 @@ describe("RyotQL typed JSON entity queries", () => {
 						fields: [],
 						where: eq(schema, literal(`unknown-${crypto.randomUUID()}`)),
 					}),
+					bookCounts: aggregate(entity, {
+						where: eq(schema, literal(book.slug)),
+						measures: [measure("count", { function: "count" })],
+					}),
 				}),
 			);
 
 			const books = requireRows(result.data["books"], "books");
-			expect(books.pageInfo.total).toBe(2);
+			expect(books.items).toHaveLength(2);
 			expect(books.items).toEqual([
 				{
 					score: { kind: "number", value: 4.8 },
@@ -213,10 +219,14 @@ describe("RyotQL typed JSON entity queries", () => {
 					duration: { kind: "number", value: 90 },
 				},
 			]);
-			expect(requireRows(result.data["structuralBooks"], "structuralBooks").pageInfo.total).toBe(1);
-			expect(requireRows(result.data["allBooks"], "allBooks").pageInfo.total).toBe(2);
-			expect(requireRows(result.data["noBooks"], "noBooks").pageInfo.total).toBe(0);
-			expect(requireRows(result.data["unknown"], "unknown").pageInfo.total).toBe(0);
+			expect(requireRows(result.data["structuralBooks"], "structuralBooks").items).toHaveLength(1);
+			expect(requireRows(result.data["allBooks"], "allBooks").items).toHaveLength(2);
+			expect(requireRows(result.data["noBooks"], "noBooks").items).toHaveLength(0);
+			expect(requireRows(result.data["unknown"], "unknown").items).toHaveLength(0);
+			const bookCounts = result.data["bookCounts"];
+			expect(bookCounts?.type).toBe("aggregate");
+			const count = bookCounts?.type === "aggregate" ? bookCounts.items[0] : undefined;
+			expect(count && requireRyotQLFieldValue(count, "count").value).toBe(2);
 		}),
 	);
 
