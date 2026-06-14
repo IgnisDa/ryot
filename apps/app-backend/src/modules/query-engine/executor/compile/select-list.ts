@@ -3,8 +3,8 @@ import { sql } from "drizzle-orm";
 import type {
 	AggregateMeasureDef,
 	AggregationSpec,
-	Expr,
 	FieldDef,
+	OrderByEntry,
 	RowItem,
 	RowValue,
 } from "../../language";
@@ -12,8 +12,6 @@ import { reconstructMeasureValue, reconstructOutputValue } from "../reconstruct"
 import { compileScalar, compileValue } from "./expr";
 import type { SqlFragment } from "./fragments";
 import type { CompileScope } from "./scope";
-
-type OrderByEntry = { readonly order: "asc" | "desc"; readonly expr: Expr };
 
 // A double-quoted SQL identifier for a (possibly user-provided) output key.
 const colAlias = (name: string): SqlFragment => sql.raw(`"${name.replace(/"/g, '""')}"`);
