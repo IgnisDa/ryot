@@ -216,11 +216,10 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 							return { claimed: false, value: null };
 						}
 
-						const parsed = yield* Schema.decode(Schema.parseJson(Schema.Unknown))(existing).pipe(
+						return yield* Schema.decode(Schema.parseJson(Schema.Unknown))(existing).pipe(
 							Effect.map((decoded) => ({ claimed: false as const, value: decoded })),
 							Effect.orElseSucceed(() => ({ claimed: false as const, value: null })),
 						);
-						return parsed;
 					}),
 				);
 			},
