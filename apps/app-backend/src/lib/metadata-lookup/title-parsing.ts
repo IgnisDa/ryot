@@ -1,4 +1,4 @@
-type NetflixEpisodeInfo = {
+export type MetadataLookupEpisodeInfo = {
 	season: number;
 	episode: number;
 };
@@ -298,7 +298,7 @@ const resolveSeasonEpisode = (input: {
 	episode?: number;
 	episodeSource?: EpisodeSource;
 	generalPair?: { episode: number; season: number; source: GeneralSource };
-}): NetflixEpisodeInfo | undefined => {
+}): MetadataLookupEpisodeInfo | undefined => {
 	let resolvedSeason = input.season;
 	let resolvedEpisode = input.episode;
 	if (input.generalPair) {
@@ -325,7 +325,7 @@ const resolveSeasonEpisode = (input: {
 
 const parseNetflixTitle = (
 	title: string,
-): { baseTitle: string; episodeInfo?: NetflixEpisodeInfo } => {
+): { baseTitle: string; episodeInfo?: MetadataLookupEpisodeInfo } => {
 	const trimmed = title.trim();
 	const segments = splitSegments(trimmed);
 	if (segments.length === 0) {
@@ -387,16 +387,17 @@ const parseNetflixTitle = (
 	};
 };
 
-export const extractNetflixBaseTitle = (title: string): string =>
+export const extractMetadataLookupBaseTitle = (title: string): string =>
 	parseNetflixTitle(title).baseTitle;
 
-export const extractNetflixSeasonEpisode = (title: string): NetflixEpisodeInfo | undefined =>
-	parseNetflixTitle(title).episodeInfo;
+export const extractMetadataLookupSeasonEpisode = (
+	title: string,
+): MetadataLookupEpisodeInfo | undefined => parseNetflixTitle(title).episodeInfo;
 
-export const hasNetflixShowIndicators = (title: string): boolean =>
+export const hasMetadataLookupShowIndicators = (title: string): boolean =>
 	SHOW_INDICATOR_PATTERNS.some((pattern) => pattern.test(title));
 
-export const extractNetflixYearFromTitle = (title: string): number | undefined => {
+export const extractMetadataLookupYearFromTitle = (title: string): number | undefined => {
 	for (const pattern of YEAR_PATTERNS) {
 		const matched = title.match(pattern)?.[1];
 		const parsed = matched ? Number.parseInt(matched, 10) : Number.NaN;
