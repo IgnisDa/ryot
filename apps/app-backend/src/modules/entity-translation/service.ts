@@ -2,7 +2,7 @@ import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import type { EntityId, SandboxScriptId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
-import { TranslateEntityWorkflow, translateEntityExecutionId } from "./workflows";
+import { TranslateEntityWorkflow, translateEntityExecutionId } from "./entity-translation-workflow";
 
 export type RequestFillInput = {
 	language: string;
