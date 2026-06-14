@@ -40,7 +40,7 @@ import { IntegrationsRepository } from "#modules/integrations/repository";
 import { IntegrationsSchedulerLive } from "#modules/integrations/scheduler";
 import { IntegrationsService } from "#modules/integrations/service";
 import { IntegrationWorkflowDefinitionsLive } from "#modules/integrations/workflows";
-import { WsRegistry } from "#modules/interest/registry";
+import { StreamRegistry } from "#modules/interest/registry";
 import { InterestReconciler } from "#modules/interest/service";
 import { GlobalEntityReferencedWorkerLive } from "#modules/library-membership/global-reference-worker";
 import { LibraryImportService } from "#modules/library-membership/service";
@@ -127,14 +127,14 @@ const QueryEngineServiceLive = Layer.provide(QueryEngineService.Default, Provide
 
 const EntitiesServiceLive = Layer.provide(EntitiesService.Default, QueryEngineServiceLive);
 
-// Client-declared-interest realtime plumbing: the socket registry (+ Redis subscriber) and the
+// Client-declared-interest realtime plumbing: the stream registry (+ Redis subscriber) and the
 // reconciler that turns declared interest into idempotent population/translation enqueues.
 const InterestReconcilerLive = Layer.provide(
 	InterestReconciler.Default,
 	Layer.mergeAll(QueryEngineServiceLive, EntityPopulationTriggerLive, TranslationsService.Default),
 );
 
-const WsServicesLive = Layer.mergeAll(WsRegistry.Default, InterestReconcilerLive);
+const InterestServicesLive = Layer.mergeAll(StreamRegistry.Default, InterestReconcilerLive);
 const EventsServiceLive = Layer.provide(EventsService.Default, QueryEngineServiceLive);
 
 const RuntimeSandboxServiceLive = Layer.provide(
@@ -188,7 +188,7 @@ const ServicesBaseLive = Layer.provideMerge(
 
 const ServicesLive = Layer.mergeAll(
 	Layer.provideMerge(ServicesBaseLive, SandboxServicesLive),
-	WsServicesLive,
+	InterestServicesLive,
 );
 
 const ServiceDependenciesLive = Layer.provide(ServicesLive, ApplicationInfrastructureLive);
