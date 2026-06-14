@@ -1,7 +1,8 @@
 import { ImportRunId } from "@ryot/contract/schema/brands";
 
-import { getBackendUrl } from "../setup";
-import { requirePresent } from "../test-support/assertions";
+import { getBackendUrl } from "~/setup";
+import { requirePresent } from "~/support/assertions";
+
 import type { Client } from "./auth";
 import { pollUntil } from "./polling";
 

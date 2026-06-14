@@ -1,4 +1,5 @@
-import { getPgClient } from "../setup";
+import { getPgClient } from "~/setup";
+
 import type { Client } from "./auth";
 import { getEntity } from "./entities";
 import { deleteGlobalEntityByProvenance, seedMediaEntity } from "./media";

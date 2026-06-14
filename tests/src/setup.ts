@@ -4,7 +4,7 @@ import type { ChildProcess } from "node:child_process";
 import getPort from "get-port";
 import { Pool as PgPool } from "pg";
 
-import { requirePresent } from "./test-support/assertions";
+import { requirePresent } from "./support/assertions";
 import {
 	attachProcessLogs,
 	buildBackendEnv,
@@ -13,7 +13,7 @@ import {
 	stopBackendProcess,
 	stopCoreTestInfrastructure,
 	waitForHealthCheck,
-} from "./test-support/provisioning";
+} from "./support/provisioning";
 
 const S3_BUCKET_NAME = "ryot-test";
 
