@@ -3,7 +3,7 @@ import { Effect, Schema } from "effect";
 import type { CurrentUserValue } from "#lib/auth-middleware";
 import { DbRunner } from "#lib/db";
 import { DbError, badRequest, notFound } from "#lib/errors";
-import { EntityId, EntitySchemaId, SandboxScriptId, type UserId } from "#lib/schema/brands";
+import { EntityId, EntitySchemaId, SandboxScriptId } from "#lib/schema/brands";
 import { parseAppSchemaProperties } from "#lib/schema/property-schema-runtime";
 import { requireText, trimToNull } from "#lib/validation";
 import type { Expr, QueryDocument, RowItem, RowsOutput } from "#modules/query-engine/language";
@@ -18,29 +18,10 @@ import {
 import { QueryEngineService } from "#modules/query-engine/service";
 
 import { EntityPopulationTrigger } from "./population-trigger";
-import { EntitiesRepository } from "./repository";
+import { EntitiesRepository, type SaveEntityInputBase } from "./repository";
 import { EntityImage, type CreateEntityBody } from "./schemas";
-import type { StoredEntityImage } from "./types";
 
-type SaveEntityInput = {
-	name: string;
-	properties: unknown;
-	entitySchemaId: EntitySchemaId;
-	image: StoredEntityImage | null;
-} & (
-	| {
-			scope: "global";
-			externalId: string;
-			populatedAt: Date | null;
-			sandboxScriptId: SandboxScriptId;
-	  }
-	| {
-			scope: "user";
-			userId: UserId;
-			externalId?: string;
-			sandboxScriptId?: SandboxScriptId;
-	  }
-);
+type SaveEntityInput = SaveEntityInputBase & { properties: unknown };
 
 const entityAlias = "entity";
 const entityNotFoundError = "Entity not found";

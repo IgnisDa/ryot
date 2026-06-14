@@ -19,13 +19,16 @@ type RelationshipSnapshotRow = Pick<
 	"id" | "createdAt" | "properties" | "sourceEntityId" | "targetEntityId" | "relationshipSchemaId"
 >;
 
-type SaveRelationshipInput = {
+export type SaveRelationshipInputBase = {
 	sourceEntityId: EntityId;
 	targetEntityId: EntityId;
-	properties: Record<string, unknown>;
 	relationshipSchemaId: RelationshipSchemaId;
 	onConflict: "preserveExisting" | "replaceProperties";
 } & ({ scope: "global" } | { scope: "user"; userId: UserId });
+
+export type SaveRelationshipInput = SaveRelationshipInputBase & {
+	properties: Record<string, unknown>;
+};
 
 const relationshipSelection = {
 	id: schema.relationship.id,
