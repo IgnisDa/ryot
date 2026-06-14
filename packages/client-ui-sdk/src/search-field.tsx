@@ -58,7 +58,7 @@ export function SearchField({
 				placeholder={placeholder ?? label}
 				aria-keyshortcuts={shortcutEnabled ? shortcut : undefined}
 				onChange={(event) => onChange(event.currentTarget.value)}
-				className="h-full w-full rounded-full border border-border-strong bg-surface-2 pr-9 pl-9 text-[15px] text-text outline-none placeholder:text-text-subtle focus-visible:ring-2 focus-visible:ring-focus md:rounded-md md:bg-bg md:text-[13px]"
+				className="h-full w-full rounded-full border border-border-strong bg-surface-2 pr-9 pl-9 text-base text-text outline-none placeholder:text-text-subtle focus-visible:ring-2 focus-visible:ring-focus md:rounded-md md:bg-bg md:text-[13px]"
 			/>
 			{value === "" && shortcutEnabled && shortcut !== undefined && (
 				<Badge
