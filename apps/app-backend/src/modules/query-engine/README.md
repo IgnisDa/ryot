@@ -421,12 +421,18 @@ If the serialized row-object cap is exceeded, the engine fails the query rather 
 silently truncating. A grouped aggregate limit greater than 1000 fails validation rather
 than being clamped.
 
-Correlated `aggregate` expressions and correlated `exists` expressions (whose source
-carries a `where`) consider at most 10000 candidate rows per parent row and fail rather
-than considering a truncated set. An `exists` without a `where` short-circuits with a
-top-1 probe and is not subject to this cap.
+These scan caps bound only the **app-side fallback** paths. When a correlated
+`exists`/`aggregate` or an aggregate/time-series return pushes fully into SQL (see
+[Filter pushdown](#filter-pushdown)), the database does the work and the cap does not apply.
 
-Aggregate and time-series returns materialize their root source and aggregate in app, so
+Correlated `aggregate` expressions and correlated `exists` expressions that fall back to
+app-side (e.g. a sub-source `where` that is not fully pushable, or an `aggregate` used in an
+output field) consider at most 10000 candidate rows per parent row and fail rather than
+considering a truncated set. An `exists` without a `where` short-circuits with a top-1 probe
+and is not subject to this cap.
+
+Aggregate and time-series returns that fall back to app-side (e.g. `count` distinct, or a
+property-based time-series expression) materialize their root source and aggregate in app, so
 the root source is bounded to 50000 scanned rows; a larger source fails rather than loading
 an unbounded set into memory (`Root source candidate rows exceeds maximum of 50000`).
 
@@ -438,14 +444,52 @@ is evaluated app-side and is what the scan caps above bound.
 
 Pushable: `eq` on system text fields and schema-qualified properties; numeric `gt`/`gte`/`lt`/`lte`,
 `eq`, and `contains` on properties; `isNull`/`isNotNull`; and `and`/`or` composed of these.
-Not pushed (evaluated app-side): `neq`, `not`, arithmetic, cross-type/date ordering,
-multi-schema null checks, and `exists`/`aggregate`/`first` sub-sources. Top-level `and`
-conjuncts are pushed independently, so a partially-pushable filter still narrows the scan.
+Not pushed (evaluated app-side): `neq`, `not`, arithmetic, cross-type/date ordering, and
+multi-schema null checks. Top-level `and` conjuncts are pushed independently, so a
+partially-pushable filter still narrows the scan.
+
+Pushdown covers entity roots, event roots, relationship roots, includes, and
+entity/event/relationship expression sources. Relationship-root filters may reference the
+relationship alias and either endpoint entity alias.
 
 When a source's entire `where` pushes to SQL, rows and included sources are filtered and
-paginated in the database and are not subject to the app-side scan caps; aggregate,
-time-series, and correlated expression sources still aggregate app-side but over the
-already-narrowed candidate set.
+paginated in the database and are not subject to the app-side scan caps.
+
+### Correlated `exists` / `aggregate`
+
+Correlated `exists` and `aggregate` **count** comparisons in a `where` compile into SQL
+subqueries (a correlated `EXISTS (...)` and a scalar `(SELECT COUNT(*) ...)`), correlated to
+the parent row, so they no longer run once per candidate row. Sub-source visibility is
+enforced inside the subquery via schema-slug joins. This applies recursively (nested
+`exists`/`aggregate`), and only when the sub-source's entire `where` also pushes — otherwise
+the whole sub-source stays app-side. `first`, count-distinct, non-count aggregate
+comparisons, and correlated sub-sources used in output fields (rather than a `where`) still
+evaluate app-side and remain subject to the per-parent cap below.
+
+### Aggregation and time-series
+
+`aggregate` and `timeSeries` returns run their grouping, distinct-free aggregation, and time
+bucketing in the database when every construct is SQL-expressible, so they are not bounded by
+the app-side scan cap. This covers `count` and numeric `sum`/`average`/`minimum`/`maximum`
+(computed in double precision, i.e. the same float64 domain as the app-side numbers),
+`groupBy` on non-timestamp system fields, schema-metadata, and (JSON-typed) property
+references, `measureRef` ordering (Postgres `ASC NULLS LAST` / `DESC NULLS FIRST` matches the
+app-side null ordering), and time bucketing over a system date/timestamp column (`date_trunc`
+with UTC, Monday-start ISO weeks). The engine falls back to the app-side path — with the same
+results, bounded by the scan cap — for `count` distinct, non-property numeric operands,
+non-`ref` group expressions, `groupBy` on a whole-`properties` or timestamp system field, a
+residual `where`, or a property/computed time-series expression.
+
+Parity notes (behaviors that were already non-canonical app-side and remain so):
+
+- Numeric `sum`/`average` are exact for integer and exactly-representable operands; for other
+  floats, IEEE-754 accumulation order is unspecified on both paths, so results may differ in
+  the last ULP. A property number outside double-precision range fails the SQL aggregate.
+- When several groups tie on the ordered measure exactly at the `limit` boundary, which of the
+  tied groups is returned is arbitrary (there is no total order to break the tie on).
+- A correlated `exists`/`aggregate` over a relationship whose slug is shared by both a
+  user-owned and a global relationship schema matches relationships of either schema; the
+  app-side path resolves such a collision to one schema arbitrarily.
 
 ## Visibility
 

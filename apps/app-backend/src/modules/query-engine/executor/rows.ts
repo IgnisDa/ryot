@@ -21,6 +21,7 @@ import {
 	eventSelectColumnsSql,
 	relationshipRootOrderSql,
 	relationshipRootSelectSql,
+	relationshipRootWherePushdown,
 	wherePushdown,
 	wherePushdownSql,
 } from "./sql";
@@ -136,8 +137,10 @@ const executeEntityRowsQuery = Effect.fn("executeEntityRowsQuery")(function* (
 		alias: "e",
 		schemas: source.schemas,
 	}));
-	const pushdown = wherePushdown(source.where, (ref) =>
-		ref.sourceAlias === source.alias ? { alias: "e", schemas: source.schemas } : null,
+	const pushdown = wherePushdown(
+		source.where,
+		(ref) => (ref.sourceAlias === source.alias ? { alias: "e", schemas: source.schemas } : null),
+		{ userId },
 	);
 	const db = yield* CurrentDb;
 	const rawRows = yield* dbEffect(() =>
@@ -201,12 +204,15 @@ const executeEventRowsQuery = Effect.fn("executeEventRowsQuery")(function* (
 	);
 	const offset = (output.pagination.page - 1) * output.pagination.limit;
 	const orderSql = eventRootOrderSql(source, output);
-	const pushdown = wherePushdown(source.where, (ref) =>
-		ref.sourceAlias === source.alias
-			? { alias: "ev", schemas: source.schemas }
-			: ref.sourceAlias === source.entity.alias
-				? { alias: "e", schemas: source.entity.schemas }
-				: null,
+	const pushdown = wherePushdown(
+		source.where,
+		(ref) =>
+			ref.sourceAlias === source.alias
+				? { alias: "ev", schemas: source.schemas }
+				: ref.sourceAlias === source.entity.alias
+					? { alias: "e", schemas: source.entity.schemas }
+					: null,
+		{ userId },
 	);
 	const db = yield* CurrentDb;
 	const rawRows = yield* dbEffect(() =>
@@ -276,6 +282,7 @@ const executeRelationshipRowsQuery = Effect.fn("executeRelationshipRowsQuery")(f
 	);
 	const offset = (output.pagination.page - 1) * output.pagination.limit;
 	const orderSql = relationshipRootOrderSql(source, output);
+	const pushdown = relationshipRootWherePushdown(source, userId);
 	const db = yield* CurrentDb;
 	const rawRows = yield* dbEffect(() =>
 		db.execute<RelationshipRootQueryRow>(sql`
@@ -284,15 +291,16 @@ const executeRelationshipRowsQuery = Effect.fn("executeRelationshipRowsQuery")(f
 					sourceEntitySchemaIdsSql,
 					targetEntitySchemaIdsSql,
 					userId,
+					pushdown.conditions,
 				)}
 				ORDER BY ${orderSql}
-				${paginationSql(output.pagination, source.where, offset)}
+				${paginationSql(output.pagination, pushdown.residual, offset)}
 			`),
 	);
 
 	const { rows, total } = yield* resolveRootPage(
 		userId,
-		source.where,
+		pushdown.residual,
 		rawRows.rows,
 		offset,
 		output.pagination.limit,
