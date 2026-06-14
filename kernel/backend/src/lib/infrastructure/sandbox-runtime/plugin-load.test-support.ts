@@ -6,7 +6,7 @@ import { sha256Hex } from "@ryot/ts-utils/crypto";
 import { Effect, FileSystem, Path, Schema, Stream } from "effect";
 import { ChildProcess } from "effect/unstable/process";
 
-import { loadPluginSource } from "#modules/plugins/source.test-support";
+import { loadPluginSource, PluginSourceError } from "#modules/plugins/source.test-support";
 
 import { materializeSandboxCompiledModule } from "./compiled-modules";
 import { ensureSandboxRuntimeDependencies } from "./dependencies";
@@ -15,6 +15,7 @@ import { sandboxRunnerSource } from "./runner.generated";
 
 const encodeRequest = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
 const decodeResponse = Schema.decodeUnknownSync(Schema.fromJsonString(Schema.Unknown));
+const decoder = new TextDecoder("utf-8", { fatal: true });
 
 export const verifyPluginSandboxScriptsLoad = (packageRoot: string, manifest: PluginManifest) =>
 	Effect.scoped(
@@ -28,7 +29,17 @@ export const verifyPluginSandboxScriptsLoad = (packageRoot: string, manifest: Pl
 			yield* Effect.addFinalizer(() => fs.chmod(runtime.directory, 0o755).pipe(Effect.ignore));
 
 			const source = yield* loadPluginSource(packageRoot, manifest);
-			const outputs = yield* compilePluginSandboxSourceEntries(source.files, manifest.scripts);
+			const backendFiles = Object.fromEntries(
+				yield* Effect.forEach(
+					Object.entries(source.files).filter(([filePath]) => filePath.startsWith("backend/")),
+					([filePath, contents]) =>
+						Effect.try({
+							try: () => [filePath, decoder.decode(contents)] as const,
+							catch: (error) => new PluginSourceError({ message: String(error) }),
+						}),
+				),
+			);
+			const outputs = yield* compilePluginSandboxSourceEntries(backendFiles, manifest.scripts);
 			yield* Effect.forEach(
 				outputs,
 				({ compiled }) =>

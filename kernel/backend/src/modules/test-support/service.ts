@@ -15,7 +15,7 @@ import {
 	type UserId,
 } from "@ryot/contract/schema/brands";
 import { generateId } from "better-auth";
-import { Context, DateTime, Effect, Layer } from "effect";
+import { Context, DateTime, Effect, Layer, Schema } from "effect";
 
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 import { AuthService } from "#modules/auth/service";
@@ -85,6 +85,21 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 			const pluginIngestion = yield* PluginIngestionService;
 			const pluginInstallations = yield* PluginInstallationService;
 			const relationshipSchemas = yield* RelationshipSchemasRepository;
+			const installSystemPlugin = Effect.fn("TestSupportService.installSystemPlugin")(
+				function* (input: {
+					readonly manifest: unknown;
+					readonly files: Readonly<Record<string, string>>;
+				}) {
+					const files = Object.fromEntries(
+						yield* Effect.forEach(Object.entries(input.files), ([path, contents]) =>
+							Schema.decodeUnknownEffect(Schema.Uint8ArrayFromBase64)(contents).pipe(
+								Effect.map((decoded) => [path, decoded] as const),
+							),
+						),
+					);
+					return yield* pluginIngestion.installPlugin({ files, manifest: input.manifest });
+				},
+			);
 
 			const createGlobalEntity = Effect.fn("TestSupportService.createGlobalEntity")(function* (
 				input: CreateGlobalEntityInput,
@@ -239,6 +254,7 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 				triggerPluginCron,
 				listSandboxScripts,
 				createGlobalEntity,
+				installSystemPlugin,
 				countAutomationRules,
 				setEntityPopulatedAt,
 				upsertEntityTranslation,
@@ -250,7 +266,6 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 				deleteGlobalEntities: entities.deleteByIds,
 				listSystemPlugins: pluginIngestion.listPlugins,
 				listEntityTranslations: translations.listByEntity,
-				installSystemPlugin: pluginIngestion.installPlugin,
 				uninstallSystemPlugin: pluginIngestion.uninstallPlugin,
 				listSubscriptionRuns: automations.listRunsByExecutionUserId,
 				setEntityInterestMembership: interest.setEntityInterestMembership,

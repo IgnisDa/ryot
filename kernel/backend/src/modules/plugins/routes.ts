@@ -10,6 +10,25 @@ import { PluginClientArtifactService } from "./client-artifact-service";
 import { PluginInstallationService } from "./installation-service";
 import { OperationsService } from "./operations-service";
 
+export const pluginArtifactResponse = (
+	file: { readonly contents: Uint8Array; readonly contentType: string } | null,
+) => {
+	if (!file) {
+		return HttpServerResponse.empty({ status: 404 });
+	}
+	return HttpServerResponse.uint8Array(file.contents, {
+		contentType: file.contentType,
+		headers: {
+			"access-control-allow-origin": "*",
+			"x-content-type-options": "nosniff",
+			"cache-control": "public, max-age=31536000, immutable",
+			...(file.contentType.startsWith("text/html")
+				? { "content-security-policy": "sandbox allow-scripts" }
+				: {}),
+		},
+	});
+};
+
 export const PluginArtifactsRoutesLive = HttpApiBuilder.group(
 	AppContract,
 	"pluginArtifacts",
@@ -20,20 +39,7 @@ export const PluginArtifactsRoutesLive = HttpApiBuilder.group(
 				const file = yield* service
 					.findArtifactFile(params.artifactHash, params.fileName)
 					.pipe(dieOnDbError);
-				if (!file) {
-					return HttpServerResponse.empty({ status: 404 });
-				}
-				return HttpServerResponse.text(file.contents, {
-					contentType: file.contentType,
-					headers: {
-						"access-control-allow-origin": "*",
-						"x-content-type-options": "nosniff",
-						"cache-control": "public, max-age=31536000, immutable",
-						...(file.contentType.startsWith("text/html")
-							? { "content-security-policy": "sandbox allow-scripts" }
-							: {}),
-					},
-				});
+				return pluginArtifactResponse(file);
 			}),
 		),
 );

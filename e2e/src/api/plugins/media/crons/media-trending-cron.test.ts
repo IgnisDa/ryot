@@ -7,6 +7,7 @@ import {
 	adminHeaders,
 	type Client,
 	createAuthenticatedClient,
+	encodeTestSupportPluginFiles,
 	fakeProviderDetailsResult,
 	findBuiltinSchemaBySlug,
 	getApiClient,
@@ -122,7 +123,10 @@ describe("POST /test-support/cron/plugin (media-trending cron)", () => {
 				yield* getApiClient().call(
 					(c) =>
 						c.testSupport.installSystemPlugin({
-							payload: { files: installed.files, manifest: installed.manifest },
+							payload: {
+								manifest: installed.manifest,
+								files: encodeTestSupportPluginFiles(installed.files),
+							},
 						}),
 					adminHeaders,
 				);

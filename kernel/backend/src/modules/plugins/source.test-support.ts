@@ -20,7 +20,7 @@ export const loadPluginSource = (packageRoot: string, manifest: unknown) =>
 		const fs = yield* FileSystem.FileSystem;
 		const paths = yield* pluginSourcePaths(packageRoot);
 		const entries = yield* Effect.forEach(paths, (path) =>
-			fs.readFileString(`${packageRoot}/${path}`).pipe(
+			fs.readFile(`${packageRoot}/${path}`).pipe(
 				Effect.mapError((error) => new PluginSourceError({ message: String(error) })),
 				Effect.map((contents) => [path, contents] as const),
 			),

@@ -278,7 +278,6 @@ it("exposes only approved application-table fields", () => {
 it("rejects hidden application-table fields", () => {
 	for (const [tableName, fieldName] of [
 		["plugin", "ownerId"],
-		["plugin", "sourceFiles"],
 		["plugin", "compiledHashes"],
 		["plugin", "clientArtifact"],
 		["pluginInstallation", "config"],

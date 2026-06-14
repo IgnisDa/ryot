@@ -1,7 +1,7 @@
 import { badRequest } from "@ryot/contract/errors";
 import type { UserId } from "@ryot/contract/schema/brands";
 import { stableStringify } from "@ryot/ts-utils/json";
-import { Context, Effect, Layer } from "effect";
+import { Context, Effect, Layer, Schema } from "effect";
 
 import type { V2PrivatePlugin } from "#modules/backups/archive-v2/schemas";
 import {
@@ -26,8 +26,9 @@ import {
 	validatePluginSourcePaths,
 } from "./validation";
 
-export type PreparedBackupPrivatePlugin = V2PrivatePlugin & {
+export type PreparedBackupPrivatePlugin = Omit<V2PrivatePlugin, "files"> & {
 	readonly normalized: NormalizedPlugin;
+	readonly files: Readonly<Record<string, Uint8Array>>;
 };
 
 const asInvalidBackup = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
@@ -55,6 +56,14 @@ export class PluginBackupRestore extends Context.Service<PluginBackupRestore>()(
 					}
 					keys.add(item.key);
 					slugs.add(item.slug);
+					const files = Object.fromEntries(
+						yield* Effect.forEach(Object.entries(item.files), ([path, contents]) =>
+							Schema.decodeUnknownEffect(Schema.Uint8ArrayFromBase64)(contents).pipe(
+								asInvalidBackup,
+								Effect.map((decoded) => [path, decoded] as const),
+							),
+						),
+					);
 					const manifest = yield* asInvalidBackup(decodePluginManifest(item.manifest));
 					if (
 						manifest.metadata.slug !== item.slug ||
@@ -63,24 +72,24 @@ export class PluginBackupRestore extends Context.Service<PluginBackupRestore>()(
 					) {
 						return yield* badRequest("Backup private plugin metadata is inconsistent");
 					}
-					if (pluginSourceHash(manifest, item.files) !== item.sourceHash) {
+					if (pluginSourceHash(manifest, files) !== item.sourceHash) {
 						return yield* badRequest("Backup private plugin source hash is invalid");
 					}
-					yield* asInvalidBackup(validatePluginPackageLimits(item.files, manifest));
+					yield* asInvalidBackup(validatePluginPackageLimits(files, manifest));
 					yield* asInvalidBackup(
 						validatePluginManifestPolicy(manifest, {
 							scope: "user",
 							systemSlugs: new Set(system.map(({ slug }) => slug)),
 						}),
 					);
-					yield* asInvalidBackup(validatePluginSourcePaths(item.files, manifest.scripts));
+					yield* asInvalidBackup(validatePluginSourcePaths(files, manifest.scripts));
 					const normalized = yield* asInvalidBackup(
-						compilePluginPackage({ files: item.files, manifest, sourceHash: item.sourceHash }).pipe(
+						compilePluginPackage({ files, manifest, sourceHash: item.sourceHash }).pipe(
 							Effect.provideService(ClientPluginCompiler, clientCompiler),
 						),
 					);
 					yield* asInvalidBackup(validatePluginExecutableScripts(normalized));
-					prepared.push({ ...item, manifest, normalized });
+					prepared.push({ ...item, files, manifest, normalized });
 				}
 				const candidates = prepared.map(({ key, normalized, slug }) => ({
 					slug,

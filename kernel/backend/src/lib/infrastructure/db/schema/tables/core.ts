@@ -11,6 +11,7 @@ import { generateId } from "better-auth";
 import { sql } from "drizzle-orm";
 import {
 	boolean,
+	bytea,
 	check,
 	index,
 	integer,
@@ -38,7 +39,7 @@ export const pluginClientArtifactFile = snakeCase.table(
 	"plugin_client_artifact_file",
 	{
 		name: text().notNull(),
-		contents: text().notNull(),
+		contents: bytea().notNull(),
 		contentType: text().notNull(),
 		artifactHash: text()
 			.notNull()
@@ -56,7 +57,6 @@ export const plugin = snakeCase.table(
 		sourceHash: text().notNull(),
 		scope: text().$type<"system" | "user">().notNull(),
 		manifest: jsonb().$type<PluginManifest>().notNull(),
-		sourceFiles: jsonb().$type<Record<string, string>>().notNull(),
 		compiledHashes: jsonb().$type<Record<string, string>>().notNull(),
 		clientArtifactHash: text().references(() => pluginClientArtifact.hash),
 		ingestedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
@@ -80,6 +80,18 @@ export const plugin = snakeCase.table(
 			sql`(${table.scope} = 'system' and ${table.ownerId} is null) or (${table.scope} = 'user' and ${table.ownerId} is not null)`,
 		),
 	],
+);
+
+export const pluginSourceFile = snakeCase.table(
+	"plugin_source_file",
+	{
+		path: text().notNull(),
+		contents: bytea().notNull(),
+		pluginId: text()
+			.notNull()
+			.references(() => plugin.id, { onDelete: "cascade" }),
+	},
+	(table) => [primaryKey({ columns: [table.pluginId, table.path] })],
 );
 
 export const pluginInstallation = snakeCase.table(

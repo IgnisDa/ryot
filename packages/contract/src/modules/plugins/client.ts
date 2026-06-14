@@ -14,6 +14,55 @@ export const CLIENT_BRIDGE_MAX_PENDING_REQUESTS = 64;
 export const CLIENT_ARTIFACT_ROOT_ELEMENT_ID = "app";
 export const CLIENT_ARTIFACT_METADATA_ELEMENT_ID = "ryot-client-artifact";
 
+export const PLUGIN_CLIENT_TEXT_SOURCE_EXTENSIONS = [".ts", ".tsx", ".css"] as const;
+
+export const PLUGIN_CLIENT_ASSET_EXTENSIONS = [
+	".svg",
+	".png",
+	".jpg",
+	".jpeg",
+	".gif",
+	".webp",
+	".avif",
+	".ico",
+	".woff2",
+	".wasm",
+] as const;
+
+export type PluginClientAssetExtension = (typeof PLUGIN_CLIENT_ASSET_EXTENSIONS)[number];
+
+export const PLUGIN_CLIENT_ASSET_MIME_TYPES = {
+	".png": "image/png",
+	".gif": "image/gif",
+	".jpg": "image/jpeg",
+	".jpeg": "image/jpeg",
+	".avif": "image/avif",
+	".webp": "image/webp",
+	".ico": "image/x-icon",
+	".woff2": "font/woff2",
+	".svg": "image/svg+xml",
+	".wasm": "application/wasm",
+} as const satisfies Readonly<Record<PluginClientAssetExtension, string>>;
+
+export const PLUGIN_CLIENT_FILE_EXTENSIONS = [
+	...PLUGIN_CLIENT_TEXT_SOURCE_EXTENSIONS,
+	...PLUGIN_CLIENT_ASSET_EXTENSIONS,
+] as const;
+
+export type PluginClientTextSourceExtension = (typeof PLUGIN_CLIENT_TEXT_SOURCE_EXTENSIONS)[number];
+export type PluginClientFileExtension = (typeof PLUGIN_CLIENT_FILE_EXTENSIONS)[number];
+
+export const pluginClientFileExtension = (path: string): PluginClientFileExtension | undefined =>
+	PLUGIN_CLIENT_FILE_EXTENSIONS.find((extension) => path.endsWith(extension));
+
+export const isPluginClientTextSource = (path: string) =>
+	PLUGIN_CLIENT_TEXT_SOURCE_EXTENSIONS.some((extension) => path.endsWith(extension));
+
+export const pluginClientAssetMimeType = (path: string) => {
+	const extension = PLUGIN_CLIENT_ASSET_EXTENSIONS.find((ext) => path.endsWith(ext));
+	return extension === undefined ? undefined : PLUGIN_CLIENT_ASSET_MIME_TYPES[extension];
+};
+
 export const REQUIRED_THEME_TOKEN_NAMES = [
 	"bg",
 	"info",
@@ -83,8 +132,8 @@ export type PluginClientEntry = Schema.Schema.Type<typeof PluginClientEntry>;
 
 export const PluginClientArtifactFile = strictStruct({
 	name: Schema.String,
-	contents: Schema.String,
 	contentType: Schema.String,
+	contents: Schema.Uint8Array,
 });
 
 export type PluginClientArtifactFile = Schema.Schema.Type<typeof PluginClientArtifactFile>;

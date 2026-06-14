@@ -1,4 +1,4 @@
-import type { PluginPackage } from "@ryot/contract/modules/plugins/schemas";
+import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
 import { IntegrationId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
@@ -10,8 +10,6 @@ import {
 	uninstallTestPluginStrict,
 } from "~/fixtures/kernel";
 import { describe, expect, it } from "~/support/effect-test";
-
-type PluginManifest = PluginPackage["manifest"];
 
 const settingsSchema = {
 	unknownKeys: "strict",
