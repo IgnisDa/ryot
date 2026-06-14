@@ -1,8 +1,7 @@
+import { isObjectRecord } from "@ryot/ts-utils/predicates";
 import { Either } from "effect";
 import { XMLParser } from "fast-xml-parser";
 import { SyntaxValidator } from "fast-xml-validator";
-
-import { isObjectRecord } from "#lib/predicates";
 
 import {
 	createBacklogEvent,

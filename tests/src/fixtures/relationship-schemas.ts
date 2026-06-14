@@ -1,5 +1,5 @@
-import { EntitySchemaId } from "@ryot/app-backend/schema/brands";
-import type { AppSchema } from "@ryot/app-backend/schema/property-schema";
+import { EntitySchemaId } from "@ryot/contract/schema/brands";
+import type { AppSchema } from "@ryot/contract/schema/property-schema";
 
 import { requirePresent } from "../test-support/assertions";
 import type { Client } from "./auth";

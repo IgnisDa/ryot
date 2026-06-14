@@ -1,7 +1,7 @@
+import type { IntegrationId, UserId } from "@ryot/contract/schema/brands";
 import { DateTime, Effect, Either, Option, Schema } from "effect";
 
 import { RedisService, redisKeys } from "#lib/redis";
-import type { IntegrationId, UserId } from "#lib/schema/brands";
 import { finalizeEntityGroups } from "#modules/imports/media/adapter-helpers";
 import type { MediaImportAdapterResult } from "#modules/imports/media/adapter-result";
 import { nowIso } from "#modules/imports/media/dates";

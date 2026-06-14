@@ -1,4 +1,9 @@
-import type { AggregateOutput, QueryDocument, RowsOutput, TimeSeriesOutput } from "../language";
+import type {
+	AggregateOutput,
+	QueryDocument,
+	RowsOutput,
+	TimeSeriesOutput,
+} from "@ryot/contract/modules/query-engine/language";
 
 export type RootAliasKind = "entity" | "event" | "relationship";
 

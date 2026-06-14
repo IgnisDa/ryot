@@ -1,6 +1,6 @@
+import { ImportRunFailureStage } from "@ryot/contract/modules/imports/schemas";
 import { Schema } from "effect";
 
-import { ImportRunFailureStage } from "../schemas";
 import { ImportMediaEntityGroupSchema } from "./types";
 
 const MediaImportAdapterFailureSchema = Schema.Struct({

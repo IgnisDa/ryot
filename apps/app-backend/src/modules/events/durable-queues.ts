@@ -1,8 +1,7 @@
 import { DurableQueue } from "@effect/workflow";
+import { DbError } from "@ryot/contract/errors";
+import { EntityId, UserId } from "@ryot/contract/schema/brands";
 import { Schema } from "effect";
-
-import { DbError } from "#lib/errors";
-import { EntityId, UserId } from "#lib/schema/brands";
 
 const GlobalEntityReferencedPayload = Schema.Struct({
 	userId: UserId,

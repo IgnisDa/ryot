@@ -1,13 +1,14 @@
 import { FileSystem, HttpApiBuilder, HttpApiScalar } from "@effect/platform";
 import type { HttpApiError, HttpApp } from "@effect/platform";
 import { BunHttpServer } from "@effect/platform-bun";
+import { AppContract } from "@ryot/contract/contract";
+import { BadRequest } from "@ryot/contract/errors";
+import { UploadBodyLimitMiddlewareLive } from "@ryot/contract/modules/uploads/middleware";
 import { Effect, Layer, Runtime } from "effect";
 import type * as LayerTypes from "effect/Layer";
 
 import { AdminMiddlewareLive, AuthMiddlewareLive, AuthService } from "#lib/auth";
 import { AppConfig } from "#lib/config/service";
-import { AppContract } from "#lib/contract";
-import { BadRequest } from "#lib/errors";
 import { CollectionsRoutesLive } from "#modules/collections/routes";
 import { EntitiesRoutesLive } from "#modules/entities/routes";
 import { InterestRoutesLive } from "#modules/entity-interest/routes";
@@ -25,7 +26,6 @@ import { SandboxRoutesLive } from "#modules/sandbox/routes";
 import { SavedViewsRoutesLive } from "#modules/saved-views/routes";
 import { SystemRoutesLive } from "#modules/system/routes";
 import { TrackersRoutesLive } from "#modules/trackers/routes";
-import { UploadBodyLimitMiddlewareLive } from "#modules/uploads/middleware";
 import { UploadsRoutesLive } from "#modules/uploads/routes";
 import { UserPreferencesRoutesLive } from "#modules/user-preferences/routes";
 import { UserStateRoutesLive } from "#modules/user-state/routes";

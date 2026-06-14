@@ -1,8 +1,8 @@
+import { badRequest } from "@ryot/contract/errors";
+import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { Effect } from "effect";
 
 import { DbRunner } from "#lib/db/service";
-import { badRequest } from "#lib/errors";
-import type { AppSchema } from "#lib/schema/property-schema";
 import { parseAppSchemaProperties } from "#lib/schema/property-schema-runtime";
 
 import { RelationshipsRepository, type SaveRelationshipInputBase } from "./repository";

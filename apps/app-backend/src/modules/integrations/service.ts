@@ -1,21 +1,21 @@
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
-import { Effect, Either, Schema } from "effect";
-
-import type { CurrentUserValue } from "#lib/auth-middleware";
-import { DbRunner } from "#lib/db/service";
-import { badRequest, notFound } from "#lib/errors";
-import type { ImportRunId, IntegrationId, UserId } from "#lib/schema/brands";
-import { ImportsService } from "#modules/imports/service";
-
-import { IntegrationsRepository, type IntegrationRecord } from "./repository";
+import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
+import { badRequest, notFound } from "@ryot/contract/errors";
 import type {
 	CreateIntegrationBody,
 	IntegrationExtraSettings,
 	IntegrationProviderSpecifics,
 	UpdateIntegrationBody,
-} from "./schemas";
-import { IntegrationProviderSpecifics as IntegrationProviderSpecificsSchema } from "./schemas";
-import { providerLotByProvider } from "./types";
+} from "@ryot/contract/modules/integrations/schemas";
+import { IntegrationProviderSpecifics as IntegrationProviderSpecificsSchema } from "@ryot/contract/modules/integrations/schemas";
+import { providerLotByProvider } from "@ryot/contract/modules/integrations/types";
+import type { ImportRunId, IntegrationId, UserId } from "@ryot/contract/schema/brands";
+import { Effect, Either, Schema } from "effect";
+
+import { DbRunner } from "#lib/db/service";
+import { ImportsService } from "#modules/imports/service";
+
+import { IntegrationsRepository, type IntegrationRecord } from "./repository";
 import { ProcessIntegrationRunWorkflow } from "./workflows";
 
 const defaultExtraSettings = {

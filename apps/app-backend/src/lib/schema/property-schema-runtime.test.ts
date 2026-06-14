@@ -1,5 +1,3 @@
-import { describe, expect, it } from "vitest";
-
 import type {
 	AppArrayProperty,
 	AppBooleanProperty,
@@ -15,7 +13,9 @@ import type {
 	AppSchemaRule,
 	AppSchemaRuleCondition,
 	AppStringProperty,
-} from "./property-schema";
+} from "@ryot/contract/schema/property-schema";
+import { describe, expect, it } from "vitest";
+
 import {
 	formatPropertyIssues,
 	getAppPropertyDefinitionAtPath,

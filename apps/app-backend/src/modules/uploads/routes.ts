@@ -1,8 +1,7 @@
 import { HttpApiBuilder } from "@effect/platform";
+import { CurrentUser } from "@ryot/contract/auth-middleware";
+import { AppContract } from "@ryot/contract/contract";
 import { Effect } from "effect";
-
-import { CurrentUser } from "#lib/auth-middleware";
-import { AppContract } from "#lib/contract";
 
 import { UploadsService } from "./service";
 
