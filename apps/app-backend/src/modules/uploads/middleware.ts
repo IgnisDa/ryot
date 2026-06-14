@@ -1,7 +1,7 @@
 import { HttpApiMiddleware, HttpServerRequest, Multipart } from "@effect/platform";
 import { Effect, Layer, Stream } from "effect";
 
-import { TEMPORARY_UPLOAD_MAX_REQUEST_BYTES } from "./shared";
+import { TEMPORARY_UPLOAD_MAX_REQUEST_BYTES } from "./upload-policy";
 
 export class UploadBodyLimitMiddleware extends HttpApiMiddleware.Tag<UploadBodyLimitMiddleware>()(
 	"UploadBodyLimitMiddleware",

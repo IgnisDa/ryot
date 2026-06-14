@@ -1,4 +1,4 @@
-import type { MediaImportAdapterResult } from "#modules/imports/media/import-processor";
+import type { MediaImportAdapterResult } from "#modules/imports/media/adapter-result";
 import { buildMovieOrShowImportRef } from "#modules/imports/sources/shared/provider-refs";
 
 import {

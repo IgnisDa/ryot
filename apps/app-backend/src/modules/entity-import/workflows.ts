@@ -1,5 +1,6 @@
 import * as PersistedQueue from "@effect/experimental/PersistedQueue";
 import { Activity, DurableQueue, Workflow } from "@effect/workflow";
+import type { Result as WorkflowResult } from "@effect/workflow/Workflow";
 import type { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import { Cause, Context, DateTime, Effect, Exit, Layer, Match, Option, Schema } from "effect";
 
@@ -42,7 +43,7 @@ const workflowFailureResult = (
 	});
 
 export const toEntityImportRunResult = (
-	result: Workflow.Result<ListedEntity, SandboxRunError> | undefined,
+	result: WorkflowResult<ListedEntity, SandboxRunError> | undefined,
 ): EntityImportRunResult => {
 	if (!result) {
 		return { status: "pending" };

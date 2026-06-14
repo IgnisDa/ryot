@@ -11,7 +11,7 @@ import {
 } from "./measurement/workflow";
 import { isOneTimeMediaImportSource } from "./media/source-loaders";
 import { MediaImportWorkflowOperationsLive } from "./media/workflow-operations";
-import { failImportRun } from "./runtime/failures";
+import { failImportRun } from "./runtime/import-run-status";
 import { ImportRunArtifacts, ImportRunError } from "./runtime/workflow-helpers";
 import { runOneTimeMediaImportWorkflow } from "./workflows";
 import {

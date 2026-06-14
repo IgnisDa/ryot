@@ -22,7 +22,7 @@ import {
 	formatValidationError,
 	parseErrorToIssues,
 	toValidationError,
-} from "./property-schema-runtime-errors";
+} from "./property-validation-errors";
 
 type ArrayValueSchema<A = unknown, I = A, R = never> = Schema.Schema<
 	ReadonlyArray<A>,

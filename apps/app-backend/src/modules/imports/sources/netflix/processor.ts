@@ -6,15 +6,15 @@ import type { ImportRunId, SandboxScriptId, UserId } from "#lib/schema/brands";
 import { EntitiesRepository } from "#modules/entities/repository";
 import type { EntitySearchItem } from "#modules/entity-import/population";
 
+import type { MediaImportAdapterResult } from "../../media/adapter-result";
 import { nowIso } from "../../media/dates";
 import type { LoadedMediaImportAdapterError } from "../../media/file-processor";
-import type { MediaImportAdapterResult } from "../../media/import-processor";
-import { sanitizeErrorMessage } from "../../runtime/failures";
 import {
 	type ExtractImportZipArchiveResult,
 	extractImportZipArchive,
 	readImportFile,
-} from "../../runtime/files";
+} from "../../runtime/import-files";
+import { sanitizeErrorMessage } from "../../runtime/import-run-status";
 import { adaptNetflixExports } from "./adapter";
 import { type NetflixTitleMatchCandidate, chooseBestNetflixTitleMatch } from "./title-matching";
 import { extractNetflixBaseTitle } from "./title-parsing";

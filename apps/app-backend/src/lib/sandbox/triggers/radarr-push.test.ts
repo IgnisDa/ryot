@@ -11,7 +11,7 @@ import {
 
 const getRadarrCode = () =>
 	Promise.all([
-		readScriptFile("../shared/integration-push.txt"),
+		readScriptFile("../script-helpers/integration-push.txt"),
 		readScriptFile("./radarr-push.txt"),
 	]).then(([helperCode, scriptCode]) => `${helperCode}\n\n${scriptCode}`);
 

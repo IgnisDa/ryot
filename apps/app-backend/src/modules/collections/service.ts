@@ -26,7 +26,7 @@ import {
 	invalidMembershipSchemaError,
 	isPlainObject,
 	toCollectionResponse,
-} from "./service-core";
+} from "./service-support";
 
 const requireBuiltinOrDie =
 	<T>(message: string) =>

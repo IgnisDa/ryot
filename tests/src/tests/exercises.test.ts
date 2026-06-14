@@ -4,7 +4,7 @@ import {
 	createEntityColumnExpression,
 	createEntityPropertyExpression,
 	createTransformExpression,
-} from "@ryot/app-backend/query-language";
+} from "@ryot/app-backend/display-configuration";
 
 import type { Client } from "../fixtures";
 import {

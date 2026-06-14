@@ -121,7 +121,7 @@ filling in the gaps.
 ## Scope
 
 - `apps/app-backend/src/modules/query-engine/` (full rewrite acceptable)
-- `apps/app-backend/src/lib/query-language.ts` (DSL schema — may change significantly)
+- `apps/app-backend/src/lib/display-configuration.ts` (saved-view display configuration schema — may change significantly)
 - `apps/app-backend/src/lib/views/` (view validator, expression analysis, reference resolution)
 - Any frontend query builder code that constructs query engine requests
 - `tests/` (new E2E tests covering the proof criteria above)

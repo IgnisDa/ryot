@@ -15,11 +15,15 @@ import type { EventsService } from "#modules/events/service";
 import type { ImportRunJobData } from "./jobs";
 import { ImportsRepository } from "./repository";
 import {
+	readImportFile,
+	resolveImportPath,
+	resolveSafeImportFilePath,
+} from "./runtime/import-files";
+import {
 	markImportRunStarted,
 	PROGRESS_UPDATE_INTERVAL,
 	recordImportRunFailure,
-} from "./runtime/failures";
-import { readImportFile, resolveImportPath, resolveSafeImportFilePath } from "./runtime/files";
+} from "./runtime/import-run-status";
 import { getKnownImportExtensions } from "./runtime/source-definitions";
 import {
 	createImportRunLifecycle,

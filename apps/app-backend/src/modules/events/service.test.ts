@@ -19,7 +19,7 @@ import { EventSchemasRepository } from "#modules/event-schemas/repository";
 import { QueryEngineService } from "#modules/query-engine/service";
 import { RunSandboxWorkflow } from "#modules/sandbox/workflow-definitions";
 
-import { createEventsForUser } from "./create-core";
+import { createEventsForUser } from "./event-creation";
 import { EventsRepository } from "./repository";
 import type { CreateEventItem } from "./schemas";
 import { EventsService } from "./service";

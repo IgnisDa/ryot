@@ -6,13 +6,13 @@ import {
 	createCompleteEvent,
 	createReviewEvent,
 	finalizeEntityGroups,
-} from "../../media/book/shared";
-import { getOccurredAtValue, nowIso } from "../../media/dates";
-import { getOrCreateMediaEntityGroup } from "../../media/groups";
+} from "../../media/adapter-helpers";
 import type {
 	MediaImportAdapterFailure,
 	MediaImportAdapterResult,
-} from "../../media/import-processor";
+} from "../../media/adapter-result";
+import { getOccurredAtValue, nowIso } from "../../media/dates";
+import { getOrCreateMediaEntityGroup } from "../../media/groups";
 import type { ImportEntityRef, ImportMediaEntityGroup } from "../../media/types";
 import { requestSourceJson, requestSourceResponse } from "../../runtime/source-api";
 

@@ -6,7 +6,7 @@ import { DbRunner } from "#lib/db";
 import { EntitiesRepository } from "#modules/entities/repository";
 
 import type { ImportRunJobData } from "../jobs";
-import { recordImportRunFailure } from "../runtime/failures";
+import { recordImportRunFailure } from "../runtime/import-run-status";
 import { makeImporterConfig } from "../runtime/importer-config";
 import { ImportRunError, toWorkflowError } from "../runtime/workflow-helpers";
 import { mediaEntityGroupItemIndex } from "./groups";
