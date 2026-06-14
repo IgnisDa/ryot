@@ -16,6 +16,7 @@ import { EntitiesService } from "#modules/entities/service";
 import { EventsService } from "#modules/events/service";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
+import { RelationshipsService } from "#modules/relationships/service";
 
 import { CollectionsRepository } from "./repository";
 import { CollectionsService } from "./service";
@@ -170,9 +171,20 @@ const makeServiceLayer = (
 	} = {},
 ) => {
 	const entitiesRepository = options.entitiesRepository ?? makeEntitiesRepository();
+	const relationshipsRepository = options.relationshipsRepository ?? makeRelationshipsRepository();
+
 	const entitiesServiceLayer = EntitiesService.Default.pipe(
 		Layer.provide(
 			Layer.mergeAll(dbRunnerLayer, Layer.succeed(EntitiesRepository, entitiesRepository)),
+		),
+	);
+
+	const relationshipsServiceLayer = RelationshipsService.Default.pipe(
+		Layer.provide(
+			Layer.mergeAll(
+				dbRunnerLayer,
+				Layer.succeed(RelationshipsRepository, relationshipsRepository),
+			),
 		),
 	);
 
@@ -182,15 +194,13 @@ const makeServiceLayer = (
 				dbRunnerLayer,
 				transactionLayer,
 				entitiesServiceLayer,
+				relationshipsServiceLayer,
 				Layer.succeed(EventsService, options.eventsService ?? makeEventsService()),
 				Layer.succeed(
 					CollectionsRepository,
 					options.collectionsRepository ?? makeCollectionsRepository(),
 				),
-				Layer.succeed(
-					RelationshipsRepository,
-					options.relationshipsRepository ?? makeRelationshipsRepository(),
-				),
+				Layer.succeed(RelationshipsRepository, relationshipsRepository),
 				Layer.succeed(
 					RelationshipSchemasRepository,
 					options.relationshipSchemasRepository ?? makeRelationshipSchemasRepository(),

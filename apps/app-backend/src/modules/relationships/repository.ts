@@ -301,11 +301,11 @@ export class RelationshipsRepository extends Effect.Service<RelationshipsReposit
 			);
 
 			return {
-				findRelationshipProperties,
 				saveRelationship,
+				deleteUserRelationship,
+				findRelationshipProperties,
 				deleteUserRelationshipsForEntity,
 				moveUserRelationshipsBetweenEntities,
-				deleteUserRelationship,
 			};
 		},
 	},
