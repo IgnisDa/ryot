@@ -2,9 +2,9 @@ import { FileSystem, HttpApiBuilder, HttpApiScalar } from "@effect/platform";
 import { BunHttpServer } from "@effect/platform-bun";
 import { Effect, Layer, Runtime } from "effect";
 
-import { AppContract } from "../contract";
 import { AdminMiddlewareLive, AuthMiddlewareLive, AuthService } from "../lib/auth";
 import { AppConfig } from "../lib/config";
+import { AppContract } from "../lib/contract";
 import { CollectionsRoutesLive } from "../modules/collections/routes";
 import { EntitiesRoutesLive } from "../modules/entities/routes";
 import { EntitySchemasRoutesLive } from "../modules/entity-schemas/routes";
