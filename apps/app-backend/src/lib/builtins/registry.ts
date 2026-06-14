@@ -94,7 +94,10 @@ export const builtinSandboxScripts = () => [
 	script("Free Exercise DB", "exercise.free-exercise-db", freeExerciseDbScriptCode),
 	script("OpenLibrary", "book.openlibrary", withTitleCaseHelper(openLibraryBookScriptCode)),
 	script("Audible", "audiobook.audible", withTitleCaseHelper(audibleAudiobookScriptCode)),
-	script("iTunes", "podcast.itunes", itunesPodcastScriptCode),
+	script("iTunes", "podcast.itunes", itunesPodcastScriptCode, undefined, {
+		source: "itunes",
+		canonicalLanguage: "en_us",
+	}),
 	script("VNDB", "visual-novel.vndb", vndbVisualNovelScriptCode),
 	script(
 		"Anilist",
@@ -140,8 +143,14 @@ export const builtinSandboxScripts = () => [
 	script("MusicBrainz", "music.musicbrainz", musicbrainzMusicScriptCode),
 	script("MusicBrainz", "person.musicbrainz", musicbrainzPersonScriptCode),
 	script("OpenLibrary", "person.openlibrary", openLibraryPersonScriptCode),
-	script("YouTube Music", "music.youtube-music", youtubeMusicScriptCode),
-	script("YouTube Music", "person.youtube-music", youtubeMusicPersonScriptCode),
+	script("YouTube Music", "music.youtube-music", youtubeMusicScriptCode, undefined, {
+		source: "youtube-music",
+		canonicalLanguage: "en",
+	}),
+	script("YouTube Music", "person.youtube-music", youtubeMusicPersonScriptCode, undefined, {
+		source: "youtube-music",
+		canonicalLanguage: "en",
+	}),
 	script("Hardcover", "book.hardcover", withTitleCaseHelper(hardcoverBookScriptCode), [
 		"providers.hardcoverApiKey",
 	]),
@@ -220,7 +229,10 @@ export const builtinSandboxScripts = () => [
 		"providers.spotifyClientSecret",
 	]),
 	script("MusicBrainz", "music-group.musicbrainz", musicbrainzMusicGroupScriptCode),
-	script("YouTube Music", "music-group.youtube-music", youtubeMusicGroupScriptCode),
+	script("YouTube Music", "music-group.youtube-music", youtubeMusicGroupScriptCode, undefined, {
+		source: "youtube-music",
+		canonicalLanguage: "en",
+	}),
 	script("IGDB", "video-game-group.igdb", igdbVideoGameGroupScriptCode, [
 		"providers.twitchClientId",
 		"providers.twitchClientSecret",
