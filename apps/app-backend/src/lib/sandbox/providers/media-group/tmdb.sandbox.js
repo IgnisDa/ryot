@@ -170,7 +170,7 @@ driver("details", async function (context, { metadata }) {
 	);
 
 	const partsData = Array.isArray(collectionData?.parts) ? collectionData.parts : [];
-	const parts = partsData.length || null;
+	const parts = partsData.length ?? null;
 
 	const relatedEntities = partsData
 		.map((part, idx) => {

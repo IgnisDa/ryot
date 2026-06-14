@@ -70,7 +70,7 @@ function getLargestThumbnailUrl(thumbnail) {
 			: [];
 	const sorted = arr
 		.filter((t) => t?.url)
-		.sort((a, b) => (b.width || 0) * (b.height || 0) - (a.width || 0) * (a.height || 0));
+		.sort((a, b) => (b.width ?? 0) * (b.height ?? 0) - (a.width ?? 0) * (a.height ?? 0));
 	return sorted[0]?.url ?? null;
 }
 
@@ -161,7 +161,7 @@ driver("details", async function (context, { metadata }) {
 		const $ = load(String(rawDescription));
 		$("br").replaceWith("\n");
 		const text = $.root().text().trim();
-		description = text || null;
+		description = text ?? null;
 	}
 
 	const tracks = Array.isArray(album?.contents) ? album.contents : [];
