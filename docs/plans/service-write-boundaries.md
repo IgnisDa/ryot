@@ -307,20 +307,44 @@ provisioning already uses `AuthService` for user creation and account linking.
 
 - `AuthService` will be the canonical write gateway for the Better Auth `user` and `account`
   tables. God-mode code must not write those tables through `GodModeRepository`.
+- No generic AuthService CRUD surface will be introduced solely to satisfy this plan. Existing
+  methods such as `createAuthUser`, `updateUserPreferences`, and `linkAuthAccount` should remain
+  the preferred wrappers where they meet a concrete need; any new wrapper must be added only when a
+  specific caller would otherwise access a repository or Better Auth's internal adapter directly.
 - `GodModeService` will remain an orchestration service. Methods such as `provisionUser`,
   `setUserDisabled`, `deleteUser`, and `resetUser` will not be replaced by mode-based CRUD methods.
 - `setUserDisabled` will read the current row, calculate the desired `disabledAt` value in
   `GodModeService`, and delegate the single-row update to `AuthService`.
 - `deleteUser` will retain its snapshot, transaction, session cleanup, and API-key cache cleanup,
-  but will delegate the user-row deletion to `AuthService`.
+  but will delegate the user-row deletion to an existing or minimally added AuthService wrapper
+  around the appropriate Better Auth primitive.
 - `resetUser` will retain auth-state classification, OIDC preservation, bootstrap, transaction,
-  and cleanup decisions in `GodModeService`; it may orchestrate narrow auth-owned delete/create
-  calls without introducing a reset or delete-and-recreate write method.
-- Auth-owned write primitives must participate in the existing transaction boundary. If Better
-  Auth's internal adapter cannot use the current transaction, `AuthService` must provide a
-  transaction-aware implementation rather than restoring direct repository writes.
+  and cleanup decisions in `GodModeService`; it may orchestrate the existing or minimally added
+  Better Auth primitive wrappers without introducing a reset or delete-and-recreate write method.
+- Any new AuthService wrapper must preserve Better Auth lifecycle behavior and participate in the
+  existing transaction boundary where the caller requires atomicity. If Better Auth's internal
+  adapter cannot use the current transaction, resolve that integration constraint before migrating
+  God Mode; do not restore direct repository writes.
 - God-mode repository methods may remain read-only. Auth lifecycle side effects, including session
   invalidation and API-key cache cleanup, must be preserved.
+
+## Sandbox API Service
+
+### Current state
+
+`SandboxApiService` exposes `createScript` as the only `sandbox_script` write. Its `enqueue` and
+`getResult` methods only validate access and orchestrate sandbox workflows. There are no current
+user-facing update or delete operations for sandbox scripts.
+
+### Decision
+
+- No CRUD refactor is required for `SandboxApiService`.
+- `createScript` remains the single user-facing sandbox-script write entry point.
+- Preserve slug normalization, metadata and code validation, user ownership checks, and unique-slug
+  conflict behavior.
+- Do not add clone, update, delete, or upsert methods without a concrete product requirement.
+- Any built-in script seeding remains an explicit bootstrap concern and must not become a second
+  user-facing write path.
 
 ## Follow-up
 
@@ -328,4 +352,5 @@ Implement and verify these decisions one service at a time, beginning with `Enti
 then `RelationshipsService`, `EventsService`, `SavedViewsService`, `TrackersService`,
 `EntitySchemasService`, `EventSchemasService`, `RelationshipSchemasService`,
 `NotificationsService`, `IntegrationsService`, `ImportsService`, `TranslationsService`, and
-`GodModeService`. Do not add decisions for later services until they are discussed.
+`GodModeService`, and `SandboxApiService`. Do not add decisions for later services until they are
+discussed.
