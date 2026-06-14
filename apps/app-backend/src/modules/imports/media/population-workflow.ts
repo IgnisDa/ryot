@@ -46,7 +46,9 @@ export const populateMediaEntityGroups = Effect.fn("populateMediaEntityGroups")(
 			error: ImportRunError,
 			name: `load-population-script-${i}`,
 			success: Schema.NullOr(PopulationScript),
-			execute: runWithDb(entitiesRepository.findEntitySchemaScriptBySlug(ref.scriptSlug)).pipe(
+			execute: runWithDb(
+				entitiesRepository.findEntitySchemaSandboxScriptBySlug(ref.scriptSlug),
+			).pipe(
 				Effect.map((found) =>
 					found
 						? { entitySchemaId: found.entitySchemaId, sandboxScriptId: found.sandboxScriptId }
