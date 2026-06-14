@@ -15,6 +15,7 @@ import { CollectionsRepository } from "#modules/collections/repository";
 import { CollectionsService } from "#modules/collections/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
+import { EntityPopulationTriggerLive } from "#modules/entity-import/population-trigger-live";
 import {
 	BuiltinEntityImportWorkflowDefinitionsLive,
 	EntityImportWorkflowOperationsLive,
@@ -108,7 +109,10 @@ const ApplicationInfrastructureLive = Layer.mergeAll(
 	CoreInfrastructureDependenciesLive,
 );
 
-const EntitiesServiceLive = Layer.provide(EntitiesService.Default, QueryEngineService.Default);
+const EntitiesServiceLive = Layer.provide(
+	EntitiesService.Default,
+	Layer.mergeAll(QueryEngineService.Default, EntityPopulationTriggerLive),
+);
 const EventsServiceLive = Layer.provide(EventsService.Default, QueryEngineService.Default);
 
 const RuntimeSandboxServiceLive = Layer.provide(
