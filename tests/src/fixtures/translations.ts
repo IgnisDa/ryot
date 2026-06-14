@@ -20,11 +20,19 @@ export async function setUserProviderLanguage(input: {
 		 set preferences = jsonb_set(
 		   preferences,
 		   '{languages,providers}',
-		   coalesce(preferences -> 'languages' -> 'providers', '[]'::jsonb) || $2::jsonb
+		   coalesce(
+		     (
+		       select jsonb_agg(provider.value)
+		       from jsonb_array_elements(coalesce(preferences -> 'languages' -> 'providers', '[]'::jsonb)) as provider(value)
+		       where provider.value ->> 'source' <> $2
+		     ),
+		     '[]'::jsonb
+		   ) || $3::jsonb
 		 )
 		 where id = $1`,
 		[
 			input.userId,
+			input.source,
 			JSON.stringify([{ source: input.source, preferredLanguage: input.preferredLanguage }]),
 		],
 	);
