@@ -352,7 +352,9 @@ Grouped:
 - `bucket`: `hour`, `day`, `week`, `month`.
 - `range` is a half-open window: `startAt` inclusive, `endAt` exclusive. `startAt` must be
   before `endAt`.
-- Zero fill is always on — buckets with no rows return `0`, never `null`.
+- Zero fill is always on — buckets with no rows return `0`, never `null`. Buckets are
+  contiguous: each bucket's `endAt` equals the next bucket's `startAt`, and empty spans
+  between populated buckets are emitted as zero buckets.
 - Max 1000 buckets after alignment; exceeding this fails validation (no silent clamping).
 - `week` buckets use ISO/Monday-start weeks. All bucketing uses UTC.
 
@@ -412,6 +414,8 @@ Time series:
 Field value kinds: `text`, `number`, `boolean`, `date`, `json`, `null`.
 
 - A field resolving to null returns `{ "kind": "null", "value": null }`.
+- A row carries only the fields the document selects: an unselected field (e.g.
+  `translationStatus`) is absent from the row object rather than null.
 - Included sources use `{ "items", "pageInfo" }` instead of a scalar field value.
 - Responses stay lean: no field-order metadata or source/schema metadata is returned.
   Root row pagination includes total count; included sources do not.
@@ -466,6 +470,7 @@ deliberately:
   _does_ return a null-valued row (eq is false, not is true).
 - **Text collation is `C`** (byte order): text comparisons and ordering are deterministic with
   uppercase before lowercase. Numeric properties sort numerically; dates sort as `timestamptz`.
+  Comparisons are operand-order-preserving.
 - **Equality of composite values** (`eq`/`neq` over object/array JSON) is structural jsonb value
   equality, not identity.
 - **`contains`**: strings use a case-insensitive, escaped `ILIKE`; array/object property values
