@@ -145,23 +145,6 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 				});
 			}
 
-			if (
-				input.scope === "user" &&
-				input.externalId !== undefined &&
-				input.providerId !== undefined
-			) {
-				const existing = yield* repository.findEntityByExternalIdForUser({
-					userId: input.userId,
-					externalId: input.externalId,
-					providerId: input.providerId,
-					entitySchemaSlug: input.entitySchemaSlug,
-					entitySchemaPluginId: scope.pluginId ?? null,
-				});
-				if (existing) {
-					return existing;
-				}
-			}
-
 			const name = trimToNull(input.name);
 			if (!name) {
 				return yield* new EntityBadRequest({ reason: { code: "name-required", field: "name" } });

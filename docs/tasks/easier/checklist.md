@@ -17,7 +17,7 @@
   - Scope: Derive ID from schedule and interval bucket
   - Prereq: Prefer after rank 1
 
-- [ ] **4. Remove incorrect entity provenance pre-read** [H/S/M]
+- [x] **4. Remove incorrect entity provenance pre-read** [H/S/M]
   - Owner: D08 Entities
   - Scope: Validate first, then use `insertEntity` as sole conflict primitive
 
