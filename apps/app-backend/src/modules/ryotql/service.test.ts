@@ -268,9 +268,13 @@ it.effect("applies public and user-only policies to navigation tables", () => {
 
 		const workspaces = statements[2];
 		const savedViews = statements[3];
-		expect(workspaces).toContain("FROM (SELECT * FROM plugin)");
-		expect(workspaces).toMatch(/LEFT JOIN \(SELECT \* FROM plugin_state WHERE user_id = \$\d+\)/);
-		expect(workspaces).not.toContain("plugin_state WHERE (user_id");
+		expect(workspaces).toMatch(
+			/FROM \(SELECT \* FROM plugin WHERE \(owner_id = \$\d+ OR owner_id IS NULL\)\)/,
+		);
+		expect(workspaces).toMatch(
+			/LEFT JOIN \(SELECT \* FROM plugin_installation WHERE user_id = \$\d+\)/,
+		);
+		expect(workspaces).not.toContain("plugin_installation WHERE (user_id");
 		expect(savedViews).toMatch(/FROM \(SELECT \* FROM saved_view WHERE user_id = \$\d+\)/);
 		expect(savedViews).not.toContain("saved_view WHERE (user_id");
 	}).pipe(Effect.provide(makeServiceLayer(statements)));
@@ -293,7 +297,7 @@ it.effect(
 					],
 					joins: [
 						join("inner", operation, eq(column(provider, "id"), column(operation, "providerId"))),
-						join("inner", plugin, eq(column(provider, "pluginSlug"), column(plugin, "slug"))),
+						join("inner", plugin, eq(column(provider, "pluginId"), column(plugin, "id"))),
 					],
 					where: and(
 						eq(column(provider, "rootEntitySchemaSlug"), literal("movie")),
@@ -320,7 +324,9 @@ it.effect(
 
 			expect(statements[2]).toContain("FROM (SELECT * FROM sandbox_provider)");
 			expect(statements[2]).toContain("INNER JOIN (SELECT * FROM sandbox_provider_operation)");
-			expect(statements[2]).toContain("INNER JOIN (SELECT * FROM plugin)");
+			expect(statements[2]).toMatch(
+				/INNER JOIN \(SELECT \* FROM plugin WHERE \(owner_id = \$\d+ OR owner_id IS NULL\)\)/,
+			);
 			expect(response.data["providers"]).toEqual({
 				type: "rows",
 				pageInfo: { limit: 20, hasMore: false, nextCursor: null },

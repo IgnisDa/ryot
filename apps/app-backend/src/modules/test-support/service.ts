@@ -23,6 +23,7 @@ import { DefinitionRegistry } from "#modules/definition-registry/service";
 import { EntitiesService } from "#modules/entities/service";
 import { InterestService } from "#modules/entity-interest/service";
 import { TranslationsService } from "#modules/entity-translation/service";
+import { PluginIngestionService } from "#modules/plugins/service";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsService } from "#modules/relationships/service";
 import { SandboxExecutionService } from "#modules/sandbox/service";
@@ -78,6 +79,7 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 			const sandbox = yield* SandboxExecutionService;
 			const translations = yield* TranslationsService;
 			const relationships = yield* RelationshipsService;
+			const pluginIngestion = yield* PluginIngestionService;
 			const relationshipSchemas = yield* RelationshipSchemasRepository;
 
 			const createGlobalEntity = Effect.fn("TestSupportService.createGlobalEntity")(function* (
@@ -215,8 +217,11 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 				listSignals: signals.list,
 				getSandboxResult: sandbox.getResult,
 				deleteGlobalEntities: entities.deleteByIds,
+				listSystemPlugins: pluginIngestion.listPlugins,
 				listEntityTranslations: translations.listByEntity,
 				listGlobalRelationships: relationships.listGlobal,
+				installSystemPlugin: pluginIngestion.installPlugin,
+				uninstallSystemPlugin: pluginIngestion.uninstallPlugin,
 				listSubscriptionRuns: automations.listRunsByExecutionUserId,
 				setEntityInterestMembership: interest.setEntityInterestMembership,
 				deleteSandboxReplayProjection: (executionId: string) =>

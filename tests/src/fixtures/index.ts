@@ -20,6 +20,7 @@ export * from "./measurements";
 export * from "./media";
 export * from "./media-monitoring";
 export * from "./polling";
+export * from "./private-plugin";
 export * from "./entity-graph";
 export * from "./ryotql";
 export * from "./relationship-schemas";

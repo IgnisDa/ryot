@@ -2,15 +2,15 @@
 
 ## Tasks
 
-**Overall Progress:** 0 of 11 tasks completed
+**Overall Progress:** 1 of 11 tasks completed
 
-**Current Task:** [Task 01](./01-private-plugin-install-and-invoke.md) (todo)
+**Current Task:** [Task 02](./02-system-plugin-provisioning.md) (todo)
 
 ### Task List
 
 | #   | Task                                                                                             | Status |
 | --- | ------------------------------------------------------------------------------------------------ | ------ |
-| 01  | [Private Plugin Install And Invoke](./01-private-plugin-install-and-invoke.md)                   | todo   |
+| 01  | [Private Plugin Install And Invoke](./01-private-plugin-install-and-invoke.md)                   | done   |
 | 02  | [System Plugin Provisioning](./02-system-plugin-provisioning.md)                                 | todo   |
 | 03  | [Installation Configuration And Controls](./03-installation-configuration-and-controls.md)       | todo   |
 | 04  | [Plugin Update And Uninstall](./04-plugin-update-and-uninstall.md)                               | todo   |

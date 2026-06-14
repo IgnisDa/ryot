@@ -15,7 +15,7 @@ import {
 import { Result, Schema } from "effect";
 
 const plugin = table("plugin", "plugin");
-const state = table("pluginState", "state");
+const installation = table("pluginInstallation", "installation");
 const collection = table("entity", "collection");
 const savedView = table("savedView", "savedView");
 const metadata = jsonPath(column(plugin, "manifest"), "metadata");
@@ -26,13 +26,18 @@ export const navigationRecipe = defineRecipe(() => ({
 			limit: 100,
 			where: eq(column(plugin, "status"), literal("active")),
 			orderBy: [ascending(column(plugin, "ingestedAt")), ascending(column(plugin, "slug"))],
-			joins: [join("left", state, eq(column(plugin, "slug"), column(state, "pluginSlug")))],
+			joins: [
+				join("left", installation, eq(column(plugin, "id"), column(installation, "pluginId"))),
+			],
 			selection: {
 				slug: selectedField(column(plugin, "slug"), Schema.String),
 				name: selectedField(castText(jsonPath(metadata, "name")), Schema.String),
 				icon: selectedField(castText(jsonPath(metadata, "icon")), Schema.String),
-				sortOrder: selectedField(column(state, "sortOrder"), Schema.NullOr(Schema.Number)),
-				isDisabled: selectedField(column(state, "isDisabled"), Schema.NullOr(Schema.Boolean)),
+				sortOrder: selectedField(column(installation, "sortOrder"), Schema.NullOr(Schema.Number)),
+				isDisabled: selectedField(
+					column(installation, "isDisabled"),
+					Schema.NullOr(Schema.Boolean),
+				),
 			},
 		}),
 		savedViews: selectedRows(savedView, {

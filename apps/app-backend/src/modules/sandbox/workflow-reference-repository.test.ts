@@ -13,7 +13,7 @@ import {
 } from "./workflow-reference-repository";
 
 const input = {
-	pluginSlug: "fixture",
+	pluginId: "fixture",
 	contentHash: "content-hash",
 	executionId: "workflow-execution",
 	scriptId: SandboxScriptId.make("script-id"),
@@ -38,7 +38,7 @@ const makeRegisterLayer = (options: {
 					limit: () => {
 						options.events.push(table === schema.plugin ? "plugin" : "existing");
 						if (table === schema.plugin) {
-							return Effect.succeed(options.active ? [{ slug: input.pluginSlug }] : []);
+							return Effect.succeed(options.active ? [{ slug: input.pluginId }] : []);
 						}
 						return Effect.succeed(options.existing ? [options.existing] : []);
 					},
@@ -135,12 +135,12 @@ it.effect("exposes reusable reference liveness queries and idempotent release", 
 	);
 	return Effect.gen(function* () {
 		const repository = yield* SandboxWorkflowReferenceRepository;
-		expect(yield* repository.hasReferences(input.pluginSlug)).toBe(true);
-		expect(yield* repository.listReferences(input.pluginSlug)).toEqual([input]);
+		expect(yield* repository.hasReferences(input.pluginId)).toBe(true);
+		expect(yield* repository.listReferences(input.pluginId)).toEqual([input]);
 		expect(yield* repository.listReferences()).toEqual([input]);
 		yield* repository.release(input.executionId);
 		yield* repository.release(input.executionId);
-		expect(yield* repository.hasReferences(input.pluginSlug)).toBe(false);
+		expect(yield* repository.hasReferences(input.pluginId)).toBe(false);
 		expect(releases).toBe(2);
 	}).pipe(Effect.provide(layer));
 });

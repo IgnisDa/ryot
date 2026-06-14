@@ -161,7 +161,10 @@ describe("deployment-global sandbox HTTP rate limiting", () => {
 			assertTaggedError(conflict, "PluginRequestError");
 			expect(conflict.reason.code).toBe("validation-failed");
 
-			const activePlugins = yield* getBackendClient().call((c) => c.plugins.list({}), adminHeaders);
+			const activePlugins = yield* getBackendClient().call(
+				(c) => c.testSupport.listSystemPlugins({}),
+				adminHeaders,
+			);
 			expect(activePlugins.some(({ slug: activeSlug }) => activeSlug === pluginSlug)).toBe(true);
 			expect(
 				activePlugins.some(({ slug: activeSlug }) => activeSlug === conflictingPluginSlug),
@@ -444,13 +447,19 @@ describe("isolated deployment-global sandbox HTTP rate limiting", () => {
 				});
 				const clientA = makeSession(backendUrlA());
 				yield* clientA.call(
-					(c) => c.plugins.install({ payload: { manifest, files: { [entry]: source } } }),
+					(c) =>
+						c.testSupport.installSystemPlugin({
+							payload: { manifest, files: { [entry]: source } },
+						}),
 					adminHeaders,
 				);
 				yield* Effect.addFinalizer(() =>
 					makeSession(backendUrlA())
 						.call(
-							(c) => c.plugins.uninstall({ params: { pluginSlug: PluginSlug.make(pluginSlug) } }),
+							(c) =>
+								c.testSupport.uninstallSystemPlugin({
+									params: { pluginSlug: PluginSlug.make(pluginSlug) },
+								}),
 							adminHeaders,
 						)
 						.pipe(Effect.catch(() => Effect.void)),

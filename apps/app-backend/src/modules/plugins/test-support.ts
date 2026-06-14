@@ -3,6 +3,15 @@ import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
 export const fixturePackageRoot = (kind: "diagnostic" | "valid" = "valid") =>
 	new URL(`./test-fixtures/${kind}`, import.meta.url).pathname;
 
+export const fixturePluginIdentity = (slug = "fixture") =>
+	({
+		slug,
+		ownerId: null,
+		scope: "system",
+		sourceFiles: {},
+		id: `${slug}-plugin-id`,
+	}) as const;
+
 export const fixtureManifest = () =>
 	({
 		savedViews: [],
