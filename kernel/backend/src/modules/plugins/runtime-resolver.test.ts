@@ -746,7 +746,7 @@ const privatePluginRow = {
 				kind: "operation" as const,
 				requiredPluginConfigKeys: [],
 				requiredSystemConfigKeys: [],
-				entry: "scripts/private.sandbox.ts",
+				entry: "backend/automations/private.sandbox.ts",
 			},
 		],
 		configSchema: {

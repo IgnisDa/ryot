@@ -78,7 +78,7 @@ const pluginWithImportSources = (
 			name: "Fixture Automation",
 			slug: `${slug}.automation`,
 			contentHash: `script-${slug}`,
-			entry: "scripts/fixture.sandbox.ts",
+			entry: "backend/automations/fixture.sandbox.ts",
 			metadata: { ...fixtureScript, slug: `${slug}.automation` },
 		},
 	],
