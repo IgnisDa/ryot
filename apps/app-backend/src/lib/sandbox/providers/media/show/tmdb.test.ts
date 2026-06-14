@@ -14,6 +14,12 @@ const runTmdbShowDetails = (context: unknown, hostFunctions: Record<string, Host
 		metadata: { providerInformation: { source: "tmdb", canonicalLanguage: "en" } },
 	});
 
+const runTmdbShowTrending = (context: unknown, hostFunctions: Record<string, HostFunction>) =>
+	runProviderDriver(tmdbShowScriptCode, context, hostFunctions, {
+		driverName: "trending",
+		metadata: { providerInformation: { source: "tmdb", canonicalLanguage: "en" } },
+	});
+
 describe("show.tmdb sandbox script", () => {
 	it("keeps TMDB recommendations as related entities", () => {
 		return runTmdbShowDetails(
@@ -70,6 +76,45 @@ describe("show.tmdb sandbox script", () => {
 					relationshipSchemaSlug: "media-suggestion",
 				},
 			]);
+			return undefined;
+		});
+	});
+	it("returns TMDB trending shows", () => {
+		const requestedPages: string[] = [];
+		return runTmdbShowTrending(
+			{},
+			{
+				getAppConfigValue: () => hostSuccess("token"),
+				httpCall: (...args: Array<unknown>) => {
+					const requestUrl = new URL(String(args[1]));
+					expect(requestUrl.pathname).toBe("/3/trending/tv/day");
+					requestedPages.push(requestUrl.searchParams.get("page") ?? "");
+
+					if (requestUrl.searchParams.get("page") === "1") {
+						return httpSuccess({
+							results: [
+								{ id: 10, name: "First Show" },
+								{ id: 20, original_name: "Second Show" },
+								{ id: 30, name: "" },
+							],
+						});
+					}
+					if (requestUrl.searchParams.get("page") === "2") {
+						return httpSuccess({ results: [{ id: 40, name: "Third Show" }] });
+					}
+					return httpSuccess({ results: [{ id: 50, name: "Fourth Show" }] });
+				},
+			},
+		).then((rawResult) => {
+			expect(requestedPages).toEqual(["1", "2", "3"]);
+			expect(toRecord(rawResult)).toEqual({
+				items: [
+					{ name: "First Show", externalId: "10" },
+					{ name: "Second Show", externalId: "20" },
+					{ name: "Third Show", externalId: "40" },
+					{ name: "Fourth Show", externalId: "50" },
+				],
+			});
 			return undefined;
 		});
 	});
