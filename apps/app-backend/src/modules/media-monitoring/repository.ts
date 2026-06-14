@@ -93,10 +93,12 @@ export class MediaMonitoringRepository extends Effect.Service<MediaMonitoringRep
 				return row ?? null;
 			});
 
-			const listOutgoingEdges = Effect.fn("MediaMonitoringRepository.listOutgoingEdges")(function* (
-				entityId: EntityId,
-			) {
+			const listEdges = Effect.fn("MediaMonitoringRepository.listEdges")(function* (input: {
+				direction: "incoming" | "outgoing";
+				entityId: EntityId;
+			}) {
 				const db = yield* CurrentDb;
+				const isOutgoing = input.direction === "outgoing";
 				const rows = yield* dbEffect(() =>
 					db
 						.select({
@@ -111,7 +113,15 @@ export class MediaMonitoringRepository extends Effect.Service<MediaMonitoringRep
 							targetSchemaSlug: targetEntitySchema.slug,
 						})
 						.from(schema.relationship)
-						.innerJoin(schema.entity, eq(schema.relationship.targetEntityId, schema.entity.id))
+						.innerJoin(
+							schema.entity,
+							eq(
+								isOutgoing
+									? schema.relationship.targetEntityId
+									: schema.relationship.sourceEntityId,
+								schema.entity.id,
+							),
+						)
 						.innerJoin(
 							schema.entitySchema,
 							eq(schema.entity.entitySchemaId, schema.entitySchema.id),
@@ -131,7 +141,12 @@ export class MediaMonitoringRepository extends Effect.Service<MediaMonitoringRep
 						.where(
 							and(
 								isNull(schema.relationship.userId),
-								eq(schema.relationship.sourceEntityId, entityId),
+								eq(
+									isOutgoing
+										? schema.relationship.sourceEntityId
+										: schema.relationship.targetEntityId,
+									input.entityId,
+								),
 							),
 						)
 						.orderBy(asc(schema.entity.name), asc(schema.entity.id)),
@@ -145,69 +160,9 @@ export class MediaMonitoringRepository extends Effect.Service<MediaMonitoringRep
 							sandboxScriptId: row.sandboxScriptId,
 							entitySchemaSlug: row.entitySchemaSlug,
 							entityId: EntityId.make(row.entityId),
-							sourceSchemaSlug: row.sourceSchemaSlug ?? "",
 							properties: asRecord(row.properties) ?? {},
-							targetSchemaSlug: row.targetSchemaSlug ?? row.entitySchemaSlug,
-							relationshipProperties: asRecord(row.relationshipProperties) ?? {},
-						}) satisfies Edge,
-				);
-			});
-
-			const listIncomingEdges = Effect.fn("MediaMonitoringRepository.listIncomingEdges")(function* (
-				entityId: EntityId,
-			) {
-				const db = yield* CurrentDb;
-				const rows = yield* dbEffect(() =>
-					db
-						.select({
-							entityId: schema.entity.id,
-							externalId: schema.entity.externalId,
-							entitySchemaSlug: schema.entitySchema.slug,
-							name: schema.entity.name,
-							properties: schema.entity.properties,
-							relationshipProperties: schema.relationship.properties,
-							sandboxScriptId: schema.entity.sandboxScriptId,
-							sourceSchemaSlug: sourceEntitySchema.slug,
-							targetSchemaSlug: targetEntitySchema.slug,
-						})
-						.from(schema.relationship)
-						.innerJoin(schema.entity, eq(schema.relationship.sourceEntityId, schema.entity.id))
-						.innerJoin(
-							schema.entitySchema,
-							eq(schema.entity.entitySchemaId, schema.entitySchema.id),
-						)
-						.innerJoin(
-							schema.relationshipSchema,
-							eq(schema.relationship.relationshipSchemaId, schema.relationshipSchema.id),
-						)
-						.leftJoin(
-							sourceEntitySchema,
-							eq(schema.relationshipSchema.sourceEntitySchemaId, sourceEntitySchema.id),
-						)
-						.leftJoin(
-							targetEntitySchema,
-							eq(schema.relationshipSchema.targetEntitySchemaId, targetEntitySchema.id),
-						)
-						.where(
-							and(
-								isNull(schema.relationship.userId),
-								eq(schema.relationship.targetEntityId, entityId),
-							),
-						)
-						.orderBy(asc(schema.entity.name), asc(schema.entity.id)),
-				);
-
-				return rows.map(
-					(row) =>
-						({
-							name: row.name,
-							externalId: row.externalId,
-							sandboxScriptId: row.sandboxScriptId,
-							entitySchemaSlug: row.entitySchemaSlug,
-							entityId: EntityId.make(row.entityId),
-							targetSchemaSlug: row.targetSchemaSlug ?? "",
-							properties: asRecord(row.properties) ?? {},
-							sourceSchemaSlug: row.sourceSchemaSlug ?? row.entitySchemaSlug,
+							targetSchemaSlug: row.targetSchemaSlug ?? (isOutgoing ? row.entitySchemaSlug : ""),
+							sourceSchemaSlug: row.sourceSchemaSlug ?? (isOutgoing ? "" : row.entitySchemaSlug),
 							relationshipProperties: asRecord(row.relationshipProperties) ?? {},
 						}) satisfies Edge,
 				);
@@ -299,10 +254,10 @@ export class MediaMonitoringRepository extends Effect.Service<MediaMonitoringRep
 					return null;
 				}
 
-				const direct = yield* listOutgoingEdges(entityId);
+				const direct = yield* listEdges({ direction: "outgoing", entityId });
 				const nested = yield* Effect.forEach(
 					direct.filter((edge) => edge.entitySchemaSlug === "show-season"),
-					(edge) => listOutgoingEdges(edge.entityId),
+					(edge) => listEdges({ direction: "outgoing", entityId: edge.entityId }),
 				);
 				const seasons: MediaMonitoringSeasonSnapshot[] = [];
 				for (const [index, season] of direct
@@ -337,7 +292,7 @@ export class MediaMonitoringRepository extends Effect.Service<MediaMonitoringRep
 							properties: edge.properties,
 						}),
 					);
-				const incoming = yield* listIncomingEdges(entityId);
+				const incoming = yield* listEdges({ direction: "incoming", entityId });
 				const kind = toKind(entity.entitySchemaSlug);
 				const associations: MediaMonitoringAssociationSnapshot[] = [];
 				if (kind !== "media") {

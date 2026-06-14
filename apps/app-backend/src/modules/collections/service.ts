@@ -72,28 +72,21 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 			),
 		);
 
+		const getBuiltinCollectionEventSchema = Effect.fn(
+			"CollectionsService.getBuiltinCollectionEventSchema",
+		)(function* (slug: string) {
+			const entitySchema = yield* collectionEntitySchema;
+			return yield* runWithDb(
+				repository.findBuiltinEventSchemaBySlug(entitySchema.entitySchemaId, slug),
+			);
+		});
+
 		const addEventSchema = yield* Effect.cached(
-			Effect.gen(function* () {
-				const entitySchema = yield* collectionEntitySchema;
-				return yield* runWithDb(
-					repository.findBuiltinEventSchemaBySlug(
-						entitySchema.entitySchemaId,
-						"add-entity-to-collection",
-					),
-				);
-			}),
+			getBuiltinCollectionEventSchema("add-entity-to-collection"),
 		);
 
 		const removeEventSchema = yield* Effect.cached(
-			Effect.gen(function* () {
-				const entitySchema = yield* collectionEntitySchema;
-				return yield* runWithDb(
-					repository.findBuiltinEventSchemaBySlug(
-						entitySchema.entitySchemaId,
-						"remove-entity-from-collection",
-					),
-				);
-			}),
+			getBuiltinCollectionEventSchema("remove-entity-from-collection"),
 		);
 
 		const queueCollectionEvent = (input: {

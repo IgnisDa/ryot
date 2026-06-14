@@ -68,6 +68,9 @@ const normalizeIntegration = (frontendUrl: string, row: IntegrationRow): Integra
 	webhookUrl: isSinkProvider(row.provider) ? `${frontendUrl}/_i/${row.id}` : undefined,
 });
 
+const ownedIntegrationWhere = (input: { integrationId: IntegrationId; userId: UserId }) =>
+	and(eq(schema.integration.id, input.integrationId), eq(schema.integration.userId, input.userId));
+
 export class IntegrationsRepository extends Effect.Service<IntegrationsRepository>()(
 	"IntegrationsRepository",
 	{
@@ -134,12 +137,7 @@ export class IntegrationsRepository extends Effect.Service<IntegrationsRepositor
 					db
 						.select(integrationSelection)
 						.from(schema.integration)
-						.where(
-							and(
-								eq(schema.integration.id, input.integrationId),
-								eq(schema.integration.userId, input.userId),
-							),
-						)
+						.where(ownedIntegrationWhere(input))
 						.limit(1),
 				);
 
@@ -248,12 +246,7 @@ export class IntegrationsRepository extends Effect.Service<IntegrationsRepositor
 						db
 							.select(integrationSelection)
 							.from(schema.integration)
-							.where(
-								and(
-									eq(schema.integration.id, input.integrationId),
-									eq(schema.integration.userId, input.userId),
-								),
-							)
+							.where(ownedIntegrationWhere(input))
 							.limit(1),
 					);
 					return row ? normalizeIntegration(frontendUrl, row) : null;
@@ -263,12 +256,7 @@ export class IntegrationsRepository extends Effect.Service<IntegrationsRepositor
 					db
 						.update(schema.integration)
 						.set(updates)
-						.where(
-							and(
-								eq(schema.integration.id, input.integrationId),
-								eq(schema.integration.userId, input.userId),
-							),
-						)
+						.where(ownedIntegrationWhere(input))
 						.returning(integrationSelection),
 				);
 
@@ -280,16 +268,7 @@ export class IntegrationsRepository extends Effect.Service<IntegrationsRepositor
 				integrationId: IntegrationId;
 			}) {
 				const db = yield* CurrentDb;
-				yield* dbEffect(() =>
-					db
-						.delete(schema.integration)
-						.where(
-							and(
-								eq(schema.integration.id, input.integrationId),
-								eq(schema.integration.userId, input.userId),
-							),
-						),
-				);
+				yield* dbEffect(() => db.delete(schema.integration).where(ownedIntegrationWhere(input)));
 			});
 
 			return {

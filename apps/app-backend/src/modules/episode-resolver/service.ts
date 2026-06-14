@@ -5,6 +5,12 @@ import { DbRunner } from "#lib/infrastructure/db/service";
 
 import { EpisodeResolverRepository } from "./repository";
 
+const resolveUniqueCandidate = <E, R>(candidates: Effect.Effect<ReadonlyArray<EntityId>, E, R>) =>
+	Effect.gen(function* () {
+		const matches = yield* candidates;
+		return matches.length === 1 ? (matches[0] ?? null) : null;
+	});
+
 export class EpisodeResolverService extends Effect.Service<EpisodeResolverService>()(
 	"EpisodeResolverService",
 	{
@@ -14,9 +20,9 @@ export class EpisodeResolverService extends Effect.Service<EpisodeResolverServic
 
 			const resolvePodcastEpisode = Effect.fn("EpisodeResolverService.resolvePodcastEpisode")(
 				function* (input: { userId: UserId; episodeNumber: number; podcastEntityId: EntityId }) {
-					const candidates = yield* runWithDb(repository.findPodcastEpisodeCandidates(input));
-
-					return candidates.length === 1 ? (candidates[0] ?? null) : null;
+					return yield* resolveUniqueCandidate(
+						runWithDb(repository.findPodcastEpisodeCandidates(input)),
+					);
 				},
 			);
 
@@ -27,9 +33,9 @@ export class EpisodeResolverService extends Effect.Service<EpisodeResolverServic
 					episodeNumber: number;
 					showEntityId: EntityId;
 				}) {
-					const candidates = yield* runWithDb(repository.findShowEpisodeCandidates(input));
-
-					return candidates.length === 1 ? (candidates[0] ?? null) : null;
+					return yield* resolveUniqueCandidate(
+						runWithDb(repository.findShowEpisodeCandidates(input)),
+					);
 				},
 			);
 
