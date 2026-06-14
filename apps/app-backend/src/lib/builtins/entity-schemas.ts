@@ -173,7 +173,7 @@ const reviewPropertiesSchemaByEntity = (entitySchemaSlug: string | undefined): A
 	}
 };
 
-export const mediaLifecycleEventSchemas = (entitySchemaSlug?: string) => [
+const mediaLifecycleEventSchemas = (entitySchemaSlug?: string) => [
 	{ name: "Backlog", slug: "backlog", propertiesSchema: { fields: {} } },
 	{
 		name: "Progress",

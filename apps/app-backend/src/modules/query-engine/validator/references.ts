@@ -162,47 +162,48 @@ const validateInclude = (
 		}
 	});
 
-export const validateQueryDocumentReferences = Effect.fn("validateQueryDocumentReferences")(
-	function* (userId: string, doc: QueryDocument) {
-		const aliases = yield* validateRootSource(userId, doc);
+const validateQueryDocumentReferences = Effect.fn("validateQueryDocumentReferences")(function* (
+	userId: string,
+	doc: QueryDocument,
+) {
+	const aliases = yield* validateRootSource(userId, doc);
 
-		if (doc.output.type === "rows") {
-			for (const field of doc.output.fields) {
-				yield* validateExpr(userId, field.expr, aliases);
-			}
-			for (const orderBy of doc.output.orderBy) {
-				yield* validateExpr(userId, orderBy.expr, aliases);
-			}
-			for (const include of doc.output.include ?? []) {
-				yield* validateInclude(userId, include, aliases);
-			}
-			return;
+	if (doc.output.type === "rows") {
+		for (const field of doc.output.fields) {
+			yield* validateExpr(userId, field.expr, aliases);
 		}
+		for (const orderBy of doc.output.orderBy) {
+			yield* validateExpr(userId, orderBy.expr, aliases);
+		}
+		for (const include of doc.output.include ?? []) {
+			yield* validateInclude(userId, include, aliases);
+		}
+		return;
+	}
 
-		if (doc.output.type === "aggregate") {
-			for (const measure of doc.output.measures) {
-				if ("expr" in measure.aggregation) {
-					yield* validateExpr(userId, measure.aggregation.expr, aliases);
-				}
-				if ("distinctBy" in measure.aggregation && measure.aggregation.distinctBy) {
-					yield* validateExpr(userId, measure.aggregation.distinctBy, aliases);
-				}
+	if (doc.output.type === "aggregate") {
+		for (const measure of doc.output.measures) {
+			if ("expr" in measure.aggregation) {
+				yield* validateExpr(userId, measure.aggregation.expr, aliases);
 			}
-			for (const groupBy of doc.output.groupBy ?? []) {
-				yield* validateExpr(userId, groupBy.expr, aliases);
+			if ("distinctBy" in measure.aggregation && measure.aggregation.distinctBy) {
+				yield* validateExpr(userId, measure.aggregation.distinctBy, aliases);
 			}
-			for (const orderBy of doc.output.orderBy ?? []) {
-				yield* validateExpr(userId, orderBy.expr, aliases);
-			}
-			return;
 		}
+		for (const groupBy of doc.output.groupBy ?? []) {
+			yield* validateExpr(userId, groupBy.expr, aliases);
+		}
+		for (const orderBy of doc.output.orderBy ?? []) {
+			yield* validateExpr(userId, orderBy.expr, aliases);
+		}
+		return;
+	}
 
-		if ("expr" in doc.output.measure.aggregation) {
-			yield* validateExpr(userId, doc.output.measure.aggregation.expr, aliases);
-		}
-		yield* validateExpr(userId, doc.output.time.expr, aliases);
-	},
-);
+	if ("expr" in doc.output.measure.aggregation) {
+		yield* validateExpr(userId, doc.output.measure.aggregation.expr, aliases);
+	}
+	yield* validateExpr(userId, doc.output.time.expr, aliases);
+});
 
 export const validateQueryDocumentReferencesAndTypes = Effect.fn(
 	"validateQueryDocumentReferencesAndTypes",

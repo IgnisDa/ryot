@@ -28,7 +28,7 @@ import {
 } from "./runtime/workflow-helpers";
 import type { ImportRunFailureStage } from "./types";
 
-export const NonMediaAdapterFailureSchema = Schema.Struct({
+const NonMediaAdapterFailureSchema = Schema.Struct({
 	message: Schema.String,
 	itemIndex: Schema.Number,
 	sourceLabel: Schema.String,

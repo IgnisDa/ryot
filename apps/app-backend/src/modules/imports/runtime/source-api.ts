@@ -10,7 +10,7 @@ type BunRequestInit = RequestInit & { tls: { rejectUnauthorized: boolean } };
 
 const insecureRequestInit: BunRequestInit = { tls: { rejectUnauthorized: false } };
 
-export class ImportSourceRequestError extends Data.TaggedError("ImportSourceRequestError")<{
+class ImportSourceRequestError extends Data.TaggedError("ImportSourceRequestError")<{
 	message: string;
 	context: Record<string, unknown>;
 }> {}

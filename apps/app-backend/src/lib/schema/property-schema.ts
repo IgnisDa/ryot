@@ -17,7 +17,7 @@ export const propertySchemaMessage = "Properties must contain at least one prope
 export const createPropertySchemaMessage = (label: string) =>
 	`${label} must contain at least one property`;
 
-export const appPropertyPrimitiveTypes = [
+const appPropertyPrimitiveTypes = [
 	"string",
 	"number",
 	"integer",
@@ -171,7 +171,7 @@ export type AppSchema = {
 	readonly unknownKeys?: AppSchemaUnknownKeysPolicy;
 };
 
-export const PropertyValidationIssue = Schema.Struct({
+const PropertyValidationIssue = Schema.Struct({
 	message: Schema.String,
 	path: Schema.Array(Schema.String),
 });
@@ -183,7 +183,7 @@ export class PropertyValidationError extends Schema.TaggedError<PropertyValidati
 	{ message: Schema.String, issues: Schema.Array(PropertyValidationIssue) },
 ) {}
 
-export const AppSchemaUnknownKeysPolicy = Schema.Literal("strip", "strict", "passthrough");
+const AppSchemaUnknownKeysPolicy = Schema.Literal("strip", "strict", "passthrough");
 
 const requiredValidationSchema = strictStruct({ required: Schema.optional(Schema.Literal(true)) });
 
@@ -328,7 +328,7 @@ const datetimePropertySchema = strictStruct({
 	validation: Schema.optional(requiredValidationSchema),
 });
 
-export const AppPropertyDefinition: Schema.Schema<AppPropertyDefinition> = Schema.suspend(() =>
+const AppPropertyDefinition: Schema.Schema<AppPropertyDefinition> = Schema.suspend(() =>
 	Schema.Union(
 		datePropertySchema,
 		numberPropertySchema,
@@ -417,7 +417,7 @@ const ruleConditionManySchema = strictStruct({
 	operator: Schema.Literal("in", "not_in"),
 });
 
-export const AppSchemaRuleCondition: Schema.Schema<AppSchemaRuleCondition> = Schema.suspend(() =>
+const AppSchemaRuleCondition: Schema.Schema<AppSchemaRuleCondition> = Schema.suspend(() =>
 	Schema.Union(
 		ruleConditionManySchema,
 		ruleConditionValueSchema,
@@ -448,5 +448,3 @@ const appSchemaBase = strictStruct({
 }).pipe(Schema.annotations({ identifier: "AppSchema", title: "App Schema" }));
 
 export const AppSchema: Schema.Schema<AppSchema> = appSchemaBase;
-
-export const propertySchemaTypes = appPropertyPrimitiveTypes;

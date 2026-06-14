@@ -39,7 +39,7 @@ export type ProgressReporter = (
 	WorkflowEngine | WorkflowInstance | DbRunner | ImportsRepository
 >;
 
-export const calculateProgress = (input: {
+const calculateProgress = (input: {
 	base: number;
 	span: number;
 	groups: number;

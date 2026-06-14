@@ -203,7 +203,7 @@ COALESCE(jsonb_strip_nulls(
 ), '{}'::jsonb)
 `;
 
-export const buildMetadataPropertiesSql = () => `
+const buildMetadataPropertiesSql = () => `
 (
 	${buildMetadataCommonPropertiesSql()}
 	||
