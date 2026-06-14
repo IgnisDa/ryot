@@ -1,10 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 
+import { usePageTitle } from "#/modules/navigation/page-title";
+import { mainContentProps } from "#/modules/navigation/skip-link";
+
 export const Route = createFileRoute("/_authenticated/")({ component: NoWorkspaces });
 
 function NoWorkspaces() {
+	usePageTitle("No workspaces");
 	return (
-		<main className="ui-page">
+		<main {...mainContentProps} className="ui-page">
 			<section
 				aria-labelledby="no-workspaces-title"
 				className="ui-stack ui-card mx-auto w-[min(100%,480px)]"

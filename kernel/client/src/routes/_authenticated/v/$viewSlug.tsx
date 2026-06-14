@@ -13,6 +13,8 @@ import { type ReactNode, useEffect, useEffectEvent, useReducer, useRef, useState
 
 import { collectManagedAssets, ManagedAssetsService } from "#/modules/assets/managed-assets";
 import { AppIcon } from "#/modules/navigation/app-icon";
+import { usePageTitle } from "#/modules/navigation/page-title";
+import { mainContentProps } from "#/modules/navigation/skip-link";
 import { ProviderAddModal } from "#/modules/provider-add/modal";
 import {
 	appendSavedViewPage,
@@ -164,6 +166,7 @@ function SavedViewContent(props: {
 }) {
 	const ryot = useRyot();
 	const { runtime, scope } = Route.useRouteContext();
+	usePageTitle(props.record.name);
 	const canAdd = props.record.entitySchemaSlug !== null;
 	const initialIdentity = savedViewQueryIdentity(props.record, "");
 	const [searchText, setSearchText] = useState("");
@@ -429,7 +432,10 @@ function SavedViewContent(props: {
 
 	return (
 		<div className="relative h-full min-h-0">
-			<main className="h-full overflow-y-auto bg-bg px-4 pb-[max(32px,env(safe-area-inset-bottom))] md:px-8 md:pt-8">
+			<main
+				{...mainContentProps}
+				className="h-full overflow-y-auto bg-bg px-4 pb-[max(32px,env(safe-area-inset-bottom))] md:px-8 md:pt-8"
+			>
 				<div
 					aria-busy={state.operation !== undefined}
 					className="grid min-h-full w-full content-start gap-5"
@@ -448,7 +454,7 @@ function SavedViewContent(props: {
 									<Button
 										variant="text"
 										onClick={() => void countAll()}
-										className="min-h-0 text-sm text-accent-text"
+										className="min-h-6 text-sm text-accent-text"
 										disabled={currentCount.status === "counting"}
 									>
 										{countActionLabel}
@@ -479,7 +485,7 @@ function SavedViewContent(props: {
 							<button
 								type="button"
 								disabled={!hasItems}
-								aria-label="Open filters, 0 active"
+								aria-disabled="true"
 								onClick={() => console.log("TODO: open the saved-view filters")}
 								className={clsx(
 									"hidden h-8.5 items-center gap-2 self-start rounded-md border border-border-strong bg-bg px-3 md:flex",
@@ -495,6 +501,7 @@ function SavedViewContent(props: {
 									type="button"
 									onClick={onAdd}
 									aria-label="Add"
+									aria-keyshortcuts="A"
 									className="hidden h-8.5 items-center gap-2 self-start rounded-md bg-accent px-3.5 md:flex"
 								>
 									<AppIcon name="plus" size={15} className="text-accent-ink" />
@@ -519,7 +526,7 @@ function SavedViewContent(props: {
 									? "Could not load more results."
 									: "Could not update this view."}
 							</span>
-							<Button variant="text" className="min-h-0 text-sm" onClick={retryPage}>
+							<Button variant="text" className="text-sm" onClick={retryPage}>
 								Retry
 							</Button>
 						</div>
@@ -542,6 +549,7 @@ function SavedViewContent(props: {
 				<button
 					type="button"
 					onClick={onAdd}
+					aria-keyshortcuts="A"
 					aria-label="Add to this view"
 					className="absolute right-8 bottom-[max(48px,calc(env(safe-area-inset-bottom)+16px))] z-20 flex size-14 items-center justify-center rounded-pill bg-accent shadow-card md:hidden"
 				>
@@ -568,7 +576,7 @@ function SavedViewPagination(props: {
 					onClick={props.onLoadMore}
 					aria-label={props.isLoading ? "Loading more results" : "Load more results"}
 					className={clsx(
-						"flex h-12 w-full items-center justify-center gap-2 rounded-md bg-surface-2 px-4 text-[15px] text-text md:h-8.5 md:w-auto md:border md:border-border md:bg-card md:text-[13px]",
+						"flex h-12 w-full items-center justify-center gap-2 rounded-md bg-surface-2 px-4 text-[15px] text-text md:h-8.5 md:w-auto md:border md:border-border md:bg-surface md:text-[13px]",
 						props.isLoading && "opacity-60",
 					)}
 				>
@@ -699,11 +707,7 @@ function SavedViewInlineError(props: { readonly onRetry: () => void }) {
 		<section className="grid min-h-96 place-content-center justify-items-center gap-2 text-center">
 			<h2 className="text-xl font-semibold">Saved view unavailable</h2>
 			<p className="text-sm text-text-muted">The saved view results could not be loaded.</p>
-			<Button
-				variant="text"
-				onClick={props.onRetry}
-				className="mt-2 min-h-0 text-sm text-accent-text"
-			>
+			<Button variant="text" onClick={props.onRetry} className="mt-2 text-sm text-accent-text">
 				Try again
 			</Button>
 		</section>
@@ -743,8 +747,12 @@ function SavedViewNotice(props: {
 	readonly message: string;
 	readonly action?: React.ReactNode;
 }) {
+	usePageTitle(props.title);
 	return (
-		<main className="grid h-full min-h-96 place-content-center px-4 text-center">
+		<main
+			{...mainContentProps}
+			className="grid h-full min-h-96 place-content-center px-4 text-center"
+		>
 			<section
 				aria-labelledby="saved-view-notice-title"
 				className="grid w-[min(100%,480px)] justify-items-center gap-2"

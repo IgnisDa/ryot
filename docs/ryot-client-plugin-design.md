@@ -525,9 +525,15 @@ font-display
 
 The kernel supplies the current theme to the plugin runtime. The plugin runtime applies corresponding CSS variables inside the iframe.
 
+A plugin document never loads the kernel's `palette.css`. It receives raw values pushed over the bridge, enumerated by `REQUIRED_THEME_TOKEN_NAMES` in `@ryot-app/contract`, and the schema requires a non-empty string for every listed name. That makes the token list, the `@theme inline` map in `client-ui-sdk/theme.css`, and every `palette.css` block one coupled set: a token present in one and absent from another either resolves to an undefined variable inside plugins or throws when the kernel's theme store decodes its snapshot at construction. Add and remove tokens in all three places together.
+
+Two tokens carry roles worth stating, because the split is not obvious from their names. `--accent` is a *fill*: it is paired with `--accent-ink` for text drawn on it, and it is deliberately too light to serve as a boundary. `--accent-deep` is the *boundary and selection* colour — selected cards, checked controls, the filled button's edge — because WCAG 1.4.11 requires 3:1 for anything that identifies a control or its state, and `--accent` is 2.30:1 against the page in the light theme. `--danger-solid`/`--danger-ink` mirror the same fill-plus-ink pairing for destructive buttons; `--danger` on its own is a text colour and is not a fill.
+
 The font-family tokens name the compiler-owned `Outfit Variable` and `Lora Variable` faces. Their `@font-face` declarations and content-addressed files are emitted into every plugin artifact, because an iframe cannot inherit the kernel document's font declarations. The compiler also sets the artifact body's `font-family` to `var(--font-family-ui)` as its default typography; plugins use `font-display` where display typography is required. Font availability and default typography therefore do not depend on device-installed fonts or kernel CSS.
 
 Theme changes do not require recompiling a plugin.
+
+`theme.css` also carries one `@layer base` block of accessibility primitives — the pointer and not-allowed cursors and the `:focus-visible` outline. It lives there because that file is the only stylesheet loaded by both the kernel document and every plugin iframe, so it is the single place a base rule can reach both. The compiler injects the Tailwind entry itself rather than relying on a plugin to import it, since a plugin may ship no stylesheet at all and would otherwise get neither Preflight nor a registered `@layer` order. Note that cascade layer order precedes specificity, so a Tailwind utility always outranks this layer: a component that sets `outline-none` removes its own focus indicator and must supply a replacement.
 
 ### Custom CSS
 
@@ -1916,21 +1922,38 @@ The browser lifecycle suite drives theme changes through `/settings/preferences`
 
 ## 35. Accessibility
 
-Plugin applications must be treated as first-class accessible web applications.
+Plugin applications are first-class accessible web applications, and the kernel and the client UI SDK are held to WCAG 2.2 AA.
 
-The client UI SDK should provide accessible defaults for common controls.
+### What the SDK guarantees
 
-Testing must cover at least:
+- `theme.css`'s base layer gives every document — kernel and plugin alike — a pointer cursor on enabled controls, `not-allowed` on disabled ones, and a `:focus-visible` outline drawn from `--focus`. A component that suppresses the outline owes a replacement indicator at 3:1 or better; the base layer cannot win against a utility, because cascade layer order precedes specificity.
+- `RadioGroup` owns the radiogroup pattern: roles, `aria-checked`, exactly one tab stop per group, and Arrow/Home/End with selection-follows-focus. Radiogroup-shaped controls compose it rather than reimplementing roles, which is how the group stays operable and not merely announced.
+- Overlays make the background `inert`, not merely focus-trapped. Trapping Tab still leaves the page reachable by a screen reader's virtual cursor.
+- Interactive targets clear 24×24 CSS pixels (SC 2.5.8), and a control's accessible name contains its visible label (SC 2.5.3).
 
-- VoiceOver
-- TalkBack
-- keyboard navigation on web
-- focus after route changes
-- dialog focus trapping
-- screen-reader announcements
+### What the palette guarantees
+
+`kernel/client/src/styles/palette-contrast.test.ts` parses `palette.css` and fails CI on a regression, asserting **4.5:1** for text pairs and **3:1** for boundary and state pairs, in both themes. `--border-strong` is the only visible edge on inputs, secondary buttons, and the desktop segmented control, so it is held to the boundary threshold; `--border` is decorative and is not.
+
+Automated checks cannot cover this: axe cannot evaluate contrast under jsdom, which is why the palette is tested from the stylesheet rather than the rendered DOM.
+
+### What the kernel owns
+
+Per-route document titles, the polite route announcer, the skip link, and one `<main>` landmark per rendered tree, including every pending, error, and not-found branch.
+
+### Testing
+
+`vitest-axe` runs over the composite surfaces — radio group, modal, multi-select, mobile drawer, provider-add panel — with `color-contrast` disabled for the reason above. Automated passes are a floor, not a substitute; manual coverage must include:
+
+- VoiceOver and TalkBack
+- keyboard-only navigation on web
+- focus and announcement after route changes
+- dialog focus trapping, including a menu opened from inside a dialog
 - destructive-action alternatives to gesture-only UI
 
 Any action available only by swipe must also have a non-gesture accessible affordance.
+
+`crates/client` is out of scope for these guarantees. It is a parked Expo client outside the npm workspace and the turbo graph, and it keeps its own duplicate palette.
 
 ---
 

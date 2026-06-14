@@ -35,6 +35,7 @@ export default defineWorkflow({
 
 const clientRequest = encodeClientCompilerWorkerRequest({
 	apiVersion: 1,
+	name: "Smoke plugin",
 	entry: "client/index.tsx",
 	files: {
 		"client/index.tsx": new TextEncoder().encode(`

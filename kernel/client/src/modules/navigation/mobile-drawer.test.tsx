@@ -6,6 +6,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { type MotionValue, motionValue, useMotionValue } from "motion/react";
 import { useRef, useState } from "react";
 import { describe, expect, it } from "vitest";
+import { axe } from "vitest-axe";
 
 import type { AuthSessionStore } from "#/modules/auth/service";
 import { MobileDrawer } from "#/modules/navigation/mobile-drawer";
@@ -103,6 +104,15 @@ describe("mobile drawer", () => {
 		await waitFor(() => expect(document.activeElement).toBe(trigger));
 		expect(screen.queryByRole("dialog", { name: "Navigation" })).toBeNull();
 		expect(document.body.style.overflow).toBe("");
+	});
+
+	it("passes an axe pass while open", async () => {
+		render(<Harness />);
+		await openDrawer();
+
+		const results = await axe(document.body, { rules: { "color-contrast": { enabled: false } } });
+
+		expect(results.violations.map((violation) => violation.id)).toEqual([]);
 	});
 
 	it("contains forward and reverse Tab focus", async () => {
