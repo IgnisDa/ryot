@@ -1,24 +1,29 @@
 {
 	"format": "ryot-backup",
-	"version": 1,
-	"archiveId": "00000000-0000-4000-8000-000000000002",
-	"appVersion": "v1-minimal-golden",
-	"createdAt": "2026-08-23T12:00:00.000Z",
+	"version": 2,
+	"archiveId": "fixture-v2",
+	"appVersion": "backend-v2",
+	"createdAt": "2026-08-26T00:00:00.000Z",
 	"sections": [
 		{
 			"path": "profile.json",
 			"count": 1,
-			"sha256": "eea466674d173b8330508f0159ec8b8cd1c97303962cd4e3c03e918ace5f1128"
+			"sha256": "4b7d2b672a2197d86b0610609910802005599ca597382a604726a07d645cf369"
 		},
 		{
-			"path": "plugin-state.ndjson",
+			"path": "private-plugins.ndjson",
+			"count": 0,
+			"sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+		},
+		{
+			"path": "installations.ndjson",
 			"count": 0,
 			"sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 		},
 		{
 			"path": "entities.ndjson",
-			"count": 1,
-			"sha256": "160efb5d2a58d1aeb0d209a28ac56ce1f333f970efc6a120058c473b4db0386d"
+			"count": 0,
+			"sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 		},
 		{
 			"path": "entity-dependencies.ndjson",
@@ -41,12 +46,17 @@
 			"sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 		},
 		{
+			"path": "integrations.ndjson",
+			"count": 0,
+			"sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+		},
+		{
 			"path": "notification-subscriptions.ndjson",
 			"count": 0,
 			"sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 		}
 	],
 	"assets": [],
-	"requiredPlugins": [{ "slug": "media", "version": "1.0.0" }],
+	"requiredPlugins": [],
 	"redactions": []
 }

@@ -2,9 +2,9 @@
 
 ## Tasks
 
-**Overall Progress:** 8 of 11 tasks completed
+**Overall Progress:** 9 of 11 tasks completed
 
-**Current Task:** [Task 09](./09-backup-format-replacement.md) (todo)
+**Current Task:** [Task 10](./10-rust-v1-legacy-migration.md) (todo)
 
 ### Task List
 
@@ -18,7 +18,7 @@
 | 06  | [Scoped Imports And Integrations](./06-scoped-imports-and-integrations.md)                       | done   |
 | 07  | [Private Automations And Lifecycle](./07-private-automations-and-lifecycle.md)                   | done   |
 | 08  | [System Plugin Reconciliation And Conflicts](./08-system-plugin-reconciliation-and-conflicts.md) | done   |
-| 09  | [Backup Format Replacement](./09-backup-format-replacement.md)                                   | todo   |
+| 09  | [Backup Format Replacement](./09-backup-format-replacement.md)                                   | done   |
 | 10  | [Rust V1 Legacy Migration](./10-rust-v1-legacy-migration.md)                                     | todo   |
 | 11  | [Final Codebase Cleanup](./11-final-codebase-cleanup.md)                                         | todo   |
 
