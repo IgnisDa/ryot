@@ -85,6 +85,13 @@ const sameUnorderedRecords = (actual: ReadonlyArray<unknown>, expected: Readonly
 	return true;
 };
 
+const isDefaultSystemInstallation = (installation: PluginInstallationState) =>
+	installation.pluginScope === "system" &&
+	installation.health === "ready" &&
+	!installation.isDisabled &&
+	installation.sortOrder === 0 &&
+	Object.keys(installation.config).length === 0;
+
 export const classifyAccountCleanliness = (
 	state: AccountCleanlinessState,
 ): BackupAccountDataCategory | null => {
@@ -153,7 +160,7 @@ export const classifyAccountCleanliness = (
 	if (!sameUnorderedRecords(subscriptions, expectedSubscriptions)) {
 		return "notification-subscriptions";
 	}
-	if (state.pluginState.length > 0) {
+	if (!state.pluginState.every(isDefaultSystemInstallation)) {
 		return "plugin-state";
 	}
 	if (state.hasIntegrations) {

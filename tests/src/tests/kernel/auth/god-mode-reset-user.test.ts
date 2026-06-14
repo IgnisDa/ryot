@@ -126,9 +126,10 @@ describe("Reset user for credential user", () => {
 
 			const plugin = yield* findBuiltinPluginBySlug(userClient, "media");
 			const configuredPlugin = yield* updatePluginState(userClient, plugin.slug, {
-				config: { fixture: true },
+				sortOrder: 41,
+				isDisabled: true,
 			});
-			expect(configuredPlugin.config).toEqual({ fixture: true });
+			expect(configuredPlugin).toMatchObject({ isDisabled: true, sortOrder: 41 });
 
 			const accepted = yield* requestUserReset(userId);
 			expect(accepted).toMatchObject({ kind: "reset", userId });
@@ -177,7 +178,7 @@ describe("Reset user for credential user", () => {
 			expect(plugins.some((candidate) => candidate.slug === "media")).toBe(true);
 			const resetPlugin = plugins.find((candidate) => candidate.slug === plugin.slug);
 			assertPresent(resetPlugin, "expected the installed plugin after reset");
-			expect(resetPlugin.config).toEqual({});
+			expect(resetPlugin).toMatchObject({ isDisabled: false, sortOrder: 0 });
 		}),
 	);
 });
@@ -197,10 +198,7 @@ describe("Reset user for no-account user", () => {
 			assertPresent(token, "missing token");
 			const newPassword = "reset-none-pw-123!";
 			const { error: resetError } = yield* Effect.promise(() =>
-				createTestAuthClient().resetPassword({
-					token,
-					newPassword,
-				}),
+				createTestAuthClient().resetPassword({ token, newPassword }),
 			);
 			expect(resetError).toBeNull();
 
@@ -248,11 +246,7 @@ describe("Reset user for mixed-auth user", () => {
 			yield* client.call(
 				(c) =>
 					c.testSupport.linkAuthAccount({
-						payload: {
-							userId,
-							providerId: "oidc",
-							accountId: `oidc-sub-${unique()}`,
-						},
+						payload: { userId, providerId: "oidc", accountId: `oidc-sub-${unique()}` },
 					}),
 				adminAccessTokenHeaders(ADMIN_TOKEN),
 			);

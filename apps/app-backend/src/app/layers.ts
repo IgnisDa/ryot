@@ -389,7 +389,7 @@ const ProviderEntitySearchServiceLive = ProviderEntitySearchService.layer.pipe(
 );
 
 const PluginUserBootstrapDispatcherDependenciesLive = SandboxExecutionServiceLive.pipe(
-	Layer.provideMerge(PluginRuntimeResolverLive),
+	Layer.provideMerge(Layer.mergeAll(PluginRuntimeResolverLive, PluginInstallationRepository.layer)),
 );
 
 const PluginUserBootstrapDispatcherLive = PluginUserBootstrapDispatcher.layer.pipe(
@@ -463,7 +463,7 @@ const ServicesBaseLive = Layer.mergeAll(ContentServicesLive, PlatformServicesLiv
 const ContentAndSandboxServicesLive = Layer.mergeAll(
 	ServicesBaseLive,
 	ProviderEntitySearchServiceLive,
-).pipe(Layer.provideMerge(SandboxServicesLive));
+).pipe(Layer.provideMerge(Layer.mergeAll(SandboxServicesLive, PluginInstallationServiceLive)));
 
 const OperationsServiceLive = OperationsService.layer.pipe(
 	Layer.provide([ContentAndSandboxServicesLive, IntegrationOperationScopeResolverLive]),
@@ -513,7 +513,12 @@ export const RuntimeLive = Layer.mergeAll(
 );
 
 const FirstPartyPluginBootstrapLive = FirstPartyPluginBootstrap.layer.pipe(
-	Layer.provide([PluginIngestionServiceLive, PluginRepository.layer, ScriptGarbageCollectorLive]),
+	Layer.provide([
+		PluginIngestionServiceLive,
+		PluginRepository.layer,
+		ScriptGarbageCollectorLive,
+		PluginInstallationServiceLive,
+	]),
 );
 
 const MigrationBootstrapDependenciesLive = Layer.mergeAll(
@@ -533,7 +538,10 @@ const MigrationSequenceLive = MigrationsComplete.layer.pipe(
 	Layer.flatMap(() => LegacyBootstrapMigrateDrop.layer),
 );
 
-const MigrationInfrastructureLive = MigrationBootstrapServicesLive.pipe(
+const MigrationInfrastructureLive = Layer.mergeAll(
+	MigrationBootstrapServicesLive,
+	PluginInstallationServiceLive,
+).pipe(
 	Layer.provideMerge(DatabaseLive),
 	Layer.provideMerge(ManagedAssetsRepository.layer),
 	Layer.provideMerge(RedisService.layer),

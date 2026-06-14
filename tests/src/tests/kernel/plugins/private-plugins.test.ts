@@ -1,13 +1,19 @@
 import { PluginSlug } from "@ryot/contract/schema/brands";
+import { column, document, eq, field, join, literal, rows, table } from "@ryot/ryotql";
+import { sortBy } from "@ryot/ts-utils/lodash";
 import { Effect } from "effect";
 
 import {
 	createAuthenticatedClient,
+	executeRyotQL,
 	installPrivatePlugin,
 	invokePrivatePluginOperation,
 	PRIVATE_PLUGIN_CONFIG_KEY,
 	PRIVATE_PLUGIN_SECRET_KEY,
 	privatePluginPackage,
+	requireRows,
+	requireRyotQLText,
+	requireRyotQLValue,
 } from "~/fixtures";
 import { assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
@@ -15,6 +21,43 @@ import { describe, expect, it } from "~/support/effect-test";
 const mediaSlug = PluginSlug.make("media");
 
 describe("private plugins", () => {
+	it.live("persists exactly one ready system installation row per shipped plugin", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const plugin = table("plugin", "plugin");
+			const installation = table("pluginInstallation", "installation");
+
+			const result = yield* executeRyotQL(
+				client,
+				document({
+					installations: rows(installation, {
+						joins: [
+							join("inner", plugin, eq(column(installation, "pluginId"), column(plugin, "id"))),
+						],
+						fields: [
+							field("health", column(installation, "health")),
+							field("pluginSlug", column(plugin, "slug")),
+							field("sortOrder", column(installation, "sortOrder")),
+							field("isDisabled", column(installation, "isDisabled")),
+						],
+						where: eq(column(plugin, "scope"), literal("system")),
+					}),
+				}),
+			);
+
+			const items = requireRows(result.data.installations, "installations").items;
+			const bySlug = items.map((item) => requireRyotQLText(item, "pluginSlug"));
+			expect(sortBy(bySlug)).toEqual(["fitness", "media"]);
+			for (const item of items) {
+				expect({
+					health: requireRyotQLText(item, "health"),
+					sortOrder: requireRyotQLValue(item, "sortOrder"),
+					isDisabled: requireRyotQLValue(item, "isDisabled"),
+				}).toEqual({ health: "ready", sortOrder: 0, isDisabled: false });
+			}
+		}),
+	);
+
 	it.live("installs a private plugin for the authenticated user", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
