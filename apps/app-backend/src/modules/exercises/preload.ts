@@ -8,8 +8,8 @@ import { AppConfig } from "#lib/infrastructure/config/service";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { CurrentDb, DbRunner, dbEffect } from "#lib/infrastructure/db/service";
 import { EntitiesRepository } from "#modules/entities/repository";
-import { decodeEntitySearchResult } from "#modules/entity-import/population";
 import { ProviderEntityPopulationWorkflow } from "#modules/entity-import/provider-entity-population-workflow";
+import { decodeProviderSearchResult } from "#modules/sandbox/provider-contracts";
 import { SandboxRepository } from "#modules/sandbox/repository";
 import { RunSandboxWorkflow } from "#modules/sandbox/sandbox-run-workflow";
 
@@ -127,7 +127,7 @@ export const BuiltinEntityPreloaderLive = Layer.scopedDiscard(
 							? Effect.logError(
 									`Builtin exercise search failed on page ${page}: ${result.error.message}`,
 								).pipe(Effect.as<string[]>([]))
-							: decodeEntitySearchResult(result.value).pipe(
+							: decodeProviderSearchResult(result.value).pipe(
 									Effect.map(({ items }) => [...new Set(items.map((item) => item.externalId))]),
 									Effect.orElseSucceed(() => []),
 								),

@@ -8,7 +8,8 @@ import type {
 	SandboxScriptId,
 } from "@ryot/contract/schema/brands";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
-import { DateTime, Effect, Schema } from "effect";
+import type { ProviderDetailsChildEntity } from "@ryot/sandbox-sdk/provider";
+import { DateTime, Effect } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
 import { EntitiesService } from "#modules/entities/service";
@@ -16,90 +17,6 @@ import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
-
-export const EntityDetailsRelatedEntity = Schema.Struct({
-	name: Schema.String,
-	externalId: Schema.String,
-	scriptSlug: Schema.String,
-	relationshipProperties: Schema.optional(Schema.Unknown),
-});
-
-export type EntityDetailsRelatedEntity = typeof EntityDetailsRelatedEntity.Type;
-
-export const EntityDetailsRelationshipGroup = Schema.Struct({
-	synchronization: Schema.Literal("authoritative", "additive"),
-	relationshipSchemaSlug: Schema.String,
-	direction: Schema.Literal("outgoing", "incoming"),
-	entities: Schema.Array(EntityDetailsRelatedEntity),
-});
-
-export type EntityDetailsRelationshipGroup = typeof EntityDetailsRelationshipGroup.Type;
-
-export type EntityDetailsChildEntity = {
-	name: string;
-	externalId: string;
-	properties: unknown;
-	entitySchemaSlug: string;
-	childEntities?: ReadonlyArray<EntityDetailsChildEntity> | undefined;
-};
-
-type EncodedEntityDetailsChildEntity = {
-	readonly name: string;
-	readonly externalId: string;
-	readonly properties: unknown;
-	readonly entitySchemaSlug: string;
-	readonly childEntities?: ReadonlyArray<EncodedEntityDetailsChildEntity> | undefined;
-};
-
-export const EntityDetailsChildEntity: Schema.Schema<
-	EntityDetailsChildEntity,
-	EncodedEntityDetailsChildEntity
-> = Schema.suspend(() =>
-	Schema.Struct({
-		name: Schema.String,
-		externalId: Schema.String,
-		properties: Schema.Unknown,
-		entitySchemaSlug: Schema.String,
-		childEntities: Schema.optional(Schema.Array(EntityDetailsChildEntity)),
-	}),
-).annotations({ identifier: "EntityDetailsChildEntity" });
-
-const EntityDetailsResult = Schema.Struct({
-	name: Schema.String,
-	properties: Schema.Unknown,
-	childEntities: Schema.optional(Schema.Array(EntityDetailsChildEntity)),
-	relatedEntityGroups: Schema.optional(Schema.Array(EntityDetailsRelationshipGroup)),
-});
-
-export const decodeEntityDetailsResult = Schema.decodeUnknown(EntityDetailsResult);
-
-const EntityResolveResult = Schema.Struct({ externalId: Schema.NullOr(Schema.String) });
-
-export const decodeEntityResolveResult = Schema.decodeUnknown(EntityResolveResult);
-
-const EntitySearchItem = Schema.Struct({
-	externalId: Schema.NonEmptyString,
-	titleProperty: Schema.Struct({ value: Schema.NonEmptyString, kind: Schema.Literal("text") }),
-	primarySubtitleProperty: Schema.optional(
-		Schema.Union(
-			Schema.Struct({ kind: Schema.Literal("null"), value: Schema.Null }).pipe(
-				Schema.annotations({ identifier: "NullSubtitleProperty", title: "Null Subtitle Property" }),
-			),
-			Schema.Struct({ kind: Schema.Literal("number"), value: Schema.Number }).pipe(
-				Schema.annotations({
-					title: "Number Subtitle Property",
-					identifier: "NumberSubtitleProperty",
-				}),
-			),
-		),
-	),
-});
-
-export type EntitySearchItem = typeof EntitySearchItem.Type;
-
-const EntitySearchResult = Schema.Struct({ items: Schema.Array(EntitySearchItem) });
-
-export const decodeEntitySearchResult = Schema.decodeUnknown(EntitySearchResult);
 
 export const decodeSandboxDriverResult = <A, E, R>(
 	result: { error: SandboxExecutionError | null; value: unknown },
@@ -120,10 +37,10 @@ type ProcessedChildEntity = {
 export const processChildEntityTree = Effect.fn("processChildEntityTree")(function* (input: {
 	syncExisting?: boolean;
 	parentEntityId: EntityId;
-	parentEntitySchemaSlug?: string | undefined;
 	sandboxScriptId: SandboxScriptId;
 	parentEntitySchemaId: EntitySchemaId;
-	childEntities: ReadonlyArray<EntityDetailsChildEntity>;
+	parentEntitySchemaSlug?: string | undefined;
+	childEntities: ReadonlyArray<ProviderDetailsChildEntity>;
 	childEntitySchemaSlugs?: Readonly<Record<string, string>> | undefined;
 }) {
 	const runWithDb = yield* DbRunner;
@@ -246,7 +163,7 @@ export const processChildEntityTree = Effect.fn("processChildEntityTree")(functi
 	});
 
 	const processNode = (
-		childEntity: EntityDetailsChildEntity,
+		childEntity: ProviderDetailsChildEntity,
 		parentEntityId: EntityId,
 		parentEntitySchemaId: EntitySchemaId,
 	): Effect.Effect<ProcessedChildEntity, SandboxRunError> =>

@@ -1,78 +1,78 @@
+import type { SandboxHost } from "@ryot/sandbox-sdk";
+import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
-import {
-	type HostFunction,
-	hostSuccess,
-	httpSuccess,
-	runProviderDriver,
-	toRecord,
-} from "../../test-utils";
-import tmdbShowScriptCode from "./tmdb.sandbox.js" with { type: "text" };
+import { details, manifest, trending } from "./tmdb.sandbox";
 
-const runTmdbShowDetails = (context: unknown, hostFunctions: Record<string, HostFunction>) =>
-	runProviderDriver(tmdbShowScriptCode, context, hostFunctions, {
-		metadata: { providerInformation: { source: "tmdb", canonicalLanguage: "en" } },
+type TmdbHost = SandboxHost<typeof manifest.capabilities>;
+
+const httpSuccess = (body: unknown) =>
+	Promise.resolve({
+		success: true as const,
+		data: {
+			status: 200,
+			headers: {},
+			body: typeof body === "string" ? body : JSON.stringify(body),
+		},
 	});
 
-const runTmdbShowTrending = (context: unknown, hostFunctions: Record<string, HostFunction>) =>
-	runProviderDriver(tmdbShowScriptCode, context, hostFunctions, {
-		driverName: "trending",
-		metadata: { providerInformation: { source: "tmdb", canonicalLanguage: "en" } },
+const makeHost = (httpCall: TmdbHost["httpCall"]) =>
+	defineSandboxTestHost(manifest, {
+		httpCall,
+		getAppConfigValue: () => Promise.resolve({ data: "token", success: true }),
+		getUserPreferences: () =>
+			Promise.resolve({ success: true, data: { isNsfw: false, disableIntegrations: false } }),
 	});
+
+const execution = { metadata: {}, sandboxScriptId: "script_test" };
 
 describe("show.tmdb sandbox script", () => {
 	it("keeps TMDB recommendations as related entities", () => {
-		return runTmdbShowDetails(
-			{ externalId: "1" },
-			{
-				getAppConfigValue: () => hostSuccess("token"),
-				httpCall: (...args: Array<unknown>) => {
-					const requestUrl = String(args[1]);
-					if (requestUrl.includes("/tv/1/recommendations")) {
-						return httpSuccess({
-							results: [
-								{ id: 2, title: "Pick One", name: "Pick One" },
-								{ id: 3, title: "Pick Two", name: "Pick Two" },
-							],
-						});
-					}
-					if (requestUrl.includes("/tv/1/credits")) {
-						return httpSuccess({ cast: [], crew: [] });
-					}
-					if (requestUrl.includes("/tv/1/images")) {
-						return httpSuccess({ posters: [], backdrops: [] });
-					}
-					return httpSuccess({
-						id: 1,
-						genres: [],
-						seasons: [],
-						networks: [],
-						adult: false,
-						name: "Source",
-						created_by: [],
-						overview: null,
-						status: "Ended",
-						poster_path: null,
-						vote_average: 7.5,
-						backdrop_path: null,
-						production_companies: [],
-						first_air_date: "2024-01-01",
-					});
-				},
-			},
-		).then((rawDetails) => {
-			const details = toRecord(rawDetails);
-			expect(details["relatedEntityGroups"]).toEqual([
+		const host = makeHost((_method, url) => {
+			if (url.includes("/tv/1/recommendations")) {
+				return httpSuccess({
+					results: [
+						{ id: 2, title: "Pick One", name: "Pick One" },
+						{ id: 3, title: "Pick Two", name: "Pick Two" },
+					],
+				});
+			}
+			if (url.includes("/tv/1/credits")) {
+				return httpSuccess({ cast: [], crew: [] });
+			}
+			if (url.includes("/tv/1/images")) {
+				return httpSuccess({ posters: [], backdrops: [] });
+			}
+			return httpSuccess({
+				id: 1,
+				genres: [],
+				seasons: [],
+				networks: [],
+				adult: false,
+				name: "Source",
+				created_by: [],
+				overview: null,
+				status: "Ended",
+				poster_path: null,
+				vote_average: 7.5,
+				backdrop_path: null,
+				production_companies: [],
+				first_air_date: "2024-01-01",
+			});
+		});
+
+		return runSandboxTestDriver(details, { externalId: "1" }, host, execution).then((result) => {
+			expect(result.relatedEntityGroups).toEqual([
 				{
+					entities: [],
 					direction: "incoming",
 					synchronization: "additive",
-					entities: [],
 					relationshipSchemaSlug: "person-to-show",
 				},
 				{
+					entities: [],
 					direction: "incoming",
 					synchronization: "additive",
-					entities: [],
 					relationshipSchemaSlug: "company-to-show",
 				},
 				{
@@ -88,35 +88,30 @@ describe("show.tmdb sandbox script", () => {
 			return undefined;
 		});
 	});
+
 	it("returns TMDB trending shows", () => {
 		const requestedPages: string[] = [];
-		return runTmdbShowTrending(
-			{},
-			{
-				getAppConfigValue: () => hostSuccess("token"),
-				httpCall: (...args: Array<unknown>) => {
-					const requestUrl = new URL(String(args[1]));
-					expect(requestUrl.pathname).toBe("/3/trending/tv/day");
-					requestedPages.push(requestUrl.searchParams.get("page") ?? "");
+		const host = makeHost((_method, url) => {
+			const requestUrl = new URL(url);
+			expect(requestUrl.pathname).toBe("/3/trending/tv/day");
+			requestedPages.push(requestUrl.searchParams.get("page") ?? "");
+			if (requestUrl.searchParams.get("page") === "1") {
+				return httpSuccess({
+					results: [
+						{ id: 10, name: "First Show" },
+						{ id: 20, original_name: "Second Show" },
+						{ id: 30, name: "" },
+					],
+				});
+			}
+			return requestUrl.searchParams.get("page") === "2"
+				? httpSuccess({ results: [{ id: 40, name: "Third Show" }] })
+				: httpSuccess({ results: [{ id: 50, name: "Fourth Show" }] });
+		});
 
-					if (requestUrl.searchParams.get("page") === "1") {
-						return httpSuccess({
-							results: [
-								{ id: 10, name: "First Show" },
-								{ id: 20, original_name: "Second Show" },
-								{ id: 30, name: "" },
-							],
-						});
-					}
-					if (requestUrl.searchParams.get("page") === "2") {
-						return httpSuccess({ results: [{ id: 40, name: "Third Show" }] });
-					}
-					return httpSuccess({ results: [{ id: 50, name: "Fourth Show" }] });
-				},
-			},
-		).then((rawResult) => {
+		return runSandboxTestDriver(trending, {}, host, execution).then((result) => {
 			expect(requestedPages).toEqual(["1", "2", "3"]);
-			expect(toRecord(rawResult)).toEqual({
+			expect(result).toEqual({
 				items: [
 					{ name: "First Show", externalId: "10" },
 					{ name: "Second Show", externalId: "20" },
