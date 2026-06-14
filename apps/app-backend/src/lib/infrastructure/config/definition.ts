@@ -94,7 +94,7 @@ const sandbox = group(
 		denoDir: stringField({
 			label: "Deno directory",
 			envKey: "SANDBOX_DENO_DIR",
-			defaultValue: "/tmp/ryot-sandbox-deno",
+			defaultValue: "/tmp/ryot-sandbox",
 			description: "Directory used for the local sandbox dependency runtime and Deno cache",
 		}),
 		jobIdSecret: stringField({
@@ -288,7 +288,7 @@ export const appConfigDefinition = defineConfig(
 		frontendUrl: stringField({
 			label: "Frontend URL",
 			envKey: "FRONTEND_URL",
-			defaultValue: "http://localhost:3000",
+			defaultValue: "https://app.ryot.io",
 			description: "Public URL of the frontend application",
 		}),
 	},
@@ -296,5 +296,5 @@ export const appConfigDefinition = defineConfig(
 );
 
 export const sandboxDenoDirConfig = Config.string("SANDBOX_DENO_DIR").pipe(
-	Config.withDefault("/tmp/ryot-sandbox-deno"),
+	Config.withDefault("/tmp/ryot-sandbox"),
 );
