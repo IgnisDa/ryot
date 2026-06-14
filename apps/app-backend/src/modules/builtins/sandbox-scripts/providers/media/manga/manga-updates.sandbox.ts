@@ -106,10 +106,7 @@ const extractStatus = (input: unknown) => {
 	const parsedVolumes = Number(firstToken);
 	const volumes = Number.isFinite(parsedVolumes) ? Math.max(0, Math.trunc(parsedVolumes)) : null;
 	const productionStatus =
-		statusToken !== undefined &&
-		statusToken.startsWith("(") &&
-		statusToken.endsWith(")") &&
-		statusToken.length > 2
+		statusToken?.startsWith("(") && statusToken.endsWith(")") && statusToken.length > 2
 			? statusToken.slice(1, -1)
 			: null;
 	return { volumes, productionStatus };
