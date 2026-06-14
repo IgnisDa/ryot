@@ -215,13 +215,17 @@ it.effect("returns not found when creating an event for an inaccessible entity",
 	return Effect.gen(function* () {
 		const service = yield* EventsService;
 		const exit = yield* Effect.exit(
-			service.create(user, [
-				{
-					properties: {},
-					entityId: EntityId.make("entity-1"),
-					eventSchemaId: EventSchemaId.make("event-schema-1"),
-				},
-			]),
+			service.create({
+				source: "api",
+				userId: user.id,
+				payload: [
+					{
+						properties: {},
+						entityId: EntityId.make("entity-1"),
+						eventSchemaId: EventSchemaId.make("event-schema-1"),
+					},
+				],
+			}),
 		);
 
 		expect(exit).toEqual(Exit.fail(new NotFound({ message: "Entity not found" })));
@@ -241,13 +245,17 @@ it.effect("returns not found when the event schema is not visible to the user", 
 	return Effect.gen(function* () {
 		const service = yield* EventsService;
 		const exit = yield* Effect.exit(
-			service.create(user, [
-				{
-					properties: {},
-					entityId: EntityId.make("entity-1"),
-					eventSchemaId: EventSchemaId.make("event-schema-1"),
-				},
-			]),
+			service.create({
+				source: "api",
+				userId: user.id,
+				payload: [
+					{
+						properties: {},
+						entityId: EntityId.make("entity-1"),
+						eventSchemaId: EventSchemaId.make("event-schema-1"),
+					},
+				],
+			}),
 		);
 
 		expect(exit).toEqual(Exit.fail(new NotFound({ message: "Event schema not found" })));
@@ -271,13 +279,17 @@ it.effect("returns bad request when the event schema does not belong to the enti
 	return Effect.gen(function* () {
 		const service = yield* EventsService;
 		const exit = yield* Effect.exit(
-			service.create(user, [
-				{
-					properties: {},
-					entityId: EntityId.make("entity-1"),
-					eventSchemaId: EventSchemaId.make("event-schema-1"),
-				},
-			]),
+			service.create({
+				source: "api",
+				userId: user.id,
+				payload: [
+					{
+						properties: {},
+						entityId: EntityId.make("entity-1"),
+						eventSchemaId: EventSchemaId.make("event-schema-1"),
+					},
+				],
+			}),
 		);
 
 		expect(exit).toEqual(
@@ -300,14 +312,18 @@ it.effect("returns not found when the session entity is not accessible", () => {
 	return Effect.gen(function* () {
 		const service = yield* EventsService;
 		const exit = yield* Effect.exit(
-			service.create(user, [
-				{
-					entityId: EntityId.make("entity-1"),
-					properties: { rating: 5 },
-					eventSchemaId: EventSchemaId.make("event-schema-1"),
-					sessionEntityId: EntityId.make("session-entity-1"),
-				},
-			]),
+			service.create({
+				source: "api",
+				userId: user.id,
+				payload: [
+					{
+						entityId: EntityId.make("entity-1"),
+						properties: { rating: 5 },
+						eventSchemaId: EventSchemaId.make("event-schema-1"),
+						sessionEntityId: EntityId.make("session-entity-1"),
+					},
+				],
+			}),
 		);
 
 		expect(exit).toEqual(Exit.fail(new NotFound({ message: "Session entity not found" })));
@@ -327,13 +343,17 @@ it.effect("returns bad request when event properties fail schema validation", ()
 	return Effect.gen(function* () {
 		const service = yield* EventsService;
 		const exit = yield* Effect.exit(
-			service.create(user, [
-				{
-					properties: {},
-					entityId: EntityId.make("entity-1"),
-					eventSchemaId: EventSchemaId.make("event-schema-1"),
-				},
-			]),
+			service.create({
+				source: "api",
+				userId: user.id,
+				payload: [
+					{
+						properties: {},
+						entityId: EntityId.make("entity-1"),
+						eventSchemaId: EventSchemaId.make("event-schema-1"),
+					},
+				],
+			}),
 		);
 
 		expect(exit).toEqual(Exit.fail(new BadRequest({ message: "rating: is missing" })));
@@ -362,11 +382,11 @@ it.effect("queues API event creation after validation and returns the requested 
 				Effect.sync(() => {
 					createCalled = true;
 					return {
-						id: EventId.make("event-1"),
 						createdAt: now,
 						updatedAt: now,
 						entityId: input.entityId,
 						properties: input.properties,
+						id: EventId.make("event-1"),
 						eventSchemaId: input.eventSchemaId,
 						eventSchemaName: input.eventSchemaName,
 						eventSchemaSlug: input.eventSchemaSlug,
@@ -379,14 +399,18 @@ it.effect("queues API event creation after validation and returns the requested 
 
 	return Effect.gen(function* () {
 		const service = yield* EventsService;
-		const result = yield* service.create(user, [
-			{
-				entityId: EntityId.make("entity-1"),
-				properties: { rating: 5 },
-				eventSchemaId: EventSchemaId.make("event-schema-1"),
-				occurredAt: "2026-01-01T00:00:00.000Z",
-			},
-		]);
+		const result = yield* service.create({
+			userId: user.id,
+			source: "api",
+			payload: [
+				{
+					properties: { rating: 5 },
+					entityId: EntityId.make("entity-1"),
+					occurredAt: "2026-01-01T00:00:00.000Z",
+					eventSchemaId: EventSchemaId.make("event-schema-1"),
+				},
+			],
+		});
 
 		expect(result).toEqual({ count: 1 });
 		expect(createCalled).toBe(false);
@@ -397,10 +421,10 @@ it.effect("queues API event creation after validation and returns the requested 
 				userId: user.id,
 				payload: [
 					{
-						entityId: EntityId.make("entity-1"),
 						properties: { rating: 5 },
-						eventSchemaId: EventSchemaId.make("event-schema-1"),
+						entityId: EntityId.make("entity-1"),
 						occurredAt: "2026-01-01T00:00:00.000Z",
+						eventSchemaId: EventSchemaId.make("event-schema-1"),
 					},
 				],
 			},
@@ -409,10 +433,16 @@ it.effect("queues API event creation after validation and returns the requested 
 	}).pipe(Effect.provide(layer));
 });
 
-it.effect("createForImport waits for the queued workflow result", () => {
+it.effect("import event creation validates and enqueues without waiting for insertion", () => {
 	let capturedOptions: Parameters<WorkflowEngine["Type"]["execute"]>[1] | undefined;
 
 	const layer = makeEventsServiceLayer({
+		entitiesRepository: makeEntitiesRepository({
+			getEntityScopeForUser: () => Effect.succeed(entityScope),
+		}),
+		eventSchemasRepository: makeEventSchemasRepository({
+			getScopeForUser: () => Effect.succeed(eventSchemaScope),
+		}),
 		workflowEngine: makeWorkflowEngine({
 			execute: (_workflow, options) => {
 				capturedOptions = options;
@@ -423,18 +453,19 @@ it.effect("createForImport waits for the queued workflow result", () => {
 
 	return Effect.gen(function* () {
 		const service = yield* EventsService;
-		const result = yield* service.createForImport(
-			user.id,
-			[
+		const result = yield* service.create({
+			userId: user.id,
+			source: "import",
+			executionId: "run-1-event-0-0",
+			metadata: { importRunId: ImportRunId.make("run-1") },
+			payload: [
 				{
-					entityId: EntityId.make("entity-1"),
 					properties: { rating: 5 },
+					entityId: EntityId.make("entity-1"),
 					eventSchemaId: EventSchemaId.make("event-schema-1"),
 				},
 			],
-			ImportRunId.make("run-1"),
-			"run-1-event-0-0",
-		);
+		});
 
 		expect(result).toEqual({ count: 1 });
 		expect(capturedOptions).toMatchObject({
@@ -445,7 +476,7 @@ it.effect("createForImport waits for the queued workflow result", () => {
 				executionId: "run-1-event-0-0",
 			},
 		});
-		expect(capturedOptions?.discard).toBeUndefined();
+		expect(capturedOptions?.discard).toBe(true);
 	}).pipe(Effect.provide(layer));
 });
 
