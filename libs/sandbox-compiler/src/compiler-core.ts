@@ -13,7 +13,7 @@ import {
 import { extractSandboxManifest } from "./compiler-manifest";
 import { createTypeScriptProject } from "./compiler-project";
 import { type CompiledSandboxModule, SANDBOX_COMPILED_FORMAT } from "./compiler-protocol";
-import { inspectSandboxSource } from "./compiler-source";
+import { inspectSandboxSource, sandboxDefinitionMismatch } from "./compiler-source";
 import { jsonByteLength, SANDBOX_COMPILER_LIMITS, utf8ByteLength } from "./limits";
 
 const diagnosticSeverity = (category: DiagnosticCategory) => {
@@ -94,12 +94,10 @@ export const compileSandboxSource = (source: string) =>
 		if ("diagnostic" in extracted) {
 			return yield* sandboxCompilationFailure([extracted.diagnostic]);
 		}
-		if (inspection.definitionKind !== extracted.manifest.kind) {
+		const definitionMismatch = sandboxDefinitionMismatch(inspection, extracted.manifest);
+		if (definitionMismatch) {
 			return yield* sandboxCompilationFailure([
-				sandboxCompilerDiagnostic(
-					"RYOT_DEFINITION",
-					`Manifest kind "${extracted.manifest.kind}" must use ${extracted.manifest.kind === "provider" ? "defineProvider" : "defineScript"}`,
-				),
+				sandboxCompilerDiagnostic("RYOT_DEFINITION", definitionMismatch),
 			]);
 		}
 		if (

@@ -13,7 +13,11 @@ import {
 import { extractSandboxManifest } from "./compiler-manifest";
 import { createTypeScriptSourcesProject, type SandboxTypeScriptSources } from "./compiler-project";
 import { type CompiledSandboxModule, SANDBOX_COMPILED_FORMAT } from "./compiler-protocol";
-import { inspectSandboxModuleImports, inspectSandboxSource } from "./compiler-source";
+import {
+	inspectSandboxModuleImports,
+	inspectSandboxSource,
+	sandboxDefinitionMismatch,
+} from "./compiler-source";
 import { jsonByteLength, SANDBOX_COMPILER_LIMITS, utf8ByteLength } from "./limits";
 
 export type BuiltInSandboxEntry = SandboxTypeScriptSources;
@@ -123,12 +127,10 @@ export const compileBuiltInSandboxEntry = (sources: BuiltInSandboxEntry) =>
 		if ("diagnostic" in extracted) {
 			return yield* sandboxCompilationFailure([extracted.diagnostic]);
 		}
-		if (inspection.definitionKind !== extracted.manifest.kind) {
+		const definitionMismatch = sandboxDefinitionMismatch(inspection, extracted.manifest);
+		if (definitionMismatch) {
 			return yield* sandboxCompilationFailure([
-				sandboxCompilerDiagnostic(
-					"RYOT_DEFINITION",
-					`Manifest kind "${extracted.manifest.kind}" must use ${extracted.manifest.kind === "provider" ? "defineProvider" : "defineScript"}`,
-				),
+				sandboxCompilerDiagnostic("RYOT_DEFINITION", definitionMismatch),
 			]);
 		}
 		if (
