@@ -9,7 +9,11 @@ import type { UploadBadRequest } from "@ryot-app/contract/modules/uploads/schema
 import { PluginSlug } from "@ryot-app/contract/schema/brands";
 import type { PluginArchiveError } from "@ryot-app/plugin-archive";
 import type { SandboxCompilerFailure } from "@ryot-app/sandbox-compiler/diagnostics";
-import { compilePluginSandboxSourceEntries } from "@ryot-app/sandbox-compiler/plugins";
+import {
+	compilePluginManifestScripts,
+	declaredScriptMetadata,
+	pluginScriptCompileMismatchIssue,
+} from "@ryot-app/sandbox-compiler/plugin-manifest";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
@@ -18,7 +22,7 @@ import { Effect, Match } from "effect";
 import { ClientPluginCompiler } from "#modules/plugins/client-plugin-compiler";
 
 import type { SchemaEvolutionError } from "./schema-evolution";
-import type { NormalizedPlugin, PluginScriptMetadata, PluginSource } from "./types";
+import type { NormalizedPlugin, PluginSource } from "./types";
 import {
 	decodePluginManifest,
 	type PluginPackageLimitError,
@@ -69,72 +73,6 @@ export const normalizePluginSource = Effect.fn("PluginPipeline.normalizePluginSo
 	};
 });
 
-export const declaredScriptMetadata = (
-	script: PluginManifest["scripts"][number],
-): PluginScriptMetadata => {
-	if (script.kind === "script") {
-		return {
-			slug: script.slug,
-			name: script.name,
-			kind: script.kind,
-			capabilities: script.capabilities,
-			requiredPluginConfigKeys: script.requiredPluginConfigKeys,
-			requiredSystemConfigKeys: script.requiredSystemConfigKeys,
-			...(script.providerSlug ? { providerSlug: script.providerSlug } : {}),
-		};
-	}
-	if (script.kind === "operation" || script.kind === "automation") {
-		return {
-			slug: script.slug,
-			name: script.name,
-			kind: script.kind,
-			capabilities: script.capabilities,
-			requiredPluginConfigKeys: script.requiredPluginConfigKeys,
-			requiredSystemConfigKeys: script.requiredSystemConfigKeys,
-		};
-	}
-	if (script.kind === "workflow") {
-		return {
-			kind: "workflow",
-			slug: script.slug,
-			name: script.name,
-			capabilities: script.capabilities,
-			requiredPluginConfigKeys: script.requiredPluginConfigKeys,
-			requiredSystemConfigKeys: script.requiredSystemConfigKeys,
-		};
-	}
-	return {
-		kind: "provider",
-		slug: script.slug,
-		name: script.name,
-		capabilities: script.capabilities,
-		providerSlug: script.providerSlug,
-		providerOperation: script.providerOperation,
-		requiredPluginConfigKeys: script.requiredPluginConfigKeys,
-		requiredSystemConfigKeys: script.requiredSystemConfigKeys,
-		...("searchOptionsSchema" in script && script.searchOptionsSchema
-			? { searchOptionsSchema: script.searchOptionsSchema }
-			: {}),
-	};
-};
-
-const compiledScriptMetadata = (script: PluginManifest["scripts"][number]) => {
-	if (script.kind === "script") {
-		const { entry: _entry, providerSlug: _providerSlug, ...compiledMetadata } = script;
-		return compiledMetadata;
-	}
-	if (script.kind !== "provider") {
-		return declaredScriptMetadata(script);
-	}
-	const {
-		entry: _entry,
-		providerSlug: _providerSlug,
-		providerOperation: _providerOperation,
-		...compiledMetadata
-	} = script;
-	return compiledMetadata;
-};
-
 export const compilePluginPackage = Effect.fn("PluginPipeline.compilePluginPackage")(
 	function* (input: {
 		readonly sourceHash: string;
@@ -142,47 +80,24 @@ export const compilePluginPackage = Effect.fn("PluginPipeline.compilePluginPacka
 		readonly files: Readonly<Record<string, Uint8Array>>;
 	}) {
 		const backendFiles = yield* decodePluginBackendFiles(input.files);
-		const compilerScripts = input.manifest.scripts.map((script) => {
-			if (script.kind === "script") {
-				const { providerSlug, ...genericScript } = script;
-				return providerSlug ? { ...genericScript, providerSlug } : genericScript;
-			}
-			return script;
-		});
-		const compiled = yield* compilePluginSandboxSourceEntries(backendFiles, compilerScripts).pipe(
+		const compiled = yield* compilePluginManifestScripts(input.manifest, backendFiles).pipe(
 			Effect.tapError((error) => Effect.logError("plugin compile error", error)),
+			Effect.catchTag("PluginScriptCompileMismatch", (error) =>
+				Effect.fail(
+					new PluginValidationError({ issues: [pluginScriptCompileMismatchIssue(error)] }),
+				),
+			),
 		);
-		const compiledByEntry = new Map(compiled.map((script) => [script.entry, script]));
-		const scripts = yield* Effect.forEach(input.manifest.scripts, (script) => {
-			const output = compiledByEntry.get(script.entry);
-			if (!output) {
-				return Effect.fail(
-					new PluginValidationError({
-						issues: [`Compiler returned no output for ${script.entry}`],
-					}),
-				);
-			}
-			if (
-				stableStringify(compiledScriptMetadata(script)) !==
-				stableStringify(output.compiled.manifest)
-			) {
-				return Effect.fail(
-					new PluginValidationError({
-						issues: [`Declared script metadata does not match ${script.entry}`],
-					}),
-				);
-			}
-			return Effect.succeed({
-				slug: script.slug,
-				name: script.name,
-				entry: script.entry,
-				source: output.source,
-				compiledFormat: output.compiled.format,
-				compiledCode: output.compiled.javascript,
-				metadata: declaredScriptMetadata(script),
-				contentHash: digest(output.compiled.javascript),
-			});
-		});
+		const scripts = compiled.map(({ script, source, compiled: output }) => ({
+			source,
+			slug: script.slug,
+			name: script.name,
+			entry: script.entry,
+			compiledFormat: output.format,
+			compiledCode: output.javascript,
+			metadata: declaredScriptMetadata(script),
+			contentHash: digest(output.javascript),
+		}));
 		const clientCompiler = yield* ClientPluginCompiler;
 		const clientEntry = input.manifest.client;
 		const clientArtifact = clientEntry
