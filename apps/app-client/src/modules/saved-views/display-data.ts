@@ -16,6 +16,10 @@ import {
 } from "@ryot/contract/modules/uploads/schemas";
 import { DateTime, Option, Result, Schema } from "effect";
 
+import { resolveApiUrl } from "@/modules/server/url";
+
+import { canonicalManagedAssets, managedAssetKey } from "./managed-assets";
+
 const SavedViewScalarValue = Schema.Union([
 	DateFieldValue,
 	JsonFieldValue,
@@ -100,28 +104,24 @@ const getImage = (row: ScalarRow, field: string | null): Result.Result<SavedView
 	});
 };
 
-export const managedAssetKey = (asset: ManagedAssetLocator) => `${asset.type}:${asset.key}`;
-
 export const collectManagedAssets = (
 	items: readonly (SavedViewCardItem | SavedViewTableItem)[],
 ) => {
-	const assets = new Map<string, ManagedAssetLocator>();
+	const assets: ManagedAssetLocator[] = [];
 	for (const item of items) {
 		const { image } = item;
 		if (image.type === "asset" && image.locator.type !== "remote") {
-			assets.set(managedAssetKey(image.locator), image.locator);
+			assets.push(image.locator);
 		}
 	}
-	return [...assets.values()].sort((left, right) =>
-		managedAssetKey(left).localeCompare(managedAssetKey(right)),
-	);
+	return canonicalManagedAssets(assets);
 };
 
 export const resolvedAssetUrls = (response: DownloadResolutionResponse, serverUrl: string) =>
 	new Map(
 		response.map(({ asset, downloadUrl }) => [
 			managedAssetKey(asset),
-			new URL(downloadUrl, `${serverUrl.replace(/\/$/, "")}/api/`).toString(),
+			resolveApiUrl(serverUrl, downloadUrl),
 		]),
 	);
 
