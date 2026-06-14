@@ -1,5 +1,4 @@
 import { runContract, type ContractProgram } from "@ryot/contract/client";
-import type { IntegrationWebhookPayload } from "@ryot/contract/modules/integrations/schemas";
 import { IntegrationId, PluginSlug } from "@ryot/contract/schema/brands";
 import { metadataLookupRecipe } from "@ryot/media-plugin/operations/recipes";
 import { invokeOperationRecipe } from "@ryot/plugin-kit/operations";
@@ -48,12 +47,9 @@ export const lookupMetadata = async (integrationUrl: string, title: string) => {
 	return result;
 };
 
-export const postIntegrationWebhook = (
-	integrationUrl: string,
-	payload: IntegrationWebhookPayload,
-) => {
+export const postIntegrationWebhook = (integrationUrl: string, payload: unknown) => {
 	const { integrationId } = resolveConnection(integrationUrl);
 	return runForIntegration(integrationUrl, (client) =>
-		client.integrations.webhook({ payload, params: { integrationId } }),
+		client.integrations.webhook({ payload: JSON.stringify(payload), params: { integrationId } }),
 	);
 };

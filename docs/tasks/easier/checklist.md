@@ -7,7 +7,7 @@
   - Scope: Add `createRunForIntegrationIfIdle` with partial unique index
   - Prereq: Resolve duplicate active rows first
 
-- [ ] **2. Preserve raw webhook transport** [H/M/W]
+- [x] **2. Preserve raw webhook transport** [H/M/W]
   - Owner: D15 Integrations
   - Scope: Carry `{ rawBody, contentType }` envelope
   - Prereq: Contract and durable-payload versioning

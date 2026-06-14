@@ -7,7 +7,8 @@ import {
 	CreateIntegrationBody,
 	IntegrationNotFoundError,
 	IntegrationRequestError,
-	IntegrationWebhookPayload,
+	IntegrationWebhookBody,
+	integrationWebhookContentTypes,
 	ListedIntegration,
 	ListedIntegrationProvider,
 	UpdateIntegrationBody,
@@ -61,9 +62,11 @@ export const IntegrationsGroup = HttpApiGroup.make("integrations")
 	.middleware(AuthMiddleware)
 	.add(
 		HttpApiEndpoint.post("webhook", "/webhooks/integrations/:integrationId", {
-			payload: IntegrationWebhookPayload,
 			params: { integrationId: IntegrationId },
 			success: Schema.Struct({ runId: ImportRunId }).pipe(HttpApiSchema.status(202)),
+			payload: integrationWebhookContentTypes.map((contentType) =>
+				IntegrationWebhookBody.pipe(HttpApiSchema.asText({ contentType })),
+			),
 			error: [
 				IntegrationRequestError.pipe(HttpApiSchema.status(400)),
 				IntegrationNotFoundError.pipe(HttpApiSchema.status(404)),
