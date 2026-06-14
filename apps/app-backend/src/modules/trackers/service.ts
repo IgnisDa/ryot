@@ -1,7 +1,7 @@
 import { Context, Effect, Layer } from "effect";
 
 import type { CurrentUserValue } from "../../lib/auth";
-import { CurrentDb, DbService, TransactionRunner } from "../../lib/db";
+import { DbRunner, TransactionRunner } from "../../lib/db";
 import type { Conflict, DbError, NotFound } from "../../lib/errors";
 import { BadRequest, badRequest, conflict, notFound } from "../../lib/errors";
 import { buildReorderedIds } from "../../lib/reorder";
@@ -183,12 +183,9 @@ export class TrackersService extends Context.Tag("TrackersService")<
 export const TrackersServiceLive = Layer.effect(
 	TrackersService,
 	Effect.gen(function* () {
-		const db = yield* DbService;
+		const runWithDb = yield* DbRunner;
 		const repository = yield* TrackersRepository;
 		const runInTransaction = yield* TransactionRunner;
-
-		const runWithDb = <A, E>(effect: Effect.Effect<A, E, CurrentDb>) =>
-			effect.pipe(Effect.provideService(CurrentDb, db.db));
 
 		return {
 			list: (user, includeDisabled) => runWithDb(repository.listByUser(user.id, includeDisabled)),
