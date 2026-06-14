@@ -8,6 +8,7 @@ import { AuthenticatedApi } from "#/api/authenticated";
 import { PublicApi, PublicApiError } from "#/api/public";
 import { AuthClient } from "#/modules/auth/client";
 import type { AuthService } from "#/modules/auth/service";
+import { ArtifactSessions } from "#/modules/plugins/artifact-sessions";
 import { PluginCatalogService } from "#/modules/plugins/catalog";
 import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/events.test-layer";
 import { PluginOperationsService } from "#/modules/plugins/operations";
@@ -46,6 +47,16 @@ const mountView = (
 			AuthClient.layer,
 			AuthenticatedApi.layer,
 			events.layer,
+			Layer.succeed(ArtifactSessions, {
+				renew: () => Effect.die("not used"),
+				revoke: () => Effect.die("not used"),
+				create: ({ clientArtifactHash }) =>
+					Effect.succeed({
+						sessionId: "session-1",
+						expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
+						src: `https://ryot.example/session/${clientArtifactHash}/index.html`,
+					}),
+			}),
 			Layer.succeed(PluginCatalogService, { load: () => Effect.succeed(entries) }),
 			Layer.succeed(PluginOperationsService, { invoke: () => Effect.die("not used") }),
 			Layer.succeed(PluginQueriesService, { query: () => Effect.die("not used") }),
