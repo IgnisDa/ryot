@@ -1,6 +1,7 @@
-import { SandboxCompilationFailure } from "@ryot/contract/modules/sandbox/schemas";
 import type { SandboxManifest } from "@ryot/sandbox-sdk";
 import { Schema } from "effect";
+
+import { SandboxCompilerFailure } from "./compiler-diagnostics";
 
 export const SANDBOX_COMPILED_FORMAT = 1 as const;
 
@@ -21,16 +22,17 @@ const CompilerWorkerSuccess = Schema.Struct({
 
 const CompilerWorkerFailure = Schema.Struct({
 	success: Schema.Literal(false),
-	error: SandboxCompilationFailure,
+	error: SandboxCompilerFailure,
 });
 
 export const CompilerWorkerResponse = Schema.Union(CompilerWorkerSuccess, CompilerWorkerFailure);
 
 export type CompilerWorkerResponse = Schema.Schema.Type<typeof CompilerWorkerResponse>;
 
-export const compilerWorkerFailure = (
-	error: SandboxCompilationFailure,
-): CompilerWorkerResponse => ({ success: false, error });
+export const compilerWorkerFailure = (error: SandboxCompilerFailure): CompilerWorkerResponse => ({
+	error,
+	success: false,
+});
 
 export const compilerWorkerSuccess = (value: CompiledSandboxModule): CompilerWorkerResponse => ({
 	value,
