@@ -2,22 +2,26 @@
 
 ## Module Purpose
 
-Accepts a `QueryDocument` (a JSON-serializable, source-based query language), validates it, enforces authenticated visibility for every source and traversal, executes it, and serializes rows, aggregate, or time-series responses with typed field values.
+Accepts a `QueryDocument` (a JSON-serializable, source-based query language), validates it, enforces authenticated visibility for every source and traversal, compiles it to SQL, and marshals the returned rows into typed rows / aggregate / time-series responses. Execution happens entirely in Postgres — there is no application-side row evaluation.
 
 ## Abstraction Boundaries
 
 - **language.ts**: Effect Schema source of truth for the entire DSL and response shapes. Types are derived from schemas; do not duplicate shapes as hand-written interfaces.
-- **validator/**: Pure semantic validation (`index.ts`, `core.ts`, `output.ts`, `shared.ts`) and DB-aware reference validation (`references.ts`). Pure validation must not import executor runtime code except `schema-loaders` and `time-series-buckets`.
-- **executor/sql.ts**: The only place that maps field selectors to Drizzle `sql` fragments.
-- **executor/field-values.ts**: `FieldSelector` → `FieldValue` resolution. Must not construct SQL.
-- **executor/expr.ts**: Expression evaluation over row contexts. Pure, no SQL.
-- **executor/serialize.ts**: Row serialization for root and nested rows. Must not format display values beyond `{ kind, value }`.
+- **validator/**: Pure semantic validation (`index.ts`, `core.ts`, `output.ts`, `shared.ts`), DB-aware reference validation (`references.ts`), and type-compatibility validation (`type-check.ts`, which also enforces ISO date literals). Pure validation must not import executor runtime code except `schema-loaders` and `time-series-buckets`.
+- **executor/compile/**: Pure SQL compilation — no DB, no Effect.
+  - `expr.ts`: the total `Expr` → SQL compiler (`compileBool` / `compileScalar` / `compileValue`), including correlated `exists` / `aggregate` / `first` subqueries. Every node compiles; nothing falls back to app code.
+  - `scope.ts`: `CompileScope` — maps doc aliases to SQL aliases, walks the parent chain for correlation, and allocates unique aliases for nested subqueries.
+  - `fragments.ts`: low-level SQL fragment helpers (system/schema columns, jsonb property extraction, visibility, jsonb→kind, time bucketing).
+  - `select-list.ts`: output-field, measure, and group-key column builders.
+  - `includes.ts`: nested `LATERAL` + `jsonb_agg` builder for include sub-trees.
+- **executor/root-source.ts**: Visible-schema loading and the root FROM/WHERE builders (per-user visibility enforced). Every root source path goes through it.
+- **executor/{aggregate,rows,time-series}.ts**: Per-output executors — build one SQL query, run it, and marshal the result.
+- **executor/reconstruct.ts** and **executor/reshape.ts**: Map raw DB values into the `{ kind, value }` DTO (`reconstruct.ts`) and include jsonb arrays into `IncludedRowsValue` trees (`reshape.ts`). Must not construct SQL.
 - **executor/schema-loaders.ts**: Visible schema loading with user isolation. Shared by `references.ts` and the executor — every source path must go through it.
-- **executor/{rows,source-matches,first,time-series}.ts**: Per-output and per-source execution strategies.
 - **time-series-buckets.ts**: Bucket alignment shared by validator and executor. Pure, no DB.
 
 ## Conventions
 
 - Keep `routes.ts` thin and keep request/response contracts in `contract.ts` and `language.ts`.
-- Safety-limit constants live in `validator/shared.ts` (validation limits) and `executor/types.ts` (runtime caps).
+- Validation-limit constants (page size, include depth/limit, aggregate limit, bucket count) live in `validator/shared.ts`. Execution has no in-memory row caps; a runaway query is bounded by the database `statement_timeout`.
 - When changing the query language, update `README.md` in this directory and the examples in `tests/src/fixtures/query-engine.ts` and `tests/src/tests/query-engine.test.ts`.

@@ -402,94 +402,65 @@ Field value kinds: `text`, `number`, `boolean`, `date`, `json`, `null`.
 - Responses stay lean: no field-order metadata or source/schema metadata is returned.
   Root row pagination includes total count; included sources do not.
 
-## Safety Limits
+## Safety limits
 
-| Limit                                         | Value                                      |
-| --------------------------------------------- | ------------------------------------------ |
-| Max root page size                            | 100                                        |
-| Max include depth                             | 3 (root is depth 0)                        |
-| Max include limit                             | 100                                        |
-| Max expression source depth                   | 3 (root is depth 0, counted independently) |
-| Max grouped aggregate limit                   | 1000                                       |
-| Max time-series buckets                       | 1000                                       |
-| Max serialized row objects per response       | 5000                                       |
-| Max root filter scan rows                     | 5000                                       |
-| Max root aggregate/time-series scan rows      | 50000                                      |
-| Max correlated expression rows per parent row | 10000                                      |
+| Limit                       | Value                                      |
+| --------------------------- | ------------------------------------------ |
+| Max root page size          | 100                                        |
+| Max include depth           | 3 (root is depth 0)                        |
+| Max include limit           | 100                                        |
+| Max expression source depth | 3 (root is depth 0, counted independently) |
+| Max grouped aggregate limit | 1000                                       |
+| Max time-series buckets     | 1000                                       |
 
-If the serialized row-object cap is exceeded, the engine fails the query rather than
-silently truncating. A grouped aggregate limit greater than 1000 fails validation rather
+These bound the _shape_ of a request (result size and nesting) and are enforced during
+validation — a grouped aggregate limit over 1000, or a bucket count over 1000, fails rather
 than being clamped.
 
-These scan caps bound only the **app-side fallback** paths. When a correlated
-`exists`/`aggregate` or an aggregate/time-series return pushes fully into SQL (see
-[Filter pushdown](#filter-pushdown)), the database does the work and the cap does not apply.
+The engine never materializes rows in application memory, so there are no row-scan caps. The
+backstop against a pathologically expensive query is the database `statement_timeout`
+configured on the connection pool (`config.database.statementTimeoutMs`).
 
-Correlated `aggregate` expressions and correlated `exists` expressions that fall back to
-app-side (e.g. a sub-source `where` that is not fully pushable, or an `aggregate` used in an
-output field) consider at most 10000 candidate rows per parent row and fail rather than
-considering a truncated set. An `exists` without a `where` short-circuits with a top-1 probe
-and is not subject to this cap.
+## Execution
 
-Aggregate and time-series returns that fall back to app-side (e.g. `count` distinct, or a
-property-based time-series expression) materialize their root source and aggregate in app, so
-the root source is bounded to 50000 scanned rows; a larger source fails rather than loading
-an unbounded set into memory (`Root source candidate rows exceeds maximum of 50000`).
+Every `QueryDocument` compiles to SQL and executes entirely in Postgres — filtering, ordering,
+pagination, grouping, aggregation, time bucketing, correlated `exists`/`aggregate`/`first`, and
+nested `include` lists. There is no application-side evaluation or fallback: the app compiles
+the document, runs the query, and maps the returned rows into the typed response (each output
+field is a `(value, kind)` column pair; include lists arrive as `jsonb` arrays).
 
-## Filter pushdown
+- **Rows** run as one query per root, plus one correlated `LEFT JOIN LATERAL` per `include`
+  node (`jsonb_agg` of the ordered child rows, `limit + 1` to derive `hasMore`, nesting
+  recursively), with `COUNT(*) OVER()` for the total.
+- **Aggregate** and **time-series** group and aggregate in SQL (`GROUP BY` on ordinal group
+  columns; `date_trunc` in UTC with Monday-start ISO weeks). The app only zero-fills the
+  aligned time-series bucket grid.
+- **Correlated** `exists`/`aggregate`/`first` compile to correlated subqueries, recursively,
+  with visibility re-derived inline via schema-slug joins at every level, so nesting can never
+  widen scope.
 
-`where` predicates that can be expressed with identical semantics are compiled into SQL so
-the database filters (and, for rows/includes, paginates) directly. The rest — the residual —
-is evaluated app-side and is what the scan caps above bound.
+### Semantics
 
-Pushable: `eq` on system text fields and schema-qualified properties; numeric `gt`/`gte`/`lt`/`lte`,
-`eq`, and `contains` on properties; `isNull`/`isNotNull`; and `and`/`or` composed of these.
-Not pushed (evaluated app-side): `neq`, `not`, arithmetic, cross-type/date ordering, and
-multi-schema null checks. Top-level `and` conjuncts are pushed independently, so a
-partially-pushable filter still narrows the scan.
+Because expressions now execute in SQL rather than JavaScript, a few behaviors are defined
+deliberately:
 
-Pushdown covers entity roots, event roots, relationship roots, includes, and
-entity/event/relationship expression sources. Relationship-root filters may reference the
-relationship alias and either endpoint entity alias.
-
-When a source's entire `where` pushes to SQL, rows and included sources are filtered and
-paginated in the database and are not subject to the app-side scan caps.
-
-### Correlated `exists` / `aggregate`
-
-Correlated `exists` and `aggregate` **count** comparisons in a `where` compile into SQL
-subqueries (a correlated `EXISTS (...)` and a scalar `(SELECT COUNT(*) ...)`), correlated to
-the parent row, so they no longer run once per candidate row. Sub-source visibility is
-enforced inside the subquery via schema-slug joins. This applies recursively (nested
-`exists`/`aggregate`), and only when the sub-source's entire `where` also pushes — otherwise
-the whole sub-source stays app-side. `first`, count-distinct, non-count aggregate
-comparisons, and correlated sub-sources used in output fields (rather than a `where`) still
-evaluate app-side and remain subject to the per-parent cap below.
-
-### Aggregation and time-series
-
-`aggregate` and `timeSeries` returns run their grouping, distinct-free aggregation, and time
-bucketing in the database when every construct is SQL-expressible, so they are not bounded by
-the app-side scan cap. This covers `count` and numeric `sum`/`average`/`minimum`/`maximum`
-(computed in double precision, i.e. the same float64 domain as the app-side numbers),
-`groupBy` on non-timestamp system fields, schema-metadata, and (JSON-typed) property
-references, `measureRef` ordering (Postgres `ASC NULLS LAST` / `DESC NULLS FIRST` matches the
-app-side null ordering), and time bucketing over a system date/timestamp column (`date_trunc`
-with UTC, Monday-start ISO weeks). The engine falls back to the app-side path — with the same
-results, bounded by the scan cap — for `count` distinct, non-property numeric operands,
-non-`ref` group expressions, `groupBy` on a whole-`properties` or timestamp system field, a
-residual `where`, or a property/computed time-series expression.
-
-Parity notes (behaviors that were already non-canonical app-side and remain so):
-
-- Numeric `sum`/`average` are exact for integer and exactly-representable operands; for other
-  floats, IEEE-754 accumulation order is unspecified on both paths, so results may differ in
-  the last ULP. A property number outside double-precision range fails the SQL aggregate.
-- When several groups tie on the ordered measure exactly at the `limit` boundary, which of the
-  tied groups is returned is arbitrary (there is no total order to break the tie on).
-- A correlated `exists`/`aggregate` over a relationship whose slug is shared by both a
-  user-owned and a global relationship schema matches relationships of either schema; the
-  app-side path resolves such a collision to one schema arbitrarily.
+- **Null-as-false.** Every boolean leaf compiles as `COALESCE(<predicate>, false)`, so a
+  comparison with a null or absent operand is false — including `neq` (`x neq v` does _not_
+  return a null-valued row). `not(expr)` negates the null-collapsed child, so `not(eq(x, v))`
+  _does_ return a null-valued row (eq is false, not is true). This matches the previous
+  evaluator exactly.
+- **Text collation is `C`** (byte order): text comparisons and ordering are deterministic with
+  uppercase before lowercase. Numeric properties sort numerically; dates sort as `timestamptz`.
+- **`contains`**: strings use a case-insensitive, escaped `ILIKE`; array/object property values
+  use jsonb containment (`@>`).
+- **Guarded property access**: a schema-qualified property contributes only when the row is of
+  that schema and the JSON value is the expected type; otherwise it reads as null (wrong-schema
+  and wrong-type values are ignored).
+- **Dates**: date literals must be ISO 8601 (validated at the boundary) and compile to
+  `::timestamptz`. `sum`/`average` accumulate in double precision (float64); a property number
+  outside double-precision range fails the aggregate. Timestamp `groupBy` groups at the
+  column's native (microsecond) precision. `count`-distinct compiles to `COUNT(DISTINCT ...)`
+  over the canonical jsonb value.
 
 ## Visibility
 
@@ -540,8 +511,7 @@ Example errors:
 - `Time-series bucket count 1200 exceeds maximum of 1000`
 - `Entity schema 'reviw' not found`
 - `First expression entity source 'latest' must specify via`
-- `Expression source candidate rows exceeds maximum of 10000`
-- `Root source candidate rows exceeds maximum of 50000`
+- `Date literal must be an ISO 8601 string: "not-a-date"`
 - `Comparison operands are not type-compatible: string and number`
 - `Arithmetic operands must be numeric: string`
 - `Contains operands are not type-compatible: number and number`

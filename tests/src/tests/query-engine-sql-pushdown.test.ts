@@ -40,7 +40,11 @@ describe("aggregate returns over a filtered source", () => {
 				{ difficulty: "beginner", durationMinutes: 90 },
 				{ difficulty: "beginner", durationMinutes: 20 },
 			].map((properties, index) =>
-				createQueryEngineEntity(client, { name: `Lesson ${index}`, entitySchemaId: schemaId, properties }),
+				createQueryEngineEntity(client, {
+					name: `Lesson ${index}`,
+					entitySchemaId: schemaId,
+					properties,
+				}),
 			),
 		);
 
@@ -89,7 +93,11 @@ describe("aggregate returns over a filtered source", () => {
 				{ difficulty: "advanced", durationMinutes: 60 },
 				{ difficulty: "beginner", durationMinutes: 90 },
 			].map((properties, index) =>
-				createQueryEngineEntity(client, { name: `Lesson ${index}`, entitySchemaId: schemaId, properties }),
+				createQueryEngineEntity(client, {
+					name: `Lesson ${index}`,
+					entitySchemaId: schemaId,
+					properties,
+				}),
 			),
 		);
 
@@ -109,7 +117,10 @@ describe("aggregate returns over a filtered source", () => {
 				type: "aggregate",
 				measures: [
 					{ key: "count", aggregation: { function: "count" } },
-					{ key: "total", aggregation: { function: "sum", expr: propertyRef("lesson", slug, "durationMinutes") } },
+					{
+						key: "total",
+						aggregation: { function: "sum", expr: propertyRef("lesson", slug, "durationMinutes") },
+					},
 				],
 			},
 		};
@@ -196,7 +207,9 @@ describe("relationship root filtering (pushdown)", () => {
 		expect(byRole.data.items).toHaveLength(1);
 		expect(byRole.data.pageInfo.total).toBe(1);
 		assertPresent(byRole.data.items[0], "Expected one membership row");
-		expect(requireQueryEngineFieldValue(byRole.data.items[0], "memberName").value).toBe("Member One");
+		expect(requireQueryEngineFieldValue(byRole.data.items[0], "memberName").value).toBe(
+			"Member One",
+		);
 
 		const byMemberName = await executeQueryEngine(
 			client,
@@ -209,14 +222,23 @@ describe("relationship root filtering (pushdown)", () => {
 		);
 		expect(byMemberName.data.items).toHaveLength(1);
 		assertPresent(byMemberName.data.items[0], "Expected one membership row");
-		expect(requireQueryEngineFieldValue(byMemberName.data.items[0], "memberName").value).toBe("Member Two");
+		expect(requireQueryEngineFieldValue(byMemberName.data.items[0], "memberName").value).toBe(
+			"Member Two",
+		);
 	});
 });
 
 describe("aggregate over a correlated-exists filtered source", () => {
 	it("counts entities whose descendants satisfy nested exists", async () => {
-		const { client, courseSlug, moduleSlug, lessonSlug, completeSlug, moduleLessonSlug, courseModuleSlug } =
-			await createCourseLessonFilterFixture();
+		const {
+			client,
+			courseSlug,
+			moduleSlug,
+			lessonSlug,
+			completeSlug,
+			moduleLessonSlug,
+			courseModuleSlug,
+		} = await createCourseLessonFilterFixture();
 		const doc: QueryEnginePayload = {
 			source: {
 				alias: "course",
@@ -228,14 +250,24 @@ describe("aggregate over a correlated-exists filtered source", () => {
 						alias: "module",
 						type: "entities",
 						schemas: [moduleSlug],
-						via: { entityRef: "course", direction: "outgoing", schema: courseModuleSlug, alias: "courseModule" },
+						via: {
+							entityRef: "course",
+							direction: "outgoing",
+							schema: courseModuleSlug,
+							alias: "courseModule",
+						},
 						where: {
 							type: "exists",
 							source: {
 								alias: "lesson",
 								type: "entities",
 								schemas: [lessonSlug],
-								via: { entityRef: "module", direction: "outgoing", schema: moduleLessonSlug, alias: "moduleLesson" },
+								via: {
+									entityRef: "module",
+									direction: "outgoing",
+									schema: moduleLessonSlug,
+									alias: "moduleLesson",
+								},
 								where: {
 									type: "exists",
 									source: {
