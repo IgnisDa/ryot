@@ -6,7 +6,12 @@ import { Effect } from "effect";
 
 import type { Client } from "./auth";
 import { pollUntil } from "./polling";
-import { pluginConfigOperationSandboxSource } from "./sandbox-source";
+import {
+	literalSandboxSource,
+	operationSandboxSource,
+	pluginConfigOperationSandboxSource,
+	throwingSandboxSource,
+} from "./sandbox-source";
 import { testPluginManifest } from "./test-plugin";
 
 type InstallPluginPayload = ContractPayload<"plugins", "install">;
@@ -96,6 +101,19 @@ export const privatePluginPackage = (
 	};
 };
 
+export const settledPrivateInstallation = (client: Client, pluginSlug: PluginSlug) =>
+	pollUntil(
+		`installation of private plugin '${pluginSlug}'`,
+		client
+			.call((c) => c.plugins.list())
+			.pipe(
+				Effect.map((installations) => {
+					const installed = installations.find((entry) => entry.slug === pluginSlug);
+					return installed && installed.health !== "installing" ? installed : null;
+				}),
+			),
+	);
+
 export const installPrivatePlugin = (
 	input: PrivatePluginPackageInput & {
 		readonly client: Client;
@@ -104,11 +122,94 @@ export const installPrivatePlugin = (
 ) =>
 	Effect.gen(function* () {
 		const plugin = privatePluginPackage(input);
-		const installation = yield* input.client.call((c) =>
+		yield* input.client.call((c) =>
 			c.plugins.install({
 				payload: { config: input.config, files: plugin.files, manifest: plugin.manifest },
 			}),
 		);
+		const installation = yield* settledPrivateInstallation(input.client, plugin.pluginSlug);
+		return { ...plugin, installation };
+	});
+
+export type PrivateBootstrapPluginPackage = {
+	readonly bootstrapSlug: string;
+	readonly operationSlug: string;
+	readonly pluginSlug: PluginSlug;
+	readonly manifest: PrivatePluginManifest;
+	readonly files: InstallPluginPayload["files"];
+};
+
+export const privateBootstrapPluginPackage = (
+	input: { readonly failureMessage?: string } = {},
+): PrivateBootstrapPluginPackage => {
+	const suffix = randomUUID();
+	const operationSlug = "read-titles";
+	const name = "E2E private bootstrap";
+	const bootstrapSlug = "seed-owner-data";
+	const bootstrapEntry = "scripts/bootstrap.sandbox.ts";
+	const operationEntry = "scripts/operation.sandbox.ts";
+	const bootstrapScriptSlug = `e2e-private-bootstrap-${suffix}`;
+	const operationScriptSlug = `e2e-private-bootstrap-operation-${suffix}`;
+	const pluginSlug = `e2e-private-bootstrap-plugin-${suffix}`;
+	const bootstrapSource = input.failureMessage
+		? throwingSandboxSource({ name, slug: bootstrapScriptSlug, message: input.failureMessage })
+		: literalSandboxSource({ name, slug: bootstrapScriptSlug, value: true });
+	const manifest = testPluginManifest({
+		pluginSlug,
+		userBootstrap: [{ slug: bootstrapSlug, scriptSlug: bootstrapScriptSlug, description: name }],
+		operations: [
+			{
+				auth: "user",
+				description: name,
+				slug: operationSlug,
+				scriptSlug: operationScriptSlug,
+			},
+		],
+		scripts: [
+			{
+				name,
+				kind: "script",
+				capabilities: [],
+				entry: bootstrapEntry,
+				slug: bootstrapScriptSlug,
+				requiredPluginConfigKeys: [],
+				requiredSystemConfigKeys: [],
+			},
+			{
+				name,
+				capabilities: [],
+				kind: "operation",
+				entry: operationEntry,
+				slug: operationScriptSlug,
+				requiredPluginConfigKeys: [],
+				requiredSystemConfigKeys: [],
+			},
+		],
+	});
+	return {
+		manifest,
+		operationSlug,
+		bootstrapSlug,
+		pluginSlug: PluginSlug.make(pluginSlug),
+		files: {
+			[bootstrapEntry]: bootstrapSource,
+			[operationEntry]: operationSandboxSource({ name, slug: operationScriptSlug }),
+		},
+	};
+};
+
+export const installPrivateBootstrapPlugin = (input: {
+	readonly client: Client;
+	readonly failureMessage?: string;
+}) =>
+	Effect.gen(function* () {
+		const plugin = privateBootstrapPluginPackage(input);
+		yield* input.client.call((c) =>
+			c.plugins.install({
+				payload: { config: {}, files: plugin.files, manifest: plugin.manifest },
+			}),
+		);
+		const installation = yield* settledPrivateInstallation(input.client, plugin.pluginSlug);
 		return { ...plugin, installation };
 	});
 
@@ -320,11 +421,12 @@ export const installPrivateImportPlugin = (
 ) =>
 	Effect.gen(function* () {
 		const plugin = privateImportPluginPackage(input);
-		const installation = yield* input.client.call((c) =>
+		yield* input.client.call((c) =>
 			c.plugins.install({
 				payload: { config: {}, files: plugin.files, manifest: plugin.manifest },
 			}),
 		);
+		const installation = yield* settledPrivateInstallation(input.client, plugin.pluginSlug);
 		return { ...plugin, installation };
 	});
 
@@ -333,11 +435,12 @@ export const installPrivateIntegrationPlugin = (
 ) =>
 	Effect.gen(function* () {
 		const plugin = privateIntegrationPluginPackage(input);
-		const installation = yield* input.client.call((c) =>
+		yield* input.client.call((c) =>
 			c.plugins.install({
 				payload: { config: {}, files: plugin.files, manifest: plugin.manifest },
 			}),
 		);
+		const installation = yield* settledPrivateInstallation(input.client, plugin.pluginSlug);
 		return { ...plugin, installation };
 	});
 

@@ -208,7 +208,7 @@ export class AutomationsService extends Context.Service<AutomationsService>()(
 							);
 							const rule = storedState
 								? yield* resolveNotificationSubscription(storedState)
-								: yield* pluginRuntime.findAutomation(input.ruleId);
+								: yield* pluginRuntime.findAutomation(input.rowUserId, input.ruleId);
 							if (!rule) {
 								return null;
 							}

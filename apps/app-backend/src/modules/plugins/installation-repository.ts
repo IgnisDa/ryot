@@ -140,16 +140,19 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				sortOrder: number;
 				isDisabled: boolean;
 				config: Record<string, unknown>;
+				health: PluginInstallationHealth;
 			}) {
 				const db = yield* Database;
 				const [row] = yield* mapDatabaseErrors(
 					db
 						.insert(schema.pluginInstallation)
-						.values(input)
+						.values({ ...input, healthReason: null })
 						.onConflictDoUpdate({
 							target: [schema.pluginInstallation.userId, schema.pluginInstallation.pluginId],
 							set: {
+								healthReason: null,
 								config: input.config,
+								health: input.health,
 								sortOrder: input.sortOrder,
 								isDisabled: input.isDisabled,
 							},

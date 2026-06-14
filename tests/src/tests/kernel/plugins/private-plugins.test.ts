@@ -6,6 +6,7 @@ import { Effect } from "effect";
 import {
 	createAuthenticatedClient,
 	executeRyotQL,
+	installPrivateBootstrapPlugin,
 	installPrivatePlugin,
 	invokePrivatePluginOperation,
 	PRIVATE_PLUGIN_CONFIG_KEY,
@@ -381,7 +382,7 @@ describe("private plugins", () => {
 		}),
 	);
 
-	it.live("rejects a private manifest that declares an unsupported surface", () =>
+	it.live("rejects a private manifest that declares an instance boot entry", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const plugin = privatePluginPackage();
@@ -398,14 +399,7 @@ describe("private plugins", () => {
 							config: { [PRIVATE_PLUGIN_CONFIG_KEY]: "alpha" },
 							manifest: {
 								...plugin.manifest,
-								crons: [
-									{
-										scriptSlug,
-										slug: "hourly",
-										schedule: { cron: "0 * * * *" },
-										description: "Unsupported private surface",
-									},
-								],
+								boot: [{ scriptSlug, slug: "startup", description: "Unsupported private surface" }],
 							},
 						},
 					}),
@@ -413,7 +407,60 @@ describe("private plugins", () => {
 			);
 
 			assertTaggedError(failure, "PluginRequestError");
-			expect(failure.reason).toEqual({ surfaces: ["crons"], code: "unsupported-manifest-surface" });
+			expect(failure.reason).toEqual({ surfaces: ["boot"], code: "unsupported-manifest-surface" });
+		}),
+	);
+
+	it.live("runs a declared user bootstrap entry before the installation becomes ready", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+
+			const plugin = yield* installPrivateBootstrapPlugin({ client });
+
+			expect(plugin.installation).toMatchObject({
+				scope: "user",
+				health: "ready",
+				healthReason: null,
+				slug: plugin.pluginSlug,
+			});
+			const invoked = yield* client.call((c) =>
+				c.plugins.invoke({
+					payload: { payload: { titles: ["seeded"] } },
+					params: { pluginSlug: plugin.pluginSlug, operationSlug: plugin.operationSlug },
+				}),
+			);
+			expect(invoked.result).toEqual({ results: ["SEEDED"] });
+		}),
+	);
+
+	it.live("fails the installation safely when a user bootstrap entry throws", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+
+			const plugin = yield* installPrivateBootstrapPlugin({
+				client,
+				failureMessage: "bootstrap exploded",
+			});
+
+			expect(plugin.installation.health).toBe("failed");
+			const healthReason = requirePresent(
+				plugin.installation.healthReason,
+				"Failed private installation has no diagnostic",
+			);
+			expect(healthReason).toContain(plugin.bootstrapSlug);
+			expect(healthReason).not.toContain("bootstrap exploded");
+			expect(healthReason).not.toContain("defineScript");
+			expect(healthReason).not.toContain("at ");
+
+			const failure = yield* Effect.flip(
+				invokePrivatePluginOperation({
+					client,
+					prefix: "run",
+					pluginSlug: plugin.pluginSlug,
+					operationSlug: plugin.operationSlug,
+				}),
+			);
+			assertTaggedError(failure, "PluginNotFoundError");
 		}),
 	);
 

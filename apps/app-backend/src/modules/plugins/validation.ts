@@ -32,6 +32,15 @@ const assertReference = (kind: string, slug: string, available: ReadonlySet<stri
 		? Effect.void
 		: Effect.fail(fail(`${kind} references missing definition: ${slug}`));
 
+const assertAutomationScript = (
+	kind: string,
+	scriptSlug: string,
+	scripts: PluginManifestValue["scripts"],
+) =>
+	scripts.find(({ slug }) => slug === scriptSlug)?.kind === "automation"
+		? Effect.void
+		: Effect.fail(fail(`${kind} script ${scriptSlug} must be an automation script`));
+
 export const decodePluginManifest = (input: unknown) =>
 	Schema.decodeUnknownEffect(PluginManifest)(input).pipe(
 		Effect.mapError((error) => new PluginValidationError({ issues: [String(error)] })),
@@ -118,12 +127,11 @@ export const validatePluginPackageLimits = (
 		return yield* Effect.void;
 	});
 
-const privateRejectedCollections = [
-	"boot",
-	"crons",
-	"userBootstrap",
-	"httpRateLimits",
-] as const satisfies ReadonlyArray<
+// TODO(plugins): Task 11 owns per-installation HTTP rate limits. `PluginHttpRateLimitAuthority`
+// builds instance-global policy from `listActiveManifests()`, so a private declaration has nowhere
+// to live yet. `boot` stays rejected permanently: private code must never run with instance
+// authority at startup.
+const privateRejectedCollections = ["boot", "httpRateLimits"] as const satisfies ReadonlyArray<
 	{
 		[Key in keyof PluginManifestValue]: PluginManifestValue[Key] extends ReadonlyArray<unknown>
 			? Key
@@ -135,14 +143,6 @@ export const validatePrivateManifestSurfaces = (manifest: PluginManifestValue) =
 	Effect.gen(function* () {
 		const surfaces = [
 			...privateRejectedCollections.filter((field) => manifest[field].length > 0),
-			...Object.entries(manifest.bindings).flatMap(([field, bindings]) =>
-				bindings.length > 0 ? [`bindings.${field}`] : [],
-			),
-			...(manifest.scripts.some(
-				(script) => !["automation", "operation", "provider", "workflow"].includes(script.kind),
-			)
-				? ["scripts"]
-				: []),
 			...(manifest.operations.some(
 				(operation) => operation.auth !== "user" && operation.auth !== "integration",
 			)
@@ -281,6 +281,7 @@ export const validatePluginManifestReferences = (
 		);
 		for (const binding of manifest.bindings.entityAutomations) {
 			yield* assertReference("Entity automation", binding.scriptSlug, scriptSlugs);
+			yield* assertAutomationScript("Entity automation", binding.scriptSlug, manifest.scripts);
 			yield* assertReference(
 				"Entity automation",
 				binding.entitySchemaSlug,
@@ -294,14 +295,19 @@ export const validatePluginManifestReferences = (
 				binding.entitySchemaSlug,
 				new Set(Object.keys(snapshot.entitySchemas)),
 			);
-			if (manifest.scripts.find(({ slug }) => slug === binding.scriptSlug)?.kind !== "automation") {
-				return yield* fail(
-					`Provider entity import automation script ${binding.scriptSlug} must be an automation script`,
-				);
-			}
+			yield* assertAutomationScript(
+				"Provider entity import automation",
+				binding.scriptSlug,
+				manifest.scripts,
+			);
 		}
 		for (const binding of manifest.bindings.relationshipAutomations) {
 			yield* assertReference("Relationship automation", binding.scriptSlug, scriptSlugs);
+			yield* assertAutomationScript(
+				"Relationship automation",
+				binding.scriptSlug,
+				manifest.scripts,
+			);
 			yield* assertReference(
 				"Relationship automation",
 				binding.relationshipSchemaSlug,
@@ -310,10 +316,12 @@ export const validatePluginManifestReferences = (
 		}
 		for (const binding of manifest.bindings.eventAutomations) {
 			yield* assertReference("Event automation", binding.scriptSlug, scriptSlugs);
+			yield* assertAutomationScript("Event automation", binding.scriptSlug, manifest.scripts);
 			yield* assertReference("Event automation", binding.eventSchemaSlug, eventSchemaSlugs);
 		}
 		for (const binding of manifest.bindings.signalAutomations) {
 			yield* assertReference("Signal automation", binding.scriptSlug, scriptSlugs);
+			yield* assertAutomationScript("Signal automation", binding.scriptSlug, manifest.scripts);
 			yield* assertReference(
 				"Signal automation",
 				binding.signalSchemaSlug,

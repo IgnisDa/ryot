@@ -492,15 +492,20 @@ it.effect("resolves provider-import automations in manifest order", () =>
 	Effect.gen(function* () {
 		const resolver = yield* PluginRuntimeResolver;
 		expect(
-			yield* resolver.listProviderEntityImportAutomations(EntitySchemaSlug.make("fixture-entity")),
+			yield* resolver.listProviderEntityImportAutomations(
+				null,
+				EntitySchemaSlug.make("fixture-entity"),
+			),
 		).toEqual([
 			{
 				sandboxScriptId: "provider-import-script-id",
-				ruleId: "binding:fixture:provider_entity_import:fixture-entity:fixture.automation:0",
+				ruleId:
+					"binding:fixture-plugin-id:provider_entity_import:fixture-entity:fixture.automation:0",
 			},
 			{
 				sandboxScriptId: "provider-import-script-id",
-				ruleId: "binding:fixture:provider_entity_import:fixture-entity:fixture.automation:1",
+				ruleId:
+					"binding:fixture-plugin-id:provider_entity_import:fixture-entity:fixture.automation:1",
 			},
 		]);
 	}).pipe(
@@ -517,7 +522,10 @@ it.effect("returns no provider-import automation for an unmatched schema", () =>
 	Effect.gen(function* () {
 		const resolver = yield* PluginRuntimeResolver;
 		expect(
-			yield* resolver.listProviderEntityImportAutomations(EntitySchemaSlug.make("unbound-entity")),
+			yield* resolver.listProviderEntityImportAutomations(
+				null,
+				EntitySchemaSlug.make("unbound-entity"),
+			),
 		).toEqual([]);
 	}).pipe(Effect.provide(makeLayer())),
 );
@@ -526,7 +534,7 @@ it.effect("rejects invalid provider-import automation bindings", () =>
 	Effect.gen(function* () {
 		const resolver = yield* PluginRuntimeResolver;
 		const missing = yield* Effect.exit(
-			resolver.listProviderEntityImportAutomations(EntitySchemaSlug.make("fixture-entity")),
+			resolver.listProviderEntityImportAutomations(null, EntitySchemaSlug.make("fixture-entity")),
 		);
 		assert(Exit.isFailure(missing));
 		expect(String(missing)).toContain(InvalidProviderEntityImportAutomationError.name);
@@ -543,7 +551,7 @@ it.effect("rejects provider-import bindings that reference a non-automation scri
 	Effect.gen(function* () {
 		const resolver = yield* PluginRuntimeResolver;
 		const result = yield* Effect.exit(
-			resolver.listProviderEntityImportAutomations(EntitySchemaSlug.make("fixture-entity")),
+			resolver.listProviderEntityImportAutomations(null, EntitySchemaSlug.make("fixture-entity")),
 		);
 		assert(Exit.isFailure(result));
 		const error = Option.getOrThrow(Cause.findErrorOption(result.cause));
@@ -1292,3 +1300,268 @@ it.effect("excludes a private plugin owned by another user or no longer active",
 		expect(archived).toMatchObject([{ slug: "fixture", scope: "system" }]);
 	}),
 );
+
+const noteManifest = () => {
+	const base = fixtureManifest();
+	const script = base.scripts[0];
+	const entitySchema = base.entitySchemas[0];
+	assert(script && entitySchema);
+	return {
+		...base,
+		savedViews: [],
+		signalSchemas: [],
+		relationshipSchemas: [],
+		metadata: { ...base.metadata, name: "Notes", slug: "notes" },
+		entitySchemas: [{ ...entitySchema, name: "Note", slug: "note" }],
+		scripts: [{ ...script, name: "Notes automation", slug: "notes.automation" }],
+		crons: [
+			{
+				slug: "notes-cron",
+				description: "Notes cron",
+				scriptSlug: "notes.automation",
+				schedule: { cron: "* * * * *" },
+			},
+		],
+		bindings: {
+			eventAutomations: [],
+			signalAutomations: [],
+			relationshipAutomations: [],
+			providerEntityImportAutomations: [],
+			entityAutomations: [
+				{ operation: "create", entitySchemaSlug: "note", scriptSlug: "notes.automation" },
+			],
+		},
+	} satisfies PluginManifest;
+};
+
+const notePluginRow = (pluginId: string, ownerId: string) => ({
+	ownerId,
+	id: pluginId,
+	slug: "notes",
+	scope: "user",
+	status: "active",
+	manifest: noteManifest(),
+	compiledHashes: { "notes.automation": `${pluginId}-hash` },
+});
+
+const noteScriptRow = (pluginId: string) => ({
+	pluginId,
+	source: "source",
+	providerId: null,
+	compiledFormat: 1,
+	compiledCode: "compiled",
+	name: "Notes automation",
+	slug: "notes.automation",
+	createdAt: new Date(0),
+	updatedAt: new Date(0),
+	contentHash: `${pluginId}-hash`,
+	id: SandboxScriptId.make(`${pluginId}-script-id`),
+	metadata: {
+		capabilities: [],
+		slug: "notes.automation",
+		name: "Notes automation",
+		kind: "automation" as const,
+		requiredPluginConfigKeys: [],
+		requiredSystemConfigKeys: [],
+	},
+});
+
+const noteInstallation = (
+	pluginId: string,
+	userId: string,
+	overrides: Partial<PluginInstallationState> = {},
+) =>
+	installationState({
+		userId,
+		pluginId,
+		pluginSlug: "notes",
+		pluginScope: "user",
+		id: `${pluginId}-installation-id`,
+		...overrides,
+	});
+
+const makeNotesLayer = (
+	installations: ReadonlyArray<PluginInstallationState>,
+	plugins: ReadonlyArray<ReturnType<typeof notePluginRow>>,
+) => {
+	const loader = makePluginLoader(makeDefinitionRegistry());
+	const readyInstallations = installations.filter(
+		(state) => state.health === "ready" && !state.isDisabled,
+	);
+	const db = {
+		select: () => ({
+			from: (table: unknown) => {
+				const builder = {
+					innerJoin: () => builder,
+					where: (condition: unknown) => {
+						const params = sqlParams(condition);
+						if (table === schema.plugin) {
+							return limitable(plugins.filter((plugin) => params.includes(plugin.ownerId)));
+						}
+						if (table === schema.pluginInstallation) {
+							// The fake executor cannot evaluate SQL, so assert the private-cron gate is
+							// still expressed in the query rather than only in this fixture's filtering.
+							expect(params).toEqual(expect.arrayContaining(["user", "active", "ready", false]));
+							const scoped = params.find((value) =>
+								installations.some((state) => state.id === value),
+							);
+							return limitable(
+								readyInstallations
+									.filter((state) => scoped === undefined || state.id === scoped)
+									.flatMap((state) => {
+										const plugin = plugins.find(({ id }) => id === state.pluginId);
+										return plugin
+											? [
+													{
+														userId: state.userId,
+														pluginId: plugin.id,
+														pluginSlug: plugin.slug,
+														installationId: state.id,
+														manifest: plugin.manifest,
+														compiledHashes: plugin.compiledHashes,
+													},
+												]
+											: [];
+									}),
+							);
+						}
+						return limitable(
+							plugins
+								.filter(
+									(plugin) => params.includes(plugin.id) && params.includes(`${plugin.id}-hash`),
+								)
+								.map((plugin) => noteScriptRow(plugin.id)),
+						);
+					},
+				};
+				return builder;
+			},
+		}),
+	};
+	return PluginRuntimeResolver.layer.pipe(
+		Layer.provideMerge(
+			Layer.mergeAll(
+				Layer.succeed(PluginLoader, { ...loader }),
+				Layer.succeed(Database, Object.assign(Object.create(null), db)),
+				Layer.mock(PluginInstallationRepository)({
+					listForUser: (userId) =>
+						Effect.succeed(installations.filter((state) => state.userId === userId)),
+				}),
+			),
+		),
+	);
+};
+
+const noteAutomations = (userId: string) =>
+	Effect.flatMap(PluginRuntimeResolver, (resolver) =>
+		resolver.listAutomations({
+			operation: "create",
+			kind: "subscription",
+			userId: UserId.make(userId),
+			target: { kind: "entity_schema", id: EntitySchemaSlug.make("note") },
+		}),
+	);
+
+it.effect("qualifies same-slug private automation bindings by their owning plugin", () => {
+	const layer = makeNotesLayer(
+		[noteInstallation("notes-a", "user-1"), noteInstallation("notes-b", "user-2")],
+		[notePluginRow("notes-a", "user-1"), notePluginRow("notes-b", "user-2")],
+	);
+
+	return Effect.gen(function* () {
+		const resolver = yield* PluginRuntimeResolver;
+		const first = yield* noteAutomations("user-1");
+		const second = yield* noteAutomations("user-2");
+		expect(first).toMatchObject([
+			{
+				sandboxScriptId: "notes-a-script-id",
+				id: "binding:notes-a:subscription:entity_schema:note:create:notes.automation",
+			},
+		]);
+		expect(second).toMatchObject([
+			{
+				sandboxScriptId: "notes-b-script-id",
+				id: "binding:notes-b:subscription:entity_schema:note:create:notes.automation",
+			},
+		]);
+		const ruleId = first[0]?.id;
+		assert(ruleId);
+		expect(yield* resolver.findAutomation(UserId.make("user-1"), ruleId)).toMatchObject({
+			sandboxScriptId: "notes-a-script-id",
+		});
+		expect(yield* resolver.findAutomation(UserId.make("user-2"), ruleId)).toBeNull();
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("drops private automation bindings from unavailable installations", () =>
+	Effect.forEach(
+		[{ isDisabled: true }, { health: "installing" }, { health: "failed" }] as ReadonlyArray<
+			Partial<PluginInstallationState>
+		>,
+		(overrides) =>
+			Effect.gen(function* () {
+				expect(yield* noteAutomations("user-1")).toEqual([]);
+			}).pipe(
+				Effect.provide(
+					makeNotesLayer(
+						[noteInstallation("notes-a", "user-1", overrides)],
+						[notePluginRow("notes-a", "user-1")],
+					),
+				),
+			),
+	),
+);
+
+it.effect("keeps an installing plugin readable while its runtime stays unavailable", () => {
+	const layer = makeNotesLayer(
+		[noteInstallation("notes-a", "user-1", { health: "installing" })],
+		[notePluginRow("notes-a", "user-1")],
+	);
+
+	return Effect.gen(function* () {
+		const resolver = yield* PluginRuntimeResolver;
+		const definitions = yield* resolver.getEffectiveDefinitions(UserId.make("user-1"));
+		expect(definitions.entitySchemas["note"]).toMatchObject({ pluginId: "notes-a" });
+		expect(yield* resolver.listPluginsAvailableToUser(UserId.make("user-1"))).toEqual([]);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("materializes private cron schedules per ready enabled installation", () => {
+	const layer = makeNotesLayer(
+		[
+			noteInstallation("notes-a", "user-1"),
+			noteInstallation("notes-b", "user-2", { isDisabled: true }),
+		],
+		[notePluginRow("notes-a", "user-1"), notePluginRow("notes-b", "user-2")],
+	);
+
+	return Effect.gen(function* () {
+		const resolver = yield* PluginRuntimeResolver;
+		expect(yield* resolver.listPrivateCronSchedules()).toMatchObject([
+			{
+				userId: "user-1",
+				pluginId: "notes-a",
+				pluginSlug: "notes",
+				cron: { slug: "notes-cron" },
+				installationId: "notes-a-installation-id",
+			},
+		]);
+		expect(
+			yield* resolver.resolvePrivatePluginCron({
+				cronSlug: "notes-cron",
+				installationId: "notes-a-installation-id",
+			}),
+		).toMatchObject({
+			userId: "user-1",
+			pluginSlug: "notes",
+			cron: { slug: "notes-cron" },
+			script: { id: "notes-a-script-id" },
+		});
+		expect(
+			yield* resolver.resolvePrivatePluginCron({
+				cronSlug: "notes-cron",
+				installationId: "notes-b-installation-id",
+			}),
+		).toBeNull();
+	}).pipe(Effect.provide(layer));
+});
