@@ -99,6 +99,7 @@ export async function createQueryEngineEvent(
 		entityId: string;
 		occurredAt?: string;
 		eventSchemaId: string;
+		sessionEntityId?: string;
 		properties?: Record<string, unknown>;
 	},
 ) {
@@ -122,6 +123,9 @@ export async function createQueryEngineEvent(
 					properties: input.properties ?? {},
 					...(input.occurredAt ? { occurredAt: input.occurredAt } : {}),
 					eventSchemaId: EventSchemaId.make(input.eventSchemaId),
+					...(input.sessionEntityId
+						? { sessionEntityId: EntityId.make(input.sessionEntityId) }
+						: {}),
 				},
 			],
 		}),
@@ -194,6 +198,32 @@ export const buildEntityRowsQueryDocument = (input: {
 		include: input.include ?? [],
 		pagination: { page: input.page ?? 1, limit: input.limit ?? 10 },
 		orderBy: input.orderBy ?? [{ order: "asc", expr: systemRef(input.alias, "name") }],
+	},
+});
+
+export const buildEventRowsDoc = (input: {
+	page?: number;
+	limit?: number;
+	eventAlias: string;
+	entityAlias: string;
+	eventSchemas: [string, ...string[]];
+	entitySchemas: [string, ...string[]];
+	fields: QueryEngineRowsOutput["fields"];
+	orderBy: QueryEngineRowsOutput["orderBy"];
+	where?: Extract<QueryEnginePayload["source"], { type: "events" }>["where"];
+}): QueryEnginePayload => ({
+	output: {
+		type: "rows",
+		fields: input.fields,
+		orderBy: input.orderBy,
+		pagination: { page: input.page ?? 1, limit: input.limit ?? 10 },
+	},
+	source: {
+		type: "events",
+		alias: input.eventAlias,
+		where: input.where ?? null,
+		schemas: input.eventSchemas,
+		entity: { alias: input.entityAlias, schemas: input.entitySchemas },
 	},
 });
 
