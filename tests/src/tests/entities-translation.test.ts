@@ -6,6 +6,7 @@ import {
 	createAuthenticatedClient,
 	deleteGlobalEntityByProvenance,
 	findBuiltinSchemaBySlug,
+	getBuiltinEntitySchemaId,
 	getEntity,
 	getEntityTranslationRow,
 	markEntityPopulated,
@@ -23,22 +24,30 @@ async function seedPopulatedTmdbEntity(
 		name: string;
 		externalId: string;
 		schemaSlug: string;
+		entitySchemaId?: string;
+		sandboxScriptId?: string;
 		properties: Record<string, unknown>;
 	},
 ) {
-	const { schema } = await findBuiltinSchemaBySlug(client, input.schemaSlug);
-	const sandboxScriptId = schema.providers.find((provider) => provider.name === "TMDB")?.scriptId;
+	let entitySchemaId = input.entitySchemaId;
+	let sandboxScriptId = input.sandboxScriptId;
+	if (!entitySchemaId || !sandboxScriptId) {
+		const { schema } = await findBuiltinSchemaBySlug(client, input.schemaSlug);
+		entitySchemaId ??= schema.id;
+		sandboxScriptId ??= schema.providers.find((provider) => provider.name === "TMDB")?.scriptId;
+	}
+	assertPresent(entitySchemaId, `TMDB ${input.schemaSlug} entity schema not found`);
 	assertPresent(sandboxScriptId, `TMDB ${input.schemaSlug} provider script not found`);
 
-	const provenance = { externalId: input.externalId, entitySchemaId: schema.id, sandboxScriptId };
+	const provenance = { entitySchemaId, sandboxScriptId, externalId: input.externalId };
 	await deleteGlobalEntityByProvenance(provenance);
 
 	const seeded = await seedMediaEntity({
 		image: null,
 		userId: null,
+		entitySchemaId,
 		sandboxScriptId,
 		name: input.name,
-		entitySchemaId: schema.id,
 		externalId: input.externalId,
 		properties: input.properties,
 	});
@@ -151,6 +160,86 @@ describe("GET /entities/:entityId — translation overlay", () => {
 		expect(sharedMovieGroupRead.name).toBe(localizedMovieGroupRead.name);
 		expect(await countEntityTranslations(person.id)).toBe(1);
 		expect(await countEntityTranslations(movieGroup.id)).toBe(1);
+	}, 180_000);
+
+	it("fetches localized TMDB show, season, and episode overlays independently", async () => {
+		const { client, userId } = await createAuthenticatedClient();
+		const { schema: showSchema } = await findBuiltinSchemaBySlug(client, "show");
+		const showScriptId = showSchema.providers.find(
+			(provider) => provider.name === "TMDB",
+		)?.scriptId;
+		assertPresent(showScriptId, "TMDB show provider script not found");
+		const seasonSchemaId = await getBuiltinEntitySchemaId("show-season");
+		const episodeSchemaId = await getBuiltinEntitySchemaId("show-episode");
+
+		const show = await seedPopulatedTmdbEntity(client, {
+			externalId: "1399",
+			schemaSlug: "show",
+			name: "Canonical Game of Thrones",
+			properties: { description: "Canonical English show overview." },
+		});
+		const season = await seedPopulatedTmdbEntity(client, {
+			externalId: "3624",
+			schemaSlug: "show-season",
+			name: "Canonical Season 1",
+			sandboxScriptId: showScriptId,
+			entitySchemaId: seasonSchemaId,
+			properties: {
+				seasonNumber: 1,
+				releaseDate: "2011-04-17",
+				parentShowExternalId: "1399",
+				description: "Canonical English season overview.",
+			},
+		});
+		const episode = await seedPopulatedTmdbEntity(client, {
+			externalId: "63056",
+			schemaSlug: "show-episode",
+			sandboxScriptId: showScriptId,
+			entitySchemaId: episodeSchemaId,
+			name: "Canonical Winter Is Coming",
+			properties: {
+				runtime: 62,
+				seasonNumber: 1,
+				episodeNumber: 1,
+				publishDate: "2011-04-17",
+				parentShowExternalId: "1399",
+				description: "Canonical English episode overview.",
+			},
+		});
+
+		await setUserProviderLanguage({ userId, source: "tmdb", preferredLanguage: "es-ES" });
+
+		const firstShowRead = await getEntity(client, show.id);
+		expect(firstShowRead.translationStatus).toBe("pending");
+		expect(firstShowRead.name).toBe("Canonical Game of Thrones");
+
+		const firstSeasonRead = await getEntity(client, season.id);
+		expect(firstSeasonRead.translationStatus).toBe("pending");
+		expect(firstSeasonRead.name).toBe("Canonical Season 1");
+
+		const firstEpisodeRead = await getEntity(client, episode.id);
+		expect(firstEpisodeRead.translationStatus).toBe("pending");
+		expect(firstEpisodeRead.name).toBe("Canonical Winter Is Coming");
+
+		const [localizedShowRead, localizedSeasonRead, localizedEpisodeRead] = await Promise.all([
+			pollEntityUntilTranslationStatus(client, show.id, "ready", { timeoutMs: 90_000 }),
+			pollEntityUntilTranslationStatus(client, season.id, "ready", { timeoutMs: 90_000 }),
+			pollEntityUntilTranslationStatus(client, episode.id, "ready", { timeoutMs: 90_000 }),
+		]);
+
+		expect(localizedShowRead.name).not.toBe("Canonical Game of Thrones");
+		expect(localizedShowRead.properties.description).not.toBe("Canonical English show overview.");
+		expect(localizedSeasonRead.name).not.toBe("Canonical Season 1");
+		expect(localizedSeasonRead.properties.description).not.toBe(
+			"Canonical English season overview.",
+		);
+		expect(localizedEpisodeRead.name).not.toBe("Canonical Winter Is Coming");
+		expect(localizedEpisodeRead.properties.description).not.toBe(
+			"Canonical English episode overview.",
+		);
+		expect(await countEntityTranslations(show.id)).toBe(1);
+		expect(await countEntityTranslations(season.id)).toBe(1);
+		expect(await countEntityTranslations(episode.id)).toBe(1);
 	}, 180_000);
 
 	it("negative-caches when the provider has no translation and does not refetch", async () => {
