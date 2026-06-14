@@ -22,10 +22,10 @@ export const defaultUserPreferences: CachedUserPreferences = {
 export const normalizeUserPreferences = (value: unknown): CachedUserPreferences => {
 	const record = isObjectRecord(value) ? value : {};
 	return {
-		isNsfw: record.isNsfw === true,
-		disableIntegrations: record.disableIntegrations === true,
+		isNsfw: record["isNsfw"] === true,
+		disableIntegrations: record["disableIntegrations"] === true,
 		language:
-			typeof record.language === "string" && record.language.length > 0 ? record.language : null,
+			typeof record["language"] === "string" && record["language"].length > 0 ? record["language"] : null,
 	};
 };
 

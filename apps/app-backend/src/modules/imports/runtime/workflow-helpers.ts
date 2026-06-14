@@ -25,8 +25,8 @@ export class ImportRunArtifacts extends Effect.Service<ImportRunArtifacts>()("Im
 		const fs = yield* FileSystem.FileSystem;
 
 		const cleanupArtifacts = Effect.fn("imports.cleanupArtifacts")(function* (input: {
-			runId?: string;
-			sourcePayloadKey?: string;
+			runId?: string | undefined;
+			sourcePayloadKey?: string | undefined;
 			cleanupPaths: ReadonlyArray<string>;
 		}) {
 			if (input.sourcePayloadKey) {

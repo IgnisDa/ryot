@@ -314,8 +314,8 @@ export const diffMediaMonitoringSnapshots = (
 	}
 
 	const changes: MediaMonitoringChange[] = [];
-	const beforeStatus = asString(before.properties.productionStatus);
-	const afterStatus = asString(after.properties.productionStatus);
+	const beforeStatus = asString(before.properties["productionStatus"]);
+	const afterStatus = asString(after.properties["productionStatus"]);
 	if (beforeStatus !== null && afterStatus !== null && beforeStatus !== afterStatus) {
 		changes.push(
 			mediaMonitoringMessages.statusChanged({
@@ -325,8 +325,8 @@ export const diffMediaMonitoringSnapshots = (
 			}),
 		);
 	}
-	const beforePublishYear = asNumber(before.properties.publishYear);
-	const afterPublishYear = asNumber(after.properties.publishYear);
+	const beforePublishYear = asNumber(before.properties["publishYear"]);
+	const afterPublishYear = asNumber(after.properties["publishYear"]);
 	if (
 		beforePublishYear !== null &&
 		afterPublishYear !== null &&
@@ -392,7 +392,7 @@ export const snapshotSeason = (input: {
 		episodes: [],
 		name: input.name,
 		externalId: input.externalId,
-		seasonNumber: asNumber(properties.seasonNumber),
+		seasonNumber: asNumber(properties["seasonNumber"]),
 	};
 };
 
@@ -405,8 +405,8 @@ export const snapshotEpisode = (input: {
 	return {
 		name: input.name,
 		externalId: input.externalId,
-		images: properties.images ?? null,
-		episodeNumber: asNumber(properties.episodeNumber),
-		publishDate: asString(properties.publishDate),
+		images: properties["images"] ?? null,
+		episodeNumber: asNumber(properties["episodeNumber"]),
+		publishDate: asString(properties["publishDate"]),
 	};
 };

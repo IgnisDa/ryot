@@ -61,7 +61,7 @@ export const executeAggregateQuery = Effect.fn("executeAggregateQuery")(function
 	);
 
 	const items = rawRows.rows.map((row) => reconstructAggregateItem(row, groupBy, measures));
-	const totalGroups = rawRows.rows[0] ? Number(rawRows.rows[0].totalGroups) : 0;
+	const totalGroups = rawRows.rows[0] ? Number(rawRows.rows[0]["totalGroups"]) : 0;
 	return {
 		type: "aggregate" as const,
 		data: { items, pageInfo: { limit, hasMore: totalGroups > limit } },

@@ -63,9 +63,9 @@ export const ImportMediaEntityGroupSchema = Schema.Struct({
 });
 
 export type ImportMediaEntityGroup = {
-	itemIndex?: number;
+	itemIndex?: number | undefined;
 	entityRef: ImportEntityRef;
-	ownershipProvider?: string;
+	ownershipProvider?: string | undefined;
 	events: ImportMediaEvent[];
 	collectionMemberships: ImportCollectionMembership[];
 };

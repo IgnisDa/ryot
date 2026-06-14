@@ -21,7 +21,7 @@ const reservedRelationshipSchemaSlugs = new Set(builtinRelationshipSchemas().map
 
 const relationshipSchemaNotFoundError = "Relationship schema not found";
 
-const resolveRelationshipSchemaSlug = (input: { name: string; slug?: string }) => {
+const resolveRelationshipSchemaSlug = (input: { name: string; slug?: string | undefined }) => {
 	const candidate = input.slug?.trim() ?? input.name;
 	const slug = candidate ? slugify(candidate) : null;
 	if (!slug) {

@@ -127,7 +127,7 @@ const pushMovaryFailure = (
 		itemIndex: number;
 		fileLabel: string;
 		sourceLabel: string;
-		sourceIdentifier?: string;
+		sourceIdentifier?: string | undefined;
 	},
 ): void => {
 	failures.push({

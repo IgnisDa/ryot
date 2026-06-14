@@ -89,7 +89,7 @@ export class NotificationsService extends Effect.Service<NotificationsService>()
 			const trigger = Effect.fn("NotificationsService.trigger")(function* (input: {
 				userId: UserId;
 				message: string;
-				executionId?: string;
+				executionId?: string | undefined;
 				eventType: NotificationEventType;
 			}) {
 				yield* provideWorkflowEngine(

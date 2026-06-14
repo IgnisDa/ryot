@@ -16,16 +16,16 @@ import {
 
 type StrongAppRow = {
 	date: string;
-	reps?: number;
-	notes?: string;
-	weight?: number;
-	seconds?: number;
+	reps?: number | undefined;
+	notes?: string | undefined;
+	weight?: number | undefined;
+	seconds?: number | undefined;
 	setOrder: string;
-	distance?: number;
+	distance?: number | undefined;
 	itemIndex: number;
 	workoutName: string;
 	exerciseName: string;
-	workoutNotes?: string;
+	workoutNotes?: string | undefined;
 	workoutDuration: string;
 };
 

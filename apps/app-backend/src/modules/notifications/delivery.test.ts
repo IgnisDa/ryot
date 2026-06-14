@@ -71,7 +71,7 @@ it.effect("builds the v1 request shape for every HTTP notification provider", ()
 				expect(captured[0]?.url).toBe("http://apprise/notify/key");
 				expect(captured[1]?.body).toContain('"content":"hello"');
 				expect(captured[2]?.headers["x-gotify-key"]).toBe("token");
-				expect(captured[3]?.headers.authorization).toBe("Bearer auth");
+				expect(captured[3]?.headers["authorization"]).toBe("Bearer auth");
 				expect(captured[4]?.headers["access-token"]).toBe("token");
 				expect(captured[5]?.url).toContain("user=user");
 				expect(captured[6]?.url).toContain("k=key");

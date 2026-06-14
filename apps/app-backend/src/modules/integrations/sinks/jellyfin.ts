@@ -23,7 +23,8 @@ export const parseJellyfinSink: SinkParser = (input) =>
 		}
 
 		const notificationUsername =
-			getNestedString(payload.User, ["Name"]) ?? getNestedString(payload, ["NotificationUsername"]);
+			getNestedString(payload["User"], ["Name"]) ??
+			getNestedString(payload, ["NotificationUsername"]);
 		if (specs.username && notificationUsername !== specs.username) {
 			return emptySinkResult();
 		}

@@ -16,7 +16,8 @@ const viewingHeaders = [
 
 describe("adaptNetflixExports", () => {
 	it("maps viewing history, ratings, and my list rows while respecting profile filters", () => {
-		const lookupCalls: Array<{ title: string; preferredEntitySchemaSlug?: string }> = [];
+		const lookupCalls: Array<{ title: string; preferredEntitySchemaSlug?: string | undefined }> =
+			[];
 		const result = Effect.runSync(
 			adaptNetflixExports(
 				{

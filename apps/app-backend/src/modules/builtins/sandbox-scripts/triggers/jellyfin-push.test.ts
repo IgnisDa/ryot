@@ -98,7 +98,7 @@ describe("jellyfin-push sandbox script", () => {
 			const markCall = httpCalls.find((call) => call.url.includes("/PlayedItems/"));
 			expect(markCall?.method).toBe("POST");
 			expect(markCall?.url).toBe("http://jellyfin.local/Users/jf-user/PlayedItems/jf-item-1");
-			expect(markCall?.options.headers).toEqual({ "X-Emby-Token": "jf-token" });
+			expect(markCall?.options["headers"]).toEqual({ "X-Emby-Token": "jf-token" });
 			return undefined;
 		});
 	});

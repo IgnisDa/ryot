@@ -21,7 +21,7 @@ const onShutdownSignal = () => {
 process.on("SIGINT", onShutdownSignal);
 process.on("SIGTERM", onShutdownSignal);
 
-if (Bun.env.RUN_LEGACY_BOOTSTRAP_ONLY === "true") {
+if (Bun.env["RUN_LEGACY_BOOTSTRAP_ONLY"] === "true") {
 	const MigrationOnlyLive = MigrationsComplete.Default.pipe(
 		Layer.flatMap(() =>
 			SeedService.Default.pipe(Layer.flatMap(() => LegacyBootstrapMigrateDrop.Default)),
@@ -36,7 +36,7 @@ if (Bun.env.RUN_LEGACY_BOOTSTRAP_ONLY === "true") {
 	process.exit(0);
 }
 
-if (Bun.env.POPULATE_SANDBOX_CACHE_ONLY === "true") {
+if (Bun.env["POPULATE_SANDBOX_CACHE_ONLY"] === "true") {
 	const SandboxCacheOnlyLive = PackageCacheManager.Default.pipe(
 		Layer.provide(BunContext.layer),
 		Layer.provide(AppConfig.Default),

@@ -85,7 +85,7 @@ describe("sonarr-push sandbox script", () => {
 		}).then(() => {
 			expect(httpCalls).toHaveLength(1);
 			expect(httpCalls[0]?.url).toBe("http://sonarr.local/api/v3/series");
-			expect(JSON.parse(String(httpCalls[0]?.options.body))).toEqual({
+			expect(JSON.parse(String(httpCalls[0]?.options["body"]))).toEqual({
 				tags: [5],
 				tvdbId: 371980,
 				monitored: true,

@@ -58,16 +58,16 @@ describe("builtinSandboxScripts", () => {
 	});
 
 	it("keeps parent show external ids on episodic show property schemas", () => {
-		expect(showSeasonPropertiesSchema.fields.parentShowExternalId).toMatchObject({
+		expect(showSeasonPropertiesSchema.fields["parentShowExternalId"]).toMatchObject({
 			type: "string",
 		});
-		expect(showEpisodePropertiesSchema.fields.parentShowExternalId).toMatchObject({
+		expect(showEpisodePropertiesSchema.fields["parentShowExternalId"]).toMatchObject({
 			type: "string",
 		});
 	});
 
 	it("keeps parent podcast external ids on podcast episode property schemas", () => {
-		expect(podcastEpisodePropertiesSchema.fields.parentPodcastExternalId).toMatchObject({
+		expect(podcastEpisodePropertiesSchema.fields["parentPodcastExternalId"]).toMatchObject({
 			type: "string",
 		});
 	});
