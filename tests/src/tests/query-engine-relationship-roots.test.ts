@@ -129,7 +129,6 @@ describe("Relationship root sources", () => {
 		const relationshipSchemaA = await createRelationshipSchema(userA.client, {
 			name: "Rel Root Iso",
 			slug: relationshipSlugA,
-			propertiesSchema: { fields: {} },
 			sourceEntitySchemaId: memberSchemaIdA,
 			targetEntitySchemaId: collectionSchemaIdA,
 		});
@@ -177,7 +176,6 @@ describe("Relationship root sources", () => {
 		const relationshipSchemaB = await createRelationshipSchema(userB.client, {
 			name: "Rel Root Iso",
 			slug: relationshipSlugB,
-			propertiesSchema: { fields: {} },
 			sourceEntitySchemaId: memberSchemaIdB,
 			targetEntitySchemaId: collectionSchemaIdB,
 		});
@@ -308,7 +306,6 @@ describe("Relationship root sources", () => {
 		const relationshipSchema = await createRelationshipSchema(client, {
 			name: "Rel Order Membership",
 			slug: relationshipSlug,
-			propertiesSchema: { fields: {} },
 			sourceEntitySchemaId: memberSchemaId,
 			targetEntitySchemaId: collectionSchemaId,
 		});

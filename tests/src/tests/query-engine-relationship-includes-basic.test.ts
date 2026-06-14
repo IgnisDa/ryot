@@ -170,7 +170,6 @@ describe("Relationship includes", () => {
 		const relationshipSchema = await createRelationshipSchema(client, {
 			name: "Num Course Module",
 			slug: relationshipSlug,
-			propertiesSchema: { fields: {} },
 			sourceEntitySchemaId: courseSchemaId,
 			targetEntitySchemaId: moduleSchemaId,
 		});
@@ -288,14 +287,12 @@ describe("Relationship includes", () => {
 		const courseModuleSchema = await createRelationshipSchema(client, {
 			slug: courseModuleSlug,
 			name: "Deep Course Module",
-			propertiesSchema: { fields: {} },
 			targetEntitySchemaId: moduleSchemaId,
 			sourceEntitySchemaId: courseSchemaId,
 		});
 		const moduleLessonSchema = await createRelationshipSchema(client, {
 			slug: moduleLessonSlug,
 			name: "Deep Module Lesson",
-			propertiesSchema: { fields: {} },
 			targetEntitySchemaId: lessonSchemaId,
 			sourceEntitySchemaId: moduleSchemaId,
 		});

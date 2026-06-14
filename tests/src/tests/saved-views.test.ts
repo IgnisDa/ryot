@@ -114,7 +114,6 @@ describe("Saved views query documents E2E", () => {
 		await createRelationshipSchema(client, {
 			slug: courseModuleSlug,
 			name: "Saved View Course Module",
-			propertiesSchema: { fields: {} },
 			sourceEntitySchemaId: courseSchemaId,
 			targetEntitySchemaId: moduleSchemaId,
 		});
