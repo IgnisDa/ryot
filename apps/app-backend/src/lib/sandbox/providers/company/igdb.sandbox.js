@@ -240,14 +240,16 @@ driver("details", async function (context) {
 			? dayjs.unix(company.start_date).year()
 			: null;
 
-	const website =
+	let website = null;
+	if (
 		Array.isArray(company.websites) &&
 		company.websites.length > 0 &&
 		typeof company.websites[0]?.url === "string"
-			? company.websites[0].url.trim()
-			: typeof company.url === "string" && company.url.trim()
-				? company.url.trim()
-				: null;
+	) {
+		website = company.websites[0].url.trim();
+	} else if (typeof company.url === "string" && company.url.trim()) {
+		website = company.url.trim();
+	}
 
 	const description =
 		typeof company.description === "string" && company.description.trim()
