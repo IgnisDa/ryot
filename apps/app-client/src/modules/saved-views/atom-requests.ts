@@ -17,6 +17,26 @@ export const savedViewRecordRequestKey = (request: SavedViewRecordRequest) =>
 export const savedViewResultRequestKey = (request: SavedViewResultRequest) =>
 	scopedRequestKey(request, request.queryDocument);
 
+export const withSavedViewCursor = (queryDocument: RyotQLDocument, after: string) => {
+	const [queryName, query] = Object.entries(queryDocument.queries)[0];
+	if (query.output.type !== "rows") {
+		return queryDocument;
+	}
+	return {
+		...queryDocument,
+		queries: {
+			...queryDocument.queries,
+			[queryName]: {
+				...query,
+				output: {
+					...query.output,
+					pagination: { ...query.output.pagination, after },
+				},
+			},
+		},
+	};
+};
+
 export const canonicalManagedAssetRequest = (request: ManagedAssetResolutionRequest) => {
 	const assets = canonicalManagedAssets(request.assets);
 	return {

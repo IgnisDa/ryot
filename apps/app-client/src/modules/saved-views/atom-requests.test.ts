@@ -5,6 +5,7 @@ import {
 	canonicalManagedAssetRequest,
 	savedViewRecordRequestKey,
 	savedViewResultRequestKey,
+	withSavedViewCursor,
 } from "./atom-requests";
 
 describe("saved-view atom requests", () => {
@@ -58,5 +59,21 @@ describe("saved-view atom requests", () => {
 		expect(
 			canonicalManagedAssetRequest({ ...request, serverUrl: "https://two.test" }).key,
 		).not.toBe(canonical.key);
+	});
+
+	it("adds a cursor without changing the persisted query definition", () => {
+		const queryDocument = buildSavedViewRecordDocument({ slug: "favorites" });
+		const next = withSavedViewCursor(queryDocument, "cursor-2");
+		const query = next.queries.savedView;
+
+		expect(query.output.type).toBe("rows");
+		if (query.output.type !== "rows") {
+			return;
+		}
+		expect(query.output.pagination).toEqual({ limit: 1, after: "cursor-2" });
+		expect(query.from).toEqual(queryDocument.queries.savedView.from);
+		expect(query.where).toEqual(queryDocument.queries.savedView.where);
+		expect(query.output.fields).toEqual(queryDocument.queries.savedView.output.fields);
+		expect(queryDocument.queries.savedView.output.pagination).toEqual({ limit: 1 });
 	});
 });
