@@ -91,6 +91,10 @@ BEGIN
 			INNER JOIN person_targets ON person_targets.source = legacy_person.source
 			WHERE ${isCompany ? companyFilterSql : `NOT ${companyFilterSql}`}
 				AND legacy_person.id::text > cursor_id
+				AND (
+					person_targets.sandbox_script_id IS NULL
+					OR EXISTS (SELECT 1 FROM _referenced_global_entity_ids r WHERE r.id = legacy_person.id::text)
+				)
 			ORDER BY legacy_person.id::text
 			LIMIT batch_size
 		)
@@ -120,7 +124,10 @@ BEGIN
 			legacy_person.created_on,
 			NULL,
 			legacy_person.created_by_user_id,
-			${propertiesSql},
+			CASE
+				WHEN person_targets.sandbox_script_id IS NULL THEN ${propertiesSql}
+				ELSE '{}'::jsonb
+			END,
 			person_targets.entity_schema_id,
 			person_targets.sandbox_script_id,
 			legacy_person.last_updated_on
@@ -129,6 +136,10 @@ BEGIN
 		WHERE ${isCompany ? companyFilterSql : `NOT ${companyFilterSql}`}
 			AND legacy_person.id::text > cursor_id
 			AND legacy_person.id::text <= next_cursor_id
+			AND (
+				person_targets.sandbox_script_id IS NULL
+				OR EXISTS (SELECT 1 FROM _referenced_global_entity_ids r WHERE r.id = legacy_person.id::text)
+			)
 		ON CONFLICT ("id") DO NOTHING;
 		GET DIAGNOSTICS batch_rows_inserted = ROW_COUNT;
 

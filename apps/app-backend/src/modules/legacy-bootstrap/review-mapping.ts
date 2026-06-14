@@ -1,25 +1,8 @@
-// Dropped fields:
-// - visibility: V2 events have no visibility concept; public/private distinction is lost.
-// - comments: V2 has no comments concept on events; comment threads are lost.
-//
-// V1 review.entity_id is a generated column — COALESCE of the 5 nullable entity FK columns —
-// and equals the V2 entity.id directly because all entity migrations preserve legacy IDs.
-//
-// Reviews for metadata_group entities whose lot has no V2 entity schema (anime, manga, show,
-// podcast, visual_novel groups) are silently skipped via INNER JOIN: those entities were never
-// inserted into the entity table so the join produces no row.
-//
-// V1 Decimal (manga chapter) is serialized by rust_decimal's default serde as a JSON string;
-// the ->> operator extracts it as text before the ::float8 cast handles both string and
-// numeric JSONB representations safely.
-//
-// Show/podcast reviews with positional episode information now target the resolved episode entity.
-// Unresolved episode-specific show/podcast reviews are skipped rather than attached to the parent.
-// Show/podcast reviews without episode coordinates remain parent-level reviews.
-//
-// V1 rating had no upper bound; V2 enforces maximum: 100. Ratings above 100 are clamped to 100.
-// Ratings without a value produce no `rating` key in V2. Note: PostgreSQL's LEAST(NULL, 100)
-// returns 100 (NULLs are ignored), not NULL — the CASE WHEN guard is required.
+// V1 review.entity_id (generated COALESCE of the entity FK columns) equals the V2 entity.id since
+// legacy ids are preserved; reviews whose entity was not migrated are skipped via INNER JOIN.
+// Ratings are clamped to 100 via a CASE guard — LEAST(NULL, 100) returns 100, not NULL. Manga
+// chapter is a rust_decimal JSON string, extracted with ->> before ::float8. Dropped: visibility,
+// comments (no V2 equivalent).
 export const buildReviewMigrationSql = () => `
 DO $$
 DECLARE

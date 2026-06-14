@@ -1,11 +1,6 @@
-// Backfill whole-entity `complete` events for episodic seen migrations.
-//
-// V1 episodic `Completed` seen rows are migrated as V2 progress(100%) events. Show/podcast rows
-// target episode entities; anime/manga rows keep their flat episode/chapter keys. This pass walks
-// those progress events chronologically per user/parent entity, emits a parent `complete` event once
-// all required coverage keys are present, then resets coverage so another full coverage cycle
-// produces another `complete` event.
-
+// Backfills whole-entity `complete` events for episodic media: walks the 100%-progress events per
+// user/parent entity chronologically and emits a `complete` event each time every required coverage
+// key (episode/chapter) has been seen, then resets coverage for the next watch-through.
 export const buildSeenEpisodicCompletionMigrationSql = () => `
 DO $$
 DECLARE
