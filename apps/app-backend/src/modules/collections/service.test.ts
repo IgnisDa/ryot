@@ -14,6 +14,7 @@ import { dbRunnerLayer, makeMock, transactionLayer } from "#lib/test-support/eff
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { EventsService } from "#modules/events/service";
+import { QueryEngineService } from "#modules/query-engine/service";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
@@ -154,9 +155,18 @@ const makeEventsService = (overrides: Partial<EventsService> = {}) =>
 	makeMock<EventsService>(
 		{
 			_tag: "EventsService" as const,
-			list: () => Effect.die("unused"),
 			listForUser: () => Effect.die("unused"),
 			create: () => Effect.succeed({ count: 1 }),
+		},
+		overrides,
+	);
+
+const makeQueryEngine = (overrides: Partial<QueryEngineService> = {}) =>
+	makeMock<QueryEngineService>(
+		{
+			validate: () => Effect.void,
+			_tag: "QueryEngineService" as const,
+			execute: () => Effect.die("unused"),
 		},
 		overrides,
 	);
@@ -175,7 +185,11 @@ const makeServiceLayer = (
 
 	const entitiesServiceLayer = EntitiesService.Default.pipe(
 		Layer.provide(
-			Layer.mergeAll(dbRunnerLayer, Layer.succeed(EntitiesRepository, entitiesRepository)),
+			Layer.mergeAll(
+				dbRunnerLayer,
+				Layer.succeed(QueryEngineService, makeQueryEngine()),
+				Layer.succeed(EntitiesRepository, entitiesRepository),
+			),
 		),
 	);
 

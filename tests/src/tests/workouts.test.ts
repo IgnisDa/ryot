@@ -26,7 +26,6 @@ import {
 	waitForSessionEventCount,
 } from "../fixtures";
 import { getPgClient } from "../setup";
-import { assertTaggedError } from "../test-support/assertions";
 
 describe("Workouts E2E", () => {
 	it("links the built-in workout schema to the fitness tracker", async () => {
@@ -258,14 +257,6 @@ describe("Workouts E2E", () => {
 		expect(new Set(exerciseEvents.map((event) => event.sessionEntityId))).toEqual(
 			new Set([workoutOneId, workoutTwoId]),
 		);
-	});
-
-	it("returns 400 when listing events without entityId or sessionEntityId", async () => {
-		const { client } = await createAuthenticatedClient();
-
-		const error = await client.runError((c) => c.events.list({ urlParams: {} }));
-
-		assertTaggedError(error, "BadRequest");
 	});
 
 	it("creates a workout-repeated-from relationship between two workouts", async () => {
