@@ -122,7 +122,10 @@ while (true) {
       continue;
     }
 
-    const value = await driverFn(payload.context ?? {}, { sandboxScriptId: payload.scriptId });
+    const value = await driverFn(payload.context ?? {}, {
+      metadata: payload.metadata ?? {},
+      sandboxScriptId: payload.scriptId,
+    });
     await writeResult({
       success: true,
       logs,
