@@ -82,7 +82,7 @@ const makeRelationshipsRepository = (
 	overrides: MockOverrides<typeof mockRelationshipsRepository> = {},
 ) =>
 	mockRelationshipsRepository({
-		syncGlobalRelationshipSelfEdges: () => Effect.void,
+		syncGlobalRelationships: () => Effect.void,
 		...overrides,
 		_tag: "RelationshipsRepository",
 	});
@@ -174,7 +174,7 @@ it.effect("syncs successful provider trend items as ranked self edges", () => {
 			},
 		}),
 		relationshipsRepository: makeRelationshipsRepository({
-			syncGlobalRelationshipSelfEdges: (input) => {
+			syncGlobalRelationships: (input) => {
 				syncedInput = input;
 				return Effect.void;
 			},
@@ -195,6 +195,9 @@ it.effect("syncs successful provider trend items as ranked self edges", () => {
 			expect(result).toEqual({ providerCount: 2, itemCount: 3, synced: true });
 			expect(savedInputs).toHaveLength(4);
 			expect(syncedInput).toMatchObject({
+				type: "self",
+				onConflict: "replaceProperties",
+				synchronization: "authoritative",
 				relationshipSchemaId: "schema-media-trending",
 				entries: [
 					{
@@ -235,7 +238,7 @@ it.effect("skips failed providers and syncs successful providers", () => {
 				),
 		}),
 		relationshipsRepository: makeRelationshipsRepository({
-			syncGlobalRelationshipSelfEdges: (input) => {
+			syncGlobalRelationships: (input) => {
 				syncedInput = input;
 				return Effect.void;
 			},
@@ -255,6 +258,9 @@ it.effect("skips failed providers and syncs successful providers", () => {
 
 			expect(result).toEqual({ providerCount: 1, itemCount: 1, synced: true });
 			expect(syncedInput).toMatchObject({
+				type: "self",
+				onConflict: "replaceProperties",
+				synchronization: "authoritative",
 				entries: [
 					{
 						entityId: "entity-show-one",
@@ -271,7 +277,7 @@ it.effect("preserves prior trend edges when no provider succeeds", () => {
 	const options = {
 		fetchTrending: () => Effect.fail(new SandboxRunError({ message: "provider unavailable" })),
 		relationshipsRepository: makeRelationshipsRepository({
-			syncGlobalRelationshipSelfEdges: () => {
+			syncGlobalRelationships: () => {
 				syncCalled = true;
 				return Effect.void;
 			},

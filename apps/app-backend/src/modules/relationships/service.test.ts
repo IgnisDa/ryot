@@ -61,7 +61,7 @@ it.effect("returns bad request when properties violate the relationship schema",
 	return Effect.gen(function* () {
 		const service = yield* RelationshipsService;
 		const exit = yield* Effect.exit(
-			service.create({
+			service.save({
 				...baseInput,
 				properties: { status: "deleted" },
 				propertiesSchema: {
@@ -87,22 +87,45 @@ it.effect("returns bad request when properties violate the relationship schema",
 	}).pipe(Effect.provide(layer));
 });
 
-it.effect("creates relationship and returns saved relationship", () => {
-	const layer = makeServiceLayer({ saveRelationship: () => Effect.succeed(savedRelationship) });
+it.effect("saves a validated user relationship", () => {
+	let savedInput: unknown;
+	const layer = makeServiceLayer({
+		saveRelationship: (input) =>
+			Effect.sync(() => {
+				savedInput = input;
+				return savedRelationship;
+			}),
+	});
 
 	return Effect.gen(function* () {
 		const service = yield* RelationshipsService;
-		const result = yield* service.create(baseInput);
+		const result = yield* service.save(baseInput);
 		expect(result).toEqual(savedRelationship);
+		expect(savedInput).toEqual({
+			userId,
+			properties: {},
+			sourceEntityId,
+			targetEntityId,
+			relationshipSchemaId,
+			scope: "user",
+			onConflict: "replaceProperties",
+		});
 	}).pipe(Effect.provide(layer));
 });
 
-it.effect("creates global-scoped relationship", () => {
-	const layer = makeServiceLayer({ saveRelationship: () => Effect.succeed(savedRelationship) });
+it.effect("saves a validated global relationship", () => {
+	let savedInput: unknown;
+	const layer = makeServiceLayer({
+		saveRelationship: (input) =>
+			Effect.sync(() => {
+				savedInput = input;
+				return savedRelationship;
+			}),
+	});
 
 	return Effect.gen(function* () {
 		const service = yield* RelationshipsService;
-		const result = yield* service.create({
+		const result = yield* service.save({
 			sourceEntityId,
 			targetEntityId,
 			properties: {},
@@ -112,5 +135,13 @@ it.effect("creates global-scoped relationship", () => {
 			propertiesSchema: { fields: {} },
 		});
 		expect(result).toEqual(savedRelationship);
+		expect(savedInput).toEqual({
+			properties: {},
+			sourceEntityId,
+			targetEntityId,
+			relationshipSchemaId,
+			scope: "global",
+			onConflict: "replaceProperties",
+		});
 	}).pipe(Effect.provide(layer));
 });
