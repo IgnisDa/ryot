@@ -8,6 +8,7 @@ const makeConfig = (overrides: Record<string, unknown> = {}) => ({
 	tmpDir: "/tmp",
 	nodeEnv: "test",
 	timezone: "Etc/GMT",
+	builtinExercisePreloadLimit: 873,
 	frontendUrl: "http://localhost:3000",
 	frontend: { oidcButtonLabel: Option.none() },
 	redisUrl: Redacted.make("redis://localhost"),
