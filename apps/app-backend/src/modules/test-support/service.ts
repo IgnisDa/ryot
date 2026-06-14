@@ -27,6 +27,7 @@ import { TranslationsService } from "#modules/entity-translation/service";
 import { PluginInstallationService } from "#modules/plugins/installation-service";
 import { PluginIngestionService } from "#modules/plugins/service";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
+import type { GlobalRelationshipListInput } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
 import { SandboxExecutionService } from "#modules/sandbox/service";
 import { PluginBootService } from "#modules/scheduler/plugin-boot";
@@ -150,6 +151,24 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 				},
 			);
 
+			const listGlobalRelationships = Effect.fn("TestSupportService.listGlobalRelationships")(
+				function* (input: GlobalRelationshipListInput) {
+					const relationshipSchema = yield* relationshipSchemas.findById(
+						input.relationshipSchemaSlug,
+						null,
+					);
+					if (!relationshipSchema) {
+						return yield* new TestSupportBadRequest({
+							reason: { code: "invalid-request", diagnostic: "Relationship schema not found" },
+						});
+					}
+					return yield* relationships.listGlobal({
+						...input,
+						relationshipSchemaPluginId: relationshipSchema.pluginId ?? null,
+					});
+				},
+			);
+
 			const linkAuthAccount = Effect.fn("TestSupportService.linkAuthAccount")(function* (input: {
 				userId: UserId;
 				accountId: string;
@@ -223,6 +242,7 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 				countAutomationRules,
 				setEntityPopulatedAt,
 				upsertEntityTranslation,
+				listGlobalRelationships,
 				upsertGlobalRelationship,
 				listSignals: signals.list,
 				reconcilePluginInstallations,
@@ -230,7 +250,6 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 				deleteGlobalEntities: entities.deleteByIds,
 				listSystemPlugins: pluginIngestion.listPlugins,
 				listEntityTranslations: translations.listByEntity,
-				listGlobalRelationships: relationships.listGlobal,
 				installSystemPlugin: pluginIngestion.installPlugin,
 				uninstallSystemPlugin: pluginIngestion.uninstallPlugin,
 				listSubscriptionRuns: automations.listRunsByExecutionUserId,

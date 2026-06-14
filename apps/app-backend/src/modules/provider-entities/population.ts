@@ -67,8 +67,8 @@ export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (
 	}
 	const rowChildEntitySchemaSlug = input.childEntities[0]?.entitySchemaSlug;
 	if (
-		input.expectedChildEntitySchemaSlug &&
 		rowChildEntitySchemaSlug &&
+		input.expectedChildEntitySchemaSlug &&
 		input.expectedChildEntitySchemaSlug !== rowChildEntitySchemaSlug
 	) {
 		return yield* new SandboxRunError({
@@ -109,17 +109,25 @@ export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (
 			: null;
 		let relationshipSchema = relationshipDefinition
 			? {
-					id: RelationshipSchemaSlug.make(relationshipDefinition.slug),
+					pluginId: relationshipDefinition.pluginId ?? null,
 					propertiesSchema: relationshipDefinition.propertiesSchema,
+					id: RelationshipSchemaSlug.make(relationshipDefinition.slug),
 				}
 			: null;
 		if (!definitions) {
-			relationshipSchema = yield* relationshipSchemasRepository
+			const globalSchema = yield* relationshipSchemasRepository
 				.findGlobalBySchemaIds({
 					targetEntitySchemaSlug,
 					sourceEntitySchemaSlug: input.parentEntitySchemaSlug,
 				})
 				.pipe(mapDbErrorToSandbox);
+			relationshipSchema = globalSchema
+				? {
+						id: globalSchema.id,
+						pluginId: globalSchema.pluginId ?? null,
+						propertiesSchema: globalSchema.propertiesSchema,
+					}
+				: null;
 		}
 		if (!relationshipSchema) {
 			return yield* new SandboxRunError({
@@ -138,16 +146,16 @@ export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (
 		const populatedAt = yield* DateTime.nowAsDate;
 		const saved = yield* entities
 			.upsert({
-				...(input.scope === "user"
-					? { scope: "user" as const, userId: input.userId }
-					: { scope: "global" as const }),
 				populatedAt,
 				name: childEntity.name,
 				providerId: input.providerId,
-				entitySchemaSlug: childEntitySchema.id,
 				externalId: childEntity.externalId,
 				properties: childEntity.properties,
+				entitySchemaSlug: childEntitySchema.id,
 				updateExisting: input.syncExisting ?? false,
+				...(input.scope === "user"
+					? { scope: "user" as const, userId: input.userId }
+					: { scope: "global" as const }),
 			})
 			.pipe(mapDbErrorToSandbox);
 		processedChildren.push({
@@ -167,9 +175,8 @@ export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (
 			anchorEntityId: input.parentEntityId,
 			relationshipSchemaSlug: relationshipSchema.id,
 			propertiesSchema: relationshipSchema.propertiesSchema,
+			relationshipSchemaPluginId: relationshipSchema.pluginId,
 			entries: processedChildren.map((child) => ({ properties: {}, entityId: child.entity.id })),
-			relationshipSchemaPluginId:
-				definitions?.relationshipSchemas[relationshipSchema.id]?.pluginId ?? null,
 			...(input.scope === "user"
 				? { scope: "user" as const, userId: input.userId }
 				: { scope: "global" as const }),
