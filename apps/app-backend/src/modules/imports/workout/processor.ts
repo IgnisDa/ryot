@@ -62,7 +62,9 @@ const findOrCreateExercise = Effect.fn(function* (input: {
 		return existing;
 	}
 
-	const created = yield* entities.create(input.user, {
+	const created = yield* entities.create({
+		scope: "user",
+		userId: input.user.id,
 		name: input.exercise.name,
 		entitySchemaId: input.exerciseSchemaId,
 		properties: { images: [], muscles: [], instructions: [], kind: input.exercise.kind },
@@ -128,7 +130,9 @@ export const commitWorkoutItem = Effect.fn("imports.commitWorkoutItem")(function
 		});
 	}
 
-	const workoutEntity = yield* entities.create(input.user, {
+	const workoutEntity = yield* entities.create({
+		scope: "user",
+		userId: input.user.id,
 		name: input.workout.name,
 		entitySchemaId: input.schemas.workoutSchemaId,
 		properties: buildWorkoutEntityProperties(input.workout),
