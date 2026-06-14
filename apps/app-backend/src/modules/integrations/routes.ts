@@ -36,7 +36,7 @@ export const IntegrationsRoutesLive = HttpApiBuilder.group(
 				Effect.gen(function* () {
 					const user = yield* CurrentUser;
 					const service = yield* IntegrationsService;
-					return yield* service.update(user, path.integrationId, payload).pipe(dieOnDbError);
+					return yield* service.update(user.id, path.integrationId, payload).pipe(dieOnDbError);
 				}),
 			)
 			.handle("delete", ({ path }) =>

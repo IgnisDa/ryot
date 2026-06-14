@@ -20,6 +20,7 @@ const mediaImportWorkflowModules = [
 
 const integrationWorkflowModules = [
 	"../integrations/integration-workflow.ts",
+	"../integrations/integration-workflow-live.ts",
 	"../integrations/operations-workflow.ts",
 	"../integrations/failure-workflow.ts",
 	"../integrations/media-workflow.ts",
