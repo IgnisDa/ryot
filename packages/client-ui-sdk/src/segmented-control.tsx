@@ -11,6 +11,7 @@ type SegmentedControlProps<T extends string> = {
 	readonly value: T;
 	readonly label: string;
 	readonly className?: string;
+	readonly optionClassName?: string;
 	readonly onChange: (value: T) => void;
 	readonly options: readonly SegmentedControlOption<T>[];
 };
@@ -21,6 +22,7 @@ export function SegmentedControl<T extends string>({
 	options,
 	onChange,
 	className,
+	optionClassName,
 }: SegmentedControlProps<T>) {
 	return (
 		<div
@@ -42,7 +44,8 @@ export function SegmentedControl<T extends string>({
 						aria-label={option.label}
 						onClick={() => onChange(option.value)}
 						className={clsx(
-							"flex h-7 w-9.5 items-center justify-center rounded-full border border-transparent focus-visible:border-accent focus-visible:outline-none md:w-7.5 md:rounded-sm",
+							"flex h-7 items-center justify-center rounded-full border border-transparent focus-visible:border-accent focus-visible:outline-none md:rounded-sm",
+							optionClassName ?? "w-9.5 md:w-7.5",
 							selected ? "bg-raised text-accent-text shadow-sm" : "text-text-muted",
 						)}
 					>
