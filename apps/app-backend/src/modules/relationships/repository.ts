@@ -1,7 +1,7 @@
 import { DbError } from "@ryot/contract/errors";
 import type { UserId } from "@ryot/contract/schema/brands";
 import { EntityId, RelationshipId, RelationshipSchemaId } from "@ryot/contract/schema/brands";
-import { and, eq, isNull, or, sql } from "drizzle-orm";
+import { and, eq, isNull, notInArray, or, sql } from "drizzle-orm";
 import { Effect } from "effect";
 
 import * as schema from "#lib/db/schema/tables/combined";
@@ -303,10 +303,66 @@ export class RelationshipsRepository extends Effect.Service<RelationshipsReposit
 				},
 			);
 
+			const syncGlobalRelationshipTargets = Effect.fn(
+				"RelationshipsRepository.syncGlobalRelationshipTargets",
+			)(function* (input: {
+				sourceEntityId: EntityId;
+				relationshipSchemaId: RelationshipSchemaId;
+				targetEntityIds: ReadonlyArray<EntityId>;
+			}) {
+				const db = yield* CurrentDb;
+				const targetEntityIds = [...new Set(input.targetEntityIds)];
+				const globalSourceWhere = and(
+					isNull(schema.relationship.userId),
+					eq(schema.relationship.sourceEntityId, input.sourceEntityId),
+					eq(schema.relationship.relationshipSchemaId, input.relationshipSchemaId),
+				);
+
+				yield* dbEffect(() =>
+					db.transaction((tx) => {
+						const insertTargets =
+							targetEntityIds.length > 0
+								? tx
+										.insert(schema.relationship)
+										.values(
+											targetEntityIds.map((targetEntityId) => ({
+												userId: null,
+												properties: {},
+												targetEntityId,
+												sourceEntityId: input.sourceEntityId,
+												relationshipSchemaId: input.relationshipSchemaId,
+											})),
+										)
+										.onConflictDoNothing()
+								: Promise.resolve();
+
+						return insertTargets.then(() => {
+							if (targetEntityIds.length === 0) {
+								return tx
+									.delete(schema.relationship)
+									.where(globalSourceWhere)
+									.then(() => undefined);
+							}
+
+							return tx
+								.delete(schema.relationship)
+								.where(
+									and(
+										globalSourceWhere,
+										notInArray(schema.relationship.targetEntityId, targetEntityIds),
+									),
+								)
+								.then(() => undefined);
+						});
+					}),
+				);
+			});
+
 			return {
 				saveRelationship,
 				deleteUserRelationship,
 				findRelationshipProperties,
+				syncGlobalRelationshipTargets,
 				deleteUserRelationshipsForEntity,
 				moveUserRelationshipsBetweenEntities,
 			};
