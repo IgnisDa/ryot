@@ -150,10 +150,24 @@ const ApplicationInfrastructureLive = Layer.mergeAll(
 	CoreInfrastructureDependenciesLive,
 );
 
-// The query engine reads canonical languages from ProviderConfig for its `translationStatus` field.
-const QueryEngineServiceLive = Layer.provide(QueryEngineService.Default, ProviderConfig.Default);
+const QueryEngineServiceLive = QueryEngineService.Default;
 
 const EntitiesServiceLive = Layer.provide(EntitiesService.Default, QueryEngineServiceLive);
+const SavedViewsServiceLive = Layer.provide(SavedViewsService.Default, QueryEngineServiceLive);
+const EntitySchemasServiceLive = Layer.provide(
+	EntitySchemasService.Default,
+	TrackersService.Default,
+);
+const BootstrapServicesLive = Layer.mergeAll(
+	EntitiesServiceLive,
+	SavedViewsServiceLive,
+	TrackersService.Default,
+);
+const AuthAndBootstrapServicesLive = Layer.provideMerge(AuthService.Default, BootstrapServicesLive);
+const AuthDependentServicesLive = Layer.provideMerge(
+	Layer.mergeAll(UserPreferencesService.Default, GodModeService.Default),
+	AuthAndBootstrapServicesLive,
+);
 
 const InterestReconcilerLive = Layer.provide(
 	InterestReconciler.Default,
@@ -171,10 +185,9 @@ const RuntimeSandboxServiceLive = Layer.provide(
 const SandboxServicesLive = Layer.mergeAll(SandboxApiService.Default, RuntimeSandboxServiceLive);
 
 const ContentServicesLive = Layer.mergeAll(
-	AuthService.Default,
-	EntitiesServiceLive,
+	AuthDependentServicesLive,
+	EntitySchemasServiceLive,
 	LibraryImportService.Default,
-	EntitySchemasService.Default,
 	EpisodeResolverService.Default,
 	EventSchemasService.Default,
 	EventsServiceLive,
@@ -195,11 +208,7 @@ const ImportsServiceLive = Layer.provideMerge(
 
 const PlatformServicesLive = Layer.mergeAll(
 	RelationshipsService.Default,
-	Layer.provide(SavedViewsService.Default, QueryEngineServiceLive),
-	TrackersService.Default,
-	Layer.provide(UserPreferencesService.Default, AuthService.Default),
 	UserStateServiceLive,
-	Layer.provide(GodModeService.Default, AuthService.Default),
 	ImportsServiceLive,
 	Layer.provide(IntegrationsService.Default, ImportsServiceLive),
 	NotificationsService.Default,
