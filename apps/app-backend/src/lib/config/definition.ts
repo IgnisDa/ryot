@@ -4,22 +4,29 @@ import type { ConfigLeaf, FieldMeta } from "./builder";
 import { boolField, group, intField, optField, secretField, strField } from "./builder";
 
 const fields = {
+	redisUrl: secretField("REDIS_URL", "Redis connection string"),
+	databaseUrl: secretField("DATABASE_URL", "PostgreSQL connection string"),
 	s3Region: optField(strField("FILE_STORAGE_S3_REGION", "S3 bucket region")),
 	oidcClientId: optField(strField("SERVER_OIDC_CLIENT_ID", "OIDC client ID")),
 	port: intField("PORT", "HTTP port the server listens on", { default: 8000 }),
 	oidcIssuerUrl: optField(strField("SERVER_OIDC_ISSUER_URL", "OIDC issuer URL")),
 	s3Url: optField(strField("FILE_STORAGE_S3_URL", "S3-compatible endpoint URL")),
 	s3BucketName: optField(strField("FILE_STORAGE_S3_BUCKET_NAME", "S3 bucket name")),
+	tvdbApiKey: optField(secretField("MOVIES_AND_SHOWS_TVDB_API_KEY", "TVDB API key")),
+	spotifyClientId: optField(strField("MUSIC_SPOTIFY_CLIENT_ID", "Spotify client ID")),
+	metronUsername: optField(strField("COMIC_BOOK_METRON_USERNAME", "Metron username")),
 	s3AccessKeyId: optField(secretField("FILE_STORAGE_S3_ACCESS_KEY_ID", "S3 access key ID")),
 	oidcClientSecret: optField(secretField("SERVER_OIDC_CLIENT_SECRET", "OIDC client secret")),
+	listennotesApiKey: optField(secretField("PODCASTS_LISTENNOTES_API_KEY", "ListenNotes API key")),
 	frontendUrl: strField("FRONTEND_URL", "Public URL of the frontend application", {
 		default: "http://localhost:3000",
 	}),
-	redisUrl: secretField("REDIS_URL", "Redis connection string"),
+	jobIdSecret: secretField("SANDBOX_JOB_ID_SECRET", "Secret used to sign sandbox job identifiers", {
+		default: "changeme",
+	}),
 	s3SecretAccessKey: optField(
 		secretField("FILE_STORAGE_S3_SECRET_ACCESS_KEY", "S3 secret access key"),
 	),
-	databaseUrl: secretField("DATABASE_URL", "PostgreSQL connection string"),
 	databaseConnectionTimeoutMs: intField(
 		"DATABASE_CONNECTION_TIMEOUT_MS",
 		"Maximum milliseconds to wait when acquiring a PostgreSQL connection from the pool",
@@ -41,9 +48,6 @@ const fields = {
 	corsOrigins: optField(
 		strField("SERVER_CORS_ORIGINS", "Comma-separated list of allowed CORS origins"),
 	),
-	jobIdSecret: secretField("SANDBOX_JOB_ID_SECRET", "Secret used to sign sandbox job identifiers", {
-		default: "changeme",
-	}),
 	timezone: strField(
 		"TZ",
 		"IANA timezone used for interpreting timezone-less datetimes during imports",
@@ -101,10 +105,6 @@ const fields = {
 	traktClientId: optField(
 		strField("SERVER_IMPORTER_TRAKT_CLIENT_ID", "Trakt client ID for the Trakt importer"),
 	),
-	tvdbApiKey: optField(secretField("MOVIES_AND_SHOWS_TVDB_API_KEY", "TVDB API key")),
-	spotifyClientId: optField(strField("MUSIC_SPOTIFY_CLIENT_ID", "Spotify client ID")),
-	metronUsername: optField(strField("COMIC_BOOK_METRON_USERNAME", "Metron username")),
-	listennotesApiKey: optField(secretField("PODCASTS_LISTENNOTES_API_KEY", "ListenNotes API key")),
 	malClientId: optField(
 		strField("ANIME_AND_MANGA_MAL_CLIENT_ID", "MyAnimeList client ID for anime and manga lookups"),
 	),
@@ -146,11 +146,11 @@ const tmpDir: ConfigLeaf<string, FieldMeta> = {
 	),
 	meta: {
 		hidden: true,
-		sensitive: false,
 		kind: "field",
 		default: "/tmp",
 		required: false,
 		envKey: "TMPDIR",
+		sensitive: false,
 		description: "Directory for temporary import and upload files",
 	},
 };
