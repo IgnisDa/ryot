@@ -21,6 +21,7 @@ import {
 	GodModeRouteStubs,
 	SavedViewRouteStubs,
 	ProviderAddRouteStubs,
+	NavigationRouteStubs,
 	theme,
 	server,
 	catalog,
@@ -65,6 +66,7 @@ const mountView = (
 			Layer.succeed(ArtifactSessions, artifactSessions),
 			events.layer,
 			Layer.succeed(PluginCatalogService, { load }),
+			NavigationRouteStubs,
 			Layer.succeed(PluginOperationsService, { invoke }),
 			Layer.succeed(PluginQueriesService, { query: () => Effect.die("not used") }),
 		).pipe(
@@ -563,6 +565,22 @@ describe("desktop navigation", () => {
 		);
 		expect(home.getAttribute("aria-current")).toBeNull();
 		expect(home.getAttribute("class")).not.toContain("bg-nav-indicator");
+	});
+
+	it("navigates through saved views and collections loaded by the shell", async () => {
+		const savedView = mountView("/fixture");
+		await waitFor(() => expect(frame()).toBeTruthy());
+
+		expect(screen.getByRole("link", { name: "Global View" })).toBeTruthy();
+		expect(screen.getByRole("link", { name: "Fixture Collection" })).toBeTruthy();
+		fireEvent.click(screen.getByRole("link", { name: "Global View" }));
+		await waitFor(() => expect(savedView.router.state.location.pathname).toBe("/v/global-view"));
+		savedView.unmount();
+
+		const collection = mountView("/fixture");
+		await waitFor(() => expect(frame()).toBeTruthy());
+		fireEvent.click(screen.getByRole("link", { name: "Fixture Collection" }));
+		await waitFor(() => expect(collection.router.state.location.pathname).toBe("/e/collection-1"));
 	});
 
 	it("uses the remembered workspace around settings and marks all settings paths active", async () => {

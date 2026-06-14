@@ -12,6 +12,7 @@ import { AuthService } from "#/modules/auth/service";
 import { OAuthTokenService } from "#/modules/auth/token-service";
 import { GodModeService } from "#/modules/god-mode/service";
 import { GodModeSessionService } from "#/modules/god-mode/session";
+import { NavigationService } from "#/modules/navigation/service";
 import { ArtifactSessions } from "#/modules/plugins/artifact-sessions";
 import { PluginCatalogService } from "#/modules/plugins/catalog";
 import { PluginCatalogEventsService } from "#/modules/plugins/events";
@@ -58,6 +59,7 @@ export const ClientLive = Layer.mergeAll(
 	ManagedAssetsService.layer,
 	ServerLive,
 	ArtifactSessions.layer,
+	NavigationService.layer,
 	PluginCatalogService.layer,
 	PluginCatalogEventsService.layer.pipe(
 		Layer.provideMerge(OAuthTokenLive),
