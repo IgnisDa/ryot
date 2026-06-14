@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -26,14 +26,31 @@ re-populated. This is accepted.
 
 ## Acceptance criteria
 
-- [ ] Anilist `details` no longer reads the user's language preference and populates the english
+- [x] Anilist `details` no longer reads the user's language preference and populates the english
       canonical title.
-- [ ] Anilist anime and manga declare `providerInformation` with `canonicalLanguage: "english"`.
-- [ ] The `anilist` `translate` driver returns the title for a requested mode; `user_preferred` is
+- [x] Anilist anime and manga declare `providerInformation` with `canonicalLanguage: "english"`.
+- [x] The `anilist` `translate` driver returns the title for a requested mode; `user_preferred` is
       served only as an overlay.
-- [ ] Integration test: an Anilist title viewed under a non-english title mode returns a localized
+- [x] Integration test: an Anilist title viewed under a non-english title mode returns a localized
       name overlay (`pending` → `ready`); `details` output for the same entity is independent of the
       requesting user.
+
+## Implementation Notes
+
+- `anime.anilist` and `manga.anilist` now declare `providerInformation` with source `anilist` and
+  canonical language `english`; their `details` drivers read canonical language from script metadata
+  instead of user preferences.
+- Both Anilist scripts now implement a `translate` driver for `english`, `romaji`, `native`, and
+  `user_preferred`, returning a name-only overlay and negative-caching unsupported title modes.
+- App-backend unit coverage was added for Anilist provider metadata and Anilist `user_preferred`
+  language resolution.
+- The e2e translation suite now covers an Anilist anime import under a native title preference:
+  details populate the english canonical title first, then the native name appears as a shared
+  translation overlay. The language-preference e2e fixture now replaces an existing provider
+  preference instead of appending duplicate source entries, so the default Anilist `user_preferred`
+  preference can be overridden in tests.
+- Verified with targeted app-backend unit tests, `bun turbo --filter=@ryot/app-backend check`,
+  targeted Anilist e2e, and the tests package check.
 
 ## User stories addressed
 
