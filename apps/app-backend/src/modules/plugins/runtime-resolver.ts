@@ -1339,7 +1339,6 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 			const resolveUserDetailsScript = resolveUserProviderOperation("details");
 			const resolveUserTranslateScript = resolveUserProviderOperation("translate");
 			const resolveUserSearchOptionsScript = resolveUserProviderOperation("search-options");
-
 			const automationBindings = (
 				plugins: ReadonlyArray<BindingPlugin>,
 			): ReadonlyArray<BindingAutomation> => {

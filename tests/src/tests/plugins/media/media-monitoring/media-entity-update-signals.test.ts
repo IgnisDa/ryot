@@ -55,6 +55,7 @@ describe("hierarchical media entity-update signals", () => {
 			const animeSchemaId = yield* getBuiltinEntitySchemaSlug("anime");
 			const animeProvider = yield* installTestProvider({
 				client,
+				scope: "system",
 				slug: animeSlug,
 				details: buildDetails(12, 2025),
 				rootEntitySchemaSlug: animeSchemaId,
@@ -174,6 +175,7 @@ describe("hierarchical media entity-update signals", () => {
 				const showSchemaId = yield* getBuiltinEntitySchemaSlug("show");
 				const showProvider = yield* installTestProvider({
 					client,
+					scope: "system",
 					slug: showSlug,
 					rootEntitySchemaSlug: showSchemaId,
 					details: buildDetails({

@@ -28,7 +28,7 @@ export type CreateEntitySchemaOptions = Partial<
 	pluginSlug: PluginManifest["metadata"]["slug"];
 };
 
-export const createEntitySchema = (_client: Client, options: CreateEntitySchemaOptions) =>
+export const createEntitySchema = (client: Client, options: CreateEntitySchemaOptions) =>
 	Effect.gen(function* () {
 		const {
 			pluginSlug,
@@ -46,7 +46,7 @@ export const createEntitySchema = (_client: Client, options: CreateEntitySchemaO
 			propertiesSchema,
 			eventSchemas: [],
 		};
-		yield* installTestDefinitions({ pluginSlug, entitySchemas: [schema] });
+		yield* installTestDefinitions({ client, pluginSlug, entitySchemas: [schema] });
 		const schemaSlug = makeEntitySchemaSlug(slug);
 		return {
 			slug: schemaSlug,

@@ -50,6 +50,7 @@ export const installTestProvider = (input: {
 	slug?: string;
 	name?: string;
 	client: Client;
+	scope?: "system";
 	pluginSlug?: string;
 	rootEntitySchemaSlug: string;
 	search?: ProviderSearchResult;
@@ -135,7 +136,7 @@ export const installTestProvider = (input: {
 			...(input.resolve ? { resolve: `${providerSlug}.resolve` } : {}),
 			...(input.translations ? { translate: `${providerSlug}.translate` } : {}),
 		};
-		const installed = yield* installTestPluginBundle({
+		const common = {
 			files,
 			scripts,
 			pluginSlug: input.pluginSlug,
@@ -149,7 +150,12 @@ export const installTestProvider = (input: {
 					rootEntitySchemaSlug: input.rootEntitySchemaSlug,
 				},
 			],
-		});
+		};
+		const installed = yield* installTestPluginBundle(
+			input.scope === "system"
+				? { scope: "system", ...common }
+				: { client: input.client, ...common },
+		);
 		const detailsScriptId = installed.scriptIds[`${providerSlug}.details`];
 		if (!detailsScriptId) {
 			return yield* Effect.die(new Error("Installed provider details script was not found"));

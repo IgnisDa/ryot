@@ -5,7 +5,9 @@ import { PluginSlug, type SandboxScriptId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
 import { adminHeaders } from "./admin";
+import type { Client } from "./auth";
 import { getBackendClient } from "./contract-client";
+import { pollUntil } from "./polling";
 import { buildSavedViewLayouts } from "./saved-views";
 
 type InstallPluginPayload = ContractPayload<"plugins", "install">;
@@ -41,10 +43,14 @@ type TestPluginManifestInput = Partial<
 	eventAutomations?: TestPluginManifest["bindings"]["eventAutomations"];
 };
 
+type TestPluginOwner = { client?: undefined; scope: "system" } | { client: Client; scope?: "user" };
+
 export type InstalledTestPlugin = {
 	slug: string;
+	client?: Client;
 	active: boolean;
 	pluginSlug: PluginSlug;
+	scope: "system" | "user";
 	scriptId: SandboxScriptId;
 	manifest: TestPluginManifest;
 	files: InstallPluginPayload["files"];
@@ -56,8 +62,17 @@ type InstalledScriptRegistration = {
 	installed: InstalledTestPlugin;
 };
 
-const definitionManifests = new Map<string, TestPluginManifest>();
+const definitionManifests = new Map<string, { client: Client; manifest: TestPluginManifest }>();
 const installedByScriptId = new Map<string, InstalledScriptRegistration>();
+
+export const findTestEntitySchema = (slug: string) => {
+	for (const [pluginSlug, { manifest }] of definitionManifests) {
+		const schema = manifest.entitySchemas.find((candidate) => candidate.slug === slug);
+		if (schema) {
+			return { pluginSlug, schema };
+		}
+	}
+};
 
 export const testPluginManifest = (input: TestPluginManifestInput): TestPluginManifest => ({
 	signalSchemas: [],
@@ -120,20 +135,23 @@ const findInstalledScriptId = (scriptSlug: string, source: string, baseUrl?: str
 		return script.id;
 	});
 
-export const installTestPlugin = (input: {
-	source: string;
-	pluginSlug?: string;
-	script: TestPluginScript;
-	boot?: TestPluginManifest["boot"];
-	crons?: TestPluginManifest["crons"];
-	providers?: ReadonlyArray<PluginProvider>;
-	savedViews?: TestPluginManifest["savedViews"];
-	operations?: TestPluginManifest["operations"];
-	configSchema?: TestPluginManifest["configSchema"];
-	entitySchemas?: TestPluginManifest["entitySchemas"];
-	httpRateLimits?: TestPluginManifest["httpRateLimits"];
-	integrationProviders?: TestPluginManifest["integrationProviders"];
-}) =>
+export const installTestPlugin = (
+	input: {
+		source: string;
+		pluginSlug?: string;
+		script: TestPluginScript;
+		boot?: TestPluginManifest["boot"];
+		crons?: TestPluginManifest["crons"];
+		config?: InstallPluginPayload["config"];
+		providers?: ReadonlyArray<PluginProvider>;
+		savedViews?: TestPluginManifest["savedViews"];
+		operations?: TestPluginManifest["operations"];
+		configSchema?: TestPluginManifest["configSchema"];
+		entitySchemas?: TestPluginManifest["entitySchemas"];
+		httpRateLimits?: TestPluginManifest["httpRateLimits"];
+		integrationProviders?: TestPluginManifest["integrationProviders"];
+	} & TestPluginOwner,
+) =>
 	Effect.gen(function* () {
 		const entry = `scripts/${input.script.kind}.sandbox.ts`;
 		const pluginSlug = input.pluginSlug ?? `e2e-plugin-${randomUUID()}`;
@@ -152,42 +170,64 @@ export const installTestPlugin = (input: {
 			...(input.integrationProviders ? { integrationProviders: input.integrationProviders } : {}),
 		});
 		const files = { [entry]: input.source };
-		yield* getBackendClient().call(
-			(c) => c.testSupport.installSystemPlugin({ payload: { files, manifest } }),
-			adminHeaders,
-		);
+		if (input.scope === "system") {
+			yield* getBackendClient().call(
+				(c) => c.testSupport.installSystemPlugin({ payload: { files, manifest } }),
+				adminHeaders,
+			);
+		} else {
+			yield* input.client.call((c) =>
+				c.plugins.install({ payload: { config: input.config ?? {}, files, manifest } }),
+			);
+			yield* pollUntil(
+				`private test plugin '${pluginSlug}' installation`,
+				input.client
+					.call((c) => c.plugins.list())
+					.pipe(
+						Effect.map((installations) => {
+							const installation = installations.find(({ slug }) => slug === pluginSlug);
+							return installation?.health === "ready" ? installation : null;
+						}),
+					),
+			);
+		}
 		const scriptId = yield* findInstalledScriptId(input.script.slug, input.source);
 		const installed = {
 			files,
 			manifest,
 			scriptId,
 			active: true,
+			client: input.client,
 			slug: input.script.slug,
 			pluginSlug: pluginSlugId,
+			scope: input.scope ?? "user",
 			scriptIds: { [input.script.slug]: scriptId },
 		};
 		installedByScriptId.set(scriptId, { installed, targetSlug: input.script.slug });
 		return installed;
 	});
 
-export const installTestPluginBundle = (input: {
-	pluginSlug?: string;
-	baseUrl?: string;
-	crons?: TestPluginManifest["crons"];
-	files: InstallPluginPayload["files"];
-	scripts: TestPluginManifest["scripts"];
-	workflows?: TestPluginManifest["workflows"];
-	providers?: ReadonlyArray<PluginProvider>;
-	savedViews?: TestPluginManifest["savedViews"];
-	operations?: TestPluginManifest["operations"];
-	configSchema?: TestPluginManifest["configSchema"];
-	importSources?: TestPluginManifest["importSources"];
-	entitySchemas?: TestPluginManifest["entitySchemas"];
-	httpRateLimits?: TestPluginManifest["httpRateLimits"];
-	relationshipSchemas?: TestPluginManifest["relationshipSchemas"];
-	integrationProviders?: TestPluginManifest["integrationProviders"];
-	eventAutomations?: TestPluginManifest["bindings"]["eventAutomations"];
-}) =>
+export const installTestPluginBundle = (
+	input: {
+		baseUrl?: string;
+		pluginSlug?: string;
+		crons?: TestPluginManifest["crons"];
+		files: InstallPluginPayload["files"];
+		scripts: TestPluginManifest["scripts"];
+		config?: InstallPluginPayload["config"];
+		providers?: ReadonlyArray<PluginProvider>;
+		workflows?: TestPluginManifest["workflows"];
+		savedViews?: TestPluginManifest["savedViews"];
+		operations?: TestPluginManifest["operations"];
+		configSchema?: TestPluginManifest["configSchema"];
+		importSources?: TestPluginManifest["importSources"];
+		entitySchemas?: TestPluginManifest["entitySchemas"];
+		httpRateLimits?: TestPluginManifest["httpRateLimits"];
+		relationshipSchemas?: TestPluginManifest["relationshipSchemas"];
+		integrationProviders?: TestPluginManifest["integrationProviders"];
+		eventAutomations?: TestPluginManifest["bindings"]["eventAutomations"];
+	} & TestPluginOwner,
+) =>
 	Effect.gen(function* () {
 		const pluginSlug = input.pluginSlug ?? `e2e-plugin-${randomUUID()}`;
 		const pluginSlugId = PluginSlug.make(pluginSlug);
@@ -207,10 +247,29 @@ export const installTestPluginBundle = (input: {
 			relationshipSchemas: input.relationshipSchemas,
 			integrationProviders: input.integrationProviders,
 		});
-		yield* getBackendClient(input.baseUrl).call(
-			(c) => c.testSupport.installSystemPlugin({ payload: { files: input.files, manifest } }),
-			adminHeaders,
-		);
+		if (input.scope === "system") {
+			yield* getBackendClient(input.baseUrl).call(
+				(c) => c.testSupport.installSystemPlugin({ payload: { files: input.files, manifest } }),
+				adminHeaders,
+			);
+		} else {
+			yield* input.client.call((c) =>
+				c.plugins.install({
+					payload: { config: input.config ?? {}, files: input.files, manifest },
+				}),
+			);
+			yield* pollUntil(
+				`private test plugin '${pluginSlug}' installation`,
+				input.client
+					.call((c) => c.plugins.list())
+					.pipe(
+						Effect.map((installations) => {
+							const installation = installations.find(({ slug }) => slug === pluginSlug);
+							return installation?.health === "ready" ? installation : null;
+						}),
+					),
+			);
+		}
 		const scriptIds = Object.fromEntries(
 			yield* Effect.all(
 				input.scripts.map((script) =>
@@ -232,7 +291,9 @@ export const installTestPluginBundle = (input: {
 			scriptIds,
 			active: true,
 			files: input.files,
+			client: input.client,
 			pluginSlug: pluginSlugId,
+			scope: input.scope ?? "user",
 			slug: input.providers?.[0]?.slug ?? input.scripts[0]?.slug ?? pluginSlug,
 		};
 		for (const [targetSlug, id] of Object.entries(scriptIds)) {
@@ -251,6 +312,7 @@ const mergeBySlug = <Definition extends { readonly slug: string }>(
 ];
 
 export const installTestDefinitions = (input: {
+	client: Client;
 	pluginSlug: string;
 	entitySchemas?: TestPluginManifest["entitySchemas"];
 	relationshipSchemas?: TestPluginManifest["relationshipSchemas"];
@@ -259,17 +321,36 @@ export const installTestDefinitions = (input: {
 		const current = definitionManifests.get(input.pluginSlug);
 		const manifest = testPluginManifest({
 			pluginSlug: input.pluginSlug,
-			entitySchemas: mergeBySlug(current?.entitySchemas ?? [], input.entitySchemas ?? []),
+			entitySchemas: mergeBySlug(current?.manifest.entitySchemas ?? [], input.entitySchemas ?? []),
 			relationshipSchemas: mergeBySlug(
-				current?.relationshipSchemas ?? [],
+				current?.manifest.relationshipSchemas ?? [],
 				input.relationshipSchemas ?? [],
 			),
 		});
-		yield* getBackendClient().call(
-			(c) => c.testSupport.installSystemPlugin({ payload: { files: {}, manifest } }),
-			adminHeaders,
-		);
-		definitionManifests.set(input.pluginSlug, manifest);
+		if (current) {
+			yield* input.client.call((c) =>
+				c.plugins.update({
+					payload: { files: {}, manifest },
+					params: { pluginSlug: PluginSlug.make(input.pluginSlug) },
+				}),
+			);
+		} else {
+			yield* input.client.call((c) =>
+				c.plugins.install({ payload: { config: {}, files: {}, manifest } }),
+			);
+			yield* pollUntil(
+				`private definition plugin '${input.pluginSlug}' installation`,
+				input.client
+					.call((c) => c.plugins.list())
+					.pipe(
+						Effect.map((installations) => {
+							const installation = installations.find(({ slug }) => slug === input.pluginSlug);
+							return installation?.health === "ready" ? installation : null;
+						}),
+					),
+			);
+		}
+		definitionManifests.set(input.pluginSlug, { client: input.client, manifest });
 		return manifest;
 	});
 
@@ -294,10 +375,19 @@ export const reinstallTestPluginScript = (
 		const scripts = [...installed.manifest.scripts];
 		scripts[targetIndex] = { ...script, entry: target.entry };
 		const manifest = { ...installed.manifest, scripts };
-		yield* getBackendClient().call(
-			(c) => c.testSupport.installSystemPlugin({ payload: { files, manifest } }),
-			adminHeaders,
-		);
+		if (installed.scope === "system") {
+			yield* getBackendClient().call(
+				(c) => c.testSupport.installSystemPlugin({ payload: { files, manifest } }),
+				adminHeaders,
+			);
+		} else {
+			yield* installed.client!.call((c) =>
+				c.plugins.update({
+					payload: { files, manifest },
+					params: { pluginSlug: installed.pluginSlug },
+				}),
+			);
+		}
 		const scriptId = yield* findInstalledScriptId(script.slug, source);
 		const updatesPrimaryScript = installed.scriptId === installed.scriptIds[targetSlug];
 		installed.files = files;
@@ -317,10 +407,17 @@ export const uninstallTestPluginStrict = (installed: InstalledTestPlugin) =>
 		if (!installed.active) {
 			return;
 		}
-		yield* getBackendClient().call(
-			(c) => c.testSupport.uninstallSystemPlugin({ params: { pluginSlug: installed.pluginSlug } }),
-			adminHeaders,
-		);
+		if (installed.scope === "system") {
+			yield* getBackendClient().call(
+				(c) =>
+					c.testSupport.uninstallSystemPlugin({ params: { pluginSlug: installed.pluginSlug } }),
+				adminHeaders,
+			);
+		} else {
+			yield* installed.client!.call((c) =>
+				c.plugins.uninstall({ params: { pluginSlug: installed.pluginSlug } }),
+			);
+		}
 		installed.active = false;
 		for (const [scriptId, registration] of installedByScriptId) {
 			if (registration.installed === installed) {

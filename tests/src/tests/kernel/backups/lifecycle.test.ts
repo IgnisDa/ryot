@@ -1,20 +1,22 @@
 import { ManagedAssetLocator } from "@ryot/contract/modules/uploads/schemas";
-import { BackupRunId } from "@ryot/contract/schema/brands";
+import { BackupRunId, EntitySchemaSlug } from "@ryot/contract/schema/brands";
 import { managedAssetItemSchema } from "@ryot/contract/schema/core";
 import { Effect, Schema } from "effect";
 
 import {
 	createAuthenticatedClient,
 	createEntity,
-	createEntitySchema,
 	createPluginScope,
 	deleteUserAndWait,
 	downloadBackupArchive,
 	exportAndDownloadBackup,
 	getEntity,
+	installTestPluginBundle,
+	literalSandboxSource,
 	pollBackupRunUntilTerminal,
 	restoreBackup,
 	startBackupExport,
+	uninstallTestPlugin,
 } from "~/fixtures";
 import { assertTaggedError } from "~/support/assertions";
 import { getBackendUrl } from "~/support/backend";
@@ -106,24 +108,55 @@ describe("backup lifecycle", () => {
 
 	it.live("round-trips a schema-declared managed asset into a clean account", () =>
 		Effect.gen(function* () {
-			const setup = yield* createAuthenticatedClient();
 			const pluginSlug = createPluginScope(`backup-assets-${crypto.randomUUID()}`);
 			const schemaSlug = `backup-asset-${crypto.randomUUID()}`;
-			const { schemaId } = yield* createEntitySchema(setup.client, {
-				pluginSlug,
-				slug: schemaSlug,
-				name: "Backup Asset Fixture",
-				propertiesSchema: {
-					fields: {
-						title: { type: "string", label: "Title", description: "Title" },
-						attachment: {
-							...managedAssetItemSchema,
-							label: "Attachment",
-							description: "Managed attachment",
-						},
+			const scriptSlug = `${pluginSlug}.fixture`;
+			const entry = "scripts/fixture.sandbox.ts";
+			const propertiesSchema = {
+				fields: {
+					title: { type: "string" as const, label: "Title", description: "Title" },
+					attachment: {
+						...managedAssetItemSchema,
+						label: "Attachment",
+						description: "Managed attachment",
 					},
 				},
-			});
+			};
+			yield* Effect.acquireRelease(
+				installTestPluginBundle({
+					scope: "system",
+					pluginSlug,
+					files: {
+						[entry]: literalSandboxSource({
+							value: true,
+							slug: scriptSlug,
+							name: "Backup asset fixture",
+						}),
+					},
+					scripts: [
+						{
+							entry,
+							kind: "script",
+							slug: scriptSlug,
+							capabilities: [],
+							name: "Backup asset fixture",
+							requiredPluginConfigKeys: [],
+							requiredSystemConfigKeys: [],
+						},
+					],
+					entitySchemas: [
+						{
+							icon: "book",
+							slug: schemaSlug,
+							eventSchemas: [],
+							propertiesSchema,
+							name: "Backup Asset Fixture",
+						},
+					],
+				}),
+				uninstallTestPlugin,
+			);
+			const schemaId = EntitySchemaSlug.make(schemaSlug);
 			const source = yield* createAuthenticatedClient();
 			const other = yield* createAuthenticatedClient();
 			const assetBytes = new TextEncoder().encode(
@@ -131,11 +164,7 @@ describe("backup lifecycle", () => {
 			);
 			const intent = yield* source.client.call((c) =>
 				c.uploads.createIntent({
-					payload: {
-						kind: "permanent",
-						contentType: "text/csv",
-						fileName: "backup-asset.csv",
-					},
+					payload: { kind: "permanent", contentType: "text/csv", fileName: "backup-asset.csv" },
 				}),
 			);
 			const upload = yield* Effect.promise(() =>

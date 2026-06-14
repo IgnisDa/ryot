@@ -1,5 +1,5 @@
 import { notFound } from "@ryot/contract/errors";
-import type { EntityId, SandboxProviderId } from "@ryot/contract/schema/brands";
+import type { EntityId, SandboxProviderId, UserId } from "@ryot/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
@@ -7,6 +7,7 @@ import { TranslateEntityWorkflow, translateEntityExecutionId } from "./entity-tr
 import { TranslationsRepository, type TranslationOverlayInput } from "./repository";
 
 export type RequestFillInput = {
+	userId: UserId;
 	language: string;
 	entityId: EntityId;
 	externalId: string;
@@ -37,6 +38,7 @@ export class TranslationsService extends Context.Service<TranslationsService>()(
 						discard: true,
 						payload: {
 							executionId,
+							userId: input.userId,
 							language: input.language,
 							entityId: input.entityId,
 							externalId: input.externalId,

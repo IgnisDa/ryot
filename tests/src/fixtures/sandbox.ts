@@ -5,6 +5,7 @@ import { Effect } from "effect";
 import { assertCompleted, requirePresent } from "~/support/assertions";
 
 import { adminHeaders } from "./admin";
+import type { Client } from "./auth";
 import { getBackendClient } from "./contract-client";
 import { pollUntil } from "./polling";
 import { installTestPlugin, type TestPluginScript, uninstallTestPlugin } from "./test-plugin";
@@ -25,25 +26,48 @@ type InstallSandboxScriptInput = Pick<GenericTestPluginScript, "name" | "slug"> 
 			"capabilities" | "requiredPluginConfigKeys" | "requiredSystemConfigKeys"
 		>
 	> & {
+		client: Client;
 		source: string;
-		pluginSlug?: PluginManifest["metadata"]["slug"];
+		scope?: "system" | "user";
 		configSchema?: PluginManifest["configSchema"];
+		pluginSlug?: PluginManifest["metadata"]["slug"];
+		config?: ContractPayload<"plugins", "install">["config"];
 	};
 
 export const installSandboxScript = (input: InstallSandboxScriptInput) =>
-	installTestPlugin({
-		source: input.source,
-		pluginSlug: input.pluginSlug,
-		configSchema: input.configSchema,
-		script: {
-			kind: "script",
-			name: input.name,
-			slug: input.slug,
-			capabilities: input.capabilities ?? [],
-			requiredPluginConfigKeys: input.requiredPluginConfigKeys ?? [],
-			requiredSystemConfigKeys: input.requiredSystemConfigKeys ?? [],
-		},
-	});
+	installTestPlugin(
+		input.scope === "system"
+			? {
+					scope: "system",
+					source: input.source,
+					config: input.config,
+					pluginSlug: input.pluginSlug,
+					configSchema: input.configSchema,
+					script: {
+						kind: "script",
+						name: input.name,
+						slug: input.slug,
+						capabilities: input.capabilities ?? [],
+						requiredPluginConfigKeys: input.requiredPluginConfigKeys ?? [],
+						requiredSystemConfigKeys: input.requiredSystemConfigKeys ?? [],
+					},
+				}
+			: {
+					client: input.client,
+					source: input.source,
+					config: input.config,
+					pluginSlug: input.pluginSlug,
+					configSchema: input.configSchema,
+					script: {
+						kind: "script",
+						name: input.name,
+						slug: input.slug,
+						capabilities: input.capabilities ?? [],
+						requiredPluginConfigKeys: input.requiredPluginConfigKeys ?? [],
+						requiredSystemConfigKeys: input.requiredSystemConfigKeys ?? [],
+					},
+				},
+	);
 
 export const installSandboxScriptScoped = (input: Parameters<typeof installSandboxScript>[0]) =>
 	Effect.acquireRelease(installSandboxScript(input), uninstallTestPlugin);
