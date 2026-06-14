@@ -21,6 +21,7 @@ import {
 	fieldSelectorToOrderSql,
 	includeOrderSql,
 	relationshipRootOrderSql,
+	wherePushdown,
 } from "./executor/sql";
 import type { EntityQueryRow, EventFields } from "./executor/types";
 import type {
@@ -827,5 +828,180 @@ describe("entityFirstOrderSql", () => {
 		];
 		const query = dialect.sqlToQuery(entityFirstOrderSql(entitySource, orderBy));
 		expect(query.sql.trim()).toBe("1");
+	});
+});
+
+const sysRef = (name: string): Expr => ({
+	type: "ref",
+	sourceAlias: "book",
+	field: { type: "system", name },
+});
+const propRef = (path: [string, ...string[]], schema = "books"): Expr => ({
+	type: "ref",
+	sourceAlias: "book",
+	field: { type: "property", schema, path },
+});
+const lit = (value: unknown, valueType?: "date"): Expr =>
+	valueType ? { type: "literal", value, valueType } : { type: "literal", value };
+const cmp = (
+	operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte",
+	left: Expr,
+	right: Expr,
+): Expr => ({ type: "comparison", operator, left, right });
+
+const push = (where: Expr | null, schemas: [string, ...string[]] = ["books"]) => {
+	const result = wherePushdown(where, (ref) =>
+		ref.sourceAlias === "book" ? { alias: "e", schemas } : null,
+	);
+	return {
+		residual: result.residual,
+		count: result.conditions.length,
+		sql: result.conditions.map((c) => dialect.sqlToQuery(c).sql.toLowerCase()).join(" and "),
+		params: result.conditions.flatMap((c) => dialect.sqlToQuery(c).params),
+	};
+};
+
+describe("wherePushdown", () => {
+	it("returns no conditions and no residual for a null where", () => {
+		const result = push(null);
+		expect(result.count).toBe(0);
+		expect(result.residual).toBeNull();
+	});
+
+	it("pushes a string property equality with a jsonb_typeof guard and no cast", () => {
+		const result = push(cmp("eq", propRef(["title"]), lit("Dune")));
+		expect(result.count).toBe(1);
+		expect(result.residual).toBeNull();
+		expect(result.sql).toContain("jsonb_extract_path_text(e.properties");
+		expect(result.sql).toContain("= 'string'");
+		expect(result.sql).not.toContain("case when");
+		expect(result.params).toContain("Dune");
+	});
+
+	it("pushes a numeric property equality through a cast-safe CASE guard", () => {
+		const result = push(cmp("eq", propRef(["year"]), lit(1965)));
+		expect(result.count).toBe(1);
+		expect(result.residual).toBeNull();
+		expect(result.sql).toContain("case when");
+		expect(result.sql).toContain("= 'number'");
+		expect(result.sql).toContain("::numeric");
+		expect(result.sql).toContain("else false end");
+		expect(result.params).toContain(1965);
+	});
+
+	it("pushes numeric ordering comparisons, preserving operand order", () => {
+		const refLeft = push(cmp("gt", propRef(["year"]), lit(1900)));
+		expect(refLeft.count).toBe(1);
+		expect(refLeft.sql).toContain("::numeric >");
+
+		const refRight = push(cmp("gt", lit(1900), propRef(["year"])));
+		expect(refRight.count).toBe(1);
+		expect(refRight.sql).toContain("> jsonb_extract_path_text");
+	});
+
+	it("pushes a boolean property equality with a cast-safe guard", () => {
+		const result = push(cmp("eq", propRef(["archived"]), lit(true)));
+		expect(result.count).toBe(1);
+		expect(result.sql).toContain("= 'boolean'");
+		expect(result.sql).toContain("::boolean");
+		expect(result.params).toContain(true);
+	});
+
+	it("pushes a string contains as an escaped ILIKE with a typeof guard", () => {
+		const result = push({ type: "contains", left: propRef(["title"]), right: lit("du_ne%") });
+		expect(result.count).toBe(1);
+		expect(result.sql).toContain("ilike");
+		expect(result.sql).toContain("= 'string'");
+		expect(result.params).toContain("%du\\_ne\\%%");
+	});
+
+	it("pushes property isNull/isNotNull with json-null normalization", () => {
+		const isNullResult = push({ type: "isNull", expr: propRef(["title"]) });
+		expect(isNullResult.count).toBe(1);
+		expect(isNullResult.sql).toContain("nullif(");
+		expect(isNullResult.sql).toContain("is null");
+
+		const isNotNullResult = push({ type: "isNotNull", expr: propRef(["title"]) });
+		expect(isNotNullResult.sql).toContain("is not null");
+	});
+
+	it("still pushes a system text-field equality (id preserved from prior behavior)", () => {
+		const result = push(cmp("eq", sysRef("id"), lit("row-1")));
+		expect(result.count).toBe(1);
+		expect(result.residual).toBeNull();
+		expect(result.sql).toContain("e.id = ");
+		expect(result.params).toContain("row-1");
+	});
+
+	it("adds an es.slug guard for property predicates on multi-schema sources", () => {
+		const result = push(cmp("eq", propRef(["title"]), lit("Dune")), ["books", "movies"]);
+		expect(result.count).toBe(1);
+		expect(result.sql).toContain("es.slug = ");
+		expect(result.params).toContain("books");
+	});
+
+	it("keeps neq in the residual (not pushed)", () => {
+		const where = cmp("neq", propRef(["title"]), lit("Dune"));
+		const result = push(where);
+		expect(result.count).toBe(0);
+		expect(result.residual).toEqual(where);
+	});
+
+	it("does not push date-literal comparisons", () => {
+		const where = cmp("gt", sysRef("createdAt"), lit("2024-01-01T00:00:00.000Z", "date"));
+		const result = push(where);
+		expect(result.count).toBe(0);
+		expect(result.residual).toEqual(where);
+	});
+
+	it("splits a top-level AND, pushing only the compilable conjuncts", () => {
+		const pushable = cmp("eq", propRef(["title"]), lit("Dune"));
+		const residualCmp = cmp("neq", propRef(["author"]), lit("Herbert"));
+		const result = push({ type: "and", values: [pushable, residualCmp] });
+		expect(result.count).toBe(1);
+		expect(result.residual).toEqual(residualCmp);
+	});
+
+	it("pushes an OR only when every branch compiles", () => {
+		const orAllPushable: Expr = {
+			type: "or",
+			values: [
+				cmp("eq", propRef(["title"]), lit("Dune")),
+				cmp("eq", propRef(["title"]), lit("Foundation")),
+			],
+		};
+		const compiled = push(orAllPushable);
+		expect(compiled.count).toBe(1);
+		expect(compiled.sql).toContain(" or ");
+		expect(compiled.residual).toBeNull();
+
+		const orMixed: Expr = {
+			type: "or",
+			values: [
+				cmp("eq", propRef(["title"]), lit("Dune")),
+				cmp("neq", propRef(["title"]), lit("Foundation")),
+			],
+		};
+		const notCompiled = push(orMixed);
+		expect(notCompiled.count).toBe(0);
+		expect(notCompiled.residual).toEqual(orMixed);
+	});
+
+	it("does not push a `not` node", () => {
+		const where: Expr = { type: "not", expr: cmp("eq", propRef(["title"]), lit("Dune")) };
+		const result = push(where);
+		expect(result.count).toBe(0);
+		expect(result.residual).toEqual(where);
+	});
+
+	it("leaves comparisons on unresolved aliases in the residual", () => {
+		const where = cmp(
+			"eq",
+			{ type: "ref", sourceAlias: "other", field: { type: "system", name: "id" } },
+			lit("x"),
+		);
+		const result = push(where);
+		expect(result.count).toBe(0);
+		expect(result.residual).toEqual(where);
 	});
 });
