@@ -619,6 +619,7 @@ it.effect("records a YouTube Music sandbox failure as a source-fetch failure", (
 
 it.effect("disables a yank integration after continuous failures during finalization", () => {
 	const integrationUpdates: Array<Record<string, unknown>> = [];
+	const notificationDispatches: Array<Record<string, unknown>> = [];
 
 	const options = {
 		integrationOperations: {
@@ -657,6 +658,34 @@ it.effect("disables a yank integration after continuous failures during finaliza
 			expect(integrationUpdates).toEqual([
 				{ userId: "user_1", isDisabled: true, integrationId: "int_1" },
 			]);
+			expect(notificationDispatches).toEqual([
+				{
+					workflowName: "NotificationDeliveryWorkflow",
+					// The engine-level id is a hash of the workflow idempotency key
+					// (payload.executionId), so only the payload carries the raw value.
+					executionId: expect.any(String),
+					payload: {
+						userId: "user_1",
+						executionId: "run_1-integration-disabled",
+						request: {
+							kind: "event",
+							eventType: "integration_disabled_due_to_too_many_errors",
+							message: "Integration komga has been disabled due to too many errors",
+						},
+					},
+				},
+			]);
 		}),
+		{
+			execute: (workflow, dispatch) =>
+				Effect.sync(() => {
+					notificationDispatches.push({
+						payload: dispatch.payload,
+						workflowName: workflow.name,
+						executionId: dispatch.executionId,
+					});
+					return undefined;
+				}),
+		},
 	);
 });
