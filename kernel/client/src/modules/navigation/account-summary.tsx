@@ -7,6 +7,7 @@ import { Avatar } from "#/modules/navigation/avatar";
 import { activateLink } from "#/modules/navigation/link-activation";
 
 type AccountSummaryProps = {
+	readonly isPro: boolean;
 	readonly active: boolean;
 	readonly session: AuthSessionStore;
 	readonly onNavigate: () => void | Promise<void>;
@@ -32,7 +33,18 @@ export function AccountSummary(props: AccountSummaryProps) {
 				props.active ? "bg-nav-indicator" : "hover:bg-surface-2",
 			)}
 		>
-			<Avatar name={snapshot.user.name} image={snapshot.user.image} />
+			<span className="relative shrink-0">
+				<Avatar name={snapshot.user.name} image={snapshot.user.image} />
+				{props.isPro && (
+					<span
+						role="img"
+						aria-label="Ryot Pro"
+						className="absolute -top-1 -right-1 flex size-4 items-center justify-center rounded-full border border-border bg-surface"
+					>
+						<AppIcon name="crown" size={9} className="text-accent-text" />
+					</span>
+				)}
+			</span>
 			<span className="min-w-0 flex-1">
 				<span className="block truncate text-sm font-medium text-text">{snapshot.user.name}</span>
 				<span className="block truncate text-xs text-text-muted">{snapshot.user.email}</span>
