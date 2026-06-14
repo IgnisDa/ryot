@@ -5,7 +5,7 @@ import { badRequest, dieOnDbError, notFound } from "@ryot/contract/errors";
 import type { EntitySchemaId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
-import { DbRunner } from "#lib/infrastructure/db/service";
+import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 
@@ -19,6 +19,7 @@ export const RelationshipsRoutesLive = HttpApiBuilder.group(
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;
 				const runWithDb = yield* DbRunner;
+				const runInTransaction = yield* TransactionRunner;
 				const service = yield* RelationshipsService;
 				const entitiesRepository = yield* EntitiesRepository;
 				const schemasRepository = yield* RelationshipSchemasRepository;
@@ -54,16 +55,26 @@ export const RelationshipsRoutesLive = HttpApiBuilder.group(
 					targetScope.entitySchemaId,
 				);
 
-				return yield* service.save({
+				const relationshipInput = {
 					scope: "user",
 					userId: user.id,
-					onConflict: "replaceProperties",
 					properties: payload.properties ?? {},
 					sourceEntityId: payload.sourceEntityId,
 					targetEntityId: payload.targetEntityId,
 					propertiesSchema: schema.propertiesSchema,
 					relationshipSchemaId: payload.relationshipSchemaId,
-				});
+				} as const;
+
+				return yield* runInTransaction(
+					Effect.gen(function* () {
+						const created = yield* service.create(relationshipInput);
+						if (created.wasInserted) {
+							return created;
+						}
+
+						return yield* service.update(relationshipInput);
+					}),
+				);
 			}).pipe(dieOnDbError),
 		),
 );
