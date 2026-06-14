@@ -35,8 +35,8 @@ import {
 	buildMetadataMigrationSql,
 	buildMetadataToMetadataRelationshipMigrationSql,
 	getUnsupportedMetadataSources,
-	metadataMigrationTargets,
 } from "./metadata-mapping";
+import { metadataMigrationTargets } from "./metadata-mapping-targets";
 import {
 	buildUniqueLotEntitySchemaSlugMap,
 	requireDefined,
