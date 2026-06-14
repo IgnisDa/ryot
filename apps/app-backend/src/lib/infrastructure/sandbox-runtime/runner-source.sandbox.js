@@ -1,5 +1,11 @@
 const decoder = new TextDecoder();
 const encoder = new TextEncoder();
+const arrayIsArray = Array.isArray;
+const bridgeFetch = globalThis.fetch.bind(globalThis);
+const createDictionary = Object.create;
+const encodeComponent = globalThis.encodeURIComponent;
+const reflectApply = Reflect.apply;
+const responseJson = Object.getOwnPropertyDescriptor(Response.prototype, "json").value;
 let buffer = "";
 
 const formatArg = (value) => {
@@ -33,8 +39,8 @@ async function readLine() {
 const createApiStub =
 	(fnName, apiBase, executionId, token) =>
 	async (...args) => {
-		const response = await fetch(
-			apiBase + "/rpc/" + encodeURIComponent(executionId) + "/" + encodeURIComponent(fnName),
+		const response = await bridgeFetch(
+			apiBase + "/rpc/" + encodeComponent(executionId) + "/" + encodeComponent(fnName),
 			{
 				method: "POST",
 				body: JSON.stringify({ args }),
@@ -44,12 +50,31 @@ const createApiStub =
 				},
 			},
 		);
-		const body = await response.json();
+		const body = await reflectApply(responseJson, response, []);
 		if (!response.ok) {
 			throw new Error(body.error ?? "API call failed");
 		}
 		return body.result;
 	};
+
+const createHost = (payload, declaredCapabilities) => {
+	const approved = arrayIsArray(payload.apiFunctions) ? payload.apiFunctions : [];
+	const declared = arrayIsArray(declaredCapabilities) ? declaredCapabilities : [];
+	const host = createDictionary(null);
+	for (let declaredIndex = 0; declaredIndex < declared.length; declaredIndex += 1) {
+		const fnName = declared[declaredIndex];
+		if (typeof fnName !== "string") {
+			continue;
+		}
+		for (let approvedIndex = 0; approvedIndex < approved.length; approvedIndex += 1) {
+			if (approved[approvedIndex] === fnName) {
+				host[fnName] = createApiStub(fnName, payload.apiBase, payload.executionId, payload.token);
+				break;
+			}
+		}
+	}
+	return host;
+};
 
 const writeResult = async (payload) => {
 	await Deno.stdout.write(encoder.encode(JSON.stringify(payload) + "\n"));
@@ -63,7 +88,19 @@ const createRequestConsole = (logs) => ({
 	error: (...args) => logs.push("[error] " + args.map(formatArg).join(" ")),
 });
 
-const isRecord = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
+const isRecord = (value) => value !== null && typeof value === "object" && !arrayIsArray(value);
+
+const stringArraysMatch = (left, right) => {
+	if (!arrayIsArray(left) || !arrayIsArray(right) || left.length !== right.length) {
+		return false;
+	}
+	for (let index = 0; index < left.length; index += 1) {
+		if (typeof left[index] !== "string" || left[index] !== right[index]) {
+			return false;
+		}
+	}
+	return true;
+};
 
 const manifestsMatch = (left, right) =>
 	isRecord(left) &&
@@ -71,8 +108,8 @@ const manifestsMatch = (left, right) =>
 	left.kind === right.kind &&
 	left.name === right.name &&
 	left.slug === right.slug &&
-	JSON.stringify(left.capabilities) === JSON.stringify(right.capabilities) &&
-	JSON.stringify(left.requiredAppConfigKeys) === JSON.stringify(right.requiredAppConfigKeys);
+	stringArraysMatch(left.capabilities, right.capabilities) &&
+	stringArraysMatch(left.requiredAppConfigKeys, right.requiredAppConfigKeys);
 
 const importCompiledModule = async (payload) => {
 	if (payload.compiledFormat !== 0 && payload.compiledFormat !== 1) {
@@ -115,7 +152,6 @@ const executeDefinition = async (definition, payload, host) => {
 	if (!manifestsMatch(definition.manifest, payload.metadata)) {
 		throw new Error("Compiled sandbox manifest does not match persisted metadata");
 	}
-
 	const driver = definition.drivers[payload.driverName];
 	if (!isRecord(driver) || typeof driver.run !== "function") {
 		throw new Error('Driver "' + payload.driverName + '" is not defined in this script');
@@ -164,18 +200,12 @@ void (async () => {
 
 		try {
 			const payload = JSON.parse(line);
-			const apiFunctions = Array.isArray(payload.apiFunctions) ? payload.apiFunctions : [];
 			const requestConsole = createRequestConsole(logs);
 			console.log = requestConsole.log;
 			console.info = requestConsole.info;
 			console.warn = requestConsole.warn;
 			console.debug = requestConsole.debug;
 			console.error = requestConsole.error;
-
-			const stubs = {};
-			for (const fnName of apiFunctions) {
-				stubs[fnName] = createApiStub(fnName, payload.apiBase, payload.executionId, payload.token);
-			}
 
 			if (!payload.driverName) {
 				await writeResult({
@@ -187,8 +217,13 @@ void (async () => {
 				continue;
 			}
 
+			const declaredCapabilities =
+				payload.compiledFormat === 1 && isRecord(payload.metadata)
+					? payload.metadata.capabilities
+					: payload.apiFunctions;
+			const host = createHost(payload, declaredCapabilities);
 			const module = await importCompiledModule(payload);
-			const value = await executeDefinition(module.default, payload, stubs);
+			const value = await executeDefinition(module.default, payload, host);
 			await writeResult({
 				success: true,
 				logs,
