@@ -287,7 +287,7 @@ CREATE TABLE "user" (
 	"id" text PRIMARY KEY NOT NULL,
 	"two_factor_enabled" boolean,
 	"email" text NOT NULL,
-	"banned_at" timestamp with time zone,
+	"disabled_at" timestamp with time zone,
 	"preferences" jsonb NOT NULL,
 	"email_verified" boolean DEFAULT false NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
