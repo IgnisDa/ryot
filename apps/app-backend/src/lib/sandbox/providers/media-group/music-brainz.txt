@@ -241,7 +241,7 @@ driver("details", async function (context) {
             name: memberName,
             externalId: memberId,
             reverseDirection: true,
-            scriptSlug: "music.musicbrainz",
+            scriptSlug: "music.music-brainz",
             relationshipProperties: { order: trackIdx + 1 },
           });
           trackIdx++;

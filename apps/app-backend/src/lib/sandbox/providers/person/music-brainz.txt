@@ -175,7 +175,7 @@ driver("details", async function (context) {
   const relatedEntities = releaseGroups.map((group) => ({
     reverseDirection: true,
     externalId: getString(group?.id),
-    scriptSlug: "music-group.musicbrainz",
+    scriptSlug: "music-group.music-brainz",
     relationshipProperties: { roles: ["Artist"] },
     name: getString(group?.title) || getString(group?.id),
   }));

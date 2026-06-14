@@ -239,7 +239,7 @@ driver("details", async function (context) {
     addRelatedEntity({
       name: artistName,
       externalId: artistId,
-      scriptSlug: "person.musicbrainz",
+      scriptSlug: "person.music-brainz",
       relationshipProperties: {
         roles: ["Artist"],
       },
@@ -259,7 +259,7 @@ driver("details", async function (context) {
     addRelatedEntity({
       name: releaseGroupTitle,
       externalId: releaseGroupId,
-      scriptSlug: "music-group.musicbrainz",
+      scriptSlug: "music-group.music-brainz",
       relationshipProperties: {
         roles: ["Member"],
       },

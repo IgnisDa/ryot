@@ -26,7 +26,7 @@ export const metadataMigrationTargets = [
 		lot: "book",
 		source: "google_books",
 		entitySchemaSlug: "book",
-		sandboxScriptSlug: "book.google-book",
+		sandboxScriptSlug: "book.google-books",
 	},
 	{
 		lot: "book",
@@ -74,7 +74,7 @@ export const metadataMigrationTargets = [
 		lot: "music",
 		source: "music_brainz",
 		entitySchemaSlug: "music",
-		sandboxScriptSlug: "music.musicbrainz",
+		sandboxScriptSlug: "music.music-brainz",
 	},
 	{
 		lot: "music",
