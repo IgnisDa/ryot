@@ -32,32 +32,34 @@ export class StreamRegistry extends Effect.Service<StreamRegistry>()("StreamRegi
 
 		// Unknown streamId and wrong-owner are intentionally both "not found", to avoid an oracle for
 		// which streamIds exist. Diffs against the stream's prior interest so only real changes touch
-		// the forward index.
-		const setInterestIfOwner = (streamId: string, userId: UserId, entityIds: readonly string[]) => {
-			const entry = streams.get(streamId);
-			if (!entry || entry.userId !== userId) {
-				return notFound("Unknown stream");
-			}
-			const next = new Set(entityIds);
-			for (const id of entry.interest) {
-				if (!next.has(id)) {
-					const ids = byEntity.get(id);
-					ids?.delete(streamId);
-					if (ids?.size === 0) {
-						byEntity.delete(id);
+		// the forward index. Effect.suspend keeps the map mutations inside the returned effect (run
+		// when yielded), rather than side-effecting during effect construction.
+		const setInterestIfOwner = (streamId: string, userId: UserId, entityIds: readonly string[]) =>
+			Effect.suspend(() => {
+				const entry = streams.get(streamId);
+				if (!entry || entry.userId !== userId) {
+					return notFound("Unknown stream");
+				}
+				const next = new Set(entityIds);
+				for (const id of entry.interest) {
+					if (!next.has(id)) {
+						const ids = byEntity.get(id);
+						ids?.delete(streamId);
+						if (ids?.size === 0) {
+							byEntity.delete(id);
+						}
 					}
 				}
-			}
-			for (const id of next) {
-				if (!entry.interest.has(id)) {
-					const ids = byEntity.get(id) ?? new Set<string>();
-					ids.add(streamId);
-					byEntity.set(id, ids);
+				for (const id of next) {
+					if (!entry.interest.has(id)) {
+						const ids = byEntity.get(id) ?? new Set<string>();
+						ids.add(streamId);
+						byEntity.set(id, ids);
+					}
 				}
-			}
-			entry.interest = next;
-			return Effect.void;
-		};
+				entry.interest = next;
+				return Effect.void;
+			});
 
 		const hasInterest = (streamId: string, entityId: string): boolean =>
 			streams.get(streamId)?.interest.has(entityId) ?? false;
