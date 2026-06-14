@@ -110,6 +110,18 @@ describe("settings navigation", () => {
 		await waitFor(() => expect(view.router.state.location.pathname).toBe("/fixture"));
 	});
 
+	it("keeps an unmatched settings path inside the settings layout", async () => {
+		const view = mountView("/settings/account/security");
+		const sidebar = await screen.findByTestId("settings-sidebar");
+
+		expect(view.router.state.location.pathname).toBe("/settings/account/security");
+		expect(screen.getByRole("status").textContent).toBe("This page does not exist.");
+		expect(screen.queryByTitle("fixture plugin")).toBeNull();
+		expect(
+			within(sidebar).getByRole("link", { name: "Account" }).getAttribute("aria-current"),
+		).toBe("page");
+	});
+
 	it("renders the mobile settings index with disclosure rows and pushes on selection", async () => {
 		const view = mountView("/settings");
 		await screen.findByRole("heading", { level: 1, name: "Settings" });
