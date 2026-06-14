@@ -117,7 +117,7 @@ export const Expr: Schema.Schema<Expr> = Schema.suspend(() =>
 	),
 ).annotations({ identifier: "Expr" });
 
-export const AggregationSpec: Schema.Schema<AggregationSpec> = Schema.suspend(() =>
+const AggregationSpec: Schema.Schema<AggregationSpec> = Schema.suspend(() =>
 	Schema.Union(
 		strictStruct({ function: Schema.Literal("count"), distinctBy: Schema.optional(Expr) }),
 		strictStruct({ expr: Expr, function: Schema.Literal("sum", "average", "minimum", "maximum") }),
@@ -132,7 +132,7 @@ const RelationshipVia = strictStruct({
 }).annotations({ identifier: "RelationshipVia" });
 export type RelationshipVia = typeof RelationshipVia.Type;
 
-export const EntitySource = strictStruct({
+const EntitySource = strictStruct({
 	alias: Schema.String,
 	where: Schema.NullOr(Expr),
 	type: Schema.Literal("entities"),
@@ -147,7 +147,7 @@ const RootEventEntity = strictStruct({
 }).annotations({ identifier: "RootEventEntity" });
 export type RootEventEntity = typeof RootEventEntity.Type;
 
-export const NestedEventSource = strictStruct({
+const NestedEventSource = strictStruct({
 	alias: Schema.String,
 	entityRef: Schema.String,
 	type: Schema.Literal("events"),
@@ -156,7 +156,7 @@ export const NestedEventSource = strictStruct({
 }).annotations({ identifier: "NestedEventSource" });
 export type NestedEventSource = typeof NestedEventSource.Type;
 
-export const RootEventSource = strictStruct({
+const RootEventSource = strictStruct({
 	alias: Schema.String,
 	entity: RootEventEntity,
 	type: Schema.Literal("events"),
@@ -165,7 +165,7 @@ export const RootEventSource = strictStruct({
 }).annotations({ identifier: "RootEventSource" });
 export type RootEventSource = typeof RootEventSource.Type;
 
-export const EventSource = Schema.Union(NestedEventSource, RootEventSource).annotations({
+const EventSource = Schema.Union(NestedEventSource, RootEventSource).annotations({
 	identifier: "EventSource",
 });
 export type EventSource = typeof EventSource.Type;
@@ -176,7 +176,7 @@ const RelationshipEndpoint = strictStruct({
 }).annotations({ identifier: "RelationshipEndpoint" });
 export type RelationshipEndpoint = typeof RelationshipEndpoint.Type;
 
-export const RelationshipSource = strictStruct({
+const RelationshipSource = strictStruct({
 	alias: Schema.String,
 	where: Schema.NullOr(Expr),
 	sourceEntity: RelationshipEndpoint,
@@ -186,16 +186,14 @@ export const RelationshipSource = strictStruct({
 }).annotations({ identifier: "RelationshipSource" });
 export type RelationshipSource = typeof RelationshipSource.Type;
 
-export const Source = Schema.Union(EntitySource, NestedEventSource).annotations({
+const Source = Schema.Union(EntitySource, NestedEventSource).annotations({
 	identifier: "Source",
 });
 export type Source = typeof Source.Type;
 
-export const RootSource = Schema.Union(
-	EntitySource,
-	RootEventSource,
-	RelationshipSource,
-).annotations({ identifier: "RootSource" });
+const RootSource = Schema.Union(EntitySource, RootEventSource, RelationshipSource).annotations({
+	identifier: "RootSource",
+});
 export type RootSource = typeof RootSource.Type;
 
 const Pagination = strictStruct({
@@ -227,7 +225,7 @@ export type IncludeEntry = {
 	readonly orderBy: readonly [typeof OrderByEntry.Type, ...Array<typeof OrderByEntry.Type>];
 };
 
-export const IncludeEntry: Schema.Schema<IncludeEntry> = Schema.suspend(() =>
+const IncludeEntry: Schema.Schema<IncludeEntry> = Schema.suspend(() =>
 	strictStruct({
 		key: Schema.String,
 		fields: Schema.Array(FieldDef),
@@ -247,7 +245,7 @@ export const RowsOutput = strictStruct({
 }).annotations({ identifier: "RowsOutput" });
 export type RowsOutput = typeof RowsOutput.Type;
 
-export const AggregateOutput = strictStruct({
+const AggregateOutput = strictStruct({
 	type: Schema.Literal("aggregate"),
 	measures: Schema.NonEmptyArray(AggregateMeasureDef),
 	groupBy: Schema.optional(Schema.Array(FieldDef)),
@@ -271,14 +269,14 @@ const TimeSeriesTimeDef = strictStruct({
 	bucket: Schema.Literal("hour", "day", "week", "month"),
 }).annotations({ identifier: "TimeSeriesTimeDef" });
 
-export const TimeSeriesOutput = strictStruct({
+const TimeSeriesOutput = strictStruct({
 	time: TimeSeriesTimeDef,
 	measure: TimeSeriesMeasureDef,
 	type: Schema.Literal("timeSeries"),
 }).annotations({ identifier: "TimeSeriesOutput" });
 export type TimeSeriesOutput = typeof TimeSeriesOutput.Type;
 
-export const Output = Schema.Union(RowsOutput, AggregateOutput, TimeSeriesOutput).annotations({
+const Output = Schema.Union(RowsOutput, AggregateOutput, TimeSeriesOutput).annotations({
 	identifier: "Output",
 });
 export type Output = typeof Output.Type;
@@ -288,7 +286,7 @@ export const QueryDocument = strictStruct({ output: Output, source: RootSource }
 });
 export type QueryDocument = typeof QueryDocument.Type;
 
-export const FieldValue = strictStruct({
+const FieldValue = strictStruct({
 	value: Schema.Unknown,
 	kind: Schema.Literal("boolean", "date", "image", "json", "null", "number", "text"),
 }).annotations({ identifier: "FieldValue" });
@@ -306,7 +304,7 @@ export type IncludedRowsValue = {
 export type RowValue = FieldValue | IncludedRowsValue;
 export type RowItem = Readonly<Record<string, RowValue>>;
 
-export const RowValue: Schema.Schema<RowValue> = Schema.suspend(() =>
+const RowValue: Schema.Schema<RowValue> = Schema.suspend(() =>
 	Schema.Union(
 		FieldValue,
 		strictStruct({
@@ -323,7 +321,7 @@ const RowsPageInfo = strictStruct({
 	hasMore: Schema.Boolean,
 }).annotations({ identifier: "RowsPageInfo" });
 
-export const RowsResponse = strictStruct({
+const RowsResponse = strictStruct({
 	type: Schema.Literal("rows"),
 	data: strictStruct({
 		pageInfo: RowsPageInfo,
@@ -332,7 +330,7 @@ export const RowsResponse = strictStruct({
 }).annotations({ identifier: "RowsResponse" });
 export type RowsResponse = typeof RowsResponse.Type;
 
-export const AggregateResponse = strictStruct({
+const AggregateResponse = strictStruct({
 	type: Schema.Literal("aggregate"),
 	data: strictStruct({
 		pageInfo: Schema.optional(LimitedPageInfo),
@@ -347,7 +345,7 @@ const TimeSeriesBucket = strictStruct({
 	startAt: Schema.String,
 }).annotations({ identifier: "TimeSeriesBucket" });
 
-export const TimeSeriesResponse = strictStruct({
+const TimeSeriesResponse = strictStruct({
 	type: Schema.Literal("timeSeries"),
 	data: strictStruct({ buckets: Schema.Array(TimeSeriesBucket) }),
 }).annotations({ identifier: "TimeSeriesResponse" });

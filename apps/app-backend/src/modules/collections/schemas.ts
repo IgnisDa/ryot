@@ -23,7 +23,7 @@ export const CollectionResponse = Schema.Struct({
 
 export type CollectionResponse = typeof CollectionResponse.Type;
 
-export const MembershipRelationship = Schema.Struct({
+const MembershipRelationship = Schema.Struct({
 	id: RelationshipId,
 	createdAt: Schema.String,
 	properties: Schema.Unknown,

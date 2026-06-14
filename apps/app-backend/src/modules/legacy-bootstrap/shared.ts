@@ -48,7 +48,7 @@ const logLegacyBootstrapNotice = (msg: { message?: string }) => {
 
 export const quoteSqlString = (value: string) => `'${value.replaceAll("'", "''")}'`;
 
-export const quoteNullableSqlString = (value: string | null) =>
+const quoteNullableSqlString = (value: string | null) =>
 	value === null ? "NULL" : quoteSqlString(value);
 
 export const withRawPgClient = Effect.fn("withRawPgClient")(function* <A>(
