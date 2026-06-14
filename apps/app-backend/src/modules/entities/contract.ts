@@ -4,7 +4,7 @@ import { AuthMiddleware } from "#lib/auth-middleware";
 import { NotFound, RateLimited, Unauthorized } from "#lib/errors";
 import { EntityId } from "#lib/schema/brands";
 
-import { CreateEntityBody, ListedEntity } from "./schemas";
+import { CreateEntityBody, EntityDetail, ListedEntity } from "./schemas";
 
 const entityIdParam = HttpApiSchema.param("entityId", EntityId);
 
@@ -20,6 +20,6 @@ export const EntitiesGroup = HttpApiGroup.make("entities")
 	)
 	.add(
 		HttpApiEndpoint.get("get")`/entities/${entityIdParam}`
-			.addSuccess(ListedEntity)
+			.addSuccess(EntityDetail)
 			.addError(NotFound, { status: 404 }),
 	);

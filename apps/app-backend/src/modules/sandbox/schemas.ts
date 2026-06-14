@@ -2,7 +2,15 @@ import { Schema } from "effect";
 
 import { SandboxScriptId, UserId } from "#lib/schema/brands";
 
+export const ProviderInformation = Schema.Struct({
+	source: Schema.String,
+	canonicalLanguage: Schema.optional(Schema.String),
+});
+
+export type ProviderInformation = Schema.Schema.Type<typeof ProviderInformation>;
+
 export const SandboxScriptMetadata = Schema.Struct({
+	providerInformation: Schema.optional(ProviderInformation),
 	allowedHostFunctions: Schema.optional(Schema.Array(Schema.String)),
 	requiredAppConfigKeys: Schema.optional(Schema.Array(Schema.String)),
 });

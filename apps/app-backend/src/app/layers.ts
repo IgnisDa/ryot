@@ -56,6 +56,10 @@ import { SavedViewsRepository } from "#modules/saved-views/repository";
 import { SavedViewsService } from "#modules/saved-views/service";
 import { TrackersRepository } from "#modules/trackers/repository";
 import { TrackersService } from "#modules/trackers/service";
+import { TranslationsRepository } from "#modules/translations/repository";
+import { TranslationsService } from "#modules/translations/service";
+import { TranslationOverlayLive } from "#modules/translations/translation-overlay-live";
+import { TranslateEntityWorkflowDefinitionsLive } from "#modules/translations/workflows";
 import { UploadsService } from "#modules/uploads/service";
 import { UserStateService } from "#modules/user-state/service";
 
@@ -87,6 +91,7 @@ const RepositoriesLive = Layer.mergeAll(
 	SandboxRepository.Default,
 	SavedViewsRepository.Default,
 	TrackersRepository.Default,
+	TranslationsRepository.Default,
 );
 
 const CoreInfrastructureDependenciesLive = Layer.mergeAll(BaseInfrastructureLive, ConfigLive);
@@ -109,9 +114,18 @@ const ApplicationInfrastructureLive = Layer.mergeAll(
 	CoreInfrastructureDependenciesLive,
 );
 
+const TranslationOverlayServiceLive = Layer.provide(
+	TranslationOverlayLive,
+	TranslationsService.Default,
+);
+
 const EntitiesServiceLive = Layer.provide(
 	EntitiesService.Default,
-	Layer.mergeAll(QueryEngineService.Default, EntityPopulationTriggerLive),
+	Layer.mergeAll(
+		QueryEngineService.Default,
+		EntityPopulationTriggerLive,
+		TranslationOverlayServiceLive,
+	),
 );
 const EventsServiceLive = Layer.provide(EventsService.Default, QueryEngineService.Default);
 
@@ -170,6 +184,7 @@ const RuntimeLive = Layer.mergeAll(
 	ImportWorkflowDefinitionsLive,
 	IntegrationWorkflowDefinitionsLive,
 	SandboxWorkflowDefinitionsLive,
+	TranslateEntityWorkflowDefinitionsLive,
 	ServerLive,
 	IntegrationsSchedulerLive,
 );

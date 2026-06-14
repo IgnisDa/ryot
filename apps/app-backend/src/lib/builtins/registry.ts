@@ -67,11 +67,18 @@ const BUILTIN_ALLOWED_HOST_FUNCTIONS: string[] = [
 	"getUserPreferences",
 ];
 
-const script = (name: string, slug: string, code: string, requiredAppConfigKeys?: string[]) => ({
+const script = (
+	name: string,
+	slug: string,
+	code: string,
+	requiredAppConfigKeys?: string[],
+	providerInformation?: { source: string; canonicalLanguage?: string },
+) => ({
 	name,
 	slug,
 	code,
 	metadata: {
+		providerInformation,
 		requiredAppConfigKeys,
 		allowedHostFunctions: BUILTIN_ALLOWED_HOST_FUNCTIONS,
 	},
@@ -130,7 +137,10 @@ export const builtinSandboxScripts = () => [
 	script("GiantBomb", "video-game.giant-bomb", giantBombVideoGameScriptCode, [
 		"providers.giantBombApiKey",
 	]),
-	script("TMDB", "movie.tmdb", tmdbMovieScriptCode, ["providers.tmdbAccessToken"]),
+	script("TMDB", "movie.tmdb", tmdbMovieScriptCode, ["providers.tmdbAccessToken"], {
+		source: "tmdb",
+		canonicalLanguage: "en-US",
+	}),
 	script("TMDB", "show.tmdb", tmdbShowScriptCode, ["providers.tmdbAccessToken"]),
 	script("TMDB", "person.tmdb", tmdbPersonScriptCode, ["providers.tmdbAccessToken"]),
 	script("TVDB", "movie.tvdb", tvdbMovieScriptCode, ["providers.tvdbApiKey"]),
