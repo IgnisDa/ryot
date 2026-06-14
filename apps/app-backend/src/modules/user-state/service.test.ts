@@ -215,7 +215,7 @@ it.effect("deletes matching events through EventsService when clearing user stat
 				}),
 		}),
 		relationshipsRepository: makeRelationshipsRepository({
-			listUserRelationshipsForEntity: () => Effect.succeed([]),
+			listUserRelationshipsForEntityWithProvenance: () => Effect.succeed([]),
 		}),
 	});
 
@@ -351,7 +351,7 @@ it.effect("allows merging entities with matching declared identity properties", 
 			listUserEventIdsForEntity: () => Effect.succeed([]),
 		}),
 		relationshipsRepository: makeRelationshipsRepository({
-			listUserRelationshipsForEntity: () => Effect.succeed([]),
+			listUserRelationshipsForEntityWithProvenance: () => Effect.succeed([]),
 		}),
 	});
 
@@ -433,11 +433,12 @@ it.effect("moves events and relationships when the schema has no merge identity 
 				}),
 		}),
 		relationshipsRepository: makeRelationshipsRepository({
-			listUserRelationshipsForEntity: () =>
+			listUserRelationshipsForEntityWithProvenance: () =>
 				Effect.succeed([
 					{
 						properties: {},
 						createdAt: "2026-01-01T00:00:00.000Z",
+						relationshipSchemaPluginId: null,
 						sourceEntityId: EntityId.make("from"),
 						id: RelationshipId.make("relationship-1"),
 						targetEntityId: EntityId.make("target-1"),
@@ -446,6 +447,7 @@ it.effect("moves events and relationships when the schema has no merge identity 
 					{
 						properties: {},
 						createdAt: "2026-01-01T00:00:00.000Z",
+						relationshipSchemaPluginId: null,
 						targetEntityId: EntityId.make("from"),
 						id: RelationshipId.make("relationship-2"),
 						sourceEntityId: EntityId.make("target-2"),
@@ -454,6 +456,7 @@ it.effect("moves events and relationships when the schema has no merge identity 
 					{
 						properties: {},
 						createdAt: "2026-01-01T00:00:00.000Z",
+						relationshipSchemaPluginId: null,
 						sourceEntityId: EntityId.make("from"),
 						targetEntityId: EntityId.make("from"),
 						id: RelationshipId.make("relationship-3"),

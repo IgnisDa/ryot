@@ -282,6 +282,7 @@ const writeGenericItem = (item: GenericImportWriteItem, userId: UserId, index: n
 					properties: intent.properties,
 					propertiesSchema: relationshipSchema.propertiesSchema,
 					relationshipSchemaSlug: RelationshipSchemaSlug.make(intent.relationshipSchemaSlug),
+					relationshipSchemaPluginId: relationshipSchema.pluginId ?? null,
 				} as const;
 				yield* intent.propertiesMode === "merge"
 					? relationships.mergeUserProperties(input)

@@ -1,4 +1,5 @@
 import { badRequest } from "@ryot/contract/errors";
+import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
 import type { AssetLocator, ManagedAssetLocator } from "@ryot/contract/modules/uploads/schemas";
 import { EntityId, EventId, type UserId } from "@ryot/contract/schema/brands";
 import type { AppPropertyDefinition, AppSchema } from "@ryot/contract/schema/property-schema";
@@ -35,7 +36,6 @@ import type {
 	V2Integration,
 	V2NotificationSubscription,
 	V2Relationship,
-	V2SavedView,
 	V2UserEntity,
 } from "../archive-v2/schemas";
 import { decodeV2JsonObject, isV2JsonObject, V2_CODECS } from "../archive-v2/schemas";
@@ -147,52 +147,123 @@ export const collectManagedAssetLocators = (
 const archivePluginKey = (scope: "system" | "user", slug: string, sourceHash: string) =>
 	`${scope}:${slug}:${sourceHash}`;
 
-const toV2Entity = (
-	entity: PortableEntityRecord,
+export const requirePluginKey = Effect.fn("BackupExportSnapshot.requirePluginKey")(function* (
 	pluginKeyById: ReadonlyMap<string, string>,
-	schemaDefinition: { readonly pluginId?: string | null | undefined } | undefined,
-): V2UserEntity => ({
-	id: entity.id,
-	name: entity.name,
-	externalId: entity.externalId,
-	createdAt: entity.createdAt.toISOString(),
-	updatedAt: entity.updatedAt.toISOString(),
-	entitySchemaSlug: entity.entitySchemaSlug,
-	populatedAt: entity.populatedAt?.toISOString() ?? null,
-	properties: decodeV2JsonObject(entity.properties),
-	entitySchemaPluginKey: schemaDefinition?.pluginId
-		? (pluginKeyById.get(schemaDefinition.pluginId) ?? "")
-		: null,
-	provider: entity.provider
-		? {
-				providerSlug: entity.provider.providerSlug,
-				pluginKey: pluginKeyById.get(entity.provider.pluginId) ?? "",
-			}
-		: null,
+	pluginId: string,
+) {
+	const key = pluginKeyById.get(pluginId);
+	return key ?? (yield* badRequest(`Backup references unavailable plugin '${pluginId}'`));
 });
 
-const dependencyIdentity = (
+export const definitionForPlugin = <
+	Definition extends { readonly pluginId?: string | null | undefined },
+>(
+	definition: Definition | undefined,
+	pluginId: string | null | undefined,
+	historical?: Definition,
+) => {
+	if ((definition?.pluginId ?? null) === pluginId) {
+		return definition;
+	}
+	return (historical?.pluginId ?? null) === pluginId ? historical : undefined;
+};
+
+const privateDefinitionSnapshot = (plugin: {
+	readonly id: string;
+	readonly slug: string;
+	readonly manifest: PluginManifest;
+}): DefinitionSnapshot => ({
+	savedViews: Object.fromEntries(
+		plugin.manifest.savedViews.map((definition) => [
+			definition.slug,
+			{ ...definition, pluginId: plugin.id, pluginSlug: plugin.slug },
+		]),
+	),
+	signalSchemas: Object.fromEntries(
+		plugin.manifest.signalSchemas.map((definition) => [
+			definition.slug,
+			{ ...definition, pluginId: plugin.id },
+		]),
+	),
+	entitySchemas: Object.fromEntries(
+		plugin.manifest.entitySchemas.map((definition) => [
+			definition.slug,
+			{
+				...definition,
+				pluginId: plugin.id,
+				pluginSlug: plugin.slug,
+				mergeIdentityProperties: definition.mergeIdentityProperties ?? [],
+				eventSchemas: Object.fromEntries(
+					definition.eventSchemas.map((eventSchema) => [
+						eventSchema.slug,
+						{ ...eventSchema, pluginId: plugin.id },
+					]),
+				),
+			},
+		]),
+	),
+	relationshipSchemas: Object.fromEntries(
+		plugin.manifest.relationshipSchemas.map((definition) => [
+			definition.slug,
+			{ ...definition, pluginId: plugin.id },
+		]),
+	),
+});
+
+const privateDefinitionSnapshots = (
+	plugins: ReadonlyArray<{
+		readonly id: string;
+		readonly slug: string;
+		readonly manifest: PluginManifest;
+	}>,
+) => new Map(plugins.map((plugin) => [plugin.id, privateDefinitionSnapshot(plugin)]));
+
+const toV2Entity = Effect.fn(function* (
 	entity: PortableEntityRecord,
-	schemaDefinition: { readonly pluginId?: string | null | undefined } | undefined,
 	pluginKeyById: ReadonlyMap<string, string>,
-): V2EntityDependency["identity"] => {
+) {
+	return {
+		id: entity.id,
+		name: entity.name,
+		externalId: entity.externalId,
+		createdAt: entity.createdAt.toISOString(),
+		updatedAt: entity.updatedAt.toISOString(),
+		entitySchemaSlug: entity.entitySchemaSlug,
+		populatedAt: entity.populatedAt?.toISOString() ?? null,
+		properties: decodeV2JsonObject(entity.properties),
+		entitySchemaPluginKey: entity.entitySchemaPluginId
+			? yield* requirePluginKey(pluginKeyById, entity.entitySchemaPluginId)
+			: null,
+		provider: entity.provider
+			? {
+					providerSlug: entity.provider.providerSlug,
+					pluginKey: yield* requirePluginKey(pluginKeyById, entity.provider.pluginId),
+				}
+			: null,
+	} satisfies V2UserEntity;
+});
+
+const dependencyIdentity = Effect.fn(function* (
+	entity: PortableEntityRecord,
+	pluginKeyById: ReadonlyMap<string, string>,
+) {
 	if (entity.provider) {
 		return {
 			kind: "provider",
 			providerSlug: entity.provider.providerSlug,
-			pluginKey: pluginKeyById.get(entity.provider.pluginId) ?? "",
-		};
+			pluginKey: yield* requirePluginKey(pluginKeyById, entity.provider.pluginId),
+		} satisfies V2EntityDependency["identity"];
 	}
-	if (entity.externalId && schemaDefinition?.pluginId) {
+	if (entity.externalId && entity.entitySchemaPluginId) {
 		return {
 			kind: "bootstrap",
 			externalId: entity.externalId,
 			entitySchemaSlug: entity.entitySchemaSlug,
-			pluginKey: pluginKeyById.get(schemaDefinition.pluginId) ?? "",
-		};
+			pluginKey: yield* requirePluginKey(pluginKeyById, entity.entitySchemaPluginId),
+		} satisfies V2EntityDependency["identity"];
 	}
-	return { kind: "unmanaged" };
-};
+	return { kind: "unmanaged" } satisfies V2EntityDependency["identity"];
+});
 
 const defaultViewState = (view: SavedViewDefinition | undefined) =>
 	view ? { ...view, isBuiltin: true, isDisabled: false } : null;
@@ -219,7 +290,6 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 				userId: UserId,
 				definitions: DefinitionSnapshot,
 			) {
-				const getEntitySchema = (slug: string) => definitions.entitySchemas[slug];
 				const profile = yield* auth.getPortableProfile(userId);
 				if (!profile) {
 					return yield* badRequest("Backup user does not exist");
@@ -227,6 +297,17 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 				const allStoredInstallations = yield* installations.listForUser(userId);
 				const systemPlugins = yield* plugins.listPortablePluginMetadata();
 				const privatePlugins = yield* plugins.listPrivateForUser(userId);
+				const historicalPrivateDefinitions = privateDefinitionSnapshots(privatePlugins);
+				const getEntitySchema = (entity: PortableEntityRecord) =>
+					definitionForPlugin(
+						definitions.entitySchemas[entity.entitySchemaSlug],
+						entity.entitySchemaPluginId,
+						entity.entitySchemaPluginId
+							? historicalPrivateDefinitions.get(entity.entitySchemaPluginId)?.entitySchemas[
+									entity.entitySchemaSlug
+								]
+							: undefined,
+					);
 				const installedPlugins = [
 					...systemPlugins.map((plugin) => Object.assign({}, plugin, { scope: "system" as const })),
 					...privatePlugins.map((plugin) => ({
@@ -258,7 +339,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 				const embeddedDependencies = yield* entities.listGlobalEntitiesByIdsForBackup(
 					collectV2EmbeddedEntityIds(
 						userEntities.flatMap((entity) => {
-							const propertiesSchema = getEntitySchema(entity.entitySchemaSlug)?.propertiesSchema;
+							const propertiesSchema = getEntitySchema(entity)?.propertiesSchema;
 							return propertiesSchema ? [{ propertiesSchema, properties: entity.properties }] : [];
 						}),
 					).map((id) => EntityId.make(id)),
@@ -280,159 +361,203 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 					dependencies.map(({ id }) => EntityId.make(id)),
 				);
 				const translationsByEntity = Map.groupBy(translationRows, ({ entityId }) => entityId);
-				const entityDependencies: V2EntityDependency[] = dependencies.map((entity) => ({
-					...toV2Entity(entity, pluginKeyById, getEntitySchema(entity.entitySchemaSlug)),
-					identity: dependencyIdentity(
-						entity,
-						getEntitySchema(entity.entitySchemaSlug),
-						pluginKeyById,
-					),
-					translations: (translationsByEntity.get(entity.id) ?? []).map((translation) => ({
-						id: translation.id,
-						name: translation.name,
-						language: translation.language,
-						createdAt: translation.createdAt.toISOString(),
-						updatedAt: translation.updatedAt.toISOString(),
-						populatedAt: translation.populatedAt?.toISOString() ?? null,
-						properties: translation.properties ? decodeV2JsonObject(translation.properties) : null,
-					})),
-				}));
-				const relationshipRecords: V2Relationship[] = storedRelationships.map((relationship) => {
-					const pluginId =
-						definitions.relationshipSchemas[relationship.relationshipSchemaSlug]?.pluginId;
-					return {
-						scope: "user",
-						id: relationship.id,
-						sourceEntityId: relationship.sourceEntityId,
-						targetEntityId: relationship.targetEntityId,
-						createdAt: relationship.createdAt.toISOString(),
-						relationshipSchemaSlug: relationship.relationshipSchemaSlug,
-						properties: decodeV2JsonObject(relationship.properties),
-						relationshipSchemaPluginKey: pluginId ? (pluginKeyById.get(pluginId) ?? "") : null,
-					};
-				});
-				const viewRecords = storedViews.flatMap((view): V2SavedView[] => {
-					const {
-						entitySchemaPluginId: _entitySchemaPluginId,
-						pluginInstallationId,
-						...portableView
-					} = view;
-					const viewDefinition = definitions.savedViews[view.slug];
-					const entitySchemaDefinition = definitions.entitySchemas[view.entitySchemaSlug ?? ""];
-					const installation = storedInstallations.find(
-						(state) => state.id === pluginInstallationId,
-					);
-					const viewPluginId = view.isBuiltin ? viewDefinition?.pluginId : installation?.pluginId;
-					const qualified = {
-						pluginKey: viewPluginId ? (pluginKeyById.get(viewPluginId) ?? "") : null,
-						entitySchemaPluginKey: entitySchemaDefinition?.pluginId
-							? (pluginKeyById.get(entitySchemaDefinition.pluginId) ?? "")
-							: null,
-					};
-					if (!view.isBuiltin) {
-						return [
-							{ ...portableView, ...qualified, kind: "custom" as const, isBuiltin: false as const },
-						];
-					}
-					const expected = defaultViewState(viewDefinition);
-					const actual = {
-						slug: view.slug,
-						name: view.name,
-						icon: view.icon,
-						layouts: view.layouts,
-						isBuiltin: view.isBuiltin,
-						sortOrder: view.sortOrder,
-						isDisabled: view.isDisabled,
-						pluginSlug: view.pluginSlug,
-						entitySchemaSlug: view.entitySchemaSlug,
-					};
-					return expected && isEqual(actual, expected)
-						? []
-						: [
+				const entityDependencies: V2EntityDependency[] = yield* Effect.forEach(
+					dependencies,
+					(entity) =>
+						Effect.gen(function* () {
+							return {
+								...(yield* toV2Entity(entity, pluginKeyById)),
+								identity: yield* dependencyIdentity(entity, pluginKeyById),
+								translations: (translationsByEntity.get(entity.id) ?? []).map((translation) => ({
+									id: translation.id,
+									name: translation.name,
+									language: translation.language,
+									createdAt: translation.createdAt.toISOString(),
+									updatedAt: translation.updatedAt.toISOString(),
+									populatedAt: translation.populatedAt?.toISOString() ?? null,
+									properties: translation.properties
+										? decodeV2JsonObject(translation.properties)
+										: null,
+								})),
+							} satisfies V2EntityDependency;
+						}),
+				);
+				const relationshipRecords: V2Relationship[] = yield* Effect.forEach(
+					storedRelationships,
+					(relationship) =>
+						Effect.gen(function* () {
+							return {
+								scope: "user",
+								id: relationship.id,
+								sourceEntityId: relationship.sourceEntityId,
+								targetEntityId: relationship.targetEntityId,
+								createdAt: relationship.createdAt.toISOString(),
+								relationshipSchemaSlug: relationship.relationshipSchemaSlug,
+								properties: decodeV2JsonObject(relationship.properties),
+								relationshipSchemaPluginKey: relationship.relationshipSchemaPluginId
+									? yield* requirePluginKey(pluginKeyById, relationship.relationshipSchemaPluginId)
+									: null,
+							} satisfies V2Relationship;
+						}),
+				);
+				const viewRecords = (yield* Effect.forEach(storedViews, (view) =>
+					Effect.gen(function* () {
+						const {
+							entitySchemaPluginId: _entitySchemaPluginId,
+							pluginInstallationId,
+							pluginSlug: _pluginSlug,
+							...portableView
+						} = view;
+						const installation = allStoredInstallations.find(
+							(state) => state.id === pluginInstallationId,
+						);
+						const viewPluginId = installation?.pluginId ?? null;
+						const viewDefinition = definitionForPlugin(
+							definitions.savedViews[view.slug],
+							viewPluginId,
+							viewPluginId
+								? historicalPrivateDefinitions.get(viewPluginId)?.savedViews[view.slug]
+								: undefined,
+						);
+						const qualified = {
+							pluginKey: viewPluginId ? yield* requirePluginKey(pluginKeyById, viewPluginId) : null,
+							entitySchemaPluginKey: view.entitySchemaPluginId
+								? yield* requirePluginKey(pluginKeyById, view.entitySchemaPluginId)
+								: null,
+						};
+						if (!view.isBuiltin) {
+							return [
 								{
 									...portableView,
 									...qualified,
-									isBuiltin: true as const,
-									kind: "builtin-override" as const,
+									kind: "custom" as const,
+									isBuiltin: false as const,
 								},
 							];
-				});
-				const subscriptionRecords: V2NotificationSubscription[] = storedSubscriptions
-					.filter(({ isActive, metadata }) => !isActive || metadata !== null)
-					.map(({ metadata, isActive, signalSchemaSlug }) => {
-						const pluginId = definitions.signalSchemas[signalSchemaSlug]?.pluginId;
-						return {
-							metadata,
-							isActive,
-							signalSchemaSlug,
-							signalSchemaPluginKey: pluginId ? (pluginKeyById.get(pluginId) ?? "") : null,
+						}
+						const expected = defaultViewState(viewDefinition);
+						const actual = {
+							slug: view.slug,
+							name: view.name,
+							icon: view.icon,
+							layouts: view.layouts,
+							isBuiltin: view.isBuiltin,
+							sortOrder: view.sortOrder,
+							isDisabled: view.isDisabled,
+							pluginSlug: view.pluginSlug,
+							entitySchemaSlug: view.entitySchemaSlug,
 						};
-					});
+						return expected && isEqual(actual, expected)
+							? []
+							: [
+									{
+										...portableView,
+										...qualified,
+										isBuiltin: true as const,
+										kind: "builtin-override" as const,
+									},
+								];
+					}),
+				)).flat();
+				const subscriptionRecords: V2NotificationSubscription[] = yield* Effect.forEach(
+					storedSubscriptions.filter(({ isActive, metadata }) => !isActive || metadata !== null),
+					({ metadata, isActive, signalSchemaSlug, signalSchemaPluginId }) =>
+						Effect.gen(function* () {
+							return {
+								metadata,
+								isActive,
+								signalSchemaSlug,
+								signalSchemaPluginKey: signalSchemaPluginId
+									? yield* requirePluginKey(pluginKeyById, signalSchemaPluginId)
+									: null,
+							};
+						}),
+				);
 				const referencedInstallationIds = new Set([
 					...storedIntegrations.map(({ pluginInstallationId }) => pluginInstallationId),
 					...storedViews.flatMap(({ pluginInstallationId }) =>
 						pluginInstallationId ? [pluginInstallationId] : [],
 					),
 				]);
-				const installationRecords: V2Installation[] = storedInstallations
-					.filter(
+				const installationRecords: V2Installation[] = yield* Effect.forEach(
+					storedInstallations.filter(
 						(state) =>
 							!isDefaultSystemInstallation(state) || referencedInstallationIds.has(state.id),
-					)
-					.map((state) => {
-						const plugin = installedPlugins.find(({ id }) => id === state.pluginId);
-						return {
-							id: state.id,
-							configuredSecretPaths: [],
-							sortOrder: state.sortOrder,
-							disabledIntent: state.isDisabled,
-							createdAt: state.createdAt.toISOString(),
-							updatedAt: state.updatedAt.toISOString(),
-							packageKey: pluginKeyById.get(state.pluginId) ?? "",
-							config: plugin?.scope === "system" ? {} : decodeV2JsonObject(state.config),
-							lifecycleIntent: installationLifecycleIntent(state.health, state.isDisabled),
-						};
-					});
+					),
+					(state) =>
+						Effect.gen(function* () {
+							const plugin = installedPlugins.find(({ id }) => id === state.pluginId);
+							return {
+								id: state.id,
+								configuredSecretPaths: [],
+								sortOrder: state.sortOrder,
+								disabledIntent: state.isDisabled,
+								createdAt: state.createdAt.toISOString(),
+								updatedAt: state.updatedAt.toISOString(),
+								packageKey: yield* requirePluginKey(pluginKeyById, state.pluginId),
+								config: plugin?.scope === "system" ? {} : decodeV2JsonObject(state.config),
+								lifecycleIntent: installationLifecycleIntent(state.health, state.isDisabled),
+							};
+						}),
+				);
 				const installationById = new Map(storedInstallations.map((state) => [state.id, state]));
-				const integrationRecords: V2Integration[] = storedIntegrations.map((integration) => ({
-					id: integration.id,
-					lot: integration.lot,
-					name: integration.name,
-					configuredSecretPaths: [],
-					provider: integration.provider,
-					isDisabled: integration.isDisabled,
-					extraSettings: integration.extraSettings,
-					syncOwnership: integration.syncOwnership,
-					minimumProgress: integration.minimumProgress,
-					maximumProgress: integration.maximumProgress,
-					createdAt: integration.createdAt.toISOString(),
-					updatedAt: integration.updatedAt.toISOString(),
-					lastFinishedAt: integration.lastFinishedAt?.toISOString() ?? null,
-					providerSpecifics: decodeV2JsonObject(integration.providerSpecifics),
-					packageKey:
-						pluginKeyById.get(
-							installationById.get(integration.pluginInstallationId)?.pluginId ?? "",
-						) ?? "",
-				}));
+				const integrationRecords: V2Integration[] = yield* Effect.forEach(
+					storedIntegrations,
+					(integration) =>
+						Effect.gen(function* () {
+							const installation = installationById.get(integration.pluginInstallationId);
+							if (!installation) {
+								return yield* badRequest(
+									`Backup integration '${integration.id}' references unavailable plugin installation`,
+								);
+							}
+							return {
+								id: integration.id,
+								lot: integration.lot,
+								name: integration.name,
+								configuredSecretPaths: [],
+								provider: integration.provider,
+								isDisabled: integration.isDisabled,
+								extraSettings: integration.extraSettings,
+								syncOwnership: integration.syncOwnership,
+								minimumProgress: integration.minimumProgress,
+								maximumProgress: integration.maximumProgress,
+								createdAt: integration.createdAt.toISOString(),
+								updatedAt: integration.updatedAt.toISOString(),
+								lastFinishedAt: integration.lastFinishedAt?.toISOString() ?? null,
+								providerSpecifics: decodeV2JsonObject(integration.providerSpecifics),
+								packageKey: yield* requirePluginKey(pluginKeyById, installation.pluginId),
+							};
+						}),
+				);
 				const propertyRecords: BackupPropertyRecord[] = [];
 				for (const entity of [...userEntities, ...dependencies]) {
-					const propertiesSchema = getEntitySchema(entity.entitySchemaSlug)?.propertiesSchema;
+					const propertiesSchema = getEntitySchema(entity)?.propertiesSchema;
 					if (propertiesSchema) {
 						propertyRecords.push({ propertiesSchema, properties: entity.properties });
 					}
 				}
-				for (const translation of entityDependencies.flatMap(
-					({ entitySchemaSlug, translations: dependencyTranslations }) =>
-						dependencyTranslations.map((record) => ({ entitySchemaSlug, record })),
+				for (const translation of entityDependencies.flatMap((dependency) =>
+					dependency.translations.map((record) => ({ dependency, record })),
 				)) {
-					const propertiesSchema = getEntitySchema(translation.entitySchemaSlug)?.propertiesSchema;
+					const stored = dependencies.find((entity) => entity.id === translation.dependency.id);
+					const propertiesSchema = stored ? getEntitySchema(stored)?.propertiesSchema : undefined;
 					if (propertiesSchema && translation.record.properties) {
 						propertyRecords.push({ propertiesSchema, properties: translation.record.properties });
 					}
 				}
 				for (const relationship of relationshipRecords) {
-					const propertiesSchema =
-						definitions.relationshipSchemas[relationship.relationshipSchemaSlug]?.propertiesSchema;
+					const stored = storedRelationships.find(({ id }) => id === relationship.id);
+					const propertiesSchema = stored
+						? definitionForPlugin(
+								definitions.relationshipSchemas[relationship.relationshipSchemaSlug],
+								stored.relationshipSchemaPluginId,
+								stored.relationshipSchemaPluginId
+									? historicalPrivateDefinitions.get(stored.relationshipSchemaPluginId)
+											?.relationshipSchemas[relationship.relationshipSchemaSlug]
+									: undefined,
+							)?.propertiesSchema
+						: undefined;
 					if (propertiesSchema) {
 						propertyRecords.push({ propertiesSchema, properties: relationship.properties });
 					}
@@ -440,24 +565,29 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 				return {
 					propertyRecords,
 					installedPlugins,
+					historicalPrivateDefinitions,
 					entityDependencies,
 					savedViews: viewRecords,
 					integrations: integrationRecords,
 					installations: installationRecords,
 					relationships: relationshipRecords,
 					notificationSubscriptions: subscriptionRecords,
-					entities: userEntities.map((entity) =>
-						toV2Entity(entity, pluginKeyById, getEntitySchema(entity.entitySchemaSlug)),
+					entities: yield* Effect.forEach(userEntities, (entity) =>
+						toV2Entity(entity, pluginKeyById),
 					),
 					profile: { ...profile, preferences: decodeV2JsonObject(profile.preferences) },
-					privatePlugins: privatePlugins.map((plugin) => ({
-						key: pluginKeyById.get(plugin.id) ?? "",
-						slug: plugin.slug,
-						files: plugin.sourceFiles,
-						manifest: plugin.manifest,
-						sourceHash: plugin.sourceHash,
-						version: plugin.manifest.metadata.version,
-					})),
+					privatePlugins: yield* Effect.forEach(privatePlugins, (plugin) =>
+						Effect.gen(function* () {
+							return {
+								key: yield* requirePluginKey(pluginKeyById, plugin.id),
+								slug: plugin.slug,
+								files: plugin.sourceFiles,
+								manifest: plugin.manifest,
+								sourceHash: plugin.sourceHash,
+								version: plugin.manifest.metadata.version,
+							};
+						}),
+					),
 				};
 			});
 
@@ -469,6 +599,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 				const rows = yield* events.listUserEventsForBackup(input);
 				const systemPlugins = yield* plugins.listPortablePluginMetadata();
 				const privatePlugins = yield* plugins.listPrivateForUser(input.userId);
+				const historicalPrivateDefinitions = privateDefinitionSnapshots(privatePlugins);
 				const pluginKeyById = new Map([
 					...systemPlugins.map(
 						(plugin) =>
@@ -490,31 +621,41 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 				const entitySchemaById = new Map(
 					referenced.map((entity) => [entity.id, entity.entitySchemaSlug]),
 				);
-				const records: V2Event[] = rows.map((row) => {
-					const entitySchemaSlug = entitySchemaById.get(EntityId.make(row.entityId));
-					const pluginId = entitySchemaSlug
-						? input.definitions.entitySchemas[entitySchemaSlug]?.eventSchemas[row.eventSchemaSlug]
-								?.pluginId
-						: null;
-					return {
-						id: row.id,
-						entityId: row.entityId,
-						eventSchemaSlug: row.eventSchemaSlug,
-						sessionEntityId: row.sessionEntityId,
-						createdAt: row.createdAt.toISOString(),
-						updatedAt: row.updatedAt.toISOString(),
-						occurredAt: row.occurredAt.toISOString(),
-						properties: decodeV2JsonObject(row.properties),
-						eventSchemaPluginKey: pluginId ? (pluginKeyById.get(pluginId) ?? "") : null,
-					};
-				});
+				const records: V2Event[] = yield* Effect.forEach(rows, (row) =>
+					Effect.gen(function* () {
+						return {
+							id: row.id,
+							entityId: row.entityId,
+							eventSchemaSlug: row.eventSchemaSlug,
+							sessionEntityId: row.sessionEntityId,
+							createdAt: row.createdAt.toISOString(),
+							updatedAt: row.updatedAt.toISOString(),
+							occurredAt: row.occurredAt.toISOString(),
+							properties: decodeV2JsonObject(row.properties),
+							eventSchemaPluginKey: row.eventSchemaPluginId
+								? yield* requirePluginKey(pluginKeyById, row.eventSchemaPluginId)
+								: null,
+						};
+					}),
+				);
+				const rowById = new Map(rows.map((row) => [row.id, row]));
 				const propertyRecords = records.flatMap((record): BackupPropertyRecord[] => {
 					const entitySchemaSlug = entitySchemaById.get(EntityId.make(record.entityId));
-					const propertiesSchema = entitySchemaSlug
-						? input.definitions.entitySchemas[entitySchemaSlug]?.eventSchemas[
-								record.eventSchemaSlug
-							]?.propertiesSchema
-						: undefined;
+					const row = rowById.get(EventId.make(record.id));
+					const propertiesSchema =
+						entitySchemaSlug && row
+							? definitionForPlugin(
+									input.definitions.entitySchemas[entitySchemaSlug]?.eventSchemas[
+										record.eventSchemaSlug
+									],
+									row.eventSchemaPluginId,
+									row.eventSchemaPluginId
+										? historicalPrivateDefinitions.get(row.eventSchemaPluginId)?.entitySchemas[
+												entitySchemaSlug
+											]?.eventSchemas[record.eventSchemaSlug]
+										: undefined,
+								)?.propertiesSchema
+							: undefined;
 					return propertiesSchema ? [{ propertiesSchema, properties: record.properties }] : [];
 				});
 				const lastRecord = records.at(-1);
@@ -547,7 +688,6 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 			const prepareExportSnapshot = Effect.fn("BackupExportSnapshot.prepareExportSnapshot")(
 				function* (userId: UserId, eventsPath: string) {
 					const definitions = yield* runtime.getEffectiveDefinitions(userId, true);
-					const getEntitySchema = (slug: string) => definitions.entitySchemas[slug];
 					const data = yield* readExportData(userId, definitions);
 					const pluginByKey = new Map(
 						data.installedPlugins.map((plugin) => [
@@ -555,6 +695,32 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 							plugin,
 						]),
 					);
+					const pluginIdForKey = (pluginKey: string | null) =>
+						pluginKey ? pluginByKey.get(pluginKey)?.id : null;
+					const getEntitySchema = (entity: V2UserEntity | V2EntityDependency) => {
+						const pluginId = pluginIdForKey(entity.entitySchemaPluginKey);
+						return definitionForPlugin(
+							definitions.entitySchemas[entity.entitySchemaSlug],
+							pluginId,
+							pluginId
+								? data.historicalPrivateDefinitions.get(pluginId)?.entitySchemas[
+										entity.entitySchemaSlug
+									]
+								: undefined,
+						);
+					};
+					const getSignalSchema = (subscription: V2NotificationSubscription) => {
+						const pluginId = pluginIdForKey(subscription.signalSchemaPluginKey);
+						return definitionForPlugin(
+							definitions.signalSchemas[subscription.signalSchemaSlug],
+							pluginId,
+							pluginId
+								? data.historicalPrivateDefinitions.get(pluginId)?.signalSchemas[
+										subscription.signalSchemaSlug
+									]
+								: undefined,
+						);
+					};
 					const additionalPropertyRecords: BackupPropertyRecord[] = [];
 					for (const state of data.installations) {
 						const plugin = pluginByKey.get(state.packageKey);
@@ -596,7 +762,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 					for (const subscription of data.notificationSubscriptions) {
 						const propertiesSchema = yield* requireV2NotificationMetadataSchema(
 							subscription,
-							definitions.signalSchemas[subscription.signalSchemaSlug]?.propertiesSchema,
+							getSignalSchema(subscription)?.propertiesSchema,
 						);
 						if (propertiesSchema && isV2JsonObject(subscription.metadata)) {
 							additionalPropertyRecords.push({
@@ -647,7 +813,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 					});
 					const exportedEntities: V2UserEntity[] = [];
 					for (const entity of data.entities) {
-						const propertiesSchema = getEntitySchema(entity.entitySchemaSlug)?.propertiesSchema;
+						const propertiesSchema = getEntitySchema(entity)?.propertiesSchema;
 						if (!propertiesSchema) {
 							return yield* badRequest(
 								`Backup references unavailable entity schema '${entity.entitySchemaSlug}'`,
@@ -664,7 +830,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 					}
 					const entityDependencies: V2EntityDependency[] = [];
 					for (const dependency of data.entityDependencies) {
-						const propertiesSchema = getEntitySchema(dependency.entitySchemaSlug)?.propertiesSchema;
+						const propertiesSchema = getEntitySchema(dependency)?.propertiesSchema;
 						if (!propertiesSchema) {
 							return yield* badRequest(
 								`Backup references unavailable entity schema '${dependency.entitySchemaSlug}'`,
@@ -696,9 +862,16 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 					}
 					const exportedRelationships: V2Relationship[] = [];
 					for (const relationship of data.relationships) {
-						const propertiesSchema =
-							definitions.relationshipSchemas[relationship.relationshipSchemaSlug]
-								?.propertiesSchema;
+						const pluginId = pluginIdForKey(relationship.relationshipSchemaPluginKey);
+						const propertiesSchema = definitionForPlugin(
+							definitions.relationshipSchemas[relationship.relationshipSchemaSlug],
+							pluginId,
+							pluginId
+								? data.historicalPrivateDefinitions.get(pluginId)?.relationshipSchemas[
+										relationship.relationshipSchemaSlug
+									]
+								: undefined,
+						)?.propertiesSchema;
 						if (!propertiesSchema) {
 							return yield* badRequest(
 								`Backup references unavailable relationship schema '${relationship.relationshipSchemaSlug}'`,
@@ -713,11 +886,8 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 							),
 						});
 					}
-					const entitySchemaById = new Map(
-						[...exportedEntities, ...entityDependencies].map(({ id, entitySchemaSlug }) => [
-							id,
-							entitySchemaSlug,
-						]),
+					const entityById = new Map(
+						[...exportedEntities, ...entityDependencies].map((entity) => [entity.id, entity]),
 					);
 					let eventCount = 0;
 					const eventsHash = new IncrementalSha256();
@@ -726,10 +896,12 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 						Effect.gen(function* () {
 							const eventRecords: V2Event[] = [];
 							for (const event of page.records) {
-								const entitySchemaSlug = entitySchemaById.get(event.entityId);
-								const propertiesSchema = entitySchemaSlug
-									? getEntitySchema(entitySchemaSlug)?.eventSchemas[event.eventSchemaSlug]
-											?.propertiesSchema
+								const entity = entityById.get(event.entityId);
+								const propertiesSchema = entity
+									? definitionForPlugin(
+											getEntitySchema(entity)?.eventSchemas[event.eventSchemaSlug],
+											pluginIdForKey(event.eventSchemaPluginKey),
+										)?.propertiesSchema
 									: undefined;
 								if (!propertiesSchema) {
 									return yield* badRequest(
@@ -805,7 +977,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 					for (const subscription of data.notificationSubscriptions) {
 						const propertiesSchema = yield* requireV2NotificationMetadataSchema(
 							subscription,
-							definitions.signalSchemas[subscription.signalSchemaSlug]?.propertiesSchema,
+							getSignalSchema(subscription)?.propertiesSchema,
 						);
 						notificationSubscriptions.push({
 							...subscription,

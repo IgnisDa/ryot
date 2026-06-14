@@ -208,7 +208,6 @@ const savedViewFields = {
 	sortOrder: Schema.Finite,
 	layouts: SavedViewLayouts,
 	isDisabled: Schema.Boolean,
-	pluginSlug: Schema.NullOr(Schema.String),
 	pluginKey: Schema.NullOr(Schema.String),
 	entitySchemaSlug: Schema.NullOr(Schema.String),
 	entitySchemaPluginKey: Schema.NullOr(Schema.String),

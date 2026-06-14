@@ -83,6 +83,10 @@ const checkExistingEntity = Effect.fn("checkExistingEntity")(function* (
 	payload: EntityImportPayload,
 ) {
 	const repository = yield* EntitiesRepository;
+	const schema = yield* repository.findEntitySchemaById(payload.entitySchemaSlug);
+	if (!schema) {
+		return yield* new SandboxRunError({ message: "Entity schema not found" });
+	}
 
 	return yield* Activity.make({
 		error: SandboxRunError satisfies DurableSchema,
@@ -93,6 +97,7 @@ const checkExistingEntity = Effect.fn("checkExistingEntity")(function* (
 				externalId: payload.externalId,
 				providerId: payload.providerId,
 				entitySchemaSlug: payload.entitySchemaSlug,
+				entitySchemaPluginId: schema.pluginId ?? null,
 			})
 			.pipe(mapDbErrorToSandbox),
 	});

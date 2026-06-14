@@ -414,6 +414,7 @@ it.effect("upsertGlobalEntities remains unbounded without maximumTotal", () => {
 				properties: { title: "Replacement" },
 				providerId: SandboxProviderId.make("provider-1"),
 				entitySchemaSlug: EntitySchemaSlug.make("person"),
+				entitySchemaPluginId: null,
 			},
 		]);
 	}).pipe(Effect.provide(layer));

@@ -35,8 +35,8 @@ export type StoredNotificationSubscription = {
 	isActive: boolean;
 	id: AutomationRuleId;
 	signalSchemaSlug: SignalSchemaSlug;
+	signalSchemaPluginId: string | null;
 	metadata: AutomationRuleMetadataValue | null;
-	signalSchemaPluginId?: string | null | undefined;
 };
 
 export type InsertNotificationSubscriptionInput = Pick<
@@ -87,12 +87,15 @@ const toStoredNotificationSubscription: (
 		createdAt: row.createdAt.toISOString(),
 		updatedAt: row.updatedAt.toISOString(),
 		id: AutomationRuleId.make(row.id),
+		signalSchemaPluginId: row.signalSchemaPluginId,
 		signalSchemaSlug: SignalSchemaSlug.make(row.signalSchemaSlug),
-		...(row.signalSchemaPluginId === null
-			? {}
-			: { signalSchemaPluginId: row.signalSchemaPluginId }),
 	};
 });
+
+const signalSchemaPluginWhere = (pluginId: string | null) =>
+	pluginId === null
+		? isNull(schema.notificationSubscriptionState.signalSchemaPluginId)
+		: eq(schema.notificationSubscriptionState.signalSchemaPluginId, pluginId);
 
 const toStoredRun = (row: SubscriptionRunRow) => ({
 	...row,
@@ -133,8 +136,8 @@ export class AutomationsRepository extends Context.Service<AutomationsRepository
 				userId: UserId;
 				isActive: boolean;
 				signalSchemaSlug: SignalSchemaSlug;
+				signalSchemaPluginId: string | null;
 				metadata: AutomationRuleMetadataValue | null;
-				signalSchemaPluginId?: string | null | undefined;
 			}) {
 				const db = yield* Database;
 				const [row] = yield* mapDatabaseErrors(
@@ -149,6 +152,7 @@ export class AutomationsRepository extends Context.Service<AutomationsRepository
 							and(
 								eq(schema.notificationSubscriptionState.userId, input.userId),
 								eq(schema.notificationSubscriptionState.signalSchemaSlug, input.signalSchemaSlug),
+								signalSchemaPluginWhere(input.signalSchemaPluginId),
 							),
 						)
 						.returning(),
@@ -158,7 +162,11 @@ export class AutomationsRepository extends Context.Service<AutomationsRepository
 
 			const listActiveNotificationSubscriptions = Effect.fn(
 				"AutomationsRepository.listActiveNotificationSubscriptions",
-			)(function* (input: { userId: UserId; signalSchemaSlug: SignalSchemaSlug }) {
+			)(function* (input: {
+				userId: UserId;
+				signalSchemaSlug: SignalSchemaSlug;
+				signalSchemaPluginId: string | null;
+			}) {
 				const db = yield* Database;
 				const rows = yield* mapDatabaseErrors(
 					db
@@ -169,6 +177,7 @@ export class AutomationsRepository extends Context.Service<AutomationsRepository
 								eq(schema.notificationSubscriptionState.userId, input.userId),
 								eq(schema.notificationSubscriptionState.isActive, true),
 								eq(schema.notificationSubscriptionState.signalSchemaSlug, input.signalSchemaSlug),
+								signalSchemaPluginWhere(input.signalSchemaPluginId),
 							),
 						)
 						.orderBy(asc(schema.notificationSubscriptionState.id)),
