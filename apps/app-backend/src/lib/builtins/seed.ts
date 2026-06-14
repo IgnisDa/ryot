@@ -5,6 +5,7 @@ import { Context, Effect, Layer } from "effect";
 import { CurrentDb, dbEffect, TransactionRunner } from "~/lib/db";
 import * as schema from "~/lib/db/schema";
 
+import type { AppSchema } from "../schema";
 import { builtinEntitySchemas } from "./entity-schemas";
 import {
 	builtinEventSchemaTriggerLinks,
@@ -22,7 +23,7 @@ const ensureBuiltinEntitySchema = (input: {
 	name: string;
 	icon: string;
 	accentColor: string;
-	propertiesSchema: Record<string, unknown>;
+	propertiesSchema: AppSchema;
 }) =>
 	Effect.gen(function* () {
 		const db = yield* CurrentDb;
@@ -67,7 +68,7 @@ const ensureBuiltinEntitySchema = (input: {
 
 const ensureBuiltinEntitySchemaEventSchemas = (input: {
 	entitySchemaId: string;
-	eventSchemas: Array<{ slug: string; name: string; propertiesSchema: Record<string, unknown> }>;
+	eventSchemas: Array<{ slug: string; name: string; propertiesSchema: AppSchema }>;
 }) =>
 	Effect.gen(function* () {
 		const db = yield* CurrentDb;
@@ -248,7 +249,7 @@ const ensureBuiltinEventSchemaTrigger = (input: {
 const ensureBuiltinRelationshipSchema = (input: {
 	slug: string;
 	name: string;
-	propertiesSchema: Record<string, unknown>;
+	propertiesSchema: AppSchema;
 	sourceEntitySchemaId?: string;
 	targetEntitySchemaId?: string;
 }) =>

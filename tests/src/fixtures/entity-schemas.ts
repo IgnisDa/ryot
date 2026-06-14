@@ -1,4 +1,4 @@
-import type { AppPropertyDefinition, AppSchema } from "@ryot/ts-utils/app-schema";
+import type { AppPropertyDefinition, AppSchema } from "@ryot/app-backend/schema";
 
 import { assertPresent, requirePresent, requireResponseData } from "../test-support/assertions";
 import type { Client } from "./auth";
@@ -11,26 +11,6 @@ export type { AppPropertyDefinition, AppSchema };
 type EnqueueEntitySearchBody = ClientBody<"entity-schemas", "search">;
 
 type EnqueueEntityImportBody = ClientBody<"entities", "import">;
-
-type EntitySchemaRecord = {
-	id: string;
-	name: string;
-	slug: string;
-	icon: string;
-	trackerId: string;
-	accentColor: string;
-	isBuiltin: boolean;
-	propertiesSchema: AppSchema;
-	providers: ReadonlyArray<{ name: string; scriptId: string }>;
-};
-
-// TODO(Task 11): Replace these tests-only entity schema assertions with the public
-// AppContract types once propertiesSchema and providers are typed in the contract.
-const toEntitySchemaRecord = (value: unknown) => value as EntitySchemaRecord;
-
-// TODO(Task 11): Replace these tests-only entity schema assertions with the public
-// AppContract types once propertiesSchema and providers are typed in the contract.
-const toEntitySchemaRecords = (value: unknown) => value as readonly EntitySchemaRecord[];
 
 export interface CreateEntitySchemaOptions {
 	icon?: string;
@@ -69,9 +49,7 @@ export async function createEntitySchema(
 		},
 	});
 
-	const schema = toEntitySchemaRecord(
-		requireResponseData(response, data, `Failed to create entity schema '${name}'`),
-	);
+	const schema = requireResponseData(response, data, `Failed to create entity schema '${name}'`);
 	return {
 		schemaId: requirePresent(schema.id, `Failed to create entity schema '${name}'`),
 		slug: requirePresent(schema.slug, `Failed to create entity schema '${name}'`),
@@ -89,9 +67,7 @@ export async function listEntitySchemas(
 		headers: { Cookie: cookies },
 	});
 
-	return toEntitySchemaRecords(
-		requireResponseData(response, data, "Failed to list entity schemas"),
-	);
+	return requireResponseData(response, data, "Failed to list entity schemas");
 }
 
 export async function getEntitySchema(client: Client, cookies: string, entitySchemaId: string) {
@@ -100,9 +76,7 @@ export async function getEntitySchema(client: Client, cookies: string, entitySch
 		params: { path: { entitySchemaId } },
 	});
 
-	return toEntitySchemaRecord(
-		requireResponseData(response, data, `Failed to get entity schema '${entitySchemaId}'`),
-	);
+	return requireResponseData(response, data, `Failed to get entity schema '${entitySchemaId}'`);
 }
 
 export async function findBuiltinEntitySchema(client: Client, cookies: string) {

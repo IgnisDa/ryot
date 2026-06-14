@@ -1,6 +1,6 @@
-import type { AppSchema } from "~/lib/schema";
+import type { AppPropertyDefinition, AppSchema } from "~/lib/schema";
 
-const entityAssetsProperties = {
+const entityAssetsProperties: Readonly<Record<string, AppPropertyDefinition>> = {
 	s3Images: {
 		type: "array",
 		label: "S3 Images",
@@ -46,7 +46,7 @@ const entityAssetsProperties = {
 	},
 };
 
-const workoutSupersetItemProperties = {
+const workoutSupersetItemProperties: Readonly<Record<string, AppPropertyDefinition>> = {
 	color: { type: "string", label: "Color", description: "Color", validation: { required: true } },
 	exercises: {
 		type: "array",
@@ -307,7 +307,7 @@ export const workoutPropertiesSchema: AppSchema = {
 	},
 };
 
-const workoutTemplateSetProperties = {
+const workoutTemplateSetProperties: Readonly<Record<string, AppPropertyDefinition>> = {
 	note: { type: "string", label: "Note", description: "Note" },
 	reps: { type: "number", label: "Reps", description: "Reps" },
 	duration: { type: "number", label: "Duration", description: "Duration" },
@@ -334,7 +334,7 @@ const workoutTemplateSetProperties = {
 	},
 };
 
-const workoutTemplateExerciseProperties = {
+const workoutTemplateExerciseProperties: Readonly<Record<string, AppPropertyDefinition>> = {
 	exerciseId: {
 		type: "string",
 		label: "Exercise Id",
