@@ -3,7 +3,8 @@ import { Cause, Effect, Exit, Layer } from "effect";
 
 import { BadRequest } from "#lib/errors";
 import { EntityId, RelationshipId, RelationshipSchemaId, UserId } from "#lib/schema/brands";
-import { dbRunnerLayer, makeMock } from "#lib/test-support/effect";
+import type { MockOverrides } from "#lib/test-support/effect";
+import { dbRunnerLayer } from "#lib/test-support/effect";
 
 import { RelationshipsRepository } from "./repository";
 import { RelationshipsService } from "./service";
@@ -23,27 +24,19 @@ const savedRelationship = {
 	createdAt: "2026-06-22T00:00:00.000Z",
 };
 
-const makeRelationshipsRepository = (overrides: Partial<RelationshipsRepository> = {}) =>
-	makeMock<RelationshipsRepository>(
-		{
-			_tag: "RelationshipsRepository" as const,
-			saveRelationship: () => Effect.die("unused"),
-			deleteUserRelationship: () => Effect.die("unused"),
-			findRelationshipProperties: () => Effect.die("unused"),
-			deleteUserRelationshipsForEntity: () => Effect.die("unused"),
-			moveUserRelationshipsBetweenEntities: () => Effect.die("unused"),
-		},
-		overrides,
-	);
+const mockRelationshipsRepository = Layer.mock(RelationshipsRepository);
 
-const makeServiceLayer = (overrides: Partial<RelationshipsRepository> = {}) =>
+const makeRelationshipsRepository = (
+	overrides: MockOverrides<typeof mockRelationshipsRepository> = {},
+) =>
+	mockRelationshipsRepository({
+		...overrides,
+		_tag: "RelationshipsRepository",
+	});
+
+const makeServiceLayer = (overrides: Parameters<typeof makeRelationshipsRepository>[0] = {}) =>
 	RelationshipsService.Default.pipe(
-		Layer.provide(
-			Layer.mergeAll(
-				dbRunnerLayer,
-				Layer.succeed(RelationshipsRepository, makeRelationshipsRepository(overrides)),
-			),
-		),
+		Layer.provide(Layer.mergeAll(dbRunnerLayer, makeRelationshipsRepository(overrides))),
 	);
 
 const baseInput = {

@@ -4,7 +4,8 @@ import { Effect, Exit, Layer } from "effect";
 import type { CurrentUserValue } from "#lib/auth-middleware";
 import { BadRequest, NotFound } from "#lib/errors";
 import { TrackerId, UserId } from "#lib/schema/brands";
-import { dbRunnerLayer, makeMock, transactionLayer } from "#lib/test-support/effect";
+import type { MockOverrides } from "#lib/test-support/effect";
+import { dbRunnerLayer, transactionLayer } from "#lib/test-support/effect";
 
 import { TrackersRepository } from "./repository";
 import { TrackersService } from "./service";
@@ -15,31 +16,17 @@ const user = {
 	email: "user@example.com",
 } satisfies CurrentUserValue;
 
-const makeTrackersRepository = (overrides: Partial<TrackersRepository> = {}) =>
-	makeMock<TrackersRepository>(
-		{
-			_tag: "TrackersRepository" as const,
-			create: () => Effect.die("unused"),
-			findBySlug: () => Effect.die("unused"),
-			listByUser: () => Effect.die("unused"),
-			updateOwned: () => Effect.die("unused"),
-			getOwnedById: () => Effect.die("unused"),
-			persistOrder: () => Effect.die("unused"),
-			listIdsInOrder: () => Effect.die("unused"),
-			countOwnedByIds: () => Effect.die("unused"),
-		},
-		overrides,
-	);
+const mockTrackersRepository = Layer.mock(TrackersRepository);
 
-const makeServiceLayer = (repository: TrackersRepository) =>
+const makeTrackersRepository = (overrides: MockOverrides<typeof mockTrackersRepository> = {}) =>
+	mockTrackersRepository({
+		...overrides,
+		_tag: "TrackersRepository",
+	});
+
+const makeServiceLayer = (repository: ReturnType<typeof makeTrackersRepository>) =>
 	TrackersService.Default.pipe(
-		Layer.provide(
-			Layer.mergeAll(
-				dbRunnerLayer,
-				transactionLayer,
-				Layer.succeed(TrackersRepository, repository),
-			),
-		),
+		Layer.provide(Layer.mergeAll(dbRunnerLayer, transactionLayer, repository)),
 	);
 
 it.effect("normalizes tracker slugs before creating custom trackers", () => {

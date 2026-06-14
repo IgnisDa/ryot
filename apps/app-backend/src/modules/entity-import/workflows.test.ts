@@ -13,7 +13,8 @@ import {
 	SandboxScriptId,
 	UserId,
 } from "#lib/schema/brands";
-import { dbRunnerLayer, makeMock, makeWorkflowActivityEngine } from "#lib/test-support/effect";
+import type { MockOverrides } from "#lib/test-support/effect";
+import { dbRunnerLayer, makeWorkflowActivityEngine } from "#lib/test-support/effect";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { ListedEntity } from "#modules/entities/schemas";
 import { EntitiesService } from "#modules/entities/service";
@@ -78,111 +79,82 @@ const assertRecord: (value: unknown) => asserts value is Record<string, unknown>
 	assert(typeof value === "object" && value !== null && !Array.isArray(value));
 };
 
-const makeEntitiesRepository = (overrides: Partial<EntitiesRepository> = {}) =>
-	makeMock<EntitiesRepository>(
-		{
-			_tag: "EntitiesRepository" as const,
-			saveEntity: () => Effect.die("unused"),
-			getByIdForUser: () => Effect.die("unused"),
-			getEntityScopeForUser: () => Effect.die("unused"),
-			listMatchCandidatesBySchema: () => Effect.die("unused"),
-			getEntitySchemaScopeForUser: () => Effect.die("unused"),
-			findEntitySchemaScriptBySlug: () => Effect.succeed(null),
-			findGlobalEntityByExternalId: () => Effect.succeed(null),
-			findEntityByExternalIdForUser: () => Effect.die("unused"),
-			findEntitySchemaById: () => Effect.succeed(baseEntitySchema),
-		},
-		overrides,
-	);
+const mockEntitiesRepository = Layer.mock(EntitiesRepository);
+const mockEntitiesService = Layer.mock(EntitiesService);
+const mockRelationshipsRepository = Layer.mock(RelationshipsRepository);
+const mockEntitySchemasRepository = Layer.mock(EntitySchemasRepository);
+const mockRelationshipSchemasRepository = Layer.mock(RelationshipSchemasRepository);
 
-const makeEntitiesService = (overrides: Partial<EntitiesService> = {}) =>
-	makeMock<EntitiesService>(
-		{
-			_tag: "EntitiesService" as const,
-			create: () => Effect.die("unused"),
-			getById: () => Effect.die("unused"),
-			save: () => Effect.succeed(baseEntity),
-		},
-		overrides,
-	);
+const makeEntitiesRepository = (overrides: MockOverrides<typeof mockEntitiesRepository> = {}) =>
+	mockEntitiesRepository({
+		findEntitySchemaScriptBySlug: () => Effect.succeed(null),
+		findGlobalEntityByExternalId: () => Effect.succeed(null),
+		findEntitySchemaById: () => Effect.succeed(baseEntitySchema),
+		...overrides,
+		_tag: "EntitiesRepository",
+	});
 
-const makeRelationshipsRepository = (overrides: Partial<RelationshipsRepository> = {}) =>
-	makeMock<RelationshipsRepository>(
-		{
-			_tag: "RelationshipsRepository" as const,
-			saveRelationship: () => Effect.succeed(savedRelationship),
-		},
-		overrides,
-	);
+const makeEntitiesService = (overrides: MockOverrides<typeof mockEntitiesService> = {}) =>
+	mockEntitiesService({
+		save: () => Effect.succeed(baseEntity),
+		...overrides,
+		_tag: "EntitiesService",
+	});
 
-const makeEntitySchemasRepository = (overrides: Partial<EntitySchemasRepository> = {}) =>
-	makeMock<EntitySchemasRepository>(
-		{
-			_tag: "EntitySchemasRepository" as const,
-			listByUser: () => Effect.die("unused"),
-			findBySlug: () => Effect.die("unused"),
-			getBuiltinBySlug: () => Effect.succeed(null),
-			createEntitySchema: () => Effect.die("unused"),
-			listVisibleBySlugs: () => Effect.die("unused"),
-		},
-		overrides,
-	);
+const makeRelationshipsRepository = (
+	overrides: MockOverrides<typeof mockRelationshipsRepository> = {},
+) =>
+	mockRelationshipsRepository({
+		saveRelationship: () => Effect.succeed(savedRelationship),
+		...overrides,
+		_tag: "RelationshipsRepository",
+	});
+
+const makeEntitySchemasRepository = (
+	overrides: MockOverrides<typeof mockEntitySchemasRepository> = {},
+) =>
+	mockEntitySchemasRepository({
+		getBuiltinBySlug: () => Effect.succeed(null),
+		...overrides,
+		_tag: "EntitySchemasRepository",
+	});
 
 const makeRelationshipSchemasRepository = (
-	overrides: Partial<RelationshipSchemasRepository> = {},
+	overrides: MockOverrides<typeof mockRelationshipSchemasRepository> = {},
 ) =>
-	makeMock<RelationshipSchemasRepository>(
-		{
-			findById: () => Effect.die("unused"),
-			listByUser: () => Effect.die("unused"),
-			_tag: "RelationshipSchemasRepository" as const,
-			findBySlugForUser: () => Effect.die("unused"),
-			findBuiltinBySlug: () => Effect.die("unused"),
-			findGlobalBySchemaIds: () => Effect.succeed(null),
-			getEntitySchemaScopeById: () => Effect.die("unused"),
-			createRelationshipSchema: () => Effect.die("unused"),
-		},
-		overrides,
-	);
+	mockRelationshipSchemasRepository({
+		findGlobalBySchemaIds: () => Effect.succeed(null),
+		...overrides,
+		_tag: "RelationshipSchemasRepository",
+	});
 
 type TestLayerOptions = {
-	entitiesService?: EntitiesService;
-	entitiesRepository?: EntitiesRepository;
-	entitySchemasRepository?: EntitySchemasRepository;
-	relationshipsRepository?: RelationshipsRepository;
-	relationshipSchemasRepository?: RelationshipSchemasRepository;
+	entitiesService?: Layer.Layer<EntitiesService>;
+	entitiesRepository?: Layer.Layer<EntitiesRepository>;
+	entitySchemasRepository?: Layer.Layer<EntitySchemasRepository>;
+	relationshipsRepository?: Layer.Layer<RelationshipsRepository>;
 	processSandbox?: EntityImportWorkflowOperationsValue["processSandbox"];
+	relationshipSchemasRepository?: Layer.Layer<RelationshipSchemasRepository>;
 };
 
 const makeTestLayer = (options: TestLayerOptions) => {
 	const relationshipsRepository = options.relationshipsRepository ?? makeRelationshipsRepository();
 
 	const relationshipsServiceLayer = RelationshipsService.Default.pipe(
-		Layer.provide(
-			Layer.mergeAll(
-				dbRunnerLayer,
-				Layer.succeed(RelationshipsRepository, relationshipsRepository),
-			),
-		),
+		Layer.provide(Layer.mergeAll(dbRunnerLayer, relationshipsRepository)),
 	);
 
 	return Layer.mergeAll(
 		dbRunnerLayer,
 		relationshipsServiceLayer,
-		Layer.succeed(EntityImportWorkflowOperations, {
+		Layer.mock(EntityImportWorkflowOperations, {
 			processSandbox: options.processSandbox ?? (() => Effect.die("unused")),
 		}),
-		Layer.succeed(EntitiesService, options.entitiesService ?? makeEntitiesService()),
-		Layer.succeed(EntitiesRepository, options.entitiesRepository ?? makeEntitiesRepository()),
-		Layer.succeed(
-			EntitySchemasRepository,
-			options.entitySchemasRepository ?? makeEntitySchemasRepository(),
-		),
-		Layer.succeed(RelationshipsRepository, relationshipsRepository),
-		Layer.succeed(
-			RelationshipSchemasRepository,
-			options.relationshipSchemasRepository ?? makeRelationshipSchemasRepository(),
-		),
+		options.entitiesService ?? makeEntitiesService(),
+		options.entitiesRepository ?? makeEntitiesRepository(),
+		options.entitySchemasRepository ?? makeEntitySchemasRepository(),
+		relationshipsRepository,
+		options.relationshipSchemasRepository ?? makeRelationshipSchemasRepository(),
 	);
 };
 

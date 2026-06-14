@@ -13,10 +13,10 @@ import {
 	SandboxScriptId,
 	UserId,
 } from "#lib/schema/brands";
+import type { MockOverrides } from "#lib/test-support/effect";
 import {
 	dbRunnerLayer,
 	makeAppConfigLayer,
-	makeMock,
 	makeWorkflowActivityEngine,
 } from "#lib/test-support/effect";
 import { CollectionsService } from "#modules/collections/service";
@@ -37,150 +37,120 @@ import { runOneTimeMediaImportWorkflow } from "./workflows";
 
 const now = "2026-06-17T00:00:00.000Z";
 
-const makeImportsRepository = (overrides: Partial<ImportsRepository> = {}) =>
-	makeMock<ImportsRepository>(
-		{
-			updateRun: () => Effect.void,
-			createFailure: () => Effect.void,
-			_tag: "ImportsRepository" as const,
-			createRun: () => Effect.die("unused"),
-			getRunById: () => Effect.die("unused"),
-			deleteRunById: () => Effect.die("unused"),
-			listRunsByUser: () => Effect.die("unused"),
-			listFailuresByRunId: () => Effect.die("unused"),
-			listRunsByIntegrationId: () => Effect.die("unused"),
-			hasActiveRunForIntegration: () => Effect.die("unused"),
-			listRecentStatusesByIntegrationId: () => Effect.die("unused"),
-		},
-		overrides,
-	);
+const mockImportsRepository = Layer.mock(ImportsRepository);
+const mockEntitiesRepository = Layer.mock(EntitiesRepository);
+const mockCollectionsService = Layer.mock(CollectionsService);
+const mockEventsService = Layer.mock(EventsService);
+const mockEpisodeResolverService = Layer.mock(EpisodeResolverService);
+const mockEventSchemasRepository = Layer.mock(EventSchemasRepository);
+const mockEntitySchemasRepository = Layer.mock(EntitySchemasRepository);
+const mockImportRunArtifacts = Layer.mock(ImportRunArtifacts);
 
-const makeEntitiesRepository = (overrides: Partial<EntitiesRepository> = {}) =>
-	makeMock<EntitiesRepository>(
-		{
-			_tag: "EntitiesRepository" as const,
-			saveEntity: () => Effect.die("unused"),
-			getByIdForUser: () => Effect.die("unused"),
-			findEntitySchemaById: () => Effect.die("unused"),
-			getEntityScopeForUser: () => Effect.die("unused"),
-			listMatchCandidatesBySchema: () => Effect.die("unused"),
-			getEntitySchemaScopeForUser: () => Effect.die("unused"),
-			findEntitySchemaScriptBySlug: () => Effect.succeed(null),
-			findGlobalEntityByExternalId: () => Effect.die("unused"),
-			findEntityByExternalIdForUser: () => Effect.die("unused"),
-			getEntityMergeScopeForUser: () => Effect.die("unused"),
-		},
-		overrides,
-	);
+const makeImportsRepository = (overrides: MockOverrides<typeof mockImportsRepository> = {}) =>
+	mockImportsRepository({
+		updateRun: () => Effect.void,
+		createFailure: () => Effect.void,
+		...overrides,
+		_tag: "ImportsRepository",
+	});
 
-const makeCollectionsService = (overrides: Partial<CollectionsService> = {}) =>
-	makeMock<CollectionsService>(
-		{
-			_tag: "CollectionsService" as const,
-			create: () => Effect.die("unused"),
-			markEntityOwnedInLibrary: () => Effect.void,
-			removeFromCollection: () => Effect.die("unused"),
-			ensureEntityInLibrary: () => Effect.die("unused"),
-			ensureLibraryEntityForUser: () => Effect.die("unused"),
-			getOrCreateCollection: () =>
-				Effect.succeed({
+const makeEntitiesRepository = (overrides: MockOverrides<typeof mockEntitiesRepository> = {}) =>
+	mockEntitiesRepository({
+		findEntitySchemaScriptBySlug: () => Effect.succeed(null),
+		...overrides,
+		_tag: "EntitiesRepository",
+	});
+
+const makeCollectionsService = (overrides: MockOverrides<typeof mockCollectionsService> = {}) =>
+	mockCollectionsService({
+		markEntityOwnedInLibrary: () => Effect.void,
+		getOrCreateCollection: () =>
+			Effect.succeed({
+				name: "Collection",
+				image: null,
+				createdAt: now,
+				updatedAt: now,
+				properties: {},
+				externalId: null,
+				sandboxScriptId: null,
+				id: EntityId.make("collection-1"),
+				entitySchemaId: EntitySchemaId.make("schema-collection"),
+			}),
+		addToCollection: () =>
+			Effect.succeed({
+				memberOf: {
 					createdAt: now,
-					updatedAt: now,
 					properties: {},
-					id: "collection-1",
-					name: "Collection",
-					entitySchemaId: "schema-collection",
-				}),
-			addToCollection: () =>
-				Effect.succeed({
-					memberOf: {
-						createdAt: now,
-						properties: {},
-						id: "membership-1",
-						sourceEntityId: "entity-1",
-						targetEntityId: "collection-1",
-						relationshipSchemaId: "relationship-1",
-					},
-				}),
-		},
-		overrides,
-	);
+					id: RelationshipId.make("membership-1"),
+					sourceEntityId: EntityId.make("entity-1"),
+					targetEntityId: EntityId.make("collection-1"),
+					relationshipSchemaId: RelationshipSchemaId.make("relationship-1"),
+				},
+			}),
+		...overrides,
+		_tag: "CollectionsService",
+	});
 
-const makeEventsService = (overrides: Partial<EventsService> = {}) =>
-	makeMock<EventsService>(
-		{
-			_tag: "EventsService" as const,
-			create: () => Effect.succeed({ count: 1 }),
-			listForUser: () => Effect.die("unused"),
-		},
-		overrides,
-	);
+const makeEventsService = (overrides: MockOverrides<typeof mockEventsService> = {}) =>
+	mockEventsService({
+		create: () => Effect.succeed({ count: 1 }),
+		...overrides,
+		_tag: "EventsService",
+	});
 
-const makeEpisodeResolverService = (overrides: Partial<EpisodeResolverService> = {}) =>
-	makeMock<EpisodeResolverService>(
-		{
-			_tag: "EpisodeResolverService" as const,
-			resolveShowEpisode: () => Effect.die("unused"),
-			resolvePodcastEpisode: () => Effect.die("unused"),
-		},
-		overrides,
-	);
+const makeEpisodeResolverService = (
+	overrides: MockOverrides<typeof mockEpisodeResolverService> = {},
+) =>
+	mockEpisodeResolverService({
+		...overrides,
+		_tag: "EpisodeResolverService",
+	});
 
-const makeEventSchemasRepository = (overrides: Partial<EventSchemasRepository> = {}) =>
-	makeMock<EventSchemasRepository>(
-		{
-			_tag: "EventSchemasRepository" as const,
-			listForUser: () => Effect.die("unused"),
-			getScopeForUser: () => Effect.die("unused"),
-			createEventSchema: () => Effect.die("unused"),
-			updateEventSchema: () => Effect.die("unused"),
-			deleteEventSchema: () => Effect.die("unused"),
-			getEntitySchemaScopeById: () => Effect.die("unused"),
-			getBuiltinBySlug: () => Effect.succeed({ id: "event-schema-1" }),
-		},
-		overrides,
-	);
+const makeEventSchemasRepository = (
+	overrides: MockOverrides<typeof mockEventSchemasRepository> = {},
+) =>
+	mockEventSchemasRepository({
+		getBuiltinBySlug: () =>
+			Effect.succeed({
+				id: EventSchemaId.make("event-schema-1"),
+				propertiesSchema: { fields: {}, unknownKeys: "passthrough" as const },
+			}),
+		...overrides,
+		_tag: "EventSchemasRepository",
+	});
 
-const makeEntitySchemasRepository = (overrides: Partial<EntitySchemasRepository> = {}) =>
-	makeMock<EntitySchemasRepository>(
-		{
-			_tag: "EntitySchemasRepository" as const,
-			listByUser: () => Effect.die("unused"),
-			findBySlug: () => Effect.die("unused"),
-			getByIdForUser: () => Effect.die("unused"),
-			createEntitySchema: () => Effect.die("unused"),
-			updateEntitySchema: () => Effect.die("unused"),
-			deleteEntitySchema: () => Effect.die("unused"),
-			listVisibleBySlugs: () => Effect.die("unused"),
-			getBuiltinBySlug: () => Effect.succeed({ id: "builtin-book-schema" }),
-		},
-		overrides,
-	);
+const makeEntitySchemasRepository = (
+	overrides: MockOverrides<typeof mockEntitySchemasRepository> = {},
+) =>
+	mockEntitySchemasRepository({
+		getBuiltinBySlug: () => Effect.succeed({ id: EntitySchemaId.make("builtin-book-schema") }),
+		...overrides,
+		_tag: "EntitySchemasRepository",
+	});
 
-const makeMediaOperations = (
-	overrides: Partial<MediaImportWorkflowOperationsValue> = {},
-): MediaImportWorkflowOperationsValue => ({
-	importEntity: () => Effect.die("unused"),
-	searchEntities: () => Effect.die("unused"),
-	loadAdapterResult: () => Effect.die("unused"),
-	resolveExternalId: () => Effect.die("unused"),
-	...overrides,
-});
+const makeMediaOperations = (overrides: Partial<MediaImportWorkflowOperationsValue> = {}) =>
+	Layer.mock(MediaImportWorkflowOperations, overrides);
 
 const makeImportRunArtifacts = (
-	cleanupArtifacts: ImportRunArtifacts["cleanupArtifacts"] = () => Effect.void,
-) => makeMock<ImportRunArtifacts>({ cleanupArtifacts, _tag: "ImportRunArtifacts" as const });
+	cleanupArtifacts: NonNullable<
+		MockOverrides<typeof mockImportRunArtifacts>["cleanupArtifacts"]
+	> = () => Effect.void,
+) =>
+	mockImportRunArtifacts({
+		cleanupArtifacts,
+		_tag: "ImportRunArtifacts",
+	});
 
 type TestLayerOptions = {
-	eventsService?: EventsService;
-	importsRepository?: ImportsRepository;
-	importRunArtifacts?: ImportRunArtifacts;
-	collectionsService?: CollectionsService;
-	entitiesRepository?: EntitiesRepository;
-	episodeResolverService?: EpisodeResolverService;
-	eventSchemasRepository?: EventSchemasRepository;
-	entitySchemasRepository?: EntitySchemasRepository;
-	mediaOperations?: MediaImportWorkflowOperationsValue;
+	eventsService?: Layer.Layer<EventsService>;
+	importsRepository?: Layer.Layer<ImportsRepository>;
+	importRunArtifacts?: Layer.Layer<ImportRunArtifacts>;
+	collectionsService?: Layer.Layer<CollectionsService>;
+	entitiesRepository?: Layer.Layer<EntitiesRepository>;
+	episodeResolverService?: Layer.Layer<EpisodeResolverService>;
+	eventSchemasRepository?: Layer.Layer<EventSchemasRepository>;
+	entitySchemasRepository?: Layer.Layer<EntitySchemasRepository>;
+	mediaOperations?: Layer.Layer<MediaImportWorkflowOperations>;
 };
 
 const makeTestLayer = (options: TestLayerOptions) =>
@@ -188,24 +158,15 @@ const makeTestLayer = (options: TestLayerOptions) =>
 		dbRunnerLayer,
 		makeAppConfigLayer(),
 		BunFileSystem.layer,
-		Layer.succeed(ImportRunArtifacts, options.importRunArtifacts ?? makeImportRunArtifacts()),
-		Layer.succeed(MediaImportWorkflowOperations, options.mediaOperations ?? makeMediaOperations()),
-		Layer.succeed(ImportsRepository, options.importsRepository ?? makeImportsRepository()),
-		Layer.succeed(EntitiesRepository, options.entitiesRepository ?? makeEntitiesRepository()),
-		Layer.succeed(CollectionsService, options.collectionsService ?? makeCollectionsService()),
-		Layer.succeed(
-			EpisodeResolverService,
-			options.episodeResolverService ?? makeEpisodeResolverService(),
-		),
-		Layer.succeed(EventsService, options.eventsService ?? makeEventsService()),
-		Layer.succeed(
-			EventSchemasRepository,
-			options.eventSchemasRepository ?? makeEventSchemasRepository(),
-		),
-		Layer.succeed(
-			EntitySchemasRepository,
-			options.entitySchemasRepository ?? makeEntitySchemasRepository(),
-		),
+		options.importRunArtifacts ?? makeImportRunArtifacts(),
+		options.mediaOperations ?? makeMediaOperations(),
+		options.importsRepository ?? makeImportsRepository(),
+		options.entitiesRepository ?? makeEntitiesRepository(),
+		options.collectionsService ?? makeCollectionsService(),
+		options.episodeResolverService ?? makeEpisodeResolverService(),
+		options.eventsService ?? makeEventsService(),
+		options.eventSchemasRepository ?? makeEventSchemasRepository(),
+		options.entitySchemasRepository ?? makeEntitySchemasRepository(),
 	);
 
 const withTestLayer = <A, E, R>(

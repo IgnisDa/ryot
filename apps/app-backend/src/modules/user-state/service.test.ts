@@ -4,7 +4,8 @@ import { Effect, Exit, Layer } from "effect";
 import type { CurrentUserValue } from "#lib/auth-middleware";
 import { BadRequest, NotFound } from "#lib/errors";
 import { EntityId, EntitySchemaId, UserId } from "#lib/schema/brands";
-import { dbRunnerLayer, makeMock, transactionLayer } from "#lib/test-support/effect";
+import type { MockOverrides } from "#lib/test-support/effect";
+import { dbRunnerLayer, transactionLayer } from "#lib/test-support/effect";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventsRepository } from "#modules/events/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
@@ -17,41 +18,37 @@ const user = {
 	email: "user@example.com",
 } satisfies CurrentUserValue;
 
-const makeEntitiesRepository = (overrides: Partial<EntitiesRepository> = {}) =>
-	makeMock<EntitiesRepository>(
-		{
-			_tag: "EntitiesRepository" as const,
-			getEntityScopeForUser: () => Effect.die("unused"),
-			getEntityMergeScopeForUser: () => Effect.die("unused"),
-		},
-		overrides,
-	);
+const mockEntitiesRepository = Layer.mock(EntitiesRepository);
 
-const makeEventsRepository = (overrides: Partial<EventsRepository> = {}) =>
-	makeMock<EventsRepository>(
-		{
-			_tag: "EventsRepository" as const,
-			deleteUserEventsForEntity: () => Effect.die("unused"),
-			moveUserEventsBetweenEntities: () => Effect.die("unused"),
-		},
-		overrides,
-	);
+const makeEntitiesRepository = (overrides: MockOverrides<typeof mockEntitiesRepository> = {}) =>
+	mockEntitiesRepository({
+		...overrides,
+		_tag: "EntitiesRepository",
+	});
 
-const makeRelationshipsRepository = (overrides: Partial<RelationshipsRepository> = {}) =>
-	makeMock<RelationshipsRepository>(
-		{
-			_tag: "RelationshipsRepository" as const,
-			deleteUserRelationshipsForEntity: () => Effect.die("unused"),
-			moveUserRelationshipsBetweenEntities: () => Effect.die("unused"),
-		},
-		overrides,
-	);
+const mockEventsRepository = Layer.mock(EventsRepository);
+
+const makeEventsRepository = (overrides: MockOverrides<typeof mockEventsRepository> = {}) =>
+	mockEventsRepository({
+		...overrides,
+		_tag: "EventsRepository",
+	});
+
+const mockRelationshipsRepository = Layer.mock(RelationshipsRepository);
+
+const makeRelationshipsRepository = (
+	overrides: MockOverrides<typeof mockRelationshipsRepository> = {},
+) =>
+	mockRelationshipsRepository({
+		...overrides,
+		_tag: "RelationshipsRepository",
+	});
 
 const makeServiceLayer = (
 	options: {
-		eventsRepository?: EventsRepository;
-		entitiesRepository?: EntitiesRepository;
-		relationshipsRepository?: RelationshipsRepository;
+		eventsRepository?: ReturnType<typeof makeEventsRepository>;
+		entitiesRepository?: ReturnType<typeof makeEntitiesRepository>;
+		relationshipsRepository?: ReturnType<typeof makeRelationshipsRepository>;
 	} = {},
 ) =>
 	UserStateService.Default.pipe(
@@ -59,12 +56,9 @@ const makeServiceLayer = (
 			Layer.mergeAll(
 				dbRunnerLayer,
 				transactionLayer,
-				Layer.succeed(EntitiesRepository, options.entitiesRepository ?? makeEntitiesRepository()),
-				Layer.succeed(EventsRepository, options.eventsRepository ?? makeEventsRepository()),
-				Layer.succeed(
-					RelationshipsRepository,
-					options.relationshipsRepository ?? makeRelationshipsRepository(),
-				),
+				options.entitiesRepository ?? makeEntitiesRepository(),
+				options.eventsRepository ?? makeEventsRepository(),
+				options.relationshipsRepository ?? makeRelationshipsRepository(),
 			),
 		),
 	);
