@@ -443,16 +443,19 @@ query GetHardcoverBookDetails($id: Int!) {
 		relatedEntityGroups: [
 			{
 				direction: "incoming",
+				synchronization: "additive",
 				relationshipSchemaSlug: "person-to-book",
 				entities: relatedEntities.filter((entity) => entity.scriptSlug === "person.hardcover"),
 			},
 			{
 				direction: "incoming",
+				synchronization: "additive",
 				relationshipSchemaSlug: "company-to-book",
 				entities: relatedEntities.filter((entity) => entity.scriptSlug === "company.hardcover"),
 			},
 			{
 				direction: "incoming",
+				synchronization: "additive",
 				relationshipSchemaSlug: "book-group-to-book",
 				entities: relatedEntities.filter((entity) => entity.scriptSlug === "book-group.hardcover"),
 			},

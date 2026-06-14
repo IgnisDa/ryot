@@ -339,6 +339,7 @@ driver("details", async function (context) {
 		relatedEntityGroups: [
 			{
 				direction: "incoming",
+				synchronization: "authoritative",
 				relationshipSchemaSlug: "person-to-audiobook",
 				entities: [...relatedEntityByKey.values()].filter(
 					(entity) => entity.scriptSlug === "person.audible",
@@ -346,6 +347,7 @@ driver("details", async function (context) {
 			},
 			{
 				direction: "incoming",
+				synchronization: "additive",
 				relationshipSchemaSlug: "audiobook-group-to-audiobook",
 				entities: [...relatedEntityByKey.values()].filter(
 					(entity) => entity.scriptSlug === "audiobook-group.audible",
@@ -353,6 +355,7 @@ driver("details", async function (context) {
 			},
 			{
 				direction: "outgoing",
+				synchronization: "authoritative",
 				entities: suggestions,
 				relationshipSchemaSlug: "media-suggestion",
 			},

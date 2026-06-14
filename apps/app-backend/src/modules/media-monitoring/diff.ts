@@ -203,20 +203,25 @@ const diffShows = (before: MediaMonitoringSnapshot, after: MediaMonitoringSnapsh
 		];
 	}
 
-	return matchByIdentity(before.seasons, after.seasons, (season) => ({
+	const seasonMatches = matchByIdentity(before.seasons, after.seasons, (season) => ({
 		externalId: season.externalId,
 		number: season.seasonNumber,
-	})).matches.flatMap((pair) => diffShowEpisodes(pair.before, pair.after, after.name));
+	}));
+	return [
+		...seasonMatches.matches.flatMap((pair) =>
+			diffShowEpisodes(pair.before, pair.after, after.name),
+		),
+		...seasonMatches.unmatchedAfter.flatMap((season) =>
+			diffShowEpisodes({ ...season, episodes: [] }, season, after.name),
+		),
+	];
 };
 
 const diffPodcastEpisodes = (before: MediaMonitoringSnapshot, after: MediaMonitoringSnapshot) => {
 	const episodeMatches = matchByIdentity(
 		before.podcastEpisodes,
 		after.podcastEpisodes,
-		(episode) => ({
-			externalId: episode.externalId,
-			number: episode.episodeNumber,
-		}),
+		(episode) => ({ number: episode.episodeNumber, externalId: episode.externalId }),
 	);
 	if (
 		episodeMatches.unmatchedAfter.length > 0 &&

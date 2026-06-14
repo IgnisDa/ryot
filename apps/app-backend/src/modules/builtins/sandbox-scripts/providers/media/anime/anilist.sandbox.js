@@ -508,11 +508,13 @@ query MediaDetailsQuery($id: Int!) {
 		relatedEntityGroups: [
 			{
 				direction: "incoming",
+				synchronization: "additive",
 				entities: relatedEntities,
 				relationshipSchemaSlug: "company-to-anime",
 			},
 			{
 				direction: "outgoing",
+				synchronization: "authoritative",
 				entities: collectSuggestions(media.recommendations, titleLang),
 				relationshipSchemaSlug: "media-suggestion",
 			},

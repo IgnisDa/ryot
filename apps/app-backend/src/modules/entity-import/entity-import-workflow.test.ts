@@ -13,12 +13,14 @@ import {
 } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
+import { CurrentDb, TransactionRunner } from "#lib/infrastructure/db/service";
 import { RedisService } from "#lib/infrastructure/redis";
 import type { MockOverrides } from "#lib/test-support/effect";
 import {
 	dbRunnerLayer,
 	makeRedisService,
 	makeWorkflowActivityEngine,
+	transactionLayer,
 } from "#lib/test-support/effect";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
@@ -147,6 +149,7 @@ const makeRelationshipSchemasRepository = (
 
 type TestLayerOptions = {
 	entitiesService?: Layer.Layer<EntitiesService>;
+	transactionRunner?: Layer.Layer<TransactionRunner>;
 	entitiesRepository?: Layer.Layer<EntitiesRepository>;
 	entitySchemasRepository?: Layer.Layer<EntitySchemasRepository>;
 	relationshipsRepository?: Layer.Layer<RelationshipsRepository>;
@@ -163,6 +166,7 @@ const makeTestLayer = (options: TestLayerOptions) => {
 
 	return Layer.mergeAll(
 		dbRunnerLayer,
+		options.transactionRunner ?? transactionLayer,
 		relationshipsServiceLayer,
 		Layer.succeed(RedisService, makeRedisService({ publish: () => Effect.succeed(0) })),
 		Layer.mock(EntityImportWorkflowOperations, {
@@ -241,6 +245,7 @@ it.effect("populates entity and writes related entities", () => {
 					relatedEntityGroups: [
 						{
 							direction: "incoming",
+							synchronization: "authoritative",
 							relationshipSchemaSlug: "authored-by",
 							entities: [
 								{
@@ -547,13 +552,10 @@ it.effect("creates placeholder suggestion entities and syncs source suggestions"
 					relatedEntityGroups: [
 						{
 							direction: "outgoing",
+							synchronization: "authoritative",
 							relationshipSchemaSlug: "media-suggestion",
 							entities: [
-								{
-									externalId: "movie-1",
-									scriptSlug: "movie.tmdb",
-									name: "Recommended Movie",
-								},
+								{ externalId: "movie-1", scriptSlug: "movie.tmdb", name: "Recommended Movie" },
 								{
 									externalId: "missing-1",
 									name: "Missing Suggestion",
@@ -633,8 +635,9 @@ it.effect("creates placeholder suggestion entities and syncs source suggestions"
 			]);
 			expect(syncedGroups).toEqual([
 				{
-					anchorEntityId: EntityId.make("entity-1"),
 					direction: "outgoing",
+					synchronization: "authoritative",
+					anchorEntityId: EntityId.make("entity-1"),
 					relationshipSchemaId: mediaSuggestionSchema.id,
 					entries: [{ entityId: EntityId.make("suggestion-movie-1"), properties: {} }],
 				},
@@ -668,8 +671,9 @@ it.effect("replaces stale synced suggestions on a later import run", () => {
 							properties: { title: "Test Book" },
 							relatedEntityGroups: [
 								{
-									direction: "outgoing",
 									entities: suggestions,
+									direction: "outgoing",
+									synchronization: "authoritative",
 									relationshipSchemaSlug: "media-suggestion",
 								},
 							],
@@ -912,6 +916,7 @@ it.effect("keeps the refresh baseline when related relationship properties are i
 					relatedEntityGroups: [
 						{
 							direction: "incoming",
+							synchronization: "authoritative",
 							relationshipSchemaSlug: "authored-by",
 							entities: [
 								{
@@ -1036,6 +1041,7 @@ it.effect("fails workflow when related relationship properties are not objects",
 					relatedEntityGroups: [
 						{
 							direction: "incoming",
+							synchronization: "authoritative",
 							relationshipSchemaSlug: "authored-by",
 							entities: [
 								{
@@ -1182,6 +1188,7 @@ it.effect("retries related writes after a failed related validation", () => {
 							relatedEntityGroups: [
 								{
 									direction: "incoming",
+									synchronization: "authoritative",
 									relationshipSchemaSlug: "authored-by",
 									entities: [
 										{
@@ -1217,6 +1224,101 @@ it.effect("retries related writes after a failed related validation", () => {
 		expect(secondResult.id).toBe("entity-1");
 		expect(secondResult.populatedAt).not.toBeNull();
 	});
+});
+
+it.effect("rolls back provider graph writes when a later child write fails", () => {
+	const writes: string[] = [];
+	const transactionRunner = Layer.succeed(
+		TransactionRunner,
+		<A, E, R>(effect: Effect.Effect<A, E, R>) => {
+			const initialLength = writes.length;
+			return Effect.provideService(effect, CurrentDb, Object.create(null)).pipe(
+				Effect.tapErrorCause(() =>
+					Effect.sync(() => {
+						writes.length = initialLength;
+					}),
+				),
+			);
+		},
+	);
+	const payload = { ...importPayload, executionId: "atomic-graph-write" };
+	const options = {
+		transactionRunner,
+		processSandbox: () =>
+			Effect.succeed({
+				logs: [],
+				error: null,
+				status: "completed" as const,
+				value: {
+					name: "Test Book",
+					properties: { title: "Test Book" },
+					childEntities: [
+						{
+							properties: {},
+							name: "Missing Child",
+							externalId: "missing-child",
+							entitySchemaSlug: "missing-child",
+						},
+					],
+					relatedEntityGroups: [
+						{
+							direction: "outgoing" as const,
+							synchronization: "authoritative" as const,
+							relationshipSchemaSlug: "media-suggestion",
+							entities: [
+								{ name: "Suggestion", scriptSlug: "media.test", externalId: "suggestion-1" },
+							],
+						},
+					],
+				},
+			}),
+		entitiesRepository: makeEntitiesRepository({
+			findEntitySchemaSandboxScriptBySlug: () =>
+				Effect.succeed({
+					entitySchemaId: EntitySchemaId.make("schema-related"),
+					sandboxScriptId: SandboxScriptId.make("script-related"),
+				}),
+		}),
+		entitiesService: makeEntitiesService({
+			save: (input) =>
+				Effect.sync(() => {
+					writes.push(`entity:${input.name}`);
+					return {
+						...baseEntity,
+						name: input.name,
+						entitySchemaId: input.entitySchemaId,
+						externalId: input.scope === "global" ? input.externalId : null,
+						id: EntityId.make(input.name === "Test Book" ? "entity-1" : "suggestion-1"),
+						populatedAt:
+							input.scope === "global" ? (input.populatedAt?.toISOString() ?? null) : null,
+						sandboxScriptId:
+							input.scope === "global" ? input.sandboxScriptId : SandboxScriptId.make("script-1"),
+					};
+				}),
+		}),
+		entitySchemasRepository: makeEntitySchemasRepository({
+			getBuiltinBySlug: () => Effect.succeed(null),
+		}),
+		relationshipsRepository: makeRelationshipsRepository({
+			syncGlobalRelationshipsWithProperties: () =>
+				Effect.sync(() => {
+					writes.push("relationship:media-suggestion");
+				}),
+		}),
+	} satisfies TestLayerOptions;
+
+	return withTestLayer(
+		options,
+		payload.executionId,
+		Effect.gen(function* () {
+			const exit = yield* Effect.exit(
+				runProviderEntityPopulationWorkflow({ ...payload, mode: "ensure" }, payload.executionId),
+			);
+
+			expect(exit._tag).toBe("Failure");
+			expect(writes).toEqual([]);
+		}),
+	);
 });
 
 it.effect("refresh synchronization replaces provider-owned primary and child values", () => {
@@ -1373,7 +1475,12 @@ it.effect("clears an explicit empty relationship group", () => {
 					name: "Test Book",
 					properties: { title: "Test Book" },
 					relatedEntityGroups: [
-						{ entities: [], direction: "outgoing", relationshipSchemaSlug: "media-suggestion" },
+						{
+							entities: [],
+							direction: "outgoing",
+							synchronization: "authoritative",
+							relationshipSchemaSlug: "media-suggestion",
+						},
 					],
 				},
 			}),
@@ -1397,6 +1504,7 @@ it.effect("clears an explicit empty relationship group", () => {
 				{
 					entries: [],
 					direction: "outgoing",
+					synchronization: "authoritative",
 					anchorEntityId: EntityId.make("entity-1"),
 					relationshipSchemaId: mediaSuggestionSchema.id,
 				},

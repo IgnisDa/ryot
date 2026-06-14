@@ -293,6 +293,7 @@ driver("details", async function (context) {
 		relatedEntityGroups: [
 			{
 				direction: "outgoing",
+				synchronization: "authoritative",
 				entities: [...relatedById.values()],
 				relationshipSchemaSlug: "company-to-video-game",
 			},

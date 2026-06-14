@@ -339,11 +339,13 @@ driver("details", async function (context, { metadata }) {
 		relatedEntityGroups: [
 			{
 				direction: "outgoing",
+				synchronization: "authoritative",
 				entities: [...movieById.values()],
 				relationshipSchemaSlug: "person-to-movie",
 			},
 			{
 				direction: "outgoing",
+				synchronization: "authoritative",
 				entities: [...showById.values()],
 				relationshipSchemaSlug: "person-to-show",
 			},

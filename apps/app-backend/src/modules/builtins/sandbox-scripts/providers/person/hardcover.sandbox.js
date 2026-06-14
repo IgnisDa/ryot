@@ -245,6 +245,7 @@ query GetHardcoverAuthorDetails($id: Int!) {
 		relatedEntityGroups: [
 			{
 				direction: "outgoing",
+				synchronization: "authoritative",
 				entities: mediaEntities,
 				relationshipSchemaSlug: "person-to-book",
 			},
