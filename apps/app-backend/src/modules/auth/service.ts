@@ -24,10 +24,10 @@ import * as schemaRelations from "#lib/infrastructure/db/schema/tables/relations
 import type { DbRoot } from "#lib/infrastructure/db/service";
 import { CurrentDb, DbService, TransactionRunner } from "#lib/infrastructure/db/service";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
-import { bootstrapNewUser } from "#modules/builtins/bootstrap";
 import { EntitiesService } from "#modules/entities/service";
 import { SavedViewsService } from "#modules/saved-views/service";
 import { TrackersService } from "#modules/trackers/service";
+import { bootstrapNewUser } from "#modules/user-bootstrap/bootstrap";
 
 import { gateSessionCreation } from "./session-gate";
 

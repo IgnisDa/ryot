@@ -1,13 +1,12 @@
 import { Activity } from "@effect/workflow";
 import type { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
-import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
+import { type CurrentUserValue, defaultUserPreferences } from "@ryot/contract/auth-middleware";
 import type { ListedEntity } from "@ryot/contract/modules/entities/schemas";
 import { CreateEventItem } from "@ryot/contract/modules/events/schemas";
 import { Effect, Schema } from "effect";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import type { DbRunner } from "#lib/infrastructure/db/service";
-import { defaultUserPreferences } from "#modules/builtins/bootstrap";
 import type { EntitiesRepository } from "#modules/entities/repository";
 import type { EntitiesService } from "#modules/entities/service";
 import type { EntitySchemasRepository } from "#modules/entity-schemas/repository";
