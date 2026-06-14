@@ -29,16 +29,28 @@ tests. A human must perform and confirm that validation before this slice is con
 
 ## Acceptance criteria
 
-- [ ] `musicbrainz` → `music-brainz` and `google-book` → `google-books` are renamed across slug,
+- [x] `musicbrainz` → `music-brainz` and `google-book` → `google-books` are renamed across slug,
       `providerInformation.source`, script asset, and legacy-bootstrap mapping target.
-- [ ] All provider scripts declare `providerInformation.source`; translatable providers additionally
+- [x] All provider scripts declare `providerInformation.source`; translatable providers additionally
       declare `canonicalLanguage`.
-- [ ] Legacy-bootstrap normalizes migrated preference sources with the underscore-to-hyphen
+- [x] Legacy-bootstrap normalizes migrated preference sources with the underscore-to-hyphen
       transform so they match V2 source keys.
-- [ ] The Audible exclusion rationale is documented in the legacy-bootstrap module notes.
+- [x] The Audible exclusion rationale is documented in the legacy-bootstrap module notes.
 - [ ] Manual validation performed: a restored V1 dump run through the migration yields preferences
       whose `source` keys match V2 and entities mapped to the renamed slugs; results inspected and
       confirmed.
+
+## Implementation Notes
+
+- Renamed built-in script slugs to `book.google-books`, `music.music-brainz`,
+  `person.music-brainz`, and `music-group.music-brainz`; the MusicBrainz script assets were renamed
+  to `music-brainz.txt`.
+- All built-in provider scripts now declare `providerInformation.source`; only scripts with
+  translation drivers declare `canonicalLanguage`.
+- Legacy-bootstrap preference migration now normalizes provider source keys with
+  `replace(source, '_', '-')`, while V1 data join keys remain snake_case.
+- The restored-dump manual validation remains outstanding because this environment does not have the
+  required application dependencies or a restored V1 dump.
 
 ## User stories addressed
 

@@ -122,7 +122,7 @@ BEGIN
 					(
 						SELECT jsonb_agg(
 							jsonb_build_object(
-								'source', provider.value ->> 'source',
+								'source', replace(provider.value ->> 'source', '_', '-'),
 								'preferredLanguage', provider.value ->> 'preferred_language'
 							)
 							ORDER BY provider.ordinality

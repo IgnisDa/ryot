@@ -8,6 +8,25 @@ import {
 import { builtinSandboxScripts } from "./registry";
 
 describe("builtinSandboxScripts", () => {
+	it("declares source metadata for every provider script", () => {
+		const scripts = builtinSandboxScripts();
+		const mismatches = scripts
+			.filter((script) => !script.slug.startsWith("trigger."))
+			.flatMap((script) => {
+				const slugParts = script.slug.split(".");
+				const expectedSource = slugParts[slugParts.length - 1];
+				const actualSource =
+					"providerInformation" in script.metadata
+						? script.metadata.providerInformation?.source
+						: undefined;
+				return actualSource === expectedSource
+					? []
+					: [`${script.slug}:${actualSource ?? "missing"}`];
+			});
+
+		expect(mismatches).toEqual([]);
+	});
+
 	it("declares translation metadata for translated scripts", () => {
 		const scripts = builtinSandboxScripts();
 		const providerInformationFor = (slug: string) => {

@@ -11,7 +11,7 @@ import giantBombVideoGameGroupScriptCode from "#lib/sandbox/providers/media-grou
 import hardcoverBookGroupScriptCode from "#lib/sandbox/providers/media-group/hardcover.txt";
 import igdbVideoGameGroupScriptCode from "#lib/sandbox/providers/media-group/igdb.txt";
 import metronComicBookGroupScriptCode from "#lib/sandbox/providers/media-group/metron.txt";
-import musicbrainzMusicGroupScriptCode from "#lib/sandbox/providers/media-group/musicbrainz.txt";
+import musicBrainzMusicGroupScriptCode from "#lib/sandbox/providers/media-group/music-brainz.txt";
 import spotifyMusicGroupScriptCode from "#lib/sandbox/providers/media-group/spotify.txt";
 import tmdbMovieGroupScriptCode from "#lib/sandbox/providers/media-group/tmdb.txt";
 import tvdbMovieGroupScriptCode from "#lib/sandbox/providers/media-group/tvdb.txt";
@@ -28,7 +28,7 @@ import mangaUpdatesMangaScriptCode from "#lib/sandbox/providers/media/manga/mang
 import myanimelistMangaScriptCode from "#lib/sandbox/providers/media/manga/myanimelist.txt";
 import tmdbMovieScriptCode from "#lib/sandbox/providers/media/movie/tmdb.txt";
 import tvdbMovieScriptCode from "#lib/sandbox/providers/media/movie/tvdb.txt";
-import musicbrainzMusicScriptCode from "#lib/sandbox/providers/media/music/musicbrainz.txt";
+import musicBrainzMusicScriptCode from "#lib/sandbox/providers/media/music/music-brainz.txt";
 import spotifyMusicScriptCode from "#lib/sandbox/providers/media/music/spotify.txt";
 import youtubeMusicScriptCode from "#lib/sandbox/providers/media/music/youtube-music.txt";
 import itunesPodcastScriptCode from "#lib/sandbox/providers/media/podcast/itunes.txt";
@@ -44,7 +44,7 @@ import giantBombPersonScriptCode from "#lib/sandbox/providers/person/giant-bomb.
 import hardcoverPersonScriptCode from "#lib/sandbox/providers/person/hardcover.txt";
 import mangaUpdatesPersonScriptCode from "#lib/sandbox/providers/person/manga-updates.txt";
 import metronPersonScriptCode from "#lib/sandbox/providers/person/metron.txt";
-import musicbrainzPersonScriptCode from "#lib/sandbox/providers/person/musicbrainz.txt";
+import musicBrainzPersonScriptCode from "#lib/sandbox/providers/person/music-brainz.txt";
 import openLibraryPersonScriptCode from "#lib/sandbox/providers/person/openlibrary.txt";
 import spotifyPersonScriptCode from "#lib/sandbox/providers/person/spotify.txt";
 import tmdbPersonScriptCode from "#lib/sandbox/providers/person/tmdb.txt";
@@ -90,168 +90,234 @@ const withDelimiterTitleCaseHelper = (code: string) => `${titleCaseDelimiterHelp
 
 const withPushHelpers = (code: string) => `${integrationPushHelperCode}\n\n${code}`;
 
+const provider = (source: string, canonicalLanguage?: string) => ({
+	source,
+	...(canonicalLanguage ? { canonicalLanguage } : {}),
+});
+
+const providerScript = (
+	name: string,
+	slug: string,
+	code: string,
+	source: string,
+	requiredAppConfigKeys?: string[],
+) => script(name, slug, code, requiredAppConfigKeys, provider(source));
+
+const translatedProviderScript = (
+	name: string,
+	slug: string,
+	code: string,
+	source: string,
+	canonicalLanguage: string,
+	requiredAppConfigKeys?: string[],
+) => script(name, slug, code, requiredAppConfigKeys, provider(source, canonicalLanguage));
+
 export const builtinSandboxScripts = () => [
-	script("Free Exercise DB", "exercise.free-exercise-db", freeExerciseDbScriptCode),
-	script("OpenLibrary", "book.openlibrary", withTitleCaseHelper(openLibraryBookScriptCode)),
-	script("Audible", "audiobook.audible", withTitleCaseHelper(audibleAudiobookScriptCode)),
-	script("iTunes", "podcast.itunes", itunesPodcastScriptCode, undefined, {
-		source: "itunes",
-		canonicalLanguage: "en_us",
-	}),
-	script("VNDB", "visual-novel.vndb", vndbVisualNovelScriptCode),
-	script(
+	providerScript(
+		"Free Exercise DB",
+		"exercise.free-exercise-db",
+		freeExerciseDbScriptCode,
+		"free-exercise-db",
+	),
+	providerScript(
+		"OpenLibrary",
+		"book.openlibrary",
+		withTitleCaseHelper(openLibraryBookScriptCode),
+		"openlibrary",
+	),
+	providerScript(
+		"Audible",
+		"audiobook.audible",
+		withTitleCaseHelper(audibleAudiobookScriptCode),
+		"audible",
+	),
+	translatedProviderScript("iTunes", "podcast.itunes", itunesPodcastScriptCode, "itunes", "en_us"),
+	providerScript("VNDB", "visual-novel.vndb", vndbVisualNovelScriptCode, "vndb"),
+	translatedProviderScript(
 		"Anilist",
 		"anime.anilist",
 		withDelimiterTitleCaseHelper(anilistAnimeScriptCode),
-		undefined,
-		{
-			source: "anilist",
-			canonicalLanguage: "english",
-		},
+		"anilist",
+		"english",
 	),
-	script(
+	translatedProviderScript(
 		"Anilist",
 		"manga.anilist",
 		withDelimiterTitleCaseHelper(anilistMangaScriptCode),
-		undefined,
-		{
-			source: "anilist",
-			canonicalLanguage: "english",
-		},
+		"anilist",
+		"english",
 	),
-	script("Anilist", "company.anilist", anilistCompanyScriptCode),
-	script("GiantBomb", "company.giant-bomb", giantBombCompanyScriptCode, [
+	providerScript("Anilist", "company.anilist", anilistCompanyScriptCode, "anilist"),
+	providerScript("GiantBomb", "company.giant-bomb", giantBombCompanyScriptCode, "giant-bomb", [
 		"providers.giantBombApiKey",
 	]),
-	script("Hardcover", "company.hardcover", hardcoverCompanyScriptCode, [
+	providerScript("Hardcover", "company.hardcover", hardcoverCompanyScriptCode, "hardcover", [
 		"providers.hardcoverApiKey",
 	]),
-	script("IGDB", "company.igdb", igdbCompanyScriptCode, [
+	providerScript("IGDB", "company.igdb", igdbCompanyScriptCode, "igdb", [
 		"providers.twitchClientId",
 		"providers.twitchClientSecret",
 	]),
-	script("TMDB", "company.tmdb", tmdbCompanyScriptCode, ["providers.tmdbAccessToken"]),
-	script("TVDB", "company.tvdb", tvdbCompanyScriptCode, ["providers.tvdbApiKey"]),
-	script("VNDB", "company.vndb", vndbCompanyScriptCode),
-	script("Anilist", "person.anilist", anilistPersonScriptCode),
-	script("Audible", "person.audible", audiblePersonScriptCode),
-	script("GiantBomb", "person.giant-bomb", giantBombPersonScriptCode, [
+	providerScript("TMDB", "company.tmdb", tmdbCompanyScriptCode, "tmdb", [
+		"providers.tmdbAccessToken",
+	]),
+	providerScript("TVDB", "company.tvdb", tvdbCompanyScriptCode, "tvdb", ["providers.tvdbApiKey"]),
+	providerScript("VNDB", "company.vndb", vndbCompanyScriptCode, "vndb"),
+	providerScript("Anilist", "person.anilist", anilistPersonScriptCode, "anilist"),
+	providerScript("Audible", "person.audible", audiblePersonScriptCode, "audible"),
+	providerScript("GiantBomb", "person.giant-bomb", giantBombPersonScriptCode, "giant-bomb", [
 		"providers.giantBombApiKey",
 	]),
-	script("MangaUpdates", "person.manga-updates", mangaUpdatesPersonScriptCode),
-	script("MangaUpdates", "manga.manga-updates", mangaUpdatesMangaScriptCode),
-	script("MusicBrainz", "music.musicbrainz", musicbrainzMusicScriptCode),
-	script("MusicBrainz", "person.musicbrainz", musicbrainzPersonScriptCode),
-	script("OpenLibrary", "person.openlibrary", openLibraryPersonScriptCode),
-	script("YouTube Music", "music.youtube-music", youtubeMusicScriptCode, undefined, {
-		source: "youtube-music",
-		canonicalLanguage: "en",
-	}),
-	script("YouTube Music", "person.youtube-music", youtubeMusicPersonScriptCode, undefined, {
-		source: "youtube-music",
-		canonicalLanguage: "en",
-	}),
-	script("Hardcover", "book.hardcover", withTitleCaseHelper(hardcoverBookScriptCode), [
+	providerScript(
+		"MangaUpdates",
+		"person.manga-updates",
+		mangaUpdatesPersonScriptCode,
+		"manga-updates",
+	),
+	providerScript(
+		"MangaUpdates",
+		"manga.manga-updates",
+		mangaUpdatesMangaScriptCode,
+		"manga-updates",
+	),
+	providerScript("MusicBrainz", "music.music-brainz", musicBrainzMusicScriptCode, "music-brainz"),
+	providerScript("MusicBrainz", "person.music-brainz", musicBrainzPersonScriptCode, "music-brainz"),
+	providerScript("OpenLibrary", "person.openlibrary", openLibraryPersonScriptCode, "openlibrary"),
+	translatedProviderScript(
+		"YouTube Music",
+		"music.youtube-music",
+		youtubeMusicScriptCode,
+		"youtube-music",
+		"en",
+	),
+	translatedProviderScript(
+		"YouTube Music",
+		"person.youtube-music",
+		youtubeMusicPersonScriptCode,
+		"youtube-music",
+		"en",
+	),
+	providerScript(
+		"Hardcover",
+		"book.hardcover",
+		withTitleCaseHelper(hardcoverBookScriptCode),
+		"hardcover",
+		["providers.hardcoverApiKey"],
+	),
+	providerScript("Hardcover", "person.hardcover", hardcoverPersonScriptCode, "hardcover", [
 		"providers.hardcoverApiKey",
 	]),
-	script("Hardcover", "person.hardcover", hardcoverPersonScriptCode, ["providers.hardcoverApiKey"]),
-	script("Google Books", "book.google-book", withTitleCaseHelper(googleBooksBookScriptCode), [
-		"providers.googleBooksApiKey",
-	]),
-	script("ListenNotes", "podcast.listennotes", listennotesPodcastScriptCode, [
-		"providers.listennotesApiKey",
-	]),
-	script("GiantBomb", "video-game.giant-bomb", giantBombVideoGameScriptCode, [
+	providerScript(
+		"Google Books",
+		"book.google-books",
+		withTitleCaseHelper(googleBooksBookScriptCode),
+		"google-books",
+		["providers.googleBooksApiKey"],
+	),
+	providerScript(
+		"ListenNotes",
+		"podcast.listennotes",
+		listennotesPodcastScriptCode,
+		"listennotes",
+		["providers.listennotesApiKey"],
+	),
+	providerScript("GiantBomb", "video-game.giant-bomb", giantBombVideoGameScriptCode, "giant-bomb", [
 		"providers.giantBombApiKey",
 	]),
-	script("TMDB", "movie.tmdb", tmdbMovieScriptCode, ["providers.tmdbAccessToken"], {
-		source: "tmdb",
-		canonicalLanguage: "en-US",
-	}),
-	script("TMDB", "show.tmdb", tmdbShowScriptCode, ["providers.tmdbAccessToken"], {
-		source: "tmdb",
-		canonicalLanguage: "en-US",
-	}),
-	script("TMDB", "person.tmdb", tmdbPersonScriptCode, ["providers.tmdbAccessToken"], {
-		source: "tmdb",
-		canonicalLanguage: "en-US",
-	}),
-	script("TVDB", "movie.tvdb", tvdbMovieScriptCode, ["providers.tvdbApiKey"], {
-		source: "tvdb",
-		canonicalLanguage: "eng",
-	}),
-	script("TVDB", "show.tvdb", tvdbShowScriptCode, ["providers.tvdbApiKey"], {
-		source: "tvdb",
-		canonicalLanguage: "eng",
-	}),
-	script("TVDB", "person.tvdb", tvdbPersonScriptCode, ["providers.tvdbApiKey"], {
-		source: "tvdb",
-		canonicalLanguage: "eng",
-	}),
-	script(
+	translatedProviderScript("TMDB", "movie.tmdb", tmdbMovieScriptCode, "tmdb", "en-US", [
+		"providers.tmdbAccessToken",
+	]),
+	translatedProviderScript("TMDB", "show.tmdb", tmdbShowScriptCode, "tmdb", "en-US", [
+		"providers.tmdbAccessToken",
+	]),
+	translatedProviderScript("TMDB", "person.tmdb", tmdbPersonScriptCode, "tmdb", "en-US", [
+		"providers.tmdbAccessToken",
+	]),
+	translatedProviderScript("TVDB", "movie.tvdb", tvdbMovieScriptCode, "tvdb", "eng", [
+		"providers.tvdbApiKey",
+	]),
+	translatedProviderScript("TVDB", "show.tvdb", tvdbShowScriptCode, "tvdb", "eng", [
+		"providers.tvdbApiKey",
+	]),
+	translatedProviderScript("TVDB", "person.tvdb", tvdbPersonScriptCode, "tvdb", "eng", [
+		"providers.tvdbApiKey",
+	]),
+	providerScript(
 		"MyAnimeList",
 		"anime.myanimelist",
 		withDelimiterTitleCaseHelper(myanimelistAnimeScriptCode),
+		"myanimelist",
 		["providers.malClientId"],
 	),
-	script(
+	providerScript(
 		"MyAnimeList",
 		"manga.myanimelist",
 		withDelimiterTitleCaseHelper(myanimelistMangaScriptCode),
+		"myanimelist",
 		["providers.malClientId"],
 	),
-	script("Metron", "comic-book.metron", metronComicBookScriptCode, [
+	providerScript("Metron", "comic-book.metron", metronComicBookScriptCode, "metron", [
 		"providers.metronUsername",
 		"providers.metronPassword",
 	]),
-	script("Metron", "person.metron", metronPersonScriptCode, [
+	providerScript("Metron", "person.metron", metronPersonScriptCode, "metron", [
 		"providers.metronUsername",
 		"providers.metronPassword",
 	]),
-	script("Spotify", "music.spotify", spotifyMusicScriptCode, [
+	providerScript("Spotify", "music.spotify", spotifyMusicScriptCode, "spotify", [
 		"providers.spotifyClientId",
 		"providers.spotifyClientSecret",
 	]),
-	script("Spotify", "person.spotify", spotifyPersonScriptCode, [
+	providerScript("Spotify", "person.spotify", spotifyPersonScriptCode, "spotify", [
 		"providers.spotifyClientId",
 		"providers.spotifyClientSecret",
 	]),
-	script("IGDB", "video-game.igdb", igdbVideoGameScriptCode, [
+	providerScript("IGDB", "video-game.igdb", igdbVideoGameScriptCode, "igdb", [
 		"providers.twitchClientId",
 		"providers.twitchClientSecret",
 	]),
-	script("TMDB", "movie-group.tmdb", tmdbMovieGroupScriptCode, ["providers.tmdbAccessToken"], {
-		source: "tmdb",
-		canonicalLanguage: "en-US",
-	}),
-	script("TVDB", "movie-group.tvdb", tvdbMovieGroupScriptCode, ["providers.tvdbApiKey"], {
-		source: "tvdb",
-		canonicalLanguage: "eng",
-	}),
-	script("Audible", "audiobook-group.audible", audibleAudiobookGroupScriptCode),
-	script("Hardcover", "book-group.hardcover", hardcoverBookGroupScriptCode, [
+	translatedProviderScript("TMDB", "movie-group.tmdb", tmdbMovieGroupScriptCode, "tmdb", "en-US", [
+		"providers.tmdbAccessToken",
+	]),
+	translatedProviderScript("TVDB", "movie-group.tvdb", tvdbMovieGroupScriptCode, "tvdb", "eng", [
+		"providers.tvdbApiKey",
+	]),
+	providerScript("Audible", "audiobook-group.audible", audibleAudiobookGroupScriptCode, "audible"),
+	providerScript("Hardcover", "book-group.hardcover", hardcoverBookGroupScriptCode, "hardcover", [
 		"providers.hardcoverApiKey",
 	]),
-	script("Metron", "comic-book-group.metron", metronComicBookGroupScriptCode, [
+	providerScript("Metron", "comic-book-group.metron", metronComicBookGroupScriptCode, "metron", [
 		"providers.metronUsername",
 		"providers.metronPassword",
 	]),
-	script("Spotify", "music-group.spotify", spotifyMusicGroupScriptCode, [
+	providerScript("Spotify", "music-group.spotify", spotifyMusicGroupScriptCode, "spotify", [
 		"providers.spotifyClientId",
 		"providers.spotifyClientSecret",
 	]),
-	script("MusicBrainz", "music-group.musicbrainz", musicbrainzMusicGroupScriptCode),
-	script("YouTube Music", "music-group.youtube-music", youtubeMusicGroupScriptCode, undefined, {
-		source: "youtube-music",
-		canonicalLanguage: "en",
-	}),
-	script("IGDB", "video-game-group.igdb", igdbVideoGameGroupScriptCode, [
+	providerScript(
+		"MusicBrainz",
+		"music-group.music-brainz",
+		musicBrainzMusicGroupScriptCode,
+		"music-brainz",
+	),
+	translatedProviderScript(
+		"YouTube Music",
+		"music-group.youtube-music",
+		youtubeMusicGroupScriptCode,
+		"youtube-music",
+		"en",
+	),
+	providerScript("IGDB", "video-game-group.igdb", igdbVideoGameGroupScriptCode, "igdb", [
 		"providers.twitchClientId",
 		"providers.twitchClientSecret",
 	]),
-	script("GiantBomb", "video-game-group.giant-bomb", giantBombVideoGameGroupScriptCode, [
-		"providers.giantBombApiKey",
-	]),
+	providerScript(
+		"GiantBomb",
+		"video-game-group.giant-bomb",
+		giantBombVideoGameGroupScriptCode,
+		"giant-bomb",
+		["providers.giantBombApiKey"],
+	),
 	{
 		name: "Auto-Complete on Full Progress",
 		code: autoCompleteOnFullProgressScriptCode,
@@ -328,9 +394,9 @@ export const entitySchemaScriptLinks = () =>
 		{ schemaSlug: "anime", scriptSlug: "anime.anilist" },
 		{ schemaSlug: "book", scriptSlug: "book.hardcover" },
 		{ schemaSlug: "book", scriptSlug: "book.openlibrary" },
-		{ schemaSlug: "book", scriptSlug: "book.google-book" },
+		{ schemaSlug: "book", scriptSlug: "book.google-books" },
 		{ schemaSlug: "podcast", scriptSlug: "podcast.itunes" },
-		{ schemaSlug: "music", scriptSlug: "music.musicbrainz" },
+		{ schemaSlug: "music", scriptSlug: "music.music-brainz" },
 		{ schemaSlug: "anime", scriptSlug: "anime.myanimelist" },
 		{ schemaSlug: "manga", scriptSlug: "manga.myanimelist" },
 		{ schemaSlug: "manga", scriptSlug: "manga.manga-updates" },
@@ -398,7 +464,7 @@ export const personSchemaScriptLinks = () =>
 		{ schemaSlug: "person", scriptSlug: "person.audible" },
 		{ schemaSlug: "person", scriptSlug: "person.spotify" },
 		{ schemaSlug: "person", scriptSlug: "person.hardcover" },
-		{ schemaSlug: "person", scriptSlug: "person.musicbrainz" },
+		{ schemaSlug: "person", scriptSlug: "person.music-brainz" },
 		{ schemaSlug: "person", scriptSlug: "person.openlibrary" },
 		{ schemaSlug: "person", scriptSlug: "person.youtube-music" },
 		{ schemaSlug: "person", scriptSlug: "person.giant-bomb" },
@@ -422,7 +488,7 @@ export const groupSchemaScriptLinks = () =>
 		{ schemaSlug: "movie-group", scriptSlug: "movie-group.tvdb" },
 		{ schemaSlug: "book-group", scriptSlug: "book-group.hardcover" },
 		{ schemaSlug: "music-group", scriptSlug: "music-group.spotify" },
-		{ schemaSlug: "music-group", scriptSlug: "music-group.musicbrainz" },
+		{ schemaSlug: "music-group", scriptSlug: "music-group.music-brainz" },
 		{ schemaSlug: "music-group", scriptSlug: "music-group.youtube-music" },
 		{ schemaSlug: "video-game-group", scriptSlug: "video-game-group.igdb" },
 		{ schemaSlug: "audiobook-group", scriptSlug: "audiobook-group.audible" },
