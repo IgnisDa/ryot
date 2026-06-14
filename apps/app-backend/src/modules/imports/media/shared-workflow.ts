@@ -6,7 +6,7 @@ import { Effect, Schema } from "effect";
 
 import type { ImportRunJobData } from "../jobs";
 import { PROGRESS_UPDATE_INTERVAL } from "../runtime/import-run-status";
-import { ImportRunError, toWorkflowError } from "../runtime/workflow-helpers";
+import { ImportRunError, toWorkflowError } from "../runtime/workflow-errors";
 import { ImportsService } from "../service";
 
 export const ResolutionCandidate = Schema.Struct({
