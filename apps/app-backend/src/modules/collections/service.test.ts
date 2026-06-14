@@ -13,6 +13,7 @@ import {
 } from "#lib/schema/brands";
 import type { AppSchema } from "#lib/schema/property-schema";
 import { type MockOverrides, dbRunnerLayer, transactionLayer } from "#lib/test-support/effect";
+import { EntityPopulationTriggerNoop } from "#modules/entities/population-trigger";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { EventsService } from "#modules/events/service";
@@ -163,7 +164,14 @@ const makeServiceLayer = (
 	const relationshipsRepository = options.relationshipsRepository ?? makeRelationshipsRepository();
 
 	const entitiesServiceLayer = EntitiesService.Default.pipe(
-		Layer.provide(Layer.mergeAll(dbRunnerLayer, makeQueryEngine(), entitiesRepository)),
+		Layer.provide(
+			Layer.mergeAll(
+				dbRunnerLayer,
+				makeQueryEngine(),
+				entitiesRepository,
+				EntityPopulationTriggerNoop,
+			),
+		),
 	);
 
 	const relationshipsServiceLayer = RelationshipsService.Default.pipe(
