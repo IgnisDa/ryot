@@ -1,3 +1,4 @@
+import { buildDefaultSavedViewQueryDocument } from "@ryot/query-engine";
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { Effect } from "effect";
 
@@ -7,7 +8,6 @@ import { CurrentDb, dbEffect, TransactionRunner } from "#lib/infrastructure/db/s
 import { builtinEntitySchemas } from "./entity-schemas";
 import { builtinSavedViews } from "./saved-views";
 import { builtinTrackers } from "./trackers";
-import { buildDefaultQueryDocument } from "./view-helpers";
 
 export { defaultUserPreferences, normalizeUserPreferences } from "@ryot/contract/auth-middleware";
 export type { CachedUserPreferences } from "@ryot/contract/auth-middleware";
@@ -135,7 +135,8 @@ const createBuiltinSavedViews = Effect.fn(function* (
 
 		const queryDocument = entitySchema
 			? (view.queryDocument ??
-				buildDefaultQueryDocument([entitySchema.slug], {
+				buildDefaultSavedViewQueryDocument({
+					schemas: [entitySchema.slug],
 					requireInLibrary: view.requireInLibrary,
 				}))
 			: null;

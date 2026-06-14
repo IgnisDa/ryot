@@ -1,9 +1,10 @@
 import type { DisplayConfiguration } from "@ryot/contract/display-configuration";
 import type { QueryDocument } from "@ryot/contract/modules/query-engine/language";
+import { buildDefaultSavedViewQueryDocument } from "@ryot/query-engine";
 
 import { slugify } from "#lib/shared/slug";
 
-import { buildDefaultQueryDocument, buildDisplayConfig } from "./view-helpers";
+import { buildDisplayConfig } from "./view-helpers";
 
 export type BuiltinSavedView = {
 	readonly name: string;
@@ -100,7 +101,8 @@ export const builtinSavedViews = (): BuiltinSavedView[] => [
 		name: "All Measurements",
 		entitySchemaSlug: "measurement",
 		displayConfiguration: buildDisplayConfig("measurement"),
-		queryDocument: buildDefaultQueryDocument(["measurement"], {
+		queryDocument: buildDefaultSavedViewQueryDocument({
+			schemas: ["measurement"],
 			orderBy: [
 				{
 					order: "desc",
@@ -119,7 +121,8 @@ export const builtinSavedViews = (): BuiltinSavedView[] => [
 		name: "All Workout Templates",
 		entitySchemaSlug: "workout-template",
 		displayConfiguration: buildDisplayConfig("workout-template"),
-		queryDocument: buildDefaultQueryDocument(["workout-template"], {
+		queryDocument: buildDefaultSavedViewQueryDocument({
+			schemas: ["workout-template"],
 			orderBy: [
 				{
 					order: "desc",

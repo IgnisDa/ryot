@@ -4,9 +4,13 @@ import {
 	createEntityColumnExpression,
 	createEntityPropertyExpression,
 } from "@ryot/contract/display-configuration";
+import {
+	buildWorkoutDetailQueryDocument,
+	buildWorkoutTemplateDetailQueryDocument,
+	buildWorkoutTemplateListQueryDocument,
+} from "@ryot/query-engine";
 
 import {
-	buildEntityRowsQueryDocument,
 	createAuthenticatedClient,
 	createEntity,
 	createCollection,
@@ -21,9 +25,6 @@ import {
 	insertRelationshipRow,
 	listEntitySchemas,
 	listSavedViews,
-	literalExpr,
-	propertyRef,
-	systemRef,
 	waitForSeededExerciseIds,
 } from "../fixtures";
 import { assertPresent } from "../test-support/assertions";
@@ -198,25 +199,14 @@ describe("Workout Templates E2E", () => {
 			},
 		});
 
-		const { workoutTemplate } = await createWorkoutTemplateEntityFixture(client);
+		const { workoutTemplate, workoutTemplateId } = await createWorkoutTemplateEntityFixture(client);
 		const result = await executeQueryEngine(
 			client,
-			buildEntityRowsQueryDocument({
-				alias: "template",
-				schemas: ["workout-template"],
-				fields: [
-					{ key: "title", expr: systemRef("template", "name") },
-					{ key: "primarySubtitle", expr: systemRef("template", "createdAt") },
-					{
-						key: "secondarySubtitle",
-						expr: propertyRef("template", "workout-template", "comment"),
-					},
-				],
-			}),
+			buildWorkoutTemplateListQueryDocument({ entityId: workoutTemplateId }),
 		);
 
-		expect(result.data.items.length).toBeGreaterThan(0);
-		expect(getQueryEngineFieldOrThrow(result.data.items[0], "title").value).toBe(
+		expect(result.data.items).toHaveLength(1);
+		expect(getQueryEngineFieldOrThrow(result.data.items[0], "name").value).toBe(
 			workoutTemplate.name,
 		);
 	});
@@ -340,54 +330,21 @@ describe("Workout Templates E2E", () => {
 
 		const result = await executeQueryEngine(
 			client,
-			buildEntityRowsQueryDocument({
-				alias: "workout",
-				schemas: ["workout"],
-				fields: [{ key: "title", expr: systemRef("workout", "name") }],
-				where: {
-					type: "comparison",
-					operator: "eq",
-					left: systemRef("workout", "name"),
-					right: literalExpr(workoutName),
-				},
-				include: [
-					{
-						limit: 1,
-						key: "template",
-						orderBy: [{ order: "asc", expr: systemRef("template", "name") }],
-						fields: [
-							{ key: "templateId", expr: systemRef("template", "id") },
-							{ key: "templateName", expr: systemRef("template", "name") },
-						],
-						source: {
-							where: null,
-							alias: "template",
-							type: "entities",
-							schemas: ["workout-template"],
-							via: {
-								entityRef: "workout",
-								alias: "templateRelationship",
-								direction: "outgoing",
-								schema: "workout-to-workout-template",
-							},
-						},
-					},
-				],
-			}),
+			buildWorkoutDetailQueryDocument({ entityId: workoutId, templateLimit: 1 }),
 		);
 		expect(result.data.items).toHaveLength(1);
 		const workoutRow = result.data.items[0];
 		assertPresent(workoutRow, "Expected workout row");
 		const template = requireQueryEngineIncludeValue(workoutRow, "template").items[0];
 		assertPresent(template, "Expected workout template include");
-		expect(getQueryEngineFieldOrThrow(template, "templateId")).toEqual({
+		expect(getQueryEngineFieldOrThrow(template, "id")).toEqual({
 			kind: "text",
-			key: "templateId",
+			key: "id",
 			value: workoutTemplateId,
 		});
-		expect(getQueryEngineFieldOrThrow(template, "templateName")).toEqual({
+		expect(getQueryEngineFieldOrThrow(template, "name")).toEqual({
 			kind: "text",
-			key: "templateName",
+			key: "name",
 			value: workoutTemplate.name,
 		});
 	});
@@ -395,7 +352,7 @@ describe("Workout Templates E2E", () => {
 	it("joins a workout from the template side through the seeded relationship schema", async () => {
 		const { client } = await createAuthenticatedClient();
 		const { schema: workoutSchema } = await findBuiltinSchemaBySlug(client, "workout");
-		const { workoutTemplateId, workoutTemplate } = await createWorkoutTemplateEntityFixture(client);
+		const { workoutTemplateId } = await createWorkoutTemplateEntityFixture(client);
 		const workoutName = `Workout ${crypto.randomUUID()}`;
 		const { id: workoutId } = await createEntity(client, {
 			name: workoutName,
@@ -420,54 +377,21 @@ describe("Workout Templates E2E", () => {
 
 		const result = await executeQueryEngine(
 			client,
-			buildEntityRowsQueryDocument({
-				alias: "template",
-				schemas: ["workout-template"],
-				fields: [{ key: "title", expr: systemRef("template", "name") }],
-				where: {
-					type: "comparison",
-					operator: "eq",
-					left: systemRef("template", "name"),
-					right: literalExpr(workoutTemplate.name),
-				},
-				include: [
-					{
-						limit: 1,
-						key: "workout",
-						orderBy: [{ order: "asc", expr: systemRef("workout", "name") }],
-						fields: [
-							{ key: "workoutId", expr: systemRef("workout", "id") },
-							{ key: "workoutName", expr: systemRef("workout", "name") },
-						],
-						source: {
-							where: null,
-							alias: "workout",
-							type: "entities",
-							schemas: ["workout"],
-							via: {
-								entityRef: "template",
-								alias: "workoutRelationship",
-								direction: "incoming",
-								schema: "workout-to-workout-template",
-							},
-						},
-					},
-				],
-			}),
+			buildWorkoutTemplateDetailQueryDocument({ entityId: workoutTemplateId, workoutLimit: 10 }),
 		);
 		expect(result.data.items).toHaveLength(1);
 		const templateRow = result.data.items[0];
 		assertPresent(templateRow, "Expected workout template row");
-		const workout = requireQueryEngineIncludeValue(templateRow, "workout").items[0];
+		const workout = requireQueryEngineIncludeValue(templateRow, "workouts").items[0];
 		assertPresent(workout, "Expected workout include");
-		expect(getQueryEngineFieldOrThrow(workout, "workoutId")).toEqual({
+		expect(getQueryEngineFieldOrThrow(workout, "id")).toEqual({
 			kind: "text",
-			key: "workoutId",
+			key: "id",
 			value: workoutId,
 		});
-		expect(getQueryEngineFieldOrThrow(workout, "workoutName")).toEqual({
+		expect(getQueryEngineFieldOrThrow(workout, "name")).toEqual({
 			kind: "text",
-			key: "workoutName",
+			key: "name",
 			value: workoutName,
 		});
 	});

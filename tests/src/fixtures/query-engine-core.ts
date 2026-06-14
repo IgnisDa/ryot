@@ -1,5 +1,14 @@
 import { expect } from "bun:test";
 
+import {
+	buildQueryEngineEntityRowsDocument,
+	buildQueryEngineEventRowsDocument,
+	queryEngineLiteral,
+	queryEnginePropertyRef,
+	queryEngineSchemaRef,
+	queryEngineSystemRef,
+} from "@ryot/query-engine";
+
 import { requireObjectRecord, requireString } from "../test-support/assertions";
 import type { Client } from "./auth";
 import { postBackendJson, type ContractPayload, type ContractSuccess } from "./contract-client";
@@ -55,38 +64,24 @@ export async function executeQueryEngineError(client: Client, doc: QueryEnginePa
 	return client.runError((c) => c.queryEngine.execute({ payload: doc }));
 }
 
-export const systemRef = (
+export const systemRef: (
 	alias: string,
 	name: string,
-): QueryEngineRowsOutput["orderBy"][number]["expr"] => ({
-	type: "ref",
-	sourceAlias: alias,
-	field: { type: "system", name },
-});
+) => QueryEngineRowsOutput["orderBy"][number]["expr"] = queryEngineSystemRef;
 
-export const propertyRef = (
+export const propertyRef: (
 	alias: string,
 	schema: string,
 	...path: [string, ...string[]]
-): QueryEngineRowsOutput["orderBy"][number]["expr"] => ({
-	type: "ref",
-	sourceAlias: alias,
-	field: { type: "property", schema, path },
-});
+) => QueryEngineRowsOutput["orderBy"][number]["expr"] = queryEnginePropertyRef;
 
-export const schemaMetaRef = (
+export const schemaMetaRef: (
 	alias: string,
 	name: "slug" | "name" | "isBuiltin",
-): QueryEngineRowsOutput["orderBy"][number]["expr"] => ({
-	type: "ref",
-	sourceAlias: alias,
-	field: { type: "schema", name },
-});
+) => QueryEngineRowsOutput["orderBy"][number]["expr"] = queryEngineSchemaRef;
 
-export const literalExpr = (value: unknown): QueryEngineRowsOutput["orderBy"][number]["expr"] => ({
-	type: "literal",
-	value,
-});
+export const literalExpr: (value: unknown) => QueryEngineRowsOutput["orderBy"][number]["expr"] =
+	queryEngineLiteral;
 
 export const buildEntityRowsQueryDocument = (input: {
 	alias: string;
@@ -98,19 +93,16 @@ export const buildEntityRowsQueryDocument = (input: {
 	include?: QueryEngineRowsOutput["include"];
 	where?: Extract<QueryEnginePayload["source"], { type: "entities" }>["where"];
 }): QueryEnginePayload => ({
-	source: {
-		type: "entities",
+	...buildQueryEngineEntityRowsDocument({
 		alias: input.alias,
+		page: input.page,
+		limit: input.limit,
 		schemas: input.schemas,
-		where: input.where ?? null,
-	},
-	output: {
-		type: "rows",
+		where: input.where,
 		fields: input.fields ?? [],
-		include: input.include ?? [],
-		pagination: { page: input.page ?? 1, limit: input.limit ?? 10 },
-		orderBy: input.orderBy ?? [{ order: "asc", expr: systemRef(input.alias, "name") }],
-	},
+		include: input.include,
+		orderBy: input.orderBy,
+	}),
 });
 
 export const buildEventRowsDoc = (input: {
@@ -124,19 +116,17 @@ export const buildEventRowsDoc = (input: {
 	orderBy: QueryEngineRowsOutput["orderBy"];
 	where?: Extract<QueryEnginePayload["source"], { type: "events" }>["where"];
 }): QueryEnginePayload => ({
-	output: {
-		type: "rows",
+	...buildQueryEngineEventRowsDocument({
+		page: input.page,
+		limit: input.limit,
 		fields: input.fields,
 		orderBy: input.orderBy,
-		pagination: { page: input.page ?? 1, limit: input.limit ?? 10 },
-	},
-	source: {
-		type: "events",
-		alias: input.eventAlias,
-		where: input.where ?? null,
-		schemas: input.eventSchemas,
-		entity: { alias: input.entityAlias, schemas: input.entitySchemas },
-	},
+		where: input.where,
+		eventAlias: input.eventAlias,
+		entityAlias: input.entityAlias,
+		eventSchemas: input.eventSchemas,
+		entitySchemas: input.entitySchemas,
+	}),
 });
 
 export const buildRowsDoc = (
@@ -151,13 +141,14 @@ export const buildRowsDoc = (
 ): QueryEnginePayload => {
 	const { alias, schemas, fields = [], orderByExpr, page = 1, limit = 10, ...rest } = overrides;
 	return {
-		source: { type: "entities", alias, schemas, where: null },
-		output: {
+		...buildQueryEngineEntityRowsDocument({
+			alias,
+			page,
+			limit,
+			schemas,
 			fields,
-			type: "rows",
-			pagination: { page, limit },
 			orderBy: [{ order: "asc", expr: orderByExpr ?? systemRef(alias, "name") }],
-		},
+		}),
 		...rest,
 	};
 };

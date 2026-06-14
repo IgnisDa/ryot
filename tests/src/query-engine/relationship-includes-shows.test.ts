@@ -1,7 +1,12 @@
 import { describe, expect, it } from "bun:test";
 
 import {
-	buildRowsDoc,
+	buildCompletedShowsQueryDocument,
+	buildInProgressShowsQueryDocument,
+	buildShowDetailQueryDocument,
+} from "@ryot/query-engine";
+
+import {
 	createAuthenticatedClient,
 	createQueryEngineEvent,
 	executeQueryEngine,
@@ -10,49 +15,14 @@ import {
 	insertGlobalRelationship,
 	listEventSchemas,
 	listRelationshipSchemas,
-	propertyRef,
 	requireEventSchemaBySlug,
 	requireQueryEngineFieldValue,
 	requireQueryEngineIncludeValue,
 	requireRelationshipSchemaBySlug,
 	seedMediaEntity,
-	showEpisodeEventExistsSource,
-	showSeasonSource,
-	systemRef,
 	waitForEventCount,
 } from "../fixtures";
 import { assertPresent } from "../test-support/assertions";
-
-const completedRegularSeasonSource = (aliasSuffix: string) =>
-	showSeasonSource(`seasonCompleted${aliasSuffix}`, {
-		type: "and",
-		values: [
-			{
-				operator: "gt",
-				type: "comparison",
-				right: { type: "literal", value: 0 },
-				left: propertyRef(`seasonCompleted${aliasSuffix}`, "show-season", "seasonNumber"),
-			},
-			{
-				type: "exists",
-				source: {
-					type: "entities",
-					schemas: ["show-episode"],
-					alias: `episodeCompleted${aliasSuffix}`,
-					via: {
-						direction: "outgoing",
-						schema: "show-season-to-show-episode",
-						entityRef: `seasonCompleted${aliasSuffix}`,
-						alias: `seasonEpisodeCompleted${aliasSuffix}`,
-					},
-					where: {
-						type: "exists",
-						source: showEpisodeEventExistsSource(`episodeCompleted${aliasSuffix}`, "complete"),
-					},
-				},
-			},
-		],
-	});
 
 describe("Relationship includes", () => {
 	it("returns builtin show seasons and episodes with derived episode state", async () => {
@@ -212,89 +182,10 @@ describe("Relationship includes", () => {
 			properties: { completionMode: "unknown" },
 		});
 
-		const showNameWhere = {
-			operator: "eq" as const,
-			type: "comparison" as const,
-			left: systemRef("show", "id"),
-			right: { type: "literal" as const, value: show.id },
-		};
-		const detailDoc = buildRowsDoc({
-			limit: 1,
-			alias: "show",
-			schemas: ["show"],
-			fields: [{ key: "name", expr: systemRef("show", "name") }],
-			source: { alias: "show", type: "entities", schemas: ["show"], where: showNameWhere },
-			output: {
-				type: "rows",
-				pagination: { page: 1, limit: 1 },
-				fields: [{ key: "name", expr: systemRef("show", "name") }],
-				orderBy: [{ order: "asc", expr: systemRef("show", "name") }],
-				include: [
-					{
-						limit: 10,
-						key: "seasons",
-						fields: [
-							{ key: "name", expr: systemRef("season", "name") },
-							{ key: "seasonNumber", expr: propertyRef("season", "show-season", "seasonNumber") },
-						],
-						orderBy: [{ order: "asc", expr: propertyRef("season", "show-season", "seasonNumber") }],
-						source: {
-							where: null,
-							alias: "season",
-							type: "entities",
-							schemas: ["show-season"],
-							via: {
-								entityRef: "show",
-								alias: "showSeason",
-								direction: "outgoing",
-								schema: "show-to-show-season",
-							},
-						},
-						include: [
-							{
-								limit: 10,
-								key: "episodes",
-								orderBy: [
-									{ order: "asc", expr: propertyRef("episode", "show-episode", "episodeNumber") },
-								],
-								fields: [
-									{ key: "name", expr: systemRef("episode", "name") },
-									{
-										key: "episodeNumber",
-										expr: propertyRef("episode", "show-episode", "episodeNumber"),
-									},
-									{
-										key: "hasProgress",
-										expr: {
-											type: "exists",
-											source: showEpisodeEventExistsSource("episode", "progress"),
-										},
-									},
-									{
-										key: "isComplete",
-										expr: {
-											type: "exists",
-											source: showEpisodeEventExistsSource("episode", "complete"),
-										},
-									},
-								],
-								source: {
-									where: null,
-									alias: "episode",
-									type: "entities",
-									schemas: ["show-episode"],
-									via: {
-										entityRef: "season",
-										direction: "outgoing",
-										alias: "seasonEpisode",
-										schema: "show-season-to-show-episode",
-									},
-								},
-							},
-						],
-					},
-				],
-			},
+		const detailDoc = buildShowDetailQueryDocument({
+			entityId: show.id,
+			seasonLimit: 10,
+			episodeLimit: 10,
 		});
 
 		const detailResult = await executeQueryEngine(client, detailDoc);
@@ -319,96 +210,14 @@ describe("Relationship includes", () => {
 			value: true,
 		});
 
-		const currentlyWatchingDoc = buildRowsDoc({
+		const currentlyWatchingDoc = buildInProgressShowsQueryDocument({
+			entityId: show.id,
 			limit: 10,
-			alias: "show",
-			schemas: ["show"],
-			fields: [{ key: "name", expr: systemRef("show", "name") }],
-			source: {
-				alias: "show",
-				type: "entities",
-				schemas: ["show"],
-				where: {
-					type: "and",
-					values: [
-						showNameWhere,
-						{
-							type: "not",
-							expr: {
-								type: "exists",
-								source: {
-									where: null,
-									type: "events",
-									entityRef: "show",
-									schemas: ["complete"],
-									alias: "showCompletion",
-								},
-							},
-						},
-						{
-							type: "exists",
-							source: showSeasonSource("seasonWatching", {
-								type: "exists",
-								source: {
-									type: "entities",
-									alias: "episodeWatching",
-									schemas: ["show-episode"],
-									where: {
-										type: "exists",
-										source: showEpisodeEventExistsSource("episodeWatching", "progress"),
-									},
-									via: {
-										direction: "outgoing",
-										entityRef: "seasonWatching",
-										alias: "seasonEpisodeWatching",
-										schema: "show-season-to-show-episode",
-									},
-								},
-							}),
-						},
-					],
-				},
-			},
 		});
 		const currentlyWatchingResult = await executeQueryEngine(client, currentlyWatchingDoc);
 		expect(currentlyWatchingResult.data.items).toHaveLength(1);
 
-		const fullyWatchedDoc = buildRowsDoc({
-			limit: 10,
-			alias: "show",
-			schemas: ["show"],
-			fields: [{ key: "name", expr: systemRef("show", "name") }],
-			source: {
-				alias: "show",
-				type: "entities",
-				schemas: ["show"],
-				where: {
-					type: "and",
-					values: [
-						showNameWhere,
-						{
-							operator: "eq",
-							type: "comparison",
-							left: {
-								type: "aggregate",
-								aggregation: { function: "count" },
-								source: completedRegularSeasonSource("Filter"),
-							},
-							right: {
-								type: "aggregate",
-								aggregation: { function: "count" },
-								source: showSeasonSource("seasonRegularFilter", {
-									operator: "gt",
-									type: "comparison",
-									right: { type: "literal", value: 0 },
-									left: propertyRef("seasonRegularFilter", "show-season", "seasonNumber"),
-								}),
-							},
-						},
-					],
-				},
-			},
-		});
+		const fullyWatchedDoc = buildCompletedShowsQueryDocument({ entityId: show.id, limit: 10 });
 		const fullyWatchedResult = await executeQueryEngine(client, fullyWatchedDoc);
 		expect(fullyWatchedResult.data.items).toHaveLength(1);
 	});
