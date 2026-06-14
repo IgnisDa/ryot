@@ -6,8 +6,11 @@ import { Effect, Schema } from "effect";
 import { afterAll, assert, beforeAll, expect, it } from "vitest";
 
 import {
+	sandboxAnimeDotAnilistScript,
+	sandboxAnimeDotMyanimelistScript,
 	sandboxCompanyDotTmdbScript,
 	sandboxCompanyDotTvdbScript,
+	sandboxMangaDotMangaDashUpdatesScript,
 	sandboxMovieDashGroupDotTmdbScript,
 	sandboxMovieDashGroupDotTvdbScript,
 	sandboxMovieDotTmdbScript,
@@ -1225,6 +1228,212 @@ it("loads and executes the remaining generated TVDB provider family in Deno", ()
 					name: "Generated List",
 					properties: { description: "Translated overview" },
 				});
+			}),
+		),
+	));
+
+it("loads and executes the generated AniList anime module in Deno with bundled helpers", () =>
+	Effect.runPromise(
+		Effect.scoped(
+			Effect.gen(function* () {
+				const bridge = yield* Effect.acquireRelease(
+					Effect.sync(() =>
+						startCoreHostBridge({
+							httpResponse: (url) => {
+								expect(new URL(url).host).toBe("graphql.anilist.co");
+								return {
+									data: {
+										Media: {
+											id: 7,
+											episodes: 12,
+											type: "ANIME",
+											isAdult: false,
+											averageScore: 83,
+											status: "FINISHED",
+											genres: ["Action"],
+											tags: [{ name: "Space" }],
+											startDate: { year: 2020 },
+											nextAiringEpisode: null,
+											title: { english: "Generated Anime" },
+											description: "Line one<br>Line two",
+											bannerImage: null,
+											coverImage: { extraLarge: "https://img.example/cover.jpg" },
+											studios: { nodes: [{ id: 11, name: "Generated Studio" }] },
+											airingSchedule: { nodes: [{ episode: 1, airingAt: 1700000000 }] },
+											recommendations: {
+												nodes: [
+													{
+														mediaRecommendation: {
+															id: 8,
+															type: "MANGA",
+															title: { english: "Suggested Manga" },
+														},
+													},
+												],
+											},
+										},
+									},
+								};
+							},
+						}),
+					),
+					(value) => Effect.promise(value.stop),
+				);
+				const entry = sandboxAnimeDotAnilistScript;
+				const compiled = {
+					manifest: entry.manifest,
+					format: entry.compiledFormat,
+					javascript: entry.compiledCode,
+				};
+				const result = yield* runInDeno(
+					compiled,
+					"details",
+					{ externalId: "7" },
+					{
+						apiBase: `http://127.0.0.1:${bridge.port}`,
+						apiFunctions: compiled.manifest.capabilities,
+					},
+				);
+				assert(result !== null && typeof result === "object");
+				expect(result).toMatchObject({ success: true });
+				expect(Reflect.get(result, "value")).toEqual({
+					name: "Generated Anime",
+					relatedEntityGroups: [
+						{
+							direction: "incoming",
+							synchronization: "additive",
+							relationshipSchemaSlug: "company-to-anime",
+							entities: [
+								{
+									externalId: "11",
+									name: "Generated Studio",
+									scriptSlug: "company.anilist",
+									relationshipProperties: { roles: ["Animation Studio"] },
+								},
+							],
+						},
+						{
+							direction: "outgoing",
+							synchronization: "authoritative",
+							relationshipSchemaSlug: "media-suggestion",
+							entities: [
+								{ name: "Suggested Manga", externalId: "8", scriptSlug: "manga.anilist" },
+							],
+						},
+					],
+					properties: {
+						episodes: 12,
+						isNsfw: false,
+						publishYear: 2020,
+						providerRating: 83,
+						genres: ["Action", "Space"],
+						description: "Line one\nLine two",
+						productionStatus: "Finished",
+						sourceUrl: "https://anilist.co/anime/7/Generated%20Anime",
+						airingSchedule: [{ episode: 1, airingAt: "2023-11-14T22:13:20.000Z" }],
+						images: [{ type: "remote", url: "https://img.example/cover.jpg" }],
+					},
+				});
+			}),
+		),
+	));
+
+it("loads and executes the generated MyAnimeList and MangaUpdates modules in Deno", () =>
+	Effect.runPromise(
+		Effect.scoped(
+			Effect.gen(function* () {
+				const bridge = yield* Effect.acquireRelease(
+					Effect.sync(() =>
+						startCoreHostBridge({
+							appConfigValue: "mal-client-id",
+							httpResponse: (url) => {
+								const requestUrl = new URL(url);
+								if (requestUrl.host === "api.myanimelist.net") {
+									expect(requestUrl.pathname).toBe("/v2/anime");
+									return {
+										paging: {},
+										data: [
+											{
+												node: {
+													id: 5,
+													start_date: "2021-05-10",
+													title: "Generated MAL Anime",
+													main_picture: { large: "https://img.example/mal.jpg" },
+												},
+											},
+										],
+									};
+								}
+								expect(requestUrl.host).toBe("api.mangaupdates.com");
+								expect(requestUrl.pathname).toBe("/v1/series/search");
+								return {
+									total_hits: 1,
+									results: [
+										{
+											hit_title: "Generated Series",
+											record: {
+												year: "2019",
+												series_id: 9,
+												image: { url: { original: "https://img.example/mu.jpg" } },
+											},
+										},
+									],
+								};
+							},
+						}),
+					),
+					(value) => Effect.promise(value.stop),
+				);
+				const apiBase = `http://127.0.0.1:${bridge.port}`;
+				const searchCases = [
+					{
+						entry: sandboxAnimeDotMyanimelistScript,
+						externalId: "5",
+						publishYear: 2021,
+						title: "Generated MAL Anime",
+						image: "https://img.example/mal.jpg",
+					},
+					{
+						entry: sandboxMangaDotMangaDashUpdatesScript,
+						externalId: "9",
+						publishYear: 2019,
+						title: "Generated Series",
+						image: "https://img.example/mu.jpg",
+					},
+				];
+				for (const scenario of searchCases) {
+					const compiled = {
+						manifest: scenario.entry.manifest,
+						format: scenario.entry.compiledFormat,
+						javascript: scenario.entry.compiledCode,
+					};
+					const result = yield* runInDeno(
+						compiled,
+						"search",
+						{ query: "Generated", page: 1, pageSize: 20 },
+						{ apiBase, apiFunctions: compiled.manifest.capabilities },
+					);
+					assert(result !== null && typeof result === "object");
+					expect(result).toMatchObject({ success: true });
+					expect(Reflect.get(result, "value")).toEqual({
+						details: { totalItems: 1, nextPage: null },
+						items: [
+							{
+								externalId: scenario.externalId,
+								calloutProperty: { kind: "null", value: null },
+								secondarySubtitleProperty: { kind: "null", value: null },
+								titleProperty: { kind: "text", value: scenario.title },
+								primarySubtitleProperty: { kind: "number", value: scenario.publishYear },
+								imageProperty: {
+									kind: "image",
+									value: { type: "remote", url: scenario.image },
+								},
+							},
+						],
+					});
+				}
+				const malConfigCall = bridge.calls.find((call) => call.fnName === "getAppConfigValue");
+				expect(malConfigCall?.args).toEqual(["providers.malClientId"]);
 			}),
 		),
 	));
