@@ -1,9 +1,6 @@
 import { Effect } from "effect";
 
-import type { CurrentDb } from "#lib/db";
-import type { BadRequest, DbError, NotFound } from "#lib/errors";
-
-import type { RowItem, RowValue, RowsResponse } from "../language";
+import type { RowItem, RowValue } from "../language";
 import {
 	evalAggregateGroupFields,
 	evalAggregateMeasure,
@@ -11,10 +8,8 @@ import {
 	groupKeyFromValues,
 	sortAggregateItems,
 } from "./expr";
-import { executeRowsQuery as runRowsQuery } from "./rows";
 import { executeRootSourceMatches } from "./source-matches";
-import { executeTimeSeriesQuery as runTimeSeriesQuery } from "./time-series";
-import type { AggregateQueryDocument, RowsQueryDocument, TimeSeriesQueryDocument } from "./types";
+import type { AggregateQueryDocument } from "./types";
 
 export const executeAggregateQuery = Effect.fn("executeAggregateQuery")(function* (
 	userId: string,
@@ -74,12 +69,3 @@ export const executeAggregateQuery = Effect.fn("executeAggregateQuery")(function
 		},
 	};
 });
-
-export const executeRowsQuery = (
-	userId: string,
-	doc: RowsQueryDocument,
-): Effect.Effect<RowsResponse, BadRequest | NotFound | DbError, CurrentDb> =>
-	runRowsQuery(userId, doc);
-
-export const executeTimeSeriesQuery = (userId: string, doc: TimeSeriesQueryDocument) =>
-	runTimeSeriesQuery(userId, doc);
