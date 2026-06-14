@@ -5,9 +5,10 @@ import { EntitySchemaId, SandboxScriptId } from "@ryot/contract/schema/brands";
 import {
 	cleanupBuiltinProviderScript,
 	createAuthenticatedClient,
-	detailsDriverCode,
 	enqueueEntityImport,
 	enqueueEntitySearch,
+	fakeProviderDetailsResult,
+	fakeProviderSearchResult,
 	findBuiltinSchemaBySlug,
 	findBuiltinSchemaWithProviders,
 	getBackendClient,
@@ -15,7 +16,6 @@ import {
 	pollEntityImportResult,
 	pollEntitySearchResult,
 	queryInLibraryRelationship,
-	searchDriverCode,
 	seedBuiltinProviderScript,
 	type SeededProviderScript,
 } from "../fixtures";
@@ -32,17 +32,19 @@ const IMPORTED_NAME = "E2E Imported Audiobook";
 let providerScript: SeededProviderScript;
 
 beforeAll(async () => {
+	const { client } = await createAuthenticatedClient();
 	providerScript = await seedBuiltinProviderScript({
-		code: [
-			searchDriverCode([
+		client,
+		drivers: {
+			search: fakeProviderSearchResult([
 				{ externalId: IMPORT_EXTERNAL_ID, title: "E2E Audiobook One", subtitle: null },
 				{ externalId: "e2e-audiobook-2", title: "E2E Audiobook Two", subtitle: 2 },
 			]),
-			detailsDriverCode({
+			details: fakeProviderDetailsResult({
 				name: IMPORTED_NAME,
 				properties: { description: "Imported by the e2e fake provider." },
 			}),
-		].join("\n"),
+		},
 	});
 });
 
