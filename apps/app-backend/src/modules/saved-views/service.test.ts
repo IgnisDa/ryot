@@ -1,6 +1,6 @@
 import { expect, it } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
-import { BadRequest, Conflict, NotFound } from "@ryot/contract/errors";
+import { BadRequest, Conflict, DbError, NotFound } from "@ryot/contract/errors";
 import type {
 	CreateSavedViewBody,
 	ListedSavedView,
@@ -248,15 +248,23 @@ it.effect("rejects updating a built-in view's queryDocument", () => {
 
 it.effect("clones a saved view with (Copy) suffix", () => {
 	let clonedName = "";
+	let findCalls = 0;
+	let validated = false;
 
 	const layer = makeServiceLayer(
 		makeRepository({
-			findBySlug: () =>
-				Effect.succeed({
-					...baseListedSavedView,
-					name: "Reading",
-					trackerId: null,
-				}),
+			findBySlug: () => {
+				findCalls += 1;
+				return Effect.succeed(
+					findCalls === 1
+						? {
+								...baseListedSavedView,
+								name: "Reading",
+								trackerId: null,
+							}
+						: null,
+				);
+			},
 			create: (_userId, input) =>
 				Effect.sync(() => {
 					clonedName = input.name;
@@ -268,6 +276,12 @@ it.effect("clones a saved view with (Copy) suffix", () => {
 					};
 				}),
 		}),
+		makeQueryEngine({
+			validate: () =>
+				Effect.sync(() => {
+					validated = true;
+				}).pipe(Effect.as(undefined)),
+		}),
 	);
 
 	return Effect.gen(function* () {
@@ -277,20 +291,29 @@ it.effect("clones a saved view with (Copy) suffix", () => {
 		expect(clonedName).toBe("Reading (Copy)");
 		expect(view.name).toBe("Reading (Copy)");
 		expect(view.trackerId).toBeNull();
+		expect(validated).toBe(true);
 	}).pipe(Effect.provide(layer));
 });
 
 it.effect("reorders requested slugs and appends the remaining", () => {
-	let persistedSlugs: ReadonlyArray<string> = [];
+	const currentViews = [
+		{ ...baseListedSavedView, slug: "view-a", sortOrder: 0 },
+		{ ...baseListedSavedView, slug: "view-b", sortOrder: 1 },
+		{ ...baseListedSavedView, slug: "view-c", sortOrder: 2 },
+	];
+	const updatedViews: Array<{ slug: string; sortOrder: number | undefined }> = [];
 
 	const layer = makeServiceLayer(
 		makeRepository({
 			countBySlugs: () => Effect.succeed(2),
-			listSlugsInOrder: () => Effect.succeed(["view-a", "view-b", "view-c"]),
-			persistOrder: (_userId, _trackerId, slugs) =>
+			findBySlug: (_userId, slug) =>
+				Effect.succeed(currentViews.find((view) => view.slug === slug) ?? null),
+			listInOrder: () => Effect.succeed(currentViews),
+			updateBySlug: (_userId, slug, data) =>
 				Effect.sync(() => {
-					persistedSlugs = slugs;
-					return slugs;
+					updatedViews.push({ slug, sortOrder: data.sortOrder });
+					const current = currentViews.find((view) => view.slug === slug);
+					return current ? { ...current, sortOrder: data.sortOrder ?? current.sortOrder } : null;
 				}),
 		}),
 	);
@@ -300,7 +323,11 @@ it.effect("reorders requested slugs and appends the remaining", () => {
 		const reordered = yield* service.reorder(user, { viewSlugs: ["view-c", "view-a"] });
 
 		expect(reordered).toEqual({ viewSlugs: ["view-c", "view-a", "view-b"] });
-		expect(persistedSlugs).toEqual(["view-c", "view-a", "view-b"]);
+		expect(updatedViews).toEqual([
+			{ slug: "view-c", sortOrder: 0 },
+			{ slug: "view-a", sortOrder: 1 },
+			{ slug: "view-b", sortOrder: 2 },
+		]);
 	}).pipe(Effect.provide(layer));
 });
 
@@ -458,6 +485,7 @@ it.effect(
 
 it.effect("creates a default saved view for an entity schema", () => {
 	let createdInput: { slug: string; name: string; isBuiltin: boolean } | undefined;
+	let validatedDocument: unknown;
 
 	const layer = makeServiceLayer(
 		makeRepository({
@@ -468,6 +496,12 @@ it.effect("creates a default saved view for an entity schema", () => {
 					return { ...baseListedSavedView, slug: input.slug, name: input.name, isBuiltin: true };
 				}),
 		}),
+		makeQueryEngine({
+			validate: (_user, doc) =>
+				Effect.sync(() => {
+					validatedDocument = doc;
+				}).pipe(Effect.as(undefined)),
+		}),
 	);
 
 	return Effect.gen(function* () {
@@ -476,15 +510,16 @@ it.effect("creates a default saved view for an entity schema", () => {
 			icon: "book",
 			userId: user.id,
 			accentColor: "#FF5733",
-			entitySchemaName: "Book",
-			entitySchemaSlug: "book",
+			entitySchemaName: "Custom Schema",
+			entitySchemaSlug: "custom-schema",
 			trackerId: TrackerId.make("tracker-id"),
 		});
 
 		expect(view.isBuiltin).toBe(true);
 		expect(createdInput?.isBuiltin).toBe(true);
-		expect(createdInput?.slug).toBe("all-book");
-		expect(createdInput?.name).toBe("All Books");
+		expect(createdInput?.slug).toBe("all-custom-schema");
+		expect(createdInput?.name).toBe("All Custom Schemas");
+		expect(validatedDocument).toMatchObject({ source: { schemas: ["custom-schema"] } });
 	}).pipe(Effect.provide(layer));
 });
 
@@ -509,6 +544,31 @@ it.effect("rejects creating a default saved view when one already exists for the
 		expect(exit).toEqual(
 			Exit.fail(new Conflict({ message: "Entity schema default saved view already exists" })),
 		);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("maps default saved view validation failures to database errors", () => {
+	const layer = makeServiceLayer(
+		makeRepository({ findBySlug: () => Effect.succeed(null) }),
+		makeQueryEngine({
+			validate: () => Effect.fail(new DbError({ message: "schema lookup failed" })),
+		}),
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* SavedViewsService;
+		const exit = yield* Effect.exit(
+			service.createDefaultForSchema({
+				icon: "book",
+				userId: user.id,
+				accentColor: "#FF5733",
+				entitySchemaName: "Custom Schema",
+				entitySchemaSlug: "custom-schema",
+				trackerId: TrackerId.make("tracker-id"),
+			}),
+		);
+
+		expect(exit).toEqual(Exit.fail(new DbError({ message: "schema lookup failed" })));
 	}).pipe(Effect.provide(layer));
 });
 
