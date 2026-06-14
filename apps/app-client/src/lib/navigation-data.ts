@@ -1,10 +1,10 @@
 import { sortBy } from "@ryot/ts-utils/lodash";
 import type { Href } from "expo-router";
 
-import type { ContractClient, ContractSuccess } from "@/lib/contract-client";
+import type { ContractSuccess } from "@/lib/contract-client";
 
-type TrackerListItem = ContractSuccess<ContractClient["trackers"]["list"]>[number];
-type SavedViewListItem = ContractSuccess<ContractClient["savedViews"]["list"]>[number];
+type TrackerListItem = ContractSuccess<"trackers", "list">[number];
+type SavedViewListItem = ContractSuccess<"savedViews", "list">[number];
 
 export type NavigationSubItem = {
 	key: string;
