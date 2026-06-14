@@ -467,6 +467,14 @@ export const uninstallTestPluginStrict = (installed: InstalledTestPlugin) =>
 
 export const uninstallTestPlugin = (installed: InstalledTestPlugin) =>
 	uninstallTestPluginStrict(installed).pipe(
+		Effect.catchTag("PluginConflictError", (error) =>
+			error.reason.code === "workflow-referenced"
+				? Effect.logWarning(
+						`[test-plugin] cleanup deferred for '${installed.pluginSlug}' (workflow still running)`,
+						error,
+					)
+				: Effect.void,
+		),
 		Effect.catch((error) =>
 			Effect.logWarning(
 				`[test-plugin] cleanup failed for '${installed.pluginSlug}' (non-fatal)`,
