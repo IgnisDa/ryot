@@ -18,6 +18,7 @@
 		{ "path": "packages/testing" },
 		{ "path": "packages/transactional" },
 		{ "path": "packages/ts-utils" },
+		{ "path": "packages/typescript-compiler" },
 		{ "path": "e2e" }
 	]
 }

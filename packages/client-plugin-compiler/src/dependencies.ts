@@ -1,4 +1,5 @@
 import { sortBy } from "@ryot/ts-utils/lodash";
+import { resolveTypeScriptCompilerPath } from "@ryot/typescript-compiler";
 import { Effect } from "effect";
 import { parse } from "postcss";
 import valueParser from "postcss-value-parser";
@@ -23,6 +24,25 @@ const TRUSTED_MODULES = new Set([
 export const isTrustedClientModule = (specifier: string) => TRUSTED_MODULES.has(specifier);
 
 const directoryOf = (path: string) => path.slice(0, path.lastIndexOf("/"));
+
+const resolveTypeScriptEntries = (from: string) => {
+	const reactTypesRoot = directoryOf(Bun.resolveSync("@types/react/package.json", from));
+	const reactDomTypesRoot = directoryOf(Bun.resolveSync("@types/react-dom/package.json", from));
+	const clsxRoot = directoryOf(Bun.resolveSync("clsx/package.json", from));
+	return {
+		clsx: `${clsxRoot}/clsx.d.mts`,
+		react: `${reactTypesRoot}/index.d.ts`,
+		"react-dom": `${reactDomTypesRoot}/index.d.ts`,
+		"react-dom/client": `${reactDomTypesRoot}/client.d.ts`,
+		"react/jsx-runtime": `${reactTypesRoot}/jsx-runtime.d.ts`,
+		"@ryot/client-sdk": Bun.resolveSync("@ryot/client-sdk", from),
+		"@ryot/client-sdk/effect": Bun.resolveSync("@ryot/client-sdk/effect", from),
+		"@ryot/client-sdk/plugin": Bun.resolveSync("@ryot/client-sdk/plugin", from),
+		"@ryot/client-sdk/react": Bun.resolveSync("@ryot/client-sdk/react", from),
+		"@ryot/client-sdk/ryotql": Bun.resolveSync("@ryot/client-sdk/ryotql", from),
+		"@ryot/client-ui-sdk": Bun.resolveSync("@ryot/client-ui-sdk", from),
+	};
+};
 
 const readFontsource = async (specifier: string, from: string) => {
 	const entry = Bun.resolveSync(specifier, from);
@@ -103,16 +123,18 @@ export const resolveClientPluginCompilerDependencies = Effect.tryPromise({
 		);
 		return {
 			compilerRoot: from,
+			typeScriptEntries: resolveTypeScriptEntries(from),
+			tsserverPath: resolveTypeScriptCompilerPath(from),
+			uiSdkScanSources: await readScanSources(uiSdkRoot),
 			fontAssets: fonts.flatMap(({ assets }) => assets),
 			fontStylesheet: fonts.map(({ stylesheet }) => stylesheet).join("\n"),
-			uiSdkScanSources: await readScanSources(uiSdkRoot),
+			themeStylesheet: await Bun.file(
+				Bun.resolveSync("@ryot/client-ui-sdk/theme.css", from),
+			).text(),
 			tailwindStylesheet: {
 				path: tailwindEntry,
 				content: await Bun.file(tailwindEntry).text(),
 			},
-			themeStylesheet: await Bun.file(
-				Bun.resolveSync("@ryot/client-ui-sdk/theme.css", from),
-			).text(),
 		};
 	},
 	catch: (error) =>

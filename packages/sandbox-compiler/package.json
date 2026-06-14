@@ -36,6 +36,7 @@
 	"dependencies": {
 		"@ryot/sandbox-sdk": "workspace:*",
 		"@ryot/ts-utils": "workspace:*",
+		"@ryot/typescript-compiler": "workspace:*",
 		"effect": "4.0.0-rc.111",
 		"typescript": "7.0.2"
 	},
