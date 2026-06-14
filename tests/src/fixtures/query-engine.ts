@@ -376,23 +376,18 @@ export const createCourseLessonFilterFixture = async () => {
 		slug: completeSlug,
 		name: "Filter Complete",
 		entitySchemaId: lessonSchemaId,
-		propertiesSchema: {
-			fields: { note: { type: "string", label: "Note", description: "Completion note" } },
-		},
 	});
 	const courseModuleSlug = `filter-course-module-${crypto.randomUUID()}`;
 	const moduleLessonSlug = `filter-module-lesson-${crypto.randomUUID()}`;
 	const courseModuleSchema = await createRelationshipSchema(client, {
 		slug: courseModuleSlug,
 		name: "Filter Course Module",
-		propertiesSchema: { fields: {} },
 		targetEntitySchemaId: moduleSchemaId,
 		sourceEntitySchemaId: courseSchemaId,
 	});
 	const moduleLessonSchema = await createRelationshipSchema(client, {
 		slug: moduleLessonSlug,
 		name: "Filter Module Lesson",
-		propertiesSchema: { fields: {} },
 		targetEntitySchemaId: lessonSchemaId,
 		sourceEntitySchemaId: moduleSchemaId,
 	});
