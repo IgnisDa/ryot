@@ -106,20 +106,6 @@ export class GodModeRepository extends Effect.Service<GodModeRepository>()("GodM
 			return row ?? null;
 		});
 
-		const updateUserDisabled = Effect.fn("GodModeRepository.updateUserDisabled")(function* (input: {
-			userId: UserId;
-			disabledAt: Date | null;
-			updatedAt: Date;
-		}) {
-			const db = yield* CurrentDb;
-			yield* dbEffect(() =>
-				db
-					.update(schema.user)
-					.set({ disabledAt: input.disabledAt, updatedAt: input.updatedAt })
-					.where(eq(schema.user.id, input.userId)),
-			);
-		});
-
 		const loadDeleteSnapshot = Effect.fn("GodModeRepository.loadDeleteSnapshot")(function* (
 			userId: UserId,
 		) {
@@ -142,11 +128,6 @@ export class GodModeRepository extends Effect.Service<GodModeRepository>()("GodM
 					.where(eq(schema.apikey.referenceId, userId)),
 			);
 			return { user, apiKeys };
-		});
-
-		const deleteUser = Effect.fn("GodModeRepository.deleteUser")(function* (userId: UserId) {
-			const db = yield* CurrentDb;
-			yield* dbEffect(() => db.delete(schema.user).where(eq(schema.user.id, userId)));
 		});
 
 		const loadResetSnapshot = Effect.fn("GodModeRepository.loadResetSnapshot")(function* (
@@ -183,51 +164,14 @@ export class GodModeRepository extends Effect.Service<GodModeRepository>()("GodM
 			return { user, accounts, apiKeys };
 		});
 
-		const deleteAndRecreateUser = Effect.fn("GodModeRepository.deleteAndRecreateUser")(
-			function* (input: {
-				user: { id: string; email: string; name: string; emailVerified: boolean };
-				preferences: Record<string, unknown>;
-				oidcAccountId: string | null;
-				now: Date;
-			}) {
-				const db = yield* CurrentDb;
-				const { oidcAccountId } = input;
-				yield* dbEffect(() => db.delete(schema.user).where(eq(schema.user.id, input.user.id)));
-				yield* dbEffect(() =>
-					db.insert(schema.user).values({
-						id: input.user.id,
-						name: input.user.name,
-						email: input.user.email,
-						preferences: input.preferences,
-						emailVerified: input.user.emailVerified,
-					}),
-				);
-				if (oidcAccountId !== null) {
-					yield* dbEffect(() =>
-						db.insert(schema.account).values({
-							providerId: "oidc",
-							createdAt: input.now,
-							updatedAt: input.now,
-							userId: input.user.id,
-							id: crypto.randomUUID(),
-							accountId: oidcAccountId,
-						}),
-					);
-				}
-			},
-		);
-
 		return {
 			countUsers,
-			deleteUser,
 			listUserRows,
 			findUserById,
 			loadResetSnapshot,
 			findUserIdByEmail,
-			updateUserDisabled,
 			loadDeleteSnapshot,
 			listAccountsForUsers,
-			deleteAndRecreateUser,
 			findUserDisabledState,
 		};
 	},
