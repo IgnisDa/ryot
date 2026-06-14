@@ -94,6 +94,15 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 						yield* Effect.forEach(Object.entries(input.files), ([path, contents]) =>
 							Schema.decodeUnknownEffect(Schema.Uint8ArrayFromBase64)(contents).pipe(
 								Effect.map((decoded) => [path, decoded] as const),
+								Effect.mapError(
+									() =>
+										new TestSupportBadRequest({
+											reason: {
+												code: "invalid-request",
+												diagnostic: `Plugin file '${path}' must be canonical padded Base64`,
+											},
+										}),
+								),
 							),
 						),
 					);
