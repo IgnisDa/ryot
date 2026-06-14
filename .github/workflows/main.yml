@@ -1,3 +1,4 @@
+# TODO: Update actions to latest. Some actions emit node20 warnings.
 name: Main
 
 on:
