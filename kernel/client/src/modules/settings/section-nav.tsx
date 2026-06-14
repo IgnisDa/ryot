@@ -1,7 +1,7 @@
 import clsx from "clsx";
-import type { MouseEvent } from "react";
 
 import { AppIcon } from "#/modules/navigation/app-icon";
+import { activateLink } from "#/modules/navigation/link-activation";
 import {
 	settingsSections,
 	type SettingsSection,
@@ -19,25 +19,12 @@ export function SettingsSectionNav(props: SettingsSectionNavProps) {
 		<div className="flex flex-col gap-1">
 			{settingsSections.map((section) => {
 				const isActive = section.slug === props.active;
-				const navigate = (event: MouseEvent<HTMLAnchorElement>) => {
-					if (
-						event.button !== 0 ||
-						event.altKey ||
-						event.ctrlKey ||
-						event.metaKey ||
-						event.shiftKey
-					) {
-						return;
-					}
-					event.preventDefault();
-					void props.onSelect(section);
-				};
 				return (
 					<a
 						key={section.slug}
-						onClick={navigate}
 						href={section.path}
 						aria-current={isActive ? "page" : undefined}
+						onClick={activateLink(() => props.onSelect(section))}
 						className={clsx(
 							"flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm",
 							isActive ? "bg-nav-indicator text-text" : "text-text-muted hover:bg-surface-2",

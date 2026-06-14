@@ -7,7 +7,6 @@ import { describe, expect, it } from "vitest";
 import {
 	resolvePluginRouteWorkspace,
 	resolveRememberedWorkspace,
-	resolveSettingsWorkspace,
 	sortWorkspaces,
 	visibleWorkspaces,
 } from "#/modules/navigation/workspace-state";
@@ -84,7 +83,7 @@ describe("workspace state", () => {
 		expect(resolveRememberedWorkspace(catalog, "second")?.slug).toBe("second");
 	});
 
-	it("derives plugin-route and settings workspace context", () => {
+	it("derives plugin-route workspace context", () => {
 		const catalog = [
 			workspace({ slug: "media" }),
 			workspace({ slug: "fitness" }),
@@ -94,7 +93,6 @@ describe("workspace state", () => {
 		expect(resolvePluginRouteWorkspace(catalog, "fitness")?.slug).toBe("fitness");
 		expect(resolvePluginRouteWorkspace(catalog, "disabled")?.slug).toBe("disabled");
 		expect(resolvePluginRouteWorkspace(catalog, "missing")).toBeNull();
-		expect(resolveSettingsWorkspace(catalog, "fitness")?.slug).toBe("fitness");
 	});
 
 	it("keeps direct routes resolvable when no workspace is enabled", () => {
@@ -103,6 +101,5 @@ describe("workspace state", () => {
 		expect(visibleWorkspaces(catalog)).toEqual([]);
 		expect(resolveRememberedWorkspace(catalog, "media")).toBeNull();
 		expect(resolvePluginRouteWorkspace(catalog, "media")?.slug).toBe("media");
-		expect(resolveSettingsWorkspace(catalog, "media")).toBeNull();
 	});
 });
