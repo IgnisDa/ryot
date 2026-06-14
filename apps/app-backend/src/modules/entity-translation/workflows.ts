@@ -1,8 +1,11 @@
+import * as PersistedQueue from "@effect/experimental/PersistedQueue";
 import { Activity, DurableQueue, Workflow } from "@effect/workflow";
+import type { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import { SandboxRunError, dieOnDbError, toSandboxRunError } from "@ryot/contract/errors";
 import { encodeEntityUpdatedMessage } from "@ryot/contract/modules/entity-interest/messages";
+import type { SandboxCompletedResult as SandboxCompletedResultValue } from "@ryot/contract/modules/sandbox/schemas";
 import { EntityId, SandboxScriptId } from "@ryot/contract/schema/brands";
-import { DateTime, Effect, Schema } from "effect";
+import { Context, DateTime, Effect, Layer, Schema } from "effect";
 
 import { DbRunner } from "#lib/db/service";
 import { redisKeys, RedisService } from "#lib/redis";
@@ -10,7 +13,7 @@ import { SandboxExecutionQueue } from "#modules/sandbox/durable-queues";
 
 import { TranslationsRepository } from "./repository";
 
-const TranslateEntityWorkflowPayload = Schema.Struct({
+export const TranslateEntityWorkflowPayload = Schema.Struct({
 	entityId: EntityId,
 	language: Schema.String,
 	externalId: Schema.String,
@@ -20,7 +23,7 @@ const TranslateEntityWorkflowPayload = Schema.Struct({
 	entitySchemaSlug: Schema.String,
 });
 
-type TranslateEntityWorkflowPayload = typeof TranslateEntityWorkflowPayload.Type;
+export type TranslateEntityWorkflowPayload = typeof TranslateEntityWorkflowPayload.Type;
 
 export const translateEntityExecutionId = (input: { entityId: EntityId; language: string }) =>
 	`translate-${input.entityId}-${input.language}`;
@@ -40,15 +43,8 @@ export const TranslateEntityWorkflow = Workflow.make({
 	idempotencyKey: ({ executionId }) => executionId,
 });
 
-const runTranslateEntityWorkflow = Effect.fn("runTranslateEntityWorkflow")(function* (
-	payload: TranslateEntityWorkflowPayload,
-	executionId: string,
-) {
-	const redis = yield* RedisService;
-	const runWithDb = yield* DbRunner;
-	const repository = yield* TranslationsRepository;
-
-	const sandboxResult = yield* DurableQueue.process(SandboxExecutionQueue, {
+const processSandboxTranslation = (payload: TranslateEntityWorkflowPayload, executionId: string) =>
+	DurableQueue.process(SandboxExecutionQueue, {
 		userId: null,
 		driverName: "translate",
 		scriptId: payload.scriptId,
@@ -60,6 +56,46 @@ const runTranslateEntityWorkflow = Effect.fn("runTranslateEntityWorkflow")(funct
 			entitySchemaSlug: payload.entitySchemaSlug,
 		},
 	}).pipe(Effect.mapError(toSandboxRunError));
+
+export type TranslateEntityWorkflowOperationsValue = {
+	processSandbox: (
+		payload: TranslateEntityWorkflowPayload,
+		executionId: string,
+	) => Effect.Effect<
+		SandboxCompletedResultValue,
+		SandboxRunError,
+		WorkflowEngine | WorkflowInstance
+	>;
+};
+
+export class TranslateEntityWorkflowOperations extends Context.Tag(
+	"TranslateEntityWorkflowOperations",
+)<TranslateEntityWorkflowOperations, TranslateEntityWorkflowOperationsValue>() {}
+
+export const TranslateEntityWorkflowOperationsLive = Layer.effect(
+	TranslateEntityWorkflowOperations,
+	Effect.map(
+		PersistedQueue.PersistedQueueFactory,
+		(queueFactory) =>
+			({
+				processSandbox: (payload, executionId) =>
+					processSandboxTranslation(payload, executionId).pipe(
+						Effect.provideService(PersistedQueue.PersistedQueueFactory, queueFactory),
+					),
+			}) satisfies TranslateEntityWorkflowOperationsValue,
+	),
+);
+
+export const runTranslateEntityWorkflow = Effect.fn("runTranslateEntityWorkflow")(function* (
+	payload: TranslateEntityWorkflowPayload,
+	executionId: string,
+) {
+	const redis = yield* RedisService;
+	const runWithDb = yield* DbRunner;
+	const repository = yield* TranslationsRepository;
+	const operations = yield* TranslateEntityWorkflowOperations;
+
+	const sandboxResult = yield* operations.processSandbox(payload, executionId);
 
 	// A transient provider failure leaves no row, so the next detail read cleanly
 	// re-requests the fill. A successful run always upserts a row (with all-null

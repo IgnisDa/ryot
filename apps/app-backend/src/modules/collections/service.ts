@@ -96,6 +96,7 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 			readonly userId: UserId;
 			readonly entityId: EntityId;
 			readonly occurredAt: string;
+			readonly executionId: string;
 			readonly eventSchemaId: EventSchemaId;
 			readonly properties: Record<string, unknown>;
 		}) =>
@@ -103,6 +104,7 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 				.create({
 					userId: input.userId,
 					source: "collection",
+					executionId: input.executionId,
 					payload: [
 						{
 							entityId: input.entityId,
@@ -271,6 +273,7 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 					eventSchemaId: addEvent.id,
 					occurredAt: now.toISOString(),
 					entityId: payload.collectionId,
+					executionId: `collection-membership-added-${membership.id}`,
 					properties: {
 						entityId: entity.id,
 						relationshipId: membership.id,
@@ -322,6 +325,7 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 					occurredAt: now.toISOString(),
 					eventSchemaId: removeEvent.id,
 					entityId: payload.collectionId,
+					executionId: `collection-membership-removed-${deleted.id}`,
 					properties: {
 						entityId: entity.id,
 						relationshipId: deleted.id,

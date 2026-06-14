@@ -1,11 +1,11 @@
 import { expect, it } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
-import { BadRequest, NotFound } from "@ryot/contract/errors";
+import { BadRequest, Conflict, NotFound } from "@ryot/contract/errors";
 import type {
 	CreateSavedViewBody,
 	ListedSavedView,
 } from "@ryot/contract/modules/saved-views/schemas";
-import { SavedViewId, UserId } from "@ryot/contract/schema/brands";
+import { SavedViewId, TrackerId, UserId } from "@ryot/contract/schema/brands";
 import { Effect, Exit, Layer } from "effect";
 
 import { type MockOverrides, dbRunnerLayer, transactionLayer } from "#lib/test-support/effect";
@@ -455,6 +455,62 @@ it.effect(
 		}).pipe(Effect.provide(layer));
 	},
 );
+
+it.effect("creates a default saved view for an entity schema", () => {
+	let createdInput: { slug: string; name: string; isBuiltin: boolean } | undefined;
+
+	const layer = makeServiceLayer(
+		makeRepository({
+			findBySlug: () => Effect.succeed(null),
+			create: (_userId, input) =>
+				Effect.sync(() => {
+					createdInput = input;
+					return { ...baseListedSavedView, slug: input.slug, name: input.name, isBuiltin: true };
+				}),
+		}),
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* SavedViewsService;
+		const view = yield* service.createDefaultForSchema({
+			icon: "book",
+			userId: user.id,
+			accentColor: "#FF5733",
+			entitySchemaName: "Book",
+			entitySchemaSlug: "book",
+			trackerId: TrackerId.make("tracker-id"),
+		});
+
+		expect(view.isBuiltin).toBe(true);
+		expect(createdInput?.isBuiltin).toBe(true);
+		expect(createdInput?.slug).toBe("all-book");
+		expect(createdInput?.name).toBe("All Books");
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("rejects creating a default saved view when one already exists for the schema", () => {
+	const layer = makeServiceLayer(
+		makeRepository({ findBySlug: () => Effect.succeed(baseListedSavedView) }),
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* SavedViewsService;
+		const exit = yield* Effect.exit(
+			service.createDefaultForSchema({
+				icon: "book",
+				userId: user.id,
+				accentColor: "#FF5733",
+				entitySchemaName: "Book",
+				entitySchemaSlug: "book",
+				trackerId: TrackerId.make("tracker-id"),
+			}),
+		);
+
+		expect(exit).toEqual(
+			Exit.fail(new Conflict({ message: "Entity schema default saved view already exists" })),
+		);
+	}).pipe(Effect.provide(layer));
+});
 
 it.effect("updates a saved view's queryDocument", () => {
 	let updatedQueryDocument: unknown;
