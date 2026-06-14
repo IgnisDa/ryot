@@ -13,6 +13,7 @@ import { assert } from "vitest";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { Database } from "#lib/infrastructure/db/service";
+import { kernelDefinitionSource } from "#modules/definition-registry/kernel-source";
 import { makeDefinitionRegistry } from "#modules/definition-registry/service";
 
 import {
@@ -1334,13 +1335,59 @@ const noteManifest = () => {
 	} satisfies PluginManifest;
 };
 
-const notePluginRow = (pluginId: string, ownerId: string) => ({
+const emptyBindings = {
+	eventAutomations: [],
+	entityAutomations: [],
+	signalAutomations: [],
+	relationshipAutomations: [],
+	providerEntityImportAutomations: [],
+} satisfies PluginManifest["bindings"];
+
+const shippedNotesPlugin = () => {
+	const base = noteManifest();
+	return {
+		scripts: [],
+		...fixturePluginIdentity("shipped-notes"),
+		sourceHash: "shipped-notes-source-hash",
+		manifest: {
+			...base,
+			crons: [],
+			scripts: [],
+			bindings: emptyBindings,
+			metadata: { ...base.metadata, name: "Shipped Notes", slug: "shipped-notes" },
+		},
+	};
+};
+
+const collidingNotesManifest = () => {
+	const base = noteManifest();
+	const entitySchema = base.entitySchemas[0];
+	const savedView = kernelDefinitionSource().savedViews[0];
+	assert(entitySchema && savedView);
+	return {
+		...base,
+		crons: [],
+		scripts: [],
+		bindings: emptyBindings,
+		entitySchemas: [entitySchema, { ...entitySchema, name: "Task", slug: "task" }],
+		savedViews: [
+			{ ...savedView, slug: "all-tasks", name: "All Tasks", entitySchemaSlug: "task" },
+			{ ...savedView, slug: "retired", name: "Retired", entitySchemaSlug: "retired-entity" },
+		],
+	} satisfies PluginManifest;
+};
+
+const notePluginRow = (
+	pluginId: string,
+	ownerId: string,
+	manifest: PluginManifest = noteManifest(),
+) => ({
+	manifest,
 	ownerId,
 	id: pluginId,
 	slug: "notes",
 	scope: "user",
 	status: "active",
-	manifest: noteManifest(),
 	compiledHashes: { "notes.automation": `${pluginId}-hash` },
 });
 
@@ -1383,8 +1430,12 @@ const noteInstallation = (
 const makeNotesLayer = (
 	installations: ReadonlyArray<PluginInstallationState>,
 	plugins: ReadonlyArray<ReturnType<typeof notePluginRow>>,
+	shipped?: ReturnType<typeof shippedNotesPlugin>,
 ) => {
 	const loader = makePluginLoader(makeDefinitionRegistry());
+	if (shipped) {
+		loader.load(shipped);
+	}
 	const readyInstallations = installations.filter(
 		(state) => state.health === "ready" && !state.isDisabled,
 	);
@@ -1563,5 +1614,98 @@ it.effect("materializes private cron schedules per ready enabled installation", 
 				installationId: "notes-b-installation-id",
 			}),
 		).toBeNull();
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("lets a shipped definition win a private slug collision while the rest composes", () => {
+	const installations = [
+		noteInstallation("notes-a", "user-1", { isDisabled: true }),
+		installationState({
+			pluginSlug: "shipped-notes",
+			id: "shipped-installation-id",
+			pluginId: "shipped-notes-plugin-id",
+		}),
+	];
+	const layer = makeNotesLayer(
+		installations,
+		[notePluginRow("notes-a", "user-1", collidingNotesManifest())],
+		shippedNotesPlugin(),
+	);
+
+	return Effect.gen(function* () {
+		const resolver = yield* PluginRuntimeResolver;
+		const definitions = yield* resolver.getEffectiveDefinitions(UserId.make("user-1"), true);
+		expect(definitions.entitySchemas["note"]).toMatchObject({
+			pluginId: "shipped-notes-plugin-id",
+		});
+		expect(definitions.entitySchemas["task"]).toMatchObject({ pluginId: "notes-a" });
+		expect(definitions.savedViews["all-tasks"]).toMatchObject({ pluginId: "notes-a" });
+		expect(definitions.savedViews["retired"]).toBeUndefined();
+		installations[0] = noteInstallation("notes-a", "user-1", { health: "incompatible" });
+		const conflicted = yield* resolver.getEffectiveDefinitions(UserId.make("user-1"), true);
+		expect(conflicted.entitySchemas["note"]).toMatchObject({
+			pluginId: "shipped-notes-plugin-id",
+		});
+		expect(conflicted.entitySchemas["task"]).toBeUndefined();
+		expect(conflicted.savedViews["all-tasks"]).toBeUndefined();
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("resolves effective definitions from current installation state on every call", () => {
+	const installations = [noteInstallation("notes-a", "user-1")];
+	const layer = makeNotesLayer(installations, [notePluginRow("notes-a", "user-1")]);
+
+	return Effect.gen(function* () {
+		const resolver = yield* PluginRuntimeResolver;
+		const before = yield* resolver.getEffectiveDefinitions(UserId.make("user-1"));
+		expect(before.entitySchemas["note"]).toMatchObject({ pluginId: "notes-a" });
+		installations[0] = noteInstallation("notes-a", "user-1", { isDisabled: true });
+		const after = yield* resolver.getEffectiveDefinitions(UserId.make("user-1"));
+		expect(after.entitySchemas["note"]).toBeUndefined();
+	}).pipe(Effect.provide(layer));
+});
+
+const danglingReferencesManifest = () => {
+	const base = noteManifest();
+	return {
+		...base,
+		relationshipSchemas: [
+			{
+				name: "Notes Link",
+				slug: "notes-link",
+				targetEntitySchemaSlug: null,
+				propertiesSchema: { fields: {} },
+				sourceEntitySchemaSlug: "missing-entity",
+			},
+		],
+		signalSchemas: [
+			{
+				slug: "notes.signal",
+				name: "Notes Signal",
+				catalogState: "active",
+				propertiesSchema: { fields: {} },
+				notificationScriptSlug: "notes.automation",
+				audiencePolicy: {
+					kind: "related_users",
+					subjectSide: "source",
+					relationshipSchemaSlug: "notes-link",
+				},
+			},
+		],
+	} satisfies PluginManifest;
+};
+
+it.effect("drops private definitions referencing a definition no surviving plugin declares", () => {
+	const layer = makeNotesLayer(
+		[noteInstallation("notes-a", "user-1")],
+		[notePluginRow("notes-a", "user-1", danglingReferencesManifest())],
+	);
+
+	return Effect.gen(function* () {
+		const resolver = yield* PluginRuntimeResolver;
+		const definitions = yield* resolver.getEffectiveDefinitions(UserId.make("user-1"));
+		expect(definitions.entitySchemas["note"]).toMatchObject({ pluginId: "notes-a" });
+		expect(definitions.signalSchemas["notes.signal"]).toBeUndefined();
+		expect(definitions.relationshipSchemas["notes-link"]).toBeUndefined();
 	}).pipe(Effect.provide(layer));
 });
