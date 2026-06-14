@@ -1,3 +1,8 @@
+import {
+	type ProviderInformation as SdkProviderInformation,
+	SANDBOX_HOST_CAPABILITIES,
+	type SandboxManifest as SdkSandboxScriptManifest,
+} from "@ryot/sandbox-sdk";
 import { Schema } from "effect";
 
 import { SandboxScriptId, UserId } from "../../schema/brands";
@@ -5,7 +10,7 @@ import { SandboxScriptId, UserId } from "../../schema/brands";
 export const ProviderInformation = Schema.Struct({
 	source: Schema.String,
 	canonicalLanguage: Schema.optional(Schema.String),
-});
+}) satisfies Schema.Schema<SdkProviderInformation>;
 
 export type ProviderInformation = Schema.Schema.Type<typeof ProviderInformation>;
 
@@ -24,8 +29,8 @@ export type SandboxScriptMetadata = Schema.Schema.Type<typeof SandboxScriptMetad
 const SandboxScriptManifestFields = {
 	name: Schema.String,
 	slug: Schema.String,
-	capabilities: Schema.Array(Schema.String),
-	requiredAppConfigKeys: Schema.Array(Schema.String),
+	requiredAppConfigKeys: Schema.mutable(Schema.Array(Schema.String)),
+	capabilities: Schema.mutable(Schema.Array(Schema.Literal(...SANDBOX_HOST_CAPABILITIES))),
 };
 
 export const SandboxScriptManifest = Schema.Union(
@@ -40,7 +45,7 @@ export const SandboxScriptManifest = Schema.Union(
 		kind: Schema.Literal("trigger"),
 		mode: Schema.Literal("before_create", "after_create"),
 	}),
-);
+) satisfies Schema.Schema<SdkSandboxScriptManifest>;
 
 export type SandboxScriptManifest = Schema.Schema.Type<typeof SandboxScriptManifest>;
 
