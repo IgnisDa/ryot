@@ -49,8 +49,12 @@ export class ProviderEntitySearchService extends Context.Service<ProviderEntityS
 			const pluginRuntime = yield* PluginRuntimeResolver;
 
 			const resolveSearch = Effect.fn("ProviderEntitySearchService.resolveSearch")(function* (
+				userId: CurrentUserValue["id"],
 				providerId: SearchProviderEntitiesBody["providerId"],
 			) {
+				if (!(yield* pluginRuntime.isSystemProviderAvailableToUser(userId, providerId))) {
+					return yield* providerNotFound(providerId);
+				}
 				const provider = yield* pluginRuntime.findActiveProviderById(providerId);
 				if (!provider) {
 					return yield* providerNotFound(providerId);
@@ -75,7 +79,7 @@ export class ProviderEntitySearchService extends Context.Service<ProviderEntityS
 			const resolveSearchOptionsSchema = Effect.fn(
 				"ProviderEntitySearchService.resolveSearchOptionsSchema",
 			)(function* (user: CurrentUserValue, providerId: SearchProviderEntitiesBody["providerId"]) {
-				const { provider, resolved } = yield* resolveSearch(providerId);
+				const { provider, resolved } = yield* resolveSearch(user.id, providerId);
 				if (resolved.optionsSchema === null) {
 					return null;
 				}
@@ -159,7 +163,7 @@ export class ProviderEntitySearchService extends Context.Service<ProviderEntityS
 				user: CurrentUserValue,
 				input: SearchProviderEntitiesBody,
 			) {
-				const { provider, resolved } = yield* resolveSearch(input.providerId);
+				const { provider, resolved } = yield* resolveSearch(user.id, input.providerId);
 				let options: Record<string, unknown> | undefined;
 				if (resolved.optionsSchema === null) {
 					if (input.options !== undefined) {

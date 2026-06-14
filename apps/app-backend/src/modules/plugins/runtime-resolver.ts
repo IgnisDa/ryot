@@ -207,6 +207,16 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 			const loader = yield* PluginLoader;
 			const installations = yield* PluginInstallationRepository;
 
+			const availablePluginIdsForUser = Effect.fn(
+				"PluginRuntimeResolver.availablePluginIdsForUser",
+			)(function* (userId: UserId) {
+				return new Set(
+					(yield* installations.listForUser(userId))
+						.filter((installation) => installation.health === "ready" && !installation.isDisabled)
+						.map(({ pluginId }) => pluginId),
+				);
+			});
+
 			const findActiveScript = Effect.fn("PluginRuntimeResolver.findActiveScript")(function* (
 				scriptSlug: string,
 			) {
@@ -397,6 +407,12 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				}
 				const systemPlugin = snapshot.plugins[script.pluginSlug];
 				if (systemPlugin?.id === script.pluginId) {
+					if (
+						"userId" in input.authority &&
+						!(yield* installations.findByUserAndPlugin(input.authority.userId, systemPlugin.id))
+					) {
+						return null;
+					}
 					return {
 						kind: "environment",
 						pluginSlug: script.pluginSlug,
@@ -419,6 +435,27 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 							configSchema: plugin.manifest.configSchema,
 						} satisfies PluginConfigContext)
 					: null;
+			});
+
+			const isSystemPluginAvailableToUser = Effect.fn(
+				"PluginRuntimeResolver.isSystemPluginAvailableToUser",
+			)(function* (userId: UserId, pluginSlug: string) {
+				const plugin = loader.getSnapshot().plugins[pluginSlug];
+				if (!plugin) {
+					return false;
+				}
+				const installation = yield* installations.findByUserAndPlugin(userId, plugin.id);
+				return installation?.health === "ready" && !installation.isDisabled;
+			});
+			const isSystemProviderAvailableToUser = Effect.fn(
+				"PluginRuntimeResolver.isSystemProviderAvailableToUser",
+			)(function* (userId: UserId, providerId: SandboxProviderId) {
+				const provider = yield* findActiveProviderByIdInSnapshot(loader.getSnapshot(), providerId);
+				if (!provider) {
+					return false;
+				}
+				const installation = yield* installations.findByUserAndPlugin(userId, provider.pluginId);
+				return installation?.health === "ready" && !installation.isDisabled;
 			});
 
 			const findUserOperation = Effect.fn("PluginRuntimeResolver.findUserOperation")(
@@ -597,6 +634,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 
 			const listSchemaProviders = Effect.fn("PluginRuntimeResolver.listSchemaProviders")(function* (
 				entitySchemaSlugs?: ReadonlyArray<string>,
+				userId?: UserId,
 			) {
 				const snapshot = loader.getSnapshot();
 				const db = yield* Database;
@@ -611,10 +649,12 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 								: sql`false`,
 						),
 				);
+				const availablePluginIds = userId ? yield* availablePluginIdsForUser(userId) : null;
 				return rows
 					.filter((provider) => {
 						const plugin = findPluginEntryById(snapshot, provider.pluginId);
 						return (
+							(availablePluginIds === null || availablePluginIds.has(provider.pluginId)) &&
 							plugin?.manifest.providers.some(({ slug }) => slug === provider.slug) === true &&
 							snapshot.definitions.entitySchemas[provider.rootEntitySchemaSlug] !== undefined &&
 							(entitySchemaSlugs === undefined ||
@@ -834,13 +874,19 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 			});
 
 			const listAutomations = Effect.fn("PluginRuntimeResolver.listAutomations")(function* (input: {
+				userId: UserId | null;
 				kind: AutomationRuleKind;
 				target: AutomationRuleTarget;
 				operation: AutomationOperation;
 			}) {
 				const snapshot = loader.getSnapshot();
+				const availablePluginIds = input.userId
+					? yield* availablePluginIdsForUser(input.userId)
+					: null;
 				const bindings = automationBindings(snapshot).filter(
 					(binding) =>
+						(availablePluginIds === null ||
+							availablePluginIds.has(snapshot.plugins[binding.pluginSlug]?.id ?? "")) &&
 						binding.kind === input.kind &&
 						binding.operation === input.operation &&
 						binding.target.kind === input.target.kind &&
@@ -937,6 +983,8 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				resolveSystemQueryScript,
 				resolveSearchOptionsScript,
 				resolvePluginConfigContext,
+				isSystemPluginAvailableToUser,
+				isSystemProviderAvailableToUser,
 				findAuthorizedSchemaProviderById,
 				resolveActivePluginUserBootstrap,
 				resolveTrustedUserBootstrapCaller,
