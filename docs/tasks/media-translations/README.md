@@ -169,8 +169,9 @@ The entity detail read path, after building the entity from storage, invokes the
 `TranslationOverlay` hook with the entity and the current user. The hook applies language
 resolution and overlay merge. On a `pending` result it requests a background translate fill
 (fire-and-forget) and returns the canonical entity. The read response carries a
-`translationStatus` field with one of: `pending`, `ready`, `none`. List and search/query
-views are unchanged and continue to render the canonical language.
+`translationStatus` field with one of: `pending`, `ready`, `none`. Query-engine read
+localization (below) was added in a follow-up; because detail also goes through the engine, its
+rows are now localized in SQL and the overlay hook re-merges the same row idempotently.
 
 ### Provider/source identity and canonical language
 
@@ -304,8 +305,11 @@ Modules to be tested (planned for long-term health):
 
 ## Out of Scope
 
-- Localized list, search, and sort (translating query-engine list views). Lists render the
-  canonical language; only detail reads are localized in this work.
+- Localized list, search, and sort was out of scope for the tasks below, but was **implemented in a
+  follow-up**: the query engine now localizes entity `name` and translatable `properties` across
+  filter, sort, select, group, aggregate, time-series, and nested includes when the user has a
+  `language` preference (canonical is byte-for-byte unchanged otherwise). A localized
+  full-text/trigram search *index* for translated values remains out of scope (see below).
 - Treating Audible (or any marketplace/region-as-identity provider) as a translation overlay.
   Audible's existing search-time marketplace behavior is unchanged.
 - Translating company entities, and translating Anilist person/company entities (V1 had no
