@@ -1,25 +1,22 @@
 import { describe, expect, it } from "vitest";
 
+import integrationPushHelperCode from "../script-helpers/integration-push.sandbox.js" with { type: "text" };
+import jellyfinPushScriptCode from "./jellyfin-push.sandbox.js" with { type: "text" };
 import {
 	hostFailure,
 	hostSuccess,
 	httpFailure,
 	httpSuccess,
-	readScriptFile,
 	runTriggerScript,
 	toRecord,
 } from "./test-utils";
 
-const getJellyfinCode = () =>
-	Promise.all([
-		readScriptFile("../script-helpers/integration-push.sandbox.js"),
-		readScriptFile("./jellyfin-push.sandbox.js"),
-	]).then(([helperCode, scriptCode]) => `${helperCode}\n\n${scriptCode}`);
+const jellyfinCode = `${integrationPushHelperCode}\n\n${jellyfinPushScriptCode}`;
 
 const runJellyfinScript = (
 	context: unknown,
 	hostFunctions: Record<string, (...args: Array<unknown>) => unknown>,
-) => getJellyfinCode().then((code) => runTriggerScript(code, context, hostFunctions));
+) => runTriggerScript(jellyfinCode, context, hostFunctions);
 
 type HttpCall = { url: string; method: string; options: Record<string, unknown> };
 

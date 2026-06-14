@@ -29,8 +29,6 @@ export const runTriggerScript = (
 
 export const hostSuccess = (data: unknown) => ({ success: true, data });
 
-export const readScriptFile = (path: string) => Bun.file(new URL(path, import.meta.url)).text();
-
 export const toRecord = (value: unknown): Record<string, unknown> =>
 	isObjectRecord(value) ? value : Object.create(null);
 
