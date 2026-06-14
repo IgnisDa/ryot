@@ -13,7 +13,7 @@ import {
 	SandboxScriptId,
 	UserId,
 } from "#lib/schema/brands";
-import { dbRunnerLayer, makeMock, makeWorkflowEngine } from "#lib/test-support/effect";
+import { type MockOverrides, dbRunnerLayer, makeWorkflowEngine } from "#lib/test-support/effect";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
 import { QueryEngineService } from "#modules/query-engine/service";
@@ -65,76 +65,50 @@ const defaultSandboxWorkflowResult = {
 	timing: { totalMs: 1, executionMs: 1 },
 };
 
-const makeEntitiesRepository = (overrides: Partial<EntitiesRepository> = {}) =>
-	makeMock<EntitiesRepository>(
-		{
-			_tag: "EntitiesRepository" as const,
-			saveEntity: () => Effect.die("unused"),
-			getByIdForUser: () => Effect.die("unused"),
-			findEntitySchemaById: () => Effect.die("unused"),
-			getEntityScopeForUser: () => Effect.die("unused"),
-			getEntityMergeScopeForUser: () => Effect.die("unused"),
-			listMatchCandidatesBySchema: () => Effect.die("unused"),
-			getEntitySchemaScopeForUser: () => Effect.die("unused"),
-			findEntitySchemaScriptBySlug: () => Effect.die("unused"),
-			findGlobalEntityByExternalId: () => Effect.die("unused"),
-			findEntityByExternalIdForUser: () => Effect.die("unused"),
-		},
-		overrides,
-	);
+const mockEntitiesRepository = Layer.mock(EntitiesRepository);
 
-const makeEventSchemasRepository = (overrides: Partial<EventSchemasRepository> = {}) =>
-	makeMock<EventSchemasRepository>(
-		{
-			_tag: "EventSchemasRepository" as const,
-			getScopeForUser: () => Effect.die("unused"),
-			createEventSchema: () => Effect.die("unused"),
-			findBySlugForUser: () => Effect.die("unused"),
-			getEntitySchemaScopeById: () => Effect.die("unused"),
-			listByEntitySchemaForUser: () => Effect.die("unused"),
-		},
-		overrides,
-	);
+const makeEntitiesRepository = (overrides: MockOverrides<typeof mockEntitiesRepository> = {}) =>
+	mockEntitiesRepository({ _tag: "EntitiesRepository", ...overrides });
 
-const makeEventsRepository = (overrides: Partial<EventsRepository> = {}) =>
-	makeMock<EventsRepository>(
-		{
-			_tag: "EventsRepository" as const,
-			createEvent: () => Effect.die("unused"),
-			listQueryScopesForUser: () => Effect.die("unused"),
-			getActiveAfterCreateTriggers: () => Effect.succeed([]),
-			getActiveBeforeCreateTriggers: () => Effect.succeed([]),
-		},
-		overrides,
-	);
+const mockEventSchemasRepository = Layer.mock(EventSchemasRepository);
 
-const makeQueryEngine = (overrides: Partial<QueryEngineService> = {}) =>
-	makeMock<QueryEngineService>(
-		{
-			validate: () => Effect.void,
-			_tag: "QueryEngineService" as const,
-			execute: () => Effect.die("unused"),
-		},
-		overrides,
-	);
+const makeEventSchemasRepository = (
+	overrides: MockOverrides<typeof mockEventSchemasRepository> = {},
+) => mockEventSchemasRepository({ _tag: "EventSchemasRepository", ...overrides });
+
+const mockEventsRepository = Layer.mock(EventsRepository);
+
+const makeEventsRepository = (overrides: MockOverrides<typeof mockEventsRepository> = {}) =>
+	mockEventsRepository({
+		_tag: "EventsRepository",
+		getActiveAfterCreateTriggers: () => Effect.succeed([]),
+		getActiveBeforeCreateTriggers: () => Effect.succeed([]),
+		...overrides,
+	});
+
+const mockQueryEngine = Layer.mock(QueryEngineService);
+
+const makeQueryEngine = (overrides: MockOverrides<typeof mockQueryEngine> = {}) =>
+	mockQueryEngine({
+		_tag: "QueryEngineService",
+		validate: () => Effect.void.pipe(Effect.as(undefined)),
+		...overrides,
+	});
 
 const makeServiceLayer = (input: {
-	queryEngine?: QueryEngineService;
-	eventsRepository?: EventsRepository;
+	queryEngine?: ReturnType<typeof makeQueryEngine>;
+	eventsRepository?: ReturnType<typeof makeEventsRepository>;
 	workflowEngine?: WorkflowEngine["Type"];
-	entitiesRepository?: EntitiesRepository;
-	eventSchemasRepository?: EventSchemasRepository;
+	entitiesRepository?: ReturnType<typeof makeEntitiesRepository>;
+	eventSchemasRepository?: ReturnType<typeof makeEventSchemasRepository>;
 }) =>
 	Layer.mergeAll(
 		dbRunnerLayer,
 		Layer.succeed(WorkflowEngine, input.workflowEngine ?? makeWorkflowEngine()),
-		Layer.succeed(QueryEngineService, input.queryEngine ?? makeQueryEngine()),
-		Layer.succeed(EntitiesRepository, input.entitiesRepository ?? makeEntitiesRepository()),
-		Layer.succeed(
-			EventSchemasRepository,
-			input.eventSchemasRepository ?? makeEventSchemasRepository(),
-		),
-		Layer.succeed(EventsRepository, input.eventsRepository ?? makeEventsRepository()),
+		input.queryEngine ?? makeQueryEngine(),
+		input.entitiesRepository ?? makeEntitiesRepository(),
+		input.eventSchemasRepository ?? makeEventSchemasRepository(),
+		input.eventsRepository ?? makeEventsRepository(),
 	);
 
 const makeEventsServiceLayer = (input: Parameters<typeof makeServiceLayer>[0]) =>

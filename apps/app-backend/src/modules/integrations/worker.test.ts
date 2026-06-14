@@ -3,57 +3,43 @@ import { Effect, Layer } from "effect";
 import { describe, expect as vitestExpect, it as vitestIt } from "vitest";
 
 import { ImportRunId } from "#lib/schema/brands";
-import { dbRunnerLayer, makeMock } from "#lib/test-support/effect";
+import type { MockOverrides } from "#lib/test-support/effect";
+import { dbRunnerLayer } from "#lib/test-support/effect";
 import { ImportsRepository } from "#modules/imports/repository";
 
 import { IntegrationsRepository } from "./repository";
 import { makeIntegration, makeRun } from "./test-support";
 import { appendOwnedItems, finalizeIntegrationRun } from "./worker";
-const makeImportsRepository = (overrides: Partial<ImportsRepository> = {}) =>
-	makeMock<ImportsRepository>(
-		{
-			updateRun: () => Effect.void,
-			_tag: "ImportsRepository" as const,
-			createRun: () => Effect.die("unused"),
-			getRunById: () => Effect.succeed(null),
-			createFailure: () => Effect.die("unused"),
-			deleteRunById: () => Effect.die("unused"),
-			listRunsByUser: () => Effect.die("unused"),
-			listFailuresByRunId: () => Effect.die("unused"),
-			listRunsByIntegrationId: () => Effect.die("unused"),
-			hasActiveRunForIntegration: () => Effect.die("unused"),
-			listRecentStatusesByIntegrationId: () => Effect.succeed([]),
-		},
-		overrides,
-	);
 
-const makeIntegrationsRepository = (overrides: Partial<IntegrationsRepository> = {}) =>
-	makeMock<IntegrationsRepository>(
-		{
-			_tag: "IntegrationsRepository" as const,
-			getForUser: () => Effect.die("unused"),
-			listForUser: () => Effect.die("unused"),
-			updateForUser: () => Effect.succeed(null),
-			deleteForUser: () => Effect.die("unused"),
-			createForUser: () => Effect.die("unused"),
-			getByIdAnyUser: () => Effect.die("unused"),
-			getUserDisableIntegrations: () => Effect.die("unused"),
-			listEnabledYankIntegrations: () => Effect.die("unused"),
-		},
-		overrides,
-	);
+const mockImportsRepository = Layer.mock(ImportsRepository);
+const mockIntegrationsRepository = Layer.mock(IntegrationsRepository);
+
+const makeImportsRepository = (overrides: MockOverrides<typeof mockImportsRepository> = {}) =>
+	mockImportsRepository({
+		updateRun: () => Effect.void,
+		getRunById: () => Effect.succeed(null),
+		listRecentStatusesByIntegrationId: () => Effect.succeed([]),
+		...overrides,
+		_tag: "ImportsRepository",
+	});
+
+const makeIntegrationsRepository = (
+	overrides: MockOverrides<typeof mockIntegrationsRepository> = {},
+) =>
+	mockIntegrationsRepository({
+		updateForUser: () => Effect.succeed(null),
+		...overrides,
+		_tag: "IntegrationsRepository",
+	});
 
 const makeWorkerLayer = (input: {
-	importsRepository?: ImportsRepository;
-	integrationsRepository?: IntegrationsRepository;
+	importsRepository?: Layer.Layer<ImportsRepository>;
+	integrationsRepository?: Layer.Layer<IntegrationsRepository>;
 }) =>
 	Layer.mergeAll(
 		dbRunnerLayer,
-		Layer.succeed(ImportsRepository, input.importsRepository ?? makeImportsRepository()),
-		Layer.succeed(
-			IntegrationsRepository,
-			input.integrationsRepository ?? makeIntegrationsRepository(),
-		),
+		input.importsRepository ?? makeImportsRepository(),
+		input.integrationsRepository ?? makeIntegrationsRepository(),
 	);
 
 describe("appendOwnedItems", () => {

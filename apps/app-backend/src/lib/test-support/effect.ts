@@ -2,6 +2,10 @@ import { Workflow } from "@effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import { Effect, Layer, Option, Redacted } from "effect";
 
+export type MockOverrides<T> = T extends (...args: infer TArgs) => unknown
+	? Omit<TArgs[0], "_tag">
+	: never;
+
 import { AppConfig, type AppConfigValue } from "#lib/config";
 import { CurrentDb, DbRunner, TransactionRunner } from "#lib/db";
 
@@ -11,12 +15,6 @@ const provideEmptyDb = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 export const dbRunnerLayer = Layer.succeed(DbRunner, provideEmptyDb);
 
 export const transactionLayer = Layer.succeed(TransactionRunner, provideEmptyDb);
-
-export function makeMock<T>(defaults: object, overrides?: Partial<T>): T;
-export function makeMock(defaults: object, overrides?: object): Record<string, unknown>;
-export function makeMock(defaults: object, overrides: object = {}) {
-	return Object.assign(Object.create(null), defaults, overrides);
-}
 
 type WorkflowEngineOverrides = Omit<Partial<WorkflowEngine["Type"]>, "execute"> & {
 	execute?: (...args: Parameters<WorkflowEngine["Type"]["execute"]>) => Effect.Effect<unknown>;
