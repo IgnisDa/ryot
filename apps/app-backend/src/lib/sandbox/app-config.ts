@@ -1,8 +1,9 @@
 import { Effect, Option, Redacted } from "effect";
 
+import { isObjectRecord } from "#lib/predicates";
+
 import { appConfigMeta } from "../config";
 import type { AnyMeta, GroupMeta } from "../config/builder";
-import { isObjectRecord } from "./shared";
 
 const isEffectOption = (value: unknown): value is Option.Option<unknown> =>
 	isObjectRecord(value) &&

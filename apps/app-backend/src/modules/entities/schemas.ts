@@ -32,6 +32,17 @@ export const ListedEntity = Schema.Struct({
 
 export type ListedEntity = typeof ListedEntity.Type;
 
+export const TranslationStatus = Schema.Literal("pending", "ready", "none");
+
+export type TranslationStatus = typeof TranslationStatus.Type;
+
+export const EntityDetail = Schema.Struct({
+	...ListedEntity.fields,
+	translationStatus: TranslationStatus,
+});
+
+export type EntityDetail = typeof EntityDetail.Type;
+
 export const CreateEntityBody = Schema.Struct({
 	name: Schema.String,
 	properties: Schema.Unknown,
