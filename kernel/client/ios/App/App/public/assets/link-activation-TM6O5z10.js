@@ -1,1 +1,0 @@
-var e=e=>t=>{t.button!==0||t.altKey||t.ctrlKey||t.metaKey||t.shiftKey||(t.preventDefault(),e())};export{e as t};
