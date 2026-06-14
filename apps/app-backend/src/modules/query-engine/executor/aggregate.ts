@@ -19,11 +19,10 @@ import type { AggregateQueryDocument } from "./types";
 export const executeAggregateQuery = Effect.fn("executeAggregateQuery")(function* (
 	userId: string,
 	language: string | null,
-	canonicalByScript: Record<string, string> | null,
 	doc: AggregateQueryDocument,
 ) {
 	const { source, output } = doc;
-	const scope = rootScope(source, userId, language, canonicalByScript);
+	const scope = rootScope(source, userId, language);
 	const conditions = source.where ? [compileBool(source.where, scope)] : [];
 	const fromWhere = yield* rootSourceFromWhereSql(userId, language, source, conditions);
 	const db = yield* CurrentDb;
