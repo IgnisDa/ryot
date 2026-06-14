@@ -88,18 +88,6 @@ export const buildUniqueSlugMap = (
 	return idsBySlug;
 };
 
-export const buildPrimaryImageSql = (tableAlias: string) => `CASE
-	WHEN jsonb_array_length(COALESCE(${tableAlias}.assets -> 'remote_images', '[]'::jsonb)) > 0 THEN jsonb_build_object(
-		'type', 'remote',
-		'url', ${tableAlias}.assets -> 'remote_images' ->> 0
-	)
-	WHEN jsonb_array_length(COALESCE(${tableAlias}.assets -> 's3_images', '[]'::jsonb)) > 0 THEN jsonb_build_object(
-		'type', 's3',
-		'key', ${tableAlias}.assets -> 's3_images' ->> 0
-	)
-	ELSE NULL
-END`;
-
 export const buildLotEntityTargetValuesSql = (targets: ResolvedLotEntityMigrationTarget[]) =>
 	targets
 		.map(

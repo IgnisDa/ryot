@@ -125,7 +125,6 @@ describe("sandbox async flow", () => {
 			slug: `sandbox-schema-${crypto.randomUUID()}`,
 		});
 		await createEntity(client, {
-			image: null,
 			properties: {},
 			name: "Test Entity",
 			entitySchemaId: schema.id,

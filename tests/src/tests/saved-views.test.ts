@@ -159,7 +159,7 @@ describe("Saved views query documents E2E", () => {
 				entityIdProperty: createEntityColumnExpression(courseSlug, "id"),
 				table: { columns: [{ label: "Name", expression: [entityField(courseSlug, "name")] }] },
 				grid: {
-					imageProperty: [entityField(courseSlug, "image")],
+					imageProperty: null,
 					titleProperty: [entityField(courseSlug, "name")],
 					eyebrowProperty: createEntitySchemaExpression("name"),
 					calloutProperty: null,
@@ -167,7 +167,7 @@ describe("Saved views query documents E2E", () => {
 					secondarySubtitleProperty: null,
 				},
 				list: {
-					imageProperty: [entityField(courseSlug, "image")],
+					imageProperty: null,
 					titleProperty: [entityField(courseSlug, "name")],
 					eyebrowProperty: createEntitySchemaExpression("name"),
 					calloutProperty: null,

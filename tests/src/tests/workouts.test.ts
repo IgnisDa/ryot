@@ -87,8 +87,8 @@ describe("Workouts E2E", () => {
 			displayConfiguration: {
 				grid: {
 					calloutProperty: null,
+					imageProperty: null,
 					titleProperty: createEntityColumnExpression("workout", "name"),
-					imageProperty: createEntityColumnExpression("workout", "image"),
 					primarySubtitleProperty: createEntityPropertyExpression("workout", "startedAt"),
 					secondarySubtitleProperty: createEntityPropertyExpression("workout", "endedAt"),
 				},
@@ -119,7 +119,6 @@ describe("Workouts E2E", () => {
 				schemas: ["workout"],
 				fields: [
 					{ key: "title", expr: systemRef("workout", "name") },
-					{ key: "image", expr: systemRef("workout", "image") },
 					{ key: "primarySubtitle", expr: propertyRef("workout", "workout", "startedAt") },
 					{ key: "secondarySubtitle", expr: propertyRef("workout", "workout", "endedAt") },
 				],

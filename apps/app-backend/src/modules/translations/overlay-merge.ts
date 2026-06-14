@@ -1,15 +1,12 @@
 import type { TranslationStatus } from "#modules/entities/schemas";
-import type { StoredEntityImage } from "#modules/entities/types";
 
 export type TranslationFields = {
 	readonly name: string;
-	readonly image: StoredEntityImage | null;
 	readonly properties: Record<string, unknown>;
 };
 
 type TranslationOverlayRow = {
 	readonly name: string | null;
-	readonly image: StoredEntityImage | null;
 	readonly properties: Record<string, unknown>;
 };
 
@@ -28,8 +25,7 @@ export const mergeTranslationOverlay = (input: {
 		return { fields: canonical, status: "pending" };
 	}
 
-	const hasTranslation =
-		overlay.name !== null || overlay.image !== null || Object.keys(overlay.properties).length > 0;
+	const hasTranslation = overlay.name !== null || Object.keys(overlay.properties).length > 0;
 	if (!hasTranslation) {
 		return { fields: canonical, status: "none" };
 	}
@@ -38,7 +34,6 @@ export const mergeTranslationOverlay = (input: {
 		status: "ready",
 		fields: {
 			name: overlay.name ?? canonical.name,
-			image: overlay.image ?? canonical.image,
 			properties: { ...canonical.properties, ...overlay.properties },
 		},
 	};

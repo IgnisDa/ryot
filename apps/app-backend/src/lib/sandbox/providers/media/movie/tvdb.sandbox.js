@@ -134,12 +134,12 @@ function buildTranslationResult(payload, image) {
 	if (name) {
 		result.name = name;
 	}
-	if (image) {
-		result.image = image;
-	}
 	const properties = {};
 	if (description) {
 		properties.description = description;
+	}
+	if (image) {
+		properties.images = [image];
 	}
 	if (Object.keys(properties).length > 0) {
 		result.properties = properties;

@@ -244,7 +244,6 @@ it.effect("creates a collection with valid inputs", () => {
 			saveEntity: () => {
 				created = true;
 				return Effect.succeed({
-					image: null,
 					createdAt: now,
 					updatedAt: now,
 					externalId: null,
@@ -313,7 +312,6 @@ it.effect("returns not found when entity does not exist", () => {
 			getEntityForMembership: () => Effect.succeed(null),
 			getCollectionById: () =>
 				Effect.succeed({
-					image: null,
 					name: "Coll",
 					id: EntityId.make("coll-id"),
 					createdAt: now,
@@ -369,7 +367,6 @@ it.effect("creates membership event only on first add, not on upsert", () => {
 				}),
 			getCollectionById: () =>
 				Effect.succeed({
-					image: null,
 					name: "Coll",
 					createdAt: now,
 					updatedAt: now,
@@ -429,7 +426,6 @@ it.effect("does not create membership event on upsert update", () => {
 				}),
 			getCollectionById: () =>
 				Effect.succeed({
-					image: null,
 					name: "Coll",
 					createdAt: now,
 					updatedAt: now,
@@ -467,7 +463,6 @@ it.effect("returns not found when removing entity not in collection", () => {
 				}),
 			getCollectionById: () =>
 				Effect.succeed({
-					image: null,
 					name: "Coll",
 					createdAt: now,
 					updatedAt: now,
@@ -525,7 +520,6 @@ it.effect("creates remove event on successful membership deletion", () => {
 				}),
 			getCollectionById: () =>
 				Effect.succeed({
-					image: null,
 					name: "Coll",
 					createdAt: now,
 					updatedAt: now,

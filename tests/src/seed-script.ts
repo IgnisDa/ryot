@@ -12,6 +12,7 @@ import {
 	SandboxScriptId,
 	TrackerId,
 } from "@ryot/app-backend/schema/brands";
+import { imagesField } from "@ryot/app-backend/schema/core";
 import type { AppSchema } from "@ryot/app-backend/schema/property-schema";
 import { dayjs } from "@ryot/ts-utils/dayjs";
 import { createAuthClient } from "better-auth/client";
@@ -197,9 +198,21 @@ async function createEntitySchema(
 	propertiesSchema: AppSchema,
 ) {
 	console.log(`    Creating entity schema: ${name}...`);
+	// Every entity schema gets an images property; card views read the first image from it.
+	const propertiesSchemaWithImages: AppSchema = {
+		...propertiesSchema,
+		fields: { images: imagesField("Cover and promotional images"), ...propertiesSchema.fields },
+	};
 	const schema = await apiClient.run((c) =>
 		c.entitySchemas.create({
-			payload: { name, slug, icon, trackerId, accentColor, propertiesSchema },
+			payload: {
+				name,
+				slug,
+				icon,
+				trackerId,
+				accentColor,
+				propertiesSchema: propertiesSchemaWithImages,
+			},
 		}),
 	);
 
@@ -234,9 +247,10 @@ async function createEntity(
 		c.entities.create({
 			payload: {
 				name,
-				properties,
 				entitySchemaId,
-				image: imageUrl ? { type: "remote", url: RemoteImageUrl.make(imageUrl) } : null,
+				properties: imageUrl
+					? { ...properties, images: [{ type: "remote", url: RemoteImageUrl.make(imageUrl) }] }
+					: properties,
 			},
 		}),
 	);
@@ -415,6 +429,10 @@ async function createSavedView(
 
 		const column = value.slice(1);
 		return sourceSchemas.map((schemaSlug) => {
+			// The `@image` shorthand resolves to the first image in the images property.
+			if (column === "image") {
+				return `entity.${schemaSlug}.properties.images.0`;
+			}
 			return `entity.${schemaSlug}.${column}`;
 		});
 	};
@@ -482,7 +500,6 @@ function schemaField(schemaSlug: string, property: string) {
 	const entityBuiltins = new Set([
 		"id",
 		"name",
-		"image",
 		"createdAt",
 		"updatedAt",
 		"externalId",

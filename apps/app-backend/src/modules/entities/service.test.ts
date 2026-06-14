@@ -4,13 +4,7 @@ import { Effect, Exit, Layer } from "effect";
 
 import type { CurrentUserValue } from "#lib/auth-middleware";
 import { NotFound } from "#lib/errors";
-import {
-	EntityId,
-	EntitySchemaId,
-	RemoteImageUrl,
-	SandboxScriptId,
-	UserId,
-} from "#lib/schema/brands";
+import { EntityId, EntitySchemaId, SandboxScriptId, UserId } from "#lib/schema/brands";
 import {
 	type MockOverrides,
 	dbRunnerLayer,
@@ -82,7 +76,6 @@ const makeServiceLayer = (
 const field = (kind: FieldValue["kind"], value: unknown): FieldValue => ({ kind, value });
 
 const makeEntityRow = (overrides: Record<string, FieldValue> = {}): Record<string, FieldValue> => ({
-	image: field("null", null),
 	id: field("text", "entity-1"),
 	name: field("text", "Cooper"),
 	properties: field("json", {}),
@@ -136,7 +129,6 @@ it.effect("returns existing entity when provenance already exists", () => {
 				Effect.sync(() => {
 					createCalled = true;
 					return {
-						image: null,
 						createdAt: now,
 						updatedAt: now,
 						properties: {},
@@ -160,7 +152,6 @@ it.effect("returns existing entity when provenance already exists", () => {
 				}),
 			findEntityByExternalIdForUser: () =>
 				Effect.succeed({
-					image: null,
 					createdAt: now,
 					updatedAt: now,
 					name: "Existing",
@@ -182,7 +173,6 @@ it.effect("returns existing entity when provenance already exists", () => {
 			properties: { title: "Existing" },
 			entitySchemaId: EntitySchemaId.make("schema-id"),
 			sandboxScriptId: SandboxScriptId.make("script-id"),
-			image: { type: "remote", url: RemoteImageUrl.make("https://example.com/cover.jpg") },
 		});
 
 		expect(entity.id).toBe("existing-entity");

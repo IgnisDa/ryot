@@ -6,7 +6,6 @@ import { strictStruct } from "./schema/utils";
 export const entityBuiltinColumns: ReadonlySet<string> = new Set([
 	"id",
 	"name",
-	"image",
 	"createdAt",
 	"updatedAt",
 	"externalId",
@@ -279,6 +278,12 @@ export const createEntityPropertyExpression = (slug: string, property: string) =
 	({
 		type: "reference",
 		reference: { type: "entity", slug, path: ["properties", property] },
+	}) as const;
+
+export const createEntityPropertyPathExpression = (slug: string, path: ReadonlyArray<string>) =>
+	({
+		type: "reference",
+		reference: { type: "entity", slug, path: ["properties", ...path] },
 	}) as const;
 
 export const createEntitySchemaExpression = (column: string) =>

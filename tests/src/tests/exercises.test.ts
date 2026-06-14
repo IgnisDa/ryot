@@ -3,6 +3,7 @@ import { describe, expect, it } from "bun:test";
 import {
 	createEntityColumnExpression,
 	createEntityPropertyExpression,
+	createEntityPropertyPathExpression,
 	createTransformExpression,
 } from "@ryot/app-backend/display-configuration";
 
@@ -44,7 +45,7 @@ const waitForSeededExercise = async (client: Client) => {
 					schemas: ["exercise"],
 					fields: [
 						{ key: "title", expr: systemRef("exercise", "name") },
-						{ key: "image", expr: systemRef("exercise", "image") },
+						{ key: "image", expr: propertyRef("exercise", "exercise", "images", "0") },
 						{ key: "callout", expr: propertyRef("exercise", "exercise", "level") },
 						{ key: "primarySubtitle", expr: propertyRef("exercise", "exercise", "kind") },
 						{ key: "secondarySubtitle", expr: propertyRef("exercise", "exercise", "equipment") },
@@ -137,7 +138,7 @@ describe("Exercises E2E", () => {
 				},
 				grid: {
 					titleProperty: createEntityColumnExpression("exercise", "name"),
-					imageProperty: createEntityColumnExpression("exercise", "image"),
+					imageProperty: createEntityPropertyPathExpression("exercise", ["images", "0"]),
 					calloutProperty: createTransformExpression(
 						"titleCase",
 						createEntityPropertyExpression("exercise", "level"),
@@ -153,7 +154,7 @@ describe("Exercises E2E", () => {
 				},
 				list: {
 					titleProperty: createEntityColumnExpression("exercise", "name"),
-					imageProperty: createEntityColumnExpression("exercise", "image"),
+					imageProperty: createEntityPropertyPathExpression("exercise", ["images", "0"]),
 					calloutProperty: createTransformExpression(
 						"titleCase",
 						createEntityPropertyExpression("exercise", "level"),
@@ -182,7 +183,7 @@ describe("Exercises E2E", () => {
 		});
 		expect(getQueryEngineFieldOrThrow(exercise, "image")).toEqual({
 			key: "image",
-			kind: "image",
+			kind: "json",
 			value: { type: "remote", url: seededExerciseImageUrl },
 		});
 		expect(getQueryEngineFieldOrThrow(exercise, "callout")).toEqual({
@@ -208,13 +209,11 @@ describe("Exercises E2E", () => {
 		const { workoutId } = await createWorkoutEntityFixture(client);
 		const { workoutSetEventSchema } = await findWorkoutSetEventSchema(client);
 		const source = await createEntity(client, {
-			image: null,
 			name: "Source Exercise",
 			entitySchemaId: exerciseSchema.id,
 			properties: { kind: "reps", muscles: ["abdominals"] },
 		});
 		const target = await createEntity(client, {
-			image: null,
 			name: "Target Exercise",
 			entitySchemaId: exerciseSchema.id,
 			properties: { kind: "reps", muscles: ["abdominals"] },
@@ -251,13 +250,11 @@ describe("Exercises E2E", () => {
 		const { client } = await createAuthenticatedClient();
 		const { schema: exerciseSchema } = await findBuiltinSchemaBySlug(client, "exercise");
 		const source = await createEntity(client, {
-			image: null,
 			name: "Source Reps Exercise",
 			entitySchemaId: exerciseSchema.id,
 			properties: { kind: "reps", muscles: ["abdominals"] },
 		});
 		const target = await createEntity(client, {
-			image: null,
 			name: "Target Duration Exercise",
 			entitySchemaId: exerciseSchema.id,
 			properties: { kind: "duration", muscles: ["abdominals"] },

@@ -16,7 +16,10 @@ describe("collectTranslatableProperties", () => {
 		expect(keys).not.toContain("runtime");
 	});
 
-	it("treats a person's biography (stored as description) as the only translatable property", () => {
-		expect(collectTranslatableProperties(personPropertiesSchema)).toEqual(["description"]);
+	it("treats a person's images and biography (description) as the translatable properties", () => {
+		expect(collectTranslatableProperties(personPropertiesSchema)).toEqual([
+			"images",
+			"description",
+		]);
 	});
 });

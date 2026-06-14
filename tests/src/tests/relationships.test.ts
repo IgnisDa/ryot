@@ -20,13 +20,11 @@ async function makeRelationshipFixture(
 		name: "Relationship Test Entity",
 	});
 	const source = await createEntity(client, {
-		image: null,
 		name: "Source Entity",
 		entitySchemaId: schemaId,
 		properties: { title: "Source" },
 	});
 	const target = await createEntity(client, {
-		image: null,
 		name: "Target Entity",
 		entitySchemaId: schemaId,
 		properties: { title: "Target" },

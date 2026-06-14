@@ -90,7 +90,6 @@ export async function createEventTestFixture(client: Client) {
 		},
 	});
 	const entity = await createEntity(client, {
-		image: null,
 		entitySchemaId,
 		name: "Test Book",
 		properties: { title: "Test" },
@@ -136,7 +135,6 @@ export async function createRuleEventFixture(client: Client) {
 		},
 	});
 	const entity = await createEntity(client, {
-		image: null,
 		entitySchemaId,
 		name: "Rule Test Book",
 		properties: { title: "Rule Test" },
@@ -220,7 +218,6 @@ export async function createBuiltinMediaLifecycleFixture(
 	const onHoldEventSchema = requireEventSchemaBySlug(eventSchemas, "on_hold");
 
 	const entity = await seedMediaEntity({
-		image: null,
 		userId: null,
 		entitySchemaId: selectedSchema.id,
 		sandboxScriptId: providerScriptId,

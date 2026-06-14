@@ -50,8 +50,6 @@ const mockImportRunArtifacts = Layer.mock(ImportRunArtifacts);
 const makeListedEntity = (
 	overrides: Partial<Omit<ListedEntity, "properties">> = {},
 ): Omit<ListedEntity, "properties"> & { properties: Record<string, unknown> } => ({
-	image: null,
-	id: EntityId.make("entity-1"),
 	createdAt: now,
 	updatedAt: now,
 	properties: {},
@@ -59,6 +57,7 @@ const makeListedEntity = (
 	populatedAt: null,
 	name: "Entity One",
 	sandboxScriptId: null,
+	id: EntityId.make("entity-1"),
 	entitySchemaId: EntitySchemaId.make("schema-1"),
 	...overrides,
 });

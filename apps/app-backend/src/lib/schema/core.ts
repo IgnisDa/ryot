@@ -52,6 +52,7 @@ export const imagesField = (description: string) =>
 		description,
 		type: "array",
 		label: "Images",
+		translatable: true,
 		items: imageItemSchema,
 	}) as const;
 

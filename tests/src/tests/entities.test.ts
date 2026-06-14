@@ -51,7 +51,6 @@ describe("POST /entities", () => {
 		const { schemaId } = await createTrackerWithSchema(client);
 
 		const entity = await createEntity(client, {
-			image: null,
 			name: "Plain Entity",
 			entitySchemaId: schemaId,
 			properties: { title: "Plain Entity" },
@@ -70,7 +69,6 @@ describe("POST /entities", () => {
 		const sandboxScriptId = getFirstProviderScriptId(schema);
 
 		const entity = await createEntity(client, {
-			image: null,
 			sandboxScriptId,
 			externalId: "ext-001",
 			name: "External Entity",
@@ -90,7 +88,6 @@ describe("POST /entities", () => {
 		const sandboxScriptId = getFirstProviderScriptId(schema);
 
 		const first = await createEntity(client, {
-			image: null,
 			sandboxScriptId,
 			entitySchemaId: schemaId,
 			name: "Idempotent Entity",
@@ -99,7 +96,6 @@ describe("POST /entities", () => {
 		});
 
 		const second = await createEntity(client, {
-			image: null,
 			sandboxScriptId,
 			entitySchemaId: schemaId,
 			name: "Idempotent Entity",
@@ -116,7 +112,6 @@ describe("POST /entities", () => {
 		const providerScriptId = getFirstProviderScriptId(schema);
 
 		const entity = await createEntity(client, {
-			image: null,
 			properties: {},
 			name: "Built-in Book",
 			entitySchemaId: schema.id,
@@ -134,7 +129,6 @@ describe("POST /entities", () => {
 		const { schema } = await findBuiltinSchemaBySlug(client, "workout");
 
 		const entity = await createEntity(client, {
-			image: null,
 			name: "Push Day",
 			entitySchemaId: schema.id,
 			properties: { endedAt: "2026-04-27T11:00:00Z", startedAt: "2026-04-27T10:00:00Z" },
@@ -256,7 +250,6 @@ describe("POST /entities — enum and enum-array property schema validation", ()
 		const { schemaId } = await createSchemaWithEnumFields(client);
 
 		const entity = await createEntity(client, {
-			image: null,
 			name: "Fiction Book",
 			entitySchemaId: schemaId,
 			properties: { status: "published", genres: ["fiction", "mystery"] },

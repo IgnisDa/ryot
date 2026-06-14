@@ -66,12 +66,11 @@ const makeCollectionsService = (overrides: MockOverrides<typeof mockCollectionsS
 		markEntityOwnedInLibrary: () => Effect.void,
 		getOrCreateCollection: () =>
 			Effect.succeed({
-				name: "Collection",
-				image: null,
 				createdAt: now,
 				updatedAt: now,
 				properties: {},
 				externalId: null,
+				name: "Collection",
 				sandboxScriptId: null,
 				id: EntityId.make("collection-1"),
 				entitySchemaId: EntitySchemaId.make("schema-collection"),
@@ -272,7 +271,6 @@ it.effect("orchestrates one-time media imports through workflow-owned phases", (
 			getOrCreateCollection: (_userId, name) =>
 				Effect.succeed({
 					name,
-					image: null,
 					createdAt: now,
 					updatedAt: now,
 					properties: {},

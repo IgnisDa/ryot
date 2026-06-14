@@ -24,7 +24,6 @@ export async function createWorkoutTemplateEntityFixture(
 	);
 	const exerciseId = options.exerciseId ?? (await waitForSeededExerciseId(client));
 	const workoutTemplate = await createEntity(client, {
-		image: null,
 		entitySchemaId: workoutTemplateSchema.id,
 		name: options.name ?? `Workout Template ${crypto.randomUUID()}`,
 		properties: {

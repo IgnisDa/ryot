@@ -6,7 +6,7 @@ import { DbRunner } from "#lib/db";
 import { SandboxRunError, dieOnDbError } from "#lib/errors";
 import { EntitySchemaId, type EntityId, type SandboxScriptId } from "#lib/schema/brands";
 import { EntitiesRepository } from "#modules/entities/repository";
-import { EntityImage, ListedEntity } from "#modules/entities/schemas";
+import { ListedEntity } from "#modules/entities/schemas";
 import { EntitiesService } from "#modules/entities/service";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
@@ -27,7 +27,6 @@ export type EntityDetailsChildEntity = {
 	externalId: string;
 	properties: unknown;
 	entitySchemaSlug: string;
-	image?: EntityImage | null;
 	childEntities?: ReadonlyArray<EntityDetailsChildEntity>;
 };
 
@@ -37,10 +36,6 @@ type EncodedEntityDetailsChildEntity = {
 	readonly properties: unknown;
 	readonly entitySchemaSlug: string;
 	readonly childEntities?: ReadonlyArray<EncodedEntityDetailsChildEntity>;
-	readonly image?:
-		| { readonly key: string; readonly type: "s3" }
-		| { readonly url: string; readonly type: "remote" }
-		| null;
 };
 
 export const EntityDetailsChildEntity: Schema.Schema<
@@ -52,7 +47,6 @@ export const EntityDetailsChildEntity: Schema.Schema<
 		externalId: Schema.String,
 		properties: Schema.Unknown,
 		entitySchemaSlug: Schema.String,
-		image: Schema.optional(Schema.NullOr(EntityImage)),
 		childEntities: Schema.optional(Schema.Array(EntityDetailsChildEntity)),
 	}),
 ).annotations({ identifier: "EntityDetailsChildEntity" });
@@ -60,7 +54,6 @@ export const EntityDetailsChildEntity: Schema.Schema<
 const EntityDetailsResult = Schema.Struct({
 	name: Schema.String,
 	properties: Schema.Unknown,
-	image: Schema.optional(Schema.NullOr(EntityImage)),
 	childEntities: Schema.optional(Schema.Array(EntityDetailsChildEntity)),
 	relatedEntities: Schema.optional(Schema.Array(EntityDetailsRelatedEntity)),
 });
@@ -152,7 +145,6 @@ export const processChildEntityTree = Effect.fn("processChildEntityTree")(functi
 							scope: "global",
 							name: childEntity.name,
 							entitySchemaId: entitySchema.id,
-							image: childEntity.image ?? null,
 							externalId: childEntity.externalId,
 							properties: childEntity.properties,
 							sandboxScriptId: input.sandboxScriptId,
@@ -240,7 +232,6 @@ export const processRelatedEntity = Effect.fn("processRelatedEntity")(function* 
 
 	const relatedEntity = yield* entities
 		.save({
-			image: null,
 			properties: {},
 			scope: "global",
 			populatedAt: null,
