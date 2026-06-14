@@ -129,7 +129,7 @@ export const BuiltinEntityPreloaderLive = Layer.scopedDiscard(
 								).pipe(Effect.as<string[]>([]))
 							: decodeEntitySearchResult(result.value).pipe(
 									Effect.map(({ items }) => [...new Set(items.map((item) => item.externalId))]),
-									Effect.catchAll(() => Effect.succeed<string[]>([])),
+									Effect.orElseSucceed(() => []),
 								),
 					),
 				);
