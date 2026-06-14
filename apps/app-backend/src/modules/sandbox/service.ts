@@ -163,13 +163,14 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 
 			const resolveWorkflowScript = Effect.fn("SandboxExecutionService.resolveWorkflowScript")(
 				function* (
-					input: { pluginSlug: string; workflowSlug: string; executionId: string },
+					input: { userId: UserId; pluginId: string; executionId: string; workflowSlug: string },
 					resolution: ReturnType<
-						SandboxPluginScriptResolverValue["findActiveWorkflowScript"]
-					> = pluginScriptResolver.findActiveWorkflowScript({
-						pluginSlug: input.pluginSlug,
-						workflowSlug: input.workflowSlug,
-					}),
+						SandboxPluginScriptResolverValue["findWorkflowScriptAvailableToUser"]
+					> = pluginScriptResolver.findWorkflowScriptAvailableToUser(
+						input.userId,
+						input.pluginId,
+						input.workflowSlug,
+					),
 				) {
 					return yield* Activity.make({
 						error: SandboxRunError,
@@ -180,7 +181,7 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 								script
 									? Effect.succeed(script.id)
 									: new SandboxRunError({
-											message: `Plugin workflow not found: ${input.pluginSlug}/${input.workflowSlug}`,
+											message: `Plugin workflow not found: ${input.pluginId}/${input.workflowSlug}`,
 										}),
 							),
 							Effect.mapError((error) =>
@@ -255,7 +256,7 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 			const preRegisterPluginWorkflow = Effect.fn(
 				"SandboxExecutionService.preRegisterPluginWorkflow",
 			)(function* (input: {
-				pluginSlug: string;
+				pluginId: string;
 				executionId: string;
 				executingUserId: UserId;
 				scriptId: SandboxScriptId;
@@ -269,7 +270,7 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 						authority: { type: "user", userId: input.executingUserId },
 					},
 					input.executionId,
-					input.pluginSlug,
+					input.pluginId,
 				).pipe(
 					Effect.provideService(SandboxRepository, repository),
 					Effect.provideService(SandboxPluginScriptResolver, pluginScriptResolver),

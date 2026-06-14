@@ -260,16 +260,22 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 		);
 
 		const hasIntegrationReferences = Effect.fn("PluginRepository.hasIntegrationReferences")(
-			function* (input: { userId?: string; pluginSlug: string }) {
+			function* (input: { pluginId: string; pluginInstallationId?: string }) {
 				const db = yield* Database;
 				const [row] = yield* mapDatabaseErrors(
 					db
 						.select({ id: schema.integration.id })
 						.from(schema.integration)
+						.innerJoin(
+							schema.pluginInstallation,
+							eq(schema.pluginInstallation.id, schema.integration.pluginInstallationId),
+						)
 						.where(
 							and(
-								eq(schema.integration.pluginSlug, input.pluginSlug),
-								input.userId ? eq(schema.integration.userId, input.userId) : undefined,
+								eq(schema.pluginInstallation.pluginId, input.pluginId),
+								input.pluginInstallationId
+									? eq(schema.pluginInstallation.id, input.pluginInstallationId)
+									: undefined,
 							),
 						)
 						.limit(1),

@@ -14,6 +14,8 @@ import { RedisService } from "#lib/infrastructure/redis";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import { makeRedisService, type MockOverrides } from "#lib/test-utils/effect";
 import { ImportsService } from "#modules/imports/service";
+import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
+import { fixtureManifest } from "#modules/plugins/test-support";
 import { SandboxExecutionService } from "#modules/sandbox/service";
 
 import { OperationalGateService } from "./operational-gate-service";
@@ -51,6 +53,16 @@ const importRun = {
 	updatedAt: "2026-07-30T00:00:00.000Z",
 };
 
+const availablePlugin = {
+	config: {},
+	compiledHashes: {},
+	scope: "system" as const,
+	slug: gateInput.pluginSlug,
+	manifest: fixtureManifest(),
+	id: "fixture-plugin-plugin-id",
+	installationId: "fixture-plugin-installation",
+};
+
 const makeServiceLayer = (
 	imports: MockOverrides<typeof mockImports>,
 	sandbox: MockOverrides<typeof mockSandbox>,
@@ -60,6 +72,9 @@ const makeServiceLayer = (
 			Layer.mergeAll(
 				mockImports({ ...imports }),
 				mockSandbox({ ...sandbox }),
+				Layer.mock(PluginRuntimeResolver)({
+					listPluginsAvailableToUser: () => Effect.succeed([availablePlugin]),
+				}),
 				Layer.succeed(RedisService, makeRedisService()),
 				Layer.succeed(Database, Object.create(null)),
 			),

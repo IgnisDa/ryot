@@ -1,33 +1,48 @@
 import type { PluginIntegrationProvider } from "@ryot/contract/modules/plugins/manifest";
+import type { UserId } from "@ryot/contract/schema/brands";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { Context, Effect, Layer } from "effect";
 
-import { PluginLoader, PluginLoaderLive, type PluginRegistrySnapshot } from "./loader";
-import { findActiveScriptInPluginSnapshot } from "./runtime-resolver";
+import type { PluginConfigContext } from "#lib/infrastructure/sandbox-runtime/app-config";
+
+import {
+	pluginConfigContextFor,
+	PluginRuntimeResolver,
+	PluginRuntimeResolverLive,
+	type AvailablePlugin,
+} from "./runtime-resolver";
 
 export type RegisteredIntegrationProvider = {
 	readonly slug: string;
 	readonly name: string;
+	readonly pluginId: string;
 	readonly pluginSlug: string;
 	readonly description: string;
+	readonly installationId: string;
 	readonly requiresProKey?: boolean;
 	readonly settingsSchema: AppSchema;
 	readonly scriptSlug: string | null;
+	readonly pluginScope: "system" | "user";
+	readonly configContext: PluginConfigContext;
 	readonly lot: PluginIntegrationProvider["lot"];
 };
 
-const fromSnapshot = (
-	snapshot: PluginRegistrySnapshot,
+const fromAvailablePlugins = (
+	plugins: ReadonlyArray<AvailablePlugin>,
 ): ReadonlyArray<RegisteredIntegrationProvider> =>
-	Object.entries(snapshot.plugins)
-		.flatMap(([pluginSlug, plugin]) =>
+	plugins
+		.flatMap((plugin) =>
 			plugin.manifest.integrationProviders.map((provider) => ({
-				pluginSlug,
 				lot: provider.lot,
 				slug: provider.slug,
 				name: provider.name,
+				pluginId: plugin.id,
+				pluginSlug: plugin.slug,
+				pluginScope: plugin.scope,
 				description: provider.description,
+				installationId: plugin.installationId,
 				settingsSchema: provider.settingsSchema,
+				configContext: pluginConfigContextFor(plugin),
 				requiresProKey: provider.requiresProKey ?? false,
 				scriptSlug: provider.lot === "push" ? null : provider.scriptSlug,
 			})),
@@ -41,35 +56,54 @@ export class IntegrationProviderCatalog extends Context.Service<IntegrationProvi
 	"IntegrationProviderCatalog",
 	{
 		make: Effect.gen(function* () {
-			const loader = yield* PluginLoader;
+			const runtime = yield* PluginRuntimeResolver;
 
-			const list = () => fromSnapshot(loader.getSnapshot());
+			const listForUser = Effect.fn("IntegrationProviderCatalog.listForUser")(function* (
+				userId: UserId,
+			) {
+				return fromAvailablePlugins(yield* runtime.listPluginsAvailableToUser(userId));
+			});
 
-			const find = (providerSlug: string) =>
-				list().find(({ slug }) => slug === providerSlug) ?? null;
-			const findOwned = (providerSlug: string, pluginSlug: string) =>
-				fromSnapshot(loader.getSnapshot()).find(
-					(provider) => provider.slug === providerSlug && provider.pluginSlug === pluginSlug,
-				) ?? null;
+			const findForUser = Effect.fn("IntegrationProviderCatalog.findForUser")(function* (
+				userId: UserId,
+				providerSlug: string,
+			) {
+				return (yield* listForUser(userId)).find(({ slug }) => slug === providerSlug) ?? null;
+			});
 
-			const resolveOwned = (providerSlug: string, pluginSlug: string) => {
-				const snapshot = loader.getSnapshot();
-				const provider = fromSnapshot(snapshot).find(
-					(candidate) => candidate.slug === providerSlug && candidate.pluginSlug === pluginSlug,
+			const findOwnedForUser = Effect.fn("IntegrationProviderCatalog.findOwnedForUser")(function* (
+				userId: UserId,
+				providerSlug: string,
+				installationId: string,
+			) {
+				return (
+					(yield* listForUser(userId)).find(
+						(provider) =>
+							provider.slug === providerSlug && provider.installationId === installationId,
+					) ?? null
 				);
-				if (!provider) {
-					return null;
-				}
-				const script = provider.scriptSlug
-					? findActiveScriptInPluginSnapshot(snapshot, {
-							scriptSlug: provider.scriptSlug,
-							pluginSlug: provider.pluginSlug,
-						})
-					: Effect.succeed(null);
-				return { provider, script };
-			};
+			});
 
-			return { find, list, findOwned, resolveOwned };
+			const resolveOwnedForUser = Effect.fn("IntegrationProviderCatalog.resolveOwnedForUser")(
+				function* (userId: UserId, providerSlug: string, installationId: string) {
+					const plugins = yield* runtime.listPluginsAvailableToUser(userId);
+					const provider = fromAvailablePlugins(plugins).find(
+						(candidate) =>
+							candidate.slug === providerSlug && candidate.installationId === installationId,
+					);
+					if (!provider) {
+						return null;
+					}
+					const plugin = plugins.find(({ id }) => id === provider.pluginId);
+					const script =
+						plugin && provider.scriptSlug
+							? yield* runtime.findScriptInAvailablePlugin(plugin, provider.scriptSlug)
+							: null;
+					return { provider, script };
+				},
+			);
+
+			return { listForUser, findForUser, findOwnedForUser, resolveOwnedForUser };
 		}),
 	},
 ) {
@@ -77,5 +111,5 @@ export class IntegrationProviderCatalog extends Context.Service<IntegrationProvi
 }
 
 export const IntegrationProviderCatalogLive = IntegrationProviderCatalog.layer.pipe(
-	Layer.provideMerge(PluginLoaderLive),
+	Layer.provide(PluginRuntimeResolverLive),
 );

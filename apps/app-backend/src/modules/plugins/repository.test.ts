@@ -18,7 +18,12 @@ const makeLayer = (input: {
 	statuses?: Array<string>;
 	entityRows?: ReadonlyArray<{ id: string }>;
 	integrationRows?: ReadonlyArray<{ id: string }>;
+	conditions?: Array<{ sql: string; params: Array<unknown> }>;
 }) => {
+	const dialect = new PgDialect();
+	const capture = (condition: SQLWrapper) => {
+		input.conditions?.push(dialect.sqlToQuery(condition.getSQL()));
+	};
 	const db = {
 		select: () => ({
 			from: (table: unknown) => ({
@@ -28,6 +33,12 @@ const makeLayer = (input: {
 				}),
 				leftJoin: () => ({
 					where: () => ({ limit: () => Effect.succeed(input.entityRows ?? []) }),
+				}),
+				innerJoin: () => ({
+					where: (condition: SQLWrapper) => {
+						capture(condition);
+						return { limit: () => Effect.succeed(input.integrationRows ?? []) };
+					},
 				}),
 			}),
 		}),
@@ -128,14 +139,30 @@ it.effect("detects entities referencing a plugin provider", () =>
 	}).pipe(Effect.provide(makeLayer({ entityRows: [{ id: "entity-id" }] }))),
 );
 
-it.effect("detects integrations owned by a plugin", () =>
-	Effect.gen(function* () {
+it.effect("fences integrations on the owning plugin id, not the plugin slug", () => {
+	const conditions: Array<{ sql: string; params: Array<unknown> }> = [];
+	return Effect.gen(function* () {
+		const repository = yield* PluginRepository;
+		expect(yield* repository.hasIntegrationReferences({ pluginId: "fixture-plugin-id" })).toBe(
+			true,
+		);
+		expect(conditions.at(0)?.params).toEqual(["fixture-plugin-id"]);
+	}).pipe(Effect.provide(makeLayer({ conditions, integrationRows: [{ id: "integration-id" }] })));
+});
+
+it.effect("narrows the integration fence to one installation when it is given", () => {
+	const conditions: Array<{ sql: string; params: Array<unknown> }> = [];
+	return Effect.gen(function* () {
 		const repository = yield* PluginRepository;
 		expect(
-			yield* repository.hasIntegrationReferences({ userId: "owner", pluginSlug: "fixture" }),
-		).toBe(true);
-	}).pipe(Effect.provide(makeLayer({ integrationRows: [{ id: "integration-id" }] }))),
-);
+			yield* repository.hasIntegrationReferences({
+				pluginId: "fixture-plugin-id",
+				pluginInstallationId: "installation-id",
+			}),
+		).toBe(false);
+		expect(conditions.at(0)?.params).toEqual(["fixture-plugin-id", "installation-id"]);
+	}).pipe(Effect.provide(makeLayer({ conditions })));
+});
 
 it.effect("loads active manifests without selecting plugin scripts", () => {
 	const manifest = fixtureManifest();

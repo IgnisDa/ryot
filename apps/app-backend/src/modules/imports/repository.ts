@@ -36,6 +36,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 		const createRun = Effect.fn("ImportsRepository.createRun")(function* (input: {
 			userId: UserId;
 			source: ImportRunSource;
+			pluginInstallationId: string;
 			integrationId?: IntegrationId | null;
 			inputSummary: Record<string, unknown>;
 		}) {
@@ -48,6 +49,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 						source: input.source,
 						inputSummary: input.inputSummary,
 						integrationId: input.integrationId ?? null,
+						pluginInstallationId: input.pluginInstallationId,
 					})
 					.returning(),
 			);
@@ -58,8 +60,8 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 		});
 
 		const getRunById = Effect.fn("ImportsRepository.getRunById")(function* (input: {
-			runId: ImportRunId;
 			userId: UserId;
+			runId: ImportRunId;
 		}) {
 			const db = yield* Database;
 			const [row] = yield* mapDatabaseErrors(

@@ -20,8 +20,9 @@ import {
 
 const state = {
 	source: "goodreads",
-	pluginSlug: "media",
+	pluginId: "media-plugin-id",
 	uploadIntentIds: ["intent-1"],
+	pluginInstallationId: "media-installation",
 	namedArtifactPaths: { file: "/tmp/export.csv" },
 	sourcePayload: { apiKey: "secret", file: "file" },
 	workflowScriptId: SandboxScriptId.make("script-1"),
