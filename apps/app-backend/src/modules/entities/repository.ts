@@ -439,16 +439,16 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 		});
 
 		return {
-			listMatchCandidatesBySchema,
-			getEntitySchemaScopeForUser,
+			saveEntity,
+			getByIdForUser,
+			findEntitySchemaById,
 			getEntityScopeForUser,
 			getEntityMergeScopeForUser,
-			getByIdForUser,
-			findEntityByExternalIdForUser,
-			findGlobalEntityByExternalId,
-			findEntitySchemaById,
+			listMatchCandidatesBySchema,
+			getEntitySchemaScopeForUser,
 			findEntitySchemaScriptBySlug,
-			saveEntity,
+			findGlobalEntityByExternalId,
+			findEntityByExternalIdForUser,
 		};
 	},
 }) {}

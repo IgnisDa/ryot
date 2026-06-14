@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { Effect } from "effect";
 
 import { CurrentDb, dbEffect } from "#lib/db";
@@ -38,19 +38,6 @@ export type AfterCreateTriggerRow = {
 	readonly sandboxScriptId: SandboxScriptId;
 };
 
-const listedEventSelection = {
-	id: schema.event.id,
-	entityId: schema.event.entityId,
-	createdAt: schema.event.createdAt,
-	updatedAt: schema.event.updatedAt,
-	occurredAt: schema.event.occurredAt,
-	properties: schema.event.properties,
-	eventSchemaName: schema.eventSchema.name,
-	eventSchemaSlug: schema.eventSchema.slug,
-	eventSchemaId: schema.event.eventSchemaId,
-	sessionEntityId: schema.event.sessionEntityId,
-};
-
 const createdEventSelection = {
 	id: schema.event.id,
 	entityId: schema.event.entityId,
@@ -77,39 +64,47 @@ const toListedEvent = (row: EventRow): ListedEvent => ({
 
 export class EventsRepository extends Effect.Service<EventsRepository>()("EventsRepository", {
 	sync: () => {
-		const listForUser = Effect.fn("EventsRepository.listForUser")(function* (input: {
-			userId: UserId;
-			entityId?: EntityId;
-			sessionEntityId?: EntityId;
-			eventSchemaSlug?: string;
-		}) {
-			const db = yield* CurrentDb;
-			const conditions = [eq(schema.event.userId, input.userId)];
-			if (input.entityId) {
-				conditions.push(eq(schema.event.entityId, input.entityId));
-			}
-			if (input.sessionEntityId) {
-				conditions.push(eq(schema.event.sessionEntityId, input.sessionEntityId));
-			}
-			if (input.eventSchemaSlug) {
-				conditions.push(eq(schema.eventSchema.slug, input.eventSchemaSlug));
-			}
+		const listQueryScopesForUser = Effect.fn("EventsRepository.listQueryScopesForUser")(
+			function* (input: { userId: UserId; sessionEntityId: EntityId; eventSchemaSlug?: string }) {
+				const db = yield* CurrentDb;
+				const conditions = [
+					eq(schema.event.userId, input.userId),
+					eq(schema.event.sessionEntityId, input.sessionEntityId),
+					or(eq(schema.entity.userId, input.userId), isNull(schema.entity.userId)),
+					or(eq(schema.eventSchema.userId, input.userId), isNull(schema.eventSchema.userId)),
+				];
+				if (input.eventSchemaSlug) {
+					conditions.push(eq(schema.eventSchema.slug, input.eventSchemaSlug));
+				}
 
-			const rows = yield* dbEffect(() =>
-				db
-					.select(listedEventSelection)
-					.from(schema.event)
-					.innerJoin(schema.eventSchema, eq(schema.event.eventSchemaId, schema.eventSchema.id))
-					.where(and(...conditions))
-					.orderBy(
-						desc(schema.event.occurredAt),
-						desc(schema.event.createdAt),
-						desc(schema.event.id),
-					),
-			);
+				const rows = yield* dbEffect(() =>
+					db
+						.select({
+							eventSchemaSlug: schema.eventSchema.slug,
+							entitySchemaSlug: schema.entitySchema.slug,
+						})
+						.from(schema.event)
+						.innerJoin(schema.eventSchema, eq(schema.event.eventSchemaId, schema.eventSchema.id))
+						.innerJoin(schema.entity, eq(schema.event.entityId, schema.entity.id))
+						.innerJoin(
+							schema.entitySchema,
+							eq(schema.entity.entitySchemaId, schema.entitySchema.id),
+						)
+						.where(and(...conditions))
+						.orderBy(schema.entitySchema.slug, schema.eventSchema.slug),
+				);
 
-			return rows.map(toListedEvent);
-		});
+				const seen = new Set<string>();
+				return rows.filter((row) => {
+					const key = `${row.entitySchemaSlug}:${row.eventSchemaSlug}`;
+					if (seen.has(key)) {
+						return false;
+					}
+					seen.add(key);
+					return true;
+				});
+			},
+		);
 
 		const createEvent = Effect.fn("EventsRepository.createEvent")(function* (input: {
 			id?: EventId;
@@ -288,12 +283,12 @@ export class EventsRepository extends Effect.Service<EventsRepository>()("Events
 		);
 
 		return {
-			listForUser,
 			createEvent,
+			listQueryScopesForUser,
 			deleteUserEventsForEntity,
+			getActiveAfterCreateTriggers,
 			moveUserEventsBetweenEntities,
 			getActiveBeforeCreateTriggers,
-			getActiveAfterCreateTriggers,
 		};
 	},
 }) {}

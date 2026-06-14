@@ -109,6 +109,91 @@ export const buildOrderBySql = (
 		sql`, `,
 	);
 
+type WherePushdownTarget = { alias: string };
+
+type WherePushdownResult = {
+	readonly conditions: ReturnType<typeof sql>[];
+	readonly residual: Expr | null;
+};
+
+const PUSHDOWN_TEXT_SYSTEM_FIELDS = new Set(["id", "entityId", "sessionEntityId"]);
+
+const nonEmptyAndExpr = (values: Expr[]): Expr | null => {
+	const [first, ...rest] = values;
+	if (first === undefined) {
+		return null;
+	}
+	if (rest.length === 0) {
+		return first;
+	}
+
+	return { type: "and", values: [first, ...rest] };
+};
+
+const comparisonPushdownSql = (
+	expr: Extract<Expr, { type: "comparison" }>,
+	resolve: (ref: Extract<Expr, { type: "ref" }>) => WherePushdownTarget | null,
+): ReturnType<typeof sql> | null => {
+	if (expr.operator !== "eq") {
+		return null;
+	}
+
+	const ref = expr.left.type === "ref" ? expr.left : expr.right.type === "ref" ? expr.right : null;
+	const literal =
+		expr.left.type === "literal" ? expr.left : expr.right.type === "literal" ? expr.right : null;
+	if (!ref || !literal || ref.field.type !== "system") {
+		return null;
+	}
+	if (typeof literal.value !== "string" || !PUSHDOWN_TEXT_SYSTEM_FIELDS.has(ref.field.name)) {
+		return null;
+	}
+
+	const target = resolve(ref);
+	if (!target) {
+		return null;
+	}
+
+	const fieldSql = systemFieldSql(ref.field.name, target.alias);
+	return fieldSql ? sql`${fieldSql} = ${literal.value}` : null;
+};
+
+const extractSystemFieldWherePushdown = (
+	expr: Expr,
+	resolve: (ref: Extract<Expr, { type: "ref" }>) => WherePushdownTarget | null,
+): WherePushdownResult => {
+	if (expr.type === "comparison") {
+		const condition = comparisonPushdownSql(expr, resolve);
+		return condition
+			? { conditions: [condition], residual: null }
+			: { conditions: [], residual: expr };
+	}
+
+	if (expr.type !== "and") {
+		return { conditions: [], residual: expr };
+	}
+
+	const conditions: ReturnType<typeof sql>[] = [];
+	const residuals: Expr[] = [];
+	for (const value of expr.values) {
+		const result = extractSystemFieldWherePushdown(value, resolve);
+		conditions.push(...result.conditions);
+		if (result.residual) {
+			residuals.push(result.residual);
+		}
+	}
+
+	return { conditions, residual: nonEmptyAndExpr(residuals) };
+};
+
+export const rootWherePushdown = (
+	where: Expr | null,
+	resolve: (ref: Extract<Expr, { type: "ref" }>) => WherePushdownTarget | null,
+): WherePushdownResult =>
+	where ? extractSystemFieldWherePushdown(where, resolve) : { conditions: [], residual: null };
+
+export const wherePushdownSql = (conditions: readonly ReturnType<typeof sql>[]) =>
+	conditions.length > 0 ? sql`AND ${sql.join([...conditions], sql` AND `)}` : sql``;
+
 export const entitySelectColumnsSql = sql`
 	e.id,
 	e.name,

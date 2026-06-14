@@ -21,6 +21,8 @@ import {
 	eventSelectColumnsSql,
 	relationshipRootOrderSql,
 	relationshipRootSelectSql,
+	rootWherePushdown,
+	wherePushdownSql,
 } from "./sql";
 import {
 	MAX_ROOT_FILTER_SCAN_ROWS,
@@ -134,6 +136,9 @@ const executeEntityRowsQuery = Effect.fn("executeEntityRowsQuery")(function* (
 		alias: "e",
 		schemas: source.schemas,
 	}));
+	const pushdown = rootWherePushdown(source.where, (ref) =>
+		ref.sourceAlias === source.alias ? { alias: "e" } : null,
+	);
 	const db = yield* CurrentDb;
 	const rawRows = yield* dbEffect(() =>
 		db.execute<EntityQueryRow>(sql`
@@ -145,14 +150,15 @@ const executeEntityRowsQuery = Effect.fn("executeEntityRowsQuery")(function* (
 				WHERE
 					e.entity_schema_id IN (${schemaIdsSql})
 					AND (e.user_id = ${userId} OR e.user_id IS NULL)
+					${wherePushdownSql(pushdown.conditions)}
 				ORDER BY ${orderSql}
-				${paginationSql(output.pagination, source.where, offset)}
+				${paginationSql(output.pagination, pushdown.residual, offset)}
 			`),
 	);
 
 	const { rows, total } = yield* resolveRootPage(
 		userId,
-		source.where,
+		pushdown.residual,
 		rawRows.rows,
 		offset,
 		output.pagination.limit,
@@ -195,6 +201,13 @@ const executeEventRowsQuery = Effect.fn("executeEventRowsQuery")(function* (
 	);
 	const offset = (output.pagination.page - 1) * output.pagination.limit;
 	const orderSql = eventRootOrderSql(source, output);
+	const pushdown = rootWherePushdown(source.where, (ref) =>
+		ref.sourceAlias === source.alias
+			? { alias: "ev" }
+			: ref.sourceAlias === source.entity.alias
+				? { alias: "e" }
+				: null,
+	);
 	const db = yield* CurrentDb;
 	const rawRows = yield* dbEffect(() =>
 		db.execute<EventQueryRow>(sql`
@@ -211,14 +224,15 @@ const executeEventRowsQuery = Effect.fn("executeEventRowsQuery")(function* (
 					AND ev.event_schema_id IN (${eventSchemaIdsSql})
 					AND e.entity_schema_id IN (${entitySchemaIdsSql})
 					AND (e.user_id = ${userId} OR e.user_id IS NULL)
+					${wherePushdownSql(pushdown.conditions)}
 				ORDER BY ${orderSql}
-				${paginationSql(output.pagination, source.where, offset)}
+				${paginationSql(output.pagination, pushdown.residual, offset)}
 			`),
 	);
 
 	const { rows, total } = yield* resolveRootPage(
 		userId,
-		source.where,
+		pushdown.residual,
 		rawRows.rows,
 		offset,
 		output.pagination.limit,
