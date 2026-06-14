@@ -10,18 +10,12 @@ import {
 } from "#lib/display-configuration";
 import type { BadRequest } from "#lib/errors";
 import { badRequest } from "#lib/errors";
-import type { AppPropertyDefinition, AppSchema } from "#lib/schema/property-schema";
+import type { AppPropertyDefinition } from "#lib/schema/property-schema";
+import type { VisibleEntityPropertySchema } from "#modules/query-engine/executor/schema-loaders";
 import type { QueryDocument } from "#modules/query-engine/language";
+import type { CoarseType } from "#modules/query-engine/validator/type-check";
 
-type DisplayExpressionType =
-	| "boolean"
-	| "date"
-	| "image"
-	| "null"
-	| "number"
-	| "string"
-	| "unknown";
-export type DisplayEntitySchema = { readonly slug: string; readonly propertiesSchema: AppSchema };
+type DisplayExpressionType = CoarseType | "image" | "null";
 
 const entityBuiltinTypeMap = {
 	createdAt: "date",
@@ -83,7 +77,7 @@ const normalizePropertyType = (
 };
 
 const getPropertyDefinition = (
-	schema: DisplayEntitySchema,
+	schema: VisibleEntityPropertySchema,
 	propertyPath: readonly string[],
 ): AppPropertyDefinition | null => {
 	const [first, ...rest] = propertyPath;
@@ -220,7 +214,7 @@ const unifyDisplayExpressionTypes = (
 
 const inferReferenceType = (
 	reference: RuntimeRef,
-	schemaMap: ReadonlyMap<string, DisplayEntitySchema>,
+	schemaMap: ReadonlyMap<string, VisibleEntityPropertySchema>,
 ): Effect.Effect<DisplayExpressionType, BadRequest> => {
 	if (reference.type === "computed-field") {
 		return Effect.succeed("unknown");
@@ -283,7 +277,7 @@ const inferReferenceType = (
 
 const validateDisplayFilter = (
 	filter: QueryFilter,
-	schemaMap: ReadonlyMap<string, DisplayEntitySchema>,
+	schemaMap: ReadonlyMap<string, VisibleEntityPropertySchema>,
 ): Effect.Effect<void, BadRequest> => {
 	if (filter.type === "not") {
 		return validateDisplayFilter(filter.predicate, schemaMap);
@@ -323,7 +317,7 @@ const validateDisplayFilter = (
 
 const inferDisplayExpressionType = (
 	expr: QueryExpression,
-	schemaMap: ReadonlyMap<string, DisplayEntitySchema>,
+	schemaMap: ReadonlyMap<string, VisibleEntityPropertySchema>,
 ): Effect.Effect<DisplayExpressionType, BadRequest> => {
 	if (expr.type === "literal") {
 		if (expr.value === null || expr.value === undefined) {
@@ -409,11 +403,11 @@ const collectDisplayExpressions = (displayConfig: DisplayConfiguration): QueryEx
 export const validateDisplayConfiguration = Effect.fn("validateDisplayConfiguration")(function* <
 	E,
 >(input: {
-	displayConfig: DisplayConfiguration;
 	doc: QueryDocument;
+	displayConfig: DisplayConfiguration;
 	loadSchemas: (
 		slugs: readonly [string, ...string[]],
-	) => Effect.Effect<readonly DisplayEntitySchema[], E>;
+	) => Effect.Effect<readonly VisibleEntityPropertySchema[], E>;
 }) {
 	if (input.displayConfig.table.columns.length === 0) {
 		return yield* badRequest("At least one table column is required");
