@@ -1,7 +1,65 @@
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
-import { UpdatePluginInstallationBody } from "./schemas";
+import { PluginManifest } from "./manifest";
+import { UpdatePluginInstallationBody, UpdatePrivatePluginBody } from "./schemas";
+
+const packagePayload = {
+	files: {},
+	manifest: Schema.decodeUnknownSync(PluginManifest)({
+		boot: [],
+		crons: [],
+		scripts: [],
+		providers: [],
+		workflows: [],
+		operations: [],
+		savedViews: [],
+		importSources: [],
+		userBootstrap: [],
+		signalSchemas: [],
+		entitySchemas: [],
+		httpRateLimits: [],
+		relationshipSchemas: [],
+		integrationProviders: [],
+		configSchema: { fields: {}, unknownKeys: "strict" },
+		metadata: {
+			icon: "fixture",
+			name: "Fixture",
+			slug: "fixture",
+			version: "2.0.0",
+			description: "Fixture",
+		},
+		bindings: {
+			eventAutomations: [],
+			entityAutomations: [],
+			signalAutomations: [],
+			relationshipAutomations: [],
+			providerEntityImportAutomations: [],
+		},
+	}),
+};
+
+describe("UpdatePrivatePluginBody", () => {
+	it("decodes a complete package and config patch", () => {
+		expect(
+			Schema.decodeUnknownSync(UpdatePrivatePluginBody)({
+				...packagePayload,
+				unsetConfigKeys: ["region"],
+				config: { token: "replacement" },
+			}),
+		).toEqual({ ...packagePayload, unsetConfigKeys: ["region"], config: { token: "replacement" } });
+	});
+
+	it("rejects incomplete packages and excess fields", () => {
+		for (const input of [
+			{ ...packagePayload, files: undefined },
+			{ ...packagePayload, manifest: undefined },
+			{ ...packagePayload, unknown: true },
+		]) {
+			expect(() => Schema.decodeUnknownSync(UpdatePrivatePluginBody)(input)).toThrow();
+		}
+	});
+});
 
 describe("UpdatePluginInstallationBody", () => {
 	it("decodes config replacements, explicit unsets, and controls", () => {

@@ -141,6 +141,32 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			return yield* toStoredPlugins(rows);
 		});
 
+		const findPrivateByIdForUser = Effect.fn("PluginRepository.findPrivateByIdForUser")(function* (
+			pluginId: string,
+			userId: string,
+		) {
+			const db = yield* Database;
+			const [row] = yield* mapDatabaseErrors(
+				db
+					.select()
+					.from(schema.plugin)
+					.where(
+						and(
+							eq(schema.plugin.id, pluginId),
+							eq(schema.plugin.status, "active"),
+							eq(schema.plugin.scope, "user"),
+							eq(schema.plugin.ownerId, userId),
+						),
+					)
+					.limit(1),
+			);
+			if (!row) {
+				return null;
+			}
+			const scripts = yield* loadScripts([row]);
+			return yield* toStoredPlugin(row, scripts);
+		});
+
 		const listActiveManifests = Effect.fn("PluginRepository.listActiveManifests")(function* () {
 			const db = yield* Database;
 			const rows = yield* mapDatabaseErrors(
@@ -236,13 +262,18 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 		);
 
 		const hasIntegrationReferences = Effect.fn("PluginRepository.hasIntegrationReferences")(
-			function* (pluginSlug: string) {
+			function* (input: { userId?: string; pluginSlug: string }) {
 				const db = yield* Database;
 				const [row] = yield* mapDatabaseErrors(
 					db
 						.select({ id: schema.integration.id })
 						.from(schema.integration)
-						.where(eq(schema.integration.pluginSlug, pluginSlug))
+						.where(
+							and(
+								eq(schema.integration.pluginSlug, input.pluginSlug),
+								input.userId ? eq(schema.integration.userId, input.userId) : undefined,
+							),
+						)
 						.limit(1),
 				);
 				return row !== undefined;
@@ -536,6 +567,45 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			);
 		});
 
+		const deleteInactiveUnreferencedPlugins = Effect.fn(
+			"PluginRepository.deleteInactiveUnreferencedPlugins",
+		)(function* () {
+			const db = yield* Database;
+			return yield* mapDatabaseErrors(
+				db
+					.delete(schema.plugin)
+					.where(
+						and(
+							eq(schema.plugin.scope, "user"),
+							eq(schema.plugin.status, "inactive"),
+							notExists(
+								db
+									.select({ id: schema.pluginInstallation.id })
+									.from(schema.pluginInstallation)
+									.where(eq(schema.pluginInstallation.pluginId, schema.plugin.id)),
+							),
+							notExists(
+								db
+									.select({ executionId: schema.sandboxWorkflowReference.executionId })
+									.from(schema.sandboxWorkflowReference)
+									.where(eq(schema.sandboxWorkflowReference.pluginId, schema.plugin.id)),
+							),
+							notExists(
+								db
+									.select({ id: schema.entity.id })
+									.from(schema.entity)
+									.innerJoin(
+										schema.sandboxProvider,
+										eq(schema.entity.providerId, schema.sandboxProvider.id),
+									)
+									.where(eq(schema.sandboxProvider.pluginId, schema.plugin.id)),
+							),
+						),
+					)
+					.returning({ id: schema.plugin.id }),
+			);
+		});
+
 		const deleteUnreferencedScripts = Effect.fn("PluginRepository.deleteUnreferencedScripts")(
 			function* (liveContentHashes: ReadonlySet<string>) {
 				const db = yield* Database;
@@ -625,9 +695,11 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			hasEntityReferences,
 			listActiveManifests,
 			resolveProviderBySlugs,
+			findPrivateByIdForUser,
 			hasIntegrationReferences,
 			deleteUnreferencedScripts,
 			listPortablePluginMetadata,
+			deleteInactiveUnreferencedPlugins,
 			listPersistedLivenessContentHashes,
 		};
 	}),

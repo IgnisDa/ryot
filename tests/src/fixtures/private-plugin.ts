@@ -9,6 +9,7 @@ import { pluginConfigOperationSandboxSource } from "./sandbox-source";
 import { testPluginManifest } from "./test-plugin";
 
 type InstallPluginPayload = ContractPayload<"plugins", "install">;
+type UpdatePluginPayload = ContractPayload<"plugins", "update">;
 type PrivatePluginManifest = InstallPluginPayload["manifest"];
 
 export type PrivatePluginPackage = {
@@ -121,4 +122,13 @@ export const invokePrivatePluginOperation = (input: {
 			payload: { payload: { prefix: input.prefix } },
 			params: { pluginSlug: input.pluginSlug, operationSlug: input.operationSlug },
 		}),
+	);
+
+export const updatePrivatePlugin = (input: {
+	readonly client: Client;
+	readonly pluginSlug: PluginSlug;
+	readonly payload: UpdatePluginPayload;
+}) =>
+	input.client.call((c) =>
+		c.plugins.update({ payload: input.payload, params: { pluginSlug: input.pluginSlug } }),
 	);

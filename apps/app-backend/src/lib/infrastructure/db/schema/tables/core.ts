@@ -192,6 +192,9 @@ export const sandboxWorkflowReference = snakeCase.table(
 	{
 		contentHash: text().notNull(),
 		executionId: text().primaryKey(),
+		pluginInstallationId: text().references(() => pluginInstallation.id, {
+			onDelete: "restrict",
+		}),
 		pluginId: text()
 			.notNull()
 			.references(() => plugin.id, { onDelete: "cascade" }),
@@ -202,5 +205,6 @@ export const sandboxWorkflowReference = snakeCase.table(
 	(table) => [
 		index("sandbox_workflow_reference_plugin_id_idx").on(table.pluginId),
 		index("sandbox_workflow_reference_script_id_idx").on(table.scriptId),
+		index("sandbox_workflow_reference_plugin_installation_id_idx").on(table.pluginInstallationId),
 	],
 );
