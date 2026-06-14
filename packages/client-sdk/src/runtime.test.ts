@@ -540,6 +540,7 @@ describe("plugin runtime", () => {
 		await delay();
 
 		expect(properties.get("--bg")).toBe("light-bg");
+		expect(properties.get("--nav-indicator")).toBe("light-nav-indicator");
 		expect(properties.has("--future")).toBe(false);
 		expect(messages).toContainEqual({ generation: 17, type: "theme-applied" });
 		const query = runtime.client.data.query({ document, decode: Result.succeed });

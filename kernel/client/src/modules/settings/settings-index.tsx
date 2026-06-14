@@ -1,17 +1,16 @@
-import { getRouteApi, useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 
 import { useDesktopEffect } from "#/modules/navigation/breakpoint";
+import { useRememberedWorkspaceSlug } from "#/modules/navigation/authenticated-shell";
 import { resolveRememberedWorkspace } from "#/modules/navigation/workspace-state";
 import { usePluginCatalog } from "#/modules/plugins/catalog-provider";
 import { SettingsSectionNav } from "#/modules/settings/section-nav";
 import { SettingsFrame } from "#/modules/settings/settings-frame";
 
-const authenticatedRoute = getRouteApi("/_authenticated");
-
 export function SettingsIndex() {
 	const navigate = useNavigate();
 	const { catalog } = usePluginCatalog();
-	const { rememberedSlug } = authenticatedRoute.useLoaderData();
+	const rememberedSlug = useRememberedWorkspaceSlug();
 	const workspace = resolveRememberedWorkspace(catalog, rememberedSlug);
 	const backFallbackHref = workspace === null ? "/" : `/${workspace.slug}`;
 

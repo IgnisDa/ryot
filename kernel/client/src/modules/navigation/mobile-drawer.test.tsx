@@ -156,7 +156,7 @@ describe("mobile drawer", () => {
 
 		await openDrawer();
 		fireEvent.click(screen.getByRole("button", { name: "Media workspace, media" }));
-		fireEvent.click(screen.getByRole("button", { name: "Switch to Journal workspace" }));
+		fireEvent.click(screen.getByRole("menuitemradio", { name: "Switch to Journal workspace" }));
 
 		await waitFor(() => expect(selected).toEqual({ slug: "journal", open: false }));
 	});
