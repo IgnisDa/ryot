@@ -20,22 +20,31 @@ describe("schema list validation", () => {
 });
 
 describe("system field validation", () => {
-	it.each(["id", "name", "image", "createdAt", "updatedAt", "externalId", "sandboxScriptId"])(
-		"accepts valid system field '%s'",
-		(name) => {
-			const doc = makeDoc({
-				output: {
-					type: "rows",
-					pagination: { page: 1, limit: 10 },
-					orderBy: [{ order: "asc", expr: nameRef("e") }],
-					fields: [
-						{ key: "f", expr: { type: "ref", sourceAlias: "e", field: { type: "system", name } } },
-					],
-				},
-			});
-			expect(validateQueryDocument(doc)).toBeNull();
-		},
-	);
+	it.each([
+		"id",
+		"name",
+		"image",
+		"userId",
+		"createdAt",
+		"updatedAt",
+		"externalId",
+		"populatedAt",
+		"properties",
+		"entitySchemaId",
+		"sandboxScriptId",
+	])("accepts valid system field '%s'", (name) => {
+		const doc = makeDoc({
+			output: {
+				type: "rows",
+				pagination: { page: 1, limit: 10 },
+				orderBy: [{ order: "asc", expr: nameRef("e") }],
+				fields: [
+					{ key: "f", expr: { type: "ref", sourceAlias: "e", field: { type: "system", name } } },
+				],
+			},
+		});
+		expect(validateQueryDocument(doc)).toBeNull();
+	});
 
 	it("rejects an unknown system field name", () => {
 		const doc = makeDoc({

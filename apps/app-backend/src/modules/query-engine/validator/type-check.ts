@@ -21,17 +21,26 @@ const entitySystemTypeMap: Record<string, CoarseType> = {
 	id: "string",
 	name: "string",
 	image: "string",
+	userId: "string",
 	createdAt: "date",
 	updatedAt: "date",
+	populatedAt: "date",
 	externalId: "string",
+	properties: "unknown",
+	entitySchemaId: "string",
 	sandboxScriptId: "string",
 };
 
 const eventSystemTypeMap: Record<string, CoarseType> = {
 	id: "string",
+	userId: "string",
 	createdAt: "date",
 	updatedAt: "date",
+	entityId: "string",
 	occurredAt: "date",
+	properties: "unknown",
+	eventSchemaId: "string",
+	sessionEntityId: "string",
 };
 
 const relationshipSystemTypeMap: Record<string, CoarseType> = {

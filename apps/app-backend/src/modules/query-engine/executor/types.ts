@@ -21,12 +21,14 @@ export type BaseEntityQueryRow = {
 	schemaId: string;
 	schemaSlug: string;
 	schemaName: string;
+	userId: string | null;
 	schemaIsBuiltin: boolean;
 	createdAt: Date | string;
 	updatedAt: Date | string;
 	externalId: string | null;
 	totalCount: string | bigint;
 	sandboxScriptId: string | null;
+	populatedAt: Date | string | null;
 	properties: Record<string, unknown>;
 };
 
@@ -47,13 +49,16 @@ export type IncludeQueryRow = BaseEntityQueryRow & RelationshipFields;
 
 export type EventFields = {
 	eventId: string;
+	eventUserId: string;
 	eventSchemaId: string;
+	eventEntityId: string;
 	eventSchemaSlug: string;
 	eventSchemaName: string;
 	eventSchemaIsBuiltin: boolean;
 	eventCreatedAt: Date | string;
 	eventUpdatedAt: Date | string;
 	eventOccurredAt: Date | string;
+	eventSessionEntityId: string | null;
 	eventProperties: Record<string, unknown>;
 };
 
