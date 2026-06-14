@@ -86,6 +86,22 @@ async function seedPopulatedProviderEntity(input: {
 	return seeded;
 }
 
+async function getProviderIds(
+	client: Client,
+	input: { schemaSlug: string; providerName: string },
+) {
+	const { schema } = await findBuiltinSchemaBySlug(client, input.schemaSlug);
+	const sandboxScriptId = schema.providers.find(
+		(provider) => provider.name === input.providerName,
+	)?.scriptId;
+	assertPresent(
+		sandboxScriptId,
+		`${input.providerName} ${input.schemaSlug} provider script not found`,
+	);
+
+	return { entitySchemaId: schema.id, sandboxScriptId };
+}
+
 async function seedPopulatedTmdbMovie(client: Client, input: { externalId: string; name: string }) {
 	return seedPopulatedTmdbEntity(client, {
 		name: input.name,
@@ -398,6 +414,79 @@ describe("GET /entities/:entityId — translation overlay", () => {
 		expect(overlay?.image ?? null).toBeNull();
 		expect(await countEntityTranslations(music.id)).toBe(1);
 	}, 150_000);
+
+	it("fetches localized TVDB movie, person, and episode overlays", async () => {
+		const { client, userId } = await createAuthenticatedClient();
+		const movieIds = await getProviderIds(client, {
+			schemaSlug: "movie",
+			providerName: "TVDB",
+		});
+		const personIds = await getProviderIds(client, {
+			schemaSlug: "person",
+			providerName: "TVDB",
+		});
+		const showIds = await getProviderIds(client, {
+			schemaSlug: "show",
+			providerName: "TVDB",
+		});
+		const episodeSchemaId = await getBuiltinEntitySchemaId("show-episode");
+
+		const movie = await seedPopulatedProviderEntity({
+			externalId: "247",
+			name: "Canonical TVDB Fight Club",
+			entitySchemaId: movieIds.entitySchemaId,
+			sandboxScriptId: movieIds.sandboxScriptId,
+			properties: { description: "Canonical English TVDB movie overview." },
+		});
+		const person = await seedPopulatedProviderEntity({
+			externalId: "247858",
+			name: "Canonical TVDB Sean Bean",
+			entitySchemaId: personIds.entitySchemaId,
+			sandboxScriptId: personIds.sandboxScriptId,
+			properties: { description: "Canonical English TVDB person biography." },
+		});
+		const episode = await seedPopulatedProviderEntity({
+			externalId: "3254641",
+			entitySchemaId: episodeSchemaId,
+			sandboxScriptId: showIds.sandboxScriptId,
+			name: "Canonical TVDB Winter Is Coming",
+			properties: {
+				runtime: 61,
+				seasonNumber: 1,
+				episodeNumber: 1,
+				publishDate: "2011-04-17",
+				parentShowExternalId: "121361",
+				description: "Canonical English TVDB episode overview.",
+			},
+		});
+
+		await setUserProviderLanguage({ userId, source: "tvdb", preferredLanguage: "spa" });
+
+		const firstMovieRead = await getEntity(client, movie.id);
+		expect(firstMovieRead.translationStatus).toBe("pending");
+		expect(firstMovieRead.name).toBe("Canonical TVDB Fight Club");
+
+		const firstPersonRead = await getEntity(client, person.id);
+		expect(firstPersonRead.translationStatus).toBe("pending");
+		expect(firstPersonRead.name).toBe("Canonical TVDB Sean Bean");
+
+		const firstEpisodeRead = await getEntity(client, episode.id);
+		expect(firstEpisodeRead.translationStatus).toBe("pending");
+		expect(firstEpisodeRead.name).toBe("Canonical TVDB Winter Is Coming");
+
+		const [localizedMovieRead, localizedPersonRead, localizedEpisodeRead] = await Promise.all([
+			pollEntityUntilTranslationStatus(client, movie.id, "ready", { timeoutMs: 90_000 }),
+			pollEntityUntilTranslationStatus(client, person.id, "ready", { timeoutMs: 90_000 }),
+			pollEntityUntilTranslationStatus(client, episode.id, "ready", { timeoutMs: 90_000 }),
+		]);
+
+		expect(localizedMovieRead.name).not.toBe("Canonical TVDB Fight Club");
+		expect(localizedPersonRead.name).not.toBe("Canonical TVDB Sean Bean");
+		expect(localizedEpisodeRead.name).not.toBe("Canonical TVDB Winter Is Coming");
+		expect(await countEntityTranslations(movie.id)).toBe(1);
+		expect(await countEntityTranslations(person.id)).toBe(1);
+		expect(await countEntityTranslations(episode.id)).toBe(1);
+	}, 180_000);
 
 	it("negative-caches when the provider has no translation and does not refetch", async () => {
 		const { client, userId } = await createAuthenticatedClient();
