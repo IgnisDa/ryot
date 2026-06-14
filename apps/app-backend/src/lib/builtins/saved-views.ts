@@ -15,8 +15,8 @@ export type BuiltinSavedView = {
 	readonly accentColor?: string;
 	readonly entitySchemaSlug?: string;
 	readonly relationshipJoins?: unknown[];
-	readonly queryDefinition?: SavedViewQueryDefinition;
-	readonly displayConfiguration: DisplayConfiguration;
+	readonly queryDefinition?: typeof SavedViewQueryDefinition.Type;
+	readonly displayConfiguration: typeof DisplayConfiguration.Type;
 };
 
 const mediaEntitySchemaSlugs = [
@@ -39,9 +39,7 @@ const mediaEntitySchemaSlugs = [
 	"video-game-group",
 ] as const;
 
-type MediaEntitySchemaSlug = (typeof mediaEntitySchemaSlugs)[number];
-
-const mediaViewName: Record<MediaEntitySchemaSlug, string> = {
+const mediaViewName: Record<(typeof mediaEntitySchemaSlugs)[number], string> = {
 	book: "All Books",
 	show: "All Shows",
 	anime: "All Anime",
