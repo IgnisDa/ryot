@@ -7,19 +7,25 @@ function parseJsonResponse(responseBody) {
 }
 
 function parseReleaseYear(releaseDate, dayjs) {
-	if (typeof releaseDate !== "string" || !releaseDate.trim()) {return null;}
+	if (typeof releaseDate !== "string" || !releaseDate.trim()) {
+		return null;
+	}
 	const d = dayjs(releaseDate.trim());
 	return d.isValid() ? d.year() : null;
 }
 
 function parseReleaseDate(releaseDate, dayjs) {
-	if (typeof releaseDate !== "string" || !releaseDate.trim()) {return null;}
+	if (typeof releaseDate !== "string" || !releaseDate.trim()) {
+		return null;
+	}
 	const d = dayjs(releaseDate.trim());
 	return d.isValid() ? d.toISOString().split("T")[0] : null;
 }
 
 async function cleanHtmlDescription(html) {
-	if (typeof html !== "string" || !html.trim()) {return null;}
+	if (typeof html !== "string" || !html.trim()) {
+		return null;
+	}
 	const { load } = await import("npm:cheerio");
 	const $ = load(html);
 	$("br").replaceWith("\n");
@@ -66,7 +72,8 @@ const PAGE_SIZE = 20;
 
 driver("search", async function (context) {
 	const { z } = await import("npm:zod");
-	const dayjs = (await import("npm:dayjs")).default;
+	const dayjsModule = await import("npm:dayjs");
+	const dayjs = dayjsModule.default;
 
 	const {
 		query,
@@ -144,7 +151,8 @@ driver("search", async function (context) {
 
 driver("details", async function (context) {
 	const { z } = await import("npm:zod");
-	const dayjs = (await import("npm:dayjs")).default;
+	const dayjsModule = await import("npm:dayjs");
+	const dayjs = dayjsModule.default;
 
 	const { externalId } = z
 		.object({
@@ -287,19 +295,19 @@ driver("details", async function (context) {
 	const groupRelatedEntities = Array.isArray(product?.series)
 		? product.series
 				.map((series) => {
-					const externalId =
+					const seriesExternalId =
 						typeof series?.asin === "string" && series.asin.trim() ? series.asin.trim() : null;
 					const name =
 						typeof series?.title === "string" && series.title.trim()
 							? series.title.trim()
 							: "Loading...";
-					if (!externalId) {
+					if (!seriesExternalId) {
 						return null;
 					}
 
 					return {
 						name,
-						externalId,
+						externalId: seriesExternalId,
 						scriptSlug: "audiobook-group.audible",
 						relationshipProperties: {
 							roles: ["Member"],

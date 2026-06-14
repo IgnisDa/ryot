@@ -8,22 +8,34 @@ function parseJsonResponse(responseBody) {
 
 // VNDB partial dates are "YYYY-MM-DD", "YYYY-MM", or "YYYY".
 function extractYear(released, dayjs) {
-	if (typeof released !== "string" || !released.trim()) {return null;}
+	if (typeof released !== "string" || !released.trim()) {
+		return null;
+	}
 	const d = dayjs(released.trim());
 	return d.isValid() ? d.year() : null;
 }
 
 function extractDate(released) {
-	if (typeof released !== "string" || !released.trim()) {return null;}
+	if (typeof released !== "string" || !released.trim()) {
+		return null;
+	}
 	const trimmed = released.trim();
-	if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {return null;}
+	if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+		return null;
+	}
 	return trimmed;
 }
 
 function devstatusToString(devstatus) {
-	if (devstatus === 0) {return "Finished";}
-	if (devstatus === 1) {return "In development";}
-	if (devstatus === 2) {return "Cancelled";}
+	if (devstatus === 0) {
+		return "Finished";
+	}
+	if (devstatus === 1) {
+		return "In development";
+	}
+	if (devstatus === 2) {
+		return "Cancelled";
+	}
 	return null;
 }
 
@@ -67,7 +79,8 @@ const DETAIL_FIELDS =
 
 driver("search", async function (context) {
 	const { z } = await import("npm:zod");
-	const dayjs = (await import("npm:dayjs")).default;
+	const dayjsModule = await import("npm:dayjs");
+	const dayjs = dayjsModule.default;
 
 	const {
 		query,
@@ -161,7 +174,8 @@ driver("search", async function (context) {
 
 driver("details", async function (context) {
 	const { z } = await import("npm:zod");
-	const dayjs = (await import("npm:dayjs")).default;
+	const dayjsModule = await import("npm:dayjs");
+	const dayjs = dayjsModule.default;
 
 	const { externalId } = z
 		.object({

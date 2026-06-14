@@ -14,7 +14,9 @@ async function getHardcoverApiKey() {
 		throw new Error(resp?.error ?? "Could not load Hardcover API key");
 	}
 	const apiKey = typeof resp.data === "string" ? resp.data.trim() : "";
-	if (!apiKey) {throw new Error("BOOKS_HARDCOVER_API_KEY is not configured");}
+	if (!apiKey) {
+		throw new Error("BOOKS_HARDCOVER_API_KEY is not configured");
+	}
 	return apiKey;
 }
 
@@ -64,7 +66,9 @@ query {
 			? payload.data.search.results
 			: null;
 
-	if (!resultsData) {throw new Error("Hardcover returned invalid response structure");}
+	if (!resultsData) {
+		throw new Error("Hardcover returned invalid response structure");
+	}
 
 	const totalItems =
 		typeof resultsData.found === "number" ? Math.max(0, Math.trunc(resultsData.found)) : 0;
@@ -73,11 +77,17 @@ query {
 	const items = hits
 		.map((hit) => {
 			const doc = hit?.document;
-			if (!doc || typeof doc !== "object") {return null;}
+			if (!doc || typeof doc !== "object") {
+				return null;
+			}
 			const id = doc.id != null ? String(doc.id).trim() : null;
-			if (!id) {return null;}
+			if (!id) {
+				return null;
+			}
 			const name = typeof doc.name === "string" && doc.name.trim() ? doc.name.trim() : null;
-			if (!name) {return null;}
+			if (!name) {
+				return null;
+			}
 			const parts = typeof doc.books_count === "number" ? doc.books_count : null;
 			const imageUrl =
 				doc.image && typeof doc.image === "object" && typeof doc.image.url === "string"
@@ -145,7 +155,9 @@ driver("details", async function (context) {
 	}
 
 	const title = typeof data.name === "string" && data.name.trim() ? data.name.trim() : null;
-	if (!title) {throw new Error("Hardcover series is missing name");}
+	if (!title) {
+		throw new Error("Hardcover series is missing name");
+	}
 
 	const description =
 		typeof data.description === "string" && data.description.trim()
@@ -158,9 +170,13 @@ driver("details", async function (context) {
 	const relatedEntities = bookSeriesEntries
 		.map((entry, idx) => {
 			const book = entry?.book;
-			if (!book || typeof book !== "object") {return null;}
+			if (!book || typeof book !== "object") {
+				return null;
+			}
 			const memberId = book.id != null ? String(book.id).trim() : null;
-			if (!memberId) {return null;}
+			if (!memberId) {
+				return null;
+			}
 			const memberName =
 				typeof book.title === "string" && book.title.trim() ? book.title.trim() : "Loading...";
 			return {

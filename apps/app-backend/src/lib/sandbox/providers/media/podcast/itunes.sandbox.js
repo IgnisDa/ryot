@@ -43,14 +43,18 @@ function getCanonicalLanguage(metadata) {
 
 function getPublishYear(value, dayjs) {
 	const s = getNullableString(value);
-	if (!s) {return null;}
+	if (!s) {
+		return null;
+	}
 	const d = dayjs(s);
 	return d.isValid() ? Number(d.toISOString().slice(0, 4)) : null;
 }
 
 function getIsoDate(value, dayjs) {
 	const s = getNullableString(value);
-	if (!s) {return null;}
+	if (!s) {
+		return null;
+	}
 	const d = dayjs(s);
 	return d.isValid() ? d.toISOString().slice(0, 10) : null;
 }
@@ -132,8 +136,12 @@ function getPodcastTranslationResult(item) {
 
 	result.name = name;
 	const properties = {};
-	if (description) {properties.description = description;}
-	if (Object.keys(properties).length > 0) {result.properties = properties;}
+	if (description) {
+		properties.description = description;
+	}
+	if (Object.keys(properties).length > 0) {
+		result.properties = properties;
+	}
 	return result;
 }
 
@@ -151,14 +159,19 @@ function getPodcastEpisodeTranslationResult(item) {
 
 	result.name = name;
 	const properties = {};
-	if (description) {properties.description = description;}
-	if (Object.keys(properties).length > 0) {result.properties = properties;}
+	if (description) {
+		properties.description = description;
+	}
+	if (Object.keys(properties).length > 0) {
+		result.properties = properties;
+	}
 	return result;
 }
 
 driver("search", async function (context) {
 	const { z } = await import("npm:zod");
-	const dayjs = (await import("npm:dayjs")).default;
+	const dayjsModule = await import("npm:dayjs");
+	const dayjs = dayjsModule.default;
 
 	const {
 		query,
@@ -225,7 +238,8 @@ driver("search", async function (context) {
 
 driver("details", async function (context, { metadata }) {
 	const { z } = await import("npm:zod");
-	const dayjs = (await import("npm:dayjs")).default;
+	const dayjsModule = await import("npm:dayjs");
+	const dayjs = dayjsModule.default;
 
 	const { externalId } = z
 		.object({
@@ -304,7 +318,10 @@ driver("details", async function (context, { metadata }) {
 			}
 			return left.id.localeCompare(right.id);
 		})
-		.map((episode, index) => ({ ...episode, number: index + 1 }));
+		.map((episode, index) => {
+			episode.number = index + 1;
+			return episode;
+		});
 
 	const image = collectImages(podcast);
 	const publishYear = getPublishYear(podcast?.releaseDate, dayjs);
@@ -312,7 +329,7 @@ driver("details", async function (context, { metadata }) {
 	const childEntities = episodes.map((episode) => ({
 		entitySchemaSlug: "podcast-episode",
 		externalId: episode.id,
-		name: episode.title || `Episode ${episode.number}`,
+		name: episode.title ?? `Episode ${episode.number}`,
 		image: episode.thumbnail ? { type: "remote", url: episode.thumbnail } : null,
 		properties: {
 			runtime: episode.runtime,

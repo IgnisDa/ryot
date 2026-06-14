@@ -86,7 +86,9 @@ const BASE_URL = "https://www.giantbomb.com/api";
 const GUID_PATTERN = /^\d+-\d+$/;
 
 function extractGiantBombGuid(apiUrl) {
-	if (typeof apiUrl !== "string" || !apiUrl) {return "";}
+	if (typeof apiUrl !== "string" || !apiUrl) {
+		return "";
+	}
 	const parts = apiUrl.split("/").filter((s) => s.length > 0);
 	return parts[parts.length - 1] ?? "";
 }
@@ -144,10 +146,7 @@ driver("search", async function (context) {
 			if (!externalId) {
 				// Fallback: extract guid from api_detail_url
 				const apiUrl = typeof person.api_detail_url === "string" ? person.api_detail_url : "";
-				const guid = apiUrl
-					.split("/")
-					.filter((s) => s.length > 0)
-					.pop();
+				const guid = apiUrl.split("/").findLast((s) => s.length > 0);
 				if (!guid || !GUID_PATTERN.test(guid)) {
 					return null;
 				}
@@ -174,15 +173,10 @@ driver("search", async function (context) {
 				calloutProperty: { kind: "null", value: null },
 				secondarySubtitleProperty: { kind: "null", value: null },
 				externalId:
-					externalId ||
+					externalId ??
 					(() => {
 						const apiUrl = typeof person.api_detail_url === "string" ? person.api_detail_url : "";
-						return (
-							apiUrl
-								.split("/")
-								.filter((s) => s.length > 0)
-								.pop() || ""
-						);
+						return apiUrl.split("/").findLast((s) => s.length > 0) ?? "";
 					})(),
 				primarySubtitleProperty:
 					birthYear === null ? { kind: "null", value: null } : { kind: "number", value: birthYear },

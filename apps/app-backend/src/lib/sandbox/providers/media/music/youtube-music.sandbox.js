@@ -7,22 +7,32 @@ async function makeFetch(input, init) {
 		url = input.url;
 		method = input.method ?? "GET";
 		if (input.headers && typeof input.headers.entries === "function") {
-			for (const [k, v] of input.headers.entries()) {headers[k] = v;}
+			for (const [k, v] of input.headers.entries()) {
+				headers[k] = v;
+			}
 		}
 		try {
 			const t = await input.text();
-			if (t) {body = t;}
+			if (t) {
+				body = t;
+			}
 		} catch {}
 	} else {
 		url = typeof input === "string" ? input : String(input);
 	}
 	if (init) {
-		if (init.method) {method = init.method;}
+		if (init.method) {
+			method = init.method;
+		}
 		if (init.headers) {
 			if (typeof init.headers.entries === "function") {
-				for (const [k, v] of init.headers.entries()) {headers[k] = v;}
+				for (const [k, v] of init.headers.entries()) {
+					headers[k] = v;
+				}
 			} else if (Array.isArray(init.headers)) {
-				for (const [k, v] of init.headers) {headers[k] = v;}
+				for (const [k, v] of init.headers) {
+					headers[k] = v;
+				}
 			} else if (typeof init.headers === "object") {
 				Object.assign(headers, init.headers);
 			}
@@ -60,7 +70,7 @@ function getThumbnailUrls(thumbnail) {
 			: [];
 	return arr
 		.filter((t) => t?.url)
-		.sort((a, b) => (b.width || 0) * (b.height || 0) - (a.width || 0) * (a.height || 0))
+		.sort((a, b) => (b.width ?? 0) * (b.height ?? 0) - (a.width ?? 0) * (a.height ?? 0))
 		.map((t) => t.url);
 }
 
@@ -102,7 +112,9 @@ driver("search", async function (context) {
 	for (const shelf of results.contents ?? []) {
 		for (const track of shelf.contents ?? []) {
 			const id = track.id;
-			if (!id) {continue;}
+			if (!id) {
+				continue;
+			}
 
 			const title = track.title ?? id;
 			const year = track.year ?? null;
@@ -147,7 +159,9 @@ driver("details", async function (context, { metadata }) {
 	}
 
 	const title = getTrackTitle(trackItem);
-	if (!title) {throw new Error("YouTube Music track is missing title");}
+	if (!title) {
+		throw new Error("YouTube Music track is missing title");
+	}
 
 	const duration = trackItem.duration?.seconds ?? null;
 	const publishYear = trackItem.album?.year
@@ -271,7 +285,9 @@ driver("history", async function (context) {
 
 	const isTodayHeader = (title) => {
 		const lower = title.toLowerCase();
-		if (lower === "today") {return true;}
+		if (lower === "today") {
+			return true;
+		}
 		const localDate = new Intl.DateTimeFormat("en-US", {
 			day: "numeric",
 			month: "long",
@@ -290,13 +306,21 @@ driver("history", async function (context) {
 	const songs = [];
 	for (const section of history.sections ?? []) {
 		const header = section.header;
-		if (!header?.is(YTNodes.ItemSectionHeader)) {continue;}
-		if (!isTodayHeader(header.title.toString())) {continue;}
+		if (!header?.is(YTNodes.ItemSectionHeader)) {
+			continue;
+		}
+		if (!isTodayHeader(header.title.toString())) {
+			continue;
+		}
 
 		for (const node of section.contents ?? []) {
-			if (!node.is(YTNodes.Video)) {continue;}
+			if (!node.is(YTNodes.Video)) {
+				continue;
+			}
 			const videoId = node.video_id;
-			if (videoId) {songs.push({ videoId, title: node.title.toString() });}
+			if (videoId) {
+				songs.push({ videoId, title: node.title.toString() });
+			}
 		}
 		break;
 	}

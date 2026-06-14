@@ -28,15 +28,21 @@ function getIdentifier(value) {
 
 function parsePublishYear(value, dayjs) {
 	const date = getString(value);
-	if (!date) {return null;}
+	if (!date) {
+		return null;
+	}
 	const d = dayjs(date);
 	return d.isValid() ? d.year() : null;
 }
 
 function parsePublishDate(value) {
 	const date = getString(value);
-	if (!date) {return null;}
-	if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {return null;}
+	if (!date) {
+		return null;
+	}
+	if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+		return null;
+	}
 	return date;
 }
 
@@ -152,7 +158,8 @@ function buildPeople(credits) {
 
 driver("search", async function (context) {
 	const { z } = await import("npm:zod");
-	const dayjs = (await import("npm:dayjs")).default;
+	const dayjsModule = await import("npm:dayjs");
+	const dayjs = dayjsModule.default;
 
 	const {
 		query,
@@ -223,7 +230,8 @@ driver("search", async function (context) {
 
 driver("details", async function (context) {
 	const { z } = await import("npm:zod");
-	const dayjs = (await import("npm:dayjs")).default;
+	const dayjsModule = await import("npm:dayjs");
+	const dayjs = dayjsModule.default;
 
 	const { externalId } = z
 		.object({
