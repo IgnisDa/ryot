@@ -8,6 +8,7 @@ import type {
 import type { IntegrationLot } from "@ryot/contract/modules/integrations/types";
 import type { RunStatus } from "@ryot/contract/schema/run-status";
 import { generateId } from "better-auth";
+import { sql } from "drizzle-orm";
 import {
 	boolean,
 	foreignKey,
@@ -18,6 +19,7 @@ import {
 	snakeCase,
 	text,
 	timestamp,
+	uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
@@ -67,6 +69,7 @@ export const importRun = snakeCase.table(
 	"import_run",
 	{
 		totalItems: integer(),
+		integrationLot: text().$type<IntegrationLot>(),
 		progress: integer().notNull().default(0),
 		source: text().notNull().$type<ImportRunSource>(),
 		failedItems: integer().notNull().default(0),
@@ -99,6 +102,9 @@ export const importRun = snakeCase.table(
 			table.createdAt.desc(),
 		),
 		index("import_run_plugin_installation_id_idx").on(table.pluginInstallationId),
+		uniqueIndex("import_run_integration_active_unique")
+			.on(table.integrationId)
+			.where(sql`${table.integrationLot} = 'yank' and ${table.status} in ('pending', 'running')`),
 	],
 );
 
