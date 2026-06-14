@@ -141,7 +141,10 @@ export const builtinSandboxScripts = () => [
 		source: "tmdb",
 		canonicalLanguage: "en-US",
 	}),
-	script("TMDB", "show.tmdb", tmdbShowScriptCode, ["providers.tmdbAccessToken"]),
+	script("TMDB", "show.tmdb", tmdbShowScriptCode, ["providers.tmdbAccessToken"], {
+		source: "tmdb",
+		canonicalLanguage: "en-US",
+	}),
 	script("TMDB", "person.tmdb", tmdbPersonScriptCode, ["providers.tmdbAccessToken"], {
 		source: "tmdb",
 		canonicalLanguage: "en-US",
