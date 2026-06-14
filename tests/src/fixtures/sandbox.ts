@@ -89,7 +89,6 @@ export async function replaceSandboxScriptCompiledRepresentation(
 			`update sandbox_script as target
 			 set slug = replacement.slug,
 			     name = replacement.name,
-			     code = replacement.source,
 			     source = replacement.source,
 			     metadata = replacement.metadata,
 			     compiled_code = replacement.compiled_code,

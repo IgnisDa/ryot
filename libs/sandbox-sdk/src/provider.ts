@@ -12,7 +12,7 @@ export type ProviderManifest = Extract<SandboxManifest, { kind: "provider" }>;
 
 export const providerSearchInputSchema = z
 	.object({
-		query: z.string().trim().min(1, "query is required"),
+		query: z.string().trim().catch(""),
 		page: z.coerce.number().min(1).transform(Math.floor).catch(1),
 		pageSize: z.coerce.number().min(1).max(100).transform(Math.floor).catch(20),
 	})

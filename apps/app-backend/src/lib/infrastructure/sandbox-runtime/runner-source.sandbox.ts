@@ -4,15 +4,34 @@ import {
 	failurePhase,
 	isRecord,
 	readBridgeResponse,
+	type SandboxLogCollector,
+	type SandboxRunnerPayload,
 	throwPhase,
 	validateLimits,
-} from "./runner-utilities.sandbox.js";
+} from "./runner-utilities.sandbox.ts";
+
+type HostBudget = { http: number; total: number };
+
+type SafeParseResult =
+	| { success: true; data: unknown }
+	| { success: false; error: { message: string } };
+
+type CompiledDriver = {
+	input: { safeParseAsync: (value: unknown) => Promise<SafeParseResult> };
+	output: { safeParseAsync: (value: unknown) => Promise<SafeParseResult> };
+	run: (input: unknown, host: Record<string, unknown>, execution: unknown) => unknown;
+};
+
+type CompiledDefinition = {
+	definitionType: unknown;
+	manifest: Record<string, unknown>;
+	drivers: Record<string, unknown>;
+};
 
 const decoder = new TextDecoder();
 const encoder = new TextEncoder();
 const arrayIsArray = Array.isArray;
 const nativeError = globalThis.Error;
-const exitDeno = Deno.exit.bind(Deno);
 const createDictionary = Object.create;
 const nativeString = globalThis.String;
 const nativeFunction = globalThis.Function;
@@ -25,14 +44,15 @@ const encodeText = encoder.encode.bind(encoder);
 const decodeText = decoder.decode.bind(decoder);
 const jsonStringify = JSON.stringify.bind(JSON);
 const bridgeFetch = globalThis.fetch.bind(globalThis);
+const exitDeno: (code?: number) => never = Deno.exit.bind(Deno);
 const performanceNow = performance.now.bind(performance);
-const generatorFunction = Object.getPrototypeOf(function* () {}).constructor;
-const asyncFunction = Object.getPrototypeOf(async function () {}).constructor;
-const asyncGeneratorFunction = Object.getPrototypeOf(async function* () {}).constructor;
+const generatorFunction = Object.getPrototypeOf(function* () {}).constructor as Function;
+const asyncFunction = Object.getPrototypeOf(async function () {}).constructor as Function;
+const asyncGeneratorFunction = Object.getPrototypeOf(async function* () {}).constructor as Function;
 
 let buffer = "";
 
-const disableFormat1CodeGeneration = () => {
+const disableCodeGeneration = () => {
 	for (const name of ["Deno", "eval", "Function", "Worker", "SharedWorker"]) {
 		if (name in globalThis) {
 			defineProperty(globalThis, name, {
@@ -58,7 +78,7 @@ const disableFormat1CodeGeneration = () => {
 	}
 };
 
-async function readLine() {
+async function readLine(): Promise<string> {
 	const chunk = new Uint8Array(65536);
 	for (;;) {
 		const count = await readStdin(chunk);
@@ -75,11 +95,11 @@ async function readLine() {
 	}
 }
 
-const hostFailure = (error) => ({ error, success: false });
+const hostFailure = (error: string) => ({ error, success: false as const });
 
 const createApiStub =
-	(fnName, payload, budget) =>
-	async (...args) => {
+	(fnName: string, payload: SandboxRunnerPayload, budget: HostBudget) =>
+	async (...args: unknown[]): Promise<unknown> => {
 		budget.total += 1;
 		if (fnName === "httpCall") {
 			budget.http += 1;
@@ -95,7 +115,7 @@ const createApiStub =
 			);
 		}
 
-		let requestBody;
+		let requestBody: string;
 		try {
 			requestBody = jsonStringify({ args });
 		} catch {
@@ -129,7 +149,7 @@ const createApiStub =
 			);
 		}
 
-		let body;
+		let body: { error?: string; result?: unknown };
 		try {
 			body = jsonParse(responseBody.body);
 		} catch {
@@ -141,11 +161,11 @@ const createApiStub =
 		return body.result;
 	};
 
-const createHost = (payload, declaredCapabilities) => {
+const createHost = (payload: SandboxRunnerPayload, declaredCapabilities: unknown) => {
 	const approved = arrayIsArray(payload.apiFunctions) ? payload.apiFunctions : [];
 	const declared = arrayIsArray(declaredCapabilities) ? declaredCapabilities : [];
-	const budget = { http: 0, total: 0 };
-	const host = createDictionary(null);
+	const budget: HostBudget = { http: 0, total: 0 };
+	const host: Record<string, unknown> = createDictionary(null);
 	for (let declaredIndex = 0; declaredIndex < declared.length; declaredIndex += 1) {
 		const fnName = declared[declaredIndex];
 		if (typeof fnName !== "string") {
@@ -161,7 +181,7 @@ const createHost = (payload, declaredCapabilities) => {
 	return host;
 };
 
-const serializeLogs = (logs) => {
+const serializeLogs = (logs: readonly string[]) => {
 	let serialized = "[";
 	for (let index = 0; index < logs.length; index += 1) {
 		serialized += `${index === 0 ? "" : ","}${jsonStringify(logs[index])}`;
@@ -169,18 +189,26 @@ const serializeLogs = (logs) => {
 	return serialized + "]";
 };
 
-const writeSuccess = async (logs, serializedValue, executionMs) => {
+const writeSuccess = async (
+	logs: readonly string[],
+	serializedValue: string,
+	executionMs: number,
+) => {
 	const result = `{"success":true,"logs":${serializeLogs(logs)},"value":${serializedValue},"timing":{"executionMs":${executionMs}}}\n`;
 	await writeStdout(encodeText(result));
 };
 
-const writeFailure = async (logs, error, executionMs) => {
+const writeFailure = async (
+	logs: readonly string[],
+	error: { phase: string; message: string; line?: number; column?: number; stack?: string },
+	executionMs: number,
+) => {
 	const serializedError = `{"phase":${jsonStringify(error.phase)},"message":${jsonStringify(error.message)}${error.line === undefined ? "" : `,"line":${error.line}`}${error.column === undefined ? "" : `,"column":${error.column}`}${error.stack === undefined ? "" : `,"stack":${jsonStringify(error.stack)}`}}`;
 	const result = `{"success":false,"logs":${serializeLogs(logs)},"error":${serializedError},"timing":{"executionMs":${executionMs}}}\n`;
 	await writeStdout(encodeText(result));
 };
 
-const stringArraysMatch = (left, right) => {
+const stringArraysMatch = (left: unknown, right: unknown) => {
 	if (!arrayIsArray(left) || !arrayIsArray(right) || left.length !== right.length) {
 		return false;
 	}
@@ -192,7 +220,7 @@ const stringArraysMatch = (left, right) => {
 	return true;
 };
 
-const providerInformationMatches = (left, right) => {
+const providerInformationMatches = (left: unknown, right: unknown) => {
 	if (left === undefined && right === undefined) {
 		return true;
 	}
@@ -204,7 +232,7 @@ const providerInformationMatches = (left, right) => {
 	);
 };
 
-const manifestsMatch = (left, right) =>
+const manifestsMatch = (left: unknown, right: unknown) =>
 	isRecord(left) &&
 	isRecord(right) &&
 	left.kind === right.kind &&
@@ -214,8 +242,10 @@ const manifestsMatch = (left, right) =>
 	stringArraysMatch(left.requiredAppConfigKeys, right.requiredAppConfigKeys) &&
 	providerInformationMatches(left.providerInformation, right.providerInformation);
 
-const importCompiledModule = async (payload) => {
-	if (payload.compiledFormat !== 0 && payload.compiledFormat !== 1) {
+const importCompiledModule = async (
+	payload: SandboxRunnerPayload,
+): Promise<{ default: unknown }> => {
+	if (payload.compiledFormat !== 1) {
 		throwPhase(
 			"load",
 			"Unsupported sandbox compiled format: " + nativeString(payload.compiledFormat),
@@ -227,34 +257,21 @@ const importCompiledModule = async (payload) => {
 
 	try {
 		return await import(
-			"data:text/javascript;charset=utf-8," + encodeURIComponent(payload.compiledCode)
+			"data:text/javascript;charset=utf-8," + encodeComponent(payload.compiledCode)
 		);
 	} catch (error) {
 		return throwPhase("load", error);
 	}
 };
 
-const executeDefinition = async (definition, payload, host, setPhase) => {
+const executeDefinition = async (
+	definition: unknown,
+	payload: SandboxRunnerPayload,
+	host: Record<string, unknown>,
+	setPhase: (phase: string) => void,
+): Promise<unknown> => {
 	if (!isRecord(definition)) {
-		throwPhase("load", "Compiled sandbox module must have a default definition export");
-	}
-
-	if (payload.compiledFormat === 0) {
-		if (
-			definition.definitionType !== "ryot:legacy-sandbox-script" ||
-			typeof definition.execute !== "function"
-		) {
-			throwPhase("load", "Legacy compiled sandbox module has an invalid definition");
-		}
-		setPhase("execute");
-		try {
-			return await definition.execute(payload.driverName, payload.context ?? {}, host, {
-				metadata: payload.metadata ?? {},
-				sandboxScriptId: payload.scriptId,
-			});
-		} catch (error) {
-			throwPhase("execute", error);
-		}
+		return throwPhase("load", "Compiled sandbox module must have a default definition export");
 	}
 
 	if (
@@ -262,14 +279,15 @@ const executeDefinition = async (definition, payload, host, setPhase) => {
 		!isRecord(definition.manifest) ||
 		!isRecord(definition.drivers)
 	) {
-		throwPhase("load", "Compiled sandbox module has an invalid script definition");
+		return throwPhase("load", "Compiled sandbox module has an invalid script definition");
 	}
 	if (!manifestsMatch(definition.manifest, payload.metadata)) {
-		throwPhase("load", "Compiled sandbox manifest does not match persisted metadata");
+		return throwPhase("load", "Compiled sandbox manifest does not match persisted metadata");
 	}
-	const driver = definition.drivers[payload.driverName];
+	const typedDefinition = definition as unknown as CompiledDefinition;
+	const driver = typedDefinition.drivers[payload.driverName];
 	if (!isRecord(driver) || typeof driver.run !== "function") {
-		throwPhase("load", 'Driver "' + payload.driverName + '" is not defined in this script');
+		return throwPhase("load", 'Driver "' + payload.driverName + '" is not defined in this script');
 	}
 	if (
 		!isRecord(driver.input) ||
@@ -277,40 +295,42 @@ const executeDefinition = async (definition, payload, host, setPhase) => {
 		!isRecord(driver.output) ||
 		typeof driver.output.safeParseAsync !== "function"
 	) {
-		throwPhase("load", 'Driver "' + payload.driverName + '" has invalid schemas');
+		return throwPhase("load", 'Driver "' + payload.driverName + '" has invalid schemas');
 	}
+	const typedDriver = driver as unknown as CompiledDriver;
 
 	setPhase("input");
-	let input;
+	let input: SafeParseResult;
 	try {
-		input = await driver.input.safeParseAsync(payload.context ?? {});
+		input = await typedDriver.input.safeParseAsync(payload.context ?? {});
 	} catch (error) {
-		throwPhase("input", error);
+		return throwPhase("input", error);
 	}
 	if (!input.success) {
-		throwPhase("input", "Driver input validation failed: " + input.error.message);
+		return throwPhase("input", "Driver input validation failed: " + input.error.message);
 	}
+	const parsedInput = input.data;
 
 	setPhase("execute");
-	let result;
+	let result: unknown;
 	try {
-		result = await driver.run(input.data, host, {
+		result = await typedDriver.run(parsedInput, host, {
 			metadata: payload.metadata ?? {},
 			sandboxScriptId: payload.scriptId,
 		});
 	} catch (error) {
-		throwPhase("execute", error);
+		return throwPhase("execute", error);
 	}
 
 	setPhase("output");
-	let output;
+	let output: SafeParseResult;
 	try {
-		output = await driver.output.safeParseAsync(result);
+		output = await typedDriver.output.safeParseAsync(result);
 	} catch (error) {
-		throwPhase("output", error);
+		return throwPhase("output", error);
 	}
 	if (!output.success) {
-		throwPhase("output", "Driver output validation failed: " + output.error.message);
+		return throwPhase("output", "Driver output validation failed: " + output.error.message);
 	}
 	return output.data;
 };
@@ -323,8 +343,17 @@ void (async () => {
 		}
 
 		let phase = "input";
-		let payload;
-		let logCollector = { logs: [], console: null };
+		let payload: SandboxRunnerPayload | undefined;
+		let logCollector: SandboxLogCollector = {
+			logs: [],
+			console: {
+				log: () => {},
+				info: () => {},
+				warn: () => {},
+				debug: () => {},
+				error: () => {},
+			},
+		};
 		const startedAt = performanceNow();
 		const previousConsole = {
 			log: console.log,
@@ -335,7 +364,7 @@ void (async () => {
 		};
 
 		try {
-			payload = jsonParse(line);
+			payload = jsonParse(line) as SandboxRunnerPayload;
 			if (!validateLimits(payload.limits)) {
 				throwPhase("input", "Sandbox runner limits are invalid");
 			}
@@ -348,31 +377,29 @@ void (async () => {
 			if (!payload.driverName) {
 				throwPhase("input", "driverName is required");
 			}
-			if (payload.compiledFormat === 1) {
-				disableFormat1CodeGeneration();
-			}
+			disableCodeGeneration();
 
 			phase = "load";
-			const declaredCapabilities =
-				payload.compiledFormat === 1 && isRecord(payload.metadata)
-					? payload.metadata.capabilities
-					: payload.apiFunctions;
+			const declaredCapabilities = isRecord(payload.metadata)
+				? payload.metadata.capabilities
+				: payload.apiFunctions;
 			const host = createHost(payload, declaredCapabilities);
-			const module = await importCompiledModule(payload);
-			const value = await executeDefinition(module.default, payload, host, (nextPhase) => {
+			const compiledModule = await importCompiledModule(payload);
+			const value = await executeDefinition(compiledModule.default, payload, host, (nextPhase) => {
 				phase = nextPhase;
 			});
 
 			phase = "output";
-			let serializedValue;
+			let serialized: string | undefined;
 			try {
-				serializedValue = jsonStringify(value ?? null);
+				serialized = jsonStringify(value ?? null);
 			} catch (error) {
 				throwPhase("output", error);
 			}
-			if (typeof serializedValue !== "string") {
+			if (typeof serialized !== "string") {
 				throwPhase("output", "Sandbox driver result is not JSON-serializable");
 			}
+			const serializedValue = serialized as string;
 			if (encodeText(serializedValue).byteLength > payload.limits.resultBytes) {
 				throwPhase(
 					"output",
@@ -396,5 +423,3 @@ void (async () => {
 		}
 	}
 })();
-
-export default "";
