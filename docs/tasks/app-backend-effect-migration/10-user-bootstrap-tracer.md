@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -14,12 +14,12 @@ This slice exists to make auth sign-up behavior useful early and to prevent ever
 
 ## Acceptance criteria
 
-- [ ] New Better Auth users trigger bootstrap after creation
-- [ ] Bootstrap creates default tracker rows for the new user
-- [ ] Bootstrap links seeded builtin entity schemas to the user's builtin trackers
-- [ ] Bootstrap creates default saved-view rows required by navigation and media screens
-- [ ] Bootstrap creates the user's library entity using seeded builtin schemas
-- [ ] Bootstrap is idempotent enough to avoid duplicate default rows on repeated execution
+- [x] New Better Auth users trigger bootstrap after creation
+- [x] Bootstrap creates default tracker rows for the new user
+- [x] Bootstrap links seeded builtin entity schemas to the user's builtin trackers
+- [x] Bootstrap creates default saved-view rows required by navigation and media screens
+- [x] Bootstrap creates the user's library entity using seeded builtin schemas
+- [x] Bootstrap is idempotent enough to avoid duplicate default rows on repeated execution
 
 ## User stories addressed
 

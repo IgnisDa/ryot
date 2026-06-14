@@ -10,6 +10,7 @@ import { Context, Effect, Layer, Option, Redacted, Runtime, Schema } from "effec
 
 import { bootstrapNewUser, defaultUserPreferences } from "./builtins/bootstrap";
 import { AppConfig, type AppConfigValue, isOidcEnabled } from "./config";
+import type { TransactionRunner } from "./db";
 import { DbService, schema } from "./db";
 import { rateLimited, RateLimited, unauthorized, Unauthorized } from "./errors";
 import { RedisService } from "./redis";
@@ -47,7 +48,7 @@ const makeAuthInstance = (args: {
 	readonly config: AppConfigValue;
 	readonly db: DbService["Type"]["db"];
 	readonly redis: RedisService["Type"]["client"];
-	readonly runtime: Runtime.Runtime<DbService | RedisService>;
+	readonly runtime: Runtime.Runtime<DbService | RedisService | TransactionRunner>;
 }) => {
 	const corsOrigins = Option.match(args.config.server.corsOrigins, {
 		onNone: () => [] as string[],
@@ -180,7 +181,7 @@ export const AuthLive = Layer.effect(
 		const db = yield* DbService;
 		const config = yield* AppConfig;
 		const redis = yield* RedisService;
-		const runtime = yield* Effect.runtime<DbService | RedisService>();
+		const runtime = yield* Effect.runtime<DbService | RedisService | TransactionRunner>();
 		const auth = makeAuthInstance({ config, db: db.db, redis: redis.client, runtime });
 
 		return {
