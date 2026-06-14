@@ -514,15 +514,18 @@ driver("details", async function (context) {
 	const gameSlug =
 		typeof game.slug === "string" && game.slug.trim() ? game.slug.trim() : toSlug(name);
 
+	const suggestions = collectSuggestions(game.similar_games);
 	const relatedEntities = [
 		...collectGroups(game.collections),
 		...collectCompanies(game.involved_companies),
+		...suggestions.map((suggestion) => ({
+			...suggestion,
+			relationshipSchemaSlug: "media-suggestion",
+		})),
 	];
-	const suggestions = collectSuggestions(game.similar_games);
 
 	return {
 		name,
-		suggestions,
 		relatedEntities,
 		properties: {
 			images,

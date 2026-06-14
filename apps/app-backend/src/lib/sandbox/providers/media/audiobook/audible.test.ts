@@ -16,7 +16,7 @@ const runAudibleDetails = (context: unknown, hostFunctions: Record<string, HostF
 	runProviderDriver(audibleCode, context, hostFunctions);
 
 describe("audiobook.audible sandbox script", () => {
-	it("deduplicates similarity buckets into suggestions", () => {
+	it("deduplicates similarity buckets into related entities", () => {
 		return runAudibleDetails(
 			{ externalId: "source-book" },
 			{
@@ -56,9 +56,19 @@ describe("audiobook.audible sandbox script", () => {
 			},
 		).then((rawDetails) => {
 			const details = toRecord(rawDetails);
-			expect(details.suggestions).toEqual([
-				{ name: "Series Pick", externalId: "book-2", scriptSlug: "audiobook.audible" },
-				{ name: "Similar Pick", externalId: "book-3", scriptSlug: "audiobook.audible" },
+			expect(details.relatedEntities).toEqual([
+				{
+					name: "Series Pick",
+					externalId: "book-2",
+					scriptSlug: "audiobook.audible",
+					relationshipSchemaSlug: "media-suggestion",
+				},
+				{
+					name: "Similar Pick",
+					externalId: "book-3",
+					scriptSlug: "audiobook.audible",
+					relationshipSchemaSlug: "media-suggestion",
+				},
 			]);
 			return undefined;
 		});
