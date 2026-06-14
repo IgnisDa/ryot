@@ -118,26 +118,27 @@ export class BridgeService extends Effect.Service<BridgeService>()("BridgeServic
 		const runtime = yield* Effect.runtime();
 		const executionFunctions = new Map<string, Record<string, BoundHostFunction>>();
 
-		const removeSession = (executionId: string) =>
-			Effect.gen(function* () {
-				yield* redis.del(redisKeys.sandboxSession(executionId));
-				yield* Effect.sync(() => executionFunctions.delete(executionId));
-			}).pipe(Effect.asVoid);
+		const removeSession = Effect.fn("BridgeService.removeSession")(function* (executionId: string) {
+			yield* redis.del(redisKeys.sandboxSession(executionId));
+			yield* Effect.sync(() => executionFunctions.delete(executionId));
+		}, Effect.asVoid);
 
-		const addSession = (executionId: string, session: ExecutionSession) =>
-			Effect.gen(function* () {
-				const now = yield* Clock.currentTimeMillis;
-				const ttlSeconds = Math.max(1, Math.ceil((session.expiresAt - now) / 1000));
-				yield* redis.set(
-					redisKeys.sandboxSession(executionId),
-					encodeSandboxSession({ expiresAt: session.expiresAt, token: session.token }),
-					ttlSeconds,
-				);
-				yield* Effect.sync(() => executionFunctions.set(executionId, session.apiFunctions));
-			});
+		const addSession = Effect.fn("BridgeService.addSession")(function* (
+			executionId: string,
+			session: ExecutionSession,
+		) {
+			const now = yield* Clock.currentTimeMillis;
+			const ttlSeconds = Math.max(1, Math.ceil((session.expiresAt - now) / 1000));
+			yield* redis.set(
+				redisKeys.sandboxSession(executionId),
+				encodeSandboxSession({ expiresAt: session.expiresAt, token: session.token }),
+				ttlSeconds,
+			);
+			yield* Effect.sync(() => executionFunctions.set(executionId, session.apiFunctions));
+		});
 
-		const handleRequest = (request: Request) =>
-			Effect.gen(function* () {
+		const handleRequest = Effect.fn("BridgeService.handleRequest")(
+			function* (request: Request) {
 				if (request.method !== "POST") {
 					return Response.json({ error: "Not found" }, { status: 404 });
 				}
@@ -190,11 +191,11 @@ export class BridgeService extends Effect.Service<BridgeService>()("BridgeServic
 						Effect.succeed(Response.json({ error: unknownToMessage(error) }, { status: 500 })),
 					),
 				);
-			}).pipe(
-				Effect.catchAll((error) =>
-					Effect.succeed(Response.json({ error: unknownToMessage(error) }, { status: 400 })),
-				),
-			);
+			},
+			Effect.catchAll((error) =>
+				Effect.succeed(Response.json({ error: unknownToMessage(error) }, { status: 400 })),
+			),
+		);
 
 		const server = Bun.serve({
 			port: 0,
