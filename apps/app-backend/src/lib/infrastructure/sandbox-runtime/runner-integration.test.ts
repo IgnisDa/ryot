@@ -12,6 +12,12 @@ import {
 	SANDBOX_APPROVED_DEPENDENCIES,
 	type SandboxRuntimePaths,
 } from "./dependencies";
+import {
+	SANDBOX_LIMITS,
+	SANDBOX_LOG_TRUNCATION_MARKER,
+	SANDBOX_RUNNER_LIMITS,
+	utf8ByteLength,
+} from "./limits";
 
 let dependencyRuntimeRoot: string | undefined;
 let dependencyRuntime: SandboxRuntimePaths | undefined;
@@ -81,6 +87,7 @@ const codeGeneration = defineDriver(manifest, {
       globalThis.eval !== undefined ||
       functionConstructor !== undefined ||
       asyncFunctionConstructor !== undefined ||
+      Reflect.get(globalThis, "Deno") !== undefined ||
       Reflect.get(globalThis, "Worker") !== undefined
     ) {
       throw new Error("String code generation is available");
@@ -89,7 +96,92 @@ const codeGeneration = defineDriver(manifest, {
   },
 });
 
-export default defineScript({ manifest, drivers: { main, invalidOutput, codeGeneration } });
+const throwing = defineDriver(manifest, {
+  input: z.object({}),
+  output: z.null(),
+  run: async () => {
+    throw new Error("mapped execution failure execution-1");
+  },
+});
+
+const oversizedOutput = defineDriver(manifest, {
+  input: z.object({}),
+  output: z.string(),
+  run: async () => "x".repeat(${SANDBOX_LIMITS.execution.resultBytes + 1}),
+});
+
+const oversizedLogEntry = defineDriver(manifest, {
+  input: z.object({}),
+  output: z.null(),
+  run: async () => {
+    console.log("🙂".repeat(${Math.floor(SANDBOX_LIMITS.logs.entryBytes / 4) + 1}));
+    console.log("ignored");
+    return null;
+  },
+});
+
+const excessiveLogCount = defineDriver(manifest, {
+  input: z.object({}),
+  output: z.null(),
+  run: async () => {
+    for (let index = 0; index < ${SANDBOX_LIMITS.logs.entryCount}; index += 1) {
+      console.log(index);
+    }
+    return null;
+  },
+});
+
+const excessiveLogBytes = defineDriver(manifest, {
+  input: z.object({}),
+  output: z.null(),
+  run: async () => {
+    for (let index = 0; index < 40; index += 1) {
+      console.log("x".repeat(${SANDBOX_LIMITS.logs.entryBytes}));
+    }
+    return null;
+  },
+});
+
+const mutatedIntrinsics = defineDriver(manifest, {
+  input: z.object({}),
+  output: z.string(),
+  run: async () => {
+    Reflect.set(JSON, "stringify", () => '"bypassed"');
+    Reflect.set(TextEncoder.prototype, "encode", () => new Uint8Array());
+    console.log("x".repeat(${SANDBOX_LIMITS.logs.entryBytes + 1}));
+    return "x".repeat(${SANDBOX_LIMITS.execution.resultBytes + 1});
+  },
+});
+
+const unstableSerialization = defineDriver(manifest, {
+  input: z.object({}),
+  output: z.any(),
+  run: async () => {
+    let calls = 0;
+    return {
+      toJSON: () => {
+        calls += 1;
+        return calls === 1 ? "serialized-once" : "x".repeat(${SANDBOX_LIMITS.execution.resultBytes + 1});
+      },
+    };
+  },
+});
+
+export default defineScript({
+  manifest,
+  drivers: {
+    main,
+    throwing,
+    invalidOutput,
+    codeGeneration,
+    mutatedIntrinsics,
+    oversizedOutput,
+    unstableSerialization,
+    excessiveLogBytes,
+    excessiveLogCount,
+    oversizedLogEntry,
+  },
+});
 `;
 
 const coreHostSource = `
@@ -194,6 +286,45 @@ const main = defineDriver(manifest, {
 });
 
 export default defineScript({ manifest, drivers: { main } });
+`;
+
+const hostBudgetSource = `
+import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk";
+import * as z from "@ryot/sandbox-sdk/zod";
+
+export const manifest = defineManifest({
+  kind: "script",
+  name: "Host budgets",
+  slug: "host-budgets",
+  capabilities: ["getCachedValue", "httpCall"],
+  requiredAppConfigKeys: [],
+});
+
+const hostCalls = defineDriver(manifest, {
+  input: z.object({}),
+  output: z.unknown(),
+  run: async (_input, host) => {
+    let result: unknown = null;
+    for (let index = 0; index <= ${SANDBOX_LIMITS.hostCalls.total}; index += 1) {
+      result = await host.getCachedValue("budget");
+    }
+    return result;
+  },
+});
+
+const httpCalls = defineDriver(manifest, {
+  input: z.object({}),
+  output: z.unknown(),
+  run: async (_input, host) => {
+    let result: unknown = null;
+    for (let index = 0; index <= ${SANDBOX_LIMITS.hostCalls.http}; index += 1) {
+      result = await host.httpCall("GET", "https://example.com/budget");
+    }
+    return result;
+  },
+});
+
+export default defineScript({ manifest, drivers: { hostCalls, httpCalls } });
 `;
 
 const domainHostSource = `
@@ -336,6 +467,9 @@ const runInDeno = (
 	Effect.gen(function* () {
 		assert(dependencyRuntime);
 		const runnerPath = Bun.fileURLToPath(new URL("./runner-source.sandbox.js", import.meta.url));
+		const runnerUtilitiesPath = Bun.fileURLToPath(
+			new URL("./runner-utilities.sandbox.js", import.meta.url),
+		);
 		const apiBase = options.apiBase ?? "http://127.0.0.1:1";
 		const denoProcess = Bun.spawn(
 			[
@@ -351,9 +485,10 @@ const runInDeno = (
 				"--no-npm",
 				"--no-remote",
 				"--cached-only",
+				`--v8-flags=--max-old-space-size=${SANDBOX_LIMITS.execution.denoHeapMiB}`,
 				`--import-map=${dependencyRuntime.importMapPath}`,
 				`--allow-net=${new URL(apiBase).host}`,
-				`--allow-read=${runnerPath},${dependencyRuntime.directory}`,
+				`--allow-read=${runnerPath},${runnerUtilitiesPath},${dependencyRuntime.directory}`,
 				runnerPath,
 			],
 			{
@@ -366,6 +501,7 @@ const runInDeno = (
 		const request = `${encodeRunnerRequest({
 			context,
 			apiBase,
+			limits: SANDBOX_RUNNER_LIMITS,
 			driverName,
 			token: "unused",
 			metadata: compiled.manifest,
@@ -491,11 +627,17 @@ it("loads compiled ESM in Deno and validates driver input and output", () =>
 
 			const invalidInput = yield* runInDeno(compiled, "main", { value: "wrong" });
 			assert(invalidInput !== null && typeof invalidInput === "object");
-			expect(Reflect.get(invalidInput, "error")).toContain("Driver input validation failed");
+			expect(Reflect.get(invalidInput, "error")).toMatchObject({
+				phase: "input",
+				message: expect.stringContaining("Driver input validation failed"),
+			});
 
 			const invalidOutput = yield* runInDeno(compiled, "invalidOutput", {});
 			assert(invalidOutput !== null && typeof invalidOutput === "object");
-			expect(Reflect.get(invalidOutput, "error")).toContain("Driver output validation failed");
+			expect(Reflect.get(invalidOutput, "error")).toMatchObject({
+				phase: "output",
+				message: expect.stringContaining("Driver output validation failed"),
+			});
 
 			const codeGeneration = yield* runInDeno(compiled, "codeGeneration", {});
 			assert(codeGeneration !== null && typeof codeGeneration === "object");
@@ -505,7 +647,105 @@ it("loads compiled ESM in Deno and validates driver input and output", () =>
 				value: 42,
 			});
 			assert(unsupported !== null && typeof unsupported === "object");
-			expect(Reflect.get(unsupported, "error")).toBe("Unsupported sandbox compiled format: 2");
+			expect(Reflect.get(unsupported, "error")).toEqual({
+				phase: "load",
+				message: "Unsupported sandbox compiled format: 2",
+			});
+		}).pipe(Effect.provide(SandboxCompiler.Default)),
+	));
+
+it("returns source-mapped, sanitized execution and load errors", () =>
+	Effect.runPromise(
+		Effect.gen(function* () {
+			const compiler = yield* SandboxCompiler;
+			const compiled = yield* compiler.compile(source);
+			const throwingLine = source
+				.slice(0, source.indexOf('throw new Error("mapped execution failure execution-1")'))
+				.split("\n").length;
+			const result = yield* runInDeno(compiled, "throwing", {});
+			assert(result !== null && typeof result === "object");
+			const error = Reflect.get(result, "error");
+			assert(error !== null && typeof error === "object");
+			expect(error).toMatchObject({
+				phase: "execute",
+				line: throwingLine,
+				message: "mapped execution failure [redacted]",
+			});
+			const stack = Reflect.get(error, "stack");
+			expect(stack).toMatch(/^    at script\.ts:\d+:\d+(?:\n    at script\.ts:\d+:\d+)*$/);
+			expect(stack).not.toMatch(/data:|file:|runner|execution-1/);
+
+			const loadSource = source.replace(
+				"const main = defineDriver",
+				'throw new Error("mapped load failure execution-1");\n\nconst main = defineDriver',
+			);
+			const loadLine = loadSource
+				.slice(0, loadSource.indexOf('throw new Error("mapped load failure execution-1")'))
+				.split("\n").length;
+			const loadResult = yield* runInDeno(yield* compiler.compile(loadSource), "main", {
+				value: 42,
+			});
+			assert(loadResult !== null && typeof loadResult === "object");
+			expect(Reflect.get(loadResult, "error")).toMatchObject({
+				phase: "load",
+				line: loadLine,
+				message: "mapped load failure [redacted]",
+			});
+		}).pipe(Effect.provide(SandboxCompiler.Default)),
+	));
+
+it("bounds output and truncates each log limit exactly once without failing", () =>
+	Effect.runPromise(
+		Effect.gen(function* () {
+			const compiler = yield* SandboxCompiler;
+			const compiled = yield* compiler.compile(source);
+
+			const oversizedOutput = yield* runInDeno(compiled, "oversizedOutput", {});
+			assert(oversizedOutput !== null && typeof oversizedOutput === "object");
+			expect(Reflect.get(oversizedOutput, "value")).toBeUndefined();
+			expect(Reflect.get(oversizedOutput, "error")).toEqual({
+				phase: "output",
+				message: `Sandbox driver result exceeds ${SANDBOX_LIMITS.execution.resultBytes} UTF-8 bytes`,
+			});
+
+			const entryResult = yield* runInDeno(compiled, "oversizedLogEntry", {});
+			assert(entryResult !== null && typeof entryResult === "object");
+			const entryLogs = Reflect.get(entryResult, "logs");
+			assert(Array.isArray(entryLogs));
+			expect(Reflect.get(entryResult, "success")).toBe(true);
+			expect(entryLogs).toHaveLength(2);
+			expect(utf8ByteLength(String(entryLogs[0]))).toBe(SANDBOX_LIMITS.logs.entryBytes);
+			expect(entryLogs[1]).toBe(SANDBOX_LOG_TRUNCATION_MARKER);
+
+			const countResult = yield* runInDeno(compiled, "excessiveLogCount", {});
+			assert(countResult !== null && typeof countResult === "object");
+			const countLogs = Reflect.get(countResult, "logs");
+			assert(Array.isArray(countLogs));
+			expect(countLogs).toHaveLength(SANDBOX_LIMITS.logs.entryCount);
+			expect(countLogs.filter((log) => log === SANDBOX_LOG_TRUNCATION_MARKER)).toHaveLength(1);
+
+			const byteResult = yield* runInDeno(compiled, "excessiveLogBytes", {});
+			assert(byteResult !== null && typeof byteResult === "object");
+			const byteLogs = Reflect.get(byteResult, "logs");
+			assert(Array.isArray(byteLogs));
+			expect(byteLogs.filter((log) => log === SANDBOX_LOG_TRUNCATION_MARKER)).toHaveLength(1);
+			expect(
+				byteLogs.reduce((total, log) => total + utf8ByteLength(String(log)), 0),
+			).toBeLessThanOrEqual(SANDBOX_LIMITS.logs.totalBytes);
+
+			const mutatedResult = yield* runInDeno(compiled, "mutatedIntrinsics", {});
+			assert(mutatedResult !== null && typeof mutatedResult === "object");
+			expect(Reflect.get(mutatedResult, "error")).toMatchObject({
+				phase: "output",
+				message: expect.stringContaining("Sandbox driver result exceeds"),
+			});
+			const mutatedLogs = Reflect.get(mutatedResult, "logs");
+			assert(Array.isArray(mutatedLogs));
+			expect(mutatedLogs.at(-1)).toBe(SANDBOX_LOG_TRUNCATION_MARKER);
+
+			const serializedOnce = yield* runInDeno(compiled, "unstableSerialization", {});
+			assert(serializedOnce !== null && typeof serializedOnce === "object");
+			expect(serializedOnce).toMatchObject({ success: true, value: "serialized-once" });
 		}).pipe(Effect.provide(SandboxCompiler.Default)),
 	));
 
@@ -563,7 +803,10 @@ it("disables obfuscated string-generated imports at runtime", () =>
 			const compiled = yield* compiler.compile(generatedNpmImportSource);
 			const result = yield* runInDeno(compiled, "main", {});
 			assert(result !== null && typeof result === "object");
-			expect(Reflect.get(result, "error")).toContain("Function is not a function");
+			expect(Reflect.get(result, "error")).toMatchObject({
+				phase: "execute",
+				message: expect.stringContaining("Function is not a function"),
+			});
 		}).pipe(Effect.provide(SandboxCompiler.Default)),
 	));
 
@@ -656,6 +899,43 @@ it("executes typed core host methods and filters the Deno host to declared capab
 				});
 
 				expect(new Set(bridge.calls.map((call) => call.fnName))).toEqual(new Set(apiFunctions));
+			}).pipe(Effect.provide(SandboxCompiler.Default)),
+		),
+	));
+
+it("counts failed host-call attempts against total and HTTP budgets", () =>
+	Effect.runPromise(
+		Effect.scoped(
+			Effect.gen(function* () {
+				const bridge = yield* Effect.acquireRelease(Effect.sync(startCoreHostBridge), (value) =>
+					Effect.promise(value.stop),
+				);
+				const compiler = yield* SandboxCompiler;
+				const compiled = yield* compiler.compile(hostBudgetSource);
+				const options = {
+					apiBase: `http://127.0.0.1:${bridge.port}`,
+					apiFunctions: compiled.manifest.capabilities,
+				};
+
+				const hostResult = yield* runInDeno(compiled, "hostCalls", {}, options);
+				assert(hostResult !== null && typeof hostResult === "object");
+				expect(Reflect.get(hostResult, "value")).toEqual({
+					success: false,
+					error: `Sandbox execution exceeds ${SANDBOX_LIMITS.hostCalls.total} host calls`,
+				});
+				expect(bridge.calls.filter((call) => call.fnName === "getCachedValue")).toHaveLength(
+					SANDBOX_LIMITS.hostCalls.total,
+				);
+
+				const httpResult = yield* runInDeno(compiled, "httpCalls", {}, options);
+				assert(httpResult !== null && typeof httpResult === "object");
+				expect(Reflect.get(httpResult, "value")).toEqual({
+					success: false,
+					error: `Sandbox execution exceeds ${SANDBOX_LIMITS.hostCalls.http} httpCall calls`,
+				});
+				expect(bridge.calls.filter((call) => call.fnName === "httpCall")).toHaveLength(
+					SANDBOX_LIMITS.hostCalls.http,
+				);
 			}).pipe(Effect.provide(SandboxCompiler.Default)),
 		),
 	));

@@ -1,28 +1,10 @@
 import { expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 
-import { SandboxCompiler } from "./compiler";
-
-const validSource = `
-import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk";
-import * as z from "@ryot/sandbox-sdk/zod";
-
-export const manifest = defineManifest({
-  kind: "script",
-  name: "Plain value",
-  slug: "plain-value",
-  capabilities: [],
-  requiredAppConfigKeys: [],
-});
-
-const main = defineDriver(manifest, {
-  input: z.object({ value: z.number() }),
-  output: z.number(),
-  run: async (input) => input.value,
-});
-
-export default defineScript({ manifest, drivers: { main } });
-`;
+import {
+	compileSandboxSourceForTest as compile,
+	validSandboxSource as validSource,
+} from "./compiler-test-support";
 
 const approvedDependencyImports = [
 	"@ryot/sandbox-sdk/zod",
@@ -31,12 +13,6 @@ const approvedDependencyImports = [
 	"@ryot/sandbox-sdk/cheerio",
 	"@ryot/sandbox-sdk/youtubei",
 ] as const;
-
-const compile = (source: string) =>
-	Effect.gen(function* () {
-		const compiler = yield* SandboxCompiler;
-		return yield* compiler.compile(source);
-	}).pipe(Effect.provide(SandboxCompiler.Default));
 
 it.effect("compiles one SDK script to an inline-source-mapped ESM module", () =>
 	Effect.gen(function* () {
