@@ -2,7 +2,11 @@ import {
 	SavedViewLayoutName,
 	type SavedViewLayoutName as SavedViewLayout,
 } from "@ryot-app/contract/modules/saved-views/schemas";
-import { Slug } from "@ryot-app/contract/schema/brands";
+import {
+	SandboxProviderId,
+	Slug,
+	type SandboxProviderId as ProviderId,
+} from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import { parseServerOrigin, type ServerOrigin } from "#/api/origin";
@@ -16,12 +20,15 @@ export const lastWorkspaceKey = (scope: ApiScope) =>
 	`${RYOT_STORAGE_PREFIX}workspace:${apiScopeKey(scope)}`;
 export const savedViewLayoutKey = (scope: ApiScope, slug: string) =>
 	`${RYOT_STORAGE_PREFIX}saved-view-layout:${apiScopeKey(scope)}:${slug}`;
+export const rememberedProviderKey = (scope: ApiScope, entitySchemaSlug: string) =>
+	`${RYOT_STORAGE_PREFIX}remembered-provider:${apiScopeKey(scope)}:${entitySchemaSlug}`;
 
 export type BrowserStorage = Pick<Storage, "getItem" | "removeItem" | "setItem">;
 
 const browserStorage = () => (typeof localStorage === "undefined" ? undefined : localStorage);
 const isWorkspaceSlug = Schema.is(Slug);
 const isSavedViewLayout = Schema.is(SavedViewLayoutName);
+const isSandboxProviderId = Schema.is(SandboxProviderId);
 
 const makeStorage = (storage: BrowserStorage | undefined): ClientStorage["Service"] => ({
 	clearServerSelection: Effect.sync(() => storage?.removeItem(SERVER_SELECTION_KEY)),
@@ -29,6 +36,8 @@ const makeStorage = (storage: BrowserStorage | undefined): ClientStorage["Servic
 	setServerSelection: (origin) => Effect.sync(() => storage?.setItem(SERVER_SELECTION_KEY, origin)),
 	setSavedViewLayout: (scope, slug, layout) =>
 		Effect.sync(() => storage?.setItem(savedViewLayoutKey(scope, slug), layout)),
+	setRememberedProvider: (scope, entitySchemaSlug, providerId) =>
+		Effect.sync(() => storage?.setItem(rememberedProviderKey(scope, entitySchemaSlug), providerId)),
 	setThemePreference: (preference) =>
 		Effect.sync(() => storage?.setItem(THEME_PREFERENCE_KEY, preference)),
 	getThemePreference: Effect.sync(() => {
@@ -50,6 +59,11 @@ const makeStorage = (storage: BrowserStorage | undefined): ClientStorage["Servic
 		Effect.sync(() => {
 			const value = storage?.getItem(savedViewLayoutKey(scope, slug));
 			return isSavedViewLayout(value) ? value : "grid";
+		}),
+	getRememberedProvider: (scope, entitySchemaSlug) =>
+		Effect.sync(() => {
+			const value = storage?.getItem(rememberedProviderKey(scope, entitySchemaSlug));
+			return isSandboxProviderId(value) ? value : null;
 		}),
 	getServerSelection: Effect.sync(() => {
 		const value = storage?.getItem(SERVER_SELECTION_KEY);
@@ -73,6 +87,15 @@ export class ClientStorage extends Context.Service<
 		readonly setLastWorkspace: (scope: ApiScope, slug: string) => Effect.Effect<void>;
 		readonly setThemePreference: (preference: ThemePreference) => Effect.Effect<void>;
 		readonly getSavedViewLayout: (scope: ApiScope, slug: string) => Effect.Effect<SavedViewLayout>;
+		readonly getRememberedProvider: (
+			scope: ApiScope,
+			entitySchemaSlug: string,
+		) => Effect.Effect<ProviderId | null>;
+		readonly setRememberedProvider: (
+			scope: ApiScope,
+			entitySchemaSlug: string,
+			providerId: ProviderId,
+		) => Effect.Effect<void>;
 		readonly setSavedViewLayout: (
 			scope: ApiScope,
 			slug: string,
