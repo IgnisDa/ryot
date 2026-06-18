@@ -304,8 +304,8 @@ fn process_item(i: &ListItemResponse) -> Result<ImportOrExportMetadataItem, Impo
     fn err(i: &ListItemResponse, msg: &str) -> ImportFailedItem {
         ImportFailedItem {
             identifier: format!("{i:#?}"),
-            step: ImportFailStep::ItemDetailsFromSource,
             error: Some(msg.to_owned()),
+            step: ImportFailStep::ItemDetailsFromSource,
             ..Default::default()
         }
     }
@@ -314,7 +314,7 @@ fn process_item(i: &ListItemResponse) -> Result<ImportOrExportMetadataItem, Impo
     } else if let Some(d) = i.show.as_ref() {
         (d.ids.trakt, d.ids.tmdb, MediaLot::Show)
     } else {
-        return Err(err(i, "Item is neither a movie or a show"));
+        return Err(err(i, "Item is neither a movie nor a show"));
     };
     let source_id = match source_id {
         Some(s) => s.to_string(),
@@ -323,8 +323,8 @@ fn process_item(i: &ListItemResponse) -> Result<ImportOrExportMetadataItem, Impo
     match identifier {
         Some(identifier) => Ok(ImportOrExportMetadataItem {
             lot,
-            source: MediaSource::Tmdb,
             source_id,
+            source: MediaSource::Tmdb,
             identifier: identifier.to_string(),
             ..Default::default()
         }),
