@@ -30,12 +30,12 @@ export const parseKodiSinkPayload = (payload: unknown): MediaImportAdapterResult
 		return sinkFailureResult("Could not parse Kodi webhook payload");
 	}
 
-	const normalizedIdentifier =
-		typeof identifier === "string"
-			? identifier.trim()
-			: typeof identifier === "number" && Number.isFinite(identifier)
-				? String(identifier)
-				: "";
+	let normalizedIdentifier = "";
+	if (typeof identifier === "string") {
+		normalizedIdentifier = identifier.trim();
+	} else if (typeof identifier === "number" && Number.isFinite(identifier)) {
+		normalizedIdentifier = String(identifier);
+	}
 	const ref = buildMovieOrShowImportRef({
 		entitySchemaSlug: lot,
 		sourceLabel: normalizedIdentifier,

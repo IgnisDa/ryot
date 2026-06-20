@@ -170,12 +170,11 @@ export const runOneTimeMediaImportWorkflow = Effect.fn("runOneTimeMediaImportWor
 		});
 
 		const loadOutcome = yield* loadMediaAdapterResult({ payload, executionId });
-		cleanupPaths =
-			loadOutcome._tag === "failed"
-				? loadOutcome.fallbackToInitialCleanupPaths
-					? mergeCleanupPaths(loadOutcome.cleanupPaths)
-					: [...loadOutcome.cleanupPaths]
-				: mergeCleanupPaths(loadOutcome.cleanupPaths);
+		if (loadOutcome._tag === "failed" && !loadOutcome.fallbackToInitialCleanupPaths) {
+			cleanupPaths = [...loadOutcome.cleanupPaths];
+		} else {
+			cleanupPaths = mergeCleanupPaths(loadOutcome.cleanupPaths);
+		}
 
 		if (loadOutcome._tag === "failed") {
 			yield* failRunAndCleanup({

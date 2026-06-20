@@ -195,15 +195,26 @@ const propertyScalarSql = (
 		const guarded = slugGuard ? sql`CASE WHEN ${slugGuard} THEN ${extract} END` : extract;
 		return sql`NULLIF(${guarded}, 'null'::jsonb)`;
 	}
-	const jsonType = want === "number" ? "number" : want === "boolean" ? "boolean" : "string";
-	const cast =
-		want === "number"
-			? sql`(${extractText})::double precision`
-			: want === "date"
-				? sql`(${extractText})::timestamptz`
-				: want === "boolean"
-					? sql`(${extractText})::boolean`
-					: extractText;
+	let jsonType: "number" | "boolean" | "string";
+	let cast: SqlFragment;
+	switch (want) {
+		case "number":
+			jsonType = "number";
+			cast = sql`(${extractText})::double precision`;
+			break;
+		case "date":
+			jsonType = "string";
+			cast = sql`(${extractText})::timestamptz`;
+			break;
+		case "boolean":
+			jsonType = "boolean";
+			cast = sql`(${extractText})::boolean`;
+			break;
+		case "text":
+			jsonType = "string";
+			cast = extractText;
+			break;
+	}
 	return sql`CASE WHEN ${guardPrefix}jsonb_typeof(${extract}) = ${jsonType} THEN ${cast} END`;
 };
 
@@ -235,14 +246,21 @@ const aggregateScalarSql = (
 		const distinct = compileValue(aggregation.distinctBy, scope).value;
 		return sql`(SELECT COUNT(DISTINCT ${distinct}) ${fromWhere})`;
 	}
-	const fn =
-		aggregation.function === "sum"
-			? sql`SUM`
-			: aggregation.function === "average"
-				? sql`AVG`
-				: aggregation.function === "minimum"
-					? sql`MIN`
-					: sql`MAX`;
+	let fn: SqlFragment;
+	switch (aggregation.function) {
+		case "sum":
+			fn = sql`SUM`;
+			break;
+		case "average":
+			fn = sql`AVG`;
+			break;
+		case "minimum":
+			fn = sql`MIN`;
+			break;
+		case "maximum":
+			fn = sql`MAX`;
+			break;
+	}
 	const operand = compileScalar(aggregation.expr, scope, "number");
 	return sql`(SELECT ${fn}(${operand}) ${fromWhere})`;
 };
@@ -296,7 +314,18 @@ const arithmeticSql = (
 	if (expr.operator === "divide") {
 		return sql`((${left}) / NULLIF((${right}), 0))`;
 	}
-	const op = expr.operator === "add" ? sql`+` : expr.operator === "subtract" ? sql`-` : sql`*`;
+	let op: SqlFragment;
+	switch (expr.operator) {
+		case "add":
+			op = sql`+`;
+			break;
+		case "subtract":
+			op = sql`-`;
+			break;
+		case "multiply":
+			op = sql`*`;
+			break;
+	}
 	return sql`((${left}) ${op} (${right}))`;
 };
 

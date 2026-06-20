@@ -308,12 +308,12 @@ driver("details", async function (context) {
 			continue;
 		}
 
-		const inlineName =
-			typeof authorEntry.author?.name === "string" && authorEntry.author.name.trim()
-				? authorEntry.author.name.trim()
-				: typeof authorEntry.name === "string" && authorEntry.name.trim()
-					? authorEntry.name.trim()
-					: "";
+		let inlineName = "";
+		if (typeof authorEntry.author?.name === "string" && authorEntry.author.name.trim()) {
+			inlineName = authorEntry.author.name.trim();
+		} else if (typeof authorEntry.name === "string" && authorEntry.name.trim()) {
+			inlineName = authorEntry.name.trim();
+		}
 		const authorName = inlineName ?? (await loadAuthorName(authorKey));
 
 		addRelatedEntity({

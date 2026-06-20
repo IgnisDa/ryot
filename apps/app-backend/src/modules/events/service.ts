@@ -277,18 +277,19 @@ export class EventsService extends Effect.Service<EventsService>()("EventsServic
 				yield* requireReadableEntity(userId, query.sessionEntityId, sessionEntityNotFoundError);
 			}
 
-			const scope = entityScope
-				? yield* resolveEntityEventQueryScope(userId, {
-						eventSchemaSlug: query.eventSchemaSlug,
-						entitySchemaId: entityScope.entitySchemaId,
-						entitySchemaSlug: entityScope.entitySchemaSlug,
-					})
-				: query.sessionEntityId
-					? yield* resolveSessionEventQueryScope(userId, {
-							eventSchemaSlug: query.eventSchemaSlug,
-							sessionEntityId: query.sessionEntityId,
-						})
-					: null;
+			let scope: EventQueryScope | null = null;
+			if (entityScope) {
+				scope = yield* resolveEntityEventQueryScope(userId, {
+					eventSchemaSlug: query.eventSchemaSlug,
+					entitySchemaId: entityScope.entitySchemaId,
+					entitySchemaSlug: entityScope.entitySchemaSlug,
+				});
+			} else if (query.sessionEntityId) {
+				scope = yield* resolveSessionEventQueryScope(userId, {
+					eventSchemaSlug: query.eventSchemaSlug,
+					sessionEntityId: query.sessionEntityId,
+				});
+			}
 
 			return scope ? yield* listEventsFromQueryEngine(userId, scope, query) : [];
 		});

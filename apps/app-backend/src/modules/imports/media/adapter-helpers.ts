@@ -90,8 +90,15 @@ const isValidIsbn13 = (value: string): boolean => {
 	return checkDigit === Number.parseInt(value[12] ?? "", 10);
 };
 
-export const isValidIsbn = (value: string): boolean =>
-	value.length === 10 ? isValidIsbn10(value) : value.length === 13 ? isValidIsbn13(value) : false;
+export const isValidIsbn = (value: string): boolean => {
+	if (value.length === 10) {
+		return isValidIsbn10(value);
+	}
+	if (value.length === 13) {
+		return isValidIsbn13(value);
+	}
+	return false;
+};
 
 export const normalizeRating = (value: string): number | null => {
 	const parsed = Number.parseFloat(value.trim());
@@ -99,7 +106,12 @@ export const normalizeRating = (value: string): number | null => {
 		return null;
 	}
 
-	const scaled = parsed <= 5 ? parsed * 20 : parsed <= 10 ? parsed * 10 : parsed;
+	let scaled = parsed;
+	if (parsed <= 5) {
+		scaled = parsed * 20;
+	} else if (parsed <= 10) {
+		scaled = parsed * 10;
+	}
 	return Math.round(Math.min(100, scaled) * 100) / 100;
 };
 
