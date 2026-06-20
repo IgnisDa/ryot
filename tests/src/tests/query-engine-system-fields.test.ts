@@ -319,9 +319,15 @@ describe("event system fields covering all event table columns", () => {
 		const ids = result.data.items.map((row) =>
 			String(requireQueryEngineFieldValue(row, "entityId").value),
 		);
-		const expectedDescending = [entityA.id, entityB.id].sort((a, b) =>
-			a < b ? 1 : a > b ? -1 : 0,
-		);
+		const expectedDescending = [entityA.id, entityB.id].sort((a, b) => {
+			if (a < b) {
+				return 1;
+			}
+			if (a > b) {
+				return -1;
+			}
+			return 0;
+		});
 		expect(ids).toEqual(expectedDescending);
 	});
 });
