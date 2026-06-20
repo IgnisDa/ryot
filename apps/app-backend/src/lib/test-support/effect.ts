@@ -52,7 +52,6 @@ export const makeAppConfigLayer = (overrides?: Partial<AppConfigValue>): Layer.L
 		database: {
 			poolMax: 10,
 			connectionTimeoutMs: 10_000,
-			idleInTransactionTimeoutMs: 0,
 			url: Redacted.make("unused"),
 		},
 		sandbox: {
