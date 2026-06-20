@@ -9,7 +9,7 @@ TypeScript backend (`apps/app-backend`) during startup.
 
 Every step in this module must fail loudly on unexpected state. Use `throw new Error(...)` in TypeScript and `RAISE EXCEPTION '...'` in PL/pgSQL DO blocks — never `RETURN` from a DO block when the missing object signals an error rather than an already-completed step.
 
-Permitted silent-skip patterns: idempotent guards (work already done on a previous startup), `ON CONFLICT … DO NOTHING` on all inserts (restart-safety), `DROP TABLE IF EXISTS` in `drop-tables.ts` (restart-safety), `shouldRunLegacyBootstrap` returning `false` (main gate — no V1 data present), and the intentional data-level skips listed in "Ignored For Now" below. Everything else must throw.
+Permitted silent-skip patterns: idempotent guards (work already done on a previous startup), `ON CONFLICT … DO NOTHING` on all inserts (restart-safety), `DROP TABLE IF EXISTS` in `drop-tables.ts` (restart-safety), `legacyBootstrapGate` returning `false` (main gate — no V1 data present), and the intentional data-level skips listed in "Ignored For Now" below. Everything else must throw.
 
 ## Boundaries
 
