@@ -32,9 +32,7 @@ describe("builtinSandboxScripts", () => {
 		const providerInformationBySlug = new Map(
 			scripts.map((script) => [
 				script.slug,
-				"providerInformation" in script.metadata
-					? script.metadata.providerInformation
-					: undefined,
+				"providerInformation" in script.metadata ? script.metadata.providerInformation : undefined,
 			]),
 		);
 		const translatedScripts = [
