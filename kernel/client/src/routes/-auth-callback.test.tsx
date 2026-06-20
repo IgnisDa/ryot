@@ -17,6 +17,7 @@ import {
 	catalog,
 	makeAuthStub,
 	makePublicApiStub,
+	OAuthRouteStubs,
 	makeStorageStub,
 	server,
 	theme,
@@ -44,6 +45,7 @@ const mountCallback = (
 		Layer.mergeAll(
 			authLayer,
 			ServerStub,
+			OAuthRouteStubs,
 			AuthClient.layer,
 			makePublicApiStub(),
 			AuthenticatedApi.layer,
