@@ -16,7 +16,7 @@ import {
 	type DefinitionSnapshot,
 	getSavedViewValidationError,
 } from "#modules/definition-registry/service";
-import { EntitiesRepository } from "#modules/entities/repository";
+import { EntitiesRepository, type PortableEntityRecord } from "#modules/entities/repository";
 import { TranslationsRepository } from "#modules/entity-translation/repository";
 import { EventsRepository, RESTORE_EVENT_BATCH_SIZE } from "#modules/events/repository";
 import { IntegrationsRepository } from "#modules/integrations/repository";
@@ -36,7 +36,6 @@ import {
 import {
 	decodeV2JsonObject,
 	isV2JsonObject,
-	V2_BOOTSTRAP_SOURCE,
 	type V2ArchiveRecords,
 	type V2EntityDependency,
 	type V2Installation,
@@ -123,38 +122,77 @@ const validateProperties = (properties: unknown, propertiesSchema: AppSchema, ki
 		Effect.mapError((error) => badRequest(error.message)),
 	);
 
-const isV2BootstrapSource = (entity: {
-	readonly id: string;
-	readonly name: string;
-	readonly provider: unknown;
-	readonly externalId: string | null;
-	readonly entitySchemaSlug: string;
-	readonly properties: Record<string, unknown>;
-}) =>
-	entity.name === V2_BOOTSTRAP_SOURCE.name &&
-	entity.provider === null &&
-	entity.externalId === null &&
-	entity.entitySchemaSlug === V2_BOOTSTRAP_SOURCE.entitySchemaSlug &&
-	Object.keys(entity.properties).length === 0;
+const bootstrapSchemaIdentity = (entitySchemaSlug: string, entitySchemaPluginId: string | null) =>
+	JSON.stringify([entitySchemaSlug, entitySchemaPluginId]);
 
-export const resolveV2BootstrapSourceMapping = Effect.fn(function* (
-	archived: ReadonlyArray<Parameters<typeof isV2BootstrapSource>[0]>,
-	target: ReadonlyArray<Parameters<typeof isV2BootstrapSource>[0]>,
+type ArchivedBootstrapEntity = Pick<
+	V2ArchiveRecords["entities"][number],
+	"id" | "origin" | "entitySchemaSlug" | "entitySchemaPluginKey"
+>;
+type TargetBootstrapEntity = Pick<
+	PortableEntityRecord,
+	"id" | "origin" | "entitySchemaSlug" | "entitySchemaPluginId"
+>;
+
+export const resolveV2BootstrapEntityMappings = Effect.fn(function* (
+	archived: ReadonlyArray<ArchivedBootstrapEntity>,
+	target: ReadonlyArray<TargetBootstrapEntity>,
+	pluginIdByKey: ReadonlyMap<string, string>,
 ) {
-	const archivedSources = archived.filter(isV2BootstrapSource);
-	if (archivedSources.length !== 1) {
-		return yield* badRequest("Backup must contain exactly one bootstrap source entity");
+	const archivedByIdentity = new Map<string, Array<ArchivedBootstrapEntity>>();
+	for (const entity of archived) {
+		if (entity.origin?.kind !== "bootstrap") {
+			continue;
+		}
+		const entitySchemaPluginKey = entity.entitySchemaPluginKey;
+		let entitySchemaPluginId: string | null = null;
+		if (entitySchemaPluginKey !== null) {
+			const resolved = pluginIdByKey.get(entitySchemaPluginKey);
+			if (!resolved) {
+				return yield* badRequest(
+					`Backup references unmapped plugin key '${entitySchemaPluginKey}'`,
+				);
+			}
+			entitySchemaPluginId = resolved;
+		}
+		const identity = bootstrapSchemaIdentity(entity.entitySchemaSlug, entitySchemaPluginId);
+		const matching = archivedByIdentity.get(identity);
+		if (matching) {
+			matching.push(entity);
+		} else {
+			archivedByIdentity.set(identity, [entity]);
+		}
 	}
-	const targetSources = target.filter(isV2BootstrapSource);
-	if (targetSources.length !== 1) {
-		return yield* badRequest("Backup target must contain exactly one bootstrap source entity");
+	const targetByIdentity = new Map<string, Array<TargetBootstrapEntity>>();
+	for (const entity of target) {
+		if (entity.origin?.kind !== "bootstrap") {
+			continue;
+		}
+		const identity = bootstrapSchemaIdentity(entity.entitySchemaSlug, entity.entitySchemaPluginId);
+		const matching = targetByIdentity.get(identity);
+		if (matching) {
+			matching.push(entity);
+		} else {
+			targetByIdentity.set(identity, [entity]);
+		}
 	}
-	const archivedSource = archivedSources[0];
-	const targetSource = targetSources[0];
-	if (!archivedSource || !targetSource) {
-		return yield* badRequest("Bootstrap source mapping is unavailable");
+	const mappings = new Map<string, EntityId>();
+	for (const [identity, archivedEntities] of archivedByIdentity) {
+		const targetEntities = targetByIdentity.get(identity);
+		if (!targetEntities) {
+			continue;
+		}
+		if (archivedEntities.length !== 1 || targetEntities.length !== 1) {
+			return yield* badRequest("Backup bootstrap entity identity is ambiguous");
+		}
+		const archivedEntity = archivedEntities[0];
+		const targetEntity = targetEntities[0];
+		if (!archivedEntity || !targetEntity) {
+			return yield* badRequest("Backup bootstrap entity mapping is unavailable");
+		}
+		mappings.set(archivedEntity.id, EntityId.make(targetEntity.id));
 	}
-	return { archivedId: archivedSource.id, targetId: EntityId.make(targetSource.id) };
+	return mappings;
 });
 
 export const assertV2DependencySchemaOwnership = Effect.fn(function* (
@@ -620,34 +658,20 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					}
 				}
 
-				const sourceDefinition = getEntitySchema(V2_BOOTSTRAP_SOURCE.entitySchemaSlug);
-				if (
-					sourceDefinition?.pluginSlug !== V2_BOOTSTRAP_SOURCE.pluginSlug ||
-					sourceDefinition.name !== V2_BOOTSTRAP_SOURCE.name
-				) {
-					return yield* badRequest("Current bootstrap source definition is unavailable");
-				}
-				const sourceMapping =
-					records.entities.length === 0
-						? null
-						: yield* resolveV2BootstrapSourceMapping(
-								records.entities,
-								yield* entities.listUserEntitiesForBackup(userId),
-							);
+				const bootstrapMappings = yield* resolveV2BootstrapEntityMappings(
+					records.entities,
+					yield* entities.listUserEntitiesForBackup(userId),
+					pluginIdByKey,
+				);
 				for (const entity of records.entities) {
-					entityIdMap.set(
-						entity.id,
-						sourceMapping && entity.id === sourceMapping.archivedId
-							? sourceMapping.targetId
-							: EntityId.make(entity.id),
-					);
+					entityIdMap.set(entity.id, bootstrapMappings.get(entity.id) ?? EntityId.make(entity.id));
 				}
 				for (const entity of records.entities) {
 					const mappedId = entityIdMap.get(entity.id);
 					if (!mappedId) {
 						return yield* badRequest("Backup entity mapping is incomplete");
 					}
-					if (sourceMapping && entity.id === sourceMapping.archivedId) {
+					if (bootstrapMappings.has(entity.id)) {
 						entitySchemaById.set(mappedId, EntitySchemaSlug.make(entity.entitySchemaSlug));
 						continue;
 					}
@@ -663,6 +687,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						properties,
 						id: entity.id,
 						name: entity.name,
+						origin: entity.origin,
 						externalId: entity.externalId,
 						providerId: provider?.id ?? null,
 						entitySchemaSlug: entity.entitySchemaSlug,
