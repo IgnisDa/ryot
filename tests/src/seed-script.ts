@@ -13,7 +13,6 @@ import {
 	PluginSlug,
 	RemoteImageUrl,
 	type SandboxProviderId,
-	SandboxScriptId,
 	UserId,
 } from "@ryot/contract/schema/brands";
 import { imagesField } from "@ryot/contract/schema/core";
@@ -1196,24 +1195,12 @@ async function getBuiltinPlugin(apiClient: APIClient) {
 }
 
 async function listMediaEntitySchemas(apiClient: APIClient, pluginSlug: PluginSlug) {
-	const [schemas, scripts] = await Promise.all([
-		apiClient.run((c) => c.definitions.listEntities({})),
-		apiClient.runAdmin((c) => c.testSupport.listSandboxScripts({ query: {} })),
-	]);
+	const schemas = await apiClient.run((c) => c.definitions.listEntities({}));
 	return schemas
 		.filter((schema) => schema.pluginSlug === pluginSlug)
 		.map((schema) => ({
 			...schema,
 			id: schema.slug as EntitySchemaSlug,
-			providers: scripts
-				.filter((script) => script.providerId && script.slug.endsWith(".search"))
-				.filter((script) => script.slug.startsWith(`${schema.slug}.`))
-				.map((script) => ({
-					name: script.name.replace(/ search$/, ""),
-					searchScriptId: script.id,
-					providerSlug: script.slug.slice(0, -".search".length),
-					providerId: requirePresent(script.providerId, "Search script is missing its provider"),
-				})),
 		}));
 }
 
@@ -1257,6 +1244,20 @@ const MEDIA_ENTITY_SCHEMA_SLUGS = [
 
 type MediaEntitySchemaSlug = (typeof MEDIA_ENTITY_SCHEMA_SLUGS)[number];
 
+const MEDIA_SAVED_VIEW_SLUGS: Record<MediaEntitySchemaSlug, string> = {
+	anime: "all-anime",
+	audiobook: "all-audiobooks",
+	book: "all-books",
+	"comic-book": "all-comic-books",
+	manga: "all-manga",
+	movie: "all-movies",
+	music: "all-music",
+	podcast: "all-podcasts",
+	show: "all-shows",
+	"video-game": "all-video-games",
+	"visual-novel": "all-visual-novels",
+};
+
 const MEDIA_SEARCH_QUERIES: Record<MediaEntitySchemaSlug, { query: string; pages: number[] }> = {
 	anime: { query: "naruto", pages: [1, 2] },
 	audiobook: { query: "thinking", pages: [1, 2] },
@@ -1275,55 +1276,6 @@ function sleep(ms: number): Promise<void> {
 	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function pollSearchJob(
-	apiClient: APIClient,
-	jobId: string,
-	executingUserId: string,
-): Promise<Array<{ externalId: string }>> {
-	const startedAt = Date.now();
-	while (true) {
-		// oxlint-disable-next-line no-await-in-loop
-		const result = await apiClient.runAdmin((c) =>
-			c.testSupport.getSandboxResult({
-				params: { jobId },
-				query: { executingUserId: UserId.make(executingUserId) },
-			}),
-		);
-		if (result.status === "pending") {
-			if (Date.now() - startedAt > 60000) {
-				throw new Error(`Search job ${jobId} timed out`);
-			}
-			// oxlint-disable-next-line no-await-in-loop
-			await sleep(500);
-			continue;
-		}
-		if (result.status === "failed") {
-			throw new Error(`Search job failed: ${result.error}`);
-		}
-		const value = result.value as { items?: Array<{ externalId: string }> };
-		return value?.items ?? [];
-	}
-}
-
-async function searchMediaPage(
-	apiClient: APIClient,
-	searchScriptId: SandboxScriptId,
-	query: string,
-	page: number,
-	executingUserId: string,
-): Promise<Array<{ externalId: string }>> {
-	const result = await apiClient.runAdmin((c) =>
-		c.testSupport.enqueueSandbox({
-			payload: {
-				scriptId: searchScriptId,
-				context: { query, page, pageSize: 10 },
-				executingUserId: UserId.make(executingUserId),
-			},
-		}),
-	);
-	return pollSearchJob(apiClient, result.jobId, executingUserId);
-}
-
 async function importMediaEntity(
 	apiClient: APIClient,
 	providerId: SandboxProviderId,
@@ -1333,7 +1285,7 @@ async function importMediaEntity(
 	let jobId: string;
 	try {
 		const importResult = await apiClient.run((c) =>
-			c.entityImport.import({ payload: { providerId, externalId, entitySchemaSlug } }),
+			c.providerEntities.import({ payload: { providerId, externalId, entitySchemaSlug } }),
 		);
 		jobId = importResult.jobId;
 	} catch {
@@ -1341,10 +1293,12 @@ async function importMediaEntity(
 	}
 	const startedAt = Date.now();
 	while (true) {
-		let result: ContractSuccess<"entityImport", "getImportResult">;
+		let result: ContractSuccess<"providerEntities", "getImportResult">;
 		try {
 			// oxlint-disable-next-line no-await-in-loop
-			result = await apiClient.run((c) => c.entityImport.getImportResult({ params: { jobId } }));
+			result = await apiClient.run((c) =>
+				c.providerEntities.getImportResult({ params: { jobId } }),
+			);
 		} catch {
 			return null;
 		}
@@ -1388,7 +1342,7 @@ function generateEpisodicProgressFields(slug: MediaEntitySchemaSlug): Record<str
 
 // ─── Media seeding ──────────────────────────────────────────────────────────
 
-async function seedMedia(client: APIClient, executingUserId: string) {
+async function seedMedia(client: APIClient) {
 	console.log("\n🎬 Seeding Media Plugin...");
 
 	const builtinPluginScope = await getBuiltinPlugin(client);
@@ -1401,6 +1355,7 @@ async function seedMedia(client: APIClient, executingUserId: string) {
 	console.log(
 		`  Found ${schemas.length} media entity schemas to seed (of ${allSchemas.length} total)`,
 	);
+	const schemasBySlug = new Map(schemas.map((schema) => [schema.id, schema] as const));
 
 	type MediaEventSchemas = Awaited<ReturnType<typeof getMediaLifecycleEventSchemas>>;
 	let totalEntities = 0;
@@ -1425,10 +1380,14 @@ async function seedMedia(client: APIClient, executingUserId: string) {
 	const processMediaEntity = async (
 		externalId: string,
 		providerId: SandboxProviderId,
-		schema: (typeof schemas)[number],
+		entitySchemaSlug: EntitySchemaSlug,
 		eventSchemas: MediaEventSchemas,
 	) => {
-		const entity = await importMediaEntity(client, providerId, externalId, schema.id);
+		const schema = requirePresent(
+			schemasBySlug.get(entitySchemaSlug),
+			`Entity schema '${entitySchemaSlug}' not found`,
+		);
+		const entity = await importMediaEntity(client, providerId, externalId, entitySchemaSlug);
 		if (!entity) {
 			return;
 		}
@@ -1449,7 +1408,7 @@ async function seedMedia(client: APIClient, executingUserId: string) {
 				},
 			];
 		} else if (lifecycle === "progress" && eventSchemas.progress) {
-			const slug = schema.slug as MediaEntitySchemaSlug;
+			const slug = entitySchemaSlug as MediaEntitySchemaSlug;
 			const episodicFields = EPISODIC_MEDIA_SLUGS.has(slug)
 				? generateEpisodicProgressFields(slug)
 				: {};
@@ -1498,40 +1457,55 @@ async function seedMedia(client: APIClient, executingUserId: string) {
 		// oxlint-disable-next-line no-await-in-loop
 		const eventSchemas = await getMediaLifecycleEventSchemas(client, schema.id);
 
-		if (!schema.providers.length) {
-			console.log("    No provider available, skipping");
-			continue;
-		}
-
 		const searchConfig = MEDIA_SEARCH_QUERIES[slug];
-		for (const provider of schema.providers) {
-			const searchScriptId = provider.searchScriptId;
-			console.log(`    Provider: ${provider.name}...`);
-			const identifiers = new Set<string>();
-			for (const page of searchConfig.pages) {
-				try {
-					// oxlint-disable-next-line no-await-in-loop
-					const items = await searchMediaPage(
-						client,
-						searchScriptId,
-						searchConfig.query,
-						page,
-						executingUserId,
-					);
-					for (const item of items) {
+		const identifiersByProvider = new Map<SandboxProviderId, Set<string>>();
+		const providerNames = new Map<SandboxProviderId, string>();
+		for (const page of searchConfig.pages) {
+			try {
+				// oxlint-disable-next-line no-await-in-loop
+				const searchResult = await client.run((c) =>
+					c.providerEntities.search({
+						payload: {
+							savedViewSlug: MEDIA_SAVED_VIEW_SLUGS[slug],
+							query: searchConfig.query,
+							page,
+							pageSize: 10,
+						},
+					}),
+				);
+				for (const result of searchResult.providers) {
+					if (result.status === "failure") {
+						console.log(`      Provider ${result.providerName} search failed: ${result.error}`);
+						continue;
+					}
+					providerNames.set(result.providerId, result.providerName);
+					const identifiers = identifiersByProvider.get(result.providerId) ?? new Set<string>();
+					identifiersByProvider.set(result.providerId, identifiers);
+					for (const item of result.items) {
 						if (!identifiers.has(item.externalId)) {
 							identifiers.add(item.externalId);
 							processingPromises.push(
-								processMediaEntity(item.externalId, provider.providerId, schema, eventSchemas),
+								processMediaEntity(
+									item.externalId,
+									result.providerId,
+									result.entitySchemaSlug,
+									eventSchemas,
+								),
 							);
 						}
 					}
-					console.log(`      Search "${searchConfig.query}" page ${page}: ${items.length} results`);
-				} catch (err) {
-					console.log(`      Search page ${page} failed:`, err);
+					console.log(
+						`      Search "${searchConfig.query}" page ${page}: ${result.items.length} results from ${result.providerName}`,
+					);
 				}
+			} catch (err) {
+				console.log(`      Search page ${page} failed:`, err);
 			}
-			console.log(`    Found ${identifiers.size} unique identifiers from ${provider.name}`);
+		}
+		for (const [providerId, identifiers] of identifiersByProvider) {
+			console.log(
+				`    Found ${identifiers.size} unique identifiers from ${providerNames.get(providerId) ?? providerId}`,
+			);
 		}
 	}
 
@@ -2811,7 +2785,7 @@ async function main() {
 
 	const client = new APIClient(cookies);
 	const startTime = dayjs();
-	const mediaStats = await seedMedia(client, userId);
+	const mediaStats = await seedMedia(client);
 	await seedSandboxScript(client, userId);
 
 	const whiskeyStats = await seedWhiskeys(client);

@@ -1,28 +1,20 @@
-import type { SandboxProviderId, SandboxScriptId } from "@ryot/contract/schema/brands";
+import type { SandboxProviderId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
 import {
 	countEntityTranslations,
 	createAuthenticatedClient,
-	enqueueEntityImport,
-	enqueueEntitySearch,
+	enqueueProviderEntityImport,
 	findBuiltinSchemaBySlug,
 	getEntity,
 	openInterestStreamScoped,
-	pollEntityImportResult,
-	pollSandboxResult,
+	pollProviderEntityImportResult,
 	pollEntityUntilTranslationStatus,
+	searchProviderEntities,
 	seedPopulatedProviderEntity,
 	setUserLanguage,
 } from "~/fixtures";
-import {
-	assertCompleted,
-	assertCondition,
-	assertPresent,
-	requireArray,
-	requireObjectRecord,
-	requireString,
-} from "~/support/assertions";
+import { assertCompleted, assertCondition, assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 const RUN_LIVE =
@@ -33,7 +25,6 @@ function schemaProvider(
 		providers: ReadonlyArray<{
 			name: string;
 			providerId: SandboxProviderId;
-			searchScriptId?: SandboxScriptId;
 		}>;
 	},
 	providerName: string,
@@ -46,36 +37,34 @@ function schemaProvider(
 describe.skipIf(!RUN_LIVE)("live provider smoke (real external APIs)", () => {
 	it.live("searches OpenLibrary and imports a real result", () =>
 		Effect.gen(function* () {
-			const { client, userId } = yield* createAuthenticatedClient();
+			const { client } = yield* createAuthenticatedClient();
 			const { schema } = yield* findBuiltinSchemaBySlug(client, "book");
 			const provider = schemaProvider(schema, "OpenLibrary");
-			assertPresent(provider.searchScriptId, "Expected OpenLibrary to support search");
-
-			const { jobId } = yield* enqueueEntitySearch(userId, {
-				scriptId: provider.searchScriptId,
-				context: { query: "The Hobbit", page: 1, pageSize: 5 },
+			const search = yield* searchProviderEntities(client, {
+				savedViewSlug: "all-books",
+				query: "The Hobbit",
+				page: 1,
+				pageSize: 5,
 			});
-			const search = yield* pollSandboxResult(userId, jobId);
-			assertCompleted(search, "OpenLibrary search");
-
-			const value = requireObjectRecord(search.value, "Expected search result to be an object");
-			const items = requireArray(value.items, "Expected search result items to be an array");
-			assertCondition(items.length > 0, "OpenLibrary returned no results for 'The Hobbit'");
-			const firstItem = requireObjectRecord(
-				items[0],
-				"Expected the first search item to be an object",
+			const result = search.providers.find(
+				(candidate) =>
+					candidate.providerId === provider.providerId && candidate.status === "success",
 			);
-			const externalId = requireString(
-				firstItem.externalId,
-				"Expected the search item to carry a string externalId",
-			);
+			assertPresent(result, "Expected OpenLibrary successful provider search result");
+			if (result.status !== "success") {
+				throw new Error("Expected OpenLibrary provider search to succeed");
+			}
+			assertCondition(result.items.length > 0, "OpenLibrary returned no results for 'The Hobbit'");
+			const firstItem = result.items[0];
+			assertPresent(firstItem, "Expected the first OpenLibrary search item");
+			const externalId = firstItem.externalId;
 
-			const { jobId: importJobId } = yield* enqueueEntityImport(client, {
+			const { jobId: importJobId } = yield* enqueueProviderEntityImport(client, {
 				externalId,
-				providerId: provider.providerId,
-				entitySchemaSlug: schema.id,
+				providerId: result.providerId,
+				entitySchemaSlug: result.entitySchemaSlug,
 			});
-			const imported = yield* pollEntityImportResult(client, importJobId);
+			const imported = yield* pollProviderEntityImportResult(client, importJobId);
 			assertCompleted(imported, "OpenLibrary import");
 			expect(imported.data.name.length).toBeGreaterThan(0);
 			expect(imported.data.entitySchemaSlug).toBe(schema.id);
