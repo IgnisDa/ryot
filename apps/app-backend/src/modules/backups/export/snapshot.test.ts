@@ -5,7 +5,7 @@ import { expect, it } from "@effect/vitest";
 import { BadRequest } from "@ryot/contract/errors";
 import { UserId } from "@ryot/contract/schema/brands";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
-import { Effect, Layer } from "effect";
+import { Effect, FileSystem, Layer } from "effect";
 
 import { assertExitFails } from "#lib/test-utils/assertions";
 import { databaseLayer } from "#lib/test-utils/effect";
@@ -356,7 +356,6 @@ it.effect(
 							]),
 					}),
 					Layer.mock(EntitiesRepository, {
-						getByIdsForUser: () => Effect.succeed([]),
 						listUserEntitiesForBackup: () =>
 							Effect.succeed([
 								{
@@ -524,6 +523,7 @@ it.effect(
 					entitySchemaPluginKey: `user:private-plugin:${privateSourceHash}`,
 				}),
 			]);
+			expect(prepared.records.entityDependencies[0]).not.toHaveProperty("origin");
 			expect(prepared.redactions).toContain("/entities/private-entity/properties/token");
 			expect(prepared.redactions).toContain(
 				"/entity-dependencies/private-dependency/properties/token",
@@ -555,3 +555,214 @@ it.effect(
 		}).pipe(Effect.provide(Layer.mergeAll(layer, databaseLayer)));
 	},
 );
+
+it.effect("reuses one export context across every event page", () => {
+	const eventsPath = `${tmpdir()}/backup-export-events-${crypto.randomUUID()}.ndjson`;
+	const timestamp = new Date("2026-08-24T12:00:00.000Z");
+	const manifest = {
+		...fixtureManifest(),
+		crons: [],
+		scripts: [],
+		workflows: [],
+		providers: [],
+		operations: [],
+		savedViews: [],
+		signalSchemas: [],
+		userBootstrap: [],
+		relationshipSchemas: [],
+		integrationProviders: [],
+		configSchema: { fields: {}, unknownKeys: "strict" as const },
+		metadata: { ...fixtureManifest().metadata, slug: "private-plugin" },
+		bindings: {
+			eventAutomations: [],
+			entityAutomations: [],
+			signalAutomations: [],
+			relationshipAutomations: [],
+			providerEntityImportAutomations: [],
+		},
+		entitySchemas: [
+			{
+				icon: "box",
+				name: "Private Record",
+				slug: "private-record",
+				propertiesSchema: { fields: {} },
+				eventSchemas: [
+					{
+						name: "Watched",
+						slug: "watched",
+						propertiesSchema: {
+							fields: {
+								note: { type: "string" as const, label: "Note", description: "Note" },
+								token: {
+									label: "Token",
+									description: "Token",
+									secret: true as const,
+									type: "string" as const,
+								},
+								poster: {
+									properties: {},
+									label: "Poster",
+									description: "Poster",
+									type: "object" as const,
+									validation: { asset: true as const },
+								},
+							},
+						},
+					},
+				],
+			},
+		],
+	};
+	const sourceHash = pluginSourceHash(manifest, {});
+	const eventRow = (id: string, note: string) => ({
+		id,
+		note,
+		createdAt: timestamp,
+		updatedAt: timestamp,
+		occurredAt: timestamp,
+		sessionEntityId: null,
+		entityId: "private-entity",
+		eventSchemaSlug: "watched",
+		eventSchemaPluginId: "private-plugin-id",
+		properties: {
+			note,
+			token: "event-secret",
+			poster: { type: "local", key: `permanent/${id}.bin` },
+		},
+	});
+	let portableReads = 0;
+	let privateReads = 0;
+	let requestedAssetKeys: ReadonlyArray<string> = [];
+	const eventPageRequests: (string | undefined)[] = [];
+	const layer = BackupExportSnapshot.layer.pipe(
+		Layer.provide(
+			Layer.mergeAll(
+				databaseLayer,
+				BunFileSystem.layer,
+				Layer.mock(PluginRuntimeResolver, {
+					getEffectiveDefinitions: () =>
+						Effect.succeed(
+							buildDefinitionSnapshot(
+								mergeManifestDefinitions(
+									{ savedViews: [], entitySchemas: [], signalSchemas: [], relationshipSchemas: [] },
+									[{ id: "private-plugin-id", slug: "private-plugin", manifest }],
+								),
+							),
+						),
+				}),
+				Layer.mock(AuthRepository, {
+					getPortableProfile: () => Effect.succeed({ name: "Owner", image: null, preferences: {} }),
+				}),
+				Layer.mock(EventsRepository, {
+					listUserEventsForBackup: ({ afterId }) =>
+						Effect.sync(() => {
+							eventPageRequests.push(afterId);
+							if (afterId === undefined) {
+								return [eventRow("event-1", "first")];
+							}
+							return afterId === "event-1" ? [eventRow("event-2", "second")] : [];
+						}),
+				}),
+				Layer.mock(EntitiesRepository, {
+					listReferencedGlobalEntitiesForBackup: () => Effect.succeed([]),
+					listGlobalEntitiesByIdsForBackup: () => Effect.succeed([]),
+					listUserEntitiesForBackup: () =>
+						Effect.succeed([
+							{
+								origin: null,
+								properties: {},
+								provider: null,
+								externalId: null,
+								populatedAt: null,
+								createdAt: timestamp,
+								updatedAt: timestamp,
+								id: "private-entity",
+								name: "Private entity",
+								entitySchemaSlug: "private-record",
+								entitySchemaPluginId: "private-plugin-id",
+							},
+						]),
+				}),
+				Layer.mock(SavedViewsRepository, { listForBackup: () => Effect.succeed([]) }),
+				Layer.mock(TranslationsRepository, { listForBackup: () => Effect.succeed([]) }),
+				Layer.mock(IntegrationsRepository, { listForBackup: () => Effect.succeed([]) }),
+				Layer.mock(RelationshipsRepository, {
+					listUserRelationshipsForBackup: () => Effect.succeed([]),
+				}),
+				Layer.mock(AutomationsRepository, {
+					listNotificationSubscriptionsForBackup: () => Effect.succeed([]),
+				}),
+				Layer.mock(ManagedAssetsService, {
+					verifyManagedAssetOwnership: (ownerUserId, locators) =>
+						Effect.sync(() => {
+							requestedAssetKeys = locators.map(({ key }) => key);
+							return locators.map((locator) => ({
+								size: 1,
+								ownerUserId,
+								key: locator.key,
+								createdAt: timestamp,
+								provider: locator.type,
+								contentType: "image/png",
+								sha256: `sha-${locator.key}`,
+							}));
+						}),
+				}),
+				Layer.mock(PluginRepository, {
+					listPortablePluginMetadata: () =>
+						Effect.sync(() => {
+							portableReads += 1;
+							return [];
+						}),
+					listPrivateForUser: () =>
+						Effect.sync(() => {
+							privateReads += 1;
+							return [
+								{
+									manifest,
+									sourceHash,
+									scripts: [],
+									ownerId: userId,
+									sourceFiles: {},
+									slug: "private-plugin",
+									scope: "user" as const,
+									id: "private-plugin-id",
+									status: "active" as const,
+								},
+							];
+						}),
+				}),
+				Layer.mock(PluginInstallationRepository, { listForUser: () => Effect.succeed([]) }),
+			),
+		),
+	);
+	return Effect.gen(function* () {
+		const snapshot = yield* BackupExportSnapshot;
+		const prepared = yield* snapshot.prepareExportSnapshot(userId, eventsPath);
+		expect(portableReads).toBe(1);
+		expect(privateReads).toBe(1);
+		expect(eventPageRequests).toEqual([
+			undefined,
+			"event-1",
+			"event-2",
+			undefined,
+			"event-1",
+			"event-2",
+		]);
+		expect(requestedAssetKeys).toEqual(["permanent/event-1.bin", "permanent/event-2.bin"]);
+		expect(prepared.events.count).toBe(2);
+		expect(prepared.redactions).toEqual([
+			"/events/event-1/properties/token",
+			"/events/event-2/properties/token",
+		]);
+		const fs = yield* FileSystem.FileSystem;
+		const written = (yield* fs.readFileString(eventsPath))
+			.trimEnd()
+			.split("\n")
+			.map((line) => JSON.parse(line));
+		expect(written.map(({ id }) => id)).toEqual(["event-1", "event-2"]);
+		expect(written.map(({ properties }) => properties)).toEqual([
+			{ note: "first", poster: { type: "local", key: "sha-permanent/event-1.bin" } },
+			{ note: "second", poster: { type: "local", key: "sha-permanent/event-2.bin" } },
+		]);
+	}).pipe(Effect.provide(Layer.mergeAll(layer, databaseLayer, BunFileSystem.layer)));
+});
