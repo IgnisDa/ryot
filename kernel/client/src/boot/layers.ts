@@ -2,6 +2,7 @@ import { Layer } from "effect";
 
 import { AdminApi } from "#/api/admin";
 import { AuthenticatedApi } from "#/api/authenticated";
+import { BackupsApi } from "#/api/backups";
 import { GodModeApi } from "#/api/god-mode";
 import { ImportsApi } from "#/api/imports";
 import { IntegrationsApi } from "#/api/integrations";
@@ -44,6 +45,7 @@ const TransportLive = Layer.mergeAll(AdminApi.layer, AuthenticatedApi.layer).pip
 const InfrastructureLive = Layer.mergeAll(
 	PublicApi.layer,
 	RyotQLApi.layer,
+	BackupsApi.layer,
 	UploadsApi.layer,
 	PluginsApi.layer,
 	ImportsApi.layer,

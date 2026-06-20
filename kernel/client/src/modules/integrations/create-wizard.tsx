@@ -1,4 +1,3 @@
-import { useRyot } from "@ryot-app/client-sdk/react";
 import { Button, FieldMessage, StatusMessage } from "@ryot-app/client-ui-sdk";
 import {
 	useSchemaForm,
@@ -30,10 +29,12 @@ import { IntegrationSettingsForm } from "#/modules/integrations/settings-form";
 import { CatalogPicker, type CatalogPickerState } from "#/modules/ui/catalog/picker";
 import { findBySlug } from "#/modules/ui/catalog/selection";
 import { schemaReviewRows } from "#/modules/ui/review-rows";
+import { useSchemaFileUpload } from "#/modules/ui/schema-form-upload";
 import { WizardShell } from "#/modules/ui/wizard/wizard-shell";
 import {
 	createWizardState,
 	wizardReducer,
+	WIZARD_STEPS,
 	wizardStepLabel,
 	type WizardStepHeadings,
 } from "#/modules/ui/wizard/wizard-state";
@@ -41,8 +42,6 @@ import {
 export const INTEGRATION_WIZARD_TITLE = "Connect a service";
 
 export type IntegrationProviderPickerState = CatalogPickerState<ListedIntegrationProvider>;
-
-const UPLOAD_FAILURE_MESSAGE = "Could not upload this file. Try again.";
 
 const stepHeadings = {
 	pick: "Choose a service",
@@ -171,7 +170,7 @@ function ReviewStep(props: {
 }
 
 export function IntegrationCreateWizard(props: CreateWizardProps) {
-	const ryot = useRyot();
+	const uploadFile = useSchemaFileUpload();
 	const { runtime, scope } = useRouteContext({ from: "/_authenticated" });
 	const controller = useRef(new AbortController());
 	const [pending, setPending] = useState(false);
@@ -181,15 +180,6 @@ export function IntegrationCreateWizard(props: CreateWizardProps) {
 	const provider = findBySlug(listed, state.slug);
 
 	useEffect(() => () => controller.current.abort(), []);
-
-	const uploadFile: SchemaFileUpload = async (request) => {
-		try {
-			const uploaded = await ryot.uploads.uploadTemporary(request);
-			return { kind: "uploaded", token: uploaded.token };
-		} catch {
-			return { kind: "failed", message: UPLOAD_FAILURE_MESSAGE };
-		}
-	};
 
 	const connect = useEffectEvent(async (values: SchemaFormValues) => {
 		if (provider === undefined) {
@@ -306,7 +296,7 @@ export function IntegrationCreateWizard(props: CreateWizardProps) {
 			onClose={props.onClose}
 			title={INTEGRATION_WIZARD_TITLE}
 			closeLabel="Close the integration wizard"
-			stepLabel={wizardStepLabel(state.step, stepHeadings)}
+			stepLabel={wizardStepLabel(state.step, WIZARD_STEPS, stepHeadings)}
 		>
 			{stepBody}
 		</WizardShell>
