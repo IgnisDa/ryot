@@ -56,7 +56,6 @@
 | `database.url` | `DATABASE_URL` | PostgreSQL connection string | Yes | Yes | — |
 | `database.poolMax` | `DATABASE_POOL_MAX` | Maximum number of PostgreSQL connections held in the pool | No | No | `10` |
 | `database.connectionTimeoutMs` | `DATABASE_CONNECTION_TIMEOUT_MS` | Maximum milliseconds to wait when acquiring a PostgreSQL connection from the pool | No | No | `10000` |
-| `database.idleInTransactionTimeoutMs` | `DATABASE_IDLE_IN_TRANSACTION_TIMEOUT_MS` | Maximum milliseconds a transaction may sit idle holding locks before PostgreSQL aborts it; 0 disables | No | No | `0` |
 
 ### Scheduler settings
 
