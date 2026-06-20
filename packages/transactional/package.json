@@ -2,10 +2,8 @@
 	"name": "@ryot/transactional",
 	"private": true,
 	"scripts": {
-		"build": "email export",
 		"dev": "email dev --port 6200",
-		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix",
-		"copy-templates": "cp -r out/. ../../crates/services/notification/templates"
+		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
 	},
 	"dependencies": {
 		"@react-email/components": "1.0.7",
