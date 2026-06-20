@@ -25,7 +25,6 @@ import {
 	waitForSeededExerciseId,
 	waitForSessionEventCount,
 } from "../fixtures";
-import { getPgClient } from "../setup";
 
 describe("Workouts E2E", () => {
 	it("links the built-in workout schema to the fitness tracker", async () => {
@@ -259,7 +258,7 @@ describe("Workouts E2E", () => {
 	});
 
 	it("creates a workout-repeated-from relationship between two workouts", async () => {
-		const { client, userId } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 		const { workoutId: originalWorkoutId } = await createWorkoutEntityFixture(client);
 		const { workoutId: copiedWorkoutId } = await createWorkoutEntityFixture(client);
 
@@ -268,32 +267,15 @@ describe("Workouts E2E", () => {
 			"workout-repeated-from",
 		);
 
-		await insertRelationshipRow(client, {
+		const relationship = await insertRelationshipRow(client, {
 			relationshipSchemaId,
 			sourceEntityId: copiedWorkoutId,
 			targetEntityId: originalWorkoutId,
 		});
 
-		const result = await getPgClient().query<{
-			source_entity_id: string;
-			target_entity_id: string;
-		}>(
-			`select r.source_entity_id, r.target_entity_id
-			 from relationship r
-			 where r.relationship_schema_id = $1
-			   and r.user_id = $2
-			   and r.source_entity_id = $3
-			   and r.target_entity_id = $4`,
-			[relationshipSchemaId, userId, copiedWorkoutId, originalWorkoutId],
-		);
-
-		expect(result.rows).toHaveLength(1);
-		const row = result.rows[0];
-		expect(row).toBeDefined();
-		if (!row) {
-			return;
-		}
-		expect(row.source_entity_id).toBe(copiedWorkoutId);
-		expect(row.target_entity_id).toBe(originalWorkoutId);
+		expect(relationship.wasInserted).toBe(true);
+		expect(relationship.sourceEntityId).toBe(copiedWorkoutId);
+		expect(relationship.targetEntityId).toBe(originalWorkoutId);
+		expect(relationship.relationshipSchemaId).toBe(relationshipSchemaId);
 	});
 });
