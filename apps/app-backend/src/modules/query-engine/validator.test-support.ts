@@ -1,8 +1,7 @@
-import type { EntitySource, Expr, QueryDocument } from "./language";
+import type { RowsQueryDocument } from "./executor/types";
+import type { EntitySource, Expr } from "./language";
 
-export type RowsQueryDocument = QueryDocument & {
-	output: Extract<QueryDocument["output"], { type: "rows" }>;
-};
+export type { RowsQueryDocument };
 
 export const nameRef = (alias: string): Expr => ({
 	type: "ref",
