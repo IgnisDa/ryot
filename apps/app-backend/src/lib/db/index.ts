@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Context, Effect, Exit, Layer, Redacted, Runtime } from "effect";
 import { Pool } from "pg";
@@ -25,7 +26,6 @@ export class DbService extends Effect.Service<DbService>()("DbService", {
 		const config = yield* AppConfig;
 		const pool = new Pool({
 			max: config.database.poolMax,
-			statement_timeout: config.database.statementTimeoutMs,
 			connectionString: Redacted.value(config.database.url),
 			connectionTimeoutMillis: config.database.connectionTimeoutMs,
 			idle_in_transaction_session_timeout: config.database.idleInTransactionTimeoutMs,
@@ -37,6 +37,18 @@ export class DbService extends Effect.Service<DbService>()("DbService", {
 
 export const dbEffect = <A>(try_: () => Promise<A>): Effect.Effect<A, DbError> =>
 	Effect.tryPromise({ try: try_, catch: unknownToDbError });
+
+// set_config(..., true) is the callable form of SET LOCAL: transaction-scoped, and (unlike the
+// SET statement) it binds the value as a parameter.
+export const setLocalStatementTimeout = (
+	timeoutMs: number,
+): Effect.Effect<void, DbError, CurrentDb> =>
+	Effect.gen(function* () {
+		const db = yield* CurrentDb;
+		yield* dbEffect(() =>
+			db.execute(sql`SELECT set_config('statement_timeout', ${timeoutMs.toString()}, true)`),
+		);
+	});
 
 export const isUniqueConstraintError = (constraint: string) => (error: unknown) =>
 	error instanceof DbError && error.code === "23505" && error.constraint === constraint;
