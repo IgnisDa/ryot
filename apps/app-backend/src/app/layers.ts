@@ -40,9 +40,12 @@ import { IntegrationsRepository } from "#modules/integrations/repository";
 import { IntegrationsSchedulerLive } from "#modules/integrations/scheduler";
 import { IntegrationsService } from "#modules/integrations/service";
 import { IntegrationWorkflowDefinitionsLive } from "#modules/integrations/workflows";
+import { WsRegistry } from "#modules/interest/registry";
+import { InterestReconciler } from "#modules/interest/service";
 import { GlobalEntityReferencedWorkerLive } from "#modules/library-membership/global-reference-worker";
 import { LibraryImportService } from "#modules/library-membership/service";
 import { LibraryEntityImportWorkflowDefinitionsLive } from "#modules/library-membership/workflows";
+import { ProviderConfig } from "#modules/query-engine/provider-config";
 import { QueryEngineService } from "#modules/query-engine/service";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipSchemasService } from "#modules/relationship-schemas/service";
@@ -58,7 +61,6 @@ import { TrackersRepository } from "#modules/trackers/repository";
 import { TrackersService } from "#modules/trackers/service";
 import { TranslationsRepository } from "#modules/translations/repository";
 import { TranslationsService } from "#modules/translations/service";
-import { TranslationOverlayLive } from "#modules/translations/translation-overlay-live";
 import { TranslateEntityWorkflowDefinitionsLive } from "#modules/translations/workflows";
 import { UploadsService } from "#modules/uploads/service";
 import { UserPreferencesService } from "#modules/user-preferences/service";
@@ -120,24 +122,24 @@ const ApplicationInfrastructureLive = Layer.mergeAll(
 	CoreInfrastructureDependenciesLive,
 );
 
-const TranslationOverlayServiceLive = Layer.provide(
-	TranslationOverlayLive,
-	TranslationsService.Default,
+// The query engine reads canonical languages from ProviderConfig for its `translationStatus` field.
+const QueryEngineServiceLive = Layer.provide(QueryEngineService.Default, ProviderConfig.Default);
+
+const EntitiesServiceLive = Layer.provide(EntitiesService.Default, QueryEngineServiceLive);
+
+// Client-declared-interest realtime plumbing: the socket registry (+ Redis subscriber) and the
+// reconciler that turns declared interest into idempotent population/translation enqueues.
+const InterestReconcilerLive = Layer.provide(
+	InterestReconciler.Default,
+	Layer.mergeAll(QueryEngineServiceLive, EntityPopulationTriggerLive, TranslationsService.Default),
 );
 
-const EntitiesServiceLive = Layer.provide(
-	EntitiesService.Default,
-	Layer.mergeAll(
-		QueryEngineService.Default,
-		EntityPopulationTriggerLive,
-		TranslationOverlayServiceLive,
-	),
-);
-const EventsServiceLive = Layer.provide(EventsService.Default, QueryEngineService.Default);
+const WsServicesLive = Layer.mergeAll(WsRegistry.Default, InterestReconcilerLive);
+const EventsServiceLive = Layer.provide(EventsService.Default, QueryEngineServiceLive);
 
 const RuntimeSandboxServiceLive = Layer.provide(
 	SandboxService.Default,
-	Layer.mergeAll(EventsServiceLive, QueryEngineService.Default),
+	Layer.mergeAll(EventsServiceLive, QueryEngineServiceLive),
 );
 
 const SandboxServicesLive = Layer.mergeAll(SandboxApiService.Default, RuntimeSandboxServiceLive);
@@ -150,13 +152,13 @@ const ContentServicesLive = Layer.mergeAll(
 	EpisodeResolverService.Default,
 	EventSchemasService.Default,
 	EventsServiceLive,
-	QueryEngineService.Default,
+	QueryEngineServiceLive,
 	RelationshipSchemasService.Default,
 );
 
 const PlatformServicesLive = Layer.mergeAll(
 	RelationshipsService.Default,
-	Layer.provide(SavedViewsService.Default, QueryEngineService.Default),
+	Layer.provide(SavedViewsService.Default, QueryEngineServiceLive),
 	TrackersService.Default,
 	UploadsService.Default,
 	Layer.provide(UserPreferencesService.Default, AuthService.Default),
@@ -184,7 +186,10 @@ const ServicesBaseLive = Layer.provideMerge(
 	CollectionsServiceLive,
 );
 
-const ServicesLive = Layer.provideMerge(ServicesBaseLive, SandboxServicesLive);
+const ServicesLive = Layer.mergeAll(
+	Layer.provideMerge(ServicesBaseLive, SandboxServicesLive),
+	WsServicesLive,
+);
 
 const ServiceDependenciesLive = Layer.provide(ServicesLive, ApplicationInfrastructureLive);
 

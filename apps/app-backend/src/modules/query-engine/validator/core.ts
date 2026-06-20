@@ -166,6 +166,7 @@ export const validateEntitySource = (
 	scope: AliasScope,
 	aliases: AliasScope,
 	expressionSourceDepth = 0,
+	isRoot = false,
 ) => {
 	const schemaError = validateSchemaList(source.schemas);
 	if (schemaError) {
@@ -195,7 +196,7 @@ export const validateEntitySource = (
 	const aliasError = registerAlias(
 		scope,
 		source.alias,
-		{ type: "entitySource", schemas: source.schemas },
+		{ type: "entitySource", schemas: source.schemas, root: isRoot },
 		aliases,
 	);
 	if (aliasError) {

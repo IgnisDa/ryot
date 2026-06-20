@@ -149,9 +149,9 @@ export async function countEntityTranslations(entityId: string) {
 }
 
 /**
- * Re-reads the entity detail endpoint until its translationStatus settles to the
- * target. While the status is `pending`, each read re-requests the background fill,
- * mirroring how a client polls the detail page (PRD: "appears on a subsequent read").
+ * Re-reads the entity detail endpoint until its translationStatus settles to the target. Reads are
+ * side-effect-free, so the caller must have declared interest over the WebSocket to trigger the fill;
+ * this only observes the resulting status transition.
  */
 export async function pollEntityUntilTranslationStatus(
 	client: Client,

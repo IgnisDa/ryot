@@ -1,8 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import type { QueryDocument } from "./language";
-import { makeDoc, nameRef, propertyRef } from "./validator.test-support";
+import type { Expr, QueryDocument } from "./language";
+import { descendantSource, makeDoc, nameRef, propertyRef } from "./validator.test-support";
 import { validateQueryDocument } from "./validator/document";
+
+const translationStatusRef = (alias: string): Expr => ({
+	type: "ref",
+	sourceAlias: alias,
+	field: { type: "systemComputed", name: "translationStatus" },
+});
 
 describe("alias registration", () => {
 	it("accepts a unique alias", () => {
@@ -16,6 +22,41 @@ describe("schema list validation", () => {
 			source: { alias: "e", where: null, type: "entities", schemas: ["books", "books"] },
 		});
 		expect(validateQueryDocument(doc)).toMatch(/Duplicate schema 'books'/);
+	});
+});
+
+describe("system-computed field validation", () => {
+	it("accepts translationStatus on the root entity source", () => {
+		const doc = makeDoc({
+			output: {
+				type: "rows",
+				pagination: { page: 1, limit: 10 },
+				orderBy: [{ order: "asc", expr: nameRef("e") }],
+				fields: [{ key: "ts", expr: translationStatusRef("e") }],
+			},
+		});
+		expect(validateQueryDocument(doc)).toBeNull();
+	});
+
+	it("rejects translationStatus on an included (non-root) entity source", () => {
+		const doc = makeDoc({
+			output: {
+				fields: [],
+				type: "rows",
+				pagination: { page: 1, limit: 10 },
+				orderBy: [{ order: "asc", expr: nameRef("e") }],
+				include: [
+					{
+						limit: 10,
+						key: "mods",
+						orderBy: [{ order: "asc", expr: nameRef("m") }],
+						fields: [{ key: "ts", expr: translationStatusRef("m") }],
+						source: descendantSource("m", "e", "cm", null),
+					},
+				],
+			},
+		});
+		expect(validateQueryDocument(doc)).toMatch(/only valid on the root entity source/);
 	});
 });
 

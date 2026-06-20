@@ -233,140 +233,82 @@ Both schemas belong to the built-in Media tracker. `docs/soul.md` lists the Medi
 
 ---
 
-## Decision 3: Real-Time Entity Population via SSE
+## Decision 3: Real-Time Entity Work via Client-Declared Interest over WebSocket
 
 ### Context
 
-V1's frontend used a polling loop (`useEntityUpdateMonitor` in `apps/frontend/app/lib/shared/hooks/polling.ts`) to detect when a partial entity became fully populated. When a user navigated to a media detail page whose `is_partial` flag was true, the frontend fired the same GraphQL query at a one-second interval — up to 30 times — until the backend import job completed. Because multiple hooks could be active simultaneously (entity details plus one poll per pending translation variant), a single page load could sustain ~8 requests per second. Every polling response triggered a React re-render, compounding the CPU load.
+V1's frontend polled (`useEntityUpdateMonitor`) to detect when a partial entity became fully populated: up to ~8 requests/second per page load, each triggering a React re-render. That was a known bottleneck the rewrite set out to remove.
 
-This behavior was intentional and acknowledged as a known bottleneck in V1. The rewrite is the opportunity to remove it.
-
-In the rewrite, the same concept is modeled as `entity.populatedAt`. When `populatedAt` is null the entity is partial. The client needs to know when a background import job sets that value so it can re-fetch and display complete data.
+In the rewrite the same concept is `entity.populatedAt` (null ⇒ partial) plus, for localized users, a per-language translation overlay that is filled in the background. A client needs to (a) tell the backend which entities it currently cares about and (b) learn when the backend has finished populating or translating one of them.
 
 ### Decision
 
-The rewrite will use a single persistent SSE connection, opened once when the app starts, to push entity population events from the backend to the client. The client will call `queryClient.invalidateQueries` on each incoming event and let TanStack Query determine whether a network request is actually needed.
+A single persistent per-session **WebSocket** at `GET /api/ws` carries a small, typed protocol (Effect `Schema`, `apps/app-backend/src/modules/interest/messages.ts`):
+
+- **client → server** `{ type: "interest", entityIds }` — the full set of entity ids the client currently wants worked on. Replace semantics: each message supersedes the previous set for that connection.
+- **server → client** `{ type: "entity:updated", entityId, reason }` where `reason` is `"populated"` or `"translated"`, and `{ type: "error", code, message }`.
+
+There is no protocol version and no interest acknowledgement in v1.
 
 ### How It Works
 
-**Backend**
+**Reconciler (glue, not a new queue).** The socket transport lives in `modules/interest/` — `gateway.ts` (upgrade auth + frame handling), `registry.ts` (socket map + Redis subscriber), `messages.ts` (wire schemas). On each `interest` message the gateway drives the reconciler (`modules/interest/service.ts`):
 
-- One authenticated SSE endpoint: `GET /api/system/stream`.
-- When the media import worker sets `populatedAt` on an entity, it publishes `{ entityId }` to a Redis pub/sub channel.
-- The SSE endpoint subscribes to that channel and forwards each message to the connected client as an `entity:populated` event.
+1. Updates the socket registry **first** (so a workflow that publishes mid-reconcile still finds the socket).
+2. Reads the interest set through the query engine — chunked into ≤100-id `execute`s (`MAX_ROOT_PAGE_SIZE`; there is no `in` operator, so the id filter is an `or`-of-`eq`), scoped to the user's visible entity-schema slugs. Per-user visibility, localization, and the `translationStatus` computed field all fall out of the engine for free.
+3. Enqueues existing idempotent bricks: `populatedAt === null` ⇒ `EntityPopulationTrigger.request` (`populate-${id}`); populated + `translationStatus === "pending"` ⇒ `TranslationsService.requestFill` (`translate-${id}-${lang}`). Idempotency is `@effect/workflow` execution-id coalescing.
+4. Returns the already-terminal ids so the handler emits their `entity:updated` frames **directly on that socket** (catch-up), never via Redis.
 
-**Client**
+**Completion fan-out.** Each workflow publishes one `{ entityId, reason }` message to a single Redis channel (`redisKeys.entityUpdatedChannel`) on completion. A per-process subscriber (a duplicated ioredis connection, modeled on the god-mode reset subscriber) fans each message out to the local sockets that declared interest, via a `Map<entityId, Set<socket>>` registry with a reverse index for replace-diffing and cleanup.
 
-- The root layout opens one `EventSource` connection on mount and keeps it open for the lifetime of the session.
-- On each `entity:populated` event: `queryClient.invalidateQueries({ queryKey: entityKeys.detail(entityId) })`.
-- TanStack Query handles the rest:
-  - If a component is currently mounted with that query key, it refetches immediately in the background and React re-renders on completion.
-  - If the query exists in cache but no component is mounted, it is marked stale and refetched automatically on the next mount.
-  - If the query has never been fetched, `invalidateQueries` is a no-op.
+**Auth.** Web clients send the session cookie automatically on the upgrade; a strict `Origin` allowlist (better-auth `trustedOrigins`, which includes `ryot://`) is the CSRF defense for those cookie connections. Native clients cannot set a Cookie header on the upgrade, so they pass the session token as a `Sec-WebSocket-Protocol` subprotocol, which the server turns into a forged `Cookie` header before resolving `AuthService.currentUser`. Session identity and language are captured once at upgrade and never re-validated per message; the client reopens the socket on a language change (as it does on login/logout).
 
-The client does not need to track which entity IDs it is "interested in". TanStack Query's active-subscriber model provides that filtering as a side effect of rendering.
+**Populate-before-translate.** Translation is only ever enqueued for a populated entity. Enqueuing a fill on an unpopulated entity would write an all-null overlay row that permanently mislabels the status as `none` — see `docs/tasks/media-translations/README.md` for the negative-cache and no-permanent-`pending` semantics.
 
-**List queries (saved views and query engine)**
+### Why WebSocket
 
-The saved-view runtime query key (`["saved-view-runtime", slug, ...]`) does not contain individual entity IDs, so targeted `invalidateQueries({ queryKey: ["entity-detail", entityId] })` calls do not reach it. Entity cards in a saved view showing stale partial properties while the user is actively browsing is a real UX gap.
-
-On every `entity:populated` event the client will also schedule a debounced invalidation of all active saved-view-runtime queries. The debounce window (around 1.5 s) collapses a burst of population events — such as a bulk import completing many entities in quick succession — into a single list refetch. TanStack Query only fires a network request if a component with that query key is currently mounted, so the cost is zero when the user is not on a saved-view screen.
-
-```ts
-const debouncedInvalidateLists = debounce(() => {
-  queryClient.invalidateQueries({
-    predicate: q => q.queryKey[0] === "saved-view-runtime",
-  });
-}, 1500);
-
-es.addEventListener("entity:populated", ({ data }) => {
-  const { entityId } = JSON.parse(data);
-  queryClient.invalidateQueries({ queryKey: ["entity-detail", entityId] });
-  debouncedInvalidateLists();
-});
-```
-
-**Reconnect gap**
-
-If the SSE connection drops, events that fired during the gap are silently lost. On reconnect, the client will call `queryClient.invalidateQueries()` with no key filter to sweep all currently active queries. This ensures any entity that was populated while the client was disconnected is re-fetched when the connection is restored, without requiring server-side event replay or `Last-Event-ID` bookkeeping. The broad sweep covers both entity-detail and saved-view-runtime queries.
-
-**Expo native**
-
-React Native does not expose a native `EventSource`. The client will use the `react-native-sse` polyfill, which is a drop-in replacement that works across iOS, Android, and web targets.
-
-### Why SSE over the Alternatives
-
-| Option               | Why rejected                                                       |
-| -------------------- | ------------------------------------------------------------------ |
-| Polling (V1 pattern) | The problem being solved                                           |
-| WebSocket            | Bidirectional protocol; overkill for a server-to-client-only feed |
-| Long polling         | Holds one HTTP connection open per pending entity; complex teardown |
-| Push notifications   | Requires app store provisioning; wrong granularity for UI updates  |
-
-SSE is unidirectional, HTTP/1.1 compatible, has built-in auto-reconnect, and Hono supports it natively via `streamSSE`. Redis is already in the stack via BullMQ, so no new infrastructure is required.
+The reconciler is fundamentally demand-driven: it needs the client to declare interest, which requires a client→server channel. A bidirectional socket lets the client state interest explicitly and lets the server both act on it and stream completions back over the same connection.
 
 ### Summary
 
-- Replace all entity-population polling with a single persistent SSE connection per client session.
-- Backend: media worker publishes to Redis on job completion; SSE endpoint forwards to all connected clients.
-- Client: targeted `invalidateQueries` on every `entity:populated` event, plus a debounced broad invalidation of saved-view-runtime queries; broad sweep on reconnect.
-- No per-entity subscription tracking on the client; TanStack Query's active-subscriber model handles filtering automatically.
+- One persistent per-session WebSocket at `/api/ws`; the client declares its full interest set with replace semantics.
+- The server reconciles interest into existing idempotent population/translation workflows and streams `entity:updated` completions back.
+- Completions fan out via one Redis channel + a per-process duplicated-connection subscriber; catch-up for already-terminal entities is emitted directly on the originating socket.
+- Web auth via session cookie + `Origin` allowlist; native auth via the session-token subprotocol. Identity/language captured at upgrade.
 
 ---
 
-## Decision 4: Population Job Dispatch Owned by the Backend
+## Decision 4: Side-Effect-Free Reads and the `translationStatus` Field
 
 ### Context
 
-In V1, the frontend was responsible for dispatching the job that populated a partial entity. When the frontend detected `is_partial = true` on a metadata, person, or group record, it explicitly called the `DeployUpdateMediaEntityJob` GraphQL mutation. Without that call, the backend had no signal about which entities the user actually wanted populated, and would otherwise have to blindly populate everything — including entities no user ever views.
-
-This responsibility sitting in the frontend was a design flaw: it coupled data-fetching logic to job dispatch, it required the client to understand backend job mechanics, and it was the direct cause of the polling loop described in Decision 3.
-
-In the rewrite, the equivalent state is `entity.populatedAt === null`. The question is who triggers the population job and when.
+In V1 the frontend dispatched population jobs, coupling data-fetching to job mechanics and driving the polling loop. The rewrite's equivalent state is `entity.populatedAt === null` plus a per-language translation overlay. The question is who triggers population/translation and when.
 
 ### Decision
 
-Population jobs will be triggered by the backend at every point where entities are surfaced to the user, with no involvement from the client. The client dispatches nothing.
+`GET /entities/{entityId}` and `POST /query-engine/execute` are **purely read-only**. Neither enqueues anything. All demand-driven population and translation is triggered by client-declared interest over the WebSocket (Decision 3).
 
-The two surfaces that expose entities to the user are:
+`getById` still returns a localized entity and its localization state, but sources both from the read path itself rather than side effects:
 
-- `GET /entities/{entityId}` — the entity detail endpoint
-- `POST /query-engine/execute` — every saved view and list query
+- **Localized `name`/`properties`** come from the query engine's entity source, which overlays the `(entity_id, language)` translation row for a non-canonical viewer (byte-identical to the bare table for canonical/no-language viewers).
+- **`translationStatus`** is a new opt-in query-engine computed field, exposed via a `systemComputed` `FieldSelector` variant valid on the **root entity source only**. It returns `"pending" | "ready" | "none"` and is computed entirely in SQL via its own correlated read of `entity_translation` (the localized source coalesces that row away, so it cannot be derived from the merged columns). For a canonical reader (null session language) it constant-folds to `to_jsonb('none'::text)` with no join, keeping canonical SQL byte-identical to a query that never referenced translations. `getById` requests this field; `EntityDetail.translationStatus` stays required.
 
-Both will call a shared `maybeEnqueuePopulation` helper for each partial entity in their response before returning. The client simply fetches data and reacts to the SSE `entity:populated` event when it arrives.
+The `translationStatus` truth table (row absent ⇒ `pending`; row present with null name and empty properties ⇒ `none` negative cache; otherwise `ready`) mirrors `docs/tasks/media-translations/README.md`, and its canonical language is read from a boot-immutable `ProviderConfig` map (`sandbox_script.metadata.providerInformation.canonicalLanguage`).
 
-### Why Both Surfaces
+### Why Read-Only Reads
 
-Triggering only on `GET /entities/{entityId}` (the detail endpoint) is insufficient. A user may browse a saved view without ever navigating into an individual entity. Since the saved view is a first-class browsing surface, entities visible in a list are already a signal of user interest. Restricting population to explicit detail-page visits would leave list entries showing stale partial data indefinitely.
-
-Triggering on `POST /query-engine/execute` ensures that anything the user can currently see on screen — whether in a detail view or a list — gets a population job.
+Triggering work from reads makes a GET non-idempotent, couples the read contract to queue mechanics, and forces every list/detail surface to understand background jobs. Client-declared interest is a cleaner separation: reads report state, and a separate explicit signal drives work — the client names exactly the entities it cares about.
 
 ### Idempotency
 
-BullMQ supports deterministic job IDs. The helper uses `jobId: "populate-{entityId}"` on every `queue.add` call. If a job with that ID is already waiting or active, the call is a no-op. After the job completes it is removed from the queue, but by then `populatedAt` is set so the helper skips re-enqueuing on the next request. The result is exactly one active job per partial entity at any time, regardless of how many concurrent requests surface it.
-
-```ts
-function maybeEnqueuePopulation(entityId: string, populatedAt: Date | null) {
-  if (populatedAt === null) {
-    mediaQueue.add("media-import", { entityId }, { jobId: `populate-${entityId}` });
-  }
-}
-```
-
-### What the Client Does
-
-Nothing related to job dispatch. The client fetches entity data, renders what is available, and waits for an `entity:populated` SSE event to arrive. On that event it invalidates the relevant query keys as described in Decision 3. The client has no awareness of jobs, queues, or population state beyond reading `populatedAt` to decide whether to show a partial/loading UI.
-
-### Why Not Eager Population on Entity Creation
-
-Enqueuing a population job the moment a partial entity is written to the database was considered and rejected. The query engine can surface many entities during search and indexing operations that the user may never view. Eagerly populating all of them would perform unnecessary external API calls and consume worker capacity for data nobody asked for. Demand-driven triggering at the point of surfacing ensures work is proportional to actual user interest.
+Population and translation are `@effect/workflow` workflows keyed by a deterministic execution id (`populate-${entityId}`, `translate-${entityId}-${language}`) with `discard: true`, so concurrent or repeated interest declarations coalesce onto a single in-flight run.
 
 ### Summary
 
-- The client never dispatches population jobs. That responsibility moves entirely to the backend.
-- Both `GET /entities/{entityId}` and `POST /query-engine/execute` call `maybeEnqueuePopulation` for each partial entity in their response.
-- BullMQ deterministic job IDs guarantee at most one active job per entity.
-- The client reacts to the SSE `entity:populated` event and invalidates cache; it does not poll or track job state.
+- Reads (`getById`, query-engine `execute`) are side-effect-free; the client never sees or drives job dispatch.
+- `translationStatus` is an opt-in `systemComputed` query-engine field, root-entity-source only, computed in SQL and no-op for canonical readers.
+- `getById` localizes via the entity source overlay and reports status via the field; `EntityDetail.translationStatus` remains required.
+- Idempotency is `@effect/workflow` execution-id coalescing (`populate-${id}`, `translate-${id}-${lang}`).
 
 ---
 
