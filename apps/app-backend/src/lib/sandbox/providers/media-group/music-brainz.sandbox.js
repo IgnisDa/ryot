@@ -41,15 +41,8 @@ async function fetchCoverArtUrl(resourceType, resourceId) {
 			return null;
 		}
 		const t = frontImage.thumbnails ?? {};
-		return (
-			(typeof t["1200"] === "string" && t["1200"]) ||
-			(typeof t["500"] === "string" && t["500"]) ||
-			(typeof t["250"] === "string" && t["250"]) ||
-			(typeof t.large === "string" && t.large) ||
-			(typeof t.small === "string" && t.small) ||
-			(typeof frontImage.image === "string" && frontImage.image) ||
-			null
-		);
+		const candidates = [t["1200"], t["500"], t["250"], t.large, t.small, frontImage.image];
+		return candidates.find((value) => typeof value === "string" && value.length > 0) ?? null;
 	} catch {
 		return null;
 	}
