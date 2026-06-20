@@ -7,7 +7,8 @@ Ryot is an OAuth 2.1 authorization server built with Better Auth's OAuth Provide
 Server startup provisions exactly two public clients:
 
 - `ryot-web`, with `<FRONTEND_URL>/auth/callback` and `<FRONTEND_URL>/auth/logout/callback`
-- `ryot-native`, with callback and logout callback URIs for both `io.ryot.app` and `io.ryot.app.dev`
+- `ryot-native`, with callback and logout callback URIs derived from the canonical
+  `io.ryot.app` and `io.ryot.app.dev` application IDs
 
 Both clients require Authorization Code with S256 PKCE, skip consent, and can use `openid profile email offline_access ryot:api`. They are linked to the `<FRONTEND_URL>/api` resource. Dynamic registration and user-managed client creation are disabled.
 

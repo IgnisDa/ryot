@@ -1,6 +1,50 @@
+import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
-import { isLoopbackOrigin } from "./oauth";
+import {
+	getNativeOAuthCallbackUri,
+	getNativeOAuthLogoutCallbackUri,
+	isLoopbackOrigin,
+	NativeOAuthApplicationId,
+	OAUTH_NATIVE_APPLICATION_IDS,
+	OAUTH_NATIVE_CALLBACK_URIS,
+	OAUTH_NATIVE_LOGOUT_CALLBACK_URIS,
+} from "./oauth";
+
+describe("NativeOAuthApplicationId", () => {
+	it("defines the exact native application IDs", () => {
+		expect(OAUTH_NATIVE_APPLICATION_IDS).toEqual(["io.ryot.app", "io.ryot.app.dev"]);
+	});
+
+	it.each(OAUTH_NATIVE_APPLICATION_IDS)("accepts %s", (applicationId) => {
+		expect(Schema.decodeUnknownSync(NativeOAuthApplicationId)(applicationId)).toBe(applicationId);
+	});
+
+	it("rejects an unknown application ID", () => {
+		expect(() => Schema.decodeUnknownSync(NativeOAuthApplicationId)("io.ryot.app.test")).toThrow();
+	});
+});
+
+describe("native OAuth callback URIs", () => {
+	it("builds the exact callback URIs", () => {
+		expect(getNativeOAuthCallbackUri("io.ryot.app")).toBe("io.ryot.app:/auth/callback");
+		expect(getNativeOAuthCallbackUri("io.ryot.app.dev")).toBe("io.ryot.app.dev:/auth/callback");
+		expect(getNativeOAuthLogoutCallbackUri("io.ryot.app")).toBe(
+			"io.ryot.app:/auth/logout/callback",
+		);
+		expect(getNativeOAuthLogoutCallbackUri("io.ryot.app.dev")).toBe(
+			"io.ryot.app.dev:/auth/logout/callback",
+		);
+		expect(OAUTH_NATIVE_CALLBACK_URIS).toEqual([
+			"io.ryot.app:/auth/callback",
+			"io.ryot.app.dev:/auth/callback",
+		]);
+		expect(OAUTH_NATIVE_LOGOUT_CALLBACK_URIS).toEqual([
+			"io.ryot.app:/auth/logout/callback",
+			"io.ryot.app.dev:/auth/logout/callback",
+		]);
+	});
+});
 
 describe("isLoopbackOrigin", () => {
 	it.each([
