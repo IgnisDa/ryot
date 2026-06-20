@@ -256,7 +256,6 @@ export type SandboxDurableHostDispatcherValue = {
 		request: HostRequest,
 		payload: SandboxScriptWorkflowPayloadValue,
 		executionId: string,
-		requestIndex: number,
 	) => Effect.Effect<WorkflowDurableResult, SandboxRunError, WorkflowEngine | WorkflowInstance>;
 };
 

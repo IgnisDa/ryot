@@ -206,7 +206,6 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 			request: Parameters<SandboxDurableHostDispatcher["Service"]["dispatch"]>[0],
 			payload: Parameters<SandboxDurableHostDispatcher["Service"]["dispatch"]>[1],
 			executionId: string,
-			requestIndex: number,
 			startedAt: string,
 		) =>
 			Effect.gen(function* () {
@@ -232,7 +231,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 								success,
 								execute: execute(),
 								error: HttpAdmissionCoordinationError,
-								name: `sandbox-http-${requestIndex}-${stage}-${activityAttempt}`,
+								name: `sandbox-http-${request.index}-${stage}-${activityAttempt}`,
 							}).pipe(
 								Effect.map((value) => ({ success: true as const, value })),
 								Effect.catchTag("HttpAdmissionCoordinationError", (error) =>
@@ -271,7 +270,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 							yield* DurableClock.sleep({
 								duration: Duration.millis(backoffMs),
 								inMemoryThreshold: Duration.millis(1),
-								name: `sandbox-http-${requestIndex}-coordination-backoff-${coordinationBackoffAttempt++}`,
+								name: `sandbox-http-${request.index}-coordination-backoff-${coordinationBackoffAttempt++}`,
 							});
 						}
 					});
@@ -349,7 +348,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 					return Activity.make({
 						error: SandboxRunError,
 						success: HttpNetworkAttempt,
-						name: `sandbox-http-${requestIndex}-network-${attempt}`,
+						name: `sandbox-http-${request.index}-network-${attempt}`,
 						execute: Effect.gen(function* () {
 							const startedAtMs = yield* Clock.currentTimeMillis;
 							const result = yield* provideDispatchServices(
@@ -420,7 +419,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 					);
 					if (reservationWaitMs > 0) {
 						yield* sleepUntil(
-							`sandbox-http-${requestIndex}-admission-wait-${waitAttempt++}`,
+							`sandbox-http-${request.index}-admission-wait-${waitAttempt++}`,
 							reservation.token.eligibleAtMs,
 							reservation.token.observedAtMs,
 						);
@@ -441,7 +440,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 								continue admissionLoop;
 							}
 							yield* sleepUntil(
-								`sandbox-http-${requestIndex}-admission-wait-${waitAttempt++}`,
+								`sandbox-http-${request.index}-admission-wait-${waitAttempt++}`,
 								confirmed.eligibleAtMs,
 								confirmed.observedAtMs,
 							);
@@ -483,7 +482,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 						continue admissionLoop;
 					}
 					yield* sleepUntil(
-						`sandbox-http-${requestIndex}-block-wait-${blockWaitAttempt++}`,
+						`sandbox-http-${request.index}-block-wait-${blockWaitAttempt++}`,
 						blocked.blockedUntilMs,
 						blocked.observedAtMs,
 					);
@@ -492,7 +491,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 			});
 
 		return {
-			dispatch: (request, payload, executionId, requestIndex) => {
+			dispatch: (request, payload, executionId) => {
 				const startedAt = payload.startedAt ?? "";
 				const strategy = sandboxDurableHostDispatchStrategy(request.args.capability);
 				if (!strategy) {
@@ -510,13 +509,13 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 					);
 				}
 				if (request.args.capability === "httpCall") {
-					return dispatchHttp(request, payload, executionId, requestIndex, startedAt);
+					return dispatchHttp(request, payload, executionId, startedAt);
 				}
 				if (strategy === "activity") {
 					return Activity.make({
 						error: SandboxRunError,
 						success: workflowDurableResultSchema,
-						name: `sandbox-host-${requestIndex}-${request.args.capability}`,
+						name: `sandbox-host-${request.index}-${request.args.capability}`,
 						execute: provideDispatchServices(
 							dispatchSandboxHostActivity(request, payload, executionId, startedAt),
 						),
@@ -536,7 +535,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 						const prepared = yield* Activity.make({
 							error: SandboxRunError,
 							success: PreparedSandboxCreateEvents,
-							name: `prepare-sandbox-create-events-${requestIndex}`,
+							name: `prepare-sandbox-create-events-${request.index}`,
 							execute: prepareSandboxCreateEvents(request, payload, executionId, startedAt).pipe(
 								Effect.provideService(Database, database),
 								Effect.provideService(SandboxRepository, repository),
@@ -587,7 +586,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 					const prepared = yield* Activity.make({
 						error: SandboxRunError,
 						success: PreparedSandboxSendNotification,
-						name: `prepare-sandbox-send-notification-${requestIndex}`,
+						name: `prepare-sandbox-send-notification-${request.index}`,
 						execute: prepareSandboxSendNotification(request, payload, executionId, startedAt).pipe(
 							Effect.provideService(Database, database),
 							Effect.provideService(SandboxRepository, repository),

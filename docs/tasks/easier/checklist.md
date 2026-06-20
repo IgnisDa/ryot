@@ -81,7 +81,7 @@
   - Owner: I06 Storage
   - Scope: Both local roots as required resolved strings
 
-- [ ] **19. Use one durable request index** [M/S/M]
+- [x] **19. Use one durable request index** [M/S/M]
   - Owner: D24 Durable sandbox
   - Scope: Remove `requestIndex`, derive all from `request.index`
 
