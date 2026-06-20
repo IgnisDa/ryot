@@ -58,5 +58,7 @@ export const provisionUser = (body: ProvisionUserBody) =>
 export const resetUserPassword = (userId: string) =>
 	runAdmin((client) => client.godMode.resetUserPassword({ path: { userId } }));
 
-export const setUserBan = (userId: string, banned: boolean) =>
-	runAdmin((client) => client.godMode.setUserBan({ path: { userId }, payload: { banned } }));
+export const setUserDisabled = (userId: string, disabled: boolean) =>
+	runAdmin((client) =>
+		client.godMode.setUserDisabled({ path: { userId }, payload: { disabled } }),
+	);

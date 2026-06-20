@@ -13,7 +13,7 @@ const UserListItem = Schema.Struct({
 	email: Schema.String,
 	authState: UserAuthState,
 	createdAt: Schema.String,
-	bannedAt: Schema.NullOr(Schema.String),
+	disabledAt: Schema.NullOr(Schema.String),
 	twoFactorEnabled: Schema.NullOr(Schema.Boolean),
 });
 
@@ -54,11 +54,11 @@ const ResetPasswordResponse = Schema.Struct({
 	resetUrl: Schema.String,
 });
 
-const SetBanBody = Schema.Struct({ banned: Schema.Boolean });
+const SetDisabledBody = Schema.Struct({ disabled: Schema.Boolean });
 
-const SetBanResponse = Schema.Struct({
+const SetDisabledResponse = Schema.Struct({
 	id: Schema.String,
-	bannedAt: Schema.NullOr(Schema.String),
+	disabledAt: Schema.NullOr(Schema.String),
 });
 
 const userIdParam = HttpApiSchema.param("userId", UserId);
@@ -91,9 +91,9 @@ export const GodModeGroup = HttpApiGroup.make("godMode")
 			.middleware(AdminMiddleware),
 	)
 	.add(
-		HttpApiEndpoint.post("setUserBan")`/god-mode/users/${userIdParam}/ban/set`
-			.setPayload(SetBanBody)
-			.addSuccess(SetBanResponse)
+		HttpApiEndpoint.post("setUserDisabled")`/god-mode/users/${userIdParam}/disable/set`
+			.setPayload(SetDisabledBody)
+			.addSuccess(SetDisabledResponse)
 			.addError(InternalError, { status: 500 })
 			.middleware(AdminMiddleware),
 	);

@@ -2901,8 +2901,8 @@
 					"primaryKey": false,
 					"notNull": true
 				},
-				"banned_at": {
-					"name": "banned_at",
+				"disabled_at": {
+					"name": "disabled_at",
 					"type": "timestamp with time zone",
 					"primaryKey": false,
 					"notNull": false

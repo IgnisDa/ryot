@@ -11,7 +11,7 @@ import {
 	type TProductTypes,
 } from "~/drizzle/schema.server";
 
-import { provisionUser, resetUserPassword, setUserBan } from "./api.server";
+import { provisionUser, resetUserPassword, setUserDisabled } from "./api.server";
 import { GRACE_PERIOD, getDb, getUnkeyClient } from "./config.server";
 import { calculateRenewalDate, createUnkeyKey, sendEmail } from "./utilities.server";
 
@@ -51,7 +51,7 @@ async function handleCloudPurchase(customer: Customer): Promise<{
 	const { email, oidcIssuerId } = customer;
 
 	if (customer.ryotUserId) {
-		await setUserBan(customer.ryotUserId, false);
+		await setUserDisabled(customer.ryotUserId, false);
 		const auth = await getCloudAuthDetails(customer.ryotUserId, email, oidcIssuerId);
 		return {
 			unkeyKeyId: null,
@@ -195,7 +195,7 @@ export async function provisionRenewal(
 		.where(eq(customerPurchases.id, activePurchase.id));
 
 	if (customer.ryotUserId) {
-		await setUserBan(customer.ryotUserId, false);
+		await setUserDisabled(customer.ryotUserId, false);
 	}
 
 	if (customer.unkeyKeyId) {
@@ -225,7 +225,7 @@ export async function revokePurchase(customer: Customer) {
 		);
 
 	if (customer.ryotUserId) {
-		await setUserBan(customer.ryotUserId, true);
+		await setUserDisabled(customer.ryotUserId, true);
 	}
 
 	if (customer.unkeyKeyId) {
