@@ -330,6 +330,7 @@ it.effect("returns not found when entity does not exist", () => {
 
 it.effect("creates membership event only on first add, not on upsert", () => {
 	let queuedEventCount = 0;
+	let capturedExecutionId: string | undefined;
 
 	const membership = {
 		createdAt: now,
@@ -341,8 +342,9 @@ it.effect("creates membership event only on first add, not on upsert", () => {
 		relationshipSchemaId: RelationshipSchemaId.make("member-of-schema-id"),
 	};
 	const eventsService = makeEventsService({
-		create: () => {
+		create: (input) => {
 			queuedEventCount++;
+			capturedExecutionId = input.executionId;
 			return Effect.succeed({ count: 1 });
 		},
 	});
@@ -381,6 +383,7 @@ it.effect("creates membership event only on first add, not on upsert", () => {
 		});
 
 		expect(queuedEventCount).toBe(1);
+		expect(capturedExecutionId).toBe("collection-membership-added-rel-id");
 	}).pipe(Effect.provide(layer));
 });
 
@@ -481,6 +484,7 @@ it.effect("returns not found when removing entity not in collection", () => {
 
 it.effect("creates remove event on successful membership deletion", () => {
 	let queuedEventCount = 0;
+	let capturedExecutionId: string | undefined;
 
 	const deletedMembership = {
 		createdAt: now,
@@ -491,8 +495,9 @@ it.effect("creates remove event on successful membership deletion", () => {
 		relationshipSchemaId: RelationshipSchemaId.make("member-of-schema-id"),
 	};
 	const eventsService = makeEventsService({
-		create: () => {
+		create: (input) => {
 			queuedEventCount++;
+			capturedExecutionId = input.executionId;
 			return Effect.succeed({ count: 1 });
 		},
 	});
@@ -532,6 +537,7 @@ it.effect("creates remove event on successful membership deletion", () => {
 
 		expect(queuedEventCount).toBe(1);
 		expect(result.memberOf.id).toBe("rel-id");
+		expect(capturedExecutionId).toBe("collection-membership-removed-rel-id");
 	}).pipe(Effect.provide(layer));
 });
 

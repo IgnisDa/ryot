@@ -249,16 +249,11 @@ const result = yield* operations
 ```
 
 Parent `executionId` plus two stable loop indices — exactly the shape to copy.
-`apps/app-backend/AGENTS.md:71` references this pattern by function name
-(`resolveExternalId`/`importEntity`) without naming a file; if it's ever amended to point somewhere
-concrete, it should point here — `library-membership/service.ts` has an unrelated, same-named
-`importEntity` that is a legitimate top-level dispatch (see the [audit](#library-membership) below),
-not an example of parent-derived keying.
-
-### Where this actually goes wrong today
-
-See [the central audit finding](#the-central-finding-a-real-non-deterministic-child-dispatch)
-below — a concrete, currently-live instance of the "bad" pattern above.
+`apps/app-backend/AGENTS.md`'s queue rule cites this pattern by file —
+`workflow-population.ts`'s `populateMediaEntityGroups` and `workflow-resolution.ts`'s
+`resolveMediaEntityGroups` — and explicitly notes that `library-membership/service.ts` has an
+unrelated, same-named `importEntity` that is a legitimate top-level dispatch (see the
+[audit](#library-membership) below), not an example of parent-derived keying.
 
 ---
 
@@ -452,8 +447,14 @@ inference from reading the source, not a confirmed bug.
 Activity's `execute:` body rather than fanning out over multiple `Activity.make` calls, and always
 dispatch child workflows directly from the workflow body, never from inside an Activity — but don't
 describe either as a "confirmed bug" the way #6294 is. `apps/app-backend` currently has zero
-instances of pattern 1 and one instance of pattern 2 that doesn't need this issue to be justified as
-a problem — see the audit below.
+instances of pattern 1. One instance of pattern 2 remains: `collections/service.ts`'s
+`queueCollectionEvent`, still dispatched via `addToCollection`'s `Activity.make` wrapper in
+`imports/media/workflow-writing.ts`. Its previously-solid, independent-of-#6014 justification — a
+fresh random `executionId` generated on every activity retry — has since been fixed (the id is now
+derived from the relationship-membership row's own id), so this instance is now only a concern if
+the unconfirmed #6014 theory itself holds. A second instance, in the workout importer
+(`imports/workout/processor.ts`/`workflow.ts`), was fixed defensively by moving its event dispatch
+out of the Activity entirely, even though its `executionId` was already deterministic.
 
 ### No versioning primitive of any kind
 
@@ -493,8 +494,10 @@ Three genuinely different tiers exist, in increasing order of fidelity to produc
    workflow-body test in this codebase sidesteps this by mocking `EventsService`/
    `CollectionsService` at the service boundary instead of letting real child-workflow dispatch run.
    That's a reasonable choice for unit-testing orchestration logic, but it means **the real
-   `queueCollectionEvent → EventCreateWorkflow.execute` chain — and the bug below — is invisible to
-   the existing test suite structurally, not just by oversight.**
+   `queueCollectionEvent → EventCreateWorkflow.execute` chain is invisible to the existing test
+   suite structurally, not just by oversight** — a dispatch-argument regression (e.g. a
+   reintroduced non-deterministic `executionId`) needs an explicit assertion on the mocked call's
+   input to catch, not just an assertion that the mock was called.
 
 ---
 
@@ -543,79 +546,13 @@ definitions, and runtime engine wiring are all visible.
 ## Audit: how this codebase measures up today
 
 This section is the result of reading every file in `apps/app-backend` that references
-`@effect/workflow` against the ground truth above. Most of the codebase is in good shape — the
-sandbox, entity-translation, and entity-schemas/saved-views modules in particular are clean,
-consistent reference examples. This section focuses on what isn't.
+`@effect/workflow` against the ground truth above. The codebase is in good shape — sandbox,
+entity-translation, entity-import, library-membership, saved-views, and collections are all clean,
+consistent reference examples of the rules above. What follows is what's left: a couple of
+deliberate trade-offs worth knowing about, and one lower-severity Activity-nesting concern that's
+tracked but intentionally not fixed (see the `#6014` discussion above).
 
-### The central finding: a real non-deterministic child dispatch
-
-**`apps/app-backend/src/modules/collections/service.ts`'s `queueCollectionEvent`**
-(`collections/service.ts:95-115`) calls `EventsService.create(...)` with **no `executionId`
-field set at all**:
-
-```ts
-// events/workflows.ts:27-41 (for reference — this is what receives the omitted field)
-const withExecutionId = (input: EventCreateWorkflowInput) => ({
-	...input,
-	executionId: input.executionId ?? generateId(),
-});
-
-export const enqueueEventCreate = (input: EventCreateWorkflowInput) =>
-	EventCreateWorkflow.execute(withExecutionId(input), { discard: true });
-```
-
-`EventCreateWorkflowInput.executionId` is optional; omitting it falls back to a random
-`generateId()`. That's entirely correct for a fresh top-level call (e.g. a plain `POST /events`)
-— but `queueCollectionEvent` is reached from
-**`apps/app-backend/src/modules/imports/media/workflow-writing.ts:192-201`**, where
-`CollectionsService.addToCollection` runs **inside an `Activity.make(...)`** during an
-already-running parent workflow (the media-import write phase, and — via shared code — the
-integrations pipeline too):
-
-```ts
-// workflow-writing.ts:192-201
-Activity.make({
-	success: EnsureLibraryMembershipOutcome,
-	name: `add-collection-membership-${i}-${membershipIndex}`,
-	execute: collections.addToCollection(user, { entityId, collectionId: collectionId.right, properties: {} }).pipe(...),
-})
-```
-
-This fires only when the collection has an "add" trigger event schema configured and the
-membership was newly inserted — so it's data-dependent, not universal — but when it fires, it's a
-concrete, solid instance of the pattern this guide warns against, and it doesn't need the
-contested #6014 issue to justify it: **`Activity.make` retries on interruption by default**
-(the `interruptRetryPolicy` default in the [field table](#defining-an-activity) above). Any
-interrupted retry of this Activity re-runs its whole `execute` body, calling
-`queueCollectionEvent` again — generating a *new* random `executionId` and dispatching *another*
-child `EventCreateWorkflow` each time, while any previously-dispatched (now orphaned) child may
-still be in flight or may have already completed. That's a duplicate-side-effect risk from a
-solidly-confirmed mechanism, independent of whether the more exotic nested-suspend theory in
-#6014 is real.
-
-This is invisible to the existing test suite for the structural reason described in
-[Testing](#testing) above: `CollectionsService`/`EventsService` are mocked at the boundary in
-every workflow-body test, so the real dispatch chain never runs during tests.
-
-**For contrast**, three other call sites use the same `EventsService.create` primitive
-differently:
-
-| Call site | Activity-wrapped? | Deterministic id? |
-|---|---|---|
-| `imports/media/workflow-writing.ts:339-354` (event-progress writes) | No — direct in workflow body | Yes — `` `${input.executionId}-event-${i}-${eventIndex}` `` |
-| `imports/workout/processor.ts:161-167`, via `workout/workflow.ts:86-99` | **Yes** | Yes — `` `${payload.runId}-workout-${index}` `` |
-| `collections/service.ts:102-114` (`queueCollectionEvent`, above) | **Yes** | **No** — field omitted entirely |
-| `events/event-creation.ts` (`RunSandboxWorkflow` dispatch, from inside `EventCreateWorkflow`'s own body) | No — direct in body | Yes |
-
-The first and last rows are the correct shape per this guide. The workout case is "half right" —
-deterministic id, but still Activity-nested, which per the (weaker-evidence) #6014 theory could
-still be worth moving outside the Activity defensively even though its id is fine. The
-`queueCollectionEvent` case is the one that's wrong on a solidly-confirmed basis and worth fixing:
-either give `queueCollectionEvent` a deterministic `executionId` derived from the collection
-membership write it's part of, or move the event-creation call out of the wrapping Activity (or
-both).
-
-### Other findings
+### Findings
 
 - **Bare-but-idempotent write**: `events/event-creation.ts:320-332` inserts a new event row
   directly in `EventCreateWorkflow`'s body (not Activity-wrapped) — but the insert uses a
@@ -635,17 +572,11 @@ both).
   `addFinalizer`/`Effect.ensuring`/`Effect.onExit`/`Effect.acquireRelease` — zero hits. The
   [compensation-vs-finalizers](#compensation-vs-plain-finalizers) gotcha isn't currently live
   anywhere here.
-- **Testing gaps**: `entity-translation`'s workflow has no dedicated test file;
-  `library-membership`'s `LibraryEntityImportWorkflow` body has no `workflows.test.ts` (only
-  exercised indirectly via `entity-import/workflows.test.ts`); `SavedViewsService
-  .createDefaultForSchema` (the `DefaultSavedViewQueue` worker's handler) has no test coverage.
-  None of these are wrong code, just untested code.
 - **`workflow-boundaries.test.ts`** (`sandbox/workflow-boundaries.test.ts`) is a source-text
   conformance test — it asserts which files are allowed to import `WorkflowEngine` or call
   `RunSandboxWorkflow`/`EventsRepository` directly, enforcing real architectural boundaries. It's
   a good pattern, but it checks *which module* is imported, not *what arguments* are passed — it
-  structurally cannot catch the `queueCollectionEvent` finding above, since that's an
-  argument-correctness issue, not a boundary violation.
+  structurally cannot catch an argument-correctness issue the way a targeted unit test can.
 
 #### Library-membership
 
