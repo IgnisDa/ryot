@@ -96,7 +96,32 @@ function getNullableString(value) {
 }
 
 function getCanonicalLanguage(metadata) {
-	return metadata?.providerInformation?.canonicalLanguage ?? "eng";
+	return metadata?.providerInformation?.canonicalLanguage ?? "en";
+}
+
+const TVDB_LANGUAGE_MAP = {
+	en: "eng",
+	es: "spa",
+	fr: "fra",
+	de: "deu",
+	it: "ita",
+	pt: "por",
+	ja: "jpn",
+	ko: "kor",
+	zh: "zho",
+	ru: "rus",
+	nl: "nld",
+	pl: "pol",
+	sv: "swe",
+	da: "dan",
+	fi: "fin",
+	nb: "nob",
+	tr: "tur",
+	cs: "ces",
+};
+function bcp47ToTvdb(language) {
+	const base = typeof language === "string" ? language.trim().toLowerCase().split("-")[0] : "";
+	return TVDB_LANGUAGE_MAP[base] ?? base;
 }
 
 function getTranslationRecord(payload) {
@@ -214,7 +239,7 @@ driver("details", async function (context, { metadata }) {
 		throw new Error("externalId must be a numeric TVDB person ID");
 	}
 
-	const language = getCanonicalLanguage(metadata);
+	const language = bcp47ToTvdb(getCanonicalLanguage(metadata));
 	const [data, translationData] = await Promise.all([
 		tvdbGet(`/people/${externalId}/extended`),
 		tvdbGetOptional(`/people/${externalId}/translations/${language}`),
@@ -293,6 +318,9 @@ driver("translate", async function (context) {
 		throw new Error("externalId must be a numeric TVDB person ID");
 	}
 
-	const translationData = await tvdbGetOptional(`/people/${externalId}/translations/${language}`);
+	const providerLanguage = bcp47ToTvdb(language);
+	const translationData = await tvdbGetOptional(
+		`/people/${externalId}/translations/${providerLanguage}`,
+	);
 	return buildTranslationResult(translationData);
 });

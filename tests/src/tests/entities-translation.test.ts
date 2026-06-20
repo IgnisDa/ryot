@@ -15,11 +15,11 @@ import {
 	seedPopulatedProviderEntity,
 	seedPopulatedTmdbEntity,
 	seedPopulatedTmdbMovie,
-	setUserProviderLanguage,
+	setUserLanguage,
 } from "../fixtures";
 import { assertCondition, assertPresent } from "../test-support/assertions";
 
-const CANONICAL_LANGUAGE = "en-US";
+const CANONICAL_LANGUAGE = "en";
 
 describe("GET /entities/:entityId — translation overlay", () => {
 	it("fetches a localized overlay on a miss, then shares it across users", async () => {
@@ -29,7 +29,7 @@ describe("GET /entities/:entityId — translation overlay", () => {
 			name: "Canonical Fight Club",
 		});
 
-		await setUserProviderLanguage({ userId: userIdA, source: "tmdb", preferredLanguage: "es-ES" });
+		await setUserLanguage({ userId: userIdA, language: "es" });
 
 		const firstRead = await getEntity(clientA, movie.id);
 		expect(firstRead.translationStatus).toBe("pending");
@@ -42,7 +42,7 @@ describe("GET /entities/:entityId — translation overlay", () => {
 		expect(localizedRead.name.length).toBeGreaterThan(0);
 
 		const { client: clientB, userId: userIdB } = await createAuthenticatedClient();
-		await setUserProviderLanguage({ userId: userIdB, source: "tmdb", preferredLanguage: "es-ES" });
+		await setUserLanguage({ userId: userIdB, language: "es" });
 
 		const sharedRead = await getEntity(clientB, movie.id);
 		expect(sharedRead.translationStatus).toBe("ready");
@@ -65,7 +65,7 @@ describe("GET /entities/:entityId — translation overlay", () => {
 			properties: { description: "Canonical English overview of Star Wars." },
 		});
 
-		await setUserProviderLanguage({ userId: userIdA, source: "tmdb", preferredLanguage: "es-ES" });
+		await setUserLanguage({ userId: userIdA, language: "es" });
 
 		const firstPersonRead = await getEntity(clientA, person.id);
 		expect(firstPersonRead.translationStatus).toBe("pending");
@@ -98,7 +98,7 @@ describe("GET /entities/:entityId — translation overlay", () => {
 		expect(localizedMovieGroupRead.name.length).toBeGreaterThan(0);
 
 		const { client: clientB, userId: userIdB } = await createAuthenticatedClient();
-		await setUserProviderLanguage({ userId: userIdB, source: "tmdb", preferredLanguage: "es-ES" });
+		await setUserLanguage({ userId: userIdB, language: "es" });
 
 		const sharedPersonRead = await getEntity(clientB, person.id);
 		expect(sharedPersonRead.translationStatus).toBe("ready");
@@ -158,7 +158,7 @@ describe("GET /entities/:entityId — translation overlay", () => {
 			},
 		});
 
-		await setUserProviderLanguage({ userId, source: "tmdb", preferredLanguage: "es-ES" });
+		await setUserLanguage({ userId, language: "es" });
 
 		const firstShowRead = await getEntity(client, show.id);
 		expect(firstShowRead.translationStatus).toBe("pending");
@@ -206,7 +206,7 @@ describe("GET /entities/:entityId — translation overlay", () => {
 			entitySchemaId: schema.id,
 			sandboxScriptId: anilistScriptId,
 		});
-		await setUserProviderLanguage({ userId, source: "anilist", preferredLanguage: "native" });
+		await setUserLanguage({ userId, language: "ja" });
 
 		const { jobId } = await enqueueEntityImport(client, {
 			externalId: "5114",
@@ -233,7 +233,7 @@ describe("GET /entities/:entityId — translation overlay", () => {
 		expect(localizedRead.name).not.toBe(canonicalName);
 		expect(localizedRead.name.length).toBeGreaterThan(0);
 
-		const overlay = await getEntityTranslationRow({ entityId: entity.id, language: "native" });
+		const overlay = await getEntityTranslationRow({ entityId: entity.id, language: "ja" });
 		expect(overlay?.name).toBe(localizedRead.name);
 		expect(overlay?.properties?.description ?? null).toBeNull();
 		expect(await countEntityTranslations(entity.id)).toBe(1);
@@ -262,7 +262,7 @@ describe("GET /entities/:entityId — translation overlay", () => {
 			},
 		});
 
-		await setUserProviderLanguage({ userId, source: "itunes", preferredLanguage: "es_es" });
+		await setUserLanguage({ userId, language: "es" });
 
 		const firstRead = await getEntity(client, episode.id);
 		expect(firstRead.translationStatus).toBe("pending");
@@ -279,7 +279,7 @@ describe("GET /entities/:entityId — translation overlay", () => {
 		);
 		expect(localizedDescription).not.toBe("Canonical English iTunes episode overview.");
 
-		const overlay = await getEntityTranslationRow({ entityId: episode.id, language: "es_es" });
+		const overlay = await getEntityTranslationRow({ entityId: episode.id, language: "es" });
 		expect(overlay?.name).toBe(localizedRead.name);
 		expect(overlay?.properties?.description).toBe(localizedDescription);
 		expect(await countEntityTranslations(episode.id)).toBe(1);
@@ -301,7 +301,7 @@ describe("GET /entities/:entityId — translation overlay", () => {
 			properties: { description: "Canonical YouTube Music description." },
 		});
 
-		await setUserProviderLanguage({ userId, source: "youtube-music", preferredLanguage: "es" });
+		await setUserLanguage({ userId, language: "es" });
 
 		const firstRead = await getEntity(client, music.id);
 		expect(firstRead.translationStatus).toBe("pending");
@@ -363,7 +363,7 @@ describe("GET /entities/:entityId — translation overlay", () => {
 			},
 		});
 
-		await setUserProviderLanguage({ userId, source: "tvdb", preferredLanguage: "spa" });
+		await setUserLanguage({ userId, language: "es" });
 
 		const firstMovieRead = await getEntity(client, movie.id);
 		expect(firstMovieRead.translationStatus).toBe("pending");
@@ -398,7 +398,7 @@ describe("GET /entities/:entityId — translation overlay", () => {
 			name: "Canonical The Godfather",
 		});
 
-		await setUserProviderLanguage({ userId, source: "tmdb", preferredLanguage: "xx" });
+		await setUserLanguage({ userId, language: "xx" });
 
 		const firstRead = await getEntity(client, movie.id);
 		expect(firstRead.translationStatus).toBe("pending");
@@ -421,11 +421,7 @@ describe("GET /entities/:entityId — translation overlay", () => {
 			name: "Canonical The Shawshank Redemption",
 		});
 
-		await setUserProviderLanguage({
-			userId,
-			source: "tmdb",
-			preferredLanguage: CANONICAL_LANGUAGE,
-		});
+		await setUserLanguage({ userId, language: CANONICAL_LANGUAGE });
 		const canonicalPreferenceRead = await getEntity(client, movie.id);
 		expect(canonicalPreferenceRead.translationStatus).toBe("none");
 		expect(canonicalPreferenceRead.name).toBe("Canonical The Shawshank Redemption");

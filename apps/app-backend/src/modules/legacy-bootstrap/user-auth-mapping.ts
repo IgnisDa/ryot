@@ -117,23 +117,7 @@ BEGIN
 				(legacy_users.preferences -> 'general' ->> 'disable_integrations')::boolean,
 				false
 			),
-			'languages', jsonb_build_object(
-				'providers', COALESCE(
-					(
-						SELECT jsonb_agg(
-							jsonb_build_object(
-								'source', replace(provider.value ->> 'source', '_', '-'),
-								'preferredLanguage', provider.value ->> 'preferred_language'
-							)
-							ORDER BY provider.ordinality
-						)
-						FROM jsonb_array_elements(
-							COALESCE(legacy_users.preferences -> 'languages' -> 'providers', '[]'::jsonb)
-						) WITH ORDINALITY AS provider(value, ordinality)
-					),
-					'[]'::jsonb
-				)
-			)
+			'language', NULL
 		),
 		true,
 		legacy_users.created_on,

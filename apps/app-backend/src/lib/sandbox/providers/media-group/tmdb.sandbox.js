@@ -143,7 +143,7 @@ driver("details", async function (context, { metadata }) {
 		throw new Error("externalId must be a numeric TMDB collection ID");
 	}
 
-	const language = metadata?.providerInformation?.canonicalLanguage ?? "en-US";
+	const language = metadata?.providerInformation?.canonicalLanguage ?? "en";
 	const token = await getTmdbAccessToken();
 
 	const [collectionData, imagesData] = await Promise.all([

@@ -260,14 +260,8 @@ driver("main", async function() {
 			requireCompletedSandboxValue(await pollSandboxResult(client, jobId)),
 			"Expected user preferences sandbox result to be an object",
 		);
-		const languages = requireObjectRecord(prefs.languages, "Expected languages to be an object");
-		const providers = requireArray(
-			languages.providers,
-			"Expected languages providers to be an array",
-		).map((provider) => requireObjectRecord(provider, "Expected provider to be an object"));
-		expect(providers.length).toBeGreaterThan(1);
-		expect(providers[0]?.source).toBe("audible");
-		expect(providers[0]?.preferredLanguage).toBe("US");
+		expect(prefs.isNsfw).toBe(false);
+		expect(prefs.disableIntegrations).toBe(false);
 	});
 
 	it("returns a completed result when the script throws", async () => {

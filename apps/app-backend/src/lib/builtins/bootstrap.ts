@@ -11,24 +11,14 @@ import { buildDefaultQueryDocument } from "./view-helpers";
 
 export type UserPreferences = {
 	readonly isNsfw: boolean;
+	readonly language: string | null;
 	readonly disableIntegrations: boolean;
-	readonly languages: {
-		readonly providers: ReadonlyArray<{
-			readonly source: string;
-			readonly preferredLanguage: string;
-		}>;
-	};
 };
 
 export const defaultUserPreferences: UserPreferences = {
 	isNsfw: false,
+	language: null,
 	disableIntegrations: false,
-	languages: {
-		providers: [
-			{ preferredLanguage: "US", source: "audible" },
-			{ preferredLanguage: "user_preferred", source: "anilist" },
-		],
-	},
 };
 
 const createBuiltinTrackers = Effect.fn(function* (userId: string) {

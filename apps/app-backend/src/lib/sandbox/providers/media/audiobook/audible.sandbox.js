@@ -32,42 +32,6 @@ async function cleanHtmlDescription(html) {
 	return $.root().text().trim() ?? null;
 }
 
-const LOCALE_SUFFIX_MAP = {
-	AU: "com.au",
-	CA: "ca",
-	DE: "de",
-	ES: "es",
-	FR: "fr",
-	GB: "co.uk",
-	IN: "co.in",
-	IT: "it",
-	JP: "co.jp",
-	UK: "co.uk",
-	US: "com",
-};
-
-async function getAudibleLocale() {
-	const prefsResult = await getUserPreferences();
-	if (!prefsResult?.success) {
-		return "com";
-	}
-
-	const providers = prefsResult?.data?.languages?.providers;
-	if (!Array.isArray(providers)) {
-		return "com";
-	}
-
-	const audiblePref = providers.find((p) => p && typeof p === "object" && p.source === "audible");
-	const lang =
-		audiblePref &&
-		typeof audiblePref.preferredLanguage === "string" &&
-		audiblePref.preferredLanguage.trim()
-			? audiblePref.preferredLanguage.trim().toUpperCase()
-			: "US";
-
-	return LOCALE_SUFFIX_MAP[lang] ?? "com";
-}
-
 const PAGE_SIZE = 20;
 
 driver("search", async function (context) {
@@ -87,8 +51,7 @@ driver("search", async function (context) {
 		})
 		.parse(context ?? {});
 
-	const localeSuffix = await getAudibleLocale();
-	const baseUrl = `https://api.audible.${localeSuffix}/1.0/catalog/products`;
+	const baseUrl = "https://api.audible.com/1.0/catalog/products";
 
 	const params = new URLSearchParams({
 		title: query,
@@ -160,8 +123,7 @@ driver("details", async function (context) {
 		})
 		.parse(context ?? {});
 
-	const localeSuffix = await getAudibleLocale();
-	const baseUrl = `https://api.audible.${localeSuffix}/1.0/catalog/products`;
+	const baseUrl = "https://api.audible.com/1.0/catalog/products";
 
 	const params = new URLSearchParams({
 		response_groups:
@@ -321,7 +283,7 @@ driver("details", async function (context) {
 		addRelatedEntity(groupRelatedEntity);
 	}
 
-	const sourceUrl = `https://www.audible.${localeSuffix}/pd/${externalId}`;
+	const sourceUrl = `https://www.audible.com/pd/${externalId}`;
 
 	return {
 		name: title,

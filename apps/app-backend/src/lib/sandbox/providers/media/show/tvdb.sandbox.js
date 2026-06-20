@@ -97,7 +97,32 @@ function getNullableString(value) {
 }
 
 function getCanonicalLanguage(metadata) {
-	return metadata?.providerInformation?.canonicalLanguage ?? "eng";
+	return metadata?.providerInformation?.canonicalLanguage ?? "en";
+}
+
+const TVDB_LANGUAGE_MAP = {
+	en: "eng",
+	es: "spa",
+	fr: "fra",
+	de: "deu",
+	it: "ita",
+	pt: "por",
+	ja: "jpn",
+	ko: "kor",
+	zh: "zho",
+	ru: "rus",
+	nl: "nld",
+	pl: "pol",
+	sv: "swe",
+	da: "dan",
+	fi: "fin",
+	nb: "nob",
+	tr: "tur",
+	cs: "ces",
+};
+function bcp47ToTvdb(language) {
+	const base = typeof language === "string" ? language.trim().toLowerCase().split("-")[0] : "";
+	return TVDB_LANGUAGE_MAP[base] ?? base;
 }
 
 function getTranslationRecord(payload) {
@@ -549,7 +574,7 @@ driver("details", async function (context, { metadata }) {
 		throw new Error("externalId must be a numeric TVDB series ID");
 	}
 
-	const language = getCanonicalLanguage(metadata);
+	const language = bcp47ToTvdb(getCanonicalLanguage(metadata));
 	const [data, translationData] = await Promise.all([
 		tvdbGet(`/series/${externalId}/extended`),
 		tvdbGetOptional(`/series/${externalId}/translations/${language}`),
@@ -657,16 +682,17 @@ driver("translate", async function (context) {
 		})
 		.parse(context ?? {});
 
+	const providerLanguage = bcp47ToTvdb(language);
 	const request = getTranslationRequest({
-		language,
 		externalId,
 		properties,
 		entitySchemaSlug,
+		language: providerLanguage,
 	});
 	const [translationData, detailsData] = await Promise.all([
 		tvdbGetOptional(request.translationPath),
 		tvdbGet(request.detailsPath).catch(() => null),
 	]);
 
-	return buildTranslationResult(translationData, detailsData, language);
+	return buildTranslationResult(translationData, detailsData, providerLanguage);
 });
