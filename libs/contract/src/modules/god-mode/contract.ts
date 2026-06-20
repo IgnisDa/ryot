@@ -61,6 +61,8 @@ const SetDisabledResponse = Schema.Struct({
 	disabledAt: Schema.NullOr(Schema.String),
 });
 
+const TriggerInfrequentCronResponse = Schema.Struct({ executionId: Schema.String });
+
 const userIdParam = HttpApiSchema.param("userId", UserId);
 
 export const GodModeGroup = HttpApiGroup.make("godMode")
@@ -95,5 +97,10 @@ export const GodModeGroup = HttpApiGroup.make("godMode")
 			.setPayload(SetDisabledBody)
 			.addSuccess(SetDisabledResponse)
 			.addError(InternalError, { status: 500 })
+			.middleware(AdminMiddleware),
+	)
+	.add(
+		HttpApiEndpoint.post("triggerInfrequentCron", "/god-mode/cron/infrequent")
+			.addSuccess(TriggerInfrequentCronResponse)
 			.middleware(AdminMiddleware),
 	);

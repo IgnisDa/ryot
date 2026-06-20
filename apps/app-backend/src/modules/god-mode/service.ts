@@ -1,6 +1,8 @@
+import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { badRequest, internalError } from "@ryot/contract/errors";
 import type { ProvisionUserBody } from "@ryot/contract/modules/god-mode/contract";
 import { UserId } from "@ryot/contract/schema/brands";
+import { generateId } from "better-auth";
 import { DateTime, Effect, Either } from "effect";
 
 import { AuthService } from "#lib/auth";
@@ -8,6 +10,7 @@ import { defaultUserPreferences } from "#lib/builtins/bootstrap";
 import { AppConfig } from "#lib/config/service";
 import { DbRunner } from "#lib/db/service";
 import { redisKeys, RedisService } from "#lib/redis";
+import { InfrequentCronWorkflow } from "#modules/scheduler/cron-workflow";
 
 import { GodModeRepository } from "./repository";
 
@@ -58,6 +61,7 @@ export class GodModeService extends Effect.Service<GodModeService>()("GodModeSer
 		const redis = yield* RedisService;
 		const runWithDb = yield* DbRunner;
 		const repository = yield* GodModeRepository;
+		const engine = yield* WorkflowEngine;
 		const { auth, createAuthUser, deleteUserSessions, linkAuthAccount } = yield* AuthService;
 
 		const listUsers = Effect.fn("GodModeService.listUsers")(function* (input: {
@@ -258,6 +262,25 @@ export class GodModeService extends Effect.Service<GodModeService>()("GodModeSer
 			return { email: resetResult.email, resetUrl: resetResult.resetUrl };
 		});
 
-		return { listUsers, setUserDisabled, provisionUser, resetUserPassword };
+		const triggerInfrequentCron = () =>
+			Effect.gen(function* () {
+				const executionId = `infrequent-cron-manual-${generateId()}`;
+				yield* engine
+					.execute(InfrequentCronWorkflow, {
+						executionId,
+						discard: true,
+						payload: { executionId },
+					})
+					.pipe(Effect.orDie);
+				return { executionId };
+			});
+
+		return {
+			listUsers,
+			setUserDisabled,
+			provisionUser,
+			resetUserPassword,
+			triggerInfrequentCron,
+		};
 	}),
 }) {}
