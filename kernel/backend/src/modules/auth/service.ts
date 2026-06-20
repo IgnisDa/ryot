@@ -1,4 +1,5 @@
 import { apiKey } from "@better-auth/api-key";
+import { oauthProvider } from "@better-auth/oauth-provider";
 import { redisStorage } from "@better-auth/redis-storage";
 import {
 	AdminAccess,
@@ -12,10 +13,11 @@ import {
 	normalizeUserPreferences,
 } from "@ryot/contract/auth-middleware";
 import { badRequest, internalError, unknownToDbError } from "@ryot/contract/errors";
+import { getOAuthResource, OAUTH_LOGIN_PATH, OAUTH_SCOPES } from "@ryot/contract/oauth";
 import { UserId } from "@ryot/contract/schema/brands";
-import { betterAuth } from "better-auth";
+import { betterAuth, type BetterAuthPlugin } from "better-auth";
 import { APIError, createAuthMiddleware, getSessionFromCtx } from "better-auth/api";
-import { bearer, genericOAuth, oneTimeToken, twoFactor } from "better-auth/plugins";
+import { genericOAuth, jwt, twoFactor } from "better-auth/plugins";
 import { eq } from "drizzle-orm";
 import { Context, Effect, Layer, Option, Redacted, Result, Schema } from "effect";
 import { HttpMiddleware, HttpServerError, HttpServerRequest } from "effect/unstable/http";
@@ -28,13 +30,9 @@ import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 
 import { effectPostgresAuthAdapter } from "./effect-postgres-adapter";
 import { isUserLifecycleActive, LifecycleWriteGuard } from "./lifecycle-write-guard";
-import { oidcTokenRedirect } from "./oidc-redirect";
 import { gateSessionCreation } from "./session-gate";
-import { twoFactorBearerBridge } from "./two-factor-bridge";
 
 const RESET_LINK_TIMEOUT_MS = 10_000;
-
-const DEEP_LINK_ORIGINS = ["ryot://", "io.ryot.app://", "io.ryot.app.dev://"] as const;
 
 const lifecycleProtectedAuthPaths = new Set([
 	"/api-key/create",
@@ -87,6 +85,24 @@ export class AuthUserBootstrap extends Context.Service<
 	{ run: (userId: string) => Effect.Effect<void, unknown> }
 >()("AuthUserBootstrap") {}
 
+const makeOAuthProviderPlugin = (frontendUrl: string) => {
+	const { endpoints, ...plugin } = oauthProvider({
+		disableJwtPlugin: false,
+		scopes: [...OAUTH_SCOPES],
+		loginPage: OAUTH_LOGIN_PATH,
+		consentPage: "/oauth/consent",
+		clientPrivileges: () => false,
+		enforcePerClientResources: true,
+		allowDynamicClientRegistration: false,
+		allowUnauthenticatedClientRegistration: false,
+		resources: [getOAuthResource(frontendUrl)],
+		grantTypes: ["authorization_code", "refresh_token"],
+	});
+	const compatiblePlugin: BetterAuthPlugin = plugin;
+	Object.assign(compatiblePlugin, { endpoints });
+	return compatiblePlugin;
+};
+
 const makeAuthInstance = (args: {
 	readonly redis: Redis;
 	readonly config: AppConfigValue;
@@ -102,16 +118,13 @@ const makeAuthInstance = (args: {
 		appName: "Ryot",
 		basePath: "/api/auth",
 		baseURL: args.config.frontendUrl,
-		advanced: { disableCSRFCheck: true },
+		advanced: { disableCSRFCheck: false },
+		session: { storeSessionInDatabase: true },
+		trustedOrigins: [args.config.frontendUrl],
+		account: { accountLinking: { enabled: false } },
 		secondaryStorage: redisStorage({ client: args.redis }),
 		secret: Redacted.value(args.config.server.adminAccessToken),
-		account: { identityStrategy: "issuer", accountLinking: { enabled: false } },
 		disabledPaths: args.config.users.disableLocalAuth ? ["/sign-in/email"] : [],
-		trustedOrigins: [
-			...DEEP_LINK_ORIGINS,
-			args.config.frontendUrl,
-			...(args.config.nodeEnv === "development" ? ["exp://"] : []),
-		],
 		user: {
 			additionalFields: {
 				disabledAt: { type: "date", required: false, input: false },
@@ -211,20 +224,9 @@ const makeAuthInstance = (args: {
 			},
 		},
 		plugins: [
-			// requireSignature closes the self-signing path; see ./README.md.
-			bearer({ requireSignature: true }),
+			jwt(),
+			makeOAuthProviderPlugin(args.config.frontendUrl),
 			twoFactor({ allowPasswordless: true }),
-			// Ordering: must stay after twoFactor - see ./README.md.
-			twoFactorBearerBridge(),
-			oneTimeToken({
-				expiresIn: 1,
-				storeToken: "hashed",
-				// disableClientRequest closes an unused token-minting endpoint; see ./README.md.
-				disableClientRequest: true,
-				setOttHeaderOnNewSession: true,
-			}),
-			// Web and native OIDC. Ordering: must stay after oneTimeToken - see ./README.md.
-			oidcTokenRedirect(),
 			apiKey({
 				fallbackToDatabase: true,
 				storage: "secondary-storage",
@@ -458,6 +460,10 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 				withInternalAdapter(({ internalAdapter }) =>
 					internalAdapter.updateUser(userId, { image }),
 				).pipe(Effect.asVoid),
+			deleteAuthUser: (userId: UserId) =>
+				withInternalAdapter(({ internalAdapter }) => internalAdapter.deleteUser(userId)).pipe(
+					Effect.asVoid,
+				),
 			createAuthUser: (user: AuthUserInput) =>
 				withInternalAdapter(({ internalAdapter }) =>
 					internalAdapter.createUser(
@@ -477,10 +483,6 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 				data: { disabledAt: Date | null; updatedAt: Date },
 			) =>
 				withInternalAdapter(({ internalAdapter }) => internalAdapter.updateUser(userId, data)).pipe(
-					Effect.asVoid,
-				),
-			deleteAuthUser: (userId: UserId) =>
-				withInternalAdapter(({ internalAdapter }) => internalAdapter.deleteUser(userId)).pipe(
 					Effect.asVoid,
 				),
 			currentUser: (headers: Headers) =>
