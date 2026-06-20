@@ -1,4 +1,4 @@
-import { EntityId, EntitySchemaId, EventSchemaId } from "@ryot/app-backend/schema/brands";
+import { EntityId, EntitySchemaId, EventSchemaId } from "@ryot/contract/schema/brands";
 
 import { getPgClient } from "../setup";
 import { createAuthenticatedClient, type Client } from "./auth";

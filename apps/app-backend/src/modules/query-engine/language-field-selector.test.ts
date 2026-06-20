@@ -1,7 +1,6 @@
+import { FieldSelector } from "@ryot/contract/modules/query-engine/language";
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
-
-import { FieldSelector } from "./language";
 
 const decodeSync = Schema.decodeUnknownSync;
 

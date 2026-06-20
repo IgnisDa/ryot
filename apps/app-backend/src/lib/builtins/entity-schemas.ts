@@ -1,4 +1,4 @@
-import type { AppSchema } from "#lib/schema/property-schema";
+import type { AppSchema } from "@ryot/contract/schema/property-schema";
 
 import { buildCollectionEntitySchema } from "./collection-entity-schema";
 import {

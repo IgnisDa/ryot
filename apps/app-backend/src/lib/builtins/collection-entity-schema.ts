@@ -1,4 +1,4 @@
-import type { AppSchema } from "#lib/schema/property-schema";
+import type { AppSchema } from "@ryot/contract/schema/property-schema";
 
 export const buildCollectionEntitySchema = (
 	reviewPropertiesSchemaByEntity: (entitySchemaSlug: string | undefined) => AppSchema,

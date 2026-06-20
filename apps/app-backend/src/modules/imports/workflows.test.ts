@@ -1,8 +1,6 @@
 import { BunFileSystem } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
 import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
-import { Effect, Layer } from "effect";
-
 import {
 	EntityId,
 	EntitySchemaId,
@@ -12,7 +10,9 @@ import {
 	RelationshipSchemaId,
 	SandboxScriptId,
 	UserId,
-} from "#lib/schema/brands";
+} from "@ryot/contract/schema/brands";
+import { Effect, Layer } from "effect";
+
 import type { MockOverrides } from "#lib/test-support/effect";
 import {
 	dbRunnerLayer,

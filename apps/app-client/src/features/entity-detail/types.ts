@@ -11,7 +11,7 @@ import type {
 	UnlinkedCreator,
 	VideoGameProperties,
 	VisualNovelProperties,
-} from "@ryot/app-backend/schema/media-types";
+} from "@ryot/contract/schema/media-types";
 
 import type { ContractClient, ContractSuccess } from "@/lib/contract-client";
 import type { EntityImage } from "@/lib/entity-image";

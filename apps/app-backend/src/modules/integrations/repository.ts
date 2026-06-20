@@ -1,3 +1,11 @@
+import type {
+	IntegrationExtraSettings,
+	IntegrationProvider,
+	IntegrationProviderSpecifics,
+	ListedIntegration,
+} from "@ryot/contract/modules/integrations/schemas";
+import { isSinkProvider, type IntegrationLot } from "@ryot/contract/modules/integrations/types";
+import { IntegrationId, UserId } from "@ryot/contract/schema/brands";
 import { and, desc, eq } from "drizzle-orm";
 import { Effect } from "effect";
 
@@ -5,15 +13,6 @@ import { AppConfig } from "#lib/config/service";
 import { user } from "#lib/db/schema/tables/auth";
 import * as schema from "#lib/db/schema/tables/combined";
 import { CurrentDb, dbEffect } from "#lib/db/service";
-import { IntegrationId, UserId } from "#lib/schema/brands";
-
-import type {
-	IntegrationExtraSettings,
-	IntegrationProvider,
-	IntegrationProviderSpecifics,
-	ListedIntegration,
-} from "./schemas";
-import { isSinkProvider, type IntegrationLot } from "./types";
 
 type IntegrationRow = {
 	readonly id: string;

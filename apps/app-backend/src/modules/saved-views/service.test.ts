@@ -1,15 +1,18 @@
 import { expect, it } from "@effect/vitest";
+import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
+import { BadRequest, NotFound } from "@ryot/contract/errors";
+import type {
+	CreateSavedViewBody,
+	ListedSavedView,
+} from "@ryot/contract/modules/saved-views/schemas";
+import { SavedViewId, UserId } from "@ryot/contract/schema/brands";
 import { Effect, Exit, Layer } from "effect";
 
-import type { CurrentUserValue } from "#lib/auth-middleware";
-import { BadRequest, NotFound } from "#lib/errors";
-import { SavedViewId, UserId } from "#lib/schema/brands";
 import { type MockOverrides, dbRunnerLayer, transactionLayer } from "#lib/test-support/effect";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 import { QueryEngineService } from "#modules/query-engine/service";
 
 import { SavedViewsRepository } from "./repository";
-import type { CreateSavedViewBody, ListedSavedView } from "./schemas";
 import { SavedViewsService } from "./service";
 
 const user = {

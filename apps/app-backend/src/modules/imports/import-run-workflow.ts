@@ -1,7 +1,6 @@
 import { Workflow } from "@effect/workflow";
+import { unknownToMessage } from "@ryot/contract/errors";
 import { Effect, Layer, Schema } from "effect";
-
-import { unknownToMessage } from "#lib/errors";
 
 import { ImportRunJobData } from "./jobs";
 import {

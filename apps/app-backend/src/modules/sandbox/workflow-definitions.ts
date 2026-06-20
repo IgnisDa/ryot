@@ -1,8 +1,9 @@
 import { Workflow } from "@effect/workflow";
-
-import { SandboxRunError } from "#lib/errors";
-
-import { SandboxCompletedResult, SandboxExecutionPayload } from "./schemas";
+import { SandboxRunError } from "@ryot/contract/errors";
+import {
+	SandboxCompletedResult,
+	SandboxExecutionPayload,
+} from "@ryot/contract/modules/sandbox/schemas";
 
 export const RunSandboxWorkflow = Workflow.make({
 	error: SandboxRunError,

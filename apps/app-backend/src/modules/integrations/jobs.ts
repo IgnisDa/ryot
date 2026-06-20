@@ -1,6 +1,5 @@
+import { ImportRunId, IntegrationId, UserId } from "@ryot/contract/schema/brands";
 import { Schema } from "effect";
-
-import { ImportRunId, IntegrationId, UserId } from "#lib/schema/brands";
 
 export const IntegrationRunJobData = Schema.Struct({
 	runId: ImportRunId,
