@@ -134,6 +134,8 @@ signals are removed with their actor.
 - `kind`: `policy` or `subscription`
 - `operation`: `create`, `update`, `delete`, or `signal`
 - `sandbox_script_id`, plus an optional ordering position for policies
+- optional server-owned `metadata`, validated with Effect Schema and passed to the script as
+  `ruleMetadata`; public rule endpoints never accept it
 - exactly one target FK: entity schema, event schema, relationship schema, or signal schema
 
 Database checks enforce exactly one target and target/operation compatibility: a signal-schema
@@ -187,7 +189,6 @@ Every lifecycle description and signal carries a server-derived origin:
 type AutomationOrigin =
 	| { kind: "api" }
 	| { kind: "bootstrap" }
-	| { kind: "collection" }
 	| { kind: "import"; importRunId?: ImportRunId }
 	| { kind: "integration"; integrationId: IntegrationId; importRunId?: ImportRunId }
 	| { kind: "automation"; executionId: string }
@@ -195,8 +196,21 @@ type AutomationOrigin =
 ```
 
 Public callers cannot provide or override origins, and nested write paths propagate the root
-origin end to end rather than replacing it with an internal detail. `bootstrapNewUser` writes
-carry `bootstrap`. Sandbox-created writes carry `automation` with the creating execution's ID.
+origin end to end rather than replacing it with an internal detail. An origin kind exists only
+with a producing write path; new kinds are added with their producers, never speculatively. Each
+dispatch root supplies its origin explicitly: public API writes carry `api`, `bootstrapNewUser`
+writes carry `bootstrap`, import runs carry `import`, integration syncs carry `integration`,
+scheduled media-monitoring refreshes carry `provider_refresh`, and sandbox-created writes carry
+`automation` with the creating execution's ID.
+
+Ensure-mode population requests thread the requesting root's origin through
+`EntityPopulationTrigger` — the entity-interest path passes the origin of the write that
+registered the interest. Because ensure runs coalesce on `populate-${entityId}` with
+`discard: true`, a coalesced execution records the origin of the request that actually started
+it, and discarded duplicate requests alter nothing. This coarseness is deliberate and safe: no
+built-in detector branches on population origins — population detectors gate on
+`rootPreviouslyPopulated` and monitoring relationships instead.
+
 Legacy bootstrap suppresses dispatch entirely and produces no occurrences.
 
 ### Lifecycle occurrences
@@ -248,9 +262,12 @@ with deterministic execution IDs.
   mutation/item index; non-durable paths generate it once before persistence. The affected record
   ID is kept separately.
 - A subscription run ID derives from its occurrence and rule IDs.
-- A detector or author emission derives its signal ID from the emitting execution's ID and the
-  signal schema slug. Repeated emission returns the existing signal and never re-resolves its
-  snapshotted recipients.
+- A detector or author emission derives its signal ID from the emitting execution's ID, the
+  signal schema slug, and a per-emission discriminator: a deterministic key built from the
+  property values that distinguish sibling emissions (for association signals, the subject
+  endpoint and role). One execution may therefore emit several signals of one schema — one per
+  newly added role — while replay of the same emission still collides into the existing row.
+  Repeated emission returns the existing signal and never re-resolves its snapshotted recipients.
 - A notification delivery execution ID derives from the run ID.
 
 Deterministic IDs plus conflict-do-nothing inserts make workflow replay safe: no duplicate runs,
@@ -261,7 +278,8 @@ keys when user scripts arrive.
 
 When the source write is an activity inside a durable workflow, dispatch is the next durable step
 after the write activity: the activity returns a bounded occurrence envelope — occurrence IDs,
-operations, and the minimal snapshots defined for sandbox context — and the workflow body
+operations, the commit timestamp, and the minimal snapshots defined for sandbox context — and the
+workflow body
 dispatches from it, because activities never start durable work. Dispatch failures on these paths
 are not caught-and-logged as success; the owning workflow retries them.
 
@@ -333,6 +351,7 @@ Subscription input is standardized under an `automation` key:
 ```ts
 type AutomationContext = {
 	ruleId: AutomationRuleId;
+	ruleMetadata?: JsonValue;
 	occurrenceId: string;
 	origin: AutomationOrigin;
 	operation: "create" | "update" | "delete" | "signal";
@@ -370,10 +389,24 @@ mutations use the podcast; top-level syncs use their anchor. Episode-scoped occu
 `owningSeason` so detectors can classify special seasons. An authoritative nested relationship
 sync propagates the scope reference through its nested syncs.
 
-Each `RelationshipSnapshot` contains the relationship identity, schema identity, schema-validated
-properties, and minimal immutable snapshots of both endpoints (entity ID, entity-schema slug,
-name), captured atomically with the mutation, so detectors derive labels and audience subjects
-without entity-query host functions. Hierarchical media detectors use `scopeEntity` as the
+All four snapshot shapes are captured atomically with their mutation and embed everything the
+script needs, because entity-query host functions are barred:
+
+- `EntitySnapshot`: entity ID, entity-schema ID and slug, name, and schema-validated properties.
+- `EventSnapshot`: event ID, event-schema ID and slug, schema-validated properties, `occurredAt`,
+  and an embedded subject reference — entity ID, entity name, entity-schema slug — resolved by
+  the writing service at capture time, since event rows store only the entity ID.
+- `RelationshipSnapshot`: relationship identity, schema identity, schema-validated properties,
+  and minimal immutable snapshots of both endpoints (entity ID, entity-schema slug, name).
+- `SignalSnapshot`: signal ID, signal-schema slug, schema-validated properties, `occurredAt`, and
+  origin — sufficient for the shared notification script to format a message with no further
+  lookups.
+
+Every occurrence envelope also carries the commit timestamp of its write transaction; detector
+emissions inherit it as the signal's `occurred_at`.
+
+Detectors derive labels and audience subjects from these snapshots alone. Hierarchical media
+detectors use `scopeEntity` as the
 related-user signal subject and the source of `entityName`; association detectors instead use the
 person/company endpoint as the signal subject, with the other endpoint supplying `associatedName`.
 
@@ -399,8 +432,8 @@ authoritative record they have loaded — `integration.disabled` uses the owning
 workflow cannot emit an actor-audience signal and may emit only a built-in policy-compatible
 signal with its required subject. It returns the standard sandbox success/failure envelope.
 
-**`sendNotification`** — accepts a schema-validated message and enqueues the existing durable
-delivery workflow for the hidden current user:
+**`sendNotification`** — accepts a schema-validated message and enqueues the low-level durable
+delivery step introduced in Phase 1 for the hidden current user:
 
 - rejects arbitrary user IDs
 - delivers to all enabled channels for that user
@@ -515,7 +548,9 @@ creation alone emits nothing; the parent-child relationship establishes the sema
 ### Existing trigger migration
 
 - Move the Integration Progress Policy to an event-schema create policy.
-- Move Auto-Complete on Full Progress to an event-schema create subscription.
+- Move Auto-Complete on Full Progress to an event-schema create subscription; its
+  `inheritedProperties: ["consumedOn"]` configuration moves from the deleted trigger row into the
+  rule's `metadata` column and reaches the script as `ruleMetadata`.
 - Move the Radarr, Sonarr, and Jellyfin pushes to subscriptions.
 - Delete `event_schema_trigger` and its repository methods once all consumers are automation
   rules; automation rules are the only trigger system.
@@ -634,6 +669,11 @@ users created between steps do not permanently miss defaults under the no-backfi
    automation service and generic audience resolver, origin threading, lifecycle occurrence
    dispatch, the SDK automation entry point, `emitSignal`/`sendNotification`, and
    `SubscriptionExecutionWorkflow`. Preserve current behavior while the dispatcher is introduced.
+   Notification delivery splits here: a low-level durable step delivers a message to an
+   explicitly resolved channel set; the legacy event path keeps its `configuredEvents` filtering
+   as a thin wrapper around that step, while `sendNotification` resolves the user's enabled
+   channels itself and never passes a `NotificationEventType`. Phase 3 deletes the wrapper
+   together with the enum.
 2. **Trigger migration.** Move the existing event trigger rows and execution to automation rules;
    delete `event_schema_trigger`.
 3. **Built-in notification subscriptions.** Shared notification script; `review.created`,
