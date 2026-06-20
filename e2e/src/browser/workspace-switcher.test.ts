@@ -16,7 +16,7 @@ it.live("opens the desktop workspace switcher with its keyboard shortcut", () =>
 		const shortcut = "Mod+Shift+Space";
 		const trigger = sidebar.getByRole("button", { name: /workspace,/ });
 		expect(yield* trigger.getAttribute("aria-keyshortcuts")).toBe(shortcut);
-		expect(yield* sidebar.getByText(shortcut, { exact: true }).isVisible()).toBe(true);
+		expect(yield* sidebar.getByText("⌘⇧Space", { exact: true }).isVisible()).toBe(true);
 
 		const primaryModifier = yield* page.evaluate(() =>
 			/Mac|iPhone|iPad/.test(navigator.platform) ? "Meta" : "Control",
