@@ -79,6 +79,18 @@ export class SavedViewsService extends Effect.Service<SavedViewsService>()("Save
 		const runInTransaction = yield* TransactionRunner;
 		const entitySchemasRepository = yield* EntitySchemasRepository;
 
+		const requireSavedView = Effect.fn("SavedViewsService.requireSavedView")(function* (
+			user: CurrentUserValue,
+			viewSlug: string,
+		) {
+			const view = yield* runWithDb(repository.findBySlug(user.id, viewSlug));
+			if (!view) {
+				return yield* notFound(savedViewNotFound);
+			}
+
+			return view;
+		});
+
 		const list = Effect.fn("SavedViewsService.list")(function* (
 			user: CurrentUserValue,
 			input: { trackerId?: TrackerId; includeDisabled: boolean },
@@ -90,12 +102,7 @@ export class SavedViewsService extends Effect.Service<SavedViewsService>()("Save
 			user: CurrentUserValue,
 			viewSlug: string,
 		) {
-			const view = yield* runWithDb(repository.findBySlug(user.id, viewSlug));
-			if (!view) {
-				return yield* notFound(savedViewNotFound);
-			}
-
-			return view;
+			return yield* requireSavedView(user, viewSlug);
 		});
 
 		const create = Effect.fn("SavedViewsService.create")(function* (
@@ -162,10 +169,7 @@ export class SavedViewsService extends Effect.Service<SavedViewsService>()("Save
 			viewSlug: string,
 			payload: UpdateSavedViewBody,
 		) {
-			const current = yield* runWithDb(repository.findBySlug(user.id, viewSlug));
-			if (!current) {
-				return yield* notFound(savedViewNotFound);
-			}
+			const current = yield* requireSavedView(user, viewSlug);
 
 			yield* ensureBuiltinUpdateIsAllowed(current, payload);
 
@@ -215,10 +219,7 @@ export class SavedViewsService extends Effect.Service<SavedViewsService>()("Save
 			user: CurrentUserValue,
 			viewSlug: string,
 		) {
-			const current = yield* runWithDb(repository.findBySlug(user.id, viewSlug));
-			if (!current) {
-				return yield* notFound(savedViewNotFound);
-			}
+			const current = yield* requireSavedView(user, viewSlug);
 			if (current.isBuiltin) {
 				return yield* badRequest(builtinViewMutationMessage);
 			}
@@ -235,10 +236,7 @@ export class SavedViewsService extends Effect.Service<SavedViewsService>()("Save
 			user: CurrentUserValue,
 			viewSlug: string,
 		) {
-			const source = yield* runWithDb(repository.findBySlug(user.id, viewSlug));
-			if (!source) {
-				return yield* notFound(savedViewNotFound);
-			}
+			const source = yield* requireSavedView(user, viewSlug);
 			const clonedName = `${source.name} (Copy)`;
 			const name = yield* resolveSavedViewName(clonedName);
 			const slug = yield* resolveSavedViewSlug(name);
