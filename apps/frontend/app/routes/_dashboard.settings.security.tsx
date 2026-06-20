@@ -116,7 +116,9 @@ const PasswordSection = () => {
 			return getPasswordChangeSession.passwordChangeUrl;
 		},
 		onSuccess: (url) => {
-			if (!url) return;
+			if (!url) {
+				return;
+			}
 			notifications.show({
 				color: "green",
 				title: "Success",

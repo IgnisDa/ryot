@@ -163,7 +163,9 @@ const UserActions = (props: { user: User; setUrlDisplayData: (data: UrlDisplayDa
 			invalidateUsersList();
 			const isCurrentUser = input.userId === userDetails.id;
 			showSuccessNotification("User status updated successfully");
-			if (isCurrentUser && input.isDisabled) handleCurrentUserLogout(navigate);
+			if (isCurrentUser && input.isDisabled) {
+				handleCurrentUserLogout(navigate);
+			}
 		},
 		onError: () => showErrorNotification("Failed to update user status"),
 	});
@@ -195,7 +197,9 @@ const UserActions = (props: { user: User; setUrlDisplayData: (data: UrlDisplayDa
 			return resetUser;
 		},
 		onSuccess: async (resetUser) => {
-			if (resetUser.__typename !== "UserResetResponse") return;
+			if (resetUser.__typename !== "UserResetResponse") {
+				return;
+			}
 			invalidateUsersList();
 			const isCurrentUser = props.user.id === userDetails.id;
 			if (resetUser.passwordChangeUrl) {
@@ -210,8 +214,9 @@ const UserActions = (props: { user: User; setUrlDisplayData: (data: UrlDisplayDa
 			} else {
 				showSuccessNotification("User password reset successfully");
 			}
-			if (isCurrentUser && resetUser.passwordChangeUrl)
+			if (isCurrentUser && resetUser.passwordChangeUrl) {
 				handleCurrentUserLogout(navigate, resetUser.passwordChangeUrl);
+			}
 		},
 	});
 
@@ -359,7 +364,9 @@ const UserInvitationModal = (props: {
 				input: { data: { password: { username, password: "" } } },
 			});
 
-			if (registerUser.__typename !== "StringIdObject") throw new Error("Failed to register user");
+			if (registerUser.__typename !== "StringIdObject") {
+				throw new Error("Failed to register user");
+			}
 
 			const { getPasswordChangeSession } = await clientGqlService.request(
 				GetPasswordChangeSessionDocument,

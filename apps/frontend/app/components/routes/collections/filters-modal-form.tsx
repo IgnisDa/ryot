@@ -154,7 +154,9 @@ export const FiltersModalForm = (props: {
 						const range = v as ApplicationTimeRange;
 						const startDateRange = getStartTimeFromRange(range);
 						props.updateFilter("dateRange", range);
-						if (range === ApplicationTimeRange.Custom) return;
+						if (range === ApplicationTimeRange.Custom) {
+							return;
+						}
 
 						props.updateFilter("startDateRange", startDateRange?.format("YYYY-MM-DD") || "");
 						props.updateFilter(
@@ -176,7 +178,9 @@ export const FiltersModalForm = (props: {
 						onChange={(v) => {
 							const end = v[1];
 							const start = v[0];
-							if (!start || !end) return;
+							if (!start || !end) {
+								return;
+							}
 							props.updateFilter("startDateRange", dayjsLib(start).format("YYYY-MM-DD"));
 							props.updateFilter("endDateRange", dayjsLib(end).format("YYYY-MM-DD"));
 						}}

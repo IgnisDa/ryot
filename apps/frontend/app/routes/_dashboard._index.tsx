@@ -57,7 +57,9 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 	const preferences = await getUserPreferences(request);
 	const query = parseSearchQuery(request, searchParamsSchema);
 	const landingPath = preferences.general.landingPath;
-	if (landingPath !== "/" && !query.ignoreLandingPath) throw redirect(landingPath);
+	if (landingPath !== "/" && !query.ignoreLandingPath) {
+		throw redirect(landingPath);
+	}
 	return {};
 };
 
@@ -369,9 +371,12 @@ const UpcomingMediaSection = (props: { um: CalendarEventPartFragment }) => {
 	const numDaysLeft = dayjsLib(props.um.date).diff(today, "day");
 
 	const extraInformation = useMemo(() => {
-		if (props.um.showExtraInformation)
+		if (props.um.showExtraInformation) {
 			return `S${props.um.showExtraInformation.season}-E${props.um.showExtraInformation.episode}`;
-		if (props.um.podcastExtraInformation) return `EP-${props.um.podcastExtraInformation.episode}`;
+		}
+		if (props.um.podcastExtraInformation) {
+			return `EP-${props.um.podcastExtraInformation.episode}`;
+		}
 	}, [props.um]);
 
 	const daysInformation = useMemo(() => {
