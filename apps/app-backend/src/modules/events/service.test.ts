@@ -32,6 +32,7 @@ const user = {
 
 const entityScope = {
 	isBuiltin: false,
+	entityName: "Dune",
 	entityId: EntityId.make("entity-1"),
 	entityUserId: user.id,
 	entitySchemaSlug: "book",
