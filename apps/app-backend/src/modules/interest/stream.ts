@@ -18,16 +18,10 @@ const SSE_HEADERS = { "cache-control": "no-cache", connection: "keep-alive" };
 
 const PING = encoder.encode(": ping\n\n");
 
-// Keeps idle proxies from timing out the connection. A separate stream (rather than a side-effecting
-// interval inside the push stream below) so it stops for free when Stream.merge tears everything down
-// together on client disconnect.
 const heartbeats = Stream.fromSchedule(Schedule.spaced(HEARTBEAT_INTERVAL_MS)).pipe(
 	Stream.as(PING),
 );
 
-// Push-based: registry.add hands the fan-out an `enqueue` closure that feeds frames into this
-// stream. Registration and its teardown (registry.remove) run when the stream's scope closes, which
-// Stream.asyncPush ties to the client disconnecting. Exported for the stream-lifecycle unit test.
 export const events = (streamId: string, userId: UserId, registry: typeof StreamRegistry.Service) =>
 	Stream.asyncPush<Uint8Array>((emit) =>
 		Effect.acquireRelease(

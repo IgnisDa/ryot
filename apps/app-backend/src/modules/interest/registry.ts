@@ -14,26 +14,18 @@ type StreamEntry = {
 	interest: Set<string>;
 };
 
-// Per-process registry of which SSE streams want which entities, plus the single duplicated Redis
-// subscriber that fans entity:updated messages out to the local streams that declared interest.
-// streamId is assumed unique per connection: the client generates a fresh UUID per stream.
 export class StreamRegistry extends Effect.Service<StreamRegistry>()("StreamRegistry", {
 	scoped: Effect.gen(function* () {
 		const redis = yield* RedisService;
 		const channel = redisKeys.entityUpdatedChannel;
 
 		const streams = new Map<string, StreamEntry>();
-		// Forward index: entity id -> interested stream ids (used by the fan-out).
 		const byEntity = new Map<string, Set<string>>();
 
 		const add = (streamId: string, userId: UserId, enqueue: StreamEnqueue): void => {
 			streams.set(streamId, { userId, enqueue, interest: new Set() });
 		};
 
-		// Unknown streamId and wrong-owner are intentionally both "not found", to avoid an oracle for
-		// which streamIds exist. Diffs against the stream's prior interest so only real changes touch
-		// the forward index. Effect.suspend keeps the map mutations inside the returned effect (run
-		// when yielded), rather than side-effecting during effect construction.
 		const setInterestIfOwner = (streamId: string, userId: UserId, entityIds: readonly string[]) =>
 			Effect.suspend(() => {
 				const entry = streams.get(streamId);
@@ -99,8 +91,6 @@ export class StreamRegistry extends Effect.Service<StreamRegistry>()("StreamRegi
 				fanOut(message);
 			}
 		});
-		// ioredis restores subscriptions on reconnect, but re-subscribing on `ready` is idempotent and
-		// guards against any gap.
 		subscriber.on("ready", () => {
 			void subscriber.subscribe(channel).catch(() => undefined);
 		});
