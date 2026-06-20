@@ -7,7 +7,7 @@ import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-r
 
 import { RelationshipsRepository, type SaveRelationshipInputBase } from "./repository";
 
-type CreateRelationshipInput = SaveRelationshipInputBase & {
+type SaveRelationshipInput = SaveRelationshipInputBase & {
 	properties: unknown;
 	propertiesSchema: AppSchema;
 };
@@ -19,42 +19,18 @@ export class RelationshipsService extends Effect.Service<RelationshipsService>()
 			const runWithDb = yield* DbRunner;
 			const repository = yield* RelationshipsRepository;
 
-			const create = Effect.fn("RelationshipsService.create")(function* (
-				input: CreateRelationshipInput,
-			) {
+			const save = Effect.fn("RelationshipsService.save")(function* (input: SaveRelationshipInput) {
+				const { propertiesSchema, ...saveInput } = input;
 				const properties = yield* parseAppSchemaProperties({
 					kind: "Relationship",
 					properties: input.properties,
-					propertiesSchema: input.propertiesSchema,
+					propertiesSchema,
 				}).pipe(Effect.mapError((error) => badRequest(error.message)));
 
-				if (input.scope === "user") {
-					return yield* runWithDb(
-						repository.saveRelationship({
-							properties,
-							scope: "user",
-							userId: input.userId,
-							onConflict: input.onConflict,
-							sourceEntityId: input.sourceEntityId,
-							targetEntityId: input.targetEntityId,
-							relationshipSchemaId: input.relationshipSchemaId,
-						}),
-					);
-				}
-
-				return yield* runWithDb(
-					repository.saveRelationship({
-						properties,
-						scope: "global",
-						onConflict: input.onConflict,
-						sourceEntityId: input.sourceEntityId,
-						targetEntityId: input.targetEntityId,
-						relationshipSchemaId: input.relationshipSchemaId,
-					}),
-				);
+				return yield* runWithDb(repository.saveRelationship({ ...saveInput, properties }));
 			});
 
-			return { create };
+			return { save };
 		}),
 	},
 ) {}
