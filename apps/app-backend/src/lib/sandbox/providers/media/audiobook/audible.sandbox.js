@@ -336,8 +336,13 @@ driver("details", async function (context) {
 
 	return {
 		name: title,
-		suggestions,
-		relatedEntities: [...relatedEntityByKey.values()],
+		relatedEntities: [
+			...relatedEntityByKey.values(),
+			...suggestions.map((suggestion) => ({
+				...suggestion,
+				relationshipSchemaSlug: "media-suggestion",
+			})),
+		],
 		properties: {
 			images,
 			isNsfw,

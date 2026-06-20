@@ -531,16 +531,18 @@ it.effect("creates placeholder suggestion entities and syncs source suggestions"
 				value: {
 					name: "Test Book",
 					properties: { title: "Test Book" },
-					suggestions: [
+					relatedEntities: [
 						{
 							externalId: "movie-1",
 							scriptSlug: "movie.tmdb",
 							name: "Recommended Movie",
+							relationshipSchemaSlug: "media-suggestion",
 						},
 						{
 							externalId: "missing-1",
 							name: "Missing Suggestion",
 							scriptSlug: "missing.provider",
+							relationshipSchemaSlug: "media-suggestion",
 						},
 					],
 				},
@@ -641,9 +643,12 @@ it.effect("replaces stale synced suggestions on a later import run", () => {
 						error: null,
 						status: "completed" as const,
 						value: {
-							suggestions,
 							name: "Test Book",
 							properties: { title: "Test Book" },
+							relatedEntities: suggestions.map((suggestion) => ({
+								...suggestion,
+								relationshipSchemaSlug: "media-suggestion",
+							})),
 						},
 					}),
 				entitiesRepository: makeEntitiesRepository({
@@ -723,6 +728,44 @@ it.effect("replaces stale synced suggestions on a later import run", () => {
 		expect([...currentTargets]).toEqual(["suggestion-movie-2"]);
 	});
 });
+
+it.effect(
+	"never syncs relationship targets when no related entity specifies a relationship schema slug",
+	() => {
+		let syncCalled = false;
+
+		const payload = { ...importPayload, executionId: "exec-no-explicit-slug" };
+		const options = {
+			processSandbox: () =>
+				Effect.succeed({
+					logs: [],
+					error: null,
+					status: "completed" as const,
+					value: {
+						name: "Test Book",
+						properties: { title: "Test Book" },
+						relatedEntities: [],
+					},
+				}),
+			relationshipsRepository: makeRelationshipsRepository({
+				syncGlobalRelationshipTargets: () =>
+					Effect.sync(() => {
+						syncCalled = true;
+					}),
+			}),
+		} satisfies TestLayerOptions;
+
+		return withTestLayer(
+			options,
+			payload.executionId,
+			Effect.gen(function* () {
+				yield* runEntityImportWorkflow(payload, payload.executionId);
+
+				expect(syncCalled).toBe(false);
+			}),
+		);
+	},
+);
 
 it.effect("short-circuits sandbox when global entity is already populated", () => {
 	let sandboxCalled = false;

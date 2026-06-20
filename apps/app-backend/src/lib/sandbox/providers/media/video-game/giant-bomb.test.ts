@@ -13,7 +13,7 @@ const runGiantBombDetails = (context: unknown, hostFunctions: Record<string, Hos
 	runProviderDriver(giantBombVideoGameScriptCode, context, hostFunctions);
 
 describe("video-game.giant-bomb sandbox script", () => {
-	it("keeps similar games in suggestions", () => {
+	it("keeps similar games as related entities", () => {
 		return runGiantBombDetails(
 			{ externalId: "3030-1" },
 			{
@@ -45,8 +45,13 @@ describe("video-game.giant-bomb sandbox script", () => {
 			},
 		).then((rawDetails) => {
 			const details = toRecord(rawDetails);
-			expect(details.suggestions).toEqual([
-				{ name: "Pick One", externalId: "3030-2", scriptSlug: "video-game.giant-bomb" },
+			expect(details.relatedEntities).toEqual([
+				{
+					name: "Pick One",
+					externalId: "3030-2",
+					scriptSlug: "video-game.giant-bomb",
+					relationshipSchemaSlug: "media-suggestion",
+				},
 			]);
 			return undefined;
 		});

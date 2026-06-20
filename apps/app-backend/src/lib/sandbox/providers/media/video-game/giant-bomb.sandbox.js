@@ -408,15 +408,18 @@ driver("details", async function (context) {
 		images.push({ type: "remote", url: primaryImage });
 	}
 
+	const suggestions = collectSuggestions(game.similar_games);
 	const relatedEntities = [
 		...collectCompanies(game.developers, game.publishers),
 		...collectGroups(game.franchises),
+		...suggestions.map((suggestion) => ({
+			...suggestion,
+			relationshipSchemaSlug: "media-suggestion",
+		})),
 	];
-	const suggestions = collectSuggestions(game.similar_games);
 
 	return {
 		name,
-		suggestions,
 		relatedEntities,
 		properties: {
 			images,
