@@ -73,7 +73,7 @@ const mockRelationshipSchemasRepository = Layer.mock(RelationshipSchemasReposito
 
 const makeEntitiesService = (overrides: MockOverrides<typeof mockEntitiesService> = {}) =>
 	mockEntitiesService({
-		save: () => Effect.die("unused"),
+		create: () => Effect.die("unused"),
 		...overrides,
 		_tag: "EntitiesService",
 	});
@@ -159,7 +159,7 @@ it.effect("syncs successful provider trend items as ranked self edges", () => {
 					])
 				: Effect.succeed([{ name: "Show One", externalId: "s1" }]),
 		entitiesService: makeEntitiesService({
-			save: (input) => {
+			create: (input) => {
 				savedInputs.push(input);
 				const key = `${input.sandboxScriptId}:${input.externalId}`;
 				return Effect.succeed(
@@ -226,7 +226,7 @@ it.effect("skips failed providers and syncs successful providers", () => {
 				? Effect.fail(new SandboxRunError({ message: "not supported" }))
 				: Effect.succeed([{ name: "Show One", externalId: "s1" }]),
 		entitiesService: makeEntitiesService({
-			save: (input) =>
+			create: (input) =>
 				Effect.succeed(
 					listedEntity({
 						name: input.name,

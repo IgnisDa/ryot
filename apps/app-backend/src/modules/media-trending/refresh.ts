@@ -65,7 +65,7 @@ const writeProviderTrendingItems = Effect.fn("writeProviderTrendingItems")(funct
 			const fetchedAt = yield* DateTime.nowAsDate;
 
 			for (const item of input.items) {
-				const entity = yield* entities.save({
+				const entity = yield* entities.create({
 					properties: {},
 					scope: "global",
 					name: item.name,

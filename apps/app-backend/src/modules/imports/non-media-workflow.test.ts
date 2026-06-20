@@ -260,8 +260,8 @@ it.effect("orchestrates open-scale measurement imports through workflow-owned ph
 					}),
 			}),
 		entitiesService: makeEntitiesService({
-			create: (_user, payload) => {
-				createCalls.push(payload);
+			create: (input) => {
+				createCalls.push(input);
 				return createCalls.length === 2
 					? Effect.fail(badRequest("Measurement rejected"))
 					: Effect.succeed(
@@ -420,13 +420,13 @@ it.effect("orchestrates workout imports through workflow-owned phases", () => {
 					Effect.succeed({ failures: [], items: [workoutItem], cleanupPaths: ["/tmp/hevy.csv"] }),
 			}),
 		entitiesService: makeEntitiesService({
-			create: (_user, payload) => {
-				createCalls.push(payload);
+			create: (input) => {
+				createCalls.push(input);
 				return Effect.succeed(
 					makeListedEntity({
-						name: payload.name,
-						entitySchemaId: payload.entitySchemaId,
-						id: EntityId.make(`${payload.entitySchemaId}-entity`),
+						name: input.name,
+						entitySchemaId: input.entitySchemaId,
+						id: EntityId.make(`${input.entitySchemaId}-entity`),
 					}),
 				);
 			},
