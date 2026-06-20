@@ -31,6 +31,16 @@ type UpdateEntityInput = {
 	entitySchemaId: EntitySchemaId;
 };
 
+type UpsertEntityInput = {
+	name: string;
+	externalId: string;
+	properties: unknown;
+	updateExisting: boolean;
+	populatedAt: Date | null;
+	entitySchemaId: EntitySchemaId;
+	sandboxScriptId: SandboxScriptId;
+};
+
 const entityNotFoundError = "Entity not found";
 const entitySchemaNotFoundError = "Entity schema not found";
 const partialProvenanceError =
@@ -130,6 +140,40 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 			);
 		});
 
+		const upsert = Effect.fn("EntitiesService.upsert")(function* (input: UpsertEntityInput) {
+			const existing = yield* runWithDb(
+				repository.findGlobalEntityByExternalId({
+					externalId: input.externalId,
+					entitySchemaId: input.entitySchemaId,
+					sandboxScriptId: input.sandboxScriptId,
+				}),
+			);
+
+			if (!existing) {
+				return yield* create({
+					scope: "global",
+					name: input.name,
+					externalId: input.externalId,
+					properties: input.properties,
+					populatedAt: input.populatedAt,
+					entitySchemaId: input.entitySchemaId,
+					sandboxScriptId: input.sandboxScriptId,
+				});
+			}
+
+			if (input.updateExisting || existing.populatedAt === null) {
+				return yield* update({
+					name: input.name,
+					entityId: existing.id,
+					properties: input.properties,
+					populatedAt: input.populatedAt,
+					entitySchemaId: input.entitySchemaId,
+				});
+			}
+
+			return existing;
+		});
+
 		const getById = Effect.fn("EntitiesService.getById")(function* (
 			user: CurrentUserValue,
 			entityIdInput: EntityId,
@@ -165,6 +209,6 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 			return { ...entity, translationStatus } satisfies EntityDetail;
 		});
 
-		return { create, update, getById };
+		return { create, update, upsert, getById };
 	}),
 }) {}
