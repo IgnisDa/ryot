@@ -88,6 +88,39 @@ function pickImage(mainPicture) {
 	return null;
 }
 
+function collectSuggestionItems(entries, scriptSlug) {
+	if (!Array.isArray(entries)) {
+		return [];
+	}
+
+	const suggestionByKey = new Map();
+	for (const entry of entries) {
+		const node = entry?.node && typeof entry.node === "object" ? entry.node : null;
+		if (!node) {
+			continue;
+		}
+
+		const externalId =
+			typeof node.id === "number" && Number.isFinite(node.id) ? String(Math.trunc(node.id)) : null;
+		if (!externalId) {
+			continue;
+		}
+
+		const name = typeof node.title === "string" && node.title.trim() ? node.title.trim() : null;
+		if (!name) {
+			continue;
+		}
+
+		suggestionByKey.set(`${scriptSlug}:${externalId}`, {
+			name,
+			externalId,
+			scriptSlug,
+		});
+	}
+
+	return [...suggestionByKey.values()];
+}
+
 async function getUserIsNsfw() {
 	const prefsResult = await getUserPreferences();
 	if (!prefsResult?.success) {
@@ -220,7 +253,8 @@ driver("details", async function (context) {
 	const clientId = await getMalClientId();
 
 	const params = new URLSearchParams({
-		fields: "start_date,synopsis,genres,status,num_volumes,num_chapters,mean,nsfw,main_picture",
+		fields:
+			"start_date,synopsis,genres,status,num_volumes,num_chapters,mean,nsfw,main_picture,recommendations,related_manga,related_anime",
 	});
 
 	const response = await httpCall(
@@ -261,9 +295,15 @@ driver("details", async function (context) {
 			: null;
 
 	const sourceUrl = `https://myanimelist.net/manga/${payloadIdentifier}/${title}`;
+	const suggestions = [
+		...collectSuggestionItems(payload?.related_anime, "anime.myanimelist"),
+		...collectSuggestionItems(payload?.related_manga, "manga.myanimelist"),
+		...collectSuggestionItems(payload?.recommendations, "manga.myanimelist"),
+	];
 
 	return {
 		name: title,
+		suggestions,
 		properties: {
 			volumes,
 			chapters,

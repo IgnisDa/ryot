@@ -114,6 +114,41 @@ function collectGenres(genresArray) {
 	return genres;
 }
 
+function collectSuggestions(results) {
+	if (!Array.isArray(results)) {
+		return [];
+	}
+
+	const suggestionByKey = new Map();
+	for (const result of results) {
+		const externalId =
+			typeof result?.id === "number" && Number.isFinite(result.id)
+				? String(Math.trunc(result.id))
+				: null;
+		if (!externalId) {
+			continue;
+		}
+
+		let name = null;
+		if (typeof result?.name === "string" && result.name.trim()) {
+			name = result.name.trim();
+		} else if (typeof result?.original_name === "string" && result.original_name.trim()) {
+			name = result.original_name.trim();
+		}
+		if (!name) {
+			continue;
+		}
+
+		suggestionByKey.set(`show.tmdb:${externalId}`, {
+			name,
+			externalId,
+			scriptSlug: "show.tmdb",
+		});
+	}
+
+	return [...suggestionByKey.values()];
+}
+
 function parseTranslationLanguage(language) {
 	const [langPart, regionPart] = language.split("-");
 	return {
@@ -610,10 +645,11 @@ driver("details", async function (context, { metadata }) {
 
 	const token = await getTmdbAccessToken();
 
-	const [showData, imagesData, creditsData] = await Promise.all([
+	const [showData, imagesData, creditsData, recommendationsData] = await Promise.all([
 		tmdbGet(`/tv/${externalId}`, { language }, token),
 		tmdbGet(`/tv/${externalId}/images`, {}, token),
 		tmdbGet(`/tv/${externalId}/credits`, { language }, token),
+		tmdbGet(`/tv/${externalId}/recommendations`, { language }, token),
 	]);
 
 	const title =
@@ -677,6 +713,9 @@ driver("details", async function (context, { metadata }) {
 
 	return {
 		name: title,
+		childEntities,
+		relatedEntities,
+		suggestions: collectSuggestions(recommendationsData?.results),
 		properties: {
 			images,
 			totalEpisodes,
@@ -696,8 +735,6 @@ driver("details", async function (context, { metadata }) {
 					: null,
 			unlinkedCreators,
 		},
-		childEntities,
-		relatedEntities,
 	};
 });
 

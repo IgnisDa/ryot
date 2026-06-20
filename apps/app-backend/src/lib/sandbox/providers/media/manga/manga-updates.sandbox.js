@@ -100,6 +100,76 @@ function collectImages(image) {
 	return trimmedCandidate ? [{ type: "remote", url: trimmedCandidate }] : [];
 }
 
+async function collectSuggestions(payload) {
+	const sourceId =
+		typeof payload?.series_id === "number" && Number.isFinite(payload.series_id)
+			? Math.trunc(payload.series_id)
+			: null;
+	const seriesIds = new Set();
+
+	for (const recommendation of Array.isArray(payload?.recommendations)
+		? payload.recommendations
+		: []) {
+		const seriesId =
+			typeof recommendation?.series_id === "number" && Number.isFinite(recommendation.series_id)
+				? Math.trunc(recommendation.series_id)
+				: null;
+		if (seriesId !== null && seriesId > 0 && seriesId !== sourceId) {
+			seriesIds.add(seriesId);
+		}
+	}
+
+	for (const relatedSeries of Array.isArray(payload?.related_series)
+		? payload.related_series
+		: []) {
+		const seriesId =
+			typeof relatedSeries?.related_series_id === "number" &&
+			Number.isFinite(relatedSeries.related_series_id)
+				? Math.trunc(relatedSeries.related_series_id)
+				: null;
+		if (seriesId !== null && seriesId > 0 && seriesId !== sourceId) {
+			seriesIds.add(seriesId);
+		}
+	}
+
+	const responses = await Promise.all(
+		[...seriesIds].map(async (seriesId) => {
+			const response = await httpCall(
+				"GET",
+				`https://api.mangaupdates.com/v1/series/${encodeURIComponent(String(seriesId))}`,
+			);
+			if (!response?.success) {
+				return null;
+			}
+
+			try {
+				return parseJsonResponse(response.data.body);
+			} catch {
+				return null;
+			}
+		}),
+	);
+
+	return responses
+		.map((record) => {
+			const seriesId =
+				typeof record?.series_id === "number" && Number.isFinite(record.series_id)
+					? Math.trunc(record.series_id)
+					: null;
+			const name = typeof record?.title === "string" ? record.title.trim() : "";
+			if (seriesId === null || !name) {
+				return null;
+			}
+
+			return {
+				name,
+				externalId: String(seriesId),
+				scriptSlug: "manga.manga-updates",
+			};
+		})
+		.filter((suggestion) => suggestion !== null);
+}
+
 driver("search", async function (context) {
 	const { z } = await import("npm:zod");
 	const dayjsModule = await import("npm:dayjs");
@@ -223,9 +293,11 @@ driver("details", async function (context) {
 			: null;
 
 	const { volumes, productionStatus } = await extractStatus(payload?.status);
+	const suggestions = await Promise.resolve(collectSuggestions(payload));
 
 	return {
 		name: title,
+		suggestions,
 		properties: {
 			volumes,
 			chapters,
