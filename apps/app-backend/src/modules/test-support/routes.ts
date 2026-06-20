@@ -9,17 +9,20 @@ export const TestSupportRoutesLive = HttpApiBuilder.group(AppContract, "testSupp
 	handlers
 		.handle("getSandboxScript", ({ path }) =>
 			Effect.gen(function* () {
-				return yield* (yield* TestSupportService).getSandboxScript(path.scriptId);
+				const svc = yield* TestSupportService;
+				return yield* svc.getSandboxScript(path.scriptId);
 			}).pipe(dieOnDbError),
 		)
 		.handle("listSandboxScripts", ({ urlParams }) =>
 			Effect.gen(function* () {
-				return yield* (yield* TestSupportService).listSandboxScripts(urlParams.userId ?? null);
+				const svc = yield* TestSupportService;
+				return yield* svc.listSandboxScripts(urlParams.userId ?? null);
 			}).pipe(dieOnDbError),
 		)
 		.handle("patchSandboxScript", ({ path, payload }) =>
 			Effect.gen(function* () {
-				return yield* (yield* TestSupportService).patchSandboxScript({
+				const svc = yield* TestSupportService;
+				return yield* svc.patchSandboxScript({
 					...payload,
 					scriptId: path.scriptId,
 				});
@@ -27,17 +30,20 @@ export const TestSupportRoutesLive = HttpApiBuilder.group(AppContract, "testSupp
 		)
 		.handle("promoteSandboxScript", ({ path }) =>
 			Effect.gen(function* () {
-				return yield* (yield* TestSupportService).promoteSandboxScript(path.scriptId);
+				const svc = yield* TestSupportService;
+				return yield* svc.promoteSandboxScript(path.scriptId);
 			}).pipe(dieOnDbError),
 		)
 		.handle("deleteSandboxScript", ({ path }) =>
 			Effect.gen(function* () {
-				return yield* (yield* TestSupportService).deleteSandboxScript(path.scriptId);
+				const svc = yield* TestSupportService;
+				return yield* svc.deleteSandboxScript(path.scriptId);
 			}).pipe(dieOnDbError),
 		)
 		.handle("linkSandboxScriptToEntitySchema", ({ path }) =>
 			Effect.gen(function* () {
-				return yield* (yield* TestSupportService).linkSandboxScriptToEntitySchema({
+				const svc = yield* TestSupportService;
+				return yield* svc.linkSandboxScriptToEntitySchema({
 					sandboxScriptId: path.scriptId,
 					entitySchemaId: path.entitySchemaId,
 				});
@@ -45,66 +51,74 @@ export const TestSupportRoutesLive = HttpApiBuilder.group(AppContract, "testSupp
 		)
 		.handle("createGlobalEntity", ({ payload }) =>
 			Effect.gen(function* () {
-				return yield* (yield* TestSupportService).createGlobalEntity(payload);
+				const svc = yield* TestSupportService;
+				return yield* svc.createGlobalEntity(payload);
 			}).pipe(dieOnDbError),
 		)
 		.handle("deleteGlobalEntities", ({ payload }) =>
 			Effect.gen(function* () {
+				const svc = yield* TestSupportService;
 				const [first, ...rest] = payload.ids;
 				if (!first) {
 					return { deleted: 0 };
 				}
 				return {
-					deleted: yield* (yield* TestSupportService).deleteGlobalEntities([first, ...rest]),
+					deleted: yield* svc.deleteGlobalEntities([first, ...rest]),
 				};
 			}).pipe(dieOnDbError),
 		)
 		.handle("upsertGlobalRelationship", ({ payload }) =>
 			Effect.gen(function* () {
-				return yield* (yield* TestSupportService).upsertGlobalRelationship(payload);
+				const svc = yield* TestSupportService;
+				return yield* svc.upsertGlobalRelationship(payload);
 			}).pipe(dieOnDbError),
 		)
 		.handle("listGlobalRelationships", ({ payload }) =>
 			Effect.gen(function* () {
-				return yield* (yield* TestSupportService).listGlobalRelationships(payload);
+				const svc = yield* TestSupportService;
+				return yield* svc.listGlobalRelationships(payload);
 			}).pipe(dieOnDbError),
 		)
 		.handle("getBuiltinEntitySchema", ({ path }) =>
 			Effect.gen(function* () {
-				return yield* (yield* TestSupportService).getBuiltinEntitySchema(path.slug);
+				const svc = yield* TestSupportService;
+				return yield* svc.getBuiltinEntitySchema(path.slug);
 			}).pipe(dieOnDbError),
 		)
 		.handle("setEntityPopulatedAt", ({ path, payload }) =>
 			Effect.gen(function* () {
-				return yield* (yield* TestSupportService).setEntityPopulatedAt(
-					path.entityId,
-					payload.populatedAt,
-				);
+				const svc = yield* TestSupportService;
+				return yield* svc.setEntityPopulatedAt(path.entityId, payload.populatedAt);
 			}).pipe(dieOnDbError),
 		)
 		.handle("upsertEntityTranslation", ({ payload }) =>
 			Effect.gen(function* () {
-				return yield* (yield* TestSupportService).upsertEntityTranslation(payload);
+				const svc = yield* TestSupportService;
+				return yield* svc.upsertEntityTranslation(payload);
 			}).pipe(dieOnDbError),
 		)
 		.handle("listEntityTranslations", ({ path }) =>
 			Effect.gen(function* () {
-				return yield* (yield* TestSupportService).listEntityTranslations(path.entityId);
+				const svc = yield* TestSupportService;
+				return yield* svc.listEntityTranslations(path.entityId);
 			}).pipe(dieOnDbError),
 		)
 		.handle("linkAuthAccount", ({ payload }) =>
 			Effect.gen(function* () {
-				return yield* (yield* TestSupportService).linkAuthAccount(payload);
+				const svc = yield* TestSupportService;
+				return yield* svc.linkAuthAccount(payload);
 			}).pipe(dieOnDbError),
 		)
 		.handle("triggerInfrequentCron", () =>
 			Effect.gen(function* () {
-				return yield* (yield* TestSupportService).triggerInfrequentCron();
+				const svc = yield* TestSupportService;
+				return yield* svc.triggerInfrequentCron();
 			}),
 		)
 		.handle("listSignals", ({ payload }) =>
 			Effect.gen(function* () {
-				return yield* (yield* TestSupportService).listSignals(payload);
+				const svc = yield* TestSupportService;
+				return yield* svc.listSignals(payload);
 			}).pipe(dieOnDbError),
 		),
 );
