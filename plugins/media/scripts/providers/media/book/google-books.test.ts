@@ -34,11 +34,13 @@ describe("book.google-books sandbox script", () => {
 			["book.google-books.resolve", "resolve"],
 		]);
 	});
+
 	it("maps volumes and drops entries missing an id or title", () => {
 		const host = makeHost((_method, url) => {
 			const requestUrl = new URL(url);
 			expect(requestUrl.host).toBe("www.googleapis.com");
 			expect(requestUrl.pathname).toBe("/books/v1/volumes");
+			expect(requestUrl.searchParams.get("q")).toBe("intitle:g");
 			return httpSuccess({
 				totalItems: 2,
 				items: [
@@ -73,6 +75,46 @@ describe("book.google-books sandbox script", () => {
 			),
 		);
 	});
+
+	it("passes raw search queries when requested", () => {
+		const host = makeHost((_method, url) => {
+			expect(new URL(url).searchParams.get("q")).toBe("isbn:9781234567890");
+			return httpSuccess({ items: [], totalItems: 0 });
+		});
+		return Effect.runPromise(
+			runSandboxTestScript(
+				search,
+				{ page: 1, pageSize: 20, query: "isbn:9781234567890", options: { passRawQuery: true } },
+				host,
+				execution,
+			),
+		);
+	});
+	it("rejects invalid search options", async () => {
+		const host = makeHost(() => httpSuccess({ items: [], totalItems: 0 }));
+
+		await expect(
+			Effect.runPromise(
+				runSandboxTestScript(
+					search,
+					{ page: 1, pageSize: 20, query: "book", options: { passRawQuery: "yes" } },
+					host,
+					execution,
+				),
+			),
+		).rejects.toBeDefined();
+		await expect(
+			Effect.runPromise(
+				runSandboxTestScript(
+					search,
+					{ page: 1, pageSize: 20, query: "book", options: { unsupported: true } },
+					host,
+					execution,
+				),
+			),
+		).rejects.toBeDefined();
+	});
+
 	it("maps categories, unlinked creators, images and pages on details", () => {
 		const host = makeHost(() =>
 			httpSuccess({
@@ -114,6 +156,7 @@ describe("book.google-books sandbox script", () => {
 			),
 		);
 	});
+
 	it("resolves ISBNs to a volume id and null when absent", () => {
 		const found = makeHost(() => httpSuccess({ items: [{ id: "g1" }] }));
 		const missing = makeHost(() => httpSuccess({ items: [] }));

@@ -10,6 +10,16 @@ export const manifest = defineManifest({
 	slug: "book.google-books.search",
 	capabilities: ["httpCall", "getPluginConfig"],
 	requiredPluginConfigKeys: ["googleBooksApiKey"],
+	searchOptionsSchema: {
+		unknownKeys: "strict",
+		fields: {
+			passRawQuery: {
+				type: "boolean",
+				label: "Pass raw query",
+				description: "Pass the query to Google Books without adding a title qualifier",
+			},
+		},
+	},
 });
 
 export default defineProvider({ manifest, operation: "search", run: search.run });
