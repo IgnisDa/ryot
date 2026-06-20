@@ -45,8 +45,8 @@ const RELATIONSHIP_SYSTEM_FIELDS = new Set(["id", "sourceEntityId", "targetEntit
 
 export type ScopeEntry =
 	| { type: "eventSource"; schemas: readonly [string, ...string[]] }
-	| { type: "entitySource"; schemas: readonly [string, ...string[]] }
-	| { type: "relationshipEdge"; schemas: readonly [string, ...string[]] };
+	| { type: "relationshipEdge"; schemas: readonly [string, ...string[]] }
+	| { type: "entitySource"; schemas: readonly [string, ...string[]]; root?: boolean };
 
 export type AliasScope = Map<string, ScopeEntry>;
 
@@ -96,6 +96,13 @@ export const validateFieldSelector = (field: FieldSelector, entry: ScopeEntry): 
 		}
 		if (!validFields.has(field.name)) {
 			return `Invalid system field '${field.name}' for ${label}. Valid fields: ${[...validFields].join(", ")}`;
+		}
+		return null;
+	}
+
+	if (field.type === "systemComputed") {
+		if (entry.type !== "entitySource" || entry.root !== true) {
+			return `System-computed field '${field.name}' is only valid on the root entity source`;
 		}
 		return null;
 	}
