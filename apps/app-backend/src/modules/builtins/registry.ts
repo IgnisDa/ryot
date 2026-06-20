@@ -1,5 +1,6 @@
 import {
 	type GeneratedBuiltinSandboxScript,
+	sandboxAutomationDotTestDashTracerScript,
 	sandboxComicDashBookDashGroupDotMetronScript,
 	sandboxComicDashBookDotMetronScript,
 	sandboxCompanyDotVndbScript,
@@ -60,6 +61,7 @@ import {
 } from "./generated-sandbox/registry";
 
 export const builtinSandboxScripts = () => [
+	sandboxAutomationDotTestDashTracerScript,
 	sandboxExerciseDotFreeDashExerciseDashDbScript,
 	sandboxBookDotOpenlibraryScript,
 	sandboxAudiobookDotAudibleScript,
@@ -117,6 +119,14 @@ export const builtinSandboxScripts = () => [
 	sandboxTriggerDotRadarrDashPushScript,
 	sandboxTriggerDotSonarrDashPushScript,
 	sandboxTriggerDotJellyfinDashPushScript,
+];
+
+export const builtinAutomationRuleLinks = () => [
+	{
+		name: "Automation Test Tracer",
+		signalSchemaSlug: "automation.test-tracer",
+		scriptSlug: sandboxAutomationDotTestDashTracerScript.slug,
+	},
 ];
 
 export const entitySchemaSandboxScriptLinks = () =>
