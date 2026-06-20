@@ -16,6 +16,7 @@ import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as AuthenticatedPluginSlugRouteRouteImport } from './routes/_authenticated/$pluginSlug/route'
+import { Route as AuthenticatedCustomizeSidebarRouteImport } from './routes/_authenticated/customize-sidebar'
 import { Route as AuthenticatedSettingsRouteRouteImport } from './routes/_authenticated/settings/route'
 import { Route as AuthCallbackRouteImport } from './routes/auth_.callback'
 import { Route as GodModeIndexRouteImport } from './routes/god-mode/index'
@@ -65,6 +66,12 @@ const AuthenticatedPluginSlugRouteRoute =
   AuthenticatedPluginSlugRouteRouteImport.update({
     id: '/$pluginSlug',
     path: '/$pluginSlug',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedCustomizeSidebarRoute =
+  AuthenticatedCustomizeSidebarRouteImport.update({
+    id: '/customize-sidebar',
+    path: '/customize-sidebar',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedSettingsRouteRoute =
@@ -158,6 +165,7 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/$pluginSlug': typeof AuthenticatedPluginSlugRouteRouteWithChildren
   '/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
+  '/customize-sidebar': typeof AuthenticatedCustomizeSidebarRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/god-mode/migration-report': typeof GodModeMigrationReportRoute
   '/god-mode/users': typeof GodModeUsersRoute
@@ -177,6 +185,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/onboarding': typeof OnboardingRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/customize-sidebar': typeof AuthenticatedCustomizeSidebarRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/god-mode/migration-report': typeof GodModeMigrationReportRoute
   '/god-mode/users': typeof GodModeUsersRoute
@@ -202,6 +211,7 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/_authenticated/$pluginSlug': typeof AuthenticatedPluginSlugRouteRouteWithChildren
   '/_authenticated/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
+  '/_authenticated/customize-sidebar': typeof AuthenticatedCustomizeSidebarRoute
   '/auth_/callback': typeof AuthCallbackRoute
   '/god-mode/migration-report': typeof GodModeMigrationReportRoute
   '/god-mode/users': typeof GodModeUsersRoute
@@ -228,6 +238,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/$pluginSlug'
     | '/settings'
+    | '/customize-sidebar'
     | '/auth/callback'
     | '/god-mode/migration-report'
     | '/god-mode/users'
@@ -247,6 +258,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/onboarding'
     | '/reset-password'
+    | '/customize-sidebar'
     | '/auth/callback'
     | '/god-mode/migration-report'
     | '/god-mode/users'
@@ -271,6 +283,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/_authenticated/$pluginSlug'
     | '/_authenticated/settings'
+    | '/_authenticated/customize-sidebar'
     | '/auth_/callback'
     | '/god-mode/migration-report'
     | '/god-mode/users'
@@ -348,6 +361,13 @@ declare module '@tanstack/react-router' {
       path: '/$pluginSlug'
       fullPath: '/$pluginSlug'
       preLoaderRoute: typeof AuthenticatedPluginSlugRouteRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/customize-sidebar': {
+      id: '/_authenticated/customize-sidebar'
+      path: '/customize-sidebar'
+      fullPath: '/customize-sidebar'
+      preLoaderRoute: typeof AuthenticatedCustomizeSidebarRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/settings': {
@@ -498,6 +518,7 @@ const AuthenticatedSettingsRouteRouteWithChildren =
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedPluginSlugRouteRoute: typeof AuthenticatedPluginSlugRouteRouteWithChildren
   AuthenticatedSettingsRouteRoute: typeof AuthenticatedSettingsRouteRouteWithChildren
+  AuthenticatedCustomizeSidebarRoute: typeof AuthenticatedCustomizeSidebarRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
   AuthenticatedEEntityIdRoute: typeof AuthenticatedEEntityIdRoute
   AuthenticatedVViewSlugRoute: typeof AuthenticatedVViewSlugRoute
@@ -507,6 +528,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedPluginSlugRouteRoute:
     AuthenticatedPluginSlugRouteRouteWithChildren,
   AuthenticatedSettingsRouteRoute: AuthenticatedSettingsRouteRouteWithChildren,
+  AuthenticatedCustomizeSidebarRoute: AuthenticatedCustomizeSidebarRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
   AuthenticatedEEntityIdRoute: AuthenticatedEEntityIdRoute,
   AuthenticatedVViewSlugRoute: AuthenticatedVViewSlugRoute,
