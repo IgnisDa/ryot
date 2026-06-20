@@ -143,8 +143,55 @@ export const automationContextSchema = z
 export const automationInputSchema = z.object({ automation: automationContextSchema }).strict();
 export const automationResultSchema = jsonValueSchema;
 
+export const automationPolicyDraftSchema = z
+	.object({
+		entityId: z.string(),
+		occurredAt: z.string(),
+		eventSchemaId: z.string(),
+		entitySchemaId: z.string(),
+		eventSchemaSlug: z.string(),
+		entitySchemaSlug: z.string(),
+		properties: propertiesSchema,
+		sessionEntityId: z.string().optional(),
+	})
+	.strict();
+
+export const automationPolicyContextSchema = z
+	.object({
+		ruleId: z.string(),
+		occurrenceId: z.string(),
+		origin: automationOriginSchema,
+		operation: z.literal("create"),
+		ruleMetadata: jsonValueSchema.optional(),
+		source: z.object({ kind: z.literal("event"), draft: automationPolicyDraftSchema }).strict(),
+	})
+	.strict();
+
+export const automationPolicyInputSchema = z
+	.object({ automation: automationPolicyContextSchema })
+	.strict();
+
+export const automationPolicyResultSchema = z.discriminatedUnion("action", [
+	z.object({ action: z.literal("allow") }).strict(),
+	z.object({ action: z.literal("skip"), reason: z.string() }).strict(),
+	z
+		.object({
+			action: z.literal("replace"),
+			body: z
+				.object({
+					occurredAt: z.string().optional(),
+					properties: propertiesSchema.optional(),
+					sessionEntityId: z.string().nullable().optional(),
+				})
+				.strict(),
+		})
+		.strict(),
+]);
+
 export type AutomationInput = z.output<typeof automationInputSchema>;
 export type AutomationContext = z.output<typeof automationContextSchema>;
+export type AutomationPolicyInput = z.output<typeof automationPolicyInputSchema>;
+export type AutomationPolicyResult = z.output<typeof automationPolicyResultSchema>;
 export type AutomationEventSnapshot = z.output<typeof automationEventSnapshotSchema>;
 export type AutomationSignalSnapshot = z.output<typeof automationSignalSnapshotSchema>;
 export type AutomationEntitySnapshot = z.output<typeof automationEntitySnapshotSchema>;
@@ -161,6 +208,18 @@ export type AutomationDefinition<Manifest extends AutomationManifest> = GenericS
 	{ readonly automation: AutomationDriver<Manifest> }
 >;
 
+export type AutomationPolicyDefinition<Manifest extends AutomationManifest> =
+	GenericScriptDefinition<
+		Manifest,
+		{
+			readonly automation: GenericDriver<
+				typeof automationPolicyInputSchema,
+				typeof automationPolicyResultSchema,
+				Manifest["capabilities"]
+			>;
+		}
+	>;
+
 export const defineAutomation = <const Manifest extends AutomationManifest>(definition: {
 	readonly manifest: Manifest;
 	readonly run: AutomationDriver<Manifest>["run"];
@@ -172,6 +231,25 @@ export const defineAutomation = <const Manifest extends AutomationManifest>(defi
 			run: definition.run,
 			input: automationInputSchema,
 			output: automationResultSchema,
+		},
+	},
+});
+
+export const defineAutomationPolicy = <const Manifest extends AutomationManifest>(definition: {
+	readonly manifest: Manifest;
+	readonly run: GenericDriver<
+		typeof automationPolicyInputSchema,
+		typeof automationPolicyResultSchema,
+		Manifest["capabilities"]
+	>["run"];
+}): AutomationPolicyDefinition<Manifest> => ({
+	manifest: definition.manifest,
+	definitionType: SANDBOX_SCRIPT_DEFINITION,
+	drivers: {
+		automation: {
+			run: definition.run,
+			input: automationPolicyInputSchema,
+			output: automationPolicyResultSchema,
 		},
 	},
 });
