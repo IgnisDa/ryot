@@ -178,8 +178,7 @@ it.effect("refreshes once and sends deterministic deliveries only to current sub
 					userId: UserId.make("user-b"),
 					executionId: `${payload.executionId}-user-b-${change?.fingerprint}`,
 					request: {
-						kind: "event",
-						eventType: "metadata_status_changed",
+						kind: "message",
 						message: "Status of Media Monitoring Target changed from Continuing to Ended",
 					},
 				},

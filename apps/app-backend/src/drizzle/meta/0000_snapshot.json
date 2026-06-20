@@ -1,5 +1,5 @@
 {
-	"id": "0c0f9256-c12d-4733-9793-3d964361bf67",
+	"id": "e1de211a-b1cc-40ae-a9bb-130977124c86",
 	"prevId": "00000000-0000-0000-0000-000000000000",
 	"version": "7",
 	"dialect": "postgresql",
@@ -2314,12 +2314,6 @@
 				"platform_specifics": {
 					"name": "platform_specifics",
 					"type": "jsonb",
-					"primaryKey": false,
-					"notNull": true
-				},
-				"configured_events": {
-					"name": "configured_events",
-					"type": "text[]",
 					"primaryKey": false,
 					"notNull": true
 				},
