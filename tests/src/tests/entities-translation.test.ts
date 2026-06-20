@@ -23,13 +23,13 @@ const CANONICAL_LANGUAGE = "en";
 
 describe("GET /entities/:entityId — translation overlay", () => {
 	it("fetches a localized overlay on a miss, then shares it across users", async () => {
-		const { client: clientA, userId: userIdA } = await createAuthenticatedClient();
+		const { client: clientA } = await createAuthenticatedClient();
 		const movie = await seedPopulatedTmdbMovie(clientA, {
 			externalId: "550",
 			name: "Canonical Fight Club",
 		});
 
-		await setUserLanguage({ userId: userIdA, language: "es" });
+		await setUserLanguage(clientA, "es");
 
 		const firstRead = await getEntity(clientA, movie.id);
 		expect(firstRead.translationStatus).toBe("pending");
@@ -41,8 +41,8 @@ describe("GET /entities/:entityId — translation overlay", () => {
 		expect(localizedRead.name).not.toBe("Canonical Fight Club");
 		expect(localizedRead.name.length).toBeGreaterThan(0);
 
-		const { client: clientB, userId: userIdB } = await createAuthenticatedClient();
-		await setUserLanguage({ userId: userIdB, language: "es" });
+		const { client: clientB } = await createAuthenticatedClient();
+		await setUserLanguage(clientB, "es");
 
 		const sharedRead = await getEntity(clientB, movie.id);
 		expect(sharedRead.translationStatus).toBe("ready");
@@ -51,7 +51,7 @@ describe("GET /entities/:entityId — translation overlay", () => {
 	}, 120_000);
 
 	it("fetches localized TMDB person and movie-group overlays and shares them", async () => {
-		const { client: clientA, userId: userIdA } = await createAuthenticatedClient();
+		const { client: clientA } = await createAuthenticatedClient();
 		const person = await seedPopulatedTmdbEntity(clientA, {
 			externalId: "31",
 			schemaSlug: "person",
@@ -65,7 +65,7 @@ describe("GET /entities/:entityId — translation overlay", () => {
 			properties: { description: "Canonical English overview of Star Wars." },
 		});
 
-		await setUserLanguage({ userId: userIdA, language: "es" });
+		await setUserLanguage(clientA, "es");
 
 		const firstPersonRead = await getEntity(clientA, person.id);
 		expect(firstPersonRead.translationStatus).toBe("pending");
@@ -97,8 +97,8 @@ describe("GET /entities/:entityId — translation overlay", () => {
 		expect(localizedMovieGroupRead.name).not.toBe("Canonical Star Wars");
 		expect(localizedMovieGroupRead.name.length).toBeGreaterThan(0);
 
-		const { client: clientB, userId: userIdB } = await createAuthenticatedClient();
-		await setUserLanguage({ userId: userIdB, language: "es" });
+		const { client: clientB } = await createAuthenticatedClient();
+		await setUserLanguage(clientB, "es");
 
 		const sharedPersonRead = await getEntity(clientB, person.id);
 		expect(sharedPersonRead.translationStatus).toBe("ready");
@@ -114,7 +114,7 @@ describe("GET /entities/:entityId — translation overlay", () => {
 	}, 180_000);
 
 	it("fetches localized TMDB show, season, and episode overlays independently", async () => {
-		const { client, userId } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 		const { schema: showSchema } = await findBuiltinSchemaBySlug(client, "show");
 		const showScriptId = showSchema.providers.find(
 			(provider) => provider.name === "TMDB",
@@ -158,7 +158,7 @@ describe("GET /entities/:entityId — translation overlay", () => {
 			},
 		});
 
-		await setUserLanguage({ userId, language: "es" });
+		await setUserLanguage(client, "es");
 
 		const firstShowRead = await getEntity(client, show.id);
 		expect(firstShowRead.translationStatus).toBe("pending");
@@ -194,7 +194,7 @@ describe("GET /entities/:entityId — translation overlay", () => {
 	}, 180_000);
 
 	it("fetches Anilist title-mode overlays while details stay canonical", async () => {
-		const { client, userId } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 		const { schema } = await findBuiltinSchemaBySlug(client, "anime");
 		const anilistScriptId = schema.providers.find(
 			(provider) => provider.name === "Anilist",
@@ -206,7 +206,7 @@ describe("GET /entities/:entityId — translation overlay", () => {
 			entitySchemaId: schema.id,
 			sandboxScriptId: anilistScriptId,
 		});
-		await setUserLanguage({ userId, language: "ja" });
+		await setUserLanguage(client, "ja");
 
 		const { jobId } = await enqueueEntityImport(client, {
 			externalId: "5114",
@@ -240,7 +240,7 @@ describe("GET /entities/:entityId — translation overlay", () => {
 	}, 150_000);
 
 	it("fetches an iTunes podcast episode overlay via its parent podcast reference", async () => {
-		const { client, userId } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 		const { schema: podcastSchema } = await findBuiltinSchemaBySlug(client, "podcast");
 		const itunesScriptId = podcastSchema.providers.find(
 			(provider) => provider.name === "iTunes",
@@ -262,7 +262,7 @@ describe("GET /entities/:entityId — translation overlay", () => {
 			},
 		});
 
-		await setUserLanguage({ userId, language: "es" });
+		await setUserLanguage(client, "es");
 
 		const firstRead = await getEntity(client, episode.id);
 		expect(firstRead.translationStatus).toBe("pending");
@@ -286,7 +286,7 @@ describe("GET /entities/:entityId — translation overlay", () => {
 	}, 150_000);
 
 	it("fetches a YouTube Music name overlay", async () => {
-		const { client, userId } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 		const { schema } = await findBuiltinSchemaBySlug(client, "music");
 		const youtubeMusicScriptId = schema.providers.find(
 			(provider) => provider.name === "YouTube Music",
@@ -301,7 +301,7 @@ describe("GET /entities/:entityId — translation overlay", () => {
 			properties: { description: "Canonical YouTube Music description." },
 		});
 
-		await setUserLanguage({ userId, language: "es" });
+		await setUserLanguage(client, "es");
 
 		const firstRead = await getEntity(client, music.id);
 		expect(firstRead.translationStatus).toBe("pending");
@@ -319,7 +319,7 @@ describe("GET /entities/:entityId — translation overlay", () => {
 	}, 150_000);
 
 	it("fetches localized TVDB movie, person, and episode overlays", async () => {
-		const { client, userId } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 		const movieIds = await getProviderIds(client, {
 			schemaSlug: "movie",
 			providerName: "TVDB",
@@ -363,7 +363,7 @@ describe("GET /entities/:entityId — translation overlay", () => {
 			},
 		});
 
-		await setUserLanguage({ userId, language: "es" });
+		await setUserLanguage(client, "es");
 
 		const firstMovieRead = await getEntity(client, movie.id);
 		expect(firstMovieRead.translationStatus).toBe("pending");
@@ -392,13 +392,13 @@ describe("GET /entities/:entityId — translation overlay", () => {
 	}, 180_000);
 
 	it("negative-caches when the provider has no translation and does not refetch", async () => {
-		const { client, userId } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 		const movie = await seedPopulatedTmdbMovie(client, {
 			externalId: "238",
 			name: "Canonical The Godfather",
 		});
 
-		await setUserLanguage({ userId, language: "xx" });
+		await setUserLanguage(client, "xx");
 
 		const firstRead = await getEntity(client, movie.id);
 		expect(firstRead.translationStatus).toBe("pending");
@@ -415,13 +415,13 @@ describe("GET /entities/:entityId — translation overlay", () => {
 	}, 120_000);
 
 	it("renders canonical without fetching when the resolved language is canonical or unset", async () => {
-		const { client, userId } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 		const movie = await seedPopulatedTmdbMovie(client, {
 			externalId: "278",
 			name: "Canonical The Shawshank Redemption",
 		});
 
-		await setUserLanguage({ userId, language: CANONICAL_LANGUAGE });
+		await setUserLanguage(client, CANONICAL_LANGUAGE);
 		const canonicalPreferenceRead = await getEntity(client, movie.id);
 		expect(canonicalPreferenceRead.translationStatus).toBe("none");
 		expect(canonicalPreferenceRead.name).toBe("Canonical The Shawshank Redemption");
