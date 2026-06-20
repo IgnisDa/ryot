@@ -73,7 +73,6 @@ describe("query engine — translationStatus computed field", () => {
 				externalId: `tstatus-${crypto.randomUUID()}`,
 			});
 
-		// Seed sequentially: the fixtures share one pg client, which rejects concurrent queries.
 		const readyMovie = await seedPopulated();
 		const negativeMovie = await seedPopulated();
 		const pendingMovie = await seedPopulated();
