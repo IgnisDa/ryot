@@ -103,9 +103,9 @@ const makeAuthInstance = (args: {
 		basePath: "/api/auth",
 		baseURL: args.config.frontendUrl,
 		advanced: { disableCSRFCheck: true },
-		account: { accountLinking: { enabled: false } },
 		secondaryStorage: redisStorage({ client: args.redis }),
 		secret: Redacted.value(args.config.server.adminAccessToken),
+		account: { identityStrategy: "issuer", accountLinking: { enabled: false } },
 		disabledPaths: args.config.users.disableLocalAuth ? ["/sign-in/email"] : [],
 		trustedOrigins: [
 			...DEEP_LINK_ORIGINS,
