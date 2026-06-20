@@ -190,6 +190,30 @@ function collectGroups(franchises) {
 	return [...groupByKey.values()];
 }
 
+function collectSuggestions(similarGames) {
+	if (!Array.isArray(similarGames)) {
+		return [];
+	}
+
+	const suggestionByKey = new Map();
+	for (const game of similarGames) {
+		const externalId = extractGiantBombGuid(game?.api_detail_url);
+		if (!externalId) {
+			continue;
+		}
+
+		const name =
+			typeof game?.name === "string" && game.name.trim() ? game.name.trim() : "Loading...";
+		suggestionByKey.set(`video-game.giant-bomb:${externalId}`, {
+			name,
+			externalId,
+			scriptSlug: "video-game.giant-bomb",
+		});
+	}
+
+	return [...suggestionByKey.values()];
+}
+
 // GiantBomb's /game/ endpoint only provides platform names in the platforms
 // list; per-platform release dates and regions require a separate /releases/
 // sub-resource call. releaseDate and releaseRegion are reserved for richer
@@ -340,7 +364,9 @@ driver("details", async function (context) {
 		"description",
 		"site_detail_url",
 		"franchises.name",
+		"similar_games.name",
 		"original_release_date",
+		"similar_games.api_detail_url",
 		"franchises.api_detail_url",
 	].join(",");
 
@@ -386,9 +412,12 @@ driver("details", async function (context) {
 		...collectCompanies(game.developers, game.publishers),
 		...collectGroups(game.franchises),
 	];
+	const suggestions = collectSuggestions(game.similar_games);
 
 	return {
 		name,
+		suggestions,
+		relatedEntities,
 		properties: {
 			images,
 			genres,
@@ -400,6 +429,5 @@ driver("details", async function (context) {
 					? game.site_detail_url.trim()
 					: null,
 		},
-		relatedEntities,
 	};
 });

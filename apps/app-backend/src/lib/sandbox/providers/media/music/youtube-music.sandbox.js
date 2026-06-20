@@ -97,6 +97,34 @@ function getTrackTitle(trackItem) {
 	return typeof title === "string" ? title.trim() : String(title).trim();
 }
 
+function collectSuggestions(contents, externalId) {
+	if (!Array.isArray(contents)) {
+		return [];
+	}
+
+	const suggestionByKey = new Map();
+	for (const item of contents) {
+		const suggestionId =
+			typeof item?.video_id === "string" && item.video_id.trim() ? item.video_id.trim() : null;
+		if (!suggestionId || suggestionId === externalId) {
+			continue;
+		}
+
+		const name = getTrackTitle(item);
+		if (!name) {
+			continue;
+		}
+
+		suggestionByKey.set(`music.youtube-music:${suggestionId}`, {
+			name,
+			externalId: suggestionId,
+			scriptSlug: "music.youtube-music",
+		});
+	}
+
+	return [...suggestionByKey.values()];
+}
+
 driver("search", async function (context) {
 	const { z } = await import("npm:zod");
 	const { query, pageSize } = z
@@ -239,9 +267,11 @@ driver("details", async function (context, { metadata }) {
 	for (const albumRelatedEntity of albumRelatedEntities) {
 		addRelatedEntity(albumRelatedEntity);
 	}
+	const suggestions = collectSuggestions(contents, externalId);
 
 	return {
 		name: title,
+		suggestions,
 		properties: {
 			duration,
 			genres: [],
