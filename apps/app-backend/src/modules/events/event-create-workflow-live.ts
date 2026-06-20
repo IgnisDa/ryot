@@ -176,7 +176,7 @@ const writeEvent = Effect.fn("writeEventCreateItem")(function* (
 	payload: EventCreateWorkflowPayload,
 	itemIndex: number,
 	prepared: PreparedItem,
-	raw: { properties: unknown; occurredAt: string; sessionEntityId?: EntityId },
+	raw: { properties: unknown; occurredAt: string; sessionEntityId?: EntityId | undefined },
 ) {
 	const runWithDb = yield* DbRunner;
 	const eventsRepository = yield* EventsRepository;

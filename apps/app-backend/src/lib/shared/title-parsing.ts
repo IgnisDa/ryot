@@ -294,10 +294,10 @@ const constructBaseTitle = (title: string, baseSegments: string[]): string => {
 };
 
 const resolveSeasonEpisode = (input: {
-	season?: number;
-	episode?: number;
-	episodeSource?: EpisodeSource;
-	generalPair?: { episode: number; season: number; source: GeneralSource };
+	season?: number | undefined;
+	episode?: number | undefined;
+	episodeSource?: EpisodeSource | undefined;
+	generalPair?: { episode: number; season: number; source: GeneralSource } | undefined;
 }): MetadataLookupEpisodeInfo | undefined => {
 	let resolvedSeason = input.season;
 	let resolvedEpisode = input.episode;
@@ -325,7 +325,7 @@ const resolveSeasonEpisode = (input: {
 
 const parseNetflixTitle = (
 	title: string,
-): { baseTitle: string; episodeInfo?: MetadataLookupEpisodeInfo } => {
+): { baseTitle: string; episodeInfo?: MetadataLookupEpisodeInfo | undefined } => {
 	const trimmed = title.trim();
 	const segments = splitSegments(trimmed);
 	if (segments.length === 0) {

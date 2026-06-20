@@ -13,7 +13,7 @@ type CreateTrackerInput = {
 	readonly name: string;
 	readonly icon: string;
 	readonly accentColor: string;
-	readonly description?: string | null;
+	readonly description?: string | null | undefined;
 };
 
 type UpdateTrackerInput = {

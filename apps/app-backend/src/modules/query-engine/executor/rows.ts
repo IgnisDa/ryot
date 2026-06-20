@@ -123,7 +123,7 @@ const executeEntityRowsQuery = Effect.fn("executeEntityRowsQuery")(function* (
 	);
 
 	const items = reconstructRows(rawRows.rows, output.fields, output.include ?? []);
-	const total = rawRows.rows[0] ? Number(rawRows.rows[0].totalCount) : 0;
+	const total = rawRows.rows[0] ? Number(rawRows.rows[0]["totalCount"]) : 0;
 	return rowsResponse(items, output.pagination, total, offset);
 });
 
@@ -175,7 +175,7 @@ const executeEventRowsQuery = Effect.fn("executeEventRowsQuery")(function* (
 	);
 
 	const items = reconstructRows(rawRows.rows, output.fields, output.include ?? []);
-	const total = rawRows.rows[0] ? Number(rawRows.rows[0].totalCount) : 0;
+	const total = rawRows.rows[0] ? Number(rawRows.rows[0]["totalCount"]) : 0;
 	return rowsResponse(items, output.pagination, total, offset);
 });
 
@@ -223,7 +223,7 @@ const executeRelationshipRowsQuery = Effect.fn("executeRelationshipRowsQuery")(f
 	);
 
 	const items = reconstructRows(rawRows.rows, output.fields, []);
-	const total = rawRows.rows[0] ? Number(rawRows.rows[0].totalCount) : 0;
+	const total = rawRows.rows[0] ? Number(rawRows.rows[0]["totalCount"]) : 0;
 	return rowsResponse(items, output.pagination, total, offset);
 });
 

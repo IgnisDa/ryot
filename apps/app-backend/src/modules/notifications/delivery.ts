@@ -148,7 +148,7 @@ export class NotificationDeliveryService extends Effect.Service<NotificationDeli
 							Priority: String(specifics.priority ?? 3),
 						};
 						if (specifics.accessToken) {
-							headers.Authorization = `Bearer ${specifics.accessToken}`;
+							headers["Authorization"] = `Bearer ${specifics.accessToken}`;
 						}
 						return sendHttp({
 							provider: "ntfy",

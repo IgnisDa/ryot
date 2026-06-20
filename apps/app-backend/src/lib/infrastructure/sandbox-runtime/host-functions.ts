@@ -68,8 +68,8 @@ const requireNonEmptyString = (value: unknown, message: string): Effect.Effect<s
 const normalizePreferences = (value: unknown) => {
 	const source = isObjectRecord(value) ? value : {};
 	return {
-		isNsfw: source.isNsfw === true,
-		disableIntegrations: source.disableIntegrations === true,
+		isNsfw: source["isNsfw"] === true,
+		disableIntegrations: source["disableIntegrations"] === true,
 	};
 };
 
@@ -385,8 +385,8 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 					return Promise.resolve(apiFailure("listIntegrations expects an object"));
 				}
 
-				const provider = options.provider;
-				const isDisabled = options.isDisabled;
+				const provider = options["provider"];
+				const isDisabled = options["isDisabled"];
 				if (provider !== undefined && typeof provider !== "string") {
 					return Promise.resolve(apiFailure("listIntegrations provider must be a string"));
 				}
