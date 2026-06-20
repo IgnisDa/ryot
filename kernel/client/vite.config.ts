@@ -14,7 +14,7 @@ const config = defineConfig(({ mode }) => {
 			proxy: {
 				"/api": {
 					changeOrigin: true,
-					target: env.RYOT_DEV_BACKEND_ORIGIN || "http://localhost:3000",
+					target: env.RYOT_DEV_BACKEND_ORIGIN ?? "http://localhost:3000",
 				},
 			},
 		},

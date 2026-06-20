@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import type { AuthSessionSnapshot, AuthSessionStore } from "#/modules/auth/client";
+import type { AuthSessionSnapshot, AuthSessionStore } from "#/modules/auth/service";
 import { AccountSummary } from "#/modules/navigation/account-summary";
 
 const session = (initial: AuthSessionSnapshot): AuthSessionStore => {

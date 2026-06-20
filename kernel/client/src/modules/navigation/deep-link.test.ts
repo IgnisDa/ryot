@@ -77,6 +77,15 @@ describe("resolveDeepLinkHref", () => {
 		expect(resolveDeepLinkHref("io.ryot.app.dev://media")).toBe("/media");
 	});
 
+	it("preserves authority-free OAuth callback queries", () => {
+		expect(resolveDeepLinkHref("io.ryot.app:/auth/callback?code=code-1&state=state-1")).toBe(
+			"/auth/callback?code=code-1&state=state-1",
+		);
+		expect(
+			resolveDeepLinkHref("io.ryot.app.dev:/auth/callback?error=access_denied&state=state-2"),
+		).toBe("/auth/callback?error=access_denied&state=state-2");
+	});
+
 	it("uses the path of an http or https link", () => {
 		expect(resolveDeepLinkHref("https://ryot.io/fitness/workouts/123")).toBe(
 			"/fitness/workouts/123",
