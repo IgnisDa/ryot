@@ -194,6 +194,18 @@ query StaffQuery($id: Int!) {
     homeTown
     dateOfBirth { day year month }
     dateOfDeath { day year month }
+		characterMedia(page: 1, perPage: 50) {
+			edges {
+				characters { name { full } }
+				node { id type title { userPreferred english romaji native } }
+			}
+		}
+		staffMedia(page: 1, perPage: 50) {
+			edges {
+				staffRole
+				node { id type title { userPreferred english romaji native } }
+			}
+		}
   }
 }
 `;
@@ -246,16 +258,89 @@ query StaffQuery($id: Int!) {
 
 	const rawDescription = typeof staffData.description === "string" ? staffData.description : null;
 	const description = await cleanHtmlDescription(rawDescription);
+	const relatedByKey = new Map();
+	const addMedia = (media, role) => {
+		const mediaId =
+			typeof media?.id === "number" && Number.isFinite(media.id) ? String(Math.trunc(media.id)) : null;
+		const scriptSlug =
+			media?.type === "ANIME"
+				? "anime.anilist"
+				: media?.type === "MANGA"
+					? "manga.anilist"
+					: null;
+		if (!mediaId || !scriptSlug) {
+			return;
+		}
+		const mediaName =
+			typeof media?.title?.userPreferred === "string" && media.title.userPreferred.trim()
+				? media.title.userPreferred.trim()
+				: typeof media?.title?.english === "string" && media.title.english.trim()
+					? media.title.english.trim()
+					: typeof media?.title?.romaji === "string" && media.title.romaji.trim()
+						? media.title.romaji.trim()
+						: "Loading...";
+		const key = `${scriptSlug}:${mediaId}`;
+		const existing = relatedByKey.get(key);
+		if (existing) {
+			if (!existing.relationshipProperties.roles.includes(role)) {
+				existing.relationshipProperties.roles.push(role);
+			}
+			return;
+		}
+		relatedByKey.set(key, {
+			scriptSlug,
+			name: mediaName,
+			externalId: mediaId,
+			relationshipProperties: { roles: [role] },
+		});
+	};
+	const characterEdges = Array.isArray(staffData?.characterMedia?.edges)
+		? staffData.characterMedia.edges
+		: [];
+	for (const edge of characterEdges) {
+		const characters = Array.isArray(edge?.characters) ? edge.characters : [];
+		const characterNames = characters
+			.map((character) =>
+				typeof character?.name?.full === "string" && character.name.full.trim()
+					? character.name.full.trim()
+					: null,
+			)
+			.filter((character) => character !== null);
+		for (const characterName of characterNames.length > 0 ? characterNames : [null]) {
+			addMedia(edge?.node, characterName ? `Voicing (${characterName})` : "Voicing");
+		}
+	}
+	const staffEdges = Array.isArray(staffData?.staffMedia?.edges) ? staffData.staffMedia.edges : [];
+	for (const edge of staffEdges) {
+		const role =
+			typeof edge?.staffRole === "string" && edge.staffRole.trim()
+				? edge.staffRole.trim()
+				: "Production";
+		addMedia(edge?.node, role);
+	}
+	const relatedEntities = [...relatedByKey.values()];
 
 	return {
 		name,
+		relatedEntityGroups: [
+			{
+				direction: "outgoing",
+				relationshipSchemaSlug: "person-to-anime",
+				entities: relatedEntities.filter((entity) => entity.scriptSlug === "anime.anilist"),
+			},
+			{
+				direction: "outgoing",
+				relationshipSchemaSlug: "person-to-manga",
+				entities: relatedEntities.filter((entity) => entity.scriptSlug === "manga.anilist"),
+			},
+		],
 		properties: {
 			gender,
 			birthPlace,
 			description,
 			alternateNames: [],
-			images: image ? [{ type: "remote", url: image }] : [],
 			sourceUrl: `https://anilist.co/staff/${staffId}`,
+			images: image ? [{ type: "remote", url: image }] : [],
 			birthDate: formatDate(staffData.dateOfBirth, dayjs),
 			deathDate: formatDate(staffData.dateOfDeath, dayjs),
 		},

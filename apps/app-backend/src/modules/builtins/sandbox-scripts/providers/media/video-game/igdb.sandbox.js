@@ -515,17 +515,28 @@ driver("details", async function (context) {
 		typeof game.slug === "string" && game.slug.trim() ? game.slug.trim() : toSlug(name);
 
 	const suggestions = collectSuggestions(game.similar_games);
-	const relatedEntities = [
-		...collectGroups(game.collections),
-		...collectCompanies(game.involved_companies),
-		...suggestions.map((suggestion) =>
-			Object.assign(suggestion, { relationshipSchemaSlug: "media-suggestion" }),
-		),
-	];
+	const companies = collectCompanies(game.involved_companies);
+	const groups = collectGroups(game.collections);
 
 	return {
 		name,
-		relatedEntities,
+		relatedEntityGroups: [
+			{
+				entities: companies,
+				direction: "incoming",
+				relationshipSchemaSlug: "company-to-video-game",
+			},
+			{
+				entities: groups,
+				direction: "incoming",
+				relationshipSchemaSlug: "video-game-group-to-video-game",
+			},
+			{
+				direction: "outgoing",
+				entities: suggestions,
+				relationshipSchemaSlug: "media-suggestion",
+			},
+		],
 		properties: {
 			images,
 			genres,

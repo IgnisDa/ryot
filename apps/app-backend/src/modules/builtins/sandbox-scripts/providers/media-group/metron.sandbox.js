@@ -133,7 +133,6 @@ driver("details", async function (context) {
 			return {
 				name: memberName,
 				externalId: memberId,
-				reverseDirection: true,
 				scriptSlug: "comic-book.metron",
 				relationshipProperties: { order: idx + 1 },
 			};
@@ -142,7 +141,13 @@ driver("details", async function (context) {
 
 	return {
 		name: title,
-		relatedEntities,
+		relatedEntityGroups: [
+			{
+				direction: "outgoing",
+				entities: relatedEntities,
+				relationshipSchemaSlug: "comic-book-group-to-comic-book",
+			},
+		],
 		properties: {
 			parts,
 			images: [],

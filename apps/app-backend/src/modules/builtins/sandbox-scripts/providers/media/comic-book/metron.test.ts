@@ -41,18 +41,24 @@ describe("comic-book.metron sandbox script", () => {
 			},
 		).then((rawDetails) => {
 			const details = toRecord(rawDetails);
-			expect(details.relatedEntities).toEqual([
+			expect(details.relatedEntityGroups).toEqual([
+				{ direction: "incoming", entities: [], relationshipSchemaSlug: "person-to-comic-book" },
 				{
-					name: "Saga",
-					externalId: "10",
-					scriptSlug: "comic-book-group.metron",
-					relationshipProperties: { roles: ["Member"] },
+					direction: "incoming",
+					relationshipSchemaSlug: "comic-book-group-to-comic-book",
+					entities: [
+						{
+							name: "Saga",
+							externalId: "10",
+							scriptSlug: "comic-book-group.metron",
+							relationshipProperties: { roles: ["Member"] },
+						},
+					],
 				},
 				{
-					name: "Saga #2",
-					externalId: "2",
-					scriptSlug: "comic-book.metron",
+					direction: "outgoing",
 					relationshipSchemaSlug: "media-suggestion",
+					entities: [{ name: "Saga #2", externalId: "2", scriptSlug: "comic-book.metron" }],
 				},
 			]);
 			return undefined;

@@ -146,6 +146,11 @@ query StudioDetailsQuery($id: Int!) {
     id
     name
     siteUrl
+		media(page: 1, perPage: 50) {
+			edges {
+				node { id type title { userPreferred english romaji native } }
+			}
+		}
   }
 }
 `;
@@ -185,13 +190,50 @@ query StudioDetailsQuery($id: Int!) {
 		typeof studio.siteUrl === "string" && studio.siteUrl.trim()
 			? studio.siteUrl.trim()
 			: `https://anilist.co/studio/${contextIdentifier}`;
+	const mediaEntities = (Array.isArray(studio?.media?.edges) ? studio.media.edges : [])
+		.map((edge) => {
+			const media = edge?.node;
+			const mediaId =
+				typeof media?.id === "number" && Number.isFinite(media.id)
+					? String(Math.trunc(media.id))
+					: null;
+			const scriptSlug =
+				media?.type === "ANIME"
+					? "anime.anilist"
+					: media?.type === "MANGA"
+						? "manga.anilist"
+						: null;
+			const mediaName =
+				typeof media?.title?.userPreferred === "string" && media.title.userPreferred.trim()
+					? media.title.userPreferred.trim()
+					: typeof media?.title?.english === "string" && media.title.english.trim()
+						? media.title.english.trim()
+						: typeof media?.title?.romaji === "string" && media.title.romaji.trim()
+							? media.title.romaji.trim()
+							: "Loading...";
+			return {
+				scriptSlug,
+				name: mediaName,
+				externalId: mediaId,
+				relationshipProperties: { roles: ["Animation Studio"] },
+			};
+		})
+		.filter((entity) => entity.externalId !== null && entity.scriptSlug !== null);
 
 	return {
 		name,
-		properties: {
-			sourceUrl,
-			images: [],
-			alternateNames: [],
-		},
+		properties: {sourceUrl,images: [],alternateNames: [],},
+		relatedEntityGroups: [
+			{
+				direction: "outgoing",
+				relationshipSchemaSlug: "company-to-anime",
+				entities: mediaEntities.filter((entity) => entity.scriptSlug === "anime.anilist"),
+			},
+			{
+				direction: "outgoing",
+				relationshipSchemaSlug: "company-to-manga",
+				entities: mediaEntities.filter((entity) => entity.scriptSlug === "manga.anilist"),
+			},
+		],
 	};
 });

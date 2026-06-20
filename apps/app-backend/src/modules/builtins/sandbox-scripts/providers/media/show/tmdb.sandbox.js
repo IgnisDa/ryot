@@ -728,27 +728,37 @@ driver("details", async function (context, { metadata }) {
 		showData?.created_by,
 	);
 
-	const relatedEntities = [
-		...peopleRelatedEntities,
-		...collectCompanies(showData?.networks, showData?.production_companies),
-	];
+	const companies = collectCompanies(showData?.networks, showData?.production_companies);
+	const suggestions = collectSuggestions(recommendationsData?.results);
 
 	return {
 		name: title,
 		childEntities,
-		relatedEntities: [
-			...relatedEntities,
-			...collectSuggestions(recommendationsData?.results).map((suggestion) =>
-				Object.assign(suggestion, { relationshipSchemaSlug: "media-suggestion" }),
-			),
+		relatedEntityGroups: [
+			{
+				direction: "incoming",
+				entities: peopleRelatedEntities,
+				relationshipSchemaSlug: "person-to-show",
+			},
+			{
+				direction: "incoming",
+				entities: companies,
+				relationshipSchemaSlug: "company-to-show",
+			},
+			{
+				direction: "outgoing",
+				entities: suggestions,
+				relationshipSchemaSlug: "media-suggestion",
+			},
 		],
 		properties: {
 			images,
 			totalEpisodes,
-			totalSeasons: childEntities.length,
 			providerRating,
-			genres: collectGenres(showData?.genres),
+			unlinkedCreators,
+			totalSeasons: childEntities.length,
 			isNsfw: showData?.adult === true ? true : null,
+			genres: collectGenres(showData?.genres),
 			sourceUrl: `https://www.themoviedb.org/tv/${externalId}`,
 			publishYear: parsePublishYear(showData?.first_air_date, dayjs),
 			description:
@@ -759,7 +769,6 @@ driver("details", async function (context, { metadata }) {
 				typeof showData?.status === "string" && showData.status.trim()
 					? showData.status.trim()
 					: null,
-			unlinkedCreators,
 		},
 	};
 });
