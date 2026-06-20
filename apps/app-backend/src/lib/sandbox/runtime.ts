@@ -6,7 +6,7 @@ import { Clock, Effect, Fiber, Pool, Queue, Runtime, Schema, Sink, Stream } from
 import { AppConfig } from "../config";
 import { badRequest, internalError, unknownToMessage } from "../errors";
 import { redisKeys, RedisService } from "../redis";
-import sandboxRunnerSource from "./runner-source.txt";
+import sandboxRunnerSource from "./runner-source.sandbox.js" with { type: "text" };
 import type { BoundHostFunction } from "./shared";
 
 const SandboxSessionRecord = Schema.Struct({
