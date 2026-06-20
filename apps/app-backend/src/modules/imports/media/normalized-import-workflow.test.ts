@@ -337,8 +337,9 @@ it.effect("runs the normalized media pipeline through workflow-owned phases", ()
 					userId: "user-1",
 					externalId: "OL123M",
 					entitySchemaId: "schema-book",
-					executionId: "normalized-1-entity-0",
 					scriptId: "script-book-openlibrary",
+					executionId: "normalized-1-entity-0",
+					origin: { kind: "import", importRunId: "run-1" },
 				},
 			]);
 			expect(recordedFailures).toHaveLength(1);
