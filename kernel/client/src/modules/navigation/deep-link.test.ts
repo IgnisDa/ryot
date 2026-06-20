@@ -59,17 +59,17 @@ const makeHarness = (launchUrl: string | null = null) => {
 
 describe("resolveDeepLinkHref", () => {
 	it("folds the authority of a custom-scheme link back into the path", () => {
-		expect(resolveDeepLinkHref("ryot://e/entity123")).toBe("/e/entity123");
-		expect(resolveDeepLinkHref("ryot://settings/account")).toBe("/settings/account");
+		expect(resolveDeepLinkHref("io.ryot.app://e/entity123")).toBe("/e/entity123");
+		expect(resolveDeepLinkHref("io.ryot.app.dev://settings/account")).toBe("/settings/account");
 	});
 
 	it("keeps the search string", () => {
-		expect(resolveDeepLinkHref("ryot://v/all-shows?page=2")).toBe("/v/all-shows?page=2");
+		expect(resolveDeepLinkHref("io.ryot.app://v/all-shows?page=2")).toBe("/v/all-shows?page=2");
 	});
 
 	it("resolves an authority-less custom-scheme link", () => {
-		expect(resolveDeepLinkHref("ryot:///settings")).toBe("/settings");
-		expect(resolveDeepLinkHref("ryot://")).toBe("/");
+		expect(resolveDeepLinkHref("io.ryot.app:/settings")).toBe("/settings");
+		expect(resolveDeepLinkHref("io.ryot.app:")).toBe("/");
 	});
 
 	it("accepts the bundle identifier schemes of both build variants", () => {
@@ -93,6 +93,7 @@ describe("resolveDeepLinkHref", () => {
 	});
 
 	it("rejects an unknown scheme or an unparseable value", () => {
+		expect(resolveDeepLinkHref("ryot://media")).toBeNull();
 		expect(resolveDeepLinkHref("other://media")).toBeNull();
 		expect(resolveDeepLinkHref("not a url")).toBeNull();
 		expect(resolveDeepLinkHref("")).toBeNull();
@@ -101,11 +102,11 @@ describe("resolveDeepLinkHref", () => {
 
 describe("createDeepLinkBridge", () => {
 	it("replaces the current entry for a launch URL and pushes for a later one", async () => {
-		const harness = makeHarness("ryot://e/entity123");
+		const harness = makeHarness("io.ryot.app://e/entity123");
 		const bridge = createDeepLinkBridge(harness.source, harness.navigator);
 		await Promise.resolve();
 
-		harness.openUrl("ryot://media/search");
+		harness.openUrl("io.ryot.app.dev://media/search");
 		bridge.destroy();
 
 		expect(harness.navigated).toEqual([
@@ -155,7 +156,7 @@ describe("createDeepLinkBridge", () => {
 
 		bridge.destroy();
 		bridge.destroy();
-		harness.openUrl("ryot://media");
+		harness.openUrl("io.ryot.app://media");
 		harness.pressBack();
 
 		expect(harness.removed).toEqual(["appUrlOpen", "backButton"]);

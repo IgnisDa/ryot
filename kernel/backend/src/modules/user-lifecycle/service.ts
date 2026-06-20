@@ -73,6 +73,7 @@ export class UserLifecycleService extends Context.Service<UserLifecycleService>(
 						});
 					}
 					yield* auth.deleteUserSessions(claimed.operation.userId);
+					yield* auth.revokeUserOAuthTokens(claimed.operation.userId);
 					yield* auth.purgeApiKeyCaches(claimed.operation.userId, claimed.metadata.apiKeys);
 					return (
 						(yield* repository.markAccessRevoked(operationId)) ??

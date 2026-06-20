@@ -55,8 +55,8 @@ it("builds the exact first-party clients and API resource", () => {
 		name: "Ryot API",
 		accessTokenTtl: 900,
 		refreshTokenTtl: 2_592_000,
-		allowedScopes: ["ryot:api"],
 		identifier: "https://ryot.example/api",
+		allowedScopes: ["openid", "profile", "email", "offline_access", "ryot:api"],
 	});
 	expect(records.links).toEqual([
 		{
@@ -80,10 +80,13 @@ it.effect("reprovisions the same records and updates origin-owned values", () =>
 	const links = new Map<string, InternalOAuthClientResource>();
 	const repository = AuthRepository.of({
 		getPortableProfile: () => Effect.die("unused"),
+		revokeUserOAuthTokens: () => Effect.die("unused"),
 		restorePortableProfile: () => Effect.die("unused"),
 		upsertInternalOAuthClient: (client) => Effect.sync(() => clients.set(client.clientId, client)),
 		upsertInternalOAuthResource: (resource) =>
 			Effect.sync(() => resources.set(resource.id, resource)),
+		upsertInternalOAuthClientResource: (link) =>
+			Effect.sync(() => links.set(`${link.clientId}:${link.resourceId}`, link)),
 		deleteInternalOAuthClientResources: (clientIds) =>
 			Effect.sync(() => {
 				for (const [key, link] of links) {
@@ -92,8 +95,6 @@ it.effect("reprovisions the same records and updates origin-owned values", () =>
 					}
 				}
 			}),
-		upsertInternalOAuthClientResource: (link) =>
-			Effect.sync(() => links.set(`${link.clientId}:${link.resourceId}`, link)),
 	});
 	const database = Database.of(
 		Object.assign(Object.create(null), {
