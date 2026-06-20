@@ -218,3 +218,92 @@ it.effect("preserves different existing properties as a noop", () => {
 		expect(updated).toBe(false);
 	}).pipe(Effect.provide(layer));
 });
+
+it.effect(
+	"converges media-first, subject-first, and concurrent credit writes on one create",
+	() => {
+		const personId = entityId("person");
+		const movieId = entityId("movie");
+		const runScenario = (mode: "media-first" | "subject-first" | "concurrent") => {
+			let stored: ReturnType<typeof relationship> | null = null;
+			const credit = (wasInserted: boolean) => ({
+				wasInserted,
+				relationshipSchemaId,
+				targetEntityId: movieId,
+				sourceEntityId: personId,
+				properties: { roles: ["Director"] },
+				createdAt: "2026-01-01T00:00:00.000Z",
+				id: RelationshipId.make("person-movie"),
+			});
+			const layer = Layer.mergeAll(
+				dbRunnerLayer,
+				Layer.mock(EntitiesRepository)({
+					_tag: "EntitiesRepository",
+					listEntityReferencesByIds: (ids) =>
+						Effect.succeed(
+							ids.map((id) => ({
+								id,
+								name: id === personId ? "Greta Gerwig" : "Barbie",
+								entitySchemaSlug: id === personId ? "person" : "movie",
+							})),
+						),
+				}),
+				Layer.mock(RelationshipsRepository)({
+					_tag: "RelationshipsRepository",
+					listGlobalRelationships: () => Effect.succeed(stored ? [stored] : []),
+				}),
+				Layer.mock(RelationshipsService)({
+					_tag: "RelationshipsService",
+					create: () =>
+						Effect.sync(() => {
+							if (stored) {
+								return { ...stored, wasInserted: false };
+							}
+							stored = credit(true);
+							return stored;
+						}),
+				}),
+			);
+			const synchronize = (direction: "incoming" | "outgoing") =>
+				synchronizeGlobalRelationships({
+					direction,
+					relationshipSchemaId,
+					synchronization: "additive",
+					onConflict: "preserveExisting",
+					propertiesSchema: { fields: {} },
+					relationshipSchemaSlug: "person-to-movie",
+					anchorEntityId: direction === "incoming" ? movieId : personId,
+					entries: [
+						{
+							properties: { roles: ["Director"] },
+							entityId: direction === "incoming" ? personId : movieId,
+						},
+					],
+				}).pipe(Effect.provide(layer));
+			let writes;
+			if (mode === "media-first") {
+				writes = Effect.all([synchronize("incoming"), synchronize("outgoing")]);
+			} else if (mode === "subject-first") {
+				writes = Effect.all([synchronize("outgoing"), synchronize("incoming")]);
+			} else {
+				writes = Effect.all([synchronize("incoming"), synchronize("outgoing")], {
+					concurrency: "unbounded",
+				});
+			}
+			return Effect.gen(function* () {
+				const outcomes = (yield* writes).flat();
+				const repeated = yield* synchronize("incoming");
+				expect(outcomes.map(({ operation }) => operation).sort()).toEqual(["create", "noop"]);
+				expect(repeated.map(({ operation }) => operation)).toEqual(["noop"]);
+				expect(outcomes[0]?.after).toMatchObject({
+					targetEntity: { id: movieId, entitySchemaSlug: "movie" },
+					sourceEntity: { id: personId, entitySchemaSlug: "person" },
+				});
+			});
+		};
+
+		return Effect.forEach(["media-first", "subject-first", "concurrent"] as const, runScenario, {
+			discard: true,
+		});
+	},
+);
