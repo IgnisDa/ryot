@@ -4,11 +4,11 @@ This package contains end-to-end and integration-style tests for Ryot.
 
 ## Conventions
 
-- Keep end-to-end suites in `tests/src/<domain>/` folders that mirror backend modules; prefer descriptive filenames over `index.test.ts`.
+- Keep end-to-end suites in `tests/src/tests/<domain>/` folders that mirror backend modules; prefer descriptive filenames over `index.test.ts`.
 - Prefer shared helpers in `tests/src/fixtures` for repeated auth setup, API setup, and test data builders.
 - Favor fixture files with clear ownership (`auth`, `entity-import`, `entity-interest`, `entity-schemas`, `events`, `query-engine`, `saved-views`, `trackers`) over generic catch-all helpers.
-- Keep `tests/src/test-support` for cross-cutting test infrastructure (assertions, backend/container provisioning), not domain fixtures.
-- Fake external HTTP endpoints with `startFakeHttpServer` (`test-support/fake-http-server.ts`): it serves on a random local port, records `{ path, body }` per request (body parsed as JSON, `null` when unparsable — the recorder consumes the body, so `respond` must not read it again), and answers with the `respond` callback (default `{ ok: true }`).
+- Keep `tests/src/support` for cross-cutting test infrastructure (assertions, backend/container provisioning), not domain fixtures.
+- Fake external HTTP endpoints with `startFakeHttpServer` (`support/fake-http-server.ts`): it serves on a random local port, records `{ path, body }` per request (body parsed as JSON, `null` when unparsable — the recorder consumes the body, so `respond` must not read it again), and answers with the `respond` callback (default `{ ok: true }`).
 - Notification delivery assertions use the `startFakeAppriseServer` wrapper (`fixtures/notifications.ts`), which responds 500 to paths ending in `/fail` so delivery-failure behavior stays testable; Apprise POSTs land on `/notify/<key>`, so the platform `key` disambiguates platforms in the request log.
 - Do not refactor `tests/src/seed-script.ts` as part of test fixture cleanup unless explicitly requested.
 - Document how a test pattern or fixture works in this file, and how the backend behaves in `apps/app-backend/AGENTS.md`, rather than in scattered code comments. Keep inline comments to hyper-local notes that decode a single assertion (expected order, arithmetic) or justify a lint suppression.
@@ -45,7 +45,7 @@ The contract API is scoped to a user's own trackers, so it cannot create the glo
 
 ## Live Provider Smoke Tests
 
-`tests/providers-live-smoke.test.ts` is the only suite that makes real external HTTP calls; it is gated behind `RUN_LIVE_PROVIDER_TESTS` (`=1`/`true`) so PR CI stays fast and deterministic. Run it in a nightly/pre-release job as an early-warning signal for upstream drift — provider schema changes, endpoint moves, and auth/credential failures a fully-mocked test can never surface.
+`tests/src/tests/smoke/providers-live-smoke.test.ts` is the only suite that makes real external HTTP calls; it is gated behind `RUN_LIVE_PROVIDER_TESTS` (`=1`/`true`) so PR CI stays fast and deterministic. Run it in a nightly/pre-release job as an early-warning signal for upstream drift — provider schema changes, endpoint moves, and auth/credential failures a fully-mocked test can never surface.
 
 Coverage is intentionally minimal (a drift signal, not exhaustive): OpenLibrary book search → import (keyless) and TMDB movie translate-on-interest (requires `providers.tmdbAccessToken`, else the translate never completes and the test times out). It imports the first real search result by its own `externalId` (never a hardcoded provider id format) and asserts the localized overlay differs from the canonical name and is non-empty rather than an exact string, since upstream copy can drift.
 
@@ -61,13 +61,13 @@ Coverage is intentionally minimal (a drift signal, not exhaustive): OpenLibrary 
 
 ## Diagnosing Failures
 
-- Assert async job completion with `assertCompleted` (`test-support/assertions.ts`) rather than comparing `result.status` by hand. For successful sandbox executions, use `requireCompletedSandboxValue`; failures render the structured phase, source location, message, and sanitized stack instead of collapsing the error to a string.
+- Assert async job completion with `assertCompleted` (`support/assertions.ts`) rather than comparing `result.status` by hand. For successful sandbox executions, use `requireCompletedSandboxValue`; failures render the structured phase, source location, message, and sanitized stack instead of collapsing the error to a string.
 - Every backend the harness spawns mirrors all its stdout/stderr to a temp file and prints the path at startup (e.g. `[Backend] backend logs -> <os-tmpdir>/ryot-e2e-backend-<ts>-<pid>.log`); each backend gets its own labelled file (e.g. `Backend A/B/C` in the OIDC suite). Backend-side workflow/queue failures (e.g. cluster persistence errors) that don't crash the process show up only in that file. If a backend exits unexpectedly or fails to start, the harness prints a one-line notice pointing at the same file.
 
 ## Timeouts & Pool Sizing
 
 - Inner poll budgets (event waits in `fixtures/events.ts`, sandbox polls in `fixtures/sandbox.ts`) are sized generously and kept comfortably below the outer 180s per-test timeout (`package.json`), so a genuine hang still fails. Trigger and sandbox results flow through the durable-queue pipeline, whose p99 latency spikes under full-suite load — that's what the headroom is for.
-- `DATABASE_WORKFLOW_POOL_MAX` (`test-support/provisioning.ts`) must exceed `SANDBOX_WORKER_CONCURRENCY` plus headroom: the cluster `SingleRunner` permanently holds one connection for its shard advisory lock, so usable connections = max − 1. Starving this pool manifests as random cross-cutting timeouts, not an obvious pool-exhaustion error. The Postgres container's `max_connections` must in turn cover the app pool, the workflow pool, and the harness pool combined.
+- `DATABASE_WORKFLOW_POOL_MAX` (`support/provisioning.ts`) must exceed `SANDBOX_WORKER_CONCURRENCY` plus headroom: the cluster `SingleRunner` permanently holds one connection for its shard advisory lock, so usable connections = max − 1. Starving this pool manifests as random cross-cutting timeouts, not an obvious pool-exhaustion error. The Postgres container's `max_connections` must in turn cover the app pool, the workflow pool, and the harness pool combined.
 
 ## Isolation
 
@@ -75,4 +75,4 @@ Parallel test runs share one backend, so keep fixtures collision-free: use rando
 
 ## Media Monitoring
 
-`tests/src/media-monitoring/media-monitoring.test.ts` seeds an API-compiled offline details provider, then exercises status/enable/disable through the typed contract client. Its cron case compiles replacement source through the API before copying the complete representation to the promoted provider, and uses the real admin infrequent-cron trigger plus a local Apprise server so baseline, provider refresh, subscriber fan-out, and notification delivery are covered together. `fixtures/media-monitoring.ts` owns the endpoint wrappers and media-monitoring relationship SQL assertion.
+`tests/src/tests/media-monitoring/media-monitoring.test.ts` seeds an API-compiled offline details provider, then exercises status/enable/disable through the typed contract client. Its cron case compiles replacement source through the API before copying the complete representation to the promoted provider, and uses the real admin infrequent-cron trigger plus a local Apprise server so baseline, provider refresh, subscriber fan-out, and notification delivery are covered together. `fixtures/media-monitoring.ts` owns the endpoint wrappers and media-monitoring relationship SQL assertion.
