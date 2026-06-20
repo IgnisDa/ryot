@@ -1,7 +1,7 @@
 import { createEntityColumnExpression } from "@ryot/contract/display-configuration";
 import { describe, expect, it } from "vitest";
 
-import { buildDisplayConfig } from "./view-helpers";
+import { buildDefaultDisplayConfig, buildDisplayConfig } from "./view-helpers";
 
 describe("buildDisplayConfig", () => {
 	it("always sets entityIdProperty to the id column for the slug", () => {
@@ -128,5 +128,18 @@ describe("buildDisplayConfig", () => {
 			expect(table.columns).toHaveLength(3);
 			expect(table.columns.map((c) => c.label)).toEqual(["Name", "Year", "Episodes"]);
 		});
+	});
+});
+
+describe("buildDefaultDisplayConfig", () => {
+	it("uses only built-in entity columns for custom schemas", () => {
+		const config = buildDefaultDisplayConfig("custom-schema");
+
+		expect(config.entityIdProperty).toEqual(createEntityColumnExpression("custom-schema", "id"));
+		expect(config.table.columns).toEqual([
+			{ label: "Name", expression: createEntityColumnExpression("custom-schema", "name") },
+		]);
+		expect(config.grid.imageProperty).toBeNull();
+		expect(config.grid.primarySubtitleProperty).toBeNull();
 	});
 });

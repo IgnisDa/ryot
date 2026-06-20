@@ -26,6 +26,7 @@ type UpdateSavedViewData = {
 	readonly name: string;
 	readonly isDisabled: boolean;
 	readonly accentColor: string;
+	readonly sortOrder?: number | undefined;
 	readonly trackerId?: TrackerId | undefined;
 	readonly queryDocument: (typeof schema.savedView.$inferSelect)["queryDocument"];
 	readonly displayConfiguration: (typeof schema.savedView.$inferSelect)["displayConfiguration"];
@@ -160,10 +161,10 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 			) {
 				const db = yield* CurrentDb;
 				const nextTrackerId = data.trackerId ?? null;
-				const sortOrder =
-					currentTrackerId === nextTrackerId
-						? undefined
-						: yield* getNextSortOrder(userId, nextTrackerId);
+				let sortOrder = data.sortOrder;
+				if (sortOrder === undefined && currentTrackerId !== nextTrackerId) {
+					sortOrder = yield* getNextSortOrder(userId, nextTrackerId);
+				}
 
 				const [row] = yield* dbEffect(() =>
 					db
@@ -192,12 +193,15 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 			});
 
 			const updateDisabledBySlug = Effect.fn("SavedViewsRepository.updateDisabledBySlug")(
-				function* (userId: UserId, viewSlug: string, isDisabled: boolean) {
+				function* (userId: UserId, viewSlug: string, isDisabled: boolean, sortOrder?: number) {
 					const db = yield* CurrentDb;
 					const [row] = yield* dbEffect(() =>
 						db
 							.update(schema.savedView)
-							.set({ isDisabled })
+							.set({
+								isDisabled,
+								...(sortOrder === undefined ? {} : { sortOrder }),
+							})
 							.where(and(eq(schema.savedView.slug, viewSlug), eq(schema.savedView.userId, userId)))
 							.returning(),
 					);
@@ -253,61 +257,36 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 				return rows.length;
 			});
 
-			const listSlugsInOrder = Effect.fn("SavedViewsRepository.listSlugsInOrder")(function* (
+			const listInOrder = Effect.fn("SavedViewsRepository.listInOrder")(function* (
 				userId: UserId,
 				trackerId?: TrackerId,
 			) {
 				const db = yield* CurrentDb;
+				const scope = and(eq(schema.savedView.userId, userId), withSavedViewScope(trackerId));
+				yield* dbEffect(() =>
+					db.select({ id: schema.savedView.id }).from(schema.savedView).where(scope).for("update"),
+				);
+
 				const rows = yield* dbEffect(() =>
 					db
-						.select({ viewSlug: schema.savedView.slug })
+						.select()
 						.from(schema.savedView)
-						.where(and(eq(schema.savedView.userId, userId), withSavedViewScope(trackerId)))
+						.where(scope)
 						.orderBy(asc(schema.savedView.sortOrder), asc(schema.savedView.createdAt)),
 				);
 
-				return rows.map((row) => row.viewSlug);
-			});
-
-			const persistOrder = Effect.fn("SavedViewsRepository.persistOrder")(function* (
-				userId: UserId,
-				trackerId: TrackerId | undefined,
-				viewSlugs: ReadonlyArray<string>,
-			) {
-				if (viewSlugs.length === 0) {
-					return [];
-				}
-
-				const db = yield* CurrentDb;
-
-				for (const [index, viewSlug] of viewSlugs.entries()) {
-					yield* dbEffect(() =>
-						db
-							.update(schema.savedView)
-							.set({ sortOrder: index })
-							.where(
-								and(
-									eq(schema.savedView.slug, viewSlug),
-									eq(schema.savedView.userId, userId),
-									withSavedViewScope(trackerId),
-								),
-							),
-					);
-				}
-
-				return viewSlugs;
+				return rows.map(toListedSavedView);
 			});
 
 			return {
-				listByUser,
-				findBySlug,
 				create,
-				updateBySlug,
-				updateDisabledBySlug,
-				deleteBySlug,
+				listByUser,
+				listInOrder,
+				findBySlug,
 				countBySlugs,
-				listSlugsInOrder,
-				persistOrder,
+				updateBySlug,
+				deleteBySlug,
+				updateDisabledBySlug,
 			};
 		},
 	},
