@@ -19,19 +19,18 @@ import {
 	MediaImportWorkflowOperations,
 	type MediaImportWorkflowOperationsValue,
 } from "./media/types-workflow";
-import { ImportsRepository } from "./repository";
 import { loadImportAdapterResult } from "./runtime/source-payload-store";
 import { ImportRunArtifacts, ImportRunError } from "./runtime/workflow-helpers";
+import { ImportsService } from "./service";
 
-const mockImportsRepository = Layer.mock(ImportsRepository);
+const mockImportsService = Layer.mock(ImportsService);
 const mockImportRunArtifacts = Layer.mock(ImportRunArtifacts);
 
-const makeImportsRepository = (overrides: MockOverrides<typeof mockImportsRepository> = {}) =>
-	mockImportsRepository({
-		updateRun: () => Effect.void,
-		createFailure: () => Effect.void,
+const makeImportsService = (overrides: MockOverrides<typeof mockImportsService> = {}) =>
+	mockImportsService({
+		update: () => Effect.void,
 		...overrides,
-		_tag: "ImportsRepository",
+		_tag: "ImportsService",
 	});
 
 const makeMediaOperations = (overrides: Partial<MediaImportWorkflowOperationsValue> = {}) =>
@@ -72,7 +71,7 @@ const makeRedisLayer = () => {
 };
 
 type TestLayerOptions = {
-	importsRepository?: Layer.Layer<ImportsRepository>;
+	importsService?: Layer.Layer<ImportsService>;
 	importRunArtifacts?: Layer.Layer<ImportRunArtifacts>;
 	mediaOperations?: Layer.Layer<MediaImportWorkflowOperations>;
 };
@@ -85,7 +84,7 @@ const makeTestLayer = (options: TestLayerOptions) =>
 		makeRedisLayer(),
 		options.importRunArtifacts ?? makeImportRunArtifacts(),
 		options.mediaOperations ?? makeMediaOperations(),
-		options.importsRepository ?? makeImportsRepository(),
+		options.importsService ?? makeImportsService(),
 	);
 
 const withTestLayer = <A, E, R>(
@@ -139,8 +138,8 @@ it.effect("persists the adapter result and dispatches the normalized child workf
 	const childDispatches: Array<Record<string, unknown>> = [];
 
 	const options = {
-		importsRepository: makeImportsRepository({
-			updateRun: (input) => {
+		importsService: makeImportsService({
+			update: (input) => {
 				recordedUpdates.push(input);
 				return Effect.void;
 			},
@@ -197,8 +196,8 @@ it.effect("fails the run and cleans up when the normalized child workflow fails"
 	const recordedUpdates: Array<Record<string, unknown>> = [];
 
 	const options = {
-		importsRepository: makeImportsRepository({
-			updateRun: (input) => {
+		importsService: makeImportsService({
+			update: (input) => {
 				recordedUpdates.push(input);
 				return Effect.void;
 			},
@@ -245,8 +244,8 @@ it.effect(
 		const defectPayload = { ...importPayload, filePath: "/tmp/import.csv" };
 
 		const options = {
-			importsRepository: makeImportsRepository({
-				updateRun: (input) => {
+			importsService: makeImportsService({
+				update: (input) => {
 					recordedUpdates.push(input);
 					return Effect.void;
 				},
@@ -299,8 +298,8 @@ it.effect("does not reintroduce invalid file paths during handled load failures"
 	const invalidPayload = { ...importPayload, filePath: "../../etc/passwd" };
 
 	const options = {
-		importsRepository: makeImportsRepository({
-			updateRun: (input) => {
+		importsService: makeImportsService({
+			update: (input) => {
 				recordedUpdates.push(input);
 				return Effect.void;
 			},
@@ -342,8 +341,8 @@ it.effect("does not attempt cleanup for invalid file paths when adapter loading 
 	const invalidPayload = { ...importPayload, filePath: "../../etc/passwd" };
 
 	const options = {
-		importsRepository: makeImportsRepository({
-			updateRun: (input) => {
+		importsService: makeImportsService({
+			update: (input) => {
 				recordedUpdates.push(input);
 				return Effect.void;
 			},

@@ -27,8 +27,9 @@ import { EventSchemasRepository } from "#modules/event-schemas/repository";
 import { EventsService } from "#modules/events/service";
 import { LibraryEntityImportError } from "#modules/library-membership/library-entity-import-workflow";
 
-import { ImportsRepository } from "../repository";
+import { ImportRunFailuresService } from "../failure-service";
 import { loadImportAdapterResult, storeImportAdapterResult } from "../runtime/source-payload-store";
+import { ImportsService } from "../service";
 import type { MediaImportAdapterResult } from "./adapter-result";
 import { ProcessNormalizedMediaImportWorkflow } from "./normalized-import-workflow";
 import { processNormalizedMediaImport } from "./normalized-import-workflow-live";
@@ -39,7 +40,8 @@ import {
 
 const now = "2026-06-17T00:00:00.000Z";
 
-const mockImportsRepository = Layer.mock(ImportsRepository);
+const mockImportRunFailuresService = Layer.mock(ImportRunFailuresService);
+const mockImportsService = Layer.mock(ImportsService);
 const mockEntitiesRepository = Layer.mock(EntitiesRepository);
 const mockCollectionsService = Layer.mock(CollectionsService);
 const mockEventsService = Layer.mock(EventsService);
@@ -47,12 +49,20 @@ const mockEpisodeResolverService = Layer.mock(EpisodeResolverService);
 const mockEventSchemasRepository = Layer.mock(EventSchemasRepository);
 const mockEntitySchemasRepository = Layer.mock(EntitySchemasRepository);
 
-const makeImportsRepository = (overrides: MockOverrides<typeof mockImportsRepository> = {}) =>
-	mockImportsRepository({
-		updateRun: () => Effect.void,
-		createFailure: () => Effect.void,
+const makeImportRunFailuresService = (
+	overrides: MockOverrides<typeof mockImportRunFailuresService> = {},
+) =>
+	mockImportRunFailuresService({
+		create: () => Effect.void,
 		...overrides,
-		_tag: "ImportsRepository",
+		_tag: "ImportRunFailuresService",
+	});
+
+const makeImportsService = (overrides: MockOverrides<typeof mockImportsService> = {}) =>
+	mockImportsService({
+		update: () => Effect.void,
+		...overrides,
+		_tag: "ImportsService",
 	});
 
 const makeEntitiesRepository = (overrides: MockOverrides<typeof mockEntitiesRepository> = {}) =>
@@ -146,13 +156,14 @@ const makeRedisLayer = () => {
 
 type TestLayerOptions = {
 	eventsService?: Layer.Layer<EventsService>;
-	importsRepository?: Layer.Layer<ImportsRepository>;
+	importsService?: Layer.Layer<ImportsService>;
 	collectionsService?: Layer.Layer<CollectionsService>;
 	entitiesRepository?: Layer.Layer<EntitiesRepository>;
+	mediaOperations?: Layer.Layer<MediaImportWorkflowOperations>;
 	episodeResolverService?: Layer.Layer<EpisodeResolverService>;
 	eventSchemasRepository?: Layer.Layer<EventSchemasRepository>;
 	entitySchemasRepository?: Layer.Layer<EntitySchemasRepository>;
-	mediaOperations?: Layer.Layer<MediaImportWorkflowOperations>;
+	importRunFailuresService?: Layer.Layer<ImportRunFailuresService>;
 };
 
 const makeTestLayer = (options: TestLayerOptions) =>
@@ -162,7 +173,8 @@ const makeTestLayer = (options: TestLayerOptions) =>
 		BunFileSystem.layer,
 		makeRedisLayer(),
 		options.mediaOperations ?? makeMediaOperations(),
-		options.importsRepository ?? makeImportsRepository(),
+		options.importsService ?? makeImportsService(),
+		options.importRunFailuresService ?? makeImportRunFailuresService(),
 		options.entitiesRepository ?? makeEntitiesRepository(),
 		options.collectionsService ?? makeCollectionsService(),
 		options.episodeResolverService ?? makeEpisodeResolverService(),
@@ -217,13 +229,15 @@ it.effect("runs the normalized media pipeline through workflow-owned phases", ()
 	const createdEvents: Array<ReadonlyArray<Record<string, unknown>>> = [];
 
 	const options = {
-		importsRepository: makeImportsRepository({
-			createFailure: (input) => {
-				recordedFailures.push(input);
+		importsService: makeImportsService({
+			update: (input) => {
+				recordedUpdates.push(input);
 				return Effect.void;
 			},
-			updateRun: (input) => {
-				recordedUpdates.push(input);
+		}),
+		importRunFailuresService: makeImportRunFailuresService({
+			create: (input) => {
+				recordedFailures.push(input);
 				return Effect.void;
 			},
 		}),
@@ -390,13 +404,15 @@ it.effect("resolves imported show episode progress and drops unresolved locators
 	const createdEvents: Array<ReadonlyArray<Record<string, unknown>>> = [];
 
 	const options = {
-		importsRepository: makeImportsRepository({
-			createFailure: (input) => {
-				recordedFailures.push(input);
+		importsService: makeImportsService({
+			update: (input) => {
+				recordedUpdates.push(input);
 				return Effect.void;
 			},
-			updateRun: (input) => {
-				recordedUpdates.push(input);
+		}),
+		importRunFailuresService: makeImportRunFailuresService({
+			create: (input) => {
+				recordedFailures.push(input);
 				return Effect.void;
 			},
 		}),
@@ -538,13 +554,15 @@ it.effect("resolves imported podcast episode progress and drops unresolved locat
 	const createdEvents: Array<ReadonlyArray<Record<string, unknown>>> = [];
 
 	const options = {
-		importsRepository: makeImportsRepository({
-			createFailure: (input) => {
-				recordedFailures.push(input);
+		importsService: makeImportsService({
+			update: (input) => {
+				recordedUpdates.push(input);
 				return Effect.void;
 			},
-			updateRun: (input) => {
-				recordedUpdates.push(input);
+		}),
+		importRunFailuresService: makeImportRunFailuresService({
+			create: (input) => {
+				recordedFailures.push(input);
 				return Effect.void;
 			},
 		}),
@@ -685,8 +703,8 @@ it.effect(
 		const recordedFailures: Array<Record<string, unknown>> = [];
 
 		const options = {
-			importsRepository: makeImportsRepository({
-				createFailure: (input) => {
+			importRunFailuresService: makeImportRunFailuresService({
+				create: (input) => {
 					recordedFailures.push(input);
 					return Effect.void;
 				},
