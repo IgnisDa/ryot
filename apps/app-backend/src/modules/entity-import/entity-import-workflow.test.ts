@@ -19,6 +19,7 @@ import type { MockOverrides } from "#lib/test-utils/effect";
 import {
 	dbRunnerLayer,
 	makeRedisService,
+	makeWorkflowEngine,
 	makeWorkflowActivityEngine,
 	transactionLayer,
 } from "#lib/test-utils/effect";
@@ -34,7 +35,7 @@ import {
 	EntityImportWorkflowOperations,
 	type EntityImportWorkflowOperationsValue,
 } from "./operations-workflow";
-import { processChildEntityTree } from "./population";
+import { writeChildEntitySet } from "./population";
 import { runProviderEntityPopulationWorkflow } from "./provider-entity-population-workflow";
 
 const TestEntityImportWorkflow = Workflow.make({
@@ -93,6 +94,25 @@ type StoredEntity = Omit<typeof baseEntity, "populatedAt" | "properties"> & {
 const assertRecord: (value: unknown) => asserts value is Record<string, unknown> = (value) => {
 	assert(typeof value === "object" && value !== null && !Array.isArray(value));
 };
+
+const entityKey = (entitySchemaId: string, externalId: string) => `${entitySchemaId}:${externalId}`;
+
+const childEntitySchemaIds = new Map([
+	["show-season", EntitySchemaId.make("schema-season")],
+	["show-episode", EntitySchemaId.make("schema-episode")],
+]);
+
+const findChildEntitySchemaBySlug = (slug: string) => {
+	const id = childEntitySchemaIds.get(slug);
+	return Effect.succeed(id ? { id } : null);
+};
+
+const makeEpisodeChild = (externalId: string) => ({
+	externalId,
+	name: "Episode",
+	properties: { episodeNumber: 1 },
+	entitySchemaSlug: "show-episode",
+});
 
 const mockEntitiesRepository = Layer.mock(EntitiesRepository);
 const mockEntitiesService = Layer.mock(EntitiesService);
@@ -412,7 +432,7 @@ it.effect("preserves stale relationships during additive related-entity sync", (
 	);
 });
 
-it.effect("walks the child entity tree and upserts each node", () => {
+it.effect("walks the child entity tree one scope per parent and upserts each node", () => {
 	const relationshipOperations: string[] = [];
 	const storedRelationships = new Map<string, typeof savedRelationship>();
 	const entityWrites: Array<{
@@ -537,72 +557,83 @@ it.effect("walks the child entity tree and upserts each node", () => {
 		}),
 	} satisfies TestLayerOptions;
 
-	const runProcessor = (executionId: string, syncExisting: boolean, discoverEpisode: boolean) =>
-		withTestLayer(
-			options,
-			executionId,
-			processChildEntityTree({
-				syncExisting,
-				parentEntityId: baseEntity.id,
-				sandboxScriptId: SandboxScriptId.make("script-1"),
-				parentEntitySchemaId: EntitySchemaId.make("schema-1"),
-				childEntities: [
-					{
-						name: "Season 1",
-						externalId: "season-1",
-						entitySchemaSlug: "show-season",
-						properties: {
-							seasonNumber: 1,
-							description: "Season",
-							releaseDate: "2026-01-01",
-							images: [{ type: "remote", url: "https://example.com/season.jpg" }],
-						},
-						childEntities: [
+	const runScopes = (executionId: string, syncExisting: boolean, discoverEpisode: boolean) => {
+		const season = {
+			name: "Season 1",
+			externalId: "season-1",
+			entitySchemaSlug: "show-season",
+			properties: {
+				seasonNumber: 1,
+				description: "Season",
+				releaseDate: "2026-01-01",
+				images: [{ type: "remote", url: "https://example.com/season.jpg" }],
+			},
+			childEntities: [
+				{
+					name: "Episode 1",
+					externalId: "episode-1",
+					entitySchemaSlug: "show-episode",
+					properties: {
+						runtime: 45,
+						seasonNumber: 1,
+						episodeNumber: 1,
+						description: "Episode",
+						publishDate: "2026-01-02",
+					},
+				},
+				...(discoverEpisode
+					? [
 							{
-								name: "Episode 1",
-								externalId: "episode-1",
+								name: "Episode 2",
+								externalId: "episode-2",
 								entitySchemaSlug: "show-episode",
 								properties: {
 									runtime: 45,
 									seasonNumber: 1,
-									episodeNumber: 1,
+									episodeNumber: 2,
 									description: "Episode",
-									publishDate: "2026-01-02",
+									publishDate: "2026-01-09",
 								},
 							},
-							...(discoverEpisode
-								? [
-										{
-											name: "Episode 2",
-											externalId: "episode-2",
-											entitySchemaSlug: "show-episode",
-											properties: {
-												runtime: 45,
-												seasonNumber: 1,
-												episodeNumber: 2,
-												description: "Episode",
-												publishDate: "2026-01-09",
-											},
-										},
-									]
-								: []),
-						],
-					},
-				],
+						]
+					: []),
+			],
+		};
+		return withTestLayer(
+			options,
+			executionId,
+			Effect.gen(function* () {
+				const processedSeasons = yield* writeChildEntitySet({
+					syncExisting,
+					childEntities: [season],
+					parentEntityId: baseEntity.id,
+					sandboxScriptId: SandboxScriptId.make("script-1"),
+					parentEntitySchemaId: EntitySchemaId.make("schema-1"),
+				});
+				const processedSeason = processedSeasons[0];
+				assert(processedSeason);
+				yield* writeChildEntitySet({
+					syncExisting,
+					childEntities: season.childEntities,
+					parentEntityId: processedSeason.entity.id,
+					sandboxScriptId: SandboxScriptId.make("script-1"),
+					parentEntitySchemaId: processedSeason.entitySchemaId,
+				});
 			}),
 		);
+	};
 
 	return Effect.gen(function* () {
-		yield* runProcessor("exec-child-tree-initial", false, false);
+		yield* runScopes("exec-child-tree-initial", false, false);
 
 		expect(storedRelationships.size).toBe(2);
 		expect(entityWrites).toHaveLength(2);
 		expect(entityWrites.every((write) => !write.updateExisting)).toBe(true);
 		expect(relationshipOperations).toEqual([
-			"list:rel-season-episode:schema-season-season-1",
-			"create:rel-season-episode:schema-season-season-1->schema-episode-episode-1",
 			"list:rel-show-season:entity-1",
 			"create:rel-show-season:entity-1->schema-season-season-1",
+			"list:rel-season-episode:schema-season-season-1",
+			"create:rel-season-episode:schema-season-season-1->schema-episode-episode-1",
 		]);
 
 		const season = entityWrites.find((write) => write.externalId === "season-1");
@@ -627,15 +658,15 @@ it.effect("walks the child entity tree and upserts each node", () => {
 
 		relationshipOperations.length = 0;
 		entityWrites.length = 0;
-		yield* runProcessor("exec-child-tree-refresh", true, true);
+		yield* runScopes("exec-child-tree-refresh", true, true);
 
 		expect(storedRelationships.size).toBe(3);
 		expect(entityWrites).toHaveLength(3);
 		expect(entityWrites.every((write) => write.updateExisting)).toBe(true);
 		expect(relationshipOperations).toEqual([
+			"list:rel-show-season:entity-1",
 			"list:rel-season-episode:schema-season-season-1",
 			"create:rel-season-episode:schema-season-season-1->schema-episode-episode-2",
-			"list:rel-show-season:entity-1",
 		]);
 	});
 });
@@ -803,21 +834,21 @@ it.effect("creates placeholder suggestion entities and syncs source suggestions"
 			expect(result.populatedAt).toBe(now);
 			expect(placeholderWrites).toEqual([
 				{
-					name: "Recommended Movie",
-					externalId: "movie-1",
 					properties: {},
 					populatedAt: null,
+					externalId: "movie-1",
+					name: "Recommended Movie",
 					entitySchemaId: EntitySchemaId.make("schema-movie"),
 					sandboxScriptId: SandboxScriptId.make("movie-script"),
 				},
 			]);
 			expect(relationshipWrites).toEqual([
 				expect.objectContaining({
+					properties: {},
 					scope: "global",
 					sourceEntityId: EntityId.make("entity-1"),
-					targetEntityId: EntityId.make("suggestion-movie-1"),
 					relationshipSchemaId: mediaSuggestionSchema.id,
-					properties: {},
+					targetEntityId: EntityId.make("suggestion-movie-1"),
 				}),
 			]);
 		}),
@@ -833,12 +864,12 @@ it.effect("replaces stale synced suggestions on a later import run", () => {
 		sandboxScriptId: SandboxScriptId.make("movie-script"),
 	};
 	const makeStoredRelationship = (targetEntityId: EntityId) => ({
+		targetEntityId,
 		properties: {},
 		createdAt: now,
 		wasInserted: true,
-		id: RelationshipId.make("relationship-1"),
 		sourceEntityId: baseEntity.id,
-		targetEntityId,
+		id: RelationshipId.make("relationship-1"),
 		relationshipSchemaId: mediaSuggestionSchema.id,
 	});
 
@@ -984,11 +1015,7 @@ it.effect("does not synchronize relationships when the provider declares no grou
 				logs: [],
 				error: null,
 				status: "completed" as const,
-				value: {
-					name: "Test Book",
-					relatedEntityGroups: [],
-					properties: { title: "Test Book" },
-				},
+				value: { name: "Test Book", relatedEntityGroups: [], properties: { title: "Test Book" } },
 			}),
 		relationshipsRepository: makeRelationshipsRepository({
 			createRelationship: () =>
@@ -1021,12 +1048,7 @@ it.effect("short-circuits sandbox when global entity is already populated", () =
 	const options = {
 		processSandbox: () => {
 			sandboxCalled = true;
-			return Effect.succeed({
-				logs: [],
-				value: {},
-				error: null,
-				status: "completed" as const,
-			});
+			return Effect.succeed({ logs: [], value: {}, error: null, status: "completed" as const });
 		},
 		entitiesRepository: makeEntitiesRepository({
 			findGlobalEntityByExternalId: () => Effect.succeed(populatedEntity),
@@ -1114,10 +1136,7 @@ it.effect("workflow body executes the sandbox step as part of orchestration", ()
 it.effect("keeps the refresh baseline when related relationship properties are invalid", () => {
 	let relationshipWritten = false;
 	let primaryWritten = false;
-	let storedEntity: StoredEntity | null = {
-		...baseEntity,
-		properties: { title: "Previous Book" },
-	};
+	let storedEntity: StoredEntity | null = { ...baseEntity, properties: { title: "Previous Book" } };
 	const payload = { ...importPayload, executionId: "exec-related-validation" };
 	const options = {
 		processSandbox: () =>
@@ -1316,8 +1335,8 @@ it.effect("fails workflow when related relationship properties are not objects",
 });
 
 it.effect("retries related writes after a failed related validation", () => {
-	let relationshipWriteCount = 0;
 	let sandboxCalls = 0;
+	let relationshipWriteCount = 0;
 	let storedEntity: StoredEntity | null = null;
 
 	const options = {
@@ -1460,8 +1479,9 @@ it.effect("retries related writes after a failed related validation", () => {
 	});
 });
 
-it.effect("rolls back provider graph writes when a later child write fails", () => {
+it.effect("commits earlier population scopes when a later scope fails", () => {
 	const writes: string[] = [];
+	let stamped = false;
 	const transactionRunner = Layer.succeed(
 		TransactionRunner,
 		<A, E, R>(effect: Effect.Effect<A, E, R>) => {
@@ -1475,7 +1495,7 @@ it.effect("rolls back provider graph writes when a later child write fails", () 
 			);
 		},
 	);
-	const payload = { ...importPayload, executionId: "atomic-graph-write" };
+	const payload = { ...importPayload, executionId: "partial-scope-commit" };
 	const options = {
 		transactionRunner,
 		processSandbox: () =>
@@ -1520,8 +1540,8 @@ it.effect("rolls back provider graph writes when a later child write fails", () 
 					return {
 						...baseEntity,
 						name: input.name,
-						id: EntityId.make("entity-1"),
 						externalId: input.externalId,
+						id: EntityId.make("entity-1"),
 						entitySchemaId: input.entitySchemaId,
 						sandboxScriptId: input.sandboxScriptId,
 						populatedAt: input.populatedAt?.toISOString() ?? null,
@@ -1541,6 +1561,11 @@ it.effect("rolls back provider graph writes when a later child write fails", () 
 						sandboxScriptId:
 							input.scope === "global" ? input.sandboxScriptId : SandboxScriptId.make("script-1"),
 					};
+				}),
+			update: () =>
+				Effect.sync(() => {
+					stamped = true;
+					return baseEntity;
 				}),
 		}),
 		entitySchemasRepository: makeEntitySchemasRepository({
@@ -1564,7 +1589,12 @@ it.effect("rolls back provider graph writes when a later child write fails", () 
 			);
 
 			expect(exit._tag).toBe("Failure");
-			expect(writes).toEqual([]);
+			expect(stamped).toBe(false);
+			expect(writes).toEqual([
+				"entity:Test Book",
+				"entity:Suggestion",
+				"relationship:media-suggestion",
+			]);
 		}),
 	);
 });
@@ -1599,8 +1629,8 @@ it.effect("refresh synchronization replaces provider-owned primary and child val
 						{
 							name: "Updated Season",
 							externalId: "season-1",
-							entitySchemaSlug: "show-season",
 							properties: { seasonNumber: 1 },
+							entitySchemaSlug: "show-season",
 						},
 					],
 				},
@@ -1795,4 +1825,349 @@ it.effect("clears an explicit empty relationship group", () => {
 			]);
 		}),
 	);
+});
+
+it.effect("resumes from the failed population scope without duplicating committed work", () => {
+	let failSeasonTwo = true;
+	let stamped = false;
+	const storedEntities = new Map<string, StoredEntity>();
+	const storedRelationships = new Map<string, typeof savedRelationship>();
+	const relationshipSchemas = new Map([
+		[
+			"schema-show->schema-season",
+			{
+				isBuiltin: true,
+				name: "Show to Show Season",
+				slug: "show-to-show-season",
+				propertiesSchema: { fields: {} },
+				id: RelationshipSchemaId.make("rel-show-season"),
+				sourceEntitySchemaId: EntitySchemaId.make("schema-show"),
+				targetEntitySchemaId: EntitySchemaId.make("schema-season"),
+			},
+		],
+		[
+			"schema-season->schema-episode",
+			{
+				isBuiltin: true,
+				propertiesSchema: { fields: {} },
+				name: "Show Season to Show Episode",
+				slug: "show-season-to-show-episode",
+				id: RelationshipSchemaId.make("rel-season-episode"),
+				sourceEntitySchemaId: EntitySchemaId.make("schema-season"),
+				targetEntitySchemaId: EntitySchemaId.make("schema-episode"),
+			},
+		],
+	]);
+	const sandboxValue = {
+		name: "Severance",
+		properties: { title: "Severance" },
+		childEntities: [
+			{
+				name: "Season 1",
+				externalId: "season-1",
+				entitySchemaSlug: "show-season",
+				properties: { seasonNumber: 1 },
+				childEntities: [
+					{
+						name: "Episode 1",
+						externalId: "episode-1",
+						entitySchemaSlug: "show-episode",
+						properties: { episodeNumber: 1 },
+					},
+				],
+			},
+			{
+				name: "Season 2",
+				externalId: "season-2",
+				entitySchemaSlug: "show-season",
+				properties: { seasonNumber: 2 },
+				childEntities: [
+					{
+						name: "Episode 3",
+						externalId: "episode-3",
+						entitySchemaSlug: "show-episode",
+						properties: { episodeNumber: 1 },
+					},
+				],
+			},
+		],
+	};
+	const options = {
+		processSandbox: () =>
+			Effect.succeed({
+				logs: [],
+				error: null,
+				value: sandboxValue,
+				status: "completed" as const,
+			}),
+		entitySchemasRepository: makeEntitySchemasRepository({
+			getBuiltinBySlug: findChildEntitySchemaBySlug,
+		}),
+		relationshipSchemasRepository: makeRelationshipSchemasRepository({
+			findGlobalBySchemaIds: (input) =>
+				Effect.succeed(
+					relationshipSchemas.get(`${input.sourceEntitySchemaId}->${input.targetEntitySchemaId}`) ??
+						null,
+				),
+		}),
+		entitiesRepository: makeEntitiesRepository({
+			findGlobalEntityByExternalId: (input) =>
+				Effect.succeed(
+					storedEntities.get(entityKey(input.entitySchemaId, input.externalId)) ?? null,
+				),
+		}),
+		entitiesService: makeEntitiesService({
+			upsert: (input) => {
+				if (failSeasonTwo && input.externalId === "episode-3") {
+					return Effect.die(new Error("transient store failure"));
+				}
+				const properties: unknown = input.properties;
+				assertRecord(properties);
+				const key = entityKey(input.entitySchemaId, input.externalId);
+				const entity = {
+					...baseEntity,
+					properties,
+					name: input.name,
+					externalId: input.externalId,
+					entitySchemaId: input.entitySchemaId,
+					sandboxScriptId: input.sandboxScriptId,
+					populatedAt: input.populatedAt?.toISOString() ?? null,
+					id:
+						storedEntities.get(key)?.id ??
+						EntityId.make(`${input.entitySchemaId}-${input.externalId}`),
+				};
+				storedEntities.set(key, entity);
+				return Effect.succeed(entity);
+			},
+			update: (input) => {
+				stamped = true;
+				const entry = [...storedEntities.values()].find((entity) => entity.id === input.entityId);
+				assert(entry);
+				const next = { ...entry, populatedAt: input.populatedAt?.toISOString() ?? null };
+				storedEntities.set(entityKey(entry.entitySchemaId, entry.externalId), next);
+				return Effect.succeed(next);
+			},
+		}),
+		relationshipsRepository: makeRelationshipsRepository({
+			createRelationship: (input) =>
+				Effect.sync(() => {
+					const identity = `${input.relationshipSchemaId}:${input.sourceEntityId}->${input.targetEntityId}`;
+					const existing = storedRelationships.get(identity);
+					if (existing) {
+						return { ...existing, wasInserted: false };
+					}
+					const relationship = {
+						...savedRelationship,
+						properties: input.properties,
+						sourceEntityId: input.sourceEntityId,
+						targetEntityId: input.targetEntityId,
+						relationshipSchemaId: input.relationshipSchemaId,
+						id: RelationshipId.make(`relationship-${storedRelationships.size + 1}`),
+					};
+					storedRelationships.set(identity, relationship);
+					return relationship;
+				}),
+			listGlobalRelationships: (input) =>
+				Effect.sync(() =>
+					[...storedRelationships.values()].filter((relationship) => {
+						if (relationship.relationshipSchemaId !== input.relationshipSchemaId) {
+							return false;
+						}
+						if (input.type === "self") {
+							return relationship.sourceEntityId === relationship.targetEntityId;
+						}
+						return input.direction === "outgoing"
+							? relationship.sourceEntityId === input.anchorEntityId
+							: relationship.targetEntityId === input.anchorEntityId;
+					}),
+				),
+		}),
+	} satisfies TestLayerOptions;
+
+	const runPopulation = (executionId: string) =>
+		withTestLayer(
+			options,
+			executionId,
+			runProviderEntityPopulationWorkflow(
+				{
+					...importPayload,
+					executionId,
+					mode: "ensure",
+					externalId: "tmdb-show-1",
+					entitySchemaId: EntitySchemaId.make("schema-show"),
+				},
+				executionId,
+			),
+		);
+
+	return Effect.gen(function* () {
+		const firstExit = yield* Effect.exit(runPopulation("exec-scope-resume-1"));
+
+		expect(firstExit._tag).toBe("Failure");
+		expect(stamped).toBe(false);
+		expect(storedEntities.size).toBe(4);
+		expect(storedRelationships.size).toBe(3);
+		expect(storedEntities.get(entityKey("schema-show", "tmdb-show-1"))?.populatedAt).toBeNull();
+
+		failSeasonTwo = false;
+		const result = yield* runPopulation("exec-scope-resume-2");
+
+		expect(result.populatedAt).not.toBeNull();
+		expect(storedEntities.size).toBe(5);
+		expect(storedRelationships.size).toBe(4);
+		expect(storedEntities.get(entityKey("schema-show", "tmdb-show-1"))?.populatedAt).not.toBeNull();
+	});
+});
+
+it.effect("uses unique deterministic activity names per population scope", () => {
+	const relationshipSchemas = new Map([
+		[
+			"schema-show->schema-season",
+			{
+				isBuiltin: true,
+				name: "Show to Show Season",
+				slug: "show-to-show-season",
+				propertiesSchema: { fields: {} },
+				id: RelationshipSchemaId.make("rel-show-season"),
+				sourceEntitySchemaId: EntitySchemaId.make("schema-show"),
+				targetEntitySchemaId: EntitySchemaId.make("schema-season"),
+			},
+		],
+		[
+			"schema-season->schema-episode",
+			{
+				isBuiltin: true,
+				propertiesSchema: { fields: {} },
+				name: "Show Season to Show Episode",
+				slug: "show-season-to-show-episode",
+				id: RelationshipSchemaId.make("rel-season-episode"),
+				sourceEntitySchemaId: EntitySchemaId.make("schema-season"),
+				targetEntitySchemaId: EntitySchemaId.make("schema-episode"),
+			},
+		],
+	]);
+	const castMemberSchema = {
+		isBuiltin: true,
+		name: "Cast Member",
+		slug: "cast-member",
+		sourceEntitySchemaId: null,
+		targetEntitySchemaId: null,
+		propertiesSchema: { fields: {} },
+		id: RelationshipSchemaId.make("cast-member-schema-id"),
+	};
+	const builtinRelationshipSchemas = new Map([
+		["cast-member", castMemberSchema],
+		["media-suggestion", mediaSuggestionSchema],
+	]);
+	const sandboxValue = {
+		name: "Severance",
+		properties: { title: "Severance" },
+		childEntities: [
+			{
+				name: "Season 1",
+				externalId: "season-1",
+				entitySchemaSlug: "show-season",
+				properties: { seasonNumber: 1 },
+				childEntities: [makeEpisodeChild("episode-1")],
+			},
+			{
+				name: "Season 2",
+				externalId: "season-2",
+				entitySchemaSlug: "show-season",
+				properties: { seasonNumber: 2 },
+				childEntities: [makeEpisodeChild("episode-3")],
+			},
+		],
+		relatedEntityGroups: [
+			{
+				entities: [],
+				direction: "outgoing",
+				synchronization: "authoritative",
+				relationshipSchemaSlug: "media-suggestion",
+			},
+			{
+				entities: [],
+				direction: "incoming",
+				synchronization: "additive",
+				relationshipSchemaSlug: "cast-member",
+			},
+		],
+	};
+	const options = {
+		processSandbox: () =>
+			Effect.succeed({
+				logs: [],
+				error: null,
+				value: sandboxValue,
+				status: "completed" as const,
+			}),
+		entitySchemasRepository: makeEntitySchemasRepository({
+			getBuiltinBySlug: findChildEntitySchemaBySlug,
+		}),
+		relationshipSchemasRepository: makeRelationshipSchemasRepository({
+			findBuiltinBySlug: (slug: string) =>
+				Effect.succeed(builtinRelationshipSchemas.get(slug) ?? null),
+			findGlobalBySchemaIds: (input) =>
+				Effect.succeed(
+					relationshipSchemas.get(`${input.sourceEntitySchemaId}->${input.targetEntitySchemaId}`) ??
+						null,
+				),
+		}),
+	} satisfies TestLayerOptions;
+
+	const runObserved = (activityNames: string[]) => {
+		const instance = WorkflowInstance.initial(TestEntityImportWorkflow, "exec-activity-names");
+		let engine: WorkflowEngine["Type"];
+		engine = makeWorkflowEngine({
+			activityExecute: (activity) =>
+				Effect.gen(function* () {
+					activityNames.push(activity.name);
+					const exit = yield* Effect.exit(
+						activity.execute.pipe(
+							Effect.provideService(WorkflowEngine, engine),
+							Effect.provideService(WorkflowInstance, instance),
+						),
+					);
+					return new Workflow.Complete({ exit });
+				}),
+		});
+		return runProviderEntityPopulationWorkflow(
+			{
+				...importPayload,
+				mode: "ensure",
+				externalId: "tmdb-show-1",
+				executionId: "exec-activity-names",
+				entitySchemaId: EntitySchemaId.make("schema-show"),
+			},
+			"exec-activity-names",
+		).pipe(
+			Effect.provideService(WorkflowEngine, engine),
+			Effect.provideService(WorkflowInstance, instance),
+			Effect.provide(makeTestLayer(options)),
+		);
+	};
+
+	return Effect.gen(function* () {
+		const firstRunNames: string[] = [];
+		yield* runObserved(firstRunNames);
+
+		expect(firstRunNames).toEqual([
+			"check-existing-entity",
+			"validate-entity-details",
+			"upsert-root-entity",
+			"sync-related-entity-group:0:media-suggestion",
+			"sync-related-entity-group:1:cast-member",
+			"write-child-entity-set:tmdb-show-1",
+			"write-child-entity-set:season-1",
+			"write-child-entity-set:season-2",
+			"stamp-root-populated-at",
+			"publish-primary-entity",
+		]);
+		expect(new Set(firstRunNames).size).toBe(firstRunNames.length);
+
+		const secondRunNames: string[] = [];
+		yield* runObserved(secondRunNames);
+
+		expect(secondRunNames).toEqual(firstRunNames);
+	});
 });
