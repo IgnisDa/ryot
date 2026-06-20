@@ -15,7 +15,6 @@ import type {
 	AppSchemaRuleCondition,
 	AppStringProperty,
 } from "@ryot/contract/schema/property-schema";
-import { moviePropertiesSchema } from "@ryot/media-plugin/schemas/property-schemas";
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 
@@ -25,6 +24,7 @@ import {
 	parseAppSchemaPropertiesSafe,
 	validateAppSchemaDefinition,
 } from "./property-schema-runtime";
+import { fixtureMediaPropertiesSchema } from "./property-schema.test-fixture";
 
 const str = (overrides: Partial<AppStringProperty> = {}): AppPropertyDefinition => ({
 	label: "F",
@@ -121,7 +121,7 @@ const parse = (fields: Record<string, AppPropertyDefinition>, properties: unknow
 	parseAppSchemaPropertiesSafe({ properties, propertiesSchema: schema(fields) });
 
 const parseMovie = (properties: unknown) =>
-	parseAppSchemaPropertiesSafe({ properties, propertiesSchema: moviePropertiesSchema });
+	parseAppSchemaPropertiesSafe({ properties, propertiesSchema: fixtureMediaPropertiesSchema });
 
 const requiredRule = (targetPath: string[], condition: AppSchemaRuleCondition): AppSchemaRule => ({
 	when: condition,

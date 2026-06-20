@@ -4,7 +4,7 @@ import {
 	createYoutubeMusicClient as createSdkYoutubeMusicClient,
 } from "@ryot/sandbox-sdk/youtubei";
 
-import { asRecord, numberValue, stringValue } from "../script-helpers/records";
+import { asRecord, numberValue, stringValue } from "../../shared/records";
 
 export type YoutubeMusicHost = YoutubeiHost;
 

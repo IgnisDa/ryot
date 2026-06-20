@@ -2,7 +2,7 @@
 
 import { BunServices, BunRuntime } from "@effect/platform-bun";
 import dotenv from "dotenv";
-import { Effect } from "effect";
+import { Effect, FileSystem, Stream } from "effect";
 import { ChildProcess } from "effect/unstable/process";
 
 dotenv.config();
@@ -14,9 +14,17 @@ const compileSandboxRunnerScript = Bun.fileURLToPath(
 );
 
 const compileCommand: ProcessCommand = [process.execPath, "run", compileSandboxRunnerScript];
+const pluginBuildCommand: ProcessCommand = [
+	process.execPath,
+	"turbo",
+	"--filter=@ryot/media-plugin",
+	"--filter=@ryot/fitness-plugin",
+	"build",
+];
+const assembleCommand: ProcessCommand = [process.execPath, "run", "assemble"];
 export const developmentCommands: readonly [ProcessCommand, ProcessCommand] = [
 	[...compileCommand, "--watch", "--skip-initial"],
-	[process.execPath, "run", "--watch", "src/main.ts"],
+	[process.execPath, "run", "assemble", "--watch"],
 ];
 
 const runCommand = ([executable, ...args]: ProcessCommand) =>
@@ -30,17 +38,41 @@ const runCommand = ([executable, ...args]: ProcessCommand) =>
 	);
 
 const program = Effect.gen(function* () {
-	const compilationExitCode = yield* runCommand(compileCommand);
-	if (compilationExitCode !== 0) {
+	for (const command of [compileCommand, pluginBuildCommand, assembleCommand]) {
+		const exitCode = yield* runCommand(command);
+		if (exitCode === 0) {
+			continue;
+		}
 		yield* Effect.sync(() => {
-			process.exitCode = compilationExitCode;
+			process.exitCode = exitCode;
 		});
 		return;
 	}
 
+	const runServer = Effect.gen(function* () {
+		const fs = yield* FileSystem.FileSystem;
+		while (true) {
+			const result = yield* Effect.raceFirst(
+				runCommand([process.execPath, "run", "--watch", "src/main.ts"]).pipe(
+					Effect.map((exitCode) => ({ exitCode, restart: false as const })),
+				),
+				fs
+					.watch("plugins")
+					.pipe(
+						Stream.debounce("500 millis"),
+						Stream.runHead,
+						Effect.as({ restart: true as const }),
+					),
+			);
+			if (!result.restart) {
+				return result.exitCode;
+			}
+		}
+	});
+
 	const exitCode = yield* Effect.raceFirst(
 		runCommand(developmentCommands[0]),
-		runCommand(developmentCommands[1]),
+		Effect.raceFirst(runCommand(developmentCommands[1]), runServer),
 	);
 	yield* Effect.sync(() => {
 		process.exitCode = exitCode;

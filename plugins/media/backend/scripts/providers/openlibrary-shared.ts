@@ -1,7 +1,7 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import { Effect } from "@ryot/sandbox-sdk/effect";
 
-import { asRecord, parseJsonResponse } from "../script-helpers/records";
+import { asRecord, parseJsonResponse } from "../../shared/records";
 
 export type OpenLibraryHost = SandboxHost<readonly ["httpCall"]>;
 

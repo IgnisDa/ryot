@@ -2,9 +2,9 @@ import { defineManifest } from "@ryot/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 import { defineProvider } from "@ryot/sandbox-sdk/provider";
 
-import { getUserAllowNsfw } from "../../../script-helpers/host";
-import { parsePublishYear } from "../../../script-helpers/parse-publish-year";
-import { numberValue, recordsValue, stringValue } from "../../../script-helpers/records";
+import { getUserAllowNsfw } from "../../../../shared/host";
+import { parsePublishYear } from "../../../../shared/parse-publish-year";
+import { numberValue, recordsValue, stringValue } from "../../../../shared/records";
 import {
 	fetchTrendingItems,
 	getImageUrl,

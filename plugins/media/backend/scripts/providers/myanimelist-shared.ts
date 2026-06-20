@@ -6,8 +6,8 @@ import type {
 	ProviderSearchResult,
 } from "@ryot/sandbox-sdk/provider";
 
-import { getUserAllowNsfw } from "../script-helpers/host";
-import { asRecord, numberValue, parseJsonResponse, stringValue } from "../script-helpers/records";
+import { getUserAllowNsfw } from "../../shared/host";
+import { asRecord, numberValue, parseJsonResponse, stringValue } from "../../shared/records";
 
 export type MyAnimeListHost = SandboxHost<
 	readonly ["httpCall", "getPluginConfig", "getUserPreferences"]

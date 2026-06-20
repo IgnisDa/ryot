@@ -7,7 +7,7 @@ import {
 	parseJsonResponse,
 	stringValue,
 	type UnknownRecord,
-} from "../script-helpers/records";
+} from "../../shared/records";
 
 export type GiantBombHost = SandboxHost<readonly ["httpCall", "getPluginConfig"]>;
 
