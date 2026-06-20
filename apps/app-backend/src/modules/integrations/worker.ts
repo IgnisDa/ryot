@@ -115,10 +115,11 @@ export const runYoutubeMusicHistorySandbox = (input: {
 	context: { authCookie: string; timezone: string };
 }) =>
 	DurableQueue.process(SandboxExecutionQueue, {
-		driverName: "history",
 		userId: input.userId,
+		driverName: "history",
 		context: input.context,
 		scriptId: input.scriptId,
+		executionKind: "provider",
 		executionId: input.executionId,
 	});
 

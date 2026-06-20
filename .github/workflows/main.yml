@@ -158,14 +158,14 @@ jobs:
           targets: ${{ matrix.platform.target }}
       - uses: Swatinem/rust-cache@42c55942cfd355e94e6864616f4dbb3392bd2789
         with:
-          key: ${{ matrix.platform.target }}-${{ steps.build.outputs.profile }}
+          key: ${{ matrix.platform.target }}-release-${{ hashFiles('Cross.toml', 'ci/cross-pre-build.sh') }}
           save-if: ${{ github.event_name != 'pull_request' }}
       - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
           path: target
-          key: cargo-build-${{ runner.os }}-${{ matrix.platform.target }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
+          key: cargo-build-${{ runner.os }}-${{ matrix.platform.target }}-${{ hashFiles('rust-toolchain.toml', 'Cross.toml', 'ci/cross-pre-build.sh') }}-${{ hashFiles('Cargo.lock') }}
           restore-keys: |
-            cargo-build-${{ runner.os }}-${{ matrix.platform.target }}-
+            cargo-build-${{ runner.os }}-${{ matrix.platform.target }}-${{ hashFiles('rust-toolchain.toml', 'Cross.toml', 'ci/cross-pre-build.sh') }}-
       - name: Install cross
         uses: taiki-e/cache-cargo-install-action@b8c5be6c3fb064f797977463ac00b01844751632
         with:

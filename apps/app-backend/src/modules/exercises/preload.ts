@@ -10,6 +10,7 @@ import { CurrentDb, DbRunner, dbEffect } from "#lib/infrastructure/db/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { decodeEntitySearchResult } from "#modules/entity-import/population";
 import { ProviderEntityPopulationWorkflow } from "#modules/entity-import/provider-entity-population-workflow";
+import { resolveProviderSandboxArtifact } from "#modules/sandbox/provider-artifacts";
 import { SandboxRepository } from "#modules/sandbox/repository";
 import { RunSandboxWorkflow } from "#modules/sandbox/sandbox-run-workflow";
 
@@ -117,11 +118,21 @@ export const BuiltinEntityPreloaderLive = Layer.scopedDiscard(
 						userId: null,
 						scriptId: script.id,
 						driverName: "search",
+						executionKind: "provider",
 						executionId: `${preloadRunId}-search-${page}`,
 						context: { query: "", page, pageSize: builtinExercisePageSize },
 					},
 				})
 				.pipe(
+					Effect.flatMap((result) =>
+						resolveProviderSandboxArtifact({
+							executionId: `${preloadRunId}-search-${page}`,
+							result,
+						}).pipe(
+							Effect.provideService(DbRunner, runWithDb),
+							Effect.provideService(SandboxRepository, sandboxRepository),
+						),
+					),
 					Effect.flatMap((result) =>
 						result.error
 							? Effect.logError(
@@ -143,6 +154,7 @@ export const BuiltinEntityPreloaderLive = Layer.scopedDiscard(
 						externalId,
 						userId: null,
 						mode: "ensure",
+						origin: { kind: "import" },
 						scriptId: preloadTarget.sandboxScriptId,
 						entitySchemaId: preloadTarget.entitySchemaId,
 						executionId: `builtin-exercise-${externalId}`,
