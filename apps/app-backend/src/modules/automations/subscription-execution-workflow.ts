@@ -27,7 +27,7 @@ export const SubscriptionExecutionWorkflowError = Schema.Union(
 	SandboxRunError,
 );
 
-const AutomationProperties = Schema.Record({
+export const AutomationProperties = Schema.Record({
 	key: Schema.String,
 	value: AutomationRuleMetadata,
 });
