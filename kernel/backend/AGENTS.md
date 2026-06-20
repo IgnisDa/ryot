@@ -41,7 +41,6 @@
 - Child workflow `executionId` values must be deterministic and derived from the parent; random IDs can spawn children on every replay.
 - Durable owners must be idempotent because ownership does not guarantee single-flight execution.
 - Do not introduce a third-party job-queue library. Background work uses the durable workflow engine, durable queues, and durable deferred signals.
-- See `docs/effect-workflow-guide.md` for mechanics and ownership details.
 
 ## Shared Infrastructure
 
