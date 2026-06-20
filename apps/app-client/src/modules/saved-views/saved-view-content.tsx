@@ -1,6 +1,6 @@
 import type { SavedViewRecord } from "@ryot/ryotql-recipes/saved-view-records";
 import clsx from "clsx";
-import { Platform, Text, View } from "react-native";
+import { Platform, Pressable, Text, View } from "react-native";
 
 import { AppIcon } from "@/modules/icons";
 
@@ -38,6 +38,58 @@ function SavedViewItems(props: SavedViewActiveData & { managedUrls: ReadonlyMap<
 		return <SavedViewList items={props.data.items} managedUrls={props.managedUrls} />;
 	}
 	return <SavedViewTable items={props.data.items} managedUrls={props.managedUrls} />;
+}
+
+function SavedViewWebActions(props: {
+	userId: string;
+	viewName: string;
+	viewSlug: string;
+	serverUrl: string;
+}) {
+	return (
+		<View className="hidden flex-row items-center gap-2.5 md:flex">
+			<Pressable
+				onPress={() => undefined}
+				accessibilityRole="button"
+				accessibilityLabel={`Search ${props.viewName}`}
+				className="h-8.5 w-60 flex-row items-center gap-2 rounded-md border border-border-strong bg-bg px-2.5"
+			>
+				<AppIcon className="text-text-muted" name="search" size={15} />
+				<Text numberOfLines={1} className="min-w-0 flex-1 font-ui text-[13px] text-text-muted">
+					Search {props.viewName}
+				</Text>
+				<View className="rounded-md border border-border bg-surface-2 px-1.5 py-0.5">
+					<Text className="font-mono text-[11px] text-text-subtle">/</Text>
+				</View>
+			</Pressable>
+			<SavedViewLayoutSelector
+				userId={props.userId}
+				viewSlug={props.viewSlug}
+				serverUrl={props.serverUrl}
+			/>
+			<Pressable
+				onPress={() => undefined}
+				accessibilityRole="button"
+				accessibilityLabel="Open filters"
+				className="h-8.5 flex-row items-center gap-2 rounded-md border border-border-strong bg-bg px-3"
+			>
+				<AppIcon className="text-text-muted" name="sliders-horizontal" size={15} />
+				<Text className="font-ui text-[13px] text-text">Filters</Text>
+				<View className="rounded-pill bg-accent-soft px-1.5 py-px">
+					<Text className="font-ui text-[11px] text-accent-text">3</Text>
+				</View>
+			</Pressable>
+			<Pressable
+				onPress={() => undefined}
+				accessibilityRole="button"
+				accessibilityLabel="Add to this view"
+				className="h-8.5 flex-row items-center gap-2 rounded-md bg-accent px-3.5"
+			>
+				<AppIcon className="text-accent-ink" name="plus" size={15} />
+				<Text className="font-ui-semibold text-[13px] text-accent-ink">Add</Text>
+			</Pressable>
+		</View>
+	);
 }
 
 function SavedViewDisplay(
@@ -82,9 +134,10 @@ function SavedViewDisplay(
 							{savedViewResultCount(items.length, pageInfo.hasMore)}
 						</Text>
 					</View>
-					<SavedViewLayoutSelector
+					<SavedViewWebActions
 						userId={props.userId}
 						serverUrl={props.serverUrl}
+						viewName={props.record.name}
 						viewSlug={props.record.slug}
 					/>
 				</View>
