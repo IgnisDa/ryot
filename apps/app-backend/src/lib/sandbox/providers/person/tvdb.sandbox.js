@@ -92,7 +92,7 @@ function getString(value) {
 
 function getNullableString(value) {
 	const parsed = getString(value);
-	return parsed ? parsed : null;
+	return parsed.length > 0 ? parsed : null;
 }
 
 function getCanonicalLanguage(metadata) {
