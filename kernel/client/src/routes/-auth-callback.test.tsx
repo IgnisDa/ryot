@@ -27,6 +27,7 @@ import {
 	makeOAuthRouteStubs,
 	NavigationRouteStubs,
 	ProviderAddRouteStubs,
+	ImportsRouteStubs,
 	IntegrationRouteStubs,
 } from "#/routes/-route-fixtures";
 
@@ -70,6 +71,7 @@ const mountCallback = (
 	const runtime = ManagedRuntime.make(
 		Layer.mergeAll(
 			ProviderAddRouteStubs,
+			ImportsRouteStubs,
 			IntegrationRouteStubs,
 			makeAuthStub(),
 			GodModeRouteStubs,

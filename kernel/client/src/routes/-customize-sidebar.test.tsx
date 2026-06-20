@@ -26,6 +26,7 @@ import {
 	SavedViewRouteStubs,
 	NavigationRouteStubs,
 	ProviderAddRouteStubs,
+	ImportsRouteStubs,
 	IntegrationRouteStubs,
 } from "#/routes/-route-fixtures";
 
@@ -36,6 +37,7 @@ const mountView = (initialEntry: string, saves: SavedPlan[] = []) => {
 	const runtime = ManagedRuntime.make(
 		Layer.mergeAll(
 			ProviderAddRouteStubs,
+			ImportsRouteStubs,
 			IntegrationRouteStubs,
 			makeAuthStub(),
 			GodModeRouteStubs,

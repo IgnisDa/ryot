@@ -1,6 +1,7 @@
 import { Effect, Layer } from "effect";
 
 import { GodModeApi } from "#/api/god-mode";
+import { ImportsApi } from "#/api/imports";
 import { IntegrationsApi } from "#/api/integrations";
 import { PluginsApi } from "#/api/plugins";
 import { ProviderEntitiesApi } from "#/api/provider-entities";
@@ -43,6 +44,14 @@ export const makeProviderEntitiesApi = (overrides: Partial<ProviderEntitiesApi["
 		...overrides,
 	});
 
+export const makeImportsApi = (overrides: Partial<ImportsApi["Service"]> = {}) =>
+	Layer.succeed(ImportsApi, {
+		createRun: unused,
+		deleteRun: unused,
+		listSources: unused,
+		...overrides,
+	});
+
 export const makeIntegrationsApi = (overrides: Partial<IntegrationsApi["Service"]> = {}) =>
 	Layer.succeed(IntegrationsApi, {
 		get: unused,
@@ -76,6 +85,7 @@ export const makeGodModeApi = (overrides: Partial<GodModeApi["Service"]> = {}) =
 
 export const KernelApiTestLayer = Layer.mergeAll(
 	makeRyotQLApi(),
+	makeImportsApi(),
 	makeUploadsApi(),
 	makePluginsApi(),
 	makeSavedViewsApi(),
