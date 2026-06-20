@@ -18,7 +18,7 @@ Accepts a `QueryDocument` (a JSON-serializable, source-based query language), va
 - **executor/{aggregate,rows,time-series}.ts**: Per-output executors — build one SQL query, run it, and marshal the result.
 - **executor/reconstruct.ts** and **executor/reshape.ts**: Map raw DB values into the `{ kind, value }` DTO (`reconstruct.ts`) and include jsonb arrays into `IncludedRowsValue` trees (`reshape.ts`). Must not construct SQL.
 - **executor/schema-loaders.ts**: Visible schema loading with user isolation. Shared by `references.ts` and the executor — every source path must go through it.
-- **time-series-buckets.ts**: Bucket alignment shared by validator and executor. Pure, no DB.
+- **time-series-buckets.ts**: Bucket alignment used by the validator to bound the aligned bucket count (≤1000) before execution. Pure, no DB. The executor builds the bucket grid in SQL (`generate_series`), not from this module.
 
 ## Conventions
 
