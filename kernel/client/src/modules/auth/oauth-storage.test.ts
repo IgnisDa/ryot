@@ -2,6 +2,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { OAUTH_WEB_CLIENT_ID } from "@ryot/contract/oauth";
 import { Effect } from "effect";
 
+import { decodeServerOrigin } from "#/api/origin";
 import {
 	OAuthStorage,
 	OAuthStorageError,
@@ -10,6 +11,9 @@ import {
 	oauthTokenKey,
 	type OAuthStorageAdapter,
 } from "#/modules/auth/oauth-storage";
+
+const origin = decodeServerOrigin("https://ryot.example");
+const equivalentOrigin = decodeServerOrigin("https://ryot.example/");
 
 const makeStorage = (overrides: Partial<OAuthStorageAdapter> = {}) => {
 	const values = new Map<string, string>();
@@ -47,17 +51,17 @@ describe("OAuth storage", () => {
 				accessTokenExpiresAt: 123,
 			};
 			yield* service.setPending(pending);
-			yield* service.setTokenSet("https://ryot.example/", tokens);
+			yield* service.setTokenSet(equivalentOrigin, tokens);
 
-			expect(yield* service.getTokenSet("https://ryot.example")).toEqual(tokens);
-			expect(yield* service.takePending("https://ryot.example/", "state")).toEqual(pending);
-			expect(yield* service.takePending("https://ryot.example", "state")).toBeNull();
+			expect(yield* service.getTokenSet(origin)).toEqual(tokens);
+			expect(yield* service.takePending(equivalentOrigin, "state")).toEqual(pending);
+			expect(yield* service.takePending(origin, "state")).toBeNull();
 		}).pipe(Effect.provide(oauthStorageLayer(storage)));
 	});
 
 	it.effect("removes malformed and expired records", () => {
 		const { storage, values } = makeStorage();
-		values.set(oauthTokenKey("https://ryot.example"), "not-json");
+		values.set(oauthTokenKey(origin), "not-json");
 		values.set(
 			oauthPendingKey("https://ryot.example", "expired"),
 			JSON.stringify({
@@ -74,8 +78,8 @@ describe("OAuth storage", () => {
 
 		return Effect.gen(function* () {
 			const service = yield* OAuthStorage;
-			expect(yield* service.getTokenSet("https://ryot.example")).toBeNull();
-			expect(yield* service.takePending("https://ryot.example", "expired")).toBeNull();
+			expect(yield* service.getTokenSet(origin)).toBeNull();
+			expect(yield* service.takePending(origin, "expired")).toBeNull();
 			expect(values.size).toBe(0);
 		}).pipe(Effect.provide(oauthStorageLayer(storage)));
 	});
@@ -84,13 +88,13 @@ describe("OAuth storage", () => {
 		const { storage, values } = makeStorage();
 		values.set(oauthPendingKey("https://ryot.example", "one"), "{}");
 		values.set(oauthPendingKey("https://other.example", "two"), "{}");
-		values.set(oauthTokenKey("https://ryot.example"), "{}");
+		values.set(oauthTokenKey(origin), "{}");
 		return Effect.gen(function* () {
 			const service = yield* OAuthStorage;
-			yield* service.clearPending("https://ryot.example");
+			yield* service.clearPending(origin);
 			expect([...values.keys()]).toEqual([
 				oauthPendingKey("https://other.example", "two"),
-				oauthTokenKey("https://ryot.example"),
+				oauthTokenKey(origin),
 			]);
 		}).pipe(Effect.provide(oauthStorageLayer(storage)));
 	});
@@ -99,12 +103,12 @@ describe("OAuth storage", () => {
 		const { storage, values } = makeStorage({
 			getItem: () => Effect.fail(new OAuthStorageError({ reason: "read-failed" })),
 		});
-		values.set(oauthTokenKey("https://ryot.example"), "{}");
+		values.set(oauthTokenKey(origin), "{}");
 		values.set(oauthPendingKey("https://ryot.example", "state"), "{}");
 		return Effect.gen(function* () {
 			const service = yield* OAuthStorage;
-			expect(yield* service.getTokenSet("https://ryot.example")).toBeNull();
-			expect(yield* service.takePending("https://ryot.example", "state")).toBeNull();
+			expect(yield* service.getTokenSet(origin)).toBeNull();
+			expect(yield* service.takePending(origin, "state")).toBeNull();
 			expect(values.size).toBe(2);
 		}).pipe(Effect.provide(oauthStorageLayer(storage)));
 	});
@@ -116,7 +120,7 @@ describe("OAuth storage", () => {
 		return Effect.gen(function* () {
 			const service = yield* OAuthStorage;
 			const failure = yield* Effect.flip(
-				service.setTokenSet("https://ryot.example", {
+				service.setTokenSet(origin, {
 					idToken: "id",
 					scope: "openid",
 					tokenType: "Bearer",
