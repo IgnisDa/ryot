@@ -20,9 +20,6 @@ const GRACE_WINDOW_MS = 3000;
 const POPULATED_NAME = "E2E Populated Studio";
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// A fake builtin provider whose `details` driver returns fixed data with no network access. The
-// entity carries this script as its provenance (sandbox_script_id), so on-interest population runs
-// this driver instead of a live provider — the dispatch/SSE machinery under test is unchanged.
 let providerScript: SeededProviderScript;
 
 describe("entity population via client-declared interest", () => {
@@ -60,12 +57,10 @@ describe("entity population via client-declared interest", () => {
 			sandboxScriptId: providerScript.scriptId,
 		});
 
-		// A bare read is side-effect-free: it dispatches nothing.
 		const fetched = await getEntity(client, seeded.id);
 		expect(fetched.id).toBe(seeded.id);
 		expect(fetched.populatedAt).toBeNull();
 
-		// Bounded grace window: without interest, nothing populates it.
 		await delay(GRACE_WINDOW_MS);
 		const afterGrace = await getGlobalEntityByProvenance(provenance);
 		expect(afterGrace.populatedAt).toBeNull();
@@ -103,8 +98,6 @@ describe("entity population via client-declared interest", () => {
 
 		const stream = await openInterestStream(auth);
 		try {
-			// Populated + no localization for a no-language reader ⇒ terminal ⇒ immediate catch-up in
-			// the declare-interest response itself (no SSE round-trip needed for already-terminal state).
 			const terminal = await stream.declareInterest([entity.id]);
 			const event = terminal.find((frame) => frame.entityId === entity.id);
 			assertPresent(event, `Expected an immediate catch-up frame for '${entity.id}'`);

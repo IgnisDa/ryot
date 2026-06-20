@@ -29,10 +29,6 @@ const byName = (result: QueryEngineRowsResponse, name: string): QueryEngineRowIt
 		`Missing localized row '${name}'`,
 	);
 
-// Two entities whose canonical names sort in the opposite order to their Spanish translations, so a
-// name sort/filter that operates on the localized value is distinguishable from the canonical one.
-// The Spanish overlay omits `rating`, so it also exercises the canonical-only property surviving the
-// `properties || et.properties` merge.
 const setupLocalizedItems = async () => {
 	const { client } = await createAuthenticatedClient();
 	const { schemaId, slug } = await createQueryEngineTrackerAndSchema(client, {
@@ -108,14 +104,12 @@ describe("Query engine entity localization", () => {
 
 		const alfa = byName(result, "Alfa");
 		const zeta = byName(result, "Zeta");
-		// Overlay `description` wins over canonical...
 		expect(requireQueryEngineFieldValue(alfa, "description").value).toBe(
 			"Resumen traducido de Zulu",
 		);
 		expect(requireQueryEngineFieldValue(zeta, "description").value).toBe(
 			"Resumen traducido de Alpha",
 		);
-		// ...while the canonical-only `rating` survives the properties merge.
 		expect(requireQueryEngineFieldValue(alfa, "rating").value).toBe(5);
 		expect(requireQueryEngineFieldValue(zeta, "rating").value).toBe(9);
 	});
@@ -140,7 +134,6 @@ describe("Query engine entity localization", () => {
 		);
 		expect(namesOf(matched)).toEqual(["Alfa"]);
 
-		// The canonical name "Zulu" is no longer matchable once localized.
 		const canonicalNeedle = await executeQueryEngine(
 			client,
 			buildDoc(slug, { where: containsW(systemRef("item", "name"), literalExpr("Zulu")) }),

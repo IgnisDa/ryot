@@ -15,7 +15,6 @@ const SCRIPT_SLUG = "movie.e2e-test-trending";
 const EXTERNAL_ID_ONE = "e2e-trending-1";
 const EXTERNAL_ID_TWO = "e2e-trending-2";
 
-// Returns a fixed list with no network access so the refresh is deterministic offline.
 const TRENDING_CODE = `driver("trending", async function () {
 	return { items: [
 		{ name: "E2E Trending One", externalId: "${EXTERNAL_ID_ONE}" },
