@@ -2,7 +2,7 @@
 
 ## Decision
 
-Each owning service will expose at most one write entry point for each supported CRUD verb:
+Each owning service will expose at most one canonical write entry point for each supported CRUD verb:
 
 - `create`
 - `update`
@@ -10,10 +10,15 @@ Each owning service will expose at most one write entry point for each supported
 
 - CRUD methods must remain narrow and single-purpose. Do not add mode-based or discriminated branches
   to make cloning, reordering, synchronization, merging, or bulk behavior fit into a CRUD method.
-- Read methods and orchestration methods may have other names, but they must not become alternate
-  write points for the owned table. Callers may orchestrate reads and multiple canonical CRUD calls,
-  and must own the surrounding transaction. Repository helpers may remain implementation details,
-  but callers must not use repository write helpers directly.
+- Service-level convenience and orchestration methods may have other names and remain public when they
+  delegate to canonical CRUD methods in the same service. They may validate inputs, construct CRUD
+  inputs, and orchestrate multiple canonical calls, but they must not implement independent upsert or
+  table-write behavior.
+- Callers and service-level orchestration wrappers must own the surrounding transaction for multi-write
+  operations. Repository helpers may remain implementation details, but callers and wrappers must not
+  use repository write helpers directly.
+- A convenience or orchestration wrapper is not an alternate write point when all owned-table writes
+  flow through the service's canonical CRUD methods.
 - Extend this plan one service at a time.
 
 ## Notifications Service
@@ -109,7 +114,8 @@ transaction and then schedules default saved-view creation through a durable wor
   as part of `TrackersService` tracker CRUD.
 - [ ] Keep entity-schema creation and its tracker link atomic. The caller may coordinate the two simple
   writes inside the existing transaction.
-- [ ] Keep default saved-view creation as a post-schema workflow. It must use the normal
+- [ ] Keep default saved-view creation as a post-schema workflow. Its
+  `SavedViewsService.createDefaultForSchema` convenience wrapper must delegate to the normal
   `SavedViewsService.create` path and preserve the current conflict-as-no-op behavior.
 - [ ] Keep read-only repository access from import and query workflows as an implementation detail;
   direct writes must use the owning service.
@@ -145,15 +151,18 @@ also exposed as API routes, and the default-view operation is used by a durable 
 
 ### Checklist
 
-- [ ] Keep `create` as the single saved-view creation entry point for one view at a time. Clone and
-  default-view callers must construct a normal create input before invoking it.
-- [ ] Keep `update` as the single saved-view update entry point for one view at a time. Reordering
-  must be performed by the caller: read the current order, calculate the new order, and invoke
-  `update` for the affected views inside a transaction. The caller must retain validation of duplicate,
-  unknown, and tracker-scoped view slugs.
+- [ ] Keep `create` as the single canonical saved-view creation entry point for one view at a time.
+  The `clone` and `createDefaultForSchema` convenience wrappers must construct normal create inputs
+  before invoking it.
+- [ ] Keep `update` as the single canonical saved-view update entry point for one view at a time.
+  The `reorder` convenience wrapper must read the current order, calculate the new order, retain
+  validation of duplicate, unknown, and tracker-scoped view slugs, and invoke `update` for the affected
+  views inside a transaction.
 - [ ] Keep `delete` as the single saved-view deletion entry point.
-- [ ] Do not retain `clone`, `reorder`, and `createDefaultForSchema` as public service write methods.
-  Their API route and worker concepts may remain, but they must delegate to `create` or `update`.
+- [ ] Keep `clone`, `reorder`, and `createDefaultForSchema` as public service convenience wrappers,
+  not independent write methods. `clone` and `createDefaultForSchema` must delegate to `create`, and
+  `reorder` must delegate to `update` for each affected view. Their API route and worker concepts may
+  remain and must invoke these service wrappers.
 - [ ] Preserve built-in-view mutation protections. Clones must remain user-owned, and default-view
   creation must preserve its current conflict-as-no-op worker behavior.
 - [ ] Preserve creation and update sort-order placement, including placing clones and newly
@@ -171,9 +180,9 @@ sort order of multiple trackers inside a transaction.
 - [ ] Keep `create` as the single tracker creation entry point for one tracker.
 - [ ] Keep `update` as the single tracker update entry point for one tracker. It must not gain a
   reorder mode or batch input.
-- [ ] Do not retain `reorder` as a public service write method. Its API route may remain, but the
-  caller must read the current order, calculate the new order, and invoke `update` for the affected
-  trackers inside a transaction.
+- [ ] Keep `reorder` as a public service convenience wrapper over `update`. It must read the current
+  order, calculate the new order, and invoke `update` for the affected trackers inside a transaction.
+  Its API route may remain and must invoke the service wrapper.
 - [ ] Preserve tracker reordering validation for empty, duplicate, and unknown tracker ids, as well
   as the existing ordering algorithm.
 - [ ] Do not add `delete` because tracker deletion is not currently supported.
@@ -292,17 +301,17 @@ separate `import_run_failure` table is also written directly through `ImportsRep
 
 ### Checklist
 
-- [ ] Keep `create` as the single `import_run` creation entry point for one run at a time. File
-  claiming, source-payload storage, queueing, and failure compensation remain caller/workflow
-  orchestration and must not become creation modes.
-- [ ] Keep `update` as the single `import_run` update entry point for one run at a time. Status,
-  progress, finalization, and failure callers must use it without adding methods such as `markStarted`,
-  `fail`, or `updateProgress`.
-- [ ] Keep `delete` as the single `import_run` deletion entry point for one run at a time. The caller
-  must retain the existing terminal-status check before invoking it; `removeImportRun` must not remain
-  a second write path.
-- [ ] Make `createRunForIntegration` and other run-start helpers delegate to `create` rather than
-  writing through the repository.
+- [ ] Keep `create` as the single canonical `import_run` creation entry point for one run at a time.
+  File claiming, source-payload storage, queueing, and failure compensation remain orchestration in
+  `startImportRun`, `createRunForIntegration`, and related helpers; those helpers must delegate to
+  `create` rather than implement creation modes.
+- [ ] Keep `update` as the single canonical `import_run` update entry point for one run at a time.
+  Status, progress, finalization, and failure helpers may remain service-level wrappers, but they must
+  delegate to `update` without adding independent write methods such as `markStarted`, `fail`, or
+  `updateProgress`.
+- [ ] Keep `delete` as the single canonical `import_run` deletion entry point for one run at a time.
+  `removeImportRun` may remain as a convenience wrapper that retains the existing terminal-status
+  check before delegating to `delete`; it must not implement a second write path.
 - [ ] Give `import_run_failure` an explicit owning service with its own narrow `create` entry point.
   Failure creation must not be folded into `import_run` CRUD.
 - [ ] Stop all import workflows and status helpers from using repository write helpers directly while
