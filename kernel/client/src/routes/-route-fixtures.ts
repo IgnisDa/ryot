@@ -72,18 +72,24 @@ export const ServerStub = Layer.succeed(ServerService, {
 	selected: Effect.succeed(server),
 });
 
-export const makeOAuthRouteStubs = (tokenOverrides: Partial<OAuthTokenService["Service"]> = {}) =>
+export const makeOAuthRouteStubs = (
+	tokenOverrides: Partial<OAuthTokenService["Service"]> = {},
+	hostedOverrides: Partial<HostedAuthService["Service"]> = {},
+) =>
 	Layer.mergeAll(
 		Layer.succeed(HostedAuthService, {
 			signInWithOidc: () => Effect.void,
 			verifyTwoFactor: () => Effect.void,
 			submitCredentials: () => Effect.succeed({ _tag: "Authenticated" } as const),
+			...hostedOverrides,
 		}),
 		Layer.succeed(OAuthStorage, {
 			setPending: () => Effect.void,
 			setTokenSet: () => Effect.void,
 			clearPending: () => Effect.void,
+			removePending: () => Effect.void,
 			removeTokenSet: () => Effect.void,
+			getPending: () => Effect.succeed(null),
 			takePending: () => Effect.succeed(null),
 			getTokenSet: () => Effect.succeed(null),
 		}),
