@@ -7,7 +7,7 @@ import { postBackendJson } from "./contract-client";
 
 type DeclareInterestPayload = ContractPayload<"entity-interest", "declareInterest">;
 type DeclareInterestResponse = ContractSuccess<"entity-interest", "declareInterest">;
-export type EntityUpdatedFrame = DeclareInterestResponse["terminal"][number];
+type EntityUpdatedFrame = DeclareInterestResponse["terminal"][number];
 
 type WaitOptions = { timeoutMs?: number };
 
@@ -44,9 +44,10 @@ const parseEventBlock = (block: string): ParsedEvent => {
 	return { event, data };
 };
 
-export type InterestStream = {
+type InterestStream = {
 	close: () => void;
 	readonly streamId: string;
+	getEntityUpdatedFrames: () => readonly EntityUpdatedFrame[];
 	declareInterest: (
 		entityIds: DeclareInterestPayload["entityIds"],
 	) => Promise<DeclareInterestResponse["terminal"]>;
@@ -213,6 +214,7 @@ export async function openInterestStream(
 		waitForEntityUpdated,
 		expectNoEntityUpdated,
 		close: () => controller.abort(),
+		getEntityUpdatedFrames: () => frames.slice(),
 	};
 }
 

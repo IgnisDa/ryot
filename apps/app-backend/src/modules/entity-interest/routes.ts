@@ -4,8 +4,9 @@ import { dieOnDbError } from "@ryot/contract/errors";
 import { Effect } from "effect";
 import { HttpApiBuilder } from "effect/unstable/httpapi";
 
-import { StreamRegistry } from "./registry";
+import { LocalStreamConnections } from "./connections";
 import { InterestService } from "./service";
+import { EntityInterestStore } from "./store";
 import { buildInterestStreamResponse } from "./stream";
 
 export const InterestRoutesLive = HttpApiBuilder.group(AppContract, "entity-interest", (handlers) =>
@@ -13,8 +14,9 @@ export const InterestRoutesLive = HttpApiBuilder.group(AppContract, "entity-inte
 		.handleRaw("stream", ({ query }) =>
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;
-				const registry = yield* StreamRegistry;
-				return buildInterestStreamResponse(query.streamId, user.id, registry);
+				const store = yield* EntityInterestStore;
+				const connections = yield* LocalStreamConnections;
+				return buildInterestStreamResponse(query.streamId, user, connections, store);
 			}),
 		)
 		.handle("declareInterest", ({ payload }) =>

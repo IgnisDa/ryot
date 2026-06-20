@@ -19,6 +19,7 @@
 		"@expo/material-symbols": "^0.1.1",
 		"@expo/ui": "~57.0.9",
 		"@ryot/contract": "workspace:*",
+		"@ryot/ryotql": "workspace:*",
 		"@ryot/ryotql-recipes": "workspace:*",
 		"@ryot/ts-utils": "workspace:*",
 		"@tailwindcss/postcss": "^4.1.13",

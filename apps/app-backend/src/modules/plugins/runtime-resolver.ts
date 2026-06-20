@@ -428,6 +428,11 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 						: null;
 				},
 			);
+			const findActiveProviderById = Effect.fn("PluginRuntimeResolver.findActiveProviderById")(
+				function* (providerId: SandboxProviderId) {
+					return yield* findActiveProviderByIdInSnapshot(loader.getSnapshot(), providerId);
+				},
+			);
 			const findAuthorizedSchemaProviderById = Effect.fn(
 				"PluginRuntimeResolver.findAuthorizedSchemaProviderById",
 			)(function* (input: {
@@ -688,6 +693,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				findActiveScriptById,
 				resolveDetailsScript,
 				resolveResolveScript,
+				findActiveProviderById,
 				resolveTranslateScript,
 				resolveActivePluginBoot,
 				resolveActivePluginCron,

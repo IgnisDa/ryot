@@ -43,8 +43,12 @@ import { EntityImportWorkflowOperationsLive } from "#modules/entity-import/opera
 import { EntityPopulationTriggerLive } from "#modules/entity-import/population-trigger-live";
 import { ProviderEntityPopulationWorkflowDefinitionsLive } from "#modules/entity-import/provider-entity-population-workflow";
 import { EntityImportService } from "#modules/entity-import/service";
-import { StreamRegistry } from "#modules/entity-interest/registry";
-import { InterestReconciler, InterestService } from "#modules/entity-interest/service";
+import { LocalStreamConnections } from "#modules/entity-interest/connections";
+import { EntityInterestProgression } from "#modules/entity-interest/progression";
+import { InterestReconciler } from "#modules/entity-interest/reconciler";
+import { InterestService } from "#modules/entity-interest/service";
+import { EntityInterestStore } from "#modules/entity-interest/store";
+import { EntityInterestSubscriber } from "#modules/entity-interest/subscriber";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 import { TranslateEntityWorkflowDefinitionsLive } from "#modules/entity-translation/entity-translation-workflow-live";
 import { TranslateEntityWorkflowOperationsLive } from "#modules/entity-translation/operations-workflow";
@@ -254,8 +258,30 @@ const InterestReconcilerLive = InterestReconciler.layer.pipe(
 	Layer.provide([RyotQLServiceLive, EntityPopulationTriggerLive, TranslationsService.layer]),
 );
 
-const InterestServicesLive = InterestService.layer.pipe(
-	Layer.provideMerge(Layer.mergeAll(StreamRegistry.layer, InterestReconcilerLive)),
+const EntityInterestStateLive = Layer.mergeAll(
+	EntityInterestStore.layer,
+	LocalStreamConnections.layer,
+);
+const EntityInterestProgressionLive = EntityInterestProgression.layer.pipe(
+	Layer.provide([
+		EntityInterestStateLive,
+		EntitiesServiceLive,
+		PluginRuntimeResolverLive,
+		TranslationsService.layer,
+	]),
+);
+const EntityInterestSubscriberLive = EntityInterestSubscriber.layer.pipe(
+	Layer.provide([EntityInterestStateLive, EntityInterestProgressionLive]),
+);
+const InterestServiceLive = InterestService.layer.pipe(
+	Layer.provide([EntityInterestStateLive, InterestReconcilerLive]),
+);
+const InterestServicesLive = Layer.mergeAll(
+	EntityInterestStateLive,
+	InterestReconcilerLive,
+	InterestServiceLive,
+	EntityInterestProgressionLive,
+	EntityInterestSubscriberLive,
 );
 const EventsServiceLive = EventsService.layer;
 const SignalDispatchServiceLive = SignalDispatchLive.pipe(Layer.provide(AutomationsService.layer));
