@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import type { QueryDocument } from "./language";
-import { validateQueryDocument } from "./validator";
 import { makeDoc, nameRef, propertyRef } from "./validator.test-support";
+import { validateQueryDocument } from "./validator/document";
 
 describe("alias registration", () => {
 	it("accepts a unique alias", () => {

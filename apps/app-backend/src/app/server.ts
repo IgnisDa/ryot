@@ -5,7 +5,7 @@ import { Effect, Layer, Runtime } from "effect";
 import type * as LayerTypes from "effect/Layer";
 
 import { AdminMiddlewareLive, AuthMiddlewareLive, AuthService } from "#lib/auth";
-import { AppConfig } from "#lib/config";
+import { AppConfig } from "#lib/config/service";
 import { AppContract } from "#lib/contract";
 import { BadRequest } from "#lib/errors";
 import { CollectionsRoutesLive } from "#modules/collections/routes";

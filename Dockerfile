@@ -32,8 +32,8 @@ COPY --chown=ryot:ryot apps/app-backend/src/drizzle ./src/drizzle
 COPY --from=builder --chown=ryot:ryot /app/apps/app-backend/dist ./dist
 COPY --from=builder --chown=ryot:ryot /app/apps/app-client/dist ./client
 # Pre-populate the Deno package cache at build time so startup requires no network access.
-RUN POPULATE_SANDBOX_CACHE_ONLY=true bun run dist/index.js && \
+RUN POPULATE_SANDBOX_CACHE_ONLY=true bun run dist/main.js && \
     chown -R ryot:ryot /home/ryot/tmp
 USER ryot
 ENV NODE_ENV=production
-CMD ["bun", "run", "dist/index.js"]
+CMD ["bun", "run", "dist/main.js"]

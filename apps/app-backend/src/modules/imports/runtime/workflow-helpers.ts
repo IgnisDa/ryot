@@ -2,7 +2,7 @@ import { FileSystem } from "@effect/platform";
 import { Activity } from "@effect/workflow";
 import { Effect, Schema } from "effect";
 
-import { AppConfig } from "#lib/config";
+import { AppConfig } from "#lib/config/service";
 import { unknownToMessage } from "#lib/errors";
 import { RedisService } from "#lib/redis";
 

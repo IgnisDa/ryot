@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import type { EntitySource, IncludeEntry, NestedEventSource } from "./language";
-import { validateQueryDocument } from "./validator";
 import { makeDoc, nameRef, occurredAtRef, propertyRef } from "./validator.test-support";
+import { validateQueryDocument } from "./validator/document";
 
 const moduleSource: EntitySource = {
 	where: null,

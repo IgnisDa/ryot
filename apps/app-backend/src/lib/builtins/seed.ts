@@ -2,8 +2,8 @@ import { generateId } from "better-auth";
 import { and, eq, isNull, notInArray, sql } from "drizzle-orm";
 import { Effect } from "effect";
 
-import { CurrentDb, dbEffect, TransactionRunner } from "#lib/db";
-import * as schema from "#lib/db/schema/tables";
+import * as schema from "#lib/db/schema/tables/combined";
+import { CurrentDb, dbEffect, TransactionRunner } from "#lib/db/service";
 import type { AppSchema } from "#lib/schema/property-schema";
 
 import { builtinEntitySchemas } from "./entity-schemas";

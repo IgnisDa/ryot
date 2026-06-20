@@ -3,7 +3,7 @@ import { Effect } from "effect";
 
 import { CurrentUser } from "#lib/auth-middleware";
 import { AppContract } from "#lib/contract";
-import { DbRunner } from "#lib/db";
+import { DbRunner } from "#lib/db/service";
 import { badRequest, dieOnDbError, notFound } from "#lib/errors";
 import type { EntitySchemaId } from "#lib/schema/brands";
 import { EntitiesRepository } from "#modules/entities/repository";

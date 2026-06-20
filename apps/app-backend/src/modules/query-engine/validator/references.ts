@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 
-import type { CurrentDb } from "#lib/db";
+import type { CurrentDb } from "#lib/db/service";
 import type { DbError, NotFound } from "#lib/errors";
 
 import {

@@ -1,26 +1,25 @@
 {
 	"name": "@ryot/app-backend",
-	"main": "src/index.ts",
+	"main": "src/main.ts",
 	"imports": {
 		"#*": [
-			"./src/*.ts",
-			"./src/*/index.ts"
+			"./src/*.ts"
 		]
 	},
 	"exports": {
-		".": "./src/index.ts",
+		".": "./src/main.ts",
 		"./contract": "./src/lib/contract.ts",
 		"./schema/*": "./src/lib/schema/*.ts",
 		"./display-configuration": "./src/lib/display-configuration.ts"
 	},
 	"scripts": {
-		"dev": "bun run --watch src/index.ts",
+		"dev": "bun run --watch src/main.ts",
 		"db:generate": "bun --bun drizzle-kit generate",
 		"test": "bun --bun run vitest run --config vitest.config.ts",
 		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix",
-		"run-migration": "RUN_LEGACY_BOOTSTRAP_ONLY=true bun run src/index.ts",
-		"build": "bun build src/index.ts --outdir dist --target bun --sourcemap",
-		"populate-sandbox-cache": "POPULATE_SANDBOX_CACHE_ONLY=true bun run src/index.ts"
+		"run-migration": "RUN_LEGACY_BOOTSTRAP_ONLY=true bun run src/main.ts",
+		"build": "bun build src/main.ts --outdir dist --target bun --sourcemap",
+		"populate-sandbox-cache": "POPULATE_SANDBOX_CACHE_ONLY=true bun run src/main.ts"
 	},
 	"dependencies": {
 		"@better-auth/api-key": "1.6.15",

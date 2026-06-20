@@ -1,7 +1,7 @@
 import { Effect } from "effect";
 
 import type { CurrentUserValue } from "#lib/auth-middleware";
-import { DbRunner, TransactionRunner, setLocalStatementTimeout } from "#lib/db";
+import { DbRunner, TransactionRunner, setLocalStatementTimeout } from "#lib/db/service";
 import { BadRequest, DbError, NotFound, dieOnDbError } from "#lib/errors";
 
 import { executeAggregateQuery } from "./executor/aggregate";
@@ -13,7 +13,7 @@ import type {
 	TimeSeriesQueryDocument,
 } from "./executor/types";
 import type { QueryDocument } from "./language";
-import { validateQueryDocument, validateQueryDocumentWithScope } from "./validator";
+import { validateQueryDocument, validateQueryDocumentWithScope } from "./validator/document";
 import { validateQueryDocumentReferencesAndTypes } from "./validator/references";
 import { validateQueryDocumentTypeCompatibility } from "./validator/type-check";
 

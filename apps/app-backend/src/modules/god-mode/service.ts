@@ -2,8 +2,8 @@ import { DateTime, Effect, Either } from "effect";
 
 import { AuthService } from "#lib/auth";
 import { defaultUserPreferences } from "#lib/builtins/bootstrap";
-import { AppConfig } from "#lib/config";
-import { DbRunner } from "#lib/db";
+import { AppConfig } from "#lib/config/service";
+import { DbRunner } from "#lib/db/service";
 import { badRequest, internalError } from "#lib/errors";
 import { redisKeys, RedisService } from "#lib/redis";
 import { UserId } from "#lib/schema/brands";

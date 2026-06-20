@@ -2,7 +2,7 @@ import { Effect } from "effect";
 
 import type { CurrentUserValue } from "#lib/auth-middleware";
 import { buildDefaultQueryDocument, buildDisplayConfig } from "#lib/builtins/view-helpers";
-import { DbRunner, TransactionRunner } from "#lib/db";
+import { DbRunner, TransactionRunner } from "#lib/db/service";
 import { badRequest, conflict, notFound } from "#lib/errors";
 import { buildReorderedIds } from "#lib/reorder";
 import type { TrackerId, UserId } from "#lib/schema/brands";

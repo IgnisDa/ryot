@@ -1,7 +1,7 @@
 import { Effect } from "effect";
 
 import type { CurrentUserValue } from "#lib/auth-middleware";
-import { DbRunner, TransactionRunner } from "#lib/db";
+import { DbRunner, TransactionRunner } from "#lib/db/service";
 import { badRequest, notFound } from "#lib/errors";
 import { EntityId } from "#lib/schema/brands";
 import { trimToNull } from "#lib/validation";

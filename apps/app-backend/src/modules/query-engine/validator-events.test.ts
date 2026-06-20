@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import type { Expr, QueryDocument } from "./language";
-import { validateQueryDocument } from "./validator";
 import {
 	descendantSource,
 	literal,
@@ -10,6 +9,7 @@ import {
 	occurredAtRef,
 	propertyRef,
 } from "./validator.test-support";
+import { validateQueryDocument } from "./validator/document";
 
 const makeEventDoc = (overrides: Partial<QueryDocument> = {}): QueryDocument => ({
 	source: {
