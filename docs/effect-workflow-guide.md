@@ -510,9 +510,9 @@ inside an `Activity.make` body has been refactored so the dispatch now happens f
 - Integration reconciliation runs dispatch `ProcessIntegrationRunWorkflow` from
   `IntegrationReconciliationWorkflow`'s body, replacing the reconciliation activity that dispatched
   them transitively (`integrations/reconciliation-workflow.ts:37-46`).
-- Media monitoring dispatches `NotificationDeliveryWorkflow` from
-  `MediaMonitoringRefreshWorkflow`'s body, replacing an activity that wrapped
-  `NotificationsService.trigger` (`media-monitoring/refresh-workflow.ts:100`).
+- `MediaMonitoringRefreshWorkflow` dispatches `ProviderEntityPopulationWorkflow` from its body;
+  population then dispatches lifecycle automation subscriptions after each committed mutation
+  (`media-monitoring/refresh-workflow.ts`).
 
 `sandbox/workflow-boundaries.test.ts` pins these as source-text assertions (e.g. exactly one
 `.execute(EventCreateWorkflow, …)` and it lives in the add-to-collection workflow body, zero
@@ -660,8 +660,8 @@ above:
 - **Pre-existing owners** unchanged by this structure: `ProviderEntityPopulationWorkflow`,
   `TranslateEntityWorkflow`, `NotificationDeliveryWorkflow`, `RunSandboxWorkflow` +
   `SandboxExecutionQueue`, `CreateDefaultSavedViewWorkflow`, `ProcessImportRunWorkflow`,
-  `ProcessIntegrationRunWorkflow`, and `MediaMonitoringRefreshWorkflow` (which now dispatches
-  `NotificationDeliveryWorkflow` from its body).
+  `ProcessIntegrationRunWorkflow`, and `MediaMonitoringRefreshWorkflow` (which composes
+  `ProviderEntityPopulationWorkflow` for scheduled monitored-entity refreshes).
 
 ### Notes worth knowing
 
