@@ -326,6 +326,7 @@ export const appConfigDefinition = defineConfig(
 		frontendUrl: stringField({
 			label: "Frontend URL",
 			envKey: "FRONTEND_URL",
+			validation: { required: true },
 			defaultValue: "https://app.ryot.io",
 			description: "Public URL of the frontend application",
 		}),
