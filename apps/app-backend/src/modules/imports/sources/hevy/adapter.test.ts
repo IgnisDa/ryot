@@ -61,6 +61,19 @@ describe("adaptHevyCsv", () => {
 		expect(result.items[0]?.endedAt).toMatch(/^2026-01-01T/);
 	});
 
+	it("parses the current Hevy date format MMM D, YYYY, h:mm AM/PM", () => {
+		const csv = [
+			HEVY_HEADERS,
+			'"Leg Day","Jul 5, 2026, 10:21 AM","Jul 5, 2026, 1:04 PM",,Squat,,,1,80,5,normal,,,',
+		].join("\n");
+
+		const result = adaptHevyCsv(csv, "Etc/GMT");
+
+		expect(result.failures).toEqual([]);
+		expect(result.items[0]?.startedAt).toMatch(/^2026-07-05T10:21/);
+		expect(result.items[0]?.endedAt).toMatch(/^2026-07-05T13:04/);
+	});
+
 	it("maps set types to correct setLot values", () => {
 		const csv = [
 			HEVY_HEADERS,
