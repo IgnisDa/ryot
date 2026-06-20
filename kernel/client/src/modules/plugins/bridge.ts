@@ -13,6 +13,7 @@ import {
 	type PluginBridgeHeader,
 	type PluginBridgeNavigate,
 	type PluginBridgeTheme,
+	type PluginBridgeViewport,
 	type PluginBridgeOperationRequest,
 	type PluginBridgeOperationResult,
 	type PluginBridgeRyotQLCancel,
@@ -37,6 +38,7 @@ export type PluginBridgeNavigationState = Omit<PluginBridgeLocation, "type">;
 
 export type PluginBridgeSession = {
 	readonly close: () => void;
+	readonly sendViewport: (safeAreaTop: number) => void;
 	readonly sendTheme: (theme: PluginThemeSnapshot) => void;
 	readonly sendLocation: (navigation: PluginBridgeNavigationState) => void;
 };
@@ -51,8 +53,10 @@ type PendingRequest = {
 type PluginBridgeOptions = {
 	readonly timeoutMs?: number;
 	readonly onReady: () => void;
+	readonly safeAreaTop: number;
 	readonly artifactHash: string;
 	readonly onFailure: () => void;
+	readonly onOpenDrawer: () => void;
 	readonly theme: PluginThemeSnapshot;
 	readonly target: PluginBridgeTarget;
 	readonly onNavigateBack: () => void;
@@ -83,6 +87,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 		apiVersion: CLIENT_API_VERSION,
 		format: CLIENT_ARTIFACT_FORMAT,
 		mode: options.theme.resolvedMode,
+		safeAreaTop: options.safeAreaTop,
 		artifactHash: options.artifactHash,
 		compilerVersion: CLIENT_COMPILER_VERSION,
 		bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
@@ -90,6 +95,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 
 	let navigation = options.navigation;
 	let mode = options.theme.resolvedMode;
+	let safeAreaTop = options.safeAreaTop;
 	const channel = new MessageChannel();
 	let state: PluginBridgeState = "ready";
 	const listeners = new AbortController();
@@ -144,6 +150,17 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 			return;
 		}
 		post({ mode, type: "theme" } satisfies PluginBridgeTheme);
+	}
+
+	function sendViewport(next: number) {
+		if (safeAreaTop === next) {
+			return;
+		}
+		safeAreaTop = next;
+		if (state !== "active") {
+			return;
+		}
+		post({ safeAreaTop, type: "viewport" } satisfies PluginBridgeViewport);
 	}
 
 	function sendLocation(next: PluginBridgeNavigationState) {
@@ -263,6 +280,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 				}
 				Match.value(decoded.success).pipe(
 					Match.when({ type: "navigate-back" }, () => options.onNavigateBack()),
+					Match.when({ type: "open-drawer" }, () => options.onOpenDrawer()),
 					Match.when({ type: "header" }, (request) => options.onHeader(request)),
 					Match.when({ type: "navigate" }, (request) => options.onNavigate(request)),
 					Match.when({ type: "lifecycle-close" }, ({ reason }) => handleLifecycleClose(reason)),
@@ -289,6 +307,9 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 			if (mode !== init.mode) {
 				post({ mode, type: "theme" } satisfies PluginBridgeTheme);
 			}
+			if (safeAreaTop !== init.safeAreaTop) {
+				post({ safeAreaTop, type: "viewport" } satisfies PluginBridgeViewport);
+			}
 			options.onReady();
 		},
 		{ signal: listeners.signal },
@@ -301,5 +322,5 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 		fail(false);
 	}
 
-	return { close, sendTheme, sendLocation };
+	return { close, sendTheme, sendLocation, sendViewport };
 }

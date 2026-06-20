@@ -111,11 +111,11 @@ export const bootstrapClientPlugin = (definition: ClientPluginDefinition) => {
 
 export {
 	PluginLink,
+	usePluginTitle,
 	usePluginParams,
 	usePluginSearch,
+	useRyotSafeArea,
 	usePluginLocation,
 	type PluginHomeDefinition,
-	type PluginHeaderResolver,
-	type PluginRouteContext,
 	type PluginRouteDefinition,
 } from "./routing";

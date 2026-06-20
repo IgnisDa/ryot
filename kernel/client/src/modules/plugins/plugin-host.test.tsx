@@ -151,12 +151,18 @@ function renderHost(
 	} = {},
 ) {
 	const backs: null[] = [];
+	const drawers: null[] = [];
+	const chromeTrigger = { current: null };
 	const theme = createTheme();
 	const navigations: PluginNavigationRequest[] = [];
 	const host = (state: HostState) => (
 		<PluginHost
 			theme={theme}
+			safeAreaTop={0}
+			chromeLeading={null}
+			chromeTriggerRef={chromeTrigger}
 			navigation={navigationFor(state)}
+			onOpenDrawer={() => drawers.push(null)}
 			onNavigateBack={() => backs.push(null)}
 			onHeader={callbacks.onHeader ?? (() => undefined)}
 			installation={{ ...installation, ...state.overrides }}
@@ -216,7 +222,7 @@ function connectFrame(frame: HTMLIFrameElement) {
 	if (init === undefined || pluginPort === undefined) {
 		throw new Error("Plugin bridge did not connect");
 	}
-	const { mode: _mode, ...ready } = init;
+	const { mode: _mode, safeAreaTop: _safeAreaTop, ...ready } = init;
 	return { init, ready, messages, pluginPort };
 }
 
@@ -331,11 +337,15 @@ describe("plugin artifact session lifecycle", () => {
 			<StrictMode>
 				<PluginHost
 					theme={theme}
+					safeAreaTop={0}
 					onHeader={() => {}}
+					chromeLeading={null}
 					installation={installation}
 					onNavigate={() => undefined}
+					onOpenDrawer={() => undefined}
 					onStaleSession={() => undefined}
 					onNavigateBack={() => undefined}
+					chromeTriggerRef={{ current: null }}
 					artifactSessionScopeKey="server:user"
 					navigation={navigationFor({ location: home })}
 					onRenewArtifactSession={recorder.onRenewArtifactSession}

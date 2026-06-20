@@ -1,5 +1,6 @@
 import { usePluginParams, usePluginSearch } from "@ryot-app/client-sdk/plugin";
 import { useRyot } from "@ryot-app/client-sdk/react";
+import { PluginScreenFrame } from "@ryot-app/client-sdk/screen";
 import { Button } from "@ryot-app/client-ui-sdk";
 
 export const Details = () => {
@@ -8,12 +9,13 @@ export const Details = () => {
 	const tab = usePluginSearch().get("tab");
 
 	return (
-		<main className="flex min-h-screen w-full flex-col items-center gap-4 bg-bg p-8 text-text">
-			<h1 className="font-display text-2xl">Item details</h1>
-			<p className="text-text-muted">
-				Item {itemId}, tab {tab}.
-			</p>
-			<Button onClick={() => ryot.navigation.replace({ path: "/" })}>Back</Button>
-		</main>
+		<PluginScreenFrame title={`Item ${itemId}`} contentClassName="px-4 pb-8 md:px-0">
+			<div className="flex w-full flex-col items-center gap-4 text-text">
+				<p className="text-text-muted">
+					Item {itemId}, tab {tab}.
+				</p>
+				<Button onClick={() => ryot.navigation.replace({ path: "/" })}>Back</Button>
+			</div>
+		</PluginScreenFrame>
 	);
 };
