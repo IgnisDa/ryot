@@ -101,5 +101,10 @@ export const TestSupportRoutesLive = HttpApiBuilder.group(AppContract, "testSupp
 			Effect.gen(function* () {
 				return yield* (yield* TestSupportService).triggerInfrequentCron();
 			}),
+		)
+		.handle("listSignals", ({ payload }) =>
+			Effect.gen(function* () {
+				return yield* (yield* TestSupportService).listSignals(payload);
+			}).pipe(dieOnDbError),
 		),
 );

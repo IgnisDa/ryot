@@ -92,7 +92,11 @@ import { SavedViewsService } from "#modules/saved-views/service";
 import { FrequentCronSchedulerLive } from "#modules/scheduler/frequent-cron";
 import { InfrequentCronSchedulerLive } from "#modules/scheduler/infrequent-cron";
 import { SignalsRepository } from "#modules/signals/repository";
-import { SignalEmissionService, SignalSchemasService } from "#modules/signals/service";
+import {
+	SignalEmissionService,
+	SignalSchemasService,
+	SignalsService,
+} from "#modules/signals/service";
 import { SignalSchemasRepository } from "#modules/signals/signal-schemas-repository";
 import { TestSupportService } from "#modules/test-support/service";
 import { TrackersRepository } from "#modules/trackers/repository";
@@ -245,6 +249,7 @@ const ContentServicesLive = Layer.mergeAll(
 	NotificationSubscriptionsServiceLive,
 	SignalEmissionServiceLive,
 	SignalSchemasService.Default,
+	SignalsService.Default,
 	TranslationsService.Default,
 );
 
