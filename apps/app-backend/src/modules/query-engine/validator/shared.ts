@@ -78,19 +78,23 @@ export const validateSchemaList = (schemas: readonly string[]) => {
 
 export const validateFieldSelector = (field: FieldSelector, entry: ScopeEntry): string | null => {
 	if (field.type === "system") {
-		const validFields =
-			entry.type === "entitySource"
-				? ENTITY_SYSTEM_FIELDS
-				: entry.type === "eventSource"
-					? EVENT_SYSTEM_FIELDS
-					: RELATIONSHIP_SYSTEM_FIELDS;
+		let validFields: ReadonlySet<string>;
+		let label: string;
+		switch (entry.type) {
+			case "entitySource":
+				validFields = ENTITY_SYSTEM_FIELDS;
+				label = "entity source";
+				break;
+			case "eventSource":
+				validFields = EVENT_SYSTEM_FIELDS;
+				label = "event source";
+				break;
+			case "relationshipEdge":
+				validFields = RELATIONSHIP_SYSTEM_FIELDS;
+				label = "relationship edge";
+				break;
+		}
 		if (!validFields.has(field.name)) {
-			const label =
-				entry.type === "entitySource"
-					? "entity source"
-					: entry.type === "eventSource"
-						? "event source"
-						: "relationship edge";
 			return `Invalid system field '${field.name}' for ${label}. Valid fields: ${[...validFields].join(", ")}`;
 		}
 		return null;

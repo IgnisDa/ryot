@@ -383,12 +383,12 @@ driver("search", async function (context) {
 				return null;
 			}
 
-			const title =
-				typeof item?.name === "string" && item.name.trim()
-					? item.name.trim()
-					: typeof item?.title === "string" && item.title.trim()
-						? item.title.trim()
-						: null;
+			let title = null;
+			if (typeof item?.name === "string" && item.name.trim()) {
+				title = item.name.trim();
+			} else if (typeof item?.title === "string" && item.title.trim()) {
+				title = item.title.trim();
+			}
 			if (!title) {
 				return null;
 			}
@@ -445,12 +445,12 @@ driver("details", async function (context, { metadata }) {
 	}
 
 	const translation = getTranslationFields(translationData);
-	const fallbackTitle =
-		typeof movie?.name === "string" && movie.name.trim()
-			? movie.name.trim()
-			: typeof movie?.title === "string" && movie.title.trim()
-				? movie.title.trim()
-				: null;
+	let fallbackTitle = null;
+	if (typeof movie?.name === "string" && movie.name.trim()) {
+		fallbackTitle = movie.name.trim();
+	} else if (typeof movie?.title === "string" && movie.title.trim()) {
+		fallbackTitle = movie.title.trim();
+	}
 	const title = translation.name ?? fallbackTitle;
 	if (!title) {
 		throw new Error("TVDB returned no title for this movie");
@@ -482,12 +482,12 @@ driver("details", async function (context, { metadata }) {
 		? movie.lists
 				.filter((l) => l && (l.is_official === true || l.isOfficial === true))
 				.map((l) => {
-					const groupExternalId =
-						typeof l?.id === "number"
-							? String(Math.trunc(l.id))
-							: typeof l?.id === "string" && l.id.trim()
-								? l.id.trim()
-								: null;
+					let groupExternalId = null;
+					if (typeof l?.id === "number") {
+						groupExternalId = String(Math.trunc(l.id));
+					} else if (typeof l?.id === "string" && l.id.trim()) {
+						groupExternalId = l.id.trim();
+					}
 					if (!groupExternalId) {
 						return null;
 					}
