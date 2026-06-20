@@ -90,11 +90,6 @@ every candidate removal was adversarially re-verified (grep for consumers across
   states "the persisted rows support adding them later"; the purpose-built
   `subscription_run_original_rule_id_idx` and the "preserves attribution after rule deletion" test
   confirm the schema was shaped for it.
-- **`automation.test-notifier` / `-policy` / `-tracer` scripts + `automation.test-tracer` /
-  `-emitted` signal schemas**: seeded, `catalogState: "hidden"`, and test-pinned. Task 03
-  documents the hidden tracer path as a completed acceptance criterion; they are inert in
-  production (nothing emits the signals) and their removal would break `registry.test.ts` and
-  several unit suites. Shipping hidden test fixtures is a deliberate, documented design choice.
 - **SDK snapshot type family** (`AutomationEntitySnapshot` / `AutomationRelationshipSnapshot` in
   `@ryot/sandbox-sdk/automation`): unused in-repo but exported to complete the public
   Entity/Event/Relationship/Signal family for external script authors, matching the two consumed
