@@ -114,7 +114,9 @@ function buildTranslationResult(value) {
   const { name, description } = getTranslationFields(value);
   const result = {};
   if (name) result.name = name;
-  if (description) result.description = description;
+  const properties = {};
+  if (description) properties.description = description;
+  if (Object.keys(properties).length > 0) result.properties = properties;
   return result;
 }
 
