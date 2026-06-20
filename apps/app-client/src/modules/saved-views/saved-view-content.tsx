@@ -7,7 +7,7 @@ import { AppIcon } from "@/modules/icons";
 import { savedViewResultCount } from "./result-count";
 import { SavedViewFrame } from "./saved-view-frame";
 import { SavedViewGrid } from "./saved-view-grid";
-import { SavedViewLayoutSelector } from "./saved-view-layout-selector";
+import { SavedViewLayoutSelector, useSavedViewLayout } from "./saved-view-layout-selector";
 import { SavedViewList } from "./saved-view-list";
 import { SavedViewPagination } from "./saved-view-pagination";
 import { SavedViewTable } from "./saved-view-table";
@@ -40,12 +40,8 @@ function SavedViewItems(props: SavedViewActiveData & { managedUrls: ReadonlyMap<
 	return <SavedViewTable items={props.data.items} managedUrls={props.managedUrls} />;
 }
 
-function SavedViewWebActions(props: {
-	userId: string;
-	viewName: string;
-	viewSlug: string;
-	serverUrl: string;
-}) {
+function SavedViewWebActions(props: { viewName: string; viewSlug: string }) {
+	const [layout, setLayout] = useSavedViewLayout(props.viewSlug);
 	return (
 		<View className="hidden flex-row items-center gap-2.5 md:flex">
 			<Pressable
@@ -62,11 +58,7 @@ function SavedViewWebActions(props: {
 					<Text className="font-mono text-[11px] text-text-subtle">/</Text>
 				</View>
 			</Pressable>
-			<SavedViewLayoutSelector
-				userId={props.userId}
-				viewSlug={props.viewSlug}
-				serverUrl={props.serverUrl}
-			/>
+			<SavedViewLayoutSelector value={layout} onChange={setLayout} />
 			<Pressable
 				onPress={() => undefined}
 				accessibilityRole="button"
@@ -94,8 +86,6 @@ function SavedViewWebActions(props: {
 
 function SavedViewDisplay(
 	props: SavedViewActiveData & {
-		readonly userId: string;
-		readonly serverUrl: string;
 		readonly loadMore: () => void;
 		readonly isLoadingMore: boolean;
 		readonly record: SavedViewRecord;
@@ -134,12 +124,7 @@ function SavedViewDisplay(
 							{savedViewResultCount(items.length, pageInfo.hasMore)}
 						</Text>
 					</View>
-					<SavedViewWebActions
-						userId={props.userId}
-						serverUrl={props.serverUrl}
-						viewName={props.record.name}
-						viewSlug={props.record.slug}
-					/>
+					<SavedViewWebActions viewName={props.record.name} viewSlug={props.record.slug} />
 				</View>
 
 				{items.length === 0 ? (
@@ -162,8 +147,6 @@ function SavedViewDisplay(
 }
 
 export function SavedViewReadyContent(props: {
-	readonly userId: string;
-	readonly serverUrl: string;
 	readonly refresh: () => void;
 	readonly loadMore: () => void;
 	readonly isLoadingMore: boolean;
@@ -171,10 +154,7 @@ export function SavedViewReadyContent(props: {
 	readonly state: Extract<SavedViewResultState, { status: "ready" }>;
 }) {
 	return (
-		<SavedViewRuntime
-			assets={props.state.assets}
-			scope={{ userId: props.userId, serverUrl: props.serverUrl }}
-		>
+		<SavedViewRuntime assets={props.state.assets}>
 			{(assets) => <SavedViewDisplay {...props} {...props.state} managedUrls={assets.urls} />}
 		</SavedViewRuntime>
 	);

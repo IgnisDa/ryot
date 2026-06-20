@@ -1,9 +1,12 @@
+import { Layer } from "effect";
 import type { AsyncResult } from "effect/unstable/reactivity";
 import { Atom } from "effect/unstable/reactivity";
 import * as Network from "expo-network";
 import { AppState } from "react-native";
 
-import { AppApi, AppQueryApi } from "@/api/app-api";
+import { makeAppApi, makeAppQueryApi } from "@/api/app-api";
+import { AppQueryClient } from "@/api/query-client-service";
+import { normalizeServerOrigin } from "@/modules/server/url";
 
 const revalidationSignal = Atom.readable((get) => {
 	let version = 0;
@@ -44,12 +47,31 @@ function withQueryDefaults<A, E>(query: Atom.Atom<AsyncResult.AsyncResult<A, E>>
 	);
 }
 
-const query: typeof AppQueryApi.query = new Proxy(AppQueryApi.query, {
-	apply(target, thisArg, argumentsList) {
-		return withQueryDefaults(Reflect.apply(target, thisArg, argumentsList));
-	},
-});
+const clients = new Map<string, ReturnType<typeof createAppQueryClient>>();
 
-export const appQueryClient = { mutation: AppApi.mutation, query };
+const createAppQueryClient = (serverUrl: string) => {
+	const appApi = makeAppApi(serverUrl);
+	const appQueryApi = makeAppQueryApi(serverUrl);
+	const query: typeof appQueryApi.query = new Proxy(appQueryApi.query, {
+		apply(target, thisArg, argumentsList) {
+			return withQueryDefaults(Reflect.apply(target, thisArg, argumentsList));
+		},
+	});
+	return { mutation: appApi.mutation, query };
+};
+
+export const appQueryClient = (serverUrl: string) => {
+	const normalizedServerUrl = normalizeServerOrigin(serverUrl);
+	const existing = clients.get(normalizedServerUrl);
+	if (existing) {
+		return existing;
+	}
+
+	const client = createAppQueryClient(normalizedServerUrl);
+	clients.set(normalizedServerUrl, client);
+	return client;
+};
+
+export const appQueryClientLive = Layer.succeed(AppQueryClient, { get: appQueryClient });
 
 export const withAppQueryDefaults = withQueryDefaults;

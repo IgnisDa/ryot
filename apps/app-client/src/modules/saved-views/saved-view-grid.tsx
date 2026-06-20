@@ -3,17 +3,9 @@ import { Pressable, Text, View } from "react-native";
 
 import { getEntityHref } from "@/modules/navigation/navigation-data";
 
-import type { SavedViewCardItem, SavedViewScalarValue } from "./display-data";
-import { formatSavedViewValue } from "./display-value";
+import type { SavedViewCardItem } from "./display-data";
 import { SavedViewImageView } from "./saved-view-image";
-
-function Value(props: { value: SavedViewScalarValue; className: string }) {
-	return (
-		<Text className={props.className} numberOfLines={1}>
-			{formatSavedViewValue(props.value)}
-		</Text>
-	);
-}
+import { SavedViewValue } from "./saved-view-value";
 
 export function SavedViewGrid(props: {
 	items: readonly SavedViewCardItem[];
@@ -35,7 +27,7 @@ export function SavedViewGrid(props: {
 						/>
 						<View className="gap-1">
 							{item.overline && (
-								<Value
+								<SavedViewValue
 									value={item.overline}
 									className="font-ui-medium text-[11px] uppercase tracking-wide text-text-subtle"
 								/>
@@ -47,16 +39,22 @@ export function SavedViewGrid(props: {
 								{item.title}
 							</Text>
 							{item.primaryMetadata && (
-								<Value value={item.primaryMetadata} className="font-ui text-xs text-text-muted" />
+								<SavedViewValue
+									value={item.primaryMetadata}
+									className="font-ui text-xs text-text-muted"
+								/>
 							)}
 							{item.secondaryMetadata && (
-								<Value
+								<SavedViewValue
 									value={item.secondaryMetadata}
 									className="font-ui text-xs text-text-subtle"
 								/>
 							)}
 							{item.callout && (
-								<Value value={item.callout} className="font-ui-semibold text-xs text-accent-text" />
+								<SavedViewValue
+									value={item.callout}
+									className="font-ui-semibold text-xs text-accent-text"
+								/>
 							)}
 						</View>
 					</Pressable>
