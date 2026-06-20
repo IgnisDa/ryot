@@ -1,46 +1,55 @@
 import { OAUTH_WEB_CLIENT_ID } from "@ryot-app/contract/oauth";
-import { Effect } from "effect";
+import { Effect, Fiber, Option, Stream } from "effect";
+import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
-import { withBrowser } from "~/support/browser";
+import { browserLayer } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 import { getFrontendUrl } from "~/support/frontend";
 
 it.live("signs up through the hosted OAuth flow", () =>
 	Effect.gen(function* () {
-		yield* withBrowser(undefined, ({ page }) =>
-			Effect.promise(async () => {
-				const frontendUrl = getFrontendUrl();
-				const hostedLoginRequest = page.waitForRequest(
-					(request) => new URL(request.url()).pathname === "/oauth/login",
-				);
-				await page.goto(`${frontendUrl}/auth`);
-				const loginRequest = await hostedLoginRequest;
-				expect(new URL(loginRequest.url()).searchParams.get("client_id")).toBe(OAUTH_WEB_CLIENT_ID);
-				await page.waitForURL((url) => url.pathname === "/oauth/login");
-
-				const mode = page.getByRole("group", { name: "Authentication mode" });
-				await mode.getByRole("button", { name: "Sign up", exact: true }).click();
-				await page
-					.getByLabel("Email address")
-					.fill(`browser-signup-${crypto.randomUUID()}@example.com`);
-				await page.getByLabel("Password").fill("password123");
-				const signupRequest = page.waitForRequest(
-					(request) => new URL(request.url()).pathname === "/api/auth/sign-up/email",
-				);
-				const tokenResponse = page.waitForResponse(
-					(response) => new URL(response.url()).pathname === "/api/auth/oauth2/token",
-				);
-				await page.getByRole("button", { name: "Create account", exact: true }).click();
-
-				const [request, oauthResponse] = await Promise.all([signupRequest, tokenResponse]);
-				const body: unknown = request.postDataJSON();
-				const oauthQuery =
-					body && typeof body === "object" ? Reflect.get(body, "oauth_query") : null;
-				expect(typeof oauthQuery).toBe("string");
-				expect(oauthResponse.ok()).toBe(true);
-				await page.getByTestId("authenticated-shell").waitFor({ state: "visible" });
-				expect(new URL(page.url()).pathname).not.toMatch(/^\/auth(?:\/|$)/);
-			}),
+		const browser = yield* Playwright.Browser;
+		const page = yield* browser.newPage();
+		const frontendUrl = getFrontendUrl();
+		const hostedLoginRequestFiber = yield* page.eventStream("request").pipe(
+			Stream.filter((request) => new URL(request.url()).pathname === "/oauth/login"),
+			Stream.runHead,
+			Effect.forkChild({ startImmediately: true }),
 		);
-	}),
+		yield* page.goto(`${frontendUrl}/auth`);
+		const loginRequest = Option.getOrThrow(yield* Fiber.join(hostedLoginRequestFiber));
+		expect(new URL(loginRequest.url()).searchParams.get("client_id")).toBe(OAUTH_WEB_CLIENT_ID);
+		yield* page.waitForURL((url) => url.pathname === "/oauth/login");
+
+		const mode = page.getByRole("group", { name: "Authentication mode" });
+		yield* mode.getByRole("button", { name: "Sign up", exact: true }).click();
+		yield* page
+			.getByLabel("Email address")
+			.fill(`browser-signup-${crypto.randomUUID()}@example.com`);
+		yield* page.getByLabel("Password").fill("password123");
+		// TODO: Return to event-stream requests after the upstream postData fixes:
+		// https://github.com/Jobflow-io/effect-playwright/issues/29 and https://github.com/Jobflow-io/effect-playwright/issues/30
+		const signupRequestFiber = yield* page
+			.use((nativePage) =>
+				nativePage.waitForRequest(
+					(request) => new URL(request.url()).pathname === "/api/auth/sign-up/email",
+				),
+			)
+			.pipe(Effect.forkChild({ startImmediately: true }));
+		const tokenResponseFiber = yield* page.eventStream("response").pipe(
+			Stream.filter((response) => new URL(response.url()).pathname === "/api/auth/oauth2/token"),
+			Stream.runHead,
+			Effect.forkChild({ startImmediately: true }),
+		);
+		yield* page.getByRole("button", { name: "Create account", exact: true }).click();
+
+		const request = yield* Fiber.join(signupRequestFiber);
+		const oauthResponse = Option.getOrThrow(yield* Fiber.join(tokenResponseFiber));
+		const body: unknown = request.postDataJSON();
+		const oauthQuery = body && typeof body === "object" ? Reflect.get(body, "oauth_query") : null;
+		expect(typeof oauthQuery).toBe("string");
+		expect(oauthResponse.ok()).toBe(true);
+		yield* page.getByTestId("authenticated-shell").waitFor({ state: "visible" });
+		expect(new URL(page.url()).pathname).not.toMatch(/^\/auth(?:\/|$)/);
+	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
 );
