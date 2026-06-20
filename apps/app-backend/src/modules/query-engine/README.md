@@ -433,8 +433,9 @@ field is a `(value, kind)` column pair; include lists arrive as `jsonb` arrays).
   node (`jsonb_agg` of the ordered child rows, `limit + 1` to derive `hasMore`, nesting
   recursively), with `COUNT(*) OVER()` for the total.
 - **Aggregate** and **time-series** group and aggregate in SQL (`GROUP BY` on ordinal group
-  columns; `date_trunc` in UTC with Monday-start ISO weeks). The app only zero-fills the
-  aligned time-series bucket grid.
+  columns; `date_trunc` in UTC with Monday-start ISO weeks). Time-series zero-fill is also in
+  SQL: a `generate_series` grid over the aligned range `LEFT JOIN`s the sparse per-bucket
+  aggregate, so empty buckets surface as `0`.
 - **Correlated** `exists`/`aggregate`/`first` compile to correlated subqueries, recursively,
   with visibility re-derived inline via schema-slug joins at every level, so nesting can never
   widen scope.
