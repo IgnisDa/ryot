@@ -25,7 +25,7 @@ import { InterestReconciler } from "#modules/entity-interest/service";
 import { EntitySchemaWorkflowDefinitionsLive } from "#modules/entity-schemas/default-saved-view-workflow-live";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 import { EntitySchemasService } from "#modules/entity-schemas/service";
-import { TranslateEntityWorkflowDefinitionsLive } from "#modules/entity-translation/entity-translation-workflow";
+import { TranslateEntityWorkflowDefinitionsLive } from "#modules/entity-translation/entity-translation-workflow-live";
 import { TranslateEntityWorkflowOperationsLive } from "#modules/entity-translation/operations-workflow";
 import { TranslationsRepository } from "#modules/entity-translation/repository";
 import { TranslationsService } from "#modules/entity-translation/service";
@@ -179,6 +179,7 @@ const ContentServicesLive = Layer.mergeAll(
 	EventsServiceLive,
 	QueryEngineServiceLive,
 	RelationshipSchemasService.Default,
+	TranslationsService.Default,
 );
 
 const UserStateServiceLive = Layer.provide(

@@ -1,3 +1,4 @@
+import { conflict } from "@ryot/contract/errors";
 import type { EntityId, UserId } from "@ryot/contract/schema/brands";
 import { and, eq } from "drizzle-orm";
 import { Effect } from "effect";
@@ -6,7 +7,7 @@ import { user } from "#lib/infrastructure/db/schema/tables/auth";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
 
-type UpsertOverlayInput = {
+export type TranslationOverlayInput = {
 	language: string;
 	populatedAt: Date;
 	entityId: EntityId;
@@ -47,11 +48,11 @@ export class TranslationsRepository extends Effect.Service<TranslationsRepositor
 				return row ?? null;
 			});
 
-			const upsertOverlay = Effect.fn("TranslationsRepository.upsertOverlay")(function* (
-				input: UpsertOverlayInput,
+			const createOverlay = Effect.fn("TranslationsRepository.createOverlay")(function* (
+				input: TranslationOverlayInput,
 			) {
 				const db = yield* CurrentDb;
-				yield* dbEffect(() =>
+				const [row] = yield* dbEffect(() =>
 					db
 						.insert(schema.entityTranslation)
 						.values({
@@ -61,15 +62,40 @@ export class TranslationsRepository extends Effect.Service<TranslationsRepositor
 							properties: input.properties,
 							populatedAt: input.populatedAt,
 						})
-						.onConflictDoUpdate({
+						.onConflictDoNothing({
 							target: [schema.entityTranslation.entityId, schema.entityTranslation.language],
-							set: {
-								name: input.name,
-								properties: input.properties,
-								populatedAt: input.populatedAt,
-							},
-						}),
+						})
+						.returning({ id: schema.entityTranslation.id }),
 				);
+
+				if (!row) {
+					return yield* conflict("Translation overlay already exists");
+				}
+				return undefined;
+			});
+
+			const updateOverlay = Effect.fn("TranslationsRepository.updateOverlay")(function* (
+				input: TranslationOverlayInput,
+			) {
+				const db = yield* CurrentDb;
+				const [row] = yield* dbEffect(() =>
+					db
+						.update(schema.entityTranslation)
+						.set({
+							name: input.name,
+							properties: input.properties,
+							populatedAt: input.populatedAt,
+						})
+						.where(
+							and(
+								eq(schema.entityTranslation.entityId, input.entityId),
+								eq(schema.entityTranslation.language, input.language),
+							),
+						)
+						.returning({ id: schema.entityTranslation.id }),
+				);
+
+				return row?.id ?? null;
 			});
 
 			const findUserLanguage = Effect.fn("TranslationsRepository.findUserLanguage")(function* (
@@ -87,7 +113,7 @@ export class TranslationsRepository extends Effect.Service<TranslationsRepositor
 				return row ? extractLanguage(row.preferences) : null;
 			});
 
-			return { findOverlay, upsertOverlay, findUserLanguage };
+			return { findOverlay, createOverlay, updateOverlay, findUserLanguage };
 		},
 	},
 ) {}
