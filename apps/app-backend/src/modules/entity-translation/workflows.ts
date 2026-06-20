@@ -88,10 +88,6 @@ const runTranslateEntityWorkflow = Effect.fn("runTranslateEntityWorkflow")(funct
 					properties: translation.properties ?? null,
 				}),
 			).pipe(dieOnDbError);
-			// Nudges streams interested in this entity to refetch. `translated` marks that the
-			// translation step settled — including a negative-cache write (no provider translation;
-			// status becomes `none`); it signals "translation resolved, refetch", not that a
-			// translation necessarily now exists.
 			yield* redis.publish(
 				redisKeys.entityUpdatedChannel,
 				encodeEntityUpdatedMessage(payload.entityId, "translated"),

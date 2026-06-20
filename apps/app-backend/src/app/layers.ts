@@ -20,9 +20,14 @@ import {
 	BuiltinEntityImportWorkflowDefinitionsLive,
 	EntityImportWorkflowOperationsLive,
 } from "#modules/entity-import/workflows";
+import { StreamRegistry } from "#modules/entity-interest/registry";
+import { InterestReconciler } from "#modules/entity-interest/service";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 import { EntitySchemasService } from "#modules/entity-schemas/service";
 import { EntitySchemaWorkflowDefinitionsLive } from "#modules/entity-schemas/workflows";
+import { TranslationsRepository } from "#modules/entity-translation/repository";
+import { TranslationsService } from "#modules/entity-translation/service";
+import { TranslateEntityWorkflowDefinitionsLive } from "#modules/entity-translation/workflows";
 import { EpisodeResolverRepository } from "#modules/episode-resolver/repository";
 import { EpisodeResolverService } from "#modules/episode-resolver/service";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
@@ -40,8 +45,6 @@ import { IntegrationsRepository } from "#modules/integrations/repository";
 import { IntegrationsSchedulerLive } from "#modules/integrations/scheduler";
 import { IntegrationsService } from "#modules/integrations/service";
 import { IntegrationWorkflowDefinitionsLive } from "#modules/integrations/workflows";
-import { StreamRegistry } from "#modules/interest/registry";
-import { InterestReconciler } from "#modules/interest/service";
 import { GlobalEntityReferencedWorkerLive } from "#modules/library-membership/global-reference-worker";
 import { LibraryImportService } from "#modules/library-membership/service";
 import { LibraryEntityImportWorkflowDefinitionsLive } from "#modules/library-membership/workflows";
@@ -59,9 +62,6 @@ import { SavedViewsRepository } from "#modules/saved-views/repository";
 import { SavedViewsService } from "#modules/saved-views/service";
 import { TrackersRepository } from "#modules/trackers/repository";
 import { TrackersService } from "#modules/trackers/service";
-import { TranslationsRepository } from "#modules/translations/repository";
-import { TranslationsService } from "#modules/translations/service";
-import { TranslateEntityWorkflowDefinitionsLive } from "#modules/translations/workflows";
 import { UploadsService } from "#modules/uploads/service";
 import { UserPreferencesService } from "#modules/user-preferences/service";
 import { UserStateService } from "#modules/user-state/service";
@@ -127,8 +127,6 @@ const QueryEngineServiceLive = Layer.provide(QueryEngineService.Default, Provide
 
 const EntitiesServiceLive = Layer.provide(EntitiesService.Default, QueryEngineServiceLive);
 
-// Client-declared-interest realtime plumbing: the stream registry (+ Redis subscriber) and the
-// reconciler that turns declared interest into idempotent population/translation enqueues.
 const InterestReconcilerLive = Layer.provide(
 	InterestReconciler.Default,
 	Layer.mergeAll(QueryEngineServiceLive, EntityPopulationTriggerLive, TranslationsService.Default),

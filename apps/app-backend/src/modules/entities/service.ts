@@ -209,8 +209,6 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 				return yield* notFound(entityNotFoundError);
 			}
 
-			// Localization comes from the query engine's entity source; translation status comes from the
-			// query engine's computed field. Population and translation are driven by client interest.
 			const entity = yield* toListedEntity(row);
 			const translationStatus = yield* Schema.decodeUnknown(TranslationStatus)(
 				yield* requireStringField(row, "translationStatus"),
