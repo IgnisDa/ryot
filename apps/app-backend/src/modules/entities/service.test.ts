@@ -5,7 +5,7 @@ import type { FieldValue } from "@ryot/contract/modules/query-engine/language";
 import { EntityId, EntitySchemaId, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import { Effect, Exit, Layer } from "effect";
 
-import { type MockOverrides, dbRunnerLayer } from "#lib/test-support/effect";
+import { type MockOverrides, dbRunnerLayer } from "#lib/test-utils/effect";
 import { QueryEngineService } from "#modules/query-engine/service";
 
 import { EntitiesRepository } from "./repository";

@@ -4,8 +4,8 @@ import { NotFound } from "@ryot/contract/errors";
 import { EntityId } from "@ryot/contract/schema/brands";
 import { Effect, Exit, Layer } from "effect";
 
-import type { MockOverrides } from "#lib/test-support/effect";
-import { dbRunnerLayer, makeWorkflowEngine } from "#lib/test-support/effect";
+import type { MockOverrides } from "#lib/test-utils/effect";
+import { dbRunnerLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
 
 import { TranslationsRepository, type TranslationOverlayInput } from "./repository";
 import { TranslationsService } from "./service";

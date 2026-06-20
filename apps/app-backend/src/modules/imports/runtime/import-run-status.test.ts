@@ -3,7 +3,7 @@ import { ImportRunId } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 import { expect as vitestExpect } from "vitest";
 
-import type { MockOverrides } from "#lib/test-support/effect";
+import type { MockOverrides } from "#lib/test-utils/effect";
 
 import { ImportRunFailuresService } from "../failure-service";
 import { ImportsService } from "../service";

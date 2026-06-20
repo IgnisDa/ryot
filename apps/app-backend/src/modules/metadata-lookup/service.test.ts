@@ -11,7 +11,7 @@ import { Cause, Effect, Layer, Option } from "effect";
 import { assert } from "vitest";
 
 import { SandboxService } from "#lib/infrastructure/sandbox-runtime/service";
-import { type MockOverrides, dbRunnerLayer } from "#lib/test-support/effect";
+import { type MockOverrides, dbRunnerLayer } from "#lib/test-utils/effect";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { makeIntegration } from "#modules/integrations/test-support";
