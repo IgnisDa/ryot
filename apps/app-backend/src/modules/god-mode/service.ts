@@ -63,7 +63,8 @@ export class GodModeService extends Effect.Service<GodModeService>()("GodModeSer
 		const runInTransaction = yield* TransactionRunner;
 		const repository = yield* GodModeRepository;
 		const engine = yield* WorkflowEngine;
-		const { auth, createAuthUser, deleteUserSessions, linkAuthAccount } = yield* AuthService;
+		const { auth, createAuthUser, deleteUserSessions, linkAuthAccount, purgeApiKeyCaches } =
+			yield* AuthService;
 
 		const listUsers = Effect.fn("GodModeService.listUsers")(function* (input: {
 			limit: number;
@@ -237,18 +238,6 @@ export class GodModeService extends Effect.Service<GodModeService>()("GodModeSer
 
 			return { email: resetResult.email, resetUrl: resetResult.resetUrl };
 		});
-
-		const purgeApiKeyCaches = (
-			userId: string,
-			apiKeys: ReadonlyArray<{ id: string; key: string }>,
-		) =>
-			redis.del(
-				redisKeys.betterAuthApiKeyByReference(userId),
-				...apiKeys.flatMap((apiKey) => [
-					redisKeys.betterAuthApiKeyByHash(apiKey.key),
-					redisKeys.betterAuthApiKeyById(apiKey.id),
-				]),
-			);
 
 		const resetUserPassword = Effect.fn("GodModeService.resetUserPassword")(function* (
 			userId: UserId,
