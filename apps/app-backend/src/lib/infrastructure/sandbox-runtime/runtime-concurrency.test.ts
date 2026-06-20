@@ -1,6 +1,6 @@
 import { it } from "@effect/vitest";
 import { hostSuccess } from "@ryot/sandbox-sdk/wire";
-import { Clock, Deferred, Effect, Fiber, Queue, Ref, Semaphore } from "effect";
+import { Clock, Deferred, Effect, Exit, Fiber, Queue, Ref, Scope, Semaphore } from "effect";
 import { describe, expect } from "vitest";
 
 import { SANDBOX_LIMITS } from "./limits";
@@ -10,15 +10,15 @@ const addSession = Effect.fn("test.addSession")(function* (
 	bridge: BridgeService["Service"],
 	executionId: string,
 	host: () => Effect.Effect<unknown, unknown>,
-	expiresAt?: number,
+	options: { readonly token?: string; readonly expiresAt?: number } = {},
 ) {
 	const parentSpan = yield* Effect.currentSpan;
 	const now = yield* Clock.currentTimeMillis;
 	yield* bridge.addSession(executionId, {
 		parentSpan,
-		token: `${executionId}-token`,
-		expiresAt: expiresAt ?? now + 60_000,
 		apiFunctions: { test: () => host() },
+		token: options.token ?? `${executionId}-token`,
+		expiresAt: options.expiresAt ?? now + 60_000,
 		hostCallLimit: SANDBOX_LIMITS.hostCalls.total,
 	});
 });
@@ -75,14 +75,59 @@ describe("sandbox bridge host-call concurrency", () => {
 			);
 			const responses = yield* Effect.forEach(calls, Fiber.join);
 			expect(responses.every(({ status }) => status === 200)).toBe(true);
-		}).pipe(Effect.withSpan("runtime-concurrency-test"), Effect.provide(BridgeService.layer)),
+		}).pipe(
+			Effect.scoped,
+			Effect.withSpan("runtime-concurrency-test"),
+			Effect.provide(BridgeService.layer),
+		),
+	);
+
+	it.effect("ends a replaced session and keeps the newer registration installed", () =>
+		Effect.gen(function* () {
+			const bridge = yield* BridgeService;
+			const replaced = yield* Scope.make();
+			const replacement = yield* Scope.make();
+			const started = yield* Queue.unbounded<void>();
+			yield* addSession(
+				bridge,
+				"duplicate",
+				() => Queue.offer(started, undefined).pipe(Effect.andThen(Effect.never)),
+				{ token: "replaced-token" },
+			).pipe(Effect.provideService(Scope.Scope, replaced));
+
+			const pending = yield* Effect.forkChild(
+				Effect.tryPromise(() => requestBridge(bridge, "duplicate", "replaced-token")),
+			);
+			yield* Queue.take(started);
+			yield* addSession(bridge, "duplicate", () => Effect.succeed(hostSuccess(null)), {
+				token: "replacement-token",
+			}).pipe(Effect.provideService(Scope.Scope, replacement));
+			expect((yield* Fiber.join(pending)).status).toBe(410);
+
+			yield* Scope.close(replaced, Exit.void);
+			const stale = yield* Effect.tryPromise(() =>
+				requestBridge(bridge, "duplicate", "replaced-token"),
+			);
+			expect(stale.status).toBe(401);
+			const current = yield* Effect.tryPromise(() =>
+				requestBridge(bridge, "duplicate", "replacement-token"),
+			);
+			expect(current.status).toBe(200);
+
+			yield* Scope.close(replacement, Exit.void);
+			const removed = yield* Effect.tryPromise(() =>
+				requestBridge(bridge, "duplicate", "replacement-token"),
+			);
+			expect(removed.status).toBe(404);
+		}).pipe(Effect.withSpan("runtime-replacement-test"), Effect.provide(BridgeService.layer)),
 	);
 
 	it.effect(
-		"releases permits on every exit and ends queued calls when the session is removed",
+		"releases permits on every exit and ends queued calls when the owning scope closes",
 		() =>
 			Effect.gen(function* () {
 				const bridge = yield* BridgeService;
+				const scope = yield* Scope.make();
 				const started = yield* Queue.unbounded<void>();
 				const release = yield* Deferred.make<void>();
 				yield* addSession(bridge, "removed", () =>
@@ -90,7 +135,7 @@ describe("sandbox bridge host-call concurrency", () => {
 						Effect.andThen(Deferred.await(release)),
 						Effect.as(hostSuccess(null)),
 					),
-				);
+				).pipe(Effect.provideService(Scope.Scope, scope));
 
 				const calls = yield* Effect.forEach(
 					Array.from({ length: SANDBOX_LIMITS.bridge.concurrentHostCalls + 1 }),
@@ -100,7 +145,7 @@ describe("sandbox bridge host-call concurrency", () => {
 					Queue.take(started),
 					SANDBOX_LIMITS.bridge.concurrentHostCalls,
 				);
-				yield* bridge.removeSession("removed");
+				yield* Scope.close(scope, Exit.void);
 				const responses = yield* Effect.forEach(calls, Fiber.join);
 
 				expect(responses.filter(({ status }) => status === 410).length).toBeGreaterThanOrEqual(
@@ -111,11 +156,33 @@ describe("sandbox bridge host-call concurrency", () => {
 			}).pipe(Effect.withSpan("runtime-removal-test"), Effect.provide(BridgeService.layer)),
 	);
 
+	it.effect("removes the session when the registering fiber is interrupted", () =>
+		Effect.gen(function* () {
+			const bridge = yield* BridgeService;
+			const registered = yield* Deferred.make<void>();
+			const fiber = yield* Effect.forkChild(
+				Effect.scoped(
+					addSession(bridge, "interrupted", () => Effect.succeed(hostSuccess(null))).pipe(
+						Effect.andThen(Deferred.succeed(registered, undefined)),
+						Effect.andThen(Effect.never),
+					),
+				),
+			);
+			yield* Deferred.await(registered);
+			expect((yield* call(bridge, "interrupted")).status).toBe(200);
+
+			yield* Fiber.interrupt(fiber);
+			expect((yield* call(bridge, "interrupted")).status).toBe(404);
+		}).pipe(Effect.withSpan("runtime-interrupt-test"), Effect.provide(BridgeService.layer)),
+	);
+
 	it.effect("checks in-memory session expiry and authorization", () =>
 		Effect.gen(function* () {
 			const bridge = yield* BridgeService;
 			yield* addSession(bridge, "active", () => Effect.succeed(hostSuccess(null)));
-			yield* addSession(bridge, "expired", () => Effect.succeed(hostSuccess(null)), -1);
+			yield* addSession(bridge, "expired", () => Effect.succeed(hostSuccess(null)), {
+				expiresAt: -1,
+			});
 
 			const missing = yield* call(bridge, "missing");
 			expect(missing.status).toBe(404);
@@ -127,7 +194,11 @@ describe("sandbox bridge host-call concurrency", () => {
 
 			const expired = yield* call(bridge, "expired");
 			expect(expired.status).toBe(410);
-		}).pipe(Effect.withSpan("runtime-session-test"), Effect.provide(BridgeService.layer)),
+		}).pipe(
+			Effect.scoped,
+			Effect.withSpan("runtime-session-test"),
+			Effect.provide(BridgeService.layer),
+		),
 	);
 
 	it.effect("releases permits after typed failure, defect, timeout, and cancellation", () =>
