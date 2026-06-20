@@ -209,12 +209,12 @@ describe("Event write path — propertiesSchema validation", () => {
 describe("Collection entity write path — propertiesSchema validation", () => {
 	it.live("rejects collection creation when description is not a string", () =>
 		Effect.gen(function* () {
-			const { cookies } = yield* createAuthenticatedClient();
+			const { token } = yield* createAuthenticatedClient();
 
 			const response = yield* Effect.promise(() =>
 				fetch(`${getApiUrl()}/collections`, {
 					method: "POST",
-					headers: { Cookie: cookies, "Content-Type": "application/json" },
+					headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
 					body: JSON.stringify({ description: 12345, name: "Invalid Description Type" }),
 				}),
 			);

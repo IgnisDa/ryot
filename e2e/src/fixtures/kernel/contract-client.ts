@@ -25,10 +25,13 @@ export const makeSession = (
 
 export const getApiClient = (baseUrl?: string): ContractSession => makeSession(baseUrl);
 
-export async function postApiJson(path: string, body: unknown, cookies?: string) {
+export async function postApiJson(path: string, body: unknown, token?: string) {
 	return fetch(`${getApiUrl()}${path}`, {
 		method: "POST",
 		body: JSON.stringify(body),
-		headers: { "Content-Type": "application/json", ...(cookies ? { Cookie: cookies } : {}) },
+		headers: {
+			"Content-Type": "application/json",
+			...(token ? { Authorization: `Bearer ${token}` } : {}),
+		},
 	});
 }

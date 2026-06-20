@@ -132,7 +132,7 @@ describe("notification subscription catalog and rules", () => {
 						scriptId: "caller-selected-script",
 						signalSchemaSlug: reviewRule.signalSchemaSlug,
 					},
-					owner.cookies,
+					owner.token,
 				),
 			);
 			expect(arbitraryFields.status).toBe(400);

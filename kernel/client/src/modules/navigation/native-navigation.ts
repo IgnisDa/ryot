@@ -18,8 +18,10 @@ const capacitorAppSource: NativeAppSource = {
 		App.addListener("backButton", () => handler()).then((listener) => () => void listener.remove()),
 };
 
+export const isNativePlatform = () => Capacitor.isNativePlatform();
+
 export function startNativeNavigation(navigator: DeepLinkNavigator) {
-	if (!Capacitor.isNativePlatform()) {
+	if (!isNativePlatform()) {
 		return { destroy: () => {} };
 	}
 	return createDeepLinkBridge(capacitorAppSource, navigator);

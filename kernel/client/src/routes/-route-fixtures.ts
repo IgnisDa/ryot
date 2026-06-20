@@ -58,6 +58,7 @@ export const makeAuthStub = (
 		changeServer: () => Effect.void,
 		signInWithOidc: () => Effect.void,
 		verifyTwoFactor: () => Effect.void,
+		verifyOneTimeToken: () => Effect.void,
 		settledSession: () => Effect.succeed(session),
 		submitCredentials: () => Effect.succeed({ _tag: "Authenticated" } as const),
 		session: () => ({ subscribe: () => () => undefined, getSnapshot: () => session }),
@@ -89,9 +90,12 @@ export const makeStorageStub = (
 	return {
 		remove: () => Effect.void,
 		clearServerSelection: Effect.void,
+		setSessionToken: () => Effect.void,
+		clearSessionToken: () => Effect.void,
 		setServerSelection: () => Effect.void,
 		setThemePreference: () => Effect.void,
 		getServerSelection: Effect.succeed(server),
+		getSessionToken: () => Effect.succeed(null),
 		getThemePreference: Effect.succeed("system" as const),
 		getLastWorkspace: (scope) =>
 			Effect.sync(() => {

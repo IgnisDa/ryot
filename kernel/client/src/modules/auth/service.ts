@@ -43,6 +43,13 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 			yield* client.verifyTwoFactor(origin, method, code);
 			yield* client.refreshSession(origin);
 		});
+		const verifyOneTimeToken = Effect.fn("AuthService.verifyOneTimeToken")(function* (
+			origin: ServerOrigin,
+			token: string,
+		) {
+			yield* client.verifyOneTimeToken(origin, token);
+			yield* client.refreshSession(origin);
+		});
 		const clearSession = Effect.fn("AuthService.clearSession")(function* (
 			origin: ServerOrigin | null,
 		) {
@@ -52,7 +59,7 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 			}
 			yield* client.signOut(origin).pipe(
 				Effect.catch(() => Effect.void),
-				Effect.ensuring(client.clear()),
+				Effect.ensuring(client.clear().pipe(Effect.andThen(storage.clearSessionToken(origin)))),
 			);
 		});
 		const changeServer = Effect.fn("AuthService.changeServer")(function* (
@@ -65,6 +72,7 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 			changeServer,
 			verifyTwoFactor,
 			submitCredentials,
+			verifyOneTimeToken,
 			signOut: clearSession,
 			session: client.session,
 			settledSession: client.settledSession,
