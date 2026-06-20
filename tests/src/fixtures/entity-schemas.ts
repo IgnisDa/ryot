@@ -190,9 +190,6 @@ export async function createTrackerWithSchema(
 	options: Partial<Omit<CreateEntitySchemaOptions, "trackerId">> = {},
 ) {
 	const { trackerId } = await createTracker(client);
-	const { schemaId } = await createEntitySchema(client, {
-		...options,
-		trackerId,
-	});
-	return { schemaId };
+	const { slug, schemaId } = await createEntitySchema(client, { ...options, trackerId });
+	return { slug, schemaId };
 }

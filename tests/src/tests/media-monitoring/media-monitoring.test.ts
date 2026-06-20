@@ -164,7 +164,11 @@ describe("media monitoring endpoints", () => {
 		await enableMediaMonitoring(owner.client, apiEntityId);
 		await enableMediaMonitoring(owner.client, apiEntityId);
 		expect(
-			await countMediaMonitoringRelationships({ entityId: apiEntityId, userId: owner.userId }),
+			await countMediaMonitoringRelationships({
+				client: owner.client,
+				entityId: apiEntityId,
+				entitySchemaSlug: "movie",
+			}),
 		).toBe(1);
 		expect(await getMediaMonitoringStatus(owner.client, apiEntityId)).toEqual({
 			isMediaMonitored: true,
@@ -178,7 +182,11 @@ describe("media monitoring endpoints", () => {
 		await disableMediaMonitoring(owner.client, apiEntityId);
 		await disableMediaMonitoring(owner.client, apiEntityId);
 		expect(
-			await countMediaMonitoringRelationships({ entityId: apiEntityId, userId: owner.userId }),
+			await countMediaMonitoringRelationships({
+				client: owner.client,
+				entityId: apiEntityId,
+				entitySchemaSlug: "movie",
+			}),
 		).toBe(0);
 		const inLibraryRelationship = await queryInLibraryRelationship(
 			owner.client,
