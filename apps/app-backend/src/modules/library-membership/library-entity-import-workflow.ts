@@ -71,6 +71,18 @@ export const runLibraryEntityImportWorkflow = Effect.fn("runLibraryEntityImportW
 );
 
 const LibraryEntityImportWorkflowLive = LibraryEntityImportWorkflow.toLayer(
-	runLibraryEntityImportWorkflow,
+	(payload, executionId) =>
+		runLibraryEntityImportWorkflow(payload, executionId).pipe(
+			Effect.withSpan("LibraryEntityImportWorkflow", {
+				attributes: {
+					executionId,
+					scriptId: payload.scriptId,
+					externalId: payload.externalId,
+					entitySchemaId: payload.entitySchemaId,
+					...(payload.userId ? { userId: payload.userId } : {}),
+				},
+			}),
+			Effect.annotateLogs({ executionId, workflow: "LibraryEntityImportWorkflow" }),
+		),
 );
 export const LibraryEntityImportWorkflowDefinitionsLive = LibraryEntityImportWorkflowLive;
