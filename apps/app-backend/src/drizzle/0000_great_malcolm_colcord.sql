@@ -67,13 +67,13 @@ CREATE TABLE "entity_schema" (
 	CONSTRAINT "entity_schema_user_slug_unique" UNIQUE("user_id","slug")
 );
 --> statement-breakpoint
-CREATE TABLE "entity_schema_script" (
+CREATE TABLE "entity_schema_sandbox_script" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"entity_schema_id" text NOT NULL,
 	"sandbox_script_id" text NOT NULL,
 	"id" text PRIMARY KEY NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "entity_schema_script_unique" UNIQUE("entity_schema_id","sandbox_script_id")
+	CONSTRAINT "entity_schema_sandbox_script_unique" UNIQUE("entity_schema_id","sandbox_script_id")
 );
 --> statement-breakpoint
 CREATE TABLE "entity_translation" (
@@ -309,8 +309,8 @@ ALTER TABLE "entity" ADD CONSTRAINT "entity_user_id_user_id_fk" FOREIGN KEY ("us
 ALTER TABLE "entity" ADD CONSTRAINT "entity_entity_schema_id_entity_schema_id_fk" FOREIGN KEY ("entity_schema_id") REFERENCES "public"."entity_schema"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "entity" ADD CONSTRAINT "entity_sandbox_script_id_sandbox_script_id_fk" FOREIGN KEY ("sandbox_script_id") REFERENCES "public"."sandbox_script"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "entity_schema" ADD CONSTRAINT "entity_schema_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "entity_schema_script" ADD CONSTRAINT "entity_schema_script_entity_schema_id_entity_schema_id_fk" FOREIGN KEY ("entity_schema_id") REFERENCES "public"."entity_schema"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "entity_schema_script" ADD CONSTRAINT "entity_schema_script_sandbox_script_id_sandbox_script_id_fk" FOREIGN KEY ("sandbox_script_id") REFERENCES "public"."sandbox_script"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "entity_schema_sandbox_script" ADD CONSTRAINT "entity_schema_sandbox_script_entity_schema_id_entity_schema_id_fk" FOREIGN KEY ("entity_schema_id") REFERENCES "public"."entity_schema"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "entity_schema_sandbox_script" ADD CONSTRAINT "entity_schema_sandbox_script_sandbox_script_id_sandbox_script_id_fk" FOREIGN KEY ("sandbox_script_id") REFERENCES "public"."sandbox_script"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "entity_translation" ADD CONSTRAINT "entity_translation_entity_id_entity_id_fk" FOREIGN KEY ("entity_id") REFERENCES "public"."entity"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "event" ADD CONSTRAINT "event_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "event" ADD CONSTRAINT "event_event_schema_id_event_schema_id_fk" FOREIGN KEY ("event_schema_id") REFERENCES "public"."event_schema"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -352,8 +352,8 @@ CREATE INDEX "entity_sandbox_script_id_idx" ON "entity" USING btree ("sandbox_sc
 CREATE UNIQUE INDEX "entity_global_external_id_unique" ON "entity" USING btree ("external_id","entity_schema_id","sandbox_script_id") WHERE "entity"."user_id" is null;--> statement-breakpoint
 CREATE UNIQUE INDEX "entity_global_no_script_external_id_unique" ON "entity" USING btree ("external_id","entity_schema_id") WHERE "entity"."user_id" IS NULL AND "entity"."sandbox_script_id" IS NULL;--> statement-breakpoint
 CREATE INDEX "entity_schema_user_id_idx" ON "entity_schema" USING btree ("user_id");--> statement-breakpoint
-CREATE INDEX "entity_schema_script_entity_schema_id_idx" ON "entity_schema_script" USING btree ("entity_schema_id");--> statement-breakpoint
-CREATE INDEX "entity_schema_script_sandbox_script_id_idx" ON "entity_schema_script" USING btree ("sandbox_script_id");--> statement-breakpoint
+CREATE INDEX "entity_schema_sandbox_script_entity_schema_id_idx" ON "entity_schema_sandbox_script" USING btree ("entity_schema_id");--> statement-breakpoint
+CREATE INDEX "entity_schema_sandbox_script_sandbox_script_id_idx" ON "entity_schema_sandbox_script" USING btree ("sandbox_script_id");--> statement-breakpoint
 CREATE INDEX "entity_translation_entity_id_idx" ON "entity_translation" USING btree ("entity_id");--> statement-breakpoint
 CREATE INDEX "event_user_id_idx" ON "event" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "event_entity_id_idx" ON "event" USING btree ("entity_id");--> statement-breakpoint

@@ -101,7 +101,7 @@ const buildYoutubeMusicImportResult = Effect.fn("buildYoutubeMusicImportResult")
 		name: "load-youtube-music-history-script",
 		success: Schema.NullOr(SandboxScriptId),
 		execute: runWithDb(
-			entitiesRepository.findEntitySchemaScriptBySlug(YOUTUBE_MUSIC_SCRIPT_SLUG),
+			entitiesRepository.findEntitySchemaSandboxScriptBySlug(YOUTUBE_MUSIC_SCRIPT_SLUG),
 		).pipe(
 			Effect.map((script) => script?.sandboxScriptId ?? null),
 			Effect.mapError(toIntegrationWorkflowError),

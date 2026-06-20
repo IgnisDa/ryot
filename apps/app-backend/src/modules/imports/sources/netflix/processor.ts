@@ -339,8 +339,8 @@ export const loadNetflixAdapterResult = Effect.fn("netflixProcessor.load")(funct
 	}
 
 	const [movieScript, showScript] = yield* Effect.all([
-		runWithDb(entitiesRepository.findEntitySchemaScriptBySlug("movie.tmdb")),
-		runWithDb(entitiesRepository.findEntitySchemaScriptBySlug("show.tmdb")),
+		runWithDb(entitiesRepository.findEntitySchemaSandboxScriptBySlug("movie.tmdb")),
+		runWithDb(entitiesRepository.findEntitySchemaSandboxScriptBySlug("show.tmdb")),
 	]).pipe(
 		Effect.mapError(
 			(error) =>
