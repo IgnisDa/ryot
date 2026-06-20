@@ -130,6 +130,7 @@ const automationPopulationSchema = z
 export const automationContextSchema = z
 	.object({
 		ruleId: z.string(),
+		occurredAt: z.string(),
 		occurrenceId: z.string(),
 		origin: automationOriginSchema,
 		source: automationSourceSchema,
