@@ -1,60 +1,12 @@
-// Seen -> event migration.
-//
-// Each V1 `seen` row maps to one or more V2 events based on its `updated_at` array and `state`.
-// The `updated_at` array records every timestamp at which the row was mutated. Legacy IDs for
-// `seen` are NOT preserved because one V1 row expands to multiple V2 events; deterministic
-// md5-based IDs are used for restart-safety instead.
-//
-// --- Progress-event generation ---
-//
-// `InProgress` rows (N timestamps) -> N progress events, one per updated_at entry.
-// `Completed` rows for episodic media (show/anime/manga/podcast) -> N progress events, with the
-// final event set to progressPercent=100 and carrying the episode/chapter key. A later migration
-// pass emits whole-entity `complete` events per detected watch-through.
-// Other terminal rows (non-episodic Completed/Dropped/OnAHold, N timestamps) -> N-1 progress
-// events + 1 terminal event. When N=1 for those rows, only the terminal event is created.
-//
-// progressPercent is linearly interpolated from 1 to the target percentage. In the formulas below,
-// j is the zero-based position of the generated progress event:
-//   Full progress stream (M events): percent[j] = ROUND(1 + (P-1)*j/(M-1), 2); if M=1 then P
-//   Before terminal   (M events): percent[j] = ROUND(1 + (P-1)*j/(M-1), 2); if M=1 then 1
-//
-// `progress` is clamped to [1, 100]. V1 rows with progress=0 emit 1. V1 rows with progress>=100
-// and state=InProgress are treated as Completed.
-//
-// --- providers_consumed_on ---
-//
-// Progress events receive providers_consumed_on[event_position] (1-indexed array access;
-// PostgreSQL returns NULL for out-of-bounds access, which jsonb_strip_nulls then drops).
-// The terminal event receives providers_consumed_on[n_timestamps] if it exists, otherwise
-// providers_consumed_on[1] as a fallback.
-//
-// --- Timestamps ---
-//
-// Each progress event's `created_at` and `occurred_at` use the corresponding `updated_at[i]`.
-// Terminal event `created_at` uses `updated_at[N]` (the last entry). Non-episodic `complete`
-// events use `finished_on` for `occurred_at`/`completedOn` when set, otherwise `updated_at[N]`.
-// `dropped` and `on_hold` terminal events use `updated_at[N]` for `occurred_at`.
-// `startedOn` on `complete`/`dropped`/`on_hold` events uses `started_on` when set.
-//
-// --- Units ---
-//
-// `manual_time_spent` is stored in seconds in V1. V2 `timeSpent` is in minutes. Division by 60
-// is applied during migration.
-//
-// --- Skipped data ---
-//
-// `review_id` (seen-to-review linkage): no inter-event references exist in V2; dropped.
-// `manual_time_spent` on InProgress rows and episodic completion progress rows: `progress` events
-// have no `timeSpent` field; dropped.
-// `started_on` on InProgress rows and episodic completion progress rows: `progress` events have no
-// `startedOn` field; dropped.
-// `seen` rows whose metadata_id has no matching V2 entity are silently skipped (INNER JOIN).
-//
-// V1 SeenState serialisation (SeaORM snake_case):
-//   Completed -> 'completed', InProgress -> 'in_progress',
-//   Dropped -> 'dropped', OnAHold -> 'on_a_hold'
-
+// Each V1 `seen` row expands to one or more V2 events keyed by its `updated_at` timestamp array:
+// InProgress -> N progress events; episodic Completed -> N progress events (final at 100%, episode
+// completion backfilled later by seen-completion-mapping); other terminal states -> N-1 progress +
+// 1 terminal event. progressPercent is linearly interpolated to the target P and clamped to [1,100]:
+// percent[j] = ROUND(1 + (P-1)*j/(M-1), 2) over M events (P when M=1, or 1 before a terminal event).
+// Legacy ids are not preserved (one row -> many events); deterministic md5 ids give restart-safety.
+// manual_time_spent (seconds) becomes timeSpent (minutes). Unresolved show/podcast episode rows and
+// rows whose metadata_id has no migrated entity are skipped. Dropped: review_id, and
+// manual_time_spent/started_on on progress events (V2 progress has neither).
 export const buildSeenMigrationSql = () => `
 DO $$
 DECLARE

@@ -1,24 +1,7 @@
-// Migrates V1 user_measurement -> V2 entity (schema slug: "measurement").
-//
-// V1 user_measurement has a composite PK (user_id, timestamp) — no single UUID id exists.
-// Entity ids are derived deterministically: md5(user_id || '|' || timestamp::text).
-// Restart-safety is provided by ON CONFLICT ("id") DO NOTHING.
-//
-// Keyset pagination uses PostgreSQL row comparison (user_id, timestamp) > (cursor_user_id, cursor_ts)
-// with a DESC-ordered boundary query to find the end of each batch.
-//
-// V1 statistics[].value is a Rust Decimal serialized by rust_decimal's default serde as a JSON
-// string. The ->> operator extracts it as text; ::float8 handles both string and numeric JSONB
-// representations safely.
-//
-// statistics[].key is a normalized snake_case version of statistics[].name:
-//   trim('_' from regexp_replace(lower(name), '[^a-z0-9]+', '_', 'g'))
-//
-// Entity name uses V1 name when not null/empty, otherwise falls back to
-// 'Measurement - YYYY-MM-DD HH24:MI' matching the OpenScale import processor format.
-//
-// V1 has no per-statistic unit field; the unit key is absent from migrated statistics
-// (nullish in V2, so omission is valid).
+// V1 user_measurement (composite PK user_id+timestamp) -> V2 `measurement` entity. Entity id is
+// md5(user_id || '|' || timestamp::text) since there is no UUID. statistics[].value is a
+// rust_decimal JSON string (extracted via ->> then ::float8); statistics[].key is a snake_case
+// normalization of the name. V1 has no per-statistic unit, so `unit` is omitted.
 
 import { quoteSqlString } from "./shared";
 
