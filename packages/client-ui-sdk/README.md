@@ -69,6 +69,37 @@ to the element rather than a React `onKeyDown`, because it has to run at target 
 document-level shortcut listener, and `preventDefault` there is also what stops a browser's built-in
 `type="search"` clear from behaving differently across engines.
 
+## Screen Frame
+
+`ScreenFrame` draws one screen: a sticky 54px bar and a collapsing title block on the compact
+layout, a wide header row above the content on the desktop one. It creates no scroll container,
+because the scroller belongs to whoever runs the screen — the plugin stack's per-screen card, the
+kernel's `<main>` — and takes that element as `scrollRootRef` to stick against and to observe from.
+
+Everything inside that scroller is the frame's: the bar row, the title block, the desktop header,
+the gap between the header and the content, and the horizontal gutters. It takes no class-name props
+and emits no `md:` or `lg:` variant, and both halves of that are load-bearing. `compact` is a
+JavaScript boolean resolved from the kernel's viewport, while a media query inside a plugin document
+is resolved against the iframe: at a 1000px window the kernel sends `compact: false` and the iframe
+measures 720px, so a gutter spelled `px-4 md:px-0` draws the mobile padding under the desktop header.
+A caller that reaches in with its own header class can also clamp a height the frame decides, and the
+overflow lands on the content underneath. A narrower column is `width="readable"`, not a class.
+
+The bar turns opaque when a zero-height sentinel passes under it — one `IntersectionObserver` and a
+CSS transition, not scroll-linked progress, because `animation-timeline: scroll()` is unavailable on
+the iOS baseline. The observer is keyed to the sentinel node rather than to the frame's mount: a
+search row takes the bar over and removes the sentinel with the title block, and the sentinel that
+comes back afterwards is a different element. Keyed to the mount, nothing would observe it and the
+bar would stay opaque until the route remounted. A bar carrying a search row is opaque outright,
+since an input cannot float over scrolling content, and the `<h1>` stays in the document as a
+visually hidden heading so a screen names itself exactly once in every state.
+
+`ScreenBarButton` draws the 44px controls in that bar and deliberately carries no text colour. A
+caller's class cannot beat one baked into a component: the cascade orders utilities by the
+stylesheet, not by the order of `clsx` arguments, so `min-h-6` passed to a component whose variant
+says `min-h-10` is silently a no-op. Anything a call site must be able to choose stays out of the
+component's own class string.
+
 ## Controls
 
 Radiogroup-shaped controls compose `RadioGroup`, which owns `role`, `aria-checked`, roving

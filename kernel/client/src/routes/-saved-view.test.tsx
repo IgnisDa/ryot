@@ -39,6 +39,7 @@ import {
 	ImportsRouteStubs,
 	IntegrationRouteStubs,
 	stubDesktopMatchMedia,
+	stubCompactMatchMedia,
 } from "#/routes/-route-fixtures";
 
 const entity = table("entity", "entity");
@@ -541,6 +542,33 @@ describe("saved-view route", () => {
 		} finally {
 			view.unmount();
 			await view.runtime.dispose();
+		}
+	});
+
+	it("hands the compact bar to search and gives the title block back on exit", async () => {
+		const restore = stubCompactMatchMedia();
+		const view = mountView();
+		try {
+			const bar = await screen.findByTestId("screen-frame-bar");
+			expect(await screen.findByText("1+ results")).toBeTruthy();
+
+			fireEvent.click(screen.getByRole("button", { name: "Search this view" }));
+
+			expect(screen.getByRole("searchbox", { name: "Search Books" })).toBeTruthy();
+			expect(screen.getAllByRole("heading", { name: "Books" })).toHaveLength(1);
+			expect(screen.queryByText("1+ results")).toBeNull();
+			expect(bar.hasAttribute("data-solid")).toBe(true);
+
+			fireEvent.click(screen.getByRole("button", { name: "Exit search" }));
+
+			expect(screen.queryByRole("searchbox", { name: "Search Books" })).toBeNull();
+			expect(screen.getAllByRole("heading", { name: "Books" })).toHaveLength(1);
+			expect(screen.getByText("1+ results")).toBeTruthy();
+			expect(bar.hasAttribute("data-solid")).toBe(false);
+		} finally {
+			view.unmount();
+			await view.runtime.dispose();
+			restore();
 		}
 	});
 

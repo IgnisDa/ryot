@@ -1,4 +1,4 @@
-import { ScreenFrame } from "@ryot-app/client-ui-sdk";
+import { ScreenBarButton, ScreenFrame } from "@ryot-app/client-ui-sdk";
 import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import type { ReactNode } from "react";
 
@@ -15,11 +15,9 @@ type PluginScreenFrameProps = {
 	readonly titleIcon?: ReactNode;
 	readonly searchRow?: ReactNode;
 	readonly barActions?: ReactNode;
-	readonly contentClassName?: string;
 };
 
-const control =
-	"flex size-11 shrink-0 items-center justify-center rounded-pill text-text hover:bg-surface-2";
+const control = "text-text hover:bg-surface-2";
 
 export function PluginScreenFrame({
 	meta,
@@ -32,7 +30,6 @@ export function PluginScreenFrame({
 	searchRow,
 	titleIcon,
 	barActions,
-	contentClassName,
 }: PluginScreenFrameProps) {
 	const chrome = usePluginChrome();
 	const { scrollRootRef } = usePluginScreenSurface();
@@ -50,26 +47,19 @@ export function PluginScreenFrame({
 			compact={chrome.compact}
 			scrollRootRef={scrollRootRef}
 			safeAreaTop={chrome.safeAreaTop}
-			contentClassName={contentClassName}
 			leading={
 				chrome.edgeBack ? (
-					<button
-						type="button"
-						className={control}
-						onClick={chrome.back}
-						aria-label={backLabel ?? "Go back"}
-					>
-						<AppIcon name="chevron-left" size={22} />
-					</button>
+					<ScreenBarButton className={control} onClick={chrome.back} label={backLabel ?? "Go back"}>
+						<AppIcon size={22} name="chevron-left" />
+					</ScreenBarButton>
 				) : (
-					<button
-						type="button"
+					<ScreenBarButton
 						className={control}
 						onClick={chrome.openDrawer}
-						aria-label={menuLabel ?? "Open navigation"}
+						label={menuLabel ?? "Open navigation"}
 					>
 						<AppIcon name="menu" size={22} />
-					</button>
+					</ScreenBarButton>
 				)
 			}
 		>
