@@ -12,6 +12,7 @@ type SearchFieldProps = {
 	readonly icon: ReactNode;
 	readonly shortcut?: Hotkey;
 	readonly className?: string;
+	readonly autoFocus?: boolean;
 	readonly clearIcon: ReactNode;
 	readonly placeholder?: string;
 	readonly onSubmit?: () => void;
@@ -26,6 +27,7 @@ export function SearchField({
 	onChange,
 	onSubmit,
 	clearIcon,
+	autoFocus,
 	className,
 	placeholder,
 }: SearchFieldProps) {
@@ -55,6 +57,7 @@ export function SearchField({
 				type="search"
 				value={value}
 				aria-label={label}
+				autoFocus={autoFocus}
 				aria-keyshortcuts={shortcut}
 				placeholder={placeholder ?? label}
 				onChange={(event) => onChange(event.currentTarget.value)}
