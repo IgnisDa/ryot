@@ -38,7 +38,25 @@ function getStringProperty(properties, key) {
 }
 
 function getCanonicalLanguage(metadata) {
-	return metadata?.providerInformation?.canonicalLanguage ?? "en_us";
+	return metadata?.providerInformation?.canonicalLanguage ?? "en";
+}
+
+const ITUNES_LANGUAGE_MAP = {
+	en: "en_us",
+	es: "es_es",
+	fr: "fr_fr",
+	de: "de_de",
+	it: "it_it",
+	pt: "pt_br",
+	ja: "ja_jp",
+	ko: "ko_kr",
+	zh: "zh_cn",
+	ru: "ru_ru",
+	nl: "nl_nl",
+};
+function bcp47ToItunes(language) {
+	const base = typeof language === "string" ? language.trim().toLowerCase().split("-")[0] : "";
+	return ITUNES_LANGUAGE_MAP[base] ?? base;
 }
 
 function getPublishYear(value, dayjs) {
@@ -247,7 +265,7 @@ driver("details", async function (context, { metadata }) {
 		})
 		.parse(context ?? {});
 
-	const language = getCanonicalLanguage(metadata);
+	const language = bcp47ToItunes(getCanonicalLanguage(metadata));
 
 	const detailsPayload = await lookup({
 		id: externalId,
@@ -368,12 +386,14 @@ driver("translate", async function (context) {
 		})
 		.parse(context ?? {});
 
+	const providerLanguage = bcp47ToItunes(language);
+
 	if (entitySchemaSlug === "podcast") {
 		const payload = await lookup({
 			id: externalId,
 			media: "podcast",
 			entity: "podcast",
-			lang: language,
+			lang: providerLanguage,
 		});
 		const item = Array.isArray(payload?.results) ? payload.results[0] : null;
 		return getPodcastTranslationResult(item);
@@ -389,7 +409,7 @@ driver("translate", async function (context) {
 		const parentPayload = await lookup({
 			limit: "200",
 			media: "podcast",
-			lang: language,
+			lang: providerLanguage,
 			entity: "podcastEpisode",
 			id: parentPodcastExternalId,
 		});

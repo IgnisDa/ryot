@@ -4,10 +4,7 @@ import { Effect } from "effect";
 import { user } from "#lib/db/schema/tables/auth";
 import * as schema from "#lib/db/schema/tables/combined";
 import { CurrentDb, dbEffect } from "#lib/db/service";
-import { isObjectRecord } from "#lib/predicates";
 import type { EntityId, UserId } from "#lib/schema/brands";
-
-import type { LanguagePreference } from "./language-resolution";
 
 type UpsertOverlayInput = {
 	language: string;
@@ -17,24 +14,9 @@ type UpsertOverlayInput = {
 	properties: Record<string, unknown> | null;
 };
 
-const extractLanguagePreferences = (preferences: Record<string, unknown>): LanguagePreference[] => {
-	const languages = preferences.languages;
-	const providers = isObjectRecord(languages) ? languages.providers : undefined;
-	if (!Array.isArray(providers)) {
-		return [];
-	}
-
-	return providers.flatMap((provider) => {
-		if (!isObjectRecord(provider)) {
-			return [];
-		}
-		const { source, preferredLanguage } = provider;
-		if (typeof source !== "string" || typeof preferredLanguage !== "string") {
-			return [];
-		}
-
-		return [{ source, preferredLanguage }];
-	});
+const extractLanguage = (preferences: Record<string, unknown>): string | null => {
+	const language = preferences.language;
+	return typeof language === "string" && language.length > 0 ? language : null;
 };
 
 export class TranslationsRepository extends Effect.Service<TranslationsRepository>()(
@@ -90,9 +72,9 @@ export class TranslationsRepository extends Effect.Service<TranslationsRepositor
 				);
 			});
 
-			const findUserLanguagePreferences = Effect.fn(
-				"TranslationsRepository.findUserLanguagePreferences",
-			)(function* (userId: UserId) {
+			const findUserLanguage = Effect.fn("TranslationsRepository.findUserLanguage")(function* (
+				userId: UserId,
+			) {
 				const db = yield* CurrentDb;
 				const [row] = yield* dbEffect(() =>
 					db
@@ -102,10 +84,10 @@ export class TranslationsRepository extends Effect.Service<TranslationsRepositor
 						.limit(1),
 				);
 
-				return row ? extractLanguagePreferences(row.preferences) : [];
+				return row ? extractLanguage(row.preferences) : null;
 			});
 
-			return { findOverlay, upsertOverlay, findUserLanguagePreferences };
+			return { findOverlay, upsertOverlay, findUserLanguage };
 		},
 	},
 ) {}
