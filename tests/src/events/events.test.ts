@@ -1,5 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
+import { BadRequest } from "@ryot/contract/errors";
+
 import {
 	createAuthenticatedClient,
 	createBuiltinMediaLifecycleFixture,
@@ -54,6 +56,31 @@ describe("Events bulk POST", () => {
 		const result = await apiClient.run((c) => c.events.create({ payload: [] }));
 
 		expect(result.count).toBe(0);
+	});
+
+	it("returns a partial outcome when a later event is invalid", async () => {
+		const { client: apiClient } = await createAuthenticatedClient();
+		const { entityId, eventSchemaId } = await createEventTestFixture(apiClient);
+
+		const result = await apiClient.run((c) =>
+			c.events.create({
+				payload: [
+					{ entityId, eventSchemaId, properties: { rating: 4 } },
+					{ entityId, eventSchemaId, properties: {} },
+				],
+			}),
+		);
+
+		expect(result).toEqual({
+			count: 1,
+			skipped: 0,
+			failure: {
+				index: 1,
+				reason: new BadRequest({ message: "rating: is missing" }),
+			},
+		});
+		const events = await waitForEventCount(apiClient, entityId, 1);
+		expect(events[0]?.properties).toEqual({ rating: 4 });
 	});
 
 	it("enforces conditional required rules end to end", async () => {

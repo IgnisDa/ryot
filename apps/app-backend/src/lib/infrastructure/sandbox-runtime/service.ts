@@ -1,12 +1,16 @@
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "@effect/platform";
 import { isHttpMethod } from "@effect/platform/HttpMethod";
 import { SandboxRunError, TimeoutError, unknownToMessage } from "@ryot/contract/errors";
+import type { SandboxExecutionPayload } from "@ryot/contract/modules/sandbox/schemas";
 import { generateId } from "better-auth";
 import { Clock, Duration, Effect, Match, Runtime, Schema } from "effect";
+
+import { AutomationsService } from "#modules/automations/service";
 
 import { AppConfig } from "../config/service";
 import { redisKeys, RedisService } from "../redis";
 import { ServerRun } from "../server-run";
+import { finishAutomationEffect, reserveAutomationEffect } from "./effect-ledger";
 import { makeAdditionalSandboxApiFunctions } from "./host-functions";
 import { BridgeService, invalidateProcess, ProcessPool } from "./runtime";
 import { apiFailure, apiSuccess, type BoundHostFunction, requireSandboxRunInput } from "./shared";
@@ -16,13 +20,13 @@ type HttpCallOptions = {
 	headers?: Record<string, string>;
 };
 
-export type SandboxRunInput = {
+export type SandboxRunInput = Pick<
+	SandboxExecutionPayload,
+	"automationRun" | "context" | "driverName" | "executionId" | "executionKind"
+> & {
 	readonly code: string;
-	readonly context: unknown;
-	readonly scriptId: string;
 	readonly metadata: unknown;
-	readonly driverName: string;
-	readonly executionId: string;
+	readonly scriptId: string;
 	readonly userId: string | null;
 	readonly scriptIsBuiltin: boolean;
 	readonly allowedHostFunctions: readonly string[];
@@ -115,6 +119,7 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 		const redis = yield* RedisService;
 		const serverRun = yield* ServerRun;
 		const bridge = yield* BridgeService;
+		const automations = yield* AutomationsService;
 
 		const runtime = yield* Effect.runtime();
 		const runPromise = Runtime.runPromise(runtime);
@@ -238,9 +243,13 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 				);
 			},
 			httpCall: (...args) => {
-				const method = args[0];
-				const url = args[1];
-				const options = args[2];
+				// The runtime always appends the run input as the true last argument, but
+				// `options` and `effectKey` are both optional, so their positions shift
+				// depending on how many the script passed. Strip the input off the end first
+				// instead of guessing its index from `effectKey`'s presence.
+				const input = requireSandboxRunInput(args, args.length - 1, "httpCall");
+				const [method, url, options, effectKeyArg] = args.slice(0, -1);
+				const effectKey = typeof effectKeyArg === "string" ? effectKeyArg : undefined;
 				if (typeof method !== "string" || !method.trim()) {
 					return Promise.resolve(apiFailure("httpCall expects a non-empty method string"));
 				}
@@ -265,6 +274,29 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 								Effect.fail(apiFailure("httpCall method is not a valid HTTP method")),
 							),
 						);
+						const validatedInput = {
+							method: httpMethod,
+							options: parsedOptions,
+							url: requestUrl.toString(),
+						};
+						const automation =
+							input.executionKind === "subscription" ? input.automationRun : undefined;
+						const reservation = automation
+							? yield* reserveAutomationEffect({
+									effectKey,
+									automations,
+									validatedInput,
+									correlationUnits: 0,
+									runId: automation.runId,
+									hostFunction: "httpCall",
+									correlationId: automation.correlationId,
+									mapError: (error) => apiFailure(unknownToMessage(error)),
+									missingEffectKeyMessage: "httpCall requires an effect key in subscriptions",
+								})
+							: null;
+						if (reservation?.kind === "existing") {
+							return reservation.result;
+						}
 						let request = HttpClientRequest.make(httpMethod)(requestUrl.toString());
 						if (parsedOptions.body !== undefined) {
 							request = HttpClientRequest.bodyText(parsedOptions.body)(request);
@@ -279,18 +311,22 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 							Effect.mapError((error) => apiFailure(unknownToMessage(error))),
 						);
 
-						if (response.status < 200 || response.status >= 300) {
-							return {
-								...apiFailure(`HTTP ${response.status}`),
-								data: { status: response.status },
-							};
+						const result =
+							response.status < 200 || response.status >= 300
+								? {
+										...apiFailure(`HTTP ${response.status}`),
+										data: { status: response.status },
+									}
+								: apiSuccess({ body, status: response.status, headers: response.headers });
+						if (reservation?.kind === "reserved") {
+							yield* finishAutomationEffect({
+								result,
+								automations,
+								effectId: reservation.effectId,
+								mapError: (error) => apiFailure(unknownToMessage(error)),
+							});
 						}
-
-						return apiSuccess({
-							body,
-							status: response.status,
-							headers: response.headers,
-						});
+						return result;
 					}).pipe(Effect.catchAll((errorValue) => Effect.succeed(errorValue))),
 				);
 			},

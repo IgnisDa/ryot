@@ -1,25 +1,18 @@
 import { Workflow } from "@effect/workflow";
 import { DbError } from "@ryot/contract/errors";
-import {
-	NotificationEventType,
-	NotificationPlatformKind,
-} from "@ryot/contract/modules/notifications/types";
-import { NotificationPlatformId, UserId } from "@ryot/contract/schema/brands";
+import { NotificationChannelKind } from "@ryot/contract/modules/notifications/types";
+import { NotificationChannelId, UserId } from "@ryot/contract/schema/brands";
 import { generateId } from "better-auth";
 import { Schema } from "effect";
 
 export const NotificationDeliveryRequest = Schema.Union(
 	Schema.Struct({ kind: Schema.Literal("test") }),
-	Schema.Struct({
-		message: Schema.String,
-		kind: Schema.Literal("event"),
-		eventType: NotificationEventType,
-	}),
+	Schema.Struct({ message: Schema.String, kind: Schema.Literal("automation") }),
 );
 
 export const NotificationDeliveryResult = Schema.Struct({
-	platform: NotificationPlatformKind,
-	platformId: NotificationPlatformId,
+	kind: NotificationChannelKind,
+	channelId: NotificationChannelId,
 	status: Schema.Literal("sent", "failed"),
 });
 
@@ -46,10 +39,8 @@ export const NotificationDeliveryWorkflow = Workflow.make({
 	success: Schema.Array(NotificationDeliveryResult),
 });
 
-const withExecutionId = (input: NotificationDeliveryWorkflowInput) => ({
-	...input,
-	executionId: input.executionId ?? generateId(),
-});
-
 export const enqueueNotificationDelivery = (input: NotificationDeliveryWorkflowInput) =>
-	NotificationDeliveryWorkflow.execute(withExecutionId(input), { discard: true });
+	NotificationDeliveryWorkflow.execute(
+		{ ...input, executionId: input.executionId ?? generateId() },
+		{ discard: true },
+	);

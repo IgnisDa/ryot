@@ -9,7 +9,7 @@ import {
 } from "#lib/infrastructure/db/schema/tables/combined";
 import { dbEffect, DbService } from "#lib/infrastructure/db/service";
 import { bootstrapNewUser } from "#modules/builtins/bootstrap";
-import { builtinMediaEntitySchemaSlugs } from "#modules/builtins/media-schema-slugs";
+import { mediaMonitorableEntitySchemaSlugs } from "#modules/media-monitoring/monitorable";
 
 import {
 	buildCollectionEntityMigrationSql,
@@ -46,7 +46,6 @@ import {
 	resolveEntityMigrationTargets,
 	resolveRelationshipMigrationTargets,
 } from "./migration-resolution";
-import { buildNotificationPlatformMigrationSql } from "./notification-platform-mapping";
 import {
 	buildCompanyEntityMigrationSql,
 	buildCompanyRelationshipMigrationSql,
@@ -226,8 +225,8 @@ export const migrateLegacyTables = Effect.gen(function* () {
 		"relationship schema",
 	);
 
-	const monitorableEntitySchemaIds = ["company", "person", ...builtinMediaEntitySchemaSlugs].map(
-		(slug) => requireSchemaId(entitySchemaIds, slug, "entity schema"),
+	const monitorableEntitySchemaIds = mediaMonitorableEntitySchemaSlugs.map((slug) =>
+		requireSchemaId(entitySchemaIds, slug, "entity schema"),
 	);
 
 	const mediaSuggestionRelationshipSchemaId = requireSchemaId(
@@ -358,11 +357,7 @@ export const migrateLegacyTables = Effect.gen(function* () {
 		);
 
 		for (const user of migratedUserRows) {
-			yield* bootstrapNewUser(user.id).pipe(
-				Effect.catchAll((cause) =>
-					Effect.logError("[legacy-bootstrap] bootstrapNewUser failed for user", user.id, cause),
-				),
-			);
+			yield* bootstrapNewUser(user.id);
 		}
 
 		yield* Effect.logInfo(
@@ -473,7 +468,6 @@ export const migrateLegacyTables = Effect.gen(function* () {
 					}),
 				),
 			)
-			.then(() => client.query(buildIntegrationMigrationSql()))
-			.then(() => client.query(buildNotificationPlatformMigrationSql())),
+			.then(() => client.query(buildIntegrationMigrationSql())),
 	);
 });

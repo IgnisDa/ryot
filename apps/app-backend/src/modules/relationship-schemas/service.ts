@@ -5,13 +5,12 @@ import type {
 	ListRelationshipSchemasBody,
 } from "@ryot/contract/modules/relationship-schemas/schemas";
 import type { RelationshipSchemaId, UserId, EntitySchemaId } from "@ryot/contract/schema/brands";
-import { Slug } from "@ryot/contract/schema/brands";
 import { AppSchema } from "@ryot/contract/schema/property-schema";
 import { Effect, Schema } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
 import { validateAppSchemaDefinition } from "#lib/property-schema/property-schema-runtime";
-import { slugify } from "#lib/shared/slug";
+import { requireSlug } from "#lib/shared/slug";
 import { requireText } from "#lib/shared/validation";
 import { builtinRelationshipSchemas } from "#modules/builtins/relationship-schemas";
 
@@ -21,22 +20,11 @@ const reservedRelationshipSchemaSlugs = new Set(builtinRelationshipSchemas().map
 
 const relationshipSchemaNotFoundError = "Relationship schema not found";
 
-const resolveRelationshipSchemaSlug = (input: { name: string; slug?: string | undefined }) => {
-	const candidate = input.slug?.trim() ?? input.name;
-	const slug = candidate ? slugify(candidate) : null;
-	if (!slug) {
-		return badRequest("Relationship schema slug is required");
-	}
-	return Schema.decode(Slug)(slug).pipe(
-		Effect.mapError(() => badRequest("Relationship schema slug is invalid")),
-	);
-};
-
 const resolveRelationshipSchemaCreateInput = Effect.fn(function* (
 	input: Pick<CreateRelationshipSchemaBody, "name" | "slug">,
 ) {
 	const name = yield* requireText(input.name, "Relationship schema name is required");
-	const slug = yield* resolveRelationshipSchemaSlug({ name, slug: input.slug });
+	const slug = yield* requireSlug({ label: "Relationship schema", name, slug: input.slug });
 
 	if (reservedRelationshipSchemaSlugs.has(slug)) {
 		return yield* badRequest(`Relationship schema slug "${slug}" is reserved for built-in schemas`);

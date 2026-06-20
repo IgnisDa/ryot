@@ -6,7 +6,6 @@ export const mediaMonitorableEntitySchemaSlugs = [
 	...builtinMediaEntitySchemaSlugs,
 ] as const;
 
-const mediaEntitySchemaSlugSet = new Set(builtinMediaEntitySchemaSlugs);
 const mediaMonitorableEntitySchemaSlugSet = new Set(mediaMonitorableEntitySchemaSlugs);
 
 export const isMediaMonitorableEntity = (entity: {
@@ -17,6 +16,3 @@ export const isMediaMonitorableEntity = (entity: {
 	entity.entityUserId === null &&
 	entity.provenance !== null &&
 	mediaMonitorableEntitySchemaSlugSet.has(entity.entitySchemaSlug);
-
-export const isMediaMonitoringAssociationTargetSchema = (entitySchemaSlug: string) =>
-	mediaEntitySchemaSlugSet.has(entitySchemaSlug) || entitySchemaSlug.endsWith("-group");

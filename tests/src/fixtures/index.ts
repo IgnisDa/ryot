@@ -1,4 +1,6 @@
+// TODO: Move existing tests to `/src/tests` and keep this here.
 export * from "./auth";
+export * from "./automations";
 export * from "./contract-client";
 export * from "./collections";
 export * from "./integrations";

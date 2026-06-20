@@ -38,7 +38,7 @@ Instead, each V1 concept will be re-modeled according to what it actually repres
 - provenance becomes explicit metadata on entities
 - scheduled reminders become dedicated persistent state, not generic collections
 
-This follows the rewrite principles in `docs/soul.md`:
+This follows the rewrite's event and collection design principles:
 
 - events record something that happened to an entity
 - collections are unrestricted buckets of entities
@@ -221,7 +221,7 @@ A single `person` schema with an `is_organization` boolean property was consider
 
 ### Tracker Ownership
 
-Both schemas belong to the built-in Media tracker. `docs/soul.md` lists the Media tracker as owning "movie, show, book, podcast, video game, person, and group schemas." `company` joins that list as a second reference-entity schema alongside `person`.
+Both schemas belong to the built-in Media tracker. The tracker owns the media and reference-entity schemas, with `company` joining `person` as a second reference-entity schema.
 
 ### Summary
 
@@ -246,7 +246,7 @@ In the rewrite the same concept is `entity.populatedAt` (null ⇒ partial) plus,
 Two ordinary HTTP endpoints, both authenticated through the existing auth middleware (session cookie for web; bearer or api key for native) — no subprotocol token, no bespoke `Origin` or CSRF handling:
 
 - **`GET /api/entity-interest/stream?streamId=<uuid>`** — a Server-Sent Events (SSE) stream, declared as an ordinary `HttpApiEndpoint` on the `entity-interest` group (`handleRaw`, returning `HttpServerResponse.stream` instead of a JSON body) — so it appears in the generated API docs (`/docs`) alongside every other route, unlike the old WebSocket gateway. The client generates a `streamId` (a UUID) and opens this as a long-lived GET. The first event is `connected`, with data `{ streamId }`. Completions arrive as `entity:updated` events with data `{ entityId, reason }`, where `reason` is `"populated"` or `"translated"`. A bare `: ping` comment line is sent every 25000ms (`HEARTBEAT_INTERVAL_MS`) so intermediary proxies do not close the idle connection.
-- **`POST /api/entity-interest`** — part of the `effect/platform` `HttpApi` contract, `AuthMiddleware`-protected. Body `{ streamId, entityIds }` (Effect `Schema`, `apps/app-backend/src/modules/entity-interest/messages.ts`). Replace semantics: each call supersedes the interest set previously declared for that stream. Returns `{ terminal: {entityId, reason}[] }`, the entities that were already terminal at reconcile time and still present in that stream's current interest set, for immediate catch-up.
+- **`POST /api/entity-interest`** — part of the `effect/platform` `HttpApi` contract, `AuthMiddleware`-protected. Body `{ streamId, entityIds }` (Effect `Schema`, `libs/contract/src/modules/entity-interest/messages.ts`). Replace semantics: each call supersedes the interest set previously declared for that stream. Returns `{ terminal: {entityId, reason}[] }`, the entities that were already terminal at reconcile time and still present in that stream's current interest set, for immediate catch-up.
 
 Ryot is self-hosted and, in practice, single-instance, so there is no meaningful payoff from a persistent bidirectional socket here. Ordinary request/response for declaring interest, and a one-way push for completions, is simpler and reuses the normal HTTP auth and CORS path instead of re-deriving equivalents for a WebSocket upgrade.
 
@@ -319,7 +319,7 @@ Population and translation are `@effect/workflow` workflows keyed by a determini
 
 ---
 
-## Decision 5: `consumedOn` and Trigger Property Inheritance
+## Decision 5: `consumedOn` Propagation
 
 ### Context
 
@@ -329,23 +329,17 @@ V1 stored a `providers_consumed_on: Vec<String>` field on the `seen` table, reco
 
 **`consumedOn: string` (optional)** is added as a property to the `progress`, `complete`, `dropped`, and `on_hold` event schemas. It is not present on `backlog` or `review`, which do not represent consumption acts. Each event carries its own single optional source string. The aggregate view across an entity's history is derivable via `SELECT DISTINCT consumed_on FROM event WHERE entity_id = ?` and does not need to be stored separately.
 
-When a trigger creates a new event from a triggering event — as the auto-complete trigger does when it creates a `complete` event from a 100% `progress` event — the trigger framework is responsible for forwarding relevant properties. This propagation is declared in data, not code.
+When the built-in auto-complete lifecycle subscription creates a `complete` event from a 100%
+`progress` event, its sandbox context contains the immutable committed progress-event snapshot. The
+script copies `consumedOn` from that snapshot into the new event. The generic automation runtime does
+not interpret property-inheritance metadata; propagation is owned explicitly by the consumer script.
 
-The `event_schema_trigger` table carries a `metadata` column (`jsonb NOT NULL`, no default — same semantics as `sandbox_script.metadata`) with schema:
-
-```ts
-eventSchemaTriggerMetadataSchema = z.object({
-    inheritedProperties: z.array(z.string()).optional(),
-});
-```
-
-When `processEventSchemaTriggers` builds the sandbox job context, it reads `trigger.metadata.inheritedProperties`, extracts those keys from the triggering event's `properties`, and injects them as `trigger.inheritedProperties`. The trigger script spreads `trigger.inheritedProperties` into the properties of the event it creates without referencing any property name directly.
-
-The builtin auto-complete trigger's seed record carries `metadata: { inheritedProperties: ["consumedOn"] }`. Adding a new property to propagate in the future requires only updating that metadata record — no script change.
+The auto-complete subscription is seeded as a global event-schema automation rule. The historical
+event-only trigger table no longer exists.
 
 ### Summary
 
 - `consumedOn: string` (optional) is a property on `progress`, `complete`, `dropped`, and `on_hold` events.
 - Each event carries its own source; the aggregate is a query over event history.
-- `event_schema_trigger.metadata.inheritedProperties` declares which properties the trigger framework copies from the triggering event into the sandbox job context.
-- Trigger scripts are property-name agnostic; propagation behavior lives in the DB.
+- Auto-complete copies `consumedOn` directly from the committed source-event snapshot.
+- Lifecycle behavior is bound through database-backed automation rules and executed from immutable snapshots.

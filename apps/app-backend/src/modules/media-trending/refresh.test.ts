@@ -13,7 +13,7 @@ import type { MockOverrides } from "#lib/test-support/effect";
 import { dbRunnerLayer, makeWorkflowActivityEngine } from "#lib/test-support/effect";
 import { EntitiesService } from "#modules/entities/service";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
-import { RelationshipsRepository } from "#modules/relationships/repository";
+import { RelationshipsService } from "#modules/relationships/service";
 import { InfrequentCronWorkflow } from "#modules/scheduler/cron-workflow";
 
 import {
@@ -67,7 +67,7 @@ const listedEntity = (input: {
 });
 
 const mockEntitiesService = Layer.mock(EntitiesService);
-const mockRelationshipsRepository = Layer.mock(RelationshipsRepository);
+const mockRelationshipsService = Layer.mock(RelationshipsService);
 const mockMediaTrendingRepository = Layer.mock(MediaTrendingRepository);
 const mockRelationshipSchemasRepository = Layer.mock(RelationshipSchemasRepository);
 
@@ -78,13 +78,12 @@ const makeEntitiesService = (overrides: MockOverrides<typeof mockEntitiesService
 		_tag: "EntitiesService",
 	});
 
-const makeRelationshipsRepository = (
-	overrides: MockOverrides<typeof mockRelationshipsRepository> = {},
-) =>
-	mockRelationshipsRepository({
-		syncGlobalRelationships: () => Effect.void,
+const makeRelationshipsService = (overrides: MockOverrides<typeof mockRelationshipsService> = {}) =>
+	mockRelationshipsService({
+		syncGlobal: () => Effect.succeed({ afterCount: 0, beforeCount: 0, mutations: [] }),
+		save: () => Effect.die("unused"),
 		...overrides,
-		_tag: "RelationshipsRepository",
+		_tag: "RelationshipsService",
 	});
 
 const makeMediaTrendingRepository = (
@@ -108,7 +107,7 @@ const makeRelationshipSchemasRepository = (
 type TestLayerOptions = {
 	entitiesService?: Layer.Layer<EntitiesService>;
 	mediaTrendingRepository?: Layer.Layer<MediaTrendingRepository>;
-	relationshipsRepository?: Layer.Layer<RelationshipsRepository>;
+	relationshipsService?: Layer.Layer<RelationshipsService>;
 	fetchTrending?: MediaTrendingWorkflowOperationsValue["fetchTrending"];
 	relationshipSchemasRepository?: Layer.Layer<RelationshipSchemasRepository>;
 };
@@ -120,7 +119,7 @@ const makeTestLayer = (options: TestLayerOptions) =>
 			fetchTrending: options.fetchTrending ?? (() => Effect.die("unused")),
 		}),
 		options.entitiesService ?? makeEntitiesService(),
-		options.relationshipsRepository ?? makeRelationshipsRepository(),
+		options.relationshipsService ?? makeRelationshipsService(),
 		options.mediaTrendingRepository ?? makeMediaTrendingRepository(),
 		options.relationshipSchemasRepository ?? makeRelationshipSchemasRepository(),
 	);
@@ -162,21 +161,22 @@ it.effect("syncs successful provider trend items as ranked self edges", () => {
 			save: (input) => {
 				savedInputs.push(input);
 				const key = `${input.sandboxScriptId}:${input.externalId}`;
-				return Effect.succeed(
-					listedEntity({
+				return Effect.succeed({
+					operation: "create" as const,
+					entity: listedEntity({
 						name: input.name,
 						externalId: input.externalId ?? "",
 						entitySchemaId: input.entitySchemaId,
 						id: idByProviderItem.get(key) ?? "entity-unknown",
 						sandboxScriptId: input.sandboxScriptId ?? SandboxScriptId.make("script-unknown"),
 					}),
-				);
+				});
 			},
 		}),
-		relationshipsRepository: makeRelationshipsRepository({
-			syncGlobalRelationships: (input) => {
+		relationshipsService: makeRelationshipsService({
+			syncGlobal: (input) => {
 				syncedInput = input;
-				return Effect.void;
+				return Effect.succeed({ afterCount: 0, beforeCount: 0, mutations: [] });
 			},
 		}),
 		mediaTrendingRepository: makeMediaTrendingRepository({
@@ -227,20 +227,21 @@ it.effect("skips failed providers and syncs successful providers", () => {
 				: Effect.succeed([{ name: "Show One", externalId: "s1" }]),
 		entitiesService: makeEntitiesService({
 			save: (input) =>
-				Effect.succeed(
-					listedEntity({
+				Effect.succeed({
+					operation: "create" as const,
+					entity: listedEntity({
 						name: input.name,
 						id: "entity-show-one",
 						externalId: input.externalId ?? "",
 						entitySchemaId: input.entitySchemaId,
 						sandboxScriptId: input.sandboxScriptId ?? SandboxScriptId.make("script-show"),
 					}),
-				),
+				}),
 		}),
-		relationshipsRepository: makeRelationshipsRepository({
-			syncGlobalRelationships: (input) => {
+		relationshipsService: makeRelationshipsService({
+			syncGlobal: (input) => {
 				syncedInput = input;
-				return Effect.void;
+				return Effect.succeed({ afterCount: 0, beforeCount: 0, mutations: [] });
 			},
 		}),
 		mediaTrendingRepository: makeMediaTrendingRepository({
@@ -276,10 +277,10 @@ it.effect("preserves prior trend edges when no provider succeeds", () => {
 	let syncCalled = false;
 	const options = {
 		fetchTrending: () => Effect.fail(new SandboxRunError({ message: "provider unavailable" })),
-		relationshipsRepository: makeRelationshipsRepository({
-			syncGlobalRelationships: () => {
+		relationshipsService: makeRelationshipsService({
+			syncGlobal: () => {
 				syncCalled = true;
-				return Effect.void;
+				return Effect.succeed({ afterCount: 0, beforeCount: 0, mutations: [] });
 			},
 		}),
 		mediaTrendingRepository: makeMediaTrendingRepository({

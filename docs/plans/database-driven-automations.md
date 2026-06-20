@@ -1,5 +1,10 @@
 # Database-Driven Automations, Signals, and Subscriptions
 
+> **Status:** Implemented. Provider population still uses one whole-graph Activity/transaction;
+> per-scope provider Activities remain deferred. This document retains former table and workflow
+> names only as historical design and migration context; they do not describe active application
+> code.
+
 ## Purpose
 
 Build one database-driven automation system for schema lifecycle hooks, semantic domain signals, user subscriptions, notifications, and future custom sandbox actions.
@@ -8,13 +13,12 @@ The system must treat built-in and user-created entity, event, relationship, and
 
 V2 is greenfield and has no existing V2 user data. Breaking its current tables and contracts is acceptable. Legacy bootstrap intentionally discards V1 notification platforms, credentials, and configured-event preferences. Migrated users receive the same active default subscriptions as new users through `bootstrapNewUser` and create new channels themselves.
 
-Reset and regenerate the unreleased V2 Drizzle migration history as part of this feature. The
-baseline is a single squashed snapshot regenerated in place whenever a phase changes the schema,
-so every phase keeps a working database for its own code: the Phase 1 baseline still contains
-`event_schema_trigger` and `notification_platform.configured_events` because runtime code needs
-them until phases 2–3 land, while the released baseline creates `notification_channel` directly
-and never creates a V2 `notification_platform`. Existing V2 development/test databases must be
-rebuilt against the current baseline; only V1 data is supported through legacy bootstrap.
+The implementation reset the unreleased V2 Drizzle migration history to one squashed baseline. The
+intermediate Phase 1 baseline contained `event_schema_trigger` and
+`notification_platform.configured_events` while the later phases were developed. The released
+baseline creates `notification_channel` directly and never creates a V2 `notification_platform`.
+Existing V2 development/test databases must be rebuilt against the current baseline; only V1 data
+is supported through legacy bootstrap.
 
 ## Decisions
 
@@ -32,14 +36,14 @@ rebuilt against the current baseline; only V1 data is supported through legacy b
 - Persist signals, resolved recipients, and subscription execution history.
 - Application code owns generic lifecycle capture, transactions, authorization, validation, and durable dispatch. Schema-derived semantic detection and notification message construction belong in database-linked sandbox scripts. A non-schema application workflow may emit a seeded built-in signal directly when it is the authoritative source of that fact, but it cannot choose recipients or construct the notification message.
 
-## Current State Being Replaced
+## Former State Replaced (Historical)
 
-- `event_schema_trigger` supports `before_create` and `after_create` scripts only for event schemas. Built-in after-create behavior includes auto-completion and integration pushes; there is no authenticated trigger-management API.
-- Entity and relationship schemas have no corresponding lifecycle hooks.
-- Notification preferences live in `notification_platform.configured_events`, backed by the closed `NotificationEventType` literal union.
-- `modules/media-monitoring` computes domain-specific TypeScript diffs and directly starts `NotificationDeliveryWorkflow` for monitoring users.
-- Sandbox host functions are capability-allowlisted per script, with the authenticated user and execution identity appended by the runtime.
-- After-create event scripts already demonstrate deterministic, fire-and-forget sandbox dispatch, but there is no durable user-facing subscription-run history.
+- `event_schema_trigger` supported `before_create` and `after_create` scripts only for event schemas.
+- Entity and relationship schemas had no corresponding lifecycle hooks.
+- Notification preferences lived in `notification_platform.configured_events`, backed by the closed `NotificationEventType` literal union.
+- `modules/media-monitoring` computed domain-specific TypeScript diffs and directly started `NotificationDeliveryWorkflow` for monitoring users.
+- Sandbox host functions were capability-allowlisted per script, with the authenticated user and execution identity appended by the runtime.
+- After-create event scripts used deterministic fire-and-forget sandbox dispatch without durable user-facing subscription-run history.
 
 ## Terminology and Model
 
@@ -722,7 +726,10 @@ notification rules target that signal; origin remains server-controlled lifecycl
 
 ### Media monitoring
 
-Keep provider refresh scheduling and entity population as application-owned workflows. Remove notification delivery and semantic notification vocabulary from `modules/media-monitoring`.
+Keep provider refresh scheduling and entity population application-owned. The media-monitoring cron
+task queries the persisted monitoring relationships and dispatches `ProviderEntityPopulationWorkflow`
+directly; there is no intermediate media-monitoring refresh workflow. Remove notification delivery
+and semantic notification vocabulary from `modules/media-monitoring`.
 
 Represent semantic detection through built-in sandbox scripts with one owner per semantic scope:
 
@@ -966,7 +973,9 @@ These scope decisions are settled and bind the Phase 5 implementation:
 - Episode image comparison stays order- and duplicate-insensitive, and release-date transitions where either side is null emit nothing, matching the current diff.
 - Credit-relationship create/update snapshots contain both endpoint IDs, schema slugs, and names. Dual-writer association tests cover media-first, person/company-first, and concurrent discovery of the same canonical edge: media-rooted population still exposes cast/crew, exactly one insertion is classified as `create`, an identical second write is `noop`, and the detector uses the person/company source endpoint as the signal subject and `subjectName` plus the media/group target endpoint as `associatedName` regardless of `scopeEntity`.
 - Association update tests emit each newly added role once relative to the immediate before/after snapshots, emit nothing for unchanged or removed roles, and explicitly permit a new notification after a real delete/re-create cycle.
-- Media-monitoring tests cover every currently detected change, expect both season-count and aggregate episode-discovery signals when both facts occur, and prove there is no direct notification workflow call left in that module.
+- Built-in automation tests cover every currently detected media change and expect both season-count
+  and aggregate episode-discovery signals when both facts occur. Media-monitoring tests cover only
+  monitoring state and cron dispatch and prove there is no direct notification workflow call in that module.
 - Every seeded signal property contract accepts each currently supported media-monitoring diff variant, rejects unknown or variant-incomplete fields, preserves nullable episode-name transitions, and accepts an `episode_date` without `seasonNumber` for future podcast support.
 - Import tests preserve one `import`-origin occurrence per canonical mutation while processing large inputs in bounded chunks; translation-overlay writes produce no canonical entity lifecycle occurrence, and no provider relationship sync, additive or authoritative, bypasses `RelationshipsService`.
 - Built-in seeding is idempotent across restarts.

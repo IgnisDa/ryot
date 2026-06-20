@@ -8,8 +8,9 @@ export const user = pgTable("user", {
 	twoFactorEnabled: boolean(),
 	email: text().notNull().unique(),
 	disabledAt: timestamp({ withTimezone: true }),
-	preferences: jsonb().$type<Record<string, unknown>>().notNull(),
 	emailVerified: boolean().default(false).notNull(),
+	bootstrapCompletedAt: timestamp({ withTimezone: true }),
+	preferences: jsonb().$type<Record<string, unknown>>().notNull(),
 	createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 	updatedAt: timestamp({ withTimezone: true })
 		.defaultNow()
