@@ -221,6 +221,10 @@ Exporting a dependency also emitted `origin`, which `V2EntityDependency` does no
 
 **Validation:** Success, validation failure, interruption, malformed events, count mismatch, committed restore with cleanup failure.
 
+**Implemented.** `validateV2ArchiveStream` now registers the spool directory as a finalizer on the caller's scope instead of returning a cleanup effect, so `ValidatedV2Archive.cleanup` is gone and no success caller can forget it. The directory is removed on success, on validation failure, and on interruption alike, which also replaces the previous failure-only `Effect.catch` removal that leaked the spool whenever a caller abandoned a successfully validated archive. Removal is logged and swallowed inside the finalizer rather than surfaced, so a spool that cannot be deleted never turns a committed restore into a failed one. `validateExtracted` no longer takes the directory, which it only used to build that cleanup effect.
+
+The restore workflow wraps its whole `restore` operation in `Effect.scoped`, so the scope spans plugin preflight, asset staging, and the write transaction — every consumer of the event reader and the asset streams. Its `Effect.ensuring` cleanup block is removed, and the `runId` log annotation it carried moves to the scoped region so the finalizer's warning keeps it. A new archive test asserts that a validated archive holds exactly one spool entry inside its scope and none after it closes, across a successful validation, a streamed-event failure drained inside the scope, an eager validation failure, and an interruption.
+
 ### 12. Centralize Import Dispatch and Rollback
 
 **Owner:** D14 Imports
