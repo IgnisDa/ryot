@@ -5,6 +5,7 @@ import { reservedPluginSlugs } from "@ryot/contract/modules/plugins/schemas";
 import { expect, it } from "vitest";
 
 const appDirectory = fileURLToPath(new URL("../../app", import.meta.url));
+const nativeOnlyReservedPluginSlugs = [...reservedPluginSlugs].filter((slug) => slug !== "oauth");
 
 const collectRouteSegments = (directory: string): ReadonlyArray<string> =>
 	readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -19,8 +20,9 @@ const collectRouteSegments = (directory: string): ReadonlyArray<string> =>
 			: [segment];
 	});
 
-it("reserves every global client route segment for the kernel", () => {
+it("reserves every native global client route segment for the kernel", () => {
 	const segments = collectRouteSegments(appDirectory).filter((segment) => !segment.startsWith("["));
 
-	expect([...new Set(segments)].sort()).toEqual([...reservedPluginSlugs].sort());
+	expect([...new Set(segments)].sort()).toEqual([...nativeOnlyReservedPluginSlugs].sort());
+	expect(reservedPluginSlugs.has("oauth")).toBe(true);
 });
