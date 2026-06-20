@@ -1,10 +1,10 @@
+import { DbError, unknownToDbError } from "@ryot/contract/errors";
 import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Context, Effect, Exit, Layer, Redacted, Runtime } from "effect";
 import { Pool } from "pg";
 
 import { AppConfig } from "#lib/config/service";
-import { DbError, unknownToDbError } from "#lib/errors";
 
 import * as schemaAuth from "./schema/tables/auth";
 import * as schemaTables from "./schema/tables/combined";

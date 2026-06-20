@@ -1,8 +1,7 @@
 import { HttpApiBuilder } from "@effect/platform";
+import { AppContract } from "@ryot/contract/contract";
+import { dieOnDbError } from "@ryot/contract/errors";
 import { Effect } from "effect";
-
-import { AppContract } from "#lib/contract";
-import { dieOnDbError } from "#lib/errors";
 
 import { GodModeService } from "./service";
 

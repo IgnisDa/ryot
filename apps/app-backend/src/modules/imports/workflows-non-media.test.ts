@@ -1,10 +1,17 @@
 import { BunFileSystem } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
 import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
+import { badRequest } from "@ryot/contract/errors";
+import type { ListedEntity } from "@ryot/contract/modules/entities/schemas";
+import {
+	EntityId,
+	EntitySchemaId,
+	EventSchemaId,
+	ImportRunId,
+	UserId,
+} from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
-import { badRequest } from "#lib/errors";
-import { EntityId, EntitySchemaId, EventSchemaId, ImportRunId, UserId } from "#lib/schema/brands";
 import type { MockOverrides } from "#lib/test-support/effect";
 import {
 	dbRunnerLayer,
@@ -12,7 +19,6 @@ import {
 	makeWorkflowActivityEngine,
 } from "#lib/test-support/effect";
 import { EntitiesRepository } from "#modules/entities/repository";
-import type { ListedEntity } from "#modules/entities/schemas";
 import { EntitiesService } from "#modules/entities/service";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";

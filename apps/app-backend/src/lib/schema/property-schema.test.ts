@@ -1,11 +1,10 @@
+import { collectTranslatableProperties } from "@ryot/contract/schema/property-schema";
 import { describe, expect, it } from "vitest";
 
 import {
 	moviePropertiesSchema,
 	personPropertiesSchema,
 } from "#lib/builtins/media-property-schemas";
-
-import { collectTranslatableProperties } from "./property-schema";
 
 describe("collectTranslatableProperties", () => {
 	it("marks description translatable while leaving genres and other properties canonical", () => {

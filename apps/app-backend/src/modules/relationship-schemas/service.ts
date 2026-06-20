@@ -1,18 +1,21 @@
+import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
+import { badRequest, conflict, notFound } from "@ryot/contract/errors";
+import type {
+	CreateRelationshipSchemaBody,
+	ListRelationshipSchemasBody,
+} from "@ryot/contract/modules/relationship-schemas/schemas";
+import type { RelationshipSchemaId, UserId, EntitySchemaId } from "@ryot/contract/schema/brands";
+import { Slug } from "@ryot/contract/schema/brands";
+import { AppSchema } from "@ryot/contract/schema/property-schema";
 import { Effect, Schema } from "effect";
 
-import type { CurrentUserValue } from "#lib/auth-middleware";
 import { builtinRelationshipSchemas } from "#lib/builtins/relationship-schemas";
 import { DbRunner } from "#lib/db/service";
-import { badRequest, conflict, notFound } from "#lib/errors";
-import type { RelationshipSchemaId, UserId, EntitySchemaId } from "#lib/schema/brands";
-import { Slug } from "#lib/schema/brands";
-import { AppSchema } from "#lib/schema/property-schema";
 import { validateAppSchemaDefinition } from "#lib/schema/property-schema-runtime";
 import { slugify } from "#lib/slug";
 import { requireText } from "#lib/validation";
 
 import { RelationshipSchemasRepository } from "./repository";
-import type { CreateRelationshipSchemaBody, ListRelationshipSchemasBody } from "./schemas";
 
 const reservedRelationshipSchemaSlugs = new Set(builtinRelationshipSchemas().map((s) => s.slug));
 

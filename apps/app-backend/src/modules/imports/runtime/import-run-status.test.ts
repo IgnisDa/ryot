@@ -1,8 +1,8 @@
 import { it } from "@effect/vitest";
+import { ImportRunId } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 import { expect as vitestExpect } from "vitest";
 
-import { ImportRunId } from "#lib/schema/brands";
 import type { MockOverrides } from "#lib/test-support/effect";
 import { dbRunnerLayer } from "#lib/test-support/effect";
 

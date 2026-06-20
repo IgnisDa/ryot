@@ -10,8 +10,8 @@ import {
 	createLiteralExpression,
 	createTransformExpression,
 	type QueryExpression,
-} from "#lib/display-configuration";
-import type { Expr, QueryDocument } from "#modules/query-engine/language";
+} from "@ryot/contract/display-configuration";
+import type { Expr, QueryDocument } from "@ryot/contract/modules/query-engine/language";
 
 const entityColumn = (slug: string, column: string) => createEntityColumnExpression(slug, column);
 

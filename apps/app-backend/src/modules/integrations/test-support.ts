@@ -1,4 +1,4 @@
-import { ImportRunId, IntegrationId, UserId } from "#lib/schema/brands";
+import { ImportRunId, IntegrationId, UserId } from "@ryot/contract/schema/brands";
 
 import type { IntegrationRecord } from "./repository";
 

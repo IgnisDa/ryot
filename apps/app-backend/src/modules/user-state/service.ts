@@ -1,15 +1,14 @@
+import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
+import { badRequest, notFound } from "@ryot/contract/errors";
+import type { MergeUserStateBody } from "@ryot/contract/modules/user-state/schemas";
+import { EntityId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
-import type { CurrentUserValue } from "#lib/auth-middleware";
 import { DbRunner, TransactionRunner } from "#lib/db/service";
-import { badRequest, notFound } from "#lib/errors";
-import { EntityId } from "#lib/schema/brands";
 import { trimToNull } from "#lib/validation";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventsRepository } from "#modules/events/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
-
-import type { MergeUserStateBody } from "./schemas";
 
 const entityNotFoundError = "Entity not found";
 const sameEntityMergeError = "Cannot merge an entity into itself";

@@ -1,6 +1,10 @@
+import type {
+	EntitySource,
+	IncludeEntry,
+	NestedEventSource,
+} from "@ryot/contract/modules/query-engine/language";
 import { describe, expect, it } from "vitest";
 
-import type { EntitySource, IncludeEntry, NestedEventSource } from "./language";
 import { makeDoc, nameRef, occurredAtRef, propertyRef } from "./validator.test-support";
 import { validateQueryDocument } from "./validator/document";
 

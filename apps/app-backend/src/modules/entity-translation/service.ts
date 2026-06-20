@@ -1,7 +1,6 @@
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
+import type { EntityId, SandboxScriptId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
-
-import type { EntityId, SandboxScriptId } from "#lib/schema/brands";
 
 import { TranslateEntityWorkflow, translateEntityExecutionId } from "./workflows";
 

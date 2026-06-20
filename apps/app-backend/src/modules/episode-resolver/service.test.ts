@@ -1,7 +1,7 @@
 import { expect, it } from "@effect/vitest";
+import { EntityId, UserId } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
-import { EntityId, UserId } from "#lib/schema/brands";
 import { dbRunnerLayer } from "#lib/test-support/effect";
 
 import { EpisodeResolverRepository } from "./repository";

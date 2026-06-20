@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { RemoteImageUrl } from "@ryot/app-backend/schema/brands";
+import { RemoteImageUrl } from "@ryot/contract/schema/brands";
 
 import {
 	buildEntityRowsQueryDocument,

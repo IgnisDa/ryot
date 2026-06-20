@@ -1,4 +1,4 @@
-import type { AppPropertyDefinition, AppSchema } from "#lib/schema/property-schema";
+import type { AppPropertyDefinition, AppSchema } from "@ryot/contract/schema/property-schema";
 
 const entityAssetsProperties: Readonly<Record<string, AppPropertyDefinition>> = {
 	s3Images: {

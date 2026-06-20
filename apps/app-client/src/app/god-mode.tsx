@@ -1,4 +1,4 @@
-import { UserId } from "@ryot/app-backend/schema/brands";
+import { UserId } from "@ryot/contract/schema/brands";
 import { dayjs } from "@ryot/ts-utils/dayjs";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import clsx from "clsx";

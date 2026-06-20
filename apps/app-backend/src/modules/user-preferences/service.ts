@@ -1,9 +1,11 @@
+import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
+import type {
+	UpdateUserPreferencesBody,
+	UserPreferences,
+} from "@ryot/contract/modules/user-preferences/schemas";
 import { Effect } from "effect";
 
 import { AuthService } from "#lib/auth";
-import type { CurrentUserValue } from "#lib/auth-middleware";
-
-import type { UpdateUserPreferencesBody, UserPreferences } from "./schemas";
 
 export class UserPreferencesService extends Effect.Service<UserPreferencesService>()(
 	"UserPreferencesService",

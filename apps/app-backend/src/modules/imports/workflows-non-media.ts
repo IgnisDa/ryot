@@ -1,11 +1,12 @@
 import type { FileSystem } from "@effect/platform";
 import { Activity } from "@effect/workflow";
 import type { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
+import { unknownToMessage } from "@ryot/contract/errors";
+import type { ImportRunFailureStage } from "@ryot/contract/modules/imports/types";
 import { Cause, Context, DateTime, Effect, Schema } from "effect";
 
 import { AppConfig } from "#lib/config/service";
 import { DbRunner } from "#lib/db/service";
-import { unknownToMessage } from "#lib/errors";
 import type { EntitiesRepository } from "#modules/entities/repository";
 import type { EntitiesService } from "#modules/entities/service";
 import type { EntitySchemasRepository } from "#modules/entity-schemas/repository";
@@ -30,7 +31,6 @@ import {
 	ImportRunError,
 	toWorkflowError,
 } from "./runtime/workflow-helpers";
-import type { ImportRunFailureStage } from "./types";
 
 const NonMediaAdapterFailureSchema = Schema.Struct({
 	message: Schema.String,

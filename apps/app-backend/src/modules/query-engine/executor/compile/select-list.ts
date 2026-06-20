@@ -1,5 +1,3 @@
-import { sql } from "drizzle-orm";
-
 import type {
 	AggregateMeasureDef,
 	AggregationSpec,
@@ -7,7 +5,9 @@ import type {
 	OrderByEntry,
 	RowItem,
 	RowValue,
-} from "../../language";
+} from "@ryot/contract/modules/query-engine/language";
+import { sql } from "drizzle-orm";
+
 import { reconstructMeasureValue, reconstructOutputValue } from "../reconstruct";
 import { compileScalar, compileValue } from "./expr";
 import type { SqlFragment } from "./fragments";

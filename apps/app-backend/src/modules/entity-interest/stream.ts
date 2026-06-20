@@ -1,13 +1,12 @@
 import { HttpServerResponse } from "@effect/platform";
-import { Effect, Schedule, Stream } from "effect";
-
-import type { UserId } from "#lib/schema/brands";
-
 import {
 	encodeConnectedFrame,
 	encodeEntityUpdatedFrame,
 	type EntityUpdatedFrame,
-} from "./messages";
+} from "@ryot/contract/modules/entity-interest/messages";
+import type { UserId } from "@ryot/contract/schema/brands";
+import { Effect, Schedule, Stream } from "effect";
+
 import type { StreamEnqueue, StreamRegistry } from "./registry";
 
 const HEARTBEAT_INTERVAL_MS = 25_000;

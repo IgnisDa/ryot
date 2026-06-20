@@ -1,3 +1,4 @@
+import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { generateId } from "better-auth";
 import { isNull, sql } from "drizzle-orm";
 import {
@@ -10,8 +11,6 @@ import {
 	unique,
 	uniqueIndex,
 } from "drizzle-orm/pg-core";
-
-import type { AppSchema } from "#lib/schema/property-schema";
 
 import { user } from "./auth";
 import { entitySchema, sandboxScript } from "./core";

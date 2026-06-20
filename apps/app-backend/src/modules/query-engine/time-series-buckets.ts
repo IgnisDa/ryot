@@ -1,6 +1,5 @@
+import type { TimeSeriesOutput } from "@ryot/contract/modules/query-engine/language";
 import { DateTime, Duration } from "effect";
-
-import type { TimeSeriesOutput } from "./language";
 
 export type TimeSeriesBucket = TimeSeriesOutput["time"]["bucket"];
 

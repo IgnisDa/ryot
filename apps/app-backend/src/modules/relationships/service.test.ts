@@ -1,8 +1,13 @@
 import { expect, it } from "@effect/vitest";
+import { BadRequest } from "@ryot/contract/errors";
+import {
+	EntityId,
+	RelationshipId,
+	RelationshipSchemaId,
+	UserId,
+} from "@ryot/contract/schema/brands";
 import { Cause, Effect, Exit, Layer } from "effect";
 
-import { BadRequest } from "#lib/errors";
-import { EntityId, RelationshipId, RelationshipSchemaId, UserId } from "#lib/schema/brands";
 import type { MockOverrides } from "#lib/test-support/effect";
 import { dbRunnerLayer } from "#lib/test-support/effect";
 

@@ -1,13 +1,13 @@
 import { FileSystem, Multipart } from "@effect/platform";
 import { it, expect } from "@effect/vitest";
+import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
+import { BadRequest } from "@ryot/contract/errors";
+import { UserId } from "@ryot/contract/schema/brands";
 import { Cause, Effect, Exit, Inspectable, Layer, Option } from "effect";
 import Redis from "ioredis";
 
-import type { CurrentUserValue } from "#lib/auth-middleware";
-import { BadRequest } from "#lib/errors";
 import { RedisService, redisKeys } from "#lib/redis";
 import { S3Service } from "#lib/s3";
-import { UserId } from "#lib/schema/brands";
 import { makeAppConfigLayer, makeRedisService } from "#lib/test-support/effect";
 
 import { UploadsService } from "./service";

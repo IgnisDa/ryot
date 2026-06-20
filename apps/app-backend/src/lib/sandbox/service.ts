@@ -1,10 +1,10 @@
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "@effect/platform";
 import { isHttpMethod } from "@effect/platform/HttpMethod";
+import { SandboxRunError, TimeoutError, unknownToMessage } from "@ryot/contract/errors";
 import { generateId } from "better-auth";
 import { Clock, Duration, Effect, Match, Runtime, Schema } from "effect";
 
 import { AppConfig } from "../config/service";
-import { SandboxRunError, TimeoutError, unknownToMessage } from "../errors";
 import { redisKeys, RedisService } from "../redis";
 import { makeAdditionalSandboxApiFunctions } from "./host-functions";
 import { BridgeService, invalidateProcess, ProcessPool } from "./runtime";

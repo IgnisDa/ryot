@@ -1,14 +1,4 @@
-import { Effect } from "effect";
-
-import type { CurrentDb } from "#lib/db/service";
-import type { DbError, NotFound } from "#lib/errors";
-
-import {
-	loadVisibleEntitySchemas,
-	loadVisibleEventSchemasForEntitySchemas,
-	loadVisibleRelationshipSchema,
-	loadVisibleRelationshipSchemas,
-} from "../executor/schema-loaders";
+import type { DbError, NotFound } from "@ryot/contract/errors";
 import type {
 	Expr,
 	IncludeEntry,
@@ -16,7 +6,17 @@ import type {
 	RelationshipSource,
 	RootEventSource,
 	Source,
-} from "../language";
+} from "@ryot/contract/modules/query-engine/language";
+import { Effect } from "effect";
+
+import type { CurrentDb } from "#lib/db/service";
+
+import {
+	loadVisibleEntitySchemas,
+	loadVisibleEventSchemasForEntitySchemas,
+	loadVisibleRelationshipSchema,
+	loadVisibleRelationshipSchemas,
+} from "../executor/schema-loaders";
 import { validateQueryDocumentTypeCompatibility } from "./type-check";
 
 type EntityAliasSchemas = ReadonlyMap<string, readonly string[]>;

@@ -37,6 +37,7 @@ Remove explicit return type annotations when TypeScript can trivially infer them
 - Define services and repositories as Effect service classes; provide dependencies through layer composition, not hand-passed dependency parameters.
 - Access control lives in services, as pure helpers or direct checks after loading the smallest resource scope.
 - Do not add barrel re-exports in app-backend; import from the defining module directly.
+- Contract-facing schemas, errors, auth middleware, and `HttpApiGroup` definitions live in `@ryot/contract` (`libs/contract`), not here. Adding a module's HTTP endpoints means editing `libs/contract/src/contract.ts` and that module's files under `libs/contract/src/modules/<name>/` too, not just `apps/app-backend`. See `libs/contract/AGENTS.md` for the boundary rules.
 
 ## Cross-Module Infrastructure
 

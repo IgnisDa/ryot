@@ -102,32 +102,36 @@ Ryot backend context:
   typed errors, Effect `Schema`, and `Layer`-based dependency injection rather
   than plain async/await, thrown exceptions, or hand-passed dependencies.
 - The HTTP API is **contract-first** with `@effect/platform` `HttpApi`. Each
-  module declares an `HttpApiGroup` in `contract.ts`; `src/lib/contract.ts`
-  assembles them into `AppContract`. Handlers are implemented as
-  `HttpApiBuilder.group(...)` layers (`*RoutesLive`) and served on Bun via
-  `@effect/platform-bun` in `src/app/server.ts`.
+  module declares an `HttpApiGroup` in `contract.ts`; `libs/contract/src/contract.ts`
+  (the `@ryot/contract` package) assembles them into `AppContract`. Handlers are
+  implemented as `HttpApiBuilder.group(...)` layers (`*RoutesLive`) in
+  `apps/app-backend` and served on Bun via `@effect/platform-bun` in
+  `src/app/server.ts`.
 - Validation uses Effect `Schema` everywhere — for HTTP payloads, service
   boundaries, and domain types. Branded ids and value types live in
-  `src/lib/schema/brands.ts`.
+  `libs/contract/src/schema/brands.ts`.
 - Auth uses `better-auth` plus Effect HTTP middleware: `AuthMiddleware` provides
   `CurrentUser`, `AdminMiddleware` provides `AdminAccess`
-  (`src/lib/auth-middleware.ts`, `src/lib/auth.ts`).
+  (`libs/contract/src/auth-middleware.ts`, `src/lib/auth.ts`).
 - Persistence uses PostgreSQL through Drizzle. The active executor is carried in
   the `CurrentDb` context tag; `DbRunner` and `TransactionRunner` choose the
   boundary (`src/lib/db/index.ts`).
-- Errors are `Schema.TaggedError` classes in `src/lib/errors.ts`, wired into
-  route contracts via `.addError(...)`.
+- Errors are `Schema.TaggedError` classes in `libs/contract/src/errors.ts`, wired
+  into route contracts via `.addError(...)`.
 - All background work uses durable execution: `@effect/cluster`,
   `@effect/workflow` (workflows, durable queues, durable deferred signals), and
   a Redis-backed `@effect/experimental` `PersistedQueue` (`src/lib/workflow.ts`).
 - Sandbox execution (Deno-based provider/trigger scripts) is orthogonal
   infrastructure under `src/lib/sandbox/`.
-- Most feature work lives in `src/modules/<name>/` with `contract.ts`,
-  `routes.ts`, `service.ts`, `repository.ts`, `schemas.ts`, co-located tests,
-  and optional `workflows.ts`/`workflow-live.ts`/`durable-queues.ts`/
-  `*-worker.ts`/`scheduler.ts` files.
+- Most feature work lives in `src/modules/<name>/` with `routes.ts`,
+  `service.ts`, `repository.ts`, co-located tests, and optional
+  `workflows.ts`/`workflow-live.ts`/`durable-queues.ts`/`*-worker.ts`/
+  `scheduler.ts` files. The contract-facing `contract.ts` and `schemas.ts` for
+  that module live in the mirrored `libs/contract/src/modules/<name>/` instead.
 - Shared infrastructure lives in `src/lib/`, and startup/shutdown assembly —
-  the full `Layer` graph — lives in `src/app/layers.ts`.
+  the full `Layer` graph — lives in `src/app/layers.ts`. Client-safe contract
+  surface (schemas, errors, auth middleware, `HttpApiGroup`s) lives in
+  `libs/contract/` (`@ryot/contract`) instead — see `libs/contract/AGENTS.md`.
 - Authoritative conventions live in `apps/app-backend/AGENTS.md` (mirrored in
   `apps/app-backend/CLAUDE.md`). Treat it as the source of truth for module
   boundaries, the schema write path, transactions, queues, and Redis rules.
@@ -165,7 +169,9 @@ Your operating principles:
      hand-passed as parameters.
    - Named methods use `Effect.fn("Service.method")(function* () { ... })` so
      they carry tracing spans. There are no barrel re-exports; imports use the
-     `#*` subpath form and point at the defining module.
+     `#*` subpath form and point at the defining module, except for
+     contract-facing symbols (schemas, errors, auth middleware, contract
+     groups), which import from `@ryot/contract/*`.
    - Some flows intentionally live outside the standard split (auth bootstrap,
      seed/legacy-bootstrap, sandbox infrastructure, workers, schedulers). Review
      against the touched module's existing pattern rather than demanding
@@ -198,10 +204,11 @@ Your operating principles:
      views, and enforce reserved-slug rules.
 
 4. Error and typed-failure conventions
-   - Expected failures are `Schema.TaggedError` classes from `src/lib/errors.ts`
-     (`BadRequest`, `Conflict`, `NotFound`, `Unauthorized`, `RateLimited`,
-     `DbError`, `SandboxRunError`, `TimeoutError`, …), usually built via the
-     smart constructors (`badRequest`, `conflict`, `notFound`, …).
+   - Expected failures are `Schema.TaggedError` classes from
+     `libs/contract/src/errors.ts` (`BadRequest`, `Conflict`, `NotFound`,
+     `Unauthorized`, `RateLimited`, `DbError`, `SandboxRunError`,
+     `TimeoutError`, …), usually built via the smart constructors
+     (`badRequest`, `conflict`, `notFound`, …).
    - Every failure a handler can return must be declared on the endpoint with
      `.addError(Error, { status })`; the failure channel and the contract must
      agree. A new failure path that is not in the contract is a defect.
