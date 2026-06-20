@@ -9,9 +9,10 @@ import {
 	httpSuccess,
 	runTriggerScript,
 	toRecord,
+	wrapWithPushHelpers,
 } from "./test-utils";
 
-const jellyfinCode = `${integrationPushHelperCode}\n\n${jellyfinPushScriptCode}`;
+const jellyfinCode = wrapWithPushHelpers(integrationPushHelperCode, jellyfinPushScriptCode);
 
 const runJellyfinScript = (
 	context: unknown,
