@@ -1,9 +1,11 @@
-import { describe, expect, it } from "bun:test";
+import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 
 import { EntitySchemaId, SandboxScriptId } from "@ryot/contract/schema/brands";
 
 import {
+	cleanupBuiltinProviderScript,
 	createAuthenticatedClient,
+	detailsDriverCode,
 	enqueueEntityImport,
 	enqueueEntitySearch,
 	findBuiltinSchemaBySlug,
@@ -13,8 +15,43 @@ import {
 	pollEntityImportResult,
 	pollEntitySearchResult,
 	queryInLibraryRelationship,
+	searchDriverCode,
+	seedBuiltinProviderScript,
+	type SeededProviderScript,
 } from "../fixtures";
-import { assertTaggedError } from "../test-support/assertions";
+import {
+	assertCondition,
+	assertTaggedError,
+	requireArray,
+	requireObjectRecord,
+} from "../test-support/assertions";
+
+const IMPORT_EXTERNAL_ID = "e2e-audiobook-1";
+const IMPORTED_NAME = "E2E Imported Audiobook";
+
+// A fake builtin provider registering both a `search` and a `details` driver, returning fixed data
+// with no network access. Search takes the scriptId directly; import pairs it with a real builtin
+// entity schema (no provider link is required by the import endpoint).
+let providerScript: SeededProviderScript;
+
+beforeAll(async () => {
+	providerScript = await seedBuiltinProviderScript({
+		code: [
+			searchDriverCode([
+				{ externalId: IMPORT_EXTERNAL_ID, title: "E2E Audiobook One", subtitle: null },
+				{ externalId: "e2e-audiobook-2", title: "E2E Audiobook Two", subtitle: 2 },
+			]),
+			detailsDriverCode({
+				name: IMPORTED_NAME,
+				properties: { description: "Imported by the e2e fake provider." },
+			}),
+		].join("\n"),
+	});
+});
+
+afterAll(async () => {
+	await cleanupBuiltinProviderScript(providerScript);
+});
 
 describe("POST /entity-schemas/search — provider entity search", () => {
 	it("returns 404 when the script does not exist", async () => {
@@ -27,18 +64,22 @@ describe("POST /entity-schemas/search — provider entity search", () => {
 		assertTaggedError(error, "NotFound");
 	});
 
-	it("enqueues a provider search and reaches a terminal state", async () => {
+	it("enqueues a provider search and completes with the seeded results", async () => {
 		const { client } = await createAuthenticatedClient();
-		const { schema } = await findBuiltinSchemaWithProviders(client);
-		const scriptId = getFirstProviderScriptId(schema);
 
 		const { jobId } = await enqueueEntitySearch(client, {
-			scriptId,
 			context: { query: "test", page: 1, pageSize: 5 },
+			scriptId: SandboxScriptId.make(providerScript.scriptId),
 		});
 
 		const result = await pollEntitySearchResult(client, jobId);
-		expect(result.status).not.toBe("pending");
+		assertCondition(
+			result.status === "completed",
+			`Expected search job to complete, got '${result.status}'`,
+		);
+		const value = requireObjectRecord(result.value, "Expected search result to be an object");
+		const items = requireArray(value.items, "Expected search result items to be an array");
+		expect(items).toHaveLength(2);
 	}, 30_000);
 
 	it("returns 401 for unauthenticated search requests", async () => {
@@ -60,9 +101,9 @@ describe("POST /library/import — provider entity import", () => {
 		const error = await client.runError((c) =>
 			c.entityImport.import({
 				payload: {
-					scriptId: SandboxScriptId.make(crypto.randomUUID()),
-					externalId: "some-external-id",
 					entitySchemaId: schema.id,
+					externalId: "some-external-id",
+					scriptId: SandboxScriptId.make(crypto.randomUUID()),
 				},
 			}),
 		);
@@ -120,24 +161,24 @@ describe("GET /library/import/:jobId — provider entity import result", () => {
 	it("enqueues a provider import and adds entity to library when completed", async () => {
 		const { client, email } = await createAuthenticatedClient();
 		const { schema } = await findBuiltinSchemaBySlug(client, "audiobook");
-		const scriptId = getFirstProviderScriptId(schema);
 
 		const { jobId } = await enqueueEntityImport(client, {
-			scriptId,
-			externalId: "B08G9PRS1K",
 			entitySchemaId: schema.id,
+			externalId: IMPORT_EXTERNAL_ID,
+			scriptId: SandboxScriptId.make(providerScript.scriptId),
 		});
 
 		const result = await pollEntityImportResult(client, jobId);
 
-		expect(result.status).not.toBe("pending");
-		if (result.status === "completed") {
-			expect(result.data.id).toBeDefined();
-			expect(result.data.name).toBeDefined();
-			expect(result.data.entitySchemaId).toBe(schema.id);
+		assertCondition(
+			result.status === "completed",
+			`Expected import job to complete, got '${result.status}'`,
+		);
+		expect(result.data.id).toBeDefined();
+		expect(result.data.name).toBe(IMPORTED_NAME);
+		expect(result.data.entitySchemaId).toBe(schema.id);
 
-			const inLibrary = await queryInLibraryRelationship(client, result.data.id, email);
-			expect(inLibrary.rowCount).toBeGreaterThan(0);
-		}
-	}, 60_000);
+		const inLibrary = await queryInLibraryRelationship(client, result.data.id, email);
+		expect(inLibrary.rowCount).toBeGreaterThan(0);
+	}, 30_000);
 });

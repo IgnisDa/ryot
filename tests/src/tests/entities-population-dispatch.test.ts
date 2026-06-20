@@ -1,41 +1,63 @@
-import { describe, expect, it } from "bun:test";
+import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 
 import {
+	cleanupBuiltinProviderScript,
 	createAuthenticatedClient,
-	deleteGlobalEntityByProvenance,
+	detailsDriverCode,
 	findBuiltinSchemaBySlug,
 	getEntity,
 	getGlobalEntityByProvenance,
 	openInterestStream,
+	seedBuiltinProviderScript,
 	seedMediaEntity,
 	seedPopulatedProviderEntity,
 	waitForEntityPopulated,
+	type SeededProviderScript,
 } from "../fixtures";
 import { assertPresent } from "../test-support/assertions";
 
 const GRACE_WINDOW_MS = 3000;
+const POPULATED_NAME = "E2E Populated Studio";
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// A fake builtin provider whose `details` driver returns fixed data with no network access. The
+// entity carries this script as its provenance (sandbox_script_id), so on-interest population runs
+// this driver instead of a live provider — the dispatch/SSE machinery under test is unchanged.
+let providerScript: SeededProviderScript;
+
 describe("entity population via client-declared interest", () => {
+	beforeAll(async () => {
+		providerScript = await seedBuiltinProviderScript({
+			metadata: { providerInformation: { source: "e2e", canonicalLanguage: "en" } },
+			code: detailsDriverCode({
+				name: POPULATED_NAME,
+				properties: { description: "Populated by the e2e fake provider." },
+			}),
+		});
+	});
+
+	afterAll(async () => {
+		await cleanupBuiltinProviderScript(providerScript);
+	});
+
 	it("keeps a bare read side-effect-free and populates once client interest is declared", async () => {
 		const auth = await createAuthenticatedClient();
 		const { client } = auth;
 
 		const { schema } = await findBuiltinSchemaBySlug(client, "company");
-		const sandboxScriptId = schema.providers.find(
-			(provider) => provider.name === "Anilist",
-		)?.scriptId;
-		assertPresent(sandboxScriptId, "Anilist company provider script not found");
-		const provenance = { externalId: "14", entitySchemaId: schema.id, sandboxScriptId };
+		const provenance = {
+			entitySchemaId: schema.id,
+			sandboxScriptId: providerScript.scriptId,
+			externalId: `e2e-populate-${crypto.randomUUID()}`,
+		};
 
-		await deleteGlobalEntityByProvenance(provenance);
 		const seeded = await seedMediaEntity({
 			userId: null,
 			properties: {},
-			sandboxScriptId,
 			name: "Partial Studio",
 			entitySchemaId: schema.id,
 			externalId: provenance.externalId,
+			sandboxScriptId: providerScript.scriptId,
 		});
 
 		// A bare read is side-effect-free: it dispatches nothing.
@@ -54,7 +76,7 @@ describe("entity population via client-declared interest", () => {
 
 			const populated = await waitForEntityPopulated(provenance);
 			expect(populated.populatedAt).not.toBeNull();
-			expect(populated.name).toBe("Sunrise");
+			expect(populated.name).toBe(POPULATED_NAME);
 
 			const event = await stream.waitForEntityUpdated(seeded.id, "populated", {
 				timeoutMs: 30_000,
@@ -70,17 +92,13 @@ describe("entity population via client-declared interest", () => {
 		const { client } = auth;
 
 		const { schema } = await findBuiltinSchemaBySlug(client, "company");
-		const sandboxScriptId = schema.providers.find(
-			(provider) => provider.name === "Anilist",
-		)?.scriptId;
-		assertPresent(sandboxScriptId, "Anilist company provider script not found");
 
 		const entity = await seedPopulatedProviderEntity({
 			properties: {},
-			sandboxScriptId,
 			entitySchemaId: schema.id,
 			name: "Already Populated Studio",
-			externalId: `catchup-${crypto.randomUUID()}`,
+			sandboxScriptId: providerScript.scriptId,
+			externalId: `e2e-catchup-${crypto.randomUUID()}`,
 		});
 
 		const stream = await openInterestStream(auth);
