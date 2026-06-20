@@ -2,10 +2,14 @@ import { SandboxRunError, mapDbErrorToSandbox } from "@ryot/contract/errors";
 import { ListedEntity } from "@ryot/contract/modules/entities/schemas";
 import { encodeEntityUpdatedMessage } from "@ryot/contract/modules/entity-interest/messages";
 import type { EntityId, EntitySchemaSlug } from "@ryot/contract/schema/brands";
-import type {
-	ProviderDetailsChildEntity,
-	ProviderDetailsRelatedEntityGroup,
+import {
+	providerDetailsChildEntitySchema,
+	providerDetailsRelatedEntityGroupSchema,
+	providerDetailsResultSchema,
+	type ProviderDetailsChildEntity,
+	type ProviderDetailsRelatedEntityGroup,
 } from "@ryot/sandbox-sdk/provider";
+import { jsonValueSchema } from "@ryot/sandbox-sdk/wire";
 import { sha256Base64Url } from "@ryot/ts-utils/crypto";
 import { stableStringify } from "@ryot/ts-utils/json";
 import { asRecord } from "@ryot/ts-utils/predicates";
@@ -27,12 +31,6 @@ import {
 	type RelationshipMutationOutcome,
 	type RelationshipMutationSnapshot,
 } from "#modules/relationships/mutation-outcomes";
-import {
-	ProviderDetailsChildEntitySchema,
-	ProviderDetailsRelatedEntityGroupSchema,
-	SandboxJsonValueSchema,
-	decodeProviderDetailsResult,
-} from "#modules/sandbox/provider-contracts";
 
 import { EntityImportWorkflowOperations } from "./operations-workflow";
 import { ChildEntitySetWriteResult, writeChildEntitySet } from "./population";
@@ -42,31 +40,32 @@ import { EntityImportPayload } from "./schemas";
 const REDIS_RETRY_SCHEDULE = Schedule.spaced("30 seconds");
 
 type SynchronizeOptions = {
-	entitySchemaSlug: EntitySchemaSlug;
 	mode: "initial" | "refresh";
+	entitySchemaSlug: EntitySchemaSlug;
 };
 
 const ValidatedEntityDetails = Schema.Struct({
 	name: Schema.String,
-	properties: SandboxJsonValueSchema,
+	properties: jsonValueSchema,
 	expectedChildEntitySchemaSlug: Schema.optional(Schema.String),
-	childEntities: Schema.Array(ProviderDetailsChildEntitySchema),
-	relatedEntityGroups: Schema.Array(ProviderDetailsRelatedEntityGroupSchema),
+	childEntities: Schema.Array(providerDetailsChildEntitySchema),
+	relatedEntityGroups: Schema.Array(providerDetailsRelatedEntityGroupSchema),
 });
 
 type ValidatedEntityDetails = typeof ValidatedEntityDetails.Type;
 
-const SandboxJsonObjectSchema = Schema.Record(Schema.String, SandboxJsonValueSchema);
+const SandboxJsonObjectSchema = Schema.Record(Schema.String, jsonValueSchema);
+const decodeProviderDetailsResult = Schema.decodeUnknownEffect(providerDetailsResultSchema);
 
 type ChildEntitySetScope = {
 	parentName: string;
 	parentEntityId: EntityId;
 	parentExternalId: string;
 	parentProperties: unknown;
+	expectedChildEntitySchemaSlug?: string;
 	parentEntitySchemaSlug: EntitySchemaSlug;
 	scopeEntity: LifecyclePopulationContext["scopeEntity"];
 	childEntities: ReadonlyArray<ProviderDetailsChildEntity>;
-	expectedChildEntitySchemaSlug?: string;
 };
 
 const ProviderEntitySaveEnvelope = Schema.Struct({
