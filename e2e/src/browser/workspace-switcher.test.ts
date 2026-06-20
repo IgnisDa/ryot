@@ -1,0 +1,53 @@
+import { Effect } from "effect";
+import { chromium } from "playwright";
+
+import { createTestUser } from "~/fixtures/kernel";
+import { expect, it } from "~/support/effect-test";
+import { getFrontendUrl } from "~/support/frontend";
+
+it.live("opens the desktop workspace switcher with its keyboard shortcut", () =>
+	Effect.gen(function* () {
+		const { email, password } = yield* createTestUser();
+		yield* Effect.promise(async () => {
+			const frontendUrl = getFrontendUrl();
+			const browser = await chromium.launch();
+			const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+			try {
+				const page = await context.newPage();
+				await page.goto(`${frontendUrl}/auth`);
+				await page.waitForURL((url) => url.pathname === "/oauth/login");
+				await page.getByLabel("Email address").fill(email);
+				await page.getByLabel("Password").fill(password);
+				await page.locator("form").getByRole("button", { name: "Sign in", exact: true }).click();
+				await page.getByTestId("authenticated-shell").waitFor({ state: "visible" });
+
+				const sidebar = page.getByTestId("desktop-sidebar");
+				const shortcut = "Mod+Shift+Space";
+				const trigger = sidebar.getByRole("button", { name: /workspace,/ });
+				expect(await trigger.getAttribute("aria-keyshortcuts")).toBe(shortcut);
+				expect(await sidebar.getByText(shortcut, { exact: true }).isVisible()).toBe(true);
+
+				const primaryModifier = await page.evaluate(() =>
+					/Mac|iPhone|iPad/.test(navigator.platform) ? "Meta" : "Control",
+				);
+				await page.keyboard.press(`${primaryModifier}+Shift+Space`);
+
+				const menu = sidebar.getByRole("menu", { name: "Workspaces" });
+				await menu.waitFor({ state: "visible" });
+				const currentWorkspace = menu.getByRole("menuitemradio", { checked: true });
+				expect(
+					await currentWorkspace.evaluate((element) => document.activeElement === element),
+				).toBe(true);
+
+				await page.keyboard.press(`${primaryModifier}+Shift+Space`);
+				expect(await menu.isVisible()).toBe(true);
+
+				await page.keyboard.press("Escape");
+				await menu.waitFor({ state: "hidden" });
+			} finally {
+				await context.close();
+				await browser.close();
+			}
+		});
+	}),
+);
