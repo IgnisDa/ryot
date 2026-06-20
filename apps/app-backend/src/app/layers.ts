@@ -43,6 +43,7 @@ import { BuiltinEntityPreloaderLive } from "#modules/exercises/preload";
 import { GodModeRepository } from "#modules/god-mode/repository";
 import { GodModeService } from "#modules/god-mode/service";
 import { ImportWorkflowDefinitionsLive } from "#modules/imports/import-run-workflow";
+import { ProcessNormalizedMediaImportWorkflowDefinitionsLive } from "#modules/imports/media/normalized-import-workflow-live";
 import { ImportsRepository } from "#modules/imports/repository";
 import { ImportsService } from "#modules/imports/service";
 import { IntegrationWorkflowDefinitionsLive } from "#modules/integrations/integration-workflow";
@@ -262,6 +263,7 @@ const RuntimeLive = Layer.mergeAll(
 	DefaultSavedViewWorkerLive,
 	BuiltinEntityPreloaderLive,
 	ImportWorkflowDefinitionsLive,
+	ProcessNormalizedMediaImportWorkflowDefinitionsLive,
 	IntegrationWorkflowDefinitionsLive,
 	SandboxWorkflowDefinitionsLive,
 	TranslateEntityWorkflowDefinitionsLive,
