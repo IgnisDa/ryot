@@ -206,6 +206,41 @@ it.effect("lists events for an accessible entity", () => {
 	}).pipe(Effect.provide(layer));
 });
 
+it.effect("routes per-event deletes and reference moves through the repository", () => {
+	const calls: string[] = [];
+	const layer = makeEventsServiceLayer({
+		eventsRepository: makeEventsRepository({
+			deleteEvent: (input) =>
+				Effect.sync(() => {
+					calls.push(`delete:${input.eventId}`);
+					return input.eventId;
+				}),
+			updateEventEntityReferences: (input) =>
+				Effect.sync(() => {
+					calls.push(`${input.eventId}:${input.mergeFrom}->${input.mergeInto}`);
+					return input.eventId;
+				}),
+		}),
+	});
+
+	return Effect.gen(function* () {
+		const service = yield* EventsService;
+		const eventId = EventId.make("event-1");
+
+		const updated = yield* service.update({
+			eventId,
+			mergeFrom: EntityId.make("from"),
+			mergeInto: EntityId.make("into"),
+			userId: user.id,
+		});
+		const deleted = yield* service.delete({ eventId, userId: user.id });
+
+		expect(updated).toBe(eventId);
+		expect(deleted).toBe(eventId);
+		expect(calls).toEqual(["event-1:from->into", "delete:event-1"]);
+	}).pipe(Effect.provide(layer));
+});
+
 it.effect("returns not found when creating an event for an inaccessible entity", () => {
 	const layer = makeEventsServiceLayer({
 		entitiesRepository: makeEntitiesRepository({

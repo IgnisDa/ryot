@@ -37,6 +37,16 @@ export type AfterCreateTriggerRow = {
 	readonly sandboxScriptId: SandboxScriptId;
 };
 
+export type EventIdentityInput = {
+	readonly eventId: EventId;
+	readonly userId: UserId;
+};
+
+export type UpdateEventEntityReferencesInput = EventIdentityInput & {
+	readonly mergeFrom: EntityId;
+	readonly mergeInto: EntityId;
+};
+
 const createdEventSelection = {
 	id: schema.event.id,
 	entityId: schema.event.entityId,
@@ -160,12 +170,13 @@ export class EventsRepository extends Effect.Service<EventsRepository>()("Events
 			});
 		});
 
-		const deleteUserEventsForEntity = Effect.fn("EventsRepository.deleteUserEventsForEntity")(
+		const listUserEventIdsForEntity = Effect.fn("EventsRepository.listUserEventIdsForEntity")(
 			function* (input: { userId: UserId; entityId: EntityId }) {
 				const db = yield* CurrentDb;
 				const rows = yield* dbEffect(() =>
 					db
-						.delete(schema.event)
+						.select({ id: schema.event.id })
+						.from(schema.event)
 						.where(
 							and(
 								eq(schema.event.userId, input.userId),
@@ -175,40 +186,53 @@ export class EventsRepository extends Effect.Service<EventsRepository>()("Events
 								),
 							),
 						)
-						.returning({ id: schema.event.id }),
+						.for("update"),
 				);
 
-				return rows.length;
+				return rows.map((row) => EventId.make(row.id));
 			},
 		);
 
-		const moveUserEventsBetweenEntities = Effect.fn(
-			"EventsRepository.moveUserEventsBetweenEntities",
-		)(function* (input: { userId: UserId; mergeFrom: EntityId; mergeInto: EntityId }) {
+		const deleteEvent = Effect.fn("EventsRepository.deleteEvent")(function* (
+			input: EventIdentityInput,
+		) {
 			const db = yield* CurrentDb;
-			const result = yield* dbEffect(() =>
-				db.execute<{ count: string }>(sql`
-						with moved as (
-							update "event"
-							set
-								"entity_id" = case
-									when "entity_id" = ${input.mergeFrom} then ${input.mergeInto}
-									else "entity_id"
-								end,
-								"session_entity_id" = case
-									when "session_entity_id" = ${input.mergeFrom} then ${input.mergeInto}
-									else "session_entity_id"
-								end
-							where "user_id" = ${input.userId}
-								and ("entity_id" = ${input.mergeFrom} or "session_entity_id" = ${input.mergeFrom})
-							returning "id"
-						)
-						select count(*)::text as "count" from moved
-					`),
+			const [row] = yield* dbEffect(() =>
+				db
+					.delete(schema.event)
+					.where(and(eq(schema.event.id, input.eventId), eq(schema.event.userId, input.userId)))
+					.returning({ id: schema.event.id }),
 			);
 
-			return Number(result.rows[0]?.count ?? 0);
+			return row ? EventId.make(row.id) : null;
 		});
+
+		const updateEventEntityReferences = Effect.fn("EventsRepository.updateEventEntityReferences")(
+			function* (input: UpdateEventEntityReferencesInput) {
+				const db = yield* CurrentDb;
+				const result = yield* dbEffect(() =>
+					db.execute<{ id: string }>(sql`
+					update "event"
+					set
+						"entity_id" = case
+							when "entity_id" = ${input.mergeFrom} then ${input.mergeInto}
+							else "entity_id"
+						end,
+						"session_entity_id" = case
+							when "session_entity_id" = ${input.mergeFrom} then ${input.mergeInto}
+							else "session_entity_id"
+						end
+					where "id" = ${input.eventId}
+						and "user_id" = ${input.userId}
+						and ("entity_id" = ${input.mergeFrom} or "session_entity_id" = ${input.mergeFrom})
+					returning "id"
+				`),
+				);
+
+				const [row] = result.rows;
+				return row ? EventId.make(row.id) : null;
+			},
+		);
 
 		const getActiveBeforeCreateTriggers = Effect.fn(
 			"EventsRepository.getActiveBeforeCreateTriggers",
@@ -287,10 +311,11 @@ export class EventsRepository extends Effect.Service<EventsRepository>()("Events
 
 		return {
 			createEvent,
+			deleteEvent,
 			listQueryScopesForUser,
-			deleteUserEventsForEntity,
+			listUserEventIdsForEntity,
+			updateEventEntityReferences,
 			getActiveAfterCreateTriggers,
-			moveUserEventsBetweenEntities,
 			getActiveBeforeCreateTriggers,
 		};
 	},

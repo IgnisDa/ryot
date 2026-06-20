@@ -9,6 +9,7 @@ import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
 import { trimToNull } from "#lib/shared/validation";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventsRepository } from "#modules/events/repository";
+import { EventsService } from "#modules/events/service";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
@@ -29,6 +30,7 @@ export class UserStateService extends Effect.Service<UserStateService>()("UserSt
 	effect: Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
 		const eventsRepository = yield* EventsRepository;
+		const events = yield* EventsService;
 		const relationships = yield* RelationshipsService;
 		const runInTransaction = yield* TransactionRunner;
 		const entitiesRepository = yield* EntitiesRepository;
@@ -58,10 +60,17 @@ export class UserStateService extends Effect.Service<UserStateService>()("UserSt
 
 			return yield* runInTransaction(
 				Effect.gen(function* () {
-					const deletedEventsCount = yield* eventsRepository.deleteUserEventsForEntity({
+					const eventIds = yield* eventsRepository.listUserEventIdsForEntity({
 						entityId,
 						userId: user.id,
 					});
+					let deletedEventsCount = 0;
+					for (const eventId of eventIds) {
+						const deleted = yield* events.delete({ eventId, userId: user.id });
+						if (deleted) {
+							deletedEventsCount += 1;
+						}
+					}
 					const relationshipRows = yield* relationshipsRepository.listUserRelationshipsForEntity({
 						entityId,
 						userId: user.id,
@@ -138,11 +147,22 @@ export class UserStateService extends Effect.Service<UserStateService>()("UserSt
 
 			return yield* runInTransaction(
 				Effect.gen(function* () {
-					const movedEventsCount = yield* eventsRepository.moveUserEventsBetweenEntities({
-						mergeFrom,
-						mergeInto,
+					const eventIds = yield* eventsRepository.listUserEventIdsForEntity({
+						entityId: mergeFrom,
 						userId: user.id,
 					});
+					let movedEventsCount = 0;
+					for (const eventId of eventIds) {
+						const updated = yield* events.update({
+							eventId,
+							mergeFrom,
+							mergeInto,
+							userId: user.id,
+						});
+						if (updated) {
+							movedEventsCount += 1;
+						}
+					}
 					const relationshipRows = yield* relationshipsRepository.listUserRelationshipsForEntity({
 						userId: user.id,
 						entityId: mergeFrom,

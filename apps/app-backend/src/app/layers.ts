@@ -181,7 +181,10 @@ const ContentServicesLive = Layer.mergeAll(
 	RelationshipSchemasService.Default,
 );
 
-const UserStateServiceLive = Layer.provide(UserStateService.Default, RelationshipsService.Default);
+const UserStateServiceLive = Layer.provide(
+	UserStateService.Default,
+	Layer.mergeAll(EventsServiceLive, RelationshipsService.Default),
+);
 
 const PlatformServicesLive = Layer.mergeAll(
 	RelationshipsService.Default,
