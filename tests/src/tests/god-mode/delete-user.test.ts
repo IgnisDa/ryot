@@ -20,7 +20,7 @@ import {
 	pollSignal,
 	pollSignalWithRecipientCount,
 	pollTerminalSubscriptionRuns,
-	queryAutomationRuleCount,
+	getAutomationRuleCount,
 	seedBuiltinProviderScript,
 	seedMediaEntity,
 	startFakeAppriseServer,
@@ -250,7 +250,7 @@ describe("Delete user automation data cleanup", () => {
 						executionUserId: secondMonitor.userId,
 					}),
 				]);
-				const rulesBeforeDeletion = await queryAutomationRuleCount(secondMonitor.userId);
+				const rulesBeforeDeletion = await getAutomationRuleCount(secondMonitor.userId);
 				expect(rulesBeforeDeletion).toBeGreaterThan(0);
 
 				await getBackendClient().run(
@@ -270,8 +270,8 @@ describe("Delete user automation data cleanup", () => {
 				expect(
 					await listSubscriptionRuns({ signalId, executionUserId: secondMonitor.userId }),
 				).not.toEqual([]);
-				expect(await queryAutomationRuleCount(firstMonitor.userId)).toBe(0);
-				expect(await queryAutomationRuleCount(secondMonitor.userId)).toBe(rulesBeforeDeletion);
+				expect(await getAutomationRuleCount(firstMonitor.userId)).toBe(0);
+				expect(await getAutomationRuleCount(secondMonitor.userId)).toBe(rulesBeforeDeletion);
 			} finally {
 				fakeApprise.stop();
 			}
