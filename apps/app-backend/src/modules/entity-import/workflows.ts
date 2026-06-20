@@ -8,7 +8,7 @@ import { DbRunner } from "#lib/db";
 import { SandboxRunError, dieOnDbError, toSandboxRunError } from "#lib/errors";
 import { EntitySchemaId, SandboxScriptId, UserId } from "#lib/schema/brands";
 import { EntitiesRepository } from "#modules/entities/repository";
-import { EntityImage, ListedEntity } from "#modules/entities/schemas";
+import { ListedEntity } from "#modules/entities/schemas";
 import { EntitiesService } from "#modules/entities/service";
 import { SandboxExecutionQueue } from "#modules/sandbox/durable-queues";
 import type { SandboxCompletedResult as SandboxCompletedResultValue } from "#modules/sandbox/schemas";
@@ -63,7 +63,6 @@ export const toEntityImportRunResult = (
 const ValidatedEntityDetails = Schema.Struct({
 	name: Schema.String,
 	properties: Schema.Unknown,
-	image: Schema.NullOr(EntityImage),
 	childEntities: Schema.Array(EntityDetailsChildEntity),
 	relatedEntities: Schema.Array(EntityDetailsRelatedEntity),
 });
@@ -154,7 +153,6 @@ export const runEntityImportWorkflow = Effect.fn("runEntityImportWorkflow")(func
 
 			return {
 				name: details.name,
-				image: details.image ?? null,
 				properties: details.properties,
 				childEntities: details.childEntities ?? [],
 				relatedEntities: details.relatedEntities ?? [],
@@ -168,7 +166,6 @@ export const runEntityImportWorkflow = Effect.fn("runEntityImportWorkflow")(func
 		name: activityName("write-primary-entity"),
 		execute: entities
 			.save({
-				image: null,
 				scope: "global",
 				populatedAt: null,
 				name: validatedDetails.name,
@@ -217,7 +214,6 @@ export const runEntityImportWorkflow = Effect.fn("runEntityImportWorkflow")(func
 					populatedAt,
 					scope: "global",
 					name: validatedDetails.name,
-					image: validatedDetails.image,
 					externalId: payload.externalId,
 					sandboxScriptId: payload.scriptId,
 					entitySchemaId: payload.entitySchemaId,

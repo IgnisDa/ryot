@@ -531,12 +531,12 @@ driver("translate", async function (context) {
 	if (name) {
 		result.name = name;
 	}
-	if (imageUrl) {
-		result.image = { type: "remote", url: imageUrl };
-	}
 	const properties = {};
 	if (description) {
 		properties.description = description;
+	}
+	if (imageUrl) {
+		properties.images = [{ type: "remote", url: imageUrl }];
 	}
 	if (Object.keys(properties).length > 0) {
 		result.properties = properties;

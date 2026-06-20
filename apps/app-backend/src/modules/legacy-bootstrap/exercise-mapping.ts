@@ -7,7 +7,6 @@ import {
 	type EntityMigrationTarget,
 	type ResolvedEntityMigrationTarget,
 	buildEntityTargetValuesSql,
-	buildPrimaryImageSql,
 } from "./shared";
 
 export const exerciseEntityTargets = [
@@ -158,7 +157,6 @@ BEGIN
 			"id",
 			"external_id",
 			"name",
-			"image",
 			"created_at",
 			"populated_at",
 			"user_id",
@@ -171,7 +169,6 @@ BEGIN
 			exercise.id,
 			exercise.id,
 			exercise.name,
-			${buildPrimaryImageSql("exercise")},
 			NOW(),
 			NOW(),
 			CASE WHEN exercise.source = 'github' THEN NULL ELSE exercise.created_by_user_id END,

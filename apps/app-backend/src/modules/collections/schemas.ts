@@ -7,7 +7,6 @@ import {
 	RelationshipSchemaId,
 	SandboxScriptId,
 } from "#lib/schema/brands";
-import { EntityImage } from "#modules/entities/schemas";
 
 export const CollectionResponse = Schema.Struct({
 	id: EntityId,
@@ -16,7 +15,6 @@ export const CollectionResponse = Schema.Struct({
 	updatedAt: Schema.String,
 	properties: Schema.Unknown,
 	entitySchemaId: EntitySchemaId,
-	image: Schema.NullOr(EntityImage),
 	externalId: Schema.NullOr(Schema.String),
 	sandboxScriptId: Schema.NullOr(SandboxScriptId),
 });

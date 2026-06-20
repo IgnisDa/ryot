@@ -6,7 +6,6 @@ import * as schema from "#lib/db/schema/tables";
 import { user } from "#lib/db/schema/tables/auth";
 import { isObjectRecord } from "#lib/predicates";
 import type { EntityId, UserId } from "#lib/schema/brands";
-import type { StoredEntityImage } from "#modules/entities/types";
 
 import type { LanguagePreference } from "./language-resolution";
 
@@ -15,7 +14,6 @@ type UpsertOverlayInput = {
 	populatedAt: Date;
 	entityId: EntityId;
 	name: string | null;
-	image: StoredEntityImage | null;
 	properties: Record<string, unknown> | null;
 };
 
@@ -52,7 +50,6 @@ export class TranslationsRepository extends Effect.Service<TranslationsRepositor
 					db
 						.select({
 							name: schema.entityTranslation.name,
-							image: schema.entityTranslation.image,
 							properties: schema.entityTranslation.properties,
 						})
 						.from(schema.entityTranslation)
@@ -77,7 +74,6 @@ export class TranslationsRepository extends Effect.Service<TranslationsRepositor
 						.insert(schema.entityTranslation)
 						.values({
 							name: input.name,
-							image: input.image,
 							entityId: input.entityId,
 							language: input.language,
 							properties: input.properties,
@@ -87,7 +83,6 @@ export class TranslationsRepository extends Effect.Service<TranslationsRepositor
 							target: [schema.entityTranslation.entityId, schema.entityTranslation.language],
 							set: {
 								name: input.name,
-								image: input.image,
 								properties: input.properties,
 								populatedAt: input.populatedAt,
 							},

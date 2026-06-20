@@ -6,7 +6,6 @@ export async function createMeasurementEntityFixture(client: Client) {
 	const { schema: measurementSchema } = await findBuiltinSchemaBySlug(client, "measurement");
 
 	const measurement = await createEntity(client, {
-		image: null,
 		name: "Measurement - 2026-04-27 08:00",
 		entitySchemaId: measurementSchema.id,
 		properties: {

@@ -191,7 +191,6 @@ function normalizeExercise(exercise) {
 		name,
 		properties,
 		externalId: name,
-		image: images[0] ?? null,
 		searchText: normalizeSearchText([
 			name,
 			kind,
@@ -380,15 +379,18 @@ driver("search", async function (context) {
 	const totalItems = matchedRows.length;
 	const pageStart = (currentPage - 1) * pageSize;
 	const pageRows = matchedRows.slice(pageStart, pageStart + pageSize);
-	const items = pageRows.map((row) => ({
-		externalId: row.externalId,
-		calloutProperty: { kind: "null", value: null },
-		titleProperty: { kind: "text", value: row.name },
-		primarySubtitleProperty: { kind: "null", value: null },
-		secondarySubtitleProperty: { kind: "null", value: null },
-		imageProperty:
-			row.image === null ? { kind: "null", value: null } : { kind: "image", value: row.image },
-	}));
+	const items = pageRows.map((row) => {
+		const image = row.properties.images[0] ?? null;
+		return {
+			externalId: row.externalId,
+			calloutProperty: { kind: "null", value: null },
+			titleProperty: { kind: "text", value: row.name },
+			primarySubtitleProperty: { kind: "null", value: null },
+			secondarySubtitleProperty: { kind: "null", value: null },
+			imageProperty:
+				image === null ? { kind: "null", value: null } : { kind: "image", value: image },
+		};
+	});
 
 	return {
 		items,
@@ -415,7 +417,6 @@ driver("details", async function (context) {
 
 	return {
 		name: row.name,
-		image: row.image,
 		relatedEntities: [],
 		properties: row.properties,
 	};

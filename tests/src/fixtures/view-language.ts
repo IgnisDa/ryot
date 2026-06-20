@@ -127,6 +127,8 @@ export const entityField = (schemaSlug: string, property: string) => {
 	return `entity.${schemaSlug}.properties.${property}`;
 };
 
+export const entityImageField = (schemaSlug: string) => `entity.${schemaSlug}.properties.images.0`;
+
 export const qualifyBuiltinFields = (schemaSlugs: readonly string[], property: string) => {
 	return schemaSlugs.map((schemaSlug) => entityField(schemaSlug, property));
 };
