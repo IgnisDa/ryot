@@ -1,4 +1,9 @@
-import { EventSchemaId, SandboxScriptId, SignalSchemaId } from "@ryot/contract/schema/brands";
+import {
+	EntitySchemaId,
+	EventSchemaId,
+	SandboxScriptId,
+	SignalSchemaId,
+} from "@ryot/contract/schema/brands";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { generateId } from "better-auth";
 import { and, eq, isNull, notInArray, sql } from "drizzle-orm";
@@ -12,6 +17,7 @@ import { SignalSchemasService } from "#modules/signals/service";
 import { builtinEntitySchemas } from "./entity-schemas";
 import {
 	builtinEventAutomationRuleLinks,
+	builtinEntityAutomationRuleLinks,
 	builtinSignalAutomationRuleLinks,
 	builtinSandboxScripts,
 	companySchemaSandboxScriptLinks,
@@ -327,13 +333,21 @@ const seedInitialDatabase = Effect.gen(function* () {
 	}
 
 	yield* Effect.logInfo("Entity schemas seeded successfully");
-	const eventSchemas = yield* dbEffect(() =>
-		db
-			.select({ id: schema.eventSchema.id, slug: schema.eventSchema.slug })
-			.from(schema.eventSchema)
-			.where(isNull(schema.eventSchema.userId)),
-	);
-	return { eventSchemas, scriptIds };
+	const [entitySchemas, eventSchemas] = yield* Effect.all([
+		dbEffect(() =>
+			db
+				.select({ id: schema.entitySchema.id, slug: schema.entitySchema.slug })
+				.from(schema.entitySchema)
+				.where(isNull(schema.entitySchema.userId)),
+		),
+		dbEffect(() =>
+			db
+				.select({ id: schema.eventSchema.id, slug: schema.eventSchema.slug })
+				.from(schema.eventSchema)
+				.where(isNull(schema.eventSchema.userId)),
+		),
+	]);
+	return { entitySchemas, eventSchemas, scriptIds };
 });
 
 export class SeedService extends Effect.Service<SeedService>()("SeedService", {
@@ -341,7 +355,23 @@ export class SeedService extends Effect.Service<SeedService>()("SeedService", {
 		const runner = yield* TransactionRunner;
 		const automations = yield* AutomationsService;
 		const signalSchemas = yield* SignalSchemasService;
-		const { eventSchemas, scriptIds } = yield* runner(seedInitialDatabase);
+		const { entitySchemas, eventSchemas, scriptIds } = yield* runner(seedInitialDatabase);
+		for (const link of builtinEntityAutomationRuleLinks()) {
+			const scriptId = scriptIds.get(link.scriptSlug);
+			const entitySchema = entitySchemas.find(({ slug }) => slug === link.entitySchemaSlug);
+			if (!scriptId || !entitySchema) {
+				return yield* Effect.die(
+					new Error(`Missing built-in entity automation references for ${link.name}`),
+				);
+			}
+			yield* automations.ensureBuiltin({
+				name: link.name,
+				operation: "create",
+				kind: "subscription",
+				sandboxScriptId: SandboxScriptId.make(scriptId),
+				target: { id: EntitySchemaId.make(entitySchema.id), kind: "entity_schema" },
+			});
+		}
 		for (const link of builtinEventAutomationRuleLinks()) {
 			const scriptId = scriptIds.get(link.scriptSlug);
 			if (!scriptId) {
@@ -353,9 +383,9 @@ export class SeedService extends Effect.Service<SeedService>()("SeedService", {
 				yield* automations.ensureBuiltin({
 					name: link.name,
 					kind: link.kind,
+					operation: "create",
 					metadata: link.metadata,
 					position: link.position,
-					operation: "create",
 					sandboxScriptId: SandboxScriptId.make(scriptId),
 					target: { id: EventSchemaId.make(eventSchema.id), kind: "event_schema" },
 				});
