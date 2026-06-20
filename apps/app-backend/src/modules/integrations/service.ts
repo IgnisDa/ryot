@@ -15,8 +15,8 @@ import { Effect, Either, Schema } from "effect";
 import { DbRunner } from "#lib/db/service";
 import { ImportsService } from "#modules/imports/service";
 
+import { ProcessIntegrationRunWorkflow } from "./integration-workflow";
 import { IntegrationsRepository, type IntegrationRecord } from "./repository";
-import { ProcessIntegrationRunWorkflow } from "./workflows";
 
 const defaultExtraSettings = {
 	disableOnContinuousErrors: false,
