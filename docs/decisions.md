@@ -319,7 +319,7 @@ Population and translation are `@effect/workflow` workflows keyed by a determini
 
 ---
 
-## Decision 5: `consumedOn` and Trigger Property Inheritance
+## Decision 5: `consumedOn` and Automation Rule Property Inheritance
 
 ### Context
 
@@ -329,23 +329,23 @@ V1 stored a `providers_consumed_on: Vec<String>` field on the `seen` table, reco
 
 **`consumedOn: string` (optional)** is added as a property to the `progress`, `complete`, `dropped`, and `on_hold` event schemas. It is not present on `backlog` or `review`, which do not represent consumption acts. Each event carries its own single optional source string. The aggregate view across an entity's history is derivable via `SELECT DISTINCT consumed_on FROM event WHERE entity_id = ?` and does not need to be stored separately.
 
-When a trigger creates a new event from a triggering event — as the auto-complete trigger does when it creates a `complete` event from a 100% `progress` event — the trigger framework is responsible for forwarding relevant properties. This propagation is declared in data, not code.
+When a subscription creates a new event from its source event — as auto-complete does when it creates a `complete` event from a 100% `progress` event — its automation rule declares which relevant properties to forward.
 
-The `event_schema_trigger` table carries a `metadata` column (`jsonb NOT NULL`, no default — same semantics as `sandbox_script.metadata`) with schema:
+The auto-complete `automation_rule` row carries server-owned metadata:
 
 ```ts
-eventSchemaTriggerMetadataSchema = z.object({
+autoCompleteRuleMetadataSchema = z.object({
     inheritedProperties: z.array(z.string()).optional(),
 });
 ```
 
-When `processEventSchemaTriggers` builds the sandbox job context, it reads `trigger.metadata.inheritedProperties`, extracts those keys from the triggering event's `properties`, and injects them as `trigger.inheritedProperties`. The trigger script spreads `trigger.inheritedProperties` into the properties of the event it creates without referencing any property name directly.
+The subscription execution workflow passes this value as `automation.ruleMetadata`. The auto-complete script copies the declared keys from the stored event snapshot into the completion event it creates.
 
-The builtin auto-complete trigger's seed record carries `metadata: { inheritedProperties: ["consumedOn"] }`. Adding a new property to propagate in the future requires only updating that metadata record — no script change.
+The built-in auto-complete rule carries `metadata: { inheritedProperties: ["consumedOn"] }`. Adding a new property to propagate in the future requires only updating that metadata record.
 
 ### Summary
 
 - `consumedOn: string` (optional) is a property on `progress`, `complete`, `dropped`, and `on_hold` events.
 - Each event carries its own source; the aggregate is a query over event history.
-- `event_schema_trigger.metadata.inheritedProperties` declares which properties the trigger framework copies from the triggering event into the sandbox job context.
-- Trigger scripts are property-name agnostic; propagation behavior lives in the DB.
+- `automation_rule.metadata.inheritedProperties` declares which source-event properties the subscription copies.
+- The automation script interprets server-owned rule metadata; propagation behavior remains data-driven.

@@ -1,11 +1,9 @@
-import type { EventTriggerMetadata } from "@ryot/contract/modules/events/schemas";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { generateId } from "better-auth";
 import { sql } from "drizzle-orm";
 import {
 	boolean,
 	index,
-	integer,
 	jsonb,
 	pgTable,
 	text,
@@ -15,7 +13,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
-import { entitySchema, sandboxScript } from "./core";
+import { entitySchema } from "./core";
 import { entity } from "./entities";
 
 export const eventSchema = pgTable(
@@ -86,45 +84,5 @@ export const event = pgTable(
 		index("event_session_entity_id_idx").on(table.sessionEntityId),
 		index("event_properties_idx").using("gin", table.properties),
 		index("event_user_entity_schema_idx").on(table.userId, table.entityId, table.eventSchemaId),
-	],
-);
-
-export const eventSchemaTrigger = pgTable(
-	"event_schema_trigger",
-	{
-		name: text().notNull(),
-		position: integer().notNull().default(1000),
-		isActive: boolean().notNull().default(true),
-		isBuiltin: boolean().notNull().default(false),
-		phase: text().notNull().default("after_create"),
-		metadata: jsonb().$type<EventTriggerMetadata>().notNull(),
-		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-		userId: text().references(() => user.id, { onDelete: "cascade" }),
-		eventSchemaId: text()
-			.notNull()
-			.references(() => eventSchema.id, { onDelete: "cascade" }),
-		sandboxScriptId: text()
-			.notNull()
-			.references(() => sandboxScript.id, { onDelete: "cascade" }),
-		id: text()
-			.notNull()
-			.primaryKey()
-			.$defaultFn(() => /* @__PURE__ */ generateId()),
-		updatedAt: timestamp({ withTimezone: true })
-			.defaultNow()
-			.$onUpdate(() => /* @__PURE__ */ new Date())
-			.notNull(),
-	},
-	(table) => [
-		index("event_schema_trigger_user_id_idx").on(table.userId),
-		index("event_schema_trigger_event_schema_id_idx").on(table.eventSchemaId),
-		uniqueIndex("event_schema_trigger_builtin_unique")
-			.on(table.eventSchemaId, table.sandboxScriptId)
-			.where(sql`${table.userId} is null`),
-		unique("event_schema_trigger_user_unique").on(
-			table.userId,
-			table.eventSchemaId,
-			table.sandboxScriptId,
-		),
 	],
 );

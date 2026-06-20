@@ -27,10 +27,6 @@
 			"types": "./src/testing.ts",
 			"default": "./src/testing.ts"
 		},
-		"./trigger": {
-			"types": "./src/trigger.ts",
-			"default": "./src/trigger.ts"
-		},
 		"./imports": {
 			"types": "./src/imports.ts",
 			"default": "./src/imports.ts"

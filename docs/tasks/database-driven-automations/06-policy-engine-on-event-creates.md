@@ -48,9 +48,9 @@ skips and replaces drafts through the public endpoint.
 
 - Added a strict automation-policy SDK entry point with a canonical event-create draft and
   allow/skip/replace result. A compiled built-in test policy exercises all three outcomes.
-- Event policy rules resolve through the automation service, merge by position with legacy
-  before-create triggers, and execute through deterministic sandbox queue IDs before any write.
-  Legacy rows remain active only to preserve behavior until Task 07 migrates and deletes them.
+- Event policy rules resolve through the automation service in position order and execute through
+  deterministic sandbox queue IDs before any write. Task 07 removed the temporary legacy-trigger
+  merge after migrating the built-in integration policy.
 - Every replacement is normalized through the event property schema, date parser, and entity
   visibility checks before the next policy runs. Fixed identity, owner, schema, operation, and
   origin fields are absent from the strict replacement contract.

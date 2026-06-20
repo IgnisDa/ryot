@@ -14,8 +14,8 @@ import {
 
 const isoAt = (day: number) => `2024-01-${String(day).padStart(2, "0")}T00:00:00.000Z`;
 
-describe("Event trigger firing", () => {
-	it("logging 100% progress creates a completion event via builtin trigger", async () => {
+describe("Event automations", () => {
+	it("logging 100% progress creates a completion event via the built-in subscription", async () => {
 		const { client } = await createAuthenticatedClient();
 
 		const { entityId, progressEventSchemaId } = await createBuiltinMediaLifecycleFixture(client);
@@ -302,7 +302,7 @@ describe("Event trigger firing", () => {
 		expect(completeEvent.eventSchemaSlug).toBe("complete");
 	});
 
-	it("logging 100% progress creates a timestamped completion event via builtin trigger", async () => {
+	it("logging 100% progress creates a timestamped completion event via the built-in subscription", async () => {
 		const { client } = await createAuthenticatedClient();
 
 		const { entityId, progressEventSchemaId } = await createBuiltinMediaLifecycleFixture(client, {
