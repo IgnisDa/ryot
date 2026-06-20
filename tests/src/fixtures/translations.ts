@@ -101,6 +101,32 @@ export function seedPopulatedTmdbMovie(
 	});
 }
 
+// Seeds an entity_translation row directly (no provider fill). Mirrors a completed fill for the
+// (entity, language) pair so the query-engine read path localizes the entity. A null name/properties
+// models a negative-cache row (canonical fallback).
+export async function seedEntityTranslation(input: {
+	entityId: string;
+	language: string;
+	name?: string | null;
+	properties?: Record<string, unknown> | null;
+}) {
+	await getPgClient().query(
+		`insert into entity_translation (id, entity_id, language, name, properties, populated_at)
+		 values ($1, $2, $3, $4, $5::jsonb, now())
+		 on conflict (entity_id, language) do update
+		   set name = excluded.name,
+		       properties = excluded.properties,
+		       populated_at = excluded.populated_at`,
+		[
+			crypto.randomUUID(),
+			input.entityId,
+			input.language,
+			input.name ?? null,
+			input.properties == null ? null : JSON.stringify(input.properties),
+		],
+	);
+}
+
 export async function getEntityTranslationRow(input: { entityId: string; language: string }) {
 	const result = await getPgClient().query<EntityTranslationRow>(
 		`select name, properties, populated_at::text as "populatedAt"

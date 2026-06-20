@@ -84,16 +84,18 @@ export class QueryEngineService extends Effect.Service<QueryEngineService>()("Qu
 
 			yield* runWithDb(validateQueryDocumentTypeCompatibility(user.id, doc, scope));
 
+			const language = user.preferences.language;
+
 			if (isRowsQueryDocument(doc)) {
-				return yield* runBounded(executeRowsQuery(user.id, doc));
+				return yield* runBounded(executeRowsQuery(user.id, language, doc));
 			}
 
 			if (isAggregateQueryDocument(doc)) {
-				return yield* runBounded(executeAggregateQuery(user.id, doc));
+				return yield* runBounded(executeAggregateQuery(user.id, language, doc));
 			}
 
 			if (isTimeSeriesQueryDocument(doc)) {
-				return yield* runBounded(executeTimeSeriesQuery(user.id, doc));
+				return yield* runBounded(executeTimeSeriesQuery(user.id, language, doc));
 			}
 
 			return yield* new BadRequest({ message: "Unsupported query output type" });

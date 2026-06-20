@@ -3,6 +3,7 @@ import type { WorkflowEngine, WorkflowInstance } from "@effect/workflow/Workflow
 import { Effect } from "effect";
 
 import type { CurrentUserValue } from "#lib/auth-middleware";
+import { defaultUserPreferences } from "#lib/builtins/bootstrap";
 import { AppConfig } from "#lib/config/service";
 import type { DbRunner } from "#lib/db/service";
 import type { EntitiesRepository } from "#modules/entities/repository";
@@ -63,7 +64,12 @@ export const prepareWorkoutWrites = (
 	DbRunner | EntitiesRepository | EventSchemasRepository | EntitySchemasRepository
 > =>
 	Effect.gen(function* () {
-		const user: CurrentUserValue = { id: payload.userId, name: "", email: "" };
+		const user: CurrentUserValue = {
+			name: "",
+			email: "",
+			id: payload.userId,
+			preferences: defaultUserPreferences,
+		};
 
 		const context = yield* loadWorkoutImportContext(payload.userId).pipe(
 			Effect.mapError(toWorkflowError),

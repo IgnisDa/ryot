@@ -1,99 +1,73 @@
 import { expect, it } from "@effect/vitest";
 import { Effect, Layer } from "effect";
 
+import { AuthService } from "#lib/auth";
 import type { CurrentUserValue } from "#lib/auth-middleware";
+import { defaultUserPreferences, type UserPreferences } from "#lib/builtins/bootstrap";
 import { UserId } from "#lib/schema/brands";
-import type { MockOverrides } from "#lib/test-support/effect";
-import { dbRunnerLayer } from "#lib/test-support/effect";
 
-import { UserPreferencesRepository } from "./repository";
 import { UserPreferencesService } from "./service";
 
-const user = {
+const makeUser = (preferences: UserPreferences): CurrentUserValue => ({
+	preferences,
 	name: "Test User",
 	email: "user@example.com",
 	id: UserId.make("user-id"),
-} satisfies CurrentUserValue;
+});
 
-const mockUserPreferencesRepository = Layer.mock(UserPreferencesRepository);
+type UpdateUserPreferences = (userId: UserId, preferences: UserPreferences) => Effect.Effect<void>;
 
-const makeUserPreferencesRepository = (
-	overrides: MockOverrides<typeof mockUserPreferencesRepository> = {},
-) => mockUserPreferencesRepository({ ...overrides, _tag: "UserPreferencesRepository" });
-
-const makeServiceLayer = (
-	options: { repository?: ReturnType<typeof makeUserPreferencesRepository> } = {},
-) =>
+const makeServiceLayer = (updateUserPreferences: UpdateUserPreferences = () => Effect.void) =>
 	UserPreferencesService.Default.pipe(
 		Layer.provide(
-			Layer.mergeAll(dbRunnerLayer, options.repository ?? makeUserPreferencesRepository()),
+			Layer.succeed(AuthService, Object.assign(Object.create(null), { updateUserPreferences })),
 		),
 	);
 
-it.effect("fills in defaults when the user has no stored preferences", () => {
-	const layer = makeServiceLayer({
-		repository: makeUserPreferencesRepository({
-			findByUserId: () => Effect.succeed(null),
-			updateForUser: () => Effect.void,
-		}),
-	});
-
-	return Effect.gen(function* () {
+it.effect("returns the caller's current preferences when the body is empty", () =>
+	Effect.gen(function* () {
 		const service = yield* UserPreferencesService;
-		const result = yield* service.update(user, {});
+		const result = yield* service.update(makeUser(defaultUserPreferences), {});
 
 		expect(result).toEqual({ isNsfw: false, language: null, disableIntegrations: false });
-	}).pipe(Effect.provide(layer));
-});
+	}).pipe(Effect.provide(makeServiceLayer())),
+);
 
-it.effect("only overwrites the fields provided in the body", () => {
-	const layer = makeServiceLayer({
-		repository: makeUserPreferencesRepository({
-			findByUserId: () =>
-				Effect.succeed({ isNsfw: true, language: "es", disableIntegrations: false }),
-			updateForUser: () => Effect.void,
-		}),
-	});
-
-	return Effect.gen(function* () {
+it.effect("only overwrites the fields provided in the body", () =>
+	Effect.gen(function* () {
 		const service = yield* UserPreferencesService;
-		const result = yield* service.update(user, { disableIntegrations: true });
+		const result = yield* service.update(
+			makeUser({ isNsfw: true, language: "es", disableIntegrations: false }),
+			{ disableIntegrations: true },
+		);
 
 		expect(result).toEqual({ isNsfw: true, language: "es", disableIntegrations: true });
-	}).pipe(Effect.provide(layer));
-});
+	}).pipe(Effect.provide(makeServiceLayer())),
+);
 
-it.effect("allows explicitly clearing the language preference", () => {
-	const layer = makeServiceLayer({
-		repository: makeUserPreferencesRepository({
-			findByUserId: () =>
-				Effect.succeed({ isNsfw: false, language: "es", disableIntegrations: false }),
-			updateForUser: () => Effect.void,
-		}),
-	});
-
-	return Effect.gen(function* () {
+it.effect("allows explicitly clearing the language preference", () =>
+	Effect.gen(function* () {
 		const service = yield* UserPreferencesService;
-		const result = yield* service.update(user, { language: null });
+		const result = yield* service.update(
+			makeUser({ isNsfw: false, language: "es", disableIntegrations: false }),
+			{ language: null },
+		);
 
 		expect(result).toEqual({ isNsfw: false, language: null, disableIntegrations: false });
-	}).pipe(Effect.provide(layer));
-});
+	}).pipe(Effect.provide(makeServiceLayer())),
+);
 
-it.effect("persists the merged preferences", () => {
+it.effect("persists the merged preferences through better-auth", () => {
 	const calls: unknown[] = [];
-	const layer = makeServiceLayer({
-		repository: makeUserPreferencesRepository({
-			findByUserId: () => Effect.succeed(null),
-			updateForUser: (input) =>
-				Effect.sync(() => {
-					calls.push(input);
-				}),
+	const layer = makeServiceLayer((userId, preferences) =>
+		Effect.sync(() => {
+			calls.push({ userId, preferences });
 		}),
-	});
+	);
 
 	return Effect.gen(function* () {
 		const service = yield* UserPreferencesService;
+		const user = makeUser(defaultUserPreferences);
 		yield* service.update(user, { isNsfw: true });
 
 		expect(calls).toEqual([
