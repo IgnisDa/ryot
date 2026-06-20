@@ -1,5 +1,31 @@
 # Database-Driven Automations, Signals, and Subscriptions
 
+## Tasks
+
+**Overall Progress:** 12 of 15 tasks completed
+
+**Current Task:** [Task 13](./13-association-detectors.md) (todo)
+
+### Task List
+
+| #   | Task                                                                                                                   | Type | Status |
+| --- | ---------------------------------------------------------------------------------------------------------------------- | ---- | ------ |
+| 01  | [Signal Persistence and Emission Service](./01-signal-persistence-and-emission-service.md)                             | AFK  | done   |
+| 02  | [Automation Rules and Subscription Runs](./02-automation-rules-and-subscription-runs.md)                               | AFK  | done   |
+| 03  | [Subscription Execution Workflow and SDK Entry Point](./03-subscription-execution-workflow-and-sdk-entry-point.md)     | AFK  | done   |
+| 04  | [Host Functions and Capabilities](./04-host-functions-and-capabilities.md)                                             | AFK  | done   |
+| 05  | [Lifecycle Occurrence Dispatch for Creates](./05-lifecycle-occurrence-dispatch-for-creates.md)                         | AFK  | done   |
+| 06  | [Policy Engine on Event Creates](./06-policy-engine-on-event-creates.md)                                               | AFK  | done   |
+| 07  | [Trigger Migration](./07-trigger-migration.md)                                                                         | AFK  | done   |
+| 08  | [Shared Notification Script and First Producers](./08-shared-notification-script-and-first-producers.md)               | AFK  | done   |
+| 09  | [Catalog and Rule Management API with Default Installs](./09-catalog-and-rule-management-api-with-default-installs.md) | AFK  | done   |
+| 10  | [Remove Legacy Notification Vocabulary](./10-remove-legacy-notification-vocabulary.md)                                 | AFK  | done   |
+| 11  | [Population Context and Media Entity-Update Detectors](./11-population-context-and-media-entity-update-detectors.md)   | AFK  | done   |
+| 12  | [Sync Batch Leaders and Discovery Detectors](./12-sync-batch-leaders-and-discovery-detectors.md)                       | AFK  | done   |
+| 13  | [Association Detectors](./13-association-detectors.md)                                                                 | AFK  | todo   |
+| 14  | [Media-Monitoring Notification Removal](./14-media-monitoring-notification-removal.md)                                 | AFK  | todo   |
+| 15  | [Codebase Cleanup](./15-codebase-cleanup.md)                                                                           | AFK  | todo   |
+
 ## Problem Statement
 
 Ryot users want to be told when something meaningful happens in their library — a monitored show
@@ -774,31 +800,3 @@ Acceptance criteria the test suite must establish:
   it.
 - When this PRD is broken into tasks, a mandatory final cleanup task is appended: a final pass
   over the touched files and directly affected modules following the codebase-cleanup skill.
-
----
-
-## Tasks
-
-**Overall Progress:** 12 of 15 tasks completed
-
-**Current Task:** [Task 13](./13-association-detectors.md) (todo)
-
-### Task List
-
-| #   | Task                                                                                                                   | Type | Status |
-| --- | ---------------------------------------------------------------------------------------------------------------------- | ---- | ------ |
-| 01  | [Signal Persistence and Emission Service](./01-signal-persistence-and-emission-service.md)                             | AFK  | done   |
-| 02  | [Automation Rules and Subscription Runs](./02-automation-rules-and-subscription-runs.md)                               | AFK  | done   |
-| 03  | [Subscription Execution Workflow and SDK Entry Point](./03-subscription-execution-workflow-and-sdk-entry-point.md)     | AFK  | done   |
-| 04  | [Host Functions and Capabilities](./04-host-functions-and-capabilities.md)                                             | AFK  | done   |
-| 05  | [Lifecycle Occurrence Dispatch for Creates](./05-lifecycle-occurrence-dispatch-for-creates.md)                         | AFK  | done   |
-| 06  | [Policy Engine on Event Creates](./06-policy-engine-on-event-creates.md)                                               | AFK  | done   |
-| 07  | [Trigger Migration](./07-trigger-migration.md)                                                                         | AFK  | done   |
-| 08  | [Shared Notification Script and First Producers](./08-shared-notification-script-and-first-producers.md)               | AFK  | done   |
-| 09  | [Catalog and Rule Management API with Default Installs](./09-catalog-and-rule-management-api-with-default-installs.md) | AFK  | done   |
-| 10  | [Remove Legacy Notification Vocabulary](./10-remove-legacy-notification-vocabulary.md)                                 | AFK  | done   |
-| 11  | [Population Context and Media Entity-Update Detectors](./11-population-context-and-media-entity-update-detectors.md)   | AFK  | done   |
-| 12  | [Sync Batch Leaders and Discovery Detectors](./12-sync-batch-leaders-and-discovery-detectors.md)                       | AFK  | done   |
-| 13  | [Association Detectors](./13-association-detectors.md)                                                                 | AFK  | todo   |
-| 14  | [Media-Monitoring Notification Removal](./14-media-monitoring-notification-removal.md)                                 | AFK  | todo   |
-| 15  | [Codebase Cleanup](./15-codebase-cleanup.md)                                                                           | AFK  | todo   |
