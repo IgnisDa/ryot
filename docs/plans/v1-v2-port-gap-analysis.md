@@ -29,6 +29,7 @@ These V1 areas have a working home in V2. Several are **partial** ports — the 
 | Core details / config                                                               | `modules/system` (config/health/metrics)                                                                        | Auth-config only, no comprehensive core-details payload |
 | User state operations (`merge_metadata`, `merge_exercise`, `disassociate_metadata`) | `modules/user-state` (`POST /user-state/merge`, `DELETE /user-state/clear/:entityId`)                           | Events/relationships only — does not touch collection membership |
 | Media translation (localized title/overview)                                        | `modules/entity-translation` (sandbox `translate` driver + `TranslateEntityWorkflow`); localized `name`/`properties` and a `translationStatus` field via `modules/query-engine`; filled on demand through client-declared interest (`modules/entity-interest`) rather than V1's periodic refresh job | Functionally equivalent; drops per-variant (title/image/description) granularity and show/podcast episode-scoped translation — low priority |
+| Integration progress normalization (clamp above configured maximum to 100%, filter below configured minimum, auto-fill a missing completion timestamp with "now") | Builtin `before_create` sandbox trigger `trigger.integration-progress-policy` (`lib/sandbox/triggers/integration-progress-policy.sandbox.js`); timestamp fallback is structural via `modules/integrations/sinks/shared.ts`'s `createProgressResult` | Full — see `lib/builtins/AGENTS.md` ("Integration Progress Policy Trigger"); regression coverage in `tests/src/tests/integrations.test.ts` ("Progress normalization") |
 
 ## Cache & Invalidation Architecture
 
@@ -143,9 +144,8 @@ V1: `crates/services/file-storage`, `crates/resolvers/file-storage`.
 
 #### Integrations — known gaps
 
-Called "fully ported" in the baseline table, but two things surfaced during re-audit:
+Called "fully ported" in the baseline table, but one thing surfaced during re-audit:
 - The `generic_json` sink is explicitly a stub in V2 today — it returns `unsupportedSinkResult` with the message "generic_json integration is not implemented in V2 yet" (confirmed in `modules/integrations/sinks/sink-adapters.ts` and its test).
-- Webhook/sink progress handling drops three V1 normalization steps: clamping progress above an integration's configured maximum down to 100%, filtering out progress updates below the configured minimum threshold, and auto-filling a missing completion timestamp with "now." The `minimumProgress`/`maximumProgress` fields exist on the integration record but nothing reads them in the sink adapters.
 
 ## Open / Unverified
 
