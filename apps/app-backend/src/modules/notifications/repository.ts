@@ -9,8 +9,7 @@ import type {
 } from "@ryot/contract/modules/notifications/types";
 import { NotificationPlatformId, UserId } from "@ryot/contract/schema/brands";
 import { and, desc, eq, sql } from "drizzle-orm";
-import { Effect } from "effect";
-import { match } from "ts-pattern";
+import { Effect, Match, Option } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
@@ -22,13 +21,10 @@ export type NotificationPlatformRecord = ListedNotificationPlatform & {
 
 type NotificationPlatformRow = typeof schema.notificationPlatform.$inferSelect;
 
-const safeUrlOrigin = (value: string) => {
-	try {
-		return new URL(value).origin;
-	} catch {
-		return "configured endpoint";
-	}
-};
+const urlOrigin = Option.liftThrowable((value: string) => new URL(value).origin);
+
+const safeUrlOrigin = (value: string) =>
+	urlOrigin(value).pipe(Option.getOrElse(() => "configured endpoint"));
 
 const maskEmail = (value: string) => {
 	const [local, domain] = value.split("@");
@@ -41,23 +37,24 @@ const maskEmail = (value: string) => {
 const maskChatId = (value: string) => `chat ending in ${value.slice(-4)}`;
 
 export const describeNotificationPlatform = (specifics: NotificationPlatformSpecifics) =>
-	match(specifics)
-		.with({ kind: "apprise" }, ({ baseUrl }) => `Apprise at ${safeUrlOrigin(baseUrl)}`)
-		.with(
+	Match.value(specifics).pipe(
+		Match.when({ kind: "apprise" }, ({ baseUrl }) => `Apprise at ${safeUrlOrigin(baseUrl)}`),
+		Match.when(
 			{ kind: "discord" },
 			({ webhookUrl }) => `Discord webhook at ${safeUrlOrigin(webhookUrl)}`,
-		)
-		.with({ kind: "email" }, ({ recipient }) => `Email to ${maskEmail(recipient)}`)
-		.with({ kind: "gotify" }, ({ baseUrl }) => `Gotify at ${safeUrlOrigin(baseUrl)}`)
-		.with(
+		),
+		Match.when({ kind: "email" }, ({ recipient }) => `Email to ${maskEmail(recipient)}`),
+		Match.when({ kind: "gotify" }, ({ baseUrl }) => `Gotify at ${safeUrlOrigin(baseUrl)}`),
+		Match.when(
 			{ kind: "ntfy" },
 			({ baseUrl }) => `ntfy at ${safeUrlOrigin(baseUrl ?? "https://ntfy.sh")}`,
-		)
-		.with({ kind: "push_bullet" }, () => "PushBullet configured")
-		.with({ kind: "push_over" }, () => "PushOver configured")
-		.with({ kind: "push_safer" }, () => "PushSafer configured")
-		.with({ kind: "telegram" }, ({ chatId }) => `Telegram ${maskChatId(chatId)}`)
-		.exhaustive();
+		),
+		Match.when({ kind: "push_bullet" }, () => "PushBullet configured"),
+		Match.when({ kind: "push_over" }, () => "PushOver configured"),
+		Match.when({ kind: "push_safer" }, () => "PushSafer configured"),
+		Match.when({ kind: "telegram" }, ({ chatId }) => `Telegram ${maskChatId(chatId)}`),
+		Match.exhaustive,
+	);
 
 const toRecord = (row: NotificationPlatformRow): NotificationPlatformRecord => {
 	const platformSpecifics = row.platformSpecifics;
