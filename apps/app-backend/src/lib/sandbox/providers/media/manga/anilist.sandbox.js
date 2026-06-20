@@ -175,7 +175,9 @@ function collectGenres(genres, tags) {
 }
 
 async function cleanHtmlDescription(html) {
-	if (typeof html !== "string" || !html.trim()) {return null;}
+	if (typeof html !== "string" || !html.trim()) {
+		return null;
+	}
 	const { load } = await import("npm:cheerio");
 	const $ = load(html);
 	$("br").replaceWith("\n");
@@ -464,7 +466,9 @@ query MediaTranslationQuery($id: Int!) {
 
 	const name = pickRequestedAnilistTitle(media.title, titleLang);
 	const result = {};
-	if (name) {result.name = name;}
+	if (name) {
+		result.name = name;
+	}
 
 	return result;
 });

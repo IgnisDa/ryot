@@ -63,11 +63,17 @@ driver("search", async function (context) {
 
 	const items = results
 		.map((s) => {
-			if (!s || typeof s !== "object") {return null;}
+			if (!s || typeof s !== "object") {
+				return null;
+			}
 			const id = typeof s.id === "number" ? String(Math.trunc(s.id)) : null;
-			if (!id) {return null;}
+			if (!id) {
+				return null;
+			}
 			const name = typeof s.name === "string" && s.name.trim() ? s.name.trim() : null;
-			if (!name) {return null;}
+			if (!name) {
+				return null;
+			}
 			const parts = typeof s.issue_count === "number" ? s.issue_count : null;
 			return {
 				externalId: id,
@@ -100,7 +106,9 @@ driver("details", async function (context) {
 	const series = await metronGet(`/series/${externalId}/`);
 
 	const title = typeof series?.name === "string" && series.name.trim() ? series.name.trim() : null;
-	if (!title) {throw new Error("Metron series is missing name");}
+	if (!title) {
+		throw new Error("Metron series is missing name");
+	}
 
 	const description =
 		typeof series?.desc === "string" && series.desc.trim() ? series.desc.trim() : null;
@@ -113,7 +121,9 @@ driver("details", async function (context) {
 	const relatedEntities = issueList
 		.map((issue, idx) => {
 			const memberId = typeof issue?.id === "number" ? String(Math.trunc(issue.id)) : null;
-			if (!memberId) {return null;}
+			if (!memberId) {
+				return null;
+			}
 			const memberName =
 				typeof issue?.issue === "string" && issue.issue.trim()
 					? issue.issue.trim()

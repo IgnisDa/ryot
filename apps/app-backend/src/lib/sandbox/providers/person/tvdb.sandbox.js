@@ -118,10 +118,16 @@ function getTranslationFields(payload) {
 function buildTranslationResult(payload) {
 	const { name, description } = getTranslationFields(payload);
 	const result = {};
-	if (name) {result.name = name;}
+	if (name) {
+		result.name = name;
+	}
 	const properties = {};
-	if (description) {properties.description = description;}
-	if (Object.keys(properties).length > 0) {result.properties = properties;}
+	if (description) {
+		properties.description = description;
+	}
+	if (Object.keys(properties).length > 0) {
+		result.properties = properties;
+	}
 	return result;
 }
 
