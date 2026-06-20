@@ -29,9 +29,12 @@ import { Route as AuthenticatedEEntityIdRouteImport } from './routes/_authentica
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings/index'
 import { Route as AuthenticatedSettingsSplatRouteImport } from './routes/_authenticated/settings/$'
 import { Route as AuthenticatedSettingsAccountRouteImport } from './routes/_authenticated/settings/account'
+import { Route as AuthenticatedSettingsImportDataRouteImport } from './routes/_authenticated/settings/import-data'
 import { Route as AuthenticatedSettingsPreferencesRouteImport } from './routes/_authenticated/settings/preferences'
 import { Route as AuthenticatedVViewSlugRouteImport } from './routes/_authenticated/v/$viewSlug'
 import { Route as AuthLogoutCallbackRouteImport } from './routes/auth_.logout.callback'
+import { Route as AuthenticatedSettingsIntegrationsIndexRouteImport } from './routes/_authenticated/settings/integrations/index'
+import { Route as AuthenticatedSettingsIntegrationsIntegrationIdRouteImport } from './routes/_authenticated/settings/integrations/$integrationId'
 
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
@@ -140,6 +143,12 @@ const AuthenticatedSettingsAccountRoute =
     path: '/account',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
+const AuthenticatedSettingsImportDataRoute =
+  AuthenticatedSettingsImportDataRouteImport.update({
+    id: '/import-data',
+    path: '/import-data',
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+  } as any)
 const AuthenticatedSettingsPreferencesRoute =
   AuthenticatedSettingsPreferencesRouteImport.update({
     id: '/preferences',
@@ -156,6 +165,18 @@ const AuthLogoutCallbackRoute = AuthLogoutCallbackRouteImport.update({
   path: '/auth/logout/callback',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedSettingsIntegrationsIndexRoute =
+  AuthenticatedSettingsIntegrationsIndexRouteImport.update({
+    id: '/integrations/',
+    path: '/integrations/',
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+  } as any)
+const AuthenticatedSettingsIntegrationsIntegrationIdRoute =
+  AuthenticatedSettingsIntegrationsIntegrationIdRouteImport.update({
+    id: '/integrations/$integrationId',
+    path: '/integrations/$integrationId',
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
@@ -175,11 +196,14 @@ export interface FileRoutesByFullPath {
   '/e/$entityId': typeof AuthenticatedEEntityIdRoute
   '/settings/$': typeof AuthenticatedSettingsSplatRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
+  '/settings/import-data': typeof AuthenticatedSettingsImportDataRoute
   '/settings/preferences': typeof AuthenticatedSettingsPreferencesRoute
   '/v/$viewSlug': typeof AuthenticatedVViewSlugRoute
   '/auth/logout/callback': typeof AuthLogoutCallbackRoute
   '/$pluginSlug/': typeof AuthenticatedPluginSlugIndexRoute
   '/settings/': typeof AuthenticatedSettingsIndexRoute
+  '/settings/integrations/$integrationId': typeof AuthenticatedSettingsIntegrationsIntegrationIdRoute
+  '/settings/integrations/': typeof AuthenticatedSettingsIntegrationsIndexRoute
 }
 export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
@@ -196,11 +220,14 @@ export interface FileRoutesByTo {
   '/e/$entityId': typeof AuthenticatedEEntityIdRoute
   '/settings/$': typeof AuthenticatedSettingsSplatRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
+  '/settings/import-data': typeof AuthenticatedSettingsImportDataRoute
   '/settings/preferences': typeof AuthenticatedSettingsPreferencesRoute
   '/v/$viewSlug': typeof AuthenticatedVViewSlugRoute
   '/auth/logout/callback': typeof AuthLogoutCallbackRoute
   '/$pluginSlug': typeof AuthenticatedPluginSlugIndexRoute
   '/settings': typeof AuthenticatedSettingsIndexRoute
+  '/settings/integrations/$integrationId': typeof AuthenticatedSettingsIntegrationsIntegrationIdRoute
+  '/settings/integrations': typeof AuthenticatedSettingsIntegrationsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -222,11 +249,14 @@ export interface FileRoutesById {
   '/_authenticated/e/$entityId': typeof AuthenticatedEEntityIdRoute
   '/_authenticated/settings/$': typeof AuthenticatedSettingsSplatRoute
   '/_authenticated/settings/account': typeof AuthenticatedSettingsAccountRoute
+  '/_authenticated/settings/import-data': typeof AuthenticatedSettingsImportDataRoute
   '/_authenticated/settings/preferences': typeof AuthenticatedSettingsPreferencesRoute
   '/_authenticated/v/$viewSlug': typeof AuthenticatedVViewSlugRoute
   '/auth_/logout/callback': typeof AuthLogoutCallbackRoute
   '/_authenticated/$pluginSlug/': typeof AuthenticatedPluginSlugIndexRoute
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
+  '/_authenticated/settings/integrations/$integrationId': typeof AuthenticatedSettingsIntegrationsIntegrationIdRoute
+  '/_authenticated/settings/integrations/': typeof AuthenticatedSettingsIntegrationsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -248,11 +278,14 @@ export interface FileRouteTypes {
     | '/e/$entityId'
     | '/settings/$'
     | '/settings/account'
+    | '/settings/import-data'
     | '/settings/preferences'
     | '/v/$viewSlug'
     | '/auth/logout/callback'
     | '/$pluginSlug/'
     | '/settings/'
+    | '/settings/integrations/$integrationId'
+    | '/settings/integrations/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/auth'
@@ -269,11 +302,14 @@ export interface FileRouteTypes {
     | '/e/$entityId'
     | '/settings/$'
     | '/settings/account'
+    | '/settings/import-data'
     | '/settings/preferences'
     | '/v/$viewSlug'
     | '/auth/logout/callback'
     | '/$pluginSlug'
     | '/settings'
+    | '/settings/integrations/$integrationId'
+    | '/settings/integrations'
   id:
     | '__root__'
     | '/_authenticated'
@@ -294,11 +330,14 @@ export interface FileRouteTypes {
     | '/_authenticated/e/$entityId'
     | '/_authenticated/settings/$'
     | '/_authenticated/settings/account'
+    | '/_authenticated/settings/import-data'
     | '/_authenticated/settings/preferences'
     | '/_authenticated/v/$viewSlug'
     | '/auth_/logout/callback'
     | '/_authenticated/$pluginSlug/'
     | '/_authenticated/settings/'
+    | '/_authenticated/settings/integrations/$integrationId'
+    | '/_authenticated/settings/integrations/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -454,6 +493,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsAccountRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
+    '/_authenticated/settings/import-data': {
+      id: '/_authenticated/settings/import-data'
+      path: '/import-data'
+      fullPath: '/settings/import-data'
+      preLoaderRoute: typeof AuthenticatedSettingsImportDataRouteImport
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
+    }
     '/_authenticated/settings/preferences': {
       id: '/_authenticated/settings/preferences'
       path: '/preferences'
@@ -474,6 +520,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/auth/logout/callback'
       preLoaderRoute: typeof AuthLogoutCallbackRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/settings/integrations/': {
+      id: '/_authenticated/settings/integrations/'
+      path: '/integrations'
+      fullPath: '/settings/integrations/'
+      preLoaderRoute: typeof AuthenticatedSettingsIntegrationsIndexRouteImport
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
+    }
+    '/_authenticated/settings/integrations/$integrationId': {
+      id: '/_authenticated/settings/integrations/$integrationId'
+      path: '/integrations/$integrationId'
+      fullPath: '/settings/integrations/$integrationId'
+      preLoaderRoute: typeof AuthenticatedSettingsIntegrationsIntegrationIdRouteImport
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
   }
 }
@@ -497,17 +557,25 @@ const AuthenticatedPluginSlugRouteRouteWithChildren =
 interface AuthenticatedSettingsRouteRouteChildren {
   AuthenticatedSettingsSplatRoute: typeof AuthenticatedSettingsSplatRoute
   AuthenticatedSettingsAccountRoute: typeof AuthenticatedSettingsAccountRoute
+  AuthenticatedSettingsImportDataRoute: typeof AuthenticatedSettingsImportDataRoute
   AuthenticatedSettingsPreferencesRoute: typeof AuthenticatedSettingsPreferencesRoute
   AuthenticatedSettingsIndexRoute: typeof AuthenticatedSettingsIndexRoute
+  AuthenticatedSettingsIntegrationsIntegrationIdRoute: typeof AuthenticatedSettingsIntegrationsIntegrationIdRoute
+  AuthenticatedSettingsIntegrationsIndexRoute: typeof AuthenticatedSettingsIntegrationsIndexRoute
 }
 
 const AuthenticatedSettingsRouteRouteChildren: AuthenticatedSettingsRouteRouteChildren =
   {
     AuthenticatedSettingsSplatRoute: AuthenticatedSettingsSplatRoute,
     AuthenticatedSettingsAccountRoute: AuthenticatedSettingsAccountRoute,
+    AuthenticatedSettingsImportDataRoute: AuthenticatedSettingsImportDataRoute,
     AuthenticatedSettingsPreferencesRoute:
       AuthenticatedSettingsPreferencesRoute,
     AuthenticatedSettingsIndexRoute: AuthenticatedSettingsIndexRoute,
+    AuthenticatedSettingsIntegrationsIntegrationIdRoute:
+      AuthenticatedSettingsIntegrationsIntegrationIdRoute,
+    AuthenticatedSettingsIntegrationsIndexRoute:
+      AuthenticatedSettingsIntegrationsIndexRoute,
   }
 
 const AuthenticatedSettingsRouteRouteWithChildren =

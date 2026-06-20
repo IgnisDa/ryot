@@ -15,6 +15,7 @@ export {
 	schemaChoiceLabel,
 	toSchemaFormPayload,
 	validateSchemaFormValues,
+	type SchemaFormArrayValue,
 	type SchemaFormControl,
 	type SchemaFormField,
 	type SchemaFormMode,
