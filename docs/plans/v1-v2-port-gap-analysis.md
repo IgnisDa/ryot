@@ -2,74 +2,168 @@
 
 ## Overview
 
-This document captures what remains to port from V1 (`apps/backend`, Rust) to V2 (`apps/app-backend`, TypeScript), as of 2026-07-07. As items are completed they should be removed and added to the baseline.
+This document captures what remains to port from V1 (`apps/backend`, Rust) to V2 (`apps/app-backend`, TypeScript), as of 2026-07-07 (re-audited). As items are completed they should be removed and added to the baseline.
 
-It was produced by mapping V1's full API surface — 116 GraphQL operations across 18 resolver crates under `crates/resolvers/` — against V2's modules and routes under `apps/app-backend/src/modules/`. V1 is a behavior reference only; V2 deliberately replaces V1's domain-specific resolvers with a generic `entity_schema → entity → event → relationship` model queried through `modules/query-engine`.
+It was originally produced by mapping V1's full GraphQL API surface — 116 operations across 18 resolver crates under `crates/resolvers/` — against V2's modules and routes under `apps/app-backend/src/modules/`. That pass under-counted the backlog: V1 also runs a large amount of logic that is **never exposed as a GraphQL operation** — cron jobs, cache-invalidation, garbage collection, auto-collection-management, and business rules buried inside service/dependent-util crates. This revision re-audited every V1 crate under `crates/services/`, `crates/resolvers/`, `crates/utils/dependent/`, `crates/config/`, and `apps/backend/src/{main,common,job}.rs` directly, not just its GraphQL surface, and cross-checked each behavior against the current V2 code (not just module names). V1 is a behavior reference only; V2 deliberately replaces V1's domain-specific resolvers with a generic `entity_schema → entity → event → relationship` model queried through `modules/query-engine`, so many V1 behaviors are intentionally re-shaped rather than ported literally — those are called out inline.
 
 The remaining backlog below is all user-confirmed in-scope. Items the rewrite intentionally drops or re-shapes are listed separately at the end.
 
 ## Already Ported (Baseline)
 
-These V1 areas have a working home in V2 and are not part of the backlog.
+These V1 areas have a working home in V2. Several are **partial** ports — the concept exists, but with materially less surface area than V1. Partial rows link to the backlog item that tracks the remainder; treat the table as "has a home," not "fully equivalent."
 
-| V1 area                                                                             | V2 home                                                                                                         |
-| ----------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| 18 metadata providers (AniList, Audible, TMDB, IGDB, Hardcover, MusicBrainz, …)     | `lib/sandbox/scripts/providers/*`                                                                               |
-| Provider search (`metadata_search`, `people_search`, `metadata_group_search`)       | 60 sandbox `search` drivers via `entity-schemas/search` + `entities/import`                                     |
-| Integrations: sinks, yanks, pushes, webhook, sync scheduler                         | `modules/integrations` (+ push as sandbox triggers)                                                             |
-| ~19 importers                                                                       | `modules/imports/sources/*`                                                                                     |
-| Seen/progress history                                                               | Lifecycle events (`backlog`/`progress`/`complete`/`dropped`/`on_hold`/`review`); state derived via query-engine |
-| Reviews & ratings                                                                   | Built-in `review` entity-schema                                                                                 |
-| Collections                                                                         | `modules/collections`                                                                                           |
-| Filter presets                                                                      | `modules/saved-views`                                                                                           |
-| Custom metadata/person/group/exercise                                               | `modules/entities` (`createEntity`)                                                                             |
-| Auth: register/login/2FA (TOTP)/OIDC/API keys                                       | `lib/auth` (Better Auth)                                                                                        |
-| File storage                                                                        | `modules/uploads`                                                                                               |
-| Admin user management                                                               | `modules/god-mode` (list/provision/disable/reset-password)                                                      |
-| Core details / config                                                               | `modules/system` (config/health/metrics)                                                                        |
-| User state operations (`merge_metadata`, `merge_exercise`, `disassociate_metadata`) | `modules/user-state` (`POST /user-state/merge`, `DELETE /user-state/clear/:entityId`)                           |
-| Media translation (localized title/overview)                                        | `modules/entity-translation` (sandbox `translate` driver + `TranslateEntityWorkflow`); localized `name`/`properties` and a `translationStatus` field via `modules/query-engine`; filled on demand through client-declared interest (`modules/entity-interest`) rather than V1's periodic refresh job |
+| V1 area                                                                             | V2 home                                                                                                         | Completeness |
+| ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- | ------------ |
+| 18 metadata providers (AniList, Audible, TMDB, IGDB, Hardcover, MusicBrainz, …)     | `lib/sandbox/scripts/providers/*`                                                                               | Full |
+| Provider search (`metadata_search`, `people_search`, `metadata_group_search`)       | 60 sandbox `search` drivers via `entity-schemas/search` + `entities/import`                                     | Full |
+| Integrations: sinks, yanks, pushes, webhook, sync scheduler                         | `modules/integrations`                                                                                          | **Partial** — see [Integrations — known gaps](#integrations--known-gaps) |
+| ~19 importers                                                                       | `modules/imports/sources/*`                                                                                     | Mostly full — see [Import pipeline completeness](#import-pipeline-completeness) for dropped edge-case logic |
+| Seen/progress history                                                               | Lifecycle events (`backlog`/`progress`/`complete`/`dropped`/`on_hold`/`review`); state derived via query-engine | Create-only — see [Review & progress-event editing](#review--progress-event-editing) |
+| Reviews & ratings                                                                   | Built-in `review` entity-schema                                                                                 | Create-only, no comments/visibility — see [Excluded](#excluded-from-v2) and [Review & progress-event editing](#review--progress-event-editing) |
+| Collections                                                                         | `modules/collections`                                                                                           | **Partial** — see [Collections management completeness](#collections-management-completeness) |
+| Filter presets                                                                      | `modules/saved-views`                                                                                           | Different data model (query-document vs filters+context); see note under Tier 3 |
+| Custom metadata/person/group/exercise                                               | `modules/entities` (`createEntity`)                                                                             | **Create + read only** — see [Entity mutation completeness](#entity-mutation-completeness) |
+| Auth: register/login/2FA (TOTP)/OIDC/API keys                                       | `lib/auth` (Better Auth)                                                                                        | Full |
+| File storage                                                                        | `modules/uploads`                                                                                                | **Partial** — see [File storage completeness](#file-storage-completeness) |
+| Admin user management                                                               | `modules/god-mode` (list/provision/disable/reset-password)                                                      | **Partial** — see [User admin & self-service](#user-admin--self-service) |
+| Core details / config                                                               | `modules/system` (config/health/metrics)                                                                        | Auth-config only, no comprehensive core-details payload |
+| User state operations (`merge_metadata`, `merge_exercise`, `disassociate_metadata`) | `modules/user-state` (`POST /user-state/merge`, `DELETE /user-state/clear/:entityId`)                           | Events/relationships only — does not touch collection membership |
+| Media translation (localized title/overview)                                        | `modules/entity-translation` (sandbox `translate` driver + `TranslateEntityWorkflow`); localized `name`/`properties` and a `translationStatus` field via `modules/query-engine`; filled on demand through client-declared interest (`modules/entity-interest`) rather than V1's periodic refresh job | Functionally equivalent; drops per-variant (title/image/description) granularity and show/podcast episode-scoped translation — low priority |
+
+## Cache & Invalidation Architecture
+
+V1 has a typed `ApplicationCache` service (`crates/services/cache`) used pervasively: per-key TTL policy (2FA rate limits at 5s, sessions at N days, settings at 5-7 days, …), per-user key scoping with bulk invalidation, server-start-time version tagging (so a restart invalidates provider-settings caches), and bulk get/set. V2 has no equivalent typed cache layer — only a raw Redis client (`lib/redis.ts`).
+
+This is **mostly not a gap**: V1's per-entity-detail and per-list cache invalidation (metadata details, collection contents, workout lists, etc.) is deliberately replaced in V2 by the `entity-interest` SSE push model — clients are notified via `entity:updated` events and refetch on demand, rather than the server maintaining pull-based caches that need explicit invalidation. That is an intentional architecture change, already covered by the baseline row above.
+
+What genuinely has no V2 equivalent yet, and will need a scoped solution alongside whichever feature owns it (mostly Tier 1 below):
+- Short-window rate-limit counters (e.g. 2FA verification: 1 attempt/second)
+- Ephemeral session-style caches (password-change session, single-use log-download token)
+- Version-tagged settings cache (invalidate cached provider settings on server restart)
+- List-level result caching for features that don't exist yet anyway (recommendations, trending, analytics) — tracked under those features, not separately
 
 ## Remaining Backlog (In-Scope)
 
 ### Tier 1 — Notification system
 
-Foundational; three behaviors depend on it. Build first.
+Foundational; several behaviors depend on it. Build first.
 
-- **Notification platforms** — Apprise, Discord, Telegram, ntfy, Gotify, PushOver, PushBullet, PushSafer, Email/SMTP. Needs per-user platform CRUD, a `test` endpoint, a send abstraction, and SMTP config keys (none exist today).
-  - V1: `create_user_notification_platform`, `update_user_notification_platform`, `delete_user_notification_platform`, `user_notification_platforms`, `test_user_notification_platforms` (`crates/resolvers/user/services`).
-- **Monitoring** _(depends on notifications)_ — mark an entity/person as monitored → periodic provider-details diff → notify on change.
-  - V1 events: `MetadataStatusChanged`, `PersonMetadataAssociated`. Shape in V2: a `monitoring` relationship plus a cron job comparing populated details.
-- **Reminders** _(depends on notifications)_ — reminder on an entity → scheduled notification.
-  - V1 event: `NotificationFromReminderCollection`.
-- **Event-driven alerts** — wire integration-disabled, new-workout-created, and review-posted into the send path.
-  - V1 events: `IntegrationDisabledDueToTooManyErrors`, `NewWorkoutCreated`, `ReviewPosted`.
+- **Notification platforms** — Apprise, Discord, Telegram, ntfy, Gotify, PushOver, PushBullet, PushSafer, Email/SMTP. Needs per-user platform CRUD, a `test` endpoint, a send abstraction, and SMTP config keys (none exist today, including the sender/mailbox address).
+  - V1: `create_user_notification_platform`, `update_user_notification_platform`, `delete_user_notification_platform`, `user_notification_platforms`, `test_user_notification_platforms` (`crates/resolvers/user/services`, `crates/services/user/src/notification_operations.rs`).
+- **Monitoring** _(depends on notifications)_ — mark an entity/person as monitored → periodic provider-details diff → notify on change. The diff V1 actually checks: production status, publish year/date, show season count, per-season episode count/name/image, anime episode count, manga chapter count, podcast episode count, and a person gaining a new metadata/group association (deduplicated so the same change doesn't notify twice).
+  - V1 events: `MetadataStatusChanged`, `PersonMetadataAssociated`; source: `crates/utils/dependent/entity/src/lib.rs` (`generate_metadata_update_notifications` and friends). Shape in V2: a `monitoring` relationship plus a cron job comparing populated details.
+- **Reminders** _(depends on notifications)_ — reminder on an entity → scheduled notification, then automatically removed from the Reminders collection once it fires.
+  - V1 event: `NotificationFromReminderCollection` (`crates/services/miscellaneous/background/src/calendar.rs`).
+- **Event-driven alerts** — wire these into the send path:
+  - `IntegrationDisabledDueToTooManyErrors` — V2's integration worker already disables after repeated failures (`modules/integrations/worker.ts`) but never notifies the user.
+  - `NewWorkoutCreated`, `ReviewPosted` (already tracked).
+  - `MetadataMovedFromCompletedToWatchlistCollection` — fires from the smart-collection auto-management job below.
+  - Outdated in-progress/on-hold nudges — user hasn't touched an in-progress item in 7 days, or an on-hold item in 14 days.
+  - Released-media-today — notify monitoring users when a calendar event lands on today's date.
+
+### Tier 1 — Cleanup, maintenance & derived-state jobs
+
+**This is the tier the original analysis missed entirely** — it was built by mapping GraphQL operations, and none of this runs through GraphQL. V1 runs it from `crates/services/miscellaneous/background/*` via two cron schedules (`run_frequent_cron_jobs`, `run_infrequent_cron_jobs` in `apps/backend/src/job.rs`) plus dedicated background-job variants. None of it has a V2 equivalent. Mostly independent of notifications (two items below are the exception, and only for the "notify" half).
+
+- **Orphaned entity garbage collection** — delete metadata/people/metadata-groups/genres no longer referenced by any user, delete revoked access-link rows, delete expired application-cache rows.
+  - V1: `remove_useless_data` (`crates/services/miscellaneous/background/src/cleanup.rs`).
+- **Collection rank rebalancing** — detects collections whose fractional entity ranks have fragmented (too many decimal places, negative ranks, or >10% non-integer ranks) and renumbers them to sequential integers.
+  - V1: `rebalance_collection_ranks` (`.../background/src/collections.rs`). V2 stores a `rank` field on the `member-of` relationship but has no reorder endpoint at all yet (see [Collections management completeness](#collections-management-completeness)), so this becomes relevant as soon as reordering is built.
+- **Calendar event materialization** — a nightly job that deletes stale `calendar_event` rows and inserts new ones from each metadata item's season/episode/publish-date schedule. This is distinct from the *read* side already listed under [Deferred](#deferred--build-on-query-engine) — even once a calendar query exists, nothing currently computes what the events are.
+  - V1: `recalculate_calendar_events` (`.../background/src/calendar.rs`).
+- **Library-membership reason recomputation & auto-GC** — recomputes *why* an entity is in a user's library (seen / reviewed / collected / monitored / watchlisted / owned / has-a-reminder) whenever it's flagged dirty, and deletes the association entirely once no reason remains.
+  - V1: `cleanup_user_and_metadata_association` (`.../background/src/user.rs`). V2's closest analog, `modules/library-membership` (`GlobalEntityReferencedWorker`), only *adds* an entity to the Owned collection the first time it's referenced — nothing recomputes membership reasons or removes stale ones.
+- **Smart collection auto-management** — state-driven collection membership that currently requires no user action in V1:
+  - Marking something in-progress auto-adds it to both the Watchlist and Monitoring collections.
+  - Any new seen/progress record auto-removes the item from Watchlist.
+  - Dropping or holding an item auto-removes it from In-Progress.
+  - A "completed" TV show that turns out not to actually be finished (e.g. a new season aired) is auto-moved back to Watchlist, with a `MetadataMovedFromCompletedToWatchlistCollection` notification.
+  - V1: `crates/utils/dependent/seen/src/lib.rs` (`handle_after_metadata_seen_tasks` and friends), `handle_metadata_eligible_for_smart_collection_moving` (`crates/services/miscellaneous/metadata-operations`, dispatched via `LpApplicationJob`).
+- **Fitness workout revision** — when an exercise is merged into another or a user's exercise settings change, the user is flagged for revision; a background pass then deletes and chronologically rebuilds *all* of that user's workouts, recomputing personal bests, lifetime exercise stats, and per-exercise history from scratch.
+  - V1: `schedule_user_for_workout_revision`, `process_users_scheduled_for_workout_revision`, `revise_user_workouts` (`crates/services/fitness/src/system_operations.rs`, `workout_operations.rs`; dispatched via `MpApplicationJob::ReviseUserWorkouts`). No V2 equivalent exists — `legacy-bootstrap`'s own notes confirm this was deliberately *not* carried forward for migrated data either, so it isn't just unmigrated, it's unbuilt.
+- **Import job invalidation** — an import run stuck past its estimated finish time with no result is marked failed rather than left dangling forever.
+  - V1: `invalidate_import_jobs` (`.../background/lib.rs`).
+- **Post-import background enrichment** — after importing a metadata group or person, a background job re-fetches full provider details to enrich the just-created stub record.
+  - V1: `deploy_update_media_entity_job`, called from `crates/utils/dependent/import/src/lib.rs`.
 
 ### Tier 2 — Independent features (parallelizable)
 
-- **Data export** — job serializing a user's entities/events/relationships/collections into a downloadable archive, plus a listing query and a download URL.
-  - V1: `deploy_export_job`, `user_exports` (`crates/resolvers/exporter`); `PerformExport` job.
-- **Trending metadata** — provider trending lists surfaced as a query or built-in saved view.
-  - V1: `trending_metadata` (`crates/resolvers/miscellaneous/search`).
-- **Recommendations** — media and collection recommendations (only fitness exercise recs exist today).
-  - V1: `user_metadata_recommendations`, `collection_recommendations`.
+- **Data export** — job serializing a user's data into a downloadable archive, plus a listing query and a download URL. V1 exports 8 categories (people, metadata, workouts, exercises, collections, measurements, metadata groups, workout templates) paginated at 1000 items/page, tags the resulting file with start/end timestamps as S3 object metadata, and skips exercises that have neither reviews nor collection memberships. None of this exists in V2 — no exporter module, no job, no listing endpoint.
+  - V1: `deploy_export_job`, `user_exports` (`crates/resolvers/exporter`); `PerformExport` job; `crates/services/exporter/*`.
+- **Trending metadata** — fetch trending lists from every configured provider across every media type, commit newly-discovered items to the database, drop cached IDs that no longer resolve to a DB record, and expose the result ordered by last-updated. Surfaced as a query or built-in saved view.
+  - V1: `trending_metadata` (`crates/resolvers/miscellaneous/search`); population logic in `crates/services/miscellaneous/trending-and-events`.
+- **Recommendations** — media and collection recommendations (only fitness exercise recs exist today). V1 oversamples candidates (5x the limit), excludes sources that don't support recommendations, filters by the user's enabled media types, and creates a `Suggestion`-type relationship idempotently for each pick.
+  - V1: `user_metadata_recommendations`, `collection_recommendations` (`crates/services/user/src/recommendation_operations.rs`, `crates/services/collection/src/recommendation_operations.rs`).
+
+#### Collections management completeness
+
+V2's entire collections surface today is 3 endpoints: `POST /collections` (create), `POST /collections/memberships`, `DELETE /collections/memberships` (verified against `libs/contract/src/modules/collections/contract.ts`). Missing, all present in V1:
+- List a user's collections; get one collection's contents with text search, entity-type filtering, sorting, and cross-collection AND/OR membership filtering.
+- Delete a (non-default) collection; rename/update a collection's name and description.
+- Reorder an entity's rank within a collection (fractional midpoint calculation between neighbors).
+- Collection recommendations (see above).
+- Protection against deleting or renaming a default collection (Owned/Watchlist/Monitoring/Reminders/…) — V2 has no "this is a default collection" concept at all post-migration.
+
+V1: `crates/resolvers/collection`, `crates/services/collection/{content_operations,management_operations,event_operations}.rs`, `crates/utils/dependent/collection`.
+
+#### Entity mutation completeness
+
+`modules/entities` only exposes `create` and `get` (verified against `apps/app-backend/src/modules/entities/routes.ts`). There is no update endpoint for *any* entity type: custom metadata, custom person, custom metadata group, custom exercise, workout templates, or measurements can be created but never edited. V1 supported updates with creator-only authorization, S3 asset cleanup for images/videos that were removed, and re-association of genres/creators/groups.
+
+V1: `crates/services/miscellaneous/metadata-operations`, `crates/resolvers/custom`, `crates/services/fitness/src/{exercise_management,template_management}.rs`.
+
+#### User admin & self-service
+
+Promoted from "Open/Unverified" below — now confirmed, not just unverified. `modules/god-mode` only has `listUsers`, `provisionUser`, `resetUserPassword`, `setUserDisabled`. Missing:
+- `update_user` — rename, change role, change onboarding state (self or admin-on-behalf-of).
+- `delete_user` with last-remaining-admin protection (V2 has no admin/role concept at all right now, so this needs a design decision, not just an endpoint).
+- True `reset_user` — V1 deletes and recreates the user with the same ID, preserving auth type; V2's `resetUserPassword` only sends a password-reset email, it doesn't reset anything else.
+- Non-admin privacy masking on the user list (V1 hides other users' names from non-admins; V2's `listUsers` returns full details to any admin-gated caller, which is lower-risk but still a behavior difference worth confirming intentional).
 
 ### Tier 3 — Metadata-management ops
 
 - **Metadata lookup** — single-best-match wrapper over the existing search/resolve drivers (distinct from paginated search).
   - V1: `metadata_lookup`.
+- **Custom-entity lifecycle details** — smaller behaviors that ride along with entity mutation completeness above: publish-year auto-derived from publish-date when not given explicitly, `is_partial` auto-detected from missing type-specific fields, and ordered (not just associated) creator/person/group links.
+- **Admin log download** — admin generates a single-use, short-lived token to download the server's application logs. No V2 equivalent (`GET /logs/download/{token}`, `generate_log_download_url`).
+
+#### Import pipeline completeness
+
+V2's importers (`modules/imports/sources/*`) cover the bulk of the ~19 sources, but drop several edge-case behaviors from `crates/utils/dependent/import`: filtering out imported items that end up with no reviews/collections/history at all, dependency-ordered processing (exercises and templates must land before the workouts that reference them), and a chronological secondary sort key for seen-history entries that share a timestamp (show season/episode, manga chapter/volume, podcast episode number) — V2 currently sorts by timestamp only.
+
+#### Review & progress-event editing
+
+Reviews and seen/progress records are both `events`, which are create-only and immutable (`libs/contract/src/modules/events/contract.ts` has only `list` and `create`). V1 supports editing an existing review or seen entry in place — updating its rating/text, or correcting a progress percentage/timestamp after the fact. Confirm whether in-place editing is meant to work in V2, and if so, decide the mechanism (event supersession vs. a dedicated update path).
+
+#### File storage completeness
+
+`modules/uploads` covers presigned upload/download, but is missing: delete an S3 object, list objects by prefix, read/write custom object metadata, and a bucket-accessibility health check. Presigned URLs are also a flat 15-minute expiry in both directions today, vs. V1's asymmetric 2 min (read) / 10 min (write).
+
+V1: `crates/services/file-storage`, `crates/resolvers/file-storage`.
+
+#### Integrations — known gaps
+
+Called "fully ported" in the baseline table, but two things surfaced during re-audit:
+- The `generic_json` sink is explicitly a stub in V2 today — it returns `unsupportedSinkResult` with the message "generic_json integration is not implemented in V2 yet" (confirmed in `modules/integrations/sinks/sink-adapters.ts` and its test).
+- Webhook/sink progress handling drops three V1 normalization steps: clamping progress above an integration's configured maximum down to 100%, filtering out progress updates below the configured minimum threshold, and auto-filling a missing completion timestamp with "now." The `minimumProgress`/`maximumProgress` fields exist on the integration record but nothing reads them in the sink adapters.
 
 ## Open / Unverified
 
-- **User self-service** — `update_user`, self account-delete, `reset_user` (data wipe), and impersonation link. `update_user_preference` is now covered by the `modules/user-preferences` update endpoint; the language model is a single global BCP-47 preference (replacing the earlier per-provider languages). Remaining account operations may be partly delegated to Better Auth `/auth/*`; needs a pass over `lib/auth` to confirm what Better Auth already provides before scoping the remainder.
+- **Pro / paid-tier gating** — V1 validates a server "Pro Key" against the Unkey API and uses it to gate at least one thing found during this audit (bypassing the non-pro filter-preset quota); there may be others. No trace of this concept (Unkey, a pro key, or any premium-feature gate) exists anywhere in V2. Needs a product decision: is a paid/pro tier in scope for V2 at all, or was it a hosted-SaaS-only concept that should be dropped along with the rest of that offering?
+- **Admin impersonation link** — rides on Access Links in V1, which are intentionally excluded (see below). Worth a explicit decision on whether impersonation should get its own lightweight replacement or is dropped along with access links entirely — it's a distinct, independently useful admin capability from generic shareable links.
+- **Instance-level configuration knobs** — present in V1's config schema with no V2 equivalent yet, most of which are cheap to add once their owning feature lands (e.g. SMTP settings arrive with notification platforms): SMTP sender/mailbox address, configurable login-token expiry (V1 default 90 days), a password-strength-validation toggle, a demo-instance mode flag, a global background-jobs-disabled switch, a separate schedule for the infrequent cron tier (V2 only has one schedule today), a configurable dashboard announcement message, a telemetry opt-out, Umami analytics integration, per-provider cover-image-size preference (Openlibrary, IGDB), and configurable max upload size / host binding / startup delay (V2 hardcodes 50MB and `0.0.0.0`).
 
 ## Deferred — Build On Query Engine
 
 Not ported as-is; to be expressed on top of `modules/query-engine`.
 
-- User analytics / statistics — V1: `user_analytics`, `user_analytics_parameters`; `RecalculateUserActivitiesAndSummary` job.
-- Calendar events — V1: `user_calendar_events`, `user_upcoming_calendar_events`.
-- Recently consumed — V1: `user_entity_recently_consumed`.
+- **User analytics / statistics** — V1 pre-aggregates 30+ metrics into a `daily_user_activity` table: per-media-type consumption counts and durations (with type-specific runtime/page-count/episode lookups), fitness metrics (reps, weight, distance, duration, rest time, calories, personal-best count), hour-bucketed daily timelines, and ranked-by-frequency breakdowns of exercises/muscle-groups/equipment — plus auto-selecting the display grouping (day/month/year) based on how much history exists. None of this is precomputed in V2, and no `daily_user_activity`-equivalent table exists; query-engine can express ad hoc aggregates but nothing currently assembles this specific metric set.
+  - V1: `user_analytics`, `user_analytics_parameters`; `crates/services/statistics/*`; `crates/utils/dependent/analytics`; `RecalculateUserActivitiesAndSummary` job.
+- **Calendar events** — the *read* side: `user_calendar_events` (month-grouped) and `user_upcoming_calendar_events` (next-N-days or next-N-items), including monitoring-only filtering, dashboard-preference media dedup, and falling back through episode-specific → entity-default images. The *write*/materialization side (deciding what calendar events should exist in the first place) is tracked separately under [Tier 1 cleanup jobs](#tier-1--cleanup-maintenance--derived-state-jobs) since it's a cron job, not a query.
+  - V1: `crates/services/miscellaneous/calendar`.
+- **Recently consumed** — V1: `user_entity_recently_consumed`.
+- **Per-entity user-view computed fields** — flagging separately because these need dedicated sequence-matching logic, not just a generic aggregate, so "build on query engine" may not fully cover them: next-unwatched-episode for shows (season/episode sequence matching), next episode for podcasts, next episode for anime (current + 1), next chapter/volume for manga (with floor-normalization), a nested per-season episode-progress tree for shows, and a flat per-episode view-count list for podcasts.
+  - V1: `crates/services/miscellaneous/entity-user-details`.
 
 ## Excluded From V2
 
@@ -78,3 +172,5 @@ Intentionally not ported.
 - Collection collaborators.
 - Mark as partial (`mark_entity_as_partial`) — obsolete under V2's on-demand population: `entity.populatedAt === null` is itself the partial state, and a partial entity is re-populated on demand when a client declares interest in it (`modules/entity-interest`), so no explicit partial flag or manual mark operation is needed.
 - Access links — V1: `create_access_link`, `process_access_link`, `revoke_access_link`, `user_access_links`.
+- Review comment threads & likes — confirmed dropped during migration, not merely unbuilt: `modules/legacy-bootstrap/review-mapping.ts` states "V2 has no comments concept on events; comment threads are lost."
+- Review visibility (public/private) — confirmed dropped the same way: events have no visibility field, so the public/private distinction from V1 reviews no longer exists.
