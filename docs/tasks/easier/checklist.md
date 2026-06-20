@@ -65,7 +65,7 @@
   - Scope: Alias backend decoders to SDK schemas
   - Prereq: SDK first, backend second
 
-- [ ] **15. Return structured saved-view validation issues** [M/S-M/M]
+- [x] **15. Return structured saved-view validation issues** [M/S-M/M]
   - Owner: D06 Definition registry
   - Scope: Return `{ layout, issue, field?, diagnostic }`
 
