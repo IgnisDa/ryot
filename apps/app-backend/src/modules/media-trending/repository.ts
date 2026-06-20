@@ -2,9 +2,9 @@ import { EntitySchemaId, SandboxScriptId } from "@ryot/contract/schema/brands";
 import { inArray, isNull, eq, and, asc } from "drizzle-orm";
 import { Effect } from "effect";
 
-import { builtinMediaEntitySchemaSlugs } from "#lib/builtins/media-schema-slugs";
-import * as schema from "#lib/db/schema/tables/combined";
-import { CurrentDb, dbEffect } from "#lib/db/service";
+import * as schema from "#lib/infrastructure/db/schema/tables/combined";
+import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
+import { builtinMediaEntitySchemaSlugs } from "#modules/builtins/media-schema-slugs";
 
 import type { TrendingProviderTarget } from "./schemas";
 

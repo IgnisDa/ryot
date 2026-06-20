@@ -3,7 +3,7 @@ import { unknownToMessage } from "@ryot/contract/errors";
 import { SandboxScriptId } from "@ryot/contract/schema/brands";
 import { Cause, Effect, Either, Schema } from "effect";
 
-import { DbRunner } from "#lib/db/service";
+import { DbRunner } from "#lib/infrastructure/db/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { runLoadedMediaImportWorkflow } from "#modules/imports/media-workflow";
 import { MediaImportAdapterResultSchema } from "#modules/imports/media/adapter-result";

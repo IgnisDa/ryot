@@ -3,7 +3,7 @@ import { unknownToMessage } from "@ryot/contract/errors";
 import { generateId } from "better-auth";
 import { Cause, Effect, Layer, Schedule } from "effect";
 
-import { AppConfig } from "#lib/config/service";
+import { AppConfig } from "#lib/infrastructure/config/service";
 
 import { DEFAULT_FREQUENT_INTERVAL, parseFrequentSchedule } from "./cron";
 import { FrequentCronWorkflow } from "./cron-workflow";
