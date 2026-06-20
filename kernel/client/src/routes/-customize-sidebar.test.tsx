@@ -23,6 +23,7 @@ import {
 	GodModeRouteStubs,
 	makeCustomizeStub,
 	makePublicApiStub,
+	makeWorkspaceRecorder,
 	SavedViewRouteStubs,
 	NavigationRouteStubs,
 	ProviderAddRouteStubs,
@@ -32,7 +33,11 @@ import {
 
 type SavedPlan = Parameters<CustomizeSidebarService["Service"]["save"]>[1];
 
-const mountView = (initialEntry: string, saves: SavedPlan[] = []) => {
+const mountView = (
+	initialEntry: string,
+	saves: SavedPlan[] = [],
+	options: { readonly catalog?: typeof catalog; readonly storage?: ClientStorage["Service"] } = {},
+) => {
 	const events = makePluginCatalogEventsTestLayer();
 	const runtime = ManagedRuntime.make(
 		Layer.mergeAll(
@@ -51,7 +56,9 @@ const mountView = (initialEntry: string, saves: SavedPlan[] = []) => {
 				revoke: () => Effect.die("not used"),
 				create: () => Effect.die("not used"),
 			}),
-			Layer.succeed(PluginCatalogService, { load: () => Effect.succeed(catalog) }),
+			Layer.succeed(PluginCatalogService, {
+				load: () => Effect.succeed(options.catalog ?? catalog),
+			}),
 			NavigationRouteStubs,
 			makeCustomizeStub((_scope, plan) =>
 				Effect.sync(() => {
@@ -62,7 +69,9 @@ const mountView = (initialEntry: string, saves: SavedPlan[] = []) => {
 			Layer.succeed(PluginQueriesService, { query: () => Effect.die("not used") }),
 		).pipe(
 			Layer.provideMerge(OAuthRouteStubs),
-			Layer.provideMerge(Layer.succeed(ClientStorage, makeStorageStub("fixture"))),
+			Layer.provideMerge(
+				Layer.succeed(ClientStorage, options.storage ?? makeStorageStub("fixture")),
+			),
 		),
 	);
 	const router = getRouter(
@@ -103,7 +112,7 @@ describe("customize sidebar route", () => {
 			const panel = await openPanel();
 
 			expect(
-				panel.getByText("Reorder and choose which views appear in your sidebar."),
+				panel.getByText("Reorder and choose which workspaces and views appear in your sidebar."),
 			).toBeDefined();
 			expect(screen.queryByRole("navigation", { name: "Workspace" })).toBeNull();
 			expect(screen.getByTestId("desktop-sidebar").getAttribute("class")).toContain("w-100");
@@ -207,6 +216,35 @@ describe("customize sidebar route", () => {
 			await waitFor(() => expect(view.router.state.location.pathname).toBe("/fixture"));
 			expect(saves).toHaveLength(1);
 			expect(saves[0]?.updates.map((update) => update.viewSlug)).toEqual(["fixture-view"]);
+		} finally {
+			restore();
+		}
+	});
+
+	it("moves to the first enabled workspace after disabling the current workspace", async () => {
+		const restore = stubMatchMedia(true);
+		const recorder = makeWorkspaceRecorder();
+		const primary = catalog[0];
+		const alternate = {
+			...primary,
+			sortOrder: 1,
+			name: "Alternate",
+			slug: "alternate",
+			pluginId: "plugin-2",
+			installationId: "installation-2",
+		};
+		try {
+			const view = mountView("/customize-sidebar", [], {
+				catalog: [primary, alternate],
+				storage: makeStorageStub("fixture", recorder),
+			});
+			const panel = await openPanel();
+
+			fireEvent.click(panel.getByRole("switch", { name: "Show Fixture in sidebar" }));
+			fireEvent.click(panel.getByRole("button", { name: "Save sidebar changes" }));
+
+			await waitFor(() => expect(view.router.state.location.pathname).toBe("/alternate"));
+			expect(recorder.setCalls.map(({ slug }) => slug)).toEqual(["alternate"]);
 		} finally {
 			restore();
 		}

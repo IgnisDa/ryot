@@ -29,7 +29,7 @@ type SidebarNavProps = {
 	readonly showWorkspaceShortcut?: boolean | undefined;
 	readonly onSelectWorkspace: (slug: string) => void | Promise<void>;
 	readonly onNavigateItem: (item: SidebarItem) => void | Promise<void>;
-	readonly onEditSection?: ((section: CustomizeSection) => void) | undefined;
+	readonly onEditSection?: ((section: Exclude<CustomizeSection, "workspaces">) => void) | undefined;
 };
 
 function SidebarRow(props: {

@@ -1,4 +1,5 @@
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
+import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { useRouteContext } from "@tanstack/react-router";
 import { Effect } from "effect";
 import { useState } from "react";
@@ -27,6 +28,7 @@ export type CustomizeDraftState = ReturnType<typeof useCustomizeDraft>;
 export function useCustomizeDraft(props: {
 	readonly active: boolean;
 	readonly data: NavigationData;
+	readonly catalog: PluginClientCatalog;
 	readonly workspaceSlug: string | undefined;
 }) {
 	const { runtime, scope } = useRouteContext({ from: "/_authenticated" });

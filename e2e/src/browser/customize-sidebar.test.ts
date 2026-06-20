@@ -36,6 +36,9 @@ const sidebar = (page: Playwright.Page) => page.getByTestId("desktop-sidebar");
 const savedViewSection = (page: Playwright.Page) =>
 	sidebar(page).locator("section").filter({ hasText: "Saved Views" });
 
+const workspaceList = (page: Playwright.Page) =>
+	sidebar(page).getByRole("list", { name: "Workspaces" });
+
 // A fresh account already owns the builtin "All Collections" saved view, so every assertion is
 // scoped to this suite's own views rather than to the whole section.
 const sidebarSavedViews = (page: Playwright.Page) =>
@@ -152,5 +155,32 @@ it.live("leaves the draft untouched when the customization is cancelled", () =>
 		yield* page.getByRole("button", { name: "Discard", exact: true }).click();
 		yield* page.waitForURL((url) => url.pathname === new URL(homeUrl).pathname);
 		yield* waitForSidebarSavedViews(page, [BETA, GAMMA, ALPHA]);
+	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
+);
+
+it.live("reorders and disables workspaces, and keeps both across a reload", () =>
+	Effect.gen(function* () {
+		const browser = yield* Playwright.Browser;
+		const page = yield* browser.newPage({ viewport: { width: 1280, height: 900 } });
+		yield* signInThroughHostedOAuth(page, email, password);
+		yield* openPanel(page);
+
+		yield* page.getByRole("button", { name: "Reorder Media" }).focus();
+		yield* page.keyboard.press("End");
+		yield* page.getByRole("switch", { name: "Show Media in sidebar" }).click();
+		yield* page.getByRole("button", { name: "Save sidebar changes" }).click();
+		yield* page.waitForURL((url) => url.pathname !== "/customize-sidebar");
+
+		yield* page.reload;
+		yield* page.getByTestId("authenticated-shell").waitFor({ state: "visible" });
+		yield* openPanel(page);
+
+		const rows = yield* workspaceList(page).getByRole("listitem").allInnerTexts();
+		expect(rows.at(-1)).toContain("Media");
+		expect(
+			yield* page
+				.getByRole("switch", { name: "Show Media in sidebar" })
+				.getAttribute("aria-checked"),
+		).toBe("false");
 	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
 );

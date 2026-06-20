@@ -1,18 +1,25 @@
 import type { NavigationData, NavigationView } from "@ryot-app/ryotql-recipes/navigation";
+import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 
-export type CustomizeSection = "views" | "savedViews";
+import { sortWorkspaces } from "#/modules/navigation/workspace-state";
+
+export type CustomizeSection = "workspaces" | "views" | "savedViews";
 
 export type CustomizeDraftItem = {
 	readonly slug: string;
 	readonly name: string;
 	readonly icon: string;
 	readonly isDisabled: boolean;
+};
+
+export type CustomizeDraftViewItem = CustomizeDraftItem & {
 	readonly pluginSlug: string | null;
 };
 
 export type CustomizeDraft = {
-	readonly views: readonly CustomizeDraftItem[];
-	readonly savedViews: readonly CustomizeDraftItem[];
+	readonly views: readonly CustomizeDraftViewItem[];
+	readonly workspaces: readonly CustomizeDraftItem[];
+	readonly savedViews: readonly CustomizeDraftViewItem[];
 };
 
 const clampIndex = (index: number, length: number) =>
@@ -29,6 +36,14 @@ const draftItems = (items: readonly NavigationView[], scopeSlug: string | null |
 			isDisabled,
 			pluginSlug,
 		}));
+
+const draftWorkspaces = (catalog: PluginClientCatalog) =>
+	sortWorkspaces(catalog).map(({ icon, isDisabled, name, slug }) => ({
+		icon,
+		slug,
+		name,
+		isDisabled,
+	}));
 
 const withVisibilityFlipped = (item: CustomizeDraftItem) => ({
 	...item,
@@ -47,9 +62,11 @@ const areSectionsEqual = (
 
 export function initCustomizeDraft(props: {
 	readonly data: NavigationData;
+	readonly catalog: PluginClientCatalog;
 	readonly workspaceSlug: string | undefined;
 }): CustomizeDraft {
 	return {
+		workspaces: draftWorkspaces(props.catalog),
 		savedViews: draftItems(props.data.savedViews, null),
 		views: draftItems(props.data.savedViews, props.workspaceSlug),
 	};
@@ -86,14 +103,22 @@ export function toggleCustomizeItem(props: {
 	readonly section: CustomizeSection;
 }): CustomizeDraft {
 	const items = props.draft[props.section];
-	if (!items.some((item) => item.slug === props.slug)) {
+	const item = items.find(({ slug }) => slug === props.slug);
+	if (item === undefined) {
+		return props.draft;
+	}
+	if (
+		props.section === "workspaces" &&
+		!item.isDisabled &&
+		items.filter(({ isDisabled }) => !isDisabled).length === 1
+	) {
 		return props.draft;
 	}
 
 	return {
 		...props.draft,
-		[props.section]: items.map((item) =>
-			item.slug === props.slug ? withVisibilityFlipped(item) : item,
+		[props.section]: items.map((sectionItem) =>
+			sectionItem.slug === props.slug ? withVisibilityFlipped(sectionItem) : sectionItem,
 		),
 	};
 }
@@ -102,6 +127,7 @@ export const isCustomizeDraftDirty = (props: {
 	readonly draft: CustomizeDraft;
 	readonly initial: CustomizeDraft;
 }) =>
+	!areSectionsEqual(props.draft.workspaces, props.initial.workspaces) ||
 	!areSectionsEqual(props.draft.views, props.initial.views) ||
 	!areSectionsEqual(props.draft.savedViews, props.initial.savedViews);
 
@@ -119,7 +145,11 @@ export function customizeSectionCounts(props: {
 export function customizeSearchSection(search: {
 	readonly section?: unknown;
 }): CustomizeSection | undefined {
-	if (search.section === "views" || search.section === "savedViews") {
+	if (
+		search.section === "workspaces" ||
+		search.section === "views" ||
+		search.section === "savedViews"
+	) {
 		return search.section;
 	}
 	return undefined;

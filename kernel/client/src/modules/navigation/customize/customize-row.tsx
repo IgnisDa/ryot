@@ -9,6 +9,7 @@ export function CustomizeRow(props: {
 	readonly isLast: boolean;
 	readonly handle: ReactNode;
 	readonly item: CustomizeDraftItem;
+	readonly toggleDisabled?: boolean;
 	readonly onToggle: (slug: string) => void;
 }) {
 	const muted = props.item.isDisabled ? "text-text-subtle" : "text-text";
@@ -23,6 +24,7 @@ export function CustomizeRow(props: {
 			<AppIcon size={17} name={props.item.icon} className={clsx("shrink-0", muted)} />
 			<span className={clsx("min-w-0 flex-1 truncate text-sm", muted)}>{props.item.name}</span>
 			<Switch
+				disabled={props.toggleDisabled}
 				checked={!props.item.isDisabled}
 				label={`Show ${props.item.name} in sidebar`}
 				onChange={() => props.onToggle(props.item.slug)}
