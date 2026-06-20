@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 import type { AppSchema } from "#lib/schema/property-schema";
 
 import type { Expr, QueryDocument } from "./language";
-import { collectAliasScope } from "./validator";
 import { literal, makeDoc, nameRef, propertyRef } from "./validator.test-support";
+import { collectAliasScope } from "./validator/document";
 import { checkQueryDocumentTypes, type PropertySchemasBySlug } from "./validator/type-check";
 
 const booksSchema: AppSchema = {

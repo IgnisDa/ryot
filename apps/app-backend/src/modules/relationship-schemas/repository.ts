@@ -1,9 +1,9 @@
 import { and, asc, desc, eq, inArray, isNull, or } from "drizzle-orm";
 import { Effect } from "effect";
 
-import { CurrentDb, dbEffect, isUniqueConstraintError } from "#lib/db";
-import { entitySchemaAccessScopeSelection } from "#lib/db/schema";
-import * as schema from "#lib/db/schema/tables";
+import { entitySchemaAccessScopeSelection } from "#lib/db/schema/access-scope";
+import * as schema from "#lib/db/schema/tables/combined";
+import { CurrentDb, dbEffect, isUniqueConstraintError } from "#lib/db/service";
 import { DbError, conflict } from "#lib/errors";
 import type { Slug, UserId } from "#lib/schema/brands";
 import { EntitySchemaId, RelationshipSchemaId } from "#lib/schema/brands";

@@ -1,7 +1,7 @@
 import { Cause, DateTime, Effect } from "effect";
 
 import type { CurrentUserValue } from "#lib/auth-middleware";
-import { DbRunner, TransactionRunner } from "#lib/db";
+import { DbRunner, TransactionRunner } from "#lib/db/service";
 import { badRequest, notFound } from "#lib/errors";
 import type { EntityId, EntitySchemaId, EventSchemaId, UserId } from "#lib/schema/brands";
 import { decodeStoredAppSchema } from "#lib/schema/core";

@@ -1,7 +1,7 @@
 import { Activity, DurableQueue, Workflow } from "@effect/workflow";
 import { DateTime, Effect, Schema } from "effect";
 
-import { DbRunner } from "#lib/db";
+import { DbRunner } from "#lib/db/service";
 import { SandboxRunError, dieOnDbError, toSandboxRunError } from "#lib/errors";
 import { EntityId, SandboxScriptId } from "#lib/schema/brands";
 import { SandboxExecutionQueue } from "#modules/sandbox/durable-queues";

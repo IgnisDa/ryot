@@ -6,7 +6,7 @@ import { dropLegacyTables } from "#modules/legacy-bootstrap/drop-tables";
 import { migrateLegacyTables } from "#modules/legacy-bootstrap/migrate-data";
 import { renameLegacyTables } from "#modules/legacy-bootstrap/rename-tables";
 
-import { DbService } from "./index";
+import { DbService } from "./service";
 
 const migrateDB = Effect.gen(function* () {
 	const { db } = yield* DbService;
