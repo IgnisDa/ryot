@@ -12,10 +12,9 @@ const sandboxScriptTextPlugin: Plugin = {
 	enforce: "pre",
 	name: "sandbox-script-text",
 	transform(code, id) {
-		if (!id.endsWith(".sandbox.js")) {
-			return;
-		}
-		return { code: `export default ${JSON.stringify(code)};`, map: null };
+		return id.endsWith(".sandbox.js")
+			? { code: `export default ${JSON.stringify(code)};`, map: null }
+			: undefined;
 	},
 };
 
