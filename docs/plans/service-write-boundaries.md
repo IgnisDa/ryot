@@ -236,32 +236,66 @@ There is no `delete`.
 
 ### Current state
 
-`RelationshipsService` exposes `save`, which delegates to `RelationshipsRepository.saveRelationship`.
-The repository's `onConflict` input makes that operation serve both creation and updating: it can
-preserve an existing relationship or replace its properties. The repository also exposes separate
-write helpers for deleting one relationship, synchronizing global relationships, deleting all user
-relationships for an entity, and moving relationships during an entity merge.
-
-Several modules currently call those repository write helpers directly, including collections, entity
-imports, media monitoring, media trending, and user state.
+Implemented. `RelationshipsService` exposes exactly one canonical `create`, `update`, and `delete`
+entry point. `create` validates and inserts one relationship without changing an existing row;
+`update` validates and changes one existing row; and `delete` removes one relationship at a time.
+The repository retains only CRUD persistence plus read-only relationship listings and property lookup.
+Collections, entity imports, media monitoring, media trending, and user state now route relationship
+writes through `RelationshipsService`.
 
 ### Checklist
 
-- [ ] Keep `create` as the single relationship creation entry point. It must not modify an existing
+- [x] Keep `create` as the single relationship creation entry point. It must not modify an existing
   relationship; where idempotent behavior is required, it may return the existing relationship with
   `wasInserted: false`.
-- [ ] Keep `update` as the single relationship update entry point. It must modify existing
+- [x] Keep `update` as the single relationship update entry point. It must modify existing
   relationships only and must not upsert.
-- [ ] Keep `delete` as the single relationship deletion entry point for one relationship at a time.
-- [ ] Do not retain `save` as a public service write method.
-- [ ] Do not add public `sync`, `move`, `deleteUserRelationship`, `deleteUserRelationshipsForEntity`,
+- [x] Keep `delete` as the single relationship deletion entry point for one relationship at a time.
+- [x] Do not retain `save` as a public service write method.
+- [x] Do not add public `sync`, `move`, `deleteUserRelationship`, `deleteUserRelationshipsForEntity`,
   or other alternate relationship write methods. Callers performing batch synchronization, entity
   merges, or scoped deletion must read the affected relationships and orchestrate simple `create`,
   `update`, and `delete` calls inside the existing transaction boundaries.
-- [ ] Route all modules currently writing through `RelationshipsRepository` through
+- [x] Route all modules currently writing through `RelationshipsRepository` through
   `RelationshipsService`.
-- [ ] Preserve relationship property validation, global versus user scope, collection membership
+- [x] Preserve relationship property validation, global versus user scope, collection membership
   event behavior, authoritative versus additive synchronization, and entity-merge behavior.
+
+### Implementation notes
+
+- `RelationshipsRepository.createRelationship` uses `ON CONFLICT DO NOTHING` and reads the existing
+  row on conflict, so it never replaces properties. `updateRelationship` performs a scoped update and
+  returns no row when the identity is absent; `deleteRelationship` supports both user and global scope.
+- The HTTP `POST /relationships` route retains its existing replace-on-duplicate behavior by calling
+  `create` and, when it returns `wasInserted: false`, calling `update` inside a transaction.
+- Collection membership creation now creates `in-library` and `member-of` relationships through the
+  service, then updates an existing `member-of` row through `update` so event dispatch still depends
+  on `wasInserted`. Ownership-source merging is a transaction-wrapped read followed by `create` or
+  `update`; removal uses the canonical `delete` entry point.
+- User-state clearing and merging lock/read affected rows and orchestrate individual deletes and
+  creates inside the existing event-and-relationship transaction. Merge creates use the relationship
+  schema's properties definition so the canonical service validation remains active, and preserve
+  the old conflict behavior by never updating a destination row that already exists.
+- Authoritative and additive global synchronization is now caller-owned. Media trending owns a new
+  transaction around its self-edge read/create/update/delete loop. Provider entity population uses
+  the existing transaction around the entity graph, and its related-entity and child-tree callers
+  perform the same anchored read/create/update/delete orchestration.
+- Read-only repository listings use row locks because the callers perform read-modify-write
+  orchestration. Global synchronization listings also take a transaction-scoped advisory lock keyed
+  by synchronization scope, which serializes empty/new scopes that cannot be protected by row locks.
+  `RelationshipsRepository.findRelationshipProperties` is also locked while the collection ownership
+  merge is inside its transaction.
+- Collection ownership handles the create-conflict case explicitly: if a concurrent creator wins, the
+  returned current properties are merged with the new provider and sent through `update`, so ownership
+  sources are not lost.
+- Media monitoring enable now wraps the library-membership create and monitoring-relationship create
+  in one transaction, preventing a partial enable when the second write fails.
+- The old repository-level synchronization transaction was removed. This is intentional: the plan
+  requires callers to own multi-write transactions, and the provider graph already has a transaction
+  boundary while media trending now supplies one explicitly.
+- Known behavior consequence: an `update` whose row disappears after the caller's read now returns
+  `NotFound` instead of silently re-creating it. This is the strict, non-upserting update contract;
+  normal synchronization and merge paths still use `create` for their insert-or-preserve branch.
 
 ## Events Service
 

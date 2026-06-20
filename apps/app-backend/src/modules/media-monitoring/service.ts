@@ -5,14 +5,13 @@ import { EntityId } from "@ryot/contract/schema/brands";
 import { buildMediaMonitoringStatusQueryDocument } from "@ryot/query-engine";
 import { Effect } from "effect";
 
-import { DbRunner } from "#lib/infrastructure/db/service";
+import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
 import { CollectionsRepository } from "#modules/collections/repository";
 import { CollectionsService } from "#modules/collections/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { requireRowsResponse, requireStringField } from "#modules/query-engine/response-helpers";
 import { QueryEngineService } from "#modules/query-engine/service";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
-import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
 
 import { isMediaMonitorableEntity } from "./monitorable";
@@ -26,10 +25,10 @@ export class MediaMonitoringService extends Effect.Service<MediaMonitoringServic
 	{
 		effect: Effect.gen(function* () {
 			const runWithDb = yield* DbRunner;
+			const runInTransaction = yield* TransactionRunner;
 			const entities = yield* EntitiesRepository;
 			const collections = yield* CollectionsService;
 			const queryEngine = yield* QueryEngineService;
-			const relationships = yield* RelationshipsRepository;
 			const relationshipsService = yield* RelationshipsService;
 			const collectionsRepository = yield* CollectionsRepository;
 			const relationshipSchemas = yield* RelationshipSchemasRepository;
@@ -73,29 +72,33 @@ export class MediaMonitoringService extends Effect.Service<MediaMonitoringServic
 				entityId: EntityId,
 			) {
 				const target = yield* get(user, entityId);
-				yield* collections.ensureEntityInLibrary(user.id, target.entityId);
 				const mediaMonitoring = yield* runWithDb(
 					relationshipSchemas.findBuiltinBySlug("media-monitoring"),
 				);
 				if (!mediaMonitoring) {
 					return yield* Effect.die("media-monitoring relationship schema not found");
 				}
-				const libraryEntityId = yield* runWithDb(
-					collectionsRepository.getUserLibraryEntityId({ userId: user.id }),
+				yield* runInTransaction(
+					Effect.gen(function* () {
+						yield* collections.ensureEntityInLibrary(user.id, target.entityId);
+						const libraryEntityId = yield* collectionsRepository.getUserLibraryEntityId({
+							userId: user.id,
+						});
+						if (!libraryEntityId) {
+							return yield* Effect.die("Library entity not found for user");
+						}
+						yield* relationshipsService.create({
+							scope: "user",
+							properties: {},
+							userId: user.id,
+							sourceEntityId: target.entityId,
+							targetEntityId: libraryEntityId,
+							relationshipSchemaId: mediaMonitoring.id,
+							propertiesSchema: mediaMonitoring.propertiesSchema,
+						});
+						return undefined;
+					}),
 				);
-				if (!libraryEntityId) {
-					return yield* Effect.die("Library entity not found for user");
-				}
-				yield* relationshipsService.save({
-					scope: "user",
-					properties: {},
-					userId: user.id,
-					onConflict: "preserveExisting",
-					sourceEntityId: target.entityId,
-					targetEntityId: libraryEntityId,
-					relationshipSchemaId: mediaMonitoring.id,
-					propertiesSchema: mediaMonitoring.propertiesSchema,
-				});
 				return { entityId: target.entityId, isMediaMonitored: true };
 			});
 
@@ -114,14 +117,13 @@ export class MediaMonitoringService extends Effect.Service<MediaMonitoringServic
 					collectionsRepository.getUserLibraryEntityId({ userId: user.id }),
 				);
 				if (libraryEntityId) {
-					yield* runWithDb(
-						relationships.deleteUserRelationship({
-							userId: user.id,
-							sourceEntityId: target.entityId,
-							targetEntityId: libraryEntityId,
-							relationshipSchemaId: mediaMonitoring.id,
-						}),
-					);
+					yield* relationshipsService.delete({
+						scope: "user",
+						userId: user.id,
+						sourceEntityId: target.entityId,
+						targetEntityId: libraryEntityId,
+						relationshipSchemaId: mediaMonitoring.id,
+					});
 				}
 				return { entityId: target.entityId, isMediaMonitored: false };
 			});

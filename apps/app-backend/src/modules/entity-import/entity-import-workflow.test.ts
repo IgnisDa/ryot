@@ -122,8 +122,10 @@ const makeRelationshipsRepository = (
 	overrides: MockOverrides<typeof mockRelationshipsRepository> = {},
 ) =>
 	mockRelationshipsRepository({
-		syncGlobalRelationships: () => Effect.void,
-		saveRelationship: () => Effect.succeed(savedRelationship),
+		createRelationship: () => Effect.succeed(savedRelationship),
+		updateRelationship: () => Effect.succeed(savedRelationship),
+		deleteRelationship: () => Effect.succeed(null),
+		listGlobalRelationships: () => Effect.succeed([]),
 		...overrides,
 		_tag: "RelationshipsRepository",
 	});
@@ -206,6 +208,7 @@ const importPayload = {
 
 it.effect("populates entity and writes related entities", () => {
 	let relationshipWritten = false;
+	let staleRelationshipDeleted = false;
 	let globalEntityWritten = false;
 	let relatedEntityWritten = false;
 
@@ -267,10 +270,25 @@ it.effect("populates entity and writes related entities", () => {
 			findEntitySchemaSandboxScriptBySlug: () => Effect.succeed(relatedEntitySchemaSandboxScript),
 		}),
 		relationshipsRepository: makeRelationshipsRepository({
-			syncGlobalRelationships: () => {
-				relationshipWritten = true;
-				return Effect.void;
-			},
+			listGlobalRelationships: () =>
+				Effect.succeed([
+					{
+						...savedRelationship,
+						sourceEntityId: EntityId.make("person-stale"),
+						targetEntityId: baseEntity.id,
+						relationshipSchemaId: relationshipSchema.id,
+					},
+				]),
+			createRelationship: () =>
+				Effect.sync(() => {
+					relationshipWritten = true;
+					return savedRelationship;
+				}),
+			deleteRelationship: () =>
+				Effect.sync(() => {
+					staleRelationshipDeleted = true;
+					return savedRelationship;
+				}),
 		}),
 		entitiesService: makeEntitiesService({
 			upsert: (input) => {
@@ -311,6 +329,85 @@ it.effect("populates entity and writes related entities", () => {
 			expect(globalEntityWritten).toBe(true);
 			expect(relatedEntityWritten).toBe(true);
 			expect(relationshipWritten).toBe(true);
+			expect(staleRelationshipDeleted).toBe(true);
+		}),
+	);
+});
+
+it.effect("preserves stale relationships during additive related-entity sync", () => {
+	let created = false;
+	let deleted = false;
+	const payload = { ...importPayload, executionId: "exec-additive-related" };
+	const options = {
+		processSandbox: () =>
+			Effect.succeed({
+				logs: [],
+				error: null,
+				status: "completed" as const,
+				value: {
+					name: "Test Book",
+					properties: { title: "Test Book" },
+					relatedEntityGroups: [
+						{
+							direction: "outgoing" as const,
+							synchronization: "additive" as const,
+							relationshipSchemaSlug: "media-suggestion",
+							entities: [
+								{ externalId: "movie-1", name: "Suggested Movie", scriptSlug: "movie.test" },
+							],
+						},
+					],
+				},
+			}),
+		entitiesRepository: makeEntitiesRepository({
+			findEntitySchemaSandboxScriptBySlug: () =>
+				Effect.succeed({
+					entitySchemaId: EntitySchemaId.make("schema-movie"),
+					sandboxScriptId: SandboxScriptId.make("movie-script"),
+				}),
+		}),
+		entitiesService: makeEntitiesService({
+			create: () =>
+				Effect.succeed({
+					...baseEntity,
+					id: EntityId.make("suggested-movie"),
+					entitySchemaId: EntitySchemaId.make("schema-movie"),
+					sandboxScriptId: SandboxScriptId.make("movie-script"),
+				}),
+		}),
+		relationshipsRepository: makeRelationshipsRepository({
+			listGlobalRelationships: () =>
+				Effect.succeed([
+					{
+						...savedRelationship,
+						sourceEntityId: baseEntity.id,
+						targetEntityId: EntityId.make("stale-target"),
+						relationshipSchemaId: mediaSuggestionSchema.id,
+					},
+				]),
+			createRelationship: () =>
+				Effect.sync(() => {
+					created = true;
+					return savedRelationship;
+				}),
+			deleteRelationship: () =>
+				Effect.sync(() => {
+					deleted = true;
+					return savedRelationship;
+				}),
+		}),
+	} satisfies TestLayerOptions;
+
+	return withTestLayer(
+		options,
+		payload.executionId,
+		Effect.gen(function* () {
+			yield* runProviderEntityPopulationWorkflow(
+				{ ...payload, mode: "ensure" },
+				payload.executionId,
+			);
+			expect(created).toBe(true);
+			expect(deleted).toBe(false);
 		}),
 	);
 });
@@ -400,7 +497,7 @@ it.effect("walks the child entity tree and upserts each node", () => {
 			},
 		}),
 		relationshipsRepository: makeRelationshipsRepository({
-			saveRelationship: (input) =>
+			createRelationship: (input) =>
 				Effect.sync(() => {
 					storedRelationships.add(
 						`${input.relationshipSchemaId}:${input.sourceEntityId}->${input.targetEntityId}`,
@@ -453,7 +550,7 @@ it.effect("walks the child entity tree and upserts each node", () => {
 
 		expect(storedRelationships.size).toBe(2);
 		expect(entityWrites).toHaveLength(2);
-		expect(entityWrites.every((write) => ! write.updateExisting)).toBe(true);
+		expect(entityWrites.every((write) => !write.updateExisting)).toBe(true);
 
 		const season = entityWrites.find((write) => write.externalId === "season-1");
 		const episode = entityWrites.find((write) => write.externalId === "episode-1");
@@ -532,15 +629,7 @@ it.effect("propagates images through properties for the primary entity", () => {
 });
 
 it.effect("creates placeholder suggestion entities and syncs source suggestions", () => {
-	const syncedGroups: Array<{
-		type: "anchored";
-		onConflict: "preserveExisting" | "replaceProperties";
-		anchorEntityId: EntityId;
-		direction: "incoming" | "outgoing";
-		synchronization: "additive" | "authoritative";
-		relationshipSchemaId: RelationshipSchemaId;
-		entries: ReadonlyArray<{ entityId: EntityId; properties: Record<string, unknown> }>;
-	}> = [];
+	const relationshipWrites: unknown[] = [];
 	const placeholderWrites: Array<{
 		name: string;
 		externalId: string;
@@ -622,10 +711,15 @@ it.effect("creates placeholder suggestion entities and syncs source suggestions"
 				}),
 		}),
 		relationshipsRepository: makeRelationshipsRepository({
-			syncGlobalRelationships: (input) =>
+			createRelationship: (input) =>
 				Effect.sync(() => {
-					assert(input.type === "anchored");
-					syncedGroups.push(input);
+					relationshipWrites.push(input);
+					return {
+						...savedRelationship,
+						sourceEntityId: input.sourceEntityId,
+						targetEntityId: input.targetEntityId,
+						relationshipSchemaId: input.relationshipSchemaId,
+					};
 				}),
 		}),
 	} satisfies TestLayerOptions;
@@ -651,16 +745,14 @@ it.effect("creates placeholder suggestion entities and syncs source suggestions"
 					sandboxScriptId: SandboxScriptId.make("movie-script"),
 				},
 			]);
-			expect(syncedGroups).toEqual([
-				{
-					type: "anchored",
-					direction: "outgoing",
-					onConflict: "replaceProperties",
-					synchronization: "authoritative",
-					anchorEntityId: EntityId.make("entity-1"),
+			expect(relationshipWrites).toEqual([
+				expect.objectContaining({
+					scope: "global",
+					sourceEntityId: EntityId.make("entity-1"),
+					targetEntityId: EntityId.make("suggestion-movie-1"),
 					relationshipSchemaId: mediaSuggestionSchema.id,
-					entries: [{ entityId: EntityId.make("suggestion-movie-1"), properties: {} }],
-				},
+					properties: {},
+				}),
 			]);
 		}),
 	);
@@ -674,6 +766,15 @@ it.effect("replaces stale synced suggestions on a later import run", () => {
 		entitySchemaId: EntitySchemaId.make("schema-movie"),
 		sandboxScriptId: SandboxScriptId.make("movie-script"),
 	};
+	const makeStoredRelationship = (targetEntityId: EntityId) => ({
+		properties: {},
+		createdAt: now,
+		wasInserted: true,
+		id: RelationshipId.make("relationship-1"),
+		sourceEntityId: baseEntity.id,
+		targetEntityId,
+		relationshipSchemaId: mediaSuggestionSchema.id,
+	});
 
 	const runAttempt = (
 		executionId: string,
@@ -747,13 +848,32 @@ it.effect("replaces stale synced suggestions on a later import run", () => {
 					},
 				}),
 				relationshipsRepository: makeRelationshipsRepository({
-					syncGlobalRelationships: (input) =>
+					listGlobalRelationships: () =>
+						Effect.succeed(
+							[...currentTargets].map((targetEntityId) =>
+								makeStoredRelationship(EntityId.make(targetEntityId)),
+							),
+						),
+					createRelationship: (input) =>
 						Effect.sync(() => {
-							syncCalls.push(input.entries.map((entry) => entry.entityId));
-							currentTargets.clear();
-							for (const entry of input.entries) {
-								currentTargets.add(entry.entityId);
-							}
+							syncCalls.push([input.targetEntityId]);
+							currentTargets.add(input.targetEntityId);
+							return {
+								...savedRelationship,
+								sourceEntityId: input.sourceEntityId,
+								targetEntityId: input.targetEntityId,
+								relationshipSchemaId: input.relationshipSchemaId,
+							};
+						}),
+					deleteRelationship: (input) =>
+						Effect.sync(() => {
+							currentTargets.delete(input.targetEntityId);
+							return {
+								...savedRelationship,
+								sourceEntityId: input.sourceEntityId,
+								targetEntityId: input.targetEntityId,
+								relationshipSchemaId: input.relationshipSchemaId,
+							};
 						}),
 				}),
 			},
@@ -789,7 +909,7 @@ it.effect("replaces stale synced suggestions on a later import run", () => {
 });
 
 it.effect("does not synchronize relationships when the provider declares no groups", () => {
-	let syncCalled = false;
+	let relationshipWrites = 0;
 
 	const payload = { ...importPayload, executionId: "exec-no-explicit-slug" };
 	const options = {
@@ -805,9 +925,10 @@ it.effect("does not synchronize relationships when the provider declares no grou
 				},
 			}),
 		relationshipsRepository: makeRelationshipsRepository({
-			syncGlobalRelationships: () =>
+			createRelationship: () =>
 				Effect.sync(() => {
-					syncCalled = true;
+					relationshipWrites += 1;
+					return savedRelationship;
 				}),
 		}),
 	} satisfies TestLayerOptions;
@@ -821,7 +942,7 @@ it.effect("does not synchronize relationships when the provider declares no grou
 				payload.executionId,
 			);
 
-			expect(syncCalled).toBe(false);
+			expect(relationshipWrites).toBe(0);
 		}),
 	);
 });
@@ -1026,13 +1147,6 @@ it.effect("keeps the refresh baseline when related relationship properties are i
 				return Effect.succeed(storedEntity);
 			},
 		}),
-		relationshipsRepository: makeRelationshipsRepository({
-			syncGlobalRelationships: () =>
-				Effect.sync(() => {
-					relationshipWritten = true;
-					return undefined;
-				}),
-		}),
 	} satisfies TestLayerOptions;
 
 	return withTestLayer(
@@ -1110,13 +1224,6 @@ it.effect("fails workflow when related relationship properties are not objects",
 				Effect.succeed({
 					entitySchemaId: EntitySchemaId.make("schema-person"),
 					sandboxScriptId: SandboxScriptId.make("person-script"),
-				}),
-		}),
-		relationshipsRepository: makeRelationshipsRepository({
-			syncGlobalRelationships: () =>
-				Effect.sync(() => {
-					relationshipWritten = true;
-					return undefined;
 				}),
 		}),
 	} satisfies TestLayerOptions;
@@ -1225,10 +1332,10 @@ it.effect("retries related writes after a failed related validation", () => {
 			},
 		}),
 		relationshipsRepository: makeRelationshipsRepository({
-			syncGlobalRelationships: () =>
+			createRelationship: () =>
 				Effect.sync(() => {
 					relationshipWriteCount += 1;
-					return undefined;
+					return savedRelationship;
 				}),
 		}),
 	} satisfies TestLayerOptions;
@@ -1374,9 +1481,10 @@ it.effect("rolls back provider graph writes when a later child write fails", () 
 			getBuiltinBySlug: () => Effect.succeed(null),
 		}),
 		relationshipsRepository: makeRelationshipsRepository({
-			syncGlobalRelationships: () =>
+			createRelationship: () =>
 				Effect.sync(() => {
 					writes.push("relationship:media-suggestion");
+					return savedRelationship;
 				}),
 		}),
 	} satisfies TestLayerOptions;
@@ -1559,15 +1667,7 @@ it.effect("dies when a refresh payload omits entitySchemaSlug", () => {
 });
 
 it.effect("clears an explicit empty relationship group", () => {
-	const calls: Array<{
-		type: "anchored";
-		onConflict: "preserveExisting" | "replaceProperties";
-		anchorEntityId: EntityId;
-		direction: "incoming" | "outgoing";
-		synchronization: "additive" | "authoritative";
-		relationshipSchemaId: RelationshipSchemaId;
-		entries: ReadonlyArray<{ entityId: EntityId; properties: Record<string, unknown> }>;
-	}> = [];
+	const calls: unknown[] = [];
 	const payload = { ...importPayload, executionId: "clear-empty-group" };
 	const options = {
 		processSandbox: () =>
@@ -1589,10 +1689,24 @@ it.effect("clears an explicit empty relationship group", () => {
 				},
 			}),
 		relationshipsRepository: makeRelationshipsRepository({
-			syncGlobalRelationships: (input) =>
+			listGlobalRelationships: () =>
+				Effect.succeed([
+					{
+						...savedRelationship,
+						sourceEntityId: EntityId.make("entity-1"),
+						targetEntityId: EntityId.make("stale-target"),
+						relationshipSchemaId: mediaSuggestionSchema.id,
+					},
+				]),
+			deleteRelationship: (input) =>
 				Effect.sync(() => {
-					assert(input.type === "anchored");
 					calls.push(input);
+					return {
+						...savedRelationship,
+						sourceEntityId: input.sourceEntityId,
+						targetEntityId: input.targetEntityId,
+						relationshipSchemaId: input.relationshipSchemaId,
+					};
 				}),
 		}),
 	} satisfies TestLayerOptions;
@@ -1607,12 +1721,9 @@ it.effect("clears an explicit empty relationship group", () => {
 			);
 			expect(calls).toEqual([
 				{
-					type: "anchored",
-					entries: [],
-					direction: "outgoing",
-					onConflict: "replaceProperties",
-					synchronization: "authoritative",
-					anchorEntityId: EntityId.make("entity-1"),
+					scope: "global",
+					sourceEntityId: EntityId.make("entity-1"),
+					targetEntityId: EntityId.make("stale-target"),
 					relationshipSchemaId: mediaSuggestionSchema.id,
 				},
 			]);

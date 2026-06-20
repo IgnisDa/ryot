@@ -1,6 +1,12 @@
 import { SandboxRunError, dieOnDbError } from "@ryot/contract/errors";
 import type { ListedEntity } from "@ryot/contract/modules/entities/schemas";
-import type { EntitySchemaId, EntityId, SandboxScriptId } from "@ryot/contract/schema/brands";
+import type {
+	EntitySchemaId,
+	EntityId,
+	RelationshipSchemaId,
+	SandboxScriptId,
+} from "@ryot/contract/schema/brands";
+import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { DateTime, Effect, Schema } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
@@ -151,6 +157,93 @@ export const processChildEntityTree = Effect.fn("processChildEntityTree")(functi
 			: null;
 	});
 
+	const synchronizeGlobalRelationships = Effect.fn(
+		"synchronizeGlobalRelationshipsInEntityPopulation",
+	)(function* (syncInput: {
+		anchorEntityId: EntityId;
+		propertiesSchema: AppSchema;
+		direction: "incoming" | "outgoing";
+		relationshipSchemaId: RelationshipSchemaId;
+		synchronization: "additive" | "authoritative";
+		onConflict: "preserveExisting" | "replaceProperties";
+		entries: ReadonlyArray<{ entityId: EntityId; properties: Record<string, unknown> }>;
+	}) {
+		const existing = yield* runWithDb(
+			relationshipsRepository.listGlobalRelationships({
+				type: "anchored",
+				direction: syncInput.direction,
+				anchorEntityId: syncInput.anchorEntityId,
+				relationshipSchemaId: syncInput.relationshipSchemaId,
+			}),
+		).pipe(dieOnDbError);
+		const existingByEntityId = new Map(
+			existing.map((relationship) => [
+				syncInput.direction === "outgoing"
+					? relationship.targetEntityId
+					: relationship.sourceEntityId,
+				relationship,
+			]),
+		);
+		const entries = new Map(syncInput.entries.map((entry) => [entry.entityId, entry]));
+
+		for (const entry of entries.values()) {
+			const sourceEntityId =
+				syncInput.direction === "outgoing" ? syncInput.anchorEntityId : entry.entityId;
+			const targetEntityId =
+				syncInput.direction === "outgoing" ? entry.entityId : syncInput.anchorEntityId;
+			const identity = {
+				sourceEntityId,
+				targetEntityId,
+				scope: "global" as const,
+				relationshipSchemaId: syncInput.relationshipSchemaId,
+			};
+			const relationshipInput = {
+				...identity,
+				properties: entry.properties,
+				propertiesSchema: syncInput.propertiesSchema,
+			};
+			const current = existingByEntityId.get(entry.entityId);
+			if (current) {
+				if (syncInput.onConflict === "replaceProperties") {
+					yield* relationships
+						.update(relationshipInput)
+						.pipe(Effect.mapError((error) => new SandboxRunError({ message: error.message })));
+				}
+				continue;
+			}
+
+			const created = yield* relationships
+				.create(relationshipInput)
+				.pipe(Effect.mapError((error) => new SandboxRunError({ message: error.message })));
+			if (!created.wasInserted && syncInput.onConflict === "replaceProperties") {
+				yield* relationships
+					.update(relationshipInput)
+					.pipe(Effect.mapError((error) => new SandboxRunError({ message: error.message })));
+			}
+		}
+
+		if (syncInput.synchronization === "authoritative") {
+			for (const relationship of existing) {
+				const relatedEntityId =
+					syncInput.direction === "outgoing"
+						? relationship.targetEntityId
+						: relationship.sourceEntityId;
+				if (entries.has(relatedEntityId)) {
+					continue;
+				}
+
+				yield* relationships
+					.delete({
+						scope: "global",
+						sourceEntityId: relationship.sourceEntityId,
+						targetEntityId: relationship.targetEntityId,
+						relationshipSchemaId: relationship.relationshipSchemaId,
+					})
+					.pipe(Effect.mapError((error) => new SandboxRunError({ message: error.message })));
+			}
+		}
+	});
+
 	const processNode = (
 		childEntity: EntityDetailsChildEntity,
 		parentEntityId: EntityId,
@@ -194,20 +287,22 @@ export const processChildEntityTree = Effect.fn("processChildEntityTree")(functi
 				});
 			}
 
-			yield* relationships
-				.save({
-					properties: {},
-					scope: "global",
-					sourceEntityId: parentEntityId,
-					targetEntityId: child.entity.id,
-					onConflict: "replaceProperties",
-					relationshipSchemaId: relationshipSchema.id,
-					propertiesSchema: relationshipSchema.propertiesSchema,
-				})
-				.pipe(
-					dieOnDbError,
-					Effect.mapError((error) => new SandboxRunError({ message: error.message })),
-				);
+			const relationshipInput = {
+				properties: {},
+				scope: "global" as const,
+				sourceEntityId: parentEntityId,
+				targetEntityId: child.entity.id,
+				relationshipSchemaId: relationshipSchema.id,
+				propertiesSchema: relationshipSchema.propertiesSchema,
+			};
+			const created = yield* relationships
+				.create(relationshipInput)
+				.pipe(Effect.mapError((error) => new SandboxRunError({ message: error.message })));
+			if (!created.wasInserted) {
+				yield* relationships
+					.update(relationshipInput)
+					.pipe(Effect.mapError((error) => new SandboxRunError({ message: error.message })));
+			}
 
 			const nestedChildren: ProcessedChildEntity[] = [];
 			for (const nestedChildEntity of childEntity.childEntities ?? []) {
@@ -223,20 +318,18 @@ export const processChildEntityTree = Effect.fn("processChildEntityTree")(functi
 					nestedChildren[0]?.entitySchemaId,
 				);
 				if (nestedRelationshipSchema) {
-					yield* runWithDb(
-						relationshipsRepository.syncGlobalRelationships({
-							type: "anchored",
-							entries: nestedChildren.map((nestedChild) => ({
-								entityId: nestedChild.entity.id,
-								properties: {},
-							})),
-							direction: "outgoing",
-							onConflict: "preserveExisting",
-							anchorEntityId: child.entity.id,
-							relationshipSchemaId: nestedRelationshipSchema.id,
-							synchronization: "authoritative",
-						}),
-					).pipe(dieOnDbError);
+					yield* synchronizeGlobalRelationships({
+						entries: nestedChildren.map((nestedChild) => ({
+							entityId: nestedChild.entity.id,
+							properties: {},
+						})),
+						direction: "outgoing",
+						onConflict: "preserveExisting",
+						anchorEntityId: child.entity.id,
+						synchronization: "authoritative",
+						relationshipSchemaId: nestedRelationshipSchema.id,
+						propertiesSchema: nestedRelationshipSchema.propertiesSchema,
+					});
 				}
 			}
 
@@ -257,20 +350,15 @@ export const processChildEntityTree = Effect.fn("processChildEntityTree")(functi
 			processedChildren[0]?.entitySchemaId,
 		);
 		if (relationshipSchema) {
-			yield* runWithDb(
-				relationshipsRepository.syncGlobalRelationships({
-					type: "anchored",
-					entries: processedChildren.map((child) => ({
-						entityId: child.entity.id,
-						properties: {},
-					})),
-					direction: "outgoing",
-					onConflict: "preserveExisting",
-					anchorEntityId: input.parentEntityId,
-					relationshipSchemaId: relationshipSchema.id,
-					synchronization: "authoritative",
-				}),
-			).pipe(dieOnDbError);
+			yield* synchronizeGlobalRelationships({
+				direction: "outgoing",
+				onConflict: "preserveExisting",
+				synchronization: "authoritative",
+				anchorEntityId: input.parentEntityId,
+				relationshipSchemaId: relationshipSchema.id,
+				propertiesSchema: relationshipSchema.propertiesSchema,
+				entries: processedChildren.map((child) => ({ properties: {}, entityId: child.entity.id })),
+			});
 		}
 	}
 });
