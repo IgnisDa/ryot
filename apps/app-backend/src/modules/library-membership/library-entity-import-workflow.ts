@@ -1,16 +1,24 @@
-import { Activity, Workflow } from "@effect/workflow";
+import { Workflow } from "@effect/workflow";
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
-import { SandboxRunError, dieOnDbError } from "@ryot/contract/errors";
 import { ListedEntity } from "@ryot/contract/modules/entities/schemas";
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 
-import { CollectionsService } from "#modules/collections/service";
 import { EntityImportPayload } from "#modules/entity-import/entity-import-workflow";
 import { ProviderEntityPopulationWorkflow } from "#modules/entity-import/provider-entity-population-workflow";
 
+import { LibraryEntityImportWorkflowOperations } from "./operations-workflow";
+
+export class LibraryEntityImportError extends Schema.TaggedError<LibraryEntityImportError>()(
+	"LibraryEntityImportError",
+	{
+		message: Schema.String,
+		stage: Schema.Literal("population", "membership"),
+	},
+) {}
+
 export const LibraryEntityImportWorkflow = Workflow.make({
 	success: ListedEntity,
-	error: SandboxRunError,
+	error: LibraryEntityImportError,
 	payload: EntityImportPayload,
 	name: "LibraryEntityImportWorkflow",
 	idempotencyKey: ({ executionId }) => executionId,
@@ -19,26 +27,43 @@ export const LibraryEntityImportWorkflow = Workflow.make({
 export const runLibraryEntityImportWorkflow = Effect.fn("runLibraryEntityImportWorkflow")(
 	function* (payload: EntityImportPayload, executionId: string) {
 		const engine = yield* WorkflowEngine;
-		const collections = yield* CollectionsService;
-		const populationExecutionId = `${executionId}-provider-population`;
-		const entity = yield* engine.execute(ProviderEntityPopulationWorkflow, {
-			executionId: populationExecutionId,
-			payload: {
-				mode: "ensure",
-				userId: payload.userId,
-				scriptId: payload.scriptId,
-				externalId: payload.externalId,
-				executionId: populationExecutionId,
-				entitySchemaId: payload.entitySchemaId,
-			},
-		});
+		const operations = yield* LibraryEntityImportWorkflowOperations;
 
-		yield* Activity.make({
-			name: "ensure-library-membership",
-			execute: payload.userId
-				? collections.ensureEntityInLibrary(payload.userId, entity.id).pipe(dieOnDbError)
-				: Effect.die("LibraryEntityImportWorkflow: userId is required"),
-		});
+		const userId = payload.userId;
+		if (!userId) {
+			return yield* Effect.die("LibraryEntityImportWorkflow: userId is required");
+		}
+
+		const populationExecutionId = `${executionId}-provider-population`;
+		const entity = yield* engine
+			.execute(ProviderEntityPopulationWorkflow, {
+				executionId: populationExecutionId,
+				payload: {
+					userId,
+					mode: "ensure",
+					scriptId: payload.scriptId,
+					externalId: payload.externalId,
+					executionId: populationExecutionId,
+					entitySchemaId: payload.entitySchemaId,
+				},
+			})
+			.pipe(
+				Effect.mapError(
+					(error) => new LibraryEntityImportError({ stage: "population", message: error.message }),
+				),
+			);
+
+		yield* operations
+			.ensureLibraryMembership({
+				userId,
+				entityId: entity.id,
+				executionId: `${executionId}-membership`,
+			})
+			.pipe(
+				Effect.mapError(
+					(error) => new LibraryEntityImportError({ stage: "membership", message: error.message }),
+				),
+			);
 
 		return entity;
 	},
