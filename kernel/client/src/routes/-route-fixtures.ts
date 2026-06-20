@@ -119,6 +119,7 @@ export const makePublicApiStub = (isServerKeyValidated = false) =>
 				analytics: {},
 				pro: { isServerKeyValidated },
 				notifications: { smtpEnabled: false },
+				frontendOrigin: window.location.origin,
 				auth: { oidcEnabled: false, signupAllowed: true, localAuthDisabled: false },
 				fileStorage: {
 					temporaryUploadProvider: "local",
