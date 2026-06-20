@@ -1,5 +1,5 @@
 {
-	"id": "b70b682c-4fce-4780-a9df-42cf1c236d5f",
+	"id": "6da515ec-ba85-4bf4-b7d2-1bade8a5643b",
 	"prevId": "00000000-0000-0000-0000-000000000000",
 	"version": "7",
 	"dialect": "postgresql",
@@ -334,12 +334,6 @@
 					"type": "text",
 					"primaryKey": false,
 					"notNull": true
-				},
-				"image": {
-					"name": "image",
-					"type": "jsonb",
-					"primaryKey": false,
-					"notNull": false
 				},
 				"populated_at": {
 					"name": "populated_at",
@@ -785,12 +779,6 @@
 					"type": "text",
 					"primaryKey": false,
 					"notNull": true
-				},
-				"image": {
-					"name": "image",
-					"type": "jsonb",
-					"primaryKey": false,
-					"notNull": false
 				},
 				"properties": {
 					"name": "properties",
