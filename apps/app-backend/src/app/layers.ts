@@ -46,7 +46,7 @@ import { ImportWorkflowDefinitionsLive } from "#modules/imports/import-run-workf
 import { ProcessNormalizedMediaImportWorkflowDefinitionsLive } from "#modules/imports/media/normalized-import-workflow-live";
 import { ImportsRepository } from "#modules/imports/repository";
 import { ImportsService } from "#modules/imports/service";
-import { IntegrationWorkflowDefinitionsLive } from "#modules/integrations/integration-workflow";
+import { IntegrationWorkflowDefinitionsLive } from "#modules/integrations/integration-workflow-live";
 import { IntegrationReconciliationWorkflowDefinitionsLive } from "#modules/integrations/reconciliation-workflow";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { IntegrationsService } from "#modules/integrations/service";
