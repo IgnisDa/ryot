@@ -70,7 +70,6 @@ export const UploadFailureReason = Schema.Union([
 	Schema.Struct({ code: Schema.Literal("asset-metadata-mismatch") }),
 	Schema.Struct({ code: Schema.Literal("invalid-download-target") }),
 	Schema.Struct({ code: Schema.Literal("intent-busy"), intentId: Schema.String }),
-	Schema.Struct({ code: Schema.Literal("storage-unavailable"), kind: UploadKind }),
 	Schema.Struct({ code: Schema.Literal("intent-invalid"), intentId: Schema.String }),
 	Schema.Struct({ code: Schema.Literal("object-missing"), intentId: Schema.String }),
 	Schema.Struct({ code: Schema.Literal("intent-expired"), intentId: Schema.String }),

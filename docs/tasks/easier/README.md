@@ -337,6 +337,10 @@ A new unit case covers the semantic RyotQL fallback, which was previously reacha
 
 **Validation:** Config empty-path rejection, startup probes, S3 preference, local fallback, path containment.
 
+**Implemented.** `AppConfig` validation already rejects startup unless both `FILE_STORAGE_LOCAL_DIR` and `FILE_STORAGE_LOCAL_TEMP_DIR` are absolute, non-empty, and non-overlapping, and the definitions supply defaults, so `permanentConfigured`, the nullable `permanentRoot`, and `requireConfigured` modelled a state production configuration cannot produce. Both roots are now required resolved strings, created and write-probed once at layer construction. `resolveKey` becomes `resolveRootForKey` and returns the root directly, and `resolvePath` returns `{ root, target }` so `existingPath` no longer re-derives the root from the key. Three unreachable failures go with them: "Local permanent storage is not configured. Set FILE_STORAGE_LOCAL_DIR." and both "Local object storage root is not configured" branches. The realpath overlap check stays in the storage layer because it compares canonical resolved roots, which the config check cannot do through symlinks.
+
+`isConfiguredForKind` leaves the service surface. `ObjectStorageService.selectStorageProvider` reduces to S3 for permanent objects when S3 is configured and local otherwise, so it can no longer fail, and the `storage-unavailable` variant of `UploadFailureReason` is removed from the contract — it had no other producer and no consumer in the client, website, plugins, or integration tests. The unrelated `artifact-storage-unavailable` backup reason stays because it is raised from real `statObject`/`openObject` failures. `selectStorageProvider` keeps returning an `Effect` even though it is now pure: `Layer.mock` makes only Effect-returning members optional, so a synchronous member would force eighteen unrelated test mocks to stub it.
+
 ### 19. Use `request.index` as Sole Durable Identity
 
 **Owner:** D24 Durable sandbox orchestration

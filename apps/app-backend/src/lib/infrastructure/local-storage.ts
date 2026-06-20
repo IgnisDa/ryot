@@ -63,7 +63,6 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 			const localDir = config.fileStorage.localDir;
 			const localTempDir = config.fileStorage.localTempDir;
 			const signingSecret = Redacted.value(config.server.adminAccessToken);
-			const permanentConfigured = localDir.length > 0;
 			const signingKey = yield* Effect.tryPromise(() =>
 				crypto.subtle.importKey(
 					"raw",
@@ -84,45 +83,28 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 					yield* fs.remove(probe, { recursive: true, force: true });
 					return root;
 				});
-			const permanentRoot = permanentConfigured
-				? yield* resolveRoot(localDir).pipe(Effect.orDie)
-				: null;
+			const permanentRoot = yield* resolveRoot(localDir).pipe(Effect.orDie);
 			const temporaryRoot = yield* resolveRoot(localTempDir).pipe(Effect.orDie);
-			if (permanentRoot !== null && rootsOverlap(paths, permanentRoot, temporaryRoot)) {
+			if (rootsOverlap(paths, permanentRoot, temporaryRoot)) {
 				return yield* Effect.fail(
 					badRequest("FILE_STORAGE_LOCAL_DIR and FILE_STORAGE_LOCAL_TEMP_DIR must not overlap."),
 				).pipe(Effect.orDie);
 			}
-			const requireConfigured = (kind: "permanent" | "temporary") =>
-				Effect.suspend(() =>
-					(kind === "permanent" ? permanentConfigured : true)
-						? Effect.void
-						: Effect.fail(
-								badRequest(
-									"Local permanent storage is not configured. Set FILE_STORAGE_LOCAL_DIR.",
-								),
-							),
-				);
 
-			const resolveKey = (key: string) => {
+			const resolveRootForKey = (key: string) => {
 				const namespace = key.split("/", 1)[0] ?? "";
 				if (!isLocalObjectKind(namespace)) {
 					return null;
 				}
-				return { kind: namespace, root: namespace === "permanent" ? permanentRoot : temporaryRoot };
+				return namespace === "permanent" ? permanentRoot : temporaryRoot;
 			};
 
 			const resolvePath = (key: string) =>
 				Effect.gen(function* () {
-					const resolved = resolveKey(key);
-					if (!resolved || !/^(?:permanent|temporary)\/[A-Za-z0-9_-]+\.[a-z0-9]+$/.test(key)) {
+					const root = resolveRootForKey(key);
+					if (!root || !/^(?:permanent|temporary)\/[A-Za-z0-9_-]+\.[a-z0-9]+$/.test(key)) {
 						return yield* badRequest("Local object key is invalid");
 					}
-					yield* requireConfigured(resolved.kind);
-					if (resolved.root === null) {
-						return yield* badRequest("Local object storage root is not configured");
-					}
-					const root = resolved.root;
 					const target = paths.resolve(root, key);
 					if (!isContained(paths, root, target)) {
 						return yield* badRequest(
@@ -144,7 +126,7 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 							);
 						}
 					}
-					return target;
+					return { root, target };
 				});
 
 			const sign = (method: string, pathname: string, expiresAt: number) =>
@@ -219,7 +201,6 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 				contentType: string,
 				now: number,
 			) {
-				yield* requireConfigured("permanent");
 				if (!key.startsWith("permanent/")) {
 					return yield* badRequest("Local object key is invalid");
 				}
@@ -244,7 +225,6 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 				url: string,
 				now: number,
 			) {
-				yield* requireConfigured("permanent");
 				const parsed = yield* Effect.try({
 					try: () => new URL(url, "http://local.invalid"),
 					catch: () => badRequest("Local download target is malformed"),
@@ -289,11 +269,7 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 
 			const existingPath = (key: string) =>
 				Effect.gen(function* () {
-					const target = yield* resolvePath(key);
-					const root = resolveKey(key)?.root;
-					if (root === null || root === undefined) {
-						return yield* badRequest("Local object storage root is not configured");
-					}
+					const { root, target } = yield* resolvePath(key);
 					const canonicalTarget = yield* fs
 						.realPath(target)
 						.pipe(Effect.mapError(() => badRequest("Local upload object is missing or invalid")));
@@ -311,7 +287,7 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 				contentLength: string | undefined,
 				maxBytes = UPLOAD_MAX_FILE_BYTES,
 			) {
-				const target = yield* resolvePath(key);
+				const { target } = yield* resolvePath(key);
 				const declaredLength = contentLength === undefined ? null : Number(contentLength);
 				if (
 					declaredLength !== null &&
@@ -421,7 +397,7 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 			});
 
 			const deleteObject = Effect.fn("LocalStorageService.deleteObject")(function* (key: string) {
-				const target = yield* resolvePath(key);
+				const { target } = yield* resolvePath(key);
 				yield* fs.remove(target, { force: true }).pipe(Effect.orDie);
 				yield* fs.remove(`${target}.part`, { force: true }).pipe(Effect.orDie);
 			});
@@ -437,8 +413,6 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 				writeObjectIfAbsent,
 				createDownloadTarget,
 				verifyDownloadTarget,
-				isConfiguredForKind: (kind: "permanent" | "temporary") =>
-					kind === "permanent" ? permanentConfigured : true,
 			};
 		}),
 	},
