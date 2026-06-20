@@ -4,13 +4,15 @@ import { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
 import { sortBy } from "@ryot/ts-utils/lodash";
 import { Effect, FileSystem, Schema } from "effect";
 
+import { mediaLibraryEligibleEntitySchemaSlugs } from "./backend/schemas/media-schema-slugs";
 import { mediaPlugin } from "./manifest";
-import { mediaLibraryEligibleEntitySchemaSlugs } from "./schemas/media-schema-slugs";
 
 it.effect("catalogs every sandbox script exactly once", () =>
 	Effect.gen(function* () {
 		const fs = yield* FileSystem.FileSystem;
-		const sandboxEntries = yield* fs.glob("scripts/**/*.sandbox.ts", { root: process.cwd() });
+		const sandboxEntries = yield* fs.glob("backend/scripts/**/*.sandbox.ts", {
+			root: process.cwd(),
+		});
 		const catalogEntries = mediaPlugin.scripts.map(({ entry }) => entry);
 
 		expect(sortBy(catalogEntries)).toEqual(sortBy(sandboxEntries));

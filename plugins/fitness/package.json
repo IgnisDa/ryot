@@ -15,8 +15,8 @@
 			"default": "./query-recipes.ts"
 		},
 		"./schemas/property-schemas": {
-			"types": "./schemas/property-schemas.ts",
-			"default": "./schemas/property-schemas.ts"
+			"types": "./backend/schemas/property-schemas.ts",
+			"default": "./backend/schemas/property-schemas.ts"
 		}
 	},
 	"scripts": {
