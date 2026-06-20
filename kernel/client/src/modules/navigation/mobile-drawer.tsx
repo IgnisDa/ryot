@@ -1,5 +1,4 @@
 import { OverlayScope, useFocusTrap, useScrollLock } from "@ryot-app/client-ui-sdk";
-import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import type {
 	PluginClientCatalog,
 	PluginClientCatalogEntry,
@@ -90,7 +89,7 @@ export function MobileDrawer(props: MobileDrawerProps) {
 				hidden={!presented}
 				data-testid="mobile-drawer"
 				role={props.isOpen ? "dialog" : undefined}
-				aria-labelledby={`${props.drawerId}-title`}
+				aria-label="Navigation"
 				aria-modal={props.isOpen ? true : undefined}
 				aria-hidden={props.isOpen ? undefined : true}
 				className={clsx("ui-chrome fixed inset-0 z-40 md:hidden", presented ? "block" : "hidden")}
@@ -106,23 +105,6 @@ export function MobileDrawer(props: MobileDrawerProps) {
 					style={{ x }}
 					className="absolute inset-y-0 left-0 flex w-[min(320px,82vw)] flex-col border-r border-border bg-surface pt-[max(env(safe-area-inset-top),1rem)] pb-[max(env(safe-area-inset-bottom),0.75rem)] text-text shadow-card"
 				>
-					<div className="flex shrink-0 items-center justify-between gap-3 px-4 pb-3">
-						<h2
-							id={`${props.drawerId}-title`}
-							className="font-display text-lg font-semibold text-text"
-						>
-							Navigation
-						</h2>
-						<button
-							type="button"
-							onClick={close}
-							aria-label="Close navigation"
-							className="flex size-9 items-center justify-center rounded-lg text-text-muted hover:bg-surface-2 hover:text-text"
-						>
-							<AppIcon name="x" size={18} />
-						</button>
-					</div>
-
 					<div className="min-h-0 flex-1 overflow-y-auto">
 						<SidebarNav
 							current={props.current}
