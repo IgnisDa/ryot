@@ -18,18 +18,23 @@ type AliasAllocator = { next: () => number };
 export class CompileScope {
 	private constructor(
 		readonly userId: string,
+		readonly language: string | null,
 		private readonly bindings: ReadonlyMap<string, SqlRef>,
 		private readonly parent: CompileScope | null,
 		private readonly allocator: AliasAllocator,
 	) {}
 
-	static make(userId: string, bindings: Map<string, SqlRef>): CompileScope {
+	static make(
+		userId: string,
+		language: string | null,
+		bindings: Map<string, SqlRef>,
+	): CompileScope {
 		let counter = 0;
-		return new CompileScope(userId, bindings, null, { next: () => (counter += 1) });
+		return new CompileScope(userId, language, bindings, null, { next: () => (counter += 1) });
 	}
 
 	child(bindings: Map<string, SqlRef>): CompileScope {
-		return new CompileScope(this.userId, bindings, this, this.allocator);
+		return new CompileScope(this.userId, this.language, bindings, this, this.allocator);
 	}
 
 	// Validation has already resolved every alias, so a miss is an internal invariant violation.
@@ -51,7 +56,11 @@ export class CompileScope {
 
 // Root-source alias bindings, mirroring the SQL FROM builders: entity `e`/`es`; event `ev`/`evs`
 // plus its entity `e`/`es`; relationship `r`/`rs` plus endpoint entities `se`/`ses`, `te`/`tes`.
-export const rootScope = (source: RootSource, userId: string): CompileScope => {
+export const rootScope = (
+	source: RootSource,
+	userId: string,
+	language: string | null,
+): CompileScope => {
 	const bindings = new Map<string, SqlRef>();
 	if (source.type === "entities") {
 		bindings.set(source.alias, { kind: "entity", sqlAlias: "e", schemas: source.schemas });
@@ -82,5 +91,5 @@ export const rootScope = (source: RootSource, userId: string): CompileScope => {
 			schemas: source.targetEntity.schemas,
 		});
 	}
-	return CompileScope.make(userId, bindings);
+	return CompileScope.make(userId, language, bindings);
 };

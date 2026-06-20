@@ -2,7 +2,7 @@ import { sql } from "drizzle-orm";
 
 import type { IncludeEntry } from "../../language";
 import { compileBool, compileOrderBySql } from "./expr";
-import { userVisibleSql, type SqlFragment } from "./fragments";
+import { entitySourceSql, userVisibleSql, type SqlFragment } from "./fragments";
 import type { CompileScope, SqlRef } from "./scope";
 import { jsonbFieldEntriesSql } from "./select-list";
 
@@ -101,7 +101,7 @@ const compileInclude = (
 				JOIN relationship_schema ${sql.raw(rs)} ON ${sql.raw(rs)}.id = ${sql.raw(r)}.relationship_schema_id
 					AND ${sql.raw(rs)}.slug = ${via.schema}
 					AND ${userVisibleSql(rs, userId)}
-				JOIN entity ${sql.raw(e)} ON ${sql.raw(e)}.id = ${sql.raw(`${r}.${childColumn}`)}
+				JOIN ${entitySourceSql(scope.language)} ${sql.raw(e)} ON ${sql.raw(e)}.id = ${sql.raw(`${r}.${childColumn}`)}
 				JOIN entity_schema ${sql.raw(es)} ON ${sql.raw(es)}.id = ${sql.raw(e)}.entity_schema_id
 					AND ${sql.raw(es)}.slug IN (${slugListSql(source.schemas)})
 					AND ${userVisibleSql(es, userId)}

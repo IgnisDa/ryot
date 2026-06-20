@@ -18,12 +18,13 @@ import type { AggregateQueryDocument } from "./types";
 // window all run in Postgres. The source `where` compiles to a single boolean condition.
 export const executeAggregateQuery = Effect.fn("executeAggregateQuery")(function* (
 	userId: string,
+	language: string | null,
 	doc: AggregateQueryDocument,
 ) {
 	const { source, output } = doc;
-	const scope = rootScope(source, userId);
+	const scope = rootScope(source, userId, language);
 	const conditions = source.where ? [compileBool(source.where, scope)] : [];
-	const fromWhere = yield* rootSourceFromWhereSql(userId, source, conditions);
+	const fromWhere = yield* rootSourceFromWhereSql(userId, language, source, conditions);
 	const db = yield* CurrentDb;
 
 	const measures = output.measures;

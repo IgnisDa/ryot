@@ -2,6 +2,7 @@ import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { Effect } from "effect";
 
 import type { CurrentUserValue } from "#lib/auth-middleware";
+import { defaultUserPreferences } from "#lib/builtins/bootstrap";
 import { DbRunner } from "#lib/db/service";
 import { badRequest, notFound } from "#lib/errors";
 import {
@@ -59,7 +60,12 @@ type EventQueryScope = {
 	readonly entitySchemaSlugs: [string, ...string[]];
 };
 
-const userFromId = (userId: UserId): CurrentUserValue => ({ id: userId, name: "", email: "" });
+const userFromId = (userId: UserId): CurrentUserValue => ({
+	name: "",
+	email: "",
+	id: userId,
+	preferences: defaultUserPreferences,
+});
 
 const eventSystemRef = (name: string): Expr => ({
 	type: "ref",
