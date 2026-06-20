@@ -107,6 +107,7 @@ const installCacheProviderScoped = (key: string, value: string) => {
 			providers: [
 				{
 					slug: providerSlug,
+					rootEntitySchemaSlug: "cache-entity",
 					name: "Cache provider",
 					information: { source: "e2e" },
 					operations: { details: writerSlug, search: readerSlug },

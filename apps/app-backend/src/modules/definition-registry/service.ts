@@ -4,10 +4,7 @@ import type {
 	RyotQLDocument,
 	RowSelection,
 } from "@ryot/contract/modules/ryotql/language";
-import type {
-	SavedViewLayouts,
-	SavedViewSandboxScripts,
-} from "@ryot/contract/modules/saved-views/schemas";
+import type { SavedViewLayouts } from "@ryot/contract/modules/saved-views/schemas";
 import type { AppSchema, PropertyValidationError } from "@ryot/contract/schema/property-schema";
 import { Context, Data, Effect, Layer } from "effect";
 
@@ -74,7 +71,6 @@ export type SavedViewDefinition = {
 	readonly sortOrder: number;
 	readonly pluginSlug: string | null;
 	readonly layouts: SavedViewLayouts;
-	readonly sandboxScripts: SavedViewSandboxScripts;
 };
 
 export type DefinitionSource = {

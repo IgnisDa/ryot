@@ -57,7 +57,6 @@ const baseView: ListedSavedView = {
 	pluginSlug: null,
 	isBuiltin: false,
 	isDisabled: false,
-	sandboxScripts: {},
 	createdAt: new Date().toISOString(),
 	updatedAt: new Date().toISOString(),
 	id: SavedViewId.make("sv-id"),
@@ -74,13 +73,12 @@ const makeDefinitionRegistryLayer = (...views: ReadonlyArray<ListedSavedView>) =
 			signalSchemas: [],
 			relationshipSchemas: [],
 			savedViews: views.map(
-				({ icon, layouts: viewLayouts, name, pluginSlug, sandboxScripts, slug, sortOrder }) => ({
+				({ icon, layouts: viewLayouts, name, pluginSlug, slug, sortOrder }) => ({
 					icon,
 					name,
 					slug,
 					sortOrder,
 					pluginSlug,
-					sandboxScripts,
 					layouts: viewLayouts,
 				}),
 			),
@@ -97,21 +95,17 @@ const makeServiceLayer = (
 it.effect("creates and clones saved views without changing layouts", () => {
 	let findCalls = 0;
 	const createdLayouts: SavedViewLayouts[] = [];
-	const createdSandboxScripts: Array<ListedSavedView["sandboxScripts"]> = [];
-	const cloneSource = { ...baseView, sandboxScripts: { search: ["book.openlibrary.search"] } };
 	const layer = makeServiceLayer(
 		makeRepository({
-			findBySlug: () => Effect.succeed(findCalls++ === 1 ? cloneSource : null),
+			findBySlug: () => Effect.succeed(findCalls++ === 1 ? baseView : null),
 			create: (_userId, input) =>
 				Effect.sync(() => {
 					createdLayouts.push(input.layouts);
-					createdSandboxScripts.push(input.sandboxScripts);
 					return {
 						...baseView,
 						name: input.name,
 						slug: input.slug,
 						layouts: input.layouts,
-						sandboxScripts: input.sandboxScripts,
 					};
 				}),
 		}),
@@ -125,7 +119,6 @@ it.effect("creates and clones saved views without changing layouts", () => {
 		expect(created.layouts).toEqual(layouts);
 		expect(cloned.name).toBe("My View (Copy)");
 		expect(createdLayouts).toEqual([layouts, layouts]);
-		expect(createdSandboxScripts).toEqual([{}, { search: ["book.openlibrary.search"] }]);
 	}).pipe(Effect.provide(layer));
 });
 
@@ -202,13 +195,11 @@ it.effect("updates and reorders while preserving each layout set", () => {
 
 it.effect("persists builtin layouts unchanged", () => {
 	let builtinLayouts: SavedViewLayouts | undefined;
-	let builtinSandboxScripts: ListedSavedView["sandboxScripts"] | undefined;
 	const layer = makeServiceLayer(
 		makeRepository({
 			ensureBuiltinViews: (_userId, views) =>
 				Effect.sync(() => {
 					builtinLayouts = views[0]?.layouts;
-					builtinSandboxScripts = views[0]?.sandboxScripts;
 				}),
 		}),
 		makeDefinitionRegistryLayer({ ...baseView, isBuiltin: true }),
@@ -218,6 +209,5 @@ it.effect("persists builtin layouts unchanged", () => {
 		const service = yield* SavedViewsService;
 		yield* service.ensureBuiltinViews(user.id);
 		expect(builtinLayouts).toEqual(layouts);
-		expect(builtinSandboxScripts).toEqual({});
 	}).pipe(Effect.provide(layer));
 });

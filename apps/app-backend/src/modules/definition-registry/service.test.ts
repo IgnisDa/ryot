@@ -49,9 +49,6 @@ describe("definition registry", () => {
 		expect(registry.getEntitySchema("movie")?.pluginSlug).toBe("media");
 		expect(registry.getSavedView("collections")?.pluginSlug).toBeNull();
 		expect(registry.getSavedView("all-movies")?.pluginSlug).toBe("media");
-		expect(registry.getSavedView("all-movies")?.sandboxScripts).toEqual({
-			search: ["movie.tmdb.search", "movie.tvdb.search"],
-		});
 		expect(Object.isFrozen(snapshot)).toBe(true);
 		expect(Object.isFrozen(snapshot.entitySchemas["movie"]?.propertiesSchema)).toBe(true);
 	});

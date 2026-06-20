@@ -1,5 +1,6 @@
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { badRequest, notFound } from "@ryot/contract/errors";
+import type { ImportEntityBody } from "@ryot/contract/modules/provider-entities/schemas";
 import { EntitySchemaSlug, SandboxProviderId } from "@ryot/contract/schema/brands";
 import { generateId } from "better-auth";
 import { Context, Effect, Layer, Option, Redacted } from "effect";
@@ -10,6 +11,7 @@ import { DbRunner } from "#lib/infrastructure/db/service";
 import { createWorkflowJobId, resolveWorkflowExecutionId } from "#lib/shared/job-id";
 import { trimToNull } from "#lib/shared/validation";
 import { EntitiesRepository } from "#modules/entities/repository";
+import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
 import { EntityImportWorkflow } from "./entity-import-workflow";
 import { toEntityImportRunResult } from "./result-workflow";
@@ -25,26 +27,26 @@ export class EntityImportService extends Context.Service<EntityImportService>()(
 			const runWithDb = yield* DbRunner;
 			const engine = yield* WorkflowEngine;
 			const repository = yield* EntitiesRepository;
+			const pluginRuntime = yield* PluginRuntimeResolver;
 			const jobIdSecret = Redacted.value(config.sandbox.jobIdSecret);
 
 			const importEntity = Effect.fn("EntityImportService.import")(function* (
 				user: CurrentUserValue,
-				payload: {
-					externalId: string;
-					providerId: SandboxProviderId;
-					entitySchemaSlug: EntitySchemaSlug;
-				},
+				payload: ImportEntityBody,
 			) {
 				const trimmedProviderId = trimToNull(payload.providerId);
 				const externalId = trimToNull(payload.externalId);
-				const trimmedEntitySchemaSlug = trimToNull(payload.entitySchemaSlug);
 
-				if (!trimmedProviderId || !externalId || !trimmedEntitySchemaSlug) {
-					return yield* badRequest("providerId, externalId, and entitySchemaSlug are required");
+				if (!trimmedProviderId || !externalId) {
+					return yield* badRequest("providerId and externalId are required");
 				}
 
 				const providerId = SandboxProviderId.make(trimmedProviderId);
-				const entitySchemaSlug = EntitySchemaSlug.make(trimmedEntitySchemaSlug);
+				const provider = yield* runWithDb(pluginRuntime.findActiveProviderById(providerId));
+				if (!provider) {
+					return yield* notFound("Provider not found");
+				}
+				const entitySchemaSlug = EntitySchemaSlug.make(provider.rootEntitySchemaSlug);
 
 				const entitySchemaScope = yield* runWithDb(
 					repository.getEntitySchemaScopeForUser({ userId: user.id, entitySchemaSlug }),

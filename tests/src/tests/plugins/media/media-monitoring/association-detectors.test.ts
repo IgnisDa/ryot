@@ -1,4 +1,4 @@
-import { EntityId, EntitySchemaSlug, SandboxProviderId } from "@ryot/contract/schema/brands";
+import { EntityId, SandboxProviderId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
 import {
@@ -43,14 +43,14 @@ beforeAll(async () => {
 			movieSchemaId = yield* getBuiltinEntitySchemaSlug("movie");
 			personProvider = yield* installTestProvider({
 				client,
-				linkToEntitySchemaSlug: personSchemaId,
+				rootEntitySchemaSlug: personSchemaId,
 				slug: `person.association-e2e-${crypto.randomUUID()}`,
 				details: fakeProviderDetailsResult({ name: personName }),
 			});
 			movieProvider = yield* installTestProvider({
 				client,
 				slug: `movie.association-e2e-${crypto.randomUUID()}`,
-				linkToEntitySchemaSlug: movieSchemaId,
+				rootEntitySchemaSlug: movieSchemaId,
 				details: fakeProviderDetailsResult({
 					name: movieName,
 					relatedEntityGroups: [
@@ -105,7 +105,6 @@ it.live("notifies only a credited person's monitor once per role on first media 
 
 		const { jobId } = yield* enqueueProviderEntityImport(importer.client, {
 			externalId: movieExternalId,
-			entitySchemaSlug: EntitySchemaSlug.make(movieSchemaId),
 			providerId: SandboxProviderId.make(movieProvider.providerId),
 		});
 		const result = yield* pollProviderEntityImportResult(importer.client, jobId);
@@ -162,7 +161,7 @@ describe("dual-writer canonical identity", () => {
 				const dwPersonProvider = yield* installTestProvider({
 					client,
 					slug: dwPersonSlug,
-					linkToEntitySchemaSlug: personSchemaId,
+					rootEntitySchemaSlug: personSchemaId,
 					details: fakeProviderDetailsResult({
 						name: dwPersonName,
 						relatedEntityGroups: [
@@ -185,7 +184,7 @@ describe("dual-writer canonical identity", () => {
 				const dwMovieProvider = yield* installTestProvider({
 					client,
 					slug: dwMovieSlug,
-					linkToEntitySchemaSlug: movieSchemaId,
+					rootEntitySchemaSlug: movieSchemaId,
 					details: fakeProviderDetailsResult({
 						name: dwMovieName,
 						relatedEntityGroups: [
@@ -240,7 +239,6 @@ describe("dual-writer canonical identity", () => {
 				fakeApprise.requests.length = 0;
 				const { jobId } = yield* enqueueProviderEntityImport(importer.client, {
 					externalId: dwMovieExternalId,
-					entitySchemaSlug: EntitySchemaSlug.make(movieSchemaId),
 					providerId: SandboxProviderId.make(dwMovieProvider.providerId),
 				});
 				const imported = yield* pollProviderEntityImportResult(importer.client, jobId);
@@ -303,13 +301,13 @@ describe("association lifecycle via cron refresh", () => {
 			const ruPersonProvider = yield* installTestProvider({
 				client,
 				slug: ruPersonSlug,
-				linkToEntitySchemaSlug: personSchemaId,
+				rootEntitySchemaSlug: personSchemaId,
 				details: fakeProviderDetailsResult({ name: ruPersonName }),
 			});
 			const ruMovieProvider = yield* installTestProvider({
 				client,
 				slug: ruMovieSlug,
-				linkToEntitySchemaSlug: movieSchemaId,
+				rootEntitySchemaSlug: movieSchemaId,
 				details: fakeProviderDetailsResult({
 					name: ruMovieName,
 					relatedEntityGroups: [
@@ -434,13 +432,13 @@ describe("association lifecycle via cron refresh", () => {
 				yield* installTestProvider({
 					client,
 					slug: drMovieSlug,
-					linkToEntitySchemaSlug: movieSchemaId,
+					rootEntitySchemaSlug: movieSchemaId,
 					details: fakeProviderDetailsResult({ name: drMovieName }),
 				});
 				const drPersonProvider = yield* installTestProvider({
 					client,
 					slug: drPersonSlug,
-					linkToEntitySchemaSlug: personSchemaId,
+					rootEntitySchemaSlug: personSchemaId,
 					details: fakeProviderDetailsResult({
 						name: drPersonName,
 						relatedEntityGroups: [

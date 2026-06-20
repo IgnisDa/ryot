@@ -34,7 +34,6 @@ const emptyBindings = (): PluginBindings => ({
 	eventAutomations: [],
 	entityAutomations: [],
 	signalAutomations: [],
-	schemaProviderLinks: [],
 	relationshipAutomations: [],
 });
 
@@ -69,10 +68,6 @@ const mergeBindings = (manifests: ReadonlyArray<PluginManifest>): PluginBindings
 			eventAutomations: [...bindings.eventAutomations, ...manifest.bindings.eventAutomations],
 			entityAutomations: [...bindings.entityAutomations, ...manifest.bindings.entityAutomations],
 			signalAutomations: [...bindings.signalAutomations, ...manifest.bindings.signalAutomations],
-			schemaProviderLinks: [
-				...bindings.schemaProviderLinks,
-				...manifest.bindings.schemaProviderLinks,
-			],
 			relationshipAutomations: [
 				...bindings.relationshipAutomations,
 				...manifest.bindings.relationshipAutomations,

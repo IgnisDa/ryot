@@ -30,6 +30,7 @@ export const fitnessPlugin = definePlugin({
 	providers: [
 		{
 			name: "Free Exercise DB",
+			rootEntitySchemaSlug: "exercise",
 			slug: "exercise.free-exercise-db",
 			information: { source: "free-exercise-db" },
 			operations: {
@@ -49,9 +50,6 @@ export const fitnessPlugin = definePlugin({
 		eventAutomations: [],
 		signalAutomations: [],
 		relationshipAutomations: [],
-		schemaProviderLinks: [
-			{ entitySchemaSlug: "exercise", providerSlug: "exercise.free-exercise-db" },
-		],
 		entityAutomations: [
 			{
 				operation: "create",

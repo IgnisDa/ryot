@@ -4,11 +4,11 @@ RyotQL is the focused read API at `POST /ryotql/execute`. `POST /ryotql/execute`
 
 ## Current Capabilities
 
-- Authenticated user execution against the `entity`, `event`, `relationship`, `plugin`, `pluginState`, `savedView`, `notificationChannel`, `integration`, `importRun`, `importRunFailure`, and `notificationSubscriptionState` tables, plus capability-gated pinned-plugin execution against owned entity, event, and relationship data.
+- Authenticated user execution against the `entity`, `event`, `relationship`, `plugin`, `pluginState`, `savedView`, `sandboxProvider`, `sandboxProviderOperation`, `notificationChannel`, `integration`, `importRun`, `importRunFailure`, and `notificationSubscriptionState` tables, plus capability-gated pinned-plugin execution against owned entity, event, and relationship data.
 - Multiple independent named rows, aggregate, or time-series queries in one repeatable-read, read-only transaction.
 - Field selection, typed JSON expressions, predicates, arithmetic, correlated scalar expressions, inner and left joins, ordering, pagination, and correlated row includes.
 - Localized entity names and properties with translation status as a normal catalog field.
-- Visibility for every table occurrence: plugin is public; entity, event, and relationship are user-or-global; `pluginState`, `savedView`, `notificationChannel`, `integration`, `importRun`, and `notificationSubscriptionState` are user-owned; `importRunFailure` is parent-owned through `importRun`.
+- Visibility for every table occurrence: plugin, `sandboxProvider`, and `sandboxProviderOperation` are public to authenticated users; entity, event, and relationship are user-or-global; `pluginState`, `savedView`, `notificationChannel`, `integration`, `importRun`, and `notificationSubscriptionState` are user-owned; `importRunFailure` is parent-owned through `importRun`.
 - Runtime field kinds: `text`, `date`, `number`, `boolean`, `json`, and `null`.
 - Row and include fields may use the SDK `star(table)` helper to select every approved catalog field for that table alias.
 
@@ -18,7 +18,7 @@ The event catalog exposes `id`, `userId`, `entityId`, `createdAt`, `updatedAt`, 
 
 The relationship catalog exposes `id`, `userId`, `sourceEntityId`, `targetEntityId`, `createdAt`, `properties`, and `relationshipSchemaSlug`.
 
-The plugin catalog exposes `slug`, `status`, `version`, `manifest`, and `ingestedAt`. The plugin-state catalog exposes `id`, `pluginSlug`, `sortOrder`, `isDisabled`, `createdAt`, and `updatedAt`. The saved-view catalog exposes `id`, `slug`, `name`, `icon`, `sortOrder`, `isBuiltin`, `isDisabled`, `pluginSlug`, `layouts`, `createdAt`, and `updatedAt`. Plugin source and compiled hashes, plugin-state configuration, and application-table ownership columns are not queryable.
+The plugin catalog exposes `slug`, `status`, `version`, `manifest`, and `ingestedAt`. The plugin-state catalog exposes `id`, `pluginSlug`, `sortOrder`, `isDisabled`, `createdAt`, and `updatedAt`. The saved-view catalog exposes `id`, `slug`, `name`, `icon`, `sortOrder`, `isBuiltin`, `isDisabled`, `pluginSlug`, `layouts`, `createdAt`, and `updatedAt`. The `sandboxProvider` catalog exposes `id`, `slug`, `name`, `pluginSlug`, `rootEntitySchemaSlug`, `information`, `createdAt`, and `updatedAt`. The `sandboxProviderOperation` catalog exposes `id`, `providerId`, `operation`, `optionsSchema`, `createdAt`, and `updatedAt`; `scriptId` is not queryable. Provider operations join through `providerId` to `sandboxProvider.id`. Plugin source and compiled hashes, plugin-state configuration, and application-table ownership columns are not queryable.
 
 ## Document Shape
 
@@ -107,7 +107,7 @@ document({
 
 Sandbox scripts declare the separate `executeRyotql` capability. User and subscription executions retain their trusted user authority. A system execution is accepted only for a persisted pinned plugin script, and the backend derives its plugin slug and owned discriminator definitions from that script's installed plugin metadata.
 
-Plugin execution can read only global entities whose `entitySchemaSlug` is owned by the plugin. It can read event and relationship rows across users only when their discriminator definition is owned by the plugin. The `plugin`, `pluginState`, and `savedView` tables are denied. These policies apply independently to every root, join, include, and correlated query before document predicates.
+Plugin execution can read only global entities whose `entitySchemaSlug` is owned by the plugin. It can read event and relationship rows across users only when their discriminator definition is owned by the plugin. The `plugin`, `pluginState`, `savedView`, `sandboxProvider`, and `sandboxProviderOperation` tables are denied. These policies apply independently to every root, join, include, and correlated query before document predicates.
 
 Sandbox code imports builders, generic entity and event read recipes, field-value schemas, and strict named-response helpers from `@ryot/sandbox-sdk/ryotql`. The helpers accept only the RyotQL `{ data: { [queryName]: result } }` envelope.
 
