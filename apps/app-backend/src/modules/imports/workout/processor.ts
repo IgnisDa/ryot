@@ -53,22 +53,22 @@ const findOrCreateExercise = Effect.fn(function* (input: {
 	const key = exerciseIdentityKey(input.exercise);
 	const cached = input.exerciseCache.get(key);
 	if (cached) {
-		return { entity: cached, created: false };
+		return cached;
 	}
 
 	const existing = matchExerciseCandidate(input.exercise, input.candidates);
 	if (existing) {
 		input.exerciseCache.set(key, existing);
-		return { entity: existing, created: false };
+		return existing;
 	}
 
-	const { entity: created, operation } = yield* entities.create(input.user.id, {
+	const created = yield* entities.create(input.user, {
 		name: input.exercise.name,
 		entitySchemaId: input.exerciseSchemaId,
 		properties: { images: [], muscles: [], instructions: [], kind: input.exercise.kind },
 	});
 	input.exerciseCache.set(key, created);
-	return { entity: created, created: operation === "create" };
+	return created;
 });
 
 const buildWorkoutEntityProperties = (workout: WorkoutImportItem): Record<string, unknown> => {
@@ -80,16 +80,6 @@ const buildWorkoutEntityProperties = (workout: WorkoutImportItem): Record<string
 		properties["comment"] = workout.comment;
 	}
 	return properties;
-};
-
-export type WorkoutEntityMutation = {
-	entity: ListedEntity;
-	entitySchemaSlug: "exercise" | "workout";
-};
-
-export type CommitWorkoutItemResult = {
-	events: CreateEventItem[];
-	entityMutations: WorkoutEntityMutation[];
 };
 
 export const commitWorkoutItem = Effect.fn("imports.commitWorkoutItem")(function* (input: {
@@ -123,37 +113,26 @@ export const commitWorkoutItem = Effect.fn("imports.commitWorkoutItem")(function
 		}
 	}
 
-	const entityMutations: WorkoutEntityMutation[] = [];
 	const exerciseEntities: ListedEntity[] = [];
 	for (let exerciseOrder = 0; exerciseOrder < input.workout.exercises.length; exerciseOrder++) {
 		const exercise = input.workout.exercises[exerciseOrder];
 		if (!exercise) {
 			continue;
 		}
-		const resolved = yield* findOrCreateExercise({
+		exerciseEntities[exerciseOrder] = yield* findOrCreateExercise({
 			exercise,
 			user: input.user,
 			candidates: input.candidates,
 			exerciseCache: input.exerciseCache,
 			exerciseSchemaId: input.schemas.exerciseSchemaId,
 		});
-		exerciseEntities[exerciseOrder] = resolved.entity;
-		if (resolved.created) {
-			entityMutations.push({ entitySchemaSlug: "exercise", entity: resolved.entity });
-		}
 	}
 
-	const { entity: workoutEntity, operation: workoutOperation } = yield* entities.create(
-		input.user.id,
-		{
-			name: input.workout.name,
-			entitySchemaId: input.schemas.workoutSchemaId,
-			properties: buildWorkoutEntityProperties(input.workout),
-		},
-	);
-	if (workoutOperation === "create") {
-		entityMutations.push({ entitySchemaSlug: "workout", entity: workoutEntity });
-	}
+	const workoutEntity = yield* entities.create(input.user, {
+		name: input.workout.name,
+		entitySchemaId: input.schemas.workoutSchemaId,
+		properties: buildWorkoutEntityProperties(input.workout),
+	});
 
 	const eventBody: CreateEventItem[] = [];
 	for (const draft of drafts) {
@@ -170,7 +149,7 @@ export const commitWorkoutItem = Effect.fn("imports.commitWorkoutItem")(function
 		});
 	}
 
-	return { events: eventBody, entityMutations } satisfies CommitWorkoutItemResult;
+	return eventBody;
 });
 
 export type WorkoutImportContext = {

@@ -1,4 +1,4 @@
-import type { BadRequest } from "@ryot/contract/errors";
+import type { BadRequest, DbError, NotFound } from "@ryot/contract/errors";
 import { badRequest, notFound } from "@ryot/contract/errors";
 import { BeforeTriggerResult } from "@ryot/contract/modules/events/schemas";
 import type { CreateEventItem, ListedEvent } from "@ryot/contract/modules/events/schemas";
@@ -7,6 +7,7 @@ import type { EntitySchemaId, UserId } from "@ryot/contract/schema/brands";
 import { DateTime, Effect, Option, Schema } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
+import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
 import { requireText } from "#lib/shared/validation";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
@@ -20,12 +21,17 @@ const eventSchemaMismatchError = "Event schema does not belong to the entity sch
 export const decodeBeforeTriggerResult = Schema.decodeUnknown(BeforeTriggerResult);
 
 export type CreatedEventWithContext = ListedEvent & {
-	readonly entityName: string;
-	readonly occurrenceId: string;
-	readonly entitySchemaSlug: string;
-	readonly isGlobalReference: boolean;
 	readonly entitySchemaId: EntitySchemaId;
+	readonly entitySchemaSlug: string;
 };
+
+type EventValidationError = BadRequest | DbError | NotFound;
+
+type ValidateEventEffect = Effect.Effect<
+	void,
+	EventValidationError,
+	DbRunner | EntitiesRepository | EventSchemasRepository
+>;
 
 const resolveOccurredAt = (occurredAt?: string): Effect.Effect<Date, BadRequest> => {
 	if (!occurredAt) {
@@ -93,3 +99,25 @@ export const resolveEventCreateItemScopes = Effect.fn("resolveEventCreateItemSco
 		return { entityId, eventSchemaId, entityScope, eventSchemaScope, sessionEntityId, occurredAt };
 	},
 );
+
+const validateEventCreateItem = Effect.fn("validateEventCreateItem")(function* (input: {
+	readonly item: CreateEventItem;
+	readonly userId: UserId;
+}) {
+	const { eventSchemaScope } = yield* resolveEventCreateItemScopes(input);
+	yield* parseAppSchemaProperties({
+		kind: "Event",
+		properties: input.item.properties,
+		propertiesSchema: eventSchemaScope.propertiesSchema,
+	}).pipe(Effect.mapError((error) => badRequest(error.message)));
+
+	return yield* Effect.void;
+});
+
+export const validateEventCreateSubmission = (input: {
+	readonly userId: UserId;
+	readonly payload: ReadonlyArray<CreateEventItem>;
+}): ValidateEventEffect =>
+	Effect.forEach(input.payload, (item) => validateEventCreateItem({ item, userId: input.userId }), {
+		discard: true,
+	});

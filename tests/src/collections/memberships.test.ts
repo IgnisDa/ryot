@@ -79,23 +79,6 @@ describe("POST /collections/memberships", () => {
 		expect(data.memberOf.targetEntityId).toBe(collection.id);
 	});
 
-	it("stores membership properties verbatim without injecting member-of schema defaults", async () => {
-		const { client } = await createAuthenticatedClient();
-
-		const collection = await createCollection(client, {
-			name: "No-schema Collection",
-			description: "Collection without a membership properties schema",
-		});
-
-		const { entityId } = await createTrackerWithSchemaAndEntity(client);
-
-		const data = await client.run((c) =>
-			c.collections.createMembership({ payload: { entityId, collectionId: collection.id } }),
-		);
-
-		expect(data.memberOf.properties).toEqual({});
-	});
-
 	it("adds a global entity to a collection and upserts in_library", async () => {
 		const { client, email } = await createAuthenticatedClient();
 		const { entity } = await createGlobalBookEntityFixture(client);

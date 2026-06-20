@@ -43,29 +43,14 @@ const makeSandboxRepository = (overrides: MockOverrides<typeof mockSandboxReposi
 
 const fakeScript = {
 	id: scriptId,
-	userId: null,
-	isBuiltin: true,
-	code: "// script",
-	metadata: { allowedHostFunctions: [] },
-	updatedAt: new Date("2026-01-01T00:00:00.000Z"),
-};
-
-const fakeCustomScript = {
-	...fakeScript,
 	userId: user.id,
 	isBuiltin: false,
+	code: "// script",
+	metadata: { allowedHostFunctions: [] },
 };
 
 const fakeEntitySchemaScope = {
 	slug: "movie",
-	userId: null,
-	isBuiltin: true,
-	id: entitySchemaId,
-	propertiesSchema: { fields: {} },
-};
-
-const fakeCustomEntitySchemaScope = {
-	slug: "custom-movie",
 	userId: user.id,
 	isBuiltin: false,
 	id: entitySchemaId,
@@ -160,25 +145,6 @@ it.effect("returns NotFound when the sandbox script is not found", () =>
 	),
 );
 
-it.effect("returns BadRequest when the sandbox script is a custom user script", () =>
-	Effect.gen(function* () {
-		const service = yield* LibraryImportService;
-		const result = yield* Effect.exit(
-			service.import(user, { scriptId, externalId, entitySchemaId }),
-		);
-		const cause = getFailureCause(result);
-		const failure = cause._tag === "Fail" ? cause.error : null;
-		expect(failure).toBeInstanceOf(BadRequest);
-	}).pipe(
-		Effect.provide(
-			makeServiceLayer(
-				makeSandboxRepository({ getScriptForUser: () => Effect.succeed(fakeCustomScript) }),
-				makeEntitiesRepository(),
-			),
-		),
-	),
-);
-
 it.effect("returns NotFound when the entity schema is not found", () =>
 	Effect.gen(function* () {
 		const service = yield* LibraryImportService;
@@ -193,27 +159,6 @@ it.effect("returns NotFound when the entity schema is not found", () =>
 			makeServiceLayer(
 				makeSandboxRepository({ getScriptForUser: () => Effect.succeed(fakeScript) }),
 				makeEntitiesRepository({ getEntitySchemaScopeForUser: () => Effect.succeed(null) }),
-			),
-		),
-	),
-);
-
-it.effect("returns BadRequest when the entity schema is a custom user schema", () =>
-	Effect.gen(function* () {
-		const service = yield* LibraryImportService;
-		const result = yield* Effect.exit(
-			service.import(user, { scriptId, externalId, entitySchemaId }),
-		);
-		const cause = getFailureCause(result);
-		const failure = cause._tag === "Fail" ? cause.error : null;
-		expect(failure).toBeInstanceOf(BadRequest);
-	}).pipe(
-		Effect.provide(
-			makeServiceLayer(
-				makeSandboxRepository({ getScriptForUser: () => Effect.succeed(fakeScript) }),
-				makeEntitiesRepository({
-					getEntitySchemaScopeForUser: () => Effect.succeed(fakeCustomEntitySchemaScope),
-				}),
 			),
 		),
 	),

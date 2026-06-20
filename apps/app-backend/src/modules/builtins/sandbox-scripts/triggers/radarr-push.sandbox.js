@@ -14,15 +14,10 @@ async function pushMovieToRadarr(integration, tmdbId) {
 		tags: Array.isArray(specifics.tagIds) ? specifics.tagIds : [],
 	};
 
-	const result = await httpCall(
-		"POST",
-		baseUrl + "/api/v3/movie",
-		{
-			body: JSON.stringify(requestBody),
-			headers: { "Content-Type": "application/json", "X-Api-Key": specifics.apiKey },
-		},
-		"radarr:" + String(integration.id) + ":" + String(tmdbId),
-	);
+	const result = await httpCall("POST", baseUrl + "/api/v3/movie", {
+		body: JSON.stringify(requestBody),
+		headers: { "Content-Type": "application/json", "X-Api-Key": specifics.apiKey },
+	});
 
 	if (!result.success) {
 		// Radarr replies 409 when the movie already exists; that is expected, not an error.
@@ -30,9 +25,8 @@ async function pushMovieToRadarr(integration, tmdbId) {
 	}
 }
 
-driver("subscription", async function (context) {
-	const source = context.automation?.source;
-	const trigger = source?.kind === "event" ? source.after : null;
+driver("trigger", async function (context) {
+	const trigger = context.trigger;
 	if (!trigger) {
 		return;
 	}
@@ -43,6 +37,7 @@ driver("subscription", async function (context) {
 		return;
 	}
 
+	// Both checks are independent — run in parallel.
 	const preamble = await Promise.all([
 		integrationsDisabledForUser(),
 		listActiveIntegrations("radarr"),

@@ -2,7 +2,6 @@ import { EntityId } from "@ryot/contract/schema/brands";
 
 import { getPgClient } from "../setup";
 import type { Client } from "./auth";
-import { pollUntil } from "./polling";
 
 export const getMediaMonitoringStatus = (client: Client, entityId: string) =>
 	client.run((contract) =>
@@ -37,20 +36,3 @@ export const countMediaMonitoringRelationships = async (input: {
 	);
 	return Number(result.rows[0]?.count ?? 0);
 };
-
-export const waitForProviderRefresh = (executionId: string, entityId?: string) =>
-	pollUntil("provider refresh workflow completion", async () => {
-		const result = await getPgClient().query<{ complete: boolean }>(
-			`select exists (
-				select 1
-				from cluster_messages m
-				inner join cluster_replies r on r.request_id = m.id
-				where m.entity_type = 'Workflow/ProviderEntityPopulationWorkflow'
-				  and m.tag = 'run'
-				  and m.payload like ('%' || $1 || '%')
-				  and r.payload not like '%Suspended%'
-			) as complete`,
-			[entityId ? `${executionId}-${entityId}-provider-refresh` : executionId],
-		);
-		return result.rows[0]?.complete ? true : null;
-	});

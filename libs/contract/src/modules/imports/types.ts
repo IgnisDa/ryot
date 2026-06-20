@@ -7,6 +7,7 @@ export const importRunFailureStages = [
 	"database_commit",
 	"provider_details",
 	"provider_resolution",
+	"event_before_trigger",
 	"input_transformation",
 ] as const;
 

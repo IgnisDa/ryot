@@ -12,7 +12,7 @@ import { Effect } from "effect";
 
 import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
 import { buildReorderedIds } from "#lib/shared/reorder";
-import { deriveSlug, slugify } from "#lib/shared/slug";
+import { slugify } from "#lib/shared/slug";
 import { trimToNull } from "#lib/shared/validation";
 import { buildDisplayConfig } from "#modules/builtins/view-helpers";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
@@ -42,7 +42,7 @@ const resolveSavedViewName = Effect.fn(function* (name: string) {
 });
 
 const resolveSavedViewSlug = Effect.fn(function* (name: string) {
-	const slug = deriveSlug(name);
+	const slug = name ? slugify(name) : null;
 	if (!slug) {
 		return yield* badRequest("Saved view slug is required");
 	}

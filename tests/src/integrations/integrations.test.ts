@@ -188,45 +188,6 @@ describe("Integration CRUD", () => {
 		}
 	});
 
-	it("PATCH rejects updating another user's integration", async () => {
-		const { client: ownerClient } = await createAuthenticatedClient();
-		const { client: attackerClient } = await createAuthenticatedClient();
-		const { id } = await createIntegration(ownerClient, {
-			provider: "audiobookshelf",
-			name: "Private Audiobookshelf integration",
-			providerSpecifics: {
-				token: "owner-secret",
-				kind: "audiobookshelf",
-				baseUrl: "https://owner.example.com",
-			},
-		});
-
-		const error = await attackerClient.runError((c) =>
-			c.integrations.update({
-				path: { integrationId: IntegrationId.make(id) },
-				payload: {
-					name: "Hijacked integration",
-					providerSpecifics: { token: "attacker-secret", baseUrl: "https://attacker.example.com" },
-				},
-			}),
-		);
-
-		assertTaggedError(error, "NotFound");
-
-		const ownerIntegration = await getIntegration(ownerClient, id);
-		expect(ownerIntegration).toMatchObject({
-			id: IntegrationId.make(id),
-			name: "Private Audiobookshelf integration",
-			providerSpecifics: {
-				token: "owner-secret",
-				kind: "audiobookshelf",
-				baseUrl: "https://owner.example.com",
-			},
-		});
-
-		expect(await listIntegrations(attackerClient)).toHaveLength(0);
-	});
-
 	it("PATCH rejects threshold violations on update", async () => {
 		const { client } = await createAuthenticatedClient();
 

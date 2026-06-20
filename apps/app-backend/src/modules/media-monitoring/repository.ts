@@ -1,11 +1,25 @@
-import { EntityId, EntitySchemaId, SandboxScriptId } from "@ryot/contract/schema/brands";
+import { EntityId, EntitySchemaId, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
+import { asRecord } from "@ryot/ts-utils/predicates";
 import { and, asc, eq, inArray, isNotNull, isNull } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { Effect } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
 
-import { mediaMonitorableEntitySchemaSlugs } from "./monitorable";
+import type {
+	MediaMonitoringAssociationSnapshot,
+	MediaMonitoringEntityKind,
+	MediaMonitoringSeasonSnapshot,
+} from "./diff";
+import { snapshotEpisode, snapshotProperties, snapshotSeason } from "./diff";
+import {
+	isMediaMonitoringAssociationTargetSchema,
+	mediaMonitorableEntitySchemaSlugs,
+} from "./monitorable";
+
+const sourceEntitySchema = alias(schema.entitySchema, "media_monitoring_source_entity_schema");
+const targetEntitySchema = alias(schema.entitySchema, "media_monitoring_target_entity_schema");
 
 export type MediaMonitoringTarget = {
 	entityId: EntityId;
@@ -14,6 +28,21 @@ export type MediaMonitoringTarget = {
 	externalId: string;
 	sandboxScriptId: SandboxScriptId;
 };
+
+type Edge = {
+	entityId: EntityId;
+	externalId: string | null;
+	entitySchemaSlug: string;
+	name: string;
+	properties: Record<string, unknown>;
+	relationshipProperties: Record<string, unknown>;
+	sandboxScriptId: string | null;
+	sourceSchemaSlug: string;
+	targetSchemaSlug: string;
+};
+
+const toKind = (slug: string): MediaMonitoringEntityKind =>
+	slug === "person" || slug === "company" ? slug : "media";
 
 export class MediaMonitoringRepository extends Effect.Service<MediaMonitoringRepository>()(
 	"MediaMonitoringRepository",
@@ -38,15 +67,116 @@ export class MediaMonitoringRepository extends Effect.Service<MediaMonitoringRep
 				},
 			);
 
+			const getEntity = Effect.fn("MediaMonitoringRepository.getEntity")(function* (
+				entityId: EntityId,
+			) {
+				const db = yield* CurrentDb;
+				const [row] = yield* dbEffect(() =>
+					db
+						.select({
+							entityId: schema.entity.id,
+							externalId: schema.entity.externalId,
+							entitySchemaSlug: schema.entitySchema.slug,
+							name: schema.entity.name,
+							properties: schema.entity.properties,
+							populatedAt: schema.entity.populatedAt,
+							userId: schema.entity.userId,
+						})
+						.from(schema.entity)
+						.innerJoin(
+							schema.entitySchema,
+							eq(schema.entity.entitySchemaId, schema.entitySchema.id),
+						)
+						.where(eq(schema.entity.id, entityId))
+						.limit(1),
+				);
+				return row ?? null;
+			});
+
+			const listEdges = Effect.fn("MediaMonitoringRepository.listEdges")(function* (input: {
+				direction: "incoming" | "outgoing";
+				entityId: EntityId;
+			}) {
+				const db = yield* CurrentDb;
+				const isOutgoing = input.direction === "outgoing";
+				const rows = yield* dbEffect(() =>
+					db
+						.select({
+							entityId: schema.entity.id,
+							externalId: schema.entity.externalId,
+							entitySchemaSlug: schema.entitySchema.slug,
+							name: schema.entity.name,
+							properties: schema.entity.properties,
+							relationshipProperties: schema.relationship.properties,
+							sandboxScriptId: schema.entity.sandboxScriptId,
+							sourceSchemaSlug: sourceEntitySchema.slug,
+							targetSchemaSlug: targetEntitySchema.slug,
+						})
+						.from(schema.relationship)
+						.innerJoin(
+							schema.entity,
+							eq(
+								isOutgoing
+									? schema.relationship.targetEntityId
+									: schema.relationship.sourceEntityId,
+								schema.entity.id,
+							),
+						)
+						.innerJoin(
+							schema.entitySchema,
+							eq(schema.entity.entitySchemaId, schema.entitySchema.id),
+						)
+						.innerJoin(
+							schema.relationshipSchema,
+							eq(schema.relationship.relationshipSchemaId, schema.relationshipSchema.id),
+						)
+						.leftJoin(
+							sourceEntitySchema,
+							eq(schema.relationshipSchema.sourceEntitySchemaId, sourceEntitySchema.id),
+						)
+						.leftJoin(
+							targetEntitySchema,
+							eq(schema.relationshipSchema.targetEntitySchemaId, targetEntitySchema.id),
+						)
+						.where(
+							and(
+								isNull(schema.relationship.userId),
+								eq(
+									isOutgoing
+										? schema.relationship.sourceEntityId
+										: schema.relationship.targetEntityId,
+									input.entityId,
+								),
+							),
+						)
+						.orderBy(asc(schema.entity.name), asc(schema.entity.id)),
+				);
+
+				return rows.map(
+					(row) =>
+						({
+							name: row.name,
+							externalId: row.externalId,
+							sandboxScriptId: row.sandboxScriptId,
+							entitySchemaSlug: row.entitySchemaSlug,
+							entityId: EntityId.make(row.entityId),
+							properties: asRecord(row.properties) ?? {},
+							targetSchemaSlug: row.targetSchemaSlug ?? (isOutgoing ? row.entitySchemaSlug : ""),
+							sourceSchemaSlug: row.sourceSchemaSlug ?? (isOutgoing ? "" : row.entitySchemaSlug),
+							relationshipProperties: asRecord(row.relationshipProperties) ?? {},
+						}) satisfies Edge,
+				);
+			});
+
 			const listTargets = Effect.fn("MediaMonitoringRepository.listTargets")(function* () {
 				const db = yield* CurrentDb;
 				const rows = yield* dbEffect(() =>
 					db
 						.selectDistinct({
 							entityId: schema.entity.id,
-							externalId: schema.entity.externalId,
 							entitySchemaId: schema.entity.entitySchemaId,
 							entitySchemaSlug: schema.entitySchema.slug,
+							externalId: schema.entity.externalId,
 							sandboxScriptId: schema.entity.sandboxScriptId,
 						})
 						.from(schema.relationship)
@@ -76,10 +206,10 @@ export class MediaMonitoringRepository extends Effect.Service<MediaMonitoringRep
 					row.externalId && row.sandboxScriptId
 						? [
 								{
-									externalId: row.externalId,
 									entityId: EntityId.make(row.entityId),
-									entitySchemaSlug: row.entitySchemaSlug,
 									entitySchemaId: EntitySchemaId.make(row.entitySchemaId),
+									entitySchemaSlug: row.entitySchemaSlug,
+									externalId: row.externalId,
 									sandboxScriptId: SandboxScriptId.make(row.sandboxScriptId),
 								} satisfies MediaMonitoringTarget,
 							]
@@ -87,7 +217,140 @@ export class MediaMonitoringRepository extends Effect.Service<MediaMonitoringRep
 				);
 			});
 
-			return { listTargets, getProviderProvenance };
+			const listSubscribers = Effect.fn("MediaMonitoringRepository.listSubscribers")(function* (
+				entityId: EntityId,
+			) {
+				const db = yield* CurrentDb;
+				const rows = yield* dbEffect(() =>
+					db
+						.select({ userId: schema.relationship.userId })
+						.from(schema.relationship)
+						.innerJoin(
+							schema.relationshipSchema,
+							eq(schema.relationship.relationshipSchemaId, schema.relationshipSchema.id),
+						)
+						.innerJoin(schema.entity, eq(schema.relationship.targetEntityId, schema.entity.id))
+						.innerJoin(
+							schema.entitySchema,
+							eq(schema.entity.entitySchemaId, schema.entitySchema.id),
+						)
+						.where(
+							and(
+								eq(schema.relationship.sourceEntityId, entityId),
+								eq(schema.relationshipSchema.slug, "media-monitoring"),
+								isNotNull(schema.relationship.userId),
+								eq(schema.entitySchema.slug, "library"),
+							),
+						),
+				);
+				return rows.flatMap((row) => (row.userId ? [UserId.make(row.userId)] : []));
+			});
+
+			const getSnapshot = Effect.fn("MediaMonitoringRepository.getSnapshot")(function* (
+				entityId: EntityId,
+			) {
+				const entity = yield* getEntity(entityId);
+				if (entity?.userId !== null) {
+					return null;
+				}
+
+				const direct = yield* listEdges({ direction: "outgoing", entityId });
+				const nested = yield* Effect.forEach(
+					direct.filter((edge) => edge.entitySchemaSlug === "show-season"),
+					(edge) => listEdges({ direction: "outgoing", entityId: edge.entityId }),
+				);
+				const seasons: MediaMonitoringSeasonSnapshot[] = [];
+				for (const [index, season] of direct
+					.filter((edge) => edge.entitySchemaSlug === "show-season")
+					.entries()) {
+					const seasonSnapshot = snapshotSeason({
+						externalId: season.externalId,
+						name: season.name,
+						properties: season.properties,
+					});
+					const episodes = (nested[index] ?? [])
+						.filter(
+							(edge) =>
+								edge.entitySchemaSlug === "show-episode" && edge.sourceSchemaSlug === "show-season",
+						)
+						.map((episode) =>
+							snapshotEpisode({
+								externalId: episode.externalId,
+								name: episode.name,
+								properties: episode.properties,
+							}),
+						);
+					seasons.push({ ...seasonSnapshot, episodes });
+				}
+
+				const podcastEpisodes = direct
+					.filter((edge) => edge.entitySchemaSlug === "podcast-episode")
+					.map((edge) =>
+						snapshotEpisode({
+							externalId: edge.externalId,
+							name: edge.name,
+							properties: edge.properties,
+						}),
+					);
+				const incoming = yield* listEdges({ direction: "incoming", entityId });
+				const kind = toKind(entity.entitySchemaSlug);
+				const associations: MediaMonitoringAssociationSnapshot[] = [];
+				if (kind !== "media") {
+					for (const edge of [...direct, ...incoming]) {
+						const associationIsOutgoing = edge.sourceSchemaSlug === kind;
+						const associationIsIncoming = edge.targetSchemaSlug === kind;
+						if (!associationIsOutgoing && !associationIsIncoming) {
+							continue;
+						}
+						if (!isMediaMonitoringAssociationTargetSchema(edge.entitySchemaSlug)) {
+							continue;
+						}
+						const roles = Array.isArray(edge.relationshipProperties["roles"])
+							? edge.relationshipProperties["roles"].filter(
+									(item): item is string => typeof item === "string",
+								)
+							: [""];
+						for (const role of roles.length === 0 ? [""] : roles) {
+							associations.push({
+								id:
+									edge.externalId && edge.sandboxScriptId
+										? `${edge.sandboxScriptId}:${edge.externalId}`
+										: edge.entityId,
+								name: edge.name,
+								role,
+								kind: edge.entitySchemaSlug.endsWith("-group") ? "group" : "metadata",
+							});
+						}
+					}
+				}
+
+				return {
+					entityId,
+					entityKind: kind,
+					entitySchemaSlug: entity.entitySchemaSlug,
+					name: entity.name,
+					populatedAt: entity.populatedAt?.toISOString() ?? null,
+					properties: snapshotProperties(entity.properties),
+					seasons,
+					animeEpisodes:
+						typeof entity.properties["episodes"] === "number"
+							? entity.properties["episodes"]
+							: null,
+					mangaChapters:
+						typeof entity.properties["chapters"] === "number"
+							? entity.properties["chapters"]
+							: null,
+					podcastEpisodes,
+					associations,
+				};
+			});
+
+			return {
+				listTargets,
+				getSnapshot,
+				listSubscribers,
+				getProviderProvenance,
+			};
 		},
 	},
 ) {}

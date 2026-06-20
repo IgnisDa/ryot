@@ -29,8 +29,6 @@ const savedRelationship = {
 	createdAt: "2026-06-22T00:00:00.000Z",
 };
 
-const createOutcome = { operation: "create" as const, relationship: savedRelationship };
-
 const mockRelationshipsRepository = Layer.mock(RelationshipsRepository);
 
 const makeRelationshipsRepository = (
@@ -48,26 +46,16 @@ const makeServiceLayer = (overrides: Parameters<typeof makeRelationshipsReposito
 
 const baseInput = {
 	userId,
+	properties: {},
 	sourceEntityId,
 	targetEntityId,
 	relationshipSchemaId,
 	scope: "user" as const,
 	onConflict: "replaceProperties" as const,
+	propertiesSchema: { fields: {} } as const,
 };
 
-const captureSave = () => {
-	let savedInput: unknown;
-	const layer = makeServiceLayer({
-		saveRelationship: (input) =>
-			Effect.sync(() => {
-				savedInput = input;
-				return createOutcome;
-			}),
-	});
-	return { layer, read: () => savedInput };
-};
-
-it.effect("save (schema mode) fails with bad request when properties violate the schema", () => {
+it.effect("returns bad request when properties violate the relationship schema", () => {
 	const layer = makeServiceLayer();
 
 	return Effect.gen(function* () {
@@ -75,7 +63,6 @@ it.effect("save (schema mode) fails with bad request when properties violate the
 		const exit = yield* Effect.exit(
 			service.save({
 				...baseInput,
-				validation: "schema",
 				properties: { status: "deleted" },
 				propertiesSchema: {
 					fields: {
@@ -100,42 +87,45 @@ it.effect("save (schema mode) fails with bad request when properties violate the
 	}).pipe(Effect.provide(layer));
 });
 
-it.effect(
-	"save (schema mode) passes parsed properties to the repository and returns the outcome",
-	() => {
-		const { layer, read } = captureSave();
+it.effect("saves a validated user relationship", () => {
+	let savedInput: unknown;
+	const layer = makeServiceLayer({
+		saveRelationship: (input) =>
+			Effect.sync(() => {
+				savedInput = input;
+				return savedRelationship;
+			}),
+	});
 
-		return Effect.gen(function* () {
-			const service = yield* RelationshipsService;
-			const result = yield* service.save({
-				...baseInput,
-				validation: "schema",
-				properties: { note: "hi" },
-				propertiesSchema: {
-					fields: { note: { label: "Note", type: "string" as const, description: "Note" } },
-				},
-			});
-			expect(result).toEqual(createOutcome);
-			expect(read()).toEqual({
-				userId,
-				scope: "user",
-				sourceEntityId,
-				targetEntityId,
-				relationshipSchemaId,
-				properties: { note: "hi" },
-				onConflict: "replaceProperties",
-			});
-		}).pipe(Effect.provide(layer));
-	},
-);
+	return Effect.gen(function* () {
+		const service = yield* RelationshipsService;
+		const result = yield* service.save(baseInput);
+		expect(result).toEqual(savedRelationship);
+		expect(savedInput).toEqual({
+			userId,
+			properties: {},
+			sourceEntityId,
+			targetEntityId,
+			relationshipSchemaId,
+			scope: "user",
+			onConflict: "replaceProperties",
+		});
+	}).pipe(Effect.provide(layer));
+});
 
-it.effect("save (schema mode) validates and persists a global relationship", () => {
-	const { layer, read } = captureSave();
+it.effect("saves a validated global relationship", () => {
+	let savedInput: unknown;
+	const layer = makeServiceLayer({
+		saveRelationship: (input) =>
+			Effect.sync(() => {
+				savedInput = input;
+				return savedRelationship;
+			}),
+	});
 
 	return Effect.gen(function* () {
 		const service = yield* RelationshipsService;
 		const result = yield* service.save({
-			validation: "schema",
 			sourceEntityId,
 			targetEntityId,
 			properties: {},
@@ -144,62 +134,14 @@ it.effect("save (schema mode) validates and persists a global relationship", () 
 			onConflict: "replaceProperties",
 			propertiesSchema: { fields: {} },
 		});
-		expect(result).toEqual(createOutcome);
-		expect(read()).toEqual({
+		expect(result).toEqual(savedRelationship);
+		expect(savedInput).toEqual({
 			properties: {},
 			sourceEntityId,
 			targetEntityId,
+			relationshipSchemaId,
 			scope: "global",
-			relationshipSchemaId,
 			onConflict: "replaceProperties",
 		});
-	}).pipe(Effect.provide(layer));
-});
-
-it.effect("save (prevalidated mode) persists properties verbatim without applying a schema", () => {
-	const { layer, read } = captureSave();
-
-	return Effect.gen(function* () {
-		const service = yield* RelationshipsService;
-		const result = yield* service.save({
-			...baseInput,
-			validation: "prevalidated",
-			properties: { note: "member" },
-		});
-		expect(result).toEqual(createOutcome);
-		expect(read()).toEqual({
-			userId,
-			scope: "user",
-			sourceEntityId,
-			targetEntityId,
-			relationshipSchemaId,
-			properties: { note: "member" },
-			onConflict: "replaceProperties",
-		});
-	}).pipe(Effect.provide(layer));
-});
-
-it.effect("syncGlobal delegates to the repository and returns the sync outcome", () => {
-	const syncOutcome = { afterCount: 1, beforeCount: 0, mutations: [] };
-	let syncedInput: unknown;
-	const layer = makeServiceLayer({
-		syncGlobalRelationships: (input) =>
-			Effect.sync(() => {
-				syncedInput = input;
-				return syncOutcome;
-			}),
-	});
-
-	return Effect.gen(function* () {
-		const service = yield* RelationshipsService;
-		const result = yield* service.syncGlobal({
-			type: "self",
-			onConflict: "replaceProperties",
-			synchronization: "authoritative",
-			relationshipSchemaId,
-			entries: [{ entityId: sourceEntityId, properties: { rank: 1 } }],
-		});
-		expect(result).toEqual(syncOutcome);
-		expect(syncedInput).toMatchObject({ type: "self", relationshipSchemaId });
 	}).pipe(Effect.provide(layer));
 });

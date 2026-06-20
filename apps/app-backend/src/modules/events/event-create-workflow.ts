@@ -18,8 +18,6 @@ export const EventCreateWorkflowPayload = Schema.Struct({
 	payload: Schema.Array(CreateEventItem),
 	importRunId: Schema.optional(ImportRunId),
 	integrationId: Schema.optional(IntegrationId),
-	correlationId: Schema.optional(Schema.String),
-	automationDepth: Schema.optional(Schema.Number.pipe(Schema.int(), Schema.nonNegative())),
 });
 
 export type EventCreateWorkflowPayload = typeof EventCreateWorkflowPayload.Type;
@@ -36,5 +34,10 @@ export const EventCreateWorkflow = Workflow.make({
 	idempotencyKey: ({ executionId }) => executionId,
 });
 
-export const executeEventCreate = (input: EventCreateWorkflowInput) =>
-	EventCreateWorkflow.execute({ ...input, executionId: input.executionId ?? generateId() });
+const withExecutionId = (input: EventCreateWorkflowInput) => ({
+	...input,
+	executionId: input.executionId ?? generateId(),
+});
+
+export const enqueueEventCreate = (input: EventCreateWorkflowInput) =>
+	EventCreateWorkflow.execute(withExecutionId(input), { discard: true });

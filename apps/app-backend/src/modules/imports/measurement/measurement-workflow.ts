@@ -1,18 +1,20 @@
 import { Activity } from "@effect/workflow";
 import type { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
-import { ListedEntity } from "@ryot/contract/modules/entities/schemas";
+import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { EntitySchemaId } from "@ryot/contract/schema/brands";
 import { Effect, Schema } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
-import type { AutomationsRepository } from "#modules/automations/repository";
+import { defaultUserPreferences } from "#modules/builtins/bootstrap";
 import { EntitiesService } from "#modules/entities/service";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 
 import type { ImportRunJobData } from "../jobs";
-import type { NonMediaItemOutcome, NonMediaPrepareWritesEffect } from "../non-media-types";
-import { loadNonMediaImportText } from "../non-media-workflow";
-import { dispatchImportEntityCreateOccurrence } from "../runtime/import-entity-lifecycle-workflow";
+import {
+	type NonMediaItemOutcome,
+	type NonMediaPrepareWritesEffect,
+	loadNonMediaImportText,
+} from "../non-media-workflow";
 import { sanitizeErrorMessage } from "../runtime/import-run-status";
 import { ImportRunError, toWorkflowError } from "../runtime/workflow-helpers";
 import { adaptOpenScaleCsv } from "../sources/open-scale/adapter";
@@ -46,23 +48,23 @@ export const loadOpenScaleAdapterResult = Effect.fn("imports.loadOpenScaleAdapte
 	},
 );
 
-const MeasurementWriteResult = Schema.Struct({
-	entity: ListedEntity,
-	entitySchemaSlug: Schema.String,
-	operation: Schema.Literal("create", "update", "noop"),
-});
-
 export const prepareOpenScaleWrites = (
 	payload: ImportRunJobData,
 ): NonMediaPrepareWritesEffect<
 	OpenScaleImportItem,
-	DbRunner | WorkflowEngine | EntitiesService | WorkflowInstance | AutomationsRepository,
+	EntitiesService | WorkflowEngine | WorkflowInstance,
 	DbRunner | EntitiesService | EntitySchemasRepository | WorkflowEngine | WorkflowInstance
 > =>
 	Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
 		const entities = yield* EntitiesService;
 		const entitySchemas = yield* EntitySchemasRepository;
+		const user: CurrentUserValue = {
+			name: "",
+			email: "",
+			id: payload.userId,
+			preferences: defaultUserPreferences,
+		};
 
 		const measurementSchemaId = yield* Activity.make({
 			error: ImportRunError,
@@ -83,26 +85,15 @@ export const prepareOpenScaleWrites = (
 			writeItem: ({ item, index }) =>
 				Activity.make({
 					error: ImportRunError,
-					success: MeasurementWriteResult,
 					name: `import-measurement-${index}`,
 					execute: entities
-						.create(payload.userId, {
+						.create(user, {
 							properties: item.properties,
 							entitySchemaId: measurementSchemaId,
 							name: `Measurement - ${item.sourceLabel}`,
 						})
-						.pipe(Effect.mapError(toWorkflowError)),
+						.pipe(Effect.asVoid, Effect.mapError(toWorkflowError)),
 				}).pipe(
-					Effect.flatMap((result) =>
-						result.operation === "create"
-							? dispatchImportEntityCreateOccurrence({
-									entity: result.entity,
-									userId: payload.userId,
-									importRunId: payload.runId,
-									entitySchemaSlug: result.entitySchemaSlug,
-								})
-							: Effect.void,
-					),
 					Effect.as({ _tag: "imported" } satisfies NonMediaItemOutcome),
 					Effect.catchAll((error) =>
 						Effect.succeed({

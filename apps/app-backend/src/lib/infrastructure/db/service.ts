@@ -1,8 +1,6 @@
 import { DbError, unknownToDbError } from "@ryot/contract/errors";
-import type { UserId } from "@ryot/contract/schema/brands";
-import { count, eq, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
-import type { PgColumn, PgTable } from "drizzle-orm/pg-core";
 import { Context, Effect, Exit, Layer, Option, Redacted, Runtime } from "effect";
 import { Pool } from "pg";
 
@@ -38,30 +36,6 @@ export class DbService extends Effect.Service<DbService>()("DbService", {
 
 export const dbEffect = <A>(try_: () => Promise<A>): Effect.Effect<A, DbError> =>
 	Effect.tryPromise({ try: try_, catch: unknownToDbError });
-
-export const lockUserAndCountOwnedRows = (input: {
-	userId: UserId;
-	table: PgTable;
-	ownerColumn: PgColumn;
-}): Effect.Effect<number | null, DbError, CurrentDb> =>
-	Effect.gen(function* () {
-		const db = yield* CurrentDb;
-		const [owner] = yield* dbEffect(() =>
-			db
-				.select({ id: schema.user.id })
-				.from(schema.user)
-				.where(eq(schema.user.id, input.userId))
-				.for("update")
-				.limit(1),
-		);
-		if (!owner) {
-			return null;
-		}
-		const [result] = yield* dbEffect(() =>
-			db.select({ count: count() }).from(input.table).where(eq(input.ownerColumn, input.userId)),
-		);
-		return result?.count ?? 0;
-	});
 
 // set_config(..., true) is the callable form of SET LOCAL: transaction-scoped, and (unlike the
 // SET statement) it binds the value as a parameter.

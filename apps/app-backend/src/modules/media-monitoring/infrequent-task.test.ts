@@ -38,14 +38,14 @@ const makeMediaMonitoringRepository = (
 	});
 
 it.effect(
-	"fans out stable provider refresh workflow ids and continues after an enqueue failure",
+	"fans out stable media monitoring workflow ids and continues after an enqueue failure",
 	() => {
 		const captured: Array<Parameters<WorkflowEngine["Type"]["execute"]>[1]> = [];
 		const instance = WorkflowInstance.initial(InfrequentCronWorkflow, "cron-run");
 		const engine = makeWorkflowEngine({
 			execute: (_workflow, options) => {
 				captured.push(options);
-				return options.payload.executionId === "cron-run-entity-a-provider-refresh"
+				return options.payload.executionId === "cron-run-entity-a"
 					? Effect.die("first enqueue failed")
 					: Effect.succeed(options.executionId);
 			},
@@ -58,27 +58,23 @@ it.effect(
 				{
 					discard: true,
 					payload: {
-						userId: null,
-						mode: "refresh",
+						entityId: "entity-a",
 						externalId: "movie-a",
-						scriptId: "script-a",
 						entitySchemaSlug: "movie",
+						sandboxScriptId: "script-a",
 						entitySchemaId: "schema-movie",
-						origin: { kind: "provider_refresh" },
-						executionId: "cron-run-entity-a-provider-refresh",
+						executionId: "cron-run-entity-a",
 					},
 				},
 				{
 					discard: true,
 					payload: {
-						userId: null,
-						mode: "refresh",
-						scriptId: "script-b",
+						entityId: "entity-b",
 						externalId: "person-b",
 						entitySchemaSlug: "person",
+						sandboxScriptId: "script-b",
 						entitySchemaId: "schema-person",
-						origin: { kind: "provider_refresh" },
-						executionId: "cron-run-entity-b-provider-refresh",
+						executionId: "cron-run-entity-b",
 					},
 				},
 			]);

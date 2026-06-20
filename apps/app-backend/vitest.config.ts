@@ -21,10 +21,5 @@ const sandboxScriptTextPlugin: Plugin = {
 export default defineConfig({
 	plugins: [sandboxScriptTextPlugin],
 	resolve: { alias: [{ find: /^#(lib|modules)\//, replacement: `${srcDir}$1/` }] },
-	test: {
-		testTimeout: 15000,
-		reporters: ["agent"],
-		include: ["src/**/*.test.ts"],
-		setupFiles: ["./test-setup.ts"],
-	},
+	test: { reporters: ["agent"], include: ["src/**/*.test.ts"], setupFiles: ["./test-setup.ts"] },
 });

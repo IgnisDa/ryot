@@ -6,28 +6,12 @@ import {
 	showSeasonPropertiesSchema,
 } from "./media-property-schemas";
 import { builtinSandboxScripts } from "./registry";
-import { builtinEventAutomationRuleLinks } from "./registry-links";
-
-describe("builtinEventAutomationRuleLinks", () => {
-	it("classifies the integration guard as a policy and post-create actions as subscriptions", () => {
-		const rules = builtinEventAutomationRuleLinks();
-		expect(rules.map(({ kind, scriptSlug }) => [scriptSlug, kind])).toEqual([
-			["trigger.auto-complete-on-full-progress", "subscription"],
-			["trigger.integration-progress-policy", "policy"],
-			["trigger.radarr-push", "subscription"],
-			["trigger.sonarr-push", "subscription"],
-			["trigger.jellyfin-push", "subscription"],
-		]);
-	});
-});
 
 describe("builtinSandboxScripts", () => {
 	it("declares source metadata for every provider script", () => {
 		const scripts = builtinSandboxScripts();
 		const mismatches = scripts
-			.filter(
-				(script) => !script.slug.startsWith("trigger.") && !script.slug.startsWith("automation."),
-			)
+			.filter((script) => !script.slug.startsWith("trigger."))
 			.flatMap((script) => {
 				const slugParts = script.slug.split(".");
 				const expectedSource = slugParts[slugParts.length - 1];

@@ -20,7 +20,7 @@ Remove explicit return type annotations when TypeScript can trivially infer them
 
 ## Sandbox Scripts
 
-- Sandbox script sources use the `.sandbox.js` extension: automations, providers, triggers, and script-helpers live under `src/modules/builtins/sandbox-scripts/`, while the Deno runner (`runner-source.sandbox.js`) lives under `src/lib/infrastructure/sandbox-runtime/`. They are plain JavaScript executed inside a Deno subprocess, not app modules.
+- Sandbox script sources use the `.sandbox.js` extension: providers, triggers, and script-helpers live under `src/modules/builtins/sandbox-scripts/`, while the Deno runner (`runner-source.sandbox.js`) lives under `src/lib/infrastructure/sandbox-runtime/`. They are plain JavaScript executed inside a Deno subprocess, not app modules.
 - Each file is a function-body fragment, not an ES module: it must contain no top-level `import`/`export` (the runner wraps it in `new Function`). Injected globals (`driver`, host functions like `httpCall`, and helper functions such as `toTitleCase`) are provided at runtime — script-helpers are concatenated ahead of the consuming script. Dependencies load via Deno-style dynamic `await import("npm:...")`.
 - They are pulled into the app as raw strings via `import code from "....sandbox.js" with { type: "text" }`. `src/sandbox-scripts.d.ts` declares the `*.sandbox.js` module so `tsc` types the import as `string` and never type-checks the body.
 - `check` (tsc + oxfmt + oxlint) covers these files. oxfmt/oxlint treat them as ordinary JS, so keep them lint-clean and formatted like the rest of the codebase — but remember they are linted in isolation, so functions defined only for a consuming script (e.g. helpers) will still read as "unused" to the linter.
@@ -68,12 +68,12 @@ Remove explicit return type annotations when TypeScript can trivially infer them
 - A durable-queue worker is the canonical owner when the module gradient requires dependency inversion (hook in the generic module, worker in the specific one); otherwise prefer a workflow.
 - Activities never start durable work: no `engine.execute`, workflow `.execute`, or `DurableQueue.process` from inside an `Activity.make` execute body, including transitively through service calls — dispatch from the workflow body. `sandbox/workflow-boundaries.test.ts` pins the current owners.
 - Single ownership is not single-flight: different parents may run the owner concurrently for the same target, so owners must be idempotent (ensure-mode short-circuits, preserve-existing upserts). Add cross-execution coordination only when duplicate in-flight work is measurably harmful.
-- One durable owner per operation: its database writes happen in memoized Activities that return a typed mutation envelope and never dispatch; the workflow/worker body dispatches child workflows with deterministic execution ids derived from the parent. Repositories and services never start durable work. `sandbox/workflow-dispatch-boundaries.test.ts` and `sandbox/repository-write-boundaries.test.ts` enforce this; the full owner map lives in `src/modules/automations/AGENTS.md` ("Write-path ownership").
+- `docs/effect-workflow-guide.md` documents the mechanics and the audit of current owners.
 
 ## Queues
 
 - Do not introduce a third-party job-queue library. Background work uses the durable workflow engine, durable queues, and durable deferred signals.
-- When a workflow runs a child workflow (e.g. an import writing events via `EventCreateWorkflow`), give the child a deterministic `executionId` derived from the parent (parent executionId + loop indices), never a fresh random one. A child that durably suspends — e.g. an event firing an after-create automation subscription — replays the parent, and a random id spawns a new child each replay, looping forever. Match the keying used by `populateMediaEntityGroups` (`imports/media/population-workflow.ts`) and `resolveMediaEntityGroups` (`imports/media/resolution-workflow.ts`).
+- When a workflow runs a child workflow (e.g. an import writing events via `EventCreateWorkflow`), give the child a deterministic `executionId` derived from the parent (parent executionId + loop indices), never a fresh random one. A child that durably suspends — e.g. an event firing an after-create trigger — replays the parent, and a random id spawns a new child each replay, looping forever. Match the keying used by `populateMediaEntityGroups` (`imports/media/population-workflow.ts`) and `resolveMediaEntityGroups` (`imports/media/resolution-workflow.ts`).
 
 ## Redis
 
@@ -84,7 +84,7 @@ Remove explicit return type annotations when TypeScript can trivially infer them
 
 - Writes to schema-backed entity, event, and relationship tables must validate their properties against the matching schema's property definition.
 - Provider-backed population in background flows composes the established import workflow rather than calling lower-level population helpers directly.
-- External event creation goes through the path that also executes schema-defined policies and dispatches lifecycle automation subscriptions.
+- External event creation goes through the path that also dispatches schema-defined triggers.
 - Migration and `legacy-bootstrap` code is the only exception to the write-path rules.
 - Allow arbitrary top-level keys in a property schema only when relationship or collection properties genuinely require passthrough; otherwise keep properties aligned with their built-in schemas.
 
@@ -105,7 +105,4 @@ Remove explicit return type annotations when TypeScript can trivially infer them
 
 ## Events
 
-- Event writes await `EventCreateWorkflow` and process submissions in item order. The response reports
-  committed and policy-skipped counts; when a later item fails after an earlier commit, it also
-  reports the failed item index and typed reason. A failure before any commit remains a request
-  failure.
+- Event writes are fire-and-forget: after a run reports complete its events may not be queryable yet, so readers must poll for them (as the `waitForEventSlugs` test helper does).
