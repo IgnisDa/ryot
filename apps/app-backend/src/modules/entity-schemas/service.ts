@@ -5,13 +5,13 @@ import type {
 	CreateEntitySchemaBody,
 	SearchEntitySchemasBody,
 } from "@ryot/contract/modules/entity-schemas/schemas";
-import { type EntitySchemaId, TrackerId } from "@ryot/contract/schema/brands";
+import { type EntitySchemaId, Slug, TrackerId } from "@ryot/contract/schema/brands";
 import { generateId } from "better-auth";
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 
 import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
 import { parseLabeledPropertySchemaInput } from "#lib/property-schema/property-schema-runtime";
-import { requireSlug } from "#lib/shared/slug";
+import { slugify } from "#lib/shared/slug";
 import { requireText, trimToNull } from "#lib/shared/validation";
 import { builtinEntitySchemas } from "#modules/builtins/entity-schemas";
 import { SandboxApiService } from "#modules/sandbox/service";
@@ -22,6 +22,17 @@ import { EntitySchemasRepository } from "./repository";
 
 const reservedEntitySchemaSlugs = new Set(builtinEntitySchemas().map((s) => s.slug));
 
+const resolveEntitySchemaSlug = (input: { name: string; slug?: string | undefined }) => {
+	const candidate = input.slug?.trim() ?? input.name;
+	const slug = candidate ? slugify(candidate) : null;
+	if (!slug) {
+		return badRequest("Entity schema slug is required");
+	}
+	return Schema.decode(Slug)(slug).pipe(
+		Effect.mapError(() => badRequest("Entity schema slug is invalid")),
+	);
+};
+
 const resolveEntitySchemaCreateInput = Effect.fn(function* (
 	input: Pick<CreateEntitySchemaBody, "icon" | "name" | "slug" | "accentColor">,
 ) {
@@ -31,7 +42,7 @@ const resolveEntitySchemaCreateInput = Effect.fn(function* (
 		input.accentColor,
 		"Entity schema accent color is required",
 	);
-	const slug = yield* requireSlug({ label: "Entity schema", name, slug: input.slug });
+	const slug = yield* resolveEntitySchemaSlug({ name, slug: input.slug });
 
 	if (reservedEntitySchemaSlugs.has(slug)) {
 		return yield* badRequest(`Entity schema slug "${slug}" is reserved for built-in schemas`);

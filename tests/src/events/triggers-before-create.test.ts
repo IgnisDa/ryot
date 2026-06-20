@@ -11,9 +11,9 @@ import {
 	waitForEventCount,
 } from "../fixtures";
 import { getPgClient } from "../setup";
-import { assertTaggedError, requirePresent } from "../test-support/assertions";
+import { requirePresent } from "../test-support/assertions";
 
-const insertBeforeCreatePolicy = async (
+const insertBeforeCreateTrigger = async (
 	userId: string,
 	eventSchemaId: string,
 	sandboxScriptId: string,
@@ -22,10 +22,10 @@ const insertBeforeCreatePolicy = async (
 	const pg = getPgClient();
 	const id = crypto.randomUUID();
 	await pg.query(
-		`INSERT INTO automation_rule
-			(id, name, position, is_active, is_builtin, kind, operation, metadata, user_id, event_schema_id, sandbox_script_id)
-		VALUES ($1, $2, $3, true, false, 'policy', 'create', '{}'::jsonb, $4, $5, $6)`,
-		[id, "test-before-create-policy", position, userId, eventSchemaId, sandboxScriptId],
+		`INSERT INTO event_schema_trigger
+			(id, name, position, is_active, is_builtin, phase, metadata, user_id, event_schema_id, sandbox_script_id)
+		VALUES ($1, $2, $3, true, false, 'before_create', '{}'::jsonb, $4, $5, $6)`,
+		[id, "test-before-create-trigger", position, userId, eventSchemaId, sandboxScriptId],
 	);
 	return id;
 };
@@ -66,7 +66,7 @@ describe("before_create triggers", () => {
 			code: `driver("trigger", async function() { return { action: "skip", reason: "test_skip" }; });`,
 		});
 
-		await insertBeforeCreatePolicy(userId, eventSchemaId, script.id, 100);
+		await insertBeforeCreateTrigger(userId, eventSchemaId, script.id, 100);
 
 		await client.run((c) =>
 			c.events.create({ payload: [{ entityId, eventSchemaId, properties: {} }] }),
@@ -91,7 +91,7 @@ describe("before_create triggers", () => {
 			code: `driver("trigger", async function() { return { action: "replace", body: { properties: { value: 999 } } }; });`,
 		});
 
-		await insertBeforeCreatePolicy(userId, eventSchemaId, script.id, 100);
+		await insertBeforeCreateTrigger(userId, eventSchemaId, script.id, 100);
 
 		await client.run((c) =>
 			c.events.create({ payload: [{ entityId, eventSchemaId, properties: { value: 1 } }] }),
@@ -104,7 +104,7 @@ describe("before_create triggers", () => {
 		expect(requirePresent(events[0], "Expected event").properties).toMatchObject({ value: 999 });
 	});
 
-	it("fail-closed: before-trigger error rejects the create and prevents event creation", async () => {
+	it("fail-closed: before-trigger error happens after enqueue and prevents event creation", async () => {
 		const { client, userId } = await createAuthenticatedClient();
 
 		const { entityId, eventSchemaId } = await createBeforeTriggerFixture(client, {
@@ -117,17 +117,15 @@ describe("before_create triggers", () => {
 			code: `driver("trigger", async function() { throw new Error("test_error"); });`,
 		});
 
-		await insertBeforeCreatePolicy(userId, eventSchemaId, script.id, 100);
+		await insertBeforeCreateTrigger(userId, eventSchemaId, script.id, 100);
 
-		// A before-create policy runs inline within the create workflow, so a
-		// throwing trigger fails the create closed: the request is rejected and no
-		// event is ever written (writeEvent is never reached).
-		const error = await client.runError((c) =>
+		const result = await client.run((c) =>
 			c.events.create({ payload: [{ entityId, eventSchemaId, properties: {} }] }),
 		);
 
-		assertTaggedError(error, "BadRequest");
-		expect(error.message).toContain("Before trigger failed: test_error");
+		expect(result.count).toBe(1);
+
+		await new Promise<void>((resolve) => setTimeout(resolve, 8000));
 
 		const events = await listEventsForEntity(client, entityId);
 		expect(events).toHaveLength(0);
@@ -152,8 +150,8 @@ describe("before_create triggers", () => {
 			code: `driver("trigger", async function() { return { action: "replace", body: { properties: { x: 3 } } }; });`,
 		});
 
-		await insertBeforeCreatePolicy(userId, eventSchemaId, scriptPos100.id, 100);
-		await insertBeforeCreatePolicy(userId, eventSchemaId, scriptPos200.id, 200);
+		await insertBeforeCreateTrigger(userId, eventSchemaId, scriptPos100.id, 100);
+		await insertBeforeCreateTrigger(userId, eventSchemaId, scriptPos200.id, 200);
 
 		await client.run((c) =>
 			c.events.create({ payload: [{ entityId, eventSchemaId, properties: { x: 1 } }] }),
