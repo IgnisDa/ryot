@@ -3,7 +3,7 @@ import { Effect, Layer } from "effect";
 
 import { EntityPopulationTrigger } from "#modules/entities/population-trigger";
 
-import { BuiltinEntityImportWorkflow } from "./entity-import-workflow";
+import { ProviderEntityPopulationWorkflow } from "./provider-entity-population-workflow";
 
 export const EntityPopulationTriggerLive = Layer.effect(
 	EntityPopulationTrigger,
@@ -14,11 +14,12 @@ export const EntityPopulationTriggerLive = Layer.effect(
 			request: (input) => {
 				const executionId = `populate-${input.entityId}`;
 				return engine
-					.execute(BuiltinEntityImportWorkflow, {
+					.execute(ProviderEntityPopulationWorkflow, {
 						executionId,
 						discard: true,
 						payload: {
 							executionId,
+							mode: "ensure",
 							userId: input.userId,
 							externalId: input.externalId,
 							scriptId: input.sandboxScriptId,

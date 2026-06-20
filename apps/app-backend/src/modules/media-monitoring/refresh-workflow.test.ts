@@ -1,27 +1,16 @@
 import { expect, it } from "@effect/vitest";
 import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
+import { SandboxRunError } from "@ryot/contract/errors";
 import type { ListedEntity } from "@ryot/contract/modules/entities/schemas";
 import { EntityId, EntitySchemaId, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
-import { RedisService } from "#lib/infrastructure/redis";
 import {
 	dbRunnerLayer,
-	makeRedisService,
 	makeWorkflowActivityEngine,
 	type MockOverrides,
 } from "#lib/test-support/effect";
-import { EntitiesRepository } from "#modules/entities/repository";
-import { EntitiesService } from "#modules/entities/service";
-import {
-	EntityImportWorkflowOperations,
-	type EntityImportWorkflowOperationsValue,
-} from "#modules/entity-import/operations-workflow";
-import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 import { NotificationsService } from "#modules/notifications/service";
-import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
-import { RelationshipsRepository } from "#modules/relationships/repository";
-import { RelationshipsService } from "#modules/relationships/service";
 
 import { diffMediaMonitoringSnapshots, type MediaMonitoringSnapshot } from "./diff";
 import {
@@ -71,12 +60,6 @@ const snapshot = (status: string, populatedAt: string | null = now) =>
 
 const mediaMonitoringRepositoryMock = Layer.mock(MediaMonitoringRepository);
 const notificationsServiceMock = Layer.mock(NotificationsService);
-const entitiesServiceMock = Layer.mock(EntitiesService);
-const entitiesRepositoryMock = Layer.mock(EntitiesRepository);
-const entitySchemasRepositoryMock = Layer.mock(EntitySchemasRepository);
-const relationshipsRepositoryMock = Layer.mock(RelationshipsRepository);
-const relationshipSchemasRepositoryMock = Layer.mock(RelationshipSchemasRepository);
-const relationshipsServiceMock = Layer.mock(RelationshipsService);
 
 const makeMediaMonitoringRepository = (
 	overrides: MockOverrides<typeof mediaMonitoringRepositoryMock> = {},
@@ -95,48 +78,28 @@ const makeNotificationsService = (overrides: MockOverrides<typeof notificationsS
 		_tag: "NotificationsService",
 	});
 
-const makeEntitiesService = (overrides: MockOverrides<typeof entitiesServiceMock> = {}) =>
-	entitiesServiceMock({
-		save: () => Effect.succeed(entity),
-		...overrides,
-		_tag: "EntitiesService",
-	});
+type PopulationStub = (
+	...args: Parameters<WorkflowEngine["Type"]["execute"]>
+) => Effect.Effect<unknown, unknown>;
 
 type TestOptions = {
-	entitiesService?: Layer.Layer<EntitiesService>;
+	population?: PopulationStub;
 	mediaMonitoringRepository?: Layer.Layer<MediaMonitoringRepository>;
 	notificationsService?: Layer.Layer<NotificationsService>;
-	processSandbox?: EntityImportWorkflowOperationsValue["processSandbox"];
 };
 
 const makeLayer = (options: TestOptions) =>
 	Layer.mergeAll(
 		dbRunnerLayer,
-		Layer.succeed(RedisService, makeRedisService({ publish: () => Effect.succeed(0) })),
-		options.entitiesService ?? makeEntitiesService(),
-		entitiesRepositoryMock({ _tag: "EntitiesRepository" }),
-		entitySchemasRepositoryMock({ _tag: "EntitySchemasRepository" }),
 		options.mediaMonitoringRepository ?? makeMediaMonitoringRepository(),
 		options.notificationsService ?? makeNotificationsService(),
-		relationshipsRepositoryMock({ _tag: "RelationshipsRepository" }),
-		relationshipSchemasRepositoryMock({ _tag: "RelationshipSchemasRepository" }),
-		relationshipsServiceMock({ _tag: "RelationshipsService" }),
-		Layer.mock(EntityImportWorkflowOperations, {
-			processSandbox:
-				options.processSandbox ??
-				(() =>
-					Effect.succeed({
-						logs: [],
-						error: null,
-						status: "completed" as const,
-						value: { name: entity.name, properties: entity.properties },
-					})),
-		}),
 	);
 
 const runWithLayer = <A, E, R>(options: TestOptions, effect: Effect.Effect<A, E, R>) => {
 	const instance = WorkflowInstance.initial(MediaMonitoringRefreshWorkflow, payload.executionId);
-	const engine = makeWorkflowActivityEngine(instance);
+	const engine = makeWorkflowActivityEngine(instance, {
+		execute: options.population ?? (() => Effect.succeed(entity)),
+	});
 	return effect.pipe(
 		Effect.provideService(WorkflowInstance, instance),
 		Effect.provideService(WorkflowEngine, engine),
@@ -152,15 +115,10 @@ it.effect("skips provider synchronization when a target has no current subscribe
 			mediaMonitoringRepository: makeMediaMonitoringRepository({
 				listSubscribers: () => Effect.succeed([]),
 			}),
-			processSandbox: () =>
+			population: () =>
 				Effect.sync(() => {
 					synchronized = true;
-					return {
-						logs: [],
-						error: null,
-						status: "completed" as const,
-						value: { name: entity.name, properties: entity.properties },
-					};
+					return entity;
 				}),
 		},
 		Effect.gen(function* () {
@@ -173,7 +131,8 @@ it.effect("skips provider synchronization when a target has no current subscribe
 it.effect("refreshes once and sends deterministic deliveries only to current subscribers", () => {
 	let snapshotReads = 0;
 	let subscriberReads = 0;
-	let synchronizations = 0;
+	const order: Array<"snapshot" | "population"> = [];
+	const populationCalls: unknown[] = [];
 	const deliveries: Array<{
 		userId: UserId;
 		message: string;
@@ -189,6 +148,7 @@ it.effect("refreshes once and sends deterministic deliveries only to current sub
 			mediaMonitoringRepository: makeMediaMonitoringRepository({
 				getSnapshot: () =>
 					Effect.sync(() => {
+						order.push("snapshot");
 						snapshotReads += 1;
 						return snapshotReads === 1 ? before : after;
 					}),
@@ -207,22 +167,24 @@ it.effect("refreshes once and sends deterministic deliveries only to current sub
 						return undefined;
 					}),
 			}),
-			processSandbox: () =>
+			population: (_workflow, execOptions) =>
 				Effect.sync(() => {
-					synchronizations += 1;
-					return {
-						logs: [],
-						error: null,
-						status: "completed" as const,
-						value: { name: entity.name, properties: after.properties },
-					};
+					order.push("population");
+					populationCalls.push(execOptions);
+					return entity;
 				}),
 		},
 		Effect.gen(function* () {
 			yield* runMediaMonitoringRefreshWorkflow(payload);
-			expect(synchronizations).toBe(1);
+			expect(order).toEqual(["snapshot", "population", "snapshot"]);
 			expect(snapshotReads).toBe(2);
 			expect(change).toBeDefined();
+			expect(populationCalls).toMatchObject([
+				{
+					payload: { mode: "refresh" },
+					executionId: `${payload.executionId}-provider-refresh`,
+				},
+			]);
 			expect(deliveries).toEqual([
 				{
 					userId: UserId.make("user-b"),
@@ -231,6 +193,42 @@ it.effect("refreshes once and sends deterministic deliveries only to current sub
 					executionId: `${payload.executionId}-user-b-${change?.fingerprint}`,
 				},
 			]);
+		}),
+	);
+});
+
+it.effect("does not diff or notify when provider population fails", () => {
+	let snapshotReads = 0;
+	let afterSnapshotRead = false;
+	const deliveries: unknown[] = [];
+
+	return runWithLayer(
+		{
+			mediaMonitoringRepository: makeMediaMonitoringRepository({
+				getSnapshot: () =>
+					Effect.sync(() => {
+						snapshotReads += 1;
+						if (snapshotReads > 1) {
+							afterSnapshotRead = true;
+						}
+						return snapshot("Continuing");
+					}),
+				listSubscribers: () => Effect.succeed([UserId.make("user-a")]),
+			}),
+			notificationsService: makeNotificationsService({
+				trigger: (input) =>
+					Effect.sync(() => {
+						deliveries.push(input);
+						return undefined;
+					}),
+			}),
+			population: () => Effect.fail(new SandboxRunError({ message: "provider boom" })),
+		},
+		Effect.gen(function* () {
+			const exit = yield* Effect.exit(runMediaMonitoringRefreshWorkflow(payload));
+			expect(exit._tag).toBe("Failure");
+			expect(afterSnapshotRead).toBe(false);
+			expect(deliveries).toEqual([]);
 		}),
 	);
 });

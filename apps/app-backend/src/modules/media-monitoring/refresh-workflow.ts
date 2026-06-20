@@ -1,10 +1,11 @@
 import { Activity, Workflow } from "@effect/workflow";
+import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { SandboxRunError, unknownToMessage } from "@ryot/contract/errors";
 import { EntityId, EntitySchemaId, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import { Effect, Layer, Schema } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
-import { synchronizeProviderEntity } from "#modules/entity-import/provider-entity-synchronizer";
+import { ProviderEntityPopulationWorkflow } from "#modules/entity-import/provider-entity-population-workflow";
 import { NotificationsService } from "#modules/notifications/service";
 
 import { diffMediaMonitoringSnapshots, MediaMonitoringSnapshot } from "./diff";
@@ -31,14 +32,15 @@ const MediaMonitoringSnapshotValue = Schema.NullOr(MediaMonitoringSnapshot);
 export const MediaMonitoringRefreshWorkflow = Workflow.make({
 	success: Schema.Void,
 	error: SandboxRunError,
-	payload: MediaMonitoringRefreshPayload,
 	name: "MediaMonitoringRefreshWorkflow",
+	payload: MediaMonitoringRefreshPayload,
 	idempotencyKey: ({ executionId }) => executionId,
 });
 
 export const runMediaMonitoringRefreshWorkflow = Effect.fn("runMediaMonitoringRefreshWorkflow")(
 	function* (payload: MediaMonitoringRefreshPayload) {
 		const runWithDb = yield* DbRunner;
+		const engine = yield* WorkflowEngine;
 		const repository = yield* MediaMonitoringRepository;
 		const notifications = yield* NotificationsService;
 		const loadSnapshot = (entityId: EntityId, phase: "after" | "before") =>
@@ -67,23 +69,19 @@ export const runMediaMonitoringRefreshWorkflow = Effect.fn("runMediaMonitoringRe
 		}
 		const before = yield* loadSnapshot(payload.entityId, "before");
 
-		const importPayload = {
-			userId: null,
-			externalId: payload.externalId,
-			executionId: payload.executionId,
-			scriptId: payload.sandboxScriptId,
-			entitySchemaId: payload.entitySchemaId,
-		};
-		yield* synchronizeProviderEntity(importPayload, payload.executionId, {
-			mode: "refresh",
-			entitySchemaSlug: payload.entitySchemaSlug,
-			activityPrefix: `media-monitoring-${payload.entityId}-`,
-			childEntitySchemaSlugs: {
-				show: "show-season",
-				podcast: "podcast-episode",
-				"show-season": "show-episode",
+		const refreshExecutionId = `${payload.executionId}-provider-refresh`;
+		yield* engine.execute(ProviderEntityPopulationWorkflow, {
+			executionId: refreshExecutionId,
+			payload: {
+				userId: null,
+				mode: "refresh",
+				externalId: payload.externalId,
+				executionId: refreshExecutionId,
+				scriptId: payload.sandboxScriptId,
+				entitySchemaId: payload.entitySchemaId,
+				entitySchemaSlug: payload.entitySchemaSlug,
 			},
-		}).pipe(Effect.mapError(asSandboxRunError));
+		});
 
 		const after = yield* loadSnapshot(payload.entityId, "after");
 		if (!before || !after) {
