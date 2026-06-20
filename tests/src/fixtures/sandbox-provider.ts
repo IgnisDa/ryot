@@ -37,12 +37,14 @@ export const installTestProvider = (input: {
 	slug?: string;
 	name?: string;
 	client: Client;
+	pluginSlug?: string;
 	details: ProviderDetailsResult;
 	search?: ProviderSearchResult;
 	resolve?: ProviderResolveResult;
 	translations?: Readonly<Record<string, ProviderTranslateResult>>;
 	linkToEntitySchemaSlug?: string;
 	information?: PluginProviderInformation;
+	savedViews?: PluginManifest["savedViews"];
 }) =>
 	Effect.gen(function* () {
 		const providerSlug = input.slug ?? `e2e-provider-${randomUUID()}`;
@@ -101,6 +103,8 @@ export const installTestProvider = (input: {
 		const installed = yield* installTestPluginBundle({
 			files,
 			scripts,
+			pluginSlug: input.pluginSlug,
+			savedViews: input.savedViews,
 			linkToEntitySchemaSlug: input.linkToEntitySchemaSlug,
 			providers: [
 				{

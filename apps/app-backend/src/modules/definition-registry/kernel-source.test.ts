@@ -10,6 +10,7 @@ it("keeps source zero limited to generic kernel definitions", () => {
 	expect(source.savedViews.map(({ slug }) => slug)).toEqual(["collections"]);
 	const savedView = source.savedViews[0];
 	assert(savedView);
+	expect(savedView.sandboxScripts).toEqual({});
 	expect(savedView.layouts.grid.queryDocument).not.toBe(savedView.layouts.list.queryDocument);
 	expect(savedView.layouts.list.queryDocument).not.toBe(savedView.layouts.table.queryDocument);
 	const gridQuery = savedView.layouts.grid.queryDocument.queries["collections"];

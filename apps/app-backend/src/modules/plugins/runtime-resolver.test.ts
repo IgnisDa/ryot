@@ -162,6 +162,22 @@ const scriptRow = {
 	},
 };
 
+const searchScriptRow = {
+	...scriptRow,
+	name: "Fixture search",
+	slug: "fixture.search",
+	contentHash: "fixture.search-hash",
+	id: SandboxScriptId.make("search-script-id"),
+	metadata: {
+		capabilities: [],
+		name: "Fixture search",
+		slug: "fixture.search",
+		kind: "provider" as const,
+		requiredPluginConfigKeys: [],
+		requiredSystemConfigKeys: [],
+	},
+};
+
 const customScriptRow = {
 	...scriptRow,
 	name: "Fixture preload",
@@ -215,6 +231,7 @@ const queryScriptRow = {
 const makeLayer = (
 	storedProvider: typeof providerRow | null = providerRow,
 	crossPlugin = false,
+	firstScript: typeof scriptRow = scriptRow,
 ) => {
 	const loader = makePluginLoader(makeDefinitionRegistry());
 	const callerPlugin = normalizedPlugin();
@@ -245,7 +262,7 @@ const makeLayer = (
 						if (scriptSelectCount === 5) {
 							return Promise.resolve([queryScriptRow]);
 						}
-						return Promise.resolve([scriptRow]);
+						return Promise.resolve([firstScript]);
 					},
 				}),
 			}),
@@ -326,6 +343,33 @@ it.effect("resolves active schema providers and their operation-specific scripts
 			yield* resolver.resolveSystemQueryScript(SandboxScriptId.make("details-script-id")),
 		).toBeNull();
 	}).pipe(Effect.provide(makeLayer())),
+);
+
+it.effect("resolves only active provider search scripts for saved views", () =>
+	Effect.gen(function* () {
+		const resolver = yield* PluginRuntimeResolver;
+		expect(yield* resolver.resolveSavedViewSearchScript("fixture.search")).toMatchObject({
+			entitySchemaSlug: "fixture-entity",
+			provider: { id: providerId, name: "Fixture provider" },
+			script: { id: "search-script-id", slug: "fixture.search" },
+		});
+	}).pipe(Effect.provide(makeLayer(providerRow, false, searchScriptRow))),
+);
+
+it.effect("rejects missing, inactive, wrong-kind, and non-search saved-view scripts", () =>
+	Effect.gen(function* () {
+		const resolver = yield* PluginRuntimeResolver;
+		for (const slug of ["missing", "fixture.preload", "fixture.details"]) {
+			expect(yield* resolver.resolveSavedViewSearchScript(slug)).toBeNull();
+		}
+	}).pipe(Effect.provide(makeLayer())),
+);
+
+it.effect("rejects saved-view search scripts with an inactive provider", () =>
+	Effect.gen(function* () {
+		const resolver = yield* PluginRuntimeResolver;
+		expect(yield* resolver.resolveSavedViewSearchScript("fixture.search")).toBeNull();
+	}).pipe(Effect.provide(makeLayer(null))),
 );
 
 it.effect("rejects an inactive provider owned by the caller plugin", () =>

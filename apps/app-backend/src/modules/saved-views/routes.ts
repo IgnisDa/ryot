@@ -4,6 +4,7 @@ import { dieOnDbError } from "@ryot/contract/errors";
 import { Effect } from "effect";
 import { HttpApiBuilder } from "effect/unstable/httpapi";
 
+import { SavedViewEntitySearchService } from "./entity-search-service";
 import { SavedViewsService } from "./service";
 
 export const SavedViewsRoutesLive = HttpApiBuilder.group(AppContract, "savedViews", (handlers) =>
@@ -34,6 +35,13 @@ export const SavedViewsRoutesLive = HttpApiBuilder.group(AppContract, "savedView
 				const user = yield* CurrentUser;
 				const service = yield* SavedViewsService;
 				return yield* service.clone(user, params.viewSlug).pipe(dieOnDbError);
+			}),
+		)
+		.handle("searchEntities", ({ params, payload }) =>
+			Effect.gen(function* () {
+				const user = yield* CurrentUser;
+				const service = yield* SavedViewEntitySearchService;
+				return yield* service.search(user, params.viewSlug, payload).pipe(dieOnDbError);
 			}),
 		)
 		.handle("reorder", ({ payload }) =>

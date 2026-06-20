@@ -226,6 +226,7 @@ const savedView: CatalogTable = {
 		isBuiltin: physicalField("is_builtin", "boolean"),
 		isDisabled: physicalField("is_disabled", "boolean"),
 		layouts: physicalField("layouts", "json"),
+		sandboxScripts: physicalField("sandbox_scripts", "json"),
 	},
 };
 
