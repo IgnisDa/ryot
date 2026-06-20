@@ -11,7 +11,6 @@ import {
 	createTransformExpression,
 	type QueryExpression,
 } from "@ryot/contract/display-configuration";
-import type { Expr, QueryDocument } from "@ryot/contract/modules/query-engine/language";
 
 const entityColumn = (slug: string, column: string) => createEntityColumnExpression(slug, column);
 
@@ -213,46 +212,5 @@ export const buildDisplayConfig = (slug: string) => {
 		list: { ...card },
 		table: { columns: buildTableColumns(slug) },
 		entityIdProperty: entityColumn(slug, "id"),
-	};
-};
-
-export const buildDefaultQueryDocument = (
-	scope: readonly [string, ...string[]],
-	options: {
-		readonly requireInLibrary?: boolean | undefined;
-		readonly orderBy?: Extract<QueryDocument["output"], { type: "rows" }>["orderBy"] | undefined;
-	} = {},
-) => {
-	const nameRef = {
-		type: "ref" as const,
-		sourceAlias: "entity",
-		field: { type: "system" as const, name: "name" },
-	};
-	const where: Expr | null = options.requireInLibrary
-		? {
-				type: "exists",
-				source: {
-					where: null,
-					type: "entities",
-					alias: "library",
-					schemas: ["library"],
-					via: {
-						alias: "inLibrary",
-						entityRef: "entity",
-						schema: "in-library",
-						direction: "outgoing",
-					},
-				},
-			}
-		: null;
-
-	return {
-		source: { type: "entities" as const, alias: "entity", schemas: scope, where },
-		output: {
-			type: "rows" as const,
-			pagination: { page: 1, limit: 20 },
-			fields: [{ key: "name", expr: nameRef }],
-			orderBy: options.orderBy ?? ([{ order: "asc" as const, expr: nameRef }] as const),
-		},
 	};
 };
