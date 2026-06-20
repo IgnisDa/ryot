@@ -230,15 +230,7 @@ describe("Local auth disabled (API B)", () => {
 					Effect.forkChild({ startImmediately: true }),
 				);
 			const hostedLoginRequest = yield* request("/oauth/login");
-			// TODO: Return to event-stream requests after the upstream postData fixes:
-			// https://github.com/Jobflow-io/effect-playwright/issues/29 and https://github.com/Jobflow-io/effect-playwright/issues/30
-			const hostedSignInRequest = yield* page
-				.use((nativePage) =>
-					nativePage.waitForRequest(
-						(item) => new URL(item.url()).pathname === "/api/auth/sign-in/social",
-					),
-				)
-				.pipe(Effect.forkChild({ startImmediately: true }));
+			const hostedSignInRequest = yield* request("/api/auth/sign-in/social");
 			const tokenResponse = yield* page.eventStream("response").pipe(
 				Stream.filter((response) => new URL(response.url()).pathname === "/api/auth/oauth2/token"),
 				Stream.runHead,
@@ -279,7 +271,7 @@ describe("Local auth disabled (API B)", () => {
 			const { request: oidcRequest, stateCookieObserved } = yield* Fiber.join(providerObservation);
 			const oauthResponse = yield* Fiber.join(tokenResponse);
 			expect(new URL(loginRequest.url()).searchParams.get("client_id")).toBe(OAUTH_WEB_CLIENT_ID);
-			const body: unknown = signInRequest.postDataJSON();
+			const body: unknown = Option.getOrThrow(yield* signInRequest.postDataJSON);
 			const oauthQuery = body && typeof body === "object" ? Reflect.get(body, "oauth_query") : null;
 			expect(typeof oauthQuery).toBe("string");
 			expect(new URL(oidcRequest.url()).searchParams.get("client_id")).toBe(OIDC_CLIENT_ID);
