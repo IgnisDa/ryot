@@ -21,7 +21,7 @@ import { parseAppSchemaProperties } from "#lib/schema/property-schema-runtime";
 import { requireText } from "#lib/validation";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
-import { RunSandboxWorkflow } from "#modules/sandbox/workflow-definitions";
+import { RunSandboxWorkflow } from "#modules/sandbox/sandbox-run-workflow";
 
 import {
 	EventsRepository,

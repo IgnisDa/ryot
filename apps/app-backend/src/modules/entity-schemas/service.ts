@@ -17,8 +17,8 @@ import { requireText, trimToNull } from "#lib/validation";
 import { SandboxApiService } from "#modules/sandbox/service";
 import { TrackersRepository } from "#modules/trackers/repository";
 
+import { CreateDefaultSavedViewWorkflow } from "./default-saved-view-workflow";
 import { EntitySchemasRepository } from "./repository";
-import { CreateDefaultSavedViewWorkflow } from "./workflow-definitions";
 
 const reservedEntitySchemaSlugs = new Set(builtinEntitySchemas().map((s) => s.slug));
 
