@@ -139,6 +139,8 @@ Best first slices: ranks 4-7 are narrow and migration-free. Then implement rank 
 
 **Validation:** Insert, update, concurrent upsert, notification publication, service and workflow tests.
 
+**Implemented.** `TranslationsRepository.upsertOverlay` is the only overlay write: one `INSERT ... ON CONFLICT (entity_id, language) DO UPDATE ... RETURNING` that takes `name`, `properties`, and `populatedAt` from `excluded` and sets `updated_at` to `now()`, because Drizzle's `$onUpdate` applies only to `UPDATE` statements. Last writer wins. `findOverlay`, `createOverlay`, and `updateOverlay` are removed along with the service's `create` and `update` methods, so `TranslationsService.upsert` is the single service entry point and `writeTranslationOverlay` calls it once instead of pre-reading and recovering from a `Conflict`. The overlay write can no longer produce `Conflict` or `NotFound`, leaving a died `DbError` as its only failure mode; the `translated` notification still publishes after the write. A kernel e2e case asserts that concurrent and repeated upserts keep exactly one row and end at the last written values.
+
 ### 7. Atomic Saved-View Reorder
 
 **Owner:** D25 Saved views

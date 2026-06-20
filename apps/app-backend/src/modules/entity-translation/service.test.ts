@@ -1,10 +1,8 @@
 import { expect, it } from "@effect/vitest";
-import { NotFound } from "@ryot/contract/errors";
 import { EntityId, SandboxProviderId, UserId } from "@ryot/contract/schema/brands";
 import { Effect, Exit, Layer } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
-import { assertExitFails } from "#lib/test-utils/assertions";
 import type { MockOverrides } from "#lib/test-utils/effect";
 import { databaseLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
 
@@ -25,11 +23,9 @@ const makeTranslationsRepository = (
 	overrides: MockOverrides<typeof mockTranslationsRepository> = {},
 ) =>
 	mockTranslationsRepository({
-		findOverlay: () => Effect.succeed(null),
 		listByEntity: () => Effect.succeed([]),
 		findUserLanguage: () => Effect.succeed(null),
-		createOverlay: () => Effect.sync(() => undefined),
-		updateOverlay: () => Effect.succeed("translation-1"),
+		upsertOverlay: () => Effect.sync(() => undefined),
 		...overrides,
 	});
 
@@ -113,63 +109,13 @@ it.effect("keeps the deterministic ID and exposes translation enqueue failure", 
 	}).pipe(Effect.provide(layer));
 });
 
-it.effect("delegates overlay creation to the repository", () => {
-	let createdInput: unknown;
+it.effect("delegates overlay upserts to the repository", () => {
+	let upsertedInput: unknown;
 	const layer = makeServiceLayer(
 		makeTranslationsRepository({
-			createOverlay: (received) =>
+			upsertOverlay: (received) =>
 				Effect.sync(() => {
-					createdInput = received;
-					return undefined;
-				}),
-		}),
-	);
-
-	return Effect.gen(function* () {
-		const service = yield* TranslationsService;
-		yield* service.create(input);
-		expect(createdInput).toEqual(input);
-	}).pipe(Effect.provide(layer));
-});
-
-it.effect("delegates overlay replacement to the repository", () => {
-	let updatedInput: unknown;
-	const layer = makeServiceLayer(
-		makeTranslationsRepository({
-			updateOverlay: (received) =>
-				Effect.sync(() => {
-					updatedInput = received;
-					return "translation-1";
-				}),
-		}),
-	);
-
-	return Effect.gen(function* () {
-		const service = yield* TranslationsService;
-		yield* service.update(input);
-		expect(updatedInput).toEqual(input);
-	}).pipe(Effect.provide(layer));
-});
-
-it.effect("fails when update finds no existing overlay", () => {
-	const layer = makeServiceLayer(
-		makeTranslationsRepository({ updateOverlay: () => Effect.succeed(null) }),
-	);
-
-	return Effect.gen(function* () {
-		const service = yield* TranslationsService;
-		const exit = yield* Effect.exit(service.update(input));
-		assertExitFails(exit, new NotFound({ message: "Translation overlay not found" }));
-	}).pipe(Effect.provide(layer));
-});
-
-it.effect("creates a missing overlay during upsert", () => {
-	let createdInput: unknown;
-	const layer = makeServiceLayer(
-		makeTranslationsRepository({
-			createOverlay: (received) =>
-				Effect.sync(() => {
-					createdInput = received;
+					upsertedInput = received;
 					return undefined;
 				}),
 		}),
@@ -178,26 +124,6 @@ it.effect("creates a missing overlay during upsert", () => {
 	return Effect.gen(function* () {
 		const service = yield* TranslationsService;
 		yield* service.upsert(input);
-		expect(createdInput).toEqual(input);
-	}).pipe(Effect.provide(layer));
-});
-
-it.effect("updates an existing overlay during upsert", () => {
-	let updatedInput: unknown;
-	const layer = makeServiceLayer(
-		makeTranslationsRepository({
-			findOverlay: () => Effect.succeed({ name: "Old", properties: {} }),
-			updateOverlay: (received) =>
-				Effect.sync(() => {
-					updatedInput = received;
-					return "translation-1";
-				}),
-		}),
-	);
-
-	return Effect.gen(function* () {
-		const service = yield* TranslationsService;
-		yield* service.upsert(input);
-		expect(updatedInput).toEqual(input);
+		expect(upsertedInput).toEqual(input);
 	}).pipe(Effect.provide(layer));
 });
