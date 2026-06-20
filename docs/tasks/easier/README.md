@@ -171,6 +171,8 @@ Best first slices: ranks 4-7 are narrow and migration-free. Then implement rank 
 
 **Validation:** Cleanup racing completion/claim, renewed expiry, failed deletion retry, corrupt/missing records, existing cleaning-record migration.
 
+**Implemented.** `cleanupPendingIntents` acquires only `uploadIntentLock`, which every other intent mutation already holds, so `uploadIntentCleanupLock` is gone along with the second lease and its manual release on the contended path. Inside that one lock the pass rereads the record, and either drops a vanished record's index entry, reindexes a record whose expiry was renewed between selection and the lock, or removes the intent directly. `cleaning`, `cleaningAt`, the redundant decoded-state check, and the rollback re-encode are removed: `UploadIntentMetadata.state` is now exactly `pending`, `completed`, or `claimed`. A failed deletion writes nothing, so the record keeps its existing expiry index entry and the next cron tick retries it. Renewed expiries are reindexed at `metadata.expiresAt` through a new `RedisService.zadd` instead of being deleted from the index, which previously stranded a claimed intent whose 24-hour lease was granted just after cleanup selected it. `removeUploadIntent` keeps its read-then-delete shape for `deleteTemporaryUpload`, and both paths share one `removeIntentRecord` so cleanup no longer reads and decodes the same record twice. No `cleaning` records are drained because the project has no production Redis state.
+
 ### 9. Scope-Own Sandbox Bridge Sessions
 
 **Owner:** I07 Sandbox runtime
