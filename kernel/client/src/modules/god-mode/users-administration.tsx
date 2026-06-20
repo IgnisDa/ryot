@@ -1,4 +1,5 @@
 import { Button, Menu, type MenuItem, Modal, useFieldEscape } from "@ryot-app/client-ui-sdk";
+import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import { DataTable, type DataTableColumn } from "@ryot-app/client-ui-sdk/table";
 import clsx from "clsx";
 import { Cause, Effect, Exit } from "effect";
@@ -24,7 +25,6 @@ import type {
 	GodModeUserLifecycleOperation,
 	GodModeUserResetResult,
 } from "#/modules/god-mode/user-lifecycle";
-import { AppIcon } from "#/modules/navigation/app-icon";
 import type { BackInterceptors } from "#/modules/navigation/back-interceptors";
 
 const PAGE_SIZE = 50;

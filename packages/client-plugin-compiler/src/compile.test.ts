@@ -384,6 +384,26 @@ export const View = () => (
 	}),
 );
 
+it.effect("type-checks and bundles the trusted UI icon subpath", () =>
+	Effect.gen(function* () {
+		const { artifact } = yield* compileFixture({
+			"client/index.tsx": bytes(`
+import { bootstrapClientPlugin } from "@ryot-app/client-sdk/plugin";
+import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
+
+const Home = () => <AppIcon name="menu" size={22} />;
+bootstrapClientPlugin({ home: { component: Home } });
+`),
+		});
+
+		const javascript = text(artifact.files.find(({ name }) => name === "plugin.js")?.contents);
+		// The registry names every icon, so a linked barrel carries the path data of one it never renders.
+		expect(javascript).toContain("M18 6 6 18");
+		// oxlint-disable-next-line typescript/no-implied-eval -- the icon barrel must link, not dangle
+		expect(() => Function("document", javascript)({ getElementById: () => null })).not.toThrow();
+	}),
+);
+
 it.effect(
 	"type-checks valid TSX with React, SDK, UI, CSS, and asset imports",
 	() =>
@@ -549,6 +569,7 @@ it("trusts only the published client SDK entry points and clsx", () => {
 		"@ryot-app/client-sdk/react",
 		"@ryot-app/client-sdk/ryotql",
 		"@ryot-app/client-ui-sdk",
+		"@ryot-app/client-ui-sdk/icon",
 		"@ryot-app/client-ui-sdk/table",
 		"@ryot-app/client-ui-sdk/schema-form",
 	]) {
