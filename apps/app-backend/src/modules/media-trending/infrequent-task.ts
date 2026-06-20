@@ -1,29 +1,28 @@
-import type { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
-import type { SandboxRunError } from "@ryot/contract/errors";
+import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
+import { Effect } from "effect";
 
-import type { DbRunner } from "#lib/infrastructure/db/service";
-import type { EntitiesService } from "#modules/entities/service";
-import type { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
-import type { RelationshipsRepository } from "#modules/relationships/repository";
 import type { CronTask } from "#modules/scheduler/types";
 
-import type { MediaTrendingWorkflowOperations } from "./operations-workflow";
-import { runMediaTrendingRefresh } from "./refresh";
-import type { MediaTrendingRepository } from "./repository";
+import { MediaTrendingRefreshWorkflow } from "./refresh-workflow";
 
-type InfrequentCronTask = CronTask<
-	SandboxRunError,
-	| DbRunner
-	| EntitiesService
-	| WorkflowEngine
-	| WorkflowInstance
-	| RelationshipsRepository
-	| MediaTrendingRepository
-	| RelationshipSchemasRepository
-	| MediaTrendingWorkflowOperations
->;
+type InfrequentCronTask = CronTask<never, WorkflowEngine>;
 
 export const mediaTrendingInfrequentTask: InfrequentCronTask = {
 	name: "media-trending-refresh",
-	run: ({ executionId }) => runMediaTrendingRefresh({ executionId }),
+	run: ({ executionId }) =>
+		Effect.gen(function* () {
+			const engine = yield* WorkflowEngine;
+			const trendingExecutionId = `${executionId}-media-trending`;
+			yield* engine
+				.execute(MediaTrendingRefreshWorkflow, {
+					discard: true,
+					executionId: trendingExecutionId,
+					payload: { executionId: trendingExecutionId },
+				})
+				.pipe(
+					Effect.catchAllCause((cause) =>
+						Effect.logError("media trending refresh enqueue failed", cause),
+					),
+				);
+		}),
 };
