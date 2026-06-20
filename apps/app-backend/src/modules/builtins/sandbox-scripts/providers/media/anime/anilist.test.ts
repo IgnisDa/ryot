@@ -63,9 +63,15 @@ describe("anime.anilist sandbox script", () => {
 		).then((rawDetails) => {
 			const details = toRecord(rawDetails);
 			expect(details.relatedEntityGroups).toEqual([
-				{ direction: "incoming", entities: [], relationshipSchemaSlug: "company-to-anime" },
+				{
+					direction: "incoming",
+					synchronization: "additive",
+					entities: [],
+					relationshipSchemaSlug: "company-to-anime",
+				},
 				{
 					direction: "outgoing",
+					synchronization: "authoritative",
 					relationshipSchemaSlug: "media-suggestion",
 					entities: [
 						{ name: "Anime Pick", externalId: "2", scriptSlug: "anime.anilist" },

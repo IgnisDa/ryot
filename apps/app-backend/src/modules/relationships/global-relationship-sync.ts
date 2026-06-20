@@ -11,12 +11,20 @@ export const syncGlobalRelationshipsWithProperties = Effect.fn(
 	anchorEntityId: EntityId;
 	direction: "incoming" | "outgoing";
 	relationshipSchemaId: RelationshipSchemaId;
+	synchronization: "authoritative" | "additive";
 	entries: ReadonlyArray<{ entityId: EntityId; properties: Record<string, unknown> }>;
 }) {
 	const db = yield* CurrentDb;
 	const entries = [...new Map(input.entries.map((entry) => [entry.entityId, entry])).values()];
 	const entityIds = entries.map((entry) => entry.entityId);
 	const isOutgoing = input.direction === "outgoing";
+	const relationshipValues = entries.map((entry) => ({
+		userId: null,
+		properties: entry.properties,
+		relationshipSchemaId: input.relationshipSchemaId,
+		targetEntityId: isOutgoing ? entry.entityId : input.anchorEntityId,
+		sourceEntityId: isOutgoing ? input.anchorEntityId : entry.entityId,
+	}));
 	const anchorWhere = and(
 		isNull(schema.relationship.userId),
 		eq(
@@ -31,20 +39,12 @@ export const syncGlobalRelationshipsWithProperties = Effect.fn(
 
 	yield* dbEffect(() =>
 		db.transaction((tx) => {
-			if (!isOutgoing) {
+			if (input.synchronization === "additive") {
 				const insert =
 					entries.length > 0
 						? tx
 								.insert(schema.relationship)
-								.values(
-									entries.map((entry) => ({
-										userId: null,
-										properties: entry.properties,
-										relationshipSchemaId: input.relationshipSchemaId,
-										targetEntityId: input.anchorEntityId,
-										sourceEntityId: entry.entityId,
-									})),
-								)
+								.values(relationshipValues)
 								.onConflictDoNothing({
 									where: isNull(schema.relationship.userId),
 									target: [
@@ -61,15 +61,7 @@ export const syncGlobalRelationshipsWithProperties = Effect.fn(
 				entries.length > 0
 					? tx
 							.insert(schema.relationship)
-							.values(
-								entries.map((entry) => ({
-									userId: null,
-									properties: entry.properties,
-									relationshipSchemaId: input.relationshipSchemaId,
-									targetEntityId: entry.entityId,
-									sourceEntityId: input.anchorEntityId,
-								})),
-							)
+							.values(relationshipValues)
 							.onConflictDoUpdate({
 								set: { properties: sql.raw('excluded."properties"') },
 								targetWhere: isNull(schema.relationship.userId),

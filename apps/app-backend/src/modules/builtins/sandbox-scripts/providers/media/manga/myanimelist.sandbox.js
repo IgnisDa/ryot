@@ -306,6 +306,7 @@ driver("details", async function (context) {
 		relatedEntityGroups: [
 			{
 				direction: "outgoing",
+				synchronization: "authoritative",
 				entities: relatedEntities,
 				relationshipSchemaSlug: "media-suggestion",
 			},

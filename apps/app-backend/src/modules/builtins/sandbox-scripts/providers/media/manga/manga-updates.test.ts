@@ -34,6 +34,7 @@ describe("manga.manga-updates sandbox script", () => {
 			expect(details.relatedEntityGroups).toEqual([
 				{
 					direction: "outgoing",
+					synchronization: "authoritative",
 					relationshipSchemaSlug: "media-suggestion",
 					entities: [
 						{ name: "Recommendation", externalId: "2", scriptSlug: "manga.manga-updates" },

@@ -199,6 +199,7 @@ driver("details", async function (context) {
 		relatedEntityGroups: [
 			{
 				direction: "outgoing",
+				synchronization: "authoritative",
 				entities: relatedEntities,
 				relationshipSchemaSlug: "book-group-to-book",
 			},
