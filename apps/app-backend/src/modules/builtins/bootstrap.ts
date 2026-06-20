@@ -230,7 +230,7 @@ const ensureLibraryEntity = Effect.fn(function* (userId: string, entitySchemas: 
 	);
 });
 
-const performBootstrap = Effect.fn(function* (userId: string) {
+export const performBootstrap = Effect.fn(function* (userId: string) {
 	const trackers = yield* createBuiltinTrackers(userId);
 	const entitySchemas = yield* listBuiltinEntitySchemas;
 	yield* createTrackerEntitySchemaLinks(trackers, entitySchemas);
