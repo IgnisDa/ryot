@@ -1,5 +1,6 @@
+import { expect, it } from "@effect/vitest";
 import type { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
-import { describe, expect, it } from "vitest";
+import { Effect } from "effect";
 
 import { fetchSavedViewReplacement, isSavedViewOperationCurrent } from "./controller";
 import type { SavedViewCardItem } from "./display-data";
@@ -32,24 +33,20 @@ const ready = (entityId: string, nextCursor: string | null): SavedViewReadyState
 	};
 };
 
-describe("saved-view controller", () => {
-	it("fetches replacement pages sequentially with fresh cursors", async () => {
+it.effect("fetches replacement pages sequentially with fresh cursors", () =>
+	Effect.gen(function* () {
 		const documents: RyotQLDocument[] = [];
 		const responses = [ready("entity-1", "fresh-2"), ready("entity-2", "fresh-3")];
-		const replacement = await fetchSavedViewReplacement({
+		const replacement = yield* fetchSavedViewReplacement({
 			pagesToLoad: 2,
 			queryDocument: baseQuery,
-			signal: new AbortController().signal,
 			decode: () => {
 				const response = responses.shift();
-				if (!response) {
-					throw new Error("Missing response");
-				}
-				return response;
+				return response ? Effect.succeed(response) : Effect.fail(new Error("Missing response"));
 			},
 			execute: (queryDocument) => {
 				documents.push(queryDocument);
-				return Promise.resolve(undefined);
+				return Effect.void;
 			},
 		});
 
@@ -58,31 +55,32 @@ describe("saved-view controller", () => {
 			pagination: { after: "fresh-2", limit: 2 },
 		});
 		expect(replacement.pages.map((page) => page.entityIds)).toEqual([["entity-1"], ["entity-2"]]);
-	});
+	}),
+);
 
-	it("stops replacement when a fresh page has no next cursor", async () => {
+it.effect("stops replacement when a fresh page has no next cursor", () =>
+	Effect.gen(function* () {
 		let calls = 0;
-		const replacement = await fetchSavedViewReplacement({
+		const replacement = yield* fetchSavedViewReplacement({
 			pagesToLoad: 3,
 			queryDocument: baseQuery,
-			signal: new AbortController().signal,
-			decode: () => ready("entity-1", null),
+			decode: () => Effect.succeed(ready("entity-1", null)),
 			execute: () => {
 				calls += 1;
-				return Promise.resolve(undefined);
+				return Effect.void;
 			},
 		});
 
 		expect(calls).toBe(1);
 		expect(replacement.pages).toHaveLength(1);
-	});
+	}),
+);
 
-	it("rejects stale identity, layout, and generation tokens", () => {
-		const token = { identity: "record-1", layout: "grid", generation: 2 } as const;
+it("rejects stale identity, layout, and generation tokens", () => {
+	const token = { identity: "record-1", layout: "grid", generation: 2 } as const;
 
-		expect(isSavedViewOperationCurrent(token, token)).toBe(true);
-		expect(isSavedViewOperationCurrent(token, { ...token, identity: "record-2" })).toBe(false);
-		expect(isSavedViewOperationCurrent(token, { ...token, layout: "list" })).toBe(false);
-		expect(isSavedViewOperationCurrent(token, { ...token, generation: 3 })).toBe(false);
-	});
+	expect(isSavedViewOperationCurrent(token, token)).toBe(true);
+	expect(isSavedViewOperationCurrent(token, { ...token, identity: "record-2" })).toBe(false);
+	expect(isSavedViewOperationCurrent(token, { ...token, layout: "list" })).toBe(false);
+	expect(isSavedViewOperationCurrent(token, { ...token, generation: 3 })).toBe(false);
 });

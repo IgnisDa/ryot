@@ -1,10 +1,10 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
 import type { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
 import type { SavedViewRecord } from "@ryot/ryotql-recipes/saved-view-records";
-import { Cause, Effect } from "effect";
+import { Cause, Effect, ManagedRuntime } from "effect";
 import { AsyncResult, Atom } from "effect/unstable/reactivity";
 import * as Network from "expo-network";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from "react";
 import { AppState } from "react-native";
 
 import { executeRyotQL } from "@/api/queries";
@@ -31,6 +31,7 @@ import {
 	type SavedViewManagedAssetsState,
 	type SavedViewNormalizedState,
 } from "./state";
+import { SavedViewStructuralRefresh, type SavedViewStructuralRequest } from "./structural-refresh";
 
 type RecordScope = Scope & { readonly slug: string };
 type Scope = { readonly serverUrl: string; readonly userId: string };
@@ -50,10 +51,7 @@ type ForegroundRequest = {
 };
 
 type StructuralState = {
-	dirty: boolean;
-	inFlight: boolean;
 	generation: number;
-	firstDirtyAt: number | undefined;
 };
 
 type LayoutRuntime = {
@@ -70,7 +68,10 @@ type RuntimeCache = {
 	readonly layouts: Partial<Record<SavedViewLayout, LayoutRuntime>>;
 };
 
-const STRUCTURAL_DIRTY_MAX_MS = 30_000;
+type StructuralRuntime = {
+	readonly identity: string;
+	readonly runtime: ManagedRuntime.ManagedRuntime<SavedViewStructuralRefresh, never>;
+};
 
 const savedViewRecordStateAtom = keyedRequestFamily(
 	(request: RecordScope) => scopedRequestKey(request, request.slug),
@@ -109,21 +110,40 @@ const savedViewManagedAssetsStateAtom = keyedRequestFamily(
 const createLayoutRuntime = (queryDocument: RyotQLDocument, generation = 0): LayoutRuntime => ({
 	manual: false,
 	foregroundBusy: true,
+	structural: { generation },
 	data: { itemsById: new Map(), pages: [] },
 	foreground: { generation, queryDocument, phase: "initial" },
-	structural: { dirty: false, generation, inFlight: false, firstDirtyAt: undefined },
 });
 
-const markStructuralDirty = (runtime: LayoutRuntime) => {
-	runtime.structural.dirty = true;
-	runtime.structural.firstDirtyAt ??= Date.now();
-};
+const createRuntimeCache = (
+	identity: string,
+	layout: SavedViewLayout,
+	queryDocument: RyotQLDocument,
+): RuntimeCache => ({
+	identity,
+	activeLayout: layout,
+	layouts: { [layout]: createLayoutRuntime(queryDocument) },
+});
 
 const operationToken = (cache: RuntimeCache, layout: SavedViewLayout) => ({
 	layout,
 	identity: cache.identity,
 	generation: cache.layouts[layout]?.structural.generation ?? -1,
 });
+
+const decodeSavedViewResponse = (
+	response: unknown,
+	record: SavedViewRecord,
+	layout: SavedViewLayout,
+) => {
+	const decoded = mapSavedViewResult(AsyncResult.success(response), record, layout);
+	if (decoded.status === "ready") {
+		return Effect.succeed(decoded);
+	}
+	return Effect.fail(
+		decoded.status === "loading" ? new Error("Unexpected loading state") : decoded.cause,
+	);
+};
 
 export const useSavedViewRecord = (scope: RecordScope) => {
 	const atom = savedViewRecordStateAtom(scope);
@@ -141,43 +161,50 @@ export const useSavedViewResult = (scope: Scope & { readonly record: SavedViewRe
 		}),
 	);
 	const identity = `${scope.serverUrl}:${scope.userId}:${scope.record.id}:${scope.record.updatedAt}`;
-	const cacheRef = useRef<RuntimeCache>(undefined);
-	const controllersRef = useRef(new Set<AbortController>());
-	const startStructuralOperationRef = useRef<(manual: boolean) => Promise<void>>(() =>
-		Promise.resolve(),
-	);
-	const startStructural = useRef((manual: boolean) =>
-		startStructuralOperationRef.current(manual),
-	).current;
+	const layoutQueryDocument = scope.record.layouts[layout].queryDocument;
+	const [initialCache] = useState(() => createRuntimeCache(identity, layout, layoutQueryDocument));
+	const cacheRef = useRef(initialCache);
+	const structuralRuntimeRef = useRef<StructuralRuntime>(undefined);
 	const [, rerender] = useState(0);
+	const renderCache = cacheRef.current;
+	const runtime =
+		renderCache.identity === identity
+			? (renderCache.layouts[layout] ?? createLayoutRuntime(layoutQueryDocument))
+			: createLayoutRuntime(layoutQueryDocument);
 
-	if (!cacheRef.current || cacheRef.current.identity !== identity) {
-		cacheRef.current = { activeLayout: layout, identity, layouts: {} };
-	}
-	const cache = cacheRef.current;
-	let runtime = cache.layouts[layout];
-	if (!runtime) {
-		runtime = createLayoutRuntime(scope.record.layouts[layout].queryDocument);
-		cache.layouts[layout] = runtime;
-	}
-	if (cache.activeLayout !== layout) {
-		const previous = cache.layouts[cache.activeLayout];
+	useLayoutEffect(() => {
+		const currentCache = cacheRef.current;
+		if (currentCache.identity !== identity) {
+			cacheRef.current = createRuntimeCache(identity, layout, layoutQueryDocument);
+			rerender((value) => value + 1);
+			return;
+		}
+		let currentRuntime = currentCache.layouts[layout];
+		if (!currentRuntime) {
+			currentRuntime = createLayoutRuntime(layoutQueryDocument);
+			currentCache.layouts[layout] = currentRuntime;
+		}
+		if (currentCache.activeLayout === layout) {
+			return;
+		}
+		const previous = currentCache.layouts[currentCache.activeLayout];
 		if (previous) {
 			previous.structural.generation += 1;
 			previous.foreground = undefined;
 			previous.foregroundBusy = false;
 		}
-		cache.activeLayout = layout;
-		runtime.structural.generation += 1;
-		if (runtime.data.pages.length === 0) {
-			runtime.foreground = {
-				generation: runtime.structural.generation,
+		currentCache.activeLayout = layout;
+		currentRuntime.structural.generation += 1;
+		if (currentRuntime.data.pages.length === 0) {
+			currentRuntime.foreground = {
+				generation: currentRuntime.structural.generation,
 				phase: "initial",
-				queryDocument: scope.record.layouts[layout].queryDocument,
+				queryDocument: layoutQueryDocument,
 			};
-			runtime.foregroundBusy = true;
+			currentRuntime.foregroundBusy = true;
 		}
-	}
+		rerender((value) => value + 1);
+	}, [identity, layout, layoutQueryDocument]);
 
 	const foreground = runtime.foreground;
 	const queryDocument =
@@ -187,17 +214,146 @@ export const useSavedViewResult = (scope: Scope & { readonly record: SavedViewRe
 	const atom = savedViewResultStateAtom({ ...scope, layout, queryDocument });
 	const currentState = useAtomValue(atom);
 	const refreshCurrent = useAtomRefresh(atom);
-	runtime.foregroundBusy = foreground !== undefined && currentState.status === "loading";
+
+	useLayoutEffect(() => {
+		const currentCache = cacheRef.current;
+		const currentRuntime = currentCache.layouts[layout];
+		if (
+			currentCache.identity !== identity ||
+			currentCache.activeLayout !== layout ||
+			!currentRuntime ||
+			currentRuntime.foreground !== foreground
+		) {
+			return;
+		}
+		const foregroundBusy = foreground !== undefined && currentState.status === "loading";
+		if (currentRuntime.foregroundBusy !== foregroundBusy) {
+			currentRuntime.foregroundBusy = foregroundBusy;
+			rerender((value) => value + 1);
+		}
+	}, [currentState.status, foreground, identity, layout]);
 
 	useSavedViewFailureLogging("saved-view result", currentState);
+	useEffect(() => {
+		const managedRuntime = ManagedRuntime.make(SavedViewStructuralRefresh.layer);
+		const structuralRuntime = { identity, runtime: managedRuntime };
+		structuralRuntimeRef.current = structuralRuntime;
+		return () => {
+			if (structuralRuntimeRef.current === structuralRuntime) {
+				structuralRuntimeRef.current = undefined;
+			}
+			void managedRuntime.dispose();
+		};
+	}, [identity]);
+
+	const runStructural = (effect: Effect.Effect<void, never, SavedViewStructuralRefresh>) => {
+		const structuralRuntime = structuralRuntimeRef.current;
+		if (structuralRuntime?.identity === identity) {
+			structuralRuntime.runtime.runFork(effect);
+		}
+	};
+
+	const makeStructuralRequest = (targetLayout: SavedViewLayout): SavedViewStructuralRequest => ({
+		key: `${identity}:${targetLayout}`,
+		canStart: () => {
+			const currentCache = cacheRef.current;
+			const targetRuntime = currentCache.layouts[targetLayout];
+			return (
+				currentCache.identity === identity &&
+				currentCache.activeLayout === targetLayout &&
+				!!targetRuntime &&
+				targetRuntime.data.pages.length > 0 &&
+				!targetRuntime.foregroundBusy
+			);
+		},
+		onEnd: Effect.sync(() => {
+			const currentCache = cacheRef.current;
+			const targetRuntime =
+				currentCache.identity === identity ? currentCache.layouts[targetLayout] : undefined;
+			if (targetRuntime) {
+				targetRuntime.manual = false;
+				rerender((value) => value + 1);
+			}
+		}),
+		onStart: (manual) =>
+			Effect.sync(() => {
+				const currentCache = cacheRef.current;
+				const targetRuntime =
+					currentCache.identity === identity ? currentCache.layouts[targetLayout] : undefined;
+				if (targetRuntime) {
+					targetRuntime.manual = manual;
+					rerender((value) => value + 1);
+				}
+			}),
+		run: Effect.suspend(() => {
+			const currentCache = cacheRef.current;
+			const targetRuntime = currentCache.layouts[targetLayout];
+			if (
+				currentCache.identity !== identity ||
+				currentCache.activeLayout !== targetLayout ||
+				!targetRuntime
+			) {
+				return Effect.succeed(false);
+			}
+			const token = operationToken(currentCache, targetLayout);
+			return fetchSavedViewReplacement({
+				pagesToLoad: targetRuntime.data.pages.length,
+				queryDocument: scope.record.layouts[targetLayout].queryDocument,
+				decode: (response) => decodeSavedViewResponse(response, scope.record, targetLayout),
+				execute: (document) => executeRyotQL(scope.serverUrl, document),
+			}).pipe(
+				Effect.map((replacement) => {
+					const latestCache = cacheRef.current;
+					const latestRuntime = latestCache.layouts[targetLayout];
+					if (
+						!latestRuntime ||
+						!isSavedViewOperationCurrent(
+							token,
+							operationToken(latestCache, latestCache.activeLayout),
+						)
+					) {
+						return false;
+					}
+					latestRuntime.data = replacement;
+					latestRuntime.foreground = undefined;
+					latestRuntime.foregroundBusy = false;
+					latestRuntime.structural.generation += 1;
+					return true;
+				}),
+			);
+		}),
+	});
+
+	const triggerStructural = (manual: boolean) => {
+		const targetLayout = cacheRef.current.activeLayout;
+		const request = makeStructuralRequest(targetLayout);
+		runStructural(
+			Effect.flatMap(SavedViewStructuralRefresh, (service) => service.refresh(request, manual)),
+		);
+	};
+
+	const markStructuralDirty = (targetLayout: SavedViewLayout) => {
+		const request = makeStructuralRequest(targetLayout);
+		runStructural(
+			Effect.flatMap(SavedViewStructuralRefresh, (service) => service.markDirty(request)),
+		);
+	};
+
+	const activateStructural = useEffectEvent(() => {
+		const targetLayout = cacheRef.current.activeLayout;
+		const request = makeStructuralRequest(targetLayout);
+		runStructural(
+			Effect.flatMap(SavedViewStructuralRefresh, (service) => service.activate(request)),
+		);
+	});
+
 	useEffect(() => {
 		if (!foreground || currentState.status === "loading") {
 			return;
 		}
 		const currentCache = cacheRef.current;
-		const currentRuntime = currentCache?.layouts[layout];
+		const currentRuntime = currentCache.layouts[layout];
 		if (
-			!currentCache ||
 			!currentRuntime ||
 			currentRuntime.foreground !== foreground ||
 			!isSavedViewOperationCurrent(
@@ -210,6 +366,7 @@ export const useSavedViewResult = (scope: Scope & { readonly record: SavedViewRe
 		currentRuntime.foregroundBusy = false;
 		if (currentState.status !== "ready") {
 			rerender((value) => value + 1);
+			activateStructural();
 			return;
 		}
 		const page = {
@@ -228,90 +385,8 @@ export const useSavedViewResult = (scope: Scope & { readonly record: SavedViewRe
 		};
 		currentRuntime.foreground = undefined;
 		rerender((value) => value + 1);
-		if (currentRuntime.structural.dirty) {
-			queueMicrotask(() => void startStructural(false));
-		}
-	}, [currentState, foreground, identity, layout, startStructural]);
-
-	startStructuralOperationRef.current = async (manual: boolean) => {
-		const currentCache = cacheRef.current;
-		if (!currentCache) {
-			return;
-		}
-		const targetLayout = currentCache.activeLayout;
-		const targetRuntime = currentCache.layouts[targetLayout];
-		if (
-			!targetRuntime ||
-			targetRuntime.data.pages.length === 0 ||
-			targetRuntime.foregroundBusy ||
-			targetRuntime.structural.inFlight
-		) {
-			return;
-		}
-
-		const token = operationToken(currentCache, targetLayout);
-		const record = scope.record;
-		const pagesToLoad = targetRuntime.data.pages.length;
-		const controller = new AbortController();
-		controllersRef.current.add(controller);
-		targetRuntime.manual = manual;
-		targetRuntime.structural.dirty = false;
-		targetRuntime.structural.inFlight = true;
-		targetRuntime.structural.firstDirtyAt = undefined;
-		rerender((value) => value + 1);
-
-		let completed = false;
-		try {
-			const replacement = await fetchSavedViewReplacement({
-				pagesToLoad,
-				signal: controller.signal,
-				queryDocument: record.layouts[targetLayout].queryDocument,
-				execute: (document, signal) => executeRyotQL(scope.serverUrl, document, signal),
-				decode: (response) => {
-					const decoded = mapSavedViewResult(AsyncResult.success(response), record, targetLayout);
-					if (decoded.status !== "ready") {
-						throw decoded.status === "loading"
-							? new Error("Unexpected loading state")
-							: decoded.cause;
-					}
-					return decoded;
-				},
-			});
-			const latestCache = cacheRef.current;
-			const latestRuntime = latestCache?.layouts[targetLayout];
-			if (
-				latestCache &&
-				latestRuntime &&
-				isSavedViewOperationCurrent(token, operationToken(latestCache, latestCache.activeLayout))
-			) {
-				latestRuntime.data = replacement;
-				latestRuntime.foreground = undefined;
-				latestRuntime.foregroundBusy = false;
-				latestRuntime.structural.generation += 1;
-				completed = true;
-			}
-		} catch (error) {
-			if (!controller.signal.aborted) {
-				Effect.runSync(Effect.logWarning("saved-view structural refresh failed", String(error)));
-			}
-		} finally {
-			controllersRef.current.delete(controller);
-			const latestCache = cacheRef.current;
-			const latestRuntime =
-				latestCache?.identity === token.identity ? latestCache.layouts[targetLayout] : undefined;
-			if (latestRuntime) {
-				latestRuntime.manual = false;
-				latestRuntime.structural.inFlight = false;
-				if (!completed) {
-					markStructuralDirty(latestRuntime);
-				}
-				rerender((value) => value + 1);
-				if (completed && latestRuntime.structural.dirty) {
-					queueMicrotask(() => void startStructural(false));
-				}
-			}
-		}
-	};
+		activateStructural();
+	}, [currentState, foreground, identity, layout]);
 
 	const state =
 		runtime.data.pages.length > 0 ? materializeSavedViewData(runtime.data, layout) : currentState;
@@ -321,95 +396,74 @@ export const useSavedViewResult = (scope: Scope & { readonly record: SavedViewRe
 		blocked: runtime.foregroundBusy || runtime.manual,
 		entityIds: state.status === "ready" ? state.entityIds : [],
 		owner: `saved-view:${scope.serverUrl}:${scope.userId}:${scope.record.slug}`,
-		onDrain: () => void startStructural(false),
-		onBatch: async (updates, signal) => {
-			const currentCache = cacheRef.current;
-			if (!currentCache) {
-				return;
-			}
-			const targetLayout = currentCache.activeLayout;
-			const targetRuntime = currentCache.layouts[targetLayout];
-			if (!targetRuntime || targetRuntime.data.pages.length === 0) {
-				return;
-			}
-			const token = operationToken(currentCache, targetLayout);
-			const loaded = new Set(targetRuntime.data.pages.flatMap((page) => page.entityIds));
-			const entityIds = [...new Set(updates.map((update) => update.entityId))].filter((entityId) =>
-				loaded.has(entityId),
-			);
-			if (entityIds.length === 0) {
-				return;
-			}
-			markStructuralDirty(targetRuntime);
-			rerender((value) => value + 1);
-			const record = scope.record;
-			const response = await executeRyotQL(
-				scope.serverUrl,
-				buildSavedViewHydrationDocument({
-					entityIds,
-					queryDocument: record.layouts[targetLayout].queryDocument,
-					entityIdField: record.layouts[targetLayout].entityIdField,
-				}),
-				signal,
-			);
-			const decoded = mapSavedViewResult(AsyncResult.success(response), record, targetLayout);
-			if (decoded.status !== "ready") {
-				throw decoded.status === "loading" ? new Error("Unexpected loading state") : decoded.cause;
-			}
-			const latestCache = cacheRef.current;
-			const latestRuntime = latestCache?.layouts[targetLayout];
-			if (!latestCache || !latestRuntime) {
-				return;
-			}
-			if (
-				!isSavedViewOperationCurrent(token, operationToken(latestCache, latestCache.activeLayout))
-			) {
-				if (latestCache.identity === token.identity && latestCache.activeLayout === token.layout) {
-					markStructuralDirty(latestRuntime);
-					rerender((value) => value + 1);
+		onDrain: () => triggerStructural(false),
+		onBatch: (updates) =>
+			Effect.gen(function* () {
+				const currentCache = cacheRef.current;
+				const targetLayout = currentCache.activeLayout;
+				const targetRuntime = currentCache.layouts[targetLayout];
+				if (!targetRuntime || targetRuntime.data.pages.length === 0) {
+					return;
 				}
-				return;
-			}
-			const requested = new Set(entityIds);
-			latestRuntime.data = patchSavedViewItems(
-				latestRuntime.data,
-				decoded.data.items.filter((item) => requested.has(item.entityId)),
-			);
-			rerender((value) => value + 1);
-		},
+				const token = operationToken(currentCache, targetLayout);
+				const loaded = new Set(targetRuntime.data.pages.flatMap((page) => page.entityIds));
+				const entityIds = [...new Set(updates.map((update) => update.entityId))].filter(
+					(entityId) => loaded.has(entityId),
+				);
+				if (entityIds.length === 0) {
+					return;
+				}
+				markStructuralDirty(targetLayout);
+				const record = scope.record;
+				const response = yield* executeRyotQL(
+					scope.serverUrl,
+					buildSavedViewHydrationDocument({
+						entityIds,
+						queryDocument: record.layouts[targetLayout].queryDocument,
+						entityIdField: record.layouts[targetLayout].entityIdField,
+					}),
+				);
+				const decoded = yield* decodeSavedViewResponse(response, record, targetLayout);
+				const latestCache = cacheRef.current;
+				const latestRuntime = latestCache.layouts[targetLayout];
+				if (!latestRuntime) {
+					return;
+				}
+				if (
+					!isSavedViewOperationCurrent(token, operationToken(latestCache, latestCache.activeLayout))
+				) {
+					if (
+						latestCache.identity === token.identity &&
+						latestCache.activeLayout === token.layout
+					) {
+						markStructuralDirty(targetLayout);
+					}
+					return;
+				}
+				const requested = new Set(entityIds);
+				latestRuntime.data = patchSavedViewItems(
+					latestRuntime.data,
+					decoded.data.items.filter((item) => requested.has(item.entityId)),
+				);
+				rerender((value) => value + 1);
+			}),
 	});
 
 	useEffect(() => {
-		const dirtyAt = runtime.structural.firstDirtyAt;
-		if (!runtime.structural.dirty || dirtyAt === undefined || runtime.structural.inFlight) {
-			return undefined;
-		}
-		const timer = setTimeout(
-			() => void startStructural(false),
-			Math.max(0, dirtyAt + STRUCTURAL_DIRTY_MAX_MS - Date.now()),
-		);
-		return () => {
-			clearTimeout(timer);
-		};
-	}, [
-		identity,
-		layout,
-		runtime.structural.dirty,
-		runtime.structural.firstDirtyAt,
-		runtime.structural.inFlight,
-		startStructural,
-	]);
+		activateStructural();
+	}, [identity, layout]);
 
+	const triggerStructuralFromEffect = useEffectEvent(() => triggerStructural(false));
 	useEffect(() => {
 		let wasConnected: boolean | undefined;
 		const appStateSubscription = AppState.addEventListener("change", (nextState) => {
 			if (nextState === "active") {
-				void startStructural(false);
+				triggerStructuralFromEffect();
 			}
 		});
 		const networkSubscription = Network.addNetworkStateListener(({ isConnected }) => {
 			if (isConnected === true && wasConnected === false) {
-				void startStructural(false);
+				triggerStructuralFromEffect();
 			}
 			if (isConnected !== undefined) {
 				wasConnected = isConnected;
@@ -419,21 +473,11 @@ export const useSavedViewResult = (scope: Scope & { readonly record: SavedViewRe
 			appStateSubscription.remove();
 			networkSubscription.remove();
 		};
-	}, [identity, startStructural]);
-
-	useEffect(
-		() => () => {
-			for (const controller of controllersRef.current) {
-				controller.abort();
-			}
-			controllersRef.current.clear();
-		},
-		[],
-	);
+	}, [identity]);
 
 	const refresh = () => {
 		if (runtime.data.pages.length > 0) {
-			void startStructural(true);
+			triggerStructural(true);
 			return;
 		}
 		refreshCurrent();

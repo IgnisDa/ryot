@@ -1,4 +1,4 @@
-import type { EntityUpdatedFrame } from "@ryot/contract/modules/entity-interest/messages";
+import { Effect, ManagedRuntime } from "effect";
 import { useEffect, useEffectEvent, useRef } from "react";
 
 import { useEntityInterest } from "./provider";
@@ -11,33 +11,41 @@ type UseEntityUpdatesProps = {
 	readonly onDrain?: () => void;
 	readonly maxBatchSize?: number;
 	readonly entityIds: readonly string[];
-	readonly onBatch: EntityUpdateBatchHandler<EntityUpdatedFrame>;
+	readonly onBatch: EntityUpdateBatchHandler;
 };
 
 export function useEntityUpdates(props: UseEntityUpdatesProps) {
 	const onBatch = useEffectEvent(props.onBatch);
 	const onDrain = useEffectEvent(props.onDrain ?? (() => undefined));
-	const batcher = useRef<EntityUpdateBatcher | null>(null);
+	const runtime = useRef<ManagedRuntime.ManagedRuntime<EntityUpdateBatcher, never> | undefined>(
+		undefined,
+	);
 
 	useEffect(() => {
-		const nextBatcher = new EntityUpdateBatcher({
-			windowMs: props.windowMs,
-			onDrain: () => onDrain(),
-			maxBatchSize: props.maxBatchSize,
-			onBatch: (updates, signal) => onBatch(updates, signal),
-		});
-		batcher.current = nextBatcher;
+		const nextRuntime = ManagedRuntime.make(
+			EntityUpdateBatcher.layer({
+				windowMs: props.windowMs,
+				onDrain: () => onDrain(),
+				maxBatchSize: props.maxBatchSize,
+				onBatch: (updates) => onBatch(updates),
+			}),
+		);
+		runtime.current = nextRuntime;
 		return () => {
-			nextBatcher.dispose();
-			if (batcher.current === nextBatcher) {
-				batcher.current = null;
+			if (runtime.current === nextRuntime) {
+				runtime.current = undefined;
 			}
+			void nextRuntime.dispose();
 		};
-	}, [props.maxBatchSize, props.windowMs]);
+	}, [props.maxBatchSize, props.owner, props.windowMs]);
 
-	useEntityInterest(props.owner, props.entityIds, (frame) => batcher.current?.push(frame));
+	useEntityInterest(props.owner, props.entityIds, (frame) => {
+		runtime.current?.runFork(Effect.flatMap(EntityUpdateBatcher, (batcher) => batcher.push(frame)));
+	});
 
 	useEffect(() => {
-		batcher.current?.setBlocked(props.blocked);
-	}, [props.blocked, props.maxBatchSize, props.windowMs]);
+		runtime.current?.runFork(
+			Effect.flatMap(EntityUpdateBatcher, (batcher) => batcher.setBlocked(props.blocked)),
+		);
+	}, [props.blocked, props.maxBatchSize, props.owner, props.windowMs]);
 }
