@@ -8,7 +8,6 @@ import { DeclareInterestBody, DeclareInterestResponse } from "./messages";
 
 export const InterestGroup = HttpApiGroup.make("interest")
 	.addError(Unauthorized, { status: 401 })
-	.addError(RateLimited, { status: 429 })
 	.middleware(AuthMiddleware)
 	.add(
 		HttpApiEndpoint.get("stream", "/interest/stream")
@@ -19,5 +18,6 @@ export const InterestGroup = HttpApiGroup.make("interest")
 		HttpApiEndpoint.post("declareInterest", "/interest")
 			.setPayload(DeclareInterestBody)
 			.addSuccess(DeclareInterestResponse)
-			.addError(NotFound, { status: 404 }),
+			.addError(NotFound, { status: 404 })
+			.addError(RateLimited, { status: 429 }),
 	);
