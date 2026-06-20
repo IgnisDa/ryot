@@ -39,12 +39,10 @@ export const runContractError = <A, E>(
 type StripResponseMeta<T> = T extends readonly [infer Data, unknown] ? Data : T;
 type GroupKey = keyof ContractClient;
 type MethodKey<G extends GroupKey> = keyof ContractClient[G];
-type ClientRequest<G extends GroupKey, M extends MethodKey<G>> = ContractClient[G][M] extends (
-	request: infer Req,
-	...rest: never[]
-) => unknown
-	? Req
-	: never;
+export type ContractRequest<
+	G extends GroupKey,
+	M extends MethodKey<G>,
+> = ContractClient[G][M] extends (request: infer Req, ...rest: never[]) => unknown ? Req : never;
 type ClientSuccessValue<G extends GroupKey, M extends MethodKey<G>> = ContractClient[G][M] extends (
 	...args: never[]
 ) => Effect.Effect<infer A, infer _E, infer _R>
@@ -52,11 +50,11 @@ type ClientSuccessValue<G extends GroupKey, M extends MethodKey<G>> = ContractCl
 	: never;
 
 export type ContractPayload<G extends GroupKey, M extends MethodKey<G>> =
-	ClientRequest<G, M> extends { payload: infer P } ? P : never;
+	ContractRequest<G, M> extends { payload: infer P } ? P : never;
 export type ContractUrlParams<G extends GroupKey, M extends MethodKey<G>> =
-	ClientRequest<G, M> extends { query: infer U } ? U : never;
+	ContractRequest<G, M> extends { query: infer U } ? U : never;
 export type ContractPathParams<G extends GroupKey, M extends MethodKey<G>> =
-	ClientRequest<G, M> extends { params: infer P } ? P : never;
+	ContractRequest<G, M> extends { params: infer P } ? P : never;
 export type ContractSuccess<G extends GroupKey, M extends MethodKey<G>> = StripResponseMeta<
 	ClientSuccessValue<G, M>
 >;

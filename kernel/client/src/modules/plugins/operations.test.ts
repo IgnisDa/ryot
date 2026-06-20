@@ -1,9 +1,9 @@
 import { describe, expect, it } from "@effect/vitest";
 import { AuthRateLimited, AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
 import type {
-	ContractClient,
 	ContractPathParams,
 	ContractPayload,
+	ContractSuccess,
 } from "@ryot-app/contract/client";
 import {
 	PluginConflictError,
@@ -12,10 +12,11 @@ import {
 	PluginRequestError,
 } from "@ryot-app/contract/modules/plugins/schemas";
 import { PluginSlug } from "@ryot-app/contract/schema/brands";
-import { Effect, Layer } from "effect";
+import { Effect } from "effect";
 
-import { AuthenticatedApi, AuthenticatedApiError } from "#/api/authenticated";
+import { AuthenticatedApiError } from "#/api/authenticated";
 import { decodeServerOrigin } from "#/api/origin";
+import { makePluginsApi } from "#/api/ports.test-layer";
 import type { ApiScope } from "#/api/scope";
 import { PluginOperationsService } from "#/modules/plugins/operations";
 
@@ -26,18 +27,13 @@ type InvokeRequest = {
 	readonly params: ContractPathParams<"plugins", "invoke">;
 };
 
-const makeApi = (invoke: (request: InvokeRequest) => Effect.Effect<unknown, unknown>) => {
-	// A ContractProgram is always handed a whole ContractClient, so a fake implementing only the
-	// method under test cannot be produced without asserting over the other contract groups.
-	// oxlint-disable-next-line typescript/no-unsafe-type-assertion
-	const client = { plugins: { invoke } } as ContractClient;
-	return Layer.succeed(AuthenticatedApi, {
-		run: <A, E>(_scope: ApiScope, program: (client: ContractClient) => Effect.Effect<A, E>) =>
-			program(client).pipe(
-				Effect.catch((cause) => Effect.fail(new AuthenticatedApiError({ cause }))),
-			),
-	});
-};
+type InvokeResult = Effect.Effect<ContractSuccess<"plugins", "invoke">, AuthenticatedApiError>;
+
+const makeApi = (invoke: (request: InvokeRequest) => InvokeResult) =>
+	makePluginsApi({ invoke: (_scope, request) => invoke(request) });
+
+const failing = (cause: unknown) =>
+	makeApi(() => Effect.fail(new AuthenticatedApiError({ cause })));
 
 describe("plugin operations service", () => {
 	it.effect("invokes the contract program with the session's plugin and operation slugs", () => {
@@ -82,12 +78,10 @@ describe("plugin operations service", () => {
 	});
 
 	it.effect("returns a kernel-only stale session result for a changed source revision", () => {
-		const dependencies = makeApi(() =>
-			Effect.fail(
-				new PluginConflictError({
-					reason: { code: "source-revision-stale", pluginSlug: PluginSlug.make("fixture") },
-				}),
-			),
+		const dependencies = failing(
+			new PluginConflictError({
+				reason: { code: "source-revision-stale", pluginSlug: PluginSlug.make("fixture") },
+			}),
 		);
 
 		return Effect.gen(function* () {
@@ -118,7 +112,7 @@ describe("plugin operations service", () => {
 
 	for (const cause of declaredFailures) {
 		it.effect(`classifies ${cause._tag} as a declared platform operation failure`, () => {
-			const dependencies = makeApi(() => Effect.fail(cause));
+			const dependencies = failing(cause);
 
 			return Effect.gen(function* () {
 				const service = yield* PluginOperationsService;
@@ -135,7 +129,7 @@ describe("plugin operations service", () => {
 	}
 
 	it.effect("classifies an unrelated cause as a transport failure without leaking it", () => {
-		const dependencies = makeApi(() => Effect.fail(new TypeError("network down")));
+		const dependencies = failing(new TypeError("network down"));
 
 		return Effect.gen(function* () {
 			const service = yield* PluginOperationsService;

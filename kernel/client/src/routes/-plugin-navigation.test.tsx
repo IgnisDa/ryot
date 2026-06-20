@@ -6,7 +6,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { Effect, Layer, ManagedRuntime, Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
-import { AuthenticatedApi } from "#/api/authenticated";
+import { KernelApiTestLayer } from "#/api/ports.test-layer";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
 import { ArtifactSessions, ArtifactSessionStaleError } from "#/modules/plugins/artifact-sessions";
 import { PluginCatalogService } from "#/modules/plugins/catalog";
@@ -16,20 +16,20 @@ import { PluginQueriesService } from "#/modules/plugins/queries";
 import { ClientStorage } from "#/persistence/storage";
 import { getRouter } from "#/router";
 import {
-	ServerStub,
-	OAuthRouteStubs,
-	GodModeRouteStubs,
-	SavedViewRouteStubs,
-	ProviderAddRouteStubs,
-	CustomizeRouteStubs,
-	NavigationRouteStubs,
 	theme,
 	server,
 	catalog,
+	ServerStub,
 	makeAuthStub,
 	authenticated,
+	OAuthRouteStubs,
 	makeStorageStub,
+	GodModeRouteStubs,
 	makePublicApiStub,
+	CustomizeRouteStubs,
+	SavedViewRouteStubs,
+	NavigationRouteStubs,
+	ProviderAddRouteStubs,
 	makeWorkspaceRecorder,
 } from "#/routes/-route-fixtures";
 
@@ -63,7 +63,7 @@ const mountView = (
 			ServerStub,
 			SavedViewRouteStubs,
 			makePublicApiStub(),
-			AuthenticatedApi.layer,
+			KernelApiTestLayer,
 			Layer.succeed(ArtifactSessions, artifactSessions),
 			events.layer,
 			Layer.succeed(PluginCatalogService, { load }),
