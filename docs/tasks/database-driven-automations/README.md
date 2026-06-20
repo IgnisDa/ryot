@@ -779,15 +779,15 @@ Acceptance criteria the test suite must establish:
 
 ## Tasks
 
-**Overall Progress:** 0 of 15 tasks completed
+**Overall Progress:** 1 of 15 tasks completed
 
-**Current Task:** [Task 01](./01-signal-persistence-and-emission-service.md) (todo)
+**Current Task:** [Task 02](./02-automation-rules-and-subscription-runs.md) (todo)
 
 ### Task List
 
 | #   | Task                                                                                                                   | Type | Status |
 | --- | ---------------------------------------------------------------------------------------------------------------------- | ---- | ------ |
-| 01  | [Signal Persistence and Emission Service](./01-signal-persistence-and-emission-service.md)                             | AFK  | todo   |
+| 01  | [Signal Persistence and Emission Service](./01-signal-persistence-and-emission-service.md)                             | AFK  | done   |
 | 02  | [Automation Rules and Subscription Runs](./02-automation-rules-and-subscription-runs.md)                               | AFK  | todo   |
 | 03  | [Subscription Execution Workflow and SDK Entry Point](./03-subscription-execution-workflow-and-sdk-entry-point.md)     | AFK  | todo   |
 | 04  | [Host Functions and Capabilities](./04-host-functions-and-capabilities.md)                                             | AFK  | todo   |

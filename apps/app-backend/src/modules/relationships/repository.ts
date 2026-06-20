@@ -3,10 +3,10 @@ import {
 	EntityId,
 	RelationshipId,
 	RelationshipSchemaId,
+	UserId,
 	type SandboxScriptId,
-	type UserId,
 } from "@ryot/contract/schema/brands";
-import { and, eq, isNull, or, sql } from "drizzle-orm";
+import { and, asc, eq, isNotNull, isNull, or, sql } from "drizzle-orm";
 import { Effect } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
@@ -251,6 +251,37 @@ export class RelationshipsRepository extends Effect.Service<RelationshipsReposit
 				return rows.map(toRelationship);
 			});
 
+			const listEnabledOwnersForSubject = Effect.fn(
+				"RelationshipsRepository.listEnabledOwnersForSubject",
+			)(function* (input: {
+				subjectEntityId: EntityId;
+				subjectSide: "source" | "target";
+				relationshipSchemaId: RelationshipSchemaId;
+			}) {
+				const db = yield* CurrentDb;
+				const rows = yield* dbEffect(() =>
+					db
+						.selectDistinct({ userId: schema.relationship.userId })
+						.from(schema.relationship)
+						.innerJoin(schema.user, eq(schema.user.id, schema.relationship.userId))
+						.where(
+							and(
+								isNotNull(schema.relationship.userId),
+								isNull(schema.user.disabledAt),
+								eq(schema.relationship.relationshipSchemaId, input.relationshipSchemaId),
+								eq(
+									input.subjectSide === "source"
+										? schema.relationship.sourceEntityId
+										: schema.relationship.targetEntityId,
+									input.subjectEntityId,
+								),
+							),
+						)
+						.orderBy(asc(schema.relationship.userId)),
+				);
+				return rows.flatMap((row) => (row.userId ? [UserId.make(row.userId)] : []));
+			});
+
 			const listGlobalRelationships = Effect.fn("RelationshipsRepository.listGlobalRelationships")(
 				function* (input: GlobalRelationshipListInput) {
 					const db = yield* CurrentDb;
@@ -295,6 +326,7 @@ export class RelationshipsRepository extends Effect.Service<RelationshipsReposit
 				deleteRelationship,
 				listGlobalRelationships,
 				findRelationshipProperties,
+				listEnabledOwnersForSubject,
 				listUserRelationshipsForEntity,
 				deleteTouchingEntitiesOfSandboxScript,
 			};
