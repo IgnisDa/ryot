@@ -27,13 +27,13 @@ import { EventSchemasRepository } from "#modules/event-schemas/repository";
 import { EventsService } from "#modules/events/service";
 
 import { ProcessImportRunWorkflow } from "./import-run-workflow";
+import { runOneTimeMediaImportWorkflow } from "./media-workflow";
 import {
 	MediaImportWorkflowOperations,
 	type MediaImportWorkflowOperationsValue,
-} from "./media/workflow-types";
+} from "./media/types-workflow";
 import { ImportsRepository } from "./repository";
 import { ImportRunArtifacts } from "./runtime/workflow-helpers";
-import { runOneTimeMediaImportWorkflow } from "./workflows";
 
 const now = "2026-06-17T00:00:00.000Z";
 

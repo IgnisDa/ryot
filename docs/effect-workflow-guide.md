@@ -231,12 +231,12 @@ this codebase correctly use `generateId()` for exactly that reason (e.g.
 The rule only bites when the dispatching code itself can run more than once.
 
 **The actual, correctly-executed example of this pattern in this codebase** lives in
-`apps/app-backend/src/modules/imports/media/workflow-population.ts:79-87` and
-`workflow-resolution.ts:89-96`, both implementing the `MediaImportWorkflowOperations` interface
-(`workflow-types.ts:27-47`):
+`apps/app-backend/src/modules/imports/media/population-workflow.ts:79-87` and
+`resolution-workflow.ts:89-96`, both implementing the `MediaImportWorkflowOperations` interface
+(`types-workflow.ts:27-47`):
 
 ```ts
-// workflow-resolution.ts:89-96
+// resolution-workflow.ts:89-96
 const result = yield* operations
 	.resolveExternalId({
 		value: ref.identifierValue,
@@ -250,7 +250,7 @@ const result = yield* operations
 
 Parent `executionId` plus two stable loop indices — exactly the shape to copy.
 `apps/app-backend/AGENTS.md`'s queue rule cites this pattern by file —
-`workflow-population.ts`'s `populateMediaEntityGroups` and `workflow-resolution.ts`'s
+`population-workflow.ts`'s `populateMediaEntityGroups` and `resolution-workflow.ts`'s
 `resolveMediaEntityGroups` — and explicitly notes that `library-membership/service.ts` has an
 unrelated, same-named `importEntity` that is a legitimate top-level dispatch (see the
 [audit](#library-membership) below), not an example of parent-derived keying.
@@ -449,11 +449,11 @@ dispatch child workflows directly from the workflow body, never from inside an A
 describe either as a "confirmed bug" the way #6294 is. `apps/app-backend` currently has zero
 instances of pattern 1. One instance of pattern 2 remains: `collections/service.ts`'s
 `queueCollectionEvent`, still dispatched via `addToCollection`'s `Activity.make` wrapper in
-`imports/media/workflow-writing.ts`. Its previously-solid, independent-of-#6014 justification — a
+`imports/media/writing-workflow.ts`. Its previously-solid, independent-of-#6014 justification — a
 fresh random `executionId` generated on every activity retry — has since been fixed (the id is now
 derived from the relationship-membership row's own id), so this instance is now only a concern if
 the unconfirmed #6014 theory itself holds. A second instance, in the workout importer
-(`imports/workout/processor.ts`/`workflow.ts`), was fixed defensively by moving its event dispatch
+(`imports/workout/processor.ts`/`workout-workflow.ts`), was fixed defensively by moving its event dispatch
 out of the Activity entirely, even though its `executionId` was already deterministic.
 
 ### No versioning primitive of any kind
@@ -583,7 +583,7 @@ tracked but intentionally not fixed (see the `#6014` discussion above).
 `library-membership/service.ts`'s `importEntity` (line 33) is a **top-level, HTTP-route-triggered**
 dispatch — one user click, one job, correctly using `generateId()` since there's no parent workflow
 and no loop. It shares a name with, but is functionally unrelated to, the
-`imports/media`-`workflow-population.ts`/`workflow-resolution.ts` pattern referenced in
+`imports/media`-`population-workflow.ts`/`resolution-workflow.ts` pattern referenced in
 [Determinism](#determinism-and-child-workflows) above. Both are correct for what they each actually
 do; they just aren't the same pattern despite the shared name.
 
