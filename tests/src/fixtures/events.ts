@@ -8,10 +8,6 @@ import { createEventSchema, listEventSchemas, requireEventSchemaBySlug } from ".
 import { seedMediaEntity } from "./media";
 import { type PollOptions, pollUntil } from "./polling";
 
-// Trigger-produced events arrive via a deep async chain (event workflow -> fire-and-forget sandbox
-// child -> durable queue -> sandbox exec -> event write). Under full-suite load this chain's p99
-// latency is machine-variance-sensitive and would occasionally cross a tighter budget right at the
-// deadline. Kept comfortably below the 180s outer per-test timeout so a genuine hang still fails.
 const defaultEventTimeoutMs = 150_000;
 
 const defaultMediaProperties = {
