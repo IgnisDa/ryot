@@ -23,7 +23,7 @@ const manifests = [
 		name: "Provider",
 		slug: "provider.test",
 		capabilities: ["httpCall"],
-		requiredAppConfigKeys: ["providers.testApiKey"],
+		requiredAppConfigKeys: ["videoGames.testApiKey"],
 		providerInformation: { source: "Test", canonicalLanguage: "en" },
 	},
 ] satisfies SandboxManifest[];
