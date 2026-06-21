@@ -34,19 +34,6 @@ These V1 areas have a working home in V2. Several are **partial** ports — the 
 | Media & collection recommendations (`user_metadata_recommendations`, `collection_recommendations`)                                                                | `media-suggestion` relationship schema (`lib/builtins/relationship-schemas.ts`) populated by `modules/entity-import/population.ts`'s `syncEntitySuggestions()`, triggered from `modules/entity-import/entity-import-workflow.ts`; consumed via ad hoc `modules/query-engine` documents                                                                                  | **Partial** — see [Recommendations — known gaps](#recommendations--known-gaps)                                                                                               |
 | Media trending metadata                                                                                                                                           | `media-trending` relationship schema (`lib/builtins/relationship-schemas.ts`) populated by `modules/media-trending` refresh workflow, triggered from the shared infrequent cron tier (`modules/scheduler`); TMDB movie/show sandbox `trending` drivers persist global media self-edges and clients read them through relationship-root `modules/query-engine` documents | Full for V1 provider parity (TMDB movie/show); no dedicated endpoint or saved view                                                                                           |
 
-## Cache & Invalidation Architecture
-
-V1 has a typed `ApplicationCache` service (`crates/services/cache`) used pervasively: per-key TTL policy (2FA rate limits at 5s, sessions at N days, settings at 5-7 days, …), per-user key scoping with bulk invalidation, server-start-time version tagging (so a restart invalidates provider-settings caches), and bulk get/set. V2 has no equivalent typed cache layer — only a raw Redis client (`lib/redis.ts`).
-
-This is **mostly not a gap**: V1's per-entity-detail and per-list cache invalidation (metadata details, collection contents, workout lists, etc.) is deliberately replaced in V2 by the `entity-interest` SSE push model — clients are notified via `entity:updated` events and refetch on demand, rather than the server maintaining pull-based caches that need explicit invalidation. That is an intentional architecture change, already covered by the baseline row above.
-
-What genuinely has no V2 equivalent yet, and will need a scoped solution alongside whichever feature owns it (mostly Tier 1 below):
-
-- Short-window rate-limit counters (e.g. 2FA verification: 1 attempt/second)
-- Ephemeral session-style caches (password-change session, single-use log-download token)
-- Version-tagged settings cache (invalidate cached provider settings on server restart)
-- List-level result caching for features that do not exist yet anyway (analytics) — tracked under those features, not separately
-
 ## Remaining Backlog (In-Scope)
 
 ### Tier 1 — Notification system
