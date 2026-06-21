@@ -4,13 +4,15 @@ import {
 	createAuthenticatedClient,
 	createEntity,
 	createEventTestFixture,
-	createGlobalBookEntityFixture,
 	findBuiltinSchemaBySlug,
 	listEventSchemas,
 	requireEventSchemaBySlug,
-	queryInLibraryRelationship,
 	waitForEventCount,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
+import {
+	createGlobalBookEntityFixture,
+	queryInLibraryRelationship,
+} from "~/fixtures/plugins/media";
 import { describe, expect, it } from "~/support/effect-test";
 
 describe("POST /events with global entities", () => {

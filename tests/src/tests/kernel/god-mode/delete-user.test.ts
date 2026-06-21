@@ -12,7 +12,6 @@ import {
 	createEntity,
 	createNotificationChannel,
 	deleteUserAndWait,
-	enableMediaMonitoring,
 	enqueueProviderEntityImport,
 	fakeProviderDetailsResult,
 	findBuiltinSchemaBySlug,
@@ -28,10 +27,10 @@ import {
 	pollUserLifecycleOperation,
 	pollTerminalSubscriptionRuns,
 	installTestProvider,
-	seedMediaEntity,
 	startFakeAppriseServerScoped,
 	updatePluginState,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
+import { enableMediaMonitoring, seedMediaEntity } from "~/fixtures/plugins/media";
 import { assertCompleted, assertTaggedError } from "~/support/assertions";
 import { getBackendUrl } from "~/support/backend";
 import { describe, expect, it } from "~/support/effect-test";

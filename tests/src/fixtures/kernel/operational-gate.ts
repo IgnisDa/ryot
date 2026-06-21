@@ -1,34 +1,8 @@
-import type {
-	EntitySchemaSlug,
-	ImportRunId,
-	SandboxProviderId,
-} from "@ryot/contract/schema/brands";
-import { PluginSlug, UserId } from "@ryot/contract/schema/brands";
+import type { ImportRunId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
 import { adminHeaders } from "./admin";
 import { getBackendClient } from "./contract-client";
-
-export const startMediaPopulationGate = (input: {
-	itemCount: number;
-	executingUserId: string;
-	identifierPrefix: string;
-	providerId: SandboxProviderId;
-	entitySchemaSlug: EntitySchemaSlug;
-}) =>
-	getBackendClient().call(
-		(client) =>
-			client.testSupport.startWorkflowLoadGate({
-				payload: {
-					...input,
-					source: "netflix",
-					pluginSlug: PluginSlug.make("media"),
-					workflowSlug: "media-import-population",
-					executingUserId: UserId.make(input.executingUserId),
-				},
-			}),
-		adminHeaders,
-	);
 
 export const getMediaPopulationGateResult = (input: {
 	itemCount?: number;

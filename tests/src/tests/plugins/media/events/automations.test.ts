@@ -2,7 +2,6 @@ import { Effect } from "effect";
 
 import {
 	createAuthenticatedClient,
-	createBuiltinMediaLifecycleFixture,
 	getBuiltinEntitySchemaSlug,
 	insertGlobalRelationship,
 	listEventsForEntity,
@@ -10,11 +9,14 @@ import {
 	listRelationshipSchemas,
 	requireEventSchemaBySlug,
 	requireRelationshipSchemaBySlug,
-	seedGlobalShowEpisodeTree,
-	seedMediaEntity,
 	waitForEventCount,
 	waitForEventWithSchema,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
+import {
+	createBuiltinMediaLifecycleFixture,
+	seedGlobalShowEpisodeTree,
+	seedMediaEntity,
+} from "~/fixtures/plugins/media";
 import { describe, expect, it } from "~/support/effect-test";
 
 const isoAt = (day: number) => `2024-01-${String(day).padStart(2, "0")}T00:00:00.000Z`;

@@ -5,12 +5,12 @@ import {
 	adminHeaders,
 	createAuthenticatedClient,
 	enqueueSandboxScript,
-	findBuiltinSchemaWithProviders,
 	getFirstProviderSearchScriptId,
 	installSandboxScriptScoped,
 	pollSandboxResult,
 	runtimeManifestMismatchSandboxSource,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
+import { findBuiltinSchemaWithProviders } from "~/fixtures/plugins/media";
 import { assertCompleted, assertTaggedError } from "~/support/assertions";
 import { getBackendUrl } from "~/support/backend";
 import { describe, expect, it } from "~/support/effect-test";

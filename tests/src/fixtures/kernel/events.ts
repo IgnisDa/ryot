@@ -2,13 +2,12 @@ import { EntityId, EventId, EventSchemaSlug } from "@ryot/contract/schema/brands
 import { and, column, descending, document, eq, field, literal, rows, table } from "@ryot/ryotql";
 import { Effect } from "effect";
 
-import { assertPresent, requireObjectRecord } from "~/support/assertions";
+import { requireObjectRecord } from "~/support/assertions";
 
 import type { Client } from "./auth";
 import { createEntity } from "./entities";
-import { createPluginSchema, findBuiltinSchemaBySlug } from "./entity-schemas";
-import { createEventSchema, listEventSchemas, requireEventSchemaBySlug } from "./event-schemas";
-import { seedMediaEntity } from "./media";
+import { createPluginSchema } from "./entity-schemas";
+import { createEventSchema } from "./event-schemas";
 import { pollUntil } from "./polling";
 import {
 	executeRyotQL,
@@ -17,50 +16,6 @@ import {
 	requireRyotQLText,
 	requireRyotQLValue,
 } from "./ryotql";
-
-const defaultMediaProperties = {
-	genres: [],
-	isNsfw: null,
-	sourceUrl: null,
-	description: null,
-	publishYear: null,
-	providerRating: null,
-	productionStatus: null,
-};
-
-const defaultMediaPropertiesWithUnlinkedCreators = {
-	...defaultMediaProperties,
-	unlinkedCreators: [],
-};
-
-type BuiltinMediaLifecycleFixtureOptions = {
-	entitySchemaSlug?: string;
-	properties?: Record<string, unknown>;
-};
-
-const propertiesBySchemaSlug: Record<string, Record<string, unknown>> = {
-	book: { ...defaultMediaProperties },
-	movie: { ...defaultMediaProperties, images: [] },
-	anime: { ...defaultMediaProperties, images: [], episodes: null },
-	manga: {
-		...defaultMediaProperties,
-		images: [],
-		volumes: null,
-		chapters: null,
-	},
-	show: {
-		...defaultMediaPropertiesWithUnlinkedCreators,
-		images: [],
-		totalSeasons: null,
-		totalEpisodes: null,
-	},
-	podcast: {
-		...defaultMediaPropertiesWithUnlinkedCreators,
-		images: [],
-		episodes: [],
-		totalEpisodes: null,
-	},
-};
 
 export const waitForEventCount = (client: Client, entityId: string, expectedCount: number) =>
 	pollUntil(
@@ -223,45 +178,3 @@ export const waitForEventSlugs = (client: Client, entityId: string, requiredSlug
 			return slugs.some((slug) => slug === requiredSlug) ? slugs : null;
 		}),
 	);
-
-export const createBuiltinMediaLifecycleFixture = (
-	client: Client,
-	options: BuiltinMediaLifecycleFixtureOptions = {},
-) =>
-	Effect.gen(function* () {
-		const entitySchemaSlug = options.entitySchemaSlug ?? "book";
-		const { schema: selectedSchema } = yield* findBuiltinSchemaBySlug(client, entitySchemaSlug);
-
-		const providerId = selectedSchema.providers[0]?.providerId;
-		assertPresent(providerId, `Missing built-in ${entitySchemaSlug} provider`);
-
-		const eventSchemas = yield* listEventSchemas(client, selectedSchema.id);
-		const backlogEventSchema = requireEventSchemaBySlug(eventSchemas, "backlog");
-		const progressEventSchema = requireEventSchemaBySlug(eventSchemas, "progress");
-		const completeEventSchema = requireEventSchemaBySlug(eventSchemas, "complete");
-		const reviewEventSchema = requireEventSchemaBySlug(eventSchemas, "review");
-		const droppedEventSchema = requireEventSchemaBySlug(eventSchemas, "dropped");
-		const onHoldEventSchema = requireEventSchemaBySlug(eventSchemas, "on_hold");
-
-		const entity = yield* seedMediaEntity({
-			userId: null,
-			entitySchemaSlug: selectedSchema.id,
-			providerId,
-			externalId: `${entitySchemaSlug}-${crypto.randomUUID()}`,
-			name: `Built-in ${entitySchemaSlug} ${crypto.randomUUID()}`,
-			properties: {
-				...(propertiesBySchemaSlug[entitySchemaSlug] ?? defaultMediaProperties),
-				...options.properties,
-			},
-		});
-
-		return {
-			entityId: entity.id,
-			reviewEventSchemaSlug: reviewEventSchema.id,
-			onHoldEventSchemaSlug: onHoldEventSchema.id,
-			backlogEventSchemaSlug: backlogEventSchema.id,
-			droppedEventSchemaSlug: droppedEventSchema.id,
-			completeEventSchemaSlug: completeEventSchema.id,
-			progressEventSchemaSlug: progressEventSchema.id,
-		};
-	});

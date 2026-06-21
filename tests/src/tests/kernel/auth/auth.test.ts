@@ -12,7 +12,7 @@ import {
 	requireRows,
 	listNotificationSubscriptionStates,
 	signInWithPassword,
-} from "~/fixtures";
+} from "~/fixtures/kernel";
 import { assert, describe, expect, it } from "~/support/effect-test";
 
 describe("GET /system/config auth block defaults", () => {

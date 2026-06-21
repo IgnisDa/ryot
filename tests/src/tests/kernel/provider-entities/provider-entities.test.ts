@@ -2,7 +2,7 @@ import { SandboxProviderId } from "@ryot/contract/schema/brands";
 import { providerEntityLinksRecipe } from "@ryot/ryotql-recipes/provider-entity-links";
 import { Effect } from "effect";
 
-import type { Client } from "~/fixtures";
+import type { Client } from "~/fixtures/kernel";
 import {
 	uninstallTestProvider,
 	createAuthenticatedClient,
@@ -15,11 +15,11 @@ import {
 	providerSandboxSource,
 	replaceSandboxScriptCompiledRepresentation,
 	pollProviderEntityImportResult,
-	queryInLibraryRelationship,
 	searchProviderEntities,
 	installTestProvider,
-} from "~/fixtures";
-import type { InstalledTestProvider } from "~/fixtures/sandbox-provider";
+} from "~/fixtures/kernel";
+import type { InstalledTestProvider } from "~/fixtures/kernel/sandbox-provider";
+import { queryInLibraryRelationship } from "~/fixtures/plugins/media";
 import { assertCompleted, assertPresent, assertTaggedError } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
 
