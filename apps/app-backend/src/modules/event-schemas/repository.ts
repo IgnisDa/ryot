@@ -6,7 +6,10 @@ import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { and, asc, eq, isNull, or } from "drizzle-orm";
 import { Effect } from "effect";
 
-import { entitySchemaAccessScopeSelection } from "#lib/infrastructure/db/schema/access-scope";
+import {
+	entitySchemaAccessScopeSelection,
+	entitySchemaAccessScopeWhere,
+} from "#lib/infrastructure/db/schema/access-scope";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { CurrentDb, dbEffect, isUniqueConstraintError } from "#lib/infrastructure/db/service";
 
@@ -51,15 +54,7 @@ export class EventSchemasRepository extends Effect.Service<EventSchemasRepositor
 						db
 							.select(entitySchemaAccessScopeSelection)
 							.from(schema.entitySchema)
-							.where(
-								and(
-									eq(schema.entitySchema.id, input.entitySchemaId),
-									or(
-										isNull(schema.entitySchema.userId),
-										eq(schema.entitySchema.userId, input.userId),
-									),
-								),
-							)
+							.where(entitySchemaAccessScopeWhere(input))
 							.limit(1),
 					);
 

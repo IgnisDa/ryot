@@ -7,7 +7,10 @@ import { and, asc, desc, eq, inArray, isNull, or } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { Effect } from "effect";
 
-import { entitySchemaAccessScopeSelection } from "#lib/infrastructure/db/schema/access-scope";
+import {
+	entitySchemaAccessScopeSelection,
+	entitySchemaAccessScopeWhere,
+} from "#lib/infrastructure/db/schema/access-scope";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { CurrentDb, dbEffect, isUniqueConstraintError } from "#lib/infrastructure/db/service";
 
@@ -202,15 +205,7 @@ export class RelationshipSchemasRepository extends Effect.Service<RelationshipSc
 					db
 						.select(entitySchemaAccessScopeSelection)
 						.from(schema.entitySchema)
-						.where(
-							and(
-								eq(schema.entitySchema.id, input.entitySchemaId),
-								or(
-									isNull(schema.entitySchema.userId),
-									eq(schema.entitySchema.userId, input.userId),
-								),
-							),
-						)
+						.where(entitySchemaAccessScopeWhere(input))
 						.limit(1),
 				);
 

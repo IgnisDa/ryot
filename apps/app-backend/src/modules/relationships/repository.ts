@@ -392,7 +392,7 @@ export class RelationshipsRepository extends Effect.Service<RelationshipsReposit
 								return tx
 									.insert(schema.relationship)
 									.values(relationshipValues)
-									.onConflictDoNothing()
+									.onConflictDoNothing(globalRelationshipConflictTarget)
 									.then(synchronize);
 							}
 
