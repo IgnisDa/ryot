@@ -15,6 +15,13 @@
 			"when": 1784315099101,
 			"tag": "0001_typescript_sandbox_sdk",
 			"breakpoints": true
+		},
+		{
+			"idx": 2,
+			"version": "7",
+			"when": 1784470554847,
+			"tag": "0002_complete_sandbox_cutover",
+			"breakpoints": true
 		}
 	]
 }
