@@ -15,13 +15,15 @@ export const classifyShow = (result: ShowRecipeResult): ShowState => {
 	return { kind: "missing" };
 };
 
-export const remoteShowCover = (
-	show: ShowDetails,
-): Extract<MediaImage, { type: "remote" }> | undefined =>
+const remoteImage = (show: ShowDetails, purpose: NonNullable<MediaImage["purpose"]>) =>
 	show.images?.find(
 		(image): image is Extract<MediaImage, { type: "remote" }> =>
-			image.type === "remote" && image.purpose === "cover",
+			image.type === "remote" && image.purpose === purpose,
 	);
+
+export const remoteShowCover = (show: ShowDetails) => remoteImage(show, "cover");
+
+export const remoteShowBackdrop = (show: ShowDetails) => remoteImage(show, "backdrop");
 
 export const showIdentityLabel = (show: ShowDetails) =>
 	["TV Show", show.providerName ?? undefined, show.publishYear?.toString()]
