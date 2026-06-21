@@ -77,7 +77,7 @@ describe("hierarchical media entity-update signals", () => {
 				yield* enableMediaMonitoring(monitor.client, anime.id);
 
 				fakeApprise.requests.length = 0;
-				yield* triggerCronAndWaitForEntity(anime.id);
+				yield* triggerCronAndWaitForEntity(monitor, anime.id);
 				expect(fakeApprise.requests.filter(({ path }) => path === "/notify/anime-monitor")).toEqual(
 					[],
 				);
@@ -93,7 +93,7 @@ describe("hierarchical media entity-update signals", () => {
 						drivers: { details: buildDetails(13, 2026) },
 					}),
 				);
-				yield* triggerCronAndWaitForEntity(anime.id);
+				yield* triggerCronAndWaitForEntity(monitor, anime.id);
 
 				const delivered = yield* pollNotificationBodies("anime-monitor", 2);
 				const bodies = delivered
@@ -211,7 +211,7 @@ describe("hierarchical media entity-update signals", () => {
 					yield* enableMediaMonitoring(monitor.client, show.id);
 
 					fakeApprise.requests.length = 0;
-					yield* triggerCronAndWaitForEntity(show.id);
+					yield* triggerCronAndWaitForEntity(monitor, show.id);
 					expect(
 						fakeApprise.requests.filter(({ path }) => path === "/notify/show-episode-monitor"),
 					).toEqual([]);
@@ -235,7 +235,7 @@ describe("hierarchical media entity-update signals", () => {
 							},
 						}),
 					);
-					yield* triggerCronAndWaitForEntity(show.id);
+					yield* triggerCronAndWaitForEntity(monitor, show.id);
 
 					const delivered = yield* pollNotificationBodies("show-episode-monitor", 3);
 					const bodies = delivered
