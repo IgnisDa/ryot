@@ -1,4 +1,5 @@
 {
+	"$schema": "https://raw.githubusercontent.com/Effect-TS/tsgo/refs/heads/main/schema.json",
 	"compilerOptions": {
 		"noEmit": true,
 		"strict": true,
@@ -10,22 +11,6 @@
 		"moduleResolution": "bundler",
 		"paths": { "#*": ["./src/*"] },
 		"noUncheckedIndexedAccess": true,
-		"plugins": [
-			{
-				"name": "@effect/language-service",
-				"diagnosticSeverity": {
-					"newPromise": "warning",
-					"asyncFunction": "warning",
-					"processEnvInEffect": "error",
-					"nodeBuiltinImport": "warning",
-					"globalFetchInEffect": "error",
-					"globalDateInEffect": "warning",
-					"globalTimersInEffect": "warning",
-					"preferSchemaOverJson": "warning",
-					"globalConsoleInEffect": "warning",
-					"globalErrorInEffectFailure": "warning"
-				}
-			}
-		]
+		"plugins": [{ "name": "@effect/language-service" }]
 	}
 }
