@@ -1,18 +1,21 @@
+import { Effect } from "effect";
+
 import type { Client } from "./auth";
 import { createEntity } from "./entities";
 import { findBuiltinSchemaBySlug } from "./entity-schemas";
 
-export async function createMeasurementEntityFixture(client: Client) {
-	const { schema: measurementSchema } = await findBuiltinSchemaBySlug(client, "measurement");
+export const createMeasurementEntityFixture = (client: Client) =>
+	Effect.gen(function* () {
+		const { schema: measurementSchema } = yield* findBuiltinSchemaBySlug(client, "measurement");
 
-	const measurement = await createEntity(client, {
-		name: "Measurement - 2026-04-27 08:00",
-		entitySchemaId: measurementSchema.id,
-		properties: {
-			recordedAt: "2026-04-27T08:00:00Z",
-			statistics: [{ key: "weight", label: "Weight", value: 75.5 }],
-		},
+		const measurement = yield* createEntity(client, {
+			name: "Measurement - 2026-04-27 08:00",
+			entitySchemaId: measurementSchema.id,
+			properties: {
+				recordedAt: "2026-04-27T08:00:00Z",
+				statistics: [{ key: "weight", label: "Weight", value: 75.5 }],
+			},
+		});
+
+		return { measurementId: measurement.id };
 	});
-
-	return { measurementId: measurement.id };
-}

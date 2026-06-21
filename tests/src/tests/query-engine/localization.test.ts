@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { Effect } from "effect";
 
 import {
 	buildEntityRowsQueryDocument,
@@ -16,6 +16,7 @@ import {
 	systemRef,
 } from "~/fixtures";
 import { requirePresent } from "~/support/assertions";
+import { describe, expect, it } from "~/support/effect-test";
 
 type Expr = ReturnType<typeof literalExpr>;
 const containsW = (left: Expr, right: Expr): Expr => ({ type: "contains", left, right });
@@ -29,44 +30,45 @@ const byName = (result: QueryEngineRowsResponse, name: string): QueryEngineRowIt
 		`Missing localized row '${name}'`,
 	);
 
-const setupLocalizedItems = async () => {
-	const { client } = await createAuthenticatedClient();
-	const { schemaId, slug } = await createQueryEngineTrackerAndSchema(client, {
-		schemaName: "LocalizedItem",
-		propertiesSchema: {
-			fields: {
-				rating: { type: "integer", label: "Rating", description: "Rating" },
-				description: { type: "string", label: "Description", description: "Description" },
+const setupLocalizedItems = () =>
+	Effect.gen(function* () {
+		const { client } = yield* createAuthenticatedClient();
+		const { schemaId, slug } = yield* createQueryEngineTrackerAndSchema(client, {
+			schemaName: "LocalizedItem",
+			propertiesSchema: {
+				fields: {
+					rating: { type: "integer", label: "Rating", description: "Rating" },
+					description: { type: "string", label: "Description", description: "Description" },
+				},
 			},
-		},
-	});
+		});
 
-	const zulu = await createQueryEngineEntity(client, {
-		name: "Zulu",
-		entitySchemaId: schemaId,
-		properties: { rating: 5, description: "Canonical Zulu overview" },
-	});
-	const alpha = await createQueryEngineEntity(client, {
-		name: "Alpha",
-		entitySchemaId: schemaId,
-		properties: { rating: 9, description: "Canonical Alpha overview" },
-	});
+		const zulu = yield* createQueryEngineEntity(client, {
+			name: "Zulu",
+			entitySchemaId: schemaId,
+			properties: { rating: 5, description: "Canonical Zulu overview" },
+		});
+		const alpha = yield* createQueryEngineEntity(client, {
+			name: "Alpha",
+			entitySchemaId: schemaId,
+			properties: { rating: 9, description: "Canonical Alpha overview" },
+		});
 
-	await seedEntityTranslation({
-		name: "Alfa",
-		language: "es",
-		entityId: zulu.id,
-		properties: { description: "Resumen traducido de Zulu" },
-	});
-	await seedEntityTranslation({
-		name: "Zeta",
-		language: "es",
-		entityId: alpha.id,
-		properties: { description: "Resumen traducido de Alpha" },
-	});
+		yield* seedEntityTranslation({
+			name: "Alfa",
+			language: "es",
+			entityId: zulu.id,
+			properties: { description: "Resumen traducido de Zulu" },
+		});
+		yield* seedEntityTranslation({
+			name: "Zeta",
+			language: "es",
+			entityId: alpha.id,
+			properties: { description: "Resumen traducido de Alpha" },
+		});
 
-	return { client, slug };
-};
+		return { client, slug };
+	});
 
 const buildDoc = (slug: string, overrides: { where?: Expr } = {}) =>
 	buildEntityRowsQueryDocument({
@@ -83,77 +85,89 @@ const buildDoc = (slug: string, overrides: { where?: Expr } = {}) =>
 	});
 
 describe("Query engine entity localization", () => {
-	it("returns canonical values and canonical ordering when the user has no language preference", async () => {
-		const { client, slug } = await setupLocalizedItems();
-		const result = await executeQueryEngine(client, buildDoc(slug));
+	it.live(
+		"returns canonical values and canonical ordering when the user has no language preference",
+		() =>
+			Effect.gen(function* () {
+				const { client, slug } = yield* setupLocalizedItems();
+				const result = yield* executeQueryEngine(client, buildDoc(slug));
 
-		// Canonical name sort: "Alpha" < "Zulu".
-		expect(namesOf(result)).toEqual(["Alpha", "Zulu"]);
-		expect(requireQueryEngineFieldValue(byName(result, "Alpha"), "description").value).toBe(
-			"Canonical Alpha overview",
-		);
-		expect(requireQueryEngineFieldValue(byName(result, "Zulu"), "description").value).toBe(
-			"Canonical Zulu overview",
-		);
-	});
-
-	it("returns the translated name/description and preserves canonical-only properties", async () => {
-		const { client, slug } = await setupLocalizedItems();
-		await setUserLanguage(client, "es");
-		const result = await executeQueryEngine(client, buildDoc(slug));
-
-		const alfa = byName(result, "Alfa");
-		const zeta = byName(result, "Zeta");
-		expect(requireQueryEngineFieldValue(alfa, "description").value).toBe(
-			"Resumen traducido de Zulu",
-		);
-		expect(requireQueryEngineFieldValue(zeta, "description").value).toBe(
-			"Resumen traducido de Alpha",
-		);
-		expect(requireQueryEngineFieldValue(alfa, "rating").value).toBe(5);
-		expect(requireQueryEngineFieldValue(zeta, "rating").value).toBe(9);
-	});
-
-	it("orders by the translated name, not the canonical one", async () => {
-		const { client, slug } = await setupLocalizedItems();
-		await setUserLanguage(client, "es");
-		const result = await executeQueryEngine(client, buildDoc(slug));
-
-		// Localized name sort: "Alfa" (canonical Zulu) < "Zeta" (canonical Alpha) — the reverse of
-		// the canonical ordering, so this only passes if the sort keys off the translated name.
-		expect(namesOf(result)).toEqual(["Alfa", "Zeta"]);
-	});
-
-	it("filters (contains) on the translated name", async () => {
-		const { client, slug } = await setupLocalizedItems();
-		await setUserLanguage(client, "es");
-
-		const matched = await executeQueryEngine(
-			client,
-			buildDoc(slug, { where: containsW(systemRef("item", "name"), literalExpr("Alfa")) }),
-		);
-		expect(namesOf(matched)).toEqual(["Alfa"]);
-
-		const canonicalNeedle = await executeQueryEngine(
-			client,
-			buildDoc(slug, { where: containsW(systemRef("item", "name"), literalExpr("Zulu")) }),
-		);
-		expect(namesOf(canonicalNeedle)).toEqual([]);
-	});
-
-	it("filters (contains) on a translated property (description)", async () => {
-		const { client, slug } = await setupLocalizedItems();
-		await setUserLanguage(client, "es");
-
-		const result = await executeQueryEngine(
-			client,
-			buildDoc(slug, {
-				where: containsW(
-					propertyRef("item", slug, "description"),
-					literalExpr("traducido de Zulu"),
-				),
+				// Canonical name sort: "Alpha" < "Zulu".
+				expect(namesOf(result)).toEqual(["Alpha", "Zulu"]);
+				expect(requireQueryEngineFieldValue(byName(result, "Alpha"), "description").value).toBe(
+					"Canonical Alpha overview",
+				);
+				expect(requireQueryEngineFieldValue(byName(result, "Zulu"), "description").value).toBe(
+					"Canonical Zulu overview",
+				);
 			}),
-		);
-		expect(namesOf(result)).toEqual(["Alfa"]);
-	});
+	);
+
+	it.live("returns the translated name/description and preserves canonical-only properties", () =>
+		Effect.gen(function* () {
+			const { client, slug } = yield* setupLocalizedItems();
+			yield* setUserLanguage(client, "es");
+			const result = yield* executeQueryEngine(client, buildDoc(slug));
+
+			const alfa = byName(result, "Alfa");
+			const zeta = byName(result, "Zeta");
+			expect(requireQueryEngineFieldValue(alfa, "description").value).toBe(
+				"Resumen traducido de Zulu",
+			);
+			expect(requireQueryEngineFieldValue(zeta, "description").value).toBe(
+				"Resumen traducido de Alpha",
+			);
+			expect(requireQueryEngineFieldValue(alfa, "rating").value).toBe(5);
+			expect(requireQueryEngineFieldValue(zeta, "rating").value).toBe(9);
+		}),
+	);
+
+	it.live("orders by the translated name, not the canonical one", () =>
+		Effect.gen(function* () {
+			const { client, slug } = yield* setupLocalizedItems();
+			yield* setUserLanguage(client, "es");
+			const result = yield* executeQueryEngine(client, buildDoc(slug));
+
+			// Localized name sort: "Alfa" (canonical Zulu) < "Zeta" (canonical Alpha) — the reverse of
+			// the canonical ordering, so this only passes if the sort keys off the translated name.
+			expect(namesOf(result)).toEqual(["Alfa", "Zeta"]);
+		}),
+	);
+
+	it.live("filters (contains) on the translated name", () =>
+		Effect.gen(function* () {
+			const { client, slug } = yield* setupLocalizedItems();
+			yield* setUserLanguage(client, "es");
+
+			const matched = yield* executeQueryEngine(
+				client,
+				buildDoc(slug, { where: containsW(systemRef("item", "name"), literalExpr("Alfa")) }),
+			);
+			expect(namesOf(matched)).toEqual(["Alfa"]);
+
+			const canonicalNeedle = yield* executeQueryEngine(
+				client,
+				buildDoc(slug, { where: containsW(systemRef("item", "name"), literalExpr("Zulu")) }),
+			);
+			expect(namesOf(canonicalNeedle)).toEqual([]);
+		}),
+	);
+
+	it.live("filters (contains) on a translated property (description)", () =>
+		Effect.gen(function* () {
+			const { client, slug } = yield* setupLocalizedItems();
+			yield* setUserLanguage(client, "es");
+
+			const result = yield* executeQueryEngine(
+				client,
+				buildDoc(slug, {
+					where: containsW(
+						propertyRef("item", slug, "description"),
+						literalExpr("traducido de Zulu"),
+					),
+				}),
+			);
+			expect(namesOf(result)).toEqual(["Alfa"]);
+		}),
+	);
 });

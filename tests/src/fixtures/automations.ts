@@ -5,50 +5,41 @@ import {
 	SignalSchemaId,
 	UserId,
 } from "@ryot/contract/schema/brands";
+import { Effect } from "effect";
 
 import { adminHeaders } from "./admin";
 import type { Client } from "./auth";
 import { getBackendClient } from "./contract-client";
 import { pollUntil, type PollOptions } from "./polling";
 
-export function listAutomationCatalog(client: Client) {
-	return client.run((c) => c.automations.listCatalog());
-}
+export const listAutomationCatalog = (client: Client) =>
+	client.call((c) => c.automations.listCatalog());
 
-export function getAutomationCatalogSchema(client: Client, signalSchemaId: string) {
-	return client.run((c) =>
+export const getAutomationCatalogSchema = (client: Client, signalSchemaId: string) =>
+	client.call((c) =>
 		c.automations.getCatalog({ path: { signalSchemaId: SignalSchemaId.make(signalSchemaId) } }),
 	);
-}
 
-export function listNotificationRules(client: Client) {
-	return client.run((c) => c.automations.listRules());
-}
+export const listNotificationRules = (client: Client) =>
+	client.call((c) => c.automations.listRules());
 
-export function getNotificationRule(client: Client, ruleId: string) {
-	return client.run((c) =>
-		c.automations.getRule({ path: { ruleId: AutomationRuleId.make(ruleId) } }),
-	);
-}
+export const getNotificationRule = (client: Client, ruleId: string) =>
+	client.call((c) => c.automations.getRule({ path: { ruleId: AutomationRuleId.make(ruleId) } }));
 
-export function installNotificationRule(client: Client, signalSchemaId: string) {
-	return client.run((c) =>
+export const installNotificationRule = (client: Client, signalSchemaId: string) =>
+	client.call((c) =>
 		c.automations.installRule({ payload: { signalSchemaId: SignalSchemaId.make(signalSchemaId) } }),
 	);
-}
 
-export function setNotificationRuleActive(client: Client, ruleId: string, isActive: boolean) {
+export const setNotificationRuleActive = (client: Client, ruleId: string, isActive: boolean) => {
 	const path = { ruleId: AutomationRuleId.make(ruleId) };
-	return client.run((c) =>
+	return client.call((c) =>
 		isActive ? c.automations.activateRule({ path }) : c.automations.deactivateRule({ path }),
 	);
-}
+};
 
-export function deleteNotificationRule(client: Client, ruleId: string) {
-	return client.run((c) =>
-		c.automations.deleteRule({ path: { ruleId: AutomationRuleId.make(ruleId) } }),
-	);
-}
+export const deleteNotificationRule = (client: Client, ruleId: string) =>
+	client.call((c) => c.automations.deleteRule({ path: { ruleId: AutomationRuleId.make(ruleId) } }));
 
 export interface SignalFilter {
 	schemaSlug: string;
@@ -60,8 +51,8 @@ export interface SignalFilter {
  * Inspects signals and their recipients through the admin `testSupport.listSignals` endpoint.
  * Rows come back newest-first, so `[0]` is the most recently created matching signal.
  */
-export function listSignals(filter: SignalFilter) {
-	return getBackendClient().run(
+export const listSignals = (filter: SignalFilter) =>
+	getBackendClient().call(
 		(c) =>
 			c.testSupport.listSignals({
 				payload: {
@@ -74,36 +65,33 @@ export function listSignals(filter: SignalFilter) {
 			}),
 		adminHeaders,
 	);
-}
 
-export function pollSignal(filter: SignalFilter, options: PollOptions = {}) {
-	return pollUntil(
+export const pollSignal = (filter: SignalFilter, options: PollOptions = {}) =>
+	pollUntil(
 		`signal for '${filter.schemaSlug}'`,
-		async () => {
-			const [signal] = await listSignals(filter);
+		Effect.gen(function* () {
+			const [signal] = yield* listSignals(filter);
 			return signal ?? null;
-		},
+		}),
 		options,
 	);
-}
 
-export function pollSignalWithRecipientCount(
+export const pollSignalWithRecipientCount = (
 	filter: SignalFilter,
 	count: number,
 	options: PollOptions = {},
-) {
-	return pollUntil(
+) =>
+	pollUntil(
 		`${count} recipient(s) for signal '${filter.schemaSlug}'`,
-		async () => {
-			const [signal] = await listSignals(filter);
+		Effect.gen(function* () {
+			const [signal] = yield* listSignals(filter);
 			return signal?.recipientUserIds.length === count ? signal : null;
-		},
+		}),
 		options,
 	);
-}
 
-export function listSubscriptionRuns(input: { executionUserId: string; signalId?: string }) {
-	return getBackendClient().run(
+export const listSubscriptionRuns = (input: { executionUserId: string; signalId?: string }) =>
+	getBackendClient().call(
 		(c) =>
 			c.testSupport.listSubscriptionRuns({
 				payload: {
@@ -113,33 +101,32 @@ export function listSubscriptionRuns(input: { executionUserId: string; signalId?
 			}),
 		adminHeaders,
 	);
-}
 
 const terminalRunStatuses = new Set(["succeeded", "failed", "skipped"]);
 
-export function pollTerminalSubscriptionRuns(
+export const pollTerminalSubscriptionRuns = (
 	input: { executionUserId: string; signalId?: string },
 	options: PollOptions = {},
-) {
-	return pollUntil(
+) =>
+	pollUntil(
 		`terminal subscription run(s) for user '${input.executionUserId}'`,
-		async () => {
-			const runs = await listSubscriptionRuns(input);
+		Effect.gen(function* () {
+			const runs = yield* listSubscriptionRuns(input);
 			return runs.length > 0 && runs.every((run) => terminalRunStatuses.has(run.status))
 				? runs
 				: null;
-		},
+		}),
 		options,
 	);
-}
 
-export async function getAutomationRuleCount(userId: string) {
-	const { count } = await getBackendClient().run(
-		(c) =>
-			c.testSupport.countAutomationRules({
-				path: { userId: UserId.make(userId) },
-			}),
-		adminHeaders,
-	);
-	return count;
-}
+export const getAutomationRuleCount = (userId: string) =>
+	Effect.gen(function* () {
+		const { count } = yield* getBackendClient().call(
+			(c) =>
+				c.testSupport.countAutomationRules({
+					path: { userId: UserId.make(userId) },
+				}),
+			adminHeaders,
+		);
+		return count;
+	});

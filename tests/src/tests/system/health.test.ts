@@ -1,12 +1,15 @@
-import { describe, expect, it } from "bun:test";
+import { Effect } from "effect";
 
 import { getBackendClient } from "~/fixtures";
+import { describe, expect, it } from "~/support/effect-test";
 
 describe("Health endpoint", () => {
-	it("should return healthy status", async () => {
-		const client = getBackendClient();
-		const data = await client.run((c) => c.system.health());
+	it.live("should return healthy status", () =>
+		Effect.gen(function* () {
+			const client = getBackendClient();
+			const data = yield* client.call((c) => c.system.health());
 
-		expect(data.status).toBe("healthy");
-	});
+			expect(data.status).toBe("healthy");
+		}),
+	);
 });

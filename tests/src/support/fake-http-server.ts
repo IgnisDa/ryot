@@ -1,3 +1,4 @@
+import { Effect } from "effect";
 import getPort from "get-port";
 
 export type FakeHttpServer = {
@@ -27,3 +28,11 @@ export async function startFakeHttpServer(
 		stop: () => void server.stop(true),
 	};
 }
+
+export const startFakeHttpServerScoped = (
+	respond?: (url: URL, request: Request) => Response | Promise<Response>,
+) =>
+	Effect.acquireRelease(
+		Effect.promise(() => startFakeHttpServer(respond)),
+		(server) => Effect.sync(() => server.stop()),
+	);
