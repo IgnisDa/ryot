@@ -35,9 +35,9 @@ export function ShowHero(props: { readonly show: ShowSummary }) {
 	const height = artStop + SCRIM_FADE_HEIGHT;
 	return (
 		<div
+			style={{ height }}
 			aria-hidden="true"
-			style={{ top: -offset, height }}
-			className="pointer-events-none absolute inset-x-0 -mx-4 overflow-hidden md:hidden"
+			className="pointer-events-none absolute inset-x-0 top-0 overflow-hidden md:hidden"
 		>
 			<img alt="" key={url} src={url} className="h-full w-full object-cover" />
 			<div
@@ -63,7 +63,7 @@ export function ShowBackdrop(props: { readonly show: ShowSummary }) {
 	return (
 		<div
 			aria-hidden="true"
-			className="pointer-events-none absolute inset-x-0 top-0 -mx-4 hidden h-80 overflow-hidden md:-mx-8 md:-mt-8 md:flex md:h-104"
+			className="pointer-events-none absolute inset-x-0 top-0 hidden h-80 overflow-hidden md:flex md:h-104"
 		>
 			<img alt="" key={url} src={url} className="h-full w-full object-cover" />
 			<div
@@ -84,8 +84,8 @@ export function ShowTint(props: { readonly show: ShowSummary }) {
 	return (
 		<div
 			aria-hidden="true"
-			style={{ top: -offset, height: TINT_HEIGHT + offset }}
-			className="pointer-events-none absolute inset-x-0 -mx-4 overflow-hidden md:-mx-8"
+			style={{ height: TINT_HEIGHT + offset }}
+			className="pointer-events-none absolute inset-x-0 top-0 overflow-hidden"
 		>
 			<ImageTintOverlay direction="vertical" gradientStops={gradientStops} />
 		</div>
