@@ -21,41 +21,6 @@ Each owning service will expose at most one canonical write entry point for each
   flow through the service's canonical CRUD methods.
 - Extend this plan one service at a time.
 
-## Notifications Service
-
-### Current state
-
-`NotificationsService` already exposes exactly one `create`, `update`, and `delete` method for
-notification-platform rows. Its `test` and `trigger` methods enqueue delivery workflows and do not
-write notification-platform rows. Delivery code uses the repository read-only.
-
-### Checklist
-
-- [ ] No structural CRUD refactor is required for `NotificationsService`.
-- [ ] Keep `create`, `update`, and `delete` as the only notification-platform write methods.
-- [ ] Preserve user scoping, platform-kind validation, and the current update and delete behavior.
-- [ ] Keep `test` and `trigger` as separate workflow operations because they do not write the owned
-  table.
-- [ ] Keep repository access from delivery code read-only.
-
-## Sandbox API Service
-
-### Current state
-
-`SandboxApiService` exposes `createScript` as the only `sandbox_script` write. Its `enqueue` and
-`getResult` methods only validate access and orchestrate sandbox workflows. There are no current
-user-facing update or delete operations for sandbox scripts.
-
-### Checklist
-
-- [ ] No CRUD refactor is required for `SandboxApiService`.
-- [ ] Keep `createScript` as the single user-facing sandbox-script write entry point.
-- [ ] Preserve slug normalization, metadata and code validation, user ownership checks, and unique-slug
-  conflict behavior.
-- [ ] Do not add clone, update, delete, or upsert methods without a concrete product requirement.
-- [ ] Keep any built-in script seeding as an explicit bootstrap concern and do not make it a second
-  user-facing write path.
-
 ## Event Schemas Service
 
 ### Current state
