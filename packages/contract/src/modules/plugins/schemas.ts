@@ -39,8 +39,34 @@ const PluginSchemaEvolutionIssue = Schema.Struct({
 	]),
 });
 
+const PluginPackageArchiveIssue = Schema.Literals([
+	"malformed-zip",
+	"path-non-utf8",
+	"encrypted-entry",
+	"directory-entry",
+	"duplicate-entry",
+	"source-non-utf8",
+	"manifest-invalid",
+	"unexpected-entry",
+	"missing-manifest",
+	"path-noncanonical",
+	"duplicate-manifest",
+	"path-bytes-exceeded",
+	"entry-count-exceeded",
+	"source-bytes-exceeded",
+	"unsupported-compression",
+	"manifest-bytes-exceeded",
+	"compressed-bytes-exceeded",
+	"total-uncompressed-bytes-exceeded",
+]);
+
 const PluginRequestFailureReason = Schema.Union([
+	Schema.Struct({ code: Schema.Literal("upload-unavailable") }),
 	Schema.Struct({ code: Schema.Literal("slug-reserved"), pluginSlug: PluginSlug }),
+	Schema.Struct({
+		issue: PluginPackageArchiveIssue,
+		code: Schema.Literal("package-archive-invalid"),
+	}),
 	Schema.Struct({
 		code: Schema.Literal("validation-failed"),
 		diagnostics: Schema.Array(PluginValidationDiagnostic),
@@ -137,14 +163,14 @@ export const PluginPackage = Schema.Struct({
 export type PluginPackage = Schema.Schema.Type<typeof PluginPackage>;
 
 export const InstallPluginBody = Schema.Struct({
-	...PluginPackage.fields,
+	uploadToken: Schema.String,
 	config: Schema.Record(Schema.String, Schema.Unknown),
 });
 
 export type InstallPluginBody = Schema.Schema.Type<typeof InstallPluginBody>;
 
 export const UpdatePrivatePluginBody = strictStruct({
-	...PluginPackage.fields,
+	uploadToken: Schema.String,
 	unsetConfigKeys: Schema.optional(Schema.Array(Schema.String)),
 	config: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
 });

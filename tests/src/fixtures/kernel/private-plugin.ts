@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import type { ContractPayload } from "@ryot/contract/client";
+import type { PluginPackage } from "@ryot/contract/modules/plugins/schemas";
 import { PluginSlug } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
@@ -12,17 +13,20 @@ import {
 	pluginConfigOperationSandboxSource,
 	throwingSandboxSource,
 } from "./sandbox-source";
+import { uploadPrivatePluginPackage } from "./temporary-archive";
 import { testPluginManifest } from "./test-plugin";
+
+export { uploadPrivatePluginPackage };
 
 type InstallPluginPayload = ContractPayload<"plugins", "install">;
 type UpdatePluginPayload = ContractPayload<"plugins", "update">;
-type PrivatePluginManifest = InstallPluginPayload["manifest"];
+type PrivatePluginManifest = PluginPackage["manifest"];
 
 export type PrivatePluginPackage = {
 	readonly operationSlug: string;
 	readonly pluginSlug: PluginSlug;
 	readonly manifest: PrivatePluginManifest;
-	readonly files: InstallPluginPayload["files"];
+	readonly files: PluginPackage["files"];
 };
 
 type PrivatePluginPackageInput = {
@@ -60,7 +64,7 @@ export const privatePluginPackage = (
 	input: PrivatePluginPackageInput = {},
 ): PrivatePluginPackage => {
 	const name = "E2E Private Operation";
-	const entry = "scripts/operation.sandbox.ts";
+	const entry = "backend/scripts/operation.sandbox.ts";
 	const scriptSlug = `e2e-private-operation-${randomUUID()}`;
 	const operationSlug = input.operationSlug ?? "read-config";
 	const configKey = input.configKey ?? PRIVATE_PLUGIN_CONFIG_KEY;
@@ -116,19 +120,38 @@ export const settledPrivateInstallation = (client: Client, pluginSlug: PluginSlu
 			),
 	);
 
+export const installPrivatePluginPackage = (input: {
+	readonly client: Client;
+	readonly baseUrl?: string;
+	readonly config: InstallPluginPayload["config"];
+	readonly pluginPackage: PluginPackage;
+}) =>
+	Effect.gen(function* () {
+		const uploadToken = yield* uploadPrivatePluginPackage(
+			input.client,
+			input.pluginPackage,
+			input.baseUrl,
+		);
+		return yield* input.client.call((c) =>
+			c.plugins.install({ payload: { config: input.config, uploadToken } }),
+		);
+	});
+
 export const installPrivatePlugin = (
 	input: PrivatePluginPackageInput & {
 		readonly client: Client;
+		readonly baseUrl?: string;
 		readonly config: InstallPluginPayload["config"];
 	},
 ) =>
 	Effect.gen(function* () {
 		const plugin = privatePluginPackage(input);
-		yield* input.client.call((c) =>
-			c.plugins.install({
-				payload: { config: input.config, files: plugin.files, manifest: plugin.manifest },
-			}),
-		);
+		yield* installPrivatePluginPackage({
+			client: input.client,
+			config: input.config,
+			baseUrl: input.baseUrl,
+			pluginPackage: plugin,
+		});
 		const installation = yield* settledPrivateInstallation(input.client, plugin.pluginSlug);
 		return { ...plugin, installation };
 	});
@@ -138,7 +161,7 @@ export type PrivateBootstrapPluginPackage = {
 	readonly operationSlug: string;
 	readonly pluginSlug: PluginSlug;
 	readonly manifest: PrivatePluginManifest;
-	readonly files: InstallPluginPayload["files"];
+	readonly files: PluginPackage["files"];
 };
 
 export const privateBootstrapPluginPackage = (
@@ -148,8 +171,8 @@ export const privateBootstrapPluginPackage = (
 	const operationSlug = "read-titles";
 	const name = "E2E private bootstrap";
 	const bootstrapSlug = "seed-owner-data";
-	const bootstrapEntry = "scripts/bootstrap.sandbox.ts";
-	const operationEntry = "scripts/operation.sandbox.ts";
+	const bootstrapEntry = "backend/scripts/bootstrap.sandbox.ts";
+	const operationEntry = "backend/scripts/operation.sandbox.ts";
 	const bootstrapScriptSlug = `e2e-private-bootstrap-${suffix}`;
 	const operationScriptSlug = `e2e-private-bootstrap-operation-${suffix}`;
 	const pluginSlug = `e2e-private-bootstrap-plugin-${suffix}`;
@@ -206,11 +229,11 @@ export const installPrivateBootstrapPlugin = (input: {
 }) =>
 	Effect.gen(function* () {
 		const plugin = privateBootstrapPluginPackage(input);
-		yield* input.client.call((c) =>
-			c.plugins.install({
-				payload: { config: {}, files: plugin.files, manifest: plugin.manifest },
-			}),
-		);
+		yield* installPrivatePluginPackage({
+			config: {},
+			pluginPackage: plugin,
+			client: input.client,
+		});
 		const installation = yield* settledPrivateInstallation(input.client, plugin.pluginSlug);
 		return { ...plugin, installation };
 	});
@@ -230,12 +253,24 @@ export const invokePrivatePluginOperation = (input: {
 
 export const updatePrivatePlugin = (input: {
 	readonly client: Client;
+	readonly baseUrl?: string;
 	readonly pluginSlug: PluginSlug;
-	readonly payload: UpdatePluginPayload;
+	readonly payload: Omit<UpdatePluginPayload, "uploadToken"> & PluginPackage;
 }) =>
-	input.client.call((c) =>
-		c.plugins.update({ payload: input.payload, params: { pluginSlug: input.pluginSlug } }),
-	);
+	Effect.gen(function* () {
+		const { files, manifest, ...payload } = input.payload;
+		const uploadToken = yield* uploadPrivatePluginPackage(
+			input.client,
+			{ files, manifest },
+			input.baseUrl,
+		);
+		return yield* input.client.call((c) =>
+			c.plugins.update({
+				payload: { ...payload, uploadToken },
+				params: { pluginSlug: input.pluginSlug },
+			}),
+		);
+	});
 
 const privateImportWorkflowSource = (scriptSlug: string) => `
 import {
@@ -306,7 +341,7 @@ export type PrivateImportPluginPackage = {
 	readonly sourceSlug: string;
 	readonly pluginSlug: PluginSlug;
 	readonly manifest: PrivatePluginManifest;
-	readonly files: InstallPluginPayload["files"];
+	readonly files: PluginPackage["files"];
 };
 
 export type PrivateIntegrationPluginPackage = {
@@ -314,7 +349,7 @@ export type PrivateIntegrationPluginPackage = {
 	readonly operationSlug: string;
 	readonly pluginSlug: PluginSlug;
 	readonly manifest: PrivatePluginManifest;
-	readonly files: InstallPluginPayload["files"];
+	readonly files: PluginPackage["files"];
 };
 
 export const privateIntegrationSettingsSchema: PrivatePluginManifest["integrationProviders"][number]["settingsSchema"] =
@@ -330,7 +365,7 @@ export const privateImportPluginPackage = (
 ): PrivateImportPluginPackage => {
 	const suffix = randomUUID();
 	const workflowSlug = `private-import-${suffix}`;
-	const entry = "scripts/private-import.sandbox.ts";
+	const entry = "backend/scripts/private-import.sandbox.ts";
 	const name = input.name ?? "E2E private import source";
 	const scriptSlug = `workflow.e2e-private-import-${suffix}`;
 	const sourceSlug = input.sourceSlug ?? `e2e-private-import-${suffix}`;
@@ -373,7 +408,7 @@ export const privateIntegrationPluginPackage = (
 ): PrivateIntegrationPluginPackage => {
 	const suffix = randomUUID();
 	const operationSlug = "read-integration";
-	const entry = "scripts/private-integration.sandbox.ts";
+	const entry = "backend/scripts/private-integration.sandbox.ts";
 	const name = input.name ?? "E2E private integration provider";
 	const scriptSlug = `integration.e2e-private-read-${suffix}`;
 	const providerSlug = input.providerSlug ?? `e2e-private-provider-${suffix}`;
@@ -423,11 +458,11 @@ export const installPrivateImportPlugin = (
 ) =>
 	Effect.gen(function* () {
 		const plugin = privateImportPluginPackage(input);
-		yield* input.client.call((c) =>
-			c.plugins.install({
-				payload: { config: {}, files: plugin.files, manifest: plugin.manifest },
-			}),
-		);
+		yield* installPrivatePluginPackage({
+			config: {},
+			pluginPackage: plugin,
+			client: input.client,
+		});
 		const installation = yield* settledPrivateInstallation(input.client, plugin.pluginSlug);
 		return { ...plugin, installation };
 	});
@@ -437,11 +472,11 @@ export const installPrivateIntegrationPlugin = (
 ) =>
 	Effect.gen(function* () {
 		const plugin = privateIntegrationPluginPackage(input);
-		yield* input.client.call((c) =>
-			c.plugins.install({
-				payload: { config: {}, files: plugin.files, manifest: plugin.manifest },
-			}),
-		);
+		yield* installPrivatePluginPackage({
+			config: {},
+			pluginPackage: plugin,
+			client: input.client,
+		});
 		const installation = yield* settledPrivateInstallation(input.client, plugin.pluginSlug);
 		return { ...plugin, installation };
 	});

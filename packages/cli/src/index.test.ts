@@ -1,7 +1,7 @@
 import { BunServices } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
-import { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
-import { Effect, FileSystem, Path, Schema, Stream } from "effect";
+import { readPluginArchive } from "@ryot/plugin-archive";
+import { Effect, FileSystem, Path, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 
 const createPlugin = Effect.fn("createPlugin")(function* () {
@@ -59,50 +59,47 @@ const waitFor = Effect.fn("waitFor")(function* (
 
 it.layer(BunServices.layer)("ryot plugin build", (test) => {
 	test.effect(
-		"builds the default output with canonical manifest data and filtered backend files",
+		"builds only a deterministic slug archive with canonical manifest data and filtered backend files",
 		() =>
 			Effect.gen(function* () {
 				const path = yield* Path.Path;
 				const fs = yield* FileSystem.FileSystem;
 				const plugin = yield* createPlugin();
 				const result = yield* run(plugin, ["plugin", "build"]);
-				const output = path.join(plugin, "dist", "bundle");
-				const manifest = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(PluginManifest))(
-					yield* fs.readFileString(path.join(output, "manifest.json")),
-				);
+				const output = path.join(plugin, "dist", "cli-test.zip");
+				const first = yield* fs.readFile(output);
+				const pluginPackage = yield* readPluginArchive(first);
+				const secondResult = yield* run(plugin, ["plugin", "build"]);
 
 				expect(result.exitCode, result.stderr).toBe(0);
-				expect(manifest).toMatchObject({
+				expect(secondResult.exitCode, secondResult.stderr).toBe(0);
+				expect(yield* fs.readDirectory(path.join(plugin, "dist"))).toEqual(["cli-test.zip"]);
+				expect(yield* fs.readFile(output)).toEqual(first);
+				expect(pluginPackage.manifest).toMatchObject({
 					httpRateLimits: [{ origins: ["https://example.com"] }],
 				});
-				expect(
-					yield* Effect.forEach(manifest.scripts, ({ entry }) =>
-						fs.exists(path.join(output, entry)),
-					),
-				).toEqual(manifest.scripts.map(() => true));
-				expect(yield* fs.readFileString(path.join(output, "backend", "main.ts"))).toContain(
-					'"initial"',
+				expect(pluginPackage.files["backend/main.ts"]).toContain('"initial"');
+				expect(pluginPackage.files["backend/nested/worker.ts"]).toContain("worker");
+				expect(pluginPackage.files["backend/ignored.test.ts"]).toBeUndefined();
+				expect(Object.keys(pluginPackage.files).some((file) => file.startsWith("client/"))).toBe(
+					false,
 				);
-				expect(
-					yield* fs.readFileString(path.join(output, "backend", "nested", "worker.ts")),
-				).toContain("worker");
-				expect(yield* fs.exists(path.join(output, "backend", "ignored.test.ts"))).toBe(false);
-				expect(yield* fs.exists(path.join(output, "client"))).toBe(false);
 			}),
 	);
 
-	test.effect("builds an explicit output directory", () =>
+	test.effect("builds an explicit output file", () =>
 		Effect.gen(function* () {
 			const path = yield* Path.Path;
 			const fs = yield* FileSystem.FileSystem;
 			const plugin = yield* createPlugin();
-			const result = yield* run(plugin, ["plugin", "build", "--output", "artifacts/plugin"]);
+			const result = yield* run(plugin, ["plugin", "build", "--output", "artifacts/plugin.zip"]);
 
 			expect(result.exitCode, result.stderr).toBe(0);
-			expect(yield* fs.exists(path.join(plugin, "artifacts", "plugin", "manifest.json"))).toBe(
-				true,
-			);
-			expect(yield* fs.exists(path.join(plugin, "dist", "bundle", "manifest.json"))).toBe(false);
+			expect(
+				(yield* readPluginArchive(yield* fs.readFile(path.join(plugin, "artifacts", "plugin.zip"))))
+					.manifest.metadata.slug,
+			).toBe("cli-test");
+			expect(yield* fs.exists(path.join(plugin, "dist", "cli-test.zip"))).toBe(false);
 		}),
 	);
 
@@ -111,9 +108,9 @@ it.layer(BunServices.layer)("ryot plugin build", (test) => {
 			const path = yield* Path.Path;
 			const fs = yield* FileSystem.FileSystem;
 			const plugin = yield* createPlugin();
-			const output = path.join(plugin, "dist", "bundle");
-			yield* fs.makeDirectory(output, { recursive: true });
-			yield* fs.writeFileString(path.join(output, "sentinel"), "keep");
+			const output = path.join(plugin, "dist", "cli-test.zip");
+			yield* fs.makeDirectory(path.dirname(output), { recursive: true });
+			yield* fs.writeFileString(output, "keep");
 			yield* fs.writeFileString(
 				path.join(plugin, "manifest.ts"),
 				"export default { invalid: true };\n",
@@ -122,7 +119,7 @@ it.layer(BunServices.layer)("ryot plugin build", (test) => {
 			const result = yield* run(plugin, ["plugin", "build"]);
 
 			expect(result.exitCode).not.toBe(0);
-			expect(yield* fs.readFileString(path.join(output, "sentinel"))).toBe("keep");
+			expect(yield* fs.readFileString(output)).toBe("keep");
 		}),
 	);
 
@@ -131,9 +128,9 @@ it.layer(BunServices.layer)("ryot plugin build", (test) => {
 			const path = yield* Path.Path;
 			const fs = yield* FileSystem.FileSystem;
 			const plugin = yield* createPlugin();
-			const output = path.join(plugin, "dist", "bundle");
-			yield* fs.makeDirectory(output, { recursive: true });
-			yield* fs.writeFileString(path.join(output, "sentinel"), "keep");
+			const output = path.join(plugin, "dist", "cli-test.zip");
+			yield* fs.makeDirectory(path.dirname(output), { recursive: true });
+			yield* fs.writeFileString(output, "keep");
 			const manifestPath = path.join(plugin, "manifest.ts");
 			const manifest = yield* fs.readFileString(manifestPath);
 			yield* fs.writeFileString(
@@ -144,7 +141,7 @@ it.layer(BunServices.layer)("ryot plugin build", (test) => {
 			const result = yield* run(plugin, ["plugin", "build"]);
 
 			expect(result.exitCode).not.toBe(0);
-			expect(yield* fs.readFileString(path.join(output, "sentinel"))).toBe("keep");
+			expect(yield* fs.readFileString(output)).toBe("keep");
 		}),
 	);
 
@@ -175,7 +172,7 @@ it.live("rebuilds after a watched backend change", () =>
 		const fs = yield* FileSystem.FileSystem;
 		const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 		const plugin = yield* createPlugin();
-		const output = path.join(plugin, "watch-output");
+		const output = path.join(plugin, "watch-output.zip");
 		const entry = yield* path.fromFileUrl(new URL("./index.ts", import.meta.url));
 		const child = yield* spawner.spawn(
 			ChildProcess.make(
@@ -186,18 +183,18 @@ it.live("rebuilds after a watched backend change", () =>
 		);
 		yield* Effect.addFinalizer(() => child.kill().pipe(Effect.ignore));
 
-		const outputFile = path.join(output, "backend", "main.ts");
-		yield* waitFor(fs.exists(outputFile));
+		yield* waitFor(fs.exists(output));
 		yield* fs.writeFileString(
 			path.join(plugin, "backend", "main.ts"),
 			'export const main = "updated";\n',
 		);
 		yield* waitFor(
 			Effect.gen(function* () {
-				if (!(yield* fs.exists(outputFile))) {
+				if (!(yield* fs.exists(output))) {
 					return false;
 				}
-				return (yield* fs.readFileString(outputFile)).includes('"updated"');
+				const pluginPackage = yield* readPluginArchive(yield* fs.readFile(output));
+				return pluginPackage.files["backend/main.ts"]?.includes('"updated"') ?? false;
 			}),
 		);
 	}).pipe(Effect.provide(BunServices.layer)),

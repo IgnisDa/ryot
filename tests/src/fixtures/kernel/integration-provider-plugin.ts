@@ -1,9 +1,9 @@
-import type { ContractPayload } from "@ryot/contract/client";
+import type { PluginPackage } from "@ryot/contract/modules/plugins/schemas";
 import { Effect } from "effect";
 
 import { installTestPluginBundle } from "./test-plugin";
 
-type PluginManifest = ContractPayload<"plugins", "install">["manifest"];
+type PluginManifest = PluginPackage["manifest"];
 
 export const installTestIntegrationProvider = (
 	settingsSchema: PluginManifest["integrationProviders"][number]["settingsSchema"],
