@@ -25,7 +25,7 @@ export const DefinitionsRoutesLive = HttpApiBuilder.group(AppContract, "definiti
 					.getEffectiveDefinitions(user.id)
 					.pipe(dieOnDbError);
 				const schemaProviders = yield* pluginRuntime
-					.listSchemaProviders(undefined, user.id)
+					.listSchemaProviders({ userId: user.id })
 					.pipe(dieOnDbError);
 				return Object.values(definitions.entitySchemas).map((definition) =>
 					Object.assign({}, definition, {

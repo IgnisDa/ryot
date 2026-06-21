@@ -22,12 +22,12 @@ import {
 } from "#lib/test-utils/effect";
 import { CollectionsService } from "#modules/collections/service";
 import {
-	DefinitionRegistry,
 	type DefinitionSource,
 	makeDefinitionRegistry,
 } from "#modules/definition-registry/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
+import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { RelationshipsService } from "#modules/relationships/service";
 
 import { ImportRunFailuresService } from "./failure-service";
@@ -38,6 +38,13 @@ import {
 import { ImportsService } from "./service";
 
 const collectionsLayer = Layer.mock(CollectionsService)({});
+const makePluginRuntime = (
+	definitions = makeDefinitionRegistry().getSnapshot(),
+	onResolve: () => void = () => {},
+) =>
+	Layer.mock(PluginRuntimeResolver)({
+		getEffectiveDefinitions: () => Effect.sync(onResolve).pipe(Effect.as(definitions)),
+	});
 const artifactStoreLayer = Layer.mock(SandboxArtifactStore)({
 	retain: () => Effect.void,
 	release: () => Effect.void,
@@ -84,295 +91,310 @@ const makeRelationshipSchemaImportItem = (
 	],
 });
 
-it.effect(
-	"processes generic writes and attributes relationship mutation failures to the subject schema",
-	() => {
-		const executionId = "generic-import";
-		const updates: Array<Record<string, unknown>> = [];
-		const failures: Array<Record<string, unknown>> = [];
-		const entities: Array<Record<string, unknown>> = [];
-		const relationships: Array<Record<string, unknown>> = [];
-		const eventExecutions: Array<Record<string, unknown>> = [];
-		const collectionExecutions: Array<Record<string, unknown>> = [];
-		const directory = "/tmp/ryot-sandbox-harvest-test/generic-import-activity-0";
-		const path = `${directory}/chunk-0.json`;
-		const instance = WorkflowInstance.initial(ProcessGenericImportChunksWorkflow, executionId);
+it.effect("processes generic entity, relationship, event, and collection writes", () => {
+	const executionId = "generic-import";
+	const updates: Array<Record<string, unknown>> = [];
+	const failures: Array<Record<string, unknown>> = [];
+	const entities: Array<Record<string, unknown>> = [];
+	const relationships: Array<Record<string, unknown>> = [];
+	const eventExecutions: Array<Record<string, unknown>> = [];
+	const collectionExecutions: Array<Record<string, unknown>> = [];
+	const directory = "/tmp/ryot-sandbox-harvest-test/generic-import-activity-0";
+	const path = `${directory}/chunk-0.json`;
+	const instance = WorkflowInstance.initial(ProcessGenericImportChunksWorkflow, executionId);
 
-		return Effect.gen(function* () {
-			const fs = yield* FileSystem.FileSystem;
-			yield* fs.makeDirectory(directory, { recursive: true });
-			yield* fs.writeFileString(
-				path,
-				yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({
-					failures: [
-						{
-							itemIndex: 0,
-							sourceLabel: "Row 1",
-							stage: "source_fetch",
-							sourceIdentifier: "1",
-							message: "Could not parse date/time value",
-						},
-					],
-					items: [
-						{
-							itemIndex: 1,
-							subjectEntityAlias: "direct",
-							sourceIdentifier: "collection-1",
-							sourceLabel: "Imported collection",
-							collectionMemberships: [{ entityAlias: "direct", collectionName: "Favorites" }],
-							relationships: [
-								{
-									sourceAlias: "session",
-									targetAlias: "existing",
-									properties: { rank: 7 },
-									relationshipSchemaSlug: "member-of",
-								},
-								{
-									properties: { rank: 0 },
-									sourceAlias: "direct",
-									targetAlias: "library",
-									propertiesMode: "merge",
-									relationshipSchemaSlug: "member-of",
-								},
-							],
-							events: [
-								{
-									entityAlias: "existing",
-									eventSchemaSlug: "review",
-									sessionEntityAlias: "session",
-									occurredAt: "2026-01-02T03:04:05.000Z",
-									subjectEntityId: "existing-collection",
-									properties: { rating: 90, text: "Imported body", isSpoiler: false },
-								},
-							],
-							entities: [
-								{
-									alias: "existing",
-									entitySchemaSlug: "collection",
-									properties: { kind: "tracked" },
-									name: "Ignored replacement name",
-									match: {
-										name: "my existing",
-										nameNormalization: "slug",
-										properties: { kind: "tracked" },
-									},
-								},
-								{
-									alias: "session",
-									name: "Created collection",
-									entitySchemaSlug: "collection",
-									properties: { kind: "session" },
-								},
-								{
-									properties: {},
-									alias: "direct",
-									name: "Existing example",
-									entityId: "direct-example",
-									entitySchemaSlug: "collection",
-								},
-								{
-									scope: "user",
-									properties: {},
-									name: "Library",
-									alias: "library",
-									existingOnly: true,
-									entitySchemaSlug: "collection",
-									match: { name: "Library", properties: {} },
-								},
-							],
-						},
-						{
-							events: [],
-							itemIndex: 2,
-							collectionMemberships: [],
-							subjectEntityAlias: "example",
-							sourceIdentifier: "example-1",
-							sourceLabel: "Imported example",
-							relationships: [
-								{
-									properties: { rank: 0 },
-									sourceAlias: "example",
-									targetAlias: "library",
-									propertiesMode: "merge",
-									relationshipSchemaSlug: "member-of",
-								},
-							],
-							entities: [
-								{
-									properties: {},
-									alias: "example",
-									name: "Failed example",
-									entityId: "failed-example",
-									entitySchemaSlug: "group",
-								},
-								{
-									scope: "user",
-									properties: {},
-									name: "Library",
-									alias: "library",
-									existingOnly: true,
-									entitySchemaSlug: "collection",
-									match: { name: "Library", properties: {} },
-								},
-							],
-						},
-					],
-				}),
-			);
-
-			const result = yield* runProcessGenericImportChunksWorkflow(
-				{
-					executionId,
-					artifactOwnerExecutionId: executionId,
-					artifactReferenceExecutionId: executionId,
-					totalItems: 3,
-					failureCount: 1,
-					writeItemCount: 2,
-					chunkHandles: [path],
-					userId: UserId.make("user-1"),
-					runId: ImportRunId.make("run-1"),
-				},
-				executionId,
-			);
-
-			expect(result).toEqual({ failedItems: 2, importedItems: 1, processedItems: 3 });
-			expect(failures).toEqual([
-				expect.objectContaining({
-					itemIndex: 0,
-					stage: "source_fetch",
-					reason: { code: "source-fetch-failed" },
-				}),
-				expect.objectContaining({
-					itemIndex: 2,
-					stage: "database_commit",
-					entitySchemaSlug: "group",
-					reason: { code: "database-commit-failed" },
-				}),
-			]);
-			expect(entities).toEqual([
-				expect.objectContaining({
-					userId: "user-1",
-					name: "Created collection",
-					entitySchemaSlug: "collection",
-					properties: { kind: "session" },
-				}),
-			]);
-			expect(relationships).toEqual([
-				expect.objectContaining({
-					properties: { rank: 7 },
-					relationshipSchemaSlug: "member-of",
-					sourceEntityId: "created-collection",
-					targetEntityId: "existing-collection",
-				}),
-				expect.objectContaining({
-					sourceEntityId: "direct-example",
-					relationshipSchemaSlug: "member-of",
-					targetEntityId: "library-collection",
-				}),
-			]);
-			expect(eventExecutions).toEqual([
-				{
-					executionId: "generic-import-item-1-events",
-					payload: {
-						origin: "import",
-						userId: "user-1",
-						importRunId: "run-1",
-						executionId: "generic-import-item-1-events",
-						lifecycleOrigin: { kind: "import", importRunId: "run-1" },
-						payload: [
+	return Effect.gen(function* () {
+		const fs = yield* FileSystem.FileSystem;
+		yield* fs.makeDirectory(directory, { recursive: true });
+		yield* fs.writeFileString(
+			path,
+			yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({
+				failures: [
+					{
+						itemIndex: 0,
+						sourceLabel: "Row 1",
+						stage: "source_fetch",
+						sourceIdentifier: "1",
+						message: "Could not parse date/time value",
+					},
+				],
+				items: [
+					{
+						itemIndex: 1,
+						subjectEntityAlias: "direct",
+						sourceIdentifier: "collection-1",
+						sourceLabel: "Imported collection",
+						collectionMemberships: [{ entityAlias: "direct", collectionName: "Favorites" }],
+						relationships: [
 							{
+								sourceAlias: "session",
+								targetAlias: "existing",
+								properties: { rank: 7 },
+								relationshipSchemaSlug: "member-of",
+							},
+							{
+								properties: { rank: 0 },
+								sourceAlias: "direct",
+								targetAlias: "library",
+								propertiesMode: "merge",
+								relationshipSchemaSlug: "member-of",
+							},
+						],
+						events: [
+							{
+								entityAlias: "existing",
 								eventSchemaSlug: "review",
-								entityId: "existing-collection",
-								sessionEntityId: "created-collection",
+								sessionEntityAlias: "session",
 								occurredAt: "2026-01-02T03:04:05.000Z",
+								subjectEntityId: "existing-collection",
 								properties: { rating: 90, text: "Imported body", isSpoiler: false },
 							},
 						],
+						entities: [
+							{
+								alias: "existing",
+								entitySchemaSlug: "collection",
+								properties: { kind: "tracked" },
+								name: "Ignored replacement name",
+								match: {
+									name: "my existing",
+									nameNormalization: "slug",
+									properties: { kind: "tracked" },
+								},
+							},
+							{
+								alias: "session",
+								name: "Created collection",
+								entitySchemaSlug: "collection",
+								properties: { kind: "session" },
+							},
+							{
+								properties: {},
+								alias: "direct",
+								name: "Existing example",
+								entityId: "direct-example",
+								entitySchemaSlug: "collection",
+							},
+							{
+								scope: "user",
+								properties: {},
+								name: "Library",
+								alias: "library",
+								existingOnly: true,
+								entitySchemaSlug: "collection",
+								match: { name: "Library", properties: {} },
+							},
+						],
 					},
+					{
+						events: [],
+						itemIndex: 2,
+						collectionMemberships: [],
+						subjectEntityAlias: "example",
+						sourceIdentifier: "example-1",
+						sourceLabel: "Imported example",
+						relationships: [
+							{
+								properties: { rank: 0 },
+								sourceAlias: "example",
+								targetAlias: "library",
+								propertiesMode: "merge",
+								relationshipSchemaSlug: "member-of",
+							},
+						],
+						entities: [
+							{
+								properties: {},
+								alias: "example",
+								name: "Failed example",
+								entityId: "failed-example",
+								entitySchemaSlug: "group",
+							},
+							{
+								scope: "user",
+								properties: {},
+								name: "Library",
+								alias: "library",
+								existingOnly: true,
+								entitySchemaSlug: "collection",
+								match: { name: "Library", properties: {} },
+							},
+						],
+					},
+				],
+			}),
+		);
+
+		const result = yield* runProcessGenericImportChunksWorkflow(
+			{
+				executionId,
+				artifactOwnerExecutionId: executionId,
+				artifactReferenceExecutionId: executionId,
+				totalItems: 3,
+				failureCount: 1,
+				writeItemCount: 2,
+				chunkHandles: [path],
+				userId: UserId.make("user-1"),
+				runId: ImportRunId.make("run-1"),
+			},
+			executionId,
+		);
+
+		expect(result).toEqual({ failedItems: 1, importedItems: 2, processedItems: 3 });
+		expect(failures).toEqual([
+			expect.objectContaining({
+				itemIndex: 0,
+				stage: "source_fetch",
+				reason: { code: "source-fetch-failed" },
+			}),
+		]);
+		expect(entities).toEqual([
+			expect.objectContaining({
+				userId: "user-1",
+				name: "Created collection",
+				entitySchemaSlug: "collection",
+				properties: { kind: "session" },
+			}),
+		]);
+		expect(relationships).toEqual([
+			expect.objectContaining({
+				properties: { rank: 7 },
+				relationshipSchemaSlug: "member-of",
+				sourceEntityId: "created-collection",
+				targetEntityId: "existing-collection",
+			}),
+			expect.objectContaining({
+				sourceEntityId: "direct-example",
+				relationshipSchemaSlug: "member-of",
+				targetEntityId: "library-collection",
+			}),
+		]);
+		expect(eventExecutions).toEqual([
+			{
+				executionId: "generic-import-item-1-events",
+				payload: {
+					origin: "import",
+					userId: "user-1",
+					importRunId: "run-1",
+					executionId: "generic-import-item-1-events",
+					lifecycleOrigin: { kind: "import", importRunId: "run-1" },
+					payload: [
+						{
+							eventSchemaSlug: "review",
+							entityId: "existing-collection",
+							sessionEntityId: "created-collection",
+							occurredAt: "2026-01-02T03:04:05.000Z",
+							properties: { rating: 90, text: "Imported body", isSpoiler: false },
+						},
+					],
 				},
-			]);
-			expect(collectionExecutions).toEqual([
-				expect.objectContaining({
-					executionId: "generic-import-item-1-collection-0",
-					payload: expect.objectContaining({
-						entityId: "direct-example",
-						collectionId: "favorites-collection",
+			},
+		]);
+		expect(collectionExecutions).toEqual([
+			expect.objectContaining({
+				executionId: "generic-import-item-1-collection-0",
+				payload: expect.objectContaining({
+					entityId: "direct-example",
+					collectionId: "favorites-collection",
+				}),
+			}),
+		]);
+		expect(updates).toContainEqual(
+			expect.objectContaining({
+				progress: 100,
+				failedItems: 1,
+				importedItems: 2,
+				processedItems: 3,
+			}),
+		);
+	}).pipe(
+		Effect.provideService(
+			WorkflowEngine,
+			makeWorkflowActivityEngine(instance, {
+				execute: (workflow, options) =>
+					Effect.sync(() => {
+						if (workflow._tag === "AddEntityToCollectionWorkflow") {
+							collectionExecutions.push(options);
+						} else {
+							eventExecutions.push(options);
+						}
+						return [];
 					}),
-				}),
-			]);
-			expect(updates).toContainEqual(
-				expect.objectContaining({
-					progress: 100,
-					failedItems: 2,
-					importedItems: 1,
-					processedItems: 3,
-				}),
-			);
-		}).pipe(
-			Effect.provideService(
-				WorkflowEngine,
-				makeWorkflowActivityEngine(instance, {
-					execute: (workflow, options) =>
-						Effect.sync(() => {
-							if (workflow._tag === "AddEntityToCollectionWorkflow") {
-								collectionExecutions.push(options);
-							} else {
-								eventExecutions.push(options);
-							}
-							return [];
+			}),
+		),
+		Effect.provideService(WorkflowInstance, instance),
+		Effect.provide(
+			Layer.mergeAll(
+				artifactStoreLayer,
+				databaseLayer,
+				transactionDatabaseLayer,
+				BunServices.layer,
+				makeAppConfigLayer(),
+				makePluginRuntime(),
+				Layer.mock(CollectionsService)({
+					getOrCreateCollection: () =>
+						Effect.succeed({
+							properties: {},
+							providerId: null,
+							externalId: null,
+							populatedAt: null,
+							name: "Favorites",
+							createdAt: "2026-01-01T00:00:00.000Z",
+							updatedAt: "2026-01-01T00:00:00.000Z",
+							id: EntityId.make("favorites-collection"),
+							entitySchemaSlug: EntitySchemaSlug.make("collection"),
 						}),
 				}),
-			),
-			Effect.provideService(WorkflowInstance, instance),
-			Effect.provide(
-				Layer.mergeAll(
-					artifactStoreLayer,
-					databaseLayer,
-					transactionDatabaseLayer,
-					BunServices.layer,
-					makeAppConfigLayer(),
-					DefinitionRegistry.layer,
-					Layer.mock(CollectionsService)({
-						getOrCreateCollection: () =>
-							Effect.succeed({
-								properties: {},
-								providerId: null,
-								externalId: null,
-								populatedAt: null,
-								name: "Favorites",
+				Layer.mock(RelationshipsService)({
+					mergeUserProperties: (input) =>
+						input.targetEntityId === "library-collection" &&
+						input.sourceEntityId !== "direct-example"
+							? Effect.fail(new DbError({ message: "membership write failed" }))
+							: Effect.sync(() => {
+									relationships.push(input);
+									return null;
+								}),
+					create: (input) =>
+						Effect.sync(() => {
+							relationships.push(input);
+							assert(isObjectRecord(input.properties));
+							return {
+								wasInserted: true,
+								properties: input.properties,
+								sourceEntityId: input.sourceEntityId,
+								targetEntityId: input.targetEntityId,
 								createdAt: "2026-01-01T00:00:00.000Z",
-								updatedAt: "2026-01-01T00:00:00.000Z",
-								id: EntityId.make("favorites-collection"),
-								entitySchemaSlug: EntitySchemaSlug.make("collection"),
-							}),
-					}),
-					Layer.mock(RelationshipsService)({
-						mergeUserProperties: (input) =>
-							input.sourceEntityId === "failed-example"
-								? Effect.fail(new DbError({ message: "membership write failed" }))
-								: Effect.sync(() => {
-										relationships.push(input);
-										return null;
-									}),
-						create: (input) =>
-							Effect.sync(() => {
-								relationships.push(input);
-								assert(isObjectRecord(input.properties));
-								return {
-									wasInserted: true,
-									properties: input.properties,
-									sourceEntityId: input.sourceEntityId,
-									targetEntityId: input.targetEntityId,
-									createdAt: "2026-01-01T00:00:00.000Z",
-									id: RelationshipId.make("relationship-1"),
-									relationshipSchemaSlug: input.relationshipSchemaSlug,
-								};
-							}),
-					}),
-					Layer.mock(EntitiesRepository)({
-						getByIdForUser: ({ entityId }) =>
-							Effect.succeed({
-								id: entityId,
+								id: RelationshipId.make("relationship-1"),
+								relationshipSchemaSlug: input.relationshipSchemaSlug,
+							};
+						}),
+				}),
+				Layer.mock(EntitiesRepository)({
+					getByIdForUser: ({ entityId }) =>
+						Effect.succeed({
+							id: entityId,
+							providerId: null,
+							externalId: null,
+							populatedAt: null,
+							name: "My Existing",
+							properties: { kind: "tracked" },
+							createdAt: "2026-01-01T00:00:00.000Z",
+							updatedAt: "2026-01-01T00:00:00.000Z",
+							entitySchemaSlug: EntitySchemaSlug.make(
+								entityId === "failed-example" ? "group" : "collection",
+							),
+						}),
+					getEntityScopeForUser: ({ entityId }) =>
+						Effect.succeed({
+							entityId,
+							isBuiltin: true,
+							entityName: "Library",
+							entitySchemaSlug: EntitySchemaSlug.make("collection"),
+							entityUserId: entityId === "global-library" ? null : UserId.make("user-1"),
+						}),
+					listMatchCandidatesBySchema: () =>
+						Effect.succeed([
+							{
 								providerId: null,
 								externalId: null,
 								populatedAt: null,
@@ -380,90 +402,70 @@ it.effect(
 								properties: { kind: "tracked" },
 								createdAt: "2026-01-01T00:00:00.000Z",
 								updatedAt: "2026-01-01T00:00:00.000Z",
-								entitySchemaSlug: EntitySchemaSlug.make(
-									entityId === "failed-example" ? "group" : "collection",
-								),
-							}),
-						getEntityScopeForUser: ({ entityId }) =>
-							Effect.succeed({
-								entityId,
-								isBuiltin: true,
-								entityName: "Library",
+								id: EntityId.make("existing-collection"),
 								entitySchemaSlug: EntitySchemaSlug.make("collection"),
-								entityUserId: entityId === "global-library" ? null : UserId.make("user-1"),
-							}),
-						listMatchCandidatesBySchema: () =>
-							Effect.succeed([
-								{
-									providerId: null,
-									externalId: null,
-									populatedAt: null,
-									name: "My Existing",
-									properties: { kind: "tracked" },
-									createdAt: "2026-01-01T00:00:00.000Z",
-									updatedAt: "2026-01-01T00:00:00.000Z",
-									id: EntityId.make("existing-collection"),
-									entitySchemaSlug: EntitySchemaSlug.make("collection"),
-								},
-								{
-									properties: {},
-									name: "Library",
-									providerId: null,
-									externalId: null,
-									populatedAt: null,
-									createdAt: "2026-01-01T00:00:00.000Z",
-									updatedAt: "2026-01-01T00:00:00.000Z",
-									id: EntityId.make("global-library"),
-									entitySchemaSlug: EntitySchemaSlug.make("collection"),
-								},
-								{
-									properties: {},
-									name: "Library",
-									providerId: null,
-									externalId: null,
-									populatedAt: null,
-									createdAt: "2026-01-01T00:00:00.000Z",
-									updatedAt: "2026-01-01T00:00:00.000Z",
-									id: EntityId.make("library-collection"),
-									entitySchemaSlug: EntitySchemaSlug.make("collection"),
-								},
-							]),
-					}),
-					Layer.mock(EntitiesService)({
-						create: (input) =>
-							Effect.sync(() => {
-								entities.push(input);
-								assert(isObjectRecord(input.properties));
-								return {
-									name: input.name,
-									externalId: null,
-									providerId: null,
-									populatedAt: null,
-									properties: input.properties,
-									createdAt: "2026-01-01T00:00:00.000Z",
-									updatedAt: "2026-01-01T00:00:00.000Z",
-									id: EntityId.make("created-collection"),
-									entitySchemaSlug: EntitySchemaSlug.make(input.entitySchemaSlug),
-								};
-							}),
-					}),
-					Layer.mock(ImportsService)({
-						update: (input) => Effect.sync(() => updates.push(input)).pipe(Effect.asVoid),
-					}),
-					Layer.mock(ImportRunFailuresService)({
-						create: (input) => Effect.sync(() => failures.push(input)).pipe(Effect.asVoid),
-					}),
-				),
+							},
+							{
+								properties: {},
+								name: "Library",
+								providerId: null,
+								externalId: null,
+								populatedAt: null,
+								createdAt: "2026-01-01T00:00:00.000Z",
+								updatedAt: "2026-01-01T00:00:00.000Z",
+								id: EntityId.make("global-library"),
+								entitySchemaSlug: EntitySchemaSlug.make("collection"),
+							},
+							{
+								properties: {},
+								name: "Library",
+								providerId: null,
+								externalId: null,
+								populatedAt: null,
+								createdAt: "2026-01-01T00:00:00.000Z",
+								updatedAt: "2026-01-01T00:00:00.000Z",
+								id: EntityId.make("library-collection"),
+								entitySchemaSlug: EntitySchemaSlug.make("collection"),
+							},
+						]),
+				}),
+				Layer.mock(EntitiesService)({
+					create: (input) =>
+						Effect.sync(() => {
+							entities.push(input);
+							assert(isObjectRecord(input.properties));
+							return {
+								name: input.name,
+								externalId: null,
+								providerId: null,
+								populatedAt: null,
+								properties: input.properties,
+								createdAt: "2026-01-01T00:00:00.000Z",
+								updatedAt: "2026-01-01T00:00:00.000Z",
+								id: EntityId.make("created-collection"),
+								entitySchemaSlug: EntitySchemaSlug.make(input.entitySchemaSlug),
+							};
+						}),
+				}),
+				Layer.mock(ImportsService)({
+					update: (input) => Effect.sync(() => updates.push(input)).pipe(Effect.asVoid),
+				}),
+				Layer.mock(ImportRunFailuresService)({
+					create: (input) => Effect.sync(() => failures.push(input)).pipe(Effect.asVoid),
+				}),
 			),
-		);
-	},
-);
+		),
+	);
+});
 
-it.effect("validates relationship endpoint schemas before generic import writes", () => {
+it.effect("imports private event and relationship schemas from one effective snapshot", () => {
 	const executionId = "generic-import-relationship-schemas";
+	const pluginId = "private-plugin-id";
 	const failures: Array<Record<string, unknown>> = [];
 	const entityWrites: Array<string> = [];
+	const eventExecutions: Array<Record<string, unknown>> = [];
 	const relationshipWrites: Array<Record<string, unknown>> = [];
+	let definitionResolutions = 0;
 	const directory = `/tmp/ryot-sandbox-harvest-test/${executionId}-activity-0`;
 	const path = `${directory}/chunk-0.json`;
 	const instance = WorkflowInstance.initial(ProcessGenericImportChunksWorkflow, executionId);
@@ -475,12 +477,17 @@ it.effect("validates relationship endpoint schemas before generic import writes"
 			slug,
 			name: slug,
 			icon: "circle",
-			pluginSlug: null,
-			eventSchemas: [],
+			pluginId,
+			pluginSlug: "private-plugin",
+			eventSchemas:
+				slug === "other"
+					? [{ name: "Private Event", slug: "private-event", propertiesSchema }]
+					: [],
 			propertiesSchema,
 		})),
 		relationshipSchemas: [
 			{
+				pluginId,
 				propertiesSchema,
 				name: "Source constrained",
 				slug: "source-constrained",
@@ -488,6 +495,7 @@ it.effect("validates relationship endpoint schemas before generic import writes"
 				sourceEntitySchemaSlug: "source",
 			},
 			{
+				pluginId,
 				propertiesSchema,
 				name: "Target constrained",
 				slug: "target-constrained",
@@ -495,6 +503,7 @@ it.effect("validates relationship endpoint schemas before generic import writes"
 				targetEntitySchemaSlug: "target",
 			},
 			{
+				pluginId,
 				propertiesSchema,
 				name: "Unrestricted",
 				slug: "unrestricted",
@@ -515,7 +524,17 @@ it.effect("validates relationship endpoint schemas before generic import writes"
 				items: [
 					makeRelationshipSchemaImportItem(0, "source-constrained", "other", "target"),
 					makeRelationshipSchemaImportItem(1, "target-constrained", "source", "other"),
-					makeRelationshipSchemaImportItem(2, "unrestricted", "other", "other"),
+					{
+						...makeRelationshipSchemaImportItem(2, "unrestricted", "other", "other"),
+						events: [
+							{
+								properties: {},
+								entityAlias: "source",
+								eventSchemaSlug: "private-event",
+								occurredAt: "2026-01-02T03:04:05.000Z",
+							},
+						],
+					},
 				],
 			}),
 		);
@@ -543,13 +562,36 @@ it.effect("validates relationship endpoint schemas before generic import writes"
 		expect(entityWrites).toEqual(["source-2", "target-2"]);
 		expect(relationshipWrites).toEqual([
 			expect.objectContaining({
+				relationshipSchemaPluginId: pluginId,
 				sourceEntityId: "source-2-id",
 				targetEntityId: "target-2-id",
 				relationshipSchemaSlug: "unrestricted",
 			}),
 		]);
+		expect(eventExecutions).toEqual([
+			expect.objectContaining({
+				payload: expect.objectContaining({
+					payload: [
+						expect.objectContaining({
+							eventSchemaSlug: "private-event",
+							properties: {},
+						}),
+					],
+				}),
+			}),
+		]);
+		expect(definitionResolutions).toBe(1);
 	}).pipe(
-		Effect.provideService(WorkflowEngine, makeWorkflowActivityEngine(instance)),
+		Effect.provideService(
+			WorkflowEngine,
+			makeWorkflowActivityEngine(instance, {
+				execute: (_workflow, options) =>
+					Effect.sync(() => {
+						eventExecutions.push(options);
+						return [];
+					}),
+			}),
+		),
 		Effect.provideService(WorkflowInstance, instance),
 		Effect.provide(
 			Layer.mergeAll(
@@ -559,7 +601,9 @@ it.effect("validates relationship endpoint schemas before generic import writes"
 				BunServices.layer,
 				makeAppConfigLayer(),
 				collectionsLayer,
-				Layer.succeed(DefinitionRegistry, { ...definitions }),
+				makePluginRuntime(definitions.getSnapshot(), () => {
+					definitionResolutions += 1;
+				}),
 				Layer.mock(EntitiesRepository)({}),
 				Layer.mock(EntitiesService)({
 					create: (input) =>
@@ -643,7 +687,7 @@ it.effect("fails before reading chunks when the initial run update fails", () =>
 				databaseLayer,
 				transactionDatabaseLayer,
 				BunServices.layer,
-				DefinitionRegistry.layer,
+				makePluginRuntime(),
 				collectionsLayer,
 				Layer.mock(RelationshipsService)({}),
 				Layer.mock(EntitiesRepository)({}),

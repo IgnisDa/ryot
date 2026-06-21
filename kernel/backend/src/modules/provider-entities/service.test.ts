@@ -142,7 +142,7 @@ it.effect("returns NotFound when the derived entity schema is not found", () =>
 	}).pipe(
 		Effect.provide(
 			makeServiceLayer(
-				makeEntitiesRepository({ getEntitySchemaScopeForUser: () => Effect.succeed(null) }),
+				makeEntitiesRepository({ findEntitySchemaForUser: () => Effect.succeed(null) }),
 			),
 		),
 	),
@@ -157,13 +157,18 @@ it.effect("derives the root entity schema before dispatching the import workflow
 		expect(typeof result.jobId).toBe("string");
 		expect(executeCalls).toHaveLength(1);
 		expect(executeCalls[0]).toMatchObject({
-			payload: { providerId, externalId, entityScope: "global", entitySchemaSlug },
+			payload: {
+				providerId,
+				externalId,
+				entitySchemaSlug,
+				entityScope: { type: "global", userId: user.id },
+			},
 		});
 	}).pipe(
 		Effect.provide(
 			makeServiceLayer(
 				makeEntitiesRepository({
-					getEntitySchemaScopeForUser: () => Effect.succeed(fakeEntitySchemaScope),
+					findEntitySchemaForUser: () => Effect.succeed(fakeEntitySchemaScope),
 				}),
 				makeWorkflowEngine({
 					execute: (_workflow, options) => {
@@ -181,12 +186,14 @@ it.effect("dispatches private provider imports with user-owned entity scope", ()
 	return Effect.gen(function* () {
 		const service = yield* EntityImportService;
 		yield* service.import(user, { providerId, externalId });
-		expect(executeCalls[0]).toMatchObject({ payload: { entityScope: "user", userId: user.id } });
+		expect(executeCalls[0]).toMatchObject({
+			payload: { entityScope: { type: "user", userId: user.id } },
+		});
 	}).pipe(
 		Effect.provide(
 			makeServiceLayer(
 				makeEntitiesRepository({
-					getEntitySchemaScopeForUser: () => Effect.succeed(fakeEntitySchemaScope),
+					findEntitySchemaForUser: () => Effect.succeed(fakeEntitySchemaScope),
 				}),
 				makeWorkflowEngine({
 					execute: (_workflow, options) => Effect.sync(() => void executeCalls.push(options)),

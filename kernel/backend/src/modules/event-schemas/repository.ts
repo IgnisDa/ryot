@@ -1,5 +1,5 @@
 import { EntitySchemaSlug, EventSchemaSlug, type UserId } from "@ryot-app/contract/schema/brands";
-import { Context, Effect, Layer, Option } from "effect";
+import { Context, Effect, Layer } from "effect";
 
 import {
 	DefinitionRegistry,
@@ -21,13 +21,8 @@ export class EventSchemasRepository extends Context.Service<EventSchemasReposito
 	{
 		make: Effect.gen(function* () {
 			const definitions = yield* DefinitionRegistry;
-			const pluginRuntime = Option.getOrUndefined(
-				yield* Effect.serviceOption(PluginRuntimeResolver),
-			);
-			const effectiveForUser = (userId: UserId) =>
-				pluginRuntime
-					? pluginRuntime.getEffectiveDefinitions(userId)
-					: Effect.succeed(definitions.getSnapshot());
+			const pluginRuntime = yield* PluginRuntimeResolver;
+			const effectiveForUser = (userId: UserId) => pluginRuntime.getEffectiveDefinitions(userId);
 			const getEntitySchemaScopeById = (input: {
 				userId: UserId;
 				entitySchemaSlug: EntitySchemaSlug;
