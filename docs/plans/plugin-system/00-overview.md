@@ -57,11 +57,11 @@ These were settled in design discussion with the project owner. All are **[DECID
    There is no native-code plugin tier. First-party plugins differ from future third-party
    ones only in _when_ they are ingested (boot vs. runtime install).
 4. **Definitions in code, state in the database.** Schema definitions (entity, event,
-   relationship, signal), tracker definitions, default saved views, provider links, and
-   automation bindings live in plugin source and load into an in-memory registry. User data
-   (entities, events, relationships, per-user tracker/view state, integration config, workflow
-   state, user-authored sandbox scripts) stays in Postgres. Every `isBuiltin` flag in the
-   current schema is a symptom of conflating these two and is removed.
+   relationship, signal), default saved views, provider links, and automation bindings live
+   in plugin source and load into an in-memory registry. User data (entities, events,
+   relationships, per-user workspace/view state, integration config, workflow state) stays
+   in Postgres. Every `isBuiltin` flag in the current schema is a symptom of
+   conflating these two and is removed.
 5. **Schemas are identified by slug, not row id.** Entity/event/relationship/signal rows
    reference their schema by slug string with no foreign key. Referential integrity for
    definitions moves to application code. (The query engine already identifies schemas by slug
@@ -126,7 +126,7 @@ These were settled in design discussion with the project owner. All are **[DECID
     (`apps/app-backend/src/modules/automations/notification-subscriptions-service.ts`),
     which writes per-user `automation_rule` rows (signal-target subscriptions), including
     `ensureDefaultRules` called from `user-bootstrap/bootstrap.ts`. Kind (b) is per-user
-    *state* under Decision 4 and moves to a dedicated per-user subscription-state table in
+    _state_ under Decision 4 and moves to a dedicated per-user subscription-state table in
     Phase 2; only then is `automation_rule` deleted. Execution bookkeeping
     (`subscription_run`) stays in the DB.
 16. **The e2e suite (`tests/`) is the behavioral spec.** Suites migrate in lockstep with each
@@ -143,6 +143,24 @@ These were settled in design discussion with the project owner. All are **[DECID
     frontend. The loader rejects slug collisions at ingestion. The `/` character is forbidden
     in slugs now and reserved as a namespace separator, so future third-party namespacing
     (`acme/movie`) is purely additive.
+19. **There is no per-user standalone sandbox-script feature.** All extension — first-party
+    and user-authored alike — arrives as plugins. The codebase still carries the old
+    mechanism, a strictly weaker duplicate of plugins (an individual user authors a single
+    script through the `sandbox` contract group, compiled server-side, stored in
+    `sandbox_script` with their `userId`, usable as a private provider) — Phase 2 §8 deletes
+    it. Accepted trade-off: on a multi-user instance, a non-admin user cannot self-serve a
+    private provider; that capability returns with the user-authored-plugins milestone.
+    Execution machinery, per-executing-user cache isolation, and `entity.sandboxScriptId`
+    provenance all survive — only the user-facing authoring surface and per-user script
+    ownership go.
+20. **There is no tracker concept — a plugin _is_ the user-facing workspace.** Plugin
+    `metadata` carries the display fields (name, icon, accent color, description); per-user
+    workspace state (visibility, sort order, config) keys on the plugin slug; saved views
+    group by plugin slug (nullable — ungrouped views exist). One plugin = one workspace: a
+    domain wanting two workspaces ships as two plugins. The codebase still carries a tracker
+    layer (registry tracker definitions fed from `builtins/trackers.ts`, `tracker_state`,
+    `savedView.trackerSlug`, a `trackers` contract surface, and a manifest `trackers` section
+    in `libs/plugin-kit`) — Phase 2 §9 deletes it.
 
 ## Current-state map (verified facts, with pointers)
 
