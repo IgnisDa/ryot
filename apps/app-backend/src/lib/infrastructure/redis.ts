@@ -13,6 +13,8 @@ export const redisKeys = {
 	sandboxCache: (scriptId: string, key: string) => `ryot:sandbox:cache:${scriptId}:${key}`,
 	integrationCache: (integrationId: string, key: string) =>
 		`ryot:integrations:cache:${integrationId}:${key}`,
+	sandboxRunCache: (serverRunId: string, scriptId: string, key: string) =>
+		`ryot:sandbox:cache:run:${serverRunId}:${scriptId}:${key}`,
 };
 
 export class RedisService extends Effect.Service<RedisService>()("RedisService", {

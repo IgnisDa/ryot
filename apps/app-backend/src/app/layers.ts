@@ -8,6 +8,7 @@ import { DbService, DbRunnerLive, TransactionRunnerLive } from "#lib/infrastruct
 import { RedisService } from "#lib/infrastructure/redis";
 import { S3Service } from "#lib/infrastructure/s3";
 import { SandboxService } from "#lib/infrastructure/sandbox-runtime/service";
+import { ServerRun } from "#lib/infrastructure/server-run";
 import { PersistedQueueLive, WorkflowEngineLive } from "#lib/infrastructure/workflow";
 import { AuthService } from "#modules/auth/service";
 import { SeedService } from "#modules/builtins/seed";
@@ -83,6 +84,7 @@ const ConfigLive = Layer.mergeAll(AppConfig.Default, BunContext.layer);
 const BaseInfrastructureServicesLive = Layer.mergeAll(
 	DbService.Default,
 	RedisService.Default,
+	ServerRun.Default,
 	S3Service.Default,
 	FetchHttpClient.layer,
 );
