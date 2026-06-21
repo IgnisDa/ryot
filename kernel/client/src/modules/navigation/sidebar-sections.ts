@@ -51,6 +51,19 @@ export function sidebarSections(props: {
 export const workspaceSummary = (sections: Pick<SidebarSections, "views">) =>
 	`${sections.views.length} view${sections.views.length === 1 ? "" : "s"}`;
 
+export function workspacePickerSummary(data: NavigationData, workspaceSlug: string) {
+	const views = data.savedViews
+		.filter((item) => item.pluginSlug === workspaceSlug && !item.isDisabled)
+		.sort((a, b) => a.sortOrder - b.sortOrder);
+	if (views.length === 0) {
+		return "Custom workspace · 0 views";
+	}
+
+	const names = views.slice(0, 3).map((item) => item.name);
+	const remaining = views.length - names.length;
+	return `${names.join(", ")}${remaining > 0 ? ` +${remaining}` : ""}`;
+}
+
 export const sidebarItemKey = (item: SidebarItem) =>
 	item.kind === "home" ? "home" : `${item.kind}:${item.slug}`;
 

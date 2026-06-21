@@ -1,3 +1,4 @@
+import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import type { PluginClientCatalogEntry } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { assert, describe, expect, it } from "vitest";
@@ -18,6 +19,20 @@ const current: PluginClientCatalogEntry = {
 	sourceHash: "source-media",
 	installationId: "installation-media",
 	clientArtifactHash: "artifact-media",
+};
+
+const navigation: NavigationData = {
+	collections: [],
+	savedViews: [
+		{
+			icon: "list",
+			sortOrder: 1,
+			isDisabled: false,
+			name: "Media Queue",
+			slug: "media-queue",
+			pluginSlug: "media",
+		},
+	],
 };
 
 const sections: SidebarSections = {
@@ -55,9 +70,10 @@ const renderSidebar = (
 	render(
 		<SidebarNav
 			current={current}
+			activeHome={false}
 			catalog={[current]}
 			sections={sections}
-			activeHome={false}
+			navigation={navigation}
 			activeKey="view:media-queue"
 			onOpenSearch={() => undefined}
 			onNavigateHome={() => undefined}
@@ -97,6 +113,7 @@ describe("sidebar navigation", () => {
 				activeHome={true}
 				catalog={[current]}
 				sections={sections}
+				navigation={navigation}
 				showSearchShortcut={false}
 				onNavigateHome={() => undefined}
 				onNavigateItem={() => undefined}
