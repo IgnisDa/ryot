@@ -1,21 +1,33 @@
-import {
-	SandboxCompilationFailure,
-	type SandboxCompilationDiagnostic,
-} from "@ryot/contract/modules/sandbox/schemas";
+import { Schema } from "effect";
 import * as ts from "typescript/unstable/ast";
 
-import { SANDBOX_SDK_ROOT_IMPORT } from "#lib/infrastructure/sandbox-runtime/dependencies";
-import { SANDBOX_LIMITS, utf8ByteLength } from "#lib/infrastructure/sandbox-runtime/limits";
+import { SANDBOX_COMPILER_LIMITS, utf8ByteLength } from "./limits";
 
 const segmenter = new Intl.Segmenter();
 export const SANDBOX_SOURCE_FILE = "script.ts";
-export const SANDBOX_SDK_IMPORT = SANDBOX_SDK_ROOT_IMPORT;
 const compilationFailedMessage = "Sandbox TypeScript compilation failed";
 
-const diagnosticBytes = (diagnostic: SandboxCompilationDiagnostic) =>
+export const SandboxCompilerDiagnostic = Schema.Struct({
+	code: Schema.String,
+	file: Schema.String,
+	line: Schema.Number,
+	column: Schema.Number,
+	message: Schema.String,
+	length: Schema.optional(Schema.Number),
+	severity: Schema.Literal("error", "warning", "info"),
+});
+
+export type SandboxCompilerDiagnostic = Schema.Schema.Type<typeof SandboxCompilerDiagnostic>;
+
+export class SandboxCompilerFailure extends Schema.TaggedError<SandboxCompilerFailure>()(
+	"SandboxCompilerFailure",
+	{ message: Schema.String, diagnostics: Schema.Array(SandboxCompilerDiagnostic) },
+) {}
+
+const diagnosticBytes = (diagnostic: SandboxCompilerDiagnostic) =>
 	utf8ByteLength(JSON.stringify(diagnostic));
 
-const fitDiagnostic = (diagnostic: SandboxCompilationDiagnostic, maximumBytes: number) => {
+const fitDiagnostic = (diagnostic: SandboxCompilerDiagnostic, maximumBytes: number) => {
 	if (diagnosticBytes(diagnostic) <= maximumBytes) {
 		return diagnostic;
 	}
@@ -23,7 +35,7 @@ const fitDiagnostic = (diagnostic: SandboxCompilationDiagnostic, maximumBytes: n
 	const characters = Array.from(segmenter.segment(diagnostic.message), ({ segment }) => segment);
 	let low = 0;
 	let high = characters.length;
-	let fitted: SandboxCompilationDiagnostic | null = null;
+	let fitted: SandboxCompilerDiagnostic | null = null;
 	while (low <= high) {
 		const middle = Math.floor((low + high) / 2);
 		const candidate = { ...diagnostic, message: characters.slice(0, middle).join("") };
@@ -38,17 +50,17 @@ const fitDiagnostic = (diagnostic: SandboxCompilationDiagnostic, maximumBytes: n
 };
 
 export const limitSandboxCompilationDiagnostics = (
-	diagnostics: readonly SandboxCompilationDiagnostic[],
+	diagnostics: readonly SandboxCompilerDiagnostic[],
 ) => {
-	const bounded: SandboxCompilationDiagnostic[] = [];
+	const bounded: SandboxCompilerDiagnostic[] = [];
 	let bytes = 2;
 	for (const diagnostic of diagnostics) {
-		if (bounded.length >= SANDBOX_LIMITS.compiler.diagnosticCount) {
+		if (bounded.length >= SANDBOX_COMPILER_LIMITS.diagnosticCount) {
 			break;
 		}
 
 		const separatorBytes = bounded.length === 0 ? 0 : 1;
-		const availableBytes = SANDBOX_LIMITS.compiler.diagnosticBytes - bytes - separatorBytes;
+		const availableBytes = SANDBOX_COMPILER_LIMITS.diagnosticBytes - bytes - separatorBytes;
 		const fitted = fitDiagnostic(diagnostic, availableBytes);
 		if (!fitted) {
 			break;
@@ -62,7 +74,7 @@ export const limitSandboxCompilationDiagnostics = (
 export const sandboxCompilerDiagnostic = (
 	code: string,
 	message: string,
-): SandboxCompilationDiagnostic => ({
+): SandboxCompilerDiagnostic => ({
 	code,
 	message,
 	line: 1,
@@ -71,8 +83,8 @@ export const sandboxCompilerDiagnostic = (
 	file: SANDBOX_SOURCE_FILE,
 });
 
-export const sandboxCompilationFailure = (diagnostics: readonly SandboxCompilationDiagnostic[]) =>
-	new SandboxCompilationFailure({
+export const sandboxCompilationFailure = (diagnostics: readonly SandboxCompilerDiagnostic[]) =>
+	new SandboxCompilerFailure({
 		message: compilationFailedMessage,
 		diagnostics: limitSandboxCompilationDiagnostics(diagnostics),
 	});
@@ -81,7 +93,7 @@ export const sandboxDiagnosticAt = (
 	node: ts.Node,
 	code: string,
 	message: string,
-): SandboxCompilationDiagnostic => {
+): SandboxCompilerDiagnostic => {
 	const file = node.getSourceFile();
 	const start = node.getStart(file);
 	const location = file.getLineAndCharacterOfPosition(start);

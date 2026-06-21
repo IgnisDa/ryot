@@ -29,6 +29,7 @@
         "@effect/workflow": "0.18.2",
         "@ryot/contract": "workspace:*",
         "@ryot/query-engine": "workspace:*",
+        "@ryot/sandbox-compiler": "workspace:*",
         "@ryot/sandbox-sdk": "workspace:*",
         "@ryot/ts-utils": "workspace:*",
         "better-auth": "1.6.15",
@@ -40,7 +41,6 @@
         "nodemailer": "8.0.10",
         "papaparse": "5.5.3",
         "pg": "8.21.0",
-        "typescript": "7.0.2",
         "unzipit": "2.0.3",
       },
       "devDependencies": {
@@ -322,6 +322,17 @@
     },
     "libs/query-engine": {
       "name": "@ryot/query-engine",
+    },
+    "libs/sandbox-compiler": {
+      "name": "@ryot/sandbox-compiler",
+      "dependencies": {
+        "@ryot/sandbox-sdk": "workspace:*",
+        "effect": "3.21.4",
+        "typescript": "7.0.2",
+      },
+      "devDependencies": {
+        "bun-types": "1.3.14",
+      },
     },
     "libs/sandbox-sdk": {
       "name": "@ryot/sandbox-sdk",
@@ -1544,6 +1555,8 @@
     "@ryot/graphql": ["@ryot/graphql@workspace:libs/graphql"],
 
     "@ryot/query-engine": ["@ryot/query-engine@workspace:libs/query-engine"],
+
+    "@ryot/sandbox-compiler": ["@ryot/sandbox-compiler@workspace:libs/sandbox-compiler"],
 
     "@ryot/sandbox-sdk": ["@ryot/sandbox-sdk@workspace:libs/sandbox-sdk"],
 

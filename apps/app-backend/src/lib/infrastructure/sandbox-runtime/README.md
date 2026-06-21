@@ -24,7 +24,7 @@ The sandbox runs untrusted user code in single-use Deno subprocesses, exposes se
 7. Host-function stubs call `POST /rpc/:executionId/:fnName`; the bridge validates expiry, bearer token, request body, and function name before dispatching.
 8. The service adds server timing, removes the bridge session with an Effect finalizer, and returns the job result.
 
-User compilation runs in a one-shot Bun child process rather than the backend process. A two-permit semaphore bounds compilation concurrency, each process has a five-second wall-clock deadline, and timeout or cancellation kills its process group, including the native TypeScript child. Production runs on Linux, where the backend samples proportional memory across the compiler process tree and kills it above 256 MiB.
+User compilation is implemented by the `@ryot/sandbox-compiler` workspace and runs in a one-shot Bun child process rather than the backend process. A two-permit semaphore bounds compilation concurrency, each process has a five-second wall-clock deadline, and timeout or cancellation kills its process group, including the native TypeScript child. Production runs on Linux, where the backend samples proportional memory across the compiler process tree and kills it above 256 MiB.
 
 ## API Shape
 
@@ -116,7 +116,7 @@ The SDK run function receives `(input, host, execution)`. `execution` contains `
 
 ## Resource Limits
 
-`limits.ts` owns the production values and UTF-8 measurement helpers used by compilation, API input, runtime requests, bridge dispatch, HTTP streaming, logs, results, and cache operations. Limits are fixed in this phase rather than exposed as environment settings.
+`@ryot/sandbox-compiler/limits` owns compiler limits and UTF-8 measurement. `limits.ts` composes those values with the execution, bridge, HTTP, log, result, and cache limits used by the backend. Limits are fixed in this phase rather than exposed as environment settings.
 
 | Boundary                                              | Limit                         |
 | ----------------------------------------------------- | ----------------------------- |

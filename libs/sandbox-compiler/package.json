@@ -1,0 +1,35 @@
+{
+	"name": "@ryot/sandbox-compiler",
+	"private": true,
+	"type": "module",
+	"exports": {
+		"./diagnostics": {
+			"types": "./src/compiler-diagnostics.ts",
+			"default": "./src/compiler-diagnostics.ts"
+		},
+		"./limits": {
+			"types": "./src/limits.ts",
+			"default": "./src/limits.ts"
+		},
+		"./protocol": {
+			"types": "./src/compiler-protocol.ts",
+			"default": "./src/compiler-protocol.ts"
+		},
+		"./worker": {
+			"types": "./src/compiler-worker.ts",
+			"default": "./src/compiler-worker.ts"
+		}
+	},
+	"scripts": {
+		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix",
+		"build": "tsc && bun build src/compiler-worker.ts --outdir dist --target bun --sourcemap"
+	},
+	"dependencies": {
+		"@ryot/sandbox-sdk": "workspace:*",
+		"effect": "3.21.4",
+		"typescript": "7.0.2"
+	},
+	"devDependencies": {
+		"bun-types": "1.3.14"
+	}
+}

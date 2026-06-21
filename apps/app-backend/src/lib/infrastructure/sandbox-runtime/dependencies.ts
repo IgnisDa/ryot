@@ -1,11 +1,11 @@
 import { FileSystem } from "@effect/platform";
+import { SANDBOX_RUNTIME_SDK_IMPORTS, SANDBOX_SDK_ROOT_IMPORT } from "@ryot/sandbox-sdk/imports";
 import { Data, Effect } from "effect";
 
 class SandboxRuntimeDependencyError extends Data.TaggedError("SandboxRuntimeDependencyError")<{
 	message: string;
 }> {}
 
-export const SANDBOX_SDK_ROOT_IMPORT = "@ryot/sandbox-sdk";
 export const SANDBOX_RUNTIME_DEPENDENCY_FORMAT = 1 as const;
 
 export const SANDBOX_APPROVED_DEPENDENCIES = [
@@ -13,25 +13,25 @@ export const SANDBOX_APPROVED_DEPENDENCIES = [
 		name: "zod",
 		version: "4.4.3",
 		runtimeFile: "zod-4.4.3.mjs",
-		sdkImport: "@ryot/sandbox-sdk/zod",
+		sdkImport: SANDBOX_RUNTIME_SDK_IMPORTS[0],
 	},
 	{
 		name: "dayjs",
 		version: "1.11.21",
 		runtimeFile: "dayjs-1.11.21.mjs",
-		sdkImport: "@ryot/sandbox-sdk/dayjs",
+		sdkImport: SANDBOX_RUNTIME_SDK_IMPORTS[1],
 	},
 	{
 		name: "cheerio",
 		version: "1.2.0",
 		runtimeFile: "cheerio-1.2.0.mjs",
-		sdkImport: "@ryot/sandbox-sdk/cheerio",
+		sdkImport: SANDBOX_RUNTIME_SDK_IMPORTS[2],
 	},
 	{
 		name: "youtubei",
 		version: "17.2.0",
 		runtimeFile: "youtubei-17.2.0.mjs",
-		sdkImport: "@ryot/sandbox-sdk/youtubei",
+		sdkImport: SANDBOX_RUNTIME_SDK_IMPORTS[3],
 	},
 ] as const;
 
@@ -39,7 +39,7 @@ const dayjsPluginRuntime = {
 	version: "1.11.21",
 	name: "dayjs-custom-parse-format",
 	runtimeFile: "dayjs-custom-parse-format-1.11.21.mjs",
-	sdkImport: "@ryot/sandbox-sdk/dayjs/custom-parse-format",
+	sdkImport: SANDBOX_RUNTIME_SDK_IMPORTS[4],
 } as const;
 
 const legacyYoutubeiRuntime = {
@@ -48,16 +48,6 @@ const legacyYoutubeiRuntime = {
 	packageImport: "youtubei.js/package.json",
 	entryRelativePath: "dist/src/platform/deno.js",
 } as const;
-
-export const SANDBOX_RUNTIME_SDK_IMPORTS = [
-	...SANDBOX_APPROVED_DEPENDENCIES.map(({ sdkImport }) => sdkImport),
-	dayjsPluginRuntime.sdkImport,
-] as const;
-
-export const SANDBOX_SDK_IMPORTS = [
-	SANDBOX_SDK_ROOT_IMPORT,
-	...SANDBOX_RUNTIME_SDK_IMPORTS,
-] as const;
 
 export const SANDBOX_LEGACY_RUNTIME_IMPORTS = {
 	"npm:zod": SANDBOX_APPROVED_DEPENDENCIES[0].sdkImport,
