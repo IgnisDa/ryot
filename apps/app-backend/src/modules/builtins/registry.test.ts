@@ -8,16 +8,28 @@ import {
 import { builtinEventSchemaTriggerLinks, builtinSandboxScripts } from "./registry";
 
 describe("builtinSandboxScripts", () => {
-	it("uses the generated format-1 representation for TMDB Show", () => {
-		const script = builtinSandboxScripts().find(({ slug }) => slug === "show.tmdb");
-		assert(script && "compiledCode" in script && "manifest" in script);
+	it("uses generated format-1 representations for the complete TMDB family", () => {
+		const scripts = builtinSandboxScripts().filter(
+			({ metadata }) =>
+				"providerInformation" in metadata && metadata.providerInformation?.source === "tmdb",
+		);
 
-		expect(script.compiledFormat).toBe(1);
-		expect(script.code).toBe(script.source);
-		expect(script.metadata).toBe(script.manifest);
-		expect(script.source).toContain("defineProvider");
-		expect(script.compiledCode).toContain("ryot:sandbox-script");
-		expect(script.compiledCode).toContain("sourceMappingURL=data:application/json;base64,");
+		expect(scripts.map(({ slug }) => slug).sort()).toEqual([
+			"company.tmdb",
+			"movie-group.tmdb",
+			"movie.tmdb",
+			"person.tmdb",
+			"show.tmdb",
+		]);
+		for (const script of scripts) {
+			assert("compiledCode" in script && "manifest" in script);
+			expect(script.compiledFormat).toBe(1);
+			expect(script.code).toBe(script.source);
+			expect(script.metadata).toBe(script.manifest);
+			expect(script.source).toContain("defineProvider");
+			expect(script.compiledCode).toContain("ryot:sandbox-script");
+			expect(script.compiledCode).toContain("sourceMappingURL=data:application/json;base64,");
+		}
 	});
 
 	it("uses generated format-1 representations and manifest modes for every trigger", () => {

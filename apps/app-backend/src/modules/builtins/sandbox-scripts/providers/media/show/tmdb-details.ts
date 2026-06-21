@@ -17,7 +17,7 @@ import {
 	tmdbGet,
 	type TmdbHost,
 	type UnknownRecord,
-} from "./tmdb-shared";
+} from "../../tmdb-shared";
 
 type RelatedEntityWithRoles = Omit<ProviderDetailsRelatedEntity, "relationshipProperties"> & {
 	relationshipProperties: { roles: string[] };
@@ -219,7 +219,10 @@ const buildDetailsResult = (
 				direction: "outgoing",
 				synchronization: "authoritative",
 				relationshipSchemaSlug: "media-suggestion",
-				entities: collectSuggestions(recommendationsData["results"]),
+				entities: collectSuggestions(recommendationsData["results"], {
+					scriptSlug: "show.tmdb",
+					nameKeys: ["name", "original_name"],
+				}),
 			},
 		],
 		properties: {

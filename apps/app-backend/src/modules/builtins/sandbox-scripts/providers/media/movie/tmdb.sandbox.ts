@@ -3,35 +3,38 @@ import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider
 import * as z from "@ryot/sandbox-sdk/zod";
 
 import {
+	asRecord,
 	fetchTrendingItems,
 	getImageUrl,
+	getLocalizedImageUrl,
 	getTmdbAccessToken,
 	getUserIsNsfw,
 	numberValue,
+	orderedTranslationCandidates,
 	parsePublishYear,
+	parseTranslationLanguage,
 	recordsValue,
 	stringValue,
 	tmdbGet,
 } from "../../tmdb-shared";
-import { getTmdbShowDetails } from "./tmdb-details";
-import { translateTmdbShow } from "./tmdb-translation";
+import { getTmdbMovieDetails } from "./tmdb-details";
 
 export const manifest = defineManifest({
-	kind: "provider",
 	name: "TMDB",
-	slug: "show.tmdb",
+	kind: "provider",
+	slug: "movie.tmdb",
 	requiredAppConfigKeys: ["providers.tmdbAccessToken"],
 	providerInformation: { source: "tmdb", canonicalLanguage: "en" },
 	capabilities: ["httpCall", "getAppConfigValue", "getUserPreferences"],
 });
 
-const search = defineProviderDriver(manifest, "search", (input, host) =>
+export const search = defineProviderDriver(manifest, "search", (input, host) =>
 	getTmdbAccessToken(host)
 		.then((token) =>
 			getUserIsNsfw(host).then((showNsfw) =>
 				tmdbGet(
 					host,
-					"/search/tv",
+					"/search/movie",
 					{
 						language: "en-US",
 						query: input.query,
@@ -47,14 +50,14 @@ const search = defineProviderDriver(manifest, "search", (input, host) =>
 			const totalItems = numberValue(data["total_results"]) ?? results.length;
 			const totalPages = numberValue(data["total_pages"]) ?? 1;
 			const items = results
-				.flatMap((show) => {
-					const id = numberValue(show["id"]);
-					const title = stringValue(show["name"]);
+				.flatMap((movie) => {
+					const id = numberValue(movie["id"]);
+					const title = stringValue(movie["title"]);
 					if (id === null || !title) {
 						return [];
 					}
-					const image = getImageUrl(show["poster_path"]);
-					const publishYear = parsePublishYear(show["first_air_date"]);
+					const image = getImageUrl(movie["poster_path"]);
+					const publishYear = parsePublishYear(movie["release_date"]);
 					return [
 						{
 							externalId: String(Math.trunc(id)),
@@ -81,13 +84,13 @@ const search = defineProviderDriver(manifest, "search", (input, host) =>
 
 export const details = defineProviderDriver(manifest, "details", (input, host) =>
 	getTmdbAccessToken(host).then((token) =>
-		getTmdbShowDetails(input, host, manifest.providerInformation.canonicalLanguage, token),
+		getTmdbMovieDetails(input, host, manifest.providerInformation.canonicalLanguage, token),
 	),
 );
 
 const resolve = defineProviderDriver(manifest, "resolve", (input, host) => {
 	if (input.identifierType !== "imdb") {
-		throw new Error("TMDB show resolve supports only imdb identifiers");
+		throw new Error("TMDB movie resolve supports only imdb identifiers");
 	}
 	return getTmdbAccessToken(host)
 		.then((token) =>
@@ -99,15 +102,48 @@ const resolve = defineProviderDriver(manifest, "resolve", (input, host) => {
 			),
 		)
 		.then((payload) => {
-			const [firstResult] = recordsValue(payload["tv_results"]);
-			const showId = numberValue(firstResult?.["id"]);
-			return { externalId: showId === null ? null : String(Math.trunc(showId)) };
+			const [firstResult] = recordsValue(payload["movie_results"]);
+			const movieId = numberValue(firstResult?.["id"]);
+			return { externalId: movieId === null ? null : String(Math.trunc(movieId)) };
 		});
 });
 
-const translate = defineProviderDriver(manifest, "translate", (input, host) =>
-	getTmdbAccessToken(host).then((token) => translateTmdbShow(input, host, token)),
-);
+const translate = defineProviderDriver(manifest, "translate", (input, host) => {
+	if (!/^\d+$/.test(input.externalId)) {
+		throw new Error("externalId must be a numeric TMDB movie ID");
+	}
+	const { langCode, region } = parseTranslationLanguage(input.language);
+	return getTmdbAccessToken(host)
+		.then((token) =>
+			Promise.all([
+				tmdbGet(host, `/movie/${input.externalId}/translations`, {}, token),
+				tmdbGet(
+					host,
+					`/movie/${input.externalId}/images`,
+					{ include_image_language: langCode },
+					token,
+				),
+			]),
+		)
+		.then(([translationsData, imagesData]) => {
+			const [candidate] = orderedTranslationCandidates(translationsData, langCode, region);
+			const translation = asRecord(candidate?.["data"]);
+			const name = stringValue(translation?.["title"]);
+			const description = stringValue(translation?.["overview"]);
+			const imageUrl = getLocalizedImageUrl(imagesData, "posters", langCode);
+			const properties: Record<string, string | Array<{ type: "remote"; url: string }>> = {};
+			if (description) {
+				properties["description"] = description;
+			}
+			if (imageUrl) {
+				properties["images"] = [{ type: "remote", url: imageUrl }];
+			}
+			return {
+				...(name ? { name } : {}),
+				...(Object.keys(properties).length > 0 ? { properties } : {}),
+			};
+		});
+});
 
 export const trending = defineDriver(manifest, {
 	input: z.object({}).strict(),
@@ -123,10 +159,10 @@ export const trending = defineDriver(manifest, {
 			.then((token) =>
 				fetchTrendingItems(
 					host,
-					"/trending/tv/day",
+					"/trending/movie/day",
 					manifest.providerInformation.canonicalLanguage,
 					token,
-					{ scriptSlug: manifest.slug, nameKeys: ["name", "original_name"] },
+					{ scriptSlug: manifest.slug, nameKeys: ["title", "original_title"] },
 				),
 			)
 			.then((items) => ({ items })),

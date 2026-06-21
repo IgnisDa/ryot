@@ -2,58 +2,14 @@ import type { ProviderTranslateInput, ProviderTranslateResult } from "@ryot/sand
 
 import {
 	asRecord,
-	getImageUrl,
-	recordsValue,
+	firstTranslationValue,
+	getLocalizedImageUrl,
+	orderedTranslationCandidates,
+	parseTranslationLanguage,
 	stringValue,
 	tmdbGet,
 	type TmdbHost,
-	type UnknownRecord,
-} from "./tmdb-shared";
-
-const parseTranslationLanguage = (language: string) => {
-	const [languagePart = "", regionPart] = language.split("-");
-	return {
-		langCode: languagePart.trim().toLowerCase(),
-		region: regionPart ? regionPart.trim().toUpperCase() : null,
-	};
-};
-
-const orderedTranslationCandidates = (
-	translationsData: UnknownRecord,
-	langCode: string,
-	region: string | null,
-) => {
-	const candidates = recordsValue(translationsData["translations"]).filter(
-		(entry) => stringValue(entry["iso_639_1"])?.toLowerCase() === langCode,
-	);
-	const regionMatch = region
-		? candidates.find((entry) => stringValue(entry["iso_3166_1"])?.toUpperCase() === region)
-		: null;
-	return regionMatch
-		? [regionMatch, ...candidates.filter((entry) => entry !== regionMatch)]
-		: candidates;
-};
-
-const firstTranslationValue = (
-	candidates: readonly UnknownRecord[],
-	extract: (data: UnknownRecord) => unknown,
-) => {
-	for (const entry of candidates) {
-		const data = asRecord(entry["data"]);
-		const value = data ? stringValue(extract(data)) : null;
-		if (value) {
-			return value;
-		}
-	}
-	return null;
-};
-
-const getLocalizedImageUrl = (imagesData: UnknownRecord, imageKey: string, langCode: string) => {
-	const localizedImage = recordsValue(imagesData[imageKey]).find(
-		(image) => stringValue(image["iso_639_1"])?.toLowerCase() === langCode,
-	);
-	return localizedImage ? getImageUrl(localizedImage["file_path"]) : null;
-};
+} from "../../tmdb-shared";
 
 const getTranslationRequest = (input: ProviderTranslateInput) => {
 	if (!/^\d+$/.test(input.externalId)) {

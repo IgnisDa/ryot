@@ -67,6 +67,7 @@ const makeSandboxRepository = (overrides: MockOverrides<typeof mockSandboxReposi
 	mockSandboxRepository({
 		getScriptForUser: ({ scriptId }) => {
 			const isShow = scriptId === showScriptId;
+			const slug = isShow ? "show.tmdb" : "movie.tmdb";
 			return Effect.succeed({
 				scriptId,
 				id: scriptId,
@@ -74,18 +75,16 @@ const makeSandboxRepository = (overrides: MockOverrides<typeof mockSandboxReposi
 				isBuiltin: true,
 				code: "// tmdb",
 				source: "// tmdb",
-				compiledFormat: isShow ? 1 : 0,
+				compiledFormat: 1,
 				compiledCode: "// compiled tmdb",
-				metadata: isShow
-					? {
-							name: "TMDB",
-							slug: "show.tmdb",
-							kind: "provider" as const,
-							requiredAppConfigKeys: ["providers.tmdbAccessToken"],
-							providerInformation: { source: "tmdb", canonicalLanguage: "en" },
-							capabilities: ["httpCall", "getAppConfigValue", "getUserPreferences"],
-						}
-					: { allowedHostFunctions: ["httpCall"] },
+				metadata: {
+					slug,
+					name: "TMDB",
+					kind: "provider" as const,
+					requiredAppConfigKeys: ["providers.tmdbAccessToken"],
+					providerInformation: { source: "tmdb", canonicalLanguage: "en" },
+					capabilities: ["httpCall", "getAppConfigValue", "getUserPreferences"],
+				},
 			});
 		},
 		...overrides,
@@ -104,11 +103,11 @@ const searchItem = (input: { externalId: string; title: string; publishYear?: nu
 const makeSandbox = (overrides: MockOverrides<typeof mockSandbox> = {}) =>
 	mockSandbox({
 		run: (input) => {
-			expect(input.allowedHostFunctions).toEqual(
-				input.scriptId === showScriptId
-					? ["httpCall", "getAppConfigValue", "getUserPreferences"]
-					: ["httpCall"],
-			);
+			expect(input.allowedHostFunctions).toEqual([
+				"httpCall",
+				"getAppConfigValue",
+				"getUserPreferences",
+			]);
 			return Effect.succeed({
 				logs: [],
 				error: null,

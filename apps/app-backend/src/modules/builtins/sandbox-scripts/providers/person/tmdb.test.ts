@@ -1,45 +1,47 @@
+import type { SandboxHost } from "@ryot/sandbox-sdk";
+import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
-import {
-	type HostFunction,
-	hostSuccess,
-	httpSuccess,
-	runProviderDriver,
-	toRecord,
-} from "../test-utils";
-import tmdbPersonScriptCode from "./tmdb.sandbox.js" with { type: "text" };
+import { details, manifest } from "./tmdb.sandbox";
 
-const runTmdbPersonDetails = (context: unknown, hostFunctions: Record<string, HostFunction>) =>
-	runProviderDriver(tmdbPersonScriptCode, context, hostFunctions, {
-		metadata: { providerInformation: { canonicalLanguage: "en" } },
+type TmdbHost = SandboxHost<typeof manifest.capabilities>;
+
+const httpSuccess = (body: unknown) =>
+	Promise.resolve({
+		success: true as const,
+		data: { status: 200, headers: {}, body: JSON.stringify(body) },
 	});
 
+const makeHost = (httpCall: TmdbHost["httpCall"]) =>
+	defineSandboxTestHost(manifest, {
+		httpCall,
+		getAppConfigValue: () => Promise.resolve({ data: "token", success: true }),
+		getUserPreferences: () =>
+			Promise.resolve({ success: true, data: { isNsfw: false, disableIntegrations: false } }),
+	});
+
+const execution = { metadata: {}, sandboxScriptId: "script_test" };
+
 describe("person.tmdb sandbox script", () => {
-	it("emits separate movie and show credit groups with roles", () =>
-		runTmdbPersonDetails(
-			{ externalId: "1" },
-			{
-				getAppConfigValue: () => hostSuccess("token"),
-				httpCall: (...args: Array<unknown>) => {
-					const url = String(args[1]);
-					if (url.includes("/combined_credits")) {
-						return httpSuccess({
-							cast: [{ id: 2, media_type: "movie", title: "Film" }],
-							crew: [{ id: 3, media_type: "tv", name: "Show", job: "Director" }],
-						});
-					}
-					return httpSuccess({
-						gender: 0,
-						name: "Creator",
-						also_known_as: [],
-						profile_path: null,
-						images: { profiles: [] },
-					});
-				},
-			},
-		).then((rawDetails) => {
-			const details = toRecord(rawDetails);
-			expect(details["relatedEntityGroups"]).toEqual([
+	it("emits separate movie and show credit groups with roles", () => {
+		const host = makeHost((_method, url) => {
+			if (url.includes("/combined_credits")) {
+				return httpSuccess({
+					cast: [{ id: 2, media_type: "movie", title: "Film" }],
+					crew: [{ id: 3, media_type: "tv", name: "Show", job: "Director" }],
+				});
+			}
+			return httpSuccess({
+				gender: 0,
+				name: "Creator",
+				also_known_as: [],
+				profile_path: null,
+				images: { profiles: [] },
+			});
+		});
+
+		return runSandboxTestDriver(details, { externalId: "1" }, host, execution).then((result) => {
+			expect(result.relatedEntityGroups).toEqual([
 				{
 					direction: "outgoing",
 					synchronization: "authoritative",
@@ -68,5 +70,6 @@ describe("person.tmdb sandbox script", () => {
 				},
 			]);
 			return undefined;
-		}));
+		});
+	});
 });
