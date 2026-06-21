@@ -1,4 +1,4 @@
-import { buildCompletedShowsQueryDocument } from "@ryot/query-engine";
+import { buildCompletedShowsQueryDocument } from "@ryot/query-engine/recipes/media";
 import { Effect } from "effect";
 
 import {
