@@ -8,12 +8,14 @@ import { Effect, Layer, Schema } from "effect";
 import { decodeServerOrigin } from "#/api/origin";
 import { PublicApi } from "#/api/public";
 import type { ApiScope } from "#/api/scope";
+import { ManagedAssetsService } from "#/modules/assets/managed-assets";
 import { HostedAuthService } from "#/modules/auth/hosted-service";
 import { OAuthLauncher } from "#/modules/auth/oauth-launcher";
 import { OAuthStorage } from "#/modules/auth/oauth-storage";
 import { RuntimeOAuthClientService } from "#/modules/auth/runtime-client";
 import { AuthService } from "#/modules/auth/service";
 import { OAuthTokenService } from "#/modules/auth/token-service";
+import { SavedViewsService } from "#/modules/saved-views/service";
 import { ServerService } from "#/modules/server/service";
 import type { ThemeStore } from "#/modules/theme/store";
 import type { ClientStorage } from "#/persistence/storage";
@@ -141,6 +143,15 @@ export const makeOAuthRouteStubs = (
 	);
 
 export const OAuthRouteStubs = makeOAuthRouteStubs();
+
+export const SavedViewRouteStubs = Layer.mergeAll(
+	Layer.succeed(ManagedAssetsService, {
+		resolve: () => Effect.succeed(new Map<string, string>()),
+	}),
+	Layer.succeed(SavedViewsService, {
+		loadGrid: () => Effect.die("not used"),
+	}),
+);
 
 export type WorkspaceStorageRecorder = {
 	readonly getScopes: ApiScope[];
