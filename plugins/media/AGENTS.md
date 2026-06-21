@@ -8,3 +8,4 @@
 - Show recipes and RyotQL lifecycle expression builders live in `shared/`.
 - Import show recipes straight from `shared/show-recipes`; never re-export them through `host/query-recipes.ts`, which owns only the podcast, suggestion, trending, and saved-view recipes.
 - `client/` must not restate schemas that `shared/` owns.
+- Size the Show hero art band from `useRyotSafeArea() + SCREEN_BAR_HEIGHT`. The hook reports the device inset alone, while the frame draws content under its own sticky bar, so the bar height is the plugin's to add.

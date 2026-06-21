@@ -69,6 +69,8 @@ beforeEach(() => {
 	disconnects = 0;
 });
 
+const HERO_HEIGHT = 204;
+
 function Harness(props: {
 	readonly hero?: ReactNode;
 	readonly compact: boolean;
@@ -80,7 +82,6 @@ function Harness(props: {
 	return (
 		<div ref={scrollRootRef} data-testid="scroller">
 			<ScreenFrame
-				hero={props.hero}
 				title="All Shows"
 				compact={props.compact}
 				meta={<p>12 results</p>}
@@ -89,6 +90,7 @@ function Harness(props: {
 				scrollRootRef={scrollRootRef}
 				safeAreaTop={props.safeAreaTop ?? 0}
 				leading={<button type="button">Open navigation</button>}
+				hero={props.hero === undefined ? undefined : { height: HERO_HEIGHT, node: props.hero }}
 			>
 				<p>Body</p>
 			</ScreenFrame>
@@ -170,13 +172,27 @@ describe("ScreenFrame", () => {
 
 		expect(screen.queryByRole("heading", { name: "All Shows" })).toBeNull();
 		expect(screen.queryByText("12 results")).toBeNull();
-		expect(bar().hasAttribute("data-solid")).toBe(false);
-		expect(observations).toHaveLength(1);
 		compact.unmount();
 
 		render(<Harness compact={false} hideTitle />);
 
 		expect(screen.queryByRole("heading", { name: "All Shows" })).toBeNull();
+	});
+
+	it("holds the bar clear until a hero screen has scrolled its art away", () => {
+		render(<Harness compact hideTitle safeAreaTop={59} hero={<img alt="Cover" src="art.png" />} />);
+
+		const observation = observations[0];
+		const sentinelTop = 59 + SCREEN_BAR_HEIGHT + HERO_HEIGHT;
+		expect(observations).toHaveLength(1);
+		expect(observation?.target.getAttribute("style")).toContain(`top: ${sentinelTop}px`);
+		expect(bar().hasAttribute("data-solid")).toBe(false);
+
+		act(() => observation?.emit(false));
+		expect(bar().hasAttribute("data-solid")).toBe(true);
+
+		act(() => observation?.emit(true));
+		expect(bar().hasAttribute("data-solid")).toBe(false);
 	});
 
 	it("draws the hero at both breakpoints", () => {

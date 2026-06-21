@@ -1,10 +1,11 @@
 import { useRyotSafeArea } from "@ryot-app/client-sdk/plugin";
+import { SCREEN_BAR_HEIGHT } from "@ryot-app/client-ui-sdk";
 import { ImageTintOverlay, useImageTint } from "@ryot-app/client-ui-sdk/tint";
 
 import { useManagedAssetUrl } from "./managed-assets";
 import { showBackdropAsset, showPosterAsset, type ShowSummary } from "./summary-state";
 
-const SHOW_ART_HEIGHT = 204;
+export const SHOW_ART_HEIGHT = 204;
 
 const TINT_HEIGHT = 320;
 
@@ -26,7 +27,7 @@ const scrimColor = (alpha: number) =>
 	`color-mix(in srgb, var(--color-bg) ${alpha * 100}%, transparent)`;
 
 export function ShowHero(props: { readonly show: ShowSummary }) {
-	const offset = useRyotSafeArea();
+	const offset = useRyotSafeArea() + SCREEN_BAR_HEIGHT;
 	const url = useManagedAssetUrl(showBackdropAsset(props.show));
 	if (url === undefined) {
 		return null;
@@ -79,7 +80,7 @@ export function ShowBackdrop(props: { readonly show: ShowSummary }) {
 }
 
 export function ShowTint(props: { readonly show: ShowSummary }) {
-	const offset = useRyotSafeArea();
+	const offset = useRyotSafeArea() + SCREEN_BAR_HEIGHT;
 	const { gradientStops } = useImageTint(useManagedAssetUrl(showPosterAsset(props.show)));
 	return (
 		<div
