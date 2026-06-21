@@ -1,10 +1,11 @@
 import { FileSystem } from "@effect/platform";
 import { BunFileSystem } from "@effect/platform-bun";
 import { SandboxRunError, unknownToMessage } from "@ryot/contract/errors";
+import type { CompiledSandboxModule } from "@ryot/sandbox-compiler/protocol";
 import { Effect, Schema } from "effect";
 import { afterAll, assert, beforeAll, expect, it } from "vitest";
 
-import { SandboxCompiler, type CompiledSandboxModule } from "#modules/sandbox/compiler";
+import { SandboxCompiler } from "#modules/sandbox/compiler";
 import { compileLegacySandboxModule } from "#modules/sandbox/legacy-module";
 
 import {

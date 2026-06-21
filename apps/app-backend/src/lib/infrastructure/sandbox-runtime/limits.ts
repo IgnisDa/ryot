@@ -1,31 +1,22 @@
-import { Option } from "effect";
+import {
+	jsonByteLength,
+	SANDBOX_COMPILER_LIMITS,
+	utf8ByteLength,
+} from "@ryot/sandbox-compiler/limits";
+
+export { jsonByteLength, utf8ByteLength };
 
 const KiB = 1024;
 const MiB = 1024 * KiB;
 
-const encoder = new TextEncoder();
-const stringifyJson = Option.liftThrowable((value: unknown): unknown =>
-	Reflect.apply(JSON.stringify, JSON, [value]),
-);
-
 export const SANDBOX_LIMITS = {
+	compiler: SANDBOX_COMPILER_LIMITS,
 	hostCalls: { http: 50, total: 200 },
 	http: { requestBytes: MiB, responseBytes: 10 * MiB },
 	bridge: { requestBytes: MiB, responseBytes: 10 * MiB },
 	logs: { entryCount: 500, entryBytes: 8 * KiB, totalBytes: 256 * KiB },
 	cache: { keyBytes: 256, valueBytes: 256 * KiB, ttlSeconds: 30 * 24 * 60 * 60 },
 	execution: { denoHeapMiB: 256, resultBytes: MiB, requestBytes: 2 * MiB, contextBytes: 256 * KiB },
-	compiler: {
-		concurrency: 2,
-		timeoutMs: 5_000,
-		diagnosticCount: 100,
-		javascriptBytes: MiB,
-		memoryBytes: 256 * MiB,
-		sourceBytes: 256 * KiB,
-		memoryPollIntervalMs: 5,
-		manifestBytes: 16 * KiB,
-		diagnosticBytes: 256 * KiB,
-	},
 } as const;
 
 export const SANDBOX_LOG_TRUNCATION_MARKER = "[sandbox logs truncated]";
@@ -56,15 +47,6 @@ export const consumeSandboxHostCall = (budget: SandboxHostCallBudget, functionNa
 		return `Sandbox execution exceeds ${SANDBOX_LIMITS.hostCalls.http} httpCall calls`;
 	}
 	return null;
-};
-
-export const utf8ByteLength = (value: string) => encoder.encode(value).byteLength;
-
-export const jsonByteLength = (value: unknown) => {
-	return Option.match(stringifyJson(value), {
-		onNone: () => null,
-		onSome: (serialized) => (typeof serialized === "string" ? utf8ByteLength(serialized) : null),
-	});
 };
 
 export const sandboxCacheKeyError = (fnName: string, key: unknown) => {

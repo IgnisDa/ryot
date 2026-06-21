@@ -1,18 +1,20 @@
 import { Command, CommandExecutor, FileSystem } from "@effect/platform";
 import { BunContext } from "@effect/platform-bun";
 import { SandboxCompilationFailure } from "@ryot/contract/modules/sandbox/schemas";
+import {
+	type CompiledSandboxModule,
+	CompilerWorkerResponse,
+} from "@ryot/sandbox-compiler/protocol";
 import { sandboxManifestSchema } from "@ryot/sandbox-sdk";
 import { Duration, Effect, Either, Fiber, Ref, Schema, Stream } from "effect";
 
 import { SANDBOX_LIMITS, utf8ByteLength } from "#lib/infrastructure/sandbox-runtime/limits";
 
-import { sandboxCompilationFailure, sandboxCompilerDiagnostic } from "./compiler-diagnostics";
-import { type CompiledSandboxModule, CompilerWorkerResponse } from "./compiler-protocol";
-
-export { type CompiledSandboxModule, SANDBOX_COMPILED_FORMAT } from "./compiler-protocol";
-
 const processFailure = (code: string, message: string) =>
-	sandboxCompilationFailure([sandboxCompilerDiagnostic(code, message)]);
+	new SandboxCompilationFailure({
+		message: "Sandbox TypeScript compilation failed",
+		diagnostics: [{ code, message, line: 1, column: 1, severity: "error", file: "script.ts" }],
+	});
 const decodeCompilerWorkerResponse = Schema.decode(Schema.parseJson(CompilerWorkerResponse));
 
 const readProportionalBytes = (memory: string) => {
@@ -22,8 +24,9 @@ const readProportionalBytes = (memory: string) => {
 
 const compilerWorkerPath = () => {
 	const current = new URL(import.meta.url);
-	const extension = current.pathname.endsWith(".ts") ? "ts" : "js";
-	return Bun.fileURLToPath(new URL(`./compiler-worker.${extension}`, current));
+	return current.pathname.endsWith(".ts")
+		? Bun.resolveSync("@ryot/sandbox-compiler/worker", current.pathname)
+		: Bun.fileURLToPath(new URL("./compiler-worker.js", current));
 };
 
 export class SandboxCompiler extends Effect.Service<SandboxCompiler>()("SandboxCompiler", {
@@ -179,7 +182,12 @@ export class SandboxCompiler extends Effect.Service<SandboxCompiler>()("SandboxC
 					),
 					Effect.flatMap((response) => {
 						if (!response.success) {
-							return Effect.fail(response.error);
+							return Effect.fail(
+								new SandboxCompilationFailure({
+									message: response.error.message,
+									diagnostics: response.error.diagnostics,
+								}),
+							);
 						}
 
 						const manifest = sandboxManifestSchema.safeParse(response.value.manifest);
