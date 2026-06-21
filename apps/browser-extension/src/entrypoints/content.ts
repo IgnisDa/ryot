@@ -9,6 +9,75 @@ import { logger } from "../lib/logger";
 import { MetadataCache } from "../lib/metadata-cache";
 import { extractMetadataTitle } from "../lib/metadata-extractor";
 
+async function getHasFoundVideo(): Promise<boolean> {
+	return (await storage.getItem<boolean>(STORAGE_KEYS.HAS_FOUND_VIDEO)) ?? false;
+}
+
+async function setHasFoundVideo(value: boolean): Promise<void> {
+	await storage.setItem(STORAGE_KEYS.HAS_FOUND_VIDEO, value);
+}
+
+function sleep(ms: number): Promise<void> {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function updateExtensionStatus(status: ExtensionStatus) {
+	await storage.setItem(STORAGE_KEYS.EXTENSION_STATUS, status);
+}
+
+function findBestVideo(): HTMLVideoElement | null {
+	const videos = document.querySelectorAll("video");
+	let bestVideo: HTMLVideoElement | null = null;
+	let highestScore = -1;
+
+	for (const video of videos) {
+		if (video.readyState <= 0 || video.duration < MIN_VIDEO_DURATION_SECONDS) {
+			continue;
+		}
+
+		let score = 0;
+		if (!video.paused && !video.ended) {
+			score += 10;
+		}
+		if (video.readyState > 2) {
+			score += 5;
+		}
+		if (video.duration > 0) {
+			score += 1;
+		}
+
+		if (score > highestScore) {
+			highestScore = score;
+			bestVideo = video;
+		}
+	}
+
+	return bestVideo;
+}
+
+function extractProgressData(video: HTMLVideoElement): RawMediaData | null {
+	const title = extractMetadataTitle();
+	if (!title || !video.duration || video.duration < MIN_VIDEO_DURATION_SECONDS) {
+		return null;
+	}
+
+	return {
+		title,
+		progress: (video.currentTime / video.duration) * 100,
+	};
+}
+
+async function sendProgressUpdate(progressData: RawMediaData, metadata: MetadataLookupData) {
+	try {
+		await browser.runtime.sendMessage({
+			type: MESSAGE_TYPES.SEND_PROGRESS_DATA,
+			data: { rawData: progressData, metadata },
+		});
+	} catch (error) {
+		logger.error("Failed to send progress update", { error });
+	}
+}
+
 export default defineContentScript({
 	allFrames: true,
 	matches: ["*://*/*"],
@@ -24,14 +93,6 @@ export default defineContentScript({
 		const RETRY_INTERVALS = [2000, 3000, 4000, 5000, 6000, 8000, 10000, 12000, 15000, 20000];
 		let retryTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
-		async function getHasFoundVideo(): Promise<boolean> {
-			return (await storage.getItem<boolean>(STORAGE_KEYS.HAS_FOUND_VIDEO)) || false;
-		}
-
-		async function setHasFoundVideo(value: boolean): Promise<void> {
-			await storage.setItem(STORAGE_KEYS.HAS_FOUND_VIDEO, value);
-		}
-
 		const cleanup = {
 			abortController: new AbortController(),
 
@@ -45,14 +106,6 @@ export default defineContentScript({
 				logger.debug("All resources cleaned up");
 			},
 		};
-
-		function sleep(ms: number): Promise<void> {
-			return new Promise((resolve) => setTimeout(resolve, ms));
-		}
-
-		async function updateExtensionStatus(status: ExtensionStatus) {
-			await storage.setItem(STORAGE_KEYS.EXTENSION_STATUS, status);
-		}
 
 		async function getOrLookupMetadata(): Promise<MetadataLookupData | null> {
 			const title = extractMetadataTitle();
@@ -78,59 +131,6 @@ export default defineContentScript({
 			}
 
 			return metadata;
-		}
-
-		function findBestVideo(): HTMLVideoElement | null {
-			const videos = document.querySelectorAll("video");
-			let bestVideo: HTMLVideoElement | null = null;
-			let highestScore = -1;
-
-			for (const video of videos) {
-				if (video.readyState <= 0 || video.duration < MIN_VIDEO_DURATION_SECONDS) {
-					continue;
-				}
-
-				let score = 0;
-				if (!video.paused && !video.ended) {
-					score += 10;
-				}
-				if (video.readyState > 2) {
-					score += 5;
-				}
-				if (video.duration > 0) {
-					score += 1;
-				}
-
-				if (score > highestScore) {
-					highestScore = score;
-					bestVideo = video;
-				}
-			}
-
-			return bestVideo;
-		}
-
-		function extractProgressData(video: HTMLVideoElement): RawMediaData | null {
-			const title = extractMetadataTitle();
-			if (!title || !video.duration || video.duration < MIN_VIDEO_DURATION_SECONDS) {
-				return null;
-			}
-
-			return {
-				title,
-				progress: (video.currentTime / video.duration) * 100,
-			};
-		}
-
-		async function sendProgressUpdate(progressData: RawMediaData, metadata: MetadataLookupData) {
-			try {
-				await browser.runtime.sendMessage({
-					type: MESSAGE_TYPES.SEND_PROGRESS_DATA,
-					data: { rawData: progressData, metadata },
-				});
-			} catch (error) {
-				logger.error("Failed to send progress update", { error });
-			}
 		}
 
 		function startTrackingWithMetadataAndVideo(
@@ -288,11 +288,11 @@ export default defineContentScript({
 				for (const mutation of mutations) {
 					if (mutation.type === "childList") {
 						for (const node of mutation.addedNodes) {
-							if (node.nodeType === Node.ELEMENT_NODE) {
-								const element = node as Element;
+							if (node instanceof Element) {
+								const element = node;
 
-								if (element.tagName === "VIDEO") {
-									attachVideoReadinessListeners(element as HTMLVideoElement);
+								if (element instanceof HTMLVideoElement) {
+									attachVideoReadinessListeners(element);
 								} else if (element.querySelector("video")) {
 									for (const video of element.querySelectorAll("video")) {
 										attachVideoReadinessListeners(video);
@@ -322,6 +322,7 @@ export default defineContentScript({
 				}
 			});
 
+			// oxlint-disable-next-line typescript/no-unnecessary-condition -- document.body can be null at document_start despite the non-null lib.dom.d.ts type
 			if (document.body) {
 				observer.observe(document.body, {
 					childList: true,

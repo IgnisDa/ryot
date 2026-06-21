@@ -31,6 +31,7 @@ class Logger {
 			.getItem<boolean>(STORAGE_KEYS.DEBUG_MODE)
 			.then((enabled) => {
 				this.debugMode = enabled ?? false;
+				return;
 			})
 			.catch(() => {
 				this.debugMode = false;
