@@ -3,10 +3,7 @@ import { unknownToMessage } from "@ryot/contract/errors";
 import type { ImportRunId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
-import type {
-	MediaImportAdapterFailure,
-	MediaImportAdapterResult,
-} from "#modules/imports/media/adapter-result";
+import type { MediaImportAdapterFailure } from "#modules/imports/media/adapter-result";
 import {
 	failImportRun,
 	failImportRunWithFailures,
@@ -53,5 +50,5 @@ export const failRunWithFailures = (input: {
 export const failRunWithAdapterFailures = (
 	name: string,
 	runId: ImportRunId,
-	result: MediaImportAdapterResult,
-) => failRunWithFailures({ name, runId, failures: result.failures.map(toImportFailure) });
+	failures: ReadonlyArray<MediaImportAdapterFailure>,
+) => failRunWithFailures({ name, runId, failures: failures.map(toImportFailure) });

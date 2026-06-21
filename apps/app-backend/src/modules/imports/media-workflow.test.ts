@@ -1,29 +1,17 @@
 import { BunFileSystem } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
 import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
-import {
-	EntityId,
-	EntitySchemaId,
-	EventSchemaId,
-	ImportRunId,
-	SandboxScriptId,
-	UserId,
-} from "@ryot/contract/schema/brands";
+import { ImportRunId, UserId } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
-import type { MockOverrides } from "#lib/test-support/effect";
+import { RedisService } from "#lib/infrastructure/redis";
+import type { MockOverrides, WorkflowEngineOverrides } from "#lib/test-support/effect";
 import {
 	dbRunnerLayer,
 	makeAppConfigLayer,
+	makeRedisService,
 	makeWorkflowActivityEngine,
 } from "#lib/test-support/effect";
-import { CollectionsService } from "#modules/collections/service";
-import { EntitiesRepository } from "#modules/entities/repository";
-import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
-import { EpisodeResolverService } from "#modules/episode-resolver/service";
-import { EventSchemasRepository } from "#modules/event-schemas/repository";
-import { EventsService } from "#modules/events/service";
-import { LibraryEntityImportError } from "#modules/library-membership/library-entity-import-workflow";
 
 import { ProcessImportRunWorkflow } from "./import-run-workflow";
 import { runOneTimeMediaImportWorkflow } from "./media-workflow";
@@ -32,17 +20,10 @@ import {
 	type MediaImportWorkflowOperationsValue,
 } from "./media/types-workflow";
 import { ImportsRepository } from "./repository";
-import { ImportRunArtifacts } from "./runtime/workflow-helpers";
-
-const now = "2026-06-17T00:00:00.000Z";
+import { loadImportAdapterResult } from "./runtime/source-payload-store";
+import { ImportRunArtifacts, ImportRunError } from "./runtime/workflow-helpers";
 
 const mockImportsRepository = Layer.mock(ImportsRepository);
-const mockEntitiesRepository = Layer.mock(EntitiesRepository);
-const mockCollectionsService = Layer.mock(CollectionsService);
-const mockEventsService = Layer.mock(EventsService);
-const mockEpisodeResolverService = Layer.mock(EpisodeResolverService);
-const mockEventSchemasRepository = Layer.mock(EventSchemasRepository);
-const mockEntitySchemasRepository = Layer.mock(EntitySchemasRepository);
 const mockImportRunArtifacts = Layer.mock(ImportRunArtifacts);
 
 const makeImportsRepository = (overrides: MockOverrides<typeof mockImportsRepository> = {}) =>
@@ -51,68 +32,6 @@ const makeImportsRepository = (overrides: MockOverrides<typeof mockImportsReposi
 		createFailure: () => Effect.void,
 		...overrides,
 		_tag: "ImportsRepository",
-	});
-
-const makeEntitiesRepository = (overrides: MockOverrides<typeof mockEntitiesRepository> = {}) =>
-	mockEntitiesRepository({
-		findEntitySchemaSandboxScriptBySlug: () => Effect.succeed(null),
-		...overrides,
-		_tag: "EntitiesRepository",
-	});
-
-const makeCollectionsService = (overrides: MockOverrides<typeof mockCollectionsService> = {}) =>
-	mockCollectionsService({
-		markEntityOwnedInLibrary: () => Effect.void,
-		getOrCreateCollection: () =>
-			Effect.succeed({
-				createdAt: now,
-				updatedAt: now,
-				properties: {},
-				externalId: null,
-				name: "Collection",
-				sandboxScriptId: null,
-				id: EntityId.make("collection-1"),
-				entitySchemaId: EntitySchemaId.make("schema-collection"),
-			}),
-		...overrides,
-		_tag: "CollectionsService",
-	});
-
-const makeEventsService = (overrides: MockOverrides<typeof mockEventsService> = {}) =>
-	mockEventsService({
-		create: () => Effect.succeed({ count: 1 }),
-		...overrides,
-		_tag: "EventsService",
-	});
-
-const makeEpisodeResolverService = (
-	overrides: MockOverrides<typeof mockEpisodeResolverService> = {},
-) =>
-	mockEpisodeResolverService({
-		...overrides,
-		_tag: "EpisodeResolverService",
-	});
-
-const makeEventSchemasRepository = (
-	overrides: MockOverrides<typeof mockEventSchemasRepository> = {},
-) =>
-	mockEventSchemasRepository({
-		getBuiltinBySlug: () =>
-			Effect.succeed({
-				id: EventSchemaId.make("event-schema-1"),
-				propertiesSchema: { fields: {}, unknownKeys: "passthrough" as const },
-			}),
-		...overrides,
-		_tag: "EventSchemasRepository",
-	});
-
-const makeEntitySchemasRepository = (
-	overrides: MockOverrides<typeof mockEntitySchemasRepository> = {},
-) =>
-	mockEntitySchemasRepository({
-		getBuiltinBySlug: () => Effect.succeed({ id: EntitySchemaId.make("builtin-book-schema") }),
-		...overrides,
-		_tag: "EntitySchemasRepository",
 	});
 
 const makeMediaOperations = (overrides: Partial<MediaImportWorkflowOperationsValue> = {}) =>
@@ -128,15 +47,33 @@ const makeImportRunArtifacts = (
 		_tag: "ImportRunArtifacts",
 	});
 
+const makeRedisLayer = () => {
+	const store = new Map<string, string>();
+	return Layer.succeed(
+		RedisService,
+		makeRedisService({
+			get: (key) => Effect.succeed(store.get(key) ?? null),
+			set: (key, value) =>
+				Effect.sync(() => {
+					store.set(key, value);
+				}),
+			del: (...keys) =>
+				Effect.sync(() => {
+					let removed = 0;
+					for (const key of keys) {
+						if (store.delete(key)) {
+							removed += 1;
+						}
+					}
+					return removed;
+				}),
+		}),
+	);
+};
+
 type TestLayerOptions = {
-	eventsService?: Layer.Layer<EventsService>;
 	importsRepository?: Layer.Layer<ImportsRepository>;
 	importRunArtifacts?: Layer.Layer<ImportRunArtifacts>;
-	collectionsService?: Layer.Layer<CollectionsService>;
-	entitiesRepository?: Layer.Layer<EntitiesRepository>;
-	episodeResolverService?: Layer.Layer<EpisodeResolverService>;
-	eventSchemasRepository?: Layer.Layer<EventSchemasRepository>;
-	entitySchemasRepository?: Layer.Layer<EntitySchemasRepository>;
 	mediaOperations?: Layer.Layer<MediaImportWorkflowOperations>;
 };
 
@@ -145,24 +82,20 @@ const makeTestLayer = (options: TestLayerOptions) =>
 		dbRunnerLayer,
 		makeAppConfigLayer(),
 		BunFileSystem.layer,
+		makeRedisLayer(),
 		options.importRunArtifacts ?? makeImportRunArtifacts(),
 		options.mediaOperations ?? makeMediaOperations(),
 		options.importsRepository ?? makeImportsRepository(),
-		options.entitiesRepository ?? makeEntitiesRepository(),
-		options.collectionsService ?? makeCollectionsService(),
-		options.episodeResolverService ?? makeEpisodeResolverService(),
-		options.eventsService ?? makeEventsService(),
-		options.eventSchemasRepository ?? makeEventSchemasRepository(),
-		options.entitySchemasRepository ?? makeEntitySchemasRepository(),
 	);
 
 const withTestLayer = <A, E, R>(
 	options: TestLayerOptions,
 	executionId: string,
 	effect: Effect.Effect<A, E, R>,
+	engineOverrides: WorkflowEngineOverrides = {},
 ) => {
 	const instance = WorkflowInstance.initial(ProcessImportRunWorkflow, executionId);
-	const engine = makeWorkflowActivityEngine(instance);
+	const engine = makeWorkflowActivityEngine(instance, engineOverrides);
 
 	return effect.pipe(
 		Effect.provideService(WorkflowEngine, engine),
@@ -179,35 +112,34 @@ const importPayload = {
 	runId: ImportRunId.make("run-1"),
 };
 
-const resolvedBookGroup = (input: { externalId: string; sourceLabel: string }) => ({
-	itemIndex: 1,
-	collectionMemberships: [],
-	events: [],
-	entityRef: {
-		kind: "resolved" as const,
-		scriptSlug: "book.openlibrary",
-		entitySchemaSlug: "book",
-		externalId: input.externalId,
-		sourceLabel: input.sourceLabel,
+const loadedAdapterResult = {
+	cleanupPaths: ["/tmp/import.csv"],
+	adapterResult: {
+		failures: [{ itemIndex: 0, message: "Bad source row" }],
+		entityGroups: [
+			{
+				itemIndex: 1,
+				collectionMemberships: [],
+				events: [],
+				entityRef: {
+					kind: "unresolved" as const,
+					identifierType: "isbn",
+					sourceLabel: "Book One",
+					entitySchemaSlug: "book",
+					identifierValue: "9781234567890",
+				},
+			},
+		],
 	},
-});
+};
 
-it.effect("orchestrates one-time media imports through workflow-owned phases", () => {
+it.effect("persists the adapter result and dispatches the normalized child workflow", () => {
 	const cleanupCalls: Array<Record<string, unknown>> = [];
-	const resolvedCalls: Array<Record<string, unknown>> = [];
-	const importedCalls: Array<Record<string, unknown>> = [];
-	const collectionAdds: Array<Record<string, unknown>> = [];
-	const ownershipMarks: Array<Record<string, unknown>> = [];
 	const recordedUpdates: Array<Record<string, unknown>> = [];
-	const recordedFailures: Array<Record<string, unknown>> = [];
-	const createdEvents: Array<ReadonlyArray<Record<string, unknown>>> = [];
+	const childDispatches: Array<Record<string, unknown>> = [];
 
 	const options = {
 		importsRepository: makeImportsRepository({
-			createFailure: (input) => {
-				recordedFailures.push(input);
-				return Effect.void;
-			},
 			updateRun: (input) => {
 				recordedUpdates.push(input);
 				return Effect.void;
@@ -219,77 +151,7 @@ it.effect("orchestrates one-time media imports through workflow-owned phases", (
 			}),
 		),
 		mediaOperations: makeMediaOperations({
-			loadAdapterResult: () =>
-				Effect.succeed({
-					cleanupPaths: ["/tmp/import.csv"],
-					adapterResult: {
-						failures: [{ itemIndex: 0, message: "Bad source row" }],
-						entityGroups: [
-							{
-								itemIndex: 1,
-								ownershipProvider: "goodreads",
-								collectionMemberships: [{ collectionName: "Favorites" }],
-								events: [{ occurredAt: now, eventSchemaSlug: "read", properties: { rating: 5 } }],
-								entityRef: {
-									kind: "unresolved",
-									identifierType: "isbn",
-									sourceLabel: "Book One",
-									entitySchemaSlug: "book",
-									identifierValue: "9781234567890",
-								},
-							},
-						],
-					},
-				}),
-			resolveExternalId: (input) =>
-				Effect.sync(() => {
-					resolvedCalls.push(input);
-					return { externalId: "OL123M" };
-				}),
-			importEntity: (input) =>
-				Effect.sync(() => {
-					importedCalls.push(input);
-					return { id: EntityId.make("entity-1") };
-				}),
-			writeCollectionMembership: (input) =>
-				Effect.sync(() => {
-					collectionAdds.push(input);
-				}),
-		}),
-		entitiesRepository: makeEntitiesRepository({
-			findEntitySchemaSandboxScriptBySlug: (slug) =>
-				Effect.succeed(
-					slug === "book.openlibrary"
-						? {
-								entitySchemaId: EntitySchemaId.make("schema-book"),
-								sandboxScriptId: SandboxScriptId.make("script-book-openlibrary"),
-							}
-						: null,
-				),
-		}),
-		collectionsService: makeCollectionsService({
-			ensureEntityInLibrary: () => Effect.void,
-			markEntityOwnedInLibrary: (input) => {
-				ownershipMarks.push(input);
-				return Effect.void;
-			},
-			getOrCreateCollection: (_userId, name) =>
-				Effect.succeed({
-					name,
-					createdAt: now,
-					updatedAt: now,
-					properties: {},
-					externalId: null,
-					sandboxScriptId: null,
-					id: EntityId.make(`${name}-id`),
-					entitySchemaId: EntitySchemaId.make("schema-collection"),
-				}),
-		}),
-		eventsService: makeEventsService({
-			create: (input) => {
-				createdEvents.push(input.payload as ReadonlyArray<Record<string, unknown>>);
-				return Effect.succeed({ count: input.payload.length });
-			},
+			loadAdapterResult: () => Effect.succeed(loadedAdapterResult),
 		}),
 	} satisfies TestLayerOptions;
 
@@ -299,391 +161,85 @@ it.effect("orchestrates one-time media imports through workflow-owned phases", (
 		Effect.gen(function* () {
 			yield* runOneTimeMediaImportWorkflow(importPayload, "workflow-1");
 
-			expect(resolvedCalls).toEqual([
-				{
+			expect(childDispatches).toHaveLength(1);
+			expect(childDispatches[0]).toMatchObject({
+				executionId: "workflow-1-normalized",
+				payload: {
+					runId: "run-1",
 					userId: "user-1",
-					value: "9781234567890",
-					identifierType: "isbn",
-					scriptId: "script-book-openlibrary",
-					executionId: "workflow-1-resolve-0-0",
+					executionId: "workflow-1-normalized",
 				},
-			]);
-			expect(importedCalls).toEqual([
-				{
-					userId: "user-1",
-					externalId: "OL123M",
-					entitySchemaId: "schema-book",
-					executionId: "workflow-1-entity-0",
-					scriptId: "script-book-openlibrary",
-				},
-			]);
-			expect(recordedFailures).toHaveLength(1);
-			expect(recordedFailures[0]).toMatchObject({
-				itemIndex: 0,
-				runId: "run-1",
-				message: "Bad source row",
-				stage: "input_transformation",
 			});
-			expect(collectionAdds).toEqual([
-				{
-					userId: "user-1",
-					entityId: "entity-1",
-					collectionId: "Favorites-id",
-					executionId: "workflow-1-collection-0-0",
-				},
-			]);
-			expect(createdEvents).toEqual([
-				[
-					{
-						occurredAt: now,
-						entityId: "entity-1",
-						properties: { rating: 5 },
-						eventSchemaId: "event-schema-1",
-					},
-				],
-			]);
-			expect(ownershipMarks).toEqual([
-				{
-					userId: "user-1",
-					entityId: "entity-1",
-					provider: "goodreads",
-					syncedAt: expect.any(String),
-				},
-			]);
-			expect(cleanupCalls).toEqual([
-				{ cleanupPaths: ["/tmp/import.csv"], sourcePayloadKey: "payload-1" },
-			]);
+
+			const stored = yield* loadImportAdapterResult("run-1");
+			expect(stored?.entityGroups).toHaveLength(1);
+			expect(stored?.failures).toHaveLength(1);
 
 			expect(recordedUpdates).toContainEqual(
 				expect.objectContaining({ runId: "run-1", status: "running" }),
 			);
-			expect(recordedUpdates).toContainEqual(
-				expect.objectContaining({ runId: "run-1", totalItems: 2 }),
-			);
-			expect(recordedUpdates).toContainEqual(
-				expect.objectContaining({ runId: "run-1", progress: 30 }),
-			);
-			expect(recordedUpdates).toContainEqual(
-				expect.objectContaining({ runId: "run-1", progress: 90 }),
-			);
-			expect(recordedUpdates).toContainEqual(
-				expect.objectContaining({ runId: "run-1", progress: 99 }),
-			);
-			expect(recordedUpdates).toContainEqual(
-				expect.objectContaining({
-					progress: 100,
-					runId: "run-1",
-					failedItems: 1,
-					importedItems: 1,
-					processedItems: 2,
-					status: "completed",
-				}),
-			);
+			expect(cleanupCalls).toEqual([
+				{ cleanupPaths: ["/tmp/import.csv"], runId: "run-1", sourcePayloadKey: "payload-1" },
+			]);
 		}),
+		{
+			execute: (_workflow, dispatch) =>
+				Effect.sync(() => {
+					childDispatches.push({ executionId: dispatch.executionId, payload: dispatch.payload });
+					return undefined;
+				}),
+		},
 	);
 });
 
-it.effect("resolves imported show episode progress and drops unresolved locators", () => {
-	const resolverCalls: Array<Record<string, unknown>> = [];
+it.effect("fails the run and cleans up when the normalized child workflow fails", () => {
+	const cleanupCalls: Array<Record<string, unknown>> = [];
 	const recordedUpdates: Array<Record<string, unknown>> = [];
-	const recordedFailures: Array<Record<string, unknown>> = [];
-	const createdEvents: Array<ReadonlyArray<Record<string, unknown>>> = [];
 
 	const options = {
 		importsRepository: makeImportsRepository({
-			createFailure: (input) => {
-				recordedFailures.push(input);
-				return Effect.void;
-			},
 			updateRun: (input) => {
 				recordedUpdates.push(input);
 				return Effect.void;
 			},
 		}),
+		importRunArtifacts: makeImportRunArtifacts((input) =>
+			Effect.sync(() => {
+				cleanupCalls.push(input);
+			}),
+		),
 		mediaOperations: makeMediaOperations({
-			importEntity: () => Effect.succeed({ id: EntityId.make("show-entity-1") }),
-			loadAdapterResult: () =>
-				Effect.succeed({
-					cleanupPaths: [],
-					adapterResult: {
-						failures: [],
-						entityGroups: [
-							{
-								itemIndex: 1,
-								collectionMemberships: [],
-								entityRef: {
-									kind: "resolved",
-									externalId: "show-1",
-									scriptSlug: "show.tmdb",
-									sourceLabel: "Test Show",
-									entitySchemaSlug: "show",
-								},
-								events: [
-									{
-										occurredAt: now,
-										eventSchemaSlug: "progress",
-										properties: { progressPercent: 100 },
-										episodeLocator: { type: "show", seasonNumber: 1, episodeNumber: 2 },
-									},
-									{
-										occurredAt: now,
-										eventSchemaSlug: "progress",
-										properties: { progressPercent: 100 },
-										episodeLocator: { type: "show", seasonNumber: 1, episodeNumber: 99 },
-									},
-								],
-							},
-						],
-					},
-				}),
-		}),
-		entitiesRepository: makeEntitiesRepository({
-			findEntitySchemaSandboxScriptBySlug: (slug) =>
-				Effect.succeed(
-					slug === "show.tmdb"
-						? {
-								entitySchemaId: EntitySchemaId.make("schema-show"),
-								sandboxScriptId: SandboxScriptId.make("script-show-tmdb"),
-							}
-						: null,
-				),
-		}),
-		collectionsService: makeCollectionsService({
-			ensureEntityInLibrary: () => Effect.void,
-		}),
-		episodeResolverService: makeEpisodeResolverService({
-			resolveShowEpisode: (input) =>
-				Effect.sync(() => {
-					resolverCalls.push(input);
-					return input.episodeNumber === 2 ? EntityId.make("episode-1") : null;
-				}),
-		}),
-		eventSchemasRepository: makeEventSchemasRepository({
-			getBuiltinBySlug: (input) =>
-				Effect.succeed(
-					input.entitySchemaId === "schema-show-episode" && input.slug === "progress"
-						? { id: EventSchemaId.make("event-schema-progress"), propertiesSchema: { fields: {} } }
-						: null,
-				),
-		}),
-		entitySchemasRepository: makeEntitySchemasRepository({
-			getBuiltinBySlug: (slug) => {
-				let result: { id: EntitySchemaId } | null = null;
-				if (slug === "show") {
-					result = { id: EntitySchemaId.make("schema-show") };
-				} else if (slug === "show-episode") {
-					result = { id: EntitySchemaId.make("schema-show-episode") };
-				}
-				return Effect.succeed(result);
-			},
-		}),
-		eventsService: makeEventsService({
-			create: (input) => {
-				createdEvents.push(input.payload as ReadonlyArray<Record<string, unknown>>);
-				return Effect.succeed({ count: input.payload.length });
-			},
+			loadAdapterResult: () => Effect.succeed(loadedAdapterResult),
 		}),
 	} satisfies TestLayerOptions;
 
 	return withTestLayer(
 		options,
-		"workflow-show-episode-resolution",
+		"workflow-child-failure",
 		Effect.gen(function* () {
-			yield* runOneTimeMediaImportWorkflow(importPayload, "workflow-show-episode-resolution");
+			yield* runOneTimeMediaImportWorkflow(importPayload, "workflow-child-failure");
 
-			expect(resolverCalls).toEqual([
-				{ seasonNumber: 1, episodeNumber: 2, userId: "user-1", showEntityId: "show-entity-1" },
-				{ seasonNumber: 1, userId: "user-1", episodeNumber: 99, showEntityId: "show-entity-1" },
-			]);
-			expect(createdEvents).toEqual([
-				[
-					{
-						occurredAt: now,
-						entityId: "episode-1",
-						properties: { progressPercent: 100 },
-						eventSchemaId: "event-schema-progress",
-					},
-				],
-			]);
-			expect(recordedFailures).toEqual([
-				expect.objectContaining({
-					itemIndex: 1,
-					runId: "run-1",
-					sourceLabel: "Test Show",
-					entitySchemaSlug: "show",
-					sourceIdentifier: "show-1",
-					eventSchemaSlug: "progress",
-					stage: "provider_resolution",
-					message: "Could not resolve show episode S1E99",
-					context: { seasonNumber: 1, episodeNumber: 99 },
-				}),
+			expect(cleanupCalls).toEqual([
+				{ cleanupPaths: ["/tmp/import.csv"], runId: "run-1", sourcePayloadKey: "payload-1" },
 			]);
 			expect(recordedUpdates).toContainEqual(
 				expect.objectContaining({
-					progress: 100,
-					failedItems: 1,
-					importedItems: 0,
-					processedItems: 1,
-					status: "completed",
-				}),
-			);
-		}),
-	);
-});
-
-it.effect("resolves imported podcast episode progress and drops unresolved locators", () => {
-	const resolverCalls: Array<Record<string, unknown>> = [];
-	const recordedUpdates: Array<Record<string, unknown>> = [];
-	const recordedFailures: Array<Record<string, unknown>> = [];
-	const createdEvents: Array<ReadonlyArray<Record<string, unknown>>> = [];
-
-	const options = {
-		importsRepository: makeImportsRepository({
-			createFailure: (input) => {
-				recordedFailures.push(input);
-				return Effect.void;
-			},
-			updateRun: (input) => {
-				recordedUpdates.push(input);
-				return Effect.void;
-			},
-		}),
-		mediaOperations: makeMediaOperations({
-			importEntity: () => Effect.succeed({ id: EntityId.make("podcast-entity-1") }),
-			loadAdapterResult: () =>
-				Effect.succeed({
-					cleanupPaths: [],
-					adapterResult: {
-						failures: [],
-						entityGroups: [
-							{
-								itemIndex: 1,
-								collectionMemberships: [],
-								entityRef: {
-									kind: "resolved",
-									externalId: "podcast-1",
-									sourceLabel: "Test Podcast",
-									entitySchemaSlug: "podcast",
-									scriptSlug: "podcast.itunes",
-								},
-								events: [
-									{
-										occurredAt: now,
-										eventSchemaSlug: "progress",
-										properties: { progressPercent: 100 },
-										episodeLocator: { type: "podcast", episodeNumber: 4 },
-									},
-									{
-										occurredAt: now,
-										eventSchemaSlug: "progress",
-										properties: { progressPercent: 100 },
-										episodeLocator: { type: "podcast", episodeNumber: 99 },
-									},
-								],
-							},
-						],
-					},
-				}),
-		}),
-		entitiesRepository: makeEntitiesRepository({
-			findEntitySchemaSandboxScriptBySlug: (slug) =>
-				Effect.succeed(
-					slug === "podcast.itunes"
-						? {
-								entitySchemaId: EntitySchemaId.make("schema-podcast"),
-								sandboxScriptId: SandboxScriptId.make("script-podcast-itunes"),
-							}
-						: null,
-				),
-		}),
-		collectionsService: makeCollectionsService({
-			ensureEntityInLibrary: () => Effect.void,
-		}),
-		episodeResolverService: makeEpisodeResolverService({
-			resolvePodcastEpisode: (input) =>
-				Effect.sync(() => {
-					resolverCalls.push(input);
-					return input.episodeNumber === 4 ? EntityId.make("podcast-episode-1") : null;
-				}),
-		}),
-		eventSchemasRepository: makeEventSchemasRepository({
-			getBuiltinBySlug: (input) =>
-				Effect.succeed(
-					input.entitySchemaId === "schema-podcast-episode" && input.slug === "progress"
-						? { id: EventSchemaId.make("event-schema-progress"), propertiesSchema: { fields: {} } }
-						: null,
-				),
-		}),
-		entitySchemasRepository: makeEntitySchemasRepository({
-			getBuiltinBySlug: (slug) => {
-				let result: { id: EntitySchemaId } | null = null;
-				if (slug === "podcast") {
-					result = { id: EntitySchemaId.make("schema-podcast") };
-				} else if (slug === "podcast-episode") {
-					result = { id: EntitySchemaId.make("schema-podcast-episode") };
-				}
-				return Effect.succeed(result);
-			},
-		}),
-		eventsService: makeEventsService({
-			create: (input) => {
-				createdEvents.push(input.payload as ReadonlyArray<Record<string, unknown>>);
-				return Effect.succeed({ count: input.payload.length });
-			},
-		}),
-	} satisfies TestLayerOptions;
-
-	return withTestLayer(
-		options,
-		"workflow-podcast-episode-resolution",
-		Effect.gen(function* () {
-			yield* runOneTimeMediaImportWorkflow(importPayload, "workflow-podcast-episode-resolution");
-
-			expect(resolverCalls).toEqual([
-				{ userId: "user-1", episodeNumber: 4, podcastEntityId: "podcast-entity-1" },
-				{ userId: "user-1", episodeNumber: 99, podcastEntityId: "podcast-entity-1" },
-			]);
-			expect(createdEvents).toEqual([
-				[
-					{
-						occurredAt: now,
-						entityId: "podcast-episode-1",
-						properties: { progressPercent: 100 },
-						eventSchemaId: "event-schema-progress",
-					},
-				],
-			]);
-			expect(recordedFailures).toEqual([
-				expect.objectContaining({
-					itemIndex: 1,
 					runId: "run-1",
-					sourceLabel: "Test Podcast",
-					entitySchemaSlug: "podcast",
-					eventSchemaSlug: "progress",
-					stage: "provider_resolution",
-					sourceIdentifier: "podcast-1",
-					context: { episodeNumber: 99 },
-					message: "Could not resolve podcast episode 99",
-				}),
-			]);
-			expect(recordedUpdates).toContainEqual(
-				expect.objectContaining({
-					progress: 100,
-					failedItems: 1,
-					importedItems: 0,
-					processedItems: 1,
-					status: "completed",
+					status: "failed",
+					errorSummary: "child boom",
 				}),
 			);
 		}),
+		{
+			execute: () => Effect.fail(new ImportRunError({ message: "child boom" })),
+		},
 	);
 });
 
 it.effect(
 	"fails the run and cleans up artifacts when adapter loading fails catastrophically",
 	() => {
-		let importCalled = false;
-		let resolveCalled = false;
+		let childDispatched = false;
 		const cleanupCalls: Array<Record<string, unknown>> = [];
 		const recordedUpdates: Array<Record<string, unknown>> = [];
 		const defectPayload = { ...importPayload, filePath: "/tmp/import.csv" };
@@ -702,16 +258,6 @@ it.effect(
 			),
 			mediaOperations: makeMediaOperations({
 				loadAdapterResult: () => Effect.die("Source credentials failed"),
-				resolveExternalId: () =>
-					Effect.sync(() => {
-						resolveCalled = true;
-						return { externalId: null };
-					}),
-				importEntity: () =>
-					Effect.sync(() => {
-						importCalled = true;
-						return { id: EntityId.make("entity-1") };
-					}),
 			}),
 		} satisfies TestLayerOptions;
 
@@ -721,10 +267,9 @@ it.effect(
 			Effect.gen(function* () {
 				yield* runOneTimeMediaImportWorkflow(defectPayload, "workflow-failure");
 
-				expect(resolveCalled).toBe(false);
-				expect(importCalled).toBe(false);
+				expect(childDispatched).toBe(false);
 				expect(cleanupCalls).toEqual([
-					{ cleanupPaths: [defectPayload.filePath], sourcePayloadKey: "payload-1" },
+					{ cleanupPaths: [defectPayload.filePath], runId: "run-1", sourcePayloadKey: "payload-1" },
 				]);
 				expect(recordedUpdates).toContainEqual(
 					expect.objectContaining({ runId: "run-1", status: "running" }),
@@ -737,6 +282,13 @@ it.effect(
 					}),
 				);
 			}),
+			{
+				execute: () =>
+					Effect.sync(() => {
+						childDispatched = true;
+						return undefined;
+					}),
+			},
 		);
 	},
 );
@@ -770,7 +322,9 @@ it.effect("does not reintroduce invalid file paths during handled load failures"
 		Effect.gen(function* () {
 			yield* runOneTimeMediaImportWorkflow(invalidPayload, "workflow-invalid-load-path");
 
-			expect(cleanupCalls).toEqual([{ cleanupPaths: [], sourcePayloadKey: "payload-1" }]);
+			expect(cleanupCalls).toEqual([
+				{ cleanupPaths: [], runId: "run-1", sourcePayloadKey: "payload-1" },
+			]);
 			expect(recordedUpdates).toContainEqual(
 				expect.objectContaining({
 					runId: "run-1",
@@ -810,7 +364,9 @@ it.effect("does not attempt cleanup for invalid file paths when adapter loading 
 		Effect.gen(function* () {
 			yield* runOneTimeMediaImportWorkflow(invalidPayload, "workflow-invalid-load-path-defect");
 
-			expect(cleanupCalls).toEqual([{ cleanupPaths: [], sourcePayloadKey: "payload-1" }]);
+			expect(cleanupCalls).toEqual([
+				{ cleanupPaths: [], runId: "run-1", sourcePayloadKey: "payload-1" },
+			]);
 			expect(recordedUpdates).toContainEqual(
 				expect.objectContaining({
 					runId: "run-1",
@@ -821,76 +377,3 @@ it.effect("does not attempt cleanup for invalid file paths when adapter loading 
 		}),
 	);
 });
-
-it.effect(
-	"records provider_details and database_commit stages from library import failures",
-	() => {
-		const recordedFailures: Array<Record<string, unknown>> = [];
-
-		const options = {
-			importsRepository: makeImportsRepository({
-				createFailure: (input) => {
-					recordedFailures.push(input);
-					return Effect.void;
-				},
-			}),
-			mediaOperations: makeMediaOperations({
-				importEntity: (input) =>
-					input.externalId === "ext-mem"
-						? Effect.fail(
-								new LibraryEntityImportError({ stage: "membership", message: "mem fail" }),
-							)
-						: Effect.fail(
-								new LibraryEntityImportError({ stage: "population", message: "pop fail" }),
-							),
-				loadAdapterResult: () =>
-					Effect.succeed({
-						cleanupPaths: [],
-						adapterResult: {
-							failures: [],
-							entityGroups: [
-								resolvedBookGroup({ externalId: "ext-pop", sourceLabel: "Population Book" }),
-								resolvedBookGroup({ externalId: "ext-mem", sourceLabel: "Membership Book" }),
-							],
-						},
-					}),
-			}),
-			entitiesRepository: makeEntitiesRepository({
-				findEntitySchemaSandboxScriptBySlug: (slug) =>
-					Effect.succeed(
-						slug === "book.openlibrary"
-							? {
-									entitySchemaId: EntitySchemaId.make("schema-book"),
-									sandboxScriptId: SandboxScriptId.make("script-book-openlibrary"),
-								}
-							: null,
-					),
-			}),
-		} satisfies TestLayerOptions;
-
-		return withTestLayer(
-			options,
-			"workflow-stage-failures",
-			Effect.gen(function* () {
-				yield* runOneTimeMediaImportWorkflow(importPayload, "workflow-stage-failures");
-
-				expect(recordedFailures).toContainEqual(
-					expect.objectContaining({
-						runId: "run-1",
-						message: "pop fail",
-						stage: "provider_details",
-						sourceIdentifier: "ext-pop",
-					}),
-				);
-				expect(recordedFailures).toContainEqual(
-					expect.objectContaining({
-						runId: "run-1",
-						message: "mem fail",
-						stage: "database_commit",
-						sourceIdentifier: "ext-mem",
-					}),
-				);
-			}),
-		);
-	},
-);

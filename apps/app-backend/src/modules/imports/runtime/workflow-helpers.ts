@@ -9,7 +9,7 @@ import { RedisService } from "#lib/infrastructure/redis";
 import type { ImportRunJobData } from "../jobs";
 import { resolveSafeImportFilePath } from "./import-files";
 import { failImportRun } from "./import-run-status";
-import { deleteImportSourcePayload } from "./source-payload-store";
+import { deleteImportAdapterResult, deleteImportSourcePayload } from "./source-payload-store";
 
 export class ImportRunError extends Schema.TaggedError<ImportRunError>()("ImportRunError", {
 	message: Schema.String,
@@ -25,11 +25,18 @@ export class ImportRunArtifacts extends Effect.Service<ImportRunArtifacts>()("Im
 		const fs = yield* FileSystem.FileSystem;
 
 		const cleanupArtifacts = Effect.fn("imports.cleanupArtifacts")(function* (input: {
+			runId?: string;
 			sourcePayloadKey?: string;
 			cleanupPaths: ReadonlyArray<string>;
 		}) {
 			if (input.sourcePayloadKey) {
 				yield* deleteImportSourcePayload(input.sourcePayloadKey).pipe(
+					Effect.provideService(RedisService, redis),
+				);
+			}
+
+			if (input.runId) {
+				yield* deleteImportAdapterResult(input.runId).pipe(
 					Effect.provideService(RedisService, redis),
 				);
 			}
@@ -64,6 +71,7 @@ export const createImportRunLifecycle = (
 				const artifacts = yield* ImportRunArtifacts;
 				yield* artifacts.cleanupArtifacts({
 					cleanupPaths: paths,
+					runId: payload.runId,
 					sourcePayloadKey: payload.sourcePayloadKey,
 				});
 			}).pipe(Effect.mapError(toWorkflowError)),
@@ -75,6 +83,7 @@ export const createImportRunLifecycle = (
 				const artifacts = yield* ImportRunArtifacts;
 				yield* artifacts.cleanupArtifacts({
 					cleanupPaths: paths,
+					runId: payload.runId,
 					sourcePayloadKey: payload.sourcePayloadKey,
 				});
 			}).pipe(Effect.catchAll(() => Effect.void)),
