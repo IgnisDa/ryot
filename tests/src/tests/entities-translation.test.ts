@@ -1,24 +1,52 @@
-import { describe, expect, it } from "bun:test";
+import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 
 import {
+	cleanupBuiltinProviderScript,
 	countEntityTranslations,
 	createAuthenticatedClient,
-	deleteGlobalEntityByProvenance,
+	detailsDriverCode,
 	findBuiltinSchemaBySlug,
 	getEntity,
 	getEntityTranslationRow,
 	openInterestStream,
 	pollEntityUntilTranslationStatus,
+	seedBuiltinProviderScript,
 	seedMediaEntity,
-	seedPopulatedTmdbMovie,
+	seedPopulatedProviderEntity,
 	setUserLanguage,
+	translateDriverCode,
 	waitForEntityPopulated,
+	type InterestStream,
+	type SeededProviderScript,
 } from "../fixtures";
-import type { InterestStream } from "../fixtures";
-import { assertPresent } from "../test-support/assertions";
 
 const CANONICAL_LANGUAGE = "en";
+const GRACE_WINDOW_MS = 3000;
+const TRANSLATED_ES_NAME = "Título Traducido E2E";
+const TRANSLATED_ES_DESCRIPTION = "Descripción traducida E2E.";
+const POPULATED_NAME = "E2E Populated Movie";
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// One fake builtin provider drives every case. Its `translate` driver returns a fixed Spanish overlay
+// for "es" and an empty object (→ negative-cache, all-null overlay) for any other non-canonical
+// language. It always registers a `translate` driver — including for the unpopulated-entity case —
+// so an erroneous premature translate would still write an all-null overlay the test can catch.
+// `canonicalLanguage: "en"` in metadata is what the read path uses to compute translationStatus.
+let providerScript: SeededProviderScript;
+
+async function seedPopulatedMovie(
+	client: Awaited<ReturnType<typeof createAuthenticatedClient>>["client"],
+	name: string,
+) {
+	const { schema } = await findBuiltinSchemaBySlug(client, "movie");
+	return seedPopulatedProviderEntity({
+		name,
+		entitySchemaId: schema.id,
+		sandboxScriptId: providerScript.scriptId,
+		externalId: `e2e-translate-${crypto.randomUUID()}`,
+		properties: { description: `Canonical overview of ${name}.` },
+	});
+}
 
 async function declareInterest(
 	auth: Awaited<ReturnType<typeof createAuthenticatedClient>>,
@@ -30,13 +58,32 @@ async function declareInterest(
 }
 
 describe("entity translation via client-declared interest", () => {
+	beforeAll(async () => {
+		providerScript = await seedBuiltinProviderScript({
+			metadata: { providerInformation: { source: "e2e", canonicalLanguage: CANONICAL_LANGUAGE } },
+			code: [
+				detailsDriverCode({
+					name: POPULATED_NAME,
+					properties: { description: "Populated by the e2e fake provider." },
+				}),
+				translateDriverCode({
+					es: {
+						name: TRANSLATED_ES_NAME,
+						properties: { description: TRANSLATED_ES_DESCRIPTION },
+					},
+				}),
+			].join("\n"),
+		});
+	});
+
+	afterAll(async () => {
+		await cleanupBuiltinProviderScript(providerScript);
+	});
+
 	it("reports pending, translates on interest, then shares the overlay across users", async () => {
 		const auth = await createAuthenticatedClient();
 		const { client } = auth;
-		const movie = await seedPopulatedTmdbMovie(client, {
-			externalId: "550",
-			name: "Canonical Fight Club",
-		});
+		const movie = await seedPopulatedMovie(client, "Canonical Fight Club");
 
 		await setUserLanguage(client, "es");
 
@@ -49,35 +96,31 @@ describe("entity translation via client-declared interest", () => {
 		try {
 			// Interest triggers the fill; completion fans out over the stream.
 			const event = await stream.waitForEntityUpdated(movie.id, "translated", {
-				timeoutMs: 90_000,
+				timeoutMs: 30_000,
 			});
 			expect(event.reason).toBe("translated");
 
 			const localizedRead = await pollEntityUntilTranslationStatus(client, movie.id, "ready", {
-				timeoutMs: 90_000,
+				timeoutMs: 30_000,
 			});
-			expect(localizedRead.name).not.toBe("Canonical Fight Club");
-			expect(localizedRead.name.length).toBeGreaterThan(0);
+			expect(localizedRead.name).toBe(TRANSLATED_ES_NAME);
 
 			// A second non-canonical user reads the shared overlay directly — no interest needed.
 			const { client: clientB } = await createAuthenticatedClient();
 			await setUserLanguage(clientB, "es");
 			const sharedRead = await getEntity(clientB, movie.id);
 			expect(sharedRead.translationStatus).toBe("ready");
-			expect(sharedRead.name).toBe(localizedRead.name);
+			expect(sharedRead.name).toBe(TRANSLATED_ES_NAME);
 			expect(await countEntityTranslations(movie.id)).toBe(1);
 		} finally {
 			stream.close();
 		}
-	}, 150_000);
+	}, 60_000);
 
 	it("negative-caches when the provider has no translation and does not refetch", async () => {
 		const auth = await createAuthenticatedClient();
 		const { client } = auth;
-		const movie = await seedPopulatedTmdbMovie(client, {
-			externalId: "238",
-			name: "Canonical The Godfather",
-		});
+		const movie = await seedPopulatedMovie(client, "Canonical The Godfather");
 
 		await setUserLanguage(client, "xx");
 
@@ -86,10 +129,10 @@ describe("entity translation via client-declared interest", () => {
 
 		const stream = await declareInterest(auth, [movie.id]);
 		try {
-			await stream.waitForEntityUpdated(movie.id, "translated", { timeoutMs: 90_000 });
+			await stream.waitForEntityUpdated(movie.id, "translated", { timeoutMs: 30_000 });
 
 			const settledRead = await pollEntityUntilTranslationStatus(client, movie.id, "none", {
-				timeoutMs: 90_000,
+				timeoutMs: 30_000,
 			});
 			expect(settledRead.name).toBe("Canonical The Godfather");
 
@@ -100,14 +143,11 @@ describe("entity translation via client-declared interest", () => {
 		} finally {
 			stream.close();
 		}
-	}, 120_000);
+	}, 60_000);
 
 	it("renders canonical without fetching when the resolved language is canonical or unset", async () => {
 		const { client } = await createAuthenticatedClient();
-		const movie = await seedPopulatedTmdbMovie(client, {
-			externalId: "278",
-			name: "Canonical The Shawshank Redemption",
-		});
+		const movie = await seedPopulatedMovie(client, "Canonical The Shawshank Redemption");
 
 		await setUserLanguage(client, CANONICAL_LANGUAGE);
 		const canonicalPreferenceRead = await getEntity(client, movie.id);
@@ -126,18 +166,19 @@ describe("entity translation via client-declared interest", () => {
 		const auth = await createAuthenticatedClient();
 		const { client } = auth;
 		const { schema } = await findBuiltinSchemaBySlug(client, "movie");
-		const sandboxScriptId = schema.providers.find((provider) => provider.name === "TMDB")?.scriptId;
-		assertPresent(sandboxScriptId, "TMDB movie provider script not found");
-		const provenance = { externalId: "680", entitySchemaId: schema.id, sandboxScriptId };
+		const provenance = {
+			entitySchemaId: schema.id,
+			sandboxScriptId: providerScript.scriptId,
+			externalId: `e2e-translate-unpopulated-${crypto.randomUUID()}`,
+		};
 
-		await deleteGlobalEntityByProvenance(provenance);
 		const seeded = await seedMediaEntity({
 			userId: null,
 			properties: {},
-			sandboxScriptId,
-			name: "Partial Pulp Fiction",
 			entitySchemaId: schema.id,
+			name: "Partial Pulp Fiction",
 			externalId: provenance.externalId,
+			sandboxScriptId: providerScript.scriptId,
 		});
 
 		// A non-canonical language must NOT cause a premature translate on an unpopulated entity (which
@@ -147,7 +188,7 @@ describe("entity translation via client-declared interest", () => {
 		const stream = await declareInterest(auth, [seeded.id]);
 		try {
 			const event = await stream.waitForEntityUpdated(seeded.id, "populated", {
-				timeoutMs: 60_000,
+				timeoutMs: 30_000,
 			});
 			expect(event.reason).toBe("populated");
 
@@ -155,10 +196,10 @@ describe("entity translation via client-declared interest", () => {
 			expect(populated.populatedAt).not.toBeNull();
 
 			// Give any (incorrect) translate enqueue a chance to land, then prove none did.
-			await delay(3000);
+			await delay(GRACE_WINDOW_MS);
 			expect(await countEntityTranslations(seeded.id)).toBe(0);
 		} finally {
 			stream.close();
 		}
-	}, 90_000);
+	}, 60_000);
 });
