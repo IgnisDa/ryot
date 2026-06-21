@@ -89,20 +89,24 @@ export type FakeRelatedEntity = {
 	name: string;
 	externalId: string;
 	scriptSlug: string;
-	reverseDirection?: boolean;
-	relationshipSchemaSlug?: string;
 	relationshipProperties?: Record<string, unknown>;
+};
+
+export type FakeRelatedEntityGroup = {
+	relationshipSchemaSlug: string;
+	direction: "incoming" | "outgoing";
+	entities: ReadonlyArray<FakeRelatedEntity>;
 };
 
 export function detailsDriverCode(result: {
 	name: string;
 	properties?: Record<string, unknown>;
-	relatedEntities?: ReadonlyArray<FakeRelatedEntity>;
+	relatedEntityGroups?: ReadonlyArray<FakeRelatedEntityGroup>;
 }): string {
 	const payload = {
 		name: result.name,
 		properties: result.properties ?? {},
-		...(result.relatedEntities ? { relatedEntities: result.relatedEntities } : {}),
+		...(result.relatedEntityGroups ? { relatedEntityGroups: result.relatedEntityGroups } : {}),
 	};
 	return `driver("details", async function () { return ${JSON.stringify(payload)}; });`;
 }

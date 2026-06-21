@@ -183,7 +183,6 @@ driver("details", async function (context, { metadata }) {
 			return {
 				name: memberName,
 				externalId: memberId,
-				reverseDirection: true,
 				scriptSlug: "music.youtube-music",
 				relationshipProperties: { order: idx + 1 },
 			};
@@ -197,14 +196,15 @@ driver("details", async function (context, { metadata }) {
 	const sourceUrl = playlistId ? `https://music.youtube.com/playlist?list=${playlistId}` : null;
 
 	return {
-		relatedEntities,
 		name: title,
-		properties: {
-			parts,
-			images,
-			sourceUrl,
-			description,
-		},
+		properties: {parts,images,			sourceUrl,description,},
+		relatedEntityGroups: [
+			{
+				direction: "outgoing",
+				entities: relatedEntities,
+				relationshipSchemaSlug: "music-group-to-music",
+			},
+		],
 	};
 });
 

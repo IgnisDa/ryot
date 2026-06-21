@@ -244,7 +244,6 @@ driver("details", async function (context) {
 					relatedEntities.push({
 						name: memberName,
 						externalId: memberId,
-						reverseDirection: true,
 						scriptSlug: "music.music-brainz",
 						relationshipProperties: { order: trackIdx + 1 },
 					});
@@ -256,11 +255,17 @@ driver("details", async function (context) {
 
 	return {
 		name: title,
-		relatedEntities,
+		relatedEntityGroups: [
+			{
+				direction: "outgoing",
+				entities: relatedEntities,
+				relationshipSchemaSlug: "music-group-to-music",
+			},
+		],
 		properties: {
+			parts,
 			images,
 			description,
-			parts,
 			sourceUrl: `https://musicbrainz.org/release-group/${externalId}`,
 		},
 	};

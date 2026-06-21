@@ -57,7 +57,6 @@ driver("details", async function (context) {
 			return {
 				externalId: asin,
 				name: "Loading...",
-				reverseDirection: true,
 				scriptSlug: "audiobook.audible",
 				relationshipProperties: { order: idx + 1 },
 			};
@@ -68,7 +67,13 @@ driver("details", async function (context) {
 
 	return {
 		name: title,
-		relatedEntities,
+		relatedEntityGroups: [
+			{
+				direction: "outgoing",
+				entities: relatedEntities,
+				relationshipSchemaSlug: "audiobook-group-to-audiobook",
+			},
+		],
 		properties: {
 			parts,
 			images: [],

@@ -20,6 +20,7 @@ import { ImportsRoutesLive } from "#modules/imports/routes";
 import { IntegrationsRoutesLive } from "#modules/integrations/routes";
 import { LibraryRoutesLive } from "#modules/library-membership/routes";
 import { MetadataLookupRoutesLive } from "#modules/metadata-lookup/routes";
+import { MonitoringRoutesLive } from "#modules/monitoring/routes";
 import { NotificationsRoutesLive } from "#modules/notifications/routes";
 import { QueryEngineRoutesLive } from "#modules/query-engine/routes";
 import { RelationshipSchemasRoutesLive } from "#modules/relationship-schemas/routes";
@@ -93,7 +94,12 @@ const ApiBaseLive = HttpApiBuilder.api(AppContract).pipe(
 	Layer.provide(ImportsRoutesLive),
 	Layer.provide(Layer.mergeAll(IntegrationsRoutesLive, NotificationsRoutesLive)),
 	Layer.provide(
-		Layer.mergeAll(MetadataLookupRoutesLive, QueryEngineRoutesLive, InterestRoutesLive),
+		Layer.mergeAll(
+			MetadataLookupRoutesLive,
+			MonitoringRoutesLive,
+			QueryEngineRoutesLive,
+			InterestRoutesLive,
+		),
 	),
 	Layer.provide(AuthMiddlewareLive),
 	Layer.provide(AdminMiddlewareLive),

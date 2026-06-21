@@ -107,6 +107,13 @@ export const builtinRelationshipSchemas = (): BuiltinRelationshipSchema[] => [
 		},
 	},
 	{
+		slug: "monitoring",
+		name: "Monitoring",
+		sourceEntitySchemaSlug: null,
+		propertiesSchema: { fields: {} },
+		targetEntitySchemaSlug: "library",
+	},
+	{
 		slug: "media-suggestion",
 		name: "Media Suggestion",
 		sourceEntitySchemaSlug: null,

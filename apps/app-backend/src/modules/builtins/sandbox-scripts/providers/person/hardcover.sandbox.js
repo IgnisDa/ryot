@@ -157,6 +157,7 @@ query GetHardcoverAuthorDetails($id: Int!) {
     death_date
     image { url }
     alternate_names
+		contributions { contribution book { id title } }
   }
 }
 `;
@@ -220,9 +221,33 @@ query GetHardcoverAuthorDetails($id: Int!) {
 	const alternateNames = Array.isArray(authorData.alternate_names)
 		? authorData.alternate_names.filter((n) => typeof n === "string" && n.trim())
 		: [];
+	const mediaEntities = (Array.isArray(authorData.contributions) ? authorData.contributions : [])
+		.map((contribution) => {
+			const book = contribution?.book;
+			const bookId = book?.id != null ? String(book.id) : null;
+			const bookName = typeof book?.title === "string" && book.title.trim() ? book.title.trim() : null;
+			const role =
+				typeof contribution?.contribution === "string" && contribution.contribution.trim()
+					? contribution.contribution.trim()
+					: "Author";
+			return {
+				externalId: bookId,
+				scriptSlug: "book.hardcover",
+				name: bookName ?? "Loading...",
+				relationshipProperties: { roles: [role] },
+			};
+		})
+		.filter((entity) => entity.externalId !== null);
 
 	return {
 		name,
+		relatedEntityGroups: [
+			{
+				direction: "outgoing",
+				entities: mediaEntities,
+				relationshipSchemaSlug: "person-to-book",
+			},
+		],
 		properties: {
 			website,
 			sourceUrl,

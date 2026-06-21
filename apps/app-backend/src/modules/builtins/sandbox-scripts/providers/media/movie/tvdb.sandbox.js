@@ -508,13 +508,26 @@ driver("details", async function (context, { metadata }) {
 		movie?.characters,
 	);
 
-	const relatedEntities = [
-		...peopleRelatedEntities,
-		...collectCompanies(movie?.companies),
-		...groupRelatedEntities,
-	];
+	const companies = collectCompanies(movie?.companies);
 	return {
 		name: title,
+		relatedEntityGroups: [
+			{
+				direction: "incoming",
+				entities: peopleRelatedEntities,
+				relationshipSchemaSlug: "person-to-movie",
+			},
+			{
+				direction: "incoming",
+				entities: companies,
+				relationshipSchemaSlug: "company-to-movie",
+			},
+			{
+				direction: "incoming",
+				entities: groupRelatedEntities,
+				relationshipSchemaSlug: "movie-group-to-movie",
+			},
+		],
 		properties: {
 			images,
 			genres,
@@ -528,7 +541,6 @@ driver("details", async function (context, { metadata }) {
 					? movie.overview.trim()
 					: null),
 		},
-		relatedEntities,
 	};
 });
 

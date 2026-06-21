@@ -292,7 +292,7 @@ driver("details", async function (context) {
 			? Math.trunc(payload.page_count)
 			: null;
 	const image = getString(payload?.image);
-	const relatedEntities = buildPeople(payload?.credits);
+	const people = buildPeople(payload?.credits);
 	const groupRelatedEntities =
 		payload?.series && typeof payload.series === "object"
 			? [
@@ -307,17 +307,27 @@ driver("details", async function (context) {
 				].filter((group) => group.externalId !== null)
 			: [];
 
-	for (const groupRelatedEntity of groupRelatedEntities) {
-		relatedEntities.push(groupRelatedEntity);
-	}
 	const suggestions = await Promise.resolve(collectSuggestions(externalId, payload?.arcs));
-	for (const suggestion of suggestions) {
-		relatedEntities.push({ ...suggestion, relationshipSchemaSlug: "media-suggestion" });
-	}
 
 	return {
 		name: title,
-		relatedEntities,
+		relatedEntityGroups: [
+			{
+				entities: people,
+				direction: "incoming",
+				relationshipSchemaSlug: "person-to-comic-book",
+			},
+			{
+				direction: "incoming",
+				entities: groupRelatedEntities,
+				relationshipSchemaSlug: "comic-book-group-to-comic-book",
+			},
+			{
+				direction: "outgoing",
+				entities: suggestions,
+				relationshipSchemaSlug: "media-suggestion",
+			},
+		],
 		properties: {
 			genres: [],
 			pages: pageCount,

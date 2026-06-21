@@ -505,22 +505,28 @@ query MediaDetailsQuery($id: Int!) {
 
 	return {
 		name: title,
-		relatedEntities: [
-			...relatedEntities,
-			...collectSuggestions(media.recommendations, titleLang).map((suggestion) =>
-				Object.assign(suggestion, { relationshipSchemaSlug: "media-suggestion" }),
-			),
+		relatedEntityGroups: [
+			{
+				direction: "incoming",
+				entities: relatedEntities,
+				relationshipSchemaSlug: "company-to-anime",
+			},
+			{
+				direction: "outgoing",
+				entities: collectSuggestions(media.recommendations, titleLang),
+				relationshipSchemaSlug: "media-suggestion",
+			},
 		],
 		properties: {
 			episodes,
+			description,
 			productionStatus: productionStatus,
 			publishYear: parsePublishYear(media.startDate),
 			genres: collectGenres(media.genres, media.tags),
-			isNsfw: typeof media?.isAdult === "boolean" ? media.isAdult : null,
-			sourceUrl: `https://anilist.co/anime/${payloadIdentifier}/${encodeURIComponent(title)}`,
-			description,
 			images: collectImages(media.coverImage, media.bannerImage),
+			isNsfw: typeof media?.isAdult === "boolean" ? media.isAdult : null,
 			airingSchedule: parseAiringSchedule(media.airingSchedule, media.nextAiringEpisode, dayjs),
+			sourceUrl: `https://anilist.co/anime/${payloadIdentifier}/${encodeURIComponent(title)}`,
 			providerRating:
 				typeof media?.averageScore === "number" && Number.isFinite(media.averageScore)
 					? media.averageScore

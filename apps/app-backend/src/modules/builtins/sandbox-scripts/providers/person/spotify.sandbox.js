@@ -199,7 +199,7 @@ driver("details", async function (context) {
 
 	const sourceUrl = getNullableString(artist?.external_urls?.spotify);
 
-	const relatedEntities = await (async () => {
+	const groupEntities = await (async () => {
 		const limit = 50;
 		const allAlbums = [];
 		let offset = 0;
@@ -229,17 +229,42 @@ driver("details", async function (context) {
 			const albumName = getString(album?.name);
 			return {
 				externalId: albumId,
-				reverseDirection: true,
 				scriptSlug: "music-group.spotify",
 				relationshipProperties: { roles: ["Artist"] },
 				name: albumName.length > 0 ? albumName : albumId,
 			};
 		});
 	})();
+	const topTracksData = await spotifyGet(`/artists/${encodeURIComponent(externalId)}/top-tracks`, {
+		market: "US",
+	});
+	const mediaEntities = (Array.isArray(topTracksData?.tracks) ? topTracksData.tracks : [])
+		.map((track) => {
+			const trackId = getString(track?.id);
+			const trackName = getString(track?.name);
+			return {
+				externalId: trackId,
+				scriptSlug: "music.spotify",
+				relationshipProperties: { roles: ["Artist"] },
+				name: trackName.length > 0 ? trackName : trackId,
+			};
+		})
+		.filter((entity) => entity.externalId);
 
 	return {
 		name,
-		relatedEntities,
+		relatedEntityGroups: [
+			{
+				direction: "outgoing",
+				entities: mediaEntities,
+				relationshipSchemaSlug: "person-to-music",
+			},
+			{
+				direction: "outgoing",
+				entities: groupEntities,
+				relationshipSchemaSlug: "person-to-music-group",
+			},
+		],
 		properties: {
 			sourceUrl,
 			description,

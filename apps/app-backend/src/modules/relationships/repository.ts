@@ -7,6 +7,8 @@ import { Effect } from "effect";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
 
+import { syncGlobalRelationshipsWithProperties } from "./global-relationship-sync";
+
 type RelationshipRow = Pick<
 	typeof schema.relationship.$inferSelect,
 	"id" | "createdAt" | "properties" | "sourceEntityId" | "targetEntityId" | "relationshipSchemaId"
@@ -307,8 +309,8 @@ export class RelationshipsRepository extends Effect.Service<RelationshipsReposit
 				"RelationshipsRepository.syncGlobalRelationshipTargets",
 			)(function* (input: {
 				sourceEntityId: EntityId;
-				relationshipSchemaId: RelationshipSchemaId;
 				targetEntityIds: ReadonlyArray<EntityId>;
+				relationshipSchemaId: RelationshipSchemaId;
 			}) {
 				const db = yield* CurrentDb;
 				const targetEntityIds = [...new Set(input.targetEntityIds)];
@@ -317,7 +319,6 @@ export class RelationshipsRepository extends Effect.Service<RelationshipsReposit
 					eq(schema.relationship.sourceEntityId, input.sourceEntityId),
 					eq(schema.relationship.relationshipSchemaId, input.relationshipSchemaId),
 				);
-
 				yield* dbEffect(() =>
 					db.transaction((tx) => {
 						const insertTargets =
@@ -434,6 +435,7 @@ export class RelationshipsRepository extends Effect.Service<RelationshipsReposit
 				syncGlobalRelationshipSelfEdges,
 				deleteUserRelationshipsForEntity,
 				moveUserRelationshipsBetweenEntities,
+				syncGlobalRelationshipsWithProperties,
 			};
 		},
 	},
