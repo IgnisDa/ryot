@@ -98,7 +98,7 @@ logged after a `dropped` or `on_hold` event resumes the in-progress state.
 ### Auto-Complete Trigger
 
 The built-in sandbox trigger (`trigger.auto-complete-on-full-progress`,
-`sandbox-scripts/triggers/auto-complete-on-full-progress.sandbox.js`) fires when a `progress`
+`sandbox-scripts/triggers/auto-complete-on-full-progress.sandbox.ts`) fires when a `progress`
 event is created with `progressPercent = 100`.
 
 - **Non-episodic media** (movie, book, audiobook, show-episode, podcast-episode, etc.): creates a
@@ -121,7 +121,7 @@ non-episodic media.
 ### Integration Progress Policy Trigger
 
 The built-in sandbox trigger (`trigger.integration-progress-policy`,
-`sandbox-scripts/triggers/integration-progress-policy.sandbox.js`) is a `before_create` trigger
+`sandbox-scripts/triggers/integration-progress-policy.sandbox.ts`) is a `before_create` trigger
 on the `progress` event schema (position 100), registered and seeded active by default alongside
 the Auto-Complete Trigger (`registry.ts` / `seed.ts`); there is no user-facing way to disable it
 short of disabling the integration itself. It is a no-op unless the incoming event's

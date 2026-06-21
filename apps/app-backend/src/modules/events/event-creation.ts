@@ -4,6 +4,7 @@ import { BeforeTriggerResult } from "@ryot/contract/modules/events/schemas";
 import type { CreateEventItem, ListedEvent } from "@ryot/contract/modules/events/schemas";
 import { EntityId, EventSchemaId } from "@ryot/contract/schema/brands";
 import type { EntitySchemaId, UserId } from "@ryot/contract/schema/brands";
+import type { BeforeCreateTriggerResult } from "@ryot/sandbox-sdk/trigger";
 import { DateTime, Effect, Option, Schema } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
@@ -18,7 +19,10 @@ const sessionEntityNotFoundError = "Session entity not found";
 const invalidOccurredAtError = "occurredAt must be a valid date";
 const eventSchemaMismatchError = "Event schema does not belong to the entity schema";
 
-export const decodeBeforeTriggerResult = Schema.decodeUnknown(BeforeTriggerResult);
+const beforeTriggerResultSchema: Schema.Schema<BeforeTriggerResult, BeforeCreateTriggerResult> =
+	BeforeTriggerResult;
+
+export const decodeBeforeTriggerResult = Schema.decodeUnknown(beforeTriggerResultSchema);
 
 export type CreatedEventWithContext = ListedEvent & {
 	readonly entitySchemaId: EntitySchemaId;
