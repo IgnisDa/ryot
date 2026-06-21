@@ -1,5 +1,11 @@
-import type { PluginBridgeNavigate } from "@ryot-app/contract/modules/plugins/client";
+import {
+	PluginEntityLocation,
+	type PluginBridgeNavigate,
+	type PluginLogicalLocation,
+	type PluginRouteLocation,
+} from "@ryot-app/contract/modules/plugins/client";
 import { waitFor } from "@testing-library/dom";
+import { Schema } from "effect";
 import { useState, act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vitest";
@@ -17,6 +23,7 @@ import {
 	PluginRouter,
 	usePluginParams,
 	usePluginSearch,
+	usePluginLocation,
 	type PluginRouterDefinition,
 } from "./routing";
 
@@ -69,9 +76,30 @@ const pointer = (type: string, clientX: number, timeStamp: number) => {
 	return event;
 };
 
-const openChannel = (definition: PluginRouterDefinition = { home: { component: Home } }) => {
+const routeLocation = (path: string, search = ""): PluginRouteLocation => ({
+	path,
+	search,
+	kind: "route",
+});
+const entityLocation = (entityId: string, entitySchemaSlug: string) =>
+	Schema.decodeUnknownSync(PluginEntityLocation)({ entityId, entitySchemaSlug, kind: "entity" });
+
+let observedLocation: PluginLogicalLocation | undefined;
+let observedSearch: URLSearchParams | undefined;
+const LocationProbe = () => {
+	const location = usePluginLocation();
+	const search = usePluginSearch();
+	observedLocation = location;
+	observedSearch = search;
+	return <p>{`${location.kind}:${search.toString()}`}</p>;
+};
+
+const openChannel = (
+	definition: PluginRouterDefinition = { home: { component: Home } },
+	resolve = createPluginRouteResolver(definition),
+) => {
 	const messages: unknown[] = [];
-	const store = createPluginNavigationStore(createPluginRouteResolver(definition));
+	const store = createPluginNavigationStore(resolve);
 	let compact = false;
 	let edgeBack = false;
 	let position = -1;
@@ -84,7 +112,24 @@ const openChannel = (definition: PluginRouterDefinition = { home: { component: H
 		store.setLocation({
 			compact,
 			edgeBack,
-			entry: { index: position, location: { path, search }, key: options.key ?? `k${position}` },
+			entry: {
+				index: position,
+				key: options.key ?? `k${position}`,
+				location: routeLocation(path, search),
+			},
+		});
+	};
+	const sendEntity = (
+		entityId: string,
+		entitySchemaSlug: string,
+		options: { readonly key?: string; readonly index?: number } = {},
+	) => {
+		position = options.index ?? position + 1;
+		const location = entityLocation(entityId, entitySchemaSlug);
+		store.setLocation({
+			compact,
+			edgeBack,
+			entry: { index: position, location, key: options.key ?? `k${position}` },
 		});
 	};
 	const navigate = (
@@ -92,13 +137,18 @@ const openChannel = (definition: PluginRouterDefinition = { home: { component: H
 		to: { path: string; search?: Record<string, string> },
 	) => {
 		const search = to.search ? new URLSearchParams(to.search).toString() : "";
-		messages.push({ mode, type: "navigate", location: { path: to.path, search } });
+		messages.push({
+			mode,
+			type: "navigate",
+			location: { kind: "route", path: to.path, search },
+		});
 	};
 
 	return {
 		send,
 		store,
 		messages,
+		sendEntity,
 		client: createRyotClient({ navigate, query: () => Promise.resolve({}) }),
 		setEdge: (edge: { readonly compact: boolean; readonly edgeBack: boolean }) => {
 			compact = edge.compact;
@@ -156,6 +206,11 @@ const mount = (
 			search = "",
 			options: { readonly key?: string; readonly index?: number } = {},
 		) => act(() => channel.send(path, search, options)),
+		sendEntityLocation: (
+			entityId: string,
+			entitySchemaSlug: string,
+			options: { readonly key?: string; readonly index?: number } = {},
+		) => act(() => channel.sendEntity(entityId, entitySchemaSlug, options)),
 	};
 };
 
@@ -165,6 +220,8 @@ afterEach(() => {
 	}
 	roots = [];
 	mountCount = 0;
+	observedSearch = undefined;
+	observedLocation = undefined;
 });
 
 describe("PluginRouter", () => {
@@ -219,6 +276,36 @@ describe("PluginRouter", () => {
 		await waitFor(() => expect(container.textContent).toContain("Tab stats"));
 	});
 
+	it("renders one stable unavailable component for entity locations", async () => {
+		const { container, sendEntityLocation, store } = mount([
+			{ path: "/items/$itemId", component: ItemRoute },
+		]);
+		sendEntityLocation("entity-1", "media-movie");
+		await waitFor(() => expect(container.textContent).toContain("Entity renderer unavailable"));
+		const component = store.getSnapshot().screens[0]?.component;
+
+		sendEntityLocation("entity-2", "media-movie", { index: 0, key: "k0" });
+		await waitFor(() => expect(container.textContent).toContain("Entity renderer unavailable"));
+
+		expect(store.getSnapshot().screens[0]?.component).toBe(component);
+		expect(store.getSnapshot().screens[0]?.params).toEqual({});
+	});
+
+	it("exposes an entity location and empty search through routing hooks", async () => {
+		const channel = openChannel(undefined, () => ({ component: LocationProbe, params: {} }));
+		const container = renderRouter(channel);
+
+		channel.sendEntity("entity-1", "media-movie");
+		await waitFor(() => expect(container.textContent).toBe("entity:"));
+
+		expect(observedLocation).toEqual({
+			kind: "entity",
+			entityId: "entity-1",
+			entitySchemaSlug: "media-movie",
+		});
+		expect(observedSearch?.toString()).toBe("");
+	});
+
 	it("posts an exact PluginBridgeNavigate message on PluginLink click", async () => {
 		const { container, messages, sendLocation } = mount();
 		sendLocation("/");
@@ -237,7 +324,7 @@ describe("PluginRouter", () => {
 				{
 					mode: "push",
 					type: "navigate",
-					location: { path: "/items/item-1", search: "tab=stats" },
+					location: { kind: "route", path: "/items/item-1", search: "tab=stats" },
 				} satisfies PluginBridgeNavigate,
 			]),
 		);
@@ -324,12 +411,12 @@ describe("PluginRouter", () => {
 				{
 					mode: "push",
 					type: "navigate",
-					location: { path: "/items/item-2", search: "" },
+					location: { kind: "route", path: "/items/item-2", search: "" },
 				} satisfies PluginBridgeNavigate,
 				{
 					mode: "replace",
 					type: "navigate",
-					location: { path: "/", search: "" },
+					location: { kind: "route", path: "/", search: "" },
 				} satisfies PluginBridgeNavigate,
 			]),
 		);

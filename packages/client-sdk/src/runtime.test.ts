@@ -4,6 +4,8 @@ import {
 	CLIENT_BRIDGE_MAX_PENDING_REQUESTS,
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
+	PluginEntityLocation,
+	type PluginRouteLocation,
 	type PluginBridgeInit,
 	type PluginClientArtifactMetadata,
 } from "@ryot-app/contract/modules/plugins/client";
@@ -36,6 +38,13 @@ const init: PluginBridgeInit = {
 const document = { queries: {}, output: {} } as PreparedRecipe<unknown>["document"];
 const channels: MessageChannel[] = [];
 const routeResolver = () => ({ component: () => null, params: {} });
+const routeLocation = (path: string, search = ""): PluginRouteLocation => ({
+	path,
+	search,
+	kind: "route",
+});
+const entityLocation = (entityId: string, entitySchemaSlug: string) =>
+	Schema.decodeUnknownSync(PluginEntityLocation)({ entityId, entitySchemaSlug, kind: "entity" });
 
 const openRuntime = () => {
 	const channel = new MessageChannel();
@@ -78,7 +87,7 @@ const activate = (channel: MessageChannel) => {
 		compact: false,
 		edgeBack: false,
 		type: "location",
-		location: { path: "/", search: "" },
+		location: routeLocation("/"),
 	});
 };
 
@@ -101,7 +110,7 @@ describe("plugin runtime", () => {
 			compact: true,
 			edgeBack: false,
 			type: "location",
-			location: { path: "/", search: "" },
+			location: routeLocation("/"),
 		});
 		await delay();
 
@@ -110,9 +119,29 @@ describe("plugin runtime", () => {
 			compact: true,
 			safeAreaTop: 0,
 			entry: { index: 0, key: "k0" },
-			screens: [{ key: "k0", location: { path: "/" } }],
+			screens: [{ key: "k0", location: { kind: "route", path: "/" } }],
 		});
 		expect(headersIn(messages)).toEqual([]);
+	});
+
+	it("activates an entity location without a protocol failure", async () => {
+		const { channel, runtime } = openRuntime();
+		const location = entityLocation("entity-1", "media-movie");
+
+		channel.port1.postMessage({
+			index: 0,
+			location,
+			key: "k0",
+			compact: false,
+			edgeBack: false,
+			type: "location",
+		});
+		await delay();
+
+		expect(runtime.navigation.getSnapshot()).toMatchObject({
+			screens: [{ key: "k0", location }],
+			entry: { index: 0, key: "k0", location },
+		});
 	});
 
 	it("stamps a published title with the current entry and ignores one before any location", async () => {
@@ -129,7 +158,7 @@ describe("plugin runtime", () => {
 			compact: true,
 			edgeBack: true,
 			type: "location",
-			location: { path: "/items/1", search: "" },
+			location: routeLocation("/items/1"),
 		});
 		await delay();
 		runtime.navigation.publishTitle("Item 1");
@@ -236,12 +265,12 @@ describe("plugin runtime", () => {
 		expect(messages).toContainEqual({
 			mode: "push",
 			type: "navigate",
-			location: { path: "/items", search: "tab=stats" },
+			location: { kind: "route", path: "/items", search: "tab=stats" },
 		});
 		expect(messages).toContainEqual({
 			mode: "replace",
 			type: "navigate",
-			location: { path: "/", search: "" },
+			location: { kind: "route", path: "/", search: "" },
 		});
 	});
 
@@ -622,7 +651,7 @@ describe("plugin runtime", () => {
 			compact: false,
 			edgeBack: false,
 			type: "location",
-			location: { path: "/", search: "" },
+			location: routeLocation("/"),
 		});
 		await delay();
 
