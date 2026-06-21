@@ -1507,6 +1507,38 @@ matched against the already-loaded installation catalog by exact `pluginId`.
 The plugin SDK/router owns the entity surface after a plugin-owned target is resolved.
 `renderer-missing` is therefore a plugin SDK/router state, not a kernel resolver state.
 
+A client plugin registers entity renderers by schema slug. `home` remains required, and `entities`
+is optional:
+
+```ts
+type EntityRendererProps = Pick<PluginEntityLocation, "entityId" | "entitySchemaSlug">;
+
+type PluginEntityDefinition = {
+  readonly component: ComponentType<EntityRendererProps>;
+};
+
+type PluginRouterDefinition = {
+  readonly home: PluginHomeDefinition;
+  readonly notFound?: ComponentType;
+  readonly routes?: readonly PluginRouteDefinition[];
+  readonly entities?: Readonly<Record<string, PluginEntityDefinition>>;
+};
+```
+
+Route locations continue through home and private-route matching. For an entity location, the router
+selects `entities[entitySchemaSlug]` and passes both location fields to that configured component.
+An unregistered schema renders the SDK-owned `Entity renderer unavailable` state. The router retains
+the configured component itself rather than a per-location wrapper, so a retained screen keeps its
+React state across browser history transitions. Entity renderers receive the complete tagged location
+from `usePluginLocation`; `usePluginParams` returns `{}` and `usePluginSearch` returns an empty
+`URLSearchParams`.
+
+The first Media entity tracer registers only `show`. It reads and decodes a static Show summary with
+one client-owned RyotQL recipe and renders a direct remote cover plus identity, genres, production
+status, counts, and description. Query retry is supported. Tabs, activity, progress, library and
+collection state, mutations, entity-interest invalidation, managed assets, hero and gallery artwork,
+and other Media schemas are outside this tracer.
+
 Conceptually:
 
 ```ts
