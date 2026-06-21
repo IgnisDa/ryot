@@ -2,7 +2,9 @@ import type { SandboxHost } from "@ryot/sandbox-sdk";
 import dayjs from "@ryot/sandbox-sdk/dayjs";
 import type { ProviderDetailsRelatedEntity } from "@ryot/sandbox-sdk/provider";
 
-export type TmdbHost = SandboxHost<
+export type TmdbHost = SandboxHost<readonly ["httpCall", "getAppConfigValue"]>;
+
+export type TmdbUserHost = SandboxHost<
 	readonly ["httpCall", "getAppConfigValue", "getUserPreferences"]
 >;
 
@@ -39,7 +41,7 @@ const parseJsonResponse = (responseBody: string) => {
 	}
 };
 
-export const getUserIsNsfw = (host: TmdbHost) =>
+export const getUserIsNsfw = (host: TmdbUserHost) =>
 	host.getUserPreferences().then((preferences) => preferences.success && preferences.data.isNsfw);
 
 export const getTmdbAccessToken = (host: TmdbHost) =>
@@ -132,38 +134,97 @@ export const collectGenres = (genres: unknown) =>
 		return name ? [name] : [];
 	});
 
-export const collectSuggestions = (results: unknown) => {
+export const collectSuggestions = (
+	results: unknown,
+	options: { readonly nameKeys: readonly string[]; readonly scriptSlug: string },
+) => {
 	const suggestions = new Map<string, ProviderDetailsRelatedEntity>();
 	for (const result of recordsValue(results)) {
 		const id = numberValue(result["id"]);
-		const name = stringValue(result["name"]) ?? stringValue(result["original_name"]);
+		const name = options.nameKeys.reduce<string | null>(
+			(value, key) => value ?? stringValue(result[key]),
+			null,
+		);
 		if (id === null || !name) {
 			continue;
 		}
 		const externalId = String(Math.trunc(id));
-		suggestions.set(`show.tmdb:${externalId}`, {
+		suggestions.set(`${options.scriptSlug}:${externalId}`, {
 			name,
 			externalId,
-			scriptSlug: "show.tmdb",
+			scriptSlug: options.scriptSlug,
 		});
 	}
 	return [...suggestions.values()];
 };
 
-export const fetchTrendingItems = (host: TmdbHost, language: string, token: string) =>
+export const fetchTrendingItems = (
+	host: TmdbHost,
+	path: string,
+	language: string,
+	token: string,
+	options: { readonly nameKeys: readonly string[]; readonly scriptSlug: string },
+) =>
 	[1, 2, 3]
 		.reduce<Promise<unknown[]>>(
 			(result, page) =>
 				result.then((items) =>
-					tmdbGet(host, "/trending/tv/day", { language, page: String(page) }, token).then(
-						(data) => {
-							const pageResults = data["results"];
-							return Array.isArray(pageResults) ? [...items, ...pageResults] : items;
-						},
-					),
+					tmdbGet(host, path, { language, page: String(page) }, token).then((data) => {
+						const pageResults = data["results"];
+						return Array.isArray(pageResults) ? [...items, ...pageResults] : items;
+					}),
 				),
 			Promise.resolve([]),
 		)
 		.then((results) =>
-			collectSuggestions(results).map(({ name, externalId }) => ({ name, externalId })),
+			collectSuggestions(results, options).map(({ name, externalId }) => ({ name, externalId })),
 		);
+
+export const parseTranslationLanguage = (language: string) => {
+	const [languagePart = "", regionPart] = language.split("-");
+	return {
+		langCode: languagePart.trim().toLowerCase(),
+		region: regionPart ? regionPart.trim().toUpperCase() : null,
+	};
+};
+
+export const orderedTranslationCandidates = (
+	translationsData: UnknownRecord,
+	langCode: string,
+	region: string | null,
+) => {
+	const candidates = recordsValue(translationsData["translations"]).filter(
+		(entry) => stringValue(entry["iso_639_1"])?.toLowerCase() === langCode,
+	);
+	const regionMatch = region
+		? candidates.find((entry) => stringValue(entry["iso_3166_1"])?.toUpperCase() === region)
+		: null;
+	return regionMatch
+		? [regionMatch, ...candidates.filter((entry) => entry !== regionMatch)]
+		: candidates;
+};
+
+export const firstTranslationValue = (
+	candidates: readonly UnknownRecord[],
+	extract: (data: UnknownRecord) => unknown,
+) => {
+	for (const entry of candidates) {
+		const data = asRecord(entry["data"]);
+		const value = data ? stringValue(extract(data)) : null;
+		if (value) {
+			return value;
+		}
+	}
+	return null;
+};
+
+export const getLocalizedImageUrl = (
+	imagesData: UnknownRecord,
+	imageKey: string,
+	langCode: string,
+) => {
+	const localizedImage = recordsValue(imagesData[imageKey]).find(
+		(image) => stringValue(image["iso_639_1"])?.toLowerCase() === langCode,
+	);
+	return localizedImage ? getImageUrl(localizedImage["file_path"]) : null;
+};
