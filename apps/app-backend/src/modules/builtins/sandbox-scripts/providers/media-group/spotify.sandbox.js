@@ -195,7 +195,6 @@ driver("details", async function (context) {
 			return {
 				name: memberName,
 				externalId: memberId,
-				reverseDirection: true,
 				scriptSlug: "music.spotify",
 				relationshipProperties: { order: idx + 1 },
 			};
@@ -210,12 +209,13 @@ driver("details", async function (context) {
 
 	return {
 		name: title,
-		relatedEntities,
-		properties: {
-			parts,
-			images,
-			sourceUrl,
-			description,
-		},
+		properties: {parts,images,sourceUrl,description,},
+		relatedEntityGroups: [
+			{
+				direction: "outgoing",
+				entities: relatedEntities,
+				relationshipSchemaSlug: "music-group-to-music",
+			},
+		],
 	};
 });

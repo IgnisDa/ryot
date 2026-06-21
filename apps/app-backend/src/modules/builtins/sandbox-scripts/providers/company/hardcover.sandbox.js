@@ -134,6 +134,7 @@ query GetHardcoverPublisherDetails($id: Int!) {
     id
     name
     url
+		editions { book { id title } }
   }
 }
 `;
@@ -178,13 +179,29 @@ query GetHardcoverPublisherDetails($id: Int!) {
 		typeof publisherData.url === "string" && publisherData.url.trim()
 			? publisherData.url.trim()
 			: null;
+	const mediaEntities = (Array.isArray(publisherData.editions) ? publisherData.editions : [])
+		.map((edition) => {
+			const book = edition?.book;
+			const bookId = book?.id != null ? String(book.id) : null;
+			const bookName = typeof book?.title === "string" && book.title.trim() ? book.title.trim() : null;
+			return {
+				externalId: bookId,
+				scriptSlug: "book.hardcover",
+				name: bookName ?? "Loading...",
+				relationshipProperties: { roles: ["Publisher"] },
+			};
+		})
+		.filter((entity) => entity.externalId !== null);
 
 	return {
 		name,
-		properties: {
-			website,
-			images: [],
-			alternateNames: [],
-		},
+		properties: {website,images: [],alternateNames: [],},
+		relatedEntityGroups: [
+			{
+				entities: mediaEntities,
+				direction: "outgoing",
+				relationshipSchemaSlug: "company-to-book",
+			},
+		],
 	};
 });

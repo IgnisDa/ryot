@@ -314,6 +314,22 @@ driver("details", async function (context) {
 
 	return {
 		name: title,
+		relatedEntityGroups: [
+			{
+				direction: "incoming",
+				relationshipSchemaSlug: "person-to-music",
+				entities: [...relatedEntityByKey.values()].filter(
+					(entity) => entity.scriptSlug === "person.spotify",
+				),
+			},
+			{
+				direction: "incoming",
+				relationshipSchemaSlug: "music-group-to-music",
+				entities: [...relatedEntityByKey.values()].filter(
+					(entity) => entity.scriptSlug === "music-group.spotify",
+				),
+			},
+		],
 		properties: {
 			isNsfw,
 			duration,
@@ -325,6 +341,5 @@ driver("details", async function (context) {
 			publishDate: getPublishDate(album?.release_date),
 			images: getImagesSortedBySize(albumImages).map((url) => ({ type: "remote", url })),
 		},
-		relatedEntities: [...relatedEntityByKey.values()],
 	};
 });

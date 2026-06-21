@@ -11,7 +11,7 @@ import type { MediaTrendingWorkflowOperations } from "./operations-workflow";
 import { runMediaTrendingRefresh } from "./refresh";
 import type { MediaTrendingRepository } from "./repository";
 
-export type InfrequentCronTask = CronTask<
+type InfrequentCronTask = CronTask<
 	SandboxRunError,
 	| DbRunner
 	| EntitiesService

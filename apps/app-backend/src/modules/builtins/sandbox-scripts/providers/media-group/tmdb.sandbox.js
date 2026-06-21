@@ -183,7 +183,6 @@ driver("details", async function (context, { metadata }) {
 			return {
 				name: memberName,
 				externalId: memberId,
-				reverseDirection: true,
 				scriptSlug: "movie.tmdb",
 				relationshipProperties: { order: idx + 1 },
 			};
@@ -197,7 +196,13 @@ driver("details", async function (context, { metadata }) {
 
 	return {
 		name: title,
-		relatedEntities,
+		relatedEntityGroups: [
+			{
+				direction: "outgoing",
+				entities: relatedEntities,
+				relationshipSchemaSlug: "movie-group-to-movie",
+			},
+		],
 		properties: {
 			parts,
 			images,

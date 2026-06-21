@@ -6,7 +6,6 @@ import { EntitySchemaId, type EntityId, type SandboxScriptId } from "@ryot/contr
 import { DateTime, Effect, Schema } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
-import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
@@ -17,12 +16,18 @@ export const EntityDetailsRelatedEntity = Schema.Struct({
 	name: Schema.String,
 	externalId: Schema.String,
 	scriptSlug: Schema.String,
-	reverseDirection: Schema.optional(Schema.Boolean),
-	relationshipSchemaSlug: Schema.optional(Schema.String),
 	relationshipProperties: Schema.optional(Schema.Unknown),
 });
 
 export type EntityDetailsRelatedEntity = typeof EntityDetailsRelatedEntity.Type;
+
+export const EntityDetailsRelationshipGroup = Schema.Struct({
+	relationshipSchemaSlug: Schema.String,
+	direction: Schema.Literal("outgoing", "incoming"),
+	entities: Schema.Array(EntityDetailsRelatedEntity),
+});
+
+export type EntityDetailsRelationshipGroup = typeof EntityDetailsRelationshipGroup.Type;
 
 export type EntityDetailsChildEntity = {
 	name: string;
@@ -57,7 +62,7 @@ const EntityDetailsResult = Schema.Struct({
 	name: Schema.String,
 	properties: Schema.Unknown,
 	childEntities: Schema.optional(Schema.Array(EntityDetailsChildEntity)),
-	relatedEntities: Schema.optional(Schema.Array(EntityDetailsRelatedEntity)),
+	relatedEntityGroups: Schema.optional(Schema.Array(EntityDetailsRelationshipGroup)),
 });
 
 export const decodeEntityDetailsResult = Schema.decodeUnknown(EntityDetailsResult);
@@ -108,23 +113,56 @@ const ProcessedChildEntity = Schema.Struct({
 
 export const processChildEntityTree = Effect.fn("processChildEntityTree")(function* (input: {
 	activityPrefix: string;
+	syncExisting?: boolean;
 	parentEntityId: EntityId;
+	parentEntitySchemaSlug?: string;
 	sandboxScriptId: SandboxScriptId;
 	parentEntitySchemaId: EntitySchemaId;
 	childEntities: ReadonlyArray<EntityDetailsChildEntity>;
+	childEntitySchemaSlugs?: Readonly<Record<string, string>>;
 }) {
 	const runWithDb = yield* DbRunner;
 	const entities = yield* EntitiesService;
 	const relationships = yield* RelationshipsService;
+	const relationshipsRepository = yield* RelationshipsRepository;
 	const entitySchemasRepository = yield* EntitySchemasRepository;
 	const relationshipSchemasRepository = yield* RelationshipSchemasRepository;
+
+	const findChildRelationshipSchema = Effect.fn("findChildRelationshipSchema")(function* (
+		sourceEntitySchemaId: EntitySchemaId,
+		sourceEntitySchemaSlug: string | undefined,
+		targetEntitySchemaId: EntitySchemaId | undefined,
+	) {
+		let targetSchemaId = targetEntitySchemaId;
+		if (!targetSchemaId && sourceEntitySchemaSlug) {
+			const targetSchemaSlug = input.childEntitySchemaSlugs?.[sourceEntitySchemaSlug];
+			if (targetSchemaSlug) {
+				const targetSchema = yield* runWithDb(
+					entitySchemasRepository.getBuiltinBySlug(targetSchemaSlug),
+				).pipe(dieOnDbError);
+				targetSchemaId = targetSchema?.id;
+			}
+		}
+		return targetSchemaId
+			? yield* runWithDb(
+					relationshipSchemasRepository.findGlobalBySchemaIds({
+						sourceEntitySchemaId,
+						targetEntitySchemaId: targetSchemaId,
+					}),
+				).pipe(dieOnDbError)
+			: null;
+	});
 
 	const processNode = (
 		childEntity: EntityDetailsChildEntity,
 		parentEntityId: EntityId,
 		parentEntitySchemaId: EntitySchemaId,
 		path: string,
-	): Effect.Effect<void, SandboxRunError, WorkflowEngine | WorkflowInstance> =>
+	): Effect.Effect<
+		typeof ProcessedChildEntity.Type,
+		SandboxRunError,
+		WorkflowEngine | WorkflowInstance
+	> =>
 		Effect.gen(function* () {
 			const child = yield* Activity.make({
 				error: SandboxRunError,
@@ -150,6 +188,7 @@ export const processChildEntityTree = Effect.fn("processChildEntityTree")(functi
 							externalId: childEntity.externalId,
 							properties: childEntity.properties,
 							sandboxScriptId: input.sandboxScriptId,
+							onConflict: input.syncExisting ? "replaceExisting" : undefined,
 						})
 						.pipe(
 							dieOnDbError,
@@ -194,160 +233,64 @@ export const processChildEntityTree = Effect.fn("processChildEntityTree")(functi
 				}),
 			});
 
+			const nestedChildren: Array<typeof ProcessedChildEntity.Type> = [];
 			for (const [index, nestedChildEntity] of (childEntity.childEntities ?? []).entries()) {
-				yield* processNode(
-					nestedChildEntity,
-					child.entity.id,
-					child.entitySchemaId,
-					`${path}-${index}`,
+				nestedChildren.push(
+					yield* processNode(
+						nestedChildEntity,
+						child.entity.id,
+						child.entitySchemaId,
+						`${path}-${index}`,
+					),
 				);
 			}
+
+			if (input.syncExisting) {
+				const relationshipSchema = yield* findChildRelationshipSchema(
+					child.entitySchemaId,
+					childEntity.entitySchemaSlug,
+					nestedChildren[0]?.entitySchemaId,
+				);
+				if (relationshipSchema) {
+					yield* runWithDb(
+						relationshipsRepository.syncGlobalRelationshipTargets({
+							sourceEntityId: child.entity.id,
+							targetEntityIds: nestedChildren.map((nestedChild) => nestedChild.entity.id),
+							relationshipSchemaId: relationshipSchema.id,
+						}),
+					).pipe(dieOnDbError);
+				}
+			}
+
+			return child;
 		});
 
+	const processedChildren: Array<typeof ProcessedChildEntity.Type> = [];
 	for (const [index, childEntity] of input.childEntities.entries()) {
-		yield* processNode(
-			childEntity,
-			input.parentEntityId,
-			input.parentEntitySchemaId,
-			String(index),
+		processedChildren.push(
+			yield* processNode(
+				childEntity,
+				input.parentEntityId,
+				input.parentEntitySchemaId,
+				String(index),
+			),
 		);
+	}
+
+	if (input.syncExisting) {
+		const relationshipSchema = yield* findChildRelationshipSchema(
+			input.parentEntitySchemaId,
+			input.parentEntitySchemaSlug,
+			processedChildren[0]?.entitySchemaId,
+		);
+		if (relationshipSchema) {
+			yield* runWithDb(
+				relationshipsRepository.syncGlobalRelationshipTargets({
+					sourceEntityId: input.parentEntityId,
+					targetEntityIds: processedChildren.map((child) => child.entity.id),
+					relationshipSchemaId: relationshipSchema.id,
+				}),
+			).pipe(dieOnDbError);
+		}
 	}
 });
-
-export const processRelatedEntity = Effect.fn("processRelatedEntity")(function* (input: {
-	sourceEntityId: EntityId;
-	sourceEntitySchemaId: EntitySchemaId;
-	relatedEntity: EntityDetailsRelatedEntity;
-}) {
-	const runWithDb = yield* DbRunner;
-	const entities = yield* EntitiesService;
-	const repository = yield* EntitiesRepository;
-	const relationships = yield* RelationshipsService;
-	const relationshipSchemasRepository = yield* RelationshipSchemasRepository;
-
-	const entitySchemaSandboxScript = yield* runWithDb(
-		repository.findEntitySchemaSandboxScriptBySlug(input.relatedEntity.scriptSlug),
-	);
-	if (!entitySchemaSandboxScript) {
-		return;
-	}
-
-	const relatedEntity = yield* entities
-		.save({
-			properties: {},
-			scope: "global",
-			populatedAt: null,
-			name: input.relatedEntity.name,
-			externalId: input.relatedEntity.externalId,
-			entitySchemaId: entitySchemaSandboxScript.entitySchemaId,
-			sandboxScriptId: entitySchemaSandboxScript.sandboxScriptId,
-		})
-		.pipe(
-			dieOnDbError,
-			Effect.mapError((error) => new SandboxRunError({ message: error.message })),
-		);
-
-	const { reverseDirection } = input.relatedEntity;
-	const sourceEntityId = reverseDirection ? input.sourceEntityId : relatedEntity.id;
-	const targetEntityId = reverseDirection ? relatedEntity.id : input.sourceEntityId;
-	const sourceSchemaId = reverseDirection
-		? input.sourceEntitySchemaId
-		: entitySchemaSandboxScript.entitySchemaId;
-	const targetSchemaId = reverseDirection
-		? entitySchemaSandboxScript.entitySchemaId
-		: input.sourceEntitySchemaId;
-
-	const relationshipSchema = yield* runWithDb(
-		relationshipSchemasRepository.findGlobalBySchemaIds({
-			sourceEntitySchemaId: sourceSchemaId,
-			targetEntitySchemaId: targetSchemaId,
-		}),
-	);
-	if (!relationshipSchema) {
-		return;
-	}
-
-	const relProps = input.relatedEntity.relationshipProperties;
-	yield* relationships
-		.create({
-			sourceEntityId,
-			targetEntityId,
-			scope: "global",
-			onConflict: "replaceProperties",
-			relationshipSchemaId: relationshipSchema.id,
-			properties: relProps === undefined ? {} : relProps,
-			propertiesSchema: relationshipSchema.propertiesSchema,
-		})
-		.pipe(
-			dieOnDbError,
-			Effect.mapError((error) => new SandboxRunError({ message: error.message })),
-		);
-}, dieOnDbError);
-
-export const syncRelatedEntitiesByRelationshipSchema = Effect.fn(
-	"syncRelatedEntitiesByRelationshipSchema",
-)(function* (input: {
-	sourceEntityId: EntityId;
-	relationshipSchemaSlug: string;
-	relatedEntities: ReadonlyArray<EntityDetailsRelatedEntity>;
-}) {
-	const runWithDb = yield* DbRunner;
-	const entities = yield* EntitiesService;
-	const repository = yield* EntitiesRepository;
-	const relationshipsRepository = yield* RelationshipsRepository;
-	const relationshipSchemasRepository = yield* RelationshipSchemasRepository;
-
-	const relationshipSchema = yield* runWithDb(
-		relationshipSchemasRepository.findBuiltinBySlug(input.relationshipSchemaSlug),
-	).pipe(dieOnDbError);
-	if (!relationshipSchema) {
-		return yield* new SandboxRunError({
-			message: `Relationship schema not found: ${input.relationshipSchemaSlug}`,
-		});
-	}
-
-	const uniqueRelatedEntities = new Map<string, EntityDetailsRelatedEntity>();
-	for (const relatedEntity of input.relatedEntities) {
-		uniqueRelatedEntities.set(
-			`${relatedEntity.scriptSlug}:${relatedEntity.externalId}`,
-			relatedEntity,
-		);
-	}
-
-	const targetEntityIds: EntityId[] = [];
-	for (const relatedEntity of uniqueRelatedEntities.values()) {
-		const entitySchemaSandboxScript = yield* runWithDb(
-			repository.findEntitySchemaSandboxScriptBySlug(relatedEntity.scriptSlug),
-		).pipe(dieOnDbError);
-		if (!entitySchemaSandboxScript) {
-			continue;
-		}
-
-		const entity = yield* entities
-			.save({
-				properties: {},
-				scope: "global",
-				populatedAt: null,
-				name: relatedEntity.name,
-				externalId: relatedEntity.externalId,
-				entitySchemaId: entitySchemaSandboxScript.entitySchemaId,
-				sandboxScriptId: entitySchemaSandboxScript.sandboxScriptId,
-			})
-			.pipe(
-				dieOnDbError,
-				Effect.mapError((error) => new SandboxRunError({ message: error.message })),
-			);
-
-		targetEntityIds.push(entity.id);
-	}
-
-	yield* runWithDb(
-		relationshipsRepository.syncGlobalRelationshipTargets({
-			targetEntityIds,
-			sourceEntityId: input.sourceEntityId,
-			relationshipSchemaId: relationshipSchema.id,
-		}),
-	).pipe(dieOnDbError);
-
-	return undefined;
-}, dieOnDbError);
