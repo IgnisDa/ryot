@@ -8,6 +8,7 @@ import {
 	markImportRunStarted,
 	sanitizeErrorMessage,
 } from "#modules/imports/runtime/import-run-status";
+import { enqueueNotificationDelivery } from "#modules/notifications/notification-delivery-workflow";
 
 import { failRun, toIntegrationWorkflowError } from "./failure-workflow";
 import { IntegrationRunError, IntegrationRunJobData } from "./jobs";
@@ -47,13 +48,27 @@ const runIntegrationRun = Effect.fn("runIntegrationRun")(function* (
 		),
 	);
 
-	yield* Activity.make({
+	const wasDisabled = yield* Activity.make({
+		success: Schema.Boolean,
 		error: IntegrationRunError,
 		name: "finalize-integration-run",
 		execute: finalizeIntegrationRun(integration, payload.runId).pipe(
 			Effect.mapError(toIntegrationWorkflowError),
 		),
 	});
+
+	if (wasDisabled) {
+		const deliveryExecutionId = `${executionId}-integration-disabled`;
+		yield* enqueueNotificationDelivery({
+			userId: integration.userId,
+			executionId: deliveryExecutionId,
+			request: {
+				kind: "event",
+				eventType: "integration_disabled_due_to_too_many_errors",
+				message: `Integration ${integration.provider} has been disabled due to too many errors`,
+			},
+		}).pipe(Effect.mapError(toIntegrationWorkflowError));
+	}
 });
 
 export const runIntegrationRunWorkflow = Effect.fn("runIntegrationRunWorkflow")(function* (

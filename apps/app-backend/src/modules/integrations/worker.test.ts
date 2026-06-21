@@ -111,8 +111,9 @@ it.effect("updates lastFinishedAt after a completed integration run", () => {
 	});
 
 	return Effect.gen(function* () {
-		yield* finalizeIntegrationRun(makeIntegration(), ImportRunId.make("run_1"));
+		const wasDisabled = yield* finalizeIntegrationRun(makeIntegration(), ImportRunId.make("run_1"));
 
+		vitestExpect(wasDisabled).toBe(false);
 		vitestExpect(updates).toHaveLength(1);
 		vitestExpect(updates[0]).toMatchObject({
 			userId: "user_1",
@@ -145,8 +146,9 @@ it.effect("disables the integration after 5 consecutive failures", () => {
 	});
 
 	return Effect.gen(function* () {
-		yield* finalizeIntegrationRun(makeIntegration(), ImportRunId.make("run_1"));
+		const wasDisabled = yield* finalizeIntegrationRun(makeIntegration(), ImportRunId.make("run_1"));
 
+		vitestExpect(wasDisabled).toBe(true);
 		vitestExpect(updates).toEqual([{ userId: "user_1", isDisabled: true, integrationId: "int_1" }]);
 	}).pipe(Effect.provide(layer));
 });
@@ -174,8 +176,9 @@ it.effect("does not disable integrations when recent runs are not all failures",
 	});
 
 	return Effect.gen(function* () {
-		yield* finalizeIntegrationRun(makeIntegration(), ImportRunId.make("run_1"));
+		const wasDisabled = yield* finalizeIntegrationRun(makeIntegration(), ImportRunId.make("run_1"));
 
+		vitestExpect(wasDisabled).toBe(false);
 		vitestExpect(updates).toEqual([]);
 	}).pipe(Effect.provide(layer));
 });

@@ -2,7 +2,6 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 
 import { notificationEventTypes } from "@ryot/contract/modules/notifications/types";
 import { NotificationPlatformId } from "@ryot/contract/schema/brands";
-import getPort from "get-port";
 
 import {
 	createAuthenticatedClient,
@@ -10,35 +9,22 @@ import {
 	deleteNotificationPlatform,
 	getBackendClient,
 	listNotificationPlatforms,
+	startFakeAppriseServer,
 	testNotificationPlatforms,
 	updateNotificationPlatform,
 } from "../fixtures";
 import { pollUntil } from "../fixtures/polling";
 import { assertTaggedError, requirePresent } from "../test-support/assertions";
+import type { FakeHttpServer } from "../test-support/fake-http-server";
 
-let fakeAppriseServer: ReturnType<typeof Bun.serve>;
-let fakeAppriseUrl: string;
-const requests: Array<{ body: unknown; path: string }> = [];
+let fakeApprise: FakeHttpServer;
 
 beforeAll(async () => {
-	const port = await getPort();
-	fakeAppriseServer = Bun.serve({
-		port,
-		hostname: "127.0.0.1",
-		fetch: async (request) => {
-			const url = new URL(request.url);
-			const body = await request.json();
-			requests.push({ body, path: url.pathname });
-			return url.pathname.endsWith("/fail")
-				? new Response("failed", { status: 500 })
-				: Response.json({ ok: true });
-		},
-	});
-	fakeAppriseUrl = `http://127.0.0.1:${port}`;
+	fakeApprise = await startFakeAppriseServer();
 });
 
 afterAll(() => {
-	void fakeAppriseServer.stop(true);
+	fakeApprise.stop();
 });
 
 describe("notification platform CRUD", () => {
@@ -46,14 +32,14 @@ describe("notification platform CRUD", () => {
 		const { client } = await createAuthenticatedClient();
 		await createNotificationPlatform(client, {
 			platform: "apprise",
-			platformSpecifics: { baseUrl: fakeAppriseUrl, key: "secret-key", kind: "apprise" },
+			platformSpecifics: { baseUrl: fakeApprise.url, key: "secret-key", kind: "apprise" },
 		});
 
 		const platforms = await listNotificationPlatforms(client);
 		const platform = requirePresent(platforms[0], "Expected created notification platform");
 		expect(platform.configuredEvents).toEqual(notificationEventTypes);
 		expect(platform.isDisabled).toBe(false);
-		expect(platform.description).toBe(`Apprise at ${fakeAppriseUrl}`);
+		expect(platform.description).toBe(`Apprise at ${fakeApprise.url}`);
 		expect(platform.description).not.toContain("secret-key");
 	});
 
@@ -106,7 +92,7 @@ describe("notification platform CRUD", () => {
 			c.notifications.createPlatform({
 				payload: {
 					platform: "email",
-					platformSpecifics: { baseUrl: fakeAppriseUrl, key: "key", kind: "apprise" },
+					platformSpecifics: { baseUrl: fakeApprise.url, key: "key", kind: "apprise" },
 				},
 			}),
 		);
@@ -116,36 +102,36 @@ describe("notification platform CRUD", () => {
 
 describe("notification delivery", () => {
 	it("delivers to enabled platforms in the background and skips disabled ones", async () => {
-		requests.length = 0;
+		fakeApprise.requests.length = 0;
 		const { client } = await createAuthenticatedClient();
 		await createNotificationPlatform(client, {
 			platform: "apprise",
-			platformSpecifics: { baseUrl: fakeAppriseUrl, key: "success", kind: "apprise" },
+			platformSpecifics: { baseUrl: fakeApprise.url, key: "success", kind: "apprise" },
 		});
 		await createNotificationPlatform(client, {
 			platform: "apprise",
-			platformSpecifics: { baseUrl: fakeAppriseUrl, key: "fail", kind: "apprise" },
+			platformSpecifics: { baseUrl: fakeApprise.url, key: "fail", kind: "apprise" },
 		});
 		await createNotificationPlatform(client, {
 			isDisabled: true,
 			platform: "apprise",
-			platformSpecifics: { baseUrl: fakeAppriseUrl, key: "disabled", kind: "apprise" },
+			platformSpecifics: { baseUrl: fakeApprise.url, key: "disabled", kind: "apprise" },
 		});
 
 		await testNotificationPlatforms(client);
 
 		const delivered = await pollUntil("background notification deliveries", () => {
-			const paths = requests.map((request) => request.path).sort();
+			const paths = fakeApprise.requests.map((request) => request.path).sort();
 			const complete = paths.includes("/notify/fail") && paths.includes("/notify/success");
 			return Promise.resolve(complete ? paths : null);
 		});
 
 		expect(delivered).toEqual(["/notify/fail", "/notify/success"]);
-		expect(requests.map((request) => request.body)).toEqual([
+		expect(fakeApprise.requests.map((request) => request.body)).toEqual([
 			{ body: "This is a test notification for platform: apprise", title: "Ryot" },
 			{ body: "This is a test notification for platform: apprise", title: "Ryot" },
 		]);
-		expect(requests.some((request) => request.path === "/notify/disabled")).toBe(false);
+		expect(fakeApprise.requests.some((request) => request.path === "/notify/disabled")).toBe(false);
 	});
 
 	it("exposes SMTP capability and requires authentication", async () => {

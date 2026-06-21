@@ -1,7 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 
 import { EntityId } from "@ryot/contract/schema/brands";
-import getPort from "get-port";
 
 import {
 	cleanupBuiltinProviderScript,
@@ -17,10 +16,12 @@ import {
 	queryInLibraryRelationship,
 	seedBuiltinProviderScript,
 	seedMediaEntity,
+	startFakeAppriseServer,
 } from "../fixtures";
 import { pollUntil } from "../fixtures/polling";
 import { getPgClient } from "../setup";
 import { assertTaggedError, requireObjectRecord } from "../test-support/assertions";
+import type { FakeHttpServer } from "../test-support/fake-http-server";
 
 const ADMIN_TOKEN = "test-admin-token";
 const adminHeaders = { "Admin-Access-Token": ADMIN_TOKEN };
@@ -53,10 +54,8 @@ const waitForMediaMonitoringRefresh = (executionId: string) =>
 let apiEntityId: string;
 let cronEntityId: string;
 let movieSchemaId: string;
-let fakeAppriseUrl: string;
+let fakeApprise: FakeHttpServer;
 const extraEntityIds: string[] = [];
-let fakeAppriseServer: ReturnType<typeof Bun.serve>;
-const requests: Array<{ body: unknown; path: string }> = [];
 let provider: Awaited<ReturnType<typeof seedBuiltinProviderScript>>;
 
 beforeAll(async () => {
@@ -84,20 +83,11 @@ beforeAll(async () => {
 	cronEntityId = cronEntity.id;
 	await getPgClient().query(`update entity set populated_at = now() where id = $1`, [apiEntityId]);
 
-	const port = await getPort();
-	fakeAppriseServer = Bun.serve({
-		port,
-		hostname: "127.0.0.1",
-		fetch: async (request) => {
-			requests.push({ body: await request.json(), path: new URL(request.url).pathname });
-			return Response.json({ ok: true });
-		},
-	});
-	fakeAppriseUrl = `http://127.0.0.1:${port}`;
+	fakeApprise = await startFakeAppriseServer();
 });
 
 afterAll(async () => {
-	await fakeAppriseServer.stop(true);
+	fakeApprise.stop();
 	const pg = getPgClient();
 	await pg.query(`delete from entity where id = any($1::text[])`, [extraEntityIds]);
 	await cleanupBuiltinProviderScript(provider);
@@ -221,19 +211,19 @@ describe("media monitoring endpoints", () => {
 
 describe("media monitoring infrequent refresh", () => {
 	it("refreshes each target once, establishes a silent baseline, and delivers changed metadata", async () => {
-		requests.length = 0;
+		fakeApprise.requests.length = 0;
 		const first = await createAuthenticatedClient();
 		const second = await createAuthenticatedClient();
 		await Promise.all([
 			createNotificationPlatform(first.client, {
 				platform: "apprise",
 				configuredEvents: ["metadata_status_changed"],
-				platformSpecifics: { baseUrl: fakeAppriseUrl, key: "first", kind: "apprise" },
+				platformSpecifics: { baseUrl: fakeApprise.url, key: "first", kind: "apprise" },
 			}),
 			createNotificationPlatform(second.client, {
 				platform: "apprise",
 				configuredEvents: ["metadata_status_changed"],
-				platformSpecifics: { baseUrl: fakeAppriseUrl, key: "second", kind: "apprise" },
+				platformSpecifics: { baseUrl: fakeApprise.url, key: "second", kind: "apprise" },
 			}),
 		]);
 		await Promise.all([
@@ -259,7 +249,7 @@ describe("media monitoring infrequent refresh", () => {
 			return row?.populatedAt && row.productionStatus === "Continuing" ? row : null;
 		});
 		await waitForMediaMonitoringRefresh(`${baseline.executionId}-${cronEntityId}`);
-		expect(requests).toEqual([]);
+		expect(fakeApprise.requests).toEqual([]);
 
 		await getPgClient().query(`update sandbox_script set code = $1 where id = $2`, [
 			detailsCode("Ended"),
@@ -299,9 +289,9 @@ describe("media monitoring infrequent refresh", () => {
 			);
 		}
 		const delivered = await pollUntil("media monitoring status notification delivery", () => {
-			const paths = new Set(requests.map((request) => request.path));
+			const paths = new Set(fakeApprise.requests.map((request) => request.path));
 			return Promise.resolve(
-				paths.has("/notify/first") && paths.has("/notify/second") ? requests : null,
+				paths.has("/notify/first") && paths.has("/notify/second") ? fakeApprise.requests : null,
 			);
 		});
 		expect(delivered).toHaveLength(2);
