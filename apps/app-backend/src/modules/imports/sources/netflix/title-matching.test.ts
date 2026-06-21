@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { chooseBestNetflixTitleMatch, type NetflixTitleMatchCandidate } from "./title-matching";
+import {
+	type MetadataLookupTitleMatchCandidate,
+	chooseBestMetadataLookupTitleMatch,
+} from "#lib/metadata-lookup/title-matching";
 
-const candidate = (overrides: Partial<NetflixTitleMatchCandidate>): NetflixTitleMatchCandidate => ({
+const candidate = (
+	overrides: Partial<MetadataLookupTitleMatchCandidate>,
+): MetadataLookupTitleMatchCandidate => ({
 	externalId: "1",
 	publishYear: 2016,
 	title: "The Crown",
@@ -11,10 +16,10 @@ const candidate = (overrides: Partial<NetflixTitleMatchCandidate>): NetflixTitle
 	...overrides,
 });
 
-describe("chooseBestNetflixTitleMatch", () => {
+describe("chooseBestMetadataLookupTitleMatch", () => {
 	it("rejects unrelated search candidates", () => {
 		expect(
-			chooseBestNetflixTitleMatch({
+			chooseBestMetadataLookupTitleMatch({
 				title: "Completely Unknown Export Row",
 				results: [candidate({ title: "The Crown" })],
 			}),
@@ -22,7 +27,7 @@ describe("chooseBestNetflixTitleMatch", () => {
 	});
 
 	it("prefers show matches for titles with season indicators", () => {
-		const match = chooseBestNetflixTitleMatch({
+		const match = chooseBestMetadataLookupTitleMatch({
 			title: "The Gentlemen: Season 1: The Gospel According to Bobby Glass",
 			results: [
 				candidate({

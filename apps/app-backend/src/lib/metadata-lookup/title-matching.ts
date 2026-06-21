@@ -1,10 +1,10 @@
 import {
-	extractNetflixBaseTitle,
-	extractNetflixYearFromTitle,
-	hasNetflixShowIndicators,
+	extractMetadataLookupBaseTitle,
+	extractMetadataLookupYearFromTitle,
+	hasMetadataLookupShowIndicators,
 } from "./title-parsing";
 
-export type NetflixTitleMatchCandidate = {
+export type MetadataLookupTitleMatchCandidate = {
 	title: string;
 	externalId: string;
 	publishYear: number | null;
@@ -58,7 +58,7 @@ const calculateMatchScore = (input: {
 	originalTitle: string;
 	resultPosition: number;
 	hasShowIndicators: boolean;
-	result: NetflixTitleMatchCandidate;
+	result: MetadataLookupTitleMatchCandidate;
 }): number => {
 	let score = calculateSimilarity(input.originalTitle, input.result.title);
 	if (input.originalTitle.toLowerCase() === input.result.title.toLowerCase()) {
@@ -99,11 +99,11 @@ const calculateMatchScore = (input: {
 	return score;
 };
 
-export const chooseBestNetflixTitleMatch = (input: {
+export const chooseBestMetadataLookupTitleMatch = (input: {
 	title: string;
-	results: NetflixTitleMatchCandidate[];
+	results: MetadataLookupTitleMatchCandidate[];
 	preferredEntitySchemaSlug?: "movie" | "show";
-}): NetflixTitleMatchCandidate | undefined => {
+}): MetadataLookupTitleMatchCandidate | undefined => {
 	const filteredResults = input.preferredEntitySchemaSlug
 		? input.results.filter((result) => result.entitySchemaSlug === input.preferredEntitySchemaSlug)
 		: input.results;
@@ -111,10 +111,10 @@ export const chooseBestNetflixTitleMatch = (input: {
 		return undefined;
 	}
 
-	const cleanedOriginal = extractNetflixBaseTitle(input.title);
-	const publishYear = extractNetflixYearFromTitle(input.title);
-	const hasShowIndicators = hasNetflixShowIndicators(input.title);
-	let bestMatch: { result: NetflixTitleMatchCandidate; score: number } | undefined;
+	const cleanedOriginal = extractMetadataLookupBaseTitle(input.title);
+	const publishYear = extractMetadataLookupYearFromTitle(input.title);
+	const hasShowIndicators = hasMetadataLookupShowIndicators(input.title);
+	let bestMatch: { result: MetadataLookupTitleMatchCandidate; score: number } | undefined;
 	filteredResults.forEach((result, index) => {
 		const score = calculateMatchScore({
 			result,

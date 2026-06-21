@@ -3,6 +3,11 @@ import type { ImportRunId, SandboxScriptId, UserId } from "@ryot/contract/schema
 import { Effect } from "effect";
 
 import { DbRunner } from "#lib/db/service";
+import {
+	type MetadataLookupTitleMatchCandidate,
+	chooseBestMetadataLookupTitleMatch,
+} from "#lib/metadata-lookup/title-matching";
+import { extractMetadataLookupBaseTitle } from "#lib/metadata-lookup/title-parsing";
 import { EntitiesRepository } from "#modules/entities/repository";
 import type { EntitySearchItem } from "#modules/entity-import/population";
 
@@ -16,8 +21,6 @@ import {
 } from "../../runtime/import-files";
 import { sanitizeErrorMessage } from "../../runtime/import-run-status";
 import { adaptNetflixExports } from "./adapter";
-import { type NetflixTitleMatchCandidate, chooseBestNetflixTitleMatch } from "./title-matching";
-import { extractNetflixBaseTitle } from "./title-parsing";
 
 type SearchScriptSlug = "movie.tmdb" | "show.tmdb";
 
@@ -86,7 +89,7 @@ const getZipEntryByBasename = (
 const collectNetflixSearchJobKeys = Effect.fn(function* (adapterInput: NetflixAdapterInput) {
 	const searchJobKeys = new Set<string>();
 	yield* adaptNetflixExports(adapterInput, ({ title, preferredEntitySchemaSlug }) => {
-		const query = extractNetflixBaseTitle(title);
+		const query = extractMetadataLookupBaseTitle(title);
 		if (!query) {
 			return Effect.fail("Metadata not found");
 		}
@@ -106,10 +109,10 @@ const collectNetflixSearchJobKeys = Effect.fn(function* (adapterInput: NetflixAd
 const adaptNetflixExportsWithSearchResults = (input: {
 	adapterInput: NetflixAdapterInput;
 	searchErrors: Map<string, string>;
-	searchResults: Map<string, NetflixTitleMatchCandidate[]>;
+	searchResults: Map<string, MetadataLookupTitleMatchCandidate[]>;
 }) =>
 	adaptNetflixExports(input.adapterInput, ({ title, preferredEntitySchemaSlug }) => {
-		const query = extractNetflixBaseTitle(title);
+		const query = extractMetadataLookupBaseTitle(title);
 		if (!query) {
 			return Effect.fail("Metadata not found");
 		}
@@ -137,7 +140,7 @@ const adaptNetflixExportsWithSearchResults = (input: {
 			return Effect.fail(lookupError);
 		}
 
-		let results: NetflixTitleMatchCandidate[];
+		let results: MetadataLookupTitleMatchCandidate[];
 		switch (preferredEntitySchemaSlug) {
 			case "movie":
 				results = movieResults;
@@ -149,7 +152,7 @@ const adaptNetflixExportsWithSearchResults = (input: {
 				results = [...movieResults, ...showResults];
 				break;
 		}
-		const match = chooseBestNetflixTitleMatch({ title, results, preferredEntitySchemaSlug });
+		const match = chooseBestMetadataLookupTitleMatch({ title, results, preferredEntitySchemaSlug });
 		if (!match) {
 			if (results.length === 0) {
 				return Effect.fail("Metadata not found");
@@ -177,7 +180,7 @@ const adaptNetflixExportsWithSearchResults = (input: {
 const toNetflixTitleMatchCandidates = (
 	searchJobKey: string,
 	items: ReadonlyArray<EntitySearchItem>,
-): ReadonlyArray<NetflixTitleMatchCandidate> => {
+): ReadonlyArray<MetadataLookupTitleMatchCandidate> => {
 	const { scriptSlug } = parseNetflixSearchJobKey(searchJobKey);
 	return items.map((item) => ({
 		scriptSlug,
@@ -209,7 +212,7 @@ export const buildNetflixAdapterResult = Effect.fn("netflixProcessor.buildResult
 		).pipe(Effect.mapError(() => "Could not read import file"));
 
 		const searchErrors = new Map<string, string>();
-		const searchResults = new Map<string, NetflixTitleMatchCandidate[]>();
+		const searchResults = new Map<string, MetadataLookupTitleMatchCandidate[]>();
 		for (const response of input.searchResponses) {
 			if (response.error) {
 				searchErrors.set(response.jobKey, response.error);

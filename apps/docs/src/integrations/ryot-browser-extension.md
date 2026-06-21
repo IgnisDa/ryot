@@ -22,7 +22,8 @@ extract media information to sync with Ryot.
      "Load unpacked", and select the extracted folder
    - **Firefox**: Go to `about:debugging`, click "This Firefox", click "Load Temporary
      Add-on", and select the zip file
-3. Generate a slug in the integration settings page and copy the newly generated webhook URL.
+3. Create a Ryot Browser Extension integration in the integration settings page
+   and copy the generated webhook URL. It should end with `/_i/{integrationId}`.
 4. Configure the extension:
    - Click on the extension icon in your browser toolbar
    - Enter your webhook URL

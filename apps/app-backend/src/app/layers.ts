@@ -51,6 +51,7 @@ import { LibraryEntityImportWorkflowDefinitionsLive } from "#modules/library-mem
 import { LibraryImportService } from "#modules/library-membership/service";
 import { MediaTrendingWorkflowOperationsLive } from "#modules/media-trending/operations-workflow";
 import { MediaTrendingRepository } from "#modules/media-trending/repository";
+import { MetadataLookupService } from "#modules/metadata-lookup/service";
 import { ProviderConfig } from "#modules/query-engine/provider-config";
 import { QueryEngineService } from "#modules/query-engine/service";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
@@ -194,8 +195,14 @@ const ServicesBaseLive = Layer.provideMerge(
 	CollectionsServiceLive,
 );
 
+const MetadataLookupServiceLive = Layer.provide(
+	MetadataLookupService.Default,
+	RuntimeSandboxServiceLive,
+);
+
 const ServicesLive = Layer.mergeAll(
 	Layer.provideMerge(ServicesBaseLive, SandboxServicesLive),
+	MetadataLookupServiceLive,
 	InterestServicesLive,
 );
 
