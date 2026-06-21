@@ -137,7 +137,7 @@ beforeAll(async () => {
 		waitForHealthCheck(`http://127.0.0.1:${backendPortB}/api/system/health`, "OIDC Setup"),
 		waitForHealthCheck(`http://127.0.0.1:${backendPortC}/api/system/health`, "OIDC Setup"),
 	]);
-}, 120000);
+});
 
 afterAll(async () => {
 	await Promise.all([

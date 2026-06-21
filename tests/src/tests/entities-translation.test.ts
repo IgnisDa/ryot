@@ -107,7 +107,6 @@ describe("entity translation via client-declared interest", () => {
 		} finally {
 			stream.close();
 		}
-	}, 60_000);
 
 	it("negative-caches when the provider has no translation and does not refetch", async () => {
 		const auth = await createAuthenticatedClient();
@@ -135,7 +134,6 @@ describe("entity translation via client-declared interest", () => {
 		} finally {
 			stream.close();
 		}
-	}, 60_000);
 
 	it("renders canonical without fetching when the resolved language is canonical or unset", async () => {
 		const { client } = await createAuthenticatedClient();
@@ -191,5 +189,4 @@ describe("entity translation via client-declared interest", () => {
 		} finally {
 			stream.close();
 		}
-	}, 60_000);
 });
