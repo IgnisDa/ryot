@@ -358,9 +358,10 @@ export const migrateLegacyTables = Effect.gen(function* () {
 
 		for (const user of migratedUserRows) {
 			yield* bootstrapNewUser(user.id).pipe(
-				Effect.catchAll((cause) =>
+				Effect.tapError((cause) =>
 					Effect.logError("[legacy-bootstrap] bootstrapNewUser failed for user", user.id, cause),
 				),
+				Effect.orDie,
 			);
 		}
 

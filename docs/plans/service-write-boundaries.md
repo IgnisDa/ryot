@@ -497,22 +497,66 @@ AuthService creation and account-linking wrappers.
 
 `builtins/seed.ts` reconciles global system rows such as built-in entity, event, and relationship
 schemas, sandbox scripts, triggers, and links. `builtins/bootstrap.ts` creates per-user defaults such
-as trackers, tracker-schema links, saved views, and the library entity. Both paths perform direct
-database writes because they coordinate multi-table initialization and reconciliation.
+as trackers, tracker-schema links, saved views, and the library entity. The seed path remains an
+explicit system-initialization exception, while the per-user bootstrap path now delegates its writes
+to the owning services and retains orchestration and transaction control in the bootstrap callers.
 
 ### Checklist
 
-- [ ] Keep `builtins/seed.ts` as an explicit system-initialization exception. It may reconcile global
+- [x] Keep `builtins/seed.ts` as an explicit system-initialization exception. It may reconcile global
   built-in rows directly within its transaction; this must not become a user-facing write path.
-- [ ] Do not add `seed`, `ensure`, `upsert`, or built-in modes to user-facing CRUD methods solely for
+- [x] Do not add `seed`, `ensure`, `upsert`, or built-in modes to user-facing CRUD methods solely for
   system reconciliation.
-- [ ] Make `builtins/bootstrap.ts` use owning service write methods for per-user rows where practical,
+- [x] Make `builtins/bootstrap.ts` use owning service write methods for per-user rows where practical,
   while retaining orchestration and transaction control in the bootstrap caller.
-- [ ] Keep bootstrap transactional and idempotent. Reconciliation must only update or replace rows
+- [x] Keep bootstrap transactional and idempotent. Reconciliation must only update or replace rows
   owned by the bootstrap process and must not overwrite user-customized rows.
-- [ ] Give join tables written by bootstrap explicit ownership and apply the same service-boundary rule.
-- [ ] Outside these initialization paths, route all runtime and user-facing writes through the owning
+- [x] Give join tables written by bootstrap explicit ownership and apply the same service-boundary rule.
+- [x] Outside these initialization paths, route all runtime and user-facing writes through the owning
   service entry point.
+
+### Implementation notes
+
+- `builtins/seed.ts` was intentionally left as-is. Its global reconciliation writes remain inside the
+  seed transaction and are not exposed through user-facing services.
+- `bootstrap.ts` now calls `TrackersService.create`, `SavedViewsService.create`, and
+  `EntitiesService.create` for per-user rows. Tracker creation accepts the internal `isBuiltin` field
+  without adding a separate bootstrap or ensure method; duplicate tracker conflicts are treated as
+  idempotent skips, and only rows still marked built-in are used for tracker-schema links.
+- `TrackersService.linkEntitySchema` is the owning service entry point for the
+  `tracker_entity_schema` join table. Its repository insert is conflict-safe and idempotent, and
+  `EntitySchemasService` now uses the same service wrapper instead of writing the join table through
+  the repository directly.
+- Tracker and saved-view repository creates now use conflict-do-nothing inserts and return `null` on
+  a race; their canonical services convert that result back to the existing public conflict errors.
+  Bootstrap can therefore skip a concurrent duplicate without catching a PostgreSQL unique-violation
+  exception inside an already-aborted transaction.
+- Saved-view bootstrap no longer uses `ON CONFLICT DO UPDATE`. Existing rows, including rows with a
+  colliding user-defined slug, are preserved; duplicate create conflicts are skipped. New views use
+  the saved-view repository's normal next-position calculation, so they append within their scope
+  rather than resetting existing user ordering.
+- Bootstrap takes a user-scoped transaction advisory lock before any per-user reconciliation, and
+  God Mode acquires the same lock before loading delete/reset snapshots and mutating a user. The
+  library entity keeps its read-before-create guard and delegates the missing-row write through
+  `EntitiesService.create`; the missing-library-schema warning and the surrounding caller-owned
+  transaction behavior are unchanged.
+- The auth user-create hook captures the owning services before entering Better Auth's callback and
+  supplies the transaction runner to `bootstrapNewUser`. God Mode supplies the same services while
+  keeping `performBootstrap` inside its existing reset transaction; migration-only startup wires the
+  required repository and service stack for legacy-user bootstrap and now fails the migration loudly
+  if a migrated user's bootstrap fails.
+- Bootstrap service validation now applies to tracker, saved-view, and library writes. This is
+  intentional: invalid built-in definitions fail through the same validation path as runtime writes
+  instead of bypassing service rules through raw SQL. Company and media-group display definitions were
+  corrected to use their schema-defined `foundedYear`/`parts` properties, and an exhaustive built-in
+  display-validation test now protects this boundary.
+- A user-defined tracker that already occupies a built-in slug is not relabeled or linked to built-in
+  entity schemas. This protects user data at the cost of leaving that particular built-in tracker/view
+  set absent until the slug conflict is resolved.
+- The Better Auth after-create hook retains its existing log-and-suppress behavior for bootstrap
+  failures because it runs after the auth write and has no surrounding transaction to roll back. The
+  individual bootstrap attempt remains atomic, but a retry/readiness mechanism for a failed auth hook
+  is outside this section and remains an operational follow-up.
 
 ## Implementation Checklist
 

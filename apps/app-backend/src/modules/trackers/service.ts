@@ -5,6 +5,7 @@ import type {
 	ReorderTrackersBody,
 	UpdateTrackerBody,
 } from "@ryot/contract/modules/trackers/schemas";
+import type { EntitySchemaId } from "@ryot/contract/schema/brands";
 import { TrackerId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
@@ -14,6 +15,12 @@ import { slugify } from "#lib/shared/slug";
 import { trimToNull } from "#lib/shared/validation";
 
 import { TrackersRepository } from "./repository";
+
+type TrackerUser = Pick<CurrentUserValue, "id">;
+
+type CreateTrackerInput = CreateTrackerBody & {
+	readonly isBuiltin?: boolean | undefined;
+};
 
 type UpdateTrackerInput = UpdateTrackerBody & {
 	readonly sortOrder?: number | undefined;
@@ -141,15 +148,15 @@ export class TrackersService extends Effect.Service<TrackersService>()("Trackers
 		const runInTransaction = yield* TransactionRunner;
 
 		const list = Effect.fn("TrackersService.list")(function* (
-			user: CurrentUserValue,
+			user: TrackerUser,
 			includeDisabled: boolean,
 		) {
 			return yield* runWithDb(repository.listByUser(user.id, includeDisabled));
 		});
 
 		const create = Effect.fn("TrackersService.create")(function* (
-			user: CurrentUserValue,
-			payload: CreateTrackerBody,
+			user: TrackerUser,
+			payload: CreateTrackerInput,
 		) {
 			const resolvedPayload = yield* resolveCreatePayload(payload);
 
@@ -158,7 +165,20 @@ export class TrackersService extends Effect.Service<TrackersService>()("Trackers
 				return yield* conflict("Tracker slug already exists");
 			}
 
-			return yield* runWithDb(repository.create(user.id, resolvedPayload));
+			return yield* runWithDb(
+				repository.create(user.id, { ...resolvedPayload, isBuiltin: payload.isBuiltin }),
+			).pipe(
+				Effect.flatMap((created) =>
+					created ? Effect.succeed(created) : conflict("Tracker slug already exists"),
+				),
+			);
+		});
+
+		const linkEntitySchema = Effect.fn("TrackersService.linkEntitySchema")(function* (input: {
+			trackerId: TrackerId;
+			entitySchemaId: EntitySchemaId;
+		}) {
+			return yield* runWithDb(repository.linkEntitySchema(input));
 		});
 
 		const update = Effect.fn("TrackersService.update")(function* (
@@ -239,6 +259,6 @@ export class TrackersService extends Effect.Service<TrackersService>()("Trackers
 			);
 		});
 
-		return { list, create, update, reorder };
+		return { list, create, update, reorder, linkEntitySchema };
 	}),
 }) {}
