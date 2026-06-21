@@ -303,7 +303,7 @@ describe("plugin runtime", () => {
 
 	it("sends navigation through the client adapter after activation", async () => {
 		const { channel, messages, runtime } = openRuntime();
-		expect(() => runtime.client.navigation.push({ path: "/early" })).toThrow(
+		expect(() => runtime.client.navigation.push({ kind: "route", path: "/early" })).toThrow(
 			new RyotClientError("transport"),
 		);
 		expect(messages).not.toContainEqual(expect.objectContaining({ type: "navigate" }));
@@ -311,19 +311,29 @@ describe("plugin runtime", () => {
 		await delay();
 
 		expect(runtime).not.toHaveProperty("navigate");
-		runtime.client.navigation.push({ path: "/items", search: { tab: "stats" } });
-		runtime.client.navigation.replace({ path: "/" });
+		runtime.client.navigation.push({
+			kind: "route",
+			path: "/items",
+			search: { tab: "stats" },
+		});
+		runtime.client.navigation.replace({ kind: "route", path: "/" });
+		runtime.client.navigation.push({ kind: "entity", entityId: "entity-1" });
 		await delay();
 
 		expect(messages).toContainEqual({
 			mode: "push",
 			type: "navigate",
-			location: { kind: "route", path: "/items", search: "tab=stats" },
+			target: { kind: "route", path: "/items", search: "tab=stats" },
 		});
 		expect(messages).toContainEqual({
 			mode: "replace",
 			type: "navigate",
-			location: { kind: "route", path: "/", search: "" },
+			target: { kind: "route", path: "/", search: "" },
+		});
+		expect(messages).toContainEqual({
+			mode: "push",
+			type: "navigate",
+			target: { kind: "entity", entityId: "entity-1" },
 		});
 	});
 
@@ -341,7 +351,7 @@ describe("plugin runtime", () => {
 
 		runtime.dispose();
 		runtime.dispose();
-		expect(() => runtime.client.navigation.push({ path: "/late" })).toThrow(
+		expect(() => runtime.client.navigation.push({ kind: "route", path: "/late" })).toThrow(
 			new RyotClientError("disposed"),
 		);
 		await expect(query).rejects.toMatchObject({ reason: "disposed" });
@@ -498,7 +508,7 @@ describe("plugin runtime", () => {
 		await expect(
 			runtime.client.operations.invoke({ input: {}, slug: "late", output: JsonValue }),
 		).rejects.toMatchObject({ reason: "protocol" });
-		expect(() => runtime.client.navigation.push({ path: "/late" })).toThrow(
+		expect(() => runtime.client.navigation.push({ kind: "route", path: "/late" })).toThrow(
 			new RyotClientError("protocol"),
 		);
 		await delay();
@@ -610,7 +620,7 @@ describe("plugin runtime", () => {
 			requestId: "ryotql-1",
 			response: { data: {} },
 		});
-		expect(() => runtime.client.navigation.push({ path: "/late" })).toThrow(
+		expect(() => runtime.client.navigation.push({ kind: "route", path: "/late" })).toThrow(
 			new RyotClientError("protocol"),
 		);
 		await delay();
@@ -685,10 +695,10 @@ describe("plugin runtime", () => {
 			throw new Error("channel closed");
 		};
 
-		expect(() => runtime.client.navigation.push({ path: "/items" })).toThrow(
+		expect(() => runtime.client.navigation.push({ kind: "route", path: "/items" })).toThrow(
 			new RyotClientError("transport"),
 		);
-		expect(() => runtime.client.navigation.push({ path: "/late" })).toThrow(
+		expect(() => runtime.client.navigation.push({ kind: "route", path: "/late" })).toThrow(
 			new RyotClientError("transport"),
 		);
 	});

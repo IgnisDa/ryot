@@ -15,6 +15,7 @@ import {
 	type PluginThemeSnapshot,
 	type RyotClientErrorReason,
 } from "@ryot-app/contract/modules/plugins/client";
+import { EntityId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import type { PreparedRecipe } from "@ryot-app/ryotql";
 import { Match, Result, Schema } from "effect";
@@ -198,14 +199,19 @@ export const createPluginRuntime = (
 		if (state !== "active") {
 			throw new RyotClientError(terminalReason ?? "transport");
 		}
-		const search = to.search ? new URLSearchParams(to.search).toString() : "";
-		if (
-			!post({
-				mode,
-				type: "navigate",
-				location: { kind: "route", path: to.path, search },
-			} satisfies PluginBridgeNavigate)
-		) {
+		const target = Match.value(to).pipe(
+			Match.when({ kind: "route" }, ({ path, search }) => ({
+				path,
+				kind: "route" as const,
+				search: search === undefined ? "" : new URLSearchParams(search).toString(),
+			})),
+			Match.when({ kind: "entity" }, ({ entityId }) => ({
+				kind: "entity" as const,
+				entityId: EntityId.make(entityId),
+			})),
+			Match.exhaustive,
+		);
+		if (!post({ mode, target, type: "navigate" } satisfies PluginBridgeNavigate)) {
 			throw new RyotClientError(terminalReason ?? "transport");
 		}
 	};
