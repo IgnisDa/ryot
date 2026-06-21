@@ -42,6 +42,7 @@ describe("person.tmdb sandbox script", () => {
 			expect(details.relatedEntityGroups).toEqual([
 				{
 					direction: "outgoing",
+					synchronization: "authoritative",
 					relationshipSchemaSlug: "person-to-movie",
 					entities: [
 						{
@@ -54,6 +55,7 @@ describe("person.tmdb sandbox script", () => {
 				},
 				{
 					direction: "outgoing",
+					synchronization: "authoritative",
 					relationshipSchemaSlug: "person-to-show",
 					entities: [
 						{

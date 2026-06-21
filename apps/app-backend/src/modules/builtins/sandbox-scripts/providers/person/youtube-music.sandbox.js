@@ -211,11 +211,13 @@ driver("details", async function (context, { metadata }) {
 		relatedEntityGroups: [
 			{
 				direction: "outgoing",
+				synchronization: "authoritative",
 				entities: mediaEntities,
 				relationshipSchemaSlug: "person-to-music",
 			},
 			{
 				direction: "outgoing",
+				synchronization: "authoritative",
 				entities: groupEntities,
 				relationshipSchemaSlug: "person-to-music-group",
 			},

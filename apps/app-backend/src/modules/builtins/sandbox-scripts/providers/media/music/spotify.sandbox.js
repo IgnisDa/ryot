@@ -317,6 +317,7 @@ driver("details", async function (context) {
 		relatedEntityGroups: [
 			{
 				direction: "incoming",
+				synchronization: "additive",
 				relationshipSchemaSlug: "person-to-music",
 				entities: [...relatedEntityByKey.values()].filter(
 					(entity) => entity.scriptSlug === "person.spotify",
@@ -324,6 +325,7 @@ driver("details", async function (context) {
 			},
 			{
 				direction: "incoming",
+				synchronization: "additive",
 				relationshipSchemaSlug: "music-group-to-music",
 				entities: [...relatedEntityByKey.values()].filter(
 					(entity) => entity.scriptSlug === "music-group.spotify",

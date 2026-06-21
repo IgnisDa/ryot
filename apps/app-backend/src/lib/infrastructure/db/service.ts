@@ -1,7 +1,7 @@
 import { DbError, unknownToDbError } from "@ryot/contract/errors";
 import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
-import { Context, Effect, Exit, Layer, Redacted, Runtime } from "effect";
+import { Context, Effect, Exit, Layer, Option, Redacted, Runtime } from "effect";
 import { Pool } from "pg";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
@@ -109,8 +109,17 @@ export const DbRunnerLive = Layer.effect(
 	DbRunner,
 	Effect.gen(function* () {
 		const { db } = yield* DbService;
-		return <A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, Exclude<R, CurrentDb>> =>
-			Effect.provideService(effect, CurrentDb, db);
+		const runWithDb = <A, E, R>(
+			effect: Effect.Effect<A, E, R>,
+		): Effect.Effect<A, E, Exclude<R, CurrentDb>> =>
+			Effect.flatMap(Effect.serviceOption(CurrentDb), (currentDb) =>
+				Effect.provideService(
+					effect,
+					CurrentDb,
+					Option.getOrElse(currentDb, () => db),
+				),
+			);
+		return runWithDb;
 	}),
 );
 
