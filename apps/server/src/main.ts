@@ -1,10 +1,34 @@
 import { BunServices, BunRuntime } from "@effect/platform-bun";
 import { renderConfigReference } from "@ryot/config";
-import { AppLive, MigrationOnlyLive } from "@ryot/kernel-backend/boot/layers";
+import {
+	MigrationInfrastructureLive,
+	ObservabilityProvidedLive,
+	RuntimeServerLive,
+	SchemaMigrationLive,
+	SystemPluginIngestionLive,
+} from "@ryot/kernel-backend/boot/layers";
 import { appConfigDefinition } from "@ryot/kernel-backend/lib/infrastructure/config/definition";
 import { AppConfig } from "@ryot/kernel-backend/lib/infrastructure/config/service";
 import { discoverSystemPlugins } from "@ryot/kernel-backend/modules/plugins/system";
+import { LegacyDataMigrationLive, LegacyTableRenameLive } from "@ryot/v10-rust-migration/layers";
 import { Config, ConfigProvider, Effect, Layer, FileSystem, Path } from "effect";
+
+const MigrationSequenceLive = LegacyTableRenameLive.pipe(
+	Layer.flatMap(() => SchemaMigrationLive),
+	Layer.flatMap(() => SystemPluginIngestionLive),
+	Layer.flatMap(() => LegacyDataMigrationLive),
+);
+
+const MigrationOnlyLive = MigrationSequenceLive.pipe(
+	Layer.provide(MigrationInfrastructureLive),
+	Layer.provide(ObservabilityProvidedLive),
+);
+
+const AppLive = MigrationSequenceLive.pipe(
+	Layer.flatMap(() => RuntimeServerLive),
+	Layer.provide(MigrationInfrastructureLive),
+	Layer.provide(ObservabilityProvidedLive),
+);
 
 const { nodeEnv, runMigrationOnly } = await Effect.runPromise(
 	Config.all({

@@ -1,7 +1,6 @@
+import { Database, mapDatabaseErrors } from "@ryot/kernel-backend/lib/infrastructure/db/service";
 import { sql } from "drizzle-orm";
 import { Effect } from "effect";
-
-import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 
 import {
 	buildLegacyEntityMigrationSql,
