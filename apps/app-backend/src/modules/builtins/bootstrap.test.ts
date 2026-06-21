@@ -9,6 +9,7 @@ import {
 } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
+import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { CurrentDb } from "#lib/infrastructure/db/service";
 import { EntitiesService } from "#modules/entities/service";
 import { SavedViewsService } from "#modules/saved-views/service";
@@ -96,32 +97,67 @@ const makeEntity = () => ({
 	updatedAt: "2026-07-16T00:00:00.000Z",
 });
 
-const makeBootstrapDb = () => {
-	const entitySchemas = [
-		{ id: librarySchemaId, slug: "library", icon: "library", accentColor: "#9CA3AF" },
-		{ id: collectionSchemaId, slug: "collection", icon: "folder", accentColor: "#FACC15" },
-		{ id: movieSchemaId, slug: "movie", icon: "film", accentColor: "#5B7FFF" },
-	];
+const entitySchemas = [
+	{ id: librarySchemaId, slug: "library", icon: "library", accentColor: "#9CA3AF" },
+	{ id: collectionSchemaId, slug: "collection", icon: "folder", accentColor: "#FACC15" },
+	{ id: movieSchemaId, slug: "movie", icon: "film", accentColor: "#5B7FFF" },
+];
+
+const makeBootstrapDb = (options?: {
+	bootstrapCompletedAt?: Date | null;
+	onMarkComplete?: () => void;
+}) => {
+	const marker = options?.bootstrapCompletedAt ?? null;
+	const userRows = [{ bootstrapCompletedAt: marker }];
 
 	return Object.assign(Object.create(null), {
 		select: () => ({
-			from: () => ({
-				where: () =>
-					Object.assign(Promise.resolve(entitySchemas), {
-						limit: () => Promise.resolve([]),
-					}),
+			from: (table: unknown) => {
+				if (table === schema.user) {
+					return {
+						where: () =>
+							Object.assign(Promise.resolve(userRows), {
+								for: () => Promise.resolve(userRows),
+							}),
+					};
+				}
+
+				if (table === schema.entitySchema) {
+					return {
+						where: () => Promise.resolve(entitySchemas),
+					};
+				}
+
+				if (table === schema.entity) {
+					return {
+						where: () =>
+							Object.assign(Promise.resolve([]), {
+								limit: () => Promise.resolve([]),
+							}),
+					};
+				}
+
+				return { where: () => Promise.resolve([]) };
+			},
+		}),
+		update: () => ({
+			set: () => ({
+				where: () => {
+					options?.onMarkComplete?.();
+					return Promise.resolve({});
+				},
 			}),
 		}),
 		execute: () => Promise.resolve({}),
 	});
 };
 
-it.effect("routes bootstrap writes through owning services", () => {
-	const createdTrackerSlugs: string[] = [];
-	const linkedSchemaIds: EntitySchemaId[] = [];
-	const createdViewSlugs: string[] = [];
-	const createdEntities: unknown[] = [];
-
+const makeServiceLayers = (
+	createdTrackerSlugs: string[],
+	linkedSchemaIds: EntitySchemaId[],
+	createdViewSlugs: string[],
+	createdEntities: unknown[],
+) => {
 	const trackersLayer = Layer.mock(TrackersService)({
 		_tag: "TrackersService",
 		create: (_user, input) =>
@@ -161,6 +197,16 @@ it.effect("routes bootstrap writes through owning services", () => {
 			}),
 	});
 
+	return Layer.mergeAll(trackersLayer, savedViewsLayer, entitiesLayer);
+};
+
+it.effect("routes bootstrap writes through owning services and sets the completion marker", () => {
+	const createdTrackerSlugs: string[] = [];
+	const linkedSchemaIds: EntitySchemaId[] = [];
+	const createdViewSlugs: string[] = [];
+	const createdEntities: unknown[] = [];
+	let markerUpdated = false;
+
 	return Effect.gen(function* () {
 		yield* performBootstrap(userId);
 
@@ -168,13 +214,43 @@ it.effect("routes bootstrap writes through owning services", () => {
 		expect(linkedSchemaIds).toEqual([movieSchemaId, collectionSchemaId]);
 		expect(createdViewSlugs).toEqual(["collections", "all-movies"]);
 		expect(createdEntities).toHaveLength(1);
+		expect(markerUpdated).toBe(true);
 	}).pipe(
 		Effect.provide(
 			Layer.mergeAll(
-				Layer.succeed(CurrentDb, makeBootstrapDb()),
-				trackersLayer,
-				savedViewsLayer,
-				entitiesLayer,
+				Layer.succeed(CurrentDb, makeBootstrapDb({ onMarkComplete: () => (markerUpdated = true) })),
+				makeServiceLayers(createdTrackerSlugs, linkedSchemaIds, createdViewSlugs, createdEntities),
+			),
+		),
+	);
+});
+
+it.effect("short-circuits when the completion marker is already set", () => {
+	const createdTrackerSlugs: string[] = [];
+	const linkedSchemaIds: EntitySchemaId[] = [];
+	const createdViewSlugs: string[] = [];
+	const createdEntities: unknown[] = [];
+	let markerUpdated = false;
+
+	return Effect.gen(function* () {
+		yield* performBootstrap(userId);
+
+		expect(createdTrackerSlugs).toEqual([]);
+		expect(linkedSchemaIds).toEqual([]);
+		expect(createdViewSlugs).toEqual([]);
+		expect(createdEntities).toEqual([]);
+		expect(markerUpdated).toBe(false);
+	}).pipe(
+		Effect.provide(
+			Layer.mergeAll(
+				Layer.succeed(
+					CurrentDb,
+					makeBootstrapDb({
+						bootstrapCompletedAt: new Date("2026-01-01T00:00:00Z"),
+						onMarkComplete: () => (markerUpdated = true),
+					}),
+				),
+				makeServiceLayers(createdTrackerSlugs, linkedSchemaIds, createdViewSlugs, createdEntities),
 			),
 		),
 	);
