@@ -117,11 +117,15 @@ describe("presentScreens", () => {
 	it("shows the incoming screen and keeps the leaving one on top through a pop", () => {
 		const stack = build(0, 1);
 		const popped = stack.slice(0, 1);
+		const leaving = stack[1];
+		if (!leaving) {
+			throw new Error("expected a leaving screen");
+		}
 		const presented = presentScreens(popped, {
 			from: 0,
 			kind: "popping",
 			incoming: popped[0]?.key,
-			leaving: stack[1] as PluginScreen,
+			leaving,
 		});
 
 		expect(presented.map((screenEntry) => screenEntry.role)).toEqual(["active", "leaving"]);
