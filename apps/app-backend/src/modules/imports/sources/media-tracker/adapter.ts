@@ -89,7 +89,7 @@ const decodeListItems = Schema.decodeUnknown(Schema.Array(MediaTrackerListItem))
 type MediaTrackerAdapterInput = {
 	apiKey: string;
 	apiUrl: string;
-	allowInsecureConnections?: boolean;
+	allowInsecureConnections?: boolean | undefined;
 };
 
 const createHeaders = (apiKey: string): Record<string, string> => ({

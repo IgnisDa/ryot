@@ -125,29 +125,29 @@ export const getImportSourceStartError = (
 export const buildInputSummary = (body: CreateImportRunBody): Record<string, unknown> => {
 	const summary: Record<string, unknown> = { source: body.source };
 	if ("apiUrl" in body) {
-		summary.host = getSourceApiHost(body.apiUrl);
+		summary["host"] = getSourceApiHost(body.apiUrl);
 		if ("allowInsecureConnections" in body && body.allowInsecureConnections) {
-			summary.allowInsecureConnections = true;
+			summary["allowInsecureConnections"] = true;
 		}
 	}
 	if (body.source === "igdb") {
-		summary.collection = body.collection;
+		summary["collection"] = body.collection;
 	}
 	if (body.source === "myanimelist") {
-		summary.hasAnimeFile = Boolean(body.animeUploadToken);
-		summary.hasMangaFile = Boolean(body.mangaUploadToken);
+		summary["hasAnimeFile"] = Boolean(body.animeUploadToken);
+		summary["hasMangaFile"] = Boolean(body.mangaUploadToken);
 	}
 	if (body.source === "movary") {
-		summary.hasHistoryFile = true;
-		summary.hasRatingsFile = true;
-		summary.hasWatchlistFile = true;
+		summary["hasHistoryFile"] = true;
+		summary["hasRatingsFile"] = true;
+		summary["hasWatchlistFile"] = true;
 	}
 	if (body.source === "netflix") {
-		summary.hasExportFile = true;
-		summary.hasProfileName = Boolean(body.profileName?.trim());
+		summary["hasExportFile"] = true;
+		summary["hasProfileName"] = Boolean(body.profileName?.trim());
 	}
 	if (body.source === "trakt") {
-		summary.username = body.username;
+		summary["username"] = body.username;
 	}
 	return summary;
 };

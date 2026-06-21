@@ -22,7 +22,7 @@ export class GodModeRepository extends Effect.Service<GodModeRepository>()("GodM
 		});
 
 		const listUserRows = Effect.fn("GodModeRepository.listUserRows")(function* (input: {
-			search?: string;
+			search?: string | undefined;
 			offset: number;
 			limit: number;
 		}) {

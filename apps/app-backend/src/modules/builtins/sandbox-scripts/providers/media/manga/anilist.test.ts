@@ -62,7 +62,7 @@ describe("manga.anilist sandbox script", () => {
 			},
 		).then((rawDetails) => {
 			const details = toRecord(rawDetails);
-			expect(details.relatedEntityGroups).toEqual([
+			expect(details["relatedEntityGroups"]).toEqual([
 				{
 					direction: "outgoing",
 					synchronization: "authoritative",

@@ -23,14 +23,14 @@ export type SaveEntityInputBase = {
 			externalId: string;
 			populatedAt: Date | null;
 			sandboxScriptId: SandboxScriptId;
-			onConflict?: "preserveExisting" | "replaceExisting";
+			onConflict?: "preserveExisting" | "replaceExisting" | undefined;
 	  }
 	| {
 			scope: "user";
 			userId: UserId;
-			externalId?: string;
-			sandboxScriptId?: SandboxScriptId;
-			onConflict?: "preserveExisting" | "replaceExisting";
+			externalId?: string | undefined;
+			sandboxScriptId?: SandboxScriptId | undefined;
+			onConflict?: "preserveExisting" | "replaceExisting" | undefined;
 	  }
 );
 

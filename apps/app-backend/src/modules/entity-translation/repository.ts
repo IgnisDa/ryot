@@ -15,7 +15,7 @@ type UpsertOverlayInput = {
 };
 
 const extractLanguage = (preferences: Record<string, unknown>): string | null => {
-	const language = preferences.language;
+	const language = preferences["language"];
 	return typeof language === "string" && language.length > 0 ? language : null;
 };
 

@@ -38,7 +38,7 @@ export const adaptHardcoverCsv = (csvText: string): MediaImportAdapterResult => 
 			continue;
 		}
 
-		const title = row.Title?.trim();
+		const title = row["Title"]?.trim();
 		let sourceLabel = `Hardcover row ${itemIndex + 1}`;
 		if (title) {
 			sourceLabel = title;
@@ -73,7 +73,7 @@ export const adaptHardcoverCsv = (csvText: string): MediaImportAdapterResult => 
 			completedOn ??
 			startedOn ??
 			nowIso();
-		const lifecycleStatus = normalizeLifecycleStatus(row.Status ?? "");
+		const lifecycleStatus = normalizeLifecycleStatus(row["Status"] ?? "");
 		const fallbackOccurredAt = completedOn ?? startedOn ?? reviewOccurredAt;
 
 		if (lifecycleStatus === "complete" || completedOn) {
@@ -95,9 +95,9 @@ export const adaptHardcoverCsv = (csvText: string): MediaImportAdapterResult => 
 		}
 
 		const reviewEvent = createReviewEvent({
-			text: row.Review ?? "",
+			text: row["Review"] ?? "",
 			occurredAt: reviewOccurredAt,
-			rating: normalizeRating(row.Rating ?? ""),
+			rating: normalizeRating(row["Rating"] ?? ""),
 			isSpoiler: row["Review Contains Spoilers"]
 				? normalizeBoolean(row["Review Contains Spoilers"])
 				: undefined,
@@ -106,7 +106,7 @@ export const adaptHardcoverCsv = (csvText: string): MediaImportAdapterResult => 
 			group.events.push(reviewEvent);
 		}
 
-		for (const rawList of splitCommaList(row.Lists ?? "")) {
+		for (const rawList of splitCommaList(row["Lists"] ?? "")) {
 			const listName = sanitizeListName(rawList);
 			if (!listName || isLifecycleAlias(listName)) {
 				continue;
@@ -114,7 +114,7 @@ export const adaptHardcoverCsv = (csvText: string): MediaImportAdapterResult => 
 			addCollectionMembership(group, listName);
 		}
 
-		if (normalizeBoolean(row.Owned ?? "")) {
+		if (normalizeBoolean(row["Owned"] ?? "")) {
 			addCollectionMembership(group, "Owned");
 		}
 	}

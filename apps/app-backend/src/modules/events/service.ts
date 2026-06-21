@@ -55,9 +55,9 @@ type EventCreateInput = {
 };
 
 type EventListQuery = {
-	readonly entityId?: EntityId;
-	readonly eventSchemaSlug?: string;
-	readonly sessionEntityId?: EntityId;
+	readonly entityId?: EntityId | undefined;
+	readonly eventSchemaSlug?: string | undefined;
+	readonly sessionEntityId?: EntityId | undefined;
 };
 
 type EventQueryScope = {
@@ -212,7 +212,7 @@ export class EventsService extends Effect.Service<EventsService>()("EventsServic
 			function* (
 				userId: UserId,
 				input: {
-					eventSchemaSlug?: string;
+					eventSchemaSlug?: string | undefined;
 					entitySchemaSlug: string;
 					entitySchemaId: EntitySchemaId;
 				},
@@ -233,7 +233,10 @@ export class EventsService extends Effect.Service<EventsService>()("EventsServic
 		);
 
 		const resolveSessionEventQueryScope = Effect.fn("EventsService.resolveSessionEventQueryScope")(
-			function* (userId: UserId, query: { eventSchemaSlug?: string; sessionEntityId: EntityId }) {
+			function* (
+				userId: UserId,
+				query: { eventSchemaSlug?: string | undefined; sessionEntityId: EntityId },
+			) {
 				const rows = yield* runWithDb(repository.listQueryScopesForUser({ userId, ...query }));
 				const eventSchemaSlugs = nonEmptyStrings(rows.map((row) => row.eventSchemaSlug));
 				const entitySchemaSlugs = nonEmptyStrings(rows.map((row) => row.entitySchemaSlug));

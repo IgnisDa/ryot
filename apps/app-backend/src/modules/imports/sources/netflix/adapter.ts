@@ -23,7 +23,7 @@ const NETFLIX_DATETIME_FORMATS = ["YYYY-MM-DD HH:mm:ss"];
 
 type NetflixLookupTitle = (input: {
 	title: string;
-	preferredEntitySchemaSlug?: "movie" | "show";
+	preferredEntitySchemaSlug?: "movie" | "show" | undefined;
 }) => Effect.Effect<{ entityRef: ResolvedImportEntityRef; matchedTitle: string }, string>;
 
 type NetflixRatingRowResult =
@@ -46,10 +46,10 @@ const shouldSkipViewingEntry = (row: Record<string, string>): boolean => {
 	if ((row["Latest Bookmark"]?.trim() ?? "") === "Not latest view") {
 		return true;
 	}
-	if ((row.Attributes?.trim() ?? "").includes("Autoplayed: user action: None;")) {
+	if ((row["Attributes"]?.trim() ?? "").includes("Autoplayed: user action: None;")) {
 		return true;
 	}
-	return shouldSkipTitle(row.Title?.trim() ?? "");
+	return shouldSkipTitle(row["Title"]?.trim() ?? "");
 };
 
 const matchesProfileFilter = (
@@ -61,8 +61,8 @@ const matchesProfileFilter = (
 };
 
 const convertNetflixRating = (input: {
-	starValue?: string;
-	thumbsValue?: string;
+	starValue?: string | undefined;
+	thumbsValue?: string | undefined;
 }): number | null => {
 	const starValue = Number.parseInt(input.starValue?.trim() ?? "", 10);
 	if (Number.isFinite(starValue)) {
@@ -108,7 +108,7 @@ const getRowErrorMessage = (error: unknown) =>
 	error instanceof Error ? error.message : "Netflix row is malformed";
 
 const parseViewingActivityRow = (row: Record<string, string>, itemIndex: number) => {
-	const title = row.Title?.trim() ?? "";
+	const title = row["Title"]?.trim() ?? "";
 	const sourceLabel = title || `Netflix ViewingActivity row ${itemIndex + 1}`;
 	const parsed = Either.try(() => {
 		readRequiredCsvCell(row, ["Title"], "Title");
@@ -203,7 +203,7 @@ export const adaptNetflixExports = Effect.fn("netflixAdapter.adaptExports")(func
 		myListCsv: string;
 		ratingsCsv: string;
 		importedAt: string;
-		profileName?: string;
+		profileName?: string | undefined;
 		viewingActivityCsv: string;
 	},
 	lookupTitle: NetflixLookupTitle,
@@ -249,7 +249,7 @@ export const adaptNetflixExports = Effect.fn("netflixAdapter.adaptExports")(func
 		if (!matchesProfileFilter(row["Profile Name"], input.profileName)) {
 			continue;
 		}
-		const title = row.Title?.trim();
+		const title = row["Title"]?.trim();
 		if (!title) {
 			continue;
 		}

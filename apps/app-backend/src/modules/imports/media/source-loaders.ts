@@ -42,8 +42,8 @@ import {
 } from "./file-processor";
 
 type MediaImportLoadInput = Pick<ImportRunJobData, "runId" | "source" | "userId"> & {
-	filePath?: string;
-	sourcePayload?: Record<string, unknown>;
+	filePath?: string | undefined;
+	sourcePayload?: Record<string, unknown> | undefined;
 };
 
 type MediaImportLoadRequirements =
@@ -184,7 +184,7 @@ const oneTimeMediaImportSourceLoaders: Partial<
 				...input,
 				sourceName: "IGDB",
 				loadAdapterResult: (fileText) => {
-					const collection = input.sourcePayload?.collection;
+					const collection = input.sourcePayload?.["collection"];
 					if (typeof collection !== "string" || collection.trim().length === 0) {
 						throw new Error("Import job is missing IGDB collection");
 					}

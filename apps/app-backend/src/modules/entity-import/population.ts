@@ -33,7 +33,7 @@ export type EntityDetailsChildEntity = {
 	externalId: string;
 	properties: unknown;
 	entitySchemaSlug: string;
-	childEntities?: ReadonlyArray<EntityDetailsChildEntity>;
+	childEntities?: ReadonlyArray<EntityDetailsChildEntity> | undefined;
 };
 
 type EncodedEntityDetailsChildEntity = {
@@ -41,7 +41,7 @@ type EncodedEntityDetailsChildEntity = {
 	readonly externalId: string;
 	readonly properties: unknown;
 	readonly entitySchemaSlug: string;
-	readonly childEntities?: ReadonlyArray<EncodedEntityDetailsChildEntity>;
+	readonly childEntities?: ReadonlyArray<EncodedEntityDetailsChildEntity> | undefined;
 };
 
 export const EntityDetailsChildEntity: Schema.Schema<
@@ -113,11 +113,11 @@ type ProcessedChildEntity = {
 export const processChildEntityTree = Effect.fn("processChildEntityTree")(function* (input: {
 	syncExisting?: boolean;
 	parentEntityId: EntityId;
-	parentEntitySchemaSlug?: string;
+	parentEntitySchemaSlug?: string | undefined;
 	sandboxScriptId: SandboxScriptId;
 	parentEntitySchemaId: EntitySchemaId;
 	childEntities: ReadonlyArray<EntityDetailsChildEntity>;
-	childEntitySchemaSlugs?: Readonly<Record<string, string>>;
+	childEntitySchemaSlugs?: Readonly<Record<string, string>> | undefined;
 }) {
 	const runWithDb = yield* DbRunner;
 	const entities = yield* EntitiesService;

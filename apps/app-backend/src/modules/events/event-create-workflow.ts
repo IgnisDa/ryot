@@ -23,7 +23,7 @@ export const EventCreateWorkflowPayload = Schema.Struct({
 export type EventCreateWorkflowPayload = typeof EventCreateWorkflowPayload.Type;
 
 type EventCreateWorkflowInput = Omit<EventCreateWorkflowPayload, "executionId"> & {
-	executionId?: string;
+	executionId?: string | undefined;
 };
 
 export const EventCreateWorkflow = Workflow.make({

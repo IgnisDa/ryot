@@ -19,7 +19,7 @@ export const runTriggerScript = (
 	const factory = new Function("driver", ...hostNames, code);
 	factory(register, ...hostImplementations);
 
-	const trigger = driverRegistry.trigger;
+	const trigger = driverRegistry["trigger"];
 	if (!trigger) {
 		throw new Error("Script did not register a 'trigger' driver");
 	}

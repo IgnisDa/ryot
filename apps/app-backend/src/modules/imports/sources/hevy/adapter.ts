@@ -16,18 +16,18 @@ import {
 
 type HevyRow = {
 	title: string;
-	reps?: number;
-	weight?: number;
+	reps?: number | undefined;
+	weight?: number | undefined;
 	endTime: string;
 	setType: string;
 	setOrder: string;
 	startTime: string;
 	itemIndex: number;
-	description?: string;
+	description?: string | undefined;
 	exerciseTitle: string;
-	exerciseNotes?: string;
-	distanceMeters?: number;
-	durationSeconds?: number;
+	exerciseNotes?: string | undefined;
+	distanceMeters?: number | undefined;
+	durationSeconds?: number | undefined;
 };
 
 const POUNDS_TO_KILOGRAMS = 0.45359237;

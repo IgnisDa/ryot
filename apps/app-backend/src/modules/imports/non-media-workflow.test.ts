@@ -439,7 +439,7 @@ it.effect("orchestrates workout imports through workflow-owned phases", () => {
 		Effect.gen(function* () {
 			yield* runOneTimeNonMediaImportWorkflow(workoutPayload);
 
-			expect(createCalls.map((payload) => payload.entitySchemaId)).toEqual([
+			expect(createCalls.map((payload) => payload["entitySchemaId"])).toEqual([
 				"exercise-schema",
 				"workout-schema",
 			]);
