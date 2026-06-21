@@ -81,9 +81,13 @@ Sandbox coverage installs source through `installTestPlugin` or `installTestPlug
 Entity, event, and relationship definitions install as scriptless plugins through real plugin endpoint. Global seeding uses test-support entity and relationship operations; user-scoped entities use authenticated API.
 Resolve plugin-owned definition fixtures by plugin slug and definition slug; definition slugs are not globally unique.
 
+## Plugin Catalog Event Stream Fixture
+
+`src/fixtures/kernel/plugin-catalog-events.ts` validates the HTTP status and SSE headers, parses catalog events, and supports OAuth or API-key-authenticated clients. `src/api/kernel/plugins/catalog-events.test.ts` covers an API key receiving a valid `/api/plugins/events` stream.
+
 ## Entity Interest WebSocket Fixture
 
-`src/fixtures/kernel/interest-websocket.ts` requests a short-lived ticket, opens a real authenticated WebSocket, sends the ticket as its first frame, and exposes the `ready.sessionId` for admin test support. It sends revisioned `replace` and `update` commands, waits for matching `applied` acknowledgements, buffers validated `entity-updated` messages, responds to application heartbeats, and exposes scoped close and completion-wait helpers. It fails tests on malformed server messages, unexpected close, rejected commands, or acknowledgement timeout. Protocol is documented in `kernel/backend/src/modules/entity-interest/README.md`.
+`src/fixtures/kernel/interest-websocket.ts` requests a short-lived ticket through the supplied OAuth or API-key client, opens a real ticket-authenticated WebSocket, sends the ticket as its first frame, and exposes the `ready.sessionId` for admin test support. Invalid tickets receive the generic authentication close; ticket-store failures receive an internal close. Established sockets have a fixed 15-minute lease and close with application code `4001` (`Session expired`), after which clients obtain a new ticket and reconnect. The fixture sends revisioned `replace` and `update` commands, waits for matching `applied` acknowledgements, buffers validated `entity-updated` messages, responds to application heartbeats, and exposes scoped close and completion-wait helpers. It fails tests on malformed server messages, unexpected close, rejected commands, or acknowledgement timeout. Protocol is documented in `kernel/backend/src/modules/entity-interest/README.md`.
 
 ## OIDC
 

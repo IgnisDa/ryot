@@ -10,20 +10,29 @@ import { makeRedisService } from "#lib/test-utils/effect";
 
 import {
 	ENTITY_INTEREST_SOCKET_TICKET_TTL_SECONDS,
+	EntityInterestInvalidTicket,
 	EntityInterestTicketService,
 	entityInterestTicketKey,
 } from "./ticket-service";
 
-const makeLayer = () => {
+const makeLayer = (
+	options: { readonly consumeUnavailable?: boolean; readonly createUnavailable?: boolean } = {},
+) => {
 	const values = new Map<string, string>();
 	const expiries = new Map<string, number>();
 	const client: RedisService["Service"]["client"] = Object.assign(Object.create(Redis.prototype), {
 		set: (key: string, value: string, _expiryMode: "EX", ttlSeconds: number) => {
+			if (options.createUnavailable) {
+				return Promise.reject(new Error("Redis unavailable"));
+			}
 			values.set(key, value);
 			expiries.set(key, ttlSeconds);
 			return Promise.resolve("OK");
 		},
 		eval: (_script: string, _keyCount: number, key: string) => {
+			if (options.consumeUnavailable) {
+				return Promise.reject(new Error("Redis unavailable"));
+			}
 			const value = values.get(key) ?? null;
 			values.delete(key);
 			return Promise.resolve(value);
@@ -36,7 +45,7 @@ const makeLayer = () => {
 	return { values, expiries, layer };
 };
 
-const failure = <A>(exit: Exit.Exit<A, EntityInterestTicketFailure>) => {
+const failure = <A, E>(exit: Exit.Exit<A, E>) => {
 	assert(Exit.isFailure(exit));
 	const error = Cause.findErrorOption(exit.cause);
 	assert(Option.isSome(error));
@@ -65,6 +74,23 @@ describe("EntityInterestTicketService", () => {
 		}).pipe(Effect.provide(layer));
 	});
 
+	it.effect("exposes store unavailability when ticket creation fails", () => {
+		const { layer } = makeLayer({ createUnavailable: true });
+		return Effect.gen(function* () {
+			const service = yield* EntityInterestTicketService;
+			const exit = yield* Effect.exit(
+				service.create({
+					preferredLanguage: null,
+					userId: UserId.make("user-1"),
+				}),
+			);
+
+			expect(failure(exit)).toEqual(
+				new EntityInterestTicketFailure({ reason: { code: "ticket-store-unavailable" } }),
+			);
+		}).pipe(Effect.provide(layer));
+	});
+
 	it.effect("consumes a ticket only once", () => {
 		const { layer } = makeLayer();
 		return Effect.gen(function* () {
@@ -79,9 +105,7 @@ describe("EntityInterestTicketService", () => {
 				preferredLanguage: null,
 			});
 			const reused = yield* Effect.exit(service.consume(created.ticket));
-			expect(failure(reused)).toEqual(
-				new EntityInterestTicketFailure({ reason: { code: "invalid-ticket" } }),
-			);
+			expect(failure(reused)).toEqual(new EntityInterestInvalidTicket());
 		}).pipe(Effect.provide(layer));
 	});
 
@@ -103,6 +127,18 @@ describe("EntityInterestTicketService", () => {
 		}).pipe(Effect.provide(layer));
 	});
 
+	it.effect("distinguishes ticket-store outages from invalid tickets", () => {
+		const { layer } = makeLayer({ consumeUnavailable: true });
+		return Effect.gen(function* () {
+			const service = yield* EntityInterestTicketService;
+			const exit = yield* Effect.exit(service.consume("A".repeat(43)));
+
+			expect(failure(exit)).toEqual(
+				new EntityInterestTicketFailure({ reason: { code: "ticket-store-unavailable" } }),
+			);
+		}).pipe(Effect.provide(layer));
+	});
+
 	it.effect("returns the same generic failure for missing, expired, and malformed tickets", () => {
 		const { values, layer } = makeLayer();
 		return Effect.gen(function* () {
@@ -115,9 +151,7 @@ describe("EntityInterestTicketService", () => {
 
 			for (const ticket of [created.ticket, "malformed", "A".repeat(43)]) {
 				const exit = yield* Effect.exit(service.consume(ticket));
-				expect(failure(exit)).toEqual(
-					new EntityInterestTicketFailure({ reason: { code: "invalid-ticket" } }),
-				);
+				expect(failure(exit)).toEqual(new EntityInterestInvalidTicket());
 			}
 		}).pipe(Effect.provide(layer));
 	});
@@ -136,9 +170,7 @@ describe("EntityInterestTicketService", () => {
 
 			const exit = yield* Effect.exit(service.consume(created.ticket));
 			const error = failure(exit);
-			expect(error).toEqual(
-				new EntityInterestTicketFailure({ reason: { code: "invalid-ticket" } }),
-			);
+			expect(error).toEqual(new EntityInterestInvalidTicket());
 			expect(String(error)).not.toContain(created.ticket);
 			if (Exit.isFailure(exit)) {
 				expect(Cause.pretty(exit.cause)).not.toContain(created.ticket);
