@@ -62,6 +62,7 @@ it.scoped("does not enqueue when background jobs are disabled", () =>
 				makeAppConfigLayer({
 					server: {
 						corsOrigins: Option.none(),
+						disableNotifications: false,
 						disableBackgroundJobs: true,
 						adminAccessToken: Redacted.make("unused"),
 						oidc: {
