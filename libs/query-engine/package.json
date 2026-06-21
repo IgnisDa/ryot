@@ -1,0 +1,18 @@
+{
+	"name": "@ryot/query-engine",
+	"exports": {
+		".": {
+			"types": "./src/index.ts",
+			"default": "./src/index.ts"
+		},
+		"./*": {
+			"types": "./src/*.ts",
+			"default": "./src/*.ts"
+		}
+	},
+	"scripts": {
+		"build": "tsc",
+		"test": "bun test --only-failures",
+		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
+	}
+}

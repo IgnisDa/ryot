@@ -4,6 +4,11 @@ import {
 	createEntityColumnExpression,
 	createEntitySchemaExpression,
 } from "@ryot/contract/display-configuration";
+import {
+	buildDefaultSavedViewQueryDocument,
+	buildQueryEngineAggregateDocument,
+	queryEngineEntitySource,
+} from "@ryot/query-engine";
 
 import {
 	cloneSavedView,
@@ -20,37 +25,20 @@ import {
 	updateSavedViewWithQueryDocument,
 	type SavedViewQueryDocument,
 	listTrackers,
-	systemRef,
 } from "../fixtures";
 
-const rowsDocument: SavedViewQueryDocument = {
-	source: { type: "entities", alias: "book", schemas: ["book"], where: null },
-	output: {
-		type: "rows",
-		pagination: { page: 1, limit: 20 },
-		fields: [{ key: "name", expr: systemRef("book", "name") }],
-		orderBy: [{ order: "asc", expr: systemRef("book", "name") }],
-	},
-};
-
-const aggregateDocument: SavedViewQueryDocument = {
-	source: { type: "entities", alias: "book", schemas: ["book"], where: null },
-	output: {
-		type: "aggregate",
-		groupBy: [],
-		measures: [{ key: "total", aggregation: { function: "count" } }],
-	},
-};
-
-const buildSchemaRowsDocument = (slug: string): SavedViewQueryDocument => ({
-	source: { type: "entities", alias: "item", schemas: [slug], where: null },
-	output: {
-		type: "rows",
-		pagination: { page: 1, limit: 20 },
-		fields: [{ key: "name", expr: systemRef("item", "name") }],
-		orderBy: [{ order: "asc", expr: systemRef("item", "name") }],
-	},
+const rowsDocument: SavedViewQueryDocument = buildDefaultSavedViewQueryDocument({
+	schemas: ["book"],
 });
+
+const aggregateDocument: SavedViewQueryDocument = buildQueryEngineAggregateDocument({
+	source: queryEngineEntitySource({ alias: "book", schemas: ["book"], where: null }),
+	groupBy: [],
+	measures: [{ key: "total", aggregation: { function: "count" } }],
+});
+
+const buildSchemaRowsDocument = (slug: string): SavedViewQueryDocument =>
+	buildDefaultSavedViewQueryDocument({ schemas: [slug] });
 
 const buildSchemaDisplayConfiguration = (slug: string) => ({
 	entityIdProperty: createEntityColumnExpression(slug, "id"),

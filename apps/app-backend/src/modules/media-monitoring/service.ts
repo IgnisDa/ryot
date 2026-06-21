@@ -1,12 +1,8 @@
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { notFound } from "@ryot/contract/errors";
-import type {
-	Expr,
-	IncludedRowsValue,
-	QueryDocument,
-	RowValue,
-} from "@ryot/contract/modules/query-engine/language";
+import type { IncludedRowsValue, RowValue } from "@ryot/contract/modules/query-engine/language";
 import { EntityId } from "@ryot/contract/schema/brands";
+import { buildMediaMonitoringStatusQueryDocument } from "@ryot/query-engine";
 import { Effect } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
@@ -21,57 +17,6 @@ import { RelationshipsService } from "#modules/relationships/service";
 
 import { isMediaMonitorableEntity } from "./monitorable";
 import { MediaMonitoringRepository } from "./repository";
-
-const entityAlias = "entity";
-
-const entityIdRef: Expr = {
-	type: "ref",
-	sourceAlias: entityAlias,
-	field: { name: "id", type: "system" },
-};
-
-const mediaMonitoringStatusDocument = (entityId: EntityId, entitySchemaSlug: string) =>
-	({
-		output: {
-			type: "rows",
-			pagination: { limit: 1, page: 1 },
-			fields: [{ key: "id", expr: entityIdRef }],
-			orderBy: [{ expr: entityIdRef, order: "asc" }],
-			include: [
-				{
-					limit: 1,
-					key: "mediaMonitoring",
-					fields: [{ key: "id", expr: { ...entityIdRef, sourceAlias: "mediaMonitoringEntity" } }],
-					orderBy: [
-						{ order: "asc", expr: { ...entityIdRef, sourceAlias: "mediaMonitoringEntity" } },
-					],
-					source: {
-						where: null,
-						type: "entities",
-						schemas: ["library"],
-						alias: "mediaMonitoringEntity",
-						via: {
-							direction: "outgoing",
-							entityRef: entityAlias,
-							schema: "media-monitoring",
-							alias: "mediaMonitoringEdge",
-						},
-					},
-				},
-			],
-		},
-		source: {
-			type: "entities",
-			alias: entityAlias,
-			schemas: [entitySchemaSlug],
-			where: {
-				operator: "eq",
-				left: entityIdRef,
-				type: "comparison",
-				right: { type: "literal", value: entityId },
-			},
-		},
-	}) satisfies QueryDocument;
 
 const isIncludedRows = (value: RowValue | undefined): value is IncludedRowsValue =>
 	value !== undefined && "items" in value;
@@ -105,7 +50,10 @@ export class MediaMonitoringService extends Effect.Service<MediaMonitoringServic
 				}
 				const response = yield* queryEngine.execute(
 					user,
-					mediaMonitoringStatusDocument(entityId, scope.entitySchemaSlug),
+					buildMediaMonitoringStatusQueryDocument({
+						entityId,
+						entitySchemaSlug: scope.entitySchemaSlug,
+					}),
 				);
 				const rows = yield* requireRowsResponse(response);
 				const row = rows.data.items[0];
@@ -113,7 +61,7 @@ export class MediaMonitoringService extends Effect.Service<MediaMonitoringServic
 					return yield* notFound("Entity not found");
 				}
 				const id = EntityId.make(yield* requireStringField(row, "id"));
-				const mediaMonitoring = row["mediaMonitoring"];
+				const mediaMonitoring = row["libraries"];
 				return {
 					entityId: id,
 					isMediaMonitored: isIncludedRows(mediaMonitoring) && mediaMonitoring.items.length > 0,

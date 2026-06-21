@@ -12,6 +12,7 @@
 		"@faker-js/faker": "10.4.0",
 		"@ryot/app-backend": "workspace:*",
 		"@ryot/contract": "workspace:*",
+		"@ryot/query-engine": "workspace:*",
 		"@ryot/ts-utils": "workspace:*",
 		"@testcontainers/postgresql": "11.14.0",
 		"@types/pg": "8.20.0",

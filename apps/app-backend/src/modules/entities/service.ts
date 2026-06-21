@@ -5,13 +5,9 @@ import {
 	type CreateEntityBody,
 	type EntityDetail,
 } from "@ryot/contract/modules/entities/schemas";
-import type {
-	Expr,
-	QueryDocument,
-	RowItem,
-	RowsOutput,
-} from "@ryot/contract/modules/query-engine/language";
+import type { RowItem } from "@ryot/contract/modules/query-engine/language";
 import { EntityId, EntitySchemaId, SandboxScriptId } from "@ryot/contract/schema/brands";
+import { buildEntityDetailQueryDocument } from "@ryot/query-engine";
 import { Effect, Schema } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
@@ -31,59 +27,10 @@ import { EntitiesRepository, type SaveEntityInputBase } from "./repository";
 
 type SaveEntityInput = SaveEntityInputBase & { properties: unknown };
 
-const entityAlias = "entity";
 const entityNotFoundError = "Entity not found";
 const entitySchemaNotFoundError = "Entity schema not found";
 const partialProvenanceError =
 	"externalId and sandboxScriptId must both be provided or both be omitted";
-
-const systemRef = (name: string): Expr => ({
-	type: "ref",
-	sourceAlias: entityAlias,
-	field: { type: "system", name },
-});
-
-const literalExpr = (value: unknown): Expr => ({ type: "literal", value });
-
-const translationStatusRef: Expr = {
-	type: "ref",
-	sourceAlias: entityAlias,
-	field: { type: "systemComputed", name: "translationStatus" },
-};
-
-const entityFields = [
-	{ key: "id", expr: systemRef("id") },
-	{ key: "name", expr: systemRef("name") },
-	{ key: "createdAt", expr: systemRef("createdAt") },
-	{ key: "updatedAt", expr: systemRef("updatedAt") },
-	{ key: "properties", expr: systemRef("properties") },
-	{ key: "externalId", expr: systemRef("externalId") },
-	{ key: "populatedAt", expr: systemRef("populatedAt") },
-	{ key: "entitySchemaId", expr: systemRef("entitySchemaId") },
-	{ key: "sandboxScriptId", expr: systemRef("sandboxScriptId") },
-	{ key: "translationStatus", expr: translationStatusRef },
-] satisfies RowsOutput["fields"];
-
-const buildEntityByIdDocument = (input: { entityId: EntityId; entitySchemaSlug: string }) =>
-	({
-		output: {
-			type: "rows",
-			fields: entityFields,
-			pagination: { page: 1, limit: 1 },
-			orderBy: [{ order: "asc", expr: systemRef("id") }],
-		},
-		source: {
-			type: "entities",
-			alias: entityAlias,
-			schemas: [input.entitySchemaSlug],
-			where: {
-				type: "comparison",
-				operator: "eq",
-				left: systemRef("id"),
-				right: literalExpr(input.entityId),
-			},
-		},
-	}) satisfies QueryDocument;
 
 const toListedEntity = Effect.fn("toListedEntityFromQueryEngine")(function* (row: RowItem) {
 	const sandboxScriptId = yield* getOptionalStringField(row, "sandboxScriptId");
@@ -210,7 +157,7 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 
 			const response = yield* queryEngine.execute(
 				user,
-				buildEntityByIdDocument({ entityId, entitySchemaSlug: scope.entitySchemaSlug }),
+				buildEntityDetailQueryDocument({ entityId, entitySchemaSlug: scope.entitySchemaSlug }),
 			);
 			const rows = yield* requireRowsResponse(response);
 			const row = rows.data.items[0];

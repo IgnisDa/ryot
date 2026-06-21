@@ -27,6 +27,7 @@
         "@effect/sql-pg": "0.52.1",
         "@effect/workflow": "0.18.2",
         "@ryot/contract": "workspace:*",
+        "@ryot/query-engine": "workspace:*",
         "@ryot/ts-utils": "workspace:*",
         "better-auth": "1.6.15",
         "drizzle-orm": "0.45.2",
@@ -316,6 +317,9 @@
         "graphql-request": "7.4.0",
       },
     },
+    "libs/query-engine": {
+      "name": "@ryot/query-engine",
+    },
     "libs/transactional": {
       "name": "@ryot/transactional",
       "dependencies": {
@@ -356,6 +360,7 @@
         "@faker-js/faker": "10.4.0",
         "@ryot/app-backend": "workspace:*",
         "@ryot/contract": "workspace:*",
+        "@ryot/query-engine": "workspace:*",
         "@ryot/ts-utils": "workspace:*",
         "@testcontainers/postgresql": "11.14.0",
         "@types/pg": "8.20.0",
@@ -1523,6 +1528,8 @@
     "@ryot/frontend": ["@ryot/frontend@workspace:apps/frontend"],
 
     "@ryot/graphql": ["@ryot/graphql@workspace:libs/graphql"],
+
+    "@ryot/query-engine": ["@ryot/query-engine@workspace:libs/query-engine"],
 
     "@ryot/tests": ["@ryot/tests@workspace:tests"],
 

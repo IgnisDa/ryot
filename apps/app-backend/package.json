@@ -28,6 +28,7 @@
 		"@effect/sql-pg": "0.52.1",
 		"@effect/workflow": "0.18.2",
 		"@ryot/contract": "workspace:*",
+		"@ryot/query-engine": "workspace:*",
 		"@ryot/ts-utils": "workspace:*",
 		"better-auth": "1.6.15",
 		"drizzle-orm": "0.45.2",
