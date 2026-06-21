@@ -1,7 +1,7 @@
 export type SavedViewCountState =
 	| { readonly status: "idle" }
-	| { readonly status: "failed" }
 	| { readonly status: "counting" }
+	| { readonly status: "failed"; readonly cause: unknown }
 	| { readonly status: "resolved"; readonly total: number };
 
 export const savedViewTotalCount = (loaded: number, total: number) =>
