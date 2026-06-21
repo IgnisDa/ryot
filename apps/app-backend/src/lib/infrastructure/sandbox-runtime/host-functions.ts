@@ -3,6 +3,7 @@ import { CreateEventItem } from "@ryot/contract/modules/events/schemas";
 import { isIntegrationProvider } from "@ryot/contract/modules/integrations/types";
 import { QueryDocument } from "@ryot/contract/modules/query-engine/language";
 import { EntityId, EntitySchemaId, IntegrationId, UserId } from "@ryot/contract/schema/brands";
+import { stableStringify } from "@ryot/ts-utils/json";
 import { isObjectRecord } from "@ryot/ts-utils/predicates";
 import { eq } from "drizzle-orm";
 import { Effect, Runtime, Schema } from "effect";
@@ -52,23 +53,6 @@ const ListEventsQuery = Schema.Struct({
 const decodeListEventsQuery = Schema.decodeUnknown(ListEventsQuery);
 const decodeCreateEventsPayload = Schema.decodeUnknown(CreateEventsPayload);
 const decodeQueryDocument = Schema.decodeUnknown(QueryDocument);
-
-const stableStringify = (value: unknown): string => {
-	if (value === undefined) {
-		return "null";
-	}
-	if (Array.isArray(value)) {
-		return `[${value.map(stableStringify).join(",")}]`;
-	}
-	if (value && typeof value === "object") {
-		return `{${Object.keys(value)
-			.sort()
-			.map((key) => `${JSON.stringify(key)}:${stableStringify(Reflect.get(value, key))}`)
-			.join(",")}}`;
-	}
-
-	return JSON.stringify(value);
-};
 
 const hashPayload = (payload: unknown) =>
 	new Bun.CryptoHasher("sha256").update(stableStringify(payload)).digest("base64url");
