@@ -325,6 +325,26 @@ it.effect("rejects invalid trusted UI SDK JSX props", () =>
 	}),
 );
 
+it.effect("type-checks and bundles the trusted UI table subpath", () =>
+	Effect.gen(function* () {
+		const { artifact } = yield* compileFixture({
+			"client/index.tsx": bytes(`
+import { DataTable, type DataTableColumn } from "@ryot-app/client-ui-sdk/table";
+
+type Item = { readonly id: string; readonly label: string };
+const columns: ReadonlyArray<DataTableColumn<Item>> = [
+	{ id: "label", header: "Label", cell: (item) => item.label },
+];
+export const View = () => (
+	<DataTable data={[{ id: "one", label: "One" }]} columns={columns} getRowId={(item) => item.id} />
+);
+`),
+		});
+
+		expect(artifact.files.some(({ name }) => name === "plugin.js")).toBe(true);
+	}),
+);
+
 it.effect(
 	"type-checks valid TSX with React, SDK, UI, CSS, and asset imports",
 	() =>
@@ -490,12 +510,14 @@ it("trusts only the published client SDK entry points and clsx", () => {
 		"@ryot-app/client-sdk/react",
 		"@ryot-app/client-sdk/ryotql",
 		"@ryot-app/client-ui-sdk",
+		"@ryot-app/client-ui-sdk/table",
 	]) {
 		expect(isTrustedClientModule(specifier)).toBe(true);
 	}
 	expect(isTrustedClientModule("clsx/lite")).toBe(false);
 	expect(isTrustedClientModule("@ryot-app/client-sdk/unknown")).toBe(false);
 	expect(isTrustedClientModule("@ryot-app/client-ui-sdk/unknown")).toBe(false);
+	expect(isTrustedClientModule("@tanstack/react-table")).toBe(false);
 });
 
 it.effect(
