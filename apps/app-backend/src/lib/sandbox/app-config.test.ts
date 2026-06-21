@@ -1,63 +1,18 @@
 import { Effect, Option, Redacted } from "effect";
 import { describe, expect, it } from "vitest";
 
+import { AppConfig } from "#lib/config/service";
+import { makeAppConfigLayer } from "#lib/test-support/effect";
+
 import { getSandboxAppConfigValue } from "./app-config";
 
-const makeConfig = (overrides: Record<string, unknown> = {}) => ({
-	port: 3000,
-	tmpDir: "/tmp",
-	nodeEnv: "test",
-	timezone: "Etc/GMT",
-	builtinExercisePreloadLimit: 873,
-	frontendUrl: "http://localhost:3000",
-	frontend: { oidcButtonLabel: Option.none() },
-	redisUrl: Redacted.make("redis://localhost"),
-	databaseUrl: Redacted.make("postgres://localhost"),
-	users: { allowRegistration: true, disableLocalAuth: false },
-	scheduler: { frequentCronJobsSchedule: "every 5 minutes", progressUpdateThresholdHours: 2 },
-	sandbox: {
-		timeoutMs: 5000,
-		denoDir: "/tmp/deno",
-		workerConcurrency: 5,
-		jobIdSecret: Redacted.make("test-secret"),
-	},
-	server: {
-		corsOrigins: Option.none<string>(),
-		adminAccessToken: Redacted.make("admin-token"),
-		oidc: {
-			clientId: Option.none<string>(),
-			issuerUrl: Option.none<string>(),
-			clientSecret: Option.none<Redacted.Redacted>(),
-		},
-	},
-	fileStorage: {
-		url: Option.none(),
-		region: Option.none(),
-		bucketName: Option.none(),
-		accessKeyId: Option.none(),
-		secretAccessKey: Option.none(),
-	},
-	providers: {
-		tvdbApiKey: Option.none(),
-		malClientId: Option.none(),
-		traktClientId: Option.none(),
-		metronUsername: Option.none(),
-		twitchClientId: Option.none(),
-		tmdbAccessToken: Option.none(),
-		metronPassword: Option.none(),
-		hardcoverApiKey: Option.none(),
-		spotifyClientId: Option.none(),
-		giantBombApiKey: Option.none(),
-		googleBooksApiKey: Option.none(),
-		listennotesApiKey: Option.none(),
-		twitchClientSecret: Option.none(),
-		spotifyClientSecret: Option.none(),
-	},
-	...overrides,
-});
-
-const run = (key: string, isBuiltin: boolean, config = makeConfig()) =>
-	Effect.runSync(Effect.either(getSandboxAppConfigValue(config, key, isBuiltin)));
+const run = (key: string, isBuiltin: boolean, layer = makeAppConfigLayer()) =>
+	Effect.runSync(
+		Effect.gen(function* () {
+			const config = yield* AppConfig;
+			return yield* getSandboxAppConfigValue(config, key, isBuiltin);
+		}).pipe(Effect.either, Effect.provide(layer)),
+	);
 
 describe("getSandboxAppConfigValue", () => {
 	it("returns the value for a non-sensitive top-level key", () => {
@@ -72,7 +27,7 @@ describe("getSandboxAppConfigValue", () => {
 		const result = run("sandbox.denoDir", false);
 		expect(result._tag).toBe("Right");
 		if (result._tag === "Right") {
-			expect(result.right).toBe("/tmp/deno");
+			expect(result.right).toBe("/tmp");
 		}
 	});
 
@@ -119,13 +74,14 @@ describe("getSandboxAppConfigValue", () => {
 	});
 
 	it("returns the inner value when an optional key is configured (Option.some)", () => {
-		const config = makeConfig({
+		const layer = makeAppConfigLayer({
 			server: {
-				...makeConfig().server,
+				adminAccessToken: Redacted.make("unused"),
 				corsOrigins: Option.some("http://localhost:3000"),
+				oidc: { clientId: Option.none(), issuerUrl: Option.none(), clientSecret: Option.none() },
 			},
 		});
-		const result = run("server.corsOrigins", false, config);
+		const result = run("server.corsOrigins", false, layer);
 		expect(result._tag).toBe("Right");
 		if (result._tag === "Right") {
 			expect(result.right).toBe("http://localhost:3000");
