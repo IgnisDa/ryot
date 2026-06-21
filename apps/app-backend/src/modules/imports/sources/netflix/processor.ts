@@ -1,7 +1,6 @@
 import { FileSystem } from "@effect/platform";
 import type { ImportRunId, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
-import { Effect } from "effect";
-import { match } from "ts-pattern";
+import { Effect, Match } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
 import {
@@ -122,11 +121,12 @@ const adaptNetflixExportsWithSearchResults = (input: {
 		const showKey = createNetflixSearchJobKey({ query, scriptSlug: "show.tmdb" });
 		const movieResults = input.searchResults.get(movieKey) ?? [];
 		const showResults = input.searchResults.get(showKey) ?? [];
-		const requiredSearchJobKeys = match(preferredEntitySchemaSlug)
-			.with("movie", () => [movieKey])
-			.with("show", () => [showKey])
-			.with(undefined, () => [movieKey, showKey])
-			.exhaustive();
+		const requiredSearchJobKeys = Match.value(preferredEntitySchemaSlug).pipe(
+			Match.when("movie", () => [movieKey]),
+			Match.when("show", () => [showKey]),
+			Match.when(Match.undefined, () => [movieKey, showKey]),
+			Match.exhaustive,
+		);
 		const lookupError = requiredSearchJobKeys
 			.map((searchJobKey) => input.searchErrors.get(searchJobKey))
 			.find((error): error is string => Boolean(error));
@@ -134,11 +134,12 @@ const adaptNetflixExportsWithSearchResults = (input: {
 			return Effect.fail(lookupError);
 		}
 
-		const results = match(preferredEntitySchemaSlug)
-			.with("movie", () => movieResults)
-			.with("show", () => showResults)
-			.with(undefined, () => [...movieResults, ...showResults])
-			.exhaustive();
+		const results = Match.value(preferredEntitySchemaSlug).pipe(
+			Match.when("movie", () => movieResults),
+			Match.when("show", () => showResults),
+			Match.when(Match.undefined, () => [...movieResults, ...showResults]),
+			Match.exhaustive,
+		);
 		const bestMatch = chooseBestMetadataLookupTitleMatch({
 			title,
 			results,
