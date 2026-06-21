@@ -6,18 +6,19 @@ Expo client for Ryot. Backend-backed features follow one dependency direction:
 route or screen
   -> feature state or hook
   -> scoped query atom
-  -> shared API client
+  -> appClient(ApiScope)
   -> @ryot/contract
 ```
 
 ## Backend Integration
 
-`src/api` owns transport policy and contract-client construction:
+`appClient(scope)` is the app-client boundary for both reactive queries and imperative contract access. Authenticated feature operations receive `ApiScope`, not a raw server URL. Origin normalization, transport, and contract-client construction remain in `src/api`.
 
 - Public clients call unauthenticated endpoints such as health and system configuration without hidden retries.
 - Authenticated clients attach the current cookie, use browser credentials, and apply bounded retries to queries only.
 - Admin clients add the admin token without storing it in process-wide state.
 - Entity-interest streaming uses Expo Fetch through the same authenticated request policy.
+- Query retries and focus/reconnect revalidation are centralized in the shared query boundary.
 
 Feature modules own their request documents, atoms, decoders, and typed application states. Presentation code consumes states such as `loading`, `ready`, `not-found`, or `malformed`; it does not inspect generic contract rows or Effect causes.
 
@@ -57,10 +58,11 @@ The provider owns the authenticated stream lifecycle. The coordinator unions mou
 ## Adding A Backend Feature
 
 1. Build the application-owned query document with `@ryot/ryotql` or a named `@ryot/ryotql-recipes` recipe.
-2. Add a feature-owned atom keyed by `ApiScope` and all request inputs.
-3. Decode the response beside the recipe or feature atom into a discriminated application state.
-4. Expose a feature hook or component that supplies state and actions to the route.
-5. Test cache partitioning and application-state branches; use backend integration tests for protocol behavior.
+2. Pass `ApiScope` to the feature operation and use `appClient(scope)` for reactive queries or imperative contract access.
+3. Add a feature-owned atom keyed by `ApiScope` and all request inputs.
+4. Decode the response beside the recipe or feature atom into a discriminated application state.
+5. Expose a feature hook or component that supplies state and actions to the route.
+6. Test cache partitioning and application-state branches; use backend integration tests for protocol behavior.
 
 Use these commands for local validation:
 

@@ -12,8 +12,8 @@ import {
 	useMemo,
 } from "react";
 
+import { appClient } from "@/api/client";
 import { useApiScope } from "@/api/scope";
-import { authenticatedExpoContractClient } from "@/api/transport";
 
 import { EntityInterestCoordinator } from "./coordinator";
 import { InterestSseParser } from "./sse";
@@ -57,7 +57,7 @@ export function EntityInterestProvider(props: { children: ReactNode }) {
 		const runtime = ManagedRuntime.make(
 			EntityInterestCoordinator.layer({
 				declareInterest: (streamId, entityIds) =>
-					authenticatedExpoContractClient(scope.serverUrl).pipe(
+					appClient(scope).request.pipe(
 						Effect.flatMap((client) =>
 							client["entity-interest"].declareInterest({
 								payload: { streamId, entityIds: [...entityIds] },
@@ -80,7 +80,7 @@ export function EntityInterestProvider(props: { children: ReactNode }) {
 			const streamId = randomUUID();
 			const parser = new InterestSseParser();
 			yield* Effect.gen(function* () {
-				const response = yield* authenticatedExpoContractClient(scope.serverUrl).pipe(
+				const response = yield* appClient(scope).request.pipe(
 					Effect.flatMap((client) =>
 						client["entity-interest"].stream({
 							query: { streamId },
@@ -118,7 +118,7 @@ export function EntityInterestProvider(props: { children: ReactNode }) {
 			bridge.detach(runtime);
 			void runtime.dispose();
 		};
-	}, [bridge, scope.serverUrl, scope.userId]);
+	}, [bridge, scope]);
 
 	return <InterestContext.Provider value={bridge}>{props.children}</InterestContext.Provider>;
 }

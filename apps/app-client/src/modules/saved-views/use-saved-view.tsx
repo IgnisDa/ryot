@@ -1,66 +1,40 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
 import type { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
 import type { SavedViewRecord } from "@ryot/ryotql-recipes/saved-view-records";
-import { Cause, Effect, ManagedRuntime } from "effect";
-import { AsyncResult, Atom } from "effect/unstable/reactivity";
-import * as Network from "expo-network";
+import { Effect } from "effect";
+import { AsyncResult } from "effect/unstable/reactivity";
 import { useEffect, useEffectEvent, useLayoutEffect, useReducer, useRef } from "react";
-import { AppState } from "react-native";
 
-import { executeRyotQL } from "@/api/queries";
-import { type ApiScope, keyedRequestFamily, scopedRequestKey } from "@/api/request-key";
+import { appClient, appRevalidationSignal, retryQueryResponse } from "@/api/client";
+import { scopedRequestKey } from "@/api/request-key";
 import { useApiScope } from "@/api/scope";
+import { useInternalRequestFailureLogging } from "@/api/use-internal-request-failure-logging";
 import { useEntityUpdates } from "@/modules/entity-interest/use-entity-updates";
 
-import { withSavedViewCursor } from "./atom-requests";
 import { managedAssetResolutionAtom, savedViewRecordAtom } from "./atoms";
 import {
+	canRefreshSavedView,
 	createSavedViewControllerState,
-	executeSavedViewRequest,
 	fetchSavedViewPages,
 	isSavedViewLoadingMore,
-	isSavedViewOperationCurrent,
 	isSavedViewRequestActiveFor,
 	savedViewControllerReducer,
 	savedViewControllerResult,
 	type SavedViewOperationToken,
 	type SavedViewRequestFailure,
+	withSavedViewCursor,
 } from "./controller";
 import type { collectManagedAssets } from "./display-data";
-import { buildSavedViewHydrationDocument } from "./hydration";
-import { createSavedViewRefreshEvents } from "./refresh-events";
-import { useSavedViewLayout, type SavedViewLayout } from "./saved-view-layout-selector";
+import { useSavedViewLayout } from "./saved-view-layout-selector";
 import {
-	mapManagedAssetResolution,
-	mapSavedViewRecord,
 	mapSavedViewResult,
 	type SavedViewManagedAssetsState,
 	type SavedViewNormalizedState,
 	type SavedViewReadyState,
 } from "./state";
-import { SavedViewStructuralRefresh, type SavedViewStructuralRequest } from "./structural-refresh";
+import type { SavedViewLayout } from "./storage";
 
-type ManagedAssetsRequest = ApiScope & {
-	readonly assets: ReturnType<typeof collectManagedAssets>;
-};
-
-type StructuralRuntime = {
-	readonly identity: string;
-	readonly runtime: ManagedRuntime.ManagedRuntime<SavedViewStructuralRefresh, never>;
-};
-
-const savedViewRecordStateAtom = keyedRequestFamily(
-	(request: ApiScope & { readonly slug: string }) => scopedRequestKey(request, request.slug),
-	(request) => savedViewRecordAtom(request).pipe(Atom.map(mapSavedViewRecord)),
-);
-
-const savedViewManagedAssetsStateAtom = keyedRequestFamily(
-	(request: ManagedAssetsRequest) => scopedRequestKey(request, request.assets),
-	(request) =>
-		managedAssetResolutionAtom(request).pipe(
-			Atom.map((result) => mapManagedAssetResolution(result, request.serverUrl)),
-		),
-);
+const REFRESH_RETRY_MS = 30_000;
 
 const decodeSavedViewResponse = (
 	response: unknown,
@@ -78,14 +52,18 @@ const decodeSavedViewResponse = (
 
 export const useSavedViewRecord = (slug: string) => {
 	const scope = useApiScope();
-	const atom = savedViewRecordStateAtom({ ...scope, slug });
+	const atom = savedViewRecordAtom({ scope, slug });
 	const state = useAtomValue(atom);
-	useSavedViewFailureLogging("saved-view record", state);
+	useInternalRequestFailureLogging(
+		`saved-view record ${state.status}`,
+		"cause" in state ? state.cause : undefined,
+	);
 	return { state, refresh: useAtomRefresh(atom) };
 };
 
 export const useSavedViewResult = (record: SavedViewRecord) => {
 	const scope = useApiScope();
+	const revalidationVersion = useAtomValue(appRevalidationSignal);
 	const [layout] = useSavedViewLayout(record.slug);
 	const identity = scopedRequestKey(scope, record.id, record.updatedAt);
 	const [controller, dispatch] = useReducer(savedViewControllerReducer, undefined, () =>
@@ -94,19 +72,40 @@ export const useSavedViewResult = (record: SavedViewRecord) => {
 	const controllerRef = useRef(controller);
 	const operationSequence = useRef(controller.generation);
 	const activeRequest = useRef<SavedViewOperationToken | undefined>(undefined);
-	const structuralRuntimeRef = useRef<StructuralRuntime>(undefined);
+	const retryTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+	const previousRevalidation = useRef(revalidationVersion);
 	controllerRef.current = controller;
 
+	const clearRetryTimer = () => {
+		if (retryTimer.current !== undefined) {
+			clearTimeout(retryTimer.current);
+			retryTimer.current = undefined;
+		}
+	};
+
 	useLayoutEffect(() => {
+		clearRetryTimer();
 		dispatch({ type: "identity-changed", identity, layout });
 	}, [identity, layout]);
 	useLayoutEffect(() => {
+		clearRetryTimer();
 		dispatch({ type: "layout-changed", layout });
 	}, [layout]);
+	useEffect(() => {
+		clearRetryTimer();
+		if (!controller.retryRefresh) {
+			return undefined;
+		}
+		retryTimer.current = setTimeout(
+			() => dispatch({ type: "refresh-retry-elapsed" }),
+			REFRESH_RETRY_MS,
+		);
+		return clearRetryTimer;
+	}, [controller.retryRefresh, identity, layout]);
 
 	const executePages = async (input: {
 		readonly layout: SavedViewLayout;
-		readonly phase: "initial" | "load-more" | "structural";
+		readonly phase: "initial" | "load-more" | "refresh";
 		readonly pagesToLoad: number;
 		readonly queryDocument: RyotQLDocument;
 		readonly initialData?: SavedViewNormalizedState;
@@ -117,8 +116,9 @@ export const useSavedViewResult = (record: SavedViewRecord) => {
 			current.activeLayout !== input.layout ||
 			isSavedViewRequestActiveFor(activeRequest.current, identity, input.layout)
 		) {
-			return false;
+			return;
 		}
+		clearRetryTimer();
 		operationSequence.current = Math.max(operationSequence.current, current.generation) + 1;
 		const token = {
 			identity,
@@ -131,7 +131,11 @@ export const useSavedViewResult = (record: SavedViewRecord) => {
 			fetchSavedViewPages({
 				...input,
 				decode: (response) => decodeSavedViewResponse(response, record, input.layout),
-				execute: (queryDocument) => executeRyotQL(scope.serverUrl, queryDocument),
+				execute: (queryDocument) =>
+					appClient(scope).request.pipe(
+						Effect.flatMap((client) => client.ryotql.execute({ payload: queryDocument })),
+						retryQueryResponse,
+					),
 			}).pipe(
 				Effect.match({
 					onFailure: (failure) => ({ failure }) as const,
@@ -144,10 +148,9 @@ export const useSavedViewResult = (record: SavedViewRecord) => {
 		}
 		if ("failure" in result) {
 			dispatch({ type: "request-failed", token, failure: result.failure });
-			return false;
+			return;
 		}
 		dispatch({ type: "request-succeeded", token, data: result.data });
-		return true;
 	};
 
 	const effectiveController =
@@ -178,167 +181,52 @@ export const useSavedViewResult = (record: SavedViewRecord) => {
 	});
 	useEffect(() => {
 		loadInitial();
-	}, [identity, layout, record]);
+	}, [controller.activeLayout, controller.identity, identity, layout, record]);
 
-	useEffect(() => {
-		const managedRuntime = ManagedRuntime.make(SavedViewStructuralRefresh.layer);
-		const structuralRuntime = { identity, runtime: managedRuntime };
-		structuralRuntimeRef.current = structuralRuntime;
-		return () => {
-			if (structuralRuntimeRef.current === structuralRuntime) {
-				structuralRuntimeRef.current = undefined;
-			}
-			void managedRuntime.dispose();
-		};
-	}, [identity]);
-
-	const runStructural = (effect: Effect.Effect<void, never, SavedViewStructuralRefresh>) => {
-		const structuralRuntime = structuralRuntimeRef.current;
-		if (structuralRuntime?.identity === identity) {
-			structuralRuntime.runtime.runFork(effect);
+	const startPendingRefresh = useEffectEvent(() => {
+		const current = controllerRef.current;
+		if (!canRefreshSavedView(current)) {
+			return;
 		}
-	};
-
-	const makeStructuralRequest = (targetLayout: SavedViewLayout): SavedViewStructuralRequest => {
-		const structuralToken = { identity, layout: targetLayout };
-		return {
-			key: `${identity}:${targetLayout}`,
-			canStart: () => {
-				const current = controllerRef.current;
-				const target = current.layouts[targetLayout];
-				return (
-					current.identity === identity &&
-					current.activeLayout === targetLayout &&
-					!!target &&
-					target.data.pages.length > 0 &&
-					!target.operation &&
-					!isSavedViewRequestActiveFor(activeRequest.current, identity, targetLayout)
-				);
-			},
-			onEnd: Effect.sync(() => dispatch({ type: "manual-ended", token: structuralToken })),
-			onStart: (manual) =>
-				Effect.sync(() => {
-					if (manual) {
-						dispatch({ type: "manual-started", token: structuralToken });
-					}
-				}),
-			run: Effect.promise(() => {
-				const current = controllerRef.current;
-				const target = current.layouts[targetLayout];
-				if (current.identity !== identity || current.activeLayout !== targetLayout || !target) {
-					return Promise.resolve(true);
-				}
-				return executePages({
-					layout: targetLayout,
-					phase: "structural",
-					pagesToLoad: target.data.pages.length,
-					queryDocument: record.layouts[targetLayout].queryDocument,
-				});
-			}),
-		};
-	};
-
-	const triggerStructural = (manual: boolean) => {
-		const targetLayout = controllerRef.current.activeLayout;
-		runStructural(
-			Effect.flatMap(SavedViewStructuralRefresh, (service) =>
-				service.refresh(makeStructuralRequest(targetLayout), manual),
-			),
-		);
-	};
-
-	const markStructuralDirty = (targetLayout: SavedViewLayout) => {
-		runStructural(
-			Effect.flatMap(SavedViewStructuralRefresh, (service) =>
-				service.markDirty(makeStructuralRequest(targetLayout)),
-			),
-		);
-	};
-
-	const activateStructural = useEffectEvent(() => {
-		const targetLayout = controllerRef.current.activeLayout;
-		runStructural(
-			Effect.flatMap(SavedViewStructuralRefresh, (service) =>
-				service.activate(makeStructuralRequest(targetLayout)),
-			),
-		);
+		const targetLayout = current.activeLayout;
+		const target = current.layouts[targetLayout];
+		if (!target) {
+			return;
+		}
+		void executePages({
+			layout: targetLayout,
+			phase: "refresh",
+			pagesToLoad: target.data.pages.length,
+			queryDocument: record.layouts[targetLayout].queryDocument,
+		});
 	});
+	useEffect(() => {
+		startPendingRefresh();
+	}, [controller.pendingRefresh, runtime?.operation]);
 
-	useSavedViewFailureLogging("saved-view result", runtime?.failure);
+	useInternalRequestFailureLogging(
+		`saved-view result ${runtime?.failure?.status}`,
+		runtime?.failure?.cause,
+	);
 	useEntityUpdates({
-		blocked: !!runtime?.operation || !!runtime?.manual,
+		blocked: !!runtime?.operation,
 		entityIds: state.status === "ready" ? state.entityIds : [],
 		owner: `saved-view:${identity}`,
-		onDrain: () => triggerStructural(false),
-		onBatch: (updates) =>
-			Effect.gen(function* () {
-				const current = controllerRef.current;
-				const targetLayout = current.activeLayout;
-				const target = current.layouts[targetLayout];
-				if (!target || target.data.pages.length === 0) {
-					return;
-				}
-				const loaded = new Set(target.data.pages.flatMap((page) => page.entityIds));
-				const entityIds = [...new Set(updates.map((update) => update.entityId))].filter(
-					(entityId) => loaded.has(entityId),
-				);
-				if (entityIds.length === 0) {
-					return;
-				}
-				const token = {
-					identity: current.identity,
-					layout: targetLayout,
-					generation: current.generation,
-				};
-				markStructuralDirty(targetLayout);
-				const queryDocument = buildSavedViewHydrationDocument({
-					entityIds,
-					queryDocument: record.layouts[targetLayout].queryDocument,
-					entityIdField: record.layouts[targetLayout].entityIdField,
-				});
-				const decoded = yield* executeSavedViewRequest({
-					queryDocument,
-					decode: (response) => decodeSavedViewResponse(response, record, targetLayout),
-					execute: (document) => executeRyotQL(scope.serverUrl, document),
-				});
-				const latest = controllerRef.current;
-				if (!isSavedViewOperationCurrent(token, latest)) {
-					if (latest.identity === token.identity && latest.activeLayout === token.layout) {
-						markStructuralDirty(targetLayout);
-					}
-					return;
-				}
-				dispatch({
-					token,
-					entityIds,
-					type: "hydration-succeeded",
-					items: decoded.data.items,
-				});
-			}),
+		onBatch: () => Effect.sync(() => dispatch({ type: "refresh-requested" })),
 	});
 
 	useEffect(() => {
-		if (!runtime?.operation) {
-			activateStructural();
+		if (previousRevalidation.current !== revalidationVersion) {
+			previousRevalidation.current = revalidationVersion;
+			dispatch({ type: "refresh-requested" });
 		}
-	}, [identity, layout, runtime?.operation]);
-
-	const triggerStructuralFromEffect = useEffectEvent(() => triggerStructural(false));
-	useEffect(() => {
-		const events = createSavedViewRefreshEvents(triggerStructuralFromEffect);
-		const appStateSubscription = AppState.addEventListener("change", events.onAppStateChange);
-		const networkSubscription = Network.addNetworkStateListener(events.onNetworkStateChange);
-		return () => {
-			appStateSubscription.remove();
-			networkSubscription.remove();
-		};
-	}, [identity]);
+	}, [revalidationVersion]);
 
 	const refresh = () => {
 		const current = controllerRef.current;
 		const active = current.layouts[current.activeLayout];
 		if (active?.data.pages.length || active?.operation) {
-			triggerStructural(true);
+			dispatch({ type: "refresh-requested" });
 			return;
 		}
 		void executePages({
@@ -374,21 +262,6 @@ export const useSavedViewResult = (record: SavedViewRecord) => {
 	return { state, refresh, loadMore, isLoadingMore };
 };
 
-function useSavedViewFailureLogging(
-	label: string,
-	state: { readonly status?: string; readonly cause?: unknown } | undefined,
-) {
-	const status = state?.status;
-	const cause = state?.cause;
-	useEffect(() => {
-		if ((status !== "transport-error" && status !== "malformed") || cause === undefined) {
-			return;
-		}
-		const detail = Cause.isCause(cause) ? Cause.pretty(cause) : cause;
-		Effect.runSync(Effect.logWarning(`${label} ${status}`, detail));
-	}, [cause, label, status]);
-}
-
 export function SavedViewRuntime(props: {
 	readonly assets: ReturnType<typeof collectManagedAssets>;
 	readonly children: (assets: SavedViewManagedAssetsState) => React.ReactNode;
@@ -405,7 +278,10 @@ function SavedViewManagedAssets(props: {
 	readonly children: (assets: SavedViewManagedAssetsState) => React.ReactNode;
 }) {
 	const scope = useApiScope();
-	const state = useAtomValue(savedViewManagedAssetsStateAtom({ ...scope, assets: props.assets }));
-	useSavedViewFailureLogging("saved-view managed asset resolution", state);
+	const state = useAtomValue(managedAssetResolutionAtom({ scope, assets: props.assets }));
+	useInternalRequestFailureLogging(
+		`saved-view managed asset resolution ${state.status}`,
+		state.status === "unavailable" ? state.cause : undefined,
+	);
 	return <>{props.children(state)}</>;
 }

@@ -4,7 +4,7 @@ import clsx from "clsx";
 import { Platform, Pressable, Text, View } from "react-native";
 
 import { AppIcon } from "@/modules/icons";
-import { useProviderAddFlow } from "@/modules/provider-add/add-flow-host";
+import { ProviderAddHost, useProviderAddFlow } from "@/modules/provider-add/add-flow-host";
 
 import { savedViewResultCount } from "./result-count";
 import { SavedViewFrame } from "./saved-view-frame";
@@ -18,8 +18,11 @@ import { SavedViewRuntime } from "./use-saved-view";
 
 const DESKTOP_HEADER_ONLY = Platform.OS === "web" ? "hidden md:flex" : "hidden";
 
-function EmptyState(props: { name: string; entitySchemaSlug: EntitySchemaSlug | null }) {
-	const providerAdd = useProviderAddFlow();
+function EmptyState(props: {
+	name: string;
+	onAdd?: () => void;
+	entitySchemaSlug: EntitySchemaSlug | null;
+}) {
 	return (
 		<View className="min-h-96 items-center justify-center gap-3 px-6">
 			<AppIcon className="text-text-subtle" name="library" size={40} />
@@ -29,16 +32,16 @@ function EmptyState(props: { name: string; entitySchemaSlug: EntitySchemaSlug | 
 					? "No items have been added to this view yet."
 					: "Search online to add your first item."}
 			</Text>
-			{props.entitySchemaSlug === null ? null : (
+			{props.onAdd ? (
 				<Pressable
-					onPress={providerAdd.open}
+					onPress={props.onAdd}
 					accessibilityRole="button"
 					className="flex-row items-center gap-2 rounded-pill bg-accent px-4 py-2.5"
 				>
 					<AppIcon className="text-accent-ink" name="search" size={16} />
 					<Text className="font-ui-semibold text-accent-ink">Search online</Text>
 				</Pressable>
-			)}
+			) : null}
 		</View>
 	);
 }
@@ -57,9 +60,9 @@ function SavedViewWebActions(props: {
 	readonly isEmpty: boolean;
 	readonly viewName: string;
 	readonly viewSlug: string;
+	readonly onAdd?: () => void;
 	readonly entitySchemaSlug: EntitySchemaSlug | null;
 }) {
-	const providerAdd = useProviderAddFlow();
 	const [layout, setLayout] = useSavedViewLayout(props.viewSlug);
 	return (
 		<View className="hidden flex-row items-center gap-2.5 md:flex">
@@ -98,9 +101,9 @@ function SavedViewWebActions(props: {
 					<Text className="font-ui text-[11px] text-accent-text">3</Text>
 				</View>
 			</Pressable>
-			{props.entitySchemaSlug === null ? null : (
+			{props.onAdd ? (
 				<Pressable
-					onPress={providerAdd.open}
+					onPress={props.onAdd}
 					accessibilityRole="button"
 					accessibilityLabel="Add to this view"
 					className="h-8.5 flex-row items-center gap-2 rounded-md bg-accent px-3.5"
@@ -108,7 +111,7 @@ function SavedViewWebActions(props: {
 					<AppIcon className="text-accent-ink" name="plus" size={15} />
 					<Text className="font-ui-semibold text-[13px] text-accent-ink">Add</Text>
 				</Pressable>
-			)}
+			) : null}
 		</View>
 	);
 }
@@ -119,6 +122,7 @@ function SavedViewDisplay(
 		readonly loadMore: () => void;
 		readonly isLoadingMore: boolean;
 		readonly record: SavedViewRecord;
+		readonly onAdd?: () => void;
 		readonly managedUrls: ReadonlyMap<string, string>;
 	},
 ) {
@@ -126,8 +130,7 @@ function SavedViewDisplay(
 	return (
 		<SavedViewFrame
 			viewSlug={props.record.slug}
-			entitySchemaSlug={props.record.entitySchemaSlug}
-			onImported={props.refresh}
+			onAdd={props.onAdd}
 			title={{
 				loaded: items.length,
 				icon: props.record.icon,
@@ -160,12 +163,17 @@ function SavedViewDisplay(
 						isEmpty={items.length === 0}
 						viewName={props.record.name}
 						viewSlug={props.record.slug}
+						onAdd={props.onAdd}
 						entitySchemaSlug={props.record.entitySchemaSlug}
 					/>
 				</View>
 
 				{items.length === 0 ? (
-					<EmptyState name={props.record.name} entitySchemaSlug={props.record.entitySchemaSlug} />
+					<EmptyState
+						name={props.record.name}
+						onAdd={props.onAdd}
+						entitySchemaSlug={props.record.entitySchemaSlug}
+					/>
 				) : (
 					<>
 						<SavedViewItems {...props} />
@@ -190,9 +198,21 @@ export function SavedViewReadyContent(props: {
 	readonly record: SavedViewRecord;
 	readonly state: Extract<SavedViewResultState, { status: "ready" }>;
 }) {
+	const providerAdd = useProviderAddFlow();
+	const onAdd = props.record.entitySchemaSlug === null ? undefined : providerAdd.open;
 	return (
-		<SavedViewRuntime assets={props.state.assets}>
-			{(assets) => <SavedViewDisplay {...props} {...props.state} managedUrls={assets.urls} />}
-		</SavedViewRuntime>
+		<>
+			<SavedViewRuntime assets={props.state.assets}>
+				{(assets) => (
+					<SavedViewDisplay {...props} {...props.state} onAdd={onAdd} managedUrls={assets.urls} />
+				)}
+			</SavedViewRuntime>
+			{props.record.entitySchemaSlug === null ? null : (
+				<ProviderAddHost
+					onImported={props.refresh}
+					entitySchemaSlug={props.record.entitySchemaSlug}
+				/>
+			)}
+		</>
 	);
 }
