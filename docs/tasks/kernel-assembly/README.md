@@ -2,9 +2,9 @@
 
 ## Tasks
 
-**Overall Progress:** 4 of 6 tasks completed
+**Overall Progress:** 5 of 6 tasks completed
 
-**Current Task:** [Task 05](./05-embedded-kernel-scripts-and-checks.md) (pending)
+**Current Task:** [Task 06](./06-image-assembly-and-documentation.md) (pending)
 
 ### Task List
 
@@ -14,7 +14,7 @@
 | 02  | [Plugin Bundle Format And CLI](./02-plugin-bundle-format-and-cli.md)                           | done    |
 | 03  | [Filesystem Plugin Discovery](./03-filesystem-plugin-discovery.md)                             | done    |
 | 04  | [Legacy Migration Extraction](./04-legacy-migration-extraction.md)                             | done    |
-| 05  | [Embedded Kernel Scripts And Architecture Checks](./05-embedded-kernel-scripts-and-checks.md)  | pending |
+| 05  | [Embedded Kernel Scripts And Architecture Checks](./05-embedded-kernel-scripts-and-checks.md)  | done    |
 | 06  | [Image Assembly And Documentation](./06-image-assembly-and-documentation.md)                   | pending |
 
 ## Problem Statement

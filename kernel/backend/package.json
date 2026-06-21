@@ -8,10 +8,10 @@
 	},
 	"scripts": {
 		"db:generate": "bun --bun drizzle-kit generate",
-		"purity:check": "bun run scripts/check-kernel-purity.ts",
+		"architecture:check": "bun run scripts/check-architecture.ts",
 		"test": "bun run sandbox:compile-runner && bun --bun run vitest run",
 		"sandbox:compile-runner": "bun run scripts/compile-sandbox-runner.ts",
-		"check": "bun run purity:check && bun run sandbox:compile-runner && bun run sandbox:check-runner && tsc && oxfmt . --write && oxlint . --type-aware --fix",
+		"check": "bun run architecture:check && bun run sandbox:compile-runner && bun run sandbox:check-runner && tsc && oxfmt . --write && oxlint . --type-aware --fix",
 		"sandbox:check-runner": "deno check --config src/lib/infrastructure/sandbox-runtime/deno.json src/lib/infrastructure/sandbox-runtime/runner-source.sandbox.ts"
 	},
 	"dependencies": {
