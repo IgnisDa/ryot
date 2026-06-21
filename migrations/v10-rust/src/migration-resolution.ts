@@ -38,7 +38,7 @@ const requireSystemPlugin = (
 	slug: "fitness" | "media",
 ) => {
 	const matches = Object.values(plugins).filter(
-		(plugin) => plugin.slug === slug && plugin.scope === "system" && plugin.ownerId === null,
+		(plugin) => plugin.slug === slug && plugin.scope === "system",
 	);
 	if (matches.length !== 1) {
 		throw new Error(
