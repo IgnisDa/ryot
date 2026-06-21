@@ -6,7 +6,7 @@ RUN bun install --global turbo@2.9.16
 COPY . .
 RUN turbo prune @ryot/app-client @ryot/app-backend --docker
 
-FROM base AS builder
+FROM base AS builder-base
 COPY --from=prepare /app/out/json/ .
 # Force Bun's copyfile backend because the default Linux hardlink backend is flaky
 # under Docker BuildKit for some tarballs (for example, expo-modules-core).
@@ -15,12 +15,29 @@ COPY --from=prepare /app/out/json/ .
 RUN bun install --backend=copyfile --ignore-scripts
 COPY --from=prepare /app/out/full/ .
 COPY --from=prepare /app/tsconfig.options.json ./tsconfig.options.json
-RUN bun run --filter @ryot/app-client build
+
+FROM builder-base AS backend-builder
 RUN bun run --filter @ryot/app-backend build
-RUN mkdir -p sandbox-compiler-runtime/@ryot && \
-    cp -LR apps/app-backend/node_modules/@ryot/sandbox-sdk sandbox-compiler-runtime/@ryot/sandbox-sdk && \
-    cp -LR apps/app-backend/node_modules/typescript sandbox-compiler-runtime/typescript && \
-    cp -LR apps/app-backend/node_modules/typescript/../@typescript sandbox-compiler-runtime/@typescript
+RUN mkdir -p /sandbox-install/apps/app-backend /sandbox-install/apps/app-client \
+        /sandbox-install/libs/contract /sandbox-install/libs/query-engine \
+        /sandbox-install/libs/sandbox-sdk /sandbox-install/libs/ts-utils && \
+    cp package.json bun.lock /sandbox-install/ && \
+    cp apps/app-backend/package.json /sandbox-install/apps/app-backend/ && \
+    cp apps/app-client/package.json /sandbox-install/apps/app-client/ && \
+    cp libs/contract/package.json /sandbox-install/libs/contract/ && \
+    cp libs/query-engine/package.json /sandbox-install/libs/query-engine/ && \
+    cp libs/sandbox-sdk/package.json /sandbox-install/libs/sandbox-sdk/ && \
+    cp libs/ts-utils/package.json /sandbox-install/libs/ts-utils/ && \
+    cp -R libs/sandbox-sdk/src /sandbox-install/libs/sandbox-sdk/src && \
+    bun install --cwd /sandbox-install --filter @ryot/sandbox-sdk --production --frozen-lockfile --backend=copyfile --linker=hoisted --ignore-scripts && \
+    cp -a /sandbox-install/node_modules /sandbox-compiler-runtime && \
+    rm /sandbox-compiler-runtime/@ryot/sandbox-sdk && \
+    cp -R /sandbox-install/libs/sandbox-sdk /sandbox-compiler-runtime/@ryot/sandbox-sdk && \
+    cp -LR apps/app-backend/node_modules/typescript /sandbox-compiler-runtime/typescript && \
+    cp -LR apps/app-backend/node_modules/typescript/../@typescript /sandbox-compiler-runtime/@typescript
+
+FROM builder-base AS client-builder
+RUN bun run --filter @ryot/app-client build
 
 FROM oven/bun:1.3.14-debian AS runner
 RUN useradd -m -u 1001 ryot
@@ -33,12 +50,13 @@ RUN apt-get update && apt-get install -y curl unzip && \
 ENV SANDBOX_DENO_DIR=/home/ryot/tmp
 WORKDIR /home/ryot
 COPY --chown=ryot:ryot apps/app-backend/src/drizzle ./src/drizzle
-COPY --from=builder --chown=ryot:ryot /app/apps/app-backend/dist ./dist
-COPY --from=builder --chown=ryot:ryot /app/apps/app-client/dist ./client
-COPY --from=builder --chown=ryot:ryot /app/sandbox-compiler-runtime ./node_modules
+COPY --from=backend-builder --chown=ryot:ryot /app/apps/app-backend/dist ./dist
+COPY --from=client-builder --chown=ryot:ryot /app/apps/app-client/dist ./client
+COPY --from=backend-builder --chown=ryot:ryot /sandbox-compiler-runtime ./node_modules
 RUN bun -e 'const from = "/home/ryot/dist"; const sdk = Bun.resolveSync("@ryot/sandbox-sdk", from); const typescript = Bun.resolveSync("typescript/package.json", from); const typescriptDirectory = typescript.slice(0, typescript.lastIndexOf("/")); Bun.resolveSync("typescript/unstable/async", from); Bun.resolveSync(`@typescript/typescript-${process.platform}-${process.arch}/package.json`, typescriptDirectory); Bun.resolveSync("zod", sdk)'
-# Pre-populate the Deno package cache at build time so startup requires no network access.
-RUN POPULATE_SANDBOX_CACHE_ONLY=true bun run dist/main.js && \
+# Build the read-only sandbox dependency runtime so startup requires no registry access.
+RUN DATABASE_URL=postgresql://localhost/ryot REDIS_URL=redis://localhost:6379 \
+    POPULATE_SANDBOX_CACHE_ONLY=true bun run dist/main.js && \
     chown -R ryot:ryot /home/ryot/tmp
 USER ryot
 ENV NODE_ENV=production
