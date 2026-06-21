@@ -4,7 +4,8 @@ import {
 	cleanupBuiltinProviderScript,
 	countEntityTranslations,
 	createAuthenticatedClient,
-	detailsDriverCode,
+	fakeProviderDetailsResult,
+	fakeProviderTranslations,
 	findBuiltinSchemaBySlug,
 	getEntity,
 	getEntityTranslationRow,
@@ -14,7 +15,6 @@ import {
 	seedMediaEntity,
 	seedPopulatedProviderEntity,
 	setUserLanguage,
-	translateDriverCode,
 	waitForEntityPopulated,
 	type InterestStream,
 	type SeededProviderScript,
@@ -54,20 +54,22 @@ async function declareInterest(
 
 describe("entity translation via client-declared interest", () => {
 	beforeAll(async () => {
+		const { client } = await createAuthenticatedClient();
 		providerScript = await seedBuiltinProviderScript({
-			metadata: { providerInformation: { source: "e2e", canonicalLanguage: CANONICAL_LANGUAGE } },
-			code: [
-				detailsDriverCode({
+			client,
+			providerInformation: { source: "e2e", canonicalLanguage: CANONICAL_LANGUAGE },
+			drivers: {
+				details: fakeProviderDetailsResult({
 					name: POPULATED_NAME,
 					properties: { description: "Populated by the e2e fake provider." },
 				}),
-				translateDriverCode({
+				translations: fakeProviderTranslations({
 					es: {
 						name: TRANSLATED_ES_NAME,
 						properties: { description: TRANSLATED_ES_DESCRIPTION },
 					},
 				}),
-			].join("\n"),
+			},
 		});
 	});
 

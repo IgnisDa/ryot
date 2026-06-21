@@ -7,16 +7,19 @@ import {
 	countMediaMonitoringRelationships,
 	createAuthenticatedClient,
 	createNotificationChannel,
-	detailsDriverCode,
 	disableMediaMonitoring,
 	enableMediaMonitoring,
+	fakeProviderDetailsResult,
 	getBackendClient,
 	getMediaMonitoringStatus,
 	getBuiltinEntitySchemaId,
+	providerSandboxSource,
 	queryInLibraryRelationship,
+	replaceSandboxScriptCompiledRepresentation,
 	seedBuiltinProviderScript,
 	seedMediaEntity,
 	startFakeAppriseServer,
+	type Client,
 } from "../fixtures";
 import { pollUntil } from "../fixtures/polling";
 import { getPgClient } from "../setup";
@@ -24,12 +27,13 @@ import { assertTaggedError, requireObjectRecord } from "../test-support/assertio
 import type { FakeHttpServer } from "../test-support/fake-http-server";
 
 const ADMIN_TOKEN = "test-admin-token";
+const providerName = "Media Monitoring E2E Provider";
 const adminHeaders = { "Admin-Access-Token": ADMIN_TOKEN };
 const apiExternalId = `media-monitoring-api-${crypto.randomUUID()}`;
 const cronExternalId = `media-monitoring-cron-${crypto.randomUUID()}`;
 
-const detailsCode = (productionStatus: string) =>
-	detailsDriverCode({
+const providerDetails = (productionStatus: string) =>
+	fakeProviderDetailsResult({
 		name: "Media Monitoring Cron Target",
 		properties: { productionStatus, publishYear: 2026 },
 	});
@@ -55,14 +59,18 @@ let apiEntityId: string;
 let cronEntityId: string;
 let movieSchemaId: string;
 let fakeApprise: FakeHttpServer;
+let providerCompilerClient: Client;
 const extraEntityIds: string[] = [];
 let provider: Awaited<ReturnType<typeof seedBuiltinProviderScript>>;
 
 beforeAll(async () => {
+	const { client } = await createAuthenticatedClient();
+	providerCompilerClient = client;
 	movieSchemaId = await getBuiltinEntitySchemaId("movie");
 	provider = await seedBuiltinProviderScript({
-		name: "Media Monitoring E2E Provider",
-		code: detailsCode("Continuing"),
+		client,
+		name: providerName,
+		drivers: { details: providerDetails("Continuing") },
 		slug: `movie.media-monitoring-e2e-${crypto.randomUUID()}`,
 	});
 	const apiEntity = await seedMediaEntity({
@@ -251,11 +259,15 @@ describe("media monitoring infrequent refresh", () => {
 		await waitForMediaMonitoringRefresh(`${baseline.executionId}-${cronEntityId}`);
 		expect(fakeApprise.requests).toEqual([]);
 
-		await getPgClient().query(
-			`update sandbox_script
-			 set code = $1, source = $1, compiled_code = ''
-			 where id = $2`,
-			[detailsCode("Ended"), provider.scriptId],
+		await replaceSandboxScriptCompiledRepresentation(
+			providerCompilerClient,
+			provider.scriptId,
+			providerSandboxSource({
+				name: providerName,
+				slug: provider.slug,
+				providerInformation: { source: "e2e" },
+				drivers: { details: providerDetails("Ended") },
+			}),
 		);
 		const changed = await getBackendClient().run(
 			(contract) => contract.godMode.triggerInfrequentCron(),

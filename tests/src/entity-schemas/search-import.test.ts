@@ -5,9 +5,10 @@ import { EntitySchemaId, SandboxScriptId } from "@ryot/contract/schema/brands";
 import {
 	cleanupBuiltinProviderScript,
 	createAuthenticatedClient,
-	detailsDriverCode,
 	enqueueEntityImport,
 	enqueueEntitySearch,
+	fakeProviderDetailsResult,
+	fakeProviderSearchResult,
 	findBuiltinSchemaBySlug,
 	findBuiltinSchemaWithProviders,
 	getBackendClient,
@@ -15,7 +16,6 @@ import {
 	getRelationshipBySchemaSlug,
 	pollEntityImportResult,
 	pollEntitySearchResult,
-	searchDriverCode,
 	seedBuiltinProviderScript,
 	type SeededProviderScript,
 } from "../fixtures";
@@ -43,43 +43,48 @@ beforeAll(async () => {
 	const { schema: companySchema } = await findBuiltinSchemaBySlug(client, "company");
 
 	companyProvider = await seedBuiltinProviderScript({
+		client,
 		linkToEntitySchemaId: companySchema.id,
-		code: detailsDriverCode({ name: RELATED_COMPANY_NAME, properties: {} }),
+		drivers: { details: fakeProviderDetailsResult({ name: RELATED_COMPANY_NAME, properties: {} }) },
 	});
 
 	animeProvider = await seedBuiltinProviderScript({
-		code: detailsDriverCode({
-			name: ANIME_IMPORT_NAME,
-			properties: { description: "Imported anime from the e2e fake provider." },
-			relatedEntityGroups: [
-				{
-					direction: "incoming",
-					synchronization: "additive",
-					relationshipSchemaSlug: "company-to-anime",
-					entities: [
-						{
-							name: RELATED_COMPANY_NAME,
-							scriptSlug: companyProvider.slug,
-							externalId: RELATED_COMPANY_EXTERNAL_ID,
-							relationshipProperties: { roles: ["E2E Animation Studio"] },
-						},
-					],
-				},
-			],
-		}),
+		client,
+		drivers: {
+			details: fakeProviderDetailsResult({
+				name: ANIME_IMPORT_NAME,
+				properties: { description: "Imported anime from the e2e fake provider." },
+				relatedEntityGroups: [
+					{
+						direction: "incoming",
+						synchronization: "additive",
+						relationshipSchemaSlug: "company-to-anime",
+						entities: [
+							{
+								name: RELATED_COMPANY_NAME,
+								scriptSlug: companyProvider.slug,
+								externalId: RELATED_COMPANY_EXTERNAL_ID,
+								relationshipProperties: { roles: ["E2E Animation Studio"] },
+							},
+						],
+					},
+				],
+			}),
+		},
 	});
 
 	bookProvider = await seedBuiltinProviderScript({
-		code: [
-			searchDriverCode([
+		client,
+		drivers: {
+			search: fakeProviderSearchResult([
 				{ externalId: "e2e-book-1", title: "E2E Book One", subtitle: null },
 				{ externalId: "e2e-book-2", title: "E2E Book Two", subtitle: 2 },
 			]),
-			detailsDriverCode({
+			details: fakeProviderDetailsResult({
 				name: BOOK_IMPORT_NAME,
 				properties: { description: "Imported book from the e2e fake provider." },
 			}),
-		].join("\n"),
+		},
 	});
 });
 
