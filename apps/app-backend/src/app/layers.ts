@@ -5,6 +5,10 @@ import { Layer } from "effect";
 import { AuthService } from "#lib/auth";
 import { SeedService } from "#lib/builtins/seed";
 import { AppConfig } from "#lib/config/service";
+import {
+	FrequentCronWorkflowDefinitionsLive,
+	InfrequentCronWorkflowDefinitionsLive,
+} from "#lib/cron-workflow-definitions";
 import { LegacyBootstrapMigrateDrop, MigrationsComplete } from "#lib/db/migrate";
 import { DbService, DbRunnerLive, TransactionRunnerLive } from "#lib/db/service";
 import { RedisService } from "#lib/redis";
@@ -64,10 +68,6 @@ import { SandboxApiService } from "#modules/sandbox/service";
 import { DefaultSavedViewWorkerLive } from "#modules/saved-views/default-view-worker";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
 import { SavedViewsService } from "#modules/saved-views/service";
-import {
-	FrequentCronWorkflowDefinitionsLive,
-	InfrequentCronWorkflowDefinitionsLive,
-} from "#modules/scheduler/cron-workflow";
 import { FrequentCronSchedulerLive } from "#modules/scheduler/frequent-cron";
 import { InfrequentCronSchedulerLive } from "#modules/scheduler/infrequent-cron";
 import { TrackersRepository } from "#modules/trackers/repository";
