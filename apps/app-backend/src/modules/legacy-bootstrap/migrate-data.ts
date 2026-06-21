@@ -44,6 +44,7 @@ import {
 	resolveEntityMigrationTargets,
 	resolveRelationshipMigrationTargets,
 } from "./migration-resolution";
+import { buildNotificationPlatformMigrationSql } from "./notification-platform-mapping";
 import {
 	buildCompanyEntityMigrationSql,
 	buildCompanyRelationshipMigrationSql,
@@ -451,6 +452,7 @@ export const migrateLegacyTables = Effect.gen(function* () {
 			.then(() =>
 				client.query(buildOwnedCollectionOwnershipMigrationSql(inLibraryRelationshipSchemaId)),
 			)
-			.then(() => client.query(buildIntegrationMigrationSql())),
+			.then(() => client.query(buildIntegrationMigrationSql()))
+			.then(() => client.query(buildNotificationPlatformMigrationSql())),
 	);
 });
