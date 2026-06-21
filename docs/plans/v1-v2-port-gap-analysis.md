@@ -16,6 +16,7 @@ These V1 areas have a working home in V2. Several are **partial** ports — the 
 | ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- | ------------ |
 | 18 metadata providers (AniList, Audible, TMDB, IGDB, Hardcover, MusicBrainz, …)     | `lib/sandbox/scripts/providers/*`                                                                               | Full |
 | Provider search (`metadata_search`, `people_search`, `metadata_group_search`)       | 60 sandbox `search` drivers via `entity-schemas/search` + `entities/import`                                     | Full |
+| Metadata lookup (`metadata_lookup`)                                                 | `modules/metadata-lookup` (`POST /metadata-lookup/{integrationId}`) using TMDB movie/show sandbox searches and the shared title matcher consumed by the browser extension/imports | Full for the V1 browser-extension lookup shape |
 | Integrations: sinks, yanks, pushes, webhook, sync scheduler                         | `modules/integrations`                                                                                          | **Partial** — see [Integrations — known gaps](#integrations--known-gaps) |
 | ~19 importers                                                                       | `modules/imports/sources/*`                                                                                     | Mostly full — see [Import pipeline completeness](#import-pipeline-completeness) for dropped edge-case logic |
 | Seen/progress history                                                               | Lifecycle events (`backlog`/`progress`/`complete`/`dropped`/`on_hold`/`review`); state derived via query-engine | Create-only — see [Review & progress-event editing](#review--progress-event-editing) |
@@ -129,8 +130,6 @@ V1: `crates/services/user/src/recommendation_operations.rs`, `crates/services/co
 
 ### Tier 3 — Metadata-management ops
 
-- **Metadata lookup** — single-best-match wrapper over the existing search/resolve drivers (distinct from paginated search).
-  - V1: `metadata_lookup`.
 - **Custom-entity lifecycle details** — smaller behaviors that ride along with entity mutation completeness above: publish-year auto-derived from publish-date when not given explicitly, `is_partial` auto-detected from missing type-specific fields, and ordered (not just associated) creator/person/group links.
 - **Admin log download** — admin generates a single-use, short-lived token to download the server's application logs. No V2 equivalent (`GET /logs/download/{token}`, `generate_log_download_url`).
 
@@ -180,4 +179,3 @@ Intentionally not ported.
 - Access links — V1: `create_access_link`, `process_access_link`, `revoke_access_link`, `user_access_links`.
 - Review comment threads & likes — confirmed dropped during migration, not merely unbuilt: `modules/legacy-bootstrap/review-mapping.ts` states "V2 has no comments concept on events; comment threads are lost."
 - Review visibility (public/private) — confirmed dropped the same way: events have no visibility field, so the public/private distinction from V1 reviews no longer exists.
-
