@@ -18,7 +18,9 @@ export const dbRunnerLayer = Layer.succeed(DbRunner, provideEmptyDb);
 export const transactionLayer = Layer.succeed(TransactionRunner, provideEmptyDb);
 
 type WorkflowEngineOverrides = Omit<Partial<WorkflowEngine["Type"]>, "execute"> & {
-	execute?: (...args: Parameters<WorkflowEngine["Type"]["execute"]>) => Effect.Effect<unknown>;
+	execute?: (
+		...args: Parameters<WorkflowEngine["Type"]["execute"]>
+	) => Effect.Effect<unknown, unknown>;
 };
 
 export const makeWorkflowEngine = (
@@ -145,7 +147,10 @@ export const makeAppConfigLayer = (
 	return Layer.succeed(AppConfig, deepMergeConfig(defaults, overrides ?? {}) as typeof defaults);
 };
 
-export const makeWorkflowActivityEngine = (instance: WorkflowInstance["Type"]) => {
+export const makeWorkflowActivityEngine = (
+	instance: WorkflowInstance["Type"],
+	overrides: WorkflowEngineOverrides = {},
+) => {
 	let engine: WorkflowEngine["Type"];
 
 	engine = makeWorkflowEngine({
@@ -160,6 +165,7 @@ export const makeWorkflowActivityEngine = (instance: WorkflowInstance["Type"]) =
 
 				return new Workflow.Complete({ exit });
 			}),
+		...overrides,
 	});
 
 	return engine;

@@ -320,7 +320,6 @@ it.effect("orchestrates one-time media imports through workflow-owned phases", (
 				{
 					userId: "user-1",
 					externalId: "OL123M",
-					activityPrefix: "populate-0-",
 					entitySchemaId: "schema-book",
 					executionId: "workflow-1-entity-0",
 					scriptId: "script-book-openlibrary",

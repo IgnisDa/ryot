@@ -25,7 +25,7 @@ const integrationWorkflowModules = [
 
 const entityImportWorkflowModules = [
 	"../entity-import/entity-import-workflow.ts",
-	"../entity-import/provider-entity-synchronizer.ts",
+	"../entity-import/provider-entity-population-workflow.ts",
 ] as const;
 
 it.effect("keeps raw sandbox workflow execution at the allowed boundaries", () =>
@@ -55,12 +55,10 @@ it.effect("keeps raw sandbox workflow execution at the allowed boundaries", () =
 		expect(exercisePreload.match(/\.execute\(RunSandboxWorkflow,/g)?.length ?? 0).toBe(1);
 		expect(sandboxWorkflow).toContain("DurableQueue.process(SandboxExecutionQueue, payload)");
 
-		for (const source of [
-			entityImportWorkflow,
-			libraryWorkflow,
-			mediaImportWorkflow,
-			integrationWorkflow,
-		]) {
+		expect(libraryWorkflow).not.toContain("execute(RunSandboxWorkflow");
+		expect(libraryWorkflow).toContain("execute(ProviderEntityPopulationWorkflow");
+
+		for (const source of [entityImportWorkflow, mediaImportWorkflow, integrationWorkflow]) {
 			expect(source).not.toContain("execute(RunSandboxWorkflow");
 			expect(source).not.toMatch(/^import\s+(?!type\b)[^\n;]*\bWorkflowEngine\b/m);
 		}
@@ -102,6 +100,58 @@ it.effect("keeps event workflow and repository primitives behind EventsService",
 			expect(source).not.toContain("#modules/events/event-create-workflow");
 			expect(source).not.toContain("#modules/events/repository");
 			expect(source).not.toContain("EventsRepository");
+		}
+	}),
+);
+
+it.effect("keeps provider entity population behind the canonical workflow", () =>
+	Effect.gen(function* () {
+		const [
+			populationWorkflow,
+			libraryWorkflow,
+			monitoringWorkflow,
+			mediaOperations,
+			trigger,
+			preload,
+		] = yield* Effect.all([
+			readModule("../entity-import/provider-entity-population-workflow.ts"),
+			readModule("../library-membership/library-entity-import-workflow.ts"),
+			readModule("../media-monitoring/refresh-workflow.ts"),
+			readModule("../imports/media/operations-workflow.ts"),
+			readModule("../entity-import/population-trigger-live.ts"),
+			readModule("../exercises/preload.ts"),
+		]);
+
+		expect(populationWorkflow).toContain("validate-entity-details");
+		expect(populationWorkflow).toContain("mark-primary-entity-populated");
+
+		for (const source of [trigger, preload, libraryWorkflow, mediaOperations, monitoringWorkflow]) {
+			expect(source).toContain("ProviderEntityPopulationWorkflow");
+		}
+
+		// `runProviderEntityPopulationWorkflow` is exported only for unit tests. No production
+		// module may import it — callers must dispatch ProviderEntityPopulationWorkflow through
+		// the engine. Scan every source file (not just today's known callers) so a newly added
+		// module cannot bypass the single-owner boundary undetected.
+		const sourceRoot = Bun.fileURLToPath(new URL("../../", import.meta.url));
+		const productionPaths = yield* Effect.sync(() =>
+			Array.from(new Bun.Glob("**/*.ts").scanSync({ cwd: sourceRoot, absolute: true }))
+				.map((absolutePath) => absolutePath.replaceAll("\\", "/"))
+				.filter(
+					(path) =>
+						!path.endsWith(".test.ts") &&
+						!path.endsWith("/entity-import/provider-entity-population-workflow.ts"),
+				),
+		);
+		const productionSources = yield* Effect.all(
+			productionPaths.map((path) =>
+				Effect.promise(() => Bun.file(path).text()).pipe(Effect.map((text) => ({ path, text }))),
+			),
+		);
+
+		expect(productionSources.length).toBeGreaterThan(0);
+		for (const { path, text } of productionSources) {
+			expect(text, path).not.toContain("runProviderEntityPopulationWorkflow");
 		}
 	}),
 );

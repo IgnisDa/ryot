@@ -112,7 +112,6 @@ const ProcessedChildEntity = Schema.Struct({
 });
 
 export const processChildEntityTree = Effect.fn("processChildEntityTree")(function* (input: {
-	activityPrefix: string;
 	syncExisting?: boolean;
 	parentEntityId: EntityId;
 	parentEntitySchemaSlug?: string;
@@ -167,7 +166,7 @@ export const processChildEntityTree = Effect.fn("processChildEntityTree")(functi
 			const child = yield* Activity.make({
 				error: SandboxRunError,
 				success: ProcessedChildEntity,
-				name: `${input.activityPrefix}write-child-entity-${path}-${childEntity.entitySchemaSlug}-${childEntity.externalId}`,
+				name: `write-child-entity-${path}-${childEntity.entitySchemaSlug}-${childEntity.externalId}`,
 				execute: Effect.gen(function* () {
 					const entitySchema = yield* runWithDb(
 						entitySchemasRepository.getBuiltinBySlug(childEntity.entitySchemaSlug),
@@ -201,7 +200,7 @@ export const processChildEntityTree = Effect.fn("processChildEntityTree")(functi
 
 			yield* Activity.make({
 				error: SandboxRunError,
-				name: `${input.activityPrefix}write-child-relationship-${path}-${childEntity.entitySchemaSlug}-${childEntity.externalId}`,
+				name: `write-child-relationship-${path}-${childEntity.entitySchemaSlug}-${childEntity.externalId}`,
 				execute: Effect.gen(function* () {
 					const relationshipSchema = yield* runWithDb(
 						relationshipSchemasRepository.findGlobalBySchemaIds({
