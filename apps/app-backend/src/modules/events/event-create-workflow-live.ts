@@ -4,8 +4,10 @@ import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import type { WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import type { DbError, SandboxRunError } from "@ryot/contract/errors";
 import { badRequest, unknownToMessage } from "@ryot/contract/errors";
-import type { SandboxCompletedResult } from "@ryot/contract/modules/sandbox/schemas";
-import type { SandboxExecutionPayload } from "@ryot/contract/modules/sandbox/schemas";
+import type {
+	SandboxCompletedResult,
+	SandboxExecutionPayload,
+} from "@ryot/contract/modules/sandbox/schemas";
 import {
 	EntityId,
 	EntitySchemaId,
@@ -18,10 +20,10 @@ import { Context, DateTime, Effect, Layer, Option, Schema } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
+import { EnsureLibraryMembershipQueue } from "#modules/library-membership/durable-queues";
 import { SandboxExecutionQueue } from "#modules/sandbox/durable-queues";
 import { RunSandboxWorkflow } from "#modules/sandbox/sandbox-run-workflow";
 
-import { GlobalEntityReferencedQueue } from "./durable-queues";
 import {
 	EventCreateWorkflow,
 	EventCreateWorkflowError,
@@ -83,15 +85,15 @@ const AfterCreateTrigger = Schema.Struct({
 	metadata: Schema.Struct({ inheritedProperties: Schema.optional(Schema.Array(Schema.String)) }),
 });
 
-type GlobalReferenceInput = {
+type EnsureLibraryMembershipInput = {
 	userId: EventCreateWorkflowPayload["userId"];
 	entityId: EntityId;
 	executionId: string;
 };
 
 export type EventCreateWorkflowOperationsValue = {
-	processGlobalReference: (
-		input: GlobalReferenceInput,
+	ensureLibraryMembership: (
+		input: EnsureLibraryMembershipInput,
 	) => Effect.Effect<void, DbError, WorkflowEngine | WorkflowInstance>;
 	processSandboxExecution: (
 		payload: SandboxExecutionPayload,
@@ -109,8 +111,8 @@ export const EventCreateWorkflowOperationsLive = Layer.effect(
 		PersistedQueue.PersistedQueueFactory,
 		(queueFactory) =>
 			({
-				processGlobalReference: (input) =>
-					DurableQueue.process(GlobalEntityReferencedQueue, input).pipe(
+				ensureLibraryMembership: (input) =>
+					DurableQueue.process(EnsureLibraryMembershipQueue, input).pipe(
 						Effect.asVoid,
 						Effect.provideService(PersistedQueue.PersistedQueueFactory, queueFactory),
 					),
@@ -409,7 +411,7 @@ export const runEventCreateWorkflow = Effect.fn("runEventCreateWorkflow")(functi
 	yield* Effect.forEach(
 		referencedGlobalEntityIds,
 		(entityId) =>
-			operations.processGlobalReference({
+			operations.ensureLibraryMembership({
 				entityId,
 				userId: payload.userId,
 				executionId: `${payload.executionId}-libref-${entityId}`,

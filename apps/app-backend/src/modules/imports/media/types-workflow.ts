@@ -10,6 +10,7 @@ import type {
 import { Context, type Effect } from "effect";
 
 import type { EntitySearchItem } from "#modules/entity-import/population";
+import type { LibraryEntityImportError } from "#modules/library-membership/library-entity-import-workflow";
 
 import type { ImportRunJobData } from "../jobs";
 import type { LoadedMediaImportAdapterResult } from "./file-processor";
@@ -43,7 +44,7 @@ export type MediaImportWorkflowOperationsValue = {
 		executionId: string;
 		scriptId: SandboxScriptId;
 		entitySchemaId: EntitySchemaId;
-	}) => Effect.Effect<{ id: EntityId }, SandboxRunError, MediaSandboxRequirements>;
+	}) => Effect.Effect<{ id: EntityId }, LibraryEntityImportError, MediaSandboxRequirements>;
 };
 
 export class MediaImportWorkflowOperations extends Context.Tag("MediaImportWorkflowOperations")<

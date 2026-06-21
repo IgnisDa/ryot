@@ -2,10 +2,11 @@ import { DurableQueue } from "@effect/workflow";
 import { Effect } from "effect";
 
 import { CollectionsService } from "#modules/collections/service";
-import { GlobalEntityReferencedQueue } from "#modules/events/durable-queues";
 
-export const GlobalEntityReferencedWorkerLive = DurableQueue.worker(
-	GlobalEntityReferencedQueue,
+import { EnsureLibraryMembershipQueue } from "./durable-queues";
+
+export const EnsureLibraryMembershipWorkerLive = DurableQueue.worker(
+	EnsureLibraryMembershipQueue,
 	(payload) =>
 		Effect.gen(function* () {
 			const collections = yield* CollectionsService;
