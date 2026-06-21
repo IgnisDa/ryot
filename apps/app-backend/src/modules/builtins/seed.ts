@@ -5,6 +5,10 @@ import { Effect } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { CurrentDb, dbEffect, TransactionRunner } from "#lib/infrastructure/db/service";
+import {
+	compileLegacySandboxModule,
+	LEGACY_SANDBOX_COMPILED_FORMAT,
+} from "#modules/sandbox/legacy-module";
 
 import { builtinEntitySchemas } from "./entity-schemas";
 import {
@@ -126,12 +130,7 @@ const ensureBuiltinSandboxScript = Effect.fn(function* (input: {
 	const db = yield* CurrentDb;
 	const [existingScript] = yield* dbEffect(() =>
 		db
-			.select({
-				id: schema.sandboxScript.id,
-				code: schema.sandboxScript.code,
-				name: schema.sandboxScript.name,
-				isBuiltin: schema.sandboxScript.isBuiltin,
-			})
+			.select({ id: schema.sandboxScript.id })
 			.from(schema.sandboxScript)
 			.where(and(eq(schema.sandboxScript.slug, input.slug), isNull(schema.sandboxScript.userId)))
 			.limit(1),
@@ -140,9 +139,12 @@ const ensureBuiltinSandboxScript = Effect.fn(function* (input: {
 	const scriptId = existingScript?.id ?? generateId();
 	const values = {
 		isBuiltin: true,
-		name: input.name,
 		code: input.code,
+		name: input.name,
+		source: input.code,
 		metadata: input.metadata,
+		compiledFormat: LEGACY_SANDBOX_COMPILED_FORMAT,
+		compiledCode: compileLegacySandboxModule(input.code),
 	};
 
 	if (existingScript) {

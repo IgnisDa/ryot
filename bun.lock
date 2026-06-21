@@ -29,6 +29,7 @@
         "@effect/workflow": "0.18.2",
         "@ryot/contract": "workspace:*",
         "@ryot/query-engine": "workspace:*",
+        "@ryot/sandbox-sdk": "workspace:*",
         "@ryot/ts-utils": "workspace:*",
         "better-auth": "1.6.15",
         "drizzle-orm": "0.45.2",
@@ -39,6 +40,7 @@
         "nodemailer": "8.0.10",
         "papaparse": "5.5.3",
         "pg": "8.21.0",
+        "typescript-compiler": "npm:typescript@5.9.3",
         "unzipit": "2.0.3",
       },
       "devDependencies": {
@@ -321,6 +323,12 @@
     },
     "libs/query-engine": {
       "name": "@ryot/query-engine",
+    },
+    "libs/sandbox-sdk": {
+      "name": "@ryot/sandbox-sdk",
+      "dependencies": {
+        "zod": "4.4.3",
+      },
     },
     "libs/transactional": {
       "name": "@ryot/transactional",
@@ -1532,6 +1540,8 @@
     "@ryot/graphql": ["@ryot/graphql@workspace:libs/graphql"],
 
     "@ryot/query-engine": ["@ryot/query-engine@workspace:libs/query-engine"],
+
+    "@ryot/sandbox-sdk": ["@ryot/sandbox-sdk@workspace:libs/sandbox-sdk"],
 
     "@ryot/tests": ["@ryot/tests@workspace:tests"],
 
@@ -3994,6 +4004,8 @@
     "typedarray": ["typedarray@0.0.6", "", {}, "sha512-/aCDEGatGvZ2BIk+HmLf4ifCJFwvKFNb9/JeZPMulfgFracn9QFcAf5GO8B/mweUjSoblS5In0cWhqpfs/5PQA=="],
 
     "typescript": ["typescript@7.0.2", "", { "optionalDependencies": { "@typescript/typescript-aix-ppc64": "7.0.2", "@typescript/typescript-darwin-arm64": "7.0.2", "@typescript/typescript-darwin-x64": "7.0.2", "@typescript/typescript-freebsd-arm64": "7.0.2", "@typescript/typescript-freebsd-x64": "7.0.2", "@typescript/typescript-linux-arm": "7.0.2", "@typescript/typescript-linux-arm64": "7.0.2", "@typescript/typescript-linux-loong64": "7.0.2", "@typescript/typescript-linux-mips64el": "7.0.2", "@typescript/typescript-linux-ppc64": "7.0.2", "@typescript/typescript-linux-riscv64": "7.0.2", "@typescript/typescript-linux-s390x": "7.0.2", "@typescript/typescript-linux-x64": "7.0.2", "@typescript/typescript-netbsd-arm64": "7.0.2", "@typescript/typescript-netbsd-x64": "7.0.2", "@typescript/typescript-openbsd-arm64": "7.0.2", "@typescript/typescript-openbsd-x64": "7.0.2", "@typescript/typescript-sunos-x64": "7.0.2", "@typescript/typescript-win32-arm64": "7.0.2", "@typescript/typescript-win32-x64": "7.0.2" }, "bin": { "tsc": "bin/tsc" } }, "sha512-8FYau96o3NKOhbjKi/qNvG/W5jhzxkbdm5sj9AbZ/5T5sWqn3hJgLfGx27sRKZWTvyzCP8dLRBTf5tBTSRVUNA=="],
+
+    "typescript-compiler": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
 
     "ua-parser-js": ["ua-parser-js@0.7.41", "", { "bin": { "ua-parser-js": "script/cli.js" } }, "sha512-O3oYyCMPYgNNHuO7Jjk3uacJWZF8loBgwrfd/5LE/HyZ3lUIOdniQ7DNXJcIgZbwioZxk0fLfI4EVnetdiX5jg=="],
 

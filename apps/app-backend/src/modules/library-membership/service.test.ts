@@ -46,6 +46,9 @@ const fakeScript = {
 	userId: user.id,
 	isBuiltin: false,
 	code: "// script",
+	compiledFormat: 1,
+	source: "// script",
+	compiledCode: "// compiled script",
 	metadata: { allowedHostFunctions: [] },
 };
 

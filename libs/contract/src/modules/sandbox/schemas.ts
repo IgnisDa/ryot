@@ -10,31 +10,59 @@ export const ProviderInformation = Schema.Struct({
 export type ProviderInformation = Schema.Schema.Type<typeof ProviderInformation>;
 
 export const SandboxScriptMetadata = Schema.Struct({
+	name: Schema.optional(Schema.String),
+	slug: Schema.optional(Schema.String),
+	kind: Schema.optional(Schema.Literal("script")),
 	providerInformation: Schema.optional(ProviderInformation),
+	capabilities: Schema.optional(Schema.Array(Schema.String)),
 	allowedHostFunctions: Schema.optional(Schema.Array(Schema.String)),
 	requiredAppConfigKeys: Schema.optional(Schema.Array(Schema.String)),
 });
 
 export type SandboxScriptMetadata = Schema.Schema.Type<typeof SandboxScriptMetadata>;
 
+export const SandboxScriptManifest = Schema.Struct({
+	name: Schema.String,
+	slug: Schema.String,
+	kind: Schema.Literal("script"),
+	capabilities: Schema.Array(Schema.String),
+	requiredAppConfigKeys: Schema.Array(Schema.String),
+});
+
+export type SandboxScriptManifest = Schema.Schema.Type<typeof SandboxScriptManifest>;
+
 export const SandboxScript = Schema.Struct({
 	id: SandboxScriptId,
 	slug: Schema.String,
-	code: Schema.String,
-	name: Schema.optional(Schema.String),
-	metadata: Schema.optional(Schema.Unknown),
+	name: Schema.String,
+	source: Schema.String,
+	manifest: SandboxScriptManifest,
 });
 
 export type SandboxScript = Schema.Schema.Type<typeof SandboxScript>;
 
 export const CreateSandboxScriptBody = Schema.Struct({
-	code: Schema.String,
-	name: Schema.optional(Schema.String),
-	slug: Schema.optional(Schema.String),
-	metadata: Schema.optional(Schema.Unknown),
+	source: Schema.String,
 });
 
 export type CreateSandboxScriptBody = Schema.Schema.Type<typeof CreateSandboxScriptBody>;
+
+export const SandboxCompilationDiagnostic = Schema.Struct({
+	code: Schema.String,
+	file: Schema.String,
+	line: Schema.Number,
+	column: Schema.Number,
+	message: Schema.String,
+	length: Schema.optional(Schema.Number),
+	severity: Schema.Literal("error", "warning", "info"),
+});
+
+export type SandboxCompilationDiagnostic = Schema.Schema.Type<typeof SandboxCompilationDiagnostic>;
+
+export class SandboxCompilationFailure extends Schema.TaggedError<SandboxCompilationFailure>()(
+	"SandboxCompilationFailure",
+	{ message: Schema.String, diagnostics: Schema.Array(SandboxCompilationDiagnostic) },
+) {}
 
 export const EnqueueSandboxBody = Schema.Struct({
 	scriptId: SandboxScriptId,

@@ -25,9 +25,10 @@ import { SandboxRepository } from "#modules/sandbox/repository";
 type SearchScriptSlug = "movie.tmdb" | "show.tmdb";
 
 type SearchScript = {
-	code: string;
 	isBuiltin: boolean;
 	id: SandboxScriptId;
+	compiledCode: string;
+	compiledFormat: number;
 	slug: SearchScriptSlug;
 	metadata: SandboxScriptMetadata;
 };
@@ -101,9 +102,10 @@ export class MetadataLookupService extends Effect.Service<MetadataLookupService>
 				return {
 					slug,
 					id: script.id,
-					code: script.code,
 					metadata: script.metadata,
 					isBuiltin: script.isBuiltin,
+					compiledCode: script.compiledCode,
+					compiledFormat: script.compiledFormat,
 				} satisfies SearchScript;
 			});
 
@@ -115,11 +117,12 @@ export class MetadataLookupService extends Effect.Service<MetadataLookupService>
 				const result = yield* sandbox
 					.run({
 						userId,
-						code: script.code,
 						scriptId: script.id,
 						driverName: "search",
 						metadata: script.metadata,
+						compiledCode: script.compiledCode,
 						scriptIsBuiltin: script.isBuiltin,
+						compiledFormat: script.compiledFormat,
 						context: { query, page: 1, pageSize: 20 },
 						executionId: `metadata-lookup-${script.slug}-${generateId()}`,
 						allowedHostFunctions: script.metadata.allowedHostFunctions ?? [],

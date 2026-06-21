@@ -7,10 +7,7 @@ import type { ContractPayload } from "./contract-client";
 type CreateNotificationChannelBody = ContractPayload<"notifications", "createChannel">;
 type UpdateNotificationChannelBody = ContractPayload<"notifications", "updateChannel">;
 
-export function createNotificationChannel(
-	client: Client,
-	payload: CreateNotificationChannelBody,
-) {
+export function createNotificationChannel(client: Client, payload: CreateNotificationChannelBody) {
 	return client.run((c) => c.notifications.createChannel({ payload }));
 }
 
