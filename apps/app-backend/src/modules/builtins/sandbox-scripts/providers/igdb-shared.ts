@@ -1,34 +1,14 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk";
 
+import { asRecord, numberValue, parseJsonResponse, stringValue } from "../script-helpers/records";
+
 export type IgdbHost = SandboxHost<
 	readonly ["httpCall", "getAppConfigValue", "getCachedValue", "setCachedValue"]
 >;
 
-export type UnknownRecord = Record<string, unknown>;
-
-const isRecord = (value: unknown): value is UnknownRecord =>
-	value !== null && typeof value === "object" && !Array.isArray(value);
-
-export const asRecord = (value: unknown): UnknownRecord | null => (isRecord(value) ? value : null);
-
-export const stringValue = (value: unknown) =>
-	typeof value === "string" && value.trim() ? value.trim() : null;
-
-export const numberValue = (value: unknown) =>
-	typeof value === "number" && Number.isFinite(value) ? value : null;
-
 const BASE_URL = "https://api.igdb.com/v4";
 const AUTH_URL = "https://id.twitch.tv/oauth2/token";
 const TOKEN_CACHE_KEY = "access_token";
-
-const parseJsonResponse = (responseBody: string) => {
-	try {
-		const value: unknown = JSON.parse(responseBody);
-		return value;
-	} catch {
-		throw new Error("IGDB returned invalid JSON");
-	}
-};
 
 type CachedToken = { accessToken: string; clientId: string };
 
@@ -84,7 +64,7 @@ export const getAccessToken = (host: IgdbHost): Promise<CachedToken> =>
 					if (!response.success) {
 						throw new Error(response.error || "Twitch OAuth token request failed");
 					}
-					const payload = asRecord(parseJsonResponse(response.data.body));
+					const payload = asRecord(parseJsonResponse(response.data.body, "IGDB"));
 					const accessTokenValue = stringValue(payload?.["access_token"]);
 					if (!accessTokenValue) {
 						throw new Error("Twitch OAuth returned no access token");
@@ -124,7 +104,10 @@ export const makeIgdbRequest = (host: IgdbHost, path: string, body: string) =>
 				if (!response.success) {
 					throw new Error(response.error || `IGDB ${path} request failed`);
 				}
-				return { data: parseJsonResponse(response.data.body), headers: response.data.headers };
+				return {
+					data: parseJsonResponse(response.data.body, "IGDB"),
+					headers: response.data.headers,
+				};
 			}),
 	);
 
@@ -154,34 +137,3 @@ export const toSlug = (value: string) =>
 		.trim()
 		.replace(/\s+/g, "-")
 		.replace(/-+/g, "-");
-
-export type RoleRelatedEntity = {
-	name: string;
-	externalId: string;
-	scriptSlug: string;
-	relationshipProperties: { roles: string[] };
-};
-
-export const createRoleAccumulator = () => {
-	const entities: RoleRelatedEntity[] = [];
-	const byKey = new Map<string, RoleRelatedEntity>();
-	const add = (entity: RoleRelatedEntity) => {
-		const key = `${entity.scriptSlug}:${entity.externalId}`;
-		const existing = byKey.get(key);
-		if (!existing) {
-			byKey.set(key, entity);
-			entities.push(entity);
-			return;
-		}
-		existing.relationshipProperties.roles = [
-			...new Set([
-				...existing.relationshipProperties.roles,
-				...entity.relationshipProperties.roles,
-			]),
-		];
-		if (existing.name === "Loading..." && entity.name !== "Loading...") {
-			existing.name = entity.name;
-		}
-	};
-	return { entities, add };
-};

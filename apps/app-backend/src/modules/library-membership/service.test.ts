@@ -45,11 +45,10 @@ const fakeScript = {
 	id: scriptId,
 	userId: user.id,
 	isBuiltin: false,
-	code: "// script",
 	compiledFormat: 1,
 	source: "// script",
 	compiledCode: "// compiled script",
-	metadata: { allowedHostFunctions: [] },
+	metadata: { capabilities: [] },
 };
 
 const fakeEntitySchemaScope = {

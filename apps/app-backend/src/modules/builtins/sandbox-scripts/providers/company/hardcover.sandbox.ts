@@ -1,14 +1,13 @@
 import { defineManifest } from "@ryot/sandbox-sdk";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
+import { asRecord, stringValue } from "../../script-helpers/records";
 import {
-	asRecord,
 	escapeGraphqlString,
 	firstGraphqlErrorMessage,
 	getHardcoverApiKey,
 	hardcoverGql,
 	idValue,
-	stringValue,
 } from "../hardcover-shared";
 
 export const manifest = defineManifest({

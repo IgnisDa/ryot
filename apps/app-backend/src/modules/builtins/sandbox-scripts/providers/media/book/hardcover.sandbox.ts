@@ -1,17 +1,23 @@
 import { defineManifest } from "@ryot/sandbox-sdk";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
+import {
+	type UnknownRecord,
+	asRecord,
+	numberValue,
+	stringValue,
+} from "../../../script-helpers/records";
+import {
+	createRoleAccumulator,
+	type RoleRelatedEntity,
+} from "../../../script-helpers/role-accumulator";
 import { toTitleCase } from "../../../script-helpers/title-case";
 import {
-	asRecord,
 	escapeGraphqlString,
 	firstGraphqlErrorMessage,
 	getHardcoverApiKey,
 	hardcoverGql,
 	idValue,
-	numberValue,
-	stringValue,
-	type UnknownRecord,
 } from "../../hardcover-shared";
 
 export const manifest = defineManifest({
@@ -22,40 +28,6 @@ export const manifest = defineManifest({
 	capabilities: ["httpCall", "getAppConfigValue"],
 	requiredAppConfigKeys: ["providers.hardcoverApiKey"],
 });
-
-type RoleRelatedEntity = {
-	name: string;
-	externalId: string;
-	scriptSlug: string;
-	relationshipProperties: { roles: string[] };
-};
-
-const createRoleAccumulator = (initial: readonly RoleRelatedEntity[] = []) => {
-	const entities: RoleRelatedEntity[] = [];
-	const byKey = new Map<string, RoleRelatedEntity>();
-	const add = (entity: RoleRelatedEntity) => {
-		const key = `${entity.scriptSlug}:${entity.externalId}`;
-		const existing = byKey.get(key);
-		if (!existing) {
-			byKey.set(key, entity);
-			entities.push(entity);
-			return;
-		}
-		existing.relationshipProperties.roles = [
-			...new Set([
-				...existing.relationshipProperties.roles,
-				...entity.relationshipProperties.roles,
-			]),
-		];
-		if (existing.name === "Loading..." && entity.name !== "Loading...") {
-			existing.name = entity.name;
-		}
-	};
-	for (const entity of initial) {
-		add(entity);
-	}
-	return { entities, add };
-};
 
 const collectImages = (imageField: unknown, imagesArray: unknown) => {
 	const imageSet = new Set<string>();

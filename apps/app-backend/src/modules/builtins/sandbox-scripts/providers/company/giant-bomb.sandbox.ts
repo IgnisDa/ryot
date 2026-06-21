@@ -1,10 +1,10 @@
 import { defineManifest } from "@ryot/sandbox-sdk";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
+import { asRecord, stringValue } from "../../script-helpers/records";
+import { createRoleAccumulator } from "../../script-helpers/role-accumulator";
 import {
-	asRecord,
 	combineDescription,
-	createRoleAccumulator,
 	extractYear,
 	getPrioritizedImage,
 	GUID_PATTERN,
@@ -13,7 +13,6 @@ import {
 	paginate,
 	readResults,
 	readTotalItems,
-	stringValue,
 } from "../giant-bomb-shared";
 
 export const manifest = defineManifest({

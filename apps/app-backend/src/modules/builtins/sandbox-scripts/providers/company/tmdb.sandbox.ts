@@ -2,15 +2,12 @@ import { defineManifest } from "@ryot/sandbox-sdk";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
 import {
-	getImageUrl,
-	getTmdbAccessToken,
+	type UnknownRecord,
 	numberValue,
 	recordsValue,
 	stringValue,
-	tmdbGet,
-	type TmdbHost,
-	type UnknownRecord,
-} from "../tmdb-shared";
+} from "../../script-helpers/records";
+import { getImageUrl, getTmdbAccessToken, tmdbGet, type TmdbHost } from "../tmdb-shared";
 
 export const manifest = defineManifest({
 	name: "TMDB",
