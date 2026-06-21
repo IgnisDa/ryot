@@ -1,6 +1,6 @@
+import { runContract, type ContractProgram } from "@ryot/contract/client";
 import type { IntegrationWebhookPayload } from "@ryot/contract/modules/integrations/schemas";
 import { IntegrationId } from "@ryot/contract/schema/brands";
-import { runContract, type ContractProgram } from "@ryot/contract/client";
 
 const resolveConnection = (integrationUrl: string) => {
 	const url = new URL(integrationUrl);

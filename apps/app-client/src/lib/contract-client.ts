@@ -1,6 +1,6 @@
 import { runContract, type ContractClient, type RequestHeaders } from "@ryot/contract/client";
 import { useQuery } from "@tanstack/react-query";
-import { Effect } from "effect";
+import type { Effect } from "effect";
 import { useMemo } from "react";
 
 import { useAuthClient, useServerUrl } from "@/lib/atoms";
@@ -16,7 +16,8 @@ export function createContractRunner(
 	serverUrl: string,
 	headers: RequestHeaders = {},
 ): ContractRunner {
-	return (run) => runContract(run, { baseUrl: `${serverUrl}/api`, headers, credentials: "include" });
+	return (run) =>
+		runContract(run, { baseUrl: `${serverUrl}/api`, headers, credentials: "include" });
 }
 
 export function useContractClient(): ContractRunner {

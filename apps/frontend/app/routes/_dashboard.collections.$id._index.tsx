@@ -171,7 +171,9 @@ export default function Page(props: { params: { id: string } }) {
 												color="blue"
 												variant="outline"
 												onClick={() => {
-													if (!thisCollection) return;
+													if (!thisCollection) {
+														return;
+													}
 													openCollectionModal({
 														collectionId: thisCollection.id,
 													});

@@ -198,8 +198,11 @@ export default function Page() {
 	});
 
 	const handleSubmit = form.onSubmit(async () => {
-		if (loaderData.action === Action.Create) createMutation.mutate();
-		else updateMutation.mutate();
+		if (loaderData.action === Action.Create) {
+			createMutation.mutate();
+		} else {
+			updateMutation.mutate();
+		}
 	});
 
 	return (

@@ -101,7 +101,9 @@ export default function Page() {
 
 	const playCompleteTimerSound = () => {
 		timerCompleteSound();
-		if (document.visibilityState === "visible") return;
+		if (document.visibilityState === "visible") {
+			return;
+		}
 		sendNotificationToServiceWorker({
 			tag: "timer-completed",
 			title: "Timer completed",
@@ -116,10 +118,12 @@ export default function Page() {
 			confirmSetOnFinish: input.confirmSetOnFinish,
 			willEndAt: dayjsLib().add(input.duration, "second").toISOString(),
 		});
-		if (input.openTimerDrawer) toggleTimerDrawer();
+		if (input.openTimerDrawer) {
+			toggleTimerDrawer();
+		}
 	};
 	const pauseOrResumeTimer = () => {
-		if (currentTimer)
+		if (currentTimer) {
 			setCurrentTimer(
 				produce(currentTimer, (draft) => {
 					draft.willEndAt = dayjsLib(draft.willEndAt)
@@ -128,6 +132,7 @@ export default function Page() {
 					draft.wasPausedAt = draft.wasPausedAt ? undefined : dayjsLib().toISOString();
 				}),
 			);
+		}
 	};
 	const stopTimer = () => {
 		const triggeredBy = currentTimer?.triggeredBy;
@@ -142,7 +147,9 @@ export default function Page() {
 							(s) => s.identifier === triggeredBy.setIdentifier,
 						);
 						const restTimer = exercise.sets[setIdx].restTimer;
-						if (restTimer) restTimer.hasElapsed = true;
+						if (restTimer) {
+							restTimer.hasElapsed = true;
+						}
 					}
 				}),
 			);
@@ -151,21 +158,23 @@ export default function Page() {
 	};
 
 	const acquireWakeLock = async () => {
-		if ("wakeLock" in navigator)
+		if ("wakeLock" in navigator) {
 			try {
 				wakeLockRef.current = await navigator.wakeLock.request("screen");
 				wakeLockRef.current.addEventListener("release", () => {
 					wakeLockRef.current = null;
 				});
 			} catch {}
+		}
 	};
 
 	const releaseWakeLock = async () => {
-		if (wakeLockRef.current)
+		if (wakeLockRef.current) {
 			try {
 				await wakeLockRef.current.release();
 				wakeLockRef.current = null;
 			} catch {}
+		}
 	};
 
 	useInterval(() => {
@@ -173,15 +182,18 @@ export default function Page() {
 			loaderData.action === FitnessAction.LogWorkout &&
 			navigator.serviceWorker.controller &&
 			document.visibilityState === "visible"
-		)
+		) {
 			postMessageToServiceWorker({
 				event: "remove-timer-completed-notification",
 			});
+		}
 	}, 5000);
 	useInterval(() => {
 		const timeRemaining = dayjsLib(currentTimer?.willEndAt).diff(dayjsLib(), "second");
 		if (!currentTimer?.wasPausedAt && timeRemaining && timeRemaining <= 3) {
-			if (navigator.vibrate) navigator.vibrate(200);
+			if (navigator.vibrate) {
+				navigator.vibrate(200);
+			}
 			if (timeRemaining <= 1) {
 				const confirmSetOnFinish = currentTimer?.confirmSetOnFinish;
 				const triggeredBy = currentTimer?.triggeredBy;
@@ -208,14 +220,20 @@ export default function Page() {
 					const exerciseIdx = currentWorkout?.exercises.findIndex(
 						(e) => e.identifier === confirmSetOnFinish?.exerciseIdentifier,
 					);
-					if (!isNumber(exerciseIdx)) return;
+					if (!isNumber(exerciseIdx)) {
+						return;
+					}
 					const exercise = currentWorkout?.exercises[exerciseIdx];
 					const setIdx = exercise?.sets.findIndex(
 						(s) => s.identifier === confirmSetOnFinish?.setIdentifier,
 					);
-					if (!isNumber(setIdx)) return;
+					if (!isNumber(setIdx)) {
+						return;
+					}
 					const set = exercise?.sets[setIdx];
-					if (!set) return;
+					if (!set) {
+						return;
+					}
 					handleSetConfirmation({
 						set,
 						setIdx,
@@ -240,7 +258,9 @@ export default function Page() {
 		acquireWakeLock();
 
 		const handleVisibilityChange = () => {
-			if (document.visibilityState === "visible" && !wakeLockRef.current) acquireWakeLock();
+			if (document.visibilityState === "visible" && !wakeLockRef.current) {
+				acquireWakeLock();
+			}
 		};
 		document.addEventListener("visibilitychange", handleVisibilityChange);
 

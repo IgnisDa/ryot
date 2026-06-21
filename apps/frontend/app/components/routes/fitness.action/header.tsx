@@ -54,7 +54,9 @@ export function WorkoutHeader(props: HeaderProps) {
 	const { advanceOnboardingTourStep } = useOnboardingTour();
 	const [currentWorkout, setCurrentWorkout] = useCurrentWorkout();
 
-	if (!currentWorkout) return null;
+	if (!currentWorkout) {
+		return null;
+	}
 
 	return (
 		<>
@@ -192,8 +194,9 @@ export function WorkoutHeader(props: HeaderProps) {
 													.then((c) => [c.createOrUpdateUserWorkout, FitnessEntity.Workouts]),
 											)
 											.exhaustive();
-										if (props.loaderData.action === FitnessAction.LogWorkout)
+										if (props.loaderData.action === FitnessAction.LogWorkout) {
 											events.createWorkout();
+										}
 										setCurrentWorkout(RESET);
 										navigate(
 											$path("/fitness/:entity/:id", {

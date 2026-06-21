@@ -353,8 +353,11 @@ const DisplayNotification = (props: {
 										defaultChecked={props.notification.configuredEvents.includes(name)}
 										onChange={(value) => {
 											const checked = value.target.checked;
-											if (checked) configuredEventsHandler.append(name);
-											else configuredEventsHandler.filter((event) => event !== name);
+											if (checked) {
+												configuredEventsHandler.append(name);
+											} else {
+												configuredEventsHandler.filter((event) => event !== name);
+											}
 										}}
 										label={match(name)
 											.with(

@@ -573,7 +573,9 @@ const createProviderSpecificsSchema = () => {
 	const schemas: Record<string, z.ZodTypeAny> = {};
 
 	for (const config of Object.values(PROVIDER_CONFIGS)) {
-		if (!config.fields) continue;
+		if (!config.fields) {
+			continue;
+		}
 		for (const field of config.fields) {
 			let fieldSchema: z.ZodTypeAny;
 
@@ -723,7 +725,9 @@ const ProviderFields = (props: {
 	integrationData?: Integration | null;
 }) => {
 	const config = PROVIDER_CONFIGS[props.provider];
-	if (!config) return null;
+	if (!config) {
+		return null;
+	}
 
 	return config.fields?.map((field) => (
 		<ProviderField
@@ -764,7 +768,9 @@ const CreateOrUpdateModal = (props: {
 				replace
 				method="POST"
 				onSubmit={() => {
-					if (provider) events.createOrUpdateIntegration(provider, isUpdating);
+					if (provider) {
+						events.createOrUpdateIntegration(provider, isUpdating);
+					}
 					props.close();
 				}}
 				action={withQuery(".", { intent: "createOrUpdate" })}
@@ -807,7 +813,7 @@ const CreateOrUpdateModal = (props: {
 								label="Sync to Owned collection"
 								disabled={!coreDetails.isServerKeyValidated}
 								styles={{ body: { display: "flex", alignItems: "center" } }}
-								description={`Checking this will also sync items in your library to the "Owned" collection`}
+								description='Checking this will also sync items in your library to the "Owned" collection'
 								defaultChecked={props.integrationData?.syncToOwnedCollection || undefined}
 							/>
 						</Tooltip>

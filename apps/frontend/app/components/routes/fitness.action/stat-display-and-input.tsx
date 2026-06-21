@@ -98,11 +98,15 @@ export const StatInput = (props: {
 
 					const draftSet = draft.exercises[props.exerciseIdx].sets[props.setIdx];
 					draftSet.statistic[props.stat] = val;
-					if (val === null) draftSet.confirmedAt = null;
-					if (weightStepTourClassName && val === ACTIVE_WORKOUT_WEIGHT_TARGET)
+					if (val === null) {
+						draftSet.confirmedAt = null;
+					}
+					if (weightStepTourClassName && val === ACTIVE_WORKOUT_WEIGHT_TARGET) {
 						advanceOnboardingTourStep();
-					if (repsStepTourClassName && val === ACTIVE_WORKOUT_REPS_TARGET)
+					}
+					if (repsStepTourClassName && val === ACTIVE_WORKOUT_REPS_TARGET) {
 						advanceOnboardingTourStep();
+					}
 				}),
 			);
 		}
