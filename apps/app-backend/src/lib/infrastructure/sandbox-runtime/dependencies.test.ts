@@ -1,5 +1,5 @@
 import { FileSystem } from "@effect/platform";
-import { BunFileSystem } from "@effect/platform-bun";
+import { BunContext } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 
@@ -106,5 +106,5 @@ it.scoped("builds exact-version dependency modules in a read-only runtime direct
 				}).pipe(Effect.ignore),
 			),
 		);
-	}).pipe(Effect.provide(BunFileSystem.layer)),
+	}).pipe(Effect.provide(BunContext.layer)),
 );
