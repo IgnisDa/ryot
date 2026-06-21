@@ -13,6 +13,7 @@ import { ClientStorage } from "#/persistence/storage";
 
 export const Route = createFileRoute("/_authenticated")({
 	component: AuthenticatedLayout,
+	pendingComponent: RestoringSession,
 	errorComponent: AuthenticatedLoadError,
 	beforeLoad: ({ context, location }) => protectedRouteGuard(context, location.href),
 	loader: async ({ abortController, context, location }) => {
@@ -71,6 +72,26 @@ function AuthenticatedLayout() {
 				<AuthenticatedShell isPro={isPro} initialRememberedSlug={rememberedSlug} />
 			</PluginCatalogProvider>
 		</RyotProvider>
+	);
+}
+
+function RestoringSession() {
+	return (
+		<main className="ui-page">
+			<section
+				aria-labelledby="session-title"
+				className="ui-stack ui-card mx-auto w-[min(100%,480px)]"
+			>
+				<div>
+					<h1 id="session-title" className="ui-heading">
+						Restoring your session
+					</h1>
+					<p role="status" className="ui-subtitle">
+						Checking your signed-in state...
+					</p>
+				</div>
+			</section>
+		</main>
 	);
 }
 

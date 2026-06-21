@@ -1,34 +1,49 @@
 import { describe, expect, it } from "vitest";
 
-import { isSettingsPath, resolveEdgeIntent } from "#/modules/navigation/edge-intent";
+import { isSettingsPath, resolveEdge } from "#/modules/navigation/edge-intent";
 
-describe("resolveEdgeIntent", () => {
+const resolve = (input: Partial<Parameters<typeof resolveEdge>[0]> = {}) =>
+	resolveEdge({
+		atRoot: false,
+		canGoBack: true,
+		isDesktop: false,
+		hasPluginDocument: true,
+		pathname: "/media/search",
+		...input,
+	});
+
+describe("resolveEdge", () => {
 	it("opens the drawer at a workspace root even when history can be popped", () => {
-		expect(resolveEdgeIntent({ atRoot: true, pathname: "/media", canGoBack: true })).toBe("drawer");
+		expect(resolve({ atRoot: true, pathname: "/media" })).toEqual({
+			owner: "kernel",
+			intent: "drawer",
+		});
 	});
 
-	it("goes back on a plugin child route", () => {
-		expect(resolveEdgeIntent({ atRoot: false, pathname: "/media/search", canGoBack: true })).toBe(
-			"back",
-		);
+	it("gives the plugin document the back gesture on a plugin child route", () => {
+		expect(resolve()).toEqual({ owner: "plugin", intent: "back" });
 	});
 
-	it("goes back on a settings route, where no drawer is mounted", () => {
-		expect(
-			resolveEdgeIntent({ atRoot: false, pathname: "/settings/account", canGoBack: true }),
-		).toBe("back");
+	it("keeps back in the kernel on a settings route, where no plugin document exists", () => {
+		expect(resolve({ pathname: "/settings/account", hasPluginDocument: false })).toEqual({
+			intent: "back",
+			owner: "kernel",
+		});
+	});
+
+	it("keeps back in the kernel on desktop, where the edge gesture is not offered", () => {
+		expect(resolve({ isDesktop: true })).toEqual({ owner: "kernel", intent: "back" });
 	});
 
 	it("falls through to the drawer when a child route has nothing to pop", () => {
-		expect(resolveEdgeIntent({ atRoot: false, pathname: "/media/search", canGoBack: false })).toBe(
-			"drawer",
-		);
+		expect(resolve({ canGoBack: false })).toEqual({ owner: "kernel", intent: "drawer" });
 	});
 
 	it("binds nothing on a settings route with no history", () => {
-		expect(resolveEdgeIntent({ atRoot: false, pathname: "/settings", canGoBack: false })).toBe(
-			"none",
-		);
+		expect(resolve({ pathname: "/settings", canGoBack: false, hasPluginDocument: false })).toEqual({
+			intent: "none",
+			owner: "kernel",
+		});
 	});
 });
 

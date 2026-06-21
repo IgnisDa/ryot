@@ -59,7 +59,13 @@ const openRuntime = () => {
 
 const delay = () => new Promise((resolve) => setTimeout(resolve, 0));
 const activate = (channel: MessageChannel) => {
-	channel.port1.postMessage({ type: "location", location: { path: "/", search: "" } });
+	channel.port1.postMessage({
+		index: 0,
+		key: "k0",
+		edgeBack: false,
+		type: "location",
+		location: { path: "/", search: "" },
+	});
 	channel.port1.postMessage({ generation: 1, type: "theme", theme });
 };
 
@@ -113,7 +119,7 @@ describe("plugin runtime", () => {
 		await expect(
 			runtime.client.operations.invoke({ input: {}, slug: "late", output: JsonValue }),
 		).rejects.toMatchObject({ reason: "protocol" });
-		expect(runtime.locations.getSnapshot()).toBeUndefined();
+		expect(runtime.navigation.getSnapshot().entry).toBeUndefined();
 		expect(() => runtime.client.theme.getSnapshot()).toThrow(new RyotClientError("protocol"));
 		expect(() => runtime.client.theme.subscribe(() => undefined)).toThrow(
 			new RyotClientError("protocol"),
@@ -322,7 +328,7 @@ describe("plugin runtime", () => {
 		await expect(operation).rejects.toMatchObject({ reason: "protocol" });
 		expect(querySettlements).toBe(1);
 		expect(operationSettlements).toBe(1);
-		expect(runtime.locations.getSnapshot()).toBeUndefined();
+		expect(runtime.navigation.getSnapshot().entry).toBeUndefined();
 		await expect(
 			runtime.client.data.query({ document, decode: Result.succeed }),
 		).rejects.toMatchObject({ reason: "protocol" });
@@ -526,7 +532,13 @@ describe("plugin runtime", () => {
 
 	it("applies the initial theme before acknowledging it and gates activation on both inputs", async () => {
 		const { channel, messages, properties, runtime } = openRuntime();
-		channel.port1.postMessage({ type: "location", location: { path: "/", search: "" } });
+		channel.port1.postMessage({
+			index: 0,
+			key: "k0",
+			edgeBack: false,
+			type: "location",
+			location: { path: "/", search: "" },
+		});
 		await delay();
 		await expect(
 			runtime.client.data.query({ document, decode: Result.succeed }),
@@ -555,7 +567,7 @@ describe("plugin runtime", () => {
 		activate(channel);
 		await delay();
 		const client = runtime.client;
-		const location = runtime.locations.getSnapshot();
+		const location = runtime.navigation.getSnapshot().entry;
 		let notifications = 0;
 		const unsubscribe = client.theme.subscribe(() => {
 			notifications += 1;
@@ -563,14 +575,14 @@ describe("plugin runtime", () => {
 		const query = client.data.query({ document, decode: Result.succeed });
 		await delay();
 		channel.port1.postMessage({
-			generation: 2,
 			type: "theme",
+			generation: 2,
 			theme: { resolvedMode: "dark", tokens: { ...tokens, bg: "dark-bg" } },
 		});
 		await delay();
 
 		expect(runtime.client).toBe(client);
-		expect(runtime.locations.getSnapshot()).toBe(location);
+		expect(runtime.navigation.getSnapshot().entry).toBe(location);
 		expect(client.theme.getSnapshot().resolvedMode).toBe("dark");
 		expect(properties.get("--bg")).toBe("dark-bg");
 		expect(notifications).toBe(1);

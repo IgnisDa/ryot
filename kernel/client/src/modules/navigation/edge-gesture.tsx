@@ -1,31 +1,32 @@
 import { type MotionValue, animate, motion, useReducedMotion } from "motion/react";
 import { useRef } from "react";
 
-import { EDGE_SWIPE_WIDTH, drawerWidth } from "#/modules/navigation/drawer-metrics";
-import type { EdgeIntent } from "#/modules/navigation/edge-intent";
+import { EDGE_SWIPE_WIDTH, drawerWidth, gestureSpring } from "#/modules/navigation/drawer-metrics";
+import type { EdgeResolution } from "#/modules/navigation/edge-intent";
+import { impactLight } from "#/modules/navigation/haptics";
 
 const OPEN_VELOCITY = 0.5;
 const ACTIVATION_DISTANCE = 6;
-const TIMING = { duration: 0.24, ease: "easeOut" } as const;
 
 type EdgeGestureProps = {
 	readonly isOpen: boolean;
-	readonly intent: EdgeIntent;
 	readonly onBack: () => void;
+	readonly edge: EdgeResolution;
 	readonly progress: MotionValue<number>;
 	readonly onOpenChange: (open: boolean) => void;
 };
 
 export function EdgeGesture(props: EdgeGestureProps) {
 	const width = useRef(0);
+	const { intent, owner } = props.edge;
 	const engaged = useRef(false);
 	const reduceMotion = useReducedMotion() === true;
 
-	if (props.isOpen || props.intent === "none") {
+	if (props.isOpen || owner !== "kernel" || intent === "none") {
 		return null;
 	}
 
-	const settle = (open: boolean) => {
+	const settle = (open: boolean, velocity: number) => {
 		if (open !== props.isOpen) {
 			props.onOpenChange(open);
 			return;
@@ -34,7 +35,7 @@ export function EdgeGesture(props: EdgeGestureProps) {
 			props.progress.set(open ? 1 : 0);
 			return;
 		}
-		void animate(props.progress, open ? 1 : 0, TIMING);
+		void animate(props.progress, open ? 1 : 0, gestureSpring(velocity));
 	};
 
 	return (
@@ -52,7 +53,7 @@ export function EdgeGesture(props: EdgeGestureProps) {
 					engaged.current = true;
 					width.current = drawerWidth(window.innerWidth);
 				}
-				if (props.intent === "drawer") {
+				if (intent === "drawer") {
 					props.progress.set(Math.min(1, Math.max(0, info.offset.x / width.current)));
 				}
 			}}
@@ -62,13 +63,16 @@ export function EdgeGesture(props: EdgeGestureProps) {
 				}
 				engaged.current = false;
 				const completed = info.offset.x > width.current / 3 || info.velocity.x > OPEN_VELOCITY;
-				if (props.intent === "back") {
+				if (completed) {
+					impactLight();
+				}
+				if (intent === "back") {
 					if (completed) {
 						props.onBack();
 					}
 					return;
 				}
-				settle(completed);
+				settle(completed, info.velocity.x / width.current);
 			}}
 		/>
 	);
