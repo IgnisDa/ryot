@@ -10,6 +10,7 @@ import {
 	PluginBridgeReady,
 	type PluginBridgeInit,
 	type PluginBridgeLocation,
+	type PluginBridgeHeader,
 	type PluginBridgeNavigate,
 	type PluginBridgeTheme,
 	type PluginBridgeOperationRequest,
@@ -54,6 +55,7 @@ type PluginBridgeOptions = {
 	readonly theme: PluginThemeSnapshot;
 	readonly target: PluginBridgeTarget;
 	readonly location: PluginLogicalLocation;
+	readonly onHeader: (request: PluginBridgeHeader) => void;
 	readonly onNavigate: (request: PluginBridgeNavigate) => void;
 	readonly onRyotQL: (
 		request: PluginRyotQLRequest,
@@ -274,6 +276,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 				}
 				Match.value(decoded.success).pipe(
 					Match.when({ type: "theme-applied" }, () => fail()),
+					Match.when({ type: "header" }, (request) => options.onHeader(request)),
 					Match.when({ type: "navigate" }, (request) => options.onNavigate(request)),
 					Match.when({ type: "lifecycle-close" }, ({ reason }) => handleLifecycleClose(reason)),
 					Match.when({ type: "ryotql-cancel" }, (request) => handleRyotQLCancel(request)),

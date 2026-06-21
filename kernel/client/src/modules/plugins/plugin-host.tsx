@@ -113,6 +113,7 @@ export function PluginHost(props: {
 	readonly artifactSessionScopeKey: string;
 	readonly location: PluginLogicalLocation;
 	readonly installation: PluginClientCatalogEntry;
+	readonly onHeader: (title: string | null) => void;
 	readonly onRenewArtifactSession: RenewPluginArtifactSession;
 	readonly onCreateArtifactSession: CreatePluginArtifactSession;
 	readonly onRevokeArtifactSession: RevokePluginArtifactSession;
@@ -137,6 +138,7 @@ export function PluginHost(props: {
 			theme={props.theme}
 			onQuery={props.onQuery}
 			location={props.location}
+			onHeader={props.onHeader}
 			onNavigate={props.onNavigate}
 			pluginSlug={props.installation.slug}
 			onStaleSession={props.onStaleSession}
@@ -162,6 +164,7 @@ function PluginFrame(props: {
 	readonly onStaleSession: () => void;
 	readonly location: PluginLogicalLocation;
 	readonly artifactSessionScopeKey: string;
+	readonly onHeader: (title: string | null) => void;
 	readonly onRenewArtifactSession: RenewPluginArtifactSession;
 	readonly onCreateArtifactSession: CreatePluginArtifactSession;
 	readonly onRevokeArtifactSession: RevokePluginArtifactSession;
@@ -377,8 +380,9 @@ function PluginFrame(props: {
 			target: plugin,
 			artifactHash: props.artifactHash,
 			location: latest.current.location,
-			onReady: () => setFrameStatus("ready"),
 			theme: latest.current.theme.getSnapshot(),
+			onReady: () => setFrameStatus("ready"),
+			onHeader: (request) => latest.current.onHeader(request.header.title),
 			onRyotQL: (request, signal) => latest.current.onQuery(request, signal),
 			onOperation: async (request, signal) => {
 				const outcome = await latest.current.onInvokeOperation(request, sourceHash, signal);

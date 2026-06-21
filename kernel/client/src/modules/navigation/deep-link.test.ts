@@ -12,7 +12,9 @@ type Recorded = { readonly href: string; readonly replace: boolean };
 const makeHarness = (launchUrl: string | null = null) => {
 	let exited = 0;
 	let backCount = 0;
+	let dismissed = 0;
 	let canGoBack = false;
+	let overlayOpen = false;
 	const removed: Array<string> = [];
 	const navigated: Array<Recorded> = [];
 	let backButton: (() => void) | undefined;
@@ -38,6 +40,14 @@ const makeHarness = (launchUrl: string | null = null) => {
 		back: () => {
 			backCount += 1;
 		},
+		dismissOverlay: () => {
+			if (!overlayOpen) {
+				return false;
+			}
+			overlayOpen = false;
+			dismissed += 1;
+			return true;
+		},
 		navigate: (href, options) => {
 			navigated.push({ href, replace: options.replace });
 		},
@@ -49,10 +59,13 @@ const makeHarness = (launchUrl: string | null = null) => {
 		navigator,
 		navigated,
 		pressBack: () => backButton?.(),
-		counts: () => ({ exited, backCount }),
 		openUrl: (url: string) => urlOpen?.(url),
+		counts: () => ({ exited, backCount, dismissed }),
 		allowBack: () => {
 			canGoBack = true;
+		},
+		openOverlay: () => {
+			overlayOpen = true;
 		},
 	};
 };
@@ -133,7 +146,23 @@ describe("createDeepLinkBridge", () => {
 
 		harness.allowBack();
 		harness.pressBack();
-		expect(harness.counts()).toEqual({ exited: 0, backCount: 1 });
+		expect(harness.counts()).toEqual({ exited: 0, backCount: 1, dismissed: 0 });
+
+		bridge.destroy();
+	});
+
+	it("dismisses an open overlay before it pops history", async () => {
+		const harness = makeHarness();
+		const bridge = createDeepLinkBridge(harness.source, harness.navigator);
+		await Promise.resolve();
+
+		harness.allowBack();
+		harness.openOverlay();
+		harness.pressBack();
+		expect(harness.counts()).toEqual({ exited: 0, backCount: 0, dismissed: 1 });
+
+		harness.pressBack();
+		expect(harness.counts()).toEqual({ exited: 0, backCount: 1, dismissed: 1 });
 
 		bridge.destroy();
 	});
@@ -146,7 +175,7 @@ describe("createDeepLinkBridge", () => {
 		harness.pressBack();
 		bridge.destroy();
 
-		expect(harness.counts()).toEqual({ exited: 1, backCount: 0 });
+		expect(harness.counts()).toEqual({ exited: 1, backCount: 0, dismissed: 0 });
 	});
 
 	it("removes every listener once and ignores events after disposal", async () => {
@@ -161,6 +190,6 @@ describe("createDeepLinkBridge", () => {
 
 		expect(harness.removed).toEqual(["appUrlOpen", "backButton"]);
 		expect(harness.navigated).toEqual([]);
-		expect(harness.counts()).toEqual({ exited: 0, backCount: 0 });
+		expect(harness.counts()).toEqual({ exited: 0, backCount: 0, dismissed: 0 });
 	});
 });

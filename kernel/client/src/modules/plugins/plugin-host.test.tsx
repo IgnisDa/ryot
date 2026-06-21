@@ -146,6 +146,7 @@ function renderHost(
 	const host = (state: HostState) => (
 		<PluginHost
 			theme={theme}
+			onHeader={() => {}}
 			location={state.location}
 			installation={{ ...installation, ...state.overrides }}
 			onRenewArtifactSession={recorder.onRenewArtifactSession}
@@ -319,6 +320,7 @@ describe("plugin artifact session lifecycle", () => {
 				<PluginHost
 					theme={theme}
 					location={home}
+					onHeader={() => {}}
 					installation={installation}
 					onNavigate={() => undefined}
 					onStaleSession={() => undefined}
