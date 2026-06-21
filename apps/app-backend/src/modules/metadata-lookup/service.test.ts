@@ -68,10 +68,13 @@ const makeSandboxRepository = (overrides: MockOverrides<typeof mockSandboxReposi
 		getScriptForUser: ({ scriptId }) =>
 			Effect.succeed({
 				scriptId,
-				code: "// tmdb",
 				id: scriptId,
 				userId: null,
 				isBuiltin: true,
+				code: "// tmdb",
+				source: "// tmdb",
+				compiledFormat: 0,
+				compiledCode: "// compiled tmdb",
 				metadata: { allowedHostFunctions: [] },
 			}),
 		...overrides,
