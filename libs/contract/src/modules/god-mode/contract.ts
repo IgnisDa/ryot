@@ -49,6 +49,12 @@ export type ProvisionUserBody = Schema.Schema.Type<typeof ProvisionUserBody>;
 
 const ProvisionUserResponse = Schema.Struct({ userId: UserId });
 
+const ResetUserResponse = Schema.Struct({
+	userId: UserId,
+	email: Schema.String,
+	resetUrl: Schema.NullOr(Schema.String),
+});
+
 const ResetPasswordResponse = Schema.Struct({
 	email: Schema.String,
 	resetUrl: Schema.String,
@@ -83,6 +89,12 @@ export const GodModeGroup = HttpApiGroup.make("godMode")
 		HttpApiEndpoint.post("provisionUser", "/god-mode/users/provision")
 			.setPayload(ProvisionUserBody)
 			.addSuccess(ProvisionUserResponse, { status: 201 })
+			.addError(InternalError, { status: 500 })
+			.middleware(AdminMiddleware),
+	)
+	.add(
+		HttpApiEndpoint.post("resetUser")`/god-mode/users/${userIdParam}/reset`
+			.addSuccess(ResetUserResponse)
 			.addError(InternalError, { status: 500 })
 			.middleware(AdminMiddleware),
 	)
