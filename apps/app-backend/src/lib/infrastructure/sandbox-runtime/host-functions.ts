@@ -7,7 +7,7 @@ import { isObjectRecord } from "@ryot/ts-utils/predicates";
 import { eq } from "drizzle-orm";
 import { Effect, Runtime, Schema } from "effect";
 
-import { defaultUserPreferences } from "#lib/builtins/bootstrap";
+import { defaultUserPreferences } from "#modules/builtins/bootstrap";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";

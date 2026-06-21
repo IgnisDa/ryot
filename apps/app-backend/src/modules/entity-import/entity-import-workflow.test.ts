@@ -13,7 +13,7 @@ import {
 } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
-import { RedisService } from "#lib/redis";
+import { RedisService } from "#lib/infrastructure/redis";
 import type { MockOverrides } from "#lib/test-support/effect";
 import {
 	dbRunnerLayer,

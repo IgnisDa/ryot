@@ -3,7 +3,11 @@ import { BadRequest, DbError, NotFound, dieOnDbError } from "@ryot/contract/erro
 import type { QueryDocument } from "@ryot/contract/modules/query-engine/language";
 import { Effect } from "effect";
 
-import { DbRunner, TransactionRunner, setLocalStatementTimeout } from "#lib/db/service";
+import {
+	DbRunner,
+	TransactionRunner,
+	setLocalStatementTimeout,
+} from "#lib/infrastructure/db/service";
 
 import { executeAggregateQuery } from "./executor/aggregate";
 import { executeRowsQuery } from "./executor/rows";

@@ -4,8 +4,8 @@ import type { MergeUserStateBody } from "@ryot/contract/modules/user-state/schem
 import { EntityId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
-import { DbRunner, TransactionRunner } from "#lib/db/service";
-import { trimToNull } from "#lib/validation";
+import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
+import { trimToNull } from "#lib/shared/validation";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventsRepository } from "#modules/events/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";

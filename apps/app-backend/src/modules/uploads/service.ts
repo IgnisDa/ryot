@@ -11,9 +11,9 @@ import { UserId } from "@ryot/contract/schema/brands";
 import { generateId } from "better-auth";
 import { Effect, Schema } from "effect";
 
-import { AppConfig } from "#lib/config/service";
-import { RedisService, redisKeys } from "#lib/redis";
-import { S3Service } from "#lib/s3";
+import { AppConfig } from "#lib/infrastructure/config/service";
+import { RedisService, redisKeys } from "#lib/infrastructure/redis";
+import { S3Service } from "#lib/infrastructure/s3";
 
 const UPLOAD_TOKEN_TTL_SECONDS = 15 * 60;
 const UPLOAD_URL_EXPIRY_SECONDS = 15 * 60;
