@@ -28,7 +28,6 @@ import {
 import {
 	entitySchemaIs,
 	EpisodeLifecycleStateSchema,
-	episodeLifecycleStateExpression,
 	EpisodicLifecycleStateSchema,
 	episodicCoverageExpressions,
 	episodicLifecycleExpressions,
@@ -39,25 +38,12 @@ import {
 	lifecycleEventSlugs,
 	orderExpressionsAreAfter,
 	relationshipConnects,
-	showEpisodicKindConfig,
-	type EpisodeLifecycleState,
 	type EpisodicKindConfig,
-	type EpisodicLifecycleState,
 	type EventOrderExpressions,
 	type ScalarExpression,
+	type showEpisodicKindConfig,
 	type TableReference,
 } from "../../shared/lifecycle-expressions";
-
-export {
-	EpisodeLifecycleStateSchema,
-	EpisodicLifecycleStateSchema,
-	episodeLifecycleStateExpression,
-	episodicLifecycleExpressions,
-	showEpisodicKindConfig,
-	type EpisodeLifecycleState,
-	type EpisodicKindConfig,
-	type EpisodicLifecycleState,
-};
 
 export const EventOrderTupleSchema = Schema.Struct({
 	id: Schema.String,
