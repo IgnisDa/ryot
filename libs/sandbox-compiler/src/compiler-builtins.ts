@@ -2,19 +2,27 @@ import { Effect } from "effect";
 import type * as ts from "typescript/unstable/ast";
 import { DiagnosticCategory, type Diagnostic } from "typescript/unstable/async";
 
-import { bundleUserScript } from "./compiler-bundle";
+import { bundleBuiltInScript } from "./compiler-bundle";
 import { resolveSandboxCompilerDependencies } from "./compiler-dependencies";
 import {
 	type SandboxCompilerDiagnostic,
-	SANDBOX_SOURCE_FILE,
 	sandboxCompilationFailure,
 	sandboxCompilerDiagnostic,
+	sandboxLogicalFile,
 } from "./compiler-diagnostics";
 import { extractSandboxManifest } from "./compiler-manifest";
-import { createTypeScriptProject } from "./compiler-project";
+import { createTypeScriptSourcesProject, type SandboxTypeScriptSources } from "./compiler-project";
 import { type CompiledSandboxModule, SANDBOX_COMPILED_FORMAT } from "./compiler-protocol";
-import { inspectSandboxSource } from "./compiler-source";
+import { inspectSandboxModuleImports, inspectSandboxSource } from "./compiler-source";
 import { jsonByteLength, SANDBOX_COMPILER_LIMITS, utf8ByteLength } from "./limits";
+
+export type BuiltInSandboxEntry = SandboxTypeScriptSources;
+
+export type CompiledBuiltInSandboxEntry = {
+	readonly entry: string;
+	readonly source: string;
+	readonly compiled: CompiledSandboxModule;
+};
 
 const diagnosticSeverity = (category: DiagnosticCategory) => {
 	if (category === DiagnosticCategory.Warning) {
@@ -31,36 +39,52 @@ const diagnosticMessage = (diagnostic: Diagnostic): string =>
 
 const toTypeScriptDiagnostic = (
 	diagnostic: Diagnostic,
-	file: ts.SourceFile,
+	files: readonly ts.SourceFile[],
+	entry: ts.SourceFile,
 ): SandboxCompilerDiagnostic => {
+	const file = files.find((sourceFile) => sourceFile.fileName === diagnostic.fileName) ?? entry;
 	const start = Math.max(0, diagnostic.pos);
 	const location = diagnostic.fileName ? file.getLineAndCharacterOfPosition(start) : undefined;
 
 	return {
-		file: SANDBOX_SOURCE_FILE,
 		code: `TS${diagnostic.code}`,
 		line: (location?.line ?? 0) + 1,
 		column: (location?.character ?? 0) + 1,
 		message: diagnosticMessage(diagnostic),
 		severity: diagnosticSeverity(diagnostic.category),
+		file: sandboxLogicalFile(diagnostic.fileName ?? entry.fileName),
 		...(diagnostic.end > diagnostic.pos ? { length: diagnostic.end - diagnostic.pos } : {}),
 	};
 };
 
-export const compileSandboxSource = (source: string) =>
+export const compileBuiltInSandboxEntry = (sources: BuiltInSandboxEntry) =>
 	Effect.gen(function* () {
-		if (utf8ByteLength(source) > SANDBOX_COMPILER_LIMITS.sourceBytes) {
+		const source = sources.files[sources.entry];
+		if (source === undefined) {
 			return yield* sandboxCompilationFailure([
 				sandboxCompilerDiagnostic(
-					"RYOT_SOURCE_SIZE",
-					`Sandbox TypeScript source exceeds ${SANDBOX_COMPILER_LIMITS.sourceBytes} UTF-8 bytes`,
+					"RYOT_BUILTIN_ENTRY",
+					`Built-in sandbox entry does not exist: ${sources.entry}`,
 				),
 			]);
 		}
+		for (const [path, contents] of Object.entries(sources.files)) {
+			if (utf8ByteLength(contents) > SANDBOX_COMPILER_LIMITS.sourceBytes) {
+				return yield* sandboxCompilationFailure([
+					{
+						...sandboxCompilerDiagnostic(
+							"RYOT_SOURCE_SIZE",
+							`Built-in sandbox source exceeds ${SANDBOX_COMPILER_LIMITS.sourceBytes} UTF-8 bytes`,
+						),
+						file: path,
+					},
+				]);
+			}
+		}
 
 		const dependencies = yield* resolveSandboxCompilerDependencies;
-		const project = yield* createTypeScriptProject(
-			source,
+		const project = yield* createTypeScriptSourcesProject(
+			sources,
 			dependencies.sdkEntries,
 			dependencies.tsserverPath,
 		).pipe(
@@ -73,20 +97,25 @@ export const compileSandboxSource = (source: string) =>
 				]),
 			),
 		);
-		const inspection = inspectSandboxSource(project.sourceFile);
-		if (inspection.diagnostics.length > 0) {
-			return yield* sandboxCompilationFailure(inspection.diagnostics);
+		const inspection = inspectSandboxSource(project.sourceFile, { allowRelativeImports: true });
+		const moduleDiagnostics = project.sourceFiles
+			.filter((file) => file !== project.sourceFile)
+			.flatMap(inspectSandboxModuleImports);
+		const inspectionDiagnostics = [...inspection.diagnostics, ...moduleDiagnostics];
+		if (inspectionDiagnostics.length > 0) {
+			return yield* sandboxCompilationFailure(inspectionDiagnostics);
 		}
 
-		const hasTypeErrors = project.diagnostics.some(
+		const typeErrors = project.diagnostics.filter(
 			(diagnostic) => diagnostic.category === DiagnosticCategory.Error,
 		);
-		if (hasTypeErrors) {
+		if (typeErrors.length > 0) {
 			return yield* sandboxCompilationFailure(
-				project.diagnostics
-					.filter((diagnostic) => diagnostic.category === DiagnosticCategory.Error)
+				typeErrors
 					.slice(0, SANDBOX_COMPILER_LIMITS.diagnosticCount)
-					.map((diagnostic) => toTypeScriptDiagnostic(diagnostic, project.sourceFile)),
+					.map((diagnostic) =>
+						toTypeScriptDiagnostic(diagnostic, project.sourceFiles, project.sourceFile),
+					),
 			);
 		}
 
@@ -114,7 +143,7 @@ export const compileSandboxSource = (source: string) =>
 			]);
 		}
 
-		const bundled = yield* bundleUserScript(source, dependencies.sdkEntries);
+		const bundled = yield* bundleBuiltInScript(sources, dependencies.sdkEntries);
 		if ("diagnostics" in bundled) {
 			return yield* sandboxCompilationFailure(bundled.diagnostics);
 		}
@@ -128,8 +157,15 @@ export const compileSandboxSource = (source: string) =>
 		}
 
 		return {
-			manifest: extracted.manifest,
-			javascript: bundled.javascript,
-			format: SANDBOX_COMPILED_FORMAT,
-		} satisfies CompiledSandboxModule;
+			source,
+			entry: sources.entry,
+			compiled: {
+				manifest: extracted.manifest,
+				javascript: bundled.javascript,
+				format: SANDBOX_COMPILED_FORMAT,
+			},
+		} satisfies CompiledBuiltInSandboxEntry;
 	});
+
+export const compileBuiltInSandboxEntries = (entries: readonly BuiltInSandboxEntry[]) =>
+	Effect.forEach(entries, compileBuiltInSandboxEntry, { concurrency: 2 });

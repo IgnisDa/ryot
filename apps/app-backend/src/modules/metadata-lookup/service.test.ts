@@ -65,18 +65,29 @@ const makeIntegrationsRepository = (
 
 const makeSandboxRepository = (overrides: MockOverrides<typeof mockSandboxRepository> = {}) =>
 	mockSandboxRepository({
-		getScriptForUser: ({ scriptId }) =>
-			Effect.succeed({
+		getScriptForUser: ({ scriptId }) => {
+			const isShow = scriptId === showScriptId;
+			return Effect.succeed({
 				scriptId,
 				id: scriptId,
 				userId: null,
 				isBuiltin: true,
 				code: "// tmdb",
 				source: "// tmdb",
-				compiledFormat: 0,
+				compiledFormat: isShow ? 1 : 0,
 				compiledCode: "// compiled tmdb",
-				metadata: { allowedHostFunctions: [] },
-			}),
+				metadata: isShow
+					? {
+							name: "TMDB",
+							slug: "show.tmdb",
+							kind: "provider" as const,
+							requiredAppConfigKeys: ["providers.tmdbAccessToken"],
+							providerInformation: { source: "tmdb", canonicalLanguage: "en" },
+							capabilities: ["httpCall", "getAppConfigValue", "getUserPreferences"],
+						}
+					: { allowedHostFunctions: ["httpCall"] },
+			});
+		},
 		...overrides,
 		_tag: "SandboxRepository",
 	});
@@ -92,20 +103,26 @@ const searchItem = (input: { externalId: string; title: string; publishYear?: nu
 
 const makeSandbox = (overrides: MockOverrides<typeof mockSandbox> = {}) =>
 	mockSandbox({
-		run: (input) =>
-			Effect.succeed({
+		run: (input) => {
+			expect(input.allowedHostFunctions).toEqual(
+				input.scriptId === showScriptId
+					? ["httpCall", "getAppConfigValue", "getUserPreferences"]
+					: ["httpCall"],
+			);
+			return Effect.succeed({
 				logs: [],
 				error: null,
 				success: true,
+				executionId: input.executionId,
+				timing: { totalMs: 1, executionMs: 1 },
 				value: {
 					items:
 						input.scriptId === movieScriptId
 							? [searchItem({ title: "The Crown", externalId: "movie_1", publishYear: 2016 })]
 							: [searchItem({ title: "The Crown", externalId: "show_1", publishYear: 2016 })],
 				},
-				executionId: input.executionId,
-				timing: { totalMs: 1, executionMs: 1 },
-			}),
+			});
+		},
 		...overrides,
 		_tag: "SandboxService",
 	});

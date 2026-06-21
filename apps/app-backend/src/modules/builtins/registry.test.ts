@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 
 import {
 	podcastEpisodePropertiesSchema,
@@ -8,6 +8,18 @@ import {
 import { builtinSandboxScripts } from "./registry";
 
 describe("builtinSandboxScripts", () => {
+	it("uses the generated format-1 representation for TMDB Show", () => {
+		const script = builtinSandboxScripts().find(({ slug }) => slug === "show.tmdb");
+		assert(script && "compiledCode" in script && "manifest" in script);
+
+		expect(script.compiledFormat).toBe(1);
+		expect(script.code).toBe(script.source);
+		expect(script.metadata).toBe(script.manifest);
+		expect(script.source).toContain("defineProvider");
+		expect(script.compiledCode).toContain("ryot:sandbox-script");
+		expect(script.compiledCode).toContain("sourceMappingURL=data:application/json;base64,");
+	});
+
 	it("declares source metadata for every provider script", () => {
 		const scripts = builtinSandboxScripts();
 		const mismatches = scripts

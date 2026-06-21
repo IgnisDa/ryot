@@ -38,13 +38,23 @@ export class SandboxApiService extends Effect.Service<SandboxApiService>()("Sand
 			payload: CreateSandboxScriptBody,
 		) {
 			const compiled = yield* compiler.compile(payload.source);
-			const manifest = {
-				kind: compiled.manifest.kind,
-				name: compiled.manifest.name,
-				slug: compiled.manifest.slug,
-				capabilities: [...compiled.manifest.capabilities],
-				requiredAppConfigKeys: [...compiled.manifest.requiredAppConfigKeys],
-			};
+			const manifest =
+				compiled.manifest.kind === "provider"
+					? {
+							kind: compiled.manifest.kind,
+							name: compiled.manifest.name,
+							slug: compiled.manifest.slug,
+							capabilities: [...compiled.manifest.capabilities],
+							requiredAppConfigKeys: [...compiled.manifest.requiredAppConfigKeys],
+							providerInformation: { ...compiled.manifest.providerInformation },
+						}
+					: {
+							kind: compiled.manifest.kind,
+							name: compiled.manifest.name,
+							slug: compiled.manifest.slug,
+							capabilities: [...compiled.manifest.capabilities],
+							requiredAppConfigKeys: [...compiled.manifest.requiredAppConfigKeys],
+						};
 
 			const existing = yield* runWithDb(
 				repository.findScriptBySlugForUser({ userId: user.id, slug: manifest.slug }),

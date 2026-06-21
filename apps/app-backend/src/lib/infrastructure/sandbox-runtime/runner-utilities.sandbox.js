@@ -11,7 +11,8 @@ const nativeString = globalThis.String;
 const jsonStringify = JSON.stringify.bind(JSON);
 const encodeText = encoder.encode.bind(encoder);
 const decodeText = decoder.decode.bind(decoder);
-const sourceFramePattern = /(?:sandbox-user:)?script\.ts:(\d+):(\d+)/;
+const sourceFramePattern =
+	/(?:(?:sandbox-user:)?script\.ts|(?:sandbox-built-in:)?(?:providers|triggers|script-helpers)\/[a-zA-Z0-9_./-]+\.ts):(\d+):(\d+)/;
 const getFailurePhase = failurePhases.get.bind(failurePhases);
 const setFailurePhase = failurePhases.set.bind(failurePhases);
 const typedArrayPrototype = Object.getPrototypeOf(Uint8Array.prototype);

@@ -1,5 +1,6 @@
 import { FileSystem } from "@effect/platform";
 import type { ImportRunId, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
+import type { ProviderSearchItem } from "@ryot/sandbox-sdk/provider";
 import { Effect, Match } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
@@ -9,7 +10,6 @@ import {
 } from "#lib/shared/title-matching";
 import { extractMetadataLookupBaseTitle } from "#lib/shared/title-parsing";
 import { EntitiesRepository } from "#modules/entities/repository";
-import type { EntitySearchItem } from "#modules/entity-import/population";
 
 import type { MediaImportAdapterResult } from "../../media/adapter-result";
 import { nowIso } from "../../media/dates";
@@ -28,8 +28,8 @@ type NetflixAdapterInput = {
 	myListCsv: string;
 	importedAt: string;
 	ratingsCsv: string;
-	profileName?: string | undefined;
 	viewingActivityCsv: string;
+	profileName?: string | undefined;
 };
 
 type NetflixSearchJob = {
@@ -42,7 +42,7 @@ type NetflixSearchJob = {
 type NetflixSearchResponse = {
 	jobKey: string;
 	error: string | null;
-	items: ReadonlyArray<EntitySearchItem>;
+	items: ReadonlyArray<ProviderSearchItem>;
 };
 
 type LoadedNetflixAdapterResult =
@@ -52,12 +52,12 @@ type LoadedNetflixAdapterResult =
 			adapterResult: MediaImportAdapterResult;
 	  }
 	| {
-			_tag: "netflix-search-planned";
 			importedAt: string;
 			myListPath: string;
 			ratingsPath: string;
-			profileName?: string | undefined;
 			viewingActivityPath: string;
+			_tag: "netflix-search-planned";
+			profileName?: string | undefined;
 			cleanupPaths: ReadonlyArray<string>;
 			searchJobs: ReadonlyArray<NetflixSearchJob>;
 	  };
@@ -171,7 +171,7 @@ const adaptNetflixExportsWithSearchResults = (input: {
 
 const toNetflixTitleMatchCandidates = (
 	searchJobKey: string,
-	items: ReadonlyArray<EntitySearchItem>,
+	items: ReadonlyArray<ProviderSearchItem>,
 ): ReadonlyArray<MetadataLookupTitleMatchCandidate> => {
 	const { scriptSlug } = parseNetflixSearchJobKey(searchJobKey);
 	return items.map((item) => ({
