@@ -82,8 +82,6 @@ export const populateMediaEntityGroups = Effect.fn("populateMediaEntityGroups")(
 
 		if (populated._tag === "Left") {
 			failures += 1;
-			// LibraryEntityImportWorkflow composes provider population then library membership; its
-			// stage discriminant maps back onto the pre-consolidation import failure stages.
 			const stage = populated.left.stage === "membership" ? "database_commit" : "provider_details";
 			yield* Activity.make({
 				error: ImportRunError,

@@ -55,9 +55,6 @@ it.effect("keeps raw sandbox workflow execution at the allowed boundaries", () =
 		]);
 
 		expect(sandboxService.match(/\.execute\(RunSandboxWorkflow,/g)?.length ?? 0).toBe(1);
-		// Before-create triggers now dispatch through DurableQueue.process; only the after-create
-		// trigger dispatch remains as a raw child-workflow execution, and it lives in the workflow
-		// body rather than inside an activity.
 		expect(eventCreateCore.match(/\.execute\(RunSandboxWorkflow,/g)?.length ?? 0).toBe(0);
 		expect(eventCreateWorkflow.match(/\.execute\(RunSandboxWorkflow,/g)?.length ?? 0).toBe(1);
 		expect(exercisePreload.match(/\.execute\(RunSandboxWorkflow,/g)?.length ?? 0).toBe(1);
@@ -69,10 +66,7 @@ it.effect("keeps raw sandbox workflow execution at the allowed boundaries", () =
 		for (const source of [entityImportWorkflow, mediaImportWorkflow, integrationWorkflow]) {
 			expect(source).not.toContain("execute(RunSandboxWorkflow");
 		}
-		// Entity-import phase workflows never touch the raw engine — they go through operations.
 		expect(entityImportWorkflow).not.toMatch(/^import\s+(?!type\b)[^\n;]*\bWorkflowEngine\b/m);
-		// The media and integration parents' only sanctioned raw engine execution is dispatching the
-		// canonical normalized-media-import child directly from their workflow bodies.
 		expect(
 			mediaImportWorkflow.match(/\.execute\(ProcessNormalizedMediaImportWorkflow,/g)?.length ?? 0,
 		).toBe(1);
@@ -94,8 +88,6 @@ it.effect("keeps parent workflows as orchestrations instead of queue pass-throug
 
 		expect(entityImportWorkflow).toContain("validate-entity-details");
 		expect(entityImportWorkflow).toContain("write-primary-entity");
-		// The library workflow composes provider population then dispatches the membership queue
-		// operation; it no longer owns a bare ensureEntityInLibrary write.
 		expect(libraryWorkflow).toContain("ensureLibraryMembership");
 		expect(libraryWorkflow).not.toContain("ensureEntityInLibrary");
 
@@ -123,9 +115,6 @@ it.effect("keeps event workflow and repository primitives behind EventsService",
 			expect(source).not.toContain("EventsRepository");
 		}
 
-		// The collections service no longer owns the add-membership event dispatch: it delegates to
-		// AddEntityToCollectionWorkflow, whose body is the single sanctioned place that dispatches the
-		// child EventCreateWorkflow (from the workflow body, never from inside an activity).
 		expect(collectionsService).not.toContain("EventCreateWorkflow");
 		expect(collectionsAddWorkflow.match(/\.execute\(EventCreateWorkflow,/g)?.length ?? 0).toBe(1);
 	}),
@@ -158,13 +147,9 @@ it.effect("keeps provider entity population behind the canonical workflow", () =
 			expect(source).toContain("ProviderEntityPopulationWorkflow");
 		}
 
-		// Media import no longer composes population + membership itself; it routes each item through
-		// LibraryEntityImportWorkflow, the single durable owner of that composition.
 		expect(mediaOperations).toContain("LibraryEntityImportWorkflow");
 		expect(mediaOperations).not.toContain("ProviderEntityPopulationWorkflow");
 
-		// The durable library-membership write (ensureEntityInLibrary) is owned solely by the queue
-		// worker now that both workflow paths dispatch EnsureLibraryMembershipQueue instead.
 		expect(membershipWorker).toContain("ensureEntityInLibrary");
 
 		// `runProviderEntityPopulationWorkflow` is exported only for unit tests. No production
