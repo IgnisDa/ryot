@@ -117,6 +117,11 @@ mechanism) survives only as a cache feeding step 5's short-circuit — **[IMPLEM
 whether to keep it or accept compile-on-first-boot; measure boot time before choosing the
 extra machinery.
 
+**Implementation choice (2026-07-23):** compile on first boot, then use the persisted
+`sourceHash` short-circuit on subsequent boots. Compiling the current 63-script first-party set
+through `compilePluginSandboxEntries` took 816 ms on the implementation machine, which does not
+justify retaining a second generated-cache path. The project owner confirmed this choice.
+
 Schema evolution diff (hot path only): when an ingestion _replaces_ an existing plugin
 version, diff old vs new entity/event/relationship/signal property schemas. Additive changes
 (new schemas, new optional properties, widened enums) pass; breaking changes (removed
