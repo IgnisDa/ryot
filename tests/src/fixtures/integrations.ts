@@ -1,6 +1,7 @@
 import { IntegrationId } from "@ryot/contract/schema/brands";
 
-import { requirePresent } from "../test-support/assertions";
+import { requirePresent } from "~/support/assertions";
+
 import type { Client } from "./auth";
 import type { ContractPayload, ContractUrlParams } from "./contract-client";
 

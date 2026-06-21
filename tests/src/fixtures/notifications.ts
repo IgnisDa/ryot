@@ -1,6 +1,7 @@
 import { NotificationChannelId } from "@ryot/contract/schema/brands";
 
-import { startFakeHttpServer } from "../test-support/fake-http-server";
+import { startFakeHttpServer } from "~/support/fake-http-server";
+
 import type { Client } from "./auth";
 import type { ContractPayload } from "./contract-client";
 

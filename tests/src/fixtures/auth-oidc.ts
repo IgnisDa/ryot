@@ -1,4 +1,4 @@
-import { requirePresent } from "../test-support/assertions";
+import { requirePresent } from "~/support/assertions";
 
 export async function oidcSignIn(
 	username: string,
