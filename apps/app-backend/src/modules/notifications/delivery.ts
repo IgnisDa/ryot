@@ -3,7 +3,7 @@ import type { NotificationPlatformSpecifics } from "@ryot/contract/modules/notif
 import { Data, Duration, Effect, Match, Option, Redacted } from "effect";
 import { createTransport } from "nodemailer";
 
-import { AppConfig, isSmtpEnabled } from "#lib/infrastructure/config/service";
+import { AppConfig, getSmtpCredentials } from "#lib/infrastructure/config/service";
 
 const PROJECT_NAME = "Ryot";
 const HTTP_TIMEOUT_MS = 10_000;
@@ -71,23 +71,22 @@ export class NotificationDeliveryService extends Effect.Service<NotificationDeli
 				message: string;
 				recipient: string;
 			}) {
-				if (!isSmtpEnabled(config)) {
+				const credentials = getSmtpCredentials(config);
+				if (Option.isNone(credentials)) {
 					return yield* new NotificationDeliveryError({ message: "SMTP is not configured" });
 				}
 
-				const { mailbox, password, server, user } = config.notifications.smtp;
-				if (Option.isNone(server) || Option.isNone(user) || Option.isNone(password)) {
-					return yield* new NotificationDeliveryError({ message: "SMTP is not configured" });
-				}
+				const { mailbox } = config.notifications.smtp;
+				const { server, user, password } = credentials.value;
 
 				const transport = createTransport({
 					port: 465,
+					host: server,
 					secure: true,
-					host: server.value,
 					socketTimeout: HTTP_TIMEOUT_MS,
 					greetingTimeout: HTTP_TIMEOUT_MS,
 					connectionTimeout: HTTP_TIMEOUT_MS,
-					auth: { user: Redacted.value(user.value), pass: Redacted.value(password.value) },
+					auth: { user: Redacted.value(user), pass: Redacted.value(password) },
 				});
 
 				yield* Effect.tryPromise({

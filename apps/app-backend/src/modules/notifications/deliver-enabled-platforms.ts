@@ -1,10 +1,12 @@
-import type { NotificationDeliveryResult } from "@ryot/contract/modules/notifications/schemas";
 import { Effect } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
 
 import { NotificationDeliveryService } from "./delivery";
-import type { NotificationDeliveryWorkflowPayload } from "./notification-delivery-workflow";
+import type {
+	NotificationDeliveryResult,
+	NotificationDeliveryWorkflowPayload,
+} from "./notification-delivery-workflow";
 import { NotificationsRepository, type NotificationPlatformRecord } from "./repository";
 
 const toDeliveryResult = (
