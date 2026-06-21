@@ -1,14 +1,30 @@
+import type { HttpClientResponse } from "@effect/platform";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "@effect/platform";
 import { isHttpMethod } from "@effect/platform/HttpMethod";
 import { SandboxRunError, TimeoutError, unknownToMessage } from "@ryot/contract/errors";
+import {
+	SandboxExecutionError,
+	type SandboxExecutionError as SandboxExecutionErrorValue,
+} from "@ryot/contract/modules/sandbox/schemas";
+import type { CoreSandboxHostMethodMap } from "@ryot/sandbox-sdk";
 import { generateId } from "better-auth";
-import { Clock, Duration, Effect, Match, Runtime, Schema } from "effect";
+import { Clock, Duration, Effect, Match, Runtime, Schema, Stream } from "effect";
 
 import { AppConfig } from "../config/service";
 import { redisKeys, RedisService } from "../redis";
 import { ServerRun } from "../server-run";
 import { bindSandboxHostFunctions } from "./bridge-adapter";
 import { makeAdditionalSandboxApiFunctions } from "./host-functions";
+import {
+	sandboxCacheKeyError,
+	sandboxCacheTtlError,
+	sandboxCacheValueError,
+	sandboxContextError,
+	sandboxHttpRequestBodyError,
+	sandboxRunnerRequestError,
+	SANDBOX_LIMITS,
+	SANDBOX_RUNNER_LIMITS,
+} from "./limits";
 import { BridgeService, invalidateProcess, ProcessPool } from "./runtime";
 import {
 	apiFailure,
@@ -24,16 +40,37 @@ export type SandboxRunOutput = {
 	readonly value: unknown;
 	readonly success: boolean;
 	readonly executionId: string;
-	readonly error: string | null;
+	readonly error: SandboxExecutionErrorValue | null;
 	readonly timing: { readonly totalMs: number; readonly executionMs: number };
 };
 
 const httpCallTimeoutMs = 8_000;
 const sessionTtlBufferMs = 2_000;
+const decoder = new TextDecoder();
+const encoder = new TextEncoder();
 const invalidResponseMessage = "Invalid JSON response from Deno process";
 const defaultHeaders = { "User-Agent": "Ryot ( https://github.com/ignisda/ryot )" };
 const getCacheKey = (serverRunId: string, scriptId: string, key: string) =>
 	redisKeys.sandboxRunCache(serverRunId, scriptId, key);
+
+export const readSandboxHttpResponseText = (response: HttpClientResponse.HttpClientResponse) =>
+	response.stream.pipe(
+		Stream.runFoldEffect({ bytes: 0, chunks: [] as Uint8Array[] }, (state, chunk) => {
+			const bytes = state.bytes + chunk.byteLength;
+			return bytes > SANDBOX_LIMITS.http.responseBytes
+				? Effect.fail(`httpCall response body exceeds ${SANDBOX_LIMITS.http.responseBytes} bytes`)
+				: Effect.succeed({ bytes, chunks: [...state.chunks, chunk] });
+		}),
+		Effect.map(({ bytes, chunks }) => {
+			const body = new Uint8Array(bytes);
+			let offset = 0;
+			for (const chunk of chunks) {
+				body.set(chunk, offset);
+				offset += chunk.byteLength;
+			}
+			return decoder.decode(body);
+		}),
+	);
 
 const SandboxRunnerRequest = Schema.Struct({
 	token: Schema.String,
@@ -46,13 +83,14 @@ const SandboxRunnerRequest = Schema.Struct({
 	compiledCode: Schema.String,
 	compiledFormat: Schema.Number,
 	apiFunctions: Schema.Array(Schema.String),
+	limits: Schema.Record({ key: Schema.String, value: Schema.Union(Schema.Number, Schema.String) }),
 });
 
 const SandboxRunnerResponse = Schema.Struct({
 	success: Schema.Boolean,
 	value: Schema.optional(Schema.Unknown),
 	logs: Schema.optional(Schema.Array(Schema.String)),
-	error: Schema.optional(Schema.NullOr(Schema.String)),
+	error: Schema.optional(Schema.NullOr(SandboxExecutionError)),
 	timing: Schema.optional(Schema.Struct({ executionMs: Schema.Number })),
 });
 
@@ -62,6 +100,7 @@ const decodeSandboxRunnerResponse = Schema.decodeUnknownSync(
 );
 
 const makeInvalidResponse = () => new SandboxRunError({ message: invalidResponseMessage });
+type SetCachedValueResult = Awaited<ReturnType<CoreSandboxHostMethodMap["setCachedValue"]>>;
 
 export class SandboxService extends Effect.Service<SandboxService>()("SandboxService", {
 	dependencies: [FetchHttpClient.layer, ProcessPool.Default, BridgeService.Default],
@@ -85,6 +124,12 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 		const runSandbox = (input: SandboxRunInput) =>
 			Effect.scoped(
 				Effect.gen(function* () {
+					const context = input.context ?? {};
+					const contextError = sandboxContextError(context);
+					if (contextError) {
+						return yield* new SandboxRunError({ message: contextError });
+					}
+
 					const boundApiFunctions: Readonly<Record<string, BoundHostFunction>> =
 						bindSandboxHostFunctions(apiFunctions, input);
 					const selectedApiFunctions: Record<string, BoundHostFunction> = {};
@@ -95,11 +140,29 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 						}
 					}
 
+					const token = generateId();
+					const requestLine = `${encodeSandboxRunnerRequest({
+						token,
+						context,
+						scriptId: input.scriptId,
+						driverName: input.driverName,
+						limits: SANDBOX_RUNNER_LIMITS,
+						metadata: input.metadata ?? {},
+						executionId: input.executionId,
+						compiledCode: input.compiledCode,
+						compiledFormat: input.compiledFormat,
+						apiBase: `http://127.0.0.1:${bridge.port}`,
+						apiFunctions: Object.keys(selectedApiFunctions),
+					})}\n`;
+					const requestError = sandboxRunnerRequestError(requestLine);
+					if (requestError) {
+						return yield* new SandboxRunError({ message: requestError });
+					}
+
 					const worker = yield* pool.get;
 					yield* Effect.addFinalizer(() => invalidateProcess(pool, worker).pipe(Effect.orDie));
 					yield* worker.responseQueue.takeAll.pipe(Effect.asVoid);
 
-					const token = generateId();
 					const now = yield* Clock.currentTimeMillis;
 					yield* bridge.addSession(input.executionId, {
 						token,
@@ -109,20 +172,8 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 					yield* Effect.addFinalizer(() =>
 						bridge.removeSession(input.executionId).pipe(Effect.orDie),
 					);
-					const requestLine = `${encodeSandboxRunnerRequest({
-						token,
-						scriptId: input.scriptId,
-						context: input.context ?? {},
-						driverName: input.driverName,
-						metadata: input.metadata ?? {},
-						executionId: input.executionId,
-						compiledCode: input.compiledCode,
-						compiledFormat: input.compiledFormat,
-						apiBase: `http://127.0.0.1:${bridge.port}`,
-						apiFunctions: Object.keys(selectedApiFunctions),
-					})}\n`;
 
-					yield* worker.stdinQueue.offer(new TextEncoder().encode(requestLine));
+					yield* worker.stdinQueue.offer(encoder.encode(requestLine));
 
 					const responseLine = yield* Effect.raceFirst(
 						worker.responseQueue.take,
@@ -144,7 +195,9 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 
 					const executionMs = raw.timing?.executionMs;
 					const finishedAt = yield* Clock.currentTimeMillis;
-					const error = typeof raw.error === "string" ? raw.error : null;
+					const error = raw.success
+						? null
+						: (raw.error ?? { phase: "load", message: "Sandbox runner failed without an error" });
 					const totalMs = Math.max(1, Math.round(finishedAt - now));
 					const logs = "logs" in raw && Array.isArray(raw.logs) ? raw.logs : [];
 
@@ -169,8 +222,9 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 
 		apiFunctions = {
 			getCachedValue: (input, key) => {
-				if (typeof key !== "string" || !key.trim()) {
-					return Promise.resolve(apiFailure("getCachedValue expects a non-empty key string"));
+				const keyError = sandboxCacheKeyError("getCachedValue", key);
+				if (keyError) {
+					return Promise.resolve(apiFailure(keyError));
 				}
 
 				return runPromise(
@@ -178,6 +232,10 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 						Effect.flatMap((cached) => {
 							if (cached === null) {
 								return Effect.succeed(apiSuccess(null));
+							}
+							const valueError = sandboxCacheValueError("getCachedValue", cached, "stored value");
+							if (valueError) {
+								return Effect.succeed(apiFailure(valueError));
 							}
 							return Schema.decode(Schema.parseJson(Schema.Unknown))(cached).pipe(
 								Effect.map((value) =>
@@ -201,6 +259,10 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 				if (typeof url !== "string" || !url.trim()) {
 					return Promise.resolve(apiFailure("httpCall expects a non-empty URL string"));
 				}
+				const bodyError = sandboxHttpRequestBodyError(options?.body);
+				if (bodyError) {
+					return Promise.resolve(apiFailure(bodyError));
+				}
 
 				return runPromise(
 					Effect.gen(function* () {
@@ -223,7 +285,11 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 						);
 
 						const [response, body] = yield* httpClient.execute(request).pipe(
-							Effect.flatMap((res) => Effect.map(res.text, (text) => [res, text] as const)),
+							Effect.flatMap((res) =>
+								res.status < 200 || res.status >= 300
+									? Effect.succeed([res, ""] as const)
+									: Effect.map(readSandboxHttpResponseText(res), (text) => [res, text] as const),
+							),
 							Effect.timeout(Duration.millis(httpCallTimeoutMs)),
 							Effect.mapError((error) => apiFailure(unknownToMessage(error))),
 						);
@@ -244,22 +310,25 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 				);
 			},
 			setCachedValue: (input, key, value, expiry) => {
-				if (typeof key !== "string" || !key.trim()) {
-					return Promise.resolve(apiFailure("setCachedValue expects a non-empty key string"));
+				const keyError = sandboxCacheKeyError("setCachedValue", key);
+				if (keyError) {
+					return Promise.resolve(apiFailure(keyError));
 				}
-				if (typeof expiry !== "number" || !Number.isInteger(expiry) || expiry <= 0) {
-					return Promise.resolve(
-						apiFailure("setCachedValue expects a positive integer expiry in seconds"),
-					);
+				const ttlError = sandboxCacheTtlError("setCachedValue", expiry, "expiry");
+				if (ttlError) {
+					return Promise.resolve(apiFailure(ttlError));
 				}
 
 				return runPromise(
 					Schema.encode(Schema.parseJson(Schema.Unknown))(value).pipe(
-						Effect.flatMap((serialized) =>
-							redis
-								.set(getCacheKey(serverRun.id, input.scriptId, key.trim()), serialized, expiry)
-								.pipe(Effect.as(apiSuccess(null)), Effect.orDie),
-						),
+						Effect.flatMap((serialized): Effect.Effect<SetCachedValueResult> => {
+							const valueError = sandboxCacheValueError("setCachedValue", serialized);
+							return valueError
+								? Effect.succeed(apiFailure(valueError))
+								: redis
+										.set(getCacheKey(serverRun.id, input.scriptId, key.trim()), serialized, expiry)
+										.pipe(Effect.as(apiSuccess(null)), Effect.orDie);
+						}),
 						Effect.orElseSucceed(() =>
 							apiFailure("setCachedValue value must be JSON-serializable"),
 						),

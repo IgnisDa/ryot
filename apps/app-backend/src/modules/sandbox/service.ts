@@ -1,6 +1,6 @@
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
-import { conflict, notFound } from "@ryot/contract/errors";
+import { badRequest, conflict, notFound } from "@ryot/contract/errors";
 import type {
 	CreateSandboxScriptBody,
 	EnqueueSandboxBody,
@@ -11,6 +11,7 @@ import { Effect, Redacted } from "effect";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { DbRunner } from "#lib/infrastructure/db/service";
+import { sandboxContextError } from "#lib/infrastructure/sandbox-runtime/limits";
 import { pollWorkflowWithResumeNudge } from "#lib/infrastructure/workflow";
 import { createWorkflowJobId, resolveWorkflowExecutionId } from "#lib/shared/job-id";
 import { trimToNull } from "#lib/shared/validation";
@@ -74,6 +75,11 @@ export class SandboxApiService extends Effect.Service<SandboxApiService>()("Sand
 			if (!scriptId || !driverName) {
 				return yield* notFound(sandboxScriptNotFoundError);
 			}
+			const context = payload.context ?? {};
+			const contextError = sandboxContextError(context);
+			if (contextError) {
+				return yield* badRequest(contextError);
+			}
 
 			const script = yield* runWithDb(
 				repository.getScriptForUser({
@@ -91,11 +97,11 @@ export class SandboxApiService extends Effect.Service<SandboxApiService>()("Sand
 					executionId,
 					discard: true,
 					payload: {
+						context,
 						driverName,
 						executionId,
 						userId: user.id,
 						scriptId: script.id,
-						context: payload.context ?? {},
 					},
 				})
 				.pipe(Effect.orDie);

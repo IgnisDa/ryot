@@ -990,7 +990,7 @@ it.effect("fails workflow when sandbox returns an error", () => {
 				logs: [],
 				value: null,
 				status: "completed" as const,
-				error: "Sandbox script execution failed",
+				error: { phase: "execute" as const, message: "Sandbox script execution failed" },
 			}),
 	} satisfies TestLayerOptions;
 

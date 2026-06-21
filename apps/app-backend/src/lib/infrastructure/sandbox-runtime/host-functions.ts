@@ -21,6 +21,7 @@ import * as schema from "../db/schema/tables/auth";
 import { CurrentDb, DbRunner, dbEffect } from "../db/service";
 import { RedisService, redisKeys } from "../redis";
 import { getSandboxAppConfigValue } from "./app-config";
+import { sandboxCacheKeyError, sandboxCacheTtlError, sandboxCacheValueError } from "./limits";
 import {
 	apiFailure,
 	apiSuccess,
@@ -146,13 +147,13 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 
 		return {
 			claimCachedValue: (input, key, value, ttlSeconds) => {
-				if (typeof key !== "string" || !key.trim()) {
-					return Promise.resolve(apiFailure("claimCachedValue expects a non-empty key string"));
+				const keyError = sandboxCacheKeyError("claimCachedValue", key);
+				if (keyError) {
+					return Promise.resolve(apiFailure(keyError));
 				}
-				if (typeof ttlSeconds !== "number" || !Number.isInteger(ttlSeconds) || ttlSeconds <= 0) {
-					return Promise.resolve(
-						apiFailure("claimCachedValue expects a positive integer ttlSeconds"),
-					);
+				const ttlError = sandboxCacheTtlError("claimCachedValue", ttlSeconds, "TTL");
+				if (ttlError) {
+					return Promise.resolve(apiFailure(ttlError));
 				}
 
 				const redisKey = redisKeys.sandboxCache(input.scriptId, key.trim());
@@ -163,6 +164,10 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 						const serialized = yield* Schema.encode(Schema.parseJson(Schema.Unknown))(value).pipe(
 							Effect.mapError(() => "claimCachedValue value must be JSON-serializable"),
 						);
+						const valueError = sandboxCacheValueError("claimCachedValue", serialized);
+						if (valueError) {
+							return yield* Effect.fail(valueError);
+						}
 
 						const setResult = yield* Effect.tryPromise({
 							try: () => redis.client.set(redisKey, serialized, "EX", ttlSeconds, "NX"),
@@ -178,6 +183,14 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 						});
 						if (existing === null) {
 							return { claimed: false, value: null };
+						}
+						const existingValueError = sandboxCacheValueError(
+							"claimCachedValue",
+							existing,
+							"stored value",
+						);
+						if (existingValueError) {
+							return yield* Effect.fail(existingValueError);
 						}
 
 						return yield* Schema.decode(Schema.parseJson(Schema.Unknown))(existing).pipe(

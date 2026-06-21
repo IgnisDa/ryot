@@ -57,6 +57,9 @@ describe("sandbox enqueue by script ID", () => {
 		const result = await pollSandboxResult(client, jobId);
 		assertCompleted(result, "sandbox job");
 
-		expect(result.error).toContain("executeQueryEngine is not a function");
+		expect(result.error).toMatchObject({
+			phase: "execute",
+			message: expect.stringContaining("executeQueryEngine is not a function"),
+		});
 	});
 });
