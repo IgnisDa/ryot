@@ -13,7 +13,6 @@ use fitness_models::{
 };
 use importer_models::{ImportFailStep, ImportFailedItem};
 use indexmap::IndexMap;
-use itertools::Itertools;
 use media_models::DeployGenericCsvImportInput;
 use rust_decimal::{Decimal, dec};
 use serde::{Deserialize, Serialize};
@@ -47,10 +46,17 @@ pub async fn import(
     let mut completed = vec![];
     let mut failed = vec![];
     let mut unique_exercises: HashMap<String, exercise::Model> = HashMap::new();
-    let entries_reader = Reader::from_path(&input.csv_path)?
-        .deserialize::<Entry>()
-        .map(|r| r.unwrap())
-        .collect_vec();
+    let mut entries_reader = vec![];
+    for result in Reader::from_path(&input.csv_path)?.deserialize::<Entry>() {
+        match result {
+            Ok(entry) => entries_reader.push(entry),
+            Err(error) => failed.push(ImportFailedItem {
+                error: Some(error.to_string()),
+                step: ImportFailStep::InputTransformation,
+                ..Default::default()
+            }),
+        }
+    }
 
     let mut workouts_to_entries = IndexMap::new();
     for entry in entries_reader.clone() {
@@ -143,8 +149,21 @@ pub async fn import(
                 ..Default::default()
             });
         }
-        let start_time = parse_date_string(&first_exercise.start_time);
-        let end_time = parse_date_string(&first_exercise.end_time);
+        let (Some(start_time), Some(end_time)) = (
+            parse_date_string(&first_exercise.start_time),
+            parse_date_string(&first_exercise.end_time),
+        ) else {
+            failed.push(ImportFailedItem {
+                step: ImportFailStep::InputTransformation,
+                identifier: format!("Workout #{:#?}", workout_identifier),
+                error: Some(format!(
+                    "Could not parse workout dates: start_time={}, end_time={}",
+                    first_exercise.start_time, first_exercise.end_time
+                )),
+                ..Default::default()
+            });
+            continue;
+        };
         completed.push(ImportCompletedItem::Workout(UserWorkoutInput {
             exercises: collected_exercises,
             name: first_exercise.title.clone(),
@@ -163,6 +182,8 @@ pub async fn import(
     Ok(ImportResult { failed, completed })
 }
 
-fn parse_date_string(input: &str) -> NaiveDateTime {
-    NaiveDateTime::parse_from_str(input, "%d %b %Y, %H:%M").unwrap()
+fn parse_date_string(input: &str) -> Option<NaiveDateTime> {
+    ["%b %d, %Y, %I:%M %p", "%d %b %Y, %H:%M"]
+        .into_iter()
+        .find_map(|format| NaiveDateTime::parse_from_str(input, format).ok())
 }
