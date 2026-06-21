@@ -59,6 +59,16 @@ export function requireNonEmptyArray<T>(
 	return value;
 }
 
+export function assertCompleted<T extends { status: string }>(
+	result: T,
+	label: string,
+): asserts result is Extract<T, { status: "completed" }> {
+	if (result.status !== "completed") {
+		const detail = "error" in result && typeof result.error === "string" ? `: ${result.error}` : "";
+		throw new Error(`Expected ${label} to complete, got '${result.status}'${detail}`);
+	}
+}
+
 export function assertTaggedError<E extends { readonly _tag: string }, T extends E["_tag"]>(
 	error: E,
 	tag: T,

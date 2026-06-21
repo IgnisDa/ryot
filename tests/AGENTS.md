@@ -48,6 +48,11 @@ The contract API is scoped to a user's own trackers, so it cannot create the glo
 
 `query-engine-sql-pushdown.test.ts` asserts that aggregates/time-series over a filtered source, relationship-root filtering, and correlated exists/aggregate return the same results whether they run pushed down in SQL or app-side.
 
+## Diagnosing Failures
+
+- Assert async job completion with `assertCompleted` (`test-support/assertions.ts`) rather than comparing `result.status` by hand — on a failed job it includes the backend's error string, which is the difference between "got 'failed'" and an actionable message.
+- The in-memory backend log buffer is only flushed when the process exits unexpectedly. Set `E2E_BACKEND_LOG_FILE=<path>` to mirror all backend stdout/stderr to a file during the run (invoke `bun run test` directly — turbo's strict env mode strips the variable). Backend-side workflow/queue failures (e.g. cluster persistence errors) only show up there.
+
 ## Timeouts & Pool Sizing
 
 - Inner poll budgets (event waits in `fixtures/events.ts`, sandbox polls in `fixtures/sandbox.ts`) are sized generously and kept comfortably below the outer 180s per-test timeout (`package.json`), so a genuine hang still fails. Trigger and sandbox results flow through the durable-queue pipeline, whose p99 latency spikes under full-suite load — that's what the headroom is for.

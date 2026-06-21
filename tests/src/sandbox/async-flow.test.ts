@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from "bun:test";
+﻿import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 
 import { SandboxScriptId } from "@ryot/contract/schema/brands";
 import getPort from "get-port";
@@ -14,7 +14,7 @@ import {
 	pollSandboxResult,
 } from "../fixtures";
 import {
-	assertCondition,
+	assertCompleted,
 	assertTaggedError,
 	requireArray,
 	requireObjectRecord,
@@ -22,8 +22,7 @@ import {
 } from "../test-support/assertions";
 
 const requireCompletedSandboxValue = (result: Awaited<ReturnType<typeof pollSandboxResult>>) => {
-	expect(result.status).toBe("completed");
-	assertCondition(result.status === "completed", "Expected sandbox job to complete");
+	assertCompleted(result, "sandbox job");
 
 	expect(result.error).toBeNull();
 	return result.value;
@@ -63,8 +62,7 @@ describe("sandbox async flow", () => {
 
 		const result = await pollSandboxResult(client, jobId);
 
-		expect(result.status).toBe("completed");
-		assertCondition(result.status === "completed", "Expected sandbox job to complete");
+		assertCompleted(result, "sandbox job");
 
 		expect(result.value).toBe(42);
 		expect(result.error).toBeNull();
@@ -206,8 +204,7 @@ driver("main", async function() {
 
 		const result = await pollSandboxResult(client, jobId);
 
-		expect(result.status).toBe("completed");
-		assertCondition(result.status === "completed", "Expected sandbox job to complete");
+		assertCompleted(result, "sandbox job");
 
 		expect(result.error).toContain("Entity schema 'does-not-exist' not found");
 	});
@@ -275,8 +272,7 @@ driver("main", async function() {
 
 		const result = await pollSandboxResult(client, jobId);
 
-		expect(result.status).toBe("completed");
-		assertCondition(result.status === "completed", "Expected sandbox job to complete");
+		assertCompleted(result, "sandbox job");
 
 		expect(result.value).toBeNull();
 		expect(result.error).toContain("intentional");
@@ -293,8 +289,7 @@ driver("main", async function() {
 
 		const result = await pollSandboxResult(client, jobId);
 
-		expect(result.status).toBe("completed");
-		assertCondition(result.status === "completed", "Expected sandbox job to complete");
+		assertCompleted(result, "sandbox job");
 
 		expect(result.error).toBeTruthy();
 	});

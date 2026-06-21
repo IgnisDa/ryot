@@ -20,7 +20,7 @@ import {
 	type SeededProviderScript,
 } from "../fixtures";
 import {
-	assertCondition,
+	assertCompleted,
 	assertTaggedError,
 	requireArray,
 	requireObjectRecord,
@@ -72,10 +72,7 @@ describe("POST /entity-schemas/search — provider entity search", () => {
 		});
 
 		const result = await pollEntitySearchResult(client, jobId);
-		assertCondition(
-			result.status === "completed",
-			`Expected search job to complete, got '${result.status}'`,
-		);
+		assertCompleted(result, "search job");
 		const value = requireObjectRecord(result.value, "Expected search result to be an object");
 		const items = requireArray(value.items, "Expected search result items to be an array");
 		expect(items).toHaveLength(2);
@@ -171,10 +168,7 @@ describe("GET /library/import/:jobId — provider entity import result", () => {
 
 		const result = await pollEntityImportResult(client, jobId);
 
-		assertCondition(
-			result.status === "completed",
-			`Expected import job to complete, got '${result.status}'`,
-		);
+		assertCompleted(result, "import job");
 		expect(result.data.id).toBeDefined();
 		expect(result.data.name).toBe(IMPORTED_NAME);
 		expect(result.data.entitySchemaId).toBe(schema.id);
