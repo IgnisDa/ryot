@@ -46,7 +46,7 @@ const insertUserRelationship = (input: {
 
 		yield* createRelationship(input.client, {
 			properties: input.properties,
-			relationshipSchemaId: relationshipSchema.id,
+			relationshipSchemaSlug: relationshipSchema.id,
 			sourceEntityId: EntityId.make(input.sourceEntityId),
 			targetEntityId: EntityId.make(input.targetEntityId),
 		});
@@ -77,8 +77,7 @@ describe("DELETE /user-state/clear/:id", () => {
 
 			const eventSchemas = yield* listEventSchemas(userA.client, schema.id);
 			const reviewEventSchema = requireEventSchemaBySlug(eventSchemas, "review");
-			const { slug: extraTargetSchemaSlug, entityId: extraTargetEntityId } =
-				yield* createTrackerWithSchemaAndEntity(userA.client);
+			const { entity: extraTarget } = yield* createGlobalBookEntityFixture(userA.client);
 			const inLibraryRelationship = {
 				schema: "in-library",
 				targetSchema: "library",
@@ -87,7 +86,7 @@ describe("DELETE /user-state/clear/:id", () => {
 			const mediaSuggestionRelationship = {
 				sourceSchema: schema.slug,
 				schema: "media-suggestion",
-				targetSchema: extraTargetSchemaSlug,
+				targetSchema: schema.slug,
 			};
 			const queryCounts = (
 				auth: typeof userA,
@@ -106,7 +105,7 @@ describe("DELETE /user-state/clear/:id", () => {
 					payload: [
 						{
 							entityId: entity.id,
-							eventSchemaId: reviewEventSchema.id,
+							eventSchemaSlug: reviewEventSchema.id,
 							properties: { rating: 4, text: "User A review" },
 						},
 					],
@@ -117,7 +116,7 @@ describe("DELETE /user-state/clear/:id", () => {
 					payload: [
 						{
 							entityId: entity.id,
-							eventSchemaId: reviewEventSchema.id,
+							eventSchemaSlug: reviewEventSchema.id,
 							properties: { rating: 5, text: "User B review" },
 						},
 					],
@@ -126,7 +125,7 @@ describe("DELETE /user-state/clear/:id", () => {
 			yield* insertUserRelationship({
 				client: userA.client,
 				sourceEntityId: entity.id,
-				targetEntityId: extraTargetEntityId,
+				targetEntityId: extraTarget.id,
 				relationshipSchemaSlug: "media-suggestion",
 			});
 
@@ -220,21 +219,21 @@ describe("POST /user-state/merge", () => {
 			const eventSchema = yield* createEventSchema(client, {
 				name: "Merged Event",
 				slug: eventSchemaSlug,
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 			});
 			const source = yield* createEntity(client, {
 				name: "Source Entity",
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 				properties: { title: "Source" },
 			});
 			const target = yield* createEntity(client, {
 				name: "Target Entity",
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 				properties: { title: "Target" },
 			});
 			const related = yield* createEntity(client, {
 				name: "Related Entity",
-				entitySchemaId: schemaId,
+				entitySchemaSlug: schemaId,
 				properties: { title: "Related" },
 			});
 			const queryCounts = (entityId: string) =>
@@ -258,7 +257,7 @@ describe("POST /user-state/merge", () => {
 						{
 							entityId: source.id,
 							properties: { note: "moves" },
-							eventSchemaId: eventSchema.id,
+							eventSchemaSlug: eventSchema.id,
 						},
 					],
 				}),

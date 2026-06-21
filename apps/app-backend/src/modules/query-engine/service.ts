@@ -8,6 +8,7 @@ import {
 	TransactionRunner,
 	setLocalStatementTimeout,
 } from "#lib/infrastructure/db/service";
+import { DefinitionRegistry } from "#modules/definition-registry/service";
 
 import { executeAggregateQuery } from "./executor/aggregate";
 import { executeRowsQuery } from "./executor/rows";
@@ -36,13 +37,18 @@ export class QueryEngineService extends Effect.Service<QueryEngineService>()("Qu
 	effect: Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
 		const runInTx = yield* TransactionRunner;
+		const definitions = yield* DefinitionRegistry;
+		const withDefinitions = <A, E, R>(effect: Effect.Effect<A, E, R | DefinitionRegistry>) =>
+			Effect.provideService(effect, DefinitionRegistry, definitions);
 
 		const runBounded = <A, R>(effect: Effect.Effect<A, BadRequest | NotFound | DbError, R>) =>
 			runInTx(
-				Effect.gen(function* () {
-					yield* setLocalStatementTimeout(QUERY_ENGINE_STATEMENT_TIMEOUT_MS);
-					return yield* effect;
-				}),
+				withDefinitions(
+					Effect.gen(function* () {
+						yield* setLocalStatementTimeout(QUERY_ENGINE_STATEMENT_TIMEOUT_MS);
+						return yield* effect;
+					}),
+				),
 			).pipe(
 				// A statement_timeout abort (57014) means the query was too expensive to serve within the
 				// limit; surface it as a 400 instead of letting dieOnDbError turn it into a 500.
@@ -68,7 +74,7 @@ export class QueryEngineService extends Effect.Service<QueryEngineService>()("Qu
 				return yield* new BadRequest({ message: validationError });
 			}
 
-			yield* runWithDb(validateQueryDocumentReferencesAndTypes(user.id, doc)).pipe(
+			yield* runWithDb(withDefinitions(validateQueryDocumentReferencesAndTypes(user.id, doc))).pipe(
 				Effect.catchIf(
 					(error): error is NotFound => error instanceof NotFound,
 					(error) => Effect.fail(new BadRequest({ message: error.message })),
@@ -86,7 +92,9 @@ export class QueryEngineService extends Effect.Service<QueryEngineService>()("Qu
 				return yield* new BadRequest({ message: error });
 			}
 
-			yield* runWithDb(validateQueryDocumentTypeCompatibility(user.id, doc, scope));
+			yield* runWithDb(
+				withDefinitions(validateQueryDocumentTypeCompatibility(user.id, doc, scope)),
+			);
 
 			const language = user.preferences.language;
 

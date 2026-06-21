@@ -33,7 +33,7 @@ describe("event roots and first expressions", () => {
 		expect(validateQueryDocument(makeEventDoc())).toBeNull();
 	});
 
-	it.each(["entityId", "eventSchemaId", "sessionEntityId", "userId", "properties"])(
+	it.each(["entityId", "eventSchemaSlug", "sessionEntityId", "userId", "properties"])(
 		"accepts event system field '%s' in fields and orderBy",
 		(name) => {
 			const doc = makeEventDoc({

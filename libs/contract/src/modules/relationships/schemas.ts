@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 
-import { EntityId, RelationshipId, RelationshipSchemaId } from "../../schema/brands";
+import { EntityId, RelationshipId, RelationshipSchemaSlug } from "../../schema/brands";
 
 export const RelationshipScope = Schema.Struct({
 	id: RelationshipId,
@@ -9,7 +9,7 @@ export const RelationshipScope = Schema.Struct({
 	targetEntityId: EntityId,
 	properties: Schema.Unknown,
 	wasInserted: Schema.Boolean,
-	relationshipSchemaId: RelationshipSchemaId,
+	relationshipSchemaSlug: RelationshipSchemaSlug,
 });
 
 export type RelationshipScope = typeof RelationshipScope.Type;
@@ -17,7 +17,7 @@ export type RelationshipScope = typeof RelationshipScope.Type;
 export const CreateRelationshipBody = Schema.Struct({
 	sourceEntityId: EntityId,
 	targetEntityId: EntityId,
-	relationshipSchemaId: RelationshipSchemaId,
+	relationshipSchemaSlug: RelationshipSchemaSlug,
 	properties: Schema.optional(Schema.Unknown),
 });
 

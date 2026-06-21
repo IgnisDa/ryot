@@ -4,10 +4,10 @@ import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { BadRequest, NotFound } from "@ryot/contract/errors";
 import {
 	EntityId,
-	EntitySchemaId,
-	EventSchemaId,
+	EntitySchemaSlug,
+	EventSchemaSlug,
 	RelationshipId,
-	RelationshipSchemaId,
+	RelationshipSchemaSlug,
 	UserId,
 } from "@ryot/contract/schema/brands";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
@@ -47,9 +47,9 @@ const memberOfSchema = {
 	isBuiltin: true,
 	slug: "member-of",
 	name: "Member Of",
-	sourceEntitySchemaId: null,
-	targetEntitySchemaId: null,
-	id: RelationshipSchemaId.make("member-of-schema-id"),
+	sourceEntitySchemaSlug: null,
+	targetEntitySchemaSlug: null,
+	id: RelationshipSchemaSlug.make("member-of-schema-id"),
 	propertiesSchema: { fields: {}, unknownKeys: "passthrough" as const },
 };
 
@@ -57,10 +57,10 @@ const inLibrarySchema = {
 	isBuiltin: true,
 	slug: "in-library",
 	name: "In Library",
-	sourceEntitySchemaId: null,
-	targetEntitySchemaId: null,
+	sourceEntitySchemaSlug: null,
+	targetEntitySchemaSlug: null,
 	propertiesSchema: { fields: {} },
-	id: RelationshipSchemaId.make("in-library-schema-id"),
+	id: RelationshipSchemaSlug.make("in-library-schema-id"),
 };
 
 const collectionPropertiesSchema = {
@@ -78,20 +78,22 @@ const collectionPropertiesSchema = {
 
 const collectionEntitySchema = {
 	propertiesSchema: collectionPropertiesSchema,
-	id: EntitySchemaId.make("collection-schema-id"),
-	entitySchemaId: EntitySchemaId.make("collection-schema-id"),
+	id: EntitySchemaSlug.make("collection-schema-id"),
+	entitySchemaSlug: EntitySchemaSlug.make("collection-schema-id"),
 };
 
 const addEventSchema = {
 	name: "Add Entity to Collection",
 	slug: "add-entity-to-collection",
-	id: EventSchemaId.make("add-event-schema-id"),
+	id: EventSchemaSlug.make("add-event-schema-id"),
+	propertiesSchema: { fields: {} },
 };
 
 const removeEventSchema = {
 	name: "Remove Entity from Collection",
 	slug: "remove-entity-from-collection",
-	id: EventSchemaId.make("remove-event-schema-id"),
+	id: EventSchemaSlug.make("remove-event-schema-id"),
+	propertiesSchema: { fields: {} },
 };
 
 const mockCollectionsRepository = Layer.mock(CollectionsRepository);
@@ -102,7 +104,7 @@ const makeCollectionsRepository = (
 	mockCollectionsRepository({
 		_tag: "CollectionsRepository",
 		getBuiltinCollectionSchema: () => Effect.succeed(collectionEntitySchema),
-		findBuiltinEventSchemaBySlug: (_entitySchemaId, slug) =>
+		findBuiltinEventSchemaBySlug: (_entitySchemaSlug, slug) =>
 			slug === "add-entity-to-collection"
 				? Effect.succeed(addEventSchema)
 				: Effect.succeed(removeEventSchema),
@@ -119,7 +121,7 @@ const makeEntitiesRepository = (overrides: MockOverrides<typeof mockEntitiesRepo
 				userId: null,
 				isBuiltin: true,
 				slug: "collection",
-				id: EntitySchemaId.make("collection-schema-id"),
+				id: EntitySchemaSlug.make("collection-schema-id"),
 				propertiesSchema: collectionEntitySchema.propertiesSchema,
 			}),
 		...overrides,
@@ -292,7 +294,7 @@ it.effect("creates a collection with valid inputs", () => {
 						sandboxScriptId: null,
 						id: EntityId.make("collection-id"),
 						properties: { description: "My favorites" },
-						entitySchemaId: EntitySchemaId.make("collection-schema-id"),
+						entitySchemaSlug: EntitySchemaSlug.make("collection-schema-id"),
 					},
 				});
 			},
@@ -360,7 +362,7 @@ it.effect("returns not found when entity does not exist", () => {
 					properties: {},
 					externalId: null,
 					sandboxScriptId: null,
-					entitySchemaId: EntitySchemaId.make("collection-schema-id"),
+					entitySchemaSlug: EntitySchemaSlug.make("collection-schema-id"),
 				}),
 		}),
 	});
@@ -388,7 +390,7 @@ it.effect("dispatches EventCreateWorkflow only on first add, not on upsert", () 
 		id: RelationshipId.make("rel-id"),
 		targetEntityId: EntityId.make("coll-id"),
 		sourceEntityId: EntityId.make("entity-id"),
-		relationshipSchemaId: RelationshipSchemaId.make("member-of-schema-id"),
+		relationshipSchemaSlug: RelationshipSchemaSlug.make("member-of-schema-id"),
 	};
 
 	const layer = makeServiceLayer({
@@ -408,7 +410,7 @@ it.effect("dispatches EventCreateWorkflow only on first add, not on upsert", () 
 					externalId: null,
 					sandboxScriptId: null,
 					id: EntityId.make("coll-id"),
-					entitySchemaId: EntitySchemaId.make("collection-schema-id"),
+					entitySchemaSlug: EntitySchemaSlug.make("collection-schema-id"),
 				}),
 		}),
 		relationshipsRepository: makeRelationshipsRepository({
@@ -439,7 +441,7 @@ it.effect("does not dispatch EventCreateWorkflow on upsert update", () => {
 		id: RelationshipId.make("rel-id"),
 		targetEntityId: EntityId.make("coll-id"),
 		sourceEntityId: EntityId.make("entity-id"),
-		relationshipSchemaId: RelationshipSchemaId.make("member-of-schema-id"),
+		relationshipSchemaSlug: RelationshipSchemaSlug.make("member-of-schema-id"),
 	};
 
 	const layer = makeServiceLayer({
@@ -463,7 +465,7 @@ it.effect("does not dispatch EventCreateWorkflow on upsert update", () => {
 					externalId: null,
 					sandboxScriptId: null,
 					id: EntityId.make("coll-id"),
-					entitySchemaId: EntitySchemaId.make("collection-schema-id"),
+					entitySchemaSlug: EntitySchemaSlug.make("collection-schema-id"),
 				}),
 		}),
 	});
@@ -501,7 +503,7 @@ it.effect("returns not found when removing entity not in collection", () => {
 					externalId: null,
 					sandboxScriptId: null,
 					id: EntityId.make("coll-id"),
-					entitySchemaId: EntitySchemaId.make("collection-schema-id"),
+					entitySchemaSlug: EntitySchemaSlug.make("collection-schema-id"),
 				}),
 		}),
 	});
@@ -529,7 +531,7 @@ it.effect("creates remove event on successful membership deletion", () => {
 		id: RelationshipId.make("rel-id"),
 		targetEntityId: EntityId.make("coll-id"),
 		sourceEntityId: EntityId.make("entity-id"),
-		relationshipSchemaId: RelationshipSchemaId.make("member-of-schema-id"),
+		relationshipSchemaSlug: RelationshipSchemaSlug.make("member-of-schema-id"),
 	};
 	const eventsService = makeEventsService({
 		create: (input) => {
@@ -560,7 +562,7 @@ it.effect("creates remove event on successful membership deletion", () => {
 					externalId: null,
 					sandboxScriptId: null,
 					id: EntityId.make("coll-id"),
-					entitySchemaId: EntitySchemaId.make("collection-schema-id"),
+					entitySchemaSlug: EntitySchemaSlug.make("collection-schema-id"),
 				}),
 		}),
 	});
@@ -597,7 +599,7 @@ it.effect("merges ownership sources when marking an entity owned in the library"
 					id: RelationshipId.make("rel-id"),
 					sourceEntityId: EntityId.make("entity-id"),
 					targetEntityId: EntityId.make("library-entity-id"),
-					relationshipSchemaId: RelationshipSchemaId.make("in-library-schema-id"),
+					relationshipSchemaSlug: RelationshipSchemaSlug.make("in-library-schema-id"),
 				});
 			},
 		}),
@@ -636,7 +638,7 @@ it.effect("merges ownership sources after a create conflict", () => {
 					id: RelationshipId.make("rel-id"),
 					sourceEntityId: EntityId.make("entity-id"),
 					targetEntityId: EntityId.make("library-entity-id"),
-					relationshipSchemaId: RelationshipSchemaId.make("in-library-schema-id"),
+					relationshipSchemaSlug: RelationshipSchemaSlug.make("in-library-schema-id"),
 				}),
 			updateRelationship: (input: { properties: Record<string, unknown> }) => {
 				retried = input;
@@ -647,7 +649,7 @@ it.effect("merges ownership sources after a create conflict", () => {
 					id: RelationshipId.make("rel-id"),
 					sourceEntityId: EntityId.make("entity-id"),
 					targetEntityId: EntityId.make("library-entity-id"),
-					relationshipSchemaId: RelationshipSchemaId.make("in-library-schema-id"),
+					relationshipSchemaSlug: RelationshipSchemaSlug.make("in-library-schema-id"),
 				});
 			},
 		}),

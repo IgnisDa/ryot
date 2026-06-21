@@ -73,12 +73,12 @@ export const waitForEventCount = (
 
 export const createEventTestFixture = (client: Client) =>
 	Effect.gen(function* () {
-		const { schemaId: entitySchemaId } = yield* createTrackerWithSchema(client, {
+		const { schemaId: entitySchemaSlug } = yield* createTrackerWithSchema(client, {
 			name: "Test Item",
 			slug: `item-${crypto.randomUUID()}`,
 		});
 		const eventSchema = yield* createEventSchema(client, {
-			entitySchemaId,
+			entitySchemaSlug,
 			name: "Finished",
 			slug: `finished-${crypto.randomUUID()}`,
 			propertiesSchema: {
@@ -93,21 +93,21 @@ export const createEventTestFixture = (client: Client) =>
 			},
 		});
 		const entity = yield* createEntity(client, {
-			entitySchemaId,
+			entitySchemaSlug,
 			name: "Test Book",
 			properties: { title: "Test" },
 		});
-		return { entityId: entity.id, eventSchemaId: eventSchema.id };
+		return { entityId: entity.id, eventSchemaSlug: eventSchema.id };
 	});
 
 export const createRuleEventFixture = (client: Client) =>
 	Effect.gen(function* () {
-		const { schemaId: entitySchemaId } = yield* createTrackerWithSchema(client, {
+		const { schemaId: entitySchemaSlug } = yield* createTrackerWithSchema(client, {
 			name: "Rule Test Item",
 			slug: `rule-item-${crypto.randomUUID()}`,
 		});
 		const eventSchema = yield* createEventSchema(client, {
-			entitySchemaId,
+			entitySchemaSlug,
 			name: "Progress Log",
 			slug: `progress-log-${crypto.randomUUID()}`,
 			propertiesSchema: {
@@ -139,11 +139,11 @@ export const createRuleEventFixture = (client: Client) =>
 			},
 		});
 		const entity = yield* createEntity(client, {
-			entitySchemaId,
+			entitySchemaSlug,
 			name: "Rule Test Book",
 			properties: { title: "Rule Test" },
 		});
-		return { entityId: entity.id, eventSchemaId: eventSchema.id };
+		return { entityId: entity.id, eventSchemaSlug: eventSchema.id };
 	});
 
 export const listEventsForEntity = (
@@ -217,7 +217,7 @@ export const createBuiltinMediaLifecycleFixture = (
 
 		const entity = yield* seedMediaEntity({
 			userId: null,
-			entitySchemaId: selectedSchema.id,
+			entitySchemaSlug: selectedSchema.id,
 			sandboxScriptId: providerScriptId,
 			externalId: `${entitySchemaSlug}-${crypto.randomUUID()}`,
 			name: `Built-in ${entitySchemaSlug} ${crypto.randomUUID()}`,
@@ -229,11 +229,11 @@ export const createBuiltinMediaLifecycleFixture = (
 
 		return {
 			entityId: entity.id,
-			reviewEventSchemaId: reviewEventSchema.id,
-			onHoldEventSchemaId: onHoldEventSchema.id,
-			backlogEventSchemaId: backlogEventSchema.id,
-			droppedEventSchemaId: droppedEventSchema.id,
-			completeEventSchemaId: completeEventSchema.id,
-			progressEventSchemaId: progressEventSchema.id,
+			reviewEventSchemaSlug: reviewEventSchema.id,
+			onHoldEventSchemaSlug: onHoldEventSchema.id,
+			backlogEventSchemaSlug: backlogEventSchema.id,
+			droppedEventSchemaSlug: droppedEventSchema.id,
+			completeEventSchemaSlug: completeEventSchema.id,
+			progressEventSchemaSlug: progressEventSchema.id,
 		};
 	});

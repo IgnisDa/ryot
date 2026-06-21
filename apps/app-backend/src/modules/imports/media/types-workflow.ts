@@ -3,7 +3,7 @@ import type { SandboxRunError } from "@ryot/contract/errors";
 import type { AutomationOrigin } from "@ryot/contract/modules/automations/schemas";
 import type {
 	EntityId,
-	EntitySchemaId,
+	EntitySchemaSlug,
 	SandboxScriptId,
 	UserId,
 } from "@ryot/contract/schema/brands";
@@ -45,7 +45,7 @@ export type MediaImportWorkflowOperationsValue = {
 		executionId: string;
 		origin: AutomationOrigin;
 		scriptId: SandboxScriptId;
-		entitySchemaId: EntitySchemaId;
+		entitySchemaSlug: EntitySchemaSlug;
 	}) => Effect.Effect<{ id: EntityId }, LibraryEntityImportError, MediaSandboxRequirements>;
 	writeCollectionMembership: (input: {
 		userId: UserId;

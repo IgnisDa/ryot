@@ -45,7 +45,7 @@ export const populateMediaEntityGroups = Effect.fn("populateMediaEntityGroups")(
 			).pipe(
 				Effect.map((found) =>
 					found
-						? { entitySchemaId: found.entitySchemaId, sandboxScriptId: found.sandboxScriptId }
+						? { entitySchemaSlug: found.entitySchemaSlug, sandboxScriptId: found.sandboxScriptId }
 						: null,
 				),
 				Effect.mapError(toWorkflowError),
@@ -77,7 +77,7 @@ export const populateMediaEntityGroups = Effect.fn("populateMediaEntityGroups")(
 				externalId: ref.externalId,
 				userId: input.payload.userId,
 				scriptId: script.sandboxScriptId,
-				entitySchemaId: script.entitySchemaId,
+				entitySchemaSlug: script.entitySchemaSlug,
 				executionId: `${input.executionId}-entity-${i}`,
 				origin: (input.payload.integrationId
 					? {

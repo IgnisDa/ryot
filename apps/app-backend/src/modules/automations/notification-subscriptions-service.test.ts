@@ -4,7 +4,7 @@ import { InstallNotificationRuleBody } from "@ryot/contract/modules/automations/
 import {
 	AutomationRuleId,
 	SandboxScriptId,
-	SignalSchemaId,
+	SignalSchemaSlug,
 	UserId,
 } from "@ryot/contract/schema/brands";
 import { Effect, Exit, Layer, Schema } from "effect";
@@ -30,12 +30,12 @@ import { AutomationsService } from "./service";
 const userId = UserId.make("user-1");
 const ruleId = AutomationRuleId.make("rule-1");
 const scriptId = SandboxScriptId.make("script-1");
-const signalSchemaId = SignalSchemaId.make("signal-schema-1");
+const signalSchemaSlug = SignalSchemaSlug.make("signal-schema-1");
 
 const signalSchema = {
 	userId: null,
 	isBuiltin: true,
-	id: signalSchemaId,
+	id: signalSchemaSlug,
 	catalogState: "active",
 	slug: "review.created",
 	name: "Review Created",
@@ -56,7 +56,7 @@ const rule = {
 	sandboxScriptId: scriptId,
 	createdAt: "2026-07-21T10:00:00.000Z",
 	updatedAt: "2026-07-21T10:00:00.000Z",
-	target: { id: signalSchemaId, kind: "signal_schema" },
+	target: { id: signalSchemaSlug, kind: "signal_schema" },
 } as const satisfies StoredAutomationRule;
 
 const mockAutomationsService = Layer.mock(AutomationsService);
@@ -128,7 +128,7 @@ it.effect("installs an active catalog schema with only server-selected rule fiel
 	});
 	return Effect.gen(function* () {
 		const service = yield* NotificationSubscriptionsService;
-		const installed = yield* service.installRule({ userId, signalSchemaId });
+		const installed = yield* service.installRule({ userId, signalSchemaSlug });
 		expect(installed.id).toBe(ruleId);
 		expect(inserted).toEqual({
 			userId,
@@ -140,7 +140,7 @@ it.effect("installs an active catalog schema with only server-selected rule fiel
 			kind: "subscription",
 			name: signalSchema.name,
 			sandboxScriptId: scriptId,
-			target: { id: signalSchemaId, kind: "signal_schema" },
+			target: { id: signalSchemaSlug, kind: "signal_schema" },
 		});
 	}).pipe(Effect.provide(layer));
 });
@@ -160,7 +160,7 @@ it.effect("rejects hidden catalog schemas and duplicate installs", () => {
 		const hidden = yield* Effect.exit(
 			Effect.provide(
 				Effect.flatMap(NotificationSubscriptionsService, (service) =>
-					service.installRule({ userId, signalSchemaId }),
+					service.installRule({ userId, signalSchemaSlug }),
 				),
 				hiddenLayer,
 			),
@@ -170,7 +170,7 @@ it.effect("rejects hidden catalog schemas and duplicate installs", () => {
 		const duplicate = yield* Effect.exit(
 			Effect.provide(
 				Effect.flatMap(NotificationSubscriptionsService, (service) =>
-					service.installRule({ userId, signalSchemaId }),
+					service.installRule({ userId, signalSchemaSlug }),
 				),
 				duplicateLayer,
 			),
@@ -253,7 +253,7 @@ it.effect("deactivates, deletes, and reinstalls the same notification rule shape
 	});
 	return Effect.gen(function* () {
 		const service = yield* NotificationSubscriptionsService;
-		const installed = yield* service.installRule({ userId, signalSchemaId });
+		const installed = yield* service.installRule({ userId, signalSchemaSlug });
 		const deactivated = yield* service.setRuleActive({
 			userId,
 			isActive: false,
@@ -271,7 +271,7 @@ it.effect("deactivates, deletes, and reinstalls the same notification rule shape
 			id: installed.id,
 		});
 
-		const reinstalled = yield* service.installRule({ userId, signalSchemaId });
+		const reinstalled = yield* service.installRule({ userId, signalSchemaSlug });
 		expect(reinstalled.id).not.toBe(installed.id);
 		expect(reinstalled.name).toBe(installed.name);
 		expect(reinstalled.isActive).toBe(true);
@@ -283,7 +283,7 @@ it("rejects arbitrary fields in the public install payload", () => {
 	expect(() =>
 		Schema.decodeUnknownSync(InstallNotificationRuleBody)({
 			scriptId,
-			signalSchemaId,
+			signalSchemaSlug,
 			operation: "signal",
 		}),
 	).toThrow();

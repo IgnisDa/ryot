@@ -3,8 +3,8 @@ import { expect, it } from "@effect/vitest";
 import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import {
 	EntityId,
-	EntitySchemaId,
-	EventSchemaId,
+	EntitySchemaSlug,
+	EventSchemaSlug,
 	ImportRunId,
 	SandboxScriptId,
 	UserId,
@@ -84,7 +84,7 @@ const makeCollectionsService = (overrides: MockOverrides<typeof mockCollectionsS
 				name: "Collection",
 				sandboxScriptId: null,
 				id: EntityId.make("collection-1"),
-				entitySchemaId: EntitySchemaId.make("schema-collection"),
+				entitySchemaSlug: EntitySchemaSlug.make("schema-collection"),
 			}),
 		...overrides,
 		_tag: "CollectionsService",
@@ -111,7 +111,7 @@ const makeEventSchemasRepository = (
 	mockEventSchemasRepository({
 		getBuiltinBySlug: () =>
 			Effect.succeed({
-				id: EventSchemaId.make("event-schema-1"),
+				id: EventSchemaSlug.make("event-schema-1"),
 				propertiesSchema: { fields: {}, unknownKeys: "passthrough" as const },
 			}),
 		...overrides,
@@ -122,7 +122,11 @@ const makeEntitySchemasRepository = (
 	overrides: MockOverrides<typeof mockEntitySchemasRepository> = {},
 ) =>
 	mockEntitySchemasRepository({
-		getBuiltinBySlug: () => Effect.succeed({ id: EntitySchemaId.make("builtin-book-schema") }),
+		getBuiltinBySlug: () =>
+			Effect.succeed({
+				id: EntitySchemaSlug.make("builtin-book-schema"),
+				propertiesSchema: { fields: {} },
+			}),
 		...overrides,
 		_tag: "EntitySchemasRepository",
 	});
@@ -262,7 +266,7 @@ it.effect("runs the normalized media pipeline through workflow-owned phases", ()
 				Effect.succeed(
 					slug === "book.openlibrary"
 						? {
-								entitySchemaId: EntitySchemaId.make("schema-book"),
+								entitySchemaSlug: EntitySchemaSlug.make("schema-book"),
 								sandboxScriptId: SandboxScriptId.make("script-book-openlibrary"),
 							}
 						: null,
@@ -283,7 +287,7 @@ it.effect("runs the normalized media pipeline through workflow-owned phases", ()
 					externalId: null,
 					sandboxScriptId: null,
 					id: EntityId.make(`${name}-id`),
-					entitySchemaId: EntitySchemaId.make("schema-collection"),
+					entitySchemaSlug: EntitySchemaSlug.make("schema-collection"),
 				}),
 		}),
 		eventsService: makeEventsService({
@@ -336,7 +340,7 @@ it.effect("runs the normalized media pipeline through workflow-owned phases", ()
 				{
 					userId: "user-1",
 					externalId: "OL123M",
-					entitySchemaId: "schema-book",
+					entitySchemaSlug: "schema-book",
 					scriptId: "script-book-openlibrary",
 					executionId: "normalized-1-entity-0",
 					origin: { kind: "import", importRunId: "run-1" },
@@ -363,7 +367,7 @@ it.effect("runs the normalized media pipeline through workflow-owned phases", ()
 						occurredAt: now,
 						entityId: "entity-1",
 						properties: { rating: 5 },
-						eventSchemaId: "event-schema-1",
+						eventSchemaSlug: "event-schema-1",
 					},
 				],
 			]);
@@ -429,7 +433,7 @@ it.effect("resolves imported show episode progress and drops unresolved locators
 				Effect.succeed(
 					slug === "show.tmdb"
 						? {
-								entitySchemaId: EntitySchemaId.make("schema-show"),
+								entitySchemaSlug: EntitySchemaSlug.make("schema-show"),
 								sandboxScriptId: SandboxScriptId.make("script-show-tmdb"),
 							}
 						: null,
@@ -448,18 +452,24 @@ it.effect("resolves imported show episode progress and drops unresolved locators
 		eventSchemasRepository: makeEventSchemasRepository({
 			getBuiltinBySlug: (input) =>
 				Effect.succeed(
-					input.entitySchemaId === "schema-show-episode" && input.slug === "progress"
-						? { id: EventSchemaId.make("event-schema-progress"), propertiesSchema: { fields: {} } }
+					input.entitySchemaSlug === "schema-show-episode" && input.slug === "progress"
+						? {
+								id: EventSchemaSlug.make("event-schema-progress"),
+								propertiesSchema: { fields: {} },
+							}
 						: null,
 				),
 		}),
 		entitySchemasRepository: makeEntitySchemasRepository({
 			getBuiltinBySlug: (slug) => {
-				let result: { id: EntitySchemaId } | null = null;
+				let result: { id: EntitySchemaSlug; propertiesSchema: { fields: {} } } | null = null;
 				if (slug === "show") {
-					result = { id: EntitySchemaId.make("schema-show") };
+					result = { id: EntitySchemaSlug.make("schema-show"), propertiesSchema: { fields: {} } };
 				} else if (slug === "show-episode") {
-					result = { id: EntitySchemaId.make("schema-show-episode") };
+					result = {
+						id: EntitySchemaSlug.make("schema-show-episode"),
+						propertiesSchema: { fields: {} },
+					};
 				}
 				return Effect.succeed(result);
 			},
@@ -526,7 +536,7 @@ it.effect("resolves imported show episode progress and drops unresolved locators
 						occurredAt: now,
 						entityId: "episode-1",
 						properties: { progressPercent: 100 },
-						eventSchemaId: "event-schema-progress",
+						eventSchemaSlug: "event-schema-progress",
 					},
 				],
 			]);
@@ -583,7 +593,7 @@ it.effect("resolves imported podcast episode progress and drops unresolved locat
 				Effect.succeed(
 					slug === "podcast.itunes"
 						? {
-								entitySchemaId: EntitySchemaId.make("schema-podcast"),
+								entitySchemaSlug: EntitySchemaSlug.make("schema-podcast"),
 								sandboxScriptId: SandboxScriptId.make("script-podcast-itunes"),
 							}
 						: null,
@@ -602,18 +612,27 @@ it.effect("resolves imported podcast episode progress and drops unresolved locat
 		eventSchemasRepository: makeEventSchemasRepository({
 			getBuiltinBySlug: (input) =>
 				Effect.succeed(
-					input.entitySchemaId === "schema-podcast-episode" && input.slug === "progress"
-						? { id: EventSchemaId.make("event-schema-progress"), propertiesSchema: { fields: {} } }
+					input.entitySchemaSlug === "schema-podcast-episode" && input.slug === "progress"
+						? {
+								id: EventSchemaSlug.make("event-schema-progress"),
+								propertiesSchema: { fields: {} },
+							}
 						: null,
 				),
 		}),
 		entitySchemasRepository: makeEntitySchemasRepository({
 			getBuiltinBySlug: (slug) => {
-				let result: { id: EntitySchemaId } | null = null;
+				let result: { id: EntitySchemaSlug; propertiesSchema: { fields: {} } } | null = null;
 				if (slug === "podcast") {
-					result = { id: EntitySchemaId.make("schema-podcast") };
+					result = {
+						id: EntitySchemaSlug.make("schema-podcast"),
+						propertiesSchema: { fields: {} },
+					};
 				} else if (slug === "podcast-episode") {
-					result = { id: EntitySchemaId.make("schema-podcast-episode") };
+					result = {
+						id: EntitySchemaSlug.make("schema-podcast-episode"),
+						propertiesSchema: { fields: {} },
+					};
 				}
 				return Effect.succeed(result);
 			},
@@ -680,7 +699,7 @@ it.effect("resolves imported podcast episode progress and drops unresolved locat
 						occurredAt: now,
 						entityId: "podcast-episode-1",
 						properties: { progressPercent: 100 },
-						eventSchemaId: "event-schema-progress",
+						eventSchemaSlug: "event-schema-progress",
 					},
 				],
 			]);
@@ -737,7 +756,7 @@ it.effect(
 					Effect.succeed(
 						slug === "book.openlibrary"
 							? {
-									entitySchemaId: EntitySchemaId.make("schema-book"),
+									entitySchemaSlug: EntitySchemaSlug.make("schema-book"),
 									sandboxScriptId: SandboxScriptId.make("script-book-openlibrary"),
 								}
 							: null,

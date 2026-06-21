@@ -118,8 +118,8 @@ const getCompletionCandidates = (
 	return completionCandidates;
 };
 
-const getCompleteSchema = (host: AutomationHost, entitySchemaId: string) =>
-	host.listEventSchemas(entitySchemaId).then((result): EventSchemaRecord | null => {
+const getCompleteSchema = (host: AutomationHost, entitySchemaSlug: string) =>
+	host.listEventSchemas(entitySchemaSlug).then((result): EventSchemaRecord | null => {
 		if (!result.success) {
 			throw new Error(result.error);
 		}
@@ -171,7 +171,7 @@ const createCompletionEvent = (
 		.createEvents([
 			{
 				entityId: event.subject.id,
-				eventSchemaId: completeSchema.id,
+				eventSchemaSlug: completeSchema.id,
 				occurredAt,
 				properties: {
 					...getInheritedCompletionProperties(automation, properties),
@@ -200,7 +200,7 @@ export default defineAutomation({
 		return getEntity(host, entityId).then((entity) => {
 			const isEpisodic = entitySchemaSlug === "anime" || entitySchemaSlug === "manga";
 			if (!isEpisodic) {
-				return getCompleteSchema(host, entity.entitySchemaId).then((completeSchema) =>
+				return getCompleteSchema(host, entity.entitySchemaSlug).then((completeSchema) =>
 					completeSchema
 						? createCompletionEvent(host, automation, event, completeSchema, event)
 						: null,
@@ -208,7 +208,7 @@ export default defineAutomation({
 			}
 
 			return Promise.all([
-				getCompleteSchema(host, entity.entitySchemaId),
+				getCompleteSchema(host, entity.entitySchemaSlug),
 				getProgressEvents(host, entityId),
 			]).then(([completeSchema, progressEvents]) => {
 				if (!completeSchema) {

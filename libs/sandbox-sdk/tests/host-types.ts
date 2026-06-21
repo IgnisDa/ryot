@@ -154,7 +154,7 @@ defineDriver(allDomainManifest, {
 		void integrations;
 
 		const created = await host.createEvents([
-			{ entityId: "entity-1", eventSchemaId: "event-schema-1", properties: { watched: true } },
+			{ entityId: "entity-1", eventSchemaSlug: "event-schema-1", properties: { watched: true } },
 		]);
 		if (created.success) {
 			const total: number = created.data.count;
