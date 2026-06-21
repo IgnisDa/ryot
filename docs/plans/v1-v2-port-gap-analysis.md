@@ -2,11 +2,11 @@
 
 ## Overview
 
-This document captures what remains to port from V1 (`apps/backend`, Rust) to V2 (`apps/app-backend`, TypeScript), as of 2026-07-07 (re-audited). As items are completed they should be removed and added to the baseline.
+This document maps in-scope behavior from V1 (`apps/backend`, Rust) to V2 (`apps/app-backend`, TypeScript). It covers both V1's GraphQL surface and behavior implemented in background jobs, cache invalidation, garbage collection, automatic collection management, and service/dependent utilities.
 
-It was originally produced by mapping V1's full GraphQL API surface — 116 operations across 18 resolver crates under `crates/resolvers/` — against V2's modules and routes under `apps/app-backend/src/modules/`. That pass under-counted the backlog: V1 also runs a large amount of logic that is **never exposed as a GraphQL operation** — cron jobs, cache-invalidation, garbage collection, auto-collection-management, and business rules buried inside service/dependent-util crates. This revision re-audited every V1 crate under `crates/services/`, `crates/resolvers/`, `crates/utils/dependent/`, `crates/config/`, and `apps/backend/src/{main,common,job}.rs` directly, not just its GraphQL surface, and cross-checked each behavior against the current V2 code (not just module names). V1 is a behavior reference only; V2 deliberately replaces V1's domain-specific resolvers with a generic `entity_schema → entity → event → relationship` model queried through `modules/query-engine`, so many V1 behaviors are intentionally re-shaped rather than ported literally — those are called out inline.
+V1 is used as a behavior reference only. V2 replaces V1's domain-specific resolvers with a generic `entity_schema → entity → event → relationship` model queried through `modules/query-engine`, so intentional differences are called out inline.
 
-The remaining backlog below is all user-confirmed in-scope. Items the rewrite intentionally drops or re-shapes are listed separately at the end.
+The backlog below lists in-scope gaps. Behavior intentionally dropped or reshaped is listed separately at the end.
 
 ## Already Ported (Baseline)
 
