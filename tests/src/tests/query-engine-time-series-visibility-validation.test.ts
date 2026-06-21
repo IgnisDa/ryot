@@ -219,8 +219,6 @@ describe("Visibility boundary", () => {
 		const userA = await createAuthenticatedClient();
 		const userB = await createAuthenticatedClient();
 
-		// Both users need access to the same schema slug. Use a unique slug per user
-		// to avoid cross-schema contamination; in practice each user has their own schema.
 		const { schemaId: schemaA, slug: slugA } = await createQueryEngineTrackerAndSchema(
 			userA.client,
 			{

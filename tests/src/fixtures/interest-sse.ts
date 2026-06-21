@@ -25,8 +25,6 @@ const isEntityUpdatedMatch = (
 	reason?: EntityUpdatedFrame["reason"],
 ): boolean => frame.entityId === entityId && (reason === undefined || frame.reason === reason);
 
-// Parses one SSE event block (lines separated by "\n") into its event name and data payload,
-// ignoring comment lines (e.g. the ": ping" heartbeat).
 const parseEventBlock = (block: string): ParsedEvent => {
 	let event = "";
 	let data = "";
@@ -55,9 +53,6 @@ export type InterestStream = {
 	) => Promise<EntityUpdatedFrame>;
 };
 
-// Opens an authenticated SSE interest stream for a test session (auth via the Cookie header).
-// Collects entity:updated frames and exposes helpers to await or negatively assert them, plus
-// declareInterest to POST the interest set for this stream.
 export async function openInterestStream(
 	auth: { cookies: string },
 	options: WaitOptions = {},

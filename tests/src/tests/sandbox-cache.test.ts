@@ -144,8 +144,6 @@ describe("sandbox cache functions", () => {
 			"Expected cross-user cache result to be an object",
 		);
 		expect(value.success).toBe(true);
-		// User-owned scripts are isolated per scriptId — a different user's script
-		// cannot read this user's cache entry even with the same key.
 		expect(value.data).toBeNull();
 	});
 });
