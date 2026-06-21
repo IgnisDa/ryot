@@ -84,7 +84,7 @@ export const runTranslateEntityWorkflow = Effect.fn("runTranslateEntityWorkflow"
 	const sandboxResult = yield* operations.processSandbox(payload, executionId);
 
 	if (sandboxResult.error) {
-		return yield* new SandboxRunError({ message: sandboxResult.error });
+		return yield* new SandboxRunError({ message: sandboxResult.error.message });
 	}
 
 	const translation = yield* decodeTranslation(sandboxResult.value);
