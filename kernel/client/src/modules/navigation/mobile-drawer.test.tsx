@@ -39,6 +39,7 @@ const session: AuthSessionStore = {
 
 type HarnessProps = {
 	readonly hasDrawer?: boolean;
+	readonly onClose?: () => void;
 	readonly onNavigateHome?: () => void;
 	readonly catalog?: PluginClientCatalog;
 	readonly progress?: MotionValue<number>;
@@ -73,9 +74,12 @@ function Harness(props: HarnessProps) {
 				hasDrawer={props.hasDrawer ?? true}
 				onNavigateSettings={() => undefined}
 				catalog={props.catalog ?? [current]}
-				onClose={() => setIsOpen(false)}
 				onNavigateHome={() => props.onNavigateHome?.()}
 				onSelectWorkspace={(slug) => props.onSelectWorkspace?.(slug)}
+				onClose={() => {
+					props.onClose?.();
+					setIsOpen(false);
+				}}
 			/>
 		</>
 	);
@@ -137,6 +141,17 @@ describe("mobile drawer", () => {
 
 		await waitFor(() => expect(document.activeElement).toBe(trigger));
 		expect(screen.queryByRole("dialog", { name: "Navigation" })).toBeNull();
+	});
+
+	it("releases body scrolling before it reports the close", async () => {
+		const overflow: Array<string> = [];
+		render(<Harness onClose={() => overflow.push(document.body.style.overflow)} />);
+		await openDrawer();
+
+		expect(document.body.style.overflow).toBe("hidden");
+		fireEvent.click(screen.getByRole("link", { name: "Home" }));
+
+		expect(overflow).toEqual([""]);
 	});
 
 	it("closes before Home and workspace navigation", async () => {
