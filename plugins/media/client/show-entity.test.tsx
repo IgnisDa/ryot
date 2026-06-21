@@ -10,7 +10,8 @@ import {
 	type PluginBridgeInit,
 } from "@ryot-app/contract/modules/plugins/client";
 import { fireEvent, waitFor } from "@testing-library/dom";
-import { afterEach, describe, expect, it } from "vitest";
+import { act } from "react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ShowEntityScreen } from "./show-entity";
 
@@ -60,6 +61,29 @@ const readyResponse = {
 			},
 		]),
 	},
+};
+
+const responseWithImages = (images: readonly Record<string, unknown>[]) => ({
+	data: {
+		requested: rows([{ entitySchemaSlug: "show" }]),
+		show: rows([{ ...readyResponse.data.show.items[0], images }]),
+	},
+});
+
+type AssetLocator = { readonly key: string; readonly type: "local" | "s3" };
+
+type AssetRequest = {
+	readonly requestId: string;
+	readonly type: "asset-request";
+	readonly assets: readonly AssetLocator[];
+};
+
+type AssetCancel = { readonly requestId: string; readonly type: "asset-cancel" };
+
+type AssetResolution = {
+	readonly url: string;
+	readonly expiresAt: string;
+	readonly asset: AssetLocator;
 };
 
 type Bootstrap = ReturnType<typeof bootstrapClientPlugin>;
@@ -122,6 +146,38 @@ const queryRequestAt = (messages: readonly unknown[], index: number) => {
 	return request;
 };
 
+const assetRequests = (messages: readonly unknown[]) =>
+	messages.filter(
+		(message): message is AssetRequest =>
+			typeof message === "object" &&
+			message !== null &&
+			"type" in message &&
+			message.type === "asset-request" &&
+			"requestId" in message &&
+			typeof message.requestId === "string" &&
+			"assets" in message &&
+			Array.isArray(message.assets),
+	);
+
+const assetRequestAt = (messages: readonly unknown[], index: number) => {
+	const request = assetRequests(messages)[index];
+	if (request === undefined) {
+		throw new Error(`Expected asset request at index ${index}`);
+	}
+	return request;
+};
+
+const assetCancels = (messages: readonly unknown[]) =>
+	messages.filter(
+		(message): message is AssetCancel =>
+			typeof message === "object" &&
+			message !== null &&
+			"type" in message &&
+			message.type === "asset-cancel" &&
+			"requestId" in message &&
+			typeof message.requestId === "string",
+	);
+
 const reply = (
 	channel: MessageChannel,
 	requestId: string,
@@ -129,6 +185,21 @@ const reply = (
 		| { readonly outcome: "failure"; readonly reason: "query-failed" }
 		| { readonly outcome: "success"; readonly response: unknown },
 ) => channel.port1.postMessage({ type: "ryotql-result", requestId, ...result });
+
+const assetReply = (
+	channel: MessageChannel,
+	requestId: string,
+	result:
+		| { readonly outcome: "failure"; readonly reason: "asset-failed" }
+		| { readonly outcome: "success"; readonly resolutions: readonly AssetResolution[] },
+) => channel.port1.postMessage({ type: "asset-result", requestId, ...result });
+
+const flush = async () => {
+	await act(async () => {
+		await Promise.resolve();
+		await Promise.resolve();
+	});
+};
 
 afterEach(() => {
 	for (const bootstrap of bootstraps) {
@@ -142,6 +213,7 @@ afterEach(() => {
 	channels.length = 0;
 	document.head.innerHTML = "";
 	document.body.innerHTML = "";
+	vi.useRealTimers();
 });
 
 describe("ShowEntityScreen", () => {
@@ -222,6 +294,7 @@ describe("ShowEntityScreen", () => {
 				image.getAttribute("src"),
 			),
 		).toEqual(["https://images.test/backdrop.jpg", "https://images.test/cover.jpg"]);
+		expect(assetRequests(messages)).toHaveLength(0);
 		expect(
 			Array.from(container?.querySelectorAll("h1") ?? []).map((heading) => heading.textContent),
 		).toEqual(["Tracer Show"]);
@@ -233,6 +306,167 @@ describe("ShowEntityScreen", () => {
 				header: { title: "Tracer Show" },
 			}),
 		);
+	});
+
+	it("renders a managed cover placeholder before resolving its signed URL", async () => {
+		const { channel, container, messages } = openShow();
+		await waitFor(() => expect(queryRequests(messages)).toHaveLength(1));
+		reply(channel, queryRequestAt(messages, 0).requestId, {
+			outcome: "success",
+			response: responseWithImages([
+				{ type: "remote", url: "https://images.test/backdrop.jpg", purpose: "backdrop" },
+				{ type: "local", key: "managed-cover", purpose: "cover" },
+			]),
+		});
+
+		await waitFor(() => expect(assetRequests(messages)).toHaveLength(1));
+		expect(assetRequestAt(messages, 0).assets).toEqual([{ type: "local", key: "managed-cover" }]);
+		expect(container?.querySelector('img[loading="lazy"]')).toBeNull();
+		expect(container?.querySelector('div[aria-hidden="true"]')?.className).toContain(
+			"animate-pulse",
+		);
+
+		const signedUrl = "https://assets.test/managed-cover-v1?signature=one";
+		assetReply(channel, assetRequestAt(messages, 0).requestId, {
+			outcome: "success",
+			resolutions: [
+				{
+					url: signedUrl,
+					asset: { type: "local", key: "managed-cover" },
+					expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
+				},
+			],
+		});
+
+		await waitFor(() =>
+			expect(container?.querySelector('img[loading="lazy"]')?.getAttribute("src")).toBe(signedUrl),
+		);
+	});
+
+	it("shows an unavailable managed cover after the initial asset request fails", async () => {
+		const { channel, container, messages } = openShow();
+		await waitFor(() => expect(queryRequests(messages)).toHaveLength(1));
+		reply(channel, queryRequestAt(messages, 0).requestId, {
+			outcome: "success",
+			response: responseWithImages([{ type: "local", key: "managed-cover", purpose: "cover" }]),
+		});
+		await waitFor(() => expect(assetRequests(messages)).toHaveLength(1));
+
+		assetReply(channel, assetRequestAt(messages, 0).requestId, {
+			outcome: "failure",
+			reason: "asset-failed",
+		});
+
+		await waitFor(() => {
+			expect(container?.querySelector('img[loading="lazy"]')).toBeNull();
+			expect(container?.querySelector('div[aria-hidden="true"]')?.className).not.toContain(
+				"animate-pulse",
+			);
+		});
+	});
+
+	it("refreshes one minute before expiry and keeps the stale URL after failure", async () => {
+		const { channel, container, messages } = openShow();
+		await waitFor(() => expect(queryRequests(messages)).toHaveLength(1));
+		reply(channel, queryRequestAt(messages, 0).requestId, {
+			outcome: "success",
+			response: responseWithImages([{ type: "local", key: "managed-cover", purpose: "cover" }]),
+		});
+		await waitFor(() => expect(assetRequests(messages)).toHaveLength(1));
+
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date("2026-09-04T12:00:00.000Z"));
+		const expiresAt = new Date("2026-09-04T12:05:00.000Z").toISOString();
+		const staleUrl = "https://assets.test/managed-cover-v1?signature=stale";
+		assetReply(channel, assetRequestAt(messages, 0).requestId, {
+			outcome: "success",
+			resolutions: [{ expiresAt, url: staleUrl, asset: { type: "local", key: "managed-cover" } }],
+		});
+		await flush();
+		expect(container?.querySelector('img[loading="lazy"]')?.getAttribute("src")).toBe(staleUrl);
+
+		await act(async () => vi.advanceTimersByTimeAsync(4 * 60_000 - 1));
+		expect(assetRequests(messages)).toHaveLength(1);
+		await act(async () => vi.advanceTimersByTimeAsync(1));
+		await flush();
+		expect(assetRequests(messages)).toHaveLength(2);
+
+		assetReply(channel, assetRequestAt(messages, 1).requestId, {
+			outcome: "failure",
+			reason: "asset-failed",
+		});
+		await flush();
+		expect(container?.querySelector('img[loading="lazy"]')?.getAttribute("src")).toBe(staleUrl);
+	});
+
+	it("retries a managed cover after an image error and shows it unavailable after retry failure", async () => {
+		const { channel, container, messages } = openShow();
+		await waitFor(() => expect(queryRequests(messages)).toHaveLength(1));
+		reply(channel, queryRequestAt(messages, 0).requestId, {
+			outcome: "success",
+			response: responseWithImages([{ type: "local", key: "managed-cover", purpose: "cover" }]),
+		});
+		await waitFor(() => expect(assetRequests(messages)).toHaveLength(1));
+
+		const signedUrl = "https://assets.test/managed-cover-v1?signature=image";
+		assetReply(channel, assetRequestAt(messages, 0).requestId, {
+			outcome: "success",
+			resolutions: [
+				{
+					url: signedUrl,
+					asset: { type: "local", key: "managed-cover" },
+					expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
+				},
+			],
+		});
+		await waitFor(() =>
+			expect(container?.querySelector('img[loading="lazy"]')?.getAttribute("src")).toBe(signedUrl),
+		);
+
+		const image = container?.querySelector('img[loading="lazy"]');
+		if (image === null || image === undefined) {
+			throw new Error("Expected the managed cover image");
+		}
+		fireEvent.error(image);
+		await waitFor(() => expect(container?.querySelector('img[loading="lazy"]')).toBeNull());
+		await waitFor(() => expect(assetRequests(messages)).toHaveLength(2));
+		assetReply(channel, assetRequestAt(messages, 1).requestId, {
+			outcome: "failure",
+			reason: "asset-failed",
+		});
+
+		await waitFor(() => {
+			expect(container?.querySelector('img[loading="lazy"]')).toBeNull();
+			expect(container?.querySelector('div[aria-hidden="true"]')?.className).not.toContain(
+				"animate-pulse",
+			);
+		});
+	});
+
+	it("cancels a managed cover request when its screen unmounts", async () => {
+		const { channel, messages } = openShow();
+		await waitFor(() => expect(queryRequests(messages)).toHaveLength(1));
+		reply(channel, queryRequestAt(messages, 0).requestId, {
+			outcome: "success",
+			response: responseWithImages([{ type: "local", key: "managed-cover", purpose: "cover" }]),
+		});
+		await waitFor(() => expect(assetRequests(messages)).toHaveLength(1));
+
+		channel.port1.postMessage({
+			index: 2,
+			compact: false,
+			edgeBack: false,
+			leading: "none",
+			type: "location",
+			key: "replacement",
+			location: { kind: "route", path: "/replacement", search: "" },
+		});
+
+		await waitFor(() => expect(assetCancels(messages)).toHaveLength(1));
+		expect(assetCancels(messages)[0]).toEqual({
+			type: "asset-cancel",
+			requestId: assetRequestAt(messages, 0).requestId,
+		});
 	});
 
 	it("omits absent optional fields", async () => {

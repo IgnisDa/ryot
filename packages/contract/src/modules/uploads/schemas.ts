@@ -30,6 +30,12 @@ export type ManagedAssetLocator = typeof ManagedAssetLocator.Type;
 export const AssetLocator = Schema.Union([LocalAssetLocator, RemoteAssetLocator, S3AssetLocator]);
 export type AssetLocator = typeof AssetLocator.Type;
 
+export const MANAGED_ASSET_RESOLUTION_MAX_ASSETS = 64;
+export const ManagedAssetResolutionBatch = Schema.Array(ManagedAssetLocator).pipe(
+	Schema.check(Schema.isMinLength(1)),
+	Schema.check(Schema.isMaxLength(MANAGED_ASSET_RESOLUTION_MAX_ASSETS)),
+);
+
 export const UploadIntentResponse = Schema.Struct({
 	intentId: Schema.String,
 	uploadUrl: Schema.String,
@@ -49,12 +55,16 @@ export const CompleteUploadResponse = Schema.Union([ManagedAssetLocator, Tempora
 export type CompleteUploadResponse = typeof CompleteUploadResponse.Type;
 
 export const DownloadResolutionInput = Schema.Struct({
-	assets: Schema.Array(ManagedAssetLocator).pipe(Schema.check(Schema.isMinLength(1))),
+	assets: ManagedAssetResolutionBatch,
 });
 export type DownloadResolutionInput = typeof DownloadResolutionInput.Type;
 
 export const DownloadResolutionResponse = Schema.Array(
-	Schema.Struct({ asset: ManagedAssetLocator, downloadUrl: Schema.String }),
+	Schema.Struct({
+		expiresAt: Schema.String,
+		asset: ManagedAssetLocator,
+		downloadUrl: Schema.String,
+	}),
 );
 export type DownloadResolutionResponse = typeof DownloadResolutionResponse.Type;
 

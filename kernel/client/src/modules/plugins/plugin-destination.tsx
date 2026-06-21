@@ -2,6 +2,7 @@ import { useNavigate, useRouteContext, useRouter } from "@tanstack/react-router"
 import { Effect } from "effect";
 import { useCallback, useLayoutEffect, type ReactNode } from "react";
 
+import { resolveManagedAssetOutcome } from "#/modules/assets/managed-assets";
 import { useScreenLeadingControl } from "#/modules/navigation/app-screen";
 import {
 	useEdge,
@@ -135,12 +136,15 @@ function PluginInstallation(props: {
 			onNavigate={(request) => {
 				void navigate({ href: request.href, replace: request.replace });
 			}}
+			onAssets={(request, signal) =>
+				runtime.runPromise(resolveManagedAssetOutcome(scope, request.assets), { signal })
+			}
 			navigation={{
 				...entry,
-				compact: edge.compact,
 				leading: edge.intent,
-				edgeBack: edge.owner === "plugin" && edge.intent === "back",
+				compact: edge.compact,
 				location: props.target.location,
+				edgeBack: edge.owner === "plugin" && edge.intent === "back",
 			}}
 			onQuery={(request, signal) =>
 				runtime.runPromise(
@@ -165,8 +169,8 @@ function PluginInstallation(props: {
 				onScreenState({
 					...state,
 					sourceHash: installation.sourceHash,
-					artifactHash: installation.clientArtifactHash,
 					installationId: installation.installationId,
+					artifactHash: installation.clientArtifactHash,
 				});
 			}}
 		/>
