@@ -15,7 +15,7 @@ const approvedDependencyImports = [
 ] as const;
 
 const automationSource = `
-import { defineManifest } from "@ryot/sandbox-sdk";
+import { defineManifest } from "@ryot/sandbox-sdk/core";
 import { defineAutomation } from "@ryot/sandbox-sdk/automation";
 
 export const manifest = defineManifest({
@@ -107,8 +107,8 @@ it.effect("rejects generic schemas for a standard provider driver", () =>
 		const failure = yield* compile(
 			validSource
 				.replace(
-					'import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk";',
-					'import { defineDriver, defineManifest } from "@ryot/sandbox-sdk";\nimport { defineProvider } from "@ryot/sandbox-sdk/provider";',
+					'import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk/core";',
+					'import { defineDriver, defineManifest } from "@ryot/sandbox-sdk/core";\nimport { defineProvider } from "@ryot/sandbox-sdk/provider";',
 				)
 				.replace('kind: "script",', 'kind: "provider",\n  providerInformation: { source: "test" },')
 				.replaceAll("main", "search")
@@ -287,7 +287,7 @@ const main = defineDriver(driverManifest,`,
 it.effect("rejects a block-local manifest shadowing the exported manifest", () =>
 	Effect.gen(function* () {
 		const failure = yield* compile(`
-import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk";
+import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk/core";
 import * as z from "@ryot/sandbox-sdk/zod";
 
 export const manifest = defineManifest({
@@ -331,8 +331,8 @@ export default defineScript({ manifest, drivers: { main } });
 it.effect("rejects namespace helper calls that bypass the exported manifest", () =>
 	Effect.gen(function* () {
 		const failure = yield* compile(`
-import * as sdk from "@ryot/sandbox-sdk";
-import { defineManifest, defineScript } from "@ryot/sandbox-sdk";
+import * as sdk from "@ryot/sandbox-sdk/core";
+import { defineManifest, defineScript } from "@ryot/sandbox-sdk/core";
 import * as z from "@ryot/sandbox-sdk/zod";
 
 export const manifest = defineManifest({
@@ -378,7 +378,7 @@ import {
   defineManifest,
   defineScript,
   type SandboxHost,
-} from "@ryot/sandbox-sdk";
+} from "@ryot/sandbox-sdk/core";
 import * as z from "@ryot/sandbox-sdk/zod";
 
 export const manifest = defineManifest({
