@@ -136,8 +136,8 @@ describe("universal durable sandbox tracer", () => {
 			);
 			const operationSlug = `durable-tracer-${crypto.randomUUID()}`;
 			const childSlug = `durable-tracer-child-${crypto.randomUUID()}`;
-			const operationEntry = "scripts/durable-tracer.sandbox.ts";
-			const childEntry = "scripts/durable-tracer-child.sandbox.ts";
+			const operationEntry = "backend/scripts/durable-tracer.sandbox.ts";
+			const childEntry = "backend/scripts/durable-tracer-child.sandbox.ts";
 			const plugin = yield* Effect.acquireRelease(
 				installTestPluginBundle({
 					client,
