@@ -4,7 +4,7 @@ import {
 	PluginManagedAssetResolution,
 	type PluginManagedAssetResolution as PluginManagedAssetResolutionValue,
 	type RyotClientErrorReason,
-} from "@ryot-app/contract/modules/plugins/client";
+} from "@ryot-app/client-plugin-contract";
 import {
 	ManagedAssetResolutionBatch,
 	type ManagedAssetLocator as ManagedAssetLocatorValue,
@@ -14,7 +14,7 @@ import { isJsonValue, type JsonValue } from "@ryot-app/contract/schema/json";
 import type { PreparedRecipe } from "@ryot-app/ryotql";
 import { Result, Schema } from "effect";
 
-export type { RyotClientErrorReason } from "@ryot-app/contract/modules/plugins/client";
+export type { RyotClientErrorReason } from "@ryot-app/client-plugin-contract";
 export type { ManagedAssetLocator } from "@ryot-app/contract/modules/uploads/schemas";
 
 export type RyotThemeSnapshot = PluginThemeSnapshotValue;

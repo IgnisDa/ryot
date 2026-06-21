@@ -31,7 +31,7 @@ import {
 	type PluginRyotQLOutcome,
 	type PluginRyotQLRequest,
 	type PluginThemeSnapshot,
-} from "@ryot-app/contract/modules/plugins/client";
+} from "@ryot-app/client-plugin-contract";
 import { isJsonValue } from "@ryot-app/contract/schema/json";
 import { Match, Result, Schema } from "effect";
 

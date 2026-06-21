@@ -8,7 +8,7 @@ import {
 	type PluginRouteLocation,
 	type PluginBridgeInit,
 	type PluginClientArtifactMetadata,
-} from "@ryot-app/contract/modules/plugins/client";
+} from "@ryot-app/client-plugin-contract";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import type { PreparedRecipe } from "@ryot-app/ryotql";
 import { Result, Schema } from "effect";

@@ -2,7 +2,7 @@ import {
 	PluginEntityLocation,
 	type PluginLogicalLocation,
 	type PluginRouteLocation,
-} from "@ryot-app/contract/modules/plugins/client";
+} from "@ryot-app/client-plugin-contract";
 import { Schema } from "effect";
 import { createElement } from "react";
 import { describe, expect, it } from "vitest";

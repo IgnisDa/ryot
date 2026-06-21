@@ -1,4 +1,4 @@
-import type { PluginLeadingIntent } from "@ryot-app/contract/modules/plugins/client";
+import type { PluginLeadingIntent } from "@ryot-app/client-plugin-contract";
 
 export type EdgeOwner = "kernel" | "plugin";
 export type EdgeIntent = PluginLeadingIntent;

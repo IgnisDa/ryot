@@ -1,7 +1,4 @@
-import type {
-	PluginRyotQLOutcome,
-	PluginRyotQLRequest,
-} from "@ryot-app/contract/modules/plugins/client";
+import type { PluginRyotQLOutcome, PluginRyotQLRequest } from "@ryot-app/client-plugin-contract";
 import { Context, Effect, Layer } from "effect";
 
 import { classifyRyotQLFailure, RyotQLApi } from "#/api/ryotql";
