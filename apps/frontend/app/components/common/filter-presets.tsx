@@ -85,16 +85,22 @@ const FilterPresetChip = (props: {
 export const FilterPresetBar = (props: { presetManager: ReturnType<typeof useFilterPresets> }) => {
 	const [parent] = useAutoAnimate();
 	const presets = props.presetManager.filterPresets;
-	if (!presets || presets.response.length === 0) return null;
+	if (!presets || presets.response.length === 0) {
+		return null;
+	}
 
 	return (
 		<Chip.Group
 			value={props.presetManager.activePresetId || undefined}
 			key={props.presetManager.activePresetId || "no-filter-preset"}
 			onChange={(value) => {
-				if (!value) return;
+				if (!value) {
+					return;
+				}
 				const preset = presets.response.find((p) => p.id === value);
-				if (preset) props.presetManager.applyPreset(preset.id, preset.filters);
+				if (preset) {
+					props.presetManager.applyPreset(preset.id, preset.filters);
+				}
 			}}
 		>
 			<Group gap="xs" ref={parent} wrap="nowrap" style={{ overflowX: "auto" }}>

@@ -49,12 +49,13 @@ export const NameAndOtherInputs = (props: {
 	const workoutHasImages = currentWorkout.images.length > 0;
 
 	useDidUpdate(() => {
-		if (name)
+		if (name) {
 			setCurrentWorkout(
 				produce(currentWorkout, (draft) => {
 					draft.name = name;
 				}),
 			);
+		}
 	}, [name]);
 
 	useDidUpdate(() => {
@@ -198,7 +199,9 @@ export const UploadAssetsModal = (props: {
 		!!exercise?.exerciseId,
 	);
 
-	if (!currentWorkout) return null;
+	if (!currentWorkout) {
+		return null;
+	}
 
 	const afterFileSelected = async (file: File | null, type: "image" | "video") => {
 		if (props.modalOpenedBy === null && !coreDetails.isServerKeyValidated) {
@@ -208,19 +211,29 @@ export const UploadAssetsModal = (props: {
 			});
 			return;
 		}
-		if (!file) return;
+		if (!file) {
+			return;
+		}
 		setIsFileUploading(true);
 		try {
 			const key = await clientSideFileUpload(file, "workouts");
 			setCurrentWorkout(
 				produce(currentWorkout, (draft) => {
-					if (!exerciseIdx) return;
+					if (!exerciseIdx) {
+						return;
+					}
 					if (type === "image") {
-						if (exercise) draft.exercises[exerciseIdx].images.push(key);
-						else draft.images.push(key);
+						if (exercise) {
+							draft.exercises[exerciseIdx].images.push(key);
+						} else {
+							draft.images.push(key);
+						}
 					} else {
-						if (exercise) draft.exercises[exerciseIdx].videos.push(key);
-						else draft.videos.push(key);
+						if (exercise) {
+							draft.exercises[exerciseIdx].videos.push(key);
+						} else {
+							draft.videos.push(key);
+						}
 					}
 				}),
 			);
@@ -248,7 +261,9 @@ export const UploadAssetsModal = (props: {
 		deleteS3AssetMutation.mutate(key);
 		setCurrentWorkout(
 			produce(currentWorkout, (draft) => {
-				if (!exerciseIdx) return;
+				if (!exerciseIdx) {
+					return;
+				}
 				if (type === "image") {
 					if (exerciseIdx !== -1) {
 						draft.exercises[exerciseIdx].images = draft.exercises[exerciseIdx].images.filter(
