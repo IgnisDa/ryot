@@ -34,8 +34,8 @@ export const fixtureManifest = () =>
 						kind: {
 							type: "enum",
 							label: "Kind",
-							options: ["one", "two"],
 							description: "Fixture kind",
+							choices: { kind: "static", values: [{ value: "one" }, { value: "two" }] },
 						},
 					},
 				},

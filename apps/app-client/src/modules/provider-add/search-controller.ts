@@ -21,6 +21,7 @@ export type ProviderSearchOperation = {
 export type ProviderSearchState = {
 	readonly query: string;
 	readonly generation: number;
+	readonly requestToken: number;
 	readonly status: ProviderSearchStatus;
 	readonly items: readonly ProviderSearchItem[];
 	readonly nextPage: number | null | undefined;
@@ -48,6 +49,7 @@ export const createProviderSearchState = (): ProviderSearchState => ({
 	query: "",
 	generation: 0,
 	status: "idle",
+	requestToken: 0,
 	nextPage: undefined,
 	operation: undefined,
 });
@@ -56,17 +58,18 @@ const clearProviderSearch = (state: ProviderSearchState, query: string): Provide
 	...createProviderSearchState(),
 	query,
 	generation: state.generation + 1,
+	requestToken: state.requestToken,
 });
 
 const startProviderSearch = (state: ProviderSearchState): ProviderSearchState => {
 	if (state.query.trim() === "") {
 		return clearProviderSearch(state, state.query);
 	}
-	const token = state.generation + 1;
+	const token = state.requestToken + 1;
 	return {
 		...state,
 		status: "loading",
-		generation: token,
+		requestToken: token,
 		operation: { token, page: 1, phase: "initial" },
 	};
 };
@@ -75,10 +78,10 @@ const startProviderSearchNextPage = (state: ProviderSearchState): ProviderSearch
 	if (state.operation !== undefined || state.nextPage === null || state.nextPage === undefined) {
 		return state;
 	}
-	const token = state.generation + 1;
+	const token = state.requestToken + 1;
 	return {
 		...state,
-		generation: token,
+		requestToken: token,
 		status: "loading-more",
 		operation: { token, page: state.nextPage, phase: "load-more" },
 	};
@@ -137,9 +140,8 @@ export const hasMoreProviderSearchResults = (state: ProviderSearchState) =>
 export const buildSearchPayload = (input: {
 	readonly page: number;
 	readonly query: string;
-	readonly hasOptionsSchema: boolean;
 	readonly providerId: SandboxProviderId;
-	readonly options: Readonly<Record<string, JsonValue>>;
+	readonly options?: Readonly<Record<string, JsonValue>> | undefined;
 }): SearchProviderEntitiesBody => {
 	const payload = {
 		page: input.page,
@@ -147,5 +149,7 @@ export const buildSearchPayload = (input: {
 		providerId: input.providerId,
 		pageSize: PROVIDER_SEARCH_PAGE_SIZE,
 	};
-	return input.hasOptionsSchema ? { ...payload, options: { ...input.options } } : payload;
+	return input.options === undefined || Object.keys(input.options).length === 0
+		? payload
+		: { ...payload, options: { ...input.options } };
 };

@@ -12,6 +12,7 @@ import {
 	buildPagination,
 	makeIgdbRequest,
 	readTotalItems,
+	type IgdbHost,
 	toSlug,
 } from "../../igdb-shared";
 
@@ -169,6 +170,57 @@ const DETAIL_FIELDS = [
 	"similar_games.id",
 	"similar_games.name",
 ].join(", ");
+const IGDB_OPTIONS_PAGE_SIZE = 500;
+const searchOptionSources = {
+	themes: { fields: "id,name", labelField: "name", path: "themes" },
+	genres: { fields: "id,name", labelField: "name", path: "genres" },
+	platforms: { fields: "id,name", labelField: "name", path: "platforms" },
+	gameModes: { fields: "id,name", labelField: "name", path: "game_modes" },
+	gameTypes: { fields: "id,type", labelField: "type", path: "game_types" },
+	releaseDateRegions: { fields: "id,region", labelField: "region", path: "release_date_regions" },
+} as const;
+const loadSearchOptions = (
+	host: IgdbHost,
+	source: (typeof searchOptionSources)[keyof typeof searchOptionSources],
+) =>
+	Effect.gen(function* () {
+		const optionsByValue = new Map<string, { value: string; label: string }>();
+		let offset = 0;
+		let hasNextPage = true;
+		while (hasNextPage) {
+			const body = [
+				`fields ${source.fields};`,
+				"sort id asc;",
+				`limit ${IGDB_OPTIONS_PAGE_SIZE};`,
+				`offset ${offset};`,
+			].join("\n");
+			const { data } = yield* makeIgdbRequest(host, source.path, body);
+			if (!Array.isArray(data)) {
+				return yield* Effect.fail(
+					new Error(`IGDB ${source.path} returned unexpected response format`),
+				);
+			}
+			for (const item of data) {
+				const record = asRecord(item);
+				const id = numberValue(record?.["id"]);
+				const label = stringValue(record?.[source.labelField]);
+				if (id === null || !Number.isInteger(id) || !label) {
+					continue;
+				}
+				const value = String(id);
+				if (!optionsByValue.has(value)) {
+					optionsByValue.set(value, { value, label });
+				}
+			}
+			hasNextPage = data.length === IGDB_OPTIONS_PAGE_SIZE;
+			if (hasNextPage) {
+				offset += IGDB_OPTIONS_PAGE_SIZE;
+			}
+		}
+		return [...optionsByValue.values()].sort(
+			(a, b) => a.label.localeCompare(b.label) || a.value.localeCompare(b.value),
+		);
+	});
 export const search = defineProvider({
 	manifest,
 	operation: "search",
@@ -237,6 +289,26 @@ export const search = defineProvider({
 					});
 				}),
 			);
+		}),
+});
+
+export const searchOptions = defineProvider({
+	manifest,
+	operation: "search-options",
+	run: (_input, host) =>
+		Effect.gen(function* () {
+			const sources = yield* Effect.all(
+				{
+					themes: loadSearchOptions(host, searchOptionSources.themes),
+					genres: loadSearchOptions(host, searchOptionSources.genres),
+					platforms: loadSearchOptions(host, searchOptionSources.platforms),
+					gameModes: loadSearchOptions(host, searchOptionSources.gameModes),
+					gameTypes: loadSearchOptions(host, searchOptionSources.gameTypes),
+					releaseDateRegions: loadSearchOptions(host, searchOptionSources.releaseDateRegions),
+				},
+				{ concurrency: 1 },
+			);
+			return { sources };
 		}),
 });
 

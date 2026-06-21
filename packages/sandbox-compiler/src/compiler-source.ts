@@ -446,6 +446,7 @@ const inspectScriptDefinition = (
 		definitionKind !== "provider" ||
 		providerOperation === "details" ||
 		providerOperation === "search" ||
+		providerOperation === "search-options" ||
 		providerOperation === "resolve" ||
 		providerOperation === "translate";
 	return {

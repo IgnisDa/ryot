@@ -126,7 +126,7 @@ describe("POST /relationships", () => {
 							type: "enum",
 							label: "Status",
 							description: "Status",
-							options: ["active", "inactive"],
+							choices: { kind: "static", values: [{ value: "active" }, { value: "inactive" }] },
 						},
 					},
 				},

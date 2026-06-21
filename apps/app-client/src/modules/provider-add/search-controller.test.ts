@@ -99,6 +99,30 @@ describe("provider search controller", () => {
 		expect(failed.status).toBe("failed");
 	});
 
+	it("keeps the generation stable across search status changes", () => {
+		const changed = providerSearchReducer(createProviderSearchState(), {
+			type: "query-changed",
+			query: "dune",
+		});
+		const loading = providerSearchReducer(changed, { type: "search-requested" });
+		const ready = providerSearchReducer(loading, {
+			type: "response-received",
+			token: loading.operation?.token ?? -1,
+			response: response(["a"], 2),
+		});
+		const loadingMore = providerSearchReducer(ready, { type: "next-page-requested" });
+		const failed = providerSearchReducer(loadingMore, {
+			type: "request-failed",
+			token: loadingMore.operation?.token ?? -1,
+		});
+
+		expect(loading.generation).toBe(changed.generation);
+		expect(ready.generation).toBe(changed.generation);
+		expect(loadingMore.generation).toBe(changed.generation);
+		expect(failed.generation).toBe(changed.generation);
+		expect(loadingMore.operation?.token).not.toBe(loading.operation?.token);
+	});
+
 	it("clears results when the provider, query, or options change", () => {
 		const loaded = providerSearchReducer(searched("dune"), {
 			type: "response-received",
@@ -151,19 +175,17 @@ describe("provider search controller", () => {
 		expect(hasMoreProviderSearchResults(withDetails(undefined))).toBe(false);
 	});
 
-	it("omits options entirely when the provider declares no options schema", () => {
-		const input = { page: 2, providerId, query: "dune", options: { region: "us" } };
+	it("omits the entire options property when no option values remain", () => {
+		const input = { page: 2, providerId, query: "dune" };
 
-		expect(buildSearchPayload({ ...input, hasOptionsSchema: false })).toEqual({
+		expect(buildSearchPayload({ ...input, options: {} })).toEqual({
 			page: 2,
 			providerId,
 			pageSize: 20,
 			query: "dune",
 		});
-		expect(
-			Object.hasOwn(buildSearchPayload({ ...input, hasOptionsSchema: false }), "options"),
-		).toBe(false);
-		expect(buildSearchPayload({ ...input, hasOptionsSchema: true }).options).toEqual({
+		expect(Object.hasOwn(buildSearchPayload({ ...input }), "options")).toBe(false);
+		expect(buildSearchPayload({ ...input, options: { region: "us" } }).options).toEqual({
 			region: "us",
 		});
 	});
