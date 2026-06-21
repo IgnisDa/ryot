@@ -92,6 +92,13 @@ export const mediaMonitoringMessages = {
 				? `Number of episodes changed from ${input.oldCount} to ${input.newCount} for ${input.entityName}`
 				: `Number of episodes changed from ${input.oldCount} to ${input.newCount} (Season ${input.seasonNumber}) for ${input.entityName}`,
 		),
+	episodesReleased: (input: { count: number; entityName: string; seasonNumber: number | null }) =>
+		change(
+			"metadata_episode_released",
+			input.seasonNumber === null
+				? `${input.count} new episode${input.count === 1 ? "" : "s"} released for ${input.entityName}`
+				: `${input.count} new episode${input.count === 1 ? "" : "s"} released for Season ${input.seasonNumber} of ${input.entityName}`,
+		),
 	episodeReleaseDateChanged: (input: {
 		newDate: string;
 		oldDate: string;

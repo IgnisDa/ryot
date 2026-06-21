@@ -141,12 +141,13 @@ driver("details", async function (context) {
 	}
 
 	const graphqlQuery = `
-query StudioDetailsQuery($id: Int!) {
+query StudioDetailsQuery($id: Int!, $page: Int!) {
   Studio(id: $id) {
     id
     name
     siteUrl
-		media(page: 1, perPage: 50) {
+		media(page: $page, perPage: 25) {
+			pageInfo { hasNextPage }
 			edges {
 				node { id type title { userPreferred english romaji native } }
 			}
@@ -155,27 +156,45 @@ query StudioDetailsQuery($id: Int!) {
 }
 `;
 
-	const response = await httpCall("POST", "https://graphql.anilist.co", {
-		body: JSON.stringify({ query: graphqlQuery, variables: { id: studioId } }),
-		headers: {
-			Accept: "application/json",
-			"Content-Type": "application/json",
-		},
-	});
+	const getStudioPage = async (page) => {
+		const response = await httpCall("POST", "https://graphql.anilist.co", {
+			body: JSON.stringify({ query: graphqlQuery, variables: { id: studioId, page } }),
+			headers: {
+				Accept: "application/json",
+				"Content-Type": "application/json",
+			},
+		});
 
-	if (!response?.success) {
-		throw new Error(response?.error ?? "Anilist studio details request failed");
+		if (!response?.success) {
+			throw new Error(response?.error ?? "Anilist studio details request failed");
+		}
+
+		const payload = parseJsonResponse(response.data.body);
+
+		const graphQlErrorMessage = extractGraphQlErrorMessage(payload);
+		if (graphQlErrorMessage) {
+			throw new Error(`Anilist studio details GraphQL error: ${graphQlErrorMessage}`);
+		}
+
+		const studio =
+			payload?.data?.Studio && typeof payload.data.Studio === "object" ? payload.data.Studio : null;
+		if (!studio) {
+			throw new Error("Anilist returned no studio data");
+		}
+
+		return studio;
+	};
+
+	const mediaEdges = [];
+	let studio = null;
+	for (let page = 1; ; page += 1) {
+		const studioPage = await getStudioPage(page);
+		studio ??= studioPage;
+		mediaEdges.push(...(Array.isArray(studioPage?.media?.edges) ? studioPage.media.edges : []));
+		if (studioPage?.media?.pageInfo?.hasNextPage !== true) {
+			break;
+		}
 	}
-
-	const payload = parseJsonResponse(response.data.body);
-
-	const graphQlErrorMessage = extractGraphQlErrorMessage(payload);
-	if (graphQlErrorMessage) {
-		throw new Error(`Anilist studio details GraphQL error: ${graphQlErrorMessage}`);
-	}
-
-	const studio =
-		payload?.data?.Studio && typeof payload.data.Studio === "object" ? payload.data.Studio : null;
 
 	if (!studio) {
 		throw new Error("Anilist returned no studio data");
@@ -190,7 +209,7 @@ query StudioDetailsQuery($id: Int!) {
 		typeof studio.siteUrl === "string" && studio.siteUrl.trim()
 			? studio.siteUrl.trim()
 			: `https://anilist.co/studio/${contextIdentifier}`;
-	const mediaEntities = (Array.isArray(studio?.media?.edges) ? studio.media.edges : [])
+	const mediaEntities = mediaEdges
 		.map((edge) => {
 			const media = edge?.node;
 			const mediaId =
