@@ -1,6 +1,6 @@
+import { EntityId, EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import { describe, expect, it } from "vitest";
 
-import type { ShowDetails } from "./show-recipe";
 import {
 	classifyShow,
 	remoteShowBackdrop,
@@ -8,18 +8,27 @@ import {
 	showCover,
 	showIdentityLabel,
 	showSeasonCountLabel,
+	type ShowDetails,
 } from "./show-state";
 
 const show: ShowDetails = {
-	id: "show-1",
+	owned: null,
 	totalSeasons: 2,
 	genres: ["Drama"],
 	publishYear: 2025,
 	totalEpisodes: 10,
+	state: "complete",
+	isInLibrary: true,
+	isMonitored: true,
 	name: "Tracer Show",
 	providerName: "TMDB",
+	providerRating: 78.25,
+	publishDate: "2025-03-13",
 	productionStatus: "Ended",
 	description: "Description",
+	id: EntityId.make("show-1"),
+	schemaSlug: EntitySchemaSlug.make("show"),
+	collections: { pageInfo: { hasMore: false, limit: 6 }, items: [] },
 	images: [
 		{ type: "remote", url: "https://images.test/backdrop.jpg", purpose: "backdrop" },
 		{ type: "local", key: "local-cover", purpose: "cover" },
@@ -30,13 +39,14 @@ const show: ShowDetails = {
 
 describe("classifyShow", () => {
 	it("classifies ready, missing, wrong-schema, and defensive Show results", () => {
-		expect(classifyShow({ show, entitySchemaSlug: "show" })).toEqual({ kind: "ready", show });
+		const showSlug = EntitySchemaSlug.make("show");
+		expect(classifyShow({ show, entitySchemaSlug: showSlug })).toEqual({ kind: "ready", show });
 		expect(classifyShow({ show: null, entitySchemaSlug: null })).toEqual({ kind: "missing" });
-		expect(classifyShow({ show: null, entitySchemaSlug: "movie" })).toEqual({
+		expect(classifyShow({ show: null, entitySchemaSlug: EntitySchemaSlug.make("movie") })).toEqual({
 			kind: "wrong-schema",
 			entitySchemaSlug: "movie",
 		});
-		expect(classifyShow({ show: null, entitySchemaSlug: "show" })).toEqual({ kind: "missing" });
+		expect(classifyShow({ show: null, entitySchemaSlug: showSlug })).toEqual({ kind: "missing" });
 	});
 });
 

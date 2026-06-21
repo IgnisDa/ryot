@@ -42,18 +42,26 @@ const rows = (items: readonly Record<string, unknown>[]) => ({
 
 const readyResponse = {
 	data: {
-		requested: rows([{ entitySchemaSlug: "show" }]),
+		requested: rows([{ schemaSlug: "show" }]),
 		show: rows([
 			{
+				owned: null,
 				id: "show-1",
 				totalSeasons: 2,
 				totalEpisodes: 12,
 				publishYear: 2025,
+				state: "complete",
+				isInLibrary: false,
+				isMonitored: false,
+				publishDate: null,
+				schemaSlug: "show",
 				name: "Tracer Show",
 				providerName: "TMDB",
+				providerRating: null,
 				genres: ["Drama", "Mystery"],
 				productionStatus: "Returning Series",
 				description: "A deterministic show description.",
+				collections: { pageInfo: { hasMore: false, limit: 6 }, items: [] },
 				images: [
 					{ type: "remote", url: "https://images.test/backdrop.jpg", purpose: "backdrop" },
 					{ type: "remote", url: "https://images.test/cover.jpg", purpose: "cover" },
@@ -65,7 +73,7 @@ const readyResponse = {
 
 const responseWithImages = (images: readonly Record<string, unknown>[]) => ({
 	data: {
-		requested: rows([{ entitySchemaSlug: "show" }]),
+		requested: rows([{ schemaSlug: "show" }]),
 		show: rows([{ ...readyResponse.data.show.items[0], images }]),
 	},
 });
@@ -265,9 +273,7 @@ describe("ShowEntityScreen", () => {
 		await waitFor(() => expect(queryRequests(wrongSchema.messages)).toHaveLength(1));
 		reply(wrongSchema.channel, queryRequestAt(wrongSchema.messages, 0).requestId, {
 			outcome: "success",
-			response: {
-				data: { requested: rows([{ entitySchemaSlug: "movie" }]), show: rows([]) },
-			},
+			response: { data: { requested: rows([{ schemaSlug: "movie" }]), show: rows([]) } },
 		});
 		await waitFor(() =>
 			expect(wrongSchema.container?.textContent).toContain("This entity is not a Show."),
@@ -476,19 +482,27 @@ describe("ShowEntityScreen", () => {
 			outcome: "success",
 			response: {
 				data: {
-					requested: rows([{ entitySchemaSlug: "show" }]),
+					requested: rows([{ schemaSlug: "show" }]),
 					show: rows([
 						{
+							owned: null,
 							id: "show-1",
 							genres: null,
 							images: null,
 							publishYear: null,
 							description: null,
+							state: "untracked",
 							totalSeasons: null,
 							providerName: null,
+							publishDate: null,
+							isInLibrary: false,
+							isMonitored: false,
+							schemaSlug: "show",
 							name: "Sparse Show",
 							totalEpisodes: null,
+							providerRating: null,
 							productionStatus: null,
+							collections: { pageInfo: { hasMore: false, limit: 6 }, items: [] },
 						},
 					]),
 				},

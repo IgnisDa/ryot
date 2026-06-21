@@ -6,12 +6,8 @@ import { Button, Chip, StatusMessage } from "@ryot-app/client-ui-sdk";
 import clsx from "clsx";
 import { useEffect, useEffectEvent, useState } from "react";
 
-import {
-	showSummaryRecipe,
-	type MediaImage,
-	type ShowDetails,
-	type ShowRecipeResult,
-} from "./show-recipe";
+import type { MediaImage } from "../shared/media-image";
+import { showSummaryRecipe, type ShowSummaryResult } from "../shared/show-recipes";
 import {
 	classifyShow,
 	remoteShowBackdrop,
@@ -19,10 +15,17 @@ import {
 	showEpisodeCountLabel,
 	showIdentityLabel,
 	showSeasonCountLabel,
+	type ShowDetails,
 } from "./show-state";
 
-const showQuery = createRyotQuery<{ readonly entityId: string }, ShowRecipeResult>(
-	({ client, input, signal }) => client.data.query(showSummaryRecipe(input), { signal }),
+const SHOW_SUMMARY_COLLECTION_LIMIT = 6;
+
+const showQuery = createRyotQuery<{ readonly entityId: string }, ShowSummaryResult>(
+	({ client, input, signal }) =>
+		client.data.query(
+			showSummaryRecipe({ ...input, collectionLimit: SHOW_SUMMARY_COLLECTION_LIMIT }),
+			{ signal },
+		),
 );
 
 const managedCoverQuery = createRyotQuery<ManagedAssetLocator, ManagedAssetResolution>(
