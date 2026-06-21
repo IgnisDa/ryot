@@ -31,10 +31,10 @@ Replace function-body evaluation in the Deno runner with in-memory ESM import fo
 
 ## Implementation notes
 
-- The backend uses an exact `typescript@5.9.3` package alias for the compiler API because the repository's TypeScript 7 native package does not expose the stable compiler API required by the virtual project implementation. Normal repository checking remains on TypeScript 7.
+- The backend uses TypeScript 7's unstable asynchronous API as a runtime dependency. The synchronous unstable client relies on Node-specific private pipe handles that Bun does not expose.
 - Existing built-ins and direct-SQL test fixtures temporarily use compiled format `0` ES-module adapters. Format `1` user scripts always execute stored compiled JavaScript. The legacy `code` column remains only for that compatibility surface and is not returned by the creation API.
 - Legacy E2E source fixtures are submitted through the authoritative creation compiler by a test-only SDK module adapter. Their typed replacement remains owned by the dedicated E2E fixture migration.
-- Compiler subprocess isolation, concurrency, timeout, memory supervision, diagnostic caps, and compiled-size limits remain in the diagnostics and resource-limits slice as planned.
+- Compiler process concurrency, timeout, memory supervision, diagnostic caps, and compiled-size limits remain in the diagnostics and resource-limits slice as planned.
 
 ## User stories addressed
 
