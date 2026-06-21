@@ -156,11 +156,11 @@ driver("details", async function (context, { metadata }) {
 	const description = artist.header?.description?.text ?? null;
 
 	const { groupEntities, mediaEntities } = (() => {
-		const groupEntities = [];
-		const mediaEntities = [];
+		const groups = [];
+		const media = [];
 		const sections = artist?.sections;
 		if (!Array.isArray(sections)) {
-			return { groupEntities, mediaEntities };
+			return { groupEntities: groups, mediaEntities: media };
 		}
 
 		for (const section of sections) {
@@ -178,24 +178,24 @@ driver("details", async function (context, { metadata }) {
 					title = item.name;
 				}
 				if (id && title) {
-					const target = videoId || isTrackSection ? mediaEntities : groupEntities;
+					const target = videoId || isTrackSection ? media : groups;
 					target.push({ id, title });
 				}
 			}
 		}
 
 		return {
-			mediaEntities: mediaEntities.map((track) => ({
+			mediaEntities: media.map((track) => ({
 				name: track.title,
 				externalId: track.id,
 				scriptSlug: "music.youtube-music",
 				relationshipProperties: { roles: ["Artist"] },
 			})),
-			groupEntities: groupEntities.map((album) => ({
+			groupEntities: groups.map((album) => ({
 				name: album.title,
 				externalId: album.id,
-			scriptSlug: "music-group.youtube-music",
-			relationshipProperties: { roles: ["Artist"] },
+				scriptSlug: "music-group.youtube-music",
+				relationshipProperties: { roles: ["Artist"] },
 			})),
 		};
 	})();

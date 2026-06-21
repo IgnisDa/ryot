@@ -191,22 +191,26 @@ driver("details", async function (context, { metadata }) {
 	const relatedByKey = new Map();
 	const addMedia = (media, fallbackRole) => {
 		const mediaId =
-			typeof media?.id === "number" && Number.isFinite(media.id) ? String(Math.trunc(media.id)) : null;
-		const scriptSlug =
-			media?.media_type === "movie" ? "movie.tmdb" : media?.media_type === "tv" ? "show.tmdb" : null;
-		const mediaName =
-			typeof media?.title === "string" && media.title.trim()
-				? media.title.trim()
-				: typeof media?.name === "string" && media.name.trim()
-					? media.name.trim()
-					: "Loading...";
+			typeof media?.id === "number" && Number.isFinite(media.id)
+				? String(Math.trunc(media.id))
+				: null;
+		let scriptSlug = null;
+		if (media?.media_type === "movie") {
+			scriptSlug = "movie.tmdb";
+		} else if (media?.media_type === "tv") {
+			scriptSlug = "show.tmdb";
+		}
+		let mediaName = "Loading...";
+		if (typeof media?.title === "string" && media.title.trim()) {
+			mediaName = media.title.trim();
+		} else if (typeof media?.name === "string" && media.name.trim()) {
+			mediaName = media.name.trim();
+		}
 		if (!mediaId || !scriptSlug) {
 			return;
 		}
 		const role =
-			typeof media?.job === "string" && media.job.trim()
-				? media.job.trim()
-				: fallbackRole;
+			typeof media?.job === "string" && media.job.trim() ? media.job.trim() : fallbackRole;
 		const key = `${scriptSlug}:${mediaId}`;
 		const existing = relatedByKey.get(key);
 		if (existing) {

@@ -465,7 +465,9 @@ query GetHardcoverBookDetails($id: Int!) {
 			publishYear: releaseYear,
 			genres: collectGenres(bookData.cached_tags),
 			description: typeof bookData.description === "string" ? bookData.description : null,
-			images: collectImages(bookData.image, bookData.images).map((url) => ({				url,type: "remote",
+			images: collectImages(bookData.image, bookData.images).map((url) => ({
+				url,
+				type: "remote",
 			})),
 		},
 	};

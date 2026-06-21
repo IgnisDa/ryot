@@ -225,7 +225,8 @@ query GetHardcoverAuthorDetails($id: Int!) {
 		.map((contribution) => {
 			const book = contribution?.book;
 			const bookId = book?.id != null ? String(book.id) : null;
-			const bookName = typeof book?.title === "string" && book.title.trim() ? book.title.trim() : null;
+			const bookName =
+				typeof book?.title === "string" && book.title.trim() ? book.title.trim() : null;
 			const role =
 				typeof contribution?.contribution === "string" && contribution.contribution.trim()
 					? contribution.contribution.trim()

@@ -16,6 +16,31 @@ function getAliasName(a) {
 	return "";
 }
 
+const toMediaEntities = (items, scriptSlug) =>
+	(Array.isArray(items) ? items : [])
+		.map((item) => {
+			const id = item?.id ?? item?.tvdb_id;
+			let mediaExternalId = null;
+			if (typeof id === "number" && Number.isFinite(id)) {
+				mediaExternalId = String(Math.trunc(id));
+			} else if (typeof id === "string" && id.trim()) {
+				mediaExternalId = id.trim();
+			}
+			let mediaName = "Loading...";
+			if (typeof item?.name === "string" && item.name.trim()) {
+				mediaName = item.name.trim();
+			} else if (typeof item?.title === "string" && item.title.trim()) {
+				mediaName = item.title.trim();
+			}
+			return {
+				externalId: mediaExternalId,
+				scriptSlug,
+				name: mediaName,
+				relationshipProperties: { roles: ["Company"] },
+			};
+		})
+		.filter((entity) => entity.externalId !== null);
+
 const TVDB_BASE_URL = "https://api4.thetvdb.com/v4";
 const TOKEN_CACHE_KEY = "tvdb_access_token";
 
@@ -195,36 +220,12 @@ driver("details", async function (context) {
 
 	const headquarters =
 		typeof company?.country === "string" && company.country.trim() ? company.country.trim() : null;
-	const toMediaEntities = (items, scriptSlug) =>
-		(Array.isArray(items) ? items : [])
-			.map((item) => {
-				const id = item?.id ?? item?.tvdb_id;
-				const externalId =
-					typeof id === "number" && Number.isFinite(id)
-						? String(Math.trunc(id))
-						: typeof id === "string" && id.trim()
-							? id.trim()
-							: null;
-				const mediaName =
-					typeof item?.name === "string" && item.name.trim()
-						? item.name.trim()
-						: typeof item?.title === "string" && item.title.trim()
-							? item.title.trim()
-							: "Loading...";
-				return {
-					externalId,
-					scriptSlug,
-					name: mediaName,
-					relationshipProperties: { roles: ["Company"] },
-				};
-			})
-			.filter((entity) => entity.externalId !== null);
 	const movieEntities = toMediaEntities(company?.movies, "movie.tvdb");
 	const showEntities = toMediaEntities(company?.series, "show.tvdb");
 
 	return {
 		name,
-		properties: {			images,			headquarters,alternateNames,},
+		properties: { images, headquarters, alternateNames },
 		relatedEntityGroups: [
 			{
 				direction: "outgoing",

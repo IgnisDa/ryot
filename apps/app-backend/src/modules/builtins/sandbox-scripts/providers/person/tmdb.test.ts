@@ -65,5 +65,6 @@ describe("person.tmdb sandbox script", () => {
 					],
 				},
 			]);
+			return undefined;
 		}));
 });

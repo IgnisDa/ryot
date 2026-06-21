@@ -246,7 +246,7 @@ driver("details", async function (context) {
 
 	return {
 		name: title,
-		properties: {parts,			sourceUrl,			images: [],},
+		properties: { parts, sourceUrl, images: [] },
 		relatedEntityGroups: [
 			{
 				direction: "outgoing",
