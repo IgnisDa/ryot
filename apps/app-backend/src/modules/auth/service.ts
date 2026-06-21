@@ -13,9 +13,7 @@ import { rateLimited, unauthorized, unknownToDbError } from "@ryot/contract/erro
 import { UserId } from "@ryot/contract/schema/brands";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { APIError } from "better-auth/api";
 import { genericOAuth, twoFactor } from "better-auth/plugins";
-import { eq } from "drizzle-orm";
 import { Effect, Layer, Option, Redacted, Runtime, Schema } from "effect";
 import type Redis from "ioredis";
 
@@ -30,6 +28,8 @@ import { bootstrapNewUser } from "#modules/builtins/bootstrap";
 import { EntitiesService } from "#modules/entities/service";
 import { SavedViewsService } from "#modules/saved-views/service";
 import { TrackersService } from "#modules/trackers/service";
+
+import { gateSessionCreation } from "./session-gate";
 
 const schema = { ...schemaAuth, ...schemaTables, ...schemaRelations };
 
@@ -51,6 +51,19 @@ const makeAuthInstance = (args: {
 
 	const oidcEnabled = isOidcEnabled(args.config);
 
+	const runBootstrapForSession = (userId: string) =>
+		Runtime.runPromise(args.runtime)(
+			args
+				.bootstrapNewUser(userId)
+				.pipe(
+					Effect.tapErrorCause((cause) =>
+						Effect.logError("[auth] session bootstrap rerun failed for user", userId, cause),
+					),
+				),
+		);
+
+	const sessionGateDeps = { db: args.db, runBootstrap: runBootstrapForSession };
+
 	return betterAuth({
 		appName: "Ryot",
 		basePath: "/api/auth",
@@ -69,6 +82,7 @@ const makeAuthInstance = (args: {
 		user: {
 			additionalFields: {
 				disabledAt: { type: "date", required: false, input: false },
+				bootstrapCompletedAt: { type: "date", required: false, input: false },
 				preferences: { type: "json", required: true, defaultValue: defaultUserPreferences },
 			},
 		},
@@ -109,23 +123,7 @@ const makeAuthInstance = (args: {
 		},
 		databaseHooks: {
 			session: {
-				create: {
-					before: (session) =>
-						args.db
-							.select({ disabledAt: schema.user.disabledAt })
-							.from(schema.user)
-							.where(eq(schema.user.id, session.userId))
-							.limit(1)
-							.then(([foundUser]) => {
-								if (foundUser?.disabledAt) {
-									throw APIError.from("FORBIDDEN", {
-										code: "USER_DISABLED",
-										message: "This user has been disabled.",
-									});
-								}
-								return undefined;
-							}),
-				},
+				create: { before: (session) => gateSessionCreation(sessionGateDeps, session.userId) },
 			},
 			user: {
 				create: {

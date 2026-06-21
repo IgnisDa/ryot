@@ -215,17 +215,45 @@ const ensureLibraryEntity = Effect.fn(function* (
 		);
 });
 
+const readBootstrapMarker = Effect.fn(function* (userId: string) {
+	const db = yield* CurrentDb;
+	const [row] = yield* dbEffect(() =>
+		db
+			.select({ bootstrapCompletedAt: schema.user.bootstrapCompletedAt })
+			.from(schema.user)
+			.where(eq(schema.user.id, userId))
+			.for("update"),
+	);
+	return row?.bootstrapCompletedAt ?? null;
+});
+
+const markBootstrapComplete = Effect.fn(function* (userId: string) {
+	const db = yield* CurrentDb;
+	yield* dbEffect(() =>
+		db
+			.update(schema.user)
+			.set({ bootstrapCompletedAt: new Date() })
+			.where(eq(schema.user.id, userId)),
+	);
+});
+
 export const performBootstrap = Effect.fn(function* (userId: string) {
 	const trackersService = yield* TrackersService;
 	const savedViewsService = yield* SavedViewsService;
 	const entitiesService = yield* EntitiesService;
 	const user = UserId.make(userId);
 	yield* acquireBootstrapLock(userId);
+	const completedAt = yield* readBootstrapMarker(userId);
+	if (completedAt !== null) {
+		yield* Effect.logInfo(`Bootstrap already complete for user: ${userId}`);
+		return;
+	}
 	const trackers = yield* createBuiltinTrackers(userId, trackersService);
 	const entitySchemas = yield* listBuiltinEntitySchemas;
 	yield* createTrackerEntitySchemaLinks(trackers, entitySchemas, trackersService);
 	yield* createBuiltinSavedViews(user, trackers, entitySchemas, savedViewsService);
 	yield* ensureLibraryEntity(user, entitySchemas, entitiesService);
+	yield* markBootstrapComplete(userId);
 	yield* Effect.logInfo(`Bootstrap complete for user: ${userId}`);
 });
 
