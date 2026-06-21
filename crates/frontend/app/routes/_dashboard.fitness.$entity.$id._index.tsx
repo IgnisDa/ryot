@@ -23,10 +23,10 @@ import {
 	DeleteUserWorkoutTemplateDocument,
 	EntityLot,
 	UpdateUserWorkoutAttributesDocument,
-} from "@ryot/generated/graphql/backend/graphql";
-import { humanizeDuration } from "@ryot/ts-utils/format";
-import { getActionIntent, parseParameters, processSubmission } from "@ryot/ts-utils/request";
-import { changeCase } from "@ryot/ts-utils/string";
+} from "@ryot-app/generated/graphql/backend/graphql";
+import { humanizeDuration } from "@ryot-app/ts-utils/format";
+import { getActionIntent, parseParameters, processSubmission } from "@ryot-app/ts-utils/request";
+import { changeCase } from "@ryot-app/ts-utils/string";
 import {
 	IconArchive,
 	IconBarbell,

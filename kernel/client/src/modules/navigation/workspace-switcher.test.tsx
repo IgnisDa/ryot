@@ -1,7 +1,7 @@
 import type {
 	PluginClientCatalog,
 	PluginClientCatalogEntry,
-} from "@ryot/ryotql-recipes/plugin-client-catalog";
+} from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";

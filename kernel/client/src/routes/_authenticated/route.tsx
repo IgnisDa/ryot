@@ -1,4 +1,4 @@
-import { RyotProvider } from "@ryot/client-sdk/react";
+import { RyotProvider } from "@ryot-app/client-sdk/react";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Effect } from "effect";
 

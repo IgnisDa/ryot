@@ -1,6 +1,6 @@
-import type { SavedViewLayouts } from "@ryot/contract/modules/saved-views/schemas";
-import { SavedViewId } from "@ryot/contract/schema/brands";
-import type { SavedViewRecord } from "@ryot/ryotql-recipes/saved-view-records";
+import type { SavedViewLayouts } from "@ryot-app/contract/modules/saved-views/schemas";
+import { SavedViewId } from "@ryot-app/contract/schema/brands";
+import type { SavedViewRecord } from "@ryot-app/ryotql-recipes/saved-view-records";
 import { AsyncResult } from "effect/unstable/reactivity";
 import { describe, expect, it } from "vitest";
 

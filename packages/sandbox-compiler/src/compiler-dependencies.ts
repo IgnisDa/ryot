@@ -1,5 +1,5 @@
-import { SANDBOX_SDK_IMPORTS } from "@ryot/sandbox-sdk/imports";
-import { resolveTypeScriptCompilerPath } from "@ryot/typescript-compiler";
+import { SANDBOX_SDK_IMPORTS } from "@ryot-app/sandbox-sdk/imports";
+import { resolveTypeScriptCompilerPath } from "@ryot-app/typescript-compiler";
 import { Effect } from "effect";
 
 import { sandboxCompilationFailure, sandboxCompilerDiagnostic } from "./compiler-diagnostics";

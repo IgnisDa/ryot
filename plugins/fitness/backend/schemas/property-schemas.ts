@@ -1,5 +1,5 @@
-import { imagesField, videosField } from "@ryot/contract/schema/core";
-import type { AppPropertyDefinition, AppSchema } from "@ryot/contract/schema/property-schema";
+import { imagesField, videosField } from "@ryot-app/contract/schema/core";
+import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
 
 const workoutSupersetItemProperties: Readonly<Record<string, AppPropertyDefinition>> = {
 	color: {

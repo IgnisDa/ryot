@@ -1,4 +1,4 @@
-import type { ImportRunFailureReason } from "@ryot/contract/modules/imports/schemas";
+import type { ImportRunFailureReason } from "@ryot-app/contract/modules/imports/schemas";
 import { Context, Effect, Layer } from "effect";
 import { Activity } from "effect/unstable/workflow";
 

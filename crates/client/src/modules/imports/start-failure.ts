@@ -1,7 +1,7 @@
 import {
 	ImportRequestError,
 	type ImportRequestFailureReason,
-} from "@ryot/contract/modules/imports/schemas";
+} from "@ryot-app/contract/modules/imports/schemas";
 import type { Cause } from "effect";
 import { Match } from "effect";
 

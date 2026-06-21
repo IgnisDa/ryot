@@ -1,4 +1,4 @@
-import type { RunStatus } from "@ryot/contract/schema/run-status";
+import type { RunStatus } from "@ryot-app/contract/schema/run-status";
 import clsx from "clsx";
 import { Text, View } from "react-native";
 

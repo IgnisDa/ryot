@@ -1,5 +1,5 @@
-import { sortBy } from "@ryot/ts-utils/lodash";
-import { resolveTypeScriptCompilerPath } from "@ryot/typescript-compiler";
+import { sortBy } from "@ryot-app/ts-utils/lodash";
+import { resolveTypeScriptCompilerPath } from "@ryot-app/typescript-compiler";
 import { Effect } from "effect";
 import { parse } from "postcss";
 import valueParser from "postcss-value-parser";
@@ -13,12 +13,12 @@ const TRUSTED_MODULES = new Set([
 	"react-dom",
 	"react-dom/client",
 	"react/jsx-runtime",
-	"@ryot/client-sdk",
-	"@ryot/client-sdk/effect",
-	"@ryot/client-sdk/plugin",
-	"@ryot/client-sdk/react",
-	"@ryot/client-sdk/ryotql",
-	"@ryot/client-ui-sdk",
+	"@ryot-app/client-sdk",
+	"@ryot-app/client-sdk/effect",
+	"@ryot-app/client-sdk/plugin",
+	"@ryot-app/client-sdk/react",
+	"@ryot-app/client-sdk/ryotql",
+	"@ryot-app/client-ui-sdk",
 ]);
 
 export const isTrustedClientModule = (specifier: string) => TRUSTED_MODULES.has(specifier);
@@ -35,12 +35,12 @@ const resolveTypeScriptEntries = (from: string) => {
 		"react-dom": `${reactDomTypesRoot}/index.d.ts`,
 		"react-dom/client": `${reactDomTypesRoot}/client.d.ts`,
 		"react/jsx-runtime": `${reactTypesRoot}/jsx-runtime.d.ts`,
-		"@ryot/client-sdk": Bun.resolveSync("@ryot/client-sdk", from),
-		"@ryot/client-sdk/effect": Bun.resolveSync("@ryot/client-sdk/effect", from),
-		"@ryot/client-sdk/plugin": Bun.resolveSync("@ryot/client-sdk/plugin", from),
-		"@ryot/client-sdk/react": Bun.resolveSync("@ryot/client-sdk/react", from),
-		"@ryot/client-sdk/ryotql": Bun.resolveSync("@ryot/client-sdk/ryotql", from),
-		"@ryot/client-ui-sdk": Bun.resolveSync("@ryot/client-ui-sdk", from),
+		"@ryot-app/client-sdk": Bun.resolveSync("@ryot-app/client-sdk", from),
+		"@ryot-app/client-sdk/effect": Bun.resolveSync("@ryot-app/client-sdk/effect", from),
+		"@ryot-app/client-sdk/plugin": Bun.resolveSync("@ryot-app/client-sdk/plugin", from),
+		"@ryot-app/client-sdk/react": Bun.resolveSync("@ryot-app/client-sdk/react", from),
+		"@ryot-app/client-sdk/ryotql": Bun.resolveSync("@ryot-app/client-sdk/ryotql", from),
+		"@ryot-app/client-ui-sdk": Bun.resolveSync("@ryot-app/client-ui-sdk", from),
 	};
 };
 
@@ -114,7 +114,7 @@ const readScanSources = async (root: string) => {
 export const resolveClientPluginCompilerDependencies = Effect.tryPromise({
 	try: async () => {
 		const from = Bun.fileURLToPath(new URL(".", import.meta.url));
-		const uiSdkRoot = directoryOf(Bun.resolveSync("@ryot/client-ui-sdk", from));
+		const uiSdkRoot = directoryOf(Bun.resolveSync("@ryot-app/client-ui-sdk", from));
 		const tailwindEntry = Bun.resolveSync("tailwindcss/index.css", from);
 		const fonts = await Promise.all(
 			["@fontsource-variable/outfit", "@fontsource-variable/lora"].map((specifier) =>
@@ -129,7 +129,7 @@ export const resolveClientPluginCompilerDependencies = Effect.tryPromise({
 			fontAssets: fonts.flatMap(({ assets }) => assets),
 			fontStylesheet: fonts.map(({ stylesheet }) => stylesheet).join("\n"),
 			themeStylesheet: await Bun.file(
-				Bun.resolveSync("@ryot/client-ui-sdk/theme.css", from),
+				Bun.resolveSync("@ryot-app/client-ui-sdk/theme.css", from),
 			).text(),
 			tailwindStylesheet: {
 				path: tailwindEntry,

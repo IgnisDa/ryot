@@ -1,14 +1,14 @@
-import type { SandboxRunError } from "@ryot/contract/errors";
-import { badRequest } from "@ryot/contract/errors";
-import { AutomationRuleMetadata } from "@ryot/contract/modules/automations/schemas";
-import type { SandboxExecutionPayload } from "@ryot/contract/modules/sandbox/schemas";
+import type { SandboxRunError } from "@ryot-app/contract/errors";
+import { badRequest } from "@ryot-app/contract/errors";
+import { AutomationRuleMetadata } from "@ryot-app/contract/modules/automations/schemas";
+import type { SandboxExecutionPayload } from "@ryot-app/contract/modules/sandbox/schemas";
 import {
 	AutomationRuleId,
 	SandboxScriptId,
 	SubscriptionRunId,
 	UserId,
-} from "@ryot/contract/schema/brands";
-import type { AutomationInput } from "@ryot/sandbox-sdk/automation";
+} from "@ryot-app/contract/schema/brands";
+import type { AutomationInput } from "@ryot-app/sandbox-sdk/automation";
 import { Context, Effect, Layer, Schema } from "effect";
 import { Activity } from "effect/unstable/workflow";
 

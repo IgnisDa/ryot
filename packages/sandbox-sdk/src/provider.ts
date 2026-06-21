@@ -1,6 +1,6 @@
-import type { JsonValue } from "@ryot/contract/modules/ryotql/language";
-import type { AppChoice } from "@ryot/contract/schema/property-schema";
-import { Schema, Effect, SchemaGetter, SchemaTransformation } from "@ryot/sandbox-sdk/effect";
+import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
+import type { AppChoice } from "@ryot-app/contract/schema/property-schema";
+import { Schema, Effect, SchemaGetter, SchemaTransformation } from "@ryot-app/sandbox-sdk/effect";
 
 import type { SandboxManifest } from "./core";
 import { type GenericScriptDefinition, SANDBOX_SCRIPT_DEFINITION } from "./driver";

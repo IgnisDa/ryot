@@ -1,4 +1,4 @@
-import type { IncludeResult, RowItem } from "@ryot/contract/modules/ryotql/language";
+import type { IncludeResult, RowItem } from "@ryot-app/contract/modules/ryotql/language";
 import {
 	and,
 	ascending,
@@ -17,7 +17,7 @@ import {
 	literal,
 	rows,
 	table,
-} from "@ryot/ryotql";
+} from "@ryot-app/ryotql";
 import { Effect } from "effect";
 
 import {

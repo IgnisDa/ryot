@@ -1,4 +1,4 @@
-import { Effect } from "@ryot/sandbox-sdk/effect";
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { expect, it } from "vitest";
 
 import { normalizeSourceApiUrl, sourceApiUrl, withSourceRequestOptions } from "./source-api";

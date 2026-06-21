@@ -4,7 +4,7 @@ import {
 	showSeasonEpisodesRecipe,
 	showSeasonsRecipe,
 	showSummaryRecipe,
-} from "@ryot/media-plugin/query-recipes";
+} from "@ryot-app/media-plugin/query-recipes";
 import { Atom } from "effect/unstable/reactivity";
 
 import { appClient } from "@/api/client";

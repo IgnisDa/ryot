@@ -1,4 +1,4 @@
-import { stableStringify } from "@ryot/ts-utils/json";
+import { stableStringify } from "@ryot-app/ts-utils/json";
 
 import { normalizeServerOrigin } from "@/api/origin";
 

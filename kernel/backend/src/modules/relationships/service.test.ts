@@ -2,14 +2,14 @@ import { expect, it } from "@effect/vitest";
 import {
 	RelationshipBadRequest,
 	RelationshipNotFound,
-} from "@ryot/contract/modules/relationships/schemas";
+} from "@ryot-app/contract/modules/relationships/schemas";
 import {
 	EntityId,
 	EntitySchemaSlug,
 	RelationshipId,
 	RelationshipSchemaSlug,
 	UserId,
-} from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/schema/brands";
 import { Cause, Effect, Exit, Layer } from "effect";
 
 import { Database } from "#lib/infrastructure/db/service";

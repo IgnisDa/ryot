@@ -12,7 +12,7 @@ import {
 	MediaGeneralFilter,
 	MediaLot,
 	MediaSource,
-} from "@ryot/generated/graphql/backend/graphql";
+} from "@ryot-app/generated/graphql/backend/graphql";
 import {
 	type inferParserType,
 	parseAsArrayOf,

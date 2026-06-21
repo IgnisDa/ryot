@@ -1,4 +1,4 @@
-import type { RequestHeaders } from "@ryot/contract/client";
+import type { RequestHeaders } from "@ryot-app/contract/client";
 import { Context, Effect, Layer } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/unstable/http";
 
@@ -13,7 +13,7 @@ export class TransportEnvironment extends Context.Service<
 		readonly expoFetch: Fetch;
 		readonly getAuthCookie: (serverUrl: string) => Promise<string | undefined>;
 	}
->()("@ryot/kernel-client/TransportEnvironment") {}
+>()("@ryot-app/kernel-client/TransportEnvironment") {}
 
 const fetchHttpClientLayer = (useExpoFetch: boolean) =>
 	FetchHttpClient.layer.pipe(

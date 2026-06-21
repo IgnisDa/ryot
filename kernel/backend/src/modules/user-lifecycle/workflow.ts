@@ -1,11 +1,11 @@
 import { createOAuthAccountIssuer } from "@better-auth/core/db";
-import { defaultUserPreferences } from "@ryot/contract/auth-middleware";
-import { InternalError, internalError } from "@ryot/contract/errors";
+import { defaultUserPreferences } from "@ryot-app/contract/auth-middleware";
+import { InternalError, internalError } from "@ryot-app/contract/errors";
 import {
 	type UserLifecycleOperationFailure,
 	type UserLifecycleOperationKind,
 	UserResetResult,
-} from "@ryot/contract/modules/god-mode/user-lifecycle";
+} from "@ryot-app/contract/modules/god-mode/user-lifecycle";
 import { Context, DateTime, Effect, Layer, Result, Schema } from "effect";
 import { Activity, Workflow } from "effect/unstable/workflow";
 

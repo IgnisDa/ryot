@@ -1,5 +1,5 @@
-import { SandboxProviderId, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
-import type { WorkflowDurableCallRequest } from "@ryot/sandbox-sdk/workflow";
+import { SandboxProviderId, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
+import type { WorkflowDurableCallRequest } from "@ryot-app/sandbox-sdk/workflow";
 import { and, eq } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 

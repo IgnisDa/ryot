@@ -1,5 +1,5 @@
-import type { DbError } from "@ryot/contract/errors";
-import type { PluginHttpRateLimit } from "@ryot/contract/modules/plugins/manifest";
+import type { DbError } from "@ryot-app/contract/errors";
+import type { PluginHttpRateLimit } from "@ryot-app/contract/modules/plugins/manifest";
 import { Context, Effect, Layer, Result } from "effect";
 
 import { Database } from "#lib/infrastructure/db/service";

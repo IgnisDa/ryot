@@ -1,7 +1,7 @@
-import { defineAutomation } from "@ryot/sandbox-sdk/automation";
-import { defineManifest } from "@ryot/sandbox-sdk/driver";
-import { Effect } from "@ryot/sandbox-sdk/effect";
-import type { JsonValue } from "@ryot/sandbox-sdk/wire";
+import { defineAutomation } from "@ryot-app/sandbox-sdk/automation";
+import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import type { JsonValue } from "@ryot-app/sandbox-sdk/wire";
 
 import { getSeasonContext, isSpecialSeason } from "./season-context";
 

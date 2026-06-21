@@ -1,9 +1,9 @@
 #!/usr/bin/env bun
 
 import { BunRuntime, BunServices } from "@effect/platform-bun";
-import { pluginClientFileExtension } from "@ryot/contract/modules/plugins/client";
-import { PluginManifest as PluginManifestSchema } from "@ryot/contract/modules/plugins/manifest";
-import { writePluginArchive } from "@ryot/plugin-archive";
+import { pluginClientFileExtension } from "@ryot-app/contract/modules/plugins/client";
+import { PluginManifest as PluginManifestSchema } from "@ryot-app/contract/modules/plugins/manifest";
+import { writePluginArchive } from "@ryot-app/plugin-archive";
 import { Data, Effect, FileSystem, Option, Path, Schema, Stream } from "effect";
 import { Command, Flag } from "effect/unstable/cli";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";

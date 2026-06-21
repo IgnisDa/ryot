@@ -1,4 +1,4 @@
-import type { NavigationWorkspace } from "@ryot/ryotql-recipes/navigation";
+import type { NavigationWorkspace } from "@ryot-app/ryotql-recipes/navigation";
 import clsx from "clsx";
 import { Platform, Pressable, ScrollView, Text, View } from "react-native";
 

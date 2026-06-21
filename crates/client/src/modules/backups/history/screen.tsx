@@ -1,5 +1,5 @@
 import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react";
-import type { BackupRun } from "@ryot/contract/modules/backups/schemas";
+import type { BackupRun } from "@ryot-app/contract/modules/backups/schemas";
 import { Exit } from "effect";
 import { AsyncResult } from "effect/unstable/reactivity";
 import { useEffect, useRef, useState } from "react";

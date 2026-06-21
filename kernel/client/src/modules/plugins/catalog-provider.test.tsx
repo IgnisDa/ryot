@@ -1,6 +1,6 @@
-import { createRyotClient } from "@ryot/client-sdk";
-import { RyotProvider } from "@ryot/client-sdk/react";
-import type { PluginClientCatalog } from "@ryot/ryotql-recipes/plugin-client-catalog";
+import { createRyotClient } from "@ryot-app/client-sdk";
+import { RyotProvider } from "@ryot-app/client-sdk/react";
+import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import { Deferred, Effect, Layer, ManagedRuntime } from "effect";
 import type { ReactNode } from "react";

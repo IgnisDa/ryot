@@ -1,12 +1,12 @@
 import { createOAuthAccountIssuer } from "@better-auth/core/db";
-import { defaultUserPreferences } from "@ryot/contract/auth-middleware";
+import { defaultUserPreferences } from "@ryot-app/contract/auth-middleware";
 import {
 	GodModeInternalFailure,
 	GodModeNotFound,
 	GodModeRequestFailure,
 	type ProvisionUserBody,
-} from "@ryot/contract/modules/god-mode/contract";
-import { UserId } from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/modules/god-mode/contract";
+import { UserId } from "@ryot-app/contract/schema/brands";
 import { Context, DateTime, Effect, Layer } from "effect";
 
 import { AppConfig } from "#lib/infrastructure/config/service";

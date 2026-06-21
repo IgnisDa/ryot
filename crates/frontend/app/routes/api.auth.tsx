@@ -4,8 +4,8 @@ import {
 	RegisterErrorVariant,
 	RegisterUserDocument,
 	UserByOidcIssuerIdDocument,
-} from "@ryot/generated/graphql/backend/graphql";
-import { parseSearchQuery } from "@ryot/ts-utils/request";
+} from "@ryot-app/generated/graphql/backend/graphql";
+import { parseSearchQuery } from "@ryot-app/ts-utils/request";
 import { data, redirect } from "react-router";
 import { $path } from "safe-routes";
 import { z } from "zod";

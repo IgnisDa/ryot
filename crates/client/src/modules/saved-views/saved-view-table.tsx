@@ -1,4 +1,4 @@
-import type { SavedViewTableMapping } from "@ryot/contract/modules/saved-views/schemas";
+import type { SavedViewTableMapping } from "@ryot-app/contract/modules/saved-views/schemas";
 import {
 	createColumnHelper,
 	metaHelper,

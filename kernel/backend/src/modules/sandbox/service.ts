@@ -1,12 +1,12 @@
-import { badRequest, notFound, SandboxRunError } from "@ryot/contract/errors";
-import type { JsonValue } from "@ryot/contract/modules/ryotql/language";
+import { badRequest, notFound, SandboxRunError } from "@ryot-app/contract/errors";
+import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
 import type {
 	EnqueueSandboxBody,
 	SandboxExecutionSubject,
 	SandboxExecutionGrants,
-} from "@ryot/contract/modules/sandbox/schemas";
-import { SandboxScriptId, type UserId } from "@ryot/contract/schema/brands";
-import { jsonValueSchema } from "@ryot/sandbox-sdk/wire";
+} from "@ryot-app/contract/modules/sandbox/schemas";
+import { SandboxScriptId, type UserId } from "@ryot-app/contract/schema/brands";
+import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
 import { generateId } from "better-auth";
 import { Context, Effect, Layer, Option, Redacted, Schema } from "effect";
 import { Activity } from "effect/unstable/workflow";

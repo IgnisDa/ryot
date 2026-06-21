@@ -1,7 +1,7 @@
 import {
 	normalizeTypeScriptDiagnostic,
 	TypeScriptCompilerDiagnostic,
-} from "@ryot/typescript-compiler";
+} from "@ryot-app/typescript-compiler";
 import { Schema } from "effect";
 import * as ts from "typescript/unstable/ast";
 import type { Diagnostic } from "typescript/unstable/async";

@@ -23,8 +23,8 @@ import {
 	MediaLot,
 	UserReviewScale,
 	Visibility,
-} from "@ryot/generated/graphql/backend/graphql";
-import { changeCase } from "@ryot/ts-utils/string";
+} from "@ryot-app/generated/graphql/backend/graphql";
+import { changeCase } from "@ryot-app/ts-utils/string";
 import { IconPercentage } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 import type { ReactNode } from "react";

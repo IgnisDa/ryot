@@ -1,12 +1,12 @@
-import { Effect } from "@ryot/sandbox-sdk/effect";
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import {
 	createYoutubeHistoryClient,
 	createYoutubeMusicClient,
 	type YoutubeiHost,
-} from "@ryot/sandbox-sdk/youtubei";
+} from "@ryot-app/sandbox-sdk/youtubei";
 import { describe, expect, test } from "vitest";
 
-const runtimeKey = Symbol.for("@ryot/sandbox-sdk/approved-dependency-runtime");
+const runtimeKey = Symbol.for("@ryot-app/sandbox-sdk/approved-dependency-runtime");
 
 const withRuntime = (operation: () => Promise<unknown>, calls: { count: number }) => {
 	const previous = Object.getOwnPropertyDescriptor(globalThis, runtimeKey);

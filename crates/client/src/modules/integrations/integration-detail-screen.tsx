@@ -1,5 +1,5 @@
 import { useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react";
-import { IntegrationId } from "@ryot/contract/schema/brands";
+import { IntegrationId } from "@ryot-app/contract/schema/brands";
 import { Exit } from "effect";
 import { AsyncResult } from "effect/unstable/reactivity";
 import { router } from "expo-router";

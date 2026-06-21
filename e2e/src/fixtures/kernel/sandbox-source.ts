@@ -1,5 +1,5 @@
-import type { JsonValue } from "@ryot/contract/modules/ryotql/language";
-import type { JsonPrimitive, SandboxHostCapability } from "@ryot/contract/modules/sandbox/wire";
+import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
+import type { JsonPrimitive, SandboxHostCapability } from "@ryot-app/contract/modules/sandbox/wire";
 
 export type SandboxSourceIdentity = {
 	readonly name: string;
@@ -24,23 +24,23 @@ const scriptModuleSource = (input: ScriptModuleSourceInput) => {
 	const wireItems = (input.sdkImports ?? []).filter((i) => i === "jsonValueSchema");
 	const wireImportLine =
 		wireItems.length > 0
-			? `\nimport { ${wireItems.join(", ")} } from "@ryot/sandbox-sdk/wire";`
+			? `\nimport { ${wireItems.join(", ")} } from "@ryot-app/sandbox-sdk/wire";`
 			: "";
 	const coreImportLine =
 		coreItems.length > 0
-			? `\nimport { ${coreItems.join(", ")} } from "@ryot/sandbox-sdk/core";`
+			? `\nimport { ${coreItems.join(", ")} } from "@ryot-app/sandbox-sdk/core";`
 			: "";
 	const ryotqlImportLine =
 		input.ryotqlImports && input.ryotqlImports.length > 0
-			? `\nimport { ${input.ryotqlImports.join(", ")} } from "@ryot/sandbox-sdk/ryotql";`
+			? `\nimport { ${input.ryotqlImports.join(", ")} } from "@ryot-app/sandbox-sdk/ryotql";`
 			: "";
 	const filesystemImportLine = input.filesystemImport
-		? '\nimport { writeScratchChunks } from "@ryot/sandbox-sdk/filesystem";'
+		? '\nimport { writeScratchChunks } from "@ryot-app/sandbox-sdk/filesystem";'
 		: "";
 
 	return `
- import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";${wireImportLine}${coreImportLine}${ryotqlImportLine}${filesystemImportLine}
-import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
+ import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";${wireImportLine}${coreImportLine}${ryotqlImportLine}${filesystemImportLine}
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -485,8 +485,8 @@ export function bootSandboxSource(
 	},
 ) {
 	return `
-import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
+import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -519,9 +519,9 @@ export default defineScript({
 
 export function operationSandboxSource(input: SandboxSourceIdentity) {
 	return `
-import { defineManifest } from "@ryot/sandbox-sdk/driver";
-import { defineOperation } from "@ryot/sandbox-sdk/operation";
-import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
+import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
+import { defineOperation } from "@ryot-app/sandbox-sdk/operation";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "operation",
@@ -545,10 +545,10 @@ export function integrationReadOperationSandboxSource(
 	input: SandboxSourceIdentity & { readonly providerSlug: string },
 ) {
 	return `
-import { defineManifest } from "@ryot/sandbox-sdk/driver";
-import { defineOperation } from "@ryot/sandbox-sdk/operation";
-import { integrationRecordSchema } from "@ryot/sandbox-sdk/core";
-import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
+import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
+import { defineOperation } from "@ryot-app/sandbox-sdk/operation";
+import { integrationRecordSchema } from "@ryot-app/sandbox-sdk/core";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "operation",
@@ -580,9 +580,9 @@ export function pluginConfigOperationSandboxSource(
 ) {
 	const configKey = JSON.stringify(input.configKey);
 	return `
-import { defineManifest } from "@ryot/sandbox-sdk/driver";
-import { defineOperation } from "@ryot/sandbox-sdk/operation";
-import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
+import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
+import { defineOperation } from "@ryot-app/sandbox-sdk/operation";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "operation",

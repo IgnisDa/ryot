@@ -1,7 +1,7 @@
 import type {
 	PluginClientCatalog,
 	PluginClientCatalogEntry,
-} from "@ryot/ryotql-recipes/plugin-client-catalog";
+} from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type MotionValue, motionValue, useMotionValue } from "motion/react";
 import { useRef, useState } from "react";

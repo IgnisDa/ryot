@@ -111,7 +111,7 @@ Sandbox scripts declare the separate `executeRyotql` capability. User and subscr
 
 System RyotQL remains plugin-schema scoped. Plugin execution can read only global entities whose `entitySchemaSlug` is owned by the plugin. It can read event and relationship rows across users only when their discriminator definition is owned by the plugin. The `plugin`, `pluginState`, `savedView`, `sandboxProvider`, and `sandboxProviderOperation` tables are denied. These policies apply independently to every root, join, include, and correlated query before document predicates.
 
-Sandbox code imports builders, generic entity and event read recipes, and strict named-response helpers from `@ryot/sandbox-sdk/ryotql`. The helpers accept only the RyotQL `{ data: { [queryName]: result } }` envelope.
+Sandbox code imports builders, generic entity and event read recipes, and strict named-response helpers from `@ryot-app/sandbox-sdk/ryotql`. The helpers accept only the RyotQL `{ data: { [queryName]: result } }` envelope.
 
 ## Expressions And JSON
 

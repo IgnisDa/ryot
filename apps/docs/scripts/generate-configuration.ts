@@ -1,6 +1,6 @@
-import { renderConfigReference } from "@ryot/config";
-import { appConfigDefinition } from "@ryot/kernel-backend/lib/infrastructure/config/definition";
-import { readPluginArchive } from "@ryot/plugin-archive";
+import { renderConfigReference } from "@ryot-app/config";
+import { appConfigDefinition } from "@ryot-app/kernel-backend/lib/infrastructure/config/definition";
+import { readPluginArchive } from "@ryot-app/plugin-archive";
 import { Effect } from "effect";
 
 const slugs: ReadonlyArray<string> = await Bun.file(

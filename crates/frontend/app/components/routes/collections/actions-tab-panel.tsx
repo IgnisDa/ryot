@@ -5,7 +5,7 @@ import {
 	EntityLot,
 	GraphqlSortOrder,
 	MediaLot,
-} from "@ryot/generated/graphql/backend/graphql";
+} from "@ryot-app/generated/graphql/backend/graphql";
 import { useNavigate } from "react-router";
 import { $path } from "safe-routes";
 

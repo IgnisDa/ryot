@@ -1,8 +1,8 @@
-import type { YoutubeiHost } from "@ryot/sandbox-sdk/youtubei";
+import type { YoutubeiHost } from "@ryot-app/sandbox-sdk/youtubei";
 import {
 	createYoutubeHistoryClient as createSdkYoutubeHistoryClient,
 	createYoutubeMusicClient as createSdkYoutubeMusicClient,
-} from "@ryot/sandbox-sdk/youtubei";
+} from "@ryot-app/sandbox-sdk/youtubei";
 
 import { asRecord, numberValue, stringValue } from "../../shared/records";
 

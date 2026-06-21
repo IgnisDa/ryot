@@ -4,7 +4,7 @@ import {
 	type ExerciseDetailsQuery,
 	type UserExerciseDetailsQuery,
 	UserUnitSystem,
-} from "@ryot/generated/graphql/backend/graphql";
+} from "@ryot-app/generated/graphql/backend/graphql";
 import { produce } from "immer";
 import { useState } from "react";
 import { Link } from "react-router";

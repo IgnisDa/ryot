@@ -1,5 +1,5 @@
-import { badRequest, notFound } from "@ryot/contract/errors";
-import type { EntityInterestEntityUpdatedMessage } from "@ryot/contract/modules/entity-interest/messages";
+import { badRequest, notFound } from "@ryot-app/contract/errors";
+import type { EntityInterestEntityUpdatedMessage } from "@ryot-app/contract/modules/entity-interest/messages";
 import { Context, Effect, Layer } from "effect";
 
 import { MAX_ROOT_PAGE_SIZE } from "#modules/ryotql/validator";

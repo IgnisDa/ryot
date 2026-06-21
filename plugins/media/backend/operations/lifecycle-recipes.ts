@@ -1,4 +1,4 @@
-import { Effect, Result, Schema } from "@ryot/sandbox-sdk/effect";
+import { Effect, Result, Schema } from "@ryot-app/sandbox-sdk/effect";
 import {
 	and,
 	ascending,
@@ -28,7 +28,7 @@ import {
 	type PreparedRecipe,
 	type Recipe,
 	type RyotQLDocument,
-} from "@ryot/sandbox-sdk/ryotql";
+} from "@ryot-app/sandbox-sdk/ryotql";
 
 type Predicate = Parameters<typeof conditional>[0];
 type ScalarExpression = Parameters<typeof ascending>[0];

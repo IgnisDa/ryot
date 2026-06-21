@@ -1,5 +1,5 @@
-import type { SandboxManifest } from "@ryot/sandbox-sdk/core";
-import type { ProviderOperation } from "@ryot/sandbox-sdk/provider";
+import type { SandboxManifest } from "@ryot-app/sandbox-sdk/core";
+import type { ProviderOperation } from "@ryot-app/sandbox-sdk/provider";
 import { Effect } from "effect";
 import * as ts from "typescript/unstable/ast";
 import { DiagnosticCategory } from "typescript/unstable/async";

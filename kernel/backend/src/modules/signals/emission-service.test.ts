@@ -1,5 +1,5 @@
 import { assert, expect, it } from "@effect/vitest";
-import { BadRequest, NotFound } from "@ryot/contract/errors";
+import { BadRequest, NotFound } from "@ryot-app/contract/errors";
 import {
 	EntityId,
 	EntitySchemaSlug,
@@ -7,7 +7,7 @@ import {
 	SignalId,
 	SignalSchemaSlug,
 	UserId,
-} from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/schema/brands";
 import { Cause, Effect, Exit, Layer, Option } from "effect";
 
 import { assertExitFails } from "#lib/test-utils/assertions";

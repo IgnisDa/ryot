@@ -1,6 +1,6 @@
 import { Anchor, Avatar, Box, ScrollArea, Text } from "@mantine/core";
 import { useInViewport } from "@mantine/hooks";
-import { EntityTranslationVariant } from "@ryot/generated/graphql/backend/graphql";
+import { EntityTranslationVariant } from "@ryot-app/generated/graphql/backend/graphql";
 import type { ReactNode, Ref } from "react";
 import { Link } from "react-router";
 import { $path } from "safe-routes";

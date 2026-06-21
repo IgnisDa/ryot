@@ -1,7 +1,7 @@
 import type { ChildProcess } from "node:child_process";
 
-import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
-import { PluginSlug, type SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
+import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import { PluginSlug, type SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { Duration, Effect } from "effect";
 import getPort from "get-port";
 

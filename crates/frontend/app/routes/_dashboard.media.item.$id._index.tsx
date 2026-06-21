@@ -28,15 +28,15 @@ import {
 	SeenState,
 	UpdateSeenItemDocument,
 	UserReviewScale,
-} from "@ryot/generated/graphql/backend/graphql";
-import { formatQuantityWithCompactNotation, humanizeDuration } from "@ryot/ts-utils/format";
-import { isNumber } from "@ryot/ts-utils/lodash";
+} from "@ryot-app/generated/graphql/backend/graphql";
+import { formatQuantityWithCompactNotation, humanizeDuration } from "@ryot-app/ts-utils/format";
+import { isNumber } from "@ryot-app/ts-utils/lodash";
 import {
 	getActionIntent,
 	parseParameters,
 	parseSearchQuery,
 	processSubmission,
-} from "@ryot/ts-utils/request";
+} from "@ryot-app/ts-utils/request";
 import {
 	IconAlertCircle,
 	IconBulb,

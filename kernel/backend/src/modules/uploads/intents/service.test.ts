@@ -1,7 +1,7 @@
 import { expect, it } from "@effect/vitest";
-import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
-import { badRequest } from "@ryot/contract/errors";
-import { UserId } from "@ryot/contract/schema/brands";
+import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
+import { badRequest } from "@ryot-app/contract/errors";
+import { UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer } from "effect";
 import { TestClock } from "effect/testing";
 import Redis from "ioredis";

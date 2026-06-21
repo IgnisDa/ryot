@@ -1,4 +1,4 @@
-import type { NavigationData } from "@ryot/ryotql-recipes/navigation";
+import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import { describe, expect, it } from "vitest";
 
 import {

@@ -1,5 +1,5 @@
 {
-	"name": "@ryot/server",
+	"name": "@ryot-app/server",
 	"private": true,
 	"scripts": {
 		"dev": "bun run scripts/develop.ts",
@@ -10,16 +10,16 @@
 	},
 	"dependencies": {
 		"@effect/platform-bun": "4.0.0-beta.107",
-		"@ryot/client-plugin-compiler": "workspace:*",
-		"@ryot/kernel-backend": "workspace:*",
-		"@ryot/sandbox-compiler": "workspace:*",
-		"@ryot/sandbox-sdk": "workspace:*",
-		"@ryot/v10-rust-migration": "workspace:*",
+		"@ryot-app/client-plugin-compiler": "workspace:*",
+		"@ryot-app/kernel-backend": "workspace:*",
+		"@ryot-app/sandbox-compiler": "workspace:*",
+		"@ryot-app/sandbox-sdk": "workspace:*",
+		"@ryot-app/v10-rust-migration": "workspace:*",
 		"effect": "4.0.0-rc.111"
 	},
 	"devDependencies": {
-		"@ryot/fitness-plugin": "workspace:*",
-		"@ryot/media-plugin": "workspace:*",
+		"@ryot-app/fitness-plugin": "workspace:*",
+		"@ryot-app/media-plugin": "workspace:*",
 		"bun-types": "1.4.0",
 		"dotenv": "17.3.1"
 	}

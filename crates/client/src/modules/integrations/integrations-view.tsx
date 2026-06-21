@@ -1,4 +1,4 @@
-import type { IntegrationSummary } from "@ryot/ryotql-recipes/integrations";
+import type { IntegrationSummary } from "@ryot-app/ryotql-recipes/integrations";
 import clsx from "clsx";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 

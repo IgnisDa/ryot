@@ -1,8 +1,11 @@
 import { expect, it } from "@effect/vitest";
-import { defaultUserPreferences } from "@ryot/contract/auth-middleware";
-import { DbError } from "@ryot/contract/errors";
-import { GodModeNotFound, GodModeRequestFailure } from "@ryot/contract/modules/god-mode/contract";
-import { UserId } from "@ryot/contract/schema/brands";
+import { defaultUserPreferences } from "@ryot-app/contract/auth-middleware";
+import { DbError } from "@ryot-app/contract/errors";
+import {
+	GodModeNotFound,
+	GodModeRequestFailure,
+} from "@ryot-app/contract/modules/god-mode/contract";
+import { UserId } from "@ryot-app/contract/schema/brands";
 import type { ilike, SQL } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Effect, Layer } from "effect";

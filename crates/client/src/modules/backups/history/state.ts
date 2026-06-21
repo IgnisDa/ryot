@@ -1,4 +1,4 @@
-import type { BackupRun, ListRunsResponse } from "@ryot/contract/modules/backups/schemas";
+import type { BackupRun, ListRunsResponse } from "@ryot-app/contract/modules/backups/schemas";
 import type { AsyncResult } from "effect/unstable/reactivity";
 
 import { requestFailureCopy, type RequestFailureState } from "@/api/request-failure";

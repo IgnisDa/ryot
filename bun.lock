@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "@ryot/root",
+      "name": "@ryot-app/root",
       "devDependencies": {
         "@effect/tsgo": "0.19.0",
         "bun-types": "1.4.0",
@@ -16,13 +16,13 @@
       },
     },
     "apps/browser-extension": {
-      "name": "@ryot/browser-extension",
+      "name": "@ryot-app/browser-extension",
       "version": "0.1.0",
       "dependencies": {
-        "@ryot/contract": "workspace:*",
-        "@ryot/media-plugin": "workspace:*",
-        "@ryot/plugin-kit": "workspace:*",
-        "@ryot/ts-utils": "workspace:*",
+        "@ryot-app/contract": "workspace:*",
+        "@ryot-app/media-plugin": "workspace:*",
+        "@ryot-app/plugin-kit": "workspace:*",
+        "@ryot-app/ts-utils": "workspace:*",
         "@tailwindcss/vite": "4.1.18",
         "effect": "4.0.0-rc.111",
         "lucide-react": "0.563.0",
@@ -41,39 +41,39 @@
       },
     },
     "apps/docs": {
-      "name": "@ryot/docs",
+      "name": "@ryot-app/docs",
       "devDependencies": {
-        "@ryot/config": "workspace:*",
-        "@ryot/contract": "workspace:*",
-        "@ryot/fitness-plugin": "workspace:*",
-        "@ryot/kernel-backend": "workspace:*",
-        "@ryot/media-plugin": "workspace:*",
-        "@ryot/plugin-archive": "workspace:*",
+        "@ryot-app/config": "workspace:*",
+        "@ryot-app/contract": "workspace:*",
+        "@ryot-app/fitness-plugin": "workspace:*",
+        "@ryot-app/kernel-backend": "workspace:*",
+        "@ryot-app/media-plugin": "workspace:*",
+        "@ryot-app/plugin-archive": "workspace:*",
         "bun-types": "1.4.0",
         "effect": "4.0.0-rc.111",
         "vitepress": "2.0.0-alpha.15",
       },
     },
     "apps/server": {
-      "name": "@ryot/server",
+      "name": "@ryot-app/server",
       "dependencies": {
         "@effect/platform-bun": "4.0.0-beta.107",
-        "@ryot/client-plugin-compiler": "workspace:*",
-        "@ryot/kernel-backend": "workspace:*",
-        "@ryot/sandbox-compiler": "workspace:*",
-        "@ryot/sandbox-sdk": "workspace:*",
-        "@ryot/v10-rust-migration": "workspace:*",
+        "@ryot-app/client-plugin-compiler": "workspace:*",
+        "@ryot-app/kernel-backend": "workspace:*",
+        "@ryot-app/sandbox-compiler": "workspace:*",
+        "@ryot-app/sandbox-sdk": "workspace:*",
+        "@ryot-app/v10-rust-migration": "workspace:*",
         "effect": "4.0.0-rc.111",
       },
       "devDependencies": {
-        "@ryot/fitness-plugin": "workspace:*",
-        "@ryot/media-plugin": "workspace:*",
+        "@ryot-app/fitness-plugin": "workspace:*",
+        "@ryot-app/media-plugin": "workspace:*",
         "bun-types": "1.4.0",
         "dotenv": "17.3.1",
       },
     },
     "apps/website": {
-      "name": "@ryot/website",
+      "name": "@ryot-app/website",
       "dependencies": {
         "@conform-to/zod": "1.19.3",
         "@isaacs/ttlcache": "2.1.5",
@@ -87,9 +87,9 @@
         "@react-router/fs-routes": "7.16.0",
         "@react-router/node": "7.16.0",
         "@react-router/serve": "7.16.0",
-        "@ryot/contract": "workspace:*",
-        "@ryot/transactional": "workspace:*",
-        "@ryot/ts-utils": "workspace:*",
+        "@ryot-app/contract": "workspace:*",
+        "@ryot-app/transactional": "workspace:*",
+        "@ryot-app/ts-utils": "workspace:*",
         "@tailwindcss/vite": "4.3.0",
         "@tanstack/react-query": "5.100.14",
         "@tanstack/react-query-devtools": "5.100.14",
@@ -140,25 +140,25 @@
       },
     },
     "e2e": {
-      "name": "@ryot/e2e",
+      "name": "@ryot-app/e2e",
       "devDependencies": {
         "@aws-sdk/client-s3": "3.1032.0",
         "@better-auth/api-key": "1.7.2",
         "@effect/platform-bun": "4.0.0-beta.107",
         "@effect/vitest": "4.0.0-beta.107",
         "@faker-js/faker": "10.4.0",
-        "@ryot/contract": "workspace:*",
-        "@ryot/fitness-plugin": "workspace:*",
-        "@ryot/fixture-plugin": "workspace:*",
-        "@ryot/media-plugin": "workspace:*",
-        "@ryot/plugin-archive": "workspace:*",
-        "@ryot/plugin-kit": "workspace:*",
-        "@ryot/ryotql": "workspace:*",
-        "@ryot/ryotql-recipes": "workspace:*",
-        "@ryot/sandbox-sdk": "workspace:*",
-        "@ryot/server": "workspace:*",
-        "@ryot/testing": "workspace:*",
-        "@ryot/ts-utils": "workspace:*",
+        "@ryot-app/contract": "workspace:*",
+        "@ryot-app/fitness-plugin": "workspace:*",
+        "@ryot-app/fixture-plugin": "workspace:*",
+        "@ryot-app/media-plugin": "workspace:*",
+        "@ryot-app/plugin-archive": "workspace:*",
+        "@ryot-app/plugin-kit": "workspace:*",
+        "@ryot-app/ryotql": "workspace:*",
+        "@ryot-app/ryotql-recipes": "workspace:*",
+        "@ryot-app/sandbox-sdk": "workspace:*",
+        "@ryot-app/server": "workspace:*",
+        "@ryot-app/testing": "workspace:*",
+        "@ryot-app/ts-utils": "workspace:*",
         "@testcontainers/postgresql": "11.14.0",
         "better-auth": "1.7.2",
         "dotenv": "17.3.1",
@@ -173,7 +173,7 @@
       },
     },
     "kernel/backend": {
-      "name": "@ryot/kernel-backend",
+      "name": "@ryot-app/kernel-backend",
       "dependencies": {
         "@better-auth/api-key": "1.7.2",
         "@better-auth/core": "1.7.2",
@@ -186,15 +186,15 @@
         "@effect/sql-pg": "4.0.0-beta.107",
         "@opentelemetry/api": "1.9.1",
         "@react-email/components": "1.0.7",
-        "@ryot/client-plugin-compiler": "workspace:*",
-        "@ryot/config": "workspace:*",
-        "@ryot/contract": "workspace:*",
-        "@ryot/plugin-archive": "workspace:*",
-        "@ryot/ryotql-recipes": "workspace:*",
-        "@ryot/sandbox-compiler": "workspace:*",
-        "@ryot/sandbox-sdk": "workspace:*",
-        "@ryot/transactional": "workspace:*",
-        "@ryot/ts-utils": "workspace:*",
+        "@ryot-app/client-plugin-compiler": "workspace:*",
+        "@ryot-app/config": "workspace:*",
+        "@ryot-app/contract": "workspace:*",
+        "@ryot-app/plugin-archive": "workspace:*",
+        "@ryot-app/ryotql-recipes": "workspace:*",
+        "@ryot-app/sandbox-compiler": "workspace:*",
+        "@ryot-app/sandbox-sdk": "workspace:*",
+        "@ryot-app/transactional": "workspace:*",
+        "@ryot-app/ts-utils": "workspace:*",
         "@unkey/api": "2.3.5",
         "better-auth": "1.7.2",
         "drizzle-orm": "1.0.0-rc.5-169397b",
@@ -208,8 +208,8 @@
       },
       "devDependencies": {
         "@effect/vitest": "4.0.0-beta.107",
-        "@ryot/ryotql": "workspace:*",
-        "@ryot/testing": "workspace:*",
+        "@ryot-app/ryotql": "workspace:*",
+        "@ryot-app/testing": "workspace:*",
         "@types/ioredis": "5.0.0",
         "@types/nodemailer": "8.0.0",
         "@types/pg": "8.20.0",
@@ -220,7 +220,7 @@
       },
     },
     "kernel/client": {
-      "name": "@ryot/kernel-client",
+      "name": "@ryot-app/kernel-client",
       "dependencies": {
         "@aparajita/capacitor-secure-storage": "^8.0.0",
         "@better-auth/oauth-provider": "1.7.2",
@@ -233,11 +233,11 @@
         "@fontsource-variable/lora": "5.3.0",
         "@fontsource-variable/outfit": "5.3.0",
         "@noble/hashes": "^2.4.0",
-        "@ryot/client-sdk": "workspace:*",
-        "@ryot/client-ui-sdk": "workspace:*",
-        "@ryot/contract": "workspace:*",
-        "@ryot/ryotql": "workspace:*",
-        "@ryot/ryotql-recipes": "workspace:*",
+        "@ryot-app/client-sdk": "workspace:*",
+        "@ryot-app/client-ui-sdk": "workspace:*",
+        "@ryot-app/contract": "workspace:*",
+        "@ryot-app/ryotql": "workspace:*",
+        "@ryot-app/ryotql-recipes": "workspace:*",
         "@tailwindcss/vite": "^4.1.18",
         "@tanstack/react-form": "2.0.0-alpha.1",
         "@tanstack/react-router": "latest",
@@ -254,8 +254,8 @@
         "@capacitor/assets": "^3.0.5",
         "@capacitor/cli": "^8.5.0",
         "@effect/vitest": "4.0.0-beta.107",
-        "@ryot/ryotql": "workspace:*",
-        "@ryot/testing": "workspace:*",
+        "@ryot-app/ryotql": "workspace:*",
+        "@ryot-app/testing": "workspace:*",
         "@tanstack/devtools-vite": "latest",
         "@tanstack/router-cli": "^1.132.0",
         "@tanstack/router-plugin": "latest",
@@ -274,12 +274,12 @@
       },
     },
     "migrations/v10-rust": {
-      "name": "@ryot/v10-rust-migration",
+      "name": "@ryot-app/v10-rust-migration",
       "dependencies": {
         "@better-auth/core": "1.7.2",
         "@effect/sql-pg": "4.0.0-beta.107",
-        "@ryot/contract": "workspace:*",
-        "@ryot/kernel-backend": "workspace:*",
+        "@ryot-app/contract": "workspace:*",
+        "@ryot-app/kernel-backend": "workspace:*",
         "drizzle-orm": "1.0.0-rc.5-169397b",
         "effect": "4.0.0-rc.111",
       },
@@ -288,33 +288,33 @@
       },
     },
     "packages/cli": {
-      "name": "@ryot/cli",
+      "name": "@ryot-app/cli",
       "bin": {
         "ryot": "./src/index.ts",
       },
       "dependencies": {
         "@effect/platform-bun": "4.0.0-beta.107",
-        "@ryot/contract": "workspace:*",
-        "@ryot/plugin-archive": "workspace:*",
+        "@ryot-app/contract": "workspace:*",
+        "@ryot-app/plugin-archive": "workspace:*",
         "effect": "4.0.0-rc.111",
       },
       "devDependencies": {
         "@effect/vitest": "4.0.0-beta.107",
-        "@ryot/testing": "workspace:*",
+        "@ryot-app/testing": "workspace:*",
         "bun-types": "1.4.0",
         "vitest": "4.1.9",
       },
     },
     "packages/client-plugin-compiler": {
-      "name": "@ryot/client-plugin-compiler",
+      "name": "@ryot-app/client-plugin-compiler",
       "dependencies": {
         "@fontsource-variable/lora": "5.3.0",
         "@fontsource-variable/outfit": "5.3.0",
-        "@ryot/client-sdk": "workspace:*",
-        "@ryot/client-ui-sdk": "workspace:*",
-        "@ryot/contract": "workspace:*",
-        "@ryot/ts-utils": "workspace:*",
-        "@ryot/typescript-compiler": "workspace:*",
+        "@ryot-app/client-sdk": "workspace:*",
+        "@ryot-app/client-ui-sdk": "workspace:*",
+        "@ryot-app/contract": "workspace:*",
+        "@ryot-app/ts-utils": "workspace:*",
+        "@ryot-app/typescript-compiler": "workspace:*",
         "@tailwindcss/oxide": "^4.1.18",
         "@types/react": "^19.2.0",
         "@types/react-dom": "^19.2.0",
@@ -328,24 +328,24 @@
       },
       "devDependencies": {
         "@effect/vitest": "4.0.0-beta.107",
-        "@ryot/testing": "workspace:*",
+        "@ryot-app/testing": "workspace:*",
         "bun-types": "1.4.0",
         "typescript": "7.0.2",
         "vitest": "4.1.9",
       },
     },
     "packages/client-sdk": {
-      "name": "@ryot/client-sdk",
+      "name": "@ryot-app/client-sdk",
       "dependencies": {
         "@effect/atom-react": "4.0.0-beta.107",
-        "@ryot/contract": "workspace:*",
-        "@ryot/ryotql": "workspace:*",
+        "@ryot-app/contract": "workspace:*",
+        "@ryot-app/ryotql": "workspace:*",
         "effect": "4.0.0-rc.111",
         "react": "^19.2.0",
         "react-dom": "^19.2.0",
       },
       "devDependencies": {
-        "@ryot/testing": "workspace:*",
+        "@ryot-app/testing": "workspace:*",
         "@testing-library/dom": "^10.4.1",
         "@types/react": "^19.2.0",
         "@types/react-dom": "^19.2.0",
@@ -358,13 +358,13 @@
       },
     },
     "packages/client-ui-sdk": {
-      "name": "@ryot/client-ui-sdk",
+      "name": "@ryot-app/client-ui-sdk",
       "dependencies": {
         "clsx": "2.1.1",
         "react": "^19.2.0",
       },
       "devDependencies": {
-        "@ryot/testing": "workspace:*",
+        "@ryot-app/testing": "workspace:*",
         "@testing-library/react": "^16.3.3",
         "@types/react": "^19.2.0",
         "@types/react-dom": "^19.2.0",
@@ -377,104 +377,104 @@
       },
     },
     "packages/config": {
-      "name": "@ryot/config",
+      "name": "@ryot-app/config",
       "dependencies": {
-        "@ryot/contract": "workspace:*",
+        "@ryot-app/contract": "workspace:*",
         "effect": "4.0.0-rc.111",
       },
       "devDependencies": {
         "@effect/vitest": "4.0.0-beta.107",
-        "@ryot/testing": "workspace:*",
+        "@ryot-app/testing": "workspace:*",
         "bun-types": "1.4.0",
         "vitest": "4.1.9",
       },
     },
     "packages/contract": {
-      "name": "@ryot/contract",
+      "name": "@ryot-app/contract",
       "dependencies": {
-        "@ryot/ts-utils": "workspace:*",
+        "@ryot-app/ts-utils": "workspace:*",
         "effect": "4.0.0-rc.111",
       },
       "devDependencies": {
-        "@ryot/testing": "workspace:*",
+        "@ryot-app/testing": "workspace:*",
         "bun-types": "1.4.0",
         "vitest": "4.1.9",
       },
     },
     "packages/plugin-archive": {
-      "name": "@ryot/plugin-archive",
+      "name": "@ryot-app/plugin-archive",
       "dependencies": {
-        "@ryot/contract": "workspace:*",
-        "@ryot/ts-utils": "workspace:*",
+        "@ryot-app/contract": "workspace:*",
+        "@ryot-app/ts-utils": "workspace:*",
         "effect": "4.0.0-rc.111",
         "fflate": "0.8.3",
       },
       "devDependencies": {
-        "@ryot/testing": "workspace:*",
+        "@ryot-app/testing": "workspace:*",
         "bun-types": "1.4.0",
         "vitest": "4.1.9",
       },
     },
     "packages/plugin-kit": {
-      "name": "@ryot/plugin-kit",
+      "name": "@ryot-app/plugin-kit",
       "dependencies": {
         "effect": "4.0.0-rc.111",
       },
       "devDependencies": {
-        "@ryot/testing": "workspace:*",
+        "@ryot-app/testing": "workspace:*",
         "bun-types": "1.4.0",
         "vitest": "4.1.9",
       },
     },
     "packages/ryotql": {
-      "name": "@ryot/ryotql",
+      "name": "@ryot-app/ryotql",
       "dependencies": {
         "effect": "4.0.0-rc.111",
       },
       "devDependencies": {
-        "@ryot/contract": "workspace:*",
-        "@ryot/testing": "workspace:*",
+        "@ryot-app/contract": "workspace:*",
+        "@ryot-app/testing": "workspace:*",
         "vitest": "4.1.9",
       },
       "peerDependencies": {
-        "@ryot/contract": "workspace:*",
+        "@ryot-app/contract": "workspace:*",
       },
     },
     "packages/ryotql-recipes": {
-      "name": "@ryot/ryotql-recipes",
+      "name": "@ryot-app/ryotql-recipes",
       "dependencies": {
-        "@ryot/contract": "workspace:*",
-        "@ryot/ryotql": "workspace:*",
+        "@ryot-app/contract": "workspace:*",
+        "@ryot-app/ryotql": "workspace:*",
         "effect": "4.0.0-rc.111",
       },
       "devDependencies": {
-        "@ryot/testing": "workspace:*",
+        "@ryot-app/testing": "workspace:*",
         "vitest": "4.1.9",
       },
     },
     "packages/sandbox-compiler": {
-      "name": "@ryot/sandbox-compiler",
+      "name": "@ryot-app/sandbox-compiler",
       "dependencies": {
-        "@ryot/sandbox-sdk": "workspace:*",
-        "@ryot/ts-utils": "workspace:*",
-        "@ryot/typescript-compiler": "workspace:*",
+        "@ryot-app/sandbox-sdk": "workspace:*",
+        "@ryot-app/ts-utils": "workspace:*",
+        "@ryot-app/typescript-compiler": "workspace:*",
         "effect": "4.0.0-rc.111",
         "typescript": "7.0.2",
       },
       "devDependencies": {
         "@effect/platform-bun": "4.0.0-beta.107",
         "@effect/vitest": "4.0.0-beta.107",
-        "@ryot/testing": "workspace:*",
+        "@ryot-app/testing": "workspace:*",
         "bun-types": "1.4.0",
         "vitest": "4.1.9",
       },
     },
     "packages/sandbox-sdk": {
-      "name": "@ryot/sandbox-sdk",
+      "name": "@ryot-app/sandbox-sdk",
       "dependencies": {
-        "@ryot/contract": "workspace:*",
-        "@ryot/ryotql": "workspace:*",
-        "@ryot/ryotql-recipes": "workspace:*",
+        "@ryot-app/contract": "workspace:*",
+        "@ryot-app/ryotql": "workspace:*",
+        "@ryot-app/ryotql-recipes": "workspace:*",
         "@types/papaparse": "5.5.2",
         "cheerio": "1.2.0",
         "effect": "4.0.0-rc.111",
@@ -485,12 +485,12 @@
       },
       "devDependencies": {
         "@effect/vitest": "4.0.0-beta.107",
-        "@ryot/testing": "workspace:*",
+        "@ryot-app/testing": "workspace:*",
         "vitest": "4.1.9",
       },
     },
     "packages/testing": {
-      "name": "@ryot/testing",
+      "name": "@ryot-app/testing",
       "dependencies": {
         "vitest": "4.1.9",
       },
@@ -499,10 +499,10 @@
       },
     },
     "packages/transactional": {
-      "name": "@ryot/transactional",
+      "name": "@ryot-app/transactional",
       "dependencies": {
         "@react-email/components": "1.0.7",
-        "@ryot/ts-utils": "workspace:*",
+        "@ryot-app/ts-utils": "workspace:*",
         "react": "19.2.4",
         "react-dom": "19.2.4",
         "react-email": "5.2.8",
@@ -512,7 +512,7 @@
       },
     },
     "packages/ts-utils": {
-      "name": "@ryot/ts-utils",
+      "name": "@ryot-app/ts-utils",
       "dependencies": {
         "@conform-to/zod": "1.19.0",
         "clsx": "2.1.1",
@@ -531,73 +531,73 @@
       },
     },
     "packages/typescript-compiler": {
-      "name": "@ryot/typescript-compiler",
+      "name": "@ryot-app/typescript-compiler",
       "dependencies": {
         "effect": "4.0.0-rc.111",
         "typescript": "7.0.2",
       },
       "devDependencies": {
         "@effect/vitest": "4.0.0-beta.107",
-        "@ryot/testing": "workspace:*",
+        "@ryot-app/testing": "workspace:*",
         "bun-types": "1.4.0",
         "vitest": "4.1.9",
       },
     },
     "plugins/fitness": {
-      "name": "@ryot/fitness-plugin",
+      "name": "@ryot-app/fitness-plugin",
       "dependencies": {
-        "@ryot/config": "workspace:*",
-        "@ryot/contract": "workspace:*",
-        "@ryot/ryotql": "workspace:*",
-        "@ryot/ryotql-recipes": "workspace:*",
-        "@ryot/sandbox-sdk": "workspace:*",
-        "@ryot/ts-utils": "workspace:*",
+        "@ryot-app/config": "workspace:*",
+        "@ryot-app/contract": "workspace:*",
+        "@ryot-app/ryotql": "workspace:*",
+        "@ryot-app/ryotql-recipes": "workspace:*",
+        "@ryot-app/sandbox-sdk": "workspace:*",
+        "@ryot-app/ts-utils": "workspace:*",
         "effect": "4.0.0-rc.111",
       },
       "devDependencies": {
         "@effect/vitest": "4.0.0-beta.107",
-        "@ryot/cli": "workspace:*",
-        "@ryot/kernel-backend": "workspace:*",
-        "@ryot/sandbox-compiler": "workspace:*",
-        "@ryot/testing": "workspace:*",
+        "@ryot-app/cli": "workspace:*",
+        "@ryot-app/kernel-backend": "workspace:*",
+        "@ryot-app/sandbox-compiler": "workspace:*",
+        "@ryot-app/testing": "workspace:*",
         "bun-types": "1.4.0",
         "vitest": "4.1.9",
       },
     },
     "plugins/fixture": {
-      "name": "@ryot/fixture-plugin",
+      "name": "@ryot-app/fixture-plugin",
       "dependencies": {
-        "@ryot/contract": "workspace:*",
-        "@ryot/sandbox-sdk": "workspace:*",
+        "@ryot-app/contract": "workspace:*",
+        "@ryot-app/sandbox-sdk": "workspace:*",
       },
       "devDependencies": {
-        "@ryot/cli": "workspace:*",
-        "@ryot/client-sdk": "workspace:*",
-        "@ryot/client-ui-sdk": "workspace:*",
+        "@ryot-app/cli": "workspace:*",
+        "@ryot-app/client-sdk": "workspace:*",
+        "@ryot-app/client-ui-sdk": "workspace:*",
         "@types/react": "^19.2.0",
         "@types/react-dom": "^19.2.0",
         "clsx": "2.1.1",
       },
     },
     "plugins/media": {
-      "name": "@ryot/media-plugin",
+      "name": "@ryot-app/media-plugin",
       "dependencies": {
-        "@ryot/config": "workspace:*",
-        "@ryot/contract": "workspace:*",
-        "@ryot/plugin-kit": "workspace:*",
-        "@ryot/ryotql": "workspace:*",
-        "@ryot/ryotql-recipes": "workspace:*",
-        "@ryot/sandbox-sdk": "workspace:*",
-        "@ryot/ts-utils": "workspace:*",
+        "@ryot-app/config": "workspace:*",
+        "@ryot-app/contract": "workspace:*",
+        "@ryot-app/plugin-kit": "workspace:*",
+        "@ryot-app/ryotql": "workspace:*",
+        "@ryot-app/ryotql-recipes": "workspace:*",
+        "@ryot-app/sandbox-sdk": "workspace:*",
+        "@ryot-app/ts-utils": "workspace:*",
         "effect": "4.0.0-rc.111",
       },
       "devDependencies": {
         "@effect/platform-bun": "4.0.0-beta.107",
         "@effect/vitest": "4.0.0-beta.107",
-        "@ryot/cli": "workspace:*",
-        "@ryot/kernel-backend": "workspace:*",
-        "@ryot/sandbox-compiler": "workspace:*",
-        "@ryot/testing": "workspace:*",
+        "@ryot-app/cli": "workspace:*",
+        "@ryot-app/kernel-backend": "workspace:*",
+        "@ryot-app/sandbox-compiler": "workspace:*",
+        "@ryot-app/testing": "workspace:*",
         "bun-types": "1.4.0",
         "vitest": "4.1.9",
       },
@@ -1391,59 +1391,59 @@
 
     "@rollup/rollup-win32-x64-msvc": ["@rollup/rollup-win32-x64-msvc@4.50.0", "", { "os": "win32", "cpu": "x64" }, "sha512-xMmiWRR8sp72Zqwjgtf3QbZfF1wdh8X2ABu3EaozvZcyHJeU0r+XAnXdKgs4cCAp6ORoYoCygipYP1mjmbjrsg=="],
 
-    "@ryot/browser-extension": ["@ryot/browser-extension@workspace:apps/browser-extension"],
+    "@ryot-app/browser-extension": ["@ryot-app/browser-extension@workspace:apps/browser-extension"],
 
-    "@ryot/cli": ["@ryot/cli@workspace:packages/cli"],
+    "@ryot-app/cli": ["@ryot-app/cli@workspace:packages/cli"],
 
-    "@ryot/client-plugin-compiler": ["@ryot/client-plugin-compiler@workspace:packages/client-plugin-compiler"],
+    "@ryot-app/client-plugin-compiler": ["@ryot-app/client-plugin-compiler@workspace:packages/client-plugin-compiler"],
 
-    "@ryot/client-sdk": ["@ryot/client-sdk@workspace:packages/client-sdk"],
+    "@ryot-app/client-sdk": ["@ryot-app/client-sdk@workspace:packages/client-sdk"],
 
-    "@ryot/client-ui-sdk": ["@ryot/client-ui-sdk@workspace:packages/client-ui-sdk"],
+    "@ryot-app/client-ui-sdk": ["@ryot-app/client-ui-sdk@workspace:packages/client-ui-sdk"],
 
-    "@ryot/config": ["@ryot/config@workspace:packages/config"],
+    "@ryot-app/config": ["@ryot-app/config@workspace:packages/config"],
 
-    "@ryot/contract": ["@ryot/contract@workspace:packages/contract"],
+    "@ryot-app/contract": ["@ryot-app/contract@workspace:packages/contract"],
 
-    "@ryot/docs": ["@ryot/docs@workspace:apps/docs"],
+    "@ryot-app/docs": ["@ryot-app/docs@workspace:apps/docs"],
 
-    "@ryot/e2e": ["@ryot/e2e@workspace:e2e"],
+    "@ryot-app/e2e": ["@ryot-app/e2e@workspace:e2e"],
 
-    "@ryot/fitness-plugin": ["@ryot/fitness-plugin@workspace:plugins/fitness"],
+    "@ryot-app/fitness-plugin": ["@ryot-app/fitness-plugin@workspace:plugins/fitness"],
 
-    "@ryot/fixture-plugin": ["@ryot/fixture-plugin@workspace:plugins/fixture"],
+    "@ryot-app/fixture-plugin": ["@ryot-app/fixture-plugin@workspace:plugins/fixture"],
 
-    "@ryot/kernel-backend": ["@ryot/kernel-backend@workspace:kernel/backend"],
+    "@ryot-app/kernel-backend": ["@ryot-app/kernel-backend@workspace:kernel/backend"],
 
-    "@ryot/kernel-client": ["@ryot/kernel-client@workspace:kernel/client"],
+    "@ryot-app/kernel-client": ["@ryot-app/kernel-client@workspace:kernel/client"],
 
-    "@ryot/media-plugin": ["@ryot/media-plugin@workspace:plugins/media"],
+    "@ryot-app/media-plugin": ["@ryot-app/media-plugin@workspace:plugins/media"],
 
-    "@ryot/plugin-archive": ["@ryot/plugin-archive@workspace:packages/plugin-archive"],
+    "@ryot-app/plugin-archive": ["@ryot-app/plugin-archive@workspace:packages/plugin-archive"],
 
-    "@ryot/plugin-kit": ["@ryot/plugin-kit@workspace:packages/plugin-kit"],
+    "@ryot-app/plugin-kit": ["@ryot-app/plugin-kit@workspace:packages/plugin-kit"],
 
-    "@ryot/ryotql": ["@ryot/ryotql@workspace:packages/ryotql"],
+    "@ryot-app/ryotql": ["@ryot-app/ryotql@workspace:packages/ryotql"],
 
-    "@ryot/ryotql-recipes": ["@ryot/ryotql-recipes@workspace:packages/ryotql-recipes"],
+    "@ryot-app/ryotql-recipes": ["@ryot-app/ryotql-recipes@workspace:packages/ryotql-recipes"],
 
-    "@ryot/sandbox-compiler": ["@ryot/sandbox-compiler@workspace:packages/sandbox-compiler"],
+    "@ryot-app/sandbox-compiler": ["@ryot-app/sandbox-compiler@workspace:packages/sandbox-compiler"],
 
-    "@ryot/sandbox-sdk": ["@ryot/sandbox-sdk@workspace:packages/sandbox-sdk"],
+    "@ryot-app/sandbox-sdk": ["@ryot-app/sandbox-sdk@workspace:packages/sandbox-sdk"],
 
-    "@ryot/server": ["@ryot/server@workspace:apps/server"],
+    "@ryot-app/server": ["@ryot-app/server@workspace:apps/server"],
 
-    "@ryot/testing": ["@ryot/testing@workspace:packages/testing"],
+    "@ryot-app/testing": ["@ryot-app/testing@workspace:packages/testing"],
 
-    "@ryot/transactional": ["@ryot/transactional@workspace:packages/transactional"],
+    "@ryot-app/transactional": ["@ryot-app/transactional@workspace:packages/transactional"],
 
-    "@ryot/ts-utils": ["@ryot/ts-utils@workspace:packages/ts-utils"],
+    "@ryot-app/ts-utils": ["@ryot-app/ts-utils@workspace:packages/ts-utils"],
 
-    "@ryot/typescript-compiler": ["@ryot/typescript-compiler@workspace:packages/typescript-compiler"],
+    "@ryot-app/typescript-compiler": ["@ryot-app/typescript-compiler@workspace:packages/typescript-compiler"],
 
-    "@ryot/v10-rust-migration": ["@ryot/v10-rust-migration@workspace:migrations/v10-rust"],
+    "@ryot-app/v10-rust-migration": ["@ryot-app/v10-rust-migration@workspace:migrations/v10-rust"],
 
-    "@ryot/website": ["@ryot/website@workspace:apps/website"],
+    "@ryot-app/website": ["@ryot-app/website@workspace:apps/website"],
 
     "@selderee/plugin-htmlparser2": ["@selderee/plugin-htmlparser2@0.11.0", "", { "dependencies": { "domhandler": "^5.0.3", "selderee": "^0.11.0" } }, "sha512-P33hHGdldxGabLFjPPpaTxVolMrzrcegejx+0GxjrIb9Zv48D8yAIA/QTDR2dFl7Uz7urX8aX6+5bCZslr+gWQ=="],
 
@@ -3607,65 +3607,65 @@
 
     "@rollup/pluginutils/estree-walker": ["estree-walker@2.0.2", "", {}, "sha512-Rfkk/Mp/DL7JVje3u18FxFujQlTNR2q6QfMSMB7AvCBx91NGj/ba3kCfza0f6dVDbw7YlRf/nDrn7pQrCCyQ/w=="],
 
-    "@ryot/client-plugin-compiler/@types/react": ["@types/react@19.2.15", "", { "dependencies": { "csstype": "^3.2.2" } }, "sha512-eRwcGNHve+E8qtEQSSRl6urh+rFop4v8gm6O8rGv25CodbvFdLjA1vVQ1KkiFE0w0UPOnb8tDiFKL5lp0rtY5Q=="],
+    "@ryot-app/client-plugin-compiler/@types/react": ["@types/react@19.2.15", "", { "dependencies": { "csstype": "^3.2.2" } }, "sha512-eRwcGNHve+E8qtEQSSRl6urh+rFop4v8gm6O8rGv25CodbvFdLjA1vVQ1KkiFE0w0UPOnb8tDiFKL5lp0rtY5Q=="],
 
-    "@ryot/client-plugin-compiler/react": ["react@19.2.6", "", {}, "sha512-sfWGGfavi0xr8Pg0sVsyHMAOziVYKgPLNrS7ig+ivMNb3wbCBw3KxtflsGBAwD3gYQlE/AEZsTLgToRrSCjb0Q=="],
+    "@ryot-app/client-plugin-compiler/react": ["react@19.2.6", "", {}, "sha512-sfWGGfavi0xr8Pg0sVsyHMAOziVYKgPLNrS7ig+ivMNb3wbCBw3KxtflsGBAwD3gYQlE/AEZsTLgToRrSCjb0Q=="],
 
-    "@ryot/client-plugin-compiler/react-dom": ["react-dom@19.2.6", "", { "dependencies": { "scheduler": "^0.27.0" }, "peerDependencies": { "react": "^19.2.6" } }, "sha512-0prMI+hvBbPjsWnxDLxlCGyM8PN6UuWjEUCYmZhO67xIV9Xasa/r/vDnq+Xyq4Lo27g8QSbO5YzARu0D1Sps3g=="],
+    "@ryot-app/client-plugin-compiler/react-dom": ["react-dom@19.2.6", "", { "dependencies": { "scheduler": "^0.27.0" }, "peerDependencies": { "react": "^19.2.6" } }, "sha512-0prMI+hvBbPjsWnxDLxlCGyM8PN6UuWjEUCYmZhO67xIV9Xasa/r/vDnq+Xyq4Lo27g8QSbO5YzARu0D1Sps3g=="],
 
-    "@ryot/client-plugin-compiler/tailwindcss": ["tailwindcss@4.3.0", "", {}, "sha512-y6nxMGB1nMW9R6k96e5gdIFzcfL/gTJRNaqGes1YvkLnPVXzWgbqFF2yLC0T8G774n24cx3Pe8XrKoniCOAH+Q=="],
+    "@ryot-app/client-plugin-compiler/tailwindcss": ["tailwindcss@4.3.0", "", {}, "sha512-y6nxMGB1nMW9R6k96e5gdIFzcfL/gTJRNaqGes1YvkLnPVXzWgbqFF2yLC0T8G774n24cx3Pe8XrKoniCOAH+Q=="],
 
-    "@ryot/client-sdk/@types/react": ["@types/react@19.2.15", "", { "dependencies": { "csstype": "^3.2.2" } }, "sha512-eRwcGNHve+E8qtEQSSRl6urh+rFop4v8gm6O8rGv25CodbvFdLjA1vVQ1KkiFE0w0UPOnb8tDiFKL5lp0rtY5Q=="],
+    "@ryot-app/client-sdk/@types/react": ["@types/react@19.2.15", "", { "dependencies": { "csstype": "^3.2.2" } }, "sha512-eRwcGNHve+E8qtEQSSRl6urh+rFop4v8gm6O8rGv25CodbvFdLjA1vVQ1KkiFE0w0UPOnb8tDiFKL5lp0rtY5Q=="],
 
-    "@ryot/client-sdk/react": ["react@19.2.6", "", {}, "sha512-sfWGGfavi0xr8Pg0sVsyHMAOziVYKgPLNrS7ig+ivMNb3wbCBw3KxtflsGBAwD3gYQlE/AEZsTLgToRrSCjb0Q=="],
+    "@ryot-app/client-sdk/react": ["react@19.2.6", "", {}, "sha512-sfWGGfavi0xr8Pg0sVsyHMAOziVYKgPLNrS7ig+ivMNb3wbCBw3KxtflsGBAwD3gYQlE/AEZsTLgToRrSCjb0Q=="],
 
-    "@ryot/client-sdk/react-dom": ["react-dom@19.2.6", "", { "dependencies": { "scheduler": "^0.27.0" }, "peerDependencies": { "react": "^19.2.6" } }, "sha512-0prMI+hvBbPjsWnxDLxlCGyM8PN6UuWjEUCYmZhO67xIV9Xasa/r/vDnq+Xyq4Lo27g8QSbO5YzARu0D1Sps3g=="],
+    "@ryot-app/client-sdk/react-dom": ["react-dom@19.2.6", "", { "dependencies": { "scheduler": "^0.27.0" }, "peerDependencies": { "react": "^19.2.6" } }, "sha512-0prMI+hvBbPjsWnxDLxlCGyM8PN6UuWjEUCYmZhO67xIV9Xasa/r/vDnq+Xyq4Lo27g8QSbO5YzARu0D1Sps3g=="],
 
-    "@ryot/client-ui-sdk/@types/react": ["@types/react@19.2.15", "", { "dependencies": { "csstype": "^3.2.2" } }, "sha512-eRwcGNHve+E8qtEQSSRl6urh+rFop4v8gm6O8rGv25CodbvFdLjA1vVQ1KkiFE0w0UPOnb8tDiFKL5lp0rtY5Q=="],
+    "@ryot-app/client-ui-sdk/@types/react": ["@types/react@19.2.15", "", { "dependencies": { "csstype": "^3.2.2" } }, "sha512-eRwcGNHve+E8qtEQSSRl6urh+rFop4v8gm6O8rGv25CodbvFdLjA1vVQ1KkiFE0w0UPOnb8tDiFKL5lp0rtY5Q=="],
 
-    "@ryot/client-ui-sdk/react": ["react@19.2.6", "", {}, "sha512-sfWGGfavi0xr8Pg0sVsyHMAOziVYKgPLNrS7ig+ivMNb3wbCBw3KxtflsGBAwD3gYQlE/AEZsTLgToRrSCjb0Q=="],
+    "@ryot-app/client-ui-sdk/react": ["react@19.2.6", "", {}, "sha512-sfWGGfavi0xr8Pg0sVsyHMAOziVYKgPLNrS7ig+ivMNb3wbCBw3KxtflsGBAwD3gYQlE/AEZsTLgToRrSCjb0Q=="],
 
-    "@ryot/client-ui-sdk/react-dom": ["react-dom@19.2.6", "", { "dependencies": { "scheduler": "^0.27.0" }, "peerDependencies": { "react": "^19.2.6" } }, "sha512-0prMI+hvBbPjsWnxDLxlCGyM8PN6UuWjEUCYmZhO67xIV9Xasa/r/vDnq+Xyq4Lo27g8QSbO5YzARu0D1Sps3g=="],
+    "@ryot-app/client-ui-sdk/react-dom": ["react-dom@19.2.6", "", { "dependencies": { "scheduler": "^0.27.0" }, "peerDependencies": { "react": "^19.2.6" } }, "sha512-0prMI+hvBbPjsWnxDLxlCGyM8PN6UuWjEUCYmZhO67xIV9Xasa/r/vDnq+Xyq4Lo27g8QSbO5YzARu0D1Sps3g=="],
 
-    "@ryot/fixture-plugin/@types/react": ["@types/react@19.2.15", "", { "dependencies": { "csstype": "^3.2.2" } }, "sha512-eRwcGNHve+E8qtEQSSRl6urh+rFop4v8gm6O8rGv25CodbvFdLjA1vVQ1KkiFE0w0UPOnb8tDiFKL5lp0rtY5Q=="],
+    "@ryot-app/fixture-plugin/@types/react": ["@types/react@19.2.15", "", { "dependencies": { "csstype": "^3.2.2" } }, "sha512-eRwcGNHve+E8qtEQSSRl6urh+rFop4v8gm6O8rGv25CodbvFdLjA1vVQ1KkiFE0w0UPOnb8tDiFKL5lp0rtY5Q=="],
 
-    "@ryot/kernel-client/@tailwindcss/vite": ["@tailwindcss/vite@4.3.0", "", { "dependencies": { "@tailwindcss/node": "4.3.0", "@tailwindcss/oxide": "4.3.0", "tailwindcss": "4.3.0" }, "peerDependencies": { "vite": "^5.2.0 || ^6 || ^7 || ^8" } }, "sha512-t6J3OrB5Fc0ExuhohouH0fWUGMYL6PTLhW+E7zIk/pdbnJARZDCwjBznFnkh5ynRnIRSI4YjtTH0t6USjJISrw=="],
+    "@ryot-app/kernel-client/@tailwindcss/vite": ["@tailwindcss/vite@4.3.0", "", { "dependencies": { "@tailwindcss/node": "4.3.0", "@tailwindcss/oxide": "4.3.0", "tailwindcss": "4.3.0" }, "peerDependencies": { "vite": "^5.2.0 || ^6 || ^7 || ^8" } }, "sha512-t6J3OrB5Fc0ExuhohouH0fWUGMYL6PTLhW+E7zIk/pdbnJARZDCwjBznFnkh5ynRnIRSI4YjtTH0t6USjJISrw=="],
 
-    "@ryot/kernel-client/@types/react": ["@types/react@19.2.15", "", { "dependencies": { "csstype": "^3.2.2" } }, "sha512-eRwcGNHve+E8qtEQSSRl6urh+rFop4v8gm6O8rGv25CodbvFdLjA1vVQ1KkiFE0w0UPOnb8tDiFKL5lp0rtY5Q=="],
+    "@ryot-app/kernel-client/@types/react": ["@types/react@19.2.15", "", { "dependencies": { "csstype": "^3.2.2" } }, "sha512-eRwcGNHve+E8qtEQSSRl6urh+rFop4v8gm6O8rGv25CodbvFdLjA1vVQ1KkiFE0w0UPOnb8tDiFKL5lp0rtY5Q=="],
 
-    "@ryot/kernel-client/lucide-react": ["lucide-react@1.37.0", "", { "peerDependencies": { "react": "^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0" } }, "sha512-LPsB4rD1TD6wZu1djKOf9vUnS1jTNaHbolXebXDgiTdb6jeA1agIJhJsIybCmjKmQClcOaal1o1OaiYahEftyQ=="],
+    "@ryot-app/kernel-client/lucide-react": ["lucide-react@1.37.0", "", { "peerDependencies": { "react": "^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0" } }, "sha512-LPsB4rD1TD6wZu1djKOf9vUnS1jTNaHbolXebXDgiTdb6jeA1agIJhJsIybCmjKmQClcOaal1o1OaiYahEftyQ=="],
 
-    "@ryot/kernel-client/react": ["react@19.2.6", "", {}, "sha512-sfWGGfavi0xr8Pg0sVsyHMAOziVYKgPLNrS7ig+ivMNb3wbCBw3KxtflsGBAwD3gYQlE/AEZsTLgToRrSCjb0Q=="],
+    "@ryot-app/kernel-client/react": ["react@19.2.6", "", {}, "sha512-sfWGGfavi0xr8Pg0sVsyHMAOziVYKgPLNrS7ig+ivMNb3wbCBw3KxtflsGBAwD3gYQlE/AEZsTLgToRrSCjb0Q=="],
 
-    "@ryot/kernel-client/react-dom": ["react-dom@19.2.6", "", { "dependencies": { "scheduler": "^0.27.0" }, "peerDependencies": { "react": "^19.2.6" } }, "sha512-0prMI+hvBbPjsWnxDLxlCGyM8PN6UuWjEUCYmZhO67xIV9Xasa/r/vDnq+Xyq4Lo27g8QSbO5YzARu0D1Sps3g=="],
+    "@ryot-app/kernel-client/react-dom": ["react-dom@19.2.6", "", { "dependencies": { "scheduler": "^0.27.0" }, "peerDependencies": { "react": "^19.2.6" } }, "sha512-0prMI+hvBbPjsWnxDLxlCGyM8PN6UuWjEUCYmZhO67xIV9Xasa/r/vDnq+Xyq4Lo27g8QSbO5YzARu0D1Sps3g=="],
 
-    "@ryot/kernel-client/tailwindcss": ["tailwindcss@4.3.0", "", {}, "sha512-y6nxMGB1nMW9R6k96e5gdIFzcfL/gTJRNaqGes1YvkLnPVXzWgbqFF2yLC0T8G774n24cx3Pe8XrKoniCOAH+Q=="],
+    "@ryot-app/kernel-client/tailwindcss": ["tailwindcss@4.3.0", "", {}, "sha512-y6nxMGB1nMW9R6k96e5gdIFzcfL/gTJRNaqGes1YvkLnPVXzWgbqFF2yLC0T8G774n24cx3Pe8XrKoniCOAH+Q=="],
 
-    "@ryot/kernel-client/typescript": ["typescript@6.0.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-y2TvuxSZPDyQakkFRPZHKFm+KKVqIisdg9/CZwm9ftvKXLP8NRWj38/ODjNbr43SsoXqNuAisEf1GdCxqWcdBw=="],
+    "@ryot-app/kernel-client/typescript": ["typescript@6.0.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-y2TvuxSZPDyQakkFRPZHKFm+KKVqIisdg9/CZwm9ftvKXLP8NRWj38/ODjNbr43SsoXqNuAisEf1GdCxqWcdBw=="],
 
-    "@ryot/website/@conform-to/zod": ["@conform-to/zod@1.19.3", "", { "dependencies": { "@conform-to/dom": "1.19.3" }, "peerDependencies": { "zod": "^3.21.0 || ^4.0.0" } }, "sha512-tlHywfz6W6bYnhmi8ajM1+ZLYjywLJVXteU4wvjc6QM0JT1g61cf4BaQqdDhKaAKl7DzqbZxi/riyMtz9HxyCQ=="],
+    "@ryot-app/website/@conform-to/zod": ["@conform-to/zod@1.19.3", "", { "dependencies": { "@conform-to/dom": "1.19.3" }, "peerDependencies": { "zod": "^3.21.0 || ^4.0.0" } }, "sha512-tlHywfz6W6bYnhmi8ajM1+ZLYjywLJVXteU4wvjc6QM0JT1g61cf4BaQqdDhKaAKl7DzqbZxi/riyMtz9HxyCQ=="],
 
-    "@ryot/website/@react-email/components": ["@react-email/components@1.0.12", "", { "dependencies": { "@react-email/body": "0.3.0", "@react-email/button": "0.2.1", "@react-email/code-block": "0.2.1", "@react-email/code-inline": "0.0.6", "@react-email/column": "0.0.14", "@react-email/container": "0.0.16", "@react-email/font": "0.0.10", "@react-email/head": "0.0.13", "@react-email/heading": "0.0.16", "@react-email/hr": "0.0.12", "@react-email/html": "0.0.12", "@react-email/img": "0.0.12", "@react-email/link": "0.0.13", "@react-email/markdown": "0.0.18", "@react-email/preview": "0.0.14", "@react-email/render": "2.0.6", "@react-email/row": "0.0.13", "@react-email/section": "0.0.17", "@react-email/tailwind": "2.0.7", "@react-email/text": "0.1.6" }, "peerDependencies": { "react": "^18.0 || ^19.0 || ^19.0.0-rc" } }, "sha512-tH18JhPDWgE+3jnYkzyB6ZrZdfNnEsFe4PwmuXmlOw4NGIysP8wPY5aXZg++pTG9qUabXg1nzX/FGHGkObH8xQ=="],
+    "@ryot-app/website/@react-email/components": ["@react-email/components@1.0.12", "", { "dependencies": { "@react-email/body": "0.3.0", "@react-email/button": "0.2.1", "@react-email/code-block": "0.2.1", "@react-email/code-inline": "0.0.6", "@react-email/column": "0.0.14", "@react-email/container": "0.0.16", "@react-email/font": "0.0.10", "@react-email/head": "0.0.13", "@react-email/heading": "0.0.16", "@react-email/hr": "0.0.12", "@react-email/html": "0.0.12", "@react-email/img": "0.0.12", "@react-email/link": "0.0.13", "@react-email/markdown": "0.0.18", "@react-email/preview": "0.0.14", "@react-email/render": "2.0.6", "@react-email/row": "0.0.13", "@react-email/section": "0.0.17", "@react-email/tailwind": "2.0.7", "@react-email/text": "0.1.6" }, "peerDependencies": { "react": "^18.0 || ^19.0 || ^19.0.0-rc" } }, "sha512-tH18JhPDWgE+3jnYkzyB6ZrZdfNnEsFe4PwmuXmlOw4NGIysP8wPY5aXZg++pTG9qUabXg1nzX/FGHGkObH8xQ=="],
 
-    "@ryot/website/@tailwindcss/vite": ["@tailwindcss/vite@4.3.0", "", { "dependencies": { "@tailwindcss/node": "4.3.0", "@tailwindcss/oxide": "4.3.0", "tailwindcss": "4.3.0" }, "peerDependencies": { "vite": "^5.2.0 || ^6 || ^7 || ^8" } }, "sha512-t6J3OrB5Fc0ExuhohouH0fWUGMYL6PTLhW+E7zIk/pdbnJARZDCwjBznFnkh5ynRnIRSI4YjtTH0t6USjJISrw=="],
+    "@ryot-app/website/@tailwindcss/vite": ["@tailwindcss/vite@4.3.0", "", { "dependencies": { "@tailwindcss/node": "4.3.0", "@tailwindcss/oxide": "4.3.0", "tailwindcss": "4.3.0" }, "peerDependencies": { "vite": "^5.2.0 || ^6 || ^7 || ^8" } }, "sha512-t6J3OrB5Fc0ExuhohouH0fWUGMYL6PTLhW+E7zIk/pdbnJARZDCwjBznFnkh5ynRnIRSI4YjtTH0t6USjJISrw=="],
 
-    "@ryot/website/@types/react": ["@types/react@19.2.15", "", { "dependencies": { "csstype": "^3.2.2" } }, "sha512-eRwcGNHve+E8qtEQSSRl6urh+rFop4v8gm6O8rGv25CodbvFdLjA1vVQ1KkiFE0w0UPOnb8tDiFKL5lp0rtY5Q=="],
+    "@ryot-app/website/@types/react": ["@types/react@19.2.15", "", { "dependencies": { "csstype": "^3.2.2" } }, "sha512-eRwcGNHve+E8qtEQSSRl6urh+rFop4v8gm6O8rGv25CodbvFdLjA1vVQ1KkiFE0w0UPOnb8tDiFKL5lp0rtY5Q=="],
 
-    "@ryot/website/drizzle-kit": ["drizzle-kit@0.31.10", "", { "dependencies": { "@drizzle-team/brocli": "^0.10.2", "@esbuild-kit/esm-loader": "^2.5.5", "esbuild": "^0.25.4", "tsx": "^4.21.0" }, "bin": { "drizzle-kit": "bin.cjs" } }, "sha512-7OZcmQUrdGI+DUNNsKBn1aW8qSoKuTH7d0mYgSP8bAzdFzKoovxEFnoGQp2dVs82EOJeYycqRtciopszwUf8bw=="],
+    "@ryot-app/website/drizzle-kit": ["drizzle-kit@0.31.10", "", { "dependencies": { "@drizzle-team/brocli": "^0.10.2", "@esbuild-kit/esm-loader": "^2.5.5", "esbuild": "^0.25.4", "tsx": "^4.21.0" }, "bin": { "drizzle-kit": "bin.cjs" } }, "sha512-7OZcmQUrdGI+DUNNsKBn1aW8qSoKuTH7d0mYgSP8bAzdFzKoovxEFnoGQp2dVs82EOJeYycqRtciopszwUf8bw=="],
 
-    "@ryot/website/drizzle-orm": ["drizzle-orm@0.45.2", "", { "peerDependencies": { "@aws-sdk/client-rds-data": ">=3", "@cloudflare/workers-types": ">=4", "@electric-sql/pglite": ">=0.2.0", "@libsql/client": ">=0.10.0", "@libsql/client-wasm": ">=0.10.0", "@neondatabase/serverless": ">=0.10.0", "@op-engineering/op-sqlite": ">=2", "@opentelemetry/api": "^1.4.1", "@planetscale/database": ">=1.13", "@prisma/client": "*", "@tidbcloud/serverless": "*", "@types/better-sqlite3": "*", "@types/pg": "*", "@types/sql.js": "*", "@upstash/redis": ">=1.34.7", "@vercel/postgres": ">=0.8.0", "@xata.io/client": "*", "better-sqlite3": ">=7", "bun-types": "*", "expo-sqlite": ">=14.0.0", "gel": ">=2", "knex": "*", "kysely": "*", "mysql2": ">=2", "pg": ">=8", "postgres": ">=3", "sql.js": ">=1", "sqlite3": ">=5" }, "optionalPeers": ["@aws-sdk/client-rds-data", "@cloudflare/workers-types", "@electric-sql/pglite", "@libsql/client", "@libsql/client-wasm", "@neondatabase/serverless", "@op-engineering/op-sqlite", "@opentelemetry/api", "@planetscale/database", "@prisma/client", "@tidbcloud/serverless", "@types/better-sqlite3", "@types/pg", "@types/sql.js", "@upstash/redis", "@vercel/postgres", "@xata.io/client", "better-sqlite3", "bun-types", "expo-sqlite", "gel", "knex", "kysely", "mysql2", "pg", "postgres", "sql.js", "sqlite3"] }, "sha512-kY0BSaTNYWnoDMVoyY8uxmyHjpJW1geOmBMdSSicKo9CIIWkSxMIj2rkeSR51b8KAPB7m+qysjuHme5nKP+E5Q=="],
+    "@ryot-app/website/drizzle-orm": ["drizzle-orm@0.45.2", "", { "peerDependencies": { "@aws-sdk/client-rds-data": ">=3", "@cloudflare/workers-types": ">=4", "@electric-sql/pglite": ">=0.2.0", "@libsql/client": ">=0.10.0", "@libsql/client-wasm": ">=0.10.0", "@neondatabase/serverless": ">=0.10.0", "@op-engineering/op-sqlite": ">=2", "@opentelemetry/api": "^1.4.1", "@planetscale/database": ">=1.13", "@prisma/client": "*", "@tidbcloud/serverless": "*", "@types/better-sqlite3": "*", "@types/pg": "*", "@types/sql.js": "*", "@upstash/redis": ">=1.34.7", "@vercel/postgres": ">=0.8.0", "@xata.io/client": "*", "better-sqlite3": ">=7", "bun-types": "*", "expo-sqlite": ">=14.0.0", "gel": ">=2", "knex": "*", "kysely": "*", "mysql2": ">=2", "pg": ">=8", "postgres": ">=3", "sql.js": ">=1", "sqlite3": ">=5" }, "optionalPeers": ["@aws-sdk/client-rds-data", "@cloudflare/workers-types", "@electric-sql/pglite", "@libsql/client", "@libsql/client-wasm", "@neondatabase/serverless", "@op-engineering/op-sqlite", "@opentelemetry/api", "@planetscale/database", "@prisma/client", "@tidbcloud/serverless", "@types/better-sqlite3", "@types/pg", "@types/sql.js", "@upstash/redis", "@vercel/postgres", "@xata.io/client", "better-sqlite3", "bun-types", "expo-sqlite", "gel", "knex", "kysely", "mysql2", "pg", "postgres", "sql.js", "sqlite3"] }, "sha512-kY0BSaTNYWnoDMVoyY8uxmyHjpJW1geOmBMdSSicKo9CIIWkSxMIj2rkeSR51b8KAPB7m+qysjuHme5nKP+E5Q=="],
 
-    "@ryot/website/lucide-react": ["lucide-react@1.17.0", "", { "peerDependencies": { "react": "^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0" } }, "sha512-9FA9evdox/JQL5PT57fdA1x/yg8T7knJ98+zjTL3UfKza6pflQUUh3XtaQIHKvnsJw1lmsEyHVlt5jchYxOQ5w=="],
+    "@ryot-app/website/lucide-react": ["lucide-react@1.17.0", "", { "peerDependencies": { "react": "^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0" } }, "sha512-9FA9evdox/JQL5PT57fdA1x/yg8T7knJ98+zjTL3UfKza6pflQUUh3XtaQIHKvnsJw1lmsEyHVlt5jchYxOQ5w=="],
 
-    "@ryot/website/react": ["react@19.2.6", "", {}, "sha512-sfWGGfavi0xr8Pg0sVsyHMAOziVYKgPLNrS7ig+ivMNb3wbCBw3KxtflsGBAwD3gYQlE/AEZsTLgToRrSCjb0Q=="],
+    "@ryot-app/website/react": ["react@19.2.6", "", {}, "sha512-sfWGGfavi0xr8Pg0sVsyHMAOziVYKgPLNrS7ig+ivMNb3wbCBw3KxtflsGBAwD3gYQlE/AEZsTLgToRrSCjb0Q=="],
 
-    "@ryot/website/react-dom": ["react-dom@19.2.6", "", { "dependencies": { "scheduler": "^0.27.0" }, "peerDependencies": { "react": "^19.2.6" } }, "sha512-0prMI+hvBbPjsWnxDLxlCGyM8PN6UuWjEUCYmZhO67xIV9Xasa/r/vDnq+Xyq4Lo27g8QSbO5YzARu0D1Sps3g=="],
+    "@ryot-app/website/react-dom": ["react-dom@19.2.6", "", { "dependencies": { "scheduler": "^0.27.0" }, "peerDependencies": { "react": "^19.2.6" } }, "sha512-0prMI+hvBbPjsWnxDLxlCGyM8PN6UuWjEUCYmZhO67xIV9Xasa/r/vDnq+Xyq4Lo27g8QSbO5YzARu0D1Sps3g=="],
 
-    "@ryot/website/react-router": ["react-router@7.16.0", "", { "dependencies": { "cookie": "^1.0.1", "set-cookie-parser": "^2.6.0" }, "peerDependencies": { "react": ">=18", "react-dom": ">=18" }, "optionalPeers": ["react-dom"] }, "sha512-wArC8lVyJb3+jM9OpDyW6hLCizACWkvQR/sSGqSs+o5uEXEtGlqdZ4v8hENR3Jad6i+LRkK93q/+bQAcvl6V1A=="],
+    "@ryot-app/website/react-router": ["react-router@7.16.0", "", { "dependencies": { "cookie": "^1.0.1", "set-cookie-parser": "^2.6.0" }, "peerDependencies": { "react": ">=18", "react-dom": ">=18" }, "optionalPeers": ["react-dom"] }, "sha512-wArC8lVyJb3+jM9OpDyW6hLCizACWkvQR/sSGqSs+o5uEXEtGlqdZ4v8hENR3Jad6i+LRkK93q/+bQAcvl6V1A=="],
 
-    "@ryot/website/tailwind-merge": ["tailwind-merge@3.6.0", "", {}, "sha512-uxL7qAVQriqRQPAyK3pj66VqskWqoZ37PW94jwOTwNfq/z9oyu1V+eqrZqtR2+fCiXdYOZe/Modt8GtvqNzu+w=="],
+    "@ryot-app/website/tailwind-merge": ["tailwind-merge@3.6.0", "", {}, "sha512-uxL7qAVQriqRQPAyK3pj66VqskWqoZ37PW94jwOTwNfq/z9oyu1V+eqrZqtR2+fCiXdYOZe/Modt8GtvqNzu+w=="],
 
-    "@ryot/website/tailwindcss": ["tailwindcss@4.3.0", "", {}, "sha512-y6nxMGB1nMW9R6k96e5gdIFzcfL/gTJRNaqGes1YvkLnPVXzWgbqFF2yLC0T8G774n24cx3Pe8XrKoniCOAH+Q=="],
+    "@ryot-app/website/tailwindcss": ["tailwindcss@4.3.0", "", {}, "sha512-y6nxMGB1nMW9R6k96e5gdIFzcfL/gTJRNaqGes1YvkLnPVXzWgbqFF2yLC0T8G774n24cx3Pe8XrKoniCOAH+Q=="],
 
     "@tailwindcss/oxide-wasm32-wasi/@emnapi/core": ["@emnapi/core@1.10.0", "", { "dependencies": { "@emnapi/wasi-threads": "1.2.1", "tslib": "^2.4.0" }, "bundled": true }, "sha512-yq6OkJ4p82CAfPl0u9mQebQHKPJkY7WrIuk205cTYnYe+k2Z8YBh11FrbRG/H6ihirqcacOgl2BIO8oyMQLeXw=="],
 
@@ -4131,21 +4131,21 @@
 
     "@react-router/fs-routes/minimatch/brace-expansion": ["brace-expansion@2.0.3", "", { "dependencies": { "balanced-match": "^1.0.0" } }, "sha512-MCV/fYJEbqx68aE58kv2cA/kiky1G8vux3OR6/jbS+jIMe/6fJWa0DTzJU7dqijOWYwHi1t29FlfYI9uytqlpA=="],
 
-    "@ryot/kernel-client/@tailwindcss/vite/@tailwindcss/node": ["@tailwindcss/node@4.3.0", "", { "dependencies": { "@jridgewell/remapping": "^2.3.5", "enhanced-resolve": "^5.21.0", "jiti": "^2.6.1", "lightningcss": "1.32.0", "magic-string": "^0.30.21", "source-map-js": "^1.2.1", "tailwindcss": "4.3.0" } }, "sha512-aFb4gUhFOgdh9AXo4IzBEOzBkkAxm9VigwDJnMIYv3lcfXCJVesNfbEaBl4BNgVRyid92AmdviqwBUBRKSeY3g=="],
+    "@ryot-app/kernel-client/@tailwindcss/vite/@tailwindcss/node": ["@tailwindcss/node@4.3.0", "", { "dependencies": { "@jridgewell/remapping": "^2.3.5", "enhanced-resolve": "^5.21.0", "jiti": "^2.6.1", "lightningcss": "1.32.0", "magic-string": "^0.30.21", "source-map-js": "^1.2.1", "tailwindcss": "4.3.0" } }, "sha512-aFb4gUhFOgdh9AXo4IzBEOzBkkAxm9VigwDJnMIYv3lcfXCJVesNfbEaBl4BNgVRyid92AmdviqwBUBRKSeY3g=="],
 
-    "@ryot/website/@conform-to/zod/@conform-to/dom": ["@conform-to/dom@1.19.3", "", {}, "sha512-ugNx4nMiSSEkIepo5rKxUW1I1Iab3ZFuRjNYw2b2zb7BSQJfDq4DwbywaAd55qS/8PVGp1n5G2O6orDHWPWWqA=="],
+    "@ryot-app/website/@conform-to/zod/@conform-to/dom": ["@conform-to/dom@1.19.3", "", {}, "sha512-ugNx4nMiSSEkIepo5rKxUW1I1Iab3ZFuRjNYw2b2zb7BSQJfDq4DwbywaAd55qS/8PVGp1n5G2O6orDHWPWWqA=="],
 
-    "@ryot/website/@react-email/components/@react-email/body": ["@react-email/body@0.3.0", "", { "peerDependencies": { "react": "^18.0 || ^19.0 || ^19.0.0-rc" } }, "sha512-uGo0BOOzjbMUo3lu+BIDWayvn5o6Xyfmnlla5VGf05n8gHMvO1ll7U4FtzWe3hxMLwt53pmc4iE0M+B5slG+Ug=="],
+    "@ryot-app/website/@react-email/components/@react-email/body": ["@react-email/body@0.3.0", "", { "peerDependencies": { "react": "^18.0 || ^19.0 || ^19.0.0-rc" } }, "sha512-uGo0BOOzjbMUo3lu+BIDWayvn5o6Xyfmnlla5VGf05n8gHMvO1ll7U4FtzWe3hxMLwt53pmc4iE0M+B5slG+Ug=="],
 
-    "@ryot/website/@react-email/components/@react-email/render": ["@react-email/render@2.0.6", "", { "dependencies": { "html-to-text": "^9.0.5", "prettier": "^3.5.3" }, "peerDependencies": { "react": "^18.0 || ^19.0 || ^19.0.0-rc", "react-dom": "^18.0 || ^19.0 || ^19.0.0-rc" } }, "sha512-xOzaYkH3jLZKqN5MqrTXYnmqBYUnZSVbkxdb5PGGmDcK6sKDVMliaDiSwfXajRC9JtSHTcGc2tmGLHWuCgVpog=="],
+    "@ryot-app/website/@react-email/components/@react-email/render": ["@react-email/render@2.0.6", "", { "dependencies": { "html-to-text": "^9.0.5", "prettier": "^3.5.3" }, "peerDependencies": { "react": "^18.0 || ^19.0 || ^19.0.0-rc", "react-dom": "^18.0 || ^19.0 || ^19.0.0-rc" } }, "sha512-xOzaYkH3jLZKqN5MqrTXYnmqBYUnZSVbkxdb5PGGmDcK6sKDVMliaDiSwfXajRC9JtSHTcGc2tmGLHWuCgVpog=="],
 
-    "@ryot/website/@react-email/components/@react-email/tailwind": ["@react-email/tailwind@2.0.7", "", { "dependencies": { "tailwindcss": "^4.1.18" }, "peerDependencies": { "@react-email/body": ">=0", "@react-email/button": ">=0", "@react-email/code-block": ">=0", "@react-email/code-inline": ">=0", "@react-email/container": ">=0", "@react-email/heading": ">=0", "@react-email/hr": ">=0", "@react-email/img": ">=0", "@react-email/link": ">=0", "@react-email/preview": ">=0", "@react-email/text": ">=0", "react": "^18.0 || ^19.0 || ^19.0.0-rc" }, "optionalPeers": ["@react-email/body", "@react-email/button", "@react-email/code-block", "@react-email/code-inline", "@react-email/container", "@react-email/heading", "@react-email/hr", "@react-email/img", "@react-email/link", "@react-email/preview"] }, "sha512-kGw80weVFXikcnCXbigTGXGWQ0MRCSYNCudcdkWxebkWYd0FG6/NPoN3V1p/u68/4+NxZwYPVi2fhnp0x23HdA=="],
+    "@ryot-app/website/@react-email/components/@react-email/tailwind": ["@react-email/tailwind@2.0.7", "", { "dependencies": { "tailwindcss": "^4.1.18" }, "peerDependencies": { "@react-email/body": ">=0", "@react-email/button": ">=0", "@react-email/code-block": ">=0", "@react-email/code-inline": ">=0", "@react-email/container": ">=0", "@react-email/heading": ">=0", "@react-email/hr": ">=0", "@react-email/img": ">=0", "@react-email/link": ">=0", "@react-email/preview": ">=0", "@react-email/text": ">=0", "react": "^18.0 || ^19.0 || ^19.0.0-rc" }, "optionalPeers": ["@react-email/body", "@react-email/button", "@react-email/code-block", "@react-email/code-inline", "@react-email/container", "@react-email/heading", "@react-email/hr", "@react-email/img", "@react-email/link", "@react-email/preview"] }, "sha512-kGw80weVFXikcnCXbigTGXGWQ0MRCSYNCudcdkWxebkWYd0FG6/NPoN3V1p/u68/4+NxZwYPVi2fhnp0x23HdA=="],
 
-    "@ryot/website/@tailwindcss/vite/@tailwindcss/node": ["@tailwindcss/node@4.3.0", "", { "dependencies": { "@jridgewell/remapping": "^2.3.5", "enhanced-resolve": "^5.21.0", "jiti": "^2.6.1", "lightningcss": "1.32.0", "magic-string": "^0.30.21", "source-map-js": "^1.2.1", "tailwindcss": "4.3.0" } }, "sha512-aFb4gUhFOgdh9AXo4IzBEOzBkkAxm9VigwDJnMIYv3lcfXCJVesNfbEaBl4BNgVRyid92AmdviqwBUBRKSeY3g=="],
+    "@ryot-app/website/@tailwindcss/vite/@tailwindcss/node": ["@tailwindcss/node@4.3.0", "", { "dependencies": { "@jridgewell/remapping": "^2.3.5", "enhanced-resolve": "^5.21.0", "jiti": "^2.6.1", "lightningcss": "1.32.0", "magic-string": "^0.30.21", "source-map-js": "^1.2.1", "tailwindcss": "4.3.0" } }, "sha512-aFb4gUhFOgdh9AXo4IzBEOzBkkAxm9VigwDJnMIYv3lcfXCJVesNfbEaBl4BNgVRyid92AmdviqwBUBRKSeY3g=="],
 
-    "@ryot/website/drizzle-kit/@drizzle-team/brocli": ["@drizzle-team/brocli@0.10.2", "", {}, "sha512-z33Il7l5dKjUgGULTqBsQBQwckHh5AbIuxhdsIxDDiZAzBOrZO6q9ogcWC65kU382AfynTfgNumVcNIjuIua6w=="],
+    "@ryot-app/website/drizzle-kit/@drizzle-team/brocli": ["@drizzle-team/brocli@0.10.2", "", {}, "sha512-z33Il7l5dKjUgGULTqBsQBQwckHh5AbIuxhdsIxDDiZAzBOrZO6q9ogcWC65kU382AfynTfgNumVcNIjuIua6w=="],
 
-    "@ryot/website/drizzle-kit/esbuild": ["esbuild@0.25.12", "", { "optionalDependencies": { "@esbuild/aix-ppc64": "0.25.12", "@esbuild/android-arm": "0.25.12", "@esbuild/android-arm64": "0.25.12", "@esbuild/android-x64": "0.25.12", "@esbuild/darwin-arm64": "0.25.12", "@esbuild/darwin-x64": "0.25.12", "@esbuild/freebsd-arm64": "0.25.12", "@esbuild/freebsd-x64": "0.25.12", "@esbuild/linux-arm": "0.25.12", "@esbuild/linux-arm64": "0.25.12", "@esbuild/linux-ia32": "0.25.12", "@esbuild/linux-loong64": "0.25.12", "@esbuild/linux-mips64el": "0.25.12", "@esbuild/linux-ppc64": "0.25.12", "@esbuild/linux-riscv64": "0.25.12", "@esbuild/linux-s390x": "0.25.12", "@esbuild/linux-x64": "0.25.12", "@esbuild/netbsd-arm64": "0.25.12", "@esbuild/netbsd-x64": "0.25.12", "@esbuild/openbsd-arm64": "0.25.12", "@esbuild/openbsd-x64": "0.25.12", "@esbuild/openharmony-arm64": "0.25.12", "@esbuild/sunos-x64": "0.25.12", "@esbuild/win32-arm64": "0.25.12", "@esbuild/win32-ia32": "0.25.12", "@esbuild/win32-x64": "0.25.12" }, "bin": { "esbuild": "bin/esbuild" } }, "sha512-bbPBYYrtZbkt6Os6FiTLCTFxvq4tt3JKall1vRwshA3fdVztsLAatFaZobhkBC8/BrPetoa0oksYoKXoG4ryJg=="],
+    "@ryot-app/website/drizzle-kit/esbuild": ["esbuild@0.25.12", "", { "optionalDependencies": { "@esbuild/aix-ppc64": "0.25.12", "@esbuild/android-arm": "0.25.12", "@esbuild/android-arm64": "0.25.12", "@esbuild/android-x64": "0.25.12", "@esbuild/darwin-arm64": "0.25.12", "@esbuild/darwin-x64": "0.25.12", "@esbuild/freebsd-arm64": "0.25.12", "@esbuild/freebsd-x64": "0.25.12", "@esbuild/linux-arm": "0.25.12", "@esbuild/linux-arm64": "0.25.12", "@esbuild/linux-ia32": "0.25.12", "@esbuild/linux-loong64": "0.25.12", "@esbuild/linux-mips64el": "0.25.12", "@esbuild/linux-ppc64": "0.25.12", "@esbuild/linux-riscv64": "0.25.12", "@esbuild/linux-s390x": "0.25.12", "@esbuild/linux-x64": "0.25.12", "@esbuild/netbsd-arm64": "0.25.12", "@esbuild/netbsd-x64": "0.25.12", "@esbuild/openbsd-arm64": "0.25.12", "@esbuild/openbsd-x64": "0.25.12", "@esbuild/openharmony-arm64": "0.25.12", "@esbuild/sunos-x64": "0.25.12", "@esbuild/win32-arm64": "0.25.12", "@esbuild/win32-ia32": "0.25.12", "@esbuild/win32-x64": "0.25.12" }, "bin": { "esbuild": "bin/esbuild" } }, "sha512-bbPBYYrtZbkt6Os6FiTLCTFxvq4tt3JKall1vRwshA3fdVztsLAatFaZobhkBC8/BrPetoa0oksYoKXoG4ryJg=="],
 
     "@tailwindcss/vite/@tailwindcss/oxide/@tailwindcss/oxide-android-arm64": ["@tailwindcss/oxide-android-arm64@4.1.18", "", { "os": "android", "cpu": "arm64" }, "sha512-dJHz7+Ugr9U/diKJA0W6N/6/cjI+ZTAoxPf9Iz9BFRF2GzEX8IvXxFIi/dZBloVJX/MZGvRuFA9rqwdiIEZQ0Q=="],
 
@@ -4555,61 +4555,61 @@
 
     "@react-router/fs-routes/minimatch/brace-expansion/balanced-match": ["balanced-match@1.0.2", "", {}, "sha512-3oSeUO0TMV67hN1AmbXsK4yaqU7tjiHlbxRDZOpH0KW9+CeX4bRAaX0Anxt0tx2MrpRpWwQaPwIlISEJhYU5Pw=="],
 
-    "@ryot/kernel-client/@tailwindcss/vite/@tailwindcss/node/enhanced-resolve": ["enhanced-resolve@5.22.1", "", { "dependencies": { "graceful-fs": "^4.2.4", "tapable": "^2.3.3" } }, "sha512-6QEuw3zoX1SJQc7b87aBXke/no+mG2bTBgw29gWMQonLmpEkWoCAVkl+M49e48AZlWzxiDzDZzYdp6kobcyLww=="],
+    "@ryot-app/kernel-client/@tailwindcss/vite/@tailwindcss/node/enhanced-resolve": ["enhanced-resolve@5.22.1", "", { "dependencies": { "graceful-fs": "^4.2.4", "tapable": "^2.3.3" } }, "sha512-6QEuw3zoX1SJQc7b87aBXke/no+mG2bTBgw29gWMQonLmpEkWoCAVkl+M49e48AZlWzxiDzDZzYdp6kobcyLww=="],
 
-    "@ryot/website/@tailwindcss/vite/@tailwindcss/node/enhanced-resolve": ["enhanced-resolve@5.22.1", "", { "dependencies": { "graceful-fs": "^4.2.4", "tapable": "^2.3.3" } }, "sha512-6QEuw3zoX1SJQc7b87aBXke/no+mG2bTBgw29gWMQonLmpEkWoCAVkl+M49e48AZlWzxiDzDZzYdp6kobcyLww=="],
+    "@ryot-app/website/@tailwindcss/vite/@tailwindcss/node/enhanced-resolve": ["enhanced-resolve@5.22.1", "", { "dependencies": { "graceful-fs": "^4.2.4", "tapable": "^2.3.3" } }, "sha512-6QEuw3zoX1SJQc7b87aBXke/no+mG2bTBgw29gWMQonLmpEkWoCAVkl+M49e48AZlWzxiDzDZzYdp6kobcyLww=="],
 
-    "@ryot/website/drizzle-kit/esbuild/@esbuild/aix-ppc64": ["@esbuild/aix-ppc64@0.25.12", "", { "os": "aix", "cpu": "ppc64" }, "sha512-Hhmwd6CInZ3dwpuGTF8fJG6yoWmsToE+vYgD4nytZVxcu1ulHpUQRAB1UJ8+N1Am3Mz4+xOByoQoSZf4D+CpkA=="],
+    "@ryot-app/website/drizzle-kit/esbuild/@esbuild/aix-ppc64": ["@esbuild/aix-ppc64@0.25.12", "", { "os": "aix", "cpu": "ppc64" }, "sha512-Hhmwd6CInZ3dwpuGTF8fJG6yoWmsToE+vYgD4nytZVxcu1ulHpUQRAB1UJ8+N1Am3Mz4+xOByoQoSZf4D+CpkA=="],
 
-    "@ryot/website/drizzle-kit/esbuild/@esbuild/android-arm": ["@esbuild/android-arm@0.25.12", "", { "os": "android", "cpu": "arm" }, "sha512-VJ+sKvNA/GE7Ccacc9Cha7bpS8nyzVv0jdVgwNDaR4gDMC/2TTRc33Ip8qrNYUcpkOHUT5OZ0bUcNNVZQ9RLlg=="],
+    "@ryot-app/website/drizzle-kit/esbuild/@esbuild/android-arm": ["@esbuild/android-arm@0.25.12", "", { "os": "android", "cpu": "arm" }, "sha512-VJ+sKvNA/GE7Ccacc9Cha7bpS8nyzVv0jdVgwNDaR4gDMC/2TTRc33Ip8qrNYUcpkOHUT5OZ0bUcNNVZQ9RLlg=="],
 
-    "@ryot/website/drizzle-kit/esbuild/@esbuild/android-arm64": ["@esbuild/android-arm64@0.25.12", "", { "os": "android", "cpu": "arm64" }, "sha512-6AAmLG7zwD1Z159jCKPvAxZd4y/VTO0VkprYy+3N2FtJ8+BQWFXU+OxARIwA46c5tdD9SsKGZ/1ocqBS/gAKHg=="],
+    "@ryot-app/website/drizzle-kit/esbuild/@esbuild/android-arm64": ["@esbuild/android-arm64@0.25.12", "", { "os": "android", "cpu": "arm64" }, "sha512-6AAmLG7zwD1Z159jCKPvAxZd4y/VTO0VkprYy+3N2FtJ8+BQWFXU+OxARIwA46c5tdD9SsKGZ/1ocqBS/gAKHg=="],
 
-    "@ryot/website/drizzle-kit/esbuild/@esbuild/android-x64": ["@esbuild/android-x64@0.25.12", "", { "os": "android", "cpu": "x64" }, "sha512-5jbb+2hhDHx5phYR2By8GTWEzn6I9UqR11Kwf22iKbNpYrsmRB18aX/9ivc5cabcUiAT/wM+YIZ6SG9QO6a8kg=="],
+    "@ryot-app/website/drizzle-kit/esbuild/@esbuild/android-x64": ["@esbuild/android-x64@0.25.12", "", { "os": "android", "cpu": "x64" }, "sha512-5jbb+2hhDHx5phYR2By8GTWEzn6I9UqR11Kwf22iKbNpYrsmRB18aX/9ivc5cabcUiAT/wM+YIZ6SG9QO6a8kg=="],
 
-    "@ryot/website/drizzle-kit/esbuild/@esbuild/darwin-arm64": ["@esbuild/darwin-arm64@0.25.12", "", { "os": "darwin", "cpu": "arm64" }, "sha512-N3zl+lxHCifgIlcMUP5016ESkeQjLj/959RxxNYIthIg+CQHInujFuXeWbWMgnTo4cp5XVHqFPmpyu9J65C1Yg=="],
+    "@ryot-app/website/drizzle-kit/esbuild/@esbuild/darwin-arm64": ["@esbuild/darwin-arm64@0.25.12", "", { "os": "darwin", "cpu": "arm64" }, "sha512-N3zl+lxHCifgIlcMUP5016ESkeQjLj/959RxxNYIthIg+CQHInujFuXeWbWMgnTo4cp5XVHqFPmpyu9J65C1Yg=="],
 
-    "@ryot/website/drizzle-kit/esbuild/@esbuild/darwin-x64": ["@esbuild/darwin-x64@0.25.12", "", { "os": "darwin", "cpu": "x64" }, "sha512-HQ9ka4Kx21qHXwtlTUVbKJOAnmG1ipXhdWTmNXiPzPfWKpXqASVcWdnf2bnL73wgjNrFXAa3yYvBSd9pzfEIpA=="],
+    "@ryot-app/website/drizzle-kit/esbuild/@esbuild/darwin-x64": ["@esbuild/darwin-x64@0.25.12", "", { "os": "darwin", "cpu": "x64" }, "sha512-HQ9ka4Kx21qHXwtlTUVbKJOAnmG1ipXhdWTmNXiPzPfWKpXqASVcWdnf2bnL73wgjNrFXAa3yYvBSd9pzfEIpA=="],
 
-    "@ryot/website/drizzle-kit/esbuild/@esbuild/freebsd-arm64": ["@esbuild/freebsd-arm64@0.25.12", "", { "os": "freebsd", "cpu": "arm64" }, "sha512-gA0Bx759+7Jve03K1S0vkOu5Lg/85dou3EseOGUes8flVOGxbhDDh/iZaoek11Y8mtyKPGF3vP8XhnkDEAmzeg=="],
+    "@ryot-app/website/drizzle-kit/esbuild/@esbuild/freebsd-arm64": ["@esbuild/freebsd-arm64@0.25.12", "", { "os": "freebsd", "cpu": "arm64" }, "sha512-gA0Bx759+7Jve03K1S0vkOu5Lg/85dou3EseOGUes8flVOGxbhDDh/iZaoek11Y8mtyKPGF3vP8XhnkDEAmzeg=="],
 
-    "@ryot/website/drizzle-kit/esbuild/@esbuild/freebsd-x64": ["@esbuild/freebsd-x64@0.25.12", "", { "os": "freebsd", "cpu": "x64" }, "sha512-TGbO26Yw2xsHzxtbVFGEXBFH0FRAP7gtcPE7P5yP7wGy7cXK2oO7RyOhL5NLiqTlBh47XhmIUXuGciXEqYFfBQ=="],
+    "@ryot-app/website/drizzle-kit/esbuild/@esbuild/freebsd-x64": ["@esbuild/freebsd-x64@0.25.12", "", { "os": "freebsd", "cpu": "x64" }, "sha512-TGbO26Yw2xsHzxtbVFGEXBFH0FRAP7gtcPE7P5yP7wGy7cXK2oO7RyOhL5NLiqTlBh47XhmIUXuGciXEqYFfBQ=="],
 
-    "@ryot/website/drizzle-kit/esbuild/@esbuild/linux-arm": ["@esbuild/linux-arm@0.25.12", "", { "os": "linux", "cpu": "arm" }, "sha512-lPDGyC1JPDou8kGcywY0YILzWlhhnRjdof3UlcoqYmS9El818LLfJJc3PXXgZHrHCAKs/Z2SeZtDJr5MrkxtOw=="],
+    "@ryot-app/website/drizzle-kit/esbuild/@esbuild/linux-arm": ["@esbuild/linux-arm@0.25.12", "", { "os": "linux", "cpu": "arm" }, "sha512-lPDGyC1JPDou8kGcywY0YILzWlhhnRjdof3UlcoqYmS9El818LLfJJc3PXXgZHrHCAKs/Z2SeZtDJr5MrkxtOw=="],
 
-    "@ryot/website/drizzle-kit/esbuild/@esbuild/linux-arm64": ["@esbuild/linux-arm64@0.25.12", "", { "os": "linux", "cpu": "arm64" }, "sha512-8bwX7a8FghIgrupcxb4aUmYDLp8pX06rGh5HqDT7bB+8Rdells6mHvrFHHW2JAOPZUbnjUpKTLg6ECyzvas2AQ=="],
+    "@ryot-app/website/drizzle-kit/esbuild/@esbuild/linux-arm64": ["@esbuild/linux-arm64@0.25.12", "", { "os": "linux", "cpu": "arm64" }, "sha512-8bwX7a8FghIgrupcxb4aUmYDLp8pX06rGh5HqDT7bB+8Rdells6mHvrFHHW2JAOPZUbnjUpKTLg6ECyzvas2AQ=="],
 
-    "@ryot/website/drizzle-kit/esbuild/@esbuild/linux-ia32": ["@esbuild/linux-ia32@0.25.12", "", { "os": "linux", "cpu": "ia32" }, "sha512-0y9KrdVnbMM2/vG8KfU0byhUN+EFCny9+8g202gYqSSVMonbsCfLjUO+rCci7pM0WBEtz+oK/PIwHkzxkyharA=="],
+    "@ryot-app/website/drizzle-kit/esbuild/@esbuild/linux-ia32": ["@esbuild/linux-ia32@0.25.12", "", { "os": "linux", "cpu": "ia32" }, "sha512-0y9KrdVnbMM2/vG8KfU0byhUN+EFCny9+8g202gYqSSVMonbsCfLjUO+rCci7pM0WBEtz+oK/PIwHkzxkyharA=="],
 
-    "@ryot/website/drizzle-kit/esbuild/@esbuild/linux-loong64": ["@esbuild/linux-loong64@0.25.12", "", { "os": "linux", "cpu": "none" }, "sha512-h///Lr5a9rib/v1GGqXVGzjL4TMvVTv+s1DPoxQdz7l/AYv6LDSxdIwzxkrPW438oUXiDtwM10o9PmwS/6Z0Ng=="],
+    "@ryot-app/website/drizzle-kit/esbuild/@esbuild/linux-loong64": ["@esbuild/linux-loong64@0.25.12", "", { "os": "linux", "cpu": "none" }, "sha512-h///Lr5a9rib/v1GGqXVGzjL4TMvVTv+s1DPoxQdz7l/AYv6LDSxdIwzxkrPW438oUXiDtwM10o9PmwS/6Z0Ng=="],
 
-    "@ryot/website/drizzle-kit/esbuild/@esbuild/linux-mips64el": ["@esbuild/linux-mips64el@0.25.12", "", { "os": "linux", "cpu": "none" }, "sha512-iyRrM1Pzy9GFMDLsXn1iHUm18nhKnNMWscjmp4+hpafcZjrr2WbT//d20xaGljXDBYHqRcl8HnxbX6uaA/eGVw=="],
+    "@ryot-app/website/drizzle-kit/esbuild/@esbuild/linux-mips64el": ["@esbuild/linux-mips64el@0.25.12", "", { "os": "linux", "cpu": "none" }, "sha512-iyRrM1Pzy9GFMDLsXn1iHUm18nhKnNMWscjmp4+hpafcZjrr2WbT//d20xaGljXDBYHqRcl8HnxbX6uaA/eGVw=="],
 
-    "@ryot/website/drizzle-kit/esbuild/@esbuild/linux-ppc64": ["@esbuild/linux-ppc64@0.25.12", "", { "os": "linux", "cpu": "ppc64" }, "sha512-9meM/lRXxMi5PSUqEXRCtVjEZBGwB7P/D4yT8UG/mwIdze2aV4Vo6U5gD3+RsoHXKkHCfSxZKzmDssVlRj1QQA=="],
+    "@ryot-app/website/drizzle-kit/esbuild/@esbuild/linux-ppc64": ["@esbuild/linux-ppc64@0.25.12", "", { "os": "linux", "cpu": "ppc64" }, "sha512-9meM/lRXxMi5PSUqEXRCtVjEZBGwB7P/D4yT8UG/mwIdze2aV4Vo6U5gD3+RsoHXKkHCfSxZKzmDssVlRj1QQA=="],
 
-    "@ryot/website/drizzle-kit/esbuild/@esbuild/linux-riscv64": ["@esbuild/linux-riscv64@0.25.12", "", { "os": "linux", "cpu": "none" }, "sha512-Zr7KR4hgKUpWAwb1f3o5ygT04MzqVrGEGXGLnj15YQDJErYu/BGg+wmFlIDOdJp0PmB0lLvxFIOXZgFRrdjR0w=="],
+    "@ryot-app/website/drizzle-kit/esbuild/@esbuild/linux-riscv64": ["@esbuild/linux-riscv64@0.25.12", "", { "os": "linux", "cpu": "none" }, "sha512-Zr7KR4hgKUpWAwb1f3o5ygT04MzqVrGEGXGLnj15YQDJErYu/BGg+wmFlIDOdJp0PmB0lLvxFIOXZgFRrdjR0w=="],
 
-    "@ryot/website/drizzle-kit/esbuild/@esbuild/linux-s390x": ["@esbuild/linux-s390x@0.25.12", "", { "os": "linux", "cpu": "s390x" }, "sha512-MsKncOcgTNvdtiISc/jZs/Zf8d0cl/t3gYWX8J9ubBnVOwlk65UIEEvgBORTiljloIWnBzLs4qhzPkJcitIzIg=="],
+    "@ryot-app/website/drizzle-kit/esbuild/@esbuild/linux-s390x": ["@esbuild/linux-s390x@0.25.12", "", { "os": "linux", "cpu": "s390x" }, "sha512-MsKncOcgTNvdtiISc/jZs/Zf8d0cl/t3gYWX8J9ubBnVOwlk65UIEEvgBORTiljloIWnBzLs4qhzPkJcitIzIg=="],
 
-    "@ryot/website/drizzle-kit/esbuild/@esbuild/linux-x64": ["@esbuild/linux-x64@0.25.12", "", { "os": "linux", "cpu": "x64" }, "sha512-uqZMTLr/zR/ed4jIGnwSLkaHmPjOjJvnm6TVVitAa08SLS9Z0VM8wIRx7gWbJB5/J54YuIMInDquWyYvQLZkgw=="],
+    "@ryot-app/website/drizzle-kit/esbuild/@esbuild/linux-x64": ["@esbuild/linux-x64@0.25.12", "", { "os": "linux", "cpu": "x64" }, "sha512-uqZMTLr/zR/ed4jIGnwSLkaHmPjOjJvnm6TVVitAa08SLS9Z0VM8wIRx7gWbJB5/J54YuIMInDquWyYvQLZkgw=="],
 
-    "@ryot/website/drizzle-kit/esbuild/@esbuild/netbsd-arm64": ["@esbuild/netbsd-arm64@0.25.12", "", { "os": "none", "cpu": "arm64" }, "sha512-xXwcTq4GhRM7J9A8Gv5boanHhRa/Q9KLVmcyXHCTaM4wKfIpWkdXiMog/KsnxzJ0A1+nD+zoecuzqPmCRyBGjg=="],
+    "@ryot-app/website/drizzle-kit/esbuild/@esbuild/netbsd-arm64": ["@esbuild/netbsd-arm64@0.25.12", "", { "os": "none", "cpu": "arm64" }, "sha512-xXwcTq4GhRM7J9A8Gv5boanHhRa/Q9KLVmcyXHCTaM4wKfIpWkdXiMog/KsnxzJ0A1+nD+zoecuzqPmCRyBGjg=="],
 
-    "@ryot/website/drizzle-kit/esbuild/@esbuild/netbsd-x64": ["@esbuild/netbsd-x64@0.25.12", "", { "os": "none", "cpu": "x64" }, "sha512-Ld5pTlzPy3YwGec4OuHh1aCVCRvOXdH8DgRjfDy/oumVovmuSzWfnSJg+VtakB9Cm0gxNO9BzWkj6mtO1FMXkQ=="],
+    "@ryot-app/website/drizzle-kit/esbuild/@esbuild/netbsd-x64": ["@esbuild/netbsd-x64@0.25.12", "", { "os": "none", "cpu": "x64" }, "sha512-Ld5pTlzPy3YwGec4OuHh1aCVCRvOXdH8DgRjfDy/oumVovmuSzWfnSJg+VtakB9Cm0gxNO9BzWkj6mtO1FMXkQ=="],
 
-    "@ryot/website/drizzle-kit/esbuild/@esbuild/openbsd-arm64": ["@esbuild/openbsd-arm64@0.25.12", "", { "os": "openbsd", "cpu": "arm64" }, "sha512-fF96T6KsBo/pkQI950FARU9apGNTSlZGsv1jZBAlcLL1MLjLNIWPBkj5NlSz8aAzYKg+eNqknrUJ24QBybeR5A=="],
+    "@ryot-app/website/drizzle-kit/esbuild/@esbuild/openbsd-arm64": ["@esbuild/openbsd-arm64@0.25.12", "", { "os": "openbsd", "cpu": "arm64" }, "sha512-fF96T6KsBo/pkQI950FARU9apGNTSlZGsv1jZBAlcLL1MLjLNIWPBkj5NlSz8aAzYKg+eNqknrUJ24QBybeR5A=="],
 
-    "@ryot/website/drizzle-kit/esbuild/@esbuild/openbsd-x64": ["@esbuild/openbsd-x64@0.25.12", "", { "os": "openbsd", "cpu": "x64" }, "sha512-MZyXUkZHjQxUvzK7rN8DJ3SRmrVrke8ZyRusHlP+kuwqTcfWLyqMOE3sScPPyeIXN/mDJIfGXvcMqCgYKekoQw=="],
+    "@ryot-app/website/drizzle-kit/esbuild/@esbuild/openbsd-x64": ["@esbuild/openbsd-x64@0.25.12", "", { "os": "openbsd", "cpu": "x64" }, "sha512-MZyXUkZHjQxUvzK7rN8DJ3SRmrVrke8ZyRusHlP+kuwqTcfWLyqMOE3sScPPyeIXN/mDJIfGXvcMqCgYKekoQw=="],
 
-    "@ryot/website/drizzle-kit/esbuild/@esbuild/openharmony-arm64": ["@esbuild/openharmony-arm64@0.25.12", "", { "os": "none", "cpu": "arm64" }, "sha512-rm0YWsqUSRrjncSXGA7Zv78Nbnw4XL6/dzr20cyrQf7ZmRcsovpcRBdhD43Nuk3y7XIoW2OxMVvwuRvk9XdASg=="],
+    "@ryot-app/website/drizzle-kit/esbuild/@esbuild/openharmony-arm64": ["@esbuild/openharmony-arm64@0.25.12", "", { "os": "none", "cpu": "arm64" }, "sha512-rm0YWsqUSRrjncSXGA7Zv78Nbnw4XL6/dzr20cyrQf7ZmRcsovpcRBdhD43Nuk3y7XIoW2OxMVvwuRvk9XdASg=="],
 
-    "@ryot/website/drizzle-kit/esbuild/@esbuild/sunos-x64": ["@esbuild/sunos-x64@0.25.12", "", { "os": "sunos", "cpu": "x64" }, "sha512-3wGSCDyuTHQUzt0nV7bocDy72r2lI33QL3gkDNGkod22EsYl04sMf0qLb8luNKTOmgF/eDEDP5BFNwoBKH441w=="],
+    "@ryot-app/website/drizzle-kit/esbuild/@esbuild/sunos-x64": ["@esbuild/sunos-x64@0.25.12", "", { "os": "sunos", "cpu": "x64" }, "sha512-3wGSCDyuTHQUzt0nV7bocDy72r2lI33QL3gkDNGkod22EsYl04sMf0qLb8luNKTOmgF/eDEDP5BFNwoBKH441w=="],
 
-    "@ryot/website/drizzle-kit/esbuild/@esbuild/win32-arm64": ["@esbuild/win32-arm64@0.25.12", "", { "os": "win32", "cpu": "arm64" }, "sha512-rMmLrur64A7+DKlnSuwqUdRKyd3UE7oPJZmnljqEptesKM8wx9J8gx5u0+9Pq0fQQW8vqeKebwNXdfOyP+8Bsg=="],
+    "@ryot-app/website/drizzle-kit/esbuild/@esbuild/win32-arm64": ["@esbuild/win32-arm64@0.25.12", "", { "os": "win32", "cpu": "arm64" }, "sha512-rMmLrur64A7+DKlnSuwqUdRKyd3UE7oPJZmnljqEptesKM8wx9J8gx5u0+9Pq0fQQW8vqeKebwNXdfOyP+8Bsg=="],
 
-    "@ryot/website/drizzle-kit/esbuild/@esbuild/win32-ia32": ["@esbuild/win32-ia32@0.25.12", "", { "os": "win32", "cpu": "ia32" }, "sha512-HkqnmmBoCbCwxUKKNPBixiWDGCpQGVsrQfJoVGYLPT41XWF8lHuE5N6WhVia2n4o5QK5M4tYr21827fNhi4byQ=="],
+    "@ryot-app/website/drizzle-kit/esbuild/@esbuild/win32-ia32": ["@esbuild/win32-ia32@0.25.12", "", { "os": "win32", "cpu": "ia32" }, "sha512-HkqnmmBoCbCwxUKKNPBixiWDGCpQGVsrQfJoVGYLPT41XWF8lHuE5N6WhVia2n4o5QK5M4tYr21827fNhi4byQ=="],
 
-    "@ryot/website/drizzle-kit/esbuild/@esbuild/win32-x64": ["@esbuild/win32-x64@0.25.12", "", { "os": "win32", "cpu": "x64" }, "sha512-alJC0uCZpTFrSL0CCDjcgleBXPnCrEAhTBILpeAp7M/OFgoqtAetfBzX0xM00MUsVVPpVjlPuMbREqnZCXaTnA=="],
+    "@ryot-app/website/drizzle-kit/esbuild/@esbuild/win32-x64": ["@esbuild/win32-x64@0.25.12", "", { "os": "win32", "cpu": "x64" }, "sha512-alJC0uCZpTFrSL0CCDjcgleBXPnCrEAhTBILpeAp7M/OFgoqtAetfBzX0xM00MUsVVPpVjlPuMbREqnZCXaTnA=="],
 
     "@tailwindcss/vite/@tailwindcss/oxide/@tailwindcss/oxide-wasm32-wasi/@emnapi/core": ["@emnapi/core@1.9.2", "", { "dependencies": { "@emnapi/wasi-threads": "1.2.1", "tslib": "^2.4.0" }, "bundled": true }, "sha512-UC+ZhH3XtczQYfOlu3lNEkdW/p4dsJ1r/bP7H8+rhao3TTTMO1ATq/4DdIi23XuGoFY+Cz0JmCbdVl0hz9jZcA=="],
 
@@ -4899,9 +4899,9 @@
 
     "@react-router/dev/vite-node/vite/rollup/@rollup/rollup-win32-x64-msvc": ["@rollup/rollup-win32-x64-msvc@4.60.1", "", { "os": "win32", "cpu": "x64" }, "sha512-lWMnixq/QzxyhTV6NjQJ4SFo1J6PvOX8vUx5Wb4bBPsEb+8xZ89Bz6kOXpfXj9ak9AHTQVQzlgzBEc1SyM27xQ=="],
 
-    "@ryot/kernel-client/@tailwindcss/vite/@tailwindcss/node/enhanced-resolve/tapable": ["tapable@2.3.3", "", {}, "sha512-uxc/zpqFg6x7C8vOE7lh6Lbda8eEL9zmVm/PLeTPBRhh1xCgdWaQ+J1CUieGpIfm2HdtsUpRv+HshiasBMcc6A=="],
+    "@ryot-app/kernel-client/@tailwindcss/vite/@tailwindcss/node/enhanced-resolve/tapable": ["tapable@2.3.3", "", {}, "sha512-uxc/zpqFg6x7C8vOE7lh6Lbda8eEL9zmVm/PLeTPBRhh1xCgdWaQ+J1CUieGpIfm2HdtsUpRv+HshiasBMcc6A=="],
 
-    "@ryot/website/@tailwindcss/vite/@tailwindcss/node/enhanced-resolve/tapable": ["tapable@2.3.3", "", {}, "sha512-uxc/zpqFg6x7C8vOE7lh6Lbda8eEL9zmVm/PLeTPBRhh1xCgdWaQ+J1CUieGpIfm2HdtsUpRv+HshiasBMcc6A=="],
+    "@ryot-app/website/@tailwindcss/vite/@tailwindcss/node/enhanced-resolve/tapable": ["tapable@2.3.3", "", {}, "sha512-uxc/zpqFg6x7C8vOE7lh6Lbda8eEL9zmVm/PLeTPBRhh1xCgdWaQ+J1CUieGpIfm2HdtsUpRv+HshiasBMcc6A=="],
 
     "archiver-utils/glob/jackspeak/@isaacs/cliui/string-width": ["string-width@5.1.2", "", { "dependencies": { "eastasianwidth": "^0.2.0", "emoji-regex": "^9.2.2", "strip-ansi": "^7.0.1" } }, "sha512-HnLOCR3vjcY8beoNLtcjZ5/nxn2afmME6lhrDrebokqMap+XbeW8n9TXpPDOqdGK5qcI3oT0GKTW6wC7EMiVqA=="],
 

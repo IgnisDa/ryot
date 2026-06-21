@@ -19,7 +19,7 @@ import {
 	ExerciseLot,
 	SetLot,
 	UserUnitSystem,
-} from "@ryot/generated/graphql/backend/graphql";
+} from "@ryot-app/generated/graphql/backend/graphql";
 import {
 	IconChevronUp,
 	IconCirclesRelation,

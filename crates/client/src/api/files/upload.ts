@@ -1,4 +1,4 @@
-import { TemporaryUploadToken } from "@ryot/contract/modules/uploads/schemas";
+import { TemporaryUploadToken } from "@ryot-app/contract/modules/uploads/schemas";
 import { Cause, Effect, Schema } from "effect";
 
 import { appClient } from "../client";

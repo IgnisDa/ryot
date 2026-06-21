@@ -1,4 +1,4 @@
-import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
+import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import {
 	PluginConflictError,
 	PluginNotFoundError,
@@ -6,12 +6,12 @@ import {
 	type PluginInstallationItem,
 	type UpdatePrivatePluginBody,
 	type UpdatePluginInstallationBody,
-} from "@ryot/contract/modules/plugins/schemas";
-import { PluginSlug, UserId } from "@ryot/contract/schema/brands";
-import { isJsonValue } from "@ryot/contract/schema/json";
-import type { AppPropertyDefinition, AppSchema } from "@ryot/contract/schema/property-schema";
-import { readPluginArchiveStream, type PluginArchivePackage } from "@ryot/plugin-archive";
-import { sha256Hex } from "@ryot/ts-utils/crypto";
+} from "@ryot-app/contract/modules/plugins/schemas";
+import { PluginSlug, UserId } from "@ryot-app/contract/schema/brands";
+import { isJsonValue } from "@ryot-app/contract/schema/json";
+import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { readPluginArchiveStream, type PluginArchivePackage } from "@ryot-app/plugin-archive";
+import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Context, Effect, Layer, Result } from "effect";
 
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";

@@ -1,4 +1,4 @@
-import { getQueryEngineField } from "@ryot/ts-utils/query-engine";
+import { getQueryEngineField } from "@ryot-app/ts-utils/query-engine";
 import clsx from "clsx";
 import { useRouter } from "expo-router";
 import { FlatList, Image, ScrollView } from "react-native";

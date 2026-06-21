@@ -1,6 +1,6 @@
-import type { EntityUpdatedReason } from "@ryot/contract/modules/entity-interest/messages";
-import type { EntityId, UserId } from "@ryot/contract/schema/brands";
-import { entityInterestRecipe, type EntityInterestResult } from "@ryot/ryotql-recipes/entities";
+import type { EntityUpdatedReason } from "@ryot-app/contract/modules/entity-interest/messages";
+import type { EntityId, UserId } from "@ryot-app/contract/schema/brands";
+import { entityInterestRecipe, type EntityInterestResult } from "@ryot-app/ryotql-recipes/entities";
 import { Context, Effect, Layer, Result } from "effect";
 
 import { EntityPopulationTrigger } from "#modules/entities/population-trigger";

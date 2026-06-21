@@ -1,10 +1,10 @@
-import { BadRequest, DbError, NotFound, SandboxRunError } from "@ryot/contract/errors";
+import { BadRequest, DbError, NotFound, SandboxRunError } from "@ryot-app/contract/errors";
 import {
 	AutomationOperation,
 	AutomationOrigin,
 	AutomationProperties,
 	SubscriptionRunSourceKind,
-} from "@ryot/contract/modules/automations/schemas";
+} from "@ryot-app/contract/modules/automations/schemas";
 import {
 	AutomationRuleId,
 	EntityId,
@@ -14,7 +14,7 @@ import {
 	SignalId,
 	SubscriptionRunId,
 	UserId,
-} from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/schema/brands";
 import { Schema } from "effect";
 import { Workflow } from "effect/unstable/workflow";
 

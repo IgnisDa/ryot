@@ -2,9 +2,9 @@ import {
 	GodModeInternalFailure,
 	GodModeNotFound,
 	GodModeRequestFailure,
-} from "@ryot/contract/modules/god-mode/contract";
-import type { UserLifecycleOperationKind } from "@ryot/contract/modules/god-mode/user-lifecycle";
-import type { UserId } from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/modules/god-mode/contract";
+import type { UserLifecycleOperationKind } from "@ryot-app/contract/modules/god-mode/user-lifecycle";
+import type { UserId } from "@ryot-app/contract/schema/brands";
 import { Context, DateTime, Effect, Layer, Result } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 

@@ -1,6 +1,6 @@
 import { BunHttpServer } from "@effect/platform-bun";
-import { AppContract } from "@ryot/contract/contract";
-import { BadRequest } from "@ryot/contract/errors";
+import { AppContract } from "@ryot-app/contract/contract";
+import { BadRequest } from "@ryot-app/contract/errors";
 import { Cause, Effect, FileSystem, Layer, Result, Schema } from "effect";
 import {
 	HttpEffect,

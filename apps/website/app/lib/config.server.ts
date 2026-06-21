@@ -1,7 +1,7 @@
 import { Polar } from "@polar-sh/sdk";
-import { sha256Hex } from "@ryot/ts-utils/crypto";
-import { memoize } from "@ryot/ts-utils/lodash";
-import { zodBoolAsString } from "@ryot/ts-utils/zod";
+import { sha256Hex } from "@ryot-app/ts-utils/crypto";
+import { memoize } from "@ryot-app/ts-utils/lodash";
+import { zodBoolAsString } from "@ryot-app/ts-utils/zod";
 import { Unkey } from "@unkey/api";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { createCookie } from "react-router";

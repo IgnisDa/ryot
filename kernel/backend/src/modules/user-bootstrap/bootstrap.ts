@@ -1,4 +1,4 @@
-import { UserId } from "@ryot/contract/schema/brands";
+import { UserId } from "@ryot-app/contract/schema/brands";
 import { eq, sql } from "drizzle-orm";
 import { DateTime, Effect, Layer } from "effect";
 

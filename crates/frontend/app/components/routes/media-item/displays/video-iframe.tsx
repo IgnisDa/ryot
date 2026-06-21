@@ -1,6 +1,6 @@
 import { Box } from "@mantine/core";
 import { useDidUpdate, useInViewport } from "@mantine/hooks";
-import { EntityRemoteVideoSource } from "@ryot/generated/graphql/backend/graphql";
+import { EntityRemoteVideoSource } from "@ryot-app/generated/graphql/backend/graphql";
 import { useState } from "react";
 import { match } from "ts-pattern";
 

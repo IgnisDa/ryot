@@ -1,6 +1,6 @@
-import { jsonValueSchema } from "@ryot/contract/modules/sandbox/wire";
-import { PluginSlug, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
-import { sha256Hex } from "@ryot/ts-utils/crypto";
+import { jsonValueSchema } from "@ryot-app/contract/modules/sandbox/wire";
+import { PluginSlug, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
+import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Context, Effect, Layer, Redacted, Schema } from "effect";
 import Redis from "ioredis";
 

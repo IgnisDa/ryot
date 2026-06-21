@@ -1,5 +1,5 @@
 {
-	"name": "@ryot/app-client-backup",
+	"name": "@ryot-app/app-client-backup",
 	"version": "1.0.0",
 	"private": true,
 	"main": "expo-router/entry",
@@ -29,8 +29,8 @@
 		"@react-aria/ssr": "3.10.0",
 		"@react-aria/utils": "3.34.0",
 		"@react-navigation/native": "^7.1.33",
-		"@ryot/contract": "workspace:*",
-		"@ryot/ts-utils": "workspace:*",
+		"@ryot-app/contract": "workspace:*",
+		"@ryot-app/ts-utils": "workspace:*",
 		"@tanstack/react-form": "^1.29.1",
 		"@tanstack/react-query": "5.100.9",
 		"better-auth": "1.6.15",

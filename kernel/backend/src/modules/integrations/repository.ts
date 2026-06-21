@@ -3,10 +3,10 @@ import type {
 	IntegrationProvider,
 	IntegrationProviderSettings,
 	ListedIntegration,
-} from "@ryot/contract/modules/integrations/schemas";
-import type { IntegrationLot } from "@ryot/contract/modules/integrations/types";
-import type { ImportRunId } from "@ryot/contract/schema/brands";
-import { IntegrationId, UserId } from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/modules/integrations/schemas";
+import type { IntegrationLot } from "@ryot-app/contract/modules/integrations/types";
+import type { ImportRunId } from "@ryot-app/contract/schema/brands";
+import { IntegrationId, UserId } from "@ryot-app/contract/schema/brands";
 import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 

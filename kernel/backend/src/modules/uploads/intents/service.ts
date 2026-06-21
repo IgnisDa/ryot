@@ -1,4 +1,4 @@
-import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
+import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import {
 	ManagedAssetLocator,
 	UploadKind,
@@ -6,14 +6,14 @@ import {
 	type UploadIntentInput,
 	UploadBadRequest,
 	type UploadFailureReason,
-} from "@ryot/contract/modules/uploads/schemas";
+} from "@ryot-app/contract/modules/uploads/schemas";
 import {
 	type UploadContentType,
 	uploadMaxBytes,
 	uploadContentTypeExtensions,
 	uploadContentTypes,
-} from "@ryot/contract/modules/uploads/upload-policy";
-import { UserId } from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/modules/uploads/upload-policy";
+import { UserId } from "@ryot-app/contract/schema/brands";
 import { generateId } from "better-auth";
 import { CryptoHasher } from "bun";
 import { Clock, Context, DateTime, Effect, Layer, Schema, Stream } from "effect";

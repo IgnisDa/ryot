@@ -1,4 +1,4 @@
-import { UserId } from "@ryot/contract/schema/brands";
+import { UserId } from "@ryot-app/contract/schema/brands";
 import { APIError } from "better-auth/api";
 import { eq } from "drizzle-orm";
 import { Effect } from "effect";

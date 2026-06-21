@@ -25,8 +25,8 @@ import {
 	type InitiateTwoFactorSetupMutation,
 	RegenerateTwoFactorBackupCodesDocument,
 	UpdateUserDocument,
-} from "@ryot/generated/graphql/backend/graphql";
-import { getActionIntent, processSubmission } from "@ryot/ts-utils/request";
+} from "@ryot-app/generated/graphql/backend/graphql";
+import { getActionIntent, processSubmission } from "@ryot-app/ts-utils/request";
 import { useMutation } from "@tanstack/react-query";
 import { QRCodeSVG } from "qrcode.react";
 import { useState } from "react";

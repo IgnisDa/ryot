@@ -1,6 +1,6 @@
-import type { JsonValue } from "@ryot/contract/modules/ryotql/language";
-import type { SandboxHost } from "@ryot/sandbox-sdk/core";
-import type { SandboxHostError } from "@ryot/sandbox-sdk/wire";
+import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
+import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import type { SandboxHostError } from "@ryot-app/sandbox-sdk/wire";
 import type { Effect } from "effect";
 
 type ConfigHost = SandboxHost<readonly ["getPluginConfig", "getSystemConfig"]>;

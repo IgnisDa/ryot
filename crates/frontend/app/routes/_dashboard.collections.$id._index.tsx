@@ -5,8 +5,8 @@ import {
 	type CollectionContentsInput,
 	EntityLot,
 	FilterPresetContextType,
-} from "@ryot/generated/graphql/backend/graphql";
-import { cloneDeep } from "@ryot/ts-utils/lodash";
+} from "@ryot-app/generated/graphql/backend/graphql";
+import { cloneDeep } from "@ryot-app/ts-utils/lodash";
 import {
 	IconBucketDroplet,
 	IconEdit,

@@ -1,4 +1,4 @@
-import { Result, Schema, SchemaIssue } from "@ryot/sandbox-sdk/effect";
+import { Result, Schema, SchemaIssue } from "@ryot-app/sandbox-sdk/effect";
 
 import { nowIso, parseZonedDateTime } from "./dates";
 import { getOrCreateMediaEntityGroup, type ImportMediaEntityGroupBuilder } from "./groups";

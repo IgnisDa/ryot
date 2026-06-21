@@ -3,9 +3,9 @@ import {
 	AutomationNotFoundError,
 	type CatalogSignalSchema,
 	type InstalledNotificationRule,
-} from "@ryot/contract/modules/automations/schemas";
-import type { AutomationRuleId, SignalSchemaSlug, UserId } from "@ryot/contract/schema/brands";
-import { SignalSchemaSlug as SignalSchemaSlugBrand } from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/modules/automations/schemas";
+import type { AutomationRuleId, SignalSchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
+import { SignalSchemaSlug as SignalSchemaSlugBrand } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";

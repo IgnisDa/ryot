@@ -2,8 +2,8 @@ import { Anchor, Box, Flex, Group, Text } from "@mantine/core";
 import {
 	ExerciseDurationUnit,
 	WorkoutSetPersonalBest,
-} from "@ryot/generated/graphql/backend/graphql";
-import { startCase } from "@ryot/ts-utils/lodash";
+} from "@ryot-app/generated/graphql/backend/graphql";
+import { startCase } from "@ryot-app/ts-utils/lodash";
 import { IconExternalLink } from "@tabler/icons-react";
 import { Link } from "react-router";
 import { $path } from "safe-routes";

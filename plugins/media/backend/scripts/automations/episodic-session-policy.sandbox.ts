@@ -1,8 +1,8 @@
-import { defineAutomationPolicy } from "@ryot/sandbox-sdk/automation";
-import type { SandboxHost } from "@ryot/sandbox-sdk/core";
-import { defineManifest } from "@ryot/sandbox-sdk/driver";
-import { Effect } from "@ryot/sandbox-sdk/effect";
-import { executeRyotqlRecipe } from "@ryot/sandbox-sdk/ryotql";
+import { defineAutomationPolicy } from "@ryot-app/sandbox-sdk/automation";
+import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { executeRyotqlRecipe } from "@ryot-app/sandbox-sdk/ryotql";
 
 import {
 	podcastEpisodicKindConfig,

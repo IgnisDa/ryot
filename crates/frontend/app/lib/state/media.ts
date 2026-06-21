@@ -1,4 +1,4 @@
-import { type EntityLot, MediaLot, type ReviewItem } from "@ryot/generated/graphql/backend/graphql";
+import { type EntityLot, MediaLot, type ReviewItem } from "@ryot-app/generated/graphql/backend/graphql";
 import { atom, useAtom } from "jotai";
 import { match } from "ts-pattern";
 

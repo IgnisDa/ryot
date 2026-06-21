@@ -1,4 +1,4 @@
-import { EntityId, EntitySchemaSlug, SandboxProviderId } from "@ryot/contract/schema/brands";
+import { EntityId, EntitySchemaSlug, SandboxProviderId } from "@ryot-app/contract/schema/brands";
 import { Result } from "effect";
 import { assert, describe, expect, it } from "vitest";
 
