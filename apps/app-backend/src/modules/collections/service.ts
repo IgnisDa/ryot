@@ -144,7 +144,7 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 
 			const entitySchema = yield* collectionEntitySchema;
 			const created = yield* entities
-				.save({
+				.create({
 					name,
 					properties,
 					scope: "user",
@@ -172,7 +172,7 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 			}
 
 			const created = yield* entities
-				.save({
+				.create({
 					name,
 					userId,
 					scope: "user",
@@ -359,7 +359,7 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 						}
 
 						const created = yield* entities
-							.save({
+							.create({
 								userId,
 								scope: "user",
 								properties: {},
