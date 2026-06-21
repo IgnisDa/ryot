@@ -1,4 +1,4 @@
-import { Effect, Option, Redacted } from "effect";
+import { Effect, Option } from "effect";
 import { describe, expect, it } from "vitest";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
@@ -75,13 +75,7 @@ describe("getSandboxAppConfigValue", () => {
 
 	it("returns the inner value when an optional key is configured (Option.some)", () => {
 		const layer = makeAppConfigLayer({
-			server: {
-				disableNotifications: false,
-				disableBackgroundJobs: false,
-				adminAccessToken: Redacted.make("unused"),
-				corsOrigins: Option.some("http://localhost:3000"),
-				oidc: { clientId: Option.none(), issuerUrl: Option.none(), clientSecret: Option.none() },
-			},
+			server: { corsOrigins: Option.some("http://localhost:3000") },
 		});
 		const result = run("server.corsOrigins", false, layer);
 		expect(result._tag).toBe("Right");
