@@ -37,7 +37,8 @@ export const loadVisibleEntitySchemas = Effect.fn("loadVisibleEntitySchemas")(fu
 						id,
 						slug,
 						name: definition.name,
-						isBuiltin: definition.isBuiltin !== false,
+						// TODO(plugin-system): Remove with the query-engine compatibility response shape.
+						isBuiltin: true,
 					},
 				]
 			: [];
