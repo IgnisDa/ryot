@@ -4,7 +4,9 @@ import { Effect, Layer, Option, Schema } from "effect";
 import { Platform } from "react-native";
 import { createMMKV } from "react-native-mmkv";
 
-export const serverUrlKey = "server-url";
+import { CLOUD_URL } from "@/modules/server/url";
+
+const serverUrlKey = "server-url";
 const serverUrlSchema = Schema.NullOr(Schema.String);
 
 export const serverStorageLayer =
@@ -32,6 +34,14 @@ export const serverUrlAtom = Atom.kvs({
 
 export const useServerUrl = () => useAtomValue(serverUrlAtom);
 export const useSetServerUrl = () => useAtomSet(serverUrlAtom);
-export const serverUrlStorage = Effect.map(KeyValueStore.KeyValueStore, (store) =>
-	store.forSchema(serverUrlSchema),
-);
+export const serverUrlReader = Effect.map(KeyValueStore.KeyValueStore, (store) => {
+	const serverUrls = store.forSchema(serverUrlSchema);
+	return () =>
+		serverUrls
+			.get(serverUrlKey)
+			.pipe(
+				Effect.orDie,
+				Effect.map(Option.flatMap(Option.fromNullable)),
+				Effect.map(Option.getOrElse(() => CLOUD_URL)),
+			);
+});
