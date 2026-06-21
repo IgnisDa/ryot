@@ -22,24 +22,42 @@ operations.
 
 ## Navigation And The Edge Gesture
 
-`resolveEdge` is the single verdict for the left-edge gesture, the mobile header's leading control,
-and the viewport class, so a swipe can never contradict the control the user sees.
+`resolveEdge` returns three separate facts: the visible leading `intent` (`back`, `drawer`, or
+`none`), the interactive edge `owner`, and the viewport class. `leading` tells the plugin frame which
+control to draw. `edgeBack` reports only whether the plugin document owns an interactive back edge;
+it never chooses the visible leading control.
 
-It returns an `owner` alongside the `intent`, and exactly one document mounts an edge strip. The
-kernel keeps the edge for the drawer and for back on kernel-rendered routes; a plugin child route
-hands the edge to the plugin document, which owns both screens and can therefore animate. The plugin
-executes that gesture but never decides it: the verdict arrives as `edgeBack` on the location
-message and the plugin commits by posting `navigate-back`, leaving the pop to the kernel. Per-frame
-gesture data never crosses the bridge.
+The SDK reconciles each accepted location into its retained screen stack, then reports the actual
+`hasPreviousScreen` with the accepted history `index` and `key`. The kernel accepts that readiness
+only for the active installation/source/artifact document and current entry, then makes the final
+edge-policy decision. A plugin executes an edge it is granted but never decides ownership: it
+commits by posting `navigate-back`, leaving the pop to the kernel. Per-frame gesture data never
+crosses the bridge.
 
 `compact` travels on the same message, because media queries inside the iframe see the content area
 rather than the window. One definition of compact, in the resolver.
 
-A plugin screen draws its own bar, so its leading control needs the same arrangement the back
-control already has: the plugin posts `open-drawer` and the kernel opens it. That message is
-SDK-internal and never reaches `ryot.navigation`, because opening kernel chrome is not a capability
-a plugin may call. The consequence is that closing the drawer can only return focus to the iframe
-element rather than to the exact button, since the button is in another document.
+A plugin screen draws its own bar from `leading`: back posts `navigate-back`, drawer posts
+`open-drawer`, and none draws no leading control. Those messages are SDK-internal and never reach
+`ryot.navigation`, because opening kernel chrome is not a capability a plugin may call. The
+consequence is that closing the drawer can only return focus to the iframe element rather than to
+the exact button, since the button is in another document.
+
+## Plugin Destinations
+
+The authenticated shell resolves the active committed URL to either kernel content or one plugin
+destination. Plugin-private routes and plugin-owned entity routes for the same
+installation/source/artifact identity update one retained `PluginHost`; pathname, slug, entity ID,
+history index, and history key do not identify the host. Kernel routes unmount it, while an
+installation, source, or artifact change replaces it.
+
+The entity route loader reads persisted provenance once. Rendering then resolves that provenance
+against the live catalog, so catalog changes can replace the destination without reloading
+provenance. Disabled installations remain absent from workspace discovery but are still reachable
+through direct plugin and delegated entity URLs. A `/v` to `/e` navigation crosses from a kernel
+document to a plugin document, so the kernel keeps the edge. Navigation between route and entity
+locations in the same active plugin document may grant the plugin edge only after matching SDK
+screen readiness arrives.
 
 ## The Mobile Screen Frame
 
@@ -80,8 +98,10 @@ status bar has to be drawn with a number the plugin was told.
 
 A screen names itself once, through the `title` it passes the frame. `AppScreen` turns that into the
 `<h1>` and the document title; `PluginScreenFrame` turns it into the `<h1>` and the published
-`header` message, which the plugin route feeds to `usePageTitle`. A plugin screen may render no
-frame at all — it then owns its own affordances and must still call `usePluginTitle`.
+`header` message, which the active plugin destination feeds to `usePageTitle`. Publication
+ownership is the installation ID plus the current history `index` and `key`, so a stale or replaced
+screen cannot set the title. A plugin screen may render no frame at all; it then owns its own
+affordances and must still call `usePluginTitle`.
 
 The location message also carries the history `index` and `key`. They are the plugin screen stack's
 only means of telling push from pop from replace, so a navigation path that cannot supply them must
@@ -222,7 +242,8 @@ incoming route's title. Shared frames that already take a `title` prop — `Sett
 `AuthStatus`, `SavedViewNotice` — call it on behalf of every route they render, so their consumers
 must not. `PluginHost` is the exception and owns no title: its notice and its iframe are mounted at
 the same time, because the iframe must survive the loading-to-ready transition for the bridge
-handshake, so the plugin route is the single title owner for every branch it renders.
+handshake. The active plugin destination owns the title and accepts publication only from its
+installation ID and current history `index` and `key`.
 
 The skip link and the route announcer live in `__root.tsx`. Every route renders exactly one `<main>`
 carrying `mainContentProps`, including each pending, error, and not-found branch; the plugin-ready

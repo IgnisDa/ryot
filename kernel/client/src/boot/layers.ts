@@ -21,6 +21,7 @@ import { OAuthStorage } from "#/modules/auth/oauth-storage";
 import { RuntimeOAuthClientService } from "#/modules/auth/runtime-client";
 import { AuthService } from "#/modules/auth/service";
 import { OAuthTokenService } from "#/modules/auth/token-service";
+import { EntitiesService } from "#/modules/entities/service";
 import { GodModeService } from "#/modules/god-mode/service";
 import { GodModeSessionService } from "#/modules/god-mode/session";
 import { ImportsService } from "#/modules/imports/service";
@@ -84,6 +85,7 @@ export const ClientLive = Layer.mergeAll(
 	OAuthLauncherLive,
 	HostedAuthService.layer,
 	GodModeLive,
+	EntitiesService.layer,
 	ManagedAssetsService.layer,
 	ServerLive,
 	ArtifactSessions.layer,

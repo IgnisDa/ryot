@@ -15,6 +15,11 @@ against the embedded metadata before the port starts. `PluginBridgeReady` report
 metadata rather than echoing the kernel's init values, which would make the kernel-side identity
 check tautological.
 
+The bridge protocol remains exactly version 1 and `CLIENT_COMPILER_VERSION` remains exactly 1. Each
+accepted location is reconciled before the SDK automatically reports the retained stack's actual
+`hasPreviousScreen` together with the matching `index` and `key`. This readiness signal is runtime
+coordination with the kernel, not a public plugin API.
+
 `uploads` is a capability, not a protocol: one call hides intent creation, byte transfer, and
 completion, so no intent id, upload URL, or completion step reaches a caller. The `MessageChannel`
 adapter cannot provide it, because every bridge payload is a `JsonValue` and a `Blob` cannot cross
@@ -25,6 +30,11 @@ the port; a plugin calling it gets `unsupported-capability`.
 `PluginRouter` keeps a stack of screens, not one route, and reconciles it through the pure
 `reconcileStack` keyed on the kernel's history `index` and `key`. Those are the only means of
 telling push from pop from replace, so the router never infers a transition from the path.
+
+The location's `leading` intent and `edgeBack` flag are independent. `leading` selects the visible
+back, drawer, or absent control. `edgeBack` only enables the plugin's interactive edge recognizer
+after the kernel grants ownership; it never selects a control. The kernel may send either tagged
+route or tagged entity locations, but plugin-originated navigation remains route-only.
 
 A retained screen keeps its React key so its state survives, and is hidden with `visibility: hidden`
 rather than `display: none`, which would discard layout and with it `scrollTop`. Scroll restoration

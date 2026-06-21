@@ -1,5 +1,7 @@
+import type { PluginLeadingIntent } from "@ryot-app/contract/modules/plugins/client";
+
 export type EdgeOwner = "kernel" | "plugin";
-export type EdgeIntent = "back" | "drawer" | "none";
+export type EdgeIntent = PluginLeadingIntent;
 
 export type EdgeResolution = {
 	readonly owner: EdgeOwner;
@@ -22,12 +24,12 @@ export function resolveEdge(input: {
 	readonly pathname: string;
 	readonly canGoBack: boolean;
 	readonly isDesktop: boolean;
-	readonly hasPluginDocument: boolean;
+	readonly hasPluginBackScreen: boolean;
 }): EdgeResolution {
 	const compact = !input.isDesktop;
 	const hasDrawer = hasWorkspaceChrome(input.pathname);
 	const intent = resolveIntent(input, hasDrawer);
-	const owner = intent === "back" && input.hasPluginDocument && compact ? "plugin" : "kernel";
+	const owner = intent === "back" && input.hasPluginBackScreen && compact ? "plugin" : "kernel";
 	return { owner, compact, intent };
 }
 

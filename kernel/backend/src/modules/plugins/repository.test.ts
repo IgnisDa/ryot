@@ -289,6 +289,55 @@ it.effect("loads active manifests without selecting plugin scripts", () => {
 	}).pipe(Effect.provide(layer));
 });
 
+it.effect("requires current client artifact metadata for source-hash cache hits", () => {
+	const dialect = new PgDialect();
+	let statement: { sql: string; params: unknown[] } | undefined;
+	const db = {
+		select: () => ({
+			from: (table: unknown) => ({
+				where: (condition: SQLWrapper) => {
+					if (table === schema.pluginClientArtifact) {
+						return sql`select 1 from ${schema.pluginClientArtifact} where ${condition}`;
+					}
+					statement = dialect.sqlToQuery(condition.getSQL());
+					return { limit: () => Effect.succeed([]) };
+				},
+			}),
+		}),
+	};
+	const layer = PluginRepository.layer.pipe(
+		Layer.provideMerge(Layer.succeed(Database, Object.assign(Object.create(null), db))),
+	);
+
+	return Effect.gen(function* () {
+		const repository = yield* PluginRepository;
+		expect(
+			yield* repository.findBySourceHash({ ...systemIdentity, sourceHash: "source-hash" }),
+		).toBeNull();
+		expect(statement?.sql).toContain('"plugin"."client_artifact_hash" is null');
+		expect(statement?.sql).toContain(`not ("plugin"."manifest" ? 'client')`);
+		expect(statement?.sql).toContain("exists");
+		expect(statement?.sql).toContain('from "plugin_client_artifact"');
+		expect(statement?.sql).toContain(
+			'"plugin_client_artifact"."hash" = "plugin"."client_artifact_hash"',
+		);
+		expect(statement?.sql).toContain('"plugin_client_artifact"."format" =');
+		expect(statement?.sql).toContain('"plugin_client_artifact"."api_version" =');
+		expect(statement?.sql).toContain('"plugin_client_artifact"."bridge_version" =');
+		expect(statement?.sql).toContain('"plugin_client_artifact"."compiler_version" =');
+		expect(statement?.params).toEqual([
+			"fixture",
+			"system",
+			"active",
+			"source-hash",
+			CLIENT_ARTIFACT_FORMAT,
+			CLIENT_API_VERSION,
+			CLIENT_BRIDGE_PROTOCOL_VERSION,
+			CLIENT_COMPILER_VERSION,
+		]);
+	}).pipe(Effect.provide(layer));
+});
+
 it.effect(
 	"preserves provider IDs and persists provider script membership across reingestion",
 	() => {
