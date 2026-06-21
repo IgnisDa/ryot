@@ -2,9 +2,8 @@
 
 import { fileURLToPath } from "node:url";
 
-import { FetchHttpClient, HttpApiClient, HttpClient, HttpClientRequest } from "@effect/platform";
 import { faker } from "@faker-js/faker";
-import { AppContract } from "@ryot/contract/contract";
+import { runContract, type ContractProgram } from "@ryot/contract/client";
 import type { QueryExpression, RuntimeRef } from "@ryot/contract/display-configuration";
 import {
 	EntitySchemaId,
@@ -128,15 +127,6 @@ type SavedViewSpec = {
 	displayConfiguration: SavedViewDisplayConfigInput;
 };
 
-const makeContractClient = (cookies: string) =>
-	HttpApiClient.make(AppContract, {
-		baseUrl: API_BASE_URL,
-		transformClient: HttpClient.mapRequest(HttpClientRequest.setHeaders({ Cookie: cookies })),
-	});
-
-type ContractClient = Effect.Effect.Success<ReturnType<typeof makeContractClient>>;
-type ContractProgram<A, E> = (client: ContractClient) => Effect.Effect<A, E>;
-
 class APIClient {
 	private cookies: string;
 	private requestCount = 0;
@@ -147,11 +137,7 @@ class APIClient {
 
 	run<A, E>(program: ContractProgram<A, E>): Promise<A> {
 		this.requestCount++;
-		return makeContractClient(this.cookies).pipe(
-			Effect.flatMap(program),
-			Effect.provide(FetchHttpClient.layer),
-			Effect.runPromise,
-		);
+		return runContract(program, { baseUrl: API_BASE_URL, headers: { Cookie: this.cookies } });
 	}
 
 	getRequestCount(): number {
