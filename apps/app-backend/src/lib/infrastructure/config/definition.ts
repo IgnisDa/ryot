@@ -21,6 +21,12 @@ const fields = {
 	frontendUrl: strField("FRONTEND_URL", "Public URL of the frontend application", {
 		default: "http://localhost:3000",
 	}),
+	smtpServer: optField(strField("SERVER_SMTP_SERVER", "SMTP server hostname")),
+	smtpUser: optField(secretField("SERVER_SMTP_USER", "SMTP username")),
+	smtpPassword: optField(secretField("SERVER_SMTP_PASSWORD", "SMTP password")),
+	smtpMailbox: strField("SERVER_SMTP_MAILBOX", "SMTP sender mailbox", {
+		default: "Ryot <no-reply@ryot.io>",
+	}),
 	jobIdSecret: secretField("SANDBOX_JOB_ID_SECRET", "Secret used to sign sandbox job identifiers", {
 		default: "changeme",
 	}),
@@ -166,6 +172,28 @@ const frontendGroup = group(
 	{ oidcButtonLabel: fields.oidcButtonLabel.meta },
 );
 
+const smtpGroup = group(
+	"SMTP delivery settings",
+	Config.all({
+		user: fields.smtpUser.config,
+		server: fields.smtpServer.config,
+		mailbox: fields.smtpMailbox.config,
+		password: fields.smtpPassword.config,
+	}),
+	{
+		user: fields.smtpUser.meta,
+		server: fields.smtpServer.meta,
+		mailbox: fields.smtpMailbox.meta,
+		password: fields.smtpPassword.meta,
+	},
+);
+
+const notificationsGroup = group(
+	"Notification delivery settings",
+	Config.all({ smtp: smtpGroup.config }),
+	{ smtp: smtpGroup.meta },
+);
+
 const usersGroup = group(
 	"User account settings",
 	Config.all({
@@ -286,6 +314,7 @@ export const systemConfigDefinition = group(
 		scheduler: schedulerGroup.config,
 		fileStorage: fileStorageGroup.config,
 		frontendUrl: fields.frontendUrl.config,
+		notifications: notificationsGroup.config,
 		builtinExercisePreloadLimit: fields.builtinExercisePreloadLimit.config,
 	}),
 	{
@@ -302,6 +331,7 @@ export const systemConfigDefinition = group(
 		scheduler: schedulerGroup.meta,
 		fileStorage: fileStorageGroup.meta,
 		frontendUrl: fields.frontendUrl.meta,
+		notifications: notificationsGroup.meta,
 		builtinExercisePreloadLimit: fields.builtinExercisePreloadLimit.meta,
 	},
 );

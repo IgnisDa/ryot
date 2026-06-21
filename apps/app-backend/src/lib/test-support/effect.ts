@@ -61,6 +61,14 @@ export const makeAppConfigLayer = (overrides?: Partial<AppConfigValue>): Layer.L
 		redisUrl: Redacted.make("unused"),
 		frontend: { oidcButtonLabel: Option.none() },
 		users: { allowRegistration: true, disableLocalAuth: false },
+		notifications: {
+			smtp: {
+				user: Option.none(),
+				server: Option.none(),
+				password: Option.none(),
+				mailbox: "Ryot <no-reply@ryot.io>",
+			},
+		},
 		scheduler: {
 			progressUpdateThresholdHours: 2,
 			frequentCronJobsSchedule: "every 5 minutes",

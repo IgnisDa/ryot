@@ -12,7 +12,9 @@ const AuthConfig = Schema.Struct({
 	oidcButtonLabel: Schema.optional(Schema.String),
 });
 
-const ConfigResponse = Schema.Struct({ auth: AuthConfig });
+const NotificationConfig = Schema.Struct({ smtpEnabled: Schema.Boolean });
+
+const ConfigResponse = Schema.Struct({ auth: AuthConfig, notifications: NotificationConfig });
 
 export const SystemGroup = HttpApiGroup.make("system")
 	.add(
