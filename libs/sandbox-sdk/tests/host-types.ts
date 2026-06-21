@@ -96,3 +96,106 @@ defineDriver(narrowedManifest, {
 		return result.success ? result.data : null;
 	},
 });
+
+const allDomainManifest = defineManifest({
+	kind: "script",
+	name: "All domain capabilities",
+	requiredAppConfigKeys: [],
+	slug: "all-domain-capabilities",
+	capabilities: [
+		"getEntity",
+		"listEvents",
+		"createEvents",
+		"getIntegration",
+		"getEntitySchema",
+		"listEventSchemas",
+		"listIntegrations",
+		"executeQueryEngine",
+	],
+});
+
+defineDriver(allDomainManifest, {
+	input: z.object({}),
+	output: z.boolean(),
+	run: async (_input, host) => {
+		const entity = await host.getEntity("entity-1");
+		if (entity.success) {
+			const properties: JsonValue = entity.data.properties;
+			const externalId: string | null = entity.data.externalId;
+			void properties;
+			void externalId;
+		}
+
+		const entitySchema = await host.getEntitySchema("schema-1");
+		if (entitySchema.success) {
+			const providers: ReadonlyArray<{ name: string; scriptId: string }> =
+				entitySchema.data.providers;
+			void providers;
+		}
+
+		const integration = await host.getIntegration("integration-1");
+		if (integration.success) {
+			const lot: "push" | "sink" | "yank" = integration.data.lot;
+			void lot;
+		}
+
+		const events = await host.listEvents({ entityId: "entity-1" });
+		if (events.success) {
+			const occurredAt: string = events.data[0]?.occurredAt ?? "";
+			void occurredAt;
+		}
+
+		const eventSchemas = await host.listEventSchemas("schema-1");
+		void eventSchemas;
+
+		const integrations = await host.listIntegrations({ provider: "plex_yank" });
+		void integrations;
+
+		const created = await host.createEvents([
+			{ entityId: "entity-1", eventSchemaId: "event-schema-1", properties: { watched: true } },
+		]);
+		if (created.success) {
+			const total: number = created.data.count;
+			void total;
+		}
+
+		const query = await host.executeQueryEngine({ source: { type: "entities" } });
+		if (query.success) {
+			const value: unknown = query.data;
+			void value;
+
+			// @ts-expect-error query-engine results are unknown until the script parses them.
+			const rows: number = query.data;
+			void rows;
+		}
+
+		// @ts-expect-error getEntity requires a string identifier.
+		await host.getEntity(42);
+
+		// @ts-expect-error listIntegrations only accepts supported providers.
+		await host.listIntegrations({ provider: "not-a-provider" });
+
+		return true;
+	},
+});
+
+const narrowedDomainManifest = defineManifest({
+	kind: "script",
+	requiredAppConfigKeys: [],
+	capabilities: ["getEntity"],
+	name: "Narrowed domain capabilities",
+	slug: "narrowed-domain-capabilities",
+});
+
+defineDriver(narrowedDomainManifest, {
+	input: z.object({}),
+	output: z.boolean(),
+	run: async (_input, host) => {
+		await host.getEntity("entity-1");
+
+		// @ts-expect-error getIntegration was not declared by this manifest.
+		await host.getIntegration("integration-1");
+
+		return true;
+	},
+});

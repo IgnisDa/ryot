@@ -26,6 +26,7 @@ import {
 	apiSuccess,
 	type AdditionalSandboxHostImplementationMap,
 	isJsonValue,
+	toSandboxJsonValue,
 	type UserSandboxRunInput,
 	requireUserSandboxRunInput,
 } from "./shared";
@@ -257,7 +258,7 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 									return yield* Effect.fail(entityNotFoundError);
 								}
 
-								return entity;
+								return { ...entity, properties: toSandboxJsonValue(entity.properties) };
 							}),
 						),
 					),
@@ -281,7 +282,10 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 									.pipe(
 										Effect.flatMap((schemaValue) =>
 											schemaValue
-												? Effect.succeed(schemaValue)
+												? Effect.succeed({
+														...schemaValue,
+														propertiesSchema: toSandboxJsonValue(schemaValue.propertiesSchema),
+													})
 												: Effect.fail("Entity schema not found"),
 										),
 									),
@@ -308,7 +312,10 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 									.pipe(
 										Effect.flatMap((integration) =>
 											integration
-												? Effect.succeed(integration)
+												? Effect.succeed({
+														...integration,
+														providerSpecifics: toSandboxJsonValue(integration.providerSpecifics),
+													})
 												: Effect.fail("Integration not found"),
 										),
 									),
@@ -341,12 +348,20 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 									return yield* Effect.fail("Entity schema not found");
 								}
 
-								return yield* runWithDb(
+								const eventSchemas = yield* runWithDb(
 									eventSchemasRepository.listByEntitySchemaForUser({
 										userId: UserId.make(input.userId),
 										entitySchemaId: EntitySchemaId.make(resolvedEntitySchemaId),
 									}),
 								);
+
+								return eventSchemas.map((eventSchema) => ({
+									id: eventSchema.id,
+									slug: eventSchema.slug,
+									name: eventSchema.name,
+									entitySchemaId: eventSchema.entitySchemaId,
+									propertiesSchema: toSandboxJsonValue(eventSchema.propertiesSchema),
+								}));
 							}),
 						),
 					),
@@ -365,11 +380,20 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 								? EntityId.make(parsedQuery.sessionEntityId)
 								: undefined;
 
-							return events.listForUser(UserId.make(input.userId), {
-								entityId,
-								sessionEntityId,
-								eventSchemaSlug: parsedQuery.eventSchemaSlug,
-							});
+							return events
+								.listForUser(UserId.make(input.userId), {
+									entityId,
+									sessionEntityId,
+									eventSchemaSlug: parsedQuery.eventSchemaSlug,
+								})
+								.pipe(
+									Effect.map((rows) =>
+										rows.map((event) => ({
+											...event,
+											properties: toSandboxJsonValue(event.properties),
+										})),
+									),
+								);
 						}),
 					),
 				);
@@ -403,6 +427,13 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 							...(typeof provider === "string" ? { provider } : {}),
 							...(typeof isDisabled === "boolean" ? { isDisabled } : {}),
 						}),
+					).pipe(
+						Effect.map((rows) =>
+							rows.map((integration) => ({
+								...integration,
+								providerSpecifics: toSandboxJsonValue(integration.providerSpecifics),
+							})),
+						),
 					),
 				);
 			},

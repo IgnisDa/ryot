@@ -134,6 +134,79 @@ const main = defineDriver(manifest, {
 export default defineScript({ manifest, drivers: { main } });
 `;
 
+const domainHostSource = `
+import {
+  createEventsResultDataSchema,
+  defineDriver,
+  defineManifest,
+  defineScript,
+  entityRecordSchema,
+  entitySchemaRecordSchema,
+  eventRecordSchema,
+  eventSchemaRecordSchema,
+  integrationRecordSchema,
+  unwrapHostResult,
+  z,
+} from "@ryot/sandbox-sdk";
+
+export const manifest = defineManifest({
+  kind: "script",
+  name: "Domain host execution",
+  slug: "domain-host-execution",
+  requiredAppConfigKeys: [],
+  capabilities: [
+    "getEntity",
+    "listEvents",
+    "createEvents",
+    "getIntegration",
+    "getEntitySchema",
+    "listEventSchemas",
+    "executeQueryEngine",
+  ],
+});
+
+const main = defineDriver(manifest, {
+  input: z.object({}),
+  output: z.object({
+    queryRows: z.number(),
+    missing: z.string(),
+    created: createEventsResultDataSchema,
+    entity: entityRecordSchema,
+    integration: integrationRecordSchema,
+    events: z.array(eventRecordSchema),
+    entitySchema: entitySchemaRecordSchema,
+    eventSchemas: z.array(eventSchemaRecordSchema),
+  }),
+  run: async (_input, host) => {
+    const entity = unwrapHostResult(await host.getEntity("entity-1"));
+    const missingResult = await host.getEntity("missing");
+    const integration = unwrapHostResult(await host.getIntegration("integration-1"));
+    const events = unwrapHostResult(await host.listEvents({ entityId: "entity-1" }));
+    const entitySchema = unwrapHostResult(await host.getEntitySchema("movie"));
+    const eventSchemas = unwrapHostResult(await host.listEventSchemas("movie"));
+    const created = unwrapHostResult(
+      await host.createEvents([
+        { entityId: "entity-1", eventSchemaId: "event-schema-1", properties: { watched: true } },
+      ]),
+    );
+    const query = unwrapHostResult(await host.executeQueryEngine({ source: { type: "entities" } }));
+    const rows = z.array(z.object({ id: z.string() })).parse(query);
+    return {
+      entity,
+      created,
+      integration,
+      entitySchema,
+      events: [...events],
+      queryRows: rows.length,
+      eventSchemas: [...eventSchemas],
+      missing: missingResult.success ? "unexpected" : missingResult.error,
+    };
+  },
+});
+
+export default defineScript({ manifest, drivers: { main } });
+`;
+
 const encodeRunnerRequest = Schema.encodeSync(Schema.parseJson(Schema.Unknown));
 const decodeRunnerResponse = Schema.decodeUnknownSync(Schema.parseJson(Schema.Unknown));
 type RunnerCompiledModule = Omit<CompiledSandboxModule, "format"> & { readonly format: number };
@@ -400,6 +473,149 @@ it("executes typed core host methods and filters the Deno host to declared capab
 				});
 
 				expect(new Set(bridge.calls.map((call) => call.fnName))).toEqual(new Set(apiFunctions));
+			}).pipe(Effect.provide(SandboxCompiler.Default)),
+		),
+	));
+
+const domainEntityRecord = {
+	name: "Inception",
+	populatedAt: null,
+	sandboxScriptId: null,
+	externalId: "tt1375666",
+	entitySchemaId: "movie",
+	properties: { runtime: 148 },
+	createdAt: "2024-01-01T00:00:00.000Z",
+	updatedAt: "2024-01-01T00:00:00.000Z",
+};
+
+const domainIntegrationRecord = {
+	name: null,
+	lot: "yank",
+	userId: "user-1",
+	isDisabled: false,
+	minimumProgress: 2,
+	syncOwnership: true,
+	maximumProgress: 95,
+	lastFinishedAt: null,
+	id: "integration-1",
+	provider: "plex_yank",
+	createdAt: "2024-01-01T00:00:00.000Z",
+	updatedAt: "2024-01-01T00:00:00.000Z",
+	providerSpecifics: { kind: "plex_yank" },
+	extraSettings: { disableOnContinuousErrors: false },
+};
+
+const domainEventRecord = {
+	id: "event-1",
+	entityId: "entity-1",
+	eventSchemaSlug: "watched",
+	eventSchemaName: "Watched",
+	properties: { watched: true },
+	eventSchemaId: "event-schema-1",
+	createdAt: "2024-01-01T00:00:00.000Z",
+	updatedAt: "2024-01-01T00:00:00.000Z",
+	occurredAt: "2024-01-01T00:00:00.000Z",
+};
+
+const domainEntitySchemaRecord = {
+	id: "movie",
+	icon: "film",
+	name: "Movie",
+	slug: "movie",
+	isBuiltin: true,
+	trackerId: "tracker-1",
+	accentColor: "#ffffff",
+	propertiesSchema: { fields: {} },
+	providers: [{ name: "TMDB", scriptId: "tmdb-movie" }],
+};
+
+const domainEventSchemaRecord = {
+	id: "watched",
+	name: "Watched",
+	slug: "watched",
+	entitySchemaId: "movie",
+	propertiesSchema: { fields: {} },
+};
+
+const startDomainHostBridge = () => {
+	const createdEvents: unknown[][] = [];
+	const server = Bun.serve({
+		port: 0,
+		hostname: "127.0.0.1",
+		fetch: (request) =>
+			Effect.runPromise(
+				Effect.gen(function* () {
+					const parts = new URL(request.url).pathname.split("/").filter(Boolean);
+					const fnName = decodeURIComponent(parts[2] ?? "");
+					const body: unknown = yield* Effect.promise(() => request.json());
+					const argsValue =
+						body !== null && typeof body === "object" ? Reflect.get(body, "args") : undefined;
+					const args: readonly unknown[] = Array.isArray(argsValue) ? argsValue : [];
+
+					let result: unknown;
+					if (fnName === "getEntity") {
+						result =
+							args[0] === "missing"
+								? { error: "Entity not found", success: false }
+								: { data: { ...domainEntityRecord, id: args[0] }, success: true };
+					} else if (fnName === "getIntegration") {
+						result = { data: domainIntegrationRecord, success: true };
+					} else if (fnName === "getEntitySchema") {
+						result = { data: domainEntitySchemaRecord, success: true };
+					} else if (fnName === "listEventSchemas") {
+						result = { data: [domainEventSchemaRecord], success: true };
+					} else if (fnName === "listEvents") {
+						result = { data: [domainEventRecord], success: true };
+					} else if (fnName === "createEvents") {
+						const items = args[0];
+						createdEvents.push(Array.isArray(items) ? items : []);
+						result = { data: { count: Array.isArray(items) ? items.length : 0 }, success: true };
+					} else if (fnName === "executeQueryEngine") {
+						result = { data: [{ id: "a" }, { id: "b" }], success: true };
+					} else {
+						result = { error: "Unknown function", success: false };
+					}
+
+					return Response.json({ result });
+				}),
+			),
+	});
+
+	return {
+		createdEvents,
+		port: server.port,
+		stop: () => Promise.resolve(server.stop(true)),
+	};
+};
+
+it("executes typed domain host methods through Deno", () =>
+	Effect.runPromise(
+		Effect.scoped(
+			Effect.gen(function* () {
+				const bridge = yield* Effect.acquireRelease(Effect.sync(startDomainHostBridge), (value) =>
+					Effect.promise(value.stop),
+				);
+				const compiler = yield* SandboxCompiler;
+				const compiled = yield* compiler.compile(domainHostSource);
+				const apiBase = `http://127.0.0.1:${bridge.port}`;
+
+				const result = yield* runInDeno(
+					compiled,
+					"main",
+					{},
+					{ apiBase, apiFunctions: compiled.manifest.capabilities },
+				);
+				assert(result !== null && typeof result === "object");
+				expect(Reflect.get(result, "value")).toMatchObject({
+					queryRows: 2,
+					created: { count: 1 },
+					missing: "Entity not found",
+					entitySchema: { id: "movie", name: "Movie" },
+					entity: { id: "entity-1", name: "Inception" },
+					eventSchemas: [{ id: "watched", entitySchemaId: "movie" }],
+					integration: { id: "integration-1", provider: "plex_yank" },
+				});
+				expect(bridge.createdEvents).toHaveLength(1);
 			}).pipe(Effect.provide(SandboxCompiler.Default)),
 		),
 	));
