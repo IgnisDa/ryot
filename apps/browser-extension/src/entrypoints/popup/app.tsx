@@ -20,6 +20,18 @@ const getStatusMessage = (status: ExtensionStatus): string => {
 		.exhaustive();
 };
 
+const getStatusBackgroundClass = (status: ExtensionStatus): string =>
+	match(status)
+		.with(ExtensionStatus.LookupFailed, () => "bg-red-50")
+		.with(ExtensionStatus.TrackingActive, () => "bg-green-50")
+		.otherwise(() => "bg-gray-100");
+
+const getStatusTextClass = (status: ExtensionStatus): string =>
+	match(status)
+		.with(ExtensionStatus.LookupFailed, () => "text-red-800")
+		.with(ExtensionStatus.TrackingActive, () => "text-green-800")
+		.otherwise(() => "text-gray-800");
+
 const App = () => {
 	const [currentPage, setCurrentPage] = useState<"main" | "settings">("main");
 	const [url, setUrl] = useState("");
@@ -35,8 +47,8 @@ const App = () => {
 		}
 
 		try {
-			const url = new URL(urlString);
-			if (url.protocol !== "http:" && url.protocol !== "https:") {
+			const parsedUrl = new URL(urlString);
+			if (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:") {
 				setFormState((prev) => ({
 					...prev,
 					error: "URL must start with http:// or https://",
@@ -89,17 +101,17 @@ const App = () => {
 
 		const loadDebugMode = async () => {
 			const savedDebugMode = await storage.getItem<boolean>(STORAGE_KEYS.DEBUG_MODE);
-			setDebugMode(savedDebugMode || false);
+			setDebugMode(savedDebugMode ?? false);
 		};
 
-		loadSavedUrl();
-		loadExtensionStatus();
-		loadCurrentVideoTitle();
-		loadDebugMode();
+		void loadSavedUrl();
+		void loadExtensionStatus();
+		void loadCurrentVideoTitle();
+		void loadDebugMode();
 
 		const handleStorageChange = () => {
-			loadExtensionStatus();
-			loadCurrentVideoTitle();
+			void loadExtensionStatus();
+			void loadCurrentVideoTitle();
 		};
 
 		const unwatch = storage.watch(STORAGE_KEYS.EXTENSION_STATUS, handleStorageChange);
@@ -107,7 +119,7 @@ const App = () => {
 		return unwatch;
 	}, []);
 
-	const handleSubmit = async (e: React.FormEvent) => {
+	const handleSubmit = async (e: React.SyntheticEvent<HTMLFormElement>) => {
 		e.preventDefault();
 
 		if (!validateUrl(url)) {
@@ -156,7 +168,7 @@ const App = () => {
 								type="checkbox"
 								id="debug-mode"
 								checked={debugMode}
-								onChange={(e) => handleDebugModeChange(e.target.checked)}
+								onChange={(e) => void handleDebugModeChange(e.target.checked)}
 								className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded"
 							/>
 							<label htmlFor="debug-mode" className="text-sm text-gray-700">
@@ -175,7 +187,7 @@ const App = () => {
 						</p>
 						<button
 							type="button"
-							onClick={handleClear}
+							onClick={() => void handleClear()}
 							className="w-full py-2.5 px-4 bg-red-500 text-white border-none rounded-md text-sm font-medium cursor-pointer transition-colors hover:bg-red-600"
 						>
 							Clear All Data
@@ -202,7 +214,7 @@ const App = () => {
 					<Settings size={18} />
 				</button>
 			</div>
-			<form onSubmit={handleSubmit} className="flex flex-col gap-3">
+			<form onSubmit={(e) => void handleSubmit(e)} className="flex flex-col gap-3">
 				{formState.status !== "submitted" && (
 					<>
 						<label htmlFor="url-input" className="text-sm font-medium text-gray-600 mb-1">
@@ -236,23 +248,9 @@ const App = () => {
 					{formState.status === "submitted" && (
 						<div className="w-full">
 							{extensionStatus ? (
-								<div
-									className={`p-3 rounded-md ${
-										extensionStatus === ExtensionStatus.LookupFailed
-											? "bg-red-50"
-											: extensionStatus === ExtensionStatus.TrackingActive
-												? "bg-green-50"
-												: "bg-gray-100"
-									}`}
-								>
+								<div className={`p-3 rounded-md ${getStatusBackgroundClass(extensionStatus)}`}>
 									<div
-										className={`text-sm font-medium mb-1 ${
-											extensionStatus === ExtensionStatus.LookupFailed
-												? "text-red-800"
-												: extensionStatus === ExtensionStatus.TrackingActive
-													? "text-green-800"
-													: "text-gray-800"
-										}`}
+										className={`text-sm font-medium mb-1 ${getStatusTextClass(extensionStatus)}`}
 									>
 										Status: {getStatusMessage(extensionStatus)}
 									</div>
