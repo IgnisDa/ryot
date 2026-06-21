@@ -55,7 +55,9 @@ describe("POST /entity-schemas/search — provider entity search", () => {
 		const { client } = await createAuthenticatedClient();
 
 		const error = await client.runError((c) =>
-			c.entitySchemas.search({ payload: { scriptId: SandboxScriptId.make(crypto.randomUUID()) } }),
+			c.entitySchemas.search({
+				payload: { scriptId: SandboxScriptId.make(crypto.randomUUID()) },
+			}),
 		);
 
 		assertTaggedError(error, "NotFound");
@@ -77,12 +79,15 @@ describe("POST /entity-schemas/search — provider entity search", () => {
 		const value = requireObjectRecord(result.value, "Expected search result to be an object");
 		const items = requireArray(value.items, "Expected search result items to be an array");
 		expect(items).toHaveLength(2);
+	});
 
 	it("returns 401 for unauthenticated search requests", async () => {
 		const client = getBackendClient();
 
 		const error = await client.runError((c) =>
-			c.entitySchemas.search({ payload: { scriptId: SandboxScriptId.make(crypto.randomUUID()) } }),
+			c.entitySchemas.search({
+				payload: { scriptId: SandboxScriptId.make(crypto.randomUUID()) },
+			}),
 		);
 
 		assertTaggedError(error, "Unauthorized");
@@ -176,4 +181,5 @@ describe("GET /library/import/:jobId — provider entity import result", () => {
 
 		const inLibrary = await queryInLibraryRelationship(client, result.data.id, email);
 		expect(inLibrary.rowCount).toBeGreaterThan(0);
+	});
 });

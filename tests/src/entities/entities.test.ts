@@ -199,6 +199,7 @@ describe("GET /entities/:id — global entity read access", () => {
 		const { client: clientB } = await createAuthenticatedClient();
 		const entityB = await getEntity(clientB, entity.id);
 		expect(entityB.id).toBe(entity.id);
+	});
 });
 
 describe("POST /entities — enum and enum-array property schema validation", () => {
