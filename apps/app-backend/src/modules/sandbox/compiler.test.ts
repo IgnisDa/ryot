@@ -49,6 +49,56 @@ it.effect("accepts a top-level driver record in the default script definition", 
 	}),
 );
 
+it.effect(
+	"rejects a provider manifest wrapped in defineScript despite suppressed type errors",
+	() =>
+		Effect.gen(function* () {
+			const failure = yield* compile(
+				validSource
+					.replace(
+						'kind: "script",',
+						'kind: "provider",\n  providerInformation: { source: "test" },',
+					)
+					.replace(
+						"export default defineScript",
+						"// @ts-expect-error intentionally using the wrong definition helper\nexport default defineScript",
+					),
+			).pipe(Effect.flip);
+
+			expect(failure.diagnostics).toEqual([
+				expect.objectContaining({
+					code: "RYOT_DEFINITION",
+					message: 'Manifest kind "provider" must use defineProvider',
+				}),
+			]);
+		}),
+);
+
+it.effect("rejects generic schemas for a standard provider driver", () =>
+	Effect.gen(function* () {
+		const failure = yield* compile(
+			validSource
+				.replace(
+					'import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk";',
+					'import { defineDriver, defineManifest } from "@ryot/sandbox-sdk";\nimport { defineProvider } from "@ryot/sandbox-sdk/provider";',
+				)
+				.replace('kind: "script",', 'kind: "provider",\n  providerInformation: { source: "test" },')
+				.replaceAll("main", "search")
+				.replace(
+					"export default defineScript",
+					"// @ts-expect-error intentionally using generic provider schemas\nexport default defineProvider",
+				),
+		).pipe(Effect.flip);
+
+		expect(failure.diagnostics).toEqual([
+			expect.objectContaining({
+				code: "RYOT_DEFINITION",
+				message: 'Provider driver "search" must use defineProviderDriver(manifest, "search", ...)',
+			}),
+		]);
+	}),
+);
+
 it.effect("externalizes every approved SDK runtime dependency", () =>
 	Effect.gen(function* () {
 		const source = `${approvedDependencyImports.map((specifier) => `import "${specifier}";`).join("\n")}\n${validSource}`;

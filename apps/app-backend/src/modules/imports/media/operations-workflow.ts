@@ -11,13 +11,13 @@ import { DbRunner } from "#lib/infrastructure/db/service";
 import { RedisService } from "#lib/infrastructure/redis";
 import { AddEntityToCollectionWorkflow } from "#modules/collections/add-entity-to-collection-workflow";
 import { EntitiesRepository } from "#modules/entities/repository";
-import {
-	decodeEntityResolveResult,
-	decodeEntitySearchResult,
-	decodeSandboxDriverResult,
-} from "#modules/entity-import/population";
+import { decodeSandboxDriverResult } from "#modules/entity-import/population";
 import { LibraryEntityImportWorkflow } from "#modules/library-membership/library-entity-import-workflow";
 import { SandboxExecutionQueue } from "#modules/sandbox/durable-queues";
+import {
+	decodeProviderResolveResult,
+	decodeProviderSearchResult,
+} from "#modules/sandbox/provider-contracts";
 
 import { loadOneTimeMediaImportAdapterResult } from "./source-loaders";
 import { MediaImportWorkflowOperations } from "./types-workflow";
@@ -40,7 +40,7 @@ const resolveSandboxEntityExternalId = (input: {
 		Effect.flatMap((result) =>
 			decodeSandboxDriverResult(
 				result,
-				decodeEntityResolveResult,
+				decodeProviderResolveResult,
 				"Entity resolve script returned an unexpected shape",
 			),
 		),
@@ -63,7 +63,7 @@ const searchSandboxEntities = (input: {
 		Effect.flatMap((result) =>
 			decodeSandboxDriverResult(
 				result,
-				decodeEntitySearchResult,
+				decodeProviderSearchResult,
 				"Entity search script returned an unexpected shape",
 			).pipe(Effect.map((parsed) => parsed.items)),
 		),
