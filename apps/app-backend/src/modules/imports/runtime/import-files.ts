@@ -216,7 +216,7 @@ export const extractImportZipArchive = Effect.fn("imports.extractImportZipArchiv
 export const resolveImportPath = (filePath: string, tempDir: string): Effect.Effect<string[]> =>
 	resolveSafeImportFilePath(filePath, tempDir).pipe(
 		Effect.map((path) => [path]),
-		Effect.catchAll(() => Effect.succeed([])),
+		Effect.orElseSucceed(() => []),
 	);
 
 export const cleanupImportFile = Effect.fn("imports.cleanupImportFile")(function* (

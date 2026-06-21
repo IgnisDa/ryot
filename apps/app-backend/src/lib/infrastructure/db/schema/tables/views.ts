@@ -25,9 +25,9 @@ export const savedView = pgTable(
 		sortOrder: integer().notNull().default(0),
 		isBuiltin: boolean().default(false).notNull(),
 		isDisabled: boolean().notNull().default(false),
-		queryDocument: jsonb().$type<typeof QueryDocument.Type>().notNull(),
+		queryDocument: jsonb().$type<QueryDocument>().notNull(),
+		displayConfiguration: jsonb().$type<DisplayConfiguration>().notNull(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-		displayConfiguration: jsonb().$type<typeof DisplayConfiguration.Type>().notNull(),
 		trackerId: text().references(() => tracker.id, { onDelete: "set null" }),
 		id: text()
 			.primaryKey()

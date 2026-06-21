@@ -39,7 +39,7 @@ export const deliverEnabledPlatforms = Effect.fn("deliverEnabledPlatforms")(func
 					: payload.request.message;
 			return delivery.send({ message, platformSpecifics: platform.platformSpecifics }).pipe(
 				Effect.as<NotificationDeliveryResult["status"]>("sent"),
-				Effect.catchAll(() => Effect.succeed<NotificationDeliveryResult["status"]>("failed")),
+				Effect.orElseSucceed(() => "failed" as const),
 				Effect.map((status) => toDeliveryResult(platform, status)),
 			);
 		},
