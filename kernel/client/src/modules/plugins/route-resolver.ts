@@ -1,4 +1,5 @@
 import { reservedPluginSlugs } from "@ryot-app/contract/modules/plugins/schemas";
+import type { EntityRouteProvenance } from "@ryot-app/ryotql-recipes/entities";
 import type {
 	PluginClientCatalog,
 	PluginClientCatalogEntry,
@@ -12,6 +13,17 @@ export type RouteTarget =
 			readonly installation: PluginClientCatalogEntry;
 	  };
 
+export type EntityRouteTarget =
+	| { readonly kind: "missing" }
+	| { readonly kind: "installation-missing" }
+	| { readonly kind: "unsupported"; readonly owner: "kernel" }
+	| {
+			readonly kind: "plugin";
+			readonly entityId: string;
+			readonly installation: PluginClientCatalogEntry;
+			readonly entitySchemaSlug: NonNullable<EntityRouteProvenance>["entitySchemaSlug"];
+	  };
+
 const notFound: RouteTarget = { owner: "kernel", surface: { kind: "not-found" } };
 
 export function resolveRouteTarget(catalog: PluginClientCatalog, pluginSlug: string): RouteTarget {
@@ -22,4 +34,23 @@ export function resolveRouteTarget(catalog: PluginClientCatalog, pluginSlug: str
 	return installation === undefined
 		? notFound
 		: { installation, owner: "plugin", surface: { kind: "home" } };
+}
+
+export function resolveEntityRouteTarget(
+	catalog: PluginClientCatalog,
+	entityId: string,
+	provenance: EntityRouteProvenance,
+): EntityRouteTarget {
+	if (provenance === null) {
+		return { kind: "missing" };
+	}
+	if (provenance.entitySchemaPluginId === null) {
+		return { kind: "unsupported", owner: "kernel" };
+	}
+	const installation = catalog.find(
+		(candidate) => candidate.pluginId === provenance.entitySchemaPluginId,
+	);
+	return installation === undefined
+		? { kind: "installation-missing" }
+		: { entityId, installation, kind: "plugin", entitySchemaSlug: provenance.entitySchemaSlug };
 }
