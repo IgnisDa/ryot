@@ -286,8 +286,7 @@ driver("details", async function (context, { metadata }) {
 					(entity) => entity.scriptSlug === "music-group.youtube-music",
 				),
 			},
-			{direction: "outgoing",entities: suggestions,relationshipSchemaSlug: "media-suggestion",
-			},
+			{ direction: "outgoing", entities: suggestions, relationshipSchemaSlug: "media-suggestion" },
 		],
 		properties: {
 			duration,
