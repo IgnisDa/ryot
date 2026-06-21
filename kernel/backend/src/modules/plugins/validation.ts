@@ -112,7 +112,11 @@ export const validatePluginPackageLimits = (
 		return yield* Effect.void;
 	});
 
-const privateRejectedCollections = ["boot", "httpRateLimits"] as const satisfies ReadonlyArray<
+const userRejectedCollections = [
+	"boot",
+	"userBootstrap",
+	"httpRateLimits",
+] as const satisfies ReadonlyArray<
 	{
 		[Key in keyof PluginManifestValue]: PluginManifestValue[Key] extends ReadonlyArray<unknown>
 			? Key
@@ -120,19 +124,26 @@ const privateRejectedCollections = ["boot", "httpRateLimits"] as const satisfies
 	}[keyof PluginManifestValue]
 >;
 
-export const validatePrivateManifestSurfaces = (manifest: PluginManifestValue) =>
-	Effect.gen(function* () {
-		const surfaces = privateRejectedCollections.filter((field) => manifest[field].length > 0);
-		return surfaces.length > 0 ? yield* new PluginSurfaceError({ surfaces }) : yield* Effect.void;
-	});
-
-export const validatePrivateSlugAvailability = (
-	pluginSlug: string,
-	systemSlugs: ReadonlySet<string>,
+export const validatePluginManifestPolicy = (
+	manifest: PluginManifestValue,
+	policy:
+		| { readonly scope: "system" }
+		| { readonly scope: "user"; readonly systemSlugs: ReadonlySet<string> },
 ) =>
-	systemSlugs.has(pluginSlug)
-		? Effect.fail(new PluginSlugReservedError({ pluginSlug }))
-		: Effect.void;
+	Effect.gen(function* () {
+		if (policy.scope === "system") {
+			return yield* Effect.void;
+		}
+		const surfaces = userRejectedCollections.filter((field) => manifest[field].length > 0);
+		if (surfaces.length > 0) {
+			return yield* new PluginSurfaceError({ surfaces });
+		}
+		const pluginSlug = manifest.metadata.slug;
+		if (policy.systemSlugs.has(pluginSlug)) {
+			return yield* new PluginSlugReservedError({ pluginSlug });
+		}
+		return yield* Effect.void;
+	});
 
 export const validatePluginManifestReferences = (
 	manifest: PluginManifestValue,

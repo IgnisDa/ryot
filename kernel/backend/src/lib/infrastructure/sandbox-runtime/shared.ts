@@ -1,52 +1,53 @@
 import { unknownToMessage } from "@ryot/contract/errors";
 import type { JsonValue } from "@ryot/contract/modules/ryotql/language";
-import type {
-	ExecutionAuthority,
-	SandboxExecutionGrants,
-} from "@ryot/contract/modules/sandbox/schemas";
+import type { SandboxExecutionGrants } from "@ryot/contract/modules/sandbox/schemas";
 import type { SandboxHostCapability } from "@ryot/contract/modules/sandbox/wire";
-import type { SandboxProviderId } from "@ryot/contract/schema/brands";
-import {
-	SANDBOX_CAPABILITY_REQUIREMENTS,
-	type SandboxCapabilityRequirement,
-	type SandboxHostImplementationMap as SdkSandboxHostImplementationMap,
-} from "@ryot/sandbox-sdk/core";
+import type { SandboxHostImplementationMap as SdkSandboxHostImplementationMap } from "@ryot/sandbox-sdk/core";
 import type { SandboxHostError } from "@ryot/sandbox-sdk/wire";
 import { isObjectRecord } from "@ryot/ts-utils/predicates";
 import { Effect } from "effect";
 
+import type { SANDBOX_CAPABILITY_REQUIREMENTS } from "./capability-policy";
+import { sandboxCapabilityRequirement } from "./capability-policy";
+import type { SandboxExecutionPrincipal } from "./execution-principal";
+
 export type SandboxRunInput = {
 	readonly context: unknown;
-	readonly scriptId: string;
-	readonly metadata: unknown;
 	readonly startedAt?: string;
 	readonly executionId: string;
-	readonly contentHash: string;
 	readonly compiledCode: string;
 	readonly compiledFormat: number;
 	readonly workflowExecutionId?: string;
-	readonly authority: ExecutionAuthority;
 	readonly grants?: SandboxExecutionGrants;
-	readonly providerId: SandboxProviderId | null;
-	readonly allowedHostFunctions: readonly string[];
+	readonly principal: SandboxExecutionPrincipal;
 };
 
 export type BoundHostFunction = (args: ReadonlyArray<unknown>) => Effect.Effect<unknown, unknown>;
 
 export type UserSandboxRunInput<Input extends SandboxRunInput = SandboxRunInput> = Input & {
-	readonly authority: Extract<ExecutionAuthority, { readonly userId: string }>;
+	readonly principal: Input["principal"] & {
+		readonly subject: Extract<SandboxExecutionPrincipal["subject"], { readonly userId: string }>;
+	};
 };
 
 export type DirectUserSandboxRunInput<Input extends SandboxRunInput = SandboxRunInput> = Input & {
-	readonly authority: Extract<ExecutionAuthority, { readonly type: "user" }>;
+	readonly principal: Input["principal"] & {
+		readonly subject: Extract<SandboxExecutionPrincipal["subject"], { readonly type: "user" }>;
+	};
 };
 
 export type SystemSandboxRunInput<Input extends SandboxRunInput = SandboxRunInput> = Input & {
-	readonly authority: Extract<ExecutionAuthority, { readonly type: "system" }>;
+	readonly principal: Input["principal"] & {
+		readonly subject: Extract<SandboxExecutionPrincipal["subject"], { readonly type: "system" }>;
+	};
 };
 
 export type SystemProviderSandboxRunInput<Input extends SandboxRunInput = SandboxRunInput> =
-	SystemSandboxRunInput<Input> & { readonly providerId: SandboxProviderId };
+	SystemSandboxRunInput<Input> & {
+		readonly principal: Input["principal"] & {
+			readonly providerId: NonNullable<SandboxExecutionPrincipal["providerId"]>;
+		};
+	};
 
 export type SandboxHostImplementationMap = SdkSandboxHostImplementationMap<SandboxRunInput>;
 
@@ -110,39 +111,37 @@ export const toSandboxJsonValue = (value: unknown): JsonValue =>
 	isJsonValue(value) ? value : null;
 
 export const sandboxRunUserId = (input: SandboxRunInput) =>
-	"userId" in input.authority ? input.authority.userId : null;
+	"userId" in input.principal.subject ? input.principal.subject.userId : null;
 
 // A subscription execution already carries its integration in the trusted automation origin, so it
-// is read from there rather than duplicated onto the authority and risking the two disagreeing.
+// is read from there rather than duplicated onto the subject and risking the two disagreeing.
 export const sandboxRunIntegrationId = (input: UserSandboxRunInput) => {
-	if (input.authority.type !== "subscription") {
-		return input.authority.integrationId ?? null;
+	if (input.principal.subject.type !== "subscription") {
+		return input.principal.subject.integrationId ?? null;
 	}
-	const origin = input.authority.subscriptionRun.origin;
+	const origin = input.principal.subject.subscriptionRun.origin;
 	return origin.kind === "integration" ? origin.integrationId : null;
 };
 
 export type SubscriptionSandboxRunInput<Input extends SandboxRunInput = SandboxRunInput> = Input & {
-	readonly authority: Extract<ExecutionAuthority, { readonly type: "subscription" }>;
+	readonly principal: Input["principal"] & {
+		readonly subject: Extract<
+			SandboxExecutionPrincipal["subject"],
+			{ readonly type: "subscription" }
+		>;
+	};
 };
 
-type CapabilityAuthority<Capability extends SandboxHostCapability> =
-	(typeof SANDBOX_CAPABILITY_REQUIREMENTS)[Capability]["authorities"][number];
+type CapabilitySubject<Capability extends SandboxHostCapability> =
+	(typeof SANDBOX_CAPABILITY_REQUIREMENTS)[Capability]["subjects"][number];
 
-type SandboxRunInputForAuthority<
-	Input extends SandboxRunInput,
-	Authority,
-> = Authority extends "user"
+type SandboxRunInputForSubject<Input extends SandboxRunInput, Subject> = Subject extends "user"
 	? DirectUserSandboxRunInput<Input>
-	: Authority extends "subscription"
+	: Subject extends "subscription"
 		? SubscriptionSandboxRunInput<Input>
-		: Authority extends "system"
+		: Subject extends "system"
 			? SystemSandboxRunInput<Input>
 			: never;
-
-const sandboxCapabilityRequirement = (
-	capability: SandboxHostCapability,
-): SandboxCapabilityRequirement => SANDBOX_CAPABILITY_REQUIREMENTS[capability];
 
 export type SandboxRunInputForCapability<
 	Capability extends SandboxHostCapability,
@@ -151,7 +150,7 @@ export type SandboxRunInputForCapability<
 	readonly requiresProvider: true;
 }
 	? SystemProviderSandboxRunInput<Input>
-	: SandboxRunInputForAuthority<Input, CapabilityAuthority<Capability>>;
+	: SandboxRunInputForSubject<Input, CapabilitySubject<Capability>>;
 
 export const sandboxMetadataKind = (metadata: unknown) =>
 	typeof metadata === "object" &&
@@ -161,37 +160,55 @@ export const sandboxMetadataKind = (metadata: unknown) =>
 		? metadata.kind
 		: undefined;
 
-const sandboxCapabilityError = (input: SandboxRunInput, capability: SandboxHostCapability) => {
+const sandboxCapabilityError = (
+	input: Pick<SandboxRunInput, "principal">,
+	capability: SandboxHostCapability,
+) => {
 	const requirement = sandboxCapabilityRequirement(capability);
-	if (input.authority.type === "system") {
-		if (!requirement.authorities.includes("system")) {
-			if (requirement.authorities.length === 1 && requirement.authorities[0] === "subscription") {
+	if (input.principal.subject.type === "system") {
+		if (!requirement.subjects.includes("system")) {
+			if (requirement.subjects.length === 1 && requirement.subjects[0] === "subscription") {
 				return `${capability} is available only to subscription executions`;
 			}
 			return `${capability} is not available for system executions`;
 		}
 		if (
 			requirement.systemKinds &&
-			!requirement.systemKinds.some((kind) => kind === sandboxMetadataKind(input.metadata))
+			!requirement.systemKinds.some(
+				(kind) => kind === sandboxMetadataKind(input.principal.metadata),
+			)
 		) {
 			return `${capability} is not available to this system execution`;
 		}
-	} else if (!requirement.authorities.includes(input.authority.type)) {
-		if (requirement.authorities.length === 1 && requirement.authorities[0] === "subscription") {
+	} else if (!requirement.subjects.includes(input.principal.subject.type)) {
+		if (requirement.subjects.length === 1 && requirement.subjects[0] === "subscription") {
 			return `${capability} is available only to subscription executions`;
 		}
-		if (requirement.authorities.length === 1 && requirement.authorities[0] === "user") {
+		if (requirement.subjects.length === 1 && requirement.subjects[0] === "user") {
 			return `${capability} is available only to user executions`;
 		}
 		return `${capability} is not available to this execution`;
 	}
-	if (requirement.requiresProvider && input.providerId === null) {
+	if (requirement.requiresProvider && input.principal.providerId === null) {
 		return `${capability} is available only to provider-associated scripts`;
+	}
+	if (
+		input.principal.subject.type === "system" &&
+		requirement.requiresSystemPlugin &&
+		input.principal.pluginRevision?.scope !== "system"
+	) {
+		return `${capability} system access requires a pinned system plugin script`;
+	}
+	if (
+		requirement.requiresSystemUserBootstrap &&
+		!input.principal.pluginRevision?.userBootstrapScriptSlugs.includes(input.principal.scriptSlug)
+	) {
+		return `${capability} is available only to pinned system user bootstrap scripts`;
 	}
 	return undefined;
 };
 
-const isSandboxCapabilityInput = <
+export const isSandboxCapabilityInput = <
 	Capability extends SandboxHostCapability,
 	Input extends SandboxRunInput,
 >(
@@ -199,6 +216,11 @@ const isSandboxCapabilityInput = <
 	capability: Capability,
 ): input is SandboxRunInputForCapability<Capability, Input> =>
 	sandboxCapabilityError(input, capability) === undefined;
+
+export const isSandboxCapabilityAllowed = (
+	input: Pick<SandboxRunInput, "principal">,
+	capability: SandboxHostCapability,
+) => sandboxCapabilityError(input, capability) === undefined;
 
 export const requireSandboxCapabilityInput = <
 	Capability extends SandboxHostCapability,

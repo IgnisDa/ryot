@@ -115,7 +115,7 @@ it.effect("executes an installed script as the explicit user", () => {
 		expect(capturedOptions?.payload).toMatchObject({
 			scriptId,
 			resultMode: "execution",
-			authority: { type: "user", userId: executingUserId },
+			subject: { type: "user", userId: executingUserId },
 		});
 	}).pipe(Effect.provide(layer));
 });
@@ -150,7 +150,7 @@ it.effect("executes provider scripts through the universal workflow", () => {
 			scriptId,
 			input: {},
 			resolutionMode: "exact",
-			authority: { type: "user", userId: executingUserId },
+			subject: { type: "user", userId: executingUserId },
 		});
 	}).pipe(Effect.provide(layer));
 });
@@ -174,10 +174,10 @@ it.effect("returns a failure-bearing result when universal script execution fail
 	return Effect.gen(function* () {
 		const service = yield* SandboxExecutionService;
 		const result = yield* service.executeScript({
+			scriptId,
 			input: {},
 			executionId: "script-execution",
-			scriptId,
-			authority: { type: "user", userId: executingUserId },
+			subject: { type: "user", userId: executingUserId },
 		});
 		expect(result).toEqual({
 			logs: [],
@@ -329,8 +329,8 @@ it.effect("resolves and executes a manifest workflow with an exact script pin", 
 		const result = yield* service.executeWorkflow({
 			executionId,
 			scriptId: resolvedScriptId,
+			subject: { type: "user", userId: executingUserId },
 			input: { items: [], scriptId: "attempted-override" },
-			authority: { type: "user", userId: executingUserId },
 		});
 
 		expect(result).toEqual({ results: [] });
@@ -340,7 +340,7 @@ it.effect("resolves and executes a manifest workflow with an exact script pin", 
 			payload: {
 				scriptId,
 				resolutionMode: "exact",
-				authority: { type: "user", userId: executingUserId },
+				subject: { type: "user", userId: executingUserId },
 				input: { items: [], scriptId: "attempted-override" },
 			},
 		});
@@ -375,7 +375,7 @@ it.effect("rejects workflow input above the workflow limit before dispatch", () 
 				scriptId,
 				executionId: "oversized-workflow",
 				input: "a".repeat(80 * 1024),
-				authority: { type: "user", userId: executingUserId },
+				subject: { type: "user", userId: executingUserId },
 			}),
 		);
 
@@ -407,9 +407,21 @@ it.effect("pins a plugin workflow before accepted dispatch can wait for a worker
 			getScriptPin: () =>
 				Effect.succeed({
 					scriptId,
-					pluginId: "fixture",
-					pluginSlug: "fixture",
+					scriptSlug: "workflow",
+					metadata: storedScript.metadata,
+					providerId: storedScript.providerId,
 					contentHash: storedScript.contentHash,
+					pluginRevision: {
+						id: "fixture",
+						ownerId: null,
+						slug: "fixture",
+						compiledHashes: {},
+						workflowScripts: {},
+						scope: "system" as const,
+						userBootstrapScriptSlugs: [],
+						configSchema: { fields: {}, unknownKeys: "strict" as const },
+						schemaScope: { eventSchemas: [], entitySchemaSlugs: [], relationshipSchemaSlugs: [] },
+					},
 				}),
 			isPluginScript: () => Effect.succeed(true),
 		}),
@@ -456,9 +468,21 @@ it.effect("releases a new dispatch pin when workflow enqueue fails", () => {
 			getScriptPin: () =>
 				Effect.succeed({
 					scriptId,
-					pluginId: "fixture",
-					pluginSlug: "fixture",
+					scriptSlug: "workflow",
+					metadata: storedScript.metadata,
+					providerId: storedScript.providerId,
 					contentHash: storedScript.contentHash,
+					pluginRevision: {
+						id: "fixture",
+						ownerId: null,
+						slug: "fixture",
+						compiledHashes: {},
+						workflowScripts: {},
+						scope: "system" as const,
+						userBootstrapScriptSlugs: [],
+						configSchema: { fields: {}, unknownKeys: "strict" as const },
+						schemaScope: { eventSchemas: [], entitySchemaSlugs: [], relationshipSchemaSlugs: [] },
+					},
 				}),
 			isPluginScript: () => Effect.succeed(true),
 		}),
@@ -473,8 +497,8 @@ it.effect("releases a new dispatch pin when workflow enqueue fails", () => {
 		),
 		Layer.mock(SandboxWorkflowReferenceRepository)({
 			lockIngestionShared: () => Effect.void,
-			registerInTransaction: () => Effect.succeed({ status: "registered" as const }),
 			release: () => Effect.sync(() => (releases += 1)),
+			registerInTransaction: () => Effect.succeed({ status: "registered" as const }),
 		}),
 	);
 

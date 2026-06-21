@@ -94,8 +94,8 @@ export const makeSandboxObservabilityCollector = () => {
 export type SandboxObservabilityCollector = ReturnType<typeof makeSandboxObservabilityCollector>;
 
 const correlationAttributes = (input: SandboxRunInput) => ({
-	scriptId: input.scriptId,
 	executionId: input.executionId,
+	scriptId: input.principal.scriptId,
 	...(input.workflowExecutionId ? { sandboxWorkflowExecutionId: input.workflowExecutionId } : {}),
 });
 

@@ -79,7 +79,7 @@ export type EnqueueSandboxBody = Schema.Schema.Type<typeof EnqueueSandboxBody>;
 
 export const EnqueueResponse = Schema.Struct({ jobId: Schema.String });
 
-export const ExecutionAuthority = Schema.Union([
+export const SandboxExecutionSubject = Schema.Union([
 	strictStruct({ type: Schema.Literal("system") }),
 	// `integrationId` is the integration the execution belongs to. Only trusted kernel dispatch sets
 	// it, so a script can never widen its own credential scope by supplying an id.
@@ -99,7 +99,7 @@ export const ExecutionAuthority = Schema.Union([
 	}),
 ]);
 
-export type ExecutionAuthority = Schema.Schema.Type<typeof ExecutionAuthority>;
+export type SandboxExecutionSubject = Schema.Schema.Type<typeof SandboxExecutionSubject>;
 
 export const SandboxExecutionGrants = strictStruct({
 	artifactPath: Schema.optional(Schema.String),
@@ -113,7 +113,7 @@ export const SandboxExecutionPayload = strictStruct({
 	context: Schema.Unknown,
 	scriptId: SandboxScriptId,
 	executionId: Schema.String,
-	authority: ExecutionAuthority,
+	subject: SandboxExecutionSubject,
 	startedAt: Schema.optional(Schema.String),
 	grants: Schema.optional(SandboxExecutionGrants),
 	workflowExecutionId: Schema.optional(Schema.String),

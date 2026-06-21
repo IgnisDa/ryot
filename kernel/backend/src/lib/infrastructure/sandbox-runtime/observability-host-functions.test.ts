@@ -1,5 +1,5 @@
 import { expect, it } from "@effect/vitest";
-import { UserId } from "@ryot/contract/schema/brands";
+import { SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import { hostSuccess } from "@ryot/sandbox-sdk/wire";
 import { Effect, Layer, Logger, Option, Tracer, type Exit, References } from "effect";
 import type { Logger as LoggerType } from "effect/Logger";
@@ -23,15 +23,18 @@ const selectedHostFunction: BoundHostFunction = () => Effect.succeed(null);
 
 const input: SandboxRunInput = {
 	context: {},
-	metadata: {},
-	contentHash: "",
-	providerId: null,
 	compiledCode: "",
 	compiledFormat: 1,
-	scriptId: "script-1",
 	executionId: "execution-1",
-	allowedHostFunctions: ["log", "span"],
-	authority: { type: "user", userId: UserId.make("user-1") },
+	principal: {
+		contentHash: "",
+		providerId: null,
+		scriptSlug: "script",
+		pluginRevision: null,
+		metadata: { capabilities: ["log", "span"] },
+		scriptId: SandboxScriptId.make("script-1"),
+		subject: { type: "user", userId: UserId.make("user-1") },
+	},
 };
 
 const makeTracer = (spans: Tracer.Span[]) =>
@@ -44,14 +47,14 @@ const makeTracer = (spans: Tracer.Span[]) =>
 				kind,
 				links,
 				parent,
+				sampled,
 				annotations,
 				attributes,
 				_tag: "Span",
-				sampled,
-				spanId: `span-${spans.length + 1}`,
-				addLinks: () => undefined,
-				attribute: (key, value) => attributes.set(key, value),
 				event: () => undefined,
+				addLinks: () => undefined,
+				spanId: `span-${spans.length + 1}`,
+				attribute: (key, value) => attributes.set(key, value),
 				get status() {
 					return status;
 				},
@@ -74,16 +77,16 @@ describe("sandbox observability host functions", () => {
 
 		expect(
 			selectSandboxHostFunctions(bound, {
-				metadata: {},
-				allowedHostFunctions: [],
-				authority: { type: "system" },
+				principal: { ...input.principal, metadata: {}, subject: { type: "system" } },
 			}),
 		).toEqual({});
 		expect(
 			selectSandboxHostFunctions(bound, {
-				metadata: {},
-				authority: { type: "system" },
-				allowedHostFunctions: ["log", "unknown"],
+				principal: {
+					...input.principal,
+					subject: { type: "system" },
+					metadata: { capabilities: ["log", "unknown"] },
+				},
 			}),
 		).toEqual({ log: selectedHostFunction });
 	});
@@ -232,7 +235,7 @@ describe("sandbox observability host functions", () => {
 						expect(warning?.options.logLevel).toBe("Warn");
 						expect(warning?.annotations).toMatchObject({
 							plugin: "example",
-							scriptId: input.scriptId,
+							scriptId: input.principal.scriptId,
 							executionId: input.executionId,
 						});
 
@@ -246,7 +249,7 @@ describe("sandbox observability host functions", () => {
 						expect(pluginSpan?.status._tag).toBe("Ended");
 						expect(Object.fromEntries(pluginSpan?.attributes ?? [])).toMatchObject({
 							plugin: "example",
-							scriptId: input.scriptId,
+							scriptId: input.principal.scriptId,
 							executionId: input.executionId,
 						});
 					}),

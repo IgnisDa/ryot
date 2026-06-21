@@ -16,8 +16,8 @@ Sandbox slugs use lowercase letters and numbers separated by `.`, `_`, or `-`; `
 | `providers`            | Logical provider identities and their required `details` plus optional `search`, `resolve`, and `translate` operation scripts. |
 | `workflows`            | Public logical workflow slugs mapped to `workflow`-kind scripts.                                                               |
 | `operations`           | Public operation slugs mapped to `operation`-kind scripts with `user` or `integration` auth.                                   |
-| `boot`                 | Restart-time, system-authority script dispatches.                                                                              |
-| `userBootstrap`        | Per-user bootstrap dispatches for trusted boot-configured plugins.                                                             |
+| `boot`                 | Restart-time, system-subject script dispatches.                                                                                |
+| `userBootstrap`        | Per-user bootstrap dispatches for system-scope plugins.                                                                        |
 | `crons`                | Scheduled sandbox script dispatches.                                                                                           |
 | `importSources`        | Payload, single-file, or named-file import inputs mapped to workflows.                                                         |
 | `httpRateLimits`       | Deployment-global static request limits keyed by normalized external HTTP(S) origins.                                          |
@@ -95,22 +95,29 @@ versioned independently while callers continue addressing provider ID plus opera
 `script` may join provider identity with `providerSlug`; omitting it makes that script
 standalone within its plugin.
 
-## Authority And Capabilities
+## Subject And Capabilities
 
-Trusted kernel dispatch chooses execution authority; script input cannot choose or widen it.
+Plugin scope is not declared in the manifest. Ingestion establishes `system` or `user`, and this is
+the single plugin trust classification. `SandboxExecutionSubject` is separate: it describes whose
+data and context an execution uses, not plugin privilege. User manifests cannot declare entries in
+`boot`, `userBootstrap`, or `httpRateLimits`, and cannot use a system plugin slug.
 
-| Entry path                                                   | Authority                                                                           |
+Kernel dispatch chooses the execution subject; script input cannot choose or widen it.
+
+| Entry path                                                   | Subject                                                                             |
 | ------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
 | `boot` and crons                                             | System                                                                              |
 | `userBootstrap`                                              | User being initialized                                                              |
 | User and integration operations                              | Authenticated user; integration operations also carry validated integration context |
 | Import workflows and provider work reached from user actions | Calling user                                                                        |
-| Automation subscriptions                                     | Subscription authority with trusted run metadata                                    |
-| Durable script requests and child workflows                  | Authority propagated by their durable parent                                        |
+| Automation subscriptions                                     | Subscription subject with trusted run metadata                                      |
+| Durable script requests and child workflows                  | Subject propagated by their durable parent                                          |
 
-`capabilities` is an allowlist, not a grant by itself. Runtime intersects it with implemented host
-functions, definition kind, authority, and trusted execution markers. Declare only methods used by
-the module. `artifact-read` and `scratch` request filesystem grants rather than bridge methods.
+`capabilities` is an allowlist, not a grant by itself. The backend intersects it with implemented host
+functions and one backend-owned capability policy keyed by definition kind, subject, plugin scope,
+provider association, and bootstrap designation. Domain modules still enforce schema, provider, user,
+and integration ownership. Declare only methods used by the module. `artifact-read` and `scratch`
+request filesystem grants rather than bridge methods.
 Workflow scripts declare `[]` and receive only durable replay primitives. Host-function scope,
 filesystem behavior, and exact limits are owned by the
 [sandbox runtime reference](../../kernel/backend/src/lib/infrastructure/sandbox-runtime/README.md).
@@ -151,12 +158,12 @@ plugin slug hot-loads its new package without restart; readers observe either co
 or complete new snapshot. Existing durable workflow executions retain pinned workflow/step versions,
 while new resolution uses active snapshot.
 
-Boot-configured trusted plugins are global and cannot be uninstalled. Other globally installed
-plugins can be uninstalled only when no running/suspended workflow, entity, active schema, or binding
-still references them. Script rows and materialized modules remain live while active packages,
+System-scope plugins are deployment-controlled and cannot be uninstalled through the user
+installation path. User-scope plugins can be uninstalled only when no running/suspended workflow,
+entity, active schema, or binding still references them. Script rows and materialized modules remain live while active packages,
 source-zero, or durable references need their content hashes; runtime reference owns GC details.
 
-This is package authoring and global trusted-install behavior only. Phase 5 owns user-level
+This is package authoring and deployment-controlled system-install behavior only. Phase 5 owns user-level
 installation, package-versus-installation identity, per-user visibility/state, assigned namespaces,
 capability approval, quotas, SSRF hardening, scheduler scope, shared-global-data policy, package GC,
 signing/attestation, marketplace concerns, and uninstall data policy beyond refusal while referenced.
@@ -206,7 +213,7 @@ crons: [
 string without surrounding whitespace. `schedule` is an object: either `{ cron }` with an explicit
 non-empty crontab expression, or `{ tier: "infrequent" }` to defer the interval to the host's
 configured infrequent schedule. Each cron targets exactly one `scriptSlug` declared in `scripts`.
-The scheduler runs every target through the universal sandbox workflow with system authority and
+The scheduler runs every target through the universal sandbox workflow with system subject and
 awaits its terminal durable result.
 
 ## Boot
@@ -227,7 +234,7 @@ boot: [
 `slug` and `scriptSlug` use sandbox manifest slug syntax; `description` must be a non-empty string
 without surrounding whitespace. A boot entry has no `schedule`. `scriptSlug` is the slug of a script
 declared in the manifest's `scripts` section. Dispatch happens once per server start, after plugin
-ingestion, with system authority. The dispatcher layer awaits every entry's durable execution while
+ingestion, with system subject. The dispatcher layer awaits every entry's durable execution while
 it builds, but it is merged alongside the HTTP server layer rather than sequenced ahead of it, so the
 server can begin serving while boot work is still in flight. A failing entry is logged without
 failing the others. Dispatch is skipped entirely when `scheduler.disableDispatchers` is set (the same

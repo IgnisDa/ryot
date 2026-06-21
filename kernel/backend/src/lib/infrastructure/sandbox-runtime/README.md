@@ -33,8 +33,8 @@ while a request is dispatched.
 ## Execution Flow
 
 1. Plugin or kernel ingestion validates and compiles source, then persists source and immutable format-1 JavaScript separately.
-2. A trusted caller starts `SandboxScriptWorkflow` with a persisted `scriptId`, optional context, an `ExecutionAuthority`, and an execution identity. Authority is schema-defined in `@ryot/contract/modules/sandbox/schemas` as a `system`, `user`, or `subscription` variant; only trusted kernel dispatch constructs it, so a script cannot widen its own credential scope.
-3. The workflow pins the root script and records its `startedAt` value before the first replay. Nested script targets resolve on first observation and are pinned for that durable request.
+2. A trusted caller starts `SandboxScriptWorkflow` with a persisted `scriptId`, optional context, a `SandboxExecutionSubject`, and an execution identity. The subject describes whose data and context the execution uses; it is not plugin privilege or trust classification. It is schema-defined in `@ryot/contract/modules/sandbox/schemas` as a `system`, `user`, or `subscription` variant, and only kernel dispatch constructs it.
+3. The workflow pins the root script and records its `startedAt` value before the first replay. Plugin `scope` (`system` or `user`) is established at ingestion and is the single plugin trust classification. From the immutable script pin, the backend derives a backend-only `SandboxExecutionPrincipal` containing the script identity, subject, and exact plugin revision needed for capability, schema-scope, configuration, and child-target decisions. Nested script targets resolve from that pinned revision on first observation and are then pinned for the durable request.
 4. Each replay checks out a pre-warmed or dedicated single-use Deno process, acquires an execution-scoped hard link to the verified module, and registers a short-lived bridge session. The runner receives the context, metadata, limits, and filesystem grants in one JSON request.
 5. The runner captures diagnostics, imports the compiled module, validates the definition and input, and returns a completed, failed, or pending replay envelope. A mutable `host.*` call becomes a typed durable request; an unrecorded request ends the replay without waiting inside Deno.
 6. The workflow dispatches each pending request through the owning activity, child workflow, artifact operation, or diagnostic path. Completed successes and typed failures are appended to the workflow journal and projected to Redis for the next replay.
@@ -67,12 +67,12 @@ declarations from multiple plugins coexist; any different declaration sharing a 
 the prospective plugin state atomically. Policies are live rather than workflow-pinned, so a committed
 install, update, or uninstall affects the next reservation in an already-running workflow.
 
-PostgreSQL active plugin manifests are the authority for policy classification and canonical hashes.
+PostgreSQL active plugin manifests are the authoritative data source for policy classification and canonical hashes.
 Redis stores only operational admission state for each policy key: declaration hash (`h`), next
 eligible time (`n`), and blocked-until time (`b`). A Redis Lua `EVAL` obtains Redis server time with
 `TIME` and atomically reserves, confirms, or advances a block. Idle state expires after
 `max(10 * intervalMs, 60 seconds)`, extended beyond an active blocked-until time. Redis loss can forget
-schedule state, but it does not change PostgreSQL policy authority; matched calls fail closed and
+schedule state, but it does not change PostgreSQL policy data; matched calls fail closed and
 durably retry unavailable coordination, while proven-unmatched calls continue.
 
 The exact durable sequence for each `httpCall` is:
@@ -105,7 +105,7 @@ return HTTP `503`; it is a normal non-`429` failure and receives no automatic re
 recovery applies only to policy-matched HTTP `429` responses.
 
 HTTP observability logs contain only the sandbox workflow execution ID, policy key, normalized
-origin, stage, attempt, duration/wait, and status. They separately report authoritative policy
+origin, stage, attempt, duration/wait, and status. They separately report active policy
 resolution, Redis reservation, and durable network-attempt duration for benchmark correlation; URLs,
 query strings, headers, bodies, credentials, and user IDs are excluded.
 
@@ -164,32 +164,33 @@ Deno receives the import map and runs with `--cached-only`, `--no-npm`, `--no-re
 
 ## Host Functions
 
-Host functions are bridge handlers exposed only when listed in the compiled module's manifest `capabilities`. The backend intersects those declarations with its implementation registry, and the runner intersects the approved names with the compiled definition's manifest before constructing the script host.
+Host functions are bridge handlers exposed only when listed in the compiled module's manifest `capabilities`. The backend intersects those declarations with its implementation registry and one backend-owned capability policy; domain modules still enforce schema, provider, user, and integration ownership. The runner intersects the approved names with the compiled definition's manifest before constructing the script host.
 
-| Scope                                                | Functions                                                                                                                                                             |
-| ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Universal sandbox workflow                           | `httpCall`, `log`, `span`, `getPluginConfig`, `getSystemConfig`, `getCachedValue`, `setCachedValue`, `claimPersistentValue`                                           |
-| User or subscription                                 | `changeUserRelationships`, `createEvents`, `executeRyotql`, `getCurrentIntegration`, `getEntitySchemas`, `getUserPreferences`, `listEventSchemas`, `listIntegrations` |
-| User only                                            | `ensureUserEntities`                                                                                                                                                  |
-| System script                                        | `executeRyotql`, `upsertGlobalEntities`, `upsertGlobalRelationships`                                                                                                  |
-| Automation subscription or trusted system automation | `emitSignal`; `sendNotification` remains subscription-only                                                                                                            |
+| Scope                                              | Functions                                                                                                                                                             |
+| -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Universal sandbox workflow                         | `httpCall`, `log`, `span`, `getPluginConfig`, `getSystemConfig`, `getCachedValue`, `setCachedValue`, `claimPersistentValue`                                           |
+| User or subscription                               | `changeUserRelationships`, `createEvents`, `executeRyotql`, `getCurrentIntegration`, `getEntitySchemas`, `getUserPreferences`, `listEventSchemas`, `listIntegrations` |
+| System-scope plugin user bootstrap                 | `ensureUserEntities`                                                                                                                                                  |
+| Pinned system-scope plugin script                  | `executeRyotql`, `upsertGlobalEntities`, `upsertGlobalRelationships`                                                                                                  |
+| Automation subscription or system-scope automation | `emitSignal`; `sendNotification` remains subscription-only                                                                                                            |
 
-Script-scoped functions use execution metadata such as `scriptId`. User-scoped functions require the executing user's `userId` and are unavailable for system executions. Entity and event data reads use `executeRyotql`; schema functions expose metadata only. `claimPersistentValue` atomically writes a persistent value only when the key does not already exist. During a workflow replay, the runner observes these calls and the backend dispatcher records their result; the private `replayJournal` bridge method is only the SDK/runtime bootstrap for named workflow replay and is not a general authoring API.
+System-only elevated operations, including global entity and relationship writes, require a pinned system-scope plugin principal. System `executeRyotql` remains plugin-schema scoped. User-scoped functions require the executing user's `userId` and are unavailable for system executions. Entity and event data reads use `executeRyotql`; schema functions expose metadata only. `claimPersistentValue` atomically writes a persistent value only when the key does not already exist. During a workflow replay, the runner observes these calls and the backend dispatcher records their result; the private `replayJournal` bridge method is only the SDK/runtime bootstrap for named workflow replay and is not a general authoring API.
 
-`executeRyotql` is available to user, subscription, and pinned plugin script executions. `ensureUserEntities` is narrower than ordinary user scope: only a trusted boot-configured plugin's
-declared `userBootstrap` script receives it, and it may write only entity schemas owned by that plugin.
-The SDK capability requirement table is exhaustive; the backend uses it for host selection and
-runtime input narrowing. Provider scope and trusted bootstrap status remain kernel-side checks.
+`executeRyotql` is available to user, subscription, and pinned plugin script executions. `ensureUserEntities` is narrower than ordinary user scope: only a system-scope plugin's declared
+`userBootstrap` script receives it, and it remains plugin-entity-schema scoped, writing only entity
+schemas owned by that plugin.
+The backend capability-policy table is exhaustive and drives host selection and runtime input
+narrowing. Provider association and system-bootstrap designation remain kernel-side checks.
 
 Plugin scripts may read only their owning plugin's fields listed in `requiredPluginConfigKeys`.
-The runtime derives environment variable names from trusted script provenance and rejects normalized
+The runtime derives environment variable names from pinned script provenance and rejects normalized
 name collisions when loading plugins. Explicitly exported kernel fields require a matching
 `requiredSystemConfigKeys` declaration. First-party and runtime-installed plugins use the same grants.
 `getPluginConfig` and `getSystemConfig` accept key arrays and return key-indexed records. Duplicate keys
 are coalesced, empty batches return empty records, and a batch fails when any requested key is not
 declared, readable, or configured.
 
-Automation functions require declared capabilities and trusted execution context. `emitSignal` is available to subscription runs and trusted system automation scripts; system automation derives origin from its server-provided automation context. `sendNotification` remains subscription-only and requires its user principal.
+Automation functions require declared capabilities and pinned execution context. `emitSignal` is available to subscription runs and system-scope automation scripts; system automation derives origin from its server-provided automation context. `sendNotification` remains subscription-only and requires its user principal.
 
 Cache keys are isolated per `(executing user, providerId)`. Cache host functions derive their namespace from the script's logical `providerId`, falling back to its `scriptId` only for a standalone script that belongs to no provider. Every script of one provider therefore shares that provider's cache, and executing the same script for two users produces disjoint entries even when both use the same script cache key; script ownership is not part of the cache key. `getCachedValue` and `setCachedValue` are refreshed after a backend restart, while `claimPersistentValue` remains persistent across restarts.
 
@@ -260,12 +261,12 @@ runtime. `Date.now()` remains a deterministic zero-valued shim because Effect it
 executing the restricted workflow subset; authored workflow modules cannot call it because compiler
 validation rejects the reference.
 
-Kernel workflow references bind `userId` from the execution's trusted authority, overriding any
+Kernel workflow references bind `userId` from the execution's trusted subject, overriding any
 script-supplied value, and reject system executions outright. The remaining attribution ids
 (`importRunId`, `integrationId`, and the ids reachable through an `AutomationOrigin`) cannot be
-injected the same way: neither the execution authority nor the workflow payload carries them, and a
+injected the same way: neither the execution subject nor the workflow payload carries them, and a
 script legitimately relays an app-supplied origin. They are therefore validated against the
-authority user through the owner-scoped import-run and integration lookups before dispatch.
+subject user through the owner-scoped import-run and integration lookups before dispatch.
 
 Workflow context and durable-call ceilings are defined under Resource Limits. Callers with bulk
 input must split work before dispatch. Media imports pack ordered chunks against both ceilings and

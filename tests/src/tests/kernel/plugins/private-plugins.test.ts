@@ -6,12 +6,12 @@ import { Effect } from "effect";
 import {
 	createAuthenticatedClient,
 	executeRyotQL,
-	installPrivateBootstrapPlugin,
 	installPrivatePluginPackage,
 	installPrivatePlugin,
 	invokePrivatePluginOperation,
 	PRIVATE_PLUGIN_CONFIG_KEY,
 	PRIVATE_PLUGIN_SECRET_KEY,
+	privateBootstrapPluginPackage,
 	privatePluginPackage,
 	requireRows,
 	requireRyotQLText,
@@ -451,56 +451,21 @@ describe("private plugins", () => {
 		}),
 	);
 
-	it.live("runs a declared user bootstrap entry before the installation becomes ready", () =>
+	it.live("rejects a private manifest that declares user bootstrap", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-
-			const plugin = yield* installPrivateBootstrapPlugin({ client });
-
-			expect(plugin.installation).toMatchObject({
-				scope: "user",
-				health: "ready",
-				healthReason: null,
-				slug: plugin.pluginSlug,
-			});
-			const invoked = yield* client.call((c) =>
-				c.plugins.invoke({
-					payload: { payload: { titles: ["seeded"] } },
-					params: { pluginSlug: plugin.pluginSlug, operationSlug: plugin.operationSlug },
-				}),
-			);
-			expect(invoked.result).toEqual({ results: ["SEEDED"] });
-		}),
-	);
-
-	it.live("fails the installation safely when a user bootstrap entry throws", () =>
-		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
-
-			const plugin = yield* installPrivateBootstrapPlugin({
-				client,
-				failureMessage: "bootstrap exploded",
-			});
-
-			expect(plugin.installation.health).toBe("failed");
-			const healthReason = requirePresent(
-				plugin.installation.healthReason,
-				"Failed private installation has no diagnostic",
-			);
-			expect(healthReason).toContain(plugin.bootstrapSlug);
-			expect(healthReason).not.toContain("bootstrap exploded");
-			expect(healthReason).not.toContain("defineScript");
-			expect(healthReason).not.toContain("at ");
-
 			const failure = yield* Effect.flip(
-				invokePrivatePluginOperation({
+				installPrivatePluginPackage({
 					client,
-					prefix: "run",
-					pluginSlug: plugin.pluginSlug,
-					operationSlug: plugin.operationSlug,
+					config: {},
+					pluginPackage: privateBootstrapPluginPackage(),
 				}),
 			);
-			assertTaggedError(failure, "PluginNotFoundError");
+			assertTaggedError(failure, "PluginRequestError");
+			expect(failure.reason).toEqual({
+				surfaces: ["userBootstrap"],
+				code: "unsupported-manifest-surface",
+			});
 		}),
 	);
 

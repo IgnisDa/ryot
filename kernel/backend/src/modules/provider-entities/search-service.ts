@@ -114,7 +114,7 @@ export class ProviderEntitySearchService extends Context.Service<ProviderEntityS
 				const execution = yield* sandbox.executeScript({
 					input: {},
 					scriptId: searchOptionsScript.id,
-					authority: { type: "user", userId: user.id },
+					subject: { type: "user", userId: user.id },
 					executionId: `provider-search-options-${generateId()}`,
 				});
 				if (execution.error) {
@@ -203,7 +203,7 @@ export class ProviderEntitySearchService extends Context.Service<ProviderEntityS
 				}
 				const execution = yield* sandbox.executeScript({
 					scriptId: resolved.id,
-					authority: { type: "user", userId: user.id },
+					subject: { type: "user", userId: user.id },
 					executionId: `provider-search-${generateId()}`,
 					input: {
 						page: input.page,

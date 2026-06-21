@@ -4,7 +4,7 @@ RyotQL is the focused read API at `POST /ryotql/execute`. `POST /ryotql/execute`
 
 ## Current Capabilities
 
-- Authenticated user execution against the `entity`, `event`, `relationship`, `plugin`, `pluginState`, `savedView`, `sandboxProvider`, `sandboxProviderOperation`, `notificationChannel`, `integration`, `importRun`, `importRunFailure`, and `notificationSubscriptionState` tables, plus capability-gated pinned-plugin execution against owned entity, event, and relationship data.
+- Authenticated user execution against the `entity`, `event`, `relationship`, `plugin`, `pluginState`, `savedView`, `sandboxProvider`, `sandboxProviderOperation`, `notificationChannel`, `integration`, `importRun`, `importRunFailure`, and `notificationSubscriptionState` tables, plus capability-gated execution by pinned system-scope plugin scripts against plugin-owned entity, event, and relationship data.
 - Multiple independent named rows, aggregate, or time-series queries in one repeatable-read, read-only transaction.
 - Field selection, typed JSON expressions, predicates, arithmetic, correlated scalar expressions, inner and left joins, ordering, pagination, and correlated row includes.
 - Localized entity names and properties with translation status as a normal catalog field.
@@ -105,11 +105,11 @@ document({
 
 ## Execution Scopes
 
-`POST /ryotql/execute` always runs as the authenticated user. User execution can read that user's rows and permitted global rows; plugin state and saved views remain user-only. Query documents cannot contain a user ID, plugin slug, execution scope, or grant that changes this authority.
+`POST /ryotql/execute` always runs as the authenticated user. User execution can read that user's rows and permitted global rows; plugin state and saved views remain user-only. Query documents cannot contain a user ID, plugin slug, execution scope, or grant that changes this access.
 
-Sandbox scripts declare the separate `executeRyotql` capability. User and subscription executions retain their trusted user authority. A system execution is accepted only for a persisted pinned plugin script, and the backend derives its plugin slug and owned discriminator definitions from that script's installed plugin metadata.
+Sandbox scripts declare the separate `executeRyotql` capability. User and subscription executions use their user subject. A system execution is accepted only for a persisted, pinned system-scope plugin script, and the backend derives its plugin slug and owned discriminator definitions from that script's installed plugin metadata.
 
-Plugin execution can read only global entities whose `entitySchemaSlug` is owned by the plugin. It can read event and relationship rows across users only when their discriminator definition is owned by the plugin. The `plugin`, `pluginState`, `savedView`, `sandboxProvider`, and `sandboxProviderOperation` tables are denied. These policies apply independently to every root, join, include, and correlated query before document predicates.
+System RyotQL remains plugin-schema scoped. Plugin execution can read only global entities whose `entitySchemaSlug` is owned by the plugin. It can read event and relationship rows across users only when their discriminator definition is owned by the plugin. The `plugin`, `pluginState`, `savedView`, `sandboxProvider`, and `sandboxProviderOperation` tables are denied. These policies apply independently to every root, join, include, and correlated query before document predicates.
 
 Sandbox code imports builders, generic entity and event read recipes, and strict named-response helpers from `@ryot/sandbox-sdk/ryotql`. The helpers accept only the RyotQL `{ data: { [queryName]: result } }` envelope.
 

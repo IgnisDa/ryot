@@ -186,7 +186,7 @@ describe("shared value contracts", () => {
 		).toThrow();
 	});
 
-	test("validates user entity ensure batches without accepting caller-owned authority", () => {
+	test("validates user entity ensure batches without accepting caller-owned subject", () => {
 		const item = { properties: {}, name: "Library", entitySchemaSlug: "library" };
 		expect(decode(ensureUserEntitiesArgsSchema)([[item]])).toEqual([[item]]);
 		expect(() =>

@@ -1,5 +1,6 @@
 import { expect, it } from "@effect/vitest";
 import type { JsonValue } from "@ryot/contract/modules/ryotql/language";
+import { SandboxScriptId } from "@ryot/contract/schema/brands";
 import { workflowReplayJournalEntrySchema } from "@ryot/sandbox-sdk/workflow";
 import { Effect, Schema } from "effect";
 
@@ -12,16 +13,19 @@ import {
 
 const workflowInput: SandboxRunInput = {
 	context: {},
-	contentHash: "",
-	providerId: null,
 	compiledCode: "",
 	compiledFormat: 1,
-	allowedHostFunctions: [],
-	scriptId: "workflow-script",
-	authority: { type: "system" },
 	workflowExecutionId: "parent",
-	metadata: { kind: "workflow" },
 	executionId: "parent-replay-3",
+	principal: {
+		contentHash: "",
+		providerId: null,
+		scriptSlug: "script",
+		pluginRevision: null,
+		subject: { type: "system" },
+		metadata: { kind: "workflow" },
+		scriptId: SandboxScriptId.make("workflow-script"),
+	},
 };
 
 const request = (index: number, name: string, input: JsonValue = { index }) => ({
@@ -136,27 +140,30 @@ it("isolates workflow replay bootstrap from script capabilities", () => {
 	expect(
 		Object.keys(
 			selectSandboxHostFunctions(bound, {
-				authority: { type: "system" },
-				metadata: { kind: "workflow" },
-				allowedHostFunctions: ["httpCall"],
+				principal: {
+					...workflowInput.principal,
+					metadata: { kind: "workflow", capabilities: ["httpCall"] },
+				},
 			}),
 		),
 	).toEqual(["replayJournal"]);
 	expect(
 		Object.keys(
 			selectSandboxHostFunctions(bound, {
-				metadata: { kind: "script" },
-				authority: { type: "system" },
-				allowedHostFunctions: ["replayJournal"],
+				principal: {
+					...workflowInput.principal,
+					metadata: { kind: "script", capabilities: ["replayJournal"] },
+				},
 			}),
 		),
 	).toEqual([]);
 	expect(
 		Object.keys(
 			selectSandboxHostFunctions(bound, {
-				metadata: { kind: "script" },
-				authority: { type: "system" },
-				allowedHostFunctions: ["httpCall", "replayJournal"],
+				principal: {
+					...workflowInput.principal,
+					metadata: { kind: "script", capabilities: ["httpCall", "replayJournal"] },
+				},
 			}),
 		),
 	).toEqual(["httpCall"]);

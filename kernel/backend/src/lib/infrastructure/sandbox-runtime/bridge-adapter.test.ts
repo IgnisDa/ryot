@@ -1,5 +1,5 @@
 import { expect, it } from "@effect/vitest";
-import { UserId } from "@ryot/contract/schema/brands";
+import { SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 import { describe } from "vitest";
 
@@ -8,15 +8,18 @@ import type { SandboxHostImplementationMap, SandboxRunInput } from "./shared";
 
 const input: SandboxRunInput = {
 	context: {},
-	metadata: {},
-	contentHash: "",
-	providerId: null,
 	compiledCode: "",
 	compiledFormat: 1,
-	scriptId: "script-1",
-	allowedHostFunctions: [],
 	executionId: "execution-1",
-	authority: { type: "user", userId: UserId.make("user-1") },
+	principal: {
+		metadata: {},
+		contentHash: "",
+		providerId: null,
+		scriptSlug: "script",
+		pluginRevision: null,
+		scriptId: SandboxScriptId.make("script-1"),
+		subject: { type: "user", userId: UserId.make("user-1") },
+	},
 };
 
 const makeImplementations = (
@@ -269,14 +272,11 @@ describe("bindSandboxHostFunctions", () => {
 			expect(calls).toEqual([{ runInput: input, batches: [batch] }]);
 			expect(
 				yield* bound.changeUserRelationships([[{ ...batch, userId: "caller-selected" }]]),
-			).toEqual({
-				success: false,
-				error: "0.0.userId: Expected no excess property",
-			});
+			).toEqual({ success: false, error: "0.0.userId: Expected no excess property" });
 		}),
 	);
 
-	it.effect("validates user entity ensure batches without accepting caller-owned authority", () =>
+	it.effect("validates user entity ensure batches without accepting caller-owned subject", () =>
 		Effect.gen(function* () {
 			const calls: unknown[] = [];
 			const implementations = makeImplementations({
@@ -299,10 +299,7 @@ describe("bindSandboxHostFunctions", () => {
 			});
 			expect(
 				yield* bound.ensureUserEntities([[{ ...item, pluginSlug: "caller-selected" }]]),
-			).toEqual({
-				success: false,
-				error: "0.0.pluginSlug: Expected no excess property",
-			});
+			).toEqual({ success: false, error: "0.0.pluginSlug: Expected no excess property" });
 			expect(calls).toHaveLength(1);
 		}),
 	);
@@ -316,7 +313,8 @@ describe("bindSandboxHostFunctions", () => {
 				const implementations = makeImplementations({
 					getCurrentIntegration: (runInput) => {
 						calls += 1;
-						receivedUserId = "userId" in runInput.authority ? runInput.authority.userId : null;
+						receivedUserId =
+							"userId" in runInput.principal.subject ? runInput.principal.subject.userId : null;
 						return Effect.fail({ message: "reached" });
 					},
 				});

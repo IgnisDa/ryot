@@ -118,7 +118,7 @@ export const PluginInstallationWorkflowOperationsLive = Layer.effect(
 					const result = yield* sandbox.executeScript({
 						input: {},
 						scriptId: input.scriptId,
-						authority: { type: "user", userId: input.userId },
+						subject: { type: "user", userId: input.userId },
 						executionId: pluginInstallationBootstrapExecutionId(
 							input.installationId,
 							input.entrySlug,
