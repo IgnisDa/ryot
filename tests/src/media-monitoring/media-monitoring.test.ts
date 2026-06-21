@@ -43,6 +43,7 @@ const waitForMediaMonitoringRefresh = (executionId: string) =>
 				where m.entity_type = 'Workflow/MediaMonitoringRefreshWorkflow'
 				  and m.tag = 'run'
 				  and m.payload like ('%' || $1 || '%')
+				  and r.payload not like '%Suspended%'
 			) as complete`,
 			[executionId],
 		);

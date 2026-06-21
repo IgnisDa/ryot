@@ -41,7 +41,6 @@ export type MediaImportWorkflowOperationsValue = {
 		userId: UserId;
 		externalId: string;
 		executionId: string;
-		activityPrefix: string;
 		scriptId: SandboxScriptId;
 		entitySchemaId: EntitySchemaId;
 	}) => Effect.Effect<{ id: EntityId }, SandboxRunError, MediaSandboxRequirements>;
