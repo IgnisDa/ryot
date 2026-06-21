@@ -66,7 +66,6 @@ import { NotificationDeliveryService } from "#modules/notifications/delivery";
 import { NotificationDeliveryWorkflowDefinitionsLive } from "#modules/notifications/notification-delivery-workflow-live";
 import { NotificationsRepository } from "#modules/notifications/repository";
 import { NotificationsService } from "#modules/notifications/service";
-import { ProviderConfig } from "#modules/query-engine/provider-config";
 import { QueryEngineService } from "#modules/query-engine/service";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipSchemasService } from "#modules/relationship-schemas/service";
