@@ -29,6 +29,7 @@ const navigationFor = (state: {
 	readonly location: PluginLogicalLocation;
 	readonly index?: number;
 }) => ({
+	compact: false,
 	edgeBack: false,
 	index: state.index ?? 0,
 	location: state.location,

@@ -1,7 +1,7 @@
 import { PLUGIN_SCREEN_STACK_LIMIT } from "@ryot/contract/modules/plugins/client";
 import { describe, expect, it } from "vitest";
 
-import { reconcileStack, type PluginScreen } from "./stack";
+import { presentScreens, reconcileStack, type PluginScreen } from "./stack";
 
 const Home = () => null;
 const Detail = () => null;
@@ -96,5 +96,36 @@ describe("reconcileStack", () => {
 
 		expect(result.stack).toHaveLength(PLUGIN_SCREEN_STACK_LIMIT);
 		expect(result.stack[0]?.key).toBe("k1");
+	});
+});
+
+describe("presentScreens", () => {
+	it("shows only the top screen while idle", () => {
+		const roles = presentScreens(build(0, 1, 2), { kind: "idle" }).map(
+			(screenEntry) => screenEntry.role,
+		);
+		expect(roles).toEqual(["hidden", "hidden", "active"]);
+	});
+
+	it("shows the screen beneath the top one while a drag is in flight", () => {
+		const roles = presentScreens(build(0, 1, 2), { kind: "dragging" }).map(
+			(screenEntry) => screenEntry.role,
+		);
+		expect(roles).toEqual(["hidden", "beneath", "active"]);
+	});
+
+	it("shows the incoming screen and keeps the leaving one on top through a pop", () => {
+		const stack = build(0, 1);
+		const popped = stack.slice(0, 1);
+		const presented = presentScreens(popped, {
+			from: 0,
+			kind: "popping",
+			incoming: popped[0]?.key,
+			leaving: stack[1] as PluginScreen,
+		});
+
+		expect(presented.map((screenEntry) => screenEntry.role)).toEqual(["active", "leaving"]);
+		expect(presented.at(-1)?.screen).toBe(stack[1]);
+		expect(presented.every((screenEntry) => screenEntry.role !== "hidden")).toBe(true);
 	});
 });

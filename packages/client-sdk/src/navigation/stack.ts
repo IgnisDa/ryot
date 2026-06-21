@@ -12,6 +12,23 @@ export type PluginScreen = {
 
 export type StackTransition = "same" | "push" | "pop" | "replace" | "reset";
 
+export type ScreenRole = "hidden" | "active" | "beneath" | "leaving";
+
+export type PresentedScreen = {
+	readonly role: ScreenRole;
+	readonly screen: PluginScreen;
+};
+
+export type Presentation =
+	| { readonly kind: "idle" }
+	| { readonly kind: "dragging" }
+	| {
+			readonly from: number;
+			readonly kind: "popping";
+			readonly leaving: PluginScreen;
+			readonly incoming: string | undefined;
+	  };
+
 export type StackEntry = {
 	readonly key: string;
 	readonly index: number;
@@ -58,4 +75,21 @@ export function reconcileStack(
 		return { stack: stack.slice(0, retained + 1), transition: "pop" };
 	}
 	return { stack: [screen], transition: "reset" };
+}
+
+export function presentScreens(
+	screens: readonly PluginScreen[],
+	presentation: Presentation,
+): readonly PresentedScreen[] {
+	const active = screens.length - 1;
+	const beneath = presentation.kind === "dragging" ? active - 1 : -1;
+	const presented = screens.map((screen, position): PresentedScreen => {
+		if (position === active) {
+			return { screen, role: "active" };
+		}
+		return { screen, role: position === beneath ? "beneath" : "hidden" };
+	});
+	return presentation.kind === "popping"
+		? [...presented, { role: "leaving", screen: presentation.leaving }]
+		: presented;
 }

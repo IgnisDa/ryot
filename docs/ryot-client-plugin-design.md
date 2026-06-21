@@ -806,7 +806,9 @@ When either peer closes or fails a session, it sends `{ type: "lifecycle-close",
 
 Protocol version 1 implements strict request/response calls for plugin data access. It carries navigation messages, recipe-backed RyotQL query messages, backend operation messages, semantic theme messages, and terminal runtime messages over the one plugin session port.
 
-The kernel-to-plugin `location` message carries the full navigation state of the entry, not just its path: `{ type: "location", index, key, edgeBack, location }`. `index` and `key` are the kernel's history identifiers, and the plugin's screen stack derives push, pop, replace, and reset from them (§18). `edgeBack` is the `resolveEdge` verdict — it is `true` only while the plugin document owns the left edge (§25). The kernel re-sends the message whenever any of those fields change, so a viewport change that moves edge ownership does not wait for a navigation.
+The kernel-to-plugin `location` message carries the full navigation state of the entry, not just its path: `{ type: "location", index, key, compact, edgeBack, location }`. `index` and `key` are the kernel's history identifiers, and the plugin's screen stack derives push, pop, replace, and reset from them (§18). `edgeBack` is the `resolveEdge` verdict — it is `true` only while the plugin document owns the left edge (§25). `compact` is the viewport class the same resolver used, and it is what the plugin document gates its transition on (§18). The kernel re-sends the message whenever any of those fields change, so a viewport change that moves edge ownership does not wait for a navigation.
+
+`compact` exists as its own field because `edgeBack` cannot stand in for it: `edgeBack` is also `false` at the plugin root, where the edge belongs to the drawer, so popping from a child route back to the plugin root would lose its transition exactly as the pop began. The plugin document must not derive the viewport class itself either — media queries inside the iframe measure the content area rather than the window, so an iframe narrowed by the desktop sidebar would disagree with the kernel. `resolveEdge` stays the only definition of a compact viewport.
 
 Plugin to kernel carries `{ type: "navigate-back" }` when a plugin-owned back gesture commits. It is a semantic request, not a history mutation: the kernel owns global history and decides whether the pop happens. No per-frame gesture data crosses the port.
 
@@ -1215,7 +1217,22 @@ anything else                       reset    discard the stack and start fresh
 
 A retained screen stays mounted and keeps its React key, so its component state, its in-flight work, and its atom subscriptions all survive a pop. Retention is bounded by `PLUGIN_SCREEN_STACK_LIMIT`; a push past the limit drops the bottom entry, which then behaves like any other cold screen when it is reached again.
 
-Retained screens are marked `inert`, `aria-hidden`, and `visibility: hidden` — never `display: none`. `visibility: hidden` preserves layout, which preserves `scrollTop`. **Scroll restoration is therefore a property of retention, not a separate mechanism**: there is no save/restore pass anywhere in the router.
+**Every screen's paint state is derived, never assigned.** The router holds the screen list and one `Presentation` value — `idle`, `dragging`, or `popping` — and `presentScreens` maps the pair to exactly one role per screen:
+
+```text
+active   the current entry; the only interactive screen
+beneath  revealed under the top screen while a drag is in flight
+leaving  the popped entry, held on top until its transition ends
+hidden   retained, mounted, and not painted
+```
+
+`visibility`, `inert`, and `aria-hidden` all follow from the role in render. No navigation path can forget to reveal an incoming screen, because revealing is not a step any path performs. Only `transform` and the scrim's `opacity` are written imperatively, because they are driven per frame by a finger or by the Web Animations API; routing them through React would mean a render per frame. That is the whole split: discrete role changes live in render, continuous values live in the DOM.
+
+Retained screens are `visibility: hidden` — never `display: none`. `visibility: hidden` preserves layout, which preserves `scrollTop`. **Scroll restoration is therefore a property of retention, not a separate mechanism**: there is no save/restore pass anywhere in the router.
+
+**A transition is owned by whoever started it.** A gesture commit begins its settling animation at release and hands the promise to the pop that follows, so the `leaving` screen is unmounted when that animation ends rather than when the kernel's `location` message arrives. A pop with no gesture behind it starts its own animation from rest. Either way exactly one animation runs and the screen it animates outlives it.
+
+**The transition is gated on `compact`, and retention is not.** A non-compact viewport swaps screens instantly: no `leaving` screen, no parallax, no scrim. The animation is the visual half of a drag, and without a drag to track it is motion for its own sake — on a wide window it also competes with the browser's own back-swipe animation. Retention still applies, so a desktop pop is an instant swap between two mounted screens, never a remount. `prefers-reduced-motion: reduce` takes the same path for the same reason: motion is optional, state and scroll are not.
 
 Because each screen owns its own scroll container, the artifact document itself does not scroll. The compiler-owned base layer pins `html`, `body`, and `#app` to the viewport, and each screen is an absolutely positioned `overflow-y: auto` region. Plugin code must scroll its own screen; `window.scrollTo` and document-level scrolling are not available. A `position: fixed` descendant is fixed to its screen, which is full-viewport, so it renders identically except while that screen is being transformed.
 
@@ -1413,7 +1430,7 @@ A long-lived plugin document preserves:
 - loaded resources
 - scroll state where appropriate
 - bridge session
-- same-document View Transitions
+- the plugin screen stack and its retained screens
 
 The bridge session and the per-session client plugin runtime have the same lifetime. Route changes only update runtime location state. Theme changes only update runtime theme state. Crash recovery, artifact replacement, unmount, and host disposal all call the same idempotent runtime disposal path; none may add a theme-specific, crash-specific, reload-specific, or component-specific bridge teardown path. Query caches belong to the provider/session atom registry and are released after five minutes of idleness when unobserved.
 
@@ -1521,6 +1538,10 @@ desktop                         intent back     owner kernel   no edge gesture i
 - **plugin** — the kernel renders no strip at all, the iframe receives the pointer events natively, and
   the plugin document runs a fully interactive, reversible transition against its own screen stack (§18).
   On commit it posts `navigate-back`; the kernel still owns the pop.
+
+`owner` decides who recognizes a gesture; it does not decide whether a pop is animated. That is `compact`,
+sent on the same message (§11). The two differ at the plugin root, where the edge belongs to the drawer but
+a pop arriving from elsewhere should still animate.
 
 This is why per-frame gesture data never crosses the bridge (§24, §36): the recognizer and the two
 screens it animates are always in the same document. Ownership is a pure function of route shape, so a
