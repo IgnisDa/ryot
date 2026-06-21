@@ -34,6 +34,7 @@ it.effect("keeps raw sandbox workflow execution at the allowed boundaries", () =
 			sandboxService,
 			sandboxWorkflow,
 			eventCreateCore,
+			eventCreateWorkflow,
 			exercisePreload,
 			entityImportWorkflow,
 			libraryWorkflow,
@@ -43,6 +44,7 @@ it.effect("keeps raw sandbox workflow execution at the allowed boundaries", () =
 			readModule("./service.ts"),
 			readModule("./sandbox-workflow-live.ts"),
 			readModule("../events/event-creation.ts"),
+			readModule("../events/event-create-workflow-live.ts"),
 			readModule("../exercises/preload.ts"),
 			readModules(entityImportWorkflowModules),
 			readModule("../library-membership/library-entity-import-workflow.ts"),
@@ -51,7 +53,11 @@ it.effect("keeps raw sandbox workflow execution at the allowed boundaries", () =
 		]);
 
 		expect(sandboxService.match(/\.execute\(RunSandboxWorkflow,/g)?.length ?? 0).toBe(1);
-		expect(eventCreateCore.match(/\.execute\(RunSandboxWorkflow,/g)?.length ?? 0).toBe(2);
+		// Before-create triggers now dispatch through DurableQueue.process; only the after-create
+		// trigger dispatch remains as a raw child-workflow execution, and it lives in the workflow
+		// body rather than inside an activity.
+		expect(eventCreateCore.match(/\.execute\(RunSandboxWorkflow,/g)?.length ?? 0).toBe(0);
+		expect(eventCreateWorkflow.match(/\.execute\(RunSandboxWorkflow,/g)?.length ?? 0).toBe(1);
 		expect(exercisePreload.match(/\.execute\(RunSandboxWorkflow,/g)?.length ?? 0).toBe(1);
 		expect(sandboxWorkflow).toContain("DurableQueue.process(SandboxExecutionQueue, payload)");
 
