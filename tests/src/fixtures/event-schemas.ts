@@ -70,7 +70,9 @@ export const listEventSchemas = (client: Client, entitySchemaSlug: string) =>
 					schemas.find((schema) => schema.slug === entitySchemaSlug),
 					`Entity schema '${entitySchemaSlug}' not found`,
 				)
-					.eventSchemas.map((schema) => ({ ...schema, id: schema.slug, entitySchemaSlug }))
+					.eventSchemas.map((schema) =>
+						Object.assign({}, schema, { id: schema.slug, entitySchemaSlug }),
+					)
 					.sort((left, right) => left.slug.localeCompare(right.slug)),
 			),
 		);
