@@ -15,6 +15,7 @@ const fixture = {
 		"client/b.tsx": encoder.encode("export const b = 'b';\n"),
 		"client/c.css": encoder.encode(".fixture { color: red; }\n"),
 		"client/d.svg": new Uint8Array([0xff, 0x00, 0x7f]),
+		"shared/a.ts": encoder.encode("export const a = 'a';\n"),
 	},
 	manifest: {
 		boot: [],
@@ -135,6 +136,7 @@ describe("plugin archive", () => {
 			"client/b.tsx",
 			"client/c.css",
 			"client/d.svg",
+			"shared/a.ts",
 		]);
 		expect(new TextDecoder().decode(files["manifest.json"])).toBe(
 			`${JSON.stringify(fixture.manifest, null, "\t")}\n`,
@@ -164,7 +166,7 @@ describe("plugin archive", () => {
 		]);
 	});
 
-	it("round trips exact backend, client text, and invalid UTF-8 asset bytes", async () => {
+	it("round trips exact backend, shared, client text, and invalid UTF-8 asset bytes", async () => {
 		const pluginBytes = writePluginArchive(fixture);
 		async function* chunks() {
 			await Promise.resolve();
@@ -248,6 +250,20 @@ describe("plugin archive", () => {
 			],
 		],
 		[
+			"unexpected-entry",
+			[
+				["manifest.json", rawManifest],
+				["shared/a.tsx", new Uint8Array(0)],
+			],
+		],
+		[
+			"unexpected-entry",
+			[
+				["manifest.json", rawManifest],
+				["shared/a.css", new Uint8Array(0)],
+			],
+		],
+		[
 			"path-noncanonical",
 			[
 				["manifest.json", rawManifest],
@@ -268,6 +284,13 @@ describe("plugin archive", () => {
 			[
 				["manifest.json", rawManifest],
 				["client/a.css", new Uint8Array([0xff])],
+			],
+		],
+		[
+			"source-non-utf8",
+			[
+				["manifest.json", rawManifest],
+				["shared/a.ts", new Uint8Array([0xff])],
 			],
 		],
 	] as const)("rejects %s", (reason, entries) => expectReason(archive(entries), reason));
