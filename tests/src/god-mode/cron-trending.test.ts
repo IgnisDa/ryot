@@ -1,7 +1,12 @@
-import { describe, expect, it, beforeAll, afterAll } from "bun:test";
+import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { randomUUID } from "node:crypto";
 
-import { getBackendClient } from "../fixtures";
+import {
+	createAndPromoteSandboxScript,
+	createAuthenticatedClient,
+	getBackendClient,
+	trendingSandboxSource,
+} from "../fixtures";
 import { pollUntil } from "../fixtures/polling";
 import { getPgClient } from "../setup";
 import { assertPresent, assertTaggedError, requirePresent } from "../test-support/assertions";
@@ -15,21 +20,24 @@ const SCRIPT_SLUG = "movie.e2e-test-trending";
 const EXTERNAL_ID_ONE = "e2e-trending-1";
 const EXTERNAL_ID_TWO = "e2e-trending-2";
 
-const TRENDING_CODE = `driver("trending", async function () {
-	return { items: [
-		{ name: "E2E Trending One", externalId: "${EXTERNAL_ID_ONE}" },
-		{ name: "E2E Trending Two", externalId: "${EXTERNAL_ID_TWO}" }
-	] };
-});`;
+const TRENDING_SOURCE = trendingSandboxSource({
+	slug: SCRIPT_SLUG,
+	name: "E2E Test Trending",
+	items: [
+		{ name: "E2E Trending One", externalId: EXTERNAL_ID_ONE },
+		{ name: "E2E Trending Two", externalId: EXTERNAL_ID_TWO },
+	],
+});
 
 let scriptId: string;
 let movieSchemaId: string;
-let entitySchemaSandboxScriptId: string;
 let mediaTrendingSchemaId: string;
+let entitySchemaSandboxScriptId: string;
 
 describe("POST /god-mode/cron/infrequent (media-trending durable workflow)", () => {
 	beforeAll(async () => {
 		const pg = getPgClient();
+		const { client } = await createAuthenticatedClient();
 
 		const movieSchema = await pg.query<{ id: string }>(
 			`select id from entity_schema
@@ -46,12 +54,8 @@ describe("POST /god-mode/cron/infrequent (media-trending durable workflow)", () 
 			"missing media-trending relationship schema",
 		).id;
 
-		scriptId = randomUUID();
-		await pg.query(
-			`insert into sandbox_script (id, slug, name, code, is_builtin, metadata, user_id)
-			 values ($1, $2, $3, $4, true, '{}'::jsonb, null)`,
-			[scriptId, SCRIPT_SLUG, "E2E Test Trending", TRENDING_CODE],
-		);
+		const script = await createAndPromoteSandboxScript(client, TRENDING_SOURCE);
+		scriptId = script.id;
 
 		entitySchemaSandboxScriptId = randomUUID();
 		await pg.query(
