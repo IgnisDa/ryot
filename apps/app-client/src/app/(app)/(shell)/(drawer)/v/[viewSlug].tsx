@@ -1,8 +1,10 @@
 import type { SavedViewRecord } from "@ryot/ryotql-recipes/saved-view-records";
 import { useLocalSearchParams } from "expo-router";
+import { useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 
 import { NavigationStatus } from "@/modules/navigation/navigation-status";
+import { savedViewResultCount } from "@/modules/saved-views/result-count";
 import { SavedViewReadyContent } from "@/modules/saved-views/saved-view-content";
 import { SavedViewFrame } from "@/modules/saved-views/saved-view-frame";
 import { savedViewError, type SavedViewError } from "@/modules/saved-views/state";
@@ -23,7 +25,22 @@ function ErrorState(props: SavedViewError & { onRetry?: () => void }) {
 }
 
 function SavedViewContent(props: { record: SavedViewRecord }) {
-	const result = useSavedViewResult(props.record);
+	const [query, setQuery] = useState("");
+	const [searchValue, setSearchValue] = useState("");
+	const result = useSavedViewResult(props.record, query);
+	useEffect(() => {
+		const normalized = searchValue.trim();
+		if (normalized === query) {
+			return undefined;
+		}
+		const timer = setTimeout(() => setQuery(normalized), 300);
+		return () => clearTimeout(timer);
+	}, [query, searchValue]);
+	const clearSearch = () => {
+		setQuery("");
+		setSearchValue("");
+	};
+	const submitSearch = () => setQuery(searchValue.trim());
 	if (result.state.status === "loading") {
 		return (
 			<SavedViewFrame viewSlug={props.record.slug}>
@@ -40,11 +57,23 @@ function SavedViewContent(props: { record: SavedViewRecord }) {
 	}
 	return (
 		<SavedViewReadyContent
-			record={props.record}
 			state={result.state}
+			record={props.record}
 			refresh={result.refresh}
 			loadMore={result.loadMore}
 			isLoadingMore={result.isLoadingMore}
+			search={{
+				query,
+				value: searchValue,
+				onClear: clearSearch,
+				onSubmit: submitSearch,
+				onChange: setSearchValue,
+				isSearching: result.isSearching,
+				resultLabel: `${savedViewResultCount(
+					result.state.data.items.length,
+					result.state.data.pageInfo.hasMore,
+				)} in ${props.record.name}`,
+			}}
 		/>
 	);
 }
@@ -72,7 +101,7 @@ function SavedViewRecordLoader(props: { slug: string }) {
 			</SavedViewFrame>
 		);
 	}
-	return <SavedViewContent record={result.state.record} />;
+	return <SavedViewContent key={result.state.record.id} record={result.state.record} />;
 }
 
 export default function SavedViewScreen() {
