@@ -1,10 +1,13 @@
 import {
 	CLIENT_ARTIFACT_METADATA_ELEMENT_ID,
 	CLIENT_ARTIFACT_ROOT_ELEMENT_ID,
+	KERNEL_SHORTCUTS,
 	PluginBridgeInit,
 	PluginClientArtifactMetadata,
 } from "@ryot-app/client-plugin-contract";
+import { useShortcut } from "@ryot-app/client-ui-sdk";
 import { Result, Schema } from "effect";
+import { useSyncExternalStore } from "react";
 import { createRoot, type Root } from "react-dom/client";
 
 import { createPluginNavigationStore } from "./navigation/store";
@@ -17,6 +20,27 @@ type ClientPluginDefinition = PluginRouterDefinition;
 const decodeArtifactMetadata = Schema.decodeUnknownResult(
 	Schema.fromJsonString(PluginClientArtifactMetadata),
 );
+
+const KernelShortcutForwarder = ({
+	runtime,
+}: {
+	runtime: ReturnType<typeof createPluginRuntime>;
+}) => {
+	const { compact } = useSyncExternalStore(
+		runtime.navigation.subscribe,
+		runtime.navigation.getSnapshot,
+		runtime.navigation.getSnapshot,
+	);
+	useShortcut(KERNEL_SHORTCUTS.commandCenter, () =>
+		runtime.forwardKernelShortcut("command-center"),
+	);
+	useShortcut(
+		KERNEL_SHORTCUTS.workspaceSwitcher,
+		() => runtime.forwardKernelShortcut("workspace-switcher"),
+		{ enabled: !compact },
+	);
+	return null;
+};
 
 export const bootstrapClientPlugin = (definition: ClientPluginDefinition) => {
 	const navigationStore = createPluginNavigationStore(createPluginRouteResolver(definition));
@@ -40,6 +64,7 @@ export const bootstrapClientPlugin = (definition: ClientPluginDefinition) => {
 				});
 				root.render(
 					<RyotProvider client={runtime.client}>
+						<KernelShortcutForwarder runtime={runtime} />
 						<PluginRouter navigation={runtime.navigation} />
 					</RyotProvider>,
 				);

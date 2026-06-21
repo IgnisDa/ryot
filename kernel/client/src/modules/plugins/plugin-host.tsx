@@ -1,5 +1,6 @@
 import { CLIENT_API_VERSION } from "@ryot-app/client-plugin-contract";
 import type {
+	KernelShortcut,
 	PluginAssetOutcome,
 	PluginAssetRequest,
 	PluginOperationOutcome,
@@ -134,6 +135,7 @@ export function PluginHost(props: {
 	readonly chromeTriggerRef: RefObject<HTMLElement | null>;
 	readonly onRenewArtifactSession: RenewPluginArtifactSession;
 	readonly onHeader: (header: PluginHeaderPublication) => void;
+	readonly onKernelShortcut: (shortcut: KernelShortcut) => void;
 	readonly onCreateArtifactSession: CreatePluginArtifactSession;
 	readonly onRevokeArtifactSession: RevokePluginArtifactSession;
 	readonly onNavigate: (request: PluginNavigationRequest) => void;
@@ -179,6 +181,7 @@ export function PluginHost(props: {
 			onStaleSession={props.onStaleSession}
 			artifactHash={resolution.artifactHash}
 			chromeTriggerRef={props.chromeTriggerRef}
+			onKernelShortcut={props.onKernelShortcut}
 			sourceHash={props.installation.sourceHash}
 			onInvokeOperation={props.onInvokeOperation}
 			installationId={props.installation.installationId}
@@ -207,6 +210,7 @@ function PluginFrame(props: {
 	readonly chromeTriggerRef: RefObject<HTMLElement | null>;
 	readonly onRenewArtifactSession: RenewPluginArtifactSession;
 	readonly onHeader: (header: PluginHeaderPublication) => void;
+	readonly onKernelShortcut: (shortcut: KernelShortcut) => void;
 	readonly onCreateArtifactSession: CreatePluginArtifactSession;
 	readonly onRevokeArtifactSession: RevokePluginArtifactSession;
 	readonly onNavigate: (request: PluginNavigationRequest) => void;
@@ -447,6 +451,7 @@ function PluginFrame(props: {
 			onOpenDrawer: () => latest.current.onOpenDrawer(),
 			onRyotQL: (request, signal) => latest.current.onQuery(request, signal),
 			onAssets: (request, signal) => latest.current.onAssets(request, signal),
+			onKernelShortcut: (shortcut) => latest.current.onKernelShortcut(shortcut),
 			onScreenState: (state) => {
 				if (bridge.current === connection.session) {
 					latest.current.onScreenState(state);
@@ -467,8 +472,8 @@ function PluginFrame(props: {
 				const current = latest.current.navigation;
 				if (request.index === current.index && request.key === current.key) {
 					latest.current.onHeader({
-						index: request.index,
 						key: request.key,
+						index: request.index,
 						title: request.header?.title ?? null,
 					});
 				}

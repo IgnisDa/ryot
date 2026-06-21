@@ -1,4 +1,4 @@
-import { Effect } from "effect";
+import { Effect, Option } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
 import { createTestUser, findBuiltinSchemaBySlug, makeSession } from "~/fixtures/kernel";
@@ -62,7 +62,7 @@ it.live("opens a Media Show entity from the canonical saved-view route", () =>
 		});
 		yield* insertLibraryMembership(client, { mediaEntityId: showId });
 		const browser = yield* Playwright.Browser;
-		const page = yield* browser.newPage();
+		const page = yield* browser.newPage({ viewport: { width: 1280, height: 900 } });
 		yield* signInThroughHostedOAuth(page, email, password);
 		yield* page.goto(`${frontendUrl}/v/all-shows`);
 		yield* page.getByRole("link", { name: `Open ${SHOW_NAME}` }).click();
@@ -96,6 +96,33 @@ it.live("opens a Media Show entity from the canonical saved-view route", () =>
 			.locator("html")
 			.waitForFunction((_html, title: string) => document.title === title, `${SHOW_NAME} — Ryot`);
 		expect(yield* page.title).toBe(`${SHOW_NAME} — Ryot`);
+		const iframe = Option.getOrThrow(yield* frame.elementHandle());
+		const body = media.locator("body");
+		yield* body.click();
+		expect(yield* body.evaluate(() => document.hasFocus())).toBe(true);
+
+		const primaryModifier = yield* page.evaluate(() =>
+			/Mac|iPhone|iPad/.test(navigator.platform) ? "Meta" : "Control",
+		);
+		const commandCenter = page.getByRole("dialog", { name: "Command center" });
+		yield* page.keyboard.press(`${primaryModifier}+K`);
+		yield* commandCenter.waitFor({ state: "visible" });
+		expect(yield* commandCenter.isVisible()).toBe(true);
+		yield* page.keyboard.press("Escape");
+		yield* commandCenter.waitFor({ state: "hidden" });
+
+		yield* body.click();
+		yield* page.keyboard.press(`${primaryModifier}+Shift+Space`);
+		const sidebar = page.getByTestId("desktop-sidebar");
+		const workspaces = sidebar.getByRole("menu", { name: "Workspaces" });
+		yield* workspaces.waitFor({ state: "visible" });
+		const currentWorkspace = workspaces.getByRole("menuitemradio", { checked: true });
+		expect(yield* currentWorkspace.evaluate((element) => document.activeElement === element)).toBe(
+			true,
+		);
+		yield* page.keyboard.press("Escape");
+		yield* workspaces.waitFor({ state: "hidden" });
+		expect(yield* frame.evaluate((element, initial) => element === initial, iframe)).toBe(true);
 
 		yield* page.goBack();
 		yield* page.waitForURL(`${frontendUrl}/v/all-shows`);
