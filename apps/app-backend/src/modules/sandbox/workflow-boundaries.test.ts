@@ -100,8 +100,9 @@ it.effect("keeps parent workflows as orchestrations instead of queue pass-throug
 
 it.effect("keeps event workflow and repository primitives behind EventsService", () =>
 	Effect.gen(function* () {
-		const [collectionsService, sandboxHostFunctions] = yield* Effect.all([
+		const [collectionsService, collectionsAddWorkflow, sandboxHostFunctions] = yield* Effect.all([
 			readModule("../collections/service.ts"),
+			readModule("../collections/add-entity-to-collection-workflow-live.ts"),
 			readModule("../../lib/infrastructure/sandbox-runtime/host-functions.ts"),
 		]);
 
@@ -110,6 +111,12 @@ it.effect("keeps event workflow and repository primitives behind EventsService",
 			expect(source).not.toContain("#modules/events/repository");
 			expect(source).not.toContain("EventsRepository");
 		}
+
+		// The collections service no longer owns the add-membership event dispatch: it delegates to
+		// AddEntityToCollectionWorkflow, whose body is the single sanctioned place that dispatches the
+		// child EventCreateWorkflow (from the workflow body, never from inside an activity).
+		expect(collectionsService).not.toContain("EventCreateWorkflow");
+		expect(collectionsAddWorkflow.match(/\.execute\(EventCreateWorkflow,/g)?.length ?? 0).toBe(1);
 	}),
 );
 
