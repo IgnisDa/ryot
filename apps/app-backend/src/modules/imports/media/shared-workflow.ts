@@ -27,7 +27,7 @@ export const LoadMediaImportFailed = Schema.TaggedStruct("failed", {
 	cleanupPaths: Schema.Array(Schema.String),
 });
 
-export const EnsureLibraryMembershipOutcome = Schema.Struct({
+export const WriteOutcome = Schema.Struct({
 	message: Schema.NullOr(Schema.String),
 });
 

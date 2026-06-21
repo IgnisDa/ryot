@@ -9,6 +9,7 @@ import { Effect, Layer } from "effect";
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { DbRunner } from "#lib/infrastructure/db/service";
 import { RedisService } from "#lib/infrastructure/redis";
+import { AddEntityToCollectionWorkflow } from "#modules/collections/add-entity-to-collection-workflow";
 import { EntitiesRepository } from "#modules/entities/repository";
 import {
 	decodeEntityResolveResult,
@@ -114,6 +115,20 @@ export const MediaImportWorkflowOperationsLive = Layer.effect(
 				resolveSandboxEntityExternalId(input).pipe(
 					Effect.provideService(PersistedQueue.PersistedQueueFactory, queueFactory),
 				),
+			writeCollectionMembership: (input) =>
+				Effect.gen(function* () {
+					const engine = yield* WorkflowEngine;
+					yield* engine.execute(AddEntityToCollectionWorkflow, {
+						executionId: input.executionId,
+						payload: {
+							properties: {},
+							userId: input.userId,
+							entityId: input.entityId,
+							executionId: input.executionId,
+							collectionId: input.collectionId,
+						},
+					});
+				}),
 		};
 	}),
 );

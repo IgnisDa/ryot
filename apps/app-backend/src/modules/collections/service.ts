@@ -1,3 +1,4 @@
+import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { badRequest, notFound } from "@ryot/contract/errors";
 import type {
@@ -7,6 +8,7 @@ import type {
 } from "@ryot/contract/modules/collections/schemas";
 import type { EntityId, EntitySchemaId, EventSchemaId, UserId } from "@ryot/contract/schema/brands";
 import { decodeStoredAppSchema } from "@ryot/contract/schema/core";
+import { generateId } from "better-auth";
 import { Cause, DateTime, Effect } from "effect";
 
 import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
@@ -21,6 +23,7 @@ import { RelationshipSchemasRepository } from "#modules/relationship-schemas/rep
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
 
+import { AddEntityToCollectionWorkflow } from "./add-entity-to-collection-workflow";
 import { CollectionsRepository } from "./repository";
 import {
 	circularReferenceError,
@@ -40,6 +43,7 @@ const requireBuiltinOrDie =
 export class CollectionsService extends Effect.Service<CollectionsService>()("CollectionsService", {
 	effect: Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
+		const engine = yield* WorkflowEngine;
 		const events = yield* EventsService;
 		const entities = yield* EntitiesService;
 		const repository = yield* CollectionsRepository;
@@ -186,22 +190,28 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 			return toCollectionResponse(created);
 		});
 
-		const addToCollection = Effect.fn("CollectionsService.addToCollection")(function* (
-			user: CurrentUserValue,
-			payload: CreateMembershipBody,
-		) {
-			if (payload.collectionId === payload.entityId) {
+		// The transactional membership write, run inside AddEntityToCollectionWorkflow's activity. The
+		// deterministic event dispatch happens in the workflow body, outside this transaction.
+		const writeMembership = Effect.fn("CollectionsService.writeMembership")(function* (input: {
+			userId: UserId;
+			entityId: EntityId;
+			collectionId: EntityId;
+			properties?: unknown;
+		}) {
+			if (input.collectionId === input.entityId) {
 				return yield* badRequest(circularReferenceError);
 			}
 
 			const collection = yield* runWithDb(
-				repository.getCollectionById(payload.collectionId, user.id),
+				repository.getCollectionById(input.collectionId, input.userId),
 			);
 			if (!collection) {
 				return yield* notFound(collectionNotFoundError);
 			}
 
-			const entity = yield* runWithDb(repository.getEntityForMembership(payload.entityId, user.id));
+			const entity = yield* runWithDb(
+				repository.getEntityForMembership(input.entityId, input.userId),
+			);
 			if (!entity) {
 				return yield* notFound(entityNotFoundError);
 			}
@@ -219,15 +229,14 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 				validatedProperties = yield* parseAppSchemaProperties({
 					kind: "Membership",
 					propertiesSchema: membershipSchema,
-					properties: payload.properties ?? {},
+					properties: input.properties ?? {},
 				}).pipe(
 					Effect.mapError((error) =>
 						badRequest(`${invalidMembershipPropertiesError}: ${error.message}`),
 					),
 				);
 			} else {
-				const rawProperties = payload.properties;
-				validatedProperties = isPlainObject(rawProperties) ? rawProperties : {};
+				validatedProperties = isPlainObject(input.properties) ? input.properties : {};
 			}
 
 			const addEvent = yield* addEventSchema;
@@ -238,7 +247,7 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 				Effect.gen(function* () {
 					if (entity.userId === null) {
 						const libraryEntityId = yield* repository.getUserLibraryEntityId({
-							userId: user.id,
+							userId: input.userId,
 						});
 						if (!libraryEntityId) {
 							return yield* Effect.die("Library entity not found for user");
@@ -246,7 +255,7 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 						yield* relationshipsRepository.saveRelationship({
 							scope: "user",
 							properties: {},
-							userId: user.id,
+							userId: input.userId,
 							sourceEntityId: entity.id,
 							onConflict: "preserveExisting",
 							targetEntityId: libraryEntityId,
@@ -256,35 +265,44 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 
 					return yield* relationshipsRepository.saveRelationship({
 						scope: "user",
-						userId: user.id,
+						userId: input.userId,
 						properties: validatedProperties,
 						onConflict: "replaceProperties",
-						sourceEntityId: payload.entityId,
-						targetEntityId: payload.collectionId,
+						sourceEntityId: input.entityId,
+						targetEntityId: input.collectionId,
 						relationshipSchemaId: memberOfRelationshipSchema.id,
 					});
 				}),
 			);
 
-			if (membership.wasInserted && addEvent) {
-				const now = yield* DateTime.nowAsDate;
-				yield* queueCollectionEvent({
-					userId: user.id,
-					eventSchemaId: addEvent.id,
-					occurredAt: now.toISOString(),
-					entityId: payload.collectionId,
-					executionId: `collection-membership-added-${membership.id}`,
-					properties: {
-						entityId: entity.id,
-						relationshipId: membership.id,
-						entitySchemaSlug: entity.entitySchemaSlug,
-						relationshipProperties: membership.properties,
-					},
-				});
-			}
+			const occurredAt = yield* DateTime.nowAsDate;
+			const { wasInserted, ...memberOf } = membership;
+			return {
+				memberOf,
+				wasInserted,
+				entityId: entity.id,
+				addEventSchemaId: addEvent?.id ?? null,
+				occurredAt: occurredAt.toISOString(),
+				entitySchemaSlug: entity.entitySchemaSlug,
+			};
+		});
 
-			const { wasInserted: _, ...memberOf } = membership;
-			return { memberOf };
+		const addToCollection = Effect.fn("CollectionsService.addToCollection")(function* (
+			user: CurrentUserValue,
+			payload: CreateMembershipBody,
+		) {
+			// A genuinely fresh, top-level dispatch from HTTP: a random executionId is correct here.
+			const executionId = generateId();
+			return yield* engine.execute(AddEntityToCollectionWorkflow, {
+				executionId,
+				payload: {
+					executionId,
+					userId: user.id,
+					entityId: payload.entityId,
+					properties: payload.properties,
+					collectionId: payload.collectionId,
+				},
+			});
 		});
 
 		const removeFromCollection = Effect.fn("CollectionsService.removeFromCollection")(function* (
@@ -444,6 +462,7 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 
 		return {
 			create,
+			writeMembership,
 			addToCollection,
 			removeFromCollection,
 			getOrCreateCollection,
