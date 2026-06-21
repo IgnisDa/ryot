@@ -1,13 +1,11 @@
 import { Activity } from "@effect/workflow";
 import { DateTime, Effect, Layer } from "effect";
 
-import { DbRunner } from "#lib/infrastructure/db/service";
-
 import type { ImportRunJobData } from "../jobs";
-import { ImportsRepository } from "../repository";
 import { recordImportRunFailure } from "../runtime/import-run-status";
 import { loadImportAdapterResult } from "../runtime/source-payload-store";
 import { ImportRunError, toWorkflowError } from "../runtime/workflow-helpers";
+import { ImportsService } from "../service";
 import { MediaImportAdapterResultSchema, type MediaImportAdapterResult } from "./adapter-result";
 import {
 	ProcessNormalizedMediaImportWorkflow,
@@ -72,15 +70,14 @@ const recordMediaAdapterFailures = (
 
 const recordMediaTotalItems = (payload: Pick<ImportRunJobData, "runId">, totalItems: number) =>
 	Effect.gen(function* () {
-		const runWithDb = yield* DbRunner;
-		const repository = yield* ImportsRepository;
+		const imports = yield* ImportsService;
 
 		yield* Activity.make({
 			error: ImportRunError,
 			name: "record-total-items",
-			execute: runWithDb(repository.updateRun({ runId: payload.runId, totalItems })).pipe(
-				Effect.mapError(toWorkflowError),
-			),
+			execute: imports
+				.update({ runId: payload.runId, totalItems })
+				.pipe(Effect.mapError(toWorkflowError)),
 		});
 	});
 
@@ -118,15 +115,14 @@ const finalizeMediaImportRun = (input: {
 	payload: Pick<ImportRunJobData, "runId">;
 }) =>
 	Effect.gen(function* () {
-		const runWithDb = yield* DbRunner;
-		const repository = yield* ImportsRepository;
+		const imports = yield* ImportsService;
 		const finishedAt = yield* DateTime.nowAsDate;
 
 		yield* Activity.make({
 			error: ImportRunError,
 			name: "finalize-import-run",
-			execute: runWithDb(
-				repository.updateRun({
+			execute: imports
+				.update({
 					finishedAt,
 					progress: 100,
 					status: "completed",
@@ -134,8 +130,8 @@ const finalizeMediaImportRun = (input: {
 					failedItems: input.failedItems,
 					importedItems: input.importedItems,
 					processedItems: input.processedItems,
-				}),
-			).pipe(Effect.mapError(toWorkflowError)),
+				})
+				.pipe(Effect.mapError(toWorkflowError)),
 		});
 	});
 
