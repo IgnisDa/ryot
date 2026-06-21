@@ -1,144 +1,155 @@
-import { describe, expect, it } from "vitest";
+import type { JsonValue, SandboxHost } from "@ryot/sandbox-sdk";
+import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+import { describe, expect, it, vi } from "vitest";
 
-import integrationPushHelperCode from "../script-helpers/integration-push.sandbox.js" with { type: "text" };
-import jellyfinPushScriptCode from "./jellyfin-push.sandbox.js" with { type: "text" };
+import definition, { manifest } from "./jellyfin-push.sandbox";
 import {
+	afterCreateContext,
+	entityRecord,
+	entitySchemaRecord,
+	execution,
 	hostFailure,
 	hostSuccess,
 	httpFailure,
 	httpSuccess,
-	runTriggerScript,
+	integrationRecord,
 	toRecord,
-	wrapWithPushHelpers,
 } from "./test-utils";
 
-const jellyfinCode = wrapWithPushHelpers(integrationPushHelperCode, jellyfinPushScriptCode);
-
-const runJellyfinScript = (
-	context: unknown,
-	hostFunctions: Record<string, (...args: Array<unknown>) => unknown>,
-) => runTriggerScript(jellyfinCode, context, hostFunctions);
-
+type JellyfinHost = SandboxHost<typeof manifest.capabilities>;
 type HttpCall = { url: string; method: string; options: Record<string, unknown> };
 
-const movieEntity = {
+const movieEntity = entityRecord({
+	id: "movie-1",
 	externalId: "603",
 	name: "The Matrix",
-	entitySchemaId: "es_movie",
-	sandboxScriptId: "script_movie_tmdb",
-};
+	entitySchemaId: "es-movie",
+	sandboxScriptId: "script-movie-tmdb",
+});
 
-const jellyfinIntegration = {
-	id: "integration_1",
-	providerSpecifics: {
-		username: "ryot",
-		password: "secret",
-		kind: "jellyfin_push",
-		baseUrl: "http://jellyfin.local",
-	},
-};
+const jellyfinIntegration = integrationRecord({
+	provider: "jellyfin_push",
+	providerSpecifics: { username: "ryot", password: "secret", baseUrl: "http://jellyfin.local" },
+});
 
-const tmdbProviders = [{ name: "TMDB", scriptId: "script_movie_tmdb" }];
+const schema = entitySchemaRecord({
+	id: "es-movie",
+	providers: [{ name: "TMDB", scriptId: "script-movie-tmdb" }],
+});
 
-const createTrigger = (overrides: Record<string, unknown> = {}) => ({
-	trigger: {
-		entityId: "movie_1",
+const createTrigger = (overrides: Parameters<typeof afterCreateContext>[0] = {}) =>
+	afterCreateContext({
+		entityId: "movie-1",
 		entitySchemaSlug: "movie",
 		eventSchemaSlug: "complete",
 		properties: { completionMode: "just_now" },
 		...overrides,
-	},
-});
+	});
 
-const createHostFunctions = (options: {
-	integrations?: unknown[];
-	entity?: Record<string, unknown>;
-}) => ({
-	listIntegrations: () => hostSuccess(options.integrations ?? []),
-	getEntity: () => (options.entity ? hostSuccess(options.entity) : hostFailure()),
-	getEntitySchema: () => hostSuccess({ providers: tmdbProviders }),
-});
-
-const userPreferences =
-	(disableIntegrations = false) =>
-	() => ({ success: true, data: { disableIntegrations } });
-
-const createHttpCall = (calls: HttpCall[], items: unknown[]) => {
-	return (method: unknown, url: unknown, options: unknown) => {
-		const stringUrl = String(url);
-		calls.push({
-			url: stringUrl,
-			method: String(method),
-			options: toRecord(options),
-		});
-
-		if (stringUrl.endsWith("/Users/AuthenticateByName")) {
+const createHttpCall =
+	(calls: HttpCall[], items: JsonValue[], playedFailure = false): JellyfinHost["httpCall"] =>
+	(method, url, options) => {
+		calls.push({ url, method, options: toRecord(options) });
+		if (url.endsWith("/Users/AuthenticateByName")) {
 			return httpSuccess({ AccessToken: "jf-token", User: { Id: "jf-user" } });
 		}
-		if (stringUrl.includes("/Items?")) {
+		if (url.includes("/Items?")) {
 			return httpSuccess({ Items: items });
 		}
-		if (stringUrl.includes("/PlayedItems/")) {
-			return httpSuccess({});
+		if (url.includes("/PlayedItems/")) {
+			return playedFailure ? httpFailure("already played", 409) : httpSuccess({});
 		}
 		return httpFailure();
 	};
-};
+
+const createHost = (options: {
+	disableIntegrations?: boolean;
+	httpCall: JellyfinHost["httpCall"];
+	entity?: ReturnType<typeof entityRecord>;
+	integrations?: ReturnType<typeof integrationRecord>[];
+}) =>
+	defineSandboxTestHost(manifest, {
+		httpCall: options.httpCall,
+		getEntity: () => (options.entity ? hostSuccess(options.entity) : hostFailure()),
+		getEntitySchema: () => hostSuccess(schema),
+		listIntegrations: () => hostSuccess(options.integrations ?? []),
+		getUserPreferences: () =>
+			hostSuccess({ isNsfw: false, disableIntegrations: options.disableIntegrations ?? false }),
+	});
 
 describe("jellyfin-push sandbox script", () => {
 	it("authenticates and marks the matching item as played", () => {
-		const httpCalls: HttpCall[] = [];
-		const items = [{ Id: "jf-item-1", Name: "The Matrix", ProviderIds: { Tmdb: "603" } }];
+		const calls: HttpCall[] = [];
+		const host = createHost({
+			entity: movieEntity,
+			integrations: [jellyfinIntegration],
+			httpCall: createHttpCall(calls, [
+				{ Id: "jf-item-1", Name: "The Matrix", ProviderIds: { Tmdb: "603" } },
+			]),
+		});
+		return runSandboxTestDriver(definition.drivers.trigger, createTrigger(), host, execution).then(
+			() => {
+				const markCall = calls.find((call) => call.url.includes("/PlayedItems/"));
+				expect(markCall?.method).toBe("POST");
+				expect(markCall?.url).toBe("http://jellyfin.local/Users/jf-user/PlayedItems/jf-item-1");
+				expect(markCall?.options["headers"]).toEqual({ "X-Emby-Token": "jf-token" });
+				return undefined;
+			},
+		);
+	});
 
-		return runJellyfinScript(createTrigger(), {
-			...createHostFunctions({ entity: movieEntity, integrations: [jellyfinIntegration] }),
-			getUserPreferences: userPreferences(),
-			httpCall: createHttpCall(httpCalls, items),
-		}).then(() => {
-			const markCall = httpCalls.find((call) => call.url.includes("/PlayedItems/"));
-			expect(markCall?.method).toBe("POST");
-			expect(markCall?.url).toBe("http://jellyfin.local/Users/jf-user/PlayedItems/jf-item-1");
-			expect(markCall?.options["headers"]).toEqual({ "X-Emby-Token": "jf-token" });
+	it("no-ops when the item is absent, the entity is unsupported, or integrations are disabled", () => {
+		const calls: HttpCall[] = [];
+		const httpCall = createHttpCall(calls, []);
+		return Promise.all([
+			runSandboxTestDriver(
+				definition.drivers.trigger,
+				createTrigger(),
+				createHost({ entity: movieEntity, integrations: [jellyfinIntegration], httpCall }),
+				execution,
+			),
+			runSandboxTestDriver(
+				definition.drivers.trigger,
+				createTrigger({ entityId: "book-1", entitySchemaSlug: "book" }),
+				createHost({ entity: movieEntity, integrations: [jellyfinIntegration], httpCall }),
+				execution,
+			),
+			runSandboxTestDriver(
+				definition.drivers.trigger,
+				createTrigger(),
+				createHost({
+					httpCall,
+					entity: movieEntity,
+					disableIntegrations: true,
+					integrations: [jellyfinIntegration],
+				}),
+				execution,
+			),
+		]).then(() => {
+			expect(calls.some((call) => call.url.includes("/PlayedItems/"))).toBe(false);
 			return undefined;
 		});
 	});
 
-	it("no-ops when the item cannot be found in Jellyfin", () => {
-		const httpCalls: HttpCall[] = [];
-
-		return runJellyfinScript(createTrigger(), {
-			...createHostFunctions({ entity: movieEntity, integrations: [jellyfinIntegration] }),
-			getUserPreferences: userPreferences(),
-			httpCall: createHttpCall(httpCalls, []),
-		}).then(() => {
-			expect(httpCalls.some((call) => call.url.includes("/PlayedItems/"))).toBe(false);
-			return undefined;
+	it("treats a played-item HTTP failure as non-fatal", () => {
+		const calls: HttpCall[] = [];
+		const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+		const host = createHost({
+			entity: movieEntity,
+			integrations: [jellyfinIntegration],
+			httpCall: createHttpCall(
+				calls,
+				[{ Id: "jf-item-1", Name: "The Matrix", ProviderIds: { Tmdb: "603" } }],
+				true,
+			),
 		});
-	});
-
-	it("no-ops when the completed entity is not a movie or show", () => {
-		const httpCalls: HttpCall[] = [];
-
-		return runJellyfinScript(createTrigger({ entitySchemaSlug: "book", entityId: "book_1" }), {
-			...createHostFunctions({ entity: movieEntity, integrations: [jellyfinIntegration] }),
-			getUserPreferences: userPreferences(),
-			httpCall: createHttpCall(httpCalls, []),
-		}).then(() => {
-			expect(httpCalls).toHaveLength(0);
-			return undefined;
-		});
-	});
-
-	it("no-ops when integrations are disabled for the user", () => {
-		const httpCalls: HttpCall[] = [];
-
-		return runJellyfinScript(createTrigger(), {
-			...createHostFunctions({ entity: movieEntity, integrations: [jellyfinIntegration] }),
-			httpCall: createHttpCall(httpCalls, []),
-			getUserPreferences: userPreferences(true),
-		}).then(() => {
-			expect(httpCalls).toHaveLength(0);
-			return undefined;
-		});
+		return runSandboxTestDriver(definition.drivers.trigger, createTrigger(), host, execution).then(
+			(result) => {
+				expect(result).toBeUndefined();
+				expect(warning).toHaveBeenCalledWith("Jellyfin push failed: already played");
+				warning.mockRestore();
+				return undefined;
+			},
+		);
 	});
 });

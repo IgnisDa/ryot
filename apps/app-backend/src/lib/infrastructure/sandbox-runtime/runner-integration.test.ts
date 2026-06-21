@@ -5,7 +5,11 @@ import type { CompiledSandboxModule } from "@ryot/sandbox-compiler/protocol";
 import { Effect, Schema } from "effect";
 import { afterAll, assert, beforeAll, expect, it } from "vitest";
 
-import { sandboxShowDotTmdbScript } from "#modules/builtins/generated-sandbox/registry";
+import {
+	sandboxShowDotTmdbScript,
+	sandboxTriggerDotAutoDashCompleteDashOnDashFullDashProgressScript,
+	sandboxTriggerDotIntegrationDashProgressDashPolicyScript,
+} from "#modules/builtins/generated-sandbox/registry";
 import { SandboxCompiler } from "#modules/sandbox/compiler";
 import { compileLegacySandboxModule } from "#modules/sandbox/legacy-module";
 
@@ -971,6 +975,67 @@ it("loads and executes the generated TMDB Show module in Deno", () =>
 				});
 			}),
 		),
+	));
+
+it("loads generated before-create and after-create triggers in Deno", () =>
+	Effect.runPromise(
+		Effect.gen(function* () {
+			const before = sandboxTriggerDotIntegrationDashProgressDashPolicyScript;
+			const beforeResult = yield* runInDeno(
+				{
+					manifest: before.manifest,
+					format: before.compiledFormat,
+					javascript: before.compiledCode,
+				},
+				"trigger",
+				{
+					trigger: {
+						origin: "api",
+						userId: "user-1",
+						entityId: "entity-1",
+						phase: "before_create",
+						entitySchemaSlug: "movie",
+						eventSchemaSlug: "progress",
+						eventSchemaId: "event-schema-1",
+						entitySchemaId: "entity-schema-1",
+						properties: { progressPercent: 50 },
+						occurredAt: "2026-01-01T00:00:00.000Z",
+					},
+				},
+				{ apiFunctions: before.manifest.capabilities },
+			);
+			assert(beforeResult !== null && typeof beforeResult === "object");
+			expect(beforeResult).toMatchObject({ success: true, value: { action: "allow" } });
+
+			const after = sandboxTriggerDotAutoDashCompleteDashOnDashFullDashProgressScript;
+			const afterResult = yield* runInDeno(
+				{
+					manifest: after.manifest,
+					format: after.compiledFormat,
+					javascript: after.compiledCode,
+				},
+				"trigger",
+				{
+					trigger: {
+						eventId: "event-1",
+						entityId: "entity-1",
+						phase: "after_create",
+						inheritedProperties: {},
+						entitySchemaSlug: "movie",
+						eventSchemaSlug: "progress",
+						eventSchemaId: "event-schema-1",
+						entitySchemaId: "entity-schema-1",
+						properties: { progressPercent: 50 },
+						createdAt: "2026-01-01T00:00:00.000Z",
+						updatedAt: "2026-01-01T00:00:00.000Z",
+						occurredAt: "2026-01-01T00:00:00.000Z",
+					},
+				},
+				{ apiFunctions: after.manifest.capabilities },
+			);
+			assert(afterResult !== null && typeof afterResult === "object");
+			expect(afterResult).toMatchObject({ success: true, value: null });
+		}),
 	));
 
 it("counts failed host-call attempts against total and HTTP budgets", () =>

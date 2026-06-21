@@ -13,6 +13,7 @@
 		"@ryot/app-backend": "workspace:*",
 		"@ryot/contract": "workspace:*",
 		"@ryot/query-engine": "workspace:*",
+		"@ryot/sandbox-sdk": "workspace:*",
 		"@ryot/ts-utils": "workspace:*",
 		"@testcontainers/postgresql": "11.14.0",
 		"@types/pg": "8.20.0",
