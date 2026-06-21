@@ -196,7 +196,7 @@ export const processChildEntityTree = Effect.fn("processChildEntityTree")(functi
 			}
 
 			yield* relationships
-				.create({
+				.save({
 					properties: {},
 					scope: "global",
 					sourceEntityId: parentEntityId,
@@ -225,10 +225,17 @@ export const processChildEntityTree = Effect.fn("processChildEntityTree")(functi
 				);
 				if (nestedRelationshipSchema) {
 					yield* runWithDb(
-						relationshipsRepository.syncGlobalRelationshipTargets({
-							sourceEntityId: child.entity.id,
-							targetEntityIds: nestedChildren.map((nestedChild) => nestedChild.entity.id),
+						relationshipsRepository.syncGlobalRelationships({
+							type: "anchored",
+							entries: nestedChildren.map((nestedChild) => ({
+								entityId: nestedChild.entity.id,
+								properties: {},
+							})),
+							direction: "outgoing",
+							onConflict: "preserveExisting",
+							anchorEntityId: child.entity.id,
 							relationshipSchemaId: nestedRelationshipSchema.id,
+							synchronization: "authoritative",
 						}),
 					).pipe(dieOnDbError);
 				}
@@ -252,10 +259,17 @@ export const processChildEntityTree = Effect.fn("processChildEntityTree")(functi
 		);
 		if (relationshipSchema) {
 			yield* runWithDb(
-				relationshipsRepository.syncGlobalRelationshipTargets({
-					sourceEntityId: input.parentEntityId,
+				relationshipsRepository.syncGlobalRelationships({
+					type: "anchored",
+					entries: processedChildren.map((child) => ({
+						entityId: child.entity.id,
+						properties: {},
+					})),
+					direction: "outgoing",
+					onConflict: "preserveExisting",
+					anchorEntityId: input.parentEntityId,
 					relationshipSchemaId: relationshipSchema.id,
-					targetEntityIds: processedChildren.map((child) => child.entity.id),
+					synchronization: "authoritative",
 				}),
 			).pipe(dieOnDbError);
 		}

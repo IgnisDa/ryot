@@ -54,7 +54,7 @@ export const RelationshipsRoutesLive = HttpApiBuilder.group(
 					targetScope.entitySchemaId,
 				);
 
-				return yield* service.create({
+				return yield* service.save({
 					scope: "user",
 					userId: user.id,
 					onConflict: "replaceProperties",
