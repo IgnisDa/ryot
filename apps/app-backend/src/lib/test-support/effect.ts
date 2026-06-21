@@ -62,6 +62,7 @@ export const makeAppConfigLayer = (overrides?: Partial<AppConfigValue>): Layer.L
 		frontend: { oidcButtonLabel: Option.none() },
 		users: { allowRegistration: true, disableLocalAuth: false },
 		notifications: {
+			disabled: false,
 			smtp: {
 				user: Option.none(),
 				server: Option.none(),

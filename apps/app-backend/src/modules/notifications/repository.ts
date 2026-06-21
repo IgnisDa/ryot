@@ -155,7 +155,8 @@ export class NotificationsRepository extends Effect.Service<NotificationsReposit
 				}
 
 				if (Object.keys(updates).length === 0) {
-					return yield* getForUser(input);
+					const existing = yield* getForUser(input);
+					return existing ? toListed(existing) : null;
 				}
 
 				const [row] = yield* dbEffect(() =>
@@ -170,7 +171,7 @@ export class NotificationsRepository extends Effect.Service<NotificationsReposit
 						)
 						.returning(),
 				);
-				return row ? toRecord(row) : null;
+				return row ? toListed(toRecord(row)) : null;
 			});
 
 			const deleteForUser = Effect.fn("NotificationsRepository.deleteForUser")(function* (input: {
@@ -217,7 +218,6 @@ export class NotificationsRepository extends Effect.Service<NotificationsReposit
 			);
 
 			return {
-				getForUser,
 				listForUser,
 				createForUser,
 				deleteForUser,

@@ -21,14 +21,11 @@ const jsonRequest = (input: {
 	url: string;
 	body: Record<string, unknown>;
 	headers?: Record<string, string>;
-}) => {
-	let request = HttpClientRequest.make("POST")(input.url);
-	request = HttpClientRequest.bodyText(JSON.stringify(input.body))(request);
-	return HttpClientRequest.setHeaders({
-		"content-type": "application/json",
-		...input.headers,
-	})(request);
-};
+}) =>
+	HttpClientRequest.make("POST")(input.url).pipe(
+		HttpClientRequest.bodyUnsafeJson(input.body),
+		HttpClientRequest.setHeaders(input.headers ?? {}),
+	);
 
 const textRequest = (input: { url: string; body: string; headers?: Record<string, string> }) => {
 	let request = HttpClientRequest.make("POST")(input.url);
@@ -46,25 +43,19 @@ export class NotificationDeliveryService extends Effect.Service<NotificationDeli
 	{
 		effect: Effect.gen(function* () {
 			const config = yield* AppConfig;
-			const httpClient = yield* HttpClient.HttpClient;
+			const httpClient = (yield* HttpClient.HttpClient).pipe(HttpClient.filterStatusOk);
 
 			const sendHttp = Effect.fn("NotificationDeliveryService.sendHttp")(function* (input: {
 				request: HttpClientRequest.HttpClientRequest;
 				provider: string;
 			}) {
-				const response = yield* httpClient.execute(input.request).pipe(
-					Effect.flatMap((httpResponse) => Effect.map(httpResponse.text, () => httpResponse)),
+				yield* httpClient.execute(input.request).pipe(
+					Effect.flatMap((response) => response.text),
 					Effect.timeout(Duration.millis(HTTP_TIMEOUT_MS)),
 					Effect.mapError(
 						() => new NotificationDeliveryError({ message: `${input.provider} request failed` }),
 					),
 				);
-				if (response.status < 200 || response.status >= 300) {
-					return yield* new NotificationDeliveryError({
-						message: `${input.provider} request returned HTTP ${response.status}`,
-					});
-				}
-				return yield* Effect.void;
 			});
 
 			const sendEmail = Effect.fn("NotificationDeliveryService.sendEmail")(function* (input: {
@@ -108,6 +99,11 @@ export class NotificationDeliveryService extends Effect.Service<NotificationDeli
 				platformSpecifics: NotificationPlatformSpecifics;
 			}) {
 				const { message, platformSpecifics } = input;
+				if (config.notifications.disabled) {
+					return yield* Effect.logWarning("Notification delivery disabled; skipping send", {
+						platform: platformSpecifics.kind,
+					});
+				}
 				return yield* Match.value(platformSpecifics).pipe(
 					Match.when({ kind: "apprise" }, (specifics) =>
 						sendHttp({
