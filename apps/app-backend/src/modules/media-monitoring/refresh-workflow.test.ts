@@ -18,38 +18,38 @@ import {
 } from "#modules/entity-import/operations-workflow";
 import { NotificationsService } from "#modules/notifications/service";
 
-import { diffMonitoringSnapshots, type MonitoringSnapshot } from "./diff";
+import { diffMediaMonitoringSnapshots, type MediaMonitoringSnapshot } from "./diff";
 import {
-	MonitoringRefreshWorkflow,
-	type MonitoringRefreshPayload,
-	runMonitoringRefreshWorkflow,
+	MediaMonitoringRefreshWorkflow,
+	type MediaMonitoringRefreshPayload,
+	runMediaMonitoringRefreshWorkflow,
 } from "./refresh-workflow";
-import { MonitoringRepository } from "./repository";
+import { MediaMonitoringRepository } from "./repository";
 
 const now = "2026-06-14T00:00:00.000Z";
 
 const payload = {
 	entitySchemaSlug: "movie",
 	externalId: "provider-movie",
-	executionId: "monitoring-run",
-	entityId: EntityId.make("monitoring-entity"),
+	executionId: "media-monitoring-run",
+	entityId: EntityId.make("media-monitoring-entity"),
 	entitySchemaId: EntitySchemaId.make("schema-movie"),
 	sandboxScriptId: SandboxScriptId.make("provider-script"),
-} satisfies MonitoringRefreshPayload;
+} satisfies MediaMonitoringRefreshPayload;
 
 const entity = {
 	createdAt: now,
 	updatedAt: now,
 	populatedAt: now,
 	id: payload.entityId,
-	name: "Monitoring Target",
+	name: "Media Monitoring Target",
 	externalId: payload.externalId,
 	entitySchemaId: payload.entitySchemaId,
 	sandboxScriptId: payload.sandboxScriptId,
 	properties: { productionStatus: "Ended" },
 } satisfies ListedEntity;
 
-const snapshot = (status: string, populatedAt: string | null = now): MonitoringSnapshot => ({
+const snapshot = (status: string, populatedAt: string | null = now): MediaMonitoringSnapshot => ({
 	seasons: [],
 	populatedAt,
 	associations: [],
@@ -58,21 +58,23 @@ const snapshot = (status: string, populatedAt: string | null = now): MonitoringS
 	mangaChapters: null,
 	podcastEpisodes: [],
 	entitySchemaSlug: "movie",
-	name: "Monitoring Target",
+	name: "Media Monitoring Target",
 	entityId: payload.entityId,
 	properties: { productionStatus: status },
 });
 
-const monitoringRepositoryMock = Layer.mock(MonitoringRepository);
+const mediaMonitoringRepositoryMock = Layer.mock(MediaMonitoringRepository);
 const notificationsServiceMock = Layer.mock(NotificationsService);
 const entitiesServiceMock = Layer.mock(EntitiesService);
 
-const makeMonitoringRepository = (overrides: MockOverrides<typeof monitoringRepositoryMock> = {}) =>
-	monitoringRepositoryMock({
+const makeMediaMonitoringRepository = (
+	overrides: MockOverrides<typeof mediaMonitoringRepositoryMock> = {},
+) =>
+	mediaMonitoringRepositoryMock({
 		getSnapshot: () => Effect.succeed(null),
 		listSubscribers: () => Effect.succeed([]),
 		...overrides,
-		_tag: "MonitoringRepository",
+		_tag: "MediaMonitoringRepository",
 	});
 
 const makeNotificationsService = (overrides: MockOverrides<typeof notificationsServiceMock> = {}) =>
@@ -91,7 +93,7 @@ const makeEntitiesService = (overrides: MockOverrides<typeof entitiesServiceMock
 
 type TestOptions = {
 	entitiesService?: Layer.Layer<EntitiesService>;
-	monitoringRepository?: Layer.Layer<MonitoringRepository>;
+	mediaMonitoringRepository?: Layer.Layer<MediaMonitoringRepository>;
 	notificationsService?: Layer.Layer<NotificationsService>;
 	processSandbox?: EntityImportWorkflowOperationsValue["processSandbox"];
 };
@@ -101,7 +103,7 @@ const makeLayer = (options: TestOptions) =>
 		dbRunnerLayer,
 		Layer.succeed(RedisService, makeRedisService({ publish: () => Effect.succeed(0) })),
 		options.entitiesService ?? makeEntitiesService(),
-		options.monitoringRepository ?? makeMonitoringRepository(),
+		options.mediaMonitoringRepository ?? makeMediaMonitoringRepository(),
 		options.notificationsService ?? makeNotificationsService(),
 		Layer.mock(EntityImportWorkflowOperations, {
 			processSandbox:
@@ -117,7 +119,7 @@ const makeLayer = (options: TestOptions) =>
 	);
 
 const runWithLayer = <A, E, R>(options: TestOptions, effect: Effect.Effect<A, E, R>) => {
-	const instance = WorkflowInstance.initial(MonitoringRefreshWorkflow, payload.executionId);
+	const instance = WorkflowInstance.initial(MediaMonitoringRefreshWorkflow, payload.executionId);
 	const engine = makeWorkflowActivityEngine(instance);
 	return effect.pipe(
 		Effect.provideService(WorkflowInstance, instance),
@@ -131,7 +133,9 @@ it.effect("skips provider synchronization when a target has no current subscribe
 
 	return runWithLayer(
 		{
-			monitoringRepository: makeMonitoringRepository({ listSubscribers: () => Effect.succeed([]) }),
+			mediaMonitoringRepository: makeMediaMonitoringRepository({
+				listSubscribers: () => Effect.succeed([]),
+			}),
 			processSandbox: () =>
 				Effect.sync(() => {
 					synchronized = true;
@@ -144,7 +148,7 @@ it.effect("skips provider synchronization when a target has no current subscribe
 				}),
 		},
 		Effect.gen(function* () {
-			yield* runMonitoringRefreshWorkflow(payload);
+			yield* runMediaMonitoringRefreshWorkflow(payload);
 			expect(synchronized).toBe(false);
 		}),
 	);
@@ -162,11 +166,11 @@ it.effect("refreshes once and sends deterministic deliveries only to current sub
 	}> = [];
 	const before = snapshot("Continuing");
 	const after = snapshot("Ended");
-	const change = diffMonitoringSnapshots(before, after)[0];
+	const change = diffMediaMonitoringSnapshots(before, after)[0];
 
 	return runWithLayer(
 		{
-			monitoringRepository: makeMonitoringRepository({
+			mediaMonitoringRepository: makeMediaMonitoringRepository({
 				getSnapshot: () =>
 					Effect.sync(() => {
 						snapshotReads += 1;
@@ -198,7 +202,7 @@ it.effect("refreshes once and sends deterministic deliveries only to current sub
 				}),
 		},
 		Effect.gen(function* () {
-			yield* runMonitoringRefreshWorkflow(payload);
+			yield* runMediaMonitoringRefreshWorkflow(payload);
 			expect(synchronizations).toBe(1);
 			expect(snapshotReads).toBe(2);
 			expect(change).toBeDefined();
@@ -206,7 +210,7 @@ it.effect("refreshes once and sends deterministic deliveries only to current sub
 				{
 					userId: UserId.make("user-b"),
 					eventType: "metadata_status_changed",
-					message: "Status of Monitoring Target changed from Continuing to Ended",
+					message: "Status of Media Monitoring Target changed from Continuing to Ended",
 					executionId: `${payload.executionId}-user-b-${change?.fingerprint}`,
 				},
 			]);
@@ -220,7 +224,7 @@ it.effect("treats an incomplete persisted target as a silent baseline", () => {
 
 	return runWithLayer(
 		{
-			monitoringRepository: makeMonitoringRepository({
+			mediaMonitoringRepository: makeMediaMonitoringRepository({
 				getSnapshot: () =>
 					Effect.sync(() => {
 						snapshotReads += 1;
@@ -236,7 +240,7 @@ it.effect("treats an incomplete persisted target as a silent baseline", () => {
 			}),
 		},
 		Effect.gen(function* () {
-			yield* runMonitoringRefreshWorkflow(payload);
+			yield* runMediaMonitoringRefreshWorkflow(payload);
 			expect(deliveries).toEqual([]);
 		}),
 	);
