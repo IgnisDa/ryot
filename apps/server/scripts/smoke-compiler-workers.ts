@@ -49,7 +49,7 @@ const Home = () => {
 	return <Button className="bg-accent" onClick={() => setCount(count + 1)}><img alt="" src={logo} />{count}</Button>;
 };
 
-bootstrapClientPlugin({ home: Home });
+bootstrapClientPlugin({ home: { component: Home } });
 `),
 		"client/styles.css": new TextEncoder().encode('@import "tailwindcss";\n'),
 		"client/logo.svg": new TextEncoder().encode('<svg xmlns="http://www.w3.org/2000/svg" />'),
