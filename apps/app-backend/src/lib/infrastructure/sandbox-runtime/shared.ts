@@ -1,4 +1,7 @@
-import type { CoreSandboxHostImplementationMap, JsonValue } from "@ryot/sandbox-sdk";
+import type {
+	JsonValue,
+	SandboxHostImplementationMap as SdkSandboxHostImplementationMap,
+} from "@ryot/sandbox-sdk";
 import { isObjectRecord } from "@ryot/ts-utils/predicates";
 
 export type SandboxRunInput = {
@@ -18,19 +21,7 @@ export type BoundHostFunction = (args: ReadonlyArray<unknown>) => Promise<unknow
 
 export type UserSandboxRunInput = SandboxRunInput & { readonly userId: string };
 
-type DomainSandboxHostImplementationMap = {
-	readonly listEvents: (input: SandboxRunInput, query: unknown) => Promise<unknown>;
-	readonly createEvents: (input: SandboxRunInput, body: unknown) => Promise<unknown>;
-	readonly getEntity: (input: SandboxRunInput, entityId: unknown) => Promise<unknown>;
-	readonly listIntegrations: (input: SandboxRunInput, options: unknown) => Promise<unknown>;
-	readonly executeQueryEngine: (input: SandboxRunInput, query: unknown) => Promise<unknown>;
-	readonly getIntegration: (input: SandboxRunInput, integrationId: unknown) => Promise<unknown>;
-	readonly getEntitySchema: (input: SandboxRunInput, entitySchemaId: unknown) => Promise<unknown>;
-	readonly listEventSchemas: (input: SandboxRunInput, entitySchemaId: unknown) => Promise<unknown>;
-};
-
-export type SandboxHostImplementationMap = CoreSandboxHostImplementationMap<SandboxRunInput> &
-	DomainSandboxHostImplementationMap;
+export type SandboxHostImplementationMap = SdkSandboxHostImplementationMap<SandboxRunInput>;
 
 export type AdditionalSandboxHostImplementationMap = Omit<
 	SandboxHostImplementationMap,
@@ -63,6 +54,9 @@ export const isJsonValue = (value: unknown): value is JsonValue => {
 		Object.values(value).every(isJsonValue)
 	);
 };
+
+export const toSandboxJsonValue = (value: unknown): JsonValue =>
+	isJsonValue(value) ? value : null;
 
 const hasUserContext = (input: SandboxRunInput): input is UserSandboxRunInput =>
 	input.userId !== null;
