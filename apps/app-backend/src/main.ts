@@ -58,10 +58,7 @@ if (Bun.env["RUN_MIGRATION_ONLY"] === "true") {
 }
 
 if (Bun.env["POPULATE_SANDBOX_CACHE_ONLY"] === "true") {
-	const SandboxCacheOnlyLive = PackageCacheManager.Default.pipe(
-		Layer.provide(BunContext.layer),
-		Layer.provide(AppConfig.Default),
-	);
+	const SandboxCacheOnlyLive = PackageCacheManager.Default.pipe(Layer.provide(BunContext.layer));
 
 	await Effect.runPromise(Effect.scoped(Layer.build(SandboxCacheOnlyLive)));
 	process.exit(0);
