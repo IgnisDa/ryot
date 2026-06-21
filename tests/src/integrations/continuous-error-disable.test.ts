@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import {
 	createAuthenticatedClient,
 	createIntegration,
-	createNotificationPlatform,
+	createNotificationChannel,
 	getImportRun,
 	getIntegration,
 	pollImportRunUntilTerminal,
@@ -25,18 +25,18 @@ afterAll(() => {
 });
 
 describe("integration auto-disable on continuous errors", () => {
-	it("disables after 5 consecutive failed runs and notifies only subscribed platforms once", async () => {
+	it("disables after 5 consecutive failed runs and notifies only subscribed channels once", async () => {
 		const { client } = await createAuthenticatedClient();
 
-		await createNotificationPlatform(client, {
-			platform: "apprise",
+		await createNotificationChannel(client, {
+			channel: "apprise",
 			configuredEvents: ["integration_disabled_due_to_too_many_errors"],
-			platformSpecifics: { baseUrl: fakeApprise.url, key: "subscribed", kind: "apprise" },
+			channelSpecifics: { baseUrl: fakeApprise.url, key: "subscribed", kind: "apprise" },
 		});
-		await createNotificationPlatform(client, {
-			platform: "apprise",
+		await createNotificationChannel(client, {
+			channel: "apprise",
 			configuredEvents: [],
-			platformSpecifics: { baseUrl: fakeApprise.url, key: "unsubscribed", kind: "apprise" },
+			channelSpecifics: { baseUrl: fakeApprise.url, key: "unsubscribed", kind: "apprise" },
 		});
 
 		const { id } = await createIntegration(client, {
