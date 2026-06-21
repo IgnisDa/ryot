@@ -367,6 +367,15 @@ expecting Temporal-style "runs once, at the end" semantics.
 `apps/app-backend/src/lib/infrastructure/workflow.ts` wires:
 
 ```ts
+const WorkflowPgClientLive = Layer.unwrapEffect(
+  Effect.map(AppConfig, (config) =>
+    PgClient.layer({
+      url: config.database.url,
+      maxConnections: config.database.workflowPoolMax,
+    }),
+  ),
+);
+
 export const WorkflowEngineLive = ClusterWorkflowEngine.layer.pipe(
   Layer.provide(
     SingleRunner.layer({
@@ -377,6 +386,10 @@ export const WorkflowEngineLive = ClusterWorkflowEngine.layer.pipe(
   Layer.provide(WorkflowPgClientLive),
 );
 ```
+
+`WorkflowPgClientLive` is built from `AppConfig` (the config definition is the single source of
+truth for `DATABASE_WORKFLOW_POOL_MAX`), so `WorkflowEngineLive` carries an `AppConfig` requirement
+satisfied by `ConfigLive` in `apps/app-backend/src/app/layers.ts`.
 
 A few facts worth knowing about this specific setup:
 
@@ -393,7 +406,10 @@ A few facts worth knowing about this specific setup:
   performance tweak.** Shard locking uses genuine session-scoped Postgres advisory locks held on
   one reserved, sticky connection (`SqlRunnerStorage.ts:35-67`). A connection-rotating proxy
   (transaction-mode PgBouncer, some serverless Postgres proxies) silently breaks shard ownership —
-  stated as an explicit breaking-change caveat in the cluster CHANGELOG at `0.51.0`.
+  stated as an explicit breaking-change caveat in the cluster CHANGELOG at `0.51.0`. Because that
+  advisory lock permanently holds one connection, usable connections = `DATABASE_WORKFLOW_POOL_MAX`
+  − 1; startup validation (`validateSystemConfig`) now rejects `SANDBOX_WORKER_CONCURRENCY` >
+  `DATABASE_WORKFLOW_POOL_MAX` − 1, since exceeding it starves the workflow engine.
 - **`entityMessagePollInterval` defaults to 10 seconds** (`ShardingConfig.ts:153`, confirmed
   exactly) — this is why it's tuned down to 250ms here (see the next section).
 - A separate, easy-to-conflate tunable, **`entityReplyPollInterval`** (default 200ms), governs how

@@ -48,6 +48,11 @@ const fields = {
 		"Maximum number of PostgreSQL connections held in the pool",
 		{ default: 10 },
 	),
+	databaseWorkflowPoolMax: intField(
+		"DATABASE_WORKFLOW_POOL_MAX",
+		"Maximum number of PostgreSQL connections held in the dedicated workflow engine pool",
+		{ default: 10 },
+	),
 	oidcButtonLabel: optField(
 		strField("FRONTEND_OIDC_BUTTON_LABEL", "Label for the OIDC sign-in button"),
 	),
@@ -230,11 +235,13 @@ const databaseGroup = group(
 	Config.all({
 		url: fields.databaseUrl.config,
 		poolMax: fields.databasePoolMax.config,
+		workflowPoolMax: fields.databaseWorkflowPoolMax.config,
 		connectionTimeoutMs: fields.databaseConnectionTimeoutMs.config,
 	}),
 	{
 		url: fields.databaseUrl.meta,
 		poolMax: fields.databasePoolMax.meta,
+		workflowPoolMax: fields.databaseWorkflowPoolMax.meta,
 		connectionTimeoutMs: fields.databaseConnectionTimeoutMs.meta,
 	},
 );
