@@ -24,9 +24,9 @@ import { getSandboxAppConfigValue } from "./app-config";
 import {
 	apiFailure,
 	apiSuccess,
-	type BoundHostFunction,
+	type AdditionalSandboxHostImplementationMap,
+	isJsonValue,
 	type UserSandboxRunInput,
-	requireSandboxRunInput,
 	requireUserSandboxRunInput,
 } from "./shared";
 
@@ -65,7 +65,7 @@ const requireNonEmptyString = (value: unknown, message: string): Effect.Effect<s
 	return Effect.succeed(value.trim());
 };
 
-const normalizePreferences = (value: unknown) => {
+export const normalizePreferences = (value: unknown) => {
 	const source = isObjectRecord(value) ? value : {};
 	return {
 		isNsfw: source["isNsfw"] === true,
@@ -85,7 +85,7 @@ const runHostEffect = <A>(
 	);
 
 export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
-	Record<string, BoundHostFunction>,
+	AdditionalSandboxHostImplementationMap,
 	never,
 	SandboxHostFunctionContext
 > =>
@@ -144,11 +144,7 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 					});
 
 		return {
-			claimCachedValue: (...args) => {
-				const key = args[0];
-				const value = args[1];
-				const ttlSeconds = args[2];
-				const input = requireSandboxRunInput(args, 3, "claimCachedValue");
+			claimCachedValue: (input, key, value, ttlSeconds) => {
 				if (typeof key !== "string" || !key.trim()) {
 					return Promise.resolve(apiFailure("claimCachedValue expects a non-empty key string"));
 				}
@@ -172,7 +168,7 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 							catch: unknownToMessage,
 						});
 						if (setResult !== null) {
-							return { claimed: true };
+							return { claimed: true as const };
 						}
 
 						const existing = yield* Effect.tryPromise({
@@ -184,15 +180,17 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 						}
 
 						return yield* Schema.decode(Schema.parseJson(Schema.Unknown))(existing).pipe(
-							Effect.map((decoded) => ({ claimed: false as const, value: decoded })),
+							Effect.map((decoded) => ({
+								claimed: false as const,
+								value: isJsonValue(decoded) ? decoded : null,
+							})),
 							Effect.orElseSucceed(() => ({ claimed: false as const, value: null })),
 						);
 					}),
 				);
 			},
-			createEvents: (...args) => {
-				const body = args[0];
-				const input = requireUserSandboxRunInput(args, 1, "createEvents");
+			createEvents: (rawInput, body) => {
+				const input = requireUserSandboxRunInput(rawInput, "createEvents");
 				return runHostEffect(
 					runPromise,
 					decodeCreateEventsPayload(body).pipe(
@@ -200,9 +198,8 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 					),
 				);
 			},
-			executeQueryEngine: (...args) => {
-				const query = args[0];
-				const input = requireUserSandboxRunInput(args, 1, "executeQueryEngine");
+			executeQueryEngine: (rawInput, query) => {
+				const input = requireUserSandboxRunInput(rawInput, "executeQueryEngine");
 
 				return runHostEffect(
 					runPromise,
@@ -221,21 +218,24 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 					),
 				);
 			},
-			getAppConfigValue: (...args) => {
-				const key = args[0];
-				const input = requireSandboxRunInput(args, 1, "getAppConfigValue");
+			getAppConfigValue: (input, key) => {
 				if (typeof key !== "string" || !key.trim()) {
 					return Promise.resolve(apiFailure("getAppConfigValue expects a non-empty key string"));
 				}
 
 				return runHostEffect(
 					runPromise,
-					getSandboxAppConfigValue(config, key.trim(), input.scriptIsBuiltin),
+					getSandboxAppConfigValue(config, key.trim(), input.scriptIsBuiltin).pipe(
+						Effect.flatMap((value) =>
+							isJsonValue(value)
+								? Effect.succeed(value)
+								: Effect.fail(`Config key "${key.trim()}" is not JSON-compatible`),
+						),
+					),
 				);
 			},
-			getEntity: (...args) => {
-				const entityId = args[0];
-				const input = requireUserSandboxRunInput(args, 1, "getEntity");
+			getEntity: (rawInput, entityId) => {
+				const input = requireUserSandboxRunInput(rawInput, "getEntity");
 				return runHostEffect(
 					runPromise,
 					requireNonEmptyString(entityId, "getEntity expects a non-empty entityId").pipe(
@@ -263,9 +263,8 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 					),
 				);
 			},
-			getEntitySchema: (...args) => {
-				const entitySchemaId = args[0];
-				const input = requireUserSandboxRunInput(args, 1, "getEntitySchema");
+			getEntitySchema: (rawInput, entitySchemaId) => {
+				const input = requireUserSandboxRunInput(rawInput, "getEntitySchema");
 				return runHostEffect(
 					runPromise,
 					requireNonEmptyString(
@@ -291,9 +290,8 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 					),
 				);
 			},
-			getIntegration: (...args) => {
-				const integrationId = args[0];
-				const input = requireUserSandboxRunInput(args, 1, "getIntegration");
+			getIntegration: (rawInput, integrationId) => {
+				const input = requireUserSandboxRunInput(rawInput, "getIntegration");
 				return runHostEffect(
 					runPromise,
 					requireNonEmptyString(
@@ -319,13 +317,12 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 					),
 				);
 			},
-			getUserPreferences: (...args) => {
-				const input = requireUserSandboxRunInput(args, 0, "getUserPreferences");
+			getUserPreferences: (rawInput) => {
+				const input = requireUserSandboxRunInput(rawInput, "getUserPreferences");
 				return runHostEffect(runPromise, readUserPreferences(UserId.make(input.userId)));
 			},
-			listEventSchemas: (...args) => {
-				const entitySchemaId = args[0];
-				const input = requireUserSandboxRunInput(args, 1, "listEventSchemas");
+			listEventSchemas: (rawInput, entitySchemaId) => {
+				const input = requireUserSandboxRunInput(rawInput, "listEventSchemas");
 				return runHostEffect(
 					runPromise,
 					requireNonEmptyString(
@@ -355,9 +352,8 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 					),
 				);
 			},
-			listEvents: (...args) => {
-				const query = args[0];
-				const input = requireUserSandboxRunInput(args, 1, "listEvents");
+			listEvents: (rawInput, query) => {
+				const input = requireUserSandboxRunInput(rawInput, "listEvents");
 				return runHostEffect(
 					runPromise,
 					decodeListEventsQuery(query ?? {}).pipe(
@@ -378,9 +374,9 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 					),
 				);
 			},
-			listIntegrations: (...args) => {
-				const options = args[0] ?? {};
-				const input = requireUserSandboxRunInput(args, 1, "listIntegrations");
+			listIntegrations: (rawInput, rawOptions) => {
+				const input = requireUserSandboxRunInput(rawInput, "listIntegrations");
+				const options = rawOptions ?? {};
 				if (!isObjectRecord(options)) {
 					return Promise.resolve(apiFailure("listIntegrations expects an object"));
 				}
@@ -410,5 +406,5 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 					),
 				);
 			},
-		};
+		} satisfies AdditionalSandboxHostImplementationMap;
 	});

@@ -32,6 +32,19 @@ const legacySandboxSource = (body: LegacyCreateSandboxScriptBody) => {
 	if (uniqueDriverNames.length === 0) {
 		throw new Error("Legacy sandbox fixture must register at least one driver");
 	}
+	const driverDeclarations = uniqueDriverNames
+		.map(
+			(driverName, index) => `const legacyDriver${index} = defineDriver(manifest, {
+  input: z.unknown(),
+  output: z.unknown(),
+  run: (input, host, execution) =>
+    runLegacyDriver(${JSON.stringify(driverName)}, input, host, execution),
+});`,
+		)
+		.join("\n\n");
+	const driverEntries = uniqueDriverNames
+		.map((driverName, index) => `    ${JSON.stringify(driverName)}: legacyDriver${index},`)
+		.join("\n");
 
 	return `
 import {
@@ -52,31 +65,34 @@ export const manifest = defineManifest({
 
 type LegacyRun = (context: unknown, execution: ExecutionMetadata) => Promise<unknown>;
 
-const makeDriver = (driverName: string) => defineDriver(manifest, {
-  input: z.unknown(),
-  output: z.unknown(),
-  run: async (input, host, execution) => {
-    const drivers: Record<string, LegacyRun> = {};
-    const driver = (name: string, run: LegacyRun) => {
-      drivers[name] = run;
-    };
-    const hostRecord = host as unknown as Record<string, (...args: unknown[]) => Promise<unknown>>;
-    const hostNames = Object.keys(hostRecord);
-    const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor as new (
-      ...parameters: string[]
-    ) => (...args: unknown[]) => Promise<void>;
-    const register = new AsyncFunction("driver", ...hostNames, ${JSON.stringify(body.code)});
-    await register(driver, ...hostNames.map((hostName) => hostRecord[hostName]));
-    const run = drivers[driverName];
-    if (!run) throw new Error('Driver "' + driverName + '" is not defined in this script');
-    return await run(input, execution);
-  },
-});
+const runLegacyDriver = async (
+  driverName: string,
+  input: unknown,
+  host: unknown,
+  execution: ExecutionMetadata,
+) => {
+  const drivers: Record<string, LegacyRun> = {};
+  const driver = (name: string, run: LegacyRun) => {
+    drivers[name] = run;
+  };
+  const hostRecord = host as Record<string, (...args: unknown[]) => Promise<unknown>>;
+  const hostNames = Object.keys(hostRecord);
+  const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor as new (
+    ...parameters: string[]
+  ) => (...args: unknown[]) => Promise<void>;
+  const register = new AsyncFunction("driver", ...hostNames, ${JSON.stringify(body.code)});
+  await register(driver, ...hostNames.map((hostName) => hostRecord[hostName]));
+  const run = drivers[driverName];
+  if (!run) throw new Error('Driver "' + driverName + '" is not defined in this script');
+  return await run(input, execution);
+};
+
+${driverDeclarations}
 
 export default defineScript({
   manifest,
   drivers: {
-${uniqueDriverNames.map((driverName) => `    ${JSON.stringify(driverName)}: makeDriver(${JSON.stringify(driverName)}),`).join("\n")}
+${driverEntries}
   },
 });
 `;
