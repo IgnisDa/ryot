@@ -5,8 +5,8 @@ import { SandboxScriptId } from "@ryot/contract/schema/brands";
 import { and, eq, isNull, or } from "drizzle-orm";
 import { Effect } from "effect";
 
-import * as schema from "#lib/db/schema/tables/combined";
-import { CurrentDb, dbEffect, isUniqueConstraintError } from "#lib/db/service";
+import * as schema from "#lib/infrastructure/db/schema/tables/combined";
+import { CurrentDb, dbEffect, isUniqueConstraintError } from "#lib/infrastructure/db/service";
 
 type SandboxScriptRow = typeof schema.sandboxScript.$inferSelect;
 

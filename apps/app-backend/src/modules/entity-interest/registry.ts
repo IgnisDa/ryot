@@ -6,7 +6,7 @@ import {
 import type { UserId } from "@ryot/contract/schema/brands";
 import { Effect, Either } from "effect";
 
-import { redisKeys, RedisService } from "#lib/redis";
+import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 
 export type StreamEnqueue = (frame: EntityUpdatedFrame) => void;
 

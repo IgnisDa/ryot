@@ -8,16 +8,16 @@ import type { IntegrationId, SandboxScriptId } from "@ryot/contract/schema/brand
 import { generateId } from "better-auth";
 import { Effect, Schema } from "effect";
 
-import { DbRunner } from "#lib/db/service";
+import { DbRunner } from "#lib/infrastructure/db/service";
+import { SandboxService } from "#lib/infrastructure/sandbox-runtime/service";
 import {
 	chooseBestMetadataLookupTitleMatch,
 	type MetadataLookupTitleMatchCandidate,
-} from "#lib/metadata-lookup/title-matching";
+} from "#lib/shared/title-matching";
 import {
 	extractMetadataLookupBaseTitle,
 	extractMetadataLookupSeasonEpisode,
-} from "#lib/metadata-lookup/title-parsing";
-import { SandboxService } from "#lib/sandbox/service";
+} from "#lib/shared/title-parsing";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { SandboxRepository } from "#modules/sandbox/repository";

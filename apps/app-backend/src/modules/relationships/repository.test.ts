@@ -3,7 +3,7 @@ import { EntityId, RelationshipSchemaId } from "@ryot/contract/schema/brands";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Effect, Layer } from "effect";
 
-import { CurrentDb } from "#lib/db/service";
+import { CurrentDb } from "#lib/infrastructure/db/service";
 
 import { RelationshipsRepository } from "./repository";
 

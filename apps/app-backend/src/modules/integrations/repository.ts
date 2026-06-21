@@ -9,10 +9,10 @@ import { IntegrationId, UserId } from "@ryot/contract/schema/brands";
 import { and, desc, eq } from "drizzle-orm";
 import { Effect } from "effect";
 
-import { AppConfig } from "#lib/config/service";
-import { user } from "#lib/db/schema/tables/auth";
-import * as schema from "#lib/db/schema/tables/combined";
-import { CurrentDb, dbEffect } from "#lib/db/service";
+import { AppConfig } from "#lib/infrastructure/config/service";
+import { user } from "#lib/infrastructure/db/schema/tables/auth";
+import * as schema from "#lib/infrastructure/db/schema/tables/combined";
+import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
 
 type IntegrationRow = {
 	readonly id: string;

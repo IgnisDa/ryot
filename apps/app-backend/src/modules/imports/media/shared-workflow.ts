@@ -4,7 +4,7 @@ import type { EntityId } from "@ryot/contract/schema/brands";
 import { EntitySchemaId, SandboxScriptId } from "@ryot/contract/schema/brands";
 import { Effect, Schema } from "effect";
 
-import { DbRunner } from "#lib/db/service";
+import { DbRunner } from "#lib/infrastructure/db/service";
 
 import type { ImportRunJobData } from "../jobs";
 import { ImportsRepository } from "../repository";

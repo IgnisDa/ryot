@@ -1,7 +1,7 @@
 import { Effect, Option, Redacted } from "effect";
 import { describe, expect, it } from "vitest";
 
-import { AppConfig } from "#lib/config/service";
+import { AppConfig } from "#lib/infrastructure/config/service";
 import { makeAppConfigLayer } from "#lib/test-support/effect";
 
 import { getSandboxAppConfigValue } from "./app-config";

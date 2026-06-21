@@ -19,8 +19,8 @@ import {
 } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
-import { defaultUserPreferences } from "#lib/builtins/bootstrap";
-import { DbRunner } from "#lib/db/service";
+import { DbRunner } from "#lib/infrastructure/db/service";
+import { defaultUserPreferences } from "#modules/builtins/bootstrap";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
 import {

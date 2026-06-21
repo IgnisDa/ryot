@@ -5,8 +5,8 @@ import { unknownToMessage } from "@ryot/contract/errors";
 import type { ImportRunFailureStage } from "@ryot/contract/modules/imports/types";
 import { Cause, Context, DateTime, Effect, Schema } from "effect";
 
-import { AppConfig } from "#lib/config/service";
-import { DbRunner } from "#lib/db/service";
+import { AppConfig } from "#lib/infrastructure/config/service";
+import { DbRunner } from "#lib/infrastructure/db/service";
 import type { EntitiesRepository } from "#modules/entities/repository";
 import type { EntitiesService } from "#modules/entities/service";
 import type { EntitySchemasRepository } from "#modules/entity-schemas/repository";

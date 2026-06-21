@@ -10,11 +10,11 @@ import { SandboxScriptId } from "@ryot/contract/schema/brands";
 import { generateId } from "better-auth";
 import { Effect, Redacted, Schema } from "effect";
 
-import { AppConfig } from "#lib/config/service";
-import { DbRunner } from "#lib/db/service";
-import { createWorkflowJobId, resolveWorkflowExecutionId } from "#lib/job-id";
-import { slugify } from "#lib/slug";
-import { trimToNull } from "#lib/validation";
+import { AppConfig } from "#lib/infrastructure/config/service";
+import { DbRunner } from "#lib/infrastructure/db/service";
+import { createWorkflowJobId, resolveWorkflowExecutionId } from "#lib/shared/job-id";
+import { slugify } from "#lib/shared/slug";
+import { trimToNull } from "#lib/shared/validation";
 
 import { SandboxRepository } from "./repository";
 import { RunSandboxWorkflow } from "./sandbox-run-workflow";

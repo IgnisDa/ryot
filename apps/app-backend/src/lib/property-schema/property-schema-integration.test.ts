@@ -3,13 +3,14 @@ import { PropertyValidationError } from "@ryot/contract/schema/property-schema";
 import { Effect } from "effect";
 import { describe } from "vitest";
 
-import { exercisePropertiesSchema } from "./builtins/fitness-property-schemas";
-import { bookPropertiesSchema } from "./builtins/media-property-schemas";
+import { exercisePropertiesSchema } from "#modules/builtins/fitness-property-schemas";
+import { bookPropertiesSchema } from "#modules/builtins/media-property-schemas";
+
 import {
 	formatPropertyIssues,
 	parseAppSchemaPropertiesSafe,
 	parseLabeledPropertySchemaInput,
-} from "./schema/property-schema-runtime";
+} from "./property-schema-runtime";
 
 describe("property schema DSL", () => {
 	it.effect("parses a valid schema definition", () =>

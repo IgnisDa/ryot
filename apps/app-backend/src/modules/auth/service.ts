@@ -18,14 +18,14 @@ import { eq } from "drizzle-orm";
 import { Effect, Layer, Option, Redacted, Runtime, Schema } from "effect";
 import type Redis from "ioredis";
 
-import { bootstrapNewUser } from "./builtins/bootstrap";
-import { AppConfig, type AppConfigValue, isOidcEnabled } from "./config/service";
-import * as schemaAuth from "./db/schema/tables/auth";
-import * as schemaTables from "./db/schema/tables/combined";
-import * as schemaRelations from "./db/schema/tables/relations";
-import type { DbRoot, TransactionRunner } from "./db/service";
-import { DbService } from "./db/service";
-import { redisKeys, RedisService } from "./redis";
+import { AppConfig, type AppConfigValue, isOidcEnabled } from "#lib/infrastructure/config/service";
+import * as schemaAuth from "#lib/infrastructure/db/schema/tables/auth";
+import * as schemaTables from "#lib/infrastructure/db/schema/tables/combined";
+import * as schemaRelations from "#lib/infrastructure/db/schema/tables/relations";
+import type { DbRoot, TransactionRunner } from "#lib/infrastructure/db/service";
+import { DbService } from "#lib/infrastructure/db/service";
+import { redisKeys, RedisService } from "#lib/infrastructure/redis";
+import { bootstrapNewUser } from "#modules/builtins/bootstrap";
 
 const schema = { ...schemaAuth, ...schemaTables, ...schemaRelations };
 

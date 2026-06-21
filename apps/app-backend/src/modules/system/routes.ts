@@ -4,9 +4,9 @@ import { healthCheckFailed, unknownToMessage } from "@ryot/contract/errors";
 import { sql } from "drizzle-orm";
 import { Effect, Option } from "effect";
 
-import { AppConfig, isOidcEnabled } from "#lib/config/service";
-import { DbService } from "#lib/db/service";
-import { RedisService } from "#lib/redis";
+import { AppConfig, isOidcEnabled } from "#lib/infrastructure/config/service";
+import { DbService } from "#lib/infrastructure/db/service";
+import { RedisService } from "#lib/infrastructure/redis";
 
 export const SystemRoutesLive = HttpApiBuilder.group(AppContract, "system", (handlers) =>
 	handlers
