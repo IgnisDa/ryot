@@ -11,8 +11,8 @@
 		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
 	},
 	"dependencies": {
-		"@effect/platform": "0.96.1",
+		"@effect/platform": "0.96.2",
 		"@ryot/ts-utils": "workspace:*",
-		"effect": "3.21.3"
+		"effect": "3.21.4"
 	}
 }
