@@ -276,10 +276,10 @@ it.effect("triggers exactly one requested plugin cron with a manual execution id
 		const service = yield* TestSupportService;
 		const result = yield* service.triggerPluginCron({
 			cronSlug: "monitor",
-			pluginSlug: PluginSlug.make("media"),
+			pluginSlug: PluginSlug.make("example"),
 		});
 		expect(result.status).toBe("executed");
-		expect(triggerInput?.slice(0, 2)).toEqual(["media", "monitor"]);
+		expect(triggerInput?.slice(0, 2)).toEqual(["example", "monitor"]);
 		expect(triggerInput?.[2]).toMatch(/^plugin-cron-manual-/);
 	}).pipe(Effect.provide(layer));
 });
@@ -301,10 +301,10 @@ it.effect("triggers plugin boots with the manual boot execution id", () => {
 		const service = yield* TestSupportService;
 		const result = yield* service.triggerPluginBoot({
 			bootSlug: "fixture",
-			pluginSlug: PluginSlug.make("media"),
+			pluginSlug: PluginSlug.make("example"),
 		});
 		expect(result.executionId).toMatch(/^plugin-boot-manual-/);
-		expect(pluginBootIdentity).toEqual({ bootSlug: "fixture", pluginSlug: "media" });
+		expect(pluginBootIdentity).toEqual({ bootSlug: "fixture", pluginSlug: "example" });
 		expect(pluginBootExecutionId).toBe(result.executionId);
 	}).pipe(Effect.provide(layer));
 });

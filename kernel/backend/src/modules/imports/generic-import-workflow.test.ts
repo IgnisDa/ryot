@@ -166,8 +166,8 @@ it.effect(
 								{
 									properties: {},
 									alias: "direct",
-									name: "Existing media",
-									entityId: "direct-media",
+									name: "Existing example",
+									entityId: "direct-example",
 									entitySchemaSlug: "collection",
 								},
 								{
@@ -185,13 +185,13 @@ it.effect(
 							events: [],
 							itemIndex: 2,
 							collectionMemberships: [],
-							subjectEntityAlias: "media",
-							sourceIdentifier: "media-1",
-							sourceLabel: "Imported media",
+							subjectEntityAlias: "example",
+							sourceIdentifier: "example-1",
+							sourceLabel: "Imported example",
 							relationships: [
 								{
 									properties: { rank: 0 },
-									sourceAlias: "media",
+									sourceAlias: "example",
 									targetAlias: "library",
 									propertiesMode: "merge",
 									relationshipSchemaSlug: "member-of",
@@ -200,10 +200,10 @@ it.effect(
 							entities: [
 								{
 									properties: {},
-									alias: "media",
-									name: "Failed media",
-									entityId: "failed-media",
-									entitySchemaSlug: "show",
+									alias: "example",
+									name: "Failed example",
+									entityId: "failed-example",
+									entitySchemaSlug: "group",
 								},
 								{
 									scope: "user",
@@ -245,7 +245,7 @@ it.effect(
 				expect.objectContaining({
 					itemIndex: 2,
 					stage: "database_commit",
-					entitySchemaSlug: "show",
+					entitySchemaSlug: "group",
 					reason: { code: "database-commit-failed" },
 				}),
 			]);
@@ -265,7 +265,7 @@ it.effect(
 					targetEntityId: "existing-collection",
 				}),
 				expect.objectContaining({
-					sourceEntityId: "direct-media",
+					sourceEntityId: "direct-example",
 					relationshipSchemaSlug: "member-of",
 					targetEntityId: "library-collection",
 				}),
@@ -295,7 +295,7 @@ it.effect(
 				expect.objectContaining({
 					executionId: "generic-import-item-1-collection-0",
 					payload: expect.objectContaining({
-						entityId: "direct-media",
+						entityId: "direct-example",
 						collectionId: "favorites-collection",
 					}),
 				}),
@@ -348,7 +348,7 @@ it.effect(
 					}),
 					Layer.mock(RelationshipsService)({
 						mergeUserProperties: (input) =>
-							input.sourceEntityId === "failed-media"
+							input.sourceEntityId === "failed-example"
 								? Effect.fail(new DbError({ message: "membership write failed" }))
 								: Effect.sync(() => {
 										relationships.push(input);
@@ -381,7 +381,7 @@ it.effect(
 								createdAt: "2026-01-01T00:00:00.000Z",
 								updatedAt: "2026-01-01T00:00:00.000Z",
 								entitySchemaSlug: EntitySchemaSlug.make(
-									entityId === "failed-media" ? "show" : "collection",
+									entityId === "failed-example" ? "group" : "collection",
 								),
 							}),
 						getEntityScopeForUser: ({ entityId }) =>

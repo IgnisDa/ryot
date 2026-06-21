@@ -28,15 +28,15 @@ const user = {
 
 const providerId = SandboxProviderId.make("provider-1");
 const provider = {
-	name: "Books",
+	name: "Records",
 	id: providerId,
-	pluginId: "books",
-	slug: "books.provider",
-	rootEntitySchemaSlug: "book",
+	pluginId: "records",
+	slug: "records.provider",
+	rootEntitySchemaSlug: "record",
 	createdAt: new Date(0),
 	updatedAt: new Date(0),
 	pluginScope: "system" as const,
-	information: { source: "books" },
+	information: { source: "records" },
 };
 
 const optionsSchema = {
@@ -65,37 +65,37 @@ const dynamicOptionsSchema = {
 const searchScript = {
 	providerId,
 	source: "source",
-	pluginId: "books",
+	pluginId: "records",
 	compiledFormat: 1,
-	name: "Books search",
-	slug: "books.search",
+	name: "Records search",
+	slug: "records.search",
 	compiledCode: "compiled",
 	createdAt: new Date(0),
 	updatedAt: new Date(0),
-	contentHash: "books-search-hash",
+	contentHash: "records-search-hash",
 	id: SandboxScriptId.make("search-script-id"),
 	metadata: {
 		capabilities: [],
-		name: "Books search",
-		slug: "books.search",
+		name: "Records search",
+		slug: "records.search",
 		kind: "provider" as const,
 		requiredPluginConfigKeys: [],
 		requiredSystemConfigKeys: [],
-		providerSlug: "books.provider",
+		providerSlug: "records.provider",
 		providerOperation: "search" as const,
 	},
 };
 
 const searchOptionsScript = {
 	...searchScript,
-	name: "Books search options",
-	slug: "books.search-options",
-	contentHash: "books-search-options-hash",
+	name: "Records search options",
+	slug: "records.search-options",
+	contentHash: "records-search-options-hash",
 	id: SandboxScriptId.make("search-options-script-id"),
 	metadata: {
 		...searchScript.metadata,
-		name: "Books search options",
-		slug: "books.search-options",
+		name: "Records search options",
+		slug: "records.search-options",
 		providerOperation: "search-options" as const,
 	},
 };
@@ -165,7 +165,7 @@ const makeLayer = (input?: {
 								logs: [],
 								error: null,
 								status: "completed" as const,
-								value: { items: [{ title: "Book", externalId: `${run.scriptId}-external` }] },
+								value: { items: [{ title: "Record", externalId: `${run.scriptId}-external` }] },
 							})),
 				}),
 				Layer.succeed(RedisService, input?.redis ?? makeRedisService()),
@@ -209,21 +209,21 @@ it.effect("executes one provider search and returns its singular response", () =
 			page: 2,
 			providerId,
 			pageSize: 10,
-			query: "book",
+			query: "record",
 			options: { passRawQuery: true },
 		});
 
 		expect(result).toEqual({
 			providerId,
-			providerName: "Books",
-			rootEntitySchemaSlug: "book",
-			items: [{ externalId: "search-script-id-external", title: "Book" }],
+			providerName: "Records",
+			rootEntitySchemaSlug: "record",
+			items: [{ externalId: "search-script-id-external", title: "Record" }],
 		});
 		expect(executions).toHaveLength(1);
 		expect(executions[0]).toMatchObject({
 			scriptId: "search-script-id",
 			authority: { type: "user", userId: user.id },
-			input: { query: "book", page: 2, pageSize: 10, options: { passRawQuery: true } },
+			input: { query: "record", page: 2, pageSize: 10, options: { passRawQuery: true } },
 		});
 	}).pipe(
 		Effect.provide(
@@ -235,7 +235,7 @@ it.effect("executes one provider search and returns its singular response", () =
 						logs: [],
 						error: null,
 						status: "completed" as const,
-						value: { items: [{ title: "Book", externalId: "search-script-id-external" }] },
+						value: { items: [{ title: "Record", externalId: "search-script-id-external" }] },
 					});
 				},
 			}),
@@ -274,7 +274,7 @@ it.effect("keeps required static options validation for omitted options", () =>
 	Effect.gen(function* () {
 		const service = yield* ProviderEntitySearchService;
 		const exit = yield* Effect.exit(
-			service.search(user, { page: 1, providerId, pageSize: 20, query: "book" }),
+			service.search(user, { page: 1, providerId, pageSize: 20, query: "record" }),
 		);
 		assertFailureInstance(exit, ProviderEntityBadRequest);
 	}).pipe(
@@ -458,9 +458,9 @@ it.effect("keeps plain dynamic searches available when options resolution fails"
 	const executions: Array<Parameters<SandboxExecutionService["Service"]["executeScript"]>[0]> = [];
 	return Effect.gen(function* () {
 		const service = yield* ProviderEntitySearchService;
-		yield* service.search(user, { page: 1, providerId, pageSize: 20, query: "book" });
+		yield* service.search(user, { page: 1, providerId, pageSize: 20, query: "record" });
 		expect(executions).toHaveLength(1);
-		expect(executions[0]).toMatchObject({ scriptId: searchScript.id, input: { query: "book" } });
+		expect(executions[0]).toMatchObject({ scriptId: searchScript.id, input: { query: "record" } });
 		expect(executions[0]?.input).not.toHaveProperty("options");
 	}).pipe(
 		Effect.provide(
@@ -489,7 +489,7 @@ it.effect("rejects filtered dynamic searches when options resolution fails", () 
 				page: 1,
 				providerId,
 				pageSize: 20,
-				query: "book",
+				query: "record",
 				options: { status: "active" },
 			}),
 		);
@@ -511,7 +511,7 @@ it.effect("validates dynamic option membership before provider search execution"
 				page: 1,
 				providerId,
 				pageSize: 20,
-				query: "book",
+				query: "record",
 				options: { status: "unknown" },
 			}),
 		);
@@ -549,7 +549,7 @@ it.effect("resolves the provider and search script once for a filtered dynamic s
 			page: 1,
 			providerId,
 			pageSize: 20,
-			query: "book",
+			query: "record",
 			options: { status: "active" },
 		});
 		expect(counts).toEqual({ provider: 1, search: 1, searchOptions: 1 });
@@ -584,7 +584,7 @@ it.effect("rejects invalid provider search options before execution", () => {
 				page: 1,
 				providerId,
 				pageSize: 20,
-				query: "book",
+				query: "record",
 				options: { passRawQuery: "yes" },
 			}),
 		);
@@ -612,7 +612,7 @@ it.effect("rejects options when the provider operation has no options schema", (
 	Effect.gen(function* () {
 		const service = yield* ProviderEntitySearchService;
 		const exit = yield* Effect.exit(
-			service.search(user, { page: 1, providerId, options: {}, pageSize: 20, query: "book" }),
+			service.search(user, { page: 1, providerId, options: {}, pageSize: 20, query: "record" }),
 		);
 		assertFailureInstance(exit, ProviderEntityBadRequest);
 	}).pipe(Effect.provide(makeLayer())),
@@ -622,7 +622,7 @@ it.effect("rejects a missing provider", () =>
 	Effect.gen(function* () {
 		const service = yield* ProviderEntitySearchService;
 		const exit = yield* Effect.exit(
-			service.search(user, { providerId, query: "book", page: 1, pageSize: 20 }),
+			service.search(user, { providerId, query: "record", page: 1, pageSize: 20 }),
 		);
 		assertFailureInstance(exit, ProviderEntityNotFound);
 	}).pipe(Effect.provide(makeLayer({ provider: null }))),
@@ -632,7 +632,7 @@ it.effect("rejects an inactive provider", () =>
 	Effect.gen(function* () {
 		const service = yield* ProviderEntitySearchService;
 		const exit = yield* Effect.exit(
-			service.search(user, { providerId, query: "book", page: 1, pageSize: 20 }),
+			service.search(user, { providerId, query: "record", page: 1, pageSize: 20 }),
 		);
 		assertFailureInstance(exit, ProviderEntityNotFound);
 	}).pipe(Effect.provide(makeLayer({ searchError: "inactive_provider" }))),
@@ -642,7 +642,7 @@ it.effect("rejects a provider without a search operation", () =>
 	Effect.gen(function* () {
 		const service = yield* ProviderEntitySearchService;
 		const exit = yield* Effect.exit(
-			service.search(user, { providerId, query: "book", page: 1, pageSize: 20 }),
+			service.search(user, { providerId, query: "record", page: 1, pageSize: 20 }),
 		);
 		assertFailureInstance(exit, ProviderEntityBadRequest);
 	}).pipe(Effect.provide(makeLayer({ searchError: "unsupported_operation" }))),
@@ -652,7 +652,7 @@ it.effect("fails the whole request when provider execution fails", () =>
 	Effect.gen(function* () {
 		const service = yield* ProviderEntitySearchService;
 		const exit = yield* Effect.exit(
-			service.search(user, { page: 1, providerId, pageSize: 20, query: "book" }),
+			service.search(user, { page: 1, providerId, pageSize: 20, query: "record" }),
 		);
 		assertFailureInstance(exit, ProviderEntityBadRequest);
 	}).pipe(
@@ -674,7 +674,7 @@ it.effect("fails the whole request when provider output cannot be decoded", () =
 	Effect.gen(function* () {
 		const service = yield* ProviderEntitySearchService;
 		const exit = yield* Effect.exit(
-			service.search(user, { providerId, query: "book", page: 1, pageSize: 20 }),
+			service.search(user, { providerId, query: "record", page: 1, pageSize: 20 }),
 		);
 		assertFailureInstance(exit, ProviderEntityBadRequest);
 	}).pipe(

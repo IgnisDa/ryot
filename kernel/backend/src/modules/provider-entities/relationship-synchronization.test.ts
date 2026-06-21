@@ -119,8 +119,8 @@ it.effect(
 				Effect.succeed(
 					ids.map((id) => ({
 						id,
-						name: id === anchorEntityId ? "Movie" : `Person ${id}`,
-						entitySchemaSlug: id === anchorEntityId ? "movie" : "person",
+						name: id === anchorEntityId ? "Item" : `Person ${id}`,
+						entitySchemaSlug: id === anchorEntityId ? "item" : "person",
 					})),
 				),
 		});
@@ -206,7 +206,7 @@ it.effect(
 			expect(updates).toEqual(["changed", "conflict-update"]);
 			expect(outcomes[0]?.after).toMatchObject({
 				relationshipSchemaSlug: "credits",
-				sourceEntity: { id: anchorEntityId, name: "Movie", entitySchemaSlug: "movie" },
+				sourceEntity: { id: anchorEntityId, name: "Item", entitySchemaSlug: "item" },
 				targetEntity: {
 					name: "Person created",
 					entitySchemaSlug: "person",
@@ -268,20 +268,20 @@ it.effect("preserves different existing properties as a noop", () => {
 });
 
 it.effect(
-	"converges media-first, subject-first, and concurrent credit writes on one create",
+	"converges example-first, subject-first, and concurrent credit writes on one create",
 	() => {
 		const personId = entityId("person");
-		const movieId = entityId("movie");
-		const runScenario = (mode: "media-first" | "subject-first" | "concurrent") => {
+		const itemId = entityId("item");
+		const runScenario = (mode: "example-first" | "subject-first" | "concurrent") => {
 			let stored: ReturnType<typeof relationship> | null = null;
 			const credit = (wasInserted: boolean) => ({
 				wasInserted,
 				relationshipSchemaSlug,
-				targetEntityId: movieId,
+				targetEntityId: itemId,
 				sourceEntityId: personId,
 				properties: { roles: ["Director"] },
 				createdAt: "2026-01-01T00:00:00.000Z",
-				id: RelationshipId.make("person-movie"),
+				id: RelationshipId.make("person-item"),
 			});
 			const layer = Layer.mergeAll(
 				databaseLayer,
@@ -291,7 +291,7 @@ it.effect(
 							ids.map((id) => ({
 								id,
 								name: id === personId ? "Greta Gerwig" : "Barbie",
-								entitySchemaSlug: id === personId ? "person" : "movie",
+								entitySchemaSlug: id === personId ? "person" : "item",
 							})),
 						),
 				}),
@@ -315,17 +315,17 @@ it.effect(
 					synchronization: "additive",
 					onConflict: "preserveExisting",
 					propertiesSchema: { fields: {} },
-					relationshipSchemaSlug: RelationshipSchemaSlug.make("person-to-movie"),
-					anchorEntityId: direction === "incoming" ? movieId : personId,
+					relationshipSchemaSlug: RelationshipSchemaSlug.make("person-to-item"),
+					anchorEntityId: direction === "incoming" ? itemId : personId,
 					entries: [
 						{
 							properties: { roles: ["Director"] },
-							entityId: direction === "incoming" ? personId : movieId,
+							entityId: direction === "incoming" ? personId : itemId,
 						},
 					],
 				}).pipe(Effect.provide(layer));
 			let writes;
-			if (mode === "media-first") {
+			if (mode === "example-first") {
 				writes = Effect.all([synchronize("incoming"), synchronize("outgoing")]);
 			} else if (mode === "subject-first") {
 				writes = Effect.all([synchronize("outgoing"), synchronize("incoming")]);
@@ -340,13 +340,13 @@ it.effect(
 				expect(outcomes.map(({ operation }) => operation).sort()).toEqual(["create", "noop"]);
 				expect(repeated.map(({ operation }) => operation)).toEqual(["noop"]);
 				expect(outcomes[0]?.after).toMatchObject({
-					targetEntity: { id: movieId, entitySchemaSlug: "movie" },
+					targetEntity: { id: itemId, entitySchemaSlug: "item" },
 					sourceEntity: { id: personId, entitySchemaSlug: "person" },
 				});
 			});
 		};
 
-		return Effect.forEach(["media-first", "subject-first", "concurrent"] as const, runScenario, {
+		return Effect.forEach(["example-first", "subject-first", "concurrent"] as const, runScenario, {
 			discard: true,
 		});
 	},

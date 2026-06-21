@@ -300,7 +300,7 @@ it.effect(
 						join("inner", plugin, eq(column(provider, "pluginId"), column(plugin, "id"))),
 					],
 					where: and(
-						eq(column(provider, "rootEntitySchemaSlug"), literal("movie")),
+						eq(column(provider, "rootEntitySchemaSlug"), literal("item")),
 						eq(column(operation, "operation"), literal("search")),
 						eq(column(plugin, "status"), literal("active")),
 					),
@@ -314,7 +314,7 @@ it.effect(
 				f1k: "json",
 				f0k: "text",
 				f0v: "provider-1",
-				f1v: { source: "tmdb" },
+				f1v: { source: "alpha" },
 			},
 		];
 
@@ -336,7 +336,7 @@ it.effect(
 					{
 						id: "provider-1",
 						optionsSchema: null,
-						information: { source: "tmdb" },
+						information: { source: "alpha" },
 					},
 				],
 			});
@@ -490,17 +490,17 @@ it.effect("selects integrations with useful output kinds", () => {
 			f0k: "text",
 			f0v: "integration-1",
 			f1k: "text",
-			f1v: "media",
+			f1v: "example",
 			f2k: "text",
-			f2v: "Media integration",
+			f2v: "Example integration",
 			f3k: "text",
-			f3v: "komga",
+			f3v: "theta",
 			f4k: "date",
 			f4v: new Date("2026-08-01T10:00:00.000Z"),
 			f5k: "date",
 			f5v: new Date("2026-08-07T12:00:00.000Z"),
 			f6k: "text",
-			f6v: "media",
+			f6v: "example",
 			f7k: "boolean",
 			f7v: false,
 			f8k: "boolean",
@@ -525,15 +525,15 @@ it.effect("selects integrations with useful output kinds", () => {
 			pageInfo: { limit: 20, hasMore: false, nextCursor: null },
 			items: [
 				{
-					lot: "media",
-					provider: "komga",
-					pluginSlug: "media",
+					lot: "example",
+					provider: "theta",
+					pluginSlug: "example",
 					id: "integration-1",
 					isDisabled: false,
 					minimumProgress: 2,
 					maximumProgress: 95,
 					syncOwnership: true,
-					name: "Media integration",
+					name: "Example integration",
 					createdAt: "2026-08-01T10:00:00.000Z",
 					updatedAt: "2026-08-07T12:00:00.000Z",
 					lastFinishedAt: "2026-08-07T10:00:00.000Z",
@@ -837,10 +837,10 @@ it.effect("applies plugin ownership to every allowed table occurrence", () => {
 		const service = yield* RyotQLService;
 		yield* service.executeForPlugin(
 			{
-				pluginSlug: "media",
-				entitySchemaSlugs: ["movie"],
-				relationshipSchemaSlugs: ["media-monitoring"],
-				eventSchemas: [{ eventSchemaSlug: "review", entitySchemaSlug: "movie" }],
+				pluginSlug: "example",
+				entitySchemaSlugs: ["item"],
+				relationshipSchemaSlugs: ["example-monitoring"],
+				eventSchemas: [{ eventSchemaSlug: "review", entitySchemaSlug: "item" }],
 			},
 			document,
 		);
@@ -870,7 +870,7 @@ it.effect("denies application tables to plugin execution before opening a transa
 			service.executeForPlugin(
 				{
 					eventSchemas: [],
-					pluginSlug: "media",
+					pluginSlug: "example",
 					entitySchemaSlugs: [],
 					relationshipSchemaSlugs: [],
 				},

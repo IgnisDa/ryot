@@ -558,7 +558,7 @@ type RestoreEntityMock = NonNullable<MockOverrides<typeof mockEntities>["restore
 
 const eventSchema = { name: "Review", slug: "review", propertiesSchema: { fields: {} } };
 const bootstrapEntitySchema = {
-	icon: "book",
+	icon: "record",
 	pluginSlug: "fixture",
 	name: "Bootstrap entity",
 	slug: "bootstrap-entity",

@@ -187,8 +187,8 @@ it.effect("isolates unavailable and failed boot dispatches", () => {
 });
 
 it("builds stable execution ids", () => {
-	expect(pluginBootExecutionId("fitness", "preload-exercises", 60_000)).toBe(
-		"plugin-boot-7-fitness-17-preload-exercises-60000",
+	expect(pluginBootExecutionId("sample", "preload-elements", 60_000)).toBe(
+		"plugin-boot-6-sample-16-preload-elements-60000",
 	);
 	expect(pluginBootExecutionId("a", "b-c", 60_000)).not.toBe(
 		pluginBootExecutionId("a-b", "c", 60_000),
