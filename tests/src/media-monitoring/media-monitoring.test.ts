@@ -6,7 +6,7 @@ import {
 	cleanupBuiltinProviderScript,
 	countMediaMonitoringRelationships,
 	createAuthenticatedClient,
-	createNotificationPlatform,
+	createNotificationChannel,
 	detailsDriverCode,
 	disableMediaMonitoring,
 	enableMediaMonitoring,
@@ -215,15 +215,15 @@ describe("media monitoring infrequent refresh", () => {
 		const first = await createAuthenticatedClient();
 		const second = await createAuthenticatedClient();
 		await Promise.all([
-			createNotificationPlatform(first.client, {
-				platform: "apprise",
+			createNotificationChannel(first.client, {
+				channel: "apprise",
 				configuredEvents: ["metadata_status_changed"],
-				platformSpecifics: { baseUrl: fakeApprise.url, key: "first", kind: "apprise" },
+				channelSpecifics: { baseUrl: fakeApprise.url, key: "first", kind: "apprise" },
 			}),
-			createNotificationPlatform(second.client, {
-				platform: "apprise",
+			createNotificationChannel(second.client, {
+				channel: "apprise",
 				configuredEvents: ["metadata_status_changed"],
-				platformSpecifics: { baseUrl: fakeApprise.url, key: "second", kind: "apprise" },
+				channelSpecifics: { baseUrl: fakeApprise.url, key: "second", kind: "apprise" },
 			}),
 		]);
 		await Promise.all([

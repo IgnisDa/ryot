@@ -1879,8 +1879,8 @@
 			"checkConstraints": {},
 			"isRLSEnabled": false
 		},
-		"public.notification_platform": {
-			"name": "notification_platform",
+		"public.notification_channel": {
+			"name": "notification_channel",
 			"schema": "",
 			"columns": {
 				"is_disabled": {
@@ -1936,8 +1936,8 @@
 				}
 			},
 			"indexes": {
-				"notification_platform_user_id_created_at_idx": {
-					"name": "notification_platform_user_id_created_at_idx",
+				"notification_channel_user_id_created_at_idx": {
+					"name": "notification_channel_user_id_created_at_idx",
 					"columns": [
 						{
 							"expression": "user_id",
@@ -1957,8 +1957,8 @@
 					"method": "btree",
 					"with": {}
 				},
-				"notification_platform_user_id_is_disabled_idx": {
-					"name": "notification_platform_user_id_is_disabled_idx",
+				"notification_channel_user_id_is_disabled_idx": {
+					"name": "notification_channel_user_id_is_disabled_idx",
 					"columns": [
 						{
 							"expression": "user_id",
@@ -1980,9 +1980,9 @@
 				}
 			},
 			"foreignKeys": {
-				"notification_platform_user_id_user_id_fk": {
-					"name": "notification_platform_user_id_user_id_fk",
-					"tableFrom": "notification_platform",
+				"notification_channel_user_id_user_id_fk": {
+					"name": "notification_channel_user_id_user_id_fk",
+					"tableFrom": "notification_channel",
 					"tableTo": "user",
 					"columnsFrom": ["user_id"],
 					"columnsTo": ["id"],

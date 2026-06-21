@@ -1,10 +1,10 @@
 import { Workflow } from "@effect/workflow";
 import { DbError } from "@ryot/contract/errors";
 import {
+	NotificationChannelKind,
 	NotificationEventType,
-	NotificationPlatformKind,
 } from "@ryot/contract/modules/notifications/types";
-import { NotificationPlatformId, UserId } from "@ryot/contract/schema/brands";
+import { NotificationChannelId, UserId } from "@ryot/contract/schema/brands";
 import { generateId } from "better-auth";
 import { Schema } from "effect";
 
@@ -18,8 +18,8 @@ export const NotificationDeliveryRequest = Schema.Union(
 );
 
 export const NotificationDeliveryResult = Schema.Struct({
-	platform: NotificationPlatformKind,
-	platformId: NotificationPlatformId,
+	channel: NotificationChannelKind,
+	channelId: NotificationChannelId,
 	status: Schema.Literal("sent", "failed"),
 });
 
