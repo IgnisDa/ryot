@@ -73,6 +73,10 @@ export async function startCoreTestInfrastructure(input: {
 			.withDatabase("test_db")
 			.withUsername("test_user")
 			.withPassword("test_password")
+			// The app pool (50), the dedicated workflow pool (below), and the test harness pool (10)
+			// together exceed the image default of 100. Lift the ceiling so the workflow pool can be
+			// sized above SANDBOX_WORKER_CONCURRENCY without hitting "too many connections".
+			.withCommand(["postgres", "-c", "max_connections=200"])
 			.withWaitStrategy(Wait.forLogMessage("database system is ready"))
 			.start(),
 		new GenericContainer("redis:alpine")
@@ -139,7 +143,12 @@ export function buildBackendEnv(input: {
 		PORT: input.port.toString(),
 		FRONTEND_URL: input.frontendUrl,
 		SANDBOX_WORKER_CONCURRENCY: "32",
-		DATABASE_WORKFLOW_POOL_MAX: "30",
+		// Must exceed SANDBOX_WORKER_CONCURRENCY (32) plus headroom for the workflow engine itself.
+		// The SingleRunner reserves one sticky connection for the shard advisory lock, and every
+		// durable-queue worker plus the engine's own message polling / parent-child resume draws on
+		// this pool. When worker concurrency (32) approaches the usable pool, the engine starves and
+		// after-create trigger chains stall ~90s under full-suite load. See lib/infrastructure/workflow.ts.
+		DATABASE_WORKFLOW_POOL_MAX: "50",
 		FILE_STORAGE_S3_REGION: "us-east-1",
 		BUILTIN_EXERCISE_PRELOAD_LIMIT: "20",
 		FILE_STORAGE_S3_URL: input.s3Endpoint,
