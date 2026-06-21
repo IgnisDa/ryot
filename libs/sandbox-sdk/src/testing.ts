@@ -1,4 +1,5 @@
-import type { ExecutionMetadata, GenericDriver, SandboxHost, SandboxManifest, z } from "./index.js";
+import type { ExecutionMetadata, GenericDriver, SandboxHost, SandboxManifest } from "./index.js";
+import type * as z from "./zod.js";
 
 export const defineSandboxTestHost = <const Manifest extends SandboxManifest>(
 	_manifest: Manifest,
