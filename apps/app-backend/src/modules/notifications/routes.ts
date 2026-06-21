@@ -43,7 +43,7 @@ export const NotificationsRoutesLive = HttpApiBuilder.group(
 				Effect.gen(function* () {
 					const user = yield* CurrentUser;
 					const service = yield* NotificationsService;
-					return yield* service.test(user).pipe(dieOnDbError);
+					return yield* service.test(user);
 				}),
 			),
 );
