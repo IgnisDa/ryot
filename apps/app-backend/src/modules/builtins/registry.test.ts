@@ -169,6 +169,34 @@ describe("builtinSandboxScripts", () => {
 		}
 	});
 
+	it("uses generated format-1 representations for the GiantBomb and IGDB game provider families", () => {
+		const sources = new Set(["giant-bomb", "igdb"]);
+		const scripts = builtinSandboxScripts().filter(
+			({ metadata }) =>
+				"providerInformation" in metadata &&
+				sources.has(metadata.providerInformation?.source ?? ""),
+		);
+
+		expect(scripts.map(({ slug }) => slug).sort()).toEqual([
+			"company.giant-bomb",
+			"company.igdb",
+			"person.giant-bomb",
+			"video-game-group.giant-bomb",
+			"video-game-group.igdb",
+			"video-game.giant-bomb",
+			"video-game.igdb",
+		]);
+		for (const script of scripts) {
+			assert("compiledCode" in script && "manifest" in script);
+			expect(script.compiledFormat).toBe(1);
+			expect(script.code).toBe(script.source);
+			expect(script.metadata).toBe(script.manifest);
+			expect(script.source).toContain("defineProvider");
+			expect(script.compiledCode).toContain("ryot:sandbox-script");
+			expect(script.compiledCode).toContain("sourceMappingURL=data:application/json;base64,");
+		}
+	});
+
 	it("uses generated format-1 representations and manifest modes for every trigger", () => {
 		const triggers = builtinSandboxScripts().filter(({ slug }) => slug.startsWith("trigger."));
 		const links = new Map(
