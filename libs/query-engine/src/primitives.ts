@@ -1,6 +1,10 @@
 export type QueryEngineNonEmptyArray<T> = readonly [T, ...T[]];
-export type QueryEngineArithmeticOperator = "add" | "subtract" | "multiply" | "divide";
-export type QueryEngineComparisonOperator = "eq" | "neq" | "gt" | "gte" | "lt" | "lte";
+
+export const queryEngineArithmeticOperators = ["add", "subtract", "multiply", "divide"] as const;
+export type QueryEngineArithmeticOperator = (typeof queryEngineArithmeticOperators)[number];
+
+export const queryEngineComparisonOperators = ["eq", "neq", "gt", "gte", "lt", "lte"] as const;
+export type QueryEngineComparisonOperator = (typeof queryEngineComparisonOperators)[number];
 
 export const queryEngineField = <TExpr>(key: string, expr: TExpr) => ({ key, expr });
 
