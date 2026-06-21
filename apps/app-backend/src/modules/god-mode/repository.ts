@@ -120,6 +120,35 @@ export class GodModeRepository extends Effect.Service<GodModeRepository>()("GodM
 			);
 		});
 
+		const loadDeleteSnapshot = Effect.fn("GodModeRepository.loadDeleteSnapshot")(function* (
+			userId: UserId,
+		) {
+			const db = yield* CurrentDb;
+			const [user] = yield* dbEffect(() =>
+				db
+					.select({ id: schema.user.id })
+					.from(schema.user)
+					.where(eq(schema.user.id, userId))
+					.limit(1),
+			);
+			if (!user) {
+				return null;
+			}
+
+			const apiKeys = yield* dbEffect(() =>
+				db
+					.select({ id: schema.apikey.id, key: schema.apikey.key })
+					.from(schema.apikey)
+					.where(eq(schema.apikey.referenceId, userId)),
+			);
+			return { user, apiKeys };
+		});
+
+		const deleteUser = Effect.fn("GodModeRepository.deleteUser")(function* (userId: UserId) {
+			const db = yield* CurrentDb;
+			yield* dbEffect(() => db.delete(schema.user).where(eq(schema.user.id, userId)));
+		});
+
 		const loadResetSnapshot = Effect.fn("GodModeRepository.loadResetSnapshot")(function* (
 			userId: UserId,
 		) {
@@ -190,11 +219,13 @@ export class GodModeRepository extends Effect.Service<GodModeRepository>()("GodM
 
 		return {
 			countUsers,
+			deleteUser,
 			listUserRows,
 			findUserById,
 			loadResetSnapshot,
 			findUserIdByEmail,
 			updateUserDisabled,
+			loadDeleteSnapshot,
 			listAccountsForUsers,
 			deleteAndRecreateUser,
 			findUserDisabledState,
