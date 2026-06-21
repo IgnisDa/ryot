@@ -1,4 +1,5 @@
 import { apiKey } from "@better-auth/api-key";
+import { runWithAdapter } from "@better-auth/core/context";
 import { redisStorage } from "@better-auth/redis-storage";
 import { HttpServerRequest } from "@effect/platform";
 import {
@@ -23,7 +24,7 @@ import * as schemaAuth from "#lib/infrastructure/db/schema/tables/auth";
 import * as schemaTables from "#lib/infrastructure/db/schema/tables/combined";
 import * as schemaRelations from "#lib/infrastructure/db/schema/tables/relations";
 import type { DbRoot, TransactionRunner } from "#lib/infrastructure/db/service";
-import { DbService } from "#lib/infrastructure/db/service";
+import { CurrentDb, DbService } from "#lib/infrastructure/db/service";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 import { bootstrapNewUser } from "#modules/builtins/bootstrap";
 
@@ -171,6 +172,7 @@ const makeAuthInstance = (args: {
 };
 
 export type AuthInstance = ReturnType<typeof makeAuthInstance>;
+type AuthContextValue = Awaited<AuthInstance["$context"]>;
 
 const isAPIError = (
 	error: unknown,
@@ -184,12 +186,31 @@ export class AuthService extends Effect.Service<AuthService>()("AuthService", {
 		const redis = yield* RedisService;
 		const runtime = yield* Effect.runtime<DbService | RedisService | TransactionRunner>();
 		const auth = makeAuthInstance({ config, db: db.db, redis: redis.client, runtime });
+		const withInternalAdapter = <A>(operation: (context: AuthContextValue) => Promise<A>) =>
+			Effect.gen(function* () {
+				const currentDb = yield* Effect.serviceOption(CurrentDb);
+				return yield* Effect.tryPromise({
+					try: () =>
+						auth.$context.then((context) => {
+							if (Option.isNone(currentDb)) {
+								return operation(context);
+							}
+
+							const adapter = drizzleAdapter(currentDb.value, {
+								provider: "pg",
+								schema,
+							})(context.options);
+							return runWithAdapter(adapter, () => operation(context)).then((result) => result);
+						}),
+					catch: unknownToDbError,
+				});
+			});
 
 		return {
 			auth,
 			deleteUserSessions: (userId: UserId) =>
-				Effect.promise(() =>
-					auth.$context.then((ctx) => ctx.internalAdapter.deleteUserSessions(userId)),
+				withInternalAdapter(({ internalAdapter }) =>
+					internalAdapter.deleteUserSessions(userId),
 				).pipe(Effect.orDie),
 			// The api-key plugin caches keys in secondary storage but has no admin/server-side API to
 			// invalidate another user's keys (deletion only works through the owning user's session), so
@@ -217,11 +238,9 @@ export class AuthService extends Effect.Service<AuthService>()("AuthService", {
 			// Writing preferences through better-auth refreshes the cached session copies in secondary
 			// storage, so a later getSession (and thus CurrentUserValue) reflects the new value.
 			updateUserPreferences: (userId: UserId, preferences: CachedUserPreferences) =>
-				Effect.tryPromise({
-					catch: unknownToDbError,
-					try: () =>
-						auth.$context.then((ctx) => ctx.internalAdapter.updateUser(userId, { preferences })),
-				}).pipe(Effect.asVoid),
+				withInternalAdapter(({ internalAdapter }) =>
+					internalAdapter.updateUser(userId, { preferences }),
+				).pipe(Effect.asVoid),
 			createAuthUser: (user: {
 				id: string;
 				name: string;
@@ -229,20 +248,51 @@ export class AuthService extends Effect.Service<AuthService>()("AuthService", {
 				emailVerified: boolean;
 				preferences: Record<string, unknown>;
 			}) =>
-				Effect.tryPromise({
-					try: () => auth.$context.then((ctx) => ctx.internalAdapter.createUser(user)),
-					catch: unknownToDbError,
+				Effect.gen(function* () {
+					const currentDb = yield* Effect.serviceOption(CurrentDb);
+					if (Option.isNone(currentDb)) {
+						return yield* withInternalAdapter(({ internalAdapter }) =>
+							internalAdapter.createUser(user),
+						);
+					}
+
+					return yield* Effect.tryPromise({
+						try: () =>
+							auth.$context.then((context) => {
+								const adapter = drizzleAdapter(currentDb.value, {
+									provider: "pg",
+									schema,
+								})(context.options);
+								// The user-create hook starts bootstrap in another transaction. Use the
+								// caller's adapter here so God Mode can bootstrap atomically below.
+								return runWithAdapter(adapter, () =>
+									adapter.create({
+										model: "user",
+										forceAllowId: true,
+										data: { ...user, email: user.email.toLowerCase() },
+									}),
+								).then((result) => result);
+							}),
+						catch: unknownToDbError,
+					});
 				}),
 			linkAuthAccount: (account: {
 				id: string;
 				userId: string;
 				accountId: string;
 				providerId: string;
-			}) =>
-				Effect.tryPromise({
-					try: () => auth.$context.then((ctx) => ctx.internalAdapter.linkAccount(account)),
-					catch: unknownToDbError,
-				}),
+			}) => withInternalAdapter(({ internalAdapter }) => internalAdapter.linkAccount(account)),
+			updateAuthUserDisabled: (
+				userId: UserId,
+				data: { disabledAt: Date | null; updatedAt: Date },
+			) =>
+				withInternalAdapter(({ internalAdapter }) => internalAdapter.updateUser(userId, data)).pipe(
+					Effect.asVoid,
+				),
+			deleteAuthUser: (userId: UserId) =>
+				withInternalAdapter(({ internalAdapter }) => internalAdapter.deleteUser(userId)).pipe(
+					Effect.asVoid,
+				),
 			currentUser: (headers: Headers) =>
 				Effect.tryPromise({
 					try: () => auth.api.getSession({ headers }),

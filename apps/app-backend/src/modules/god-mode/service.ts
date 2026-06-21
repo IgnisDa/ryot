@@ -63,8 +63,15 @@ export class GodModeService extends Effect.Service<GodModeService>()("GodModeSer
 		const runInTransaction = yield* TransactionRunner;
 		const repository = yield* GodModeRepository;
 		const engine = yield* WorkflowEngine;
-		const { auth, createAuthUser, deleteUserSessions, linkAuthAccount, purgeApiKeyCaches } =
-			yield* AuthService;
+		const {
+			auth,
+			createAuthUser,
+			deleteAuthUser,
+			linkAuthAccount,
+			purgeApiKeyCaches,
+			deleteUserSessions,
+			updateAuthUserDisabled,
+		} = yield* AuthService;
 
 		const listUsers = Effect.fn("GodModeService.listUsers")(function* (input: {
 			limit: number;
@@ -150,7 +157,7 @@ export class GodModeService extends Effect.Service<GodModeService>()("GodModeSer
 			const updatedAt = yield* DateTime.nowAsDate;
 			const disabledAt = disabled ? (user.disabledAt ?? updatedAt) : null;
 
-			yield* runWithDb(repository.updateUserDisabled({ userId, disabledAt, updatedAt }));
+			yield* updateAuthUserDisabled(userId, { disabledAt, updatedAt });
 
 			if (disabled) {
 				yield* deleteUserSessions(userId);
@@ -167,7 +174,7 @@ export class GodModeService extends Effect.Service<GodModeService>()("GodModeSer
 						return yield* notFound(`User with id '${userId}' not found`);
 					}
 
-					yield* repository.deleteUser(userId);
+					yield* deleteAuthUser(userId);
 					return snapshot.apiKeys;
 				}),
 			);
@@ -313,16 +320,24 @@ export class GodModeService extends Effect.Service<GodModeService>()("GodModeSer
 					? (snapshot.accounts.find((account) => account.providerId === "oidc")?.accountId ?? null)
 					: null;
 
-			const now = yield* DateTime.nowAsDate;
-
 			yield* runInTransaction(
 				Effect.gen(function* () {
-					yield* repository.deleteAndRecreateUser({
-						now,
-						oidcAccountId,
-						user: snapshot.user,
+					yield* deleteAuthUser(userId);
+					yield* createAuthUser({
+						id: userId,
+						name: snapshot.user.name,
+						email: snapshot.user.email,
 						preferences: defaultUserPreferences,
+						emailVerified: snapshot.user.emailVerified,
 					});
+					if (oidcAccountId !== null) {
+						yield* linkAuthAccount({
+							userId,
+							providerId: "oidc",
+							id: crypto.randomUUID(),
+							accountId: oidcAccountId,
+						});
+					}
 					yield* performBootstrap(userId);
 				}),
 			);

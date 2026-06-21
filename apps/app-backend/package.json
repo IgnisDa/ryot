@@ -20,6 +20,7 @@
 	},
 	"dependencies": {
 		"@better-auth/api-key": "1.6.15",
+		"@better-auth/core": "1.6.15",
 		"@better-auth/redis-storage": "1.6.15",
 		"@effect/cluster": "0.59.0",
 		"@effect/experimental": "0.60.0",
