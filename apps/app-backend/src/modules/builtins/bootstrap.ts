@@ -237,7 +237,7 @@ export const performBootstrap = Effect.fn(function* (userId: string) {
 	yield* createTrackerEntitySchemaLinks(trackers, entitySchemas);
 	yield* createBuiltinSavedViews(userId, trackers, entitySchemas);
 	yield* ensureLibraryEntity(userId, entitySchemas);
-	yield* Effect.logInfo("Bootstrap complete", { userId });
+	yield* Effect.logInfo(`Bootstrap complete for user: ${userId}`);
 });
 
 export const bootstrapNewUser = (userId: string) =>
