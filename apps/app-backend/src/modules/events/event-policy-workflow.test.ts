@@ -34,7 +34,6 @@ const entityId = EntityId.make("entity-1");
 const eventSchemaSlug = EventSchemaSlug.make("review");
 const entitySchemaSlug = EntitySchemaSlug.make("book");
 const registry = makeDefinitionRegistry({
-	trackers: [],
 	savedViews: [],
 	signalSchemas: [],
 	relationshipSchemas: [],
@@ -42,6 +41,7 @@ const registry = makeDefinitionRegistry({
 		{
 			icon: "book",
 			name: "Book",
+			pluginSlug: "test",
 			slug: entitySchemaSlug,
 			accentColor: "#000000",
 			propertiesSchema: { fields: {} },
@@ -128,6 +128,7 @@ const run = (input: {
 			resolveActivePolicies: () => Effect.succeed(input.policies),
 		}),
 		Layer.mock(EventCreateWorkflowOperations, {
+			dispatchLifecycleOccurrence: () => Effect.void,
 			ensureLibraryMembership: () => Effect.void,
 			processSandboxExecution: (sandboxPayload) => {
 				sandboxPayloads.push(sandboxPayload);

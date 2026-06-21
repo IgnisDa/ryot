@@ -1,0 +1,424 @@
+import type { AppSchema } from "@ryot/contract/schema/property-schema";
+
+import {
+	audiobookPropertiesSchema,
+	bookPropertiesSchema,
+	comicBookPropertiesSchema,
+	companyPropertiesSchema,
+	mediaGroupPropertiesSchema,
+	mangaPropertiesSchema,
+	moviePropertiesSchema,
+	musicPropertiesSchema,
+	personPropertiesSchema,
+	podcastEpisodePropertiesSchema,
+	podcastPropertiesSchema,
+	showEpisodePropertiesSchema,
+	showPropertiesSchema,
+	showSeasonPropertiesSchema,
+	visualNovelPropertiesSchema,
+	animePropertiesSchema,
+	videoGamePropertiesSchema,
+} from "./property-schemas";
+
+const consumedOnField = {
+	consumedOn: {
+		label: "Consumed On",
+		type: "string" as const,
+		description: "The source or platform where this content was consumed (e.g. Netflix, Jellyfin)",
+	},
+};
+
+const startedOnField = {
+	label: "Started On",
+	type: "datetime" as const,
+	description: "Date and time you started consuming this media",
+};
+
+const timeSpentField = {
+	label: "Time Spent",
+	type: "number" as const,
+	validation: { minimum: 0 },
+	description: "Time spent consuming this media in minutes",
+};
+
+const withStartedOn = (schema: AppSchema): AppSchema => ({
+	...schema,
+	fields: { startedOn: startedOnField, ...schema.fields },
+});
+
+const withTimeSpent = (schema: AppSchema): AppSchema => ({
+	...schema,
+	fields: { ...schema.fields, timeSpent: timeSpentField },
+});
+
+const progressPercentPropertiesSchema = (): AppSchema => ({
+	fields: {
+		...consumedOnField,
+		progressPercent: {
+			type: "number" as const,
+			label: "Progress Percent",
+			transform: { round: { mode: "half_up" as const, scale: 2 } },
+			description: "Percentage of the media completed so far (0 to 100)",
+			validation: { maximum: 100, exclusiveMinimum: 0, required: true as const },
+		},
+	},
+});
+
+const progressPropertiesSchemaByEntity = (entitySchemaSlug: string | undefined): AppSchema => {
+	if (entitySchemaSlug === undefined) {
+		return progressPercentPropertiesSchema();
+	}
+	switch (entitySchemaSlug) {
+		case "anime":
+			return {
+				fields: {
+					...progressPercentPropertiesSchema().fields,
+					animeEpisode: {
+						label: "Anime Episode",
+						type: "integer" as const,
+						description: "Episode number of the anime being tracked",
+					},
+				},
+			};
+		case "manga":
+			return {
+				fields: {
+					...progressPercentPropertiesSchema().fields,
+					mangaVolume: {
+						label: "Manga Volume",
+						type: "integer" as const,
+						description: "Volume number of the manga being tracked",
+					},
+					mangaChapter: {
+						label: "Manga Chapter",
+						type: "number" as const,
+						description: "Chapter number of the manga being tracked",
+					},
+				},
+			};
+		default:
+			return progressPercentPropertiesSchema();
+	}
+};
+
+const lifecycleEventSchemaBySlug = (slug: string) => {
+	const eventSchema = mediaLifecycleEventSchemas().find((schema) => schema.slug === slug);
+	if (!eventSchema) {
+		throw new Error(`Missing builtin lifecycle event schema: ${slug}`);
+	}
+	return eventSchema;
+};
+
+const reviewBaseFields = () => ({
+	text: {
+		label: "Review",
+		type: "string" as const,
+		description: "Your written thoughts or notes about this media",
+	},
+	isSpoiler: {
+		label: "Is Spoiler?",
+		type: "boolean" as const,
+		description: "Whether this review contains spoilers",
+	},
+	rating: {
+		label: "Rating",
+		type: "number" as const,
+		validation: { maximum: 100, minimum: 0 },
+		description: "Your personal rating from 0 (lowest) to 100 (highest)",
+	},
+});
+
+const reviewPropertiesSchemaByEntity = (entitySchemaSlug: string | undefined): AppSchema => {
+	if (entitySchemaSlug === undefined) {
+		return { fields: reviewBaseFields() };
+	}
+	switch (entitySchemaSlug) {
+		case "anime":
+			return {
+				fields: {
+					...reviewBaseFields(),
+					animeEpisode: {
+						label: "Anime Episode",
+						type: "integer" as const,
+						description: "Episode number of the anime being reviewed",
+					},
+				},
+			};
+		case "manga":
+			return {
+				fields: {
+					...reviewBaseFields(),
+					mangaVolume: {
+						label: "Manga Volume",
+						type: "integer" as const,
+						description: "Volume number of the manga being reviewed",
+					},
+					mangaChapter: {
+						label: "Manga Chapter",
+						type: "number" as const,
+						description: "Chapter number of the manga being reviewed",
+					},
+				},
+			};
+		default:
+			return { fields: reviewBaseFields() };
+	}
+};
+
+const mediaLifecycleEventSchemas = (entitySchemaSlug?: string) => [
+	{ name: "Backlog", slug: "backlog", propertiesSchema: { fields: {} } },
+	{
+		name: "Progress",
+		slug: "progress",
+		propertiesSchema: progressPropertiesSchemaByEntity(entitySchemaSlug),
+	},
+	{
+		name: "Review",
+		slug: "review",
+		propertiesSchema: reviewPropertiesSchemaByEntity(entitySchemaSlug),
+	},
+	{
+		name: "Dropped",
+		slug: "dropped",
+		propertiesSchema: withStartedOn(
+			withTimeSpent(progressPropertiesSchemaByEntity(entitySchemaSlug)),
+		),
+	},
+	{
+		name: "On Hold",
+		slug: "on_hold",
+		propertiesSchema: withStartedOn(
+			withTimeSpent(progressPropertiesSchemaByEntity(entitySchemaSlug)),
+		),
+	},
+	{
+		name: "Complete",
+		slug: "complete",
+		propertiesSchema: {
+			rules: [
+				{
+					path: ["completedOn"],
+					kind: "validation" as const,
+					validation: { required: true as const },
+					when: {
+						operator: "eq" as const,
+						path: ["completionMode"],
+						value: "custom_timestamps",
+					},
+				},
+			],
+			fields: {
+				...consumedOnField,
+				timeSpent: timeSpentField,
+				startedOn: startedOnField,
+				completedOn: {
+					label: "Completed On",
+					type: "datetime" as const,
+					description: "Date and time you finished consuming this media",
+				},
+				completionMode: {
+					type: "string" as const,
+					label: "Completion Mode",
+					description:
+						"How the completion timestamps were determined: just_now, unknown, or custom_timestamps",
+					validation: {
+						required: true as const,
+						pattern: "^(just_now|unknown|custom_timestamps)$",
+					},
+				},
+			},
+		},
+	},
+];
+
+const buildMediaGroupEntitySchema = (
+	slug: string,
+	name: string,
+	accentColor: string,
+	icon: string,
+) => ({
+	slug,
+	name,
+	icon,
+	accentColor,
+	pluginSlug: "media",
+	propertiesSchema: mediaGroupPropertiesSchema,
+	eventSchemas: mediaLifecycleEventSchemas(slug).filter((s) => s.slug === "review"),
+});
+
+export const builtinEntitySchemas = () => [
+	{
+		slug: "library",
+		name: "Library",
+		icon: "library",
+		eventSchemas: [],
+		pluginSlug: "media",
+		accentColor: "#9CA3AF",
+		propertiesSchema: { fields: {} },
+	},
+	{
+		icon: "user",
+		slug: "person",
+		name: "Person",
+		pluginSlug: "media",
+		accentColor: "#4B5563",
+		propertiesSchema: personPropertiesSchema,
+		eventSchemas: mediaLifecycleEventSchemas("person").filter((schema) => schema.slug === "review"),
+	},
+	{
+		slug: "company",
+		name: "Company",
+		icon: "building-2",
+		pluginSlug: "media",
+		accentColor: "#6B7280",
+		propertiesSchema: companyPropertiesSchema,
+		eventSchemas: mediaLifecycleEventSchemas("company").filter(
+			(schema) => schema.slug === "review",
+		),
+	},
+	buildMediaGroupEntitySchema("movie-group", "Movie Collection", "#FACC15", "film"),
+	buildMediaGroupEntitySchema("audiobook-group", "Audiobook Series", "#F97316", "mic"),
+	buildMediaGroupEntitySchema("book-group", "Book Series", "#3B82F6", "book-copy"),
+	buildMediaGroupEntitySchema("comic-book-group", "Comic Book Series", "#FF6B35", "sparkles"),
+	buildMediaGroupEntitySchema("music-group", "Music Album", "#EC4899", "disc-3"),
+	buildMediaGroupEntitySchema("video-game-group", "Video Game Collection", "#10B981", "joystick"),
+	{
+		slug: "book",
+		name: "Book",
+		icon: "book-open",
+		pluginSlug: "media",
+		accentColor: "#3B82F6",
+		propertiesSchema: bookPropertiesSchema,
+		eventSchemas: mediaLifecycleEventSchemas("book"),
+	},
+	{
+		icon: "book-image",
+		slug: "comic-book",
+		name: "Comic Book",
+		pluginSlug: "media",
+		accentColor: "#FF6B35",
+		propertiesSchema: comicBookPropertiesSchema,
+		eventSchemas: mediaLifecycleEventSchemas("comic-book"),
+	},
+	{
+		icon: "tv",
+		slug: "anime",
+		name: "Anime",
+		pluginSlug: "media",
+		accentColor: "#FB7185",
+		propertiesSchema: animePropertiesSchema,
+		eventSchemas: mediaLifecycleEventSchemas("anime"),
+	},
+	{
+		slug: "movie",
+		name: "Movie",
+		icon: "clapperboard",
+		pluginSlug: "media",
+		accentColor: "#FACC15",
+		propertiesSchema: moviePropertiesSchema,
+		eventSchemas: mediaLifecycleEventSchemas("movie"),
+	},
+	{
+		slug: "show",
+		name: "Show",
+		icon: "monitor-play",
+		pluginSlug: "media",
+		accentColor: "#8B5CF6",
+		propertiesSchema: showPropertiesSchema,
+		eventSchemas: mediaLifecycleEventSchemas("show").filter((schema) => schema.slug !== "progress"),
+	},
+	{
+		icon: "list-video",
+		slug: "show-season",
+		name: "Show Season",
+		pluginSlug: undefined,
+		accentColor: "#A78BFA",
+		propertiesSchema: showSeasonPropertiesSchema,
+		eventSchemas: [lifecycleEventSchemaBySlug("complete")],
+	},
+	{
+		icon: "play-square",
+		slug: "show-episode",
+		name: "Show Episode",
+		pluginSlug: undefined,
+		accentColor: "#C4B5FD",
+		propertiesSchema: showEpisodePropertiesSchema,
+		eventSchemas: [
+			lifecycleEventSchemaBySlug("progress"),
+			lifecycleEventSchemaBySlug("review"),
+			lifecycleEventSchemaBySlug("complete"),
+		],
+	},
+	{
+		slug: "manga",
+		name: "Manga",
+		icon: "book",
+		pluginSlug: "media",
+		accentColor: "#D946EF",
+		propertiesSchema: mangaPropertiesSchema,
+		eventSchemas: mediaLifecycleEventSchemas("manga"),
+	},
+	{
+		slug: "audiobook",
+		name: "Audiobook",
+		icon: "headphones",
+		pluginSlug: "media",
+		accentColor: "#F97316",
+		propertiesSchema: audiobookPropertiesSchema,
+		eventSchemas: mediaLifecycleEventSchemas("audiobook"),
+	},
+	{
+		slug: "podcast",
+		name: "Podcast",
+		icon: "podcast",
+		pluginSlug: "media",
+		accentColor: "#06B6D4",
+		propertiesSchema: podcastPropertiesSchema,
+		eventSchemas: mediaLifecycleEventSchemas("podcast").filter(
+			(schema) => schema.slug !== "progress",
+		),
+	},
+	{
+		icon: "radio",
+		slug: "podcast-episode",
+		name: "Podcast Episode",
+		pluginSlug: undefined,
+		accentColor: "#67E8F9",
+		propertiesSchema: podcastEpisodePropertiesSchema,
+		eventSchemas: [
+			lifecycleEventSchemaBySlug("progress"),
+			lifecycleEventSchemaBySlug("review"),
+			lifecycleEventSchemaBySlug("complete"),
+		],
+	},
+	{
+		icon: "gamepad-2",
+		slug: "video-game",
+		name: "Video Game",
+		pluginSlug: "media",
+		accentColor: "#10B981",
+		propertiesSchema: videoGamePropertiesSchema,
+		eventSchemas: mediaLifecycleEventSchemas("video-game"),
+	},
+	{
+		slug: "music",
+		name: "Music",
+		icon: "music",
+		pluginSlug: "media",
+		accentColor: "#EC4899",
+		propertiesSchema: musicPropertiesSchema,
+		eventSchemas: mediaLifecycleEventSchemas("music"),
+	},
+	{
+		icon: "book-heart",
+		slug: "visual-novel",
+		name: "Visual Novel",
+		pluginSlug: "media",
+		accentColor: "#F472B6",
+		propertiesSchema: visualNovelPropertiesSchema,
+		eventSchemas: mediaLifecycleEventSchemas("visual-novel"),
+	},
+];
+
+export const mediaEntitySchemas = () =>
+	builtinEntitySchemas().map(({ pluginSlug: _pluginSlug, ...schema }) => schema);

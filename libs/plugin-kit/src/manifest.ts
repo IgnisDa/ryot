@@ -8,9 +8,11 @@ const strictStruct = <Fields extends Record<string, Schema.Struct.Field>>(fields
 	Schema.Struct(fields).annotations({ parseOptions: { onExcessProperty: "error" as const } });
 
 export const PluginMetadata = strictStruct({
+	icon: Schema.String,
 	name: Schema.String,
 	slug: Schema.String,
 	version: Schema.String,
+	accentColor: Schema.String,
 	description: Schema.String,
 });
 
@@ -66,17 +68,6 @@ export const PluginSignalSchema = strictStruct({
 
 export type PluginSignalSchema = Schema.Schema.Type<typeof PluginSignalSchema>;
 
-export const PluginTracker = strictStruct({
-	icon: Schema.String,
-	name: Schema.String,
-	slug: Schema.String,
-	accentColor: Schema.String,
-	description: Schema.String,
-	entitySchemaSlugs: Schema.Array(Schema.String),
-});
-
-export type PluginTracker = Schema.Schema.Type<typeof PluginTracker>;
-
 export const PluginSavedView = strictStruct({
 	icon: Schema.String,
 	name: Schema.String,
@@ -85,7 +76,7 @@ export const PluginSavedView = strictStruct({
 	accentColor: Schema.String,
 	queryDocument: QueryDocument,
 	displayConfiguration: DisplayConfiguration,
-	trackerSlug: Schema.NullOr(Schema.String),
+	pluginSlug: Schema.NullOr(Schema.String),
 });
 
 export type PluginSavedView = Schema.Schema.Type<typeof PluginSavedView>;
@@ -184,7 +175,6 @@ export const PluginManifest = strictStruct({
 	metadata: PluginMetadata,
 	bindings: PluginBindings,
 	scripts: Schema.Array(PluginScript),
-	trackers: Schema.Array(PluginTracker),
 	savedViews: Schema.Array(PluginSavedView),
 	entitySchemas: Schema.Array(PluginEntitySchema),
 	signalSchemas: Schema.Array(PluginSignalSchema),

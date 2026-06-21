@@ -43,10 +43,10 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 	}
 
 	for (const relatedEntity of uniqueRelatedEntities.values()) {
-		const entitySchemaSandboxScript = yield* runWithDb(
+		const schemaScript = yield* runWithDb(
 			repository.findEntitySchemaSandboxScriptBySlug(relatedEntity.scriptSlug),
 		).pipe(dieOnDbError);
-		if (!entitySchemaSandboxScript) {
+		if (!schemaScript) {
 			continue;
 		}
 
@@ -57,8 +57,8 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 				populatedAt: null,
 				name: relatedEntity.name,
 				externalId: relatedEntity.externalId,
-				entitySchemaSlug: entitySchemaSandboxScript.entitySchemaSlug,
-				sandboxScriptId: entitySchemaSandboxScript.sandboxScriptId,
+				sandboxScriptId: schemaScript.sandboxScriptId,
+				entitySchemaSlug: schemaScript.entitySchemaSlug,
 			})
 			.pipe(
 				dieOnDbError,
@@ -68,10 +68,10 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 		const sourceSchemaId =
 			input.group.direction === "outgoing"
 				? input.primaryEntitySchemaSlug
-				: entitySchemaSandboxScript.entitySchemaSlug;
+				: schemaScript.entitySchemaSlug;
 		const targetSchemaId =
 			input.group.direction === "outgoing"
-				? entitySchemaSandboxScript.entitySchemaSlug
+				? schemaScript.entitySchemaSlug
 				: input.primaryEntitySchemaSlug;
 
 		if (
