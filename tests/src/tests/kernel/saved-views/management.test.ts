@@ -29,8 +29,9 @@ const buildSchemaRowsDocument = (slug: string) =>
 const buildBuiltinUpdatePayload = (view: Effect.Success<ReturnType<typeof getSavedView>>) => ({
 	icon: view.icon,
 	name: view.name,
-	isDisabled: view.isDisabled,
 	layouts: view.layouts,
+	isDisabled: view.isDisabled,
+	entitySchemaSlug: view.entitySchemaSlug,
 	...(view.pluginSlug ? { pluginSlug: view.pluginSlug } : {}),
 });
 
@@ -43,8 +44,11 @@ describe("saved views management", () => {
 			});
 
 			const views = yield* listSavedViews(client);
+			const listedCreatedView = views.find((view) => view.id === createdView.id);
 			expect(views.some((view) => view.isBuiltin)).toBe(true);
 			expect(views.map((view) => view.id)).toContain(createdView.id);
+			expect(createdView.entitySchemaSlug).toBe("book");
+			expect(listedCreatedView?.entitySchemaSlug).toBe("book");
 		}),
 	);
 
@@ -56,6 +60,7 @@ describe("saved views management", () => {
 
 			expect(collectionsView).toMatchObject({
 				isBuiltin: true,
+				entitySchemaSlug: null,
 				name: "All Collections",
 				layouts: {
 					grid: {
@@ -77,6 +82,7 @@ describe("saved views management", () => {
 			const fetchedView = yield* getSavedView(client, createdView.slug);
 
 			expect(fetchedView.id).toBe(createdView.id);
+			expect(fetchedView.entitySchemaSlug).toBe("book");
 			expect(fetchedView.isBuiltin).toBe(false);
 
 			const updatedView = yield* updateSavedViewWithGridDocument(
@@ -85,12 +91,14 @@ describe("saved views management", () => {
 				rowsDocument,
 				{ name: `${createdView.name} Updated` },
 			);
+			expect(updatedView.entitySchemaSlug).toBe("book");
 			expect(updatedView.layouts.grid.queryDocument).toEqual(rowsDocument);
 			expect(updatedView.layouts.list).toEqual(createdView.layouts.list);
 			expect(updatedView.layouts.table).toEqual(createdView.layouts.table);
 
 			const clonedView = yield* cloneSavedView(client, createdView.slug);
 			expect(clonedView.id).not.toBe(createdView.id);
+			expect(clonedView.entitySchemaSlug).toBe("book");
 			expect(clonedView.name).toBe(`${createdView.name} Updated (Copy)`);
 			expect(clonedView.layouts).toEqual(updatedView.layouts);
 
@@ -116,6 +124,7 @@ describe("saved views management", () => {
 			const clonedView = yield* cloneSavedView(client, builtinView.slug);
 
 			expect(clonedView.name).toBe(`${builtinView.name} (Copy)`);
+			expect(clonedView.entitySchemaSlug).toBe("movie");
 			expect(clonedView.isBuiltin).toBe(false);
 
 			const deletedClone = yield* deleteSavedView(client, clonedView.slug);
@@ -172,6 +181,7 @@ describe("saved views management", () => {
 				}),
 			);
 			expect(reenabledView.isDisabled).toBe(false);
+			expect(reenabledView.entitySchemaSlug).toBe(builtinView.entitySchemaSlug);
 		}),
 	);
 
@@ -204,14 +214,17 @@ describe("saved views management", () => {
 			const viewDocument = buildSchemaRowsDocument(slug);
 
 			const trackerViewA = yield* createSavedViewWithGridDocument(client, viewDocument, {
+				entitySchemaSlug: slug,
 				pluginSlug,
 				name: `Tracker View A ${crypto.randomUUID()}`,
 			});
 			const trackerViewB = yield* createSavedViewWithGridDocument(client, viewDocument, {
+				entitySchemaSlug: slug,
 				pluginSlug,
 				name: `Tracker View B ${crypto.randomUUID()}`,
 			});
 			const trackerViewC = yield* createSavedViewWithGridDocument(client, viewDocument, {
+				entitySchemaSlug: slug,
 				pluginSlug,
 				name: `Tracker View C ${crypto.randomUUID()}`,
 			});
@@ -235,6 +248,7 @@ describe("saved views management", () => {
 			expect(reorderedViews[1]?.slug).toBe(trackerViewA.slug);
 			expect(reorderedViews.map((view) => view.slug)).toContain(trackerViewB.slug);
 			expect(reorderedViews.every((view) => view.pluginSlug === pluginSlug)).toBe(true);
+			expect(reorderedViews.every((view) => view.entitySchemaSlug === slug)).toBe(true);
 		}),
 	);
 });

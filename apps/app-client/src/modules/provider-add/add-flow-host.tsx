@@ -1,27 +1,32 @@
-import { Match } from "effect";
+import type { EntitySchemaSlug } from "@ryot/contract/schema/brands";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect } from "react";
 import { BackHandler, Platform, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { parseAddParam, PROVIDER_ADD_PICKER_VALUE, PROVIDER_ADD_SEARCH_PARAM } from "./flow-state";
 import { ProviderSearchPanel } from "./provider-search-panel";
-import { ProviderAddSchemaPicker } from "./schema-picker";
 
+const PROVIDER_ADD_OPEN_VALUE = "1";
+const PROVIDER_ADD_SEARCH_PARAM = "add";
 type ProviderAddParams = Partial<Record<typeof PROVIDER_ADD_SEARCH_PARAM, string | string[]>>;
 
 const setAddParam = (value: string | undefined) =>
 	router.setParams({ [PROVIDER_ADD_SEARCH_PARAM]: value });
 
+const isAddOpen = (value: string | string[] | undefined) =>
+	(Array.isArray(value) ? value[0] : value) === PROVIDER_ADD_OPEN_VALUE;
+
 export function useProviderAddFlow() {
-	return { open: () => setAddParam(PROVIDER_ADD_PICKER_VALUE) };
+	return { open: () => setAddParam(PROVIDER_ADD_OPEN_VALUE) };
 }
 
-export function ProviderAddHost(props: { readonly onImported: () => void }) {
+export function ProviderAddHost(props: {
+	readonly onImported: () => void;
+	readonly entitySchemaSlug: EntitySchemaSlug;
+}) {
 	const insets = useSafeAreaInsets();
 	const params = useLocalSearchParams<ProviderAddParams>();
-	const step = parseAddParam(params[PROVIDER_ADD_SEARCH_PARAM]);
-	const isOpen = step.kind !== "closed";
+	const isOpen = isAddOpen(params[PROVIDER_ADD_SEARCH_PARAM]);
 
 	useEffect(() => {
 		const subscription =
@@ -34,7 +39,7 @@ export function ProviderAddHost(props: { readonly onImported: () => void }) {
 		return () => subscription?.remove();
 	}, [isOpen]);
 
-	if (step.kind === "closed") {
+	if (!isOpen) {
 		return null;
 	}
 
@@ -52,19 +57,11 @@ export function ProviderAddHost(props: { readonly onImported: () => void }) {
 			>
 				<ScrollView className="flex-1" keyboardShouldPersistTaps="handled">
 					<View className="gap-3 p-4">
-						{Match.value(step).pipe(
-							Match.when({ kind: "schema-picker" }, () => (
-								<ProviderAddSchemaPicker onSelect={(slug) => setAddParam(slug)} />
-							)),
-							Match.when({ kind: "search" }, (current) => (
-								<ProviderSearchPanel
-									onImported={props.onImported}
-									entitySchemaSlug={current.entitySchemaSlug}
-									onClose={() => setAddParam(undefined)}
-								/>
-							)),
-							Match.exhaustive,
-						)}
+						<ProviderSearchPanel
+							onImported={props.onImported}
+							entitySchemaSlug={props.entitySchemaSlug}
+							onClose={() => setAddParam(undefined)}
+						/>
 					</View>
 				</ScrollView>
 			</View>

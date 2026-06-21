@@ -1,26 +1,7 @@
-import type { EntityDefinition } from "@ryot/contract/modules/definitions/schemas";
-import { EntitySchemaSlug, SandboxProviderId } from "@ryot/contract/schema/brands";
 import { AsyncResult } from "effect/unstable/reactivity";
 import { describe, expect, it } from "vitest";
 
-import {
-	mapEntityDefinitions,
-	mapProviderEntityLinks,
-	mapProviderSummaries,
-	providerAddError,
-} from "./state";
-
-const definition = (slug: string, name: string, providers: number): EntityDefinition => ({
-	name,
-	icon: "star",
-	eventSchemas: [],
-	propertiesSchema: { fields: {} },
-	slug: EntitySchemaSlug.make(slug),
-	providers: Array.from({ length: providers }, () => ({
-		name: "Provider",
-		providerId: SandboxProviderId.make(`${slug}-provider`),
-	})),
-});
+import { mapProviderEntityLinks, mapProviderSummaries, providerAddError } from "./state";
 
 const rows = (name: string, items: readonly unknown[]) => ({
 	data: {
@@ -41,25 +22,6 @@ const linkRow = {
 };
 
 describe("provider-add application state", () => {
-	it("maps entity definitions through loading, transport failure, and addable ready data", () => {
-		expect(mapEntityDefinitions(AsyncResult.initial())).toEqual({ status: "loading" });
-		expect(mapEntityDefinitions(AsyncResult.fail("offline"))).toMatchObject({
-			status: "transport-error",
-		});
-		expect(
-			mapEntityDefinitions(
-				AsyncResult.success([
-					definition("show", "Show", 1),
-					definition("note", "Note", 0),
-					definition("book", "Book", 1),
-				]),
-			),
-		).toMatchObject({
-			status: "ready",
-			definitions: [{ slug: "book" }, { slug: "show" }],
-		});
-	});
-
 	it("maps provider summaries through loading, transport failure, malformed, and ready", () => {
 		expect(mapProviderSummaries(AsyncResult.initial())).toEqual({ status: "loading" });
 		expect(mapProviderSummaries(AsyncResult.fail("offline")).status).toBe("transport-error");

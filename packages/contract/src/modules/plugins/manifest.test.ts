@@ -52,6 +52,7 @@ const manifest = definePlugin({
 			pluginSlug: "test",
 			name: "All entities",
 			slug: "all-entities",
+			entitySchemaSlug: null,
 			layouts: {
 				grid: { queryDocument, ...cardMapping, entityIdField: "entityId" },
 				list: { queryDocument, ...cardMapping, entityIdField: "entityId" },
@@ -282,10 +283,22 @@ describe("definePlugin", () => {
 		assert(savedView);
 
 		expect(Object.keys(savedView.layouts)).toEqual(["grid", "list", "table"]);
+		expect(savedView.entitySchemaSlug).toBeNull();
 		for (const layout of ["grid", "list", "table"] as const) {
 			expect(savedView.layouts[layout].queryDocument).toEqual(queryDocument);
 			expect(savedView.layouts[layout].entityIdField).toBe("entityId");
 		}
+	});
+
+	it("requires saved-view entity schema provenance", () => {
+		const [savedView] = manifest.savedViews;
+		assert(savedView);
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				savedViews: [{ ...savedView, entitySchemaSlug: undefined }],
+			}),
+		).toThrow();
 	});
 
 	it("rejects removed saved-view sandbox scripts", () => {
