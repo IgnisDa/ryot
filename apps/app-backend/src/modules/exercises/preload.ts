@@ -8,10 +8,10 @@ import { AppConfig } from "#lib/config/service";
 import * as schema from "#lib/db/schema/tables/combined";
 import { CurrentDb, DbRunner, dbEffect } from "#lib/db/service";
 import { EntitiesRepository } from "#modules/entities/repository";
+import { BuiltinEntityImportWorkflow } from "#modules/entity-import/entity-import-workflow";
 import { decodeEntitySearchResult } from "#modules/entity-import/population";
-import { BuiltinEntityImportWorkflow } from "#modules/entity-import/workflows";
 import { SandboxRepository } from "#modules/sandbox/repository";
-import { RunSandboxWorkflow } from "#modules/sandbox/workflow-definitions";
+import { RunSandboxWorkflow } from "#modules/sandbox/sandbox-run-workflow";
 
 const builtinExercisePageSize = 100;
 const builtinExerciseExpectedCount = 873;
