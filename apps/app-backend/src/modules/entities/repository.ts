@@ -38,7 +38,7 @@ export type {
 	EntityScope,
 	EntityMergeScope,
 	EntitySchemaScope,
-	EntitySchemaScriptScope,
+	EntitySchemaSandboxScriptScope,
 } from "./repository-support";
 
 export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("EntitiesRepository", {
@@ -278,20 +278,20 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 			return { propertiesSchema };
 		});
 
-		const findEntitySchemaScriptBySlug = Effect.fn(
-			"EntitiesRepository.findEntitySchemaScriptBySlug",
+		const findEntitySchemaSandboxScriptBySlug = Effect.fn(
+			"EntitiesRepository.findEntitySchemaSandboxScriptBySlug",
 		)(function* (scriptSlug: string) {
 			const db = yield* CurrentDb;
 			const [row] = yield* dbEffect(() =>
 				db
 					.select({
-						entitySchemaId: schema.entitySchemaScript.entitySchemaId,
-						sandboxScriptId: schema.entitySchemaScript.sandboxScriptId,
+						entitySchemaId: schema.entitySchemaSandboxScript.entitySchemaId,
+						sandboxScriptId: schema.entitySchemaSandboxScript.sandboxScriptId,
 					})
 					.from(schema.sandboxScript)
 					.innerJoin(
-						schema.entitySchemaScript,
-						eq(schema.entitySchemaScript.sandboxScriptId, schema.sandboxScript.id),
+						schema.entitySchemaSandboxScript,
+						eq(schema.entitySchemaSandboxScript.sandboxScriptId, schema.sandboxScript.id),
 					)
 					.where(
 						and(eq(schema.sandboxScript.slug, scriptSlug), isNull(schema.sandboxScript.userId)),
@@ -447,7 +447,7 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 			getEntityMergeScopeForUser,
 			listMatchCandidatesBySchema,
 			getEntitySchemaScopeForUser,
-			findEntitySchemaScriptBySlug,
+			findEntitySchemaSandboxScriptBySlug,
 			findGlobalEntityByExternalId,
 			findEntityByExternalIdForUser,
 		};

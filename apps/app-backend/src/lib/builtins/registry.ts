@@ -388,7 +388,7 @@ export const builtinSandboxScripts = () => [
 	},
 ];
 
-export const entitySchemaScriptLinks = () =>
+export const entitySchemaSandboxScriptLinks = () =>
 	[
 		{ schemaSlug: "show", scriptSlug: "show.tmdb" },
 		{ schemaSlug: "show", scriptSlug: "show.tvdb" },
@@ -414,7 +414,7 @@ export const entitySchemaScriptLinks = () =>
 		{ schemaSlug: "video-game", scriptSlug: "video-game.giant-bomb" },
 	] as const;
 
-export const fitnessSchemaScriptLinks = () =>
+export const fitnessSchemaSandboxScriptLinks = () =>
 	[{ schemaSlug: "exercise", scriptSlug: "exercise.free-exercise-db" }] as const;
 
 export const builtinEventSchemaTriggerLinks = () => [
@@ -460,7 +460,7 @@ export const builtinEventSchemaTriggerLinks = () => [
 	},
 ];
 
-export const personSchemaScriptLinks = () =>
+export const personSchemaSandboxScriptLinks = () =>
 	[
 		{ schemaSlug: "person", scriptSlug: "person.tmdb" },
 		{ schemaSlug: "person", scriptSlug: "person.tvdb" },
@@ -476,7 +476,7 @@ export const personSchemaScriptLinks = () =>
 		{ schemaSlug: "person", scriptSlug: "person.manga-updates" },
 	] as const;
 
-export const companySchemaScriptLinks = () =>
+export const companySchemaSandboxScriptLinks = () =>
 	[
 		{ schemaSlug: "company", scriptSlug: "company.igdb" },
 		{ schemaSlug: "company", scriptSlug: "company.tmdb" },
@@ -487,7 +487,7 @@ export const companySchemaScriptLinks = () =>
 		{ schemaSlug: "company", scriptSlug: "company.giant-bomb" },
 	] as const;
 
-export const groupSchemaScriptLinks = () =>
+export const groupSchemaSandboxScriptLinks = () =>
 	[
 		{ schemaSlug: "movie-group", scriptSlug: "movie-group.tmdb" },
 		{ schemaSlug: "movie-group", scriptSlug: "movie-group.tvdb" },

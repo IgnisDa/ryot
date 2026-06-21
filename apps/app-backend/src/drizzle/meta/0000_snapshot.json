@@ -1,5 +1,5 @@
 {
-	"id": "bd830248-e5d2-4876-95dc-bf1fde1fbc44",
+	"id": "abab7735-f6ea-40a5-a617-8ebbf150308a",
 	"prevId": "00000000-0000-0000-0000-000000000000",
 	"version": "7",
 	"dialect": "postgresql",
@@ -663,8 +663,8 @@
 			"checkConstraints": {},
 			"isRLSEnabled": false
 		},
-		"public.entity_schema_script": {
-			"name": "entity_schema_script",
+		"public.entity_schema_sandbox_script": {
+			"name": "entity_schema_sandbox_script",
 			"schema": "",
 			"columns": {
 				"created_at": {
@@ -701,8 +701,8 @@
 				}
 			},
 			"indexes": {
-				"entity_schema_script_entity_schema_id_idx": {
-					"name": "entity_schema_script_entity_schema_id_idx",
+				"entity_schema_sandbox_script_entity_schema_id_idx": {
+					"name": "entity_schema_sandbox_script_entity_schema_id_idx",
 					"columns": [
 						{
 							"expression": "entity_schema_id",
@@ -716,8 +716,8 @@
 					"method": "btree",
 					"with": {}
 				},
-				"entity_schema_script_sandbox_script_id_idx": {
-					"name": "entity_schema_script_sandbox_script_id_idx",
+				"entity_schema_sandbox_script_sandbox_script_id_idx": {
+					"name": "entity_schema_sandbox_script_sandbox_script_id_idx",
 					"columns": [
 						{
 							"expression": "sandbox_script_id",
@@ -733,18 +733,18 @@
 				}
 			},
 			"foreignKeys": {
-				"entity_schema_script_entity_schema_id_entity_schema_id_fk": {
-					"name": "entity_schema_script_entity_schema_id_entity_schema_id_fk",
-					"tableFrom": "entity_schema_script",
+				"entity_schema_sandbox_script_entity_schema_id_entity_schema_id_fk": {
+					"name": "entity_schema_sandbox_script_entity_schema_id_entity_schema_id_fk",
+					"tableFrom": "entity_schema_sandbox_script",
 					"tableTo": "entity_schema",
 					"columnsFrom": ["entity_schema_id"],
 					"columnsTo": ["id"],
 					"onDelete": "cascade",
 					"onUpdate": "no action"
 				},
-				"entity_schema_script_sandbox_script_id_sandbox_script_id_fk": {
-					"name": "entity_schema_script_sandbox_script_id_sandbox_script_id_fk",
-					"tableFrom": "entity_schema_script",
+				"entity_schema_sandbox_script_sandbox_script_id_sandbox_script_id_fk": {
+					"name": "entity_schema_sandbox_script_sandbox_script_id_sandbox_script_id_fk",
+					"tableFrom": "entity_schema_sandbox_script",
 					"tableTo": "sandbox_script",
 					"columnsFrom": ["sandbox_script_id"],
 					"columnsTo": ["id"],
@@ -754,8 +754,8 @@
 			},
 			"compositePrimaryKeys": {},
 			"uniqueConstraints": {
-				"entity_schema_script_unique": {
-					"name": "entity_schema_script_unique",
+				"entity_schema_sandbox_script_unique": {
+					"name": "entity_schema_sandbox_script_unique",
 					"nullsNotDistinct": false,
 					"columns": ["entity_schema_id", "sandbox_script_id"]
 				}
