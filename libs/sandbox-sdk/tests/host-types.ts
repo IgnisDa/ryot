@@ -6,6 +6,8 @@ import {
 	z,
 } from "@ryot/sandbox-sdk";
 
+import type { Equal, Expect } from "./type-assertions.js";
+
 const allCapabilitiesManifest = defineManifest({
 	kind: "script",
 	name: "All core capabilities",
@@ -90,8 +92,8 @@ defineDriver(narrowedManifest, {
 	run: async (_input, host) => {
 		const result = await host.getCachedValue("key");
 
-		// @ts-expect-error setCachedValue was not declared by this manifest.
-		await host.setCachedValue("key", null, 60);
+		const capabilities: Expect<Equal<keyof typeof host, "getCachedValue">> = true;
+		void capabilities;
 
 		return result.success ? result.data : null;
 	},
@@ -161,16 +163,12 @@ defineDriver(allDomainManifest, {
 
 		const query = await host.executeQueryEngine({ source: { type: "entities" } });
 		if (query.success) {
-			const value: unknown = query.data;
-			void value;
-
-			// @ts-expect-error query-engine results are unknown until the script parses them.
-			const rows: number = query.data;
-			void rows;
+			const queryResult: Expect<Equal<typeof query.data, unknown>> = true;
+			void queryResult;
 		}
 
-		// @ts-expect-error getEntity requires a string identifier.
-		await host.getEntity(42);
+		const entityArg: Expect<Equal<Parameters<typeof host.getEntity>[0], string>> = true;
+		void entityArg;
 
 		// @ts-expect-error listIntegrations only accepts supported providers.
 		await host.listIntegrations({ provider: "not-a-provider" });
@@ -193,8 +191,8 @@ defineDriver(narrowedDomainManifest, {
 	run: async (_input, host) => {
 		await host.getEntity("entity-1");
 
-		// @ts-expect-error getIntegration was not declared by this manifest.
-		await host.getIntegration("integration-1");
+		const capabilities: Expect<Equal<keyof typeof host, "getEntity">> = true;
+		void capabilities;
 
 		return true;
 	},
