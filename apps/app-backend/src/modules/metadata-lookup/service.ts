@@ -5,8 +5,9 @@ import type {
 } from "@ryot/contract/modules/metadata-lookup/schemas";
 import type { SandboxScriptMetadata } from "@ryot/contract/modules/sandbox/schemas";
 import type { IntegrationId, SandboxScriptId } from "@ryot/contract/schema/brands";
+import type { ProviderSearchItem } from "@ryot/sandbox-sdk/provider";
 import { generateId } from "better-auth";
-import { Effect, Schema } from "effect";
+import { Effect } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
 import { SandboxService } from "#lib/infrastructure/sandbox-runtime/service";
@@ -20,6 +21,7 @@ import {
 } from "#lib/shared/title-parsing";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { IntegrationsRepository } from "#modules/integrations/repository";
+import { decodeProviderSearchResult } from "#modules/sandbox/provider-contracts";
 import { SandboxRepository } from "#modules/sandbox/repository";
 
 type SearchScriptSlug = "movie.tmdb" | "show.tmdb";
@@ -33,22 +35,7 @@ type SearchScript = {
 	metadata: SandboxScriptMetadata;
 };
 
-const EntitySearchItem = Schema.Struct({
-	externalId: Schema.NonEmptyString,
-	titleProperty: Schema.Struct({ value: Schema.NonEmptyString, kind: Schema.Literal("text") }),
-	primarySubtitleProperty: Schema.optional(
-		Schema.Union(
-			Schema.Struct({ kind: Schema.Literal("null"), value: Schema.Null }),
-			Schema.Struct({ kind: Schema.Literal("number"), value: Schema.Number }),
-		),
-	),
-});
-
-const EntitySearchResult = Schema.Struct({ items: Schema.Array(EntitySearchItem) });
-
 const searchScripts: ReadonlyArray<SearchScriptSlug> = ["movie.tmdb", "show.tmdb"];
-
-const decodeEntitySearchResult = Schema.decodeUnknown(EntitySearchResult);
 
 const toSandboxRunError = (error: unknown) =>
 	error instanceof SandboxRunError
@@ -59,7 +46,7 @@ const scriptUnavailable = () => notFound("TMDB sandbox scripts are not available
 
 const toCandidate = (
 	slug: SearchScriptSlug,
-	item: typeof EntitySearchItem.Type,
+	item: ProviderSearchItem,
 ): MetadataLookupTitleMatchCandidate => ({
 	scriptSlug: slug,
 	externalId: item.externalId,
@@ -125,7 +112,8 @@ export class MetadataLookupService extends Effect.Service<MetadataLookupService>
 						compiledFormat: script.compiledFormat,
 						context: { query, page: 1, pageSize: 20 },
 						executionId: `metadata-lookup-${script.slug}-${generateId()}`,
-						allowedHostFunctions: script.metadata.allowedHostFunctions ?? [],
+						allowedHostFunctions:
+							script.metadata.capabilities ?? script.metadata.allowedHostFunctions ?? [],
 					})
 					.pipe(Effect.mapError(toSandboxRunError));
 
@@ -135,7 +123,7 @@ export class MetadataLookupService extends Effect.Service<MetadataLookupService>
 					});
 				}
 
-				const decoded = yield* decodeEntitySearchResult(result.value).pipe(
+				const decoded = yield* decodeProviderSearchResult(result.value).pipe(
 					Effect.mapError(
 						() => new SandboxRunError({ message: "TMDB search returned an invalid result" }),
 					),

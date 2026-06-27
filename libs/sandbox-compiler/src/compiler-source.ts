@@ -1,4 +1,8 @@
-import { SANDBOX_SDK_IMPORTS, SANDBOX_SDK_ROOT_IMPORT } from "@ryot/sandbox-sdk/imports";
+import {
+	SANDBOX_SDK_IMPORTS,
+	SANDBOX_SDK_PROVIDER_IMPORT,
+	SANDBOX_SDK_ROOT_IMPORT,
+} from "@ryot/sandbox-sdk/imports";
 import * as ts from "typescript/unstable/ast";
 
 import {
@@ -52,11 +56,12 @@ const inspectsGeneratedModule = (node: ts.CallExpression | ts.NewExpression) => 
 	);
 };
 
-const inspectImports = (file: ts.SourceFile) => {
-	const driverHelpers = new Set<string>();
+const inspectImports = (file: ts.SourceFile, allowRelativeImports: boolean) => {
 	const scriptHelpers = new Set<string>();
+	const providerHelpers = new Set<string>();
 	const manifestHelpers = new Set<string>();
 	const diagnostics: SandboxCompilerDiagnostic[] = [];
+	const driverHelpers = new Map<string, "generic" | "provider">();
 
 	for (const reference of [
 		...file.referencedFiles,
@@ -75,7 +80,8 @@ const inspectImports = (file: ts.SourceFile) => {
 	for (const statement of file.statements) {
 		if (ts.isImportDeclaration(statement) || ts.isExportDeclaration(statement)) {
 			const specifier = getModuleSpecifier(statement);
-			if (specifier !== null && !allowedImports.has(specifier)) {
+			const isAllowedRelativeImport = allowRelativeImports && specifier?.startsWith(".");
+			if (specifier !== null && !allowedImports.has(specifier) && !isAllowedRelativeImport) {
 				diagnostics.push(
 					diagnosticAt(
 						statement.moduleSpecifier ?? statement,
@@ -85,19 +91,28 @@ const inspectImports = (file: ts.SourceFile) => {
 				);
 			}
 
-			if (ts.isImportDeclaration(statement) && specifier === SANDBOX_SDK_ROOT_IMPORT) {
+			if (
+				ts.isImportDeclaration(statement) &&
+				(specifier === SANDBOX_SDK_ROOT_IMPORT || specifier === SANDBOX_SDK_PROVIDER_IMPORT)
+			) {
 				const bindings = statement.importClause?.namedBindings;
 				if (bindings && ts.isNamedImports(bindings)) {
 					for (const element of bindings.elements) {
 						const importedName = (element.propertyName ?? element.name).text;
 						if (importedName === "defineDriver") {
-							driverHelpers.add(element.name.text);
+							driverHelpers.set(element.name.text, "generic");
+						}
+						if (importedName === "defineProviderDriver") {
+							driverHelpers.set(element.name.text, "provider");
 						}
 						if (importedName === "defineManifest") {
 							manifestHelpers.add(element.name.text);
 						}
 						if (importedName === "defineScript") {
 							scriptHelpers.add(element.name.text);
+						}
+						if (importedName === "defineProvider") {
+							providerHelpers.add(element.name.text);
 						}
 					}
 				}
@@ -140,7 +155,7 @@ const inspectImports = (file: ts.SourceFile) => {
 	};
 	visit(file);
 
-	return { diagnostics, driverHelpers, manifestHelpers, scriptHelpers };
+	return { diagnostics, driverHelpers, manifestHelpers, providerHelpers, scriptHelpers };
 };
 
 const topLevelDriverName = (call: ts.CallExpression, file: ts.SourceFile) => {
@@ -165,9 +180,18 @@ const topLevelDriverName = (call: ts.CallExpression, file: ts.SourceFile) => {
 	return declaration.name.text;
 };
 
-const inspectDriverDefinitions = (file: ts.SourceFile, driverHelpers: ReadonlySet<string>) => {
+type DriverDefinition =
+	| { readonly kind: "generic" }
+	| { readonly kind: "provider"; readonly providerName: string };
+
+const providerDriverNames = new Set(["search", "details", "resolve", "translate"]);
+
+const inspectDriverDefinitions = (
+	file: ts.SourceFile,
+	driverHelpers: ReadonlyMap<string, "generic" | "provider">,
+) => {
 	const diagnostics: SandboxCompilerDiagnostic[] = [];
-	const driverNames = new Set<string>();
+	const driverDefinitions = new Map<string, DriverDefinition>();
 	const visit = (node: ts.Node): void => {
 		if (ts.isIdentifier(node) && driverHelpers.has(node.text)) {
 			const parent = node.parent;
@@ -188,6 +212,7 @@ const inspectDriverDefinitions = (file: ts.SourceFile, driverHelpers: ReadonlySe
 			ts.isIdentifier(node.expression) &&
 			driverHelpers.has(node.expression.text)
 		) {
+			const helperKind = driverHelpers.get(node.expression.text);
 			const manifest = node.arguments[0];
 			if (
 				node.typeArguments?.length ||
@@ -208,8 +233,37 @@ const inspectDriverDefinitions = (file: ts.SourceFile, driverHelpers: ReadonlySe
 					diagnostics.push(
 						diagnosticAt(node, "RYOT_DEFINITION", "defineDriver must initialize a top-level const"),
 					);
+				} else if (helperKind === "provider") {
+					const providerName = node.arguments[1];
+					if (
+						node.arguments.length !== 3 ||
+						!providerName ||
+						!ts.isStringLiteralLikeNode(providerName) ||
+						!providerDriverNames.has(providerName.text)
+					) {
+						diagnostics.push(
+							diagnosticAt(
+								providerName ?? node,
+								"RYOT_DEFINITION",
+								"defineProviderDriver must receive a static standard provider driver name",
+							),
+						);
+					} else {
+						driverDefinitions.set(driverName, {
+							kind: "provider",
+							providerName: providerName.text,
+						});
+					}
+				} else if (node.arguments.length !== 2) {
+					diagnostics.push(
+						diagnosticAt(
+							node,
+							"RYOT_DEFINITION",
+							"defineDriver must receive a manifest and driver definition",
+						),
+					);
 				} else {
-					driverNames.add(driverName);
+					driverDefinitions.set(driverName, { kind: "generic" });
 				}
 			}
 		}
@@ -217,7 +271,7 @@ const inspectDriverDefinitions = (file: ts.SourceFile, driverHelpers: ReadonlySe
 	};
 	visit(file);
 
-	return { diagnostics, driverNames };
+	return { diagnostics, driverDefinitions };
 };
 
 const getTopLevelDriverRecord = (file: ts.SourceFile, name: string) => {
@@ -246,50 +300,68 @@ const getTopLevelDriverRecord = (file: ts.SourceFile, name: string) => {
 const inspectScriptDefinition = (
 	file: ts.SourceFile,
 	scriptHelpers: ReadonlySet<string>,
-	driverNames: ReadonlySet<string>,
+	providerHelpers: ReadonlySet<string>,
+	driverDefinitions: ReadonlyMap<string, DriverDefinition>,
 ) => {
 	const defaults = file.statements.filter(
 		(statement): statement is ts.ExportAssignment =>
 			ts.isExportAssignment(statement) && !statement.isExportEquals,
 	);
 	if (defaults.length !== 1) {
-		return [
-			diagnosticAt(
-				file,
-				"RYOT_DEFINITION",
-				"Source must have exactly one default defineScript export",
-			),
-		];
+		return {
+			definitionKind: null,
+			diagnostics: [
+				diagnosticAt(
+					file,
+					"RYOT_DEFINITION",
+					"Source must have exactly one default definition export",
+				),
+			],
+		};
 	}
 
 	const assignment = defaults[0];
 	const call = assignment?.expression;
+	let definitionKind: "provider" | "script" | null = null;
+	if (call && ts.isCallExpression(call) && ts.isIdentifier(call.expression)) {
+		if (scriptHelpers.has(call.expression.text)) {
+			definitionKind = "script";
+		} else if (providerHelpers.has(call.expression.text)) {
+			definitionKind = "provider";
+		}
+	}
 	if (
 		!call ||
 		!ts.isCallExpression(call) ||
 		!ts.isIdentifier(call.expression) ||
-		!scriptHelpers.has(call.expression.text) ||
+		definitionKind === null ||
 		call.typeArguments?.length ||
 		call.arguments.length !== 1
 	) {
-		return [
-			diagnosticAt(
-				assignment ?? file,
-				"RYOT_DEFINITION",
-				`The default export must be a direct ${SANDBOX_SDK_ROOT_IMPORT} defineScript call`,
-			),
-		];
+		return {
+			definitionKind: null,
+			diagnostics: [
+				diagnosticAt(
+					assignment ?? file,
+					"RYOT_DEFINITION",
+					"The default export must be a direct defineScript or defineProvider call",
+				),
+			],
+		};
 	}
 
 	const definition = call.arguments[0];
 	if (!definition || !ts.isObjectLiteralExpression(definition)) {
-		return [
-			diagnosticAt(
-				definition ?? call,
-				"RYOT_DEFINITION",
-				"defineScript must receive a direct object literal",
-			),
-		];
+		return {
+			definitionKind,
+			diagnostics: [
+				diagnosticAt(
+					definition ?? call,
+					"RYOT_DEFINITION",
+					"The definition helper must receive a direct object literal",
+				),
+			],
+		};
 	}
 
 	let hasManifest = false;
@@ -319,24 +391,31 @@ const inspectScriptDefinition = (
 		}
 	}
 	if (!hasManifest || drivers === null) {
-		return [
-			diagnosticAt(
-				definition,
-				"RYOT_DEFINITION",
-				'defineScript must contain the exported "manifest" and a static drivers object',
-			),
-		];
+		return {
+			definitionKind,
+			diagnostics: [
+				diagnosticAt(
+					definition,
+					"RYOT_DEFINITION",
+					'The definition must contain the exported "manifest" and a static drivers object',
+				),
+			],
+		};
 	}
 
 	const diagnostics: SandboxCompilerDiagnostic[] = [];
 	for (const property of drivers.properties) {
 		let driver: ts.Identifier | null = null;
+		let exposedName: string | null = null;
 		if (ts.isShorthandPropertyAssignment(property) && ts.isIdentifier(property.name)) {
 			driver = property.name;
+			exposedName = property.name.text;
 		} else if (ts.isPropertyAssignment(property) && ts.isIdentifier(property.initializer)) {
 			driver = property.initializer;
+			exposedName = propertyName(property.name);
 		}
-		if (!driver || !driverNames.has(driver.text)) {
+		const driverDefinition = driver ? driverDefinitions.get(driver.text) : undefined;
+		if (!driver || !exposedName || !driverDefinition) {
 			diagnostics.push(
 				diagnosticAt(
 					property,
@@ -344,25 +423,72 @@ const inspectScriptDefinition = (
 					"Every script driver must be a top-level defineDriver(manifest, ...) const",
 				),
 			);
+			continue;
+		}
+		if (definitionKind === "script" && driverDefinition.kind !== "generic") {
+			diagnostics.push(
+				diagnosticAt(property, "RYOT_DEFINITION", "Generic scripts must use defineDriver"),
+			);
+			continue;
+		}
+		if (
+			definitionKind === "provider" &&
+			providerDriverNames.has(exposedName) &&
+			(driverDefinition.kind !== "provider" || driverDefinition.providerName !== exposedName)
+		) {
+			diagnostics.push(
+				diagnosticAt(
+					property,
+					"RYOT_DEFINITION",
+					`Provider driver "${exposedName}" must use defineProviderDriver(manifest, "${exposedName}", ...)`,
+				),
+			);
+			continue;
+		}
+		if (driverDefinition.kind === "provider" && driverDefinition.providerName !== exposedName) {
+			diagnostics.push(
+				diagnosticAt(
+					property,
+					"RYOT_DEFINITION",
+					`Provider driver "${driverDefinition.providerName}" must use the same drivers object key`,
+				),
+			);
 		}
 	}
 
-	return diagnostics;
+	return { definitionKind, diagnostics };
 };
 
-export const inspectSandboxSource = (file: ts.SourceFile) => {
-	const imports = inspectImports(file);
+export const inspectSandboxModuleImports = (file: ts.SourceFile) =>
+	inspectImports(file, true).diagnostics;
+
+export const inspectSandboxSource = (
+	file: ts.SourceFile,
+	options: { readonly allowRelativeImports?: boolean } = {},
+) => {
+	const imports = inspectImports(file, options.allowRelativeImports ?? false);
 	if (imports.diagnostics.length > 0) {
-		return { diagnostics: imports.diagnostics, manifestHelpers: imports.manifestHelpers };
+		return {
+			definitionKind: null,
+			diagnostics: imports.diagnostics,
+			manifestHelpers: imports.manifestHelpers,
+		};
 	}
 
 	const drivers = inspectDriverDefinitions(file, imports.driverHelpers);
 	if (drivers.diagnostics.length > 0) {
-		return { diagnostics: drivers.diagnostics, manifestHelpers: imports.manifestHelpers };
+		return {
+			definitionKind: null,
+			diagnostics: drivers.diagnostics,
+			manifestHelpers: imports.manifestHelpers,
+		};
 	}
 
-	return {
-		manifestHelpers: imports.manifestHelpers,
-		diagnostics: inspectScriptDefinition(file, imports.scriptHelpers, drivers.driverNames),
-	};
+	const definition = inspectScriptDefinition(
+		file,
+		imports.scriptHelpers,
+		imports.providerHelpers,
+		drivers.driverDefinitions,
+	);
+	return { ...definition, manifestHelpers: imports.manifestHelpers };
 };

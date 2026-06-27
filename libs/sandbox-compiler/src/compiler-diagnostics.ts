@@ -5,7 +5,11 @@ import { SANDBOX_COMPILER_LIMITS, utf8ByteLength } from "./limits";
 
 const segmenter = new Intl.Segmenter();
 export const SANDBOX_SOURCE_FILE = "script.ts";
+const sandboxVirtualRoot = "/__ryot_sandbox__/";
 const compilationFailedMessage = "Sandbox TypeScript compilation failed";
+
+export const sandboxLogicalFile = (fileName: string) =>
+	fileName.startsWith(sandboxVirtualRoot) ? fileName.slice(sandboxVirtualRoot.length) : fileName;
 
 export const SandboxCompilerDiagnostic = Schema.Struct({
 	code: Schema.String,
@@ -103,9 +107,9 @@ export const sandboxDiagnosticAt = (
 		message,
 		severity: "error",
 		line: location.line + 1,
-		file: SANDBOX_SOURCE_FILE,
 		column: location.character + 1,
 		length: node.getWidth(file),
+		file: sandboxLogicalFile(file.fileName),
 	};
 };
 

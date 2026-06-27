@@ -1,9 +1,9 @@
-import { SANDBOX_SDK_IMPORTS } from "@ryot/sandbox-sdk/imports";
 import { Effect } from "effect";
 import type * as ts from "typescript/unstable/ast";
 import { DiagnosticCategory, type Diagnostic } from "typescript/unstable/async";
 
 import { bundleUserScript } from "./compiler-bundle";
+import { resolveSandboxCompilerDependencies } from "./compiler-dependencies";
 import {
 	type SandboxCompilerDiagnostic,
 	SANDBOX_SOURCE_FILE,
@@ -58,32 +58,7 @@ export const compileSandboxSource = (source: string) =>
 			]);
 		}
 
-		const dependencies = yield* Effect.try({
-			try: () => {
-				const from = Bun.fileURLToPath(new URL(".", import.meta.url));
-				const typescriptPackage = Bun.resolveSync("typescript/package.json", from);
-				const typescriptDirectory = typescriptPackage.slice(0, typescriptPackage.lastIndexOf("/"));
-				const nativePackage = `@typescript/typescript-${process.platform}-${process.arch}`;
-				const nativePackageJson = Bun.resolveSync(
-					`${nativePackage}/package.json`,
-					typescriptDirectory,
-				);
-				const nativeDirectory = nativePackageJson.slice(0, nativePackageJson.lastIndexOf("/"));
-				return {
-					sdkEntries: Object.fromEntries(
-						SANDBOX_SDK_IMPORTS.map((specifier) => [specifier, Bun.resolveSync(specifier, from)]),
-					),
-					tsserverPath: `${nativeDirectory}/lib/tsc${process.platform === "win32" ? ".exe" : ""}`,
-				};
-			},
-			catch: (error) =>
-				sandboxCompilationFailure([
-					sandboxCompilerDiagnostic(
-						"RYOT_COMPILER",
-						`Sandbox compiler dependencies could not be resolved: ${String(error)}`,
-					),
-				]),
-		});
+		const dependencies = yield* resolveSandboxCompilerDependencies;
 		const project = yield* createTypeScriptProject(
 			source,
 			dependencies.sdkEntries,
@@ -118,6 +93,14 @@ export const compileSandboxSource = (source: string) =>
 		const extracted = extractSandboxManifest(project.sourceFile, inspection.manifestHelpers);
 		if ("diagnostic" in extracted) {
 			return yield* sandboxCompilationFailure([extracted.diagnostic]);
+		}
+		if (inspection.definitionKind !== extracted.manifest.kind) {
+			return yield* sandboxCompilationFailure([
+				sandboxCompilerDiagnostic(
+					"RYOT_DEFINITION",
+					`Manifest kind "${extracted.manifest.kind}" must use ${extracted.manifest.kind === "provider" ? "defineProvider" : "defineScript"}`,
+				),
+			]);
 		}
 		if (
 			(jsonByteLength(extracted.manifest) ?? Number.POSITIVE_INFINITY) >
