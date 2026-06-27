@@ -5,10 +5,6 @@ import { Effect } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { CurrentDb, dbEffect, TransactionRunner } from "#lib/infrastructure/db/service";
-import {
-	compileLegacySandboxModule,
-	LEGACY_SANDBOX_COMPILED_FORMAT,
-} from "#modules/sandbox/legacy-module";
 
 import { builtinEntitySchemas } from "./entity-schemas";
 import {
@@ -122,13 +118,12 @@ const ensureBuiltinEntitySchemaEventSchemas = Effect.fn(function* (input: {
 });
 
 const ensureBuiltinSandboxScript = Effect.fn(function* (input: {
-	code: string;
 	name: string;
 	slug: string;
+	source: string;
+	compiledCode: string;
+	compiledFormat: number;
 	metadata: Record<string, unknown>;
-	source?: string;
-	compiledCode?: string;
-	compiledFormat?: number;
 }) {
 	const db = yield* CurrentDb;
 	const [existingScript] = yield* dbEffect(() =>
@@ -142,12 +137,11 @@ const ensureBuiltinSandboxScript = Effect.fn(function* (input: {
 	const scriptId = existingScript?.id ?? generateId();
 	const values = {
 		isBuiltin: true,
-		code: input.code,
 		name: input.name,
+		source: input.source,
 		metadata: input.metadata,
-		source: input.source ?? input.code,
-		compiledFormat: input.compiledFormat ?? LEGACY_SANDBOX_COMPILED_FORMAT,
-		compiledCode: input.compiledCode ?? compileLegacySandboxModule(input.code),
+		compiledCode: input.compiledCode,
+		compiledFormat: input.compiledFormat,
 	};
 
 	if (existingScript) {

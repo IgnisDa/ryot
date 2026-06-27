@@ -6,6 +6,7 @@ import { Effect, Schema } from "effect";
 import { afterAll, assert, beforeAll, expect, it } from "vitest";
 
 import {
+	generatedBuiltinSandboxScripts,
 	sandboxAnimeDotAnilistScript,
 	sandboxAnimeDotMyanimelistScript,
 	sandboxComicDashBookDotMetronScript,
@@ -36,7 +37,6 @@ import {
 	sandboxTriggerDotIntegrationDashProgressDashPolicyScript,
 } from "#modules/builtins/generated-sandbox/registry";
 import { SandboxCompiler } from "#modules/sandbox/compiler";
-import { compileLegacySandboxModule } from "#modules/sandbox/legacy-module";
 
 import {
 	ensureSandboxRuntimeDependencies,
@@ -49,9 +49,11 @@ import {
 	SANDBOX_RUNNER_LIMITS,
 	utf8ByteLength,
 } from "./limits";
+import { sandboxRunnerSource } from "./runner.generated";
 
 let dependencyRuntimeRoot: string | undefined;
 let dependencyRuntime: SandboxRuntimePaths | undefined;
+let runnerPath: string | undefined;
 
 beforeAll(
 	() =>
@@ -60,8 +62,11 @@ beforeAll(
 				const fs = yield* FileSystem.FileSystem;
 				const root = yield* fs.makeTempDirectory({ prefix: "ryot-sandbox-runner-" });
 				const runtime = yield* ensureSandboxRuntimeDependencies(root);
+				const compiledRunnerPath = `${root}/runner.mjs`;
+				yield* fs.writeFileString(compiledRunnerPath, sandboxRunnerSource);
 				dependencyRuntimeRoot = root;
 				dependencyRuntime = runtime;
+				runnerPath = compiledRunnerPath;
 			}).pipe(Effect.provide(BunFileSystem.layer)),
 		),
 	120_000,
@@ -497,10 +502,7 @@ const runInDeno = (
 ) =>
 	Effect.gen(function* () {
 		assert(dependencyRuntime);
-		const runnerPath = Bun.fileURLToPath(new URL("./runner-source.sandbox.js", import.meta.url));
-		const runnerUtilitiesPath = Bun.fileURLToPath(
-			new URL("./runner-utilities.sandbox.js", import.meta.url),
-		);
+		assert(runnerPath);
 		const apiBase = options.apiBase ?? "http://127.0.0.1:1";
 		const denoProcess = Bun.spawn(
 			[
@@ -519,7 +521,7 @@ const runInDeno = (
 				`--v8-flags=--max-old-space-size=${SANDBOX_LIMITS.execution.denoHeapMiB}`,
 				`--import-map=${dependencyRuntime.importMapPath}`,
 				`--allow-net=${new URL(apiBase).host}`,
-				`--allow-read=${runnerPath},${runnerUtilitiesPath},${dependencyRuntime.directory}`,
+				`--allow-read=${runnerPath},${dependencyRuntime.directory}`,
 				runnerPath,
 			],
 			{
@@ -798,37 +800,6 @@ it("loads one compiled fixture for each approved SDK dependency without remote m
 		}).pipe(Effect.provide(SandboxCompiler.Default)),
 	));
 
-it("loads temporary format-0 dependency aliases from the local runtime", () =>
-	Effect.runPromise(
-		Effect.gen(function* () {
-			const compiler = yield* SandboxCompiler;
-			const compiled = yield* compiler.compile(source);
-			const legacyModule = compileLegacySandboxModule(`
-const dependencies = await Promise.all([
-  import("npm:zod"),
-  import("npm:dayjs"),
-  import("npm:cheerio"),
-  import("npm:youtubei.js"),
-  import("npm:dayjs/plugin/customParseFormat.js"),
-]);
-driver("main", async () => dependencies[3].Platform.shim.server);
-`);
-			expect(legacyModule).not.toContain("npm:");
-			const result = yield* runInDeno(
-				{
-					...compiled,
-					format: 0,
-					javascript: legacyModule,
-				},
-				"main",
-				{},
-			);
-			assert(result !== null && typeof result === "object");
-			expect(Reflect.get(result, "error")).toBeUndefined();
-			expect(result).toMatchObject({ success: true, value: true });
-		}).pipe(Effect.provide(SandboxCompiler.Default)),
-	));
-
 it("disables obfuscated string-generated imports at runtime", () =>
 	Effect.runPromise(
 		Effect.gen(function* () {
@@ -935,6 +906,37 @@ it("executes typed core host methods and filters the Deno host to declared capab
 			}).pipe(Effect.provide(SandboxCompiler.Default)),
 		),
 	));
+
+it(
+	"imports every generated built-in module in Deno",
+	() =>
+		Effect.runPromise(
+			Effect.forEach(
+				generatedBuiltinSandboxScripts,
+				(script) =>
+					Effect.gen(function* () {
+						const result = yield* runInDeno(
+							{
+								manifest: script.manifest,
+								format: script.compiledFormat,
+								javascript: script.compiledCode,
+							},
+							"__ryot_nonexistent_driver__",
+							{},
+						);
+						assert(result !== null && typeof result === "object", script.slug);
+						const error = Reflect.get(result, "error");
+						assert(error !== null && typeof error === "object", `${script.slug} failed to load`);
+						expect(Reflect.get(error, "phase"), script.slug).toBe("load");
+						expect(Reflect.get(error, "message"), script.slug).toContain(
+							"is not defined in this script",
+						);
+					}),
+				{ concurrency: 5 },
+			),
+		),
+	120_000,
+);
 
 it("loads and executes the generated TMDB Show module in Deno", () =>
 	Effect.runPromise(

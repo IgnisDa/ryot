@@ -17,7 +17,8 @@
 		"run-migration": "bun run sandbox:compile && RUN_MIGRATION_ONLY=true bun run src/main.ts",
 		"build": "bun run sandbox:compile && bun build src/main.ts --outdir dist --target bun --sourcemap",
 		"populate-sandbox-cache": "bun run sandbox:compile && POPULATE_SANDBOX_CACHE_ONLY=true bun run src/main.ts",
-		"check": "bun run sandbox:compile && tsc && oxfmt . --write && oxlint . --type-aware --fix && bun run sandbox:compile && tsc"
+		"check": "bun run sandbox:compile && bun run sandbox:check-runner && tsc && oxfmt . --write && oxlint . --type-aware --fix && bun run sandbox:compile && tsc",
+		"sandbox:check-runner": "deno check --config src/lib/infrastructure/sandbox-runtime/deno.json src/lib/infrastructure/sandbox-runtime/runner-source.sandbox.ts"
 	},
 	"dependencies": {
 		"@better-auth/api-key": "1.6.15",

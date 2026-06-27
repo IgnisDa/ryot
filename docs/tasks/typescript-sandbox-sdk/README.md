@@ -385,9 +385,9 @@ The Deno runner will load the compiled JavaScript as an in-memory ES module inst
 
 ## Tasks
 
-**Overall Progress:** 16 of 18 tasks completed
+**Overall Progress:** 17 of 18 tasks completed
 
-**Current Task:** [Task 17](./17-complete-sandbox-cutover.md) (todo)
+**Current Task:** [Task 18](./18-codebase-cleanup.md) (todo)
 
 ### Task List
 
@@ -409,5 +409,5 @@ The Deno runner will load the compiled JavaScript as an in-memory ES module inst
 | 14  | [Music Providers](./14-music-providers.md)                                                     | AFK  | done   |
 | 15  | [Game Providers](./15-game-providers.md)                                                       | AFK  | done   |
 | 16  | [Comic, Visual Novel, and Fitness Providers](./16-comic-visual-novel-and-fitness-providers.md) | AFK  | done   |
-| 17  | [Complete Sandbox Cutover](./17-complete-sandbox-cutover.md)                                   | AFK  | todo   |
+| 17  | [Complete Sandbox Cutover](./17-complete-sandbox-cutover.md)                                   | AFK  | done   |
 | 18  | [Codebase Cleanup](./18-codebase-cleanup.md)                                                   | AFK  | todo   |

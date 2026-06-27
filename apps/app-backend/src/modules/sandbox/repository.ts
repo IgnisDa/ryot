@@ -33,7 +33,6 @@ export class SandboxRepository extends Effect.Service<SandboxRepository>()("Sand
 						isBuiltin: false,
 						slug: input.slug,
 						name: input.name,
-						code: input.source,
 						source: input.source,
 						userId: input.userId,
 						metadata: input.manifest,
@@ -90,7 +89,6 @@ export class SandboxRepository extends Effect.Service<SandboxRepository>()("Sand
 				db
 					.select({
 						id: schema.sandboxScript.id,
-						code: schema.sandboxScript.code,
 						source: schema.sandboxScript.source,
 						userId: schema.sandboxScript.userId,
 						metadata: schema.sandboxScript.metadata,
