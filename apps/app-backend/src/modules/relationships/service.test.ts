@@ -8,8 +8,8 @@ import {
 } from "@ryot/contract/schema/brands";
 import { Cause, Effect, Exit, Layer } from "effect";
 
-import type { MockOverrides } from "#lib/test-support/effect";
-import { dbRunnerLayer } from "#lib/test-support/effect";
+import type { MockOverrides } from "#lib/test-utils/effect";
+import { dbRunnerLayer } from "#lib/test-utils/effect";
 
 import { RelationshipsRepository } from "./repository";
 import { RelationshipsService } from "./service";
