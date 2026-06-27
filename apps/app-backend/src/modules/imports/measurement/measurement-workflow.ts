@@ -87,7 +87,9 @@ export const prepareOpenScaleWrites = (
 					error: ImportRunError,
 					name: `import-measurement-${index}`,
 					execute: entities
-						.create(user, {
+						.create({
+							scope: "user",
+							userId: user.id,
 							properties: item.properties,
 							entitySchemaId: measurementSchemaId,
 							name: `Measurement - ${item.sourceLabel}`,
