@@ -118,8 +118,14 @@ const makeBootstrapDb = () =>
 			from: () => ({
 				where: () =>
 					Object.assign(Promise.resolve([]), {
+						for: () => Promise.resolve([]),
 						limit: () => Promise.resolve([]),
 					}),
+			}),
+		}),
+		update: () => ({
+			set: () => ({
+				where: () => Promise.resolve({}),
 			}),
 		}),
 		execute: () => Promise.resolve({}),
@@ -366,6 +372,7 @@ const makeSnapshotDb = (snapshot: {
 				return {
 					where: () =>
 						Object.assign(Promise.resolve(rows), {
+							for: () => Promise.resolve(rows),
 							limit: () => Promise.resolve(rows),
 						}),
 				};
