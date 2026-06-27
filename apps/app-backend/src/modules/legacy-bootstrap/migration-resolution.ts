@@ -17,13 +17,13 @@ export const buildUniqueLotEntitySchemaSlugMap = (
 };
 
 export const resolveEntityMigrationTargets = <
-	T extends { source: string; entitySchemaSlug: string; sandboxScriptSlug: string | null },
+	T extends { source: string; entitySchemaSlug: string; providerSlug: string | null },
 >(
 	targets: readonly T[],
 	entitySchemaSlugs: Map<string, string>,
-	sandboxScriptIds: Map<string, string>,
+	providerIds: Map<string, string>,
 	kindLabel: string,
-): Array<T & { entitySchemaSlug: string; sandboxScriptId: string | null }> =>
+): Array<T & { entitySchemaSlug: string; providerId: string | null }> =>
 	targets.map((target) => {
 		const entitySchemaSlug = entitySchemaSlugs.get(target.entitySchemaSlug);
 		if (entitySchemaSlug === undefined) {
@@ -32,15 +32,13 @@ export const resolveEntityMigrationTargets = <
 			);
 		}
 
-		const sandboxScriptId: string | null =
-			target.sandboxScriptSlug === null
-				? null
-				: (sandboxScriptIds.get(target.sandboxScriptSlug) ?? null);
-		if (target.sandboxScriptSlug !== null && sandboxScriptId === null) {
-			throw new Error(`Missing sandbox script id for slug "${target.sandboxScriptSlug}"`);
+		const providerId: string | null =
+			target.providerSlug === null ? null : (providerIds.get(target.providerSlug) ?? null);
+		if (target.providerSlug !== null && providerId === null) {
+			throw new Error(`Missing provider id for slug "${target.providerSlug}"`);
 		}
 
-		return { ...target, entitySchemaSlug, sandboxScriptId };
+		return { ...target, entitySchemaSlug, providerId };
 	});
 
 export const resolveRelationshipMigrationTargets = (input: {
