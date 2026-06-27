@@ -17,7 +17,7 @@ export const dbRunnerLayer = Layer.succeed(DbRunner, provideEmptyDb);
 
 export const transactionLayer = Layer.succeed(TransactionRunner, provideEmptyDb);
 
-type WorkflowEngineOverrides = Omit<Partial<WorkflowEngine["Type"]>, "execute"> & {
+export type WorkflowEngineOverrides = Omit<Partial<WorkflowEngine["Type"]>, "execute"> & {
 	execute?: (
 		...args: Parameters<WorkflowEngine["Type"]["execute"]>
 	) => Effect.Effect<unknown, unknown>;

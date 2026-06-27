@@ -1,12 +1,17 @@
 import { Activity } from "@effect/workflow";
+import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { unknownToMessage } from "@ryot/contract/errors";
 import { SandboxScriptId } from "@ryot/contract/schema/brands";
 import { Cause, Effect, Either, Schema } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
 import { EntitiesRepository } from "#modules/entities/repository";
-import { runLoadedMediaImportWorkflow } from "#modules/imports/media-workflow";
-import { MediaImportAdapterResultSchema } from "#modules/imports/media/adapter-result";
+import {
+	MediaImportAdapterSummarySchema,
+	toMediaImportAdapterSummary,
+} from "#modules/imports/media/adapter-result";
+import { ProcessNormalizedMediaImportWorkflow } from "#modules/imports/media/normalized-import-workflow";
+import { storeImportAdapterResult } from "#modules/imports/runtime/source-payload-store";
 
 import {
 	failRun,
@@ -32,7 +37,7 @@ const IntegrationMediaLoadOutcome = Schema.Union(
 	}),
 	Schema.TaggedStruct("loaded", {
 		cleanupPaths: Schema.Array(Schema.String),
-		adapterResult: MediaImportAdapterResultSchema,
+		summary: MediaImportAdapterSummarySchema,
 	}),
 );
 
@@ -40,55 +45,62 @@ const runMediaImportForIntegration = (
 	integration: IntegrationRecord,
 	payload: IntegrationRunJobData,
 	executionId: string,
-	loaded: {
-		cleanupPaths: ReadonlyArray<string>;
-		adapterResult: typeof MediaImportAdapterResultSchema.Type;
-	},
 ) =>
-	runLoadedMediaImportWorkflow({
-		executionId,
-		cleanupOnSuccess: false,
-		cleanupPaths: loaded.cleanupPaths,
-		adapterResult: loaded.adapterResult,
-		options: { integrationId: integration.id },
-		payload: { runId: payload.runId, userId: integration.userId, source: integration.provider },
-	}).pipe(
-		Effect.mapError((error) => new IntegrationRunError({ message: unknownToMessage(error) })),
-	);
+	Effect.gen(function* () {
+		const engine = yield* WorkflowEngine;
+		const childExecutionId = `${executionId}-normalized`;
+		yield* engine
+			.execute(ProcessNormalizedMediaImportWorkflow, {
+				executionId: childExecutionId,
+				payload: {
+					executionId: childExecutionId,
+					runId: payload.runId,
+					userId: integration.userId,
+					integrationId: integration.id,
+				},
+			})
+			.pipe(
+				Effect.mapError((error) => new IntegrationRunError({ message: unknownToMessage(error) })),
+			);
+	});
 
 const processSinkMedia = Effect.fn("processSinkMedia")(function* (
 	integration: IntegrationRecord,
 	payload: IntegrationRunJobData,
 	executionId: string,
 ) {
-	const adapterResult = yield* Activity.make({
+	const summary = yield* Activity.make({
 		error: IntegrationRunError,
 		name: "parse-sink-adapter",
-		success: MediaImportAdapterResultSchema,
+		success: MediaImportAdapterSummarySchema,
 		execute: getSinkAdapterResult(
 			integration,
 			payload.rawBody ?? "",
 			payload.contentType ?? "application/json",
+		).pipe(
+			Effect.flatMap((adapterResult) =>
+				storeImportAdapterResult({ runId: payload.runId, adapterResult }).pipe(
+					Effect.as(toMediaImportAdapterSummary(adapterResult)),
+				),
+			),
 		),
 	});
 
-	if (adapterResult.entityGroups.length === 0 && adapterResult.failures.length > 0) {
+	if (summary.groups === 0 && summary.failures.length > 0) {
 		yield* failRunWithAdapterFailures(
 			"record-adapter-only-sink-failure",
 			payload.runId,
-			adapterResult,
+			summary.failures,
 		);
 		return;
 	}
 
-	yield* runMediaImportForIntegration(integration, payload, executionId, {
-		adapterResult,
-		cleanupPaths: [],
-	});
+	yield* runMediaImportForIntegration(integration, payload, executionId);
 });
 
 const buildYoutubeMusicImportResult = Effect.fn("buildYoutubeMusicImportResult")(function* (
 	integration: IntegrationRecord,
+	runId: IntegrationRunJobData["runId"],
 	executionId: string,
 	credentials: { authCookie: string; timezone: string },
 ) {
@@ -108,7 +120,9 @@ const buildYoutubeMusicImportResult = Effect.fn("buildYoutubeMusicImportResult")
 		),
 	});
 	if (!scriptId) {
-		return sourceFetchFailure("YouTube Music sandbox script is not available");
+		return toMediaImportAdapterSummary(
+			sourceFetchFailure("YouTube Music sandbox script is not available"),
+		);
 	}
 
 	const sandbox = yield* operations
@@ -120,15 +134,15 @@ const buildYoutubeMusicImportResult = Effect.fn("buildYoutubeMusicImportResult")
 		})
 		.pipe(Effect.either);
 	if (Either.isLeft(sandbox)) {
-		return sourceFetchFailure(sandbox.left.message);
+		return toMediaImportAdapterSummary(sourceFetchFailure(sandbox.left.message));
 	}
 	if (sandbox.right.error) {
-		return sourceFetchFailure(sandbox.right.error);
+		return toMediaImportAdapterSummary(sourceFetchFailure(sandbox.right.error));
 	}
 
 	return yield* Activity.make({
 		error: IntegrationRunError,
-		success: MediaImportAdapterResultSchema,
+		success: MediaImportAdapterSummarySchema,
 		name: "build-youtube-music-adapter-result",
 		execute: buildYoutubeMusicAdapterResult(
 			{
@@ -137,7 +151,14 @@ const buildYoutubeMusicImportResult = Effect.fn("buildYoutubeMusicImportResult")
 				timezone: credentials.timezone,
 			},
 			sandbox.right.value,
-		).pipe(Effect.mapError(toIntegrationWorkflowError)),
+		).pipe(
+			Effect.mapError(toIntegrationWorkflowError),
+			Effect.flatMap((adapterResult) =>
+				storeImportAdapterResult({ runId, adapterResult }).pipe(
+					Effect.as(toMediaImportAdapterSummary(adapterResult)),
+				),
+			),
+		),
 	});
 });
 
@@ -147,24 +168,29 @@ const processYoutubeMusicYank = Effect.fn("processYoutubeMusicYank")(function* (
 	executionId: string,
 	credentials: { authCookie: string; timezone: string },
 ) {
-	const adapterResult = yield* buildYoutubeMusicImportResult(integration, executionId, credentials);
+	const summary = yield* buildYoutubeMusicImportResult(
+		integration,
+		payload.runId,
+		executionId,
+		credentials,
+	);
 
-	if (adapterResult.entityGroups.length === 0 && adapterResult.failures.length > 0) {
+	if (summary.groups === 0 && summary.failures.length > 0) {
 		yield* failRunWithAdapterFailures(
 			"record-youtube-music-source-fetch-failure",
 			payload.runId,
-			adapterResult,
+			summary.failures,
 		);
 		return;
 	}
 
-	yield* runMediaImportForIntegration(integration, payload, executionId, {
-		adapterResult,
-		cleanupPaths: [],
-	});
+	yield* runMediaImportForIntegration(integration, payload, executionId);
 });
 
-const loadYankMediaAdapterResult = (integration: IntegrationRecord) =>
+const loadYankMediaAdapterResult = (
+	integration: IntegrationRecord,
+	runId: IntegrationRunJobData["runId"],
+) =>
 	Effect.gen(function* () {
 		const operations = yield* IntegrationRunOperations;
 
@@ -172,11 +198,15 @@ const loadYankMediaAdapterResult = (integration: IntegrationRecord) =>
 			name: "load-media-import-adapter-result",
 			success: IntegrationMediaLoadOutcome,
 			execute: operations.loadYankAdapterResult(integration).pipe(
-				Effect.map((loaded) => ({
-					_tag: "loaded" as const,
-					adapterResult: loaded.adapterResult,
-					cleanupPaths: [...loaded.cleanupPaths],
-				})),
+				Effect.flatMap((loaded) =>
+					storeImportAdapterResult({ runId, adapterResult: loaded.adapterResult }).pipe(
+						Effect.as({
+							_tag: "loaded" as const,
+							cleanupPaths: [...loaded.cleanupPaths],
+							summary: toMediaImportAdapterSummary(loaded.adapterResult),
+						}),
+					),
+				),
 				Effect.catchAll((error) =>
 					Effect.succeed({
 						message: error.message,
@@ -210,13 +240,13 @@ const processYankMedia = Effect.fn("processYankMedia")(function* (
 	}
 
 	if (specs.kind === "audiobookshelf" || specs.kind === "plex_yank" || specs.kind === "komga") {
-		const loadOutcome = yield* loadYankMediaAdapterResult(integration);
+		const loadOutcome = yield* loadYankMediaAdapterResult(integration, payload.runId);
 		if (loadOutcome._tag === "failed") {
 			yield* failRun("fail-import-run-on-load-error", payload.runId, loadOutcome.message);
 			return;
 		}
 
-		yield* runMediaImportForIntegration(integration, payload, executionId, loadOutcome);
+		yield* runMediaImportForIntegration(integration, payload, executionId);
 		return;
 	}
 

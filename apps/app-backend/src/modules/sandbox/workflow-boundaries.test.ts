@@ -10,6 +10,8 @@ const readModules = (paths: ReadonlyArray<string>) =>
 const mediaImportWorkflowModules = [
 	"../imports/media-workflow.ts",
 	"../imports/media/load-workflow.ts",
+	"../imports/media/normalized-import-workflow.ts",
+	"../imports/media/normalized-import-workflow-live.ts",
 	"../imports/media/resolution-workflow.ts",
 	"../imports/media/population-workflow.ts",
 	"../imports/media/writing-workflow.ts",
@@ -66,8 +68,17 @@ it.effect("keeps raw sandbox workflow execution at the allowed boundaries", () =
 
 		for (const source of [entityImportWorkflow, mediaImportWorkflow, integrationWorkflow]) {
 			expect(source).not.toContain("execute(RunSandboxWorkflow");
-			expect(source).not.toMatch(/^import\s+(?!type\b)[^\n;]*\bWorkflowEngine\b/m);
 		}
+		// Entity-import phase workflows never touch the raw engine — they go through operations.
+		expect(entityImportWorkflow).not.toMatch(/^import\s+(?!type\b)[^\n;]*\bWorkflowEngine\b/m);
+		// The media and integration parents' only sanctioned raw engine execution is dispatching the
+		// canonical normalized-media-import child directly from their workflow bodies.
+		expect(
+			mediaImportWorkflow.match(/\.execute\(ProcessNormalizedMediaImportWorkflow,/g)?.length ?? 0,
+		).toBe(1);
+		expect(
+			integrationWorkflow.match(/\.execute\(ProcessNormalizedMediaImportWorkflow,/g)?.length ?? 0,
+		).toBe(1);
 	}),
 );
 
@@ -94,7 +105,7 @@ it.effect("keeps parent workflows as orchestrations instead of queue pass-throug
 
 		expect(integrationWorkflow).toContain("mark-integration-run-started");
 		expect(integrationWorkflow).toContain("finalize-integration-run");
-		expect(integrationWorkflow).toContain("runLoadedMediaImportWorkflow({");
+		expect(integrationWorkflow).toContain("ProcessNormalizedMediaImportWorkflow");
 	}),
 );
 
