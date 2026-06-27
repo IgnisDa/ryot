@@ -4,6 +4,7 @@ import { badRequest, conflict, notFound } from "@ryot/contract/errors";
 import type {
 	CreateSandboxScriptBody,
 	EnqueueSandboxBody,
+	SandboxScriptManifest,
 } from "@ryot/contract/modules/sandbox/schemas";
 import { SandboxScriptId } from "@ryot/contract/schema/brands";
 import { generateId } from "better-auth";
@@ -38,23 +39,24 @@ export class SandboxApiService extends Effect.Service<SandboxApiService>()("Sand
 			payload: CreateSandboxScriptBody,
 		) {
 			const compiled = yield* compiler.compile(payload.source);
-			const manifest =
-				compiled.manifest.kind === "provider"
-					? {
-							kind: compiled.manifest.kind,
-							name: compiled.manifest.name,
-							slug: compiled.manifest.slug,
-							capabilities: [...compiled.manifest.capabilities],
-							requiredAppConfigKeys: [...compiled.manifest.requiredAppConfigKeys],
-							providerInformation: { ...compiled.manifest.providerInformation },
-						}
-					: {
-							kind: compiled.manifest.kind,
-							name: compiled.manifest.name,
-							slug: compiled.manifest.slug,
-							capabilities: [...compiled.manifest.capabilities],
-							requiredAppConfigKeys: [...compiled.manifest.requiredAppConfigKeys],
-						};
+			const manifestBase = {
+				name: compiled.manifest.name,
+				slug: compiled.manifest.slug,
+				capabilities: [...compiled.manifest.capabilities],
+				requiredAppConfigKeys: [...compiled.manifest.requiredAppConfigKeys],
+			};
+			let manifest: SandboxScriptManifest;
+			if (compiled.manifest.kind === "provider") {
+				manifest = {
+					...manifestBase,
+					kind: compiled.manifest.kind,
+					providerInformation: { ...compiled.manifest.providerInformation },
+				};
+			} else if (compiled.manifest.kind === "trigger") {
+				manifest = { ...manifestBase, kind: compiled.manifest.kind, mode: compiled.manifest.mode };
+			} else {
+				manifest = { ...manifestBase, kind: compiled.manifest.kind };
+			}
 
 			const existing = yield* runWithDb(
 				repository.findScriptBySlugForUser({ userId: user.id, slug: manifest.slug }),

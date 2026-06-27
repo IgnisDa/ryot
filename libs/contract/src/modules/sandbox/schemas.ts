@@ -12,9 +12,10 @@ export type ProviderInformation = Schema.Schema.Type<typeof ProviderInformation>
 export const SandboxScriptMetadata = Schema.Struct({
 	name: Schema.optional(Schema.String),
 	slug: Schema.optional(Schema.String),
-	kind: Schema.optional(Schema.Literal("script", "provider")),
 	providerInformation: Schema.optional(ProviderInformation),
 	capabilities: Schema.optional(Schema.Array(Schema.String)),
+	kind: Schema.optional(Schema.Literal("script", "provider", "trigger")),
+	mode: Schema.optional(Schema.Literal("before_create", "after_create")),
 	allowedHostFunctions: Schema.optional(Schema.Array(Schema.String)),
 	requiredAppConfigKeys: Schema.optional(Schema.Array(Schema.String)),
 });
@@ -34,6 +35,11 @@ export const SandboxScriptManifest = Schema.Union(
 		...SandboxScriptManifestFields,
 		kind: Schema.Literal("provider"),
 		providerInformation: ProviderInformation,
+	}),
+	Schema.Struct({
+		...SandboxScriptManifestFields,
+		kind: Schema.Literal("trigger"),
+		mode: Schema.Literal("before_create", "after_create"),
 	}),
 );
 

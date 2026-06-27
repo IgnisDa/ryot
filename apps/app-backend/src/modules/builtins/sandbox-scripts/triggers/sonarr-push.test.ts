@@ -1,91 +1,97 @@
-import { describe, expect, it } from "vitest";
+import type { SandboxHost } from "@ryot/sandbox-sdk";
+import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+import { describe, expect, it, vi } from "vitest";
 
-import integrationPushHelperCode from "../script-helpers/integration-push.sandbox.js" with { type: "text" };
-import sonarrPushScriptCode from "./sonarr-push.sandbox.js" with { type: "text" };
+import definition, { manifest } from "./sonarr-push.sandbox";
 import {
+	afterCreateContext,
+	entityRecord,
+	entitySchemaRecord,
+	execution,
 	hostFailure,
 	hostSuccess,
+	httpFailure,
 	httpSuccess,
-	runTriggerScript,
+	integrationRecord,
 	toRecord,
-	wrapWithPushHelpers,
 } from "./test-utils";
 
-const sonarrCode = wrapWithPushHelpers(integrationPushHelperCode, sonarrPushScriptCode);
-
-const runSonarrScript = (
-	context: unknown,
-	hostFunctions: Record<string, (...args: Array<unknown>) => unknown>,
-) => runTriggerScript(sonarrCode, context, hostFunctions);
-
+type SonarrHost = SandboxHost<typeof manifest.capabilities>;
 type HttpCall = { url: string; method: string; options: Record<string, unknown> };
 
-const showEntity = {
+const showEntity = entityRecord({
+	id: "show-1",
 	name: "Severance",
 	externalId: "371980",
-	entitySchemaId: "es_show",
-	sandboxScriptId: "script_show_tvdb",
-};
+	entitySchemaId: "es-show",
+	sandboxScriptId: "script-show-tvdb",
+});
 
-const sonarrIntegration = {
-	id: "integration_1",
+const sonarrIntegration = integrationRecord({
+	provider: "sonarr",
 	providerSpecifics: {
 		tagIds: 5,
 		profileId: "2",
-		kind: "sonarr",
 		apiKey: "sonarr-key",
 		rootFolderPath: "/tv",
 		baseUrl: "http://sonarr.local/",
-		syncCollectionIds: ["collection_1"],
+		syncCollectionIds: ["collection-1"],
 	},
-};
+});
 
-const tvdbProviders = [
-	{ name: "TMDB", scriptId: "script_show_tmdb" },
-	{ name: "TVDB", scriptId: "script_show_tvdb" },
-];
+const schema = entitySchemaRecord({
+	id: "es-show",
+	providers: [
+		{ name: "TMDB", scriptId: "script-show-tmdb" },
+		{ name: "TVDB", scriptId: "script-show-tvdb" },
+	],
+});
 
-const createTrigger = (properties: Record<string, unknown>) => ({
-	trigger: {
-		entityId: "collection_1",
+const createTrigger = (properties: Record<string, string>) =>
+	afterCreateContext({
+		entityId: "collection-1",
 		entitySchemaSlug: "collection",
 		eventSchemaSlug: "add-entity-to-collection",
-		properties: { relationshipId: "rel_1", relationshipProperties: {}, ...properties },
-	},
-});
-
-const createHostFunctions = (options: {
-	integrations?: unknown[];
-	entity?: Record<string, unknown> | null;
-}) => ({
-	listIntegrations: () => hostSuccess(options.integrations ?? []),
-	getEntity: () => (options.entity ? hostSuccess(options.entity) : hostFailure()),
-	getEntitySchema: () => hostSuccess({ providers: tvdbProviders }),
-});
-
-const userPreferences = () => () => ({ success: true, data: { disableIntegrations: false } });
-
-const createHttpCall = (calls: HttpCall[]) => (method: unknown, url: unknown, options: unknown) => {
-	calls.push({
-		url: String(url),
-		method: String(method),
-		options: toRecord(options),
+		properties: { relationshipId: "rel-1", relationshipProperties: {}, ...properties },
 	});
-	return httpSuccess({});
-};
+
+const createHttpCall =
+	(calls: HttpCall[]): SonarrHost["httpCall"] =>
+	(method, url, options) => {
+		calls.push({ url, method, options: toRecord(options) });
+		return httpSuccess({});
+	};
+
+const createHost = (options: {
+	httpCall: SonarrHost["httpCall"];
+	entity?: ReturnType<typeof entityRecord> | null;
+	integrations?: ReturnType<typeof integrationRecord>[];
+}) =>
+	defineSandboxTestHost(manifest, {
+		httpCall: options.httpCall,
+		getEntity: () => (options.entity ? hostSuccess(options.entity) : hostFailure()),
+		getEntitySchema: () => hostSuccess(schema),
+		listIntegrations: () => hostSuccess(options.integrations ?? []),
+		getUserPreferences: () => hostSuccess({ isNsfw: false, disableIntegrations: false }),
+	});
 
 describe("sonarr-push sandbox script", () => {
-	it("adds a TVDB show to Sonarr and wraps the single tag id in an array", () => {
-		const httpCalls: HttpCall[] = [];
-
-		return runSonarrScript(createTrigger({ entitySchemaSlug: "show", entityId: "show_1" }), {
-			...createHostFunctions({ entity: showEntity, integrations: [sonarrIntegration] }),
-			getUserPreferences: userPreferences(),
-			httpCall: createHttpCall(httpCalls),
-		}).then(() => {
-			expect(httpCalls).toHaveLength(1);
-			expect(httpCalls[0]?.url).toBe("http://sonarr.local/api/v3/series");
-			expect(JSON.parse(String(httpCalls[0]?.options["body"]))).toEqual({
+	it("adds a TVDB show and wraps the single Sonarr tag id in an array", () => {
+		const calls: HttpCall[] = [];
+		const host = createHost({
+			entity: showEntity,
+			integrations: [sonarrIntegration],
+			httpCall: createHttpCall(calls),
+		});
+		return runSandboxTestDriver(
+			definition.drivers.trigger,
+			createTrigger({ entitySchemaSlug: "show", entityId: "show-1" }),
+			host,
+			execution,
+		).then(() => {
+			expect(calls).toHaveLength(1);
+			expect(calls[0]?.url).toBe("http://sonarr.local/api/v3/series");
+			expect(JSON.parse(String(calls[0]?.options["body"]))).toEqual({
 				tags: [5],
 				tvdbId: 371980,
 				monitored: true,
@@ -97,31 +103,48 @@ describe("sonarr-push sandbox script", () => {
 		});
 	});
 
-	it("no-ops when the added entity is not a show", () => {
-		const httpCalls: HttpCall[] = [];
-
-		return runSonarrScript(createTrigger({ entitySchemaSlug: "movie", entityId: "movie_1" }), {
-			...createHostFunctions({ entity: showEntity, integrations: [sonarrIntegration] }),
-			getUserPreferences: userPreferences(),
-			httpCall: createHttpCall(httpCalls),
-		}).then(() => {
-			expect(httpCalls).toHaveLength(0);
+	it("no-ops for non-shows and non-TVDB entities", () => {
+		const calls: HttpCall[] = [];
+		const httpCall = createHttpCall(calls);
+		return Promise.all([
+			runSandboxTestDriver(
+				definition.drivers.trigger,
+				createTrigger({ entitySchemaSlug: "movie", entityId: "movie-1" }),
+				createHost({ entity: showEntity, integrations: [sonarrIntegration], httpCall }),
+				execution,
+			),
+			runSandboxTestDriver(
+				definition.drivers.trigger,
+				createTrigger({ entitySchemaSlug: "show", entityId: "show-1" }),
+				createHost({
+					httpCall,
+					integrations: [sonarrIntegration],
+					entity: entityRecord({ ...showEntity, sandboxScriptId: "script-show-tmdb" }),
+				}),
+				execution,
+			),
+		]).then(() => {
+			expect(calls).toHaveLength(0);
 			return undefined;
 		});
 	});
 
-	it("no-ops when the show entity is not sourced from TVDB", () => {
-		const httpCalls: HttpCall[] = [];
-
-		return runSonarrScript(createTrigger({ entitySchemaSlug: "show", entityId: "show_1" }), {
-			...createHostFunctions({
-				integrations: [sonarrIntegration],
-				entity: { ...showEntity, sandboxScriptId: "script_show_tmdb" },
-			}),
-			getUserPreferences: userPreferences(),
-			httpCall: createHttpCall(httpCalls),
-		}).then(() => {
-			expect(httpCalls).toHaveLength(0);
+	it("treats an expected Sonarr HTTP failure as non-fatal", () => {
+		const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+		const host = createHost({
+			entity: showEntity,
+			integrations: [sonarrIntegration],
+			httpCall: () => httpFailure("already exists", 400),
+		});
+		return runSandboxTestDriver(
+			definition.drivers.trigger,
+			createTrigger({ entitySchemaSlug: "show", entityId: "show-1" }),
+			host,
+			execution,
+		).then((result) => {
+			expect(result).toBeUndefined();
+			expect(warning).toHaveBeenCalledWith("Sonarr push failed: already exists");
+			warning.mockRestore();
 			return undefined;
 		});
 	});

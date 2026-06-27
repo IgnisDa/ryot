@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 
 import {
 	type AppSchema,
+	beforeCreateTriggerSource,
 	createAuthenticatedClient,
 	createEntity,
 	createEventSchema,
@@ -60,10 +61,13 @@ describe("before_create triggers", () => {
 			fields: { note: { type: "string" as const, label: "Note", description: "Note" } },
 		});
 
+		const slug = `skip-${crypto.randomUUID()}`;
 		const script = await createSandboxScript(client, {
-			name: "skip trigger",
-			slug: `skip-${crypto.randomUUID()}`,
-			code: `driver("trigger", async function() { return { action: "skip", reason: "test_skip" }; });`,
+			source: beforeCreateTriggerSource({
+				slug,
+				name: "skip trigger",
+				behavior: { action: "skip", reason: "test_skip" },
+			}),
 		});
 
 		await insertBeforeCreateTrigger(userId, eventSchemaId, script.id, 100);
@@ -85,10 +89,13 @@ describe("before_create triggers", () => {
 			fields: { value: { type: "integer" as const, label: "Value", description: "Value" } },
 		});
 
+		const slug = `replace-${crypto.randomUUID()}`;
 		const script = await createSandboxScript(client, {
-			name: "replace trigger",
-			slug: `replace-${crypto.randomUUID()}`,
-			code: `driver("trigger", async function() { return { action: "replace", body: { properties: { value: 999 } } }; });`,
+			source: beforeCreateTriggerSource({
+				slug,
+				name: "replace trigger",
+				behavior: { action: "replace", body: { properties: { value: 999 } } },
+			}),
 		});
 
 		await insertBeforeCreateTrigger(userId, eventSchemaId, script.id, 100);
@@ -111,10 +118,13 @@ describe("before_create triggers", () => {
 			fields: { note: { type: "string" as const, label: "Note", description: "Note" } },
 		});
 
+		const slug = `error-${crypto.randomUUID()}`;
 		const script = await createSandboxScript(client, {
-			name: "error trigger",
-			slug: `error-${crypto.randomUUID()}`,
-			code: `driver("trigger", async function() { throw new Error("test_error"); });`,
+			source: beforeCreateTriggerSource({
+				slug,
+				name: "error trigger",
+				behavior: { action: "throw", message: "test_error" },
+			}),
 		});
 
 		await insertBeforeCreateTrigger(userId, eventSchemaId, script.id, 100);
@@ -138,16 +148,22 @@ describe("before_create triggers", () => {
 			fields: { x: { type: "integer" as const, label: "X", description: "X" } },
 		});
 
+		const slugPos100 = `pos100-${crypto.randomUUID()}`;
+		const slugPos200 = `pos200-${crypto.randomUUID()}`;
 		const scriptPos100 = await createSandboxScript(client, {
-			name: "position 100 trigger",
-			slug: `pos100-${crypto.randomUUID()}`,
-			code: `driver("trigger", async function() { return { action: "replace", body: { properties: { x: 2 } } }; });`,
+			source: beforeCreateTriggerSource({
+				slug: slugPos100,
+				name: "position 100 trigger",
+				behavior: { action: "replace", body: { properties: { x: 2 } } },
+			}),
 		});
 
 		const scriptPos200 = await createSandboxScript(client, {
-			name: "position 200 trigger",
-			slug: `pos200-${crypto.randomUUID()}`,
-			code: `driver("trigger", async function() { return { action: "replace", body: { properties: { x: 3 } } }; });`,
+			source: beforeCreateTriggerSource({
+				slug: slugPos200,
+				name: "position 200 trigger",
+				behavior: { action: "replace", body: { properties: { x: 3 } } },
+			}),
 		});
 
 		await insertBeforeCreateTrigger(userId, eventSchemaId, scriptPos100.id, 100);

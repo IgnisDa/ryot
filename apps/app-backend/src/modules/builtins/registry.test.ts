@@ -5,7 +5,7 @@ import {
 	showEpisodePropertiesSchema,
 	showSeasonPropertiesSchema,
 } from "./media-property-schemas";
-import { builtinSandboxScripts } from "./registry";
+import { builtinEventSchemaTriggerLinks, builtinSandboxScripts } from "./registry";
 
 describe("builtinSandboxScripts", () => {
 	it("uses the generated format-1 representation for TMDB Show", () => {
@@ -18,6 +18,39 @@ describe("builtinSandboxScripts", () => {
 		expect(script.source).toContain("defineProvider");
 		expect(script.compiledCode).toContain("ryot:sandbox-script");
 		expect(script.compiledCode).toContain("sourceMappingURL=data:application/json;base64,");
+	});
+
+	it("uses generated format-1 representations and manifest modes for every trigger", () => {
+		const triggers = builtinSandboxScripts().filter(({ slug }) => slug.startsWith("trigger."));
+		const links = new Map(
+			builtinEventSchemaTriggerLinks().map((link) => [link.scriptSlug, link.phase]),
+		);
+
+		expect(triggers.map(({ slug }) => slug).sort()).toEqual([
+			"trigger.auto-complete-on-full-progress",
+			"trigger.integration-progress-policy",
+			"trigger.jellyfin-push",
+			"trigger.radarr-push",
+			"trigger.sonarr-push",
+		]);
+		for (const trigger of triggers) {
+			assert("compiledCode" in trigger && "manifest" in trigger);
+			expect(trigger.compiledFormat).toBe(1);
+			expect(trigger.code).toBe(trigger.source);
+			expect(trigger.metadata).toBe(trigger.manifest);
+			expect(trigger.manifest.kind).toBe("trigger");
+			expect(trigger.source).toMatch(/define(?:Before|After)CreateTrigger/);
+			expect(trigger.compiledCode).toContain("ryot:sandbox-script");
+			if (trigger.manifest.kind === "trigger") {
+				expect(links.get(trigger.slug)).toBe(trigger.manifest.mode);
+			}
+		}
+
+		const policy = triggers.find(({ slug }) => slug === "trigger.integration-progress-policy");
+		assert(policy && "manifest" in policy);
+		expect(policy.manifest.requiredAppConfigKeys).toEqual([
+			"scheduler.progressUpdateThresholdHours",
+		]);
 	});
 
 	it("declares source metadata for every provider script", () => {
