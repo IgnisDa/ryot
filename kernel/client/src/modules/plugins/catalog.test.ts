@@ -1,5 +1,6 @@
 import type { PluginThemeSnapshot } from "@ryot-app/client-plugin-contract";
 import { createRyotClient } from "@ryot-app/client-sdk";
+import { createTestRyotAdapter } from "@ryot-app/client-sdk/testing";
 import type { ContractPayload, ContractSuccess } from "@ryot-app/contract/client";
 import { Effect, Layer, ManagedRuntime } from "effect";
 import { describe, expect, it } from "vitest";
@@ -105,13 +106,15 @@ describe("plugin catalog service", () => {
 				},
 			},
 		};
-		const ryot = createRyotClient({
-			theme,
-			query: (_document, signal) => {
-				signals.push(signal);
-				return Promise.resolve(response);
-			},
-		});
+		const ryot = createRyotClient(
+			createTestRyotAdapter({
+				theme,
+				query: (_document, signal) => {
+					signals.push(signal);
+					return Promise.resolve(response);
+				},
+			}),
+		);
 		const runtime = ManagedRuntime.make(PluginCatalogService.layer);
 
 		try {

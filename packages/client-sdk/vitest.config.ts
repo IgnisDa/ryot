@@ -4,7 +4,7 @@ import { defineConfig, mergeConfig } from "vitest/config";
 
 const config = defineConfig({
 	plugins: [viteReact()],
-	test: { environment: "jsdom" },
+	test: { environment: "jsdom", setupFiles: ["./vitest.setup.ts"] },
 });
 
 export default mergeConfig(shared, config);

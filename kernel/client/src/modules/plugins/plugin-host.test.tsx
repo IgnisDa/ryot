@@ -164,6 +164,7 @@ function renderHost(
 		readonly onStaleSession?: () => void;
 		readonly onQuery?: Parameters<typeof PluginHost>[0]["onQuery"];
 		readonly onAssets?: Parameters<typeof PluginHost>[0]["onAssets"];
+		readonly onUpload?: Parameters<typeof PluginHost>[0]["onUpload"];
 		readonly onHeader?: Parameters<typeof PluginHost>[0]["onHeader"];
 		readonly watchEntities?: Parameters<typeof PluginHost>[0]["watchEntities"];
 		readonly onScreenState?: Parameters<typeof PluginHost>[0]["onScreenState"];
@@ -198,6 +199,9 @@ function renderHost(
 			watchEntities={callbacks.watchEntities ?? (() => ({ update: () => {}, dispose: () => {} }))}
 			onAssets={
 				callbacks.onAssets ?? (() => Promise.resolve({ outcome: "failure", reason: "transport" }))
+			}
+			onUpload={
+				callbacks.onUpload ?? (() => Promise.resolve({ outcome: "failure", reason: "transport" }))
 			}
 			onScreenState={(screenState) => {
 				screenStates.push(screenState);
@@ -536,6 +540,7 @@ describe("plugin artifact session lifecycle", () => {
 					watchEntities={() => ({ update: () => {}, dispose: () => {} })}
 					onQuery={() => Promise.resolve({ outcome: "failure", reason: "transport" })}
 					onAssets={() => Promise.resolve({ outcome: "failure", reason: "transport" })}
+					onUpload={() => Promise.resolve({ outcome: "failure", reason: "transport" })}
 					onInvokeOperation={() => Promise.resolve({ outcome: "failure", reason: "transport" })}
 				/>
 			</StrictMode>,

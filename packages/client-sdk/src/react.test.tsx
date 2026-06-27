@@ -15,12 +15,13 @@ import {
 	useRyotQuery,
 	useEntityRefresh,
 } from "./react";
+import { createTestRyotAdapter } from "./testing";
 
 (
 	globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
-const client = createRyotClient({ query: () => Promise.resolve({}) });
+const client = createRyotClient(createTestRyotAdapter({ query: () => Promise.resolve({}) }));
 let roots: Root[] = [];
 
 const render = (children: ReactNode, providerClient = client) => {
@@ -45,10 +46,12 @@ describe("useRyotQuery", () => {
 	it("preserves initial hydration through StrictMode effect reattachment", async () => {
 		vi.useFakeTimers();
 		let calls = 0;
-		const interestClient = createRyotClient({
-			query: () => Promise.resolve({}),
-			watchEntities: () => ({ update: () => undefined, dispose: () => undefined }),
-		});
+		const interestClient = createRyotClient(
+			createTestRyotAdapter({
+				query: () => Promise.resolve({}),
+				watchEntities: () => ({ update: () => undefined, dispose: () => undefined }),
+			}),
+		);
 		const query = createRyotQuery(() => Promise.resolve(++calls), {
 			initialData: () => 0,
 			entityInterest: () => ({ foreground: ["root"], visible: [] }),
@@ -81,18 +84,20 @@ describe("useRyotQuery", () => {
 			let calls = 0;
 			let watches = 0;
 			let disposals = 0;
-			const interestClient = createRyotClient({
-				query: () => Promise.resolve({}),
-				watchEntities: () => {
-					watches++;
-					return {
-						update: () => undefined,
-						dispose: () => {
-							disposals++;
-						},
-					};
-				},
-			});
+			const interestClient = createRyotClient(
+				createTestRyotAdapter({
+					query: () => Promise.resolve({}),
+					watchEntities: () => {
+						watches++;
+						return {
+							update: () => undefined,
+							dispose: () => {
+								disposals++;
+							},
+						};
+					},
+				}),
+			);
 			const query = createRyotQuery<{ id: string }, number>(() => Promise.resolve(++calls), {
 				...(hydrated ? { initialData: () => 0 } : {}),
 				entityInterest: ({ input }) => ({ foreground: [input.id], visible: [] }),
@@ -139,10 +144,12 @@ describe("useRyotQuery", () => {
 	it("coalesces document foreground refresh for active consumers only", async () => {
 		vi.useFakeTimers();
 		const calls: string[] = [];
-		const interestClient = createRyotClient({
-			query: () => Promise.resolve({}),
-			watchEntities: () => ({ update: () => undefined, dispose: () => undefined }),
-		});
+		const interestClient = createRyotClient(
+			createTestRyotAdapter({
+				query: () => Promise.resolve({}),
+				watchEntities: () => ({ update: () => undefined, dispose: () => undefined }),
+			}),
+		);
 		const query = createRyotQuery<string, string>(
 			({ input }) => {
 				calls.push(input);
@@ -200,13 +207,15 @@ describe("useRyotQuery", () => {
 		vi.useFakeTimers();
 		let hint!: (event: EntityUpdate) => void;
 		let latest: RyotQueryResult<number> | undefined;
-		const interestClient = createRyotClient({
-			query: () => Promise.resolve({}),
-			watchEntities: (_interest, listener) => {
-				hint = listener;
-				return { update: () => undefined, dispose: () => undefined };
-			},
-		});
+		const interestClient = createRyotClient(
+			createTestRyotAdapter({
+				query: () => Promise.resolve({}),
+				watchEntities: (_interest, listener) => {
+					hint = listener;
+					return { update: () => undefined, dispose: () => undefined };
+				},
+			}),
+		);
 		const requests: Array<{ signal: AbortSignal; resolve: (value: number) => void }> = [];
 		const query = createRyotQuery(
 			({ signal }) => new Promise<number>((resolve) => requests.push({ signal, resolve })),
@@ -265,7 +274,9 @@ describe("useRyotQuery", () => {
 				},
 			};
 		};
-		const interestClient = createRyotClient({ watchEntities, query: () => Promise.resolve({}) });
+		const interestClient = createRyotClient(
+			createTestRyotAdapter({ watchEntities, query: () => Promise.resolve({}) }),
+		);
 		const requests: Array<{
 			resolve: (value: string[]) => void;
 			reject: (error: Error) => void;
@@ -334,7 +345,9 @@ describe("useRyotQuery", () => {
 				update: () => undefined,
 			};
 		};
-		const interestClient = createRyotClient({ watchEntities, query: () => Promise.resolve({}) });
+		const interestClient = createRyotClient(
+			createTestRyotAdapter({ watchEntities, query: () => Promise.resolve({}) }),
+		);
 		const requests: Array<{ resolve: (value: number) => void; signal: AbortSignal }> = [];
 		const query = createRyotQuery(
 			({ signal }) => new Promise<number>((resolve) => requests.push({ signal, resolve })),
@@ -598,7 +611,9 @@ describe("useEntityRefresh", () => {
 				update: () => undefined,
 			};
 		};
-		const interestClient = createRyotClient({ watchEntities, query: () => Promise.resolve({}) });
+		const interestClient = createRyotClient(
+			createTestRyotAdapter({ watchEntities, query: () => Promise.resolve({}) }),
+		);
 		const onRefresh = () => {
 			refreshes++;
 			return Promise.reject(new Error("offline"));
@@ -657,12 +672,14 @@ describe("useEntityRefresh", () => {
 	});
 
 	it("does not crash on transient transport failures", () => {
-		const interestClient = createRyotClient({
-			query: () => Promise.resolve({}),
-			watchEntities: () => {
-				throw new RyotClientError("transport");
-			},
-		});
+		const interestClient = createRyotClient(
+			createTestRyotAdapter({
+				query: () => Promise.resolve({}),
+				watchEntities: () => {
+					throw new RyotClientError("transport");
+				},
+			}),
+		);
 		let refreshes = 0;
 		const onRefresh = () => {
 			refreshes++;

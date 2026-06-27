@@ -1,5 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import { createRyotClient } from "@ryot-app/client-sdk";
+import { createTestRyotAdapter } from "@ryot-app/client-sdk/testing";
 import type { ContractSuccess } from "@ryot-app/contract/client";
 import { EntitySchemaSlug, SandboxProviderId } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer } from "effect";
@@ -62,20 +63,22 @@ const workingApi = (calls: ContractCall[]) => makeApi(calls);
 const failingApi = () => makeApi([], true);
 
 const dataClient = (queries: unknown[]) =>
-	createRyotClient({
-		query: (query) => {
-			queries.push(query);
-			return Promise.resolve({
-				data:
-					queries.length === 1
-						? { providers: rowsResult([providerRow]) }
-						: { links: rowsResult([{ entityId: "entity-1", externalId: "ext-1" }]) },
-			});
-		},
-	});
+	createRyotClient(
+		createTestRyotAdapter({
+			query: (query) => {
+				queries.push(query);
+				return Promise.resolve({
+					data:
+						queries.length === 1
+							? { providers: rowsResult([providerRow]) }
+							: { links: rowsResult([{ entityId: "entity-1", externalId: "ext-1" }]) },
+				});
+			},
+		}),
+	);
 
 const failingDataClient = () =>
-	createRyotClient({ query: () => Promise.reject(new Error("offline")) });
+	createRyotClient(createTestRyotAdapter({ query: () => Promise.reject(new Error("offline")) }));
 
 describe("ProviderAddService", () => {
 	it.effect("loads provider summaries and entity links through the RyotQL client", () => {

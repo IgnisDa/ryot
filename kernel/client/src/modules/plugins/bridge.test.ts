@@ -20,8 +20,10 @@ import {
 	type PluginOperationRequest,
 	type PluginRyotQLOutcome,
 	type PluginRyotQLRequest,
+	type PluginUploadRequest,
 } from "@ryot-app/client-plugin-contract";
 import { createRyotClient } from "@ryot-app/client-sdk";
+import { createTestRyotAdapter } from "@ryot-app/client-sdk/testing";
 import { EntityId, EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import { waitFor } from "@testing-library/dom";
 import { Schema } from "effect";
@@ -94,6 +96,7 @@ const connect = (
 	options: {
 		readonly timeoutMs?: number;
 		readonly onAssets?: Parameters<typeof openPluginBridge>[0]["onAssets"];
+		readonly onUpload?: Parameters<typeof openPluginBridge>[0]["onUpload"];
 		readonly watchEntities?: Parameters<typeof openPluginBridge>[0]["watchEntities"];
 		readonly onOperation?: (
 			request: PluginOperationRequest,
@@ -138,6 +141,7 @@ const connect = (
 		onNavigate: (request) => navigations.push(request),
 		onKernelShortcut: (shortcut) => shortcuts.push(shortcut),
 		onAssets: options.onAssets ?? (() => new Promise(() => {})),
+		onUpload: options.onUpload ?? (() => new Promise(() => {})),
 		onRyotQL: options.onRyotQL ?? (() => new Promise(() => {})),
 		watchEntities: options.watchEntities ?? (() => ({ update: () => {}, dispose: () => {} })),
 		onOperation:
@@ -205,19 +209,21 @@ describe("bridge entity interest", () => {
 			let notify:
 				| Parameters<Parameters<typeof openPluginBridge>[0]["watchEntities"]>[1]
 				| undefined;
-			const client = createRyotClient({
-				query: () => Promise.resolve({}),
-				watchEntities: (interest, onUpdate) => {
-					declarations.push(interest);
-					notify = onUpdate;
-					return {
-						update: (next) => declarations.push(next),
-						dispose: () => {
-							disposed++;
-						},
-					};
-				},
-			});
+			const client = createRyotClient(
+				createTestRyotAdapter({
+					query: () => Promise.resolve({}),
+					watchEntities: (interest, onUpdate) => {
+						declarations.push(interest);
+						notify = onUpdate;
+						return {
+							update: (next) => declarations.push(next),
+							dispose: () => {
+								disposed++;
+							},
+						};
+					},
+				}),
+			);
 			const bridge = connect({ watchEntities: client.entities.watch });
 			bridge.pluginPort.postMessage(readyFor(bridge.init));
 			await waitFor(() => expect(bridge.readies).toHaveLength(1));
@@ -334,6 +340,7 @@ describe("plugin bridge", () => {
 			onKernelShortcut: () => undefined,
 			onFailure: () => failures.push(null),
 			onAssets: () => new Promise(() => {}),
+			onUpload: () => new Promise(() => {}),
 			onRyotQL: () => new Promise(() => {}),
 			viewport: { safeAreaTop: 0, safeAreaBottom: 0 },
 			onOperation: () => new Promise(() => {}),
@@ -803,6 +810,74 @@ describe("plugin bridge", () => {
 			}),
 		);
 		expect(calls).toEqual([{ input: { greeting: "hi" }, operationSlug: "greet" }]);
+	});
+
+	it("round-trips an upload and hands the source to the host untouched", async () => {
+		const calls: PluginUploadRequest[] = [];
+		const token = { token: "upload-token", expiresAt: "2026-01-01T00:15:00.000Z" };
+		const { init, pluginPort, received } = connect({
+			onUpload: (request) => {
+				calls.push(request);
+				return Promise.resolve({ outcome: "success", token });
+			},
+		});
+		pluginPort.postMessage(readyFor(init));
+		await waitFor(() => expect(received).toHaveLength(1));
+
+		pluginPort.postMessage({
+			fileName: "items.csv",
+			requestId: "upload-1",
+			type: "upload-request",
+			contentType: "text/csv",
+			source: new Blob(["id,title"], { type: "text/csv" }),
+		});
+
+		await waitFor(() =>
+			expect(received).toContainEqual({
+				token,
+				outcome: "success",
+				requestId: "upload-1",
+				type: "upload-result",
+			}),
+		);
+		expect(calls).toHaveLength(1);
+		const uploaded = calls[0];
+		expect(uploaded).toMatchObject({ fileName: "items.csv", contentType: "text/csv" });
+		expect(uploaded.source).toBeInstanceOf(Blob);
+		expect(await uploaded.source.text()).toBe("id,title");
+	});
+
+	it("reports upload failures and rejects a source that is not a Blob", async () => {
+		const { init, pluginPort, received, failures } = connect({
+			onUpload: () => Promise.reject(new Error("upload exploded")),
+		});
+		pluginPort.postMessage(readyFor(init));
+		await waitFor(() => expect(received).toHaveLength(1));
+
+		pluginPort.postMessage({
+			fileName: "items.csv",
+			requestId: "upload-1",
+			type: "upload-request",
+			contentType: "text/csv",
+			source: new Blob(["id,title"]),
+		});
+		await waitFor(() =>
+			expect(received).toContainEqual({
+				outcome: "failure",
+				reason: "transport",
+				type: "upload-result",
+				requestId: "upload-1",
+			}),
+		);
+
+		pluginPort.postMessage({
+			source: {},
+			requestId: "upload-2",
+			fileName: "items.csv",
+			type: "upload-request",
+			contentType: "text/csv",
+		});
+		await waitFor(() => expect(failures).toHaveLength(1));
 	});
 
 	it("maps synchronous operation and query failures to transport results", async () => {
