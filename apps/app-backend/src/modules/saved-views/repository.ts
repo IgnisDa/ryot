@@ -1,11 +1,10 @@
-import { DbError, conflict } from "@ryot/contract/errors";
 import type { UserId } from "@ryot/contract/schema/brands";
 import { SavedViewId, TrackerId } from "@ryot/contract/schema/brands";
 import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { Effect } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { CurrentDb, dbEffect, isUniqueConstraintError } from "#lib/infrastructure/db/service";
+import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
 
 type SavedViewRow = typeof schema.savedView.$inferSelect;
 
@@ -31,8 +30,6 @@ type UpdateSavedViewData = {
 	readonly queryDocument: (typeof schema.savedView.$inferSelect)["queryDocument"];
 	readonly displayConfiguration: (typeof schema.savedView.$inferSelect)["displayConfiguration"];
 };
-
-const savedViewUserSlugConstraint = "saved_view_user_slug_unique";
 
 const toListedSavedView = (row: SavedViewRow) => ({
 	slug: row.slug,
@@ -122,7 +119,7 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 						),
 				);
 
-				const [row] = yield* dbEffect(() =>
+				const rows = yield* dbEffect(() =>
 					db
 						.insert(schema.savedView)
 						.values({
@@ -137,20 +134,13 @@ export class SavedViewsRepository extends Effect.Service<SavedViewsRepository>()
 							sortOrder: (orderRow?.maxSortOrder ?? -1) + 1,
 							displayConfiguration: input.displayConfiguration,
 						})
+						.onConflictDoNothing({
+							target: [schema.savedView.userId, schema.savedView.slug],
+						})
 						.returning(),
-				).pipe(
-					Effect.mapError((error) =>
-						isUniqueConstraintError(savedViewUserSlugConstraint)(error)
-							? conflict("A saved view with this name already exists")
-							: error,
-					),
 				);
 
-				if (!row) {
-					return yield* new DbError({ message: "Saved view insert returned no row" });
-				}
-
-				return toListedSavedView(row);
+				return rows[0] ? toListedSavedView(rows[0]) : null;
 			});
 
 			const updateBySlug = Effect.fn("SavedViewsRepository.updateBySlug")(function* (

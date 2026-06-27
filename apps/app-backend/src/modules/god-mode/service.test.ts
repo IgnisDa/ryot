@@ -1,7 +1,7 @@
 import { expect, it } from "@effect/vitest";
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { BadRequest, DbError } from "@ryot/contract/errors";
-import { UserId } from "@ryot/contract/schema/brands";
+import { TrackerId, UserId } from "@ryot/contract/schema/brands";
 import type { ilike } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Effect, Exit, Layer } from "effect";
@@ -13,6 +13,9 @@ import { RedisService } from "#lib/infrastructure/redis";
 import { makeAppConfigLayer, makeRedisService, makeWorkflowEngine } from "#lib/test-support/effect";
 import { AuthService } from "#modules/auth/service";
 import { defaultUserPreferences } from "#modules/builtins/bootstrap";
+import { EntitiesService } from "#modules/entities/service";
+import { SavedViewsService } from "#modules/saved-views/service";
+import { TrackersService } from "#modules/trackers/service";
 
 import { GodModeRepository } from "./repository";
 import { checkResetEligibility, classifyAuthState, GodModeService } from "./service";
@@ -119,6 +122,7 @@ const makeBootstrapDb = () =>
 					}),
 			}),
 		}),
+		execute: () => Promise.resolve({}),
 	});
 
 const makeDbRunnerLayer = (db: object) =>
@@ -142,6 +146,28 @@ const workflowEngineLayer = Layer.succeed(
 	makeWorkflowEngine({ execute: () => Effect.void.pipe(Effect.as(undefined)) }),
 );
 
+const bootstrapEntitiesServiceLayer = Layer.mock(EntitiesService)({ _tag: "EntitiesService" });
+const bootstrapSavedViewsServiceLayer = Layer.mock(SavedViewsService)({
+	_tag: "SavedViewsService",
+});
+const bootstrapTrackersServiceLayer = Layer.mock(TrackersService)({
+	_tag: "TrackersService",
+	create: () =>
+		Effect.succeed({
+			config: {},
+			sortOrder: 0,
+			id: TrackerId.make("tracker-id"),
+			slug: "media",
+			name: "Media",
+			icon: "film",
+			isBuiltin: true,
+			isDisabled: false,
+			accentColor: "#5B7FFF",
+			description: "Media",
+		}),
+	list: () => Effect.succeed([]),
+});
+
 const makeServiceLayer = (
 	db: object,
 	disableLocalAuth = false,
@@ -159,6 +185,9 @@ const makeServiceLayer = (
 				makeAppConfigLayer({ users: { disableLocalAuth } }),
 				Layer.succeed(AuthService, auth),
 				Layer.succeed(RedisService, makeRedisMock()),
+				bootstrapEntitiesServiceLayer,
+				bootstrapSavedViewsServiceLayer,
+				bootstrapTrackersServiceLayer,
 				workflowEngineLayer,
 			),
 		),
@@ -178,6 +207,9 @@ const makeProvisionLayer = (
 				makeAppConfigLayer(),
 				Layer.succeed(AuthService, auth),
 				Layer.succeed(RedisService, makeRedisMock()),
+				bootstrapEntitiesServiceLayer,
+				bootstrapSavedViewsServiceLayer,
+				bootstrapTrackersServiceLayer,
 				workflowEngineLayer,
 			),
 		),

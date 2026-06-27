@@ -9,6 +9,7 @@ import type { MockOverrides } from "#lib/test-support/effect";
 import { dbRunnerLayer, makeWorkflowEngine, transactionLayer } from "#lib/test-support/effect";
 import { SandboxApiService } from "#modules/sandbox/service";
 import { TrackersRepository } from "#modules/trackers/repository";
+import { TrackersService } from "#modules/trackers/service";
 
 import { EntitySchemasRepository } from "./repository";
 import { EntitySchemasService } from "./service";
@@ -28,6 +29,15 @@ const mockTrackersRepository = Layer.mock(TrackersRepository);
 
 const makeTrackersRepository = (overrides: MockOverrides<typeof mockTrackersRepository> = {}) =>
 	mockTrackersRepository({ _tag: "TrackersRepository", ...overrides });
+
+const mockTrackersService = Layer.mock(TrackersService);
+
+const makeTrackersService = (overrides: MockOverrides<typeof mockTrackersService> = {}) =>
+	mockTrackersService({
+		_tag: "TrackersService",
+		linkEntitySchema: () => Effect.succeed(TrackerId.make("tracker-id")),
+		...overrides,
+	});
 
 const mockEntitySchemasRepository = Layer.mock(EntitySchemasRepository);
 
@@ -53,6 +63,7 @@ const makeEntitySchemasServiceLayer = (
 				fakeWorkflowEngineLayer,
 				repository,
 				trackers,
+				makeTrackersService(),
 			),
 		),
 	);

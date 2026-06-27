@@ -16,6 +16,7 @@ import { requireText, trimToNull } from "#lib/shared/validation";
 import { builtinEntitySchemas } from "#modules/builtins/entity-schemas";
 import { SandboxApiService } from "#modules/sandbox/service";
 import { TrackersRepository } from "#modules/trackers/repository";
+import { TrackersService } from "#modules/trackers/service";
 
 import { CreateDefaultSavedViewWorkflow } from "./default-saved-view-workflow";
 import { EntitySchemasRepository } from "./repository";
@@ -61,6 +62,7 @@ export class EntitySchemasService extends Effect.Service<EntitySchemasService>()
 			const repository = yield* EntitySchemasRepository;
 			const sandboxApiService = yield* SandboxApiService;
 			const trackersRepository = yield* TrackersRepository;
+			const trackers = yield* TrackersService;
 
 			const list = Effect.fn("EntitySchemasService.list")(function* (
 				user: CurrentUserValue,
@@ -136,7 +138,7 @@ export class EntitySchemasService extends Effect.Service<EntitySchemasService>()
 							accentColor: resolved.accentColor,
 						});
 
-						yield* trackersRepository.linkEntitySchema({
+						yield* trackers.linkEntitySchema({
 							entitySchemaId: created.id,
 							trackerId: TrackerId.make(trackerId),
 						});

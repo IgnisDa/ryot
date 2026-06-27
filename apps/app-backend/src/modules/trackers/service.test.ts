@@ -1,7 +1,7 @@
 import { expect, it } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
-import { BadRequest, NotFound } from "@ryot/contract/errors";
-import { TrackerId, UserId } from "@ryot/contract/schema/brands";
+import { BadRequest, Conflict, NotFound } from "@ryot/contract/errors";
+import { EntitySchemaId, TrackerId, UserId } from "@ryot/contract/schema/brands";
 import { Effect, Exit, Layer } from "effect";
 
 import type { MockOverrides } from "#lib/test-support/effect";
@@ -65,6 +65,93 @@ it.effect("normalizes tracker slugs before creating custom trackers", () => {
 
 		expect(createdSlug).toBe("my-cool-tracker");
 		expect(tracker.slug).toBe("my-cool-tracker");
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("forwards built-in metadata through the canonical create method", () => {
+	let createdAsBuiltin = false;
+
+	const layer = makeServiceLayer(
+		makeTrackersRepository({
+			findBySlug: () => Effect.succeed(null),
+			create: (_userId, input) =>
+				Effect.sync(() => {
+					createdAsBuiltin = input.isBuiltin === true;
+					return {
+						config: {},
+						sortOrder: 0,
+						id: TrackerId.make("tracker-id"),
+						slug: input.slug,
+						name: input.name,
+						icon: input.icon,
+						isBuiltin: true,
+						isDisabled: false,
+						accentColor: input.accentColor,
+						description: input.description ?? null,
+					};
+				}),
+		}),
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* TrackersService;
+		const tracker = yield* service.create(user, {
+			icon: "film",
+			name: "Media",
+			slug: "media",
+			accentColor: "#5B7FFF",
+			description: "Built-in media tracker",
+			isBuiltin: true,
+		});
+
+		expect(createdAsBuiltin).toBe(true);
+		expect(tracker.isBuiltin).toBe(true);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("reports a conflict when a concurrent create wins the unique insert", () => {
+	const layer = makeServiceLayer(
+		makeTrackersRepository({
+			findBySlug: () => Effect.succeed(null),
+			create: () => Effect.succeed(null),
+		}),
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* TrackersService;
+		const exit = yield* Effect.exit(
+			service.create(user, {
+				icon: "film",
+				name: "Media",
+				slug: "media",
+				accentColor: "#5B7FFF",
+			}),
+		);
+
+		expect(exit).toEqual(Exit.fail(new Conflict({ message: "Tracker slug already exists" })));
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("delegates tracker-schema links through the repository", () => {
+	let linked: { trackerId: TrackerId; entitySchemaId: EntitySchemaId } | undefined;
+	const layer = makeServiceLayer(
+		makeTrackersRepository({
+			linkEntitySchema: (input) =>
+				Effect.sync(() => {
+					linked = input;
+					return input.trackerId;
+				}),
+		}),
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* TrackersService;
+		const trackerId = TrackerId.make("tracker-id");
+		const entitySchemaId = EntitySchemaId.make("schema-id");
+
+		yield* service.linkEntitySchema({ trackerId, entitySchemaId });
+
+		expect(linked).toEqual({ trackerId, entitySchemaId });
 	}).pipe(Effect.provide(layer));
 });
 
