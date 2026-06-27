@@ -1,4 +1,4 @@
-import { Schema } from "effect";
+import { Effect, Schema } from "effect";
 
 import { buildMovieOrShowImportRef } from "#modules/imports/sources/shared/provider-refs";
 
@@ -9,7 +9,6 @@ import {
 	emptySinkResult,
 	sinkFailureResult,
 	type SinkParser,
-	wrapSinkParser,
 } from "./shared";
 
 const CoercedNumber = Schema.Union(Schema.Number, Schema.NumberFromString);
@@ -87,7 +86,7 @@ const normalizePlexEvent = (value: string): string =>
 		.replace(/^media\./, "");
 
 export const parsePlexSink: SinkParser = (input) =>
-	wrapSinkParser("Plex", () => {
+	Effect.gen(function* () {
 		const specs = input.integration.providerSpecifics;
 		if (specs.kind !== "plex_sink") {
 			throw new Error("Integration is not a Plex sink integration");
@@ -100,12 +99,20 @@ export const parsePlexSink: SinkParser = (input) =>
 		});
 		const payload = decodePlexPayload(payloadText);
 
-		if (specs.username && payload.Account?.title !== specs.username) {
+		const username = specs.username?.trim();
+		if (username && payload.Account?.title !== username) {
+			yield* Effect.logDebug(
+				"Ignoring Plex webhook for user; integration is configured for another",
+				{ configuredUser: username, payloadUser: payload.Account?.title },
+			);
 			return emptySinkResult();
 		}
 
 		const eventType = normalizePlexEvent(payload.event);
 		if (!["play", "pause", "resume", "scrobble", "stop"].includes(eventType)) {
+			yield* Effect.logDebug("Ignoring unsupported Plex webhook event", {
+				event: payload.event,
+			});
 			return emptySinkResult();
 		}
 
@@ -158,4 +165,8 @@ export const parsePlexSink: SinkParser = (input) =>
 			consumedOn: "plex_sink",
 			...(episodeLocator ? { episodeLocator } : {}),
 		});
-	});
+	}).pipe(
+		Effect.catchAllDefect(() =>
+			Effect.succeed(sinkFailureResult("Could not parse Plex webhook payload")),
+		),
+	);
