@@ -134,7 +134,6 @@ export const createImportRunLifecycle = (
 	});
 
 	return {
-		cleanupArtifacts,
 		failRunAndCleanup,
 		cleanupArtifactsBestEffort,
 		cleanupHarvestedDirectoriesBestEffort,

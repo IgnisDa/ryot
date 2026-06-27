@@ -1,9 +1,10 @@
+import type { MetadataLookupResult } from "@ryot/plugin-media/operations/schemas";
 import { debounce, throttle } from "@ryot/ts-utils/lodash";
 
 import { storage } from "#imports";
 
 import { MESSAGE_TYPES, MIN_VIDEO_DURATION_SECONDS, STORAGE_KEYS } from "../lib/constants";
-import type { MetadataLookupData, RawMediaData } from "../lib/extension-types";
+import type { RawMediaData } from "../lib/extension-types";
 import { ExtensionStatus } from "../lib/extension-types";
 import { logger } from "../lib/logger";
 import { MetadataCache } from "../lib/metadata-cache";
@@ -67,7 +68,7 @@ function extractProgressData(video: HTMLVideoElement): RawMediaData | null {
 	};
 }
 
-async function sendProgressUpdate(progressData: RawMediaData, metadata: MetadataLookupData) {
+async function sendProgressUpdate(progressData: RawMediaData, metadata: MetadataLookupResult) {
 	try {
 		await browser.runtime.sendMessage({
 			type: MESSAGE_TYPES.SEND_PROGRESS_DATA,
@@ -107,7 +108,7 @@ export default defineContentScript({
 			},
 		};
 
-		async function getOrLookupMetadata(): Promise<MetadataLookupData | null> {
+		async function getOrLookupMetadata(): Promise<MetadataLookupResult | null> {
 			const title = extractMetadataTitle();
 			if (!title) {
 				return null;
@@ -134,7 +135,7 @@ export default defineContentScript({
 		}
 
 		function startTrackingWithMetadataAndVideo(
-			metadata: MetadataLookupData,
+			metadata: MetadataLookupResult,
 			video: HTMLVideoElement,
 		) {
 			void updateExtensionStatus(ExtensionStatus.TrackingActive);
