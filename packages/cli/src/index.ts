@@ -2,11 +2,14 @@
 
 import { BunRuntime, BunServices } from "@effect/platform-bun";
 import { pluginClientFileExtension } from "@ryot-app/contract/modules/plugins/client";
-import { PluginManifest as PluginManifestSchema } from "@ryot-app/contract/modules/plugins/manifest";
+import {
+	AuthoredPluginManifest as AuthoredPluginManifestSchema,
+	PluginManifest as PluginManifestSchema,
+} from "@ryot-app/contract/modules/plugins/manifest";
 import { writePluginArchive } from "@ryot-app/plugin-archive";
 import type { SandboxCompilerDiagnostic } from "@ryot-app/sandbox-compiler/diagnostics";
 import {
-	compilePluginManifestScripts,
+	derivePluginSandboxScripts,
 	pluginScriptCompileMismatchIssue,
 } from "@ryot-app/sandbox-compiler/plugin-manifest";
 import { Data, Effect, FileSystem, Option, Path, Schema, Stream } from "effect";
@@ -31,6 +34,8 @@ type BuildOptions = {
 };
 
 type PluginManifest = Schema.Schema.Type<typeof PluginManifestSchema>;
+
+type AuthoredPluginManifest = Schema.Schema.Type<typeof AuthoredPluginManifestSchema>;
 
 type SourceFile = { readonly path: string; readonly contents: Uint8Array };
 
@@ -69,7 +74,9 @@ const loadManifest = Effect.fn("loadManifest")(function* (cwd: string) {
 			new BuildError({ message: `Unable to load plugin manifest: ${String(error)}` }),
 	});
 
-	return yield* Schema.decodeUnknownEffect(PluginManifestSchema)(manifestModule.default).pipe(
+	return yield* Schema.decodeUnknownEffect(AuthoredPluginManifestSchema)(
+		manifestModule.default,
+	).pipe(
 		Effect.mapError(
 			(error) => new BuildError({ message: `Invalid plugin manifest: ${String(error)}` }),
 		),
@@ -106,42 +113,26 @@ const collectSources = Effect.fn("collectSources")(function* (cwd: string) {
 	return sources.sort((left, right) => left.path.localeCompare(right.path));
 });
 
-const validateScriptEntries = Effect.fn("validateScriptEntries")(function* (
-	manifest: PluginManifest,
+const validateClientEntry = Effect.fn("validateClientEntry")(function* (
+	manifest: AuthoredPluginManifest,
 	sources: ReadonlyArray<SourceFile>,
 	cwd: string,
 ) {
 	const path = yield* Path.Path;
-	const sourcePaths = new Set(sources.map(({ path: sourcePath }) => sourcePath));
-	for (const script of manifest.scripts) {
-		const entry = script.entry;
-		const entryPath = path.resolve(cwd, entry);
-		if (!entry.startsWith("backend/") || !isWithin(path, cwd, entryPath)) {
-			return yield* new BuildError({
-				message: `Script entry must stay within backend: ${entry}`,
-			});
-		}
-		const normalizedEntry = path.relative(cwd, entryPath);
-		if (!sourcePaths.has(normalizedEntry)) {
-			return yield* new BuildError({
-				message: `Script entry was not found in backend sources: ${entry}`,
-			});
-		}
+	if (manifest.client === undefined) {
+		return yield* Effect.void;
 	}
-	if (manifest.client !== undefined) {
-		const entry = manifest.client.entry;
-		const entryPath = path.resolve(cwd, entry);
-		if (!entry.startsWith("client/") || !isWithin(path, path.resolve(cwd, "client"), entryPath)) {
-			return yield* new BuildError({
-				message: `Client entry must stay within client: ${entry}`,
-			});
-		}
-		const normalizedEntry = path.relative(cwd, entryPath);
-		if (!sourcePaths.has(normalizedEntry)) {
-			return yield* new BuildError({
-				message: `Client entry was not found in client sources: ${entry}`,
-			});
-		}
+	const entry = manifest.client.entry;
+	const entryPath = path.resolve(cwd, entry);
+	if (!entry.startsWith("client/") || !isWithin(path, path.resolve(cwd, "client"), entryPath)) {
+		return yield* new BuildError({
+			message: `Client entry must stay within client: ${entry}`,
+		});
+	}
+	if (!sources.some(({ path: sourcePath }) => sourcePath === path.relative(cwd, entryPath))) {
+		return yield* new BuildError({
+			message: `Client entry was not found in client sources: ${entry}`,
+		});
 	}
 	return yield* Effect.void;
 });
@@ -151,8 +142,7 @@ const backendDecoder = new TextDecoder("utf-8", { fatal: true });
 const formatDiagnostic = (diagnostic: SandboxCompilerDiagnostic) =>
 	`  ${diagnostic.file}:${diagnostic.line}:${diagnostic.column} ${diagnostic.severity} ${diagnostic.code}: ${diagnostic.message}`;
 
-const compileSandboxSources = Effect.fn("compileSandboxSources")(function* (
-	manifest: PluginManifest,
+const deriveManifestScripts = Effect.fn("deriveManifestScripts")(function* (
 	sources: ReadonlyArray<SourceFile>,
 ) {
 	const files = yield* Effect.try({
@@ -165,7 +155,7 @@ const compileSandboxSources = Effect.fn("compileSandboxSources")(function* (
 		catch: (error) =>
 			new BuildError({ message: `Backend source is not valid UTF-8: ${String(error)}` }),
 	});
-	return yield* compilePluginManifestScripts(manifest, files).pipe(
+	const derived = yield* derivePluginSandboxScripts(files).pipe(
 		Effect.catchTags({
 			PluginScriptCompileMismatch: (error) =>
 				new BuildError({ message: pluginScriptCompileMismatchIssue(error) }),
@@ -175,6 +165,7 @@ const compileSandboxSources = Effect.fn("compileSandboxSources")(function* (
 				}),
 		}),
 	);
+	return derived.map(({ script }) => script);
 });
 
 const writeOutput = Effect.fn("writeOutput")(function* (
@@ -203,10 +194,18 @@ const writeOutput = Effect.fn("writeOutput")(function* (
 
 const buildPlugin = Effect.fn("buildPlugin")(function* ({ cwd, output }: BuildOptions) {
 	const path = yield* Path.Path;
-	const manifest = yield* loadManifest(cwd);
+	const authored = yield* loadManifest(cwd);
 	const sources = yield* collectSources(cwd);
-	yield* validateScriptEntries(manifest, sources, cwd);
-	yield* compileSandboxSources(manifest, sources);
+	yield* validateClientEntry(authored, sources, cwd);
+	const scripts = yield* deriveManifestScripts(sources);
+	const manifest = yield* Schema.decodeUnknownEffect(PluginManifestSchema)({
+		...authored,
+		scripts,
+	}).pipe(
+		Effect.mapError(
+			(error) => new BuildError({ message: `Invalid plugin manifest: ${String(error)}` }),
+		),
+	);
 	yield* writeOutput(
 		path.resolve(cwd, output ?? `dist/${manifest.metadata.slug}.zip`),
 		manifest,
