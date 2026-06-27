@@ -25,21 +25,48 @@ Each owning service will expose at most one canonical write entry point for each
 
 ### Current state
 
-`IntegrationsService` already exposes exactly one `create`, `update`, and `delete` method for
-integration rows. Integration workers, however, directly call `IntegrationsRepository.updateForUser`
-to record `lastFinishedAt` and disable integrations after repeated failures.
+Implemented. `IntegrationsService` exposes exactly one `create`, `update`, and `delete` method for
+integration rows. The `finalizeIntegrationRun` worker now records `lastFinishedAt` and disables
+integrations after repeated failures through `IntegrationsService.update` rather than
+`IntegrationsRepository.updateForUser`. Metadata lookup and the integration workflow keep their
+repository access read-only.
 
 ### Checklist
 
-- [ ] Do not add additional integration write methods.
-- [ ] Route worker updates through the existing `update` entry point. Its internal input may support
+- [x] Do not add additional integration write methods.
+- [x] Route worker updates through the existing `update` entry point. Its internal input may support
   fields such as `lastFinishedAt` that are not accepted by the public API payload, without adding
   methods such as `disable` or `markFinished`.
-- [ ] Keep each update as a single-integration update; do not introduce mode-based or batch update input.
-- [ ] Preserve provider-specific validation, progress-threshold validation, ownership checks, and
+- [x] Keep each update as a single-integration update; do not introduce mode-based or batch update input.
+- [x] Preserve provider-specific validation, progress-threshold validation, ownership checks, and
   workflow behavior.
-- [ ] Keep repository access from metadata lookup and integration workflows read-only. Direct
+- [x] Keep repository access from metadata lookup and integration workflows read-only. Direct
   integration writes must use `IntegrationsService`.
+
+### Implementation notes
+
+- `IntegrationsService.update` now takes a `UserId` instead of the full `CurrentUserValue` (it only
+  ever used `user.id`), so integration workers can call it with `integration.userId`. Its body type
+  is an internal `UpdateIntegrationInput` that extends the public `UpdateIntegrationBody` with an
+  optional `lastFinishedAt`; the public API route is unaffected.
+- To let the worker import `IntegrationsService` without an import cycle
+  (`service → integration-workflow → worker → service`), the `ProcessIntegrationRunWorkflow`
+  definition was split into a leaf `integration-workflow.ts` and the run/layer implementation moved
+  to a new `integration-workflow-live.ts`, following the existing `-workflow` / `-workflow-live`
+  convention. `service.ts` and `reconciliation-workflow.ts` import only the leaf definition.
+- Adversarial review surfaced that routing bookkeeping writes through `update` re-ran
+  progress-threshold validation and re-wrote `providerSpecifics` on every call. `update` now
+  validates thresholds only when the caller supplies a threshold field and forwards
+  `providerSpecifics` only when the caller supplies it, mirroring the pre-existing
+  provider-specifics gating. This keeps validation for real threshold/provider changes while
+  preventing a `lastFinishedAt`/`isDisabled` bookkeeping write from being rejected by a
+  pre-existing out-of-range threshold (e.g. legacy/migrated rows) or from clobbering a
+  concurrently-updated `providerSpecifics`.
+- Known behavior change: `update` performs an ownership check, so if an integration is deleted
+  during the narrow window between media processing completing and finalization running, the
+  finalize step now fails the run instead of silently skipping the `lastFinishedAt` write. This is
+  a rare race and a direct consequence of the plan's requirement to route the write through the
+  service's ownership-checked entry point; the run row itself is already marked completed.
 
 ## Saved Views Service
 

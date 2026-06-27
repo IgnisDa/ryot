@@ -14,7 +14,8 @@ import {
 import { adaptPlexData, syncPlexYankOwnedItems } from "#modules/imports/sources/plex/adapter";
 import { SandboxExecutionQueue } from "#modules/sandbox/durable-queues";
 
-import { IntegrationsRepository, type IntegrationRecord } from "./repository";
+import type { IntegrationRecord } from "./repository";
+import { IntegrationsService } from "./service";
 import { adaptKomgaData, syncKomgaOwnedItems } from "./yank/komga";
 
 type OwnedItem = { entityRef: ImportEntityRef; provider: string };
@@ -125,21 +126,15 @@ export const runYoutubeMusicHistorySandbox = (input: {
 export const finalizeIntegrationRun = Effect.fn("integrationsWorker.finalizeIntegrationRun")(
 	function* (integration: IntegrationRecord, runId: ImportRunId) {
 		const repository = yield* ImportsRepository;
-		const integrationsRepository = yield* IntegrationsRepository;
+		const integrationsService = yield* IntegrationsService;
 		const runWithDb = yield* DbRunner;
 
 		const run = yield* runWithDb(repository.getRunById({ runId, userId: integration.userId }));
 		if (run?.status === "completed") {
 			const finishedAt = yield* DateTime.nowAsDate;
-			yield* runWithDb(
-				integrationsRepository
-					.updateForUser({
-						userId: integration.userId,
-						lastFinishedAt: finishedAt,
-						integrationId: integration.id,
-					})
-					.pipe(Effect.asVoid),
-			);
+			yield* integrationsService.update(integration.userId, integration.id, {
+				lastFinishedAt: finishedAt,
+			});
 		}
 
 		if (!integration.extraSettings.disableOnContinuousErrors) {
@@ -153,15 +148,9 @@ export const finalizeIntegrationRun = Effect.fn("integrationsWorker.finalizeInte
 			return false;
 		}
 
-		yield* runWithDb(
-			integrationsRepository
-				.updateForUser({
-					isDisabled: true,
-					userId: integration.userId,
-					integrationId: integration.id,
-				})
-				.pipe(Effect.asVoid),
-		);
+		yield* integrationsService.update(integration.userId, integration.id, {
+			isDisabled: true,
+		});
 		return true;
 	},
 );
