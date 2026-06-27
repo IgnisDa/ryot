@@ -242,10 +242,38 @@ to record `lastFinishedAt` and disable integrations after repeated failures.
 - Repository access from metadata lookup and integration workflows may remain read-only. Direct
   integration writes must use `IntegrationsService`.
 
+## Imports Service
+
+### Current state
+
+`ImportsService` exposes orchestration methods such as `startImportRun`,
+`createRunForIntegration`, `removeImportRun`, and `failRunForIntegration`. The repository has the
+row-level `createRun`, `updateRun`, and `deleteRunById` operations, but import workflows call
+`updateRun` directly. The separate `import_run_failure` table is also written directly through
+`ImportsRepository.createFailure`.
+
+### Decision
+
+- `create` will be the single `import_run` creation entry point for one run at a time. File
+  claiming, source-payload storage, queueing, and failure compensation remain caller/workflow
+  orchestration and must not become creation modes.
+- `update` will be the single `import_run` update entry point for one run at a time. Status,
+  progress, finalization, and failure callers must use it without adding methods such as
+  `markStarted`, `fail`, or `updateProgress`.
+- `delete` will be the single `import_run` deletion entry point for one run at a time. The caller
+  must retain the existing terminal-status check before invoking it; `removeImportRun` must not
+  remain a second write path.
+- `createRunForIntegration` and other run-start helpers must delegate to `create` rather than
+  writing through the repository.
+- `import_run_failure` is a separate table and requires an explicit owning service with its own
+  narrow `create` entry point. Failure creation must not be folded into `import_run` CRUD.
+- All import workflows and status helpers must stop using repository write helpers directly while
+  preserving asynchronous status updates, failure recording, cleanup, and queue behavior.
+
 ## Follow-up
 
 Implement and verify these decisions one service at a time, beginning with `EntitiesService` and
 then `RelationshipsService`, `EventsService`, `SavedViewsService`, `TrackersService`, and
 `EntitySchemasService`, `EventSchemasService`, `RelationshipSchemasService`, and
-`NotificationsService`, and `IntegrationsService`. Do not add decisions for later services until
-they are discussed.
+`NotificationsService`, `IntegrationsService`, and `ImportsService`. Do not add decisions for later
+services until they are discussed.
