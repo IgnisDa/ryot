@@ -1,7 +1,8 @@
 import { EntityId, RelationshipSchemaId } from "@ryot/contract/schema/brands";
 
-import { getPgClient } from "../setup";
-import { assertPresent, requirePresent } from "../test-support/assertions";
+import { getPgClient } from "~/setup";
+import { assertPresent, requirePresent } from "~/support/assertions";
+
 import type { Client } from "./auth";
 import {
 	findBuiltinSchemaBySlug,

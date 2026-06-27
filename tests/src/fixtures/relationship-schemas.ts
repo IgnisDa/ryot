@@ -1,7 +1,8 @@
 import { EntitySchemaId } from "@ryot/contract/schema/brands";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 
-import { requirePresent } from "../test-support/assertions";
+import { requirePresent } from "~/support/assertions";
+
 import type { Client } from "./auth";
 import type { ContractPayload } from "./contract-client";
 

@@ -1,6 +1,7 @@
 import { EntityId } from "@ryot/contract/schema/brands";
 
-import { assertPresent } from "../test-support/assertions";
+import { assertPresent } from "~/support/assertions";
+
 import type { Client } from "./auth";
 import { createEntity } from "./entities";
 import { createTrackerWithSchema, findBuiltinSchemaBySlug } from "./entity-schemas";
