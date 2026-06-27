@@ -145,7 +145,7 @@ describe("anime.anilist sandbox script", () => {
 		const requestBodies: string[] = [];
 		const searchResponse = () =>
 			httpSuccess({ data: { Page: { pageInfo: { total: 41 }, media: [] } } });
-		const collectBody = (options: { body?: string } | undefined) => {
+		const collectBody = (options: { body?: string | undefined } | undefined) => {
 			requestBodies.push(options?.body ?? "");
 			return searchResponse();
 		};
@@ -167,7 +167,7 @@ describe("anime.anilist sandbox script", () => {
 			})
 			.then((result) => {
 				expect(result.details).toEqual({ totalItems: 41, nextPage: null });
-				const [defaultBody, nsfwBody] = requestBodies.map((body) => JSON.parse(body) as unknown);
+				const [defaultBody, nsfwBody] = requestBodies.map((body): unknown => JSON.parse(body));
 				expect(defaultBody).toMatchObject({
 					variables: { type: "ANIME", search: "hero", page: 2, perPage: 20, isAdult: false },
 				});
