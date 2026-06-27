@@ -11,12 +11,12 @@ it("declares the complex file-backed import artifacts and config requirements", 
 		name: "Netflix",
 		workflowSlug: "import",
 		allowedFileExtensions: ["zip"],
-		requiredAppConfigKeys: ["moviesAndShows.tmdbAccessToken"],
+		requiredPluginConfigKeys: ["tmdbAccessToken"],
 		description: "Import viewing activity, ratings, and watchlist entries from Netflix",
 	});
 	expect(sources.get("movary")).toMatchObject({
 		lot: "named",
-		requiredAppConfigKeys: ["moviesAndShows.tmdbAccessToken"],
+		requiredPluginConfigKeys: ["tmdbAccessToken"],
 		artifacts: [
 			{
 				required: true,
@@ -40,7 +40,7 @@ it("declares the complex file-backed import artifacts and config requirements", 
 	});
 	expect(sources.get("myanimelist")).toMatchObject({
 		lot: "named",
-		requiredAppConfigKeys: ["animeAndManga.malClientId"],
+		requiredPluginConfigKeys: ["malClientId"],
 		artifacts: [
 			{
 				required: false,
@@ -65,7 +65,7 @@ it("declares credentialed sources as payload imports", () => {
 		name: "Trakt",
 		input: "payload",
 		workflowSlug: "import",
-		requiredAppConfigKeys: ["server.traktClientId"],
+		requiredPluginConfigKeys: ["traktClientId"],
 		description:
 			"Import movies, shows, history, ratings, watchlist, lists, and ownership from Trakt",
 	});

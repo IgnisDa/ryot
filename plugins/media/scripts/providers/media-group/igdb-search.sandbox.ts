@@ -7,8 +7,9 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "IGDB Video Game Group Search",
 	slug: "video-game-group.igdb.search",
-	requiredAppConfigKeys: ["videoGames.twitchClientId", "videoGames.twitchClientSecret"],
-	capabilities: ["httpCall", "getAppConfigValue", "getCachedValue", "setCachedValue"],
+	requiredPluginConfigKeys: ["twitchClientId", "twitchClientSecret"],
+	requiredSystemConfigKeys: [],
+	capabilities: ["httpCall", "getPluginConfigValue", "getCachedValue", "setCachedValue"],
 });
 
 export default defineProvider({ manifest, operation: "search", run: search.run });

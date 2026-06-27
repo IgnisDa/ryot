@@ -22,7 +22,7 @@ describe("media trending cron", () => {
 		const relationshipWrites: Parameters<TrendingHost["upsertGlobalRelationships"]>[0][] = [];
 		const host = defineSandboxTestHost(manifest, {
 			log: () => Effect.succeed(null),
-			getAppConfigValue: () => Effect.succeed("token"),
+			getPluginConfigValue: () => Effect.succeed("token"),
 			httpCall: (_method, url) => {
 				const requestUrl = new URL(url);
 				const page = requestUrl.searchParams.get("page");
@@ -110,7 +110,7 @@ describe("media trending cron", () => {
 					logs.push(entries);
 					return null;
 				}),
-			getAppConfigValue: () => Effect.succeed("token"),
+			getPluginConfigValue: () => Effect.succeed("token"),
 			httpCall: (_method, url) => {
 				const requestUrl = new URL(url);
 				const isShow = requestUrl.pathname.includes("/trending/tv/");

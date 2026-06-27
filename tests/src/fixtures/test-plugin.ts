@@ -4,6 +4,7 @@ import type { SandboxScriptId } from "@ryot/contract/schema/brands";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import type {
 	PluginCron,
+	PluginConfigSchema,
 	PluginOperationAuth,
 	PluginProviderInformation,
 	PluginProviderOperation,
@@ -35,7 +36,8 @@ type TestPluginScriptBase = {
 	name: string;
 	slug: string;
 	capabilities: ReadonlyArray<string>;
-	requiredAppConfigKeys: ReadonlyArray<string>;
+	requiredPluginConfigKeys: ReadonlyArray<string>;
+	requiredSystemConfigKeys: ReadonlyArray<string>;
 };
 
 export type TestPluginScript =
@@ -71,6 +73,7 @@ export type TestPluginOperation = {
 
 export const testPluginManifest = (input: {
 	pluginSlug: string;
+	configSchema?: PluginConfigSchema;
 	linkToEntitySchemaSlug?: string;
 	linkToProviderSlug?: string;
 	providers?: ReadonlyArray<TestPluginProvider>;
@@ -95,6 +98,7 @@ export const testPluginManifest = (input: {
 		targetEntitySchemaSlug: string | null;
 	}>;
 }) => ({
+	configSchema: input.configSchema ?? { fields: {}, unknownKeys: "strict" as const },
 	workflows: input.workflows ?? [],
 	savedViews: [],
 	importSources: [],
@@ -150,6 +154,7 @@ export const installTestPlugin = (input: {
 	source: string;
 	pluginSlug?: string;
 	script: TestPluginScript;
+	configSchema?: PluginConfigSchema;
 	linkToEntitySchemaSlug?: string;
 	boot?: Parameters<typeof testPluginManifest>[0]["boot"];
 	crons?: Parameters<typeof testPluginManifest>[0]["crons"];
@@ -162,6 +167,7 @@ export const installTestPlugin = (input: {
 		const pluginSlug = input.pluginSlug ?? `e2e-plugin-${randomUUID()}`;
 		const manifest = testPluginManifest({
 			pluginSlug,
+			configSchema: input.configSchema,
 			scripts: [{ ...input.script, entry }],
 			providers: input.providers ?? [],
 			...(input.boot ? { boot: input.boot } : {}),
@@ -197,6 +203,7 @@ export const installTestPlugin = (input: {
 export const installTestPluginBundle = (input: {
 	files: Record<string, string>;
 	pluginSlug?: string;
+	configSchema?: PluginConfigSchema;
 	scripts: ReadonlyArray<TestPluginScript & { entry: string }>;
 	providers?: ReadonlyArray<TestPluginProvider>;
 	crons?: Parameters<typeof testPluginManifest>[0]["crons"];
@@ -209,6 +216,7 @@ export const installTestPluginBundle = (input: {
 		const pluginSlug = input.pluginSlug ?? `e2e-plugin-${randomUUID()}`;
 		const manifest = testPluginManifest({
 			pluginSlug,
+			configSchema: input.configSchema,
 			scripts: input.scripts,
 			crons: input.crons,
 			workflows: input.workflows,

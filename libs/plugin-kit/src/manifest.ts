@@ -1,3 +1,4 @@
+import { pluginConfigEnvironmentKey } from "@ryot/config";
 import { DisplayConfiguration } from "@ryot/contract/display-configuration";
 import { QueryDocument } from "@ryot/contract/modules/query-engine/language";
 import { AppSchema } from "@ryot/contract/schema/property-schema";
@@ -95,11 +96,34 @@ const sandboxManifestSlug = Schema.String.pipe(
 	}),
 );
 
+const pluginConfigFieldTypes = new Set(["enum", "string", "number", "integer", "boolean"]);
+
+export const PluginConfigSchema = AppSchema.pipe(
+	Schema.filter(
+		(schema) =>
+			schema.unknownKeys === "strict" &&
+			schema.rules === undefined &&
+			Object.values(schema.fields).every(
+				(field) =>
+					pluginConfigFieldTypes.has(field.type) &&
+					field.translatable === undefined &&
+					field.transform === undefined,
+			),
+		{
+			message: () =>
+				"Expected a strict, top-level plugin config schema without translation, transforms, or rules",
+		},
+	),
+);
+
+export type PluginConfigSchema = Schema.Schema.Type<typeof PluginConfigSchema>;
+
 const PluginScriptFields = {
 	entry: Schema.String,
 	slug: sandboxManifestSlug,
 	name: sandboxManifestString,
-	requiredAppConfigKeys: Schema.Array(sandboxManifestString),
+	requiredPluginConfigKeys: Schema.Array(sandboxManifestString),
+	requiredSystemConfigKeys: Schema.Array(sandboxManifestString),
 };
 const PluginScriptCapabilities = Schema.Array(Schema.Literal(...SANDBOX_HOST_CAPABILITIES));
 
@@ -242,7 +266,7 @@ const PluginImportSourceFields = {
 	name: sandboxManifestString,
 	workflowSlug: sandboxManifestSlug,
 	description: sandboxManifestString,
-	requiredAppConfigKeys: Schema.Array(sandboxManifestString),
+	requiredPluginConfigKeys: Schema.Array(sandboxManifestString),
 };
 
 const PluginNamedImportArtifact = strictStruct({
@@ -337,6 +361,7 @@ export type PluginBindings = Schema.Schema.Type<typeof PluginBindings>;
 const PluginManifestFields = strictStruct({
 	metadata: PluginMetadata,
 	bindings: PluginBindings,
+	configSchema: PluginConfigSchema,
 	boot: Schema.Array(PluginBoot),
 	crons: Schema.Array(PluginCron),
 	scripts: Schema.Array(PluginScript),
@@ -357,6 +382,22 @@ export const PluginManifest = PluginManifestFields.pipe(
 			const scriptSlugs = new Set(manifest.scripts.map(({ slug }) => slug));
 			const workflowSlugs = new Set(manifest.workflows.map(({ slug }) => slug));
 			const providerSlugs = new Set(manifest.providers.map(({ slug }) => slug));
+			const configKeys = new Set(Object.keys(manifest.configSchema.fields));
+			const configEnvironmentKeys = [...configKeys].map((key) =>
+				pluginConfigEnvironmentKey(manifest.metadata.slug, key),
+			);
+			if (new Set(configEnvironmentKeys).size !== configEnvironmentKeys.length) {
+				return false;
+			}
+			const requiredConfigKeys = [
+				...manifest.scripts.flatMap(({ requiredPluginConfigKeys }) => requiredPluginConfigKeys),
+				...manifest.importSources.flatMap(
+					({ requiredPluginConfigKeys }) => requiredPluginConfigKeys,
+				),
+			];
+			if (!requiredConfigKeys.every((key) => configKeys.has(key))) {
+				return false;
+			}
 			if (scriptSlugs.size !== manifest.scripts.length) {
 				return false;
 			}
@@ -467,7 +508,7 @@ export const PluginManifest = PluginManifestFields.pipe(
 				)
 			);
 		},
-		{ message: () => "Expected valid plugin provider and script references" },
+		{ message: () => "Expected valid plugin config, provider, and script references" },
 	),
 );
 

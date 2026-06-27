@@ -8,7 +8,8 @@ export const manifest = defineManifest({
 	name: "MusicBrainz Music Group Details",
 	slug: "music-group.music-brainz.details",
 	capabilities: ["httpCall"],
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 });
 
 export default defineProvider({ manifest, operation: "details", run: details.run });

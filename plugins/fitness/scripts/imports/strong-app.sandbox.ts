@@ -9,10 +9,11 @@ import { toWorkoutWriteItem } from "./workout";
 
 export const manifest = defineManifest({
 	kind: "activity",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: ["timezone"],
 	name: "Parse Strong import",
 	slug: "activity.import.strong-app",
-	capabilities: ["artifact-read", "scratch", "getAppConfigValue"],
+	capabilities: ["artifact-read", "scratch", "getSystemConfigValue"],
 });
 
 export default defineActivity({
@@ -23,7 +24,7 @@ export default defineActivity({
 		Effect.gen(function* () {
 			const text = yield* readImportArtifactText();
 			const timezone = yield* host
-				.getAppConfigValue("timezone")
+				.getSystemConfigValue("timezone")
 				.pipe(Effect.catchAll(() => Effect.succeed("Etc/GMT")));
 			const result = adaptStrongAppCsv(text, typeof timezone === "string" ? timezone : "UTC");
 			return yield* writeImportChunks(result.failures, result.items.map(toWorkoutWriteItem));

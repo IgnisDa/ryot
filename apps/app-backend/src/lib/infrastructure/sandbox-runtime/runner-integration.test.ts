@@ -94,7 +94,8 @@ export const manifest = defineManifest({
   name: "Runner validation",
   slug: "runner-validation",
   capabilities: [],
-  requiredAppConfigKeys: [],
+  requiredPluginConfigKeys: [],
+  requiredSystemConfigKeys: [],
 });
 
 export default defineScript({
@@ -115,7 +116,8 @@ export const manifest = defineManifest({
   name: "Runner failure",
   slug: "runner-failure",
   capabilities: [],
-  requiredAppConfigKeys: [],
+  requiredPluginConfigKeys: [],
+  requiredSystemConfigKeys: [],
 });
 
 export default defineScript({
@@ -137,7 +139,8 @@ export const manifest = defineManifest({
   name: "Runner limits",
   slug: "runner-limits",
   capabilities: [],
-  requiredAppConfigKeys: [],
+  requiredPluginConfigKeys: [],
+  requiredSystemConfigKeys: [],
 });
 
 export default defineScript({
@@ -167,7 +170,8 @@ export const manifest = defineManifest({
   name: "Filesystem",
   slug: "filesystem",
   capabilities: ["artifact-read", "scratch"],
-  requiredAppConfigKeys: [],
+  requiredPluginConfigKeys: [],
+  requiredSystemConfigKeys: [],
 });
 
 export default defineActivity({
@@ -200,10 +204,11 @@ export const manifest = defineManifest({
     "getCachedValue",
     "setCachedValue",
     "claimCachedValue",
-    "getAppConfigValue",
+    "getSystemConfigValue",
     "getUserPreferences",
   ],
-  requiredAppConfigKeys: ["timezone"],
+  requiredPluginConfigKeys: [],
+  requiredSystemConfigKeys: ["timezone"],
 });
 
 export default defineScript({
@@ -230,7 +235,7 @@ export default defineScript({
         body: "payload",
         headers: { Accept: "application/json" },
       });
-    const config = yield* host.getAppConfigValue("timezone");
+    const config = yield* host.getSystemConfigValue("timezone");
     const preferences = yield* host.getUserPreferences();
     return { after, before, claim, config, http, preferences };
   }),
@@ -247,7 +252,8 @@ export const manifest = defineManifest({
   name: "Filtered host",
   slug: "filtered-host",
   capabilities: ["getCachedValue"],
-  requiredAppConfigKeys: [],
+  requiredPluginConfigKeys: [],
+  requiredSystemConfigKeys: [],
 });
 
 Object.defineProperty(manifest.capabilities, Symbol.iterator, {
@@ -258,7 +264,7 @@ Object.defineProperty(manifest.capabilities, Symbol.iterator, {
 });
 const nativeEncodeComponent = globalThis.encodeURIComponent;
 globalThis.encodeURIComponent = (value) =>
-  value === "getCachedValue" ? "getAppConfigValue" : nativeEncodeComponent(value);
+  value === "getCachedValue" ? "getSystemConfigValue" : nativeEncodeComponent(value);
 
 export default defineScript({
 	manifest,
@@ -283,7 +289,8 @@ export const manifest = defineManifest({
   name: "Host budgets",
   slug: "host-budgets",
   capabilities: ["getCachedValue", "httpCall"],
-  requiredAppConfigKeys: [],
+  requiredPluginConfigKeys: [],
+  requiredSystemConfigKeys: [],
 });
 
 export default defineScript({
@@ -322,7 +329,8 @@ export const manifest = defineManifest({
   kind: "script",
   name: "Domain host execution",
   slug: "domain-host-execution",
-  requiredAppConfigKeys: [],
+  requiredPluginConfigKeys: [],
+  requiredSystemConfigKeys: [],
   capabilities: [
     "getEntity",
     "listEvents",
@@ -383,7 +391,8 @@ export const manifest = defineManifest({
   name: "${name} dependency load",
   slug: "${name}-dependency-load",
   capabilities: [],
-  requiredAppConfigKeys: [],
+  requiredPluginConfigKeys: [],
+  requiredSystemConfigKeys: [],
 });
 
 export default defineScript({
@@ -402,7 +411,8 @@ const manifest = {
   capabilities: [],
   name: "Workflow host",
   slug: "workflow-host",
-  requiredAppConfigKeys: [],
+  requiredPluginConfigKeys: [],
+  requiredSystemConfigKeys: [],
 };
 
 export default {
@@ -434,7 +444,8 @@ const manifest = {
   name: "Workflow nondeterminism",
   slug: "workflow-nondeterminism",
   capabilities: [],
-  requiredAppConfigKeys: [],
+  requiredPluginConfigKeys: [],
+  requiredSystemConfigKeys: [],
 };
 const date = Date;
 const dateNow = Date.now;
@@ -487,7 +498,8 @@ const manifest = {
   name: "Ambient script",
   slug: "ambient-script",
   capabilities: [],
-  requiredAppConfigKeys: [],
+  requiredPluginConfigKeys: [],
+  requiredSystemConfigKeys: [],
 };
 
 export default {
@@ -508,7 +520,8 @@ export const manifest = defineManifest({
   name: "Generated npm import",
   slug: "generated-npm-import",
   capabilities: [],
-  requiredAppConfigKeys: [],
+  requiredPluginConfigKeys: [],
+  requiredSystemConfigKeys: [],
 });
 
 export default defineScript({
@@ -650,7 +663,8 @@ const runInDeno = (compiled: RunnerCompiledModule, context: unknown, options: Ru
 
 const startCoreHostBridge = (
 	options: {
-		readonly appConfigValue?: unknown;
+		readonly pluginConfigValue?: unknown;
+		readonly systemConfigValue?: unknown;
 		readonly durableCallsResult?: unknown;
 		readonly getCachedValueResult?: unknown;
 		readonly httpResponse?: (url: string) => unknown;
@@ -714,8 +728,10 @@ const startCoreHostBridge = (
 								},
 								success: true,
 							};
-						} else if (fnName === "getAppConfigValue") {
-							result = { data: options.appConfigValue ?? "Etc/GMT", success: true };
+						} else if (fnName === "getPluginConfigValue") {
+							result = { data: options.pluginConfigValue ?? "plugin-value", success: true };
+						} else if (fnName === "getSystemConfigValue") {
+							result = { data: options.systemConfigValue ?? "Etc/GMT", success: true };
 						} else if (fnName === "getUserPreferences") {
 							result = { success: true, data: { isNsfw: false, disableIntegrations: true } };
 						} else if (fnName === "durableCalls") {
@@ -763,7 +779,8 @@ it("loads compiled ESM in Deno and validates definition input and output", () =>
 				name: "Promise definition rejection",
 				slug: "promise-definition-rejection",
 				capabilities: [],
-				requiredAppConfigKeys: [],
+				requiredPluginConfigKeys: [],
+				requiredSystemConfigKeys: [],
 			} as const;
 			const promiseManifestSource = yield* Schema.encode(Schema.parseJson(Schema.Unknown))(
 				promiseManifest,
@@ -1026,7 +1043,10 @@ it("executes typed core host methods and filters the Deno host to declared capab
 				const filteredResult = yield* runInDeno(
 					filtered,
 					{},
-					{ apiBase, apiFunctions: ["getCachedValue", "setCachedValue", "getAppConfigValue"] },
+					{
+						apiBase,
+						apiFunctions: ["getCachedValue", "setCachedValue", "getSystemConfigValue"],
+					},
 				);
 				assert(filteredResult !== null && typeof filteredResult === "object");
 				expect(Reflect.get(filteredResult, "value")).toEqual({
@@ -1108,7 +1128,8 @@ it("exposes only kernel-selected workflow host functions despite an empty manife
 					slug: "workflow-host",
 					kind: "workflow" as const,
 					capabilities: [] as const,
-					requiredAppConfigKeys: [] as const,
+					requiredPluginConfigKeys: [] as const,
+					requiredSystemConfigKeys: [] as const,
 				};
 				const result = yield* runInDeno(
 					{ manifest, format: 1, javascript: workflowHostSource },
@@ -1146,7 +1167,8 @@ it("blocks ambient workflow nondeterminism through aliases and call helpers at r
 						capabilities: [] as const,
 						name: "Workflow nondeterminism",
 						slug: "workflow-nondeterminism",
-						requiredAppConfigKeys: [] as const,
+						requiredPluginConfigKeys: [] as const,
+						requiredSystemConfigKeys: [] as const,
 					};
 					const result = yield* runInDeno(
 						{ manifest, format: 1, javascript: workflowNondeterminismSource },
@@ -1171,7 +1193,8 @@ it("keeps the deterministic workflow clock active through Effect callbacks", () 
 					capabilities: [] as const,
 					name: "Workflow nondeterminism",
 					slug: "workflow-nondeterminism",
-					requiredAppConfigKeys: [] as const,
+					requiredPluginConfigKeys: [] as const,
+					requiredSystemConfigKeys: [] as const,
 				};
 				const result = yield* runInDeno(
 					{ manifest, format: 1, javascript: workflowNondeterminismSource },
@@ -1191,14 +1214,16 @@ it("allows deterministic workflow dates without changing ambient APIs for script
 				capabilities: [] as const,
 				name: "Workflow nondeterminism",
 				slug: "workflow-nondeterminism",
-				requiredAppConfigKeys: [] as const,
+				requiredPluginConfigKeys: [] as const,
+				requiredSystemConfigKeys: [] as const,
 			};
 			const scriptManifest = {
 				name: "Ambient script",
 				slug: "ambient-script",
 				kind: "script" as const,
 				capabilities: [] as const,
-				requiredAppConfigKeys: [] as const,
+				requiredPluginConfigKeys: [] as const,
+				requiredSystemConfigKeys: [] as const,
 			};
 			const [workflowResult, scriptResult] = yield* runInDenoRequests([
 				{
@@ -1236,7 +1261,8 @@ it("does not expose Effect Clock or Random services to workflows at runtime", ()
 				capabilities: [] as const,
 				name: "Workflow nondeterminism",
 				slug: "workflow-nondeterminism",
-				requiredAppConfigKeys: [] as const,
+				requiredPluginConfigKeys: [] as const,
+				requiredSystemConfigKeys: [] as const,
 			};
 			const result = yield* runInDeno(
 				{ manifest, format: 1, javascript: workflowNondeterminismSource },
@@ -1255,7 +1281,7 @@ it("loads and executes the generated TMDB Show module in Deno", () =>
 		Effect.scoped(
 			Effect.gen(function* () {
 				const bridge = yield* startCoreHostBridge({
-					appConfigValue: "tmdb-token",
+					pluginConfigValue: "tmdb-token",
 					httpResponse: (url) => {
 						expect(new URL(url).pathname).toBe("/3/search/tv");
 						return {
@@ -1312,7 +1338,7 @@ it("loads and executes the remaining generated TMDB provider family in Deno", ()
 		Effect.scoped(
 			Effect.gen(function* () {
 				const bridge = yield* startCoreHostBridge({
-					appConfigValue: "tmdb-token",
+					pluginConfigValue: "tmdb-token",
 					httpResponse: (url) => {
 						const path = new URL(url).pathname;
 						if (path === "/3/search/movie") {
@@ -1397,7 +1423,7 @@ it("loads and executes the generated TVDB Show module in Deno through the token 
 		Effect.scoped(
 			Effect.gen(function* () {
 				const bridge = yield* startCoreHostBridge({
-					appConfigValue: "tvdb-api-key",
+					pluginConfigValue: "tvdb-api-key",
 					httpResponse: (url) => {
 						const path = new URL(url).pathname;
 						if (path === "/v4/login") {
@@ -1459,7 +1485,7 @@ it("loads and executes the remaining generated TVDB provider family in Deno", ()
 		Effect.scoped(
 			Effect.gen(function* () {
 				const bridge = yield* startCoreHostBridge({
-					appConfigValue: "tvdb-api-key",
+					pluginConfigValue: "tvdb-api-key",
 					httpResponse: (url) => {
 						const requestUrl = new URL(url);
 						if (requestUrl.pathname === "/v4/login") {
@@ -1652,7 +1678,7 @@ it("loads and executes the generated MyAnimeList and MangaUpdates modules in Den
 		Effect.scoped(
 			Effect.gen(function* () {
 				const bridge = yield* startCoreHostBridge({
-					appConfigValue: "mal-client-id",
+					pluginConfigValue: "mal-client-id",
 					httpResponse: (url) => {
 						const requestUrl = new URL(url);
 						if (requestUrl.host === "api.myanimelist.net") {
@@ -1732,8 +1758,8 @@ it("loads and executes the generated MyAnimeList and MangaUpdates modules in Den
 						],
 					});
 				}
-				const malConfigCall = bridge.calls.find((call) => call.fnName === "getAppConfigValue");
-				expect(malConfigCall?.args).toEqual(["animeAndManga.malClientId"]);
+				const malConfigCall = bridge.calls.find((call) => call.fnName === "getPluginConfigValue");
+				expect(malConfigCall?.args).toEqual(["malClientId"]);
 			}),
 		),
 	));
@@ -1743,7 +1769,7 @@ it("loads and executes the generated Hardcover book module in Deno through the G
 		Effect.scoped(
 			Effect.gen(function* () {
 				const bridge = yield* startCoreHostBridge({
-					appConfigValue: "hardcover-key",
+					pluginConfigValue: "hardcover-key",
 					httpResponse: (url) => {
 						expect(new URL(url).host).toBe("api.hardcover.app");
 						return {
@@ -1796,8 +1822,8 @@ it("loads and executes the generated Hardcover book module in Deno through the G
 						{ relationshipSchemaSlug: "book-group-to-book", entities: [] },
 					],
 				});
-				const configCall = bridge.calls.find((call) => call.fnName === "getAppConfigValue");
-				expect(configCall?.args).toEqual(["books.hardcoverApiKey"]);
+				const configCall = bridge.calls.find((call) => call.fnName === "getPluginConfigValue");
+				expect(configCall?.args).toEqual(["hardcoverApiKey"]);
 			}),
 		),
 	));
@@ -1860,7 +1886,7 @@ it("loads and executes the generated Google Books module in Deno through the RES
 		Effect.scoped(
 			Effect.gen(function* () {
 				const bridge = yield* startCoreHostBridge({
-					appConfigValue: "google-key",
+					pluginConfigValue: "google-key",
 					httpResponse: (url) => {
 						const requestUrl = new URL(url);
 						expect(requestUrl.host).toBe("www.googleapis.com");
@@ -2049,7 +2075,7 @@ it("loads and executes the generated ListenNotes podcast module in Deno through 
 		Effect.scoped(
 			Effect.gen(function* () {
 				const bridge = yield* startCoreHostBridge({
-					appConfigValue: "listennotes-key",
+					pluginConfigValue: "listennotes-key",
 					httpResponse: (url) => {
 						const requestUrl = new URL(url);
 						expect(requestUrl.host).toBe("listen-api.listennotes.com");
@@ -2098,8 +2124,8 @@ it("loads and executes the generated ListenNotes podcast module in Deno through 
 						},
 					],
 				});
-				const configCall = bridge.calls.find((call) => call.fnName === "getAppConfigValue");
-				expect(configCall?.args).toEqual(["podcasts.listennotesApiKey"]);
+				const configCall = bridge.calls.find((call) => call.fnName === "getPluginConfigValue");
+				expect(configCall?.args).toEqual(["listennotesApiKey"]);
 			}),
 		),
 	));
@@ -2154,7 +2180,7 @@ it("loads and executes the generated Spotify module in Deno through the token ca
 		Effect.scoped(
 			Effect.gen(function* () {
 				const bridge = yield* startCoreHostBridge({
-					appConfigValue: "spotify-cred",
+					pluginConfigValue: "spotify-cred",
 					httpResponse: (url) => {
 						const requestUrl = new URL(url);
 						if (requestUrl.host === "accounts.spotify.com") {
@@ -2218,7 +2244,7 @@ it("loads and executes the generated GiantBomb module in Deno", () =>
 		Effect.scoped(
 			Effect.gen(function* () {
 				const bridge = yield* startCoreHostBridge({
-					appConfigValue: "giant-bomb-key",
+					pluginConfigValue: "giant-bomb-key",
 					httpResponse: (url) => {
 						const requestUrl = new URL(url);
 						expect(requestUrl.host).toBe("www.giantbomb.com");
@@ -2276,7 +2302,7 @@ it("loads and executes the generated IGDB module in Deno through the Twitch OAut
 		Effect.scoped(
 			Effect.gen(function* () {
 				const bridge = yield* startCoreHostBridge({
-					appConfigValue: "twitch-cred",
+					pluginConfigValue: "twitch-cred",
 					httpResponse: (url) => {
 						const requestUrl = new URL(url);
 						if (requestUrl.host === "id.twitch.tv") {
@@ -2343,7 +2369,7 @@ it("loads and executes the generated Metron module in Deno through Basic auth", 
 		Effect.scoped(
 			Effect.gen(function* () {
 				const bridge = yield* startCoreHostBridge({
-					appConfigValue: "metron-cred",
+					pluginConfigValue: "metron-cred",
 					httpResponse: (url) => {
 						const requestUrl = new URL(url);
 						expect(requestUrl.host).toBe("metron.cloud");

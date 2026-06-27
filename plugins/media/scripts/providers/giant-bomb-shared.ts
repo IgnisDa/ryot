@@ -9,19 +9,19 @@ import {
 	type UnknownRecord,
 } from "../script-helpers/records";
 
-export type GiantBombHost = SandboxHost<readonly ["httpCall", "getAppConfigValue"]>;
+export type GiantBombHost = SandboxHost<readonly ["httpCall", "getPluginConfigValue"]>;
 
 export const BASE_URL = "https://www.giantbomb.com/api";
 export const GUID_PATTERN = /^\d+-\d+$/;
 
 export const getApiKey = (host: GiantBombHost) =>
-	host.getAppConfigValue("videoGames.giantBombApiKey").pipe(
+	host.getPluginConfigValue("giantBombApiKey").pipe(
 		Effect.mapError((error) => new Error(error.message || "Failed to retrieve GiantBomb API key")),
 		Effect.map((value) => {
 			const apiKey = stringValue(value);
 			if (!apiKey) {
 				throw new Error(
-					"GiantBomb API key is not configured. Set VIDEO_GAMES_GIANT_BOMB_API_KEY in your environment.",
+					"GiantBomb API key is not configured. Set RYOT_PLUGIN_MEDIA_GIANT_BOMB_API_KEY in your environment.",
 				);
 			}
 			return apiKey;

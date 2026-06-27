@@ -5,7 +5,8 @@ import { searchExercises } from "./free-exercise-db";
 
 export const manifest = defineManifest({
 	kind: "provider",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 	name: "Free Exercise DB Search",
 	slug: "exercise.free-exercise-db.search",
 	capabilities: ["httpCall", "getCachedValue", "setCachedValue"],

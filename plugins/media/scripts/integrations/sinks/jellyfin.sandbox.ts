@@ -8,7 +8,8 @@ export const manifest = defineManifest({
 	kind: "script",
 	name: "Jellyfin sink",
 	slug: "integration.jellyfin-sink",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 	capabilities: ["getIntegration"],
 });
 export default defineScript({

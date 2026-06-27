@@ -12,7 +12,8 @@ export const manifest = defineManifest({
 	capabilities: [],
 	name: "Media import resolution",
 	slug: "workflow.media-import-resolution",
-	requiredAppConfigKeys: [],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 });
 
 export default defineWorkflow({
