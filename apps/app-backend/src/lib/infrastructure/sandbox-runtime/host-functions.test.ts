@@ -1,22 +1,39 @@
 import { expect, it } from "@effect/vitest";
-import { Effect, Either, Option, Redacted } from "effect";
+import type { ExecutionAuthority } from "@ryot/contract/modules/sandbox/schemas";
+import { IntegrationId, SubscriptionRunId, UserId } from "@ryot/contract/schema/brands";
+import { Effect, Either, Layer, Option, Redacted } from "effect";
 import { describe } from "vitest";
 
+import { RedisService } from "#lib/infrastructure/redis";
+import {
+	dbRunnerLayer,
+	makeAppConfigLayer,
+	makeRedisService,
+	transactionLayer,
+} from "#lib/test-utils/effect";
+import { DefinitionRegistry, makeDefinitionRegistry } from "#modules/definition-registry/service";
+import { EntitiesRepository } from "#modules/entities/repository";
+import { EntitiesService } from "#modules/entities/service";
+import { EventsService } from "#modules/events/service";
+import { IntegrationsRepository, type IntegrationRecord } from "#modules/integrations/repository";
+import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
+import { QueryEngineService } from "#modules/query-engine/service";
+import { RelationshipsRepository } from "#modules/relationships/repository";
+
 import { getSandboxAppConfigValue } from "./app-config";
-import { normalizePreferences, toSandboxCreateEventsResult } from "./host-functions";
+import {
+	makeAdditionalSandboxApiFunctions,
+	normalizePreferences,
+	toSandboxCreateEventsResult,
+} from "./host-functions";
+import type { SandboxRunInput } from "./shared";
 
 const config = {
 	port: 8000,
 	nodeEnv: "test",
-	animeAndManga: {
-		malClientId: Option.some("mal-client"),
-	},
-	videoGames: {
-		giantBombApiKey: Option.some(Redacted.make("giant-secret")),
-	},
-	books: {
-		googleBooksApiKey: Option.none(),
-	},
+	books: { googleBooksApiKey: Option.none() },
+	animeAndManga: { malClientId: Option.some("mal-client") },
+	videoGames: { giantBombApiKey: Option.some(Redacted.make("giant-secret")) },
 };
 
 const runEither = (key: string, scriptIsBuiltin: boolean) =>
@@ -81,6 +98,162 @@ describe("normalizePreferences", () => {
 			disableIntegrations: true,
 		});
 	});
+});
+
+type GetForUserInput = { readonly integrationId: IntegrationId; readonly userId: UserId };
+
+const ownedIntegration = (input: GetForUserInput): IntegrationRecord => ({
+	name: null,
+	lot: "yank",
+	isDisabled: false,
+	minimumProgress: 2,
+	maximumProgress: 95,
+	lastFinishedAt: null,
+	userId: input.userId,
+	syncOwnership: false,
+	provider: "plex_yank",
+	id: input.integrationId,
+	createdAt: "2026-01-01T00:00:00.000Z",
+	updatedAt: "2026-01-01T00:00:00.000Z",
+	extraSettings: { disableOnContinuousErrors: false },
+	providerSpecifics: { kind: "plex_yank", token: "plex-token", baseUrl: "https://plex.example" },
+});
+
+const runInput = (authority: ExecutionAuthority): SandboxRunInput => ({
+	authority,
+	context: {},
+	metadata: {},
+	providerId: null,
+	compiledCode: "",
+	compiledFormat: 1,
+	scriptId: "script-1",
+	scriptIsBuiltin: false,
+	allowedHostFunctions: [],
+	executionId: "execution-1",
+	cacheNamespace: "script-1",
+});
+
+const subscriptionAuthority = (
+	origin: Extract<ExecutionAuthority, { type: "subscription" }>["subscriptionRun"]["origin"],
+) =>
+	({
+		type: "subscription",
+		userId: UserId.make("user-1"),
+		subscriptionRun: {
+			origin,
+			id: SubscriptionRunId.make("run-1"),
+			occurredAt: "2026-01-01T00:00:00.000Z",
+		},
+	}) satisfies ExecutionAuthority;
+
+const runGetIntegration = (
+	authority: ExecutionAuthority,
+	getForUser: (input: GetForUserInput) => Effect.Effect<IntegrationRecord | null>,
+) =>
+	makeAdditionalSandboxApiFunctions().pipe(
+		Effect.flatMap((functions) => Effect.either(functions.getIntegration(runInput(authority)))),
+		Effect.provide(
+			Layer.mergeAll(
+				dbRunnerLayer,
+				transactionLayer,
+				makeAppConfigLayer(),
+				Layer.succeed(RedisService, makeRedisService()),
+				Layer.mock(EventsService)({ _tag: "EventsService" }),
+				Layer.mock(EntitiesService)({ _tag: "EntitiesService" }),
+				Layer.mock(EntitiesRepository)({ _tag: "EntitiesRepository" }),
+				Layer.mock(QueryEngineService)({ _tag: "QueryEngineService" }),
+				Layer.succeed(DefinitionRegistry, {
+					_tag: "DefinitionRegistry",
+					...makeDefinitionRegistry(),
+				}),
+				Layer.mock(PluginRuntimeResolver)({ _tag: "PluginRuntimeResolver" }),
+				Layer.mock(RelationshipsRepository)({ _tag: "RelationshipsRepository" }),
+				Layer.mock(IntegrationsRepository)({ _tag: "IntegrationsRepository", getForUser }),
+			),
+		),
+	);
+
+describe("getIntegration", () => {
+	it.effect("resolves the integration the operation execution was dispatched for", () =>
+		Effect.gen(function* () {
+			const requested: GetForUserInput[] = [];
+			const result = yield* runGetIntegration(
+				{
+					type: "user",
+					userId: UserId.make("user-1"),
+					integrationId: IntegrationId.make("int-trusted"),
+				},
+				(input) => {
+					requested.push(input);
+					return Effect.succeed(ownedIntegration(input));
+				},
+			);
+
+			expect(requested).toEqual([{ integrationId: "int-trusted", userId: "user-1" }]);
+			const integration = Either.getOrThrow(result);
+			expect(integration.id).toBe("int-trusted");
+			expect(integration.providerSpecifics).toEqual({
+				kind: "plex_yank",
+				token: "plex-token",
+				baseUrl: "https://plex.example",
+			});
+		}),
+	);
+
+	it.effect("resolves the integration a subscription execution originated from", () =>
+		Effect.gen(function* () {
+			const requested: GetForUserInput[] = [];
+			const result = yield* runGetIntegration(
+				subscriptionAuthority({
+					kind: "integration",
+					integrationId: IntegrationId.make("int-origin"),
+				}),
+				(input) => {
+					requested.push(input);
+					return Effect.succeed(ownedIntegration(input));
+				},
+			);
+
+			expect(requested).toEqual([{ integrationId: "int-origin", userId: "user-1" }]);
+			expect(Either.getOrThrow(result).id).toBe("int-origin");
+		}),
+	);
+
+	it.effect("fails when the execution has no integration in scope", () =>
+		Effect.forEach(
+			[
+				{ type: "user", userId: UserId.make("user-1") },
+				subscriptionAuthority({ kind: "api" }),
+			] satisfies ExecutionAuthority[],
+			(authority) =>
+				Effect.gen(function* () {
+					const result = yield* runGetIntegration(authority, () =>
+						Effect.die("must not reach the repository"),
+					);
+
+					expect(Either.getLeft(result)).toEqual(
+						Option.some({
+							message: "getIntegration is available only to executions scoped to an integration",
+						}),
+					);
+				}),
+		),
+	);
+
+	it.effect("keeps the executing user's ownership scope", () =>
+		Effect.gen(function* () {
+			const result = yield* runGetIntegration(
+				{
+					type: "user",
+					userId: UserId.make("user-1"),
+					integrationId: IntegrationId.make("int-of-another-user"),
+				},
+				() => Effect.succeed(null),
+			);
+
+			expect(Either.getLeft(result)).toEqual(Option.some({ message: "Integration not found" }));
+		}),
+	);
 });
 
 describe("toSandboxCreateEventsResult", () => {
