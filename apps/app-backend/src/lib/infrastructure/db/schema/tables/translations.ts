@@ -1,9 +1,9 @@
 import { generateId } from "better-auth";
-import { index, jsonb, pgTable, text, timestamp, unique } from "drizzle-orm/pg-core";
+import { index, jsonb, snakeCase, text, timestamp, unique } from "drizzle-orm/pg-core";
 
 import { entity } from "./entities";
 
-export const entityTranslation = pgTable(
+export const entityTranslation = snakeCase.table(
 	"entity_translation",
 	{
 		name: text(),

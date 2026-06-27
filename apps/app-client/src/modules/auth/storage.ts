@@ -1,5 +1,5 @@
 import { expoClient } from "@better-auth/expo/client";
-import { genericOAuthClient, twoFactorClient } from "better-auth/client/plugins";
+import { twoFactorClient } from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
@@ -13,23 +13,24 @@ const sessionKey = `${storagePrefix}_session_data`;
 const removeWebValue = (key: string) => localStorage.removeItem(key);
 const removeNativeValue = (key: string) => SecureStore.deleteItemAsync(key);
 
+const getWebValue = (key: string) =>
+	typeof localStorage === "undefined" ? null : localStorage.getItem(key);
+
 const storage =
 	Platform.OS === "web"
 		? {
+				getItem: getWebValue,
+				getItemAsync: (key: string) => Promise.resolve(getWebValue(key)),
 				setItem: (key: string, value: string) => localStorage.setItem(key, value),
-				getItem: (key: string) =>
-					typeof localStorage === "undefined" ? null : localStorage.getItem(key),
+				setItemAsync: (key: string, value: string) =>
+					Promise.resolve(localStorage.setItem(key, value)),
 			}
 		: SecureStore;
 
 const createClient = (baseURL: string) =>
 	createAuthClient({
 		baseURL,
-		plugins: [
-			expoClient({ scheme: "ryot", storage, storagePrefix }),
-			genericOAuthClient(),
-			twoFactorClient(),
-		],
+		plugins: [expoClient({ scheme: "ryot", storage, storagePrefix }), twoFactorClient()],
 	});
 
 type AuthClient = ReturnType<typeof createClient>;

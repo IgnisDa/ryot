@@ -1,3 +1,4 @@
+import { createOAuthAccountIssuer } from "@better-auth/core/db";
 import { defaultUserPreferences } from "@ryot/contract/auth-middleware";
 import type { BadRequest, DbError } from "@ryot/contract/errors";
 import { badRequest, internalError, notFound, unknownToMessage } from "@ryot/contract/errors";
@@ -149,6 +150,7 @@ export class GodModeService extends Context.Service<GodModeService>()("GodModeSe
 					providerId: "oidc",
 					id: crypto.randomUUID(),
 					accountId: input.oidcIssuerId,
+					issuer: createOAuthAccountIssuer("oidc"),
 				});
 			}
 
@@ -357,6 +359,7 @@ export class GodModeService extends Context.Service<GodModeService>()("GodModeSe
 						providerId: "oidc",
 						id: crypto.randomUUID(),
 						accountId: oidcAccountId,
+						issuer: createOAuthAccountIssuer("oidc"),
 					});
 				}
 				return { snapshot: resetSnapshot, usesLocalAuth: resetUsesLocalAuth };
