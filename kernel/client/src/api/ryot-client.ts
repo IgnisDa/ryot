@@ -1,18 +1,18 @@
 import { createRyotClient, RyotClientError } from "@ryot-app/client-sdk";
 import { AuthRateLimited, AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
-import type { ContractProgram } from "@ryot-app/contract/client";
 import { UploadBadRequest, UploadInternalError } from "@ryot-app/contract/modules/uploads/schemas";
 import { Effect, Schema } from "effect";
 
-import { AuthenticatedApi, AuthenticatedApiError } from "#/api/authenticated";
+import { AuthenticatedApiError } from "#/api/authenticated";
 import { resolveApiUrl } from "#/api/origin";
-import { classifyRyotQLFailure } from "#/api/ryotql";
+import { classifyRyotQLFailure, RyotQLApi } from "#/api/ryotql";
 import type { ApiScope } from "#/api/scope";
+import { UploadsApi } from "#/api/uploads";
 import type { ThemeStore } from "#/modules/theme/store";
 
-type AuthenticatedApiRuntime = {
+type KernelApiRuntime = {
 	readonly runPromise: <A, E>(
-		effect: Effect.Effect<A, E, AuthenticatedApi>,
+		effect: Effect.Effect<A, E, RyotQLApi | UploadsApi>,
 		options?: Effect.RunOptions,
 	) => Promise<A>;
 };
@@ -27,15 +27,15 @@ const classifyUploadFailure = (error: unknown) =>
 		: "transport";
 
 export const createKernelRyotClient = (
-	runtime: AuthenticatedApiRuntime,
+	runtime: KernelApiRuntime,
 	scope: ApiScope,
 	theme: ThemeStore,
 ) => {
-	const runUpload = async <A, E>(program: ContractProgram<A, E>) => {
+	const runUpload = async <A>(
+		call: (api: UploadsApi["Service"]) => Effect.Effect<A, AuthenticatedApiError>,
+	) => {
 		try {
-			return await runtime.runPromise(
-				AuthenticatedApi.pipe(Effect.flatMap((api) => api.run(scope, program))),
-			);
+			return await runtime.runPromise(UploadsApi.pipe(Effect.flatMap(call)));
 		} catch (error) {
 			throw new RyotClientError(classifyUploadFailure(error));
 		}
@@ -46,11 +46,7 @@ export const createKernelRyotClient = (
 		query: async (document, signal) => {
 			try {
 				return await runtime.runPromise(
-					AuthenticatedApi.pipe(
-						Effect.flatMap((api) =>
-							api.run(scope, (client) => client.ryotql.execute({ payload: document })),
-						),
-					),
+					RyotQLApi.pipe(Effect.flatMap((api) => api.execute(scope, { payload: document }))),
 					{ signal },
 				);
 			} catch (error) {
@@ -61,8 +57,8 @@ export const createKernelRyotClient = (
 			}
 		},
 		uploadTemporary: async ({ source, fileName, contentType }) => {
-			const intent = await runUpload((client) =>
-				client.uploads.createIntent({ payload: { kind: "temporary", fileName, contentType } }),
+			const intent = await runUpload((api) =>
+				api.createIntent(scope, { payload: { kind: "temporary", fileName, contentType } }),
 			);
 			let response: Response;
 			try {
@@ -77,8 +73,8 @@ export const createKernelRyotClient = (
 			if (!response.ok) {
 				throw new RyotClientError("operation-failed");
 			}
-			return await runUpload((client) =>
-				client.uploads.completeIntent({ params: { intentId: intent.intentId } }),
+			return await runUpload((api) =>
+				api.completeIntent(scope, { params: { intentId: intent.intentId } }),
 			);
 		},
 	});

@@ -1,11 +1,12 @@
 import { describe, expect, it } from "@effect/vitest";
 import { AuthRateLimited, AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
-import type { ContractClient, ContractPayload } from "@ryot-app/contract/client";
+import type { ContractPayload, ContractSuccess } from "@ryot-app/contract/client";
 import { RyotQLBadRequest, RyotQLInternalError } from "@ryot-app/contract/modules/ryotql/contract";
-import { Effect, Layer } from "effect";
+import { Effect } from "effect";
 
-import { AuthenticatedApi, AuthenticatedApiError } from "#/api/authenticated";
+import { AuthenticatedApiError } from "#/api/authenticated";
 import { decodeServerOrigin } from "#/api/origin";
+import { makeRyotQLApi } from "#/api/ports.test-layer";
 import type { ApiScope } from "#/api/scope";
 import { PluginQueriesService } from "#/modules/plugins/queries";
 
@@ -20,17 +21,13 @@ const document = {
 } as const;
 
 type ExecuteRequest = { readonly payload: ContractPayload<"ryotql", "execute"> };
+type ExecuteResult = Effect.Effect<ContractSuccess<"ryotql", "execute">, AuthenticatedApiError>;
 
-const makeApi = (execute: (request: ExecuteRequest) => Effect.Effect<unknown, unknown>) => {
-	// oxlint-disable-next-line typescript/no-unsafe-type-assertion
-	const client = { ryotql: { execute } } as ContractClient;
-	return Layer.succeed(AuthenticatedApi, {
-		run: <A, E>(_scope: ApiScope, program: (client: ContractClient) => Effect.Effect<A, E>) =>
-			program(client).pipe(
-				Effect.catch((cause) => Effect.fail(new AuthenticatedApiError({ cause }))),
-			),
-	});
-};
+const makeApi = (execute: (request: ExecuteRequest) => ExecuteResult) =>
+	makeRyotQLApi({ execute: (_scope, request) => execute(request) });
+
+const failing = (cause: unknown) =>
+	makeApi(() => Effect.fail(new AuthenticatedApiError({ cause })));
 
 describe("plugin queries service", () => {
 	it.effect("executes the user-scoped RyotQL endpoint without adding identity fields", () => {
@@ -59,7 +56,7 @@ describe("plugin queries service", () => {
 
 	for (const cause of expectedFailures) {
 		it.effect(`classifies ${cause._tag} as query-failed`, () => {
-			const dependencies = makeApi(() => Effect.fail(cause));
+			const dependencies = failing(cause);
 
 			return Effect.gen(function* () {
 				const service = yield* PluginQueriesService;
@@ -71,7 +68,7 @@ describe("plugin queries service", () => {
 	}
 
 	it.effect("maps an unexpected failure to transport without leaking its cause", () => {
-		const dependencies = makeApi(() => Effect.fail(new TypeError("private network detail")));
+		const dependencies = failing(new TypeError("private network detail"));
 
 		return Effect.gen(function* () {
 			const service = yield* PluginQueriesService;

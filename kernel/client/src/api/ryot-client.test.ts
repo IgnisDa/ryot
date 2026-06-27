@@ -1,9 +1,5 @@
 import { AuthRateLimited, AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
-import type {
-	ContractClient,
-	ContractPathParams,
-	ContractPayload,
-} from "@ryot-app/contract/client";
+import type { ContractSuccess } from "@ryot-app/contract/client";
 import type { PluginThemeSnapshot } from "@ryot-app/contract/modules/plugins/client";
 import { RyotQLBadRequest, RyotQLInternalError } from "@ryot-app/contract/modules/ryotql/contract";
 import {
@@ -15,10 +11,10 @@ import type { PreparedRecipe } from "@ryot-app/ryotql";
 import { Effect, Layer, ManagedRuntime, Result } from "effect";
 import { describe, expect, it } from "vitest";
 
-import { AuthenticatedApi, AuthenticatedApiError } from "#/api/authenticated";
+import { AuthenticatedApiError } from "#/api/authenticated";
 import { decodeServerOrigin } from "#/api/origin";
+import { makeRyotQLApi, makeUploadsApi } from "#/api/ports.test-layer";
 import { createKernelRyotClient } from "#/api/ryot-client";
-import type { ApiScope } from "#/api/scope";
 import type { ThemeStore } from "#/modules/theme/store";
 
 const scope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.example") };
@@ -33,14 +29,17 @@ const theme: ThemeStore = {
 	getSnapshot: () => themeSnapshot,
 };
 
+const fails = (cause: unknown) => Effect.fail(new AuthenticatedApiError({ cause }));
+
 const makeRuntime = (cause: unknown) =>
 	ManagedRuntime.make(
-		Layer.succeed(AuthenticatedApi, {
-			run: () => Effect.fail(new AuthenticatedApiError({ cause })),
-		}),
+		Layer.mergeAll(makeUploadsApi(), makeRyotQLApi({ execute: () => fails(cause) })),
 	);
 
-type UploadStep = Effect.Effect<unknown, unknown>;
+type UploadStep<M extends "createIntent" | "completeIntent"> = Effect.Effect<
+	ContractSuccess<"uploads", M>,
+	AuthenticatedApiError
+>;
 
 type FetchCall = {
 	readonly url: string;
@@ -61,28 +60,26 @@ const uploadToken = { token: "temporary-1", expiresAt: "2026-01-01T00:00:00.000Z
 
 const makeUploadsRuntime = (
 	events: string[],
-	steps: { readonly createIntent: UploadStep; readonly completeIntent: UploadStep },
-) => {
-	// oxlint-disable-next-line typescript/no-unsafe-type-assertion
-	const client = {
-		uploads: {
-			createIntent: (request: { payload: ContractPayload<"uploads", "createIntent"> }) => {
-				events.push(`create-intent:${request.payload.fileName}`);
-				return steps.createIntent;
-			},
-			completeIntent: (request: { params: ContractPathParams<"uploads", "completeIntent"> }) => {
-				events.push(`complete-intent:${request.params.intentId}`);
-				return steps.completeIntent;
-			},
-		},
-	} as unknown as ContractClient;
-	return ManagedRuntime.make(
-		Layer.succeed(AuthenticatedApi, {
-			run: <A, E>(_scope: ApiScope, program: (client: ContractClient) => Effect.Effect<A, E>) =>
-				program(client).pipe(Effect.mapError((cause) => new AuthenticatedApiError({ cause }))),
-		}),
+	steps: {
+		readonly createIntent: UploadStep<"createIntent">;
+		readonly completeIntent: UploadStep<"completeIntent">;
+	},
+) =>
+	ManagedRuntime.make(
+		Layer.mergeAll(
+			makeRyotQLApi(),
+			makeUploadsApi({
+				createIntent: (_scope, request) => {
+					events.push(`create-intent:${request.payload.fileName}`);
+					return steps.createIntent;
+				},
+				completeIntent: (_scope, request) => {
+					events.push(`complete-intent:${request.params.intentId}`);
+					return steps.completeIntent;
+				},
+			}),
+		),
 	);
-};
 
 const requestUrl = (input: RequestInfo | URL) => {
 	if (typeof input === "string") {
@@ -152,7 +149,7 @@ describe("kernel Ryot client", () => {
 
 	it("interrupts a query with the caller signal and preserves its abort reason", async () => {
 		const runtime = ManagedRuntime.make(
-			Layer.succeed(AuthenticatedApi, { run: () => Effect.never }),
+			Layer.mergeAll(makeUploadsApi(), makeRyotQLApi({ execute: () => Effect.never })),
 		);
 		const controller = new AbortController();
 		const reason = new DOMException("Caller canceled", "AbortError");
@@ -213,7 +210,7 @@ describe("kernel temporary uploads", () => {
 		const calls: FetchCall[] = [];
 		const runtime = makeUploadsRuntime(events, {
 			completeIntent: Effect.succeed(uploadToken),
-			createIntent: Effect.fail(
+			createIntent: fails(
 				new UploadBadRequest({
 					reason: { code: "unsupported-file-type", contentType: "text/csv" },
 				}),
@@ -242,7 +239,7 @@ describe("kernel temporary uploads", () => {
 		const events: string[] = [];
 		const runtime = makeUploadsRuntime(events, {
 			completeIntent: Effect.succeed(uploadToken),
-			createIntent: Effect.fail(new TypeError("private network detail")),
+			createIntent: fails(new TypeError("private network detail")),
 		});
 		try {
 			const client = createKernelRyotClient(runtime, scope, theme);
@@ -294,9 +291,7 @@ describe("kernel temporary uploads", () => {
 		const calls: FetchCall[] = [];
 		const runtime = makeUploadsRuntime(events, {
 			createIntent: Effect.succeed(intent),
-			completeIntent: Effect.fail(
-				new UploadInternalError({ reason: { code: "unexpected-error" } }),
-			),
+			completeIntent: fails(new UploadInternalError({ reason: { code: "unexpected-error" } })),
 		});
 		try {
 			const client = createKernelRyotClient(runtime, scope, theme);

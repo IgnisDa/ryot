@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect, ManagedRuntime } from "effect";
 
-import { AdminApi } from "#/api/admin";
+import { GodModeApi } from "#/api/god-mode";
 import { decodeServerOrigin } from "#/api/origin";
 import { ClientLive } from "#/boot/layers";
 import { OAuthStorage } from "#/modules/auth/oauth-storage";
@@ -17,7 +17,7 @@ describe("Client layers", () => {
 			Effect.flatMap(OAuthStorage, (storage) => storage.getTokenSet(origin)),
 		);
 		expect(tokenSet).toBeNull();
-		expect(runtime.runSync(AdminApi)).toBeDefined();
+		expect(runtime.runSync(GodModeApi)).toBeDefined();
 		expect(runtime.runSync(GodModeService)).toBeDefined();
 		expect(runtime.runSync(GodModeSessionService)).toBeDefined();
 	});

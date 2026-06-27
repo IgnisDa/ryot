@@ -11,7 +11,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Effect, Layer, ManagedRuntime } from "effect";
 import { describe, expect, it } from "vitest";
 
-import { AuthenticatedApi } from "#/api/authenticated";
+import { KernelApiTestLayer } from "#/api/ports.test-layer";
 import { ManagedAssetResolutionError, ManagedAssetsService } from "#/modules/assets/managed-assets";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
 import { ArtifactSessions } from "#/modules/plugins/artifact-sessions";
@@ -25,17 +25,17 @@ import { SavedViewLoadError, SavedViewsService } from "#/modules/saved-views/ser
 import { ClientStorage } from "#/persistence/storage";
 import { getRouter } from "#/router";
 import {
-	ServerStub,
-	OAuthRouteStubs,
-	GodModeRouteStubs,
-	ProviderAddRouteStubs,
-	CustomizeRouteStubs,
-	NavigationRouteStubs,
 	theme,
 	catalog,
+	ServerStub,
 	makeAuthStub,
+	OAuthRouteStubs,
 	makeStorageStub,
+	GodModeRouteStubs,
 	makePublicApiStub,
+	CustomizeRouteStubs,
+	NavigationRouteStubs,
+	ProviderAddRouteStubs,
 } from "#/routes/-route-fixtures";
 
 const entity = table("entity", "entity");
@@ -234,7 +234,7 @@ const mountView = (
 			GodModeRouteStubs,
 			ServerStub,
 			makePublicApiStub(),
-			AuthenticatedApi.layer,
+			KernelApiTestLayer,
 			events.layer,
 			Layer.succeed(ArtifactSessions, {
 				renew: () => Effect.die("not used"),
