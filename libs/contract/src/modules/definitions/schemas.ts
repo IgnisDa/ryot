@@ -1,5 +1,6 @@
 import { Schema } from "effect";
 
+import { SandboxProviderId } from "../../schema/brands";
 import { AppSchema } from "../../schema/property-schema";
 
 export const EventDefinition = Schema.Struct({
@@ -15,6 +16,7 @@ export const EntityDefinition = Schema.Struct({
 	accentColor: Schema.String,
 	propertiesSchema: AppSchema,
 	eventSchemas: Schema.Array(EventDefinition),
+	providers: Schema.Array(Schema.Struct({ name: Schema.String, providerId: SandboxProviderId })),
 	pluginSlug: Schema.optional(Schema.NullOr(Schema.String)),
 });
 

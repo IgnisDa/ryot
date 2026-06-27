@@ -9,7 +9,7 @@ export type MetadataLookupTitleMatchCandidate = {
 	externalId: string;
 	publishYear: number | null;
 	entitySchemaSlug: "movie" | "show";
-	scriptSlug: "movie.tmdb" | "show.tmdb";
+	providerSlug: "movie.tmdb" | "show.tmdb";
 };
 
 const EXACT_MATCH_BONUS = 1;

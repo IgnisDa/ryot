@@ -19,7 +19,7 @@ describe("parseKodiSinkPayload", () => {
 
 		expect(result.failures).toEqual([]);
 		expect(result.entityGroups[0]).toMatchObject({
-			entityRef: { externalId: "1234", scriptSlug: "show.tmdb", entitySchemaSlug: "show" },
+			entityRef: { externalId: "1234", providerSlug: "show.tmdb", entitySchemaSlug: "show" },
 			events: [
 				{
 					eventSchemaSlug: "progress",
@@ -71,7 +71,7 @@ describe("getSinkAdapterResult", () => {
 		expect(result.failures).toEqual([]);
 		expect(result.entityGroups[0]?.entityRef).toMatchObject({
 			externalId: "603",
-			scriptSlug: "movie.tmdb",
+			providerSlug: "movie.tmdb",
 			entitySchemaSlug: "movie",
 		});
 	});
@@ -115,7 +115,7 @@ describe("getSinkAdapterResult", () => {
 
 		expect(result.failures).toEqual([]);
 		expect(result.entityGroups[0]).toMatchObject({
-			entityRef: { externalId: "95396", scriptSlug: "show.tmdb", entitySchemaSlug: "show" },
+			entityRef: { externalId: "95396", providerSlug: "show.tmdb", entitySchemaSlug: "show" },
 			events: [
 				{
 					episodeLocator: { type: "show", seasonNumber: 1, episodeNumber: 3 },
@@ -148,7 +148,7 @@ describe("getSinkAdapterResult", () => {
 
 		expect(result.failures).toEqual([]);
 		expect(result.entityGroups[0]).toMatchObject({
-			entityRef: { externalId: "125988", scriptSlug: "show.tmdb", entitySchemaSlug: "show" },
+			entityRef: { externalId: "125988", providerSlug: "show.tmdb", entitySchemaSlug: "show" },
 			events: [
 				{
 					properties: { consumedOn: "jellyfin_sink", progressPercent: 25 },
@@ -197,7 +197,7 @@ describe("getSinkAdapterResult", () => {
 
 		expect(result.failures).toEqual([]);
 		expect(result.entityGroups[0]).toMatchObject({
-			entityRef: { externalId: "27205", scriptSlug: "movie.tmdb", entitySchemaSlug: "movie" },
+			entityRef: { externalId: "27205", providerSlug: "movie.tmdb", entitySchemaSlug: "movie" },
 			events: [{ properties: { consumedOn: "plex_sink", progressPercent: 100 } }],
 		});
 	});
@@ -226,7 +226,7 @@ describe("getSinkAdapterResult", () => {
 
 		expect(result.failures).toEqual([]);
 		expect(result.entityGroups[0]).toMatchObject({
-			entityRef: { externalId: "93740", scriptSlug: "show.tmdb", entitySchemaSlug: "show" },
+			entityRef: { externalId: "93740", providerSlug: "show.tmdb", entitySchemaSlug: "show" },
 			events: [
 				{
 					properties: { consumedOn: "plex_sink", progressPercent: 80 },
@@ -256,7 +256,7 @@ describe("getSinkAdapterResult", () => {
 
 		expect(result.failures).toEqual([]);
 		expect(result.entityGroups[0]).toMatchObject({
-			entityRef: { externalId: "27205", scriptSlug: "movie.tmdb", entitySchemaSlug: "movie" },
+			entityRef: { externalId: "27205", providerSlug: "movie.tmdb", entitySchemaSlug: "movie" },
 		});
 	});
 
@@ -302,7 +302,7 @@ describe("getSinkAdapterResult", () => {
 
 		expect(result.failures).toEqual([]);
 		expect(result.entityGroups[0]).toMatchObject({
-			entityRef: { externalId: "27205", scriptSlug: "movie.tmdb", entitySchemaSlug: "movie" },
+			entityRef: { externalId: "27205", providerSlug: "movie.tmdb", entitySchemaSlug: "movie" },
 		});
 	});
 
@@ -350,7 +350,7 @@ describe("getSinkAdapterResult", () => {
 
 		expect(result.failures).toEqual([]);
 		expect(result.entityGroups[0]).toMatchObject({
-			entityRef: { externalId: "94997", scriptSlug: "show.tmdb", entitySchemaSlug: "show" },
+			entityRef: { externalId: "94997", providerSlug: "show.tmdb", entitySchemaSlug: "show" },
 			events: [
 				{
 					properties: { consumedOn: "max", progressPercent: 80 },

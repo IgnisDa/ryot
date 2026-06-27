@@ -167,8 +167,8 @@ const adaptMyanimelistLot = (
 			const item = parseMyanimelistItem(block, input.lot);
 			const target =
 				input.lot === "anime"
-					? { entitySchemaSlug: "anime" as const, scriptSlug: "anime.myanimelist" as const }
-					: { entitySchemaSlug: "manga" as const, scriptSlug: "manga.myanimelist" as const };
+					? { entitySchemaSlug: "anime" as const, providerSlug: "anime.myanimelist" as const }
+					: { entitySchemaSlug: "manga" as const, providerSlug: "manga.myanimelist" as const };
 			const occurredAt =
 				parseMalDate(item.myFinishDate) ?? parseMalDate(item.myStartDate) ?? nowIso();
 			const sourceLabel =
@@ -179,7 +179,7 @@ const adaptMyanimelistLot = (
 					sourceLabel,
 					kind: "resolved",
 					externalId: item.identifier,
-					scriptSlug: target.scriptSlug,
+					providerSlug: target.providerSlug,
 					entitySchemaSlug: target.entitySchemaSlug,
 				},
 				itemIndex,

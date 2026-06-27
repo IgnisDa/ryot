@@ -43,6 +43,7 @@ const kernelScript = {
 	id: scriptId,
 	userId: null,
 	pluginSlug: null,
+	providerId: null,
 	compiledFormat: 1,
 	contentHash: "hash-1",
 	source: "export {};",
@@ -115,10 +116,8 @@ const makePluginRuntime = (overrides: MockOverrides<typeof mockPluginRuntime> = 
 		_tag: "PluginRuntimeResolver",
 		listAutomations: () => Effect.succeed([]),
 		findAutomation: () => Effect.succeed(null),
-		listSchemaScripts: () => Effect.succeed([]),
 		findKernelScript: () => Effect.succeed(null),
 		findActiveScript: () => Effect.succeed(null),
-		findSchemaScriptBySlug: () => Effect.succeed(null),
 		...overrides,
 	});
 
@@ -350,7 +349,7 @@ it.effect("lists durable run attribution by its sole rule ID", () => {
 	}).pipe(Effect.provide(layer));
 });
 
-it.effect("resolves user, row-owner, and system execution principals", () => {
+it.effect("resolves user and row-owner execution principals", () => {
 	const cases = [
 		{ expected: userId, rowUserId: userId, rule: storedRule() },
 		{

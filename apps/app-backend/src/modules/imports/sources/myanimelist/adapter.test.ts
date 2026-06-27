@@ -40,7 +40,7 @@ describe("adaptMyanimelistExports", () => {
 				kind: "resolved",
 				externalId: "101",
 				entitySchemaSlug: "anime",
-				scriptSlug: "anime.myanimelist",
+				providerSlug: "anime.myanimelist",
 			},
 			events: [
 				{
@@ -66,7 +66,7 @@ describe("adaptMyanimelistExports", () => {
 				kind: "resolved",
 				externalId: "202",
 				entitySchemaSlug: "manga",
-				scriptSlug: "manga.myanimelist",
+				providerSlug: "manga.myanimelist",
 			},
 		});
 	});

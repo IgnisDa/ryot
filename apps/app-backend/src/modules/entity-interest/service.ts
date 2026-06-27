@@ -9,7 +9,7 @@ import type { RowItem } from "@ryot/contract/modules/query-engine/language";
 import {
 	EntityId,
 	EntitySchemaSlug,
-	SandboxScriptId,
+	SandboxProviderId,
 	type UserId,
 } from "@ryot/contract/schema/brands";
 import { buildEntityInterestQueryDocument } from "@ryot/query-engine/recipes/app";
@@ -49,11 +49,11 @@ type InterestRow = {
 	readonly populatedAt: string | null;
 	readonly entitySchemaSlug: EntitySchemaSlug;
 	readonly translationStatus: TranslationStatus;
-	readonly sandboxScriptId: SandboxScriptId | null;
+	readonly providerId: SandboxProviderId | null;
 };
 
 const toInterestRow = Effect.fn("toInterestRow")(function* (row: RowItem) {
-	const sandboxScriptId = yield* getOptionalStringField(row, "sandboxScriptId");
+	const providerId = yield* getOptionalStringField(row, "providerId");
 	const translationStatus = yield* Schema.decodeUnknown(TranslationStatus)(
 		yield* requireStringField(row, "translationStatus"),
 	).pipe(Effect.orDie);
@@ -64,7 +64,7 @@ const toInterestRow = Effect.fn("toInterestRow")(function* (row: RowItem) {
 		externalId: yield* getOptionalStringField(row, "externalId"),
 		properties: (yield* requireFieldValue(row, "properties")).value,
 		populatedAt: yield* getOptionalIsoStringField(row, "populatedAt"),
-		sandboxScriptId: sandboxScriptId ? SandboxScriptId.make(sandboxScriptId) : null,
+		providerId: providerId ? SandboxProviderId.make(providerId) : null,
 		entitySchemaSlug: EntitySchemaSlug.make(yield* requireStringField(row, "entitySchemaSlug")),
 	} satisfies InterestRow;
 });
@@ -82,14 +82,14 @@ export class InterestReconciler extends Effect.Service<InterestReconciler>()("In
 		): Effect.Effect<TerminalUpdate | null> =>
 			Effect.gen(function* () {
 				if (row.populatedAt === null) {
-					if (row.externalId !== null && row.sandboxScriptId !== null) {
+					if (row.externalId !== null && row.providerId !== null) {
 						yield* populationTrigger.request({
 							userId: user.id,
 							entityId: row.id,
 							origin: { kind: "api" },
 							externalId: row.externalId,
 							entitySchemaSlug: row.entitySchemaSlug,
-							sandboxScriptId: row.sandboxScriptId,
+							providerId: row.providerId,
 						});
 						return null;
 					}
@@ -100,13 +100,13 @@ export class InterestReconciler extends Effect.Service<InterestReconciler>()("In
 					if (
 						user.preferences.language !== null &&
 						row.externalId !== null &&
-						row.sandboxScriptId !== null
+						row.providerId !== null
 					) {
 						yield* translations.requestFill({
 							entityId: row.id,
 							externalId: row.externalId,
 							properties: row.properties,
-							scriptId: row.sandboxScriptId,
+							providerId: row.providerId,
 							entitySchemaSlug: row.schemaSlug,
 							language: user.preferences.language,
 						});

@@ -1,7 +1,7 @@
 import { expect, it } from "@effect/vitest";
 import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import { SandboxRunError } from "@ryot/contract/errors";
-import { EntityId, SandboxScriptId } from "@ryot/contract/schema/brands";
+import { EntityId, SandboxProviderId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
 import { makeWorkflowActivityEngine } from "#lib/test-utils/effect";
@@ -17,7 +17,7 @@ const payload = {
 	externalId: "provider-movie",
 	executionId: "media-monitoring-run",
 	entityId: EntityId.make("media-monitoring-entity"),
-	sandboxScriptId: SandboxScriptId.make("provider-script"),
+	providerId: SandboxProviderId.make("provider-1"),
 } satisfies MediaMonitoringRefreshPayload;
 
 type ExecuteStub = (
@@ -51,7 +51,7 @@ it.effect("refreshes monitored media through the provider population owner", () 
 						userId: null,
 						mode: "refresh",
 						externalId: payload.externalId,
-						scriptId: payload.sandboxScriptId,
+						providerId: payload.providerId,
 						origin: { kind: "provider_refresh" },
 						entitySchemaSlug: payload.entitySchemaSlug,
 						executionId: `${payload.executionId}-provider-refresh`,

@@ -9,7 +9,7 @@ export const entityBuiltinColumns: ReadonlySet<string> = new Set([
 	"createdAt",
 	"updatedAt",
 	"externalId",
-	"sandboxScriptId",
+	"providerId",
 ]);
 
 export const eventJoinBuiltinColumns: ReadonlySet<string> = new Set([

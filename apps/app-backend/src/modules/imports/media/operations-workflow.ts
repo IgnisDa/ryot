@@ -1,15 +1,15 @@
 import * as PersistedQueue from "@effect/experimental/PersistedQueue";
 import { FileSystem, HttpClient, Path } from "@effect/platform";
+import { Activity } from "@effect/workflow";
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
-import { toSandboxRunError } from "@ryot/contract/errors";
-import type { SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
+import { SandboxRunError, toSandboxRunError } from "@ryot/contract/errors";
+import { type SandboxProviderId, SandboxScriptId, type UserId } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { DbRunner } from "#lib/infrastructure/db/service";
 import { RedisService } from "#lib/infrastructure/redis";
 import { AddEntityToCollectionWorkflow } from "#modules/collections/add-entity-to-collection-workflow";
-import { EntitiesRepository } from "#modules/entities/repository";
 import { decodeSandboxDriverResult } from "#modules/entity-import/population";
 import { LibraryEntityImportWorkflow } from "#modules/library-membership/library-entity-import-workflow";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
@@ -28,14 +28,26 @@ const resolveSandboxEntityExternalId = (input: {
 	userId: UserId;
 	executionId: string;
 	identifierType: string;
-	scriptId: SandboxScriptId;
+	providerId: SandboxProviderId;
 }) =>
-	processSandboxExecution({
-		userId: input.userId,
-		driverName: "resolve",
-		scriptId: input.scriptId,
-		executionId: input.executionId,
-		context: { value: input.value, identifierType: input.identifierType },
+	Effect.gen(function* () {
+		const runWithDb = yield* DbRunner;
+		const pluginRuntime = yield* PluginRuntimeResolver;
+		const scriptId = yield* Activity.make({
+			error: SandboxRunError,
+			success: SandboxScriptId,
+			name: `resolve-provider-resolve-script-${input.executionId}`,
+			execute: runWithDb(pluginRuntime.resolveResolveScript(input.providerId)).pipe(
+				Effect.map(({ id }) => id),
+				Effect.mapError(toSandboxRunError),
+			),
+		});
+		return yield* processSandboxExecution({
+			scriptId,
+			executionId: input.executionId,
+			authority: { type: "user", userId: input.userId },
+			context: { value: input.value, identifierType: input.identifierType },
+		});
 	}).pipe(
 		Effect.mapError(toSandboxRunError),
 		Effect.flatMap((result) =>
@@ -51,14 +63,26 @@ const searchSandboxEntities = (input: {
 	query: string;
 	userId: UserId;
 	executionId: string;
-	scriptId: SandboxScriptId;
+	providerId: SandboxProviderId;
 }) =>
-	processSandboxExecution({
-		userId: input.userId,
-		driverName: "search",
-		scriptId: input.scriptId,
-		executionId: input.executionId,
-		context: { query: input.query, page: 1, pageSize: 5 },
+	Effect.gen(function* () {
+		const runWithDb = yield* DbRunner;
+		const pluginRuntime = yield* PluginRuntimeResolver;
+		const scriptId = yield* Activity.make({
+			error: SandboxRunError,
+			success: SandboxScriptId,
+			name: `resolve-provider-search-script-${input.executionId}`,
+			execute: runWithDb(pluginRuntime.resolveSearchScript(input.providerId)).pipe(
+				Effect.map(({ id }) => id),
+				Effect.mapError(toSandboxRunError),
+			),
+		});
+		return yield* processSandboxExecution({
+			scriptId,
+			executionId: input.executionId,
+			authority: { type: "user", userId: input.userId },
+			context: { query: input.query, page: 1, pageSize: 5 },
+		});
 	}).pipe(
 		Effect.mapError(toSandboxRunError),
 		Effect.flatMap((result) =>
@@ -81,7 +105,6 @@ export const MediaImportWorkflowOperationsLive = Layer.effect(
 		const httpClient = yield* HttpClient.HttpClient;
 		const repository = yield* SandboxRepository;
 		const pluginRuntime = yield* PluginRuntimeResolver;
-		const entitiesRepository = yield* EntitiesRepository;
 		const queueFactory = yield* PersistedQueue.PersistedQueueFactory;
 
 		return {
@@ -93,7 +116,17 @@ export const MediaImportWorkflowOperationsLive = Layer.effect(
 					Effect.provideService(RedisService, redis),
 					Effect.provideService(DbRunner, runWithDb),
 					Effect.provideService(HttpClient.HttpClient, httpClient),
-					Effect.provideService(EntitiesRepository, entitiesRepository),
+				),
+			resolveProvider: (providerSlug) =>
+				runWithDb(pluginRuntime.findSchemaProviderBySlug(providerSlug)).pipe(
+					Effect.map((resolved) =>
+						resolved
+							? {
+									providerId: resolved.provider.id,
+									entitySchemaSlug: resolved.entitySchemaSlug,
+								}
+							: null,
+					),
 				),
 			searchEntities: (input) =>
 				searchSandboxEntities(input).pipe(
@@ -110,7 +143,7 @@ export const MediaImportWorkflowOperationsLive = Layer.effect(
 						payload: {
 							origin: input.origin,
 							userId: input.userId,
-							scriptId: input.scriptId,
+							providerId: input.providerId,
 							externalId: input.externalId,
 							executionId: input.executionId,
 							entitySchemaSlug: input.entitySchemaSlug,

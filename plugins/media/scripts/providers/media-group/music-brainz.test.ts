@@ -1,9 +1,9 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import { Effect } from "@ryot/sandbox-sdk/effect";
-import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+import { defineSandboxTestHost, runSandboxTestScript } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
-import { details, manifest, search } from "./music-brainz.sandbox";
+import { details, manifest, search } from "./music-brainz";
 
 type MusicBrainzGroupHost = SandboxHost<typeof manifest.capabilities>;
 
@@ -30,7 +30,7 @@ describe("music-group.music-brainz sandbox script", () => {
 		}));
 
 		return Effect.runPromise(
-			runSandboxTestDriver(search, { query: "album", page: 1, pageSize: 20 }, host, execution).pipe(
+			runSandboxTestScript(search, { query: "album", page: 1, pageSize: 20 }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.items).toEqual([
 						{
@@ -83,7 +83,7 @@ describe("music-group.music-brainz sandbox script", () => {
 		});
 
 		return Effect.runPromise(
-			runSandboxTestDriver(details, { externalId: "g1" }, host, execution).pipe(
+			runSandboxTestScript(details, { externalId: "g1" }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.name).toBe("Album One");
 					expect(result.relatedEntityGroups).toEqual([
@@ -95,13 +95,13 @@ describe("music-group.music-brainz sandbox script", () => {
 								{
 									name: "Track One",
 									externalId: "r1",
-									scriptSlug: "music.music-brainz",
+									providerSlug: "music.music-brainz",
 									relationshipProperties: { order: 1 },
 								},
 								{
 									name: "Track Three",
 									externalId: "r3",
-									scriptSlug: "music.music-brainz",
+									providerSlug: "music.music-brainz",
 									relationshipProperties: { order: 3 },
 								},
 							],

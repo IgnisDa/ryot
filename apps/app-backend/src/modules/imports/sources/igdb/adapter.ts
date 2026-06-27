@@ -41,7 +41,7 @@ export const adaptIgdbCsv = (
 				externalId,
 				sourceLabel,
 				kind: "resolved",
-				scriptSlug: "video-game.igdb",
+				providerSlug: "video-game.igdb",
 				entitySchemaSlug: "video-game",
 			},
 			itemIndex,
