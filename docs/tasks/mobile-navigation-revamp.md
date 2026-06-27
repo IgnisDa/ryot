@@ -226,20 +226,7 @@ Wuthering Heights
 Same All Movies state
 ```
 
-Store a return context containing at least:
-
-```ts
-type ReturnContext = {
-	workspaceId: string;
-	viewId: string;
-	query?: string;
-	filters?: Record<string, unknown>;
-	sort?: string;
-	scrollOffset?: number;
-};
-```
-
-When a detail page is entered through a deep link and has no previous in-app route, the back button should fall back to the relevant workspace home. Do not render a nonfunctional back arrow.
+When a detail page is entered through a deep link and has no previous in-app route, the back button should fall back to the last selected workspace home (stored in an atom). Do not render a nonfunctional back arrow.
 
 ## 4. Gesture and system-back rules
 
