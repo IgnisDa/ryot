@@ -203,6 +203,16 @@ TanStack Router replaces React Router and Expo Router in the new client architec
 
 TanStack Start is not required. Ryot already has an independent backend and does not need a React server framework for the main client.
 
+### Greenfield replacement
+
+The React DOM kernel is a greenfield replacement for the existing Expo / React Native client.
+
+Before implementation begins, the existing `kernel/client` application moves unchanged under `crates/` as temporary reference code. A new TanStack Router React DOM application is then created at `kernel/client`.
+
+Existing functionality is ported into the architecture in this document rather than preserved through adapters. There is no compatibility layer between the Expo client and the new kernel, no shared rendering path, and no migration requirement for client state or production user data.
+
+The temporary reference application and the rest of `crates/` are deleted before this branch merges to `main`.
+
 ### Plugin applications
 
 The supported V1 client authoring environment is intentionally narrow:
@@ -299,11 +309,25 @@ A plugin's `package.json` may exist for the author's local development environme
 
 This mirrors the backend sandbox philosophy: plugin execution is compiled against a deliberately bounded runtime rather than an arbitrary package ecosystem.
 
+The uploaded plugin source archive contains the canonical manifest plus the backend and client sources declared by that manifest:
+
+```text
+manifest.json
+backend/**
+client/**
+```
+
+Client-local CSS and assets live under `client/**`. The source archive remains distinct from the compiled client artifact.
+
 ---
 
 ## 6. Bun client compiler
 
 Bun is the client bundler/compiler.
+
+Client compilation is owned by a new `@ryot/client-plugin-compiler` package. `@ryot/sandbox-compiler` remains dedicated to backend sandbox definitions and output. The two compilers may share small utilities when proven useful, but they do not share an import policy, output model, or public compiler API.
+
+The server runs the client compiler during plugin installation and update. The plugin source archive has a package source hash; the emitted client artifact has a separate artifact hash.
 
 The compiler:
 
@@ -373,7 +397,7 @@ The important invariants are:
 - a plugin update produces a new artifact
 - a live plugin document is not mutated underneath a running React tree
 
-A mounted iframe may continue using artifact A after an update. Newly mounted plugin sessions use artifact B. A deliberate reload may transition the live plugin to the new artifact.
+When an update replaces artifact A with artifact B, the kernel force-reloads any mounted iframe for that installation. An old client artifact must not continue calling a newer backend plugin revision.
 
 ---
 
@@ -537,7 +561,7 @@ Third-party plugins must not import or invoke native plugins themselves.
 
 A plugin iframe and the kernel execute in separate JavaScript/document contexts.
 
-Communication occurs through a versioned message/RPC bridge.
+Communication occurs through a version-tagged message/RPC bridge.
 
 The preferred web primitive is `MessageChannel`, with the kernel explicitly handing a communication port to the top-level plugin document.
 
@@ -562,7 +586,7 @@ The bridge needs:
 - events
 - subscriptions
 - cancellation where useful
-- protocol versioning
+- exact protocol-version validation
 - installation-bound session identity
 - capability negotiation
 
@@ -631,7 +655,9 @@ Plugin-facing React hooks may be provided by the SDK where useful.
 
 Authenticated third-party integrations should normally be implemented in the plugin's backend code, where credentials, rate limiting, durable work, and external service access can be handled safely and consistently.
 
-Ordinary public browser networking may be permitted according to the final plugin CSP/network policy, but it must not grant access to Ryot credentials.
+Plugin applications may use ordinary public browser networking directly. Installing a plugin means trusting it with every piece of user data exposed through its client SDK APIs, including the ability to transmit that data to external services.
+
+Ryot does not add an outbound-origin allowlist, network permission system, or data-exfiltration prevention layer. Plugin documents still receive no Ryot authentication credentials and no privileged access to the kernel document.
 
 ---
 
@@ -708,7 +734,7 @@ reset-password
 customize-sidebar
 ```
 
-It is exactly the set of global route segments the kernel client owns, so adding or removing a top-level client route means updating it. `reserved-route-slugs.test.ts` in the client's navigation module derives the segments from `src/app` and fails when the two drift apart.
+It is exactly the set of global route segments the kernel client owns, so adding or removing a top-level client route means updating it. The kernel client must test that the static top-level segments in its TanStack Router route tree exactly match this set.
 
 `validatePluginManifestPolicy` enforces the set for system and user plugins alike, before a manifest is persisted or activated. A reserved slug fails with `PluginSlugReservedError`, which reaches API clients as the `slug-reserved` request reason — the same reason a private plugin gets when it collides with a shipped system plugin.
 
@@ -747,14 +773,14 @@ When authenticated:
 ```text
 /
   │
-  ├── valid remembered workspace exists
+  ├── valid visible remembered workspace exists
   │      └── replace("/<lastWorkspace>")
   │
   └── otherwise
-         └── replace("/<first enabled workspace>")
+         └── replace("/<first visible workspace>")
 ```
 
-A fresh installation chooses the first enabled workspace according to the kernel's normal ordering.
+A fresh installation chooses the first workspace visible in the switcher according to the kernel's normal ordering.
 
 ### Plugin routes
 
@@ -929,11 +955,15 @@ The plugin maps the entity schema to its renderer.
 
 Entity ownership must never be guessed only from an unqualified schema slug.
 
-### Disabled plugins and historical data
+The kernel resolves provenance through an application-owned named RyotQL recipe with a colocated result schema and decoder. The recipe follows the normal kernel data path through Effect atoms and authenticated transport and returns the persisted entity-schema plugin identity required to derive the current user's installation.
 
-A disabled plugin should not contribute active home/navigation/custom-route surfaces.
+Media-specific entity recipes remain in the Media plugin. The kernel recipe resolves the renderer owner; the selected plugin then loads its domain data.
 
-Persisted historical data must remain resolvable. If the corresponding client artifact is still compatible and available, the kernel may load it for historical entity rendering even though the plugin is not otherwise active in navigation.
+### Disabled plugin navigation
+
+A disabled installation is omitted from `/` bootstrap selection and the workspace switcher.
+
+Direct navigation to its plugin-private routes remains valid, and entity routes may still delegate to its client artifact. The client does not add a separate execution block. If the backend rejects an operation for a disabled installation, the normal operation error is returned to the plugin UI.
 
 ---
 
@@ -1020,6 +1050,8 @@ RouteTarget
 
 This route resolver should be a small, explicit, heavily tested kernel subsystem.
 
+The kernel obtains its installation and client-artifact catalog through an application-owned named RyotQL recipe. Its decoded result includes the stable plugin and installation identities, slug, health, disabled state, package source hash, client artifact hash, client API version, and declared capabilities needed by routing and `PluginHost`.
+
 ---
 
 ## 22. Plugin iframe lifecycle
@@ -1058,6 +1090,8 @@ A long-lived plugin document preserves:
 The kernel may discard inactive plugin iframes under memory pressure.
 
 The initial implementation can keep only the active plugin alive and add an LRU/warm-cache policy later if measurements justify it.
+
+A package update is the exception to route-stable iframe reuse. When an installation's client artifact hash changes, the kernel destroys its existing iframe and mounts the new artifact.
 
 ---
 
@@ -1296,7 +1330,7 @@ live-activities
 
 Capability declarations support:
 
-- runtime compatibility checks
+- runtime capability availability checks
 - permission UX
 - auditing
 - platform-specific availability
@@ -1306,27 +1340,19 @@ The capability system does not need to become an elaborate security sandbox in V
 
 ---
 
-## 31. Versioning and compatibility
+## 31. V1 version markers and reload behavior
 
-At minimum, the following concepts are independently versioned:
+V1 records exact markers for:
 
 1. client SDK/API level
 2. bridge protocol level
 3. client artifact format/compiler version
 
-The native application/kernel advertises the bridge/client API levels it supports.
+Plugin source declares the exact client API level it targets. The compiler emits the exact bridge protocol, artifact format, and compiler versions into artifact metadata. The kernel validates exact expected values before execution.
 
-A plugin client artifact declares the minimum level it requires.
+The greenfield V1 implementation does not support version ranges, compatibility negotiation, protocol adapters, legacy bridges, or client-state migrations. The kernel, SDKs, compiler, and built-in plugin artifacts advance together. An unexpected marker is a build or installation error, not a request for fallback behavior.
 
-If the client is too old, the kernel must show a clear incompatibility state such as:
-
-```text
-This plugin requires a newer Ryot client.
-```
-
-Do not attempt to execute an incompatible artifact.
-
-Protocol evolution should prefer additive changes.
+Plugin updates force-reload the mounted iframe so one bridge session never spans package revisions.
 
 ---
 
@@ -1488,6 +1514,9 @@ V1 does not support:
 - TanStack Query
 - deep sharing of kernel JavaScript globals with plugin documents
 - direct plugin access to Ryot authentication credentials
+- outbound network permission or origin-allowlist policy
+- Expo-to-DOM client adapters or migrated client state
+- bridge protocol compatibility ranges or legacy adapters
 
 ---
 
@@ -1497,8 +1526,9 @@ The high-level architecture does not depend on deciding these upfront:
 
 - exact iframe sandbox flags
 - exact plugin document origin mechanism
-- exact CSP/network rules
+- exact CSP directives used to isolate kernel privileges
 - single-file versus multi-file client artifact
+- client artifact storage, retention, and garbage collection
 - exact bridge wire encoding
 - exact set of initial SDK methods
 - exact `client-ui-sdk` component catalog
@@ -1512,7 +1542,61 @@ These should be resolved through implementation spikes and real Media/Fitness re
 
 ---
 
-## 39. Final architecture
+## 39. Implementation sequence
+
+Implementation proceeds through tracer bullets rather than building every SDK and UI surface upfront.
+
+### 39.1 Fresh kernel
+
+1. move the Expo / React Native client from `kernel/client` into `crates/` as temporary reference code
+2. create the new React DOM and TanStack Router kernel at `kernel/client`
+3. retain Effect and `@effect/atom-react` as the kernel async/reactive state model
+4. do not create adapters between the old and new clients
+
+### 39.2 Web fixture tracer
+
+The first tracer proves one fixture plugin end to end on the web:
+
+```text
+plugin client source in archive
+  -> server-side client compilation
+  -> immutable content-addressed artifact
+  -> RyotQL installation/artifact catalog
+  -> kernel route resolution
+  -> isolated iframe bootstrap
+  -> MessageChannel bridge
+  -> plugin home and one private route
+  -> one authenticated backend operation
+  -> theme update
+  -> crash/reload handling
+  -> plugin update and forced artifact reload
+```
+
+Only the SDK and UI primitives required by this tracer are introduced.
+
+### 39.3 Capacitor tracer
+
+The second tracer runs the same compiled fixture artifact inside Capacitor on iOS and Android. It validates WebView loading, bridge startup, deep links, application lifecycle, keyboard behavior, and platform Back behavior without adding domain-specific native APIs.
+
+### 39.4 Media entity tracer
+
+The third tracer ports one real Media entity surface:
+
+```text
+/e/:entityId
+  -> kernel RyotQL provenance recipe
+  -> installation-aware RouteTarget
+  -> Media client artifact
+  -> Media-owned entity renderer and data recipes
+```
+
+This proves that built-in plugins use the third-party path and that the kernel remains domain-agnostic. Further Media, Fitness, UI SDK, storage, and native capability work follows concrete requirements discovered while porting the remaining application.
+
+The temporary `crates/` tree is deleted after required behavior has been ported and before the branch merges to `main`.
+
+---
+
+## 40. Final architecture
 
 The resulting ownership model is:
 
@@ -1538,7 +1622,7 @@ saved-view rendering
 settings
 plugin lifecycle
 plugin client compilation/loading
-client bridge and compatibility
+client bridge and exact version validation
 design system / client UI SDK
 authenticated transport
 persistent client storage primitive
