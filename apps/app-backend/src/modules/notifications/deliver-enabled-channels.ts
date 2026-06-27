@@ -7,18 +7,18 @@ import type {
 	NotificationDeliveryResult,
 	NotificationDeliveryWorkflowPayload,
 } from "./notification-delivery-workflow";
-import { NotificationsRepository, type NotificationPlatformRecord } from "./repository";
+import { NotificationsRepository, type NotificationChannelRecord } from "./repository";
 
 const toDeliveryResult = (
-	platform: NotificationPlatformRecord,
+	channel: NotificationChannelRecord,
 	status: NotificationDeliveryResult["status"],
 ): NotificationDeliveryResult => ({
 	status,
-	platformId: platform.id,
-	platform: platform.platform,
+	channelId: channel.id,
+	channel: channel.channel,
 });
 
-export const deliverEnabledPlatforms = Effect.fn("deliverEnabledPlatforms")(function* (
+export const deliverEnabledChannels = Effect.fn("deliverEnabledChannels")(function* (
 	payload: NotificationDeliveryWorkflowPayload,
 ) {
 	const runWithDb = yield* DbRunner;
@@ -26,21 +26,21 @@ export const deliverEnabledPlatforms = Effect.fn("deliverEnabledPlatforms")(func
 	const delivery = yield* NotificationDeliveryService;
 
 	const eventType = payload.request.kind === "event" ? payload.request.eventType : undefined;
-	const platforms = yield* runWithDb(
+	const channels = yield* runWithDb(
 		repository.listEnabledForUser({ userId: payload.userId, eventType }),
 	);
 
 	return yield* Effect.forEach(
-		platforms,
-		(platform) => {
+		channels,
+		(channel) => {
 			const message =
 				payload.request.kind === "test"
-					? `This is a test notification for platform: ${platform.platform}`
+					? `This is a test notification for channel: ${channel.channel}`
 					: payload.request.message;
-			return delivery.send({ message, platformSpecifics: platform.platformSpecifics }).pipe(
+			return delivery.send({ message, channelSpecifics: channel.channelSpecifics }).pipe(
 				Effect.as<NotificationDeliveryResult["status"]>("sent"),
 				Effect.orElseSucceed(() => "failed" as const),
-				Effect.map((status) => toDeliveryResult(platform, status)),
+				Effect.map((status) => toDeliveryResult(channel, status)),
 			);
 		},
 		{ concurrency: 4 },

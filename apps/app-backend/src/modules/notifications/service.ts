@@ -2,14 +2,14 @@ import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { badRequest, notFound } from "@ryot/contract/errors";
 import type {
-	CreateNotificationPlatformBody,
-	UpdateNotificationPlatformBody,
+	CreateNotificationChannelBody,
+	UpdateNotificationChannelBody,
 } from "@ryot/contract/modules/notifications/schemas";
 import {
 	notificationEventTypes,
 	type NotificationEventType,
 } from "@ryot/contract/modules/notifications/types";
-import type { NotificationPlatformId, UserId } from "@ryot/contract/schema/brands";
+import type { NotificationChannelId, UserId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
@@ -36,47 +36,47 @@ export class NotificationsService extends Effect.Service<NotificationsService>()
 
 			const create = Effect.fn("NotificationsService.create")(function* (
 				user: CurrentUserValue,
-				body: CreateNotificationPlatformBody,
+				body: CreateNotificationChannelBody,
 			) {
-				if (body.platform !== body.platformSpecifics.kind) {
-					return yield* badRequest("platform must match platformSpecifics.kind");
+				if (body.channel !== body.channelSpecifics.kind) {
+					return yield* badRequest("channel must match channelSpecifics.kind");
 				}
 
-				const platform = yield* runWithDb(
+				const channel = yield* runWithDb(
 					repository.createForUser({
 						userId: user.id,
-						platform: body.platform,
+						channel: body.channel,
 						isDisabled: body.isDisabled ?? false,
-						platformSpecifics: body.platformSpecifics,
+						channelSpecifics: body.channelSpecifics,
 						configuredEvents: [...(body.configuredEvents ?? defaultConfiguredEvents)],
 					}),
 				);
-				return { id: platform.id };
+				return { id: channel.id };
 			});
 
 			const update = Effect.fn("NotificationsService.update")(function* (
 				user: CurrentUserValue,
-				platformId: NotificationPlatformId,
-				body: UpdateNotificationPlatformBody,
+				channelId: NotificationChannelId,
+				body: UpdateNotificationChannelBody,
 			) {
-				const platform = yield* runWithDb(
-					repository.updateForUser({ body, platformId, userId: user.id }),
+				const channel = yield* runWithDb(
+					repository.updateForUser({ body, channelId, userId: user.id }),
 				);
-				if (!platform) {
-					return yield* notFound("Notification platform not found");
+				if (!channel) {
+					return yield* notFound("Notification channel not found");
 				}
-				return platform;
+				return channel;
 			});
 
 			const remove = Effect.fn("NotificationsService.delete")(function* (
 				user: CurrentUserValue,
-				platformId: NotificationPlatformId,
+				channelId: NotificationChannelId,
 			) {
-				const deleted = yield* runWithDb(repository.deleteForUser({ platformId, userId: user.id }));
+				const deleted = yield* runWithDb(repository.deleteForUser({ channelId, userId: user.id }));
 				if (!deleted) {
-					return yield* notFound("Notification platform not found");
+					return yield* notFound("Notification channel not found");
 				}
-				return { id: platformId };
+				return { id: channelId };
 			});
 
 			const test = Effect.fn("NotificationsService.test")(function* (user: CurrentUserValue) {

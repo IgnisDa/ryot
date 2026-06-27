@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 
-export const NotificationPlatformKind = Schema.Literal(
+export const NotificationChannelKind = Schema.Literal(
 	"ntfy",
 	"email",
 	"gotify",
@@ -12,9 +12,9 @@ export const NotificationPlatformKind = Schema.Literal(
 	"telegram",
 );
 
-export type NotificationPlatformKind = typeof NotificationPlatformKind.Type;
+export type NotificationChannelKind = typeof NotificationChannelKind.Type;
 
-export const notificationPlatformKinds = NotificationPlatformKind.literals;
+export const notificationChannelKinds = NotificationChannelKind.literals;
 
 export const NotificationEventType = Schema.Literal(
 	"review_posted",

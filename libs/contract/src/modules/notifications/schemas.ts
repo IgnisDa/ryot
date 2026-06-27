@@ -1,8 +1,8 @@
 import { Schema } from "effect";
 
-import { NotificationPlatformId } from "../../schema/brands";
+import { NotificationChannelId } from "../../schema/brands";
 import { Email, HttpUrl } from "../../schema/utils";
-import { NotificationEventType, NotificationPlatformKind } from "./types";
+import { NotificationChannelKind, NotificationEventType } from "./types";
 
 const AppriseSpecifics = Schema.Struct({
 	baseUrl: HttpUrl,
@@ -58,7 +58,7 @@ const TelegramSpecifics = Schema.Struct({
 	kind: Schema.Literal("telegram"),
 });
 
-export const NotificationPlatformSpecifics = Schema.Union(
+export const NotificationChannelSpecifics = Schema.Union(
 	NtfySpecifics,
 	EmailSpecifics,
 	GotifySpecifics,
@@ -70,32 +70,32 @@ export const NotificationPlatformSpecifics = Schema.Union(
 	PushBulletSpecifics,
 );
 
-export type NotificationPlatformSpecifics = typeof NotificationPlatformSpecifics.Type;
+export type NotificationChannelSpecifics = typeof NotificationChannelSpecifics.Type;
 
-export const ListedNotificationPlatform = Schema.Struct({
+export const ListedNotificationChannel = Schema.Struct({
 	createdAt: Schema.String,
 	updatedAt: Schema.String,
 	description: Schema.String,
-	id: NotificationPlatformId,
+	id: NotificationChannelId,
 	isDisabled: Schema.Boolean,
-	platform: NotificationPlatformKind,
+	channel: NotificationChannelKind,
 	configuredEvents: Schema.Array(NotificationEventType),
 });
 
-export type ListedNotificationPlatform = typeof ListedNotificationPlatform.Type;
+export type ListedNotificationChannel = typeof ListedNotificationChannel.Type;
 
-export const CreateNotificationPlatformBody = Schema.Struct({
-	platform: NotificationPlatformKind,
-	platformSpecifics: NotificationPlatformSpecifics,
+export const CreateNotificationChannelBody = Schema.Struct({
+	channel: NotificationChannelKind,
+	channelSpecifics: NotificationChannelSpecifics,
 	isDisabled: Schema.optional(Schema.Boolean),
 	configuredEvents: Schema.optional(Schema.Array(NotificationEventType)),
 });
 
-export type CreateNotificationPlatformBody = typeof CreateNotificationPlatformBody.Type;
+export type CreateNotificationChannelBody = typeof CreateNotificationChannelBody.Type;
 
-export const UpdateNotificationPlatformBody = Schema.Struct({
+export const UpdateNotificationChannelBody = Schema.Struct({
 	isDisabled: Schema.optional(Schema.Boolean),
 	configuredEvents: Schema.optional(Schema.Array(NotificationEventType)),
 });
 
-export type UpdateNotificationPlatformBody = typeof UpdateNotificationPlatformBody.Type;
+export type UpdateNotificationChannelBody = typeof UpdateNotificationChannelBody.Type;
