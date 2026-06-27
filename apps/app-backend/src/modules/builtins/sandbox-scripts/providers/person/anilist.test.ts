@@ -1,57 +1,61 @@
+import type { SandboxHost } from "@ryot/sandbox-sdk";
+import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
-import { type HostFunction, httpSuccess, runProviderDriver, toRecord } from "../test-utils";
-import anilistPersonScriptCode from "./anilist.sandbox.js" with { type: "text" };
+import { details, manifest } from "./anilist.sandbox";
 
-const runAnilistPersonDetails = (context: unknown, hostFunctions: Record<string, HostFunction>) =>
-	runProviderDriver(anilistPersonScriptCode, context, hostFunctions);
+type AnilistPersonHost = SandboxHost<typeof manifest.capabilities>;
+
+const httpSuccess = (body: unknown) =>
+	Promise.resolve({
+		success: true as const,
+		data: { status: 200, headers: {}, body: JSON.stringify(body) },
+	});
+
+const makeHost = (httpCall: AnilistPersonHost["httpCall"]) =>
+	defineSandboxTestHost(manifest, { httpCall });
+
+const execution = { metadata: {}, sandboxScriptId: "script_test" };
 
 describe("person.anilist sandbox script", () => {
-	it("emits authoritative anime and manga credit groups", () =>
-		runAnilistPersonDetails(
-			{ externalId: "1" },
-			{
-				httpCall: () =>
-					httpSuccess({
-						data: {
-							Staff: {
-								id: 1,
-								gender: null,
-								homeTown: null,
-								dateOfBirth: {},
-								dateOfDeath: {},
-								description: null,
-								image: { large: null },
-								name: { full: "Creator" },
-								characterMedia: {
-									pageInfo: { hasNextPage: false },
-									edges: [
-										{
-											characters: [{ name: { full: "Hero" } }],
-											node: { id: 2, type: "ANIME", title: { userPreferred: "Anime Credit" } },
-										},
-									],
+	it("emits authoritative anime and manga credit groups", () => {
+		const host = makeHost(() =>
+			httpSuccess({
+				data: {
+					Staff: {
+						id: 1,
+						gender: null,
+						homeTown: null,
+						dateOfBirth: {},
+						dateOfDeath: {},
+						description: null,
+						image: { large: null },
+						name: { full: "Creator" },
+						characterMedia: {
+							pageInfo: { hasNextPage: false },
+							edges: [
+								{
+									characters: [{ name: { full: "Hero" } }],
+									node: { id: 2, type: "ANIME", title: { userPreferred: "Anime Credit" } },
 								},
-								staffMedia: {
-									pageInfo: { hasNextPage: false },
-									edges: [
-										{
-											staffRole: "Writer",
-											node: {
-												id: 3,
-												type: "MANGA",
-												title: { userPreferred: "Manga Credit" },
-											},
-										},
-									],
-								},
-							},
+							],
 						},
-					}),
-			},
-		).then((rawDetails) => {
-			const details = toRecord(rawDetails);
-			expect(details["relatedEntityGroups"]).toEqual([
+						staffMedia: {
+							pageInfo: { hasNextPage: false },
+							edges: [
+								{
+									staffRole: "Writer",
+									node: { id: 3, type: "MANGA", title: { userPreferred: "Manga Credit" } },
+								},
+							],
+						},
+					},
+				},
+			}),
+		);
+
+		return runSandboxTestDriver(details, { externalId: "1" }, host, execution).then((result) => {
+			expect(result.relatedEntityGroups).toEqual([
 				{
 					direction: "outgoing",
 					synchronization: "authoritative",
@@ -80,70 +84,59 @@ describe("person.anilist sandbox script", () => {
 				},
 			]);
 			return undefined;
-		}));
+		});
+	});
 
 	it("collects every character and staff media page", () => {
 		const requestedPages: number[] = [];
 
-		return runAnilistPersonDetails(
-			{ externalId: "1" },
-			{
-				httpCall: (...args: Array<unknown>) => {
-					const page = requestedPages.length + 1;
-					expect(String(toRecord(args[2])["body"])).toContain(`"page":${page}`);
-					requestedPages.push(page);
-					return httpSuccess({
-						data: {
-							Staff: {
-								id: 1,
-								gender: null,
-								homeTown: null,
-								dateOfBirth: {},
-								dateOfDeath: {},
-								description: null,
-								image: { large: null },
-								name: { full: "Creator" },
-								characterMedia: {
-									pageInfo: { hasNextPage: page === 1 },
-									edges:
-										page === 1
-											? [
-													{
-														characters: [{ name: { full: "Hero" } }],
-														node: {
-															id: 2,
-															type: "ANIME",
-															title: { userPreferred: "Anime Credit" },
-														},
-													},
-												]
-											: [],
-								},
-								staffMedia: {
-									pageInfo: { hasNextPage: page === 1 },
-									edges:
-										page === 1
-											? []
-											: [
-													{
-														staffRole: "Writer",
-														node: {
-															id: 3,
-															type: "MANGA",
-															title: { userPreferred: "Manga Credit" },
-														},
-													},
-												],
-								},
-							},
+		const host = makeHost((_method, _url, options) => {
+			const page = requestedPages.length + 1;
+			expect(String(options?.body)).toContain(`"page":${page}`);
+			requestedPages.push(page);
+			return httpSuccess({
+				data: {
+					Staff: {
+						id: 1,
+						gender: null,
+						homeTown: null,
+						dateOfBirth: {},
+						dateOfDeath: {},
+						description: null,
+						image: { large: null },
+						name: { full: "Creator" },
+						characterMedia: {
+							pageInfo: { hasNextPage: page === 1 },
+							edges:
+								page === 1
+									? [
+											{
+												characters: [{ name: { full: "Hero" } }],
+												node: { id: 2, type: "ANIME", title: { userPreferred: "Anime Credit" } },
+											},
+										]
+									: [],
 						},
-					});
+						staffMedia: {
+							pageInfo: { hasNextPage: page === 1 },
+							edges:
+								page === 1
+									? []
+									: [
+											{
+												staffRole: "Writer",
+												node: { id: 3, type: "MANGA", title: { userPreferred: "Manga Credit" } },
+											},
+										],
+						},
+					},
 				},
-			},
-		).then((rawDetails) => {
-			const details = toRecord(rawDetails);
+			});
+		});
+
+		return runSandboxTestDriver(details, { externalId: "1" }, host, execution).then((result) => {
 			expect(requestedPages).toEqual([1, 2]);
-			expect(details["relatedEntityGroups"]).toEqual([
+			expect(result.relatedEntityGroups).toEqual([
 				expect.objectContaining({
 					entities: [expect.objectContaining({ externalId: "2" })],
 				}),
@@ -151,6 +144,42 @@ describe("person.anilist sandbox script", () => {
 					entities: [expect.objectContaining({ externalId: "3" })],
 				}),
 			]);
+			return undefined;
+		});
+	});
+
+	it("formats fuzzy dates and cleans the biography HTML", () => {
+		const host = makeHost(() =>
+			httpSuccess({
+				data: {
+					Staff: {
+						id: 9,
+						gender: "Male",
+						homeTown: "Tokyo, Japan",
+						name: { full: "Creator" },
+						dateOfDeath: { year: 2020, month: 12 },
+						description: "First line<br>Second line",
+						image: { large: "https://img/creator.jpg" },
+						dateOfBirth: { year: 1970, month: 2, day: 9 },
+						staffMedia: { pageInfo: { hasNextPage: false }, edges: [] },
+						characterMedia: { pageInfo: { hasNextPage: false }, edges: [] },
+					},
+				},
+			}),
+		);
+
+		return runSandboxTestDriver(details, { externalId: "9" }, host, execution).then((result) => {
+			expect(result.name).toBe("Creator");
+			expect(result.properties).toEqual({
+				gender: "Male",
+				deathDate: null,
+				alternateNames: [],
+				birthDate: "1970-02-09",
+				birthPlace: "Tokyo, Japan",
+				description: "First line\nSecond line",
+				sourceUrl: "https://anilist.co/staff/9",
+				images: [{ type: "remote", url: "https://img/creator.jpg" }],
+			});
 			return undefined;
 		});
 	});
