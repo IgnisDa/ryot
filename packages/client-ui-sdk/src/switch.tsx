@@ -19,7 +19,7 @@ export function Switch({ label, checked, disabled, className, onChange }: Switch
 			onClick={() => onChange(!checked)}
 			className={clsx(
 				"flex h-6 w-10 items-center rounded-pill border border-border p-0.5",
-				checked ? "bg-accent" : "bg-surface-2",
+				checked ? "bg-accent-deep" : "bg-surface-2",
 				disabled === true && "opacity-50",
 				className,
 			)}

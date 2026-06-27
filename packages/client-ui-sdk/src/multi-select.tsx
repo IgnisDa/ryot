@@ -95,7 +95,7 @@ export function MultiSelect({
 						type="button"
 						onClick={() => onChange([])}
 						aria-label={`Clear ${label}`}
-						className="rounded-md px-1.5 py-1 text-xs font-medium text-text-muted"
+						className="min-h-6 rounded-md px-1.5 py-1 text-xs font-medium text-text-muted"
 					>
 						Clear
 					</button>
@@ -117,12 +117,12 @@ export function MultiSelect({
 							type="button"
 							onClick={close}
 							aria-label="Close options"
-							className="rounded-md p-1 text-text-muted"
+							className="flex min-h-6 min-w-6 items-center justify-center rounded-md p-1 text-text-muted"
 						>
 							{closeIcon}
 						</button>
 					</div>
-					<div className="mb-3 flex h-10 items-center gap-2 rounded-lg border border-border bg-raised px-3">
+					<div className="mb-3 flex h-10 items-center gap-2 rounded-lg border border-border bg-raised px-3 focus-within:ring-2 focus-within:ring-focus">
 						<span aria-hidden="true" className="text-text-subtle">
 							{searchIcon}
 						</span>
@@ -139,8 +139,8 @@ export function MultiSelect({
 						<button
 							type="button"
 							onClick={() => onChange([])}
-							aria-label={`Clear ${label}`}
-							className="mb-2 self-start rounded-md px-1.5 py-1 text-xs font-medium text-text-muted"
+							aria-label={`Clear selections in ${label}`}
+							className="mb-2 min-h-6 self-start rounded-md px-1.5 py-1 text-xs font-medium text-text-muted"
 						>
 							Clear selections
 						</button>
@@ -150,8 +150,8 @@ export function MultiSelect({
 							const checked = selected.has(choice.value);
 							return (
 								<button
-									role="checkbox"
 									type="button"
+									role="checkbox"
 									key={choice.value}
 									aria-checked={checked}
 									aria-label={choiceLabel(choice)}
@@ -160,8 +160,8 @@ export function MultiSelect({
 								>
 									<span
 										className={clsx(
-											"flex h-5 w-5 items-center justify-center rounded border text-white",
-											checked ? "border-accent bg-accent" : "border-border-strong bg-raised",
+											"flex h-5 w-5 items-center justify-center rounded border text-accent-ink",
+											checked ? "border-accent-deep bg-accent" : "border-border-strong bg-raised",
 										)}
 									>
 										{checked ? checkIcon : null}

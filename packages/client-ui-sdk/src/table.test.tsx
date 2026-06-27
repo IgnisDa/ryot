@@ -32,10 +32,13 @@ describe("DataTable", () => {
 
 		const table = screen.getByRole("table");
 		const firstRow = within(table).getByText("First").closest("tr");
-		expect(table.className).toBe("table");
-		expect(within(table).getByRole("columnheader", { name: "Name" }).className).toBe("header-cell");
-		expect(within(table).getByText("First").className).toBe("body-cell");
-		expect(firstRow?.className).toBe("body-row");
+		expect(table.classList.contains("table")).toBe(true);
+		expect(within(table).getByRole("columnheader", { name: "Name" }).getAttribute("scope")).toBe(
+			"col",
+		);
+		expect(within(table).getAllByRole("row")).toHaveLength(3);
+		expect(within(table).getByText("First").classList.contains("body-cell")).toBe(true);
+		expect(firstRow?.classList.contains("body-row")).toBe(true);
 
 		rerender(
 			<DataTable
@@ -74,8 +77,9 @@ describe("DataTable", () => {
 
 		expect(screen.getByText("First custom").closest("tr")?.dataset.rowId).toBe("first");
 		const status = screen.getByRole("status");
-		expect(status.closest("tr")?.className).toBe("status-row");
-		expect(status.closest("td")?.className).toBe("status-cell");
+		expect(status.textContent).toBe("Loading more...");
+		expect(status.closest("tr")?.classList.contains("status-row")).toBe(true);
+		expect(status.closest("td")?.classList.contains("status-cell")).toBe(true);
 		expect(status.closest("td")?.getAttribute("colspan")).toBe("1");
 	});
 });

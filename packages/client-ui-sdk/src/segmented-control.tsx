@@ -1,6 +1,8 @@
 import clsx from "clsx";
 import type { ReactNode } from "react";
 
+import { RadioGroup } from "./radio-group";
+
 type SegmentedControlOption<T extends string> = {
 	readonly value: T;
 	readonly label: string;
@@ -25,34 +27,23 @@ export function SegmentedControl<T extends string>({
 	optionClassName,
 }: SegmentedControlProps<T>) {
 	return (
-		<div
-			role="radiogroup"
-			aria-label={label}
+		<RadioGroup
+			value={value}
+			label={label}
+			options={options}
+			onChange={onChange}
 			className={clsx(
 				"flex h-9 items-center rounded-full bg-surface-2 p-0.75 md:h-8.5 md:items-stretch md:rounded-md md:border md:border-border-strong",
 				className,
 			)}
-		>
-			{options.map((option) => {
-				const selected = option.value === value;
-				return (
-					<button
-						role="radio"
-						type="button"
-						key={option.value}
-						aria-checked={selected}
-						aria-label={option.label}
-						onClick={() => onChange(option.value)}
-						className={clsx(
-							"flex h-7 items-center justify-center rounded-full border border-transparent focus-visible:border-accent focus-visible:outline-none md:rounded-sm",
-							optionClassName ?? "w-9.5 md:w-7.5",
-							selected ? "bg-raised text-accent-text shadow-sm" : "text-text-muted",
-						)}
-					>
-						{option.content}
-					</button>
-				);
+			renderOption={(option, selected) => ({
+				content: option.content,
+				className: clsx(
+					"flex h-7 items-center justify-center rounded-full border border-transparent md:rounded-sm",
+					optionClassName ?? "w-9.5 md:w-7.5",
+					selected ? "bg-raised text-accent-text shadow-sm" : "text-text-muted",
+				),
 			})}
-		</div>
+		/>
 	);
 }

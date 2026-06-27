@@ -29,6 +29,27 @@ describe("SegmentedControl", () => {
 		);
 	});
 
+	it("keeps one tab stop and reports arrow and Home/End moves as selections", () => {
+		const selected: string[] = [];
+		render(
+			<SegmentedControl
+				value="grid"
+				options={options}
+				label="Saved view layout"
+				onChange={(value) => selected.push(value)}
+			/>,
+		);
+
+		const grid = screen.getByRole("radio", { name: "Grid view" });
+		expect(screen.getAllByRole("radio").filter((radio) => radio.tabIndex === 0)).toEqual([grid]);
+
+		fireEvent.keyDown(grid, { key: "ArrowRight" });
+		fireEvent.keyDown(grid, { key: "End" });
+		fireEvent.keyDown(grid, { key: "Home" });
+
+		expect(selected).toEqual(["list", "list", "grid"]);
+	});
+
 	it("reports the clicked value", () => {
 		const selected: string[] = [];
 		render(

@@ -11,6 +11,10 @@
 	@apply mt-3 text-text-muted;
 }
 
+@utility ui-link {
+	@apply font-semibold text-accent-text underline underline-offset-2;
+}
+
 @utility ui-overline {
 	@apply mb-2 text-[11px] font-semibold tracking-[0.08em] text-accent-text uppercase;
 }
