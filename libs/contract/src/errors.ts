@@ -96,3 +96,19 @@ export const dieOnDbError = <A, E, R>(self: Effect.Effect<A, E, R>) =>
 			(error) => Effect.die(error),
 		),
 	);
+
+// Maps DbError to SandboxRunError without dying. Used in Activity.make where error
+// type must be SandboxRunError rather than a defect. Other error types are also mapped.
+export const mapDbErrorToSandbox = <A, E, R>(self: Effect.Effect<A, E, R>) =>
+	self.pipe(
+		Effect.mapError((error) =>
+			error instanceof DbError
+				? new SandboxRunError({ message: error.message })
+				: toSandboxRunError(error),
+		),
+	);
+
+// Combines dieOnDbError with error transformation to SandboxRunError.
+// Used for database operations outside Activity.make contexts where defects are acceptable.
+export const dieOnDbErrorToSandbox = <A, E, R>(self: Effect.Effect<A, E, R>) =>
+	self.pipe(dieOnDbError, Effect.mapError(toSandboxRunError));

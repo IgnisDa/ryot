@@ -72,9 +72,10 @@ export class OperationsService extends Effect.Service<OperationsService>()("Oper
 
 		const resolveIntegrationUserId = (payload: unknown) =>
 			Effect.gen(function* () {
-				const decoded = yield* Schema.decodeUnknown(IntegrationPayload)(payload).pipe(
+				const decodePayload = Schema.decodeUnknown(IntegrationPayload)(payload).pipe(
 					Effect.mapError(() => badRequest("integrationId is required")),
 				);
+				const decoded = yield* decodePayload;
 				const integration = yield* runWithDb(
 					integrationsRepository.getByIdAnyUser({
 						integrationId: IntegrationId.make(decoded.integrationId),
@@ -92,7 +93,10 @@ export class OperationsService extends Effect.Service<OperationsService>()("Oper
 			headers: PlatformHeaders.Headers,
 		) => {
 			if (operationAuth === "user") {
-				return auth.currentUser(new Headers(headers)).pipe(Effect.map((user) => user.id));
+				const getCurrentUser = auth
+					.currentUser(new Headers(headers))
+					.pipe(Effect.map((user) => user.id));
+				return getCurrentUser;
 			}
 			return resolveIntegrationUserId(payload);
 		};
