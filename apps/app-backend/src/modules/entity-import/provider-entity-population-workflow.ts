@@ -132,7 +132,6 @@ const writeEntityGraph = Effect.fn("writeProviderEntityGraph")(function* (
 	options: SynchronizeOptions,
 ) {
 	const entities = yield* EntitiesService;
-	const repository = yield* EntitiesRepository;
 	const runInTransaction = yield* TransactionRunner;
 
 	return yield* Activity.make({
@@ -141,38 +140,18 @@ const writeEntityGraph = Effect.fn("writeProviderEntityGraph")(function* (
 		name: "write-entity-graph",
 		execute: runInTransaction(
 			Effect.gen(function* () {
-				const existing = yield* repository.findGlobalEntityByExternalId({
+				// A brand-new or not-yet-populated entity is written with a null populatedAt so
+				// children can reference it before the final stamp below; refresh preserves an
+				// already-populated entity until then. Initial population replaces the skeleton.
+				const entity = yield* entities.upsert({
+					populatedAt: null,
+					name: details.name,
 					externalId: payload.externalId,
+					properties: details.properties,
 					sandboxScriptId: payload.scriptId,
 					entitySchemaId: payload.entitySchemaId,
+					updateExisting: options.mode !== "refresh",
 				});
-
-				// Initial population replaces the not-yet-populated skeleton; refresh preserves the
-				// existing entity until the final populatedAt stamp below. A brand-new entity is
-				// created with a null populatedAt so children can reference it before it is stamped.
-				let entity: ListedEntity;
-				if (existing) {
-					entity =
-						options.mode === "refresh"
-							? existing
-							: yield* entities.update({
-									populatedAt: null,
-									name: details.name,
-									entityId: existing.id,
-									properties: details.properties,
-									entitySchemaId: payload.entitySchemaId,
-								});
-				} else {
-					entity = yield* entities.create({
-						scope: "global",
-						populatedAt: null,
-						name: details.name,
-						externalId: payload.externalId,
-						properties: details.properties,
-						sandboxScriptId: payload.scriptId,
-						entitySchemaId: payload.entitySchemaId,
-					});
-				}
 
 				yield* writeRelatedEntities(payload, entity, details.relatedEntityGroups);
 				yield* writeChildEntities(payload, entity, details, options);

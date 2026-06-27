@@ -4,7 +4,6 @@ import type { EntitySchemaId, EntityId, SandboxScriptId } from "@ryot/contract/s
 import { DateTime, Effect, Schema } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
-import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
@@ -123,7 +122,6 @@ export const processChildEntityTree = Effect.fn("processChildEntityTree")(functi
 	const runWithDb = yield* DbRunner;
 	const entities = yield* EntitiesService;
 	const relationships = yield* RelationshipsService;
-	const entitiesRepository = yield* EntitiesRepository;
 	const relationshipsRepository = yield* RelationshipsRepository;
 	const entitySchemasRepository = yield* EntitySchemasRepository;
 	const relationshipSchemasRepository = yield* RelationshipSchemasRepository;
@@ -169,46 +167,20 @@ export const processChildEntityTree = Effect.fn("processChildEntityTree")(functi
 			}
 
 			const populatedAt = yield* DateTime.nowAsDate;
-			const existing = yield* runWithDb(
-				entitiesRepository.findGlobalEntityByExternalId({
+			const entity = yield* entities
+				.upsert({
+					populatedAt,
+					name: childEntity.name,
 					entitySchemaId: entitySchema.id,
 					externalId: childEntity.externalId,
+					properties: childEntity.properties,
 					sandboxScriptId: input.sandboxScriptId,
-				}),
-			).pipe(dieOnDbError);
-
-			let entity: ListedEntity;
-			if (!existing) {
-				entity = yield* entities
-					.create({
-						populatedAt,
-						scope: "global",
-						name: childEntity.name,
-						entitySchemaId: entitySchema.id,
-						externalId: childEntity.externalId,
-						properties: childEntity.properties,
-						sandboxScriptId: input.sandboxScriptId,
-					})
-					.pipe(
-						dieOnDbError,
-						Effect.mapError((error) => new SandboxRunError({ message: error.message })),
-					);
-			} else if (input.syncExisting || existing.populatedAt === null) {
-				entity = yield* entities
-					.update({
-						populatedAt,
-						name: childEntity.name,
-						entityId: existing.id,
-						entitySchemaId: entitySchema.id,
-						properties: childEntity.properties,
-					})
-					.pipe(
-						dieOnDbError,
-						Effect.mapError((error) => new SandboxRunError({ message: error.message })),
-					);
-			} else {
-				entity = existing;
-			}
+					updateExisting: input.syncExisting ?? false,
+				})
+				.pipe(
+					dieOnDbError,
+					Effect.mapError((error) => new SandboxRunError({ message: error.message })),
+				);
 			const child = { entity, entitySchemaId: entitySchema.id };
 			const relationshipSchema = yield* runWithDb(
 				relationshipSchemasRepository.findGlobalBySchemaIds({
