@@ -251,10 +251,12 @@ describe("media monitoring infrequent refresh", () => {
 		await waitForMediaMonitoringRefresh(`${baseline.executionId}-${cronEntityId}`);
 		expect(fakeApprise.requests).toEqual([]);
 
-		await getPgClient().query(`update sandbox_script set code = $1 where id = $2`, [
-			detailsCode("Ended"),
-			provider.scriptId,
-		]);
+		await getPgClient().query(
+			`update sandbox_script
+			 set code = $1, source = $1, compiled_code = ''
+			 where id = $2`,
+			[detailsCode("Ended"), provider.scriptId],
+		);
 		const changed = await getBackendClient().run(
 			(contract) => contract.godMode.triggerInfrequentCron(),
 			adminHeaders,

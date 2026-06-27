@@ -8,6 +8,13 @@
 			"when": 1784260666019,
 			"tag": "0000_rich_chimera",
 			"breakpoints": true
+		},
+		{
+			"idx": 1,
+			"version": "7",
+			"when": 1784315099101,
+			"tag": "0001_typescript_sandbox_sdk",
+			"breakpoints": true
 		}
 	]
 }

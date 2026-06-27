@@ -11,19 +11,17 @@ import { makeAdditionalSandboxApiFunctions } from "./host-functions";
 import { BridgeService, invalidateProcess, ProcessPool } from "./runtime";
 import { apiFailure, apiSuccess, type BoundHostFunction, requireSandboxRunInput } from "./shared";
 
-type HttpCallOptions = {
-	body?: string;
-	headers?: Record<string, string>;
-};
+type HttpCallOptions = { body?: string; headers?: Record<string, string> };
 
 export type SandboxRunInput = {
-	readonly code: string;
 	readonly context: unknown;
 	readonly scriptId: string;
 	readonly metadata: unknown;
 	readonly driverName: string;
 	readonly executionId: string;
+	readonly compiledCode: string;
 	readonly userId: string | null;
+	readonly compiledFormat: number;
 	readonly scriptIsBuiltin: boolean;
 	readonly allowedHostFunctions: readonly string[];
 };
@@ -46,13 +44,14 @@ const getCacheKey = (serverRunId: string, scriptId: string, key: string) =>
 
 const SandboxRunnerRequest = Schema.Struct({
 	token: Schema.String,
-	code: Schema.String,
 	apiBase: Schema.String,
 	context: Schema.Unknown,
 	scriptId: Schema.String,
 	metadata: Schema.Unknown,
 	driverName: Schema.String,
 	executionId: Schema.String,
+	compiledCode: Schema.String,
+	compiledFormat: Schema.Number,
 	apiFunctions: Schema.Array(Schema.String),
 });
 
@@ -138,6 +137,7 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 					}
 
 					const worker = yield* pool.get;
+					yield* Effect.addFinalizer(() => invalidateProcess(pool, worker).pipe(Effect.orDie));
 					yield* worker.responseQueue.takeAll.pipe(Effect.asVoid);
 
 					const token = generateId();
@@ -152,12 +152,13 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 					);
 					const requestLine = `${encodeSandboxRunnerRequest({
 						token,
-						code: input.code,
 						scriptId: input.scriptId,
 						context: input.context ?? {},
 						driverName: input.driverName,
 						metadata: input.metadata ?? {},
 						executionId: input.executionId,
+						compiledCode: input.compiledCode,
+						compiledFormat: input.compiledFormat,
 						apiBase: `http://127.0.0.1:${bridge.port}`,
 						apiFunctions: Object.keys(selectedApiFunctions),
 					})}\n`;
@@ -167,7 +168,6 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 					const responseLine = yield* Effect.raceFirst(
 						worker.responseQueue.take,
 						Effect.sleep(Duration.millis(config.sandbox.timeoutMs)).pipe(
-							Effect.zipRight(invalidateProcess(pool, worker)),
 							Effect.zipRight(
 								Effect.fail(
 									new TimeoutError({
@@ -181,11 +181,7 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 					const raw = yield* Effect.try({
 						try: () => decodeSandboxRunnerResponse(responseLine),
 						catch: makeInvalidResponse,
-					}).pipe(
-						Effect.catchAll((error) =>
-							invalidateProcess(pool, worker).pipe(Effect.zipRight(Effect.fail(error))),
-						),
-					);
+					});
 
 					const executionMs = raw.timing?.executionMs;
 					const finishedAt = yield* Clock.currentTimeMillis;

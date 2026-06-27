@@ -7,6 +7,7 @@ import {
 	CreateSandboxScriptBody,
 	EnqueueResponse,
 	EnqueueSandboxBody,
+	SandboxCompilationFailure,
 	SandboxRunResult,
 	SandboxScript,
 } from "./schemas";
@@ -21,6 +22,7 @@ export const SandboxGroup = HttpApiGroup.make("sandbox")
 		HttpApiEndpoint.post("createScript", "/sandbox/scripts")
 			.setPayload(CreateSandboxScriptBody)
 			.addSuccess(SandboxScript, { status: 201 })
+			.addError(SandboxCompilationFailure, { status: 400 })
 			.addError(Conflict, { status: 409 }),
 	)
 	.add(

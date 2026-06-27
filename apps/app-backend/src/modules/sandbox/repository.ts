@@ -1,5 +1,5 @@
 import { DbError, conflict } from "@ryot/contract/errors";
-import type { SandboxScriptMetadata } from "@ryot/contract/modules/sandbox/schemas";
+import type { SandboxScriptManifest } from "@ryot/contract/modules/sandbox/schemas";
 import type { UserId } from "@ryot/contract/schema/brands";
 import { SandboxScriptId } from "@ryot/contract/schema/brands";
 import { and, eq, isNull, or } from "drizzle-orm";
@@ -8,26 +8,17 @@ import { Effect } from "effect";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { CurrentDb, dbEffect, isUniqueConstraintError } from "#lib/infrastructure/db/service";
 
-type SandboxScriptRow = typeof schema.sandboxScript.$inferSelect;
-
 type CreateScriptInput = {
 	readonly slug: string;
 	readonly name: string;
-	readonly code: string;
+	readonly source: string;
 	readonly userId: UserId;
-	readonly metadata: SandboxScriptMetadata;
+	readonly compiledCode: string;
+	readonly compiledFormat: number;
+	readonly manifest: SandboxScriptManifest;
 };
 
 const sandboxScriptUserSlugConstraint = "sandbox_script_user_slug_unique";
-
-const toScript = (row: SandboxScriptRow) => ({
-	id: SandboxScriptId.make(row.id),
-	slug: row.slug,
-	code: row.code,
-	name: row.name,
-	isBuiltin: row.isBuiltin,
-	metadata: row.metadata,
-});
 
 export class SandboxRepository extends Effect.Service<SandboxRepository>()("SandboxRepository", {
 	sync: () => {
@@ -42,9 +33,12 @@ export class SandboxRepository extends Effect.Service<SandboxRepository>()("Sand
 						isBuiltin: false,
 						slug: input.slug,
 						name: input.name,
-						code: input.code,
+						code: input.source,
+						source: input.source,
 						userId: input.userId,
-						metadata: input.metadata,
+						metadata: input.manifest,
+						compiledCode: input.compiledCode,
+						compiledFormat: input.compiledFormat,
 					})
 					.returning(),
 			).pipe(
@@ -58,7 +52,13 @@ export class SandboxRepository extends Effect.Service<SandboxRepository>()("Sand
 				return yield* new DbError({ message: "Sandbox script insert returned no row" });
 			}
 
-			return toScript(row);
+			return {
+				slug: row.slug,
+				name: row.name,
+				source: row.source,
+				manifest: input.manifest,
+				id: SandboxScriptId.make(row.id),
+			};
 		});
 
 		const findScriptBySlugForUser = Effect.fn("SandboxRepository.findScriptBySlugForUser")(
@@ -91,9 +91,12 @@ export class SandboxRepository extends Effect.Service<SandboxRepository>()("Sand
 					.select({
 						id: schema.sandboxScript.id,
 						code: schema.sandboxScript.code,
+						source: schema.sandboxScript.source,
 						userId: schema.sandboxScript.userId,
 						metadata: schema.sandboxScript.metadata,
 						isBuiltin: schema.sandboxScript.isBuiltin,
+						compiledCode: schema.sandboxScript.compiledCode,
+						compiledFormat: schema.sandboxScript.compiledFormat,
 					})
 					.from(schema.sandboxScript)
 					.where(

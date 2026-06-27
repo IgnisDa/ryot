@@ -63,6 +63,88 @@ const createRequestConsole = (logs) => ({
 	error: (...args) => logs.push("[error] " + args.map(formatArg).join(" ")),
 });
 
+const isRecord = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
+
+const manifestsMatch = (left, right) =>
+	isRecord(left) &&
+	isRecord(right) &&
+	left.kind === right.kind &&
+	left.name === right.name &&
+	left.slug === right.slug &&
+	JSON.stringify(left.capabilities) === JSON.stringify(right.capabilities) &&
+	JSON.stringify(left.requiredAppConfigKeys) === JSON.stringify(right.requiredAppConfigKeys);
+
+const importCompiledModule = async (payload) => {
+	if (payload.compiledFormat !== 0 && payload.compiledFormat !== 1) {
+		throw new Error("Unsupported sandbox compiled format: " + String(payload.compiledFormat));
+	}
+	if (typeof payload.compiledCode !== "string" || !payload.compiledCode.trim()) {
+		throw new Error("Compiled sandbox module is empty");
+	}
+
+	return await import(
+		"data:text/javascript;charset=utf-8," + encodeURIComponent(payload.compiledCode)
+	);
+};
+
+const executeDefinition = async (definition, payload, host) => {
+	if (!isRecord(definition)) {
+		throw new Error("Compiled sandbox module must have a default definition export");
+	}
+
+	if (payload.compiledFormat === 0) {
+		if (
+			definition.definitionType !== "ryot:legacy-sandbox-script" ||
+			typeof definition.execute !== "function"
+		) {
+			throw new Error("Legacy compiled sandbox module has an invalid definition");
+		}
+		return await definition.execute(payload.driverName, payload.context ?? {}, host, {
+			metadata: payload.metadata ?? {},
+			sandboxScriptId: payload.scriptId,
+		});
+	}
+
+	if (
+		definition.definitionType !== "ryot:sandbox-script" ||
+		!isRecord(definition.manifest) ||
+		!isRecord(definition.drivers)
+	) {
+		throw new Error("Compiled sandbox module has an invalid script definition");
+	}
+	if (!manifestsMatch(definition.manifest, payload.metadata)) {
+		throw new Error("Compiled sandbox manifest does not match persisted metadata");
+	}
+
+	const driver = definition.drivers[payload.driverName];
+	if (!isRecord(driver) || typeof driver.run !== "function") {
+		throw new Error('Driver "' + payload.driverName + '" is not defined in this script');
+	}
+	if (
+		!isRecord(driver.input) ||
+		typeof driver.input.safeParseAsync !== "function" ||
+		!isRecord(driver.output) ||
+		typeof driver.output.safeParseAsync !== "function"
+	) {
+		throw new Error('Driver "' + payload.driverName + '" has invalid schemas');
+	}
+
+	const input = await driver.input.safeParseAsync(payload.context ?? {});
+	if (!input.success) {
+		throw new Error("Driver input validation failed: " + input.error.message);
+	}
+	const result = await driver.run(input.data, host, {
+		metadata: payload.metadata ?? {},
+		sandboxScriptId: payload.scriptId,
+	});
+	const output = await driver.output.safeParseAsync(result);
+	if (!output.success) {
+		throw new Error("Driver output validation failed: " + output.error.message);
+	}
+
+	return output.data;
+};
+
 void (async () => {
 	for (;;) {
 		const line = await readLine();
@@ -90,27 +172,10 @@ void (async () => {
 			console.debug = requestConsole.debug;
 			console.error = requestConsole.error;
 
-			const driverRegistry = {};
-			const driver = (name, fn) => {
-				driverRegistry[name] = fn;
-			};
 			const stubs = {};
 			for (const fnName of apiFunctions) {
 				stubs[fnName] = createApiStub(fnName, payload.apiBase, payload.executionId, payload.token);
 			}
-
-			const stubNames = Object.keys(stubs);
-			const wrapperCode =
-				"const driver = arguments[0]; " +
-				"return (async function sandboxMain({ " +
-				stubNames.join(", ") +
-				" }, context) {\n" +
-				payload.code +
-				"\n})";
-
-			const factory = new Function(wrapperCode);
-			const userFunction = factory(driver);
-			await userFunction(stubs, payload.context ?? {});
 
 			if (!payload.driverName) {
 				await writeResult({
@@ -122,21 +187,8 @@ void (async () => {
 				continue;
 			}
 
-			const driverFn = driverRegistry[payload.driverName];
-			if (!driverFn) {
-				await writeResult({
-					success: false,
-					logs,
-					error: 'Driver "' + payload.driverName + '" is not defined in this script',
-					timing: { executionMs: performance.now() - startedAt },
-				});
-				continue;
-			}
-
-			const value = await driverFn(payload.context ?? {}, {
-				metadata: payload.metadata ?? {},
-				sandboxScriptId: payload.scriptId,
-			});
+			const module = await importCompiledModule(payload);
+			const value = await executeDefinition(module.default, payload, stubs);
 			await writeResult({
 				success: true,
 				logs,
