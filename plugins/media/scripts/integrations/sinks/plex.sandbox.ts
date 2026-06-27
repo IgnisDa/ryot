@@ -1,4 +1,5 @@
-import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
+import { defineActivity } from "@ryot/sandbox-sdk/activity";
+import { defineManifest } from "@ryot/sandbox-sdk/driver";
 import { Effect } from "@ryot/sandbox-sdk/effect";
 
 import { MediaIntegrationAdapterResult } from "../../../imports/schemas";
@@ -15,13 +16,14 @@ import {
 } from "../shared";
 
 export const manifest = defineManifest({
-	kind: "script",
+	kind: "activity",
 	name: "Plex sink",
-	slug: "integration.plex-sink",
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
+	slug: "integration.plex-sink",
 	capabilities: ["getIntegration"],
 });
+
 const multipartPayload = (rawBody: string, contentType: string) => {
 	const boundary = contentType
 		.match(/boundary=(?:"([^"]+)"|([^;]+))/i)
@@ -51,7 +53,8 @@ const stringValue = (value: unknown) => {
 	}
 	return undefined;
 };
-export default defineScript({
+
+export default defineActivity({
 	manifest,
 	input: SinkInput,
 	output: MediaIntegrationAdapterResult,
