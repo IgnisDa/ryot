@@ -71,7 +71,6 @@ const makeServiceLayer = (
 					_tag: "PluginCronService",
 					trigger: (pluginSlug, cronSlug) =>
 						Effect.succeed({ status: "notFound" as const, cronSlug, pluginSlug }),
-					triggerAll: () => Effect.void,
 					...overrides.pluginCrons,
 				}),
 				mockPluginBoots({
@@ -221,25 +220,6 @@ it.effect("brands provider IDs in stored sandbox script responses", () => {
 			{ ...storedSandboxScript, providerId: SandboxProviderId.make(providerId) },
 			{ ...storedSandboxScript, id: SandboxScriptId.make("standalone-id"), providerId: null },
 		]);
-	}).pipe(Effect.provide(layer));
-});
-
-it.effect("triggers plugin crons with the manual infrequent execution id", () => {
-	let pluginCronExecutionId: string | undefined;
-	const layer = makeServiceLayer({
-		pluginCrons: {
-			triggerAll: (executionId) =>
-				Effect.sync(() => {
-					pluginCronExecutionId = executionId;
-				}),
-		},
-	});
-
-	return Effect.gen(function* () {
-		const service = yield* TestSupportService;
-		const result = yield* service.triggerInfrequentCron();
-		expect(result.executionId).toMatch(/^infrequent-cron-manual-/);
-		expect(pluginCronExecutionId).toBe(result.executionId);
 	}).pipe(Effect.provide(layer));
 });
 
