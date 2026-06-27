@@ -1,8 +1,12 @@
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
+import { notFound } from "@ryot/contract/errors";
 import type { EntityId, SandboxScriptId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
+import { DbRunner } from "#lib/infrastructure/db/service";
+
 import { TranslateEntityWorkflow, translateEntityExecutionId } from "./entity-translation-workflow";
+import { TranslationsRepository, type TranslationOverlayInput } from "./repository";
 
 export type RequestFillInput = {
 	language: string;
@@ -17,7 +21,9 @@ export class TranslationsService extends Effect.Service<TranslationsService>()(
 	"TranslationsService",
 	{
 		effect: Effect.gen(function* () {
+			const runWithDb = yield* DbRunner;
 			const engine = yield* WorkflowEngine;
+			const repository = yield* TranslationsRepository;
 
 			// Idempotently enqueue a translation fill for one entity into a target language. The workflow
 			// execution id coalesces duplicate requests, so repeated requests never re-run a fill. Callers
@@ -50,7 +56,23 @@ export class TranslationsService extends Effect.Service<TranslationsService>()(
 					);
 			};
 
-			return { requestFill };
+			const create = Effect.fn("TranslationsService.create")(function* (
+				input: TranslationOverlayInput,
+			) {
+				return yield* runWithDb(repository.createOverlay(input));
+			});
+
+			const update = Effect.fn("TranslationsService.update")(function* (
+				input: TranslationOverlayInput,
+			) {
+				const updated = yield* runWithDb(repository.updateOverlay(input));
+				if (!updated) {
+					return yield* notFound("Translation overlay not found");
+				}
+				return undefined;
+			});
+
+			return { requestFill, create, update };
 		}),
 	},
 ) {}
