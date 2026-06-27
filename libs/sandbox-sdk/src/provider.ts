@@ -72,6 +72,7 @@ export type ProviderDetailsChildEntity = {
 	readonly externalId: string;
 	readonly properties: JsonValue;
 	readonly entitySchemaSlug: string;
+	readonly expectedChildEntitySchemaSlug?: string | undefined;
 	readonly childEntities?: readonly ProviderDetailsChildEntity[] | undefined;
 };
 export const providerDetailsChildEntitySchema: Schema.Schema<ProviderDetailsChildEntity> =
@@ -81,12 +82,14 @@ export const providerDetailsChildEntitySchema: Schema.Schema<ProviderDetailsChil
 			externalId: Schema.String,
 			properties: jsonValueSchema,
 			entitySchemaSlug: Schema.String,
+			expectedChildEntitySchemaSlug: Schema.optional(Schema.String),
 			childEntities: Schema.optional(Schema.Array(providerDetailsChildEntitySchema)),
 		}),
 	);
 export const providerDetailsResultSchema = strictStruct({
 	name: Schema.String,
 	properties: jsonValueSchema,
+	expectedChildEntitySchemaSlug: Schema.optional(Schema.String),
 	childEntities: Schema.optional(Schema.Array(providerDetailsChildEntitySchema)),
 	relatedEntityGroups: Schema.optional(Schema.Array(providerDetailsRelatedEntityGroupSchema)),
 });

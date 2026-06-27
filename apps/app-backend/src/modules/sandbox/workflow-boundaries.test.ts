@@ -26,6 +26,16 @@ const entityImportWorkflowModules = [
 	"../entity-import/provider-entity-population-workflow.ts",
 ] as const;
 
+it.effect("keeps provider population independent of media hierarchy literals", () =>
+	Effect.gen(function* () {
+		const source = yield* readModule("../entity-import/provider-entity-population-workflow.ts");
+
+		expect(source).not.toContain("CHILD_ENTITY_SCHEMA_SLUGS");
+		expect(source).not.toContain('"show-season"');
+		expect(source).not.toContain('"podcast"');
+	}).pipe(Effect.provide(BunContext.layer)),
+);
+
 it.effect("keeps raw sandbox workflow execution at the allowed boundaries", () =>
 	Effect.gen(function* () {
 		const [
@@ -109,14 +119,12 @@ it.effect("keeps provider entity population behind the canonical workflow", () =
 	Effect.gen(function* () {
 		const paths = yield* Path.Path;
 		const fs = yield* FileSystem.FileSystem;
-		const [populationWorkflow, libraryWorkflow, monitoringWorkflow, membershipWorker, trigger] =
-			yield* Effect.all([
-				readModule("../entity-import/provider-entity-population-workflow.ts"),
-				readModule("../library-membership/library-entity-import-workflow.ts"),
-				readModule("../media-monitoring/refresh-workflow.ts"),
-				readModule("../library-membership/membership-worker.ts"),
-				readModule("../entity-import/population-trigger-live.ts"),
-			]);
+		const [populationWorkflow, libraryWorkflow, membershipWorker, trigger] = yield* Effect.all([
+			readModule("../entity-import/provider-entity-population-workflow.ts"),
+			readModule("../library-membership/library-entity-import-workflow.ts"),
+			readModule("../library-membership/membership-worker.ts"),
+			readModule("../entity-import/population-trigger-live.ts"),
+		]);
 
 		expect(populationWorkflow).toContain("validate-entity-details");
 		expect(populationWorkflow).toContain("upsert-root-entity");
@@ -125,7 +133,7 @@ it.effect("keeps provider entity population behind the canonical workflow", () =
 		expect(populationWorkflow).toContain("stamp-root-populated-at");
 		expect(populationWorkflow).toContain("publish-primary-entity");
 
-		for (const source of [trigger, libraryWorkflow, monitoringWorkflow]) {
+		for (const source of [trigger, libraryWorkflow]) {
 			expect(source).toContain("ProviderEntityPopulationWorkflow");
 		}
 

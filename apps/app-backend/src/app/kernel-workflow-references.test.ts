@@ -2,9 +2,11 @@ import { BunContext } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import {
+	EntitySchemaSlug,
 	ImportRunId,
 	IntegrationId,
 	SandboxProviderId,
+	SandboxScriptId,
 	UserId,
 } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
@@ -18,6 +20,7 @@ import {
 	KERNEL_EVENT_CREATE_WORKFLOW,
 	KERNEL_LIBRARY_ENTITY_IMPORT_WORKFLOW,
 	KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW,
+	KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW,
 	KernelWorkflowReferences,
 } from "#modules/sandbox/kernel-workflow-references";
 
@@ -47,6 +50,61 @@ const referencesLayer = (repositories: Layer.Layer<ImportsRepository | Integrati
 		),
 	);
 
+const populationReferencesLayer = (
+	authorizes: (providerId: SandboxProviderId) => boolean = () => true,
+) =>
+	Layer.provide(
+		KernelWorkflowReferencesLive,
+		Layer.mergeAll(
+			dbRunnerLayer,
+			unownedRepositories,
+			BunContext.layer,
+			makeAppConfigLayer(),
+			Layer.succeed(ServerRun, { _tag: "ServerRun", id: "test-server-run" }),
+			Layer.mock(PluginRuntimeResolver)({
+				_tag: "PluginRuntimeResolver",
+				findActiveScriptById: () =>
+					Effect.succeed({
+						providerId: null,
+						source: "source",
+						compiledFormat: 1,
+						pluginSlug: "catalog",
+						name: "Catalog refresh",
+						slug: "catalog.refresh",
+						compiledCode: "compiled",
+						contentHash: "workflow-hash",
+						createdAt: new Date(0),
+						updatedAt: new Date(0),
+						id: SandboxScriptId.make("caller-script"),
+						metadata: {
+							kind: "workflow",
+							capabilities: [],
+							name: "Catalog refresh",
+							slug: "catalog.refresh",
+							requiredAppConfigKeys: [],
+						},
+					}),
+				findAuthorizedSchemaProviderById: ({ providerId }) =>
+					Effect.succeed(
+						authorizes(providerId)
+							? {
+									entitySchemaSlug: EntitySchemaSlug.make("book"),
+									provider: {
+										name: "Books",
+										id: providerId,
+										slug: "book.catalog",
+										pluginSlug: "provider-owner",
+										createdAt: new Date(0),
+										updatedAt: new Date(0),
+										information: { source: "catalog" },
+									},
+								}
+							: null,
+					),
+			}),
+		),
+	);
+
 it.effect("binds kernel workflow user ids to the trusted execution authority", () => {
 	const payloads: unknown[] = [];
 	const engine = makeWorkflowEngine({
@@ -72,6 +130,7 @@ it.effect("binds kernel workflow user ids to the trusted execution authority", (
 			authority,
 			"entity-import-execution",
 			"parent-execution",
+			SandboxScriptId.make("caller-script"),
 		);
 		yield* references.execute(
 			KERNEL_EVENT_CREATE_WORKFLOW,
@@ -79,6 +138,7 @@ it.effect("binds kernel workflow user ids to the trusted execution authority", (
 			authority,
 			"event-create-execution",
 			"parent-execution",
+			SandboxScriptId.make("caller-script"),
 		);
 
 		expect(payloads).toMatchObject([
@@ -140,6 +200,7 @@ it.effect("resolves plugin provider slugs before dispatching library imports", (
 			{ type: "user", userId: UserId.make("trusted-user") },
 			"entity-import-execution",
 			"parent-execution",
+			SandboxScriptId.make("caller-script"),
 		);
 
 		expect(payloads).toEqual([
@@ -200,6 +261,7 @@ it.effect("binds import harvest provenance to the trusted parent workflow execut
 			{ type: "user", userId: UserId.make("trusted-user") },
 			"child-execution",
 			"parent/execution",
+			SandboxScriptId.make("caller-script"),
 		);
 
 		expect(payloads).toEqual([
@@ -232,6 +294,7 @@ it.effect("rejects user-scoped kernel workflows for system executions", () =>
 				{ type: "system" },
 				"entity-import-execution",
 				"parent-execution",
+				SandboxScriptId.make("caller-script"),
 			),
 		);
 
@@ -257,6 +320,7 @@ it.effect("rejects a script-supplied import run owned by another user", () =>
 				{ type: "user", userId: UserId.make("trusted-user") },
 				"entity-import-execution",
 				"parent-execution",
+				SandboxScriptId.make("caller-script"),
 			),
 		);
 
@@ -283,6 +347,7 @@ it.effect("rejects a script-supplied integration owned by another user", () =>
 				{ type: "user", userId: UserId.make("trusted-user") },
 				"event-create-execution",
 				"parent-execution",
+				SandboxScriptId.make("caller-script"),
 			),
 		);
 
@@ -293,4 +358,197 @@ it.effect("rejects a script-supplied integration owned by another user", () =>
 		Effect.provide(referencesLayer(unownedRepositories)),
 		Effect.provideService(WorkflowEngine, makeWorkflowEngine()),
 	),
+);
+
+it.effect(
+	"dispatches bounded provider population items with deterministic child ids using a cross-plugin provider",
+	() => {
+		const payloads: unknown[] = [];
+		const executionIds: string[] = [];
+		const engine = makeWorkflowEngine({
+			execute: (_workflow, options) =>
+				Effect.sync(() => {
+					executionIds.push(options.executionId);
+					payloads.push(options.payload);
+					return { id: `entity-${executionIds.length}` };
+				}),
+		});
+
+		return Effect.gen(function* () {
+			const references = yield* KernelWorkflowReferences;
+			const result = yield* references.execute(
+				KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW,
+				{
+					mode: "refresh",
+					items: [
+						{ externalId: "book-1", providerId: "provider-book-catalog", entitySchemaSlug: "book" },
+						{ externalId: "book-2", providerId: "provider-book-catalog", entitySchemaSlug: "book" },
+					],
+				},
+				{ type: "system" },
+				"population-reference",
+				"parent-execution",
+				SandboxScriptId.make("caller-script"),
+			);
+
+			expect(result).toEqual([{ id: "entity-1" }, { id: "entity-2" }]);
+			expect(executionIds).toEqual(["population-reference-item-0", "population-reference-item-1"]);
+			expect(payloads).toEqual([
+				expect.objectContaining({
+					userId: null,
+					mode: "refresh",
+					externalId: "book-1",
+					entitySchemaSlug: "book",
+					providerId: "provider-book-catalog",
+					origin: { kind: "provider_refresh" },
+					executionId: "population-reference-item-0",
+				}),
+				expect.objectContaining({
+					externalId: "book-2",
+					executionId: "population-reference-item-1",
+				}),
+			]);
+		}).pipe(
+			Effect.provide(populationReferencesLayer()),
+			Effect.provideService(WorkflowEngine, engine),
+		);
+	},
+);
+
+it.effect("rejects non-system and unauthorized provider population calls", () => {
+	let dispatches = 0;
+	const engine = makeWorkflowEngine({
+		execute: () =>
+			Effect.sync(() => {
+				dispatches += 1;
+				return { id: "entity-1" };
+			}),
+	});
+	const input = {
+		mode: "refresh" as const,
+		items: [{ externalId: "book-1", providerId: "foreign", entitySchemaSlug: "book" }],
+	};
+
+	return Effect.gen(function* () {
+		const references = yield* KernelWorkflowReferences;
+		const userExit = yield* Effect.exit(
+			references.execute(
+				KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW,
+				input,
+				{ type: "user", userId: UserId.make("user-1") },
+				"user-call",
+				"parent-execution",
+				SandboxScriptId.make("caller-script"),
+			),
+		);
+		expect(userExit.toString()).toContain("available only for system executions");
+
+		const ownershipExit = yield* Effect.exit(
+			references.execute(
+				KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW,
+				input,
+				{ type: "system" },
+				"foreign-call",
+				"parent-execution",
+				SandboxScriptId.make("caller-script"),
+			),
+		);
+		expect(ownershipExit.toString()).toContain(
+			"is not active or has no exact binding to entity schema 'book' owned by plugin 'catalog'",
+		);
+		expect(dispatches).toBe(0);
+	}).pipe(
+		Effect.provide(populationReferencesLayer(() => false)),
+		Effect.provideService(WorkflowEngine, engine),
+	);
+});
+
+it.effect("authorizes every provider population item before dispatching any child", () => {
+	let dispatches = 0;
+	const engine = makeWorkflowEngine({
+		execute: () =>
+			Effect.sync(() => {
+				dispatches += 1;
+				return { id: "entity-1" };
+			}),
+	});
+
+	return Effect.gen(function* () {
+		const references = yield* KernelWorkflowReferences;
+		const exit = yield* Effect.exit(
+			references.execute(
+				KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW,
+				{
+					mode: "ensure",
+					items: [
+						{ externalId: "book-1", providerId: "owned", entitySchemaSlug: "book" },
+						{ externalId: "book-2", providerId: "foreign", entitySchemaSlug: "book" },
+					],
+				},
+				{ type: "system" },
+				"population-reference",
+				"parent-execution",
+				SandboxScriptId.make("caller-script"),
+			),
+		);
+
+		expect(exit.toString()).toContain(
+			"is not active or has no exact binding to entity schema 'book' owned by plugin 'catalog'",
+		);
+		expect(dispatches).toBe(0);
+	}).pipe(
+		Effect.provide(populationReferencesLayer((providerId) => providerId === "owned")),
+		Effect.provideService(WorkflowEngine, engine),
+	);
+});
+
+it.effect(
+	"accepts 1-100 provider population items and rejects batches outside those bounds",
+	() => {
+		let dispatches = 0;
+		const item = {
+			externalId: "book-1",
+			entitySchemaSlug: "book",
+			providerId: "provider-book-catalog",
+		};
+		const engine = makeWorkflowEngine({
+			execute: () =>
+				Effect.sync(() => {
+					dispatches += 1;
+					return { id: `entity-${dispatches}` };
+				}),
+		});
+
+		return Effect.gen(function* () {
+			const references = yield* KernelWorkflowReferences;
+			for (const items of [[item], Array.from({ length: 100 }, () => item)]) {
+				yield* references.execute(
+					KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW,
+					{ items, mode: "ensure" },
+					{ type: "system" },
+					`valid-batch-${items.length}`,
+					"parent-execution",
+					SandboxScriptId.make("caller-script"),
+				);
+			}
+			expect(dispatches).toBe(101);
+
+			for (const items of [[], Array.from({ length: 101 }, () => item)]) {
+				const exit = yield* Effect.exit(
+					references.execute(
+						KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW,
+						{ items, mode: "ensure" },
+						{ type: "system" },
+						"invalid-batch",
+						"parent-execution",
+						SandboxScriptId.make("caller-script"),
+					),
+				);
+				expect(exit.toString()).toContain("Invalid kernel workflow input");
+			}
+		}).pipe(
+			Effect.provide(populationReferencesLayer()),
+			Effect.provideService(WorkflowEngine, engine),
+		);
+	},
 );
