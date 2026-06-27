@@ -7,12 +7,12 @@ import type { MockOverrides } from "#lib/test-support/effect";
 import { dbRunnerLayer } from "#lib/test-support/effect";
 import { ImportsRepository } from "#modules/imports/repository";
 
-import { IntegrationsRepository } from "./repository";
+import { IntegrationsService } from "./service";
 import { makeIntegration, makeRun } from "./test-support";
 import { appendOwnedItems, finalizeIntegrationRun } from "./worker";
 
 const mockImportsRepository = Layer.mock(ImportsRepository);
-const mockIntegrationsRepository = Layer.mock(IntegrationsRepository);
+const mockIntegrationsService = Layer.mock(IntegrationsService);
 
 const makeImportsRepository = (overrides: MockOverrides<typeof mockImportsRepository> = {}) =>
 	mockImportsRepository({
@@ -23,23 +23,21 @@ const makeImportsRepository = (overrides: MockOverrides<typeof mockImportsReposi
 		_tag: "ImportsRepository",
 	});
 
-const makeIntegrationsRepository = (
-	overrides: MockOverrides<typeof mockIntegrationsRepository> = {},
-) =>
-	mockIntegrationsRepository({
-		updateForUser: () => Effect.succeed(null),
+const makeIntegrationsService = (overrides: MockOverrides<typeof mockIntegrationsService> = {}) =>
+	mockIntegrationsService({
+		update: () => Effect.succeed(makeIntegration()),
 		...overrides,
-		_tag: "IntegrationsRepository",
+		_tag: "IntegrationsService",
 	});
 
 const makeWorkerLayer = (input: {
 	importsRepository?: Layer.Layer<ImportsRepository>;
-	integrationsRepository?: Layer.Layer<IntegrationsRepository>;
+	integrationsService?: Layer.Layer<IntegrationsService>;
 }) =>
 	Layer.mergeAll(
 		dbRunnerLayer,
 		input.importsRepository ?? makeImportsRepository(),
-		input.integrationsRepository ?? makeIntegrationsRepository(),
+		input.integrationsService ?? makeIntegrationsService(),
 	);
 
 describe("appendOwnedItems", () => {
@@ -102,9 +100,9 @@ it.effect("updates lastFinishedAt after a completed integration run", () => {
 			getRunById: () => Effect.succeed(makeRun("completed")),
 			listRecentStatusesByIntegrationId: () => Effect.succeed([]),
 		}),
-		integrationsRepository: makeIntegrationsRepository({
-			updateForUser: (input) => {
-				updates.push(input);
+		integrationsService: makeIntegrationsService({
+			update: (userId, integrationId, body) => {
+				updates.push({ userId, integrationId, ...body });
 				return Effect.succeed(makeIntegration());
 			},
 		}),
@@ -137,9 +135,9 @@ it.effect("disables the integration after 5 consecutive failures", () => {
 					{ status: "failed" as const },
 				]),
 		}),
-		integrationsRepository: makeIntegrationsRepository({
-			updateForUser: (input) => {
-				updates.push(input);
+		integrationsService: makeIntegrationsService({
+			update: (userId, integrationId, body) => {
+				updates.push({ userId, integrationId, ...body });
 				return Effect.succeed(makeIntegration({ isDisabled: true }));
 			},
 		}),
@@ -167,9 +165,9 @@ it.effect("does not disable integrations when recent runs are not all failures",
 					{ status: "failed" as const },
 				]),
 		}),
-		integrationsRepository: makeIntegrationsRepository({
-			updateForUser: (input) => {
-				updates.push(input);
+		integrationsService: makeIntegrationsService({
+			update: (userId, integrationId, body) => {
+				updates.push({ userId, integrationId, ...body });
 				return Effect.succeed(makeIntegration());
 			},
 		}),
