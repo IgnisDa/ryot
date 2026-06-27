@@ -46,6 +46,16 @@ const assetResolution = {
 	expiresAt: "2026-01-01T00:15:00.000Z",
 	url: "https://ryot.test/api/uploads/local/download?key=permanent%2Fimage.png",
 };
+const membership = {
+	memberOf: {
+		properties: {},
+		id: "relationship-1",
+		sourceEntityId: "entity-1",
+		targetEntityId: "collection-1",
+		relationshipSchemaSlug: "member-of",
+		createdAt: "2026-09-07T00:00:00.000Z",
+	},
+};
 const channels: MessageChannel[] = [];
 const EmptyScreen = () => null;
 const operationTarget = { pluginSlug: "fixture" } as const;
@@ -125,6 +135,34 @@ afterEach(() => {
 });
 
 describe("plugin runtime", () => {
+	it("advertises document overlays and acknowledges LIFO dismissal requests", async () => {
+		const { channel, messages, runtime } = openRuntime();
+		activate(channel);
+		await delay();
+		const dismissed: string[] = [];
+		const outer = runtime.client.overlayBack.register(() => (dismissed.push("outer"), true));
+		const inner = runtime.client.overlayBack.register(() => (dismissed.push("inner"), true));
+		await delay();
+
+		expect(messages).toContainEqual({ count: 2, type: "overlay-state" });
+		channel.port1.postMessage({ requestId: "overlay-1", type: "dismiss-overlay" });
+		await delay();
+		expect(dismissed).toEqual(["inner"]);
+		expect(messages).toContainEqual({
+			dismissed: true,
+			requestId: "overlay-1",
+			type: "dismiss-overlay-result",
+		});
+
+		inner();
+		channel.port1.postMessage({ requestId: "overlay-2", type: "dismiss-overlay" });
+		await delay();
+		expect(dismissed).toEqual(["inner", "outer"]);
+		outer();
+		await delay();
+		expect(messages).toContainEqual({ count: 0, type: "overlay-state" });
+	});
+
 	it("aggregates deterministic bounded interest, routes hints, and clears disposed owners", async () => {
 		const { channel, messages, runtime } = openRuntime();
 		activate(channel);
@@ -566,7 +604,7 @@ describe("plugin runtime", () => {
 	it("sends provider-search requests and receives page refresh signals after activation", async () => {
 		const { channel, messages, runtime } = openRuntime();
 		let refreshes = 0;
-		runtime.pageRefresh.subscribe(() => refreshes++);
+		runtime.client.mutationCompleted.subscribe(() => refreshes++);
 		activate(channel);
 		await delay();
 
@@ -978,6 +1016,43 @@ describe("plugin runtime", () => {
 			reason: "malformed-result",
 		});
 		await expect(malformed).rejects.toMatchObject({ reason: "malformed-result" });
+	});
+
+	it("transports collection mutations and preserves sanitized failures", async () => {
+		const { channel, messages, runtime } = openRuntime();
+		activate(channel);
+		await delay();
+
+		const mutation = runtime.client.collections.upsertMembership({
+			entityId: "entity-1",
+			collectionId: "collection-1",
+		});
+		await delay();
+		expect(messages).toContainEqual({
+			requestId: "collection-1",
+			type: "collection-request",
+			action: "upsert-membership",
+			input: { entityId: "entity-1", collectionId: "collection-1" },
+		});
+		channel.port1.postMessage({
+			outcome: "success",
+			response: membership,
+			requestId: "collection-1",
+			type: "collection-result",
+		});
+		await expect(mutation).resolves.toEqual(membership);
+
+		const failure = runtime.client.collections.removeMembership({
+			entityId: "entity-1",
+			collectionId: "collection-1",
+		});
+		channel.port1.postMessage({
+			outcome: "failure",
+			requestId: "collection-2",
+			type: "collection-result",
+			reason: "collection-failed",
+		});
+		await expect(failure).rejects.toEqual(new RyotClientError("collection-failed"));
 	});
 
 	it("fails the session on a malformed correlated result and settles the operation once", async () => {

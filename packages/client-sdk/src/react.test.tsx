@@ -1,4 +1,5 @@
 import { waitFor } from "@testing-library/dom";
+import { Schema } from "effect";
 import { act, StrictMode, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vitest";
@@ -19,6 +20,7 @@ import {
 	useRyotMutation,
 	useRyotQuery,
 	useEntityRefresh,
+	usePageRefresh,
 } from "./react";
 import { createTestRyotClock } from "./testing";
 
@@ -38,6 +40,7 @@ const makeClock = (overrides: Partial<RyotClientAdapter> = {}) => {
 	return clock;
 };
 
+let refetch: () => void = () => undefined;
 const plainClock = () => (plain ??= makeClock());
 
 const render = (children: ReactNode, runtime = plainClock().runtime) => {
@@ -466,6 +469,91 @@ describe("useRyotQuery", () => {
 		expect(calls).toBe(1);
 	});
 
+	it("refreshes active queries after a direct capability mutation", async () => {
+		let calls = 0;
+		const clock = makeClock({
+			invokeOperation: () => Promise.resolve("saved"),
+		});
+		const query = createRyotQuery(() => Promise.resolve(++calls));
+		const View = () => <p>{useRyotQuery(query).data ?? "pending"}</p>;
+		const container = render(<View />, clock.runtime);
+		await clock.advance(0);
+
+		await clock.client.operations.invoke({
+			input: {},
+			slug: "save",
+			pluginSlug: "fixture",
+			output: Schema.String,
+		});
+		await clock.advance(249);
+		expect(calls).toBe(1);
+		await clock.advance(1);
+
+		expect(calls).toBe(2);
+		expect(container.textContent).toBe("2");
+	});
+
+	it("retains one pending page hint while a query refresh is running", async () => {
+		const requests: Array<(value: number) => void> = [];
+		const clock = makeClock();
+		const query = createRyotQuery(() => new Promise<number>((resolve) => requests.push(resolve)));
+		const View = () => <p>{useRyotQuery(query).data ?? "pending"}</p>;
+		render(<View />, clock.runtime);
+		await clock.advance(0);
+		act(() => requests[0]?.(1));
+		await clock.advance(0);
+
+		act(() => clock.client.mutationCompleted.hint());
+		await clock.advance(250);
+		expect(requests).toHaveLength(2);
+		act(() => clock.client.mutationCompleted.hint());
+		await clock.advance(500);
+		expect(requests).toHaveLength(2);
+		act(() => requests[1]?.(2));
+		await clock.advance(0);
+		expect(requests).toHaveLength(3);
+	});
+
+	it("runs arbitrary active-page refresh callbacks through the shared registry", async () => {
+		let refreshes = 0;
+		const clock = makeClock();
+		const View = () => {
+			usePageRefresh(() => {
+				refreshes++;
+			});
+			return null;
+		};
+		render(<View />, clock.runtime);
+
+		act(() => clock.client.mutationCompleted.hint());
+		await clock.advance(250);
+
+		expect(refreshes).toBe(1);
+	});
+
+	it("lets replay-controlled queries opt out of the automatic page refresh", async () => {
+		let calls = 0;
+		const clock = makeClock();
+		const query = createRyotQuery<string, number>(() => Promise.resolve(++calls));
+		const View = () => {
+			const result = useRyotQuery(query, "page", { refreshOnMutation: false });
+			refetch = result.refetch;
+			usePageRefresh(result.refetch);
+			return <p>{result.data ?? "pending"}</p>;
+		};
+		const container = render(<View />, clock.runtime);
+		await clock.advance(0);
+
+		act(() => clock.client.mutationCompleted.hint());
+		await clock.advance(250);
+
+		expect(calls).toBe(2);
+		expect(container.textContent).toBe("2");
+		act(() => refetch());
+		await clock.advance(0);
+		expect(calls).toBe(3);
+	});
+
 	it("cancels opted-in in-flight queries when the final consumer unmounts", async () => {
 		let signal: AbortSignal | undefined;
 		const query = createRyotQuery(
@@ -647,6 +735,30 @@ describe("useEntityRefresh", () => {
 });
 
 describe("useRyotMutation", () => {
+	it("does not duplicate the capability mutation-completed hint", async () => {
+		let hints = 0;
+		let latest: RyotMutationResult<void, string> | undefined;
+		const clock = makeClock({ invokeOperation: () => Promise.resolve("saved") });
+		clock.client.mutationCompleted.subscribe(() => hints++);
+		const mutation = createRyotMutation(({ client }) =>
+			client.operations.invoke({
+				input: {},
+				slug: "save",
+				pluginSlug: "fixture",
+				output: Schema.String,
+			}),
+		);
+		const View = () => {
+			latest = useRyotMutation(mutation);
+			return null;
+		};
+		render(<View />, clock.runtime);
+
+		await act(() => latest?.mutateAsync());
+
+		expect(hints).toBe(1);
+	});
+
 	it("tracks pending, success, reset, and error state", async () => {
 		let resolve!: (value: string) => void;
 		let shouldFail = false;

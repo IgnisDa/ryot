@@ -7,6 +7,7 @@ import {
 	PluginBridgeClientMessage,
 	PluginBridgeLifecycleClose,
 	PluginAssetBridgeErrorReason,
+	PluginCollectionBridgeErrorReason,
 	PluginOperationBridgeErrorReason,
 	PluginBridgeReady,
 	type KernelShortcut,
@@ -16,6 +17,10 @@ import {
 	type PluginBridgeAssetCancel,
 	type PluginBridgeAssetRequest,
 	type PluginBridgeAssetResult,
+	type PluginBridgeCollectionRequest,
+	type PluginBridgeDismissOverlay,
+	type PluginBridgeDismissOverlayResult,
+	PluginBridgeCollectionResult,
 	type PluginBridgeInit,
 	type PluginBridgeLocation,
 	type PluginBridgeHeader,
@@ -27,6 +32,7 @@ import {
 	type PluginBridgeViewport,
 	type PluginBridgeOperationRequest,
 	type PluginBridgeOperationResult,
+	type PluginBridgeOverlayState,
 	type PluginBridgeRyotQLCancel,
 	type PluginBridgeRyotQLRequest,
 	type PluginBridgeRyotQLResult,
@@ -40,6 +46,8 @@ import {
 	type PluginRyotQLOutcome,
 	type PluginRyotQLRequest,
 	type PluginThemeSnapshot,
+	type PluginCollectionOutcome,
+	type PluginCollectionRequest,
 } from "@ryot-app/client-plugin-contract";
 import type { EntityInterestSubscription } from "@ryot-app/client-sdk";
 import { isJsonValue } from "@ryot-app/contract/schema/json";
@@ -48,18 +56,20 @@ import { Match, Result, Schema } from "effect";
 import type { WatchEntities } from "#/modules/entity-interest/service";
 
 const HANDSHAKE_TIMEOUT_MS = 15_000;
+const OVERLAY_DISMISS_TIMEOUT_MS = 1_000;
 
 type PluginBridgeTarget = {
 	readonly postMessage: (message: unknown, targetOrigin: string, transfer: Transferable[]) => void;
 };
 
-export type PluginBridgeNavigationState = Omit<PluginBridgeLocation, "type">;
-export type PluginBridgeViewportInsets = Omit<PluginBridgeViewport, "type">;
 export type PluginScreenReadiness = Omit<PluginBridgeScreenState, "type">;
+export type PluginBridgeViewportInsets = Omit<PluginBridgeViewport, "type">;
+export type PluginBridgeNavigationState = Omit<PluginBridgeLocation, "type">;
 
 export type PluginBridgeSession = {
 	readonly close: () => void;
 	readonly sendPageRefresh: () => void;
+	readonly requestOverlayDismiss: () => boolean;
 	readonly sendTheme: (theme: PluginThemeSnapshot) => void;
 	readonly sendViewport: (insets: PluginBridgeViewportInsets) => void;
 	readonly sendLocation: (navigation: PluginBridgeNavigationState) => void;
@@ -69,7 +79,7 @@ type PluginBridgeState = "ready" | "active" | "closing" | "failed" | "disposed";
 
 type PendingRequest = {
 	readonly controller: AbortController;
-	readonly type: "asset" | "operation" | "ryotql" | "upload";
+	readonly type: "asset" | "collection" | "operation" | "ryotql" | "upload";
 };
 
 type PluginBridgeOptions = {
@@ -85,11 +95,13 @@ type PluginBridgeOptions = {
 	readonly watchEntities: WatchEntities;
 	readonly viewport: PluginBridgeViewportInsets;
 	readonly navigation: PluginBridgeNavigationState;
+	readonly onOverlayState: (count: number) => void;
 	readonly onHeader: (request: PluginBridgeHeader) => void;
 	readonly onNavigate: (request: PluginBridgeNavigate) => void;
 	readonly onKernelShortcut: (shortcut: KernelShortcut) => void;
 	readonly onScreenState: (state: PluginScreenReadiness) => void;
 	readonly onPageSearch: (request: PluginBridgePageSearch) => void;
+	readonly scheduleOverlayDismissTimeout?: (onTimeout: () => void) => () => void;
 	readonly onProviderSearch: (request: PluginBridgeProviderSearchScreen) => void;
 	readonly onAssets: (
 		request: PluginAssetRequest,
@@ -103,6 +115,10 @@ type PluginBridgeOptions = {
 		request: PluginOperationRequest,
 		signal: AbortSignal,
 	) => Promise<PluginOperationOutcome>;
+	readonly onCollection: (
+		request: PluginCollectionRequest,
+		signal: AbortSignal,
+	) => Promise<PluginCollectionOutcome>;
 	readonly onUpload: (
 		request: PluginUploadRequest,
 		signal: AbortSignal,
@@ -112,6 +128,7 @@ type PluginBridgeOptions = {
 const decodeReady = Schema.decodeUnknownResult(PluginBridgeReady);
 const isAssetBridgeErrorReason = Schema.is(PluginAssetBridgeErrorReason);
 const isOperationBridgeErrorReason = Schema.is(PluginOperationBridgeErrorReason);
+const isCollectionBridgeErrorReason = Schema.is(PluginCollectionBridgeErrorReason);
 const decodeClientMessage = Schema.decodeUnknownResult(PluginBridgeClientMessage);
 const decodeLifecycleClose = Schema.decodeUnknownResult(PluginBridgeLifecycleClose);
 
@@ -141,6 +158,11 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 	const listeners = new AbortController();
 	const pending = new Map<string, PendingRequest>();
 	let interest: EntityInterestSubscription | undefined;
+	let overlayCount = 0;
+	let nextOverlayRequestId = 0;
+	let overlayDismiss:
+		| { readonly requestId: string; readonly cancelTimeout: () => void }
+		| undefined;
 	const timer = window.setTimeout(() => fail(), options.timeoutMs ?? HANDSHAKE_TIMEOUT_MS);
 
 	function finish(next: "failed" | "disposed", notify: boolean) {
@@ -156,6 +178,12 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 		interest = undefined;
 		interestIds.clear();
 		clearTimeout(timer);
+		if (overlayDismiss !== undefined) {
+			overlayDismiss.cancelTimeout();
+			overlayDismiss = undefined;
+		}
+		overlayCount = 0;
+		options.onOverlayState(0);
 		if (notify) {
 			try {
 				channel.port1.postMessage({ reason: next, type: "lifecycle-close" });
@@ -228,6 +256,43 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 		}
 	}
 
+	function requestOverlayDismiss() {
+		if (overlayDismiss !== undefined) {
+			return true;
+		}
+		if (state !== "active" || overlayCount === 0) {
+			return false;
+		}
+		nextOverlayRequestId += 1;
+		const requestId = `overlay-${nextOverlayRequestId}`;
+		const cancelTimeout =
+			options.scheduleOverlayDismissTimeout?.(() => fail()) ??
+			(() => {
+				const dismissTimer = window.setTimeout(() => fail(), OVERLAY_DISMISS_TIMEOUT_MS);
+				return () => window.clearTimeout(dismissTimer);
+			})();
+		overlayDismiss = { requestId, cancelTimeout };
+		post({ requestId, type: "dismiss-overlay" } satisfies PluginBridgeDismissOverlay);
+		return true;
+	}
+
+	function handleOverlayState(request: PluginBridgeOverlayState) {
+		overlayCount = request.count;
+		options.onOverlayState(request.count);
+	}
+
+	function handleOverlayDismissResult(result: PluginBridgeDismissOverlayResult) {
+		if (overlayDismiss?.requestId !== result.requestId) {
+			return;
+		}
+		overlayDismiss.cancelTimeout();
+		overlayDismiss = undefined;
+		if (result.dismissed && overlayCount > 0) {
+			overlayCount -= 1;
+			options.onOverlayState(overlayCount);
+		}
+	}
+
 	function handleLifecycleClose(reason: "disposed" | "failed") {
 		if (reason === "failed") {
 			fail(false);
@@ -279,6 +344,62 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 						type: "operation-result",
 						requestId: request.requestId,
 					} satisfies PluginBridgeOperationResult);
+					if (pending.get(request.requestId)?.controller === controller) {
+						pending.delete(request.requestId);
+					}
+				} catch {
+					fail();
+				}
+				return undefined;
+			});
+	}
+
+	function handleCollection(request: PluginBridgeCollectionRequest) {
+		if (pending.has(request.requestId)) {
+			return;
+		}
+		if (pending.size >= CLIENT_BRIDGE_MAX_PENDING_REQUESTS) {
+			fail();
+			return;
+		}
+		const controller = new AbortController();
+		pending.set(request.requestId, { controller, type: "collection" });
+		let capabilityRequest: PluginCollectionRequest;
+		if (request.action === "create") {
+			capabilityRequest = { action: request.action, input: request.input };
+		} else if (request.action === "upsert-membership") {
+			capabilityRequest = { action: request.action, input: request.input };
+		} else {
+			capabilityRequest = { action: request.action, input: request.input };
+		}
+		void Promise.resolve()
+			.then(() => options.onCollection(capabilityRequest, controller.signal))
+			.catch(() => ({ outcome: "failure", reason: "transport" }) satisfies PluginCollectionOutcome)
+			.then((outcome) => {
+				if (state !== "active" || pending.get(request.requestId)?.controller !== controller) {
+					return undefined;
+				}
+				let result: PluginCollectionOutcome;
+				if (outcome.outcome === "failure" && isCollectionBridgeErrorReason(outcome.reason)) {
+					result = { outcome: "failure", reason: outcome.reason };
+				} else if (outcome.outcome === "failure") {
+					result = { outcome: "failure", reason: "transport" };
+				} else {
+					const decoded = Schema.decodeUnknownResult(PluginBridgeCollectionResult)({
+						...outcome,
+						type: "collection-result",
+						requestId: request.requestId,
+					});
+					result = Result.isSuccess(decoded)
+						? outcome
+						: { outcome: "failure", reason: "malformed-result" };
+				}
+				try {
+					channel.port1.postMessage({
+						...result,
+						type: "collection-result",
+						requestId: request.requestId,
+					} satisfies PluginBridgeCollectionResult);
 					if (pending.get(request.requestId)?.controller === controller) {
 						pending.delete(request.requestId);
 					}
@@ -446,7 +567,15 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 					}),
 					Match.when({ type: "asset-cancel" }, (request) => handleAssetCancel(request)),
 					Match.when({ type: "asset-request" }, (request) => handleAssets(request)),
-					Match.when({ type: "navigate-back" }, () => options.onNavigateBack()),
+					Match.when({ type: "navigate-back" }, () => {
+						if (!requestOverlayDismiss()) {
+							options.onNavigateBack();
+						}
+					}),
+					Match.when({ type: "overlay-state" }, (request) => handleOverlayState(request)),
+					Match.when({ type: "dismiss-overlay-result" }, (result) =>
+						handleOverlayDismissResult(result),
+					),
 					Match.when({ type: "open-drawer" }, () => options.onOpenDrawer()),
 					Match.when({ type: "kernel-shortcut" }, ({ shortcut }) =>
 						options.onKernelShortcut(shortcut),
@@ -466,6 +595,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 					Match.when({ type: "ryotql-cancel" }, (request) => handleRyotQLCancel(request)),
 					Match.when({ type: "ryotql-request" }, (request) => handleRyotQL(request)),
 					Match.when({ type: "operation-request" }, (request) => handleOperation(request)),
+					Match.when({ type: "collection-request" }, (request) => handleCollection(request)),
 					Match.when({ type: "upload-request" }, (request) => handleUpload(request)),
 					Match.exhaustive,
 				);
@@ -506,5 +636,12 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 		fail(false);
 	}
 
-	return { close, sendTheme, sendLocation, sendViewport, sendPageRefresh };
+	return {
+		close,
+		sendTheme,
+		sendLocation,
+		sendViewport,
+		sendPageRefresh,
+		requestOverlayDismiss,
+	};
 }

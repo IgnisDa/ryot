@@ -2,6 +2,7 @@ import { createRyotClient, RyotClientError } from "@ryot-app/client-sdk";
 import { makeRyotRuntime, type RyotRuntime } from "@ryot-app/client-sdk/schedule";
 import { Effect } from "effect";
 
+import { classifyCollectionFailure, CollectionsApi } from "#/api/collections";
 import { classifyRyotQLFailure, RyotQLApi } from "#/api/ryotql";
 import { apiScopeKey, type ApiScope } from "#/api/scope";
 import { UploadsApi } from "#/api/uploads";
@@ -19,7 +20,7 @@ import type { ThemeStore } from "#/modules/theme/store";
 type KernelApiRuntime = {
 	readonly runSync: <A>(effect: Effect.Effect<A, never, EntityInterestService>) => A;
 	readonly runPromise: <A, E>(
-		effect: Effect.Effect<A, E, RyotQLApi | UploadsApi>,
+		effect: Effect.Effect<A, E, CollectionsApi | RyotQLApi | UploadsApi>,
 		options?: Effect.RunOptions,
 	) => Promise<A>;
 };
@@ -31,6 +32,31 @@ export const createKernelRyotClient = (
 ) => {
 	return createRyotClient({
 		theme,
+		mutateCollection: async (request) => {
+			try {
+				return await runtime.runPromise(
+					CollectionsApi.pipe(
+						Effect.flatMap((api) => {
+							if (request.action === "create") {
+								return api
+									.create(scope, { payload: request.input })
+									.pipe(Effect.map((value): unknown => value));
+							}
+							if (request.action === "upsert-membership") {
+								return api
+									.createMembership(scope, { payload: request.input })
+									.pipe(Effect.map((value): unknown => value));
+							}
+							return api
+								.deleteMembership(scope, { payload: request.input })
+								.pipe(Effect.map((value): unknown => value));
+						}),
+					),
+				);
+			} catch (error) {
+				throw new RyotClientError(classifyCollectionFailure(error));
+			}
+		},
 		watchEntities: (interest, onUpdate) =>
 			runtime.runSync(
 				Effect.map(EntityInterestService, (service) => service.watch(scope, interest, onUpdate)),

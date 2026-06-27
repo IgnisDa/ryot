@@ -74,6 +74,9 @@ export const Route = createFileRoute("/_authenticated/v/$viewSlug")({
 		sort: typeof search.sort === "string" && search.sort !== "" ? search.sort : undefined,
 		layout: typeof search.layout === "string" && search.layout !== "" ? search.layout : undefined,
 		search: typeof search.search === "string" && search.search !== "" ? search.search : undefined,
+		dialog: typeof search.dialog === "string" && search.dialog !== "" ? search.dialog : undefined,
+		entityId:
+			typeof search.entityId === "string" && search.entityId !== "" ? search.entityId : undefined,
 	}),
 	loader: async ({ abortController, context, params }) => {
 		const slug = params.viewSlug.trim();
@@ -185,7 +188,7 @@ function RendererSavedViewPage() {
 		select: (current) => current.resolvedLocation ?? current.location,
 	});
 	const pushedAdd = useRef(false);
-	const [pageRefreshToken, setPageRefreshToken] = useState(0);
+	const ryot = useRyot();
 	if (loaded.kind !== "page") {
 		throw new Error("Expected renderer saved-view data");
 	}
@@ -262,7 +265,6 @@ function RendererSavedViewPage() {
 				prepared={loaded.prepared}
 				title={loaded.record.name}
 				onProviderSearch={openAdd}
-				pageRefreshToken={pageRefreshToken}
 			/>
 			{add === true && addAction !== null ? (
 				<ProviderAddModal
@@ -271,7 +273,7 @@ function RendererSavedViewPage() {
 					ownerPluginId={addAction.ownerPluginId}
 					entitySchemaSlug={addAction.entitySchemaSlug}
 					onImported={() => {
-						setPageRefreshToken((current) => current + 1);
+						ryot.mutationCompleted.hint();
 						closeAdd();
 					}}
 				/>
