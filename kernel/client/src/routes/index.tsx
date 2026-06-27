@@ -48,20 +48,19 @@ function ConnectedKernel(props: { server: ServerOrigin }) {
 
 	if (decision.action !== "allow") {
 		return (
-			<main className="grid min-h-screen content-center gap-8 px-5 pt-[max(72px,calc(env(safe-area-inset-top)+56px))] pb-[max(32px,env(safe-area-inset-bottom))]">
+			<main className="page-shell">
 				<section
 					aria-labelledby="session-title"
-					className="mx-auto grid w-[min(100%,480px)] gap-4.5 rounded-xl border border-border bg-surface p-5 shadow-card md:p-6"
+					className="stack surface-card mx-auto w-[min(100%,480px)]"
 				>
-					<h1
-						id="session-title"
-						className="font-display text-[clamp(30px,7vw,42px)] leading-[1.18] font-semibold tracking-tight"
-					>
-						Restoring your session
-					</h1>
-					<p role="status" className="mt-3 text-text-muted">
-						Checking your signed-in state...
-					</p>
+					<div>
+						<h1 id="session-title" className="heading-display">
+							Restoring your session
+						</h1>
+						<p role="status" className="subtitle">
+							Checking your signed-in state...
+						</p>
+					</div>
 				</section>
 			</main>
 		);
@@ -99,19 +98,15 @@ function KernelShell(props: { email: string; scope: ApiScope; server: ServerOrig
 		<main className="mx-auto min-h-screen w-[min(100%,1040px)] px-5 pt-[max(88px,calc(env(safe-area-inset-top)+72px))] pb-[max(32px,env(safe-area-inset-bottom))]">
 			<header className="flex flex-col gap-6 border-b border-border pb-6 md:flex-row md:items-end md:justify-between">
 				<div>
-					<p className="mb-2 text-[11px] font-semibold tracking-[0.08em] text-accent-text uppercase">
-						Ryot kernel
-					</p>
-					<h1 className="font-display text-[clamp(30px,7vw,42px)] leading-[1.18] font-semibold tracking-tight">
-						Your library
-					</h1>
+					<p className="overline">Ryot kernel</p>
+					<h1 className="heading-display">Your library</h1>
 				</div>
 				<nav aria-label="Session controls" className="flex flex-wrap gap-2.5">
 					<button
 						type="button"
 						onClick={() => void changeServer()}
 						disabled={pendingAction !== undefined}
-						className="min-h-11 cursor-pointer rounded-lg border border-border-strong px-4 py-2.5 font-semibold text-text"
+						className="button-secondary"
 					>
 						{pendingAction === "server" ? "Changing..." : "Change server"}
 					</button>
@@ -119,7 +114,7 @@ function KernelShell(props: { email: string; scope: ApiScope; server: ServerOrig
 						type="button"
 						onClick={() => void signOut()}
 						disabled={pendingAction !== undefined}
-						className="min-h-11 cursor-pointer rounded-lg border border-accent bg-accent px-4 py-2.5 font-semibold text-accent-ink"
+						className="button-primary"
 					>
 						{pendingAction === "signout" ? "Signing out..." : "Sign out"}
 					</button>
@@ -129,9 +124,7 @@ function KernelShell(props: { email: string; scope: ApiScope; server: ServerOrig
 				aria-labelledby="kernel-ready-title"
 				className="mt-8 rounded-xl border border-border bg-surface p-6 shadow-card"
 			>
-				<p className="mb-2 text-[11px] font-semibold tracking-[0.08em] text-accent-text uppercase">
-					Authenticated
-				</p>
+				<p className="overline">Authenticated</p>
 				<h2 id="kernel-ready-title" className="font-display text-2xl">
 					Kernel shell ready
 				</h2>
