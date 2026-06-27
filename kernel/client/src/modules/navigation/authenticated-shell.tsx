@@ -22,10 +22,25 @@ import {
 
 import { AuthService } from "#/modules/auth/service";
 import { useDesktopEffect, useIsDesktop } from "#/modules/navigation/breakpoint";
+import { CustomizeSidebarPanel } from "#/modules/navigation/customize/customize-sidebar-panel";
+import {
+	customizeSearchSection,
+	type CustomizeSection,
+} from "#/modules/navigation/customize/customize-state";
+import {
+	useCustomizeDraft,
+	type CustomizeDraftState,
+} from "#/modules/navigation/customize/use-customize-draft";
 import { DesktopSidebar } from "#/modules/navigation/desktop-sidebar";
 import { CONTENT_SHIFT } from "#/modules/navigation/drawer-metrics";
 import { EdgeGesture } from "#/modules/navigation/edge-gesture";
-import { isSettingsPath, resolveEdge, type EdgeResolution } from "#/modules/navigation/edge-intent";
+import {
+	hasWorkspaceChrome,
+	isCustomizeSidebarPath,
+	isSettingsPath,
+	resolveEdge,
+	type EdgeResolution,
+} from "#/modules/navigation/edge-intent";
 import { impactLight } from "#/modules/navigation/haptics";
 import { historyEntry } from "#/modules/navigation/history-entry";
 import { MobileDrawer } from "#/modules/navigation/mobile-drawer";
@@ -58,6 +73,22 @@ const PluginHeaderContext = createContext<PluginHeaderController | undefined>(un
 const PluginTitleContext = createContext<string | null | undefined>(undefined);
 
 const EdgeContext = createContext<EdgeResolution | undefined>(undefined);
+
+export type CustomizeController = {
+	readonly onSave: () => void;
+	readonly onLeave: () => void;
+	readonly customize: CustomizeDraftState;
+};
+
+const CustomizeContext = createContext<CustomizeController | undefined>(undefined);
+
+export const useCustomizeController = () => {
+	const controller = useContext(CustomizeContext);
+	if (controller === undefined) {
+		throw new Error("useCustomizeController must be used inside AuthenticatedShell");
+	}
+	return controller;
+};
 
 export const useEdge = () => {
 	const edge = useContext(EdgeContext);
@@ -99,7 +130,7 @@ export function AuthenticatedShell(props: {
 	const router = useRouter();
 	const drawerId = useId();
 	const navigate = useNavigate();
-	const { pathname, state } = useLocation();
+	const { pathname, search, state } = useLocation();
 	const isDesktop = useIsDesktop();
 	const { catalog } = usePluginCatalog();
 	const progress = useMotionValue(0);
@@ -109,8 +140,12 @@ export function AuthenticatedShell(props: {
 	const [drawerOpen, setDrawerOpen] = useState(false);
 	const [searchOpen, setSearchOpen] = useState(false);
 	const [pluginHeader, setPluginHeader] = useState<PluginHeaderState | null>(null);
+	const [discarding, setDiscarding] = useState(false);
 	const [rememberedSlug, setRememberedSlug] = useState(props.initialRememberedSlug);
 	const settingsActive = isSettingsPath(pathname);
+	const customizeActive = isCustomizeSidebarPath(pathname);
+	const customizeSection = customizeSearchSection(search);
+	const workspaceChrome = hasWorkspaceChrome(pathname);
 	const routeSlug = pathname.split("/")[1] ?? "";
 	const routeWorkspace = resolvePluginRouteWorkspace(catalog, routeSlug);
 	const current = resolveRememberedWorkspace(catalog, rememberedSlug);
@@ -155,6 +190,66 @@ export function AuthenticatedShell(props: {
 		setSearchOpen(false);
 		return true;
 	});
+	const interceptDiscardBack = useEffectEvent(() => {
+		setDiscarding(false);
+		return true;
+	});
+	const customize = useCustomizeDraft({
+		data: props.navigation,
+		active: customizeActive,
+		workspaceSlug: current?.slug,
+	});
+	const openCustomize = (section: CustomizeSection) => {
+		void navigate({ to: "/customize-sidebar", search: { section } });
+	};
+	const leaveCustomize = () => {
+		setDiscarding(false);
+		if (router.history.canGoBack()) {
+			router.history.back();
+			return;
+		}
+		void (current === null
+			? navigate({ to: "/", replace: true })
+			: navigate({ replace: true, to: "/$pluginSlug", params: { pluginSlug: current.slug } }));
+	};
+	const requestLeaveCustomize = () => {
+		if (customize.isDirty) {
+			setDiscarding(true);
+			return true;
+		}
+		leaveCustomize();
+		return true;
+	};
+	// The refresh must be the last load the router starts, and leaving is not synchronous: a pop
+	// settles through the history listener, so invalidating on either side of the call still races
+	// the navigation, which aborts whatever is in flight and leaves the sidebar rendering the order
+	// the user just changed. Waiting for the router to resolve is the only ordering that holds.
+	const saveCustomize = () => {
+		void customize.save().then((saved) => {
+			if (!saved) {
+				return;
+			}
+			const unsubscribe = router.subscribe("onResolved", () => {
+				unsubscribe();
+				void router.invalidate();
+			});
+			leaveCustomize();
+		});
+	};
+	// The edge gesture performs a kernel-owned back directly, so it has to consult the same guard
+	// that `BackInterceptors` gives Android's hardware Back; otherwise one of them loses the draft.
+	const goBack = () => {
+		if (customizeActive) {
+			requestLeaveCustomize();
+			return;
+		}
+		router.history.back();
+	};
+	const customizeController: CustomizeController = {
+		customize,
+		onSave: saveCustomize,
+		onLeave: requestLeaveCustomize,
+	};
 	const header = useMemo<PluginHeaderController>(
 		() => ({
 			publish: (owner, publication) => setPluginHeader({ owner, ...publication }),
@@ -188,10 +283,19 @@ export function AuthenticatedShell(props: {
 		return backInterceptors.register(interceptSearchBack);
 	}, [backInterceptors, searchOpen]);
 	useEffect(() => {
-		if (settingsActive) {
+		if (!customizeActive || !customize.isDirty || discarding) {
+			return undefined;
+		}
+		return backInterceptors.register(() => {
+			setDiscarding(true);
+			return true;
+		});
+	}, [backInterceptors, customizeActive, customize.isDirty, discarding]);
+	useEffect(() => {
+		if (!workspaceChrome) {
 			setDrawerOpen(false);
 		}
-	}, [settingsActive]);
+	}, [workspaceChrome]);
 	useDesktopEffect(() => setDrawerOpen(false));
 	useShortcut("Meta+K", () => setSearchOpen(true), { enabled: !searchOpen });
 
@@ -207,25 +311,36 @@ export function AuthenticatedShell(props: {
 				activeHome={homeActive}
 				onNavigateHome={navigateHome}
 				onNavigateItem={navigateItem}
+				onEditSection={openCustomize}
 				activeSettings={settingsActive}
 				onSelectWorkspace={selectWorkspace}
 				onOpenSearch={() => setSearchOpen(true)}
 				onNavigateSettings={() => navigate({ href: "/settings" })}
+				customizePanel={
+					customizeActive && isDesktop ? (
+						<CustomizeSidebarPanel
+							customize={customize}
+							onSave={saveCustomize}
+							onLeave={requestLeaveCustomize}
+							initialSection={customizeSection}
+						/>
+					) : null
+				}
 			/>
 			<EdgeGesture
 				edge={edge}
+				onBack={goBack}
 				progress={progress}
 				isOpen={drawerOpen}
-				onBack={() => router.history.back()}
 				onOpenChange={(open) => setDrawerOpen(open)}
 			/>
-			{!settingsActive && (
+			{workspaceChrome && (
 				<MobileHeader
+					onBack={goBack}
 					drawerId={drawerId}
 					isOpen={drawerOpen}
 					intent={edge.intent}
 					triggerRef={triggerRef}
-					onBack={() => router.history.back()}
 					onOpen={() => setDrawerOpen(true)}
 					title={pluginTitle ?? current?.name ?? "No workspace"}
 				/>
@@ -233,46 +348,78 @@ export function AuthenticatedShell(props: {
 			<MobileDrawer
 				current={current}
 				catalog={catalog}
-				sections={sections}
 				session={session}
+				sections={sections}
 				progress={progress}
 				isPro={props.isPro}
-				activeKey={activeKey}
 				drawerId={drawerId}
 				isOpen={drawerOpen}
+				activeKey={activeKey}
 				triggerRef={triggerRef}
 				activeHome={homeActive}
-				hasDrawer={!settingsActive}
+				hasDrawer={workspaceChrome}
+				onNavigateItem={navigateItem}
+				onNavigateHome={navigateHome}
 				activeSettings={settingsActive}
 				onSelectWorkspace={selectWorkspace}
 				onClose={() => setDrawerOpen(false)}
 				onOpenSearch={() => setSearchOpen(true)}
-				onNavigateItem={navigateItem}
+				onCustomize={() => openCustomize("views")}
 				onNavigateSettings={() => navigate({ href: "/settings" })}
-				onNavigateHome={navigateHome}
 			/>
 			<RememberedWorkspaceContext value={rememberedSlug}>
-				<PluginHeaderContext value={header}>
-					<PluginTitleContext value={pluginTitle}>
-						<EdgeContext value={edge}>
-							<motion.div
-								inert={drawerOpen}
-								style={{ x: contentShift }}
-								data-testid="shell-content"
-								className="min-h-0 min-w-0 flex-1 overflow-hidden"
-							>
-								<Outlet />
-							</motion.div>
-						</EdgeContext>
-					</PluginTitleContext>
-				</PluginHeaderContext>
+				<CustomizeContext value={customizeController}>
+					<PluginHeaderContext value={header}>
+						<PluginTitleContext value={pluginTitle}>
+							<EdgeContext value={edge}>
+								<motion.div
+									inert={drawerOpen}
+									style={{ x: contentShift }}
+									data-testid="shell-content"
+									className="min-h-0 min-w-0 flex-1 overflow-hidden"
+								>
+									<Outlet />
+								</motion.div>
+							</EdgeContext>
+						</PluginTitleContext>
+					</PluginHeaderContext>
+				</CustomizeContext>
 			</RememberedWorkspaceContext>
+			{discarding && (
+				<Modal
+					label="Discard sidebar changes?"
+					closeLabel="Dismiss discard prompt"
+					onInterceptBack={interceptDiscardBack}
+					onClose={() => setDiscarding(false)}
+					containerClassName="items-center justify-center p-4"
+					className="w-full max-w-sm rounded-xl border border-border bg-surface p-5 shadow-card"
+				>
+					<h2 className="font-display text-lg font-semibold text-text">Discard sidebar changes?</h2>
+					<p className="mt-2 text-sm text-text-muted">Your unsaved sidebar changes will be lost.</p>
+					<div className="mt-4 flex justify-end gap-2">
+						<button
+							type="button"
+							onClick={() => setDiscarding(false)}
+							className="rounded-lg px-3 py-2 text-sm font-medium text-text-muted"
+						>
+							Keep editing
+						</button>
+						<button
+							type="button"
+							onClick={leaveCustomize}
+							className="rounded-lg bg-danger-solid px-3 py-2 text-sm font-medium text-danger-ink"
+						>
+							Discard
+						</button>
+					</div>
+				</Modal>
+			)}
 			{searchOpen && (
 				<Modal
 					label="Command center"
 					closeLabel="Close command center"
-					onClose={() => setSearchOpen(false)}
 					onInterceptBack={interceptSearchBack}
+					onClose={() => setSearchOpen(false)}
 					containerClassName="items-center justify-center p-4"
 					className="w-full max-w-xl rounded-xl border border-border bg-surface p-5 shadow-card"
 				>

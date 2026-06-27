@@ -21,6 +21,7 @@ import {
 	GodModeRouteStubs,
 	SavedViewRouteStubs,
 	ProviderAddRouteStubs,
+	CustomizeRouteStubs,
 	NavigationRouteStubs,
 	theme,
 	server,
@@ -66,6 +67,7 @@ const mountView = (
 			}),
 			Layer.succeed(PluginCatalogService, { load: () => Effect.succeed(entries) }),
 			NavigationRouteStubs,
+			CustomizeRouteStubs,
 			Layer.succeed(PluginOperationsService, { invoke: () => Effect.die("not used") }),
 			Layer.succeed(PluginQueriesService, { query: () => Effect.die("not used") }),
 		).pipe(
@@ -441,7 +443,7 @@ describe("document title and skip-link target", () => {
 		mountView("/", null, []);
 		await screen.findByRole("heading", { name: "No workspaces enabled" });
 
-		expect(document.title).toBe("No workspaces — Ryot");
+		await waitFor(() => expect(document.title).toBe("No workspaces — Ryot"));
 		expect(mainContents()).toHaveLength(1);
 	});
 
@@ -449,14 +451,14 @@ describe("document title and skip-link target", () => {
 		mountView("/auth", undefined, undefined, makeAuthStub({}, unauthenticated));
 		await screen.findByRole("heading", { name: "Opening sign-in" });
 
-		expect(document.title).toBe("Opening sign-in — Ryot");
+		await waitFor(() => expect(document.title).toBe("Opening sign-in — Ryot"));
 		expect(mainContents()).toHaveLength(1);
 	});
 
 	it("retitles when navigating between routes", async () => {
 		const view = mountView("/settings/preferences");
 		await screen.findByRole("heading", { name: "Preferences" });
-		expect(document.title).toBe("Preferences — Ryot");
+		await waitFor(() => expect(document.title).toBe("Preferences — Ryot"));
 
 		await view.router.navigate({ href: "/settings/account" });
 		await waitFor(() => expect(document.title).toBe("Account — Ryot"));

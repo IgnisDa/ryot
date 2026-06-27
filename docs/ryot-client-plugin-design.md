@@ -1181,7 +1181,7 @@ Settings lives at `/settings`, `/settings/preferences`, and `/settings/account`,
 
 `/settings/preferences` currently contains only an Appearance section: Light/Dark/System radios that are device-local. `/settings/account` shows profile identity — avatar, name, email, user ID, and server origin — plus sign out and change server, each with pending, disabled, and stable failure states. A `ThemeController` stays mounted globally, renders nothing, and reads and persists the preference from a `ThemeStore`; that store remains the single source of truth for applying the theme to the document and for the theme snapshot published to plugins. There is no separate global theme selector outside Appearance.
 
-Sidebar customization, avatar refresh, God mode, integrations, imports, backups, plugin management, and the remaining settings sections are deferred. The command center currently ships only as a placeholder surface.
+Avatar refresh, God mode, integrations, imports, backups, plugin management, and the remaining settings sections are deferred. The command center currently ships only as a placeholder surface.
 
 ---
 
@@ -1211,11 +1211,61 @@ The switcher lists every enabled installation in catalog order. Selecting the cu
 
 ### Shell chrome
 
-At `md` and above, a desktop workspace sidebar (~264px, hidden below `md`) is always present. Its shared `SidebarNav` contains a workspace trigger whose subtitle is the workspace view count, a command-center search row, workspace Views, global Saved Views, and Collections; the account/settings footer remains outside the shared body. Below `md`, a mobile header replaces the rail and opens a drawer that renders the same `SidebarNav` and footer, except that the search row omits the keyboard-shortcut chip. Sidebar customization remains deferred.
+At `md` and above, a desktop workspace sidebar (~264px, hidden below `md`) is always present. Its shared `SidebarNav` contains a workspace trigger whose subtitle is the workspace view count, a command-center search row, workspace Views, global Saved Views, and Collections; the account/settings footer remains outside the shared body. Below `md`, a mobile header replaces the rail and opens a drawer that renders the same `SidebarNav` and footer, except that the search row omits the keyboard-shortcut chip.
 
 The mobile header is a 54px row with `size-11 rounded-pill` controls on a `bg-bg` surface. Its leading control is the menu button or a back chevron, chosen by the §25 edge rule. Its title is the remembered workspace's name, overridden by the plugin-supplied title described in §10 when one is set.
 
 The drawer is a controlled overlay rather than a modal `<dialog>`, because `showModal()` is binary and cannot be dragged progressively open. Its panel and scrim are driven by one shared progress value, so the button and the edge gesture animate through the same path. It supports Escape, scrim, and close-button dismissal, traps focus while open, restores focus to the menu trigger on close, locks body scroll, leaves the accessibility tree as soon as it closes rather than when its exit animation ends, and respects reduced motion. Selecting a destination commits the close before the navigation runs, so the destination never appears behind an open drawer. Neither the mobile header nor the drawer belongs to settings routes, but the drawer unmounts on its progress value reaching zero rather than on the route changing, so choosing settings from inside it animates the panel out instead of cutting it away, and returning to a workspace never remounts a panel that is still part-way open.
+
+
+### Sidebar customization
+
+`/customize-sidebar` is a URL-owned surface rather than shell state, so browser Back, Android
+hardware Back, and the left-edge gesture all leave it, and a `section` search param can deep-link it
+to **Views** or **Saved Views**. It is one of the routes that carries its own back affordance, so
+`hasWorkspaceChrome` withholds the mobile header and the drawer from it exactly as it does from
+settings, and §25's resolver gives its edge to a kernel-owned back.
+
+The surface renders in one place per viewport, chosen by `useIsDesktop` rather than by CSS, so only
+one set of controls is ever in the accessibility tree. At `md` and above the workspace sidebar
+itself becomes the panel — the rail widens from 264px to 400px, the shared `SidebarNav` and the
+account footer give way to the panel's own header and Cancel/Save footer, and the content region
+dims. Below `md` the panel is the page, under a Cancel / title / Save header of its own. Both
+frames render the same body and are driven by one draft: the shell owns it, hands it to the aside
+directly, and publishes it to the route through context, because a second draft would let the two
+viewports disagree across a resize.
+
+Reachable from the workspace switcher's **Customize sidebar…** entry in both the desktop sidebar and
+the mobile drawer, and from an **Edit** control revealed on hover or focus in the desktop **Views**
+and **Saved Views** headers.
+
+Only the workspace's Views and the global Saved Views are customizable. Home is pinned and shown as
+a locked row; Collections are excluded entirely and say so. Each row carries a drag handle and a
+visibility switch. Reordering is pointer-draggable and keyboard-operable — the handle is a real
+button, Arrow/Home/End move the focused row, and a live region announces the new position — because
+a drag-only handle has no keyboard path at all.
+
+Saving diffs the draft against the snapshot the session opened with and applies the result as a
+plan: one saved-view update per visibility change, then one reorder per section whose order moved,
+scoped by `pluginSlug` for workspace views and unscoped for global ones. Reorders carry hidden views
+too, so hiding a view never loses its place. Nothing is written until Save, the plan stops at its
+first failure rather than reordering a half-applied change, and success invalidates the router so the
+sidebar re-reads the navigation data instead of patching it locally.
+
+*When* it invalidates is load-cancellation, not preference. Starting a load aborts whatever the
+router already has in flight, and leaving is not synchronous — a pop settles through the history
+listener — so invalidating either before or immediately after the leave races the navigation, which
+cancels the refetch. The save survives, but the sidebar goes on rendering the order the user just
+changed until the next full page load, which reads as the save having silently failed. The refresh
+therefore waits for the router's next `onResolved` and invalidates from there.
+
+Leaving a dirty draft asks first, which is the one place this surface departs from §27's "a
+URL-owned overlay registers nothing". The interceptor it registers while dirty does not dismiss the
+route — it opens the confirmation, and confirming still leaves by popping the entry — and it is
+registered only while there is unsaved work to lose. The left-edge gesture performs a kernel-owned
+back directly rather than through `BackInterceptors`, so it consults the same guard; otherwise a
+swipe and Android's hardware Back would disagree about the same draft. Browser Back cannot be
+intercepted at all, so on the web it leaves as it does for any other route.
 
 ---
 
@@ -1594,6 +1644,7 @@ The arbitration rule is unchanged: **the left edge does whatever the header's le
 workspace root (/:pluginSlug)   intent drawer   owner kernel   header shows the menu button
 plugin child route              intent back     owner plugin   header shows the back chevron
 settings routes                 intent back     owner kernel   SettingsFrame owns its back control
+/customize-sidebar              intent back     owner kernel   the panel owns its Cancel control
 desktop                         intent back     owner kernel   no edge gesture is offered
 "back" with nothing to pop      falls through to the drawer where one is mounted
 ```
