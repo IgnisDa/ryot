@@ -95,32 +95,39 @@ describe("plugin navigation store", () => {
 		expect(popped.transition?.leaving.location).toEqual(entityLocation("entity-2"));
 	});
 
-	it("keeps the viewport inset across locations and clears", () => {
-		const store = createPluginNavigationStore(resolve, 12);
+	it("keeps the viewport insets across locations and clears", () => {
+		const store = createPluginNavigationStore(resolve, { safeAreaTop: 12, safeAreaBottom: 8 });
 		store.setLocation(location(0, "/"));
 
-		expect(store.getSnapshot().safeAreaTop).toBe(12);
+		expect(store.getSnapshot()).toMatchObject({ safeAreaTop: 12, safeAreaBottom: 8 });
 
-		store.setViewport(59);
+		store.setViewport({ safeAreaTop: 59, safeAreaBottom: 34 });
 		store.setLocation(location(1, "/items/1"));
 
-		expect(store.getSnapshot().safeAreaTop).toBe(59);
+		expect(store.getSnapshot()).toMatchObject({ safeAreaTop: 59, safeAreaBottom: 34 });
 
 		store.clear();
 
-		expect(store.getSnapshot()).toMatchObject({ safeAreaTop: 59, screens: [] });
+		expect(store.getSnapshot()).toMatchObject({
+			screens: [],
+			safeAreaTop: 59,
+			safeAreaBottom: 34,
+		});
 	});
 
-	it("emits only when the viewport inset actually changes", () => {
-		const store = createPluginNavigationStore(resolve, 20);
+	it("emits only when a viewport inset actually changes", () => {
+		const store = createPluginNavigationStore(resolve, { safeAreaTop: 20, safeAreaBottom: 0 });
 		let emissions = 0;
 		store.subscribe(() => (emissions += 1));
 
-		store.setViewport(20);
+		store.setViewport({ safeAreaTop: 20, safeAreaBottom: 0 });
 		expect(emissions).toBe(0);
 
-		store.setViewport(44);
+		store.setViewport({ safeAreaTop: 44, safeAreaBottom: 0 });
 		expect(emissions).toBe(1);
+
+		store.setViewport({ safeAreaTop: 44, safeAreaBottom: 34 });
+		expect(emissions).toBe(2);
 	});
 
 	it("only completes the current transition", () => {

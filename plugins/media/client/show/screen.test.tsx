@@ -46,6 +46,7 @@ function EpisodesTabProbe(props: { readonly onLoad: () => void }) {
 	}, [onLoad]);
 	return (
 		<ShowEpisodes
+			compact
 			selectedId={null}
 			state={episodesState()}
 			onSelect={() => undefined}
@@ -61,7 +62,7 @@ function ActivityTabProbe(props: { readonly onLoad: () => void }) {
 	useEffect(() => {
 		onLoad();
 	}, [onLoad]);
-	return <ShowActivity state={activityState()} refresh={() => undefined} />;
+	return <ShowActivity compact state={activityState()} refresh={() => undefined} />;
 }
 
 const readyState = (overrides: Record<string, unknown> = {}): ShowSummaryState =>
@@ -80,6 +81,7 @@ const unavailableState = (requested: readonly Record<string, unknown>[]): ShowSu
 const renderContent = (
 	state: ShowSummaryState,
 	options: {
+		readonly compact?: boolean;
 		readonly episodes?: ReactNode;
 		readonly activity?: ReactNode;
 		readonly refresh?: () => void;
@@ -91,6 +93,7 @@ const renderContent = (
 		noopAdapter,
 		<ShowScreenBody
 			state={state}
+			compact={options.compact ?? true}
 			refresh={options.refresh ?? (() => undefined)}
 			overview={options.overview ?? overviewState()}
 			refreshOverview={options.refreshOverview ?? (() => undefined)}
@@ -187,6 +190,19 @@ describe("show screen content", () => {
 		unmount();
 	});
 
+	it("drops the row and fact icons the wide layout does not need", () => {
+		const compact = renderContent(readyState());
+		const compactIcons = compact.container.querySelectorAll("svg").length;
+		compact.unmount();
+
+		const { container, unmount } = renderContent(readyState(), { compact: false });
+
+		expect(compactIcons).toBe(container.querySelectorAll("svg").length + 9);
+		expect(container.textContent).toContain("In library");
+		expect(container.textContent).toContain("Production status");
+		unmount();
+	});
+
 	it("explains an empty collection membership in the rail", () => {
 		const { container, unmount } = renderContent(
 			readyState({ collections: { pageInfo: { hasMore: false, limit: 6 }, items: [] } }),
@@ -272,6 +288,7 @@ describe("show screen content", () => {
 		const { container, unmount } = renderContent(readyState(), {
 			activity: (
 				<ShowActivity
+					compact
 					refresh={() => undefined}
 					state={mapShowActivity(errorQueryResult(new Error("offline")))}
 				/>

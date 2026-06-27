@@ -27,6 +27,7 @@ describe("ShowOverview", () => {
 		const { container, unmount } = mountRyotClient(
 			noopAdapter,
 			<ShowOverview
+				compact
 				overview={{ status: "ready", overview: readyOverview }}
 				show={decodeShowSummary()}
 				refreshOverview={() => undefined}
@@ -47,6 +48,7 @@ describe("ShowOverview", () => {
 		const { container, unmount } = mountRyotClient(
 			noopAdapter,
 			<ShowOverview
+				compact
 				show={decodeShowSummary()}
 				refreshOverview={() => undefined}
 				overview={{ status: "ready", overview: emptyShowOverview() }}
@@ -64,6 +66,7 @@ describe("ShowOverview", () => {
 		const { container, unmount } = mountRyotClient(
 			noopAdapter,
 			<ShowOverview
+				compact
 				show={decodeShowSummary()}
 				overview={{ status: "loading" }}
 				refreshOverview={() => undefined}
@@ -79,6 +82,7 @@ describe("ShowOverview", () => {
 		const { container, unmount } = mountRyotClient(
 			noopAdapter,
 			<ShowOverview
+				compact
 				show={decodeShowSummary()}
 				overview={{ status: "transport-error" }}
 				refreshOverview={() => {

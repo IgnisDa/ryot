@@ -104,8 +104,8 @@ describe("plugin client artifact contract", () => {
 });
 
 describe("plugin client bridge contract", () => {
-	it("uses exact protocol and compiler version 1", () => {
-		expect(CLIENT_BRIDGE_PROTOCOL_VERSION).toBe(1);
+	it("pins the protocol and compiler versions it stamps into an artifact", () => {
+		expect(CLIENT_BRIDGE_PROTOCOL_VERSION).toBe(2);
 		expect(CLIENT_COMPILER_VERSION).toBe(1);
 	});
 
@@ -209,28 +209,32 @@ describe("plugin client bridge contract", () => {
 		expect(Result.isFailure(decode({ extra: true, resolvedMode: "dark" }))).toBe(true);
 	});
 
-	it("carries the theme mode and safe-area inset on init and never on the ready echo", () => {
+	it("carries the theme mode and safe-area insets on init and never on the ready echo", () => {
 		const decodeInit = Schema.decodeUnknownResult(PluginBridgeInit);
 		const decodeReady = Schema.decodeUnknownResult(PluginBridgeReady);
-		const init = { ...identity, mode: "dark", safeAreaTop: 59 };
+		const init = { ...identity, mode: "dark", safeAreaTop: 59, safeAreaBottom: 34 };
 
 		expect(Result.isSuccess(decodeInit(init))).toBe(true);
 		expect(Result.isFailure(decodeInit({ ...identity, mode: "dark" }))).toBe(true);
 		expect(Result.isFailure(decodeInit({ ...init, safeAreaTop: -1 }))).toBe(true);
+		expect(Result.isFailure(decodeInit({ ...init, safeAreaBottom: -1 }))).toBe(true);
 		expect(Result.isSuccess(decodeReady(identity))).toBe(true);
 		expect(Result.isFailure(decodeReady(init))).toBe(true);
 	});
 
-	it("admits a viewport inset from the host and a drawer request from the plugin", () => {
+	it("admits viewport insets from the host and a drawer request from the plugin", () => {
 		const decodeClient = Schema.decodeUnknownResult(PluginBridgeClientMessage);
 		const decodeHost = Schema.decodeUnknownResult(PluginBridgeHostMessage);
+		const viewport = { safeAreaTop: 0, safeAreaBottom: 0, type: "viewport" };
 
-		expect(Result.isSuccess(decodeHost({ safeAreaTop: 0, type: "viewport" }))).toBe(true);
+		expect(Result.isSuccess(decodeHost(viewport))).toBe(true);
 		expect(Result.isFailure(decodeHost({ type: "viewport" }))).toBe(true);
-		expect(Result.isFailure(decodeHost({ safeAreaTop: -8, type: "viewport" }))).toBe(true);
+		expect(Result.isFailure(decodeHost({ safeAreaTop: 0, type: "viewport" }))).toBe(true);
+		expect(Result.isFailure(decodeHost({ ...viewport, safeAreaTop: -8 }))).toBe(true);
+		expect(Result.isFailure(decodeHost({ ...viewport, safeAreaBottom: -8 }))).toBe(true);
 		expect(Result.isSuccess(decodeClient({ type: "open-drawer" }))).toBe(true);
 		expect(Result.isFailure(decodeHost({ type: "open-drawer" }))).toBe(true);
-		expect(Result.isFailure(decodeClient({ safeAreaTop: 0, type: "viewport" }))).toBe(true);
+		expect(Result.isFailure(decodeClient(viewport))).toBe(true);
 	});
 
 	it("uses tagged logical locations by bridge direction", () => {

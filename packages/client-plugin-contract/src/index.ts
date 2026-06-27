@@ -10,7 +10,7 @@ import { HttpUrl, IsoUtcString, strictStruct } from "@ryot-app/contract/schema/u
 import { Schema } from "effect";
 
 export { CLIENT_API_VERSION };
-export const CLIENT_BRIDGE_PROTOCOL_VERSION = 1 as const;
+export const CLIENT_BRIDGE_PROTOCOL_VERSION = 2 as const;
 export const CLIENT_ARTIFACT_FORMAT = 1 as const;
 export const CLIENT_COMPILER_VERSION = 1 as const;
 export const CLIENT_BRIDGE_MAX_PENDING_REQUESTS = 64;
@@ -124,12 +124,13 @@ const pluginBridgeIdentityFields = {
 	bridgeVersion: Schema.Literal(CLIENT_BRIDGE_PROTOCOL_VERSION),
 };
 
-const pluginSafeAreaTop = Schema.Number.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)));
+const pluginSafeAreaInset = Schema.Number.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)));
 
 export const PluginBridgeInit = strictStruct({
 	...pluginBridgeIdentityFields,
 	mode: PluginThemeMode,
-	safeAreaTop: pluginSafeAreaTop,
+	safeAreaTop: pluginSafeAreaInset,
+	safeAreaBottom: pluginSafeAreaInset,
 });
 
 export type PluginBridgeInit = Schema.Schema.Type<typeof PluginBridgeInit>;
@@ -235,8 +236,9 @@ export const PluginBridgeHeader = strictStruct({
 export type PluginBridgeHeader = Schema.Schema.Type<typeof PluginBridgeHeader>;
 
 export const PluginBridgeViewport = strictStruct({
-	safeAreaTop: pluginSafeAreaTop,
 	type: Schema.Literal("viewport"),
+	safeAreaTop: pluginSafeAreaInset,
+	safeAreaBottom: pluginSafeAreaInset,
 });
 
 export type PluginBridgeViewport = Schema.Schema.Type<typeof PluginBridgeViewport>;
