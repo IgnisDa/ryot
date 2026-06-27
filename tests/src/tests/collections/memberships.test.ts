@@ -80,8 +80,8 @@ describe("POST /collections/memberships", () => {
 	});
 
 	it("adds a global entity to a collection and upserts in_library", async () => {
-		const { client, email } = await createAuthenticatedClient();
-		const { entity } = await createGlobalBookEntityFixture(client);
+		const { client } = await createAuthenticatedClient();
+		const { entity, schema } = await createGlobalBookEntityFixture(client);
 
 		const collection = await createCollection(client, {
 			name: "Global Entity Collection",
@@ -97,9 +97,9 @@ describe("POST /collections/memberships", () => {
 		expect(data.memberOf.sourceEntityId).toBe(entity.id);
 		expect(data.memberOf.targetEntityId).toBe(collection.id);
 
-		const membership = await queryInLibraryRelationship(client, entity.id, email);
+		const membership = await queryInLibraryRelationship(client, entity.id, schema.slug);
 
-		expect(membership.rowCount).toBe(1);
+		expect(membership.data.items).toHaveLength(1);
 	});
 
 	it("adds an entity with custom properties", async () => {

@@ -1,14 +1,15 @@
 import { EntityId } from "@ryot/contract/schema/brands";
+import { buildEventHistoryQueryDocument, type QueryEngineNonEmptyArray } from "@ryot/query-engine";
 
 import { getPgClient } from "~/setup";
 import { requirePresent } from "~/support/assertions";
 
 import type { Client } from "./auth";
 import type { ContractPayload, ContractSuccess } from "./contract-client";
+import { executeQueryEngine } from "./query-engine-core";
 
 type MergeUserStateBody = ContractPayload<"userState", "mergeUserState">;
 type MergeUserStateData = ContractSuccess<"userState", "mergeUserState">;
-
 type ClearEntityUserStateData = ContractSuccess<"userState", "clearUserState">;
 
 export async function mergeUserState(
@@ -27,15 +28,34 @@ export async function clearEntityUserState(
 	);
 }
 
-export async function queryUserEntityStateCounts(input: { userId: string; entityId: string }) {
+export async function queryUserEntityStateCounts(input: {
+	client: Client;
+	userId: string;
+	entityId: string;
+	eventSchemaSlugs: QueryEngineNonEmptyArray<string>;
+	entitySchemaSlugs: QueryEngineNonEmptyArray<string>;
+}) {
 	const pg = getPgClient();
-	const [events, relationships] = await Promise.all([
-		pg.query<{ count: string }>(
-			`select count(*)::text as count
-			 from event
-			 where user_id = $1
-			   and (entity_id = $2 or session_entity_id = $2)`,
-			[input.userId, input.entityId],
+	const [entityEvents, sessionEvents, relationships] = await Promise.all([
+		executeQueryEngine(
+			input.client,
+			buildEventHistoryQueryDocument({
+				page: 1,
+				limit: 1,
+				entityId: input.entityId,
+				eventSchemaSlugs: input.eventSchemaSlugs,
+				entitySchemaSlugs: input.entitySchemaSlugs,
+			}),
+		),
+		executeQueryEngine(
+			input.client,
+			buildEventHistoryQueryDocument({
+				page: 1,
+				limit: 1,
+				sessionEntityId: input.entityId,
+				eventSchemaSlugs: input.eventSchemaSlugs,
+				entitySchemaSlugs: input.entitySchemaSlugs,
+			}),
 		),
 		pg.query<{ count: string }>(
 			`select count(*)::text as count
@@ -47,7 +67,7 @@ export async function queryUserEntityStateCounts(input: { userId: string; entity
 	]);
 
 	return {
-		eventCount: Number(requirePresent(events.rows[0], "Missing event count").count),
+		eventCount: entityEvents.data.pageInfo.total + sessionEvents.data.pageInfo.total,
 		relationshipCount: Number(
 			requirePresent(relationships.rows[0], "Missing relationship count").count,
 		),
