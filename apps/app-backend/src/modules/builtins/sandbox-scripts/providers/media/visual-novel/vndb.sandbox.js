@@ -79,8 +79,7 @@ const DETAIL_FIELDS =
 
 driver("search", async function (context) {
 	const { z } = await import("npm:zod");
-	const dayjsModule = await import("npm:dayjs");
-	const dayjs = dayjsModule.default;
+	const { default: dayjs } = await import("npm:dayjs");
 
 	const {
 		query,
@@ -174,8 +173,7 @@ driver("search", async function (context) {
 
 driver("details", async function (context) {
 	const { z } = await import("npm:zod");
-	const dayjsModule = await import("npm:dayjs");
-	const dayjs = dayjsModule.default;
+	const { default: dayjs } = await import("npm:dayjs");
 
 	const { externalId } = z
 		.object({
