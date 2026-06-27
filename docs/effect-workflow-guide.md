@@ -98,7 +98,8 @@ convenience method uses.
 
 ### Two ways to execute a workflow
 
-This matters because the codebase uses both forms, depending on who owns the execution ID.
+This matters because this codebase uses the second form almost exclusively, and it's easy to miss
+that a second form exists.
 
 **High-level**, on the `Workflow` value itself — no way to override the execution id, it's always
 `idempotencyKey(payload)`:
@@ -121,13 +122,14 @@ yield* engine.execute(ProcessOrder, {
 });
 ```
 
-Most top-level and fan-out callers use the low-level form because they derive an explicit child ID.
-Workflow-owned composition also uses the high-level form, including `EventCreateWorkflow.execute`,
-`SubscriptionExecutionWorkflow.execute`, and `RunSandboxWorkflow.execute`. Every workflow payload
-still carries `executionId: Schema.String`, with `idempotencyKey: ({ executionId }) => executionId`,
-so both forms resolve to the same caller-derived identity. **Practically: "is this deterministic"
-reduces to "was the payload execution ID derived deterministically before either execute form was
-called?"**
+Every workflow dispatch found in `apps/app-backend` uses the low-level form via
+`yield* WorkflowEngine` — never `SomeWorkflow.execute(...)`. Since `idempotencyKey` is a required
+field regardless of which form you use, the convention in this codebase is to give every workflow
+payload its own `executionId: Schema.String` field and set `idempotencyKey: ({ executionId }) =>
+executionId` — a pure passthrough. That keeps the (otherwise unused) high-level path consistent
+too, but the actual dedup key on every real dispatch is whatever string the caller passed to
+`engine.execute(...)`. **Practically: "is this deterministic" always reduces to "did the caller
+build the `executionId` string deterministically before calling `engine.execute`."**
 
 ### `discard` and `suspendedRetrySchedule`
 
@@ -430,8 +432,7 @@ stored reply (`sharding.reset`) but — unlike every other resume path in the en
 next scheduled poll tick (10s by default). Independently re-derived and confirmed against the exact
 source at this commit by both research passes behind this guide; the package's own test suite
 doesn't catch it because its one "nested workflow" test only ever awaits a single child.
-**Workaround already applied** in `lib/infrastructure/workflow.ts`: lower
-`entityMessagePollInterval` to 250ms so
+**Workaround already applied** in `lib/workflow.ts`: lower `entityMessagePollInterval` to 250ms so
 the fallback poll fires quickly instead of eliminating the gap entirely.
 
 ### Confirmed: `DurableQueue` deferred message ids overflow the storage column ([#6317](https://github.com/Effect-TS/effect/issues/6317))
@@ -498,23 +499,23 @@ describe either as a "confirmed bug" the way #6294 is. `apps/app-backend` curren
 instances of either pattern**. Every child-workflow dispatch that used to run transitively from
 inside an `Activity.make` body has been refactored so the dispatch now happens from a workflow body:
 
-- The `EventCreateWorkflow` body dispatches before-create policy sandboxes through
-  `DurableQueue.process(SandboxExecutionQueue)` and composes after-create
-  `SubscriptionExecutionWorkflow` children directly from its body
-  (`events/event-create-workflow-live.ts`).
-- `AddEntityToCollectionWorkflow` persists collection membership in an activity and dispatches the
-  collection-added `EventCreateWorkflow` from its body
-  (`collections/add-entity-to-collection-workflow-live.ts`).
-- `IntegrationReconciliationWorkflow` dispatches `ProcessIntegrationRunWorkflow` children from its
-  body (`integrations/reconciliation-workflow.ts`).
-- The media-monitoring cron task directly dispatches one `ProviderEntityPopulationWorkflow` per
-  monitored provider entity. Generic lifecycle dispatch runs seeded detector subscriptions; detector
-  scripts emit semantic signals, and user-owned signal subscriptions own notification delivery.
+- The `EventCreateWorkflow` body dispatches before-create trigger sandboxes through
+  `DurableQueue.process(SandboxExecutionQueue)` and after-create triggers as discarded
+  `RunSandboxWorkflow` children — both from the body, no longer from a single `createEventsForUser`
+  activity that ran them transitively (`events/event-create-workflow-live.ts`).
+- The collection-added event is dispatched from `AddEntityToCollectionWorkflow`'s body, not from an
+  `Activity.make` wrapper around `addToCollection` (`collections/add-entity-to-collection-workflow-live.ts:44`).
+- Integration reconciliation runs dispatch `ProcessIntegrationRunWorkflow` from
+  `IntegrationReconciliationWorkflow`'s body, replacing the reconciliation activity that dispatched
+  them transitively (`integrations/reconciliation-workflow.ts:37-46`).
+- Media monitoring dispatches `NotificationDeliveryWorkflow` from
+  `MediaMonitoringRefreshWorkflow`'s body, replacing an activity that wrapped
+  `NotificationsService.trigger` (`media-monitoring/refresh-workflow.ts:100`).
 
-`sandbox/workflow-boundaries.test.ts` pins these as source-text assertions: collection membership
-has one sanctioned `EventCreateWorkflow` dispatcher, event creation composes
-`SubscriptionExecutionWorkflow` rather than executing sandbox workflows directly, and provider
-population callers—including the media-monitoring cron task—dispatch the canonical workflow.
+`sandbox/workflow-boundaries.test.ts` pins these as source-text assertions (e.g. exactly one
+`.execute(EventCreateWorkflow, …)` and it lives in the add-to-collection workflow body, zero
+`.execute(RunSandboxWorkflow, …)` in `event-creation.ts`), so a regression can't reintroduce a
+transitive dispatch silently.
 
 ### No versioning primitive of any kind
 
@@ -624,11 +625,12 @@ child dispatch happens from a workflow body.
 The workflows and durable queues that each single-own a business operation, all following the rules
 above:
 
-- **`EventCreateWorkflow`** (`events/event-create-workflow-live.ts`) — processes independent event
-  items in order. A `prepare-item` activity resolves scopes and policies, policies run via
-  `DurableQueue.process(SandboxExecutionQueue)`, a `write-event` activity persists the row, and
-  after-create rules compose `SubscriptionExecutionWorkflow`. Referenced global entities pass
-  through `EnsureLibraryMembershipQueue` before the workflow advances to the next item.
+- **`EventCreateWorkflow`** (`events/event-create-workflow-live.ts`) — orchestrates event creation
+  from its body: a `prepare-item` activity resolves scopes/triggers, before-create triggers run via
+  `DurableQueue.process(SandboxExecutionQueue)`, a `write-event` activity persists the row,
+  after-create triggers are resolved in an activity and dispatched as discarded `RunSandboxWorkflow`
+  children from the body, and library membership for referenced global entities is dispatched
+  through `EnsureLibraryMembershipQueue`.
 - **`EnsureLibraryMembershipQueue`** — the canonical durable owner of the library-membership write.
   Following the module dependency-inversion rule, the queue *definition* lives in the generic events
   module (`events/durable-queues.ts`) while its *worker* lives in the feature module
@@ -656,15 +658,15 @@ above:
 - **Pre-existing owners** unchanged by this structure: `ProviderEntityPopulationWorkflow`,
   `TranslateEntityWorkflow`, `NotificationDeliveryWorkflow`, `RunSandboxWorkflow` +
   `SandboxExecutionQueue`, `CreateDefaultSavedViewWorkflow`, `ProcessImportRunWorkflow`,
-  and `ProcessIntegrationRunWorkflow`. The media-monitoring cron task dispatches
-  `ProviderEntityPopulationWorkflow` directly; media notification delivery is signal-subscription owned.
+  `ProcessIntegrationRunWorkflow`, and `MediaMonitoringRefreshWorkflow` (which now dispatches
+  `NotificationDeliveryWorkflow` from its body).
 
 ### Notes worth knowing
 
 - **Deterministic-upsert as defense in depth**: the `write-event` activity in
-  `event-create-workflow-live.ts:135-178` is Activity-wrapped (RPC-memoized), *and* the insert it
+  `event-create-workflow-live.ts:179-212` is Activity-wrapped (RPC-memoized), *and* the insert it
   performs uses a deterministic id (`` `${executionId}-event-${itemIndex}` ``) with
-  `.onConflictDoNothing()` plus a read-back on conflict (`events/repository.ts:98-141`). Either
+  `.onConflictDoNothing()` plus a read-back on conflict (`events/repository.ts:108-146`). Either
   strategy alone would keep the write idempotent under replay; the codebase uses both here. This is
   worth knowing because a deterministic-key upsert is a legitimate *alternative* to Activity-wrapping
   elsewhere, not only a belt-and-suspenders addition to it.
@@ -681,11 +683,13 @@ above:
   anywhere here.
 - **`workflow-boundaries.test.ts`** (`sandbox/workflow-boundaries.test.ts`) is a source-text
   conformance test that pins the single-owner invariants: which files may execute
-  `RunSandboxWorkflow`, where `EventCreateWorkflow` and `SubscriptionExecutionWorkflow` composition
-  occurs, which callers dispatch `ProviderEntityPopulationWorkflow`, that media/integration parents
-  each dispatch one `ProcessNormalizedMediaImportWorkflow`, and that only the queue worker owns
-  `ensureEntityInLibrary`. It checks call-site ownership rather than execution-ID arguments, so
-  deterministic-ID correctness still needs targeted unit tests.
+  `RunSandboxWorkflow` (and how many times), that the collections service no longer references
+  `EventCreateWorkflow` while the add-to-collection workflow body is its one sanctioned dispatcher,
+  that the media/integration parents dispatch exactly one `ProcessNormalizedMediaImportWorkflow`
+  each, and that only the queue worker owns `ensureEntityInLibrary`. It's a strong guard, but it
+  matches call sites by source text — it checks *which module* dispatches *which* child and how
+  often, not *what `executionId` argument* is passed, so an argument-correctness regression still
+  needs a targeted unit test.
 
 #### Library-membership
 

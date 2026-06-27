@@ -1,43 +1,46 @@
-import { NotificationChannelId } from "@ryot/contract/schema/brands";
+import { NotificationPlatformId } from "@ryot/contract/schema/brands";
 
 import { startFakeHttpServer } from "../test-support/fake-http-server";
 import type { Client } from "./auth";
 import type { ContractPayload } from "./contract-client";
 
-type CreateNotificationChannelBody = ContractPayload<"notifications", "createChannel">;
-type UpdateNotificationChannelBody = ContractPayload<"notifications", "updateChannel">;
+type CreateNotificationPlatformBody = ContractPayload<"notifications", "createPlatform">;
+type UpdateNotificationPlatformBody = ContractPayload<"notifications", "updatePlatform">;
 
-export function createNotificationChannel(client: Client, payload: CreateNotificationChannelBody) {
-	return client.run((c) => c.notifications.createChannel({ payload }));
-}
-
-export function listNotificationChannels(client: Client) {
-	return client.run((c) => c.notifications.listChannels());
-}
-
-export function updateNotificationChannel(
+export function createNotificationPlatform(
 	client: Client,
-	channelId: string,
-	payload: UpdateNotificationChannelBody,
+	payload: CreateNotificationPlatformBody,
+) {
+	return client.run((c) => c.notifications.createPlatform({ payload }));
+}
+
+export function listNotificationPlatforms(client: Client) {
+	return client.run((c) => c.notifications.listPlatforms());
+}
+
+export function updateNotificationPlatform(
+	client: Client,
+	platformId: string,
+	payload: UpdateNotificationPlatformBody,
 ) {
 	return client.run((c) =>
-		c.notifications.updateChannel({
+		c.notifications.updatePlatform({
 			payload,
-			path: { channelId: NotificationChannelId.make(channelId) },
+			path: { platformId: NotificationPlatformId.make(platformId) },
 		}),
 	);
 }
 
-export function deleteNotificationChannel(client: Client, channelId: string) {
+export function deleteNotificationPlatform(client: Client, platformId: string) {
 	return client.run((c) =>
-		c.notifications.deleteChannel({
-			path: { channelId: NotificationChannelId.make(channelId) },
+		c.notifications.deletePlatform({
+			path: { platformId: NotificationPlatformId.make(platformId) },
 		}),
 	);
 }
 
-export function testNotificationChannels(client: Client) {
-	return client.run((c) => c.notifications.testChannels());
+export function testNotificationPlatforms(client: Client) {
+	return client.run((c) => c.notifications.testPlatforms());
 }
 
 export function startFakeAppriseServer() {

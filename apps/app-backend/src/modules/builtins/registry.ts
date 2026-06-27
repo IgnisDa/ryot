@@ -1,10 +1,3 @@
-import { NOTIFICATION_SCRIPT_SLUG } from "#modules/automations/notification-install";
-
-import mediaEntityChangedScriptCode from "./sandbox-scripts/automations/media-entity-changed.sandbox.js" with { type: "text" };
-import mediaRelationshipChangedScriptCode from "./sandbox-scripts/automations/media-relationship-changed.sandbox.js" with { type: "text" };
-import reviewCreatedScriptCode from "./sandbox-scripts/automations/review-created.sandbox.js" with { type: "text" };
-import sendSignalNotificationScriptCode from "./sandbox-scripts/automations/send-signal-notification.sandbox.js" with { type: "text" };
-import workoutCreatedScriptCode from "./sandbox-scripts/automations/workout-created.sandbox.js" with { type: "text" };
 import anilistCompanyScriptCode from "./sandbox-scripts/providers/company/anilist.sandbox.js" with { type: "text" };
 import giantBombCompanyScriptCode from "./sandbox-scripts/providers/company/giant-bomb.sandbox.js" with { type: "text" };
 import hardcoverCompanyScriptCode from "./sandbox-scripts/providers/company/hardcover.sandbox.js" with { type: "text" };
@@ -125,36 +118,6 @@ const translatedProviderScript = (
 ) => script(name, slug, code, requiredAppConfigKeys, { source, canonicalLanguage });
 
 export const builtinSandboxScripts = () => [
-	{
-		code: mediaEntityChangedScriptCode,
-		name: "Media Entity Changed Detector",
-		slug: "automation.media-entity-changed",
-		metadata: { allowedHostFunctions: ["emitSignal"] },
-	},
-	{
-		code: mediaRelationshipChangedScriptCode,
-		name: "Media Relationship Changed Detector",
-		slug: "automation.media-relationship-changed",
-		metadata: { allowedHostFunctions: ["emitSignal"] },
-	},
-	{
-		slug: NOTIFICATION_SCRIPT_SLUG,
-		name: "Send Signal Notification",
-		code: sendSignalNotificationScriptCode,
-		metadata: { allowedHostFunctions: ["sendNotification"] },
-	},
-	{
-		code: reviewCreatedScriptCode,
-		name: "Review Created Detector",
-		slug: "automation.review-created",
-		metadata: { allowedHostFunctions: ["emitSignal"] },
-	},
-	{
-		code: workoutCreatedScriptCode,
-		name: "Workout Created Detector",
-		slug: "automation.workout-created",
-		metadata: { allowedHostFunctions: ["emitSignal"] },
-	},
 	providerScript(
 		"Free Exercise DB",
 		"exercise.free-exercise-db",
@@ -424,3 +387,116 @@ export const builtinSandboxScripts = () => [
 		},
 	},
 ];
+
+export const entitySchemaSandboxScriptLinks = () =>
+	[
+		{ schemaSlug: "show", scriptSlug: "show.tmdb" },
+		{ schemaSlug: "show", scriptSlug: "show.tvdb" },
+		{ schemaSlug: "movie", scriptSlug: "movie.tvdb" },
+		{ schemaSlug: "movie", scriptSlug: "movie.tmdb" },
+		{ schemaSlug: "music", scriptSlug: "music.spotify" },
+		{ schemaSlug: "manga", scriptSlug: "manga.anilist" },
+		{ schemaSlug: "anime", scriptSlug: "anime.anilist" },
+		{ schemaSlug: "book", scriptSlug: "book.hardcover" },
+		{ schemaSlug: "book", scriptSlug: "book.openlibrary" },
+		{ schemaSlug: "book", scriptSlug: "book.google-books" },
+		{ schemaSlug: "podcast", scriptSlug: "podcast.itunes" },
+		{ schemaSlug: "music", scriptSlug: "music.music-brainz" },
+		{ schemaSlug: "anime", scriptSlug: "anime.myanimelist" },
+		{ schemaSlug: "manga", scriptSlug: "manga.myanimelist" },
+		{ schemaSlug: "manga", scriptSlug: "manga.manga-updates" },
+		{ schemaSlug: "music", scriptSlug: "music.youtube-music" },
+		{ schemaSlug: "video-game", scriptSlug: "video-game.igdb" },
+		{ schemaSlug: "audiobook", scriptSlug: "audiobook.audible" },
+		{ schemaSlug: "podcast", scriptSlug: "podcast.listennotes" },
+		{ schemaSlug: "comic-book", scriptSlug: "comic-book.metron" },
+		{ schemaSlug: "visual-novel", scriptSlug: "visual-novel.vndb" },
+		{ schemaSlug: "video-game", scriptSlug: "video-game.giant-bomb" },
+	] as const;
+
+export const fitnessSchemaSandboxScriptLinks = () =>
+	[{ schemaSlug: "exercise", scriptSlug: "exercise.free-exercise-db" }] as const;
+
+export const builtinEventSchemaTriggerLinks = () => [
+	{
+		position: 1000,
+		phase: "after_create",
+		eventSchemaSlug: "progress",
+		triggerName: "Auto-Complete on Full Progress",
+		metadata: { inheritedProperties: ["consumedOn"] },
+		scriptSlug: "trigger.auto-complete-on-full-progress",
+	},
+	{
+		position: 100,
+		metadata: {},
+		phase: "before_create",
+		eventSchemaSlug: "progress",
+		triggerName: "Integration Progress Policy",
+		scriptSlug: "trigger.integration-progress-policy",
+	},
+	{
+		position: 1000,
+		metadata: {},
+		phase: "after_create",
+		triggerName: "Radarr Push",
+		scriptSlug: "trigger.radarr-push",
+		eventSchemaSlug: "add-entity-to-collection",
+	},
+	{
+		position: 1000,
+		metadata: {},
+		phase: "after_create",
+		triggerName: "Sonarr Push",
+		scriptSlug: "trigger.sonarr-push",
+		eventSchemaSlug: "add-entity-to-collection",
+	},
+	{
+		position: 1000,
+		metadata: {},
+		phase: "after_create",
+		eventSchemaSlug: "complete",
+		triggerName: "Jellyfin Push",
+		scriptSlug: "trigger.jellyfin-push",
+	},
+];
+
+export const personSchemaSandboxScriptLinks = () =>
+	[
+		{ schemaSlug: "person", scriptSlug: "person.tmdb" },
+		{ schemaSlug: "person", scriptSlug: "person.tvdb" },
+		{ schemaSlug: "person", scriptSlug: "person.metron" },
+		{ schemaSlug: "person", scriptSlug: "person.anilist" },
+		{ schemaSlug: "person", scriptSlug: "person.audible" },
+		{ schemaSlug: "person", scriptSlug: "person.spotify" },
+		{ schemaSlug: "person", scriptSlug: "person.hardcover" },
+		{ schemaSlug: "person", scriptSlug: "person.music-brainz" },
+		{ schemaSlug: "person", scriptSlug: "person.openlibrary" },
+		{ schemaSlug: "person", scriptSlug: "person.youtube-music" },
+		{ schemaSlug: "person", scriptSlug: "person.giant-bomb" },
+		{ schemaSlug: "person", scriptSlug: "person.manga-updates" },
+	] as const;
+
+export const companySchemaSandboxScriptLinks = () =>
+	[
+		{ schemaSlug: "company", scriptSlug: "company.igdb" },
+		{ schemaSlug: "company", scriptSlug: "company.tmdb" },
+		{ schemaSlug: "company", scriptSlug: "company.tvdb" },
+		{ schemaSlug: "company", scriptSlug: "company.vndb" },
+		{ schemaSlug: "company", scriptSlug: "company.anilist" },
+		{ schemaSlug: "company", scriptSlug: "company.hardcover" },
+		{ schemaSlug: "company", scriptSlug: "company.giant-bomb" },
+	] as const;
+
+export const groupSchemaSandboxScriptLinks = () =>
+	[
+		{ schemaSlug: "movie-group", scriptSlug: "movie-group.tmdb" },
+		{ schemaSlug: "movie-group", scriptSlug: "movie-group.tvdb" },
+		{ schemaSlug: "book-group", scriptSlug: "book-group.hardcover" },
+		{ schemaSlug: "music-group", scriptSlug: "music-group.spotify" },
+		{ schemaSlug: "music-group", scriptSlug: "music-group.music-brainz" },
+		{ schemaSlug: "music-group", scriptSlug: "music-group.youtube-music" },
+		{ schemaSlug: "video-game-group", scriptSlug: "video-game-group.igdb" },
+		{ schemaSlug: "audiobook-group", scriptSlug: "audiobook-group.audible" },
+		{ schemaSlug: "comic-book-group", scriptSlug: "comic-book-group.metron" },
+		{ schemaSlug: "video-game-group", scriptSlug: "video-game-group.giant-bomb" },
+	] as const;

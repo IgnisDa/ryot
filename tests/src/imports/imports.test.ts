@@ -4,46 +4,17 @@ import { ImportRunId } from "@ryot/contract/schema/brands";
 
 import {
 	createAuthenticatedClient,
-	createRule,
-	createSandboxScript,
-	getBuiltinEntitySchemaId,
 	getImportRun,
 	listEventSlugs,
-	listSubscriptionRuns,
 	pollImportRunUntilTerminal,
 	runHevyImportFixture,
 	runOpenScaleImportFixture,
-	ruleTarget,
 	seedGlobalShowEpisodeTree,
 	startOpenScaleImport,
 	uploadTemporaryFile,
 	waitForEventSlugs,
 } from "../fixtures";
-import { pollUntil } from "../fixtures/polling";
 import { assertTaggedError } from "../test-support/assertions";
-
-const SETTLE_WINDOW_MS = 2500;
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-const benignSubscriptionScript = `driver("subscription", async function () {\n\treturn { ran: true };\n});`;
-
-const countSucceededRuns = async (
-	client: Parameters<typeof listSubscriptionRuns>[0],
-	ruleId: string,
-) => {
-	const page = await listSubscriptionRuns(client, { ruleId, status: "succeeded" });
-	return page.items.length;
-};
-
-const pollSucceededRuns = (
-	client: Parameters<typeof listSubscriptionRuns>[0],
-	ruleId: string,
-	atLeast: number,
-	label: string,
-) =>
-	pollUntil(label, async () => {
-		const page = await listSubscriptionRuns(client, { ruleId, status: "succeeded" });
-		return page.items.length >= atLeast ? page.items : null;
-	});
 
 describe("OpenScale Import E2E", () => {
 	it("completes an OpenScale import and creates measurement entities", async () => {
@@ -233,77 +204,5 @@ describe("Watcharr Show Import E2E (episode resolution)", () => {
 		);
 		const failureMessages = runWithFailures.failures.items.map((failure) => failure.message);
 		expect(failureMessages.some((message) => message.includes("S1E99"))).toBe(true);
-	});
-});
-
-describe("Import entity-create automation dispatch", () => {
-	it("fires owner-scoped create subscriptions for imported workout/exercise entities and dedups exercises on re-import", async () => {
-		const user = await createAuthenticatedClient();
-		const [workoutSchemaId, exerciseSchemaId] = await Promise.all([
-			getBuiltinEntitySchemaId("workout"),
-			getBuiltinEntitySchemaId("exercise"),
-		]);
-		const script = await createSandboxScript(user.client, {
-			metadata: {},
-			code: benignSubscriptionScript,
-			name: `workout-import-rule-${crypto.randomUUID()}`,
-			slug: `workout-import-rule-${crypto.randomUUID()}`,
-		});
-
-		const workoutRule = await createRule(user.client, {
-			sandboxScriptId: script.id,
-			name: "On imported workout create",
-			target: ruleTarget("entity", workoutSchemaId),
-		});
-		expect(workoutRule.operation).toBe("create");
-		const exerciseRule = await createRule(user.client, {
-			sandboxScriptId: script.id,
-			name: "On imported exercise create",
-			target: ruleTarget("entity", exerciseSchemaId),
-		});
-
-		// The Hevy sample is one "Push Day" workout with two unique exercises
-		// (Bench Press, Squat); the two Bench Press set rows collapse to one exercise.
-		const first = await runHevyImportFixture(user.client, user.cookies);
-		expect(first.completedRun.status).toBe("completed");
-
-		const workoutRuns = await pollSucceededRuns(
-			user.client,
-			workoutRule.id,
-			1,
-			"imported workout create run",
-		);
-		expect(workoutRuns.length).toBe(1);
-		expect(workoutRuns[0]?.operation).toBe("create");
-		expect(workoutRuns[0]?.originalRuleId).toBe(workoutRule.id);
-		const exerciseRuns = await pollSucceededRuns(
-			user.client,
-			exerciseRule.id,
-			2,
-			"imported exercise create runs",
-		);
-		expect(exerciseRuns.length).toBe(2);
-
-		await delay(SETTLE_WINDOW_MS);
-		expect(await countSucceededRuns(user.client, workoutRule.id)).toBe(1);
-		expect(await countSucceededRuns(user.client, exerciseRule.id)).toBe(2);
-
-		// Re-importing the identical export as the same user: workout entities carry
-		// no provenance, so each import inserts a fresh workout (a new create run),
-		// while exercises match existing candidates by identity and dedup (no new run).
-		const second = await runHevyImportFixture(user.client, user.cookies);
-		expect(second.completedRun.status).toBe("completed");
-
-		const workoutRunsAfter = await pollSucceededRuns(
-			user.client,
-			workoutRule.id,
-			2,
-			"second imported workout create run",
-		);
-		expect(workoutRunsAfter.length).toBe(2);
-
-		await delay(SETTLE_WINDOW_MS);
-		expect(await countSucceededRuns(user.client, workoutRule.id)).toBe(2);
-		expect(await countSucceededRuns(user.client, exerciseRule.id)).toBe(2);
 	});
 });

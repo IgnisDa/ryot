@@ -1,17 +1,21 @@
-import type { NotificationChannelSpecifics } from "@ryot/contract/modules/notifications/schemas";
-import type { NotificationChannelKind } from "@ryot/contract/modules/notifications/types";
+import type { NotificationPlatformSpecifics } from "@ryot/contract/modules/notifications/schemas";
+import type {
+	NotificationEventType,
+	NotificationPlatformKind,
+} from "@ryot/contract/modules/notifications/types";
 import { generateId } from "better-auth";
 import { index, jsonb, pgTable, text, timestamp, boolean } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
 
-export const notificationChannel = pgTable(
-	"notification_channel",
+export const notificationPlatform = pgTable(
+	"notification_platform",
 	{
 		isDisabled: boolean().notNull().default(false),
-		kind: text().notNull().$type<NotificationChannelKind>(),
+		platform: text().notNull().$type<NotificationPlatformKind>(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-		specifics: jsonb().notNull().$type<NotificationChannelSpecifics>(),
+		platformSpecifics: jsonb().notNull().$type<NotificationPlatformSpecifics>(),
+		configuredEvents: text().array().notNull().$type<NotificationEventType[]>(),
 		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
@@ -25,7 +29,7 @@ export const notificationChannel = pgTable(
 			.notNull(),
 	},
 	(table) => [
-		index("notification_channel_user_id_created_at_idx").on(table.userId, table.createdAt.desc()),
-		index("notification_channel_user_id_is_disabled_idx").on(table.userId, table.isDisabled),
+		index("notification_platform_user_id_created_at_idx").on(table.userId, table.createdAt.desc()),
+		index("notification_platform_user_id_is_disabled_idx").on(table.userId, table.isDisabled),
 	],
 );

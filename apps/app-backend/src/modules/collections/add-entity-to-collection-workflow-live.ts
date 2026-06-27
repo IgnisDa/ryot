@@ -2,7 +2,7 @@ import { Activity } from "@effect/workflow";
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { MembershipResponse } from "@ryot/contract/modules/collections/schemas";
 import { EntityId, EventSchemaId } from "@ryot/contract/schema/brands";
-import { Effect, Schema } from "effect";
+import { Cause, Effect, Schema } from "effect";
 
 import { EventCreateWorkflow } from "#modules/events/event-create-workflow";
 
@@ -41,28 +41,34 @@ export const runAddEntityToCollectionWorkflow = Effect.fn("runAddEntityToCollect
 
 		if (result.wasInserted && result.addEventSchemaId) {
 			const executionId = `collection-membership-added-${result.memberOf.id}`;
-			yield* engine.execute(EventCreateWorkflow, {
-				executionId,
-				discard: true,
-				payload: {
+			yield* engine
+				.execute(EventCreateWorkflow, {
 					executionId,
-					origin: "collection",
-					userId: payload.userId,
-					payload: [
-						{
-							occurredAt: result.occurredAt,
-							entityId: payload.collectionId,
-							eventSchemaId: result.addEventSchemaId,
-							properties: {
-								entityId: result.entityId,
-								relationshipId: result.memberOf.id,
-								entitySchemaSlug: result.entitySchemaSlug,
-								relationshipProperties: result.memberOf.properties,
+					discard: true,
+					payload: {
+						executionId,
+						origin: "collection",
+						userId: payload.userId,
+						payload: [
+							{
+								occurredAt: result.occurredAt,
+								entityId: payload.collectionId,
+								eventSchemaId: result.addEventSchemaId,
+								properties: {
+									entityId: result.entityId,
+									relationshipId: result.memberOf.id,
+									entitySchemaSlug: result.entitySchemaSlug,
+									relationshipProperties: result.memberOf.properties,
+								},
 							},
-						},
-					],
-				},
-			});
+						],
+					},
+				})
+				.pipe(
+					Effect.catchAllCause((cause) =>
+						Effect.logWarning(`Failed to queue collection event: ${String(Cause.squash(cause))}`),
+					),
+				);
 		}
 
 		return { memberOf: result.memberOf };

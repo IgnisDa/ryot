@@ -11,7 +11,7 @@ import {
 import { entity, relationship, relationshipSchema } from "./entities";
 import { event, eventSchema } from "./events";
 import { importRun, importRunFailure, integration } from "./imports";
-import { notificationChannel } from "./notifications";
+import { notificationPlatform } from "./notifications";
 import { savedView } from "./views";
 
 export const trackerRelations = relations(tracker, ({ one, many }) => ({
@@ -148,6 +148,6 @@ export const importRunFailureRelations = relations(importRunFailure, ({ one }) =
 	run: one(importRun, { references: [importRun.id], fields: [importRunFailure.runId] }),
 }));
 
-export const notificationChannelRelations = relations(notificationChannel, ({ one }) => ({
-	user: one(user, { references: [user.id], fields: [notificationChannel.userId] }),
+export const notificationPlatformRelations = relations(notificationPlatform, ({ one }) => ({
+	user: one(user, { references: [user.id], fields: [notificationPlatform.userId] }),
 }));

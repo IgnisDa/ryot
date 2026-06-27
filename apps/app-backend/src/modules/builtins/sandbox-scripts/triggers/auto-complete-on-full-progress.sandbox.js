@@ -194,32 +194,25 @@ function getInheritedCompletionProperties(event) {
 
 async function createCompletionEvent(trigger, completeSchema, sourceEvent) {
 	const occurredAt = getCompletionOccurredAt(sourceEvent) ?? trigger.occurredAt;
-	const completionResult = await createEvents(
-		[
-			{
-				entityId: trigger.entityId,
-				eventSchemaId: completeSchema.id,
-				occurredAt: occurredAt,
-				properties: Object.assign({}, getInheritedCompletionProperties(sourceEvent), {
-					completionMode: "custom_timestamps",
-					completedOn: occurredAt,
-				}),
-			},
-		],
-		"complete:" + trigger.eventId,
-	);
+	const completionResult = await createEvents([
+		{
+			entityId: trigger.entityId,
+			eventSchemaId: completeSchema.id,
+			occurredAt: occurredAt,
+			properties: Object.assign({}, getInheritedCompletionProperties(sourceEvent), {
+				completionMode: "custom_timestamps",
+				completedOn: occurredAt,
+			}),
+		},
+	]);
 
 	if (!completionResult.success) {
 		throw new Error(completionResult.error);
 	}
 }
 
-driver("subscription", async function (context) {
-	const source = context.automation?.source;
-	const trigger =
-		source?.kind === "event" && source.after
-			? Object.assign({ eventId: source.after.id }, source.after)
-			: null;
+driver("trigger", async function (context) {
+	const trigger = context.trigger;
 	if (!trigger) {
 		return;
 	}
@@ -239,6 +232,7 @@ driver("subscription", async function (context) {
 		return;
 	}
 
+	// For episodic media all three reads are independent — fetch in parallel.
 	const results = await Promise.all([
 		getCompleteSchema(trigger),
 		getEntityProperties(trigger.entityId),

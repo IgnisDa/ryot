@@ -1,7 +1,5 @@
 import { type ChildProcess, spawn } from "node:child_process";
-import { appendFileSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { appendFileSync } from "node:fs";
 
 import { CreateBucketCommand, S3Client } from "@aws-sdk/client-s3";
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
@@ -9,7 +7,54 @@ import { GenericContainer, type StartedTestContainer, Wait } from "testcontainer
 
 const S3_ACCESS_KEY = "rustfsadmin";
 const S3_SECRET_KEY = "rustfsadmin";
+const MAX_BUFFERED_LOG_CHARS = 50000;
+
 const intentionallyStoppedProcesses = new WeakSet<ChildProcess>();
+const processLogBuffers = new WeakMap<
+	ChildProcess,
+	{ flushed: boolean; stderr: string; stdout: string }
+>();
+
+function appendLog(buffer: string, data: unknown) {
+	let text: string;
+	if (typeof data === "string") {
+		text = data;
+	} else if (Buffer.isBuffer(data)) {
+		text = data.toString("utf8");
+	} else {
+		text = String(data);
+	}
+	const next = `${buffer}${text}`;
+	return next.length > MAX_BUFFERED_LOG_CHARS ? next.slice(-MAX_BUFFERED_LOG_CHARS) : next;
+}
+
+function flushProcessLogs(proc: ChildProcess, label: string, reason: string) {
+	const state = processLogBuffers.get(proc);
+	if (state?.flushed) {
+		return;
+	}
+
+	if (state) {
+		state.flushed = true;
+	}
+
+	console.error(`[${label}] ${reason}`);
+
+	if (!state) {
+		return;
+	}
+
+	const stdout = state.stdout.trimEnd();
+	const stderr = state.stderr.trimEnd();
+
+	if (stdout) {
+		console.error(`[${label}] stdout:\n${stdout}`);
+	}
+
+	if (stderr) {
+		console.error(`[${label}] stderr:\n${stderr}`);
+	}
+}
 
 export type CoreTestInfrastructure = {
 	dbUrl: string;
@@ -117,38 +162,50 @@ export function spawnBackendProcess(env: NodeJS.ProcessEnv, cwd = "../apps/app-b
 }
 
 export function attachProcessLogs(proc: ChildProcess, label: string) {
-	const safeLabel = label.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-	const logPath = join(
-		tmpdir(),
-		`ryot-e2e-${safeLabel}-${Date.now()}-${proc.pid ?? "unknown"}.log`,
-	);
-	try {
-		writeFileSync(logPath, "");
-	} catch {}
-	console.log(`[${label}] backend logs -> ${logPath}`);
+	processLogBuffers.set(proc, { flushed: false, stderr: "", stdout: "" });
+
+	const persistedLogPath = process.env.E2E_BACKEND_LOG_FILE;
 	const persist = (data: unknown) => {
+		if (!persistedLogPath) {
+			return;
+		}
 		try {
-			appendFileSync(logPath, String(data));
+			appendFileSync(persistedLogPath, String(data));
 		} catch {}
 	};
 
 	proc.stdout?.setEncoding("utf8");
 	proc.stderr?.setEncoding("utf8");
 
-	proc.stdout?.on("data", persist);
-	proc.stderr?.on("data", persist);
+	proc.stdout?.on("data", (data) => {
+		persist(data);
+		const state = processLogBuffers.get(proc);
+		if (state) {
+			state.stdout = appendLog(state.stdout, data);
+		}
+	});
+
+	proc.stderr?.on("data", (data) => {
+		persist(data);
+		const state = processLogBuffers.get(proc);
+		if (state) {
+			state.stderr = appendLog(state.stderr, data);
+		}
+	});
 
 	proc.once("close", (code, signal) => {
 		if (!intentionallyStoppedProcesses.has(proc)) {
-			console.error(
-				`[${label}] exited unexpectedly (code=${code ?? "null"}, signal=${signal ?? "null"}); see logs at ${logPath}`,
+			flushProcessLogs(
+				proc,
+				label,
+				`exited unexpectedly (code=${code ?? "null"}, signal=${signal ?? "null"})`,
 			);
 		}
 	});
 
 	proc.once("error", (error) => {
 		if (!intentionallyStoppedProcesses.has(proc)) {
-			console.error(`[${label}] failed to start: ${error.message}; see logs at ${logPath}`);
+			flushProcessLogs(proc, label, `failed to start: ${error.message}`);
 		}
 	});
 }

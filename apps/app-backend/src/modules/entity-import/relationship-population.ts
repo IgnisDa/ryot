@@ -7,13 +7,9 @@ import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-r
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
-import { RelationshipsService } from "#modules/relationships/service";
+import { RelationshipsRepository } from "#modules/relationships/repository";
 
-import type {
-	EntityDetailsRelatedEntity,
-	EntityDetailsRelationshipGroup,
-	PopulationEntityMutation,
-} from "./population";
+import type { EntityDetailsRelatedEntity, EntityDetailsRelationshipGroup } from "./population";
 
 export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(function* (input: {
 	primaryEntityId: EntityId;
@@ -23,7 +19,7 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 	const runWithDb = yield* DbRunner;
 	const entities = yield* EntitiesService;
 	const repository = yield* EntitiesRepository;
-	const relationshipsService = yield* RelationshipsService;
+	const relationshipsRepository = yield* RelationshipsRepository;
 	const relationshipSchemasRepository = yield* RelationshipSchemasRepository;
 
 	const relationshipSchema = yield* runWithDb(
@@ -36,7 +32,6 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 	}
 
 	const entries: Array<{ entityId: EntityId; properties: Record<string, unknown> }> = [];
-	const relatedEntityMutations: Array<PopulationEntityMutation> = [];
 	const uniqueRelatedEntities = new Map<string, EntityDetailsRelatedEntity>();
 	for (const relatedEntity of input.group.entities) {
 		uniqueRelatedEntities.set(
@@ -53,7 +48,7 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 			continue;
 		}
 
-		const outcome = yield* entities
+		const entity = yield* entities
 			.save({
 				properties: {},
 				scope: "global",
@@ -67,11 +62,6 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 				dieOnDbError,
 				Effect.mapError((error) => new SandboxRunError({ message: error.message })),
 			);
-		relatedEntityMutations.push({
-			outcome,
-			entitySchemaSlug: entitySchemaSandboxScript.entitySchemaSlug,
-		});
-		const entity = outcome.entity;
 
 		const sourceSchemaId =
 			input.group.direction === "outgoing"
@@ -128,6 +118,6 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 					synchronization: "authoritative" as const,
 				};
 
-	const outcome = yield* relationshipsService.syncGlobal(syncInput).pipe(dieOnDbError);
-	return { outcome, relationshipSchemaId: relationshipSchema.id, relatedEntityMutations };
+	yield* runWithDb(relationshipsRepository.syncGlobalRelationships(syncInput)).pipe(dieOnDbError);
+	return undefined;
 }, dieOnDbError);

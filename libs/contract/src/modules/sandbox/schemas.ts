@@ -52,35 +52,9 @@ export const SandboxExecutionPayload = Schema.Struct({
 	driverName: Schema.String,
 	executionId: Schema.String,
 	userId: Schema.NullOr(UserId),
-	capabilityCeiling: Schema.optional(Schema.Array(Schema.String)),
-	executionKind: Schema.Literal("direct", "policy", "provider", "subscription"),
-	automationRun: Schema.optional(
-		Schema.Struct({
-			runId: Schema.String,
-			correlationId: Schema.String,
-			automationDepth: Schema.Number,
-			occurrenceAt: Schema.optional(Schema.DateTimeUtc),
-		}),
-	),
 });
 
 export type SandboxExecutionPayload = Schema.Schema.Type<typeof SandboxExecutionPayload>;
-
-export const SandboxProviderValue = Schema.Struct({
-	value: Schema.Unknown,
-	kind: Schema.Literal("provider_value"),
-});
-
-export type SandboxProviderValue = Schema.Schema.Type<typeof SandboxProviderValue>;
-
-export const SandboxProviderArtifactReference = Schema.Struct({
-	id: Schema.String,
-	kind: Schema.Literal("provider_artifact"),
-});
-
-export type SandboxProviderArtifactReference = Schema.Schema.Type<
-	typeof SandboxProviderArtifactReference
->;
 
 const SandboxTiming = Schema.Struct({
 	totalMs: Schema.Number,
@@ -102,7 +76,6 @@ export const SandboxCompletedResult = Schema.Struct({
 	logs: Schema.Array(Schema.String),
 	error: Schema.NullOr(Schema.String),
 	timing: Schema.optional(SandboxTiming),
-	scriptAudit: Schema.optional(Schema.Struct({ hash: Schema.String, updatedAt: Schema.String })),
 });
 
 export type SandboxCompletedResult = Schema.Schema.Type<typeof SandboxCompletedResult>;
