@@ -94,12 +94,7 @@ export const BuiltinEntityPreloaderLive = (configuredPreloadLimit: number) =>
 				return;
 			}
 
-			const script = yield* runWithDb(
-				sandboxRepository.getScriptForUser({
-					userId: null,
-					scriptId: preloadTarget.sandboxScriptId,
-				}),
-			);
+			const script = yield* runWithDb(sandboxRepository.getScript(preloadTarget.sandboxScriptId));
 			if (!script) {
 				yield* Effect.logWarning("builtin exercise preload script missing").pipe(
 					Effect.annotateLogs({ scriptSlug: builtinExerciseScriptSlug }),
