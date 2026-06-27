@@ -207,6 +207,9 @@ Delete
 
 Domain-specific primary actions should usually live in the page body or a contextual bottom action area rather than being forced into the header.
 
+NOTE: For the purpose of this task, no integrations with the backend is needed for the entity details page.
+Instead, use title as `The Left Hand of Darkness`, this image: `https://placedog.net/500` and lorem ipsum for the rest of the screen content.
+
 ### Returning to the source view
 
 Back must return to the exact source context:
