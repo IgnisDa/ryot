@@ -25,10 +25,7 @@ export const deliverEnabledChannels = Effect.fn("deliverEnabledChannels")(functi
 	const repository = yield* NotificationsRepository;
 	const delivery = yield* NotificationDeliveryService;
 
-	const eventType = payload.request.kind === "event" ? payload.request.eventType : undefined;
-	const channels = yield* runWithDb(
-		repository.listEnabledForUser({ userId: payload.userId, eventType }),
-	);
+	const channels = yield* runWithDb(repository.listEnabledForUser({ userId: payload.userId }));
 
 	return yield* Effect.forEach(
 		channels,

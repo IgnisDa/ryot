@@ -246,12 +246,10 @@ describe("media monitoring infrequent refresh", () => {
 		await Promise.all([
 			createNotificationChannel(first.client, {
 				channel: "apprise",
-				configuredEvents: ["metadata_status_changed"],
 				channelSpecifics: { baseUrl: fakeApprise.url, key: "first", kind: "apprise" },
 			}),
 			createNotificationChannel(second.client, {
 				channel: "apprise",
-				configuredEvents: ["metadata_status_changed"],
 				channelSpecifics: { baseUrl: fakeApprise.url, key: "second", kind: "apprise" },
 			}),
 		]);
