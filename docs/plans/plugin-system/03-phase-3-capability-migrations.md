@@ -103,7 +103,7 @@ never seeds any exercises, regressing the native preloader's per-boot behavior. 
 manifest section `boot: [{ slug, driverRef, description }]` (no `schedule`) declares scripts
 the kernel dispatches exactly once per server start, non-blocking (forked so server readiness
 is never gated on it), immediately after plugin ingestion; dispatch is skipped when
-`server.disableBackgroundJobs` is set, matching the other schedulers. Boot scripts expose a
+`scheduler.disableDispatchers` is set, matching the other schedulers. Boot scripts expose a
 dedicated `boot` driver (the same one-section-one-driver convention as `cron`/`operation`),
 and the `upsertGlobalEntities`/`upsertGlobalRelationships` system-execution gate widens from
 `driverName: "cron"` to `driverName: "cron" | "boot"` (still `userId: null`, no
