@@ -1,10 +1,12 @@
 # Phase 3 — Capability migrations
 
-Goal: move the remaining native domain code into the plugins, one capability at a time. Each
-step (a) adds a small generic slice of kernel capability (manifest section + host functions),
-(b) rewrites the domain logic as plugin scripts, (c) deletes the native module, (d) re-points
-the corresponding e2e suites with assertions preserved. Steps are strictly ordered; a step is
-done only when its native code is deleted and the suite is green.
+Goal: move the remaining native domain code into the plugins, one capability at a time. Step 0's
+two prerequisites establish the authoring and observability foundations. Each capability step
+(a) adds a small generic slice of kernel capability (manifest section + host functions), (b)
+rewrites the domain logic as plugin scripts, (c) deletes the native module, and (d) re-points the
+corresponding e2e suites with assertions preserved. Tasks are strictly ordered; a prerequisite is
+done only when its explicit criteria and gates pass, and a capability step is done only when its
+native code is deleted and the suite is green.
 
 Standing rules for every host function added in this phase (Decision 8): batch-first
 signatures; query pushdown via `executeQueryEngine` rather than new list-and-filter
@@ -14,18 +16,45 @@ media). Every new host function follows the existing contract pattern
 implementation + limits entry) and gets observability: a span per host call already exists
 via the bridge; add structured log/span host functions in step 0 so plugin code is debuggable.
 
-## Step 0 — Sandbox authoring upgrades (prerequisite, small)
+## Step 0 — Sandbox authoring upgrades (two ordered prerequisites)
 
-- Vendor `effect` (host-pinned version) as an approved sandbox dependency (extend
-  `libs/sandbox-sdk` + the import map / `PackageCacheManager` in
-  `sandbox-runtime/dependencies.ts`).
-- SDK exposes host functions as `Effect` values with typed errors (thin wrappers; keep the
-  raw promise API for existing scripts).
-- Add `log`/`span` host functions (structured, threaded into the execution's OTLP trace and
-  `subscription_run`-style bookkeeping) — scripts writing substantial logic need better than
-  `console.log` collection.
-- Approved-dep additions later in this phase (e.g. `fflate` in step 4) follow the same
-  mechanism.
+### Step 0a — Effect-native sandbox cutover
+
+- **[DECIDED] Effect is the sole script authoring and typed host-function API.** Vendor `effect`
+  (host-pinned version) as an approved sandbox dependency by extending `libs/sandbox-sdk` and the
+  import map / `PackageCacheManager` in `sandbox-runtime/dependencies.ts`. It is runtime-provided
+  and never bundled per script.
+- Change every script-facing host function to return an `Effect` with a typed error. Change
+  generic, provider, and automation driver `run` functions to return `Effect` values, and have
+  the Deno runner execute them through the vendored runtime. Remove the raw Promise authoring API;
+  do not retain wrappers, aliases, or a second driver contract for compatibility.
+- Make backend host-function implementations, `bridge-adapter.ts` validation/dispatch, and the
+  typed bridge handler Effect-native. Promise-based platform operations such as the Deno
+  runner's loopback `fetch` remain private transport details and are wrapped into Effect at that
+  boundary; they are not exposed in SDK or backend host-function contracts.
+- Migrate every existing media-plugin, fitness-plugin, kernel source-zero script, compiler
+  fixture, SDK test helper, and sandbox execution test in this cutover. The task is complete only
+  when no Promise-based script driver or host-function contract remains and all existing scripts
+  execute with behavior unchanged.
+- Approved-dependency additions later in this phase (e.g. `fflate` in step 4) follow the same
+  vendoring mechanism established here.
+
+Rationale: cutting over before any capability migration gives every Phase 3 host function and
+script one authoring model. A gradual per-capability migration would preserve two public APIs,
+duplicate contracts and tests, and make their eventual removal a second cross-cutting migration.
+The branch has no deployment or persisted-script compatibility constraint, so the existing
+scripts can migrate atomically with the runtime.
+
+### Step 0b — Structured sandbox observability
+
+- Add batch-first `log`/`span` host functions (structured, threaded into the execution's OTLP
+  trace and `subscription_run`-style bookkeeping) using the Effect-native contract established
+  in Step 0a. Scripts writing substantial logic need better than `console.log` collection.
+- Follow the existing full host-function pattern and limits: SDK contract, bridge validation,
+  implementation, capability gating, bounded artifacts, and focused tests.
+
+Step 0a and Step 0b are separate tasks and strictly ordered. Step 1 cannot begin until both are
+done and the full gates pass.
 
 ## Step 1 — Crons: `media-trending` + `exercises`
 

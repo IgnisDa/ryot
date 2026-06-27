@@ -53,6 +53,11 @@ Rules:
 
 Phase 3 variant
 
-Same four prompts run per step, with two substitutions: in prompts 1–3, scope to "Phase 3 step {S}" and name the step's section of 03-phase-3-capability-migrations.md as the spec; and in prompt 2 for step 3 add: "The replay-determinism spike is its own HITL task ordered before every workflow-engine task; its findings get recorded in the plan file before those tasks start."
+Same four prompts run per step, with two substitutions: in prompts 1–3, scope to "Phase 3 step
+{S}" and name the step's section of 03-phase-3-capability-migrations.md as the spec; and in prompt
+2 for step 3 add: "The replay-determinism spike is its own HITL task ordered before every
+workflow-engine task; its findings get recorded in the plan file before those tasks start." Step
+0 is intentionally two tasks: Step 0a performs the Effect-native cutover, then Step 0b adds
+structured observability.
 
 Two usage notes: keep prompt 2's quiz interactive — the granularity check is where you catch bad slicing cheaply. And for prompt 4, capture {start-ref} by tagging the commit at each phase start (git tag phase-{N}-start), so the review diff is exact.
