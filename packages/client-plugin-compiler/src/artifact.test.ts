@@ -15,22 +15,31 @@ it("encodes generated files once and hashes exact asset bytes", () => {
 	);
 });
 
-it("builds stable metadata from sorted byte hashes and metadata identity", () => {
+it("builds stable metadata from the plugin name, sorted byte hashes, and metadata identity", () => {
 	const first = clientGeneratedArtifactFile("plugin.js", "first");
 	const second = clientGeneratedArtifactFile("plugin.css", "second");
 
-	expect(clientArtifactMetadata([first, second])).toEqual({
+	expect(clientArtifactMetadata("Fixture plugin", [first, second])).toEqual({
 		format: 1,
 		apiVersion: 1,
 		compilerVersion: 1,
 		bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
-		hash: "fc89f62930dc35deb36298bc20196674416db1afd42b5a6703d3fbb505892421",
+		hash: "c0a5d7a03f8a62ab55001a3a6d4db64aa59c43d25ac184d56eeaf0afa273a360",
 	});
-	expect(clientArtifactMetadata([first, second])).toEqual(clientArtifactMetadata([second, first]));
-	expect(clientArtifactMetadata([first, second]).hash).not.toBe(
-		clientArtifactMetadata([{ ...first, contents: encoder.encode("changed") }, second]).hash,
+	expect(clientArtifactMetadata("Fixture plugin", [first, second])).toEqual(
+		clientArtifactMetadata("Fixture plugin", [second, first]),
 	);
-	expect(clientArtifactMetadata([first, second]).hash).not.toBe(
-		clientArtifactMetadata([{ ...first, contentType: "text/plain" }, second]).hash,
+	expect(clientArtifactMetadata("Fixture plugin", [first, second]).hash).not.toBe(
+		clientArtifactMetadata("Renamed plugin", [first, second]).hash,
+	);
+	expect(clientArtifactMetadata("Fixture plugin", [first, second]).hash).not.toBe(
+		clientArtifactMetadata("Fixture plugin", [
+			{ ...first, contents: encoder.encode("changed") },
+			second,
+		]).hash,
+	);
+	expect(clientArtifactMetadata("Fixture plugin", [first, second]).hash).not.toBe(
+		clientArtifactMetadata("Fixture plugin", [{ ...first, contentType: "text/plain" }, second])
+			.hash,
 	);
 });
