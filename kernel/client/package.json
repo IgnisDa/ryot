@@ -16,6 +16,7 @@
 		"@effect/atom-react": "4.0.0-beta.107",
 		"@fontsource-variable/lora": "5.3.0",
 		"@fontsource-variable/outfit": "5.3.0",
+		"@ryot/client-ui-sdk": "workspace:*",
 		"@ryot/contract": "workspace:*",
 		"@tailwindcss/vite": "^4.1.18",
 		"@tanstack/react-form": "2.0.0-alpha.1",

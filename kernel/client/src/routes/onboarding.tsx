@@ -1,3 +1,4 @@
+import { Button } from "@ryot/client-ui-sdk";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Effect } from "effect";
 import { useEffect, useReducer, useRef, useState } from "react";
@@ -183,13 +184,14 @@ function Onboarding() {
 					)}
 				</div>
 
-				<button
+				<Button
 					type="submit"
-					className="ui-button-primary w-full"
+					variant="primary"
+					className="w-full"
 					disabled={checking || (mode === "self-hosted" && !serverUrl.trim())}
 				>
 					{submitLabel}
-				</button>
+				</Button>
 			</form>
 		</main>
 	);

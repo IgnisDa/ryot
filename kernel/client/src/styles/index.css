@@ -4,3 +4,5 @@
 @import "./tokens.css";
 @import "./base.css";
 @import "./components.css";
+
+@source "../../node_modules/@ryot/client-ui-sdk/src";
