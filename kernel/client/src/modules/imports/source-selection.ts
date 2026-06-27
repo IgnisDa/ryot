@@ -2,7 +2,7 @@ import type { ListedImportSource } from "@ryot-app/contract/modules/imports/sche
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { getOrderedAppSchemaFieldEntries } from "@ryot-app/contract/schema/property-schema";
 
-import type { CatalogEntry } from "#/modules/ui/catalog/selection";
+import { pluginCatalogGroup, type CatalogEntry } from "#/modules/ui/catalog/selection";
 
 export type ImportWizardSource = Pick<
 	ListedImportSource,
@@ -50,6 +50,7 @@ export const importSourceEntry = (source: ListedImportSource): CatalogEntry => (
 	name: source.name,
 	description: source.description,
 	isAvailable: source.isStartable,
+	group: pluginCatalogGroup(source.pluginSlug),
 	requirement: importSourceRequirement(source),
 	badge: importSourceInputShape(source.inputSchema),
 });

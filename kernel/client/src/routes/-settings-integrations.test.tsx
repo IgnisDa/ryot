@@ -42,6 +42,7 @@ import {
 	ProviderAddRouteStubs,
 	ImportsRouteStubs,
 	IntegrationRouteStubs,
+	NotificationChannelRouteStubs,
 	makeIntegrationsStub,
 	makeUserSettingsStub,
 } from "#/routes/-route-fixtures";
@@ -214,6 +215,7 @@ const mountView = (
 			Layer.succeed(PluginQueriesService, { query: () => Effect.die("not used") }),
 			integrations,
 			integrationsApi,
+			NotificationChannelRouteStubs,
 		).pipe(
 			Layer.provideMerge(OAuthRouteStubs),
 			Layer.provideMerge(Layer.succeed(ClientStorage, makeStorageStub("fixture"))),

@@ -5,6 +5,7 @@ import { EntityInterestApi } from "#/api/entity-interest";
 import { GodModeApi } from "#/api/god-mode";
 import { ImportsApi } from "#/api/imports";
 import { IntegrationsApi } from "#/api/integrations";
+import { NotificationsApi } from "#/api/notifications";
 import { PluginInstallationsApi } from "#/api/plugin-installations";
 import { PluginsApi } from "#/api/plugins";
 import { ProviderEntitiesApi } from "#/api/provider-entities";
@@ -94,6 +95,15 @@ export const makeIntegrationsApi = (overrides: Partial<IntegrationsApi["Service"
 		...overrides,
 	});
 
+export const makeNotificationsApi = (overrides: Partial<NotificationsApi["Service"]> = {}) =>
+	Layer.succeed(NotificationsApi, {
+		testChannels: unused,
+		createChannel: unused,
+		updateChannel: unused,
+		deleteChannel: unused,
+		...overrides,
+	});
+
 export const makeUserSettingsApi = (overrides: Partial<UserSettingsApi["Service"]> = {}) =>
 	Layer.succeed(UserSettingsApi, {
 		get: unused,
@@ -115,8 +125,6 @@ export const makeGodModeApi = (overrides: Partial<GodModeApi["Service"]> = {}) =
 	});
 
 export const KernelApiTestLayer = Layer.mergeAll(
-	makeEntityInterestApi(),
-	makeEntityInterestService(),
 	makeRyotQLApi(),
 	makeImportsApi(),
 	makeBackupsApi(),
@@ -125,6 +133,9 @@ export const KernelApiTestLayer = Layer.mergeAll(
 	makeSavedViewsApi(),
 	makeUserSettingsApi(),
 	makeIntegrationsApi(),
+	makeNotificationsApi(),
+	makeEntityInterestApi(),
 	makeProviderEntitiesApi(),
+	makeEntityInterestService(),
 	makePluginInstallationsApi(),
 );
