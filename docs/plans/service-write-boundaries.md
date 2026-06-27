@@ -72,29 +72,51 @@ repository access read-only.
 
 ### Current state
 
-`SavedViewsService` already exposes `create`, `update`, and `delete`, but it also exposes `clone`,
-`reorder`, and `createDefaultForSchema`. `clone` and `createDefaultForSchema` insert saved views,
-while `reorder` updates the sort order of multiple saved views. The clone and reorder operations are
-also exposed as API routes, and the default-view operation is used by a durable worker.
+Implemented. `SavedViewsService` exposes one canonical `create`, `update`, and `delete` entry point
+for saved views. `clone` and `createDefaultForSchema` construct create inputs and delegate to
+`create`; `reorder` reads the scoped order and delegates one sort-order update at a time to `update`
+inside a transaction. The clone and reorder operations remain API routes, and the default-view
+operation remains owned by its durable worker.
 
 ### Checklist
 
-- [ ] Keep `create` as the single canonical saved-view creation entry point for one view at a time.
+- [x] Keep `create` as the single canonical saved-view creation entry point for one view at a time.
   The `clone` and `createDefaultForSchema` convenience wrappers must construct normal create inputs
   before invoking it.
-- [ ] Keep `update` as the single canonical saved-view update entry point for one view at a time.
+- [x] Keep `update` as the single canonical saved-view update entry point for one view at a time.
   The `reorder` convenience wrapper must read the current order, calculate the new order, retain
   validation of duplicate, unknown, and tracker-scoped view slugs, and invoke `update` for the affected
   views inside a transaction.
-- [ ] Keep `delete` as the single saved-view deletion entry point.
-- [ ] Keep `clone`, `reorder`, and `createDefaultForSchema` as public service convenience wrappers,
+- [x] Keep `delete` as the single saved-view deletion entry point.
+- [x] Keep `clone`, `reorder`, and `createDefaultForSchema` as public service convenience wrappers,
   not independent write methods. `clone` and `createDefaultForSchema` must delegate to `create`, and
   `reorder` must delegate to `update` for each affected view. Their API route and worker concepts may
   remain and must invoke these service wrappers.
-- [ ] Preserve built-in-view mutation protections. Clones must remain user-owned, and default-view
+- [x] Preserve built-in-view mutation protections. Clones must remain user-owned, and default-view
   creation must preserve its current conflict-as-no-op worker behavior.
-- [ ] Preserve creation and update sort-order placement, including placing clones and newly
+- [x] Preserve creation and update sort-order placement, including placing clones and newly
   tracker-associated views at the end of the relevant order.
+
+### Implementation notes
+
+- `SavedViewsService.create` accepts internal-only `slug` and `isBuiltin` fields in addition to the
+  public create body. The default-view wrapper uses the slug derived from the entity schema slug so
+  names such as `All Books` retain the existing `all-book` slug, while clones remain user-owned and
+  continue to be placed at the end by the repository.
+- `SavedViewsService.reorder` now loads full rows for the requested tracker scope, calculates the
+  existing ordering, and calls `update` with an internal `sortOrder` field for each changed view.
+  The scoped rows are locked before a fresh ordered read, and the repository batch order writer was
+  removed. Built-in updates persist sort order alongside the allowed disabled-state change, so
+  reordering does not weaken built-in definition protections or overwrite concurrent changes.
+- Custom-schema default views use an id/name-only display configuration because arbitrary user schemas
+  cannot be assumed to have the media properties used by built-in layouts. Built-in seeded views still
+  use their existing specialized display configurations.
+- `QueryEngineService.validate` now accepts only the user id it actually reads and preserves typed
+  `DbError` failures. This lets the durable default-view worker use canonical `create` without
+  constructing fake user preferences or identity fields or turning validation database failures into
+  defects. HTTP routes still apply their existing `dieOnDbError` conversion. Default-view validation
+  failures are converted to the queue's `DbError` contract, while duplicate creation remains a
+  conflict that the worker treats as a no-op, including the race after its existing check.
 
 ## Trackers Service
 
