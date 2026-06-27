@@ -1,45 +1,68 @@
-import { ascending, column, document, field, inArray, literal, rows, table } from "@ryot/ryotql";
+import { JsonValue } from "@ryot/contract/modules/ryotql/language";
+import { EntityId, EntitySchemaSlug, SandboxProviderId } from "@ryot/contract/schema/brands";
+import type { Recipe } from "@ryot/ryotql";
+import {
+	ascending,
+	column,
+	defineRecipe,
+	inArray,
+	literal,
+	selectedField,
+	selectedRows,
+	table,
+} from "@ryot/ryotql";
+import { Result, Schema } from "effect";
 
-import { buildEventHistoryDocument } from "./events";
+import { IsoDateString } from "./codecs";
+import { eventHistoryRecipe } from "./events";
 
-export const buildEntityReadDocument = (input: {
-	readonly entityIds: readonly [string, ...string[]];
-}) => {
-	const entity = table("entity", "entity");
-	return document({
-		entities: rows(entity, {
-			limit: 100,
-			orderBy: [ascending(column(entity, "id"))],
-			where: inArray(
-				column(entity, "id"),
-				input.entityIds.map((entityId) => literal(entityId)),
-			),
-			fields: [
-				field("id", column(entity, "id")),
-				field("name", column(entity, "name")),
-				field("createdAt", column(entity, "createdAt")),
-				field("updatedAt", column(entity, "updatedAt")),
-				field("properties", column(entity, "properties")),
-				field("entitySchemaSlug", column(entity, "entitySchemaSlug")),
-				field("providerId", column(entity, "providerId")),
-				field("externalId", column(entity, "externalId")),
-				field("populatedAt", column(entity, "populatedAt")),
-			],
-		}),
-	});
-};
+export const entityReadRecipe = defineRecipe(
+	(input: { readonly entityIds: readonly [string, ...string[]] }) => {
+		const entity = table("entity", "entity");
+		return {
+			queries: {
+				entities: selectedRows(entity, {
+					limit: 100,
+					orderBy: [ascending(column(entity, "id"))],
+					where: inArray(
+						column(entity, "id"),
+						input.entityIds.map((entityId) => literal(entityId)),
+					),
+					selection: {
+						id: selectedField(column(entity, "id"), EntityId),
+						name: selectedField(column(entity, "name"), Schema.String),
+						createdAt: selectedField(column(entity, "createdAt"), IsoDateString),
+						updatedAt: selectedField(column(entity, "updatedAt"), IsoDateString),
+						properties: selectedField(column(entity, "properties"), JsonValue),
+						entitySchemaSlug: selectedField(column(entity, "entitySchemaSlug"), EntitySchemaSlug),
+						providerId: selectedField(
+							column(entity, "providerId"),
+							Schema.NullOr(SandboxProviderId),
+						),
+						externalId: selectedField(column(entity, "externalId"), Schema.NullOr(Schema.String)),
+						populatedAt: selectedField(column(entity, "populatedAt"), Schema.NullOr(IsoDateString)),
+					},
+				}),
+			},
+			map: ({ entities }) => Result.succeed(entities),
+		};
+	},
+);
 
-export const buildEventReadDocument = (input: {
+export const eventReadRecipe = (input: {
 	readonly eventSchemaSlug: string;
 	readonly entitySchemaSlug: string;
 	readonly after?: string | undefined;
 	readonly entityId?: string | undefined;
 	readonly sessionEntityId?: string | undefined;
 }) =>
-	buildEventHistoryDocument({
+	eventHistoryRecipe({
 		after: input.after,
 		entityId: input.entityId,
 		sessionEntityId: input.sessionEntityId,
 		eventSchemaSlugs: [input.eventSchemaSlug],
 		entitySchemaSlugs: [input.entitySchemaSlug],
 	});
+
+export type EntityReadResult = Recipe.Success<typeof entityReadRecipe>;
+export type EventReadResult = Recipe.Success<typeof eventReadRecipe>;

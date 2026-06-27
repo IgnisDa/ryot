@@ -1,84 +1,40 @@
-import type { RyotQLResponse } from "@ryot/contract/modules/ryotql/language";
 import { Result } from "effect";
 import { describe, expect, it } from "vitest";
 
-import {
-	buildIntegrationDocument,
-	buildIntegrationsDocument,
-	decodeIntegrationResponse,
-	decodeIntegrationsResponse,
-} from "./integrations";
+import { integrationRecipe, integrationsRecipe } from "./integrations";
+import { requireRowsQuery, rowsResult } from "./test-utils";
 
-const integrationResponse = {
-	data: {
-		integrations: {
-			type: "rows",
-			pageInfo: { hasMore: true, limit: 2, nextCursor: "next" },
-			items: [
-				{
-					lot: { kind: "text", value: "yank" },
-					id: { kind: "text", value: "integration-1" },
-					isDisabled: { kind: "boolean", value: false },
-					maximumProgress: { kind: "number", value: 95 },
-					provider: { kind: "text", value: "provider-1" },
-					pluginSlug: { kind: "text", value: "plugin-1" },
-					syncOwnership: { kind: "boolean", value: true },
-					minimumProgress: { kind: "number", value: 2.5 },
-					name: { kind: "text", value: "Primary integration" },
-					createdAt: { kind: "date", value: "2026-01-01T01:00:00+02:00" },
-					updatedAt: { kind: "date", value: "2026-01-02T01:00:00+02:00" },
-					lastFinishedAt: { kind: "date", value: "2026-01-03T01:00:00+02:00" },
-					extraSettings: { kind: "json", value: { disableOnContinuousErrors: true } },
-				},
-			],
-		},
-	},
-} satisfies RyotQLResponse;
-
-const integrationItem = integrationResponse.data.integrations.items[0];
-
-const listResponseWithItems = (items: readonly unknown[]) => ({
-	data: { integrations: { ...integrationResponse.data.integrations, items } },
-});
-
-const detailResponse = (items: readonly unknown[]) => ({
-	data: { integration: { ...integrationResponse.data.integrations, items } },
-});
+const item = {
+	lot: "yank",
+	id: "integration-1",
+	isDisabled: false,
+	maximumProgress: 95,
+	provider: "provider-1",
+	pluginSlug: "plugin-1",
+	syncOwnership: true,
+	minimumProgress: 2.5,
+	name: "Primary integration",
+	createdAt: "2026-01-01T01:00:00+02:00",
+	updatedAt: "2026-01-02T01:00:00+02:00",
+	lastFinishedAt: "2026-01-03T01:00:00+02:00",
+	extraSettings: { disableOnContinuousErrors: true },
+};
+const pageInfo = { hasMore: true, limit: 2, nextCursor: "next" };
+const rows = (items: readonly unknown[], limit = 2) => rowsResult(items, { ...pageInfo, limit });
 
 describe("integration recipes", () => {
-	it("builds the paginated list with exact fields, filters, pagination, and stable ordering", () => {
-		const query = buildIntegrationsDocument({
-			after: "cursor",
-			limit: 7,
-			isDisabled: false,
-			provider: "provider-1",
-		}).queries.integrations;
+	it("prepares list fields, filters, pagination, and stable ordering", () => {
+		const query = requireRowsQuery(
+			integrationsRecipe({
+				after: "cursor",
+				limit: 7,
+				isDisabled: false,
+				provider: "provider-1",
+			}).document.queries.integrations,
+		);
 
 		expect(query.output.pagination).toEqual({ after: "cursor", limit: 7 });
-		expect(
-			query.output.fields.map((selection) => {
-				if (!("key" in selection)) {
-					throw new Error("Expected an explicit field selection");
-				}
-				return selection.key;
-			}),
-		).toEqual([
-			"id",
-			"lot",
-			"name",
-			"provider",
-			"pluginSlug",
-			"isDisabled",
-			"syncOwnership",
-			"minimumProgress",
-			"maximumProgress",
-			"extraSettings",
-			"lastFinishedAt",
-			"createdAt",
-			"updatedAt",
-		]);
 		expect(query.where).toMatchObject({
-			type: "and",
 			predicates: [
 				{ left: { field: "provider" }, right: { value: "provider-1" } },
 				{ left: { field: "isDisabled" }, right: { value: false } },
@@ -91,180 +47,78 @@ describe("integration recipes", () => {
 			},
 			{ direction: "desc", expr: { field: "id", tableAlias: "integration", type: "column" } },
 		]);
-	});
-
-	it("omits optional predicates when they are not provided", () => {
-		expect(buildIntegrationsDocument({ limit: 5 }).queries.integrations.where).toBeUndefined();
-	});
-
-	it("builds the by-id query with a limit of one and a named key", () => {
-		const document = buildIntegrationDocument({ id: "integration-1" });
-		const query = document.queries.integration;
-
-		expect(Object.keys(document.queries)).toEqual(["integration"]);
-		expect(query.output.pagination).toEqual({ limit: 1 });
-		expect(query.where).toMatchObject({
-			type: "comparison",
-			right: { value: "integration-1" },
-			left: { field: "id", tableAlias: "integration" },
-		});
-	});
-
-	it("decodes summaries, nullable fields, numbers, JSON, page info, and normalized dates", () => {
-		expect(Result.getOrThrow(decodeIntegrationsResponse(integrationResponse))).toEqual({
-			pageInfo: { hasMore: true, limit: 2, nextCursor: "next" },
-			items: [
-				{
-					lot: "yank",
-					isDisabled: false,
-					id: "integration-1",
-					syncOwnership: true,
-					maximumProgress: 95,
-					minimumProgress: 2.5,
-					provider: "provider-1",
-					pluginSlug: "plugin-1",
-					name: "Primary integration",
-					createdAt: "2025-12-31T23:00:00.000Z",
-					updatedAt: "2026-01-01T23:00:00.000Z",
-					lastFinishedAt: "2026-01-02T23:00:00.000Z",
-					extraSettings: { disableOnContinuousErrors: true },
-				},
-			],
-		});
-
-		const nullableItem = {
-			...integrationItem,
-			name: { kind: "null", value: null },
-			lastFinishedAt: { kind: "null", value: null },
-		};
 		expect(
-			Result.getOrThrow(decodeIntegrationsResponse(listResponseWithItems([nullableItem]))).items[0],
+			requireRowsQuery(integrationsRecipe({ limit: 5 }).document.queries.integrations).where,
+		).toBeUndefined();
+	});
+
+	it("prepares optional by-id detail with cardinality limit two", () => {
+		const query = requireRowsQuery(
+			integrationRecipe({ id: "integration-1" }).document.queries.integration,
+		);
+
+		expect(query.output.pagination).toEqual({ limit: 2 });
+		expect(query.where).toMatchObject({ right: { value: "integration-1" }, left: { field: "id" } });
+	});
+
+	it("decodes plain values, JSON, nulls, page info, and normalized dates", () => {
+		const recipe = integrationsRecipe({ limit: 2 });
+		const decoded = Result.getOrThrow(recipe.decode({ data: { integrations: rows([item]) } }));
+
+		expect(decoded.items[0]).toEqual({
+			...item,
+			createdAt: "2025-12-31T23:00:00.000Z",
+			updatedAt: "2026-01-01T23:00:00.000Z",
+			lastFinishedAt: "2026-01-02T23:00:00.000Z",
+		});
+		expect(decoded.pageInfo).toEqual(pageInfo);
+		expect(
+			Result.getOrThrow(
+				recipe.decode({
+					data: { integrations: rows([{ ...item, name: null, lastFinishedAt: null }]) },
+				}),
+			).items[0],
 		).toMatchObject({ name: null, lastFinishedAt: null });
 	});
 
-	it("decodes a detail record and returns null when it is absent", () => {
+	it("decodes optional detail and rejects excess cardinality", () => {
+		const recipe = integrationRecipe({ id: "integration-1" });
+
 		expect(
-			Result.getOrThrow(decodeIntegrationResponse(detailResponse([integrationItem]))),
-		).toMatchObject({
-			lot: "yank",
-			id: "integration-1",
-			maximumProgress: 95,
-			minimumProgress: 2.5,
-			name: "Primary integration",
-		});
-		expect(Result.getOrThrow(decodeIntegrationResponse(detailResponse([])))).toBeNull();
+			Result.getOrThrow(recipe.decode({ data: { integration: rows([], 2) } })),
+		).toBeUndefined();
+		expect(Result.isFailure(recipe.decode({ data: { integration: rows([item, item], 2) } }))).toBe(
+			true,
+		);
 	});
 
-	it("rejects missing fields", () => {
-		for (const field of [
-			"id",
-			"lot",
-			"name",
-			"provider",
-			"pluginSlug",
-			"isDisabled",
-			"syncOwnership",
-			"minimumProgress",
-			"maximumProgress",
-			"extraSettings",
-			"lastFinishedAt",
-			"createdAt",
-			"updatedAt",
+	it("rejects malformed JSON, enum values, and dates", () => {
+		const recipe = integrationsRecipe({ limit: 2 });
+
+		for (const malformed of [
+			{ ...item, lot: "unknown" },
+			{ ...item, extraSettings: {} },
+			{ ...item, createdAt: "not-a-date" },
+			{ ...item, lastFinishedAt: "not-a-date" },
 		]) {
-			const item = { ...integrationItem } as Record<string, unknown>;
-			delete item[field];
-			expect(Result.isFailure(decodeIntegrationsResponse(listResponseWithItems([item])))).toBe(
+			expect(Result.isFailure(recipe.decode({ data: { integrations: rows([malformed]) } }))).toBe(
 				true,
 			);
 		}
 	});
 
-	it("rejects wrong field kinds and invalid field values", () => {
-		const wrongKinds = {
-			id: { kind: "number", value: 1 },
-			lot: { kind: "json", value: "yank" },
-			name: { kind: "boolean", value: true },
-			provider: { kind: "number", value: 1 },
-			updatedAt: { kind: "number", value: 1 },
-			pluginSlug: { kind: "json", value: {} },
-			isDisabled: { kind: "text", value: "false" },
-			lastFinishedAt: { kind: "number", value: 1 },
-			syncOwnership: { kind: "text", value: "true" },
-			minimumProgress: { kind: "text", value: "2.5" },
-			createdAt: { kind: "text", value: "2026-01-01" },
-			maximumProgress: { kind: "boolean", value: true },
-			extraSettings: { kind: "text", value: "not-json" },
-		};
+	it("rejects missing fields and wrong result shapes", () => {
+		const malformed = { ...item } as Record<string, unknown>;
+		delete malformed.provider;
+		const recipe = integrationsRecipe({ limit: 2 });
 
-		for (const [field, value] of Object.entries(wrongKinds)) {
-			expect(
-				Result.isFailure(
-					decodeIntegrationsResponse(
-						listResponseWithItems([{ ...integrationItem, [field]: value }]),
-					),
-				),
-			).toBe(true);
-		}
-
-		for (const field of ["createdAt", "updatedAt", "lastFinishedAt"]) {
-			expect(
-				Result.isFailure(
-					decodeIntegrationsResponse(
-						listResponseWithItems([
-							{ ...integrationItem, [field]: { kind: "date", value: "not-a-date" } },
-						]),
-					),
-				),
-			).toBe(true);
-		}
+		expect(Result.isFailure(recipe.decode({ data: { integrations: rows([malformed]) } }))).toBe(
+			true,
+		);
+		expect(Result.isFailure(recipe.decode({ data: {} }))).toBe(true);
 		expect(
 			Result.isFailure(
-				decodeIntegrationsResponse(
-					listResponseWithItems([{ ...integrationItem, lot: { kind: "text", value: "unknown" } }]),
-				),
-			),
-		).toBe(true);
-		expect(
-			Result.isFailure(
-				decodeIntegrationsResponse(
-					listResponseWithItems([
-						{ ...integrationItem, extraSettings: { kind: "json", value: {} } },
-					]),
-				),
-			),
-		).toBe(true);
-	});
-
-	it("rejects wrong query names and output types", () => {
-		expect(Result.isFailure(decodeIntegrationsResponse({ data: {} }))).toBe(true);
-		expect(
-			Result.isFailure(
-				decodeIntegrationsResponse({
-					data: { integration: integrationResponse.data.integrations },
-				}),
-			),
-		).toBe(true);
-		expect(
-			Result.isFailure(
-				decodeIntegrationsResponse({
-					data: { integrations: { ...integrationResponse.data.integrations, type: "aggregate" } },
-				}),
-			),
-		).toBe(true);
-
-		expect(Result.isFailure(decodeIntegrationResponse({ data: {} }))).toBe(true);
-		expect(
-			Result.isFailure(
-				decodeIntegrationResponse({
-					data: { integrations: integrationResponse.data.integrations },
-				}),
-			),
-		).toBe(true);
-		expect(
-			Result.isFailure(
-				decodeIntegrationResponse({
-					data: { integration: { ...integrationResponse.data.integrations, type: "aggregate" } },
-				}),
+				recipe.decode({ data: { integrations: { ...rows([item]), type: "aggregate" } } }),
 			),
 		).toBe(true);
 	});

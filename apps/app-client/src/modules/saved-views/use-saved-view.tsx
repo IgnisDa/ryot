@@ -1,11 +1,11 @@
 import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
 import type { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
 import type { SavedViewRecord } from "@ryot/ryotql-recipes/saved-view-records";
+import { savedViewRecipe } from "@ryot/ryotql-recipes/saved-views";
 import { Effect } from "effect";
-import { AsyncResult } from "effect/unstable/reactivity";
 import { useEffect, useEffectEvent, useLayoutEffect, useReducer, useRef } from "react";
 
-import { appClient, appRevalidationSignal, retryQueryResponse } from "@/api/client";
+import { appClient, appRevalidationSignal } from "@/api/client";
 import { scopedRequestKey } from "@/api/request-key";
 import { useApiScope } from "@/api/scope";
 import { useInternalRequestFailureLogging } from "@/api/use-internal-request-failure-logging";
@@ -21,14 +21,13 @@ import {
 	savedViewControllerReducer,
 	savedViewControllerResult,
 	type SavedViewOperationToken,
-	type SavedViewRequestFailure,
 	withSavedViewCursor,
 	withSavedViewSearch,
 } from "./controller";
 import type { collectManagedAssets } from "./display-data";
 import { useSavedViewLayout } from "./saved-view-layout-selector";
 import {
-	mapSavedViewResult,
+	savedViewReadyState,
 	type SavedViewManagedAssetsState,
 	type SavedViewNormalizedState,
 	type SavedViewReadyState,
@@ -36,20 +35,6 @@ import {
 import type { SavedViewLayout } from "./storage";
 
 const REFRESH_RETRY_MS = 30_000;
-
-const decodeSavedViewResponse = (
-	response: unknown,
-	record: SavedViewRecord,
-	layout: SavedViewLayout,
-): Effect.Effect<SavedViewReadyState, SavedViewRequestFailure> => {
-	const decoded = mapSavedViewResult(AsyncResult.success(response), record, layout);
-	return decoded.status === "ready"
-		? Effect.succeed(decoded)
-		: Effect.fail({
-				status: "malformed",
-				cause: decoded.status === "loading" ? new Error("Unexpected loading state") : decoded.cause,
-			});
-};
 
 export const useSavedViewRecord = (slug: string) => {
 	const scope = useApiScope();
@@ -111,11 +96,11 @@ export const useSavedViewResult = (record: SavedViewRecord, searchQuery = "") =>
 	}, [controller.retryRefresh, identity, layout]);
 
 	const executePages = async (input: {
-		readonly layout: SavedViewLayout;
-		readonly phase: "initial" | "load-more" | "refresh";
 		readonly pagesToLoad: number;
+		readonly layout: SavedViewLayout;
 		readonly queryDocument: RyotQLDocument;
 		readonly initialData?: SavedViewNormalizedState;
+		readonly phase: "initial" | "load-more" | "refresh";
 	}) => {
 		const current = controllerRef.current;
 		if (
@@ -127,22 +112,33 @@ export const useSavedViewResult = (record: SavedViewRecord, searchQuery = "") =>
 		}
 		clearRetryTimer();
 		operationSequence.current = Math.max(operationSequence.current, current.generation) + 1;
-		const token = {
-			identity,
-			layout: input.layout,
-			generation: operationSequence.current,
-		};
+		const token = { identity, layout: input.layout, generation: operationSequence.current };
 		activeRequest.current = token;
 		dispatch({ type: "request-started", token, phase: input.phase });
 		const result = await Effect.runPromise(
 			fetchSavedViewPages({
 				...input,
-				decode: (response) => decodeSavedViewResponse(response, record, input.layout),
-				execute: (requestDocument) =>
-					appClient(scope).request.pipe(
-						Effect.flatMap((client) => client.ryotql.execute({ payload: requestDocument })),
-						retryQueryResponse,
-					),
+				execute: (requestDocument) => {
+					const source = { type: "persisted", queryDocument: requestDocument } as const;
+					if (input.layout === "table") {
+						return appClient(scope)
+							.ryotql.execute(
+								savedViewRecipe({
+									source,
+									layout: { type: "table", mapping: record.layouts.table },
+								}),
+							)
+							.pipe(Effect.map((data) => savedViewReadyState(data, input.layout)));
+					}
+					return appClient(scope)
+						.ryotql.execute(
+							savedViewRecipe({
+								source,
+								layout: { type: "card", mapping: record.layouts[input.layout] },
+							}),
+						)
+						.pipe(Effect.map((data) => savedViewReadyState(data, input.layout)));
+				},
 			}).pipe(
 				Effect.match({
 					onFailure: (failure) => ({ failure }) as const,

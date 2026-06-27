@@ -1,12 +1,11 @@
 import { useAtomValue } from "@effect/atom-react";
 import type { EntitySchemaSlug, SandboxProviderId } from "@ryot/contract/schema/brands";
-import type { ProviderSearchSummary } from "@ryot/ryotql-recipes/provider-search";
 
 import { useApiScope } from "@/api/scope";
 import { useInternalRequestFailureLogging } from "@/api/use-internal-request-failure-logging";
 
 import { providerSearchAtom, rememberedProviderAtom } from "./atoms";
-import { mapProviderSummaries } from "./state";
+import { mapProviderSummaries, type ProviderSearchSummary } from "./state";
 
 export const selectPreferredProvider = (
 	providers: readonly ProviderSearchSummary[],

@@ -1,11 +1,13 @@
 import type { ContractPayload } from "@ryot/contract/client";
 import { EntityId } from "@ryot/contract/schema/brands";
 import { aggregate, and, column, document, eq, join, literal, measure, table } from "@ryot/ryotql";
-import { buildEventHistoryDocument } from "@ryot/ryotql-recipes/events";
+import { eventHistoryRecipe } from "@ryot/ryotql-recipes/events";
 import { Effect } from "effect";
 
+import { requirePresent } from "~/support/assertions";
+
 import type { Client } from "./auth";
-import { executeRyotQL, requireRyotQLFieldValue } from "./ryotql";
+import { executeRyotQL, requireRyotQLValue } from "./ryotql";
 
 type MergeUserStateBody = ContractPayload<"userState", "mergeUserState">;
 
@@ -22,7 +24,7 @@ const aggregateCount = (result: { data: Record<string, unknown> }, key: string) 
 	}
 	const items = "items" in value && Array.isArray(value.items) ? value.items : [];
 	const item = items[0];
-	return item ? Number(requireRyotQLFieldValue(item, "count").value) : 0;
+	return item ? Number(requireRyotQLValue(item, "count")) : 0;
 };
 
 export const mergeUserState = (client: Client, payload: MergeUserStateBody) =>
@@ -40,13 +42,13 @@ export const queryUserEntityStateCounts = (input: {
 }) =>
 	Effect.gen(function* () {
 		const eventCountDocument = (filter: { entityId?: string; sessionEntityId?: string }) => {
-			const history = buildEventHistoryDocument({
+			const history = eventHistoryRecipe({
 				limit: 1,
 				...filter,
 				eventSchemaSlugs: input.eventSchemaSlugs,
 				entitySchemaSlugs: input.entitySchemaSlugs,
 			});
-			const events = history.queries.events;
+			const events = requirePresent(history.document.queries.events, "Expected event query");
 			return document({
 				events: aggregate(events.from, {
 					measures: [measure("count", { function: "count" })],

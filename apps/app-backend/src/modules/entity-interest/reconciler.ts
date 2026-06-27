@@ -1,11 +1,7 @@
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import type { EntityUpdatedReason } from "@ryot/contract/modules/entity-interest/messages";
 import { EntityId } from "@ryot/contract/schema/brands";
-import {
-	buildEntityInterestDocument,
-	decodeEntityInterestResponse,
-	type EntityInterestRow,
-} from "@ryot/ryotql-recipes/entities";
+import { entityInterestRecipe, type EntityInterestResult } from "@ryot/ryotql-recipes/entities";
 import { Context, Effect, Layer, Result } from "effect";
 
 import { EntityPopulationTrigger } from "#modules/entities/population-trigger";
@@ -30,7 +26,7 @@ export class InterestReconciler extends Context.Service<InterestReconciler>()(
 			const translations = yield* TranslationsService;
 			const populationTrigger = yield* EntityPopulationTrigger;
 
-			const handleRow = (user: CurrentUserValue, row: EntityInterestRow) =>
+			const handleRow = (user: CurrentUserValue, row: EntityInterestResult[number]) =>
 				Effect.gen(function* () {
 					if (row.populatedAt === null) {
 						if (row.externalId !== null && row.providerId !== null) {
@@ -83,11 +79,9 @@ export class InterestReconciler extends Context.Service<InterestReconciler>()(
 					} satisfies ReconciliationResult;
 				}
 
-				const doc = buildEntityInterestDocument({ entityIds: [firstId, ...restIds] });
-				const response = yield* ryotql.execute(user, doc);
-				const rows = yield* Effect.sync(() =>
-					Result.getOrThrow(decodeEntityInterestResponse(response)),
-				);
+				const recipe = entityInterestRecipe({ entityIds: [firstId, ...restIds] });
+				const response = yield* ryotql.execute(user, recipe.document);
+				const rows = yield* Effect.sync(() => Result.getOrThrow(recipe.decode(response)));
 				const terminal: TerminalUpdate[] = [];
 				for (const row of rows) {
 					const result = yield* handleRow(user, row);

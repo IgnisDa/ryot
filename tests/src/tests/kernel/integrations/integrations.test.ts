@@ -187,7 +187,7 @@ describe("Integration CRUD", () => {
 			const { id } = yield* createKodiIntegration(client);
 			yield* deleteIntegration(client, id);
 
-			expect(yield* getIntegration(client, id)).toBeNull();
+			expect(yield* getIntegration(client, id)).toBeUndefined();
 		}),
 	);
 });

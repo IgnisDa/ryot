@@ -1,6 +1,8 @@
-import { SandboxProviderId } from "@ryot/contract/schema/brands";
+import { EntitySchemaSlug, SandboxProviderId } from "@ryot/contract/schema/brands";
 import { AsyncResult } from "effect/unstable/reactivity";
 import { describe, expect, it } from "vitest";
+
+import { RyotQLMalformedResultError } from "@/api/ryotql";
 
 import {
 	applyProviderOptionsFailure,
@@ -8,50 +10,51 @@ import {
 	createProviderOptionsState,
 	isProviderOptionsRequestCurrent,
 } from "./options-state";
-import { mapProviderEntityLinks, mapProviderSummaries, providerAddError } from "./state";
+import {
+	mapProviderEntityLinks,
+	mapProviderSummaries,
+	providerAddError,
+	type ProviderSearchSummary,
+} from "./state";
 
-const rows = (name: string, items: readonly unknown[]) => ({
-	data: {
-		[name]: { items, type: "rows", pageInfo: { limit: 100, hasMore: false, nextCursor: null } },
-	},
+const rows = <Item>(items: readonly Item[]) => ({
+	items,
+	pageInfo: { limit: 100, hasMore: false, nextCursor: null },
 });
 
 const providerRow = {
-	providerId: { kind: "text", value: "provider-1" },
-	searchOptionsSchema: { kind: "null", value: null },
-	providerSlug: { kind: "text", value: "openlibrary" },
-	providerName: { kind: "text", value: "Open Library" },
-	rootEntitySchemaSlug: { kind: "text", value: "book" },
+	searchOptionsSchema: null,
+	providerSlug: "openlibrary",
+	providerName: "Open Library",
+	providerId: SandboxProviderId.make("provider-1"),
+	rootEntitySchemaSlug: EntitySchemaSlug.make("book"),
 };
 
-const linkRow = { externalId: { kind: "text", value: "ext-1" } };
+const linkRow = { externalId: "ext-1" };
 
 const providerWithOptions = {
 	...providerRow,
-	providerId: { kind: "text", value: "provider-2" },
+	providerId: SandboxProviderId.make("provider-2"),
 	searchOptionsSchema: {
-		kind: "json",
-		value: {
-			fields: {
-				region: {
-					type: "enum",
-					label: "Region",
-					description: "Region",
-					choices: { kind: "static", values: [{ value: "us", label: "United States" }] },
-				},
+		fields: {
+			region: {
+				type: "enum",
+				label: "Region",
+				description: "Region",
+				choices: { kind: "static", values: [{ value: "us", label: "United States" }] },
 			},
 		},
 	},
-};
+} satisfies ProviderSearchSummary;
 
 describe("provider-add application state", () => {
 	it("maps provider summaries through loading, transport failure, malformed, and ready", () => {
 		expect(mapProviderSummaries(AsyncResult.initial())).toEqual({ status: "loading" });
 		expect(mapProviderSummaries(AsyncResult.fail("offline")).status).toBe("transport-error");
-		expect(mapProviderSummaries(AsyncResult.success({ data: {} })).status).toBe("malformed");
 		expect(
-			mapProviderSummaries(AsyncResult.success(rows("providers", [providerRow]))),
-		).toMatchObject({
+			mapProviderSummaries(AsyncResult.fail(new RyotQLMalformedResultError("invalid"))).status,
+		).toBe("malformed");
+		expect(mapProviderSummaries(AsyncResult.success(rows([providerRow])))).toMatchObject({
 			status: "ready",
 			providers: [{ providerSlug: "openlibrary", searchOptionsSchema: null }],
 		});
@@ -60,9 +63,11 @@ describe("provider-add application state", () => {
 	it("maps provider entity links into an external-id set", () => {
 		expect(mapProviderEntityLinks(AsyncResult.initial())).toEqual({ status: "loading" });
 		expect(mapProviderEntityLinks(AsyncResult.fail("offline")).status).toBe("transport-error");
-		expect(mapProviderEntityLinks(AsyncResult.success({ data: {} })).status).toBe("malformed");
+		expect(
+			mapProviderEntityLinks(AsyncResult.fail(new RyotQLMalformedResultError("invalid"))).status,
+		).toBe("malformed");
 
-		const ready = mapProviderEntityLinks(AsyncResult.success(rows("links", [linkRow])));
+		const ready = mapProviderEntityLinks(AsyncResult.success([linkRow]));
 		expect(ready).toMatchObject({ status: "ready" });
 		expect(ready.status === "ready" ? ready.externalIds.has("ext-1") : false).toBe(true);
 	});
@@ -71,18 +76,14 @@ describe("provider-add application state", () => {
 		const none = createProviderOptionsState(undefined);
 		expect(none).toEqual({ providerId: undefined, status: "none" });
 
-		const noOptionsResult = mapProviderSummaries(
-			AsyncResult.success(rows("providers", [providerRow])),
-		);
+		const noOptionsResult = mapProviderSummaries(AsyncResult.success(rows([providerRow])));
 		if (noOptionsResult.status !== "ready") {
 			throw new Error("expected provider summaries");
 		}
 		const noOptions = createProviderOptionsState(noOptionsResult.providers[0]);
 		expect(noOptions.status).toBe("none");
 
-		const provider = mapProviderSummaries(
-			AsyncResult.success(rows("providers", [providerWithOptions])),
-		);
+		const provider = mapProviderSummaries(AsyncResult.success(rows([providerWithOptions])));
 		if (provider.status !== "ready") {
 			throw new Error("expected provider summaries");
 		}

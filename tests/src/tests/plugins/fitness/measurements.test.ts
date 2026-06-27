@@ -1,17 +1,15 @@
-import { buildMeasurementListQueryDocument } from "@ryot/fitness-plugin/query-recipes";
+import { measurementListRecipe } from "@ryot/fitness-plugin/query-recipes";
 import { Effect } from "effect";
 
 import {
 	createAuthenticatedClient,
 	createMeasurementEntityFixture,
-	executeRyotQL,
+	executeRyotQLRecipe,
 	findBuiltinSchemaBySlug,
 	findBuiltinPluginBySlug,
 	getEntity,
 	listEntitySchemas,
 	listSavedViews,
-	requireRyotQLFieldValue,
-	requireRows,
 } from "~/fixtures";
 import { assertCondition, assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
@@ -84,29 +82,29 @@ describe("Measurements E2E", () => {
 					layouts: {
 						grid: {
 							imageField: null,
-							calloutField: null,
 							titleField: "title",
 							entityIdField: "entityId",
-							overlineField: "overline",
-							primaryMetadataField: "primaryMetadata",
-							secondaryMetadataField: "secondaryMetadata",
+							callout: null,
+							overline: { field: "overline", displayKind: "text" },
+							primaryMetadata: { field: "primaryMetadata", displayKind: "date" },
+							secondaryMetadata: { field: "secondaryMetadata", displayKind: "text" },
 						},
 						list: {
 							imageField: null,
-							calloutField: null,
 							titleField: "title",
 							entityIdField: "entityId",
-							overlineField: "overline",
-							primaryMetadataField: "primaryMetadata",
-							secondaryMetadataField: "secondaryMetadata",
+							callout: null,
+							overline: { field: "overline", displayKind: "text" },
+							primaryMetadata: { field: "primaryMetadata", displayKind: "date" },
+							secondaryMetadata: { field: "secondaryMetadata", displayKind: "text" },
 						},
 						table: {
 							imageField: null,
 							entityIdField: "entityId",
 							columns: [
-								{ label: "Name", field: "column0" },
-								{ label: "Comment", field: "column1" },
-								{ label: "Recorded At", field: "column2" },
+								{ label: "Name", field: "column0", displayKind: "text" },
+								{ label: "Comment", field: "column1", displayKind: "text" },
+								{ label: "Recorded At", field: "column2", displayKind: "date" },
 							],
 						},
 					},
@@ -145,15 +143,12 @@ describe("Measurements E2E", () => {
 			const { client } = yield* createAuthenticatedClient();
 			yield* createMeasurementEntityFixture(client);
 
-			const result = yield* executeRyotQL(client, buildMeasurementListQueryDocument({}));
-			const measurements = requireRows(result.data["measurements"], "measurements");
+			const result = yield* executeRyotQLRecipe(client, measurementListRecipe({}));
 
-			const firstItem = measurements.items[0];
+			const firstItem = result.items[0];
 			assertPresent(firstItem, "Expected at least one measurement item");
-			expect(measurements.items.length).toBeGreaterThan(0);
-			expect(requireRyotQLFieldValue(firstItem, "recordedAt")).toMatchObject({
-				kind: "date",
-			});
+			expect(result.items.length).toBeGreaterThan(0);
+			expect(firstItem.recordedAt).toEqual(expect.any(String));
 		}),
 	);
 });

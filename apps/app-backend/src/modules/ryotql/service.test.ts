@@ -1,7 +1,8 @@
-import { expect, it } from "@effect/vitest";
+import { assert, expect, it } from "@effect/vitest";
 import { DbError } from "@ryot/contract/errors";
 import type { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
 import {
+	aggregate,
 	and,
 	ascending,
 	castDate,
@@ -30,23 +31,30 @@ import {
 	jsonPath,
 	kebabCase,
 	literal,
+	measure,
+	measureDescending,
 	not,
 	rows,
 	round,
 	sum,
 	table,
+	timeSeries,
 	titleCase,
 } from "@ryot/ryotql";
-import { buildAllCollectionsDocument } from "@ryot/ryotql-recipes/collections";
-import { buildNavigationDocument } from "@ryot/ryotql-recipes/navigation";
+import { allCollectionsRecipe } from "@ryot/ryotql-recipes/collections";
+import { navigationRecipe } from "@ryot/ryotql-recipes/navigation";
 import { PgDialect } from "drizzle-orm/pg-core";
-import { Effect, Layer, Schema } from "effect";
+import { Effect, Layer, Result, Schema } from "effect";
 
 import { CurrentDb, TransactionRunner } from "#lib/infrastructure/db/service";
 
 import { RyotQLService } from "./service";
 
-const getCollectionsQuery = () => buildAllCollectionsDocument().queries["collections"];
+const getCollectionsQuery = () => {
+	const query = allCollectionsRecipe().document.queries["collections"];
+	assert(query);
+	return query;
+};
 const encodeCursor = (value: unknown) =>
 	Buffer.from(Schema.encodeSync(Schema.fromJsonString(Schema.Unknown))(value)).toString(
 		"base64url",
@@ -94,17 +102,13 @@ it.effect("executes named queries sequentially in one configured transaction", (
 
 it.effect("returns an empty cursor page directly", () => {
 	const statements: string[] = [];
+	const recipe = allCollectionsRecipe({ limit: 1 });
 	return Effect.gen(function* () {
 		const service = yield* RyotQLService;
-		const response = yield* service.executeForUser(
-			"user-1",
-			null,
-			buildAllCollectionsDocument({ limit: 1 }),
-		);
+		const response = yield* service.executeForUser("user-1", null, recipe.document);
 
-		expect(response.data["collections"]).toEqual({
+		expect(Result.getOrThrow(recipe.decode(response))).toEqual({
 			items: [],
-			type: "rows",
 			pageInfo: { limit: 1, hasMore: false, nextCursor: null },
 		});
 	}).pipe(Effect.provide(makeServiceLayer(statements)));
@@ -142,7 +146,7 @@ it.effect("returns a cursor from the last returned row and compiles mixed keyset
 		if (result?.type !== "rows" || result.pageInfo.nextCursor === null) {
 			throw new Error("Expected rows cursor");
 		}
-		expect(result.items).toEqual([{ id: { kind: "text", value: "entity-1" } }]);
+		expect(result.items).toEqual([{ id: "entity-1" }]);
 		expect(result.pageInfo).toEqual({ limit: 1, hasMore: true, nextCursor: expect.any(String) });
 
 		yield* service.executeForUser("user-1", null, {
@@ -249,7 +253,7 @@ it.effect("applies public and user-only policies to navigation tables", () => {
 	const statements: string[] = [];
 	return Effect.gen(function* () {
 		const service = yield* RyotQLService;
-		yield* service.executeForUser("user-1", null, buildNavigationDocument());
+		yield* service.executeForUser("user-1", null, navigationRecipe().document);
 
 		const workspaces = statements[2];
 		const savedViews = statements[3];
@@ -311,15 +315,103 @@ it.effect(
 				pageInfo: { limit: 20, hasMore: false, nextCursor: null },
 				items: [
 					{
-						id: { kind: "text", value: "provider-1" },
-						optionsSchema: { kind: "null", value: null },
-						information: { kind: "json", value: { source: "tmdb" } },
+						id: "provider-1",
+						optionsSchema: null,
+						information: { source: "tmdb" },
 					},
 				],
 			});
 		}).pipe(Effect.provide(makeServiceLayer(statements, resultRows)));
 	},
 );
+
+it.effect("rejects malformed runtime field kinds", () => {
+	const statements: string[] = [];
+	const entity = table("entity", "entity");
+	const document = {
+		queries: {
+			entities: rows(entity, {
+				fields: [field("score", jsonPath(column(entity, "properties"), "score"))],
+			}),
+		},
+	};
+	const resultRows = [{ f0k: "unexpected", f0v: 4 }];
+
+	return Effect.gen(function* () {
+		const service = yield* RyotQLService;
+		const exit = yield* Effect.exit(service.executeForUser("user-1", null, document));
+
+		expect(exit._tag).toBe("Failure");
+	}).pipe(Effect.provide(makeServiceLayer(statements, resultRows)));
+});
+
+it.effect("returns plain aggregate and time-series values", () => {
+	const statements: string[] = [];
+	const entity = table("entity", "entity");
+	const document = {
+		queries: {
+			totals: aggregate(entity, {
+				measures: [
+					measure("count", { function: "count" }),
+					measure("total", { expr: literal(2), function: "sum" }),
+				],
+			}),
+			grouped: aggregate(entity, {
+				groupBy: [field("createdAt", column(entity, "createdAt"))],
+				limit: 10,
+				measures: [
+					measure("count", { function: "count" }),
+					measure("total", { expr: literal(2), function: "sum" }),
+				],
+				orderBy: [measureDescending("count")],
+			}),
+			series: timeSeries(entity, {
+				bucket: "day",
+				endAt: "2026-08-03T00:00:00.000Z",
+				measure: { function: "count" },
+				startAt: "2026-08-01T00:00:00.000Z",
+				time: column(entity, "createdAt"),
+			}),
+		},
+	};
+	const resultRows = [
+		{
+			endAt: new Date("2026-08-02T00:00:00.000Z"),
+			g0k: "date",
+			g0v: new Date("2026-08-01T00:00:00.000Z"),
+			m0: "3",
+			m1: null,
+			startAt: new Date("2026-08-01T00:00:00.000Z"),
+			totalGroups: "1",
+			value: "2",
+		},
+	];
+
+	return Effect.gen(function* () {
+		const service = yield* RyotQLService;
+		const response = yield* service.executeForUser("user-1", null, document);
+
+		expect(response.data["totals"]).toEqual({
+			items: [{ count: 3, total: null }],
+			type: "aggregate",
+		});
+		expect(response.data["grouped"]).toEqual({
+			items: [{ count: 3, createdAt: "2026-08-01T00:00:00.000Z", total: null }],
+			pageInfo: { hasMore: false, limit: 10 },
+			type: "aggregate",
+		});
+		expect(response.data["series"]).toEqual({
+			buckets: [
+				{
+					endAt: "2026-08-02T00:00:00.000Z",
+					startAt: "2026-08-01T00:00:00.000Z",
+					value: 2,
+				},
+			],
+			type: "timeSeries",
+		});
+	}).pipe(Effect.provide(makeServiceLayer(statements, resultRows)));
+});
 
 it.effect("selects notification channel descriptions with text output", () => {
 	const statements: string[] = [];
@@ -338,7 +430,7 @@ it.effect("selects notification channel descriptions with text output", () => {
 		expect(response.data["channels"]).toEqual({
 			type: "rows",
 			pageInfo: { limit: 20, hasMore: false, nextCursor: null },
-			items: [{ description: { kind: "text", value: "Discord configured" } }],
+			items: [{ description: "Discord configured" }],
 		});
 	}).pipe(Effect.provide(makeServiceLayer(statements, resultRows)));
 });
@@ -407,19 +499,19 @@ it.effect("selects integrations with useful output kinds", () => {
 			pageInfo: { limit: 20, hasMore: false, nextCursor: null },
 			items: [
 				{
-					lot: { kind: "text", value: "media" },
-					provider: { kind: "text", value: "komga" },
-					pluginSlug: { kind: "text", value: "media" },
-					id: { kind: "text", value: "integration-1" },
-					isDisabled: { kind: "boolean", value: false },
-					minimumProgress: { kind: "number", value: 2 },
-					maximumProgress: { kind: "number", value: 95 },
-					syncOwnership: { kind: "boolean", value: true },
-					name: { kind: "text", value: "Media integration" },
-					createdAt: { kind: "date", value: "2026-08-01T10:00:00.000Z" },
-					updatedAt: { kind: "date", value: "2026-08-07T12:00:00.000Z" },
-					lastFinishedAt: { kind: "date", value: "2026-08-07T10:00:00.000Z" },
-					extraSettings: { kind: "json", value: { disableOnContinuousErrors: true } },
+					lot: "media",
+					provider: "komga",
+					pluginSlug: "media",
+					id: "integration-1",
+					isDisabled: false,
+					minimumProgress: 2,
+					maximumProgress: 95,
+					syncOwnership: true,
+					name: "Media integration",
+					createdAt: "2026-08-01T10:00:00.000Z",
+					updatedAt: "2026-08-07T12:00:00.000Z",
+					lastFinishedAt: "2026-08-07T10:00:00.000Z",
+					extraSettings: { disableOnContinuousErrors: true },
 				},
 			],
 		});
@@ -466,11 +558,11 @@ it.effect("selects notification subscription states with useful output kinds", (
 			pageInfo: { limit: 20, hasMore: false, nextCursor: null },
 			items: [
 				{
-					id: { kind: "text", value: "rule-1" },
-					isActive: { kind: "boolean", value: true },
-					signalSchemaSlug: { kind: "text", value: "review.created" },
-					createdAt: { kind: "date", value: "2026-08-01T10:00:00.000Z" },
-					updatedAt: { kind: "date", value: "2026-08-07T12:00:00.000Z" },
+					id: "rule-1",
+					isActive: true,
+					signalSchemaSlug: "review.created",
+					createdAt: "2026-08-01T10:00:00.000Z",
+					updatedAt: "2026-08-07T12:00:00.000Z",
 				},
 			],
 		});
@@ -800,8 +892,8 @@ it.effect("preserves reserved result keys and non-text runtime kinds", () => {
 
 		expect(Object.hasOwn(response.data, "__proto__")).toBe(true);
 		expect(Object.hasOwn(item, "__proto__")).toBe(true);
-		expect(item["__proto__"]).toEqual({ kind: "date", value: createdAt.toISOString() });
-		expect(item["properties"]).toEqual({ kind: "json", value: { rating: 5 } });
+		expect(item["__proto__"]).toBe(createdAt.toISOString());
+		expect(item["properties"]).toEqual({ rating: 5 });
 	}).pipe(Effect.provide(makeServiceLayer(statements, resultRows)));
 });
 
@@ -992,18 +1084,18 @@ it.effect("compiles and reconstructs nested correlated includes in one statement
 		}
 		expect(courses.items).toEqual([
 			{
-				name: { kind: "text", value: "Course" },
+				name: "Course",
 				modules: {
 					pageInfo: { limit: 1, hasMore: true },
 					items: [
 						{
-							name: { kind: "text", value: "Module" },
-							optional: { kind: "null", value: null },
-							active: { kind: "boolean", value: true },
-							metadata: { kind: "json", value: { position: 1 } },
+							name: "Module",
+							optional: null,
+							active: true,
+							metadata: { position: 1 },
 							completions: {
 								pageInfo: { limit: 1, hasMore: false },
-								items: [{ occurredAt: { kind: "date", value: "2026-08-07T12:00:00.000Z" } }],
+								items: [{ occurredAt: "2026-08-07T12:00:00.000Z" }],
 							},
 						},
 					],
@@ -1085,13 +1177,13 @@ it.effect("compiles correlated scalar expressions with authorized query sets", (
 			throw new Error("Expected entities rows result");
 		}
 		expect(entities.items[0]).toEqual({
-			sum: { kind: "null", value: null },
-			count: { kind: "number", value: 0 },
-			ratio: { kind: "null", value: null },
-			latest: { kind: "null", value: null },
-			distinct: { kind: "number", value: 0 },
-			fallback: { kind: "text", value: "none" },
-			hasEvents: { kind: "boolean", value: true },
+			sum: null,
+			count: 0,
+			ratio: null,
+			latest: null,
+			distinct: 0,
+			fallback: "none",
+			hasEvents: true,
 		});
 	}).pipe(Effect.provide(makeServiceLayer(statements, resultRows)));
 });
@@ -1117,7 +1209,7 @@ it.effect("maps statement timeouts to a bad request", () => {
 	return Effect.gen(function* () {
 		const service = yield* RyotQLService;
 		const error = yield* Effect.flip(
-			service.executeForUser("user-1", null, buildAllCollectionsDocument()),
+			service.executeForUser("user-1", null, allCollectionsRecipe().document),
 		);
 
 		expect(error.message).toBe("Query exceeded the maximum execution time of 30000ms");

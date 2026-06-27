@@ -1,12 +1,9 @@
 import type { EntityId, SandboxProviderId } from "@ryot/contract/schema/brands";
 import { RelationshipSchemaSlug } from "@ryot/contract/schema/brands";
-import {
-	buildUserLibraryDocument,
-	decodeUserLibraryResponse,
-} from "@ryot/ryotql-recipes/user-library";
-import { Effect, Result } from "effect";
+import { userLibraryRecipe } from "@ryot/ryotql-recipes/user-library";
+import { Effect } from "effect";
 
-import { appClient, retryQueryResponse } from "@/api/client";
+import { appClient } from "@/api/client";
 import { getProviderEntityImportResult, startProviderEntityImport } from "@/api/provider-entities";
 import type { ApiScope } from "@/api/request-key";
 
@@ -17,22 +14,15 @@ export const addProviderEntityToLibrary = (input: {
 	readonly entityId: EntityId;
 }) =>
 	Effect.gen(function* () {
-		const request = appClient(input.scope).request;
-		const response = yield* request.pipe(
-			Effect.flatMap((client) => client.ryotql.execute({ payload: buildUserLibraryDocument() })),
-			retryQueryResponse,
-		);
-		const decoded = decodeUserLibraryResponse(response);
-		if (Result.isFailure(decoded)) {
-			return yield* Effect.fail(decoded.failure);
-		}
-		yield* request.pipe(
-			Effect.flatMap((client) =>
-				client.relationships.create({
+		const client = appClient(input.scope);
+		const library = yield* client.ryotql.execute(userLibraryRecipe());
+		yield* client.request.pipe(
+			Effect.flatMap((requestClient) =>
+				requestClient.relationships.create({
 					payload: {
 						properties: {},
 						sourceEntityId: input.entityId,
-						targetEntityId: decoded.success.entityId,
+						targetEntityId: library.entityId,
 						relationshipSchemaSlug: RelationshipSchemaSlug.make("in-library"),
 					},
 				}),

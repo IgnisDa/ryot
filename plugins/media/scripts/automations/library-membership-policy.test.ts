@@ -10,9 +10,7 @@ import definition, { manifest } from "./library-membership-policy.sandbox";
 const rows = (queryName: string, entityIds: string[]) => ({
 	data: {
 		[queryName]: {
-			items: entityIds.map((entityId) => ({
-				entityId: { kind: "text" as const, value: entityId },
-			})),
+			items: entityIds.map((entityId) => ({ entityId })),
 			pageInfo: { hasMore: false, limit: 1, nextCursor: null },
 			type: "rows" as const,
 		},

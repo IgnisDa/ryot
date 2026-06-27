@@ -1,9 +1,5 @@
 import { column, inArray, literal, table } from "@ryot/ryotql";
-import {
-	buildSavedViewCountDocument,
-	buildSavedViewDocument,
-	decodeSavedViewCountResponse,
-} from "@ryot/ryotql-recipes/saved-views";
+import { savedViewCountRecipe, savedViewRecipe } from "@ryot/ryotql-recipes/saved-views";
 import { Effect } from "effect";
 
 import {
@@ -11,12 +7,11 @@ import {
 	createEntityFixture,
 	createPluginEntitySchema,
 	createSavedViewWithGridDocument,
-	executeRyotQL,
+	executeRyotQLRecipe,
 	findBuiltinSchemaBySlug,
 	getSavedView,
 	insertLibraryMembership,
-	requireRyotQLTextField,
-	requireRows,
+	rowsLayouts,
 	rowsFields,
 	seedMediaEntity,
 } from "~/fixtures";
@@ -42,25 +37,29 @@ describe("saved views execution", () => {
 			);
 
 			const entity = table("entity", "entity");
-			const rowsQueryDocument = buildSavedViewDocument({
-				fields: rowsFields,
-				entitySchemaSlugs: [schemaId],
-				where: inArray(
-					column(entity, "name"),
-					matchingNames.map((name) => literal(name)),
-				),
-			});
+			const rowsQueryDocument = savedViewRecipe({
+				layout: { type: "card", mapping: rowsLayouts.grid },
+				source: {
+					type: "generated",
+					limit: 2,
+					fields: rowsFields,
+					entitySchemaSlugs: [schemaId],
+					where: inArray(
+						column(entity, "name"),
+						matchingNames.map((name) => literal(name)),
+					),
+				},
+			}).document;
 			const createdView = yield* createSavedViewWithGridDocument(client, rowsQueryDocument, {
 				pluginSlug,
 				entitySchemaSlug: schemaId,
 				name: `Saved View Count ${crypto.randomUUID()}`,
 			});
 			const persistedView = yield* getSavedView(client, createdView.slug);
-			const countDocument = buildSavedViewCountDocument(persistedView.layouts.grid.queryDocument);
-			assertPresent(countDocument, "Expected a saved-view count document");
-
-			const response = yield* executeRyotQL(client, countDocument);
-			const total = yield* resultToEffect(decodeSavedViewCountResponse(response));
+			const countRecipe = yield* resultToEffect(
+				savedViewCountRecipe(persistedView.layouts.grid.queryDocument),
+			);
+			const total = yield* executeRyotQLRecipe(client, countRecipe);
 
 			expect(total).toBe(2);
 		}),
@@ -99,18 +98,22 @@ describe("saved views execution", () => {
 
 			const userAView = yield* getSavedView(userA.client, "all-shows");
 			const userBView = yield* getSavedView(userB.client, "all-shows");
-			const userAResult = requireRows(
-				(yield* executeRyotQL(userA.client, userAView.layouts.grid.queryDocument)).data.savedView,
-				"savedView",
+			const userAResult = yield* executeRyotQLRecipe(
+				userA.client,
+				savedViewRecipe({
+					layout: { type: "card", mapping: userAView.layouts.grid },
+					source: { type: "persisted", queryDocument: userAView.layouts.grid.queryDocument },
+				}),
 			);
-			const userBResult = requireRows(
-				(yield* executeRyotQL(userB.client, userBView.layouts.grid.queryDocument)).data.savedView,
-				"savedView",
+			const userBResult = yield* executeRyotQLRecipe(
+				userB.client,
+				savedViewRecipe({
+					layout: { type: "card", mapping: userBView.layouts.grid },
+					source: { type: "persisted", queryDocument: userBView.layouts.grid.queryDocument },
+				}),
 			);
 
-			expect(userAResult.items.map((item) => requireRyotQLTextField(item, "title"))).toContain(
-				entity.name,
-			);
+			expect(userAResult.items.map((item) => item.title)).toContain(entity.name);
 			expect(userBResult.items).toHaveLength(0);
 		}),
 	);

@@ -412,6 +412,9 @@
     },
     "packages/ryotql": {
       "name": "@ryot/ryotql",
+      "dependencies": {
+        "effect": "4.0.0-beta.107",
+      },
       "devDependencies": {
         "@ryot/contract": "workspace:*",
         "@ryot/testing": "workspace:*",

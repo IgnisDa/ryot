@@ -24,7 +24,7 @@ import {
 	createPluginEntitySchema,
 	executeRyotQL,
 	requireRows,
-	requireRyotQLFieldValue,
+	requireRyotQLValue,
 	type Client,
 } from "~/fixtures";
 import { assertPresent } from "~/support/assertions";
@@ -102,15 +102,16 @@ describe("RyotQL event queries", () => {
 
 			const events = requireRows(result.data["events"], "events");
 			expect(events.items).toHaveLength(2);
-			expect(events.items.map((item) => requireRyotQLFieldValue(item, "entityName").value)).toEqual(
-				["RyotQLEventMovie Entity", "RyotQLEventBook Entity"],
-			);
+			expect(events.items.map((item) => requireRyotQLValue(item, "entityName"))).toEqual([
+				"RyotQLEventMovie Entity",
+				"RyotQLEventBook Entity",
+			]);
 			expect(events.items[0]).toMatchObject({
-				createdAt: { kind: "date" },
-				updatedAt: { kind: "date" },
-				rating: { kind: "number", value: 5 },
-				sessionEntityId: { kind: "null", value: null },
-				occurredAt: { kind: "date", value: "2026-08-01T00:00:00.000Z" },
+				createdAt: expect.any(String),
+				updatedAt: expect.any(String),
+				rating: 5,
+				sessionEntityId: null,
+				occurredAt: "2026-08-01T00:00:00.000Z",
 			});
 		}),
 	);
@@ -145,18 +146,14 @@ describe("RyotQL event queries", () => {
 			const firstPage = requireRows(result.data["events"], "events");
 			expect(firstPage.pageInfo).toMatchObject({ limit: 2, hasMore: true });
 			expect(firstPage.pageInfo.nextCursor).not.toBeNull();
-			expect(firstPage.items.map((item) => requireRyotQLFieldValue(item, "rating").value)).toEqual([
-				5, 4,
-			]);
+			expect(firstPage.items.map((item) => requireRyotQLValue(item, "rating"))).toEqual([5, 4]);
 			const next = yield* executeRyotQL(
 				client,
 				document({ events: page(firstPage.pageInfo.nextCursor ?? undefined) }),
 			);
 			const secondPage = requireRows(next.data["events"], "events");
 			expect(secondPage.pageInfo).toEqual({ limit: 2, hasMore: false, nextCursor: null });
-			expect(secondPage.items.map((item) => requireRyotQLFieldValue(item, "rating").value)).toEqual(
-				[3],
-			);
+			expect(secondPage.items.map((item) => requireRyotQLValue(item, "rating"))).toEqual([3]);
 		}),
 	);
 
@@ -202,11 +199,11 @@ describe("RyotQL event queries", () => {
 
 			const visibleEvents = requireRows(result.data["visibleEvents"], "visibleEvents");
 			expect(
-				visibleEvents.items.map((item) => requireRyotQLFieldValue(item, "eventSchemaSlug").value),
+				visibleEvents.items.map((item) => requireRyotQLValue(item, "eventSchemaSlug")),
 			).toEqual([own.eventSchemaSlug]);
 			const crafted = requireRows(result.data["craftedJoin"], "craftedJoin").items[0];
 			assertPresent(crafted, "Expected the caller's event row");
-			expect(crafted["hiddenName"]).toEqual({ kind: "null", value: null });
+			expect(crafted["hiddenName"]).toBeNull();
 		}),
 	);
 });

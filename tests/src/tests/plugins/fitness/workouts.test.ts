@@ -1,11 +1,11 @@
-import { buildWorkoutListQueryDocument } from "@ryot/fitness-plugin/query-recipes";
+import { workoutListRecipe } from "@ryot/fitness-plugin/query-recipes";
 import { Effect } from "effect";
 
 import {
 	createAuthenticatedClient,
 	createEntity,
 	createWorkoutEntityFixture,
-	executeRyotQL,
+	executeRyotQLRecipe,
 	findBuiltinRelationshipSchemaSlug,
 	findBuiltinSchemaBySlug,
 	findBuiltinPluginBySlug,
@@ -17,8 +17,6 @@ import {
 	waitForEventCount,
 	waitForSeededExerciseId,
 	waitForSessionEventCount,
-	requireRyotQLFieldValue,
-	requireRows,
 } from "~/fixtures";
 import { assertCondition, assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
@@ -124,15 +122,29 @@ describe("Workouts E2E", () => {
 				name: "All Workouts",
 				pluginSlug: fitnessPlugin.slug,
 				layouts: {
-					grid: { entityIdField: "entityId", titleField: "title", imageField: null },
-					list: { entityIdField: "entityId", titleField: "title", imageField: null },
+					grid: {
+						entityIdField: "entityId",
+						titleField: "title",
+						imageField: null,
+						overline: { field: "overline", displayKind: "text" },
+						primaryMetadata: { field: "primaryMetadata", displayKind: "date" },
+						secondaryMetadata: { field: "secondaryMetadata", displayKind: "date" },
+					},
+					list: {
+						entityIdField: "entityId",
+						titleField: "title",
+						imageField: null,
+						overline: { field: "overline", displayKind: "text" },
+						primaryMetadata: { field: "primaryMetadata", displayKind: "date" },
+						secondaryMetadata: { field: "secondaryMetadata", displayKind: "date" },
+					},
 					table: {
 						imageField: null,
 						entityIdField: "entityId",
 						columns: [
-							{ label: "Name", field: "column0" },
-							{ label: "Started At", field: "column1" },
-							{ label: "Ended At", field: "column2" },
+							{ label: "Name", field: "column0", displayKind: "text" },
+							{ label: "Started At", field: "column1", displayKind: "date" },
+							{ label: "Ended At", field: "column2", displayKind: "date" },
 						],
 					},
 				},
@@ -162,15 +174,12 @@ describe("Workouts E2E", () => {
 			const { client } = yield* createAuthenticatedClient();
 			yield* createWorkoutEntityFixture(client);
 
-			const result = yield* executeRyotQL(client, buildWorkoutListQueryDocument({}));
-			const workouts = requireRows(result.data["workouts"], "workouts");
+			const result = yield* executeRyotQLRecipe(client, workoutListRecipe({}));
 
-			const firstWorkout = workouts.items[0];
+			const firstWorkout = result.items[0];
 			assertPresent(firstWorkout, "Expected at least one workout item");
-			expect(workouts.items.length).toBeGreaterThan(0);
-			expect(requireRyotQLFieldValue(firstWorkout, "startedAt")).toMatchObject({
-				kind: "date",
-			});
+			expect(result.items.length).toBeGreaterThan(0);
+			expect(firstWorkout.startedAt).toEqual(expect.any(String));
 		}),
 	);
 

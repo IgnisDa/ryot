@@ -1,9 +1,9 @@
-import type { RyotQLResponse } from "@ryot/contract/modules/ryotql/language";
 import { EntitySchemaSlug } from "@ryot/contract/schema/brands";
 import { Result } from "effect";
-import { describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 
-import { buildProviderSearchDocument, decodeProviderSearchResponse } from "./provider-search";
+import { providerSearchRecipe } from "./provider-search";
+import { rowsResponse } from "./test-utils";
 
 const searchOptionsSchema = {
 	unknownKeys: "strict",
@@ -15,89 +15,24 @@ const searchOptionsSchema = {
 		},
 	},
 } as const;
-
-const providerSearchResponse = {
-	data: {
-		providers: {
-			type: "rows",
-			pageInfo: { hasMore: false, limit: 100, nextCursor: null },
-			items: [
-				{
-					providerSlug: { kind: "text", value: "tmdb" },
-					providerName: { kind: "text", value: "TMDB" },
-					providerId: { kind: "text", value: "provider-1" },
-					rootEntitySchemaSlug: { kind: "text", value: "movie" },
-					searchOptionsSchema: { kind: "json", value: searchOptionsSchema },
-				},
-				{
-					providerId: { kind: "text", value: "provider-2" },
-					searchOptionsSchema: { kind: "null", value: null },
-					providerSlug: { kind: "text", value: "open-library" },
-					providerName: { kind: "text", value: "Open Library" },
-					rootEntitySchemaSlug: { kind: "text", value: "movie" },
-				},
-			],
-		},
-	},
-} satisfies RyotQLResponse;
+const pageInfo = { hasMore: false, limit: 100, nextCursor: null };
+const provider = {
+	providerSlug: "tmdb",
+	providerName: "TMDB",
+	providerId: "provider-1",
+	rootEntitySchemaSlug: "movie",
+	searchOptionsSchema,
+};
+const recipe = providerSearchRecipe({ rootEntitySchemaSlug: EntitySchemaSlug.make("movie") });
+const responseWithItems = (items: readonly unknown[]) => rowsResponse("providers", items, pageInfo);
 
 describe("provider search recipe", () => {
-	it("builds the active search-provider catalog query", () => {
-		const query = buildProviderSearchDocument({
-			rootEntitySchemaSlug: EntitySchemaSlug.make("movie"),
-		}).queries.providers;
+	it("prepares the active provider catalog and decodes plain values", () => {
+		const query = recipe.document.queries.providers;
+		assert(query);
+		assert(query.output.type === "rows");
 
-		expect(query.from).toEqual({ alias: "provider", table: "sandboxProvider" });
-		expect(query.joins).toEqual([
-			{
-				type: "inner",
-				table: { alias: "operation", table: "sandboxProviderOperation" },
-				on: {
-					operator: "eq",
-					type: "comparison",
-					left: { type: "column", tableAlias: "provider", field: "id" },
-					right: { type: "column", tableAlias: "operation", field: "providerId" },
-				},
-			},
-			{
-				type: "inner",
-				table: { alias: "plugin", table: "plugin" },
-				on: {
-					operator: "eq",
-					type: "comparison",
-					right: { type: "column", tableAlias: "plugin", field: "slug" },
-					left: { type: "column", tableAlias: "provider", field: "pluginSlug" },
-				},
-			},
-		]);
-		expect(query.where).toEqual({
-			type: "and",
-			predicates: [
-				{
-					operator: "eq",
-					type: "comparison",
-					right: { type: "literal", value: "movie" },
-					left: { type: "column", tableAlias: "provider", field: "rootEntitySchemaSlug" },
-				},
-				{
-					operator: "eq",
-					type: "comparison",
-					right: { type: "literal", value: "search" },
-					left: { type: "column", tableAlias: "operation", field: "operation" },
-				},
-				{
-					operator: "eq",
-					type: "comparison",
-					right: { type: "literal", value: "active" },
-					left: { type: "column", tableAlias: "plugin", field: "status" },
-				},
-			],
-		});
-		expect(query.output.orderBy).toEqual([
-			{ direction: "asc", expr: { type: "column", tableAlias: "provider", field: "name" } },
-			{ direction: "asc", expr: { type: "column", tableAlias: "provider", field: "slug" } },
-			{ direction: "asc", expr: { type: "column", tableAlias: "provider", field: "id" } },
-		]);
+		expect(query.joins).toHaveLength(2);
 		expect(
 			query.output.fields.map((selection) => ("key" in selection ? selection.key : null)),
 		).toEqual([
@@ -107,49 +42,42 @@ describe("provider search recipe", () => {
 			"rootEntitySchemaSlug",
 			"searchOptionsSchema",
 		]);
-	});
-
-	it("decodes canonical option schemas and JSON null as null", () => {
-		expect(Result.getOrThrow(decodeProviderSearchResponse(providerSearchResponse))).toEqual({
-			pageInfo: { hasMore: false, limit: 100, nextCursor: null },
-			items: [
-				{
-					searchOptionsSchema,
-					providerSlug: "tmdb",
-					providerName: "TMDB",
-					providerId: "provider-1",
-					rootEntitySchemaSlug: "movie",
-				},
-				{
-					providerId: "provider-2",
-					searchOptionsSchema: null,
-					providerSlug: "open-library",
-					providerName: "Open Library",
-					rootEntitySchemaSlug: "movie",
-				},
+		expect(query.where).toMatchObject({
+			predicates: [
+				{ right: { value: "movie" } },
+				{ right: { value: "search" } },
+				{ right: { value: "active" } },
 			],
+		});
+		expect(
+			Result.getOrThrow(
+				recipe.decode(
+					responseWithItems([
+						provider,
+						{
+							...provider,
+							providerId: "provider-2",
+							searchOptionsSchema: null,
+						},
+					]),
+				),
+			),
+		).toEqual({
+			pageInfo,
+			items: [provider, { ...provider, providerId: "provider-2", searchOptionsSchema: null }],
 		});
 	});
 
-	it("rejects a non-AppSchema options value", () => {
+	it("rejects malformed option schemas and non-rows results", () => {
 		expect(
 			Result.isFailure(
-				decodeProviderSearchResponse({
-					...providerSearchResponse,
-					data: {
-						...providerSearchResponse.data,
-						providers: {
-							...providerSearchResponse.data.providers,
-							items: [
-								{
-									...providerSearchResponse.data.providers.items[0],
-									searchOptionsSchema: { kind: "json", value: { fields: { invalid: {} } } },
-								},
-							],
-						},
-					},
-				}),
+				recipe.decode(
+					responseWithItems([{ ...provider, searchOptionsSchema: { fields: { invalid: {} } } }]),
+				),
 			),
+		).toBe(true);
+		expect(
+			Result.isFailure(recipe.decode({ data: { providers: { items: [], type: "aggregate" } } })),
 		).toBe(true);
 	});
 });

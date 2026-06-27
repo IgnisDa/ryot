@@ -1,5 +1,5 @@
 import type { ManagedAssetLocator } from "@ryot/contract/modules/uploads/schemas";
-import { buildSavedViewRecordDocument } from "@ryot/ryotql-recipes/saved-view-records";
+import { savedViewRecordRecipe } from "@ryot/ryotql-recipes/saved-view-records";
 import { Schema } from "effect";
 import { Atom } from "effect/unstable/reactivity";
 
@@ -23,9 +23,7 @@ type ManagedAssetResolutionRequest = {
 
 const savedViewRecordFamily = Atom.family((request: SavedViewRecordRequest) =>
 	appClient(request.scope)
-		.query("ryotql", "execute", {
-			payload: buildSavedViewRecordDocument({ slug: request.slug }),
-
+		.ryotql.query(savedViewRecordRecipe({ slug: request.slug }), {
 			reactivityKeys: scopedReactivityKey("saved-view-record", request.scope),
 		})
 		.pipe(Atom.map(mapSavedViewRecord)),
