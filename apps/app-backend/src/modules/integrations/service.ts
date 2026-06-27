@@ -298,8 +298,8 @@ export class IntegrationsService extends Effect.Service<IntegrationsService>()(
 				update,
 				listRuns,
 				handleWebhook,
-				delete: deleteIntegration,
 				prepareScheduledYankRuns,
+				delete: deleteIntegration,
 			};
 		}),
 	},
