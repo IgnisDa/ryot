@@ -188,7 +188,8 @@ export class RelationshipsRepository extends Effect.Service<RelationshipsReposit
 						.select(relationshipSelection)
 						.from(schema.relationship)
 						.where(relationshipIdentityWhere(input))
-						.limit(1),
+						.limit(1)
+						.for("update"),
 				);
 
 				if (!existing) {
