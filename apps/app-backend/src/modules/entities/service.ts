@@ -11,7 +11,7 @@ import { isObjectRecord } from "@ryot/ts-utils/predicates";
 import { generateId } from "better-auth";
 import { Context, DateTime, Effect, Layer } from "effect";
 
-import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
+import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
 import { requireText } from "#lib/shared/validation";
 
@@ -100,9 +100,9 @@ const toMutationSnapshot = (entity: ListedEntity): EntityMutationSnapshot => ({
 	entitySchemaSlug: entity.entitySchemaSlug,
 });
 
+/** @effect-expect-leaking Database */
 export class EntitiesService extends Context.Service<EntitiesService>()("EntitiesService", {
 	make: Effect.gen(function* () {
-		const runWithDb = yield* DbRunner;
 		const repository = yield* EntitiesRepository;
 		const lifecycleDispatch = yield* LifecycleDispatch;
 
@@ -128,13 +128,11 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 			}
 
 			const scope = yield* input.scope === "user"
-				? runWithDb(
-						repository.getEntitySchemaScopeForUser({
-							userId: input.userId,
-							entitySchemaSlug: input.entitySchemaSlug,
-						}),
-					)
-				: runWithDb(repository.findEntitySchemaById(input.entitySchemaSlug));
+				? repository.getEntitySchemaScopeForUser({
+						userId: input.userId,
+						entitySchemaSlug: input.entitySchemaSlug,
+					})
+				: repository.findEntitySchemaById(input.entitySchemaSlug);
 			if (!scope) {
 				return yield* notFound(entitySchemaNotFoundError);
 			}
@@ -144,14 +142,12 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 				input.externalId !== undefined &&
 				input.providerId !== undefined
 			) {
-				const existing = yield* runWithDb(
-					repository.findEntityByExternalIdForUser({
-						userId: input.userId,
-						externalId: input.externalId,
-						entitySchemaSlug: input.entitySchemaSlug,
-						providerId: input.providerId,
-					}),
-				);
+				const existing = yield* repository.findEntityByExternalIdForUser({
+					userId: input.userId,
+					externalId: input.externalId,
+					entitySchemaSlug: input.entitySchemaSlug,
+					providerId: input.providerId,
+				});
 				if (existing) {
 					return existing;
 				}
@@ -159,7 +155,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 
 			const name = yield* requireText(input.name, "Entity name is required");
 			const properties = yield* parseEntityProperties(input.properties, scope.propertiesSchema);
-			const saved = yield* runWithDb(repository.insertEntity({ ...input, name, properties }));
+			const saved = yield* repository.insertEntity({ ...input, name, properties });
 
 			if (origin && saved.wasInserted) {
 				yield* lifecycleDispatch.dispatch({
@@ -192,38 +188,40 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 			items: ReadonlyArray<EnsureUserEntityItem>,
 			lifecycleIdentity?: EnsureUserEntitiesLifecycleIdentity,
 		) {
-			const runInTransaction = yield* TransactionRunner;
-			const saved = yield* runInTransaction(
-				Effect.gen(function* () {
-					yield* repository.lockUserEntityEnsureScopes({
-						userId,
-						entitySchemaSlugs: items.map(({ entitySchemaSlug }) => entitySchemaSlug),
-					});
-					return yield* Effect.forEach(items, (item) =>
-						repository
-							.findUserEntityWithoutProvenance({
-								userId,
-								entitySchemaSlug: item.entitySchemaSlug,
-							})
-							.pipe(
-								Effect.flatMap((existing) =>
-									Effect.gen(function* () {
-										if (existing) {
-											return { entity: existing, wasInserted: false } satisfies EnsuredUserEntity;
-										}
-										const entity = yield* createEntity({
-											userId,
-											scope: "user",
-											name: item.name,
-											properties: item.properties,
-											entitySchemaSlug: item.entitySchemaSlug,
-										});
-										return { entity, wasInserted: true } satisfies EnsuredUserEntity;
-									}),
+			const database = yield* Database;
+			const saved = yield* mapDatabaseErrors(
+				database.transaction((transaction) =>
+					Effect.gen(function* () {
+						yield* repository.lockUserEntityEnsureScopes({
+							userId,
+							entitySchemaSlugs: items.map(({ entitySchemaSlug }) => entitySchemaSlug),
+						});
+						return yield* Effect.forEach(items, (item) =>
+							repository
+								.findUserEntityWithoutProvenance({
+									userId,
+									entitySchemaSlug: item.entitySchemaSlug,
+								})
+								.pipe(
+									Effect.flatMap((existing) =>
+										Effect.gen(function* () {
+											if (existing) {
+												return { entity: existing, wasInserted: false } satisfies EnsuredUserEntity;
+											}
+											const entity = yield* createEntity({
+												userId,
+												scope: "user",
+												name: item.name,
+												properties: item.properties,
+												entitySchemaSlug: item.entitySchemaSlug,
+											});
+											return { entity, wasInserted: true } satisfies EnsuredUserEntity;
+										}),
+									),
 								),
-							),
-					);
-				}),
+						);
+					}).pipe(Effect.provideService(Database, transaction)),
+				),
 			);
 			const occurredAt = lifecycleIdentity?.occurredAt ?? (yield* DateTime.nowAsDate).toISOString();
 			yield* Effect.forEach(
@@ -259,42 +257,38 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 		});
 
 		const update = Effect.fn("EntitiesService.update")(function* (input: UpdateEntityInput) {
-			const scope = yield* runWithDb(repository.findEntitySchemaById(input.entitySchemaSlug));
+			const scope = yield* repository.findEntitySchemaById(input.entitySchemaSlug);
 			if (!scope) {
 				return yield* notFound(entitySchemaNotFoundError);
 			}
 
 			const properties = yield* parseEntityProperties(input.properties, scope.propertiesSchema);
 
-			return yield* runWithDb(
-				repository.updateEntity({
-					properties,
-					name: input.name,
-					entityId: input.entityId,
-					populatedAt: input.populatedAt,
-				}),
-			);
+			return yield* repository.updateEntity({
+				properties,
+				name: input.name,
+				entityId: input.entityId,
+				populatedAt: input.populatedAt,
+			});
 		});
 
 		const upsert = Effect.fn("EntitiesService.upsert")(function* (input: UpsertEntityInput) {
-			const scope = yield* runWithDb(repository.findEntitySchemaById(input.entitySchemaSlug));
+			const scope = yield* repository.findEntitySchemaById(input.entitySchemaSlug);
 			if (!scope) {
 				return yield* notFound(entitySchemaNotFoundError);
 			}
 
 			const name = yield* requireText(input.name, "Entity name is required");
 			const properties = yield* parseEntityProperties(input.properties, scope.propertiesSchema);
-			const saved = yield* runWithDb(
-				repository.insertEntity({
-					name,
-					properties,
-					scope: "global",
-					externalId: input.externalId,
-					populatedAt: input.populatedAt,
-					entitySchemaSlug: input.entitySchemaSlug,
-					providerId: input.providerId,
-				}),
-			);
+			const saved = yield* repository.insertEntity({
+				name,
+				properties,
+				scope: "global",
+				externalId: input.externalId,
+				populatedAt: input.populatedAt,
+				entitySchemaSlug: input.entitySchemaSlug,
+				providerId: input.providerId,
+			});
 			const before = toMutationSnapshot(saved.entity);
 
 			if (saved.wasInserted) {
@@ -311,14 +305,12 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 				};
 			}
 
-			const entity = yield* runWithDb(
-				repository.updateEntity({
-					name,
-					properties,
-					entityId: saved.entity.id,
-					populatedAt: input.populatedAt,
-				}),
-			);
+			const entity = yield* repository.updateEntity({
+				name,
+				properties,
+				entityId: saved.entity.id,
+				populatedAt: input.populatedAt,
+			});
 			const after = toMutationSnapshot(entity);
 			const operation =
 				before.name === after.name && Bun.deepEquals(before.properties, after.properties)
@@ -335,7 +327,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 		) {
 			const validated = yield* Effect.forEach(items, (input) =>
 				Effect.gen(function* () {
-					const scope = yield* runWithDb(repository.findEntitySchemaById(input.entitySchemaSlug));
+					const scope = yield* repository.findEntitySchemaById(input.entitySchemaSlug);
 					if (!scope) {
 						return yield* notFound(entitySchemaNotFoundError);
 					}
@@ -351,7 +343,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 
 			if (options?.maximumTotal === undefined) {
 				return yield* Effect.forEach(validated, (input) =>
-					runWithDb(save(input)).pipe(
+					save(input).pipe(
 						Effect.map((saved) => ({
 							entityId: saved.entity.id,
 							status: "upserted" as const,
@@ -366,63 +358,65 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 			}
 
 			const maximumTotal = options.maximumTotal;
-			const runInTransaction = yield* TransactionRunner;
-			return yield* runInTransaction(
-				Effect.gen(function* () {
-					const scopeSlugs = [...new Set(validated.map((item) => item.entitySchemaSlug))].sort();
-					for (const entitySchemaSlug of scopeSlugs) {
-						yield* repository.lockGlobalEntityProvenanceScope({
-							entitySchemaSlug,
-							providerId,
-						});
-					}
-
-					const counts = new Map<EntitySchemaSlug, number>();
-					for (const entitySchemaSlug of scopeSlugs) {
-						counts.set(
-							entitySchemaSlug,
-							yield* repository.countGlobalEntitiesByProvenanceScope({
+			const database = yield* Database;
+			return yield* mapDatabaseErrors(
+				database.transaction((transaction) =>
+					Effect.gen(function* () {
+						const scopeSlugs = [...new Set(validated.map((item) => item.entitySchemaSlug))].sort();
+						for (const entitySchemaSlug of scopeSlugs) {
+							yield* repository.lockGlobalEntityProvenanceScope({
 								entitySchemaSlug,
 								providerId,
+							});
+						}
+
+						const counts = new Map<EntitySchemaSlug, number>();
+						for (const entitySchemaSlug of scopeSlugs) {
+							counts.set(
+								entitySchemaSlug,
+								yield* repository.countGlobalEntitiesByProvenanceScope({
+									entitySchemaSlug,
+									providerId,
+								}),
+							);
+						}
+
+						return yield* Effect.forEach(validated, (input) =>
+							Effect.gen(function* () {
+								const existing = yield* repository.findGlobalEntityByExternalId({
+									providerId,
+									externalId: input.externalId,
+									entitySchemaSlug: input.entitySchemaSlug,
+								});
+								if (existing) {
+									return { wasInserted: false, entityId: existing.id, status: "upserted" as const };
+								}
+
+								const currentCount = counts.get(input.entitySchemaSlug) ?? 0;
+								if (currentCount >= maximumTotal) {
+									return { status: "skipped" as const };
+								}
+
+								const saved = yield* save(input);
+								if (saved.wasInserted) {
+									counts.set(input.entitySchemaSlug, currentCount + 1);
+								}
+								return {
+									entityId: saved.entity.id,
+									status: "upserted" as const,
+									wasInserted: saved.wasInserted,
+								};
 							}),
 						);
-					}
-
-					return yield* Effect.forEach(validated, (input) =>
-						Effect.gen(function* () {
-							const existing = yield* repository.findGlobalEntityByExternalId({
-								providerId,
-								externalId: input.externalId,
-								entitySchemaSlug: input.entitySchemaSlug,
-							});
-							if (existing) {
-								return { wasInserted: false, entityId: existing.id, status: "upserted" as const };
-							}
-
-							const currentCount = counts.get(input.entitySchemaSlug) ?? 0;
-							if (currentCount >= maximumTotal) {
-								return { status: "skipped" as const };
-							}
-
-							const saved = yield* save(input);
-							if (saved.wasInserted) {
-								counts.set(input.entitySchemaSlug, currentCount + 1);
-							}
-							return {
-								entityId: saved.entity.id,
-								status: "upserted" as const,
-								wasInserted: saved.wasInserted,
-							};
-						}),
-					);
-				}),
+					}).pipe(Effect.provideService(Database, transaction)),
+				),
 			);
 		});
 
 		const getByIdAnyScope = Effect.fn("EntitiesService.getByIdAnyScope")(function* (
 			entityId: EntityId,
 		) {
-			const entity = yield* runWithDb(repository.getById(entityId));
+			const entity = yield* repository.getById(entityId);
 			if (!entity) {
 				return yield* notFound(entityNotFoundError);
 			}
@@ -432,7 +426,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 		const deleteByIds = Effect.fn("EntitiesService.deleteByIds")(function* (
 			ids: readonly [EntityId, ...EntityId[]],
 		) {
-			return yield* runWithDb(repository.deleteByIds(ids));
+			return yield* repository.deleteByIds(ids);
 		});
 
 		return {

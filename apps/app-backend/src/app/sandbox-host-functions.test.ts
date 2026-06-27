@@ -16,12 +16,7 @@ import { describe } from "vitest";
 import { RedisService } from "#lib/infrastructure/redis";
 import { selectSandboxHostFunctions } from "#lib/infrastructure/sandbox-runtime/service";
 import type { SandboxRunInput } from "#lib/infrastructure/sandbox-runtime/shared";
-import {
-	dbRunnerLayer,
-	makeAppConfigLayer,
-	makeRedisService,
-	transactionLayer,
-} from "#lib/test-utils/effect";
+import { databaseLayer, makeAppConfigLayer, makeRedisService } from "#lib/test-utils/effect";
 import { DefinitionRegistry, makeDefinitionRegistry } from "#modules/definition-registry/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
@@ -106,8 +101,7 @@ const runGetCurrentIntegration = (
 		),
 		Effect.provide(
 			Layer.mergeAll(
-				dbRunnerLayer,
-				transactionLayer,
+				databaseLayer,
 				makeAppConfigLayer(),
 				Layer.succeed(RedisService, makeRedisService()),
 				Layer.mock(EventsService)({}),
@@ -250,8 +244,7 @@ const runExecuteRyotql = (
 		Effect.map((result) => ({ result, resolvedScriptIds, pluginCalls, userCalls })),
 		Effect.provide(
 			Layer.mergeAll(
-				dbRunnerLayer,
-				transactionLayer,
+				databaseLayer,
 				makeAppConfigLayer(),
 				Layer.succeed(RedisService, makeRedisService()),
 				Layer.mock(EventsService)({}),
@@ -393,8 +386,7 @@ const runChangeUserRelationships = (
 		),
 		Effect.provide(
 			Layer.mergeAll(
-				dbRunnerLayer,
-				transactionLayer,
+				databaseLayer,
 				makeAppConfigLayer(),
 				Layer.succeed(RedisService, makeRedisService()),
 				Layer.mock(EventsService)({}),
@@ -597,8 +589,7 @@ const runEnsureUserEntities = (options: {
 		),
 		Effect.provide(
 			Layer.mergeAll(
-				dbRunnerLayer,
-				transactionLayer,
+				databaseLayer,
 				makeAppConfigLayer(),
 				Layer.succeed(RedisService, makeRedisService()),
 				Layer.mock(EventsService)({}),

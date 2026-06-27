@@ -9,7 +9,7 @@ import { and, eq, isNull, or } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
+import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { DefinitionRegistry } from "#modules/definition-registry/service";
 
 type CollectionRow = Pick<
@@ -69,8 +69,8 @@ export class CollectionsRepository extends Context.Service<CollectionsRepository
 			const findCollectionByNameForUser = Effect.fn(
 				"CollectionsRepository.findCollectionByNameForUser",
 			)(function* (input: { name: string; userId: UserId; entitySchemaSlug: EntitySchemaSlug }) {
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
 					db
 						.select(collectionSelection)
 						.from(schema.entity)
@@ -93,8 +93,8 @@ export class CollectionsRepository extends Context.Service<CollectionsRepository
 				collectionId: EntityId,
 				userId: UserId,
 			) {
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
 					db
 						.select(collectionSelection)
 						.from(schema.entity)
@@ -113,8 +113,8 @@ export class CollectionsRepository extends Context.Service<CollectionsRepository
 
 			const getEntityForMembership = Effect.fn("CollectionsRepository.getEntityForMembership")(
 				function* (entityId: EntityId, userId: UserId) {
-					const db = yield* CurrentDb;
-					const [row] = yield* dbEffect(() =>
+					const db = yield* Database;
+					const [row] = yield* mapDatabaseErrors(
 						db
 							.select({
 								id: schema.entity.id,

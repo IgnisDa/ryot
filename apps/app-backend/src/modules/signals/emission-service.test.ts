@@ -12,7 +12,7 @@ import { Cause, Effect, Exit, Layer, Option } from "effect";
 
 import { assertExitFails } from "#lib/test-utils/assertions";
 import type { MockOverrides } from "#lib/test-utils/effect";
-import { transactionLayer } from "#lib/test-utils/effect";
+import { databaseLayer } from "#lib/test-utils/effect";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
@@ -132,11 +132,11 @@ const makeLayer = (input: {
 	relationshipSchemas?: ReturnType<typeof makeRelationshipSchemasRepository>;
 }) =>
 	SignalEmissionService.layer.pipe(
-		Layer.provide(
+		Layer.provideMerge(
 			Layer.mergeAll(
 				input.signals,
 				input.dispatch ?? signalDispatchLayer,
-				transactionLayer,
+				databaseLayer,
 				input.entities ?? makeEntitiesRepository(),
 				input.relationships ?? makeRelationshipsRepository(),
 				input.signalSchemas ??

@@ -3,7 +3,7 @@ import { ImportRunId } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 import { expect as vitestExpect } from "vitest";
 
-import type { MockOverrides } from "#lib/test-utils/effect";
+import { databaseLayer, type MockOverrides } from "#lib/test-utils/effect";
 
 import { ImportRunFailuresService } from "../failure-service";
 import { ImportsService } from "../service";
@@ -29,7 +29,7 @@ const makeImportsService = (overrides: MockOverrides<typeof mockImportsService> 
 const makeTestLayer = (
 	importsService: Layer.Layer<ImportsService>,
 	importRunFailuresService: Layer.Layer<ImportRunFailuresService>,
-) => Layer.mergeAll(importsService, importRunFailuresService);
+) => Layer.mergeAll(databaseLayer, importsService, importRunFailuresService);
 
 it.effect("marks import runs as running", () => {
 	const updates: Array<Record<string, unknown>> = [];

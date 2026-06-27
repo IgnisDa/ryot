@@ -4,7 +4,7 @@ import { UserId } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { CurrentDb, TransactionRunner } from "#lib/infrastructure/db/service";
+import { Database } from "#lib/infrastructure/db/service";
 import { NotificationSubscriptionsService } from "#modules/automations/notification-subscriptions-service";
 import { SavedViewsService } from "#modules/saved-views/service";
 
@@ -24,12 +24,12 @@ const makeBootstrapDb = (options?: {
 		select: () => ({
 			from: (table: unknown) => {
 				if (table !== schema.user) {
-					return { where: () => Promise.resolve([]) };
+					return { where: () => Effect.succeed([]) };
 				}
 				return {
 					where: () =>
-						Object.assign(Promise.resolve(userRows), {
-							for: () => Promise.resolve(userRows),
+						Object.assign(Effect.succeed(userRows), {
+							for: () => Effect.succeed(userRows),
 						}),
 				};
 			},
@@ -38,11 +38,11 @@ const makeBootstrapDb = (options?: {
 			set: () => ({
 				where: () => {
 					options?.onMarkComplete?.();
-					return Promise.resolve({});
+					return Effect.succeed({});
 				},
 			}),
 		}),
-		execute: () => Promise.resolve({}),
+		execute: () => Effect.succeed({}),
 	});
 };
 
@@ -54,8 +54,13 @@ const makeLayer = (options: {
 }) => {
 	const db = options.db ?? makeBootstrapDb();
 	return Layer.mergeAll(
-		Layer.succeed(TransactionRunner, <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-			Effect.provideService(effect, CurrentDb, db),
+		Layer.succeed(
+			Database,
+			Database.of(
+				Object.assign(Object.create(null), {
+					transaction: ((callback) => callback(db)) satisfies Database["Service"]["transaction"],
+				}),
+			),
 		),
 		Layer.mock(PluginUserBootstrapDispatcher)({
 			dispatchAll: options.dispatch,

@@ -10,7 +10,7 @@ import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { selectSandboxHostFunctions } from "#lib/infrastructure/sandbox-runtime/service";
 import type { SandboxRunInput } from "#lib/infrastructure/sandbox-runtime/shared";
-import { dbRunnerLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
+import { databaseLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
 import { NotificationsRepository } from "#modules/notifications/repository";
 import { NotificationsService } from "#modules/notifications/service";
 import { SignalEmissionService, type EmitSignalInput } from "#modules/signals/service";
@@ -86,7 +86,7 @@ it.effect("derives signal authority and identity from the subscription run", () 
 			principal: { kind: "user", userId },
 		});
 		expect(captured?.occurredAt.toISOString()).toBe(occurredAt);
-	}).pipe(Effect.provide(Layer.mergeAll(signals, notifications)));
+	}).pipe(Effect.provide(Layer.mergeAll(databaseLayer, signals, notifications)));
 });
 
 it.effect("uses one run-derived message delivery identity across replay", () => {
@@ -103,9 +103,9 @@ it.effect("uses one run-derived message delivery identity across replay", () => 
 		Object.assign(Object.create(null), {}),
 	);
 	const notifications = NotificationsService.layer.pipe(
-		Layer.provide(
+		Layer.provideMerge(
 			Layer.mergeAll(
-				dbRunnerLayer,
+				databaseLayer,
 				notificationsRepository,
 				Layer.succeed(WorkflowEngine, workflowEngine),
 			),
@@ -147,7 +147,7 @@ it.effect("returns context failures through the Effect error channel", () => {
 		expect(error).toEqual({
 			message: "sendNotification is available only to subscription executions",
 		});
-	}).pipe(Effect.provide(Layer.mergeAll(signals, notifications)));
+	}).pipe(Effect.provide(Layer.mergeAll(databaseLayer, signals, notifications)));
 });
 
 it("exposes automation capabilities only to trusted automation executions", () => {

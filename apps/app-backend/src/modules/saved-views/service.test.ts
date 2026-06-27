@@ -7,7 +7,7 @@ import { ascending, column, document, field, rows, table } from "@ryot/ryotql";
 import { Effect, Layer } from "effect";
 
 import { assertExitFails } from "#lib/test-utils/assertions";
-import { type MockOverrides, dbRunnerLayer, transactionLayer } from "#lib/test-utils/effect";
+import { databaseLayer, type MockOverrides } from "#lib/test-utils/effect";
 import { DefinitionRegistry, makeDefinitionRegistry } from "#modules/definition-registry/service";
 
 import { SavedViewsRepository } from "./repository";
@@ -91,7 +91,7 @@ const makeServiceLayer = (
 	definitionRegistry = makeDefinitionRegistryLayer(),
 ) =>
 	SavedViewsService.layer.pipe(
-		Layer.provide(Layer.mergeAll(dbRunnerLayer, transactionLayer, definitionRegistry, repository)),
+		Layer.provideMerge(Layer.mergeAll(databaseLayer, definitionRegistry, repository)),
 	);
 
 it.effect("creates and clones saved views without changing layouts", () => {

@@ -17,7 +17,7 @@ import { generateId } from "better-auth";
 import { Context, DateTime, Effect, Layer } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
-import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
+import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import {
 	parseAppSchemaProperties,
 	parseLabeledPropertySchemaInput,
@@ -49,38 +49,38 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 	"CollectionsService",
 	{
 		make: Effect.gen(function* () {
-			const runWithDb = yield* DbRunner;
 			const engine = yield* WorkflowEngine;
 			const events = yield* EventsService;
 			const entities = yield* EntitiesService;
 			const repository = yield* CollectionsRepository;
 			const relationships = yield* RelationshipsService;
-			const runInTransaction = yield* TransactionRunner;
 			const relationshipSchemasRepository = yield* RelationshipSchemasRepository;
 
 			const memberOfSchema = yield* Effect.cached(
-				runWithDb(relationshipSchemasRepository.findBuiltinBySlug("member-of")).pipe(
-					Effect.flatMap(
-						requireBuiltinOrDie("member-of relationship schema not found in database"),
+				relationshipSchemasRepository
+					.findBuiltinBySlug("member-of")
+					.pipe(
+						Effect.flatMap(
+							requireBuiltinOrDie("member-of relationship schema not found in database"),
+						),
 					),
-				),
 			);
 
 			const collectionEntitySchema = yield* Effect.cached(
-				runWithDb(repository.getBuiltinCollectionSchema()).pipe(
-					Effect.flatMap(
-						requireBuiltinOrDie("builtin collection entity schema not found in database"),
+				repository
+					.getBuiltinCollectionSchema()
+					.pipe(
+						Effect.flatMap(
+							requireBuiltinOrDie("builtin collection entity schema not found in database"),
+						),
 					),
-				),
 			);
 
 			const getBuiltinCollectionEventSchema = Effect.fn(
 				"CollectionsService.getBuiltinCollectionEventSchema",
 			)(function* (slug: string) {
 				const entitySchema = yield* collectionEntitySchema;
-				return yield* runWithDb(
-					repository.findBuiltinEventSchemaBySlug(entitySchema.entitySchemaSlug, slug),
-				);
+				return yield* repository.findBuiltinEventSchemaBySlug(entitySchema.entitySchemaSlug, slug);
 			});
 
 			const addEventSchema = yield* Effect.cached(
@@ -160,13 +160,11 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 			const getOrCreateCollection = Effect.fn("CollectionsService.getOrCreateCollection")(
 				function* (userId: UserId, name: string) {
 					const entitySchema = yield* collectionEntitySchema;
-					const existing = yield* runWithDb(
-						repository.findCollectionByNameForUser({
-							name,
-							userId,
-							entitySchemaSlug: entitySchema.entitySchemaSlug,
-						}),
-					);
+					const existing = yield* repository.findCollectionByNameForUser({
+						name,
+						userId,
+						entitySchemaSlug: entitySchema.entitySchemaSlug,
+					});
 					if (existing) {
 						return existing;
 					}
@@ -194,16 +192,12 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 					return yield* badRequest(circularReferenceError);
 				}
 
-				const collection = yield* runWithDb(
-					repository.getCollectionById(input.collectionId, input.userId),
-				);
+				const collection = yield* repository.getCollectionById(input.collectionId, input.userId);
 				if (!collection) {
 					return yield* notFound(collectionNotFoundError);
 				}
 
-				const entity = yield* runWithDb(
-					repository.getEntityForMembership(input.entityId, input.userId),
-				);
+				const entity = yield* repository.getEntityForMembership(input.entityId, input.userId);
 				if (!entity) {
 					return yield* notFound(entityNotFoundError);
 				}
@@ -234,21 +228,24 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 
 				const addEvent = yield* addEventSchema;
 				const memberOfRelationshipSchema = yield* memberOfSchema;
+				const database = yield* Database;
 
-				const membership = yield* runInTransaction(
-					Effect.gen(function* () {
-						const membershipInput = {
-							scope: "user",
-							userId: input.userId,
-							sourceEntityId: input.entityId,
-							properties: validatedProperties,
-							targetEntityId: input.collectionId,
-							relationshipSchemaSlug: memberOfRelationshipSchema.id,
-							propertiesSchema: memberOfRelationshipSchema.propertiesSchema,
-						} as const;
-						const created = yield* relationships.create(membershipInput);
-						return created.wasInserted ? created : yield* relationships.update(membershipInput);
-					}),
+				const membership = yield* mapDatabaseErrors(
+					database.transaction((transaction) =>
+						Effect.gen(function* () {
+							const membershipInput = {
+								scope: "user",
+								userId: input.userId,
+								sourceEntityId: input.entityId,
+								properties: validatedProperties,
+								targetEntityId: input.collectionId,
+								relationshipSchemaSlug: memberOfRelationshipSchema.id,
+								propertiesSchema: memberOfRelationshipSchema.propertiesSchema,
+							} as const;
+							const created = yield* relationships.create(membershipInput);
+							return created.wasInserted ? created : yield* relationships.update(membershipInput);
+						}).pipe(Effect.provideService(Database, transaction)),
+					),
 				);
 
 				const occurredAt = yield* DateTime.nowAsDate;
@@ -290,16 +287,12 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 				user: CurrentUserValue,
 				payload: DeleteMembershipBody,
 			) {
-				const collection = yield* runWithDb(
-					repository.getCollectionById(payload.collectionId, user.id),
-				);
+				const collection = yield* repository.getCollectionById(payload.collectionId, user.id);
 				if (!collection) {
 					return yield* notFound(collectionNotFoundError);
 				}
 
-				const entity = yield* runWithDb(
-					repository.getEntityForMembership(payload.entityId, user.id),
-				);
+				const entity = yield* repository.getEntityForMembership(payload.entityId, user.id);
 				if (!entity) {
 					return yield* notFound(entityNotFoundError);
 				}

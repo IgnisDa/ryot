@@ -4,7 +4,6 @@ import { SandboxProviderId } from "@ryot/contract/schema/brands";
 import { Clock, DateTime, Effect, Schedule } from "effect";
 import { DurableQueue } from "effect/unstable/workflow";
 
-import { DbRunner } from "#lib/infrastructure/db/service";
 import { SANDBOX_LIMITS } from "#lib/infrastructure/sandbox-runtime/limits";
 import { SandboxService as RuntimeSandboxService } from "#lib/infrastructure/sandbox-runtime/service";
 
@@ -36,17 +35,14 @@ export const resolveSandboxExecutionPayload = Effect.fn("resolveSandboxExecution
 		if (mode === "exact") {
 			return payload;
 		}
-		const runWithDb = yield* DbRunner;
 		const repository = yield* SandboxRepository;
 		const pluginScriptResolver = yield* SandboxPluginScriptResolver;
-		const pluginOwned = yield* runWithDb(repository.isPluginScript(payload.scriptId));
+		const pluginOwned = yield* repository.isPluginScript(payload.scriptId);
 		if (!pluginOwned) {
 			return payload;
 		}
 
-		const activeScript = yield* runWithDb(
-			pluginScriptResolver.findActiveScriptById(payload.scriptId),
-		);
+		const activeScript = yield* pluginScriptResolver.findActiveScriptById(payload.scriptId);
 		if (!activeScript) {
 			return yield* new SandboxRunError({ message: "Sandbox script not found" });
 		}
@@ -62,11 +58,10 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 		executionId: payload.executionId,
 		...("userId" in payload.authority ? { userId: payload.authority.userId } : {}),
 	});
-	const runWithDb = yield* DbRunner;
 	const repository = yield* SandboxRepository;
 	const sandbox = yield* RuntimeSandboxService;
 
-	const script = yield* runWithDb(repository.getScript(payload.scriptId));
+	const script = yield* repository.getScript(payload.scriptId);
 	if (!script) {
 		return yield* new SandboxRunError({ message: "Sandbox script not found" });
 	}

@@ -17,7 +17,7 @@ import { Cause, Clock, DateTime, Duration, Effect, Schema } from "effect";
 import { Activity, DurableClock, Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
-import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
+import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
 import { sanitizeSandboxExecutionSegment } from "#lib/infrastructure/sandbox-runtime/filesystem-grants";
 import {
@@ -106,42 +106,43 @@ export const establishSandboxWorkflowPin = Effect.fn("establishSandboxWorkflowPi
 	executionId: string,
 	expectedPluginSlug?: string,
 ) {
-	const runWithDb = yield* DbRunner;
+	const database = yield* Database;
 	const repository = yield* SandboxRepository;
-	const runInTransaction = yield* TransactionRunner;
 	const references = yield* SandboxWorkflowReferenceRepository;
-	return yield* runInTransaction(
-		Effect.gen(function* () {
-			yield* references.lockIngestionShared();
-			const resolved = yield* resolveSandboxExecutionPayload(
-				{
-					context: payload.input,
-					scriptId: payload.scriptId,
-					authority: payload.authority,
-					executionId: payload.executionId,
-					...(payload.grants ? { grants: payload.grants } : {}),
-				},
-				payload.resolutionMode,
-			);
-			const pinned = yield* runWithDb(repository.getScriptPin(resolved.scriptId));
-			if (!pinned) {
-				return yield* sandboxFailure("Sandbox workflow script not found");
-			}
-			if (expectedPluginSlug && pinned.pluginSlug !== expectedPluginSlug) {
-				return yield* sandboxFailure(
-					`Sandbox workflow script is not owned by plugin '${expectedPluginSlug}'`,
+	return yield* mapDatabaseErrors(
+		database.transaction((transaction) =>
+			Effect.gen(function* () {
+				yield* references.lockIngestionShared();
+				const resolved = yield* resolveSandboxExecutionPayload(
+					{
+						context: payload.input,
+						scriptId: payload.scriptId,
+						authority: payload.authority,
+						executionId: payload.executionId,
+						...(payload.grants ? { grants: payload.grants } : {}),
+					},
+					payload.resolutionMode,
 				);
-			}
-			const registrationStatus = pinned.pluginSlug
-				? (yield* references.registerInTransaction({
-						executionId,
-						scriptId: pinned.scriptId,
-						pluginSlug: pinned.pluginSlug,
-						contentHash: pinned.contentHash,
-					})).status
-				: ("not-required" as const);
-			return { ...pinned, registrationStatus };
-		}),
+				const pinned = yield* repository.getScriptPin(resolved.scriptId);
+				if (!pinned) {
+					return yield* sandboxFailure("Sandbox workflow script not found");
+				}
+				if (expectedPluginSlug && pinned.pluginSlug !== expectedPluginSlug) {
+					return yield* sandboxFailure(
+						`Sandbox workflow script is not owned by plugin '${expectedPluginSlug}'`,
+					);
+				}
+				const registrationStatus = pinned.pluginSlug
+					? (yield* references.registerInTransaction({
+							executionId,
+							scriptId: pinned.scriptId,
+							pluginSlug: pinned.pluginSlug,
+							contentHash: pinned.contentHash,
+						})).status
+					: ("not-required" as const);
+				return { ...pinned, registrationStatus };
+			}).pipe(Effect.provideService(Database, transaction)),
+		),
 	).pipe(Effect.mapError((error) => sandboxFailure(unknownToMessage(error))));
 });
 
@@ -256,13 +257,10 @@ const observeWorkflowReplay = (
 			if (validated.state !== "pending") {
 				return validated;
 			}
-			const runWithDb = yield* DbRunner;
 			const repository = yield* SandboxRepository;
 			const requests = yield* Effect.forEach(validated.requests, ({ request }) =>
 				Effect.gen(function* () {
-					const target = yield* runWithDb(
-						repository.resolveWorkflowCallScript(workflowScriptId, request),
-					);
+					const target = yield* repository.resolveWorkflowCallScript(workflowScriptId, request);
 					if (
 						request.kind !== "host" &&
 						request.kind !== "sleep" &&
@@ -441,9 +439,8 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 				executionId,
 			);
 			if (pin.pluginSlug) {
-				const runWithDb = yield* DbRunner;
 				const references = yield* SandboxWorkflowReferenceRepository;
-				yield* runWithDb(references.release(executionId));
+				yield* references.release(executionId);
 			}
 		}).pipe(Effect.mapError((error) => sandboxFailure(unknownToMessage(error)))),
 	});

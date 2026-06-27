@@ -7,7 +7,7 @@ import { Effect, Layer, Ref, FileSystem } from "effect";
 import { assert } from "vitest";
 
 import { PackageCacheManager } from "#lib/infrastructure/sandbox-runtime/runtime";
-import { transactionLayer } from "#lib/test-utils/effect";
+import { databaseLayer } from "#lib/test-utils/effect";
 import { makeDefinitionRegistry } from "#modules/definition-registry/service";
 import { SandboxWorkflowReferenceRepository } from "#modules/sandbox/workflow-reference-repository";
 
@@ -102,7 +102,7 @@ const withCollector = <A, E, R>(
 	});
 	const collectorLayer = ScriptGarbageCollector.layer.pipe(
 		Layer.provide(
-			Layer.mergeAll(loaderLayer, runtimeLayer, repositoryLayer, transactionLayer, referencesLayer),
+			Layer.mergeAll(loaderLayer, runtimeLayer, repositoryLayer, databaseLayer, referencesLayer),
 		),
 	);
 	return effect.pipe(Effect.provide(collectorLayer));

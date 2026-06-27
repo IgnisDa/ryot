@@ -12,7 +12,7 @@ import { asRecord } from "@ryot/ts-utils/predicates";
 import { Cause, DateTime, Effect, Schedule, Schema } from "effect";
 import { Activity, Workflow } from "effect/unstable/workflow";
 
-import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
+import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
 import {
@@ -82,20 +82,19 @@ const RelationshipSyncEnvelope = Schema.Struct({
 const checkExistingEntity = Effect.fn("checkExistingEntity")(function* (
 	payload: EntityImportPayload,
 ) {
-	const runWithDb = yield* DbRunner;
 	const repository = yield* EntitiesRepository;
 
 	return yield* Activity.make({
 		error: SandboxRunError satisfies DurableSchema,
 		name: "check-existing-entity",
 		success: Schema.NullOr(ListedEntity) satisfies DurableSchema,
-		execute: runWithDb(
-			repository.findGlobalEntityByExternalId({
+		execute: repository
+			.findGlobalEntityByExternalId({
 				externalId: payload.externalId,
 				providerId: payload.providerId,
 				entitySchemaSlug: payload.entitySchemaSlug,
-			}),
-		).pipe(mapDbErrorToSandbox),
+			})
+			.pipe(mapDbErrorToSandbox),
 	});
 });
 
@@ -129,8 +128,8 @@ const upsertRootEntity = Effect.fn("upsertProviderRootEntity")(function* (
 	details: ValidatedEntityDetails,
 	options: SynchronizeOptions,
 ) {
+	const database = yield* Database;
 	const entities = yield* EntitiesService;
-	const runInTransaction = yield* TransactionRunner;
 
 	return yield* Activity.make({
 		error: SandboxRunError satisfies DurableSchema,
@@ -139,19 +138,21 @@ const upsertRootEntity = Effect.fn("upsertProviderRootEntity")(function* (
 		// A brand-new or not-yet-populated entity is written with a null populatedAt so
 		// children can reference it before the final stamp activity; refresh preserves an
 		// already-populated entity until then. Initial population replaces the skeleton.
-		execute: runInTransaction(
-			Effect.gen(function* () {
-				const result = yield* entities.upsert({
-					populatedAt: null,
-					name: details.name,
-					externalId: payload.externalId,
-					properties: details.properties,
-					providerId: payload.providerId,
-					entitySchemaSlug: payload.entitySchemaSlug,
-					updateExisting: options.mode !== "refresh",
-				});
-				return { result, committedAt: (yield* DateTime.nowAsDate).toISOString() };
-			}),
+		execute: mapDatabaseErrors(
+			database.transaction((transaction) =>
+				Effect.gen(function* () {
+					const result = yield* entities.upsert({
+						populatedAt: null,
+						name: details.name,
+						externalId: payload.externalId,
+						properties: details.properties,
+						providerId: payload.providerId,
+						entitySchemaSlug: payload.entitySchemaSlug,
+						updateExisting: options.mode !== "refresh",
+					});
+					return { result, committedAt: (yield* DateTime.nowAsDate).toISOString() };
+				}).pipe(Effect.provideService(Database, transaction)),
+			),
 		).pipe(mapDbErrorToSandbox),
 	});
 });
@@ -162,21 +163,22 @@ const syncRelatedEntityGroupScope = Effect.fn("syncProviderRelatedEntityGroupSco
 	group: ProviderDetailsRelatedEntityGroup,
 	index: number,
 ) {
-	const runInTransaction = yield* TransactionRunner;
-
+	const database = yield* Database;
 	return yield* Activity.make({
 		error: SandboxRunError satisfies DurableSchema,
 		success: RelationshipSyncEnvelope satisfies DurableSchema,
 		name: `sync-related-entity-group:${index}:${group.relationshipSchemaSlug}`,
-		execute: runInTransaction(
-			Effect.gen(function* () {
-				const outcomes = yield* syncRelatedEntityGroup({
-					group,
-					primaryEntityId: entity.id,
-					primaryEntitySchemaSlug: payload.entitySchemaSlug,
-				});
-				return { outcomes, committedAt: (yield* DateTime.nowAsDate).toISOString() };
-			}),
+		execute: mapDatabaseErrors(
+			database.transaction((transaction) =>
+				Effect.gen(function* () {
+					const outcomes = yield* syncRelatedEntityGroup({
+						group,
+						primaryEntityId: entity.id,
+						primaryEntitySchemaSlug: payload.entitySchemaSlug,
+					});
+					return { outcomes, committedAt: (yield* DateTime.nowAsDate).toISOString() };
+				}).pipe(Effect.provideService(Database, transaction)),
+			),
 		).pipe(mapDbErrorToSandbox),
 	});
 });
@@ -186,21 +188,22 @@ const writeChildEntitySetScope = Effect.fn("writeChildEntitySetScope")(function*
 	options: SynchronizeOptions,
 	scope: ChildEntitySetScope,
 ) {
-	const runInTransaction = yield* TransactionRunner;
-
+	const database = yield* Database;
 	return yield* Activity.make({
 		error: SandboxRunError satisfies DurableSchema,
 		success: ChildEntitySetWriteResult satisfies DurableSchema,
 		name: `write-child-entity-set:${scope.parentExternalId}`,
-		execute: runInTransaction(
-			writeChildEntitySet({
-				providerId: payload.providerId,
-				childEntities: scope.childEntities,
-				parentEntityId: scope.parentEntityId,
-				syncExisting: options.mode === "refresh",
-				parentEntitySchemaSlug: scope.parentEntitySchemaSlug,
-				expectedChildEntitySchemaSlug: scope.expectedChildEntitySchemaSlug,
-			}),
+		execute: mapDatabaseErrors(
+			database.transaction((transaction) =>
+				writeChildEntitySet({
+					providerId: payload.providerId,
+					childEntities: scope.childEntities,
+					parentEntityId: scope.parentEntityId,
+					syncExisting: options.mode === "refresh",
+					parentEntitySchemaSlug: scope.parentEntitySchemaSlug,
+					expectedChildEntitySchemaSlug: scope.expectedChildEntitySchemaSlug,
+				}).pipe(Effect.provideService(Database, transaction)),
+			),
 		).pipe(mapDbErrorToSandbox),
 	});
 });
@@ -209,27 +212,29 @@ const stampRootPopulatedAt = Effect.fn("stampProviderRootPopulatedAt")(function*
 	payload: EntityImportPayload,
 	details: ValidatedEntityDetails,
 ) {
+	const database = yield* Database;
 	const entities = yield* EntitiesService;
-	const runInTransaction = yield* TransactionRunner;
 
 	return yield* Activity.make({
 		error: SandboxRunError satisfies DurableSchema,
 		name: "stamp-root-populated-at",
 		success: ProviderEntitySaveEnvelope satisfies DurableSchema,
-		execute: runInTransaction(
-			Effect.gen(function* () {
-				const populatedAt = yield* DateTime.nowAsDate;
-				const result = yield* entities.upsert({
-					populatedAt,
-					name: details.name,
-					updateExisting: true,
-					properties: details.properties,
-					externalId: payload.externalId,
-					providerId: payload.providerId,
-					entitySchemaSlug: payload.entitySchemaSlug,
-				});
-				return { result, committedAt: (yield* DateTime.nowAsDate).toISOString() };
-			}),
+		execute: mapDatabaseErrors(
+			database.transaction((transaction) =>
+				Effect.gen(function* () {
+					const populatedAt = yield* DateTime.nowAsDate;
+					const result = yield* entities.upsert({
+						populatedAt,
+						name: details.name,
+						updateExisting: true,
+						properties: details.properties,
+						externalId: payload.externalId,
+						providerId: payload.providerId,
+						entitySchemaSlug: payload.entitySchemaSlug,
+					});
+					return { result, committedAt: (yield* DateTime.nowAsDate).toISOString() };
+				}).pipe(Effect.provideService(Database, transaction)),
+			),
 		).pipe(mapDbErrorToSandbox),
 	});
 });

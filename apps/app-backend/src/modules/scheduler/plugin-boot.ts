@@ -3,7 +3,6 @@ import { Clock, Context, Effect, Layer } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
-import { DbRunner } from "#lib/infrastructure/db/service";
 import { PluginLoader } from "#modules/plugins/loader";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { SandboxScriptWorkflow } from "#modules/sandbox/sandbox-script-workflow";
@@ -24,9 +23,9 @@ export const pluginBootExecutionId = (
 	bootMs: number | string,
 ) => `plugin-boot-${pluginSlug.length}-${pluginSlug}-${bootSlug.length}-${bootSlug}-${bootMs}`;
 
+/** @effect-expect-leaking Database */
 export class PluginBootService extends Context.Service<PluginBootService>()("PluginBootService", {
 	make: Effect.gen(function* () {
-		const runWithDb = yield* DbRunner;
 		const loader = yield* PluginLoader;
 		const engine = yield* WorkflowEngine;
 		const runtime = yield* PluginRuntimeResolver;
@@ -46,7 +45,7 @@ export class PluginBootService extends Context.Service<PluginBootService>()("Plu
 			entry: PluginBootIdentity,
 			executionId: string,
 		) {
-			const resolved = yield* runWithDb(runtime.resolveActivePluginBoot(entry));
+			const resolved = yield* runtime.resolveActivePluginBoot(entry);
 			if (!resolved) {
 				return yield* Effect.logError("plugin boot script unavailable").pipe(
 					Effect.annotateLogs({

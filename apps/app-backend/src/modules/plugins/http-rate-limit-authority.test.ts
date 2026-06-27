@@ -2,7 +2,7 @@ import { expect, it } from "@effect/vitest";
 import { DbError } from "@ryot/contract/errors";
 import { Cause, Effect, Exit, Layer, Option } from "effect";
 
-import { dbRunnerLayer } from "#lib/test-utils/effect";
+import { databaseLayer } from "#lib/test-utils/effect";
 import { makeDefinitionRegistry } from "#modules/definition-registry/service";
 
 import { PluginHttpRateLimitAuthority } from "./http-rate-limit-authority";
@@ -22,7 +22,7 @@ const manifest = (slug: string, key: string, origin: string) => {
 const authorityLayer = (listActiveManifests: PluginRepository["Service"]["listActiveManifests"]) =>
 	PluginHttpRateLimitAuthority.layer.pipe(
 		Layer.provide(
-			Layer.mergeAll(dbRunnerLayer, Layer.mock(PluginRepository)({ listActiveManifests })),
+			Layer.mergeAll(databaseLayer, Layer.mock(PluginRepository)({ listActiveManifests })),
 		),
 	);
 

@@ -7,7 +7,6 @@ import type {
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { Effect } from "effect";
 
-import { DbRunner } from "#lib/infrastructure/db/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import type {
 	RelationshipMutationOutcome,
@@ -38,18 +37,17 @@ export const synchronizeGlobalRelationships = Effect.fn("synchronizeGlobalRelati
 		onConflict: "preserveExisting" | "replaceProperties";
 		entries: ReadonlyArray<{ entityId: EntityId; properties: Record<string, unknown> }>;
 	}) {
-		const runWithDb = yield* DbRunner;
 		const relationships = yield* RelationshipsService;
 		const entitiesRepository = yield* EntitiesRepository;
 		const relationshipsRepository = yield* RelationshipsRepository;
-		const existing = yield* runWithDb(
-			relationshipsRepository.listGlobalRelationships({
+		const existing = yield* relationshipsRepository
+			.listGlobalRelationships({
 				type: "anchored",
 				direction: input.direction,
 				anchorEntityId: input.anchorEntityId,
 				relationshipSchemaSlug: input.relationshipSchemaSlug,
-			}),
-		).pipe(mapDbErrorToSandbox);
+			})
+			.pipe(mapDbErrorToSandbox);
 		const sortedExisting = [...existing].sort(
 			(left, right) =>
 				left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id),
@@ -69,9 +67,9 @@ export const synchronizeGlobalRelationships = Effect.fn("synchronizeGlobalRelati
 			endpointIds.add(relationship.sourceEntityId);
 			endpointIds.add(relationship.targetEntityId);
 		}
-		const endpoints = yield* runWithDb(
-			entitiesRepository.listEntityReferencesByIds([...endpointIds]),
-		).pipe(mapDbErrorToSandbox);
+		const endpoints = yield* entitiesRepository
+			.listEntityReferencesByIds([...endpointIds])
+			.pipe(mapDbErrorToSandbox);
 		const endpointsById = new Map(endpoints.map((endpoint) => [endpoint.id, endpoint]));
 
 		const toSnapshot = Effect.fn("toRelationshipMutationSnapshot")(function* (
