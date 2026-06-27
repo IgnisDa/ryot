@@ -11,6 +11,7 @@ import { SandboxService } from "#lib/infrastructure/sandbox-runtime/service";
 import { ServerRun } from "#lib/infrastructure/server-run";
 import { PersistedQueueLive, WorkflowEngineLive } from "#lib/infrastructure/workflow";
 import { AuthService } from "#modules/auth/service";
+import { LifecycleDispatchLive } from "#modules/automations/lifecycle-dispatch";
 import { AutomationsRepository } from "#modules/automations/repository";
 import { AutomationsService } from "#modules/automations/service";
 import { SignalDispatchLive } from "#modules/automations/signal-dispatch";
@@ -166,7 +167,11 @@ const ApplicationInfrastructureLive = Layer.mergeAll(
 
 const QueryEngineServiceLive = QueryEngineService.Default;
 
-const EntitiesServiceLive = Layer.provide(EntitiesService.Default, QueryEngineServiceLive);
+const LifecycleDispatchLayerLive = Layer.provide(LifecycleDispatchLive, AutomationsService.Default);
+const EntitiesServiceLive = Layer.provide(
+	EntitiesService.Default,
+	Layer.mergeAll(QueryEngineServiceLive, LifecycleDispatchLayerLive),
+);
 const SavedViewsServiceLive = Layer.provide(SavedViewsService.Default, QueryEngineServiceLive);
 const EntitySchemasServiceLive = Layer.provide(
 	EntitySchemasService.Default,
@@ -290,6 +295,7 @@ const ServicesLive = Layer.mergeAll(
 	MetadataLookupServiceLive,
 	MediaMonitoringServiceLive,
 	InterestServicesLive,
+	LifecycleDispatchLayerLive,
 );
 
 const ServicesWithTestSupportLive = Layer.provideMerge(TestSupportService.Default, ServicesLive);
