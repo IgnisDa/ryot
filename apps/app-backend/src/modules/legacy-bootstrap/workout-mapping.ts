@@ -1,13 +1,11 @@
 import { quoteSqlString } from "./shared";
 
-// V1 stores Option<Decimal> as JSON strings (rust_decimal serde serializes to string).
-// V2 expects `z.number().nullish()`.  Casts a JSONB statistic field to float8.
+// V1 Option<Decimal> is a rust_decimal JSON string; cast to float8.
 const buildDecimalStatField = (statAlias: string, field: string) =>
 	`NULLIF(${statAlias} -> 'statistic' ->> '${field}', '')::float8`;
 
-// Shared SQL fragment that renames V1 snake_case EntityAssets keys to V2 camelCase and
-// lowercases the remote-video source enum (V1 stores "Youtube"/"Dailymotion", V2 expects
-// "youtube"/"dailymotion").
+// Renames V1 snake_case EntityAssets keys to V2 camelCase and lowercases the remote-video source
+// enum (V1 "Youtube"/"Dailymotion" -> V2 "youtube"/"dailymotion").
 const buildAssetsConversionSql = (assetsExpr: string) => `CASE
 	WHEN ${assetsExpr} IS NOT NULL
 		AND ${assetsExpr} <> 'null'::jsonb
@@ -29,11 +27,9 @@ const buildAssetsConversionSql = (assetsExpr: string) => `CASE
 	ELSE NULL
 END`;
 
-// V1 workout_template.information.exercises[] uses the same ProcessedExercise type as
-// completed workouts (with full set statistics). V2 workoutTemplateExerciseSchema uses a
-// simplified set structure.  Fields dropped per-set: statistic.pace, statistic.one_rm,
-// statistic.volume, totals, confirmed_at, rest_timer_started_at, personal_bests, rest_time.
-// Fields dropped per-exercise: lot, unit_system, assets, total.
+// Workout templates use the same set structure as workouts but a simplified per-set shape: the
+// per-set statistics/totals/timers/personal_bests and per-exercise lot/unit_system/assets/total
+// are dropped.
 export const buildWorkoutTemplateMigrationSql = (workoutTemplateEntitySchemaId: string) => `
 DO $$
 DECLARE
@@ -209,15 +205,9 @@ BEGIN
 END $$;
 `;
 
-// Each V1 set (workout.information.exercises[i].sets[j]) becomes one event row.
-// event.entity_id    = exercise entity id (V1 exercise.id, preserved during exercise migration)
-// event.session_entity_id = workout entity id (V1 workout.id, preserved in phase 2)
-// Deterministic event id = md5(workout_id ':' exercise_idx ':' set_idx) for restart-safety
-// since the event table has no unique constraint beyond the PK.
-//
-// V1 unit_system is PascalCase ("Metric"/"Imperial"); lower() normalises to V2 camelCase values.
-// confirmed_at and rest_timer_started_at are already ISO 8601 strings in the V1 JSONB.
-// personal_bests enum values are snake_case in both V1 and V2 — no conversion needed.
+// Each V1 set becomes one event: entity_id = exercise id, session_entity_id = workout id, with a
+// deterministic id md5(workout_id ':' exercise_idx ':' set_idx) for restart-safety (the event table
+// has no unique constraint beyond the PK). unit_system is lowercased to V2 values.
 export const buildWorkoutSetEventMigrationSql = (workoutSetEventSchemaId: string) => `
 DO $$
 DECLARE
@@ -304,9 +294,7 @@ BEGIN
 END $$;
 `;
 
-// Deterministic relationship id = md5(workout_id ':workout-to-workout-template') for
-// restart-safety. The relationship table unique constraint on (user_id, source_entity_id,
-// target_entity_id, relationship_schema_id) also catches duplicates via ON CONFLICT DO NOTHING.
+// Deterministic relationship id md5(workout_id ':workout-to-workout-template') for restart-safety.
 export const buildWorkoutToTemplateRelationshipMigrationSql = (
 	workoutToWorkoutTemplateRelationshipSchemaId: string,
 ) => `
@@ -347,9 +335,7 @@ BEGIN
 END $$;
 `;
 
-// Deterministic relationship id = md5(workout_id ':workout-repeated-from') for
-// restart-safety. The relationship table unique constraint on (user_id, source_entity_id,
-// target_entity_id, relationship_schema_id) also catches duplicates via ON CONFLICT DO NOTHING.
+// Deterministic relationship id md5(workout_id ':workout-repeated-from') for restart-safety.
 export const buildWorkoutRepeatedFromRelationshipMigrationSql = (
 	workoutRepeatedFromRelationshipSchemaId: string,
 ) => `
