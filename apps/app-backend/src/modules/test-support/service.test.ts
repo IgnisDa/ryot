@@ -9,7 +9,7 @@ import {
 } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
-import type { MockOverrides } from "#lib/test-utils/effect";
+import type { MockOverrides, WorkflowEngineOverrides } from "#lib/test-utils/effect";
 import { makeWorkflowEngine } from "#lib/test-utils/effect";
 import { AuthService } from "#modules/auth/service";
 import { AutomationsService } from "#modules/automations/service";
@@ -51,13 +51,9 @@ const mockSandbox = Layer.mock(SandboxExecutionService);
 const mockTranslations = Layer.mock(TranslationsService);
 const mockRelationships = Layer.mock(RelationshipsService);
 const mockRelationshipSchemas = Layer.mock(RelationshipSchemasRepository);
-const workflowEngineLayer = Layer.succeed(
-	WorkflowEngine,
-	makeWorkflowEngine({ execute: () => Effect.void.pipe(Effect.as(undefined)) }),
-);
-
 const makeServiceLayer = (
 	overrides: {
+		workflow?: WorkflowEngineOverrides;
 		sandbox?: MockOverrides<typeof mockSandbox>;
 		entities?: MockOverrides<typeof mockEntities>;
 		pluginBoots?: MockOverrides<typeof mockPluginBoots>;
@@ -88,7 +84,13 @@ const makeServiceLayer = (
 				mockTranslations({ _tag: "TranslationsService" }),
 				mockRelationships({ _tag: "RelationshipsService" }),
 				mockRelationshipSchemas({ _tag: "RelationshipSchemasRepository" }),
-				workflowEngineLayer,
+				Layer.succeed(
+					WorkflowEngine,
+					makeWorkflowEngine({
+						execute: () => Effect.void.pipe(Effect.as(undefined)),
+						...overrides.workflow,
+					}),
+				),
 			),
 		),
 	);
@@ -231,12 +233,22 @@ it.effect("brands provider IDs in stored sandbox script responses", () => {
 });
 
 it.effect("triggers plugin crons with the native infrequent execution id", () => {
+	const completed: Array<string> = [];
+	let infrequentDiscard: unknown;
 	let pluginCronExecutionId: string | undefined;
 	const layer = makeServiceLayer({
+		workflow: {
+			execute: (_workflow, options) =>
+				Effect.sync(() => {
+					infrequentDiscard = options.discard;
+					completed.push("infrequent");
+				}),
+		},
 		pluginCrons: {
 			triggerAll: (executionId) =>
 				Effect.sync(() => {
 					pluginCronExecutionId = executionId;
+					completed.push("plugin-crons");
 				}),
 		},
 	});
@@ -245,7 +257,9 @@ it.effect("triggers plugin crons with the native infrequent execution id", () =>
 		const service = yield* TestSupportService;
 		const result = yield* service.triggerInfrequentCron();
 		expect(result.executionId).toMatch(/^infrequent-cron-manual-/);
+		expect(infrequentDiscard).toBeUndefined();
 		expect(pluginCronExecutionId).toBe(result.executionId);
+		expect(completed).toEqual(["infrequent", "plugin-crons"]);
 	}).pipe(Effect.provide(layer));
 });
 
