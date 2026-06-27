@@ -236,6 +236,76 @@ describe("getSinkAdapterResult", () => {
 		});
 	});
 
+	it("accepts a Plex webhook from any user when the configured username is blank", () => {
+		const payload = JSON.stringify({
+			event: "media.scrobble",
+			Account: { title: "someone_else" },
+			Metadata: { type: "movie", title: "Inception", Guid: [{ id: "tmdb://27205" }] },
+		});
+		const rawBody = `--abc\r\nContent-Disposition: form-data; name="payload"\r\n\r\n${payload}\r\n--abc--`;
+		const result = Effect.runSync(
+			getSinkAdapterResult(
+				makeIntegration({
+					provider: "plex_sink",
+					providerSpecifics: { kind: "plex_sink", username: "   " },
+				}),
+				rawBody,
+				"multipart/form-data; boundary=abc",
+			),
+		);
+
+		expect(result.failures).toEqual([]);
+		expect(result.entityGroups[0]).toMatchObject({
+			entityRef: { externalId: "27205", scriptSlug: "movie.tmdb", entitySchemaSlug: "movie" },
+		});
+	});
+
+	it("skips a Plex webhook when the configured username does not match", () => {
+		const payload = JSON.stringify({
+			event: "media.scrobble",
+			Account: { title: "bob" },
+			Metadata: { type: "movie", title: "Inception", Guid: [{ id: "tmdb://27205" }] },
+		});
+		const rawBody = `--abc\r\nContent-Disposition: form-data; name="payload"\r\n\r\n${payload}\r\n--abc--`;
+		const result = Effect.runSync(
+			getSinkAdapterResult(
+				makeIntegration({
+					provider: "plex_sink",
+					providerSpecifics: { kind: "plex_sink", username: "alice" },
+				}),
+				rawBody,
+				"multipart/form-data; boundary=abc",
+			),
+		);
+
+		expect(result.entityGroups).toEqual([]);
+		expect(result.failures).toEqual([]);
+	});
+
+	it("trims a whitespace-padded Plex username before matching", () => {
+		const payload = JSON.stringify({
+			event: "media.scrobble",
+			Account: { title: "alice" },
+			Metadata: { type: "movie", title: "Inception", Guid: [{ id: "tmdb://27205" }] },
+		});
+		const rawBody = `--abc\r\nContent-Disposition: form-data; name="payload"\r\n\r\n${payload}\r\n--abc--`;
+		const result = Effect.runSync(
+			getSinkAdapterResult(
+				makeIntegration({
+					provider: "plex_sink",
+					providerSpecifics: { kind: "plex_sink", username: "  alice  " },
+				}),
+				rawBody,
+				"multipart/form-data; boundary=abc",
+			),
+		);
+
+		expect(result.failures).toEqual([]);
+		expect(result.entityGroups[0]).toMatchObject({
+			entityRef: { externalId: "27205", scriptSlug: "movie.tmdb", entitySchemaSlug: "movie" },
+		});
+	});
+
 	it("ignores browser extension events from disabled sites", () => {
 		const rawBody = JSON.stringify({
 			url: "https://www.youtube.com/watch?v=1",
