@@ -3,6 +3,7 @@ import { Effect, Either, Option, Redacted } from "effect";
 import { describe } from "vitest";
 
 import { getSandboxAppConfigValue } from "./app-config";
+import { normalizePreferences } from "./host-functions";
 
 const config = {
 	port: 8000,
@@ -61,4 +62,17 @@ describe("getSandboxAppConfigValue", () => {
 			);
 		}),
 	);
+});
+
+describe("normalizePreferences", () => {
+	it("normalizes missing and non-boolean preference values", () => {
+		expect(normalizePreferences(null)).toEqual({
+			isNsfw: false,
+			disableIntegrations: false,
+		});
+		expect(normalizePreferences({ isNsfw: 1, disableIntegrations: true })).toEqual({
+			isNsfw: false,
+			disableIntegrations: true,
+		});
+	});
 });

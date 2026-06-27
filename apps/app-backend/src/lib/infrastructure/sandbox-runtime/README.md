@@ -30,7 +30,7 @@ The sandbox runs untrusted user code in single-use Deno subprocesses, exposes se
 - `POST /sandbox/enqueue`: enqueues a stored script with `{ scriptId, driverName, context? }` and returns `{ jobId }`.
 - `GET /sandbox/result/:jobId`: returns `pending`, `failed`, or `completed` with `{ logs, value, error, timing }`.
 
-Generic scripts without host access declare an empty manifest `capabilities` tuple. `timing` is `{ totalMs, executionMs }` for completed runs.
+Generic scripts declare an exact manifest `capabilities` tuple. The SDK exposes only those methods on the driver's host parameter. `timing` is `{ totalMs, executionMs }` for completed runs.
 
 ## Security
 
@@ -57,7 +57,7 @@ To add a package, append its specifier to `vendoredPackages` and restart the ser
 
 ## Host Functions
 
-Host functions are bridge handlers exposed only when listed in format-1 manifest `capabilities` or temporary format-0 `metadata.allowedHostFunctions`.
+Host functions are bridge handlers exposed only when listed in format-1 manifest `capabilities` or temporary format-0 `metadata.allowedHostFunctions`. The backend intersects those declarations with its implementation registry, and the format-1 runner intersects the approved names with the compiled definition's manifest before constructing the driver host.
 
 | Scope   | Functions                                                                                                                                                          |
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -71,10 +71,11 @@ Script-scoped functions use execution metadata such as `scriptId`. User-scoped f
 
 ### Adding A Host Function
 
-1. Implement the bridge handler as `(...args) => Promise<unknown>` in `service.ts` for core runtime functions or in `host-functions.ts` for app-bound functions.
-2. Use `requireSandboxRunInput(args, expectedArgCount, fnName)` for script-scoped functions.
-3. Use `requireUserSandboxRunInput(args, expectedArgCount, fnName)` for user-scoped functions.
-4. Add the function name to this section and to any script metadata that should be allowed to call it.
+1. Define the script-facing schema and method in `@ryot/sandbox-sdk`.
+2. Implement the context-first method in the typed backend registry in `service.ts` or `host-functions.ts`.
+3. Decode its untrusted RPC argument array in `bridge-adapter.ts`; implementation functions must not accept unknown argument arrays.
+4. Use `requireUserSandboxRunInput(input, fnName)` for user-scoped functions.
+5. Add the function name to this section and to any temporary format-0 script metadata that should be allowed to call it.
 
 ## Driver Functions
 

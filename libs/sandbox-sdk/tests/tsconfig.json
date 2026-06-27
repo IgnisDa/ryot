@@ -1,0 +1,10 @@
+{
+	"exclude": [],
+	"extends": "../tsconfig.json",
+	"include": ["./host-types.ts"],
+	"compilerOptions": {
+		"noEmit": true,
+		"rootDir": "..",
+		"composite": false
+	}
+}

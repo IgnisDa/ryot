@@ -1,14 +1,18 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+	claimCachedValueResultSchema,
 	defineDriver,
 	defineManifest,
 	defineScript,
 	hostResultSchema,
+	httpCallResultSchema,
 	jsonValueSchema,
 	SANDBOX_SCRIPT_DEFINITION,
+	unwrapHostResult,
 	z,
 } from "@ryot/sandbox-sdk";
+import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
 
 describe("generic script definitions", () => {
 	test("preserves the manifest, schemas, and inferred driver implementation", async () => {
@@ -47,5 +51,53 @@ describe("shared value contracts", () => {
 			success: false,
 			error: "unavailable",
 		});
+	});
+
+	test("preserves core host result variants and unwraps success data", () => {
+		expect(
+			httpCallResultSchema.parse({
+				success: false,
+				error: "HTTP 429",
+				data: { status: 429 },
+			}),
+		).toEqual({ error: "HTTP 429", data: { status: 429 }, success: false });
+		expect(
+			claimCachedValueResultSchema.parse({
+				success: true,
+				data: { claimed: false, value: { owner: "other" } },
+			}),
+		).toEqual({ data: { claimed: false, value: { owner: "other" } }, success: true });
+		expect(unwrapHostResult({ data: 42, success: true })).toBe(42);
+		expect(() => unwrapHostResult({ error: "unavailable", success: false })).toThrow("unavailable");
+	});
+});
+
+describe("sandbox test hosts", () => {
+	test("invokes a driver with capability-checked host stubs", async () => {
+		const manifest = defineManifest({
+			kind: "script",
+			name: "Cache reader",
+			slug: "cache-reader",
+			requiredAppConfigKeys: [],
+			capabilities: ["getCachedValue"],
+		});
+		const main = defineDriver(manifest, {
+			input: z.object({ key: z.string() }),
+			output: z.number().nullable(),
+			run: async (input, host) => {
+				const result = await host.getCachedValue(input.key);
+				return result.success && typeof result.data === "number" ? result.data : null;
+			},
+		});
+		const host = defineSandboxTestHost(manifest, {
+			getCachedValue: () => Promise.resolve({ data: 42, success: true }),
+		});
+
+		expect(
+			await runSandboxTestDriver(main, { key: "answer" }, host, {
+				metadata: {},
+				sandboxScriptId: "script-1",
+			}),
+		).toBe(42);
 	});
 });
