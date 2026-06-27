@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import { defineManifest, SANDBOX_SCRIPT_DEFINITION } from "@ryot/sandbox-sdk/core";
+import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 import {
 	defineProvider,
 	defineProviderDriver,
@@ -10,6 +11,7 @@ import {
 	providerTranslateResultSchema,
 } from "@ryot/sandbox-sdk/provider";
 
+const decode = <A, I>(schema: Schema.Schema<A, I>) => Schema.decodeUnknownSync(schema);
 const manifest = defineManifest({
 	kind: "provider",
 	name: "Test provider",
@@ -22,13 +24,13 @@ const manifest = defineManifest({
 describe("provider definitions", () => {
 	test("provides standard driver schemas and a provider definition", () => {
 		const resolve = defineProviderDriver(manifest, "resolve", (input) =>
-			Promise.resolve({ externalId: input.value === "known" ? "provider-1" : null }),
+			Effect.succeed({ externalId: input.value === "known" ? "provider-1" : null }),
 		);
 		const definition = defineProvider({ manifest, drivers: { resolve } });
 
 		expect(definition.definitionType).toBe(SANDBOX_SCRIPT_DEFINITION);
 		expect(
-			definition.drivers.resolve.input.parse({ identifierType: "isbn", value: "known" }),
+			decode(definition.drivers.resolve.input)({ identifierType: "isbn", value: "known" }),
 		).toEqual({ identifierType: "isbn", value: "known" });
 	});
 });
@@ -36,7 +38,7 @@ describe("provider definitions", () => {
 describe("provider result contracts", () => {
 	test("validates search, recursive details, resolve, and translation values", () => {
 		expect(
-			providerSearchResultSchema.parse({
+			decode(providerSearchResultSchema)({
 				items: [
 					{
 						externalId: "show-1",
@@ -55,7 +57,7 @@ describe("provider result contracts", () => {
 			],
 		});
 		expect(
-			providerDetailsResultSchema.parse({
+			decode(providerDetailsResultSchema)({
 				name: "Show",
 				properties: { year: 2024 },
 				childEntities: [
@@ -84,9 +86,9 @@ describe("provider result contracts", () => {
 				],
 			}),
 		).toMatchObject({ name: "Show" });
-		expect(providerResolveResultSchema.parse({ externalId: null })).toEqual({ externalId: null });
+		expect(decode(providerResolveResultSchema)({ externalId: null })).toEqual({ externalId: null });
 		expect(
-			providerTranslateResultSchema.parse({
+			decode(providerTranslateResultSchema)({
 				name: "Localized",
 				properties: { description: "Translated" },
 			}),
