@@ -221,18 +221,33 @@ export function trendingSandboxSource(
 		readonly items: ReadonlyArray<{ readonly externalId: string; readonly name: string }>;
 	},
 ) {
-	return scriptModuleSource({
-		...input,
-		capabilities: [],
-		driverName: "trending",
-		inputSchema: "z.object({})",
-		run: "async () => trendingResult",
-		outputSchema: "trendingResultSchema",
-		declarations: `const trendingResultSchema = z.object({
+	return `
+import { defineDriver, defineManifest } from "@ryot/sandbox-sdk/core";
+import { defineProvider } from "@ryot/sandbox-sdk/provider";
+import * as z from "@ryot/sandbox-sdk/zod";
+
+export const manifest = defineManifest({
+  kind: "provider",
+  name: ${JSON.stringify(input.name)},
+  slug: ${JSON.stringify(input.slug)},
+  capabilities: [],
+  requiredAppConfigKeys: [],
+  providerInformation: { source: "e2e" },
+});
+
+const trendingResultSchema = z.object({
   items: z.array(z.object({ externalId: z.string(), name: z.string() }).strict()),
 }).strict();
 const trendingResult = trendingResultSchema.parse(JSON.parse(${JSON.stringify(
-			JSON.stringify({ items: input.items }),
-		)}));`,
-	});
+		JSON.stringify({ items: input.items }),
+	)}));
+
+const trending = defineDriver(manifest, {
+  input: z.object({}),
+  output: trendingResultSchema,
+  run: async () => trendingResult,
+});
+
+export default defineProvider({ manifest, drivers: { trending } });
+`;
 }

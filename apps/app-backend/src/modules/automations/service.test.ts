@@ -86,14 +86,12 @@ const mockPluginRuntime = Layer.mock(PluginRuntimeResolver);
 const makePluginRuntime = (overrides: MockOverrides<typeof mockPluginRuntime> = {}) =>
 	mockPluginRuntime({
 		_tag: "PluginRuntimeResolver",
-		unregisterTestSchemaScript: () => Effect.void,
 		listAutomations: () => Effect.succeed([]),
 		findAutomation: () => Effect.succeed(null),
 		listSchemaScripts: () => Effect.succeed([]),
 		findKernelScript: () => Effect.succeed(null),
 		findActiveScript: () => Effect.succeed(null),
 		findSchemaScriptBySlug: () => Effect.succeed(null),
-		registerTestSchemaScript: () => Effect.succeed(null),
 		...overrides,
 	});
 

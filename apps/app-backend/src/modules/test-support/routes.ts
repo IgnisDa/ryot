@@ -7,12 +7,6 @@ import { TestSupportService } from "./service";
 
 export const TestSupportRoutesLive = HttpApiBuilder.group(AppContract, "testSupport", (handlers) =>
 	handlers
-		.handle("installDefinitions", ({ payload }) =>
-			Effect.gen(function* () {
-				const svc = yield* TestSupportService;
-				yield* svc.installDefinitions(payload);
-			}),
-		)
 		.handle("getSandboxScript", ({ path }) =>
 			Effect.gen(function* () {
 				const svc = yield* TestSupportService;
@@ -31,27 +25,6 @@ export const TestSupportRoutesLive = HttpApiBuilder.group(AppContract, "testSupp
 				return yield* svc.patchSandboxScript({
 					...payload,
 					scriptId: path.scriptId,
-				});
-			}).pipe(dieOnDbError),
-		)
-		.handle("promoteSandboxScript", ({ path }) =>
-			Effect.gen(function* () {
-				const svc = yield* TestSupportService;
-				return yield* svc.promoteSandboxScript(path.scriptId);
-			}).pipe(dieOnDbError),
-		)
-		.handle("deleteSandboxScript", ({ path }) =>
-			Effect.gen(function* () {
-				const svc = yield* TestSupportService;
-				return yield* svc.deleteSandboxScript(path.scriptId);
-			}).pipe(dieOnDbError),
-		)
-		.handle("linkSandboxScriptToEntitySchema", ({ path }) =>
-			Effect.gen(function* () {
-				const svc = yield* TestSupportService;
-				return yield* svc.linkSandboxScriptToEntitySchema({
-					sandboxScriptId: path.scriptId,
-					entitySchemaSlug: path.entitySchemaSlug,
 				});
 			}).pipe(dieOnDbError),
 		)
