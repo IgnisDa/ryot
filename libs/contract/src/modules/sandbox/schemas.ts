@@ -98,12 +98,22 @@ const SandboxFailedResult = Schema.Struct({
 	status: Schema.Literal("failed"),
 });
 
+export const SandboxExecutionError = Schema.Struct({
+	message: Schema.String,
+	line: Schema.optional(Schema.Number),
+	stack: Schema.optional(Schema.String),
+	column: Schema.optional(Schema.Number),
+	phase: Schema.Literal("load", "input", "execute", "output"),
+});
+
+export type SandboxExecutionError = Schema.Schema.Type<typeof SandboxExecutionError>;
+
 export const SandboxCompletedResult = Schema.Struct({
 	value: Schema.Unknown,
 	status: Schema.Literal("completed"),
 	logs: Schema.Array(Schema.String),
-	error: Schema.NullOr(Schema.String),
 	timing: Schema.optional(SandboxTiming),
+	error: Schema.NullOr(SandboxExecutionError),
 });
 
 export type SandboxCompletedResult = Schema.Schema.Type<typeof SandboxCompletedResult>;

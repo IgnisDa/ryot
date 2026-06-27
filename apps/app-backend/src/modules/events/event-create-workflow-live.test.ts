@@ -278,7 +278,10 @@ it.effect("fails the workflow when a before-create trigger reports an error", ()
 		Layer.mock(EventCreateWorkflowOperations, {
 			ensureLibraryMembership: () => Effect.void,
 			processSandboxExecution: () =>
-				Effect.succeed({ ...completedSandboxResult(null), error: "test_error" }),
+				Effect.succeed({
+					...completedSandboxResult(null),
+					error: { phase: "execute" as const, message: "test_error" },
+				}),
 		}),
 		makeEntitiesRepository({
 			getEntityScopeForUser: () => Effect.succeed(entityScope),

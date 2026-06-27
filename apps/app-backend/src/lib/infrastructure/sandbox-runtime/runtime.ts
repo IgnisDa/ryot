@@ -5,10 +5,18 @@ import { badRequest, internalError, unknownToMessage } from "@ryot/contract/erro
 import { Clock, Effect, Pool, Queue, Runtime, Schema, Stream } from "effect";
 
 import sandboxRunnerSource from "#lib/infrastructure/sandbox-runtime/runner-source.sandbox.js" with { type: "text" };
+import sandboxRunnerUtilitiesSource from "#lib/infrastructure/sandbox-runtime/runner-utilities.sandbox.js" with { type: "text" };
 
 import { AppConfig } from "../config/service";
 import { redisKeys, RedisService } from "../redis";
 import { ensureSandboxRuntimeDependencies } from "./dependencies";
+import {
+	consumeSandboxHostCall,
+	SANDBOX_LIMITS,
+	type SandboxHostCallBudget,
+	utf8ByteLength,
+} from "./limits";
+import { apiFailure } from "./shared";
 import type { BoundHostFunction } from "./shared";
 
 const SandboxSessionRecord = Schema.Struct({
@@ -20,13 +28,22 @@ const SandboxRpcArgs = Schema.Struct({
 	args: Schema.Array(Schema.Unknown),
 });
 
-const decodeSandboxRpcArgs = Schema.decodeUnknownSync(SandboxRpcArgs);
 const encodeSandboxSession = Schema.encodeSync(Schema.parseJson(SandboxSessionRecord));
 const decodeSandboxSession = Schema.decodeUnknownSync(Schema.parseJson(SandboxSessionRecord));
+const decodeSandboxRpcBody = Schema.decode(Schema.parseJson(SandboxRpcArgs));
+const encodeSandboxRpcResponse = Schema.encode(Schema.parseJson(Schema.Unknown));
+
+const decoder = new TextDecoder();
+const oversizedBridgeRequest = Symbol("oversizedBridgeRequest");
 
 type ExecutionSession = {
 	readonly token: string;
 	readonly expiresAt: number;
+	readonly apiFunctions: Record<string, BoundHostFunction>;
+};
+
+type ActiveExecutionSession = {
+	readonly budget: SandboxHostCallBudget;
 	readonly apiFunctions: Record<string, BoundHostFunction>;
 };
 
@@ -43,16 +60,53 @@ type SandboxSessionRecord = {
 
 const parseSandboxSession = (raw: string) => decodeSandboxSession(raw);
 
-const parseArgs = (request: Request) =>
-	request.body
-		? Effect.tryPromise({
-				try: () => request.json(),
-				catch: () => badRequest("Invalid request body"),
-			}).pipe(
-				Effect.flatMap((body) => Effect.try(() => decodeSandboxRpcArgs(body).args)),
-				Effect.orElseSucceed(() => []),
-			)
-		: Effect.succeed([]);
+export const readSandboxBridgeRequestBody = (request: Request) => {
+	const stream = request.body;
+	if (!stream) {
+		return Effect.succeed({ body: "", oversized: false } as const);
+	}
+
+	return Stream.fromReadableStream({
+		evaluate: () => stream,
+		onError: () => badRequest("Invalid request body"),
+	}).pipe(
+		Stream.runFoldEffect({ bytes: 0, chunks: [] as Uint8Array[] }, (state, chunk) => {
+			const bytes = state.bytes + chunk.byteLength;
+			return bytes > SANDBOX_LIMITS.bridge.requestBytes
+				? Effect.fail(oversizedBridgeRequest)
+				: Effect.succeed({ bytes, chunks: [...state.chunks, chunk] });
+		}),
+		Effect.map(({ bytes, chunks }) => {
+			const body = new Uint8Array(bytes);
+			let offset = 0;
+			for (const chunk of chunks) {
+				body.set(chunk, offset);
+				offset += chunk.byteLength;
+			}
+			return { body: decoder.decode(body), oversized: false } as const;
+		}),
+		Effect.catchAll((error) =>
+			error === oversizedBridgeRequest
+				? Effect.succeed({ body: "", oversized: true } as const)
+				: Effect.fail(error),
+		),
+	);
+};
+
+const hostFailureResponse = (message: string) =>
+	Response.json({ result: apiFailure(message) }, { status: 200 });
+
+export const sandboxBridgeResultResponse = (result: unknown) =>
+	encodeSandboxRpcResponse({ result }).pipe(
+		Effect.map((body) =>
+			utf8ByteLength(body) > SANDBOX_LIMITS.bridge.responseBytes
+				? hostFailureResponse(
+						`Sandbox bridge response exceeds ${SANDBOX_LIMITS.bridge.responseBytes} UTF-8 bytes`,
+					)
+				: new Response(body, { status: 200, headers: { "Content-Type": "application/json" } }),
+		),
+		Effect.orElseSucceed(() => hostFailureResponse("Sandbox bridge response is not valid JSON")),
+	);
 
 const killProcessHandle = (process: CommandExecutor.Process) =>
 	process.kill().pipe(Effect.orElse(() => Effect.void));
@@ -70,6 +124,7 @@ const makeSpawnDenoProcess = Effect.fn("makeSpawnDenoProcess")(function* (
 	importMapPath: string,
 	runtimeDirectory: string,
 	runnerPath: string,
+	runnerUtilitiesPath: string,
 ) {
 	const denoProcess = yield* Command.make(
 		"deno",
@@ -84,8 +139,9 @@ const makeSpawnDenoProcess = Effect.fn("makeSpawnDenoProcess")(function* (
 		"--no-npm",
 		"--no-remote",
 		"--cached-only",
+		`--v8-flags=--max-old-space-size=${SANDBOX_LIMITS.execution.denoHeapMiB}`,
 		`--import-map=${importMapPath}`,
-		`--allow-read=${runnerPath},${runtimeDirectory}`,
+		`--allow-read=${runnerPath},${runnerUtilitiesPath},${runtimeDirectory}`,
 		`--allow-net=127.0.0.1:${bridgePort}`,
 		runnerPath,
 	).pipe(
@@ -124,11 +180,11 @@ export class BridgeService extends Effect.Service<BridgeService>()("BridgeServic
 	scoped: Effect.gen(function* () {
 		const redis = yield* RedisService;
 		const runtime = yield* Effect.runtime();
-		const executionFunctions = new Map<string, Record<string, BoundHostFunction>>();
+		const activeSessions = new Map<string, ActiveExecutionSession>();
 
 		const removeSession = Effect.fn("BridgeService.removeSession")(function* (executionId: string) {
 			yield* redis.del(redisKeys.sandboxSession(executionId));
-			yield* Effect.sync(() => executionFunctions.delete(executionId));
+			yield* Effect.sync(() => activeSessions.delete(executionId));
 		}, Effect.asVoid);
 
 		const addSession = Effect.fn("BridgeService.addSession")(function* (
@@ -142,7 +198,12 @@ export class BridgeService extends Effect.Service<BridgeService>()("BridgeServic
 				encodeSandboxSession({ expiresAt: session.expiresAt, token: session.token }),
 				ttlSeconds,
 			);
-			yield* Effect.sync(() => executionFunctions.set(executionId, session.apiFunctions));
+			yield* Effect.sync(() =>
+				activeSessions.set(executionId, {
+					budget: { http: 0, total: 0 },
+					apiFunctions: session.apiFunctions,
+				}),
+			);
 		});
 
 		const handleRequest = Effect.fn("BridgeService.handleRequest")(
@@ -179,8 +240,17 @@ export class BridgeService extends Effect.Service<BridgeService>()("BridgeServic
 					return Response.json({ error: "Unauthorized" }, { status: 401 });
 				}
 
-				const functions = executionFunctions.get(executionId);
-				if (!functions || !Object.hasOwn(functions, fnName)) {
+				const activeSession = activeSessions.get(executionId);
+				if (!activeSession) {
+					return Response.json({ error: "Execution not found" }, { status: 404 });
+				}
+				const budgetError = consumeSandboxHostCall(activeSession.budget, fnName);
+				if (budgetError) {
+					return hostFailureResponse(budgetError);
+				}
+
+				const functions = activeSession.apiFunctions;
+				if (!Object.hasOwn(functions, fnName)) {
 					return Response.json({ error: "Unknown function" }, { status: 404 });
 				}
 
@@ -189,12 +259,27 @@ export class BridgeService extends Effect.Service<BridgeService>()("BridgeServic
 					return Response.json({ error: "Unknown function" }, { status: 404 });
 				}
 
-				const args = yield* parseArgs(request);
+				const contentLength = Number(request.headers.get("content-length") ?? 0);
+				if (Number.isFinite(contentLength) && contentLength > SANDBOX_LIMITS.bridge.requestBytes) {
+					return hostFailureResponse(
+						`Sandbox bridge request exceeds ${SANDBOX_LIMITS.bridge.requestBytes} UTF-8 bytes`,
+					);
+				}
+				const requestBody = yield* readSandboxBridgeRequestBody(request);
+				if (requestBody.oversized) {
+					return hostFailureResponse(
+						`Sandbox bridge request exceeds ${SANDBOX_LIMITS.bridge.requestBytes} UTF-8 bytes`,
+					);
+				}
+				const args = yield* decodeSandboxRpcBody(requestBody.body).pipe(
+					Effect.map((body) => body.args),
+					Effect.mapError(() => badRequest("Invalid request body")),
+				);
 				return yield* Effect.tryPromise({
 					try: () => fn(args),
 					catch: (error) => internalError(unknownToMessage(error)),
 				}).pipe(
-					Effect.map((result) => Response.json({ result }, { status: 200 })),
+					Effect.flatMap(sandboxBridgeResultResponse),
 					Effect.catchAll((error) =>
 						Effect.succeed(Response.json({ error: unknownToMessage(error) }, { status: 500 })),
 					),
@@ -212,7 +297,7 @@ export class BridgeService extends Effect.Service<BridgeService>()("BridgeServic
 		});
 
 		yield* Effect.addFinalizer(() =>
-			Effect.forEach(Array.from(executionFunctions.keys()), removeSession, { discard: true }).pipe(
+			Effect.forEach(Array.from(activeSessions.keys()), removeSession, { discard: true }).pipe(
 				Effect.zipRight(Effect.promise(() => server.stop(true))),
 				Effect.orDie,
 			),
@@ -225,9 +310,12 @@ export class BridgeService extends Effect.Service<BridgeService>()("BridgeServic
 class RunnerFile extends Effect.Service<RunnerFile>()("RunnerFile", {
 	scoped: Effect.gen(function* () {
 		const fs = yield* FileSystem.FileSystem;
-		const path = yield* fs.makeTempFileScoped({ prefix: "ryot-sandbox-", suffix: ".mjs" });
+		const directory = yield* fs.makeTempDirectoryScoped({ prefix: "ryot-sandbox-runner-" });
+		const path = `${directory}/runner-source.sandbox.js`;
+		const utilitiesPath = `${directory}/runner-utilities.sandbox.js`;
 		yield* fs.writeFileString(path, sandboxRunnerSource);
-		return { path };
+		yield* fs.writeFileString(utilitiesPath, sandboxRunnerUtilitiesSource);
+		return { path, utilitiesPath };
 	}),
 }) {}
 
@@ -256,6 +344,7 @@ export class ProcessPool extends Effect.Service<ProcessPool>()("ProcessPool", {
 				dependencies.importMapPath,
 				dependencies.directory,
 				runner.path,
+				runner.utilitiesPath,
 			),
 		});
 	}),
