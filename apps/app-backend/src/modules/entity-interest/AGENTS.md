@@ -126,13 +126,6 @@ The module deliberately reuses existing infrastructure rather than reimplementin
 - **Redis** (`#lib/infrastructure/redis`) — owns only the transport: `redisKeys.entityUpdatedChannel = "ryot:entity:updated"` and the generic `RedisService` (pub/sub, get/set). The message vocabulary itself — `EntityUpdatedReason`, `EntityUpdatedMessage`, `encodeEntityUpdatedMessage` (producer side) and `decodeEntityUpdatedMessage` (the **synchronous, `Either`-returning** decoder shaped for the raw ioredis callback, which is not an Effect context) — is owned by this module's [messages.ts](../../../../../libs/contract/src/modules/entity-interest/messages.ts), since it is client-contract-facing, not backend-infra. The `reason` rides _in the payload_ because only the publisher knows whether it populated or translated; the registry is generic fan-out.
 - **Wiring** (`app/layers.ts`, `app/server.ts`, `libs/contract/src/contract.ts`) — `InterestGroup` is `.add()`ed to the single `AppContract`; `InterestRoutesLive` is provided into the API layer; `StreamRegistry.Default` and `InterestReconciler.Default` are merged into `ServicesLive`. `AuthMiddlewareLive` is provided once at the API level and covers both endpoints. The SSE endpoint being a real contract endpoint (via `handleRaw`) is why it appears in `/docs` and gets group-level 401 handling — unlike the pre-migration raw route.
 
-## History / Context
-
-This shape replaced two earlier designs, both removed in the commit range that introduced this module:
-
-- **Read-path-coupled work.** Reads previously triggered population and applied translation overlays as a side effect, making GETs non-idempotent and coupling the read contract to queue mechanics. Reads are now strictly side-effect-free; all work is driven only by declared interest, and the read-time overlay machinery (`entities/translation-overlay.ts`, `translations/translation-overlay-live.ts`, `TranslationsService.resolveOverlay`) was deleted.
-- **A WebSocket gateway** (`/api/ws`). Its only real job was the client→server interest channel, which a plain POST does equally well paired with SSE — ordinary HTTP reusing the existing auth middleware, with none of the bespoke `Origin`/CSRF/subprotocol-token handling.
-
 ## Conventions
 
 - Keep `routes.ts` thin: register interest, reconcile, gate results. Business logic lives in `InterestReconciler`; transport lives in `stream.ts`/`registry.ts`.
