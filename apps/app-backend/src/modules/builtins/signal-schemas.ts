@@ -66,6 +66,27 @@ export const builtinSignalSchemas = (mediaMonitoringRelationshipSchemaId: Relati
 				},
 			},
 		},
+		...(
+			[
+				["person.media.associated", "Person Media Associated"],
+				["company.media.associated", "Company Media Associated"],
+				["person.media-group.associated", "Person Media Group Associated"],
+				["company.media-group.associated", "Company Media Group Associated"],
+			] as const
+		).map(([slug, name]) => ({
+			name,
+			slug,
+			catalogState: "active" as const,
+			audiencePolicy: mediaAudience(mediaMonitoringRelationshipSchemaId),
+			propertiesSchema: {
+				unknownKeys: "strict" as const,
+				fields: {
+					role: requiredString("Role", "Role in the associated media or group"),
+					subjectName: requiredString("Subject name", "Credited person or company name"),
+					associatedName: requiredString("Associated name", "Associated media or group name"),
+				},
+			},
+		})),
 		{
 			catalogState: "active",
 			slug: "media.status.changed",
