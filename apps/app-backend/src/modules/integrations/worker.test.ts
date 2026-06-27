@@ -26,6 +26,7 @@ const makeImportsRepository = (overrides: MockOverrides<typeof mockImportsReposi
 const makeIntegrationsService = (overrides: MockOverrides<typeof mockIntegrationsService> = {}) =>
 	mockIntegrationsService({
 		update: () => Effect.succeed(makeIntegration()),
+		disableIfEnabled: () => Effect.succeed(false),
 		...overrides,
 		_tag: "IntegrationsService",
 	});
@@ -136,9 +137,9 @@ it.effect("disables the integration after 5 consecutive failures", () => {
 				]),
 		}),
 		integrationsService: makeIntegrationsService({
-			update: (userId, integrationId, body) => {
-				updates.push({ userId, integrationId, ...body });
-				return Effect.succeed(makeIntegration({ isDisabled: true }));
+			disableIfEnabled: (userId, integrationId, runId) => {
+				updates.push({ userId, integrationId, runId, isDisabled: true });
+				return Effect.succeed(true);
 			},
 		}),
 	});
@@ -147,7 +148,27 @@ it.effect("disables the integration after 5 consecutive failures", () => {
 		const wasDisabled = yield* finalizeIntegrationRun(makeIntegration(), ImportRunId.make("run_1"));
 
 		vitestExpect(wasDisabled).toBe(true);
-		vitestExpect(updates).toEqual([{ userId: "user_1", isDisabled: true, integrationId: "int_1" }]);
+		vitestExpect(updates).toEqual([
+			{ userId: "user_1", runId: "run_1", isDisabled: true, integrationId: "int_1" },
+		]);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("does not claim a second disable transition after a concurrent run wins", () => {
+	const layer = makeWorkerLayer({
+		importsRepository: makeImportsRepository({
+			getRunById: () => Effect.succeed(makeRun("failed")),
+			listRecentStatusesByIntegrationId: () =>
+				Effect.succeed(Array.from({ length: 5 }, () => ({ status: "failed" as const }))),
+		}),
+		integrationsService: makeIntegrationsService({
+			disableIfEnabled: () => Effect.succeed(false),
+		}),
+	});
+
+	return Effect.gen(function* () {
+		const wasDisabled = yield* finalizeIntegrationRun(makeIntegration(), ImportRunId.make("run_1"));
+		vitestExpect(wasDisabled).toBe(false);
 	}).pipe(Effect.provide(layer));
 });
 
