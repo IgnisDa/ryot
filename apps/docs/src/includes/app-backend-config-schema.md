@@ -57,6 +57,7 @@
 |---|---|---|---|---|---|
 | `database.url` | `DATABASE_URL` | PostgreSQL connection string | Yes | Yes | — |
 | `database.poolMax` | `DATABASE_POOL_MAX` | Maximum number of PostgreSQL connections held in the pool | No | No | `10` |
+| `database.workflowPoolMax` | `DATABASE_WORKFLOW_POOL_MAX` | Maximum number of PostgreSQL connections held in the dedicated workflow engine pool | No | No | `10` |
 | `database.connectionTimeoutMs` | `DATABASE_CONNECTION_TIMEOUT_MS` | Maximum milliseconds to wait when acquiring a PostgreSQL connection from the pool | No | No | `10000` |
 
 ### Scheduler settings
