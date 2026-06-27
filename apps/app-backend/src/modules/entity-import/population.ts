@@ -65,14 +65,21 @@ export const processChildEntityTree = Effect.fn("processChildEntityTree")(functi
 				targetSchemaId = targetSchema?.id;
 			}
 		}
-		return targetSchemaId
-			? yield* runWithDb(
-					relationshipSchemasRepository.findGlobalBySchemaIds({
-						sourceEntitySchemaId,
-						targetEntitySchemaId: targetSchemaId,
-					}),
-				).pipe(dieOnDbError)
-			: null;
+		if (!targetSchemaId) {
+			return null;
+		}
+		const relationshipSchema = yield* runWithDb(
+			relationshipSchemasRepository.findGlobalBySchemaIds({
+				sourceEntitySchemaId,
+				targetEntitySchemaId: targetSchemaId,
+			}),
+		).pipe(dieOnDbError);
+		if (!relationshipSchema && targetEntitySchemaId) {
+			return yield* new SandboxRunError({
+				message: `Child relationship schema not found: ${sourceEntitySchemaId} -> ${targetEntitySchemaId}`,
+			});
+		}
+		return relationshipSchema;
 	});
 
 	const synchronizeGlobalRelationships = Effect.fn(
@@ -164,8 +171,6 @@ export const processChildEntityTree = Effect.fn("processChildEntityTree")(functi
 
 	const processNode = (
 		childEntity: ProviderDetailsChildEntity,
-		parentEntityId: EntityId,
-		parentEntitySchemaId: EntitySchemaId,
 	): Effect.Effect<ProcessedChildEntity, SandboxRunError> =>
 		Effect.gen(function* () {
 			const entitySchema = yield* runWithDb(
@@ -193,62 +198,31 @@ export const processChildEntityTree = Effect.fn("processChildEntityTree")(functi
 					Effect.mapError((error) => new SandboxRunError({ message: error.message })),
 				);
 			const child = { entity, entitySchemaId: entitySchema.id };
-			const relationshipSchema = yield* runWithDb(
-				relationshipSchemasRepository.findGlobalBySchemaIds({
-					sourceEntitySchemaId: parentEntitySchemaId,
-					targetEntitySchemaId: child.entitySchemaId,
-				}),
-			).pipe(dieOnDbError);
-			if (!relationshipSchema) {
-				return yield* new SandboxRunError({
-					message: `Child relationship schema not found: ${parentEntitySchemaId} -> ${child.entitySchemaId}`,
-				});
-			}
-
-			const relationshipInput = {
-				properties: {},
-				scope: "global" as const,
-				sourceEntityId: parentEntityId,
-				targetEntityId: child.entity.id,
-				relationshipSchemaId: relationshipSchema.id,
-				propertiesSchema: relationshipSchema.propertiesSchema,
-			};
-			const created = yield* relationships
-				.create(relationshipInput)
-				.pipe(Effect.mapError((error) => new SandboxRunError({ message: error.message })));
-			if (!created.wasInserted) {
-				yield* relationships
-					.update(relationshipInput)
-					.pipe(Effect.mapError((error) => new SandboxRunError({ message: error.message })));
-			}
 
 			const nestedChildren: ProcessedChildEntity[] = [];
 			for (const nestedChildEntity of childEntity.childEntities ?? []) {
-				nestedChildren.push(
-					yield* processNode(nestedChildEntity, child.entity.id, child.entitySchemaId),
-				);
+				nestedChildren.push(yield* processNode(nestedChildEntity));
 			}
 
-			if (input.syncExisting) {
-				const nestedRelationshipSchema = yield* findChildRelationshipSchema(
-					child.entitySchemaId,
-					childEntity.entitySchemaSlug,
-					nestedChildren[0]?.entitySchemaId,
-				);
-				if (nestedRelationshipSchema) {
-					yield* synchronizeGlobalRelationships({
-						entries: nestedChildren.map((nestedChild) => ({
-							entityId: nestedChild.entity.id,
-							properties: {},
-						})),
-						direction: "outgoing",
-						onConflict: "preserveExisting",
-						anchorEntityId: child.entity.id,
-						synchronization: "authoritative",
-						relationshipSchemaId: nestedRelationshipSchema.id,
-						propertiesSchema: nestedRelationshipSchema.propertiesSchema,
-					});
-				}
+			const nestedChildEntitySchemaId = nestedChildren[0]?.entitySchemaId;
+			const nestedRelationshipSchema = yield* findChildRelationshipSchema(
+				child.entitySchemaId,
+				childEntity.entitySchemaSlug,
+				nestedChildEntitySchemaId,
+			);
+			if (nestedRelationshipSchema) {
+				yield* synchronizeGlobalRelationships({
+					direction: "outgoing",
+					onConflict: "preserveExisting",
+					anchorEntityId: child.entity.id,
+					synchronization: "authoritative",
+					relationshipSchemaId: nestedRelationshipSchema.id,
+					propertiesSchema: nestedRelationshipSchema.propertiesSchema,
+					entries: nestedChildren.map((nestedChild) => ({
+						properties: {},
+						entityId: nestedChild.entity.id,
+					})),
+				});
 			}
 
 			return child;
@@ -256,27 +230,24 @@ export const processChildEntityTree = Effect.fn("processChildEntityTree")(functi
 
 	const processedChildren: ProcessedChildEntity[] = [];
 	for (const childEntity of input.childEntities) {
-		processedChildren.push(
-			yield* processNode(childEntity, input.parentEntityId, input.parentEntitySchemaId),
-		);
+		processedChildren.push(yield* processNode(childEntity));
 	}
 
-	if (input.syncExisting) {
-		const relationshipSchema = yield* findChildRelationshipSchema(
-			input.parentEntitySchemaId,
-			input.parentEntitySchemaSlug,
-			processedChildren[0]?.entitySchemaId,
-		);
-		if (relationshipSchema) {
-			yield* synchronizeGlobalRelationships({
-				direction: "outgoing",
-				onConflict: "preserveExisting",
-				synchronization: "authoritative",
-				anchorEntityId: input.parentEntityId,
-				relationshipSchemaId: relationshipSchema.id,
-				propertiesSchema: relationshipSchema.propertiesSchema,
-				entries: processedChildren.map((child) => ({ properties: {}, entityId: child.entity.id })),
-			});
-		}
+	const childEntitySchemaId = processedChildren[0]?.entitySchemaId;
+	const relationshipSchema = yield* findChildRelationshipSchema(
+		input.parentEntitySchemaId,
+		input.parentEntitySchemaSlug,
+		childEntitySchemaId,
+	);
+	if (relationshipSchema) {
+		yield* synchronizeGlobalRelationships({
+			direction: "outgoing",
+			onConflict: "preserveExisting",
+			synchronization: "authoritative",
+			anchorEntityId: input.parentEntityId,
+			relationshipSchemaId: relationshipSchema.id,
+			propertiesSchema: relationshipSchema.propertiesSchema,
+			entries: processedChildren.map((child) => ({ properties: {}, entityId: child.entity.id })),
+		});
 	}
 });
