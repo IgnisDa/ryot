@@ -30,6 +30,11 @@ const draftItems = (items: readonly NavigationView[], scopeSlug: string | null |
 			pluginSlug,
 		}));
 
+const withVisibilityFlipped = (item: CustomizeDraftItem) => ({
+	...item,
+	isDisabled: !item.isDisabled,
+});
+
 const areSectionsEqual = (
 	left: readonly CustomizeDraftItem[],
 	right: readonly CustomizeDraftItem[],
@@ -64,7 +69,7 @@ export function moveCustomizeItem(props: {
 	const fromIndex = clampIndex(props.fromIndex, items.length);
 	const toIndex = clampIndex(props.toIndex, items.length);
 	const item = items[fromIndex];
-	if (fromIndex === toIndex || item === undefined) {
+	if (fromIndex === toIndex) {
 		return props.draft;
 	}
 
@@ -88,7 +93,7 @@ export function toggleCustomizeItem(props: {
 	return {
 		...props.draft,
 		[props.section]: items.map((item) =>
-			item.slug === props.slug ? Object.assign(item, { isDisabled: !item.isDisabled }) : item,
+			item.slug === props.slug ? withVisibilityFlipped(item) : item,
 		),
 	};
 }
