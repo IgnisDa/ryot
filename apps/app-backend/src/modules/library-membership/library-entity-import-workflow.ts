@@ -1,12 +1,16 @@
 import { Workflow } from "@effect/workflow";
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { ListedEntity } from "@ryot/contract/modules/entities/schemas";
-import { Effect, Schema } from "effect";
+import { Effect, Layer, Schema } from "effect";
 
+import { withoutWorkflowParent } from "#lib/infrastructure/workflow";
 import { EntityImportPayload } from "#modules/entity-import/entity-import-workflow";
 import { ProviderEntityPopulationWorkflow } from "#modules/entity-import/provider-entity-population-workflow";
 
-import { LibraryEntityImportWorkflowOperations } from "./operations-workflow";
+import {
+	LibraryEntityImportOperationWorkflowDefinitionsLive,
+	LibraryEntityImportWorkflowOperations,
+} from "./operations-workflow";
 
 export class LibraryEntityImportError extends Schema.TaggedError<LibraryEntityImportError>()(
 	"LibraryEntityImportError",
@@ -56,6 +60,7 @@ export const runLibraryEntityImportWorkflow = Effect.fn("LibraryEntityImportWork
 				},
 			})
 			.pipe(
+				withoutWorkflowParent,
 				Effect.mapError(
 					(error) => new LibraryEntityImportError({ stage: "population", message: error.message }),
 				),
@@ -82,4 +87,7 @@ export const runLibraryEntityImportWorkflow = Effect.fn("LibraryEntityImportWork
 const LibraryEntityImportWorkflowLive = LibraryEntityImportWorkflow.toLayer(
 	runLibraryEntityImportWorkflow,
 );
-export const LibraryEntityImportWorkflowDefinitionsLive = LibraryEntityImportWorkflowLive;
+export const LibraryEntityImportWorkflowDefinitionsLive = Layer.mergeAll(
+	LibraryEntityImportWorkflowLive,
+	LibraryEntityImportOperationWorkflowDefinitionsLive,
+);

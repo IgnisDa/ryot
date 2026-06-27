@@ -1,4 +1,4 @@
-import { Activity, DurableClock, DurableQueue, Workflow } from "@effect/workflow";
+import { Activity, DurableClock, Workflow } from "@effect/workflow";
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { SandboxRunError, unknownToMessage } from "@ryot/contract/errors";
 import {
@@ -25,9 +25,10 @@ import {
 } from "#lib/infrastructure/sandbox-runtime/workflow-journal";
 import { withoutWorkflowParent } from "#lib/infrastructure/workflow";
 
-import { resolveSandboxExecutionPayload, SandboxExecutionQueue } from "./durable-queues";
+import { resolveSandboxExecutionPayload } from "./durable-queues";
 import { KernelWorkflowReferences } from "./kernel-workflow-references";
 import { SandboxRepository } from "./repository";
+import { RunSandboxWorkflow } from "./sandbox-run-workflow";
 
 export const SANDBOX_WORKFLOW_MAX_STEPS = 1_000;
 
@@ -71,10 +72,12 @@ export const SandboxScriptWorkflow = Workflow.make({
 const sandboxFailure = (message: string) => new SandboxRunError({ message });
 
 const processPinnedSandbox = (payload: SandboxExecutionPayload) =>
-	resolveSandboxExecutionPayload(payload, "exact").pipe(
-		Effect.flatMap((exact) => DurableQueue.process(SandboxExecutionQueue, exact)),
-		Effect.mapError((error) => sandboxFailure(unknownToMessage(error))),
-	);
+	Effect.gen(function* () {
+		const engine = yield* WorkflowEngine;
+		return yield* engine
+			.execute(RunSandboxWorkflow, { payload, executionId: payload.executionId })
+			.pipe(withoutWorkflowParent);
+	});
 
 const completedValue = (result: SandboxCompletedResult, label: string) =>
 	result.error
