@@ -1,9 +1,9 @@
+import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { Effect } from "effect";
 
 import { requireObjectRecord, requirePresent } from "~/support/assertions";
 
 import type { Client } from "./auth";
-import type { AppSchema } from "./entity-schemas";
 
 export interface CreateCollectionOptions {
 	name?: string;

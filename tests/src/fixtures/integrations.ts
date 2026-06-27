@@ -1,13 +1,13 @@
+import type { ContractPayload, ContractUrlParams } from "@ryot/contract/client";
 import { IntegrationId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
 import { requirePresent } from "~/support/assertions";
 
 import type { Client } from "./auth";
-import type { ContractPayload, ContractUrlParams } from "./contract-client";
 
-type CreateIntegrationBody = ContractPayload<"integrations", "create">;
 type WebhookPayload = ContractPayload<"integrations", "webhook">;
+type CreateIntegrationBody = ContractPayload<"integrations", "create">;
 
 export const createIntegration = (client: Client, body: CreateIntegrationBody) =>
 	Effect.gen(function* () {

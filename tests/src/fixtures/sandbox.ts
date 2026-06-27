@@ -1,17 +1,17 @@
+import type { ContractPayload, ContractSuccess } from "@ryot/contract/client";
 import { UserId } from "@ryot/contract/schema/brands";
 import { Effect } from "effect";
 
 import { assertCompleted, requirePresent } from "~/support/assertions";
 
 import { adminHeaders } from "./admin";
-import type { ContractPayload, ContractSuccess } from "./contract-client";
 import { getBackendClient } from "./contract-client";
 import { type PollOptions, pollUntil } from "./polling";
 import { installTestPlugin, uninstallTestPlugin } from "./test-plugin";
 
-type EnqueueSandboxBody = Omit<ContractPayload<"testSupport", "enqueueSandbox">, "executingUserId">;
 type SandboxExecutionError = NonNullable<CompletedSandboxResult["error"]>;
 type CompletedSandboxResult = Extract<SandboxResult, { status: "completed" }>;
+type EnqueueSandboxBody = Omit<ContractPayload<"testSupport", "enqueueSandbox">, "executingUserId">;
 type SandboxResult = Exclude<
 	ContractSuccess<"testSupport", "getSandboxResult">,
 	{ status: "pending" }
