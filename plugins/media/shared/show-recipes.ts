@@ -37,6 +37,7 @@ import { EntityId, EntitySchemaSlug, EventId } from "@ryot-app/plugin-kit/schema
 import {
 	entityId,
 	entityIdentitySelection,
+	entitySyncSelection,
 	entitySchema,
 	libraryLinkExists,
 	propertyBoolean,
@@ -295,6 +296,7 @@ const creditSelection = (credit: Table, relationship: Table) => ({
 		propertyJson(relationship, "roles"),
 		Schema.NullOr(Schema.Array(Schema.String)),
 	),
+	...entitySyncSelection(credit),
 });
 
 const creditRows = (input: {
@@ -389,6 +391,7 @@ export const showOverviewRecipe = defineRecipe(
 						id: selectedField(column(suggested, "id"), EntityId),
 						name: selectedField(column(suggested, "name"), Schema.String),
 						images: selectedField(propertyJson(suggested, "images"), MediaImageListSchema),
+						...entitySyncSelection(suggested),
 					},
 				}),
 			},

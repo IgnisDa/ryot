@@ -71,11 +71,26 @@ hidden retained screens do not independently refresh. Queries without this optio
 existing hydration, cancellation, cache, and SWR focus behavior.
 
 `useEntityRefresh` from `@ryot-app/client-sdk/react` supports controller-owned saved views:
-`{ identity: string, interest: EntityInterest, blocked: boolean, onRefresh: () => Promise<void> }`.
+`{ identity, interest, blocked, onRefresh: (updates: readonly EntityUpdate[]) => Promise<void> }`.
 It keeps one mutable watch, coalesces hints for 250 ms, and holds dirty state while blocked or
-running. Identity changes and unmount discard queued work. A failed refresh does not retry without
-a new hint. Both React paths tolerate transient transport/disposal failures without crashing the
-screen; invalid input and unsupported capabilities remain explicit errors.
+running. The dirty state is the batch itself: hints accumulate inside the window keyed by entity
+ID, so the last reason for an entity wins and `onRefresh` receives every entity that changed rather
+than a bare "something moved" signal. A hint that carries no update — focus, catch-up, a
+blocked retry — still fires a refresh, with an empty batch. Identity changes and unmount discard
+queued work. A failed refresh does not retry without a new hint. Both React paths tolerate
+transient transport/disposal failures without crashing the screen; invalid input and unsupported
+capabilities remain explicit errors.
+
+`useEntityRefresh` also returns `{ settled }`, a `ReadonlyMap<entityId, "populating" | "translating">`
+of the entities whose work has just landed, for a screen that wants to mark the change. Screens
+driven by `createRyotQuery` instead of a controller take the same map from `useEntitySettle(interest)`,
+which returns `{ settled, commit }` and watches the same interest for its own staging.
+
+**Commit, not arrival, is the trigger.** Both hooks stage an update when the frame lands and reveal
+it only on `commit()` — `useEntityRefresh` commits once `onRefresh` resolves; a `useEntitySettle`
+caller commits from an effect keyed on its query data. Revealing on arrival would mark a row while
+it still showed the old values. Entries expire on their own after the mark's duration, so nothing
+has to clear them.
 
 The generic React surface defaults to active and does not import plugin routing. `PluginRouter`
 supplies activity from screen roles: hidden retained screens withdraw demand and do not

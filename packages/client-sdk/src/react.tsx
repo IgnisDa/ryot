@@ -5,6 +5,7 @@ import {
 	useAtomSet,
 	useAtomValue,
 } from "@effect/atom-react";
+import { SETTLE_RING_DURATION_MS } from "@ryot-app/client-ui-sdk/sync";
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult";
@@ -22,7 +23,8 @@ import {
 
 import { ActiveScreenContext } from "./active-screen";
 import { createEntityRefresh, entityTransport } from "./entity-refresh";
-import type { RyotClient, EntityInterest, EntityInterestSubscription } from "./index";
+import type { EntityInterest, EntityInterestSubscription, EntityUpdate, RyotClient } from "./index";
+import { createSettleTracker } from "./settle";
 
 const staleTime = 30 * 1_000;
 const idleTTL = 5 * 60 * 1_000;
@@ -281,7 +283,7 @@ const useQueryInterest = <Data,>(
 			);
 			const unsubscribe = registry.subscribe(atom, sync);
 			registry.get(browserFocusSignal);
-			const unfocus = registry.subscribe(browserFocusSignal, refresh.hint);
+			const unfocus = registry.subscribe(browserFocusSignal, () => refresh.hint());
 			sync();
 			if (remount) {
 				refresh.hint();
@@ -311,14 +313,50 @@ const useQueryInterest = <Data,>(
 	}, [client, registry, atom, interest, active]);
 };
 
+const useSettleTracker = () => {
+	const tracker = useMemo(() => createSettleTracker(SETTLE_RING_DURATION_MS), []);
+	useEffect(() => () => tracker.dispose(), [tracker]);
+	const settled = useSyncExternalStore(tracker.subscribe, tracker.snapshot, tracker.snapshot);
+	return { settled, tracker };
+};
+
+export const useEntitySettle = (interest: EntityInterest) => {
+	const client = useRyot();
+	const active = useContext(ActiveScreenContext);
+	const { settled, tracker } = useSettleTracker();
+	const latestInterest = useRef(interest);
+	const subscription = useRef<EntityInterestSubscription | undefined>(undefined);
+	useEffect(() => {
+		latestInterest.current = interest;
+	});
+	useEffect(() => {
+		if (!active) {
+			return undefined;
+		}
+		const watch = entityTransport(() =>
+			client.entities.watch(latestInterest.current, tracker.stage),
+		);
+		subscription.current = watch;
+		return () => {
+			subscription.current = undefined;
+			entityTransport(() => watch?.dispose());
+		};
+	}, [client, active, tracker]);
+	useEffect(() => {
+		entityTransport(() => subscription.current?.update(interest));
+	}, [interest]);
+	return { settled, commit: tracker.commit };
+};
+
 export const useEntityRefresh = (options: {
 	readonly blocked: boolean;
 	readonly identity: string;
 	readonly interest: EntityInterest;
-	readonly onRefresh: () => Promise<void>;
+	readonly onRefresh: (updates: readonly EntityUpdate[]) => Promise<void>;
 }) => {
 	const client = useRyot();
 	const active = useContext(ActiveScreenContext);
+	const { settled, tracker } = useSettleTracker();
 	const latest = useRef(options);
 	const previous = useRef({ identity: options.identity, active });
 	const controller = useRef<
@@ -332,13 +370,19 @@ export const useEntityRefresh = (options: {
 		latest.current = options;
 	});
 	useEffect(() => {
-		const refresh = createEntityRefresh(() => latest.current.onRefresh());
+		const refresh = createEntityRefresh(async (updates) => {
+			for (const update of updates) {
+				tracker.stage(update);
+			}
+			await latest.current.onRefresh(updates);
+			tracker.commit();
+		});
 		controller.current = { refresh, subscription: undefined };
 		return () => {
 			controller.current = undefined;
 			refresh.dispose();
 		};
-	}, [client, options.identity]);
+	}, [client, options.identity, tracker]);
 	useEffect(() => {
 		const catchUp =
 			previous.current.identity === options.identity && !previous.current.active && active;
@@ -364,6 +408,7 @@ export const useEntityRefresh = (options: {
 		controller.current?.refresh.block(!active || options.blocked);
 		entityTransport(() => controller.current?.subscription?.update(options.interest));
 	}, [active, options.interest, options.blocked]);
+	return { settled };
 };
 
 export function useRyotQuery<Data>(query: RyotQuery<void, Data>): RyotQueryResult<Data>;

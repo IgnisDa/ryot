@@ -1,7 +1,8 @@
+import type { EntitySettleReason } from "@ryot-app/client-sdk";
 import { useRyotViewport, type EntityRendererProps } from "@ryot-app/client-sdk/plugin";
 import { useRyotQuery } from "@ryot-app/client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/client-sdk/screen";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import { ShowActivityTab } from "./activity";
 import { ShowEpisodesTab } from "./episodes";
@@ -14,7 +15,7 @@ import {
 	type ShowOverviewState,
 } from "./overview-state";
 import { ShowRefreshStatus, ShowStatusMessage } from "./primitives";
-import { showOverviewQuery, showSummaryQuery } from "./queries";
+import { showOverviewQuery, showSummaryQuery, useShowEntitySettle } from "./queries";
 import { ShowSummaryHeader } from "./summary-header";
 import {
 	mapShowSummary,
@@ -35,6 +36,7 @@ export function ShowScreenBody(props: {
 	readonly refreshOverview: () => void;
 	readonly summaryRefreshStatus?: ReactNode;
 	readonly overviewRefreshStatus?: ReactNode;
+	readonly settled: EntitySettleReason | undefined;
 }) {
 	const { state } = props;
 	const [activeTab, setActiveTab] = useState<ShowTabKey>("overview");
@@ -73,7 +75,7 @@ export function ShowScreenBody(props: {
 	return (
 		<div className="flex flex-col gap-4">
 			{props.summaryRefreshStatus}
-			<ShowSummaryHeader show={state.show} compact={props.compact} />
+			<ShowSummaryHeader show={state.show} compact={props.compact} settled={props.settled} />
 			<ShowTabBar activeTab={activeTab} compact={props.compact} onSelect={setActiveTab} />
 			{tabContent[activeTab]}
 		</div>
@@ -84,6 +86,10 @@ export function ShowScreen(props: EntityRendererProps) {
 	const { compact } = useRyotViewport();
 	const summaryResult = useRyotQuery(showSummaryQuery, { entityId: props.entityId });
 	const overviewResult = useRyotQuery(showOverviewQuery, { entityId: props.entityId });
+	const { settled, commit } = useShowEntitySettle(props.entityId);
+	useEffect(() => {
+		commit();
+	}, [commit, summaryResult.data, overviewResult.data]);
 	const state = mapShowSummary(summaryResult);
 	const overview = mapShowOverview(overviewResult);
 	const assets = state.status === "ready" ? showManagedAssets(state.show) : [];
@@ -110,6 +116,7 @@ export function ShowScreen(props: EntityRendererProps) {
 						overview={overview}
 						refresh={summaryResult.refetch}
 						refreshOverview={overviewResult.refetch}
+						settled={settled.get(props.entityId)}
 						summaryRefreshStatus={<ShowRefreshStatus result={summaryResult} />}
 						overviewRefreshStatus={<ShowRefreshStatus result={overviewResult} />}
 						episodes={<ShowEpisodesTab compact={compact} entityId={props.entityId} />}

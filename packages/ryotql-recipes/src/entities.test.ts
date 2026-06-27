@@ -10,9 +10,9 @@ const item = {
 	externalId: "external-1",
 	entitySchemaSlug: "book",
 	providerId: "provider-1",
+	populationStatus: "ready",
 	properties: { pages: 320 },
 	translationStatus: "ready",
-	populatedAt: "2026-01-01T01:00:00+02:00",
 };
 const provenanceResponse = (items: readonly unknown[]) => rowsResponse("entity", items, pageInfo);
 const responseWithItems = (items: readonly unknown[]) => rowsResponse("entities", items, pageInfo);
@@ -31,26 +31,22 @@ describe("entity recipes", () => {
 			"id",
 			"properties",
 			"externalId",
-			"populatedAt",
 			"entitySchemaSlug",
 			"providerId",
+			"populationStatus",
 			"translationStatus",
 		]);
 		expect(query.where).toMatchObject({ values: [{ value: "entity-1" }, { value: "entity-2" }] });
-		expect(Result.getOrThrow(recipe.decode(responseWithItems([item])))).toEqual([
-			{ ...item, populatedAt: "2025-12-31T23:00:00.000Z" },
-		]);
+		expect(Result.getOrThrow(recipe.decode(responseWithItems([item])))).toEqual([item]);
 	});
 
 	it("decodes nullable fields", () => {
 		const recipe = entityInterestRecipe({ entityIds: ["entity-1"] });
 		expect(
 			Result.getOrThrow(
-				recipe.decode(
-					responseWithItems([{ ...item, externalId: null, populatedAt: null, providerId: null }]),
-				),
+				recipe.decode(responseWithItems([{ ...item, externalId: null, providerId: null }])),
 			),
-		).toEqual([{ ...item, externalId: null, populatedAt: null, providerId: null }]);
+		).toEqual([{ ...item, externalId: null, providerId: null }]);
 	});
 
 	it("rejects malformed fields and non-rows results", () => {
@@ -59,7 +55,7 @@ describe("entity recipes", () => {
 			Result.isFailure(recipe.decode(responseWithItems([{ ...item, properties: undefined }]))),
 		).toBe(true);
 		expect(
-			Result.isFailure(recipe.decode(responseWithItems([{ ...item, populatedAt: "bad" }]))),
+			Result.isFailure(recipe.decode(responseWithItems([{ ...item, populationStatus: "bad" }]))),
 		).toBe(true);
 		expect(
 			Result.isFailure(recipe.decode({ data: { entities: { items: [], type: "aggregate" } } })),
