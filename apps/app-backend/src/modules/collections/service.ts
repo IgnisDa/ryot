@@ -6,10 +6,10 @@ import type {
 	CreateMembershipBody,
 	DeleteMembershipBody,
 } from "@ryot/contract/modules/collections/schemas";
-import type { EntityId, EntitySchemaId, EventSchemaId, UserId } from "@ryot/contract/schema/brands";
+import type { EntityId, UserId } from "@ryot/contract/schema/brands";
 import { decodeStoredAppSchema } from "@ryot/contract/schema/core";
 import { generateId } from "better-auth";
-import { Cause, DateTime, Effect } from "effect";
+import { DateTime, Effect } from "effect";
 
 import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
 import {
@@ -17,13 +17,14 @@ import {
 	parseLabeledPropertySchemaInput,
 } from "#lib/property-schema/property-schema-runtime";
 import { requireText } from "#lib/shared/validation";
+import { executeEntityCreate } from "#modules/entities/entity-create-workflow";
 import { EntitiesService } from "#modules/entities/service";
-import { EventsService } from "#modules/events/service";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
 
 import { AddEntityToCollectionWorkflow } from "./add-entity-to-collection-workflow";
+import { executeRemoveEntityFromCollection } from "./remove-entity-from-collection-workflow";
 import { CollectionsRepository } from "./repository";
 import {
 	circularReferenceError,
@@ -44,7 +45,6 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 	effect: Effect.gen(function* () {
 		const runWithDb = yield* DbRunner;
 		const engine = yield* WorkflowEngine;
-		const events = yield* EventsService;
 		const entities = yield* EntitiesService;
 		const repository = yield* CollectionsRepository;
 		const relationships = yield* RelationshipsService;
@@ -89,34 +89,6 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 			getBuiltinCollectionEventSchema("remove-entity-from-collection"),
 		);
 
-		const queueCollectionEvent = (input: {
-			readonly userId: UserId;
-			readonly entityId: EntityId;
-			readonly occurredAt: string;
-			readonly executionId: string;
-			readonly eventSchemaId: EventSchemaId;
-			readonly properties: Record<string, unknown>;
-		}) =>
-			events
-				.create({
-					userId: input.userId,
-					source: "collection",
-					executionId: input.executionId,
-					payload: [
-						{
-							entityId: input.entityId,
-							occurredAt: input.occurredAt,
-							properties: input.properties,
-							eventSchemaId: input.eventSchemaId,
-						},
-					],
-				})
-				.pipe(
-					Effect.catchAllCause((cause) =>
-						Effect.logWarning(`Failed to queue collection event: ${String(Cause.squash(cause))}`),
-					),
-				);
-
 		const create = Effect.fn("CollectionsService.create")(function* (
 			user: CurrentUserValue,
 			payload: CreateCollectionBody,
@@ -143,15 +115,12 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 			}
 
 			const entitySchema = yield* collectionEntitySchema;
-			const created = yield* entities
-				.save({
-					name,
-					properties,
-					scope: "user",
-					userId: user.id,
-					entitySchemaId: entitySchema.entitySchemaId,
-				})
-				.pipe(Effect.catchTag("NotFound", (error) => Effect.die(error)));
+			const created = yield* executeEntityCreate(engine, {
+				userId: user.id,
+				origin: { kind: "api" },
+				executionId: generateId(),
+				body: { name, properties, entitySchemaId: entitySchema.entitySchemaId },
+			}).pipe(Effect.catchTag("NotFound", (error) => Effect.die(error)));
 			return toCollectionResponse(created);
 		});
 
@@ -168,26 +137,27 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 				}),
 			);
 			if (existing) {
-				return existing;
+				return { operation: "noop" as const, collection: existing };
 			}
 
-			const created = yield* entities
-				.save({
-					name,
-					userId,
-					scope: "user",
-					properties: {},
-					entitySchemaId: entitySchema.entitySchemaId,
-				})
-				.pipe(Effect.catchTag("NotFound", (error) => Effect.die(error)));
-			return toCollectionResponse(created);
+			const created = yield* entities.create(userId, {
+				name,
+				properties: {},
+				entitySchemaId: entitySchema.entitySchemaId,
+			});
+			return {
+				entity: created.entity,
+				operation: created.operation,
+				entitySchemaSlug: created.entitySchemaSlug,
+				collection: toCollectionResponse(created.entity),
+			};
 		});
 
 		const writeMembership = Effect.fn("CollectionsService.writeMembership")(function* (input: {
 			userId: UserId;
 			entityId: EntityId;
-			collectionId: EntityId;
 			properties?: unknown;
+			collectionId: EntityId;
 		}) {
 			if (input.collectionId === input.entityId) {
 				return yield* badRequest(circularReferenceError);
@@ -234,7 +204,7 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 			const inLibrary = yield* inLibrarySchema;
 			const memberOfRelationshipSchema = yield* memberOfSchema;
 
-			const membership = yield* runInTransaction(
+			const outcome = yield* runInTransaction(
 				Effect.gen(function* () {
 					if (entity.userId === null) {
 						const libraryEntityId = yield* repository.getUserLibraryEntityId({
@@ -243,23 +213,28 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 						if (!libraryEntityId) {
 							return yield* Effect.die("Library entity not found for user");
 						}
-						yield* relationshipsRepository.saveRelationship({
-							scope: "user",
-							properties: {},
-							userId: input.userId,
-							sourceEntityId: entity.id,
-							onConflict: "preserveExisting",
-							targetEntityId: libraryEntityId,
-							relationshipSchemaId: inLibrary.id,
-						});
+						yield* relationships
+							.save({
+								scope: "user",
+								properties: {},
+								userId: input.userId,
+								validation: "schema",
+								sourceEntityId: entity.id,
+								onConflict: "preserveExisting",
+								targetEntityId: libraryEntityId,
+								relationshipSchemaId: inLibrary.id,
+								propertiesSchema: inLibrary.propertiesSchema,
+							})
+							.pipe(Effect.catchTag("BadRequest", (error) => Effect.die(error)));
 					}
 
-					return yield* relationshipsRepository.saveRelationship({
+					return yield* relationships.save({
 						scope: "user",
 						userId: input.userId,
+						validation: "prevalidated",
+						sourceEntityId: input.entityId,
 						properties: validatedProperties,
 						onConflict: "replaceProperties",
-						sourceEntityId: input.entityId,
 						targetEntityId: input.collectionId,
 						relationshipSchemaId: memberOfRelationshipSchema.id,
 					});
@@ -267,13 +242,13 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 			);
 
 			const occurredAt = yield* DateTime.nowAsDate;
-			const { wasInserted, ...memberOf } = membership;
+			const { wasInserted: _wasInserted, ...memberOf } = outcome.relationship;
 			return {
 				memberOf,
-				wasInserted,
 				entityId: entity.id,
 				addEventSchemaId: addEvent?.id ?? null,
 				occurredAt: occurredAt.toISOString(),
+				wasInserted: outcome.operation === "create",
 				entitySchemaSlug: entity.entitySchemaSlug,
 			};
 		});
@@ -295,83 +270,59 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 			});
 		});
 
-		const removeFromCollection = Effect.fn("CollectionsService.removeFromCollection")(function* (
-			user: CurrentUserValue,
-			payload: DeleteMembershipBody,
-		) {
+		const deleteMembership = Effect.fn("CollectionsService.deleteMembership")(function* (input: {
+			userId: UserId;
+			entityId: EntityId;
+			collectionId: EntityId;
+		}) {
 			const collection = yield* runWithDb(
-				repository.getCollectionById(payload.collectionId, user.id),
+				repository.getCollectionById(input.collectionId, input.userId),
 			);
 			if (!collection) {
 				return yield* notFound(collectionNotFoundError);
 			}
 
-			const entity = yield* runWithDb(repository.getEntityForMembership(payload.entityId, user.id));
+			const entity = yield* runWithDb(
+				repository.getEntityForMembership(input.entityId, input.userId),
+			);
 			if (!entity) {
 				return yield* notFound(entityNotFoundError);
 			}
 
 			const memberOf = yield* memberOfSchema;
-			const deleted = yield* runWithDb(
-				relationshipsRepository.deleteUserRelationship({
-					userId: user.id,
-					sourceEntityId: payload.entityId,
-					relationshipSchemaId: memberOf.id,
-					targetEntityId: payload.collectionId,
-				}),
-			);
+			const deleted = yield* relationships.deleteUserRelationship({
+				userId: input.userId,
+				sourceEntityId: input.entityId,
+				relationshipSchemaId: memberOf.id,
+				targetEntityId: input.collectionId,
+			});
 
 			if (!deleted) {
 				return yield* notFound("Entity is not in collection");
 			}
 
 			const removeEvent = yield* removeEventSchema;
-			if (removeEvent) {
-				const now = yield* DateTime.nowAsDate;
-				yield* queueCollectionEvent({
-					userId: user.id,
-					occurredAt: now.toISOString(),
-					eventSchemaId: removeEvent.id,
-					entityId: payload.collectionId,
-					executionId: `collection-membership-removed-${deleted.id}`,
-					properties: {
-						entityId: entity.id,
-						relationshipId: deleted.id,
-						entitySchemaSlug: entity.entitySchemaSlug,
-						relationshipProperties: deleted.properties,
-					},
-				});
-			}
-
-			return { memberOf: deleted };
+			const occurredAt = yield* DateTime.nowAsDate;
+			return {
+				memberOf: deleted,
+				occurredAt: occurredAt.toISOString(),
+				entitySchemaSlug: entity.entitySchemaSlug,
+				removeEventSchemaId: removeEvent?.id ?? null,
+			};
 		});
 
-		const ensureLibraryEntityForUser = Effect.fn("CollectionsService.ensureLibraryEntityForUser")(
-			function* (userId: UserId, entitySchemaId: EntitySchemaId) {
-				return yield* runWithDb(
-					Effect.gen(function* () {
-						const existing = yield* repository.findLibraryEntityForUser({
-							userId,
-							entitySchemaId,
-						});
-						if (existing) {
-							return existing;
-						}
-
-						const created = yield* entities
-							.save({
-								userId,
-								scope: "user",
-								properties: {},
-								entitySchemaId,
-								name: "Library",
-							})
-							.pipe(Effect.catchTag("NotFound", (error) => Effect.die(error)));
-						return { id: created.id };
-					}),
-				);
-			},
-		);
+		const removeFromCollection = Effect.fn("CollectionsService.removeFromCollection")(function* (
+			user: CurrentUserValue,
+			payload: DeleteMembershipBody,
+		) {
+			const executionId = generateId();
+			return yield* executeRemoveEntityFromCollection(engine, {
+				executionId,
+				userId: user.id,
+				entityId: payload.entityId,
+				collectionId: payload.collectionId,
+			});
+		});
 
 		const ensureEntityInLibrary = Effect.fn("CollectionsService.ensureEntityInLibrary")(function* (
 			userId: UserId,
@@ -388,6 +339,7 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 					userId,
 					scope: "user",
 					properties: {},
+					validation: "schema",
 					sourceEntityId: entityId,
 					onConflict: "preserveExisting",
 					targetEntityId: libraryEntityId,
@@ -432,6 +384,7 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 					.save({
 						scope: "user",
 						userId: input.userId,
+						validation: "schema",
 						sourceEntityId: input.entityId,
 						onConflict: "replaceProperties",
 						targetEntityId: libraryEntityId,
@@ -452,13 +405,13 @@ export class CollectionsService extends Effect.Service<CollectionsService>()("Co
 
 		return {
 			create,
-			writeMembership,
 			addToCollection,
+			writeMembership,
+			deleteMembership,
 			removeFromCollection,
 			getOrCreateCollection,
 			ensureEntityInLibrary,
 			markEntityOwnedInLibrary,
-			ensureLibraryEntityForUser,
 		};
 	}),
 }) {}

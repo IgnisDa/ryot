@@ -1,4 +1,5 @@
 import { Activity } from "@effect/workflow";
+import type { AutomationOrigin } from "@ryot/contract/modules/automations/schemas";
 import { Effect, Schema } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
@@ -15,6 +16,7 @@ import { MediaImportWorkflowOperations } from "./types-workflow";
 
 export const populateMediaEntityGroups = Effect.fn("populateMediaEntityGroups")(function* (input: {
 	executionId: string;
+	origin: AutomationOrigin;
 	reportProgress: ProgressReporter;
 	entityGroups: ImportMediaEntityGroup[];
 	payload: Pick<ImportRunJobData, "runId" | "userId">;
@@ -72,6 +74,7 @@ export const populateMediaEntityGroups = Effect.fn("populateMediaEntityGroups")(
 
 		const populated = yield* operations
 			.importEntity({
+				origin: input.origin,
 				externalId: ref.externalId,
 				userId: input.payload.userId,
 				scriptId: script.sandboxScriptId,

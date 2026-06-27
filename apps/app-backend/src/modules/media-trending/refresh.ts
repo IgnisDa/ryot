@@ -1,12 +1,12 @@
 import { Activity } from "@effect/workflow";
-import { SandboxRunError, unknownToMessage } from "@ryot/contract/errors";
+import { SandboxRunError, toSandboxRunError, unknownToMessage } from "@ryot/contract/errors";
 import { EntityId } from "@ryot/contract/schema/brands";
 import { Cause, DateTime, Effect, Schema } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
 import { EntitiesService } from "#modules/entities/service";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
-import { RelationshipsRepository } from "#modules/relationships/repository";
+import { RelationshipsService } from "#modules/relationships/service";
 
 import { MediaTrendingWorkflowOperations } from "./operations-workflow";
 import { MediaTrendingRepository } from "./repository";
@@ -32,11 +32,12 @@ const RankedTrendingItem = Schema.Struct({
 
 type RankedTrendingItem = typeof RankedTrendingItem.Type;
 
+// Bounded so concurrent fetches stay within the sandbox worker / workflow-pool
+// budget while still overlapping the per-provider durable round-trips.
+const TRENDING_FETCH_CONCURRENCY = 8;
+
 const providerActivityName = (prefix: string, provider: TrendingProviderTarget) =>
 	`${prefix}-${provider.entitySchemaSlug}-${provider.scriptSlug}`;
-
-const toSandboxRunError = (error: unknown) =>
-	new SandboxRunError({ message: unknownToMessage(error) });
 
 const listProviderTargets = Effect.fn("listMediaTrendingProviderTargets")(function* () {
 	const runWithDb = yield* DbRunner;
@@ -65,7 +66,7 @@ const writeProviderTrendingItems = Effect.fn("writeProviderTrendingItems")(funct
 			const fetchedAt = yield* DateTime.nowAsDate;
 
 			for (const item of input.items) {
-				const entity = yield* entities.save({
+				const outcome = yield* entities.save({
 					properties: {},
 					scope: "global",
 					name: item.name,
@@ -76,7 +77,7 @@ const writeProviderTrendingItems = Effect.fn("writeProviderTrendingItems")(funct
 				});
 
 				savedItems.push({
-					entityId: entity.id,
+					entityId: outcome.entity.id,
 					fetchedAt: fetchedAt.toISOString(),
 				});
 			}
@@ -107,7 +108,7 @@ const syncTrendingEdges = Effect.fn("syncTrendingEdges")(function* (
 	items: ReadonlyArray<RankedTrendingItem>,
 ) {
 	const runWithDb = yield* DbRunner;
-	const relationships = yield* RelationshipsRepository;
+	const relationships = yield* RelationshipsService;
 	const relationshipSchemas = yield* RelationshipSchemasRepository;
 
 	return yield* Activity.make({
@@ -123,7 +124,7 @@ const syncTrendingEdges = Effect.fn("syncTrendingEdges")(function* (
 			}
 
 			yield* runWithDb(
-				relationships.syncGlobalRelationships({
+				relationships.syncGlobal({
 					type: "self",
 					onConflict: "replaceProperties",
 					synchronization: "authoritative",
@@ -165,12 +166,17 @@ export const runMediaTrendingRefresh = Effect.fn("runMediaTrendingRefresh")(func
 	const savedItems: SavedTrendingItem[] = [];
 	const providers = yield* listProviderTargets();
 
-	for (const provider of providers) {
-		const result = yield* fetchProviderTrendingItems({
-			provider,
-			executionId: payload.executionId,
-		}).pipe(Effect.exit);
+	const outcomes = yield* Effect.forEach(
+		providers,
+		(provider) =>
+			fetchProviderTrendingItems({ provider, executionId: payload.executionId }).pipe(
+				Effect.exit,
+				Effect.map((result) => ({ provider, result })),
+			),
+		{ concurrency: TRENDING_FETCH_CONCURRENCY },
+	);
 
+	for (const { provider, result } of outcomes) {
 		if (result._tag === "Failure") {
 			yield* Effect.logWarning(
 				`Skipping trending provider ${provider.scriptSlug}: ${unknownToMessage(Cause.squash(result.cause))}`,

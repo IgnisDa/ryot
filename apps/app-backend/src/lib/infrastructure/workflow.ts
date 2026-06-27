@@ -20,18 +20,23 @@ const WorkflowPgClientLive = Layer.unwrapEffect(
 
 // TODO: https://github.com/Effect-TS/effect/issues/6317
 // @effect/cluster's SqlMessageStorage migration creates cluster_messages with
-// message_id VARCHAR(255), but the dedupe key it stores there is
-// `${entityType}/${executionId}/${tag}/${primaryKey}`, and for a DurableQueue
-// deferred the primaryKey embeds the execution id twice more. Chained workflows
-// (import -> population -> sandbox queue, interest population dispatch) compose
-// execution ids by suffixing, so their deferred-done messages exceed 255 chars
-// and every persist attempt dies with "value too long", leaving the awaiting
-// workflow suspended (or dead) forever. Widen the column until upstream shrinks
-// the key (the source has a "hash the entity address to save space?" note);
-// drop once the fix lands.
-const widenClusterMessageIdColumn = Effect.flatMap(
-	PgClient.PgClient,
-	(sql) => sql`ALTER TABLE cluster_messages ALTER COLUMN message_id TYPE text`,
+// message_id AND entity_id both VARCHAR(255). The dedupe key stored in
+// message_id is `${entityType}/${executionId}/${tag}/${primaryKey}`, and
+// entity_id holds the workflow execution id itself. Ryot's chained workflows
+// compose execution ids by suffixing (cron -> media refresh -> provider
+// population -> lifecycle subscription -> sandbox -> notification delivery), so
+// a deep automation chain drives both columns past 255 chars and every persist
+// dies with "value too long", leaving the awaiting workflow suspended (or dead)
+// forever. Widen both columns until upstream shrinks the key (the source has a
+// "hash the entity address to save space?" note); drop once the fix lands.
+const widenClusterMessageColumns = Effect.flatMap(PgClient.PgClient, (sql) =>
+	Effect.all(
+		[
+			sql`ALTER TABLE cluster_messages ALTER COLUMN message_id TYPE text`,
+			sql`ALTER TABLE cluster_messages ALTER COLUMN entity_id TYPE text`,
+		],
+		{ discard: true },
+	),
 ).pipe(Effect.orDie, Effect.asVoid);
 
 // TODO: https://github.com/Effect-TS/effect/issues/6294
@@ -44,7 +49,7 @@ export const WorkflowEngineLive = ClusterWorkflowEngine.layer.pipe(
 		SingleRunner.layer({
 			runnerStorage: "sql",
 			shardingConfig: { entityMessagePollInterval: Duration.millis(250) },
-		}).pipe(Layer.tap(() => widenClusterMessageIdColumn)),
+		}).pipe(Layer.tap(() => widenClusterMessageColumns)),
 	),
 	Layer.provide(WorkflowPgClientLive),
 );

@@ -12,6 +12,13 @@ import {
 import { pollUntil, type PollOptions } from "./polling";
 import { listRelationshipSchemas, requireRelationshipSchemaBySlug } from "./relationship-schemas";
 import { createRelationship } from "./relationships";
+import {
+	detailsDriverCode,
+	monitoredShowDetailsCode,
+	seedBuiltinProviderScript,
+	updateProviderScriptCode,
+	type MonitoredShowTree,
+} from "./sandbox-provider";
 
 export async function insertRelationshipRow(
 	client: Client,
@@ -128,6 +135,15 @@ export async function waitForEntityPopulated(
 	);
 }
 
+export const waitForEntityPopulatedById = (entityId: string) =>
+	pollUntil("entity populated", async () => {
+		const result = await getPgClient().query<{ populatedAt: string | null }>(
+			`select populated_at::text as "populatedAt" from entity where id = $1`,
+			[entityId],
+		);
+		return result.rows[0]?.populatedAt ? true : null;
+	});
+
 export async function getRelationshipBySchemaSlug(
 	client: Client,
 	input: {
@@ -221,7 +237,10 @@ export async function createGlobalBookEntityFixture(
 	return { entity, schema };
 }
 
-export async function seedGlobalShowEpisodeTree(client: Client, options: { showName: string }) {
+export async function seedGlobalShowEpisodeTree(
+	client: Client,
+	options: { showName: string; specialsSeason?: boolean; episodesPerSeason?: number },
+) {
 	const { schema: showSchema } = await findBuiltinSchemaBySlug(client, "show");
 	const tmdbProvider = showSchema.providers.find((provider) => provider.name === "TMDB");
 	assertPresent(tmdbProvider, "Missing TMDB provider for built-in show schema");
@@ -280,7 +299,150 @@ export async function seedGlobalShowEpisodeTree(client: Client, options: { showN
 		],
 	);
 
-	return { tmdbId, showId, seasonId, episodeId };
+	const extraEpisodeIds: string[] = [];
+	if (options.episodesPerSeason && options.episodesPerSeason > 1) {
+		const episodeNumbers: number[] = [];
+		for (let episodeNumber = 1; episodeNumber <= options.episodesPerSeason; episodeNumber++) {
+			if (episodeNumber !== 2) {
+				episodeNumbers.push(episodeNumber);
+			}
+		}
+		await Promise.all(
+			episodeNumbers.map(async (episodeNumber) => {
+				const extraEpisodeId = crypto.randomUUID();
+				await pg.query(
+					`insert into entity (id, name, external_id, entity_schema_id, sandbox_script_id, user_id, populated_at, properties)
+				 values ($1,$2,$3,$4,$5,null,now(),$6::jsonb)`,
+					[
+						extraEpisodeId,
+						`Episode ${episodeNumber}`,
+						`episode-${tmdbId}-${episodeNumber}`,
+						episodeSchemaId,
+						tmdbProvider.scriptId,
+						JSON.stringify({ seasonNumber: 1, episodeNumber }),
+					],
+				);
+				await pg.query(
+					`insert into relationship (id, source_entity_id, target_entity_id, relationship_schema_id, user_id)
+				 values ($1,$2,$3,$4,null)`,
+					[crypto.randomUUID(), seasonId, extraEpisodeId, seasonToEpisode.id],
+				);
+				extraEpisodeIds.push(extraEpisodeId);
+			}),
+		);
+	}
+
+	let specialsSeasonId: string | undefined;
+	let specialsEpisodeId: string | undefined;
+	if (options.specialsSeason) {
+		specialsSeasonId = crypto.randomUUID();
+		specialsEpisodeId = crypto.randomUUID();
+		await pg.query(
+			`insert into entity (id, name, external_id, entity_schema_id, sandbox_script_id, user_id, populated_at, properties)
+			 values
+			 ($1,'Specials',$2,$3,$4,null,now(),'{"seasonNumber":0}'::jsonb),
+			 ($5,'Special 1',$6,$7,$4,null,now(),'{"seasonNumber":0,"episodeNumber":1}'::jsonb)`,
+			[
+				specialsSeasonId,
+				`season-${tmdbId}-specials`,
+				seasonSchemaId,
+				tmdbProvider.scriptId,
+				specialsEpisodeId,
+				`episode-${tmdbId}-specials`,
+				episodeSchemaId,
+			],
+		);
+		await pg.query(
+			`insert into relationship (id, source_entity_id, target_entity_id, relationship_schema_id, user_id)
+			 values ($1,$2,$3,$4,null), ($5,$6,$7,$8,null)`,
+			[
+				crypto.randomUUID(),
+				showId,
+				specialsSeasonId,
+				showToSeason.id,
+				crypto.randomUUID(),
+				specialsSeasonId,
+				specialsEpisodeId,
+				seasonToEpisode.id,
+			],
+		);
+	}
+
+	return {
+		tmdbId,
+		showId,
+		seasonId,
+		episodeId,
+		extraEpisodeIds,
+		specialsSeasonId,
+		specialsEpisodeId,
+	};
+}
+
+export async function seedMonitoredShowProvider(input: {
+	tree: MonitoredShowTree;
+	slug?: string;
+	name?: string;
+}) {
+	const showSchemaId = await getBuiltinEntitySchemaId("show");
+	const provider = await seedBuiltinProviderScript({
+		slug: input.slug,
+		name: input.name ?? "E2E Monitored Show Provider",
+		code: monitoredShowDetailsCode(input.tree),
+	});
+	const showExternalId = `monitored-show-${crypto.randomUUID()}`;
+	const show = await seedMediaEntity({
+		userId: null,
+		name: input.tree.name,
+		externalId: showExternalId,
+		entitySchemaId: showSchemaId,
+		sandboxScriptId: provider.scriptId,
+		properties: input.tree.properties ?? {},
+	});
+
+	return {
+		provider,
+		showSchemaId,
+		showExternalId,
+		showEntityId: show.id,
+		refresh: (tree: MonitoredShowTree) =>
+			updateProviderScriptCode(provider.scriptId, monitoredShowDetailsCode(tree)),
+	};
+}
+
+export async function seedAnimeMonitoringEntity(input: {
+	episodes: number;
+	name?: string;
+	slug?: string;
+}) {
+	const animeSchemaId = await getBuiltinEntitySchemaId("anime");
+	const name = input.name ?? "E2E Monitored Anime";
+	const provider = await seedBuiltinProviderScript({
+		slug: input.slug,
+		name: "E2E Monitored Anime Provider",
+		code: detailsDriverCode({ name, properties: { episodes: input.episodes } }),
+	});
+	const animeExternalId = `monitored-anime-${crypto.randomUUID()}`;
+	const anime = await seedMediaEntity({
+		userId: null,
+		name,
+		externalId: animeExternalId,
+		entitySchemaId: animeSchemaId,
+		sandboxScriptId: provider.scriptId,
+		properties: { episodes: input.episodes },
+	});
+
+	return {
+		provider,
+		animeSchemaId,
+		animeExternalId,
+		animeEntityId: anime.id,
+		setEpisodes: (episodes: number) =>
+			updateProviderScriptCode(
+				provider.scriptId,
+				detailsDriverCode({ name, properties: { episodes } }),
+			),
+	};
 }
 
 export async function insertLibraryMembership(
@@ -309,8 +471,8 @@ export async function insertLibraryMembership(
 
 	await createRelationship(client, {
 		properties: {},
-		sourceEntityId: EntityId.make(input.mediaEntityId),
-		targetEntityId: EntityId.make(libraryEntityId),
 		relationshipSchemaId: inLibrarySchema.id,
+		targetEntityId: EntityId.make(libraryEntityId),
+		sourceEntityId: EntityId.make(input.mediaEntityId),
 	});
 }

@@ -10,19 +10,25 @@ The sandbox runs untrusted user code in single-use Deno subprocesses, exposes se
 - `runtime.ts`: owns the Deno runner file, process pool, package cache, and bridge server.
 - `runner-source.sandbox.js`: source executed by each Deno subprocess.
 - `host-functions.ts`: app-bound bridge functions for user, entity, event, integration, query-engine, and config access.
+- `app-config.ts`: validates and resolves allowlisted application configuration values.
+- `cache-host-functions.ts`: owns the persistent script-scoped `claimCachedValue` bridge function.
+- `notification-host-functions.ts`: owns subscription-only notification delivery effects.
+- `effect-ledger.ts`: shares effect reservation and completion mechanics across effectful host functions.
+- `serialization-bounds.ts`: bounds sandbox result, error, and log artifacts before persistence.
 - `shared.ts`: shared types and helpers for host-function implementations.
-- Sandbox scripts and script-side helpers (`providers/`, `triggers/`, `script-helpers/`) live under `modules/builtins/sandbox-scripts/`, not here — this folder is only the execution runtime.
+- Sandbox scripts and script-side helpers (`automations/`, `providers/`, `triggers/`, `script-helpers/`) live under `modules/builtins/sandbox-scripts/`, not here — this folder is only the execution runtime.
 
 ## Execution Flow
 
 1. A script is stored via `POST /sandbox/scripts` and enqueued via `POST /sandbox/enqueue` with a `scriptId`, `driverName`, and optional `context`.
-2. The workflow loads the script, validates `metadata.allowedHostFunctions`, and calls `SandboxService.executeQueuedRun(...)`.
-3. The service registers a bridge session keyed by `executionId`. Redis stores `{ token, expiresAt }` with a TTL, and memory stores the allowed host-function handlers for that run.
-4. A pre-warmed Deno process is checked out, or a fresh one is spawned if the pool is empty. Each process handles exactly one execution.
-5. The service writes one JSON payload to stdin containing the script code, driver name, context, bridge URL, token, function names, execution id, and script id.
-6. The runner captures console calls into `logs`, creates host-function stubs, runs the requested `driver(name, fn)`, and writes the final JSON result to stdout.
-7. Host-function stubs call `POST /rpc/:executionId/:fnName`; the bridge validates expiry, bearer token, request body, and function name before dispatching.
-8. The service adds server timing, removes the bridge session with an Effect finalizer, and returns the job result.
+2. `RunSandboxWorkflow` processes `SandboxExecutionQueue` with the server-set `direct` execution kind. Internal callers use the same queue with `policy`, `provider`, or `subscription`.
+3. The queue worker loads the script, intersects `metadata.allowedHostFunctions` with the execution-kind and optional per-run capability ceilings, then calls `SandboxService.run(...)`.
+4. The service registers a bridge session keyed by `executionId`. Redis stores `{ token, expiresAt }` with a TTL, and memory stores the effective host-function handlers for that run.
+5. A pre-warmed Deno process is checked out, or a fresh one is spawned if the pool is empty. Each process handles exactly one execution.
+6. The service writes one JSON payload to stdin containing the script code, driver name, context, bridge URL, token, function names, execution id, and script id.
+7. The runner captures console calls into `logs`, creates host-function stubs, runs the requested `driver(name, fn)`, and writes the final JSON result to stdout.
+8. Host-function stubs call `POST /rpc/:executionId/:fnName`; the bridge validates expiry, bearer token, request body, and function name before dispatching.
+9. The service adds server timing, removes the bridge session with an Effect finalizer, and returns the bounded job result.
 
 ## API Shape
 
@@ -59,19 +65,26 @@ To add a package, append its specifier to `vendoredPackages` and restart the ser
 
 Host functions are bridge handlers exposed only when listed in `metadata.allowedHostFunctions`.
 
-| Scope   | Functions                                                                                                                                                          |
-| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Runtime | `httpCall`                                                                                                                                                         |
-| Script  | `getAppConfigValue`, `getCachedValue`, `setCachedValue`, `claimCachedValue`                                                                                        |
-| User    | `createEvents`, `executeQueryEngine`, `getEntity`, `getEntitySchema`, `getIntegration`, `getUserPreferences`, `listEventSchemas`, `listEvents`, `listIntegrations` |
+| Scope      | Functions                                                                                                                                                          |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Runtime    | `httpCall`                                                                                                                                                         |
+| Script     | `getAppConfigValue`, `getCachedValue`, `setCachedValue`, `claimCachedValue`                                                                                        |
+| User       | `createEvents`, `executeQueryEngine`, `getEntity`, `getEntitySchema`, `getIntegration`, `getUserPreferences`, `listEventSchemas`, `listEvents`, `listIntegrations` |
+| Automation | `emitSignal`, `sendNotification`                                                                                                                                   |
 
 Script-scoped functions use execution metadata such as `scriptId`. User-scoped functions require `userId` and are unavailable for system executions. `claimCachedValue` atomically writes a script-scoped cached value only when the key does not already exist.
+
+The script allowlist is only the first capability boundary. `emitSignal` and `sendNotification`
+are available only to `subscription` executions with an automation run; `createEvents` is available
+to direct and subscription executions; policy and provider executions receive neither automation
+effects nor event creation. Subscription runs apply the rule snapshot's capability ceiling as a
+third intersection and ledger every effect by `effectKey`.
 
 `getCachedValue` and `setCachedValue` are scoped to the current server run, so their values are refreshed after a backend restart. `claimCachedValue` remains persistent across restarts.
 
 ### Adding A Host Function
 
-1. Implement the bridge handler as `(...args) => Promise<unknown>` in `service.ts` for core runtime functions or in `host-functions.ts` for app-bound functions.
+1. Implement the bridge handler as `(...args) => Promise<unknown>` in the owning module: `service.ts` for core runtime functions, `host-functions.ts` for app-bound reads and event creation, `cache-host-functions.ts` for persistent cache claims, or `notification-host-functions.ts` for notification effects.
 2. Use `requireSandboxRunInput(args, expectedArgCount, fnName)` for script-scoped functions.
 3. Use `requireUserSandboxRunInput(args, expectedArgCount, fnName)` for user-scoped functions.
 4. Add the function name to this section and to any script metadata that should be allowed to call it.

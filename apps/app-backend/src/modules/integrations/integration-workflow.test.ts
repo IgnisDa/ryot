@@ -2,9 +2,11 @@ import { BunFileSystem } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
 import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import {
+	AutomationRuleId,
 	EntitySchemaId,
 	ImportRunId,
 	IntegrationId,
+	SignalSchemaId,
 	SandboxScriptId,
 	UserId,
 } from "@ryot/contract/schema/brands";
@@ -18,6 +20,8 @@ import {
 	makeRedisService,
 	makeWorkflowActivityEngine,
 } from "#lib/test-support/effect";
+import { AutomationsRepository } from "#modules/automations/repository";
+import { AutomationsService } from "#modules/automations/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { ImportsRepository } from "#modules/imports/repository";
 import { loadImportAdapterResult } from "#modules/imports/runtime/source-payload-store";
@@ -80,11 +84,15 @@ const makeIntegrationsRepository = (
 const makeEntitiesRepository = (overrides: MockOverrides<typeof mockEntitiesRepository> = {}) =>
 	mockEntitiesRepository({
 		findEntitySchemaSandboxScriptBySlug: (slug) => {
-			let result: { entitySchemaId: EntitySchemaId; sandboxScriptId: SandboxScriptId } | null =
-				null;
+			let result: {
+				entitySchemaSlug: string;
+				entitySchemaId: EntitySchemaId;
+				sandboxScriptId: SandboxScriptId;
+			} | null = null;
 			switch (slug) {
 				case "movie.tmdb": {
 					result = {
+						entitySchemaSlug: "movie",
 						entitySchemaId: EntitySchemaId.make("schema-movie"),
 						sandboxScriptId: SandboxScriptId.make("script-movie-tmdb"),
 					};
@@ -92,6 +100,7 @@ const makeEntitiesRepository = (overrides: MockOverrides<typeof mockEntitiesRepo
 				}
 				case "manga.anilist": {
 					result = {
+						entitySchemaSlug: "manga",
 						entitySchemaId: EntitySchemaId.make("schema-manga"),
 						sandboxScriptId: SandboxScriptId.make("script-manga-anilist"),
 					};
@@ -99,6 +108,7 @@ const makeEntitiesRepository = (overrides: MockOverrides<typeof mockEntitiesRepo
 				}
 				case "music.youtube-music": {
 					result = {
+						entitySchemaSlug: "music",
 						entitySchemaId: EntitySchemaId.make("schema-music"),
 						sandboxScriptId: SandboxScriptId.make("script-youtube-music"),
 					};
@@ -138,9 +148,33 @@ const makeRedisLayer = () => {
 
 type TestLayerOptions = {
 	importsRepository?: Layer.Layer<ImportsRepository>;
+	automationsService?: Layer.Layer<AutomationsService>;
+	automationsRepository?: Layer.Layer<AutomationsRepository>;
 	integrationsRepository?: Layer.Layer<IntegrationsRepository>;
 	integrationOperations?: Partial<IntegrationRunOperationsValue>;
 };
+
+const makeAutomationsRepository = (
+	listSignalDispatches: () => Effect.Effect<ReadonlyArray<Record<string, unknown>>> = () =>
+		Effect.succeed([]),
+) =>
+	Layer.succeed(
+		AutomationsRepository,
+		Object.assign(Object.create(null), {
+			listSignalDispatches,
+			getBuiltinSignalSchemaBySlug: () =>
+				Effect.succeed(SignalSchemaId.make("integration-disabled-schema")),
+		}),
+	);
+
+const makeAutomationsService = () =>
+	Layer.succeed(
+		AutomationsService,
+		Object.assign(Object.create(null), {
+			emitSignal: (input: { id: string }) =>
+				Effect.succeed({ duplicate: false, signal: { id: input.id } }),
+		}),
+	);
 
 const makeIntegrationOperations = (overrides: Partial<IntegrationRunOperationsValue> = {}) =>
 	Layer.mock(IntegrationRunOperations, {
@@ -157,6 +191,8 @@ const makeTestLayer = (options: TestLayerOptions) =>
 		makeAppConfigLayer(),
 		BunFileSystem.layer,
 		makeRedisLayer(),
+		options.automationsRepository ?? makeAutomationsRepository(),
+		options.automationsService ?? makeAutomationsService(),
 		makeIntegrationOperations(options.integrationOperations),
 		options.importsRepository ?? makeImportsRepository(),
 		options.integrationsRepository ?? makeIntegrationsRepository(),
@@ -618,10 +654,40 @@ it.effect("records a YouTube Music sandbox failure as a source-fetch failure", (
 });
 
 it.effect("disables a yank integration after continuous failures during finalization", () => {
+	const childDispatches: Array<Record<string, unknown>> = [];
+	const emittedSignals: Array<Record<string, unknown>> = [];
 	const integrationUpdates: Array<Record<string, unknown>> = [];
-	const notificationDispatches: Array<Record<string, unknown>> = [];
 
 	const options = {
+		automationsService: Layer.succeed(
+			AutomationsService,
+			Object.assign(Object.create(null), {
+				emitSignal: (input: Record<string, unknown>) => {
+					emittedSignals.push(input);
+					return Effect.succeed({ duplicate: false, signal: { id: input["id"] } });
+				},
+			}),
+		),
+		automationsRepository: makeAutomationsRepository(() =>
+			Effect.succeed([
+				{
+					properties: {},
+					actorUserId: null,
+					automationDepth: 0,
+					origin: "integration",
+					subjectEntityId: null,
+					createdAt: new Date(now),
+					occurredAt: new Date(now),
+					userId: UserId.make("user_1"),
+					signalSchemaName: "Integration disabled",
+					signalSchemaSlug: "integration.disabled",
+					ruleId: AutomationRuleId.make("rule-1"),
+					signalId: "integration-disabled-signal-id",
+					correlationId: "run_1-youtube-music-history",
+					signalSchemaId: "integration-disabled-schema",
+				},
+			]),
+		),
 		integrationOperations: {
 			loadYankAdapterResult: () =>
 				Effect.fail({ cleanupPaths: [], message: "Failed to fetch data from Komga" }),
@@ -658,34 +724,19 @@ it.effect("disables a yank integration after continuous failures during finaliza
 			expect(integrationUpdates).toEqual([
 				{ userId: "user_1", isDisabled: true, integrationId: "int_1" },
 			]);
-			expect(notificationDispatches).toEqual([
-				{
-					workflowName: "NotificationDeliveryWorkflow",
-					// The engine-level id is a hash of the workflow idempotency key
-					// (payload.executionId), so only the payload carries the raw value.
-					executionId: expect.any(String),
-					payload: {
-						userId: "user_1",
-						executionId: "run_1-integration-disabled",
-						request: {
-							kind: "event",
-							eventType: "integration_disabled_due_to_too_many_errors",
-							message: "Integration komga has been disabled due to too many errors",
-						},
-					},
-				},
+			expect(emittedSignals).toEqual([
+				expect.objectContaining({
+					principal: { kind: "user", userId: "user_1" },
+					signalSchemaId: "integration-disabled-schema",
+					properties: { integrationId: "int_1", providerName: "komga" },
+				}),
+			]);
+			expect(childDispatches).toEqual([
+				expect.objectContaining({
+					executionId: "signal-subscription-integration-disabled-signal-id-rule-1",
+				}),
 			]);
 		}),
-		{
-			execute: (workflow, dispatch) =>
-				Effect.sync(() => {
-					notificationDispatches.push({
-						payload: dispatch.payload,
-						workflowName: workflow.name,
-						executionId: dispatch.executionId,
-					});
-					return undefined;
-				}),
-		},
+		captureChildExecute(childDispatches),
 	);
 });
