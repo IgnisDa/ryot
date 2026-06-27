@@ -1,186 +1,127 @@
-import type { BeforeCreateTriggerResult } from "@ryot/sandbox-sdk/trigger";
-
-import { requirePresent } from "../test-support/assertions";
+import { getPgClient } from "../setup";
+import { assertCompleted, requirePresent } from "../test-support/assertions";
 import type { Client } from "./auth";
 import type { ContractPayload, ContractSuccess } from "./contract-client";
 import { type PollOptions, pollUntil } from "./polling";
 
 type CreateSandboxScriptBody = ContractPayload<"sandbox", "createScript">;
-type LegacyCreateSandboxScriptBody = {
-	code: string;
-	name?: string;
-	slug?: string;
-	metadata?: {
-		allowedHostFunctions?: readonly string[];
-		requiredAppConfigKeys?: readonly string[];
-	};
-};
-
 type EnqueueSandboxBody = ContractPayload<"sandbox", "enqueue">;
-type SandboxResult = Exclude<ContractSuccess<"sandbox", "getResult">, { status: "pending" }> | null;
+type SandboxResult = Exclude<ContractSuccess<"sandbox", "getResult">, { status: "pending" }>;
+type CompletedSandboxResult = Extract<SandboxResult, { status: "completed" }>;
+type SandboxExecutionError = NonNullable<CompletedSandboxResult["error"]>;
 
-const legacySandboxSource = (body: LegacyCreateSandboxScriptBody) => {
-	const slug = body.slug ?? body.name;
-	if (!slug) {
-		throw new Error("Legacy sandbox fixture requires a slug or name");
-	}
-	const name = body.name ?? slug;
-	const capabilities = body.metadata?.allowedHostFunctions ?? [];
-	const requiredAppConfigKeys = body.metadata?.requiredAppConfigKeys ?? [];
-	const driverNames = [...body.code.matchAll(/driver\(\s*["']([^"']+)["']/g)]
-		.map((match) => match[1])
-		.filter((driverName): driverName is string => driverName !== undefined);
-	const uniqueDriverNames = [...new Set(driverNames)];
-	if (uniqueDriverNames.length === 0) {
-		throw new Error("Legacy sandbox fixture must register at least one driver");
-	}
-	const driverDeclarations = uniqueDriverNames
-		.map(
-			(driverName, index) => `const legacyDriver${index} = defineDriver(manifest, {
-  input: z.unknown(),
-  output: z.unknown(),
-  run: (input, host, execution) =>
-    runLegacyDriver(${JSON.stringify(driverName)}, input, host, execution),
-});`,
-		)
-		.join("\n\n");
-	const driverEntries = uniqueDriverNames
-		.map((driverName, index) => `    ${JSON.stringify(driverName)}: legacyDriver${index},`)
-		.join("\n");
-	const hostDeclarations = capabilities
-		.map(
-			(capability) =>
-				`  const ${capability} = (...args: Parameters<SandboxHostMethodMap[${JSON.stringify(capability)}]>) =>
-    hostRecord[${JSON.stringify(capability)}]!(...args);`,
-		)
-		.join("\n");
-
-	return `
-import {
-  defineDriver,
-  defineManifest,
-  defineScript,
-  type ExecutionMetadata,
-  type SandboxHostMethodMap,
-} from "@ryot/sandbox-sdk";
-import * as z from "@ryot/sandbox-sdk/zod";
-
-export const manifest = defineManifest({
-  kind: "script",
-  name: ${JSON.stringify(name)},
-  slug: ${JSON.stringify(slug)},
-  capabilities: ${JSON.stringify(capabilities)},
-  requiredAppConfigKeys: ${JSON.stringify(requiredAppConfigKeys)},
-});
-
-type LegacyRun = (context: unknown, execution: ExecutionMetadata) => Promise<unknown>;
-
-const runLegacyDriver = async (
-  driverName: string,
-  input: unknown,
-  host: unknown,
-  execution: ExecutionMetadata,
-) => {
-  const drivers: Record<string, LegacyRun> = {};
-  const driver = (name: string, run: LegacyRun) => {
-    drivers[name] = run;
-  };
-  const hostRecord = host as Partial<SandboxHostMethodMap>;
-${hostDeclarations}
-  await (async () => {
-${body.code}
-  })();
-  const run = drivers[driverName];
-  if (!run) throw new Error('Driver "' + driverName + '" is not defined in this script');
-  return await run(input, execution);
-};
-
-${driverDeclarations}
-
-export default defineScript({
-  manifest,
-  drivers: {
-${driverEntries}
-  },
-});
-`;
-};
-
-export function literalSandboxSource(input: {
-	name: string;
+type StoredScriptRepresentation = {
 	slug: string;
-	value: boolean | number | string;
-}) {
-	return `
-import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk";
-import * as z from "@ryot/sandbox-sdk/zod";
+	name: string;
+	source: string;
+	metadata: unknown;
+	compiledCode: string;
+	compiledFormat: number;
+};
 
-export const manifest = defineManifest({
-  kind: "script",
-  name: ${JSON.stringify(input.name)},
-  slug: ${JSON.stringify(input.slug)},
-  capabilities: [],
-  requiredAppConfigKeys: [],
-});
+const representationValues = (row: StoredScriptRepresentation) => [
+	row.slug,
+	row.name,
+	row.source,
+	row.compiledCode,
+	row.compiledFormat,
+	JSON.stringify(row.metadata),
+];
 
-const main = defineDriver(manifest, {
-  input: z.object({}),
-  output: z.literal(${JSON.stringify(input.value)}),
-  run: async () => ${JSON.stringify(input.value)} as const,
-});
-
-export default defineScript({ manifest, drivers: { main } });
-`;
-}
-
-type BeforeCreateTriggerFixtureBehavior =
-	| BeforeCreateTriggerResult
-	| { readonly action: "throw"; readonly message: string };
-
-export function beforeCreateTriggerSource(input: {
-	readonly name: string;
-	readonly slug: string;
-	readonly behavior: BeforeCreateTriggerFixtureBehavior;
-}) {
-	return `
-import { defineManifest } from "@ryot/sandbox-sdk";
-import {
-  defineBeforeCreateTrigger,
-  type BeforeCreateTriggerResult,
-} from "@ryot/sandbox-sdk/trigger";
-
-export const manifest = defineManifest({
-  kind: "trigger",
-  mode: "before_create",
-  name: ${JSON.stringify(input.name)},
-  slug: ${JSON.stringify(input.slug)},
-  capabilities: [],
-  requiredAppConfigKeys: [],
-});
-
-type Behavior = BeforeCreateTriggerResult | { readonly action: "throw"; readonly message: string };
-const behavior: Behavior = JSON.parse(${JSON.stringify(JSON.stringify(input.behavior))});
-
-export default defineBeforeCreateTrigger({
-  manifest,
-  run: async () => {
-    if (behavior.action === "throw") {
-      throw new Error(behavior.message);
-    }
-    return behavior;
-  },
-});
-`;
-}
-
-export async function createSandboxScript(
-	client: Client,
-	body: CreateSandboxScriptBody | LegacyCreateSandboxScriptBody,
-) {
-	const payload = "source" in body ? body : { source: legacySandboxSource(body) };
-	const script = await client.run((c) => c.sandbox.createScript({ payload }));
+export async function createSandboxScript(client: Client, body: CreateSandboxScriptBody) {
+	const script = await client.run((c) => c.sandbox.createScript({ payload: body }));
 	requirePresent(script.id, "Failed to create sandbox script");
 	return script;
+}
+
+export async function createAndPromoteSandboxScript(client: Client, source: string) {
+	const script = await createSandboxScript(client, { source });
+	const pg = getPgClient();
+	try {
+		const stored = await pg.query<StoredScriptRepresentation>(
+			`select slug, name, source, metadata, compiled_code as "compiledCode",
+			        compiled_format as "compiledFormat"
+			 from sandbox_script where id = $1`,
+			[script.id],
+		);
+		const before = requirePresent(stored.rows[0], "Compiled sandbox script was not persisted");
+		const promoted = await pg.query<StoredScriptRepresentation>(
+			`update sandbox_script set is_builtin = true, user_id = null where id = $1
+			 returning slug, name, source, metadata, compiled_code as "compiledCode",
+			           compiled_format as "compiledFormat"`,
+			[script.id],
+		);
+		const after = requirePresent(promoted.rows[0], "Failed to promote compiled sandbox script");
+		if (
+			JSON.stringify(representationValues(after)) !== JSON.stringify(representationValues(before))
+		) {
+			throw new Error("Sandbox script promotion changed its compiled representation");
+		}
+
+		return script;
+	} catch (error) {
+		await pg
+			.query(`delete from sandbox_script where id = $1`, [script.id])
+			.catch((cleanupError) => {
+				console.error("[sandbox] failed promotion cleanup", cleanupError);
+			});
+		throw error;
+	}
+}
+
+export async function replaceSandboxScriptCompiledRepresentation(
+	client: Client,
+	targetScriptId: string,
+	source: string,
+) {
+	const replacement = await createSandboxScript(client, { source });
+	const pg = getPgClient();
+	let temporaryRemoved = false;
+	try {
+		const stored = await pg.query<StoredScriptRepresentation>(
+			`select slug, name, source, metadata, compiled_code as "compiledCode",
+			        compiled_format as "compiledFormat"
+			 from sandbox_script where id = $1`,
+			[replacement.id],
+		);
+		const before = requirePresent(stored.rows[0], "Replacement sandbox script was not persisted");
+		const updated = await pg.query<StoredScriptRepresentation>(
+			`update sandbox_script as target
+			 set slug = replacement.slug,
+			     name = replacement.name,
+			     code = replacement.source,
+			     source = replacement.source,
+			     metadata = replacement.metadata,
+			     compiled_code = replacement.compiled_code,
+			     compiled_format = replacement.compiled_format
+			 from sandbox_script as replacement
+			 where target.id = $1 and replacement.id = $2
+			 returning target.slug, target.name, target.source, target.metadata,
+			           target.compiled_code as "compiledCode",
+			           target.compiled_format as "compiledFormat"`,
+			[targetScriptId, replacement.id],
+		);
+		const after = requirePresent(
+			updated.rows[0],
+			"Failed to replace sandbox script representation",
+		);
+		if (
+			JSON.stringify(representationValues(after)) !== JSON.stringify(representationValues(before))
+		) {
+			throw new Error("Sandbox script replacement changed its compiled representation");
+		}
+	} finally {
+		const deleted = await pg
+			.query(`delete from sandbox_script where id = $1`, [replacement.id])
+			.catch((error) => {
+				console.error("[sandbox] temporary replacement cleanup failed", error);
+				return null;
+			});
+		temporaryRemoved = deleted?.rowCount === 1;
+	}
+	if (!temporaryRemoved) {
+		throw new Error("Failed to remove temporary replacement sandbox script");
+	}
 }
 
 export async function enqueueSandboxScript(client: Client, body: EnqueueSandboxBody) {
@@ -194,11 +135,24 @@ export async function enqueueSandboxScript(client: Client, body: EnqueueSandboxB
 export async function pollSandboxResult(client: Client, jobId: string, options: PollOptions = {}) {
 	return pollUntil(
 		`sandbox job '${jobId}'`,
-		async (): Promise<SandboxResult> => {
+		async (): Promise<SandboxResult | null> => {
 			const result = await client.run((c) => c.sandbox.getResult({ path: { jobId } }));
 
 			return result.status !== "pending" ? result : null;
 		},
 		{ timeoutMs: 120_000, ...options },
 	);
+}
+
+export function formatSandboxExecutionError(error: SandboxExecutionError) {
+	const location = error.line ? ` at ${error.line}${error.column ? `:${error.column}` : ""}` : "";
+	return `[${error.phase}] ${error.message}${location}${error.stack ? `\n${error.stack}` : ""}`;
+}
+
+export function requireCompletedSandboxValue(result: SandboxResult, label = "sandbox job") {
+	assertCompleted(result, label);
+	if (result.error) {
+		throw new Error(`${label} execution failed: ${formatSandboxExecutionError(result.error)}`);
+	}
+	return result.value;
 }

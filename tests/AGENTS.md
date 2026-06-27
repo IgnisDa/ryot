@@ -17,10 +17,10 @@ This package contains end-to-end and integration-style tests for Ryot.
 
 Every provider-driven test except the live smoke suite runs offline against a fake provider, so search/import/populate/translate/trending flows stay deterministic and make no external calls.
 
-- `seedBuiltinProviderScript` (`fixtures/sandbox-provider.ts`) inserts a builtin (global, `user_id` null) `sandbox_script` row directly via SQL, mirroring how the backend seeds real provider scripts at startup. Pair it with `cleanupBuiltinProviderScript` in `afterAll`/`afterEach`; that helper deletes the global entities the script produced, any relationship touching them, the schema link, then the script, and swallows all failures so cleanup never masks a test failure.
-- Build driver code with `searchDriverCode` / `detailsDriverCode` / `translateDriverCode` (or an inline `driver("<kind>", …)` for trending, etc.). Each emits a `driver("<kind>", …)` registration returning fixed data with no network access; concatenate several with `join("\n")` to register multiple drivers in one script.
+- `seedBuiltinProviderScript` (`fixtures/sandbox-provider.ts`) builds a complete SDK TypeScript provider module, compiles it through the authenticated script-creation API, then promotes that exact row to a builtin (global, `user_id` null) through SQL. Pair it with `cleanupBuiltinProviderScript` in `afterAll`/`afterEach`; that helper deletes the global entities the script produced, any relationship touching them, the schema link, then the script, and swallows all failures so cleanup never masks a test failure.
+- Build fixed provider data with `fakeProviderSearchResult`, `fakeProviderDetailsResult`, and `fakeProviderTranslations`, then pass the results as `drivers` to `seedBuiltinProviderScript`. The values use public `@ryot/sandbox-sdk/provider` contracts and are serialized into one complete module; never concatenate driver registrations or place uncompiled source in an executable column.
 - Link a script to an entity schema (`linkToEntitySchemaId` → `entity_schema_sandbox_script`) only when a `details` result references a related entity by the provider's slug, so it resolves as that schema's provider. Plain search/import (by `scriptId`) and provenance-based population need no schema link — the entity's own `sandbox_script_id` provenance selects the driver.
-- `translateDriverCode` always registers a `translate` driver — a fixed overlay for each named language and an empty object (an all-null negative-cache overlay) for any other. Register it even in "must not translate" cases: an erroneous premature translate then writes a detectable all-null overlay instead of erroring out.
+- A non-empty `translations` fixture always defines the provider's `translate` driver: it returns a fixed overlay for each named language and an empty object (an all-null negative-cache overlay) for any other. Include it even in "must not translate" cases so an erroneous premature translate writes a detectable all-null overlay instead of erroring out.
 - Provider metadata carries `providerInformation.canonicalLanguage`, which the backend read path uses to compute `translationStatus` (semantics owned by `apps/app-backend/src/modules/entity-interest/AGENTS.md`).
 - When one provider owns a relationship into another provider's entities, clean up sequentially, owner first (e.g. `entity-schemas-search-import` cleans the anime provider before the company provider it links to).
 
@@ -32,6 +32,7 @@ The contract API is scoped to a user's own trackers, so it cannot create the glo
 - Structural sub-entity schemas (`show-season`, `show-episode`, `podcast-episode`) are global and linked to no user tracker, so the tracker-scoped entity-schema list API cannot see them; `getBuiltinEntitySchemaId` (`fixtures/entity-schemas.ts`) looks them up by slug directly.
 - `seedEntityTranslation` (`fixtures/translations.ts`) inserts an `entity_translation` row directly, modeling a completed provider fill for one `(entity, language)` pair; a null `name`/`properties` models a negative-cache (canonical-fallback) row.
 - `auth-god-mode-recovery` inserts an `account` row directly because linking a second (OIDC) account to an existing credential user has no API.
+- Executable sandbox rows are the exception to direct seeding: create and compile source through the public API first. `createAndPromoteSandboxScript` changes only ownership and builtin state, while `replaceSandboxScriptCompiledRepresentation` copies a temporary API-compiled source, module, format, and manifest into an existing global row before deleting the temporary row.
 
 ## SSE Interest Streams
 
@@ -60,7 +61,7 @@ Coverage is intentionally minimal (a drift signal, not exhaustive): OpenLibrary 
 
 ## Diagnosing Failures
 
-- Assert async job completion with `assertCompleted` (`test-support/assertions.ts`) rather than comparing `result.status` by hand — on a failed job it includes the backend's error string, which is the difference between "got 'failed'" and an actionable message.
+- Assert async job completion with `assertCompleted` (`test-support/assertions.ts`) rather than comparing `result.status` by hand. For successful sandbox executions, use `requireCompletedSandboxValue`; failures render the structured phase, source location, message, and sanitized stack instead of collapsing the error to a string.
 - Every backend the harness spawns mirrors all its stdout/stderr to a temp file and prints the path at startup (e.g. `[Backend] backend logs -> <os-tmpdir>/ryot-e2e-backend-<ts>-<pid>.log`); each backend gets its own labelled file (e.g. `Backend A/B/C` in the OIDC suite). Backend-side workflow/queue failures (e.g. cluster persistence errors) that don't crash the process show up only in that file. If a backend exits unexpectedly or fails to start, the harness prints a one-line notice pointing at the same file.
 
 ## Timeouts & Pool Sizing
@@ -74,4 +75,4 @@ Parallel test runs share one backend, so keep fixtures collision-free: use rando
 
 ## Media Monitoring
 
-`tests/src/media-monitoring/media-monitoring.test.ts` seeds an offline details provider, then exercises status/enable/disable through the typed contract client. Its cron case uses the real admin infrequent-cron trigger and a local Apprise server, so baseline, provider refresh, subscriber fan-out, and notification delivery are covered together. `fixtures/media-monitoring.ts` owns the endpoint wrappers and media-monitoring relationship SQL assertion.
+`tests/src/media-monitoring/media-monitoring.test.ts` seeds an API-compiled offline details provider, then exercises status/enable/disable through the typed contract client. Its cron case compiles replacement source through the API before copying the complete representation to the promoted provider, and uses the real admin infrequent-cron trigger plus a local Apprise server so baseline, provider refresh, subscriber fan-out, and notification delivery are covered together. `fixtures/media-monitoring.ts` owns the endpoint wrappers and media-monitoring relationship SQL assertion.

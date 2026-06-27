@@ -3,6 +3,8 @@
 import { SandboxScriptId } from "@ryot/contract/schema/brands";
 
 import {
+	afterCreateTriggerSource,
+	appConfigSandboxSource,
 	createAuthenticatedClient,
 	createEntity,
 	createEntitySchema,
@@ -10,8 +12,14 @@ import {
 	createTracker,
 	enqueueSandboxScript,
 	getBackendClient,
+	httpCallSandboxSource,
+	invalidTypeScriptSandboxSource,
 	literalSandboxSource,
 	pollSandboxResult,
+	queryEngineSandboxSource,
+	requireCompletedSandboxValue,
+	throwingSandboxSource,
+	userPreferencesSandboxSource,
 } from "../fixtures";
 import { getPgClient } from "../setup";
 import {
@@ -22,13 +30,6 @@ import {
 	requireString,
 } from "../test-support/assertions";
 import { type FakeHttpServer, startFakeHttpServer } from "../test-support/fake-http-server";
-
-const requireCompletedSandboxValue = (result: Awaited<ReturnType<typeof pollSandboxResult>>) => {
-	assertCompleted(result, "sandbox job");
-
-	expect(result.error).toBeNull();
-	return result.value;
-};
 
 let httpServerUrl: string;
 let httpServer: FakeHttpServer;
@@ -101,13 +102,34 @@ describe("sandbox async flow", () => {
 		expect(result.error).toBeNull();
 	});
 
+	it("compiles an after-create trigger module through script creation", async () => {
+		const { client } = await createAuthenticatedClient();
+		const slug = `after-create-trigger-${crypto.randomUUID()}`;
+		const source = afterCreateTriggerSource({ name: "After-create trigger", slug });
+
+		const script = await createSandboxScript(client, { source });
+
+		expect(script).toMatchObject({
+			slug,
+			source,
+			name: "After-create trigger",
+			manifest: {
+				slug,
+				kind: "trigger",
+				mode: "after_create",
+				capabilities: [],
+				name: "After-create trigger",
+				requiredAppConfigKeys: [],
+			},
+		});
+	});
+
 	it("returns not found when another user polls the job", async () => {
 		const owner = await createAuthenticatedClient();
 		const other = await createAuthenticatedClient();
+		const slug = `cross-user-job-${crypto.randomUUID()}`;
 		const { id: scriptId } = await createSandboxScript(owner.client, {
-			name: "cross-user-job",
-			slug: `cross-user-job-${crypto.randomUUID()}`,
-			code: 'driver("main", async function() { return 42; });',
+			source: literalSandboxSource({ name: "cross-user-job", slug, value: 42 }),
 		});
 		const { jobId } = await enqueueSandboxScript(owner.client, {
 			scriptId,
@@ -122,11 +144,9 @@ describe("sandbox async flow", () => {
 
 	it("completes a script that uses httpCall", async () => {
 		const { client } = await createAuthenticatedClient();
+		const slug = `http-call-${crypto.randomUUID()}`;
 		const { id: scriptId } = await createSandboxScript(client, {
-			name: "http-call",
-			slug: `http-call-${crypto.randomUUID()}`,
-			metadata: { allowedHostFunctions: ["httpCall"] },
-			code: `driver("main", async function() { return await httpCall("GET", ${JSON.stringify(httpServerUrl)}); });`,
+			source: httpCallSandboxSource({ name: "http-call", slug, url: httpServerUrl }),
 		});
 		const { jobId } = await enqueueSandboxScript(client, {
 			scriptId,
@@ -160,30 +180,47 @@ describe("sandbox async flow", () => {
 			name: "Test Entity",
 			entitySchemaId: schema.id,
 		});
+		const sandboxSlug = `execute-query-engine-${crypto.randomUUID()}`;
 		const { id: scriptId } = await createSandboxScript(client, {
-			name: "execute-query-engine",
-			slug: `execute-query-engine-${crypto.randomUUID()}`,
-			metadata: { allowedHostFunctions: ["executeQueryEngine"] },
-			code: `
-driver("main", async function() {
-  const result = await executeQueryEngine({
-    source: { type: "entities", alias: "entity", schemas: [${JSON.stringify(slug)}], where: null },
-    output: {
-      type: "rows",
-      pagination: { page: 1, limit: 10 },
-      orderBy: [{ order: "asc", expr: { type: "ref", sourceAlias: "entity", field: { type: "system", name: "name" } } }],
-      fields: [
-        { key: "id", expr: { type: "ref", sourceAlias: "entity", field: { type: "system", name: "id" } } },
-        { key: "name", expr: { type: "ref", sourceAlias: "entity", field: { type: "system", name: "name" } } }
-      ]
-    }
-  });
-  if (!result.success) {
-    throw new Error(result.error);
-  }
-  return (result.data as { data: { items: unknown[] } }).data.items;
-});
-`,
+			source: queryEngineSandboxSource({
+				slug: sandboxSlug,
+				name: "execute-query-engine",
+				query: {
+					source: { type: "entities", alias: "entity", schemas: [slug], where: null },
+					output: {
+						type: "rows",
+						pagination: { page: 1, limit: 10 },
+						orderBy: [
+							{
+								order: "asc",
+								expr: {
+									type: "ref",
+									sourceAlias: "entity",
+									field: { type: "system", name: "name" },
+								},
+							},
+						],
+						fields: [
+							{
+								key: "id",
+								expr: {
+									type: "ref",
+									sourceAlias: "entity",
+									field: { type: "system", name: "id" },
+								},
+							},
+							{
+								key: "name",
+								expr: {
+									type: "ref",
+									sourceAlias: "entity",
+									field: { type: "system", name: "name" },
+								},
+							},
+						],
+					},
+				},
+			}),
 		});
 		const { jobId } = await enqueueSandboxScript(client, {
 			scriptId,
@@ -208,32 +245,32 @@ driver("main", async function() {
 
 	it("returns an error when executeQueryEngine uses a missing schema slug", async () => {
 		const { client } = await createAuthenticatedClient();
+		const slug = `execute-query-engine-missing-schema-${crypto.randomUUID()}`;
 		const { id: scriptId } = await createSandboxScript(client, {
-			name: "execute-query-engine-missing-schema",
-			metadata: { allowedHostFunctions: ["executeQueryEngine"] },
-			slug: `execute-query-engine-missing-schema-${crypto.randomUUID()}`,
-			code: `
-driver("main", async function() {
-  const result = await executeQueryEngine({
-    source: { type: "entities", alias: "entity", schemas: ["does-not-exist"], where: null },
-    output: {
-      type: "rows",
-      fields: [],
-      pagination: { page: 1, limit: 10 },
-      orderBy: [{ order: "asc", expr: { type: "ref", sourceAlias: "entity", field: { type: "system", name: "name" } } }]
-    }
-  });
-  if (result.success) {
-    throw new Error("Expected query-engine request to fail");
-  }
-  throw new Error(result.error);
-});
-`,
+			source: queryEngineSandboxSource({
+				name: "execute-query-engine-missing-schema",
+				slug,
+				query: {
+					source: { where: null, alias: "entity", type: "entities", schemas: ["does-not-exist"] },
+					output: {
+						fields: [],
+						type: "rows",
+						pagination: { page: 1, limit: 10 },
+						orderBy: [
+							{
+								order: "asc",
+								expr: {
+									type: "ref",
+									sourceAlias: "entity",
+									field: { type: "system", name: "name" },
+								},
+							},
+						],
+					},
+				},
+			}),
 		});
-		const { jobId } = await enqueueSandboxScript(client, {
-			scriptId,
-			driverName: "main",
-		});
+		const { jobId } = await enqueueSandboxScript(client, { scriptId, driverName: "main" });
 
 		const result = await pollSandboxResult(client, jobId);
 
@@ -247,24 +284,15 @@ driver("main", async function() {
 
 	it("completes a script that uses getAppConfigValue", async () => {
 		const { client } = await createAuthenticatedClient();
+		const slug = `get-app-config-value-${crypto.randomUUID()}`;
 		const { id: scriptId } = await createSandboxScript(client, {
-			name: "get-app-config-value",
-			slug: `get-app-config-value-${crypto.randomUUID()}`,
-			metadata: { allowedHostFunctions: ["getAppConfigValue"] },
-			code: `
-driver("main", async function() {
-  const result = await getAppConfigValue("scheduler.progressUpdateThresholdHours");
-  if (!result.success) {
-    throw new Error(result.error);
-  }
-  return result.data;
-});
-`,
+			source: appConfigSandboxSource({
+				slug,
+				name: "get-app-config-value",
+				key: "scheduler.progressUpdateThresholdHours",
+			}),
 		});
-		const { jobId } = await enqueueSandboxScript(client, {
-			scriptId,
-			driverName: "main",
-		});
+		const { jobId } = await enqueueSandboxScript(client, { scriptId, driverName: "main" });
 
 		const value = requireCompletedSandboxValue(await pollSandboxResult(client, jobId));
 		expect(typeof value).toBe("number");
@@ -273,19 +301,9 @@ driver("main", async function() {
 
 	it("completes a script that uses getUserPreferences", async () => {
 		const { client } = await createAuthenticatedClient();
+		const slug = `get-user-prefs-${crypto.randomUUID()}`;
 		const { id: scriptId } = await createSandboxScript(client, {
-			name: "get-user-prefs",
-			slug: `get-user-prefs-${crypto.randomUUID()}`,
-			metadata: { allowedHostFunctions: ["getUserPreferences"] },
-			code: `
-driver("main", async function() {
-  const result = await getUserPreferences();
-  if (!result.success) {
-    throw new Error(result.error);
-  }
-  return result.data;
-});
-`,
+			source: userPreferencesSandboxSource({ name: "get-user-prefs", slug }),
 		});
 		const { jobId } = await enqueueSandboxScript(client, { scriptId, driverName: "main" });
 
@@ -299,10 +317,9 @@ driver("main", async function() {
 
 	it("returns a completed result when the script throws", async () => {
 		const { client } = await createAuthenticatedClient();
+		const slug = `throws-error-${crypto.randomUUID()}`;
 		const { id: scriptId } = await createSandboxScript(client, {
-			name: "throws-error",
-			slug: `throws-error-${crypto.randomUUID()}`,
-			code: 'driver("main", async function() { throw new Error("intentional"); });',
+			source: throwingSandboxSource({ name: "throws-error", slug, message: "intentional" }),
 		});
 		const { jobId } = await enqueueSandboxScript(client, { scriptId, driverName: "main" });
 
@@ -311,15 +328,21 @@ driver("main", async function() {
 		assertCompleted(result, "sandbox job");
 
 		expect(result.value).toBeNull();
+		expect(() => requireCompletedSandboxValue(result)).toThrow(/\[execute\] intentional/);
 		expect(result.error).toMatchObject({
 			phase: "execute",
 			message: expect.stringContaining("intentional"),
 		});
+		expect(result.error?.line).toBeGreaterThan(0);
+		expect(result.error?.column).toBeGreaterThan(0);
+		expect(result.error?.stack).not.toContain("data:application/javascript");
+		expect(result.error?.stack).not.toContain("runner-source.sandbox.js");
 	});
 
 	it("rejects invalid TypeScript without creating a script row", async () => {
 		const { client } = await createAuthenticatedClient();
-		const source = "const invalid: number = 'not a number';";
+		const slug = `invalid-typescript-${crypto.randomUUID()}`;
+		const source = invalidTypeScriptSandboxSource({ name: "Invalid TypeScript", slug });
 		const error = await client.runError((c) => c.sandbox.createScript({ payload: { source } }));
 
 		assertTaggedError(error, "SandboxCompilationFailure");
@@ -330,6 +353,14 @@ driver("main", async function() {
 		});
 		expect(error.diagnostics[0]?.line).toBeGreaterThan(0);
 		expect(error.diagnostics[0]?.column).toBeGreaterThan(0);
+		expect(error.diagnostics).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					code: "TS2322",
+					message: expect.stringContaining("not assignable to type 'number'"),
+				}),
+			]),
+		);
 
 		const rows = await getPgClient().query<{ id: string }>(
 			`select id from sandbox_script where source = $1`,
@@ -351,10 +382,9 @@ driver("main", async function() {
 	it("returns 404 when another user polls the job", async () => {
 		const { client: clientA } = await createAuthenticatedClient();
 		const { client: clientB } = await createAuthenticatedClient();
+		const slug = `cross-user-job-${crypto.randomUUID()}`;
 		const { id: scriptId } = await createSandboxScript(clientA, {
-			name: "cross-user-job",
-			slug: `cross-user-job-${crypto.randomUUID()}`,
-			code: 'driver("main", async function() { return 42; });',
+			source: literalSandboxSource({ name: "cross-user-job", slug, value: 42 }),
 		});
 		const { jobId } = await enqueueSandboxScript(clientA, {
 			scriptId,
@@ -380,10 +410,9 @@ driver("main", async function() {
 
 	it("returns 401 for unauthenticated poll", async () => {
 		const { client } = await createAuthenticatedClient();
+		const slug = `unauth-poll-${crypto.randomUUID()}`;
 		const { id: scriptId } = await createSandboxScript(client, {
-			name: "unauth-poll",
-			slug: `unauth-poll-${crypto.randomUUID()}`,
-			code: 'driver("main", async function() { return 42; });',
+			source: literalSandboxSource({ name: "unauth-poll", slug, value: 42 }),
 		});
 		const { jobId } = await enqueueSandboxScript(client, { scriptId, driverName: "main" });
 
