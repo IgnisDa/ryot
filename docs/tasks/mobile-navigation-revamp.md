@@ -158,7 +158,7 @@ All Books      + → Add book
 All Exercises  + → Add exercise
 ```
 
-The button should be hidden on screens where creation is uncommon. Do not show a global floating `+` on every route.
+Do not show a global floating `+` on every route.
 
 ## 3. Entity-detail header
 
