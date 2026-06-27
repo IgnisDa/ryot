@@ -7,8 +7,10 @@ import {
 } from "@ryot-app/contract/schema/core";
 
 import { manifest as greetManifest } from "./backend/greet.sandbox";
-import { manifest as pokeapiDetailsManifest } from "./backend/pokeapi-details.sandbox";
-import { manifest as pokeapiSearchManifest } from "./backend/pokeapi-search.sandbox";
+import { manifest as moveDetailsManifest } from "./backend/pokeapi-move-details.sandbox";
+import { manifest as moveSearchManifest } from "./backend/pokeapi-move-search.sandbox";
+import { manifest as pokemonDetailsManifest } from "./backend/pokeapi-pokemon-details.sandbox";
+import { manifest as pokemonSearchManifest } from "./backend/pokeapi-pokemon-search.sandbox";
 import { fixtureSavedViews } from "./saved-views";
 
 export const fixturePlugin = definePlugin({
@@ -51,6 +53,26 @@ export const fixturePlugin = definePlugin({
 				},
 			},
 		},
+		{
+			icon: "zap",
+			slug: "move",
+			name: "Move",
+			eventSchemas: [],
+			propertiesSchema: {
+				fields: {
+					pp: integerField("PP", "Base power points of this move"),
+					type: stringField("Type", "Elemental type of this move"),
+					power: integerField("Power", "Base power of this move"),
+					target: stringField("Target", "What this move targets"),
+					effect: stringField("Effect", "Short English effect description"),
+					accuracy: integerField("Accuracy", "Accuracy percentage of this move"),
+					priority: integerField("Priority", "Turn priority bracket of this move"),
+					sourceUrl: stringField("Source Url", "Link to the PokeAPI resource"),
+					generation: stringField("Generation", "Generation this move was introduced in"),
+					damageClass: stringField("Damage Class", "Physical, special, or status damage class"),
+				},
+			},
+		},
 	],
 	providers: [
 		{
@@ -60,20 +82,39 @@ export const fixturePlugin = definePlugin({
 			information: { source: "pokeapi" },
 			operations: { search: "pokemon.pokeapi.search", details: "pokemon.pokeapi.details" },
 		},
+		{
+			name: "PokeAPI",
+			slug: "move.pokeapi",
+			rootEntitySchemaSlug: "move",
+			information: { source: "pokeapi" },
+			operations: { search: "move.pokeapi.search", details: "move.pokeapi.details" },
+		},
 	],
 	scripts: [
 		{ ...greetManifest, entry: "backend/greet.sandbox.ts" },
 		{
-			...pokeapiDetailsManifest,
+			...pokemonDetailsManifest,
 			providerOperation: "details",
 			providerSlug: "pokemon.pokeapi",
-			entry: "backend/pokeapi-details.sandbox.ts",
+			entry: "backend/pokeapi-pokemon-details.sandbox.ts",
 		},
 		{
-			...pokeapiSearchManifest,
+			...pokemonSearchManifest,
 			providerOperation: "search",
 			providerSlug: "pokemon.pokeapi",
-			entry: "backend/pokeapi-search.sandbox.ts",
+			entry: "backend/pokeapi-pokemon-search.sandbox.ts",
+		},
+		{
+			...moveDetailsManifest,
+			providerOperation: "details",
+			providerSlug: "move.pokeapi",
+			entry: "backend/pokeapi-move-details.sandbox.ts",
+		},
+		{
+			...moveSearchManifest,
+			providerOperation: "search",
+			providerSlug: "move.pokeapi",
+			entry: "backend/pokeapi-move-search.sandbox.ts",
 		},
 	],
 	operations: [

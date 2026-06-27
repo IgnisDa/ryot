@@ -1,7 +1,7 @@
 import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 
-import { details } from "./pokeapi";
+import { details } from "./pokeapi-pokemon";
 
 export const manifest = defineManifest({
 	kind: "provider",
