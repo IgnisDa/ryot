@@ -110,6 +110,7 @@ export const ClientPageTarget = Schema.Union([
 export type ClientPageTarget = Schema.Schema.Type<typeof ClientPageTarget>;
 
 export const ClientPageRenderer = Schema.Union([
+	strictStruct({ kind: Schema.Literal("kernel"), name: Schema.String }),
 	strictStruct({ kind: Schema.Literal("custom"), id: ClientRendererId }),
 	strictStruct({
 		pluginId: Schema.String,

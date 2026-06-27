@@ -77,6 +77,24 @@ const baseView = {
 	id: SavedViewId.make("sv-id"),
 } satisfies ListedSavedView & { readonly pluginInstallationId: string | null };
 const createBody = { layouts, icon: "record", name: "My View", entitySchemaSlug: null };
+const browserSettings = {
+	pageSize: 20,
+	defaultLayout: "grid",
+	sourceName: "entities",
+	layouts: ["grid", "list"],
+	entityIdField: "entityId",
+	ownerPluginIdField: "ownerPluginId",
+	entitySchemaSlugField: "entitySchemaSlug",
+} as const;
+const browserDataSources = document({
+	entities: rows(record, {
+		fields: [
+			field("entityId", column(record, "id")),
+			field("ownerPluginId", column(record, "entitySchemaPluginId")),
+			field("entitySchemaSlug", column(record, "entitySchemaSlug")),
+		],
+	}),
+});
 const mockRepository = Layer.mock(SavedViewsRepository);
 const makeRepository = (overrides: MockOverrides<typeof mockRepository> = {}) =>
 	mockRepository({ ...overrides });
@@ -150,6 +168,40 @@ it.effect("creates and clones saved views without changing layouts", () => {
 		expect(created.layouts).toEqual(layouts);
 		expect(cloned.name).toBe("My View (Copy)");
 		expect(createdLayouts).toEqual([layouts, layouts]);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("creates an entity-browser view through the kernel renderer path", () => {
+	let storedRenderer: ListedSavedView["renderer"];
+	const layer = makeServiceLayer(
+		makeRepository({
+			findBySlug: () => Effect.succeed(null),
+			create: (_userId, input) =>
+				Effect.sync(() => {
+					storedRenderer = input.renderer;
+					return {
+						...baseView,
+						layouts: undefined,
+						renderer: input.renderer,
+						settings: input.settings,
+						dataSources: input.dataSources,
+					};
+				}),
+		}),
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* SavedViewsService;
+		const renderer = { kind: "kernel", name: "entity-browser" } as const;
+		yield* service.create(user, {
+			renderer,
+			icon: "grid",
+			name: "Entity Browser",
+			settings: browserSettings,
+			dataSources: browserDataSources,
+		});
+
+		expect(storedRenderer).toEqual(renderer);
 	}).pipe(Effect.provide(layer));
 });
 

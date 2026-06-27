@@ -300,3 +300,60 @@ it.effect("adds enabled automatic providers and fingerprints provider metadata",
 		expect(withoutProvider.identity.kernelAutomaticFallback?.provider).toBe("kernel");
 	});
 });
+
+it.effect("rejects automatic registrations that do not name presentation exports", () => {
+	const invalid = plugin({
+		slug: "fixture",
+		client: {
+			apiVersion: 1,
+			entry: "client/index.tsx",
+			entities: { "fixture-entity": { gridPresentation: "card" } },
+			exports: {
+				card: { kind: "component", entry: "client/card.tsx", automaticEntityPresentations: false },
+			},
+		},
+	});
+	return Effect.gen(function* () {
+		const error = yield* Effect.flip(
+			resolve(
+				definition("", { automaticEntityPresentations: true }),
+				"export default function Page() {}",
+				[invalid],
+				{ [invalid.id]: { "client/card.tsx": bytes("export default function Card() {}") } },
+			),
+		);
+		expect(error.reason).toEqual({
+			code: "export-not-found",
+			exportName: "@ryot-app/plugins/fixture/card",
+		});
+	});
+});
+
+it.effect("records a kernel renderer as a production-owned graph contributor", () =>
+	Effect.gen(function* () {
+		const graph = yield* resolveClientPageGraph({
+			kernel: true,
+			plugins: [],
+			sourceHash: "kernel-source",
+			rendererName: "Entity browser",
+			userId: UserId.make("user-1"),
+			definition: definition("", { automaticEntityPresentations: true }),
+			rendererFiles: { "client/page.tsx": bytes("export default function Page() {}") },
+			loadPluginFiles: () => Effect.succeed(null),
+		});
+		expect(graph.identity.contributors).toEqual([
+			{
+				name: "Entity browser",
+				pluginDependencies: [],
+				kind: "kernel-renderer",
+				entry: "client/page.tsx",
+				sourceHash: "kernel-source",
+				automaticEntityPresentations: true,
+				namespace: graph.identity.entry.contributor,
+			},
+		]);
+		expect(graph.contributors).toEqual([
+			{ kind: "kernel-renderer", name: "Entity browser", sourceHash: "kernel-source" },
+		]);
+	}),
+);

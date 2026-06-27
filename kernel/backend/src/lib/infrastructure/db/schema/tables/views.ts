@@ -58,6 +58,7 @@ export const clientRenderer = snakeCase.table(
 export const clientPageBuild = snakeCase.table(
 	"client_page_build",
 	{
+		kernelRendererName: text(),
 		graphHash: text().notNull(),
 		publishedHash: text().notNull(),
 		graphIdentity: jsonb().$type<ClientPageGraphIdentity>().notNull(),
@@ -65,9 +66,7 @@ export const clientPageBuild = snakeCase.table(
 		id: text()
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
-		rendererId: text()
-			.notNull()
-			.references(() => clientRenderer.id, { onDelete: "cascade" }),
+		rendererId: text().references(() => clientRenderer.id, { onDelete: "cascade" }),
 		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
@@ -79,6 +78,12 @@ export const clientPageBuild = snakeCase.table(
 		index("client_page_build_user_id_idx").on(table.userId),
 		unique("client_page_build_graph_unique").on(
 			table.rendererId,
+			table.publishedHash,
+			table.graphHash,
+		),
+		unique("client_page_build_kernel_graph_unique").on(
+			table.userId,
+			table.kernelRendererName,
 			table.publishedHash,
 			table.graphHash,
 		),
