@@ -113,6 +113,7 @@ const makeEntitiesService = (overrides: MockOverrides<typeof mockEntitiesService
 	mockEntitiesService({
 		create: () => Effect.succeed(baseEntity),
 		update: () => Effect.succeed(baseEntity),
+		upsert: () => Effect.succeed(baseEntity),
 		...overrides,
 		_tag: "EntitiesService",
 	});
@@ -272,16 +273,19 @@ it.effect("populates entity and writes related entities", () => {
 			},
 		}),
 		entitiesService: makeEntitiesService({
+			upsert: (input) => {
+				if (input.entitySchemaId !== "schema-1") {
+					return Effect.die("unexpected upsert for non-primary entity");
+				}
+				globalEntityWritten = true;
+				return Effect.succeed({
+					...baseEntity,
+					populatedAt: input.populatedAt === null ? null : now,
+				});
+			},
 			create: (input) => {
 				if (input.scope !== "global") {
 					return Effect.die("unexpected user entity create");
-				}
-				if (input.entitySchemaId === "schema-1") {
-					globalEntityWritten = true;
-					return Effect.succeed({
-						...baseEntity,
-						populatedAt: input.populatedAt === null ? null : now,
-					});
 				}
 				relatedEntityWritten = true;
 				return Effect.succeed(relatedEntity);
@@ -311,18 +315,13 @@ it.effect("populates entity and writes related entities", () => {
 	);
 });
 
-type StoredChildEntity = Omit<ListedEntity, "properties" | "sandboxScriptId"> & {
-	sandboxScriptId: SandboxScriptId;
-	properties: Record<string, unknown>;
-};
-
-it.effect("writes child entity trees idempotently", () => {
+it.effect("walks the child entity tree and upserts each node", () => {
 	const storedRelationships = new Set<string>();
-	const storedEntities = new Map<string, StoredChildEntity>();
 	const entityWrites: Array<{
 		name: string;
 		externalId: string;
 		properties: unknown;
+		updateExisting: boolean;
 		entitySchemaId: EntitySchemaId;
 		sandboxScriptId: SandboxScriptId;
 	}> = [];
@@ -376,24 +375,19 @@ it.effect("writes child entity trees idempotently", () => {
 						null,
 				),
 		}),
-		entitiesRepository: makeEntitiesRepository({
-			findGlobalEntityByExternalId: (input) =>
-				Effect.succeed(
-					storedEntities.get(
-						`${input.entitySchemaId}:${input.externalId}:${input.sandboxScriptId}`,
-					) ?? null,
-				),
-		}),
 		entitiesService: makeEntitiesService({
-			create: (input) => {
-				if (input.scope !== "global") {
-					return Effect.die("unexpected user entity create");
-				}
+			upsert: (input) => {
 				const properties: unknown = input.properties;
 				assertRecord(properties);
-				entityWrites.push(input);
-				const key = `${input.entitySchemaId}:${input.externalId}:${input.sandboxScriptId}`;
-				const entity = {
+				entityWrites.push({
+					properties,
+					name: input.name,
+					externalId: input.externalId,
+					updateExisting: input.updateExisting,
+					entitySchemaId: input.entitySchemaId,
+					sandboxScriptId: input.sandboxScriptId,
+				});
+				return Effect.succeed({
 					...baseEntity,
 					properties,
 					name: input.name,
@@ -402,9 +396,7 @@ it.effect("writes child entity trees idempotently", () => {
 					sandboxScriptId: input.sandboxScriptId,
 					populatedAt: input.populatedAt?.toISOString() ?? null,
 					id: EntityId.make(`${input.entitySchemaId}-${input.externalId}`),
-				} satisfies StoredChildEntity;
-				storedEntities.set(key, entity);
-				return Effect.succeed(entity);
+				});
 			},
 		}),
 		relationshipsRepository: makeRelationshipsRepository({
@@ -458,19 +450,24 @@ it.effect("writes child entity trees idempotently", () => {
 
 	return Effect.gen(function* () {
 		yield* runProcessor("exec-child-tree-1");
-		yield* runProcessor("exec-child-tree-2");
 
-		expect(storedEntities.size).toBe(2);
 		expect(storedRelationships.size).toBe(2);
 		expect(entityWrites).toHaveLength(2);
-		expect(entityWrites[0]?.sandboxScriptId).toBe("script-1");
-		expect(storedEntities.get("schema-season:season-1:script-1")?.properties).toEqual({
+		expect(entityWrites.every((write) => ! write.updateExisting)).toBe(true);
+
+		const season = entityWrites.find((write) => write.externalId === "season-1");
+		const episode = entityWrites.find((write) => write.externalId === "episode-1");
+
+		expect(season?.sandboxScriptId).toBe("script-1");
+		expect(season?.entitySchemaId).toBe("schema-season");
+		expect(season?.properties).toEqual({
 			description: "Season",
 			releaseDate: "2026-01-01",
 			seasonNumber: 1,
 			images: [{ type: "remote", url: "https://example.com/season.jpg" }],
 		});
-		expect(storedEntities.get("schema-episode:episode-1:script-1")?.properties).toEqual({
+		expect(episode?.entitySchemaId).toBe("schema-episode");
+		expect(episode?.properties).toEqual({
 			runtime: 45,
 			seasonNumber: 1,
 			episodeNumber: 1,
@@ -494,10 +491,7 @@ it.effect("propagates images through properties for the primary entity", () => {
 				value: { name: "Test Book", properties: { title: "Test Book", images } },
 			}),
 		entitiesService: makeEntitiesService({
-			create: (input) => {
-				if (input.scope !== "global") {
-					return Effect.die("unexpected user entity create");
-				}
+			upsert: (input) => {
 				const properties: unknown = input.properties;
 				assertRecord(properties);
 				savedProperties.push(input.properties);
@@ -591,17 +585,15 @@ it.effect("creates placeholder suggestion entities and syncs source suggestions"
 				Effect.succeed(slug === "movie.tmdb" ? movieSchemaScript : null),
 		}),
 		entitiesService: makeEntitiesService({
+			upsert: (input) =>
+				Effect.succeed({
+					...baseEntity,
+					populatedAt: input.populatedAt === null ? null : now,
+				}),
 			create: (input) => {
 				if (input.scope !== "global") {
 					return Effect.die("unexpected user entity create");
 				}
-				if (input.entitySchemaId === payload.entitySchemaId) {
-					return Effect.succeed({
-						...baseEntity,
-						populatedAt: input.populatedAt === null ? null : now,
-					});
-				}
-
 				const properties: unknown = input.properties;
 				assertRecord(properties);
 				placeholderWrites.push({
@@ -713,27 +705,28 @@ it.effect("replaces stale synced suggestions on a later import run", () => {
 					findGlobalEntityByExternalId: () => Effect.succeed(storedPrimaryEntity),
 				}),
 				entitiesService: makeEntitiesService({
+					upsert: (input) => {
+						if (input.entitySchemaId !== importPayload.entitySchemaId) {
+							return Effect.die("unexpected upsert for non-primary entity");
+						}
+						storedPrimaryEntity = {
+							...baseEntity,
+							name: input.name,
+							populatedAt: null,
+							externalId: input.externalId,
+							properties: { title: "Test Book" },
+							entitySchemaId: input.entitySchemaId,
+							sandboxScriptId: input.sandboxScriptId,
+						};
+						return Effect.succeed({
+							...storedPrimaryEntity,
+							populatedAt: input.populatedAt === null ? null : now,
+						});
+					},
 					create: (input) => {
 						if (input.scope !== "global") {
 							return Effect.die("unexpected user entity create");
 						}
-
-						if (input.entitySchemaId === importPayload.entitySchemaId) {
-							storedPrimaryEntity = {
-								...baseEntity,
-								name: input.name,
-								populatedAt: null,
-								externalId: input.externalId,
-								properties: { title: "Test Book" },
-								entitySchemaId: input.entitySchemaId,
-								sandboxScriptId: input.sandboxScriptId,
-							};
-							return Effect.succeed({
-								...storedPrimaryEntity,
-								populatedAt: input.populatedAt === null ? null : now,
-							});
-						}
-
 						return Effect.succeed({
 							...baseEntity,
 							properties: {},
@@ -914,7 +907,7 @@ it.effect("workflow body executes the sandbox step as part of orchestration", ()
 				value: { name: "Test", properties: { title: "Test" } },
 			});
 		},
-		entitiesService: makeEntitiesService({ create: () => Effect.succeed(baseEntity) }),
+		entitiesService: makeEntitiesService({ upsert: () => Effect.succeed(baseEntity) }),
 	} satisfies TestLayerOptions;
 
 	return withTestLayer(
@@ -995,24 +988,28 @@ it.effect("keeps the refresh baseline when related relationship properties are i
 				}),
 		}),
 		entitiesService: makeEntitiesService({
+			upsert: (input) => {
+				if (input.entitySchemaId !== "schema-1") {
+					return Effect.die("unexpected upsert for non-primary entity");
+				}
+				assert(storedEntity);
+				return Effect.succeed(storedEntity);
+			},
 			create: (input) => {
 				if (input.scope !== "global") {
 					return Effect.die("unexpected user entity create");
 				}
 				const properties: unknown = input.properties;
 				assertRecord(properties);
-				if (input.entitySchemaId === "schema-1") {
-					primaryWritten = true;
-				}
 				return Effect.succeed({
 					...baseEntity,
 					properties,
 					name: input.name,
+					populatedAt: null,
 					externalId: input.externalId,
+					id: EntityId.make("person-1"),
 					entitySchemaId: input.entitySchemaId,
 					sandboxScriptId: input.sandboxScriptId,
-					populatedAt: input.populatedAt?.toISOString() ?? null,
-					id: EntityId.make(input.entitySchemaId === "schema-1" ? "entity-1" : "person-1"),
 				});
 			},
 			update: (input) => {
@@ -1181,10 +1178,7 @@ it.effect("retries related writes after a failed related validation", () => {
 				}),
 		}),
 		entitiesService: makeEntitiesService({
-			create: (input) => {
-				if (input.scope !== "global") {
-					return Effect.die("unexpected user entity create");
-				}
+			upsert: (input) => {
 				const properties: unknown = input.properties;
 				assertRecord(properties);
 				const nextEntity = {
@@ -1192,16 +1186,30 @@ it.effect("retries related writes after a failed related validation", () => {
 					properties,
 					name: input.name,
 					externalId: input.externalId,
+					id: EntityId.make("entity-1"),
 					entitySchemaId: input.entitySchemaId,
 					sandboxScriptId: input.sandboxScriptId,
 					populatedAt: input.populatedAt?.toISOString() ?? null,
-					id: EntityId.make(input.entitySchemaId === "schema-1" ? "entity-1" : "person-1"),
 				};
-				if (input.entitySchemaId === "schema-1") {
-					storedEntity = nextEntity;
-				}
-
+				storedEntity = nextEntity;
 				return Effect.succeed(nextEntity);
+			},
+			create: (input) => {
+				if (input.scope !== "global") {
+					return Effect.die("unexpected user entity create");
+				}
+				const properties: unknown = input.properties;
+				assertRecord(properties);
+				return Effect.succeed({
+					...baseEntity,
+					properties,
+					name: input.name,
+					populatedAt: null,
+					externalId: input.externalId,
+					id: EntityId.make("person-1"),
+					entitySchemaId: input.entitySchemaId,
+					sandboxScriptId: input.sandboxScriptId,
+				});
 			},
 			update: (input) => {
 				assert(storedEntity);
@@ -1333,15 +1341,28 @@ it.effect("rolls back provider graph writes when a later child write fails", () 
 				}),
 		}),
 		entitiesService: makeEntitiesService({
+			upsert: (input) =>
+				Effect.sync(() => {
+					writes.push(`entity:${input.name}`);
+					return {
+						...baseEntity,
+						name: input.name,
+						id: EntityId.make("entity-1"),
+						externalId: input.externalId,
+						entitySchemaId: input.entitySchemaId,
+						sandboxScriptId: input.sandboxScriptId,
+						populatedAt: input.populatedAt?.toISOString() ?? null,
+					};
+				}),
 			create: (input) =>
 				Effect.sync(() => {
 					writes.push(`entity:${input.name}`);
 					return {
 						...baseEntity,
 						name: input.name,
+						id: EntityId.make("suggestion-1"),
 						entitySchemaId: input.entitySchemaId,
 						externalId: input.scope === "global" ? input.externalId : null,
-						id: EntityId.make(input.name === "Test Book" ? "entity-1" : "suggestion-1"),
 						populatedAt:
 							input.scope === "global" ? (input.populatedAt?.toISOString() ?? null) : null,
 						sandboxScriptId:
@@ -1430,6 +1451,28 @@ it.effect("refresh synchronization replaces provider-owned primary and child val
 		}),
 		entitiesService: makeEntitiesService({
 			create: () => Effect.die("unexpected create when refreshing existing entities"),
+			upsert: (input) => {
+				assertRecord(input.properties);
+				if (input.updateExisting) {
+					writes.push({
+						name: input.name,
+						properties: input.properties,
+						populatedAt: input.populatedAt,
+						entitySchemaId: input.entitySchemaId,
+					});
+				}
+				return Effect.succeed({
+					...baseEntity,
+					name: input.name,
+					properties: input.properties,
+					entitySchemaId: input.entitySchemaId,
+					populatedAt: input.populatedAt?.toISOString() ?? null,
+					id:
+						input.entitySchemaId === "schema-1"
+							? EntityId.make("entity-1")
+							: EntityId.make("season-1"),
+				});
+			},
 			update: (input) => {
 				assertRecord(input.properties);
 				writes.push({

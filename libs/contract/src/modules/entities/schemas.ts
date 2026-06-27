@@ -27,12 +27,39 @@ export const EntityDetail = Schema.Struct({
 
 export type EntityDetail = typeof EntityDetail.Type;
 
+const RequiredEntitySchemaId = Schema.Trim.pipe(
+	Schema.filter((value) => value.length > 0, { message: () => "Entity schema id is required" }),
+	Schema.brand("EntitySchemaId"),
+);
+
+const OptionalExternalId = Schema.transform(Schema.String, Schema.UndefinedOr(Schema.String), {
+	strict: true,
+	encode: (value) => value ?? "",
+	decode: (value) => {
+		const trimmed = value.trim();
+		return trimmed.length > 0 ? trimmed : undefined;
+	},
+});
+
+const OptionalSandboxScriptId = Schema.transform(
+	Schema.String,
+	Schema.UndefinedOr(SandboxScriptId),
+	{
+		strict: true,
+		encode: (value) => value ?? "",
+		decode: (value) => {
+			const trimmed = value.trim();
+			return trimmed.length > 0 ? SandboxScriptId.make(trimmed) : undefined;
+		},
+	},
+);
+
 export const CreateEntityBody = Schema.Struct({
 	name: Schema.String,
 	properties: Schema.Unknown,
-	entitySchemaId: EntitySchemaId,
-	externalId: Schema.optional(Schema.String),
-	sandboxScriptId: Schema.optional(SandboxScriptId),
+	entitySchemaId: RequiredEntitySchemaId,
+	externalId: Schema.optional(OptionalExternalId),
+	sandboxScriptId: Schema.optional(OptionalSandboxScriptId),
 });
 
 export type CreateEntityBody = typeof CreateEntityBody.Type;
