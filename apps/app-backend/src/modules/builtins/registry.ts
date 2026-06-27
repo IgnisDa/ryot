@@ -19,7 +19,16 @@ import {
 	sandboxMovieDashGroupDotTvdbScript,
 	sandboxMovieDotTmdbScript,
 	sandboxMovieDotTvdbScript,
+	sandboxMusicDashGroupDotMusicDashBrainzScript,
+	sandboxMusicDashGroupDotSpotifyScript,
+	sandboxMusicDashGroupDotYoutubeDashMusicScript,
+	sandboxMusicDotMusicDashBrainzScript,
+	sandboxMusicDotSpotifyScript,
+	sandboxMusicDotYoutubeDashMusicScript,
 	sandboxPersonDotAnilistScript,
+	sandboxPersonDotMusicDashBrainzScript,
+	sandboxPersonDotSpotifyScript,
+	sandboxPersonDotYoutubeDashMusicScript,
 	sandboxPersonDotAudibleScript,
 	sandboxPersonDotHardcoverScript,
 	sandboxPersonDotMangaDashUpdatesScript,
@@ -43,21 +52,12 @@ import freeExerciseDbScriptCode from "./sandbox-scripts/providers/fitness/exerci
 import giantBombVideoGameGroupScriptCode from "./sandbox-scripts/providers/media-group/giant-bomb.sandbox.js" with { type: "text" };
 import igdbVideoGameGroupScriptCode from "./sandbox-scripts/providers/media-group/igdb.sandbox.js" with { type: "text" };
 import metronComicBookGroupScriptCode from "./sandbox-scripts/providers/media-group/metron.sandbox.js" with { type: "text" };
-import musicBrainzMusicGroupScriptCode from "./sandbox-scripts/providers/media-group/music-brainz.sandbox.js" with { type: "text" };
-import spotifyMusicGroupScriptCode from "./sandbox-scripts/providers/media-group/spotify.sandbox.js" with { type: "text" };
-import youtubeMusicGroupScriptCode from "./sandbox-scripts/providers/media-group/youtube-music.sandbox.js" with { type: "text" };
 import metronComicBookScriptCode from "./sandbox-scripts/providers/media/comic-book/metron.sandbox.js" with { type: "text" };
-import musicBrainzMusicScriptCode from "./sandbox-scripts/providers/media/music/music-brainz.sandbox.js" with { type: "text" };
-import spotifyMusicScriptCode from "./sandbox-scripts/providers/media/music/spotify.sandbox.js" with { type: "text" };
-import youtubeMusicScriptCode from "./sandbox-scripts/providers/media/music/youtube-music.sandbox.js" with { type: "text" };
 import giantBombVideoGameScriptCode from "./sandbox-scripts/providers/media/video-game/giant-bomb.sandbox.js" with { type: "text" };
 import igdbVideoGameScriptCode from "./sandbox-scripts/providers/media/video-game/igdb.sandbox.js" with { type: "text" };
 import vndbVisualNovelScriptCode from "./sandbox-scripts/providers/media/visual-novel/vndb.sandbox.js" with { type: "text" };
 import giantBombPersonScriptCode from "./sandbox-scripts/providers/person/giant-bomb.sandbox.js" with { type: "text" };
 import metronPersonScriptCode from "./sandbox-scripts/providers/person/metron.sandbox.js" with { type: "text" };
-import musicBrainzPersonScriptCode from "./sandbox-scripts/providers/person/music-brainz.sandbox.js" with { type: "text" };
-import spotifyPersonScriptCode from "./sandbox-scripts/providers/person/spotify.sandbox.js" with { type: "text" };
-import youtubeMusicPersonScriptCode from "./sandbox-scripts/providers/person/youtube-music.sandbox.js" with { type: "text" };
 
 const BUILTIN_ALLOWED_HOST_FUNCTIONS: string[] = [
 	"httpCall",
@@ -92,15 +92,6 @@ const providerScript = (
 	requiredAppConfigKeys?: string[],
 ) => script(name, slug, code, requiredAppConfigKeys, { source });
 
-const translatedProviderScript = (
-	name: string,
-	slug: string,
-	code: string,
-	source: string,
-	canonicalLanguage: string,
-	requiredAppConfigKeys?: string[],
-) => script(name, slug, code, requiredAppConfigKeys, { source, canonicalLanguage });
-
 export const builtinSandboxScripts = () => [
 	providerScript(
 		"Free Exercise DB",
@@ -133,23 +124,11 @@ export const builtinSandboxScripts = () => [
 	]),
 	sandboxPersonDotMangaDashUpdatesScript,
 	sandboxMangaDotMangaDashUpdatesScript,
-	providerScript("MusicBrainz", "music.music-brainz", musicBrainzMusicScriptCode, "music-brainz"),
-	providerScript("MusicBrainz", "person.music-brainz", musicBrainzPersonScriptCode, "music-brainz"),
+	sandboxMusicDotMusicDashBrainzScript,
+	sandboxPersonDotMusicDashBrainzScript,
 	sandboxPersonDotOpenlibraryScript,
-	translatedProviderScript(
-		"YouTube Music",
-		"music.youtube-music",
-		youtubeMusicScriptCode,
-		"youtube-music",
-		"en",
-	),
-	translatedProviderScript(
-		"YouTube Music",
-		"person.youtube-music",
-		youtubeMusicPersonScriptCode,
-		"youtube-music",
-		"en",
-	),
+	sandboxMusicDotYoutubeDashMusicScript,
+	sandboxPersonDotYoutubeDashMusicScript,
 	sandboxBookDotHardcoverScript,
 	sandboxPersonDotHardcoverScript,
 	sandboxBookDotGoogleDashBooksScript,
@@ -173,14 +152,8 @@ export const builtinSandboxScripts = () => [
 		"providers.metronUsername",
 		"providers.metronPassword",
 	]),
-	providerScript("Spotify", "music.spotify", spotifyMusicScriptCode, "spotify", [
-		"providers.spotifyClientId",
-		"providers.spotifyClientSecret",
-	]),
-	providerScript("Spotify", "person.spotify", spotifyPersonScriptCode, "spotify", [
-		"providers.spotifyClientId",
-		"providers.spotifyClientSecret",
-	]),
+	sandboxMusicDotSpotifyScript,
+	sandboxPersonDotSpotifyScript,
 	providerScript("IGDB", "video-game.igdb", igdbVideoGameScriptCode, "igdb", [
 		"providers.twitchClientId",
 		"providers.twitchClientSecret",
@@ -193,23 +166,9 @@ export const builtinSandboxScripts = () => [
 		"providers.metronUsername",
 		"providers.metronPassword",
 	]),
-	providerScript("Spotify", "music-group.spotify", spotifyMusicGroupScriptCode, "spotify", [
-		"providers.spotifyClientId",
-		"providers.spotifyClientSecret",
-	]),
-	providerScript(
-		"MusicBrainz",
-		"music-group.music-brainz",
-		musicBrainzMusicGroupScriptCode,
-		"music-brainz",
-	),
-	translatedProviderScript(
-		"YouTube Music",
-		"music-group.youtube-music",
-		youtubeMusicGroupScriptCode,
-		"youtube-music",
-		"en",
-	),
+	sandboxMusicDashGroupDotSpotifyScript,
+	sandboxMusicDashGroupDotMusicDashBrainzScript,
+	sandboxMusicDashGroupDotYoutubeDashMusicScript,
 	providerScript("IGDB", "video-game-group.igdb", igdbVideoGameGroupScriptCode, "igdb", [
 		"providers.twitchClientId",
 		"providers.twitchClientSecret",
