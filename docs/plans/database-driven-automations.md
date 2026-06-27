@@ -8,7 +8,8 @@ signals, user subscriptions, and notifications.
 Built-in and user-created entity, event, relationship, and signal schemas are treated uniformly.
 Domain behavior such as "an episode was discovered" is defined by seeded database rows and sandbox
 scripts, not TypeScript notification enums or feature-specific delivery branches. The application
-runtime never switches on signal slugs.
+runtime never switches on signal slugs; sandbox scripts are themselves seeded data and may branch
+on slugs and snapshot shapes freely.
 
 V2 is unreleased greenfield: breaking its current tables and contracts is acceptable, and the
 unreleased Drizzle migration history may be regenerated when a phase changes the schema.
