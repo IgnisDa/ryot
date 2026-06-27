@@ -59,6 +59,13 @@ const makeSandboxExecutionQueueWorkerLive = (concurrency: number) =>
 				};
 			}).pipe(
 				Effect.mapError((error) => new SandboxRunError({ message: unknownToMessage(error) })),
+				Effect.withSpan("SandboxExecutionQueue", {
+					attributes: {
+						userId: payload.userId,
+						scriptId: payload.scriptId,
+						executionId: payload.executionId,
+					},
+				}),
 			),
 		{ concurrency },
 	);

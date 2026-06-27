@@ -188,7 +188,18 @@ export const processNormalizedMediaImport = Effect.fn("processNormalizedMediaImp
 });
 
 const ProcessNormalizedMediaImportWorkflowLive = ProcessNormalizedMediaImportWorkflow.toLayer(
-	(payload, executionId) => processNormalizedMediaImport(payload, executionId),
+	(payload, executionId) =>
+		processNormalizedMediaImport(payload, executionId).pipe(
+			Effect.withSpan("ProcessNormalizedMediaImportWorkflow", {
+				attributes: {
+					runId: payload.runId,
+					userId: payload.userId,
+					executionId,
+					...(payload.integrationId ? { integrationId: payload.integrationId } : {}),
+				},
+			}),
+			Effect.annotateLogs({ executionId, workflow: "ProcessNormalizedMediaImportWorkflow" }),
+		),
 );
 
 export const ProcessNormalizedMediaImportWorkflowDefinitionsLive =
