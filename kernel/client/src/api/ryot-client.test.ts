@@ -4,10 +4,7 @@ import type {
 	ContractPathParams,
 	ContractPayload,
 } from "@ryot-app/contract/client";
-import {
-	PluginThemeSnapshot,
-	REQUIRED_THEME_TOKEN_NAMES,
-} from "@ryot-app/contract/modules/plugins/client";
+import type { PluginThemeSnapshot } from "@ryot-app/contract/modules/plugins/client";
 import { RyotQLBadRequest, RyotQLInternalError } from "@ryot-app/contract/modules/ryotql/contract";
 import {
 	UploadBadRequest,
@@ -15,7 +12,7 @@ import {
 	type UploadIntentResponse,
 } from "@ryot-app/contract/modules/uploads/schemas";
 import type { PreparedRecipe } from "@ryot-app/ryotql";
-import { Effect, Layer, ManagedRuntime, Result, Schema } from "effect";
+import { Effect, Layer, ManagedRuntime, Result } from "effect";
 import { describe, expect, it } from "vitest";
 
 import { AuthenticatedApi, AuthenticatedApiError } from "#/api/authenticated";
@@ -27,10 +24,7 @@ import type { ThemeStore } from "#/modules/theme/store";
 const scope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.example") };
 const document = { queries: {}, output: {} } as PreparedRecipe<unknown>["document"];
 const recipe = { document, decode: Result.succeed };
-const themeSnapshot = Schema.decodeUnknownSync(PluginThemeSnapshot)({
-	resolvedMode: "light",
-	tokens: Object.fromEntries(REQUIRED_THEME_TOKEN_NAMES.map((name) => [name, name])),
-});
+const themeSnapshot: PluginThemeSnapshot = { resolvedMode: "light" };
 const theme: ThemeStore = {
 	destroy: () => undefined,
 	getPreference: () => "light",

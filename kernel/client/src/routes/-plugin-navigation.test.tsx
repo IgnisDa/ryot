@@ -134,7 +134,8 @@ const connectFrame = (element: HTMLIFrameElement) => {
 	if (init === undefined || pluginPort === undefined) {
 		throw new Error("Plugin bridge did not connect");
 	}
-	return { init, messages, pluginPort };
+	const { mode: _mode, ...ready } = init;
+	return { init, ready, messages, pluginPort };
 };
 
 const isLocation = (message: unknown) =>
@@ -147,9 +148,8 @@ describe("plugin document title", () => {
 		mountView("/fixture");
 		await screen.findByTitle("fixture plugin");
 		const connected = connectFrame(frame());
-		connected.pluginPort.postMessage(connected.init);
+		connected.pluginPort.postMessage(connected.ready);
 		await waitFor(() => expect(connected.messages).toHaveLength(1));
-		connected.pluginPort.postMessage({ generation: 1, type: "theme-applied" });
 		await waitFor(() =>
 			expect(connected.messages.some((message) => isLocation(message))).toBe(true),
 		);
@@ -261,9 +261,8 @@ describe("plugin navigation", () => {
 		const content = screen.getByTestId("shell-content");
 		const iframe = frame();
 		const connected = connectFrame(iframe);
-		connected.pluginPort.postMessage(connected.init);
+		connected.pluginPort.postMessage(connected.ready);
 		await waitFor(() => expect(connected.messages).toHaveLength(1));
-		connected.pluginPort.postMessage({ generation: 1, type: "theme-applied" });
 		await waitFor(() => expect(iframe.getAttribute("class")).toContain("h-full"));
 
 		expect(Array.from(shell.children).map((child) => child.getAttribute("data-testid"))).toEqual([
@@ -426,9 +425,8 @@ describe("plugin navigation", () => {
 		await waitFor(() => expect(frame()).toBeTruthy());
 		const initialFrame = frame();
 		const connected = connectFrame(initialFrame);
-		connected.pluginPort.postMessage(connected.init);
+		connected.pluginPort.postMessage(connected.ready);
 		await waitFor(() => expect(connected.messages).toHaveLength(1));
-		connected.pluginPort.postMessage({ generation: 1, type: "theme-applied" });
 		entries = [{ ...catalog[0], sourceHash: "next-source-hash" }];
 		connected.pluginPort.postMessage({
 			input: null,
@@ -465,10 +463,8 @@ describe("plugin navigation", () => {
 		await waitFor(() => expect(frame()).toBeTruthy());
 		const initialFrame = frame();
 		const connected = connectFrame(initialFrame);
-		connected.pluginPort.postMessage(connected.init);
+		connected.pluginPort.postMessage(connected.ready);
 		await waitFor(() => expect(connected.messages).toHaveLength(1));
-		connected.pluginPort.postMessage({ generation: 1, type: "theme-applied" });
-		await waitFor(() => expect(connected.messages).toHaveLength(2));
 		connected.pluginPort.postMessage({
 			input: null,
 			type: "operation-request",
@@ -717,10 +713,8 @@ describe("authenticated root bootstrap", () => {
 		const { router } = view;
 		await waitFor(() => expect(frame()).toBeTruthy());
 		const connected = connectFrame(frame());
-		connected.pluginPort.postMessage(connected.init);
+		connected.pluginPort.postMessage(connected.ready);
 		await waitFor(() => expect(connected.messages).toHaveLength(1));
-		connected.pluginPort.postMessage({ generation: 1, type: "theme-applied" });
-		await waitFor(() => expect(connected.messages).toHaveLength(2));
 
 		await router.navigate({ href: "/fixture/details/item-1" });
 		await waitFor(() => expect(router.state.location.pathname).toBe("/fixture/details/item-1"));
@@ -736,10 +730,8 @@ describe("authenticated root bootstrap", () => {
 		const { router } = view;
 		await waitFor(() => expect(frame()).toBeTruthy());
 		const connected = connectFrame(frame());
-		connected.pluginPort.postMessage(connected.init);
+		connected.pluginPort.postMessage(connected.ready);
 		await waitFor(() => expect(connected.messages).toHaveLength(1));
-		connected.pluginPort.postMessage({ generation: 1, type: "theme-applied" });
-		await waitFor(() => expect(connected.messages).toHaveLength(2));
 
 		expect(connected.messages).toContainEqual(
 			expect.objectContaining({ edgeBack: false, type: "location" }),

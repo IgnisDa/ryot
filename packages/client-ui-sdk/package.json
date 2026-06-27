@@ -4,6 +4,7 @@
 	"type": "module",
 	"exports": {
 		"./theme.css": "./src/theme.css",
+		"./palette.css": "./src/palette.css",
 		"./schema-form": {
 			"types": "./src/schema-form/index.tsx",
 			"default": "./src/schema-form/index.tsx"

@@ -99,6 +99,9 @@ it.effect(
 			expect(css).toContain(`./${cssPngName}`);
 			expect(css).toContain("background-color: var(--accent)");
 			expect(css).toContain("color: var(--text-muted)");
+			expect(css).toContain("--accent: #fd7e14");
+			expect(css).toContain("prefers-color-scheme: dark");
+			expect(css).toContain('[data-theme="dark"]');
 
 			const document = text(byName.get("index.html")?.contents);
 			expect(document).toContain("<title>Fixture plugin</title>");
