@@ -7,6 +7,7 @@ import { Clock, Effect, Pool, Queue, Runtime, Schema, Stream } from "effect";
 import sandboxRunnerSource from "#lib/infrastructure/sandbox-runtime/runner-source.sandbox.js" with { type: "text" };
 import sandboxRunnerUtilitiesSource from "#lib/infrastructure/sandbox-runtime/runner-utilities.sandbox.js" with { type: "text" };
 
+import { sandboxDenoDirConfig } from "../config/definition";
 import { AppConfig } from "../config/service";
 import { redisKeys, RedisService } from "../redis";
 import { ensureSandboxRuntimeDependencies } from "./dependencies";
@@ -323,8 +324,8 @@ export class PackageCacheManager extends Effect.Service<PackageCacheManager>()(
 	"PackageCacheManager",
 	{
 		scoped: Effect.gen(function* () {
-			const config = yield* AppConfig;
-			return yield* ensureSandboxRuntimeDependencies(config.sandbox.denoDir);
+			const denoDir = yield* sandboxDenoDirConfig;
+			return yield* ensureSandboxRuntimeDependencies(denoDir);
 		}),
 	},
 ) {}
