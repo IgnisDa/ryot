@@ -20,23 +20,23 @@ const toMovaryLoadError = (message: string) =>
 export const loadMovaryAdapterResult = Effect.fn("movaryProcessor.load")(function* (input: {
 	runId: ImportRunId;
 	userId: UserId;
-	filePath?: string;
-	sourcePayload?: Record<string, unknown>;
+	filePath?: string | undefined;
+	sourcePayload?: Record<string, unknown> | undefined;
 }) {
 	const config = yield* AppConfig;
 	const { historyFilePath, ratingsFilePath, watchlistFilePath } = yield* Effect.all({
 		historyFilePath: getValidatedOptionalPath(
-			input.sourcePayload?.historyFilePath,
+			input.sourcePayload?.["historyFilePath"],
 			MOVARY_EXTENSIONS,
 			config.tmpDir,
 		).pipe(Effect.map((p) => p ?? input.filePath)),
 		ratingsFilePath: getValidatedOptionalPath(
-			input.sourcePayload?.ratingsFilePath,
+			input.sourcePayload?.["ratingsFilePath"],
 			MOVARY_EXTENSIONS,
 			config.tmpDir,
 		),
 		watchlistFilePath: getValidatedOptionalPath(
-			input.sourcePayload?.watchlistFilePath,
+			input.sourcePayload?.["watchlistFilePath"],
 			MOVARY_EXTENSIONS,
 			config.tmpDir,
 		),

@@ -118,7 +118,10 @@ export class IntegrationsService extends Effect.Service<IntegrationsService>()(
 
 			const list = (
 				user: CurrentUserValue,
-				query: { provider?: CreateIntegrationBody["provider"]; isDisabled?: boolean },
+				query: {
+					provider?: CreateIntegrationBody["provider"] | undefined;
+					isDisabled?: boolean | undefined;
+				},
 			) => runWithDb(repository.listForUser({ userId: user.id, ...query }));
 
 			const update = Effect.fn("IntegrationsService.update")(function* (

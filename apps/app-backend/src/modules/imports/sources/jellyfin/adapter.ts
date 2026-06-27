@@ -69,8 +69,8 @@ const encodeAuthRequest = Schema.encodeSync(Schema.parseJson(JellyfinAuthRequest
 type JellyfinAdapterInput = {
 	apiUrl: string;
 	username: string;
-	password?: string;
-	allowInsecureConnections?: boolean;
+	password?: string | undefined;
+	allowInsecureConnections?: boolean | undefined;
 };
 
 const createJellyfinAuthHeaders = (accessToken?: string): Record<string, string> => ({

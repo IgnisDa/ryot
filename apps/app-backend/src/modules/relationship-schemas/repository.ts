@@ -214,9 +214,9 @@ export class RelationshipSchemasRepository extends Effect.Service<RelationshipSc
 
 			const listByUser = Effect.fn("RelationshipSchemasRepository.listByUser")(function* (input: {
 				userId: UserId;
-				slugs?: ReadonlyArray<string>;
-				sourceEntitySchemaId?: EntitySchemaId | null;
-				targetEntitySchemaId?: EntitySchemaId | null;
+				slugs?: ReadonlyArray<string> | undefined;
+				sourceEntitySchemaId?: EntitySchemaId | null | undefined;
+				targetEntitySchemaId?: EntitySchemaId | null | undefined;
 			}) {
 				const db = yield* CurrentDb;
 				const rows = yield* dbEffect(() =>
