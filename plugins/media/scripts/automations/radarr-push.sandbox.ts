@@ -1,5 +1,6 @@
 import { defineAutomation } from "@ryot/sandbox-sdk/automation";
 import { defineManifest, type IntegrationRecord } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 
 import {
 	collectionSyncMatches,
@@ -35,7 +36,7 @@ const pushMovieToRadarr = (
 	const baseUrl = normalizeBaseUrl(specifics?.["baseUrl"]);
 	const apiKey = specifics?.["apiKey"];
 	if (!specifics || !baseUrl || typeof apiKey !== "string") {
-		return Promise.resolve();
+		return Effect.void;
 	}
 
 	const requestBody = {
@@ -52,12 +53,12 @@ const pushMovieToRadarr = (
 			body: JSON.stringify(requestBody),
 			headers: { "Content-Type": "application/json", "X-Api-Key": apiKey },
 		})
-		.then((result) => {
-			if (!result.success) {
-				console.warn(`Radarr push failed: ${result.error}`);
-			}
-			return undefined;
-		});
+		.pipe(
+			Effect.asVoid,
+			Effect.catchAll((error) =>
+				Effect.sync(() => console.warn(`Radarr push failed: ${error.message}`)),
+			),
+		);
 };
 
 export default defineAutomation({
@@ -67,37 +68,35 @@ export default defineAutomation({
 		const entitySchemaSlug = event?.properties["entitySchemaSlug"];
 		const entityId = event?.properties["entityId"];
 		if (!event || entitySchemaSlug !== "movie" || typeof entityId !== "string") {
-			return Promise.resolve(null);
+			return Effect.succeed(null);
 		}
 
-		return Promise.all([integrationsDisabledForUser(host), listActiveIntegrations(host, "radarr")])
-			.then(([disabled, integrations]) => {
-				if (disabled) {
-					return undefined;
-				}
-				const matching = integrations.filter((integration) =>
-					collectionSyncMatches(integration, event.subject.id),
-				);
-				if (matching.length === 0) {
-					return undefined;
-				}
-				return fetchEntity(host, entityId).then((entity) => {
-					if (!entity) {
-						return undefined;
-					}
-					return resolveEntityProviderName(host, entity).then((providerName) => {
-						const externalId = entity.externalId;
-						if (providerName !== "TMDB" || !externalId) {
-							return undefined;
-						}
-						return matching.reduce(
-							(current, integration) =>
-								current.then(() => pushMovieToRadarr(host, integration, externalId)),
-							Promise.resolve(),
-						);
-					});
-				});
-			})
-			.then(() => null);
+		return Effect.gen(function* () {
+			const [disabled, integrations] = yield* Effect.all(
+				[integrationsDisabledForUser(host), listActiveIntegrations(host, "radarr")],
+				{ concurrency: "unbounded" },
+			);
+			if (disabled) {
+				return null;
+			}
+			const matching = integrations.filter((integration) =>
+				collectionSyncMatches(integration, event.subject.id),
+			);
+			if (matching.length === 0) {
+				return null;
+			}
+			const entity = yield* fetchEntity(host, entityId);
+			const providerName = yield* resolveEntityProviderName(host, entity);
+			const externalId = entity.externalId;
+			if (providerName !== "TMDB" || !externalId) {
+				return null;
+			}
+			yield* Effect.forEach(
+				matching,
+				(integration) => pushMovieToRadarr(host, integration, externalId),
+				{ concurrency: 1, discard: true },
+			);
+			return null;
+		});
 	},
 });

@@ -181,6 +181,7 @@ const compileRunner = (sandboxRuntimeDir: string) =>
 					target: "browser",
 					packages: "bundle",
 					entrypoints: [entrypoint],
+					external: ["@ryot/sandbox-sdk/effect"],
 				}),
 			catch: (error) =>
 				new BuiltInGenerationError({ message: `Sandbox runner build failed: ${String(error)}` }),

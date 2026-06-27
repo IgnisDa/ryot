@@ -1,5 +1,6 @@
 import { defineAutomation } from "@ryot/sandbox-sdk/automation";
 import { defineManifest, type IntegrationRecord } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 
 import {
 	fetchEntity,
@@ -49,18 +50,18 @@ const authenticateJellyfin = (
 				"X-Emby-Authorization": JELLYFIN_AUTH_HEADER,
 			},
 		})
-		.then((result): JellyfinSession | null => {
-			if (!result.success) {
-				return null;
-			}
-			const payload = jsonObject(parseJsonBody(result));
-			const user = jsonObject(payload?.["User"]);
-			const accessToken = payload?.["AccessToken"];
-			const userId = user?.["Id"];
-			return typeof accessToken === "string" && typeof userId === "string"
-				? { userId, accessToken }
-				: null;
-		});
+		.pipe(
+			Effect.map((result): JellyfinSession | null => {
+				const payload = jsonObject(parseJsonBody(result));
+				const user = jsonObject(payload?.["User"]);
+				const accessToken = payload?.["AccessToken"];
+				const userId = user?.["Id"];
+				return typeof accessToken === "string" && typeof userId === "string"
+					? { userId, accessToken }
+					: null;
+			}),
+			Effect.catchAll(() => Effect.succeed(null)),
+		);
 
 const findJellyfinItemId = (
 	host: IntegrationPushHost,
@@ -82,34 +83,34 @@ const findJellyfinItemId = (
 			`${baseUrl}/Users/${encodeURIComponent(session.userId)}/Items?${params.toString()}`,
 			{ headers: { "X-Emby-Token": session.accessToken } },
 		)
-		.then((result) => {
-			if (!result.success) {
-				return null;
-			}
-			const payload = jsonObject(parseJsonBody(result));
-			const items = Array.isArray(payload?.["Items"]) ? payload["Items"] : [];
-			if (item.tmdbId) {
-				const matched = items.find((value) => {
-					const entry = jsonObject(value);
-					const providerIds = jsonObject(entry?.["ProviderIds"]);
-					return String(providerIds?.["Tmdb"]) === item.tmdbId;
-				});
-				const matchedId = jsonObject(matched)?.["Id"];
-				if (typeof matchedId === "string") {
-					return matchedId;
+		.pipe(
+			Effect.map((result) => {
+				const payload = jsonObject(parseJsonBody(result));
+				const items = Array.isArray(payload?.["Items"]) ? payload["Items"] : [];
+				if (item.tmdbId) {
+					const matched = items.find((value) => {
+						const entry = jsonObject(value);
+						const providerIds = jsonObject(entry?.["ProviderIds"]);
+						return String(providerIds?.["Tmdb"]) === item.tmdbId;
+					});
+					const matchedId = jsonObject(matched)?.["Id"];
+					if (typeof matchedId === "string") {
+						return matchedId;
+					}
 				}
-			}
-			if (item.title) {
-				const title = item.title.toLowerCase();
-				const matched = items.find((value) => {
-					const name = jsonObject(value)?.["Name"];
-					return typeof name === "string" && name.toLowerCase() === title;
-				});
-				const matchedId = jsonObject(matched)?.["Id"];
-				return typeof matchedId === "string" ? matchedId : null;
-			}
-			return null;
-		});
+				if (item.title) {
+					const title = item.title.toLowerCase();
+					const matched = items.find((value) => {
+						const name = jsonObject(value)?.["Name"];
+						return typeof name === "string" && name.toLowerCase() === title;
+					});
+					const matchedId = jsonObject(matched)?.["Id"];
+					return typeof matchedId === "string" ? matchedId : null;
+				}
+				return null;
+			}),
+			Effect.catchAll(() => Effect.succeed(null)),
+		);
 };
 
 const markPlayedInJellyfin = (
@@ -121,30 +122,30 @@ const markPlayedInJellyfin = (
 	const baseUrl = normalizeBaseUrl(specifics?.["baseUrl"]);
 	const username = specifics?.["username"];
 	if (!baseUrl || typeof username !== "string") {
-		return Promise.resolve();
+		return Effect.void;
 	}
 
-	return authenticateJellyfin(host, baseUrl, username, specifics?.["password"]).then((session) => {
+	return Effect.gen(function* () {
+		const session = yield* authenticateJellyfin(host, baseUrl, username, specifics?.["password"]);
 		if (!session) {
-			return undefined;
+			return;
 		}
-		return findJellyfinItemId(host, baseUrl, session, item).then((itemId) => {
-			if (!itemId) {
-				return undefined;
-			}
-			return host
-				.httpCall(
-					"POST",
-					`${baseUrl}/Users/${encodeURIComponent(session.userId)}/PlayedItems/${encodeURIComponent(itemId)}`,
-					{ headers: { "X-Emby-Token": session.accessToken } },
-				)
-				.then((result) => {
-					if (!result.success) {
-						console.warn(`Jellyfin push failed: ${result.error}`);
-					}
-					return undefined;
-				});
-		});
+		const itemId = yield* findJellyfinItemId(host, baseUrl, session, item);
+		if (!itemId) {
+			return;
+		}
+		yield* host
+			.httpCall(
+				"POST",
+				`${baseUrl}/Users/${encodeURIComponent(session.userId)}/PlayedItems/${encodeURIComponent(itemId)}`,
+				{ headers: { "X-Emby-Token": session.accessToken } },
+			)
+			.pipe(
+				Effect.asVoid,
+				Effect.catchAll((error) =>
+					Effect.sync(() => console.warn(`Jellyfin push failed: ${error.message}`)),
+				),
+			);
 	});
 };
 
@@ -154,35 +155,30 @@ export default defineAutomation({
 		const event = automation.source.kind === "event" ? automation.source.after : undefined;
 		const entitySchemaSlug = event?.subject.entitySchemaSlug;
 		if (!event || (entitySchemaSlug !== "movie" && entitySchemaSlug !== "show")) {
-			return Promise.resolve(null);
+			return Effect.succeed(null);
 		}
 
-		return Promise.all([
-			integrationsDisabledForUser(host),
-			listActiveIntegrations(host, "jellyfin_push"),
-		])
-			.then(([disabled, integrations]) => {
-				if (disabled || integrations.length === 0) {
-					return undefined;
-				}
-				return fetchEntity(host, event.subject.id).then((entity) => {
-					if (!entity) {
-						return undefined;
-					}
-					return resolveEntityProviderName(host, entity).then((providerName) => {
-						const tmdbId = providerName === "TMDB" ? entity.externalId : null;
-						const title = entity.name || null;
-						if (!tmdbId && !title) {
-							return undefined;
-						}
-						return integrations.reduce(
-							(current, integration) =>
-								current.then(() => markPlayedInJellyfin(host, integration, { tmdbId, title })),
-							Promise.resolve(),
-						);
-					});
-				});
-			})
-			.then(() => null);
+		return Effect.gen(function* () {
+			const [disabled, integrations] = yield* Effect.all(
+				[integrationsDisabledForUser(host), listActiveIntegrations(host, "jellyfin_push")],
+				{ concurrency: "unbounded" },
+			);
+			if (disabled || integrations.length === 0) {
+				return null;
+			}
+			const entity = yield* fetchEntity(host, event.subject.id);
+			const providerName = yield* resolveEntityProviderName(host, entity);
+			const tmdbId = providerName === "TMDB" ? entity.externalId : null;
+			const title = entity.name || null;
+			if (!tmdbId && !title) {
+				return null;
+			}
+			yield* Effect.forEach(
+				integrations,
+				(integration) => markPlayedInJellyfin(host, integration, { tmdbId, title }),
+				{ concurrency: 1, discard: true },
+			);
+			return null;
+		});
 	},
 });

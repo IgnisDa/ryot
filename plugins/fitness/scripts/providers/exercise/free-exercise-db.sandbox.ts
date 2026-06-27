@@ -1,4 +1,5 @@
 import { defineManifest, type JsonValue, type SandboxHost } from "@ryot/sandbox-sdk/core";
+import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
 export const manifest = defineManifest({
@@ -12,25 +13,49 @@ export const manifest = defineManifest({
 
 type ExerciseHost = SandboxHost<readonly ["httpCall", "getCachedValue", "setCachedValue"]>;
 
-type ExerciseImage = { type: "remote"; url: string };
+const exerciseImageSchema = Schema.Struct({ type: Schema.Literal("remote"), url: Schema.String });
+type ExerciseImage = Schema.Schema.Type<typeof exerciseImageSchema>;
 
-type ExerciseProperties = {
-	kind: string;
-	force: string | null;
-	level: string;
-	images: ExerciseImage[];
-	muscles: string[];
-	mechanic: string | null;
-	equipment: string | null;
-	instructions: string[];
-};
+const exercisePropertiesSchema = Schema.Struct({
+	kind: Schema.String,
+	level: Schema.String,
+	force: Schema.NullOr(Schema.String),
+	muscles: Schema.Array(Schema.String),
+	mechanic: Schema.NullOr(Schema.String),
+	equipment: Schema.NullOr(Schema.String),
+	images: Schema.Array(exerciseImageSchema),
+	instructions: Schema.Array(Schema.String),
+});
 
-type NormalizedExercise = {
-	name: string;
-	externalId: string;
-	searchText: string;
-	properties: ExerciseProperties;
-};
+const normalizedExerciseSchema = Schema.Struct({
+	name: Schema.String,
+	externalId: Schema.String,
+	searchText: Schema.String,
+	properties: exercisePropertiesSchema,
+});
+type ExerciseProperties = Schema.Schema.Type<typeof exercisePropertiesSchema>;
+type NormalizedExercise = Schema.Schema.Type<typeof normalizedExerciseSchema>;
+
+const cachedExerciseSchema = Schema.Struct({
+	name: Schema.String,
+	externalId: Schema.String,
+	searchText: Schema.String,
+	properties: Schema.Struct({
+		kind: Schema.String,
+		level: Schema.String,
+		muscles: Schema.Array(Schema.String),
+		force: Schema.optional(Schema.Unknown),
+		mechanic: Schema.optional(Schema.Unknown),
+		images: Schema.Array(exerciseImageSchema),
+		equipment: Schema.optional(Schema.Unknown),
+		instructions: Schema.Array(Schema.String),
+	}),
+});
+const cachedExercisesMetadataSchema = Schema.Struct({
+	version: Schema.String,
+	chunkCount: Schema.Number.pipe(Schema.int(), Schema.positive()),
+});
+const exercisePayloadSchema = Schema.Array(Schema.Unknown);
 
 type EnumResult = { ok: boolean; value: string | null };
 
@@ -93,9 +118,6 @@ const asRecord = (value: unknown): UnknownRecord | null => (isRecord(value) ? va
 
 const stringValue = (value: unknown) =>
 	typeof value === "string" && value.trim() ? value.trim() : null;
-
-const numberValue = (value: unknown) =>
-	typeof value === "number" && Number.isInteger(value) ? value : null;
 
 const categoryToKind = (category: string) => {
 	const lower = category.toLowerCase();
@@ -255,123 +277,72 @@ const normalizeExercise = (value: unknown): NormalizedExercise | null => {
 	};
 };
 
-const stringArray = (value: unknown) => {
-	if (!Array.isArray(value)) {
-		return null;
-	}
-	const result: string[] = [];
-	for (const entry of value) {
-		if (typeof entry !== "string") {
-			return null;
-		}
-		result.push(entry);
-	}
-	return result;
-};
-
-const imageArray = (value: unknown): ExerciseImage[] | null => {
-	if (!Array.isArray(value)) {
-		return null;
-	}
-	const result: ExerciseImage[] = [];
-	for (const entry of value) {
-		const record = asRecord(entry);
-		const url = stringValue(record?.["url"]);
-		if (record?.["type"] !== "remote" || url === null) {
-			return null;
-		}
-		result.push({ type: "remote", url });
-	}
-	return result;
-};
-
 const reviveExercise = (value: unknown): NormalizedExercise | null => {
-	const record = asRecord(value);
-	const name = stringValue(record?.["name"]);
-	const externalId = stringValue(record?.["externalId"]);
-	const searchText = typeof record?.["searchText"] === "string" ? record["searchText"] : null;
-	const properties = asRecord(record?.["properties"]);
-	if (name === null || externalId === null || searchText === null || !properties) {
+	const decoded = Schema.decodeUnknownEither(cachedExerciseSchema)(value);
+	if (decoded._tag === "Left") {
 		return null;
 	}
-
-	const kind = stringValue(properties["kind"]);
-	const level = stringValue(properties["level"]);
-	const muscles = stringArray(properties["muscles"]);
-	const images = imageArray(properties["images"]);
-	const instructions = stringArray(properties["instructions"]);
-	if (kind === null || level === null || !muscles || !images || !instructions) {
+	const row = decoded.right;
+	const name = stringValue(row.name);
+	const externalId = stringValue(row.externalId);
+	const kind = stringValue(row.properties.kind);
+	const level = stringValue(row.properties.level);
+	if (name === null || externalId === null || kind === null || level === null) {
 		return null;
 	}
-
-	const force = properties["force"];
-	const mechanic = properties["mechanic"];
-	const equipment = properties["equipment"];
+	const images: ExerciseImage[] = [];
+	for (const image of row.properties.images) {
+		const url = stringValue(image.url);
+		if (url === null) {
+			return null;
+		}
+		images.push({ type: "remote", url });
+	}
 	return {
 		name,
 		externalId,
-		searchText,
+		searchText: row.searchText,
 		properties: {
 			kind,
 			level,
 			images,
-			muscles,
-			instructions,
-			force: typeof force === "string" ? force : null,
-			mechanic: typeof mechanic === "string" ? mechanic : null,
-			equipment: typeof equipment === "string" ? equipment : null,
+			muscles: [...row.properties.muscles],
+			instructions: [...row.properties.instructions],
+			force: typeof row.properties.force === "string" ? row.properties.force : null,
+			mechanic: typeof row.properties.mechanic === "string" ? row.properties.mechanic : null,
+			equipment: typeof row.properties.equipment === "string" ? row.properties.equipment : null,
 		},
 	};
 };
 
-const readCachedValue = (host: ExerciseHost, key: string) =>
-	host.getCachedValue(key).then((result) => {
-		if (!result.success) {
-			throw new Error(result.error || `Failed to read cache key ${key}`);
-		}
-		return result.data;
-	});
-
 const writeCachedValue = (host: ExerciseHost, key: string, value: JsonValue) =>
-	host.setCachedValue(key, value, CACHE_TTL_SECONDS).then((result) => {
-		if (!result.success) {
-			throw new Error(result.error || `Failed to write cache key ${key}`);
-		}
-		return undefined;
-	});
+	host.setCachedValue(key, value, CACHE_TTL_SECONDS).pipe(Effect.asVoid);
 
-const readCachedExercises = (host: ExerciseHost): Promise<NormalizedExercise[] | null> =>
-	readCachedValue(host, CACHE_KEY).then((metadataValue) => {
-		const metadata = asRecord(metadataValue);
-		const version = typeof metadata?.["version"] === "string" ? metadata["version"] : null;
-		const chunkCount = numberValue(metadata?.["chunkCount"]);
-		if (version === null || chunkCount === null || chunkCount < 1) {
+const readCachedExercises = (host: ExerciseHost) =>
+	Effect.gen(function* () {
+		const metadataValue = yield* host.getCachedValue(CACHE_KEY);
+		const metadata = Schema.decodeUnknownEither(cachedExercisesMetadataSchema)(metadataValue);
+		if (metadata._tag === "Left") {
 			return null;
 		}
 
-		const readChunk = (
-			index: number,
-			rows: NormalizedExercise[],
-		): Promise<NormalizedExercise[] | null> => {
-			if (index >= chunkCount) {
-				return Promise.resolve(rows);
+		const rows: NormalizedExercise[] = [];
+		for (let index = 0; index < metadata.right.chunkCount; index += 1) {
+			const chunkValue = yield* host.getCachedValue(
+				`${CACHE_KEY}:${metadata.right.version}:chunk:${index}`,
+			);
+			if (!Array.isArray(chunkValue)) {
+				return null;
 			}
-			return readCachedValue(host, `${CACHE_KEY}:${version}:chunk:${index}`).then((chunkValue) => {
-				if (!Array.isArray(chunkValue)) {
+			for (const entry of chunkValue) {
+				const revived = reviveExercise(entry);
+				if (!revived) {
 					return null;
 				}
-				for (const entry of chunkValue) {
-					const revived = reviveExercise(entry);
-					if (!revived) {
-						return null;
-					}
-					rows.push(revived);
-				}
-				return readChunk(index + 1, rows);
-			});
-		};
-
-		return readChunk(0, []);
+				rows.push(revived);
+			}
+		}
+		return rows;
 	});
 
 const byteLength = (value: string) => new TextEncoder().encode(value).byteLength;
@@ -402,45 +373,41 @@ const chunkExercises = (rows: readonly NormalizedExercise[]) => {
 
 const writeCachedExercises = (host: ExerciseHost, rows: readonly NormalizedExercise[]) => {
 	const version = String(Date.now());
-	const chunks = chunkExercises(rows);
 
-	return chunks
-		.reduce<Promise<unknown>>(
-			(chain, chunk, index) =>
-				chain.then(() => writeCachedValue(host, `${CACHE_KEY}:${version}:chunk:${index}`, chunk)),
-			Promise.resolve(),
-		)
-		.then(() => writeCachedValue(host, CACHE_KEY, { version, chunkCount: chunks.length }));
+	return Effect.gen(function* () {
+		const chunks = yield* Effect.try({
+			try: () => chunkExercises(rows),
+			catch: (error) =>
+				error instanceof Error ? error : new Error("Failed to chunk exercise cache"),
+		});
+		for (const [index, chunk] of chunks.entries()) {
+			yield* writeCachedValue(host, `${CACHE_KEY}:${version}:chunk:${index}`, chunk);
+		}
+		yield* writeCachedValue(host, CACHE_KEY, { version, chunkCount: chunks.length });
+	});
 };
 
-const loadExercises = (host: ExerciseHost): Promise<NormalizedExercise[]> =>
-	readCachedExercises(host).then((cached) => {
+const loadExercises = (host: ExerciseHost) =>
+	Effect.gen(function* () {
+		const cached = yield* readCachedExercises(host);
 		if (cached) {
 			return cached;
 		}
 
-		return host.httpCall("GET", EXERCISES_URL).then((response) => {
-			if (!response.success) {
-				throw new Error(response.error || "Exercise database request failed");
-			}
-
-			let payload: unknown;
-			try {
-				payload = JSON.parse(response.data.body);
-			} catch {
-				throw new Error("Exercise database returned invalid JSON");
-			}
-
-			if (!Array.isArray(payload)) {
-				throw new Error("Exercise database returned an unexpected payload");
-			}
-
-			const rows = payload
-				.map(normalizeExercise)
-				.filter((exercise): exercise is NormalizedExercise => exercise !== null)
-				.sort((left, right) => left.name.localeCompare(right.name));
-			return writeCachedExercises(host, rows).then(() => rows);
+		const response = yield* host.httpCall("GET", EXERCISES_URL);
+		const payload = yield* Effect.try({
+			try: () => JSON.parse(response.body) as unknown,
+			catch: () => new Error("Exercise database returned invalid JSON"),
 		});
+		const exercises = yield* Schema.decodeUnknown(exercisePayloadSchema)(payload).pipe(
+			Effect.mapError(() => new Error("Exercise database returned an unexpected payload")),
+		);
+		const rows = exercises
+			.map(normalizeExercise)
+			.filter((exercise): exercise is NormalizedExercise => exercise !== null)
+			.sort((left, right) => left.name.localeCompare(right.name));
+		yield* writeCachedExercises(host, rows);
+		return rows;
 	});
 
 const scoreExercise = (row: NormalizedExercise, query: string, tokens: readonly string[]) => {
@@ -482,7 +449,8 @@ const matchesExercise = (row: NormalizedExercise, query: string, tokens: readonl
 export const search = defineProviderDriver(manifest, "search", (input, host) => {
 	const normalizedQuery = normalizeSearchText([input.query]);
 	const tokens = normalizedQuery ? normalizedQuery.split(" ") : [];
-	return loadExercises(host).then((rows) => {
+	return Effect.gen(function* () {
+		const rows = yield* loadExercises(host);
 		const matchedRows = rows
 			.filter((row) => matchesExercise(row, normalizedQuery, tokens))
 			.map((row) => ({ row, score: scoreExercise(row, normalizedQuery, tokens) }))
@@ -523,10 +491,11 @@ export const search = defineProviderDriver(manifest, "search", (input, host) => 
 });
 
 export const details = defineProviderDriver(manifest, "details", (input, host) =>
-	loadExercises(host).then((rows) => {
+	Effect.gen(function* () {
+		const rows = yield* loadExercises(host);
 		const row = rows.find((exercise) => exercise.externalId === input.externalId);
 		if (!row) {
-			throw new Error(`Exercise not found: ${input.externalId}`);
+			return yield* Effect.fail(new Error(`Exercise not found: ${input.externalId}`));
 		}
 		return { name: row.name, properties: row.properties };
 	}),

@@ -1,4 +1,5 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
@@ -7,10 +8,7 @@ import { details, manifest } from "./anilist.sandbox";
 type AnilistCompanyHost = SandboxHost<typeof manifest.capabilities>;
 
 const httpSuccess = (body: unknown) =>
-	Promise.resolve({
-		success: true as const,
-		data: { status: 200, headers: {}, body: JSON.stringify(body) },
-	});
+	Effect.succeed({ status: 200, headers: {}, body: JSON.stringify(body) });
 
 const makeHost = (httpCall: AnilistCompanyHost["httpCall"]) =>
 	defineSandboxTestHost(manifest, { httpCall });
@@ -38,42 +36,45 @@ describe("company.anilist sandbox script", () => {
 			}),
 		);
 
-		return runSandboxTestDriver(details, { externalId: "1" }, host, execution).then((result) => {
-			expect(result.properties).toEqual({
-				images: [],
-				alternateNames: [],
-				sourceUrl: "https://anilist.co/studio/1",
-			});
-			expect(result.relatedEntityGroups).toEqual([
-				{
-					direction: "outgoing",
-					synchronization: "authoritative",
-					relationshipSchemaSlug: "company-to-anime",
-					entities: [
-						{
-							name: "Anime",
-							externalId: "2",
-							scriptSlug: "anime.anilist",
-							relationshipProperties: { roles: ["Animation Studio"] },
-						},
-					],
-				},
-				{
-					direction: "outgoing",
-					synchronization: "authoritative",
-					relationshipSchemaSlug: "company-to-manga",
-					entities: [
-						{
-							name: "Manga",
-							externalId: "3",
-							scriptSlug: "manga.anilist",
-							relationshipProperties: { roles: ["Animation Studio"] },
-						},
-					],
-				},
-			]);
-			return undefined;
-		});
+		return runSandboxTestDriver(details, { externalId: "1" }, host, execution).pipe(
+			Effect.map((result) => {
+				expect(result.properties).toEqual({
+					images: [],
+					alternateNames: [],
+					sourceUrl: "https://anilist.co/studio/1",
+				});
+				expect(result.relatedEntityGroups).toEqual([
+					{
+						direction: "outgoing",
+						synchronization: "authoritative",
+						relationshipSchemaSlug: "company-to-anime",
+						entities: [
+							{
+								name: "Anime",
+								externalId: "2",
+								scriptSlug: "anime.anilist",
+								relationshipProperties: { roles: ["Animation Studio"] },
+							},
+						],
+					},
+					{
+						direction: "outgoing",
+						synchronization: "authoritative",
+						relationshipSchemaSlug: "company-to-manga",
+						entities: [
+							{
+								name: "Manga",
+								externalId: "3",
+								scriptSlug: "manga.anilist",
+								relationshipProperties: { roles: ["Animation Studio"] },
+							},
+						],
+					},
+				]);
+				return undefined;
+			}),
+			Effect.runPromise,
+		);
 	});
 
 	it("collects every studio media connection page", () => {
@@ -101,17 +102,20 @@ describe("company.anilist sandbox script", () => {
 			});
 		});
 
-		return runSandboxTestDriver(details, { externalId: "1" }, host, execution).then((result) => {
-			expect(requestedPages).toEqual([1, 2]);
-			expect(result.relatedEntityGroups).toEqual([
-				expect.objectContaining({
-					entities: [expect.objectContaining({ externalId: "2" })],
-				}),
-				expect.objectContaining({
-					entities: [expect.objectContaining({ externalId: "3" })],
-				}),
-			]);
-			return undefined;
-		});
+		return runSandboxTestDriver(details, { externalId: "1" }, host, execution).pipe(
+			Effect.map((result) => {
+				expect(requestedPages).toEqual([1, 2]);
+				expect(result.relatedEntityGroups).toEqual([
+					expect.objectContaining({
+						entities: [expect.objectContaining({ externalId: "2" })],
+					}),
+					expect.objectContaining({
+						entities: [expect.objectContaining({ externalId: "3" })],
+					}),
+				]);
+				return undefined;
+			}),
+			Effect.runPromise,
+		);
 	});
 });

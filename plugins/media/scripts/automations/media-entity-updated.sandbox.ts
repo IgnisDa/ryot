@@ -1,5 +1,6 @@
 import { defineAutomation } from "@ryot/sandbox-sdk/automation";
 import { defineManifest, type JsonValue } from "@ryot/sandbox-sdk/core";
+import { Effect } from "@ryot/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
 	kind: "automation",
@@ -68,13 +69,13 @@ export default defineAutomation({
 			!source.after ||
 			!population?.rootPreviouslyPopulated
 		) {
-			return Promise.resolve(null);
+			return Effect.succeed(null);
 		}
 
 		const before = source.before;
 		const after = source.after;
 		const scope = population.scopeEntity;
-		const emissions: Array<Promise<JsonValue>> = [];
+		const emissions: Array<ReturnType<typeof host.emitSignal>> = [];
 		const emit = (
 			schemaSlug: string,
 			discriminator: string,
@@ -171,6 +172,8 @@ export default defineAutomation({
 			}
 		}
 
-		return emissions.length === 0 ? Promise.resolve(null) : Promise.all(emissions);
+		return emissions.length === 0
+			? Effect.succeed(null)
+			: Effect.all(emissions, { concurrency: "unbounded" });
 	},
 });
