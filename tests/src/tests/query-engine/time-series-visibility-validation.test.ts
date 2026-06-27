@@ -281,7 +281,6 @@ describe("In-library filter", () => {
 		});
 
 		await insertLibraryMembership(userA.client, {
-			userId: userA.userId,
 			mediaEntityId: entity.id,
 		});
 
