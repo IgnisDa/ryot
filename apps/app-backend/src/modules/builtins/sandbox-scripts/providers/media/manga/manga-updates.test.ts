@@ -19,8 +19,7 @@ const execution = { metadata: {}, sandboxScriptId: "script_test" };
 
 describe("manga.manga-updates sandbox script", () => {
 	it("keeps recommendation and related-series entities", () => {
-		const host = makeHost((_method, url) => {
-			const requestUrl = String(url);
+		const host = makeHost((_method, requestUrl) => {
 			if (requestUrl.endsWith("/series/1")) {
 				return httpSuccess({
 					genres: [],
@@ -55,7 +54,7 @@ describe("manga.manga-updates sandbox script", () => {
 
 	it("extracts volumes and production status from the HTML status field", () => {
 		const host = makeHost((_method, url) =>
-			String(url).endsWith("/series/7")
+			url.endsWith("/series/7")
 				? httpSuccess({
 						series_id: 7,
 						year: "2004",

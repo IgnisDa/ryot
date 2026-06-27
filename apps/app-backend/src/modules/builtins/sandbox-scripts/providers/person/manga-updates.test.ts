@@ -54,7 +54,7 @@ describe("person.manga-updates sandbox script", () => {
 	it("formats valid birthdays and emits authored series relationships", () => {
 		const host = makeHost((method, url) => {
 			if (method === "POST") {
-				expect(String(url)).toContain("/authors/4/series");
+				expect(url).toContain("/authors/4/series");
 				return httpSuccess({
 					series_list: [
 						{ series_id: 11, title: "Series A" },
