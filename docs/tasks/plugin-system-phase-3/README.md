@@ -3,8 +3,8 @@
 This PRD is a thin framing layer. **The authoritative technical spec is the two plan
 files**, which this document references rather than restates:
 
-- `docs/plans/plugin-system/00-overview.md` — the vision, the 20-item decision record, the
-  verified current-state map, the target architecture, and the cross-phase invariants that
+- `docs/plans/plugin-system/00-overview.md` — the vision, the decision record, the current
+  implementation baseline, the target architecture, and the cross-phase invariants that
   bind every phase.
 - `docs/plans/plugin-system/03-phase-3-capability-migrations.md` — the complete Phase 3
   spec: the standing host-function rules, and the strictly-ordered steps 0–5 (Effect-native
@@ -55,17 +55,13 @@ recorded findings and owner sign-off must land before the real workflow machiner
 
 ## Problem Statement
 
-After Phase 2, the plugin format, ingestion pipeline, and hot-capable loader exist, and
-everything that was **already declarative or sandboxed** (schemas, providers, automations,
-bindings, saved views) ships as the `plugins/media` and `plugins/fitness` packages. But the
-actual domain _logic_ still lives in the kernel: five native modules (`media-trending`,
-`media-monitoring`, `episode-resolver`, `metadata-lookup`, `exercises`) plus the media import
-population/resolution workflows and the integration sink/yank + import-source adapters are
-still TypeScript inside `apps/app-backend/src/modules/`, reading from the registry. Until this
-code moves into the plugins, the kernel-purity goal (Decision 2 — no media/fitness strings,
-branches, or imports) is unmet, "first-party plugin" is only half true (definitions ship as a
-plugin but behavior does not), and the syscall surface between kernel and plugins is unproven
-against real workloads.
+Phases 1 and 2 and Phase 3 Steps 0-2 are complete. The plugin format, loader, direct-script
+runtime, logical providers, authority model, crons, boot entries, and operations are established;
+`media-trending`, `exercises`, `metadata-lookup`, and `episode-resolver` have moved into plugins.
+The remaining domain logic is the media import population/resolution workflows, integration
+sink/yank and import-source adapters, `media-monitoring`, and residual media branches. Until this
+code moves into plugins, the kernel-purity goal (Decision 2 — no media/fitness strings, branches,
+or imports) remains unmet and the syscall surface is not yet proven against all real workloads.
 
 The full rationale, and why this phase comes third, is in
 `docs/plans/plugin-system/00-overview.md` (see "Sequencing rationale": Phase 3 "orders
@@ -86,7 +82,7 @@ standing rules — batch-first signatures, query pushdown via `executeQueryEngin
 new list-and-filter functions, coarse atomic writes, and generic naming that is never
 explicable by only one plugin (Decision 8; plan standing rules).
 
-The steps, in order: **Step 0a** atomically cuts scripts, drivers, backend host implementations,
+The steps, in order: **Step 0a** atomically cuts scripts, backend host implementations,
 and typed bridge dispatch over to an Effect-only API with no raw Promise compatibility surface.
 **Step 0b** independently adds structured, batch-first `log`/`span` host functions. **Step 1**
 adds the `crons` and `boot` manifest sections and global-write host functions, moving
@@ -95,7 +91,7 @@ catalog seeding runs once per server start, not on a periodic schedule). **Step 
 `plugins.invoke` contract endpoint, moving `metadata-lookup` and `episode-resolver` to plugin
 operations and migrating the browser extension to invoke. **Step 3** — gated behind a
 **mandatory throwaway spike** — builds the replay-deterministic durable-workflow primitives
-(`activity`/`sleep`/`child`, version pinning, determinism guard rails, per-driver-kind limits)
+(`activity`/`sleep`/`child`, version pinning, determinism guard rails, per-script-kind limits)
 and moves the media import population/resolution workflows into the media plugin. **Step 4**
 adds integration-provider registration and deny-by-default filesystem permission grants (with
 `fflate` as an approved dep), moving the yank/sink/push and import-source adapters into the
@@ -114,7 +110,7 @@ per-step migrate/delete/e2e lists, and the per-step done criteria — is specifi
 Actors: **owner** (authors the first-party plugin scripts and the media/fitness logic being
 migrated), **kernel** (the domain-agnostic backend exposing the syscall surface), **plugin
 package** (`plugins/media` / `plugins/fitness`), **sandbox script author** (writes provider /
-automation / cron / operation / workflow / adapter drivers), **scheduler** (kernel component
+automation / cron / operation / workflow / adapter scripts), **scheduler** (kernel component
 firing cron ticks), **durable engine** (kernel component running workflow shells), **API
 client** (`app-client`), **browser extension** (`apps/browser-extension`, the sole external
 metadata-lookup consumer), **admin/end user** (invokes operations, configures integrations),
@@ -125,8 +121,8 @@ and **implementing agent**.
 1. As a sandbox script author, I want `effect` vendored as a host-pinned approved sandbox
    dependency (single version matching the host, never bundled per script), so that scripts
    carrying substantial logic can use Effect the same way the host does (Decision 11; plan §0).
-2. As a sandbox script author, I want every host function and driver to use typed `Effect`
-   values exclusively and every sandbox manifest, driver, host wire contract, and operation
+2. As a sandbox script author, I want every host function and script entrypoint to use typed
+   `Effect` values exclusively and every sandbox manifest, script, host wire contract, and operation
    contract to use Effect Schema, with backend implementations and typed bridge dispatch using
    the same model and Promise confined to private platform transport adapters, so that Phase 3
    has one authoring, schema, and syscall contract rather than parallel APIs (Decision 11; plan
@@ -140,20 +136,20 @@ and **implementing agent**.
 
 ### Step 1 — crons: `media-trending` + `exercises`
 
-5. As the owner, I want a `crons` manifest section (`{ slug, schedule, driverRef,
+5. As the owner, I want a `crons` manifest section (`{ slug, schedule, scriptSlug,
 description }`) whose schedule format is whatever the existing scheduler consumes, so that a
    plugin declares periodic work without the kernel knowing what the work is (plan §1).
 6. As the scheduler, I want each due cron dispatched as a sandbox execution of its referenced
-   driver, fire-and-forget through the durable queue machinery per the `apps/app-backend`
+   script, fire-and-forget through the durable queue machinery per the `apps/app-backend`
    durable-ownership rules with idempotency owned by the script, so that the kernel owns the
    tick and the plugin owns the behavior (plan §1).
 7. As a sandbox script, I want batch, coarse-atomic global-write host functions
    `upsertGlobalEntities(items[])` and `upsertGlobalRelationships(items[])` with
-   preserve-existing semantics matching today's trending refresh writes, so that a cron driver
+   preserve-existing semantics matching today's trending refresh writes, so that a cron script
    can write global trending data (shapes `[IMPLEMENTER-DECIDES]`, semantics fixed; plan §1;
    Decision 8).
-8. As the kernel, I want those global-write functions capability-gated in the driver manifest,
-   so that a future untrusted provider script cannot write global data by default (plan §1).
+8. As the kernel, I want those global-write functions selected only for trusted system execution
+   of generic scripts, so that standard provider scripts cannot write global data (plan §1).
 9. As the owner, I want `media-trending` (poll providers → write trending globals + refresh
    workflow + infrequent task) rewritten as a cron-driven plugin script and `exercises`
    (free-exercise-db preload) rewritten as a boot-driven plugin script (one-time catalog seeding
@@ -166,12 +162,13 @@ description }`) whose schedule format is whatever the existing scheduler consume
 
 ### Step 2 — operations (invoke): `metadata-lookup` + `episode-resolver`
 
-11. As the owner, I want an `operations` manifest section (`{ slug, driverRef, inputSchema,
-outputSchema, auth }`, `auth` = authenticated-user vs admin, schemas in the SDK's Effect
-    Schema contract style), so that a plugin declares named callable operations (plan §2).
+11. As the owner, I want an `operations` manifest section
+    (`{ slug, scriptSlug, auth, description }`, `auth` = `"user" | "integration"`) with
+    input/output Effect Schemas on the direct operation definition, so that a plugin declares
+    named callable operations without adding an admin invocation mode (plan §2).
 12. As an API client, I want a single generic `plugins.invoke(pluginSlug, operationSlug,
 payload)` contract endpoint that validates against the declared schemas, dispatches to the
-    driver, and returns the result — batch-first payloads — so that the static typed contract
+    direct script, and returns the result — batch-first payloads — so that the static typed contract
     never grows plugin-specific endpoints (Decision 9; plan §2).
 13. As a first-party client, I want the plugin package to export its operation input/output
     types and a small typed `invoke` wrapper in `libs/plugin-kit` ("recipes"), so that
@@ -196,11 +193,12 @@ payload)` contract endpoint that validates against the declared schemas, dispatc
     suspend/resume and process-restart, budgeted small — and record its findings in the plan
     file, so that serialization/timeout/replay-ordering issues surface before the real
     machinery is built (plan §3; overview sequencing rationale).
-18. As the owner, I want a `workflows` manifest section (`{ slug, driverRef }`), so that a
+18. As the owner, I want a `workflows` manifest section (`{ slug, scriptSlug }`), so that a
     plugin declares durable workflows the kernel's existing Effect workflow engine runs as a
     workflow shell (plan §3; Decision 7).
 19. As a workflow script, I want replay-deterministic host primitives — `activity(name,
-input)` (runs once, journals the result, replays return the journal), `sleep(name,
+scriptRef, input)` (runs a referenced direct script once, journals the result, and returns the
+    journal on replay), `sleep(name,
 duration)` (durable timer), and `child(name, workflowRef, input)` (composes another
     manifest workflow with a deterministic execution id derived from parent id + name) — so
     that multi-step durable operations re-execute from the top on each resume (Decision 7;
@@ -212,14 +210,14 @@ duration)` (durable timer), and `child(name, workflowRef, input)` (composes anot
     replay to load exactly that module (a lookup, given Phase 2's immutable-per-hash rows), so
     that a hot swap never changes the code a running durable execution is replaying (Decision
     7, 13; plan §3).
-22. As the kernel, I want workflow drivers restricted to a determinism-safe SDK entry point (no
+22. As the kernel, I want workflow scripts restricted to a determinism-safe SDK entry point (no
     `httpCall`, no cache, no ambient time/random — activities do the IO), enforced by
     capability scoping on the manifest kind mirroring how automation vs provider host scopes
     already differ, so that workflow bodies cannot introduce nondeterminism footguns (Decision
     11; plan §3).
-23. As the kernel, I want workflow/activity driver kinds to get their own kernel-owned limit
+23. As the kernel, I want workflow/activity script kinds to get their own kernel-owned limit
     profile (a batch activity legitimately makes more host calls than a provider search), so
-    that per-driver-kind budgets fit the workload (plan §3).
+    that per-script-kind budgets fit the workload (plan §3).
 24. As the owner, I want `imports/media/population-workflow.ts` and `resolution-workflow.ts`
     (plus the media-specific parts of the population trigger and `entity-import`) rewritten as
     media-plugin workflows + activities and the media-specific workflow definitions deleted,
@@ -233,14 +231,14 @@ duration)` (durable timer), and `child(name, workflowRef, input)` (composes anot
 ### Step 4 — integration + import-source adapters
 
 26. As the owner, I want the integration-registration manifest section extended so a plugin
-    declares integration _providers_ (`{ slug, lot: yank|sink|push, driverRef, settingsSchema
+    declares integration _providers_ (`{ slug, lot: yank|sink|push, scriptSlug, settingsSchema
 }`), with the kernel integrations framework (credential storage, enable/disable,
     auto-disable, run bookkeeping) serving them generically and listing available providers
     from the registry, so that provider registration is declarative (Decision 14; plan §4).
 27. As the kernel, I want deny-by-default filesystem permission grants: I materialize an
     uploaded/fetched artifact to a path and spawn the execution with `--allow-read` on it plus
     a quota'd, kernel-cleaned per-execution scratch dir with `--allow-write`, with grants
-    declared per driver kind in the manifest (`capabilities: ["artifact-read", "scratch"]`), so
+    declared per script kind in the manifest (`capabilities: ["artifact-read", "scratch"]`), so
     that large artifacts flow via Deno permission grants rather than IPC (Decision 10; plan §4).
 28. As the implementing agent, I want grant-carrying executions to run on a dedicated
     (non-pooled) process since pooled processes are pre-warmed before the execution is known,
@@ -283,7 +281,7 @@ duration)` (durable timer), and `child(name, workflowRef, input)` (composes anot
 37. As the implementing agent, I want every new host function to follow the existing contract
     pattern (`libs/sandbox-sdk` contract + `bridge-adapter.ts` validation +
     `host-functions.ts` implementation + limits entry) and carry a span, so that new syscalls
-    are consistent with the existing 16 and observable (plan standing rules).
+    are consistent with the existing syscall surface and observable (plan standing rules).
 38. As the owner, I want the branch to stay shippable after **every step** — backend `check`
     and unit tests, the full e2e suite (minus suites deleted with their surface), and the
     `app-client` check all green — so that each capability lands on a working base
@@ -310,9 +308,9 @@ them (and risk drift), this PRD points to the exact sections that own them:
   `bridge-adapter.ts` + `host-functions.ts` + limits), and per-call observability: Decision 8
   and plan "Standing rules".
 - **Step 0a — Effect-native sandbox cutover** — vendoring `effect` host-pinned via
-  `sandbox-runtime/dependencies.ts` and the import map; converting every sandbox manifest, driver,
+  `sandbox-runtime/dependencies.ts` and the import map; converting every sandbox manifest, script,
   and host wire contract from Zod to Effect Schema; converting every script-facing host function,
-  driver, backend implementation, and typed bridge dispatch path to Effect; removing Zod and the
+  entrypoint, backend implementation, and typed bridge dispatch path to Effect; removing Zod and the
   raw Promise authoring API from the sandbox surface; migrating all existing scripts and fixtures;
   and retaining Promise only inside private platform transport adapters: Decision 11 and plan
   Step 0a.
@@ -335,7 +333,7 @@ them (and risk drift), this PRD points to the exact sections that own them:
   `workflows` manifest section, the `activity`/`sleep`/`child` primitives with deterministic
   child ids, journal keying + structured nondeterminism error, `contentHash` version pinning
   across hot swaps, the restricted determinism-safe SDK entry point enforced by capability
-  scoping, the per-driver-kind limit profile, the population/resolution migration, and the
+  scoping, the per-script-kind limit profile, the population/resolution migration, and the
   `EventCreateWorkflow` `[IMPLEMENTER-DECIDES]` (activity host op vs `child`): Decisions 7 and
   11, `apps/app-backend/AGENTS.md` §Queues, and plan §3.
 - **Step 4 — integration + import-source adapters** — the integration-provider manifest
@@ -382,7 +380,7 @@ a `[DECIDED]` item is wrong, **stop and surface it** rather than silently deviat
   syscall surface is sufficient, since they exercise nearly every capability at once (plan
   §1–§5).
 - **Step 0 cutover coverage:** type-level tests reject Promise-returning host functions and
-  drivers; runtime tests execute every existing media, fitness, and kernel source-zero script
+  entrypoints; runtime tests execute every existing media, fitness, and kernel source-zero script
   through the Effect-native runner; dependency tests prove Effect is import-map-resolved and not
   bundled per script; observability tests cover bridge validation, OTLP emission, bookkeeping,
   capability gating, and limits.
@@ -398,7 +396,7 @@ a `[DECIDED]` item is wrong, **stop and surface it** rather than silently deviat
   keying/idempotency semantics of the migrated import workflows (ensure-mode, preserve-existing
   upserts — plan §3), and the full e2e suite at the phase end with the `media-monitoring` suites
   passing with assertions unchanged (plan §5 done).
-- **Prior art:** the existing 16 host functions and the `bridge-adapter.ts` contract-scope
+- **Prior art:** the existing host functions and the `bridge-adapter.ts` contract-scope
   split (automation vs provider) are the pattern for the new host functions and the workflow
   determinism scoping; the `installTestPlugin` fixture and real loader from Phase 2 are how
   every migrated capability is exercised through a real plugin; conventions live in
@@ -413,7 +411,7 @@ a `[DECIDED]` item is wrong, **stop and surface it** rather than silently deviat
 
 - **Everything Phase 4 hardens:** purity _enforcement_ (this phase reaches purity and does an
   informal grep at the gate, but the automated check is Phase 4), performance work, sandbox
-  limits/quota hardening beyond the per-driver-kind profile step 3 needs, plugin GC, and the
+  limits/quota hardening beyond the per-script-kind profile step 3 needs, plugin GC, and the
   test-tree reorganization (`00-overview.md` phase table; plan phase gate calls the grep an
   "informal preview of Phase 4's enforced check").
 - **New capabilities beyond what a step consumes** (cross-phase invariant 3 — syscalls are

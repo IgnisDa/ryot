@@ -1,6 +1,7 @@
 # Plugin System Rewrite — Overview
 
-Status: approved for implementation. Branch: `ultra-rewrite` (all work is local; there is no
+Status: in progress. Phases 1 and 2 and Phase 3 steps 0-2 are complete; resume at Phase 3 step 3.
+Branch: `ultra-rewrite` (all work is local; there is no
 CI and `apps/app-backend` is not deployed anywhere, so there are no release, rollout, or
 data-migration constraints — dev databases are wipeable and the initial drizzle migration may
 be regenerated freely).
@@ -16,6 +17,11 @@ Read this completely before opening any phase file. The phase files are:
 
 Phases are strictly ordered. Do not begin a phase before the previous phase's done criteria
 are all met. Within Phase 3, the numbered steps are also strictly ordered.
+
+The sandbox single-entrypoint rewrite in `../sandbox-single-entrypoint.md` is complete and is the
+runtime baseline for all remaining work. Any older text in this plan set that refers to driver
+maps, runtime entrypoint selectors, or script-backed provider identity is superseded by that
+baseline and should be corrected rather than implemented.
 
 ## How to read the markers in these documents
 
@@ -98,9 +104,9 @@ These were settled in design discussion with the project owner. All are **[DECID
 11. **The sandbox authoring, schema, and typed bridge APIs are Effect-only.** Effect is available
     inside the sandbox as a runtime-provided (vendored) approved dependency with a single pinned
     version matching the host — never bundled per script. Effect Schema defines sandbox manifests,
-    driver input/output, host-function wire contracts, and operation input/output; the declarative
+    script input/output, host-function wire contracts, and operation input/output; the declarative
     `AppSchema` property format in Decision 6 is the explicit exception because the query engine and
-    schema-driven frontend require introspectable property metadata. Script drivers return `Effect`
+    schema-driven frontend require introspectable property metadata. Script entrypoints return `Effect`
     values, every script-facing host function returns an `Effect` with a typed error, and backend
     host-function implementations plus typed bridge dispatch use Effect directly. There is no
     parallel Zod schema surface, raw Promise authoring API, or raw Promise host-function API.
@@ -158,8 +164,9 @@ These were settled in design discussion with the project owner. All are **[DECID
     `sandbox_script` with their `userId`, usable as a private provider) — Phase 2 §8 deletes
     it. Accepted trade-off: on a multi-user instance, a non-admin user cannot self-serve a
     private provider; that capability returns with the user-authored-plugins milestone.
-    Execution machinery, per-executing-user cache isolation, and `entity.sandboxScriptId`
-    provenance all survive — only the user-facing authoring surface and per-user script
+    Execution machinery and per-executing-user cache isolation survive. The later
+    single-entrypoint rewrite replaces `entity.sandboxScriptId` provenance with logical
+    `entity.providerId` — only the user-facing authoring surface and per-user script
     ownership go. Persisted scripts are owned either by an installed plugin (`pluginSlug` set)
     or by kernel definition source zero (`pluginSlug` null); the latter is restricted to
     content-addressed, kernel-generic scripts and is not a synthetic plugin.
@@ -171,50 +178,54 @@ These were settled in design discussion with the project owner. All are **[DECID
     layer (registry tracker definitions fed from `builtins/trackers.ts`, `tracker_state`,
     `savedView.trackerSlug`, a `trackers` contract surface, and a manifest `trackers` section
     in `libs/plugin-kit`) — Phase 2 §9 deletes it.
+21. **Logical providers and executable scripts are separate identities.** A provider is a stable,
+    plugin-owned catalog identity persisted in `sandbox_provider`; each search, details, resolve,
+    or translate operation maps to its own direct script. Provider-backed entities store
+    `providerId`, schema bindings target `providerSlug`, and provider identity survives script
+    recompilation and plugin reingestion.
+22. **Every sandbox module has one direct entrypoint.** Scripts declare `input`, `output`, and
+    `run`; the backend resolves the exact script before enqueueing it. Runtime and durable payloads
+    carry `scriptId` and never an operation selector. Manifest capability sections reference
+    `scriptSlug`, while standard providers map operations under `providers[].operations`.
+23. **Execution authority is trusted backend state.** Sandbox executions carry a strict `user`,
+    `system`, or `subscription` authority. Public operation invocation supports `user` and
+    `integration` authentication only; the proposed `admin` operation mode was deliberately
+    removed. Scheduler boot/cron paths create system authority, subscriptions create subscription
+    authority, and public callers cannot select either.
+24. **Cache identity follows logical ownership.** Provider-associated scripts share a
+    provider-scoped cache partition; standalone scripts use their script ID. Both remain isolated
+    by executing user where applicable. Scripts never choose their own cache namespace.
 
-## Current-state map (verified facts, with pointers)
+## Current implementation baseline
 
-The implementing agent should trust these as of plan-writing time but re-verify anything that
-looks stale.
+These facts were re-verified after the single-entrypoint rewrite. Re-verify details before editing
+the named surfaces, but do not restore the superseded architecture.
 
 ### Storage (`apps/app-backend/src/lib/infrastructure/db/schema/tables/`)
 
-- `core.ts` — `tracker` (per-user, `isBuiltin`, builtins materialized per user),
-  `entity_schema` (global builtin + user rows, `propertiesSchema` jsonb `AppSchema`),
-  `tracker_entity_schema` (join), `sandbox_script` (`source` + `compiledCode` +
-  `compiledFormat` + `metadata`, builtin + user rows), `entity_schema_sandbox_script` (join).
-- `entities.ts` — `entity` (generic: `properties` jsonb, `entitySchemaId` FK,
-  `sandboxScriptId` provenance FK, `externalId`, global-vs-user uniqueness indexes),
-  `relationship_schema` (source/target entity-schema FKs), `relationship`.
-- `events.ts` — `event_schema` (per-entity-schema: `entitySchemaId` FK + `slug` unique within
-  it), `event` (`eventSchemaId` FK, `entityId`, `sessionEntityId`, `occurredAt`).
-- `automations.ts` — `signal_schema`, `signal`, `signal_recipient`, `automation_rule` (FKs to
-  all four schema tables + `sandbox_script`; kind policy/subscription; operation
-  create/update/delete/signal; exactly-one-target check), `subscription_run` (bookkeeping; no
-  schema FKs; `ruleId` on-delete set-null).
-- `views.ts` — `saved_view` (per-user, `isBuiltin`, `trackerId` FK, `queryDocument` jsonb —
-  already slug-based), plus `imports.ts`, `auth.ts`, `notifications.ts`, `translations.ts`
-  (not directly affected by Phase 1 except where noted in the phase file).
+- `core.ts` — `plugin`, per-user `plugin_state`, stable logical `sandbox_provider`, and
+  content-addressed `sandbox_script`. Provider-associated scripts reference `providerId`; there is
+  no per-user script ownership.
+- `entities.ts` — generic entities store schema slugs and nullable provider provenance. Provider
+  entities deduplicate by `(userId, externalId, entitySchemaSlug, providerId)`; relationships store
+  relationship-schema slugs.
+- `events.ts` and `automations.ts` — events and signals store schema slugs. Manifest bindings live
+  in the definition registry; per-user notification state lives in
+  `notification_subscription_state`, and `subscription_run` retains durable attribution.
+- `views.ts` — user views group by nullable `pluginSlug`; `saved_view_state` stores per-user
+  overrides for code-defined views.
 - There are **no media- or fitness-specific tables**. One drizzle migration exists
   (`src/drizzle/0000_*.sql`) and may be regenerated.
 
-### Definitions today (`apps/app-backend/src/modules/builtins/`)
+### Definitions and scripts
 
-- `entity-schemas.ts` (~30 entity schemas incl. media types, `exercise`, `workout`,
-  `measurement`, each with nested lifecycle event schemas), `media-property-schemas.ts`,
-  `fitness-property-schemas.ts`, `relationship-schemas.ts`, `signal-schemas.ts`,
-  `collection-entity-schema.ts`, `saved-views.ts`, `media-schema-slugs.ts`.
-- `registry.ts` — hand-written binding lists: builtin sandbox scripts, schema↔script links,
-  entity/relationship/event automation rule links. This file is the ad hoc prototype of the
-  plugin manifest.
-- `seed.ts` — `SeedService`, runs after migrations (`app/layers.ts`), upserts everything
-  above into the DB (`ON CONFLICT DO UPDATE`, `isBuiltin=true`).
-- `sandbox-scripts/{providers,automations,script-helpers}/` — ~52 provider scripts + 11
-  automation scripts as single-file `.sandbox.ts` modules, compiled at build time into
-  `generated-sandbox/registry`.
-- Media lifecycle semantics (state derivation, auto-complete, integration progress policy)
-  are documented in `apps/app-backend/src/modules/builtins/AGENTS.md` — these semantics are
-  **preserved behavior**, pinned by the e2e suite.
+- `plugins/media` and `plugins/fitness` own domain definitions, logical provider declarations,
+  direct scripts, bindings, crons, boot entries, and operations. Kernel source zero owns only
+  generic definitions and its notification formatter.
+- The definition registry loads immutable slug-keyed snapshots from normalized plugin manifests.
+  Schema-provider links target logical providers, while automation bindings target scripts.
+- The production catalog contains 142 direct scripts: 136 media, 5 fitness, and 1 kernel. Every
+  compiled module exposes one executable definition.
 
 ### Sandbox runtime (`apps/app-backend/src/lib/infrastructure/sandbox-runtime/`)
 
@@ -227,42 +238,33 @@ looks stale.
   HTTP server (`BridgeService`) with per-request Effect execution and no per-execution lock.
   **Concurrent host calls already work**; budgets are enforced on both sides and are
   concurrency-safe. Scripts import their compiled module via `data:` URL.
-- 16 host functions today (`bridge-adapter.ts`): `httpCall`, `getCachedValue`,
-  `setCachedValue`, `claimCachedValue`, `getAppConfigValue`, `getUserPreferences`,
-  `getEntity`, `getEntitySchema`, `getIntegration`, `listEventSchemas`, `listEvents`,
-  `listIntegrations`, `createEvents`, `executeQueryEngine`, `emitSignal`, `sendNotification`.
-- Compiler: `libs/sandbox-compiler` (Bun.build bundling in `compiler-bundle.ts`, TS
-  diagnostics, worker protocol); already invoked at runtime for user scripts via
-  `apps/app-backend/src/modules/sandbox/compiler.ts`. SDK: `libs/sandbox-sdk` (Effect and Effect
-  Schema plus approved runtime dependencies cheerio, and youtubei; provider/automation
-  contracts).
+- The backend selects host functions from trusted execution authority and script metadata. System
+  authority is created only by trusted scheduler paths and can emit signals; notification sending
+  remains subscription-only. Standard provider scripts do not receive global-write capabilities.
+- Provider-associated scripts share provider-scoped caches. Standalone scripts use script-scoped
+  caches. The backend derives this namespace from persisted identity.
+- The compiler validates one direct definition per module and rejects obsolete multi-entrypoint
+  authoring. Execution payloads contain no runtime entrypoint selector.
 
 ### Native domain modules (the code that must end up inside plugins)
 
-`media-trending`, `media-monitoring`, `episode-resolver`, `metadata-lookup`, `exercises`
-(under `apps/app-backend/src/modules/`), plus the media import population/resolution
-workflows (`imports/media/*`) and the integration sink/yank adapters
-(`integrations/sinks/*` and import source adapters). Known dependency-gradient violations to
-be dissolved: `entity-schemas/service.ts` imports `TrackersRepository`/`TrackersService`;
-`auth/service.ts` imports `TrackersService` (bootstrap provisioning).
+The remaining native domain work begins at Phase 3 step 3: media import population/resolution
+workflows (`imports/media/*`), integration sink/yank and import-source adapters, then
+`media-monitoring` and residual media branches. `media-trending`, `exercises`, `metadata-lookup`,
+and `episode-resolver` have already moved into plugins and their native modules are deleted.
 
 ### Contract (`libs/contract/src/modules/`)
 
-Groups: automations, collections, entities, entity-import, entity-interest, entity-schemas,
-event-schemas, events, god-mode, imports, integrations, library-membership, media-monitoring,
-metadata-lookup, notifications, query-engine, relationship-schemas, relationships, sandbox,
-saved-views, system, test-support, trackers, uploads, user-preferences, user-state.
+Schema CRUD, tracker, metadata-lookup, and public sandbox-script groups are gone. Generic
+`definitions` and `plugins` groups expose the code-owned registry and plugin install/invoke
+surfaces. The remaining domain-specific `media-monitoring` surface migrates in Phase 3 step 5.
 
 ### E2e suite (`tests/`)
 
-77 test files across ~29 suites; one shared backend per run (`global-setup.ts`), files run
-sequentially; Effect-native fixtures. Key coupling points: 15 files use schema-id fixtures
-(`getBuiltinEntitySchemaId`, `linkToEntitySchemaId`, `promoteSandboxScript`); 11 files call
-`entitySchemas.`/`trackers.` contract groups; the 21-file `query-engine` suite is already
-slug-based. The hermetic provider fixture (`fixtures/sandbox-provider.ts`:
-`seedBuiltinProviderScript` compiles a fake provider through the API then god-modes it via
-`testSupport.promoteSandboxScript`) is an ad hoc plugin installer and is replaced by the real
-loader in Phase 2. Conventions live in `tests/AGENTS.md`.
+The suite uses one shared backend per run and Effect-native fixtures. Hermetic provider coverage
+installs real test plugins with stable logical providers and separate operation scripts. The
+single-entrypoint final gate passed 78 files and 491 tests; re-baseline counts as later phases add,
+remove, or reorganize suites. Conventions live in `tests/AGENTS.md`.
 
 ## Target architecture (end state)
 
@@ -273,12 +275,13 @@ libs/sandbox-compiler      bundling (extended for multi-file plugin packages)
 plugins/media              source bundle: manifest + schemas + scripts (providers, automations,
                            workflows, crons, operations, integration adapters)
 plugins/fitness            source bundle: manifest + schemas + scripts (exercise provider,
-                           preload boot driver, workout automation)
+                           preload boot script, workout automation)
 apps/app-backend           the kernel:
   definition registry      in-memory, slug-keyed; sources: kernel-owned definitions + loaded
                            plugins; atomic snapshot swap; Redis invalidation
   plugin ingestion/loader  validate → compile → content-address → persist → load
-  sandbox runtime          unchanged core + workflow primitives + fs grants + invoke dispatch
+  sandbox runtime          direct script execution + authority gates; workflow primitives and
+                           fs grants added by the remaining Phase 3 steps
   durable engine           kernel-owned; sandbox workflow scripts as bodies
   generic modules only     entities, events, relationships, collections, query-engine,
                            notifications, integrations framework, imports framework, auth,
