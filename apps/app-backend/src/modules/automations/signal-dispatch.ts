@@ -1,15 +1,13 @@
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { DbError, unknownToMessage } from "@ryot/contract/errors";
+import { AutomationProperties } from "@ryot/contract/modules/automations/schemas";
 import { Effect, Either, Layer, Schema } from "effect";
 
 import { SignalDispatch } from "#modules/signals/dispatch";
 import type { SignalDispatchInput } from "#modules/signals/dispatch";
 
 import { AutomationsService } from "./service";
-import {
-	AutomationProperties,
-	SubscriptionExecutionWorkflow,
-} from "./subscription-execution-workflow";
+import { SubscriptionExecutionWorkflow } from "./subscription-execution-workflow";
 
 export const SignalDispatchLive = Layer.effect(
 	SignalDispatch,
