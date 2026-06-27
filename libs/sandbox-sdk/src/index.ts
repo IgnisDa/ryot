@@ -153,6 +153,255 @@ export type CoreSandboxHostImplementationMap<Context> = {
 	) => ReturnType<CoreSandboxHostMethodMap[Capability]>;
 };
 
+export const DOMAIN_SANDBOX_HOST_CAPABILITIES = [
+	"getEntity",
+	"listEvents",
+	"createEvents",
+	"getIntegration",
+	"getEntitySchema",
+	"listEventSchemas",
+	"listIntegrations",
+	"executeQueryEngine",
+] as const;
+
+export const domainSandboxHostCapabilitySchema = z.enum(DOMAIN_SANDBOX_HOST_CAPABILITIES);
+
+export type DomainSandboxHostCapability = z.infer<typeof domainSandboxHostCapabilitySchema>;
+
+const sandboxIdSchema = z.string().min(1);
+
+export const integrationLotSchema = z.enum(["push", "sink", "yank"]);
+
+export const integrationProviderSchema = z.enum([
+	"emby",
+	"kodi",
+	"komga",
+	"radarr",
+	"sonarr",
+	"plex_sink",
+	"plex_yank",
+	"generic_json",
+	"youtube_music",
+	"jellyfin_push",
+	"jellyfin_sink",
+	"audiobookshelf",
+	"ryot_browser_extension",
+]);
+
+export const entityRecordSchema = z
+	.object({
+		id: z.string(),
+		name: z.string(),
+		createdAt: z.string(),
+		updatedAt: z.string(),
+		entitySchemaId: z.string(),
+		properties: jsonValueSchema,
+		externalId: z.string().nullable(),
+		populatedAt: z.string().nullable(),
+		sandboxScriptId: z.string().nullable(),
+	})
+	.strict();
+
+export type EntityRecord = z.infer<typeof entityRecordSchema>;
+
+export const entitySchemaProviderSchema = z
+	.object({ name: z.string(), scriptId: z.string() })
+	.strict();
+
+export const entitySchemaRecordSchema = z
+	.object({
+		id: z.string(),
+		icon: z.string(),
+		name: z.string(),
+		slug: z.string(),
+		isBuiltin: z.boolean(),
+		trackerId: z.string(),
+		accentColor: z.string(),
+		propertiesSchema: jsonValueSchema,
+		providers: z.array(entitySchemaProviderSchema).readonly(),
+	})
+	.strict();
+
+export type EntitySchemaRecord = z.infer<typeof entitySchemaRecordSchema>;
+
+export const eventSchemaRecordSchema = z
+	.object({
+		id: z.string(),
+		name: z.string(),
+		slug: z.string(),
+		entitySchemaId: z.string(),
+		propertiesSchema: jsonValueSchema,
+	})
+	.strict();
+
+export type EventSchemaRecord = z.infer<typeof eventSchemaRecordSchema>;
+
+export const eventRecordSchema = z
+	.object({
+		id: z.string(),
+		entityId: z.string(),
+		createdAt: z.string(),
+		updatedAt: z.string(),
+		occurredAt: z.string(),
+		eventSchemaId: z.string(),
+		eventSchemaName: z.string(),
+		eventSchemaSlug: z.string(),
+		properties: jsonValueSchema,
+		sessionEntityId: z.string().optional(),
+	})
+	.strict();
+
+export type EventRecord = z.infer<typeof eventRecordSchema>;
+
+export const integrationRecordSchema = z
+	.object({
+		id: z.string(),
+		userId: z.string(),
+		createdAt: z.string(),
+		updatedAt: z.string(),
+		isDisabled: z.boolean(),
+		lot: integrationLotSchema,
+		syncOwnership: z.boolean(),
+		name: z.string().nullable(),
+		minimumProgress: z.number(),
+		maximumProgress: z.number(),
+		webhookUrl: z.string().optional(),
+		providerSpecifics: jsonValueSchema,
+		provider: integrationProviderSchema,
+		lastFinishedAt: z.string().nullable(),
+		extraSettings: z.object({ disableOnContinuousErrors: z.boolean() }).strict(),
+	})
+	.strict();
+
+export type IntegrationRecord = z.infer<typeof integrationRecordSchema>;
+
+export const createEventItemSchema = z
+	.object({
+		entityId: sandboxIdSchema,
+		properties: jsonValueSchema,
+		eventSchemaId: sandboxIdSchema,
+		occurredAt: z.string().optional(),
+		sessionEntityId: sandboxIdSchema.optional(),
+	})
+	.strict();
+
+export type CreateEventItem = z.infer<typeof createEventItemSchema>;
+
+export const createEventsResultDataSchema = z.object({ count: z.int() }).strict();
+
+export const listEventsQuerySchema = z
+	.object({
+		entityId: sandboxIdSchema.optional(),
+		eventSchemaSlug: z.string().optional(),
+		sessionEntityId: sandboxIdSchema.optional(),
+	})
+	.strict();
+
+export type ListEventsQuery = z.infer<typeof listEventsQuerySchema>;
+
+export const listIntegrationsOptionsSchema = z
+	.object({
+		isDisabled: z.boolean().optional(),
+		provider: integrationProviderSchema.optional(),
+	})
+	.strict();
+
+export type ListIntegrationsOptions = z.infer<typeof listIntegrationsOptionsSchema>;
+
+export const queryDocumentSchema = jsonValueSchema;
+
+export type QueryDocument = z.infer<typeof queryDocumentSchema>;
+
+export const getEntityArgsSchema = z.tuple([sandboxIdSchema]);
+export const getEntityResultSchema = hostResultSchema(entityRecordSchema);
+
+export const getEntitySchemaArgsSchema = z.tuple([sandboxIdSchema]);
+export const getEntitySchemaResultSchema = hostResultSchema(entitySchemaRecordSchema);
+
+export const getIntegrationArgsSchema = z.tuple([sandboxIdSchema]);
+export const getIntegrationResultSchema = hostResultSchema(integrationRecordSchema);
+
+export const listEventSchemasArgsSchema = z.tuple([sandboxIdSchema]);
+export const listEventSchemasResultSchema = hostResultSchema(
+	z.array(eventSchemaRecordSchema).readonly(),
+);
+
+export const listEventsArgsSchema = z.tuple([listEventsQuerySchema.optional()]);
+export const listEventsResultSchema = hostResultSchema(z.array(eventRecordSchema).readonly());
+
+export const listIntegrationsArgsSchema = z.tuple([listIntegrationsOptionsSchema.optional()]);
+export const listIntegrationsResultSchema = hostResultSchema(
+	z.array(integrationRecordSchema).readonly(),
+);
+
+export const createEventsArgsSchema = z.tuple([z.array(createEventItemSchema)]);
+export const createEventsResultSchema = hostResultSchema(createEventsResultDataSchema);
+
+export const executeQueryEngineArgsSchema = z.tuple([queryDocumentSchema]);
+export const executeQueryEngineResultSchema = hostResultSchema(z.unknown());
+
+export const domainSandboxHostContracts = {
+	getEntity: { args: getEntityArgsSchema, result: getEntityResultSchema },
+	listEvents: { args: listEventsArgsSchema, result: listEventsResultSchema },
+	createEvents: { args: createEventsArgsSchema, result: createEventsResultSchema },
+	getIntegration: { args: getIntegrationArgsSchema, result: getIntegrationResultSchema },
+	getEntitySchema: { args: getEntitySchemaArgsSchema, result: getEntitySchemaResultSchema },
+	listEventSchemas: { args: listEventSchemasArgsSchema, result: listEventSchemasResultSchema },
+	listIntegrations: { args: listIntegrationsArgsSchema, result: listIntegrationsResultSchema },
+	executeQueryEngine: {
+		args: executeQueryEngineArgsSchema,
+		result: executeQueryEngineResultSchema,
+	},
+} as const;
+
+export type DomainSandboxHostMethodMap = {
+	readonly getEntity: (
+		...args: z.output<typeof getEntityArgsSchema>
+	) => Promise<z.output<typeof getEntityResultSchema>>;
+	readonly getEntitySchema: (
+		...args: z.output<typeof getEntitySchemaArgsSchema>
+	) => Promise<z.output<typeof getEntitySchemaResultSchema>>;
+	readonly getIntegration: (
+		...args: z.output<typeof getIntegrationArgsSchema>
+	) => Promise<z.output<typeof getIntegrationResultSchema>>;
+	readonly listEventSchemas: (
+		...args: z.output<typeof listEventSchemasArgsSchema>
+	) => Promise<z.output<typeof listEventSchemasResultSchema>>;
+	readonly listEvents: (
+		...args: z.output<typeof listEventsArgsSchema>
+	) => Promise<z.output<typeof listEventsResultSchema>>;
+	readonly listIntegrations: (
+		...args: z.output<typeof listIntegrationsArgsSchema>
+	) => Promise<z.output<typeof listIntegrationsResultSchema>>;
+	readonly createEvents: (
+		...args: z.output<typeof createEventsArgsSchema>
+	) => Promise<z.output<typeof createEventsResultSchema>>;
+	readonly executeQueryEngine: (
+		...args: z.output<typeof executeQueryEngineArgsSchema>
+	) => Promise<z.output<typeof executeQueryEngineResultSchema>>;
+};
+
+export type DomainSandboxHostImplementationMap<Context> = {
+	readonly [Capability in DomainSandboxHostCapability]: (
+		context: Context,
+		...args: Parameters<DomainSandboxHostMethodMap[Capability]>
+	) => ReturnType<DomainSandboxHostMethodMap[Capability]>;
+};
+
+export const SANDBOX_HOST_CAPABILITIES = [
+	...CORE_SANDBOX_HOST_CAPABILITIES,
+	...DOMAIN_SANDBOX_HOST_CAPABILITIES,
+] as const;
+
+export const sandboxHostCapabilitySchema = z.enum(SANDBOX_HOST_CAPABILITIES);
+
+export type SandboxHostCapability = z.infer<typeof sandboxHostCapabilitySchema>;
+
+export type SandboxHostMethodMap = CoreSandboxHostMethodMap & DomainSandboxHostMethodMap;
+
+export type SandboxHostImplementationMap<Context> = CoreSandboxHostImplementationMap<Context> &
+	DomainSandboxHostImplementationMap<Context>;
+
 const manifestStringSchema = z
 	.string()
 	.min(1)
@@ -162,9 +411,9 @@ export const sandboxManifestSchema = z
 	.object({
 		name: manifestStringSchema,
 		kind: z.literal("script"),
+		capabilities: z.array(sandboxHostCapabilitySchema),
 		requiredAppConfigKeys: z.array(manifestStringSchema),
 		slug: z.string().regex(/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/),
-		capabilities: z.array(coreSandboxHostCapabilitySchema),
 	})
 	.strict();
 
@@ -178,14 +427,14 @@ export const executionMetadataSchema = z
 	.strict();
 
 export type ExecutionMetadata = z.infer<typeof executionMetadataSchema>;
-export type SandboxHost<Capabilities extends readonly CoreSandboxHostCapability[]> = Readonly<
-	Pick<CoreSandboxHostMethodMap, Capabilities[number]>
+export type SandboxHost<Capabilities extends readonly SandboxHostCapability[]> = Readonly<
+	Pick<SandboxHostMethodMap, Capabilities[number]>
 >;
 
 export type GenericDriver<
 	Input extends z.ZodType,
 	Output extends z.ZodType,
-	Capabilities extends readonly CoreSandboxHostCapability[],
+	Capabilities extends readonly SandboxHostCapability[],
 > = {
 	readonly input: Input;
 	readonly output: Output;
