@@ -8,12 +8,12 @@ import {
 	CLIENT_COMPILER_VERSION,
 	type PluginBridgeInit,
 } from "@ryot-app/client-plugin-contract";
-import { bootstrapClientPlugin } from "@ryot-app/client-sdk/plugin";
+import { bootstrapClientPage } from "@ryot-app/client-sdk/plugin";
 import { fireEvent, waitFor } from "@testing-library/dom";
 import { act } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { ShowScreen } from "./show/screen";
+import ShowDetailPage from "./show/screen";
 
 const metadata = {
 	hash: "media-artifact-hash",
@@ -107,12 +107,10 @@ type RyotQLRequest = {
 	readonly document: { readonly queries: Record<string, unknown> };
 };
 
-type Bootstrap = ReturnType<typeof bootstrapClientPlugin>;
+type Bootstrap = ReturnType<typeof bootstrapClientPage>;
 
 const bootstraps: Bootstrap[] = [];
 const channels: MessageChannel[] = [];
-
-const Home = () => <p>Media</p>;
 
 const openShow = () => {
 	document.body.innerHTML = '<div id="app"></div>';
@@ -122,19 +120,32 @@ const openShow = () => {
 	metadataElement.textContent = JSON.stringify(metadata);
 	document.head.append(metadataElement);
 
-	bootstraps.push(
-		bootstrapClientPlugin({
-			home: { component: Home },
-			entities: { show: { component: ShowScreen } },
-		}),
-	);
+	bootstraps.push(bootstrapClientPage(ShowDetailPage));
 	const channel = new MessageChannel();
 	channels.push(channel);
 	const messages: unknown[] = [];
 	channel.port1.addEventListener("message", ({ data }) => messages.push(data));
 	channel.port1.start();
 	window.dispatchEvent(
-		new MessageEvent("message", { data: init, ports: [channel.port2], source: window.parent }),
+		new MessageEvent("message", {
+			ports: [channel.port2],
+			source: window.parent,
+			data: {
+				...init,
+				page: {
+					settings: {},
+					dataSources: null,
+					route: { params: {} },
+					renderer: { kind: "plugin", pluginId: "media", exportName: "show-detail" },
+					target: {
+						kind: "entity",
+						entityId: "show-1",
+						entitySchemaSlug: "show",
+						entitySchemaPluginId: "media",
+					},
+				},
+			},
+		}),
 	);
 	channel.port1.postMessage({
 		index: 0,
@@ -143,7 +154,7 @@ const openShow = () => {
 		edgeBack: false,
 		type: "location",
 		leading: "drawer",
-		location: { entityId: "show-1", entitySchemaSlug: "show", kind: "entity" },
+		location: { entityId: "show-1", entitySchemaSlug: "show", kind: "entity", search: "" },
 	});
 	return { channel, messages, container: document.getElementById("app") };
 };
@@ -253,6 +264,22 @@ afterEach(() => {
 });
 
 describe("ShowScreen", () => {
+	it("queries the live entity after same-document entity navigation", async () => {
+		const { channel, messages } = openShow();
+		await waitFor(() => expect(queryRequestsFor(messages, "show")).toHaveLength(1));
+		channel.port1.postMessage({
+			index: 1,
+			key: "show-2",
+			compact: false,
+			edgeBack: true,
+			leading: "back",
+			type: "location",
+			location: { entityId: "show-2", entitySchemaSlug: "show", kind: "entity", search: "" },
+		});
+		await waitFor(() => expect(queryRequestsFor(messages, "show")).toHaveLength(2));
+		expect(JSON.stringify(queryRequestsFor(messages, "show")[1]?.document)).toContain("show-2");
+	});
+
 	it("renders pending status while the summary and overview queries are in flight", async () => {
 		const { container, messages } = openShow();
 

@@ -8,6 +8,7 @@ import { fixtureManifest } from "#modules/plugins/test-support";
 
 import type { AvailablePlugin } from "../plugins/runtime-resolver";
 import { resolveClientPageGraph } from "./graph";
+import { resolvePluginPageTarget } from "./prepare";
 
 const bytes = (value: string) => new TextEncoder().encode(value);
 
@@ -159,6 +160,89 @@ it.effect("rejects a public import that is not a declared renderer dependency", 
 		expect(error.reason).toEqual({
 			code: "export-not-found",
 			exportName: "@ryot-app/plugins/media/card",
+		});
+	});
+});
+
+it.effect("roots a page graph at the selected plugin page export", () => {
+	const fixture = plugin({
+		slug: "fixture",
+		isDisabled: true,
+		client: {
+			apiVersion: 1,
+			entry: "client/index.tsx",
+			exports: {
+				details: {
+					kind: "page",
+					entry: "client/details.tsx",
+					settingsSchema: { fields: {} },
+					automaticEntityPresentations: false,
+				},
+			},
+		},
+	});
+	return Effect.gen(function* () {
+		const graph = yield* resolveClientPageGraph({
+			plugin: fixture,
+			plugins: [fixture],
+			application: "page",
+			exportName: "details",
+			userId: UserId.make("user-1"),
+			loadPluginFiles: () =>
+				Effect.succeed({ "client/details.tsx": bytes("export default function Details() {}") }),
+		});
+		expect(graph.identity.entry.path).toBe("client/details.tsx");
+		expect(graph.identity.contributors.map(({ kind }) => kind)).toEqual(["plugin"]);
+		expect(graph.identity.selectedExports).toEqual(["@ryot-app/plugins/fixture/details"]);
+		expect(graph.compilerInput.application).toBe("page");
+	});
+});
+
+it.effect("uses one compiler graph for every route in a plugin revision", () => {
+	const fixture = plugin({
+		slug: "fixture",
+		client: {
+			apiVersion: 1,
+			entry: "client/index.tsx",
+			notFoundPage: "not-found",
+			routes: { "/details/$itemId": "details", "/": "home" },
+			exports: {
+				home: { ...definition(""), kind: "page", entry: "client/home.tsx" },
+				details: { ...definition(""), kind: "page", entry: "client/details.tsx" },
+				"not-found": { ...definition(""), kind: "page", entry: "client/not-found.tsx" },
+			},
+		},
+	});
+	const files = {
+		"client/home.tsx": bytes("export default function Home() {}"),
+		"client/details.tsx": bytes("export default function Details() {}"),
+		"client/not-found.tsx": bytes("export default function NotFound() {}"),
+	};
+	const resolveRoute = (path: string) =>
+		Effect.gen(function* () {
+			const resolved = yield* resolvePluginPageTarget({
+				plugins: [fixture],
+				target: { kind: "plugin-route", pluginId: fixture.id, path, search: "" },
+				findEntity: () => Effect.succeed(null),
+			});
+			return yield* resolveClientPageGraph({
+				plugins: [fixture],
+				plugin: resolved.plugin,
+				application: "plugin-route",
+				exportName: resolved.exportName,
+				userId: UserId.make("user-1"),
+				loadPluginFiles: () => Effect.succeed(files),
+			});
+		});
+	return Effect.gen(function* () {
+		const home = yield* resolveRoute("/");
+		const details = yield* resolveRoute("/details/item-1");
+		expect(details.graphHash).toBe(home.graphHash);
+		expect(details.compilerInput).toEqual(home.compilerInput);
+		expect(details.compilerInput.routeRegistry).toEqual({
+			home: "@ryot-app/plugins/fixture/home",
+			notFound: "@ryot-app/plugins/fixture/not-found",
+			routes: [{ path: "/details/$itemId", exportSpecifier: "@ryot-app/plugins/fixture/details" }],
 		});
 	});
 });

@@ -3,11 +3,15 @@ import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
 import {
 	createTestUser,
+	createEntity,
 	FIXTURE_CLIENT_REVISION_MARKERS,
+	FIXTURE_CLIENT_PLUGIN_SLUG,
 	installFixtureClientPlugin,
+	listEntitySchemas,
 	makeSession,
 	updateFixtureClientPlugin,
 } from "~/fixtures/kernel";
+import { seedGlobalShowEpisodeTree } from "~/fixtures/plugins/media";
 import { getApiUrl } from "~/support/api";
 import { requirePresent } from "~/support/assertions";
 import { browserLayer, signInThroughHostedOAuth } from "~/support/browser";
@@ -24,7 +28,7 @@ type BridgeObservation = {
 	readonly bridgeSessionId: string | null;
 };
 
-const artifactSessionPath = /^\/api\/plugin-artifact-sessions\/([A-Za-z0-9_-]{43})\/index\.html$/;
+const artifactSessionPath = /^\/api\/client-pages\/artifacts\/([A-Za-z0-9_-]{43})\/index\.html$/;
 
 const observeBridgeMessages = (page: Playwright.Page, observations: BridgeObservation[]) =>
 	Effect.gen(function* () {
@@ -217,6 +221,29 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		const { token, email, password } = yield* createTestUser(apiUrl);
 		const client = makeSession(apiUrl, { Authorization: `Bearer ${token}` });
 		yield* installFixtureClientPlugin(client, "A", "", apiUrl);
+		const pokemonSchema = requirePresent(
+			(yield* listEntitySchemas(client, {
+				slugs: ["pokemon"],
+				pluginSlug: FIXTURE_CLIENT_PLUGIN_SLUG,
+			}))[0],
+			"Fixture Pokemon schema was not registered",
+		);
+		const pokemon = yield* createEntity(client, {
+			name: "E2E deterministic Bulbasaur",
+			entitySchemaSlug: pokemonSchema.id,
+			properties: {
+				height: 7,
+				weight: 69,
+				pokedexNumber: 1,
+				abilities: ["overgrow"],
+				types: ["grass", "poison"],
+				sourceUrl: "https://example.invalid/pokemon/bulbasaur",
+			},
+		});
+		const { showId } = yield* seedGlobalShowEpisodeTree(client, {
+			showName: "E2E deterministic show",
+			showProperties: { description: "A deterministic client-page provenance show." },
+		});
 		const browser = yield* Playwright.Browser;
 		const page = yield* browser.newPage();
 		const bridgeObservations: BridgeObservation[] = [];
@@ -362,7 +389,7 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 
 		yield* fixture.getByRole("link", { name: "Item 1 details" }).click();
 		yield* page.waitForURL(`${frontendUrl}/fixture/details/item-1?tab=stats`);
-		yield* expectVisibleText(fixture.locator("main"), "Item item-1, tab stats.");
+		yield* expectVisibleText(fixture.locator("body"), "Item item-1, tab stats.");
 		expect(yield* frame.evaluate((current, initial) => current === initial, navigationFrame)).toBe(
 			true,
 		);
@@ -380,7 +407,7 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 
 		yield* page.goForward();
 		yield* page.waitForURL(`${frontendUrl}/fixture/details/item-1?tab=stats`);
-		yield* expectVisibleText(fixture.locator("main"), "Item item-1, tab stats.");
+		yield* expectVisibleText(fixture.locator("body"), "Item item-1, tab stats.");
 		expect(yield* frame.evaluate((current, initial) => current === initial, navigationFrame)).toBe(
 			true,
 		);
@@ -436,5 +463,23 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		yield* expectVisibleText(home, "Greeted 0 times.");
 
 		expectNoCredentialsInBridgeMessages(bridgeObservations, observedArtifacts);
+
+		yield* page.goto(`${frontendUrl}/e/${pokemon.id}`);
+		yield* frame.waitFor({ state: "visible" });
+		yield* expectVisibleText(fixture.locator("body"), "E2E deterministic Bulbasaur");
+		expect((yield* readArtifactSession(frame, apiUrl)).src).toContain(
+			"/api/client-pages/artifacts/",
+		);
+
+		yield* page.goto(`${frontendUrl}/e/${showId}`);
+		const mediaFrame = page.locator('iframe[title="media plugin"]');
+		yield* mediaFrame.waitFor({ state: "visible" });
+		const media = mediaFrame.contentFrame();
+		yield* media
+			.getByRole("heading", { level: 1, name: "E2E deterministic show", exact: true })
+			.waitFor({ state: "visible" });
+		expect((yield* readArtifactSession(mediaFrame, apiUrl)).src).toContain(
+			"/api/client-pages/artifacts/",
+		);
 	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
 );

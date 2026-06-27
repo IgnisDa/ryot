@@ -1,4 +1,3 @@
-import { CLIENT_API_VERSION } from "@ryot-app/client-plugin-contract";
 import type {
 	ClientPageContext,
 	KernelShortcut,
@@ -8,11 +7,11 @@ import type {
 	PluginUploadRequest,
 	PluginOperationOutcome,
 	PluginOperationRequest,
+	PluginBridgePageSearch,
 	PluginRyotQLOutcome,
 	PluginRyotQLRequest,
 } from "@ryot-app/client-plugin-contract";
 import { Button, ScreenFrame } from "@ryot-app/client-ui-sdk";
-import type { PluginClientCatalogEntry } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import clsx from "clsx";
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 
@@ -67,24 +66,7 @@ export type RenewPluginArtifactSession = (
 
 export type RevokePluginArtifactSession = (sessionId: string) => Promise<void>;
 
-type PluginHostStatus =
-	| "ready"
-	| "loading"
-	| "incompatible"
-	| "missing-artifact"
-	| "handshake-failure"
-	| "unexpected-version"
-	| "compilation-failure"
-	| "artifact-session-failure";
-
-type PluginBlockedStatus = Extract<
-	PluginHostStatus,
-	"loading" | "incompatible" | "missing-artifact" | "unexpected-version" | "compilation-failure"
->;
-
-type PluginArtifactResolution =
-	| { readonly kind: "artifact"; readonly artifactHash: string }
-	| { readonly kind: "blocked"; readonly status: PluginBlockedStatus };
+type PluginHostStatus = "loading" | "handshake-failure" | "artifact-session-failure";
 
 type ArtifactGeneration =
 	| { readonly status: "creating"; readonly generation: number }
@@ -95,120 +77,15 @@ type ArtifactGeneration =
 			readonly session: PluginArtifactSession;
 	  };
 
-const noticeMessages: Record<Exclude<PluginHostStatus, "ready">, string> = {
+const noticeMessages: Record<PluginHostStatus, string> = {
 	loading: "Preparing this plugin...",
 	"handshake-failure": "This plugin stopped working.",
-	"compilation-failure": "This plugin could not be prepared.",
-	"missing-artifact": "This plugin has no web experience yet.",
 	"artifact-session-failure": "This plugin could not be loaded.",
-	"unexpected-version": "This plugin needs a newer version of Ryot.",
-	incompatible: "This plugin is incompatible with this version of Ryot.",
 };
 
-function resolvePluginArtifact(installation: PluginClientCatalogEntry): PluginArtifactResolution {
-	if (installation.health === "incompatible") {
-		return { kind: "blocked", status: "incompatible" };
-	}
-	if (installation.health === "failed") {
-		return { kind: "blocked", status: "compilation-failure" };
-	}
-	if (installation.health === "installing") {
-		return { kind: "blocked", status: "loading" };
-	}
-	if (installation.clientArtifactHash === null) {
-		return { kind: "blocked", status: "missing-artifact" };
-	}
-	if (installation.clientApiVersion === null) {
-		return { kind: "blocked", status: "unexpected-version" };
-	}
-	if (installation.clientApiVersion !== CLIENT_API_VERSION) {
-		return { kind: "blocked", status: "unexpected-version" };
-	}
-	return { artifactHash: installation.clientArtifactHash, kind: "artifact" };
-}
-
-export function PluginHost(props: {
-	readonly theme: ThemeStore;
-	readonly onOpenDrawer: () => void;
-	readonly chromeLeading: ReactNode;
-	readonly onStaleSession: () => void;
-	readonly onNavigateBack: () => void;
-	readonly watchEntities: WatchEntities;
-	readonly artifactSessionScopeKey: string;
-	readonly viewport: PluginBridgeViewportInsets;
-	readonly installation: PluginClientCatalogEntry;
-	readonly navigation: PluginBridgeNavigationState;
-	readonly chromeTriggerRef: RefObject<HTMLElement | null>;
-	readonly onRenewArtifactSession: RenewPluginArtifactSession;
-	readonly onHeader: (header: PluginHeaderPublication) => void;
-	readonly onKernelShortcut: (shortcut: KernelShortcut) => void;
-	readonly onCreateArtifactSession: CreatePluginArtifactSession;
-	readonly onRevokeArtifactSession: RevokePluginArtifactSession;
-	readonly onNavigate: (request: PluginNavigationRequest) => void;
-	readonly onScreenState: (state: PluginScreenReadiness | null) => void;
-	readonly onAssets: (
-		request: PluginAssetRequest,
-		signal: AbortSignal,
-	) => Promise<PluginAssetOutcome>;
-	readonly onUpload: (
-		request: PluginUploadRequest,
-		signal: AbortSignal,
-	) => Promise<PluginUploadOutcome>;
-	readonly onQuery: (
-		request: PluginRyotQLRequest,
-		signal: AbortSignal,
-	) => Promise<PluginRyotQLOutcome>;
-	readonly onInvokeOperation: (
-		request: PluginOperationRequest,
-		sourceHash: string,
-		signal: AbortSignal,
-	) => Promise<PluginOperationDispatchOutcome>;
-}) {
-	const resolution = resolvePluginArtifact(props.installation);
-	const chrome = {
-		leading: props.chromeLeading,
-		compact: props.navigation.compact,
-		safeAreaTop: props.viewport.safeAreaTop,
-	};
-	if (resolution.kind === "blocked") {
-		return <PluginNotice {...chrome} status={resolution.status} />;
-	}
-
-	return (
-		<PluginFrame
-			theme={props.theme}
-			onQuery={props.onQuery}
-			viewport={props.viewport}
-			onAssets={props.onAssets}
-			onUpload={props.onUpload}
-			onHeader={props.onHeader}
-			onNavigate={props.onNavigate}
-			navigation={props.navigation}
-			onOpenDrawer={props.onOpenDrawer}
-			onScreenState={props.onScreenState}
-			watchEntities={props.watchEntities}
-			chromeLeading={props.chromeLeading}
-			pluginSlug={props.installation.slug}
-			onNavigateBack={props.onNavigateBack}
-			onStaleSession={props.onStaleSession}
-			artifactHash={resolution.artifactHash}
-			chromeTriggerRef={props.chromeTriggerRef}
-			onKernelShortcut={props.onKernelShortcut}
-			sourceHash={props.installation.sourceHash}
-			onInvokeOperation={props.onInvokeOperation}
-			installationId={props.installation.installationId}
-			onRenewArtifactSession={props.onRenewArtifactSession}
-			artifactSessionScopeKey={props.artifactSessionScopeKey}
-			onCreateArtifactSession={props.onCreateArtifactSession}
-			onRevokeArtifactSession={props.onRevokeArtifactSession}
-			key={`${props.installation.installationId}:${props.installation.sourceHash}:${resolution.artifactHash}`}
-		/>
-	);
-}
-
 export function PluginFrame(props: {
+	readonly title: string;
 	readonly theme: ThemeStore;
-	readonly pluginSlug: string;
 	readonly sourceHash: string;
 	readonly artifactHash: string;
 	readonly installationId: string;
@@ -228,6 +105,7 @@ export function PluginFrame(props: {
 	readonly onCreateArtifactSession: CreatePluginArtifactSession;
 	readonly onRevokeArtifactSession: RevokePluginArtifactSession;
 	readonly onNavigate: (request: PluginNavigationRequest) => void;
+	readonly onPageSearch: (request: PluginBridgePageSearch) => void;
 	readonly onScreenState: (state: PluginScreenReadiness | null) => void;
 	readonly onAssets: (
 		request: PluginAssetRequest,
@@ -243,7 +121,6 @@ export function PluginFrame(props: {
 	) => Promise<PluginRyotQLOutcome>;
 	readonly onInvokeOperation: (
 		request: PluginOperationRequest,
-		sourceHash: string,
 		signal: AbortSignal,
 	) => Promise<PluginOperationDispatchOutcome>;
 }) {
@@ -450,7 +327,6 @@ export function PluginFrame(props: {
 		if (artifact.status !== "active") {
 			return;
 		}
-		const sourceHash = props.sourceHash;
 		const plugin = frame.current?.contentWindow;
 		closeBridge();
 		if (!plugin) {
@@ -468,6 +344,7 @@ export function PluginFrame(props: {
 			theme: latest.current.theme.getSnapshot(),
 			onReady: () => setFrameStatus("ready"),
 			onOpenDrawer: () => latest.current.onOpenDrawer(),
+			onPageSearch: (request) => latest.current.onPageSearch(request),
 			onRyotQL: (request, signal) => latest.current.onQuery(request, signal),
 			onAssets: (request, signal) => latest.current.onAssets(request, signal),
 			onUpload: (request, signal) => latest.current.onUpload(request, signal),
@@ -484,7 +361,7 @@ export function PluginFrame(props: {
 				setFrameStatus("handshake-failure");
 			},
 			onNavigate: (request) => {
-				const navigation = toNavigationRequest(latest.current.pluginSlug, request);
+				const navigation = toNavigationRequest(request);
 				if (navigation !== undefined) {
 					latest.current.onNavigate(navigation);
 				}
@@ -508,7 +385,7 @@ export function PluginFrame(props: {
 				);
 			},
 			onOperation: async (request, signal) => {
-				const outcome = await latest.current.onInvokeOperation(request, sourceHash, signal);
+				const outcome = await latest.current.onInvokeOperation(request, signal);
 				if (outcome.outcome !== "stale-session") {
 					return outcome;
 				}
@@ -545,7 +422,7 @@ export function PluginFrame(props: {
 				sandbox="allow-scripts"
 				src={artifact.session.src}
 				referrerPolicy="no-referrer"
-				title={`${props.pluginSlug} plugin`}
+				title={`${props.title} plugin`}
 				className={clsx("h-full w-full border-0", frameStatus !== "ready" && "invisible")}
 				ref={(node) => {
 					frame.current = node;
@@ -600,7 +477,7 @@ function PluginNotice(props: {
 	readonly leading: ReactNode;
 	readonly safeAreaTop: number;
 	readonly onReload?: () => void;
-	readonly status: Exclude<PluginHostStatus, "ready">;
+	readonly status: PluginHostStatus;
 }) {
 	return (
 		<main {...mainContentProps} className="h-full">
@@ -618,7 +495,7 @@ function PluginNotice(props: {
 
 function PluginNoticePanel(props: {
 	readonly onReload?: () => void;
-	readonly status: Exclude<PluginHostStatus, "ready">;
+	readonly status: PluginHostStatus;
 }) {
 	return (
 		<section className="ui-stack ui-card mx-auto w-[min(100%,480px)]">

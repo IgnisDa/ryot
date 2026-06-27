@@ -17,6 +17,7 @@ const theme = { resolvedMode: "light" };
 let notify: () => void = () => undefined;
 const s3Asset = { key: "media/font.woff2", type: "s3" } as const;
 const Greeting = Schema.Struct({ greeting: Schema.String });
+const pluginSlug = "fixture";
 const QueryResponse = Schema.Struct({ value: Schema.String });
 const localAsset = { key: "permanent/image.png", type: "local" } as const;
 const document = { queries: {}, output: {} } as PreparedRecipe<string>["document"];
@@ -166,11 +167,29 @@ describe("createRyotClient", () => {
 		const recipe: PreparedRecipe<string> = { document, decode: () => Result.fail("invalid") };
 		await expect(client.data.query(recipe)).rejects.toMatchObject({ reason: "malformed-result" });
 		await expect(client.data.query(recipe)).rejects.toBeInstanceOf(RyotClientError);
-		const invocation = { slug: "greet", input: {}, output: Greeting };
+		const invocation = { pluginSlug, slug: "greet", input: {}, output: Greeting };
 		await expect(client.operations.invoke(invocation)).rejects.toMatchObject({
 			reason: "malformed-result",
 		});
 		await expect(client.operations.invoke(invocation)).rejects.toBeInstanceOf(RyotClientError);
+	});
+
+	it("forwards the explicit plugin operation target", async () => {
+		const requests: unknown[] = [];
+		const client = createRyotClient(
+			createTestRyotAdapter({
+				query: () => Promise.resolve({}),
+				invokeOperation: (request) => {
+					requests.push(request);
+					return Promise.resolve({ greeting: "hello" });
+				},
+			}),
+		);
+
+		await expect(
+			client.operations.invoke({ pluginSlug, slug: "greet", input: {}, output: Greeting }),
+		).resolves.toEqual({ greeting: "hello" });
+		expect(requests).toEqual([{ pluginSlug: "fixture", slug: "greet", input: {} }]);
 	});
 
 	it("classifies a thrown recipe decoder as a malformed result", async () => {
@@ -196,7 +215,12 @@ describe("createRyotClient", () => {
 		);
 
 		await expect(
-			client.operations.invoke({ slug: "greet", input: null, output: Schema.Undefined }),
+			client.operations.invoke({
+				pluginSlug,
+				slug: "greet",
+				input: null,
+				output: Schema.Undefined,
+			}),
 		).rejects.toMatchObject({ reason: "malformed-result" });
 	});
 
@@ -210,7 +234,7 @@ describe("createRyotClient", () => {
 		const recipe: PreparedRecipe<string> = { document, decode: () => Result.succeed("unused") };
 		await expect(client.data.query(recipe)).rejects.toMatchObject({ reason: "transport" });
 		await expect(
-			client.operations.invoke({ slug: "greet", input: {}, output: Greeting }),
+			client.operations.invoke({ pluginSlug, slug: "greet", input: {}, output: Greeting }),
 		).rejects.toMatchObject({ reason: "transport" });
 	});
 
@@ -226,7 +250,7 @@ describe("createRyotClient", () => {
 
 		await expect(client.data.query(recipe)).rejects.toBe(error);
 		await expect(
-			client.operations.invoke({ slug: "greet", input: {}, output: Greeting }),
+			client.operations.invoke({ pluginSlug, slug: "greet", input: {}, output: Greeting }),
 		).rejects.toBe(error);
 	});
 
@@ -244,7 +268,7 @@ describe("createRyotClient", () => {
 
 		await expect(
 			Reflect.apply(client.operations.invoke, client.operations, [
-				{ slug: "greet", output: Greeting, input: { invalid: undefined } },
+				{ pluginSlug, slug: "greet", output: Greeting, input: { invalid: undefined } },
 			]),
 		).rejects.toMatchObject({ reason: "invalid-input" });
 		expect(calls).toBe(0);
@@ -255,7 +279,7 @@ describe("createRyotClient", () => {
 
 		expect(client.data).not.toHaveProperty("invokeOperation");
 		await expect(
-			client.operations.invoke({ slug: "greet", input: {}, output: Greeting }),
+			client.operations.invoke({ pluginSlug, slug: "greet", input: {}, output: Greeting }),
 		).rejects.toMatchObject({ reason: "unsupported-capability" });
 	});
 
@@ -454,24 +478,52 @@ describe("createRyotClient", () => {
 			}),
 		);
 
-		client.navigation.push({ kind: "route", path: "/items", search: { tab: "stats" } });
+		client.navigation.push({
+			pluginSlug,
+			path: "/items",
+			kind: "plugin-route",
+			search: { tab: "stats" },
+		});
 		client.navigation.replace({ kind: "entity", entityId: "entity-1" });
+		client.navigation.push({ kind: "saved-view", savedViewId: "view-1" });
 
 		expect(navigations).toEqual([
 			{
 				mode: "push",
-				target: { kind: "route", path: "/items", search: { tab: "stats" } },
+				target: { pluginSlug, kind: "plugin-route", path: "/items", search: { tab: "stats" } },
 			},
 			{ mode: "replace", target: { kind: "entity", entityId: "entity-1" } },
+			{ mode: "push", target: { kind: "saved-view", savedViewId: "view-1" } },
+		]);
+	});
+
+	it("delegates merged page-search updates without rewriting unrelated keys", () => {
+		const updates: Array<{
+			readonly mode: "push" | "replace";
+			readonly update: Readonly<Record<string, string | null>>;
+		}> = [];
+		const client = createRyotClient(
+			createTestRyotAdapter({
+				query: () => Promise.resolve({}),
+				navigatePageSearch: (mode, update) => updates.push({ mode, update }),
+			}),
+		);
+
+		client.navigation.pageSearch.push({ dialog: "add-to-collection", entityId: "entity-1" });
+		client.navigation.pageSearch.replace({ dialog: null, entityId: null });
+
+		expect(updates).toEqual([
+			{ mode: "push", update: { dialog: "add-to-collection", entityId: "entity-1" } },
+			{ mode: "replace", update: { dialog: null, entityId: null } },
 		]);
 	});
 
 	it("rejects navigation when the environment does not provide that capability", () => {
 		const client = createRyotClient(createTestRyotAdapter({ query: () => Promise.resolve({}) }));
 
-		expect(() => client.navigation.push({ kind: "route", path: "/items" })).toThrow(
-			new RyotClientError("unsupported-capability"),
-		);
+		expect(() =>
+			client.navigation.push({ pluginSlug, kind: "plugin-route", path: "/items" }),
+		).toThrow(new RyotClientError("unsupported-capability"));
 	});
 
 	it("normalizes unexpected navigation failures as transport errors", () => {
@@ -484,9 +536,9 @@ describe("createRyotClient", () => {
 			}),
 		);
 
-		expect(() => client.navigation.push({ kind: "route", path: "/items" })).toThrow(
-			new RyotClientError("transport"),
-		);
+		expect(() =>
+			client.navigation.push({ pluginSlug, kind: "plugin-route", path: "/items" }),
+		).toThrow(new RyotClientError("transport"));
 	});
 
 	it("decodes theme snapshots and delegates reactive subscriptions", () => {

@@ -27,18 +27,6 @@ const makeToken = () =>
 const expiresAt = (now: number) =>
 	DateTime.formatIso(DateTime.makeUnsafe(now + PLUGIN_CLIENT_ARTIFACT_SESSION_TTL_SECONDS * 1_000));
 
-const sessionIdentity = (payload: typeof ClientPageSessionPayloadFromJson.Type) => ({
-	buildId: payload.buildId,
-	graphHash: payload.graphHash,
-	rendererId: payload.rendererId,
-	savedViewId: payload.savedViewId,
-	viewRevision: payload.viewRevision,
-	contributors: payload.contributors,
-	artifactHash: payload.artifactHash,
-	publishedHash: payload.publishedHash,
-	publishedRevision: payload.publishedRevision,
-});
-
 export class ClientPageSessionService extends Context.Service<ClientPageSessionService>()(
 	"ClientPageSessionService",
 	{
@@ -83,7 +71,7 @@ export class ClientPageSessionService extends Context.Service<ClientPageSessionS
 				const sessionId = hashPluginClientArtifactSessionToken(token);
 				const value = yield* Schema.encodeUnknownEffect(ClientPageSessionPayloadFromJson)({
 					userId,
-					...identity,
+					identity,
 				}).pipe(Effect.orDie);
 				const stored = yield* Effect.tryPromise(() =>
 					redis.client.set(
@@ -105,7 +93,7 @@ export class ClientPageSessionService extends Context.Service<ClientPageSessionS
 				if (loaded.payload.userId !== userId) {
 					return yield* notFound();
 				}
-				yield* current(userId, sessionIdentity(loaded.payload)).pipe(Effect.mapError(notFound));
+				yield* current(userId, loaded.payload.identity).pipe(Effect.mapError(notFound));
 				const renewed = yield* redis.renewLease(
 					redisKeys.clientPageSession(sessionId),
 					loaded.raw,
@@ -133,11 +121,11 @@ export class ClientPageSessionService extends Context.Service<ClientPageSessionS
 				}
 				const sessionId = hashPluginClientArtifactSessionToken(token);
 				const loaded = yield* load(sessionId);
-				yield* current(loaded.payload.userId, sessionIdentity(loaded.payload)).pipe(
+				yield* current(loaded.payload.userId, loaded.payload.identity).pipe(
 					Effect.mapError(notFound),
 				);
 				return (
-					(yield* repository.findArtifactFile(loaded.payload.artifactHash, fileName)) ??
+					(yield* repository.findArtifactFile(loaded.payload.identity.artifactHash, fileName)) ??
 					(yield* notFound())
 				);
 			});

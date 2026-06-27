@@ -15,6 +15,24 @@ const strictParseOptions = {
 
 export const CLIENT_API_VERSION = 1 as const;
 
+export const comparePluginRoutePaths = (left: string, right: string) => {
+	const leftSegments = left.split("/");
+	const rightSegments = right.split("/");
+	for (let index = 0; index < Math.max(leftSegments.length, rightSegments.length); index += 1) {
+		const leftSegment = leftSegments[index] ?? "";
+		const rightSegment = rightSegments[index] ?? "";
+		const dynamicOrder = Number(leftSegment.startsWith("$")) - Number(rightSegment.startsWith("$"));
+		if (dynamicOrder !== 0) {
+			return dynamicOrder;
+		}
+		const segmentOrder = leftSegment.localeCompare(rightSegment);
+		if (segmentOrder !== 0) {
+			return segmentOrder;
+		}
+	}
+	return left.localeCompare(right);
+};
+
 const pluginManifestSlug = Schema.String.pipe(
 	Schema.check(
 		Schema.makeFilter((value) =>
@@ -133,7 +151,9 @@ export const PluginClientEntry = strictStruct({
 	entry: PluginClientSourceEntry,
 	exports: Schema.optional(PluginClientExports),
 	apiVersion: Schema.Literal(CLIENT_API_VERSION),
+	notFoundPage: Schema.optional(pluginManifestSlug),
 	pluginDependencies: Schema.optional(PluginClientDependencies),
+	routes: Schema.optional(Schema.Record(Schema.String, pluginManifestSlug)),
 	entities: Schema.optional(
 		Schema.Record(
 			pluginManifestSlug,
@@ -678,6 +698,14 @@ const hasValidClientManifestReferences = (
 			if (exportName !== undefined && clientExports[exportName]?.kind !== "presentation") {
 				return false;
 			}
+		}
+	}
+	for (const exportName of [
+		...Object.values(manifest.client?.routes ?? {}),
+		...(manifest.client?.notFoundPage === undefined ? [] : [manifest.client.notFoundPage]),
+	]) {
+		if (clientExports[exportName]?.kind !== "page") {
+			return false;
 		}
 	}
 	return true;

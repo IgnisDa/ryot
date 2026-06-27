@@ -13,8 +13,12 @@ type ReplaceRendererDraftRequest = ContractRequest<"clientPages", "replaceRender
 
 type CreateRendererPayload = CreateRendererRequest["payload"];
 type RendererId = ContractSuccess<"clientPages", "getRenderer">["id"];
-export type ClientRendererDefinition = CreateRendererRequest["payload"]["draftDefinition"];
+type ClientRendererDefinition = CreateRendererRequest["payload"]["draftDefinition"];
 type RendererSavedViewPayload = Extract<CreateSavedViewRequest["payload"], { renderer: unknown }>;
+type SavedViewClientPageTarget = Extract<
+	PrepareClientPageRequest["payload"]["target"],
+	{ kind: "saved-view" }
+>;
 type CustomRendererId = Extract<
 	RendererSavedViewPayload["renderer"],
 	{ kind: "custom" }
@@ -134,7 +138,7 @@ export const deleteClientRenderer = (client: Client, rendererId: RendererId) =>
 
 export const prepareClientPage = (
 	client: Client,
-	savedViewId: PrepareClientPageRequest["payload"]["target"]["savedViewId"],
+	savedViewId: SavedViewClientPageTarget["savedViewId"],
 ) =>
 	client.call((contract) =>
 		contract.clientPages.prepare({ payload: { target: { kind: "saved-view", savedViewId } } }),

@@ -1,5 +1,4 @@
-import type { PluginRouteLocation } from "@ryot-app/client-plugin-contract";
-import { EntityId } from "@ryot-app/contract/schema/brands";
+import { EntityId, PluginSlug, SavedViewId } from "@ryot-app/contract/schema/brands";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -9,137 +8,54 @@ import {
 	validatePluginLocation,
 } from "#/modules/plugins/plugin-location";
 
-const home: PluginRouteLocation = { kind: "route", path: "/", search: "" };
-
 describe("plugin logical locations", () => {
-	it("strips the installed namespace from the global location", () => {
-		expect(toPluginLocation("fixture", "/fixture", "")).toEqual(home);
-		expect(toPluginLocation("fixture", "/fixture/", "")).toEqual(home);
-		expect(toPluginLocation("fixture", "/fixture/details/item-1", "?tab=stats")).toEqual({
+	it("maps the real global route and search to a document location", () => {
+		expect(toPluginLocation("fixture", "/fixture/details/1", "?tab=stats")).toEqual({
 			kind: "route",
+			path: "/details/1",
 			search: "tab=stats",
-			path: "/details/item-1",
-		});
-		expect(toPluginLocation("fixture", "/fixture/details/item-1/", "tab=stats")).toEqual({
-			kind: "route",
-			search: "tab=stats",
-			path: "/details/item-1",
 		});
 	});
 
-	it("restores the installed namespace when building a global href", () => {
-		expect(toGlobalHref("fixture", home)).toBe("/fixture");
-		expect(toGlobalHref("fixture", { kind: "route", path: "/", search: "tab=stats" })).toBe(
-			"/fixture?tab=stats",
+	it("builds global hrefs from explicit targets", () => {
+		expect(
+			toGlobalHref({
+				path: "/shows",
+				search: "q=dune",
+				kind: "plugin-route",
+				pluginSlug: PluginSlug.make("media"),
+			}),
+		).toBe("/media/shows?q=dune");
+		expect(toGlobalHref({ kind: "entity", entityId: EntityId.make("entity/1") })).toBe(
+			"/e/entity%2F1",
 		);
-		expect(
-			toGlobalHref("fixture", { kind: "route", path: "/details/item-1", search: "tab=stats" }),
-		).toBe("/fixture/details/item-1?tab=stats");
+		expect(toGlobalHref({ kind: "saved-view", savedViewId: SavedViewId.make("view/1") })).toBe(
+			"/v/view%2F1",
+		);
 	});
 
-	it("round-trips a global location through the plugin location", () => {
-		const location = toPluginLocation("fixture", "/fixture/details/item-1", "?tab=stats");
-
-		expect(toGlobalHref("fixture", location)).toBe("/fixture/details/item-1?tab=stats");
-	});
-
-	it("accepts a relative plugin path and keeps it inside the namespace", () => {
-		const settings = validatePluginLocation({ kind: "route", path: "/settings", search: "" });
-
-		expect(settings).toEqual({ kind: "route", path: "/settings", search: "" });
-		expect(toGlobalHref("fixture", settings ?? home)).toBe("/fixture/settings");
-	});
-
-	it("rejects traversal, absolute, and reserved-route escapes", () => {
-		for (const path of [
-			"/../settings",
-			"/details/../../auth",
-			"/./settings",
-			"/%2e%2e/settings",
-			"/%2E%2E/other-plugin",
-			"/details/.%2e/%2e./auth",
-			"/%2e/settings",
-			"/%2E/settings",
-			"..",
-			"/..",
-			"//evil.example/settings",
-			"https://evil.example/settings",
-			"settings",
-			"",
-			"/details\\..\\auth",
-			"/details/1?tab=stats",
-			"/details/1#top",
-			"/details /1",
-		]) {
-			expect(validatePluginLocation({ kind: "route", path, search: "" })).toBeUndefined();
-		}
-	});
-
-	it("rejects a search value that carries a fragment or whitespace", () => {
+	it("does not infer a plugin slug from the active caller", () => {
 		expect(
-			validatePluginLocation({ kind: "route", path: "/details/1", search: "tab=stats#top" }),
-		).toBeUndefined();
-		expect(
-			validatePluginLocation({ kind: "route", path: "/details/1", search: "tab=a b" }),
-		).toBeUndefined();
-	});
-
-	it("turns a plugin navigation request into a namespaced kernel navigation", () => {
-		expect(
-			toNavigationRequest("fixture", {
-				mode: "push",
-				type: "navigate",
-				target: { kind: "route", path: "/details/item-1", search: "tab=stats" },
-			}),
-		).toEqual({ replace: false, href: "/fixture/details/item-1?tab=stats" });
-
-		expect(
-			toNavigationRequest("fixture", {
+			toNavigationRequest({
 				mode: "replace",
 				type: "navigate",
-				target: { kind: "route", path: "/", search: "" },
+				target: {
+					search: "",
+					path: "/shows",
+					kind: "plugin-route",
+					pluginSlug: PluginSlug.make("media"),
+				},
 			}),
-		).toEqual({ replace: true, href: "/fixture" });
+		).toEqual({ href: "/media/shows", replace: true });
 	});
 
-	it("drops a navigation request that leaves the installation namespace", () => {
-		for (const path of ["/../settings", "/%2e%2e/other-plugin", "/%2E%2E/auth"]) {
-			expect(
-				toNavigationRequest("fixture", {
-					mode: "push",
-					type: "navigate",
-					target: { kind: "route", path, search: "" },
-				}),
-			).toBeUndefined();
-		}
-	});
-
-	it("keeps a segment that only looks like a traversal", () => {
-		for (const path of ["/details/...", "/details/%2e%2e%2e", "/details/%252e%252e"]) {
-			expect(
-				toNavigationRequest("fixture", {
-					mode: "push",
-					type: "navigate",
-					target: { kind: "route", path, search: "" },
-				}),
-			).toEqual({ replace: false, href: `/fixture${path}` });
-		}
-	});
-
-	it("navigates to an encoded global entity route without the plugin namespace", () => {
+	it("rejects route traversal and an empty entity ID", () => {
 		expect(
-			toNavigationRequest("fixture", {
+			validatePluginLocation({ kind: "route", path: "/../settings", search: "" }),
+		).toBeUndefined();
+		expect(
+			toNavigationRequest({
 				mode: "push",
-				type: "navigate",
-				target: { kind: "entity", entityId: EntityId.make("entity/one?two") },
-			}),
-		).toEqual({ replace: false, href: "/e/entity%2Fone%3Ftwo" });
-	});
-
-	it("rejects an empty entity ID", () => {
-		expect(
-			toNavigationRequest("fixture", {
-				mode: "replace",
 				type: "navigate",
 				target: { kind: "entity", entityId: EntityId.make("") },
 			}),

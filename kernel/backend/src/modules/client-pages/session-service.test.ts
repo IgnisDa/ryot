@@ -39,16 +39,26 @@ const identity: PreparedClientPage["identity"] = {
 	rendererId,
 	savedViewId,
 	viewRevision: 1,
+	kind: "saved-view",
 	buildId: "build-1",
 	graphHash: "graph-1",
 	publishedRevision: 1,
 	artifactHash: "artifact-1",
 	publishedHash: "renderer-source-1",
+	target: { kind: "saved-view", savedViewId },
 	contributors: [rendererContributor, privateContributor],
+	operationTargets: [
+		{
+			pluginId: "target-plugin-id",
+			sourceHash: "target-source-1",
+			installationId: "target-installation-id",
+			pluginSlug: PluginSlug.make("target"),
+		},
+	],
 };
 
 const makeLayer = (currentIdentity: PreparedClientPage["identity"], fileReads: string[]) => {
-	const raw = Schema.encodeUnknownSync(ClientPageSessionPayloadFromJson)({ userId, ...identity });
+	const raw = Schema.encodeUnknownSync(ClientPageSessionPayloadFromJson)({ userId, identity });
 	return ClientPageSessionService.layer.pipe(
 		Layer.provide(
 			Layer.mergeAll(
@@ -105,6 +115,22 @@ it.effect("rejects artifact access when a private contributor revision changes",
 		...identity,
 		graphHash: "graph-2",
 		contributors: [rendererContributor, { ...privateContributor, sourceHash: "private-source-2" }],
+	};
+	return Effect.gen(function* () {
+		const sessions = yield* ClientPageSessionService;
+		const error = yield* Effect.flip(sessions.findFile(token, "plugin.js"));
+		expect(error._tag).toBe("ClientPageSessionNotFound");
+		expect(fileReads).toEqual([]);
+	}).pipe(Effect.provide(Layer.mergeAll(makeLayer(currentIdentity, fileReads), databaseLayer)));
+});
+
+it.effect("rejects artifact access when a recorded operation target revision changes", () => {
+	const fileReads: string[] = [];
+	const currentIdentity = {
+		...identity,
+		operationTargets: identity.operationTargets.map((target) =>
+			Object.assign({}, target, { sourceHash: "target-source-2" }),
+		),
 	};
 	return Effect.gen(function* () {
 		const sessions = yield* ClientPageSessionService;

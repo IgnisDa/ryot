@@ -83,9 +83,7 @@ export const ClientPagesRoutesLive = HttpApiBuilder.group(AppContract, "clientPa
 		.handle("prepare", ({ payload }) =>
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;
-				return yield* (yield* ClientPagesService)
-					.prepare(user, payload.target.savedViewId)
-					.pipe(dieOnDbError);
+				return yield* (yield* ClientPagesService).prepare(user, payload.target).pipe(dieOnDbError);
 			}),
 		)
 		.handle("createSession", ({ payload }) =>
