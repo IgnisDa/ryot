@@ -3,7 +3,7 @@ import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
-import { execution } from "../automations/automation-test-utils";
+import { execution } from "../../tests/backend/automations/automation-test-utils";
 import definition, { manifest } from "./resolve-episodes.sandbox";
 
 const rowsResponse = (entityIds: string[]) => ({

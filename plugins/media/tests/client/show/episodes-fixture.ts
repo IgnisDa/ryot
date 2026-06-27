@@ -1,6 +1,6 @@
 import { Result } from "@ryot-app/client-sdk/effect";
 
-import { showSeasonEpisodesRecipe, showSeasonsRecipe } from "../../shared/show-recipes";
+import { showSeasonEpisodesRecipe, showSeasonsRecipe } from "../../../shared/show-recipes";
 import { rowsResult } from "./query-result-fixture";
 
 const showEpisodesFixtureRecipe = showSeasonsRecipe({ entityId: "show-1", seasonLimit: 40 });

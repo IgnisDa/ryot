@@ -16,7 +16,7 @@ import {
 	integrationRecord,
 	ryotqlRows,
 	toRecord,
-} from "./automation-test-utils";
+} from "../../tests/backend/automations/automation-test-utils";
 import definition, { manifest } from "./jellyfin-push.sandbox";
 
 type JellyfinHost = SandboxHost<typeof manifest.capabilities>;

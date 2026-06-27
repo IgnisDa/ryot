@@ -4,19 +4,26 @@ import { RyotClientError } from "@ryot-app/client-sdk";
 import { fireEvent, getByRole } from "@testing-library/dom";
 import { assert, describe, expect, it } from "vitest";
 
-import { decodeShowActivity } from "./activity-fixture";
+import { decodeShowActivity } from "../../tests/client/show/activity-fixture";
+import {
+	decodeShowEpisodesResult,
+	decodeShowSeasonEpisodesResult,
+} from "../../tests/client/show/episodes-fixture";
+import { decodeShowOverview } from "../../tests/client/show/overview-fixture";
+import {
+	errorQueryResult,
+	pendingQueryResult,
+	readyQueryResult,
+} from "../../tests/client/show/query-result-fixture";
+import { decodeShowSummaryResult, showSummaryRow } from "../../tests/client/show/summary-fixture";
+import { mountRyotClient } from "../../tests/client/show/test-support";
 import { mapShowActivity } from "./activity-state";
-import { decodeShowEpisodesResult, decodeShowSeasonEpisodesResult } from "./episodes-fixture";
 import { mapShowEpisodes, mapShowSeasonEpisodes } from "./episodes-state";
-import { decodeShowOverview } from "./overview-fixture";
 import { mapShowOverview } from "./overview-state";
 import { ShowRefreshStatus } from "./primitives";
-import { errorQueryResult, pendingQueryResult, readyQueryResult } from "./query-result-fixture";
 import { classifyRyotQueryResult } from "./query-state";
 import { ShowScreenBody } from "./screen";
-import { decodeShowSummaryResult, showSummaryRow } from "./summary-fixture";
 import { mapShowSummary } from "./summary-state";
-import { mountRyotClient } from "./test-support";
 
 describe("show refresh failures", () => {
 	it.each(["transport", "malformed-result"] as const)(

@@ -5,7 +5,6 @@ import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
-import definition, { manifest } from "./auto-complete-on-full-progress.sandbox";
 import {
 	eventAutomationContext,
 	entityRecord,
@@ -13,7 +12,8 @@ import {
 	execution,
 	hostSuccess,
 	ryotqlRows,
-} from "./automation-test-utils";
+} from "../../tests/backend/automations/automation-test-utils";
+import definition, { manifest } from "./auto-complete-on-full-progress.sandbox";
 
 const completeSchema = {
 	name: "Complete",
