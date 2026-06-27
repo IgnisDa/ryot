@@ -30,7 +30,11 @@ import { QueryEngineService } from "#modules/query-engine/service";
 
 import { enqueueEventCreate } from "./event-create-workflow";
 import { validateEventCreateSubmission } from "./event-creation";
-import { EventsRepository } from "./repository";
+import {
+	EventsRepository,
+	type EventIdentityInput,
+	type UpdateEventEntityReferencesInput,
+} from "./repository";
 
 const entityNotFoundError = "Entity not found";
 const sessionEntityNotFoundError = "Session entity not found";
@@ -248,6 +252,16 @@ export class EventsService extends Effect.Service<EventsService>()("EventsServic
 			return { count: input.payload.length };
 		});
 
-		return { create, listForUser };
+		const update = Effect.fn("EventsService.update")(function* (
+			input: UpdateEventEntityReferencesInput,
+		) {
+			return yield* runWithDb(repository.updateEventEntityReferences(input));
+		});
+
+		const deleteEvent = Effect.fn("EventsService.delete")(function* (input: EventIdentityInput) {
+			return yield* runWithDb(repository.deleteEvent(input));
+		});
+
+		return { create, delete: deleteEvent, listForUser, update };
 	}),
 }) {}

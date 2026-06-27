@@ -4,6 +4,7 @@ import { BadRequest, NotFound } from "@ryot/contract/errors";
 import {
 	EntityId,
 	EntitySchemaId,
+	EventId,
 	RelationshipId,
 	RelationshipSchemaId,
 	UserId,
@@ -14,6 +15,7 @@ import type { MockOverrides } from "#lib/test-support/effect";
 import { dbRunnerLayer, transactionLayer } from "#lib/test-support/effect";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventsRepository } from "#modules/events/repository";
+import { EventsService } from "#modules/events/service";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
@@ -41,6 +43,14 @@ const makeEventsRepository = (overrides: MockOverrides<typeof mockEventsReposito
 	mockEventsRepository({
 		...overrides,
 		_tag: "EventsRepository",
+	});
+
+const mockEventsService = Layer.mock(EventsService);
+
+const makeEventsService = (overrides: MockOverrides<typeof mockEventsService> = {}) =>
+	mockEventsService({
+		...overrides,
+		_tag: "EventsService",
 	});
 
 const mockRelationshipsRepository = Layer.mock(RelationshipsRepository);
@@ -74,6 +84,7 @@ const makeRelationshipSchemasRepository = (
 const makeServiceLayer = (
 	options: {
 		eventsRepository?: ReturnType<typeof makeEventsRepository>;
+		eventsService?: ReturnType<typeof makeEventsService>;
 		entitiesRepository?: ReturnType<typeof makeEntitiesRepository>;
 		relationshipsService?: ReturnType<typeof makeRelationshipsService>;
 		relationshipsRepository?: ReturnType<typeof makeRelationshipsRepository>;
@@ -87,6 +98,7 @@ const makeServiceLayer = (
 				transactionLayer,
 				options.entitiesRepository ?? makeEntitiesRepository(),
 				options.eventsRepository ?? makeEventsRepository(),
+				options.eventsService ?? makeEventsService(),
 				options.relationshipsRepository ?? makeRelationshipsRepository(),
 				options.relationshipsService ?? makeRelationshipsService(),
 				options.relationshipSchemasRepository ?? makeRelationshipSchemasRepository(),
@@ -130,6 +142,49 @@ it.effect("rejects clearing library user state", () => {
 		expect(exit).toEqual(
 			Exit.fail(new BadRequest({ message: "Library entity user state cannot be cleared" })),
 		);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("deletes matching events through EventsService when clearing user state", () => {
+	const deletedEventIds: EventId[] = [];
+	const layer = makeServiceLayer({
+		entitiesRepository: makeEntitiesRepository({
+			getEntityScopeForUser: () =>
+				Effect.succeed({
+					isBuiltin: false,
+					entityUserId: user.id,
+					entitySchemaSlug: "book",
+					propertiesSchema: { fields: {} },
+					entityId: EntityId.make("entity-1"),
+					entitySchemaId: EntitySchemaId.make("book-schema"),
+				}),
+		}),
+		eventsRepository: makeEventsRepository({
+			listUserEventIdsForEntity: () =>
+				Effect.succeed([EventId.make("event-1"), EventId.make("event-2")]),
+		}),
+		eventsService: makeEventsService({
+			delete: (input) =>
+				Effect.sync(() => {
+					deletedEventIds.push(input.eventId);
+					return input.eventId;
+				}),
+		}),
+		relationshipsRepository: makeRelationshipsRepository({
+			listUserRelationshipsForEntity: () => Effect.succeed([]),
+		}),
+	});
+
+	return Effect.gen(function* () {
+		const service = yield* UserStateService;
+		const result = yield* service.clearUserState(user, EntityId.make("entity-1"));
+
+		expect(result).toEqual({
+			deletedEventsCount: 2,
+			deletedRelationshipsCount: 0,
+			entityId: EntityId.make("entity-1"),
+		});
+		expect(deletedEventIds).toEqual([EventId.make("event-1"), EventId.make("event-2")]);
 	}).pipe(Effect.provide(layer));
 });
 
@@ -239,10 +294,14 @@ it.effect("moves events and relationships for valid merges", () => {
 			getEntityMergeScopeForUser: ({ entityId }) => Effect.succeed(makeMergeScope({ entityId })),
 		}),
 		eventsRepository: makeEventsRepository({
-			moveUserEventsBetweenEntities: (input) =>
+			listUserEventIdsForEntity: () =>
+				Effect.succeed([EventId.make("event-1"), EventId.make("event-2")]),
+		}),
+		eventsService: makeEventsService({
+			update: (input) =>
 				Effect.sync(() => {
-					calls.push(`${input.mergeFrom}->${input.mergeInto}:events`);
-					return 2;
+					calls.push(`${input.eventId}:${input.mergeFrom}->${input.mergeInto}:events`);
+					return input.eventId;
 				}),
 		}),
 		relationshipSchemasRepository: makeRelationshipSchemasRepository({
@@ -329,7 +388,8 @@ it.effect("moves events and relationships for valid merges", () => {
 			movedRelationshipsCount: 3,
 		});
 		expect(calls).toEqual([
-			"from->into:events",
+			"event-1:from->into:events",
+			"event-2:from->into:events",
 			"into->target-1:create",
 			"from->target-1:delete",
 			"target-2->into:create",
