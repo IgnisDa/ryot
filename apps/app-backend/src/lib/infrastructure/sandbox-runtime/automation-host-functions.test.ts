@@ -6,14 +6,9 @@ import {
 	SubscriptionRunId,
 	UserId,
 } from "@ryot/contract/schema/brands";
-import type { AutomationInput } from "@ryot/sandbox-sdk/automation";
-import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
 import { Effect, Layer } from "effect";
 
 import { dbRunnerLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
-import notifierDefinition, {
-	manifest as notifierManifest,
-} from "#modules/definition-registry/kernel-scripts/notification.sandbox";
 import { NotificationsRepository } from "#modules/notifications/repository";
 import { NotificationsService } from "#modules/notifications/service";
 import { SignalEmissionService, type EmitSignalInput } from "#modules/signals/service";
@@ -42,26 +37,6 @@ const runInput = {
 	allowedHostFunctions: ["emitSignal", "sendNotification"],
 	subscriptionRun: { id: runId, occurredAt, origin: { kind: "api" } },
 } as const satisfies SandboxRunInput;
-
-const notifierInput = {
-	automation: {
-		occurredAt,
-		ruleId: "rule-1",
-		operation: "signal",
-		origin: { kind: "api" },
-		occurrenceId: "signal-1",
-		source: {
-			kind: "signal",
-			signal: {
-				occurredAt,
-				id: "signal-1",
-				origin: { kind: "api" },
-				properties: { entityName: "Dune" },
-				signalSchemaSlug: "review.created",
-			},
-		},
-	},
-} as const satisfies AutomationInput;
 
 it.effect("derives signal authority and identity from the subscription run", () => {
 	let captured: EmitSignalInput | undefined;
@@ -140,16 +115,7 @@ it.effect("uses one run-derived message delivery identity across replay", () => 
 	return Effect.gen(function* () {
 		const host = yield* makeAutomationSandboxApiFunctions();
 		const runNotifier = () =>
-			Effect.promise(() =>
-				runSandboxTestDriver(
-					notifierDefinition.drivers.automation,
-					notifierInput,
-					defineSandboxTestHost(notifierManifest, {
-						sendNotification: (message) => host.sendNotification(runInput, message),
-					}),
-					{ metadata: {}, sandboxScriptId: "script-1" },
-				),
-			);
+			Effect.promise(() => host.sendNotification(runInput, "Review posted for Dune"));
 		expect(yield* runNotifier()).toEqual({ data: null, success: true });
 		expect(yield* runNotifier()).toEqual({ data: null, success: true });
 		expect(deliveries).toHaveLength(2);

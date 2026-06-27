@@ -1,6 +1,7 @@
 import {
 	PluginManifest,
 	type PluginManifest as PluginManifestValue,
+	type PluginScript,
 } from "@ryot/plugin-kit/manifest";
 import { Data, Effect, Schema } from "effect";
 
@@ -136,6 +137,38 @@ export const validatePluginManifestReferences = (
 				binding.signalSchemaSlug,
 				new Set(Object.keys(snapshot.signalSchemas)),
 			);
+		}
+		return yield* Effect.void;
+	});
+
+type ScriptDescriptor = Pick<PluginScript, "kind" | "slug">;
+
+export const validateSignalSchemaFormatterReferences = (
+	snapshot: DefinitionSnapshot,
+	pluginScripts: ReadonlyArray<ScriptDescriptor>,
+	kernelScripts: ReadonlyArray<ScriptDescriptor>,
+) =>
+	Effect.gen(function* () {
+		const scripts = [...pluginScripts, ...kernelScripts];
+		const scriptSlugs = new Set<string>();
+		for (const script of scripts) {
+			if (scriptSlugs.has(script.slug)) {
+				return yield* fail(`Duplicate script slug: ${script.slug}`);
+			}
+			scriptSlugs.add(script.slug);
+		}
+		for (const signalSchema of Object.values(snapshot.signalSchemas)) {
+			const matches = scripts.filter(({ slug }) => slug === signalSchema.notificationScriptSlug);
+			if (matches.length === 0) {
+				return yield* fail(
+					`Signal schema ${signalSchema.slug} notification formatter references missing script: ${signalSchema.notificationScriptSlug}`,
+				);
+			}
+			if (!matches.some(({ kind }) => kind === "automation")) {
+				return yield* fail(
+					`Signal schema ${signalSchema.slug} notification formatter ${signalSchema.notificationScriptSlug} must reference an automation script`,
+				);
+			}
 		}
 		return yield* Effect.void;
 	});
