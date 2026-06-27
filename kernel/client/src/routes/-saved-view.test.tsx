@@ -29,6 +29,7 @@ import {
 	OAuthRouteStubs,
 	GodModeRouteStubs,
 	ProviderAddRouteStubs,
+	NavigationRouteStubs,
 	theme,
 	catalog,
 	makeAuthStub,
@@ -241,6 +242,7 @@ const mountView = (
 			}),
 			Layer.succeed(ManagedAssetsService, { resolve }),
 			Layer.succeed(PluginCatalogService, { load: () => Effect.succeed(catalog) }),
+			NavigationRouteStubs,
 			Layer.succeed(PluginOperationsService, { invoke: () => Effect.die("not used") }),
 			Layer.succeed(PluginQueriesService, { query: () => Effect.die("not used") }),
 			Layer.succeed(SavedViewsService, {

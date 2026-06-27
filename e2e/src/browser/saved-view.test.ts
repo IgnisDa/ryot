@@ -38,6 +38,7 @@ const PROVIDER_SLUG = `${ENTITY_SCHEMA_SLUG}.saved-view-add`;
 
 let page: Page;
 let viewUrl: string;
+let workspaceUrl: string;
 let browser: Browser;
 let context: BrowserContext;
 let provider: InstalledTestProvider;
@@ -52,6 +53,25 @@ const closeModal = () => dialog().getByRole("button", { name: /^(Close|Cancel)$/
 const headerAdd = () => page.getByRole("button", { name: "Add", exact: true });
 const providerChip = () => dialog().getByRole("radio", { name: PROVIDER_NAME });
 const pageSearch = () => page.getByRole("searchbox", { name: `Search ${VIEW_NAME}` });
+
+const openSavedView = async (options: { compact?: boolean; coldLoad?: boolean } = {}) => {
+	if (options.coldLoad) {
+		await page.goto(workspaceUrl);
+		await page.getByTestId("authenticated-shell").waitFor({ state: "visible" });
+	}
+	if (options.compact) {
+		await page.getByRole("button", { name: "Open navigation" }).click();
+		await page.getByTestId("mobile-drawer").waitFor({ state: "visible" });
+	}
+	const row = page.getByRole("link", { name: VIEW_NAME, exact: true });
+	await row.waitFor({ state: "visible" });
+	expect(await row.count()).toBe(1);
+	await row.click();
+	await page.waitForURL((url) => url.pathname === new URL(viewUrl).pathname);
+	if (options.compact) {
+		await page.getByTestId("mobile-drawer").waitFor({ state: "hidden" });
+	}
+};
 
 const waitForAddParam = (present: boolean) =>
 	page.waitForURL((url) => url.searchParams.has("add") === present);
@@ -125,6 +145,8 @@ beforeAll(async () => {
 	await page.getByLabel("Password").fill(credentials.password);
 	await page.locator("form").getByRole("button", { name: "Sign in", exact: true }).click();
 	await page.getByTestId("authenticated-shell").waitFor({ state: "visible" });
+	const homePath = await page.getByRole("link", { name: "Home", exact: true }).getAttribute("href");
+	workspaceUrl = new URL(homePath ?? "/", frontendUrl).toString();
 });
 
 afterAll(async () => {
@@ -135,7 +157,7 @@ afterAll(async () => {
 
 it.live("opens the provider add flow from every saved-view affordance", () =>
 	Effect.promise(async () => {
-		await page.goto(viewUrl);
+		await openSavedView();
 		await headerAdd().waitFor({ state: "visible" });
 		await fab().waitFor({ state: "hidden" });
 
@@ -164,7 +186,7 @@ it.live("opens the provider add flow from every saved-view affordance", () =>
 
 it.live("seeds the provider search from the no-matches action and guards page shortcuts", () =>
 	Effect.promise(async () => {
-		await page.goto(viewUrl);
+		await openSavedView({ coldLoad: true });
 		await pageSearch().fill(NO_MATCH_QUERY);
 		const noMatches = page.getByRole("button", {
 			name: `Search online for “${NO_MATCH_QUERY}”`,
@@ -209,7 +231,7 @@ it.live("seeds the provider search from the no-matches action and guards page sh
 it.live("adds a provider result to the saved view and swaps the mobile affordance", () =>
 	Effect.promise(async () => {
 		await page.setViewportSize({ width: 480, height: 900 });
-		await page.goto(viewUrl);
+		await openSavedView({ coldLoad: true, compact: true });
 		await fab().waitFor({ state: "visible" });
 		await headerAdd().waitFor({ state: "hidden" });
 
