@@ -37,6 +37,7 @@ const manifest = definePlugin({
 	workflows: [{ slug: "refresh.workflow", scriptSlug: "workflow.test" }],
 	importSources: [
 		{
+			lot: "single",
 			input: "file",
 			slug: "import.test",
 			name: "Test import source",
@@ -623,6 +624,7 @@ describe("definePlugin", () => {
 		const importSource = manifest.importSources[0];
 		const decoded = Schema.decodeUnknownSync(PluginManifest)(manifest);
 		expect(decoded.importSources[0]).toMatchObject({
+			lot: "single",
 			input: "file",
 			slug: "import.test",
 			workflowSlug: "refresh.workflow",
@@ -663,5 +665,42 @@ describe("definePlugin", () => {
 				importSources: [{ ...importSource, maxFileSizeBytes: 1024 }],
 			}),
 		).toThrow();
+		const namedSource = {
+			input: "file",
+			lot: "named",
+			slug: "import.named",
+			name: "Named import source",
+			workflowSlug: "refresh.workflow",
+			requiredAppConfigKeys: [],
+			description: "Import named files",
+			artifacts: [
+				{
+					key: "historyFilePath",
+					required: true,
+					allowedFileExtensions: ["csv"],
+					uploadTokenField: "historyUploadToken",
+				},
+			],
+		};
+		expect(
+			Schema.decodeUnknownSync(PluginManifest)({ ...manifest, importSources: [namedSource] })
+				.importSources[0],
+		).toEqual(namedSource);
+		for (const artifacts of [
+			[],
+			[namedSource.artifacts[0], namedSource.artifacts[0]],
+			[namedSource.artifacts[0], { ...namedSource.artifacts[0], key: "ratingsFilePath" }],
+			[
+				namedSource.artifacts[0],
+				{ ...namedSource.artifacts[0], uploadTokenField: "ratingsUploadToken" },
+			],
+		]) {
+			expect(() =>
+				Schema.decodeUnknownSync(PluginManifest)({
+					...manifest,
+					importSources: [{ ...namedSource, artifacts }],
+				}),
+			).toThrow();
+		}
 	});
 });

@@ -15,15 +15,22 @@ export const manifest = defineManifest({
 });
 
 const libraryEntityImport = {
-	input: Schema.Struct({
-		userId: Schema.String,
-		origin: Schema.Unknown,
-		externalId: Schema.String,
-		providerId: Schema.String,
-		entitySchemaSlug: Schema.String,
-	}),
 	output: KernelLibraryEntityImportResult,
 	workflowSlug: "kernel:library-entity-import",
+	input: Schema.Union(
+		Schema.Struct({
+			origin: Schema.Unknown,
+			externalId: Schema.String,
+			providerId: Schema.String,
+			entitySchemaSlug: Schema.String,
+		}),
+		Schema.Struct({
+			origin: Schema.Unknown,
+			externalId: Schema.String,
+			providerSlug: Schema.String,
+			entitySchemaSlug: Schema.String,
+		}),
+	),
 };
 
 export default defineWorkflow({
@@ -37,10 +44,11 @@ export default defineWorkflow({
 			for (const item of input.items) {
 				const result = yield* replay.child(`import-${item.index}`, libraryEntityImport, {
 					origin: item.origin,
-					userId: item.userId,
 					externalId: item.externalId,
-					providerId: item.providerId,
 					entitySchemaSlug: item.entitySchemaSlug,
+					...("providerId" in item
+						? { providerId: item.providerId }
+						: { providerSlug: item.providerSlug }),
 				});
 				results.push(
 					result.status === "completed"

@@ -43,13 +43,25 @@ export const genericImportFailureSchema = strictStruct({
 	itemIndex: Schema.Number,
 	sourceLabel: Schema.String,
 	sourceIdentifier: Schema.String,
+	entitySchemaSlug: Schema.optional(Schema.String),
+	stage: Schema.optional(
+		Schema.Literal(
+			"input_transformation",
+			"provider_resolution",
+			"provider_details",
+			"event_policy",
+			"database_commit",
+			"source_fetch",
+		),
+	),
 });
 
 export const genericImportEntityIntentSchema = strictStruct({
-	alias: Schema.String,
 	name: Schema.String,
+	alias: Schema.String,
 	properties: importRecordSchema,
 	entitySchemaSlug: Schema.String,
+	entityId: Schema.optional(Schema.String),
 	match: Schema.optional(
 		strictStruct({
 			name: Schema.String,
@@ -65,6 +77,17 @@ export const genericImportEventIntentSchema = strictStruct({
 	properties: importRecordSchema,
 	eventSchemaSlug: Schema.String,
 	sessionEntityAlias: Schema.optional(Schema.String),
+	subjectEntityId: Schema.optional(Schema.NonEmptyString),
+});
+
+export const genericImportCollectionMembershipIntentSchema = strictStruct({
+	entityAlias: Schema.String,
+	collectionName: Schema.String,
+});
+
+export const genericImportOwnershipIntentSchema = strictStruct({
+	provider: Schema.String,
+	entityAlias: Schema.String,
 });
 
 export const genericImportRelationshipIntentSchema = strictStruct({
@@ -81,6 +104,10 @@ export const genericImportWriteItemSchema = strictStruct({
 	events: Schema.Array(genericImportEventIntentSchema),
 	entities: Schema.Array(genericImportEntityIntentSchema),
 	relationships: Schema.Array(genericImportRelationshipIntentSchema),
+	ownerships: Schema.optional(Schema.Array(genericImportOwnershipIntentSchema)),
+	collectionMemberships: Schema.optional(
+		Schema.Array(genericImportCollectionMembershipIntentSchema),
+	),
 });
 
 export const genericImportChunkSchema = strictStruct({
@@ -98,6 +125,7 @@ export const genericImportAdapterManifestSchema = strictStruct({
 export const genericImportWorkflowInputSchema = strictStruct({
 	runId: Schema.String,
 	source: Schema.String,
+	sourcePayload: Schema.optional(Schema.Record({ key: Schema.String, value: jsonValueSchema })),
 });
 
 export const genericImportWorkflowResultSchema = strictStruct({
@@ -109,6 +137,7 @@ export const genericImportWorkflowResultSchema = strictStruct({
 export const genericImportKernelInputSchema = strictStruct({
 	runId: Schema.String,
 	chunkFiles: Schema.Array(Schema.String),
+	integrationId: Schema.optional(Schema.String),
 	totalItems: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
 	failureCount: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
 	writeItemCount: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
