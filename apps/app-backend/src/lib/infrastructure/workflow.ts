@@ -2,7 +2,10 @@ import { ClusterWorkflowEngine, SingleRunner } from "@effect/cluster";
 import * as PersistedQueue from "@effect/experimental/PersistedQueue";
 import * as PersistedQueueRedis from "@effect/experimental/PersistedQueue/Redis";
 import { PgClient } from "@effect/sql-pg";
-import { Duration, Effect, Layer, Redacted } from "effect";
+import type * as Workflow from "@effect/workflow/Workflow";
+import type { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
+import type { Context, Schema } from "effect";
+import { Clock, Duration, Effect, Layer, Redacted } from "effect";
 
 import { AppConfig } from "./config/service";
 
@@ -15,6 +18,22 @@ const WorkflowPgClientLive = Layer.unwrapEffect(
 	),
 );
 
+// TODO: https://github.com/Effect-TS/effect/issues/6317
+// @effect/cluster's SqlMessageStorage migration creates cluster_messages with
+// message_id VARCHAR(255), but the dedupe key it stores there is
+// `${entityType}/${executionId}/${tag}/${primaryKey}`, and for a DurableQueue
+// deferred the primaryKey embeds the execution id twice more. Chained workflows
+// (import -> population -> sandbox queue, interest population dispatch) compose
+// execution ids by suffixing, so their deferred-done messages exceed 255 chars
+// and every persist attempt dies with "value too long", leaving the awaiting
+// workflow suspended (or dead) forever. Widen the column until upstream shrinks
+// the key (the source has a "hash the entity address to save space?" note);
+// drop once the fix lands.
+const widenClusterMessageIdColumn = Effect.flatMap(
+	PgClient.PgClient,
+	(sql) => sql`ALTER TABLE cluster_messages ALTER COLUMN message_id TYPE text`,
+).pipe(Effect.orDie, Effect.asVoid);
+
 // TODO: https://github.com/Effect-TS/effect/issues/6294
 // A workflow awaiting more than one child resumes its 2nd+ child only via this
 // storage poll, not the in-process latch (@effect/cluster omits pollStorage in
@@ -25,7 +44,7 @@ export const WorkflowEngineLive = ClusterWorkflowEngine.layer.pipe(
 		SingleRunner.layer({
 			runnerStorage: "sql",
 			shardingConfig: { entityMessagePollInterval: Duration.millis(250) },
-		}),
+		}).pipe(Layer.tap(() => widenClusterMessageIdColumn)),
 	),
 	Layer.provide(WorkflowPgClientLive),
 );
@@ -53,3 +72,51 @@ const RedisPersistedQueueStoreLive = Layer.scoped(
 export const PersistedQueueLive = PersistedQueue.layer.pipe(
 	Layer.provide(RedisPersistedQueueStoreLive),
 );
+
+// TODO: https://github.com/Effect-TS/effect/issues/6318 (related: #6294)
+// Companion workaround to the poll interval above: when a DurableQueue job
+// completes before its awaiting workflow finishes persisting the Suspended
+// reply, the engine's deferred-triggered resume reads storage, finds no
+// Suspended reply, and no-ops — leaving the workflow Suspended forever even
+// though its deferred is resolved. Result pollers therefore nudge a resume
+// when a workflow has stayed Suspended across polls: resume only resets a
+// workflow whose persisted reply is Suspended, re-execution replays journaled
+// activities and deduped queue offers, and a resolved deferred completes it
+// immediately, so the nudge is safe for genuinely in-flight jobs.
+const resumeNudgePruneSize = 4_096;
+const resumeNudgeIntervalMs = 2_000;
+const suspendedSeenAt = new Map<string, number>();
+
+export const pollWorkflowWithResumeNudge = <
+	Name extends string,
+	Payload extends Workflow.AnyStructSchema,
+	Success extends Schema.Schema.Any,
+	Error extends Schema.Schema.All,
+>(
+	engine: Context.Tag.Service<typeof WorkflowEngine>,
+	workflow: Workflow.Workflow<Name, Payload, Success, Error>,
+	executionId: string,
+) =>
+	Effect.gen(function* () {
+		const result = yield* engine.poll(workflow, executionId);
+		if (result?._tag !== "Suspended") {
+			suspendedSeenAt.delete(executionId);
+			return result;
+		}
+
+		const now = yield* Clock.currentTimeMillis;
+		const firstSeenAt = suspendedSeenAt.get(executionId);
+		if (firstSeenAt === undefined) {
+			if (suspendedSeenAt.size >= resumeNudgePruneSize) {
+				suspendedSeenAt.clear();
+			}
+			suspendedSeenAt.set(executionId, now);
+			return result;
+		}
+
+		if (now - firstSeenAt >= resumeNudgeIntervalMs) {
+			suspendedSeenAt.set(executionId, now);
+			yield* engine.resume(workflow, executionId);
+		}
+		return result;
+	});
