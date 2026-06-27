@@ -58,6 +58,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
     apt-get autoremove -y && \
     rm -rf /var/lib/apt/lists/*
 ENV SANDBOX_DENO_DIR=/home/ryot/tmp
+# These directories are created and chowned below, so they are not user configurable.
+ENV FILE_STORAGE_LOCAL_DIR=/home/ryot/storage
+ENV FILE_STORAGE_LOCAL_TEMP_DIR=/home/ryot/work
 WORKDIR /home/ryot
 RUN mkdir -p /home/ryot/storage /home/ryot/work && chown -R ryot:ryot /home/ryot/storage /home/ryot/work
 COPY --chown=ryot:ryot apps/app-backend/src/drizzle ./src/drizzle

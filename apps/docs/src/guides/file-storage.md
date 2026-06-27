@@ -7,23 +7,21 @@ provider per upload.
 
 Use local storage when Ryot runs on one backend replica and has a persistent local volume.
 
-Create two separate directories:
+The container uses two fixed directories, created and owned by the non-root backend user:
 
-- A persistent directory for permanent files.
-- A working directory for temporary uploads, imports, and sandbox files.
+- `/home/ryot/storage` for permanent files.
+- `/home/ryot/work` for temporary uploads, imports, and sandbox files.
 
-Set these variables:
+The paths are not configurable. Only the signing secret must be set:
 
 ```sh
-FILE_STORAGE_LOCAL_DIR=/data/ryot/files
-FILE_STORAGE_LOCAL_TEMP_DIR=/data/ryot/work
 FILE_STORAGE_LOCAL_SIGNING_SECRET=replace-with-a-long-random-secret
 ```
 
-`FILE_STORAGE_LOCAL_DIR` must be writable by the non-root backend process and backed up with
-your deployment. `FILE_STORAGE_LOCAL_TEMP_DIR` is disposable and should not be included in
-permanent backups, but needs enough capacity for uploads and imports. The directories must be
-absolute and must not overlap. Use a dedicated signing secret, not an admin or S3 secret.
+Mount a persistent volume at `/home/ryot/storage` and back it up with your deployment.
+`/home/ryot/work` is disposable and should not be included in permanent backups, but needs
+enough capacity for uploads and imports. Use a dedicated signing secret, not an admin or S3
+secret.
 
 Local permanent storage is single-replica only. Use S3 if multiple backend replicas need to
 share files.
@@ -37,8 +35,6 @@ service:
 services:
   ryot:
     environment:
-      FILE_STORAGE_LOCAL_DIR: /home/ryot/storage
-      FILE_STORAGE_LOCAL_TEMP_DIR: /home/ryot/work
       FILE_STORAGE_LOCAL_SIGNING_SECRET: replace-with-a-long-random-secret
     volumes:
       - ryot_local_storage:/home/ryot/storage
