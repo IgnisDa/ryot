@@ -6,7 +6,7 @@ class SandboxRuntimeDependencyError extends Data.TaggedError("SandboxRuntimeDepe
 	message: string;
 }> {}
 
-export const SANDBOX_RUNTIME_DEPENDENCY_FORMAT = 1 as const;
+const SANDBOX_RUNTIME_DEPENDENCY_FORMAT = 1 as const;
 
 export const SANDBOX_APPROVED_DEPENDENCIES = [
 	{

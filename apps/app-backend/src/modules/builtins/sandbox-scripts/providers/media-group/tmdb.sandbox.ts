@@ -1,17 +1,15 @@
 import { defineManifest } from "@ryot/sandbox-sdk";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
+import { numberValue, recordsValue, stringValue } from "../../script-helpers/records";
 import {
 	collectImages,
 	firstTranslationValue,
 	getImageUrl,
 	getLocalizedImageUrl,
 	getTmdbAccessToken,
-	numberValue,
 	orderedTranslationCandidates,
 	parseTranslationLanguage,
-	recordsValue,
-	stringValue,
 	tmdbGet,
 } from "../tmdb-shared";
 

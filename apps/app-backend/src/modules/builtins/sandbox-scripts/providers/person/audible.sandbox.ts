@@ -1,7 +1,8 @@
 import { defineManifest } from "@ryot/sandbox-sdk";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
-import { asRecord, audibleFetchJson, stringValue } from "../audible-shared";
+import { asRecord, stringValue } from "../../script-helpers/records";
+import { audibleFetchJson } from "../audible-shared";
 
 export const manifest = defineManifest({
 	kind: "provider",

@@ -2,6 +2,8 @@ import { defineManifest, type SandboxHost } from "@ryot/sandbox-sdk";
 import dayjs from "@ryot/sandbox-sdk/dayjs";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
+import { trimmedString } from "../../../script-helpers/records";
+
 export const manifest = defineManifest({
 	kind: "provider",
 	name: "iTunes",
@@ -19,8 +21,6 @@ const isRecord = (value: unknown): value is UnknownRecord =>
 	value !== null && typeof value === "object" && !Array.isArray(value);
 
 const asRecord = (value: unknown): UnknownRecord | null => (isRecord(value) ? value : null);
-
-const trimmedString = (value: unknown) => (typeof value === "string" ? value.trim() : "");
 
 const idString = (value: unknown) => {
 	if (typeof value === "number" && Number.isFinite(value)) {

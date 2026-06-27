@@ -112,8 +112,7 @@ export class MetadataLookupService extends Effect.Service<MetadataLookupService>
 						compiledFormat: script.compiledFormat,
 						context: { query, page: 1, pageSize: 20 },
 						executionId: `metadata-lookup-${script.slug}-${generateId()}`,
-						allowedHostFunctions:
-							script.metadata.capabilities ?? script.metadata.allowedHostFunctions ?? [],
+						allowedHostFunctions: script.metadata.capabilities ?? [],
 					})
 					.pipe(Effect.mapError(toSandboxRunError));
 

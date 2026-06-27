@@ -2,10 +2,7 @@ import type { HttpClientResponse } from "@effect/platform";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "@effect/platform";
 import { isHttpMethod } from "@effect/platform/HttpMethod";
 import { SandboxRunError, TimeoutError, unknownToMessage } from "@ryot/contract/errors";
-import {
-	SandboxExecutionError,
-	type SandboxExecutionError as SandboxExecutionErrorValue,
-} from "@ryot/contract/modules/sandbox/schemas";
+import { SandboxExecutionError } from "@ryot/contract/modules/sandbox/schemas";
 import type { CoreSandboxHostMethodMap } from "@ryot/sandbox-sdk";
 import { generateId } from "better-auth";
 import { Clock, Duration, Effect, Match, Runtime, Schema, Stream } from "effect";
@@ -34,15 +31,6 @@ import {
 	type SandboxHostImplementationMap,
 	type SandboxRunInput,
 } from "./shared";
-
-export type SandboxRunOutput = {
-	readonly logs: string[];
-	readonly value: unknown;
-	readonly success: boolean;
-	readonly executionId: string;
-	readonly error: SandboxExecutionErrorValue | null;
-	readonly timing: { readonly totalMs: number; readonly executionMs: number };
-};
 
 const httpCallTimeoutMs = 8_000;
 const sessionTtlBufferMs = 2_000;

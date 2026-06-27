@@ -1,13 +1,8 @@
 import { defineManifest } from "@ryot/sandbox-sdk";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
-import {
-	asRecord,
-	getKeySegment,
-	loadOpenLibraryJson,
-	parseDescription,
-	stringValue,
-} from "../openlibrary-shared";
+import { asRecord, stringValue } from "../../script-helpers/records";
+import { getKeySegment, loadOpenLibraryJson, parseDescription } from "../openlibrary-shared";
 
 export const manifest = defineManifest({
 	kind: "provider",

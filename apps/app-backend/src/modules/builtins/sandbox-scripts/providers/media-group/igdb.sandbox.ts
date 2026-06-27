@@ -1,14 +1,12 @@
 import { defineManifest } from "@ryot/sandbox-sdk";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
+import { asRecord, numberValue, stringValue } from "../../script-helpers/records";
 import {
-	asRecord,
 	buildIgdbImageUrl,
 	buildPagination,
 	makeIgdbRequest,
-	numberValue,
 	readTotalItems,
-	stringValue,
 	toSlug,
 } from "../igdb-shared";
 

@@ -1,31 +1,17 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk";
 
-export type GiantBombHost = SandboxHost<readonly ["httpCall", "getAppConfigValue"]>;
+import {
+	asRecord,
+	numberValue,
+	parseJsonResponse,
+	stringValue,
+	type UnknownRecord,
+} from "../script-helpers/records";
 
-export type UnknownRecord = Record<string, unknown>;
+export type GiantBombHost = SandboxHost<readonly ["httpCall", "getAppConfigValue"]>;
 
 export const BASE_URL = "https://www.giantbomb.com/api";
 export const GUID_PATTERN = /^\d+-\d+$/;
-
-const isRecord = (value: unknown): value is UnknownRecord =>
-	value !== null && typeof value === "object" && !Array.isArray(value);
-
-export const asRecord = (value: unknown): UnknownRecord | null => (isRecord(value) ? value : null);
-
-export const stringValue = (value: unknown) =>
-	typeof value === "string" && value.trim() ? value.trim() : null;
-
-export const numberValue = (value: unknown) =>
-	typeof value === "number" && Number.isFinite(value) ? value : null;
-
-const parseJsonResponse = (responseBody: string) => {
-	try {
-		const value: unknown = JSON.parse(responseBody);
-		return value;
-	} catch {
-		throw new Error("GiantBomb returned invalid JSON");
-	}
-};
 
 export const getApiKey = (host: GiantBombHost) =>
 	host.getAppConfigValue("providers.giantBombApiKey").then((response) => {
@@ -56,7 +42,7 @@ export const giantBombRequest = (
 				if (!response.success) {
 					throw new Error(response.error || failureMessage);
 				}
-				const payload = asRecord(parseJsonResponse(response.data.body));
+				const payload = asRecord(parseJsonResponse(response.data.body, "GiantBomb"));
 				const errorValue = payload?.["error"];
 				if (typeof errorValue === "string" && errorValue && errorValue !== "OK") {
 					throw new Error(`GiantBomb API error: ${errorValue}`);
@@ -149,34 +135,3 @@ export type ImageProperty =
 
 export const imageProperty = (url: string | null): ImageProperty =>
 	url === null ? { kind: "null", value: null } : { kind: "image", value: { type: "remote", url } };
-
-export type RoleRelatedEntity = {
-	name: string;
-	externalId: string;
-	scriptSlug: string;
-	relationshipProperties: { roles: string[] };
-};
-
-export const createRoleAccumulator = () => {
-	const entities: RoleRelatedEntity[] = [];
-	const byKey = new Map<string, RoleRelatedEntity>();
-	const add = (entity: RoleRelatedEntity) => {
-		const key = `${entity.scriptSlug}:${entity.externalId}`;
-		const existing = byKey.get(key);
-		if (!existing) {
-			byKey.set(key, entity);
-			entities.push(entity);
-			return;
-		}
-		existing.relationshipProperties.roles = [
-			...new Set([
-				...existing.relationshipProperties.roles,
-				...entity.relationshipProperties.roles,
-			]),
-		];
-		if (existing.name === "Loading..." && entity.name !== "Loading...") {
-			existing.name = entity.name;
-		}
-	};
-	return { entities, add };
-};

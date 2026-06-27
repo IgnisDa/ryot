@@ -1,18 +1,15 @@
 import { defineManifest } from "@ryot/sandbox-sdk";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
+import { asRecord, numberValue, recordsValue, stringValue } from "../../script-helpers/records";
+import type { RoleRelatedEntity } from "../../script-helpers/role-accumulator";
 import {
-	asRecord,
 	bcp47ToTvdb,
 	buildTranslationResult,
 	getTranslationFields,
-	numberValue,
-	recordsValue,
 	searchTvdb,
-	stringValue,
 	tvdbGet,
 	tvdbGetOptional,
-	type TvdbRelatedEntityWithRoles,
 } from "../tvdb-shared";
 
 export const manifest = defineManifest({
@@ -33,10 +30,7 @@ const toExternalId = (value: unknown) => {
 	return parsed !== null ? String(Math.trunc(parsed)) : stringValue(value);
 };
 
-const addMedia = (
-	entities: Map<string, TvdbRelatedEntityWithRoles>,
-	entity: TvdbRelatedEntityWithRoles,
-) => {
+const addMedia = (entities: Map<string, RoleRelatedEntity>, entity: RoleRelatedEntity) => {
 	const existing = entities.get(entity.externalId);
 	if (!existing) {
 		entities.set(entity.externalId, entity);
@@ -77,8 +71,8 @@ export const details = defineProviderDriver(manifest, "details", (input, host) =
 			: null;
 		const description = translation.description ?? firstBiography;
 		const slug = stringValue(person["slug"]);
-		const movieById = new Map<string, TvdbRelatedEntityWithRoles>();
-		const showById = new Map<string, TvdbRelatedEntityWithRoles>();
+		const movieById = new Map<string, RoleRelatedEntity>();
+		const showById = new Map<string, RoleRelatedEntity>();
 		for (const character of recordsValue(person["characters"])) {
 			const role =
 				stringValue(character["peopleType"]) ?? stringValue(character["people_type"]) ?? "Actor";
