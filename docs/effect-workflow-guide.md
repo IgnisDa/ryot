@@ -673,9 +673,9 @@ above:
   worth knowing because a deterministic-key upsert is a legitimate *alternative* to Activity-wrapping
   elsewhere, not only a belt-and-suspenders addition to it.
 - **The event workflow body is a pure orchestrator**: every DB read and write in
-  `runEventCreateWorkflow` happens inside an `Activity.make` (`prepare-item`, `write-event`,
-  `resolve-after-triggers`) or a durable queue — there are no bare reads left in the body, so there
-  is no replay-drift risk from unwrapped reads observing edited data across a resume.
+  `runEventCreateWorkflow` happens inside an `Activity.make` (`prepare-item`, `write-event`) or a
+  durable queue — there are no bare reads left in the body, so there is no replay-drift risk from
+  unwrapped reads observing edited data across a resume.
 - **`DurableQueue.process(...)` called bare in workflow bodies** — this pattern recurs across
   modules (sandbox dispatch, library membership). It is **correct**, not a violation; see the
   [durable primitives table](#durable-primitives-beyond-activity) above.
