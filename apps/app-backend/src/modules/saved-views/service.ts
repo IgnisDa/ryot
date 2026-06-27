@@ -1,5 +1,6 @@
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
-import { badRequest, conflict, notFound } from "@ryot/contract/errors";
+import { DbError, badRequest, conflict, notFound } from "@ryot/contract/errors";
+import type { BadRequest, Conflict } from "@ryot/contract/errors";
 import type {
 	CreateSavedViewBody,
 	ListedSavedView,
@@ -14,7 +15,7 @@ import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
 import { buildReorderedIds } from "#lib/shared/reorder";
 import { slugify } from "#lib/shared/slug";
 import { trimToNull } from "#lib/shared/validation";
-import { buildDisplayConfig } from "#modules/builtins/view-helpers";
+import { buildDefaultDisplayConfig } from "#modules/builtins/view-helpers";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 import { QueryEngineService } from "#modules/query-engine/service";
 
@@ -23,6 +24,30 @@ import { SavedViewsRepository } from "./repository";
 
 const savedViewNotFound = "Saved view not found";
 const builtinViewMutationMessage = "Cannot modify built-in saved views";
+const savedViewDuplicateMessage = "A saved view with this name already exists";
+
+const mapDefaultSavedViewCreateError = (
+	error: BadRequest | Conflict | DbError,
+): Conflict | DbError => {
+	if (error._tag !== "BadRequest") {
+		return error;
+	}
+	if (error.message === savedViewDuplicateMessage) {
+		return conflict("Entity schema default saved view already exists");
+	}
+	return new DbError({ message: error.message });
+};
+
+type SavedViewUser = Pick<CurrentUserValue, "id">;
+
+type CreateSavedViewInput = CreateSavedViewBody & {
+	readonly isBuiltin?: boolean | undefined;
+	readonly slug?: string | undefined;
+};
+
+type UpdateSavedViewInput = UpdateSavedViewBody & {
+	readonly sortOrder?: number | undefined;
+};
 
 type CreateDefaultSavedViewInput = {
 	readonly icon: string;
@@ -51,7 +76,7 @@ const resolveSavedViewSlug = Effect.fn(function* (name: string) {
 
 const ensureBuiltinUpdateIsAllowed = (
 	currentView: ListedSavedView,
-	payload: UpdateSavedViewBody,
+	payload: UpdateSavedViewInput,
 ) => {
 	if (!currentView.isBuiltin) {
 		return Effect.void;
@@ -107,11 +132,12 @@ export class SavedViewsService extends Effect.Service<SavedViewsService>()("Save
 		});
 
 		const create = Effect.fn("SavedViewsService.create")(function* (
-			user: CurrentUserValue,
-			payload: CreateSavedViewBody,
+			user: SavedViewUser,
+			payload: CreateSavedViewInput,
 		) {
 			const name = yield* resolveSavedViewName(payload.name);
-			const slug = yield* resolveSavedViewSlug(name);
+			const slug = yield* resolveSavedViewSlug(payload.slug ?? name);
+			const isBuiltin = payload.isBuiltin ?? false;
 			yield* queryEngine.validate(user, payload.queryDocument);
 			yield* validateDisplayConfiguration({
 				doc: payload.queryDocument,
@@ -122,7 +148,7 @@ export class SavedViewsService extends Effect.Service<SavedViewsService>()("Save
 
 			const existing = yield* runWithDb(repository.findBySlug(user.id, slug));
 			if (existing) {
-				return yield* badRequest("A saved view with this name already exists");
+				return yield* badRequest(savedViewDuplicateMessage);
 			}
 
 			return yield* runWithDb(
@@ -130,47 +156,49 @@ export class SavedViewsService extends Effect.Service<SavedViewsService>()("Save
 					slug,
 					name,
 					userId: user.id,
-					isBuiltin: false,
+					isBuiltin,
 					icon: payload.icon,
 					trackerId: payload.trackerId,
 					accentColor: payload.accentColor,
 					queryDocument: payload.queryDocument,
 					displayConfiguration: payload.displayConfiguration,
 				}),
-			).pipe(Effect.catchTag("Conflict", (error) => Effect.fail(badRequest(error.message))));
+			).pipe(Effect.catchTag("Conflict", () => Effect.fail(badRequest(savedViewDuplicateMessage))));
 		});
 
 		const createDefaultForSchema = Effect.fn("SavedViewsService.createDefaultForSchema")(function* (
 			input: CreateDefaultSavedViewInput,
 		) {
 			const name = `All ${input.entitySchemaName}s`;
-			const slug = slugify(`all ${input.entitySchemaSlug}`);
+			const slug = yield* resolveSavedViewSlug(slugify(`all ${input.entitySchemaSlug}`)).pipe(
+				Effect.mapError((error) => new DbError({ message: error.message })),
+			);
 			const existing = yield* runWithDb(repository.findBySlug(input.userId, slug));
 			if (existing) {
 				return yield* conflict("Entity schema default saved view already exists");
 			}
 
-			return yield* runWithDb(
-				repository.create(input.userId, {
-					slug,
-					name,
-					isBuiltin: true,
-					icon: input.icon,
-					userId: input.userId,
-					trackerId: input.trackerId,
+			return yield* create(
+				{ id: input.userId },
+				{
 					accentColor: input.accentColor,
-					displayConfiguration: buildDisplayConfig(input.entitySchemaSlug),
+					displayConfiguration: buildDefaultDisplayConfig(input.entitySchemaSlug),
+					icon: input.icon,
+					isBuiltin: true,
+					name,
 					queryDocument: buildDefaultSavedViewQueryDocument({
 						schemas: [input.entitySchemaSlug],
 					}),
-				}),
-			);
+					slug,
+					trackerId: input.trackerId,
+				},
+			).pipe(Effect.mapError(mapDefaultSavedViewCreateError));
 		});
 
 		const update = Effect.fn("SavedViewsService.update")(function* (
 			user: CurrentUserValue,
 			viewSlug: string,
-			payload: UpdateSavedViewBody,
+			payload: UpdateSavedViewInput,
 		) {
 			const current = yield* requireSavedView(user, viewSlug);
 
@@ -178,7 +206,7 @@ export class SavedViewsService extends Effect.Service<SavedViewsService>()("Save
 
 			if (current.isBuiltin) {
 				const updated = yield* runWithDb(
-					repository.updateDisabledBySlug(user.id, viewSlug, payload.isDisabled),
+					repository.updateDisabledBySlug(user.id, viewSlug, payload.isDisabled, payload.sortOrder),
 				);
 				if (!updated) {
 					return yield* notFound(savedViewNotFound);
@@ -207,6 +235,7 @@ export class SavedViewsService extends Effect.Service<SavedViewsService>()("Save
 						accentColor: payload.accentColor,
 						queryDocument: payload.queryDocument,
 						displayConfiguration: payload.displayConfiguration,
+						sortOrder: payload.sortOrder,
 					},
 					current.trackerId,
 				),
@@ -241,22 +270,15 @@ export class SavedViewsService extends Effect.Service<SavedViewsService>()("Save
 		) {
 			const source = yield* requireSavedView(user, viewSlug);
 			const clonedName = `${source.name} (Copy)`;
-			const name = yield* resolveSavedViewName(clonedName);
-			const slug = yield* resolveSavedViewSlug(name);
 
-			return yield* runWithDb(
-				repository.create(user.id, {
-					slug,
-					name,
-					userId: user.id,
-					isBuiltin: false,
-					icon: source.icon,
-					trackerId: source.trackerId,
-					accentColor: source.accentColor,
-					queryDocument: source.queryDocument,
-					displayConfiguration: source.displayConfiguration,
-				}),
-			).pipe(Effect.catchTag("Conflict", (error) => Effect.fail(badRequest(error.message))));
+			return yield* create(user, {
+				accentColor: source.accentColor,
+				displayConfiguration: source.displayConfiguration,
+				icon: source.icon,
+				name: clonedName,
+				queryDocument: source.queryDocument,
+				...(source.trackerId ? { trackerId: source.trackerId } : {}),
+			});
 		});
 
 		const reorder = Effect.fn("SavedViewsService.reorder")(function* (
@@ -278,18 +300,40 @@ export class SavedViewsService extends Effect.Service<SavedViewsService>()("Save
 						return yield* badRequest("Saved view slugs contain unknown saved views");
 					}
 
-					const currentSlugs = yield* repository.listSlugsInOrder(user.id, payload.trackerId);
+					const currentViews = yield* repository.listInOrder(user.id, payload.trackerId);
+					const currentSlugs = currentViews.map((view) => view.slug);
 					const reorderedSlugs = buildReorderedIds({
 						requestedIds: viewSlugs,
 						currentIds: currentSlugs,
 					});
-					const persistedSlugs = yield* repository.persistOrder(
-						user.id,
-						payload.trackerId,
-						reorderedSlugs,
-					);
+					const viewsBySlug = new Map(currentViews.map((view) => [view.slug, view]));
 
-					return { viewSlugs: [...persistedSlugs] };
+					for (const [sortOrder, viewSlug] of reorderedSlugs.entries()) {
+						const currentView = viewsBySlug.get(viewSlug);
+						if (!currentView) {
+							return yield* badRequest("Saved view slugs contain unknown saved views");
+						}
+						if (currentView.sortOrder === sortOrder) {
+							continue;
+						}
+
+						yield* update(user, viewSlug, {
+							accentColor: currentView.accentColor,
+							displayConfiguration: currentView.displayConfiguration,
+							icon: currentView.icon,
+							isDisabled: currentView.isDisabled,
+							name: currentView.name,
+							queryDocument: currentView.queryDocument,
+							sortOrder,
+							...(currentView.trackerId ? { trackerId: currentView.trackerId } : {}),
+						}).pipe(
+							Effect.catchTag("NotFound", () =>
+								Effect.fail(badRequest("Saved view slugs contain unknown saved views")),
+							),
+						);
+					}
+
+					return { viewSlugs: [...reorderedSlugs] };
 				}),
 			);
 		});

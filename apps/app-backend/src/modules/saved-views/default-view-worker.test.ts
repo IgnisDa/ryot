@@ -1,7 +1,7 @@
 import { expect, it } from "@effect/vitest";
-import { Conflict } from "@ryot/contract/errors";
+import { Conflict, DbError } from "@ryot/contract/errors";
 import { TrackerId, UserId } from "@ryot/contract/schema/brands";
-import { Effect, Layer } from "effect";
+import { Effect, Exit, Layer } from "effect";
 
 import type { MockOverrides } from "#lib/test-support/effect";
 import type { CreateDefaultSavedViewPayload } from "#modules/entity-schemas/durable-queues";
@@ -32,6 +32,21 @@ it.effect("swallows a Conflict when the default saved view already exists", () =
 
 	return Effect.exit(processDefaultSavedView(payload)).pipe(
 		Effect.tap((exit) => Effect.sync(() => expect(exit._tag).toBe("Success"))),
+		Effect.provide(layer),
+	);
+});
+
+it.effect("propagates database errors from default saved view creation", () => {
+	const layer = makeSavedViewsService({
+		createDefaultForSchema: () => Effect.fail(new DbError({ message: "schema lookup failed" })),
+	});
+
+	return Effect.exit(processDefaultSavedView(payload)).pipe(
+		Effect.tap((exit) =>
+			Effect.sync(() =>
+				expect(exit).toEqual(Exit.fail(new DbError({ message: "schema lookup failed" }))),
+			),
+		),
 		Effect.provide(layer),
 	);
 });
