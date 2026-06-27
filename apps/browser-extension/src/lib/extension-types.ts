@@ -1,6 +1,6 @@
-import type { MetadataLookupResponse } from "@ryot/contract/modules/metadata-lookup/schemas";
+import type { MetadataLookupResult } from "@ryot/plugin-media/operations/schemas";
 
-export type MetadataLookupData = MetadataLookupResponse;
+export type MetadataLookupData = MetadataLookupResult;
 
 export interface RawMediaData {
 	title: string;

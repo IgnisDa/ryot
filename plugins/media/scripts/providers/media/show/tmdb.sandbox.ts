@@ -18,7 +18,7 @@ export const manifest = defineManifest({
 	capabilities: ["httpCall", "getAppConfigValue", "getUserPreferences"],
 });
 
-const search = defineProviderDriver(manifest, "search", (input, host) =>
+export const search = defineProviderDriver(manifest, "search", (input, host) =>
 	Effect.gen(function* () {
 		const token = yield* getTmdbAccessToken(host);
 		const showNsfw = yield* getUserIsNsfw(host);
