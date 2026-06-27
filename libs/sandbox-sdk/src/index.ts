@@ -126,26 +126,20 @@ export const coreSandboxHostContracts = {
 	},
 } as const;
 
-export type CoreSandboxHostMethodMap = {
-	readonly httpCall: (
-		...args: z.output<typeof httpCallArgsSchema>
-	) => Promise<z.output<typeof httpCallResultSchema>>;
-	readonly getCachedValue: (
-		...args: z.output<typeof getCachedValueArgsSchema>
-	) => Promise<z.output<typeof getCachedValueResultSchema>>;
-	readonly setCachedValue: (
-		...args: z.output<typeof setCachedValueArgsSchema>
-	) => Promise<z.output<typeof setCachedValueResultSchema>>;
-	readonly claimCachedValue: (
-		...args: z.output<typeof claimCachedValueArgsSchema>
-	) => Promise<z.output<typeof claimCachedValueResultSchema>>;
-	readonly getAppConfigValue: (
-		...args: z.output<typeof getAppConfigValueArgsSchema>
-	) => Promise<z.output<typeof getAppConfigValueResultSchema>>;
-	readonly getUserPreferences: (
-		...args: z.output<typeof getUserPreferencesArgsSchema>
-	) => Promise<z.output<typeof getUserPreferencesResultSchema>>;
+type SandboxHostMethodMapFromContracts<
+	Contracts extends Record<
+		string,
+		{ readonly args: z.ZodType<unknown[]>; readonly result: z.ZodType }
+	>,
+> = {
+	readonly [Capability in keyof Contracts]: (
+		...args: z.output<Contracts[Capability]["args"]>
+	) => Promise<z.output<Contracts[Capability]["result"]>>;
 };
+
+export type CoreSandboxHostMethodMap = SandboxHostMethodMapFromContracts<
+	typeof coreSandboxHostContracts
+>;
 
 export type CoreSandboxHostImplementationMap<Context> = {
 	readonly [Capability in CoreSandboxHostCapability]: (
@@ -355,32 +349,9 @@ export const domainSandboxHostContracts = {
 	},
 } as const;
 
-export type DomainSandboxHostMethodMap = {
-	readonly getEntity: (
-		...args: z.output<typeof getEntityArgsSchema>
-	) => Promise<z.output<typeof getEntityResultSchema>>;
-	readonly getEntitySchema: (
-		...args: z.output<typeof getEntitySchemaArgsSchema>
-	) => Promise<z.output<typeof getEntitySchemaResultSchema>>;
-	readonly getIntegration: (
-		...args: z.output<typeof getIntegrationArgsSchema>
-	) => Promise<z.output<typeof getIntegrationResultSchema>>;
-	readonly listEventSchemas: (
-		...args: z.output<typeof listEventSchemasArgsSchema>
-	) => Promise<z.output<typeof listEventSchemasResultSchema>>;
-	readonly listEvents: (
-		...args: z.output<typeof listEventsArgsSchema>
-	) => Promise<z.output<typeof listEventsResultSchema>>;
-	readonly listIntegrations: (
-		...args: z.output<typeof listIntegrationsArgsSchema>
-	) => Promise<z.output<typeof listIntegrationsResultSchema>>;
-	readonly createEvents: (
-		...args: z.output<typeof createEventsArgsSchema>
-	) => Promise<z.output<typeof createEventsResultSchema>>;
-	readonly executeQueryEngine: (
-		...args: z.output<typeof executeQueryEngineArgsSchema>
-	) => Promise<z.output<typeof executeQueryEngineResultSchema>>;
-};
+export type DomainSandboxHostMethodMap = SandboxHostMethodMapFromContracts<
+	typeof domainSandboxHostContracts
+>;
 
 export type DomainSandboxHostImplementationMap<Context> = {
 	readonly [Capability in DomainSandboxHostCapability]: (
