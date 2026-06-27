@@ -456,7 +456,17 @@ export const mediaPlugin = definePlugin({
 	providers: mediaProviders,
 	savedViews: mediaSavedViews(),
 	configSchema: mediaConfigSchema,
-	client: { entry: "client/index.tsx", apiVersion: 1 },
+	client: {
+		apiVersion: 1,
+		entry: "client/index.tsx",
+		exports: {
+			"show-progress": {
+				kind: "component",
+				entry: "client/show/progress.tsx",
+				automaticEntityPresentations: false,
+			},
+		},
+	},
 	signalSchemas: mediaSignalSchemas("media-monitoring"),
 	httpRateLimits: [
 		{ requests: 90, key: "anilist", intervalMs: 60_000, origins: ["https://graphql.anilist.co"] },

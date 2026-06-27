@@ -1,4 +1,5 @@
 import type { ContractRequest, ContractSuccess } from "@ryot-app/contract/client";
+import { PluginSlug } from "@ryot-app/contract/schema/brands";
 import { Encoding } from "effect";
 
 import type { Client } from "./auth";
@@ -33,6 +34,24 @@ export default function Page() {
 }
 `;
 
+export const composedClientRendererSource = `
+import { usePageContext } from "@ryot-app/client-sdk/plugin";
+import PokemonTypes from "@ryot-app/plugins/fixture/pokemon-types";
+import ShowProgress from "@ryot-app/plugins/media/show-progress";
+
+export default function Page() {
+  const { settings } = usePageContext();
+  return (
+    <main>
+      <h1>Task 02 composed page</h1>
+      <p>Renderer setting: {String(settings.label ?? "")}</p>
+      <ShowProgress name="E2E deterministic show" totalEpisodes={8} watchedEpisodes={3} />
+      <PokemonTypes name="E2E deterministic Pokemon" types={["grass", "poison"]} />
+    </main>
+  );
+}
+`;
+
 export const clientRendererSettingsSchema = {
 	unknownKeys: "strict",
 	fields: {
@@ -53,6 +72,20 @@ export const buildClientRendererDefinition = (
 	files: [{ path: "client/page.tsx", content: encodeClientRendererSource(clientRendererSource) }],
 	...overrides,
 });
+
+export const buildComposedClientRendererDefinition = (
+	overrides: Partial<ClientRendererDefinition> = {},
+): ClientRendererDefinition =>
+	buildClientRendererDefinition({
+		pluginDependencies: [PluginSlug.make("fixture"), PluginSlug.make("media")],
+		files: [
+			{
+				path: "client/page.tsx",
+				content: encodeClientRendererSource(composedClientRendererSource),
+			},
+		],
+		...overrides,
+	});
 
 export const createClientRenderer = (
 	client: Client,

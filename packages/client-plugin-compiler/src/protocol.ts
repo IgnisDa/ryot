@@ -9,13 +9,53 @@ import { Effect, Encoding, Schema } from "effect";
 import type { ClientPluginCompilerInput } from "./compile";
 import { ClientPluginCompilerFailure } from "./diagnostics";
 
-export const ClientCompilerWorkerRequestBase64 = Schema.Struct({
+const ClientCompilerWorkerRequestFields = {
 	name: Schema.String,
-	entry: Schema.String,
 	apiVersion: Schema.Literal(CLIENT_API_VERSION),
-	files: Schema.Record(Schema.String, CanonicalBase64),
 	application: Schema.optional(Schema.Literals(["page", "plugin"])),
+};
+
+const ClientCompilerPublicExport = Schema.Struct({
+	entry: Schema.String,
+	contributor: Schema.String,
+	kind: Schema.Literals(["component", "page", "presentation"]),
 });
+
+const ClientCompilerPackageExport = Schema.Struct({
+	entry: Schema.String,
+	kind: Schema.Literals(["component", "page", "presentation"]),
+});
+
+export const ClientCompilerWorkerRequestBase64 = Schema.Union([
+	Schema.Struct({
+		...ClientCompilerWorkerRequestFields,
+		entry: Schema.String,
+		files: Schema.Record(Schema.String, CanonicalBase64),
+		pluginDependencies: Schema.optional(Schema.Array(Schema.String)),
+		publicExports: Schema.optional(Schema.Record(Schema.String, ClientCompilerPackageExport)),
+	}),
+	Schema.Struct({
+		...ClientCompilerWorkerRequestFields,
+		application: Schema.Literal("page"),
+		entry: Schema.Struct({ contributor: Schema.String, path: Schema.String }),
+		contributorOrder: Schema.Array(Schema.String),
+		publicExports: Schema.Record(Schema.String, ClientCompilerPublicExport),
+		contributors: Schema.Record(
+			Schema.String,
+			Schema.Struct({ files: Schema.Record(Schema.String, CanonicalBase64) }),
+		),
+		automaticRegistry: Schema.optional(
+			Schema.Array(
+				Schema.Struct({
+					ownerPluginId: Schema.String,
+					exportSpecifier: Schema.String,
+					entitySchemaSlug: Schema.String,
+					layout: Schema.Literals(["grid", "list"]),
+				}),
+			),
+		),
+	}),
+]);
 
 export type ClientCompilerWorkerRequestBase64 = Schema.Schema.Type<
 	typeof ClientCompilerWorkerRequestBase64
@@ -53,8 +93,26 @@ export type ClientCompilerResponse =
 
 const decodeBase64 = Schema.decodeUnknownSync(Schema.Uint8ArrayFromBase64);
 
-export const encodeClientCompilerWorkerRequest = (request: ClientPluginCompilerInput) =>
-	JSON.stringify({
+export const encodeClientCompilerWorkerRequest = (request: ClientPluginCompilerInput) => {
+	if ("contributors" in request) {
+		return JSON.stringify({
+			...request,
+			contributors: Object.fromEntries(
+				Object.entries(request.contributors).map(([namespace, contributor]) => [
+					namespace,
+					{
+						files: Object.fromEntries(
+							Object.entries(contributor.files).map(([path, contents]) => [
+								path,
+								Encoding.encodeBase64(contents),
+							]),
+						),
+					},
+				]),
+			),
+		});
+	}
+	return JSON.stringify({
 		...request,
 		files: Object.fromEntries(
 			Object.entries(request.files).map(([path, contents]) => [
@@ -62,21 +120,52 @@ export const encodeClientCompilerWorkerRequest = (request: ClientPluginCompilerI
 				Encoding.encodeBase64(contents),
 			]),
 		),
-	} satisfies ClientCompilerWorkerRequestBase64);
+	});
+};
 
 export const decodeClientCompilerWorkerRequest = (input: string) =>
 	Schema.decodeUnknownEffect(Schema.fromJsonString(ClientCompilerWorkerRequestBase64))(input).pipe(
-		Effect.map(
-			(request): ClientPluginCompilerInput => ({
+		Effect.map((request): ClientPluginCompilerInput => {
+			if ("contributors" in request) {
+				return {
+					name: request.name,
+					entry: request.entry,
+					apiVersion: request.apiVersion,
+					application: request.application,
+					publicExports: request.publicExports,
+					contributorOrder: request.contributorOrder,
+					...(request.automaticRegistry === undefined
+						? {}
+						: { automaticRegistry: request.automaticRegistry }),
+					contributors: Object.fromEntries(
+						Object.entries(request.contributors).map(([namespace, contributor]) => [
+							namespace,
+							{
+								files: Object.fromEntries(
+									Object.entries(contributor.files).map(([path, contents]) => [
+										path,
+										decodeBase64(contents),
+									]),
+								),
+							},
+						]),
+					),
+				};
+			}
+			return {
 				name: request.name,
 				entry: request.entry,
 				apiVersion: request.apiVersion,
 				...(request.application === undefined ? {} : { application: request.application }),
+				...(request.pluginDependencies === undefined
+					? {}
+					: { pluginDependencies: request.pluginDependencies }),
+				...(request.publicExports === undefined ? {} : { publicExports: request.publicExports }),
 				files: Object.fromEntries(
 					Object.entries(request.files).map(([path, contents]) => [path, decodeBase64(contents)]),
 				),
-			}),
-		),
+			};
+		}),
 	);
 
 export const encodeClientCompilerWorkerResponse = (response: ClientCompilerResponse) =>

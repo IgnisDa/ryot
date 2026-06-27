@@ -63,7 +63,17 @@ it.effect("backs every declared provider operation with its entry file", () =>
 
 it("declares the complete media-owned source", () => {
 	expect(() => Schema.decodeUnknownSync(AuthoredPluginManifest)(mediaPlugin)).not.toThrow();
-	expect(mediaPlugin.client).toEqual({ entry: "client/index.tsx", apiVersion: 1 });
+	expect(mediaPlugin.client).toEqual({
+		apiVersion: 1,
+		entry: "client/index.tsx",
+		exports: {
+			"show-progress": {
+				kind: "component",
+				entry: "client/show/progress.tsx",
+				automaticEntityPresentations: false,
+			},
+		},
+	});
 	expect(mediaPlugin.entitySchemas.map(({ slug }) => slug)).toContain("library");
 	expect(mediaPlugin.relationshipSchemas.map(({ slug }) => slug)).toContain("in-library");
 	expect(mediaPlugin.entitySchemas.find(({ slug }) => slug === "library")).toEqual(

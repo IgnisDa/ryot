@@ -29,9 +29,11 @@ const expiresAt = (now: number) =>
 
 const sessionIdentity = (payload: typeof ClientPageSessionPayloadFromJson.Type) => ({
 	buildId: payload.buildId,
+	graphHash: payload.graphHash,
 	rendererId: payload.rendererId,
 	savedViewId: payload.savedViewId,
 	viewRevision: payload.viewRevision,
+	contributors: payload.contributors,
 	artifactHash: payload.artifactHash,
 	publishedHash: payload.publishedHash,
 	publishedRevision: payload.publishedRevision,
@@ -63,13 +65,13 @@ export class ClientPageSessionService extends Context.Service<ClientPageSessionS
 				userId: UserId,
 				identity: PreparedClientPage["identity"],
 			) {
-				const prepared = yield* pages
-					.prepare({ id: userId }, identity.savedViewId)
+				const isCurrent = yield* pages
+					.isIdentityCurrent(userId, identity)
 					.pipe(Effect.mapError(stale));
-				if (!Bun.deepEquals(prepared.identity, identity)) {
+				if (!isCurrent) {
 					return yield* stale();
 				}
-				return prepared;
+				return yield* Effect.void;
 			});
 
 			const create = Effect.fn(function* (

@@ -148,7 +148,7 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 			)(function* (source: PluginSource) {
 				const { files, manifest, sourceHash } = yield* normalizePluginSource(source);
 				yield* validatePluginManifestPolicy(manifest, { scope: "system" });
-				yield* validatePluginSourcePaths(files, manifest.scripts);
+				yield* validatePluginSourcePaths(files, manifest);
 				const slug = manifest.metadata.slug;
 				const existing = loader.getSnapshot().plugins[slug];
 				const candidate = {

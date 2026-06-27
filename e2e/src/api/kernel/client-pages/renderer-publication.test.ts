@@ -1,6 +1,8 @@
+import { PluginSlug } from "@ryot-app/contract/schema/brands";
 import { Effect, Result } from "effect";
 
 import {
+	buildComposedClientRendererDefinition,
 	buildClientRendererDefinition,
 	createAuthenticatedClient,
 	createClientPageSession,
@@ -9,12 +11,15 @@ import {
 	deleteClientRenderer,
 	encodeClientRendererSource,
 	getClientRenderer,
+	FIXTURE_CLIENT_PLUGIN_SLUG,
+	installFixtureClientPlugin,
 	listClientRenderers,
 	prepareClientPage,
 	publishClientRenderer,
 	renewClientPageSession,
 	replaceClientRendererDraft,
 	revokeClientPageSession,
+	updateFixtureClientPlugin,
 } from "~/fixtures/kernel";
 import { getApiUrl } from "~/support/api";
 import { assertTaggedError } from "~/support/assertions";
@@ -169,6 +174,148 @@ describe("client renderer publication E2E", () => {
 			expect(fetched.publishedRevision).toBe(initialDraftRevision);
 			expect(fetched.publishedDefinition).toEqual(draftDefinition);
 			expect(fetched.publishedHash).toBe(publication.publishedHash);
+		}),
+	);
+
+	it.live("rejects unavailable, undeclared, and missing public exports", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+
+			const unavailable = yield* createClientRenderer(client, {
+				draftDefinition: buildClientRendererDefinition({
+					pluginDependencies: [PluginSlug.make("not-installed")],
+				}),
+			});
+			const unavailableError = yield* Effect.flip(
+				publishClientRenderer(client, unavailable.id, initialDraftRevision),
+			);
+			assertTaggedError(unavailableError, "ClientRendererBadRequest");
+			expect(unavailableError.reason).toEqual({
+				pluginSlug: "not-installed",
+				code: "dependency-unavailable",
+			});
+
+			const undeclaredSpecifier = "@ryot-app/plugins/fixture/pokemon-types";
+			const undeclared = yield* createClientRenderer(client, {
+				draftDefinition: definitionWithSource(
+					`import PokemonTypes from "${undeclaredSpecifier}"; export default PokemonTypes;`,
+				),
+			});
+			const undeclaredError = yield* Effect.flip(
+				publishClientRenderer(client, undeclared.id, initialDraftRevision),
+			);
+			assertTaggedError(undeclaredError, "ClientRendererBadRequest");
+			expect(undeclaredError.reason).toEqual({
+				code: "export-not-found",
+				exportName: undeclaredSpecifier,
+			});
+
+			yield* installFixtureClientPlugin(client);
+			const missingSpecifier = "@ryot-app/plugins/fixture/missing-component";
+			const missing = yield* createClientRenderer(client, {
+				draftDefinition: buildClientRendererDefinition({
+					pluginDependencies: [FIXTURE_CLIENT_PLUGIN_SLUG],
+					files: [
+						{
+							path: "client/page.tsx",
+							content: encodeClientRendererSource(
+								`import Missing from "${missingSpecifier}"; export default Missing;`,
+							),
+						},
+					],
+				}),
+			});
+			const missingError = yield* Effect.flip(
+				publishClientRenderer(client, missing.id, initialDraftRevision),
+			);
+			assertTaggedError(missingError, "ClientRendererBadRequest");
+			expect(missingError.reason).toEqual({
+				code: "export-not-found",
+				exportName: missingSpecifier,
+			});
+		}),
+	);
+
+	it.live("tracks composed graph identity without hashing saved-view setting values", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const fixture = yield* installFixtureClientPlugin(client);
+			const renderer = yield* createClientRenderer(client, {
+				draftDefinition: buildComposedClientRendererDefinition(),
+			});
+			yield* publishClientRenderer(client, renderer.id, initialDraftRevision);
+			const view = yield* createRendererSavedView(client, renderer.id, { label: "Before" });
+			const before = yield* prepareClientPage(client, view.id);
+
+			expect(before.identity.contributors).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({ kind: "plugin", pluginSlug: "media" }),
+					expect.objectContaining({
+						kind: "plugin",
+						sourceHash: fixture.sourceHash,
+						pluginSlug: FIXTURE_CLIENT_PLUGIN_SLUG,
+						installationId: expect.any(String),
+					}),
+				]),
+			);
+
+			const settingsView = yield* createRendererSavedView(client, renderer.id, { label: "After" });
+			const settingsChanged = yield* prepareClientPage(client, settingsView.id);
+			expect(settingsChanged.context.settings).toEqual({ label: "After" });
+			expect(settingsChanged.identity).toMatchObject({
+				buildId: before.identity.buildId,
+				graphHash: before.identity.graphHash,
+				artifactHash: before.identity.artifactHash,
+			});
+
+			yield* updateFixtureClientPlugin(client, "B", crypto.randomUUID());
+			const dependencyChanged = yield* prepareClientPage(client, view.id);
+			expect(dependencyChanged.identity.buildId).not.toBe(before.identity.buildId);
+			expect(dependencyChanged.identity.graphHash).not.toBe(before.identity.graphHash);
+			expect(dependencyChanged.identity.contributors).not.toEqual(before.identity.contributors);
+
+			const changedSource = definitionWithSource(
+				"export default function Page() { return <h1>Changed source</h1>; }",
+			);
+			yield* replaceClientRendererDraft(client, renderer.id, {
+				draftDefinition: changedSource,
+				expectedDraftRevision: initialDraftRevision,
+			});
+			yield* publishClientRenderer(client, renderer.id, initialDraftRevision + 1);
+			const sourceChanged = yield* prepareClientPage(client, view.id);
+			expect(sourceChanged.identity.buildId).not.toBe(dependencyChanged.identity.buildId);
+			expect(sourceChanged.identity.graphHash).not.toBe(dependencyChanged.identity.graphHash);
+			expect(sourceChanged.identity.artifactHash).not.toBe(dependencyChanged.identity.artifactHash);
+		}),
+	);
+
+	it.live("enforces ownership and stale dependency identity for a composed private page", () =>
+		Effect.gen(function* () {
+			const owner = yield* createAuthenticatedClient();
+			const outsider = yield* createAuthenticatedClient();
+			yield* installFixtureClientPlugin(owner.client);
+			const renderer = yield* createClientRenderer(owner.client, {
+				draftDefinition: buildComposedClientRendererDefinition(),
+			});
+			yield* publishClientRenderer(owner.client, renderer.id, initialDraftRevision);
+			const view = yield* createRendererSavedView(owner.client, renderer.id, { label: "Owned" });
+			const prepared = yield* prepareClientPage(owner.client, view.id);
+
+			const denied = yield* Effect.flip(
+				createClientPageSession(outsider.client, prepared.identity),
+			);
+			assertTaggedError(denied, "ClientPageStalePreparation");
+			expect(denied.reason).toEqual({ code: "stale-preparation" });
+
+			const session = yield* createClientPageSession(owner.client, prepared.identity);
+			const artifactUrl = `${getApiUrl()}/client-pages/artifacts/${encodeURIComponent(session.token)}/index.html`;
+			expect((yield* Effect.promise(() => fetch(artifactUrl))).status).toBe(200);
+
+			yield* updateFixtureClientPlugin(owner.client, "B", crypto.randomUUID());
+			const stale = yield* Effect.flip(createClientPageSession(owner.client, prepared.identity));
+			assertTaggedError(stale, "ClientPageStalePreparation");
+			expect(stale.reason).toEqual({ code: "stale-preparation" });
+			expect((yield* Effect.promise(() => fetch(artifactUrl))).status).toBe(404);
 		}),
 	);
 

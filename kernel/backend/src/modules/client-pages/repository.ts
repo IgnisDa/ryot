@@ -1,4 +1,7 @@
-import type { ClientRendererDefinition } from "@ryot-app/contract/modules/client-pages/schemas";
+import type {
+	ClientPageGraphIdentity,
+	ClientRendererDefinition,
+} from "@ryot-app/contract/modules/client-pages/schemas";
 import { ClientRendererId, SavedViewId, type UserId } from "@ryot-app/contract/schema/brands";
 import { and, asc, eq, getTableColumns } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
@@ -143,28 +146,23 @@ export class ClientPagesRepository extends Context.Service<ClientPagesRepository
 			const publish = Effect.fn("ClientPagesRepository.publish")(function* (input: {
 				readonly userId: UserId;
 				readonly revision: number;
+				readonly graphHash: string;
 				readonly rendererId: string;
 				readonly artifactHash: string;
 				readonly publishedHash: string;
 				readonly definition: ClientRendererDefinition;
+				readonly graphIdentity: ClientPageGraphIdentity;
 			}) {
 				const db = yield* Database;
-				const [build] = yield* mapDatabaseErrors(
-					db
-						.insert(schema.clientPageBuild)
-						.values({
-							userId: input.userId,
-							rendererId: input.rendererId,
-							artifactHash: input.artifactHash,
-							publishedHash: input.publishedHash,
-						})
-						.onConflictDoUpdate({
-							set: { artifactHash: input.artifactHash },
-							target: [schema.clientPageBuild.rendererId, schema.clientPageBuild.publishedHash],
-						})
-						.returning({ id: schema.clientPageBuild.id }),
-				);
-				if (!build) {
+				const buildId = yield* createBuild({
+					userId: input.userId,
+					graphHash: input.graphHash,
+					rendererId: input.rendererId,
+					artifactHash: input.artifactHash,
+					graphIdentity: input.graphIdentity,
+					publishedHash: input.publishedHash,
+				});
+				if (!buildId) {
 					return null;
 				}
 				const [renderer] = yield* mapDatabaseErrors(
@@ -185,7 +183,7 @@ export class ClientPagesRepository extends Context.Service<ClientPagesRepository
 						)
 						.returning({ id: schema.clientRenderer.id }),
 				);
-				return renderer ? build.id : null;
+				return renderer ? buildId : null;
 			});
 
 			const deleteRenderer = Effect.fn("ClientPagesRepository.deleteRenderer")(function* (
@@ -215,7 +213,6 @@ export class ClientPagesRepository extends Context.Service<ClientPagesRepository
 				const [row] = yield* mapDatabaseErrors(
 					db
 						.select({
-							buildId: schema.clientPageBuild.id,
 							view: getTableColumns(schema.savedView),
 							renderer: getTableColumns(schema.clientRenderer),
 						})
@@ -223,13 +220,6 @@ export class ClientPagesRepository extends Context.Service<ClientPagesRepository
 						.innerJoin(
 							schema.clientRenderer,
 							eq(schema.savedView.clientRendererId, schema.clientRenderer.id),
-						)
-						.innerJoin(
-							schema.clientPageBuild,
-							and(
-								eq(schema.clientPageBuild.rendererId, schema.clientRenderer.id),
-								eq(schema.clientPageBuild.publishedHash, schema.clientRenderer.publishedHash),
-							),
 						)
 						.where(and(eq(schema.savedView.id, savedViewId), eq(schema.savedView.userId, userId)))
 						.limit(1),
@@ -241,6 +231,68 @@ export class ClientPagesRepository extends Context.Service<ClientPagesRepository
 							rendererId: ClientRendererId.make(row.renderer.id),
 						}
 					: null;
+			});
+
+			const findBuild = Effect.fn("ClientPagesRepository.findBuild")(function* (input: {
+				readonly userId: UserId;
+				readonly graphHash: string;
+				readonly rendererId: string;
+				readonly publishedHash: string;
+			}) {
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
+					db
+						.select({
+							id: schema.clientPageBuild.id,
+							format: schema.pluginClientArtifact.format,
+							artifactHash: schema.clientPageBuild.artifactHash,
+							apiVersion: schema.pluginClientArtifact.apiVersion,
+							graphIdentity: schema.clientPageBuild.graphIdentity,
+							bridgeVersion: schema.pluginClientArtifact.bridgeVersion,
+							compilerVersion: schema.pluginClientArtifact.compilerVersion,
+						})
+						.from(schema.clientPageBuild)
+						.innerJoin(
+							schema.pluginClientArtifact,
+							eq(schema.pluginClientArtifact.hash, schema.clientPageBuild.artifactHash),
+						)
+						.where(
+							and(
+								eq(schema.clientPageBuild.userId, input.userId),
+								eq(schema.clientPageBuild.rendererId, input.rendererId),
+								eq(schema.clientPageBuild.publishedHash, input.publishedHash),
+								eq(schema.clientPageBuild.graphHash, input.graphHash),
+							),
+						)
+						.limit(1),
+				);
+				return row ?? null;
+			});
+
+			const createBuild = Effect.fn("ClientPagesRepository.createBuild")(function* (input: {
+				readonly userId: UserId;
+				readonly graphHash: string;
+				readonly rendererId: string;
+				readonly artifactHash: string;
+				readonly publishedHash: string;
+				readonly graphIdentity: ClientPageGraphIdentity;
+			}) {
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
+					db
+						.insert(schema.clientPageBuild)
+						.values(input)
+						.onConflictDoUpdate({
+							set: { artifactHash: input.artifactHash, graphIdentity: input.graphIdentity },
+							target: [
+								schema.clientPageBuild.rendererId,
+								schema.clientPageBuild.publishedHash,
+								schema.clientPageBuild.graphHash,
+							],
+						})
+						.returning({ id: schema.clientPageBuild.id }),
+				);
+				return row?.id ?? null;
 			});
 
 			const findArtifactFile = Effect.fn("ClientPagesRepository.findArtifactFile")(function* (
@@ -268,6 +320,8 @@ export class ClientPagesRepository extends Context.Service<ClientPagesRepository
 
 			return {
 				publish,
+				findBuild,
+				createBuild,
 				lockRenderer,
 				findRenderer,
 				listRenderers,

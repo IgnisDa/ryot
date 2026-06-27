@@ -200,6 +200,13 @@ const compileClientArtifact = Effect.fn("compileClientArtifact")(function* (
 		entry: manifest.client.entry,
 		name: manifest.metadata.name,
 		apiVersion: manifest.client.apiVersion,
+		pluginDependencies: manifest.client.pluginDependencies ?? [],
+		publicExports: Object.fromEntries(
+			Object.entries(manifest.client.exports ?? {}).map(([name, declaration]) => [
+				name,
+				{ entry: declaration.entry, kind: declaration.kind },
+			]),
+		),
 	}).pipe(
 		Effect.asVoid,
 		Effect.catchTag(

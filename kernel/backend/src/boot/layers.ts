@@ -583,7 +583,12 @@ const PluginClientArtifactSessionServiceLive = PluginClientArtifactSessionServic
 );
 const ClientPagesServiceLive = ClientPagesService.layer.pipe(
 	Layer.provide(
-		Layer.mergeAll(ClientPagesRepository.layer, ClientPluginCompiler.layer, PluginRepository.layer),
+		Layer.mergeAll(
+			ClientPagesRepository.layer,
+			ClientPluginCompiler.layer,
+			PluginRepository.layer,
+			PluginRuntimeResolverLive,
+		),
 	),
 );
 const ClientPageSessionServiceLive = ClientPageSessionService.layer.pipe(

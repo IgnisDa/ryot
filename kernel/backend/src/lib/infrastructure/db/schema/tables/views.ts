@@ -1,4 +1,7 @@
-import type { ClientRendererDefinition } from "@ryot-app/contract/modules/client-pages/schemas";
+import type {
+	ClientPageGraphIdentity,
+	ClientRendererDefinition,
+} from "@ryot-app/contract/modules/client-pages/schemas";
 import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 import type {
 	SavedViewLayouts,
@@ -55,7 +58,9 @@ export const clientRenderer = snakeCase.table(
 export const clientPageBuild = snakeCase.table(
 	"client_page_build",
 	{
+		graphHash: text().notNull(),
 		publishedHash: text().notNull(),
+		graphIdentity: jsonb().$type<ClientPageGraphIdentity>().notNull(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		id: text()
 			.primaryKey()
@@ -72,9 +77,10 @@ export const clientPageBuild = snakeCase.table(
 	},
 	(table) => [
 		index("client_page_build_user_id_idx").on(table.userId),
-		unique("client_page_build_renderer_publication_unique").on(
+		unique("client_page_build_graph_unique").on(
 			table.rendererId,
 			table.publishedHash,
+			table.graphHash,
 		),
 	],
 );
