@@ -1,5 +1,6 @@
 import { NotificationPlatformId } from "@ryot/contract/schema/brands";
 
+import { startFakeHttpServer } from "../test-support/fake-http-server";
 import type { Client } from "./auth";
 import type { ContractPayload } from "./contract-client";
 
@@ -40,4 +41,12 @@ export function deleteNotificationPlatform(client: Client, platformId: string) {
 
 export function testNotificationPlatforms(client: Client) {
 	return client.run((c) => c.notifications.testPlatforms());
+}
+
+export function startFakeAppriseServer() {
+	return startFakeHttpServer((url) =>
+		url.pathname.endsWith("/fail")
+			? new Response("failed", { status: 500 })
+			: Response.json({ ok: true }),
+	);
 }
