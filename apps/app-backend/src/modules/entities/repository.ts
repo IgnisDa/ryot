@@ -254,6 +254,20 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 			return row ? toListedEntity(row) : null;
 		});
 
+		const findGlobalEntityById = Effect.fn("EntitiesRepository.findGlobalEntityById")(function* (
+			entityId: EntityId,
+		) {
+			const db = yield* CurrentDb;
+			const [row] = yield* dbEffect(() =>
+				db
+					.select({ id: schema.entity.id })
+					.from(schema.entity)
+					.where(and(eq(schema.entity.id, entityId), isNull(schema.entity.userId)))
+					.limit(1),
+			);
+			return row ? { id: EntityId.make(row.id) } : null;
+		});
+
 		const findEntityByExternalIdForUser = Effect.fn(
 			"EntitiesRepository.findEntityByExternalIdForUser",
 		)(function* (input: {
@@ -547,6 +561,7 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 			updateEntity,
 			getByIdForUser,
 			findEntitySchemaById,
+			findGlobalEntityById,
 			getEntityScopeForUser,
 			deleteBySandboxScript,
 			listEntityReferencesByIds,
