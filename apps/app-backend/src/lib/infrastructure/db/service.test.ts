@@ -1,6 +1,8 @@
 import { describe, expect, it } from "@effect/vitest";
 import { BadRequest } from "@ryot/contract/errors";
-import { Deferred, Effect, Exit, Fiber, Layer, Option } from "effect";
+import { Deferred, Effect, Fiber, Layer, Option } from "effect";
+
+import { assertExitFails } from "#lib/test-utils/assertions";
 
 import {
 	CurrentDb,
@@ -52,7 +54,7 @@ describe("TransactionRunner", () => {
 			const exit = yield* Effect.exit(
 				runInTransaction(Effect.fail(new BadRequest({ message: "no" }))),
 			);
-			expect(exit).toEqual(Exit.fail(new BadRequest({ message: "no" })));
+			assertExitFails(exit, new BadRequest({ message: "no" }));
 			expect(order).toEqual(["rolled-back"]);
 		}).pipe(Effect.provide(layer));
 	});
