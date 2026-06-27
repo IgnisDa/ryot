@@ -20,6 +20,7 @@ import { DbRunner } from "#lib/infrastructure/db/service";
 import { ImportsService } from "#modules/imports/service";
 
 import { ProcessIntegrationRunWorkflow } from "./integration-workflow";
+import type { IntegrationReconciliationRun } from "./jobs";
 import { IntegrationsRepository, type IntegrationRecord } from "./repository";
 
 const defaultExtraSettings = {
@@ -78,37 +79,6 @@ export class IntegrationsService extends Effect.Service<IntegrationsService>()(
 				}
 				return integration;
 			});
-
-			const enqueueIntegrationRun = Effect.fn("IntegrationsService.enqueueIntegrationRun")(
-				function* (integration: IntegrationRecord, payload?: unknown) {
-					const run = yield* importsService.createRunForIntegration({
-						userId: integration.userId,
-						source: integration.provider,
-						integrationId: integration.id,
-						inputSummary: buildIntegrationInputSummary(integration),
-					});
-
-					const started = yield* engine
-						.execute(ProcessIntegrationRunWorkflow, {
-							discard: true,
-							executionId: run.id,
-							payload: {
-								runId: run.id,
-								userId: integration.userId,
-								integrationId: integration.id,
-								...(payload !== undefined ? { payload } : {}),
-							},
-						})
-						.pipe(Effect.either);
-
-					if (Either.isLeft(started)) {
-						yield* failCreatedRun(run.id, "Failed to enqueue integration job");
-						return yield* badRequest("Could not queue the integration job; please try again");
-					}
-
-					return { runId: run.id };
-				},
-			);
 
 			const create = Effect.fn("IntegrationsService.create")(function* (
 				user: CurrentUserValue,
@@ -280,37 +250,43 @@ export class IntegrationsService extends Effect.Service<IntegrationsService>()(
 				return { runId: run.id };
 			});
 
-			const reconcileScheduledYankRuns = Effect.fn(
-				"IntegrationsService.reconcileScheduledYankRuns",
-			)(function* () {
-				const integrations = yield* runWithDb(repository.listEnabledYankIntegrations());
+			const prepareScheduledYankRuns = Effect.fn("IntegrationsService.prepareScheduledYankRuns")(
+				function* () {
+					const integrations = yield* runWithDb(repository.listEnabledYankIntegrations());
+					const runs: IntegrationReconciliationRun[] = [];
 
-				yield* Effect.forEach(
-					integrations,
-					(integration) =>
-						Effect.gen(function* () {
-							const disableIntegrations = yield* runWithDb(
-								repository.getUserDisableIntegrations({ userId: integration.userId }),
-							);
-							if (disableIntegrations) {
-								return;
-							}
+					for (const integration of integrations) {
+						const disableIntegrations = yield* runWithDb(
+							repository.getUserDisableIntegrations({ userId: integration.userId }),
+						);
+						if (disableIntegrations) {
+							continue;
+						}
 
-							const hasActiveRun = yield* importsService.hasActiveRunForIntegration({
-								integrationId: integration.id,
-							});
-							if (hasActiveRun) {
-								return;
-							}
+						const hasActiveRun = yield* importsService.hasActiveRunForIntegration({
+							integrationId: integration.id,
+						});
+						if (hasActiveRun) {
+							continue;
+						}
 
-							yield* enqueueIntegrationRun(integration).pipe(
-								Effect.catchTag("BadRequest", () => Effect.void),
-								Effect.asVoid,
-							);
-						}),
-					{ discard: true },
-				);
-			});
+						const run = yield* importsService.createRunForIntegration({
+							userId: integration.userId,
+							source: integration.provider,
+							integrationId: integration.id,
+							inputSummary: buildIntegrationInputSummary(integration),
+						});
+
+						runs.push({
+							runId: run.id,
+							userId: integration.userId,
+							integrationId: integration.id,
+						});
+					}
+
+					return runs;
+				},
+			);
 
 			return {
 				get,
@@ -320,7 +296,7 @@ export class IntegrationsService extends Effect.Service<IntegrationsService>()(
 				listRuns,
 				handleWebhook,
 				delete: deleteIntegration,
-				reconcileScheduledYankRuns,
+				prepareScheduledYankRuns,
 			};
 		}),
 	},
