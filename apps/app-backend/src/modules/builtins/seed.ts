@@ -250,7 +250,7 @@ const ensureBuiltinRelationshipSchema = Effect.fn(function* (input: {
 });
 
 const seedInitialDatabase = Effect.gen(function* () {
-	yield* Effect.logInfo("Seeding entity schemas...");
+	yield* Effect.logInfo("seeding entity schemas");
 	const db = yield* CurrentDb;
 
 	const schemaIds = new Map<string, string>();
@@ -298,7 +298,7 @@ const seedInitialDatabase = Effect.gen(function* () {
 		});
 	}
 
-	yield* Effect.logInfo("Seeding relationship schemas...");
+	yield* Effect.logInfo("seeding relationship schemas");
 
 	const relationshipSchemaIds = new Map<string, string>();
 	for (const relationshipSchema of builtinRelationshipSchemas()) {
@@ -334,7 +334,7 @@ const seedInitialDatabase = Effect.gen(function* () {
 		relationshipSchemaIds.set(relationshipSchema.slug, relationshipSchemaId);
 	}
 
-	yield* Effect.logInfo("Entity schemas seeded successfully");
+	yield* Effect.logInfo("entity schemas seeded");
 	const [entitySchemas, eventSchemas] = yield* Effect.all([
 		dbEffect(() =>
 			db
