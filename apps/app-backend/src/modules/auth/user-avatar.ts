@@ -15,5 +15,6 @@ export const generateUserAvatar = (seed: string): string => {
 		seed,
 		backgroundColor: avatarBackgroundColors,
 	});
-	return avatar.toDataUri();
+	const encoded = Buffer.from(avatar.toString(), "utf8").toString("base64");
+	return `data:image/svg+xml;base64,${encoded}`;
 };
