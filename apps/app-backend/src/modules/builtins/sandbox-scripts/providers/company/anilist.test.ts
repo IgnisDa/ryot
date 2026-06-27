@@ -34,6 +34,7 @@ describe("company.anilist sandbox script", () => {
 			expect(details.relatedEntityGroups).toEqual([
 				{
 					direction: "outgoing",
+					synchronization: "authoritative",
 					relationshipSchemaSlug: "company-to-anime",
 					entities: [
 						{
@@ -46,6 +47,7 @@ describe("company.anilist sandbox script", () => {
 				},
 				{
 					direction: "outgoing",
+					synchronization: "authoritative",
 					relationshipSchemaSlug: "company-to-manga",
 					entities: [
 						{

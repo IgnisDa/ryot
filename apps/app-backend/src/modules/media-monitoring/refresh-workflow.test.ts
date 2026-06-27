@@ -1,9 +1,9 @@
 import { expect, it } from "@effect/vitest";
 import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
-import { SandboxRunError } from "@ryot/contract/errors";
+import { DbError, SandboxRunError } from "@ryot/contract/errors";
 import type { ListedEntity } from "@ryot/contract/modules/entities/schemas";
 import { EntityId, EntitySchemaId, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
-import { Effect, Layer } from "effect";
+import { Deferred, Effect, Fiber, Layer, TestClock } from "effect";
 
 import {
 	dbRunnerLayer,
@@ -187,6 +187,43 @@ it.effect("refreshes once and sends deterministic deliveries only to current sub
 		}),
 	);
 });
+
+it.effect("retries a deterministic delivery enqueue until it succeeds", () =>
+	Effect.gen(function* () {
+		let attempts = 0;
+		let snapshotReads = 0;
+		const firstAttempt = yield* Deferred.make<void>();
+		const fiber = yield* runWithLayer(
+			{
+				mediaMonitoringRepository: makeMediaMonitoringRepository({
+					getSnapshot: () =>
+						Effect.sync(() => {
+							snapshotReads += 1;
+							return snapshotReads === 1 ? snapshot("Continuing") : snapshot("Ended");
+						}),
+					listSubscribers: () => Effect.succeed([UserId.make("user-a")]),
+				}),
+				onDelivery: () =>
+					Effect.gen(function* () {
+						attempts += 1;
+						if (attempts === 1) {
+							yield* Deferred.succeed(firstAttempt, undefined);
+							yield* Effect.fail(new DbError({ message: "enqueue unavailable" })).pipe(
+								Effect.asVoid,
+							);
+						}
+					}),
+			},
+			runMediaMonitoringRefreshWorkflow(payload),
+		).pipe(Effect.fork);
+
+		yield* Deferred.await(firstAttempt);
+		yield* Effect.yieldNow();
+		yield* TestClock.adjust("30 seconds");
+		yield* Fiber.join(fiber);
+		expect(attempts).toBe(2);
+	}),
+);
 
 it.effect("does not diff or notify when provider population fails", () => {
 	let snapshotReads = 0;

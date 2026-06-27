@@ -524,15 +524,18 @@ driver("details", async function (context) {
 			{
 				entities: companies,
 				direction: "incoming",
+				synchronization: "additive",
 				relationshipSchemaSlug: "company-to-video-game",
 			},
 			{
 				entities: groups,
 				direction: "incoming",
+				synchronization: "additive",
 				relationshipSchemaSlug: "video-game-group-to-video-game",
 			},
 			{
 				direction: "outgoing",
+				synchronization: "authoritative",
 				entities: suggestions,
 				relationshipSchemaSlug: "media-suggestion",
 			},
