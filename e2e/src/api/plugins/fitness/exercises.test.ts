@@ -132,6 +132,8 @@ describe("Exercises E2E", () => {
 				"callout",
 				"primaryMetadata",
 				"secondaryMetadata",
+				"populationStatus",
+				"translationStatus",
 			]);
 			expect(allExercisesView.layouts).toMatchObject({
 				grid: { entityIdField: "entityId", titleField: "title", imageField: "image" },
