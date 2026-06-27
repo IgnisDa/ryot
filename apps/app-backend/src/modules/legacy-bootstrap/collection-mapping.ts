@@ -1,4 +1,4 @@
-import { quoteSqlString } from "./shared";
+import { buildReportSql, quoteSqlString } from "./shared";
 
 export const buildCollectionToEntityRelationshipMigrationSql = (
 	memberOfRelationshipSchemaSlug: string,
@@ -11,8 +11,6 @@ BEGIN
 	IF to_regclass('"collection_to_entity"') IS NULL THEN
 		RAISE EXCEPTION 'Expected collection_to_entity table to exist in a V1 database but it was not found';
 	END IF;
-
-	RAISE NOTICE 'collection_to_entity -> relationship: migration started (% seconds elapsed)', 0.0;
 
 	INSERT INTO "relationship" (
 		"id",
@@ -37,9 +35,7 @@ BEGIN
 	ON CONFLICT DO NOTHING;
 
 	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
-	RAISE NOTICE 'collection_to_entity -> relationship: % row(s) migrated (% seconds elapsed)',
-		rows_inserted,
-		round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
+	${buildReportSql("collection_to_entity -> relationship", [{ message: "row(s) migrated", count: "rows_inserted" }])}
 END $$;
 `;
 
@@ -82,8 +78,6 @@ BEGIN
 		RAISE EXCEPTION 'Expected each legacy Monitoring collection owner to have a V2 library entity';
 	END IF;
 
-	RAISE NOTICE 'Monitoring collection -> media-monitoring: migration started (% seconds elapsed)', 0.0;
-
 	INSERT INTO "relationship" (
 		"id",
 		"user_id",
@@ -116,9 +110,7 @@ BEGIN
 	ON CONFLICT DO NOTHING;
 
 	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
-	RAISE NOTICE 'Monitoring collection -> media-monitoring: % relationship(s) migrated (% seconds elapsed)',
-		rows_inserted,
-		round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
+	${buildReportSql("Monitoring collection -> media-monitoring", [{ message: "relationship(s) migrated", count: "rows_inserted" }])}
 END $$;
 `;
 
@@ -140,8 +132,6 @@ BEGIN
 		RAISE EXCEPTION 'Expected collection_to_entity table to exist in a V1 database but it was not found';
 	END IF;
 
-	RAISE NOTICE 'Owned collection -> in-library ownership: migration started (% seconds elapsed)', 0.0;
-
 	UPDATE "relationship" rel
 	SET "properties" = rel.properties || jsonb_build_object(
 		'owned', true,
@@ -155,9 +145,7 @@ BEGIN
 		AND rel.user_id = coll.user_id;
 
 	GET DIAGNOSTICS rows_updated = ROW_COUNT;
-	RAISE NOTICE 'Owned collection -> in-library ownership: % relationship(s) updated (% seconds elapsed)',
-		rows_updated,
-		round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
+	${buildReportSql("Owned collection -> in-library ownership", [{ message: "relationship(s) updated", count: "rows_updated" }])}
 END $$;
 `;
 
@@ -170,8 +158,6 @@ BEGIN
 	IF to_regclass('"collection"') IS NULL THEN
 		RAISE EXCEPTION 'Expected collection table to exist in a V1 database but it was not found';
 	END IF;
-
-	RAISE NOTICE 'collection -> entity: migration started (% seconds elapsed)', 0.0;
 
 	INSERT INTO "entity" (
 		"id",
@@ -300,8 +286,6 @@ BEGIN
 	ON CONFLICT ("id") DO NOTHING;
 
 	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
-	RAISE NOTICE 'collection -> entity: % row(s) migrated (% seconds elapsed)',
-		rows_inserted,
-		round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
+	${buildReportSql("collection -> entity", [{ message: "row(s) migrated", count: "rows_inserted" }])}
 END $$;
 `;

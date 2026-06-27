@@ -7,6 +7,8 @@
 // manual_time_spent (seconds) becomes timeSpent (minutes). Unresolved show/podcast episode rows and
 // rows whose metadata_id has no migrated entity are skipped. Dropped: review_id, and
 // manual_time_spent/started_on on progress events (V2 progress has neither).
+import { buildReportSql } from "./shared";
+
 export const buildSeenMigrationSql = () => `
 DO $$
 DECLARE
@@ -22,8 +24,6 @@ BEGIN
 	IF to_regclass('"seen"') IS NULL THEN
 		RAISE EXCEPTION 'Expected seen table to exist in a V1 database but it was not found';
 	END IF;
-
-	RAISE NOTICE 'seen -> event: migration started (% seconds elapsed)', 0.0;
 
 	IF to_regclass('pg_temp._legacy_show_episode_resolution') IS NULL
 		OR to_regclass('pg_temp._legacy_podcast_episode_resolution') IS NULL THEN
@@ -383,12 +383,19 @@ BEGIN
 		);
 
 	IF unresolved_episode_rows > 0 THEN
-		RAISE WARNING 'seen -> event: % show/podcast row(s) skipped because their episode could not be resolved positionally; progress/completion for them was not migrated', unresolved_episode_rows;
+		${buildReportSql("seen -> event", [
+			{
+				level: "warning",
+				count: "unresolved_episode_rows",
+				message:
+					"show/podcast row(s) skipped because their episode could not be resolved positionally; progress/completion for them was not migrated",
+			},
+		])}
 	END IF;
 
-	RAISE NOTICE 'seen -> event: % progress + % terminal events total (% seconds elapsed)',
-		prog_inserted,
-		term_inserted,
-		round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
+	${buildReportSql("seen -> event", [
+		{ message: "progress", count: "prog_inserted" },
+		{ message: "terminal events total", count: "term_inserted" },
+	])}
 END $$;
 `;

@@ -1,6 +1,6 @@
 import { PgClient } from "@effect/sql-pg/PgClient";
 import { sql } from "drizzle-orm";
-import { Effect } from "effect";
+import { Data, Effect, Match, Schema } from "effect";
 import type * as SqlConnection from "effect/unstable/sql/SqlConnection";
 
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
@@ -53,6 +53,113 @@ export const withReservedConnection = Effect.fn("withReservedConnection")(functi
 	const client = yield* PgClient;
 	return yield* mapDatabaseErrors(Effect.scoped(Effect.flatMap(client.reserve, callback)));
 });
+
+// Bootstrap SQL reports progress and anomalies as rows in a report table. The orchestration selects
+// newly written rows after each phase, so every report is a value it can log and act on.
+const reportTable = "_legacy_bootstrap_report";
+
+const elapsedSecondsSql = "round(extract(epoch from clock_timestamp() - started_at)::numeric, 1)";
+
+const ReportRow = Schema.Struct({
+	seq: Schema.Finite,
+	phase: Schema.String,
+	message: Schema.String,
+	count: Schema.NullOr(Schema.Finite),
+	elapsedSeconds: Schema.NullOr(Schema.Finite),
+	level: Schema.Literals(["info", "warning"]),
+});
+
+type ReportEntry = {
+	count?: string;
+	message: string;
+	level?: typeof ReportRow.Type.level;
+};
+
+const decodeReportRows = Schema.decodeUnknownEffect(Schema.Array(ReportRow));
+
+const allowedWarningReports = new Set([
+	"review -> event|show/podcast review(s) skipped because their episode could not be resolved positionally; these reviews were not migrated",
+	"seen -> event|show/podcast row(s) skipped because their episode could not be resolved positionally; progress/completion for them was not migrated",
+]);
+
+class UnexpectedLegacyBootstrapWarning extends Data.TaggedError(
+	"UnexpectedLegacyBootstrapWarning",
+)<{ phase: string; message: string; count: number | null }> {}
+
+export const createReportTableSql = `
+CREATE TABLE IF NOT EXISTS "${reportTable}" (
+		"seq" serial PRIMARY KEY,
+		"phase" text NOT NULL,
+		"level" text NOT NULL CHECK ("level" IN ('info', 'warning')),
+		"message" text NOT NULL,
+		"count" integer,
+		"elapsed_seconds" double precision
+);
+`;
+
+const reportSequenceSql = `SELECT COALESCE(MAX("seq"), 0) AS "seq" FROM "${reportTable}";`;
+
+const selectReportSql = (afterSequence: number) => `
+SELECT "seq", "phase", "level", "message", "count", "elapsed_seconds" AS "elapsedSeconds"
+FROM "${reportTable}"
+WHERE "seq" > ${afterSequence}
+ORDER BY "seq";
+`;
+
+// Emitted inside `DO $$` blocks, which all declare `started_at`. `count` is a PL/pgSQL numeric
+// expression, so only controlled identifiers belong there.
+export const buildReportSql = (phase: string, entries: ReadonlyArray<ReportEntry>) =>
+	`INSERT INTO "${reportTable}" ("phase", "level", "message", "count", "elapsed_seconds")
+	VALUES ${entries
+		.map(
+			(entry) =>
+				`(${quoteSqlString(phase)}, ${quoteSqlString(entry.level ?? "info")}, ${quoteSqlString(entry.message)}, ${entry.count ?? "NULL"}, ${elapsedSecondsSql})`,
+		)
+		.join(", ")};`;
+
+const logReportRow = (row: typeof ReportRow.Type) => {
+	const annotations = {
+		phase: row.phase,
+		...(row.count === null ? {} : { count: row.count }),
+		...(row.elapsedSeconds === null ? {} : { elapsedSeconds: row.elapsedSeconds }),
+	};
+	return Match.value(row.level).pipe(
+		Match.when("info", () => Effect.logInfo(row.message)),
+		Match.when("warning", () => Effect.logWarning(row.message)),
+		Match.exhaustive,
+		Effect.annotateLogs(annotations),
+	);
+};
+
+export const getLatestReportSequence = (connection: SqlConnection.Connection) =>
+	Effect.gen(function* () {
+		const rows = yield* connection.execute(reportSequenceSql, [], undefined);
+		const row = rows[0];
+		if (row === undefined) {
+			return yield* Effect.die(new Error("Unexpected: report sequence query returned no rows"));
+		}
+		const sequence = yield* Effect.orDie(
+			Schema.decodeUnknownEffect(Schema.Struct({ seq: Schema.Finite }))(row),
+		);
+		return sequence.seq;
+	});
+
+export const logReportRows = (connection: SqlConnection.Connection, afterSequence: number) =>
+	Effect.gen(function* () {
+		const rows = yield* connection.execute(selectReportSql(afterSequence), [], undefined);
+		const reported = yield* Effect.orDie(decodeReportRows(rows));
+		for (const row of reported) {
+			yield* logReportRow(row);
+			if (row.level === "warning" && !allowedWarningReports.has(`${row.phase}|${row.message}`)) {
+				return yield* new UnexpectedLegacyBootstrapWarning({
+					count: row.count,
+					phase: row.phase,
+					message: row.message,
+				});
+			}
+		}
+		return reported.at(-1)?.seq ?? afterSequence;
+	});
 
 export const buildUniqueSlugMap = (
 	rows: Array<{ id: string; slug: string }>,
@@ -157,8 +264,6 @@ BEGIN
 	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
 	ANALYZE _referenced_global_entity_ids;
 
-	RAISE NOTICE 'referenced global entity ids: % collected (% seconds elapsed)',
-		rows_inserted,
-		round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
+	${buildReportSql("referenced global entity ids", [{ count: "rows_inserted", message: "ids collected" }])}
 END $$;
 `;

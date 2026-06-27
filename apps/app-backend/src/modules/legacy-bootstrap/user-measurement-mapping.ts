@@ -3,7 +3,7 @@
 // rust_decimal JSON string (extracted via ->> then ::float8); statistics[].key is a snake_case
 // normalization of the name. V1 has no per-statistic unit, so `unit` is omitted.
 
-import { quoteSqlString } from "./shared";
+import { buildReportSql, quoteSqlString } from "./shared";
 
 export const buildMeasurementMigrationSql = (measurementEntitySchemaSlug: string) => `
 DO $$
@@ -20,8 +20,6 @@ BEGIN
 	IF to_regclass('"user_measurement"') IS NULL THEN
 		RAISE EXCEPTION 'Expected user_measurement table to exist in a V1 database but it was not found';
 	END IF;
-
-	RAISE NOTICE 'user_measurement -> entity: migration started (% seconds elapsed)', 0.0;
 
 	LOOP
 		WITH batch AS (
@@ -82,8 +80,6 @@ BEGIN
 		cursor_ts         := next_cursor_ts;
 	END LOOP;
 
-	RAISE NOTICE 'user_measurement -> entity: % row(s) migrated total (% seconds elapsed)',
-		rows_inserted,
-		round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
+	${buildReportSql("user_measurement -> entity", [{ message: "row(s) migrated total", count: "rows_inserted" }])}
 END $$;
 `;

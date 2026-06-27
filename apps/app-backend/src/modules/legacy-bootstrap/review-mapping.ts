@@ -3,6 +3,8 @@
 // Ratings are clamped to 100 via a CASE guard — LEAST(NULL, 100) returns 100, not NULL. Manga
 // chapter is a rust_decimal JSON string, extracted with ->> before ::float8. Dropped: visibility,
 // comments (no V2 equivalent).
+import { buildReportSql } from "./shared";
+
 export const buildReviewMigrationSql = () => `
 DO $$
 DECLARE
@@ -17,8 +19,6 @@ BEGIN
 	IF to_regclass('"review"') IS NULL THEN
 		RAISE EXCEPTION 'Expected review table to exist in a V1 database but it was not found';
 	END IF;
-
-	RAISE NOTICE 'review -> event: migration started (% seconds elapsed)', 0.0;
 
 	IF to_regclass('pg_temp._legacy_show_episode_resolution') IS NULL
 		OR to_regclass('pg_temp._legacy_podcast_episode_resolution') IS NULL THEN
@@ -230,11 +230,16 @@ BEGIN
 		);
 
 	IF unresolved_episode_rows > 0 THEN
-		RAISE WARNING 'review -> event: % show/podcast review(s) skipped because their episode could not be resolved positionally; these reviews were not migrated', unresolved_episode_rows;
+		${buildReportSql("review -> event", [
+			{
+				level: "warning",
+				count: "unresolved_episode_rows",
+				message:
+					"show/podcast review(s) skipped because their episode could not be resolved positionally; these reviews were not migrated",
+			},
+		])}
 	END IF;
 
-	RAISE NOTICE 'review -> event: % row(s) migrated total (% seconds elapsed)',
-		rows_inserted,
-		round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
+	${buildReportSql("review -> event", [{ message: "row(s) migrated total", count: "rows_inserted" }])}
 END $$;
 `;

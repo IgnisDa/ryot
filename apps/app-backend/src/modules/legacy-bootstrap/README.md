@@ -57,6 +57,15 @@ Provider targets resolve against active plugin-loader declarations. Persisted pr
 
 Mapping files in this directory own exact field transforms, clamping, deterministic IDs, and SQL statements.
 
+## Reporting
+
+Bootstrap statements write structured rows to `_legacy_bootstrap_report`. Each row contains a sequence,
+phase, level, message, optional count, and elapsed seconds. The orchestration logs new rows after each
+phase and retains the table for post-migration inspection.
+
+Information rows describe completed work. Warning rows are allowed only for the documented unresolved
+episode omissions in seen and review migration. Any other warning fails the bootstrap.
+
 ## Validation Runbook
 
 Restore a legacy dump into local Docker database:

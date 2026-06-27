@@ -1,6 +1,13 @@
 import { Effect } from "effect";
 
-import { legacyBootstrapGate, withReservedConnection } from "./shared";
+import {
+	buildReportSql,
+	createReportTableSql,
+	getLatestReportSequence,
+	legacyBootstrapGate,
+	logReportRows,
+	withReservedConnection,
+} from "./shared";
 
 const renameLegacyUserTableSql = `
 DO $$
@@ -15,8 +22,7 @@ BEGIN
 	ALTER INDEX IF EXISTS "user__oidc_issuer_id__index" RENAME TO "old_user__oidc_issuer_id__index";
 	ALTER INDEX IF EXISTS "user_is_disabled_idx" RENAME TO "old_user_is_disabled_idx";
 	ALTER INDEX IF EXISTS "user_name_trigram_idx" RENAME TO "old_user_name_trigram_idx";
-	RAISE NOTICE 'rename: user -> old_user (constraints and indexes updated, % seconds elapsed)',
-		round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
+	${buildReportSql("rename: user -> old_user", [{ message: "table renamed with constraints and indexes updated" }])}
 END $$;
 `;
 
@@ -30,8 +36,7 @@ BEGIN
 	END IF;
 	ALTER TABLE "integration" RENAME TO old_integration;
 	ALTER TABLE "old_integration" RENAME CONSTRAINT "integration_pkey" TO "old_integration_pkey";
-	RAISE NOTICE 'rename: integration -> old_integration (% seconds elapsed)',
-		round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
+	${buildReportSql("rename: integration -> old_integration", [{ message: "table renamed" }])}
 END $$;
 `;
 
@@ -46,8 +51,7 @@ BEGIN
 	ALTER TABLE "notification_platform" RENAME TO old_notification_platform;
 	ALTER TABLE "old_notification_platform" RENAME CONSTRAINT "notification_platform_pkey" TO "old_notification_platform_pkey";
 	ALTER INDEX IF EXISTS "notification_platform__user_id" RENAME TO "old_notification_platform__user_id";
-	RAISE NOTICE 'rename: notification_platform -> old_notification_platform (% seconds elapsed)',
-		round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
+	${buildReportSql("rename: notification_platform -> old_notification_platform", [{ message: "table renamed" }])}
 END $$;
 `;
 
@@ -61,8 +65,7 @@ BEGIN
 	END IF;
 	ALTER TABLE "entity_translation" RENAME TO old_entity_translation;
 	ALTER TABLE "old_entity_translation" RENAME CONSTRAINT "entity_translation_pkey" TO "old_entity_translation_pkey";
-	RAISE NOTICE 'rename: entity_translation -> old_entity_translation (% seconds elapsed)',
-		round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
+	${buildReportSql("rename: entity_translation -> old_entity_translation", [{ message: "table renamed" }])}
 END $$;
 `;
 
@@ -74,10 +77,13 @@ export const renameLegacyTables = Effect.gen(function* () {
 
 	yield* withReservedConnection((connection) =>
 		Effect.gen(function* () {
+			yield* connection.executeRaw(createReportTableSql, []);
+			const reportSequence = yield* getLatestReportSequence(connection);
 			yield* connection.executeRaw(renameLegacyUserTableSql, []);
 			yield* connection.executeRaw(renameLegacyIntegrationTableSql, []);
 			yield* connection.executeRaw(renameLegacyNotificationPlatformTableSql, []);
 			yield* connection.executeRaw(renameLegacyEntityTranslationTableSql, []);
+			yield* logReportRows(connection, reportSequence);
 		}),
 	);
 });
