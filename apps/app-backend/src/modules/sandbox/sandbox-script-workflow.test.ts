@@ -3,7 +3,7 @@ import { BunContext } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
 import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import { SandboxRunError, unknownToMessage } from "@ryot/contract/errors";
-import { SandboxScriptId } from "@ryot/contract/schema/brands";
+import { SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import { jsonValueSchema } from "@ryot/sandbox-sdk/wire";
 import { workflowReplayEnvelopeSchema } from "@ryot/sandbox-sdk/workflow";
 import { Effect, Layer, Schema } from "effect";
@@ -312,26 +312,31 @@ it.effect("dispatches plugin children as child workflows with an exact script pi
 	);
 });
 
-it.effect("dispatches library imports through the deterministic kernel child reference", () => {
-	const calls: Array<{ workflowSlug: string; input: unknown; executionId: string }> = [];
+it.effect("dispatches library imports with the parent workflow authority", () => {
+	const calls: Array<{
+		input: unknown;
+		authority: unknown;
+		executionId: string;
+		workflowSlug: string;
+	}> = [];
 	return Effect.gen(function* () {
 		const result = yield* performSandboxWorkflowChild(
 			{
 				index: 4,
-				name: "import-3",
 				kind: "child",
+				name: "import-3",
 				args: {
-					workflowSlug: KERNEL_LIBRARY_ENTITY_IMPORT_WORKFLOW,
 					input: { externalId: "book-1" },
+					workflowSlug: KERNEL_LIBRARY_ENTITY_IMPORT_WORKFLOW,
 				},
 			},
 			undefined,
 			{
 				input: {},
 				executionId: "parent",
-				scriptId: SandboxScriptId.make("parent-script"),
-				authority: { type: "system" },
 				resolutionMode: "active",
+				scriptId: SandboxScriptId.make("parent-script"),
+				authority: { type: "user", userId: UserId.make("trusted-user") },
 			},
 			"parent",
 			4,
@@ -340,9 +345,10 @@ it.effect("dispatches library imports through the deterministic kernel child ref
 		expect(result).toEqual({ status: "completed", entity: { id: "entity-1" } });
 		expect(calls).toEqual([
 			{
-				workflowSlug: KERNEL_LIBRARY_ENTITY_IMPORT_WORKFLOW,
 				input: { externalId: "book-1" },
 				executionId: "parent-child-import-3-4",
+				authority: { type: "user", userId: "trusted-user" },
+				workflowSlug: KERNEL_LIBRARY_ENTITY_IMPORT_WORKFLOW,
 			},
 		]);
 	}).pipe(
@@ -351,9 +357,9 @@ it.effect("dispatches library imports through the deterministic kernel child ref
 			makeWorkflowEngine({ execute: () => Effect.die("unused") }),
 		),
 		Effect.provideService(KernelWorkflowReferences, {
-			execute: (workflowSlug, input, executionId) =>
+			execute: (workflowSlug, input, authority, executionId) =>
 				Effect.sync(() => {
-					calls.push({ workflowSlug, input, executionId });
+					calls.push({ workflowSlug, input, authority, executionId });
 					return { status: "completed", entity: { id: "entity-1" } };
 				}),
 		}),

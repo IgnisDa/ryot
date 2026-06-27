@@ -108,19 +108,9 @@ export class SandboxExecutionService extends Effect.Service<SandboxExecutionServ
 				return script;
 			});
 
-			const executeWorkflow = Effect.fn("SandboxExecutionService.executeWorkflow")(
-				function* (input: {
-					input: JsonValue;
-					pluginSlug: string;
-					workflowSlug: string;
-					executionId: string;
-					authority: ExecutionAuthority;
-				}) {
-					const contextError = sandboxContextError(input.input);
-					if (contextError) {
-						return yield* new SandboxRunError({ message: contextError });
-					}
-					const scriptId = yield* Activity.make({
+			const resolveWorkflowScript = Effect.fn("SandboxExecutionService.resolveWorkflowScript")(
+				function* (input: { pluginSlug: string; workflowSlug: string; executionId: string }) {
+					return yield* Activity.make({
 						error: SandboxRunError,
 						success: SandboxScriptId,
 						name: `resolve-plugin-workflow-${input.executionId}`,
@@ -144,13 +134,27 @@ export class SandboxExecutionService extends Effect.Service<SandboxExecutionServ
 							),
 						),
 					});
+				},
+			);
+
+			const executeWorkflow = Effect.fn("SandboxExecutionService.executeWorkflow")(
+				function* (input: {
+					input: JsonValue;
+					executionId: string;
+					scriptId: SandboxScriptId;
+					authority: ExecutionAuthority;
+				}) {
+					const contextError = sandboxContextError(input.input, { kind: "workflow" });
+					if (contextError) {
+						return yield* new SandboxRunError({ message: contextError });
+					}
 					return yield* engine.execute(SandboxScriptWorkflow, {
 						executionId: input.executionId,
 						payload: {
 							input: input.input,
-							scriptId,
-							authority: input.authority,
 							resolutionMode: "exact",
+							scriptId: input.scriptId,
+							authority: input.authority,
 							executionId: input.executionId,
 						},
 					});
@@ -162,6 +166,7 @@ export class SandboxExecutionService extends Effect.Service<SandboxExecutionServ
 				getResult,
 				executeWorkflow,
 				getStoredScript,
+				resolveWorkflowScript,
 				listStoredScripts: () => runWithDb(repository.listStoredScripts()),
 			};
 		}),
