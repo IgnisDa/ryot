@@ -4,16 +4,22 @@ import { SandboxRunError } from "@ryot/contract/errors";
 import {
 	EntityId,
 	EntitySchemaId,
+	RelationshipId,
 	RelationshipSchemaId,
 	SandboxScriptId,
 } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
 import type { MockOverrides } from "#lib/test-support/effect";
-import { dbRunnerLayer, makeWorkflowActivityEngine } from "#lib/test-support/effect";
+import {
+	dbRunnerLayer,
+	makeWorkflowActivityEngine,
+	transactionLayer,
+} from "#lib/test-support/effect";
 import { EntitiesService } from "#modules/entities/service";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
+import { RelationshipsService } from "#modules/relationships/service";
 import { InfrequentCronWorkflow } from "#modules/scheduler/cron-workflow";
 
 import {
@@ -68,6 +74,7 @@ const listedEntity = (input: {
 
 const mockEntitiesService = Layer.mock(EntitiesService);
 const mockRelationshipsRepository = Layer.mock(RelationshipsRepository);
+const mockRelationshipsService = Layer.mock(RelationshipsService);
 const mockMediaTrendingRepository = Layer.mock(MediaTrendingRepository);
 const mockRelationshipSchemasRepository = Layer.mock(RelationshipSchemasRepository);
 
@@ -82,9 +89,36 @@ const makeRelationshipsRepository = (
 	overrides: MockOverrides<typeof mockRelationshipsRepository> = {},
 ) =>
 	mockRelationshipsRepository({
-		syncGlobalRelationships: () => Effect.void,
+		listGlobalRelationships: () => Effect.succeed([]),
 		...overrides,
 		_tag: "RelationshipsRepository",
+	});
+
+const makeRelationshipsService = (overrides: MockOverrides<typeof mockRelationshipsService> = {}) =>
+	mockRelationshipsService({
+		create: (input) =>
+			Effect.succeed({
+				properties: {},
+				wasInserted: true,
+				sourceEntityId: input.sourceEntityId,
+				targetEntityId: input.targetEntityId,
+				createdAt: "2026-01-01T00:00:00.000Z",
+				id: RelationshipId.make("relationship-id"),
+				relationshipSchemaId: input.relationshipSchemaId,
+			}),
+		update: (input) =>
+			Effect.succeed({
+				properties: {},
+				wasInserted: false,
+				createdAt: "2026-01-01T00:00:00.000Z",
+				sourceEntityId: input.sourceEntityId,
+				targetEntityId: input.targetEntityId,
+				id: RelationshipId.make("relationship-id"),
+				relationshipSchemaId: input.relationshipSchemaId,
+			}),
+		delete: () => Effect.succeed(null),
+		...overrides,
+		_tag: "RelationshipsService",
 	});
 
 const makeMediaTrendingRepository = (
@@ -107,6 +141,7 @@ const makeRelationshipSchemasRepository = (
 
 type TestLayerOptions = {
 	entitiesService?: Layer.Layer<EntitiesService>;
+	relationshipsService?: Layer.Layer<RelationshipsService>;
 	mediaTrendingRepository?: Layer.Layer<MediaTrendingRepository>;
 	relationshipsRepository?: Layer.Layer<RelationshipsRepository>;
 	fetchTrending?: MediaTrendingWorkflowOperationsValue["fetchTrending"];
@@ -116,11 +151,13 @@ type TestLayerOptions = {
 const makeTestLayer = (options: TestLayerOptions) =>
 	Layer.mergeAll(
 		dbRunnerLayer,
+		transactionLayer,
 		Layer.mock(MediaTrendingWorkflowOperations, {
 			fetchTrending: options.fetchTrending ?? (() => Effect.die("unused")),
 		}),
 		options.entitiesService ?? makeEntitiesService(),
 		options.relationshipsRepository ?? makeRelationshipsRepository(),
+		options.relationshipsService ?? makeRelationshipsService(),
 		options.mediaTrendingRepository ?? makeMediaTrendingRepository(),
 		options.relationshipSchemasRepository ?? makeRelationshipSchemasRepository(),
 	);
@@ -141,8 +178,8 @@ const withTestLayer = <A, E, R>(
 };
 
 it.effect("syncs successful provider trend items as ranked self edges", () => {
-	let syncedInput: unknown;
 	const savedInputs: unknown[] = [];
+	const relationshipWrites: unknown[] = [];
 	const idByProviderItem = new Map([
 		["script-movie:m1", "entity-movie-one"],
 		["script-movie:m2", "entity-movie-two"],
@@ -173,11 +210,20 @@ it.effect("syncs successful provider trend items as ranked self edges", () => {
 				);
 			},
 		}),
-		relationshipsRepository: makeRelationshipsRepository({
-			syncGlobalRelationships: (input) => {
-				syncedInput = input;
-				return Effect.void;
-			},
+		relationshipsService: makeRelationshipsService({
+			create: (input) =>
+				Effect.sync(() => {
+					relationshipWrites.push(input);
+					return {
+						properties: {},
+						wasInserted: true,
+						sourceEntityId: input.sourceEntityId,
+						targetEntityId: input.targetEntityId,
+						createdAt: "2026-01-01T00:00:00.000Z",
+						id: RelationshipId.make("relationship-id"),
+						relationshipSchemaId: input.relationshipSchemaId,
+					};
+				}),
 		}),
 		mediaTrendingRepository: makeMediaTrendingRepository({
 			listProviderTargets: () => Effect.succeed([movieProvider, showProvider]),
@@ -194,32 +240,29 @@ it.effect("syncs successful provider trend items as ranked self edges", () => {
 
 			expect(result).toEqual({ providerCount: 2, itemCount: 3, synced: true });
 			expect(savedInputs).toHaveLength(4);
-			expect(syncedInput).toMatchObject({
-				type: "self",
-				onConflict: "replaceProperties",
-				synchronization: "authoritative",
-				relationshipSchemaId: "schema-media-trending",
-				entries: [
-					{
-						entityId: "entity-movie-one",
-						properties: { rank: 1, fetchedAt: expect.any(String) },
-					},
-					{
-						entityId: "entity-movie-two",
-						properties: { rank: 2, fetchedAt: expect.any(String) },
-					},
-					{
-						entityId: "entity-show-one",
-						properties: { rank: 3, fetchedAt: expect.any(String) },
-					},
-				],
-			});
+			expect(relationshipWrites).toEqual([
+				expect.objectContaining({
+					sourceEntityId: "entity-movie-one",
+					targetEntityId: "entity-movie-one",
+					properties: { rank: 1, fetchedAt: expect.any(String) },
+				}),
+				expect.objectContaining({
+					sourceEntityId: "entity-movie-two",
+					targetEntityId: "entity-movie-two",
+					properties: { rank: 2, fetchedAt: expect.any(String) },
+				}),
+				expect.objectContaining({
+					sourceEntityId: "entity-show-one",
+					targetEntityId: "entity-show-one",
+					properties: { rank: 3, fetchedAt: expect.any(String) },
+				}),
+			]);
 		}),
 	);
 });
 
 it.effect("skips failed providers and syncs successful providers", () => {
-	let syncedInput: unknown;
+	let syncedEntityId: EntityId | undefined;
 	const options = {
 		fetchTrending: ({ scriptId }) =>
 			scriptId === movieProvider.scriptId
@@ -237,11 +280,20 @@ it.effect("skips failed providers and syncs successful providers", () => {
 					}),
 				),
 		}),
-		relationshipsRepository: makeRelationshipsRepository({
-			syncGlobalRelationships: (input) => {
-				syncedInput = input;
-				return Effect.void;
-			},
+		relationshipsService: makeRelationshipsService({
+			create: (input) =>
+				Effect.sync(() => {
+					syncedEntityId = input.sourceEntityId;
+					return {
+						properties: {},
+						wasInserted: true,
+						sourceEntityId: input.sourceEntityId,
+						targetEntityId: input.targetEntityId,
+						createdAt: "2026-01-01T00:00:00.000Z",
+						id: RelationshipId.make("relationship-id"),
+						relationshipSchemaId: input.relationshipSchemaId,
+					};
+				}),
 		}),
 		mediaTrendingRepository: makeMediaTrendingRepository({
 			listProviderTargets: () => Effect.succeed([movieProvider, showProvider]),
@@ -257,17 +309,92 @@ it.effect("skips failed providers and syncs successful providers", () => {
 			});
 
 			expect(result).toEqual({ providerCount: 1, itemCount: 1, synced: true });
-			expect(syncedInput).toMatchObject({
-				type: "self",
-				onConflict: "replaceProperties",
-				synchronization: "authoritative",
-				entries: [
-					{
-						entityId: "entity-show-one",
-						properties: { rank: 1, fetchedAt: expect.any(String) },
-					},
-				],
+			expect(syncedEntityId).toBe("entity-show-one");
+		}),
+	);
+});
+
+it.effect("updates current trend edges and deletes stale ones", () => {
+	const updates: unknown[] = [];
+	const deletes: unknown[] = [];
+	const existing = [
+		{
+			properties: { rank: 9 },
+			createdAt: "2026-01-01T00:00:00.000Z",
+			relationshipSchemaId: mediaTrendingSchema.id,
+			id: RelationshipId.make("current-relationship"),
+			sourceEntityId: EntityId.make("entity-show-one"),
+			targetEntityId: EntityId.make("entity-show-one"),
+		},
+		{
+			properties: { rank: 10 },
+			createdAt: "2026-01-01T00:00:00.000Z",
+			relationshipSchemaId: mediaTrendingSchema.id,
+			id: RelationshipId.make("stale-relationship"),
+			sourceEntityId: EntityId.make("entity-stale"),
+			targetEntityId: EntityId.make("entity-stale"),
+		},
+	];
+	const options = {
+		fetchTrending: () => Effect.succeed([{ name: "Show One", externalId: "s1" }]),
+		entitiesService: makeEntitiesService({
+			create: () =>
+				Effect.succeed(
+					listedEntity({
+						name: "Show One",
+						externalId: "s1",
+						id: "entity-show-one",
+						sandboxScriptId: showProvider.scriptId,
+						entitySchemaId: showProvider.entitySchemaId,
+					}),
+				),
+		}),
+		relationshipsRepository: makeRelationshipsRepository({
+			listGlobalRelationships: () => Effect.succeed(existing),
+		}),
+		relationshipsService: makeRelationshipsService({
+			update: (input) =>
+				Effect.sync(() => {
+					updates.push(input);
+					return {
+						properties: {},
+						wasInserted: false,
+						sourceEntityId: input.sourceEntityId,
+						targetEntityId: input.targetEntityId,
+						createdAt: "2026-01-01T00:00:00.000Z",
+						id: RelationshipId.make("current-relationship"),
+						relationshipSchemaId: input.relationshipSchemaId,
+					};
+				}),
+			delete: (input) =>
+				Effect.sync(() => {
+					deletes.push(input);
+					return null;
+				}),
+		}),
+		mediaTrendingRepository: makeMediaTrendingRepository({
+			listProviderTargets: () => Effect.succeed([showProvider]),
+		}),
+	} satisfies TestLayerOptions;
+
+	return withTestLayer(
+		options,
+		"exec-trending-reconcile",
+		Effect.gen(function* () {
+			const result = yield* runMediaTrendingRefresh({ executionId: "exec-trending-reconcile" });
+
+			expect(result).toEqual({ providerCount: 1, itemCount: 1, synced: true });
+			expect(updates).toHaveLength(1);
+			expect(updates[0]).toMatchObject({
+				sourceEntityId: "entity-show-one",
+				properties: { rank: 1 },
 			});
+			expect(deletes).toEqual([
+				expect.objectContaining({
+					sourceEntityId: "entity-stale",
+					targetEntityId: "entity-stale",
+				}),
+			]);
 		}),
 	);
 });
@@ -276,11 +403,20 @@ it.effect("preserves prior trend edges when no provider succeeds", () => {
 	let syncCalled = false;
 	const options = {
 		fetchTrending: () => Effect.fail(new SandboxRunError({ message: "provider unavailable" })),
-		relationshipsRepository: makeRelationshipsRepository({
-			syncGlobalRelationships: () => {
-				syncCalled = true;
-				return Effect.void;
-			},
+		relationshipsService: makeRelationshipsService({
+			create: () =>
+				Effect.sync(() => {
+					syncCalled = true;
+					return {
+						properties: {},
+						wasInserted: true,
+						createdAt: "2026-01-01T00:00:00.000Z",
+						sourceEntityId: EntityId.make("unused"),
+						targetEntityId: EntityId.make("unused"),
+						id: RelationshipId.make("relationship-id"),
+						relationshipSchemaId: RelationshipSchemaId.make("unused"),
+					};
+				}),
 		}),
 		mediaTrendingRepository: makeMediaTrendingRepository({
 			listProviderTargets: () => Effect.succeed([movieProvider]),

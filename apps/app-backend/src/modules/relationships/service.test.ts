@@ -1,5 +1,5 @@
 import { expect, it } from "@effect/vitest";
-import { BadRequest } from "@ryot/contract/errors";
+import { BadRequest, NotFound } from "@ryot/contract/errors";
 import {
 	EntityId,
 	RelationshipId,
@@ -19,7 +19,7 @@ const sourceEntityId = EntityId.make("source-entity-id");
 const targetEntityId = EntityId.make("target-entity-id");
 const relationshipSchemaId = RelationshipSchemaId.make("rel-schema-id");
 
-const savedRelationship = {
+const relationship = {
 	properties: {},
 	sourceEntityId,
 	targetEntityId,
@@ -51,17 +51,16 @@ const baseInput = {
 	targetEntityId,
 	relationshipSchemaId,
 	scope: "user" as const,
-	onConflict: "replaceProperties" as const,
 	propertiesSchema: { fields: {} } as const,
 };
 
-it.effect("returns bad request when properties violate the relationship schema", () => {
+it.effect("returns bad request when create properties violate the relationship schema", () => {
 	const layer = makeServiceLayer();
 
 	return Effect.gen(function* () {
 		const service = yield* RelationshipsService;
 		const exit = yield* Effect.exit(
-			service.save({
+			service.create({
 				...baseInput,
 				properties: { status: "deleted" },
 				propertiesSchema: {
@@ -87,61 +86,99 @@ it.effect("returns bad request when properties violate the relationship schema",
 	}).pipe(Effect.provide(layer));
 });
 
-it.effect("saves a validated user relationship", () => {
-	let savedInput: unknown;
+it.effect("creates a validated user relationship", () => {
+	let createdInput: unknown;
 	const layer = makeServiceLayer({
-		saveRelationship: (input) =>
+		createRelationship: (input) =>
 			Effect.sync(() => {
-				savedInput = input;
-				return savedRelationship;
+				createdInput = input;
+				return relationship;
 			}),
 	});
 
 	return Effect.gen(function* () {
 		const service = yield* RelationshipsService;
-		const result = yield* service.save(baseInput);
-		expect(result).toEqual(savedRelationship);
-		expect(savedInput).toEqual({
+		const result = yield* service.create(baseInput);
+		expect(result).toEqual(relationship);
+		expect(createdInput).toEqual({
 			userId,
 			properties: {},
 			sourceEntityId,
 			targetEntityId,
 			relationshipSchemaId,
 			scope: "user",
-			onConflict: "replaceProperties",
 		});
 	}).pipe(Effect.provide(layer));
 });
 
-it.effect("saves a validated global relationship", () => {
-	let savedInput: unknown;
+it.effect("updates a validated global relationship", () => {
+	let updatedInput: unknown;
+	const updated = { ...relationship, wasInserted: false };
 	const layer = makeServiceLayer({
-		saveRelationship: (input) =>
+		updateRelationship: (input) =>
 			Effect.sync(() => {
-				savedInput = input;
-				return savedRelationship;
+				updatedInput = input;
+				return updated;
 			}),
 	});
 
 	return Effect.gen(function* () {
 		const service = yield* RelationshipsService;
-		const result = yield* service.save({
+		const result = yield* service.update({
+			properties: {},
 			sourceEntityId,
 			targetEntityId,
-			properties: {},
 			scope: "global",
 			relationshipSchemaId,
-			onConflict: "replaceProperties",
 			propertiesSchema: { fields: {} },
 		});
-		expect(result).toEqual(savedRelationship);
-		expect(savedInput).toEqual({
+		expect(result).toEqual(updated);
+		expect(updatedInput).toEqual({
 			properties: {},
 			sourceEntityId,
 			targetEntityId,
-			relationshipSchemaId,
 			scope: "global",
-			onConflict: "replaceProperties",
+			relationshipSchemaId,
+		});
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("returns not found when updating a missing relationship", () => {
+	const layer = makeServiceLayer({ updateRelationship: () => Effect.succeed(null) });
+
+	return Effect.gen(function* () {
+		const service = yield* RelationshipsService;
+		const exit = yield* Effect.exit(service.update({ ...baseInput }));
+		expect(exit).toEqual(Exit.fail(new NotFound({ message: "Relationship not found" })));
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("deletes one relationship through the repository", () => {
+	let deletedInput: unknown;
+	const layer = makeServiceLayer({
+		deleteRelationship: (input) =>
+			Effect.sync(() => {
+				deletedInput = input;
+				return relationship;
+			}),
+	});
+
+	return Effect.gen(function* () {
+		const service = yield* RelationshipsService;
+		const result = yield* service.delete({
+			userId,
+			scope: "user",
+			sourceEntityId,
+			targetEntityId,
+			relationshipSchemaId,
+		});
+		expect(result).toEqual(relationship);
+		expect(deletedInput).toEqual({
+			userId,
+			scope: "user",
+			sourceEntityId,
+			targetEntityId,
+			relationshipSchemaId,
 		});
 	}).pipe(Effect.provide(layer));
 });

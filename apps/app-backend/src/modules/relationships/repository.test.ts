@@ -1,5 +1,5 @@
 import { expect, it } from "@effect/vitest";
-import { EntityId, RelationshipSchemaId } from "@ryot/contract/schema/brands";
+import { EntityId, RelationshipSchemaId, UserId } from "@ryot/contract/schema/brands";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Effect, Layer } from "effect";
 
@@ -20,137 +20,141 @@ type StoredRelationship = {
 const dialect = new PgDialect();
 type RenderableSql = Parameters<typeof dialect.sqlToQuery>[0];
 
-const makeDb = (rows: ReadonlyArray<StoredRelationship>) => {
-	const state = {
-		rows: [...rows],
-		transactions: 0,
-	};
+const makeDb = (initialRows: ReadonlyArray<StoredRelationship> = []) => {
+	const state = { executeCalls: 0, rows: [...initialRows] };
 
-	const findGlobalRelationship = (value: {
-		sourceEntityId: string;
-		targetEntityId: string;
-		relationshipSchemaId: string;
-	}) =>
-		state.rows.find(
-			(row) =>
-				row.userId === null &&
-				row.sourceEntityId === value.sourceEntityId &&
-				row.targetEntityId === value.targetEntityId &&
-				row.relationshipSchemaId === value.relationshipSchemaId,
+	const paramsFor = (condition: RenderableSql) => {
+		const rendered = dialect.sqlToQuery(condition);
+		return rendered.params.flatMap((param) =>
+			Array.isArray(param) ? param.map(String) : [String(param)],
 		);
-
-	const insertGlobalRelationship = (value: {
-		userId: string | null;
-		sourceEntityId: string;
-		targetEntityId: string;
-		relationshipSchemaId: string;
-		properties: Record<string, unknown>;
-	}) => {
-		state.rows.push({
-			...value,
-			id: `relationship-${state.rows.length + 1}`,
-			createdAt: new Date("2026-06-14T00:00:00.000Z"),
-		});
 	};
-	const tx = Object.assign(Object.create(null), {
-		insert: () => ({
-			values: (
-				values: ReadonlyArray<{
-					userId: string | null;
-					sourceEntityId: string;
-					targetEntityId: string;
-					relationshipSchemaId: string;
-					properties: Record<string, unknown>;
-				}>,
-			) => ({
-				onConflictDoNothing: () => {
-					for (const value of values) {
-						if (!findGlobalRelationship(value)) {
-							insertGlobalRelationship(value);
-						}
-					}
 
-					return Promise.resolve(undefined);
-				},
-				onConflictDoUpdate: () => {
-					for (const value of values) {
-						const existing = findGlobalRelationship(value);
-						if (existing) {
-							existing.properties = value.properties;
-						} else {
-							insertGlobalRelationship(value);
-						}
-					}
+	const matches = (condition: RenderableSql, row: StoredRelationship) => {
+		const rendered = dialect.sqlToQuery(condition);
+		const text = rendered.sql;
+		const params = paramsFor(condition);
 
-					return Promise.resolve(undefined);
-				},
-			}),
-		}),
-		delete: () => ({
+		if (text.includes('"relationship"."userId" is null')) {
+			if (row.userId !== null) {
+				return false;
+			}
+			if (params.length === 3) {
+				return (
+					row.sourceEntityId === params[0] &&
+					row.targetEntityId === params[1] &&
+					row.relationshipSchemaId === params[2]
+				);
+			}
+			if (text.includes('"relationship"."sourceEntityId" = "relationship"."targetEntityId"')) {
+				return row.sourceEntityId === row.targetEntityId && row.relationshipSchemaId === params[0];
+			}
+			const incoming = text.includes('"relationship"."targetEntityId" =');
+			return (
+				(incoming ? row.targetEntityId : row.sourceEntityId) === params[0] &&
+				row.relationshipSchemaId === params[1]
+			);
+		}
+
+		if (params.length === 4) {
+			return (
+				row.userId === params[0] &&
+				row.sourceEntityId === params[1] &&
+				row.targetEntityId === params[2] &&
+				row.relationshipSchemaId === params[3]
+			);
+		}
+
+		return (
+			row.userId === params[0] &&
+			(params.slice(1).includes(row.sourceEntityId) || params.slice(1).includes(row.targetEntityId))
+		);
+	};
+
+	const select = () => ({
+		from: () => ({
 			where: (condition: RenderableSql) => {
-				const rendered = dialect.sqlToQuery(condition);
-				const params = rendered.params.flatMap((param) =>
-					Array.isArray(param) ? param.map(String) : [String(param)],
-				);
-				const isSelfEdgeDelete = rendered.sql.includes(
-					'"relationship"."sourceEntityId" = "relationship"."targetEntityId"',
-				);
-
-				if (isSelfEdgeDelete) {
-					const [relationshipSchemaId, ...sourceEntityIds] = params;
-					const keptSources = new Set(sourceEntityIds);
-
-					state.rows = state.rows.filter((row) => {
-						if (row.userId !== null) {
-							return true;
-						}
-						if (row.relationshipSchemaId !== relationshipSchemaId) {
-							return true;
-						}
-						if (row.sourceEntityId !== row.targetEntityId) {
-							return true;
-						}
-						if (keptSources.size === 0) {
-							return false;
-						}
-						return keptSources.has(row.sourceEntityId);
-					});
-
-					return Promise.resolve([]);
-				}
-
-				const isIncoming = rendered.sql.includes('"relationship"."targetEntityId" =');
-				const [anchorEntityId, relationshipSchemaId, ...relatedEntityIds] = params;
-				const keptRelatedEntities = new Set(relatedEntityIds);
-
-				state.rows = state.rows.filter((row) => {
-					if (row.userId !== null) {
-						return true;
-					}
-					if ((isIncoming ? row.targetEntityId : row.sourceEntityId) !== anchorEntityId) {
-						return true;
-					}
-					if (row.relationshipSchemaId !== relationshipSchemaId) {
-						return true;
-					}
-					if (keptRelatedEntities.size === 0) {
-						return false;
-					}
-					return keptRelatedEntities.has(isIncoming ? row.sourceEntityId : row.targetEntityId);
+				const rows = () => state.rows.filter((row) => matches(condition, row));
+				const limited = Object.assign(Promise.resolve(rows().slice(0, 1)), {
+					for: () => Promise.resolve(rows().slice(0, 1)),
 				});
-
-				return Promise.resolve([]);
+				return {
+					for: () => Promise.resolve(rows()),
+					limit: () => limited,
+				};
 			},
 		}),
 	});
 
-	const db = Object.assign(Object.create(null), {
-		transaction: <A>(callback: (transaction: typeof tx) => Promise<A>) => {
-			state.transactions += 1;
-			return callback(tx);
+	const insert = () => ({
+		values: (values: StoredRelationship | ReadonlyArray<StoredRelationship>) => {
+			const inputs = Array.isArray(values) ? values : [values];
+			const inserted: StoredRelationship[] = [];
+			const onConflictDoNothing = () => {
+				for (const input of inputs) {
+					const existing = state.rows.some(
+						(row) =>
+							row.userId === input.userId &&
+							row.sourceEntityId === input.sourceEntityId &&
+							row.targetEntityId === input.targetEntityId &&
+							row.relationshipSchemaId === input.relationshipSchemaId,
+					);
+					if (existing) {
+						continue;
+					}
+
+					const row = {
+						...input,
+						id: `relationship-${state.rows.length + 1}`,
+						createdAt: new Date("2026-06-14T00:00:00.000Z"),
+					};
+					state.rows.push(row);
+					inserted.push(row);
+				}
+				return {
+					returning: () =>
+						Promise.resolve(inserted.map((row) => Object.assign({}, row, { wasInserted: true }))),
+				};
+			};
+
+			return { onConflictDoNothing };
 		},
 	});
 
+	const update = () => ({
+		set: (values: Partial<StoredRelationship>) => ({
+			where: (condition: RenderableSql) => ({
+				returning: () => {
+					const updated = state.rows.filter((row) => matches(condition, row));
+					for (const row of updated) {
+						Object.assign(row, values);
+					}
+					return Promise.resolve(updated);
+				},
+			}),
+		}),
+	});
+
+	const remove = () => ({
+		where: (condition: RenderableSql) => ({
+			returning: () => {
+				const deleted = state.rows.filter((row) => matches(condition, row));
+				state.rows = state.rows.filter((row) => !matches(condition, row));
+				return Promise.resolve(deleted);
+			},
+		}),
+	});
+
+	const db = {
+		delete: remove,
+		execute: () => {
+			state.executeCalls += 1;
+			return Promise.resolve(undefined);
+		},
+		insert,
+		select,
+		update,
+	};
 	return { db, state };
 };
 
@@ -160,527 +164,103 @@ const makeLayer = (db: object) =>
 		Layer.succeed(CurrentDb, Object.assign(Object.create(null), db)),
 	);
 
-it.effect(
-	"authoritatively syncs anchored global targets while preserving existing properties",
-	() => {
-		const { db, state } = makeDb([
-			{
-				userId: null,
-				properties: {},
-				id: "rel-old-stale",
-				targetEntityId: "target-old",
-				sourceEntityId: "source-a",
-				relationshipSchemaId: "schema-suggestion",
-				createdAt: new Date("2026-06-14T00:00:00.000Z"),
-			},
-			{
-				userId: null,
-				properties: { source: "existing" },
-				id: "rel-keep-existing",
-				targetEntityId: "target-keep",
-				sourceEntityId: "source-a",
-				relationshipSchemaId: "schema-suggestion",
-				createdAt: new Date("2026-06-14T00:00:00.000Z"),
-			},
-			{
-				userId: null,
-				properties: {},
-				id: "rel-other-schema",
-				targetEntityId: "target-other-schema",
-				sourceEntityId: "source-a",
-				relationshipSchemaId: "schema-other",
-				createdAt: new Date("2026-06-14T00:00:00.000Z"),
-			},
-			{
-				userId: null,
-				properties: {},
-				id: "rel-other-source",
-				targetEntityId: "target-other-source",
-				sourceEntityId: "source-b",
-				relationshipSchemaId: "schema-suggestion",
-				createdAt: new Date("2026-06-14T00:00:00.000Z"),
-			},
-			{
-				userId: "user-1",
-				properties: {},
-				id: "rel-user-row",
-				targetEntityId: "target-user",
-				sourceEntityId: "source-a",
-				relationshipSchemaId: "schema-suggestion",
-				createdAt: new Date("2026-06-14T00:00:00.000Z"),
-			},
-		]);
+const globalInput = {
+	scope: "global" as const,
+	sourceEntityId: EntityId.make("source"),
+	targetEntityId: EntityId.make("target"),
+	relationshipSchemaId: RelationshipSchemaId.make("schema"),
+};
 
-		return Effect.gen(function* () {
-			const repository = yield* RelationshipsRepository;
-			yield* repository.syncGlobalRelationships({
-				type: "anchored",
-				entries: [
-					{ entityId: EntityId.make("target-keep"), properties: {} },
-					{ entityId: EntityId.make("target-new"), properties: {} },
-					{ entityId: EntityId.make("target-new"), properties: {} },
-				],
-				direction: "outgoing",
-				onConflict: "preserveExisting",
-				anchorEntityId: EntityId.make("source-a"),
-				relationshipSchemaId: RelationshipSchemaId.make("schema-suggestion"),
-				synchronization: "authoritative",
-			});
-
-			expect(state.transactions).toBe(1);
-			expect(
-				state.rows.filter(
-					(row) =>
-						row.userId === null &&
-						row.sourceEntityId === "source-a" &&
-						row.relationshipSchemaId === "schema-suggestion",
-				),
-			).toEqual([
-				expect.objectContaining({
-					id: "rel-keep-existing",
-					properties: { source: "existing" },
-					targetEntityId: "target-keep",
-				}),
-				expect.objectContaining({ targetEntityId: "target-new" }),
-			]);
-			expect(state.rows.map((row) => row.id)).toContain("rel-other-schema");
-			expect(state.rows.map((row) => row.id)).toContain("rel-other-source");
-			expect(state.rows.map((row) => row.id)).toContain("rel-user-row");
-			expect(state.rows.map((row) => row.id)).not.toContain("rel-old-stale");
-		}).pipe(Effect.provide(makeLayer(db)));
-	},
-);
-
-it.effect("clears all global targets for a source and schema when syncing an empty set", () => {
-	const { db, state } = makeDb([
-		{
-			userId: null,
-			properties: {},
-			id: "rel-a",
-			targetEntityId: "target-a",
-			sourceEntityId: "source-a",
-			relationshipSchemaId: "schema-suggestion",
-			createdAt: new Date("2026-06-14T00:00:00.000Z"),
-		},
-		{
-			userId: null,
-			properties: {},
-			id: "rel-b",
-			targetEntityId: "target-b",
-			sourceEntityId: "source-a",
-			relationshipSchemaId: "schema-suggestion",
-			createdAt: new Date("2026-06-14T00:00:00.000Z"),
-		},
-		{
-			userId: null,
-			properties: {},
-			id: "rel-other",
-			targetEntityId: "target-other",
-			sourceEntityId: "source-a",
-			relationshipSchemaId: "schema-other",
-			createdAt: new Date("2026-06-14T00:00:00.000Z"),
-		},
-	]);
+it.effect("creates once and preserves an existing relationship on conflict", () => {
+	const { db, state } = makeDb();
 
 	return Effect.gen(function* () {
 		const repository = yield* RelationshipsRepository;
-		yield* repository.syncGlobalRelationships({
-			type: "anchored",
-			entries: [],
-			direction: "outgoing",
-			onConflict: "preserveExisting",
-			anchorEntityId: EntityId.make("source-a"),
-			relationshipSchemaId: RelationshipSchemaId.make("schema-suggestion"),
-			synchronization: "authoritative",
-		});
-
-		expect(state.transactions).toBe(1);
-		expect(
-			state.rows.filter(
-				(row) =>
-					row.userId === null &&
-					row.sourceEntityId === "source-a" &&
-					row.relationshipSchemaId === "schema-suggestion",
-			),
-		).toHaveLength(0);
-		expect(state.rows.map((row) => row.id)).toContain("rel-other");
-	}).pipe(Effect.provide(makeLayer(db)));
-});
-
-it.effect("replaces properties while authoritatively syncing anchored global relationships", () => {
-	const { db, state } = makeDb([
-		{
-			userId: null,
-			id: "rel-stale",
-			sourceEntityId: "source-a",
-			properties: { roles: ["Old"] },
-			targetEntityId: "target-stale",
-			relationshipSchemaId: "schema-credit",
-			createdAt: new Date("2026-06-14T00:00:00.000Z"),
-		},
-		{
-			userId: null,
-			id: "rel-existing",
-			sourceEntityId: "source-a",
-			properties: { roles: ["Old"] },
-			targetEntityId: "target-existing",
-			relationshipSchemaId: "schema-credit",
-			createdAt: new Date("2026-06-14T00:00:00.000Z"),
-		},
-	]);
-
-	return Effect.gen(function* () {
-		const repository = yield* RelationshipsRepository;
-		yield* repository.syncGlobalRelationships({
-			type: "anchored",
-			direction: "outgoing",
-			onConflict: "replaceProperties",
-			anchorEntityId: EntityId.make("source-a"),
-			relationshipSchemaId: RelationshipSchemaId.make("schema-credit"),
-			synchronization: "authoritative",
-			entries: [
-				{ entityId: EntityId.make("target-existing"), properties: { roles: ["Artist"] } },
-				{ entityId: EntityId.make("target-new"), properties: { roles: ["Writer"] } },
-				{ entityId: EntityId.make("target-new"), properties: { roles: ["Editor"] } },
-			],
-		});
-
-		expect(state.transactions).toBe(1);
-		expect(state.rows.find((row) => row.targetEntityId === "target-stale")).toBeUndefined();
-		expect(state.rows.find((row) => row.targetEntityId === "target-existing")?.properties).toEqual({
-			roles: ["Artist"],
-		});
-		expect(state.rows.find((row) => row.targetEntityId === "target-new")?.properties).toEqual({
-			roles: ["Editor"],
-		});
-	}).pipe(Effect.provide(makeLayer(db)));
-});
-
-it.effect("preserves existing incoming global relationships and properties", () => {
-	const { db, state } = makeDb([
-		{
-			userId: null,
-			id: "rel-stale",
-			targetEntityId: "person-a",
-			sourceEntityId: "movie-stale",
-			properties: { roles: ["Old"] },
-			relationshipSchemaId: "schema-person-to-movie",
-			createdAt: new Date("2026-06-14T00:00:00.000Z"),
-		},
-		{
-			userId: null,
-			id: "rel-existing",
-			targetEntityId: "person-a",
-			properties: { roles: ["Old"] },
-			sourceEntityId: "movie-existing",
-			relationshipSchemaId: "schema-person-to-movie",
-			createdAt: new Date("2026-06-14T00:00:00.000Z"),
-		},
-		{
-			userId: null,
-			id: "rel-other-target",
-			properties: { roles: ["Director"] },
-			targetEntityId: "person-b",
-			sourceEntityId: "movie-stale",
-			relationshipSchemaId: "schema-person-to-movie",
-			createdAt: new Date("2026-06-14T00:00:00.000Z"),
-		},
-		{
-			userId: null,
-			properties: {},
-			id: "rel-other-schema",
-			targetEntityId: "person-a",
-			sourceEntityId: "movie-other",
-			relationshipSchemaId: "schema-other",
-			createdAt: new Date("2026-06-14T00:00:00.000Z"),
-		},
-	]);
-
-	return Effect.gen(function* () {
-		const repository = yield* RelationshipsRepository;
-		yield* repository.syncGlobalRelationships({
-			type: "anchored",
-			direction: "incoming",
-			onConflict: "preserveExisting",
-			anchorEntityId: EntityId.make("person-a"),
-			relationshipSchemaId: RelationshipSchemaId.make("schema-person-to-movie"),
-			synchronization: "additive",
-			entries: [
-				{ entityId: EntityId.make("movie-existing"), properties: { roles: ["Writer"] } },
-				{ entityId: EntityId.make("movie-new"), properties: { roles: ["Actor"] } },
-			],
-		});
-
-		expect(state.rows.find((row) => row.id === "rel-stale")).toBeDefined();
-		expect(state.rows.find((row) => row.id === "rel-existing")?.properties).toEqual({
-			roles: ["Old"],
-		});
-		expect(
-			state.rows.find(
-				(row) =>
-					row.sourceEntityId === "movie-new" &&
-					row.targetEntityId === "person-a" &&
-					row.relationshipSchemaId === "schema-person-to-movie",
-			),
-		).toMatchObject({ properties: { roles: ["Actor"] } });
-		expect(state.rows.map((row) => row.id)).toContain("rel-other-target");
-		expect(state.rows.map((row) => row.id)).toContain("rel-other-schema");
-	}).pipe(Effect.provide(makeLayer(db)));
-});
-
-it.effect("authoritatively syncs incoming global relationships and properties", () => {
-	const { db, state } = makeDb([
-		{
-			userId: null,
-			id: "rel-stale",
-			targetEntityId: "book-a",
-			sourceEntityId: "person-stale",
-			properties: { roles: ["Author"] },
-			relationshipSchemaId: "schema-person-to-book",
-			createdAt: new Date("2026-06-14T00:00:00.000Z"),
-		},
-		{
-			userId: null,
-			id: "rel-existing",
-			targetEntityId: "book-a",
-			sourceEntityId: "person-existing",
-			properties: { roles: ["Editor"] },
-			relationshipSchemaId: "schema-person-to-book",
-			createdAt: new Date("2026-06-14T00:00:00.000Z"),
-		},
-		{
-			userId: null,
-			id: "rel-other-anchor",
-			targetEntityId: "book-b",
-			sourceEntityId: "person-stale",
-			properties: { roles: ["Author"] },
-			relationshipSchemaId: "schema-person-to-book",
-			createdAt: new Date("2026-06-14T00:00:00.000Z"),
-		},
-	]);
-
-	return Effect.gen(function* () {
-		const repository = yield* RelationshipsRepository;
-		yield* repository.syncGlobalRelationships({
-			type: "anchored",
-			direction: "incoming",
-			onConflict: "replaceProperties",
-			anchorEntityId: EntityId.make("book-a"),
-			relationshipSchemaId: RelationshipSchemaId.make("schema-person-to-book"),
-			synchronization: "authoritative",
-			entries: [
-				{ entityId: EntityId.make("person-existing"), properties: { roles: ["Author"] } },
-				{ entityId: EntityId.make("person-new"), properties: { roles: ["Translator"] } },
-			],
-		});
-
-		expect(state.rows.find((row) => row.id === "rel-stale")).toBeUndefined();
-		expect(state.rows.find((row) => row.id === "rel-existing")?.properties).toEqual({
-			roles: ["Author"],
-		});
-		expect(
-			state.rows.find(
-				(row) => row.sourceEntityId === "person-new" && row.targetEntityId === "book-a",
-			)?.properties,
-		).toEqual({ roles: ["Translator"] });
-		expect(state.rows.map((row) => row.id)).toContain("rel-other-anchor");
-	}).pipe(Effect.provide(makeLayer(db)));
-});
-
-it.effect("keeps incoming relationships when an incoming group is empty", () => {
-	const { db, state } = makeDb([
-		{
-			userId: null,
-			id: "rel-clear-a",
-			targetEntityId: "movie-a",
-			sourceEntityId: "person-a",
-			properties: { roles: ["Writer"] },
-			relationshipSchemaId: "schema-person-to-movie",
-			createdAt: new Date("2026-06-14T00:00:00.000Z"),
-		},
-		{
-			userId: null,
-			targetEntityId: "movie-b",
-			sourceEntityId: "person-a",
-			id: "rel-keep-other-anchor",
-			properties: { roles: ["Director"] },
-			relationshipSchemaId: "schema-person-to-movie",
-			createdAt: new Date("2026-06-14T00:00:00.000Z"),
-		},
-		{
-			userId: null,
-			properties: {},
-			targetEntityId: "movie-a",
-			sourceEntityId: "person-b",
-			id: "rel-keep-other-schema",
-			relationshipSchemaId: "schema-other",
-			createdAt: new Date("2026-06-14T00:00:00.000Z"),
-		},
-	]);
-
-	return Effect.gen(function* () {
-		const repository = yield* RelationshipsRepository;
-		yield* repository.syncGlobalRelationships({
-			type: "anchored",
-			entries: [],
-			direction: "incoming",
-			onConflict: "preserveExisting",
-			anchorEntityId: EntityId.make("movie-a"),
-			relationshipSchemaId: RelationshipSchemaId.make("schema-person-to-movie"),
-			synchronization: "additive",
-		});
-
-		expect(state.rows.map((row) => row.id)).toContain("rel-clear-a");
-		expect(state.rows.map((row) => row.id)).toContain("rel-keep-other-anchor");
-		expect(state.rows.map((row) => row.id)).toContain("rel-keep-other-schema");
-	}).pipe(Effect.provide(makeLayer(db)));
-});
-
-it.effect("syncs global self edges with properties and removes stale edges", () => {
-	const { db, state } = makeDb([
-		{
-			userId: null,
-			id: "rel-stale",
-			sourceEntityId: "entity-stale",
-			targetEntityId: "entity-stale",
-			relationshipSchemaId: "schema-trending",
-			createdAt: new Date("2026-06-14T00:00:00.000Z"),
-			properties: { rank: 9, fetchedAt: "2026-01-01T00:00:00.000Z" },
-		},
-		{
-			userId: null,
-			id: "rel-existing",
-			sourceEntityId: "entity-existing",
-			targetEntityId: "entity-existing",
-			relationshipSchemaId: "schema-trending",
-			createdAt: new Date("2026-06-14T00:00:00.000Z"),
-			properties: { rank: 4, fetchedAt: "2026-01-01T00:00:00.000Z" },
-		},
-		{
-			userId: null,
-			id: "rel-non-self",
-			properties: { rank: 99 },
-			targetEntityId: "entity-other",
-			sourceEntityId: "entity-existing",
-			relationshipSchemaId: "schema-trending",
-			createdAt: new Date("2026-06-14T00:00:00.000Z"),
-		},
-		{
-			userId: null,
-			id: "rel-other-schema",
-			properties: { rank: 9 },
-			sourceEntityId: "entity-stale",
-			targetEntityId: "entity-stale",
-			relationshipSchemaId: "schema-other",
-			createdAt: new Date("2026-06-14T00:00:00.000Z"),
-		},
-		{
-			id: "rel-user",
-			userId: "user-1",
-			properties: { rank: 9 },
-			sourceEntityId: "entity-stale",
-			targetEntityId: "entity-stale",
-			relationshipSchemaId: "schema-trending",
-			createdAt: new Date("2026-06-14T00:00:00.000Z"),
-		},
-	]);
-
-	return Effect.gen(function* () {
-		const repository = yield* RelationshipsRepository;
-		yield* repository.syncGlobalRelationships({
-			type: "self",
-			onConflict: "replaceProperties",
-			synchronization: "authoritative",
-			relationshipSchemaId: RelationshipSchemaId.make("schema-trending"),
-			entries: [
-				{
-					entityId: EntityId.make("entity-existing"),
-					properties: { rank: 1, fetchedAt: "2026-07-01T00:00:00.000Z" },
-				},
-				{
-					entityId: EntityId.make("entity-new"),
-					properties: { rank: 2, fetchedAt: "2026-07-01T00:00:00.000Z" },
-				},
-			],
-		});
-
-		expect(state.transactions).toBe(1);
-		expect(
-			state.rows.filter(
-				(row) =>
-					row.userId === null &&
-					row.sourceEntityId === row.targetEntityId &&
-					row.relationshipSchemaId === "schema-trending",
-			),
-		).toEqual([
-			expect.objectContaining({
-				id: "rel-existing",
-				sourceEntityId: "entity-existing",
-				properties: { rank: 1, fetchedAt: "2026-07-01T00:00:00.000Z" },
-			}),
-			expect.objectContaining({
-				sourceEntityId: "entity-new",
-				targetEntityId: "entity-new",
-				properties: { rank: 2, fetchedAt: "2026-07-01T00:00:00.000Z" },
-			}),
-		]);
-		expect(state.rows.map((row) => row.id)).not.toContain("rel-stale");
-		expect(state.rows.map((row) => row.id)).toContain("rel-non-self");
-		expect(state.rows.map((row) => row.id)).toContain("rel-other-schema");
-		expect(state.rows.map((row) => row.id)).toContain("rel-user");
-	}).pipe(Effect.provide(makeLayer(db)));
-});
-
-it.effect("clears global self edges for a schema when syncing an empty set", () => {
-	const { db, state } = makeDb([
-		{
-			id: "rel-a",
-			userId: null,
+		const created = yield* repository.createRelationship({
+			...globalInput,
 			properties: { rank: 1 },
-			sourceEntityId: "entity-a",
-			targetEntityId: "entity-a",
-			relationshipSchemaId: "schema-trending",
-			createdAt: new Date("2026-06-14T00:00:00.000Z"),
-		},
-		{
-			id: "rel-b",
-			userId: null,
+		});
+		const existing = yield* repository.createRelationship({
+			...globalInput,
 			properties: { rank: 2 },
-			sourceEntityId: "entity-b",
-			targetEntityId: "entity-b",
-			relationshipSchemaId: "schema-trending",
+		});
+
+		expect(created.wasInserted).toBe(true);
+		expect(existing.wasInserted).toBe(false);
+		expect(existing.properties).toEqual({ rank: 1 });
+		expect(state.rows).toHaveLength(1);
+	}).pipe(Effect.provide(makeLayer(db)));
+});
+
+it.effect("updates only an existing relationship", () => {
+	const { db } = makeDb();
+
+	return Effect.gen(function* () {
+		const repository = yield* RelationshipsRepository;
+		yield* repository.createRelationship({ ...globalInput, properties: { rank: 1 } });
+
+		const updated = yield* repository.updateRelationship({
+			...globalInput,
+			properties: { rank: 2 },
+		});
+		const missing = yield* repository.updateRelationship({
+			...globalInput,
+			targetEntityId: EntityId.make("missing"),
+			properties: { rank: 3 },
+		});
+
+		expect(updated?.properties).toEqual({ rank: 2 });
+		expect(updated?.wasInserted).toBe(false);
+		expect(missing).toBeNull();
+	}).pipe(Effect.provide(makeLayer(db)));
+});
+
+it.effect("lists and deletes user relationships without touching global rows", () => {
+	const { db, state } = makeDb([
+		{
+			id: "user-row",
+			properties: {},
+			userId: "user-1",
+			sourceEntityId: "entity-1",
+			targetEntityId: "entity-2",
+			relationshipSchemaId: "schema",
 			createdAt: new Date("2026-06-14T00:00:00.000Z"),
 		},
 		{
 			userId: null,
-			id: "rel-non-self",
-			properties: { rank: 3 },
-			sourceEntityId: "entity-a",
-			targetEntityId: "entity-c",
-			relationshipSchemaId: "schema-trending",
+			properties: {},
+			id: "global-row",
+			sourceEntityId: "entity-1",
+			targetEntityId: "entity-2",
+			relationshipSchemaId: "schema",
 			createdAt: new Date("2026-06-14T00:00:00.000Z"),
 		},
 	]);
 
 	return Effect.gen(function* () {
 		const repository = yield* RelationshipsRepository;
-		yield* repository.syncGlobalRelationships({
-			type: "self",
-			onConflict: "replaceProperties",
-			synchronization: "authoritative",
-			entries: [],
-			relationshipSchemaId: RelationshipSchemaId.make("schema-trending"),
+		const rows = yield* repository.listUserRelationshipsForEntity({
+			userId: UserId.make("user-1"),
+			entityId: EntityId.make("entity-1"),
+		});
+		const globalRows = yield* repository.listGlobalRelationships({
+			type: "anchored",
+			direction: "outgoing",
+			anchorEntityId: EntityId.make("entity-1"),
+			relationshipSchemaId: RelationshipSchemaId.make("schema"),
+		});
+		const deleted = yield* repository.deleteRelationship({
+			scope: "user",
+			userId: UserId.make("user-1"),
+			sourceEntityId: EntityId.make("entity-1"),
+			targetEntityId: EntityId.make("entity-2"),
+			relationshipSchemaId: RelationshipSchemaId.make("schema"),
 		});
 
-		expect(state.transactions).toBe(1);
-		expect(
-			state.rows.filter(
-				(row) =>
-					row.userId === null &&
-					row.sourceEntityId === row.targetEntityId &&
-					row.relationshipSchemaId === "schema-trending",
-			),
-		).toHaveLength(0);
-		expect(state.rows.map((row) => row.id)).toContain("rel-non-self");
+		expect(rows).toHaveLength(1);
+		expect(globalRows).toHaveLength(1);
+		expect(state.executeCalls).toBe(1);
+		expect(deleted?.id).toBe("user-row");
+		expect(state.rows.map((row) => row.id)).toEqual(["global-row"]);
 	}).pipe(Effect.provide(makeLayer(db)));
 });
