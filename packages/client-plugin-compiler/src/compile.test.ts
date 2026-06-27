@@ -214,7 +214,7 @@ it.effect(
 			expect(document).toContain('<link rel="stylesheet" href="./plugin.css" />');
 			expect(document).toContain('<div id="app">');
 			expect(artifact.format).toBe(1);
-			expect(artifact.apiVersion).toBe(1);
+			expect(artifact.apiVersion).toBe(CLIENT_API_VERSION);
 			expect(artifact.bridgeVersion).toBe(CLIENT_BRIDGE_PROTOCOL_VERSION);
 			expect(artifact.compilerVersion).toBe(CLIENT_COMPILER_VERSION);
 		}),
@@ -547,23 +547,138 @@ it.effect("rejects invalid trusted UI SDK JSX props", () =>
 	}),
 );
 
-it.effect("type-checks and bundles the trusted UI table subpath", () =>
+it.effect("executes the trusted UI table subpath without missing transitive bindings", () =>
 	Effect.gen(function* () {
 		const { artifact } = yield* compileFixture({
 			"client/index.tsx": bytes(`
+import { bootstrapClientPlugin } from "@ryot-app/client-sdk/plugin";
 import { DataTable, type DataTableColumn } from "@ryot-app/client-ui-sdk/table";
+import { Component, type ReactNode } from "react";
 
 type Item = { readonly id: string; readonly label: string };
+type BoundaryProps = { readonly children: ReactNode };
+type BoundaryState = { readonly error: string | null };
+class Boundary extends Component<BoundaryProps, BoundaryState> {
+  state = { error: null };
+  static getDerivedStateFromError(error: unknown) { return { error: String(error) }; }
+  render() { return this.state.error === null ? this.props.children : <p>{this.state.error}</p>; }
+}
 const columns: ReadonlyArray<DataTableColumn<Item>> = [
 	{ id: "label", header: "Label", cell: (item) => item.label },
 ];
-export const View = () => (
-	<DataTable data={[{ id: "one", label: "One" }]} columns={columns} getRowId={(item) => item.id} />
+const Home = () => (
+  <Boundary>
+    <DataTable data={[{ id: "one", label: "One" }]} columns={columns} getRowId={(item) => item.id} />
+  </Boundary>
 );
+bootstrapClientPlugin({ home: { component: Home } });
 `),
 		});
 
-		expect(artifact.files.some(({ name }) => name === "plugin.js")).toBe(true);
+		const dom = new JSDOM(
+			'<!doctype html><html><head></head><body><div id="app"></div></body></html>',
+			{
+				url: "https://fixture.test",
+			},
+		);
+		const { document, window } = dom.window;
+		const metadata = document.createElement("script");
+		metadata.id = CLIENT_ARTIFACT_METADATA_ELEMENT_ID;
+		metadata.textContent = JSON.stringify({
+			hash: artifact.hash,
+			format: artifact.format,
+			apiVersion: artifact.apiVersion,
+			bridgeVersion: artifact.bridgeVersion,
+			compilerVersion: artifact.compilerVersion,
+		});
+		document.head.append(metadata);
+		let initialize: EventListener | undefined;
+		const addEventListener = window.addEventListener.bind(window);
+		window.addEventListener = ((
+			type: string,
+			listener: EventListenerOrEventListenerObject,
+			options?: boolean | AddEventListenerOptions,
+		) => {
+			if (type === "message" && initialize === undefined) {
+				initialize =
+					typeof listener === "function" ? listener : (event) => listener.handleEvent(event);
+				return;
+			}
+			addEventListener(type, listener, options);
+		}) as typeof window.addEventListener;
+		const javascript = text(artifact.files.find(({ name }) => name === "plugin.js")?.contents);
+		const execute = () =>
+			// oxlint-disable-next-line typescript/no-implied-eval -- executes the emitted application
+			Function(
+				"window",
+				"document",
+				"AbortController",
+				javascript,
+			)(window, document, window.AbortController);
+		expect(execute).not.toThrow();
+		expect(initialize).toBeDefined();
+		const channel = new MessageChannel();
+		let ready = false;
+		channel.port1.addEventListener("message", (event) => {
+			if (event.data?.artifactHash === artifact.hash) {
+				ready = true;
+			}
+		});
+		channel.port1.start();
+		const pluginPort = {
+			start: () => channel.port2.start(),
+			close: () => channel.port2.close(),
+			postMessage: (message: unknown) => channel.port2.postMessage(message),
+			addEventListener: (
+				type: "message",
+				listener: EventListener,
+				options?: AddEventListenerOptions,
+			) => {
+				channel.port2.addEventListener(type, listener);
+				options?.signal?.addEventListener("abort", () =>
+					channel.port2.removeEventListener(type, listener),
+				);
+			},
+		};
+		const initEvent = new window.Event("message");
+		Object.defineProperties(initEvent, {
+			ports: { value: [pluginPort] },
+			source: { value: window.parent },
+			data: {
+				value: {
+					mode: "light",
+					safeAreaTop: 0,
+					safeAreaBottom: 0,
+					sessionId: "session-1",
+					format: artifact.format,
+					artifactHash: artifact.hash,
+					apiVersion: artifact.apiVersion,
+					bridgeVersion: artifact.bridgeVersion,
+					compilerVersion: artifact.compilerVersion,
+				},
+			},
+		});
+		initialize?.(initEvent);
+		yield* Effect.promise(() =>
+			waitFor(() => expect(ready).toBe(true), { container: document.body }),
+		);
+		channel.port1.postMessage({
+			index: 0,
+			key: "home",
+			compact: false,
+			edgeBack: false,
+			type: "location",
+			leading: "drawer",
+			location: { kind: "route", path: "/", search: "" },
+		});
+		yield* Effect.promise(() =>
+			waitFor(() => expect(document.getElementById("app")?.textContent).toContain("One"), {
+				container: document.body,
+			}),
+		);
+		channel.port1.close();
+		channel.port2.close();
+		dom.window.close();
 	}),
 );
 

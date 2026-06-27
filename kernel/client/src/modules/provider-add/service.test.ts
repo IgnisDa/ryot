@@ -12,8 +12,9 @@ import type { ProviderEntitiesApi } from "#/api/provider-entities";
 import type { ApiScope } from "#/api/scope";
 import { ProviderAddService } from "#/modules/provider-add/service";
 
-const providerId = SandboxProviderId.make("provider-1");
+const ownerPluginId = "stable-plugin-id";
 const entitySchemaSlug = EntitySchemaSlug.make("book");
+const providerId = SandboxProviderId.make("provider-1");
 const scope: ApiScope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.example") };
 
 const pageInfo = { limit: 100, hasMore: false, nextCursor: null } as const;
@@ -87,7 +88,7 @@ describe("ProviderAddService", () => {
 
 		return Effect.gen(function* () {
 			const service = yield* ProviderAddService;
-			const providers = yield* service.loadProviders(client, entitySchemaSlug);
+			const providers = yield* service.loadProviders(client, entitySchemaSlug, ownerPluginId);
 			const links = yield* service.loadEntityLinks(client, {
 				providerId,
 				entitySchemaSlug,
@@ -97,7 +98,23 @@ describe("ProviderAddService", () => {
 			expect(providers.items).toEqual([providerRow]);
 			expect(links).toEqual([{ entityId: "entity-1", externalId: "ext-1" }]);
 			expect(queries).toHaveLength(2);
-			expect(queries[0]).toMatchObject({ queries: { providers: {} } });
+			expect(queries[0]).toMatchObject({
+				queries: {
+					providers: {
+						where: {
+							predicates: [
+								{},
+								{
+									right: { value: ownerPluginId },
+									left: { field: "pluginId", tableAlias: "provider" },
+								},
+								{},
+								{},
+							],
+						},
+					},
+				},
+			});
 			expect(queries[1]).toMatchObject({ queries: { links: {} } });
 		}).pipe(Effect.provide(workingApi([])));
 	});

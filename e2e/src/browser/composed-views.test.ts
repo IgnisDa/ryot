@@ -1,13 +1,19 @@
-import { Effect, Option } from "effect";
+import { DateTime, Effect, Option } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
 import {
 	buildComposedClientRendererDefinition,
+	buildEntityBrowserSavedViewPayload,
+	buildNamedDataSources,
+	buildNamedDataSourcesRendererDefinition,
+	createClientRenderer,
 	createEntity,
 	createEntityBrowserSavedView,
 	createEntitySchema,
-	createClientRenderer,
+	createEventFixture,
+	createEventSchema,
 	createRendererSavedView,
+	createResultsTableSavedView,
 	createTestUser,
 	getBuiltinEntitySchemaSlug,
 	getEntity,
@@ -122,6 +128,221 @@ it.live("renders system and private public components in one shared page runtime
 	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
 );
 
+it.live("keeps configured entity-browser controls within their declared source", () =>
+	Effect.gen(function* () {
+		const apiUrl = getApiUrl();
+		const { token, email, password } = yield* createTestUser(apiUrl);
+		const client = makeSession(apiUrl, { Authorization: `Bearer ${token}` });
+		const schema = yield* createEntitySchema(client, {
+			name: "Browser controls",
+			pluginSlug: `browser-controls-${crypto.randomUUID()}`,
+		});
+		const [alpha, zulu, excluded] = yield* Effect.all([
+			createEntity(client, {
+				name: "01 Alpha member",
+				properties: { title: "Alpha" },
+				entitySchemaSlug: schema.schemaId,
+			}),
+			createEntity(client, {
+				name: "02 Zulu member",
+				properties: { title: "Zulu" },
+				entitySchemaSlug: schema.schemaId,
+			}),
+			createEntity(client, {
+				name: "00 Alpha excluded",
+				properties: { title: "Alpha" },
+				entitySchemaSlug: schema.schemaId,
+			}),
+		]);
+		const base = buildEntityBrowserSavedViewPayload({}, [alpha.id, zulu.id]);
+		const view = yield* createEntityBrowserSavedView(client, {
+			dataSources: base.dataSources,
+			name: "Configured entity browser",
+			settings: {
+				pageSize: 10,
+				addAction: null,
+				defaultLayout: "grid",
+				sourceName: "entities",
+				searchFields: ["name"],
+				entityIdField: "entityId",
+				layouts: ["grid", "list", "table"],
+				ownerPluginIdField: "ownerPluginId",
+				entitySchemaSlugField: "entitySchemaSlug",
+				tableColumns: [
+					{ field: "entitySchemaSlug", label: "Schema", displayKind: "text" },
+					{ field: "name", label: "Name", displayKind: "text" },
+				],
+				sortChoices: [
+					{
+						name: "name-desc",
+						label: "Name descending",
+						orderBy: [{ field: "name", direction: "desc" }],
+					},
+				],
+			},
+		});
+
+		const browser = yield* Playwright.Browser;
+		const page = yield* browser.newPage();
+		yield* signInThroughHostedOAuth(page, email, password);
+		yield* page.goto(`${getFrontendUrl()}/v/${view.slug}?keep=1&layout=table`);
+		const runtime = page.locator("iframe").contentFrame();
+		yield* runtime.getByRole("heading", { level: 1, name: "Entity browser" }).waitFor();
+		expect(yield* runtime.getByRole("button", { name: "Add", exact: true }).count).toBe(0);
+		expect(yield* runtime.getByRole("columnheader").allInnerTexts()).toEqual(["Schema", "Name"]);
+		expect(yield* runtime.locator("tbody tr").allInnerTexts()).toEqual([
+			expect.stringContaining("01 Alpha member"),
+			expect.stringContaining("02 Zulu member"),
+		]);
+		expect(yield* runtime.getByText(excluded.name, { exact: true }).count).toBe(0);
+
+		yield* runtime.getByRole("searchbox", { name: "Search this view" }).fill("Alpha");
+		yield* page.waitForURL((url) => url.searchParams.get("search") === "Alpha");
+		expect(new URL(page.url()).searchParams.get("keep")).toBe("1");
+		yield* runtime.getByText("02 Zulu member", { exact: true }).waitFor({ state: "hidden" });
+		yield* runtime.getByRole("searchbox", { name: "Search this view" }).fill("");
+
+		yield* runtime.getByRole("button", { name: "Sort results: Default order" }).click();
+		yield* runtime.getByRole("radio", { name: "Name descending" }).click();
+		yield* page.waitForURL((url) => url.searchParams.get("sort") === "name-desc");
+		expect(new URL(page.url()).searchParams.get("keep")).toBe("1");
+		expect(yield* runtime.locator("tbody tr").allInnerTexts()).toEqual([
+			expect.stringContaining("02 Zulu member"),
+			expect.stringContaining("01 Alpha member"),
+		]);
+
+		yield* runtime.getByRole("radio", { name: "List view" }).click();
+		yield* page.waitForURL((url) => url.searchParams.get("layout") === "list");
+		const params = new URL(page.url()).searchParams;
+		expect(params.get("keep")).toBe("1");
+		expect(params.get("sort")).toBe("name-desc");
+		expect(yield* runtime.getByText(excluded.name, { exact: true }).count).toBe(0);
+	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
+);
+
+it.live(
+	"renders composite-key results-table rows with ordered nullable cells and entity links",
+	() =>
+		Effect.gen(function* () {
+			const apiUrl = getApiUrl();
+			const { token, email, password } = yield* createTestUser(apiUrl);
+			const client = makeSession(apiUrl, { Authorization: `Bearer ${token}` });
+			const schema = yield* createEntitySchema(client, {
+				name: "Results table entity",
+				pluginSlug: `results-table-${crypto.randomUUID()}`,
+			});
+			const eventSchema = yield* createEventSchema(client, {
+				name: "Results table event",
+				entitySchemaSlug: schema.slug,
+				slug: `results-table-event-${crypto.randomUUID()}`,
+			});
+			const entity = yield* createEntity(client, {
+				name: "Shared results entity",
+				properties: { title: "Shared" },
+				entitySchemaSlug: schema.schemaId,
+			});
+			for (const [occurredAt, note] of [
+				["2026-09-07T08:00:00.000Z", "First row"],
+				["2026-09-07T09:00:00.000Z", "Second row"],
+			] as const) {
+				yield* createEventFixture(client, {
+					occurredAt,
+					entityId: entity.id,
+					properties: { note },
+					eventSchemaSlug: eventSchema.slug,
+				});
+			}
+			const view = yield* createResultsTableSavedView(client, {
+				entityId: entity.id,
+				eventSchemaSlug: eventSchema.slug,
+			});
+
+			const browser = yield* Playwright.Browser;
+			const page = yield* browser.newPage();
+			yield* signInThroughHostedOAuth(page, email, password);
+			yield* page.goto(`${getFrontendUrl()}/v/${view.slug}`);
+			const runtime = page.locator("iframe").contentFrame();
+			yield* runtime.getByRole("heading", { level: 1, name: "Results table" }).waitFor();
+			expect(yield* runtime.getByRole("columnheader").allInnerTexts()).toEqual([
+				"Note",
+				"Occurred",
+				"Missing",
+			]);
+			const rows = runtime.locator("tbody tr");
+			yield* rows.nth(1).waitFor();
+			expect(yield* rows.count).toBe(2);
+			expect(yield* rows.allInnerTexts()).toEqual([
+				expect.stringContaining("First row"),
+				expect.stringContaining("Second row"),
+			]);
+			expect(yield* rows.locator("td:last-child").allInnerTexts()).toEqual(["", ""]);
+			expect(yield* rows.getByRole("link").count).toBe(2);
+			expect(yield* rows.getByRole("link").first().getAttribute("href")).toContain(entity.id);
+			expect((yield* rows.allInnerTexts()).every((row) => !row.includes("2026-09-07T"))).toBe(true);
+
+			yield* createEventFixture(client, {
+				entityId: entity.id,
+				properties: { note: "Third row" },
+				eventSchemaSlug: eventSchema.slug,
+				occurredAt: "2026-09-07T10:00:00.000Z",
+			});
+			yield* runtime.getByRole("button", { name: "Refresh", exact: true }).click();
+			yield* rows.getByText("Third row", { exact: true }).waitFor({ state: "visible" });
+			expect(yield* rows.count).toBe(3);
+		}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
+);
+
+it.live("decodes native, grouped, and time-series named data sources in a published page", () =>
+	Effect.gen(function* () {
+		const apiUrl = getApiUrl();
+		const { token, email, password } = yield* createTestUser(apiUrl);
+		const client = makeSession(apiUrl, { Authorization: `Bearer ${token}` });
+		const schema = yield* createEntitySchema(client, {
+			name: "Named sources",
+			pluginSlug: `named-sources-${crypto.randomUUID()}`,
+		});
+		const entities = yield* Effect.all([
+			createEntity(client, {
+				name: "Named Alpha",
+				properties: { title: "Alpha" },
+				entitySchemaSlug: schema.schemaId,
+			}),
+			createEntity(client, {
+				name: "Named Beta",
+				properties: { title: "Beta" },
+				entitySchemaSlug: schema.schemaId,
+			}),
+		]);
+		const start = DateTime.startOf(yield* DateTime.now, "day");
+		const end = DateTime.add(start, { days: 1 });
+		const renderer = yield* createClientRenderer(client, {
+			draftDefinition: buildNamedDataSourcesRendererDefinition(),
+		});
+		yield* publishClientRenderer(client, renderer.id, renderer.draftRevision);
+		const view = yield* createRendererSavedView(
+			client,
+			renderer.id,
+			{ label: "Named sources" },
+			{
+				dataSources: buildNamedDataSources(
+					entities.map(({ id }) => id),
+					{ startAt: DateTime.formatIso(start), endAt: DateTime.formatIso(end) },
+				),
+			},
+		);
+
+		const browser = yield* Playwright.Browser;
+		const page = yield* browser.newPage();
+		yield* signInThroughHostedOAuth(page, email, password);
+		yield* page.goto(`${getFrontendUrl()}/v/${view.slug}`);
+		const runtime = page.locator("iframe").contentFrame();
+		yield* runtime.getByRole("heading", { level: 1, name: "Named data sources" }).waitFor();
+		yield* expectVisibleText(runtime.locator("body"), "Native rows: Named Alpha | Named Beta");
+		yield* expectVisibleText(runtime.locator("body"), `Grouped aggregate: ${schema.slug}=2`);
+		yield* expectVisibleText(runtime.locator("body"), "Time series: 2");
+	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
+);
+
 it.live("keeps one rich mixed entity browser runtime across pagination and layouts", () =>
 	Effect.gen(function* () {
 		const apiUrl = getApiUrl();
@@ -162,8 +383,8 @@ it.live("keeps one rich mixed entity browser runtime across pagination and layou
 			),
 		]);
 		const fallbackSchema = yield* createEntitySchema(client, {
-			pluginSlug: `mixed-fallback-${crypto.randomUUID()}`,
 			name: "Mixed fallback",
+			pluginSlug: `mixed-fallback-${crypto.randomUUID()}`,
 		});
 		const fallbackEntities = yield* Effect.forEach(
 			["01 Alpha fallback", "02 Beta fallback"],

@@ -125,7 +125,13 @@ export function AuthenticatedShell(props: {
 		return navigate({
 			to: "/v/$viewSlug",
 			params: { viewSlug: item.slug },
-			search: { add: undefined, q: undefined },
+			search: {
+				q: undefined,
+				add: undefined,
+				sort: undefined,
+				layout: undefined,
+				search: undefined,
+			},
 			replace: activeKey?.startsWith("view:") === true,
 		});
 	};

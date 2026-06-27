@@ -57,7 +57,7 @@ plugin source cannot declare or override them. `plugin.js`, `plugin.css`, assets
 name that titles the document are hashed. `index.html` is emitted last and excluded because it
 embeds that hash, so a rename yields a new artifact instead of colliding with the stored one.
 
-The bridge protocol and `CLIENT_COMPILER_VERSION` are currently exactly 1. Cached artifacts are
-reused only when format, client API, bridge, and compiler metadata all match current constants.
+Cached artifacts are reused only when format, client API, bridge, and compiler metadata all match
+current constants.
 Otherwise the source is compiled into a new immutable content-addressed artifact; there is no stale
 fallback.

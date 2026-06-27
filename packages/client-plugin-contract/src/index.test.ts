@@ -22,7 +22,9 @@ import {
 	PluginBridgeHostMessage,
 	PluginManagedAssetResolution,
 	PluginBridgeOperationResult,
+	PluginBridgePageRefresh,
 	PluginBridgePageSearch,
+	PluginBridgeProviderSearchScreen,
 	PluginBridgeUploadResult,
 	PluginBridgeRyotQLCancel,
 	PluginBridgeRyotQLResult,
@@ -134,14 +136,14 @@ describe("plugin client bridge contract", () => {
 		expect(Result.isFailure(client({ ...interest, foreground: [123] }))).toBe(true);
 		expect(
 			Result.isFailure(
-				Schema.decodeUnknownResult(PluginBridgeReady)({ ...identity, bridgeVersion: 3 }),
+				Schema.decodeUnknownResult(PluginBridgeReady)({ ...identity, bridgeVersion: 4 }),
 			),
 		).toBe(true);
 	});
 
 	it("pins the protocol and compiler versions it stamps into an artifact", () => {
-		expect(CLIENT_BRIDGE_PROTOCOL_VERSION).toBe(2);
-		expect(CLIENT_COMPILER_VERSION).toBe(3);
+		expect(CLIENT_BRIDGE_PROTOCOL_VERSION).toBe(3);
+		expect(CLIENT_COMPILER_VERSION).toBe(4);
 	});
 
 	it("defines and admits semantic kernel shortcuts only from the plugin", () => {
@@ -363,6 +365,36 @@ describe("plugin client bridge contract", () => {
 				decode({ mode: "replace", type: "page-search", update: { dialog: undefined } }),
 			),
 		).toBe(true);
+	});
+
+	it("admits only strict semantic provider-search screen requests from the plugin", () => {
+		const decode = Schema.decodeUnknownResult(PluginBridgeProviderSearchScreen);
+		const request = {
+			initialQuery: "Dune",
+			entitySchemaSlug: "movie",
+			type: "provider-search-screen",
+			ownerPluginId: "media-installation",
+		};
+
+		expect(Result.isSuccess(decode(request))).toBe(true);
+		expect(Result.isSuccess(Schema.decodeUnknownResult(PluginBridgeClientMessage)(request))).toBe(
+			true,
+		);
+		expect(Result.isFailure(Schema.decodeUnknownResult(PluginBridgeHostMessage)(request))).toBe(
+			true,
+		);
+		expect(Result.isFailure(decode({ ...request, ownerPluginId: "" }))).toBe(true);
+		expect(Result.isFailure(decode({ ...request, screen: "arbitrary" }))).toBe(true);
+		const refresh = { type: "page-refresh" };
+		expect(Result.isSuccess(Schema.decodeUnknownResult(PluginBridgePageRefresh)(refresh))).toBe(
+			true,
+		);
+		expect(Result.isSuccess(Schema.decodeUnknownResult(PluginBridgeHostMessage)(refresh))).toBe(
+			true,
+		);
+		expect(Result.isFailure(Schema.decodeUnknownResult(PluginBridgeClientMessage)(refresh))).toBe(
+			true,
+		);
 	});
 
 	it("uses tagged logical locations by bridge direction", () => {

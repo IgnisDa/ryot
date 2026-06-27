@@ -1,3 +1,4 @@
+import type { PluginBridgeProviderSearchScreen } from "@ryot-app/client-plugin-contract";
 import { RyotClientError, type EntitySettle } from "@ryot-app/client-sdk";
 import { useEntityRefresh, useRyot } from "@ryot-app/client-sdk/react";
 import {
@@ -12,20 +13,31 @@ import {
 import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import { SyncCountLine } from "@ryot-app/client-ui-sdk/sync";
 import type { SavedViewLayoutName } from "@ryot-app/contract/modules/saved-views/schemas";
+import {
+	EntityBrowserAddAction,
+	EntityBrowserLayout,
+	EntityBrowserSavedViewSettings,
+} from "@ryot-app/contract/modules/saved-views/schemas";
 import type { SavedViewRecord } from "@ryot-app/ryotql-recipes/saved-view-records";
 import type {
 	SavedViewCardResultItem,
 	SavedViewTableResultItem,
 } from "@ryot-app/ryotql-recipes/saved-views";
-import { createFileRoute, notFound, useRouter } from "@tanstack/react-router";
+import {
+	createFileRoute,
+	notFound,
+	useNavigate,
+	useRouter,
+	useRouterState,
+} from "@tanstack/react-router";
 import clsx from "clsx";
-import { Effect } from "effect";
+import { Effect, Result, Schema } from "effect";
 import { type ReactNode, useEffect, useEffectEvent, useReducer, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 
 import { ClientPagesApi } from "#/api/client-pages";
 import { collectManagedAssets, ManagedAssetsService } from "#/modules/assets/managed-assets";
-import { ClientPageHost } from "#/modules/client-pages/page-host";
+import { ClientPageHost, mergePageSearch } from "#/modules/client-pages/page-host";
 import { AppScreen } from "#/modules/navigation/app-screen";
 import { usePageTitle } from "#/modules/navigation/page-title";
 import { mainContentProps } from "#/modules/navigation/skip-link";
@@ -59,6 +71,9 @@ export const Route = createFileRoute("/_authenticated/v/$viewSlug")({
 	validateSearch: (search) => ({
 		add: search.add === true || search.add === "true" ? true : undefined,
 		q: typeof search.q === "string" && search.q !== "" ? search.q : undefined,
+		sort: typeof search.sort === "string" && search.sort !== "" ? search.sort : undefined,
+		layout: typeof search.layout === "string" && search.layout !== "" ? search.layout : undefined,
+		search: typeof search.search === "string" && search.search !== "" ? search.search : undefined,
 	}),
 	loader: async ({ abortController, context, params }) => {
 		const slug = params.viewSlug.trim();
@@ -75,7 +90,7 @@ export const Route = createFileRoute("/_authenticated/v/$viewSlug")({
 			throw notFound();
 		}
 		if (record.renderer !== null) {
-			const prepared = await context.runtime.runPromise(
+			let prepared = await context.runtime.runPromise(
 				Effect.flatMap(ClientPagesApi, (api) =>
 					api.prepare(context.scope, {
 						payload: { target: { kind: "saved-view", savedViewId: record.id } },
@@ -83,6 +98,28 @@ export const Route = createFileRoute("/_authenticated/v/$viewSlug")({
 				),
 				{ signal: abortController.signal },
 			);
+			if (record.renderer.kind === "kernel" && record.renderer.name === "entity-browser") {
+				const settings = Schema.decodeUnknownResult(EntityBrowserSavedViewSettings)(
+					record.settings,
+				);
+				if (Result.isSuccess(settings)) {
+					const storedLayout = await context.runtime.runPromise(
+						Effect.flatMap(ClientStorage, (storage) =>
+							storage.getSavedViewLayout(context.scope, record.slug),
+						),
+						{ signal: abortController.signal },
+					);
+					if (settings.success.layouts.includes(storedLayout)) {
+						prepared = {
+							...prepared,
+							context: {
+								...prepared.context,
+								settings: { ...settings.success, defaultLayout: storedLayout },
+							},
+						};
+					}
+				}
+			}
 			return { kind: "page" as const, record, prepared };
 		}
 		if (record.layouts === null) {
@@ -133,9 +170,114 @@ const layoutOptions = (["grid", "list", "table"] as const).map((layout) => ({
 function SavedViewPage() {
 	const loaded = Route.useLoaderData();
 	if (loaded.kind === "page") {
-		return <ClientPageHost title={loaded.record.name} prepared={loaded.prepared} />;
+		return <RendererSavedViewPage />;
 	}
 	return <LegacySavedViewPage />;
+}
+
+function RendererSavedViewPage() {
+	const router = useRouter();
+	const navigate = useNavigate();
+	const loaded = Route.useLoaderData();
+	const { add, layout, q } = Route.useSearch();
+	const { runtime, scope } = Route.useRouteContext();
+	const location = useRouterState({
+		select: (current) => current.resolvedLocation ?? current.location,
+	});
+	const pushedAdd = useRef(false);
+	const [pageRefreshToken, setPageRefreshToken] = useState(0);
+	if (loaded.kind !== "page") {
+		throw new Error("Expected renderer saved-view data");
+	}
+	const decodedAction = Schema.decodeUnknownResult(EntityBrowserAddAction)(
+		loaded.record.renderer?.kind === "kernel" &&
+			loaded.record.renderer.name === "entity-browser" &&
+			loaded.record.settings !== null
+			? loaded.record.settings.addAction
+			: undefined,
+	);
+	const addAction = Result.isSuccess(decodedAction) ? decodedAction.success : null;
+	const addOpen = add === true && addAction !== null;
+
+	const navigateAddSearch = (update: Record<string, string | null>, replace: boolean) => {
+		const nextSearch = mergePageSearch(location.searchStr, update);
+		const href = `${location.pathname}${nextSearch === "" ? "" : `?${nextSearch}`}`;
+		void navigate({ href, replace });
+	};
+	const openAdd = (request: PluginBridgeProviderSearchScreen) => {
+		if (
+			addAction === null ||
+			request.ownerPluginId !== addAction.ownerPluginId ||
+			request.entitySchemaSlug !== addAction.entitySchemaSlug
+		) {
+			return;
+		}
+		pushedAdd.current = true;
+		navigateAddSearch({ add: "true", q: request.initialQuery ?? null }, false);
+	};
+	const closeAdd = () => {
+		if (pushedAdd.current) {
+			pushedAdd.current = false;
+			router.history.back();
+			return;
+		}
+		navigateAddSearch({ add: null, q: null }, true);
+	};
+
+	useEffect(() => {
+		if (!addOpen) {
+			pushedAdd.current = false;
+		}
+	}, [addOpen]);
+	useEffect(() => {
+		if (
+			layout === undefined ||
+			loaded.record.renderer?.kind !== "kernel" ||
+			loaded.record.renderer.name !== "entity-browser"
+		) {
+			return;
+		}
+		const settings = Schema.decodeUnknownResult(EntityBrowserSavedViewSettings)(
+			loaded.record.settings,
+		);
+		const decodedLayout = Schema.decodeUnknownResult(EntityBrowserLayout)(layout);
+		if (
+			Result.isFailure(settings) ||
+			Result.isFailure(decodedLayout) ||
+			!settings.success.layouts.includes(decodedLayout.success)
+		) {
+			return;
+		}
+		void runtime.runPromise(
+			Effect.flatMap(ClientStorage, (storage) =>
+				storage.setSavedViewLayout(scope, loaded.record.slug, decodedLayout.success),
+			),
+		);
+	}, [layout, loaded.record, runtime, scope]);
+
+	return (
+		<>
+			<ClientPageHost
+				inert={addOpen}
+				prepared={loaded.prepared}
+				title={loaded.record.name}
+				onProviderSearch={openAdd}
+				pageRefreshToken={pageRefreshToken}
+			/>
+			{add === true && addAction !== null ? (
+				<ProviderAddModal
+					initialQuery={q}
+					onClose={closeAdd}
+					ownerPluginId={addAction.ownerPluginId}
+					entitySchemaSlug={addAction.entitySchemaSlug}
+					onImported={() => {
+						setPageRefreshToken((current) => current + 1);
+						closeAdd();
+					}}
+				/>
+			) : null}
+		</>
+	);
 }
 
 function LegacySavedViewPage() {
@@ -160,7 +302,9 @@ function LegacySavedViewPage() {
 
 	const openAdd = (query?: string) => {
 		pushedAdd.current = true;
-		void navigate({ search: { add: true, q: query === "" ? undefined : query } });
+		void navigate({
+			search: (current) => ({ ...current, add: true, q: query === "" ? undefined : query }),
+		});
 	};
 	const closeAdd = () => {
 		if (pushedAdd.current) {
@@ -168,7 +312,10 @@ function LegacySavedViewPage() {
 			router.history.back();
 			return;
 		}
-		void navigate({ replace: true, search: { add: undefined, q: undefined } });
+		void navigate({
+			replace: true,
+			search: (current) => ({ ...current, add: undefined, q: undefined }),
+		});
 	};
 
 	useEffect(() => {

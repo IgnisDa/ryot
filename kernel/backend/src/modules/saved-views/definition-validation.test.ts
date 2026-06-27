@@ -2,16 +2,19 @@ import { it } from "@effect/vitest";
 import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 import {
 	type EntityBrowserSavedViewSettings,
+	type ResultsTableSavedViewSettings,
 	SavedViewBadRequest,
 	type SavedViewLayouts,
 } from "@ryot-app/contract/modules/saved-views/schemas";
 import {
 	aggregate,
+	and,
 	ascending,
 	castJson,
 	column,
 	document,
 	field,
+	eq,
 	join,
 	jsonPath,
 	literal,
@@ -24,6 +27,7 @@ import { assertExitFails } from "#lib/test-utils/assertions";
 
 import {
 	validateEntityBrowserSavedViewDefinition,
+	validateResultsTableSavedViewDefinition,
 	validateSavedViewDefinition,
 } from "./definition-validation";
 
@@ -244,12 +248,18 @@ it.effect("reports semantic query errors as an unstructured query diagnostic", (
 
 const browserSettings = {
 	pageSize: 24,
+	addAction: null,
+	tableColumns: null,
 	defaultLayout: "grid",
 	sourceName: "entities",
 	layouts: ["grid", "list"],
 	entityIdField: "selectedId",
+	searchFields: ["selectedName"],
 	ownerPluginIdField: "selectedOwner",
 	entitySchemaSlugField: "selectedSchema",
+	sortChoices: [
+		{ name: "name", label: "Name", orderBy: [{ field: "selectedName", direction: "asc" }] },
+	],
 } satisfies EntityBrowserSavedViewSettings;
 
 const browserSource = (entity = table("entity", "selected")) =>
@@ -260,6 +270,7 @@ const browserSource = (entity = table("entity", "selected")) =>
 		entities: rows(entity, {
 			fields: [
 				field("selectedId", column(entity, "id")),
+				field("selectedName", column(entity, "name")),
 				field("selectedOwner", column(entity, "entitySchemaPluginId")),
 				field("selectedSchema", column(entity, "entitySchemaSlug")),
 			],
@@ -275,6 +286,49 @@ it.effect("accepts entity-browser settings selecting one rows source among named
 		dataSources: browserSource(),
 	}),
 );
+
+it.effect("requires provider add owner and schema to match fixed source provenance", () => {
+	const entitySchemaSlug = "book";
+	const ownerPluginId = "stable-plugin-id";
+	const entity = table("entity", "selected");
+	const settings = {
+		...browserSettings,
+		addAction: { type: "provider-search", ownerPluginId, entitySchemaSlug },
+	} as const;
+	const source = browserSource(entity);
+	const entities = source.queries.entities;
+	const fixedSource = {
+		queries: {
+			...source.queries,
+			entities: {
+				...entities,
+				where: and(
+					eq(column(entity, "entitySchemaPluginId"), literal(ownerPluginId)),
+					eq(column(entity, "entitySchemaSlug"), literal(entitySchemaSlug)),
+				),
+			},
+		},
+	};
+
+	return Effect.gen(function* () {
+		yield* validateEntityBrowserSavedViewDefinition({ settings, dataSources: fixedSource });
+		const mismatch = yield* Effect.exit(
+			validateEntityBrowserSavedViewDefinition({
+				dataSources: fixedSource,
+				settings: {
+					...settings,
+					addAction: { ...settings.addAction, ownerPluginId: "other-plugin-id" },
+				},
+			}),
+		);
+		assertExitFails(
+			mismatch,
+			browserFailure(
+				"Entity-browser addAction must match the fixed source entity owner and schema",
+			),
+		);
+	});
+});
 
 it.effect("rejects missing and non-row entity-browser sources", () =>
 	Effect.gen(function* () {
@@ -414,3 +468,91 @@ it.effect("requires all canonical provenance fields to use the same entity alias
 		),
 	);
 });
+
+it.effect("validates configured entity-browser fields and table enablement", () =>
+	Effect.gen(function* () {
+		const missingSearch = yield* Effect.exit(
+			validateEntityBrowserSavedViewDefinition({
+				dataSources: browserSource(),
+				settings: { ...browserSettings, searchFields: ["missing"] },
+			}),
+		);
+		const tableWithoutColumns = yield* Effect.exit(
+			validateEntityBrowserSavedViewDefinition({
+				dataSources: browserSource(),
+				settings: { ...browserSettings, layouts: ["grid", "table"] },
+			}),
+		);
+
+		assertExitFails(
+			missingSearch,
+			browserFailure("Entity-browser configured field 'missing' must be a projected scalar field"),
+		);
+		assertExitFails(
+			tableWithoutColumns,
+			browserFailure(
+				"Entity-browser table layout requires tableColumns and tableColumns require the table layout",
+			),
+		);
+	}),
+);
+
+const resultsSettings = {
+	pageSize: 25,
+	sourceName: "events",
+	rowKeyFields: ["eventId", "sequence"],
+	entityLink: { entityIdField: "entityId" },
+	columns: [{ label: "Name", field: "name", displayKind: "text" }],
+} satisfies ResultsTableSavedViewSettings;
+
+const resultEvent = table("event", "resultEvent");
+const resultsSource = document({
+	events: rows(resultEvent, {
+		fields: [
+			field("eventId", literal("event-1")),
+			field("sequence", literal(1)),
+			field("name", jsonPath(column(resultEvent, "properties"), "name")),
+			field("entityId", column(resultEvent, "entityId")),
+		],
+	}),
+});
+
+it.effect("accepts a general rows source with canonical optional entity navigation", () =>
+	validateResultsTableSavedViewDefinition({
+		settings: resultsSettings,
+		dataSources: resultsSource,
+	}),
+);
+
+it.effect("rejects unprojected result fields and noncanonical entity navigation", () =>
+	Effect.gen(function* () {
+		const invalidPageSize = yield* Effect.exit(
+			validateResultsTableSavedViewDefinition({
+				dataSources: resultsSource,
+				settings: { ...resultsSettings, pageSize: 101 },
+			}),
+		);
+		const missing = yield* Effect.exit(
+			validateResultsTableSavedViewDefinition({
+				dataSources: resultsSource,
+				settings: { ...resultsSettings, rowKeyFields: ["missing"] },
+			}),
+		);
+		const noncanonical = yield* Effect.exit(
+			validateResultsTableSavedViewDefinition({
+				dataSources: resultsSource,
+				settings: { ...resultsSettings, entityLink: { entityIdField: "eventId" } },
+			}),
+		);
+
+		assertExitFails(invalidPageSize, browserFailure("Invalid results-table settings"));
+		assertExitFails(
+			missing,
+			browserFailure("Results-table field 'missing' must be a projected scalar field"),
+		);
+		assertExitFails(
+			noncanonical,
+			browserFailure("Results-table entity link field 'eventId' must project entity.id"),
+		);
+	}),
+);

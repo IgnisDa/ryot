@@ -3,6 +3,7 @@ import { Schema } from "effect";
 import { ClientRendererId, EntitySchemaSlug, PluginSlug, SavedViewId } from "../../schema/brands";
 import { strictStruct } from "../../schema/utils";
 import { JsonValue, OutputFieldKey, RyotQLDocument } from "../ryotql/language";
+import { AssetLocator } from "../uploads/schemas";
 
 export const SavedViewLayoutName = Schema.Literals(["grid", "list", "table"]);
 export type SavedViewLayoutName = typeof SavedViewLayoutName.Type;
@@ -65,7 +66,14 @@ export class SavedViewNotFound extends Schema.TaggedError<SavedViewNotFound>()(
 	{ reason: SavedViewNotFoundReason },
 ) {}
 
-export const SavedViewDisplayKind = Schema.Literals(["text", "date", "json", "number", "boolean"]);
+export const SavedViewDisplayKind = Schema.Literals([
+	"text",
+	"date",
+	"json",
+	"number",
+	"boolean",
+	"managed-asset",
+]);
 export type SavedViewDisplayKind = typeof SavedViewDisplayKind.Type;
 
 export const SavedViewDisplayValue = Schema.Union([
@@ -74,8 +82,19 @@ export const SavedViewDisplayValue = Schema.Union([
 	strictStruct({ value: Schema.NullOr(Schema.String), displayKind: Schema.Literal("date") }),
 	strictStruct({ value: Schema.NullOr(Schema.Number), displayKind: Schema.Literal("number") }),
 	strictStruct({ value: Schema.NullOr(Schema.Boolean), displayKind: Schema.Literal("boolean") }),
+	strictStruct({
+		value: Schema.NullOr(AssetLocator),
+		displayKind: Schema.Literal("managed-asset"),
+	}),
 ]);
 export type SavedViewDisplayValue = typeof SavedViewDisplayValue.Type;
+
+export const SavedViewTableColumn = strictStruct({
+	label: Schema.String,
+	field: OutputFieldKey,
+	displayKind: SavedViewDisplayKind,
+});
+export type SavedViewTableColumn = typeof SavedViewTableColumn.Type;
 
 const SavedViewValueMapping = strictStruct({
 	field: OutputFieldKey,
@@ -94,13 +113,7 @@ export type SavedViewCardMapping = typeof SavedViewCardMapping.Type;
 
 export const SavedViewTableMapping = strictStruct({
 	imageField: Schema.NullOr(OutputFieldKey),
-	columns: Schema.NonEmptyArray(
-		strictStruct({
-			label: Schema.String,
-			field: OutputFieldKey,
-			displayKind: SavedViewDisplayKind,
-		}),
-	),
+	columns: Schema.NonEmptyArray(SavedViewTableColumn),
 });
 export type SavedViewTableMapping = typeof SavedViewTableMapping.Type;
 
@@ -134,22 +147,53 @@ export const SavedViewRenderer = Schema.Union([
 ]);
 export type SavedViewRenderer = typeof SavedViewRenderer.Type;
 
-export const EntityBrowserLayout = Schema.Literals(["grid", "list"]);
+export const EntityBrowserLayout = Schema.Literals(["grid", "list", "table"]);
 export type EntityBrowserLayout = typeof EntityBrowserLayout.Type;
 
+export const EntityBrowserSortChoice = strictStruct({
+	label: Schema.String,
+	name: Schema.NonEmptyString,
+	orderBy: Schema.NonEmptyArray(
+		strictStruct({ field: OutputFieldKey, direction: Schema.Literals(["asc", "desc"]) }),
+	),
+});
+export type EntityBrowserSortChoice = typeof EntityBrowserSortChoice.Type;
+
+export const EntityBrowserAddAction = strictStruct({
+	entitySchemaSlug: EntitySchemaSlug,
+	ownerPluginId: Schema.NonEmptyString,
+	type: Schema.Literal("provider-search"),
+});
+export type EntityBrowserAddAction = typeof EntityBrowserAddAction.Type;
+
+const SavedViewPageSize = Schema.Int.pipe(
+	Schema.check(Schema.isGreaterThan(0)),
+	Schema.check(Schema.isLessThanOrEqualTo(100)),
+);
+
 export const EntityBrowserSavedViewSettings = strictStruct({
+	pageSize: SavedViewPageSize,
 	entityIdField: OutputFieldKey,
 	sourceName: Schema.NonEmptyString,
 	defaultLayout: EntityBrowserLayout,
 	ownerPluginIdField: OutputFieldKey,
 	entitySchemaSlugField: OutputFieldKey,
+	searchFields: Schema.Array(OutputFieldKey),
+	addAction: Schema.NullOr(EntityBrowserAddAction),
 	layouts: Schema.NonEmptyArray(EntityBrowserLayout),
-	pageSize: Schema.Int.pipe(
-		Schema.check(Schema.isGreaterThan(0)),
-		Schema.check(Schema.isLessThanOrEqualTo(100)),
-	),
+	sortChoices: Schema.Array(EntityBrowserSortChoice),
+	tableColumns: Schema.NullOr(Schema.NonEmptyArray(SavedViewTableColumn)),
 });
 export type EntityBrowserSavedViewSettings = typeof EntityBrowserSavedViewSettings.Type;
+
+export const ResultsTableSavedViewSettings = strictStruct({
+	pageSize: SavedViewPageSize,
+	sourceName: Schema.NonEmptyString,
+	rowKeyFields: Schema.NonEmptyArray(OutputFieldKey),
+	columns: Schema.NonEmptyArray(SavedViewTableColumn),
+	entityLink: Schema.NullOr(strictStruct({ entityIdField: OutputFieldKey })),
+});
+export type ResultsTableSavedViewSettings = typeof ResultsTableSavedViewSettings.Type;
 
 const ListedSavedViewBase = {
 	id: SavedViewId,

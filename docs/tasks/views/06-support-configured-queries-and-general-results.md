@@ -4,7 +4,7 @@
 
 **System Design:** [Composable Views](./README.md)
 
-**Status:** todo
+**Status:** done
 
 **Depends On:** [04 - Browse Mixed Entities Automatically](./04-browse-mixed-entities-automatically.md)
 
@@ -22,18 +22,18 @@ Expose provider search as the documented semantic screen request. The kernel own
 
 ## Acceptance Criteria
 
-- [ ] Browser search and sort apply only declared fields/choices and use a deterministic tie-breaker.
-- [ ] Search/sort changes reset cursor/count identity and ignore stale requests without changing the stored base query.
-- [ ] Grid/list/table selection does not change result membership or search meaning.
-- [ ] URL search/sort/layout inputs override scoped stored/default layout preferences and preserve unrelated dialog parameters.
-- [ ] A configured entity table uses explicit ordered columns and the same selection source.
-- [ ] General results tables accept non-entity rows with stable typed composite keys and optional entity navigation.
-- [ ] Missing/null/duplicate row keys fail clearly; two distinct event rows for one entity are not collapsed.
-- [ ] Named row, aggregate, and time-series results retain their real output structures without fake entity IDs or unsupported cursor controls.
-- [ ] Explicit formatting and null-cell behaviour use general primitives rather than restored card-slot contracts.
-- [ ] Provider add is available only when configured, uses the existing kernel modal, and retains pushed/direct-entry close behaviour.
-- [ ] Non-functional filter controls are removed; arbitrary filter editing is not added.
-- [ ] Tests cover query meaning, general result decoding, controls, and provider-add integration through a real page.
+- [x] Browser search and sort apply only declared fields/choices and use a deterministic tie-breaker.
+- [x] Search/sort changes reset cursor/count identity and ignore stale requests without changing the stored base query.
+- [x] Grid/list/table selection does not change result membership or search meaning.
+- [x] URL search/sort/layout inputs override scoped stored/default layout preferences and preserve unrelated dialog parameters.
+- [x] A configured entity table uses explicit ordered columns and the same selection source.
+- [x] General results tables accept non-entity rows with stable typed composite keys and optional entity navigation.
+- [x] Missing/null/duplicate row keys fail clearly; two distinct event rows for one entity are not collapsed.
+- [x] Named row, aggregate, and time-series results retain their real output structures without fake entity IDs or unsupported cursor controls.
+- [x] Explicit formatting and null-cell behaviour use general primitives rather than restored card-slot contracts.
+- [x] Provider add is available only when configured, uses the existing kernel modal, and retains pushed/direct-entry close behaviour.
+- [x] Non-functional filter controls are removed; arbitrary filter editing is not added.
+- [x] Tests cover query meaning, general result decoding, controls, and provider-add integration through a real page.
 
 ## Verification
 
@@ -48,3 +48,12 @@ Adapt saved-view recipe, route, search, layout, and provider-add tests. Add focu
 ## Implementor Notes
 
 Record the final query source names/bindings and provider-add page signal used by Tasks 07 and 10.
+
+- The kernel `entity-browser` reads its named rows source through `sourceName`. Search fields and sort choices name projected fields, and every request adds the projected entity ID as a deterministic tie-breaker. Search, sort, and layout use merged URL keys; scoped storage supplies the layout fallback.
+- Grid, list, and configured table layouts share the same selection query. Search or sort changes replace the result identity and clear pagination/count state, while layout changes preserve membership.
+- The kernel `results-table` reads one named rows source, paginates with its configured page size, and encodes non-null composite keys as type-tagged stable JSON. Entity links are optional and do not become row identity.
+- Table cells support text, date, number, boolean, JSON, and managed assets through the shared SDK asset resolver. Null values render as empty cells.
+- Custom pages execute ordinary saved-view `dataSources` through page-owned recipes and Effect decoders. Focused browser coverage proves native rows, grouped aggregate items, and time-series buckets without synthetic entity identities.
+- Provider add uses the semantic `provider-search-screen` bridge request with the configured stable owner plugin ID and entity-schema slug. The kernel owns the pushed URL modal, makes the iframe inert, and sends one narrow `page-refresh` signal after import; Task 07 replaces this seam with shared mutation-completed refresh.
+- Client API version remains `1`. Bridge protocol version `3` adds provider search and page refresh messages, and compiler version `4` invalidates artifacts for the updated runtime bundle.
+- Verified the affected `saved-view.test.ts` and `composed-views.test.ts` browser suites, focused contract/recipe/backend/client/compiler tests, and package checks during implementation.

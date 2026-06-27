@@ -13,6 +13,7 @@ import {
 	type PluginBridgeOpenDrawer,
 	type PluginBridgeOperationRequest,
 	type PluginBridgePageSearch,
+	type PluginBridgeProviderSearchScreen,
 	type PluginBridgeReady,
 	type PluginBridgeRyotQLCancel,
 	type PluginBridgeRyotQLRequest,
@@ -24,7 +25,12 @@ import {
 } from "@ryot-app/client-plugin-contract";
 import { MAX_INTEREST_ENTITY_IDS } from "@ryot-app/contract/modules/entity-interest/messages";
 import type { ManagedAssetLocator } from "@ryot-app/contract/modules/uploads/schemas";
-import { EntityId, PluginSlug, SavedViewId } from "@ryot-app/contract/schema/brands";
+import {
+	EntityId,
+	EntitySchemaSlug,
+	PluginSlug,
+	SavedViewId,
+} from "@ryot-app/contract/schema/brands";
 import type { PreparedRecipe } from "@ryot-app/ryotql";
 import { Match, Result, Schema } from "effect";
 
@@ -33,6 +39,7 @@ import {
 	RyotClientError,
 	type OperationAdapterRequest,
 	type RyotPageSearchUpdate,
+	type RyotProviderSearchScreenRequest,
 	type RyotNavigationTarget,
 	type EntityInterest,
 	type EntityUpdate,
@@ -100,11 +107,12 @@ export const createPluginRuntime = (
 	};
 	const applyThemeMode = (mode: PluginThemeSnapshot["resolvedMode"]) =>
 		root.setAttribute("data-theme", mode);
-	const operations = new Map<string, PendingCall>();
-	const queries = new Map<string, PendingCall>();
-	const assets = new Map<string, PendingCall>();
-	const uploads = new Map<string, PendingCall>();
 	const themeListeners = new Set<() => void>();
+	const assets = new Map<string, PendingCall>();
+	const queries = new Map<string, PendingCall>();
+	const uploads = new Map<string, PendingCall>();
+	const operations = new Map<string, PendingCall>();
+	const pageRefreshListeners = new Set<() => void>();
 	const interestOwners = new Set<{
 		interest: EntityInterest;
 		onUpdate: (update: EntityUpdate) => void;
@@ -159,6 +167,7 @@ export const createPluginRuntime = (
 		terminalReason = reason;
 		rejectPending(reason);
 		themeListeners.clear();
+		pageRefreshListeners.clear();
 		interestOwners.clear();
 		hasLocation = false;
 		navigationStore.clear();
@@ -349,6 +358,20 @@ export const createPluginRuntime = (
 			throw new RyotClientError(terminalReason ?? "transport");
 		}
 	};
+	const openProviderSearch = (request: RyotProviderSearchScreenRequest) => {
+		if (state !== "active") {
+			throw new RyotClientError(terminalReason ?? "transport");
+		}
+		if (
+			!post({
+				...request,
+				type: "provider-search-screen",
+				entitySchemaSlug: EntitySchemaSlug.make(request.entitySchemaSlug),
+			} satisfies PluginBridgeProviderSearchScreen)
+		) {
+			throw new RyotClientError(terminalReason ?? "transport");
+		}
+	};
 
 	const client = createRyotClient({
 		query,
@@ -357,6 +380,7 @@ export const createPluginRuntime = (
 		invokeOperation,
 		uploadTemporary,
 		navigatePageSearch,
+		openProviderSearch,
 		theme: {
 			getSnapshot: () => {
 				if (state === "closing" || state === "failed" || state === "disposed") {
@@ -470,6 +494,11 @@ export const createPluginRuntime = (
 						listener();
 					}
 				}),
+				Match.when({ type: "page-refresh" }, () => {
+					for (const listener of pageRefreshListeners) {
+						listener();
+					}
+				}),
 				Match.when({ type: "lifecycle-close" }, ({ reason }) =>
 					finish(reason, reason === "disposed" ? "disposed" : "protocol", false),
 				),
@@ -556,5 +585,11 @@ export const createPluginRuntime = (
 		navigation,
 		forwardKernelShortcut,
 		dispose: () => finish("disposed", "disposed", true),
+		pageRefresh: {
+			subscribe: (listener: () => void) => {
+				pageRefreshListeners.add(listener);
+				return () => pageRefreshListeners.delete(listener);
+			},
+		},
 	};
 };

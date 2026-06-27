@@ -29,13 +29,15 @@ export class ProviderAddService extends Context.Service<ProviderAddService>()(
 			const loadProviders = Effect.fn("ProviderAddService.loadProviders")(function* (
 				client: ProviderAddClient,
 				entitySchemaSlug: EntitySchemaSlug,
+				ownerPluginId?: string,
 			) {
 				return yield* Effect.tryPromise({
 					catch: (cause) => new ProviderAddLoadError({ cause, stage: "providers" }),
 					try: (signal) =>
-						client.data.query(providerSearchRecipe({ rootEntitySchemaSlug: entitySchemaSlug }), {
-							signal,
-						}),
+						client.data.query(
+							providerSearchRecipe({ rootEntitySchemaSlug: entitySchemaSlug, ownerPluginId }),
+							{ signal },
+						),
 				});
 			});
 			const loadEntityLinks = Effect.fn("ProviderAddService.loadEntityLinks")(function* (
