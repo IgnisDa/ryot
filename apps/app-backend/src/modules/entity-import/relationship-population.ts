@@ -49,7 +49,7 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 		}
 
 		const entity = yield* entities
-			.save({
+			.create({
 				properties: {},
 				scope: "global",
 				populatedAt: null,
