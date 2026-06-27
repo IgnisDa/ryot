@@ -1,5 +1,8 @@
 # Mobile navigation revamp
 
+The apps/app-client has a mobile navigation that I am not happy with. Please find below a
+plan to revamp the entire mobile navigation.
+
 Treat the mobile header as a **navigation state machine**, not one fixed component that merely swaps its title. Ryot currently has three meaningful navigation levels:
 
 ```text
