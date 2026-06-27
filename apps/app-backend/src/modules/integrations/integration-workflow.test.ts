@@ -11,13 +11,13 @@ import {
 import { Effect, Layer } from "effect";
 
 import { RedisService } from "#lib/infrastructure/redis";
-import type { MockOverrides, WorkflowEngineOverrides } from "#lib/test-support/effect";
+import type { MockOverrides, WorkflowEngineOverrides } from "#lib/test-utils/effect";
 import {
 	dbRunnerLayer,
 	makeAppConfigLayer,
 	makeRedisService,
 	makeWorkflowActivityEngine,
-} from "#lib/test-support/effect";
+} from "#lib/test-utils/effect";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { ImportRunFailuresService } from "#modules/imports/failure-service";
 import { ImportsRepository } from "#modules/imports/repository";

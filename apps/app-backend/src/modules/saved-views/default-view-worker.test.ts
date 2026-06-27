@@ -3,7 +3,7 @@ import { Conflict, DbError } from "@ryot/contract/errors";
 import { TrackerId, UserId } from "@ryot/contract/schema/brands";
 import { Effect, Exit, Layer } from "effect";
 
-import type { MockOverrides } from "#lib/test-support/effect";
+import type { MockOverrides } from "#lib/test-utils/effect";
 import type { CreateDefaultSavedViewPayload } from "#modules/entity-schemas/durable-queues";
 
 import { processDefaultSavedView } from "./default-view-worker";

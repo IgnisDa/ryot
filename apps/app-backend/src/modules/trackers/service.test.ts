@@ -4,8 +4,8 @@ import { BadRequest, Conflict, NotFound } from "@ryot/contract/errors";
 import { EntitySchemaId, TrackerId, UserId } from "@ryot/contract/schema/brands";
 import { Effect, Exit, Layer } from "effect";
 
-import type { MockOverrides } from "#lib/test-support/effect";
-import { dbRunnerLayer, transactionLayer } from "#lib/test-support/effect";
+import type { MockOverrides } from "#lib/test-utils/effect";
+import { dbRunnerLayer, transactionLayer } from "#lib/test-utils/effect";
 
 import { TrackersRepository } from "./repository";
 import { TrackersService } from "./service";

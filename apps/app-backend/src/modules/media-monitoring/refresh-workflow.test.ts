@@ -9,7 +9,7 @@ import {
 	dbRunnerLayer,
 	makeWorkflowActivityEngine,
 	type MockOverrides,
-} from "#lib/test-support/effect";
+} from "#lib/test-utils/effect";
 
 import { diffMediaMonitoringSnapshots, type MediaMonitoringSnapshot } from "./diff";
 import {
