@@ -49,7 +49,7 @@ describe("credentialed media import adapters", () => {
 			events: [
 				{
 					eventSchemaSlug: "progress",
-					episodeLocator: { type: "show", seasonNumber: 1, episodeNumber: 2 },
+					unresolvedEpisode: { type: "show", seasonNumber: 1, episodeNumber: 2 },
 				},
 			],
 		});
@@ -129,7 +129,7 @@ describe("credentialed media import adapters", () => {
 			events: [
 				{
 					eventSchemaSlug: "progress",
-					episodeLocator: { type: "show", seasonNumber: 2, episodeNumber: 4 },
+					unresolvedEpisode: { type: "show", seasonNumber: 2, episodeNumber: 4 },
 				},
 			],
 		});
@@ -225,7 +225,7 @@ describe("credentialed media import adapters", () => {
 			events: [
 				{
 					eventSchemaSlug: "progress",
-					episodeLocator: { type: "show", seasonNumber: 1, episodeNumber: 3 },
+					unresolvedEpisode: { type: "show", seasonNumber: 1, episodeNumber: 3 },
 				},
 			],
 			entityRef: { externalId: "95396", providerSlug: "show.tmdb" },

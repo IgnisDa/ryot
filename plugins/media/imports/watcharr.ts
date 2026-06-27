@@ -177,7 +177,7 @@ export const adaptWatcharrExportBatch = (jsonText: string, start: number, limit:
 					occurredAt,
 					eventSchemaSlug: "progress",
 					properties: { progressPercent: 100 },
-					episodeLocator: {
+					unresolvedEpisode: {
 						type: "show",
 						seasonNumber: episode.seasonNumber,
 						episodeNumber: episode.episodeNumber,

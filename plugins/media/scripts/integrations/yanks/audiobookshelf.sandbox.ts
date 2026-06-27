@@ -1,8 +1,10 @@
 import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
 import { Effect, Option, Schema } from "@ryot/sandbox-sdk/effect";
 
-import type { EntityRef } from "../shared";
-import { AdapterResult, baseUrl, requestJson, sourceFailure, specifics } from "../shared";
+import type { ImportEntityRef } from "../../../imports/schemas";
+import { MediaIntegrationAdapterResult } from "../../../imports/schemas";
+import { sourceFetchFailure } from "../../../imports/source-helpers";
+import { baseUrl, requestJson, specifics } from "../shared";
 
 export const manifest = defineManifest({
 	kind: "script",
@@ -74,7 +76,7 @@ const validIsbn = (value: string) => {
 	}
 	return false;
 };
-const itemRef = (item: typeof Item.Type): EntityRef | null => {
+const itemRef = (item: typeof Item.Type): ImportEntityRef | null => {
 	const metadata = item.media?.metadata;
 	if (!metadata) {
 		return null;
@@ -114,7 +116,7 @@ const itemRef = (item: typeof Item.Type): EntityRef | null => {
 export default defineScript({
 	manifest,
 	input: Input,
-	output: AdapterResult,
+	output: MediaIntegrationAdapterResult,
 	run: (_input, host) =>
 		Effect.gen(function* () {
 			const integration = yield* host.getIntegration();
@@ -126,8 +128,8 @@ export default defineScript({
 			const libraries = yield* requestJson(host, "GET", `${url}/libraries`, { headers }).pipe(
 				Effect.flatMap(Schema.decodeUnknown(LibrariesResponse)),
 			);
-			const failures: Array<AdapterResult["failures"][number]> = [];
-			const entityGroups: Array<AdapterResult["entityGroups"][number]> = [];
+			const failures: Array<MediaIntegrationAdapterResult["failures"][number]> = [];
+			const entityGroups: Array<MediaIntegrationAdapterResult["entityGroups"][number]> = [];
 			const importedAt = new Date().toISOString();
 			let itemIndex = 0;
 			for (const library of libraries.libraries ?? []) {
@@ -140,7 +142,7 @@ export default defineScript({
 				).pipe(Effect.flatMap(Schema.decodeUnknown(ListingResponse)), Effect.option);
 				if (Option.isNone(listingResult)) {
 					failures.push(
-						sourceFailure({
+						sourceFetchFailure({
 							itemIndex,
 							sourceLabel: library.name,
 							sourceIdentifier: library.id,
@@ -169,7 +171,9 @@ export default defineScript({
 						});
 						continue;
 					}
-					const events: Array<AdapterResult["entityGroups"][number]["events"][number]> = [];
+					const events: Array<
+						MediaIntegrationAdapterResult["entityGroups"][number]["events"][number]
+					> = [];
 					const occurredAt = importedAt;
 					if (ref.entitySchemaSlug !== "podcast") {
 						events.push({
@@ -186,7 +190,7 @@ export default defineScript({
 						).pipe(Effect.flatMap(Schema.decodeUnknown(DetailsResponse)), Effect.option);
 						if (Option.isNone(detailsResult)) {
 							failures.push(
-								sourceFailure({
+								sourceFetchFailure({
 									itemIndex: currentIndex,
 									sourceLabel: ref.sourceLabel,
 									sourceIdentifier: item.id,
@@ -214,7 +218,7 @@ export default defineScript({
 								).pipe(Effect.flatMap(Schema.decodeUnknown(ProgressResponse)), Effect.option);
 								if (Option.isNone(progressResult)) {
 									failures.push(
-										sourceFailure({
+										sourceFetchFailure({
 											itemIndex: currentIndex,
 											sourceLabel: ref.sourceLabel,
 											sourceIdentifier: item.id,
@@ -237,7 +241,7 @@ export default defineScript({
 										occurredAt,
 										eventSchemaSlug: "progress",
 										properties: { progressPercent: 100 },
-										episodeLocator: { type: "podcast", episodeNumber: number },
+										unresolvedEpisode: { type: "podcast", episodeNumber: number },
 									});
 								}
 							}
