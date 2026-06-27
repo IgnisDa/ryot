@@ -85,6 +85,34 @@ describe("builtinSandboxScripts", () => {
 		}
 	});
 
+	it("uses generated format-1 representations for the book provider families", () => {
+		const sources = new Set(["hardcover", "openlibrary", "google-books"]);
+		const scripts = builtinSandboxScripts().filter(
+			({ metadata }) =>
+				"providerInformation" in metadata &&
+				sources.has(metadata.providerInformation?.source ?? ""),
+		);
+
+		expect(scripts.map(({ slug }) => slug).sort()).toEqual([
+			"book-group.hardcover",
+			"book.google-books",
+			"book.hardcover",
+			"book.openlibrary",
+			"company.hardcover",
+			"person.hardcover",
+			"person.openlibrary",
+		]);
+		for (const script of scripts) {
+			assert("compiledCode" in script && "manifest" in script);
+			expect(script.compiledFormat).toBe(1);
+			expect(script.code).toBe(script.source);
+			expect(script.metadata).toBe(script.manifest);
+			expect(script.source).toContain("defineProvider");
+			expect(script.compiledCode).toContain("ryot:sandbox-script");
+			expect(script.compiledCode).toContain("sourceMappingURL=data:application/json;base64,");
+		}
+	});
+
 	it("uses generated format-1 representations and manifest modes for every trigger", () => {
 		const triggers = builtinSandboxScripts().filter(({ slug }) => slug.startsWith("trigger."));
 		const links = new Map(
