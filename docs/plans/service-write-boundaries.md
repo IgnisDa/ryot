@@ -122,22 +122,48 @@ operation remains owned by its durable worker.
 
 ### Current state
 
-`TrackersService` exposes `create`, `update`, and `reorder`, but no `delete`. `reorder` updates the
-sort order of multiple trackers inside a transaction.
+Implemented. `TrackersService` exposes one canonical `create` and `update` entry point for trackers,
+plus a `reorder` convenience wrapper. `reorder` reads the scoped order and delegates one sort-order
+update at a time to `update` inside a transaction. There is no `delete`. The reorder operation
+remains an API route.
 
 ### Checklist
 
-- [ ] Keep `create` as the single tracker creation entry point for one tracker.
-- [ ] Keep `update` as the single tracker update entry point for one tracker. It must not gain a
+- [x] Keep `create` as the single tracker creation entry point for one tracker.
+- [x] Keep `update` as the single tracker update entry point for one tracker. It must not gain a
   reorder mode or batch input.
-- [ ] Keep `reorder` as a public service convenience wrapper over `update`. It must read the current
+- [x] Keep `reorder` as a public service convenience wrapper over `update`. It must read the current
   order, calculate the new order, and invoke `update` for the affected trackers inside a transaction.
   Its API route may remain and must invoke the service wrapper.
-- [ ] Preserve tracker reordering validation for empty, duplicate, and unknown tracker ids, as well
+- [x] Preserve tracker reordering validation for empty, duplicate, and unknown tracker ids, as well
   as the existing ordering algorithm.
-- [ ] Do not add `delete` because tracker deletion is not currently supported.
-- [ ] Keep the `tracker_entity_schema` join table as a separate ownership concern. Its writes must not
+- [x] Do not add `delete` because tracker deletion is not currently supported.
+- [x] Keep the `tracker_entity_schema` join table as a separate ownership concern. Its writes must not
   be folded into tracker CRUD methods; that table should be handled when its owning service is discussed.
+
+### Implementation notes
+
+- `TrackersService.update` now takes an internal `UpdateTrackerInput` that extends the public
+  `UpdateTrackerBody` with an optional `sortOrder`; the public API route is unaffected because
+  `UpdateTrackerBody` has no `sortOrder`, so route-driven updates never write it. The repository
+  `updateOwned` forwards `sortOrder` only when the caller supplies it, mirroring the saved-views
+  pattern, so normal config updates leave the existing sort order intact.
+- `reorder` now loads full rows for the user via a new `TrackersRepository.listInOrder`, computes the
+  reordered ids with the shared `buildReorderedIds` algorithm, and calls `update` with an internal
+  `sortOrder` field for each tracker whose position actually changes. The removed batch order writer
+  (`persistOrder`) and the id-only `listIdsInOrder` reader are gone; `countOwnedByIds` still provides
+  the explicit unknown-id validation before the ordered read.
+- Following the saved-views precedent, `listInOrder` locks the user's tracker rows with
+  `SELECT ... FOR UPDATE` before the fresh ordered read. This is a deviation from the previous
+  lock-free reorder: it closes the lost-update window that the read-modify-write in the delegated
+  `update` calls would otherwise widen, and keeps the isDisabled/config snapshot consistent with the
+  per-row `getOwnedById` re-read inside the same transaction.
+- Known behavior consequences of routing reorder through `update`: (1) trackers already at their
+  target position are skipped, so their `updatedAt` is no longer bumped on every reorder; (2) each
+  delegated `update` re-runs `resolveUpdatePayload`, which falls back to the current `name`, `icon`,
+  and `accentColor`. Those columns are `NOT NULL` and are populated non-empty by `create`, so this
+  does not reject any well-formed row, but a legacy row with a blank required field would now fail a
+  reorder instead of silently persisting sort order. Both mirror the saved-views reorder refactor.
 
 ## Entities Service
 
