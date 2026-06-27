@@ -2,7 +2,6 @@ import { badRequest } from "@ryot/contract/errors";
 import type {
 	EntityId,
 	EntitySchemaId,
-	EventSchemaId,
 	RelationshipSchemaId,
 	SandboxScriptId,
 	UserId,
@@ -16,7 +15,6 @@ import { AuthService } from "#modules/auth/service";
 import { EntitiesService } from "#modules/entities/service";
 import { EntitySchemasService } from "#modules/entity-schemas/service";
 import { TranslationsService } from "#modules/entity-translation/service";
-import { EventsService } from "#modules/events/service";
 import { RelationshipSchemasService } from "#modules/relationship-schemas/service";
 import { RelationshipsService } from "#modules/relationships/service";
 import { SandboxApiService } from "#modules/sandbox/service";
@@ -40,7 +38,6 @@ const parseDate = (value: string) => {
 export class TestSupportService extends Effect.Service<TestSupportService>()("TestSupportService", {
 	effect: Effect.gen(function* () {
 		const auth = yield* AuthService;
-		const events = yield* EventsService;
 		const entities = yield* EntitiesService;
 		const sandbox = yield* SandboxApiService;
 		const translations = yield* TranslationsService;
@@ -132,19 +129,6 @@ export class TestSupportService extends Effect.Service<TestSupportService>()("Te
 			return { id };
 		});
 
-		const createEventSchemaTrigger = Effect.fn("TestSupportService.createEventSchemaTrigger")(
-			function* (input: {
-				name: string;
-				position: number;
-				userId?: UserId | undefined;
-				eventSchemaId: EventSchemaId;
-				sandboxScriptId: SandboxScriptId;
-				phase: "before_create" | "after_create";
-			}) {
-				return yield* events.createTrigger({ ...input, userId: input.userId ?? null });
-			},
-		);
-
 		const upsertEntityTranslation = Effect.fn("TestSupportService.upsertEntityTranslation")(
 			function* (input: {
 				language: string;
@@ -166,7 +150,6 @@ export class TestSupportService extends Effect.Service<TestSupportService>()("Te
 			deleteSandboxScript,
 			setEntityPopulatedAt,
 			upsertEntityTranslation,
-			createEventSchemaTrigger,
 			upsertGlobalRelationship,
 			getSandboxScript: sandbox.getStoredScript,
 			deleteGlobalEntities: entities.deleteByIds,

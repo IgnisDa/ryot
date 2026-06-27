@@ -1,12 +1,7 @@
-import type { JsonValue } from "@ryot/sandbox-sdk";
 import { Schema } from "effect";
 
 import { EntityId, EventId, EventSchemaId } from "../../schema/brands";
 import { strictStruct } from "../../schema/utils";
-
-export type EventTriggerMetadata = {
-	inheritedProperties?: string[];
-};
 
 export const EventCreateOrigin = Schema.Literal(
 	"api",
@@ -17,36 +12,6 @@ export const EventCreateOrigin = Schema.Literal(
 );
 
 export type EventCreateOrigin = typeof EventCreateOrigin.Type;
-
-const JsonValueSchema: Schema.Schema<JsonValue, JsonValue> = Schema.suspend(() =>
-	Schema.Union(
-		Schema.Null,
-		Schema.String,
-		Schema.Number,
-		Schema.Boolean,
-		Schema.Array(JsonValueSchema),
-		Schema.Record({ key: Schema.String, value: JsonValueSchema }),
-	),
-);
-
-const BeforeTriggerAllow = Schema.Struct({ action: Schema.Literal("allow") });
-const BeforeTriggerSkip = Schema.Struct({ action: Schema.Literal("skip"), reason: Schema.String });
-const BeforeTriggerReplace = Schema.Struct({
-	action: Schema.Literal("replace"),
-	body: Schema.Struct({
-		occurredAt: Schema.optional(Schema.String),
-		sessionEntityId: Schema.optional(Schema.NullOr(EntityId)),
-		properties: Schema.optional(Schema.Record({ key: Schema.String, value: JsonValueSchema })),
-	}),
-});
-
-export const BeforeTriggerResult = Schema.Union(
-	BeforeTriggerAllow,
-	BeforeTriggerSkip,
-	BeforeTriggerReplace,
-);
-
-export type BeforeTriggerResult = typeof BeforeTriggerResult.Type;
 
 export const ListedEvent = Schema.Struct({
 	id: EventId,

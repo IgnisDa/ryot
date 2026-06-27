@@ -1,26 +1,30 @@
+import type { AutomationPolicyInput } from "@ryot/sandbox-sdk/automation";
 import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
-import type { BeforeCreateTriggerInput } from "@ryot/sandbox-sdk/trigger";
 import { describe, expect, it } from "vitest";
 
-import definition, { manifest } from "./integration-progress-policy.sandbox";
 import {
-	beforeCreateContext,
+	policyAutomationContext,
 	eventRecord,
 	execution,
 	hostFailure,
 	hostSuccess,
 	integrationRecord,
-} from "./test-utils";
+} from "./automation-test-utils";
+import definition, { manifest } from "./integration-progress-policy.sandbox";
 
 const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 
-const createTrigger = (
-	overrides: Partial<BeforeCreateTriggerInput["trigger"]> = {},
-): BeforeCreateTriggerInput =>
-	beforeCreateContext({
-		properties: { progressPercent: 50, consumedOn: "Plex" },
-		...overrides,
-	});
+const createPolicyContext = (
+	overrides: Partial<AutomationPolicyInput["automation"]["source"]["draft"]> = {},
+	origin?: AutomationPolicyInput["automation"]["origin"],
+) =>
+	policyAutomationContext(
+		{
+			properties: { progressPercent: 50, consumedOn: "Plex" },
+			...overrides,
+		},
+		origin,
+	);
 
 const createHost = (options: {
 	claimed?: boolean;
@@ -54,13 +58,13 @@ const createHost = (options: {
 	};
 };
 
-const run = (context: BeforeCreateTriggerInput, host: ReturnType<typeof createHost>["host"]) =>
-	runSandboxTestDriver(definition.drivers.trigger, context, host, execution);
+const run = (context: AutomationPolicyInput, host: ReturnType<typeof createHost>["host"]) =>
+	runSandboxTestDriver(definition.drivers.automation, context, host, execution);
 
 describe("integration-progress-policy sandbox script", () => {
 	it("allows non-integration events immediately without host calls", () => {
 		const { calls, host } = createHost({ integration: integrationRecord() });
-		return run(createTrigger({ origin: "api" }), host).then((result) => {
+		return run(createPolicyContext({}, { kind: "api" }), host).then((result) => {
 			expect(result).toEqual({ action: "allow" });
 			expect(calls).toHaveLength(0);
 			return undefined;
@@ -70,8 +74,8 @@ describe("integration-progress-policy sandbox script", () => {
 	it("skips invalid progress and progress below the integration minimum", () => {
 		const { host } = createHost({ integration: integrationRecord({ minimumProgress: 5 }) });
 		return Promise.all([
-			run(createTrigger({ properties: { progressPercent: "not-a-number" } }), host),
-			run(createTrigger({ properties: { progressPercent: 3, consumedOn: "Plex" } }), host),
+			run(createPolicyContext({ properties: { progressPercent: "not-a-number" } }), host),
+			run(createPolicyContext({ properties: { progressPercent: 3, consumedOn: "Plex" } }), host),
 		]).then(([invalid, belowMinimum]) => {
 			expect(invalid).toEqual({ action: "skip", reason: "invalid_progress" });
 			expect(belowMinimum).toEqual({ action: "skip", reason: "below_minimum_progress" });
@@ -82,7 +86,7 @@ describe("integration-progress-policy sandbox script", () => {
 	it("replaces progress above the integration maximum with 100", () => {
 		const { host } = createHost({ integration: integrationRecord({ maximumProgress: 95 }) });
 		return run(
-			createTrigger({ properties: { progressPercent: 97, consumedOn: "Plex" } }),
+			createPolicyContext({ properties: { progressPercent: 97, consumedOn: "Plex" } }),
 			host,
 		).then((result) => {
 			expect(result).toEqual({
@@ -105,14 +109,14 @@ describe("integration-progress-policy sandbox script", () => {
 		});
 		return Promise.all([
 			run(
-				createTrigger({
+				createPolicyContext({
 					entitySchemaSlug: "anime",
 					properties: { animeEpisode: 1, consumedOn: "AniList", progressPercent: 35 },
 				}),
 				host,
 			),
 			run(
-				createTrigger({
+				createPolicyContext({
 					entitySchemaSlug: "anime",
 					properties: { animeEpisode: 2, consumedOn: "AniList", progressPercent: 35 },
 				}),
@@ -161,8 +165,14 @@ describe("integration-progress-policy sandbox script", () => {
 		});
 
 		return Promise.all([
-			run(createTrigger({ properties: { progressPercent: 100, consumedOn: "Plex" } }), recent.host),
-			run(createTrigger({ properties: { progressPercent: 100, consumedOn: "Plex" } }), old.host),
+			run(
+				createPolicyContext({ properties: { progressPercent: 100, consumedOn: "Plex" } }),
+				recent.host,
+			),
+			run(
+				createPolicyContext({ properties: { progressPercent: 100, consumedOn: "Plex" } }),
+				old.host,
+			),
 		]).then(([recentResult, oldResult]) => {
 			expect(recentResult).toEqual({ action: "skip", reason: "completed_recently" });
 			expect(oldResult).toEqual({ action: "allow" });
