@@ -47,6 +47,7 @@ const makeSandboxExecutionQueueWorkerLive = (concurrency: number) =>
 					compiledCode: script.compiledCode,
 					compiledFormat: script.compiledFormat,
 					allowedHostFunctions: script.metadata.capabilities ?? [],
+					...(payload.subscriptionRun ? { subscriptionRun: payload.subscriptionRun } : {}),
 				});
 
 				return {

@@ -119,6 +119,7 @@ const SubscriptionExecutionWorkflowPayloadSchema = Schema.Struct({
 	ruleId: AutomationRuleId,
 	origin: AutomationOrigin,
 	source: AutomationSource,
+	occurredAt: Schema.String,
 	occurrenceId: Schema.String,
 	operation: AutomationOperation,
 	sourceKind: SubscriptionRunSourceKind,
