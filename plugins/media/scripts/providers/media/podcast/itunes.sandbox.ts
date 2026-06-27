@@ -1,7 +1,6 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk/core";
-import dayjs from "@ryot/sandbox-sdk/dayjs";
 import { defineManifest } from "@ryot/sandbox-sdk/driver";
-import { Effect } from "@ryot/sandbox-sdk/effect";
+import { DateTime, Effect, Option } from "@ryot/sandbox-sdk/effect";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
 import { trimmedString } from "../../../script-helpers/records";
@@ -61,16 +60,22 @@ const getPublishYear = (value: unknown) => {
 	if (!parsed) {
 		return null;
 	}
-	const parsedDate = dayjs(parsed);
-	return parsedDate.isValid() ? Number(parsedDate.toISOString().slice(0, 4)) : null;
+	const parsedDate = DateTime.make(parsed);
+	if (Option.isNone(parsedDate)) {
+		return null;
+	}
+	return DateTime.toDateUtc(parsedDate.value).getFullYear();
 };
 const getIsoDate = (value: unknown) => {
 	const parsed = stringValue(value);
 	if (!parsed) {
 		return null;
 	}
-	const parsedDate = dayjs(parsed);
-	return parsedDate.isValid() ? parsedDate.toISOString().slice(0, 10) : null;
+	const parsedDate = DateTime.make(parsed);
+	if (Option.isNone(parsedDate)) {
+		return null;
+	}
+	return DateTime.formatIsoDateUtc(parsedDate.value);
 };
 const collectImages = (item: UnknownRecord) => {
 	const images: string[] = [];

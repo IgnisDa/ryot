@@ -8,8 +8,6 @@ import {
 
 const approvedDependencyImports = [
 	"@ryot/sandbox-sdk/effect",
-	"@ryot/sandbox-sdk/dayjs",
-	"@ryot/sandbox-sdk/dayjs/custom-parse-format",
 	"@ryot/sandbox-sdk/cheerio",
 	"@ryot/sandbox-sdk/youtubei",
 ] as const;
@@ -140,7 +138,7 @@ it.effect("externalizes every approved SDK runtime dependency", () =>
 			expect(emittedModule).toContain(`"${specifier}"`);
 		}
 		expect(emittedModule).not.toMatch(
-			/\b(?:from|import)\s*["'](?:cheerio|dayjs|youtubei\.js|zod)(?:[/'"])/,
+			/\b(?:from|import)\s*["'](?:cheerio|youtubei\.js|zod)(?:[/'"])/,
 		);
 		expect(new TextEncoder().encode(emittedModule).byteLength).toBeLessThan(128 * 1024);
 	}),
@@ -444,7 +442,7 @@ it.effect("rejects direct package, runtime, URL, Node, Bun, and relative imports
 it.effect("rejects computed dynamic imports before resolution", () =>
 	Effect.gen(function* () {
 		const failure = yield* compile(
-			`${validSource}\nconst dependency = "@ryot/sandbox-sdk/dayjs";\nvoid import(dependency);`,
+			`${validSource}\nconst dependency = "@ryot/sandbox-sdk/cheerio";\nvoid import(dependency);`,
 		).pipe(Effect.flip);
 
 		expect(failure.diagnostics).toEqual([
