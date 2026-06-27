@@ -56,20 +56,28 @@ export class EventSchemasService extends Effect.Service<EventSchemasService>()(
 			const runWithDb = yield* DbRunner;
 			const repository = yield* EventSchemasRepository;
 
-			const list = Effect.fn("EventSchemasService.list")(function* (
+			const requireEntitySchema = Effect.fn("EventSchemasService.requireEntitySchema")(function* (
 				user: CurrentUserValue,
-				input: { entitySchemaId: EntitySchemaId },
+				entitySchemaIdInput: string,
 			) {
 				const entitySchemaId = EntitySchemaId.make(
-					yield* requireText(input.entitySchemaId, "Entity schema id is required"),
+					yield* requireText(entitySchemaIdInput, "Entity schema id is required"),
 				);
-
 				const entitySchema = yield* runWithDb(
 					repository.getEntitySchemaScopeById({ entitySchemaId, userId: user.id }),
 				);
 				if (!entitySchema) {
 					return yield* notFound("Entity schema not found");
 				}
+
+				return { entitySchema, entitySchemaId };
+			});
+
+			const list = Effect.fn("EventSchemasService.list")(function* (
+				user: CurrentUserValue,
+				input: { entitySchemaId: EntitySchemaId },
+			) {
+				const { entitySchemaId } = yield* requireEntitySchema(user, input.entitySchemaId);
 
 				return yield* runWithDb(
 					repository.listByEntitySchemaForUser({ entitySchemaId, userId: user.id }),
@@ -80,16 +88,10 @@ export class EventSchemasService extends Effect.Service<EventSchemasService>()(
 				user: CurrentUserValue,
 				payload: CreateEventSchemaBody,
 			) {
-				const entitySchemaId = EntitySchemaId.make(
-					yield* requireText(payload.entitySchemaId, "Entity schema id is required"),
+				const { entitySchema, entitySchemaId } = yield* requireEntitySchema(
+					user,
+					payload.entitySchemaId,
 				);
-
-				const entitySchema = yield* runWithDb(
-					repository.getEntitySchemaScopeById({ entitySchemaId, userId: user.id }),
-				);
-				if (!entitySchema) {
-					return yield* notFound("Entity schema not found");
-				}
 				if (entitySchema.isBuiltin) {
 					return yield* badRequest("Built-in entity schemas do not support event schema creation");
 				}
