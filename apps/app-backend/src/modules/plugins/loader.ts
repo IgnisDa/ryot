@@ -104,6 +104,25 @@ const assertUniqueProviderSlugs = (plugins: Readonly<Record<string, NormalizedPl
 	}
 };
 
+const assertUniqueManifestEntrySlugs = (
+	kind: string,
+	plugins: Readonly<Record<string, NormalizedPlugin>>,
+	select: (plugin: NormalizedPlugin) => ReadonlyArray<{ readonly slug: string }>,
+) => {
+	const ownerBySlug = new Map<string, string>();
+	for (const [pluginSlug, plugin] of Object.entries(plugins)) {
+		for (const entry of select(plugin)) {
+			const owner = ownerBySlug.get(entry.slug);
+			if (owner) {
+				throw new Error(
+					`Duplicate ${kind} slug '${entry.slug}' in active plugins '${owner}' and '${pluginSlug}'`,
+				);
+			}
+			ownerBySlug.set(entry.slug, pluginSlug);
+		}
+	}
+};
+
 export const makePluginLoader = (registry: Pick<DefinitionRegistry, "getSnapshot" | "replace">) => {
 	const base = definitionSourceFromSnapshot(registry.getSnapshot());
 	let snapshot: PluginRegistrySnapshot = {
@@ -115,6 +134,16 @@ export const makePluginLoader = (registry: Pick<DefinitionRegistry, "getSnapshot
 	const buildSnapshot = (plugins: Readonly<Record<string, NormalizedPlugin>>) => {
 		assertUniqueScriptSlugs(plugins);
 		assertUniqueProviderSlugs(plugins);
+		assertUniqueManifestEntrySlugs(
+			"import source",
+			plugins,
+			({ manifest }) => manifest.importSources,
+		);
+		assertUniqueManifestEntrySlugs(
+			"integration provider",
+			plugins,
+			({ manifest }) => manifest.integrationProviders,
+		);
 		const clonedPlugins = structuredClone(plugins);
 		const manifests = Object.values(clonedPlugins).map(({ manifest }) => manifest);
 		return deepFreeze({
