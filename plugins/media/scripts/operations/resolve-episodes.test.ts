@@ -1,7 +1,7 @@
 import { QueryDocument } from "@ryot/contract/modules/query-engine/language";
-import type { JsonValue } from "@ryot/sandbox-sdk/core";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+import type { JsonValue } from "@ryot/sandbox-sdk/wire";
 import { describe, expect, it } from "vitest";
 
 import { execution } from "../automations/automation-test-utils";

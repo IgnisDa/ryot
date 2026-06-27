@@ -1,5 +1,6 @@
-import { defineManifest, type SandboxHost } from "@ryot/sandbox-sdk/core";
+import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import dayjs from "@ryot/sandbox-sdk/dayjs";
+import { defineManifest } from "@ryot/sandbox-sdk/driver";
 import { Effect } from "@ryot/sandbox-sdk/effect";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
@@ -330,18 +331,19 @@ export const details = defineProviderDriver(manifest, "details", (input, host) =
 				},
 			],
 			properties: {
-				sourceUrl: getSourceUrl(title, input.externalId),
 				totalEpisodes: totalEpisodes ?? episodes.length,
+				sourceUrl: getSourceUrl(title, input.externalId),
+				isNsfw: typeof explicit === "boolean" ? explicit : null,
 				description: stringValue(firstPage?.["description"]),
-				genres: collectGenres(firstPage?.["genre_ids"], genresById),
 				images: image ? [{ type: "remote" as const, url: image }] : [],
 				providerRating: numberValue(firstPage?.["listen_score"]),
-				publishDate: getIsoDateFromTimestamp(firstPage?.["earliest_pub_date_ms"]),
+				genres: collectGenres(firstPage?.["genre_ids"], genresById),
 				unlinkedCreators: publisher ? [{ role: "Publishing", name: publisher }] : [],
+				publishDate: getIsoDateFromTimestamp(firstPage?.["earliest_pub_date_ms"]),
 				publishYear: getPublishYearFromTimestamp(firstPage?.["earliest_pub_date_ms"]),
-				isNsfw: typeof explicit === "boolean" ? explicit : null,
 			},
 		};
 	}),
 );
+
 export default defineProvider({ manifest, drivers: { search, details } });

@@ -177,7 +177,7 @@ async function installSeedDefinitions(
 async function seedSandboxScript(apiClient: APIClient, executingUserId: string) {
 	const value = `seed-script-${dayjs().valueOf()}`;
 	const source = `
-import { defineDriver, defineManifest } from "@ryot/sandbox-sdk/core";
+import { defineDriver, defineManifest } from "@ryot/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
 import { defineProvider } from "@ryot/sandbox-sdk/provider";
 
