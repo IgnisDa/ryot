@@ -17,6 +17,7 @@ import {
 	TestSupportBuiltinEntitySchema,
 	TestSupportEntityTranslation,
 	TestSupportGlobalRelationship,
+	TestSupportSignal,
 	TestSupportStoredSandboxScript,
 } from "./schemas";
 
@@ -178,4 +179,15 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 		HttpApiEndpoint.post("triggerInfrequentCron", "/test-support/cron/infrequent").addSuccess(
 			TriggerInfrequentCronResponse,
 		),
+	)
+	.add(
+		HttpApiEndpoint.post("listSignals", "/test-support/signals/list")
+			.setPayload(
+				Schema.Struct({
+					schemaSlug: Schema.String,
+					actorUserId: Schema.optional(UserId),
+					subjectEntityId: Schema.optional(EntityId),
+				}),
+			)
+			.addSuccess(Schema.Array(TestSupportSignal)),
 	);
