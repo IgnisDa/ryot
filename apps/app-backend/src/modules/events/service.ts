@@ -2,12 +2,7 @@ import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { badRequest, notFound } from "@ryot/contract/errors";
 import type { CreateEventItem, EventCreateOrigin } from "@ryot/contract/modules/events/schemas";
-import type {
-	Expr,
-	QueryDocument,
-	RowItem,
-	RowsOutput,
-} from "@ryot/contract/modules/query-engine/language";
+import type { RowItem } from "@ryot/contract/modules/query-engine/language";
 import {
 	EntityId,
 	EventId,
@@ -17,6 +12,7 @@ import {
 	type IntegrationId,
 	type UserId,
 } from "@ryot/contract/schema/brands";
+import { buildEventHistoryQueryDocument } from "@ryot/query-engine";
 import { Effect } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
@@ -36,9 +32,6 @@ import { enqueueEventCreate } from "./event-create-workflow";
 import { validateEventCreateSubmission } from "./event-creation";
 import { EventsRepository } from "./repository";
 
-const eventAlias = "event";
-const entityAlias = "entity";
-const eventListPageSize = 100;
 const entityNotFoundError = "Entity not found";
 const sessionEntityNotFoundError = "Session entity not found";
 const listScopeRequiredError = "Either entityId or sessionEntityId is required";
@@ -72,90 +65,11 @@ const userFromId = (userId: UserId): CurrentUserValue => ({
 	preferences: defaultUserPreferences,
 });
 
-const eventSystemRef = (name: string): Expr => ({
-	type: "ref",
-	sourceAlias: eventAlias,
-	field: { type: "system", name },
-});
-
-const eventSchemaMetaRef = (name: "name" | "slug"): Expr => ({
-	type: "ref",
-	sourceAlias: eventAlias,
-	field: { type: "schema", name },
-});
-
-const literalExpr = (value: unknown): Expr => ({ type: "literal", value });
-
-const eventComparison = (name: string, value: EntityId): Expr => ({
-	operator: "eq",
-	type: "comparison",
-	right: literalExpr(value),
-	left: eventSystemRef(name),
-});
-
 const nonEmptyStrings = (values: readonly string[]): [string, ...string[]] | null => {
 	const unique = [...new Set(values.filter((value) => value.length > 0))];
 	const [first, ...rest] = unique;
 	return first === undefined ? null : [first, ...rest];
 };
-
-const nonEmptyAndExpr = (values: Expr[]): Expr | null => {
-	const [first, ...rest] = values;
-	if (first === undefined) {
-		return null;
-	}
-	return rest.length === 0 ? first : { type: "and", values: [first, ...rest] };
-};
-
-const buildEventWhere = (query: EventListQuery): Expr | null => {
-	const filters: Expr[] = [];
-	if (query.entityId) {
-		filters.push(eventComparison("entityId", query.entityId));
-	}
-	if (query.sessionEntityId) {
-		filters.push(eventComparison("sessionEntityId", query.sessionEntityId));
-	}
-
-	return filters.length > 0 ? nonEmptyAndExpr(filters) : null;
-};
-
-const eventFields = [
-	{ key: "id", expr: eventSystemRef("id") },
-	{ key: "entityId", expr: eventSystemRef("entityId") },
-	{ key: "createdAt", expr: eventSystemRef("createdAt") },
-	{ key: "updatedAt", expr: eventSystemRef("updatedAt") },
-	{ key: "occurredAt", expr: eventSystemRef("occurredAt") },
-	{ key: "properties", expr: eventSystemRef("properties") },
-	{ key: "eventSchemaId", expr: eventSystemRef("eventSchemaId") },
-	{ key: "eventSchemaName", expr: eventSchemaMetaRef("name") },
-	{ key: "eventSchemaSlug", expr: eventSchemaMetaRef("slug") },
-	{ key: "sessionEntityId", expr: eventSystemRef("sessionEntityId") },
-] satisfies RowsOutput["fields"];
-
-const buildEventRowsDocument = (input: {
-	page: number;
-	query: EventListQuery;
-	scope: EventQueryScope;
-}) =>
-	({
-		source: {
-			type: "events",
-			alias: eventAlias,
-			where: buildEventWhere(input.query),
-			schemas: input.scope.eventSchemaSlugs,
-			entity: { alias: entityAlias, schemas: input.scope.entitySchemaSlugs },
-		},
-		output: {
-			type: "rows",
-			fields: eventFields,
-			pagination: { page: input.page, limit: eventListPageSize },
-			orderBy: [
-				{ order: "desc", expr: eventSystemRef("occurredAt") },
-				{ order: "desc", expr: eventSystemRef("createdAt") },
-				{ order: "desc", expr: eventSystemRef("id") },
-			],
-		},
-	}) satisfies QueryDocument;
 
 const toListedEvent = Effect.fn("toListedEventFromQueryEngine")(function* (row: RowItem) {
 	const sessionEntityId = yield* getOptionalStringField(row, "sessionEntityId");
@@ -256,7 +170,13 @@ export class EventsService extends Effect.Service<EventsService>()("EventsServic
 				while (hasMore) {
 					const response = yield* queryEngine.execute(
 						user,
-						buildEventRowsDocument({ page, query, scope }),
+						buildEventHistoryQueryDocument({
+							page,
+							entityId: query.entityId,
+							sessionEntityId: query.sessionEntityId,
+							eventSchemaSlugs: scope.eventSchemaSlugs,
+							entitySchemaSlugs: scope.entitySchemaSlugs,
+						}),
 					);
 					const rows = yield* requireRowsResponse(response);
 					items.push(...rows.data.items);

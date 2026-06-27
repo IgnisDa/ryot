@@ -4,11 +4,19 @@ import {
 	type DisplayConfiguration,
 } from "@ryot/contract/display-configuration";
 import { TrackerId } from "@ryot/contract/schema/brands";
+import {
+	buildQueryEngineAggregateDocument,
+	buildQueryEngineEntityRowsDocument,
+	buildQueryEngineTimeSeriesDocument,
+	queryEngineEntitySource,
+	queryEngineField,
+	queryEngineOrder,
+	queryEngineSystemRef,
+} from "@ryot/query-engine";
 
 import { requirePresent } from "../test-support/assertions";
 import type { Client } from "./auth";
 import type { ContractPayload, ContractSuccess } from "./contract-client";
-import { systemRef } from "./query-engine-core";
 import {
 	entityField,
 	entityImageField,
@@ -40,37 +48,29 @@ type UpdateSavedViewBody = ContractPayload<"savedViews", "update">;
 type ReorderSavedViewsBody = ContractPayload<"savedViews", "reorder">;
 export type SavedViewQueryDocument = CreateSavedViewBody["queryDocument"];
 
-export const rowsDocument: SavedViewQueryDocument = {
-	source: { type: "entities", alias: "book", schemas: ["book"], where: null },
-	output: {
-		type: "rows",
-		pagination: { page: 1, limit: 20 },
-		fields: [{ key: "name", expr: systemRef("book", "name") }],
-		orderBy: [{ order: "asc", expr: systemRef("book", "name") }],
-	},
-};
+export const rowsDocument: SavedViewQueryDocument = buildQueryEngineEntityRowsDocument({
+	alias: "book",
+	limit: 20,
+	schemas: ["book"],
+	fields: [queryEngineField("name", queryEngineSystemRef("book", "name"))],
+	orderBy: [queryEngineOrder("asc", queryEngineSystemRef("book", "name"))],
+});
 
-export const aggregateDocument: SavedViewQueryDocument = {
-	source: { type: "entities", alias: "book", schemas: ["book"], where: null },
-	output: {
-		groupBy: [],
-		type: "aggregate",
-		measures: [{ key: "total", aggregation: { function: "count" } }],
-	},
-};
+export const aggregateDocument: SavedViewQueryDocument = buildQueryEngineAggregateDocument({
+	source: queryEngineEntitySource({ alias: "book", schemas: ["book"], where: null }),
+	groupBy: [],
+	measures: [{ key: "total", aggregation: { function: "count" } }],
+});
 
-export const timeSeriesDocument: SavedViewQueryDocument = {
-	source: { type: "entities", alias: "book", schemas: ["book"], where: null },
-	output: {
-		type: "timeSeries",
-		measure: { aggregation: { function: "count" } },
-		time: {
-			bucket: "month",
-			expr: systemRef("book", "createdAt"),
-			range: { startAt: "2020-01-01T00:00:00.000Z", endAt: "2020-07-01T00:00:00.000Z" },
-		},
+export const timeSeriesDocument: SavedViewQueryDocument = buildQueryEngineTimeSeriesDocument({
+	source: queryEngineEntitySource({ alias: "book", schemas: ["book"], where: null }),
+	measure: { aggregation: { function: "count" } },
+	time: {
+		bucket: "month",
+		expr: queryEngineSystemRef("book", "createdAt"),
+		range: { startAt: "2020-01-01T00:00:00.000Z", endAt: "2020-07-01T00:00:00.000Z" },
 	},
-};
+});
 
 type SavedViewRecord = ContractSuccess<"savedViews", "get">;
 
