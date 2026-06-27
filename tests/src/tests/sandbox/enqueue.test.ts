@@ -4,17 +4,18 @@ import { SandboxScriptId } from "@ryot/contract/schema/brands";
 
 import {
 	createAuthenticatedClient,
+	adminHeaders,
 	createSandboxScript,
 	enqueueSandboxScript,
 	findBuiltinSchemaWithProviders,
 	forbiddenImportSandboxSource,
 	getFirstProviderScriptId,
+	getBackendClient,
 	nonStaticManifestSandboxSource,
 	pollSandboxResult,
 	queryEngineSandboxSource,
 	undeclaredHostSandboxSource,
 } from "~/fixtures";
-import { getPgClient } from "~/setup";
 import { assertCompleted, assertTaggedError } from "~/support/assertions";
 
 describe("sandbox enqueue by script ID", () => {
@@ -128,11 +129,17 @@ describe("sandbox enqueue by script ID", () => {
 				},
 			}),
 		});
-		await getPgClient().query(
-			`update sandbox_script
-			 set metadata = jsonb_set(metadata, '{capabilities}', '[]'::jsonb)
-			 where id = $1`,
-			[scriptId],
+		const stored = await getBackendClient().run(
+			(c) => c.testSupport.getSandboxScript({ path: { scriptId: SandboxScriptId.make(scriptId) } }),
+			adminHeaders,
+		);
+		await getBackendClient().run(
+			(c) =>
+				c.testSupport.patchSandboxScript({
+					path: { scriptId: SandboxScriptId.make(scriptId) },
+					payload: { metadata: { ...stored.metadata, capabilities: [] } },
+				}),
+			adminHeaders,
 		);
 
 		const { jobId } = await enqueueSandboxScript(client, { scriptId, driverName: "main" });

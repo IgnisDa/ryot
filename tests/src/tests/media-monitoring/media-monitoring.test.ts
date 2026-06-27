@@ -4,6 +4,7 @@ import { EntityId } from "@ryot/contract/schema/brands";
 
 import {
 	cleanupBuiltinProviderScript,
+	adminHeaders,
 	countMediaMonitoringRelationships,
 	createAuthenticatedClient,
 	createNotificationChannel,
@@ -26,9 +27,7 @@ import { getPgClient } from "~/setup";
 import { assertTaggedError, requireObjectRecord } from "~/support/assertions";
 import type { FakeHttpServer } from "~/support/fake-http-server";
 
-const ADMIN_TOKEN = "test-admin-token";
 const providerName = "Media Monitoring E2E Provider";
-const adminHeaders = { "Admin-Access-Token": ADMIN_TOKEN };
 const apiExternalId = `media-monitoring-api-${crypto.randomUUID()}`;
 const cronExternalId = `media-monitoring-cron-${crypto.randomUUID()}`;
 
@@ -84,20 +83,40 @@ beforeAll(async () => {
 		properties: {},
 		externalId: cronExternalId,
 		entitySchemaId: movieSchemaId,
-		name: "Media Monitoring Cron Target",
 		sandboxScriptId: provider.scriptId,
+		name: "Media Monitoring Cron Target",
 	});
 	apiEntityId = apiEntity.id;
 	cronEntityId = cronEntity.id;
-	await getPgClient().query(`update entity set populated_at = now() where id = $1`, [apiEntityId]);
+	await getBackendClient().run(
+		(c) =>
+			c.testSupport.setEntityPopulatedAt({
+				path: { entityId: EntityId.make(apiEntityId) },
+				payload: { populatedAt: new Date().toISOString() },
+			}),
+		adminHeaders,
+	);
 
 	fakeApprise = await startFakeAppriseServer();
 });
 
 afterAll(async () => {
 	fakeApprise.stop();
-	const pg = getPgClient();
-	await pg.query(`delete from entity where id = any($1::text[])`, [extraEntityIds]);
+	const [firstExtraEntityId, ...remainingExtraEntityIds] = extraEntityIds;
+	if (firstExtraEntityId) {
+		await getBackendClient().run(
+			(c) =>
+				c.testSupport.deleteGlobalEntities({
+					payload: {
+						ids: [
+							EntityId.make(firstExtraEntityId),
+							...remainingExtraEntityIds.map((id) => EntityId.make(id)),
+						],
+					},
+				}),
+			adminHeaders,
+		);
+	}
 	await cleanupBuiltinProviderScript(provider);
 });
 
@@ -155,16 +174,16 @@ describe("media monitoring endpoints", () => {
 		const unsupported = await Promise.all([
 			seedMediaEntity({
 				name: "Season",
-				properties: {},
 				entitySchemaId: seasonSchemaId,
+				properties: { seasonNumber: 1 },
 				sandboxScriptId: provider.scriptId,
 				externalId: `media-monitoring-season-${crypto.randomUUID()}`,
 			}),
 			seedMediaEntity({
-				properties: {},
 				name: "Episode",
 				entitySchemaId: episodeSchemaId,
 				sandboxScriptId: provider.scriptId,
+				properties: { seasonNumber: 1, episodeNumber: 1 },
 				externalId: `media-monitoring-episode-${crypto.randomUUID()}`,
 			}),
 			seedMediaEntity({
@@ -178,6 +197,7 @@ describe("media monitoring endpoints", () => {
 				properties: {},
 				name: "Custom Movie",
 				userId: owner.userId,
+				client: owner.client,
 				entitySchemaId: movieSchemaId,
 				sandboxScriptId: provider.scriptId,
 				externalId: `media-monitoring-custom-${crypto.randomUUID()}`,
@@ -185,6 +205,7 @@ describe("media monitoring endpoints", () => {
 			seedMediaEntity({
 				properties: {},
 				userId: other.userId,
+				client: other.client,
 				name: "Other User Movie",
 				entitySchemaId: movieSchemaId,
 				sandboxScriptId: provider.scriptId,

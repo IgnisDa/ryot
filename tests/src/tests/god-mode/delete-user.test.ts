@@ -2,20 +2,14 @@ import { describe, expect, it } from "bun:test";
 
 import { UserId } from "@ryot/contract/schema/brands";
 
-import { getBackendClient } from "~/fixtures";
+import { ADMIN_TOKEN, adminAccessTokenHeaders, getBackendClient } from "~/fixtures";
 import { createAuthenticatedClient } from "~/fixtures/auth";
 import { createTracker } from "~/fixtures/trackers";
 import { getBackendUrl, getPgClient } from "~/setup";
 import { assertTaggedError } from "~/support/assertions";
 
 const WRONG_TOKEN = "wrong-token";
-const ADMIN_TOKEN = "test-admin-token";
-const ADMIN_ACCESS_TOKEN_HEADER = "Admin-Access-Token";
 const trackersListQuery = { includeDisabled: false };
-
-const adminAccessTokenHeaders = (token: string) => ({
-	[ADMIN_ACCESS_TOKEN_HEADER]: token,
-});
 
 async function createApiKey(cookies: string) {
 	const response = await fetch(`${getBackendUrl()}/auth/api-key/create`, {

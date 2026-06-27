@@ -75,7 +75,7 @@ Schemas named `TestSupport*` below are new and live in the test-support contract
    Payload: `{ name, entitySchemaId, properties, externalId?, sandboxScriptId?, populatedAt?: string | null }`. Success: `ListedEntity` (201). Implemented via the existing `EntitiesService.create` with `scope: "global"`; when `populatedAt` is provided, the test-support service then calls the existing `EntitiesService.update` with unchanged fields and the new `populatedAt`.
 
 8. **`deleteGlobalEntities`** — `POST /test-support/entities/global/delete`
-   Payload: `{ ids: EntityId[] }` (minItems 1). Success: `{ deleted: number }`. Idempotent. Deletes entity rows by id regardless of `user_id`; matches current SQL semantics (plain `delete from entity where id = any(...)` — no relationship cascade).
+   Payload: `{ ids: EntityId[] }` (minItems 1). Success: `{ deleted: number }`. Idempotent. Deletes entity rows by id regardless of `user_id`; matches current plain-delete SQL semantics and relies on the existing foreign-key cascades rather than performing explicit relationship cleanup.
 
 9. **`upsertGlobalRelationship`** — `PUT /test-support/relationships/global`
    Payload: `{ sourceEntityId, targetEntityId, relationshipSchemaId, properties? }`. Success: `RelationshipScope`. Implemented via the existing `RelationshipsService.create` with `scope: "global"` (the repository's `RelationshipIdentityInput` already has a `{ scope: "global" }` variant). Properties are validated against the relationship schema's property schema when provided; omitted properties follow current insert semantics (the tree-seeding edges carry none).
@@ -138,7 +138,7 @@ Fixtures keep their exported names/signatures where practical so call sites stay
 - `tests/src/tests/events/triggers-before-create.test.ts` — `INSERT INTO event_schema_trigger` → `createEventSchemaTrigger`.
 - `tests/src/tests/entity-translation/*` and any other consumers of the above fixtures migrate transitively.
 
-Explicitly **not** migrated (stays SQL, documented in `tests/src/AGENTS.md` as intentional white-box assertions): `cluster_messages`/`cluster_replies` polling, `delete-user.test.ts` tracker check, `queryUserEntityStateCounts`, `countMediaMonitoringRelationships`. Do not touch `tests/src/seed-script.ts`.
+Explicitly **not** migrated (stays SQL, documented in `tests/AGENTS.md` as intentional white-box assertions): `cluster_messages`/`cluster_replies` polling, `delete-user.test.ts` tracker check, `queryUserEntityStateCounts`, `countMediaMonitoringRelationships`. Do not touch `tests/src/seed-script.ts`.
 
 ### Slices (implementation order)
 
@@ -149,11 +149,11 @@ Each slice is independently shippable: contract endpoints + owning-module change
 3. **Translations + populated_at** (endpoints 12–14).
 4. **Auth account linking** (endpoint 15).
 5. **Event schema triggers** (endpoint 16).
-6. **Final cleanup pass** over every file touched, following the `codebase-cleanup` skill: remove dead fixture code, drop `getPgClient` imports that became unused, and re-check the four intentionally-kept SQL sites are documented in `tests/src/AGENTS.md`.
+6. **Final cleanup pass** over every file touched, following the `codebase-cleanup` skill: remove dead fixture code, drop `getPgClient` imports that became unused, and re-check the four intentionally-kept SQL sites are documented in `tests/AGENTS.md`.
 
 ### Documentation updates (part of each slice)
 
-- `tests/src/AGENTS.md`: rewrite the "Seeding Global Rows Directly" and provider-seeding sections to describe the test-support endpoints; document the four remaining raw-SQL assertions as intentional.
+- `tests/AGENTS.md`: rewrite the "Seeding Global Rows Directly" and provider-seeding sections to describe the test-support endpoints; document the four remaining raw-SQL assertions as intentional.
 - `apps/app-backend/src/modules/test-support/AGENTS.md`: new, as described above.
 
 ## Testing Decisions
@@ -184,17 +184,17 @@ Each slice is independently shippable: contract endpoints + owning-module change
 
 ## Tasks
 
-**Overall Progress:** 0 of 6 tasks completed
+**Overall Progress:** 6 of 6 tasks completed
 
-**Current Task:** None
+**Current Task:** Complete
 
 ### Task List
 
 This PRD is implemented directly in the six slices listed under "Slices (implementation order)" above (the `prd-to-issues` skill is intentionally not used). Mark progress here as slices land.
 
-- [ ] Slice 1 — Sandbox cluster (endpoints 1–6 + shared admin-header export + fixture migrations)
-- [ ] Slice 2 — Global rows (endpoints 7–11 + fixture migrations)
-- [ ] Slice 3 — Translations + populated_at (endpoints 12–14 + fixture migrations)
-- [ ] Slice 4 — Auth account linking (endpoint 15 + test migrations)
-- [ ] Slice 5 — Event schema triggers (endpoint 16 + test migration)
-- [ ] Slice 6 — Final cleanup pass per `codebase-cleanup` skill + docs sync
+- [x] Slice 1 — Sandbox cluster (endpoints 1–6 + shared admin-header export + fixture migrations)
+- [x] Slice 2 — Global rows (endpoints 7–11 + fixture migrations)
+- [x] Slice 3 — Translations + populated_at (endpoints 12–14 + fixture migrations)
+- [x] Slice 4 — Auth account linking (endpoint 15 + test migrations)
+- [x] Slice 5 — Event schema triggers (endpoint 16 + test migration)
+- [x] Slice 6 — Final cleanup pass per `codebase-cleanup` skill + docs sync
