@@ -13,6 +13,7 @@ import { jsonValueSchema } from "@ryot/sandbox-sdk/wire";
 import { Effect, Schema } from "effect";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
+import { jsonByteLength } from "#lib/infrastructure/sandbox-runtime/limits";
 import { SandboxExecutionService } from "#modules/sandbox/service";
 
 import type { ImportRunJobData } from "../jobs";
@@ -39,6 +40,21 @@ const workflowChunkRejectionMessage = (workflow: string, reason: WorkflowChunkRe
 	}
 	return `${workflow} item is not JSON serializable`;
 };
+
+const encodeWorkflowItems = <Item>(items: ReadonlyArray<Item>) =>
+	Effect.forEach(items, (item) =>
+		Schema.encodeUnknown(jsonValueSchema)(item).pipe(
+			Effect.map((json) => ({ item, encoded: { json } })),
+			Effect.orElseSucceed(() => ({ item, encoded: null })),
+		),
+	).pipe(
+		Effect.map((results) => ({
+			unencodable: results.flatMap(({ item, encoded }) => (encoded ? [] : [item])),
+			packable: results.flatMap(({ item, encoded }) =>
+				encoded ? [{ item, json: encoded.json }] : [],
+			),
+		})),
+	);
 
 const populationFailureStage = (rejected: boolean, childStage?: "membership" | "population") => {
 	if (rejected) {
@@ -151,15 +167,30 @@ export const resolveMediaEntityGroupsWithPlugin = Effect.fn("resolveMediaEntityG
 			});
 		}
 
+		const encoded = yield* encodeWorkflowItems(items);
 		const { chunks, rejected } = chunkWorkflowItems(
-			items.map((item) => ({ item, steps: item.candidates.length })),
+			encoded.packable.map((packed) => ({
+				item: packed,
+				steps: packed.item.candidates.length,
+				bytes: jsonByteLength(packed.json),
+			})),
 		);
-		const rejectedMessageByIndex = new Map(
-			rejected.map(({ item, reason }) => [
-				item.index,
-				workflowChunkRejectionMessage("Media import resolution workflow", reason),
-			]),
-		);
+		const rejectedMessageByIndex = new Map<number, string>([
+			...encoded.unencodable.map(
+				(item) =>
+					[
+						item.index,
+						workflowChunkRejectionMessage("Media import resolution workflow", "json"),
+					] as const,
+			),
+			...rejected.map(
+				({ item, reason }) =>
+					[
+						item.item.index,
+						workflowChunkRejectionMessage("Media import resolution workflow", reason),
+					] as const,
+			),
+		]);
 		const malformedMessageByIndex = new Map<number, string>();
 		const resultByIndex = new Map<
 			number,
@@ -179,8 +210,8 @@ export const resolveMediaEntityGroupsWithPlugin = Effect.fn("resolveMediaEntityG
 					sandbox
 						.executeWorkflow({
 							scriptId,
-							input: { items: chunk.items },
 							authority: { type: "user", userId: input.payload.userId },
+							input: { items: chunk.items.map(({ json }) => json) },
 							executionId: `${input.executionId}-resolution-chunk-${chunkIndex}`,
 						})
 						.pipe(
@@ -191,12 +222,12 @@ export const resolveMediaEntityGroupsWithPlugin = Effect.fn("resolveMediaEntityG
 			);
 			for (const [chunkIndex, chunk] of chunks.entries()) {
 				const indexed = indexWorkflowResults({
-					items: chunk.items,
 					results: outputs[chunkIndex]?.results ?? [],
 					workflow: "Media import resolution workflow",
+					items: chunk.items.map(({ item }) => item),
 				});
 				if (indexed.message) {
-					for (const item of chunk.items) {
+					for (const { item } of chunk.items) {
 						malformedMessageByIndex.set(item.index, indexed.message);
 					}
 				} else {
@@ -321,13 +352,30 @@ export const populateMediaEntityGroupsWithPlugin = Effect.fn("populateMediaEntit
 			});
 		}
 
-		const { chunks, rejected } = chunkWorkflowItems(items.map((item) => ({ item, steps: 1 })));
-		const rejectedMessageByIndex = new Map(
-			rejected.map(({ item, reason }) => [
-				item.index,
-				workflowChunkRejectionMessage("Media import population workflow", reason),
-			]),
+		const encoded = yield* encodeWorkflowItems(items);
+		const { chunks, rejected } = chunkWorkflowItems(
+			encoded.packable.map((packed) => ({
+				steps: 1,
+				item: packed,
+				bytes: jsonByteLength(packed.json),
+			})),
 		);
+		const rejectedMessageByIndex = new Map<number, string>([
+			...encoded.unencodable.map(
+				(item) =>
+					[
+						item.index,
+						workflowChunkRejectionMessage("Media import population workflow", "json"),
+					] as const,
+			),
+			...rejected.map(
+				({ item, reason }) =>
+					[
+						item.item.index,
+						workflowChunkRejectionMessage("Media import population workflow", reason),
+					] as const,
+			),
+		]);
 		const malformedMessageByIndex = new Map<number, string>();
 		const resultByIndex = new Map<
 			number,
@@ -344,29 +392,27 @@ export const populateMediaEntityGroupsWithPlugin = Effect.fn("populateMediaEntit
 			const outputs = yield* Effect.forEach(
 				chunks,
 				(chunk, chunkIndex) =>
-					Schema.encodeUnknown(jsonValueSchema)({ items: chunk.items }).pipe(
-						Effect.mapError(toWorkflowError),
-						Effect.flatMap((workflowInput) =>
-							sandbox.executeWorkflow({
-								scriptId,
-								input: workflowInput,
-								authority: { type: "user", userId: input.payload.userId },
-								executionId: `${input.executionId}-population-chunk-${chunkIndex}`,
-							}),
+					sandbox
+						.executeWorkflow({
+							scriptId,
+							authority: { type: "user", userId: input.payload.userId },
+							input: { items: chunk.items.map(({ json }) => json) },
+							executionId: `${input.executionId}-population-chunk-${chunkIndex}`,
+						})
+						.pipe(
+							Effect.flatMap(Schema.decodeUnknown(MediaImportPopulationWorkflowOutput)),
+							Effect.mapError(toWorkflowError),
 						),
-						Effect.flatMap(Schema.decodeUnknown(MediaImportPopulationWorkflowOutput)),
-						Effect.mapError(toWorkflowError),
-					),
 				{ concurrency: config.sandbox.workerConcurrency },
 			);
 			for (const [chunkIndex, chunk] of chunks.entries()) {
 				const indexed = indexWorkflowResults({
-					items: chunk.items,
 					results: outputs[chunkIndex]?.results ?? [],
 					workflow: "Media import population workflow",
+					items: chunk.items.map(({ item }) => item),
 				});
 				if (indexed.message) {
-					for (const item of chunk.items) {
+					for (const { item } of chunk.items) {
 						malformedMessageByIndex.set(item.index, indexed.message);
 					}
 				} else {
