@@ -1,20 +1,19 @@
 # YouTube Music <Badge type="warning" text="PRO" />
 
-The [YouTube Music](https://music.youtube.com) integration syncs all music that you have
-listened to ["Today"](https://music.youtube.com/history). Since YouTube Music does not have
-an official API, this integration is prone to breakage and needs some roundabout steps to
-setup.
+This integration reads the [Today history](https://music.youtube.com/history). YouTube Music has no
+official API for this use, so the integration can break without notice.
 
-YouTube Music reports only that a song was played during the current day. It does not report
-the playback time or multiple plays of the same song. Ryot therefore records at most one play
-per song each day. The first sync reports 35% progress, the next five-minute sync completes it,
-and later syncs ignore it. A song first detected during the final ten minutes of the day is
-completed immediately.
+YouTube Music does not provide playback times or repeated plays. Ryot records at most one play per
+song each day. The first sync records 35% progress, the next five-minute sync completes it, and
+later syncs ignore it. A song first found in the last ten minutes of the day completes immediately.
 
-1. Install the [Cookie Editor](https://cookie-editor.com) extension in your browser. Make
-   sure you allow the extension to work on incognito windows.
-2. Open a new incognito window in your browser and login to YouTube Music.
-3. Once logged in, open the extension and export the cookies as "Header String". After
-   copying them, close the incognito browser immediately so that they are not invalidated.
+1. Install [Cookie Editor](https://cookie-editor.com) and allow it in private windows.
+2. Open a private window and log in to YouTube Music.
+3. Export the cookies as **Header String**, then close the private window immediately so the
+   cookies remain valid.
    ![image](../images/integrations_youtube-music-export-cookies.png)
-4. Paste the exported cookies in the input.
+4. Under **Settings > Integrations**, create a YouTube Music integration and paste the cookies.
+
+::: warning
+Cookies can grant access to your account. Store them as secrets and do not share them.
+:::
