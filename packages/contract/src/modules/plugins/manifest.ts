@@ -1,3 +1,4 @@
+import { canonicalRelativePosixPathIssue } from "@ryot/ts-utils/path";
 import { Result, Schema, SchemaGetter } from "effect";
 
 import { AppSchema, type AppPropertyDefinition } from "../../schema/property-schema";
@@ -6,6 +7,7 @@ import { OutputFieldKey, RyotQLDocument } from "../ryotql/language";
 import { SANDBOX_HOST_CAPABILITIES } from "../sandbox/wire";
 import { SavedViewCardMapping, SavedViewTableMapping } from "../saved-views/schemas";
 import { isSupportedUploadFileExtension } from "../uploads/upload-policy";
+import { PluginClientEntry } from "./client";
 import { pluginConfigEnvironmentKey } from "./plugin-config";
 
 const strictParseOptions = {
@@ -563,17 +565,18 @@ const PluginManifestFields = strictStruct({
 	bindings: PluginBindings,
 	configSchema: PluginConfigSchema,
 	boot: Schema.Array(PluginBoot),
+	httpRateLimits: PluginHttpRateLimits,
 	crons: Schema.Array(PluginCron),
 	scripts: Schema.Array(PluginScript),
 	workflows: Schema.Array(PluginWorkflow),
 	providers: Schema.Array(PluginProvider),
 	savedViews: Schema.Array(PluginSavedView),
 	operations: Schema.Array(PluginOperation),
+	client: Schema.optional(PluginClientEntry),
 	entitySchemas: Schema.Array(PluginEntitySchema),
 	signalSchemas: Schema.Array(PluginSignalSchema),
 	importSources: Schema.Array(PluginImportSource),
 	userBootstrap: Schema.Array(PluginUserBootstrap),
-	httpRateLimits: PluginHttpRateLimits,
 	relationshipSchemas: Schema.Array(PluginRelationshipSchema),
 	integrationProviders: Schema.Array(PluginIntegrationProvider),
 });
@@ -595,6 +598,13 @@ const hasValidPluginManifestReferences = (manifest: typeof PluginManifestFields.
 		...manifest.importSources.flatMap(({ requiredPluginConfigKeys }) => requiredPluginConfigKeys),
 	];
 	if (!requiredConfigKeys.every((key) => configKeys.has(key))) {
+		return false;
+	}
+	if (
+		manifest.client !== undefined &&
+		(canonicalRelativePosixPathIssue(manifest.client.entry) !== null ||
+			!manifest.client.entry.startsWith("client/"))
+	) {
 		return false;
 	}
 	if (scriptSlugs.size !== manifest.scripts.length) {
