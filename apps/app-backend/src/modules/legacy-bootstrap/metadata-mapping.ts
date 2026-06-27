@@ -4,11 +4,7 @@ import { Effect } from "effect";
 import { dbEffect, DbService } from "#lib/infrastructure/db/service";
 
 import { metadataMigrationTargets } from "./metadata-mapping-targets";
-import {
-	type ResolvedLotEntityMigrationTarget,
-	buildLotEntityTargetValuesSql,
-	quoteSqlString,
-} from "./shared";
+import { type ResolvedLotEntityMigrationTarget, buildLotEntityTargetValuesSql } from "./shared";
 
 const metadataMigrationTargetValuesSql = sql.join(
 	metadataMigrationTargets.map(
@@ -66,24 +62,8 @@ COALESCE(
 )
 `;
 
-// Non-obvious V1→V2 field transformations applied in the lot-specific CASE branches below:
-//
-// audio_book / book / podcast: V1 `free_creators` (Vec<{name, role}>) → V2 `unlinkedCreators`.
-//   Always emitted as COALESCE(free_creators, '[]') so the required array key is always present.
-//
-// book: V1 `book_specifics.is_compilation` renamed to V2 `isCompilation`.
-//
-// music: V1 `music_specifics.by_various_artists` renamed to V2 `byVariousArtists`.
-//
-// video_game: V1 `video_game_specifics.time_to_beat.*` values are in seconds (from IGDB);
-//   V2 `timeToBeat.*` stores minutes — divide by 60 and round.
-//   V1 `platform_releases[].release_date` / `release_region` renamed to camelCase
-//   `releaseDate` / `releaseRegion`.
-//
-// visual_novel: V1 `visual_novel_specifics.length` (already in minutes from VNDB) renamed to
-//   V2 `lengthMinutes` — no unit conversion.
-//
-// comic_book: V1 `comic_book_specifics.page_count` renamed to V2 `pages`.
+// video_game `time_to_beat` is in seconds (IGDB) and converted to minutes; visual_novel `length`
+// is already minutes (VNDB). Other branches are straight snake_case → camelCase renames.
 const buildMetadataLotSpecificPropertiesSql = () => `
 COALESCE(jsonb_strip_nulls(
 	CASE
@@ -228,6 +208,10 @@ BEGIN
 			FROM metadata
 			INNER JOIN metadata_targets ON metadata_targets.lot = metadata.lot AND metadata_targets.source = metadata.source
 			WHERE metadata.id::text > cursor_id
+				AND (
+					metadata_targets.sandbox_script_id IS NULL
+					OR EXISTS (SELECT 1 FROM _referenced_global_entity_ids r WHERE r.id = metadata.id::text)
+				)
 			ORDER BY metadata.id::text
 			LIMIT batch_size
 		)
@@ -257,13 +241,20 @@ BEGIN
 			metadata.created_on,
 			NULL,
 			metadata.created_by_user_id,
-			${buildMetadataPropertiesSql()},
+			CASE
+				WHEN metadata_targets.sandbox_script_id IS NULL THEN ${buildMetadataPropertiesSql()}
+				ELSE '{}'::jsonb
+			END,
 			metadata_targets.entity_schema_id,
 			metadata_targets.sandbox_script_id,
 			metadata.last_updated_on
 		FROM metadata
 		INNER JOIN metadata_targets ON metadata_targets.lot = metadata.lot AND metadata_targets.source = metadata.source
 		WHERE metadata.id::text > cursor_id AND metadata.id::text <= next_cursor_id
+			AND (
+				metadata_targets.sandbox_script_id IS NULL
+				OR EXISTS (SELECT 1 FROM _referenced_global_entity_ids r WHERE r.id = metadata.id::text)
+			)
 		ON CONFLICT ("id") DO UPDATE
 			SET
 				"properties" = CASE
@@ -284,74 +275,23 @@ BEGIN
 END $$;
 `;
 
-export const buildMetadataToMetadataRelationshipMigrationSql = (relationshipSchemaId: string) => `
+// Provider media suggestions (rebuilt by V2 on population) are not migrated; this guard fails
+// loudly if a user-authored suggestion is found. See "Slim Migration Strategy" in AGENTS.md.
+export const buildMetadataToMetadataRelationshipMigrationSql = () => `
 DO $$
-DECLARE
-	batch_size constant int := 10000;
-	batch_rows_inserted int;
-	cursor_id text := '';
-	next_cursor_id text;
-	rows_inserted int := 0;
-	started_at timestamptz := clock_timestamp();
 BEGIN
-	RAISE NOTICE 'metadata_to_metadata -> relationship: migration started (% seconds elapsed)', 0.0;
-
 	IF EXISTS (
 		SELECT 1
 		FROM "metadata_to_metadata" m2m
-		INNER JOIN "entity" src ON src.id = m2m.from_metadata_id
-		INNER JOIN "entity" tgt ON tgt.id = m2m.to_metadata_id
-		WHERE src.user_id IS NOT NULL OR tgt.user_id IS NOT NULL
+		INNER JOIN "metadata" src ON src.id = m2m.from_metadata_id
+		INNER JOIN "metadata" tgt ON tgt.id = m2m.to_metadata_id
+		WHERE src.created_by_user_id IS NOT NULL OR tgt.created_by_user_id IS NOT NULL
 		LIMIT 1
 	) THEN
-		RAISE EXCEPTION 'metadata_to_metadata -> relationship: found user-owned metadata entity references';
+		RAISE EXCEPTION 'metadata_to_metadata -> relationship: found user-authored suggestion links; slim migration would drop them';
 	END IF;
 
-	LOOP
-		WITH batch AS (
-			SELECT m2m.id::text AS id
-			FROM "metadata_to_metadata" m2m
-			INNER JOIN "entity" src ON src.id = m2m.from_metadata_id
-			INNER JOIN "entity" tgt ON tgt.id = m2m.to_metadata_id
-			WHERE m2m.id::text > cursor_id
-			ORDER BY m2m.id::text
-			LIMIT batch_size
-		)
-		SELECT MAX(batch.id) INTO next_cursor_id FROM batch;
-
-		EXIT WHEN next_cursor_id IS NULL;
-
-		INSERT INTO relationship (
-			"id",
-			"source_entity_id",
-			"target_entity_id",
-			"relationship_schema_id",
-			"properties",
-			"user_id",
-			"created_at"
-		)
-		SELECT
-			gen_random_uuid()::text,
-			m2m.from_metadata_id,
-			m2m.to_metadata_id,
-			${quoteSqlString(relationshipSchemaId)},
-			'{}'::jsonb,
-			NULL,
-			NOW()
-		FROM "metadata_to_metadata" m2m
-		INNER JOIN "entity" src ON src.id = m2m.from_metadata_id
-		INNER JOIN "entity" tgt ON tgt.id = m2m.to_metadata_id
-		WHERE m2m.id::text > cursor_id AND m2m.id::text <= next_cursor_id
-		ON CONFLICT ("source_entity_id", "target_entity_id", "relationship_schema_id") WHERE user_id IS NULL DO NOTHING;
-		GET DIAGNOSTICS batch_rows_inserted = ROW_COUNT;
-
-		rows_inserted := rows_inserted + batch_rows_inserted;
-		cursor_id := next_cursor_id;
-	END LOOP;
-
-	RAISE NOTICE 'metadata_to_metadata -> relationship: % row(s) migrated total (% seconds elapsed)',
-		rows_inserted,
-		round(extract(epoch from clock_timestamp() - started_at)::numeric, 1);
+	RAISE NOTICE 'metadata_to_metadata -> relationship: skipped (provider-reconstructed on population)';
 END $$;
 `;
 
