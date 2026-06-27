@@ -42,7 +42,8 @@ import { EventsService } from "#modules/events/service";
 import { BuiltinEntityPreloaderLive } from "#modules/exercises/preload";
 import { GodModeRepository } from "#modules/god-mode/repository";
 import { GodModeService } from "#modules/god-mode/service";
-import { ImportWorkflowDefinitionsLive } from "#modules/imports/import-run-workflow";
+import { ImportRunFailuresService } from "#modules/imports/failure-service";
+import { ImportWorkflowDefinitionsLive } from "#modules/imports/import-run-workflow-live";
 import { ProcessNormalizedMediaImportWorkflowDefinitionsLive } from "#modules/imports/media/normalized-import-workflow-live";
 import { ImportsRepository } from "#modules/imports/repository";
 import { ImportsService } from "#modules/imports/service";
@@ -187,19 +188,20 @@ const UserStateServiceLive = Layer.provide(
 	Layer.mergeAll(EventsServiceLive, RelationshipsService.Default),
 );
 
+const ImportsServiceLive = Layer.provideMerge(
+	ImportsService.Default,
+	Layer.mergeAll(UploadsService.Default, ImportRunFailuresService.Default),
+);
+
 const PlatformServicesLive = Layer.mergeAll(
 	RelationshipsService.Default,
 	Layer.provide(SavedViewsService.Default, QueryEngineServiceLive),
 	TrackersService.Default,
-	UploadsService.Default,
 	Layer.provide(UserPreferencesService.Default, AuthService.Default),
 	UserStateServiceLive,
 	Layer.provide(GodModeService.Default, AuthService.Default),
-	Layer.provide(ImportsService.Default, UploadsService.Default),
-	Layer.provide(
-		IntegrationsService.Default,
-		Layer.provide(ImportsService.Default, UploadsService.Default),
-	),
+	ImportsServiceLive,
+	Layer.provide(IntegrationsService.Default, ImportsServiceLive),
 	NotificationsService.Default,
 	NotificationDeliveryService.Default,
 );

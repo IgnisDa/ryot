@@ -1,7 +1,6 @@
 import { FileSystem } from "@effect/platform";
 import { Activity } from "@effect/workflow";
-import { unknownToMessage } from "@ryot/contract/errors";
-import { Effect, Schema } from "effect";
+import { Effect } from "effect";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { RedisService } from "#lib/infrastructure/redis";
@@ -10,13 +9,7 @@ import type { ImportRunJobData } from "../jobs";
 import { resolveSafeImportFilePath } from "./import-files";
 import { failImportRun } from "./import-run-status";
 import { deleteImportAdapterResult, deleteImportSourcePayload } from "./source-payload-store";
-
-export class ImportRunError extends Schema.TaggedError<ImportRunError>()("ImportRunError", {
-	message: Schema.String,
-}) {}
-
-export const toWorkflowError = (cause: unknown) =>
-	new ImportRunError({ message: unknownToMessage(cause) });
+import { ImportRunError, toWorkflowError } from "./workflow-errors";
 
 export class ImportRunArtifacts extends Effect.Service<ImportRunArtifacts>()("ImportRunArtifacts", {
 	effect: Effect.gen(function* () {

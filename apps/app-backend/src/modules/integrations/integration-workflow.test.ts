@@ -19,8 +19,10 @@ import {
 	makeWorkflowActivityEngine,
 } from "#lib/test-support/effect";
 import { EntitiesRepository } from "#modules/entities/repository";
+import { ImportRunFailuresService } from "#modules/imports/failure-service";
 import { ImportsRepository } from "#modules/imports/repository";
 import { loadImportAdapterResult } from "#modules/imports/runtime/source-payload-store";
+import { ImportsService } from "#modules/imports/service";
 
 import { ProcessIntegrationRunWorkflow } from "./integration-workflow";
 import { runIntegrationRunWorkflow } from "./integration-workflow-live";
@@ -40,6 +42,8 @@ import {
 const now = "2026-06-17T00:00:00.000Z";
 
 const mockImportsRepository = Layer.mock(ImportsRepository);
+const mockImportRunFailuresService = Layer.mock(ImportRunFailuresService);
+const mockImportsService = Layer.mock(ImportsService);
 const mockIntegrationsRepository = Layer.mock(IntegrationsRepository);
 const mockIntegrationsService = Layer.mock(IntegrationsService);
 const mockEntitiesRepository = Layer.mock(EntitiesRepository);
@@ -60,12 +64,26 @@ const mangaGroup = (overrides: Record<string, unknown> = {}) => ({
 
 const makeImportsRepository = (overrides: MockOverrides<typeof mockImportsRepository> = {}) =>
 	mockImportsRepository({
-		updateRun: () => Effect.void,
-		createFailure: () => Effect.void,
 		getRunById: () => Effect.succeed(null),
 		listRecentStatusesByIntegrationId: () => Effect.succeed([]),
 		...overrides,
 		_tag: "ImportsRepository",
+	});
+
+const makeImportRunFailuresService = (
+	overrides: MockOverrides<typeof mockImportRunFailuresService> = {},
+) =>
+	mockImportRunFailuresService({
+		create: () => Effect.void,
+		...overrides,
+		_tag: "ImportRunFailuresService",
+	});
+
+const makeImportsService = (overrides: MockOverrides<typeof mockImportsService> = {}) =>
+	mockImportsService({
+		update: () => Effect.void,
+		...overrides,
+		_tag: "ImportsService",
 	});
 
 const makeIntegrationsRepository = (
@@ -146,6 +164,8 @@ const makeRedisLayer = () => {
 
 type TestLayerOptions = {
 	importsRepository?: Layer.Layer<ImportsRepository>;
+	importsService?: Layer.Layer<ImportsService>;
+	importRunFailuresService?: Layer.Layer<ImportRunFailuresService>;
 	integrationsRepository?: Layer.Layer<IntegrationsRepository>;
 	integrationsService?: Layer.Layer<IntegrationsService>;
 	integrationOperations?: Partial<IntegrationRunOperationsValue>;
@@ -168,6 +188,8 @@ const makeTestLayer = (options: TestLayerOptions) =>
 		makeRedisLayer(),
 		makeIntegrationOperations(options.integrationOperations),
 		options.importsRepository ?? makeImportsRepository(),
+		options.importsService ?? makeImportsService(),
+		options.importRunFailuresService ?? makeImportRunFailuresService(),
 		options.integrationsRepository ?? makeIntegrationsRepository(),
 		options.integrationsService ?? makeIntegrationsService(),
 		makeEntitiesRepository(),
@@ -221,7 +243,9 @@ it.effect("persists the sink adapter result and dispatches the normalized child"
 	const options = {
 		importsRepository: makeImportsRepository({
 			getRunById: () => Effect.succeed(makeRun("completed")),
-			updateRun: (input) => {
+		}),
+		importsService: makeImportsService({
+			update: (input) => {
 				recordedUpdates.push(input);
 				return Effect.void;
 			},
@@ -279,11 +303,15 @@ it.effect(
 		const options = {
 			importsRepository: makeImportsRepository({
 				getRunById: () => Effect.succeed(makeRun("failed")),
-				createFailure: (input) => {
+			}),
+			importRunFailuresService: makeImportRunFailuresService({
+				create: (input) => {
 					recordedFailures.push(input);
 					return Effect.void;
 				},
-				updateRun: (input) => {
+			}),
+			importsService: makeImportsService({
+				update: (input) => {
 					recordedUpdates.push(input);
 					return Effect.void;
 				},
@@ -344,8 +372,8 @@ it.effect("fails the run when the integration is not found", () => {
 	const recordedUpdates: Array<Record<string, unknown>> = [];
 
 	const options = {
-		importsRepository: makeImportsRepository({
-			updateRun: (input) => {
+		importsService: makeImportsService({
+			update: (input) => {
 				recordedUpdates.push(input);
 				return Effect.void;
 			},
@@ -389,7 +417,9 @@ it.effect("persists the komga yank adapter result and dispatches the normalized 
 		},
 		importsRepository: makeImportsRepository({
 			getRunById: () => Effect.succeed(makeRun("completed")),
-			updateRun: (input) => {
+		}),
+		importsService: makeImportsService({
+			update: (input) => {
 				recordedUpdates.push(input);
 				return Effect.void;
 			},
@@ -443,7 +473,9 @@ it.effect("fails the whole run on catastrophic yank provider failure", () => {
 		},
 		importsRepository: makeImportsRepository({
 			getRunById: () => Effect.succeed(makeRun("failed")),
-			updateRun: (input) => {
+		}),
+		importsService: makeImportsService({
+			update: (input) => {
 				recordedUpdates.push(input);
 				return Effect.void;
 			},
@@ -531,7 +563,9 @@ it.effect("runs a YouTube Music yank through workflow-owned sandbox execution", 
 		}),
 		importsRepository: makeImportsRepository({
 			getRunById: () => Effect.succeed(makeRun("completed")),
-			updateRun: (input) => {
+		}),
+		importsService: makeImportsService({
+			update: (input) => {
 				recordedUpdates.push(input);
 				return Effect.void;
 			},
@@ -591,11 +625,15 @@ it.effect("records a YouTube Music sandbox failure as a source-fetch failure", (
 		}),
 		importsRepository: makeImportsRepository({
 			getRunById: () => Effect.succeed(makeRun("failed")),
-			createFailure: (input) => {
+		}),
+		importRunFailuresService: makeImportRunFailuresService({
+			create: (input) => {
 				recordedFailures.push(input);
 				return Effect.void;
 			},
-			updateRun: (input) => {
+		}),
+		importsService: makeImportsService({
+			update: (input) => {
 				recordedUpdates.push(input);
 				return Effect.void;
 			},
