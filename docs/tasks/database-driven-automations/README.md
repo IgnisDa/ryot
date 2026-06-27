@@ -2,9 +2,9 @@
 
 ## Tasks
 
-**Overall Progress:** 13 of 15 tasks completed
+**Overall Progress:** 14 of 15 tasks completed
 
-**Current Task:** [Task 14](./14-media-monitoring-notification-removal.md) (todo)
+**Current Task:** [Task 15](./15-codebase-cleanup.md) (todo)
 
 ### Task List
 
@@ -23,7 +23,7 @@
 | 11  | [Population Context and Media Entity-Update Detectors](./11-population-context-and-media-entity-update-detectors.md)   | AFK  | done   |
 | 12  | [Sync Batch Leaders and Discovery Detectors](./12-sync-batch-leaders-and-discovery-detectors.md)                       | AFK  | done   |
 | 13  | [Association Detectors](./13-association-detectors.md)                                                                 | AFK  | done   |
-| 14  | [Media-Monitoring Notification Removal](./14-media-monitoring-notification-removal.md)                                 | AFK  | todo   |
+| 14  | [Media-Monitoring Notification Removal](./14-media-monitoring-notification-removal.md)                                 | AFK  | done   |
 | 15  | [Codebase Cleanup](./15-codebase-cleanup.md)                                                                           | AFK  | todo   |
 
 ## Problem Statement
