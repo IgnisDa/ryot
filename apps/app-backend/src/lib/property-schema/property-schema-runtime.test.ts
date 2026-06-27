@@ -405,6 +405,22 @@ describe("parseAppSchemaPropertiesSafe - rule conditions", () => {
 		expect(noMatch.success).toBe(true);
 	});
 
+	it("treats null as missing for a conditionally required property", () => {
+		const s = schema(
+			{ status: str(), progress: num() },
+			{
+				rules: [requiredRule(["progress"], { operator: "eq", path: ["status"], value: "done" })],
+			},
+		);
+
+		expect(
+			parseAppSchemaPropertiesSafe({
+				propertiesSchema: s,
+				properties: { status: "done", progress: null },
+			}).success,
+		).toBe(false);
+	});
+
 	it("neq: enforces required when value is different from condition", () => {
 		const s = schema(
 			{ status: str(), progress: num() },
