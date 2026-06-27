@@ -8,9 +8,7 @@ import { createEntity } from "./entities";
 import { createPluginSchema, findBuiltinSchemaBySlug } from "./entity-schemas";
 import { createEventSchema, listEventSchemas, requireEventSchemaBySlug } from "./event-schemas";
 import { seedMediaEntity } from "./media";
-import { type PollOptions, pollUntil } from "./polling";
-
-const defaultEventTimeoutMs = 150_000;
+import { pollUntil } from "./polling";
 
 const defaultMediaProperties = {
 	genres: [],
@@ -56,19 +54,13 @@ const propertiesBySchemaSlug: Record<string, Record<string, unknown>> = {
 	},
 };
 
-export const waitForEventCount = (
-	client: Client,
-	entityId: string,
-	expectedCount: number,
-	options: PollOptions = {},
-) =>
+export const waitForEventCount = (client: Client, entityId: string, expectedCount: number) =>
 	pollUntil(
 		`${expectedCount} events on entity ${entityId}`,
 		Effect.gen(function* () {
 			const events = yield* listEventsForEntity(client, entityId);
 			return events.length >= expectedCount ? events : null;
 		}),
-		{ timeoutMs: defaultEventTimeoutMs, intervalMs: 200, ...options },
 	);
 
 export const createEventTestFixture = (client: Client) =>
@@ -160,19 +152,13 @@ export const listEventsForEntity = (
 		}),
 	);
 
-export const waitForEventWithSchema = (
-	client: Client,
-	entityId: string,
-	eventSchemaSlug: string,
-	options: PollOptions = {},
-) =>
+export const waitForEventWithSchema = (client: Client, entityId: string, eventSchemaSlug: string) =>
 	pollUntil(
 		`${eventSchemaSlug} event on entity ${entityId}`,
 		Effect.gen(function* () {
 			const events = yield* listEventsForEntity(client, entityId);
 			return events.find((event) => event.eventSchemaSlug === eventSchemaSlug) ?? null;
 		}),
-		{ timeoutMs: defaultEventTimeoutMs, intervalMs: 500, ...options },
 	);
 
 export const listEventSlugs = (client: Client, entityId: string) =>
@@ -181,19 +167,13 @@ export const listEventSlugs = (client: Client, entityId: string) =>
 		return events.map((event) => event.eventSchemaSlug);
 	});
 
-export const waitForEventSlugs = (
-	client: Client,
-	entityId: string,
-	requiredSlug: string,
-	options: PollOptions = {},
-) =>
+export const waitForEventSlugs = (client: Client, entityId: string, requiredSlug: string) =>
 	pollUntil(
 		`'${requiredSlug}' event on entity ${entityId}`,
 		Effect.gen(function* () {
 			const slugs = yield* listEventSlugs(client, entityId);
 			return slugs.includes(requiredSlug) ? slugs : null;
 		}),
-		{ timeoutMs: defaultEventTimeoutMs, intervalMs: 250, ...options },
 	);
 
 export const createBuiltinMediaLifecycleFixture = (
