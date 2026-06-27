@@ -71,6 +71,8 @@ it.effect("keeps raw sandbox workflow execution at the allowed boundaries", () =
 		expect(sandboxWorkflow).toContain(
 			"DurableQueue.process(SandboxExecutionQueue, executionPayload)",
 		);
+		expect(sandboxWorkflow).toContain('Effect.timeout("1 minute")');
+		expect(sandboxWorkflow).toContain('Effect.retry(Schedule.spaced("1 second"))');
 		expect(sandboxWorkflow).toContain("...(payload.grants ? { grants: payload.grants } : {})");
 
 		expect(libraryWorkflow).not.toContain("execute(RunSandboxWorkflow");
