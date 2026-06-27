@@ -16,13 +16,13 @@ import { afterEach, describe, expect, it } from "vitest";
 	globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
-import {
-	createRyotClient,
-	type RyotNavigationTarget,
-	type EntityInterest,
-	type EntityUpdate,
+import type {
+	RyotClientAdapter,
+	RyotNavigationTarget,
+	EntityInterest,
+	EntityUpdate,
 } from "./index";
-import { createPluginNavigationStore } from "./navigation/store";
+import { createPluginNavigationStore, type PluginRouterNavigation } from "./navigation/store";
 import { PluginScreenFrame } from "./plugin-screen";
 import { RyotProvider, useRyot, useEntityRefresh } from "./react";
 import {
@@ -35,7 +35,7 @@ import {
 	type EntityRendererProps,
 	type PluginRouterDefinition,
 } from "./routing";
-import { createTestRyotAdapter } from "./testing";
+import { createTestRyotClock } from "./testing";
 
 let mountCount = 0;
 let entityMountCount = 0;
@@ -106,6 +106,16 @@ const Home = () => {
 };
 
 let roots: Root[] = [];
+let clocks: Array<ReturnType<typeof createTestRyotClock>> = [];
+
+const makeClock = (
+	overrides: Partial<RyotClientAdapter> = {},
+	navigation?: PluginRouterNavigation,
+) => {
+	const clock = createTestRyotClock(overrides, navigation);
+	clocks.push(clock);
+	return clock;
+};
 
 const DRAG_START = 1_000;
 const DRAG_END = 1_400;
@@ -146,9 +156,18 @@ const LocationProbe = () => {
 const openChannel = (
 	definition: PluginRouterDefinition = { home: { component: Home } },
 	resolve = createPluginRouteResolver(definition),
+	adapter: Partial<RyotClientAdapter> = {},
 ) => {
 	const messages: unknown[] = [];
 	const store = createPluginNavigationStore(resolve);
+	const navigation: PluginRouterNavigation = {
+		subscribe: store.subscribe,
+		getSnapshot: store.getSnapshot,
+		completeTransition: store.completeTransition,
+		back: () => messages.push({ type: "navigate-back" }),
+		openDrawer: () => messages.push({ type: "open-drawer" }),
+		publishTitle: (title: string | null) => messages.push({ title, type: "header" }),
+	};
 	let compact = false;
 	let edgeBack = false;
 	let leading: PluginLeadingIntent = "none";
@@ -210,7 +229,8 @@ const openChannel = (
 		store,
 		messages,
 		sendEntity,
-		client: createRyotClient(createTestRyotAdapter({ navigate, query: () => Promise.resolve({}) })),
+		navigation,
+		clock: makeClock({ navigate, ...adapter }, navigation),
 		setEdge: (edge: {
 			readonly compact: boolean;
 			readonly edgeBack: boolean;
@@ -224,14 +244,6 @@ const openChannel = (
 				store.setLocation({ compact, edgeBack, entry, leading });
 			}
 		},
-		navigation: {
-			subscribe: store.subscribe,
-			getSnapshot: store.getSnapshot,
-			completeTransition: store.completeTransition,
-			back: () => messages.push({ type: "navigate-back" }),
-			openDrawer: () => messages.push({ type: "open-drawer" }),
-			publishTitle: (title: string | null) => messages.push({ title, type: "header" }),
-		},
 	};
 };
 
@@ -243,8 +255,8 @@ const renderRouter = (channel: ReturnType<typeof openChannel>) => {
 
 	act(() => {
 		root.render(
-			<RyotProvider client={channel.client}>
-				<PluginRouter navigation={channel.navigation} />
+			<RyotProvider runtime={channel.clock.runtime}>
+				<PluginRouter />
 			</RyotProvider>,
 		);
 	});
@@ -283,11 +295,13 @@ const mount = (
 	};
 };
 
-afterEach(() => {
+afterEach(async () => {
 	for (const root of roots) {
 		act(() => root.unmount());
 	}
 	roots = [];
+	await Promise.all(clocks.map((clock) => clock.dispose()));
+	clocks = [];
 	mountCount = 0;
 	entityMountCount = 0;
 	observedParams = undefined;
@@ -321,32 +335,32 @@ describe("PluginRouter", () => {
 			});
 			return <p>Interested home</p>;
 		};
-		const channel = openChannel({
+		const definition = {
 			home: { component: InterestedHome },
 			routes: [{ path: "/item", component: ItemRoute }],
+		};
+		const channel = openChannel(definition, createPluginRouteResolver(definition), {
+			watchEntities,
 		});
-		const container = renderRouter({
-			...channel,
-			client: createRyotClient(
-				createTestRyotAdapter({ watchEntities, query: () => Promise.resolve({}) }),
-			),
-		});
+		const container = renderRouter(channel);
 		act(() => channel.send("/", "", { index: 0, key: "home" }));
 		expect(watches).toBe(1);
 		act(() => hint({ entityId: "root", reason: "populated" }));
-		await waitFor(() => expect(pending).toHaveLength(1));
+		await channel.clock.advance(250);
+		expect(pending).toHaveLength(1);
 		act(() => channel.send("/item"));
 		expect(disposals).toBe(1);
 		expect(container.textContent).toContain("Interested home");
 		act(() => channel.send("/", "", { index: 0, key: "home" }));
 		expect(watches).toBe(2);
-		await new Promise((resolve) => setTimeout(resolve, 300));
+		await channel.clock.advance(300);
 		expect(pending).toHaveLength(1);
 		await act(async () => {
 			pending[0]?.();
 			await Promise.resolve();
 		});
-		await waitFor(() => expect(pending).toHaveLength(2));
+		await channel.clock.advance(250);
+		expect(pending).toHaveLength(2);
 	});
 
 	it("renders nothing before the first location message", () => {
@@ -538,7 +552,7 @@ describe("PluginRouter", () => {
 		roots.push(root);
 		act(() => {
 			root.render(
-				<RyotProvider client={channel.client}>
+				<RyotProvider runtime={channel.clock.runtime}>
 					<PluginLink to={{ kind: "entity", entityId: "entity/1" }}>Entity 1</PluginLink>
 				</RyotProvider>,
 			);
@@ -571,7 +585,7 @@ describe("PluginRouter", () => {
 		let clicks = 0;
 		act(() => {
 			root.render(
-				<RyotProvider client={channel.client}>
+				<RyotProvider runtime={channel.clock.runtime}>
 					<PluginLink
 						to={{ pluginSlug, kind: "plugin-route", path: "/items/item-1" }}
 						onClick={(event) => {

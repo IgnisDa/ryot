@@ -8,6 +8,7 @@ import {
 	integrationsDisabledForUser,
 	jsonObject,
 	listActiveIntegrations,
+	logPushFailure,
 	normalizeBaseUrl,
 	parseJsonBody,
 	resolveEntityProviderName,
@@ -24,6 +25,7 @@ export const manifest = defineManifest({
 	requiredSystemConfigKeys: [],
 	slug: "trigger.jellyfin-push",
 	capabilities: [
+		"log",
 		"httpCall",
 		"executeRyotql",
 		"getEntitySchemas",
@@ -144,9 +146,7 @@ const markPlayedInJellyfin = (
 			)
 			.pipe(
 				Effect.asVoid,
-				Effect.catch((error) =>
-					Effect.sync(() => console.warn(`Jellyfin push failed: ${error.message}`)),
-				),
+				Effect.catch((error) => logPushFailure(host, "Jellyfin", error)),
 			);
 	});
 };

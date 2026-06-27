@@ -19,6 +19,10 @@
 			"types": "./src/react.tsx",
 			"default": "./src/react.tsx"
 		},
+		"./schedule": {
+			"types": "./src/schedule.ts",
+			"default": "./src/schedule.ts"
+		},
 		"./ryotql": {
 			"types": "./src/ryotql.ts",
 			"default": "./src/ryotql.ts"
@@ -47,6 +51,7 @@
 		"react-dom": "^19.2.0"
 	},
 	"devDependencies": {
+		"@effect/vitest": "4.0.0-beta.107",
 		"@ryot-app/testing": "workspace:*",
 		"@testing-library/dom": "^10.4.1",
 		"@types/react": "^19.2.0",

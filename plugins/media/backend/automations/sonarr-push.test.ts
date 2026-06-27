@@ -1,7 +1,7 @@
-import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import { describe, expect, it } from "@effect/vitest";
+import type { LogEntry, SandboxHost } from "@ryot-app/sandbox-sdk/core";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
-import { describe, expect, it, vi } from "vitest";
 
 import {
 	eventAutomationContext,
@@ -63,13 +63,23 @@ const createHttpCall =
 		return httpSuccess({});
 	};
 
+const createLog =
+	(batches: (readonly LogEntry[])[]): SonarrHost["log"] =>
+	(entries) =>
+		Effect.sync(() => {
+			batches.push(entries);
+			return null;
+		});
+
 const createHost = (options: {
 	httpCall: SonarrHost["httpCall"];
+	log?: SonarrHost["log"];
 	entity?: ReturnType<typeof entityRecord> | null;
 	integrations?: ReturnType<typeof integrationRecord>[];
 }) =>
 	defineSandboxTestHost(manifest, {
 		httpCall: options.httpCall,
+		log: options.log ?? (() => Effect.succeed(null)),
 		getEntitySchemas: () => hostSuccess([schema]),
 		listIntegrations: () => hostSuccess(options.integrations ?? []),
 		getUserPreferences: () => hostSuccess({ allowNsfw: false, disableIntegrations: false }),
@@ -137,24 +147,30 @@ describe("sonarr-push sandbox script", () => {
 		);
 	});
 
-	it("treats an expected Sonarr HTTP failure as non-fatal", () => {
-		const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-		const host = createHost({
-			entity: showEntity,
-			integrations: [sonarrIntegration],
-			httpCall: () => httpFailure("already exists"),
-		});
-		return Effect.runPromise(
-			definition
-				.run(createAutomation({ entitySchemaSlug: "show", entityId: "show-1" }), host, execution)
-				.pipe(
-					Effect.map((result) => {
-						expect(result).toBeNull();
-						expect(warning).toHaveBeenCalledWith("Sonarr push failed: already exists");
-						warning.mockRestore();
-						return undefined;
-					}),
-				),
-		);
-	});
+	it.effect("treats an expected Sonarr HTTP failure as non-fatal", () =>
+		Effect.gen(function* () {
+			const warnings: (readonly LogEntry[])[] = [];
+			const host = createHost({
+				entity: showEntity,
+				integrations: [sonarrIntegration],
+				httpCall: () => httpFailure("already exists"),
+				log: createLog(warnings),
+			});
+			const result = yield* definition.run(
+				createAutomation({ entitySchemaSlug: "show", entityId: "show-1" }),
+				host,
+				execution,
+			);
+			expect(result).toBeNull();
+			expect(warnings).toEqual([
+				[
+					{
+						level: "warning",
+						message: "Sonarr push failed",
+						attributes: { error: "already exists" },
+					},
+				],
+			]);
+		}),
+	);
 });
