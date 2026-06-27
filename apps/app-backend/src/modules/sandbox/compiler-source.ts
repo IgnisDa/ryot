@@ -1,6 +1,8 @@
 import type { SandboxCompilationDiagnostic } from "@ryot/contract/modules/sandbox/schemas";
 import * as ts from "typescript/unstable/ast";
 
+import { SANDBOX_SDK_IMPORTS } from "#lib/infrastructure/sandbox-runtime/dependencies";
+
 import {
 	SANDBOX_SDK_IMPORT,
 	sandboxDiagnosticAt as diagnosticAt,
@@ -9,16 +11,56 @@ import {
 
 export { SANDBOX_SDK_IMPORT, SANDBOX_SOURCE_FILE } from "./compiler-diagnostics";
 
+const allowedImports = new Set<string>(SANDBOX_SDK_IMPORTS);
+
 const getModuleSpecifier = (node: ts.ImportDeclaration | ts.ExportDeclaration) =>
 	node.moduleSpecifier && ts.isStringLiteralLikeNode(node.moduleSpecifier)
 		? node.moduleSpecifier.text
 		: null;
 
+const generatedModulePattern = /\b(?:import|require)\s*\(/;
+const codeGeneratorNames = new Set([
+	"eval",
+	"Function",
+	"constructor",
+	"AsyncFunction",
+	"GeneratorFunction",
+	"AsyncGeneratorFunction",
+]);
+
+const codeGeneratorName = (expression: ts.Expression) => {
+	if (ts.isIdentifier(expression)) {
+		return expression.text;
+	}
+	if (ts.isPropertyAccessExpression(expression)) {
+		return expression.name.text;
+	}
+	if (
+		ts.isElementAccessExpression(expression) &&
+		ts.isStringLiteralLikeNode(expression.argumentExpression)
+	) {
+		return expression.argumentExpression.text;
+	}
+	return null;
+};
+
+const inspectsGeneratedModule = (node: ts.CallExpression | ts.NewExpression) => {
+	const name = codeGeneratorName(node.expression);
+	if (name === "Worker" || name === "SharedWorker") {
+		return true;
+	}
+	return (
+		name !== null &&
+		codeGeneratorNames.has(name) &&
+		node.arguments?.some((argument) => generatedModulePattern.test(argument.getText())) === true
+	);
+};
+
 const inspectImports = (file: ts.SourceFile) => {
-	const diagnostics: SandboxCompilationDiagnostic[] = [];
 	const driverHelpers = new Set<string>();
-	const manifestHelpers = new Set<string>();
 	const scriptHelpers = new Set<string>();
+	const manifestHelpers = new Set<string>();
+	const diagnostics: SandboxCompilationDiagnostic[] = [];
 
 	for (const reference of [
 		...file.referencedFiles,
@@ -37,12 +79,12 @@ const inspectImports = (file: ts.SourceFile) => {
 	for (const statement of file.statements) {
 		if (ts.isImportDeclaration(statement) || ts.isExportDeclaration(statement)) {
 			const specifier = getModuleSpecifier(statement);
-			if (specifier !== null && specifier !== SANDBOX_SDK_IMPORT) {
+			if (specifier !== null && !allowedImports.has(specifier)) {
 				diagnostics.push(
 					diagnosticAt(
 						statement.moduleSpecifier ?? statement,
 						"RYOT_IMPORT",
-						`Import "${specifier}" is not allowed; use only "${SANDBOX_SDK_IMPORT}"`,
+						`Import "${specifier}" is not allowed; use an approved ${SANDBOX_SDK_IMPORT} entry point`,
 					),
 				);
 			}
@@ -76,6 +118,11 @@ const inspectImports = (file: ts.SourceFile) => {
 	const visit = (node: ts.Node): void => {
 		if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
 			diagnostics.push(diagnosticAt(node, "RYOT_IMPORT", "Dynamic imports are not allowed"));
+		}
+		if ((ts.isCallExpression(node) || ts.isNewExpression(node)) && inspectsGeneratedModule(node)) {
+			diagnostics.push(
+				diagnosticAt(node, "RYOT_IMPORT", "Generated module loading and workers are not allowed"),
+			);
 		}
 		if (
 			ts.isCallExpression(node) &&

@@ -1,8 +1,10 @@
 import type { SandboxCompilationDiagnostic } from "@ryot/contract/modules/sandbox/schemas";
 import * as ts from "typescript/unstable/ast";
 
+import { SANDBOX_SDK_ROOT_IMPORT } from "#lib/infrastructure/sandbox-runtime/dependencies";
+
 export const SANDBOX_SOURCE_FILE = "script.ts";
-export const SANDBOX_SDK_IMPORT = "@ryot/sandbox-sdk";
+export const SANDBOX_SDK_IMPORT = SANDBOX_SDK_ROOT_IMPORT;
 
 export const sandboxDiagnosticAt = (
 	node: ts.Node,

@@ -35,8 +35,9 @@ Generic scripts declare an exact manifest `capabilities` tuple. The SDK exposes 
 ## Security
 
 - User code runs in a separate Deno process per execution.
-- Deno denies subprocess, env, FFI, write, prompt, and remote module access.
-- Deno can only read the generated runner file and call the localhost bridge port.
+- Deno denies subprocess, env, FFI, write, prompt, npm, and remote module access and ignores ambient config and lock files.
+- Format-1 execution disables string code-generation constructors, `eval`, and workers before importing user code.
+- Deno can only read the generated runner file, the read-only dependency runtime, and call the localhost bridge port.
 - Sandbox script network access must go through explicit host functions such as `httpCall`.
 - App-side source connectors are outside the sandbox runtime and use app runtime HTTP helpers.
 - Bridge calls require the per-execution bearer token and expire through Redis TTL.
@@ -49,11 +50,15 @@ Generic scripts declare an exact manifest `capabilities` tuple. The SDK exposes 
 
 The pool preserves process isolation because every subprocess is still single-use. Reusing a process across executions would allow global state pollution and weaken per-process memory limits.
 
-## Vendored Packages
+## Approved Dependencies
 
-Format-1 user modules can import only the SDK root and bundle its current runtime. Existing format-0 built-ins can dynamically import only packages listed in `vendoredPackages` in `runtime.ts`. At startup, `PackageCacheManager` runs `deno cache --no-config` into `SANDBOX_DENO_DIR` and records a marker file for the cached package list. Deno then runs with `--cached-only`, so imports outside the allowlist fail.
+Format-1 user modules can import the SDK root plus the explicit `/zod`, `/dayjs`, `/dayjs/custom-parse-format`, `/cheerio`, and `/youtubei` entry points. The compiler bundles the small SDK definition runtime into each script and leaves approved dependency imports external.
 
-To add a package, append its specifier to `vendoredPackages` and restart the service. In Docker deployments, mount `SANDBOX_DENO_DIR` as a volume to avoid re-downloading packages on each restart.
+`PackageCacheManager` builds the exact pinned package versions into self-contained ESM files under an immutable, content-addressed, read-only directory in `SANDBOX_DENO_DIR`. Its Deno import map resolves approved SDK imports to those local files. A separate content-addressed Deno cache starts without registry packages. Concurrent builders publish atomically and reuse the same verified module set.
+
+Temporary format-0 compilation rewrites the built-ins' existing `npm:` dependency strings to the corresponding approved SDK paths. The runtime's `/youtubei` module uses youtubei.js's Deno/server platform, and the explicit Day.js plugin path preserves existing custom-parse-format imports during incremental migration.
+
+Deno receives the import map and runs with `--cached-only`, `--no-npm`, `--no-remote`, `--no-config`, and `--no-lock`; execution never resolves a registry, npm cache, ambient project configuration, or remote URL. Updating an approved package changes the generated content hash automatically; the manual runtime format is reserved for incompatible loader-policy changes.
 
 ## Host Functions
 
@@ -82,6 +87,9 @@ Script-scoped functions use execution metadata such as `scriptId`. User-scoped f
 Format-1 scripts define drivers with SDK input and output schemas. The enqueue request chooses a driver by name; the runner validates input before invoking `run` and output before returning it.
 
 ```ts
+import { defineDriver, defineScript } from "@ryot/sandbox-sdk";
+import * as z from "@ryot/sandbox-sdk/zod";
+
 const main = defineDriver(manifest, {
 	input: z.object({ value: z.number() }),
 	output: z.number(),

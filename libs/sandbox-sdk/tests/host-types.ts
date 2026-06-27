@@ -1,10 +1,5 @@
-import {
-	defineDriver,
-	defineManifest,
-	type JsonValue,
-	jsonValueSchema,
-	z,
-} from "@ryot/sandbox-sdk";
+import { defineDriver, defineManifest, type JsonValue, jsonValueSchema } from "@ryot/sandbox-sdk";
+import * as z from "@ryot/sandbox-sdk/zod";
 
 import type { Equal, Expect } from "./type-assertions.js";
 

@@ -10,9 +10,9 @@ import {
 	jsonValueSchema,
 	SANDBOX_SCRIPT_DEFINITION,
 	unwrapHostResult,
-	z,
 } from "@ryot/sandbox-sdk";
 import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+import * as z from "@ryot/sandbox-sdk/zod";
 
 describe("generic script definitions", () => {
 	test("preserves the manifest, schemas, and inferred driver implementation", async () => {

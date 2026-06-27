@@ -4,7 +4,8 @@ import { Effect } from "effect";
 import { SandboxCompiler } from "./compiler";
 
 const validSource = `
-import { defineDriver, defineManifest, defineScript, z } from "@ryot/sandbox-sdk";
+import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk";
+import * as z from "@ryot/sandbox-sdk/zod";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -22,6 +23,14 @@ const main = defineDriver(manifest, {
 
 export default defineScript({ manifest, drivers: { main } });
 `;
+
+const approvedDependencyImports = [
+	"@ryot/sandbox-sdk/zod",
+	"@ryot/sandbox-sdk/dayjs",
+	"@ryot/sandbox-sdk/dayjs/custom-parse-format",
+	"@ryot/sandbox-sdk/cheerio",
+	"@ryot/sandbox-sdk/youtubei",
+] as const;
 
 const compile = (source: string) =>
 	Effect.gen(function* () {
@@ -61,6 +70,22 @@ it.effect("accepts a top-level driver record in the default script definition", 
 		);
 
 		expect(compiled.manifest.slug).toBe("plain-value");
+	}),
+);
+
+it.effect("externalizes every approved SDK runtime dependency", () =>
+	Effect.gen(function* () {
+		const source = `${approvedDependencyImports.map((specifier) => `import "${specifier}";`).join("\n")}\n${validSource}`;
+		const compiled = yield* compile(source);
+		const emittedModule = compiled.javascript.split("//# sourceMappingURL", 1)[0] ?? "";
+
+		for (const specifier of approvedDependencyImports) {
+			expect(emittedModule).toContain(`"${specifier}"`);
+		}
+		expect(emittedModule).not.toMatch(
+			/\b(?:from|import)\s*["'](?:cheerio|dayjs|youtubei\.js|zod)(?:[/'"])/,
+		);
+		expect(new TextEncoder().encode(emittedModule).byteLength).toBeLessThan(128 * 1024);
 	}),
 );
 
@@ -124,7 +149,7 @@ it.effect("rejects a widened exported manifest that would expose undeclared host
 	Effect.gen(function* () {
 		const failure = yield* compile(
 			validSource
-				.replace("defineScript, z }", "defineScript, type SandboxManifest, z }")
+				.replace("defineScript }", "defineScript, type SandboxManifest }")
 				.replace(
 					"export const manifest = defineManifest",
 					"export const manifest: SandboxManifest = defineManifest",
@@ -151,7 +176,7 @@ it.effect("rejects capability assertions that widen a static manifest tuple", ()
 	Effect.gen(function* () {
 		const failure = yield* compile(
 			validSource
-				.replace("defineScript, z }", "defineScript, type SandboxManifest, z }")
+				.replace("defineScript }", "defineScript, type SandboxManifest }")
 				.replace("capabilities: []", 'capabilities: [] as SandboxManifest["capabilities"]')
 				.replace(
 					"run: async (input) => input.value,",
@@ -208,7 +233,8 @@ const main = defineDriver(driverManifest,`,
 it.effect("rejects a block-local manifest shadowing the exported manifest", () =>
 	Effect.gen(function* () {
 		const failure = yield* compile(`
-import { defineDriver, defineManifest, defineScript, z } from "@ryot/sandbox-sdk";
+import { defineDriver, defineManifest, defineScript } from "@ryot/sandbox-sdk";
+import * as z from "@ryot/sandbox-sdk/zod";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -252,7 +278,8 @@ it.effect("rejects namespace helper calls that bypass the exported manifest", ()
 	Effect.gen(function* () {
 		const failure = yield* compile(`
 import * as sdk from "@ryot/sandbox-sdk";
-import { defineManifest, defineScript, z } from "@ryot/sandbox-sdk";
+import { defineManifest, defineScript } from "@ryot/sandbox-sdk";
+import * as z from "@ryot/sandbox-sdk/zod";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -297,8 +324,8 @@ import {
   defineManifest,
   defineScript,
   type SandboxHost,
-  z,
 } from "@ryot/sandbox-sdk";
+import * as z from "@ryot/sandbox-sdk/zod";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -329,17 +356,62 @@ export default defineScript({ manifest, drivers: { main } });
 	}),
 );
 
-it.effect("rejects imports outside the SDK before resolution", () =>
+it.effect("rejects direct package, runtime, URL, Node, Bun, and relative imports", () =>
 	Effect.gen(function* () {
-		const failure = yield* compile(`import "node:fs";\n${validSource}`).pipe(Effect.flip);
+		for (const specifier of [
+			"zod",
+			"npm:zod@4.4.3",
+			"deno:npm:zod@4.4.3",
+			"@ryot/sandbox-sdk/testing",
+			"https://example.com/module.ts",
+			"node:fs",
+			"bun:test",
+			"./helper.ts",
+		]) {
+			const failure = yield* compile(`import "${specifier}";\n${validSource}`).pipe(Effect.flip);
+
+			expect(failure.diagnostics).toEqual([
+				expect.objectContaining({
+					line: 1,
+					code: "RYOT_IMPORT",
+					message: expect.stringContaining(`Import "${specifier}" is not allowed`),
+				}),
+			]);
+		}
+	}),
+);
+
+it.effect("rejects computed dynamic imports before resolution", () =>
+	Effect.gen(function* () {
+		const failure = yield* compile(
+			`${validSource}\nconst dependency = "@ryot/sandbox-sdk/dayjs";\nvoid import(dependency);`,
+		).pipe(Effect.flip);
 
 		expect(failure.diagnostics).toEqual([
 			expect.objectContaining({
-				line: 1,
 				code: "RYOT_IMPORT",
-				message: expect.stringContaining('Import "node:fs" is not allowed'),
+				message: "Dynamic imports are not allowed",
 			}),
 		]);
+	}),
+);
+
+it.effect("rejects generated module loading and workers before bundling", () =>
+	Effect.gen(function* () {
+		for (const generatedModule of [
+			"void Function('return import(\"npm:zod\")');",
+			"void eval('require(\"node:fs\")');",
+			'void new Worker("data:text/javascript,export default 1", { type: "module" });',
+		]) {
+			const failure = yield* compile(`${validSource}\n${generatedModule}`).pipe(Effect.flip);
+
+			expect(failure.diagnostics).toEqual([
+				expect.objectContaining({
+					code: "RYOT_IMPORT",
+					message: "Generated module loading and workers are not allowed",
+				}),
+			]);
+		}
 	}),
 );
 
