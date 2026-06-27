@@ -44,8 +44,10 @@ const makeStorage = (clearServerSelection: Effect.Effect<void> = Effect.void) =>
 		setSavedViewLayout: () => Effect.void,
 		setServerSelection: () => Effect.void,
 		setThemePreference: () => Effect.void,
+		setRememberedProvider: () => Effect.void,
 		getServerSelection: Effect.succeed(null),
 		getLastWorkspace: () => Effect.succeed(null),
+		getRememberedProvider: () => Effect.succeed(null),
 		getThemePreference: Effect.succeed("system" as const),
 		getSavedViewLayout: () => Effect.succeed("grid" as const),
 	});
