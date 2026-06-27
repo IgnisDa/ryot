@@ -15,6 +15,7 @@ import {
 import { user } from "./auth";
 import { tracker } from "./core";
 
+// TODO: Expose as an RSS feed
 export const savedView = pgTable(
 	"saved_view",
 	{
