@@ -15,7 +15,6 @@ import { useEffect, useEffectEvent, useRef, useState, type ReactNode } from "rea
 
 import { AuthenticatedApiError } from "#/api/authenticated";
 import { IntegrationsApi } from "#/api/integrations";
-import { createKernelRyotClient } from "#/api/ryot-client";
 import { IntegrationDetailView } from "#/modules/integrations/integration-detail-view";
 import { storedIntegrationFormValues, updateIntegrationBody } from "#/modules/integrations/payload";
 import {
@@ -51,7 +50,6 @@ export const Route = createFileRoute("/_authenticated/settings/integrations/$int
 			// oxlint-disable-next-line typescript/only-throw-error
 			throw notFound();
 		}
-		const ryot = createKernelRyotClient(context.runtime, context.scope, context.theme);
 		const outcome = await context.runtime.runPromise(
 			Effect.flatMap(IntegrationsApi, (api) =>
 				api.get(context.scope, { params: { integrationId: IntegrationId.make(trimmed) } }),
@@ -71,14 +69,14 @@ export const Route = createFileRoute("/_authenticated/settings/integrations/$int
 		const [runs, providers] = await Promise.all([
 			context.runtime.runPromise(
 				Effect.flatMap(IntegrationsService, (service) =>
-					service.loadRuns(ryot, {
+					service.loadRuns(context.ryot, {
 						integrationId: trimmed,
 						limit: INTEGRATION_RUNS_PAGE_SIZE,
 					}),
 				).pipe(
 					Effect.match({
-						onFailure: (): readonly ImportRunSummary[] => [],
 						onSuccess: (page) => page.items,
+						onFailure: (): readonly ImportRunSummary[] => [],
 					}),
 				),
 				{ signal: abortController.signal },
@@ -117,25 +115,25 @@ function IntegrationFrame(props: {
 
 function IntegrationDetailRoute() {
 	const ryot = useRyot();
-	const uploadFile = useSchemaFileUpload();
 	const router = useRouter();
 	const navigate = Route.useNavigate();
 	const loaded = Route.useLoaderData();
-	const { backInterceptors, runtime, scope } = Route.useRouteContext();
-	const menuTrigger = useRef<HTMLButtonElement>(null);
-	const controller = useRef(new AbortController());
+	const uploadFile = useSchemaFileUpload();
 	const [saving, setSaving] = useState(false);
+	const [runs, setRuns] = useState(loaded.runs);
 	const [deleting, setDeleting] = useState(false);
 	const [menuOpen, setMenuOpen] = useState(false);
+	const controller = useRef(new AbortController());
 	const [activeIndex, setActiveIndex] = useState(0);
+	const menuTrigger = useRef<HTMLButtonElement>(null);
 	const [isConfirming, setIsConfirming] = useState(false);
-	const [runs, setRuns] = useState(loaded.runs);
 	const [deleteFailed, setDeleteFailed] = useState(false);
-	const [saveDetail, setSaveDetail] = useState<string | undefined>();
-	const [integration, setIntegration] = useState<ListedIntegration>(loaded.integration);
-	const providerNames = integrationProviderNames(loaded.providers);
-	const provider = findOwnedIntegrationProvider(loaded.providers, integration);
 	const title = integrationTitle(integration, providerNames);
+	const providerNames = integrationProviderNames(loaded.providers);
+	const [saveDetail, setSaveDetail] = useState<string | undefined>();
+	const { backInterceptors, runtime, scope } = Route.useRouteContext();
+	const provider = findOwnedIntegrationProvider(loaded.providers, integration);
+	const [integration, setIntegration] = useState<ListedIntegration>(loaded.integration);
 
 	useEffect(() => () => controller.current.abort(), []);
 
@@ -193,12 +191,7 @@ function IntegrationDetailRoute() {
 					integrationId: integration.id,
 					limit: INTEGRATION_RUNS_PAGE_SIZE,
 				}),
-			).pipe(
-				Effect.match({
-					onFailure: () => undefined,
-					onSuccess: (page) => page.items,
-				}),
-			),
+			).pipe(Effect.match({ onFailure: () => undefined, onSuccess: (page) => page.items })),
 			{ signal: controller.current.signal },
 		);
 		if (next !== undefined) {
@@ -293,8 +286,8 @@ function IntegrationDetailRoute() {
 					{menuOpen && (
 						<Menu
 							items={menuItems}
-							activeIndex={activeIndex}
 							triggerRef={menuTrigger}
+							activeIndex={activeIndex}
 							label="Integration actions"
 							onClose={() => setMenuOpen(false)}
 							onActiveIndexChange={setActiveIndex}

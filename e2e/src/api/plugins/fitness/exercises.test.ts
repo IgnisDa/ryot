@@ -19,7 +19,12 @@ import {
 	requireRows,
 } from "~/fixtures/kernel";
 import { createWorkoutEntityFixture, findWorkoutSetEventSchema } from "~/fixtures/plugins/fitness";
-import { assertCondition, assertPresent, assertTaggedError } from "~/support/assertions";
+import {
+	assertCondition,
+	assertPresent,
+	assertTaggedError,
+	requirePresent,
+} from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 const seededExerciseName = "3/4 Sit-Up";
@@ -96,7 +101,11 @@ describe("Exercises E2E", () => {
 			});
 			const allExercisesView = views.find((view) => view.name === "All Exercises");
 			assertPresent(allExercisesView, "Expected the built-in All Exercises saved view");
-			const savedViewQuery = allExercisesView.layouts.grid.queryDocument.queries.savedView;
+			const allExercisesLayouts = requirePresent(
+				allExercisesView.layouts,
+				"All Exercises saved view has no layouts",
+			);
+			const savedViewQuery = allExercisesLayouts.grid.queryDocument.queries.savedView;
 			assertPresent(savedViewQuery, "Expected the All Exercises saved-view query");
 			assertCondition(
 				savedViewQuery.output.type === "rows",
@@ -135,7 +144,7 @@ describe("Exercises E2E", () => {
 				"populationStatus",
 				"translationStatus",
 			]);
-			expect(allExercisesView.layouts).toMatchObject({
+			expect(allExercisesLayouts).toMatchObject({
 				grid: { entityIdField: "entityId", titleField: "title", imageField: "image" },
 				list: { entityIdField: "entityId", titleField: "title", imageField: "image" },
 				table: {
@@ -163,8 +172,12 @@ describe("Exercises E2E", () => {
 			expect(exercise.equipment).toBe("body_only");
 
 			const savedView = yield* getSavedView(client, "all-exercises");
+			const savedViewLayouts = requirePresent(
+				savedView.layouts,
+				"All Exercises saved view has no layouts",
+			);
 			const savedViewResult = requireRows(
-				(yield* executeRyotQL(client, savedView.layouts.grid.queryDocument)).data.savedView,
+				(yield* executeRyotQL(client, savedViewLayouts.grid.queryDocument)).data.savedView,
 				"savedView",
 			);
 			const savedViewExercise = savedViewResult.items.find(

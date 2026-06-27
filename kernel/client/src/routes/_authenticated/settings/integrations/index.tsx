@@ -5,7 +5,6 @@ import { Effect } from "effect";
 import { useEffect, useEffectEvent, useRef, useState, type ReactNode } from "react";
 
 import { IntegrationsApi } from "#/api/integrations";
-import { createKernelRyotClient } from "#/api/ryot-client";
 import {
 	IntegrationCreateWizard,
 	type IntegrationProviderPickerState,
@@ -35,11 +34,10 @@ export const Route = createFileRoute("/_authenticated/settings/integrations/")({
 		create: search.create === true || search.create === "true" ? true : undefined,
 	}),
 	loader: async ({ abortController, context }) => {
-		const ryot = createKernelRyotClient(context.runtime, context.scope, context.theme);
 		const [page, providers] = await Promise.all([
 			context.runtime.runPromise(
 				Effect.flatMap(IntegrationsService, (service) =>
-					service.loadIntegrations(ryot, { limit: INTEGRATIONS_PAGE_SIZE }),
+					service.loadIntegrations(context.ryot, { limit: INTEGRATIONS_PAGE_SIZE }),
 				),
 				{ signal: abortController.signal },
 			),

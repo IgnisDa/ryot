@@ -53,6 +53,9 @@ import {
 import { BackupRestoreWriter } from "#modules/backups/restore/writer";
 import { BackupsRepository } from "#modules/backups/runs/repository";
 import { BackupsService } from "#modules/backups/service";
+import { ClientPagesRepository } from "#modules/client-pages/repository";
+import { ClientPagesService } from "#modules/client-pages/service";
+import { ClientPageSessionService } from "#modules/client-pages/session-service";
 import {
 	AddEntityToCollectionWorkflowDefinitionsLive,
 	AddEntityToCollectionWorkflowOperationsLive,
@@ -218,6 +221,7 @@ const PlatformRepositoriesLive = Layer.mergeAll(
 	SandboxRepository.layer,
 	SandboxWorkflowReferenceRepository.layer,
 	SavedViewsRepository.layer,
+	ClientPagesRepository.layer,
 	PluginInstallationRepository.layer,
 	PluginRepository.layer,
 	ManagedAssetsRepository.layer,
@@ -315,8 +319,10 @@ const SavedViewsServiceLive = SavedViewsService.layer.pipe(
 		Layer.mergeAll(
 			RyotQLServiceLive,
 			SavedViewsRepository.layer,
+			ClientPagesRepository.layer,
 			PluginRuntimeResolverLive,
 			PluginInstallationRepository.layer,
+			ClientPagesRepository.layer,
 		),
 	),
 );
@@ -575,12 +581,24 @@ const OperationsServiceLive = OperationsService.layer.pipe(
 const PluginClientArtifactSessionServiceLive = PluginClientArtifactSessionService.layer.pipe(
 	Layer.provide(Layer.mergeAll(PluginRepository.layer, RedisService.layer)),
 );
+const ClientPagesServiceLive = ClientPagesService.layer.pipe(
+	Layer.provide(
+		Layer.mergeAll(ClientPagesRepository.layer, ClientPluginCompiler.layer, PluginRepository.layer),
+	),
+);
+const ClientPageSessionServiceLive = ClientPageSessionService.layer.pipe(
+	Layer.provide(
+		Layer.mergeAll(ClientPagesServiceLive, ClientPagesRepository.layer, RedisService.layer),
+	),
+);
 
 const ServicesLive = Layer.mergeAll(
 	PluginCatalogStateLive,
 	PluginInvalidationSubscriberLive,
 	ContentAndSandboxServicesLive,
 	PluginClientArtifactSessionServiceLive,
+	ClientPagesServiceLive,
+	ClientPageSessionServiceLive,
 	RuntimePluginInstallationServiceLive,
 	OperationsServiceLive,
 	InterestServicesLive,

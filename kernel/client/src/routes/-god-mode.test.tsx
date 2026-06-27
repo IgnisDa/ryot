@@ -35,6 +35,8 @@ import {
 	ProviderAddRouteStubs,
 	ImportsRouteStubs,
 	IntegrationRouteStubs,
+	ClientPagesApiRouteStubs,
+	ClientPageSessionsRouteStubs,
 	NotificationChannelRouteStubs,
 } from "#/routes/-route-fixtures";
 
@@ -59,6 +61,8 @@ const makeView = (
 			EntityRouteStubs,
 			makePublicApiStub(),
 			KernelApiTestLayer,
+			ClientPagesApiRouteStubs,
+			ClientPageSessionsRouteStubs,
 			events.layer,
 			godMode,
 			session,

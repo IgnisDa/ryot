@@ -22,6 +22,10 @@ export const SavedViewId = Schema.String.pipe(Schema.brand("SavedViewId"));
 
 export type SavedViewId = typeof SavedViewId.Type;
 
+export const ClientRendererId = Schema.String.pipe(Schema.brand("ClientRendererId"));
+
+export type ClientRendererId = typeof ClientRendererId.Type;
+
 export const ImportRunId = Schema.String.pipe(Schema.brand("ImportRunId"));
 
 export type ImportRunId = typeof ImportRunId.Type;

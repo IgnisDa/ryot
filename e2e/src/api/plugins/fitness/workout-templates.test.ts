@@ -223,7 +223,11 @@ describe("Workout Templates E2E", () => {
 					allWorkoutTemplatesView,
 					"Expected the built-in All Workout Templates saved view",
 				);
-				const savedViewQuery = allWorkoutTemplatesView.layouts.grid.queryDocument.queries.savedView;
+				const allWorkoutTemplatesLayouts = requirePresent(
+					allWorkoutTemplatesView.layouts,
+					"All Workout Templates saved view has no layouts",
+				);
+				const savedViewQuery = allWorkoutTemplatesLayouts.grid.queryDocument.queries.savedView;
 				assertPresent(savedViewQuery, "Expected the All Workout Templates saved-view query");
 				assertCondition(
 					savedViewQuery.output.type === "rows",

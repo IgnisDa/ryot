@@ -4,7 +4,7 @@
 
 **System Design:** [Composable Views](./README.md)
 
-**Status:** todo
+**Status:** done
 
 **Depends On:** None
 
@@ -24,18 +24,18 @@ Primary code areas are the contract, backend `client-pages` and `saved-views` mo
 
 ## Acceptance Criteria
 
-- [ ] The documented renderer authoring APIs create, list, inspect, replace drafts, publish, and delete owned renderers.
-- [ ] Invalid syntax can be saved as a draft, while invalid paths, malformed file encoding, and oversized source are rejected before storage.
-- [ ] Successful publication builds the captured source and makes it available to saved views without modifying the draft.
-- [ ] Failed compilation or stale draft publication leaves the previous publication unchanged.
-- [ ] Reference/settings checks serialize correctly with publication and view changes; no incompatible reference wins a race.
-- [ ] Unpublished renderer references and deletion of referenced renderers fail with the documented structured errors.
-- [ ] A user can create two views using the same published source with different settings, without generating different executable code solely for those settings.
-- [ ] Opening the view uses the new prepare/session contract, one sandboxed iframe, one React root, and one visible page frame.
-- [ ] The kernel client is constructed once per API scope, a loader re-run does not create a new client identity or discard cached query state, and no route borrows a loader-created client through parent-match plumbing.
-- [ ] A changed preparation identity is rejected rather than silently opening a different build.
-- [ ] Source and session ownership checks reuse backend authorization; no bearer credential is sent into the page.
-- [ ] Focused API, compiler/bootstrap, and browser tests prove this working path.
+- [x] The documented renderer authoring APIs create, list, inspect, replace drafts, publish, and delete owned renderers.
+- [x] Invalid syntax can be saved as a draft, while invalid paths, malformed file encoding, and oversized source are rejected before storage.
+- [x] Successful publication builds the captured source and makes it available to saved views without modifying the draft.
+- [x] Failed compilation or stale draft publication leaves the previous publication unchanged.
+- [x] Reference/settings checks serialize correctly with publication and view changes; no incompatible reference wins a race.
+- [x] Unpublished renderer references and deletion of referenced renderers fail with the documented structured errors.
+- [x] A user can create two views using the same published source with different settings, without generating different executable code solely for those settings.
+- [x] Opening the view uses the new prepare/session contract, one sandboxed iframe, one React root, and one visible page frame.
+- [x] The kernel client is constructed once per API scope, a loader re-run does not create a new client identity or discard cached query state, and no route borrows a loader-created client through parent-match plumbing.
+- [x] A changed preparation identity is rejected rather than silently opening a different build.
+- [x] Source and session ownership checks reuse backend authorization; no bearer credential is sent into the page.
+- [x] Focused API, compiler/bootstrap, and browser tests prove this working path.
 
 ## Verification
 
@@ -52,3 +52,9 @@ References are to [User Stories](./tracer.md#user-stories) in the parent plan:
 ## Implementor Notes
 
 Record any schema generation commands and the final source/build identity fields here. Do not use this section to defer acceptance criteria to later tasks.
+
+- Generated `kernel/backend/src/drizzle/20260906153031_opposite_scarlet_witch` with `bun run db:generate` from `kernel/backend`.
+- Published source identity records `rendererId`, integer `publishedRevision`, and canonical-definition `publishedHash`.
+- Build identity records `buildId` and immutable `artifactHash`; settings and data sources do not participate in artifact identity.
+- Preparation identity additionally records `savedViewId` and its monotonic integer `viewRevision`. Artifact sessions persist this complete identity and recheck it before renewal or file access.
+- Verified all affected package checks and the focused compiler, backend, client, API E2E, and browser E2E suites. The browser test switches between two views that share one renderer and confirms a new page context in one sandboxed iframe.

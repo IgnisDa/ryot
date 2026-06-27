@@ -1,4 +1,4 @@
-import type { ContractPayload } from "@ryot-app/contract/client";
+import type { ContractPayload, ContractRequest } from "@ryot-app/contract/client";
 import { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import { castJson, column, jsonPath, literal, table } from "@ryot-app/ryotql";
 import {
@@ -16,14 +16,21 @@ import { requirePresent } from "~/support/assertions";
 import type { Client } from "./auth";
 import { executeRyotQLRecipe } from "./ryotql";
 
-type CreateSavedViewBody = ContractPayload<"savedViews", "create">;
-type UpdateSavedViewBody = ContractPayload<"savedViews", "update">;
 type ReorderSavedViewsBody = ContractPayload<"savedViews", "reorder">;
+type UpdateSavedViewPayload = ContractRequest<"savedViews", "update">["payload"];
+type CreateSavedViewBody = Extract<
+	ContractRequest<"savedViews", "create">["payload"],
+	{ readonly layouts: unknown }
+>;
+type UpdateSavedViewBody = Exclude<
+	UpdateSavedViewPayload,
+	Extract<UpdateSavedViewPayload, { readonly renderer: unknown }>
+>;
 
-export type SavedViewLayouts = CreateSavedViewBody["layouts"];
-export type SavedViewQueryDocument = SavedViewLayouts["grid"]["queryDocument"];
+type SavedViewLayouts = CreateSavedViewBody["layouts"];
 type CreateSavedViewInput = Partial<CreateSavedViewBody>;
 type UpdateSavedViewInput = Partial<UpdateSavedViewBody>;
+type SavedViewQueryDocument = SavedViewLayouts["grid"]["queryDocument"];
 
 class SavedViewFixtureError extends Data.TaggedError("SavedViewFixtureError")<{
 	readonly message: string;

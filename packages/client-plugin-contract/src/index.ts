@@ -9,7 +9,12 @@ import {
 	ManagedAssetLocator,
 	TemporaryUploadToken,
 } from "@ryot-app/contract/modules/uploads/schemas";
-import { EntityId, EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
+import {
+	ClientRendererId,
+	EntityId,
+	EntitySchemaSlug,
+	SavedViewId,
+} from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { HttpUrl, IsoUtcString, strictStruct } from "@ryot-app/contract/schema/utils";
 import { Schema } from "effect";
@@ -85,6 +90,15 @@ export const PluginThemeSnapshot = strictStruct({ resolvedMode: PluginThemeMode 
 
 export type PluginThemeSnapshot = Schema.Schema.Type<typeof PluginThemeSnapshot>;
 
+export const ClientPageContext = strictStruct({
+	dataSources: Schema.NullOr(RyotQLDocument),
+	settings: Schema.Record(Schema.String, JsonValue),
+	renderer: strictStruct({ kind: Schema.Literal("custom"), id: ClientRendererId }),
+	target: strictStruct({ kind: Schema.Literal("saved-view"), savedViewId: SavedViewId }),
+});
+
+export type ClientPageContext = Schema.Schema.Type<typeof ClientPageContext>;
+
 export const PluginClientArtifactFile = strictStruct({
 	name: Schema.String,
 	contentType: Schema.String,
@@ -136,6 +150,7 @@ export const PluginBridgeInit = strictStruct({
 	mode: PluginThemeMode,
 	safeAreaTop: pluginSafeAreaInset,
 	safeAreaBottom: pluginSafeAreaInset,
+	page: Schema.optional(ClientPageContext),
 });
 
 export type PluginBridgeInit = Schema.Schema.Type<typeof PluginBridgeInit>;
