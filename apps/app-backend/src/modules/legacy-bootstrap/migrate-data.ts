@@ -8,8 +8,8 @@ import {
 	sandboxScript,
 } from "#lib/infrastructure/db/schema/tables/combined";
 import { dbEffect, DbService } from "#lib/infrastructure/db/service";
-import { bootstrapNewUser } from "#modules/builtins/bootstrap";
 import { builtinMediaEntitySchemaSlugs } from "#modules/builtins/media-schema-slugs";
+import { bootstrapNewUser } from "#modules/user-bootstrap/bootstrap";
 
 import {
 	buildCollectionEntityMigrationSql,

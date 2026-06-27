@@ -1,4 +1,5 @@
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
+import { defaultUserPreferences } from "@ryot/contract/auth-middleware";
 import type { BadRequest, DbError } from "@ryot/contract/errors";
 import { badRequest, internalError, notFound } from "@ryot/contract/errors";
 import type { ProvisionUserBody } from "@ryot/contract/modules/god-mode/contract";
@@ -11,15 +12,11 @@ import type { CurrentDb } from "#lib/infrastructure/db/service";
 import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 import { AuthService } from "#modules/auth/service";
-import {
-	acquireBootstrapLock,
-	defaultUserPreferences,
-	performBootstrap,
-} from "#modules/builtins/bootstrap";
 import { EntitiesService } from "#modules/entities/service";
 import { SavedViewsService } from "#modules/saved-views/service";
 import { InfrequentCronWorkflow } from "#modules/scheduler/cron-workflow";
 import { TrackersService } from "#modules/trackers/service";
+import { acquireBootstrapLock, performBootstrap } from "#modules/user-bootstrap/bootstrap";
 
 import { GodModeRepository } from "./repository";
 

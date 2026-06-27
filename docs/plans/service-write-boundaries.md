@@ -496,8 +496,8 @@ AuthService creation and account-linking wrappers.
 ### Current state
 
 `builtins/seed.ts` reconciles global system rows such as built-in entity, event, and relationship
-schemas, sandbox scripts, triggers, and links. `builtins/bootstrap.ts` creates per-user defaults such
-as trackers, tracker-schema links, saved views, and the library entity. The seed path remains an
+schemas, sandbox scripts, triggers, and links. `user-bootstrap/bootstrap.ts` creates per-user defaults
+such as trackers, tracker-schema links, saved views, and the library entity. The seed path remains an
 explicit system-initialization exception, while the per-user bootstrap path now delegates its writes
 to the owning services and retains orchestration and transaction control in the bootstrap callers.
 
@@ -507,7 +507,7 @@ to the owning services and retains orchestration and transaction control in the 
   built-in rows directly within its transaction; this must not become a user-facing write path.
 - [x] Do not add `seed`, `ensure`, `upsert`, or built-in modes to user-facing CRUD methods solely for
   system reconciliation.
-- [x] Make `builtins/bootstrap.ts` use owning service write methods for per-user rows where practical,
+- [x] Make `user-bootstrap/bootstrap.ts` use owning service write methods for per-user rows where practical,
   while retaining orchestration and transaction control in the bootstrap caller.
 - [x] Keep bootstrap transactional and idempotent. Reconciliation must only update or replace rows
   owned by the bootstrap process and must not overwrite user-customized rows.

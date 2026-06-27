@@ -7,16 +7,12 @@ import { Effect } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { CurrentDb, dbEffect, TransactionRunner } from "#lib/infrastructure/db/service";
+import { builtinEntitySchemas } from "#modules/builtins/entity-schemas";
+import { builtinSavedViews } from "#modules/builtins/saved-views";
+import { builtinTrackers } from "#modules/builtins/trackers";
 import { EntitiesService } from "#modules/entities/service";
 import { SavedViewsService } from "#modules/saved-views/service";
 import { TrackersService } from "#modules/trackers/service";
-
-import { builtinEntitySchemas } from "./entity-schemas";
-import { builtinSavedViews } from "./saved-views";
-import { builtinTrackers } from "./trackers";
-
-export { defaultUserPreferences, normalizeUserPreferences } from "@ryot/contract/auth-middleware";
-export type { CachedUserPreferences } from "@ryot/contract/auth-middleware";
 
 const createBuiltinTrackers = Effect.fn(function* (
 	userId: string,
@@ -238,11 +234,11 @@ const markBootstrapComplete = Effect.fn(function* (userId: string) {
 });
 
 export const performBootstrap = Effect.fn(function* (userId: string) {
-	const trackersService = yield* TrackersService;
-	const savedViewsService = yield* SavedViewsService;
-	const entitiesService = yield* EntitiesService;
 	const user = UserId.make(userId);
 	yield* acquireBootstrapLock(userId);
+	const trackersService = yield* TrackersService;
+	const entitiesService = yield* EntitiesService;
+	const savedViewsService = yield* SavedViewsService;
 	const completedAt = yield* readBootstrapMarker(userId);
 	if (completedAt !== null) {
 		yield* Effect.logInfo(`Bootstrap already complete for user: ${userId}`);

@@ -3,7 +3,8 @@
 ## Module Purpose
 
 Owns all built-in entity schemas, event schemas, relationship schemas, and saved views. Provides
-the seeding logic that populates these into the database at startup.
+the global seeding logic that populates these into the database at startup. Per-user initialization
+orchestration lives in `../user-bootstrap/bootstrap.ts`.
 
 ---
 
