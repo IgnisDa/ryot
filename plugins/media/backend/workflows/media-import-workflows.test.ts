@@ -4,9 +4,9 @@ import type { WorkflowReplayEnvelope, WorkflowReplayHost } from "@ryot-app/sandb
 import { Effect, Schema } from "effect";
 import { assert, expect, it } from "vitest";
 
-import populationWorkflow from "../scripts/workflows/media-import-population.sandbox";
-import resolutionWorkflow from "../scripts/workflows/media-import-resolution.sandbox";
-import { MediaImportPopulationWorkflowOutput } from "./schemas";
+import { MediaImportPopulationWorkflowOutput } from "../contracts/workflows";
+import populationWorkflow from "./media-import-population.sandbox";
+import resolutionWorkflow from "./media-import-resolution.sandbox";
 
 const completeReplay = async <Input extends JsonValue>(
 	run: (

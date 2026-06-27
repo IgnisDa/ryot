@@ -1,0 +1,38 @@
+import { defineOperationRecipe } from "@ryot-app/plugin-kit/operations";
+
+import {
+	MediaMonitoringDisableInput,
+	MediaMonitoringEnableInput,
+	MediaMonitoringOutput,
+	MediaMonitoringStatusInput,
+	MetadataLookupInput,
+	MetadataLookupOutput,
+} from "./operations";
+
+export const mediaMonitoringStatusRecipe = defineOperationRecipe({
+	pluginSlug: "media",
+	input: MediaMonitoringStatusInput,
+	output: MediaMonitoringOutput,
+	operationSlug: "media-monitoring-status",
+});
+
+export const mediaMonitoringEnableRecipe = defineOperationRecipe({
+	pluginSlug: "media",
+	input: MediaMonitoringEnableInput,
+	output: MediaMonitoringOutput,
+	operationSlug: "media-monitoring-enable",
+});
+
+export const mediaMonitoringDisableRecipe = defineOperationRecipe({
+	pluginSlug: "media",
+	input: MediaMonitoringDisableInput,
+	output: MediaMonitoringOutput,
+	operationSlug: "media-monitoring-disable",
+});
+
+export const metadataLookupRecipe = defineOperationRecipe({
+	pluginSlug: "media",
+	input: MetadataLookupInput,
+	output: MetadataLookupOutput,
+	operationSlug: "metadata-lookup",
+});
