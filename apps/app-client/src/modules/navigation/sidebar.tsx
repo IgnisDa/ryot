@@ -1,21 +1,15 @@
-import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import type { NavigationWorkspace } from "@ryot/ryotql-recipes/navigation";
 import clsx from "clsx";
 import { Image } from "expo-image";
-import { router } from "expo-router";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 
-import { useAuthClient } from "@/modules/auth/client";
 import { AppIcon as NavigationIcon } from "@/modules/icons";
-import { themeAtom } from "@/modules/theme/atoms";
 
 import { getWorkspaceSummary, type NavigationItem, type NavigationItems } from "./navigation-data";
 
 const VIEWS_HEIGHT = 238;
 const COLLECTIONS_HEIGHT = 148;
 const SAVED_VIEWS_HEIGHT = 148;
-const THEME_ORDER = ["light", "dark", "system"] as const;
-const THEME_ICONS = { light: "sun", dark: "moon", system: "monitor" } as const;
 
 function NavigationRow(props: { isActive: boolean; onPress: () => void; item: NavigationItem }) {
 	return (
@@ -88,45 +82,19 @@ function WorkspaceTrigger(props: {
 	);
 }
 
-function SignOutButton(props: { onPress: () => void }) {
-	return (
-		<Pressable
-			onPress={props.onPress}
-			accessibilityRole="button"
-			accessibilityLabel="Sign out"
-			className="h-7 w-7 items-center justify-center rounded-full bg-surface-2"
-		>
-			<NavigationIcon className="text-text-muted" name="logout" size={15} />
-		</Pressable>
-	);
-}
-
 export function Sidebar(props: {
 	className: string;
 	activeKey: string;
-	showSearch: boolean;
 	accountName: string;
 	accountEmail: string;
 	items: NavigationItems;
+	onOpenSettings: () => void;
 	accountImage: string | null;
 	onWorkspaceOpen: () => void;
 	workspace: NavigationWorkspace;
 	onNavigate: (item: NavigationItem) => void;
 }) {
 	const items = props.items;
-	const client = useAuthClient();
-	const theme = useAtomValue(themeAtom);
-	const setTheme = useAtomSet(themeAtom);
-
-	function cycleTheme() {
-		const currentIndex = THEME_ORDER.indexOf(theme);
-		setTheme(THEME_ORDER[(currentIndex + 1) % THEME_ORDER.length]);
-	}
-
-	async function handleSignOut() {
-		await client.signOut();
-		router.replace("/auth");
-	}
 
 	return (
 		<View className={props.className}>
@@ -140,20 +108,18 @@ export function Sidebar(props: {
 					onPress={props.onWorkspaceOpen}
 					summary={getWorkspaceSummary(items)}
 				/>
-				{props.showSearch && (
-					<View className="h-8 flex-row items-center gap-2 rounded-md border border-border bg-bg px-2.5">
-						<NavigationIcon className="text-text-muted" name="search" size={15} />
-						<TextInput
-							placeholder="Search"
-							returnKeyType="search"
-							accessibilityLabel="Search navigation"
-							className="min-w-0 flex-1 py-0 font-ui text-xs text-text"
-						/>
-						<View className="rounded border border-border px-1.5 py-0.5">
-							<Text className="font-mono text-xs text-text-subtle">⌘+K</Text>
-						</View>
+				<View className="h-8 flex-row items-center gap-2 rounded-md border border-border bg-bg px-2.5">
+					<NavigationIcon className="text-text-muted" name="search" size={15} />
+					<TextInput
+						placeholder="Search"
+						returnKeyType="search"
+						accessibilityLabel="Search navigation"
+						className="min-w-0 flex-1 py-0 font-ui text-xs text-text"
+					/>
+					<View className="rounded border border-border px-1.5 py-0.5">
+						<Text className="font-mono text-xs text-text-subtle">⌘K</Text>
 					</View>
-				)}
+				</View>
 
 				<View className="mt-2 gap-1">
 					<SectionHeader title="Views" />
@@ -230,23 +196,22 @@ export function Sidebar(props: {
 					{props.accountImage !== null ? (
 						<Image source={{ uri: props.accountImage }} className="h-7 w-7 rounded-full" />
 					) : (
-						<SignOutButton onPress={() => void handleSignOut()} />
+						<View className="h-7 w-7 items-center justify-center rounded-full bg-surface-2">
+							<NavigationIcon className="text-text-muted" name="user" size={15} />
+						</View>
 					)}
 					<View className="flex-1">
 						<Text className="font-ui-medium text-xs text-text">{props.accountName}</Text>
 						<Text className="font-ui text-xs text-text-muted">{props.accountEmail}</Text>
 					</View>
-					<View className="flex-row gap-2">
-						{props.accountImage !== null && <SignOutButton onPress={() => void handleSignOut()} />}
-						<Pressable
-							className="p-1"
-							onPress={cycleTheme}
-							accessibilityRole="button"
-							accessibilityLabel={`Switch to ${THEME_ORDER[(THEME_ORDER.indexOf(theme) + 1) % THEME_ORDER.length]} theme`}
-						>
-							<NavigationIcon className="text-text-subtle" name={THEME_ICONS[theme]} size={15} />
-						</Pressable>
-					</View>
+					<Pressable
+						className="p-1"
+						accessibilityRole="button"
+						onPress={props.onOpenSettings}
+						accessibilityLabel="Open settings"
+					>
+						<NavigationIcon className="text-text-subtle" name="settings" size={15} />
+					</Pressable>
 				</View>
 			</View>
 		</View>
