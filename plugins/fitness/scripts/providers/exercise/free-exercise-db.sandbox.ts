@@ -516,7 +516,7 @@ const preloadResultSchema = Schema.Struct({
 	inserted: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
 });
 
-export const cron = defineDriver(manifest, {
+export const boot = defineDriver(manifest, {
 	input: Schema.Unknown,
 	output: preloadResultSchema,
 	run: (_, host) =>
@@ -548,4 +548,4 @@ export const cron = defineDriver(manifest, {
 		}),
 });
 
-export default defineProvider({ manifest, drivers: { search, details, cron } });
+export default defineProvider({ manifest, drivers: { search, details, boot } });

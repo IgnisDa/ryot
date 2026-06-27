@@ -56,13 +56,14 @@ Derived from the plan §2 done criteria and cross-phase invariants:
 - [x] The branch stays shippable: backend `check` + unit tests and the `app-client` /
       `browser-extension` checks pass; the e2e suite is green for everything this step touches
       (a new `tests/src/tests/plugins/operations.test.ts` covers dispatch, unknown plugin/operation,
-      input-schema violation, and declared-auth enforcement). **Known pre-existing red, not
-      introduced here:** `tests/src/tests/fitness/workout-templates.test.ts` (6 failures) has had no
-      exercise-seeding source since task 03 moved seeding into the fitness `preload-exercises` plugin
-      cron and re-pointed only `exercises.test.ts` / `god-mode/cron-trending.test.ts`; that suite
-      calls `waitForSeededExerciseIds` but never triggers the cron. Reproduced with this task's tree
-      stashed at prior-layer HEAD. Fix belongs with the cron owner (trigger the cron in that suite),
-      tracked as a task-03 follow-up.
+      input-schema violation, and declared-auth enforcement). **Resolved as a task-03 follow-up:**
+      `tests/src/tests/fitness/workout-templates.test.ts` and `tests/src/tests/fitness/workouts.test.ts`
+      had no exercise-seeding source once task 03 moved exercise preload behind a manual cron trigger
+      that only `exercises.test.ts` / `god-mode/cron-trending.test.ts` called; `waitForSeededExerciseIds`
+      polled but nothing seeded the catalog. The fix moves exercise preload off the periodic `crons`
+      section onto a new one-time-per-server-start `boot` section (task 03 amendment, 2026-07-26), so
+      the e2e backend seeds exercises at startup like every other environment and the workout fixtures
+      need no cron trigger.
 
 ## User stories addressed
 
