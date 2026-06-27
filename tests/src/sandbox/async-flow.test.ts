@@ -181,7 +181,7 @@ driver("main", async function() {
   if (!result.success) {
     throw new Error(result.error);
   }
-  return result.data.data.items;
+  return (result.data as { data: { items: unknown[] } }).data.items;
 });
 `,
 		});
