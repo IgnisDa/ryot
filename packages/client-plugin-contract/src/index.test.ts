@@ -104,8 +104,40 @@ describe("plugin client artifact contract", () => {
 });
 
 describe("plugin client bridge contract", () => {
+	it("admits only bounded, strict entity interest and update messages in their direction", () => {
+		const client = Schema.decodeUnknownResult(PluginBridgeClientMessage);
+		const host = Schema.decodeUnknownResult(PluginBridgeHostMessage);
+		const interest = {
+			foreground: ["root"],
+			type: "entity-interest",
+			visible: Array.from({ length: 499 }, (_, i) => `row-${i}`),
+		};
+		const update = { type: "entity-updated", entityId: "root", reason: "translated" };
+		expect(Result.isSuccess(client(interest))).toBe(true);
+		expect(Result.isSuccess(host(update))).toBe(true);
+		expect(Result.isFailure(host(interest))).toBe(true);
+		expect(Result.isFailure(client(update))).toBe(true);
+		expect(Result.isFailure(client({ ...interest, foreground: ["root", "extra"] }))).toBe(true);
+		for (const extra of [
+			{ ticket: "secret" },
+			{ requestId: "1" },
+			{ userId: "user" },
+			{ server: "url" },
+		]) {
+			expect(Result.isFailure(client({ ...interest, ...extra }))).toBe(true);
+			expect(Result.isFailure(host({ ...update, ...extra }))).toBe(true);
+		}
+		expect(Result.isFailure(host({ ...update, reason: "changed" }))).toBe(true);
+		expect(Result.isFailure(client({ ...interest, foreground: [123] }))).toBe(true);
+		expect(
+			Result.isFailure(
+				Schema.decodeUnknownResult(PluginBridgeReady)({ ...identity, bridgeVersion: 2 }),
+			),
+		).toBe(true);
+	});
+
 	it("pins the protocol and compiler versions it stamps into an artifact", () => {
-		expect(CLIENT_BRIDGE_PROTOCOL_VERSION).toBe(2);
+		expect(CLIENT_BRIDGE_PROTOCOL_VERSION).toBe(1);
 		expect(CLIENT_COMPILER_VERSION).toBe(1);
 	});
 

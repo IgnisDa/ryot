@@ -17,7 +17,7 @@ import { Result, Schema } from "effect";
 import { createElement } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { RyotClientError } from "./index";
+import { RyotClientError, type EntityUpdate } from "./index";
 import { createPluginNavigationStore } from "./navigation/store";
 import { createPluginRuntime } from "./runtime";
 
@@ -119,6 +119,62 @@ afterEach(() => {
 });
 
 describe("plugin runtime", () => {
+	it("aggregates deterministic bounded interest, routes hints, and clears disposed owners", async () => {
+		const { channel, messages, runtime } = openRuntime();
+		activate(channel);
+		await delay();
+		const firstEvents: EntityUpdate[] = [];
+		const secondEvents: EntityUpdate[] = [];
+		const first = (event: EntityUpdate) => {
+			firstEvents.push(event);
+		};
+		const second = (event: EntityUpdate) => {
+			secondEvents.push(event);
+		};
+		const rows = Array.from({ length: 600 }, (_, i) => `row-${String(i).padStart(3, "0")}`);
+		const a = runtime.client.entities.watch(
+			{ foreground: ["z", "a"], visible: rows.toReversed() },
+			first,
+		);
+		const b = runtime.client.entities.watch({ foreground: ["row-599"], visible: ["z"] }, second);
+		await delay();
+		const interests = () =>
+			messages.filter(
+				(value) =>
+					typeof value === "object" &&
+					value !== null &&
+					"type" in value &&
+					value.type === "entity-interest",
+			);
+		expect(interests().at(-1)).toEqual({
+			type: "entity-interest",
+			foreground: ["a", "row-599", "z"],
+			visible: rows.slice(0, 497),
+		});
+		a.update({ foreground: ["a", "z", "a"], visible: rows });
+		await delay();
+		expect(interests()).toHaveLength(2);
+		channel.port1.postMessage({ type: "entity-updated", entityId: "z", reason: "populated" });
+		channel.port1.postMessage({
+			entityId: "unknown",
+			reason: "translated",
+			type: "entity-updated",
+		});
+		await delay();
+		expect(firstEvents).toEqual([{ entityId: "z", reason: "populated" }]);
+		expect(secondEvents).toEqual([{ entityId: "z", reason: "populated" }]);
+		b.dispose();
+		a.dispose();
+		await delay();
+		expect(interests().at(-1)).toEqual({ type: "entity-interest", foreground: [], visible: [] });
+		const terminal = runtime.client.entities.watch({ foreground: ["a"], visible: [] }, first);
+		runtime.dispose();
+		terminal.dispose();
+		expect(() => terminal.update({ foreground: [], visible: [] })).toThrow(
+			new RyotClientError("disposed"),
+		);
+	});
+
 	it("forwards semantic kernel shortcuts only while active", async () => {
 		const { channel, messages, runtime } = openRuntime();
 

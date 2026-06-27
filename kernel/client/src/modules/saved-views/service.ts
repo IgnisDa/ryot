@@ -6,6 +6,8 @@ import { savedViewCountRecipe, savedViewRecipe } from "@ryot-app/ryotql-recipes/
 import { Context, Data, Effect, Layer, Result } from "effect";
 
 import type { KernelRyotClient } from "#/api/ryot-client";
+import { appendSavedViewPage, type SavedViewData } from "#/modules/saved-views/controller";
+import { withSavedViewCursor } from "#/modules/saved-views/query";
 
 type SavedViewClient = Pick<KernelRyotClient, "data">;
 
@@ -65,6 +67,28 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 					),
 			});
 		});
+		const refresh = Effect.fn("SavedViewsService.refresh")(function* (
+			client: SavedViewClient,
+			layout: SavedViewLayoutName,
+			definition: LayoutDefinition,
+			current: SavedViewData,
+		) {
+			const queryDocument = withSavedViewCursor(current.queryDocument, undefined);
+			const first = yield* loadPage(client, layout, definition, queryDocument);
+			let refreshed = appendSavedViewPage(undefined, first, queryDocument, current.managedUrls);
+			while (refreshed.pageInfo.hasMore && refreshed.pages < current.pages) {
+				if (refreshed.pageInfo.nextCursor === null) {
+					return yield* new SavedViewLoadError({
+						stage: "page",
+						cause: new TypeError("Saved-view page has more results without a cursor"),
+					});
+				}
+				const requestDocument = withSavedViewCursor(queryDocument, refreshed.pageInfo.nextCursor);
+				const page = yield* loadPage(client, layout, definition, requestDocument);
+				refreshed = appendSavedViewPage(refreshed, page, queryDocument, current.managedUrls);
+			}
+			return refreshed;
+		});
 		const count = Effect.fn("SavedViewsService.count")(function* (
 			client: SavedViewClient,
 			queryDocument: RyotQLDocument,
@@ -80,7 +104,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 			});
 		});
 
-		return { count, loadPage, loadRecord };
+		return { count, refresh, loadPage, loadRecord };
 	}),
 }) {
 	static readonly layer = Layer.effect(this, this.make);

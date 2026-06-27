@@ -1,3 +1,7 @@
+import {
+	EntityUpdatedMessage,
+	MAX_INTEREST_ENTITY_IDS,
+} from "@ryot-app/contract/modules/entity-interest/messages";
 import { CLIENT_API_VERSION } from "@ryot-app/contract/modules/plugins/manifest";
 import { RyotQLDocument, RyotQLResponse } from "@ryot-app/contract/modules/ryotql/language";
 import {
@@ -10,10 +14,10 @@ import { HttpUrl, IsoUtcString, strictStruct } from "@ryot-app/contract/schema/u
 import { Schema } from "effect";
 
 export { CLIENT_API_VERSION };
-export const CLIENT_BRIDGE_PROTOCOL_VERSION = 2 as const;
 export const CLIENT_ARTIFACT_FORMAT = 1 as const;
 export const CLIENT_COMPILER_VERSION = 1 as const;
 export const CLIENT_BRIDGE_MAX_PENDING_REQUESTS = 64;
+export const CLIENT_BRIDGE_PROTOCOL_VERSION = 1 as const;
 
 export const KERNEL_SHORTCUTS = {
 	commandCenter: "Mod+K",
@@ -442,6 +446,37 @@ export const PluginBridgeRyotQLResult = Schema.Union([
 
 export type PluginBridgeRyotQLResult = Schema.Schema.Type<typeof PluginBridgeRyotQLResult>;
 
+export const EntityInterest = strictStruct({
+	visible: Schema.Array(EntityId),
+	foreground: Schema.Array(EntityId),
+});
+
+export type EntityInterest = Schema.Codec.Encoded<typeof EntityInterest>;
+
+export const PluginBridgeEntityInterest = strictStruct({
+	...EntityInterest.fields,
+	type: Schema.Literal("entity-interest"),
+})
+	.pipe(
+		Schema.check(
+			Schema.makeFilter(
+				({ foreground, visible }) =>
+					foreground.length + visible.length <= MAX_INTEREST_ENTITY_IDS ||
+					"Too many entity interests",
+			),
+		),
+	)
+	.annotate({ parseOptions: { onExcessProperty: "error" } });
+
+export type PluginBridgeEntityInterest = Schema.Schema.Type<typeof PluginBridgeEntityInterest>;
+
+export const PluginBridgeEntityUpdated = strictStruct({
+	...EntityUpdatedMessage.fields,
+	type: Schema.Literal("entity-updated"),
+});
+
+export type PluginBridgeEntityUpdated = Schema.Schema.Type<typeof PluginBridgeEntityUpdated>;
+
 export const PluginBridgeClientMessage = Schema.Union([
 	PluginBridgeHeader,
 	PluginBridgeNavigate,
@@ -454,6 +489,7 @@ export const PluginBridgeClientMessage = Schema.Union([
 	PluginBridgeRyotQLRequest,
 	PluginBridgeLifecycleClose,
 	PluginBridgeKernelShortcut,
+	PluginBridgeEntityInterest,
 	PluginBridgeOperationRequest,
 ]);
 
@@ -465,6 +501,7 @@ export const PluginBridgeHostMessage = Schema.Union([
 	PluginBridgeViewport,
 	PluginBridgeAssetResult,
 	PluginBridgeRyotQLResult,
+	PluginBridgeEntityUpdated,
 	PluginBridgeLifecycleClose,
 	PluginBridgeOperationResult,
 ]);

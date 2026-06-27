@@ -33,7 +33,7 @@ import {
 	type ShowSeasonList,
 } from "./episodes-state";
 import { ManagedAssetImage, ManagedAssetProvider } from "./managed-assets";
-import { ShowProgressBar, ShowStatusMessage } from "./primitives";
+import { ShowProgressBar, ShowRefreshStatus, ShowStatusMessage } from "./primitives";
 import { showEpisodesQuery, showSeasonEpisodesQuery } from "./queries";
 
 const metaLabel = (parts: readonly (string | undefined)[]) =>
@@ -302,11 +302,20 @@ export function ShowEpisodes(props: {
 }
 
 function ShowSeasonEpisodesLoader(props: {
+	readonly entityId: string;
 	readonly seasonId: string;
 	readonly children: (state: ShowSeasonEpisodesState, refresh: () => void) => ReactNode;
 }) {
-	const result = useRyotQuery(showSeasonEpisodesQuery, { seasonId: props.seasonId });
-	return props.children(mapShowSeasonEpisodes(result), result.refetch);
+	const result = useRyotQuery(showSeasonEpisodesQuery, {
+		entityId: props.entityId,
+		seasonId: props.seasonId,
+	});
+	return (
+		<>
+			<ShowRefreshStatus result={result} />
+			{props.children(mapShowSeasonEpisodes(result), result.refetch)}
+		</>
+	);
 }
 
 export function ShowEpisodesTab(props: { readonly compact: boolean; readonly entityId: string }) {
@@ -322,6 +331,7 @@ export function ShowEpisodesTab(props: { readonly compact: boolean; readonly ent
 				state.status === "ready" ? showEpisodesManagedAssets(state.seasons, seasonEpisodes) : []
 			}
 		>
+			<ShowRefreshStatus result={result} />
 			<ShowEpisodes
 				state={state}
 				compact={props.compact}
@@ -337,5 +347,9 @@ export function ShowEpisodesTab(props: { readonly compact: boolean; readonly ent
 	if (seasonId === null) {
 		return body({ status: "loading" }, () => undefined);
 	}
-	return <ShowSeasonEpisodesLoader seasonId={seasonId}>{body}</ShowSeasonEpisodesLoader>;
+	return (
+		<ShowSeasonEpisodesLoader entityId={props.entityId} seasonId={seasonId}>
+			{body}
+		</ShowSeasonEpisodesLoader>
+	);
 }

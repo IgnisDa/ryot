@@ -24,7 +24,7 @@ import {
 	type ShowActivityView,
 	type ShowActivityWatchRow,
 } from "./activity-state";
-import { ShowFact, ShowLinkButton, ShowStatusMessage } from "./primitives";
+import { ShowFact, ShowLinkButton, ShowRefreshStatus, ShowStatusMessage } from "./primitives";
 import { showActivityQuery } from "./queries";
 
 const MARKER_TONE: Record<ShowActivityRow["type"], string> = {
@@ -371,10 +371,13 @@ export function ShowActivity(props: {
 export function ShowActivityTab(props: { readonly compact: boolean; readonly entityId: string }) {
 	const result = useRyotQuery(showActivityQuery, { entityId: props.entityId });
 	return (
-		<ShowActivity
-			compact={props.compact}
-			refresh={result.refetch}
-			state={mapShowActivity(result)}
-		/>
+		<>
+			<ShowRefreshStatus result={result} />
+			<ShowActivity
+				compact={props.compact}
+				refresh={result.refetch}
+				state={mapShowActivity(result)}
+			/>
+		</>
 	);
 }

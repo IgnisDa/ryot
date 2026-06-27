@@ -20,6 +20,22 @@ Every layer in `ClientLive` must be synchronously constructible. `main.tsx` reso
 effect fails at boot on every platform. Asynchronous setup belongs inside the service's own
 operations.
 
+## Entity Interest
+
+`client.entities.watch({ foreground, visible }, onUpdate)` attaches a synchronous, mutable owner
+to `EntityInterestService` by server/user scope. Constructing a kernel client does not open a socket.
+The mounted authenticated layout acquires the session and releases it on logout, scope change, or
+unmount; loader revalidation does not restart it. Declarations made before its effect runs are retained.
+
+The service uses the narrow `EntityInterestApi` ticket port and an injected transport/lifecycle layer.
+It never fetches preferences at startup. A successful preferences update containing `language`
+reconnects the active session, including a reset to the provider default. Failed saves do not.
+The plugin bridge owns one subscription per document, outside the pending request table, and releases
+it through the same finish path used for crashes, replacements, and unmounts.
+
+See [entity-interest transport and lifecycle](src/modules/entity-interest/README.md) for selection,
+protocol, cleanup, and testing details.
+
 ## Navigation And The Edge Gesture
 
 `resolveEdge` returns three separate facts: the visible leading `intent` (`back`, `drawer`, or
