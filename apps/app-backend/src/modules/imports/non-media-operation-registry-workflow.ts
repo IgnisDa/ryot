@@ -8,7 +8,7 @@ import {
 import {
 	NonMediaImportWorkflowOperations,
 	makeNonMediaImportOperationSet,
-} from "./non-media-workflow";
+} from "./non-media-types";
 import { ImportRunError } from "./runtime/workflow-helpers";
 import { WorkoutImportItemSchema } from "./workout/domain";
 import {

@@ -95,11 +95,12 @@ logged after a `dropped` or `on_hold` event resumes the in-progress state.
   derivation is timestamp-based so the new progress event's `occurredAt` determines current state.
   Multiple `complete` events for the same entity are valid and represent multiple watches.
 
-### Auto-Complete Trigger
+### Auto-Complete Subscription
 
-The built-in sandbox trigger (`trigger.auto-complete-on-full-progress`,
+The built-in sandbox script (`trigger.auto-complete-on-full-progress`,
 `sandbox-scripts/triggers/auto-complete-on-full-progress.sandbox.js`) fires when a `progress`
-event is created with `progressPercent = 100`.
+event is created with `progressPercent = 100`. It is bound by a global built-in event-schema
+`create` subscription and receives the committed event through `automation.source.after`.
 
 - **Non-episodic media** (movie, book, audiobook, show-episode, podcast-episode, etc.): creates a
   `complete` event immediately using the triggering progress event's `occurredAt` for both the
@@ -115,15 +116,15 @@ finished, not an individual episode/chapter. `show` and `podcast` progress is tr
 `show-episode`/`podcast-episode` entity instead, so each episode completes independently like
 non-episodic media.
 
-`consumedOn` is propagated from the triggering progress event to the created complete event via
-`event_schema_trigger.metadata.inheritedProperties: ["consumedOn"]`.
+`consumedOn` is propagated directly from the committed progress event snapshot to the created
+complete event.
 
-### Integration Progress Policy Trigger
+### Integration Progress Policy
 
-The built-in sandbox trigger (`trigger.integration-progress-policy`,
-`sandbox-scripts/triggers/integration-progress-policy.sandbox.js`) is a `before_create` trigger
-on the `progress` event schema (position 100), registered and seeded active by default alongside
-the Auto-Complete Trigger (`registry.ts` / `seed.ts`); there is no user-facing way to disable it
+The built-in sandbox policy (`trigger.integration-progress-policy`,
+`sandbox-scripts/triggers/integration-progress-policy.sandbox.js`) is a `create` policy on the
+`progress` event schema (position 100), registered and seeded active by default alongside the
+Auto-Complete subscription (`registry.ts` / `seed.ts`); there is no user-facing way to disable it
 short of disabling the integration itself. It is a no-op unless the incoming event's
 `trigger.origin` is `"integration"` — it never affects progress events created via the app UI,
 imports, or the API directly.
@@ -138,10 +139,10 @@ same post-clamp value → skipped), and a **completion debounce** (post-clamp `1
 skipped, so chatty integrations don't repeatedly re-trigger the auto-complete cascade). The exact
 skip reasons and matching keys live in the script.
 
-Auto-filling a missing timestamp is **not** this trigger's job — it's structural: every sink sets
+Auto-filling a missing timestamp is **not** this policy's job — it's structural: every sink sets
 a progress event's `occurredAt` via `createProgressResult`
 (`apps/app-backend/src/modules/integrations/sinks/shared.ts`), defaulting to now, and the
-Auto-Complete Trigger reuses that always-present `occurredAt` as the resulting `complete` event's
+Auto-Complete subscription reuses that always-present `occurredAt` as the resulting `complete` event's
 `completedOn`.
 
 ### `progressPercent` Validation
@@ -149,3 +150,25 @@ Auto-Complete Trigger reuses that always-present `occurredAt` as the resulting `
 `number`, required, `exclusiveMinimum: 0`, `maximum: 100`, rounded to 2 decimal places — `0` is
 invalid (`1` is the intended floor for a freshly started item) and values above `100` are
 rejected by schema validation.
+
+## Notification Automations
+
+`integration.disabled`, `review.created`, and `workout.created` are active built-in actor-audience signal schemas. The media
+status/count/date, episode, season, and person/company association schemas use a related-user
+audience resolved through the `media-monitoring` relationship. Global
+built-in lifecycle subscriptions run the `automation.review-created` and
+`automation.workout-created` detector scripts for API-origin creates only. Each detector receives
+its target signal schema ID through immutable rule metadata and emits from the committed lifecycle
+snapshot. User bootstrap installs one user-owned rule per active signal schema, all referencing the
+shared `automation.send-signal-notification` script; the shared script formats solely from the
+stored signal snapshot and sends to every enabled notification channel.
+
+Provider population emits generic entity and relationship lifecycle occurrences with immutable
+before/after endpoint snapshots, root scope, initial-population state, season context, and batch
+counts. The `automation.media-entity-changed` and `automation.media-relationship-changed` built-in
+scripts are the sole semantic media-signal producers. Application code does not construct media
+notification messages or choose recipients.
+
+The integration workflow is the authoritative producer for `integration.disabled`. It derives the
+actor from the loaded integration owner, emits a deterministic signal after the disable transition,
+and dispatches the same user-owned notification subscription path as the lifecycle detectors.

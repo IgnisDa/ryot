@@ -1,42 +1,35 @@
 import type {
-	ListedNotificationPlatform,
-	NotificationPlatformSpecifics,
-	UpdateNotificationPlatformBody,
+	ListedNotificationChannel,
+	NotificationChannelSpecifics,
+	UpdateNotificationChannelBody,
 } from "@ryot/contract/modules/notifications/schemas";
-import type {
-	NotificationEventType,
-	NotificationPlatformKind,
-} from "@ryot/contract/modules/notifications/types";
-import { NotificationPlatformId, UserId } from "@ryot/contract/schema/brands";
-import { and, desc, eq, sql } from "drizzle-orm";
+import type { NotificationChannelKind } from "@ryot/contract/modules/notifications/types";
+import { NotificationChannelId, UserId } from "@ryot/contract/schema/brands";
+import { and, desc, eq } from "drizzle-orm";
 import { Effect, Match, Option } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
 
-export type NotificationPlatformRecord = ListedNotificationPlatform & {
+export type NotificationChannelRecord = ListedNotificationChannel & {
 	readonly userId: UserId;
-	readonly platformSpecifics: NotificationPlatformSpecifics;
+	readonly specifics: NotificationChannelSpecifics;
 };
 
-type NotificationPlatformRow = typeof schema.notificationPlatform.$inferSelect;
+type NotificationChannelRow = typeof schema.notificationChannel.$inferSelect;
 
 const urlOrigin = Option.liftThrowable((value: string) => new URL(value).origin);
-
 const safeUrlOrigin = (value: string) =>
 	urlOrigin(value).pipe(Option.getOrElse(() => "configured endpoint"));
 
 const maskEmail = (value: string) => {
 	const [local, domain] = value.split("@");
-	if (!local || !domain) {
-		return "configured recipient";
-	}
-	return `${local[0]}***@${domain}`;
+	return local && domain ? `${local[0]}***@${domain}` : "configured recipient";
 };
 
 const maskChatId = (value: string) => `chat ending in ${value.slice(-4)}`;
 
-export const describeNotificationPlatform = (specifics: NotificationPlatformSpecifics) =>
+const describeNotificationChannel = (specifics: NotificationChannelSpecifics) =>
 	Match.value(specifics).pipe(
 		Match.when({ kind: "apprise" }, ({ baseUrl }) => `Apprise at ${safeUrlOrigin(baseUrl)}`),
 		Match.when(
@@ -56,31 +49,27 @@ export const describeNotificationPlatform = (specifics: NotificationPlatformSpec
 		Match.exhaustive,
 	);
 
-const toRecord = (row: NotificationPlatformRow): NotificationPlatformRecord => {
-	const platformSpecifics = row.platformSpecifics;
-	return {
-		platformSpecifics,
-		platform: row.platform,
-		isDisabled: row.isDisabled,
-		userId: UserId.make(row.userId),
-		configuredEvents: row.configuredEvents,
-		createdAt: row.createdAt.toISOString(),
-		updatedAt: row.updatedAt.toISOString(),
-		id: NotificationPlatformId.make(row.id),
-		description: describeNotificationPlatform(platformSpecifics),
-	};
-};
+const toRecord = (row: NotificationChannelRow): NotificationChannelRecord => ({
+	kind: row.kind,
+	specifics: row.specifics,
+	isDisabled: row.isDisabled,
+	userId: UserId.make(row.userId),
+	createdAt: row.createdAt.toISOString(),
+	updatedAt: row.updatedAt.toISOString(),
+	id: NotificationChannelId.make(row.id),
+	description: describeNotificationChannel(row.specifics),
+});
 
 const toListed = ({
-	platformSpecifics: _platformSpecifics,
+	specifics: _specifics,
 	userId: _userId,
 	...record
-}: NotificationPlatformRecord) => record;
+}: NotificationChannelRecord) => record;
 
-const ownedPlatformWhere = (input: { platformId: NotificationPlatformId; userId: UserId }) =>
+const ownedChannelWhere = (input: { channelId: NotificationChannelId; userId: UserId }) =>
 	and(
-		eq(schema.notificationPlatform.id, input.platformId),
-		eq(schema.notificationPlatform.userId, input.userId),
+		eq(schema.notificationChannel.id, input.channelId),
+		eq(schema.notificationChannel.userId, input.userId),
 	);
 
 export class NotificationsRepository extends Effect.Service<NotificationsRepository>()(
@@ -94,9 +83,9 @@ export class NotificationsRepository extends Effect.Service<NotificationsReposit
 				const rows = yield* dbEffect(() =>
 					db
 						.select()
-						.from(schema.notificationPlatform)
-						.where(eq(schema.notificationPlatform.userId, userId))
-						.orderBy(desc(schema.notificationPlatform.createdAt)),
+						.from(schema.notificationChannel)
+						.where(eq(schema.notificationChannel.userId, userId))
+						.orderBy(desc(schema.notificationChannel.createdAt)),
 				);
 				return rows.map(toRecord).map(toListed);
 			});
@@ -104,63 +93,44 @@ export class NotificationsRepository extends Effect.Service<NotificationsReposit
 			const createForUser = Effect.fn("NotificationsRepository.createForUser")(function* (input: {
 				userId: UserId;
 				isDisabled: boolean;
-				platform: NotificationPlatformKind;
-				configuredEvents: NotificationEventType[];
-				platformSpecifics: NotificationPlatformSpecifics;
+				kind: NotificationChannelKind;
+				specifics: NotificationChannelSpecifics;
 			}) {
 				const db = yield* CurrentDb;
 				const [row] = yield* dbEffect(() =>
-					db
-						.insert(schema.notificationPlatform)
-						.values({
-							userId: input.userId,
-							platform: input.platform,
-							isDisabled: input.isDisabled,
-							configuredEvents: input.configuredEvents,
-							platformSpecifics: input.platformSpecifics,
-						})
-						.returning(),
+					db.insert(schema.notificationChannel).values(input).returning(),
 				);
 				return row
 					? toRecord(row)
-					: yield* Effect.die("Notification platform insert returned no row");
+					: yield* Effect.die("Notification channel insert returned no row");
 			});
 
 			const getForUser = Effect.fn("NotificationsRepository.getForUser")(function* (input: {
 				userId: UserId;
-				platformId: NotificationPlatformId;
+				channelId: NotificationChannelId;
 			}) {
 				const db = yield* CurrentDb;
 				const [row] = yield* dbEffect(() =>
-					db.select().from(schema.notificationPlatform).where(ownedPlatformWhere(input)).limit(1),
+					db.select().from(schema.notificationChannel).where(ownedChannelWhere(input)).limit(1),
 				);
 				return row ? toRecord(row) : null;
 			});
 
 			const updateForUser = Effect.fn("NotificationsRepository.updateForUser")(function* (input: {
 				userId: UserId;
-				platformId: NotificationPlatformId;
-				body: UpdateNotificationPlatformBody;
+				channelId: NotificationChannelId;
+				body: UpdateNotificationChannelBody;
 			}) {
-				const db = yield* CurrentDb;
-				const updates: Partial<typeof schema.notificationPlatform.$inferInsert> = {};
-				if (input.body.isDisabled !== undefined) {
-					updates.isDisabled = input.body.isDisabled;
-				}
-				if (input.body.configuredEvents !== undefined) {
-					updates.configuredEvents = [...input.body.configuredEvents];
-				}
-
-				if (Object.keys(updates).length === 0) {
+				if (input.body.isDisabled === undefined) {
 					const existing = yield* getForUser(input);
 					return existing ? toListed(existing) : null;
 				}
-
+				const db = yield* CurrentDb;
 				const [row] = yield* dbEffect(() =>
 					db
-						.update(schema.notificationPlatform)
-						.set(updates)
-						.where(ownedPlatformWhere(input))
+						.update(schema.notificationChannel)
+						.set({ isDisabled: input.body.isDisabled })
+						.where(ownedChannelWhere(input))
 						.returning(),
 				);
 				return row ? toListed(toRecord(row)) : null;
@@ -168,49 +138,38 @@ export class NotificationsRepository extends Effect.Service<NotificationsReposit
 
 			const deleteForUser = Effect.fn("NotificationsRepository.deleteForUser")(function* (input: {
 				userId: UserId;
-				platformId: NotificationPlatformId;
+				channelId: NotificationChannelId;
 			}) {
 				const db = yield* CurrentDb;
 				const rows = yield* dbEffect(() =>
 					db
-						.delete(schema.notificationPlatform)
-						.where(ownedPlatformWhere(input))
-						.returning({ id: schema.notificationPlatform.id }),
+						.delete(schema.notificationChannel)
+						.where(ownedChannelWhere(input))
+						.returning({ id: schema.notificationChannel.id }),
 				);
 				return rows.length > 0;
 			});
 
-			const listEnabledForUser = Effect.fn("NotificationsRepository.listEnabledForUser")(
-				function* (input: { userId: UserId; eventType?: NotificationEventType | undefined }) {
-					const db = yield* CurrentDb;
-					const clauses = [
-						eq(schema.notificationPlatform.userId, input.userId),
-						eq(schema.notificationPlatform.isDisabled, false),
-					];
-					if (input.eventType !== undefined) {
-						clauses.push(
-							sql<boolean>`${input.eventType} = ANY(${schema.notificationPlatform.configuredEvents})`,
-						);
-					}
+			const listEnabledForUser = Effect.fn("NotificationsRepository.listEnabledForUser")(function* (
+				userId: UserId,
+			) {
+				const db = yield* CurrentDb;
+				const rows = yield* dbEffect(() =>
+					db
+						.select()
+						.from(schema.notificationChannel)
+						.where(
+							and(
+								eq(schema.notificationChannel.userId, userId),
+								eq(schema.notificationChannel.isDisabled, false),
+							),
+						)
+						.orderBy(desc(schema.notificationChannel.createdAt)),
+				);
+				return rows.map(toRecord);
+			});
 
-					const rows = yield* dbEffect(() =>
-						db
-							.select()
-							.from(schema.notificationPlatform)
-							.where(and(...clauses))
-							.orderBy(desc(schema.notificationPlatform.createdAt)),
-					);
-					return rows.map(toRecord);
-				},
-			);
-
-			return {
-				listForUser,
-				createForUser,
-				deleteForUser,
-				updateForUser,
-				listEnabledForUser,
-			};
+			return { createForUser, deleteForUser, listEnabledForUser, listForUser, updateForUser };
 		},
 	},
 ) {}

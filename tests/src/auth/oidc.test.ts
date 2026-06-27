@@ -96,7 +96,12 @@ beforeAll(async () => {
 	const backendOriginC = `http://127.0.0.1:${backendPortC}`;
 
 	const infrastructure = requireCoreInfrastructure();
+	// All three backends share one Postgres, so their cluster/workflow
+	// engines share one storage too; preload's cluster entities from one
+	// backend hang the others' Sharding runners ("Could not find entity
+	// manager"). None of these tests need exercise data, so keep it off.
 	const sharedEnv = {
+		BUILTIN_EXERCISE_PRELOAD_LIMIT: "0",
 		SERVER_OIDC_CLIENT_ID: OIDC_CLIENT_ID,
 		SERVER_OIDC_ISSUER_URL: oidcIssuerUrl,
 		SERVER_OIDC_CLIENT_SECRET: OIDC_CLIENT_SECRET,
