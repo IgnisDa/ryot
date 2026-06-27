@@ -13,15 +13,11 @@ type ComparisonOp = Extract<Expr, { type: "comparison" }>["operator"];
 const dialect = new PgDialect();
 const render = (fragment: Parameters<typeof dialect.sqlToQuery>[0]) => dialect.sqlToQuery(fragment);
 
-const scope = (
-	language: string | null = null,
-	canonicalByScript: Record<string, string> | null = null,
-) =>
+const scope = (language: string | null = null) =>
 	rootScope(
 		{ type: "entities", alias: "course", schemas: ["course"], where: null },
 		"user-1",
 		language,
-		canonicalByScript,
 	);
 
 const ref = (name: string): Expr => ({
@@ -245,21 +241,16 @@ describe("translationStatus computed field", () => {
 		expect(sql).toBe("'text'");
 	});
 
-	it("emits its own correlated entity_translation reads when a language is set", () => {
-		const { sql, params } = render(
-			compileValue(translationStatusRef, scope("es", { "script-1": "en" })).value,
-		);
+	it("emits its own correlated sandbox_script and entity_translation reads when a language is set", () => {
+		const { sql, params } = render(compileValue(translationStatusRef, scope("es")).value);
 		expect(sql).toContain("CASE");
 		expect(sql).toContain("sandbox_script_id IS NULL");
 		expect(sql).toContain("populated_at IS NULL");
+		expect(sql).toContain(
+			"SELECT s.metadata -> 'providerInformation' ->> 'canonicalLanguage' FROM sandbox_script s",
+		);
 		expect(sql).toContain("NOT EXISTS (SELECT 1 FROM entity_translation t");
 		expect(params).toContain("es");
-		expect(params).toContain('{"script-1":"en"}');
-	});
-
-	it("binds an empty jsonb map when no canonical languages are known", () => {
-		const { params } = render(compileValue(translationStatusRef, scope("es")).value);
-		expect(params).toContain("{}");
 	});
 });
 

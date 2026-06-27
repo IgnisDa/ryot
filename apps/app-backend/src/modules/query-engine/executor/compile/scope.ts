@@ -20,7 +20,6 @@ export class CompileScope {
 	private constructor(
 		readonly userId: string,
 		readonly language: string | null,
-		readonly canonicalByScript: Record<string, string> | null,
 		private readonly bindings: ReadonlyMap<string, SqlRef>,
 		private readonly parent: CompileScope | null,
 		private readonly allocator: AliasAllocator,
@@ -30,23 +29,15 @@ export class CompileScope {
 		userId: string,
 		language: string | null,
 		bindings: Map<string, SqlRef>,
-		canonicalByScript: Record<string, string> | null = null,
 	): CompileScope {
 		let counter = 0;
-		return new CompileScope(userId, language, canonicalByScript, bindings, null, {
+		return new CompileScope(userId, language, bindings, null, {
 			next: () => (counter += 1),
 		});
 	}
 
 	child(bindings: Map<string, SqlRef>): CompileScope {
-		return new CompileScope(
-			this.userId,
-			this.language,
-			this.canonicalByScript,
-			bindings,
-			this,
-			this.allocator,
-		);
+		return new CompileScope(this.userId, this.language, bindings, this, this.allocator);
 	}
 
 	// Validation has already resolved every alias, so a miss is an internal invariant violation.
@@ -72,7 +63,6 @@ export const rootScope = (
 	source: RootSource,
 	userId: string,
 	language: string | null,
-	canonicalByScript: Record<string, string> | null = null,
 ): CompileScope => {
 	const bindings = new Map<string, SqlRef>();
 	if (source.type === "entities") {
@@ -104,5 +94,5 @@ export const rootScope = (
 			schemas: source.targetEntity.schemas,
 		});
 	}
-	return CompileScope.make(userId, language, bindings, canonicalByScript);
+	return CompileScope.make(userId, language, bindings);
 };
