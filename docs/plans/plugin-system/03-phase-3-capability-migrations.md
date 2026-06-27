@@ -1,6 +1,7 @@
 # Phase 3 — Capability migrations
 
-Status: in progress. Steps 0-3 are complete; resume with Step 4. Do not recreate the removed
+Status: in progress. Steps 0-3 are complete; resume with Step 4, whose design is fully settled
+(owner, 2026-07-27) in §4 below and which spans tasks 07-10. Do not recreate the removed
 multi-entrypoint driver model while implementing later steps.
 
 Goal: move the remaining native domain code into the plugins, one capability at a time. Step 0's
@@ -477,53 +478,212 @@ one of the most important tests in the repo).
 Done: media import population/resolution run as plugin workflows end-to-end; import e2e
 suites green; spike findings recorded (done — see the spike findings subsection above).
 
-## Step 4 — Integration adapters: yank/sink/push + import source adapters
+## Step 4 — Integration adapters, import sources, and filesystem grants
 
-Kernel capability:
+Status: not started. Every design question in this step was settled with the project owner on
+2026-07-27; the subsections below are the authoritative record and there is nothing left open.
 
-- Manifest section extends integration registration: a plugin declares integration
-  _providers_ `{ slug, lot (yank|sink|push), scriptSlug, settingsSchema }`; the kernel
-  integrations framework (credential storage, enable/disable, auto-disable, run bookkeeping
-  — tables in `imports.ts`) serves them generically and lists available providers from the
-  registry.
-- Filesystem grants (Decision 10): kernel materializes an uploaded/fetched artifact to a
-  path, spawns the execution with `--allow-read` on it plus a per-execution scratch dir
-  (quota'd, kernel-cleaned) with `--allow-write`; grants are declared per script kind in the
-  manifest (`capabilities: ["artifact-read", "scratch"]`) and are deny-by-default.
-  Implementation lives next to the existing flag assembly in `runtime.ts`
-  (`makeSpawnDenoProcess`). Note: pooled pre-warmed processes are spawned _before_ the
-  execution is known, so per-execution grants require spawning a dedicated (non-pooled)
-  process for grant-carrying executions **[RECOMMENDED]** — measure before optimizing.
-- Approved deps: add `fflate` (zip) to the sandbox SDK.
-- Push targets (radarr/sonarr/jellyfin) are already sandbox trigger scripts — they only need
-  their binding declarations, already moved in Phase 2.
+This step is larger than the others: it lands one kernel capability slice, then migrates every
+integration adapter and every import source into the two plugins, and ends with
+`modules/integrations` and `modules/imports` holding frameworks only. It is split across tasks
+07–10 in `docs/tasks/plugin-system-phase-3/`, each with its own gates. Ordering inside the step is
+fixed: kernel capability → integration adapters → import framework collapse + fitness sources →
+media sources. Fitness comes before media deliberately — three simple CSV adapters prove the
+generic import dispatch path before the sixteen-adapter media migration lands on it.
 
-Migrate: `integrations/sinks/*` normalization + yank connectors + import source adapters
-into media-plugin scripts (bounded network via `httpCall` with integration credentials —
-`getIntegration` exists; audit that credential exposure to scripts stays scoped to the
-integration being executed). Preserve `createProgressResult` semantics (`sinks/shared.ts`)
-— the progress-policy automation depends on `occurredAt` always being set.
+### Kernel capability
 
-Delete: native sink/yank adapter code from `modules/integrations` and media import source
-adapters from `modules/imports`, leaving the frameworks. E2e: `integrations/` + `imports/`
-suites re-pointed.
+**Manifest section `integrationProviders`, lot-discriminated** [DECIDED]. A plugin declares:
 
-Done: kernel `integrations`/`imports` modules contain zero provider-specific code; suites
-green.
+```txt
+{ slug, lot: "yank" | "sink", name, description, scriptSlug, settingsSchema }
+{ slug, lot: "push",          name, description,             settingsSchema }
+```
+
+Push targets (radarr, sonarr, jellyfin_push) are already `kind: "automation"` scripts dispatched
+through `bindings.eventAutomations` (moved in Phase 2); the kernel never routes them through an
+adapter path. A `scriptSlug` on a push entry would therefore be a field that means nothing for a
+third of the values, so the section is lot-discriminated rather than carrying an optional
+`scriptSlug`. Push entries exist in the registry so the kernel can list the provider and validate
+its settings — nothing more.
+
+The kernel integrations framework (credential storage, enable/disable, auto-disable, webhook
+endpoint, run bookkeeping) serves these generically and lists available providers from the
+registry. This deletes the hardcoded `IntegrationProviderSpecifics` union in
+`libs/contract/src/modules/integrations/schemas.ts` along with the `integrationProviders` and
+`providerLotByProvider` tables in that module's `types.ts`; the switch dispatch in
+`integrations/sinks/sink-adapters.ts` and `integrations/worker.ts` becomes a registry lookup plus
+script resolution.
+
+**`settingsSchema` is a declarative `AppSchema`** [DECIDED], validated by the existing
+property-schema runtime (`apps/app-backend/src/lib/property-schema/`). This follows Decision 6 for
+the same reason: Effect Schema cannot round-trip through `PluginManifest` (established in step 2),
+and the client needs introspectable property metadata to render integration forms.
+
+**Secret properties** [DECIDED]. Add `secret?: true` to `AppPropertyBase`
+(`libs/contract/src/schema/property-schema.ts`), beside the existing `translatable?: true`. It sits
+on the base type so every property kind inherits it, and it is validation-neutral —
+`property-schema-runtime.ts` needs no change. It does two jobs: the client renders a password input,
+and the kernel redacts marked fields when returning an integration.
+
+The redaction is a **deliberate behavioral change with owner sign-off**, not a quiet test edit
+(cross-phase invariant 2). Today `integrations/repository.ts` returns `providerSpecifics` verbatim,
+so every read of an integration hands the client the stored API keys, passwords, and auth cookies
+in plaintext. Redaction composes correctly with the existing merge-preserve on update
+(`service.ts` spreads existing specifics then the request body), which is the behavior asserted by
+`tests/src/tests/integrations/integrations.test.ts` and stays intact. Credentials remain plaintext
+`jsonb` at rest; encryption at rest is explicitly out of scope for this plan.
+
+**Manifest section `importSources`, and one import dispatch path** [DECIDED]. A plugin declares:
+
+```txt
+{ slug, name, description, workflowSlug, input: "file" | "payload",
+  allowedFileExtensions, requiredAppConfigKeys }
+```
+
+`runtime/source-definitions.ts` currently hardcodes all nineteen sources with their allowed
+extensions and required config; that table moves into the two manifests. More importantly, the
+kernel's media-versus-non-media branch (`imports/media-workflow.ts` and
+`imports/non-media-workflow.ts`, selected by knowing which sources are media) is itself a purity
+violation and **collapses into one path**: the kernel looks the run's `source` slug up in the
+registry and dispatches the owning plugin's workflow with
+`{ runId, userId, artifactPath?, sourcePayloadRef? }`. Media's workflow fans out to
+resolution/population children; fitness's parses a CSV and writes directly. The kernel sees no
+difference.
+
+**Filesystem grants** (Decision 10, deny-by-default) [DECIDED]. The kernel materializes an
+uploaded or fetched artifact to a path and spawns the execution with `--allow-read` extended to
+that path plus `--allow-write` on a per-execution scratch directory, replacing the blanket
+`--deny-write` for grant-carrying executions only. Implementation lives next to the existing flag
+assembly in `sandbox-runtime/runtime.ts` (`makeSpawnDenoProcess`). Grants are requested per script
+through `capabilities: ["artifact-read", "scratch"]`.
+
+Grant-carrying executions run on a **dedicated, non-pooled process**: `ProcessPool` pre-warms
+processes before the execution is known, so per-execution grants leave no alternative
+**[RECOMMENDED]** — measure before optimizing.
+
+The scratch quota is **5 MiB**, enforced **post-execution**: Deno provides no preventive
+filesystem quota, so the kernel measures the directory after the run completes and fails the
+execution when it exceeds the cap. Cleanup is unconditional and kernel-owned. The number is a
+starting point and may be raised without revisiting this design.
+
+**Adapter output crosses via scratch-dir chunk files** [DECIDED]. An adapter's normalized output is
+far larger than `execution.resultBytes` (1 MiB) — a full Netflix or Trakt export is tens of
+thousands of entity groups — so it cannot be a script return value, and raising `resultBytes` to
+fit would re-introduce the context-pressure failure mode the step 3 spike hit. Instead the adapter
+**writes chunk files into its granted scratch directory** and returns only a small manifest (chunk
+file names, counts, failure summary). The kernel harvests those files at execution end into
+run-scoped kernel-owned storage, then cleans the scratch directory, then feeds the chunks into the
+resolution/population/writing pipeline. The reader is always the **kernel**, never a second sandbox
+execution, so the grant stays per-execution exactly as specified above.
+
+**Withdrawn host functions** [DECIDED]. Earlier drafts of this step proposed run-scoped blob
+syscalls (`putRunBlobs` / `getRunBlobs`) to move an opaque payload between two sandbox executions,
+plus `recordImportFailures` and `reportImportProgress`. **None of the four are built.** The
+chunk-harvest transport removes the need for blobs, and because the kernel still owns entity, event,
+and relationship writes, it still owns the counters and failure rows exactly as it does today. Do
+not add them.
+
+**Approved sandbox dependencies** [DECIDED]. Add `fflate` (zip and gunzip), `papaparse` (CSV — the
+same parser the kernel uses today at `imports/runtime/csv.ts`, so adapter parsing parity is exact),
+and `fast-xml-parser` (MyAnimeList exports) through the Step 0a vendoring mechanism. Plex sink
+payloads are multipart/form-data and are parsed in-script without a dependency. The approved-
+dependency set is open: later steps may vendor more through the same mechanism.
+
+**Credential scoping** [DECIDED]. `getIntegration` must resolve the integration from trusted
+execution state — the integration the execution belongs to — rather than from an arbitrary id
+supplied by the script.
+
+### Event subject selection: `episodeLocator` becomes `subjectEntityId` [DECIDED]
+
+`imports/media/event-target-workflow.ts` imports `@ryot/plugin-media` directly and branches on
+`episodeLocator.type === "show" | "podcast"`, reading `seasonNumber` / `episodeNumber` and looking
+up the `show-episode` / `podcast-episode` schema slugs. That is a kernel-to-plugin import plus six
+media strings, and it is why `modules/imports/media/` cannot stay in the kernel.
+
+Replace `ImportMediaEvent.episodeLocator` with an optional, already-resolved `subjectEntityId` on
+the import event envelope. The plugin's import workflow resolves subjects itself, between
+population and writing — it has owned import orchestration since step 3 and owns the
+`resolve-episodes` operation since step 2 — so the kernel's writing path collapses to
+`subjectEntityId ?? group.entityId`. `event-target-workflow.ts` and the episode branches of
+`writing-failures-workflow.ts` are deleted with **no kernel replacement**.
+
+`subjectEntityId` is generic on its face ("the event's subject may be a sub-entity of the imported
+item"); that only the media plugin populates it is acceptable for an envelope field, since Decision
+8(d) constrains host functions rather than payload shape.
+
+The considered alternative — an opaque `subjectSelector` blob that the kernel forwards to a
+manifest-declared resolver script — was **rejected**. It reaches the same purity but costs a new
+manifest field, a new kernel dispatch path, and an extra round trip per writing chunk.
+
+### Migration
+
+Adapters and sources split by owning plugin. Adapter outputs that identify catalog providers use
+logical `providerSlug` / `providerId`, never executable script identity.
+
+| Target           | Sinks                                                          | Yanks                                        | Import sources                                                                                                                                    |
+| ---------------- | -------------------------------------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `plugins/media`  | plex, jellyfin, emby, kodi, browser-extension, generic_json    | komga, plex, audiobookshelf, youtube-music   | netflix, goodreads, storygraph, hardcover, anilist, trakt, imdb, igdb, grouvee, movary, myanimelist, watcharr, jellyfin, plex, audiobookshelf, media-tracker |
+| `plugins/fitness`| —                                                              | —                                            | hevy, strong-app, open-scale                                                                                                                       |
+
+Network access from adapter scripts is bounded through `httpCall` with integration credentials from
+the scoped `getIntegration`. Preserve `createProgressResult` semantics (`integrations/sinks/shared.ts`)
+— `occurredAt` is always set, and the progress-policy automation depends on it.
+
+Netflix is the one adapter that gets structurally simpler by moving. It needs TMDB searches
+mid-parse, which the kernel cannot do inline, hence today's two-phase `"netflix-search-planned"`
+dance across `imports/sources/netflix/processor.ts` and `imports/media/load-workflow.ts`. A plugin
+script calls provider search in-process (as `metadata-lookup.sandbox.ts` already does) and that
+entire phase disappears. Moving it also retires the last kernel consumer of
+`lib/shared/title-parsing.ts` and `title-matching.ts`, which step 2 explicitly scheduled for
+deletion here.
+
+### Delete
+
+- Native sink and yank adapter code from `modules/integrations`, leaving the framework.
+- All media and fitness import source adapters from `modules/imports/sources/`, plus
+  `imports/media-workflow.ts`, `imports/non-media-workflow.ts`, `imports/workout/`,
+  `imports/measurement/`, and the media orchestration under `imports/media/`.
+- `imports/runtime/{import-files,csv,source-definitions}.ts` in whole or in large part — file
+  parsing moves into the sandbox and the source table moves into the manifests.
+- `apps/app-backend/src/lib/shared/title-parsing.ts`, `title-matching.ts`, and their tests.
+
+What survives as the kernel `imports` framework: the run row with its status, progress, and
+counters; failure rows and the `ImportRunFailureStage` enum (`provider_resolution`,
+`provider_details`, `event_policy` are kernel vocabulary — providers, events, and policies are
+kernel concepts); artifact upload, materialization, and cleanup; source listing from the registry;
+dispatch of the owning plugin's workflow; and the entity/event/relationship writes themselves.
+
+### Tests
+
+The `integrations/` and `imports/` e2e suites are re-pointed with assertions preserved. Those
+twenty-five tests cover only a fraction of the adapters; the rest are covered by
+`apps/app-backend` unit tests, which **move into the plugin packages** alongside their adapters with
+assertions intact. New e2e tests are welcome where the migration exposes a coverage gap.
+
+### Done
+
+Kernel `modules/integrations` and `modules/imports` contain zero provider-specific and zero
+domain-specific code; both plugins own their adapters and import workflows; `integrations/` and
+`imports/` suites green; the full gate passes after each of tasks 07–10.
 
 ## Step 5 — `media-monitoring` + remaining media logic
 
-By now this is composition: monitoring sweeps = cron + `executeQueryEngine` pushdown +
-signals; refresh flows compose the step-3 workflows; notification fan-out uses existing
-signal/subscription machinery. The `media-monitoring` contract group's user-facing surface
-(status/enable/disable) becomes plugin operations (step 2 capability).
+Step 4 absorbs all of the imports and integrations work, so this step is what remains:
+`media-monitoring` plus residual media branches. It is composition — it adds no kernel capability.
+Monitoring sweeps are cron + `executeQueryEngine` pushdown + signals; refresh flows compose the
+step-3 workflows; notification fan-out uses the existing signal/subscription machinery. The
+`media-monitoring` contract group's user-facing surface (status/enable/disable) becomes plugin
+operations (step 2 capability), using `user` or `integration` auth.
 
-Migrate & delete: `modules/media-monitoring`, any leftover media references in `signals`,
-`events`, `entity-interest` (interest/translation machinery itself is kernel — only
-media-specific branches, if any, move). E2e: the `media-monitoring/` suites (4 files,
-including association detectors and cron-refresh coverage) re-pointed — these are the
-acceptance test that the syscall surface is sufficient, since they exercise nearly every
-capability at once.
+Migrate & delete: `modules/media-monitoring`, and any leftover media references in `signals`,
+`events`, and `entity-interest` (the interest/translation machinery itself is kernel — only
+media-specific branches move). Move the media resolution provider-to-activity-script map into
+manifest/registry metadata and remove the kernel import of `@ryot/plugin-media/workflows/schemas`.
+
+E2e: the `media-monitoring/` suites (4 files, including association detectors and cron-refresh
+coverage) re-pointed — these are the acceptance test that the syscall surface is sufficient, since
+they exercise nearly every capability at once.
 
 Done: **no module under `apps/app-backend/src/modules/` is media- or fitness-specific**;
 full e2e suite green; the media-monitoring suites pass with assertions unchanged.
@@ -532,4 +692,6 @@ full e2e suite green; the media-monitoring suites pass with assertions unchanged
 
 All step gates plus: grep the kernel for media/fitness vocabulary (informal preview of
 Phase 4's enforced check) and triage every hit — each is either deleted, generalized, or
-explicitly justified in this file.
+explicitly justified in this file. Task 06 also left one open operational risk that must close
+here: run concurrent full-size media imports through the real workflow pool, Redis projection, and
+sandbox processes, and record pool and lock pressure alongside completion results.
