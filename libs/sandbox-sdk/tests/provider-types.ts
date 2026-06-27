@@ -1,5 +1,9 @@
-import { defineManifest, defineScript } from "@ryot/sandbox-sdk";
-import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
+import { defineManifest, type ScriptManifest } from "@ryot/sandbox-sdk";
+import {
+	defineProvider,
+	defineProviderDriver,
+	type ProviderResolveResult,
+} from "@ryot/sandbox-sdk/provider";
 
 import type { Equal, Expect } from "./type-assertions.js";
 
@@ -22,14 +26,18 @@ const search = defineProviderDriver(manifest, "search", (input, host) => {
 	});
 });
 
-defineProvider({ manifest, drivers: { search } });
-
-// @ts-expect-error provider manifests must use defineProvider.
-defineScript({ manifest, drivers: { search } });
-
-defineProviderDriver(
-	manifest,
-	"resolve",
-	// @ts-expect-error resolve output must use a nullable externalId string.
-	() => Promise.resolve({ externalId: 42 }),
+const resolve = defineProviderDriver(manifest, "resolve", () =>
+	Promise.resolve({ externalId: null }),
 );
+
+const provider = defineProvider({ manifest, drivers: { search, resolve } });
+
+const manifestType: Expect<Equal<typeof manifest extends ScriptManifest ? true : false, false>> =
+	true;
+const resolveType: Expect<
+	Equal<Awaited<ReturnType<typeof provider.drivers.resolve.run>>, ProviderResolveResult>
+> = true;
+const externalIdType: Expect<Equal<ProviderResolveResult["externalId"], string | null>> = true;
+void manifestType;
+void resolveType;
+void externalIdType;
