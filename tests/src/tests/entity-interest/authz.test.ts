@@ -24,6 +24,7 @@ describe("interest authorization", () => {
 		const privateEntity = await seedMediaEntity({
 			properties: {},
 			sandboxScriptId,
+			client: authA.client,
 			userId: authA.userId,
 			entitySchemaId: schema.id,
 			name: "A's Private Studio",

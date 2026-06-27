@@ -6,7 +6,7 @@ This package contains end-to-end and integration-style tests for Ryot.
 
 - Keep end-to-end suites in `tests/src/tests/<domain>/` folders that mirror backend modules; prefer descriptive filenames over `index.test.ts`.
 - Prefer shared helpers in `tests/src/fixtures` for repeated auth setup, API setup, and test data builders.
-- Favor fixture files with clear ownership (`auth`, `entity-import`, `entity-interest`, `entity-schemas`, `events`, `query-engine`, `saved-views`, `trackers`) over generic catch-all helpers.
+- Favor fixture files with clear ownership (`auth`, `entity-schemas`, `events`, `media`, `query-engine`, `sandbox-provider`, `trackers`, `translations`) over generic catch-all helpers.
 - Keep `tests/src/support` for cross-cutting test infrastructure (assertions, backend/container provisioning), not domain fixtures.
 - Fake external HTTP endpoints with `startFakeHttpServer` (`support/fake-http-server.ts`): it serves on a random local port, records `{ path, body }` per request (body parsed as JSON, `null` when unparsable — the recorder consumes the body, so `respond` must not read it again), and answers with the `respond` callback (default `{ ok: true }`).
 - Notification delivery assertions use the `startFakeAppriseServer` wrapper (`fixtures/notifications.ts`), which responds 500 to paths ending in `/fail` so delivery-failure behavior stays testable; Apprise POSTs land on `/notify/<key>`, so the platform `key` disambiguates platforms in the request log.
@@ -17,22 +17,23 @@ This package contains end-to-end and integration-style tests for Ryot.
 
 Every provider-driven test except the live smoke suite runs offline against a fake provider, so search/import/populate/translate/trending flows stay deterministic and make no external calls.
 
-- `seedBuiltinProviderScript` (`fixtures/sandbox-provider.ts`) builds a complete SDK TypeScript provider module, compiles it through the authenticated script-creation API, then promotes that exact row to a builtin (global, `user_id` null) through SQL. Pair it with `cleanupBuiltinProviderScript` in `afterAll`/`afterEach`; that helper deletes the global entities the script produced, any relationship touching them, the schema link, then the script, and swallows all failures so cleanup never masks a test failure.
+- `seedBuiltinProviderScript` (`fixtures/sandbox-provider.ts`) builds a complete SDK TypeScript provider module, compiles it through the authenticated script-creation API, then promotes that exact row through `testSupport.promoteSandboxScript`. Pair it with `cleanupBuiltinProviderScript` in `afterAll`/`afterEach`; the idempotent `testSupport.deleteSandboxScript` endpoint removes the script and its generated entities, relationships, and schema links without masking a test failure.
 - Build fixed provider data with `fakeProviderSearchResult`, `fakeProviderDetailsResult`, and `fakeProviderTranslations`, then pass the results as `drivers` to `seedBuiltinProviderScript`. The values use public `@ryot/sandbox-sdk/provider` contracts and are serialized into one complete module; never concatenate driver registrations or place uncompiled source in an executable column.
 - Link a script to an entity schema (`linkToEntitySchemaId` → `entity_schema_sandbox_script`) only when a `details` result references a related entity by the provider's slug, so it resolves as that schema's provider. Plain search/import (by `scriptId`) and provenance-based population need no schema link — the entity's own `sandbox_script_id` provenance selects the driver.
 - A non-empty `translations` fixture always defines the provider's `translate` driver: it returns a fixed overlay for each named language and an empty object (an all-null negative-cache overlay) for any other. Include it even in "must not translate" cases so an erroneous premature translate writes a detectable all-null overlay instead of erroring out.
 - Provider metadata carries `providerInformation.canonicalLanguage`, which the backend read path uses to compute `translationStatus` (semantics owned by `apps/app-backend/src/modules/entity-interest/AGENTS.md`).
-- When one provider owns a relationship into another provider's entities, clean up sequentially, owner first (e.g. `entity-schemas-search-import` cleans the anime provider before the company provider it links to).
+- When one provider owns a relationship into another provider's entities, clean up sequentially, owner first (for example, `entity-schemas/search-import.test.ts` cleans the anime provider before the linked company provider).
 
-## Seeding Global Rows Directly
+## Test-Support Seeding
 
-The contract API is scoped to a user's own trackers, so it cannot create the global (`user_id` null) rows providers own, nor reach global structural schemas. Seed and read those directly via SQL:
+Admin-only fixture operations use the typed `testSupport` contract group with `adminHeaders` from `fixtures/admin.ts`. Manual SQL is reserved for special cases that assert internal database state no HTTP endpoint should expose.
 
-- `seedGlobalShowEpisodeTree` (`fixtures/media.ts`) inserts a global show → season → episode entity/relationship tree so import/webhook flows resolve an episode positionally with no external calls. The schemas and TMDB script still come from the API; only the global entity/relationship rows (which no API can create) are inserted directly.
-- Structural sub-entity schemas (`show-season`, `show-episode`, `podcast-episode`) are global and linked to no user tracker, so the tracker-scoped entity-schema list API cannot see them; `getBuiltinEntitySchemaId` (`fixtures/entity-schemas.ts`) looks them up by slug directly.
-- `seedEntityTranslation` (`fixtures/translations.ts`) inserts an `entity_translation` row directly, modeling a completed provider fill for one `(entity, language)` pair; a null `name`/`properties` models a negative-cache (canonical-fallback) row.
-- `auth-god-mode-recovery` inserts an `account` row directly because linking a second (OIDC) account to an existing credential user has no API.
-- Executable sandbox rows are the exception to direct seeding: create and compile source through the public API first. `createAndPromoteSandboxScript` changes only ownership and builtin state, while `replaceSandboxScriptCompiledRepresentation` copies a temporary API-compiled source, module, format, and manifest into an existing global row before deleting the temporary row.
+- `seedGlobalShowEpisodeTree` and `seedMediaEntity` use `createGlobalEntity` and `upsertGlobalRelationship`; user-scoped entities continue through the authenticated entities API.
+- `getBuiltinEntitySchemaId` uses `getBuiltinEntitySchema` for structural schemas that tracker-scoped listing cannot see.
+- Translation fixtures use `setEntityPopulatedAt`, `upsertEntityTranslation`, and `listEntityTranslations`; null overlay values model a negative cache.
+- Mixed-auth fixtures use `linkAuthAccount`, while sandbox fault injection uses `patchSandboxScript` only after compiling executable code through the public sandbox API.
+
+The SQL allowlist is workflow polling through `cluster_messages`/`cluster_replies`, the deleted tracker assertion in `god-mode/delete-user.test.ts`, `queryUserEntityStateCounts`, and `countMediaMonitoringRelationships`. Document any new exception here; otherwise use the contract API. `tests/src/seed-script.ts` remains excluded from fixture cleanup.
 
 ## SSE Interest Streams
 
