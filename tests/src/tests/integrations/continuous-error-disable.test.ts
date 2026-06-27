@@ -6,7 +6,6 @@ import {
 	createNotificationChannel,
 	getImportRun,
 	getIntegration,
-	installBuiltinNotificationSubscription,
 	pollImportRunUntilTerminal,
 	postIntegrationWebhook,
 	startFakeAppriseServer,
@@ -27,8 +26,7 @@ afterAll(() => {
 
 describe("integration auto-disable on continuous errors", () => {
 	it("disables after 5 consecutive failed runs and notifies through its subscription once", async () => {
-		const { client, userId } = await createAuthenticatedClient();
-		await installBuiltinNotificationSubscription(userId, "integration.disabled");
+		const { client } = await createAuthenticatedClient();
 
 		await createNotificationChannel(client, {
 			channel: "apprise",
