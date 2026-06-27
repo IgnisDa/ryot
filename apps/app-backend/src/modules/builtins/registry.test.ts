@@ -5,7 +5,11 @@ import {
 	showEpisodePropertiesSchema,
 	showSeasonPropertiesSchema,
 } from "./media-property-schemas";
-import { builtinEventSchemaTriggerLinks, builtinSandboxScripts } from "./registry";
+import {
+	builtinAutomationRuleLinks,
+	builtinEventSchemaTriggerLinks,
+	builtinSandboxScripts,
+} from "./registry";
 
 describe("builtinSandboxScripts", () => {
 	it("uses generated format-1 representations for the complete TMDB family", () => {
@@ -233,10 +237,26 @@ describe("builtinSandboxScripts", () => {
 		]);
 	});
 
+	it("registers the compiled automation tracer and its rule link", () => {
+		const automation = builtinSandboxScripts().find(
+			({ slug }) => slug === "automation.test-tracer",
+		);
+		assert(automation);
+		expect(automation.manifest.kind).toBe("automation");
+		expect(automation.compiledCode).toContain("ryot:sandbox-script");
+		expect(builtinAutomationRuleLinks()).toEqual([
+			{
+				name: "Automation Test Tracer",
+				scriptSlug: "automation.test-tracer",
+				signalSchemaSlug: "automation.test-tracer",
+			},
+		]);
+	});
+
 	it("declares source metadata for every provider script", () => {
 		const scripts = builtinSandboxScripts();
 		const mismatches = scripts
-			.filter((script) => !script.slug.startsWith("trigger."))
+			.filter((script) => script.manifest.kind === "provider")
 			.flatMap((script) => {
 				const slugParts = script.slug.split(".");
 				const expectedSource = slugParts[slugParts.length - 1];

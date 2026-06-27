@@ -7,6 +7,10 @@
 			"types": "./src/index.ts",
 			"default": "./src/index.ts"
 		},
+		"./automation": {
+			"types": "./src/automation.ts",
+			"default": "./src/automation.ts"
+		},
 		"./cheerio": {
 			"types": "./src/cheerio.ts",
 			"default": "./src/cheerio.ts"
