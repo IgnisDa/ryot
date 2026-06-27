@@ -8,7 +8,7 @@ import { Effect, Layer } from "effect";
 import { dbRunnerLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
 import notifierDefinition, {
 	manifest as notifierManifest,
-} from "#modules/builtins/sandbox-scripts/automations/test-notifier.sandbox";
+} from "#modules/builtins/sandbox-scripts/automations/notification.sandbox";
 import { NotificationsRepository } from "#modules/notifications/repository";
 import { NotificationsService } from "#modules/notifications/service";
 import { SignalEmissionService, type EmitSignalInput } from "#modules/signals/service";
@@ -51,8 +51,8 @@ const notifierInput = {
 				occurredAt,
 				id: "signal-1",
 				origin: { kind: "api" },
-				properties: { message: "Review created" },
-				signalSchemaSlug: "automation.test-emitted",
+				properties: { entityName: "Dune" },
+				signalSchemaSlug: "review.created",
 			},
 		},
 	},
@@ -89,7 +89,7 @@ it.effect("derives signal authority and identity from the subscription run", () 
 			host.emitSignal(runInput, {
 				discriminator: "episode-1",
 				properties: { message: "trace" },
-				schemaSlug: "automation.test-emitted",
+				schemaSlug: "review.created",
 			}),
 		);
 
@@ -103,7 +103,7 @@ it.effect("derives signal authority and identity from the subscription run", () 
 			discriminator: "episode-1",
 			properties: { message: "trace" },
 			principal: { kind: "user", userId },
-			schemaSlug: "automation.test-emitted",
+			schemaSlug: "review.created",
 		});
 		expect(captured?.occurredAt.toISOString()).toBe(occurredAt);
 	}).pipe(Effect.provide(Layer.mergeAll(signals, notifications)));
@@ -154,7 +154,7 @@ it.effect("uses one run-derived message delivery identity across replay", () => 
 				payload: {
 					userId,
 					executionId: "run-1-notification",
-					request: { kind: "message", message: "Review created" },
+					request: { kind: "message", message: "Review posted for Dune" },
 				},
 			});
 		}
