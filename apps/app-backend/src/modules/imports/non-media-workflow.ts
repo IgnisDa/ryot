@@ -25,11 +25,8 @@ import {
 	recordImportRunFailure,
 } from "./runtime/import-run-status";
 import { getKnownImportExtensions } from "./runtime/source-definitions";
-import {
-	createImportRunLifecycle,
-	ImportRunError,
-	toWorkflowError,
-} from "./runtime/workflow-helpers";
+import { ImportRunError, toWorkflowError } from "./runtime/workflow-errors";
+import { createImportRunLifecycle } from "./runtime/workflow-helpers";
 import { ImportsService } from "./service";
 
 const NonMediaAdapterFailureSchema = Schema.Struct({

@@ -8,7 +8,7 @@ import { EntitiesRepository } from "#modules/entities/repository";
 import type { ImportRunJobData } from "../jobs";
 import { recordImportRunFailure } from "../runtime/import-run-status";
 import { makeImporterConfig } from "../runtime/importer-config";
-import { ImportRunError, toWorkflowError } from "../runtime/workflow-helpers";
+import { ImportRunError, toWorkflowError } from "../runtime/workflow-errors";
 import { mediaEntityGroupItemIndex } from "./groups";
 import { getResolutionCandidates } from "./resolution-candidates";
 import { ResolutionCandidate, type ProgressReporter } from "./shared-workflow";

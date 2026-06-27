@@ -6,7 +6,7 @@ import { EntitiesRepository } from "#modules/entities/repository";
 
 import type { ImportRunJobData } from "../jobs";
 import { recordImportRunFailure } from "../runtime/import-run-status";
-import { ImportRunError, toWorkflowError } from "../runtime/workflow-helpers";
+import { ImportRunError, toWorkflowError } from "../runtime/workflow-errors";
 import { mediaEntityGroupItemIndex } from "./groups";
 import { PopulationScript, type EntityIdsByKey, type ProgressReporter } from "./shared-workflow";
 import type { ImportMediaEntityGroup } from "./types";

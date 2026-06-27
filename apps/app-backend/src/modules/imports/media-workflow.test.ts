@@ -20,7 +20,8 @@ import {
 	type MediaImportWorkflowOperationsValue,
 } from "./media/types-workflow";
 import { loadImportAdapterResult } from "./runtime/source-payload-store";
-import { ImportRunArtifacts, ImportRunError } from "./runtime/workflow-helpers";
+import { ImportRunError } from "./runtime/workflow-errors";
+import { ImportRunArtifacts } from "./runtime/workflow-helpers";
 import { ImportsService } from "./service";
 
 const mockImportsService = Layer.mock(ImportsService);

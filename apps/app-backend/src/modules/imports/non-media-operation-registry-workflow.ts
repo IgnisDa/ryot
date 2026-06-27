@@ -9,7 +9,7 @@ import {
 	NonMediaImportWorkflowOperations,
 	makeNonMediaImportOperationSet,
 } from "./non-media-workflow";
-import { ImportRunError } from "./runtime/workflow-helpers";
+import { ImportRunError } from "./runtime/workflow-errors";
 import { WorkoutImportItemSchema } from "./workout/domain";
 import {
 	loadHevyWorkoutAdapterResult,
