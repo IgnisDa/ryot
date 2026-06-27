@@ -36,6 +36,7 @@ export default async function ({ provide }: TestProject) {
 			"build",
 			"--filter=@ryot-app/media-plugin",
 			"--filter=@ryot-app/kernel-client",
+			"--filter=@ryot-app/fitness-plugin",
 			"--filter=@ryot-app/fixture-plugin",
 		],
 		{ stdio: "inherit", cwd: repositoryRoot },

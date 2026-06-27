@@ -1,4 +1,4 @@
-import { useRyotQuery } from "@ryot-app/client-sdk/react";
+import { ManagedAssetProvider, useRyotQuery } from "@ryot-app/client-sdk/react";
 import { Chip } from "@ryot-app/client-ui-sdk";
 import { fieldSyncState, isTitleProvisional, SyncPip } from "@ryot-app/client-ui-sdk/sync";
 import clsx from "clsx";
@@ -33,7 +33,7 @@ import {
 	type ShowSeasonEpisodesState,
 	type ShowSeasonList,
 } from "./episodes-state";
-import { ManagedAssetImage, ManagedAssetProvider } from "./managed-assets";
+import { ManagedAssetImage } from "./managed-assets";
 import { ShowProgressBar, ShowRefreshStatus, ShowStatusMessage } from "./primitives";
 import { showEpisodesQuery, showSeasonEpisodesQuery } from "./queries";
 

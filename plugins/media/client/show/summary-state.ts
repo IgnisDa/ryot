@@ -56,7 +56,7 @@ export const showSummaryUnavailable = (reason: ShowSummaryUnavailableReason) => 
 
 const SHOW_GALLERY_LIMIT = 10;
 
-export const showPosterAsset = (show: ShowSummary) =>
+export const showPosterAsset = (show: Pick<ShowSummary, "images">) =>
 	preferredMediaImageAsset(show.images, "cover");
 
 export const showBackdropAsset = (show: ShowSummary) => mediaImageAsset(show.images, "backdrop");
@@ -71,7 +71,7 @@ export const showManagedAssets = (show: ShowSummary) =>
 		...showGalleryAssets(show),
 	]);
 
-export const showReleaseLabel = (show: ShowSummary) =>
+export const showReleaseLabel = (show: Pick<ShowSummary, "publishDate" | "publishYear">) =>
 	show.publishYear === null ? (show.publishDate ?? undefined) : String(show.publishYear);
 
 export const showRatingLabel = (show: ShowSummary, locales?: Intl.LocalesArgument) =>
@@ -98,14 +98,14 @@ export const showOwnershipLabel = (owned: ShowSummary["owned"]) => {
 	return owned ? "Owned" : "Not owned";
 };
 
-const countLabel = (count: number, singular: string) =>
+export const showCountLabel = (count: number, singular: string) =>
 	`${count} ${count === 1 ? singular : `${singular}s`}`;
 
 export const showSeasonCountLabel = (show: ShowSummary) =>
-	show.totalSeasons === null ? undefined : countLabel(show.totalSeasons, "season");
+	show.totalSeasons === null ? undefined : showCountLabel(show.totalSeasons, "season");
 
 export const showEpisodeCountLabel = (show: ShowSummary) =>
-	show.totalEpisodes === null ? undefined : countLabel(show.totalEpisodes, "episode");
+	show.totalEpisodes === null ? undefined : showCountLabel(show.totalEpisodes, "episode");
 
 const countFact = (count: number | null, singular: string) =>
 	count === null
@@ -120,5 +120,7 @@ export const showCollectionsLabel = ({ items, pageInfo }: ShowSummary["collectio
 	if (items.length === 0) {
 		return "Not in any collection";
 	}
-	return pageInfo.hasMore ? `${items.length}+ collections` : countLabel(items.length, "collection");
+	return pageInfo.hasMore
+		? `${items.length}+ collections`
+		: showCountLabel(items.length, "collection");
 };

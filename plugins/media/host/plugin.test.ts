@@ -67,7 +67,13 @@ it("declares the complete media-owned source", () => {
 		apiVersion: 1,
 		entry: "client/index.tsx",
 		routes: { "/": "media-home" },
-		entities: { show: { detailPage: "show-detail" } },
+		entities: {
+			show: {
+				detailPage: "show-detail",
+				gridPresentation: "show-card",
+				listPresentation: "show-row",
+			},
+		},
 		exports: {
 			"media-home": {
 				kind: "page",
@@ -85,6 +91,16 @@ it("declares the complete media-owned source", () => {
 				kind: "component",
 				entry: "client/show/progress.tsx",
 				automaticEntityPresentations: false,
+			},
+			"show-card": {
+				kind: "presentation",
+				automaticEntityPresentations: false,
+				entry: "client/show-card-presentation.ts",
+			},
+			"show-row": {
+				kind: "presentation",
+				automaticEntityPresentations: false,
+				entry: "client/show-row-presentation.ts",
 			},
 		},
 	});

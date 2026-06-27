@@ -6,6 +6,7 @@ import {
 	useAtomValue,
 } from "@effect/atom-react";
 import { SETTLE_RING_DURATION_MS } from "@ryot-app/client-ui-sdk/sync";
+import { MANAGED_ASSET_RESOLUTION_MAX_ASSETS } from "@ryot-app/contract/modules/uploads/schemas";
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -14,17 +15,27 @@ import * as Atom from "effect/unstable/reactivity/Atom";
 import * as AtomRegistry from "effect/unstable/reactivity/AtomRegistry";
 import {
 	createContext,
+	useCallback,
 	useContext,
 	useEffect,
-	useRef,
+	useEffectEvent,
 	useMemo,
+	useRef,
+	useState,
 	useSyncExternalStore,
 	type ReactNode,
 } from "react";
 
 import { ActiveScreenContext } from "./active-screen";
 import { createEntityRefresh, entityTransport } from "./entity-refresh";
-import type { EntityInterest, EntityInterestSubscription, EntityUpdate, RyotClient } from "./index";
+import type {
+	EntityInterest,
+	EntityInterestSubscription,
+	EntityUpdate,
+	ManagedAssetLocator,
+	ManagedAssetResolution,
+	RyotClient,
+} from "./index";
 import type { PluginRouterNavigation } from "./navigation/store";
 import {
 	RyotClientService,
@@ -555,3 +566,133 @@ export const useRyotMutation = <Input, Data>(
 		},
 	};
 };
+
+const ASSET_REFRESH_LEAD_MS = 60_000;
+
+export const managedAssetKey = (locator: ManagedAssetLocator) => `${locator.type}:${locator.key}`;
+
+const sortedManagedAssetLocators = (locators: readonly ManagedAssetLocator[]) =>
+	[...locators].sort((left, right) => managedAssetKey(left).localeCompare(managedAssetKey(right)));
+
+export const canonicalAssetBatchKey = (locators: readonly ManagedAssetLocator[]) =>
+	JSON.stringify(sortedManagedAssetLocators(locators));
+
+export type ManagedAssetBatch = {
+	readonly key: string;
+	readonly locators: readonly ManagedAssetLocator[];
+};
+
+export const managedAssetBatches = (
+	locators: readonly ManagedAssetLocator[],
+): readonly ManagedAssetBatch[] => {
+	const deduped = sortedManagedAssetLocators([
+		...new Map(locators.map((locator) => [managedAssetKey(locator), locator])).values(),
+	]);
+	const batches: ManagedAssetBatch[] = [];
+	for (let index = 0; index < deduped.length; index += MANAGED_ASSET_RESOLUTION_MAX_ASSETS) {
+		const slice = deduped.slice(index, index + MANAGED_ASSET_RESOLUTION_MAX_ASSETS);
+		batches.push({ key: canonicalAssetBatchKey(slice), locators: slice });
+	}
+	return batches;
+};
+
+const useStableManagedAssetLocators = (locators: readonly ManagedAssetLocator[]) => {
+	const key = canonicalAssetBatchKey(locators);
+	const ref = useRef<
+		{ readonly key: string; readonly locators: readonly ManagedAssetLocator[] } | undefined
+	>(undefined);
+	if (ref.current?.key !== key) {
+		ref.current = { key, locators };
+	}
+	return ref.current.locators;
+};
+
+const managedAssetBatchQuery = createRyotQuery<string, readonly ManagedAssetResolution[]>(
+	({ client, input, signal }) => {
+		// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- The key is created only from schema-validated locator values.
+		const locators = JSON.parse(input) as readonly ManagedAssetLocator[];
+		return client.assets.resolve(locators, { signal });
+	},
+	{ cancelOnUnmount: true },
+);
+
+const ManagedAssetUrlsContext = createContext<ReadonlyMap<string, string>>(new Map());
+
+function ManagedAssetBatchResolver(props: {
+	readonly batchKey: string;
+	readonly onResolved: (batchKey: string, urls: ReadonlyMap<string, string>) => void;
+}) {
+	const schedule = useRyotSchedule();
+	const result = useRyotQuery(managedAssetBatchQuery, props.batchKey);
+	const refresh = useEffectEvent(() => result.refetch());
+	const publish = useEffectEvent((urls: ReadonlyMap<string, string>) =>
+		props.onResolved(props.batchKey, urls),
+	);
+	const resolutions = result.data;
+
+	useEffect(() => {
+		publish(
+			new Map(
+				(resolutions ?? []).map((resolution) => [
+					managedAssetKey(resolution.asset),
+					resolution.url,
+				]),
+			),
+		);
+	}, [resolutions]);
+
+	useEffect(() => {
+		if (resolutions === undefined || resolutions.length === 0) {
+			return undefined;
+		}
+		const earliestExpiry = Math.min(
+			...resolutions.map((resolution) => Date.parse(resolution.expiresAt)),
+		);
+		return schedule.after(
+			Math.max(ASSET_REFRESH_LEAD_MS, earliestExpiry - ASSET_REFRESH_LEAD_MS - schedule.now()),
+			refresh,
+		);
+	}, [resolutions, schedule]);
+
+	return null;
+}
+
+export function ManagedAssetProvider(props: {
+	readonly assets: readonly ManagedAssetLocator[];
+	readonly children: ReactNode;
+}) {
+	const parentUrls = useContext(ManagedAssetUrlsContext);
+	const stableAssets = useStableManagedAssetLocators(props.assets);
+	const batches = useMemo(() => managedAssetBatches(stableAssets), [stableAssets]);
+	const [resolvedBatches, setResolvedBatches] = useState<
+		ReadonlyMap<string, ReadonlyMap<string, string>>
+	>(new Map());
+
+	const onResolved = useCallback((batchKey: string, urls: ReadonlyMap<string, string>) => {
+		setResolvedBatches((previous) => new Map(previous).set(batchKey, urls));
+	}, []);
+
+	const urls = useMemo(() => {
+		const merged = new Map(parentUrls);
+		for (const batch of batches) {
+			for (const [key, url] of resolvedBatches.get(batch.key) ?? []) {
+				merged.set(key, url);
+			}
+		}
+		return merged;
+	}, [parentUrls, batches, resolvedBatches]);
+
+	return (
+		<ManagedAssetUrlsContext.Provider value={urls}>
+			{batches.map((batch) => (
+				<ManagedAssetBatchResolver batchKey={batch.key} key={batch.key} onResolved={onResolved} />
+			))}
+			{props.children}
+		</ManagedAssetUrlsContext.Provider>
+	);
+}
+
+export function useManagedAssetUrl(asset: ManagedAssetLocator | undefined) {
+	const urls = useContext(ManagedAssetUrlsContext);
+	return asset === undefined ? undefined : urls.get(managedAssetKey(asset));
+}

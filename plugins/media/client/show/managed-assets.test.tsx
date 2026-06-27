@@ -1,14 +1,12 @@
 // @vitest-environment jsdom
 
 import type { ManagedAssetLocator, RyotClientAdapter } from "@ryot-app/client-sdk";
+import { ManagedAssetProvider } from "@ryot-app/client-sdk/react";
 import { waitFor } from "@testing-library/dom";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { flushRyotClient, mountRyotClient } from "../../tests/client/show/test-support";
-import { ManagedAssetImage, ManagedAssetProvider, managedAssetBatches } from "./managed-assets";
-
-const makeLocators = (count: number): readonly ManagedAssetLocator[] =>
-	Array.from({ length: count }, (_, index) => ({ type: "s3", key: `asset-${index}` }));
+import { ManagedAssetImage } from "./managed-assets";
 
 const recordingAdapter = (
 	calls: (readonly ManagedAssetLocator[])[],
@@ -29,104 +27,6 @@ const recordingAdapter = (
 
 afterEach(() => {
 	document.body.innerHTML = "";
-});
-
-describe("managedAssetBatches", () => {
-	it("chunks a locator list into batches of at most 64", () => {
-		const batches = managedAssetBatches(makeLocators(65));
-
-		expect(batches.map((batch) => batch.locators.length)).toEqual([64, 1]);
-	});
-
-	it("canonicalizes duplicate and reordered locators to the same batch key", () => {
-		const first = managedAssetBatches([
-			{ type: "s3", key: "b" },
-			{ type: "local", key: "a" },
-			{ type: "s3", key: "b" },
-		]);
-		const second = managedAssetBatches([
-			{ type: "local", key: "a" },
-			{ type: "s3", key: "b" },
-		]);
-
-		expect(first.map((batch) => batch.key)).toEqual(second.map((batch) => batch.key));
-		expect(first[0]?.locators).toHaveLength(2);
-	});
-
-	it("produces no batches for an empty locator list", () => {
-		expect(managedAssetBatches([])).toEqual([]);
-	});
-});
-
-describe("ManagedAssetProvider", () => {
-	it("issues one resolve call per batch of at most 64 locators", async () => {
-		const calls: (readonly ManagedAssetLocator[])[] = [];
-		const { unmount } = mountRyotClient(
-			recordingAdapter(calls),
-			<ManagedAssetProvider assets={makeLocators(65)}>
-				<p>content</p>
-			</ManagedAssetProvider>,
-		);
-
-		await waitFor(() => expect(calls.map((batch) => batch.length)).toEqual([64, 1]));
-		unmount();
-	});
-
-	it("never issues a resolve call for an empty locator list", async () => {
-		const calls: (readonly ManagedAssetLocator[])[] = [];
-		const { unmount } = mountRyotClient(
-			recordingAdapter(calls),
-			<ManagedAssetProvider assets={[]}>
-				<p>content</p>
-			</ManagedAssetProvider>,
-		);
-
-		await flushRyotClient();
-		expect(calls).toHaveLength(0);
-		unmount();
-	});
-
-	it("re-resolves a batch one minute before its earliest expiry, and not before", async () => {
-		const now = Date.parse("2026-09-04T12:00:00.000Z");
-		const calls: (readonly ManagedAssetLocator[])[] = [];
-		const { advance, setTime, unmount } = mountRyotClient(
-			recordingAdapter(calls, "2026-09-04T12:05:00.000Z"),
-			<ManagedAssetProvider assets={makeLocators(1)}>
-				<p>content</p>
-			</ManagedAssetProvider>,
-		);
-		await setTime(now);
-		await waitFor(() => expect(calls).toHaveLength(1));
-
-		await advance(4 * 60_000 - 1);
-		expect(calls).toHaveLength(1);
-
-		await advance(1);
-		await waitFor(() => expect(calls).toHaveLength(2));
-		unmount();
-	});
-
-	it("does not issue a new resolve call when re-rendered with an equivalent, reordered locator list", async () => {
-		const calls: (readonly ManagedAssetLocator[])[] = [];
-		const locators = makeLocators(3);
-		const { rerender, unmount } = mountRyotClient(
-			recordingAdapter(calls),
-			<ManagedAssetProvider assets={locators}>
-				<p>content</p>
-			</ManagedAssetProvider>,
-		);
-		await waitFor(() => expect(calls).toHaveLength(1));
-
-		rerender(
-			<ManagedAssetProvider assets={[...locators].toReversed()}>
-				<p>content</p>
-			</ManagedAssetProvider>,
-		);
-		await flushRyotClient();
-
-		expect(calls).toHaveLength(1);
-		unmount();
-	});
 });
 
 describe("ManagedAssetImage", () => {

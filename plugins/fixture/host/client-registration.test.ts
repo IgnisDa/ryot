@@ -13,8 +13,8 @@ describe("fixture client registration", () => {
 		expect(fixturePlugin.client.entities).toEqual({
 			pokemon: {
 				detailPage: "pokemon-detail",
-				gridPresentation: "pokemon-grid",
-				listPresentation: "pokemon-list",
+				listPresentation: "pokemon-row",
+				gridPresentation: "pokemon-card",
 			},
 		});
 		expect(fixturePlugin.client.exports).toMatchObject({
@@ -23,8 +23,10 @@ describe("fixture client registration", () => {
 			"fixture-not-found": { kind: "page", entry: "client/not-found.tsx" },
 			"fixture-full-bleed": { kind: "page", entry: "client/full-bleed.tsx" },
 			"pokemon-detail": { kind: "page", entry: "client/pokemon-detail.tsx" },
-			"pokemon-grid": { kind: "presentation", entry: "client/pokemon-grid-presentation.ts" },
-			"pokemon-list": { kind: "presentation", entry: "client/pokemon-list-presentation.ts" },
+			"pokemon-row": { kind: "presentation", entry: "client/pokemon-row.ts" },
+			"pokemon-card": { kind: "presentation", entry: "client/pokemon-card.ts" },
 		});
+		expect(fixturePlugin.client.exports).not.toHaveProperty("pokemon-grid");
+		expect(fixturePlugin.client.exports).not.toHaveProperty("pokemon-list");
 	});
 });
