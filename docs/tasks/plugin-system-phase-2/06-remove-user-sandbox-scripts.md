@@ -32,11 +32,11 @@ Delete the per-user standalone script feature so plugins are the single extensio
 3. **Storage end state**: every script row plugin-owned — `pluginSlug` NOT NULL, `userId`
    dropped, per-user slug uniqueness gone; regenerate the initial migration. Table rename
    (e.g. `plugin_script`) is `[IMPLEMENTER-DECIDES]`. `entity.sandboxScriptId` provenance and
-   per-*executing*-user cache isolation are unchanged.
+   per-_executing_-user cache isolation are unchanged.
 4. **E2e**: port `tests/src/tests/sandbox/` execution-semantics/limits/fault coverage to
    scripts installed via `installTestPlugin`; delete authoring-CRUD coverage; no fixture may
    compile through the script-creation API afterwards.
-5. **Docs**: update the "Sandbox Scripts" and cache sections of `apps/app-backend/CLAUDE.md`
+5. **Docs**: update the "Sandbox Scripts" and cache sections of `apps/app-backend/AGENTS.md`
    and the sandbox-runtime README where they describe user-authored scripts.
 
 Full spec: plan §8. Do not restate or re-derive it.
@@ -52,7 +52,7 @@ Full spec: plan §8. Do not restate or re-derive it.
 - [ ] Sandbox execution/limits/fault e2e coverage runs against plugin-installed scripts;
       authoring-CRUD coverage is deleted; no fixture uses the script-creation API (done
       criterion 6)
-- [ ] `apps/app-backend/CLAUDE.md` and sandbox-runtime README no longer describe
+- [ ] `apps/app-backend/AGENTS.md` and sandbox-runtime README no longer describe
       user-authored scripts (cross-phase invariant 7)
 - [ ] Backend `check` + unit tests, e2e suite, and `app-client` check pass (cross-phase
       invariant 1)
