@@ -6,12 +6,7 @@ import { and, eq, isNull, or } from "drizzle-orm";
 import { Effect } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import {
-	CurrentDb,
-	dbEffect,
-	isUniqueConstraintError,
-	lockUserAndCountOwnedRows,
-} from "#lib/infrastructure/db/service";
+import { CurrentDb, dbEffect, isUniqueConstraintError } from "#lib/infrastructure/db/service";
 
 type SandboxScriptRow = typeof schema.sandboxScript.$inferSelect;
 
@@ -26,12 +21,12 @@ type CreateScriptInput = {
 const sandboxScriptUserSlugConstraint = "sandbox_script_user_slug_unique";
 
 const toScript = (row: SandboxScriptRow) => ({
+	id: SandboxScriptId.make(row.id),
 	slug: row.slug,
 	code: row.code,
 	name: row.name,
-	metadata: row.metadata,
 	isBuiltin: row.isBuiltin,
-	id: SandboxScriptId.make(row.id),
+	metadata: row.metadata,
 });
 
 export class SandboxRepository extends Effect.Service<SandboxRepository>()("SandboxRepository", {
@@ -66,16 +61,6 @@ export class SandboxRepository extends Effect.Service<SandboxRepository>()("Sand
 			return toScript(row);
 		});
 
-		const lockUserAndCountScripts = Effect.fn("SandboxRepository.lockUserAndCountScripts")(
-			function* (userId: UserId) {
-				return yield* lockUserAndCountOwnedRows({
-					userId,
-					table: schema.sandboxScript,
-					ownerColumn: schema.sandboxScript.userId,
-				});
-			},
-		);
-
 		const findScriptBySlugForUser = Effect.fn("SandboxRepository.findScriptBySlugForUser")(
 			function* (input: { readonly slug: string; readonly userId: UserId }) {
 				const db = yield* CurrentDb;
@@ -108,7 +93,6 @@ export class SandboxRepository extends Effect.Service<SandboxRepository>()("Sand
 						code: schema.sandboxScript.code,
 						userId: schema.sandboxScript.userId,
 						metadata: schema.sandboxScript.metadata,
-						updatedAt: schema.sandboxScript.updatedAt,
 						isBuiltin: schema.sandboxScript.isBuiltin,
 					})
 					.from(schema.sandboxScript)
@@ -144,56 +128,9 @@ export class SandboxRepository extends Effect.Service<SandboxRepository>()("Sand
 			},
 		);
 
-		const storeProviderArtifact = Effect.fn("SandboxRepository.storeProviderArtifact")(
-			function* (input: { executionId: string; id: string; value: unknown }) {
-				const db = yield* CurrentDb;
-				const [inserted] = yield* dbEffect(() =>
-					db
-						.insert(schema.sandboxArtifact)
-						.values(input)
-						.onConflictDoNothing({ target: schema.sandboxArtifact.executionId })
-						.returning({ id: schema.sandboxArtifact.id }),
-				);
-				if (inserted) {
-					return inserted.id;
-				}
-
-				const [existing] = yield* dbEffect(() =>
-					db
-						.select({ id: schema.sandboxArtifact.id })
-						.from(schema.sandboxArtifact)
-						.where(eq(schema.sandboxArtifact.executionId, input.executionId))
-						.limit(1),
-				);
-				return existing?.id ?? (yield* new DbError({ message: "Sandbox artifact insert failed" }));
-			},
-		);
-
-		const getProviderArtifact = Effect.fn("SandboxRepository.getProviderArtifact")(
-			function* (input: { executionId: string; id: string }) {
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
-					db
-						.select({ value: schema.sandboxArtifact.value })
-						.from(schema.sandboxArtifact)
-						.where(
-							and(
-								eq(schema.sandboxArtifact.executionId, input.executionId),
-								eq(schema.sandboxArtifact.id, input.id),
-							),
-						)
-						.limit(1),
-				);
-				return row ?? null;
-			},
-		);
-
 		return {
 			createScript,
 			getScriptForUser,
-			getProviderArtifact,
-			storeProviderArtifact,
-			lockUserAndCountScripts,
 			findProviderInformation,
 			findScriptBySlugForUser,
 		};

@@ -1,7 +1,6 @@
 import { DbError } from "@ryot/contract/errors";
 import { EntityId, EntitySchemaId, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import { decodeStoredAppSchema } from "@ryot/contract/schema/core";
-import { stableStringify } from "@ryot/ts-utils/json";
 import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 import { Effect } from "effect";
 
@@ -14,7 +13,35 @@ import {
 	entitySchemaVisibleToUserClause,
 	toListedEntity,
 } from "./repository-support";
-import type { SaveEntityInput } from "./repository-types";
+
+export type SaveEntityInputBase = {
+	name: string;
+	entitySchemaId: EntitySchemaId;
+} & (
+	| {
+			scope: "global";
+			externalId: string;
+			populatedAt: Date | null;
+			sandboxScriptId: SandboxScriptId;
+			onConflict?: "preserveExisting" | "replaceExisting" | undefined;
+	  }
+	| {
+			scope: "user";
+			userId: UserId;
+			externalId?: string | undefined;
+			sandboxScriptId?: SandboxScriptId | undefined;
+			onConflict?: "preserveExisting" | "replaceExisting" | undefined;
+	  }
+);
+
+export type SaveEntityInput = SaveEntityInputBase & { properties: Record<string, unknown> };
+
+export type {
+	EntityScope,
+	EntityMergeScope,
+	EntitySchemaScope,
+	EntitySchemaSandboxScriptScope,
+} from "./repository-support";
 
 export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("EntitiesRepository", {
 	sync: () => {
@@ -89,7 +116,6 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 					db
 						.select({
 							entityId: schema.entity.id,
-							entityName: schema.entity.name,
 							entityUserId: schema.entity.userId,
 							isBuiltin: schema.entitySchema.isBuiltin,
 							entitySchemaSlug: schema.entitySchema.slug,
@@ -116,11 +142,9 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 					"Invalid entity properties schema in database",
 				);
 
-				const { entityName, ...scope } = row;
 				return {
-					...scope,
+					...row,
 					propertiesSchema,
-					...(entityName ? { entityName } : {}),
 					entityId: EntityId.make(row.entityId),
 					entitySchemaId: EntitySchemaId.make(row.entitySchemaId),
 					entityUserId: row.entityUserId ? UserId.make(row.entityUserId) : null,
@@ -238,10 +262,7 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 			const db = yield* CurrentDb;
 			const [row] = yield* dbEffect(() =>
 				db
-					.select({
-						slug: schema.entitySchema.slug,
-						propertiesSchema: schema.entitySchema.propertiesSchema,
-					})
+					.select({ propertiesSchema: schema.entitySchema.propertiesSchema })
 					.from(schema.entitySchema)
 					.where(eq(schema.entitySchema.id, entitySchemaId))
 					.limit(1),
@@ -256,7 +277,7 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 				"Invalid entity properties schema in database",
 			);
 
-			return { slug: row.slug, propertiesSchema };
+			return { propertiesSchema };
 		});
 
 		const findEntitySchemaSandboxScriptBySlug = Effect.fn(
@@ -266,7 +287,6 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 			const [row] = yield* dbEffect(() =>
 				db
 					.select({
-						entitySchemaSlug: schema.entitySchema.slug,
 						entitySchemaId: schema.entitySchemaSandboxScript.entitySchemaId,
 						sandboxScriptId: schema.entitySchemaSandboxScript.sandboxScriptId,
 					})
@@ -274,10 +294,6 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 					.innerJoin(
 						schema.entitySchemaSandboxScript,
 						eq(schema.entitySchemaSandboxScript.sandboxScriptId, schema.sandboxScript.id),
-					)
-					.innerJoin(
-						schema.entitySchema,
-						eq(schema.entitySchema.id, schema.entitySchemaSandboxScript.entitySchemaId),
 					)
 					.where(
 						and(eq(schema.sandboxScript.slug, scriptSlug), isNull(schema.sandboxScript.userId)),
@@ -288,7 +304,6 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 
 			return row
 				? {
-						entitySchemaSlug: row.entitySchemaSlug,
 						entitySchemaId: EntitySchemaId.make(row.entitySchemaId),
 						sandboxScriptId: SandboxScriptId.make(row.sandboxScriptId),
 					}
@@ -316,7 +331,7 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 				);
 
 				if (inserted[0]) {
-					return { operation: "create" as const, entity: toListedEntity(inserted[0]) };
+					return toListedEntity(inserted[0]);
 				}
 
 				const [existing] = yield* dbEffect(() =>
@@ -339,27 +354,6 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 				}
 
 				if (input.onConflict === "replaceExisting") {
-					const materiallyUnchanged =
-						existing.name === input.name &&
-						stableStringify(existing.properties) === stableStringify(input.properties);
-					if (materiallyUnchanged) {
-						if (existing.populatedAt?.getTime() === input.populatedAt?.getTime()) {
-							return { operation: "noop" as const, entity: toListedEntity(existing) };
-						}
-						const [refreshed] = yield* dbEffect(() =>
-							db
-								.update(schema.entity)
-								.set({ populatedAt: input.populatedAt })
-								.where(eq(schema.entity.id, existing.id))
-								.returning(entitySelection),
-						);
-						if (refreshed) {
-							return { operation: "noop" as const, entity: toListedEntity(refreshed) };
-						}
-						return yield* new DbError({
-							message: "Entity refresh timestamp update returned no row",
-						});
-					}
 					const [updated] = yield* dbEffect(() =>
 						db
 							.update(schema.entity)
@@ -373,11 +367,7 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 					);
 
 					if (updated) {
-						return {
-							operation: "update" as const,
-							entity: toListedEntity(updated),
-							before: toListedEntity(existing),
-						};
+						return toListedEntity(updated);
 					}
 				}
 
@@ -395,15 +385,11 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 					);
 
 					if (updated) {
-						return {
-							operation: "update" as const,
-							entity: toListedEntity(updated),
-							before: toListedEntity(existing),
-						};
+						return toListedEntity(updated);
 					}
 				}
 
-				return { operation: "noop" as const, entity: toListedEntity(existing) };
+				return toListedEntity(existing);
 			}
 
 			const externalId = input.externalId;
@@ -435,7 +421,7 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 
 				const created = rows[0];
 				if (created) {
-					return { operation: "create" as const, entity: toListedEntity(created) };
+					return toListedEntity(created);
 				}
 
 				const [row] = yield* dbEffect(() =>
@@ -456,7 +442,7 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 				const existing = row ? toListedEntity(row) : null;
 
 				if (existing) {
-					return { operation: "noop" as const, entity: existing };
+					return existing;
 				}
 
 				return yield* new DbError({ message: "Entity insert returned no row" });
@@ -470,7 +456,7 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 				return yield* new DbError({ message: "Entity insert returned no row" });
 			}
 
-			return { operation: "create" as const, entity: toListedEntity(row) };
+			return toListedEntity(row);
 		});
 
 		return {
@@ -481,9 +467,9 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 			getEntityMergeScopeForUser,
 			listMatchCandidatesBySchema,
 			getEntitySchemaScopeForUser,
+			findEntitySchemaSandboxScriptBySlug,
 			findGlobalEntityByExternalId,
 			findEntityByExternalIdForUser,
-			findEntitySchemaSandboxScriptBySlug,
 		};
 	},
 }) {}

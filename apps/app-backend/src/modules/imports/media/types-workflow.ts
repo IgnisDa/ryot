@@ -1,6 +1,5 @@
 import type { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import type { SandboxRunError } from "@ryot/contract/errors";
-import type { AutomationOrigin } from "@ryot/contract/modules/automations/schemas";
 import type {
 	EntityId,
 	EntitySchemaId,
@@ -42,7 +41,6 @@ export type MediaImportWorkflowOperationsValue = {
 	}) => Effect.Effect<ReadonlyArray<EntitySearchItem>, SandboxRunError, MediaSandboxRequirements>;
 	importEntity: (input: {
 		userId: UserId;
-		origin: AutomationOrigin;
 		externalId: string;
 		executionId: string;
 		scriptId: SandboxScriptId;
