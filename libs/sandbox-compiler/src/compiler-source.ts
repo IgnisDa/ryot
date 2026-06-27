@@ -1,15 +1,11 @@
-import type { SandboxCompilationDiagnostic } from "@ryot/contract/modules/sandbox/schemas";
+import { SANDBOX_SDK_IMPORTS, SANDBOX_SDK_ROOT_IMPORT } from "@ryot/sandbox-sdk/imports";
 import * as ts from "typescript/unstable/ast";
 
-import { SANDBOX_SDK_IMPORTS } from "#lib/infrastructure/sandbox-runtime/dependencies";
-
 import {
-	SANDBOX_SDK_IMPORT,
+	type SandboxCompilerDiagnostic,
 	sandboxDiagnosticAt as diagnosticAt,
 	sandboxPropertyName as propertyName,
 } from "./compiler-diagnostics";
-
-export { SANDBOX_SDK_IMPORT, SANDBOX_SOURCE_FILE } from "./compiler-diagnostics";
 
 const allowedImports = new Set<string>(SANDBOX_SDK_IMPORTS);
 
@@ -60,7 +56,7 @@ const inspectImports = (file: ts.SourceFile) => {
 	const driverHelpers = new Set<string>();
 	const scriptHelpers = new Set<string>();
 	const manifestHelpers = new Set<string>();
-	const diagnostics: SandboxCompilationDiagnostic[] = [];
+	const diagnostics: SandboxCompilerDiagnostic[] = [];
 
 	for (const reference of [
 		...file.referencedFiles,
@@ -84,12 +80,12 @@ const inspectImports = (file: ts.SourceFile) => {
 					diagnosticAt(
 						statement.moduleSpecifier ?? statement,
 						"RYOT_IMPORT",
-						`Import "${specifier}" is not allowed; use an approved ${SANDBOX_SDK_IMPORT} entry point`,
+						`Import "${specifier}" is not allowed; use an approved ${SANDBOX_SDK_ROOT_IMPORT} entry point`,
 					),
 				);
 			}
 
-			if (ts.isImportDeclaration(statement) && specifier === SANDBOX_SDK_IMPORT) {
+			if (ts.isImportDeclaration(statement) && specifier === SANDBOX_SDK_ROOT_IMPORT) {
 				const bindings = statement.importClause?.namedBindings;
 				if (bindings && ts.isNamedImports(bindings)) {
 					for (const element of bindings.elements) {
@@ -170,7 +166,7 @@ const topLevelDriverName = (call: ts.CallExpression, file: ts.SourceFile) => {
 };
 
 const inspectDriverDefinitions = (file: ts.SourceFile, driverHelpers: ReadonlySet<string>) => {
-	const diagnostics: SandboxCompilationDiagnostic[] = [];
+	const diagnostics: SandboxCompilerDiagnostic[] = [];
 	const driverNames = new Set<string>();
 	const visit = (node: ts.Node): void => {
 		if (ts.isIdentifier(node) && driverHelpers.has(node.text)) {
@@ -280,7 +276,7 @@ const inspectScriptDefinition = (
 			diagnosticAt(
 				assignment ?? file,
 				"RYOT_DEFINITION",
-				`The default export must be a direct ${SANDBOX_SDK_IMPORT} defineScript call`,
+				`The default export must be a direct ${SANDBOX_SDK_ROOT_IMPORT} defineScript call`,
 			),
 		];
 	}
@@ -332,7 +328,7 @@ const inspectScriptDefinition = (
 		];
 	}
 
-	const diagnostics: SandboxCompilationDiagnostic[] = [];
+	const diagnostics: SandboxCompilerDiagnostic[] = [];
 	for (const property of drivers.properties) {
 		let driver: ts.Identifier | null = null;
 		if (ts.isShorthandPropertyAssignment(property) && ts.isIdentifier(property.name)) {

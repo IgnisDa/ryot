@@ -1,16 +1,16 @@
-import type { SandboxCompilationDiagnostic } from "@ryot/contract/modules/sandbox/schemas";
 import { sandboxManifestSchema } from "@ryot/sandbox-sdk";
+import { SANDBOX_SDK_ROOT_IMPORT } from "@ryot/sandbox-sdk/imports";
 import * as ts from "typescript/unstable/ast";
 
 import {
-	SANDBOX_SDK_IMPORT,
+	type SandboxCompilerDiagnostic,
 	sandboxDiagnosticAt as diagnosticAt,
 	sandboxPropertyName as propertyName,
 } from "./compiler-diagnostics";
 
 type LiteralResult =
 	| { readonly ok: true; readonly value: unknown }
-	| { readonly ok: false; readonly diagnostic: SandboxCompilationDiagnostic };
+	| { readonly ok: false; readonly diagnostic: SandboxCompilerDiagnostic };
 
 const readLiteral = (rawExpression: ts.Expression): LiteralResult => {
 	if (ts.isAssertionExpression(rawExpression)) {
@@ -172,7 +172,7 @@ export const extractSandboxManifest = (
 			diagnostic: diagnosticAt(
 				declaration,
 				"RYOT_MANIFEST",
-				`The exported manifest must be a direct ${SANDBOX_SDK_IMPORT} defineManifest call`,
+				`The exported manifest must be a direct ${SANDBOX_SDK_ROOT_IMPORT} defineManifest call`,
 			),
 		};
 	}

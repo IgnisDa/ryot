@@ -1,21 +1,20 @@
-import type { SandboxCompilationDiagnostic } from "@ryot/contract/modules/sandbox/schemas";
+import { SANDBOX_SDK_IMPORTS } from "@ryot/sandbox-sdk/imports";
 import { Effect } from "effect";
 import type * as ts from "typescript/unstable/ast";
 import { DiagnosticCategory, type Diagnostic } from "typescript/unstable/async";
 
-import { SANDBOX_SDK_IMPORTS } from "#lib/infrastructure/sandbox-runtime/dependencies";
-import {
-	jsonByteLength,
-	SANDBOX_LIMITS,
-	utf8ByteLength,
-} from "#lib/infrastructure/sandbox-runtime/limits";
-
 import { bundleUserScript } from "./compiler-bundle";
-import { sandboxCompilationFailure, sandboxCompilerDiagnostic } from "./compiler-diagnostics";
+import {
+	type SandboxCompilerDiagnostic,
+	SANDBOX_SOURCE_FILE,
+	sandboxCompilationFailure,
+	sandboxCompilerDiagnostic,
+} from "./compiler-diagnostics";
 import { extractSandboxManifest } from "./compiler-manifest";
 import { createTypeScriptProject } from "./compiler-project";
 import { type CompiledSandboxModule, SANDBOX_COMPILED_FORMAT } from "./compiler-protocol";
-import { inspectSandboxSource, SANDBOX_SOURCE_FILE } from "./compiler-source";
+import { inspectSandboxSource } from "./compiler-source";
+import { jsonByteLength, SANDBOX_COMPILER_LIMITS, utf8ByteLength } from "./limits";
 
 const diagnosticSeverity = (category: DiagnosticCategory) => {
 	if (category === DiagnosticCategory.Warning) {
@@ -33,7 +32,7 @@ const diagnosticMessage = (diagnostic: Diagnostic): string =>
 const toTypeScriptDiagnostic = (
 	diagnostic: Diagnostic,
 	file: ts.SourceFile,
-): SandboxCompilationDiagnostic => {
+): SandboxCompilerDiagnostic => {
 	const start = Math.max(0, diagnostic.pos);
 	const location = diagnostic.fileName ? file.getLineAndCharacterOfPosition(start) : undefined;
 
@@ -50,11 +49,11 @@ const toTypeScriptDiagnostic = (
 
 export const compileSandboxSource = (source: string) =>
 	Effect.gen(function* () {
-		if (utf8ByteLength(source) > SANDBOX_LIMITS.compiler.sourceBytes) {
+		if (utf8ByteLength(source) > SANDBOX_COMPILER_LIMITS.sourceBytes) {
 			return yield* sandboxCompilationFailure([
 				sandboxCompilerDiagnostic(
 					"RYOT_SOURCE_SIZE",
-					`Sandbox TypeScript source exceeds ${SANDBOX_LIMITS.compiler.sourceBytes} UTF-8 bytes`,
+					`Sandbox TypeScript source exceeds ${SANDBOX_COMPILER_LIMITS.sourceBytes} UTF-8 bytes`,
 				),
 			]);
 		}
@@ -111,7 +110,7 @@ export const compileSandboxSource = (source: string) =>
 			return yield* sandboxCompilationFailure(
 				project.diagnostics
 					.filter((diagnostic) => diagnostic.category === DiagnosticCategory.Error)
-					.slice(0, SANDBOX_LIMITS.compiler.diagnosticCount)
+					.slice(0, SANDBOX_COMPILER_LIMITS.diagnosticCount)
 					.map((diagnostic) => toTypeScriptDiagnostic(diagnostic, project.sourceFile)),
 			);
 		}
@@ -122,12 +121,12 @@ export const compileSandboxSource = (source: string) =>
 		}
 		if (
 			(jsonByteLength(extracted.manifest) ?? Number.POSITIVE_INFINITY) >
-			SANDBOX_LIMITS.compiler.manifestBytes
+			SANDBOX_COMPILER_LIMITS.manifestBytes
 		) {
 			return yield* sandboxCompilationFailure([
 				sandboxCompilerDiagnostic(
 					"RYOT_MANIFEST_SIZE",
-					`Sandbox manifest exceeds ${SANDBOX_LIMITS.compiler.manifestBytes} UTF-8 bytes`,
+					`Sandbox manifest exceeds ${SANDBOX_COMPILER_LIMITS.manifestBytes} UTF-8 bytes`,
 				),
 			]);
 		}
@@ -136,11 +135,11 @@ export const compileSandboxSource = (source: string) =>
 		if ("diagnostics" in bundled) {
 			return yield* sandboxCompilationFailure(bundled.diagnostics);
 		}
-		if (utf8ByteLength(bundled.javascript) > SANDBOX_LIMITS.compiler.javascriptBytes) {
+		if (utf8ByteLength(bundled.javascript) > SANDBOX_COMPILER_LIMITS.javascriptBytes) {
 			return yield* sandboxCompilationFailure([
 				sandboxCompilerDiagnostic(
 					"RYOT_COMPILED_SIZE",
-					`Compiled sandbox module exceeds ${SANDBOX_LIMITS.compiler.javascriptBytes} UTF-8 bytes`,
+					`Compiled sandbox module exceeds ${SANDBOX_COMPILER_LIMITS.javascriptBytes} UTF-8 bytes`,
 				),
 			]);
 		}

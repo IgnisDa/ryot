@@ -11,6 +11,7 @@
 		{ "path": "libs/contract" },
 		{ "path": "libs/graphql" },
 		{ "path": "libs/query-engine" },
+		{ "path": "libs/sandbox-compiler" },
 		{ "path": "libs/sandbox-sdk" },
 		{ "path": "libs/transactional" },
 		{ "path": "libs/ts-utils" },
