@@ -61,7 +61,7 @@ Coverage is intentionally minimal (a drift signal, not exhaustive): OpenLibrary 
 ## Diagnosing Failures
 
 - Assert async job completion with `assertCompleted` (`test-support/assertions.ts`) rather than comparing `result.status` by hand — on a failed job it includes the backend's error string, which is the difference between "got 'failed'" and an actionable message.
-- The in-memory backend log buffer is only flushed when the process exits unexpectedly. Set `E2E_BACKEND_LOG_FILE=<path>` to mirror all backend stdout/stderr to a file during the run (invoke `bun run test` directly — turbo's strict env mode strips the variable). Backend-side workflow/queue failures (e.g. cluster persistence errors) only show up there.
+- Every backend the harness spawns mirrors all its stdout/stderr to a temp file and prints the path at startup (e.g. `[Backend] backend logs -> <os-tmpdir>/ryot-e2e-backend-<ts>-<pid>.log`); each backend gets its own labelled file (e.g. `Backend A/B/C` in the OIDC suite). Backend-side workflow/queue failures (e.g. cluster persistence errors) that don't crash the process show up only in that file. If a backend exits unexpectedly or fails to start, the harness prints a one-line notice pointing at the same file.
 
 ## Timeouts & Pool Sizing
 
