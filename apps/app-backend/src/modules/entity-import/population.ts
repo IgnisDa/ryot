@@ -37,6 +37,7 @@ export const ProcessedChildEntity = Schema.Struct({
 export type ProcessedChildEntity = typeof ProcessedChildEntity.Type;
 
 export const ChildEntitySetWriteResult = Schema.Struct({
+	committedAt: Schema.String,
 	relationshipOutcomes: RelationshipMutationOutcomes,
 	processedChildren: Schema.Array(ProcessedChildEntity),
 });
@@ -141,6 +142,10 @@ export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (i
 			entries: processedChildren.map((child) => ({ properties: {}, entityId: child.entity.id })),
 		});
 	}
-
-	return { processedChildren, relationshipOutcomes } satisfies ChildEntitySetWriteResult;
+	const now = yield* DateTime.nowAsDate;
+	return {
+		processedChildren,
+		relationshipOutcomes,
+		committedAt: now.toISOString(),
+	} satisfies ChildEntitySetWriteResult;
 });

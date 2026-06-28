@@ -139,9 +139,10 @@ export const processNormalizedMediaImport = Effect.fn("processNormalizedMediaImp
 	payload: NormalizedMediaImportJobData,
 	executionId: string,
 ) {
-	const jobData: Pick<ImportRunJobData, "runId" | "userId"> = {
+	const jobData = {
 		runId: payload.runId,
 		userId: payload.userId,
+		...(payload.integrationId ? { integrationId: payload.integrationId } : {}),
 	};
 	const options: MediaImportWorkflowOptions = payload.integrationId
 		? { integrationId: payload.integrationId }

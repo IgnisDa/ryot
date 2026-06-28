@@ -75,6 +75,7 @@ export class InterestReconciler extends Effect.Service<InterestReconciler>()("In
 						yield* populationTrigger.request({
 							userId: user.id,
 							entityId: row.id,
+							origin: { kind: "api" },
 							externalId: row.externalId,
 							entitySchemaId: row.entitySchemaId,
 							sandboxScriptId: row.sandboxScriptId,

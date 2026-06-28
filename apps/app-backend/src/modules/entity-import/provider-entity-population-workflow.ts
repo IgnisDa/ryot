@@ -7,10 +7,15 @@ import type {
 	ProviderDetailsChildEntity,
 	ProviderDetailsRelatedEntityGroup,
 } from "@ryot/sandbox-sdk/provider";
+import { asRecord } from "@ryot/ts-utils/predicates";
 import { Cause, DateTime, Effect, Schedule, Schema } from "effect";
 
 import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
+import {
+	LifecycleDispatch,
+	type LifecyclePopulationContext,
+} from "#modules/entities/lifecycle-dispatch";
 import { ProviderEntitySaveResult } from "#modules/entities/mutation-outcomes";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
@@ -53,12 +58,20 @@ const ValidatedEntityDetails = Schema.Struct({
 type ValidatedEntityDetails = typeof ValidatedEntityDetails.Type;
 
 type ChildEntitySetScope = {
+	parentName: string;
 	parentEntityId: EntityId;
 	parentExternalId: string;
+	parentProperties: unknown;
 	parentEntitySchemaId: EntitySchemaId;
 	parentEntitySchemaSlug?: string | undefined;
+	scopeEntity: LifecyclePopulationContext["scopeEntity"];
 	childEntities: ReadonlyArray<ProviderDetailsChildEntity>;
 };
+
+const ProviderEntitySaveEnvelope = Schema.Struct({
+	committedAt: Schema.String,
+	result: ProviderEntitySaveResult,
+});
 
 const checkExistingEntity = Effect.fn("checkExistingEntity")(function* (
 	payload: EntityImportPayload,
@@ -112,19 +125,22 @@ const upsertRootEntity = Effect.fn("upsertProviderRootEntity")(function* (
 	return yield* Activity.make({
 		error: SandboxRunError,
 		name: "upsert-root-entity",
-		success: ProviderEntitySaveResult,
+		success: ProviderEntitySaveEnvelope,
 		// A brand-new or not-yet-populated entity is written with a null populatedAt so
 		// children can reference it before the final stamp activity; refresh preserves an
 		// already-populated entity until then. Initial population replaces the skeleton.
 		execute: runInTransaction(
-			entities.upsert({
-				populatedAt: null,
-				name: details.name,
-				externalId: payload.externalId,
-				properties: details.properties,
-				sandboxScriptId: payload.scriptId,
-				entitySchemaId: payload.entitySchemaId,
-				updateExisting: options.mode !== "refresh",
+			Effect.gen(function* () {
+				const result = yield* entities.upsert({
+					populatedAt: null,
+					name: details.name,
+					externalId: payload.externalId,
+					properties: details.properties,
+					sandboxScriptId: payload.scriptId,
+					entitySchemaId: payload.entitySchemaId,
+					updateExisting: options.mode !== "refresh",
+				});
+				return { result, committedAt: (yield* DateTime.nowAsDate).toISOString() };
 			}),
 		).pipe(
 			dieOnDbError,
@@ -171,8 +187,8 @@ const writeChildEntitySetScope = Effect.fn("writeChildEntitySetScope")(function*
 		name: `write-child-entity-set:${scope.parentExternalId}`,
 		execute: runInTransaction(
 			writeChildEntitySet({
-				childEntities: scope.childEntities,
 				sandboxScriptId: payload.scriptId,
+				childEntities: scope.childEntities,
 				parentEntityId: scope.parentEntityId,
 				syncExisting: options.mode === "refresh",
 				parentEntitySchemaId: scope.parentEntitySchemaId,
@@ -196,11 +212,11 @@ const stampRootPopulatedAt = Effect.fn("stampProviderRootPopulatedAt")(function*
 	return yield* Activity.make({
 		error: SandboxRunError,
 		name: "stamp-root-populated-at",
-		success: ProviderEntitySaveResult,
+		success: ProviderEntitySaveEnvelope,
 		execute: runInTransaction(
 			Effect.gen(function* () {
 				const populatedAt = yield* DateTime.nowAsDate;
-				return yield* entities.upsert({
+				const result = yield* entities.upsert({
 					populatedAt,
 					name: details.name,
 					updateExisting: true,
@@ -209,6 +225,7 @@ const stampRootPopulatedAt = Effect.fn("stampProviderRootPopulatedAt")(function*
 					sandboxScriptId: payload.scriptId,
 					entitySchemaId: payload.entitySchemaId,
 				});
+				return { result, committedAt: (yield* DateTime.nowAsDate).toISOString() };
 			}),
 		).pipe(
 			dieOnDbError,
@@ -244,9 +261,58 @@ const shouldWriteChildEntitySet = (options: SynchronizeOptions, scope: ChildEnti
 	(!!scope.parentEntitySchemaSlug &&
 		!!options.childEntitySchemaSlugs?.[scope.parentEntitySchemaSlug]);
 
+const toLifecycleSnapshot = (snapshot: ProviderEntitySaveResult["outcome"]["after"]) => ({
+	...snapshot,
+	properties: asRecord(snapshot.properties) ?? {},
+});
+
+const dispatchEntityMutation = Effect.fn("dispatchProviderEntityMutation")(function* (input: {
+	phase: string;
+	committedAt: string;
+	executionId: string;
+	result: ProviderEntitySaveResult;
+	origin: EntityImportPayload["origin"];
+	population: LifecyclePopulationContext;
+}) {
+	if (input.result.outcome.operation === "noop") {
+		return;
+	}
+	const lifecycleDispatch = yield* LifecycleDispatch;
+	const outcome = input.result.outcome;
+	yield* lifecycleDispatch
+		.dispatch({
+			rowUserId: null,
+			origin: input.origin,
+			operation: outcome.operation,
+			population: input.population,
+			occurredAt: input.committedAt,
+			recordId: input.result.entity.id,
+			occurrenceId: `${input.executionId}:entity:${input.phase}:${input.result.entity.id}:${outcome.operation}`,
+			source: {
+				kind: "entity",
+				after: toLifecycleSnapshot(outcome.after),
+				...(outcome.before ? { before: toLifecycleSnapshot(outcome.before) } : {}),
+			},
+		})
+		.pipe(Effect.mapError((error) => new SandboxRunError({ message: error.message })));
+});
+
+const owningSeasonForScope = (scope: ChildEntitySetScope) => {
+	if (scope.parentEntitySchemaSlug !== "show-season") {
+		return undefined;
+	}
+	const seasonNumber = asRecord(scope.parentProperties)?.["seasonNumber"];
+	return {
+		name: scope.parentName,
+		number: typeof seasonNumber === "number" && Number.isFinite(seasonNumber) ? seasonNumber : null,
+	};
+};
+
 const writeChildEntityScopes = Effect.fn("writeChildEntityScopes")(function* (
 	payload: EntityImportPayload,
+	executionId: string,
 	options: SynchronizeOptions,
+	rootPreviouslyPopulated: boolean,
 	rootScope: ChildEntitySetScope,
 ) {
 	const pending: ChildEntitySetScope[] = [rootScope];
@@ -256,14 +322,30 @@ const writeChildEntityScopes = Effect.fn("writeChildEntityScopes")(function* (
 			continue;
 		}
 		const processed = yield* writeChildEntitySetScope(payload, options, scope);
+		const owningSeason = owningSeasonForScope(scope);
 		for (const [index, childEntity] of scope.childEntities.entries()) {
 			const child = processed.processedChildren[index];
 			if (!child) {
 				continue;
 			}
+			yield* dispatchEntityMutation({
+				executionId,
+				origin: payload.origin,
+				committedAt: processed.committedAt,
+				phase: `children:${scope.parentExternalId}`,
+				result: { entity: child.entity, outcome: child.entityOutcome },
+				population: {
+					rootPreviouslyPopulated,
+					scopeEntity: scope.scopeEntity,
+					...(owningSeason ? { owningSeason } : {}),
+				},
+			});
 			pending.push({
+				parentName: child.entity.name,
+				scopeEntity: scope.scopeEntity,
 				parentEntityId: child.entity.id,
 				parentExternalId: childEntity.externalId,
+				parentProperties: child.entity.properties,
 				parentEntitySchemaId: child.entitySchemaId,
 				childEntities: childEntity.childEntities ?? [],
 				parentEntitySchemaSlug: childEntity.entitySchemaSlug,
@@ -276,6 +358,7 @@ const synchronizeEntityGraph = Effect.fn("synchronizeEntityGraph")(function* (
 	payload: EntityImportPayload,
 	executionId: string,
 	options: SynchronizeOptions,
+	rootPreviouslyPopulated: boolean,
 ) {
 	const operations = yield* EntityImportWorkflowOperations;
 	const sandboxResult = yield* operations.processSandbox(payload, executionId);
@@ -285,22 +368,47 @@ const synchronizeEntityGraph = Effect.fn("synchronizeEntityGraph")(function* (
 
 	const details = yield* validateEntityDetails(sandboxResult.value);
 	const rootSave = yield* upsertRootEntity(payload, details, options);
-	const entity = rootSave.entity;
+	const entity = rootSave.result.entity;
+	const scopeEntity = {
+		id: entity.id,
+		name: details.name,
+		entitySchemaId: entity.entitySchemaId,
+		entitySchemaSlug: rootSave.result.outcome.after.entitySchemaSlug,
+	};
+	yield* dispatchEntityMutation({
+		executionId,
+		phase: "root-upsert",
+		origin: payload.origin,
+		result: rootSave.result,
+		committedAt: rootSave.committedAt,
+		population: { scopeEntity, rootPreviouslyPopulated },
+	});
 	yield* Effect.forEach(
 		details.relatedEntityGroups,
 		(group, index) => syncRelatedEntityGroupScope(payload, entity, group, index),
 		{ discard: true },
 	);
-	yield* writeChildEntityScopes(payload, options, {
+	yield* writeChildEntityScopes(payload, executionId, options, rootPreviouslyPopulated, {
+		scopeEntity,
+		parentName: entity.name,
 		parentEntityId: entity.id,
+		parentProperties: entity.properties,
 		parentExternalId: payload.externalId,
 		childEntities: details.childEntities,
 		parentEntitySchemaId: payload.entitySchemaId,
 		parentEntitySchemaSlug: options.entitySchemaSlug,
 	});
 	const stamped = yield* stampRootPopulatedAt(payload, details);
-	yield* publishPrimaryEntity(stamped.entity);
-	return stamped.entity;
+	yield* dispatchEntityMutation({
+		executionId,
+		phase: "root-stamp",
+		origin: payload.origin,
+		result: stamped.result,
+		committedAt: stamped.committedAt,
+		population: { scopeEntity, rootPreviouslyPopulated },
+	});
+	yield* publishPrimaryEntity(stamped.result.entity);
+	return stamped.result.entity;
 });
 
 // `Workflow.make` requires a struct payload, so the ensure/refresh discriminator
@@ -329,12 +437,18 @@ export const ProviderEntityPopulationWorkflow = Workflow.make({
 // by production modules.
 export const runProviderEntityPopulationWorkflow = Effect.fn("runProviderEntityPopulationWorkflow")(
 	function* (payload: ProviderEntityPopulationPayload, executionId: string) {
+		const existing = yield* checkExistingEntity(payload);
+		const rootPreviouslyPopulated = existing !== null && existing.populatedAt !== null;
 		if (payload.mode === "ensure") {
-			const existing = yield* checkExistingEntity(payload);
 			if (existing && existing.populatedAt !== null) {
 				return existing;
 			}
-			return yield* synchronizeEntityGraph(payload, executionId, { mode: "initial" });
+			return yield* synchronizeEntityGraph(
+				payload,
+				executionId,
+				{ mode: "initial" },
+				rootPreviouslyPopulated,
+			);
 		}
 
 		// Refresh reconciles stale children via `entitySchemaSlug`. Without it, a provider
@@ -346,11 +460,16 @@ export const runProviderEntityPopulationWorkflow = Effect.fn("runProviderEntityP
 			);
 		}
 
-		return yield* synchronizeEntityGraph(payload, executionId, {
-			mode: "refresh",
-			entitySchemaSlug: payload.entitySchemaSlug,
-			childEntitySchemaSlugs: CHILD_ENTITY_SCHEMA_SLUGS,
-		});
+		return yield* synchronizeEntityGraph(
+			payload,
+			executionId,
+			{
+				mode: "refresh",
+				entitySchemaSlug: payload.entitySchemaSlug,
+				childEntitySchemaSlugs: CHILD_ENTITY_SCHEMA_SLUGS,
+			},
+			rootPreviouslyPopulated,
+		);
 	},
 );
 

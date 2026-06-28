@@ -84,6 +84,7 @@ export const runMediaMonitoringRefreshWorkflow = Effect.fn("runMediaMonitoringRe
 				externalId: payload.externalId,
 				executionId: refreshExecutionId,
 				scriptId: payload.sandboxScriptId,
+				origin: { kind: "provider_refresh" },
 				entitySchemaId: payload.entitySchemaId,
 				entitySchemaSlug: payload.entitySchemaSlug,
 			},
