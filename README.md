@@ -66,6 +66,14 @@ volumes:
 
 Then run `docker compose up -d` and visit `http://localhost:8000`. For production setups, see the [installation guide](https://docs.ryot.io).
 
+## Production image
+
+The production image contains separate sandbox and client plugin compiler engines with two worker artifacts:
+`dist/sandbox-compiler-worker.js*` and `dist/client-plugin-compiler-worker.js*`. Their production
+dependencies are installed from the owning compiler packages, and both workers use the server-owned
+process supervision boundary. The image smoke step invokes both workers with absolute paths and
+requires successful smoke compilation before image assembly completes.
+
 ## What is Ryot?
 
 Ryot (**R**oll **Y**our **O**wn **T**racker), pronounced "riot", is a self-hosted tracker for your media consumption and fitness activities. Track the books you read, shows you watch, games you play, and workouts you complete - all in one place with a clean interface and insightful statistics.

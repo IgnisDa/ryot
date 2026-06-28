@@ -10,7 +10,7 @@ import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import { databaseLayer, makeRedisService, type MockOverrides } from "#lib/test-utils/effect";
 import { DefinitionRegistry, makeDefinitionRegistry } from "#modules/definition-registry/service";
-import { ClientPluginCompiler } from "#modules/sandbox/client-compiler";
+import { ClientPluginCompiler } from "#modules/plugins/client-plugin-compiler";
 import {
 	SandboxWorkflowReferenceRegistrationError,
 	SandboxWorkflowReferenceRepository,

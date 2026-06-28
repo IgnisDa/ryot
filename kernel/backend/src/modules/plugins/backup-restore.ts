@@ -10,7 +10,7 @@ import {
 	definitionSourceFromSnapshot,
 	type DefinitionSnapshot,
 } from "#modules/definition-registry/service";
-import { ClientPluginCompiler } from "#modules/sandbox/client-compiler";
+import { ClientPluginCompiler } from "#modules/plugins/client-plugin-compiler";
 
 import { PluginIngestionLock } from "./ingestion-lock";
 import { mergeManifestDefinitions } from "./loader";
