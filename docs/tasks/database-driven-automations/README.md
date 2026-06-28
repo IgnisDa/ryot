@@ -779,9 +779,9 @@ Acceptance criteria the test suite must establish:
 
 ## Tasks
 
-**Overall Progress:** 8 of 15 tasks completed
+**Overall Progress:** 9 of 15 tasks completed
 
-**Current Task:** [Task 09](./09-catalog-and-rule-management-api-with-default-installs.md) (todo)
+**Current Task:** [Task 10](./10-remove-legacy-notification-vocabulary.md) (todo)
 
 ### Task List
 
@@ -795,7 +795,7 @@ Acceptance criteria the test suite must establish:
 | 06  | [Policy Engine on Event Creates](./06-policy-engine-on-event-creates.md)                                               | AFK  | done   |
 | 07  | [Trigger Migration](./07-trigger-migration.md)                                                                         | AFK  | done   |
 | 08  | [Shared Notification Script and First Producers](./08-shared-notification-script-and-first-producers.md)               | AFK  | done   |
-| 09  | [Catalog and Rule Management API with Default Installs](./09-catalog-and-rule-management-api-with-default-installs.md) | AFK  | todo   |
+| 09  | [Catalog and Rule Management API with Default Installs](./09-catalog-and-rule-management-api-with-default-installs.md) | AFK  | done   |
 | 10  | [Remove Legacy Notification Vocabulary](./10-remove-legacy-notification-vocabulary.md)                                 | AFK  | todo   |
 | 11  | [Population Context and Media Entity-Update Detectors](./11-population-context-and-media-entity-update-detectors.md)   | AFK  | todo   |
 | 12  | [Sync Batch Leaders and Discovery Detectors](./12-sync-batch-leaders-and-discovery-detectors.md)                       | AFK  | todo   |

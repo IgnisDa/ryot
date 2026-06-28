@@ -4,7 +4,6 @@ import { Schema } from "effect";
 import { AdminMiddleware } from "../../auth-middleware";
 import { Conflict, InternalError, NotFound, Unauthorized } from "../../errors";
 import {
-	AutomationRuleId,
 	EntityId,
 	EntitySchemaId,
 	RelationshipSchemaId,
@@ -61,16 +60,6 @@ const GlobalRelationshipListBody = Schema.Union(
 export const TestSupportGroup = HttpApiGroup.make("testSupport")
 	.addError(Unauthorized, { status: 401 })
 	.middleware(AdminMiddleware)
-	.add(
-		HttpApiEndpoint.post(
-			"installBuiltinNotificationSubscription",
-			"/test-support/automations/notification-subscriptions",
-		)
-			.setPayload(Schema.Struct({ userId: UserId, signalSchemaSlug: Schema.String }))
-			.addSuccess(Schema.Struct({ id: AutomationRuleId }), { status: 201 })
-			.addError(NotFound, { status: 404 })
-			.addError(Conflict, { status: 409 }),
-	)
 	.add(
 		HttpApiEndpoint.get("getSandboxScript")`/test-support/sandbox-scripts/${scriptIdParam}`
 			.addSuccess(TestSupportStoredSandboxScript)

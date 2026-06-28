@@ -7,6 +7,7 @@ import { AppConfig, appConfigMeta } from "./lib/infrastructure/config/service";
 import { LegacyBootstrapMigrateDrop, MigrationsComplete } from "./lib/infrastructure/db/migrate";
 import { DbRunnerLive, DbService, TransactionRunnerLive } from "./lib/infrastructure/db/service";
 import { PackageCacheManager } from "./lib/infrastructure/sandbox-runtime/runtime";
+import { NotificationSubscriptionsService } from "./modules/automations/notification-subscriptions-service";
 import { AutomationsRepository } from "./modules/automations/repository";
 import { AutomationsService } from "./modules/automations/service";
 import { SeedService } from "./modules/builtins/seed";
@@ -48,7 +49,7 @@ if (Bun.env["RUN_MIGRATION_ONLY"] === "true") {
 	);
 	const MigrationBootstrapServicesLive = Layer.provideMerge(
 		Layer.mergeAll(
-			AutomationsService.Default,
+			Layer.provideMerge(NotificationSubscriptionsService.Default, AutomationsService.Default),
 			EntitiesService.Default,
 			SavedViewsService.Default,
 			SignalSchemasService.Default,

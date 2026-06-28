@@ -7,6 +7,7 @@ import { Effect } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { CurrentDb, dbEffect, TransactionRunner } from "#lib/infrastructure/db/service";
+import { NotificationSubscriptionsService } from "#modules/automations/notification-subscriptions-service";
 import { builtinEntitySchemas } from "#modules/builtins/entity-schemas";
 import { builtinSavedViews } from "#modules/builtins/saved-views";
 import { builtinTrackers } from "#modules/builtins/trackers";
@@ -240,6 +241,7 @@ export const performBootstrap = Effect.fn(function* (userId: string) {
 	const trackersService = yield* TrackersService;
 	const entitiesService = yield* EntitiesService;
 	const savedViewsService = yield* SavedViewsService;
+	const notificationSubscriptions = yield* NotificationSubscriptionsService;
 	const completedAt = yield* readBootstrapMarker(userId);
 	if (completedAt !== null) {
 		yield* Effect.logInfo(`Bootstrap already complete for user: ${userId}`);
@@ -250,6 +252,7 @@ export const performBootstrap = Effect.fn(function* (userId: string) {
 	yield* createTrackerEntitySchemaLinks(trackers, entitySchemas, trackersService);
 	yield* createBuiltinSavedViews(user, trackers, entitySchemas, savedViewsService);
 	yield* ensureLibraryEntity(user, entitySchemas, entitiesService);
+	yield* notificationSubscriptions.ensureDefaultRules(user);
 	yield* markBootstrapComplete(userId);
 	yield* Effect.logInfo(`Bootstrap complete for user: ${userId}`);
 });
