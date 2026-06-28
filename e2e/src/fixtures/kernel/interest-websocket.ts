@@ -4,6 +4,7 @@ import {
 	type EntityInterestAppliedMessage,
 	type EntityInterestEntityUpdatedMessage,
 	type EntityInterestReadyMessage,
+	type EntityInterestRejectedMessage,
 } from "@ryot-app/contract/modules/entity-interest/messages";
 import { Effect, Result } from "effect";
 
@@ -12,6 +13,7 @@ import { getApiUrl } from "~/support/api";
 import type { ContractSession } from "./contract-client";
 
 type WaitOptions = { timeoutMs?: number };
+type EntityInterestCommandResult = EntityInterestAppliedMessage | EntityInterestRejectedMessage;
 type EntityUpdatedWaiter = {
 	reject: (error: Error) => void;
 	timer: ReturnType<typeof setTimeout>;
@@ -22,12 +24,12 @@ type InterestWebSocket = {
 	close: () => Promise<void>;
 	readonly ready: EntityInterestReadyMessage;
 	getEntityUpdatedMessages: () => readonly EntityInterestEntityUpdatedMessage[];
-	replaceInterest: (entityIds: readonly string[]) => Promise<EntityInterestAppliedMessage>;
+	replaceInterest: (entityIds: readonly string[]) => Promise<EntityInterestCommandResult>;
 	expectNoEntityUpdated: (entityId: string, options: { windowMs: number }) => Promise<void>;
 	updateInterest: (input: {
 		readonly add: readonly string[];
 		readonly remove: readonly string[];
-	}) => Promise<EntityInterestAppliedMessage>;
+	}) => Promise<EntityInterestCommandResult>;
 	waitForEntityUpdated: (
 		entityId: string,
 		reason?: EntityInterestEntityUpdatedMessage["reason"],
@@ -63,7 +65,7 @@ export async function openInterestWebSocket(
 		{
 			reject: (error: Error) => void;
 			timer: ReturnType<typeof setTimeout>;
-			resolve: (message: EntityInterestAppliedMessage) => void;
+			resolve: (message: EntityInterestCommandResult) => void;
 		}
 	>();
 	const {
@@ -150,14 +152,8 @@ export async function openInterestWebSocket(
 		}
 		clearTimeout(acknowledgement.timer);
 		acknowledgements.delete(message.revision);
-		if (message.type === "rejected") {
-			const error = new Error(
-				`Entity interest revision ${message.revision} was rejected: ${message.code}`,
-			);
-			fail(error);
-			acknowledgement.reject(error);
-			socket.close(1002, "Command rejected");
-			return;
+		if (message.type === "applied") {
+			revision = message.revision;
 		}
 		acknowledgement.resolve(message);
 	});
@@ -176,23 +172,22 @@ export async function openInterestWebSocket(
 					readonly add: readonly string[];
 					readonly remove: readonly string[];
 			  },
-	): Promise<EntityInterestAppliedMessage> => {
+	): Promise<EntityInterestCommandResult> => {
 		const previous = commandQueue;
 		const next = Promise.withResolvers<void>();
 		commandQueue = next.promise;
 		return previous
 			.then(
 				() =>
-					new Promise<EntityInterestAppliedMessage>((resolve, reject) => {
+					new Promise<EntityInterestCommandResult>((resolve, reject) => {
 						if (failure) {
 							reject(failure);
 							return;
 						}
-						revision += 1;
-						const commandRevision = revision;
+						const commandRevision = revision + 1;
 						const timer = setTimeout(() => {
 							acknowledgements.delete(commandRevision);
-							const error = new Error(`Timed out waiting for applied revision ${commandRevision}`);
+							const error = new Error(`Timed out waiting for revision ${commandRevision}`);
 							fail(error);
 							reject(error);
 							socket.close(1002, "Acknowledgement timeout");
