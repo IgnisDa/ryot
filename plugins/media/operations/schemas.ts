@@ -3,7 +3,7 @@ import { Schema } from "@ryot/sandbox-sdk/workflow";
 const MetadataLookupData = Schema.Struct({
 	identifier: Schema.String,
 	source: Schema.Literal("tmdb"),
-	lot: Schema.Literal("movie", "show"),
+	lot: Schema.Literals(["movie", "show"]),
 });
 
 const MetadataLookupShowInformation = Schema.Struct({
@@ -23,7 +23,7 @@ const MetadataLookupNotFound = Schema.Struct({
 	status: Schema.Literal("notFound"),
 });
 
-export const MetadataLookupResult = Schema.Union(MetadataLookupFound, MetadataLookupNotFound);
+export const MetadataLookupResult = Schema.Union([MetadataLookupFound, MetadataLookupNotFound]);
 
 export type MetadataLookupResult = Schema.Schema.Type<typeof MetadataLookupResult>;
 
@@ -55,7 +55,7 @@ const PodcastEpisodeRef = Schema.Struct({
 	kind: Schema.Literal("podcast"),
 });
 
-export const ResolveEpisodesRef = Schema.Union(ShowEpisodeRef, PodcastEpisodeRef);
+export const ResolveEpisodesRef = Schema.Union([ShowEpisodeRef, PodcastEpisodeRef]);
 
 export type ResolveEpisodesRef = Schema.Schema.Type<typeof ResolveEpisodesRef>;
 
@@ -74,7 +74,10 @@ export const ResolveEpisodesOutput = Schema.Struct({
 export type ResolveEpisodesOutput = Schema.Schema.Type<typeof ResolveEpisodesOutput>;
 
 const MediaMonitoringInputFields = {
-	entityIds: Schema.Array(Schema.String).pipe(Schema.minItems(1), Schema.maxItems(50)),
+	entityIds: Schema.Array(Schema.String).pipe(
+		Schema.check(Schema.isMinLength(1)),
+		Schema.check(Schema.isMaxLength(50)),
+	),
 };
 
 const MediaMonitoringFoundResult = Schema.Struct({
@@ -88,10 +91,10 @@ const MediaMonitoringNotFoundResult = Schema.Struct({
 	status: Schema.Literal("notFound"),
 });
 
-export const MediaMonitoringResult = Schema.Union(
+export const MediaMonitoringResult = Schema.Union([
 	MediaMonitoringFoundResult,
 	MediaMonitoringNotFoundResult,
-);
+]);
 
 export type MediaMonitoringResult = Schema.Schema.Type<typeof MediaMonitoringResult>;
 

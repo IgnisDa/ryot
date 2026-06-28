@@ -31,7 +31,7 @@ const History = Schema.Struct({
 	watched_at: Schema.String,
 	show: Schema.optional(Item),
 	movie: Schema.optional(Item),
-	type: Schema.Literal("movie", "episode"),
+	type: Schema.Literals(["movie", "episode"]),
 	episode: Schema.optional(
 		Schema.Struct({
 			ids: Ids,
@@ -46,16 +46,16 @@ const Rating = Schema.Struct({
 	rated_at: Schema.String,
 	show: Schema.optional(Item),
 	movie: Schema.optional(Item),
-	type: Schema.Literal("movie", "show", "season", "episode"),
+	type: Schema.Literals(["movie", "show", "season", "episode"]),
 });
 const Watchlist = Schema.Struct({
-	type: Schema.Literal("movie", "show"),
+	type: Schema.Literals(["movie", "show"]),
 	show: Schema.optional(Item),
 	movie: Schema.optional(Item),
 	listed_at: Schema.optional(Schema.String),
 });
 const ListItem = Schema.Struct({
-	type: Schema.Literal("movie", "show"),
+	type: Schema.Literals(["movie", "show"]),
 	show: Schema.optional(Item),
 	movie: Schema.optional(Item),
 });
@@ -98,7 +98,10 @@ export const adaptTraktData = (username: string, clientId: string, host: HttpHos
 			"Content-Type": "application/json",
 			"trakt-api-version": "2",
 		};
-		const fetchAll = <A, I, R>(path: string, schema: Schema.Schema<A, I, R>) =>
+		const fetchAll = <A, I, R>(
+			path: string,
+			schema: Schema.Schema<A> & Schema.Decoder<A, R> & Schema.Encoder<I>,
+		) =>
 			Effect.gen(function* () {
 				const response = yield* requestSourceResponse(host, {
 					path,
@@ -116,7 +119,7 @@ export const adaptTraktData = (username: string, clientId: string, host: HttpHos
 						headers,
 						baseUrl: API_URL,
 						query: { page, limit: PAGE_LIMIT },
-					}).pipe(Effect.flatMap(Schema.decodeUnknown(Schema.Array(schema))));
+					}).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Schema.Array(schema))));
 					values.push(...rows);
 				}
 				return values;
