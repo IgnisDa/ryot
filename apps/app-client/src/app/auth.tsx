@@ -1,4 +1,5 @@
-import { Result, useAtomRefresh, useAtomValue } from "@effect-atom/atom-react";
+import { useAtomRefresh, useAtomValue } from "@effect/atom-react";
+import { AsyncResult } from "effect/unstable/reactivity";
 import { Redirect, router } from "expo-router";
 import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from "react-native";
 
@@ -44,7 +45,7 @@ export default function Auth() {
 		return <Redirect href={getRedirectDestination(redirectTo, "/(app)")} />;
 	}
 
-	return Result.builder(config)
+	return AsyncResult.builder(config)
 		.onInitial(() => <AuthLoading />)
 		.onFailure(() => (
 			<AuthUnavailable onRetry={refreshConfig} onChangeServer={() => void handleChangeServer()} />

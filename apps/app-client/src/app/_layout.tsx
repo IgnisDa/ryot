@@ -1,6 +1,6 @@
 // oxlint-disable-next-line import/no-unassigned-import
 import "@/global.css";
-import { RegistryProvider } from "@effect-atom/atom-react";
+import { RegistryProvider } from "@effect/atom-react";
 import { Lora_400Regular, Lora_500Medium, Lora_600SemiBold } from "@expo-google-fonts/lora";
 import { Outfit_400Regular, Outfit_500Medium, Outfit_600SemiBold } from "@expo-google-fonts/outfit";
 import { useFonts } from "expo-font";
