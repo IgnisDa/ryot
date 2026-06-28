@@ -202,6 +202,7 @@ const ensureLibraryEntity = Effect.fn(function* (
 			scope: "user",
 			properties: {},
 			name: "Library",
+			origin: { kind: "bootstrap" },
 			entitySchemaId: librarySchema.id,
 		})
 		.pipe(

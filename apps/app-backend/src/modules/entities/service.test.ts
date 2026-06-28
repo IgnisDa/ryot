@@ -8,6 +8,7 @@ import { Effect, Exit, Layer } from "effect";
 import { type MockOverrides, dbRunnerLayer } from "#lib/test-utils/effect";
 import { QueryEngineService } from "#modules/query-engine/service";
 
+import { LifecycleDispatchNoop } from "./lifecycle-dispatch";
 import { EntitiesRepository } from "./repository";
 import { EntitiesService } from "./service";
 
@@ -41,7 +42,12 @@ const makeServiceLayer = (
 ) =>
 	EntitiesService.Default.pipe(
 		Layer.provide(
-			Layer.mergeAll(dbRunnerLayer, options.queryEngine ?? makeQueryEngine(), repository),
+			Layer.mergeAll(
+				dbRunnerLayer,
+				LifecycleDispatchNoop,
+				options.queryEngine ?? makeQueryEngine(),
+				repository,
+			),
 		),
 	);
 
@@ -72,6 +78,7 @@ const setupGetById = (row: Record<string, FieldValue>) => {
 			getEntityScopeForUser: () =>
 				Effect.succeed({
 					isBuiltin: false,
+					entityName: "Cooper",
 					entityUserId: user.id,
 					entitySchemaSlug: "person",
 					propertiesSchema: { fields: {} },
