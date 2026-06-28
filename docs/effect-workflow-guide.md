@@ -231,23 +231,20 @@ this codebase correctly use `generateId()` for exactly that reason (e.g.
 The rule only bites when the dispatching code itself can run more than once.
 
 **The current, correctly-executed media import example** lives in the media plugin's import workflow
-(`plugins/media/scripts/imports/import.sandbox.ts`) and its population and resolution child
-workflows:
+(`plugins/media/scripts/imports/import.sandbox.ts`):
 
 ```ts
 // import.sandbox.ts: stable batch indexes key each child workflow.
+yield* replay.child(`resolve-${batchIndex}`, resolution, payload);
 yield* replay.child(`populate-${batchIndex}`, population, payload);
-
-// media-import-population.sandbox.ts: stable item indexes key the owned child calls.
-yield* replay.child(`import-${item.index}`, libraryEntityImport, payload);
-
-// media-import-resolution.sandbox.ts: stable item and candidate indexes key activities.
-yield* replay.activity(`resolve-${item.index}-${candidateIndex}`, activity, payload);
+yield* replay.activity(`chunks-${batchIndex}`, chunkWriter, payload);
+yield* replay.child("write-import", kernelImport, payload);
 ```
 
 The import workflow owns phase orchestration, each plugin workflow body owns its durable calls, and
-every key is derived from stable submitted indexes. The [audit](#library-membership) below
-distinguishes the unrelated top-level library dispatch.
+every key is derived from stable submitted indexes. The
+[audit](#entity-import-and-media-membership) below distinguishes direct generic population from
+plugin-owned relationship mutations.
 
 ---
 
@@ -591,7 +588,7 @@ definitions, and runtime engine wiring are all visible.
 This section is the result of reading every file in `apps/app-backend` that references
 `@effect/workflow` against the ground truth above. The codebase is in good shape, and is organized
 around one principle: **one durable owner per business operation**. Each user-visible operation —
-create an event, add an entity to a collection, import a library entity, run a plugin import, or
+create an event, add an entity to a collection, populate a provider entity, run a plugin import, or
 reconcile integrations — has a single workflow (or a single durable queue) that owns its writes and
 its child dispatches, so those steps journal under one execution id regardless of which caller
 triggered them. There are **no remaining instances** of a child workflow
@@ -608,17 +605,10 @@ above:
   from its body: a `prepare-item` activity resolves scopes and ordered policies, policies run via
   `DurableQueue.process(SandboxExecutionQueue)`, a `write-event` activity persists the row, the
   committed lifecycle occurrence dispatches matching `SubscriptionExecutionWorkflow` children,
-  and library membership for referenced global entities is dispatched through
-  `EnsureLibraryMembershipQueue`.
-- **`EnsureLibraryMembershipQueue`** — the canonical durable owner of the library-membership write.
-  Following the module dependency-inversion rule, the queue *definition* lives in the generic events
-  module (`events/durable-queues.ts`) while its *worker* lives in the feature module
-  (`library-membership/membership-worker.ts`, which calls `ensureEntityInLibrary`).
-- **`LibraryEntityImportWorkflow`** (`library-membership/library-entity-import-workflow.ts`) —
-  composes `ProviderEntityPopulationWorkflow` then `EnsureLibraryMembershipQueue`, and reports
-  failures through a stage-tagged `LibraryEntityImportError` (`"population" | "membership"`). Media
-  import routes each item through this workflow rather than composing population and membership
-  itself.
+  and media membership for referenced global entities is handled by an awaited media event policy.
+- **`EntityImportWorkflow`** (`entity-import/entity-import-workflow.ts`) — owns provider population
+  for direct generic `/entity-import` requests. It deliberately does not add `in-library`; manifest
+  import-source workflows may separately emit generic user-relationship mutations.
 - **`AddEntityToCollectionWorkflow`** (`collections/add-entity-to-collection-workflow-live.ts`) —
   owns add-to-collection: one `write-collection-membership` activity does the transactional write,
   then the body dispatches the collection-added `EventCreateWorkflow` child with the deterministic
@@ -652,10 +642,10 @@ above:
   elsewhere, not only a belt-and-suspenders addition to it.
 - **The event workflow body is a pure orchestrator**: every DB read and write in
   `runEventCreateWorkflow` happens inside an `Activity.make` (`prepare-item`, `write-event`) or a
-  durable queue — there are no bare reads left in the body, so there is no replay-drift risk from
-  unwrapped reads observing edited data across a resume.
+  durable queue or awaited policy — there are no bare reads left in the body, so there is no
+  replay-drift risk from unwrapped reads observing edited data across a resume.
 - **`DurableQueue.process(...)` called bare in workflow bodies** — this pattern recurs across
-  modules (sandbox dispatch, library membership). It is **correct**, not a violation; see the
+  modules (for example, sandbox dispatch). It is **correct**, not a violation; see the
   [durable primitives table](#durable-primitives-beyond-activity) above.
 - **Finalizers in workflow files**: the one workflow-body use is
   `generic-import-workflow.ts`'s `Effect.ensuring(removeChunks(...))`, which scopes harvest-chunk
@@ -671,19 +661,18 @@ above:
   conformance test that pins the single-owner invariants: which files may execute
   `RunSandboxWorkflow` (and how many times), that the collections service no longer references
   `EventCreateWorkflow` while the add-to-collection workflow body is its one sanctioned dispatcher,
-  that import paths do not bypass their plugin workflow owners, and that only the queue worker owns
-  `ensureEntityInLibrary`. It's a strong guard, but it
+  and that import paths do not bypass their plugin workflow owners. It's a strong guard, but it
   matches call sites by source text — it checks *which module* dispatches *which* child and how
   often, not *what `executionId` argument* is passed, so an argument-correctness regression still
   needs a targeted unit test.
 
-#### Library-membership
+#### Entity import and media membership
 
-`library-membership/service.ts`'s `importEntity` (exported as `LibraryImportService.import`) is a
-**top-level, HTTP-route-triggered** dispatch of `LibraryEntityImportWorkflow` — one user click, one
-job, correctly using `generateId()` since there's no parent workflow and no loop. The media import
-instead reaches the same single owner through the population plugin body's deterministic
-`replay.child` call described in [Determinism](#determinism-and-child-workflows) above.
+Direct `/entity-import` dispatches `EntityImportWorkflow` as a top-level population-only job and may
+use a generated execution id because no parent workflow replays that dispatch. Media membership is
+not part of this generic workflow: manifest import-source workflows may emit generic relationship
+mutations, while collection-triggered membership is awaited through `EventCreateWorkflow` media
+policy.
 
 ---
 
