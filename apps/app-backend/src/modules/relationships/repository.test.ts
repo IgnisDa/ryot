@@ -21,7 +21,7 @@ const dialect = new PgDialect();
 type RenderableSql = Parameters<typeof dialect.sqlToQuery>[0];
 
 const makeDb = (initialRows: ReadonlyArray<StoredRelationship> = []) => {
-	const state = { executeCalls: 0, rows: [...initialRows] };
+	const state = { executeCalls: 0, forUpdateCalls: 0, rows: [...initialRows] };
 
 	const paramsFor = (condition: RenderableSql) => {
 		const rendered = dialect.sqlToQuery(condition);
@@ -76,10 +76,16 @@ const makeDb = (initialRows: ReadonlyArray<StoredRelationship> = []) => {
 			where: (condition: RenderableSql) => {
 				const rows = () => state.rows.filter((row) => matches(condition, row));
 				const limited = Object.assign(Promise.resolve(rows().slice(0, 1)), {
-					for: () => Promise.resolve(rows().slice(0, 1)),
+					for: () => {
+						state.forUpdateCalls += 1;
+						return Promise.resolve(rows().slice(0, 1));
+					},
 				});
 				return {
-					for: () => Promise.resolve(rows()),
+					for: () => {
+						state.forUpdateCalls += 1;
+						return Promise.resolve(rows());
+					},
 					limit: () => limited,
 				};
 			},
@@ -188,6 +194,7 @@ it.effect("creates once and preserves an existing relationship on conflict", () 
 		expect(created.wasInserted).toBe(true);
 		expect(existing.wasInserted).toBe(false);
 		expect(existing.properties).toEqual({ rank: 1 });
+		expect(state.forUpdateCalls).toBe(1);
 		expect(state.rows).toHaveLength(1);
 	}).pipe(Effect.provide(makeLayer(db)));
 });

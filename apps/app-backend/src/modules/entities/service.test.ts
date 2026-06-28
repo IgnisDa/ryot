@@ -12,6 +12,7 @@ import { EntitiesRepository } from "./repository";
 import { EntitiesService } from "./service";
 
 const now = "2026-06-14T00:00:00.000Z";
+const nowDate = new Date(now);
 
 const user = {
 	name: "Test User",
@@ -92,15 +93,18 @@ it.effect("returns existing entity when provenance already exists", () => {
 				Effect.sync(() => {
 					insertCalled = true;
 					return {
-						createdAt: now,
-						updatedAt: now,
-						properties: {},
-						name: "Created",
-						populatedAt: null,
-						externalId: "ext-1",
-						id: EntityId.make("created-entity"),
-						entitySchemaId: EntitySchemaId.make("schema-id"),
-						sandboxScriptId: SandboxScriptId.make("script-id"),
+						wasInserted: true,
+						entity: {
+							createdAt: now,
+							updatedAt: now,
+							properties: {},
+							name: "Created",
+							populatedAt: null,
+							externalId: "ext-1",
+							id: EntityId.make("created-entity"),
+							entitySchemaId: EntitySchemaId.make("schema-id"),
+							sandboxScriptId: SandboxScriptId.make("script-id"),
+						},
 					};
 				}),
 			getEntitySchemaScopeForUser: () =>
@@ -204,8 +208,9 @@ const upsertInput = (updateExisting: boolean) => ({
 	sandboxScriptId: SandboxScriptId.make("script-1"),
 });
 
+const globalSchemaScope = { slug: "person", propertiesSchema: titlePropertiesSchema };
+
 it.effect("upsert creates a new global entity when none exists", () => {
-	let insertCalled = false;
 	let updateCalled = false;
 	const layer = makeServiceLayer(
 		makeEntitiesRepository({
@@ -214,78 +219,102 @@ it.effect("upsert creates a new global entity when none exists", () => {
 					updateCalled = true;
 					return globalEntity;
 				}),
-			findGlobalEntityByExternalId: () => Effect.succeed(null),
-			findEntitySchemaById: () => Effect.succeed({ propertiesSchema: titlePropertiesSchema }),
+			findEntitySchemaById: () => Effect.succeed(globalSchemaScope),
 			insertEntity: () =>
-				Effect.sync(() => {
-					insertCalled = true;
-					return { ...globalEntity, id: EntityId.make("created-entity") };
+				Effect.succeed({
+					wasInserted: true,
+					entity: { ...globalEntity, id: EntityId.make("created-entity") },
 				}),
 		}),
 	);
 
 	return Effect.gen(function* () {
 		const service = yield* EntitiesService;
-		const entity = yield* service.upsert(upsertInput(false));
+		const result = yield* service.upsert(upsertInput(false));
 
-		expect(entity.id).toBe("created-entity");
-		expect(insertCalled).toBe(true);
+		expect(result.entity.id).toBe("created-entity");
+		expect(result.outcome).toEqual({
+			before: null,
+			operation: "create",
+			after: {
+				name: "Cooper",
+				entitySchemaSlug: "person",
+				properties: { title: "Cooper" },
+				id: EntityId.make("created-entity"),
+				entitySchemaId: EntitySchemaId.make("schema-1"),
+			},
+		});
 		expect(updateCalled).toBe(false);
 	}).pipe(Effect.provide(layer));
 });
 
-it.effect("upsert updates an existing populated entity when updateExisting is set", () => {
-	let insertCalled = false;
-	const existing = { ...globalEntity, populatedAt: now, id: EntityId.make("existing-entity") };
+it.effect("upsert captures a material update", () => {
+	const existing = {
+		...globalEntity,
+		name: "Existing",
+		populatedAt: now,
+		properties: { title: "Existing" },
+		id: EntityId.make("existing-entity"),
+	};
 	const layer = makeServiceLayer(
 		makeEntitiesRepository({
-			findGlobalEntityByExternalId: () => Effect.succeed(existing),
-			findEntitySchemaById: () => Effect.succeed({ propertiesSchema: titlePropertiesSchema }),
-			insertEntity: () =>
-				Effect.sync(() => {
-					insertCalled = true;
-					return existing;
+			findEntitySchemaById: () => Effect.succeed(globalSchemaScope),
+			insertEntity: () => Effect.succeed({ entity: existing, wasInserted: false }),
+			updateEntity: (input) =>
+				Effect.succeed({
+					...existing,
+					name: input.name,
+					id: input.entityId,
+					properties: input.properties,
+					populatedAt: input.populatedAt?.toISOString() ?? null,
 				}),
-			updateEntity: (input) => Effect.succeed({ ...existing, name: "Updated", id: input.entityId }),
 		}),
 	);
 
 	return Effect.gen(function* () {
 		const service = yield* EntitiesService;
-		const entity = yield* service.upsert(upsertInput(true));
+		const result = yield* service.upsert(upsertInput(true));
 
-		expect(entity.id).toBe("existing-entity");
-		expect(entity.name).toBe("Updated");
-		expect(insertCalled).toBe(false);
+		expect(result.entity.name).toBe("Cooper");
+		expect(result.outcome.operation).toBe("update");
+		expect(result.outcome.before).toMatchObject({
+			name: "Existing",
+			properties: { title: "Existing" },
+		});
+		expect(result.outcome.after).toMatchObject({
+			name: "Cooper",
+			properties: { title: "Cooper" },
+		});
 	}).pipe(Effect.provide(layer));
 });
 
-it.effect("upsert updates an existing skeleton even when updateExisting is not set", () => {
+it.effect("upsert classifies a timestamp-only skeleton population as noop", () => {
 	let updateCalled = false;
 	const skeleton = { ...globalEntity, populatedAt: null, id: EntityId.make("skeleton-entity") };
 	const layer = makeServiceLayer(
 		makeEntitiesRepository({
-			findGlobalEntityByExternalId: () => Effect.succeed(skeleton),
-			findEntitySchemaById: () => Effect.succeed({ propertiesSchema: titlePropertiesSchema }),
+			findEntitySchemaById: () => Effect.succeed(globalSchemaScope),
+			insertEntity: () => Effect.succeed({ entity: skeleton, wasInserted: false }),
 			updateEntity: (input) =>
 				Effect.sync(() => {
 					updateCalled = true;
-					return { ...skeleton, populatedAt: now, id: input.entityId };
+					return { ...skeleton, ...input, populatedAt: now, id: input.entityId };
 				}),
 		}),
 	);
 
 	return Effect.gen(function* () {
 		const service = yield* EntitiesService;
-		const entity = yield* service.upsert(upsertInput(false));
+		const result = yield* service.upsert({ ...upsertInput(false), populatedAt: nowDate });
 
-		expect(entity.id).toBe("skeleton-entity");
+		expect(result.entity.id).toBe("skeleton-entity");
+		expect(result.outcome.operation).toBe("noop");
+		expect(result.outcome.before).toEqual(result.outcome.after);
 		expect(updateCalled).toBe(true);
 	}).pipe(Effect.provide(layer));
 });
 
 it.effect("upsert preserves an existing populated entity when updateExisting is not set", () => {
-	let insertCalled = false;
 	let updateCalled = false;
 	const existing = {
 		...globalEntity,
@@ -295,12 +324,8 @@ it.effect("upsert preserves an existing populated entity when updateExisting is 
 	};
 	const layer = makeServiceLayer(
 		makeEntitiesRepository({
-			findGlobalEntityByExternalId: () => Effect.succeed(existing),
-			insertEntity: () =>
-				Effect.sync(() => {
-					insertCalled = true;
-					return existing;
-				}),
+			findEntitySchemaById: () => Effect.succeed(globalSchemaScope),
+			insertEntity: () => Effect.succeed({ entity: existing, wasInserted: false }),
 			updateEntity: () =>
 				Effect.sync(() => {
 					updateCalled = true;
@@ -311,11 +336,12 @@ it.effect("upsert preserves an existing populated entity when updateExisting is 
 
 	return Effect.gen(function* () {
 		const service = yield* EntitiesService;
-		const entity = yield* service.upsert(upsertInput(false));
+		const result = yield* service.upsert(upsertInput(false));
 
-		expect(entity.id).toBe("existing-entity");
-		expect(entity.name).toBe("Existing");
-		expect(insertCalled).toBe(false);
+		expect(result.entity.id).toBe("existing-entity");
+		expect(result.entity.name).toBe("Existing");
+		expect(result.outcome.operation).toBe("noop");
+		expect(result.outcome.before).toEqual(result.outcome.after);
 		expect(updateCalled).toBe(false);
 	}).pipe(Effect.provide(layer));
 });
