@@ -12,6 +12,7 @@ import {
 	builtinSandboxScripts,
 	builtinSignalAutomationRuleLinks,
 } from "./registry";
+import { builtinRelationshipSchemas } from "./relationship-schemas";
 
 describe("builtinSandboxScripts", () => {
 	it("uses generated format-1 representations for the complete TMDB family", () => {
@@ -325,7 +326,9 @@ describe("builtinSandboxScripts", () => {
 	});
 
 	it("registers one relationship sync detector for every material operation", () => {
-		const links = builtinRelationshipAutomationRuleLinks();
+		const links = builtinRelationshipAutomationRuleLinks().filter(
+			({ scriptSlug }) => scriptSlug === "automation.media-relationship-sync",
+		);
 		const detector = builtinSandboxScripts().find(
 			({ slug }) => slug === "automation.media-relationship-sync",
 		);
@@ -339,6 +342,41 @@ describe("builtinSandboxScripts", () => {
 		for (const relationshipSchemaSlug of new Set(
 			links.map((link) => link.relationshipSchemaSlug),
 		)) {
+			expect(
+				links
+					.filter((link) => link.relationshipSchemaSlug === relationshipSchemaSlug)
+					.map(({ operation }) => operation),
+			).toEqual(["create", "update", "delete"]);
+		}
+	});
+
+	it("registers the association detector for every credit relationship operation", () => {
+		const links = builtinRelationshipAutomationRuleLinks().filter(
+			({ scriptSlug }) => scriptSlug === "automation.media-association",
+		);
+		const detector = builtinSandboxScripts().find(
+			({ slug }) => slug === "automation.media-association",
+		);
+		const expectedSlugs = builtinRelationshipSchemas()
+			.filter(({ sourceEntitySchemaSlug }) =>
+				["person", "company"].includes(sourceEntitySchemaSlug ?? ""),
+			)
+			.map(({ slug }) => slug);
+
+		assert(detector);
+		expect(detector.manifest.capabilities).toEqual(["emitSignal"]);
+		expect(new Set(links.map(({ relationshipSchemaSlug }) => relationshipSchemaSlug))).toEqual(
+			new Set(expectedSlugs),
+		);
+		expect(expectedSlugs).toEqual(
+			expect.arrayContaining([
+				"person-to-music-group",
+				"company-to-music-group",
+				"person-to-video-game-group",
+				"company-to-video-game-group",
+			]),
+		);
+		for (const relationshipSchemaSlug of expectedSlugs) {
 			expect(
 				links
 					.filter((link) => link.relationshipSchemaSlug === relationshipSchemaSlug)

@@ -57,6 +57,14 @@ const formatMessage = (signal: AutomationSignalSnapshot) => {
 	if (signal.signalSchemaSlug === "integration.disabled") {
 		return `Integration ${stringProperty(signal.properties, "providerName")} has been disabled due to too many errors`;
 	}
+	if (
+		signal.signalSchemaSlug === "person.media.associated" ||
+		signal.signalSchemaSlug === "person.media-group.associated" ||
+		signal.signalSchemaSlug === "company.media.associated" ||
+		signal.signalSchemaSlug === "company.media-group.associated"
+	) {
+		return `${stringProperty(signal.properties, "subjectName")} has been associated with ${stringProperty(signal.properties, "associatedName")} as ${stringProperty(signal.properties, "role")}`;
+	}
 	if (signal.signalSchemaSlug === "media.status.changed") {
 		return `Status of ${stringProperty(signal.properties, "entityName")} changed from ${stringProperty(signal.properties, "oldStatus")} to ${stringProperty(signal.properties, "newStatus")}`;
 	}
