@@ -1,4 +1,4 @@
-import { type ReactNode, useCallback, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { Pressable } from "react-native";
 import type { ScrollView } from "react-native";
 import { GestureDetector, usePanGesture } from "react-native-gesture-handler";
@@ -56,6 +56,7 @@ type ReorderableListProps<T> = {
 function ReorderableRow<T>(props: {
 	item: T;
 	index: number;
+	itemKey: string;
 	itemCount: number;
 	itemHeight: number;
 	onStart: () => void;
@@ -64,21 +65,30 @@ function ReorderableRow<T>(props: {
 	activeIndex: SharedValue<number>;
 	translationY: SharedValue<number>;
 	scrollOffset: SharedValue<number>;
+	positions: Record<string, number>;
+	isFinalizing: SharedValue<boolean>;
 	projectedIndex: SharedValue<number>;
 	rawTranslationY: SharedValue<number>;
+	activeKey: SharedValue<string | null>;
 	startScrollOffset: SharedValue<number>;
 	renderItem: ReorderableListProps<T>["renderItem"];
+	dragPositions: SharedValue<Record<string, number>>;
 	onFinish: (fromIndex: number, toIndex: number) => void;
 }) {
 	const index = props.index;
+	const itemKey = props.itemKey;
 	const onStart = props.onStart;
 	const onFinish = props.onFinish;
+	const activeKey = props.activeKey;
+	const isFinalizing = props.isFinalizing;
 	const pointerY = props.pointerY;
 	const itemCount = props.itemCount;
 	const itemHeight = props.itemHeight;
 	const activeIndex = props.activeIndex;
+	const dragPositions = props.dragPositions;
 	const translationY = props.translationY;
 	const scrollOffset = props.scrollOffset;
+	const positions = props.positions;
 	const rawTranslationY = props.rawTranslationY;
 	const projectedIndexValue = props.projectedIndex;
 	const startScrollOffset = props.startScrollOffset;
@@ -108,12 +118,21 @@ function ReorderableRow<T>(props: {
 		failOffsetX: [-20, 20],
 		activeOffsetY: [-5, 5],
 		onUpdate: (event) => {
+			if (activeKey.value !== itemKey || isFinalizing.value) {
+				return;
+			}
 			rawTranslationY.value = event.translationY;
 			pointerY.value = event.absoluteY;
 			updateTranslation(event.translationY);
 		},
 		onActivate: (event) => {
+			if (activeKey.value !== null) {
+				return;
+			}
+			activeKey.value = itemKey;
 			activeIndex.value = index;
+			dragPositions.value = positions;
+			isFinalizing.value = false;
 			rawTranslationY.value = 0;
 			startScrollOffset.value = scrollOffset.value;
 			pointerY.value = event.absoluteY;
@@ -122,31 +141,39 @@ function ReorderableRow<T>(props: {
 			scheduleOnRN(onStart);
 		},
 		onFinalize: () => {
-			if (activeIndex.value !== index) {
+			if (activeKey.value !== itemKey) {
 				return;
 			}
+			const fromIndex = activeIndex.value;
 			const toIndex = projectedIndexValue.value;
-			activeIndex.value = -1;
-			projectedIndexValue.value = -1;
-			translationY.value = 0;
-			scheduleOnRN(onFinish, index, toIndex);
+			isFinalizing.value = true;
+			translationY.value = withTiming((toIndex - fromIndex) * itemHeight, ROW_TIMING, () => {
+				scheduleOnRN(onFinish, fromIndex, toIndex);
+			});
 		},
 	});
 	const rowStyle = useAnimatedStyle(() => {
 		const active = activeIndex.value;
+		const activeItemKey = activeKey.value;
+		if (activeItemKey === null) {
+			return { transform: [{ translateY: 0 }], zIndex: 0 };
+		}
+		const dragIndex = dragPositions.value[itemKey] ?? index;
 		const projected = projectedIndexValue.value;
-		if (active === index) {
-			return { transform: [{ translateY: translationY.value }], zIndex: 10 };
+		if (activeItemKey === itemKey) {
+			const absoluteY = active * itemHeight + translationY.value;
+			return { transform: [{ translateY: absoluteY - index * itemHeight }], zIndex: 10 };
 		}
-		let displacement = 0;
-		if (active < projected && index > active && index <= projected) {
-			displacement = -itemHeight;
+		let targetIndex = dragIndex;
+		if (active < projected && dragIndex > active && dragIndex <= projected) {
+			targetIndex -= 1;
 		}
-		if (active > projected && index >= projected && index < active) {
-			displacement = itemHeight;
+		if (active > projected && dragIndex >= projected && dragIndex < active) {
+			targetIndex += 1;
 		}
+		const displacement = (targetIndex - index) * itemHeight;
 		return {
-			transform: [{ translateY: withTiming(displacement, ROW_TIMING) }],
+			transform: [{ translateY: displacement === 0 ? 0 : withTiming(displacement, ROW_TIMING) }],
 			zIndex: 0,
 		};
 	});
@@ -177,10 +204,16 @@ function ReorderableRow<T>(props: {
 }
 
 export function ReorderableList<T>(props: ReorderableListProps<T>) {
+	const activeKey = useSharedValue<string | null>(null);
 	const activeIndex = useSharedValue(-1);
 	const itemCount = props.items.length;
 	const itemHeight = props.itemHeight;
+	const itemPositions = Object.fromEntries(
+		props.items.map((item, index) => [props.keyExtractor(item), index]),
+	);
 	const pointerY = useSharedValue(0);
+	const dragPositions = useSharedValue<Record<string, number>>({});
+	const isFinalizing = useSharedValue(false);
 	const projectedIndexValue = useSharedValue(-1);
 	const rawTranslationY = useSharedValue(0);
 	const scrollRef = props.scrollRef;
@@ -188,11 +221,41 @@ export function ReorderableList<T>(props: ReorderableListProps<T>) {
 	const translationY = useSharedValue(0);
 	const scrollOffset = useScrollOffset(scrollRef);
 	const [draggingKey, setDraggingKey] = useState<string | null>(null);
+	const [pendingOrder, setPendingOrder] = useState<readonly string[] | null>(null);
 	const onDrop = props.onDrop;
 	const onPickUp = props.onPickUp;
 	const onReorder = props.onReorder;
+	useEffect(() => {
+		if (pendingOrder === null) {
+			return;
+		}
+		const currentOrder = props.items.map(props.keyExtractor);
+		if (
+			currentOrder.length !== pendingOrder.length ||
+			currentOrder.some((key, index) => key !== pendingOrder[index])
+		) {
+			return;
+		}
+		activeKey.value = null;
+		activeIndex.value = -1;
+		dragPositions.value = {};
+		isFinalizing.value = false;
+		projectedIndexValue.value = -1;
+		translationY.value = 0;
+		setPendingOrder(null);
+	}, [
+		activeIndex,
+		activeKey,
+		dragPositions,
+		isFinalizing,
+		pendingOrder,
+		projectedIndexValue,
+		props.items,
+		props.keyExtractor,
+		translationY,
+	]);
 	useFrameCallback((frame) => {
-		if (activeIndex.value < 0 || scrollRef === undefined) {
+		if (activeIndex.value < 0 || isFinalizing.value || scrollRef === undefined) {
 			return;
 		}
 		const dimensions = measure(scrollRef);
@@ -238,11 +301,15 @@ export function ReorderableList<T>(props: ReorderableListProps<T>) {
 		(fromIndex: number, toIndex: number) => {
 			setDraggingKey(null);
 			onDrop?.();
+			const nextOrder = props.items.map(props.keyExtractor);
+			const [movedKey] = nextOrder.splice(fromIndex, 1);
+			nextOrder.splice(toIndex, 0, movedKey);
+			setPendingOrder(nextOrder);
 			if (fromIndex !== toIndex) {
 				onReorder(fromIndex, toIndex);
 			}
 		},
-		[onDrop, onReorder],
+		[onDrop, onReorder, props.items, props.keyExtractor],
 	);
 	const insertionLineStyle = useAnimatedStyle(() => ({
 		opacity: activeIndex.value < 0 ? 0 : 1,
@@ -257,14 +324,19 @@ export function ReorderableList<T>(props: ReorderableListProps<T>) {
 					<ReorderableRow
 						key={key}
 						item={item}
+						itemKey={key}
 						index={index}
 						pointerY={pointerY}
+						activeKey={activeKey}
 						onFinish={finishDrag}
 						itemCount={itemCount}
 						itemHeight={itemHeight}
+						positions={itemPositions}
 						activeIndex={activeIndex}
+						isFinalizing={isFinalizing}
 						scrollOffset={scrollOffset}
 						translationY={translationY}
+						dragPositions={dragPositions}
 						renderItem={props.renderItem}
 						onStart={() => beginDrag(key)}
 						isDragging={draggingKey === key}
