@@ -192,7 +192,8 @@ it.effect("forwards update snapshots and trusted population context", () => {
 	);
 
 	return Effect.gen(function* () {
-		yield* (yield* LifecycleDispatch).dispatch({
+		const svc = yield* LifecycleDispatch;
+		yield* svc.dispatch({
 			...entityInput,
 			operation: "update",
 			source: {
