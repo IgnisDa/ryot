@@ -116,6 +116,44 @@ describe("workflow definitions", () => {
 		});
 	});
 
+	test.each(["activity", "child"])("rejects non-JSON %s inputs", async (kind) => {
+		const manifest = defineManifest({
+			kind: "workflow",
+			capabilities: [],
+			name: "Invalid input",
+			slug: "invalid-input",
+			requiredPluginConfigKeys: [],
+			requiredSystemConfigKeys: [],
+		});
+		const workflow = defineWorkflow({
+			manifest,
+			input: Schema.Unknown,
+			output: Schema.String,
+			run: (input, replay) =>
+				kind === "activity"
+					? replay.activity(
+							"invalid",
+							{ input: Schema.Unknown, output: Schema.String, scriptSlug: "activity.invalid" },
+							input,
+						)
+					: replay.child(
+							"invalid",
+							{ input: Schema.Unknown, output: Schema.String, workflowSlug: "workflow.invalid" },
+							input,
+						),
+		});
+
+		const output = await RuntimeEffect.runPromise(
+			workflow.run(
+				undefined,
+				{ durableCalls: () => Effect.succeed([]) },
+				{ metadata: {}, sandboxScriptId: "workflow-1" },
+			),
+		);
+
+		expect(output).toMatchObject({ state: "failed", requests: [] });
+	});
+
 	test("validates direct durable call request shapes", () => {
 		const decode = Schema.decodeUnknownSync(workflowDurableCallRequestSchema);
 		expect(
