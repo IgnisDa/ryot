@@ -1,26 +1,7 @@
 # Definition Registry
 
-This module owns the in-memory, slug-keyed snapshot of schema and source-canonical saved-view
-definitions. Reads are synchronous. A replacement source is fully validated and frozen before the
-single snapshot reference is swapped, so readers see either the previous complete snapshot or the
-next complete snapshot.
-
-The registry starts with `kernelDefinitionSource` and is populated from active plugin manifests by
-`PluginLoader` before the server starts. Kernel definitions are source zero, not a synthetic plugin.
-Each subscribable signal definition selects an automation formatter. Plugin signals select an
-active plugin script; the `integration.disabled` source-zero signal selects the separately persisted,
-kernel-owned content-addressed formatter. Source zero is not a synthetic plugin.
-The registry contains definitions and bindings only; user state and persisted domain data do not
-belong here.
-
-## Trust and ownership
-
-Phase 4 registry entries are trusted, immutable system definitions. `pluginSlug` records package
-ownership where a definition exposes source attribution; `null` identifies kernel source zero.
-This attribution is separate from trust: plugin-owned first-party definitions remain system-provided
-and are reported as builtin by existing schema and saved-view conversion layers.
-
-Do not add non-builtin provenance sets, replacement provenance arguments, or user-package trust state
-to this registry. Signal authorization accepts only definitions returned by the active registry, and
-related-user audience policies accept only registry-backed relationship definitions. User-package
-trust, installation state, and capability consent belong to Phase 5.
+- Own the immutable, slug-keyed snapshot of schema, source-canonical saved-view, signal, and binding definitions. User state and persisted domain data do not belong here.
+- Fully validate and freeze replacements before swapping the snapshot reference; synchronous readers must see one complete version.
+- `kernelDefinitionSource` is source zero, not a synthetic plugin. `pluginSlug: null` identifies kernel ownership.
+- Registry definitions are trusted builtins. User-package provenance, installation, consent, and trust state belong elsewhere.
+- Signal definitions own formatter selection; kernel formatters remain kernel-owned.
