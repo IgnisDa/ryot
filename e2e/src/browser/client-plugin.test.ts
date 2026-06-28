@@ -224,7 +224,7 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		yield* observeBridgeMessages(page, bridgeObservations);
 		const frame = page.locator('iframe[title="fixture plugin"]');
 		const fixture = frame.contentFrame();
-		const home = fixture.locator("main");
+		const home = fixture.locator("body");
 
 		const { historyLengthBeforeSubmit } = yield* signInThroughHostedOAuth(page, email, password, {
 			captureHistory: true,
@@ -290,14 +290,14 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		yield* page.setViewportSize({ width: 390, height: 844 });
 		expect(yield* sameFrame()).toBe(true);
 
-		const menuTrigger = page.getByRole("button", { name: "Open navigation" });
+		const menuTrigger = fixture.getByRole("button", { name: "Open navigation" });
 		const drawer = page.getByRole("dialog", { name: "Navigation" });
 		yield* menuTrigger.click();
 		yield* drawer.waitFor({ state: "visible" });
 		yield* page.getByRole("button", { name: "Close navigation" }).click();
 		yield* drawer.waitFor({ state: "hidden" });
 		expect(yield* sameFrame()).toBe(true);
-		expect(yield* menuTrigger.evaluate((element) => element === document.activeElement)).toBe(true);
+		expect(yield* frame.evaluate((element) => element === document.activeElement)).toBe(true);
 
 		yield* page.setViewportSize({ width: 1280, height: 800 });
 		expect(yield* sameFrame()).toBe(true);

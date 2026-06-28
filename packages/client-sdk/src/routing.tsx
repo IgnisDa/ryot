@@ -1,7 +1,4 @@
-import type {
-	PluginHeaderContent,
-	PluginLogicalLocation,
-} from "@ryot-app/contract/modules/plugins/client";
+import type { PluginLogicalLocation } from "@ryot-app/contract/modules/plugins/client";
 import {
 	Fragment,
 	createContext,
@@ -29,30 +26,21 @@ import {
 	type ResolvePluginScreen,
 	type ScreenRole,
 } from "./navigation/stack";
-import type { PluginRouterNavigation } from "./navigation/store";
+import type { PluginNavigationEntry, PluginRouterNavigation } from "./navigation/store";
 import { useRyot } from "./react";
 
 export type PluginRouteDefinition = {
 	readonly path: string;
 	readonly component: ComponentType;
-	readonly header?: PluginHeaderResolver;
-};
-
-export type PluginHeaderResolver = (context: PluginRouteContext) => PluginHeaderContent | null;
-
-export type PluginRouteContext = {
-	readonly location: PluginLogicalLocation;
-	readonly params: Readonly<Record<string, string>>;
 };
 
 export type PluginHomeDefinition = {
 	readonly component: ComponentType;
-	readonly header?: PluginHeaderResolver;
 };
 
 export type PluginRouterDefinition = {
-	readonly home: PluginHomeDefinition;
 	readonly notFound?: ComponentType;
+	readonly home: PluginHomeDefinition;
 	readonly routes?: readonly PluginRouteDefinition[];
 };
 
@@ -62,6 +50,54 @@ type RouterContextValue = {
 };
 
 const RouterContext = createContext<RouterContextValue | undefined>(undefined);
+
+export type PluginChromeValue = {
+	readonly back: () => void;
+	readonly compact: boolean;
+	readonly edgeBack: boolean;
+	readonly safeAreaTop: number;
+	readonly openDrawer: () => void;
+	readonly entry: PluginNavigationEntry | undefined;
+	readonly publishTitle: (title: string | null) => void;
+};
+
+export type PluginScreenSurface = {
+	readonly isActive: boolean;
+	readonly scrollRootRef: RefObject<HTMLDivElement | null>;
+};
+
+const PluginChromeContext = createContext<PluginChromeValue | undefined>(undefined);
+
+const PluginScreenContext = createContext<PluginScreenSurface | undefined>(undefined);
+
+export const usePluginChrome = () => {
+	const context = useContext(PluginChromeContext);
+	if (!context) {
+		throw new Error("Plugin chrome hooks must be used within a mounted plugin router");
+	}
+	return context;
+};
+
+export const usePluginScreenSurface = () => {
+	const context = useContext(PluginScreenContext);
+	if (!context) {
+		throw new Error("Plugin screen hooks must be used within a mounted plugin screen");
+	}
+	return context;
+};
+
+export const useRyotSafeArea = () => usePluginChrome().safeAreaTop;
+
+export function usePluginTitle(title: string | null) {
+	const { entry, publishTitle } = usePluginChrome();
+	const { isActive } = usePluginScreenSurface();
+
+	useEffect(() => {
+		if (isActive) {
+			publishTitle(title);
+		}
+	}, [entry, isActive, publishTitle, title]);
+}
 
 const useRouterContext = () => {
 	const context = useContext(RouterContext);
@@ -164,22 +200,13 @@ export const createPluginRouteResolver = (
 ): ResolvePluginScreen => {
 	return (location) => {
 		if (location.path === "/") {
-			const params = {};
-			return {
-				params,
-				component: definition.home.component,
-				header: definition.home.header?.({ location, params }) ?? null,
-			};
+			return { params: {}, component: definition.home.component };
 		}
 		const matched = matchRoute(definition.routes ?? [], location.path);
 		if (matched === undefined) {
-			return { params: {}, header: null, component: definition.notFound ?? DefaultNotFound };
+			return { params: {}, component: definition.notFound ?? DefaultNotFound };
 		}
-		return {
-			params: matched.params,
-			component: matched.route.component,
-			header: matched.route.header?.({ location, params: matched.params }) ?? null,
-		};
+		return { params: matched.params, component: matched.route.component };
 	};
 };
 
@@ -237,9 +264,21 @@ export const PluginRouter = ({ navigation }: PluginRouterProps) => {
 		engaged: false,
 	});
 	const [gesturePresentation, setGesturePresentation] = useState<Presentation>(idle);
-	const { compact, edgeBack, screens, transition } = useSyncExternalStore(
+	const { compact, edgeBack, entry, safeAreaTop, screens, transition } = useSyncExternalStore(
 		navigation.subscribe,
 		navigation.getSnapshot,
+	);
+	const chrome = useMemo<PluginChromeValue>(
+		() => ({
+			entry,
+			compact,
+			edgeBack,
+			safeAreaTop,
+			back: navigation.back,
+			openDrawer: navigation.openDrawer,
+			publishTitle: navigation.publishTitle,
+		}),
+		[compact, edgeBack, entry, navigation, safeAreaTop],
 	);
 	const popping = useMemo(
 		() =>
@@ -384,15 +423,17 @@ export const PluginRouter = ({ navigation }: PluginRouterProps) => {
 	const scrimAfter = presentation.kind === "popping" ? "active" : "beneath";
 
 	return (
-		<div ref={rootRef} style={rootStyle}>
-			{presented.map(({ role, screen }) => (
-				<Fragment key={screen.key}>
-					<Screen role={role} screen={screen} refs={screenRefs} />
-					{role === scrimAfter && <div ref={scrimRef} aria-hidden="true" style={scrimStyle} />}
-				</Fragment>
-			))}
-			{edgeBack && <EdgeStrip onEnd={endDrag} onMove={moveDrag} onStart={beginDrag} />}
-		</div>
+		<PluginChromeContext.Provider value={chrome}>
+			<div ref={rootRef} style={rootStyle}>
+				{presented.map(({ role, screen }) => (
+					<Fragment key={screen.key}>
+						<Screen role={role} screen={screen} refs={screenRefs} />
+						{role === scrimAfter && <div ref={scrimRef} aria-hidden="true" style={scrimStyle} />}
+					</Fragment>
+				))}
+				{edgeBack && <EdgeStrip onEnd={endDrag} onMove={moveDrag} onStart={beginDrag} />}
+			</div>
+		</PluginChromeContext.Provider>
 	);
 };
 
@@ -402,8 +443,13 @@ function Screen(props: {
 	readonly refs: RefObject<Map<string, HTMLDivElement>>;
 }) {
 	const active = props.role === "active";
+	const scrollRoot = useRef<HTMLDivElement>(null);
 	const { location, params } = props.screen;
 	const value = useMemo(() => ({ location, params }), [location, params]);
+	const surface = useMemo<PluginScreenSurface>(
+		() => ({ isActive: active, scrollRootRef: scrollRoot }),
+		[active],
+	);
 
 	return (
 		<div
@@ -412,18 +458,22 @@ function Screen(props: {
 			aria-hidden={active ? undefined : true}
 			style={props.role === "hidden" ? hiddenScreenStyle : visibleScreenStyle}
 			ref={(element) => {
+				scrollRoot.current = element;
 				if (element === null) {
 					return undefined;
 				}
 				props.refs.current.set(props.screen.key, element);
 				return () => {
+					scrollRoot.current = null;
 					props.refs.current.delete(props.screen.key);
 				};
 			}}
 		>
-			<RouterContext.Provider value={value}>
-				<props.screen.component />
-			</RouterContext.Provider>
+			<PluginScreenContext.Provider value={surface}>
+				<RouterContext.Provider value={value}>
+					<props.screen.component />
+				</RouterContext.Provider>
+			</PluginScreenContext.Provider>
 		</div>
 	);
 }

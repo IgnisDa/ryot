@@ -1,4 +1,4 @@
-import { Button } from "@ryot-app/client-ui-sdk";
+import { Button, ScreenFrame } from "@ryot-app/client-ui-sdk";
 import {
 	CLIENT_API_VERSION,
 	PLUGIN_BACK_SETTLE_MS,
@@ -11,7 +11,7 @@ import type {
 } from "@ryot-app/contract/modules/plugins/client";
 import type { PluginClientCatalogEntry } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import clsx from "clsx";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 
 import { mainContentProps } from "#/modules/navigation/skip-link";
 import {
@@ -122,11 +122,15 @@ function resolvePluginArtifact(installation: PluginClientCatalogEntry): PluginAr
 
 export function PluginHost(props: {
 	readonly theme: ThemeStore;
+	readonly safeAreaTop: number;
+	readonly onOpenDrawer: () => void;
+	readonly chromeLeading: ReactNode;
 	readonly onStaleSession: () => void;
 	readonly onNavigateBack: () => void;
 	readonly artifactSessionScopeKey: string;
 	readonly installation: PluginClientCatalogEntry;
 	readonly navigation: PluginBridgeNavigationState;
+	readonly chromeTriggerRef: RefObject<HTMLElement | null>;
 	readonly onHeader: (header: PluginHeaderPublication) => void;
 	readonly onRenewArtifactSession: RenewPluginArtifactSession;
 	readonly onCreateArtifactSession: CreatePluginArtifactSession;
@@ -143,8 +147,13 @@ export function PluginHost(props: {
 	) => Promise<PluginOperationDispatchOutcome>;
 }) {
 	const resolution = resolvePluginArtifact(props.installation);
+	const chrome = {
+		leading: props.chromeLeading,
+		safeAreaTop: props.safeAreaTop,
+		compact: props.navigation.compact,
+	};
 	if (resolution.kind === "blocked") {
-		return <PluginNotice status={resolution.status} />;
+		return <PluginNotice {...chrome} status={resolution.status} />;
 	}
 
 	return (
@@ -154,10 +163,14 @@ export function PluginHost(props: {
 			onHeader={props.onHeader}
 			onNavigate={props.onNavigate}
 			navigation={props.navigation}
+			safeAreaTop={props.safeAreaTop}
+			onOpenDrawer={props.onOpenDrawer}
+			chromeLeading={props.chromeLeading}
 			pluginSlug={props.installation.slug}
 			onNavigateBack={props.onNavigateBack}
 			onStaleSession={props.onStaleSession}
 			artifactHash={resolution.artifactHash}
+			chromeTriggerRef={props.chromeTriggerRef}
 			sourceHash={props.installation.sourceHash}
 			onInvokeOperation={props.onInvokeOperation}
 			installationId={props.installation.installationId}
@@ -174,14 +187,18 @@ function PluginFrame(props: {
 	readonly theme: ThemeStore;
 	readonly pluginSlug: string;
 	readonly sourceHash: string;
+	readonly safeAreaTop: number;
 	readonly artifactHash: string;
 	readonly installationId: string;
+	readonly chromeLeading: ReactNode;
+	readonly onOpenDrawer: () => void;
 	readonly onStaleSession: () => void;
 	readonly onNavigateBack: () => void;
 	readonly artifactSessionScopeKey: string;
 	readonly navigation: PluginBridgeNavigationState;
-	readonly onHeader: (header: PluginHeaderPublication) => void;
+	readonly chromeTriggerRef: RefObject<HTMLElement | null>;
 	readonly onRenewArtifactSession: RenewPluginArtifactSession;
+	readonly onHeader: (header: PluginHeaderPublication) => void;
 	readonly onCreateArtifactSession: CreatePluginArtifactSession;
 	readonly onRevokeArtifactSession: RevokePluginArtifactSession;
 	readonly onNavigate: (request: PluginNavigationRequest) => void;
@@ -382,6 +399,10 @@ function PluginFrame(props: {
 		[props.theme],
 	);
 
+	useEffect(() => {
+		bridge.current?.sendViewport(props.safeAreaTop);
+	}, [props.safeAreaTop]);
+
 	function connect() {
 		if (artifact.status !== "active") {
 			return;
@@ -399,8 +420,10 @@ function PluginFrame(props: {
 			target: plugin,
 			artifactHash: props.artifactHash,
 			navigation: latest.current.navigation,
+			safeAreaTop: latest.current.safeAreaTop,
 			theme: latest.current.theme.getSnapshot(),
 			onReady: () => setFrameStatus("ready"),
+			onOpenDrawer: () => latest.current.onOpenDrawer(),
 			onRyotQL: (request, signal) => latest.current.onQuery(request, signal),
 			onHeader: (request) => {
 				const current = latest.current.navigation;
@@ -451,12 +474,14 @@ function PluginFrame(props: {
 		}
 	}
 
+	const chrome = { compact, leading: props.chromeLeading, safeAreaTop: props.safeAreaTop };
 	if (artifact.status === "creating") {
-		return <PluginNotice status="loading" />;
+		return <PluginNotice {...chrome} status="loading" />;
 	}
 	if (artifact.status === "failed") {
 		return (
 			<PluginNotice
+				{...chrome}
 				status="artifact-session-failure"
 				onReload={() => setReload((value) => value + 1)}
 			/>
@@ -465,6 +490,7 @@ function PluginFrame(props: {
 	if (frameStatus === "handshake-failure") {
 		return (
 			<PluginNotice
+				{...chrome}
 				status={frameStatus}
 				onReload={() => {
 					closeBridge();
@@ -475,31 +501,80 @@ function PluginFrame(props: {
 	}
 
 	return (
-		<main
-			{...mainContentProps}
-			className={clsx(frameStatus === "ready" ? "h-full w-full" : "ui-page")}
-		>
-			{frameStatus === "ready" ? null : <PluginNoticePanel status={frameStatus} />}
+		<main {...mainContentProps} className="relative h-full w-full">
 			<iframe
-				ref={frame}
 				onLoad={connect}
 				sandbox="allow-scripts"
 				src={artifact.session.src}
 				referrerPolicy="no-referrer"
 				title={`${props.pluginSlug} plugin`}
-				className={clsx(frameStatus === "ready" ? "h-full w-full border-0" : "hidden")}
+				className={clsx("h-full w-full border-0", frameStatus !== "ready" && "invisible")}
+				ref={(node) => {
+					frame.current = node;
+					props.chromeTriggerRef.current = node;
+				}}
 			/>
+			{frameStatus === "ready" ? null : (
+				<div className="absolute inset-0">
+					<PluginChromeFrame
+						compact={compact}
+						title="Loading plugin"
+						leading={props.chromeLeading}
+						safeAreaTop={props.safeAreaTop}
+					>
+						<PluginNoticePanel status="loading" />
+					</PluginChromeFrame>
+				</div>
+			)}
 		</main>
 	);
 }
 
+function PluginChromeFrame(props: {
+	readonly title: string;
+	readonly compact: boolean;
+	readonly leading: ReactNode;
+	readonly safeAreaTop: number;
+	readonly children: ReactNode;
+}) {
+	const scrollRootRef = useRef<HTMLDivElement>(null);
+
+	return (
+		<div
+			ref={scrollRootRef}
+			className="h-full overflow-y-auto bg-bg pb-[max(32px,env(safe-area-inset-bottom))] md:px-8 md:pt-8"
+		>
+			<ScreenFrame
+				title={props.title}
+				compact={props.compact}
+				leading={props.leading}
+				scrollRootRef={scrollRootRef}
+				safeAreaTop={props.safeAreaTop}
+				contentClassName="px-4 md:px-0"
+			>
+				{props.children}
+			</ScreenFrame>
+		</div>
+	);
+}
+
 function PluginNotice(props: {
+	readonly compact: boolean;
+	readonly leading: ReactNode;
+	readonly safeAreaTop: number;
 	readonly onReload?: () => void;
 	readonly status: Exclude<PluginHostStatus, "ready">;
 }) {
 	return (
-		<main {...mainContentProps} className="ui-page">
-			<PluginNoticePanel status={props.status} onReload={props.onReload} />
+		<main {...mainContentProps} className="h-full">
+			<PluginChromeFrame
+				compact={props.compact}
+				leading={props.leading}
+				safeAreaTop={props.safeAreaTop}
+				title={props.status === "loading" ? "Loading plugin" : "Plugin unavailable"}
+			>
+				<PluginNoticePanel status={props.status} onReload={props.onReload} />
+			</PluginChromeFrame>
 		</main>
 	);
 }
@@ -509,18 +584,10 @@ function PluginNoticePanel(props: {
 	readonly status: Exclude<PluginHostStatus, "ready">;
 }) {
 	return (
-		<section
-			aria-labelledby="plugin-host-title"
-			className="ui-stack ui-card mx-auto w-[min(100%,480px)]"
-		>
-			<div>
-				<h1 id="plugin-host-title" className="ui-heading">
-					{props.status === "loading" ? "Loading plugin" : "Plugin unavailable"}
-				</h1>
-				<p role={props.status === "loading" ? "status" : "alert"} className="ui-subtitle">
-					{noticeMessages[props.status]}
-				</p>
-			</div>
+		<section className="ui-stack ui-card mx-auto w-[min(100%,480px)]">
+			<p role={props.status === "loading" ? "status" : "alert"} className="text-text-muted">
+				{noticeMessages[props.status]}
+			</p>
 			{props.onReload ? (
 				<Button type="button" onClick={props.onReload}>
 					Reload plugin

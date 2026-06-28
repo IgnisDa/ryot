@@ -9,7 +9,7 @@ import { column, document, field, rows, table } from "@ryot-app/ryotql";
 import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Effect, Layer, ManagedRuntime } from "effect";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { KernelApiTestLayer } from "#/api/ports.test-layer";
 import { ManagedAssetResolutionError, ManagedAssetsService } from "#/modules/assets/managed-assets";
@@ -38,6 +38,7 @@ import {
 	ProviderAddRouteStubs,
 	ImportsRouteStubs,
 	IntegrationRouteStubs,
+	stubDesktopMatchMedia,
 } from "#/routes/-route-fixtures";
 
 const entity = table("entity", "entity");
@@ -270,6 +271,16 @@ const mountView = (
 	const view = render(<RouterProvider router={router} />);
 	return { ...view, router, runtime, backInterceptors };
 };
+
+let restoreMatchMedia = () => undefined as void;
+
+beforeEach(() => {
+	restoreMatchMedia = stubDesktopMatchMedia();
+});
+
+afterEach(() => {
+	restoreMatchMedia();
+});
 
 describe("saved-view route", () => {
 	it("titles the document from the loaded record and renders one skip-link target", async () => {

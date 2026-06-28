@@ -311,3 +311,20 @@ export const makePublicApiStub = (isServerKeyValidated = false) =>
 				},
 			}),
 	});
+
+export const stubDesktopMatchMedia = () => {
+	const original = window.matchMedia;
+	window.matchMedia = ((query: string) => ({
+		media: query,
+		onchange: null,
+		dispatchEvent: () => false,
+		addListener: () => undefined,
+		removeListener: () => undefined,
+		addEventListener: () => undefined,
+		removeEventListener: () => undefined,
+		matches: query === "(min-width: 768px)",
+	})) as typeof window.matchMedia;
+	return () => {
+		window.matchMedia = original;
+	};
+};

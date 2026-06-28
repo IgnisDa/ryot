@@ -11,6 +11,7 @@ export type PluginNavigationEntry = {
 export type PluginNavigationSnapshot = {
 	readonly compact: boolean;
 	readonly edgeBack: boolean;
+	readonly safeAreaTop: number;
 	readonly screens: readonly PluginScreen[];
 	readonly entry: PluginNavigationEntry | undefined;
 	readonly transition: PluginNavigationTransition | undefined;
@@ -35,17 +36,21 @@ export type PluginNavigationStore = {
 
 export type PluginRouterNavigation = PluginNavigationStore & {
 	readonly back: () => void;
+	readonly openDrawer: () => void;
 	readonly completeTransition: (id: number) => void;
+	readonly publishTitle: (title: string | null) => void;
 };
 
 export type PluginNavigationController = PluginNavigationStore & {
 	readonly clear: () => void;
 	readonly completeTransition: (id: number) => void;
+	readonly setViewport: (safeAreaTop: number) => void;
 	readonly setLocation: (location: PluginNavigationLocation) => PluginNavigationSnapshot;
 };
 
-const initialSnapshot = (): PluginNavigationSnapshot => ({
+const initialSnapshot = (safeAreaTop: number): PluginNavigationSnapshot => ({
 	screens: [],
+	safeAreaTop,
 	compact: false,
 	edgeBack: false,
 	entry: undefined,
@@ -54,10 +59,11 @@ const initialSnapshot = (): PluginNavigationSnapshot => ({
 
 export const createPluginNavigationStore = (
 	resolve: ResolvePluginScreen,
+	initialSafeAreaTop = 0,
 ): PluginNavigationController => {
 	const listeners = new Set<() => void>();
 	let nextTransitionId = 0;
-	let snapshot = initialSnapshot();
+	let snapshot = initialSnapshot(initialSafeAreaTop);
 
 	const emit = (next: PluginNavigationSnapshot) => {
 		snapshot = next;
@@ -68,10 +74,15 @@ export const createPluginNavigationStore = (
 
 	return {
 		getSnapshot: () => snapshot,
-		clear: () => emit(initialSnapshot()),
+		clear: () => emit(initialSnapshot(snapshot.safeAreaTop)),
 		subscribe: (listener) => {
 			listeners.add(listener);
 			return () => listeners.delete(listener);
+		},
+		setViewport: (safeAreaTop) => {
+			if (snapshot.safeAreaTop !== safeAreaTop) {
+				emit({ ...snapshot, safeAreaTop });
+			}
 		},
 		completeTransition: (id) => {
 			if (snapshot.transition?.id === id) {
@@ -89,7 +100,14 @@ export const createPluginNavigationStore = (
 							incoming: result.stack.at(-1)?.key,
 						}
 					: undefined;
-			const next = { compact, edgeBack, entry, transition, screens: result.stack };
+			const next = {
+				entry,
+				compact,
+				edgeBack,
+				transition,
+				screens: result.stack,
+				safeAreaTop: snapshot.safeAreaTop,
+			};
 			emit(next);
 			return next;
 		},
