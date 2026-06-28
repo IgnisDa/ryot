@@ -1,4 +1,4 @@
-import { conflict } from "@ryot/contract/errors";
+import { DbError, conflict } from "@ryot/contract/errors";
 import type { EntityId, UserId } from "@ryot/contract/schema/brands";
 import { and, eq } from "drizzle-orm";
 import { Effect } from "effect";
@@ -98,6 +98,28 @@ export class TranslationsRepository extends Effect.Service<TranslationsRepositor
 				return row?.id ?? null;
 			});
 
+			const listByEntity = Effect.fn("TranslationsRepository.listByEntity")(function* (
+				entityId: EntityId,
+			) {
+				const db = yield* CurrentDb;
+				const rows = yield* dbEffect(() =>
+					db
+						.select({
+							name: schema.entityTranslation.name,
+							language: schema.entityTranslation.language,
+							properties: schema.entityTranslation.properties,
+							populatedAt: schema.entityTranslation.populatedAt,
+						})
+						.from(schema.entityTranslation)
+						.where(eq(schema.entityTranslation.entityId, entityId)),
+				);
+				return yield* Effect.forEach(rows, (row) =>
+					row.populatedAt
+						? Effect.succeed({ ...row, populatedAt: row.populatedAt.toISOString() })
+						: Effect.fail(new DbError({ message: "Translation overlay has no populated date" })),
+				);
+			});
+
 			const findUserLanguage = Effect.fn("TranslationsRepository.findUserLanguage")(function* (
 				userId: UserId,
 			) {
@@ -113,7 +135,7 @@ export class TranslationsRepository extends Effect.Service<TranslationsRepositor
 				return row ? extractLanguage(row.preferences) : null;
 			});
 
-			return { findOverlay, createOverlay, updateOverlay, findUserLanguage };
+			return { findOverlay, createOverlay, updateOverlay, listByEntity, findUserLanguage };
 		},
 	},
 ) {}

@@ -1,17 +1,20 @@
 import { describe, expect, it } from "bun:test";
 
+import { EventSchemaId, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
+
 import {
 	type AppSchema,
+	adminHeaders,
 	beforeCreateTriggerSource,
 	createAuthenticatedClient,
 	createEntity,
 	createEventSchema,
 	createSandboxScript,
 	createTrackerWithSchema,
+	getBackendClient,
 	listEventsForEntity,
 	waitForEventCount,
 } from "~/fixtures";
-import { getPgClient } from "~/setup";
 import { requirePresent } from "~/support/assertions";
 
 const insertBeforeCreateTrigger = async (
@@ -20,15 +23,21 @@ const insertBeforeCreateTrigger = async (
 	sandboxScriptId: string,
 	position: number,
 ) => {
-	const pg = getPgClient();
-	const id = crypto.randomUUID();
-	await pg.query(
-		`INSERT INTO event_schema_trigger
-			(id, name, position, is_active, is_builtin, phase, metadata, user_id, event_schema_id, sandbox_script_id)
-		VALUES ($1, $2, $3, true, false, 'before_create', '{}'::jsonb, $4, $5, $6)`,
-		[id, "test-before-create-trigger", position, userId, eventSchemaId, sandboxScriptId],
+	const result = await getBackendClient().run(
+		(c) =>
+			c.testSupport.createEventSchemaTrigger({
+				payload: {
+					position,
+					phase: "before_create",
+					userId: UserId.make(userId),
+					name: "test-before-create-trigger",
+					eventSchemaId: EventSchemaId.make(eventSchemaId),
+					sandboxScriptId: SandboxScriptId.make(sandboxScriptId),
+				},
+			}),
+		adminHeaders,
 	);
-	return id;
+	return result.id;
 };
 
 const createBeforeTriggerFixture = async (
