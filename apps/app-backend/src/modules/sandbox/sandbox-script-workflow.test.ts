@@ -140,6 +140,7 @@ fi
 	let activeId = historicalScriptId;
 	let kernelCallerScriptId: SandboxScriptId | undefined;
 	const releases: string[] = [];
+	const pinEvents: string[] = [];
 	const registrations: unknown[] = [];
 	const executedContent: string[] = [];
 	const hashes = new Map<string, Map<string, string>>();
@@ -212,10 +213,15 @@ fi
 		Layer.succeed(RedisService, makeRedisService({ client: redisClient })),
 		Layer.mock(SandboxRepository)({
 			_tag: "SandboxRepository",
-			isPluginScript: () => Effect.succeed(true),
+			isPluginScript: () =>
+				Effect.sync(() => {
+					pinEvents.push("resolve-owned");
+					return true;
+				}),
 			getScriptPin: (scriptId) =>
-				Effect.succeed(
-					scriptId === historicalScriptId
+				Effect.sync(() => {
+					pinEvents.push("pin");
+					return scriptId === historicalScriptId
 						? {
 								pluginSlug: "plugin",
 								scriptId: historicalScriptId,
@@ -225,8 +231,8 @@ fi
 								pluginSlug: "plugin",
 								scriptId: replacementScriptId,
 								contentHash: "replacement-hash",
-							},
-				),
+							};
+				}),
 			getScript: (scriptId) =>
 				Effect.succeed(scriptId === historicalScriptId ? historical : replacement),
 			resolveWorkflowCallScript: () => Effect.succeed(null),
@@ -234,12 +240,17 @@ fi
 		Layer.mock(PluginRuntimeResolver)({
 			_tag: "PluginRuntimeResolver",
 			findActiveScriptById: () =>
-				Effect.succeed(activeId === historicalScriptId ? historical : replacement),
+				Effect.sync(() => {
+					pinEvents.push("resolve-active");
+					return activeId === historicalScriptId ? historical : replacement;
+				}),
 		}),
 		Layer.mock(SandboxWorkflowReferenceRepository)({
 			_tag: "SandboxWorkflowReferenceRepository",
-			register: (input) =>
+			lockIngestionShared: () => Effect.sync(() => pinEvents.push("lock")),
+			registerInTransaction: (input) =>
 				Effect.sync(() => {
+					pinEvents.push("register");
 					registrations.push(input);
 					return { status: "registered" as const };
 				}),
@@ -308,6 +319,13 @@ fi
 		expect(kernelCallerScriptId).toBe(historicalScriptId);
 		expect(executedContent).toEqual([historicalContent, historicalContent]);
 		expect(executedContent).not.toContain(replacementContent);
+		expect(pinEvents.slice(0, 5)).toEqual([
+			"lock",
+			"resolve-owned",
+			"resolve-active",
+			"pin",
+			"register",
+		]);
 		expect(registrations).toEqual([
 			{
 				executionId,
@@ -344,7 +362,8 @@ it.effect("retains a plugin workflow reference while durably suspended", () => {
 		}),
 		Layer.mock(SandboxWorkflowReferenceRepository)({
 			_tag: "SandboxWorkflowReferenceRepository",
-			register: () =>
+			lockIngestionShared: () => Effect.void,
+			registerInTransaction: () =>
 				Effect.sync(() => {
 					registrations += 1;
 					return { status: "registered" as const };
@@ -405,7 +424,8 @@ it.effect("releases a plugin workflow reference before returning terminal failur
 		}),
 		Layer.mock(SandboxWorkflowReferenceRepository)({
 			_tag: "SandboxWorkflowReferenceRepository",
-			register: () =>
+			lockIngestionShared: () => Effect.void,
+			registerInTransaction: () =>
 				Effect.sync(() => {
 					events.push("registered");
 					return { status: "registered" as const };
@@ -459,7 +479,8 @@ it.effect("maps inactive plugin pin registration to SandboxRunError", () => {
 		}),
 		Layer.mock(SandboxWorkflowReferenceRepository)({
 			_tag: "SandboxWorkflowReferenceRepository",
-			register: () =>
+			lockIngestionShared: () => Effect.void,
+			registerInTransaction: () =>
 				Effect.fail(
 					new SandboxWorkflowReferenceRegistrationError({
 						reason: "plugin-inactive",

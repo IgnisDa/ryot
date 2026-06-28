@@ -15,6 +15,7 @@ import { PluginLoader } from "./loader";
 import { PluginRepository } from "./repository";
 import type { SchemaEvolutionError } from "./schema-evolution";
 import { validateAdditiveSchemaEvolution } from "./schema-evolution";
+import { ScriptGarbageCollector } from "./script-garbage-collector";
 import type { NormalizedPlugin, PluginScriptMetadata, PluginSource } from "./types";
 import {
 	decodePluginManifest,
@@ -109,6 +110,7 @@ export class PluginIngestionService extends Effect.Service<PluginIngestionServic
 			const runWithDb = yield* DbRunner;
 			const loader = yield* PluginLoader;
 			const repository = yield* PluginRepository;
+			const scriptGarbageCollector = yield* ScriptGarbageCollector;
 			const runTransaction = yield* TransactionRunner;
 			const mutationLock = yield* Effect.makeSemaphore(1);
 			const workflowReferences = yield* SandboxWorkflowReferenceRepository;
@@ -140,13 +142,20 @@ export class PluginIngestionService extends Effect.Service<PluginIngestionServic
 			});
 
 			const rebuildUnlocked = Effect.fn("PluginIngestionService.rebuildUnlocked")(function* () {
-				const plugins = yield* runWithDb(repository.list());
-				const snapshot = yield* Effect.try({
-					try: () => loader.previewAll(plugins),
-					catch: (error) => new PluginValidationError({ issues: [String(error)] }),
-				});
-				yield* validateSnapshot(snapshot);
-				loader.replace(snapshot);
+				const snapshot = yield* runTransaction(
+					Effect.gen(function* () {
+						yield* repository.lockIngestion();
+						const plugins = yield* repository.list();
+						const nextSnapshot = yield* Effect.try({
+							try: () => loader.previewAll(plugins),
+							catch: (error) => new PluginValidationError({ issues: [String(error)] }),
+						});
+						yield* validateSnapshot(nextSnapshot);
+						loader.replace(nextSnapshot);
+						return nextSnapshot;
+					}),
+				);
+				yield* scriptGarbageCollector.collect();
 				return snapshot;
 			});
 			const rebuild = Effect.fn("PluginIngestionService.rebuild")(() =>
