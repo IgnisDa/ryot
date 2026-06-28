@@ -1,18 +1,22 @@
 import { BunServices } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
+import {
+	compileClientPlugin,
+	STYLEX_TRACER_BUILD_FINGERPRINT,
+} from "@ryot-app/client-plugin-compiler";
 import { readPluginArchive } from "@ryot-app/plugin-archive";
 import { Effect, FileSystem, Path, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 
 const decoder = new TextDecoder();
 
-const createPlugin = Effect.fn("createPlugin")(function* () {
+const createPlugin = Effect.fn("createPlugin")(function* (fixtureName = "build-plugin") {
 	const path = yield* Path.Path;
 	const fs = yield* FileSystem.FileSystem;
 	const root = yield* fs.makeTempDirectoryScoped({ prefix: "ryot-cli-" });
 	const plugin = path.join(root, "plugin");
 	const fixture = yield* path.fromFileUrl(
-		new URL("../tests/fixtures/build-plugin/", import.meta.url),
+		new URL(`../tests/fixtures/${fixtureName}/`, import.meta.url),
 	);
 	yield* fs.copy(fixture, plugin);
 	return plugin;
@@ -27,12 +31,23 @@ const collect = <E>(stream: Stream.Stream<Uint8Array, E>) =>
 		),
 	);
 
-const run = Effect.fn("runCli")(function* (cwd: string, args: ReadonlyArray<string>) {
+const run = Effect.fn("runCli")(function* (
+	cwd: string,
+	args: ReadonlyArray<string>,
+	stylexTracer = false,
+) {
 	const path = yield* Path.Path;
 	const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 	const entry = yield* path.fromFileUrl(new URL("./index.ts", import.meta.url));
+	const env = { ...process.env };
+	delete env.RYOT_STYLEX_TRACER;
 	const child = yield* spawner.spawn(
-		ChildProcess.make(process.execPath, [entry, ...args], { cwd, stderr: "pipe", stdout: "pipe" }),
+		ChildProcess.make(process.execPath, [entry, ...args], {
+			cwd,
+			stderr: "pipe",
+			stdout: "pipe",
+			env: stylexTracer ? { ...env, RYOT_STYLEX_TRACER: "1" } : env,
+		}),
 	);
 	const [exitCode, stderr, stdout] = yield* Effect.all(
 		[child.exitCode, collect(child.stderr), collect(child.stdout)],
@@ -279,6 +294,85 @@ it.layer(BunServices.layer)("ryot plugin build", (test) => {
 			expect(result.exitCode).not.toBe(0);
 			expect(result.stdout).toContain("authorized export map");
 			expect(yield* fs.exists(path.join(plugin, "dist", "cli-test.zip"))).toBe(false);
+		}),
+	);
+
+	test.effect(
+		"activates StyleX compilation before writing a canonical source archive",
+		() =>
+			Effect.gen(function* () {
+				const path = yield* Path.Path;
+				const fs = yield* FileSystem.FileSystem;
+				const plugin = yield* createPlugin("stylex-tracer");
+				const result = yield* run(plugin, ["plugin", "build"], true);
+				const output = path.join(plugin, "dist", "stylex-tracer.zip");
+				const first = yield* fs.readFile(output);
+				const pluginPackage = yield* readPluginArchive(first);
+				const repeated = yield* run(plugin, ["plugin", "build"], true);
+				const { artifact } = yield* compileClientPlugin({
+					apiVersion: 1,
+					files: pluginPackage.files,
+					name: pluginPackage.manifest.metadata.name,
+					stylexTracer: { fingerprint: STYLEX_TRACER_BUILD_FINGERPRINT },
+					publicExports: { tracer: { kind: "component", entry: "client/tracer.tsx" } },
+				});
+				const artifactFiles = new Map(artifact.files.map((file) => [file.name, file.contents]));
+
+				expect(result.exitCode, `${result.stdout}\n${result.stderr}`).toBe(0);
+				expect(repeated.exitCode, `${repeated.stdout}\n${repeated.stderr}`).toBe(0);
+				expect(yield* fs.readFile(output)).toEqual(first);
+				expect(pluginPackage.manifest.metadata.slug).toBe("stylex-tracer");
+				expect(Object.keys(pluginPackage.files)).toEqual([
+					"client/tokens.stylex.ts",
+					"client/tracer-mark.svg",
+					"client/tracer.tsx",
+				]);
+				expect(decoder.decode(pluginPackage.files["client/tracer.tsx"])).toContain(
+					"stylex.props(styles.root)",
+				);
+				expect(decoder.decode(pluginPackage.files["client/tracer-mark.svg"])).toContain("#13579b");
+				expect(decoder.decode(artifactFiles.get("plugin.css"))).toContain("#13579b");
+				expect(artifactFiles.has("plugin.js")).toBe(true);
+				expect(artifact.files.some(({ name }) => name.endsWith(".svg"))).toBe(true);
+				expect(artifact.files.at(-1)?.name).toBe("index.html");
+			}),
+		60_000,
+	);
+
+	test.effect("rejects StyleX through the ordinary import policy when activation is absent", () =>
+		Effect.gen(function* () {
+			const path = yield* Path.Path;
+			const fs = yield* FileSystem.FileSystem;
+			const plugin = yield* createPlugin("stylex-tracer");
+			const result = yield* run(plugin, ["plugin", "build"]);
+
+			expect(result.exitCode).not.toBe(0);
+			expect(result.stdout).toContain("RYOT_CLIENT_IMPORT");
+			expect(result.stdout).toContain("@stylexjs/stylex");
+			expect(yield* fs.exists(path.join(plugin, "dist", "stylex-tracer.zip"))).toBe(false);
+		}),
+	);
+
+	test.effect("rejects tracer activation for any other manifest slug", () =>
+		Effect.gen(function* () {
+			const path = yield* Path.Path;
+			const fs = yield* FileSystem.FileSystem;
+			const plugin = yield* createPlugin("stylex-tracer");
+			const manifestPath = path.join(plugin, "manifest.ts");
+			const manifest = yield* fs.readFileString(manifestPath);
+			yield* fs.writeFileString(
+				manifestPath,
+				manifest.replace('slug: "stylex-tracer"', 'slug: "ordinary-plugin"'),
+			);
+
+			const result = yield* run(plugin, ["plugin", "build"], true);
+
+			expect(result.exitCode).not.toBe(0);
+			expect(result.stdout).toContain(
+				'RYOT_STYLEX_TRACER=1 is reserved for the "stylex-tracer" plugin',
+			);
+			expect(result.stdout).toContain('manifest slug is "ordinary-plugin"');
+			expect(yield* fs.exists(path.join(plugin, "dist", "ordinary-plugin.zip"))).toBe(false);
 		}),
 	);
 

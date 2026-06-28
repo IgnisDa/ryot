@@ -3,6 +3,18 @@ import { useCallback, useEffect, useEffectEvent, useMemo, useRef, type RefObject
 const focusable =
 	'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary, iframe, [contenteditable]:not([contenteditable="false"]), audio[controls], video[controls], [tabindex]:not([tabindex="-1"])';
 
+type ManagedInert = { background: number; foreground: number };
+
+const managedInert = new WeakMap<Element, ManagedInert>();
+
+const applyManagedInert = (element: Element, state: ManagedInert) => {
+	if (state.background > 0 && state.foreground === 0) {
+		element.setAttribute("inert", "");
+	} else {
+		element.removeAttribute("inert");
+	}
+};
+
 const unreachable = (element: HTMLElement) => {
 	for (let node: HTMLElement | null = element; node !== null; node = node.parentElement) {
 		if (node.hidden || node.hasAttribute("inert")) {
@@ -28,18 +40,56 @@ export function useInertBackground(ref: RefObject<HTMLElement | null>) {
 			return undefined;
 		}
 		const background: Element[] = [];
-		for (const child of Array.from(document.body.children)) {
-			if (child.contains(panel)) {
+		const foreground: Element[] = [];
+		for (let current: Element = panel; current !== document.body; ) {
+			const currentState = managedInert.get(current);
+			if (currentState !== undefined) {
+				currentState.foreground += 1;
+				applyManagedInert(current, currentState);
+				foreground.push(current);
+			}
+			const parent = current.parentElement;
+			if (parent === null) {
 				break;
 			}
-			if (!child.hasAttribute("inert")) {
-				child.setAttribute("inert", "");
-				background.push(child);
+			for (const sibling of Array.from(parent.children)) {
+				if (sibling === current) {
+					continue;
+				}
+				let state = managedInert.get(sibling);
+				if (state === undefined && sibling.hasAttribute("inert")) {
+					continue;
+				}
+				if (state === undefined) {
+					state = { background: 0, foreground: 0 };
+					managedInert.set(sibling, state);
+				}
+				state.background += 1;
+				applyManagedInert(sibling, state);
+				background.push(sibling);
 			}
+			current = parent;
 		}
 		return () => {
-			for (const child of background) {
-				child.removeAttribute("inert");
+			for (const element of background) {
+				const state = managedInert.get(element);
+				if (state !== undefined) {
+					state.background -= 1;
+					applyManagedInert(element, state);
+					if (state.background === 0 && state.foreground === 0) {
+						managedInert.delete(element);
+					}
+				}
+			}
+			for (const element of foreground) {
+				const state = managedInert.get(element);
+				if (state !== undefined) {
+					state.foreground -= 1;
+					applyManagedInert(element, state);
+					if (state.background === 0 && state.foreground === 0) {
+						managedInert.delete(element);
+					}
+				}
 			}
 		};
 	}, [ref]);

@@ -14,7 +14,7 @@ import { isJsonValue } from "@ryot-app/contract/schema/json";
 import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { readPluginArchiveStream, type PluginArchivePackage } from "@ryot-app/plugin-archive";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
-import { Context, Effect, Layer, Result, Schema } from "effect";
+import { Context, Effect, Layer, Option, Result, Schema } from "effect";
 
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import {
@@ -44,6 +44,7 @@ import { mergeManifestDefinitions, PluginLoader } from "./loader";
 import { compilePluginPackage, normalizePluginSource, structurePluginFailure } from "./pipeline";
 import { PluginRepository } from "./repository";
 import { validateAdditiveSchemaEvolution } from "./schema-evolution";
+import { StyleXTracerActivation, styleXTracerDisabled } from "./stylex-tracer-activation";
 import type { StoredPlugin } from "./types";
 import {
 	PluginValidationError,
@@ -356,12 +357,26 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 			const ingestionLock = yield* PluginIngestionLock;
 			const uploadIntents = yield* UploadIntentsService;
 			const clientCompiler = yield* ClientPluginCompiler;
+			const stylexTracerActivation = Option.getOrElse(
+				yield* Effect.serviceOption(StyleXTracerActivation),
+				() => styleXTracerDisabled,
+			);
 			const objectStorage = yield* ObjectStorageService;
 			const invalidator = yield* PluginCatalogInvalidator;
 			const installations = yield* PluginInstallationRepository;
 			const definitionMaterializer = yield* PluginDefinitionMaterializer;
 			const workflowReferences = yield* SandboxWorkflowReferenceRepository;
 			const lifecycleDispatcher = yield* PluginInstallationLifecycleDispatcher;
+			const clientCompilerFor = (manifest: PluginManifest) =>
+				stylexTracerActivation.enabled && manifest.metadata.slug === "stylex-tracer"
+					? ClientPluginCompiler.of({
+							compile: (request) =>
+								clientCompiler.compile({
+									...request,
+									stylexTracer: { fingerprint: stylexTracerActivation.fingerprint },
+								}),
+						})
+					: clientCompiler;
 
 			const withPrivatePluginPackage = <A, E, R>(
 				input: PrivatePluginPackageInput,
@@ -745,7 +760,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 						),
 					);
 					const normalized = yield* compilePluginPackage({ files, manifest, sourceHash }).pipe(
-						Effect.provideService(ClientPluginCompiler, clientCompiler),
+						Effect.provideService(ClientPluginCompiler, clientCompilerFor(manifest)),
 					);
 					yield* validatePluginExecutableScripts(normalized);
 					const state = yield* Effect.uninterruptible(
@@ -869,7 +884,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 							yield* validateAdditiveSchemaEvolution(plugin.manifest, manifest);
 							yield* validateConfigPatch(manifest, installation.config, input);
 							const normalized = yield* compilePluginPackage({ files, manifest, sourceHash }).pipe(
-								Effect.provideService(ClientPluginCompiler, clientCompiler),
+								Effect.provideService(ClientPluginCompiler, clientCompilerFor(manifest)),
 							);
 							yield* validatePluginExecutableScripts(normalized);
 
