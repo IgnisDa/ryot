@@ -194,40 +194,46 @@ const fetchProviderTrendingItems = Effect.fn("fetchProviderTrendingItems")(funct
 	});
 });
 
-export const runMediaTrendingRefresh = Effect.fn("runMediaTrendingRefresh")(function* (
-	payload: MediaTrendingRefreshInput,
-) {
-	let providerCount = 0;
-	const savedItems: SavedTrendingItem[] = [];
-	const providers = yield* listProviderTargets();
+export const runMediaTrendingRefresh = Effect.fn("MediaTrendingRefreshWorkflow")(
+	function* (payload: MediaTrendingRefreshInput, executionId: string) {
+		yield* Effect.annotateCurrentSpan({ executionId });
+		let providerCount = 0;
+		const savedItems: SavedTrendingItem[] = [];
+		const providers = yield* listProviderTargets();
 
-	for (const provider of providers) {
-		const result = yield* fetchProviderTrendingItems({
-			provider,
-			executionId: payload.executionId,
-		}).pipe(Effect.exit);
+		for (const provider of providers) {
+			const result = yield* fetchProviderTrendingItems({
+				provider,
+				executionId: payload.executionId,
+			}).pipe(Effect.exit);
 
-		if (result._tag === "Failure") {
-			yield* Effect.logWarning("trending provider skipped", result.cause).pipe(
-				Effect.annotateLogs({ scriptSlug: provider.scriptSlug }),
-			);
-			continue;
+			if (result._tag === "Failure") {
+				yield* Effect.logWarning("trending provider skipped", result.cause).pipe(
+					Effect.annotateLogs({ scriptSlug: provider.scriptSlug }),
+				);
+				continue;
+			}
+
+			providerCount += 1;
+			savedItems.push(...result.value);
 		}
 
-		providerCount += 1;
-		savedItems.push(...result.value);
-	}
+		if (providerCount === 0) {
+			return { providerCount, itemCount: 0, synced: false };
+		}
 
-	if (providerCount === 0) {
-		return { providerCount, itemCount: 0, synced: false };
-	}
+		const rankedItems = rankTrendingItems(savedItems);
+		yield* syncTrendingEdges(rankedItems);
 
-	const rankedItems = rankTrendingItems(savedItems);
-	yield* syncTrendingEdges(rankedItems);
-
-	return {
-		synced: true,
-		providerCount,
-		itemCount: rankedItems.length,
-	};
-});
+		return {
+			synced: true,
+			providerCount,
+			itemCount: rankedItems.length,
+		};
+	},
+	(effect, _payload, executionId) =>
+		Effect.annotateLogs(effect, {
+			executionId,
+			workflow: "MediaTrendingRefreshWorkflow",
+		}),
+);

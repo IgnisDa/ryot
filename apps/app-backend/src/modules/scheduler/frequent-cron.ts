@@ -35,9 +35,6 @@ export const FrequentCronSchedulerLive = Layer.scopedDiscard(
 					payload: { executionId },
 				})
 				.pipe(
-					Effect.withSpan("FrequentCronWorkflow.dispatch", {
-						attributes: { executionId },
-					}),
 					Effect.catchAllCause((cause) => Effect.logError("frequent cron enqueue failed", cause)),
 				);
 		});
