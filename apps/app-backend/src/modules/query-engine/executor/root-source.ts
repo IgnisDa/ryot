@@ -80,7 +80,7 @@ export const loadRelationshipRootVisibleSchemas = (userId: string, source: Relat
 			loadVisibleEntitySchemas(userId, source.sourceEntity.schemas),
 			loadVisibleEntitySchemas(userId, source.targetEntity.schemas),
 		],
-		{ concurrency: "unbounded" },
+		{ concurrency: 1 },
 	);
 
 const idListSql = (schemas: readonly { id: string }[]) =>

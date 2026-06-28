@@ -76,21 +76,21 @@ export const validateSystemConfig = (
 			);
 		}
 
-		// The cluster runner's shard advisory lock permanently holds one workflow-pool
-		// connection, so usable connections = DATABASE_WORKFLOW_POOL_MAX - 1.
+		// The cluster SQL runner permanently reserves one workflow-pool connection,
+		// even when advisory shard locks are disabled.
 		const usableWorkflowConnections = config.database.workflowPoolMax - 1;
 		if (config.sandbox.workerConcurrency > usableWorkflowConnections) {
 			return yield* Effect.fail(
 				ConfigError.InvalidData(
 					[],
-					`SANDBOX_WORKER_CONCURRENCY (${config.sandbox.workerConcurrency}) exceeds the usable workflow-pool connections (${usableWorkflowConnections}). The cluster runner's shard advisory lock permanently holds one connection of DATABASE_WORKFLOW_POOL_MAX (${config.database.workflowPoolMax}), so usable connections = DATABASE_WORKFLOW_POOL_MAX - 1; a higher sandbox worker concurrency starves the workflow engine. Raise DATABASE_WORKFLOW_POOL_MAX or lower SANDBOX_WORKER_CONCURRENCY.`,
+					`SANDBOX_WORKER_CONCURRENCY (${config.sandbox.workerConcurrency}) exceeds the usable workflow-pool connections (${usableWorkflowConnections}). The cluster SQL runner permanently reserves one connection of DATABASE_WORKFLOW_POOL_MAX (${config.database.workflowPoolMax}), so usable connections = DATABASE_WORKFLOW_POOL_MAX - 1; a higher sandbox worker concurrency starves the workflow engine. Raise DATABASE_WORKFLOW_POOL_MAX or lower SANDBOX_WORKER_CONCURRENCY.`,
 				),
 			);
 		}
 
 		// The +2 accounts for the two always-on DurableQueue workers
 		// (EnsureLibraryMembershipQueue and DefaultSavedViewQueue, concurrency 1 each).
-		if (config.sandbox.workerConcurrency + 2 > usableWorkflowConnections) {
+		if (config.sandbox.workerConcurrency + 2 >= usableWorkflowConnections) {
 			yield* Effect.logWarning(
 				`SANDBOX_WORKER_CONCURRENCY (${config.sandbox.workerConcurrency}) plus the two always-on queue workers leaves no headroom below the usable workflow-pool connections (${usableWorkflowConnections}). Concurrent workflow chains (imports, triggers) may stall; consider raising DATABASE_WORKFLOW_POOL_MAX.`,
 			);
