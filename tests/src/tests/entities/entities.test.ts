@@ -189,10 +189,10 @@ describe("POST /entities", () => {
 
 describe("GET /entities/:id — global entity read access", () => {
 	it("returns 200 for the importing user and for a second user who never imported", async () => {
-		const { userId, client: clientA } = await createAuthenticatedClient();
+		const { client: clientA } = await createAuthenticatedClient();
 		const { entity } = await createGlobalBookEntityFixture(clientA);
 
-		await insertLibraryMembership(clientA, { userId, mediaEntityId: entity.id });
+		await insertLibraryMembership(clientA, { mediaEntityId: entity.id });
 		const entityA = await getEntity(clientA, entity.id);
 		expect(entityA.id).toBe(entity.id);
 
