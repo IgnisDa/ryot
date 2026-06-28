@@ -34,6 +34,7 @@ import { DefinitionsService } from "#modules/definitions/service";
 import { LifecycleDispatchNoop } from "#modules/entities/lifecycle-dispatch";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
+import { EntityImportWorkflowDefinitionsLive } from "#modules/entity-import/entity-import-workflow";
 import { EntityImportWorkflowOperationsLive } from "#modules/entity-import/operations-workflow";
 import { EntityPopulationTriggerLive } from "#modules/entity-import/population-trigger-live";
 import { ProviderEntityPopulationWorkflowDefinitionsLive } from "#modules/entity-import/provider-entity-population-workflow";
@@ -347,6 +348,7 @@ const RuntimeLive = Layer.mergeAll(
 	AddEntityToCollectionWorkflowDefinitionsLive,
 	SubscriptionExecutionWorkflowDefinitionsLive,
 	ProviderEntityPopulationWorkflowDefinitionsLive,
+	EntityImportWorkflowDefinitionsLive,
 	EventCreateWorkflowDefinitionsLive,
 	LibraryEntityImportWorkflowDefinitionsLive,
 	NotificationDeliveryWorkflowDefinitionsLive,

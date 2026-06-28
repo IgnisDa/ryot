@@ -40,7 +40,7 @@ it("declares the complete media-owned source", () => {
 	expect(mediaPlugin.configSchema.fields.tmdbAccessToken?.secret).toBe(true);
 	expect(mediaPlugin.configSchema.fields.progressUpdateThresholdHours?.defaultValue).toBe(2);
 	expect(mediaPlugin.providers).toHaveLength(51);
-	expect(mediaPlugin.scripts).toHaveLength(178);
+	expect(mediaPlugin.scripts).toHaveLength(179);
 	expect(mediaPlugin.integrationProviders).toHaveLength(13);
 	expect(mediaPlugin.scripts.every((script) => !("providerInformation" in script))).toBe(true);
 	expect(
@@ -154,4 +154,23 @@ it("declares the complete media-owned source", () => {
 		}),
 	);
 	expect(mediaPlugin.savedViews.every(({ pluginSlug }) => pluginSlug === "media")).toBe(true);
+});
+
+it("binds library membership only to media event schemas", () => {
+	const bindings = mediaPlugin.bindings.eventAutomations.filter(
+		({ scriptSlug }) => scriptSlug === "policy.media-library-membership",
+	);
+	const mediaEventSchemaSlugs = mediaPlugin.entitySchemas.flatMap((schema) =>
+		schema.eventSchemas.map(({ slug }) => `${schema.slug}:${slug}`),
+	);
+
+	expect(bindings.map(({ eventSchemaSlug }) => eventSchemaSlug).sort()).toEqual(
+		mediaEventSchemaSlugs.sort(),
+	);
+	expect(bindings).not.toContainEqual(
+		expect.objectContaining({ eventSchemaSlug: "workout:workout" }),
+	);
+	expect(bindings).not.toContainEqual(
+		expect.objectContaining({ eventSchemaSlug: "fixture:event" }),
+	);
 });
