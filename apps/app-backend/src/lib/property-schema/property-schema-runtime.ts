@@ -225,7 +225,8 @@ const collectPayloadRuleIssues = (
 		if (!evaluateRuleCondition(rule.when, input)) {
 			return [];
 		}
-		return getValueAtPath(input, rule.path) === undefined
+		const value = getValueAtPath(input, rule.path);
+		return value === undefined || value === null
 			? [
 					{
 						path: [...rule.path],

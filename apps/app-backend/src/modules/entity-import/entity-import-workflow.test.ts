@@ -23,6 +23,11 @@ import {
 	makeWorkflowActivityEngine,
 	transactionLayer,
 } from "#lib/test-utils/effect";
+import {
+	LifecycleDispatch,
+	type LifecycleDispatchInput,
+	LifecycleDispatchNoop,
+} from "#modules/entities/lifecycle-dispatch";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
@@ -63,6 +68,19 @@ const baseEntity = {
 type ProviderEntity = Omit<ListedEntity, "properties"> & {
 	properties: Record<string, unknown>;
 };
+
+type ProviderEntitySaveResult =
+	ReturnType<EntitiesService["upsert"]> extends Effect.Effect<infer Success, unknown, unknown>
+		? Success
+		: never;
+
+const providerSnapshot = (entity: ProviderEntity, entitySchemaSlug: string) => ({
+	entitySchemaSlug,
+	id: entity.id,
+	name: entity.name,
+	properties: entity.properties,
+	entitySchemaId: entity.entitySchemaId,
+});
 
 const savedRelationship = {
 	properties: {},
@@ -157,6 +175,9 @@ const makeEntitiesRepository = (overrides: MockOverrides<typeof mockEntitiesRepo
 
 type EntitiesServiceOverrides = Omit<MockOverrides<typeof mockEntitiesService>, "upsert"> & {
 	upsert?: (input: Parameters<EntitiesService["upsert"]>[0]) => Effect.Effect<ProviderEntity>;
+	upsertResult?: (
+		input: Parameters<EntitiesService["upsert"]>[0],
+	) => Effect.Effect<ProviderEntitySaveResult>;
 };
 
 const toProviderSaveResult = (entity: ProviderEntity) => {
@@ -171,12 +192,16 @@ const toProviderSaveResult = (entity: ProviderEntity) => {
 };
 
 const makeEntitiesService = (overrides: EntitiesServiceOverrides = {}) => {
-	const { upsert, ...serviceOverrides } = overrides;
+	const { upsert, upsertResult, ...serviceOverrides } = overrides;
 	return mockEntitiesService({
 		create: () => Effect.succeed(baseEntity),
 		update: () => Effect.succeed(baseEntity),
 		upsert: (input) =>
-			(upsert ? upsert(input) : Effect.succeed(baseEntity)).pipe(Effect.map(toProviderSaveResult)),
+			upsertResult
+				? upsertResult(input)
+				: (upsert ? upsert(input) : Effect.succeed(baseEntity)).pipe(
+						Effect.map(toProviderSaveResult),
+					),
 		...serviceOverrides,
 		_tag: "EntitiesService",
 	});
@@ -216,6 +241,7 @@ const makeRelationshipSchemasRepository = (
 
 type TestLayerOptions = {
 	entitiesService?: Layer.Layer<EntitiesService>;
+	lifecycleDispatch?: Layer.Layer<LifecycleDispatch>;
 	transactionRunner?: Layer.Layer<TransactionRunner>;
 	entitiesRepository?: Layer.Layer<EntitiesRepository>;
 	entitySchemasRepository?: Layer.Layer<EntitySchemasRepository>;
@@ -236,6 +262,7 @@ const makeTestLayer = (options: TestLayerOptions) => {
 		options.transactionRunner ?? transactionLayer,
 		relationshipsServiceLayer,
 		Layer.succeed(RedisService, makeRedisService({ publish: () => Effect.succeed(0) })),
+		options.lifecycleDispatch ?? LifecycleDispatchNoop,
 		Layer.mock(EntityImportWorkflowOperations, {
 			processSandbox: options.processSandbox ?? (() => Effect.die("unused")),
 		}),
@@ -265,6 +292,7 @@ const withTestLayer = <A, E, R>(
 const importPayload = {
 	externalId: "ext-1",
 	executionId: "exec-1",
+	origin: { kind: "api" } as const,
 	userId: UserId.make("user-1"),
 	scriptId: SandboxScriptId.make("script-1"),
 	entitySchemaId: EntitySchemaId.make("schema-1"),
@@ -2214,4 +2242,156 @@ it.effect("uses unique deterministic activity names per population scope", () =>
 
 		expect(secondRunNames).toEqual(firstRunNames);
 	});
+});
+
+it.effect("dispatches only material nested entity updates with the root population scope", () => {
+	const dispatched: LifecycleDispatchInput[] = [];
+	const rootEntity = {
+		...baseEntity,
+		name: "Old Severance",
+		externalId: "show-1",
+		id: EntityId.make("show-1"),
+		entitySchemaId: EntitySchemaId.make("schema-show"),
+	};
+	const seasonEntity = {
+		...baseEntity,
+		name: "Season 1",
+		externalId: "season-1",
+		properties: { seasonNumber: 1 },
+		id: EntityId.make("season-1"),
+		entitySchemaId: EntitySchemaId.make("schema-season"),
+	};
+	const episodeBefore = {
+		...baseEntity,
+		name: "Pilot",
+		externalId: "episode-1",
+		properties: { episodeNumber: 1 },
+		id: EntityId.make("episode-1"),
+		entitySchemaId: EntitySchemaId.make("schema-episode"),
+	};
+	const episodeAfter = { ...episodeBefore, name: "Premiere" };
+	const noop = (entity: ProviderEntity, entitySchemaSlug: string): ProviderEntitySaveResult => {
+		const value = providerSnapshot(entity, entitySchemaSlug);
+		return { entity, outcome: { before: value, after: value, operation: "noop" } };
+	};
+	const relationshipSchemas = new Map([
+		[
+			"schema-show->schema-season",
+			{
+				isBuiltin: true,
+				name: "Show Seasons",
+				slug: "show-to-show-season",
+				propertiesSchema: { fields: {} },
+				sourceEntitySchemaId: EntitySchemaId.make("schema-show"),
+				id: RelationshipSchemaId.make("show-season-relationship"),
+				targetEntitySchemaId: EntitySchemaId.make("schema-season"),
+			},
+		],
+		[
+			"schema-season->schema-episode",
+			{
+				isBuiltin: true,
+				name: "Show Episodes",
+				propertiesSchema: { fields: {} },
+				slug: "show-season-to-show-episode",
+				sourceEntitySchemaId: EntitySchemaId.make("schema-season"),
+				targetEntitySchemaId: EntitySchemaId.make("schema-episode"),
+				id: RelationshipSchemaId.make("season-episode-relationship"),
+			},
+		],
+	]);
+	const options = {
+		lifecycleDispatch: Layer.succeed(LifecycleDispatch, {
+			dispatch: (input) => Effect.sync(() => dispatched.push(input)).pipe(Effect.asVoid),
+		}),
+		processSandbox: () =>
+			Effect.succeed({
+				logs: [],
+				error: null,
+				status: "completed" as const,
+				value: {
+					name: "Severance",
+					properties: {},
+					childEntities: [
+						{
+							name: "Season 1",
+							externalId: "season-1",
+							properties: { seasonNumber: 1 },
+							entitySchemaSlug: "show-season",
+							childEntities: [
+								{
+									name: "Premiere",
+									externalId: "episode-1",
+									properties: { episodeNumber: 1 },
+									entitySchemaSlug: "show-episode",
+								},
+							],
+						},
+					],
+				},
+			}),
+		entitiesRepository: makeEntitiesRepository({
+			findGlobalEntityByExternalId: () => Effect.succeed(rootEntity),
+		}),
+		entitySchemasRepository: makeEntitySchemasRepository({
+			getBuiltinBySlug: findChildEntitySchemaBySlug,
+		}),
+		relationshipSchemasRepository: makeRelationshipSchemasRepository({
+			findGlobalBySchemaIds: (input) =>
+				Effect.succeed(
+					relationshipSchemas.get(`${input.sourceEntitySchemaId}->${input.targetEntitySchemaId}`) ??
+						null,
+				),
+		}),
+		entitiesService: makeEntitiesService({
+			upsertResult: (input) => {
+				if (input.externalId === "season-1") {
+					return Effect.succeed(noop(seasonEntity, "show-season"));
+				}
+				if (input.externalId === "episode-1") {
+					return Effect.succeed({
+						entity: episodeAfter,
+						outcome: {
+							operation: "update",
+							before: providerSnapshot(episodeBefore, "show-episode"),
+							after: providerSnapshot(episodeAfter, "show-episode"),
+						},
+					});
+				}
+				return Effect.succeed(noop(rootEntity, "show"));
+			},
+		}),
+	} satisfies TestLayerOptions;
+	const payload = {
+		...importPayload,
+		externalId: "show-1",
+		mode: "refresh" as const,
+		entitySchemaSlug: "show",
+		origin: { kind: "provider_refresh" as const },
+		entitySchemaId: EntitySchemaId.make("schema-show"),
+	};
+
+	return withTestLayer(
+		options,
+		payload.executionId,
+		Effect.gen(function* () {
+			yield* runProviderEntityPopulationWorkflow(payload, payload.executionId);
+			expect(dispatched).toHaveLength(1);
+			expect(dispatched[0]).toMatchObject({
+				operation: "update",
+				recordId: "episode-1",
+				origin: { kind: "provider_refresh" },
+				source: {
+					kind: "entity",
+					before: { name: "Pilot" },
+					after: { name: "Premiere" },
+				},
+				population: {
+					rootPreviouslyPopulated: true,
+					owningSeason: { name: "Season 1", number: 1 },
+					scopeEntity: { id: "show-1", name: "Severance", entitySchemaSlug: "show" },
+				},
+			});
+		}),
+	);
 });

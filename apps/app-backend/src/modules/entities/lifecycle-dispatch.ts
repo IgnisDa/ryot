@@ -1,5 +1,8 @@
 import type { DbError } from "@ryot/contract/errors";
-import type { AutomationOrigin } from "@ryot/contract/modules/automations/schemas";
+import type {
+	AutomationOperation,
+	AutomationOrigin,
+} from "@ryot/contract/modules/automations/schemas";
 import type {
 	EntityId,
 	EntitySchemaId,
@@ -44,9 +47,33 @@ export type LifecycleRelationshipSnapshot = {
 };
 
 export type LifecycleSource =
-	| { kind: "entity"; after: LifecycleEntitySnapshot }
-	| { kind: "event"; after: LifecycleEventSnapshot }
-	| { kind: "relationship"; after: LifecycleRelationshipSnapshot };
+	| { kind: "entity"; after?: LifecycleEntitySnapshot; before?: LifecycleEntitySnapshot }
+	| { kind: "event"; after?: LifecycleEventSnapshot; before?: LifecycleEventSnapshot }
+	| {
+			kind: "relationship";
+			after?: LifecycleRelationshipSnapshot;
+			before?: LifecycleRelationshipSnapshot;
+	  };
+
+export type LifecyclePopulationContext = {
+	rootPreviouslyPopulated: boolean;
+	batch?: {
+		id: string;
+		isLeader: boolean;
+		afterCount: number;
+		beforeCount: number;
+		createdCount: number;
+		deletedCount: number;
+		updatedCount: number;
+	};
+	owningSeason?: { number: number | null; name: string | null };
+	scopeEntity: {
+		id: EntityId;
+		name: string;
+		entitySchemaSlug: string;
+		entitySchemaId: EntitySchemaId;
+	};
+};
 
 /**
  * A committed lifecycle create occurrence handed to the automation dispatcher
@@ -60,6 +87,8 @@ export type LifecycleDispatchInput = {
 	source: LifecycleSource;
 	origin: AutomationOrigin;
 	rowUserId: UserId | null;
+	population?: LifecyclePopulationContext;
+	operation?: Exclude<AutomationOperation, "signal">;
 };
 
 export type LifecycleDispatchValue = {

@@ -1,5 +1,6 @@
 import {
 	type GeneratedBuiltinSandboxScript,
+	sandboxAutomationDotMediaDashEntityDashUpdatedScript,
 	sandboxAutomationDotNotificationScript,
 	sandboxAutomationDotReviewDashCreatedScript,
 	sandboxAutomationDotTestDashPolicyScript,
@@ -64,9 +65,17 @@ import {
 	sandboxTriggerDotRadarrDashPushScript,
 	sandboxTriggerDotSonarrDashPushScript,
 } from "./generated-sandbox/registry";
+import { builtinMediaEntitySchemaSlugs } from "./media-schema-slugs";
+
+const mediaUpdateEntitySchemaSlugs = [
+	...builtinMediaEntitySchemaSlugs,
+	"show-episode",
+	"podcast-episode",
+].filter((slug, index, slugs) => slug !== "show-season" && slugs.indexOf(slug) === index);
 
 export const builtinSandboxScripts = () => [
 	sandboxAutomationDotNotificationScript,
+	sandboxAutomationDotMediaDashEntityDashUpdatedScript,
 	sandboxAutomationDotReviewDashCreatedScript,
 	sandboxAutomationDotTestDashPolicyScript,
 	sandboxAutomationDotTestDashNotifierScript,
@@ -142,9 +151,16 @@ export const builtinSignalAutomationRuleLinks = () => [
 export const builtinEntityAutomationRuleLinks = () => [
 	{
 		entitySchemaSlug: "workout",
+		operation: "create" as const,
 		name: sandboxAutomationDotWorkoutDashCreatedScript.name,
 		scriptSlug: sandboxAutomationDotWorkoutDashCreatedScript.slug,
 	},
+	...mediaUpdateEntitySchemaSlugs.map((entitySchemaSlug) => ({
+		entitySchemaSlug,
+		operation: "update" as const,
+		name: sandboxAutomationDotMediaDashEntityDashUpdatedScript.name,
+		scriptSlug: sandboxAutomationDotMediaDashEntityDashUpdatedScript.slug,
+	})),
 ];
 
 export const entitySchemaSandboxScriptLinks = () =>

@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -42,19 +42,42 @@ data changed and observe the correct signals and notifications.
 
 ## Acceptance criteria
 
-- [ ] Material entity updates in population dispatch one occurrence each with before/after
+- [x] Material entity updates in population dispatch one occurrence each with before/after
       snapshots; noops dispatch nothing; replay does not duplicate
-- [ ] Show-episode entity updates carry the parent show as scope entity and the owning season;
+- [x] Show-episode entity updates carry the parent show as scope entity and the owning season;
       detectors construct correct subjects and names without post-commit entity queries
-- [ ] All five schemas seed with the PRD's exact contracts, accepting supported variants and
+- [x] All five schemas seed with the PRD's exact contracts, accepting supported variants and
       rejecting unknown or variant-incomplete fields, including nullable episode-name transitions
       and an episode date change without a season number
-- [ ] Initial population of a monitored entity emits no hierarchical signals
-- [ ] Special-season episode changes emit nothing; sibling episode changes emit normally
-- [ ] Image comparison is order- and duplicate-insensitive; null-sided release-date transitions
+- [x] Initial population of a monitored entity emits no hierarchical signals
+- [x] Special-season episode changes emit nothing; sibling episode changes emit normally
+- [x] Image comparison is order- and duplicate-insensitive; null-sided release-date transitions
       emit nothing
-- [ ] Each signal's audience is exactly the users monitoring the parent media; unmonitored
+- [x] Each signal's audience is exactly the users monitoring the parent media; unmonitored
       changes notify nobody
+
+## Implementation notes
+
+- Lifecycle dispatch now accepts create/update/delete operations, before/after snapshots, and the
+  trusted population block. Provider-population activities capture their commit time and the
+  workflow body dispatches each material entity outcome immediately after its transaction with a
+  deterministic occurrence ID; noop outcomes are ignored.
+- Population roots retain the requesting origin. Refreshes use `provider_refresh`, direct library
+  imports use `api`, one-time imports use `import`, integration imports use `integration`, and
+  bootstrap population uses `bootstrap`.
+- Nested child scopes retain the root media reference. Show-episode updates additionally receive
+  their owning season's number and name, derived from the committed season snapshot.
+- The five active media signal schemas use the source side of the built-in `media-monitoring`
+  relationship for their related-user audience. Conditional property rules enforce both variants
+  of `media.release-date.changed`, including rejecting null values for conditionally required
+  fields.
+- One shared built-in `automation.media-entity-updated` detector owns all five entity-update
+  signals. It is seeded only on update rules for applicable parent and episode schemas, reads only
+  lifecycle snapshots/population context, and may emit multiple independent signals from one
+  occurrence. A shared script was used instead of five near-identical scripts to keep one producer
+  and one comparison implementation per entity-update scope.
+- The shared notification script formats all five new signal snapshots, preserving the existing
+  media-monitoring message wording while remaining independent of entity queries.
 
 ## User stories addressed
 
