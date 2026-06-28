@@ -60,6 +60,10 @@ const baseEntity = {
 	sandboxScriptId: SandboxScriptId.make("script-1"),
 } satisfies ListedEntity;
 
+type ProviderEntity = Omit<ListedEntity, "properties"> & {
+	properties: Record<string, unknown>;
+};
+
 const savedRelationship = {
 	properties: {},
 	createdAt: now,
@@ -69,6 +73,23 @@ const savedRelationship = {
 	targetEntityId: EntityId.make("target-entity-id"),
 	relationshipSchemaId: RelationshipSchemaId.make("relationship-schema-id"),
 };
+
+const relationshipForInput = (
+	input: {
+		sourceEntityId: EntityId;
+		targetEntityId: EntityId;
+		properties?: Record<string, unknown>;
+		relationshipSchemaId: RelationshipSchemaId;
+	},
+	wasInserted = true,
+) => ({
+	...savedRelationship,
+	wasInserted,
+	properties: input.properties ?? {},
+	sourceEntityId: input.sourceEntityId,
+	targetEntityId: input.targetEntityId,
+	relationshipSchemaId: input.relationshipSchemaId,
+});
 
 const mediaSuggestionSchema = {
 	isBuiltin: true,
@@ -81,6 +102,7 @@ const mediaSuggestionSchema = {
 };
 
 const baseEntitySchema = {
+	slug: "book",
 	propertiesSchema: {
 		fields: { title: { type: "string" as const, label: "Title", description: "Title" } },
 	},
@@ -122,6 +144,10 @@ const mockRelationshipSchemasRepository = Layer.mock(RelationshipSchemasReposito
 
 const makeEntitiesRepository = (overrides: MockOverrides<typeof mockEntitiesRepository> = {}) =>
 	mockEntitiesRepository({
+		listEntityReferencesByIds: (entityIds) =>
+			Effect.succeed(
+				entityIds.map((id) => ({ id, name: `Entity ${id}`, entitySchemaSlug: "test-entity" })),
+			),
 		findEntitySchemaSandboxScriptBySlug: () => Effect.succeed(null),
 		findGlobalEntityByExternalId: () => Effect.succeed(null),
 		findEntitySchemaById: () => Effect.succeed(baseEntitySchema),
@@ -129,21 +155,39 @@ const makeEntitiesRepository = (overrides: MockOverrides<typeof mockEntitiesRepo
 		_tag: "EntitiesRepository",
 	});
 
-const makeEntitiesService = (overrides: MockOverrides<typeof mockEntitiesService> = {}) =>
-	mockEntitiesService({
+type EntitiesServiceOverrides = Omit<MockOverrides<typeof mockEntitiesService>, "upsert"> & {
+	upsert?: (input: Parameters<EntitiesService["upsert"]>[0]) => Effect.Effect<ProviderEntity>;
+};
+
+const toProviderSaveResult = (entity: ProviderEntity) => {
+	const snapshot = {
+		id: entity.id,
+		name: entity.name,
+		properties: entity.properties,
+		entitySchemaSlug: "test-entity",
+		entitySchemaId: entity.entitySchemaId,
+	};
+	return { entity, outcome: { before: snapshot, after: snapshot, operation: "noop" as const } };
+};
+
+const makeEntitiesService = (overrides: EntitiesServiceOverrides = {}) => {
+	const { upsert, ...serviceOverrides } = overrides;
+	return mockEntitiesService({
 		create: () => Effect.succeed(baseEntity),
 		update: () => Effect.succeed(baseEntity),
-		upsert: () => Effect.succeed(baseEntity),
-		...overrides,
+		upsert: (input) =>
+			(upsert ? upsert(input) : Effect.succeed(baseEntity)).pipe(Effect.map(toProviderSaveResult)),
+		...serviceOverrides,
 		_tag: "EntitiesService",
 	});
+};
 
 const makeRelationshipsRepository = (
 	overrides: MockOverrides<typeof mockRelationshipsRepository> = {},
 ) =>
 	mockRelationshipsRepository({
-		createRelationship: () => Effect.succeed(savedRelationship),
-		updateRelationship: () => Effect.succeed(savedRelationship),
+		createRelationship: (input) => Effect.succeed(relationshipForInput(input)),
+		updateRelationship: (input) => Effect.succeed(relationshipForInput(input, false)),
 		deleteRelationship: () => Effect.succeed(null),
 		listGlobalRelationships: () => Effect.succeed([]),
 		...overrides,
@@ -294,15 +338,15 @@ it.effect("populates entity and writes related entities", () => {
 				Effect.succeed([
 					{
 						...savedRelationship,
-						sourceEntityId: EntityId.make("person-stale"),
 						targetEntityId: baseEntity.id,
 						relationshipSchemaId: relationshipSchema.id,
+						sourceEntityId: EntityId.make("person-stale"),
 					},
 				]),
-			createRelationship: () =>
+			createRelationship: (input) =>
 				Effect.sync(() => {
 					relationshipWritten = true;
-					return savedRelationship;
+					return relationshipForInput(input);
 				}),
 			deleteRelationship: () =>
 				Effect.sync(() => {
@@ -401,14 +445,14 @@ it.effect("preserves stale relationships during additive related-entity sync", (
 					{
 						...savedRelationship,
 						sourceEntityId: baseEntity.id,
-						targetEntityId: EntityId.make("stale-target"),
 						relationshipSchemaId: mediaSuggestionSchema.id,
+						targetEntityId: EntityId.make("stale-target"),
 					},
 				]),
-			createRelationship: () =>
+			createRelationship: (input) =>
 				Effect.sync(() => {
 					created = true;
-					return savedRelationship;
+					return relationshipForInput(input);
 				}),
 			deleteRelationship: () =>
 				Effect.sync(() => {
@@ -610,7 +654,7 @@ it.effect("walks the child entity tree one scope per parent and upserts each nod
 					sandboxScriptId: SandboxScriptId.make("script-1"),
 					parentEntitySchemaId: EntitySchemaId.make("schema-1"),
 				});
-				const processedSeason = processedSeasons[0];
+				const processedSeason = processedSeasons.processedChildren[0];
 				assert(processedSeason);
 				yield* writeChildEntitySet({
 					syncExisting,
@@ -1417,10 +1461,10 @@ it.effect("retries related writes after a failed related validation", () => {
 			},
 		}),
 		relationshipsRepository: makeRelationshipsRepository({
-			createRelationship: () =>
+			createRelationship: (input) =>
 				Effect.sync(() => {
 					relationshipWriteCount += 1;
-					return savedRelationship;
+					return relationshipForInput(input);
 				}),
 		}),
 	} satisfies TestLayerOptions;
@@ -1572,10 +1616,10 @@ it.effect("commits earlier population scopes when a later scope fails", () => {
 			getBuiltinBySlug: () => Effect.succeed(null),
 		}),
 		relationshipsRepository: makeRelationshipsRepository({
-			createRelationship: () =>
+			createRelationship: (input) =>
 				Effect.sync(() => {
 					writes.push("relationship:media-suggestion");
-					return savedRelationship;
+					return relationshipForInput(input);
 				}),
 		}),
 	} satisfies TestLayerOptions;
