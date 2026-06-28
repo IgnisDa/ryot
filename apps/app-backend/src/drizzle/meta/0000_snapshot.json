@@ -1,5 +1,5 @@
 {
-	"id": "76932611-0e1a-44f7-b524-be64bb67f546",
+	"id": "0c0f9256-c12d-4733-9793-3d964361bf67",
 	"prevId": "00000000-0000-0000-0000-000000000000",
 	"version": "7",
 	"dialect": "postgresql",
@@ -2218,6 +2218,64 @@
 					"tableFrom": "integration",
 					"tableTo": "user",
 					"columnsFrom": ["user_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.integration_auto_disable_claim": {
+			"name": "integration_auto_disable_claim",
+			"schema": "",
+			"columns": {
+				"import_run_id": {
+					"name": "import_run_id",
+					"type": "text",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"integration_id": {
+					"name": "integration_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				}
+			},
+			"indexes": {
+				"integration_auto_disable_claim_integration_id_idx": {
+					"name": "integration_auto_disable_claim_integration_id_idx",
+					"columns": [
+						{
+							"expression": "integration_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"integration_auto_disable_claim_integration_id_integration_id_fk": {
+					"name": "integration_auto_disable_claim_integration_id_integration_id_fk",
+					"tableFrom": "integration_auto_disable_claim",
+					"tableTo": "integration",
+					"columnsFrom": ["integration_id"],
 					"columnsTo": ["id"],
 					"onDelete": "cascade",
 					"onUpdate": "no action"
