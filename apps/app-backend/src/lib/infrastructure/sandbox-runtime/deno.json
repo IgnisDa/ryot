@@ -1,0 +1,8 @@
+{
+	"compilerOptions": {
+		"strict": true,
+		"noImplicitReturns": true,
+		"lib": ["deno.window", "esnext"],
+		"noUncheckedIndexedAccess": true
+	}
+}

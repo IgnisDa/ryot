@@ -4,9 +4,6 @@ import type { PlatformError } from "@effect/platform/Error";
 import { badRequest, internalError, unknownToMessage } from "@ryot/contract/errors";
 import { Clock, Effect, Pool, Queue, Runtime, Schema, Stream } from "effect";
 
-import sandboxRunnerSource from "#lib/infrastructure/sandbox-runtime/runner-source.sandbox.js" with { type: "text" };
-import sandboxRunnerUtilitiesSource from "#lib/infrastructure/sandbox-runtime/runner-utilities.sandbox.js" with { type: "text" };
-
 import { sandboxDenoDirConfig } from "../config/definition";
 import { AppConfig } from "../config/service";
 import { redisKeys, RedisService } from "../redis";
@@ -17,6 +14,7 @@ import {
 	type SandboxHostCallBudget,
 	utf8ByteLength,
 } from "./limits";
+import { sandboxRunnerSource } from "./runner.generated";
 import { apiFailure } from "./shared";
 import type { BoundHostFunction } from "./shared";
 
@@ -125,7 +123,6 @@ const makeSpawnDenoProcess = Effect.fn("makeSpawnDenoProcess")(function* (
 	importMapPath: string,
 	runtimeDirectory: string,
 	runnerPath: string,
-	runnerUtilitiesPath: string,
 ) {
 	const denoProcess = yield* Command.make(
 		"deno",
@@ -142,7 +139,7 @@ const makeSpawnDenoProcess = Effect.fn("makeSpawnDenoProcess")(function* (
 		"--cached-only",
 		`--v8-flags=--max-old-space-size=${SANDBOX_LIMITS.execution.denoHeapMiB}`,
 		`--import-map=${importMapPath}`,
-		`--allow-read=${runnerPath},${runnerUtilitiesPath},${runtimeDirectory}`,
+		`--allow-read=${runnerPath},${runtimeDirectory}`,
 		`--allow-net=127.0.0.1:${bridgePort}`,
 		runnerPath,
 	).pipe(
@@ -312,11 +309,9 @@ class RunnerFile extends Effect.Service<RunnerFile>()("RunnerFile", {
 	scoped: Effect.gen(function* () {
 		const fs = yield* FileSystem.FileSystem;
 		const directory = yield* fs.makeTempDirectoryScoped({ prefix: "ryot-sandbox-runner-" });
-		const path = `${directory}/runner-source.sandbox.js`;
-		const utilitiesPath = `${directory}/runner-utilities.sandbox.js`;
+		const path = `${directory}/runner.mjs`;
 		yield* fs.writeFileString(path, sandboxRunnerSource);
-		yield* fs.writeFileString(utilitiesPath, sandboxRunnerUtilitiesSource);
-		return { path, utilitiesPath };
+		return { path };
 	}),
 }) {}
 
@@ -345,7 +340,6 @@ export class ProcessPool extends Effect.Service<ProcessPool>()("ProcessPool", {
 				dependencies.importMapPath,
 				dependencies.directory,
 				runner.path,
-				runner.utilitiesPath,
 			),
 		});
 	}),

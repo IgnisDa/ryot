@@ -1,4 +1,5 @@
 {
+	"exclude": ["node_modules", "src/lib/infrastructure/sandbox-runtime/*.sandbox.ts"],
 	"$schema": "https://raw.githubusercontent.com/Effect-TS/tsgo/refs/heads/main/schema.json",
 	"compilerOptions": {
 		"noEmit": true,
