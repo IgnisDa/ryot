@@ -1,6 +1,6 @@
-import { FetchHttpClient } from "@effect/platform";
-import { BunContext } from "@effect/platform-bun";
+import { BunServices } from "@effect/platform-bun";
 import { Effect, Layer } from "effect";
+import { FetchHttpClient } from "effect/unstable/http";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { LegacyBootstrapMigrateDrop, MigrationsComplete } from "#lib/infrastructure/db/migrate";
@@ -115,78 +115,78 @@ import { KernelWorkflowReferencesLive } from "./kernel-workflow-references";
 import { makeAdditionalSandboxApiFunctions } from "./sandbox-host-functions";
 import { ServerLive } from "./server";
 
-const ConfigLive = Layer.mergeAll(AppConfig.Default, BunContext.layer);
+const ConfigLive = Layer.mergeAll(AppConfig.layer, BunServices.layer);
 
 const BaseInfrastructureServicesLive = Layer.mergeAll(
-	DbService.Default,
-	RedisService.Default,
-	ServerRun.Default,
-	S3Service.Default,
+	DbService.layer,
+	RedisService.layer,
+	ServerRun.layer,
+	S3Service.layer,
 	FetchHttpClient.layer,
 );
 
 const BaseInfrastructureLive = Layer.provide(BaseInfrastructureServicesLive, ConfigLive);
 
 const ContentRepositoriesLive = Layer.mergeAll(
-	CollectionsRepository.Default,
-	EntitiesRepository.Default,
-	EntitySchemasRepository.Default,
-	EventSchemasRepository.Default,
-	EventsRepository.Default,
-	RelationshipSchemasRepository.Default,
-	RelationshipsRepository.Default,
-	SignalsRepository.Default,
-	SignalSchemasRepository.Default,
-	TranslationsRepository.Default,
+	CollectionsRepository.layer,
+	EntitiesRepository.layer,
+	EntitySchemasRepository.layer,
+	EventSchemasRepository.layer,
+	EventsRepository.layer,
+	RelationshipSchemasRepository.layer,
+	RelationshipsRepository.layer,
+	SignalsRepository.layer,
+	SignalSchemasRepository.layer,
+	TranslationsRepository.layer,
 );
 
 const PlatformRepositoriesLive = Layer.mergeAll(
-	AutomationsRepository.Default,
-	GodModeRepository.Default,
-	ImportsRepository.Default,
-	IntegrationsRepository.Default,
-	NotificationsRepository.Default,
-	SandboxRepository.Default,
-	SandboxWorkflowReferenceRepository.Default,
-	SavedViewsRepository.Default,
-	DefinitionsRepository.Default,
-	PluginRepository.Default,
+	AutomationsRepository.layer,
+	GodModeRepository.layer,
+	ImportsRepository.layer,
+	IntegrationsRepository.layer,
+	NotificationsRepository.layer,
+	SandboxRepository.layer,
+	SandboxWorkflowReferenceRepository.layer,
+	SavedViewsRepository.layer,
+	DefinitionsRepository.layer,
+	PluginRepository.layer,
 );
 
 const definitionRegistry = makeDefinitionRegistry();
 const pluginLoader = makePluginLoader(definitionRegistry);
 const PluginLoaderLive = Layer.mergeAll(
-	Layer.succeed(DefinitionRegistry, { _tag: "DefinitionRegistry", ...definitionRegistry }),
-	Layer.succeed(PluginLoader, { _tag: "PluginLoader", ...pluginLoader }),
+	Layer.succeed(DefinitionRegistry, definitionRegistry),
+	Layer.succeed(PluginLoader, pluginLoader),
 );
-const PluginRuntimeResolverLive = PluginRuntimeResolver.Default.pipe(
+const PluginRuntimeResolverLive = PluginRuntimeResolver.layer.pipe(
 	Layer.provideMerge(PluginLoaderLive),
 );
 const SandboxPluginScriptResolverLive = Layer.provideMerge(
 	PluginSandboxScriptResolverLive,
 	PluginRuntimeResolverLive,
 );
-const ImportSourceCatalogLive = Layer.provide(ImportSourceCatalog.Default, PluginLoaderLive);
+const ImportSourceCatalogLive = Layer.provide(ImportSourceCatalog.layer, PluginLoaderLive);
 const IntegrationProviderCatalogLive = Layer.provide(
-	IntegrationProviderCatalog.Default,
+	IntegrationProviderCatalog.layer,
 	PluginLoaderLive,
 );
 const ScriptGarbageCollectorLive = Layer.provide(
-	ScriptGarbageCollector.Default,
+	ScriptGarbageCollector.layer,
 	Layer.mergeAll(
 		PluginLoaderLive,
-		PluginRepository.Default,
-		PackageCacheManager.Default,
-		SandboxWorkflowReferenceRepository.Default,
+		PluginRepository.layer,
+		PackageCacheManager.layer,
+		SandboxWorkflowReferenceRepository.layer,
 	),
 );
 const PluginIngestionServiceLive = Layer.provide(
-	PluginIngestionService.Default,
+	PluginIngestionService.layer,
 	Layer.mergeAll(
 		PluginLoaderLive,
-		PluginRepository.Default,
+		PluginRepository.layer,
 		ScriptGarbageCollectorLive,
-		SandboxWorkflowReferenceRepository.Default,
+		SandboxWorkflowReferenceRepository.layer,
 	),
 );
 const RepositoriesLive = Layer.provideMerge(
@@ -195,14 +195,14 @@ const RepositoriesLive = Layer.provideMerge(
 );
 
 const MigrationBootstrapRepositoriesLive = Layer.mergeAll(
-	AutomationsRepository.Default,
-	EntitiesRepository.Default,
-	EntitySchemasRepository.Default,
-	SavedViewsRepository.Default,
-	RelationshipSchemasRepository.Default,
-	SignalSchemasRepository.Default,
-	DefinitionsRepository.Default,
-	PluginRepository.Default,
+	AutomationsRepository.layer,
+	EntitiesRepository.layer,
+	EntitySchemasRepository.layer,
+	SavedViewsRepository.layer,
+	RelationshipSchemasRepository.layer,
+	SignalSchemasRepository.layer,
+	DefinitionsRepository.layer,
+	PluginRepository.layer,
 );
 
 const CoreInfrastructureDependenciesLive = Layer.mergeAll(BaseInfrastructureLive, ConfigLive);
@@ -225,22 +225,22 @@ const ApplicationInfrastructureLive = Layer.mergeAll(
 	CoreInfrastructureDependenciesLive,
 );
 
-const QueryEngineServiceLive = QueryEngineService.Default;
+const QueryEngineServiceLive = QueryEngineService.layer;
 const NotificationSubscriptionsServiceLive = Layer.provide(
-	NotificationSubscriptionsService.Default,
-	AutomationsService.Default,
+	NotificationSubscriptionsService.layer,
+	AutomationsService.layer,
 );
 
-const LifecycleDispatchLayerLive = Layer.provide(LifecycleDispatchLive, AutomationsService.Default);
+const LifecycleDispatchLayerLive = Layer.provide(LifecycleDispatchLive, AutomationsService.layer);
 
 const EntitiesServiceLive = Layer.provide(
-	EntitiesService.Default,
+	EntitiesService.layer,
 	Layer.mergeAll(QueryEngineServiceLive, LifecycleDispatchLayerLive),
 );
 
-const SavedViewsServiceLive = Layer.provide(SavedViewsService.Default, QueryEngineServiceLive);
+const SavedViewsServiceLive = Layer.provide(SavedViewsService.layer, QueryEngineServiceLive);
 
-const DefinitionsServiceLive = DefinitionsService.Default;
+const DefinitionsServiceLive = DefinitionsService.layer;
 
 const BootstrapServicesLive = Layer.mergeAll(
 	EntitiesServiceLive,
@@ -254,34 +254,34 @@ const AuthUserBootstrapProvidedLive = Layer.provideMerge(
 
 const AuthAndBootstrapServicesLive = Layer.mergeAll(
 	BootstrapServicesLive,
-	Layer.provide(AuthService.Default, AuthUserBootstrapProvidedLive),
+	Layer.provide(AuthService.layer, AuthUserBootstrapProvidedLive),
 );
 const AuthDependentServicesLive = Layer.provideMerge(
-	Layer.mergeAll(UserPreferencesService.Default, GodModeService.Default),
+	Layer.mergeAll(UserPreferencesService.layer, GodModeService.layer),
 	AuthAndBootstrapServicesLive,
 );
 
 const InterestReconcilerLive = Layer.provide(
-	InterestReconciler.Default,
-	Layer.mergeAll(QueryEngineServiceLive, EntityPopulationTriggerLive, TranslationsService.Default),
+	InterestReconciler.layer,
+	Layer.mergeAll(QueryEngineServiceLive, EntityPopulationTriggerLive, TranslationsService.layer),
 );
 
 const InterestServicesLive = Layer.provideMerge(
-	InterestService.Default,
-	Layer.mergeAll(StreamRegistry.Default, InterestReconcilerLive),
+	InterestService.layer,
+	Layer.mergeAll(StreamRegistry.layer, InterestReconcilerLive),
 );
-const EventsServiceLive = Layer.provide(EventsService.Default, QueryEngineServiceLive);
-const SignalDispatchLayerLive = Layer.provide(SignalDispatchLive, AutomationsService.Default);
+const EventsServiceLive = Layer.provide(EventsService.layer, QueryEngineServiceLive);
+const SignalDispatchLayerLive = Layer.provide(SignalDispatchLive, AutomationsService.layer);
 const SignalEmissionServiceLive = Layer.provide(
-	SignalEmissionService.Default,
+	SignalEmissionService.layer,
 	SignalDispatchLayerLive,
 );
 
-const SandboxHostImplementationsLive = Layer.effect(
+export const SandboxHostImplementationsLive = Layer.effect(
 	SandboxHostImplementations,
 	Effect.all({
-		additional: makeAdditionalSandboxApiFunctions(),
-		automation: makeAutomationSandboxApiFunctions(),
+		additional: makeAdditionalSandboxApiFunctions,
+		automation: makeAutomationSandboxApiFunctions,
 	}),
 ).pipe(
 	Layer.provide(
@@ -289,28 +289,28 @@ const SandboxHostImplementationsLive = Layer.effect(
 			EventsServiceLive,
 			QueryEngineServiceLive,
 			SignalEmissionServiceLive,
-			NotificationsService.Default,
+			NotificationsService.layer,
 		),
 	),
 );
 
-const RuntimeSandboxServiceLive = Layer.provide(
-	SandboxService.Default,
+export const RuntimeSandboxServiceLive = Layer.provide(
+	SandboxService.layer,
 	SandboxHostImplementationsLive,
 );
 
 const SandboxExecutionServiceLive = Layer.provide(
-	SandboxExecutionService.Default,
+	SandboxExecutionService.layer,
 	SandboxPluginScriptResolverLive,
 );
 
 const PluginUserBootstrapDispatcherDependenciesLive = Layer.provideMerge(
-	Layer.mergeAll(RuntimeSandboxServiceLive, SandboxRepository.Default),
+	Layer.mergeAll(RuntimeSandboxServiceLive, SandboxRepository.layer),
 	PluginRuntimeResolverLive,
 );
 
 const PluginUserBootstrapDispatcherLive = Layer.provide(
-	PluginUserBootstrapDispatcher.Default,
+	PluginUserBootstrapDispatcher.layer,
 	PluginUserBootstrapDispatcherDependenciesLive,
 );
 
@@ -330,44 +330,44 @@ const ImportWorkflowPinningLive = Layer.effect(
 
 const ContentServicesLive = Layer.mergeAll(
 	AuthDependentServicesLive,
-	EntityImportService.Default,
+	EntityImportService.layer,
 	EventsServiceLive,
 	SavedViewsServiceLive,
 	DefinitionsServiceLive,
 	QueryEngineServiceLive,
-	AutomationsService.Default,
+	AutomationsService.layer,
 	NotificationSubscriptionsServiceLive,
 	SignalEmissionServiceLive,
-	SignalSchemasService.Default,
-	SignalsService.Default,
-	TranslationsService.Default,
+	SignalSchemasService.layer,
+	SignalsService.layer,
+	TranslationsService.layer,
 );
 
-const UserStateServiceLive = UserStateService.Default.pipe(
-	Layer.provide(Layer.mergeAll(EventsServiceLive, RelationshipsService.Default)),
+const UserStateServiceLive = UserStateService.layer.pipe(
+	Layer.provide(Layer.mergeAll(EventsServiceLive, RelationshipsService.layer)),
 	Layer.provide(PluginLoaderLive),
 );
 
 const ImportsServiceLive = Layer.provideMerge(
-	ImportsService.Default,
+	ImportsService.layer,
 	Layer.mergeAll(
-		UploadsService.Default,
+		UploadsService.layer,
 		ImportSourceCatalogLive,
-		ImportRunFailuresService.Default,
+		ImportRunFailuresService.layer,
 		ImportWorkflowPinningLive,
 	),
 );
 
 const PlatformServicesLive = Layer.mergeAll(
-	RelationshipsService.Default,
+	RelationshipsService.layer,
 	UserStateServiceLive,
 	ImportsServiceLive,
 	Layer.provide(
-		IntegrationsService.Default,
+		IntegrationsService.layer,
 		Layer.mergeAll(ImportsServiceLive, IntegrationProviderCatalogLive),
 	),
-	NotificationsService.Default,
-	NotificationDeliveryService.Default,
+	NotificationsService.layer,
+	NotificationDeliveryService.layer,
 );
 
 const ServicesNeedingCollectionsScopeLive = Layer.mergeAll(
@@ -376,8 +376,8 @@ const ServicesNeedingCollectionsScopeLive = Layer.mergeAll(
 );
 
 const CollectionsServiceLive = Layer.provide(
-	CollectionsService.Default,
-	Layer.mergeAll(EntitiesServiceLive, EventsServiceLive, RelationshipsService.Default),
+	CollectionsService.layer,
+	Layer.mergeAll(EntitiesServiceLive, EventsServiceLive, RelationshipsService.layer),
 );
 
 const ServicesBaseLive = Layer.provideMerge(
@@ -388,7 +388,7 @@ const ServicesBaseLive = Layer.provideMerge(
 const ContentAndSandboxServicesLive = Layer.provideMerge(ServicesBaseLive, SandboxServicesLive);
 
 const OperationsServiceLive = Layer.provide(
-	OperationsService.Default,
+	OperationsService.layer,
 	Layer.mergeAll(ContentAndSandboxServicesLive, IntegrationOperationScopeResolverLive),
 );
 
@@ -398,16 +398,16 @@ const ServicesLive = Layer.mergeAll(
 	OperationsServiceLive,
 	InterestServicesLive,
 	LifecycleDispatchLayerLive,
-	PluginBootService.Default,
-	PluginCronService.Default,
+	PluginBootService.layer,
+	PluginCronService.layer,
 );
 
 const ServicesWithTestSupportLive = Layer.provideMerge(
-	Layer.mergeAll(TestSupportService.Default, OperationalGateService.Default),
+	Layer.mergeAll(TestSupportService.layer, OperationalGateService.layer),
 	ServicesLive,
 );
 
-const RuntimeLive = Layer.mergeAll(
+const RuntimeWorkflowDefinitionsLive = Layer.mergeAll(
 	AddEntityToCollectionWorkflowDefinitionsLive,
 	SubscriptionExecutionWorkflowDefinitionsLive,
 	ProviderEntityPopulationWorkflowDefinitionsLive,
@@ -420,6 +420,10 @@ const RuntimeLive = Layer.mergeAll(
 	Layer.provide(IntegrationWorkflowDefinitionsLive, IntegrationProviderCatalogLive),
 	Layer.provide(SandboxWorkflowDefinitionsLive, KernelWorkflowReferencesLive),
 	TranslateEntityWorkflowDefinitionsLive,
+);
+
+export const RuntimeLive = Layer.mergeAll(
+	RuntimeWorkflowDefinitionsLive,
 	ServerLive,
 	FrequentCronWorkflowDefinitionsLive,
 	FrequentCronSchedulerLive,
@@ -428,8 +432,8 @@ const RuntimeLive = Layer.mergeAll(
 );
 
 const FirstPartyPluginBootstrapLive = Layer.provide(
-	FirstPartyPluginBootstrap.Default,
-	Layer.mergeAll(PluginIngestionServiceLive, PluginRepository.Default, ScriptGarbageCollectorLive),
+	FirstPartyPluginBootstrap.layer,
+	Layer.mergeAll(PluginIngestionServiceLive, PluginRepository.layer, ScriptGarbageCollectorLive),
 );
 
 const MigrationBootstrapDependenciesLive = Layer.provideMerge(
@@ -439,16 +443,16 @@ const MigrationBootstrapDependenciesLive = Layer.provideMerge(
 const MigrationBootstrapServicesLive = Layer.provide(
 	Layer.provideMerge(
 		Layer.mergeAll(
-			Layer.provideMerge(NotificationSubscriptionsService.Default, AutomationsService.Default),
-			Layer.fresh(EntitiesService.Default),
-			SignalSchemasService.Default,
+			Layer.provideMerge(NotificationSubscriptionsService.layer, AutomationsService.layer),
+			Layer.fresh(EntitiesService.layer),
+			SignalSchemasService.layer,
 		),
 		PluginLoaderLive,
 	),
 	MigrationBootstrapDependenciesLive,
 );
 
-const RuntimeDependenciesLive = Layer.provideMerge(
+export const RuntimeDependenciesLive = Layer.provideMerge(
 	Layer.mergeAll(
 		Layer.provideMerge(
 			Layer.mergeAll(
@@ -464,16 +468,16 @@ const RuntimeDependenciesLive = Layer.provideMerge(
 	ApplicationInfrastructureLive,
 );
 
-const RuntimeAfterMigrationsLive = MigrationsComplete.Default.pipe(
+export const RuntimeAfterMigrationsLive = MigrationsComplete.layer.pipe(
 	Layer.flatMap(() =>
 		FirstPartyPluginBootstrapLive.pipe(
 			Layer.flatMap(() =>
-				LegacyBootstrapMigrateDrop.Default.pipe(
+				LegacyBootstrapMigrateDrop.layer.pipe(
 					Layer.flatMap(() =>
 						Layer.provide(
 							Layer.provideMerge(
 								RuntimeLive,
-								Layer.provide(PluginInvalidationSubscriber.Default, PluginIngestionServiceLive),
+								Layer.provide(PluginInvalidationSubscriber.layer, PluginIngestionServiceLive),
 							),
 							RuntimeDependenciesLive,
 						),
@@ -485,20 +489,20 @@ const RuntimeAfterMigrationsLive = MigrationsComplete.Default.pipe(
 	Layer.provide(MigrationBootstrapServicesLive),
 	Layer.provide(DbRunnerLive),
 	Layer.provide(TransactionRunnerLive),
-	Layer.provide(DbService.Default),
-	Layer.provide(RedisService.Default),
+	Layer.provide(DbService.layer),
+	Layer.provide(RedisService.layer),
 	Layer.provide(ConfigLive),
 );
 
-const MigrationOnlyCoreLive = MigrationsComplete.Default.pipe(
+const MigrationOnlyCoreLive = MigrationsComplete.layer.pipe(
 	Layer.flatMap(() =>
-		FirstPartyPluginBootstrapLive.pipe(Layer.flatMap(() => LegacyBootstrapMigrateDrop.Default)),
+		FirstPartyPluginBootstrapLive.pipe(Layer.flatMap(() => LegacyBootstrapMigrateDrop.layer)),
 	),
 	Layer.provide(MigrationBootstrapServicesLive),
 	Layer.provide(DbRunnerLive),
 	Layer.provide(TransactionRunnerLive),
-	Layer.provide(DbService.Default),
-	Layer.provide(RedisService.Default),
+	Layer.provide(DbService.layer),
+	Layer.provide(RedisService.layer),
 	Layer.provide(ConfigLive),
 );
 
