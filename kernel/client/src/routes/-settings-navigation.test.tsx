@@ -39,6 +39,7 @@ import {
 	makeOAuthRouteStubs,
 	makeWorkspaceRecorder,
 	makeUserSettingsStub,
+	stubDesktopMatchMedia,
 } from "#/routes/-route-fixtures";
 
 const AuthStub = makeAuthStub();
@@ -94,23 +95,6 @@ const mountView = (
 	);
 	const view = render(<RouterProvider router={router} />);
 	return { ...view, router };
-};
-
-const stubDesktopMatchMedia = () => {
-	const original = window.matchMedia;
-	window.matchMedia = ((query: string) => ({
-		media: query,
-		onchange: null,
-		dispatchEvent: () => false,
-		addListener: () => undefined,
-		removeListener: () => undefined,
-		addEventListener: () => undefined,
-		removeEventListener: () => undefined,
-		matches: query === "(min-width: 768px)",
-	})) as typeof window.matchMedia;
-	return () => {
-		window.matchMedia = original;
-	};
 };
 
 describe("authenticated route gate", () => {

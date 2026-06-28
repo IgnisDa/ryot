@@ -1,8 +1,7 @@
-import { ScreenFrame } from "@ryot-app/client-ui-sdk";
+import { ScreenBarButton, ScreenFrame } from "@ryot-app/client-ui-sdk";
 import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import { useNavigate, useRouter } from "@tanstack/react-router";
-import clsx from "clsx";
-import { useRef, type ReactNode } from "react";
+import { useRef, type ComponentProps, type ReactNode } from "react";
 
 import { useEdge, useShellChrome } from "#/modules/navigation/authenticated-shell";
 import { usePageTitle } from "#/modules/navigation/page-title";
@@ -12,20 +11,14 @@ type AppScreenProps = {
 	readonly title: string;
 	readonly meta?: ReactNode;
 	readonly hero?: ReactNode;
-	readonly className?: string;
 	readonly children: ReactNode;
 	readonly actions?: ReactNode;
 	readonly searchRow?: ReactNode;
 	readonly titleIcon?: ReactNode;
 	readonly barActions?: ReactNode;
-	readonly headerClassName?: string;
-	readonly columnClassName?: string;
-	readonly contentClassName?: string;
 	readonly backFallbackHref?: string;
+	readonly width?: ComponentProps<typeof ScreenFrame>["width"];
 };
-
-const control =
-	"flex size-11 shrink-0 items-center justify-center rounded-pill text-text hover:bg-surface-2";
 
 export function useScreenLeadingControl(backFallbackHref?: string) {
 	const edge = useEdge();
@@ -45,26 +38,25 @@ export function useScreenLeadingControl(backFallbackHref?: string) {
 
 	if (edge.intent === "drawer") {
 		return (
-			<button
-				type="button"
-				className={control}
-				aria-label="Open navigation"
+			<ScreenBarButton
+				label="Open navigation"
 				onClick={chrome.onOpenDrawer}
 				aria-controls={chrome.drawerId}
 				aria-expanded={chrome.isDrawerOpen}
+				className="text-text hover:bg-surface-2"
 				ref={(node) => {
 					chrome.triggerRef.current = node;
 				}}
 			>
 				<AppIcon name="menu" size={22} />
-			</button>
+			</ScreenBarButton>
 		);
 	}
 	if (edge.intent === "back" || backFallbackHref !== undefined) {
 		return (
-			<button type="button" onClick={goBack} aria-label="Go back" className={control}>
+			<ScreenBarButton label="Go back" onClick={goBack} className="text-text hover:bg-surface-2">
 				<AppIcon name="chevron-left" size={22} />
-			</button>
+			</ScreenBarButton>
 		);
 	}
 	return undefined;
@@ -81,15 +73,13 @@ export function AppScreen(props: AppScreenProps) {
 		<main
 			{...mainContentProps}
 			ref={scrollRootRef}
-			className={clsx(
-				"h-full overflow-y-auto bg-bg pb-[max(32px,env(safe-area-inset-bottom))] md:px-8 md:pt-8",
-				props.className,
-			)}
+			className="h-full overflow-y-auto bg-bg pb-[max(32px,env(safe-area-inset-bottom))]"
 		>
 			<ScreenFrame
 				meta={props.meta}
 				hero={props.hero}
 				leading={leading}
+				width={props.width}
 				title={props.title}
 				compact={edge.compact}
 				actions={props.actions}
@@ -98,9 +88,6 @@ export function AppScreen(props: AppScreenProps) {
 				scrollRootRef={scrollRootRef}
 				barActions={props.barActions}
 				safeAreaTop={chrome.safeAreaTop}
-				headerClassName={props.headerClassName}
-				columnClassName={props.columnClassName}
-				contentClassName={props.contentClassName ?? "px-4 md:px-0"}
 			>
 				{props.children}
 			</ScreenFrame>
