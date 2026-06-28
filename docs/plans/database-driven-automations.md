@@ -8,7 +8,7 @@ The system must treat built-in and user-created entity, event, relationship, and
 
 V2 is greenfield and has no existing V2 user data. Breaking its current tables and contracts is acceptable. Legacy bootstrap intentionally discards V1 notification platforms, credentials, and configured-event preferences. Migrated users receive the same active default subscriptions as new users through `bootstrapNewUser` and create new channels themselves.
 
-Reset and regenerate the unreleased V2 Drizzle migration history as part of this feature. The
+Resetting and regenerating the unreleased V2 Drizzle migration history is allowed when necessary. The
 baseline is a single squashed snapshot regenerated in place whenever a phase changes the schema,
 so every phase keeps a working database for its own code: the Phase 1 baseline still contains
 `event_schema_trigger` and `notification_platform.configured_events` because runtime code needs
@@ -147,10 +147,10 @@ Initial audience policies:
 type SignalAudiencePolicy =
 	| { kind: "actor" }
 	| {
-		kind: "related_users";
-		relationshipSchemaId: RelationshipSchemaId;
-		subjectSide: "source" | "target";
-	};
+			kind: "related_users";
+			relationshipSchemaId: RelationshipSchemaId;
+			subjectSide: "source" | "target";
+	  };
 ```
 
 For `related_users`, resolve non-null `relationship.user_id` values on relationships matching the signal’s subject entity and configured relationship schema. Set the semantic signal’s subject to the entity that owns the audience relationship; for a new show season, this is the parent show rather than the season row.
@@ -442,9 +442,7 @@ truncation do not by themselves change run status.
 Resolve a hidden execution principal for every run:
 
 ```ts
-type AutomationPrincipal =
-	| { kind: "user"; userId: UserId }
-	| { kind: "system" };
+type AutomationPrincipal = { kind: "user"; userId: UserId } | { kind: "system" };
 ```
 
 A user-owned lifecycle or signal subscription runs as its rule owner. A built-in lifecycle rule
@@ -670,19 +668,19 @@ message, full entity snapshot, changed image arrays, or credentials. IDs needed 
 existing notification link after subject deletion are duplicated deliberately in validated
 properties.
 
-| Signal | Required properties | Optional properties |
-| --- | --- | --- |
-| `integration.disabled` | `integrationId`, `providerName` | none |
-| `workout.created` | `workoutId`, `workoutName` | none |
-| `review.created` | `reviewEventId`, `entityId`, `entityName`, `entitySchemaSlug` | none |
-| `media.status.changed` | `entityName`, `oldStatus`, `newStatus` | none |
-| `media.content-count.changed` | `entityName`, `contentType`, `oldCount`, `newCount` | none |
-| `media.release-date.changed` | `entityName`, `changeKind` | variant fields below |
-| `media.episode.name.changed` | `entityName`, `episodeNumber` | `seasonNumber`, `oldName`, `newName` |
-| `media.episode.images.changed` | `entityName`, `episodeNumber` | `seasonNumber` |
-| `media.season-count.changed` | `entityName`, `oldCount`, `newCount` | none |
-| `media.episode.discovered` | `entityName`, `discoveredCount`, `oldCount`, `newCount` | `seasonNumber` |
-| person/company media/group association signals | `subjectName`, `associatedName`, `role` | none |
+| Signal                                         | Required properties                                           | Optional properties                  |
+| ---------------------------------------------- | ------------------------------------------------------------- | ------------------------------------ |
+| `integration.disabled`                         | `integrationId`, `providerName`                               | none                                 |
+| `workout.created`                              | `workoutId`, `workoutName`                                    | none                                 |
+| `review.created`                               | `reviewEventId`, `entityId`, `entityName`, `entitySchemaSlug` | none                                 |
+| `media.status.changed`                         | `entityName`, `oldStatus`, `newStatus`                        | none                                 |
+| `media.content-count.changed`                  | `entityName`, `contentType`, `oldCount`, `newCount`           | none                                 |
+| `media.release-date.changed`                   | `entityName`, `changeKind`                                    | variant fields below                 |
+| `media.episode.name.changed`                   | `entityName`, `episodeNumber`                                 | `seasonNumber`, `oldName`, `newName` |
+| `media.episode.images.changed`                 | `entityName`, `episodeNumber`                                 | `seasonNumber`                       |
+| `media.season-count.changed`                   | `entityName`, `oldCount`, `newCount`                          | none                                 |
+| `media.episode.discovered`                     | `entityName`, `discoveredCount`, `oldCount`, `newCount`       | `seasonNumber`                       |
+| person/company media/group association signals | `subjectName`, `associatedName`, `role`                       | none                                 |
 
 `media.release-date.changed` is a discriminated property contract. For
 `changeKind: "publish_year"`, require integer `oldYear` and `newYear`. For
@@ -726,15 +724,15 @@ Keep provider refresh scheduling and entity population as application-owned work
 
 Represent semantic detection through built-in sandbox scripts with one owner per semantic scope:
 
-| Signal | Sole producer |
-| --- | --- |
-| `media.status.changed` | parent media-entity update |
-| `media.content-count.changed` | anime/manga entity update |
-| `media.release-date.changed` | parent media update for top-level dates; initially show-episode update for episode-scoped dates |
-| `media.episode.name.changed` | episode-entity update |
-| `media.episode.images.changed` | episode-entity update |
-| `media.season-count.changed` | leader of show-to-season relationship sync when the net count changes |
-| `media.episode.discovered` | leader of show-season-to-episode or podcast-to-episode sync when `createdCount > 0` |
+| Signal                                         | Sole producer                                                                                                                                  |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `media.status.changed`                         | parent media-entity update                                                                                                                     |
+| `media.content-count.changed`                  | anime/manga entity update                                                                                                                      |
+| `media.release-date.changed`                   | parent media update for top-level dates; initially show-episode update for episode-scoped dates                                                |
+| `media.episode.name.changed`                   | episode-entity update                                                                                                                          |
+| `media.episode.images.changed`                 | episode-entity update                                                                                                                          |
+| `media.season-count.changed`                   | leader of show-to-season relationship sync when the net count changes                                                                          |
+| `media.episode.discovered`                     | leader of show-season-to-episode or podcast-to-episode sync when `createdCount > 0`                                                            |
 | person/company media/group association signals | corresponding canonical credit-relationship create from either population direction, plus newly added roles from material relationship updates |
 
 Anime/manga numeric counts belong only to `media.content-count.changed`. Episode and season entity
