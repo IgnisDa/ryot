@@ -1,10 +1,15 @@
-import { Workflow } from "@effect/workflow";
-import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
-import { Effect, Layer, LogLevel, Option, Redacted } from "effect";
+import { Effect, Layer, Option, Redacted } from "effect";
+import { Workflow } from "effect/unstable/workflow";
+import {
+	layerMemory as workflowEngineMemoryLayer,
+	WorkflowEngine,
+	WorkflowInstance,
+} from "effect/unstable/workflow/WorkflowEngine";
 
 import { AppConfig, type AppConfigValue } from "#lib/infrastructure/config/service";
 import { CurrentDb, DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
 import type { RedisService } from "#lib/infrastructure/redis";
+import { detachDiscardedWorkflowChildren } from "#lib/infrastructure/workflow";
 
 export type MockOverrides<T> = T extends (...args: infer TArgs) => unknown
 	? Omit<TArgs[0], "_tag">
@@ -17,29 +22,39 @@ export const dbRunnerLayer = Layer.succeed(DbRunner, provideEmptyDb);
 
 export const transactionLayer = Layer.succeed(TransactionRunner, provideEmptyDb);
 
-export type WorkflowEngineOverrides = Omit<Partial<WorkflowEngine["Type"]>, "execute"> & {
+export type WorkflowEngineOverrides = Omit<Partial<WorkflowEngine["Service"]>, "execute"> & {
 	execute?: (
-		...args: Parameters<WorkflowEngine["Type"]["execute"]>
+		...args: Parameters<WorkflowEngine["Service"]["execute"]>
 	) => Effect.Effect<unknown, unknown>;
 };
 
 export const makeWorkflowEngine = (
 	overrides: WorkflowEngineOverrides = {},
-): WorkflowEngine["Type"] =>
-	Object.assign(Object.create(null), {
-		poll: () => Effect.die("unused"),
-		resume: () => Effect.die("unused"),
-		execute: () => Effect.die("unused"),
-		register: () => Effect.die("unused"),
-		interrupt: () => Effect.die("unused"),
-		deferredDone: () => Effect.die("unused"),
-		scheduleClock: () => Effect.die("unused"),
-		deferredResult: () => Effect.die("unused"),
-		activityExecute: () => Effect.die("unused"),
-		...overrides,
-	});
+): WorkflowEngine["Service"] =>
+	Object.assign(
+		WorkflowEngine.of({
+			poll: () => Effect.die("unused"),
+			resume: () => Effect.die("unused"),
+			execute: () => Effect.die("unused"),
+			register: () => Effect.die("unused"),
+			interrupt: () => Effect.die("unused"),
+			interruptUnsafe: () => Effect.die("unused"),
+			deferredDone: () => Effect.die("unused"),
+			scheduleClock: () => Effect.die("unused"),
+			deferredResult: () => Effect.die("unused"),
+			activityExecute: () => Effect.die("unused"),
+		}),
+		overrides,
+	);
 
-export const makeRedisService = (overrides: Partial<RedisService> = {}): RedisService =>
+export const workflowEngineTestLayer = Layer.effect(
+	WorkflowEngine,
+	Effect.map(WorkflowEngine, detachDiscardedWorkflowChildren),
+).pipe(Layer.provide(workflowEngineMemoryLayer));
+
+export const makeRedisService = (
+	overrides: Partial<RedisService["Service"]> = {},
+): RedisService["Service"] =>
 	Object.assign(Object.create(null), {
 		client: undefined,
 		del: () => Effect.die("unused"),
@@ -59,25 +74,6 @@ type DeepPartial<T> = T extends ConfigLeafValue
 		? { [K in keyof T]?: DeepPartial<T[K]> }
 		: T;
 
-const isPlainConfigObject = (value: unknown): value is Record<string, unknown> => {
-	if (value === null || typeof value !== "object") {
-		return false;
-	}
-	const proto = Object.getPrototypeOf(value);
-	return proto === Object.prototype || proto === null;
-};
-
-const deepMergeConfig = (base: unknown, override: unknown): unknown => {
-	if (!isPlainConfigObject(base) || !isPlainConfigObject(override)) {
-		return override ?? base;
-	}
-	const result: Record<string, unknown> = { ...base };
-	for (const key of Object.keys(override)) {
-		result[key] = deepMergeConfig(base[key], override[key]);
-	}
-	return result;
-};
-
 export const makeAppConfigLayer = (
 	overrides?: DeepPartial<AppConfigValue>,
 ): Layer.Layer<AppConfig> => {
@@ -86,7 +82,6 @@ export const makeAppConfigLayer = (
 		tmpDir: "/tmp",
 		nodeEnv: "test",
 		timezone: "Etc/GMT",
-		_tag: "AppConfig" as const,
 		frontendUrl: "http://localhost:3000",
 		redisUrl: Redacted.make("unused"),
 		frontend: { oidcButtonLabel: Option.none() },
@@ -117,7 +112,7 @@ export const makeAppConfigLayer = (
 		},
 		server: {
 			logFile: Option.none(),
-			logLevel: LogLevel.Info,
+			logLevel: "Info",
 			corsOrigins: Option.none(),
 			otlpEndpoint: Option.none(),
 			disableNotifications: false,
@@ -130,16 +125,30 @@ export const makeAppConfigLayer = (
 				mailbox: "Ryot <no-reply@ryot.io>",
 			},
 		},
-	};
-	// oxlint-disable-next-line no-unsafe-type-assertion -- deepMergeConfig is an untyped structural merge; the result is always the complete defaults with overrides applied, so it matches typeof defaults
-	return Layer.succeed(AppConfig, deepMergeConfig(defaults, overrides ?? {}) as typeof defaults);
+	} satisfies AppConfigValue;
+	return Layer.succeed(AppConfig, {
+		...defaults,
+		...overrides,
+		users: { ...defaults.users, ...overrides?.users },
+		server: {
+			...defaults.server,
+			...overrides?.server,
+			oidc: { ...defaults.server.oidc, ...overrides?.server?.oidc },
+			smtp: { ...defaults.server.smtp, ...overrides?.server?.smtp },
+		},
+		frontend: { ...defaults.frontend, ...overrides?.frontend },
+		database: { ...defaults.database, ...overrides?.database },
+		sandbox: { ...defaults.sandbox, ...overrides?.sandbox },
+		scheduler: { ...defaults.scheduler, ...overrides?.scheduler },
+		fileStorage: { ...defaults.fileStorage, ...overrides?.fileStorage },
+	});
 };
 
 export const makeWorkflowActivityEngine = (
-	instance: WorkflowInstance["Type"],
+	instance: WorkflowInstance["Service"],
 	overrides: WorkflowEngineOverrides = {},
 ) => {
-	let engine: WorkflowEngine["Type"];
+	let engine: WorkflowEngine["Service"];
 
 	engine = makeWorkflowEngine({
 		activityExecute: (activity) =>
