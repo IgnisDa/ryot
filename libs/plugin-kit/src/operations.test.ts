@@ -6,8 +6,8 @@ import { defineOperationRecipe, invokeOperationRecipe } from "./operations";
 const recipe = defineOperationRecipe({
 	pluginSlug: "media",
 	operationSlug: "resolve-episodes",
-	output: Schema.Struct({ entityId: Schema.String }),
-	input: Schema.Struct({ count: Schema.NumberFromString }),
+	input: Schema.Struct({ count: Schema.FiniteFromString }),
+	output: Schema.Struct({ count: Schema.NumberFromString, entityId: Schema.String }),
 });
 
 describe("invokeOperationRecipe", () => {
@@ -16,14 +16,28 @@ describe("invokeOperationRecipe", () => {
 		const result = Effect.runSync(
 			invokeOperationRecipe(recipe, { count: 3 }, (incoming) => {
 				request.push(incoming);
-				return Effect.succeed({ entityId: "entity-1" });
+				return Effect.succeed({ count: "4", entityId: "entity-1" });
 			}),
 		);
 
 		expect(request).toEqual([
 			{ payload: { count: "3" }, pluginSlug: "media", operationSlug: "resolve-episodes" },
 		]);
-		expect(result).toEqual({ entityId: "entity-1" });
+		expect(result).toEqual({ count: 4, entityId: "entity-1" });
+	});
+
+	it("propagates input schema failures without invoking transport", () => {
+		let invoked = false;
+
+		expect(() =>
+			Effect.runSync(
+				invokeOperationRecipe(recipe, { count: Number.NaN }, () => {
+					invoked = true;
+					return Effect.succeed({ count: "4", entityId: "entity-1" });
+				}),
+			),
+		).toThrow();
+		expect(invoked).toBe(false);
 	});
 
 	it("fails when the transport result does not match the output schema", () => {
