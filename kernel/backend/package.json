@@ -17,7 +17,6 @@
 	"dependencies": {
 		"@better-auth/api-key": "1.7.0-rc.6",
 		"@better-auth/core": "1.7.0-rc.6",
-		"@better-auth/expo": "1.7.0-rc.6",
 		"@better-auth/redis-storage": "1.7.0-rc.6",
 		"@dicebear/core": "10.6.0",
 		"@dicebear/styles": "10.5.0",
