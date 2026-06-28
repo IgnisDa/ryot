@@ -11,6 +11,7 @@ import {
 	makeAppConfigLayer,
 	makeWorkflowActivityEngine,
 	makeWorkflowEngine,
+	transactionLayer,
 } from "#lib/test-utils/effect";
 
 import {
@@ -20,6 +21,7 @@ import {
 import { SandboxRepository } from "./repository";
 import { SandboxScriptWorkflow } from "./sandbox-script-workflow";
 import { SandboxExecutionService } from "./service";
+import { SandboxWorkflowReferenceRepository } from "./workflow-reference-repository";
 
 const scriptId = SandboxScriptId.make("script-id");
 const executingUserId = UserId.make("user-1");
@@ -30,6 +32,16 @@ const storedScript = {
 	compiledFormat: 1,
 	compiledCode: "compiled",
 	contentHash: "compiled-hash",
+};
+const storedWorkflowScript = {
+	...storedScript,
+	name: "Workflow",
+	source: "source",
+	slug: "workflow",
+	pluginSlug: "fixture",
+	createdAt: new Date(0),
+	updatedAt: new Date(0),
+	metadata: { kind: "workflow" as const },
 };
 
 const mockRepository = Layer.mock(SandboxRepository);
@@ -52,13 +64,21 @@ const makeServiceLayer = (
 		WorkflowEngine,
 		makeWorkflowEngine({ execute: () => Effect.succeed(null) }),
 	),
+	workflowReferences = Layer.mock(SandboxWorkflowReferenceRepository)({
+		_tag: "SandboxWorkflowReferenceRepository",
+		lockIngestionShared: () => Effect.void,
+		registerInTransaction: () => Effect.succeed({ status: "registered" as const }),
+		release: () => Effect.void,
+	}),
 ) =>
 	SandboxExecutionService.Default.pipe(
 		Layer.provide(
 			Layer.mergeAll(
 				dbRunnerLayer,
+				transactionLayer,
 				repository,
 				workflowEngine,
+				workflowReferences,
 				makeAppConfigLayer(),
 				pluginRuntime,
 			),
@@ -251,5 +271,106 @@ it.effect("rejects workflow input above the workflow limit before dispatch", () 
 			}),
 		);
 		expect(executionCount).toBe(0);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("pins a plugin workflow before accepted dispatch can wait for a worker", () => {
+	const events: string[] = [];
+	let referenceLive = false;
+	const references = Layer.mock(SandboxWorkflowReferenceRepository)({
+		_tag: "SandboxWorkflowReferenceRepository",
+		lockIngestionShared: () => Effect.sync(() => events.push("lock")),
+		registerInTransaction: () =>
+			Effect.sync(() => {
+				events.push("register");
+				referenceLive = true;
+				return { status: "registered" as const };
+			}),
+		release: () => Effect.sync(() => (referenceLive = false)),
+	});
+	const layer = makeServiceLayer(
+		makeRepository({
+			getScriptPin: () =>
+				Effect.succeed({
+					scriptId,
+					pluginSlug: "fixture",
+					contentHash: storedScript.contentHash,
+				}),
+			isPluginScript: () => Effect.succeed(true),
+		}),
+		makePluginRuntime(
+			() => Effect.succeed(storedWorkflowScript),
+			() => Effect.succeed(storedWorkflowScript),
+		),
+		Layer.succeed(
+			WorkflowEngine,
+			makeWorkflowEngine({
+				execute: () =>
+					Effect.sync(() => {
+						events.push("accepted");
+						expect(referenceLive).toBe(true);
+						return null;
+					}),
+			}),
+		),
+		references,
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* SandboxExecutionService;
+		expect(
+			yield* service.enqueuePluginWorkflow({
+				input: {},
+				executingUserId,
+				pluginSlug: "fixture",
+				workflowSlug: "workflow",
+				executionId: "queued-workflow",
+			}),
+		).toBe("queued-workflow");
+		expect(events).toEqual(["lock", "register", "accepted"]);
+		expect(referenceLive).toBe(true);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("releases a new dispatch pin when workflow enqueue fails", () => {
+	let releases = 0;
+	const layer = makeServiceLayer(
+		makeRepository({
+			getScriptPin: () =>
+				Effect.succeed({
+					scriptId,
+					pluginSlug: "fixture",
+					contentHash: storedScript.contentHash,
+				}),
+			isPluginScript: () => Effect.succeed(true),
+		}),
+		makePluginRuntime(
+			() => Effect.succeed(storedWorkflowScript),
+			() => Effect.succeed(storedWorkflowScript),
+		),
+		Layer.succeed(
+			WorkflowEngine,
+			makeWorkflowEngine({ execute: () => Effect.fail("enqueue failed") }),
+		),
+		Layer.mock(SandboxWorkflowReferenceRepository)({
+			_tag: "SandboxWorkflowReferenceRepository",
+			lockIngestionShared: () => Effect.void,
+			registerInTransaction: () => Effect.succeed({ status: "registered" as const }),
+			release: () => Effect.sync(() => (releases += 1)),
+		}),
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* SandboxExecutionService;
+		yield* Effect.exit(
+			service.enqueuePluginWorkflow({
+				input: {},
+				executingUserId,
+				pluginSlug: "fixture",
+				workflowSlug: "workflow",
+				executionId: "failed-enqueue",
+			}),
+		);
+		expect(releases).toBe(1);
 	}).pipe(Effect.provide(layer));
 });

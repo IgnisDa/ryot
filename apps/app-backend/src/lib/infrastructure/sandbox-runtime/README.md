@@ -9,8 +9,9 @@ The sandbox runs untrusted script code in single-use Deno subprocesses, exposes 
 - `service.ts`: builds execution payloads, registers bridge sessions, checks out Deno subprocesses, and returns sandbox results.
 - `runtime.ts`: owns the Deno runner file, process pool, package cache, and bridge server.
 - `runner-source.sandbox.ts` + `runner-utilities.sandbox.ts`: the TypeScript-authored Deno runner. `sandbox:compile-runner` bundles them ahead of execution into the ignored `runner.generated.ts`, and `sandbox:check-runner` (`deno check` with `deno.json`) type-checks them with Deno globals outside the backend `tsc`.
-- `host-functions.ts` and `automation-host-functions.ts`: app-bound bridge functions for user, entity, event, integration, query-engine, config, signal, and notification access.
-- `shared.ts`: shared types and helpers for host-function implementations.
+- `host-implementations.ts`: typed injection contract for app-owned host implementation maps.
+- `shared.ts`: runtime contracts and helpers used by app-owned host implementations.
+- `src/app/sandbox-host-functions.ts` and `src/app/automation-sandbox-host-functions.ts`: app-bound bridge functions for user, entity, event, integration, query-engine, config, signal, and notification access.
 - Plugin scripts and script-side helpers live under `plugins/*/scripts/`; the generic notification script lives under `modules/definition-registry/kernel-scripts/`. This folder owns only execution runtime code.
 
 ## Compilation Pipeline
@@ -109,7 +110,7 @@ Cache keys are isolated per `(executing user, providerId)`. The dispatched `cach
 ### Adding A Host Function
 
 1. Define the script-facing schema and method in `@ryot/sandbox-sdk`.
-2. Implement the context-first method in the typed backend registry in `service.ts` or `host-functions.ts`.
+2. Implement app-bound context-first methods in `src/app/sandbox-host-functions.ts` or `src/app/automation-sandbox-host-functions.ts`; runtime-owned methods stay in `service.ts`.
 3. Decode its untrusted RPC argument array in `bridge-adapter.ts`; implementation functions must not accept unknown argument arrays.
 4. Use `requireUserSandboxRunInput(input, fnName)` for user-scoped functions.
 5. Add the function name to this section.

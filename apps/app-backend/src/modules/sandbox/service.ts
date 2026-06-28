@@ -13,7 +13,7 @@ import { generateId } from "better-auth";
 import { Cause, Effect, Exit, Match, Option, Redacted } from "effect";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
-import { DbRunner } from "#lib/infrastructure/db/service";
+import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
 import { sandboxContextError } from "#lib/infrastructure/sandbox-runtime/limits";
 import { createWorkflowJobId, resolveWorkflowExecutionId } from "#lib/shared/job-id";
 import { trimToNull } from "#lib/shared/validation";
@@ -25,8 +25,9 @@ import {
 } from "./plugin-script-resolver";
 import { SandboxRepository } from "./repository";
 import { RunSandboxWorkflow } from "./sandbox-run-workflow";
-import { SandboxScriptWorkflow } from "./sandbox-script-workflow";
+import { establishSandboxWorkflowPin, SandboxScriptWorkflow } from "./sandbox-script-workflow";
 import { toSandboxRunResult } from "./sandbox-workflow-live";
+import { SandboxWorkflowReferenceRepository } from "./workflow-reference-repository";
 
 const sandboxJobNotFoundError = "Sandbox job not found";
 const sandboxScriptNotFoundError = "Sandbox script not found";
@@ -60,8 +61,10 @@ export class SandboxExecutionService extends Effect.Service<SandboxExecutionServ
 			const runWithDb = yield* DbRunner;
 			const engine = yield* WorkflowEngine;
 			const repository = yield* SandboxRepository;
+			const runInTransaction = yield* TransactionRunner;
 			const pluginScriptResolver = yield* SandboxPluginScriptResolver;
 			const jobIdSecret = Redacted.value(config.sandbox.jobIdSecret);
+			const workflowReferences = yield* SandboxWorkflowReferenceRepository;
 
 			const enqueue = Effect.fn("SandboxExecutionService.enqueue")(function* (
 				executingUserId: UserId,
@@ -192,11 +195,41 @@ export class SandboxExecutionService extends Effect.Service<SandboxExecutionServ
 				},
 			);
 
+			const preRegisterPluginWorkflow = Effect.fn(
+				"SandboxExecutionService.preRegisterPluginWorkflow",
+			)(function* (input: {
+				pluginSlug: string;
+				executionId: string;
+				executingUserId: UserId;
+				scriptId: SandboxScriptId;
+			}) {
+				return yield* establishSandboxWorkflowPin(
+					{
+						input: {},
+						resolutionMode: "exact",
+						scriptId: input.scriptId,
+						executionId: input.executionId,
+						authority: { type: "user", userId: input.executingUserId },
+					},
+					input.executionId,
+					input.pluginSlug,
+				).pipe(
+					Effect.provideService(DbRunner, runWithDb),
+					Effect.provideService(SandboxRepository, repository),
+					Effect.provideService(TransactionRunner, runInTransaction),
+					Effect.provideService(SandboxPluginScriptResolver, pluginScriptResolver),
+					Effect.provideService(SandboxWorkflowReferenceRepository, workflowReferences),
+				);
+			});
+
+			const releaseWorkflowRegistration = (executionId: string) =>
+				runWithDb(workflowReferences.release(executionId));
+
 			const enqueuePluginWorkflow = Effect.fn("SandboxExecutionService.enqueuePluginWorkflow")(
 				function* (input: {
 					input: JsonValue;
-					executionId: string;
 					pluginSlug: string;
+					executionId: string;
 					workflowSlug: string;
 					executingUserId: UserId;
 				}) {
@@ -213,19 +246,38 @@ export class SandboxExecutionService extends Effect.Service<SandboxExecutionServ
 					if (!script) {
 						return yield* notFound(sandboxScriptNotFoundError);
 					}
+					const payload = {
+						input: input.input,
+						scriptId: script.id,
+						executionId: input.executionId,
+						resolutionMode: "active" as const,
+						authority: { type: "user" as const, userId: input.executingUserId },
+					};
+					const pin = yield* establishSandboxWorkflowPin(payload, input.executionId).pipe(
+						Effect.provideService(DbRunner, runWithDb),
+						Effect.provideService(SandboxRepository, repository),
+						Effect.provideService(TransactionRunner, runInTransaction),
+						Effect.provideService(SandboxPluginScriptResolver, pluginScriptResolver),
+						Effect.provideService(SandboxWorkflowReferenceRepository, workflowReferences),
+					);
+					const releaseRegistration =
+						pin.registrationStatus === "registered"
+							? runWithDb(workflowReferences.release(input.executionId))
+							: Effect.void;
 					yield* engine
 						.execute(SandboxScriptWorkflow, {
 							discard: true,
 							executionId: input.executionId,
-							payload: {
-								input: input.input,
-								scriptId: script.id,
-								executionId: input.executionId,
-								resolutionMode: "exact",
-								authority: { type: "user", userId: input.executingUserId },
-							},
+							payload: { ...payload, scriptId: pin.scriptId, resolutionMode: "exact" },
 						})
-						.pipe(Effect.orDie);
+						.pipe(
+							Effect.matchCauseEffect({
+								onFailure: (cause) =>
+									releaseRegistration.pipe(Effect.zipRight(Effect.failCause(cause))),
+								onSuccess: Effect.succeed,
+							}),
+							Effect.orDie,
+						);
 					return input.executionId;
 				},
 			);
@@ -242,8 +294,10 @@ export class SandboxExecutionService extends Effect.Service<SandboxExecutionServ
 				executeWorkflow,
 				getStoredScript,
 				enqueuePluginWorkflow,
-				getPluginWorkflowResult,
 				resolveWorkflowScript,
+				getPluginWorkflowResult,
+				preRegisterPluginWorkflow,
+				releaseWorkflowRegistration,
 				listStoredScripts: () => runWithDb(repository.listStoredScripts()),
 			};
 		}),

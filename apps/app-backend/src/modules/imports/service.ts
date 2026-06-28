@@ -4,7 +4,12 @@ import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { badRequest, notFound } from "@ryot/contract/errors";
 import type { CreateImportRunBody } from "@ryot/contract/modules/imports/schemas";
 import type { ImportRunSource, ImportRunStatus } from "@ryot/contract/modules/imports/types";
-import type { ImportRunId, IntegrationId, UserId } from "@ryot/contract/schema/brands";
+import type {
+	ImportRunId,
+	IntegrationId,
+	SandboxScriptId,
+	UserId,
+} from "@ryot/contract/schema/brands";
 import { DateTime, Effect, Either } from "effect";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
@@ -36,6 +41,7 @@ import {
 	deleteImportSourcePayload,
 	storeImportSourcePayload,
 } from "./runtime/source-payload-store";
+import { ImportWorkflowPinning } from "./workflow-pinning";
 
 export type CreateImportRunInput = {
 	userId: UserId;
@@ -75,6 +81,7 @@ export class ImportsService extends Effect.Service<ImportsService>()("ImportsSer
 		const fs = yield* FileSystem.FileSystem;
 		const repository = yield* ImportsRepository;
 		const importSources = yield* ImportSourceCatalog;
+		const workflowPinning = yield* ImportWorkflowPinning;
 		const failureService = yield* ImportRunFailuresService;
 
 		const create = Effect.fn("ImportsService.create")(function* (input: CreateImportRunInput) {
@@ -108,6 +115,7 @@ export class ImportsService extends Effect.Service<ImportsService>()("ImportsSer
 			inputSummary: Record<string, unknown>,
 			sourceFileInputs: ReadonlyArray<ImportSourceFileInput>,
 			registered: RegisteredImportSource,
+			workflowScriptId: SandboxScriptId,
 		) {
 			const tempDir = config.tmpDir;
 			const queuedFilePaths: string[] = [];
@@ -162,6 +170,20 @@ export class ImportsService extends Effect.Service<ImportsService>()("ImportsSer
 			}
 
 			const run = yield* create({ userId: user.id, source: body.source, inputSummary });
+			const sandboxExecutionId = `${run.id}-import`;
+			const pin = yield* workflowPinning
+				.preRegister({
+					executingUserId: user.id,
+					scriptId: workflowScriptId,
+					executionId: sandboxExecutionId,
+					pluginSlug: registered.pluginSlug,
+				})
+				.pipe(Effect.either);
+			if (Either.isLeft(pin)) {
+				yield* failRun(run.id, "Failed to pin import workflow");
+				yield* cleanupFiles(claimedFilePaths);
+				return yield* badRequest("Could not queue the import job; please try again");
+			}
 
 			const started = yield* engine
 				.execute(ProcessImportRunWorkflow, {
@@ -172,12 +194,17 @@ export class ImportsService extends Effect.Service<ImportsService>()("ImportsSer
 						runId: run.id,
 						userId: user.id,
 						source: body.source,
+						pluginSlug: registered.pluginSlug,
+						workflowScriptId,
 						...(Object.keys(namedArtifactPaths).length > 0 ? { namedArtifactPaths } : {}),
 						...(Object.keys(sourcePayload).length > 0 ? { sourcePayload } : {}),
 					},
 				})
 				.pipe(Effect.either);
 			if (Either.isLeft(started)) {
+				if (pin.right.registrationStatus === "registered") {
+					yield* workflowPinning.release(sandboxExecutionId);
+				}
 				yield* failRun(run.id, "Failed to enqueue import job");
 				yield* cleanupFiles(claimedFilePaths);
 				return yield* badRequest("Could not queue the import job; please try again");
@@ -192,9 +219,11 @@ export class ImportsService extends Effect.Service<ImportsService>()("ImportsSer
 				body: CreateImportRunBody,
 				inputSummary: Record<string, unknown>,
 				registered: RegisteredImportSource,
+				workflowScriptId: SandboxScriptId,
 			) {
 				const sourcePayload = buildImportSourcePayload(body, registered);
 				const run = yield* create({ userId: user.id, source: body.source, inputSummary });
+				const sandboxExecutionId = `${run.id}-import`;
 
 				if (sourcePayload) {
 					const stored = yield* storeImportSourcePayload({ runId: run.id, sourcePayload }).pipe(
@@ -207,6 +236,24 @@ export class ImportsService extends Effect.Service<ImportsService>()("ImportsSer
 					}
 				}
 
+				const pin = yield* workflowPinning
+					.preRegister({
+						executingUserId: user.id,
+						scriptId: workflowScriptId,
+						executionId: sandboxExecutionId,
+						pluginSlug: registered.pluginSlug,
+					})
+					.pipe(Effect.either);
+				if (Either.isLeft(pin)) {
+					if (sourcePayload) {
+						yield* deleteImportSourcePayload(run.id).pipe(
+							Effect.provideService(RedisService, redis),
+						);
+					}
+					yield* failRun(run.id, "Failed to pin import workflow");
+					return yield* badRequest("Could not queue the import job; please try again");
+				}
+
 				const started = yield* engine
 					.execute(ProcessImportRunWorkflow, {
 						discard: true,
@@ -214,12 +261,17 @@ export class ImportsService extends Effect.Service<ImportsService>()("ImportsSer
 						payload: {
 							runId: run.id,
 							userId: user.id,
+							workflowScriptId,
 							source: body.source,
+							pluginSlug: registered.pluginSlug,
 							...(sourcePayload ? { sourcePayloadKey: run.id } : {}),
 						},
 					})
 					.pipe(Effect.either);
 				if (Either.isLeft(started)) {
+					if (pin.right.registrationStatus === "registered") {
+						yield* workflowPinning.release(sandboxExecutionId);
+					}
 					if (sourcePayload) {
 						yield* deleteImportSourcePayload(run.id).pipe(
 							Effect.provideService(RedisService, redis),
@@ -237,9 +289,14 @@ export class ImportsService extends Effect.Service<ImportsService>()("ImportsSer
 			user: CurrentUserValue,
 			body: CreateImportRunBody,
 		) {
-			const registered = importSources.find(body.source);
-			if (!registered) {
+			const resolution = importSources.resolve(body.source);
+			if (!resolution) {
 				return yield* badRequest("Import source is not available");
+			}
+			const registered = resolution.source;
+			const workflowScript = yield* runWithDb(resolution.script);
+			if (!workflowScript) {
+				return yield* badRequest("Import source workflow is not available");
 			}
 			const startError = yield* registryImportSourceStartError(registered);
 			if (startError) {
@@ -254,8 +311,21 @@ export class ImportsService extends Effect.Service<ImportsService>()("ImportsSer
 			const sourceFileInputs = registryImportSourceFileInputs(registered, body);
 
 			return sourceFileInputs.length > 0
-				? yield* startFileImportRun(user, body, inputSummary, sourceFileInputs, registered)
-				: yield* startSourcePayloadImportRun(user, body, inputSummary, registered);
+				? yield* startFileImportRun(
+						user,
+						body,
+						inputSummary,
+						sourceFileInputs,
+						registered,
+						workflowScript.id,
+					)
+				: yield* startSourcePayloadImportRun(
+						user,
+						body,
+						inputSummary,
+						registered,
+						workflowScript.id,
+					);
 		});
 
 		const listImportRuns = (user: CurrentUserValue) =>
