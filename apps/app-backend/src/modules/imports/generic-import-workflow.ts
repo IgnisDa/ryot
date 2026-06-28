@@ -1,6 +1,3 @@
-import { FileSystem, Path } from "@effect/platform";
-import { Activity, Workflow } from "@effect/workflow";
-import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { unknownToMessage } from "@ryot/contract/errors";
 import { CreateEventItem } from "@ryot/contract/modules/events/schemas";
 import {
@@ -19,10 +16,13 @@ import {
 	type GenericImportWriteItem,
 } from "@ryot/sandbox-sdk/imports";
 import { isObjectRecord } from "@ryot/ts-utils/predicates";
-import { DateTime, Effect, Schema } from "effect";
+import { DateTime, Effect, Schema, FileSystem, Path } from "effect";
+import { Activity, Workflow } from "effect/unstable/workflow";
+import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
 import { withoutWorkflowParent } from "#lib/infrastructure/workflow";
+import { withoutSchemaServices } from "#lib/shared/schema";
 import { slugify } from "#lib/shared/slug";
 import { AddEntityToCollectionWorkflow } from "#modules/collections/add-entity-to-collection-workflow";
 import { CollectionsService } from "#modules/collections/service";
@@ -44,15 +44,17 @@ export const ProcessGenericImportChunksPayload = Schema.Struct({
 	expectedHarvestDirectoryPrefix: Schema.String,
 });
 
-export const ProcessGenericImportChunksWorkflow = Workflow.make({
-	error: ImportRunError,
-	name: "ProcessGenericImportChunksWorkflow",
-	success: genericImportWorkflowResultSchema,
-	payload: ProcessGenericImportChunksPayload,
-	idempotencyKey: ({ executionId }) => executionId,
-});
+export const ProcessGenericImportChunksWorkflow = Workflow.make(
+	"ProcessGenericImportChunksWorkflow",
+	{
+		error: withoutSchemaServices(ImportRunError),
+		success: withoutSchemaServices(genericImportWorkflowResultSchema),
+		payload: withoutSchemaServices(ProcessGenericImportChunksPayload),
+		idempotencyKey: ({ executionId }) => executionId,
+	},
+);
 
-const ItemWriteOutcome = Schema.Union(
+const ItemWriteOutcome = Schema.Union([
 	Schema.TaggedStruct("failed", { message: Schema.String }),
 	Schema.TaggedStruct("ready", {
 		events: Schema.Array(CreateEventItem),
@@ -60,7 +62,7 @@ const ItemWriteOutcome = Schema.Union(
 			Schema.Struct({ entityId: EntityId, collectionId: EntityId }),
 		),
 	}),
-);
+]);
 
 const requireHarvestedChunkPath = Effect.fn("imports.requireHarvestedChunkPath")(function* (
 	filePath: string,
@@ -331,7 +333,7 @@ const writeGenericItem = (item: GenericImportWriteItem, userId: UserId, index: n
 			}
 			return { _tag: "ready" as const, events, collectionMemberships };
 		}).pipe(
-			Effect.catchAll((error) =>
+			Effect.catch((error) =>
 				Effect.succeed({ _tag: "failed" as const, message: unknownToMessage(error) }),
 			),
 		),
@@ -346,7 +348,9 @@ const readChunk = (path: string, expectedDirectoryPrefix: string, index: number)
 			const fs = yield* FileSystem.FileSystem;
 			const safePath = yield* requireHarvestedChunkPath(path, expectedDirectoryPrefix);
 			const text = yield* fs.readFileString(safePath.filePath);
-			return yield* Schema.decodeUnknown(Schema.parseJson(genericImportChunkSchema))(text);
+			return yield* Schema.decodeUnknownEffect(Schema.fromJsonString(genericImportChunkSchema))(
+				text,
+			);
 		}).pipe(Effect.mapError(toWorkflowError)),
 	});
 
@@ -434,9 +438,9 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 									collectionId: membership.collectionId,
 								},
 							})
-							.pipe(Effect.either);
-						if (collectionResult._tag === "Left" && !message) {
-							message = unknownToMessage(collectionResult.left);
+							.pipe(Effect.result);
+						if (collectionResult._tag === "Failure" && !message) {
+							message = unknownToMessage(collectionResult.failure);
 						}
 					}
 					if (outcome.events.length > 0) {

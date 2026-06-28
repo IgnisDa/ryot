@@ -5,16 +5,14 @@ import { RedisService, redisKeys } from "#lib/infrastructure/redis";
 
 const IMPORT_SOURCE_PAYLOAD_TTL_SECONDS = 24 * 60 * 60;
 
-const SourcePayloadFromJson = Schema.parseJson(
-	Schema.Record({ key: Schema.String, value: jsonValueSchema }),
-);
+const SourcePayloadFromJson = Schema.fromJsonString(Schema.Record(Schema.String, jsonValueSchema));
 
 export const storeImportSourcePayload = Effect.fn("imports.storeImportSourcePayload")(
 	function* (input: { runId: string; sourcePayload: Record<string, JsonValue> }) {
 		const redis = yield* RedisService;
-		const serialized = yield* Schema.encode(SourcePayloadFromJson)(input.sourcePayload).pipe(
-			Effect.orDie,
-		);
+		const serialized = yield* Schema.encodeUnknownEffect(SourcePayloadFromJson)(
+			input.sourcePayload,
+		).pipe(Effect.orDie);
 		yield* redis.set(
 			redisKeys.importSourcePayload(input.runId),
 			serialized,
@@ -31,7 +29,9 @@ export const loadImportSourcePayload = Effect.fn("imports.loadImportSourcePayloa
 	if (raw === null) {
 		return null;
 	}
-	return yield* Schema.decode(SourcePayloadFromJson)(raw).pipe(Effect.orElseSucceed(() => null));
+	return yield* Schema.decodeUnknownEffect(SourcePayloadFromJson)(raw).pipe(
+		Effect.orElseSucceed(() => null),
+	);
 });
 
 export const deleteImportSourcePayload = Effect.fn("imports.deleteImportSourcePayload")(function* (

@@ -10,8 +10,8 @@ export const ImportRunJobData = Schema.Struct({
 	workflowScriptId: SandboxScriptId,
 	filePath: Schema.optional(Schema.String),
 	sourcePayloadKey: Schema.optional(Schema.String),
-	sourcePayload: Schema.optional(Schema.Record({ key: Schema.String, value: jsonValueSchema })),
-	namedArtifactPaths: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.String })),
+	sourcePayload: Schema.optional(Schema.Record(Schema.String, jsonValueSchema)),
+	namedArtifactPaths: Schema.optional(Schema.Record(Schema.String, Schema.String)),
 });
 
 export type ImportRunJobData = typeof ImportRunJobData.Type;
