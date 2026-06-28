@@ -4,10 +4,16 @@ import { Schema } from "effect";
 import { Atom } from "effect/unstable/reactivity";
 
 import { appClient } from "@/api/client";
-import { type ApiScope, canonicalApiScope, scopedReactivityKey } from "@/api/request-key";
+import {
+	type ApiScope,
+	canonicalApiScope,
+	scopedReactivityKey,
+	scopedRequestKey,
+} from "@/api/request-key";
 import { appStorageRuntime } from "@/persistence/storage";
 
 import { canonicalManagedAssets } from "./managed-assets";
+import { emptySavedViewSession } from "./session-state";
 import {
 	mapManagedAssetResolution,
 	mapSavedViewRecord,
@@ -70,3 +76,8 @@ const savedViewLayoutFamily = Atom.family((key: string) =>
 
 export const savedViewLayoutAtom = (scope: SavedViewLayoutStorageScope) =>
 	savedViewLayoutFamily(savedViewLayoutStorageKey(scope));
+
+const savedViewSessionFamily = Atom.family((_key: string) => Atom.make(emptySavedViewSession));
+
+export const savedViewSessionAtom = (scope: ApiScope) =>
+	savedViewSessionFamily(scopedRequestKey(scope, "saved-view-session"));
