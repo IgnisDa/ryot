@@ -7,7 +7,8 @@ import { useNavigationData } from "@/lib/navigation";
 
 export default function TrackerScreen() {
 	const { trackers } = useNavigationData();
-	const { trackerSlug } = useLocalSearchParams<"/(app)/tracker/[trackerSlug]">();
+	const { trackerSlug: rawTrackerSlug } = useLocalSearchParams<"/(app)/tracker/[trackerSlug]">();
+	const trackerSlug = Array.isArray(rawTrackerSlug) ? (rawTrackerSlug[0] ?? "") : rawTrackerSlug;
 
 	if (trackerSlug === "media") {
 		return <MediaTrackerOverview />;
