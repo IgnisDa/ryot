@@ -1,5 +1,12 @@
 import {
 	type GeneratedBuiltinSandboxScript,
+	sandboxCompanyDotGiantDashBombScript,
+	sandboxCompanyDotIgdbScript,
+	sandboxPersonDotGiantDashBombScript,
+	sandboxVideoDashGameDashGroupDotGiantDashBombScript,
+	sandboxVideoDashGameDashGroupDotIgdbScript,
+	sandboxVideoDashGameDotGiantDashBombScript,
+	sandboxVideoDashGameDotIgdbScript,
 	sandboxAnimeDotAnilistScript,
 	sandboxAnimeDotMyanimelistScript,
 	sandboxAudiobookDashGroupDotAudibleScript,
@@ -45,18 +52,11 @@ import {
 	sandboxTriggerDotRadarrDashPushScript,
 	sandboxTriggerDotSonarrDashPushScript,
 } from "./generated-sandbox/registry";
-import giantBombCompanyScriptCode from "./sandbox-scripts/providers/company/giant-bomb.sandbox.js" with { type: "text" };
-import igdbCompanyScriptCode from "./sandbox-scripts/providers/company/igdb.sandbox.js" with { type: "text" };
 import vndbCompanyScriptCode from "./sandbox-scripts/providers/company/vndb.sandbox.js" with { type: "text" };
 import freeExerciseDbScriptCode from "./sandbox-scripts/providers/fitness/exercise/free-exercise-db.sandbox.js" with { type: "text" };
-import giantBombVideoGameGroupScriptCode from "./sandbox-scripts/providers/media-group/giant-bomb.sandbox.js" with { type: "text" };
-import igdbVideoGameGroupScriptCode from "./sandbox-scripts/providers/media-group/igdb.sandbox.js" with { type: "text" };
 import metronComicBookGroupScriptCode from "./sandbox-scripts/providers/media-group/metron.sandbox.js" with { type: "text" };
 import metronComicBookScriptCode from "./sandbox-scripts/providers/media/comic-book/metron.sandbox.js" with { type: "text" };
-import giantBombVideoGameScriptCode from "./sandbox-scripts/providers/media/video-game/giant-bomb.sandbox.js" with { type: "text" };
-import igdbVideoGameScriptCode from "./sandbox-scripts/providers/media/video-game/igdb.sandbox.js" with { type: "text" };
 import vndbVisualNovelScriptCode from "./sandbox-scripts/providers/media/visual-novel/vndb.sandbox.js" with { type: "text" };
-import giantBombPersonScriptCode from "./sandbox-scripts/providers/person/giant-bomb.sandbox.js" with { type: "text" };
 import metronPersonScriptCode from "./sandbox-scripts/providers/person/metron.sandbox.js" with { type: "text" };
 
 const BUILTIN_ALLOWED_HOST_FUNCTIONS: string[] = [
@@ -106,22 +106,15 @@ export const builtinSandboxScripts = () => [
 	sandboxAnimeDotAnilistScript,
 	sandboxMangaDotAnilistScript,
 	sandboxCompanyDotAnilistScript,
-	providerScript("GiantBomb", "company.giant-bomb", giantBombCompanyScriptCode, "giant-bomb", [
-		"providers.giantBombApiKey",
-	]),
+	sandboxCompanyDotGiantDashBombScript,
 	sandboxCompanyDotHardcoverScript,
-	providerScript("IGDB", "company.igdb", igdbCompanyScriptCode, "igdb", [
-		"providers.twitchClientId",
-		"providers.twitchClientSecret",
-	]),
+	sandboxCompanyDotIgdbScript,
 	sandboxCompanyDotTmdbScript,
 	sandboxCompanyDotTvdbScript,
 	providerScript("VNDB", "company.vndb", vndbCompanyScriptCode, "vndb"),
 	sandboxPersonDotAnilistScript,
 	sandboxPersonDotAudibleScript,
-	providerScript("GiantBomb", "person.giant-bomb", giantBombPersonScriptCode, "giant-bomb", [
-		"providers.giantBombApiKey",
-	]),
+	sandboxPersonDotGiantDashBombScript,
 	sandboxPersonDotMangaDashUpdatesScript,
 	sandboxMangaDotMangaDashUpdatesScript,
 	sandboxMusicDotMusicDashBrainzScript,
@@ -133,9 +126,7 @@ export const builtinSandboxScripts = () => [
 	sandboxPersonDotHardcoverScript,
 	sandboxBookDotGoogleDashBooksScript,
 	sandboxPodcastDotListennotesScript,
-	providerScript("GiantBomb", "video-game.giant-bomb", giantBombVideoGameScriptCode, "giant-bomb", [
-		"providers.giantBombApiKey",
-	]),
+	sandboxVideoDashGameDotGiantDashBombScript,
 	sandboxMovieDotTmdbScript,
 	sandboxShowDotTmdbScript,
 	sandboxPersonDotTmdbScript,
@@ -154,10 +145,7 @@ export const builtinSandboxScripts = () => [
 	]),
 	sandboxMusicDotSpotifyScript,
 	sandboxPersonDotSpotifyScript,
-	providerScript("IGDB", "video-game.igdb", igdbVideoGameScriptCode, "igdb", [
-		"providers.twitchClientId",
-		"providers.twitchClientSecret",
-	]),
+	sandboxVideoDashGameDotIgdbScript,
 	sandboxMovieDashGroupDotTmdbScript,
 	sandboxMovieDashGroupDotTvdbScript,
 	sandboxAudiobookDashGroupDotAudibleScript,
@@ -169,17 +157,8 @@ export const builtinSandboxScripts = () => [
 	sandboxMusicDashGroupDotSpotifyScript,
 	sandboxMusicDashGroupDotMusicDashBrainzScript,
 	sandboxMusicDashGroupDotYoutubeDashMusicScript,
-	providerScript("IGDB", "video-game-group.igdb", igdbVideoGameGroupScriptCode, "igdb", [
-		"providers.twitchClientId",
-		"providers.twitchClientSecret",
-	]),
-	providerScript(
-		"GiantBomb",
-		"video-game-group.giant-bomb",
-		giantBombVideoGameGroupScriptCode,
-		"giant-bomb",
-		["providers.giantBombApiKey"],
-	),
+	sandboxVideoDashGameDashGroupDotIgdbScript,
+	sandboxVideoDashGameDashGroupDotGiantDashBombScript,
 	sandboxTriggerDotAutoDashCompleteDashOnDashFullDashProgressScript,
 	sandboxTriggerDotIntegrationDashProgressDashPolicyScript,
 	sandboxTriggerDotRadarrDashPushScript,
