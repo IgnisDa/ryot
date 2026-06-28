@@ -77,7 +77,7 @@ const parseDate = (value: string) => new Date(value);
 
 const decodePointerSegment = (value: string) => value.replaceAll("~1", "/").replaceAll("~0", "~");
 
-export const isRequiredSecretPath = (path: string, schema: AppSchema) => {
+const isRequiredSecretPath = (path: string, schema: AppSchema) => {
 	const segments = path.startsWith("/") ? path.slice(1).split("/").map(decodePointerSegment) : [];
 	let definition: AppPropertyDefinition | undefined = segments[0]
 		? schema.fields[segments[0]]

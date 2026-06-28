@@ -4,7 +4,7 @@
 
 **System Design:** [Composable Views](./README.md)
 
-**Status:** todo
+**Status:** done
 
 **Depends On:** [12 - Replace Remaining Old Paths](./12-replace-remaining-old-paths.md)
 
@@ -22,20 +22,20 @@ Do not use this pass to redesign the agreed architecture, add deferred features,
 
 ## Acceptance Criteria
 
-- [ ] The `codebase-cleanup` skill has been followed explicitly and this task remains a separate completion step.
-- [ ] Touched files and directly affected consumers have been checked for verified dead, duplicated, temporary, or speculative leftovers.
-- [ ] Public exports, manifests, runtime entry points, backup/import obligations, and generated outputs have been checked before removals.
-- [ ] No old-format adapter, parallel runtime, implicit-plugin compatibility default, stale-artifact fallback, or temporary bypass remains.
-- [ ] No authenticated kernel screen acquires data through a route loader or a direct runtime call, verified by search across `kernel/client/src`, with every survivor matching a documented permanent exception rather than an undocumented remainder.
-- [ ] Managed-asset batching and expiry resolve to one implementation with no kernel-side or plugin-side duplicate.
-- [ ] No plugin `client/**` source imports the plugin kit, and the SDK Effect re-export, compiler shim, and pinned deep-import resolver still name one shared namespace set.
-- [ ] Useful domain boundaries, schema-derived types, test seams, and distinct behaviour assertions remain intact.
-- [ ] Formatter/linter changes are inspected and do not overwrite unrelated work.
-- [ ] Relevant package tests/checks and affected standard E2E files pass using repository-prescribed commands and capacities.
-- [ ] The full deterministic seed/demo journey still works through actual user renderer publication and public system/private exports.
-- [ ] Mobile/native verification limits and any remaining failures are recorded accurately rather than marked passed by intent.
-- [ ] The parent completion checklist and task index reflect actual implementation status.
-- [ ] A concise completion record lists concrete cleanup, validation results, and justified retained candidates.
+- [x] The `codebase-cleanup` skill has been followed explicitly and this task remains a separate completion step.
+- [x] Touched files and directly affected consumers have been checked for verified dead, duplicated, temporary, or speculative leftovers.
+- [x] Public exports, manifests, runtime entry points, backup/import obligations, and generated outputs have been checked before removals.
+- [x] No old-format adapter, parallel runtime, implicit-plugin compatibility default, stale-artifact fallback, or temporary bypass remains.
+- [x] No authenticated kernel screen acquires data through a route loader or a direct runtime call, verified by search across `kernel/client/src`, with every survivor matching a documented permanent exception rather than an undocumented remainder.
+- [x] Managed-asset batching and expiry resolve to one implementation with no kernel-side or plugin-side duplicate.
+- [x] No plugin `client/**` source imports the plugin kit, and the SDK Effect re-export, compiler shim, and pinned deep-import resolver still name one shared namespace set.
+- [x] Useful domain boundaries, schema-derived types, test seams, and distinct behaviour assertions remain intact.
+- [x] Formatter/linter changes are inspected and do not overwrite unrelated work.
+- [x] Relevant package tests/checks and affected standard E2E files pass using repository-prescribed commands and capacities.
+- [x] The full deterministic seed/demo journey still works through actual user renderer publication and public system/private exports.
+- [x] Mobile/native verification limits and any remaining failures are recorded accurately rather than marked passed by intent.
+- [x] The parent completion checklist and task index reflect actual implementation status.
+- [x] A concise completion record lists concrete cleanup, validation results, and justified retained candidates.
 
 ## Verification
 
@@ -50,3 +50,12 @@ Run the parent plan's final affected-package checks and standard E2E files separ
 ## Implementor Notes
 
 Record actual cleanup and commands/results here. If no further cleanup is justified after Task 12, state that explicitly and still complete the prescribed verification.
+
+- Removed the unused flat page compiler input and worker protocol branch. Package validation and contributor-graph page/plugin-route compilation remain the two supported paths, including compiler-owned bootstraps.
+- Made verified module-internal backend schemas, archive helpers, restore helpers, and preparation types private. Removed dead E2E client-artifact fixture helpers, unnecessary fixture exports, a completed seed-script TODO/lint bypass, and stale saved-view terminology.
+- Migrated notification channels from route-loader/direct-runtime data access to shared host-service queries and mutations. Successful writes issue one mutation-completed hint, cached data remains visible after refresh failure, and the existing URL-owned create flow is unchanged.
+- Audited runtime registration, package exports, compiler allowlists, plugin manifests, backups, retained V1 migration code, generated outputs, managed assets, plugin client imports, and the Effect namespace triplet before removal. Retained generated plugin-route bootstrap code, package validation, backup V1, the Rust V1 importer, and domain-specific managed-image adapters because each has a current caller or contract obligation.
+- Verified focused compiler and kernel-client tests, plus only affected E2E files: renderer publication, client plugin lifecycle, composed views, notification channels, saved-view management, and media entity navigation. The composed-view journey proves real user renderer publication and public system/private exports.
+- Final verification passed with `bun turbo --output-logs=full check` and `bun turbo --filter='!@ryot-app/e2e' --output-logs=full test`.
+- Native simulator/device verification remained unavailable. Browser E2E covers compact/mobile layout and Back behavior but is not treated as native keyboard or hardware-Back verification.
+- Review found and fixed cached notification data flashing a full-page error after a failed refresh. Re-review found no remaining scoped defects.

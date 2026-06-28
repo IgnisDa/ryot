@@ -34,12 +34,6 @@ export const ClientCompilerWorkerRequestBase64 = Schema.Union([
 	}),
 	Schema.Struct({
 		...ClientCompilerWorkerRequestFields,
-		entry: Schema.String,
-		application: Schema.Literal("page"),
-		files: Schema.Record(Schema.String, CanonicalBase64),
-	}),
-	Schema.Struct({
-		...ClientCompilerWorkerRequestFields,
 		contributorOrder: Schema.Array(Schema.String),
 		application: Schema.Literals(["page", "plugin-route"]),
 		entry: Schema.Struct({ contributor: Schema.String, path: Schema.String }),
@@ -179,9 +173,7 @@ export const decodeClientCompilerWorkerRequest = (input: string) =>
 			return {
 				name: request.name,
 				apiVersion: request.apiVersion,
-				...("entry" in request
-					? { entry: request.entry, application: request.application }
-					: { publicExports: request.publicExports }),
+				publicExports: request.publicExports,
 				...(!("pluginDependencies" in request) || request.pluginDependencies === undefined
 					? {}
 					: { pluginDependencies: request.pluginDependencies }),
