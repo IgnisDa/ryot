@@ -435,9 +435,6 @@ export const sandboxManifestSchema = z.discriminatedUnion("kind", [
 	sandboxManifestBaseSchema
 		.extend({ kind: z.literal("provider"), providerInformation: providerInformationSchema })
 		.strict(),
-	sandboxManifestBaseSchema
-		.extend({ kind: z.literal("trigger"), mode: z.enum(["before_create", "after_create"]) })
-		.strict(),
 ]);
 
 export type SandboxManifest = z.infer<typeof sandboxManifestSchema>;

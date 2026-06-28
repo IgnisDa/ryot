@@ -4,7 +4,6 @@ import {
 	SANDBOX_SDK_IMPORTS,
 	SANDBOX_SDK_PROVIDER_IMPORT,
 	SANDBOX_SDK_ROOT_IMPORT,
-	SANDBOX_SDK_TRIGGER_IMPORT,
 } from "@ryot/sandbox-sdk/imports";
 import * as ts from "typescript/unstable/ast";
 
@@ -66,7 +65,6 @@ const inspectImports = (file: ts.SourceFile, allowRelativeImports: boolean) => {
 	const manifestHelpers = new Set<string>();
 	const diagnostics: SandboxCompilerDiagnostic[] = [];
 	const driverHelpers = new Map<string, "generic" | "provider">();
-	const triggerHelpers = new Map<string, "after_create" | "before_create">();
 
 	for (const reference of [
 		...file.referencedFiles,
@@ -100,8 +98,7 @@ const inspectImports = (file: ts.SourceFile, allowRelativeImports: boolean) => {
 				ts.isImportDeclaration(statement) &&
 				(specifier === SANDBOX_SDK_ROOT_IMPORT ||
 					specifier === SANDBOX_SDK_AUTOMATION_IMPORT ||
-					specifier === SANDBOX_SDK_PROVIDER_IMPORT ||
-					specifier === SANDBOX_SDK_TRIGGER_IMPORT)
+					specifier === SANDBOX_SDK_PROVIDER_IMPORT)
 			) {
 				const bindings = statement.importClause?.namedBindings;
 				if (bindings && ts.isNamedImports(bindings)) {
@@ -124,12 +121,6 @@ const inspectImports = (file: ts.SourceFile, allowRelativeImports: boolean) => {
 						}
 						if (importedName === "defineProvider") {
 							providerHelpers.add(element.name.text);
-						}
-						if (importedName === "defineBeforeCreateTrigger") {
-							triggerHelpers.set(element.name.text, "before_create");
-						}
-						if (importedName === "defineAfterCreateTrigger") {
-							triggerHelpers.set(element.name.text, "after_create");
 						}
 					}
 				}
@@ -177,7 +168,6 @@ const inspectImports = (file: ts.SourceFile, allowRelativeImports: boolean) => {
 		driverHelpers,
 		scriptHelpers,
 		automationHelpers,
-		triggerHelpers,
 		manifestHelpers,
 		providerHelpers,
 	};
@@ -327,7 +317,6 @@ const inspectScriptDefinition = (
 	scriptHelpers: ReadonlySet<string>,
 	automationHelpers: ReadonlySet<string>,
 	providerHelpers: ReadonlySet<string>,
-	triggerHelpers: ReadonlyMap<string, "after_create" | "before_create">,
 	driverDefinitions: ReadonlyMap<string, DriverDefinition>,
 ) => {
 	const defaults = file.statements.filter(
@@ -336,7 +325,6 @@ const inspectScriptDefinition = (
 	);
 	if (defaults.length !== 1) {
 		return {
-			triggerMode: null,
 			definitionKind: null,
 			diagnostics: [
 				diagnosticAt(
@@ -350,8 +338,7 @@ const inspectScriptDefinition = (
 
 	const assignment = defaults[0];
 	const call = assignment?.expression;
-	let definitionKind: "automation" | "provider" | "script" | "trigger" | null = null;
-	let triggerMode: "after_create" | "before_create" | null = null;
+	let definitionKind: "automation" | "provider" | "script" | null = null;
 	if (call && ts.isCallExpression(call) && ts.isIdentifier(call.expression)) {
 		if (scriptHelpers.has(call.expression.text)) {
 			definitionKind = "script";
@@ -359,9 +346,6 @@ const inspectScriptDefinition = (
 			definitionKind = "automation";
 		} else if (providerHelpers.has(call.expression.text)) {
 			definitionKind = "provider";
-		} else if (triggerHelpers.has(call.expression.text)) {
-			definitionKind = "trigger";
-			triggerMode = triggerHelpers.get(call.expression.text) ?? null;
 		}
 	}
 	if (
@@ -374,12 +358,11 @@ const inspectScriptDefinition = (
 	) {
 		return {
 			definitionKind: null,
-			triggerMode: null,
 			diagnostics: [
 				diagnosticAt(
 					assignment ?? file,
 					"RYOT_DEFINITION",
-					"The default export must be a direct automation, script, provider, or trigger definition call",
+					"The default export must be a direct automation, script, or provider definition call",
 				),
 			],
 		};
@@ -389,7 +372,6 @@ const inspectScriptDefinition = (
 	if (!definition || !ts.isObjectLiteralExpression(definition)) {
 		return {
 			definitionKind,
-			triggerMode,
 			diagnostics: [
 				diagnosticAt(
 					definition ?? call,
@@ -399,7 +381,7 @@ const inspectScriptDefinition = (
 			],
 		};
 	}
-	if (definitionKind === "trigger" || definitionKind === "automation") {
+	if (definitionKind === "automation") {
 		let hasManifest = false;
 		let hasRun = false;
 		for (const property of definition.properties) {
@@ -420,7 +402,6 @@ const inspectScriptDefinition = (
 			}
 		}
 		return {
-			triggerMode,
 			definitionKind,
 			diagnostics:
 				hasManifest && hasRun
@@ -463,7 +444,6 @@ const inspectScriptDefinition = (
 	}
 	if (!hasManifest || drivers === null) {
 		return {
-			triggerMode,
 			definitionKind,
 			diagnostics: [
 				diagnosticAt(
@@ -528,7 +508,7 @@ const inspectScriptDefinition = (
 		}
 	}
 
-	return { definitionKind, diagnostics, triggerMode };
+	return { definitionKind, diagnostics };
 };
 
 export const inspectSandboxModuleImports = (file: ts.SourceFile) =>
@@ -536,8 +516,7 @@ export const inspectSandboxModuleImports = (file: ts.SourceFile) =>
 
 export const sandboxDefinitionMismatch = (
 	inspection: {
-		readonly definitionKind: "automation" | "provider" | "script" | "trigger" | null;
-		readonly triggerMode: "after_create" | "before_create" | null;
+		readonly definitionKind: "automation" | "provider" | "script" | null;
 	},
 	manifest: SandboxManifest,
 ) => {
@@ -546,15 +525,9 @@ export const sandboxDefinitionMismatch = (
 		helper = "defineProvider";
 	} else if (manifest.kind === "automation") {
 		helper = "defineAutomation";
-	} else if (manifest.kind === "trigger") {
-		helper =
-			manifest.mode === "before_create" ? "defineBeforeCreateTrigger" : "defineAfterCreateTrigger";
 	}
 	if (inspection.definitionKind !== manifest.kind) {
 		return `Manifest kind "${manifest.kind}" must use ${helper}`;
-	}
-	if (manifest.kind === "trigger" && inspection.triggerMode !== manifest.mode) {
-		return `Trigger manifest mode "${manifest.mode}" must use ${helper}`;
 	}
 	return null;
 };
@@ -566,7 +539,6 @@ export const inspectSandboxSource = (
 	const imports = inspectImports(file, options.allowRelativeImports ?? false);
 	if (imports.diagnostics.length > 0) {
 		return {
-			triggerMode: null,
 			definitionKind: null,
 			diagnostics: imports.diagnostics,
 			manifestHelpers: imports.manifestHelpers,
@@ -576,7 +548,6 @@ export const inspectSandboxSource = (
 	const drivers = inspectDriverDefinitions(file, imports.driverHelpers);
 	if (drivers.diagnostics.length > 0) {
 		return {
-			triggerMode: null,
 			definitionKind: null,
 			diagnostics: drivers.diagnostics,
 			manifestHelpers: imports.manifestHelpers,
@@ -588,7 +559,6 @@ export const inspectSandboxSource = (
 		imports.scriptHelpers,
 		imports.automationHelpers,
 		imports.providerHelpers,
-		imports.triggerHelpers,
 		drivers.driverDefinitions,
 	);
 	return { ...definition, manifestHelpers: imports.manifestHelpers };

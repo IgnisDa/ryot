@@ -125,7 +125,7 @@ export const builtinSandboxScripts = () => [
 	sandboxTriggerDotJellyfinDashPushScript,
 ];
 
-export const builtinAutomationRuleLinks = () => [
+export const builtinSignalAutomationRuleLinks = () => [
 	{
 		name: "Automation Test Tracer",
 		signalSchemaSlug: "automation.test-tracer",
@@ -162,44 +162,44 @@ export const entitySchemaSandboxScriptLinks = () =>
 export const fitnessSchemaSandboxScriptLinks = () =>
 	[{ schemaSlug: "exercise", scriptSlug: "exercise.free-exercise-db" }] as const;
 
-const triggerLink = (
+const eventAutomationLink = (
 	entry: GeneratedBuiltinSandboxScript,
 	input: {
-		readonly position: number;
+		readonly position?: number;
 		readonly eventSchemaSlug: string;
-		readonly metadata: { readonly inheritedProperties?: readonly string[] };
+		readonly kind: "policy" | "subscription";
+		readonly metadata?: { readonly inheritedProperties?: readonly string[] };
 	},
 ) => {
-	if (entry.manifest.kind !== "trigger") {
-		throw new Error(`Built-in trigger link requires a trigger manifest: ${entry.slug}`);
+	if (entry.manifest.kind !== "automation") {
+		throw new Error(
+			`Built-in event automation link requires an automation manifest: ${entry.slug}`,
+		);
 	}
-	return { ...input, scriptSlug: entry.slug, triggerName: entry.name, phase: entry.manifest.mode };
+	return { ...input, name: entry.name, scriptSlug: entry.slug };
 };
 
-export const builtinEventSchemaTriggerLinks = () => [
-	triggerLink(sandboxTriggerDotAutoDashCompleteDashOnDashFullDashProgressScript, {
-		position: 1000,
+export const builtinEventAutomationRuleLinks = () => [
+	eventAutomationLink(sandboxTriggerDotAutoDashCompleteDashOnDashFullDashProgressScript, {
+		kind: "subscription",
 		eventSchemaSlug: "progress",
 		metadata: { inheritedProperties: ["consumedOn"] },
 	}),
-	triggerLink(sandboxTriggerDotIntegrationDashProgressDashPolicyScript, {
-		metadata: {},
+	eventAutomationLink(sandboxTriggerDotIntegrationDashProgressDashPolicyScript, {
 		position: 100,
+		kind: "policy",
 		eventSchemaSlug: "progress",
 	}),
-	triggerLink(sandboxTriggerDotRadarrDashPushScript, {
-		metadata: {},
-		position: 1000,
+	eventAutomationLink(sandboxTriggerDotRadarrDashPushScript, {
+		kind: "subscription",
 		eventSchemaSlug: "add-entity-to-collection",
 	}),
-	triggerLink(sandboxTriggerDotSonarrDashPushScript, {
-		metadata: {},
-		position: 1000,
+	eventAutomationLink(sandboxTriggerDotSonarrDashPushScript, {
+		kind: "subscription",
 		eventSchemaSlug: "add-entity-to-collection",
 	}),
-	triggerLink(sandboxTriggerDotJellyfinDashPushScript, {
-		metadata: {},
-		position: 1000,
+	eventAutomationLink(sandboxTriggerDotJellyfinDashPushScript, {
+		kind: "subscription",
 		eventSchemaSlug: "complete",
 	}),
 ];

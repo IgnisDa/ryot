@@ -6,9 +6,9 @@ import {
 	showSeasonPropertiesSchema,
 } from "./media-property-schemas";
 import {
-	builtinAutomationRuleLinks,
-	builtinEventSchemaTriggerLinks,
+	builtinEventAutomationRuleLinks,
 	builtinSandboxScripts,
+	builtinSignalAutomationRuleLinks,
 } from "./registry";
 
 describe("builtinSandboxScripts", () => {
@@ -206,31 +206,62 @@ describe("builtinSandboxScripts", () => {
 		}
 	});
 
-	it("uses generated format-1 representations and manifest modes for every trigger", () => {
-		const triggers = builtinSandboxScripts().filter(({ slug }) => slug.startsWith("trigger."));
-		const links = new Map(
-			builtinEventSchemaTriggerLinks().map((link) => [link.scriptSlug, link.phase]),
-		);
+	it("registers migrated event scripts as automation rules", () => {
+		const automations = builtinSandboxScripts().filter(({ slug }) => slug.startsWith("trigger."));
+		const links = builtinEventAutomationRuleLinks();
 
-		expect(triggers.map(({ slug }) => slug).sort()).toEqual([
+		expect(automations.map(({ slug }) => slug).sort()).toEqual([
 			"trigger.auto-complete-on-full-progress",
 			"trigger.integration-progress-policy",
 			"trigger.jellyfin-push",
 			"trigger.radarr-push",
 			"trigger.sonarr-push",
 		]);
-		for (const trigger of triggers) {
-			assert("compiledCode" in trigger && "manifest" in trigger);
-			expect(trigger.compiledFormat).toBe(1);
-			expect(trigger.manifest.kind).toBe("trigger");
-			expect(trigger.source).toMatch(/define(?:Before|After)CreateTrigger/);
-			expect(trigger.compiledCode).toContain("ryot:sandbox-script");
-			if (trigger.manifest.kind === "trigger") {
-				expect(links.get(trigger.slug)).toBe(trigger.manifest.mode);
-			}
+		for (const automation of automations) {
+			assert("compiledCode" in automation && "manifest" in automation);
+			expect(automation.compiledFormat).toBe(1);
+			expect(automation.manifest.kind).toBe("automation");
+			expect(automation.source).toMatch(/defineAutomation(?:Policy)?/);
+			expect(automation.compiledCode).toContain("ryot:sandbox-script");
+			expect(links.some(({ scriptSlug }) => scriptSlug === automation.slug)).toBe(true);
 		}
 
-		const policy = triggers.find(({ slug }) => slug === "trigger.integration-progress-policy");
+		expect(links).toEqual([
+			{
+				kind: "subscription",
+				eventSchemaSlug: "progress",
+				name: "Auto-Complete on Full Progress",
+				metadata: { inheritedProperties: ["consumedOn"] },
+				scriptSlug: "trigger.auto-complete-on-full-progress",
+			},
+			{
+				position: 100,
+				kind: "policy",
+				eventSchemaSlug: "progress",
+				name: "Integration Progress Policy",
+				scriptSlug: "trigger.integration-progress-policy",
+			},
+			{
+				name: "Radarr Push",
+				kind: "subscription",
+				scriptSlug: "trigger.radarr-push",
+				eventSchemaSlug: "add-entity-to-collection",
+			},
+			{
+				name: "Sonarr Push",
+				kind: "subscription",
+				scriptSlug: "trigger.sonarr-push",
+				eventSchemaSlug: "add-entity-to-collection",
+			},
+			{
+				kind: "subscription",
+				name: "Jellyfin Push",
+				eventSchemaSlug: "complete",
+				scriptSlug: "trigger.jellyfin-push",
+			},
+		]);
+
+		const policy = automations.find(({ slug }) => slug === "trigger.integration-progress-policy");
 		assert(policy && "manifest" in policy);
 		expect(policy.manifest.requiredAppConfigKeys).toEqual([
 			"scheduler.progressUpdateThresholdHours",
@@ -257,7 +288,7 @@ describe("builtinSandboxScripts", () => {
 		expect(policy.compiledCode).toContain("ryot:sandbox-script");
 		expect(automation.compiledCode).toContain("ryot:sandbox-script");
 		expect(notifier.compiledCode).toContain("ryot:sandbox-script");
-		expect(builtinAutomationRuleLinks()).toEqual([
+		expect(builtinSignalAutomationRuleLinks()).toEqual([
 			{
 				name: "Automation Test Tracer",
 				scriptSlug: "automation.test-tracer",

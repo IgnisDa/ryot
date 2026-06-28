@@ -1,8 +1,8 @@
 import { DbError } from "@ryot/contract/errors";
-import type { EventTriggerMetadata, ListedEvent } from "@ryot/contract/modules/events/schemas";
+import type { ListedEvent } from "@ryot/contract/modules/events/schemas";
 import type { UserId } from "@ryot/contract/schema/brands";
-import { EntityId, EventId, EventSchemaId, SandboxScriptId } from "@ryot/contract/schema/brands";
-import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import { EntityId, EventId, EventSchemaId } from "@ryot/contract/schema/brands";
+import { and, eq, isNull, or, sql } from "drizzle-orm";
 import { Effect } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
@@ -23,20 +23,6 @@ type EventRow = Pick<
 	readonly eventSchemaSlug: (typeof schema.eventSchema.$inferSelect)["slug"];
 };
 
-export type BeforeCreateTriggerRow = {
-	readonly id: string;
-	readonly position: number;
-	readonly eventSchemaId: EventSchemaId;
-	readonly sandboxScriptId: SandboxScriptId;
-};
-
-export type AfterCreateTriggerRow = {
-	readonly id: string;
-	readonly eventSchemaId: EventSchemaId;
-	readonly metadata: EventTriggerMetadata;
-	readonly sandboxScriptId: SandboxScriptId;
-};
-
 export type EventIdentityInput = {
 	readonly eventId: EventId;
 	readonly userId: UserId;
@@ -45,18 +31,6 @@ export type EventIdentityInput = {
 export type UpdateEventEntityReferencesInput = EventIdentityInput & {
 	readonly mergeFrom: EntityId;
 	readonly mergeInto: EntityId;
-};
-
-export type InsertEventSchemaTriggerInput = {
-	readonly name: string;
-	readonly position: number;
-	readonly isActive: boolean;
-	readonly isBuiltin: boolean;
-	readonly userId: UserId | null;
-	readonly eventSchemaId: EventSchemaId;
-	readonly metadata: EventTriggerMetadata;
-	readonly sandboxScriptId: SandboxScriptId;
-	readonly phase: "before_create" | "after_create";
 };
 
 const createdEventSelection = {
@@ -246,106 +220,12 @@ export class EventsRepository extends Effect.Service<EventsRepository>()("Events
 			},
 		);
 
-		const getActiveBeforeCreateTriggers = Effect.fn(
-			"EventsRepository.getActiveBeforeCreateTriggers",
-		)(function* (input: { userId: UserId; eventSchemaIds: EventSchemaId[] }) {
-			if (input.eventSchemaIds.length === 0) {
-				return [];
-			}
-
-			const db = yield* CurrentDb;
-			const rows = yield* dbEffect(() =>
-				db
-					.select({
-						id: schema.eventSchemaTrigger.id,
-						position: schema.eventSchemaTrigger.position,
-						eventSchemaId: schema.eventSchemaTrigger.eventSchemaId,
-						sandboxScriptId: schema.eventSchemaTrigger.sandboxScriptId,
-					})
-					.from(schema.eventSchemaTrigger)
-					.where(
-						and(
-							inArray(schema.eventSchemaTrigger.eventSchemaId, input.eventSchemaIds),
-							eq(schema.eventSchemaTrigger.isActive, true),
-							eq(schema.eventSchemaTrigger.phase, "before_create"),
-							or(
-								isNull(schema.eventSchemaTrigger.userId),
-								eq(schema.eventSchemaTrigger.userId, input.userId),
-							),
-						),
-					)
-					.orderBy(schema.eventSchemaTrigger.position, schema.eventSchemaTrigger.id),
-			);
-			return rows.map((row) => ({
-				id: row.id,
-				position: row.position,
-				eventSchemaId: EventSchemaId.make(row.eventSchemaId),
-				sandboxScriptId: SandboxScriptId.make(row.sandboxScriptId),
-			}));
-		});
-
-		const getActiveAfterCreateTriggers = Effect.fn("EventsRepository.getActiveAfterCreateTriggers")(
-			function* (input: { userId: UserId; eventSchemaIds: EventSchemaId[] }) {
-				if (input.eventSchemaIds.length === 0) {
-					return [];
-				}
-
-				const db = yield* CurrentDb;
-				const rows = yield* dbEffect(() =>
-					db
-						.select({
-							id: schema.eventSchemaTrigger.id,
-							metadata: schema.eventSchemaTrigger.metadata,
-							eventSchemaId: schema.eventSchemaTrigger.eventSchemaId,
-							sandboxScriptId: schema.eventSchemaTrigger.sandboxScriptId,
-						})
-						.from(schema.eventSchemaTrigger)
-						.where(
-							and(
-								inArray(schema.eventSchemaTrigger.eventSchemaId, input.eventSchemaIds),
-								eq(schema.eventSchemaTrigger.isActive, true),
-								eq(schema.eventSchemaTrigger.phase, "after_create"),
-								or(
-									isNull(schema.eventSchemaTrigger.userId),
-									eq(schema.eventSchemaTrigger.userId, input.userId),
-								),
-							),
-						),
-				);
-				return rows.map((row) => ({
-					id: row.id,
-					metadata: row.metadata,
-					eventSchemaId: EventSchemaId.make(row.eventSchemaId),
-					sandboxScriptId: SandboxScriptId.make(row.sandboxScriptId),
-				}));
-			},
-		);
-
-		const createTrigger = Effect.fn("EventsRepository.createTrigger")(function* (
-			input: InsertEventSchemaTriggerInput,
-		) {
-			const db = yield* CurrentDb;
-			const [row] = yield* dbEffect(() =>
-				db
-					.insert(schema.eventSchemaTrigger)
-					.values(input)
-					.returning({ id: schema.eventSchemaTrigger.id }),
-			);
-			if (!row) {
-				return yield* new DbError({ message: "Event schema trigger insert returned no row" });
-			}
-			return row;
-		});
-
 		return {
 			deleteEvent,
 			createEvent,
-			createTrigger,
 			listQueryScopesForUser,
 			listUserEventIdsForEntity,
 			updateEventEntityReferences,
-			getActiveAfterCreateTriggers,
-			getActiveBeforeCreateTriggers,
 		};
 	},
 }) {}

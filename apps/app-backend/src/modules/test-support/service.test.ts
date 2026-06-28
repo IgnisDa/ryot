@@ -1,10 +1,5 @@
 import { expect, it } from "@effect/vitest";
-import {
-	EntityId,
-	EntitySchemaId,
-	EventSchemaId,
-	SandboxScriptId,
-} from "@ryot/contract/schema/brands";
+import { EntityId, EntitySchemaId, SandboxScriptId } from "@ryot/contract/schema/brands";
 import { dayjs } from "@ryot/ts-utils/dayjs";
 import { Effect, Layer } from "effect";
 
@@ -14,7 +9,6 @@ import { AuthService } from "#modules/auth/service";
 import { EntitiesService } from "#modules/entities/service";
 import { EntitySchemasService } from "#modules/entity-schemas/service";
 import { TranslationsService } from "#modules/entity-translation/service";
-import { EventsService } from "#modules/events/service";
 import { RelationshipSchemasService } from "#modules/relationship-schemas/service";
 import { RelationshipsService } from "#modules/relationships/service";
 import { SandboxApiService } from "#modules/sandbox/service";
@@ -26,7 +20,6 @@ const scriptId = SandboxScriptId.make("script-id");
 const entitySchemaId = EntitySchemaId.make("entity-schema-id");
 
 const mockAuth = Layer.mock(AuthService);
-const mockEvents = Layer.mock(EventsService);
 const mockEntities = Layer.mock(EntitiesService);
 const mockSandbox = Layer.mock(SandboxApiService);
 const mockTranslations = Layer.mock(TranslationsService);
@@ -36,7 +29,6 @@ const mockRelationshipSchemas = Layer.mock(RelationshipSchemasService);
 
 const makeServiceLayer = (
 	overrides: {
-		events?: MockOverrides<typeof mockEvents>;
 		sandbox?: MockOverrides<typeof mockSandbox>;
 		entities?: MockOverrides<typeof mockEntities>;
 		relationships?: MockOverrides<typeof mockRelationships>;
@@ -48,7 +40,6 @@ const makeServiceLayer = (
 			Layer.mergeAll(
 				transactionLayer,
 				mockAuth({ _tag: "AuthService", auth: Object.create(null) }),
-				mockEvents({ _tag: "EventsService", ...overrides.events }),
 				mockEntities({ _tag: "EntitiesService", ...overrides.entities }),
 				mockSandbox({ _tag: "SandboxApiService", ...overrides.sandbox }),
 				mockTranslations({ _tag: "TranslationsService" }),
@@ -144,40 +135,6 @@ it.effect("updates populatedAt without changing entity fields", () => {
 			name: entity.name,
 			properties: entity.properties,
 			populatedAt: populatedAtDate,
-		});
-	}).pipe(Effect.provide(layer));
-});
-
-it.effect("defaults event schema trigger ownership to global", () => {
-	let triggerInput: unknown;
-	const layer = makeServiceLayer({
-		events: {
-			createTrigger: (input) =>
-				Effect.sync(() => {
-					triggerInput = input;
-					return { id: "trigger-id" };
-				}),
-		},
-	});
-
-	return Effect.gen(function* () {
-		const service = yield* TestSupportService;
-		expect(
-			yield* service.createEventSchemaTrigger({
-				position: 10,
-				name: "Trigger",
-				phase: "before_create",
-				sandboxScriptId: scriptId,
-				eventSchemaId: EventSchemaId.make("event-schema-id"),
-			}),
-		).toEqual({ id: "trigger-id" });
-		expect(triggerInput).toEqual({
-			userId: null,
-			position: 10,
-			name: "Trigger",
-			phase: "before_create",
-			sandboxScriptId: scriptId,
-			eventSchemaId: EventSchemaId.make("event-schema-id"),
 		});
 	}).pipe(Effect.provide(layer));
 });

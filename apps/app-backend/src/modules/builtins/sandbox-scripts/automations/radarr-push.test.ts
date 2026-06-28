@@ -2,9 +2,8 @@ import type { SandboxHost } from "@ryot/sandbox-sdk";
 import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it, vi } from "vitest";
 
-import definition, { manifest } from "./radarr-push.sandbox";
 import {
-	afterCreateContext,
+	eventAutomationContext,
 	entityRecord,
 	entitySchemaRecord,
 	execution,
@@ -14,7 +13,8 @@ import {
 	httpSuccess,
 	integrationRecord,
 	toRecord,
-} from "./test-utils";
+} from "./automation-test-utils";
+import definition, { manifest } from "./radarr-push.sandbox";
 
 type RadarrHost = SandboxHost<typeof manifest.capabilities>;
 type HttpCall = { url: string; method: string; options: Record<string, unknown> };
@@ -47,11 +47,10 @@ const schema = entitySchemaRecord({
 	],
 });
 
-const createTrigger = (properties: Record<string, string>) =>
-	afterCreateContext({
-		entityId: "collection-1",
-		entitySchemaSlug: "collection",
+const createAutomation = (properties: Record<string, string>) =>
+	eventAutomationContext({
 		eventSchemaSlug: "add-entity-to-collection",
+		subject: { id: "collection-1", name: "Collection", entitySchemaSlug: "collection" },
 		properties: { relationshipId: "rel-1", relationshipProperties: {}, ...properties },
 	});
 
@@ -86,8 +85,8 @@ describe("radarr-push sandbox script", () => {
 			httpCall: createHttpCall(calls),
 		});
 		return runSandboxTestDriver(
-			definition.drivers.trigger,
-			createTrigger({ entitySchemaSlug: "movie", entityId: "movie-1" }),
+			definition.drivers.automation,
+			createAutomation({ entitySchemaSlug: "movie", entityId: "movie-1" }),
 			host,
 			execution,
 		).then(() => {
@@ -127,14 +126,14 @@ describe("radarr-push sandbox script", () => {
 		});
 		return Promise.all([
 			runSandboxTestDriver(
-				definition.drivers.trigger,
-				createTrigger({ entitySchemaSlug: "show", entityId: "show-1" }),
+				definition.drivers.automation,
+				createAutomation({ entitySchemaSlug: "show", entityId: "show-1" }),
 				createHost({ ...base, entity: movieEntity }),
 				execution,
 			),
 			runSandboxTestDriver(
-				definition.drivers.trigger,
-				createTrigger({ entitySchemaSlug: "movie", entityId: "movie-1" }),
+				definition.drivers.automation,
+				createAutomation({ entitySchemaSlug: "movie", entityId: "movie-1" }),
 				createHost({
 					...base,
 					entity: entityRecord({ ...movieEntity, sandboxScriptId: "script-movie-tvdb" }),
@@ -142,8 +141,8 @@ describe("radarr-push sandbox script", () => {
 				execution,
 			),
 			runSandboxTestDriver(
-				definition.drivers.trigger,
-				createTrigger({ entitySchemaSlug: "movie", entityId: "movie-1" }),
+				definition.drivers.automation,
+				createAutomation({ entitySchemaSlug: "movie", entityId: "movie-1" }),
 				createHost({ entity: movieEntity, httpCall, integrations: [unmatched] }),
 				execution,
 			),
@@ -162,8 +161,8 @@ describe("radarr-push sandbox script", () => {
 			httpCall: createHttpCall(calls),
 		});
 		return runSandboxTestDriver(
-			definition.drivers.trigger,
-			createTrigger({ entitySchemaSlug: "movie", entityId: "movie-1" }),
+			definition.drivers.automation,
+			createAutomation({ entitySchemaSlug: "movie", entityId: "movie-1" }),
 			host,
 			execution,
 		).then(() => {
@@ -180,12 +179,12 @@ describe("radarr-push sandbox script", () => {
 			httpCall: () => httpFailure("already exists", 409),
 		});
 		return runSandboxTestDriver(
-			definition.drivers.trigger,
-			createTrigger({ entitySchemaSlug: "movie", entityId: "movie-1" }),
+			definition.drivers.automation,
+			createAutomation({ entitySchemaSlug: "movie", entityId: "movie-1" }),
 			host,
 			execution,
 		).then((result) => {
-			expect(result).toBeUndefined();
+			expect(result).toBeNull();
 			expect(warning).toHaveBeenCalledWith("Radarr push failed: already exists");
 			warning.mockRestore();
 			return undefined;

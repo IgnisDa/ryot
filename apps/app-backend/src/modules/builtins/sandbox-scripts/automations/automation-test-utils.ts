@@ -5,49 +5,68 @@ import type {
 	IntegrationRecord,
 	JsonValue,
 } from "@ryot/sandbox-sdk";
-import type { AfterCreateTriggerInput, BeforeCreateTriggerInput } from "@ryot/sandbox-sdk/trigger";
+import type {
+	AutomationInput,
+	AutomationPolicyInput,
+	AutomationEventSnapshot,
+} from "@ryot/sandbox-sdk/automation";
 import { isObjectRecord } from "@ryot/ts-utils/predicates";
 
 const timestamp = "2026-01-01T00:00:00.000Z";
 
 export const execution = { metadata: {}, sandboxScriptId: "script-test" };
 
-export const afterCreateContext = (
-	overrides: Partial<AfterCreateTriggerInput["trigger"]> = {},
-): AfterCreateTriggerInput => ({
-	trigger: {
-		properties: {},
-		eventId: "event-1",
-		entityId: "entity-1",
-		createdAt: timestamp,
-		updatedAt: timestamp,
+export const eventAutomationContext = (
+	overrides: Partial<AutomationEventSnapshot> = {},
+	ruleMetadata?: AutomationInput["automation"]["ruleMetadata"],
+): AutomationInput => ({
+	automation: {
+		operation: "create",
+		origin: { kind: "api" },
+		ruleId: "automation-rule-1",
 		occurredAt: timestamp,
-		phase: "after_create",
-		inheritedProperties: {},
-		entitySchemaSlug: "movie",
-		eventSchemaSlug: "progress",
-		eventSchemaId: "event-schema-1",
-		entitySchemaId: "entity-schema-1",
-		...overrides,
+		occurrenceId: "occurrence-1",
+		...(ruleMetadata === undefined ? {} : { ruleMetadata }),
+		source: {
+			kind: "event",
+			after: {
+				properties: {},
+				id: "event-1",
+				occurredAt: timestamp,
+				eventSchemaSlug: "progress",
+				eventSchemaId: "event-schema-1",
+				subject: { id: "entity-1", name: "Entity", entitySchemaSlug: "movie" },
+				...overrides,
+			},
+		},
 	},
 });
 
-export const beforeCreateContext = (
-	overrides: Partial<BeforeCreateTriggerInput["trigger"]> = {},
-): BeforeCreateTriggerInput => ({
-	trigger: {
-		properties: {},
-		userId: "user-1",
-		entityId: "entity-1",
-		origin: "integration",
-		occurredAt: timestamp,
-		phase: "before_create",
-		entitySchemaSlug: "movie",
-		eventSchemaSlug: "progress",
+export const policyAutomationContext = (
+	overrides: Partial<AutomationPolicyInput["automation"]["source"]["draft"]> = {},
+	origin: AutomationPolicyInput["automation"]["origin"] = {
+		kind: "integration",
 		integrationId: "integration-1",
-		eventSchemaId: "event-schema-1",
-		entitySchemaId: "entity-schema-1",
-		...overrides,
+	},
+): AutomationPolicyInput => ({
+	automation: {
+		origin,
+		operation: "create",
+		ruleId: "automation-rule-1",
+		occurrenceId: "occurrence-1",
+		source: {
+			kind: "event",
+			draft: {
+				properties: {},
+				entityId: "entity-1",
+				occurredAt: timestamp,
+				entitySchemaSlug: "movie",
+				eventSchemaSlug: "progress",
+				eventSchemaId: "event-schema-1",
+				entitySchemaId: "entity-schema-1",
+				...overrides,
+			},
+		},
 	},
 });
 

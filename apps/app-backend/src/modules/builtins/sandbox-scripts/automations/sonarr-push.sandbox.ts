@@ -1,5 +1,5 @@
 import { defineManifest, type IntegrationRecord } from "@ryot/sandbox-sdk";
-import { defineAfterCreateTrigger } from "@ryot/sandbox-sdk/trigger";
+import { defineAutomation } from "@ryot/sandbox-sdk/automation";
 
 import {
 	collectionSyncMatches,
@@ -13,9 +13,8 @@ import {
 } from "../script-helpers/integration-push";
 
 export const manifest = defineManifest({
-	kind: "trigger",
+	kind: "automation",
 	name: "Sonarr Push",
-	mode: "after_create",
 	requiredAppConfigKeys: [],
 	slug: "trigger.sonarr-push",
 	capabilities: [
@@ -61,44 +60,44 @@ const pushShowToSonarr = (
 		});
 };
 
-export default defineAfterCreateTrigger({
+export default defineAutomation({
 	manifest,
-	run: ({ trigger }, host) => {
-		const entitySchemaSlug = trigger.properties["entitySchemaSlug"];
-		const entityId = trigger.properties["entityId"];
-		if (entitySchemaSlug !== "show" || typeof entityId !== "string") {
-			return Promise.resolve();
+	run: ({ automation }, host) => {
+		const event = automation.source.kind === "event" ? automation.source.after : undefined;
+		const entitySchemaSlug = event?.properties["entitySchemaSlug"];
+		const entityId = event?.properties["entityId"];
+		if (!event || entitySchemaSlug !== "show" || typeof entityId !== "string") {
+			return Promise.resolve(null);
 		}
 
-		return Promise.all([
-			integrationsDisabledForUser(host),
-			listActiveIntegrations(host, "sonarr"),
-		]).then(([disabled, integrations]) => {
-			if (disabled) {
-				return undefined;
-			}
-			const matching = integrations.filter((integration) =>
-				collectionSyncMatches(integration, trigger.entityId),
-			);
-			if (matching.length === 0) {
-				return undefined;
-			}
-			return fetchEntity(host, entityId).then((entity) => {
-				if (!entity) {
+		return Promise.all([integrationsDisabledForUser(host), listActiveIntegrations(host, "sonarr")])
+			.then(([disabled, integrations]) => {
+				if (disabled) {
 					return undefined;
 				}
-				return resolveEntityProviderName(host, entity).then((providerName) => {
-					const externalId = entity.externalId;
-					if (providerName !== "TVDB" || !externalId) {
+				const matching = integrations.filter((integration) =>
+					collectionSyncMatches(integration, event.subject.id),
+				);
+				if (matching.length === 0) {
+					return undefined;
+				}
+				return fetchEntity(host, entityId).then((entity) => {
+					if (!entity) {
 						return undefined;
 					}
-					return matching.reduce(
-						(current, integration) =>
-							current.then(() => pushShowToSonarr(host, integration, externalId)),
-						Promise.resolve(),
-					);
+					return resolveEntityProviderName(host, entity).then((providerName) => {
+						const externalId = entity.externalId;
+						if (providerName !== "TVDB" || !externalId) {
+							return undefined;
+						}
+						return matching.reduce(
+							(current, integration) =>
+								current.then(() => pushShowToSonarr(host, integration, externalId)),
+							Promise.resolve(),
+						);
+					});
 				});
-			});
-		});
+			})
+			.then(() => null);
 	},
 });
