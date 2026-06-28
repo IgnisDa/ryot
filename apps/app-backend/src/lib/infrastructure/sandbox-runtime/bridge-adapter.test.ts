@@ -166,23 +166,117 @@ describe("bindSandboxHostFunctions", () => {
 	);
 
 	it.effect(
-		"dispatches domain calls with the server-provided run input regardless of arguments",
+		"dispatches domain calls with the server-provided run input and rejects surplus arguments",
 		() =>
 			Effect.gen(function* () {
+				let calls = 0;
 				let receivedUserId: string | null = "unset";
 				const implementations = makeImplementations({
 					getIntegration: (runInput) => {
+						calls += 1;
 						receivedUserId = runInput.userId;
 						return Promise.resolve(apiFailure("reached"));
 					},
 				});
 				const bound = bindSandboxHostFunctions(implementations, input);
 
-				yield* Effect.promise(() =>
+				yield* Effect.promise(() => bound.getIntegration(["integration-1"]));
+				const surplus = yield* Effect.promise(() =>
 					bound.getIntegration(["integration-1", "user-2", { userId: "user-2" }]),
 				);
 
+				expect(surplus).toEqual({
+					success: false,
+					error: "getIntegration received an invalid number of arguments",
+				});
+				expect(calls).toBe(1);
 				expect(receivedUserId).toBe("user-1");
 			}),
+	);
+
+	it.effect("normalizes transport null only for optional tuple arguments", () =>
+		Effect.gen(function* () {
+			const calls: Array<{ fnName: string; value: unknown }> = [];
+			const implementations = makeImplementations({
+				httpCall: (_runInput, _method, _url, options) => {
+					calls.push({ fnName: "httpCall", value: options });
+					return Promise.resolve(apiFailure("reached"));
+				},
+				listEvents: (_runInput, options) => {
+					calls.push({ fnName: "listEvents", value: options });
+					return Promise.resolve(apiFailure("reached"));
+				},
+				listIntegrations: (_runInput, options) => {
+					calls.push({ fnName: "listIntegrations", value: options });
+					return Promise.resolve(apiFailure("reached"));
+				},
+			});
+			const bound = bindSandboxHostFunctions(implementations, input);
+
+			expect(
+				yield* Effect.promise(() => bound.httpCall(["GET", "https://example.com", null])),
+			).toEqual({ error: "reached", success: false });
+			expect(yield* Effect.promise(() => bound.listEvents([null]))).toEqual({
+				success: false,
+				error: "reached",
+			});
+			expect(yield* Effect.promise(() => bound.listIntegrations([null]))).toEqual({
+				success: false,
+				error: "reached",
+			});
+			expect(yield* Effect.promise(() => bound.getAppConfigValue([null]))).toEqual({
+				success: false,
+				error: "getAppConfigValue expects a non-empty key string",
+			});
+			expect(calls).toEqual([
+				{ fnName: "httpCall", value: undefined },
+				{ fnName: "listEvents", value: undefined },
+				{ fnName: "listIntegrations", value: undefined },
+			]);
+		}),
+	);
+
+	it.effect("validates complete claim and app config tuples", () =>
+		Effect.gen(function* () {
+			const calls: Array<{ fnName: string; value: unknown }> = [];
+			const implementations = makeImplementations({
+				claimCachedValue: (_runInput, key, value, ttlSeconds) => {
+					calls.push({ fnName: "claimCachedValue", value: { key, ttlSeconds, value } });
+					return Promise.resolve(apiSuccess({ claimed: true }));
+				},
+				getAppConfigValue: (_runInput, key) => {
+					calls.push({ fnName: "getAppConfigValue", value: key });
+					return Promise.resolve(apiSuccess("UTC"));
+				},
+			});
+			const bound = bindSandboxHostFunctions(implementations, input);
+
+			expect(
+				yield* Effect.promise(() => bound.claimCachedValue(["lock", { owner: "user-1" }, 60])),
+			).toEqual({ data: { claimed: true }, success: true });
+			expect(yield* Effect.promise(() => bound.getAppConfigValue(["timezone"]))).toEqual({
+				data: "UTC",
+				success: true,
+			});
+			expect(
+				yield* Effect.promise(() => bound.claimCachedValue(["lock", { owner: "user-1" }, 1.5])),
+			).toEqual({
+				success: false,
+				error: "claimCachedValue expects a positive integer ttlSeconds",
+			});
+			expect(yield* Effect.promise(() => bound.getAppConfigValue(["timezone", "surplus"]))).toEqual(
+				{
+					success: false,
+					error: "getAppConfigValue received an invalid number of arguments",
+				},
+			);
+			expect(calls).toEqual([
+				{
+					fnName: "claimCachedValue",
+					value: { key: "lock", ttlSeconds: 60, value: { owner: "user-1" } },
+				},
+				{ fnName: "getAppConfigValue", value: "timezone" },
+			]);
+		}),
 	);
 });
