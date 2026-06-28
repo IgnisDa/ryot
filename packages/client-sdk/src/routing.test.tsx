@@ -163,6 +163,7 @@ const openChannel = (
 	const navigation: PluginRouterNavigation = {
 		subscribe: store.subscribe,
 		getSnapshot: store.getSnapshot,
+		registerShortcut: () => () => undefined,
 		completeTransition: store.completeTransition,
 		back: () => messages.push({ type: "navigate-back" }),
 		openDrawer: () => messages.push({ type: "open-drawer" }),
@@ -175,7 +176,7 @@ const openChannel = (
 	const send = (
 		path: string,
 		search = "",
-		options: { readonly key?: string; readonly index?: number } = {},
+		options: { readonly key?: string; readonly index?: number; readonly screenKey?: string } = {},
 	) => {
 		position = options.index ?? position + 1;
 		store.setLocation({
@@ -186,13 +187,19 @@ const openChannel = (
 				index: position,
 				key: options.key ?? `k${position}`,
 				location: routeLocation(path, search),
+				screenKey: options.screenKey ?? options.key ?? `k${position}`,
 			},
 		});
 	};
 	const sendEntity = (
 		entityId: string,
 		entitySchemaSlug: string,
-		options: { readonly key?: string; readonly index?: number; readonly search?: string } = {},
+		options: {
+			readonly key?: string;
+			readonly index?: number;
+			readonly search?: string;
+			readonly screenKey?: string;
+		} = {},
 	) => {
 		position = options.index ?? position + 1;
 		const location = entityLocation(entityId, entitySchemaSlug, options.search);
@@ -200,7 +207,12 @@ const openChannel = (
 			compact,
 			leading,
 			edgeBack,
-			entry: { index: position, location, key: options.key ?? `k${position}` },
+			entry: {
+				location,
+				index: position,
+				key: options.key ?? `k${position}`,
+				screenKey: options.screenKey ?? options.key ?? `k${position}`,
+			},
 		});
 	};
 	const navigate = (mode: "push" | "replace", to: RyotNavigationTarget) => {
@@ -285,7 +297,7 @@ const mount = (
 		sendLocation: (
 			path: string,
 			search = "",
-			options: { readonly key?: string; readonly index?: number } = {},
+			options: { readonly key?: string; readonly index?: number; readonly screenKey?: string } = {},
 		) => act(() => channel.send(path, search, options)),
 		sendEntityLocation: (
 			entityId: string,
@@ -678,7 +690,7 @@ describe("PluginRouter", () => {
 		);
 	});
 
-	it("re-renders the route on a second location message without remounting the tree", async () => {
+	it("keeps the active screen mounted when history replacement retains its screen key", async () => {
 		const { container, sendLocation } = mount();
 		sendLocation("/");
 		await waitFor(() => expect(container.textContent).toContain("Greeted 0 times."));
@@ -691,10 +703,27 @@ describe("PluginRouter", () => {
 		void act(() => greetButton.dispatchEvent(new MouseEvent("click", { bubbles: true })));
 		await waitFor(() => expect(container.textContent).toContain("Greeted 1 times."));
 
-		sendLocation("/", "tab=stats", { index: 0 });
+		sendLocation("/", "tab=stats", { index: 0, key: "k0-replaced", screenKey: "k0" });
 		await waitFor(() => expect(container.textContent).toContain("Tab stats"));
 		expect(container.textContent).toContain("Greeted 1 times.");
 		expect(mountCount).toBe(1);
+	});
+
+	it("remounts the active screen for an ordinary same-index history replacement", async () => {
+		const { container, sendLocation } = mount();
+		sendLocation("/");
+		await waitFor(() => expect(container.textContent).toContain("Greeted 0 times."));
+		const greetButton = container.querySelector("button");
+		if (!greetButton) {
+			throw new Error("expected a greet button");
+		}
+		void act(() => greetButton.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+		await waitFor(() => expect(container.textContent).toContain("Greeted 1 times."));
+
+		sendLocation("/", "tab=stats", { index: 0, key: "k0-replaced" });
+
+		await waitFor(() => expect(container.textContent).toContain("Greeted 0 times."));
+		expect(mountCount).toBe(2);
 	});
 
 	it("moves focus to the route container only after the first rendered location", async () => {

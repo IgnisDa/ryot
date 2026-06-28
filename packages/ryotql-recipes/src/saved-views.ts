@@ -50,46 +50,13 @@ import {
 } from "@ryot-app/ryotql";
 import { DateTime, Option, Result, Schema } from "effect";
 
-type DisplayExpression = {
-	readonly expression: ScalarExpression;
-	readonly displayKind: SavedViewDisplayKind;
-};
-
-type SavedViewValueMapping = {
-	readonly field: string;
-	readonly displayKind: SavedViewDisplayKind;
-};
-
-export type SavedViewCardMapping = {
-	readonly titleField: string;
-	readonly imageField: string | null;
-	readonly callout: SavedViewValueMapping | null;
-	readonly overline: SavedViewValueMapping | null;
-	readonly primaryMetadata: SavedViewValueMapping | null;
-	readonly secondaryMetadata: SavedViewValueMapping | null;
-};
-
 export type SavedViewTableMapping = {
 	readonly imageField: string | null;
 	readonly columns: readonly [SavedViewTableColumn, ...SavedViewTableColumn[]];
 };
 
-type CardExpressions = {
-	readonly title: ScalarExpression;
-	readonly image: ScalarExpression | null;
-	readonly callout: DisplayExpression | null;
-	readonly overline: DisplayExpression | null;
-	readonly primaryMetadata: DisplayExpression | null;
-	readonly secondaryMetadata: DisplayExpression | null;
-};
-
 type TableColumnExpression = Omit<SavedViewTableMapping["columns"][number], "field"> & {
 	readonly expression: ScalarExpression;
-};
-
-type CardProjectionInput = {
-	readonly card: CardExpressions;
-	readonly entity: TableReference;
 };
 
 type TableProjectionInput = {
@@ -109,56 +76,7 @@ const syncSelections = (entity: TableReference) =>
 	] satisfies readonly FieldSelection[];
 
 export type SavedViewLayoutProjectionsInput = {
-	readonly grid: CardProjectionInput;
-	readonly list: CardProjectionInput;
 	readonly table: TableProjectionInput;
-};
-
-const cardProjection = (input: CardProjectionInput) => {
-	const title = "title";
-	const image = "image";
-	const callout = "callout";
-	const entityId = "entityId";
-	const overline = "overline";
-	const primaryMetadata = "primaryMetadata";
-	const secondaryMetadata = "secondaryMetadata";
-	return {
-		fields: [
-			field(entityId, column(input.entity, "id")),
-			field(title, input.card.title),
-			...(input.card.image === null ? [] : [field(image, input.card.image)]),
-			...(input.card.overline === null ? [] : [field(overline, input.card.overline.expression)]),
-			...(input.card.callout === null ? [] : [field(callout, input.card.callout.expression)]),
-			...(input.card.primaryMetadata === null
-				? []
-				: [field(primaryMetadata, input.card.primaryMetadata.expression)]),
-			...(input.card.secondaryMetadata === null
-				? []
-				: [field(secondaryMetadata, input.card.secondaryMetadata.expression)]),
-			...syncSelections(input.entity),
-		] satisfies readonly FieldSelection[],
-		mappings: {
-			titleField: title,
-			entityIdField: entityId,
-			imageField: input.card.image === null ? null : image,
-			callout:
-				input.card.callout === null
-					? null
-					: { field: callout, displayKind: input.card.callout.displayKind },
-			overline:
-				input.card.overline === null
-					? null
-					: { field: overline, displayKind: input.card.overline.displayKind },
-			primaryMetadata:
-				input.card.primaryMetadata === null
-					? null
-					: { field: primaryMetadata, displayKind: input.card.primaryMetadata.displayKind },
-			secondaryMetadata:
-				input.card.secondaryMetadata === null
-					? null
-					: { field: secondaryMetadata, displayKind: input.card.secondaryMetadata.displayKind },
-		} satisfies SavedViewCardMapping & { readonly entityIdField: string },
-	};
 };
 
 const tableProjection = (input: TableProjectionInput) => {
@@ -194,20 +112,13 @@ const tableProjection = (input: TableProjectionInput) => {
 };
 
 export const buildSavedViewLayoutProjections = (input: SavedViewLayoutProjectionsInput) => ({
-	grid: cardProjection(input.grid),
-	list: cardProjection(input.list),
 	table: tableProjection(input.table),
 });
 
-type SavedViewMapping =
-	| {
-			readonly type: "card";
-			readonly mapping: SavedViewCardMapping & { readonly entityIdField: string };
-	  }
-	| {
-			readonly type: "table";
-			readonly mapping: SavedViewTableMapping & { readonly entityIdField: string };
-	  };
+type SavedViewMapping = {
+	readonly type: "table";
+	readonly mapping: SavedViewTableMapping & { readonly entityIdField: string };
+};
 
 type SavedViewGeneratedSource = {
 	readonly type: "generated";
@@ -224,30 +135,9 @@ type SavedViewPersistedSource = {
 	readonly queryDocument: RyotQLDocument;
 };
 
-type SavedViewCardRecipeInput = {
-	readonly layout: Extract<SavedViewMapping, { readonly type: "card" }>;
-	readonly source: SavedViewGeneratedSource | SavedViewPersistedSource;
-};
-
-type SavedViewTableRecipeInput = {
-	readonly layout: Extract<SavedViewMapping, { readonly type: "table" }>;
-	readonly source: SavedViewGeneratedSource | SavedViewPersistedSource;
-};
-
 type SavedViewRecipeInput = {
 	readonly layout: SavedViewMapping;
 	readonly source: SavedViewGeneratedSource | SavedViewPersistedSource;
-};
-
-export type SavedViewCardResultItem = {
-	readonly title: string;
-	readonly entityId: string;
-	readonly sync: EntitySyncStateValue;
-	readonly image: AssetLocatorType | null | undefined;
-	readonly callout?: SavedViewDisplayValue | undefined;
-	readonly overline?: SavedViewDisplayValue | undefined;
-	readonly primaryMetadata?: SavedViewDisplayValue | undefined;
-	readonly secondaryMetadata?: SavedViewDisplayValue | undefined;
 };
 
 export type SavedViewTableResultItem = {
@@ -366,17 +256,6 @@ const imageField = (row: SavedViewRawRow, fieldName: string | null) => {
 	);
 };
 
-const optionalDisplayField = (row: SavedViewRawRow, mapping: SavedViewCardMapping["callout"]) => {
-	if (mapping === null) {
-		return Result.succeed(undefined);
-	}
-	return Result.flatMap(rawField(row, mapping.field), (value) =>
-		value === null
-			? Result.succeed(undefined)
-			: displayValue(value, mapping.displayKind, mapping.field),
-	);
-};
-
 const syncFields = (row: SavedViewRawRow, populationField: string, translationField: string) =>
 	Result.flatMap(
 		Result.all([rawField(row, populationField), rawField(row, translationField)]),
@@ -393,22 +272,6 @@ const nullableTextField = (row: SavedViewRawRow, fieldName: string) =>
 			? Result.succeed(value)
 			: Result.fail(new Error(`Saved-view field '${fieldName}' must be nullable text`)),
 	);
-
-const cardItem = (
-	row: SavedViewRawRow,
-	mapping: SavedViewCardMapping & { readonly entityIdField: string },
-) =>
-	Result.gen(function* () {
-		const sync = yield* syncField(row);
-		const title = yield* textField(row, mapping.titleField);
-		const entityId = yield* textField(row, mapping.entityIdField);
-		const image = yield* imageField(row, mapping.imageField);
-		const callout = yield* optionalDisplayField(row, mapping.callout);
-		const overline = yield* optionalDisplayField(row, mapping.overline);
-		const primaryMetadata = yield* optionalDisplayField(row, mapping.primaryMetadata);
-		const secondaryMetadata = yield* optionalDisplayField(row, mapping.secondaryMetadata);
-		return { sync, title, entityId, image, callout, overline, primaryMetadata, secondaryMetadata };
-	});
 
 const tableItem = (
 	row: SavedViewRawRow,
@@ -434,26 +297,11 @@ const tableItem = (
 
 const savedViewRows = rowsResultSchema(Schema.Record(Schema.String, JsonValue));
 
-const mappedFields = (layout: SavedViewMapping) => {
-	if (layout.type === "table") {
-		return [
-			layout.mapping.entityIdField,
-			...(layout.mapping.imageField === null ? [] : [layout.mapping.imageField]),
-			...layout.mapping.columns.map(({ field: fieldName }) => fieldName),
-		];
-	}
-	return [
-		layout.mapping.titleField,
-		layout.mapping.entityIdField,
-		...(layout.mapping.imageField === null ? [] : [layout.mapping.imageField]),
-		...[
-			layout.mapping.callout,
-			layout.mapping.overline,
-			layout.mapping.primaryMetadata,
-			layout.mapping.secondaryMetadata,
-		].flatMap((mapping) => (mapping === null ? [] : [mapping.field])),
-	];
-};
+const mappedFields = (layout: SavedViewMapping) => [
+	layout.mapping.entityIdField,
+	...(layout.mapping.imageField === null ? [] : [layout.mapping.imageField]),
+	...layout.mapping.columns.map(({ field: fieldName }) => fieldName),
+];
 
 const validateMappedFields = (
 	query: RyotQLDocument["queries"][string],
@@ -475,28 +323,15 @@ const savedViewQuery = (query: RyotQLDocument["queries"][string], layout: SavedV
 	decodeResult: (result: unknown) =>
 		Result.flatMap(Schema.decodeUnknownResult(savedViewRows)(result), ({ items, pageInfo }) =>
 			Result.map(
-				Result.all(
-					layout.type === "card"
-						? items.map((row) => cardItem(row, layout.mapping))
-						: items.map((row) => tableItem(row, layout.mapping)),
-				),
+				Result.all(items.map((row) => tableItem(row, layout.mapping))),
 				(decodedItems) => ({ items: decodedItems, pageInfo }),
 			),
 		),
 });
 
 export function savedViewRecipe(
-	input: SavedViewCardRecipeInput,
-): PreparedRecipe<SavedViewResult<SavedViewCardResultItem>>;
-export function savedViewRecipe(
-	input: SavedViewTableRecipeInput,
-): PreparedRecipe<SavedViewResult<SavedViewTableResultItem>>;
-export function savedViewRecipe(
 	input: SavedViewRecipeInput,
-): PreparedRecipe<SavedViewResult<SavedViewCardResultItem | SavedViewTableResultItem>>;
-export function savedViewRecipe(
-	input: SavedViewRecipeInput,
-): PreparedRecipe<SavedViewResult<SavedViewCardResultItem | SavedViewTableResultItem>> {
+): PreparedRecipe<SavedViewResult<SavedViewTableResultItem>> {
 	const queryDocument =
 		input.source.type === "generated"
 			? generatedDocument(input.source)
@@ -570,8 +405,14 @@ type EntityBrowserRecipeInput = {
 	readonly settings: EntityBrowserSavedViewSettingsValue;
 };
 
+export const SavedViewPageIdentity = Schema.Struct({
+	icon: Schema.String,
+	name: Schema.String,
+});
+
 export const EntityBrowserPageInput = Schema.Struct({
 	dataSources: RyotQLDocument,
+	view: Schema.NullOr(SavedViewPageIdentity),
 	settings: EntityBrowserSavedViewSettings,
 	target: Schema.Struct({ savedViewId: Schema.String }),
 });
@@ -817,6 +658,7 @@ export const entityBrowserCountRecipe = (
 
 export const ResultsTablePageInput = Schema.Struct({
 	dataSources: RyotQLDocument,
+	view: Schema.NullOr(SavedViewPageIdentity),
 	settings: ResultsTableSavedViewSettings,
 	target: Schema.Struct({ savedViewId: Schema.String }),
 });

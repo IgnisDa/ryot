@@ -6,7 +6,8 @@
 - Keep `backend/lib/title-parsing.ts` and `backend/lib/title-matching.ts` within sandbox compiler ES2022 support; do not use `toReversed`.
 - Contract or lifecycle changes must update `README.md`, manifest bindings, scripts, and focused tests together.
 - Sandbox scripts report non-fatal failures through the `log` host capability, never `console.warn`.
-- Show recipes and RyotQL lifecycle expression builders live in `shared/`.
+- Show recipes, entity-presentation recipes, and RyotQL lifecycle expression builders live in `shared/`.
+- One shared card and row presentation covers every media schema except `show`; its loader takes the schema slug from the batch's references.
 - Import show recipes straight from `shared/show-recipes`; never re-export them through `host/query-recipes.ts`, which owns only the podcast, suggestion, trending, and saved-view recipes.
 - `client/` must not restate schemas that `shared/` owns.
 - Take every sync mark - art wells, pips, the settle ring, the translation chip, the count line - from `@ryot-app/client-ui-sdk/sync`. Use `ManagedAssetProvider`, `managedAssetKey`, and `useManagedAssetUrl` from `@ryot-app/client-sdk/react`; media code only adapts domain image values and forwards display state to `EntityArtWell`.

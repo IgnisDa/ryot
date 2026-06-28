@@ -69,6 +69,55 @@ const modalSearch = (page: Playwright.Page) => dialog(page).getByLabel("Search p
 const dialog = (page: Playwright.Page) => page.getByRole("dialog", { name: MODAL_LABEL });
 const providerChip = (page: Playwright.Page) =>
 	dialog(page).getByRole("radio", { name: PROVIDER_NAME });
+const runtimeOf = (page: Playwright.Page) => page.locator("iframe").contentFrame();
+const fab = (runtime: Playwright.FrameLocator) =>
+	runtime.getByRole("button", { name: "Add to this view" });
+const headerAdd = (runtime: Playwright.FrameLocator) =>
+	runtime.getByRole("button", { name: "Add", exact: true });
+const pageSearch = (runtime: Playwright.FrameLocator) =>
+	runtime.getByRole("searchbox", { name: `Search ${VIEW_NAME}` });
+const closeModal = (page: Playwright.Page) =>
+	dialog(page).getByRole("button", { name: /^(Close|Cancel)$/ });
+
+const isFocused = (locator: Playwright.Locator) =>
+	locator.evaluate((element) => element === element.ownerDocument.activeElement);
+
+const waitForFocus = (locator: Playwright.Locator, focused: boolean) =>
+	locator.waitForFunction(
+		(element, expected: boolean) => (element === element.ownerDocument.activeElement) === expected,
+		focused,
+	);
+
+const waitForInputValue = (locator: Playwright.Locator, value: string) =>
+	locator.waitForFunction(
+		(element, expected: string) => Reflect.get(element, "value") === expected,
+		value,
+	);
+
+const waitForAddParam = (page: Playwright.Page, present: boolean) =>
+	page.waitForURL((url) => url.searchParams.has("add") === present);
+
+const openedDialog = (page: Playwright.Page) =>
+	Effect.gen(function* () {
+		yield* dialog(page).waitFor({ state: "visible" });
+		yield* waitForAddParam(page, true);
+	});
+
+const closedDialog = (page: Playwright.Page) =>
+	Effect.gen(function* () {
+		yield* closeModal(page).click();
+		yield* dialog(page).waitFor({ state: "hidden" });
+		yield* waitForAddParam(page, false);
+	});
+
+const openSavedView = (page: Playwright.Page) =>
+	Effect.gen(function* () {
+		yield* signInThroughHostedOAuth(page, email, password);
+		yield* page.goto(viewUrl);
+		const runtime = runtimeOf(page);
+		yield* runtime.getByRole("heading", { level: 1, name: VIEW_NAME }).waitFor();
+		return runtime;
+	});
 
 beforeAll(async () => {
 	const viewSlug = await Effect.runPromise(
@@ -213,7 +262,7 @@ it.live("automatically populates and translates entities rendered by a saved vie
 		yield* signInThroughHostedOAuth(page, user.email, user.password);
 		yield* page.goto(`${getFrontendUrl()}/v/${view.slug}`);
 		const runtime = page.locator("iframe").contentFrame();
-		yield* runtime.getByRole("heading", { level: 1, name: "Entity browser" }).waitFor();
+		yield* runtime.getByRole("heading", { level: 1, name: `Interest View ${id}` }).waitFor();
 		yield* pollUntil(
 			"saved-view entity population and translation",
 			getEntity(client, entity.id).pipe(
@@ -293,7 +342,6 @@ it.live("keeps source data visible when saved-view translation is outstanding", 
 			),
 		);
 		yield* runtime.getByRole("radio", { name: "Table view" }).click();
-		yield* runtime.getByRole("button", { name: "Refresh", exact: true }).click();
 		yield* runtime
 			.getByText("2,043", { exact: true })
 			.waitFor({ state: "visible", timeout: IMPORT_TIMEOUT });
@@ -310,7 +358,7 @@ it.live("imports through the configured renderer provider search and refreshes m
 		yield* page.goto(`${viewUrl}?keep=1&layout=grid`);
 		const frame = page.locator("iframe");
 		const runtime = frame.contentFrame();
-		yield* runtime.getByRole("heading", { level: 1, name: "Entity browser" }).waitFor();
+		yield* runtime.getByRole("heading", { level: 1, name: VIEW_NAME }).waitFor();
 		yield* runtime.getByRole("button", { name: "Add", exact: true }).click();
 		yield* dialog(page).waitFor({ state: "visible" });
 		yield* page.waitForURL((url) => url.searchParams.get("add") === "true");
@@ -327,8 +375,13 @@ it.live("imports through the configured renderer provider search and refreshes m
 		const addFirst = dialog(page).getByRole("button", { name: `Add ${FIRST_RESULT_TITLE}` });
 		yield* addFirst.waitFor({ state: "visible" });
 		yield* addFirst.click();
-		yield* dialog(page).waitFor({ state: "hidden", timeout: IMPORT_TIMEOUT });
-		yield* page.waitForURL((url) => !url.searchParams.has("add"));
+		yield* dialog(page)
+			.getByRole("link", { name: `Open ${FIRST_RESULT_TITLE} in library` })
+			.waitFor({ state: "visible", timeout: IMPORT_TIMEOUT });
+		expect(yield* dialog(page).isVisible()).toBe(true);
+		expect(new URL(page.url()).searchParams.get("add")).toBe("true");
+
+		yield* closedDialog(page);
 		expect(new URL(page.url()).searchParams.get("keep")).toBe("1");
 		expect(new URL(page.url()).searchParams.get("layout")).toBe("grid");
 		yield* runtime.getByText(IMPORTED_NAME, { exact: true }).waitFor({
@@ -336,5 +389,80 @@ it.live("imports through the configured renderer provider search and refreshes m
 			timeout: IMPORT_TIMEOUT,
 		});
 		expect(yield* runtime.getByText(IMPORTED_NAME, { exact: true }).count).toBe(1);
+	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
+);
+
+it.live("focuses the view search on / and releases it so page shortcuts return", () =>
+	Effect.gen(function* () {
+		const browser = yield* Playwright.Browser;
+		const page = yield* browser.newPage({ viewport: { width: 1280, height: 800 } });
+		const runtime = yield* openSavedView(page);
+		yield* pageSearch(runtime).waitFor({ state: "visible" });
+
+		yield* page.keyboard.press("/");
+		yield* waitForFocus(pageSearch(runtime), true);
+		yield* page.keyboard.type("dune");
+		yield* waitForInputValue(pageSearch(runtime), "dune");
+		yield* page.waitForURL((url) => url.searchParams.get("search") === "dune");
+		expect(yield* isFocused(pageSearch(runtime))).toBe(true);
+
+		yield* page.keyboard.press("Escape");
+		yield* waitForInputValue(pageSearch(runtime), "");
+		yield* page.waitForURL((url) => url.searchParams.get("search") === null);
+		expect(yield* isFocused(pageSearch(runtime))).toBe(true);
+
+		yield* page.keyboard.press("Escape");
+		yield* waitForFocus(pageSearch(runtime), false);
+
+		yield* page.keyboard.press("a");
+		yield* openedDialog(page);
+		yield* closedDialog(page);
+	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
+);
+
+it.live("suppresses view shortcuts while the provider modal owns the screen", () =>
+	Effect.gen(function* () {
+		const browser = yield* Playwright.Browser;
+		const page = yield* browser.newPage({ viewport: { width: 1280, height: 800 } });
+		const runtime = yield* openSavedView(page);
+
+		yield* headerAdd(runtime).click();
+		yield* openedDialog(page);
+		expect(yield* page.locator("iframe").getAttribute("inert")).not.toBeNull();
+
+		yield* page.keyboard.press("/");
+		yield* page.keyboard.press("a");
+		expect(yield* isFocused(pageSearch(runtime))).toBe(false);
+		expect(yield* dialog(page).count).toBe(1);
+		expect(new URL(page.url()).searchParams.get("add")).toBe("true");
+
+		yield* closedDialog(page);
+	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
+);
+
+it.live("swaps the desktop add button for the mobile add affordances", () =>
+	Effect.gen(function* () {
+		const browser = yield* Playwright.Browser;
+		const page = yield* browser.newPage({ viewport: { width: 480, height: 900 } });
+		yield* signInThroughHostedOAuth(page, email, password);
+		yield* page.goto(viewUrl);
+		const runtime = runtimeOf(page);
+		yield* fab(runtime).waitFor({ state: "visible" });
+		expect(yield* headerAdd(runtime).count).toBe(0);
+
+		yield* runtime.getByRole("button", { name: "View options, 0 active filters" }).click();
+		const sheet = runtime.getByRole("dialog", { name: "View options" });
+		yield* sheet.waitFor({ state: "visible" });
+		expect(yield* sheet.getByText("Filters are not available yet.").isVisible()).toBe(true);
+		yield* runtime.getByRole("button", { name: "Close view options" }).click();
+		yield* sheet.waitFor({ state: "hidden" });
+
+		yield* runtime.getByRole("button", { name: "Search this view" }).click();
+		yield* waitForFocus(pageSearch(runtime), true);
+		yield* runtime.getByRole("button", { name: "Exit search" }).click();
+
+		yield* fab(runtime).click();
+		yield* openedDialog(page);
+		yield* closedDialog(page);
 	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
 );

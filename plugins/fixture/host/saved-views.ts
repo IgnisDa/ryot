@@ -17,52 +17,54 @@ const buildDefinition = (
 	projections: ReturnType<typeof buildSavedViewLayoutProjections>,
 ) => {
 	const dataSources = savedViewRecipe({
+		layout: { type: "table", mapping: projections.table.mappings },
 		source: {
 			type: "generated",
 			orderBy: [orderBy],
+			entitySchemaSlugs: [entitySchemaSlug],
 			fields: [
 				...projections.table.fields,
 				field("ownerPluginId", column(entity, "entitySchemaPluginId")),
 				field("entitySchemaSlug", column(entity, "entitySchemaSlug")),
 			],
-			entitySchemaSlugs: [entitySchemaSlug],
 		},
-		layout: { type: "table", mapping: projections.table.mappings },
 	}).document;
 	return {
-		renderer: { kind: "kernel", name: "entity-browser" } as const,
 		dataSources,
+		renderer: { kind: "kernel", name: "entity-browser" } as const,
 		settings: {
 			pageSize: 20,
+			sortChoices: [],
 			sourceName: "savedView",
-			defaultLayout: "grid" as const,
-			layouts: ["grid", "list", "table"] as const,
+			searchFields: ["column0"],
 			entityIdField: "entityId",
+			defaultLayout: "grid" as const,
 			ownerPluginIdField: "ownerPluginId",
 			entitySchemaSlugField: "entitySchemaSlug",
-			searchFields: ["column0"],
-			sortChoices: [],
-			tableColumns: projections.table.mappings.columns,
+			layouts: ["grid", "list", "table"] as const,
 			addAction: { type: "provider-search" as const, ownerPluginId: "fixture", entitySchemaSlug },
+			tableColumns: [
+				...(projections.table.mappings.imageField === null
+					? []
+					: [
+							{
+								label: "Image",
+								displayKind: "managed-asset" as const,
+								field: projections.table.mappings.imageField,
+							},
+						]),
+				...projections.table.mappings.columns,
+			],
 		},
 	};
 };
 
-const pokemonCard = {
-	title: name,
-	primaryMetadata: json("types"),
-	callout: number("baseExperience"),
-	overline: number("pokedexNumber"),
-	secondaryMetadata: json("abilities"),
-	image: castJson(jsonPath(column(entity, "properties"), "images", 0)),
-};
+const pokemonImage = castJson(jsonPath(column(entity, "properties"), "images", 0));
 
 const pokemonProjections = buildSavedViewLayoutProjections({
-	grid: { entity, card: pokemonCard },
-	list: { entity, card: pokemonCard },
 	table: {
 		entity,
-		image: pokemonCard.image,
+		image: pokemonImage,
 		columns: [
 			{ label: "Name", expression: name, displayKind: "text" },
 			{ label: "Pokedex Number", ...number("pokedexNumber") },
@@ -75,18 +77,7 @@ const pokemonProjections = buildSavedViewLayoutProjections({
 	},
 });
 
-const moveCard = {
-	image: null,
-	title: name,
-	overline: text("type"),
-	callout: number("power"),
-	primaryMetadata: text("damageClass"),
-	secondaryMetadata: text("generation"),
-};
-
 const moveProjections = buildSavedViewLayoutProjections({
-	grid: { entity, card: moveCard },
-	list: { entity, card: moveCard },
 	table: {
 		entity,
 		image: null,
