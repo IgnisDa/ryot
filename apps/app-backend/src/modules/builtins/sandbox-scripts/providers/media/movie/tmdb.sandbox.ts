@@ -1,4 +1,4 @@
-import { defineDriver, defineManifest } from "@ryot/sandbox-sdk";
+import { defineDriver, defineManifest } from "@ryot/sandbox-sdk/core";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 import * as z from "@ryot/sandbox-sdk/zod";
 

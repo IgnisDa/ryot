@@ -1,4 +1,4 @@
-import type { SandboxHost } from "@ryot/sandbox-sdk";
+import type { SandboxHost } from "@ryot/sandbox-sdk/core";
 import dayjs from "@ryot/sandbox-sdk/dayjs";
 
 import {

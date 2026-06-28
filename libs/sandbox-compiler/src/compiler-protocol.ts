@@ -1,4 +1,4 @@
-import type { SandboxManifest } from "@ryot/sandbox-sdk";
+import type { SandboxManifest } from "@ryot/sandbox-sdk/core";
 import { Schema } from "effect";
 
 import { SandboxCompilerFailure } from "./compiler-diagnostics";
