@@ -3,7 +3,6 @@ import {
 	EventSchemaId,
 	RelationshipSchemaId,
 	SandboxScriptId,
-	SignalSchemaId,
 } from "@ryot/contract/schema/brands";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { generateId } from "better-auth";
@@ -20,7 +19,6 @@ import {
 	builtinEventAutomationRuleLinks,
 	builtinEntityAutomationRuleLinks,
 	builtinRelationshipAutomationRuleLinks,
-	builtinSignalAutomationRuleLinks,
 	builtinSandboxScripts,
 	companySchemaSandboxScriptLinks,
 	entitySchemaSandboxScriptLinks,
@@ -415,7 +413,6 @@ export class SeedService extends Effect.Service<SeedService>()("SeedService", {
 				},
 			});
 		}
-		const signalSchemaIds = new Map<string, SignalSchemaId>();
 		const mediaMonitoringRelationshipSchemaId = relationshipSchemaIds.get("media-monitoring");
 		if (!mediaMonitoringRelationshipSchemaId) {
 			return yield* Effect.die(new Error("Missing media-monitoring relationship schema"));
@@ -423,24 +420,7 @@ export class SeedService extends Effect.Service<SeedService>()("SeedService", {
 		for (const definition of builtinSignalSchemas(
 			RelationshipSchemaId.make(mediaMonitoringRelationshipSchemaId),
 		)) {
-			const signalSchema = yield* signalSchemas.ensureBuiltin(definition);
-			signalSchemaIds.set(definition.slug, signalSchema.id);
-		}
-		for (const link of builtinSignalAutomationRuleLinks()) {
-			const scriptId = scriptIds.get(link.scriptSlug);
-			const signalSchemaId = signalSchemaIds.get(link.signalSchemaSlug);
-			if (!scriptId || !signalSchemaId) {
-				return yield* Effect.die(
-					new Error(`Missing built-in automation references for ${link.name}`),
-				);
-			}
-			yield* automations.ensureBuiltin({
-				name: link.name,
-				operation: "signal",
-				kind: "subscription",
-				sandboxScriptId: SandboxScriptId.make(scriptId),
-				target: { id: SignalSchemaId.make(signalSchemaId), kind: "signal_schema" },
-			});
+			yield* signalSchemas.ensureBuiltin(definition);
 		}
 		return { done: true as const };
 	}),

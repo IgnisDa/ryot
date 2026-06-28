@@ -88,7 +88,7 @@ const payload = {
 			origin: { kind: "api" },
 			properties: { message: "trace" },
 			occurredAt: "2026-07-20T10:00:00.000Z",
-			signalSchemaSlug: "automation.test-tracer",
+			signalSchemaSlug: "review.created",
 		},
 	},
 } as const satisfies SubscriptionExecutionWorkflowPayload;
@@ -115,7 +115,7 @@ const withWorkflowLayer = <A, E>(
 	);
 };
 
-it.effect("runs the complete signal-to-succeeded-run tracer with full automation context", () => {
+it.effect("runs a signal subscription to completion with full automation context", () => {
 	let completed: unknown;
 	let sandboxPayload: unknown;
 	const service = Layer.mock(AutomationsService, {
