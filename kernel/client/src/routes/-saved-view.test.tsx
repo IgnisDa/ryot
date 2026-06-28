@@ -535,6 +535,7 @@ describe("saved-view route", () => {
 		const view = mountView();
 		try {
 			await screen.findByRole("heading", { name: "Books" });
+			expect(view.router.state.location.pathname).toBe("/v/books");
 			expect(globalThis.document.title).toBe("Books — Ryot");
 			expect(globalThis.document.querySelectorAll("#main-content")).toHaveLength(1);
 		} finally {
@@ -1001,7 +1002,7 @@ describe("saved-view provider add flow", () => {
 			...record,
 			layouts: null,
 			dataSources: queryDocument,
-			renderer: { kind: "kernel" as const, name: "entity-browser" },
+			renderer: { kind: "kernel" as const, name: "entity-browser" as const },
 			settings: {
 				addAction,
 				pageSize: 2,

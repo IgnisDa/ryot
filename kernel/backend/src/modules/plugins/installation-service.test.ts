@@ -7,11 +7,12 @@ import {
 	PluginRequestError,
 } from "@ryot-app/contract/modules/plugins/schemas";
 import { UploadBadRequest } from "@ryot-app/contract/modules/uploads/schemas";
-import { UserId } from "@ryot-app/contract/schema/brands";
+import { ClientRendererId, SavedViewId, UserId } from "@ryot-app/contract/schema/brands";
 import { writePluginArchive } from "@ryot-app/plugin-archive";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Cause, Effect, Exit, Layer, Option, Stream } from "effect";
 
+import { Database } from "#lib/infrastructure/db/service";
 import { databaseLayer } from "#lib/test-utils/effect";
 import { kernelDefinitionSource } from "#modules/definition-registry/kernel-source";
 import { DefinitionRegistry, makeDefinitionRegistry } from "#modules/definition-registry/service";
@@ -38,6 +39,9 @@ import { PLUGIN_PACKAGE_LIMITS } from "./validation";
 
 const userId = UserId.make("user-1");
 const bytes = (value: string) => new TextEncoder().encode(value);
+type HomeSavedView = Effect.Success<
+	ReturnType<PluginInstallationRepository["Service"]["findHomeSavedView"]>
+>;
 
 const failureOf = (exit: Exit.Exit<unknown, unknown>) => {
 	assert(Exit.isFailure(exit));
@@ -67,8 +71,8 @@ const storedPrivatePlugin = (manifest: PluginManifest): StoredPlugin => ({
 	scope: "user",
 	ownerId: userId,
 	status: "active",
-	slug: manifest.metadata.slug,
 	clientArtifactHash: null,
+	slug: manifest.metadata.slug,
 	id: `${manifest.metadata.slug}-plugin-id`,
 	sourceHash: `hash-${manifest.metadata.slug}`,
 });
@@ -83,6 +87,7 @@ const installationRow = (
 	isDisabled: false,
 	healthReason: null,
 	pluginScope: "user",
+	homeSavedViewId: null,
 	createdAt: new Date(),
 	updatedAt: new Date(),
 	pluginSlug: "private-fixture",
@@ -102,6 +107,7 @@ const makeLayer = (input?: {
 	readonly invalidatedAll?: Array<void>;
 	readonly hasEntityReferences?: boolean;
 	readonly deletedUploads?: Array<string>;
+	readonly homeViewEvents?: Array<string>;
 	readonly hasWorkflowReferences?: boolean;
 	readonly pendingLifecycle?: Array<string>;
 	readonly dispatchFailsFor?: Array<string>;
@@ -119,6 +125,9 @@ const makeLayer = (input?: {
 	readonly systemPlugins?: Array<PluginRegistryEntry>;
 	readonly installations?: Array<PluginInstallationState>;
 	readonly healthUpdates?: Array<Record<string, unknown>>;
+	readonly homeViewUpdates?: Array<Record<string, unknown>>;
+	readonly homeViewTransactionScopes?: Array<"root" | "transaction">;
+	readonly homeTargets?: ReadonlyMap<string, NonNullable<HomeSavedView>>;
 	readonly claimedUploads?: Array<Record<string, unknown>>;
 	readonly privateInstallations?: Array<PluginPrivateInstallationRow>;
 	readonly materialize?: (userId: UserId) => Effect.Effect<void, DbError>;
@@ -165,8 +174,25 @@ const makeLayer = (input?: {
 		listPendingLifecycle: () => Effect.succeed(input?.pendingLifecycle ?? []),
 		listPrivateInstallations: () => Effect.succeed(input?.privateInstallations ?? []),
 		updateHealth: (values) => Effect.sync(() => void input?.healthUpdates?.push(values)),
+		setHomeSavedView: (ownerId, id, homeSavedViewId) =>
+			Effect.gen(function* () {
+				const database = yield* Database;
+				input?.homeViewTransactionScopes?.push("transaction" in database ? "root" : "transaction");
+				input?.homeViewEvents?.push("set-installation");
+				input?.homeViewUpdates?.push({ id, homeSavedViewId, userId: ownerId });
+				return (input?.installations ?? []).some((row) => row.id === id && row.userId === ownerId);
+			}),
 		findByUserAndPlugin: (_user, pluginId) =>
 			Effect.succeed((input?.installations ?? []).find((row) => row.pluginId === pluginId) ?? null),
+		findHomeSavedView: (_ownerId, savedViewId) =>
+			Effect.succeed(input?.homeTargets?.get(savedViewId) ?? null),
+		lockHomeSavedView: (_ownerId, savedViewId) =>
+			Effect.gen(function* () {
+				const database = yield* Database;
+				input?.homeViewTransactionScopes?.push("transaction" in database ? "root" : "transaction");
+				input?.homeViewEvents?.push("lock-saved-view");
+				return input?.homeTargets?.get(savedViewId) ?? null;
+			}),
 		create: (values) =>
 			Effect.sync(() => {
 				input?.created?.push(values);
@@ -654,6 +680,164 @@ it.effect("lists system and private installations without secret values", () => 
 			}),
 		),
 	);
+});
+
+it.effect("sets and clears a usable home view without requiring workspace placement", () => {
+	const updates: Array<Record<string, unknown>> = [];
+	const homeViewEvents: Array<string> = [];
+	const homeViewTransactionScopes: Array<"root" | "transaction"> = [];
+	const invalidatedUsers: Array<UserId> = [];
+	const privatePlugin = storedPrivatePlugin(privateManifest());
+	const installation = installationRow({ pluginId: privatePlugin.id });
+	const savedViewId = SavedViewId.make("global-view");
+	const homeTargets = new Map<string, NonNullable<HomeSavedView>>([
+		[
+			savedViewId,
+			{
+				view: {
+					isDisabled: false,
+					renderer: { kind: "custom", rendererId: ClientRendererId.make("renderer-1") },
+				},
+				renderer: {
+					userId,
+					publishedRevision: 1,
+					publishedHash: "published-hash",
+					publishedDefinition: {
+						files: [],
+						entry: "client.tsx",
+						pluginDependencies: [],
+						settingsSchema: { fields: {} },
+						automaticEntityPresentations: false,
+					},
+				},
+			},
+		],
+	]);
+	return Effect.gen(function* () {
+		const service = yield* PluginInstallationService;
+		expect(yield* service.setHomeView(userId, privatePlugin.slug, { savedViewId })).toEqual({
+			savedViewId,
+		});
+		expect(yield* service.setHomeView(userId, privatePlugin.slug, { savedViewId: null })).toEqual({
+			savedViewId: null,
+		});
+		expect(updates).toEqual([
+			{ id: installation.id, homeSavedViewId: savedViewId, userId },
+			{ id: installation.id, homeSavedViewId: null, userId },
+		]);
+		expect(invalidatedUsers).toEqual([userId, userId]);
+		expect(homeViewEvents).toEqual(["lock-saved-view", "set-installation", "set-installation"]);
+		expect(homeViewTransactionScopes).toEqual(["transaction", "transaction", "transaction"]);
+	}).pipe(
+		Effect.provide(
+			makeLayer({
+				homeTargets,
+				homeViewEvents,
+				invalidatedUsers,
+				homeViewUpdates: updates,
+				homeViewTransactionScopes,
+				installations: [installation],
+				privatePlugins: [privatePlugin],
+			}),
+		),
+	);
+});
+
+it.effect("rejects missing, disabled, and unusable home views", () => {
+	const updates: Array<Record<string, unknown>> = [];
+	const privatePlugin = storedPrivatePlugin(privateManifest());
+	const installation = installationRow({ pluginId: privatePlugin.id });
+	const disabledId = SavedViewId.make("disabled-view");
+	const unavailableId = SavedViewId.make("unavailable-view");
+	const missingId = SavedViewId.make("missing-view");
+	const homeTargets = new Map<string, NonNullable<HomeSavedView>>([
+		[
+			disabledId,
+			{
+				renderer: null,
+				view: { isDisabled: true, renderer: { kind: "kernel", name: "entity-browser" } },
+			},
+		],
+		[
+			unavailableId,
+			{
+				renderer: null,
+				view: {
+					isDisabled: false,
+					renderer: { kind: "custom", rendererId: ClientRendererId.make("unpublished") },
+				},
+			},
+		],
+	]);
+	return Effect.gen(function* () {
+		const service = yield* PluginInstallationService;
+		for (const [savedViewId, code] of [
+			[missingId, "home-view-not-found"],
+			[disabledId, "home-view-disabled"],
+			[unavailableId, "home-view-renderer-unavailable"],
+		] as const) {
+			expect(
+				failureOf(
+					yield* Effect.exit(service.setHomeView(userId, privatePlugin.slug, { savedViewId })),
+				),
+			).toMatchObject({ _tag: "PluginRequestError", reason: { code, savedViewId } });
+		}
+		expect(updates).toEqual([]);
+	}).pipe(
+		Effect.provide(
+			makeLayer({
+				homeTargets,
+				homeViewUpdates: updates,
+				installations: [installation],
+				privatePlugins: [privatePlugin],
+			}),
+		),
+	);
+});
+
+it.effect("falls back from a stale home override but preserves a usable selection", () => {
+	const selectedId = SavedViewId.make("selected-view");
+	const staleId = SavedViewId.make("stale-view");
+	const selectedPlugin = systemEntry(
+		privateManifest({ metadata: { ...privateManifest().metadata, slug: "selected" } }),
+	);
+	const stalePlugin = systemEntry(
+		privateManifest({ metadata: { ...privateManifest().metadata, slug: "stale" } }),
+	);
+	const installations = [
+		installationRow({
+			pluginSlug: "selected",
+			pluginScope: "system",
+			pluginId: selectedPlugin.id,
+			homeSavedViewId: selectedId,
+		}),
+		installationRow({
+			pluginSlug: "stale",
+			pluginScope: "system",
+			pluginId: stalePlugin.id,
+			homeSavedViewId: staleId,
+		}),
+	];
+	const homeTargets = new Map<string, NonNullable<HomeSavedView>>([
+		[
+			selectedId,
+			{
+				renderer: null,
+				view: { isDisabled: false, renderer: { kind: "kernel", name: "entity-browser" } },
+			},
+		],
+	]);
+	return Effect.gen(function* () {
+		const loader = yield* PluginLoader;
+		loader.load(selectedPlugin);
+		loader.load(stalePlugin);
+		const service = yield* PluginInstallationService;
+		const listed = yield* service.listInstallations(userId);
+		expect(listed.map(({ slug, homeSavedViewId }) => ({ slug, homeSavedViewId }))).toEqual([
+			{ slug: "selected", homeSavedViewId: selectedId },
+			{ slug: "stale", homeSavedViewId: null },
+		]);
+	}).pipe(Effect.provide(makeLayer({ homeTargets, installations })));
 });
 
 it.effect("patches config while preserving omitted secrets and returning a safe response", () => {

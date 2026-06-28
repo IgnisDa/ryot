@@ -33,6 +33,7 @@ const systemInstallation = (
 		health: "ready",
 		isDisabled: false,
 		healthReason: null,
+		homeSavedViewId: null,
 		pluginSlug: "example",
 		pluginScope: "system",
 		pluginId: "example-plugin-id",

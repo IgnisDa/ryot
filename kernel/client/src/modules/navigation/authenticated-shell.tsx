@@ -95,7 +95,7 @@ export function AuthenticatedShell(props: {
 	const committedPathname = pathname;
 	const routeSlug = committedPathname.split("/")[1] ?? "";
 	const routeWorkspace = resolvePluginRouteWorkspace(catalog, routeSlug);
-	const current = resolveRememberedWorkspace(catalog, rememberedSlug);
+	const current = routeWorkspace ?? resolveRememberedWorkspace(catalog, rememberedSlug);
 	const homeActive = isWorkspaceRoot(pathname, current);
 	const activeKey = useMemo(() => activeSidebarKey(pathname), [pathname]);
 	const sections = useMemo(

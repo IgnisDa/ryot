@@ -79,6 +79,7 @@ const runWorkflow = (input: {
 							health: "installing",
 							pluginId: "plugin-1",
 							pluginSlug: "fixture",
+							homeSavedViewId: null,
 							createdAt: new Date(0),
 							updatedAt: new Date(0),
 						}),
