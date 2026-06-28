@@ -1,6 +1,7 @@
 import { relations } from "drizzle-orm";
 
 import { user } from "./auth";
+import { signal, signalRecipient, signalSchema } from "./automations";
 import {
 	entitySchema,
 	entitySchemaSandboxScript,
@@ -30,8 +31,8 @@ export const trackerEntitySchemaRelations = relations(trackerEntitySchema, ({ on
 export const entitySchemaRelations = relations(entitySchema, ({ one, many }) => ({
 	entities: many(entity),
 	eventSchemas: many(eventSchema),
-	entitySchemaSandboxScripts: many(entitySchemaSandboxScript),
 	trackerEntitySchemas: many(trackerEntitySchema),
+	entitySchemaSandboxScripts: many(entitySchemaSandboxScript),
 	user: one(user, { references: [user.id], fields: [entitySchema.userId] }),
 	sourceRelationshipSchemas: many(relationshipSchema, {
 		relationName: "sourceEntitySchema",
@@ -72,9 +73,9 @@ export const entitySchemaSandboxScriptRelations = relations(
 export const entityRelations = relations(entity, ({ one, many }) => ({
 	events: many(event),
 	user: one(user, { references: [user.id], fields: [entity.userId] }),
+	sessionEvents: many(event, { relationName: "sessionEntity" }),
 	outgoingRelationships: many(relationship, { relationName: "sourceEntity" }),
 	incomingRelationships: many(relationship, { relationName: "targetEntity" }),
-	sessionEvents: many(event, { relationName: "sessionEntity" }),
 	schema: one(entitySchema, { references: [entitySchema.id], fields: [entity.entitySchemaId] }),
 	sandboxScript: one(sandboxScript, {
 		references: [sandboxScript.id],
@@ -84,8 +85,8 @@ export const entityRelations = relations(entity, ({ one, many }) => ({
 
 export const eventRelations = relations(event, ({ one }) => ({
 	user: one(user, { references: [user.id], fields: [event.userId] }),
-	eventSchema: one(eventSchema, { references: [eventSchema.id], fields: [event.eventSchemaId] }),
 	entity: one(entity, { references: [entity.id], fields: [event.entityId] }),
+	eventSchema: one(eventSchema, { references: [eventSchema.id], fields: [event.eventSchemaId] }),
 	sessionEntity: one(entity, {
 		references: [entity.id],
 		relationName: "sessionEntity",
@@ -150,4 +151,24 @@ export const importRunFailureRelations = relations(importRunFailure, ({ one }) =
 
 export const notificationChannelRelations = relations(notificationChannel, ({ one }) => ({
 	user: one(user, { references: [user.id], fields: [notificationChannel.userId] }),
+}));
+
+export const signalSchemaRelations = relations(signalSchema, ({ one, many }) => ({
+	signals: many(signal),
+	user: one(user, { references: [user.id], fields: [signalSchema.userId] }),
+}));
+
+export const signalRelations = relations(signal, ({ one, many }) => ({
+	recipients: many(signalRecipient),
+	actor: one(user, { references: [user.id], fields: [signal.actorUserId] }),
+	subject: one(entity, { references: [entity.id], fields: [signal.subjectEntityId] }),
+	schema: one(signalSchema, {
+		references: [signalSchema.id],
+		fields: [signal.signalSchemaId],
+	}),
+}));
+
+export const signalRecipientRelations = relations(signalRecipient, ({ one }) => ({
+	user: one(user, { references: [user.id], fields: [signalRecipient.userId] }),
+	signal: one(signal, { references: [signal.id], fields: [signalRecipient.signalId] }),
 }));

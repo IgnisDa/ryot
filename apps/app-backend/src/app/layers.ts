@@ -80,6 +80,9 @@ import { SavedViewsRepository } from "#modules/saved-views/repository";
 import { SavedViewsService } from "#modules/saved-views/service";
 import { FrequentCronSchedulerLive } from "#modules/scheduler/frequent-cron";
 import { InfrequentCronSchedulerLive } from "#modules/scheduler/infrequent-cron";
+import { SignalsRepository } from "#modules/signals/repository";
+import { SignalEmissionService, SignalSchemasService } from "#modules/signals/service";
+import { SignalSchemasRepository } from "#modules/signals/signal-schemas-repository";
 import { TestSupportService } from "#modules/test-support/service";
 import { TrackersRepository } from "#modules/trackers/repository";
 import { TrackersService } from "#modules/trackers/service";
@@ -116,6 +119,8 @@ const ContentRepositoriesLive = Layer.mergeAll(
 	EventsRepository.Default,
 	RelationshipSchemasRepository.Default,
 	RelationshipsRepository.Default,
+	SignalsRepository.Default,
+	SignalSchemasRepository.Default,
 	TranslationsRepository.Default,
 );
 
@@ -195,6 +200,8 @@ const ContentServicesLive = Layer.mergeAll(
 	EventsServiceLive,
 	QueryEngineServiceLive,
 	RelationshipSchemasService.Default,
+	SignalEmissionService.Default,
+	SignalSchemasService.Default,
 	TranslationsService.Default,
 );
 

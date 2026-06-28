@@ -22,6 +22,13 @@
 			"when": 1784470554847,
 			"tag": "0002_complete_sandbox_cutover",
 			"breakpoints": true
+		},
+		{
+			"idx": 3,
+			"version": "7",
+			"when": 1784547810995,
+			"tag": "0003_magenta_darkhawk",
+			"breakpoints": true
 		}
 	]
 }
