@@ -8,7 +8,7 @@ import type {
 import { SavedViewId, TrackerId, UserId } from "@ryot/contract/schema/brands";
 import { Effect, Exit, Layer } from "effect";
 
-import { type MockOverrides, dbRunnerLayer, transactionLayer } from "#lib/test-support/effect";
+import { type MockOverrides, dbRunnerLayer, transactionLayer } from "#lib/test-utils/effect";
 import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 import { QueryEngineService } from "#modules/query-engine/service";
 

@@ -19,7 +19,7 @@ import {
 	makeWorkflowActivityEngine,
 	makeWorkflowEngine,
 	transactionLayer,
-} from "#lib/test-support/effect";
+} from "#lib/test-utils/effect";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { EventsService } from "#modules/events/service";

@@ -2,7 +2,7 @@ import { expect, it } from "@effect/vitest";
 import { NotificationChannelId, UserId } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
-import { dbRunnerLayer } from "#lib/test-support/effect";
+import { dbRunnerLayer } from "#lib/test-utils/effect";
 
 import { deliverEnabledChannels } from "./deliver-enabled-channels";
 import { NotificationDeliveryService } from "./delivery";
