@@ -106,6 +106,7 @@ export const prepareWorkoutWrites = (
 							metadata: { importRunId: payload.runId },
 						}),
 					),
+					Effect.flatMap(({ failure }) => (failure ? Effect.fail(failure.reason) : Effect.void)),
 					Effect.as({ _tag: "imported" } satisfies NonMediaItemOutcome),
 					Effect.catchAll((error) =>
 						Effect.succeed({

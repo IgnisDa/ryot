@@ -148,7 +148,7 @@ const mockEventsService = Layer.mock(EventsService);
 const makeEventsService = (overrides: MockOverrides<typeof mockEventsService> = {}) =>
 	mockEventsService({
 		_tag: "EventsService",
-		create: () => Effect.succeed({ count: 1 }),
+		create: () => Effect.succeed({ count: 1, outcomes: [], failure: null }),
 		...overrides,
 	});
 
@@ -532,7 +532,7 @@ it.effect("creates remove event on successful membership deletion", () => {
 		create: (input) => {
 			queuedEventCount++;
 			capturedExecutionId = input.executionId;
-			return Effect.succeed({ count: 1 });
+			return Effect.succeed({ count: 1, outcomes: [], failure: null });
 		},
 	});
 

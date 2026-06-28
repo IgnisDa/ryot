@@ -3,7 +3,7 @@ import { Effect, Either, Option, Redacted } from "effect";
 import { describe } from "vitest";
 
 import { getSandboxAppConfigValue } from "./app-config";
-import { normalizePreferences } from "./host-functions";
+import { normalizePreferences, toSandboxCreateEventsResult } from "./host-functions";
 
 const config = {
 	port: 8000,
@@ -75,4 +75,20 @@ describe("normalizePreferences", () => {
 			disableIntegrations: true,
 		});
 	});
+});
+
+describe("toSandboxCreateEventsResult", () => {
+	it.effect("preserves policy failures at the sandbox host boundary", () =>
+		Effect.gen(function* () {
+			const result = yield* Effect.either(
+				toSandboxCreateEventsResult({
+					count: 0,
+					outcomes: [],
+					failure: { index: 0, reason: { kind: "bad_request", message: "Policy failed" } },
+				}),
+			);
+
+			expect(Either.getLeft(result)).toEqual(Option.some("Policy failed"));
+		}),
+	);
 });

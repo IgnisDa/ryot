@@ -103,4 +103,6 @@ Remove explicit return type annotations when TypeScript can trivially infer them
 
 ## Events
 
-- Event writes are fire-and-forget: after a run reports complete its events may not be queryable yet, so readers must poll for them (as the `waitForEventSlugs` test helper does).
+- Public and service-owned event creates await `EventCreateWorkflow` and return its per-item
+  outcomes. Explicit workflow calls using `discard: true` remain fire-and-forget; readers of those
+  paths must poll when they need to observe the resulting events.

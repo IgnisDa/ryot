@@ -111,6 +111,9 @@ const matchesRowOwner = (rule: StoredAutomationRule, rowUserId: UserId | null) =
 	return rule.userId === null && rule.isBuiltin;
 };
 
+const matchesPolicyOwner = (rule: StoredAutomationRule, rowUserId: UserId) =>
+	rule.kind === "policy" && (rule.userId === rowUserId || (rule.userId === null && rule.isBuiltin));
+
 const validateDefinition = Effect.fn(function* (definition: RuleDefinition) {
 	if (!definition.name.trim()) {
 		return yield* badRequest("Automation rule name must be non-empty");
@@ -283,6 +286,24 @@ export class AutomationsService extends Effect.Service<AutomationsService>()("Au
 				}),
 			);
 		});
+
+		const resolveActivePolicies = Effect.fn("AutomationsService.resolveActivePolicies")(
+			function* (input: { userId: UserId; target: AutomationRuleTarget }) {
+				return yield* runWithDb(
+					Effect.gen(function* () {
+						if (!(yield* repository.isUserEnabled(input.userId))) {
+							return [];
+						}
+						const rules = yield* repository.resolveActivePolicies({
+							operation: "create",
+							target: input.target,
+							rowUserId: input.userId,
+						});
+						return rules.filter((rule) => matchesPolicyOwner(rule, input.userId));
+					}),
+				);
+			},
+		);
 
 		const queueRun = Effect.fn("AutomationsService.queueRun")(function* (
 			input: QueueSubscriptionRunInput,
@@ -517,6 +538,7 @@ export class AutomationsService extends Effect.Service<AutomationsService>()("Au
 			createUserRule,
 			deleteUserRule,
 			setUserRuleActive,
+			resolveActivePolicies,
 			listRunsByOriginalRuleId,
 		};
 	}),

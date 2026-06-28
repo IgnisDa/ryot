@@ -5,6 +5,10 @@ import type { WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import type { DbError, SandboxRunError } from "@ryot/contract/errors";
 import { badRequest, unknownToMessage } from "@ryot/contract/errors";
 import type {
+	EventCreateFailureReason,
+	EventCreateItemOutcome,
+} from "@ryot/contract/modules/events/schemas";
+import type {
 	SandboxCompletedResult,
 	SandboxExecutionPayload,
 } from "@ryot/contract/modules/sandbox/schemas";
@@ -16,10 +20,11 @@ import {
 	SandboxScriptId,
 } from "@ryot/contract/schema/brands";
 import { AppSchema } from "@ryot/contract/schema/property-schema";
-import { Context, DateTime, Effect, Layer, Option, Schema } from "effect";
+import { Context, DateTime, Effect, Layer, Schema } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
+import { AutomationsService } from "#modules/automations/service";
 import { LifecycleDispatch } from "#modules/entities/lifecycle-dispatch";
 import { SandboxExecutionQueue } from "#modules/sandbox/durable-queues";
 import { RunSandboxWorkflow } from "#modules/sandbox/sandbox-run-workflow";
@@ -30,20 +35,16 @@ import {
 	EventCreateWorkflowError,
 	type EventCreateWorkflowPayload,
 } from "./event-create-workflow";
+import { type CreatedEventWithContext, resolveEventCreateItemScopes } from "./event-creation";
+import type { EventPolicyDraft } from "./event-policy-engine";
 import {
-	type CreatedEventWithContext,
-	decodeBeforeTriggerResult,
-	resolveEventCreateItemScopes,
-} from "./event-creation";
+	decodeEventPolicyProperties,
+	EventPolicyProperties,
+	PreparedEventPolicy,
+	PreparedLegacyBeforeTrigger,
+	runEventCreatePolicies,
+} from "./event-policy-engine";
 import { EventsRepository } from "./repository";
-
-const beforeTriggerFailed = (detail: string) => badRequest(`Before trigger failed: ${detail}`);
-const invalidBeforeTriggerShape = "Before trigger returned invalid shape";
-
-const PreparedBeforeTrigger = Schema.Struct({
-	id: Schema.String,
-	sandboxScriptId: SandboxScriptId,
-});
 
 const PreparedItem = Schema.Struct({
 	entityId: EntityId,
@@ -57,7 +58,9 @@ const PreparedItem = Schema.Struct({
 	entitySchemaSlug: Schema.String,
 	entitySchemaId: EntitySchemaId,
 	sessionEntityId: Schema.optional(EntityId),
-	beforeTriggers: Schema.Array(PreparedBeforeTrigger),
+	properties: EventPolicyProperties,
+	policies: Schema.Array(PreparedEventPolicy),
+	beforeTriggers: Schema.Array(PreparedLegacyBeforeTrigger),
 });
 
 type PreparedItem = typeof PreparedItem.Type;
@@ -138,6 +141,7 @@ const prepareItem = Effect.fn("prepareEventCreateItem")(function* (
 	item: EventCreateWorkflowPayload["payload"][number],
 ) {
 	const runWithDb = yield* DbRunner;
+	const automations = yield* AutomationsService;
 	const eventsRepository = yield* EventsRepository;
 
 	return yield* Activity.make({
@@ -147,16 +151,29 @@ const prepareItem = Effect.fn("prepareEventCreateItem")(function* (
 		execute: Effect.gen(function* () {
 			const { entityId, entityScope, eventSchemaScope, sessionEntityId, occurredAt } =
 				yield* resolveEventCreateItemScopes({ item, userId: payload.userId });
+			const parsedProperties = yield* parseAppSchemaProperties({
+				kind: "Event",
+				properties: item.properties,
+				propertiesSchema: eventSchemaScope.propertiesSchema,
+			}).pipe(Effect.mapError((error) => badRequest(error.message)));
+			const properties = yield* decodeEventPolicyProperties(parsedProperties);
 
-			const beforeTriggers = yield* runWithDb(
-				eventsRepository.getActiveBeforeCreateTriggers({
+			const [policies, beforeTriggers] = yield* Effect.all([
+				automations.resolveActivePolicies({
 					userId: payload.userId,
-					eventSchemaIds: [eventSchemaScope.id],
+					target: { id: eventSchemaScope.id, kind: "event_schema" },
 				}),
-			);
+				runWithDb(
+					eventsRepository.getActiveBeforeCreateTriggers({
+						userId: payload.userId,
+						eventSchemaIds: [eventSchemaScope.id],
+					}),
+				),
+			]);
 
 			return {
 				entityId,
+				properties,
 				sessionEntityId,
 				eventSchemaId: eventSchemaScope.id,
 				subjectName: entityScope.entityName,
@@ -169,7 +186,14 @@ const prepareItem = Effect.fn("prepareEventCreateItem")(function* (
 				propertiesSchema: eventSchemaScope.propertiesSchema,
 				beforeTriggers: beforeTriggers.map((trigger) => ({
 					id: trigger.id,
+					position: trigger.position,
 					sandboxScriptId: trigger.sandboxScriptId,
+				})),
+				policies: policies.map((policy) => ({
+					id: policy.id,
+					metadata: policy.metadata,
+					position: policy.position ?? 1000,
+					sandboxScriptId: policy.sandboxScriptId,
 				})),
 			} satisfies PreparedItem;
 		}),
@@ -180,33 +204,27 @@ const writeEvent = Effect.fn("writeEventCreateItem")(function* (
 	payload: EventCreateWorkflowPayload,
 	itemIndex: number,
 	prepared: PreparedItem,
-	raw: { properties: unknown; occurredAt: string; sessionEntityId?: EntityId | undefined },
+	draft: EventPolicyDraft,
 ) {
 	const runWithDb = yield* DbRunner;
 	const eventsRepository = yield* EventsRepository;
 
 	return yield* Activity.make({
 		success: CreatedEvent,
-		name: `write-event-${itemIndex}`,
 		error: EventCreateWorkflowError,
+		name: `write-event-${itemIndex}`,
 		execute: Effect.gen(function* () {
-			const properties = yield* parseAppSchemaProperties({
-				kind: "Event",
-				properties: raw.properties,
-				propertiesSchema: prepared.propertiesSchema,
-			}).pipe(Effect.mapError((error) => badRequest(error.message)));
-
 			const createdEvent = yield* runWithDb(
 				eventsRepository.createEvent({
-					properties,
 					userId: payload.userId,
 					entityId: prepared.entityId,
+					properties: draft.properties,
 					eventSchemaId: prepared.eventSchemaId,
-					sessionEntityId: raw.sessionEntityId,
+					sessionEntityId: draft.sessionEntityId,
 					eventSchemaName: prepared.eventSchemaName,
 					eventSchemaSlug: prepared.eventSchemaSlug,
 					id: EventId.make(`${payload.executionId}-event-${itemIndex}`),
-					occurredAt: DateTime.toDate(DateTime.unsafeMake(raw.occurredAt)),
+					occurredAt: DateTime.toDate(DateTime.unsafeMake(draft.occurredAt)),
 				}),
 			);
 
@@ -236,81 +254,6 @@ const resolveAfterTriggers = Effect.fn("resolveEventCreateAfterTriggers")(functi
 			eventsRepository.getActiveAfterCreateTriggers({ userId: payload.userId, eventSchemaIds }),
 		),
 	});
-});
-
-const runBeforeTriggers = Effect.fn(function* (
-	payload: EventCreateWorkflowPayload,
-	itemIndex: number,
-	item: EventCreateWorkflowPayload["payload"][number],
-	prepared: PreparedItem,
-) {
-	const operations = yield* EventCreateWorkflowOperations;
-	const { userId, origin, importRunId, integrationId } = payload;
-
-	let skipped = false;
-	let properties: unknown = item.properties;
-	let occurredAt = prepared.occurredAt;
-	let sessionEntityId = prepared.sessionEntityId;
-
-	for (const trigger of prepared.beforeTriggers) {
-		const context = {
-			trigger: {
-				userId,
-				origin,
-				properties,
-				occurredAt,
-				sessionEntityId,
-				phase: "before_create",
-				entityId: prepared.entityId,
-				eventSchemaId: prepared.eventSchemaId,
-				eventSchemaSlug: prepared.eventSchemaSlug,
-				...(importRunId ? { importRunId } : {}),
-				entitySchemaId: prepared.entitySchemaId,
-				...(integrationId ? { integrationId } : {}),
-				entitySchemaSlug: prepared.entitySchemaSlug,
-			},
-		};
-
-		const sandboxResult = yield* operations
-			.processSandboxExecution({
-				userId,
-				context,
-				driverName: "trigger",
-				scriptId: trigger.sandboxScriptId,
-				executionId: `${payload.executionId}-before-${itemIndex}-${trigger.id}`,
-			})
-			.pipe(Effect.mapError((error) => beforeTriggerFailed(unknownToMessage(error))));
-
-		if (sandboxResult.error) {
-			return yield* beforeTriggerFailed(sandboxResult.error.message);
-		}
-
-		const triggerResult = yield* decodeBeforeTriggerResult(sandboxResult.value).pipe(
-			Effect.mapError(() => badRequest(invalidBeforeTriggerShape)),
-		);
-
-		if (triggerResult.action === "skip") {
-			skipped = true;
-			break;
-		}
-
-		if (triggerResult.action === "replace") {
-			if (triggerResult.body.properties !== undefined) {
-				properties = triggerResult.body.properties;
-			}
-			if (triggerResult.body.occurredAt !== undefined) {
-				const replaced = DateTime.make(triggerResult.body.occurredAt);
-				if (Option.isSome(replaced)) {
-					occurredAt = DateTime.toDate(replaced.value).toISOString();
-				}
-			}
-			if (triggerResult.body.sessionEntityId !== undefined) {
-				sessionEntityId = triggerResult.body.sessionEntityId ?? undefined;
-			}
-		}
-	}
-
-	return { skipped, raw: { properties, occurredAt, sessionEntityId } };
 });
 
 const dispatchAfterTriggers = Effect.fn(function* (
@@ -426,21 +369,59 @@ const dispatchLifecycleOccurrence = Effect.fn("dispatchEventLifecycleOccurrence"
 export const runEventCreateWorkflow = Effect.fn("runEventCreateWorkflow")(function* (
 	payload: EventCreateWorkflowPayload,
 ) {
-	const operations = yield* EventCreateWorkflowOperations;
+	const outcomes: EventCreateItemOutcome[] = [];
 	const createdEvents: CreatedEventWithContext[] = [];
 	const referencedGlobalEntityIds = new Set<EntityId>();
+	const operations = yield* EventCreateWorkflowOperations;
+	let failure: { index: number; reason: EventCreateFailureReason } | null = null;
 
 	for (const [itemIndex, item] of payload.payload.entries()) {
-		const prepared = yield* prepareItem(payload, itemIndex, item);
-		const { skipped, raw } = yield* runBeforeTriggers(payload, itemIndex, item, prepared);
-		if (skipped) {
+		const attempt = yield* Effect.gen(function* () {
+			const prepared = yield* prepareItem(payload, itemIndex, item);
+			const policyResult = yield* runEventCreatePolicies(
+				payload,
+				itemIndex,
+				prepared,
+				operations.processSandboxExecution,
+			);
+			return { policyResult, prepared, kind: "prepared" as const };
+		}).pipe(
+			Effect.catchTags({
+				BadRequest: (error) =>
+					Effect.succeed({
+						kind: "failed" as const,
+						reason: { kind: "bad_request" as const, message: error.message },
+					}),
+				NotFound: (error) =>
+					Effect.succeed({
+						kind: "failed" as const,
+						reason: { kind: "not_found" as const, message: error.message },
+					}),
+			}),
+		);
+		if (attempt.kind === "failed") {
+			failure = { index: itemIndex, reason: attempt.reason };
+			break;
+		}
+		if (attempt.policyResult.kind === "skipped") {
+			outcomes.push({
+				index: itemIndex,
+				status: "skipped_by_policy",
+				reason: attempt.policyResult.reason,
+			});
 			continue;
 		}
 
-		const createdEvent = yield* writeEvent(payload, itemIndex, prepared, raw);
+		const createdEvent = yield* writeEvent(
+			payload,
+			itemIndex,
+			attempt.prepared,
+			attempt.policyResult.draft,
+		);
 		if (createdEvent.isGlobalReference) {
 			referencedGlobalEntityIds.add(createdEvent.entityId);
 		}
+		outcomes.push({ index: itemIndex, eventId: createdEvent.id, status: "written" });
 		createdEvents.push(toCreatedEventWithContext(createdEvent));
 		yield* dispatchLifecycleOccurrence(payload, itemIndex, createdEvent);
 	}
@@ -464,7 +445,7 @@ export const runEventCreateWorkflow = Effect.fn("runEventCreateWorkflow")(functi
 		{ discard: true },
 	);
 
-	return { count: createdEvents.length };
+	return { failure, outcomes, count: createdEvents.length };
 });
 
 const EventCreateWorkflowLive = EventCreateWorkflow.toLayer((payload) =>

@@ -120,7 +120,7 @@ const makeEventSchemasRepository = (
 
 const makeEventsService = (overrides: MockOverrides<typeof mockEventsService> = {}) =>
 	mockEventsService({
-		create: () => Effect.succeed({ count: 1 }),
+		create: () => Effect.succeed({ count: 1, outcomes: [], failure: null }),
 		...overrides,
 		_tag: "EventsService",
 	});
@@ -419,7 +419,11 @@ it.effect("orchestrates workout imports through workflow-owned phases", () => {
 		eventsService: makeEventsService({
 			create: (input) => {
 				eventCalls.push(input.payload as ReadonlyArray<Record<string, unknown>>);
-				return Effect.succeed({ count: input.payload.length });
+				return Effect.succeed({
+					count: input.payload.length,
+					outcomes: [],
+					failure: null,
+				});
 			},
 		}),
 		importsService: makeImportsService({

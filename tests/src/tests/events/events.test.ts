@@ -67,12 +67,16 @@ describe("Events bulk POST", () => {
 		);
 		expect(optionalResult.count).toBe(1);
 
-		const rejectedError = await apiClient.runError((c) =>
+		const rejectedResult = await apiClient.run((c) =>
 			c.events.create({
 				payload: [{ entityId, eventSchemaId, properties: { status: "completed" } }],
 			}),
 		);
-		assertTaggedError(rejectedError, "BadRequest");
+		expect(rejectedResult).toMatchObject({
+			count: 0,
+			outcomes: [],
+			failure: { index: 0, reason: { kind: "bad_request" } },
+		});
 
 		const acceptedResult = await apiClient.run((c) =>
 			c.events.create({
