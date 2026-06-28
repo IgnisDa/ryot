@@ -4,7 +4,7 @@ import {
 	type AutomationOrigin as AutomationOriginValue,
 } from "@ryot/contract/modules/automations/schemas";
 import { EntityId, SignalId, SignalSchemaId, UserId } from "@ryot/contract/schema/brands";
-import { and, asc, eq, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, isNull } from "drizzle-orm";
 import { Effect, Schema } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
@@ -101,6 +101,30 @@ export class SignalsRepository extends Effect.Service<SignalsRepository>()("Sign
 			return rows.map((row) => UserId.make(row.userId));
 		});
 
+		const listBySchemaSlug = Effect.fn("SignalsRepository.listBySchemaSlug")(function* (input: {
+			schemaSlug: string;
+			actorUserId?: UserId | undefined;
+			subjectEntityId?: EntityId | undefined;
+		}) {
+			const db = yield* CurrentDb;
+			const conditions = [eq(schema.signalSchema.slug, input.schemaSlug)];
+			if (input.actorUserId) {
+				conditions.push(eq(schema.signal.actorUserId, input.actorUserId));
+			}
+			if (input.subjectEntityId) {
+				conditions.push(eq(schema.signal.subjectEntityId, input.subjectEntityId));
+			}
+			const rows = yield* dbEffect(() =>
+				db
+					.select({ signal: schema.signal })
+					.from(schema.signal)
+					.innerJoin(schema.signalSchema, eq(schema.signalSchema.id, schema.signal.signalSchemaId))
+					.where(and(...conditions))
+					.orderBy(desc(schema.signal.createdAt)),
+			);
+			return yield* Effect.forEach(rows, (row) => toStoredSignal(row.signal));
+		});
+
 		const isUserEnabled = Effect.fn("SignalsRepository.isUserEnabled")(function* (userId: UserId) {
 			const db = yield* CurrentDb;
 			const [row] = yield* dbEffect(() =>
@@ -113,6 +137,13 @@ export class SignalsRepository extends Effect.Service<SignalsRepository>()("Sign
 			return row !== undefined;
 		});
 
-		return { insert, findById, isUserEnabled, insertRecipients, listRecipientUserIds };
+		return {
+			insert,
+			findById,
+			isUserEnabled,
+			insertRecipients,
+			listBySchemaSlug,
+			listRecipientUserIds,
+		};
 	},
 }) {}

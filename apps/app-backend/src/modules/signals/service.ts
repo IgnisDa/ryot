@@ -133,6 +133,41 @@ export class SignalSchemasService extends Effect.Service<SignalSchemasService>()
 	},
 ) {}
 
+export type SignalListFilter = {
+	schemaSlug: string;
+	actorUserId?: UserId | undefined;
+	subjectEntityId?: EntityId | undefined;
+};
+
+export class SignalsService extends Effect.Service<SignalsService>()("SignalsService", {
+	effect: Effect.gen(function* () {
+		const runWithDb = yield* DbRunner;
+		const repository = yield* SignalsRepository;
+
+		const list = Effect.fn("SignalsService.list")(function* (filter: SignalListFilter) {
+			return yield* runWithDb(
+				Effect.gen(function* () {
+					const signals = yield* repository.listBySchemaSlug(filter);
+					return yield* Effect.forEach(signals, (signal) =>
+						Effect.gen(function* () {
+							const recipientUserIds = yield* repository.listRecipientUserIds(signal.id);
+							return {
+								id: signal.id,
+								recipientUserIds,
+								createdAt: signal.createdAt,
+								actorUserId: signal.actorUserId,
+								subjectEntityId: signal.subjectEntityId,
+							};
+						}),
+					);
+				}),
+			);
+		});
+
+		return { list };
+	}),
+}) {}
+
 export class SignalEmissionService extends Effect.Service<SignalEmissionService>()(
 	"SignalEmissionService",
 	{

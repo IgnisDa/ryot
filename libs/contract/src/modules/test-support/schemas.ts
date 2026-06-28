@@ -6,6 +6,8 @@ import {
 	RelationshipId,
 	RelationshipSchemaId,
 	SandboxScriptId,
+	SignalId,
+	UserId,
 } from "../../schema/brands";
 import { SandboxScriptMetadata } from "../sandbox/schemas";
 
@@ -28,6 +30,14 @@ export const TestSupportGlobalRelationship = Schema.Struct({
 	createdAt: Schema.String,
 	properties: Schema.Unknown,
 	relationshipSchemaId: RelationshipSchemaId,
+});
+
+export const TestSupportSignal = Schema.Struct({
+	id: SignalId,
+	createdAt: Schema.String,
+	actorUserId: Schema.NullOr(UserId),
+	recipientUserIds: Schema.Array(UserId),
+	subjectEntityId: Schema.NullOr(EntityId),
 });
 
 export const TestSupportBuiltinEntitySchema = Schema.Struct({
