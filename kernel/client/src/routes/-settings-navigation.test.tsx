@@ -1,3 +1,4 @@
+import type { UpdateUserPreferencesBody } from "@ryot-app/contract/modules/user-settings/schemas";
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -6,6 +7,7 @@ import { describe, expect, it } from "vitest";
 
 import { KernelApiTestLayer } from "#/api/ports.test-layer";
 import { PublicApi, PublicApiError } from "#/api/public";
+import type { UserSettingsApi } from "#/api/user-settings";
 import type { AuthService } from "#/modules/auth/service";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
 import { ArtifactSessions } from "#/modules/plugins/artifact-sessions";
@@ -22,6 +24,7 @@ import {
 	ServerStub,
 	makeAuthStub,
 	authenticated,
+	userSettings,
 	OAuthRouteStubs,
 	makeStorageStub,
 	unauthenticated,
@@ -31,7 +34,9 @@ import {
 	SavedViewRouteStubs,
 	NavigationRouteStubs,
 	ProviderAddRouteStubs,
+	makeOAuthRouteStubs,
 	makeWorkspaceRecorder,
+	makeUserSettingsStub,
 } from "#/routes/-route-fixtures";
 
 const AuthStub = makeAuthStub();
@@ -43,6 +48,8 @@ const mountView = (
 	authLayer: Layer.Layer<AuthService> = AuthStub,
 	publicLayer = makePublicApiStub(),
 	storage: ClientStorage["Service"] = makeStorageStub(rememberedSlug),
+	userSettingsLayer: Layer.Layer<UserSettingsApi> = makeUserSettingsStub(),
+	oauthLayer = OAuthRouteStubs,
 ) => {
 	const events = makePluginCatalogEventsTestLayer();
 	const runtime = ManagedRuntime.make(
@@ -54,6 +61,7 @@ const mountView = (
 			SavedViewRouteStubs,
 			publicLayer,
 			KernelApiTestLayer,
+			userSettingsLayer,
 			events.layer,
 			Layer.succeed(ArtifactSessions, {
 				renew: () => Effect.die("not used"),
@@ -71,7 +79,7 @@ const mountView = (
 			Layer.succeed(PluginOperationsService, { invoke: () => Effect.die("not used") }),
 			Layer.succeed(PluginQueriesService, { query: () => Effect.die("not used") }),
 		).pipe(
-			Layer.provideMerge(OAuthRouteStubs),
+			Layer.provideMerge(oauthLayer),
 			Layer.provideMerge(Layer.succeed(ClientStorage, storage)),
 		),
 	);
@@ -293,7 +301,7 @@ describe("settings navigation", () => {
 });
 
 describe("account settings", () => {
-	it("renders the current identity: name, email, user ID, and server origin", async () => {
+	it("renders the current identity: name, email, and user ID", async () => {
 		mountView("/settings/account");
 		await screen.findByRole("heading", { name: "Account" });
 
@@ -302,7 +310,7 @@ describe("account settings", () => {
 		expect(profile?.textContent).toContain("Test User");
 		expect(profile?.textContent).toContain("user@ryot.example");
 		expect(profile?.textContent).toContain("ID: user-1");
-		expect(profile?.textContent).toContain("https://ryot.example");
+		expect(profile?.textContent).not.toContain("https://ryot.example");
 	});
 
 	it("opens standalone God Mode from the server administration card", async () => {
@@ -322,7 +330,105 @@ describe("account settings", () => {
 		expect(screen.queryByTitle("fixture plugin")).toBeNull();
 	});
 
-	it("disables both actions while sign out is pending and navigates to /auth on success", async () => {
+	it("names the connected server on native and points at sign out to change it", async () => {
+		mountView(
+			"/settings/account",
+			undefined,
+			undefined,
+			undefined,
+			undefined,
+			undefined,
+			undefined,
+			makeOAuthRouteStubs({}, {}, { isNative: true }),
+		);
+		await screen.findByRole("heading", { name: "Account" });
+
+		const section = screen.getByRole("heading", { name: "Server" }).closest("section");
+		expect(section?.textContent).toContain("https://ryot.example");
+		expect(section?.textContent).toContain(
+			"Sign out to connect this device to a different server.",
+		);
+	});
+
+	it("hides the server section on web, where the origin cannot be changed", async () => {
+		mountView("/settings/account");
+		await screen.findByRole("heading", { name: "Account" });
+
+		expect(screen.queryByRole("heading", { name: "Server" })).toBeNull();
+	});
+
+	it("generates a new avatar and forces the session to refresh", async () => {
+		const refreshes: boolean[] = [];
+		const generated: string[] = [];
+		mountView(
+			"/settings/account",
+			undefined,
+			undefined,
+			makeAuthStub({
+				settledSession: (_origin, forceRefresh = false) =>
+					Effect.sync(() => {
+						refreshes.push(forceRefresh);
+						return authenticated;
+					}),
+			}),
+			undefined,
+			undefined,
+			makeUserSettingsStub({
+				refreshAvatar: () =>
+					Effect.sync(() => {
+						generated.push("https://ryot.example/avatar.png");
+						return { image: "https://ryot.example/avatar.png" };
+					}),
+			}),
+		);
+		await screen.findByRole("heading", { name: "Account" });
+
+		fireEvent.click(screen.getByRole("button", { name: "New avatar" }));
+
+		await waitFor(() => expect(refreshes).toContain(true));
+		expect(generated).toEqual(["https://ryot.example/avatar.png"]);
+	});
+
+	it("disables the avatar action while it is pending", async () => {
+		const gate = Effect.runSync(Deferred.make<{ image: string }>());
+		mountView(
+			"/settings/account",
+			undefined,
+			undefined,
+			undefined,
+			undefined,
+			undefined,
+			makeUserSettingsStub({ refreshAvatar: () => Deferred.await(gate) }),
+		);
+		await screen.findByRole("heading", { name: "Account" });
+
+		fireEvent.click(screen.getByRole("button", { name: "New avatar" }));
+
+		const pending = await screen.findByRole("button", { name: "Generating..." });
+		expect(pending.hasAttribute("disabled")).toBe(true);
+		await Effect.runPromise(Deferred.succeed(gate, { image: "https://ryot.example/avatar.png" }));
+		await screen.findByRole("button", { name: "New avatar" });
+	});
+
+	it("reports a failed avatar generation and leaves the action available", async () => {
+		mountView(
+			"/settings/account",
+			undefined,
+			undefined,
+			undefined,
+			undefined,
+			undefined,
+			makeUserSettingsStub({ refreshAvatar: () => Effect.die("avatar generation failed") }),
+		);
+		await screen.findByRole("heading", { name: "Account" });
+
+		fireEvent.click(screen.getByRole("button", { name: "New avatar" }));
+
+		await screen.findByText("Could not generate a new avatar. Try again.");
+		expect(screen.getByRole("button", { name: "New avatar" }).hasAttribute("disabled")).toBe(false);
+	});
+
+	it("disables sign out while it is pending and navigates to /auth on success", async () => {
 		const gate = Effect.runSync(Deferred.make<boolean>());
 		const view = mountView(
 			"/settings/account",
@@ -333,13 +439,8 @@ describe("account settings", () => {
 		await screen.findByRole("heading", { name: "Account" });
 
 		fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
-		await screen.findByRole("button", { name: "Signing out…" });
-		expect(screen.getByRole("button", { name: "Signing out…" }).hasAttribute("disabled")).toBe(
-			true,
-		);
-		expect(screen.getByRole("button", { name: "Change server" }).hasAttribute("disabled")).toBe(
-			true,
-		);
+		const pending = await screen.findByRole("button", { name: "Signing out..." });
+		expect(pending.hasAttribute("disabled")).toBe(true);
 
 		await Effect.runPromise(Deferred.succeed(gate, false));
 		await waitFor(() => expect(view.router.state.location.pathname).toBe("/auth"));
@@ -356,50 +457,107 @@ describe("account settings", () => {
 
 		fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
 
-		await screen.findByRole("alert");
-		expect(screen.getByRole("alert").textContent).toBe("Could not sign out.");
+		await screen.findByText("Could not sign out.");
 		expect(view.router.state.location.pathname).toBe("/settings/account");
 		expect(screen.getByRole("button", { name: "Sign out" }).hasAttribute("disabled")).toBe(false);
 	});
+});
 
-	it("disables both actions while changing server is pending and navigates to /onboarding on success", async () => {
-		const gate = Effect.runSync(Deferred.make<void>());
-		const view = mountView(
-			"/settings/account",
+describe("preferences settings", () => {
+	const mountPreferences = (userSettingsLayer = makeUserSettingsStub()) =>
+		mountView(
+			"/settings/preferences",
 			undefined,
 			undefined,
-			makeAuthStub({ changeServer: () => Deferred.await(gate) }),
+			undefined,
+			undefined,
+			undefined,
+			userSettingsLayer,
 		);
-		await screen.findByRole("heading", { name: "Account" });
 
-		fireEvent.click(screen.getByRole("button", { name: "Change server" }));
-		await screen.findByRole("button", { name: "Changing server…" });
-		expect(screen.getByRole("button", { name: "Changing server…" }).hasAttribute("disabled")).toBe(
-			true,
-		);
-		expect(screen.getByRole("button", { name: "Sign out" }).hasAttribute("disabled")).toBe(true);
+	it("renders appearance beside the server-backed preferences", async () => {
+		mountPreferences();
+		await screen.findByRole("heading", { name: "Content and data" });
 
-		await Effect.runPromise(Deferred.succeed(gate, undefined));
-		await waitFor(() => expect(view.router.state.location.pathname).toBe("/onboarding"));
+		expect(screen.getByRole("radiogroup", { name: "Appearance" })).not.toBeNull();
+		expect(screen.getByRole("switch", { name: "Show NSFW content" })).not.toBeNull();
+		expect(screen.getByRole("switch", { name: "Disable integrations" })).not.toBeNull();
+		expect(
+			screen.getByRole("button", { name: "Metadata language: Provider default" }),
+		).not.toBeNull();
 	});
 
-	it("stays put and renders a stable failure message when changing server fails", async () => {
-		const view = mountView(
-			"/settings/account",
-			undefined,
-			undefined,
-			makeAuthStub({ changeServer: () => Effect.die("change server failed") }),
+	it("submits only the changed preferences and reports the save", async () => {
+		const saved: UpdateUserPreferencesBody[] = [];
+		mountPreferences(
+			makeUserSettingsStub({
+				updatePreferences: (_scope, request) =>
+					Effect.sync(() => {
+						saved.push(request.payload);
+						return { ...userSettings.preferences, ...request.payload };
+					}),
+			}),
 		);
-		await screen.findByRole("heading", { name: "Account" });
+		await screen.findByRole("heading", { name: "Content and data" });
+		const submit = screen.getByRole("button", { name: "Save changes" });
+		expect(submit.hasAttribute("disabled")).toBe(true);
 
-		fireEvent.click(screen.getByRole("button", { name: "Change server" }));
+		fireEvent.click(screen.getByRole("switch", { name: "Show NSFW content" }));
+		expect(submit.hasAttribute("disabled")).toBe(false);
+		fireEvent.click(submit);
 
-		await screen.findByRole("alert");
-		expect(screen.getByRole("alert").textContent).toBe("Could not change server.");
-		expect(view.router.state.location.pathname).toBe("/settings/account");
-		expect(screen.getByRole("button", { name: "Change server" }).hasAttribute("disabled")).toBe(
+		await screen.findByText("Preferences saved.");
+		expect(saved).toEqual([{ allowNsfw: true }]);
+		expect(screen.getByRole("button", { name: "Save changes" }).hasAttribute("disabled")).toBe(
+			true,
+		);
+	});
+
+	it("submits a metadata language picked from the options", async () => {
+		const saved: UpdateUserPreferencesBody[] = [];
+		mountPreferences(
+			makeUserSettingsStub({
+				updatePreferences: (_scope, request) =>
+					Effect.sync(() => {
+						saved.push(request.payload);
+						return { ...userSettings.preferences, ...request.payload };
+					}),
+			}),
+		);
+		await screen.findByRole("heading", { name: "Content and data" });
+
+		fireEvent.click(screen.getByRole("button", { name: "Metadata language: Provider default" }));
+		fireEvent.click(screen.getByRole("radio", { name: "Spanish" }));
+		fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+		await screen.findByText("Preferences saved.");
+		expect(saved).toEqual([{ language: "es" }]);
+	});
+
+	it("keeps the edit available and explains a failed save", async () => {
+		mountPreferences(
+			makeUserSettingsStub({ updatePreferences: () => Effect.die("preference update failed") }),
+		);
+		await screen.findByRole("heading", { name: "Content and data" });
+
+		fireEvent.click(screen.getByRole("switch", { name: "Disable integrations" }));
+		fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+		await screen.findByText("Could not save preferences. Try again.");
+		expect(
+			screen.getByRole("switch", { name: "Disable integrations" }).getAttribute("aria-checked"),
+		).toBe("true");
+		expect(screen.getByRole("button", { name: "Save changes" }).hasAttribute("disabled")).toBe(
 			false,
 		);
+	});
+
+	it("keeps appearance usable when the settings request fails", async () => {
+		mountPreferences(makeUserSettingsStub({ get: () => Effect.die("settings unavailable") }));
+		await screen.findByRole("heading", { name: "Preferences" });
+
+		expect(screen.getByRole("radiogroup", { name: "Appearance" })).not.toBeNull();
+		await screen.findByText("Could not load your settings. Check the server and try again.");
 	});
 });
 

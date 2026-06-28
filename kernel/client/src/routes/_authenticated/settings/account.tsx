@@ -1,8 +1,13 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
+import { Effect } from "effect";
+import { useEffect, useRef } from "react";
 
+import { UserSettingsApi } from "#/api/user-settings";
+import { RuntimeOAuthClientService } from "#/modules/auth/runtime-client";
 import { AuthService } from "#/modules/auth/service";
 import { AppIcon } from "#/modules/navigation/app-icon";
 import { AccountProfile } from "#/modules/settings/account-profile";
+import { AccountServer } from "#/modules/settings/account-server";
 import { AccountSession } from "#/modules/settings/account-session";
 import { SettingsFrame } from "#/modules/settings/settings-frame";
 import { SettingsSection } from "#/modules/settings/settings-section";
@@ -12,13 +17,25 @@ export const Route = createFileRoute("/_authenticated/settings/account")({
 });
 
 function AccountRoute() {
-	const { runtime, server } = Route.useRouteContext();
+	const { runtime, scope, server } = Route.useRouteContext();
 	const auth = runtime.runSync(AuthService);
+	const { isNative } = runtime.runSync(RuntimeOAuthClientService);
+	const controller = useRef(new AbortController());
+	useEffect(() => () => controller.current.abort(), []);
+
+	const generateAvatar = () =>
+		runtime.runPromise(
+			Effect.flatMap(UserSettingsApi, (api) => api.refreshAvatar(scope)).pipe(
+				Effect.flatMap(() => auth.settledSession(server, true)),
+				Effect.as(undefined),
+			),
+			{ signal: controller.current.signal },
+		);
 
 	return (
 		<SettingsFrame title="Account" backFallbackHref="/settings">
 			<div className="flex flex-col gap-8">
-				<AccountProfile server={server} session={auth.session(server)} />
+				<AccountProfile session={auth.session(server)} onGenerateAvatar={generateAvatar} />
 				<SettingsSection
 					title="Server administration"
 					detail="Manage server-wide data and operations."
@@ -39,6 +56,7 @@ function AccountRoute() {
 						<AppIcon name="chevron-right" className="shrink-0 text-text-subtle" />
 					</Link>
 				</SettingsSection>
+				{isNative && <AccountServer server={server} />}
 				<AccountSession runtime={runtime} server={server} />
 			</div>
 		</SettingsFrame>
