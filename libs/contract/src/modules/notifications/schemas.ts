@@ -2,7 +2,7 @@ import { Schema } from "effect";
 
 import { NotificationChannelId } from "../../schema/brands";
 import { Email, HttpUrl } from "../../schema/utils";
-import { NotificationChannelKind, NotificationEventType } from "./types";
+import { NotificationChannelKind } from "./types";
 
 const AppriseSpecifics = Schema.Struct({
 	baseUrl: HttpUrl,
@@ -79,7 +79,6 @@ export const ListedNotificationChannel = Schema.Struct({
 	id: NotificationChannelId,
 	isDisabled: Schema.Boolean,
 	channel: NotificationChannelKind,
-	configuredEvents: Schema.Array(NotificationEventType),
 });
 
 export type ListedNotificationChannel = typeof ListedNotificationChannel.Type;
@@ -88,14 +87,12 @@ export const CreateNotificationChannelBody = Schema.Struct({
 	channel: NotificationChannelKind,
 	channelSpecifics: NotificationChannelSpecifics,
 	isDisabled: Schema.optional(Schema.Boolean),
-	configuredEvents: Schema.optional(Schema.Array(NotificationEventType)),
 });
 
 export type CreateNotificationChannelBody = typeof CreateNotificationChannelBody.Type;
 
 export const UpdateNotificationChannelBody = Schema.Struct({
 	isDisabled: Schema.optional(Schema.Boolean),
-	configuredEvents: Schema.optional(Schema.Array(NotificationEventType)),
 });
 
 export type UpdateNotificationChannelBody = typeof UpdateNotificationChannelBody.Type;

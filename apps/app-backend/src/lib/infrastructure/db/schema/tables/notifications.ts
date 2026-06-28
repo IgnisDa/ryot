@@ -1,8 +1,5 @@
 import type { NotificationChannelSpecifics } from "@ryot/contract/modules/notifications/schemas";
-import type {
-	NotificationChannelKind,
-	NotificationEventType,
-} from "@ryot/contract/modules/notifications/types";
+import type { NotificationChannelKind } from "@ryot/contract/modules/notifications/types";
 import { generateId } from "better-auth";
 import { index, jsonb, pgTable, text, timestamp, boolean } from "drizzle-orm/pg-core";
 
@@ -15,7 +12,6 @@ export const notificationChannel = pgTable(
 		channel: text("platform").notNull().$type<NotificationChannelKind>(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		channelSpecifics: jsonb("platform_specifics").notNull().$type<NotificationChannelSpecifics>(),
-		configuredEvents: text().array().notNull().$type<NotificationEventType[]>(),
 		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
