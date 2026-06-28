@@ -30,6 +30,7 @@ import {
 	makeOAuthRouteStubs,
 	NavigationRouteStubs,
 	ProviderAddRouteStubs,
+	ImportsRouteStubs,
 	IntegrationRouteStubs,
 } from "#/routes/-route-fixtures";
 
@@ -57,6 +58,7 @@ const makeView = (
 	const runtime = ManagedRuntime.make(
 		Layer.mergeAll(
 			ProviderAddRouteStubs,
+			ImportsRouteStubs,
 			IntegrationRouteStubs,
 			makeAuthStub({ settledSession: () => Effect.die("OAuth guard must not run") }),
 			GodModeRouteStubs,

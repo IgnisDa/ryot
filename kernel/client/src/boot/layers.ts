@@ -3,6 +3,7 @@ import { Layer } from "effect";
 import { AdminApi } from "#/api/admin";
 import { AuthenticatedApi } from "#/api/authenticated";
 import { GodModeApi } from "#/api/god-mode";
+import { ImportsApi } from "#/api/imports";
 import { IntegrationsApi } from "#/api/integrations";
 import { PluginsApi } from "#/api/plugins";
 import { ProviderEntitiesApi } from "#/api/provider-entities";
@@ -20,6 +21,7 @@ import { AuthService } from "#/modules/auth/service";
 import { OAuthTokenService } from "#/modules/auth/token-service";
 import { GodModeService } from "#/modules/god-mode/service";
 import { GodModeSessionService } from "#/modules/god-mode/session";
+import { ImportsService } from "#/modules/imports/service";
 import { IntegrationsService } from "#/modules/integrations/service";
 import { CustomizeSidebarService } from "#/modules/navigation/customize/service";
 import { NavigationService } from "#/modules/navigation/service";
@@ -44,6 +46,7 @@ const InfrastructureLive = Layer.mergeAll(
 	RyotQLApi.layer,
 	UploadsApi.layer,
 	PluginsApi.layer,
+	ImportsApi.layer,
 	GodModeApi.layer,
 	SavedViewsApi.layer,
 	UserSettingsApi.layer,
@@ -91,6 +94,7 @@ export const ClientLive = Layer.mergeAll(
 	PluginQueriesService.layer,
 	SavedViewsService.layer,
 	ProviderAddService.layer,
+	ImportsService.layer,
 	IntegrationsService.layer,
 	OAuthTokenLive,
 	RuntimeOAuthClientService.layer,

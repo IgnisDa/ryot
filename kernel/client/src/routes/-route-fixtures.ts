@@ -18,6 +18,7 @@ import { AuthService } from "#/modules/auth/service";
 import { OAuthTokenService } from "#/modules/auth/token-service";
 import { GodModeService } from "#/modules/god-mode/service";
 import { GodModeSessionService, makeGodModeSessionService } from "#/modules/god-mode/session";
+import { ImportsService } from "#/modules/imports/service";
 import { IntegrationsService } from "#/modules/integrations/service";
 import { CustomizeSidebarService } from "#/modules/navigation/customize/service";
 import { NavigationService } from "#/modules/navigation/service";
@@ -224,6 +225,15 @@ export const SavedViewRouteStubs = Layer.mergeAll(
 		loadRecord: () => Effect.die("not used"),
 	}),
 );
+
+export const makeImportsStub = (overrides: Partial<ImportsService["Service"]> = {}) =>
+	Layer.succeed(ImportsService, {
+		loadRun: () => Effect.die("not used"),
+		loadRuns: () => Effect.die("not used"),
+		...overrides,
+	});
+
+export const ImportsRouteStubs = makeImportsStub();
 
 export const makeIntegrationsStub = (overrides: Partial<IntegrationsService["Service"]> = {}) =>
 	Layer.succeed(IntegrationsService, {

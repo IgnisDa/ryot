@@ -39,6 +39,7 @@ import {
 	SavedViewRouteStubs,
 	NavigationRouteStubs,
 	ProviderAddRouteStubs,
+	ImportsRouteStubs,
 	IntegrationRouteStubs,
 	makeIntegrationsStub,
 	makeUserSettingsStub,
@@ -190,6 +191,7 @@ const mountView = (
 	const runtime = ManagedRuntime.make(
 		Layer.mergeAll(
 			ProviderAddRouteStubs,
+			ImportsRouteStubs,
 			AuthStub,
 			GodModeRouteStubs,
 			ServerStub,

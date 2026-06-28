@@ -2,23 +2,12 @@ import {
 	SchemaForm,
 	type SchemaFileUpload,
 	type SchemaFormApi,
-	type SchemaFormIcons,
 	type SchemaFormMode,
 } from "@ryot-app/client-ui-sdk/schema-form";
 import type { ListedIntegrationProvider } from "@ryot-app/contract/modules/integrations/schemas";
 
 import { integrationLotDetail } from "#/modules/integrations/provider-selection";
-import { AppIcon } from "#/modules/navigation/app-icon";
-
-const schemaFormIcons: SchemaFormIcons = {
-	close: <AppIcon name="x" size={14} />,
-	check: <AppIcon name="check" size={14} />,
-	upload: <AppIcon name="upload" size={15} />,
-	search: <AppIcon name="search" size={15} />,
-	remove: <AppIcon name="trash-2" size={14} />,
-	file: <AppIcon name="file-text" size={15} />,
-	chevron: <AppIcon name="chevron-down" size={15} />,
-};
+import { schemaFormIcons } from "#/modules/ui/schema-form-icons";
 
 export function IntegrationSettingsForm(props: {
 	readonly mode: SchemaFormMode;
