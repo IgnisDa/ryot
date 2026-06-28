@@ -9,6 +9,8 @@ import { Result, Schema } from "effect";
 
 export type { RyotClientErrorReason } from "@ryot/contract/modules/plugins/client";
 
+export type RyotThemeSnapshot = PluginThemeSnapshotValue;
+
 export class RyotClientError extends Error {
 	readonly reason: RyotClientErrorReason;
 
