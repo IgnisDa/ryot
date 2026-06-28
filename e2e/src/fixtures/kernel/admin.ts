@@ -1,7 +1,7 @@
-export const ADMIN_TOKEN = "test-admin-token";
+import { getAdminAccessToken } from "~/support/harness-target";
 
-export const adminAccessTokenHeaders = (token = ADMIN_TOKEN) => ({
+export const adminAccessTokenHeaders = (token: string) => ({
 	"Admin-Access-Token": token,
 });
 
-export const adminHeaders = adminAccessTokenHeaders();
+export const adminHeaders = () => adminAccessTokenHeaders(getAdminAccessToken());

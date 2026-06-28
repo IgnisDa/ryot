@@ -23,7 +23,7 @@ export const seedEntityTranslation = (input: {
 					entityId: EntityId.make(input.entityId),
 				},
 			}),
-		adminHeaders,
+		adminHeaders(),
 	);
 
 export const getEntityTranslationRow = (input: { entityId: string; language: string }) =>
@@ -33,7 +33,7 @@ export const getEntityTranslationRow = (input: { entityId: string; language: str
 				c.testSupport.listEntityTranslations({
 					params: { entityId: EntityId.make(input.entityId) },
 				}),
-			adminHeaders,
+			adminHeaders(),
 		);
 		return rows.find((row) => row.language === input.language) ?? null;
 	});
@@ -43,7 +43,7 @@ export const countEntityTranslations = (entityId: string) =>
 		const rows = yield* getApiClient().call(
 			(c) =>
 				c.testSupport.listEntityTranslations({ params: { entityId: EntityId.make(entityId) } }),
-			adminHeaders,
+			adminHeaders(),
 		);
 		return rows.length;
 	});

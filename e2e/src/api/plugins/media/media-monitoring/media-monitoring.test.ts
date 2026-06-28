@@ -126,7 +126,7 @@ beforeAll(async () => {
 						params: { entityId: EntityId.make(apiEntityId) },
 						payload: { populatedAt: new Date().toISOString() },
 					}),
-				adminHeaders,
+				adminHeaders(),
 			);
 		}),
 	);
@@ -150,7 +150,7 @@ afterAll(async () => {
 								],
 							},
 						}),
-					adminHeaders,
+					adminHeaders(),
 				);
 			}
 		}),

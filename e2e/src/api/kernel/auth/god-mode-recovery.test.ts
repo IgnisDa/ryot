@@ -2,8 +2,8 @@ import { UserId } from "@ryot-app/contract/schema/brands";
 import { DateTime, Effect } from "effect";
 
 import {
-	ADMIN_TOKEN,
 	adminAccessTokenHeaders,
+	adminHeaders,
 	createApiKey,
 	createTestAuthClient,
 	createTestUser,
@@ -11,9 +11,9 @@ import {
 	refreshOAuthTokens,
 	signInWithPassword,
 } from "~/fixtures/kernel";
-import { getApiUrl } from "~/support/api";
 import { assertPresent, assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
+import { getApiUrl } from "~/support/harness-target";
 
 const WRONG_TOKEN = "wrong-token";
 const godModeListQuery = (search?: string) => ({
@@ -28,7 +28,7 @@ const getUserIdByEmail = (email: string) =>
 	Effect.gen(function* () {
 		const data = yield* getApiClient().call(
 			(c) => c.godMode.listUsers({ query: godModeListQuery(email) }),
-			adminAccessTokenHeaders(ADMIN_TOKEN),
+			adminHeaders(),
 		);
 		const user = data.users[0];
 		assertPresent(user, "missing user row");
@@ -40,7 +40,7 @@ const createNoAccountUser = (name: string) =>
 		const email = `${name.toLowerCase()}-${uniqueTimestamp()}@example.com`;
 		const { userId } = yield* getApiClient().call(
 			(c) => c.godMode.provisionUser({ payload: { provider: "credential", email, name } }),
-			adminAccessTokenHeaders(ADMIN_TOKEN),
+			adminHeaders(),
 		);
 		return { email, userId: UserId.make(userId) };
 	});
@@ -58,7 +58,7 @@ const createOidcUser = (name: string) =>
 						oidcIssuerId: `oidc-sub-${uniqueTimestamp()}`,
 					},
 				}),
-			adminAccessTokenHeaders(ADMIN_TOKEN),
+			adminHeaders(),
 		);
 		return { email, userId: UserId.make(userId) };
 	});
@@ -153,7 +153,7 @@ describe("User listing with correct admin token", () => {
 
 			const data = yield* client.call(
 				(c) => c.godMode.listUsers({ query: godModeListQuery(email) }),
-				adminAccessTokenHeaders(ADMIN_TOKEN),
+				adminHeaders(),
 			);
 			const user = data.users[0];
 			expect(user?.authState).toBe("none");
@@ -168,7 +168,7 @@ describe("User listing with correct admin token", () => {
 
 			const data = yield* client.call(
 				(c) => c.godMode.listUsers({ query: godModeListQuery(email) }),
-				adminAccessTokenHeaders(ADMIN_TOKEN),
+				adminHeaders(),
 			);
 			expect(data.users[0]?.authState).toBe("oidc");
 		}),
@@ -181,7 +181,7 @@ describe("User listing with correct admin token", () => {
 
 			const data = yield* client.call(
 				(c) => c.godMode.listUsers({ query: godModeListQuery(email) }),
-				adminAccessTokenHeaders(ADMIN_TOKEN),
+				adminHeaders(),
 			);
 			expect(data.users[0]?.authState).toBe("credential");
 			expect(data.users[0]?.disabledAt).toBeNull();
@@ -203,12 +203,12 @@ describe("User listing with correct admin token", () => {
 							accountId: `oidc-sub-${uniqueTimestamp()}`,
 						},
 					}),
-				adminAccessTokenHeaders(ADMIN_TOKEN),
+				adminHeaders(),
 			);
 
 			const data = yield* client.call(
 				(c) => c.godMode.listUsers({ query: godModeListQuery(email) }),
-				adminAccessTokenHeaders(ADMIN_TOKEN),
+				adminHeaders(),
 			);
 			expect(data.users[0]?.authState).toBe("mixed");
 		}),
@@ -226,12 +226,12 @@ describe("User provisioning", () => {
 					c.godMode.provisionUser({
 						payload: { provider: "credential", email, name: "Provisioned Credential" },
 					}),
-				adminAccessTokenHeaders(ADMIN_TOKEN),
+				adminHeaders(),
 			);
 
 			const listData = yield* client.call(
 				(c) => c.godMode.listUsers({ query: godModeListQuery(email) }),
-				adminAccessTokenHeaders(ADMIN_TOKEN),
+				adminHeaders(),
 			);
 			expect(listData.users[0]?.authState).toBe("none");
 		}),
@@ -252,12 +252,12 @@ describe("User provisioning", () => {
 							oidcIssuerId: `oidc-sub-${uniqueTimestamp()}`,
 						},
 					}),
-				adminAccessTokenHeaders(ADMIN_TOKEN),
+				adminHeaders(),
 			);
 
 			const listData = yield* client.call(
 				(c) => c.godMode.listUsers({ query: godModeListQuery(email) }),
-				adminAccessTokenHeaders(ADMIN_TOKEN),
+				adminHeaders(),
 			);
 			expect(listData.users[0]?.authState).toBe("oidc");
 		}),
@@ -274,7 +274,7 @@ describe("User provisioning", () => {
 						c.godMode.provisionUser({
 							payload: { provider: "credential", email, name: "Duplicate" },
 						}),
-					adminAccessTokenHeaders(ADMIN_TOKEN),
+					adminHeaders(),
 				),
 			);
 			assertTaggedError(error, "GodModeRequestFailure");
@@ -301,13 +301,13 @@ describe("God-mode disable set", () => {
 
 			const disabledData = yield* client.call(
 				(c) => c.godMode.setUserDisabled({ payload: { disabled: true }, params: { userId } }),
-				adminAccessTokenHeaders(ADMIN_TOKEN),
+				adminHeaders(),
 			);
 			expect(typeof disabledData.disabledAt).toBe("string");
 
 			const listData = yield* client.call(
 				(c) => c.godMode.listUsers({ query: godModeListQuery(email) }),
-				adminAccessTokenHeaders(ADMIN_TOKEN),
+				adminHeaders(),
 			);
 			expect(listData.users[0]?.disabledAt).toBe(disabledData.disabledAt);
 
@@ -330,7 +330,7 @@ describe("God-mode disable set", () => {
 
 			const enableData = yield* client.call(
 				(c) => c.godMode.setUserDisabled({ payload: { disabled: false }, params: { userId } }),
-				adminAccessTokenHeaders(ADMIN_TOKEN),
+				adminHeaders(),
 			);
 			expect(enableData.disabledAt).toBeNull();
 
@@ -350,7 +350,7 @@ describe("Reset link generation and completion for credential user", () => {
 
 			const resetData = yield* client.call(
 				(c) => c.godMode.resetUserPassword({ params: { userId } }),
-				adminAccessTokenHeaders(ADMIN_TOKEN),
+				adminHeaders(),
 			);
 			expect(resetData.email).toBe(email);
 			expect(typeof resetData.resetUrl).toBe("string");
@@ -391,7 +391,7 @@ describe("Reset link generation and completion for credential user", () => {
 
 			const resetData = yield* client.call(
 				(c) => c.godMode.resetUserPassword({ params: { userId } }),
-				adminAccessTokenHeaders(ADMIN_TOKEN),
+				adminHeaders(),
 			);
 			const token = new URL(resetData.resetUrl).searchParams.get("token");
 			expect(typeof token).toBe("string");
@@ -427,7 +427,7 @@ describe("Reset link generation and completion for no-account user", () => {
 
 			const resetData = yield* client.call(
 				(c) => c.godMode.resetUserPassword({ params: { userId } }),
-				adminAccessTokenHeaders(ADMIN_TOKEN),
+				adminHeaders(),
 			);
 			expect(resetData.email).toBe(email);
 			const token = new URL(resetData.resetUrl).searchParams.get("token");
@@ -445,7 +445,7 @@ describe("Reset link generation and completion for no-account user", () => {
 
 			const listData = yield* client.call(
 				(c) => c.godMode.listUsers({ query: godModeListQuery(email) }),
-				adminAccessTokenHeaders(ADMIN_TOKEN),
+				adminHeaders(),
 			);
 			expect(listData.users[0]?.authState).toBe("credential");
 		}),
@@ -459,10 +459,7 @@ describe("OIDC user restrictions", () => {
 			const { userId } = yield* createOidcUser("BlockedOidc");
 
 			const error = yield* Effect.flip(
-				client.call(
-					(c) => c.godMode.resetUserPassword({ params: { userId } }),
-					adminAccessTokenHeaders(ADMIN_TOKEN),
-				),
+				client.call((c) => c.godMode.resetUserPassword({ params: { userId } }), adminHeaders()),
 			);
 			assertTaggedError(error, "GodModeRequestFailure");
 			expect(error.reason).toEqual({ code: "password-reset-unsupported", authState: "oidc" });
@@ -482,14 +479,11 @@ describe("Mixed auth user restrictions", () => {
 					c.testSupport.linkAuthAccount({
 						payload: { userId, providerId: "oidc", accountId: `oidc-sub-${uniqueTimestamp()}` },
 					}),
-				adminAccessTokenHeaders(ADMIN_TOKEN),
+				adminHeaders(),
 			);
 
 			const error = yield* Effect.flip(
-				client.call(
-					(c) => c.godMode.resetUserPassword({ params: { userId } }),
-					adminAccessTokenHeaders(ADMIN_TOKEN),
-				),
+				client.call((c) => c.godMode.resetUserPassword({ params: { userId } }), adminHeaders()),
 			);
 			assertTaggedError(error, "GodModeRequestFailure");
 			expect(error.reason).toEqual({ code: "password-reset-unsupported", authState: "mixed" });

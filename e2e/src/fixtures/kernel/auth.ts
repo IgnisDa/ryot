@@ -14,8 +14,8 @@ import { createAuthClient } from "better-auth/client";
 import { twoFactorClient } from "better-auth/client/plugins";
 import { Effect, Schema } from "effect";
 
-import { getApiUrl } from "~/support/api";
 import { requirePresent, requireString } from "~/support/assertions";
+import { getApiUrl } from "~/support/harness-target";
 
 import { type ContractSession, makeSession } from "./contract-client";
 
@@ -372,7 +372,7 @@ export const createTestUser = (baseUrl = getApiUrl()) =>
 
 export const createAuthenticatedClient = (baseUrl = getApiUrl()) =>
 	Effect.gen(function* () {
-		const { token, email, userId, sessionCookie } = yield* createTestUser(baseUrl);
+		const { token, email, userId, password, sessionCookie } = yield* createTestUser(baseUrl);
 		const client = makeSession(baseUrl, { Authorization: `Bearer ${token}` });
-		return { client, token, email, userId, sessionCookie };
+		return { client, token, email, userId, password, sessionCookie };
 	});

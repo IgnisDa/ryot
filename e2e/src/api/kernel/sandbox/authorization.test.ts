@@ -51,7 +51,7 @@ describe("sandbox capability authorization", () => {
 					c.testSupport.triggerPluginCron({
 						payload: { pluginSlug: installed.pluginSlug, cronSlug: "system-denied-capability" },
 					}),
-				adminHeaders,
+				adminHeaders(),
 			);
 			assert(result.status === "failed", "Expected denied capability cron to fail");
 			expect(result.result).toMatchObject({

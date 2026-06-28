@@ -21,9 +21,9 @@ import {
 	revokeClientPageSession,
 	updateFixtureClientPlugin,
 } from "~/fixtures/kernel";
-import { getApiUrl } from "~/support/api";
 import { assertCondition, assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
+import { getApiUrl } from "~/support/harness-target";
 
 const definitionWithSource = (source: string) =>
 	buildClientRendererDefinition({

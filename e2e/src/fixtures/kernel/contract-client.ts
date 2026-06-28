@@ -6,7 +6,7 @@ import {
 import { Effect } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
 
-import { getApiUrl } from "~/support/api";
+import { getApiUrl } from "~/support/harness-target";
 
 export type ContractSession = {
 	call: <A, E>(program: ContractProgram<A, E>, headers?: RequestHeaders) => Effect.Effect<A, E>;

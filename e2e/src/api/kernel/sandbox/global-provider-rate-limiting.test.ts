@@ -81,7 +81,7 @@ const getSandboxResultAt = (client: ContractSession, userId: string, jobId: stri
 				params: { jobId },
 				query: { executingUserId: UserId.make(userId) },
 			}),
-		adminHeaders,
+		adminHeaders(),
 	);
 
 const enqueueSandboxAt = (client: ContractSession, userId: string, scriptId: SandboxScriptId) =>
@@ -90,7 +90,7 @@ const enqueueSandboxAt = (client: ContractSession, userId: string, scriptId: San
 			c.testSupport.enqueueSandbox({
 				payload: { scriptId, executingUserId: UserId.make(userId) },
 			}),
-		adminHeaders,
+		adminHeaders(),
 	);
 
 const pollSandboxResultAt = (client: ContractSession, userId: string, jobId: string) =>
@@ -164,7 +164,7 @@ describe("deployment-global sandbox HTTP rate limiting", () => {
 
 			const activePlugins = yield* getApiClient().call(
 				(c) => c.testSupport.listSystemPlugins({}),
-				adminHeaders,
+				adminHeaders(),
 			);
 			expect(activePlugins.some(({ slug: activeSlug }) => activeSlug === pluginSlug)).toBe(true);
 			expect(
@@ -443,7 +443,7 @@ describe("isolated deployment-global sandbox HTTP rate limiting", () => {
 								files: encodeTestSupportPluginFiles(encodePluginSourceFiles({ [entry]: source })),
 							},
 						}),
-					adminHeaders,
+					adminHeaders(),
 				);
 				yield* Effect.addFinalizer(() =>
 					makeSession(apiUrlA())
@@ -452,13 +452,13 @@ describe("isolated deployment-global sandbox HTTP rate limiting", () => {
 								c.testSupport.uninstallSystemPlugin({
 									params: { pluginSlug: PluginSlug.make(pluginSlug) },
 								}),
-							adminHeaders,
+							adminHeaders(),
 						)
 						.pipe(Effect.catch(() => Effect.void)),
 				);
 				const scripts = yield* clientA.call(
 					(c) => c.testSupport.listSandboxScripts({ query: {} }),
-					adminHeaders,
+					adminHeaders(),
 				);
 				const scriptId = requirePresent(
 					scripts.find((script) => script.slug === slug && script.source === source)?.id,
@@ -489,7 +489,7 @@ describe("isolated deployment-global sandbox HTTP rate limiting", () => {
 						c.testSupport.sampleOperationalPressure({
 							payload: { executionIds: [secondJob.executionId] },
 						}),
-					adminHeaders,
+					adminHeaders(),
 				);
 				expect(pressure.sandbox.activeExecutions).toBe(0);
 

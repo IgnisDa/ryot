@@ -1,8 +1,8 @@
 import { BackupRunId } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
-import { getApiUrl } from "~/support/api";
 import { requirePresent } from "~/support/assertions";
+import { getApiUrl } from "~/support/harness-target";
 
 import type { Client } from "./auth";
 import { pollUntil } from "./polling";

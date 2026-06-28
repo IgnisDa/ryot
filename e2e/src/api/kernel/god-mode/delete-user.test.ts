@@ -3,9 +3,9 @@ import { UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Schema } from "effect";
 
 import {
-	ADMIN_TOKEN,
 	type DeleteUserOperation,
 	adminAccessTokenHeaders,
+	adminHeaders,
 	uninstallTestProvider,
 	createAuthenticatedClient,
 	createApiKey,
@@ -31,9 +31,9 @@ import {
 	updatePluginState,
 } from "~/fixtures/kernel";
 import { enableMediaMonitoring, seedMediaEntity } from "~/fixtures/plugins/media";
-import { getApiUrl } from "~/support/api";
 import { assertCompleted, assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
+import { getApiUrl } from "~/support/harness-target";
 
 const WRONG_TOKEN = "wrong-token";
 const pluginListQuery = { includeDisabled: false };
@@ -72,7 +72,7 @@ describe("Delete user", () => {
 						c.godMode.deleteUser({
 							params: { userId: UserId.make(`missing-${crypto.randomUUID()}`) },
 						}),
-					adminAccessTokenHeaders(ADMIN_TOKEN),
+					adminHeaders(),
 				),
 			);
 			assertTaggedError(error, "GodModeNotFound");
@@ -110,7 +110,7 @@ describe("Delete user", () => {
 			const acceptedResponse = yield* Effect.promise(() =>
 				fetch(`${getApiUrl()}/god-mode/users/${userId}`, {
 					method: "DELETE",
-					headers: adminAccessTokenHeaders(ADMIN_TOKEN),
+					headers: adminHeaders(),
 				}),
 			);
 			expect(acceptedResponse.status).toBe(202);
@@ -138,7 +138,7 @@ describe("Delete user", () => {
 
 			const listed = yield* client.call(
 				(c) => c.godMode.listUsers({ query: { limit: 50, offset: 0, search: email } }),
-				adminAccessTokenHeaders(ADMIN_TOKEN),
+				adminHeaders(),
 			);
 			expect(listed.users).toHaveLength(0);
 
