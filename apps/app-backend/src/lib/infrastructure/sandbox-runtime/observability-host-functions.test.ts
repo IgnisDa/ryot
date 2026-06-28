@@ -1,6 +1,6 @@
 import { expect, it } from "@effect/vitest";
 import { UserId } from "@ryot/contract/schema/brands";
-import { Effect, HashMap, Layer, Logger, LogLevel, Option, Tracer, type Exit } from "effect";
+import { Effect, Layer, Logger, Option, Tracer, type Exit, References } from "effect";
 import type { Logger as LoggerType } from "effect/Logger";
 import { describe } from "vitest";
 
@@ -14,7 +14,10 @@ import { runSandboxBridgeHostFunction } from "./runtime";
 import { selectSandboxHostFunctions } from "./service";
 import { apiSuccess, type BoundHostFunction, type SandboxRunInput } from "./shared";
 
-type CapturedLog = Parameters<LoggerType<unknown, unknown>["log"]>[0];
+type CapturedLog = {
+	options: Parameters<LoggerType<unknown, unknown>["log"]>[0];
+	annotations: Readonly<Record<string, unknown>>;
+};
 const selectedHostFunction: BoundHostFunction = () => Effect.succeed(null);
 
 const input: SandboxRunInput = {
@@ -34,19 +37,18 @@ const input: SandboxRunInput = {
 
 const makeTracer = (spans: Tracer.Span[]) =>
 	Tracer.make({
-		context: (evaluate) => evaluate(),
-		span: (name, parent, context, links, startTime, kind, options) => {
+		span: ({ name, parent, annotations, links, startTime, kind, sampled }) => {
 			let status: Tracer.SpanStatus = { _tag: "Started", startTime };
-			const attributes = new Map(Object.entries(options?.attributes ?? {}));
+			const attributes = new Map<string, unknown>();
 			const span: Tracer.Span = {
 				name,
 				kind,
 				links,
 				parent,
-				context,
+				annotations,
 				attributes,
 				_tag: "Span",
-				sampled: true,
+				sampled,
 				spanId: `span-${spans.length + 1}`,
 				addLinks: () => undefined,
 				attribute: (key, value) => attributes.set(key, value),
@@ -155,7 +157,12 @@ describe("sandbox observability host functions", () => {
 			const logEntries: CapturedLog[] = [];
 			const collector = makeSandboxObservabilityCollector();
 			const host = makeObservabilitySandboxApiFunctions(collector);
-			const logger = Logger.make<unknown, void>((entry) => logEntries.push(entry));
+			const logger = Logger.make<unknown, void>((options) =>
+				logEntries.push({
+					options,
+					annotations: options.fiber.getRef(References.CurrentLogAnnotations),
+				}),
+			);
 			const tracer = makeTracer(spans);
 
 			return Effect.gen(function* () {
@@ -191,18 +198,18 @@ describe("sandbox observability host functions", () => {
 				Effect.withSpan("sandbox.execution"),
 				Effect.provide(
 					Layer.mergeAll(
-						Layer.setTracer(tracer),
-						Logger.minimumLogLevel(LogLevel.Debug),
-						Logger.replace(Logger.defaultLogger, logger),
+						Layer.succeed(Tracer.Tracer, tracer),
+						Layer.succeed(References.MinimumLogLevel, "Debug"),
+						Logger.layer([logger, Logger.tracerLogger]),
 					),
 				),
 				Effect.tap(() =>
 					Effect.sync(() => {
-						const warning = logEntries.find((entry) => String(entry.message) === "plugin warning");
-						expect(warning?.logLevel.label).toBe("WARN");
-						expect(
-							Object.fromEntries(HashMap.toEntries(warning?.annotations ?? HashMap.empty())),
-						).toMatchObject({
+						const warning = logEntries.find(
+							({ options }) => String(options.message) === "plugin warning",
+						);
+						expect(warning?.options.logLevel).toBe("Warn");
+						expect(warning?.annotations).toMatchObject({
 							plugin: "media",
 							scriptId: input.scriptId,
 							executionId: input.executionId,

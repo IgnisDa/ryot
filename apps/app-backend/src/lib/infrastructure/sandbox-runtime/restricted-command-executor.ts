@@ -1,5 +1,5 @@
-import { Command, CommandExecutor } from "@effect/platform";
 import { Option } from "effect";
+import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 
 export type SandboxCommandEnvironment = Readonly<{
 	PATH: string;
@@ -9,39 +9,37 @@ export type SandboxCommandEnvironment = Readonly<{
 // TODO: https://github.com/Effect-TS/effect/issues/6643
 // Remove this env wrapper when Effect supports commands that do not inherit the parent environment.
 const restrictCommandEnvironment = (
-	command: Command.Command,
+	command: ChildProcess.Command,
 	environment: SandboxCommandEnvironment,
-): Command.Command => {
+): ChildProcess.Command => {
 	if (command._tag === "PipedCommand") {
-		return Command.pipeTo(
+		return ChildProcess.pipeTo(
 			restrictCommandEnvironment(command.left, environment),
 			restrictCommandEnvironment(command.right, environment),
 		);
 	}
 
-	const restricted = Command.make(
+	const restricted = ChildProcess.make(
 		"/usr/bin/env",
-		"-i",
-		`PATH=${environment.PATH}`,
-		`DENO_DIR=${environment.DENO_DIR}`,
-		command.command,
-		...command.args,
-	).pipe(
-		Command.stdin(command.stdin),
-		Command.stdout(command.stdout),
-		Command.stderr(command.stderr),
-		Command.runInShell(command.shell),
+		[
+			"-i",
+			`PATH=${environment.PATH}`,
+			`DENO_DIR=${environment.DENO_DIR}`,
+			command.command,
+			...command.args,
+		],
+		command.options,
 	);
-	return Option.match(command.cwd, {
+	return Option.match(Option.fromNullishOr(command.options.cwd), {
 		onNone: () => restricted,
-		onSome: (cwd) => Command.workingDirectory(restricted, cwd),
+		onSome: (cwd) => ChildProcess.setCwd(restricted, cwd),
 	});
 };
 
 export const makeSandboxCommandExecutor = (
-	executor: CommandExecutor.CommandExecutor,
+	executor: ChildProcessSpawner.ChildProcessSpawner["Service"],
 	environment: SandboxCommandEnvironment,
 ) =>
-	CommandExecutor.makeExecutor((command) =>
-		executor.start(restrictCommandEnvironment(command, environment)),
+	ChildProcessSpawner.make((command) =>
+		executor.spawn(restrictCommandEnvironment(command, environment)),
 	);
