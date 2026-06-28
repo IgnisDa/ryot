@@ -19,30 +19,39 @@ import { performBootstrap } from "./bootstrap";
 
 const userId = UserId.make("user-id");
 const mediaTrackerId = TrackerId.make("media-tracker-id");
-const fitnessTrackerId = TrackerId.make("fitness-tracker-id");
-const collectionSchemaId = EntitySchemaId.make("collection-schema-id");
 const movieSchemaId = EntitySchemaId.make("movie-schema-id");
+const fitnessTrackerId = TrackerId.make("fitness-tracker-id");
 const librarySchemaId = EntitySchemaId.make("library-schema-id");
+const collectionSchemaId = EntitySchemaId.make("collection-schema-id");
 
 const makeTracker = (id: TrackerId, slug: string) => ({
-	config: {},
-	description: null,
-	accentColor: "#5B7FFF",
-	icon: "film",
 	id,
+	slug,
+	config: {},
+	name: slug,
+	icon: "film",
+	sortOrder: 0,
 	isBuiltin: true,
 	isDisabled: false,
-	name: slug,
-	slug,
-	sortOrder: 0,
+	description: null,
+	accentColor: "#5B7FFF",
 });
 
 const makeSavedView = (trackerId: TrackerId | null): ListedSavedView => ({
+	trackerId,
+	icon: "film",
+	sortOrder: 0,
+	isBuiltin: true,
+	slug: "built-in",
+	name: "Built-in",
+	isDisabled: false,
 	accentColor: "#5B7FFF",
+	updatedAt: "2026-07-16T00:00:00.000Z",
 	createdAt: "2026-07-16T00:00:00.000Z",
+	id: SavedViewId.make("saved-view-id"),
 	displayConfiguration: {
-		entityIdProperty: { type: "literal", value: "id" },
 		table: { columns: [] },
+		entityIdProperty: { type: "literal", value: "id" },
 		grid: {
 			imageProperty: null,
 			eyebrowProperty: null,
@@ -60,41 +69,32 @@ const makeSavedView = (trackerId: TrackerId | null): ListedSavedView => ({
 			titleProperty: { type: "literal", value: "name" },
 		},
 	},
-	icon: "film",
-	id: SavedViewId.make("saved-view-id"),
-	isBuiltin: true,
-	isDisabled: false,
-	name: "Built-in",
 	queryDocument: {
+		source: { alias: "entity", schemas: ["movie"], type: "entities", where: null },
 		output: {
 			fields: [],
+			type: "rows",
+			pagination: { limit: 20, page: 1 },
 			orderBy: [
 				{
 					order: "asc",
 					expr: { type: "ref", sourceAlias: "entity", field: { type: "system", name: "name" } },
 				},
 			],
-			pagination: { limit: 20, page: 1 },
-			type: "rows",
 		},
-		source: { alias: "entity", schemas: ["movie"], type: "entities", where: null },
 	},
-	slug: "built-in",
-	sortOrder: 0,
-	trackerId,
-	updatedAt: "2026-07-16T00:00:00.000Z",
 });
 
 const makeEntity = () => ({
-	createdAt: "2026-07-16T00:00:00.000Z",
-	entitySchemaId: librarySchemaId,
-	externalId: null,
-	id: EntityId.make("library-entity-id"),
-	name: "Library",
-	populatedAt: null,
 	properties: {},
+	name: "Library",
+	externalId: null,
+	populatedAt: null,
 	sandboxScriptId: null,
+	entitySchemaId: librarySchemaId,
 	updatedAt: "2026-07-16T00:00:00.000Z",
+	createdAt: "2026-07-16T00:00:00.000Z",
+	id: EntityId.make("library-entity-id"),
 });
 
 const entitySchemas = [
@@ -201,11 +201,11 @@ const makeServiceLayers = (
 };
 
 it.effect("routes bootstrap writes through owning services and sets the completion marker", () => {
-	const createdTrackerSlugs: string[] = [];
-	const linkedSchemaIds: EntitySchemaId[] = [];
+	let markerUpdated = false;
 	const createdViewSlugs: string[] = [];
 	const createdEntities: unknown[] = [];
-	let markerUpdated = false;
+	const createdTrackerSlugs: string[] = [];
+	const linkedSchemaIds: EntitySchemaId[] = [];
 
 	return Effect.gen(function* () {
 		yield* performBootstrap(userId);
@@ -226,11 +226,11 @@ it.effect("routes bootstrap writes through owning services and sets the completi
 });
 
 it.effect("short-circuits when the completion marker is already set", () => {
-	const createdTrackerSlugs: string[] = [];
-	const linkedSchemaIds: EntitySchemaId[] = [];
+	let markerUpdated = false;
 	const createdViewSlugs: string[] = [];
 	const createdEntities: unknown[] = [];
-	let markerUpdated = false;
+	const createdTrackerSlugs: string[] = [];
+	const linkedSchemaIds: EntitySchemaId[] = [];
 
 	return Effect.gen(function* () {
 		yield* performBootstrap(userId);
