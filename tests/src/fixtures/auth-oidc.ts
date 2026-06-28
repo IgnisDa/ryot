@@ -1,6 +1,54 @@
+import { Events, OAuth2Server } from "oauth2-mock-server";
+
 import { requirePresent } from "~/support/assertions";
 
+export type MockOidcServer = {
+	issuerUrl: string;
+	server: OAuth2Server;
+	setNextClaims: (claims: Record<string, unknown>) => void;
+};
+
+export async function startMockOidcServer(): Promise<MockOidcServer> {
+	const server = new OAuth2Server();
+	await server.issuer.keys.generate("RS256");
+	await server.start(0, "127.0.0.1");
+
+	const claimsByCode = new Map<string, Record<string, unknown>>();
+	let nextClaims: Record<string, unknown> | undefined;
+
+	server.service.on(Events.BeforeAuthorizeRedirect, (redirect) => {
+		const code = redirect.url.searchParams.get("code");
+		if (code && nextClaims) {
+			claimsByCode.set(code, nextClaims);
+			nextClaims = undefined;
+		}
+	});
+
+	server.service.on(Events.BeforeTokenSigning, (token, req) => {
+		const code = req.body.code;
+		const claims = code ? claimsByCode.get(code) : undefined;
+		if (claims) {
+			Object.assign(token.payload, claims);
+		}
+	});
+
+	return {
+		server,
+		issuerUrl: requirePresent(server.issuer.url, "Mock OIDC server failed to expose an issuer URL"),
+		setNextClaims: (claims) => {
+			nextClaims = claims;
+		},
+	};
+}
+
+export async function stopMockOidcServer(mockOidcServer?: MockOidcServer) {
+	if (mockOidcServer?.server.listening) {
+		await mockOidcServer.server.stop();
+	}
+}
+
 export async function oidcSignIn(
+	mockOidcServer: MockOidcServer,
 	username: string,
 	backendUrl: string,
 	claims?: Record<string, unknown>,
@@ -22,20 +70,13 @@ export async function oidcSignIn(
 	);
 	const [stateCookie] = stateCookieHeader.split(";");
 
-	const resolvedClaims = {
+	mockOidcServer.setNextClaims({
+		sub: username,
 		email: `${username}@example.com`,
 		name: username,
 		...claims,
-	};
-	const formBody = new URLSearchParams();
-	formBody.set("username", username);
-	formBody.set("claims", JSON.stringify(resolvedClaims));
-	const step2Response = await fetch(authorizeUrl, {
-		method: "POST",
-		redirect: "manual",
-		body: formBody.toString(),
-		headers: { "Content-Type": "application/x-www-form-urlencoded" },
 	});
+	const step2Response = await fetch(authorizeUrl, { redirect: "manual" });
 	const callbackUrl = requirePresent(
 		step2Response.headers.get("location"),
 		"oidcSignIn step 2 failed: no location header",
