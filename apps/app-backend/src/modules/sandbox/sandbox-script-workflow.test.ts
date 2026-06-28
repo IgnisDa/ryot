@@ -1,6 +1,7 @@
 import { Command } from "@effect/platform";
 import { BunContext } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
+import { Workflow } from "@effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import { SandboxRunError, unknownToMessage } from "@ryot/contract/errors";
 import type { SandboxExecutionPayload } from "@ryot/contract/modules/sandbox/schemas";
@@ -12,11 +13,13 @@ import { Effect, Layer, Schema } from "effect";
 import { RedisService } from "#lib/infrastructure/redis";
 import { SandboxService as RuntimeSandboxService } from "#lib/infrastructure/sandbox-runtime/service";
 import { makeWorkflowDurableCallsHostFunction } from "#lib/infrastructure/sandbox-runtime/workflow-journal";
+import { assertExitFails } from "#lib/test-utils/assertions";
 import {
 	dbRunnerLayer,
 	makeRedisService,
 	makeWorkflowActivityEngine,
 	makeWorkflowEngine,
+	transactionLayer,
 } from "#lib/test-utils/effect";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
@@ -35,6 +38,36 @@ import {
 	sandboxWorkflowChildExecutionId,
 	validateWorkflowReplayEnvelope,
 } from "./sandbox-script-workflow";
+import {
+	SandboxWorkflowReferenceRegistrationError,
+	SandboxWorkflowReferenceRepository,
+} from "./workflow-reference-repository";
+
+const makeProjectionRedis = () =>
+	makeRedisService({
+		client: Object.assign(Object.create(null), {
+			hget: () => Promise.resolve(null),
+			expire: () => Promise.resolve(1),
+			pipeline: () => ({
+				hset: () => undefined,
+				expire: () => undefined,
+				hsetnx: () => undefined,
+				exec: () => Promise.resolve([]),
+			}),
+		}),
+	});
+
+const controlledWorkflowDependencies = Layer.mergeAll(
+	transactionLayer,
+	Layer.succeed(RedisService, makeProjectionRedis()),
+	Layer.mock(PluginRuntimeResolver)({
+		_tag: "PluginRuntimeResolver",
+		findActiveScriptById: () => Effect.die("unused"),
+	}),
+	Layer.mock(KernelWorkflowReferences)({
+		execute: () => Effect.die("unused"),
+	}),
+);
 
 it("derives child ids deterministically from the parent, call name, and step", () => {
 	expect(sandboxWorkflowChildExecutionId("parent", "events", 7)).toBe("parent-child-events-7");
@@ -106,6 +139,8 @@ fi
 	const replacementContent = `printf '{"state":"completed","requests":[],"output":{"content":"active-v2","journal":[]}}'`;
 	let activeId = historicalScriptId;
 	let kernelCallerScriptId: SandboxScriptId | undefined;
+	const releases: string[] = [];
+	const registrations: unknown[] = [];
 	const executedContent: string[] = [];
 	const hashes = new Map<string, Map<string, string>>();
 	const redisClient: RedisService["client"] = Object.assign(Object.create(null), {
@@ -171,6 +206,7 @@ fi
 	const decodeEnvelope = Schema.decodeUnknown(Schema.parseJson(workflowReplayEnvelopeSchema));
 	const layer = Layer.mergeAll(
 		dbRunnerLayer,
+		transactionLayer,
 		Layer.succeed(WorkflowEngine, engine),
 		Layer.succeed(WorkflowInstance, instance),
 		Layer.succeed(RedisService, makeRedisService({ client: redisClient })),
@@ -180,8 +216,16 @@ fi
 			getScriptPin: (scriptId) =>
 				Effect.succeed(
 					scriptId === historicalScriptId
-						? { scriptId: historicalScriptId, contentHash: "historical-hash" }
-						: { scriptId: replacementScriptId, contentHash: "replacement-hash" },
+						? {
+								pluginSlug: "plugin",
+								scriptId: historicalScriptId,
+								contentHash: "historical-hash",
+							}
+						: {
+								pluginSlug: "plugin",
+								scriptId: replacementScriptId,
+								contentHash: "replacement-hash",
+							},
 				),
 			getScript: (scriptId) =>
 				Effect.succeed(scriptId === historicalScriptId ? historical : replacement),
@@ -191,6 +235,18 @@ fi
 			_tag: "PluginRuntimeResolver",
 			findActiveScriptById: () =>
 				Effect.succeed(activeId === historicalScriptId ? historical : replacement),
+		}),
+		Layer.mock(SandboxWorkflowReferenceRepository)({
+			_tag: "SandboxWorkflowReferenceRepository",
+			register: (input) =>
+				Effect.sync(() => {
+					registrations.push(input);
+					return { status: "registered" as const };
+				}),
+			release: (registeredExecutionId) =>
+				Effect.sync(() => {
+					releases.push(registeredExecutionId);
+				}),
 		}),
 		Layer.mock(RuntimeSandboxService)({
 			_tag: "SandboxService",
@@ -252,6 +308,182 @@ fi
 		expect(kernelCallerScriptId).toBe(historicalScriptId);
 		expect(executedContent).toEqual([historicalContent, historicalContent]);
 		expect(executedContent).not.toContain(replacementContent);
+		expect(registrations).toEqual([
+			{
+				executionId,
+				pluginSlug: "plugin",
+				scriptId: historicalScriptId,
+				contentHash: "historical-hash",
+			},
+		]);
+		expect(releases).toEqual([executionId]);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("retains a plugin workflow reference while durably suspended", () => {
+	const executionId = "suspended-workflow";
+	const scriptId = SandboxScriptId.make("workflow-script");
+	const instance = WorkflowInstance.initial(SandboxScriptWorkflow, executionId);
+	let registrations = 0;
+	let releases = 0;
+	const engine = makeWorkflowActivityEngine(instance, {
+		activityExecute: (activity) =>
+			activity.name === "observe-sandbox-workflow-replay-0"
+				? Effect.succeed(new Workflow.Suspended())
+				: Effect.map(Effect.exit(activity.execute), (exit) => new Workflow.Complete({ exit })),
+	});
+	const layer = Layer.mergeAll(
+		dbRunnerLayer,
+		controlledWorkflowDependencies,
+		Layer.succeed(WorkflowEngine, engine),
+		Layer.succeed(WorkflowInstance, instance),
+		Layer.mock(SandboxRepository)({
+			_tag: "SandboxRepository",
+			getScriptPin: () =>
+				Effect.succeed({ scriptId, pluginSlug: "plugin", contentHash: "content-hash" }),
+		}),
+		Layer.mock(SandboxWorkflowReferenceRepository)({
+			_tag: "SandboxWorkflowReferenceRepository",
+			register: () =>
+				Effect.sync(() => {
+					registrations += 1;
+					return { status: "registered" as const };
+				}),
+			release: () =>
+				Effect.sync(() => {
+					releases += 1;
+				}),
+		}),
+	);
+
+	return Effect.gen(function* () {
+		const result = yield* Workflow.intoResult(
+			runSandboxScriptWorkflowBody(
+				{
+					scriptId,
+					input: {},
+					executionId,
+					resolutionMode: "exact",
+					authority: { type: "system" },
+				},
+				executionId,
+				() =>
+					Effect.succeed({
+						logs: [],
+						error: null,
+						harvest: null,
+						status: "completed" as const,
+						value: {
+							state: "pending" as const,
+							requests: [
+								{ index: 0, name: "wait", kind: "sleep" as const, args: { durationMs: 1 } },
+							],
+						},
+					}),
+			),
+		);
+		expect(result._tag).toBe("Suspended");
+		expect(registrations).toBe(1);
+		expect(releases).toBe(0);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("releases a plugin workflow reference before returning terminal failure", () => {
+	const executionId = "failed-workflow";
+	const scriptId = SandboxScriptId.make("workflow-script");
+	const instance = WorkflowInstance.initial(SandboxScriptWorkflow, executionId);
+	const events: string[] = [];
+	const layer = Layer.mergeAll(
+		dbRunnerLayer,
+		controlledWorkflowDependencies,
+		Layer.succeed(WorkflowInstance, instance),
+		Layer.succeed(WorkflowEngine, makeWorkflowActivityEngine(instance)),
+		Layer.mock(SandboxRepository)({
+			_tag: "SandboxRepository",
+			getScriptPin: () =>
+				Effect.succeed({ scriptId, pluginSlug: "plugin", contentHash: "content-hash" }),
+		}),
+		Layer.mock(SandboxWorkflowReferenceRepository)({
+			_tag: "SandboxWorkflowReferenceRepository",
+			register: () =>
+				Effect.sync(() => {
+					events.push("registered");
+					return { status: "registered" as const };
+				}),
+			release: () => Effect.sync(() => events.push("released")),
+		}),
+	);
+
+	return Effect.gen(function* () {
+		const exit = yield* Effect.exit(
+			runSandboxScriptWorkflowBody(
+				{
+					scriptId,
+					input: {},
+					executionId,
+					resolutionMode: "exact",
+					authority: { type: "system" },
+				},
+				executionId,
+				() =>
+					Effect.succeed({
+						logs: [],
+						value: null,
+						harvest: null,
+						status: "completed" as const,
+						error: { phase: "execute" as const, message: "boom" },
+					}),
+			),
+		);
+		assertExitFails(
+			exit,
+			new SandboxRunError({ message: "Workflow replay 0 failed: execute: boom" }),
+		);
+		expect(events).toEqual(["registered", "released"]);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("maps inactive plugin pin registration to SandboxRunError", () => {
+	const executionId = "inactive-plugin-workflow";
+	const scriptId = SandboxScriptId.make("workflow-script");
+	const instance = WorkflowInstance.initial(SandboxScriptWorkflow, executionId);
+	const layer = Layer.mergeAll(
+		dbRunnerLayer,
+		controlledWorkflowDependencies,
+		Layer.succeed(WorkflowInstance, instance),
+		Layer.succeed(WorkflowEngine, makeWorkflowActivityEngine(instance)),
+		Layer.mock(SandboxRepository)({
+			_tag: "SandboxRepository",
+			getScriptPin: () =>
+				Effect.succeed({ scriptId, pluginSlug: "plugin", contentHash: "content-hash" }),
+		}),
+		Layer.mock(SandboxWorkflowReferenceRepository)({
+			_tag: "SandboxWorkflowReferenceRepository",
+			register: () =>
+				Effect.fail(
+					new SandboxWorkflowReferenceRegistrationError({
+						reason: "plugin-inactive",
+						message: "Plugin 'plugin' is not active",
+					}),
+				),
+		}),
+	);
+
+	return Effect.gen(function* () {
+		const exit = yield* Effect.exit(
+			runSandboxScriptWorkflowBody(
+				{
+					input: {},
+					executionId,
+					scriptId,
+					resolutionMode: "exact",
+					authority: { type: "system" },
+				},
+				executionId,
+				() => Effect.die("unused"),
+			),
+		);
+		assertExitFails(exit, new SandboxRunError({ message: "Plugin 'plugin' is not active" }));
 	}).pipe(Effect.provide(layer));
 });
 

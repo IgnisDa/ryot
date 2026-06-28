@@ -3,18 +3,16 @@ import { expect, it } from "@effect/vitest";
 import { BadRequest, NotFound, Unauthorized, unauthorized } from "@ryot/contract/errors";
 import { SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import type { PluginManifest, PluginOperationAuth } from "@ryot/plugin-kit/manifest";
-import { Cause, Effect, Exit, Layer, Option } from "effect";
+import { Cause, Deferred, Effect, Exit, Fiber, Layer, Option } from "effect";
 import { assert } from "vitest";
 
 import { SandboxService } from "#lib/infrastructure/sandbox-runtime/service";
 import { dbRunnerLayer } from "#lib/test-utils/effect";
 import { AuthService } from "#modules/auth/service";
-import { makeDefinitionRegistry } from "#modules/definition-registry/service";
 import type { IntegrationRecord } from "#modules/integrations/repository";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { SandboxRepository } from "#modules/sandbox/repository";
 
-import { makePluginLoader, PluginLoader } from "./loader";
 import { OperationsService } from "./operations-service";
 import { PluginRuntimeResolver } from "./runtime-resolver";
 import { fixtureManifest } from "./test-support";
@@ -70,18 +68,18 @@ const normalizedPlugin = (auth: PluginOperationAuth): NormalizedPlugin => {
 	};
 };
 
-const makeActiveScript = (slug: string) => ({
+const makeActiveScript = (slug: string, id = "op-script-id") => ({
 	slug,
 	name: slug,
 	source: "source",
+	providerId: null,
 	compiledFormat: 1,
 	pluginSlug: "fixture",
-	providerId: null,
 	compiledCode: "compiled",
+	contentHash: `${slug}-hash`,
 	createdAt: new Date(0),
 	updatedAt: new Date(0),
-	contentHash: `${slug}-hash`,
-	id: SandboxScriptId.make("op-script-id"),
+	id: SandboxScriptId.make(id),
 	metadata: {
 		slug,
 		name: slug,
@@ -97,33 +95,32 @@ const makeIntegration = (userId: string, isDisabled: boolean) =>
 	({ isDisabled, userId: UserId.make(userId) }) as unknown as IntegrationRecord;
 
 const makeLayer = (input: {
-	auth: PluginOperationAuth;
-	registerPlugin?: boolean;
-	captured?: Array<unknown>;
 	currentUserId?: UserId;
+	registerPlugin?: boolean;
+	auth: PluginOperationAuth;
+	captured?: Array<unknown>;
+	currentUserGate?: Effect.Effect<void>;
 	integration?: IntegrationRecord | null;
+	operationScript?: () => ReturnType<typeof makeActiveScript>;
 }) => {
-	const loader = makePluginLoader(makeDefinitionRegistry());
-	if (input.registerPlugin !== false) {
-		loader.load(normalizedPlugin(input.auth));
-	}
 	return OperationsService.Default.pipe(
 		Layer.provide(
 			Layer.mergeAll(
 				dbRunnerLayer,
-				Layer.succeed(PluginLoader, { _tag: "PluginLoader", ...loader }),
 				Layer.mock(AuthService)({
 					_tag: "AuthService",
 					// oxlint-disable-next-line no-unsafe-type-assertion -- the better-auth client is never touched by these tests
 					auth: {} as AuthService["auth"],
 					currentUser: () =>
 						input.currentUserId
-							? Effect.succeed({
-									name: "User",
-									email: "user@example.com",
-									id: input.currentUserId,
-									preferences: { isNsfw: false, language: null, disableIntegrations: false },
-								})
+							? (input.currentUserGate ?? Effect.void).pipe(
+									Effect.as({
+										name: "User",
+										id: input.currentUserId,
+										email: "user@example.com",
+										preferences: { isNsfw: false, language: null, disableIntegrations: false },
+									}),
+								)
 							: Effect.fail(unauthorized()),
 				}),
 				Layer.mock(IntegrationsRepository)({
@@ -132,7 +129,24 @@ const makeLayer = (input: {
 				}),
 				Layer.mock(PluginRuntimeResolver)({
 					_tag: "PluginRuntimeResolver",
-					findActiveScript: (slug) => Effect.succeed(makeActiveScript(slug)),
+					findActiveOperation: ({ operationSlug, pluginSlug }) => {
+						const operation =
+							pluginSlug === "fixture" && input.registerPlugin !== false
+								? normalizedPlugin(input.auth).manifest.operations.find(
+										({ slug }) => slug === operationSlug,
+									)
+								: undefined;
+						return Effect.succeed(
+							operation
+								? {
+										operation,
+										script: Effect.succeed(
+											input.operationScript?.() ?? makeActiveScript(operation.scriptSlug),
+										),
+									}
+								: null,
+						);
+					},
 				}),
 				Layer.mock(SandboxService)({
 					_tag: "SandboxService",
@@ -280,6 +294,40 @@ it.effect("dispatches authenticated user operations without system authority", (
 		Effect.provide(makeLayer({ auth: "user", captured, currentUserId: UserId.make("user-1") })),
 	);
 });
+
+it.effect("keeps operation script resolution stable while authentication is pending", () =>
+	Effect.gen(function* () {
+		const authenticating = yield* Deferred.make<void>();
+		const release = yield* Deferred.make<void>();
+		const captured: Array<unknown> = [];
+		let scriptId = "original-script-id";
+		const layer = makeLayer({
+			captured,
+			auth: "user",
+			currentUserId: UserId.make("user-1"),
+			operationScript: () => makeActiveScript(DRIVER_REF, scriptId),
+			currentUserGate: Deferred.succeed(authenticating, undefined).pipe(
+				Effect.zipRight(Deferred.await(release)),
+			),
+		});
+		const fiber = yield* Effect.fork(
+			Effect.gen(function* () {
+				const service = yield* OperationsService;
+				return yield* service.invoke({
+					payload: {},
+					pluginSlug: "fixture",
+					headers: Headers.empty,
+					operationSlug: OPERATION_SLUG,
+				});
+			}).pipe(Effect.provide(layer)),
+		);
+		yield* Deferred.await(authenticating);
+		scriptId = "replacement-script-id";
+		yield* Deferred.succeed(release, undefined);
+		expect(yield* Fiber.join(fiber)).toBe("ok");
+		expect(captured).toEqual([expect.objectContaining({ scriptId: "original-script-id" })]);
+	}),
+);
 
 it.effect("rejects user operations without an authenticated session", () =>
 	Effect.gen(function* () {

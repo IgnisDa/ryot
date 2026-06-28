@@ -2,9 +2,9 @@
 
 ## Tasks
 
-**Overall Progress:** 12 of 18 tasks completed
+**Overall Progress:** 13 of 18 tasks completed
 
-**Current Task:** [Task 13](./13-race-safe-resolution-uninstall.md) (todo)
+**Current Task:** [Task 14](./14-superseded-script-module-gc.md) (todo)
 
 ### Task List
 
@@ -22,7 +22,7 @@
 | 10  | [Content-Addressed Disk Modules](./10-content-addressed-disk-modules.md)                      | done   |
 | 11  | [Per-Execution Host-Call Concurrency](./11-per-execution-host-call-concurrency.md)            | done   |
 | 12  | [Sandbox and Database Limit Retuning](./12-sandbox-database-limit-retuning.md)                | done   |
-| 13  | [Race-Safe Resolution and Uninstall Fencing](./13-race-safe-resolution-uninstall.md)          | todo   |
+| 13  | [Race-Safe Resolution and Uninstall Fencing](./13-race-safe-resolution-uninstall.md)          | done   |
 | 14  | [Superseded Script and Module GC](./14-superseded-script-module-gc.md)                        | todo   |
 | 15  | [Complete Third-Party Plugin Lifecycle E2E](./15-third-party-plugin-lifecycle-e2e.md)         | todo   |
 | 16  | [Ownership-Based E2E Test Tree](./16-ownership-based-e2e-test-tree.md)                        | todo   |
