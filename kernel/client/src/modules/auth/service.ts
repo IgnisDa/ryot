@@ -2,14 +2,20 @@ import { Context, Effect, Layer } from "effect";
 
 import type { ServerOrigin } from "../../api/origin";
 import { ClientStorage } from "../../persistence/storage";
-import { AuthClient } from "./client";
+import { AuthClient, type SettledAuthSession } from "./client";
 import type { AuthMode, TwoFactorMethod } from "./flow";
 import { availableTwoFactorMethods, isTwoFactorRedirect } from "./flow";
 import { registrationName, type CredentialsValues } from "./form-values";
+import type { AuthSessionState } from "./route-gates";
 
 export type CredentialsResult =
 	| { readonly _tag: "Authenticated" }
 	| { readonly _tag: "TwoFactor"; readonly methods: readonly TwoFactorMethod[] };
+
+export const toAuthSessionState = (session: SettledAuthSession): AuthSessionState =>
+	session.status === "authenticated"
+		? { status: "authenticated", userId: session.user.id }
+		: { status: "missing" };
 
 export class AuthService extends Context.Service<AuthService>()("AuthService", {
 	make: Effect.gen(function* () {
@@ -57,6 +63,7 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 			submitCredentials,
 			signOut: clearSession,
 			session: client.session,
+			settledSession: client.settledSession,
 			signInWithOidc: client.signInWithOidc,
 			verifyTwoFactor: client.verifyTwoFactor,
 		};

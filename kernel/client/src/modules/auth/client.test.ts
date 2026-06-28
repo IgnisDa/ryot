@@ -1,12 +1,15 @@
 import { describe, expect, it } from "@effect/vitest";
-import { Effect } from "effect";
+import { Effect, Fiber } from "effect";
 
 import { clientStorageLayer, type BrowserStorage } from "../../persistence/storage";
 import {
 	AuthClient,
 	BETTER_AUTH_STORAGE_KEYS,
 	makeAuthSessionStore,
+	settleSession,
+	type AuthSessionSnapshot,
 	type AuthSessionSource,
+	type AuthSessionStore,
 } from "./client";
 
 const makeStorage = (entries: readonly (readonly [string, string])[]) => {
@@ -51,6 +54,63 @@ describe("browser auth client", () => {
 		unsubscribe();
 		listeners.forEach((listener) => listener());
 		expect(notifications).toBe(1);
+	});
+
+	it("settles immediately from an already-settled snapshot without subscribing", async () => {
+		let subscribeCalls = 0;
+		const store: AuthSessionStore = {
+			getSnapshot: () => ({ status: "missing" }),
+			subscribe: () => {
+				subscribeCalls += 1;
+				return () => undefined;
+			},
+		};
+
+		const result = await Effect.runPromise(settleSession(store));
+
+		expect(result).toEqual({ status: "missing" });
+		expect(subscribeCalls).toBe(0);
+	});
+
+	it("subscribes and resolves once a pending snapshot settles, then unsubscribes", async () => {
+		let state: AuthSessionSnapshot = { status: "pending" };
+		let unsubscribed = false;
+		const listeners = new Set<() => void>();
+		const store: AuthSessionStore = {
+			getSnapshot: () => state,
+			subscribe: (listener) => {
+				listeners.add(listener);
+				return () => {
+					listeners.delete(listener);
+					unsubscribed = true;
+				};
+			},
+		};
+
+		const settled = Effect.runPromise(settleSession(store));
+		expect(listeners.size).toBe(1);
+		expect(unsubscribed).toBe(false);
+
+		state = { status: "missing" };
+		listeners.forEach((listener) => listener());
+
+		expect(await settled).toEqual({ status: "missing" });
+		expect(unsubscribed).toBe(true);
+	});
+
+	it("unsubscribes when interrupted before the session settles", async () => {
+		let unsubscribed = false;
+		const store: AuthSessionStore = {
+			getSnapshot: () => ({ status: "pending" }),
+			subscribe: () => () => {
+				unsubscribed = true;
+			},
+		};
+
+		const fiber = Effect.runFork(settleSession(store));
+		await Effect.runPromise(Fiber.interrupt(fiber));
+
+		expect(unsubscribed).toBe(true);
 	});
 
 	it.effect("caches session stores by normalized server origin", () => {
