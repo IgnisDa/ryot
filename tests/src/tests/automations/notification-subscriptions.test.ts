@@ -4,11 +4,13 @@ import { AutomationRuleId } from "@ryot/contract/schema/brands";
 
 import {
 	createAuthenticatedClient,
+	createBuiltinMediaLifecycleFixture,
 	createEntity,
 	createNotificationChannel,
 	deleteNotificationRule,
 	findBuiltinSchemaBySlug,
 	getAutomationCatalogSchema,
+	getEntity,
 	getNotificationRule,
 	installNotificationRule,
 	listAutomationCatalog,
@@ -140,5 +142,28 @@ describe("notification subscription catalog and rules", () => {
 			return Promise.resolve(request ?? null);
 		});
 		expect(delivered.body).toEqual({ title: "Ryot", body: `Workout ${workoutName} was created` });
+	});
+
+	it("delivers an API-created review through its default subscription", async () => {
+		fakeApprise.requests.length = 0;
+		const { client } = await createAuthenticatedClient();
+		await createNotificationChannel(client, {
+			channel: "apprise",
+			channelSpecifics: { baseUrl: fakeApprise.url, key: "review", kind: "apprise" },
+		});
+		const { entityId, reviewEventSchemaId } = await createBuiltinMediaLifecycleFixture(client);
+		const entity = await getEntity(client, entityId);
+
+		await client.run((c) =>
+			c.events.create({
+				payload: [{ entityId, eventSchemaId: reviewEventSchemaId, properties: { rating: 8 } }],
+			}),
+		);
+
+		const delivered = await pollUntil("default review notification delivery", () => {
+			const request = fakeApprise.requests.find((entry) => entry.path === "/notify/review");
+			return Promise.resolve(request ?? null);
+		});
+		expect(delivered.body).toEqual({ title: "Ryot", body: `Review posted for ${entity.name}` });
 	});
 });
