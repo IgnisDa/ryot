@@ -26,6 +26,7 @@ type SidebarNavProps = {
 	readonly onCustomize?: (() => void) | undefined;
 	readonly current: PluginClientCatalogEntry | null;
 	readonly onNavigateHome: () => void | Promise<void>;
+	readonly showWorkspaceShortcut?: boolean | undefined;
 	readonly onSelectWorkspace: (slug: string) => void | Promise<void>;
 	readonly onNavigateItem: (item: SidebarItem) => void | Promise<void>;
 	readonly onEditSection?: ((section: CustomizeSection) => void) | undefined;
@@ -121,6 +122,7 @@ export function SidebarNav(props: SidebarNavProps) {
 				onCustomize={props.onCustomize}
 				onSelect={props.onSelectWorkspace}
 				summary={workspaceSummary(props.sections)}
+				showShortcut={props.showWorkspaceShortcut}
 			/>
 			<button
 				type="button"
