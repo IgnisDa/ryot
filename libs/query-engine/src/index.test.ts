@@ -1,14 +1,13 @@
 import { describe, expect, it } from "bun:test";
 
+import { buildQueryEngineEntityRowsDocument } from "./documents";
+import { queryEngineField, queryEngineSystemRef } from "./primitives";
+import { buildDefaultSavedViewQueryDocument } from "./recipes/app";
+import { buildWorkoutTemplateDetailQueryDocument } from "./recipes/fitness";
 import {
 	buildCollectionMediaSuggestionsQueryDocument,
-	buildDefaultSavedViewQueryDocument,
-	buildQueryEngineEntityRowsDocument,
 	buildShowDetailQueryDocument,
-	buildWorkoutTemplateDetailQueryDocument,
-	queryEngineField,
-	queryEngineSystemRef,
-} from "./index";
+} from "./recipes/media";
 
 describe("query-engine builders", () => {
 	it("defaults entity rows to the identity contract and saved-view pagination", () => {
@@ -17,44 +16,37 @@ describe("query-engine builders", () => {
 			output: {
 				type: "rows",
 				pagination: { page: 1, limit: 20 },
+				orderBy: [{ order: "asc", expr: queryEngineSystemRef("entity", "name") }],
 				fields: [
 					queryEngineField("id", queryEngineSystemRef("entity", "id")),
 					queryEngineField("name", queryEngineSystemRef("entity", "name")),
 					{
 						key: "schemaSlug",
-						expr: {
-							type: "ref",
-							sourceAlias: "entity",
-							field: { type: "schema", name: "slug" },
-						},
+						expr: { type: "ref", sourceAlias: "entity", field: { type: "schema", name: "slug" } },
 					},
 				],
-				orderBy: [{ order: "asc", expr: queryEngineSystemRef("entity", "name") }],
 			},
 		});
 	});
 
 	it("builds show details with caller-owned nested limits", () => {
 		const doc = buildShowDetailQueryDocument({
-			entityId: "show-id",
 			seasonLimit: 4,
 			episodeLimit: 12,
+			entityId: "show-id",
 		});
 		const seasons = doc.output.include?.[0];
 		const episodes = seasons && "include" in seasons ? seasons.include[0] : undefined;
 
-		expect(doc.source.where).toMatchObject({
-			type: "comparison",
-			operator: "eq",
-		});
+		expect(doc.source.where).toMatchObject({ operator: "eq", type: "comparison" });
 		expect(seasons).toMatchObject({ key: "seasons", limit: 4 });
 		expect(episodes).toMatchObject({ key: "episodes", limit: 12 });
 	});
 
 	it("uses identity fields for media recommendation groups", () => {
 		const doc = buildCollectionMediaSuggestionsQueryDocument({
-			collectionId: "collection-id",
 			entitySchemaSlug: "book",
+			collectionId: "collection-id",
 		});
 
 		expect(doc.output.groupBy?.map((field) => field.key)).toEqual(["id", "name", "schemaSlug"]);
@@ -63,8 +55,8 @@ describe("query-engine builders", () => {
 
 	it("uses the plural workouts include for template detail", () => {
 		const doc = buildWorkoutTemplateDetailQueryDocument({
-			entityId: "template-id",
 			workoutLimit: 6,
+			entityId: "template-id",
 		});
 
 		expect(doc.output.include?.[0]).toMatchObject({ key: "workouts", limit: 6 });

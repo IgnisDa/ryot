@@ -1,10 +1,6 @@
 {
 	"name": "@ryot/query-engine",
 	"exports": {
-		".": {
-			"types": "./src/index.ts",
-			"default": "./src/index.ts"
-		},
 		"./*": {
 			"types": "./src/*.ts",
 			"default": "./src/*.ts"

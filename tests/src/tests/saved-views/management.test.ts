@@ -2,11 +2,11 @@ import {
 	createEntityColumnExpression,
 	createEntitySchemaExpression,
 } from "@ryot/contract/display-configuration";
-import { buildDefaultSavedViewQueryDocument } from "@ryot/query-engine/recipes/app";
 import {
 	buildQueryEngineAggregateDocument,
 	queryEngineEntitySource,
-} from "@ryot/query-engine";
+} from "@ryot/query-engine/documents";
+import { buildDefaultSavedViewQueryDocument } from "@ryot/query-engine/recipes/app";
 import { Effect } from "effect";
 
 import {
