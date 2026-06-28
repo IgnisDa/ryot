@@ -2,9 +2,9 @@
 
 ## Tasks
 
-**Overall Progress:** 12 of 15 tasks completed
+**Overall Progress:** 13 of 15 tasks completed
 
-**Current Task:** [Task 13](./13-association-detectors.md) (todo)
+**Current Task:** [Task 14](./14-media-monitoring-notification-removal.md) (todo)
 
 ### Task List
 
@@ -22,7 +22,7 @@
 | 10  | [Remove Legacy Notification Vocabulary](./10-remove-legacy-notification-vocabulary.md)                                 | AFK  | done   |
 | 11  | [Population Context and Media Entity-Update Detectors](./11-population-context-and-media-entity-update-detectors.md)   | AFK  | done   |
 | 12  | [Sync Batch Leaders and Discovery Detectors](./12-sync-batch-leaders-and-discovery-detectors.md)                       | AFK  | done   |
-| 13  | [Association Detectors](./13-association-detectors.md)                                                                 | AFK  | todo   |
+| 13  | [Association Detectors](./13-association-detectors.md)                                                                 | AFK  | done   |
 | 14  | [Media-Monitoring Notification Removal](./14-media-monitoring-notification-removal.md)                                 | AFK  | todo   |
 | 15  | [Codebase Cleanup](./15-codebase-cleanup.md)                                                                           | AFK  | todo   |
 

@@ -55,7 +55,29 @@ it.effect("defines strict active actor contracts for the first notification sign
 );
 
 const mediaContracts = {
+	"media.season-count.changed": { oldCount: 1, newCount: 2, entityName: "Severance" },
 	"media.status.changed": { newStatus: "Ended", oldStatus: "Airing", entityName: "Severance" },
+	"media.episode.images.changed": { seasonNumber: 2, episodeNumber: 1, entityName: "Severance" },
+	"person.media.associated": {
+		role: "Director",
+		associatedName: "Barbie",
+		subjectName: "Greta Gerwig",
+	},
+	"company.media.associated": {
+		role: "Studio",
+		subjectName: "Studio Ghibli",
+		associatedName: "Spirited Away",
+	},
+	"person.media-group.associated": {
+		role: "Artist",
+		subjectName: "Beyonce",
+		associatedName: "Destiny's Child",
+	},
+	"company.media-group.associated": {
+		role: "Publisher",
+		subjectName: "Nintendo",
+		associatedName: "The Legend of Zelda",
+	},
 	"media.content-count.changed": {
 		oldCount: 12,
 		newCount: 13,
@@ -75,8 +97,6 @@ const mediaContracts = {
 		newName: "Premiere",
 		entityName: "Severance",
 	},
-	"media.episode.images.changed": { seasonNumber: 2, episodeNumber: 1, entityName: "Severance" },
-	"media.season-count.changed": { oldCount: 1, newCount: 2, entityName: "Severance" },
 	"media.episode.discovered": {
 		oldCount: 7,
 		newCount: 10,
@@ -91,8 +111,8 @@ it.effect("defines strict related-user contracts for media update signals", () =
 		const definitions = builtinSignalSchemas(mediaMonitoringRelationshipSchemaId);
 
 		expect(
-			definitions.filter(({ slug }) => slug in mediaContracts).map(({ slug }) => slug),
-		).toEqual(Object.keys(mediaContracts));
+			new Set(definitions.filter(({ slug }) => slug in mediaContracts).map(({ slug }) => slug)),
+		).toEqual(new Set(Object.keys(mediaContracts)));
 		for (const [slug, properties] of Object.entries(mediaContracts)) {
 			const definition = definitions.find((candidate) => candidate.slug === slug);
 			assert(definition);
