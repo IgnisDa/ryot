@@ -1,9 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
-import { PutObjectCommand } from "@aws-sdk/client-s3";
-
 import { createAuthenticatedClient, getBackendClient, postBackendJson } from "~/fixtures";
-import { getBackendUrl, getS3BucketName, getS3Client } from "~/setup";
+import { getBackendUrl } from "~/setup";
 import { assertCondition, assertTaggedError } from "~/support/assertions";
 
 function isStringArray(value: unknown): value is string[] {
@@ -85,12 +83,13 @@ describe("POST /uploads/presigned/download", () => {
 	});
 
 	it("returns presigned download URLs for existing keys", async () => {
-		const key = "uploads/test-file.txt";
-		await getS3Client().send(
-			new PutObjectCommand({ Key: key, Body: "test content", Bucket: getS3BucketName() }),
-		);
-
 		const { client } = await createAuthenticatedClient();
+		const { key, uploadUrl } = await client.run((c) =>
+			c.uploads.createPresigned({ payload: { contentType: "text/csv" } }),
+		);
+		const uploadResponse = await fetch(uploadUrl, { method: "PUT", body: "test content" });
+		expect(uploadResponse.ok).toBe(true);
+
 		const data = await client.run((c) =>
 			c.uploads.createPresignedDownload({ payload: { keys: [key] } }),
 		);

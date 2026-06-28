@@ -11,7 +11,7 @@ import {
 
 describe("POST /events with global entities", () => {
 	it("creates the event and upserts in_library for the user", async () => {
-		const { client, email } = await createAuthenticatedClient();
+		const { client } = await createAuthenticatedClient();
 		const { entity, schema } = await createGlobalBookEntityFixture(client);
 
 		const eventSchemas = await listEventSchemas(client, schema.id);
@@ -29,7 +29,7 @@ describe("POST /events with global entities", () => {
 		expect(events).toHaveLength(1);
 		expect(events[0]?.eventSchemaSlug).toBe("backlog");
 
-		const membership = await waitForInLibraryRelationship(client, entity.id, email);
-		expect(membership.rowCount).toBe(1);
+		const membership = await waitForInLibraryRelationship(client, entity.id, schema.slug);
+		expect(membership.data.items).toHaveLength(1);
 	});
 });

@@ -1,4 +1,14 @@
 import { EntityId, RelationshipSchemaId } from "@ryot/contract/schema/brands";
+import {
+	queryEngineAnd,
+	queryEngineComparison,
+	queryEngineEntitySource,
+	queryEngineExists,
+	queryEngineField,
+	queryEngineIsNull,
+	queryEngineLiteral,
+	queryEngineSystemRef,
+} from "@ryot/query-engine";
 
 import { getPgClient } from "~/setup";
 import { assertPresent, requirePresent } from "~/support/assertions";
@@ -11,6 +21,12 @@ import {
 	getFirstProviderScriptId,
 } from "./entity-schemas";
 import { pollUntil, type PollOptions } from "./polling";
+import {
+	buildEntityRowsQueryDocument,
+	executeQueryEngine,
+	getQueryEngineTextFieldOrNull,
+	requireQueryEngineTextField,
+} from "./query-engine-core";
 import { listRelationshipSchemas, requireRelationshipSchemaBySlug } from "./relationship-schemas";
 import { createRelationship } from "./relationships";
 
@@ -31,37 +47,53 @@ export async function insertRelationshipRow(
 	});
 }
 
-export async function queryInLibraryRelationship(client: Client, entityId: string, email: string) {
-	const schemas = await listRelationshipSchemas(client, { slugs: ["in-library"] });
-	const inLibrarySchema = requireRelationshipSchemaBySlug(schemas, "in-library");
-
-	return getPgClient().query<{ id: string }>(
-		`select r.id
-		 from relationship r
-		 inner join entity library_entity on library_entity.id = r.target_entity_id
-		 inner join entity_schema library_schema on library_schema.id = library_entity.entity_schema_id
-		 inner join "user" u on u.id = library_entity.user_id
-		 where r.relationship_schema_id = $1
-		   and r.user_id = u.id
-		   and r.source_entity_id = $2
-		   and u.email = $3
-		   and library_schema.slug = 'library'
-		 limit 1`,
-		[inLibrarySchema.id, entityId, email],
+export async function queryInLibraryRelationship(
+	client: Client,
+	entityId: string,
+	entitySchemaSlug: string,
+) {
+	return executeQueryEngine(
+		client,
+		buildEntityRowsQueryDocument({
+			limit: 1,
+			alias: "entity",
+			schemas: [entitySchemaSlug],
+			fields: [queryEngineField("id", queryEngineSystemRef("entity", "id"))],
+			where: queryEngineAnd(
+				queryEngineComparison(
+					"eq",
+					queryEngineSystemRef("entity", "id"),
+					queryEngineLiteral(entityId),
+				),
+				queryEngineExists(
+					queryEngineEntitySource({
+						where: null,
+						alias: "library",
+						schemas: ["library"],
+						via: {
+							alias: "inLibrary",
+							entityRef: "entity",
+							schema: "in-library",
+							direction: "outgoing" as const,
+						},
+					}),
+				),
+			),
+		}),
 	);
 }
 
 export async function waitForInLibraryRelationship(
 	client: Client,
 	entityId: string,
-	email: string,
+	entitySchemaSlug: string,
 	options: PollOptions = {},
 ) {
 	return pollUntil(
 		`in-library relationship for entity ${entityId}`,
 		async () => {
-			const result = await queryInLibraryRelationship(client, entityId, email);
-			return (result.rowCount ?? 0) >= 1 ? result : null;
+			const result = await queryInLibraryRelationship(client, entityId, entitySchemaSlug);
+			return result.data.items.length >= 1 ? result : null;
 		},
 		{ timeoutMs: 5000, intervalMs: 200, ...options },
 	);
@@ -84,45 +116,56 @@ export async function deleteGlobalEntityByProvenance(input: {
 	);
 }
 
-export async function getGlobalEntityByProvenance(input: {
-	externalId: string;
-	entitySchemaId: string;
-	sandboxScriptId: string;
-}) {
-	const pg = getPgClient();
-	const result = await pg.query<{
-		id: string;
-		name: string;
-		populatedAt: string | null;
-	}>(
-		`select e.id, e.name, e.populated_at::text as "populatedAt"
-		 from entity e
-		 where e.external_id = $1
-		   and e.entity_schema_id = $2
-		   and e.sandbox_script_id = $3
-		   and e.user_id is null
-		 limit 1`,
-		[input.externalId, input.entitySchemaId, input.sandboxScriptId],
+export async function getGlobalEntityByProvenance(
+	client: Client,
+	input: { externalId: string; sandboxScriptId: string; entitySchemaSlug: string },
+) {
+	const result = await executeQueryEngine(
+		client,
+		buildEntityRowsQueryDocument({
+			limit: 1,
+			alias: "entity",
+			schemas: [input.entitySchemaSlug],
+			fields: [
+				queryEngineField("id", queryEngineSystemRef("entity", "id")),
+				queryEngineField("name", queryEngineSystemRef("entity", "name")),
+				queryEngineField("populatedAt", queryEngineSystemRef("entity", "populatedAt")),
+			],
+			where: queryEngineAnd(
+				queryEngineComparison(
+					"eq",
+					queryEngineSystemRef("entity", "externalId"),
+					queryEngineLiteral(input.externalId),
+				),
+				queryEngineComparison(
+					"eq",
+					queryEngineSystemRef("entity", "sandboxScriptId"),
+					queryEngineLiteral(input.sandboxScriptId),
+				),
+				queryEngineIsNull(queryEngineSystemRef("entity", "userId")),
+			),
+		}),
 	);
-
-	return requirePresent(
-		result.rows[0],
+	const entity = requirePresent(
+		result.data.items[0],
 		`Missing global entity for external id '${input.externalId}'`,
 	);
+	return {
+		id: requireQueryEngineTextField(entity, "id"),
+		name: requireQueryEngineTextField(entity, "name"),
+		populatedAt: getQueryEngineTextFieldOrNull(entity, "populatedAt"),
+	};
 }
 
 export async function waitForEntityPopulated(
-	input: {
-		externalId: string;
-		entitySchemaId: string;
-		sandboxScriptId: string;
-	},
+	client: Client,
+	input: { externalId: string; sandboxScriptId: string; entitySchemaSlug: string },
 	options: PollOptions = {},
 ) {
 	return pollUntil(
 		`global entity '${input.externalId}' populated`,
 		async () => {
-			const entity = await getGlobalEntityByProvenance(input);
+			const entity = await getGlobalEntityByProvenance(client, input);
 			return entity.populatedAt !== null ? entity : null;
 		},
 		{ timeoutMs: 30_000, intervalMs: 500, ...options },
@@ -131,19 +174,15 @@ export async function waitForEntityPopulated(
 
 export async function getRelationshipBySchemaSlug(
 	client: Client,
-	input: {
-		sourceEntityId: string;
-		targetEntityId: string;
-		relationshipSchemaSlug: string;
-	},
+	input: { sourceEntityId: string; targetEntityId: string; relationshipSchemaSlug: string },
 ) {
 	const pg = getPgClient();
 	const schemas = await listRelationshipSchemas(client, { slugs: [input.relationshipSchemaSlug] });
 	const relationshipSchema = requireRelationshipSchemaBySlug(schemas, input.relationshipSchemaSlug);
 	const result = await pg.query<{
-		properties: Record<string, unknown>;
 		sourceEntityId: string;
 		targetEntityId: string;
+		properties: Record<string, unknown>;
 	}>(
 		`select r.properties,
 		        r.source_entity_id as "sourceEntityId",
@@ -216,8 +255,8 @@ export async function createGlobalBookEntityFixture(
 		properties: {},
 		entitySchemaId: schema.id,
 		sandboxScriptId: getFirstProviderScriptId(schema),
-		externalId: options.externalId ?? `global-book-${crypto.randomUUID()}`,
 		name: options.name ?? `Global Built-in Book ${crypto.randomUUID()}`,
+		externalId: options.externalId ?? `global-book-${crypto.randomUUID()}`,
 	});
 	return { entity, schema };
 }
@@ -240,11 +279,11 @@ export async function seedGlobalShowEpisodeTree(client: Client, options: { showN
 		"show-season-to-show-episode",
 	);
 
-	const tmdbId = String(Math.floor(Math.random() * 1_000_000_000));
+	const pg = getPgClient();
 	const showId = crypto.randomUUID();
 	const seasonId = crypto.randomUUID();
 	const episodeId = crypto.randomUUID();
-	const pg = getPgClient();
+	const tmdbId = String(Math.floor(Math.random() * 1_000_000_000));
 
 	await pg.query(
 		`insert into entity (id, name, external_id, entity_schema_id, sandbox_script_id, user_id, populated_at, properties)
@@ -310,8 +349,8 @@ export async function insertLibraryMembership(
 
 	await createRelationship(client, {
 		properties: {},
-		sourceEntityId: EntityId.make(input.mediaEntityId),
-		targetEntityId: EntityId.make(libraryEntityId),
 		relationshipSchemaId: inLibrarySchema.id,
+		targetEntityId: EntityId.make(libraryEntityId),
+		sourceEntityId: EntityId.make(input.mediaEntityId),
 	});
 }

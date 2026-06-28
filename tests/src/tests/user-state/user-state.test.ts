@@ -1,8 +1,10 @@
 import { describe, expect, it } from "bun:test";
 
 import { EntityId } from "@ryot/contract/schema/brands";
+import { queryEngineField, queryEngineSystemRef } from "@ryot/query-engine";
 
 import {
+	buildEntityRowsQueryDocument,
 	clearEntityUserState,
 	createAuthenticatedClient,
 	createEntity,
@@ -11,25 +13,26 @@ import {
 	createRelationship,
 	createTrackerWithSchema,
 	createTrackerWithSchemaAndEntity,
+	executeQueryEngine,
 	getBackendClient,
 	listEventSchemas,
 	listRelationshipSchemas,
 	mergeUserState,
 	queryInLibraryRelationship,
 	queryUserEntityStateCounts,
+	requireQueryEngineTextField,
 	requireEventSchemaBySlug,
 	requireRelationshipSchemaBySlug,
 } from "~/fixtures";
 import { pollUntil } from "~/fixtures/polling";
-import { getPgClient } from "~/setup";
 import { assertPresent, assertTaggedError } from "~/support/assertions";
 
 async function insertUserRelationship(input: {
-	client: Awaited<ReturnType<typeof createAuthenticatedClient>>["client"];
 	sourceEntityId: string;
 	targetEntityId: string;
 	relationshipSchemaSlug: string;
 	properties?: Record<string, unknown>;
+	client: Awaited<ReturnType<typeof createAuthenticatedClient>>["client"];
 }) {
 	const schemas = await listRelationshipSchemas(input.client, {
 		slugs: [input.relationshipSchemaSlug],
@@ -38,29 +41,27 @@ async function insertUserRelationship(input: {
 
 	await createRelationship(input.client, {
 		properties: input.properties,
+		relationshipSchemaId: relationshipSchema.id,
 		sourceEntityId: EntityId.make(input.sourceEntityId),
 		targetEntityId: EntityId.make(input.targetEntityId),
-		relationshipSchemaId: relationshipSchema.id,
 	});
 }
 
-async function getLibraryEntityId(userId: string) {
-	const pg = getPgClient();
-	const result = await pg.query<{ id: string }>(
-		`select e.id
-		 from entity e
-		 inner join entity_schema es on es.id = e.entity_schema_id
-		 where e.user_id = $1
-		   and es.slug = 'library'
-		   and es.user_id is null
-		 limit 1`,
-		[userId],
+async function getLibraryEntityId(
+	client: Awaited<ReturnType<typeof createAuthenticatedClient>>["client"],
+) {
+	const result = await executeQueryEngine(
+		client,
+		buildEntityRowsQueryDocument({
+			limit: 1,
+			alias: "library",
+			schemas: ["library"],
+			fields: [queryEngineField("id", queryEngineSystemRef("library", "id"))],
+		}),
 	);
-
-	const libraryEntityId = result.rows[0]?.id;
-	assertPresent(libraryEntityId, `Missing library entity for user '${userId}'`);
-
-	return EntityId.make(libraryEntityId);
+	const library = result.data.items[0];
+	assertPresent(library, "Missing library entity");
+	return EntityId.make(requireQueryEngineTextField(library, "id"));
 }
 
 describe("DELETE /user-state/clear/:id", () => {
@@ -71,6 +72,14 @@ describe("DELETE /user-state/clear/:id", () => {
 
 		const eventSchemas = await listEventSchemas(userA.client, schema.id);
 		const reviewEventSchema = requireEventSchemaBySlug(eventSchemas, "review");
+		const queryCounts = (auth: typeof userA) =>
+			queryUserEntityStateCounts({
+				client: auth.client,
+				userId: auth.userId,
+				entityId: entity.id,
+				entitySchemaSlugs: [schema.slug],
+				eventSchemaSlugs: [reviewEventSchema.slug],
+			});
 
 		const { entityId: extraTargetEntityId } = await createTrackerWithSchemaAndEntity(userA.client);
 
@@ -104,17 +113,11 @@ describe("DELETE /user-state/clear/:id", () => {
 		});
 
 		await pollUntil("user A event setup", async () => {
-			const counts = await queryUserEntityStateCounts({
-				entityId: entity.id,
-				userId: userA.userId,
-			});
+			const counts = await queryCounts(userA);
 			return counts.eventCount === 1 && counts.relationshipCount === 2 ? counts : null;
 		});
 		await pollUntil("user B event setup", async () => {
-			const counts = await queryUserEntityStateCounts({
-				entityId: entity.id,
-				userId: userB.userId,
-			});
+			const counts = await queryCounts(userB);
 			return counts.eventCount === 1 && counts.relationshipCount === 1 ? counts : null;
 		});
 
@@ -125,22 +128,18 @@ describe("DELETE /user-state/clear/:id", () => {
 			deletedEventsCount: 1,
 			deletedRelationshipsCount: 2,
 		});
-		expect(await queryUserEntityStateCounts({ userId: userA.userId, entityId: entity.id })).toEqual(
-			{ eventCount: 0, relationshipCount: 0 },
-		);
-		expect(await queryUserEntityStateCounts({ userId: userB.userId, entityId: entity.id })).toEqual(
-			{ eventCount: 1, relationshipCount: 1 },
-		);
+		expect(await queryCounts(userA)).toEqual({ eventCount: 0, relationshipCount: 0 });
+		expect(await queryCounts(userB)).toEqual({ eventCount: 1, relationshipCount: 1 });
 
-		const userAMembership = await queryInLibraryRelationship(userA.client, entity.id, userA.email);
-		const userBMembership = await queryInLibraryRelationship(userB.client, entity.id, userB.email);
-		expect(userAMembership.rowCount).toBe(0);
-		expect(userBMembership.rowCount).toBe(1);
+		const userAMembership = await queryInLibraryRelationship(userA.client, entity.id, schema.slug);
+		const userBMembership = await queryInLibraryRelationship(userB.client, entity.id, schema.slug);
+		expect(userAMembership.data.items).toHaveLength(0);
+		expect(userBMembership.data.items).toHaveLength(1);
 	});
 
 	it("rejects clearing the library entity user state", async () => {
-		const { client, userId } = await createAuthenticatedClient();
-		const libraryEntityId = await getLibraryEntityId(userId);
+		const { client } = await createAuthenticatedClient();
+		const libraryEntityId = await getLibraryEntityId(client);
 
 		const error = await client.runError((c) =>
 			c.userState.clearUserState({ path: { entityId: libraryEntityId } }),
@@ -164,11 +163,13 @@ describe("DELETE /user-state/clear/:id", () => {
 describe("POST /user-state/merge", () => {
 	it("moves user events and dedupes relationships from source to target", async () => {
 		const { client, userId } = await createAuthenticatedClient();
-		const { schemaId } = await createTrackerWithSchema(client);
+		const entitySchemaSlug = `merge-schema-${crypto.randomUUID()}`;
+		const eventSchemaSlug = `merged-event-${crypto.randomUUID()}`;
+		const { schemaId } = await createTrackerWithSchema(client, { slug: entitySchemaSlug });
 		const eventSchema = await createEventSchema(client, {
-			entitySchemaId: schemaId,
 			name: "Merged Event",
-			slug: `merged-event-${crypto.randomUUID()}`,
+			slug: eventSchemaSlug,
+			entitySchemaId: schemaId,
 		});
 		const source = await createEntity(client, {
 			name: "Source Entity",
@@ -185,14 +186,22 @@ describe("POST /user-state/merge", () => {
 			entitySchemaId: schemaId,
 			properties: { title: "Related" },
 		});
+		const queryCounts = (entityId: string) =>
+			queryUserEntityStateCounts({
+				client,
+				userId,
+				entityId,
+				eventSchemaSlugs: [eventSchemaSlug],
+				entitySchemaSlugs: [entitySchemaSlug],
+			});
 
 		await client.run((c) =>
 			c.events.create({
 				payload: [
 					{
 						entityId: source.id,
-						eventSchemaId: eventSchema.id,
 						properties: { note: "moves" },
+						eventSchemaId: eventSchema.id,
 					},
 				],
 			}),
@@ -210,7 +219,7 @@ describe("POST /user-state/merge", () => {
 			relationshipSchemaSlug: "media-suggestion",
 		});
 		await pollUntil("source event setup", async () => {
-			const counts = await queryUserEntityStateCounts({ userId, entityId: source.id });
+			const counts = await queryCounts(source.id);
 			return counts.eventCount === 1 && counts.relationshipCount === 1 ? counts : null;
 		});
 
@@ -222,11 +231,11 @@ describe("POST /user-state/merge", () => {
 			mergeInto: target.id,
 			movedRelationshipsCount: 1,
 		});
-		expect(await queryUserEntityStateCounts({ userId, entityId: source.id })).toEqual({
+		expect(await queryCounts(source.id)).toEqual({
 			eventCount: 0,
 			relationshipCount: 0,
 		});
-		expect(await queryUserEntityStateCounts({ userId, entityId: target.id })).toEqual({
+		expect(await queryCounts(target.id)).toEqual({
 			eventCount: 1,
 			relationshipCount: 1,
 		});

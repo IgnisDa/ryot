@@ -47,7 +47,7 @@ describe("entity population via client-declared interest", () => {
 
 		const { schema } = await findBuiltinSchemaBySlug(client, "company");
 		const provenance = {
-			entitySchemaId: schema.id,
+			entitySchemaSlug: schema.slug,
 			sandboxScriptId: providerScript.scriptId,
 			externalId: `e2e-populate-${crypto.randomUUID()}`,
 		};
@@ -66,14 +66,14 @@ describe("entity population via client-declared interest", () => {
 		expect(fetched.populatedAt).toBeNull();
 
 		await delay(GRACE_WINDOW_MS);
-		const afterGrace = await getGlobalEntityByProvenance(provenance);
+		const afterGrace = await getGlobalEntityByProvenance(client, provenance);
 		expect(afterGrace.populatedAt).toBeNull();
 
 		const stream = await openInterestStream(auth);
 		try {
 			await stream.declareInterest([seeded.id]);
 
-			const populated = await waitForEntityPopulated(provenance);
+			const populated = await waitForEntityPopulated(client, provenance);
 			expect(populated.populatedAt).not.toBeNull();
 			expect(populated.name).toBe(POPULATED_NAME);
 

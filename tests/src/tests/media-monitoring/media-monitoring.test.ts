@@ -139,9 +139,9 @@ describe("media monitoring endpoints", () => {
 		const inLibraryRelationship = await queryInLibraryRelationship(
 			owner.client,
 			apiEntityId,
-			owner.email,
+			"movie",
 		);
-		expect(inLibraryRelationship.rowCount).toBe(1);
+		expect(inLibraryRelationship.data.items).toHaveLength(1);
 	});
 
 	it("rejects invisible and unsupported media monitoring targets", async () => {
@@ -244,17 +244,11 @@ describe("media monitoring infrequent refresh", () => {
 			adminHeaders,
 		);
 		await pollUntil("media monitoring baseline population", async () => {
-			const result = await getPgClient().query<{
-				populatedAt: string | null;
-				productionStatus: string | null;
-			}>(
-				`select populated_at::text as "populatedAt",
-				        properties->>'productionStatus' as "productionStatus"
-				 from entity where id = $1`,
-				[cronEntityId],
+			const entity = await first.client.run((contract) =>
+				contract.entities.get({ path: { entityId: EntityId.make(cronEntityId) } }),
 			);
-			const row = result.rows[0];
-			return row?.populatedAt && row.productionStatus === "Continuing" ? row : null;
+			const properties = requireObjectRecord(entity.properties, "Missing entity properties");
+			return entity.populatedAt && properties.productionStatus === "Continuing" ? entity : null;
 		});
 		await waitForMediaMonitoringRefresh(`${baseline.executionId}-${cronEntityId}`);
 		expect(fakeApprise.requests).toEqual([]);
@@ -274,11 +268,11 @@ describe("media monitoring infrequent refresh", () => {
 			adminHeaders,
 		);
 		await pollUntil("media monitoring changed provider refresh", async () => {
-			const result = await getPgClient().query<{ productionStatus: string | null }>(
-				`select properties->>'productionStatus' as "productionStatus" from entity where id = $1`,
-				[cronEntityId],
+			const entity = await first.client.run((contract) =>
+				contract.entities.get({ path: { entityId: EntityId.make(cronEntityId) } }),
 			);
-			return result.rows[0]?.productionStatus === "Ended" ? true : null;
+			const properties = requireObjectRecord(entity.properties, "Missing entity properties");
+			return properties.productionStatus === "Ended" ? true : null;
 		});
 		await waitForMediaMonitoringRefresh(`${changed.executionId}-${cronEntityId}`);
 		const queuedDeliveries = await getPgClient().query<{ payload: string }>(
