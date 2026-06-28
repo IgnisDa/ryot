@@ -1,53 +1,53 @@
+import type { SandboxHost } from "@ryot/sandbox-sdk";
+import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
-import titleCaseDelimiterHelperCode from "../../../script-helpers/title-case-delimiters.sandbox.js" with { type: "text" };
-import {
-	type HostFunction,
-	hostSuccess,
-	httpSuccess,
-	runProviderDriver,
-	toRecord,
-	withTitleCaseHelper,
-} from "../../test-utils";
-import myanimelistMangaScriptCode from "./myanimelist.sandbox.js" with { type: "text" };
+import { details, manifest } from "./myanimelist.sandbox";
 
-const myanimelistCode = withTitleCaseHelper(
-	titleCaseDelimiterHelperCode,
-	myanimelistMangaScriptCode,
-);
+type MyAnimeListMangaHost = SandboxHost<typeof manifest.capabilities>;
 
-const runMyanimelistMangaDetails = (
-	context: unknown,
-	hostFunctions: Record<string, HostFunction>,
-) => runProviderDriver(myanimelistCode, context, hostFunctions);
+const httpSuccess = (body: unknown) =>
+	Promise.resolve({
+		success: true as const,
+		data: { status: 200, headers: {}, body: JSON.stringify(body) },
+	});
+
+const makeHost = (httpCall: MyAnimeListMangaHost["httpCall"]) =>
+	defineSandboxTestHost(manifest, {
+		httpCall,
+		getAppConfigValue: () => Promise.resolve({ success: true as const, data: "client-id" }),
+		getUserPreferences: () =>
+			Promise.resolve({
+				success: true as const,
+				data: { isNsfw: false, disableIntegrations: false },
+			}),
+	});
+
+const execution = { metadata: {}, sandboxScriptId: "script_test" };
 
 describe("manga.myanimelist sandbox script", () => {
 	it("keeps MAL recommendations as related entities", () => {
-		return runMyanimelistMangaDetails(
-			{ externalId: "1" },
-			{
-				getAppConfigValue: () => hostSuccess("client-id"),
-				httpCall: () =>
-					httpSuccess({
-						id: 1,
-						mean: 8.1,
-						genres: [],
-						nsfw: "white",
-						synopsis: null,
-						title: "Source",
-						num_volumes: 10,
-						num_chapters: 90,
-						main_picture: null,
-						status: "finished",
-						start_date: "2024-01-01",
-						recommendations: [{ node: { id: 2, title: "Manga Pick" } }],
-						related_anime: [{ node: { id: 3, title: "Related Anime" } }],
-						related_manga: [{ node: { id: 4, title: "Related Manga" } }],
-					}),
-			},
-		).then((rawDetails) => {
-			const details = toRecord(rawDetails);
-			expect(details["relatedEntityGroups"]).toEqual([
+		const host = makeHost(() =>
+			httpSuccess({
+				id: 1,
+				mean: 8.1,
+				genres: [],
+				nsfw: "white",
+				synopsis: null,
+				title: "Source",
+				num_volumes: 10,
+				num_chapters: 90,
+				main_picture: null,
+				status: "finished",
+				start_date: "2024-01-01",
+				recommendations: [{ node: { id: 2, title: "Manga Pick" } }],
+				related_anime: [{ node: { id: 3, title: "Related Anime" } }],
+				related_manga: [{ node: { id: 4, title: "Related Manga" } }],
+			}),
+		);
+
+		return runSandboxTestDriver(details, { externalId: "1" }, host, execution).then((result) => {
+			expect(result.relatedEntityGroups).toEqual([
 				{
 					direction: "outgoing",
 					synchronization: "authoritative",
@@ -59,6 +59,13 @@ describe("manga.myanimelist sandbox script", () => {
 					],
 				},
 			]);
+			expect(result.properties).toMatchObject({
+				volumes: 10,
+				chapters: 90,
+				isNsfw: false,
+				productionStatus: "Finished",
+				sourceUrl: "https://myanimelist.net/manga/1/Source",
+			});
 			return undefined;
 		});
 	});
