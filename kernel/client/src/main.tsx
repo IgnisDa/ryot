@@ -4,7 +4,7 @@ import { Effect } from "effect";
 import { useEffect } from "react";
 import ReactDOM from "react-dom/client";
 
-import { applyThemePreference } from "./modules/theme/preference";
+import { createThemeStore, type ThemeStore } from "./modules/theme/store";
 import { ClientStorage } from "./persistence/storage";
 import { getRouter } from "./router";
 import { makeClientRuntime, type ClientRuntime } from "./runtime";
@@ -12,8 +12,15 @@ import { makeClientRuntime, type ClientRuntime } from "./runtime";
 function ClientApplication(props: {
 	readonly router: ReturnType<typeof getRouter>;
 	readonly runtime: ClientRuntime;
+	readonly theme: ThemeStore;
 }) {
-	useEffect(() => () => void props.runtime.dispose(), [props.runtime]);
+	useEffect(
+		() => () => {
+			props.theme.destroy();
+			void props.runtime.dispose();
+		},
+		[props.runtime, props.theme],
+	);
 	return (
 		<RegistryProvider>
 			<RouterProvider router={props.router} />
@@ -33,7 +40,7 @@ if (!rootElement.innerHTML) {
 	const initialThemePreference = runtime.runSync(
 		Effect.flatMap(ClientStorage, (storage) => storage.getThemePreference),
 	);
-	applyThemePreference(document.documentElement, initialThemePreference);
-	const router = getRouter({ initialThemePreference, runtime });
-	root.render(<ClientApplication router={router} runtime={runtime} />);
+	const theme = createThemeStore(initialThemePreference);
+	const router = getRouter({ runtime, theme });
+	root.render(<ClientApplication router={router} runtime={runtime} theme={theme} />);
 }

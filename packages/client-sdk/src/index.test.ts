@@ -1,12 +1,16 @@
+import { REQUIRED_THEME_TOKEN_NAMES } from "@ryot/contract/modules/plugins/client";
 import type { PreparedRecipe } from "@ryot/ryotql";
 import { Result, Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
 import { createRyotClient, RyotClientError } from "./index";
 
+let notify: () => void = () => undefined;
 const Greeting = Schema.Struct({ greeting: Schema.String });
 const QueryResponse = Schema.Struct({ value: Schema.String });
 const document = { queries: {}, output: {} } as PreparedRecipe<string>["document"];
+const tokens = Object.fromEntries(REQUIRED_THEME_TOKEN_NAMES.map((name) => [name, name]));
+const theme = { resolvedMode: "light", tokens };
 
 describe("createRyotClient", () => {
 	it("sends only a recipe document and decodes the response locally", async () => {
@@ -127,5 +131,58 @@ describe("createRyotClient", () => {
 		expect(() => client.navigation.push({ path: "/items" })).toThrow(
 			new RyotClientError("unsupported-capability"),
 		);
+	});
+
+	it("decodes theme snapshots and delegates reactive subscriptions", () => {
+		let notifications = 0;
+		let current: unknown = theme;
+		const client = createRyotClient({
+			query: () => Promise.resolve({}),
+			theme: {
+				getSnapshot: () => current,
+				subscribe: (listener) => {
+					notify = listener;
+					return () => {
+						notify = () => undefined;
+					};
+				},
+			},
+		});
+
+		const initial = client.theme.getSnapshot();
+		expect(initial).toEqual(theme);
+		expect(client.theme.getSnapshot()).toBe(initial);
+		const unsubscribe = client.theme.subscribe(() => {
+			notifications += 1;
+		});
+		current = { resolvedMode: "dark", tokens: { ...tokens, bg: "black" } };
+		notify();
+		expect(notifications).toBe(1);
+		expect(client.theme.getSnapshot()).toEqual(current);
+		current = { resolvedMode: "dark", tokens: {} };
+		expect(() => notify()).toThrow(new RyotClientError("malformed-result"));
+		expect(notifications).toBe(1);
+		unsubscribe();
+		notify();
+		expect(notifications).toBe(1);
+	});
+
+	it("rejects missing and malformed theme adapters with shared errors", () => {
+		const unsupported = createRyotClient({ query: () => Promise.resolve({}) });
+		const malformed = createRyotClient({
+			query: () => Promise.resolve({}),
+			theme: {
+				subscribe: () => () => {},
+				getSnapshot: () => ({ resolvedMode: "light", tokens: {} }),
+			},
+		});
+
+		expect(() => unsupported.theme.getSnapshot()).toThrow(
+			new RyotClientError("unsupported-capability"),
+		);
+		expect(() => unsupported.theme.subscribe(() => undefined)).toThrow(
+			new RyotClientError("unsupported-capability"),
+		);
+		expect(() => malformed.theme.getSnapshot()).toThrow(new RyotClientError("malformed-result"));
 	});
 });

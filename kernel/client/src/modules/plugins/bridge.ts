@@ -10,6 +10,7 @@ import {
 	type PluginBridgeInit,
 	type PluginBridgeLocation,
 	type PluginBridgeNavigate,
+	type PluginBridgeTheme,
 	type PluginBridgeOperationRequest,
 	type PluginBridgeOperationResult,
 	type PluginBridgeRyotQLRequest,
@@ -19,6 +20,7 @@ import {
 	type PluginOperationRequest,
 	type PluginRyotQLOutcome,
 	type PluginRyotQLRequest,
+	type PluginThemeSnapshot,
 } from "@ryot/contract/modules/plugins/client";
 import { isJsonValue } from "@ryot/contract/schema/json";
 import { Match, Result, Schema } from "effect";
@@ -31,6 +33,7 @@ export type PluginBridgeTarget = {
 
 export type PluginBridgeSession = {
 	readonly close: () => void;
+	readonly sendTheme: (theme: PluginThemeSnapshot) => void;
 	readonly sendLocation: (location: PluginLogicalLocation) => void;
 };
 
@@ -41,6 +44,7 @@ export type PluginBridgeOptions = {
 	readonly onReady: () => void;
 	readonly artifactHash: string;
 	readonly onFailure: () => void;
+	readonly theme: PluginThemeSnapshot;
 	readonly target: PluginBridgeTarget;
 	readonly location: PluginLogicalLocation;
 	readonly onNavigate: (request: PluginBridgeNavigate) => void;
@@ -72,10 +76,15 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 		bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
 	};
 
-	let state: PluginBridgeState = "ready";
+	let bridgeReady = false;
+	let theme = options.theme;
+	let nextThemeGeneration = 0;
 	let location = options.location;
 	const channel = new MessageChannel();
+	let state: PluginBridgeState = "ready";
 	const listeners = new AbortController();
+	let sentTheme: PluginThemeSnapshot | undefined;
+	let awaitingThemeGeneration: number | undefined;
 	const pending = new Map<string, AbortController>();
 	const timer = window.setTimeout(() => fail(), options.timeoutMs ?? HANDSHAKE_TIMEOUT_MS);
 
@@ -113,12 +122,49 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 		options.onFailure();
 	}
 
+	function post(message: unknown) {
+		try {
+			channel.port1.postMessage(message);
+		} catch {
+			fail();
+		}
+	}
+
+	function postTheme(nextTheme: PluginThemeSnapshot) {
+		nextThemeGeneration += 1;
+		const generation = nextThemeGeneration;
+		post({ generation, theme: nextTheme, type: "theme" } satisfies PluginBridgeTheme);
+		return generation;
+	}
+
+	function sendAwaitedTheme(nextTheme: PluginThemeSnapshot) {
+		sentTheme = nextTheme;
+		awaitingThemeGeneration = postTheme(nextTheme);
+	}
+
+	function sendTheme(next: PluginThemeSnapshot) {
+		theme = next;
+		if (state !== "active") {
+			return;
+		}
+		postTheme(theme);
+	}
+
 	function sendLocation(next: PluginLogicalLocation) {
 		location = next;
 		if (state !== "active") {
 			return;
 		}
-		channel.port1.postMessage({ location, type: "location" } satisfies PluginBridgeLocation);
+		post({ location, type: "location" } satisfies PluginBridgeLocation);
+	}
+
+	function handleLifecycleClose(reason: "disposed" | "failed") {
+		if (reason === "failed") {
+			fail(false);
+		} else {
+			finish("disposed", false);
+			options.onFailure();
+		}
 	}
 
 	function handleOperation(request: PluginBridgeOperationRequest) {
@@ -200,29 +246,43 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 					return;
 				}
 				Match.value(decoded.success).pipe(
+					Match.when({ type: "theme-applied" }, () => fail()),
 					Match.when({ type: "navigate" }, (request) => options.onNavigate(request)),
-					Match.when({ type: "lifecycle-close" }, ({ reason }) => {
-						if (reason === "failed") {
-							fail(false);
-						} else {
-							finish("disposed", false);
-							options.onFailure();
-						}
-					}),
+					Match.when({ type: "lifecycle-close" }, ({ reason }) => handleLifecycleClose(reason)),
 					Match.when({ type: "ryotql-request" }, (request) => handleRyotQL(request)),
 					Match.when({ type: "operation-request" }, (request) => handleOperation(request)),
 					Match.exhaustive,
 				);
 				return;
 			}
+			if (bridgeReady) {
+				const decoded = decodeClientMessage(event.data);
+				if (Result.isSuccess(decoded) && decoded.success.type === "lifecycle-close") {
+					handleLifecycleClose(decoded.success.reason);
+					return;
+				}
+				if (Result.isFailure(decoded) || decoded.success.type !== "theme-applied") {
+					fail();
+					return;
+				}
+				if (decoded.success.generation !== awaitingThemeGeneration) {
+					fail();
+					return;
+				}
+				if (sentTheme !== theme) {
+					sendAwaitedTheme(theme);
+					return;
+				}
+				awaitingThemeGeneration = undefined;
+				state = "active";
+				clearTimeout(timer);
+				post({ location, type: "location" } satisfies PluginBridgeLocation);
+				options.onReady();
+				return;
+			}
 			const lifecycleClose = decodeLifecycleClose(event.data);
 			if (Result.isSuccess(lifecycleClose)) {
-				if (lifecycleClose.success.reason === "failed") {
-					fail(false);
-				} else {
-					finish("disposed", false);
-					options.onFailure();
-				}
+				handleLifecycleClose(lifecycleClose.success.reason);
 				return;
 			}
 			const decoded = decodeReady(event.data);
@@ -230,10 +290,8 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 				fail();
 				return;
 			}
-			state = "active";
-			clearTimeout(timer);
-			options.onReady();
-			sendLocation(location);
+			bridgeReady = true;
+			sendAwaitedTheme(theme);
 		},
 		{ signal: listeners.signal },
 	);
@@ -245,5 +303,5 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 		fail(false);
 	}
 
-	return { close, sendLocation };
+	return { close, sendTheme, sendLocation };
 }

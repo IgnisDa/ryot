@@ -1,13 +1,29 @@
 import type { ContractClient, ContractPayload } from "@ryot/contract/client";
-import { Effect, Layer, ManagedRuntime } from "effect";
+import {
+	REQUIRED_THEME_TOKEN_NAMES,
+	PluginThemeSnapshot,
+} from "@ryot/contract/modules/plugins/client";
+import { Effect, Layer, ManagedRuntime, Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
 import { AuthenticatedApi, AuthenticatedApiError } from "../../api/authenticated";
 import { createKernelRyotClient } from "../../api/ryot-client";
 import type { ApiScope } from "../../api/scope";
+import type { ThemeStore } from "../theme/store";
 import { PluginCatalogService } from "./catalog";
 
 const scope: ApiScope = { userId: "user-1", serverUrl: "https://ryot.example" };
+const themeSnapshot = Schema.decodeUnknownSync(PluginThemeSnapshot)({
+	resolvedMode: "light",
+	tokens: Object.fromEntries(REQUIRED_THEME_TOKEN_NAMES.map((name) => [name, name])),
+});
+const theme: ThemeStore = {
+	destroy: () => undefined,
+	getPreference: () => "light",
+	setPreference: () => undefined,
+	subscribe: () => () => undefined,
+	getSnapshot: () => themeSnapshot,
+};
 const entry = {
 	slug: "fixture",
 	health: "ready",
@@ -47,12 +63,13 @@ describe("plugin catalog service", () => {
 		const runtime = ManagedRuntime.make(Layer.mergeAll(api, PluginCatalogService.layer));
 
 		try {
-			const ryot = createKernelRyotClient(runtime, scope);
+			const ryot = createKernelRyotClient(runtime, scope, theme);
 			const catalog = await runtime.runPromise(
 				Effect.flatMap(PluginCatalogService, (service) => service.load(ryot)),
 			);
 
 			expect(catalog).toEqual([entry]);
+			expect(ryot.theme.getSnapshot()).toEqual(themeSnapshot);
 			expect(calls).toHaveLength(1);
 			expect(calls[0]?.payload.queries.installations).toMatchObject({
 				output: { pagination: { limit: 100 } },
