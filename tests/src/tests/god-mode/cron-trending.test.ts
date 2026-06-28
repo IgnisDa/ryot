@@ -41,7 +41,7 @@ let queryClient: Client;
 let movieSchemaId: string;
 let mediaTrendingSchemaId: string;
 
-describe("POST /god-mode/cron/infrequent (media-trending durable workflow)", () => {
+describe("POST /test-support/cron/infrequent (media-trending durable workflow)", () => {
 	beforeAll(async () => {
 		const { client } = await createAuthenticatedClient();
 		queryClient = client;
@@ -88,11 +88,11 @@ describe("POST /god-mode/cron/infrequent (media-trending durable workflow)", () 
 	it("rejects the trigger without a valid admin token", async () => {
 		const client = getBackendClient();
 
-		const missing = await client.runError((c) => c.godMode.triggerInfrequentCron());
+		const missing = await client.runError((c) => c.testSupport.triggerInfrequentCron());
 		assertTaggedError(missing, "Unauthorized");
 
 		const wrong = await client.runError(
-			(c) => c.godMode.triggerInfrequentCron(),
+			(c) => c.testSupport.triggerInfrequentCron(),
 			adminAccessTokenHeaders("wrong-token"),
 		);
 		assertTaggedError(wrong, "Unauthorized");
@@ -100,7 +100,7 @@ describe("POST /god-mode/cron/infrequent (media-trending durable workflow)", () 
 
 	it("runs the media-trending workflow end-to-end and writes ranked self-edges", async () => {
 		const { executionId } = await getBackendClient().run(
-			(c) => c.godMode.triggerInfrequentCron(),
+			(c) => c.testSupport.triggerInfrequentCron(),
 			adminAccessTokenHeaders(ADMIN_TOKEN),
 		);
 		expect(typeof executionId).toBe("string");
