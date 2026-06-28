@@ -3,6 +3,7 @@ import { Schema } from "effect";
 
 import { AuthMiddleware } from "../../auth-middleware";
 import { NotFound, RateLimited, Unauthorized } from "../../errors";
+import { PluginSlug } from "../../schema/brands";
 import {
 	EntityDefinition,
 	ListedWorkspace,
@@ -10,7 +11,7 @@ import {
 	UpdateWorkspaceStateBody,
 } from "./schemas";
 
-const pluginSlugParam = HttpApiSchema.param("pluginSlug", Schema.String);
+const pluginSlugParam = HttpApiSchema.param("pluginSlug", PluginSlug);
 
 export const DefinitionsGroup = HttpApiGroup.make("definitions")
 	.annotate(OpenApi.Description, "Reads installed definitions and plugin workspaces.")
