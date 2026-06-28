@@ -1,14 +1,8 @@
 import { defineManifest } from "@ryot/sandbox-sdk";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
-import {
-	asRecord,
-	numberValue,
-	recordsValue,
-	searchTvdb,
-	stringValue,
-	tvdbGet,
-} from "../tvdb-shared";
+import { asRecord, numberValue, recordsValue, stringValue } from "../../script-helpers/records";
+import { searchTvdb, tvdbGet } from "../tvdb-shared";
 
 export const manifest = defineManifest({
 	name: "TVDB",

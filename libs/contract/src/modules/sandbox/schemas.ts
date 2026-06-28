@@ -16,7 +16,6 @@ export const SandboxScriptMetadata = Schema.Struct({
 	capabilities: Schema.optional(Schema.Array(Schema.String)),
 	kind: Schema.optional(Schema.Literal("script", "provider", "trigger")),
 	mode: Schema.optional(Schema.Literal("before_create", "after_create")),
-	allowedHostFunctions: Schema.optional(Schema.Array(Schema.String)),
 	requiredAppConfigKeys: Schema.optional(Schema.Array(Schema.String)),
 });
 

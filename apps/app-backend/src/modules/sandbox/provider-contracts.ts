@@ -39,7 +39,7 @@ const TextProperty = Schema.Struct({
 	value: NonEmptyTrimmedString,
 }).annotations(strict);
 
-export const ProviderSearchItemSchema: Schema.Schema<ProviderSearchItem, ProviderSearchItem> =
+const ProviderSearchItemSchema: Schema.Schema<ProviderSearchItem, ProviderSearchItem> =
 	Schema.Struct({
 		titleProperty: TextProperty,
 		externalId: NonEmptyTrimmedString,
@@ -60,7 +60,7 @@ const ProviderSearchResultSchema: Schema.Schema<ProviderSearchResult, ProviderSe
 		),
 	}).annotations(strict);
 
-export const ProviderDetailsRelatedEntitySchema: Schema.Schema<
+const ProviderDetailsRelatedEntitySchema: Schema.Schema<
 	ProviderDetailsRelatedEntity,
 	ProviderDetailsRelatedEntity
 > = Schema.Struct({

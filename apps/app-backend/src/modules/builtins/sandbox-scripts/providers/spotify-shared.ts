@@ -1,36 +1,14 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk";
 
+import { asRecord, numberValue, parseJsonResponse, stringValue } from "../script-helpers/records";
+
 export type SpotifyHost = SandboxHost<
 	readonly ["httpCall", "getAppConfigValue", "getCachedValue", "setCachedValue"]
 >;
 
-export type UnknownRecord = Record<string, unknown>;
-
-const isRecord = (value: unknown): value is UnknownRecord =>
-	value !== null && typeof value === "object" && !Array.isArray(value);
-
-export const asRecord = (value: unknown): UnknownRecord | null => (isRecord(value) ? value : null);
-
-export const stringValue = (value: unknown) =>
-	typeof value === "string" && value.trim() ? value.trim() : null;
-
-export const numberValue = (value: unknown) =>
-	typeof value === "number" && Number.isFinite(value) ? value : null;
-
-export const trimmedString = (value: unknown) => (typeof value === "string" ? value.trim() : "");
-
 const SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token";
 const SPOTIFY_API_URL = "https://api.spotify.com/v1";
 const TOKEN_CACHE_KEY = "spotify_access_token";
-
-const parseJsonResponse = (responseBody: string) => {
-	try {
-		const value: unknown = JSON.parse(responseBody);
-		return value;
-	} catch {
-		throw new Error("Spotify returned invalid JSON");
-	}
-};
 
 export const getImagesSortedBySize = (images: unknown): string[] => {
 	if (!Array.isArray(images) || images.length === 0) {
@@ -96,7 +74,7 @@ export const getAccessToken = (host: SpotifyHost): Promise<string> =>
 					if (!response.success) {
 						throw new Error(response.error || "Spotify token request failed");
 					}
-					const payload = asRecord(parseJsonResponse(response.data.body));
+					const payload = asRecord(parseJsonResponse(response.data.body, "Spotify"));
 					const accessToken = stringValue(payload?.["access_token"]);
 					if (!accessToken) {
 						throw new Error("Spotify token response did not include an access token");
@@ -131,37 +109,6 @@ export const spotifyGet = (
 				if (!response.success) {
 					throw new Error(response.error || `Spotify request failed: ${path}`);
 				}
-				return parseJsonResponse(response.data.body);
+				return parseJsonResponse(response.data.body, "Spotify");
 			});
 	});
-
-export type RoleRelatedEntity = {
-	name: string;
-	externalId: string;
-	scriptSlug: string;
-	relationshipProperties: { roles: string[] };
-};
-
-export const createRoleAccumulator = () => {
-	const entities: RoleRelatedEntity[] = [];
-	const byKey = new Map<string, RoleRelatedEntity>();
-	const add = (entity: RoleRelatedEntity) => {
-		const key = `${entity.scriptSlug}:${entity.externalId}`;
-		const existing = byKey.get(key);
-		if (!existing) {
-			byKey.set(key, entity);
-			entities.push(entity);
-			return;
-		}
-		existing.relationshipProperties.roles = [
-			...new Set([
-				...existing.relationshipProperties.roles,
-				...entity.relationshipProperties.roles,
-			]),
-		];
-		if (existing.name === "Loading..." && entity.name !== "Loading...") {
-			existing.name = entity.name;
-		}
-	};
-	return { entities, add };
-};

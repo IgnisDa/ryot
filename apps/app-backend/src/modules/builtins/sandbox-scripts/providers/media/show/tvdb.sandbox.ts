@@ -2,13 +2,12 @@ import { defineManifest } from "@ryot/sandbox-sdk";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 import type { ProviderTranslateInput } from "@ryot/sandbox-sdk/provider";
 
+import { asRecord, stringValue } from "../../../script-helpers/records";
 import {
-	asRecord,
 	bcp47ToTvdb,
 	buildTranslationResult,
 	getLocalizedArtwork,
 	searchTvdb,
-	stringValue,
 	tvdbGet,
 	tvdbGetOptional,
 } from "../../tvdb-shared";

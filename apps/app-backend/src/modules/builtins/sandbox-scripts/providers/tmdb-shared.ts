@@ -1,6 +1,15 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk";
-import dayjs from "@ryot/sandbox-sdk/dayjs";
 import type { ProviderDetailsRelatedEntity } from "@ryot/sandbox-sdk/provider";
+
+import {
+	asRecord,
+	numberValue,
+	parseJsonResponse,
+	recordsValue,
+	stringValue,
+	type UnknownRecord,
+} from "../script-helpers/records";
+import type { RoleRelatedEntity } from "../script-helpers/role-accumulator";
 
 export type TmdbHost = SandboxHost<readonly ["httpCall", "getAppConfigValue"]>;
 
@@ -8,41 +17,8 @@ export type TmdbUserHost = SandboxHost<
 	readonly ["httpCall", "getAppConfigValue", "getUserPreferences"]
 >;
 
-export type UnknownRecord = Record<string, unknown>;
-
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/original";
-
-const isRecord = (value: unknown): value is UnknownRecord =>
-	value !== null && typeof value === "object" && !Array.isArray(value);
-
-export const asRecord = (value: unknown): UnknownRecord | null => (isRecord(value) ? value : null);
-
-export const recordsValue = (value: unknown) =>
-	Array.isArray(value)
-		? value.flatMap((item) => {
-				const record = asRecord(item);
-				return record ? [record] : [];
-			})
-		: [];
-
-export const stringValue = (value: unknown) =>
-	typeof value === "string" && value.trim() ? value.trim() : null;
-
-export const numberValue = (value: unknown) =>
-	typeof value === "number" && Number.isFinite(value) ? value : null;
-
-const parseJsonResponse = (responseBody: string) => {
-	try {
-		const value: unknown = JSON.parse(responseBody);
-		return value;
-	} catch {
-		throw new Error("TMDB returned invalid JSON");
-	}
-};
-
-export const getUserIsNsfw = (host: TmdbUserHost) =>
-	host.getUserPreferences().then((preferences) => preferences.success && preferences.data.isNsfw);
 
 export const getTmdbAccessToken = (host: TmdbHost) =>
 	host.getAppConfigValue("providers.tmdbAccessToken").then((response) => {
@@ -73,7 +49,7 @@ export const tmdbGet = (
 			if (!response.success) {
 				throw new Error(response.error || `TMDB request failed: ${path}`);
 			}
-			const payload = asRecord(parseJsonResponse(response.data.body));
+			const payload = asRecord(parseJsonResponse(response.data.body, "TMDB"));
 			if (!payload) {
 				throw new Error("TMDB returned an invalid response object");
 			}
@@ -90,15 +66,6 @@ export const tmdbGet = (
 export const getImageUrl = (path: unknown) => {
 	const value = stringValue(path);
 	return value ? `${TMDB_IMAGE_BASE}${value}` : null;
-};
-
-export const parsePublishYear = (date: unknown) => {
-	const value = stringValue(date);
-	if (!value) {
-		return null;
-	}
-	const parsed = dayjs(value);
-	return parsed.isValid() && parsed.year() > 0 ? parsed.year() : null;
 };
 
 export const collectImages = (
@@ -156,6 +123,100 @@ export const collectSuggestions = (
 		});
 	}
 	return [...suggestions.values()];
+};
+
+export const collectPeople = (cast: unknown, crew: unknown, createdBy?: unknown) => {
+	const relatedEntities = new Map<string, RoleRelatedEntity>();
+	const unlinkedCreators: Array<{ name: string; role: string }> = [];
+	const unlinkedKeys = new Set<string>();
+	const addRelatedEntity = (relatedEntity: RoleRelatedEntity) => {
+		const key = `${relatedEntity.scriptSlug}:${relatedEntity.externalId}`;
+		const existing = relatedEntities.get(key);
+		if (!existing) {
+			relatedEntities.set(key, relatedEntity);
+			return;
+		}
+		existing.relationshipProperties.roles = [
+			...new Set([
+				...existing.relationshipProperties.roles,
+				...relatedEntity.relationshipProperties.roles,
+			]),
+		];
+		if (existing.name === "Loading..." && relatedEntity.name !== "Loading...") {
+			existing.name = relatedEntity.name;
+		}
+	};
+	const addUnlinkedCreator = (name: string, role: string) => {
+		const key = `${name}:${role}`;
+		if (!unlinkedKeys.has(key)) {
+			unlinkedKeys.add(key);
+			unlinkedCreators.push({ name, role });
+		}
+	};
+	const addPerson = (person: UnknownRecord, role: string) => {
+		const name = stringValue(person["name"]) ?? "Loading...";
+		const id = numberValue(person["id"]);
+		if (id === null) {
+			addUnlinkedCreator(name, role);
+			return;
+		}
+		addRelatedEntity({
+			name,
+			scriptSlug: "person.tmdb",
+			relationshipProperties: { roles: [role] },
+			externalId: String(Math.trunc(id)),
+		});
+	};
+
+	for (const creator of recordsValue(createdBy)) {
+		addPerson(creator, "Creator");
+	}
+	for (const member of recordsValue(cast).slice(0, 15)) {
+		addPerson(member, stringValue(member["known_for_department"]) ?? "Acting");
+	}
+	const notableJobs = new Set(["Director", "Producer", "Screenplay", "Writer", "Story"]);
+	for (const member of recordsValue(crew)) {
+		const job = stringValue(member["job"]);
+		if (job && notableJobs.has(job)) {
+			addPerson(member, job);
+		}
+	}
+	return { relatedEntities: [...relatedEntities.values()], unlinkedCreators };
+};
+
+export const collectCompanies = (companyGroups: ReadonlyArray<readonly [unknown, string]>) => {
+	const companies = new Map<string, RoleRelatedEntity>();
+	const addCompany = (company: UnknownRecord, role: string) => {
+		const idValue = numberValue(company["id"]);
+		if (idValue === null) {
+			return;
+		}
+		const id = Math.trunc(idValue);
+		const name = stringValue(company["name"]) ?? "Loading...";
+		const key = `company.tmdb:${id}`;
+		const existing = companies.get(key);
+		if (existing) {
+			existing.relationshipProperties.roles = [
+				...new Set([...existing.relationshipProperties.roles, role]),
+			];
+			if (existing.name === "Loading..." && name !== "Loading...") {
+				existing.name = name;
+			}
+			return;
+		}
+		companies.set(key, {
+			name,
+			scriptSlug: "company.tmdb",
+			externalId: String(id),
+			relationshipProperties: { roles: [role] },
+		});
+	};
+	for (const [companiesList, role] of companyGroups) {
+		for (const company of recordsValue(companiesList)) {
+			addCompany(company, role);
+		}
+	}
+	return [...companies.values()];
 };
 
 export const fetchTrendingItems = (

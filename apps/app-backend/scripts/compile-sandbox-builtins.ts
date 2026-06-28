@@ -60,7 +60,6 @@ export const ${identifier}: GeneratedBuiltinSandboxScript = {
 \tname: ${JSON.stringify(compiled.manifest.name)},
 \tslug: ${JSON.stringify(compiled.manifest.slug)},
 \tsource: ${identifier}Source,
-\tmetadata: ${identifier}Manifest,
 \tmanifest: ${identifier}Manifest,
 \tcompiledFormat: ${compiled.format},
 \tcompiledCode: ${JSON.stringify(compiled.javascript)},
@@ -73,7 +72,6 @@ export type GeneratedBuiltinSandboxScript = {
 \tname: string;
 \tslug: string;
 \tsource: string;
-\tmetadata: SandboxManifest;
 \tmanifest: SandboxManifest;
 \tcompiledFormat: 1;
 \tcompiledCode: string;

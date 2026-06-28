@@ -2,13 +2,8 @@ import { defineManifest } from "@ryot/sandbox-sdk";
 import dayjs from "@ryot/sandbox-sdk/dayjs";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
-import {
-	asRecord,
-	getIdentifier,
-	loadMetronJson,
-	numberValue,
-	stringValue,
-} from "../metron-shared";
+import { asRecord, numberValue, stringValue } from "../../script-helpers/records";
+import { getIdentifier, loadMetronJson } from "../metron-shared";
 
 export const manifest = defineManifest({
 	kind: "provider",

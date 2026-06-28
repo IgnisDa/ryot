@@ -121,7 +121,7 @@ export function fakeProviderTranslations(
 	return translations;
 }
 
-export type FakeProviderDrivers = {
+type FakeProviderDrivers = {
 	readonly details?: ProviderDetailsResult;
 	readonly search?: ProviderSearchResult;
 	readonly translations?: Readonly<Record<string, ProviderTranslateResult>>;

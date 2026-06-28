@@ -1,9 +1,9 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk";
 import { Innertube } from "@ryot/sandbox-sdk/youtubei";
 
-export type YoutubeMusicHost = SandboxHost<readonly ["httpCall"]>;
+import { asRecord, numberValue, stringValue } from "../script-helpers/records";
 
-export type UnknownRecord = Record<string, unknown>;
+export type YoutubeMusicHost = SandboxHost<readonly ["httpCall"]>;
 
 type MusicSearchType = "song" | "artist" | "album";
 
@@ -18,17 +18,6 @@ export type ArtistClient = { music: { getArtist: (artistId: string) => Promise<u
 export type AlbumClient = { music: { getAlbum: (albumId: string) => Promise<unknown> } };
 
 export type HistoryClient = { getHistory: () => Promise<unknown> };
-
-const isRecord = (value: unknown): value is UnknownRecord =>
-	value !== null && typeof value === "object" && !Array.isArray(value);
-
-export const asRecord = (value: unknown): UnknownRecord | null => (isRecord(value) ? value : null);
-
-export const stringValue = (value: unknown) =>
-	typeof value === "string" && value.trim() ? value.trim() : null;
-
-export const numberValue = (value: unknown) =>
-	typeof value === "number" && Number.isFinite(value) ? value : null;
 
 export const coerceTrimmed = (value: unknown) =>
 	typeof value === "string" ? value.trim() : String(value).trim();
@@ -163,34 +152,3 @@ export const createYoutubeMusicClient = (host: YoutubeMusicHost, language?: stri
 
 export const createYoutubeHistoryClient = (host: YoutubeMusicHost, authCookie: string) =>
 	Innertube.create({ cookie: authCookie, fetch: makeFetch(host) });
-
-export type RoleRelatedEntity = {
-	name: string;
-	externalId: string;
-	scriptSlug: string;
-	relationshipProperties: { roles: string[] };
-};
-
-export const createRoleAccumulator = () => {
-	const entities: RoleRelatedEntity[] = [];
-	const byKey = new Map<string, RoleRelatedEntity>();
-	const add = (entity: RoleRelatedEntity) => {
-		const key = `${entity.scriptSlug}:${entity.externalId}`;
-		const existing = byKey.get(key);
-		if (!existing) {
-			byKey.set(key, entity);
-			entities.push(entity);
-			return;
-		}
-		existing.relationshipProperties.roles = [
-			...new Set([
-				...existing.relationshipProperties.roles,
-				...entity.relationshipProperties.roles,
-			]),
-		];
-		if (existing.name === "Loading..." && entity.name !== "Loading...") {
-			existing.name = entity.name;
-		}
-	};
-	return { entities, add };
-};

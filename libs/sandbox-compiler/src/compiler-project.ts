@@ -120,14 +120,3 @@ export const createTypeScriptSourcesProject = (
 			}),
 		(api) => Effect.promise(() => api.close()),
 	);
-
-export const createTypeScriptProject = (
-	source: string,
-	sdkEntries: Readonly<Record<string, string>>,
-	tsserverPath: string,
-) =>
-	createTypeScriptSourcesProject(
-		{ entry: "script.ts", files: { "script.ts": source } },
-		sdkEntries,
-		tsserverPath,
-	);

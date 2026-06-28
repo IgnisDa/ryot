@@ -1,7 +1,8 @@
 import { defineManifest } from "@ryot/sandbox-sdk";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
-import { asRecord, loadMetronJson, type MetronHost, stringValue } from "../metron-shared";
+import { asRecord, stringValue } from "../../script-helpers/records";
+import { loadMetronJson, type MetronHost } from "../metron-shared";
 
 export const manifest = defineManifest({
 	kind: "provider",

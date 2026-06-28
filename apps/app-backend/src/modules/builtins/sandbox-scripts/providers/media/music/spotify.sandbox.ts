@@ -2,16 +2,9 @@ import { defineManifest } from "@ryot/sandbox-sdk";
 import dayjs from "@ryot/sandbox-sdk/dayjs";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
-import {
-	asRecord,
-	createRoleAccumulator,
-	getFirstImage,
-	getImagesSortedBySize,
-	numberValue,
-	spotifyGet,
-	stringValue,
-	trimmedString,
-} from "../../spotify-shared";
+import { asRecord, numberValue, stringValue, trimmedString } from "../../../script-helpers/records";
+import { createRoleAccumulator } from "../../../script-helpers/role-accumulator";
+import { getFirstImage, getImagesSortedBySize, spotifyGet } from "../../spotify-shared";
 
 export const manifest = defineManifest({
 	name: "Spotify",

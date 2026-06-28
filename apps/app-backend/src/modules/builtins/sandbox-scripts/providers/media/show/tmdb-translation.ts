@@ -1,12 +1,11 @@
 import type { ProviderTranslateInput, ProviderTranslateResult } from "@ryot/sandbox-sdk/provider";
 
+import { asRecord, stringValue } from "../../../script-helpers/records";
 import {
-	asRecord,
 	firstTranslationValue,
 	getLocalizedImageUrl,
 	orderedTranslationCandidates,
 	parseTranslationLanguage,
-	stringValue,
 	tmdbGet,
 	type TmdbHost,
 } from "../../tmdb-shared";
