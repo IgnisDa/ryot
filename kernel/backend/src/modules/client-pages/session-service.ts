@@ -85,6 +85,13 @@ export class ClientPageSessionService extends Context.Service<ClientPageSessionS
 				if (stored === null) {
 					return yield* stale();
 				}
+				yield* current(userId, identity).pipe(
+					Effect.tapError(() =>
+						redis
+							.releaseLease(redisKeys.clientPageSession(sessionId), value)
+							.pipe(Effect.ignoreCause),
+					),
+				);
 				return { token, sessionId, expiresAt: expiresAt(yield* Clock.currentTimeMillis) };
 			});
 
@@ -93,7 +100,7 @@ export class ClientPageSessionService extends Context.Service<ClientPageSessionS
 				if (loaded.payload.userId !== userId) {
 					return yield* notFound();
 				}
-				yield* current(userId, loaded.payload.identity).pipe(Effect.mapError(notFound));
+				yield* current(userId, loaded.payload.identity);
 				const renewed = yield* redis.renewLease(
 					redisKeys.clientPageSession(sessionId),
 					loaded.raw,

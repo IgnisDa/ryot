@@ -99,9 +99,10 @@ export function PluginFrame(props: {
 	readonly page?: ClientPageContext;
 	readonly chromeLeading: ReactNode;
 	readonly onOpenDrawer: () => void;
-	readonly onStaleSession: () => void;
 	readonly onNavigateBack: () => void;
+	readonly onReloadCurrent: () => void;
 	readonly watchEntities: WatchEntities;
+	readonly freshnessCheckRevision: number;
 	readonly artifactSessionScopeKey: string;
 	readonly backInterceptors: BackInterceptors;
 	readonly viewport: PluginBridgeViewportInsets;
@@ -109,12 +110,12 @@ export function PluginFrame(props: {
 	readonly onOverlayState: (count: number) => void;
 	readonly chromeTriggerRef: RefObject<HTMLElement | null>;
 	readonly mutationCompleted: RyotClient["mutationCompleted"];
-	readonly subscribeResume?: (resumed: () => void) => () => void;
 	readonly onRenewArtifactSession: RenewPluginArtifactSession;
 	readonly onHeader: (header: PluginHeaderPublication) => void;
 	readonly onKernelShortcut: (shortcut: KernelShortcut) => void;
 	readonly onCreateArtifactSession: CreatePluginArtifactSession;
 	readonly onRevokeArtifactSession: RevokePluginArtifactSession;
+	readonly subscribeResume?: (resumed: () => void) => () => void;
 	readonly onNavigate: (request: PluginNavigationRequest) => void;
 	readonly onPageSearch: (request: PluginBridgePageSearch) => void;
 	readonly onScreenState: (state: PluginScreenReadiness | null) => void;
@@ -150,7 +151,12 @@ export function PluginFrame(props: {
 	const frame = useRef<HTMLIFrameElement>(null);
 	const backSettle = useRef<number>(undefined);
 	const bridge = useRef<PluginBridgeSession>(undefined);
+	const renewArtifact = useRef<(() => void) | undefined>(undefined);
+	const markArtifactStale = useRef<(() => void) | undefined>(undefined);
+	const freshnessRevision = useRef(props.freshnessCheckRevision);
+	const freshnessPending = useRef(false);
 	const [overlayCount, setOverlayCount] = useState(0);
+	const [updateAvailable, setUpdateAvailable] = useState(false);
 	const [frameStatus, setFrameStatus] = useState<"ready" | "loading" | "handshake-failure">(
 		"loading",
 	);
@@ -183,15 +189,17 @@ export function PluginFrame(props: {
 		const create = new AbortController();
 		const renewal = new AbortController();
 		let active: PluginArtifactSession | undefined;
+		let stale = false;
 
 		setArtifact({ generation, status: "creating" });
 		setFrameStatus("loading");
+		setUpdateAvailable(false);
 
 		const revoke = (sessionId: string) => {
 			void lifecycle.onRevokeArtifactSession(sessionId).catch(() => undefined);
 		};
-		const replace = (stale: boolean) => {
-			if (disposed) {
+		const replace = () => {
+			if (disposed || stale) {
 				return;
 			}
 			closeBridge();
@@ -199,35 +207,42 @@ export function PluginFrame(props: {
 			const detached = active;
 			active = undefined;
 			setArtifact({ generation, status: "creating" });
-			if (stale) {
-				latest.current.onStaleSession();
-			}
 			setReload((value) => value + 1);
 			if (detached !== undefined) {
 				revoke(detached.sessionId);
 			}
 		};
+		const markUpdateAvailable = () => {
+			if (disposed || stale) {
+				return;
+			}
+			stale = true;
+			window.clearTimeout(expiryTimer);
+			window.clearTimeout(renewalTimer);
+			setUpdateAvailable(true);
+		};
+		markArtifactStale.current = markUpdateAvailable;
 		const schedule = () => {
-			if (disposed || active === undefined) {
+			if (disposed || stale || active === undefined) {
 				return;
 			}
 			window.clearTimeout(expiryTimer);
 			window.clearTimeout(renewalTimer);
 			const expiresAt = Date.parse(active.expiresAt);
 			const remaining = Math.max(0, expiresAt - Date.now());
-			expiryTimer = window.setTimeout(() => replace(false), remaining);
+			expiryTimer = window.setTimeout(replace, remaining);
 			renewalTimer = window.setTimeout(
 				() => void renew(),
 				Math.max(0, remaining - ARTIFACT_SESSION_RENEWAL_LEAD_MS),
 			);
 		};
 		const retry = () => {
-			if (active === undefined) {
+			if (disposed || stale || active === undefined) {
 				return;
 			}
 			const remaining = Date.parse(active.expiresAt) - Date.now();
 			if (remaining <= 0) {
-				replace(false);
+				replace();
 				return;
 			}
 			renewalTimer = window.setTimeout(
@@ -235,15 +250,21 @@ export function PluginFrame(props: {
 				Math.min(ARTIFACT_SESSION_RETRY_MS, remaining),
 			);
 		};
+		const renewPendingFreshness = () => {
+			if (freshnessPending.current) {
+				void renew();
+			}
+		};
 		async function renew() {
-			if (disposed || renewing || active === undefined) {
+			if (disposed || stale || renewing || active === undefined) {
 				return;
 			}
 			if (Date.parse(active.expiresAt) <= Date.now()) {
-				replace(false);
+				replace();
 				return;
 			}
 			renewing = true;
+			freshnessPending.current = false;
 			const current = active;
 			try {
 				const result = await lifecycle.onRenewArtifactSession(current.sessionId, renewal.signal);
@@ -251,7 +272,11 @@ export function PluginFrame(props: {
 					return;
 				}
 				if (result.outcome === "replace") {
-					replace(true);
+					if (result.reason === "stale") {
+						markUpdateAvailable();
+					} else {
+						replace();
+					}
 					return;
 				}
 				active = { ...current, expiresAt: result.expiresAt };
@@ -263,18 +288,23 @@ export function PluginFrame(props: {
 				}
 			} finally {
 				renewing = false;
+				renewPendingFreshness();
 			}
 		}
+		renewArtifact.current = () => {
+			freshnessPending.current = true;
+			void renew();
+		};
 		const onVisibilityChange = () => {
 			if (document.visibilityState !== "visible") {
 				return;
 			}
 			bridge.current?.sendPageRefresh();
-			if (active === undefined) {
+			if (stale || active === undefined) {
 				return;
 			}
 			if (Date.parse(active.expiresAt) <= Date.now()) {
-				replace(false);
+				replace();
 				return;
 			}
 			if (Date.parse(active.expiresAt) - Date.now() <= ARTIFACT_SESSION_RENEWAL_LEAD_MS) {
@@ -302,7 +332,11 @@ export function PluginFrame(props: {
 				}
 				active = created;
 				setArtifact({ generation, session: created, status: "active" });
-				schedule();
+				if (freshnessPending.current) {
+					renewPendingFreshness();
+				} else {
+					schedule();
+				}
 				return undefined;
 			})
 			.catch(() => {
@@ -318,6 +352,8 @@ export function PluginFrame(props: {
 			renewal.abort();
 			window.clearTimeout(expiryTimer);
 			window.clearTimeout(renewalTimer);
+			renewArtifact.current = undefined;
+			markArtifactStale.current = undefined;
 			document.removeEventListener("visibilitychange", onVisibilityChange);
 			releaseResume();
 			const detached = active;
@@ -334,6 +370,14 @@ export function PluginFrame(props: {
 		subscribeResume,
 		reload,
 	]);
+
+	useEffect(() => {
+		if (freshnessRevision.current === props.freshnessCheckRevision) {
+			return;
+		}
+		freshnessRevision.current = props.freshnessCheckRevision;
+		renewArtifact.current?.();
+	}, [props.freshnessCheckRevision]);
 
 	useEffect(() => {
 		window.clearTimeout(backSettle.current);
@@ -441,12 +485,9 @@ export function PluginFrame(props: {
 					return outcome;
 				}
 				if (bridge.current === connection.session) {
-					closeBridge();
-					setArtifact({ generation: artifact.generation, status: "creating" });
-					latest.current.onStaleSession();
-					setReload((value) => value + 1);
+					markArtifactStale.current?.();
 				}
-				return { outcome: "failure", reason: "transport" } satisfies PluginOperationOutcome;
+				return { outcome: "failure", reason: "operation-failed" } satisfies PluginOperationOutcome;
 			},
 		});
 		if (!connection.failed) {
@@ -470,11 +511,11 @@ export function PluginFrame(props: {
 		<main {...mainContentProps} className="relative h-full w-full">
 			<iframe
 				onLoad={connect}
-				inert={props.inert}
 				sandbox="allow-scripts"
 				src={artifact.session.src}
 				referrerPolicy="no-referrer"
 				title={`${props.title} plugin`}
+				inert={props.inert === true || updateAvailable}
 				className={clsx("h-full w-full border-0", frameStatus !== "ready" && "invisible")}
 				ref={(node) => {
 					frame.current = node;
@@ -493,6 +534,25 @@ export function PluginFrame(props: {
 					</PluginChromeFrame>
 				</div>
 			)}
+			{updateAvailable ? (
+				<div className="absolute inset-0">
+					<PluginChromeFrame
+						compact={compact}
+						title="Update available"
+						leading={props.chromeLeading}
+						safeAreaTop={props.viewport.safeAreaTop}
+					>
+						<section className="ui-stack ui-card mx-auto w-[min(100%,480px)]">
+							<p role="alert" className="text-text-muted">
+								An update is available. Reloading will discard unsaved local state.
+							</p>
+							<Button type="button" onClick={props.onReloadCurrent}>
+								Reload updated page
+							</Button>
+						</section>
+					</PluginChromeFrame>
+				</div>
+			) : null}
 		</main>
 	);
 }

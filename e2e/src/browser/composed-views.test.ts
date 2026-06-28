@@ -17,6 +17,7 @@ import {
 	createRendererSavedView,
 	createResultsTableSavedView,
 	createTestUser,
+	encodeClientRendererSource,
 	fakeProviderDetailsResult,
 	getBuiltinEntitySchemaSlug,
 	getEntity,
@@ -27,6 +28,7 @@ import {
 	FIXTURE_CLIENT_PLUGIN_SLUG,
 	makeSession,
 	publishClientRenderer,
+	replaceClientRendererDraft,
 	requireEventSchemaBySlug,
 } from "~/fixtures/kernel";
 import {
@@ -371,6 +373,83 @@ it.live("preserves expanded and dialog state when provider population completes"
 			true,
 		);
 		yield* expectVisibleText(retainedPokemon, "Overgrow, Chlorophyll");
+	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
+);
+
+it.live("preserves collection review state when a renderer update is published", () =>
+	Effect.gen(function* () {
+		const apiUrl = getApiUrl();
+		const { token, email, password } = yield* createTestUser(apiUrl);
+		const client = makeSession(apiUrl, { Authorization: `Bearer ${token}` });
+		yield* installFixtureClientPlugin(client, "A", "", apiUrl);
+		const pokemonSchema = requirePresent(
+			(yield* listEntitySchemas(client, {
+				slugs: ["pokemon"],
+				pluginSlug: FIXTURE_CLIENT_PLUGIN_SLUG,
+			}))[0],
+			"Fixture Pokemon schema was not registered",
+		);
+		yield* createEntity(client, {
+			name: "Task 09 Outside Pokemon",
+			properties: { types: ["Fire"] },
+			entitySchemaSlug: pokemonSchema.id,
+		});
+		const collection = yield* createCollection(client, { name: "Task 09 collection" });
+		const initialDefinition = buildCollectionWorkflowRendererDefinition();
+		const renderer = yield* createClientRenderer(client, { draftDefinition: initialDefinition });
+		yield* publishClientRenderer(client, renderer.id, renderer.draftRevision);
+		const view = yield* createRendererSavedView(
+			client,
+			renderer.id,
+			{ collectionId: collection.id, pageSize: 10 },
+			{ name: "Task 09 renderer update" },
+		);
+
+		const browser = yield* Playwright.Browser;
+		const page = yield* browser.newPage();
+		yield* signInThroughHostedOAuth(page, email, password);
+		yield* page.goto(`${getFrontendUrl()}/v/${view.slug}?keep=preserved`);
+		const frame = page.locator("iframe").first();
+		yield* frame.waitFor({ state: "visible" });
+		const iframe = Option.getOrThrow(yield* frame.elementHandle());
+		const runtime = frame.contentFrame();
+		yield* runtime
+			.getByRole("button", { name: "Add Task 09 Outside Pokemon to collection" })
+			.click();
+		const chooseDialog = runtime.getByRole("dialog", { name: "Choose a collection" });
+		yield* chooseDialog.getByRole("radio", { name: collection.name }).click();
+		yield* chooseDialog.getByRole("button", { name: "Review" }).click();
+		const reviewDialog = runtime.getByRole("dialog", { name: "Review collection change" });
+		const dialogElement = Option.getOrThrow(yield* reviewDialog.elementHandle());
+		yield* expectVisibleText(reviewDialog, "Add Task 09 Outside Pokemon to Task 09 collection?");
+		const outerUrl = page.url();
+
+		const changedDefinition = {
+			...initialDefinition,
+			files: [
+				...initialDefinition.files,
+				{
+					path: "shared/task-09-revision.ts",
+					content: encodeClientRendererSource('export const revision = "task-09";'),
+				},
+			],
+		};
+		yield* replaceClientRendererDraft(client, renderer.id, {
+			draftDefinition: changedDefinition,
+			expectedDraftRevision: renderer.draftRevision,
+		});
+		yield* publishClientRenderer(client, renderer.id, renderer.draftRevision + 1);
+
+		yield* expectVisibleText(
+			page.locator("body"),
+			"An update is available. Reloading will discard unsaved local state.",
+		);
+		expect(yield* frame.evaluate((current, initial) => current === initial, iframe)).toBe(true);
+		expect(
+			yield* reviewDialog.evaluate((current, initial) => current === initial, dialogElement),
+		).toBe(true);
+		yield* expectVisibleText(reviewDialog, "Add Task 09 Outside Pokemon to Task 09 collection?");
+		expect(page.url()).toBe(outerUrl);
 	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
 );
 

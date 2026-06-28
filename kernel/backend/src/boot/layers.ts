@@ -587,15 +587,15 @@ const ClientPagesServiceLive = ClientPagesService.layer.pipe(
 			ClientPagesRepository.layer,
 			EntitiesRepository.layer.pipe(Layer.provide(PluginRuntimeResolverLive)),
 			ClientPluginCompiler.layer,
+			PluginCatalogInvalidatorLive,
 			PluginRepository.layer,
 			PluginRuntimeResolverLive,
 		),
 	),
 );
 const ClientPageSessionServiceLive = ClientPageSessionService.layer.pipe(
-	Layer.provide(
-		Layer.mergeAll(ClientPagesServiceLive, ClientPagesRepository.layer, RedisService.layer),
-	),
+	Layer.provideMerge(ClientPagesServiceLive),
+	Layer.provide(Layer.mergeAll(ClientPagesRepository.layer, RedisService.layer)),
 );
 
 const ServicesLive = Layer.mergeAll(

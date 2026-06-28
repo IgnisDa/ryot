@@ -8,7 +8,7 @@ import { useRyot } from "@ryot-app/client-sdk/react";
 import type { PreparedClientPage } from "@ryot-app/contract/modules/client-pages/schemas";
 import { useNavigate, useRouteContext, useRouter, useRouterState } from "@tanstack/react-router";
 import { Effect, Match } from "effect";
-import { useCallback, useLayoutEffect, useMemo, useRef } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { resolveManagedAssetOutcome } from "#/modules/assets/managed-assets";
 import { temporaryUploadOutcome } from "#/modules/assets/temporary-uploads";
@@ -24,6 +24,7 @@ import {
 } from "#/modules/navigation/authenticated-shell-context";
 import { historyEntry } from "#/modules/navigation/history-entry";
 import { usePageTitle } from "#/modules/navigation/page-title";
+import { usePluginCatalog } from "#/modules/plugins/catalog-provider";
 import { PluginOperationsService } from "#/modules/plugins/operations";
 import { PluginFrame } from "#/modules/plugins/plugin-host";
 import { toPluginLocation } from "#/modules/plugins/plugin-location";
@@ -59,6 +60,7 @@ export function ClientPageHost(props: {
 	const overlay = useClientPageOverlay();
 	const publishedTitle = usePluginTitle();
 	const chromeLeading = useScreenLeadingControl();
+	const { invalidationRevision } = usePluginCatalog();
 	const { backInterceptors, runtime, scope, theme } = useRouteContext({ from: "/_authenticated" });
 	const location = useRouterState({
 		select: (current) => current.resolvedLocation ?? current.location,
@@ -66,7 +68,11 @@ export function ClientPageHost(props: {
 	const entry = historyEntry(location.state);
 	const { identity, context } = props.prepared;
 	const documentId = identity.target.kind === "saved-view" ? identity.target.savedViewId : "";
-	const owner = `${identity.kind}:${identity.buildId}:${identity.graphHash}:${identity.artifactHash}:${documentId}`;
+	const baseOwner = `${identity.kind}:${identity.buildId}:${identity.graphHash}:${identity.artifactHash}:${documentId}`;
+	const baseOwnerRef = useRef(baseOwner);
+	const [documentGeneration, setDocumentGeneration] = useState(0);
+	baseOwnerRef.current = baseOwner;
+	const owner = `${baseOwner}:${documentGeneration}`;
 	const operationTargets = useRef({ owner, targets: identity.operationTargets });
 	if (operationTargets.current.owner !== owner) {
 		operationTargets.current = { owner, targets: identity.operationTargets };
@@ -127,6 +133,13 @@ export function ClientPageHost(props: {
 			),
 		[runtime, scope],
 	);
+	const reloadCurrent = useCallback(async () => {
+		const reloadedOwner = baseOwnerRef.current;
+		await router.invalidate();
+		if (baseOwnerRef.current === reloadedOwner) {
+			setDocumentGeneration((generation) => generation + 1);
+		}
+	}, [router]);
 	const viewport = useMemo(
 		() => ({ safeAreaTop: chrome.safeAreaTop, safeAreaBottom: chrome.safeAreaBottom }),
 		[chrome.safeAreaBottom, chrome.safeAreaTop],
@@ -163,12 +176,13 @@ export function ClientPageHost(props: {
 			mutationCompleted={ryot.mutationCompleted}
 			onKernelShortcut={chrome.onKernelShortcut}
 			onNavigateBack={() => router.history.back()}
-			onStaleSession={() => void router.invalidate()}
+			onReloadCurrent={() => void reloadCurrent()}
+			freshnessCheckRevision={invalidationRevision}
 			onScreenState={(state) => screen.publish(owner, state)}
 			onOverlayState={(count) => overlay.publish(owner, count)}
-			onHeader={(publication) => header.publish(owner, publication)}
 			artifactSessionScopeKey={`${scope.serverUrl}\0${scope.userId}`}
 			onProviderSearch={(request) => props.onProviderSearch?.(request)}
+			onHeader={(publication) => header.publish(owner, publication)}
 			onNavigate={(request) => void navigate({ href: request.href, replace: request.replace })}
 			title={rendererContributor?.kind === "plugin" ? rendererContributor.pluginSlug : props.title}
 			onUpload={(request, signal) =>

@@ -4,7 +4,7 @@
 
 **System Design:** [Composable Views](./README.md)
 
-**Status:** todo
+**Status:** done
 
 **Depends On:** [02 - Compose Public Plugin Components](./02-compose-public-plugin-components.md), [03 - Unify Plugin And Entity Pages](./03-unify-plugin-and-entity-pages.md), [07 - Complete The Collection Workflow](./07-complete-the-collection-workflow.md)
 
@@ -22,18 +22,18 @@ The kernel supplies recorded target revisions for operation dispatch. Changes to
 
 ## Acceptance Criteria
 
-- [ ] Source publication, contributor revision changes, and automatic-provider membership changes invalidate the correct prepared build identities.
-- [ ] An already-open dialog/page remains mounted when the update notice appears.
-- [ ] The notice is kernel-owned and explicit reload warns that local unsaved state will be discarded.
-- [ ] Stale session renewal stops without being misclassified as a fatal bridge error that automatically destroys the page.
-- [ ] Logout, revoked access where required, and genuine bridge failure still dispose authority and resources correctly.
-- [ ] Operations against recorded outdated revisions fail clearly; no newer backend revision is substituted silently.
-- [ ] Explicit reload reuses an exact valid build or builds the current graph on demand, with race checks.
-- [ ] Missing exports or failed current builds show named errors and retry, never an old executable fallback.
-- [ ] Unrelated settings values do not force executable recompilation; changed source/provider sets do.
-- [ ] Removed or unavailable explicit dependencies fail rather than selecting another installation by the same slug.
-- [ ] The existing fixture revision-A/revision-B update path demonstrates the notice and successful reload.
-- [ ] Tests cover update-during-dialog, failed rebuild, operation freshness, preparation races, and current artifact access checks.
+- [x] Source publication, contributor revision changes, and automatic-provider membership changes invalidate the correct prepared build identities.
+- [x] An already-open dialog/page remains mounted when the update notice appears.
+- [x] The notice is kernel-owned and explicit reload warns that local unsaved state will be discarded.
+- [x] Stale session renewal stops without being misclassified as a fatal bridge error that automatically destroys the page.
+- [x] Logout, revoked access where required, and genuine bridge failure still dispose authority and resources correctly.
+- [x] Operations against recorded outdated revisions fail clearly; no newer backend revision is substituted silently.
+- [x] Explicit reload reuses an exact valid build or builds the current graph on demand, with race checks.
+- [x] Missing exports or failed current builds show named errors and retry, never an old executable fallback.
+- [x] Unrelated settings values do not force executable recompilation; changed source/provider sets do.
+- [x] Removed or unavailable explicit dependencies fail rather than selecting another installation by the same slug.
+- [x] The existing fixture revision-A/revision-B update path demonstrates the notice and successful reload.
+- [x] Tests cover update-during-dialog, failed rebuild, operation freshness, preparation races, and current artifact access checks.
 
 ## Verification
 
@@ -48,3 +48,11 @@ Extend existing artifact, catalog, host, operation, and fixture-update tests. Ve
 ## Implementor Notes
 
 Record the distinction between stale preparation, stale mounted document, and fatal host failure so later callers do not conflate them.
+
+- Successful renderer publication emits the existing user-scoped catalog invalidation. Catalog events are freshness hints only: the active host renews its current session, and the backend's exact prepared identity check remains authoritative for renderer, contributor, automatic-provider, view, and operation-target revisions.
+- Session renewal now returns `stale-preparation` separately from a missing or inaccessible session. Staleness preserves the mounted iframe and bridge behind a kernel-owned update notice; missing sessions and genuine bridge failures retain destructive cleanup and replacement behavior.
+- Freshness hints received during session creation or an in-flight renewal are coalesced and checked afterward. Session creation rechecks identity after storing the lease and removes the lease if the preparation became stale in that window.
+- Explicit reload invalidates the route and prepares the current graph before replacing the document. Ordinary same-document navigation retains the accepted operation-target snapshot; an explicit reload generation adopts operation-only revision changes when executable identity is otherwise unchanged.
+- The fixture revision-A/revision-B browser path now proves that the old iframe, bridge, artifact, URL, and local state remain stable until reload, then verifies the new identities and old artifact revocation. A composed-view browser test proves renderer publication preserves an open collection review dialog before reload.
+- Review found and fixed the post-store session race, dropped freshness hints during creation/renewal, and accidental operation-target remounts during ordinary navigation. Re-review found no implementation defects; it noted only that the changed-base-identity path is covered by final E2E identity assertions rather than an intermediate-remount count.
+- Verified the affected renderer-publication, client-plugin, and composed-views E2E files together, all non-E2E package tests, and the complete repository check.
