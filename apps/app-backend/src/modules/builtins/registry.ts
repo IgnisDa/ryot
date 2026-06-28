@@ -71,7 +71,7 @@ const mediaUpdateEntitySchemaSlugs = [
 	...builtinMediaEntitySchemaSlugs,
 	"show-episode",
 	"podcast-episode",
-].filter((slug, index, slugs) => slug !== "show-season" && slugs.indexOf(slug) === index);
+];
 
 const creditRelationshipSchemaSlugs = builtinRelationshipSchemas()
 	.filter(({ sourceEntitySchemaSlug, targetEntitySchemaSlug }) => {
