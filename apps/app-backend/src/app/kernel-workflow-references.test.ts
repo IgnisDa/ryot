@@ -174,7 +174,7 @@ it.effect("resolves plugin provider slugs before dispatching library imports", (
 				_tag: "PluginRuntimeResolver",
 				findSchemaProviderBySlug: () =>
 					Effect.succeed({
-						entitySchemaSlug: "show",
+						entitySchemaSlug: EntitySchemaSlug.make("show"),
 						provider: {
 							name: "TMDB",
 							slug: "show.tmdb",
