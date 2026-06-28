@@ -1,3 +1,4 @@
+import type { PluginClientArtifact } from "@ryot/contract/modules/plugins/client";
 import type {
 	PluginManifest,
 	PluginProviderOperation,
@@ -31,9 +32,11 @@ export const plugin = snakeCase.table(
 		slug: text().notNull(),
 		status: text().notNull(),
 		version: text().notNull(),
+		clientArtifactHash: text(),
 		sourceHash: text().notNull(),
 		scope: text().$type<"system" | "user">().notNull(),
 		manifest: jsonb().$type<PluginManifest>().notNull(),
+		clientArtifact: jsonb().$type<PluginClientArtifact>(),
 		sourceFiles: jsonb().$type<Record<string, string>>().notNull(),
 		compiledHashes: jsonb().$type<Record<string, string>>().notNull(),
 		ingestedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
@@ -45,6 +48,7 @@ export const plugin = snakeCase.table(
 	},
 	(table) => [
 		index("plugin_owner_id_idx").on(table.ownerId),
+		index("plugin_client_artifact_hash_idx").on(table.clientArtifactHash),
 		uniqueIndex("plugin_system_slug_unique")
 			.on(table.slug)
 			.where(sql`${table.scope} = 'system'`),

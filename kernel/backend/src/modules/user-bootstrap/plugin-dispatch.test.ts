@@ -54,8 +54,10 @@ const normalizedPlugin = (
 		ownerId: null,
 		sourceFiles: {},
 		slug: pluginSlug,
+		clientArtifact: null,
 		id: `${pluginSlug}-id`,
 		scope: "system" as const,
+		clientArtifactHash: null,
 		sourceHash: `${pluginSlug}-source`,
 		scripts: scripts.map(({ entry, ...metadata }) => ({
 			entry,

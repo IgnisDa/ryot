@@ -24,6 +24,7 @@ import {
 	definitionSourceFromSnapshot,
 	type DefinitionSnapshot,
 } from "#modules/definition-registry/service";
+import { ClientPluginCompiler } from "#modules/sandbox/client-compiler";
 import { SandboxWorkflowReferenceRepository } from "#modules/sandbox/workflow-reference-repository";
 import { UploadIntentsService } from "#modules/uploads/intents/service";
 import { ObjectStorageService } from "#modules/uploads/object-storage/service";
@@ -317,6 +318,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 			const repository = yield* PluginRepository;
 			const ingestionLock = yield* PluginIngestionLock;
 			const uploadIntents = yield* UploadIntentsService;
+			const clientCompiler = yield* ClientPluginCompiler;
 			const objectStorage = yield* ObjectStorageService;
 			const installations = yield* PluginInstallationRepository;
 			const definitionMaterializer = yield* PluginDefinitionMaterializer;
@@ -591,7 +593,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 						manifest,
 						sourceHash,
 						files: input.files,
-					});
+					}).pipe(Effect.provideService(ClientPluginCompiler, clientCompiler));
 					yield* validatePluginExecutableScripts(normalized);
 					const state = yield* Effect.uninterruptible(
 						mapDatabaseErrors(
@@ -718,7 +720,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 								manifest,
 								sourceHash,
 								files: pluginPackage.files,
-							});
+							}).pipe(Effect.provideService(ClientPluginCompiler, clientCompiler));
 							yield* validatePluginExecutableScripts(normalized);
 
 							const updated = yield* Effect.uninterruptible(

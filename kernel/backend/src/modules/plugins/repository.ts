@@ -80,6 +80,8 @@ const toStoredPlugin = Effect.fn(function* (row: PluginRow, scripts: ReadonlyArr
 		scripts: currentScripts,
 		sourceHash: row.sourceHash,
 		sourceFiles: row.sourceFiles,
+		clientArtifact: row.clientArtifact,
+		clientArtifactHash: row.clientArtifactHash,
 	} satisfies StoredPlugin;
 });
 
@@ -374,6 +376,20 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			return yield* toStoredPlugin(row, scripts);
 		});
 
+		const findClientArtifactByHash = Effect.fn("PluginRepository.findClientArtifactByHash")(
+			function* (clientArtifactHash: string) {
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
+					db
+						.select({ clientArtifact: schema.plugin.clientArtifact })
+						.from(schema.plugin)
+						.where(eq(schema.plugin.clientArtifactHash, clientArtifactHash))
+						.limit(1),
+				);
+				return row?.clientArtifact ?? null;
+			},
+		);
+
 		const persistKernelScript = Effect.fn("PluginRepository.persistKernelScript")(function* (
 			script: PersistedScript,
 		) {
@@ -432,7 +448,9 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 				manifest: plugin.manifest,
 				sourceHash: plugin.sourceHash,
 				sourceFiles: plugin.sourceFiles,
+				clientArtifact: plugin.clientArtifact,
 				version: plugin.manifest.metadata.version,
+				clientArtifactHash: plugin.clientArtifactHash,
 			} as const;
 			const conflict =
 				identity.scope === "system"
@@ -802,6 +820,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			findPrivateByIdForUser,
 			hasDefinitionReferences,
 			hasIntegrationReferences,
+			findClientArtifactByHash,
 			deleteUnreferencedScripts,
 			listPortablePluginMetadata,
 			deleteInactiveUnreferencedPlugins,
