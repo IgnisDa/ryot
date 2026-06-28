@@ -1,5 +1,6 @@
 import {
 	type GeneratedBuiltinSandboxScript,
+	sandboxAutomationDotTestDashPolicyScript,
 	sandboxAutomationDotTestDashNotifierScript,
 	sandboxAutomationDotTestDashTracerScript,
 	sandboxComicDashBookDashGroupDotMetronScript,
@@ -62,6 +63,7 @@ import {
 } from "./generated-sandbox/registry";
 
 export const builtinSandboxScripts = () => [
+	sandboxAutomationDotTestDashPolicyScript,
 	sandboxAutomationDotTestDashNotifierScript,
 	sandboxAutomationDotTestDashTracerScript,
 	sandboxExerciseDotFreeDashExerciseDashDbScript,

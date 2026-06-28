@@ -29,6 +29,21 @@ export const AutomationRuleMetadata = JsonValueSchema;
 
 export type AutomationRuleMetadata = typeof AutomationRuleMetadata.Type;
 
+export const AutomationPolicyResult = Schema.Union(
+	strictStruct({ action: Schema.Literal("allow") }),
+	strictStruct({ action: Schema.Literal("skip"), reason: Schema.String }),
+	strictStruct({
+		action: Schema.Literal("replace"),
+		body: strictStruct({
+			occurredAt: Schema.optional(Schema.String),
+			sessionEntityId: Schema.optional(Schema.NullOr(Schema.String)),
+			properties: Schema.optional(Schema.Record({ key: Schema.String, value: JsonValueSchema })),
+		}),
+	}),
+);
+
+export type AutomationPolicyResult = typeof AutomationPolicyResult.Type;
+
 export const SubscriptionRunSourceKind = Schema.Literal(
 	"entity",
 	"event",

@@ -246,7 +246,7 @@ export const writeMediaEntityGroups = Effect.fn("writeMediaEntityGroups")(functi
 					},
 				})
 				.pipe(
-					Effect.as({ message: null as string | null }),
+					Effect.map(({ failure }) => ({ message: failure?.reason.message ?? null })),
 					Effect.catchAll((error) => Effect.succeed({ message: unknownToMessage(error) })),
 				);
 			if (eventWrite.message) {

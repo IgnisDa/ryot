@@ -119,7 +119,7 @@ const inspectImports = (file: ts.SourceFile, allowRelativeImports: boolean) => {
 						if (importedName === "defineScript") {
 							scriptHelpers.add(element.name.text);
 						}
-						if (importedName === "defineAutomation") {
+						if (importedName === "defineAutomation" || importedName === "defineAutomationPolicy") {
 							automationHelpers.add(element.name.text);
 						}
 						if (importedName === "defineProvider") {
