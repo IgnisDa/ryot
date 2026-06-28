@@ -21,6 +21,7 @@ import {
 	useRyotQuery,
 	useEntityRefresh,
 	usePageRefresh,
+	usePageRefreshRequest,
 } from "./react";
 import { createTestRyotClock } from "./testing";
 
@@ -42,6 +43,9 @@ const makeClock = (overrides: Partial<RyotClientAdapter> = {}) => {
 
 let refetch: () => void = () => undefined;
 const plainClock = () => (plain ??= makeClock());
+const activeScreen = (active: boolean, children: ReactNode) => (
+	<ActiveScreenContext.Provider value={active}>{children}</ActiveScreenContext.Provider>
+);
 
 const render = (children: ReactNode, runtime = plainClock().runtime) => {
 	const container = document.createElement("div");
@@ -142,7 +146,7 @@ describe("useRyotQuery", () => {
 		},
 	);
 
-	it("coalesces document foreground refresh for active consumers only", async () => {
+	it("coalesces iframe focus and host page refresh for active consumers only", async () => {
 		const calls: string[] = [];
 		const clock = makeClock({
 			watchEntities: () => ({ update: () => undefined, dispose: () => undefined }),
@@ -182,6 +186,7 @@ describe("useRyotQuery", () => {
 				});
 				document.dispatchEvent(new Event("visibilitychange"));
 				document.dispatchEvent(new Event("visibilitychange"));
+				clock.client.mutationCompleted.hint();
 			});
 			await clock.advance(250);
 			expect(calls).toEqual(["active", "hidden", "active"]);
@@ -192,6 +197,40 @@ describe("useRyotQuery", () => {
 				Reflect.deleteProperty(document, "visibilityState");
 			}
 		}
+	});
+
+	it("catches an ordinary query up once after page hints while inactive", async () => {
+		let calls = 0;
+		const clock = makeClock();
+		const query = createRyotQuery(() => Promise.resolve(++calls));
+		const View = () => <p>{useRyotQuery(query).data ?? "pending"}</p>;
+		const view = <View />;
+		const container = render(activeScreen(true, view), clock.runtime);
+		await clock.advance(0);
+		expect(container.textContent).toBe("1");
+
+		act(() =>
+			roots[0]?.render(
+				<RyotProvider runtime={clock.runtime}>{activeScreen(false, view)}</RyotProvider>,
+			),
+		);
+		act(() => {
+			clock.client.mutationCompleted.hint();
+			clock.client.mutationCompleted.hint();
+		});
+		await clock.advance(500);
+		expect(calls).toBe(1);
+
+		act(() =>
+			roots[0]?.render(
+				<RyotProvider runtime={clock.runtime}>{activeScreen(true, view)}</RyotProvider>,
+			),
+		);
+		await clock.advance(249);
+		expect(calls).toBe(1);
+		await clock.advance(1);
+		expect(calls).toBe(2);
+		expect(container.textContent).toBe("2");
 	});
 
 	it("does not cancel a request started after an interest refresh was queued", async () => {
@@ -298,6 +337,7 @@ describe("useRyotQuery", () => {
 		});
 		await clock.advance(1000);
 		expect(requests).toHaveLength(2);
+		expect(container.textContent).toBe("childchild");
 		expect(updates.at(-1)).toEqual({ foreground: ["root"], visible: ["child"] });
 		act(() => roots[0]?.unmount());
 		roots = [];
@@ -506,7 +546,10 @@ describe("useRyotQuery", () => {
 		act(() => clock.client.mutationCompleted.hint());
 		await clock.advance(250);
 		expect(requests).toHaveLength(2);
-		act(() => clock.client.mutationCompleted.hint());
+		act(() => {
+			document.dispatchEvent(new Event("visibilitychange"));
+			clock.client.mutationCompleted.hint();
+		});
 		await clock.advance(500);
 		expect(requests).toHaveLength(2);
 		act(() => requests[1]?.(2));
@@ -529,6 +572,67 @@ describe("useRyotQuery", () => {
 		await clock.advance(250);
 
 		expect(refreshes).toBe(1);
+		act(() => {
+			clock.client.mutationCompleted.hint();
+			roots[0]?.unmount();
+		});
+		roots = [];
+		await clock.advance(250);
+		expect(refreshes).toBe(1);
+	});
+
+	it("catches an arbitrary page callback up once after inactive hints", async () => {
+		let refreshes = 0;
+		const clock = makeClock();
+		const View = () => {
+			usePageRefresh(() => {
+				refreshes++;
+			});
+			return null;
+		};
+		const view = <View />;
+		render(activeScreen(true, view), clock.runtime);
+		act(() =>
+			roots[0]?.render(
+				<RyotProvider runtime={clock.runtime}>{activeScreen(false, view)}</RyotProvider>,
+			),
+		);
+		act(() => {
+			clock.client.mutationCompleted.hint();
+			clock.client.mutationCompleted.hint();
+		});
+		await clock.advance(500);
+		expect(refreshes).toBe(0);
+
+		act(() =>
+			roots[0]?.render(
+				<RyotProvider runtime={clock.runtime}>{activeScreen(true, view)}</RyotProvider>,
+			),
+		);
+		await clock.advance(250);
+		expect(refreshes).toBe(1);
+	});
+
+	it("requests a page refresh without publishing mutation completion", async () => {
+		let request: () => void = refetch;
+		let refreshes = 0;
+		let mutationHints = 0;
+		const clock = makeClock();
+		clock.client.mutationCompleted.subscribe(() => mutationHints++);
+		const View = () => {
+			request = usePageRefreshRequest();
+			usePageRefresh(() => {
+				refreshes++;
+			});
+			return null;
+		};
+		render(<View />, clock.runtime);
+
+		act(() => request());
+		await clock.advance(250);
+
+		expect(refreshes).toBe(1);
+		expect(mutationHints).toBe(0);
 	});
 
 	it("lets replay-controlled queries opt out of the automatic page refresh", async () => {

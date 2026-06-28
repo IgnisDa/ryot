@@ -325,6 +325,7 @@ const CollectionPage = ({ collectionId, pageSize }: typeof Settings.Type) => {
         <section aria-labelledby="collection-summary">
           <h2 id="collection-summary" className="font-display text-xl">Collection summary</h2>
           <p>{total} total</p>
+          <p>{state?.items.filter((item) => item.populationStatus === "pending" || item.translationStatus === "pending").length ?? 0} syncing</p>
           {state?.grouped.map((group) => (
             <p key={JSON.stringify([group.ownerPluginId, group.schemaSlug])}>{group.count} {schemaLabel(group)}</p>
           ))}
