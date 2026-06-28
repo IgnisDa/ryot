@@ -264,24 +264,24 @@ describe("association lifecycle via cron refresh", () => {
 		const personSchemaId = await getBuiltinEntitySchemaId("person");
 		const ruPersonExternalId = `role-update-person-${crypto.randomUUID()}`;
 
-		const buildMovieSource = (roles: string[]) =>
+		const buildPersonSource = (roles: string[]) =>
 			providerSandboxSource({
-				slug: ruMovieSlug,
-				name: ruMovieName,
+				slug: ruPersonSlug,
+				name: ruPersonName,
 				providerInformation: { source: "e2e" },
 				drivers: {
 					details: fakeProviderDetailsResult({
-						name: ruMovieName,
+						name: ruPersonName,
 						relatedEntityGroups: [
 							{
-								direction: "incoming",
-								synchronization: "additive",
+								direction: "outgoing",
+								synchronization: "authoritative",
 								relationshipSchemaSlug: "person-to-movie",
 								entities: [
 									{
-										name: ruPersonName,
-										scriptSlug: ruPersonSlug,
-										externalId: ruPersonExternalId,
+										name: ruMovieName,
+										scriptSlug: ruMovieSlug,
+										externalId: ruMovieExternalId,
 										relationshipProperties: { roles },
 									},
 								],
@@ -339,6 +339,17 @@ describe("association lifecycle via cron refresh", () => {
 				entitySchemaId: movieSchemaId,
 				sandboxScriptId: ruMovieProvider.scriptId,
 			});
+			// Mark the person already-populated so its later cron-driven authoritative sync
+			// below is a role update, not a first population — the carve-out would otherwise
+			// silence it since the person is both the refresh root and the credited subject.
+			await getBackendClient().run(
+				(c) =>
+					c.testSupport.setEntityPopulatedAt({
+						path: { entityId: EntityId.make(person.id) },
+						payload: { populatedAt: new Date().toISOString() },
+					}),
+				adminHeaders,
+			);
 
 			const personMonitor = await createAuthenticatedClient();
 			await createNotificationChannel(personMonitor.client, {
@@ -356,13 +367,16 @@ describe("association lifecycle via cron refresh", () => {
 				`${ruPersonName} has been associated with ${ruMovieName} as Actor`,
 			);
 
+			// The movie's additive incoming sync never touches an existing edge's properties
+			// (it always preserves them), so the role addition must come from the person's own
+			// authoritative outgoing sync instead of re-driving the movie's cron.
 			fakeApprise.requests.length = 0;
 			await replaceSandboxScriptCompiledRepresentation(
 				client,
-				ruMovieProvider.scriptId,
-				buildMovieSource(["Actor", "Director"]),
+				ruPersonProvider.scriptId,
+				buildPersonSource(["Actor", "Director"]),
 			);
-			await triggerCronAndWaitForEntity(movie.id);
+			await triggerCronAndWaitForEntity(person.id);
 			const updated = await pollAssociationNotification("role-update-monitor");
 			expect(updated).toHaveLength(1);
 			expect(requireObjectRecord(updated[0]?.body, "Missing notification body").body).toBe(
