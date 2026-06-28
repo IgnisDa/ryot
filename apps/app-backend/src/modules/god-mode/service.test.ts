@@ -13,6 +13,7 @@ import { CurrentDb, DbRunner, DbService, TransactionRunner } from "#lib/infrastr
 import { RedisService } from "#lib/infrastructure/redis";
 import { makeAppConfigLayer, makeRedisService, makeWorkflowEngine } from "#lib/test-utils/effect";
 import { AuthService } from "#modules/auth/service";
+import { NotificationSubscriptionsService } from "#modules/automations/notification-subscriptions-service";
 import { EntitiesService } from "#modules/entities/service";
 import { SavedViewsService } from "#modules/saved-views/service";
 import { TrackersService } from "#modules/trackers/service";
@@ -153,6 +154,12 @@ const workflowEngineLayer = Layer.succeed(
 );
 
 const bootstrapEntitiesServiceLayer = Layer.mock(EntitiesService)({ _tag: "EntitiesService" });
+const bootstrapNotificationSubscriptionsServiceLayer = Layer.mock(NotificationSubscriptionsService)(
+	{
+		_tag: "NotificationSubscriptionsService",
+		ensureDefaultRules: () => Effect.void,
+	},
+);
 const bootstrapSavedViewsServiceLayer = Layer.mock(SavedViewsService)({
 	_tag: "SavedViewsService",
 });
@@ -192,6 +199,7 @@ const makeServiceLayer = (
 				Layer.succeed(AuthService, auth),
 				Layer.succeed(RedisService, makeRedisMock()),
 				bootstrapEntitiesServiceLayer,
+				bootstrapNotificationSubscriptionsServiceLayer,
 				bootstrapSavedViewsServiceLayer,
 				bootstrapTrackersServiceLayer,
 				workflowEngineLayer,
@@ -214,6 +222,7 @@ const makeProvisionLayer = (
 				Layer.succeed(AuthService, auth),
 				Layer.succeed(RedisService, makeRedisMock()),
 				bootstrapEntitiesServiceLayer,
+				bootstrapNotificationSubscriptionsServiceLayer,
 				bootstrapSavedViewsServiceLayer,
 				bootstrapTrackersServiceLayer,
 				workflowEngineLayer,

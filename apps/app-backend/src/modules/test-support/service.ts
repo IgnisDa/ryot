@@ -1,4 +1,4 @@
-import { badRequest, notFound } from "@ryot/contract/errors";
+import { badRequest } from "@ryot/contract/errors";
 import type {
 	EntityId,
 	EntitySchemaId,
@@ -12,14 +12,12 @@ import { DateTime, Effect } from "effect";
 
 import { TransactionRunner } from "#lib/infrastructure/db/service";
 import { AuthService } from "#modules/auth/service";
-import { AutomationsService } from "#modules/automations/service";
 import { EntitiesService } from "#modules/entities/service";
 import { EntitySchemasService } from "#modules/entity-schemas/service";
 import { TranslationsService } from "#modules/entity-translation/service";
 import { RelationshipSchemasService } from "#modules/relationship-schemas/service";
 import { RelationshipsService } from "#modules/relationships/service";
 import { SandboxApiService } from "#modules/sandbox/service";
-import { SignalSchemasService } from "#modules/signals/service";
 
 type CreateGlobalEntityInput = {
 	readonly name: string;
@@ -42,33 +40,11 @@ export class TestSupportService extends Effect.Service<TestSupportService>()("Te
 		const auth = yield* AuthService;
 		const entities = yield* EntitiesService;
 		const sandbox = yield* SandboxApiService;
-		const automations = yield* AutomationsService;
 		const translations = yield* TranslationsService;
-		const signalSchemas = yield* SignalSchemasService;
 		const relationships = yield* RelationshipsService;
 		const entitySchemas = yield* EntitySchemasService;
 		const runInTransaction = yield* TransactionRunner;
 		const relationshipSchemas = yield* RelationshipSchemasService;
-
-		const installBuiltinNotificationSubscription = Effect.fn(
-			"TestSupportService.installBuiltinNotificationSubscription",
-		)(function* (input: { userId: UserId; signalSchemaSlug: string }) {
-			const signalSchema = yield* signalSchemas.getBuiltinBySlug(input.signalSchemaSlug);
-			const scripts = yield* sandbox.listStoredScripts(null);
-			const notificationScript = scripts.find(({ slug }) => slug === "automation.notification");
-			if (!notificationScript) {
-				return yield* notFound("Built-in notification script not found");
-			}
-			const rule = yield* automations.createUserRule({
-				operation: "signal",
-				userId: input.userId,
-				kind: "subscription",
-				name: signalSchema.name,
-				sandboxScriptId: notificationScript.id,
-				target: { id: signalSchema.id, kind: "signal_schema" },
-			});
-			return { id: rule.id };
-		});
 
 		const deleteSandboxScript = Effect.fn("TestSupportService.deleteSandboxScript")(function* (
 			scriptId: SandboxScriptId,
@@ -175,7 +151,6 @@ export class TestSupportService extends Effect.Service<TestSupportService>()("Te
 			setEntityPopulatedAt,
 			upsertEntityTranslation,
 			upsertGlobalRelationship,
-			installBuiltinNotificationSubscription,
 			getSandboxScript: sandbox.getStoredScript,
 			deleteGlobalEntities: entities.deleteByIds,
 			listSandboxScripts: sandbox.listStoredScripts,

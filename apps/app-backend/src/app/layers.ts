@@ -12,6 +12,7 @@ import { ServerRun } from "#lib/infrastructure/server-run";
 import { PersistedQueueLive, WorkflowEngineLive } from "#lib/infrastructure/workflow";
 import { AuthService } from "#modules/auth/service";
 import { LifecycleDispatchLive } from "#modules/automations/lifecycle-dispatch";
+import { NotificationSubscriptionsService } from "#modules/automations/notification-subscriptions-service";
 import { AutomationsRepository } from "#modules/automations/repository";
 import { AutomationsService } from "#modules/automations/service";
 import { SignalDispatchLive } from "#modules/automations/signal-dispatch";
@@ -166,6 +167,10 @@ const ApplicationInfrastructureLive = Layer.mergeAll(
 );
 
 const QueryEngineServiceLive = QueryEngineService.Default;
+const NotificationSubscriptionsServiceLive = Layer.provide(
+	NotificationSubscriptionsService.Default,
+	AutomationsService.Default,
+);
 
 const LifecycleDispatchLayerLive = Layer.provide(LifecycleDispatchLive, AutomationsService.Default);
 const EntitiesServiceLive = Layer.provide(
@@ -181,6 +186,7 @@ const BootstrapServicesLive = Layer.mergeAll(
 	EntitiesServiceLive,
 	SavedViewsServiceLive,
 	TrackersService.Default,
+	NotificationSubscriptionsServiceLive,
 );
 const AuthAndBootstrapServicesLive = Layer.provideMerge(AuthService.Default, BootstrapServicesLive);
 const AuthDependentServicesLive = Layer.provideMerge(
@@ -224,6 +230,7 @@ const ContentServicesLive = Layer.mergeAll(
 	QueryEngineServiceLive,
 	RelationshipSchemasService.Default,
 	AutomationsService.Default,
+	NotificationSubscriptionsServiceLive,
 	SignalEmissionServiceLive,
 	SignalSchemasService.Default,
 	TranslationsService.Default,

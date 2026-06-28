@@ -8,7 +8,7 @@ import {
 import { SignalSchemaId, UserId } from "@ryot/contract/schema/brands";
 import { decodeStoredAppSchema } from "@ryot/contract/schema/core";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
-import { and, eq, isNull, or, sql } from "drizzle-orm";
+import { and, asc, eq, isNull, or, sql } from "drizzle-orm";
 import { Effect, Schema } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
@@ -70,6 +70,60 @@ export class SignalSchemasRepository extends Effect.Service<SignalSchemasReposit
 	"SignalSchemasRepository",
 	{
 		sync: () => {
+			const activeBuiltinClause = and(
+				eq(schema.signalSchema.isBuiltin, true),
+				eq(schema.signalSchema.catalogState, "active"),
+				isNull(schema.signalSchema.userId),
+			);
+
+			const listActiveBuiltins = Effect.fn("SignalSchemasRepository.listActiveBuiltins")(
+				function* () {
+					const db = yield* CurrentDb;
+					const rows = yield* dbEffect(() =>
+						db
+							.select()
+							.from(schema.signalSchema)
+							.where(activeBuiltinClause)
+							.orderBy(asc(schema.signalSchema.name), asc(schema.signalSchema.id)),
+					);
+					return yield* Effect.all(rows.map(toScope));
+				},
+			);
+
+			const findActiveBuiltinById = Effect.fn("SignalSchemasRepository.findActiveBuiltinById")(
+				function* (id: SignalSchemaId) {
+					const db = yield* CurrentDb;
+					const [row] = yield* dbEffect(() =>
+						db
+							.select()
+							.from(schema.signalSchema)
+							.where(and(eq(schema.signalSchema.id, id), activeBuiltinClause))
+							.limit(1),
+					);
+					return row ? yield* toScope(row) : null;
+				},
+			);
+
+			const findBuiltinById = Effect.fn("SignalSchemasRepository.findBuiltinById")(function* (
+				id: SignalSchemaId,
+			) {
+				const db = yield* CurrentDb;
+				const [row] = yield* dbEffect(() =>
+					db
+						.select()
+						.from(schema.signalSchema)
+						.where(
+							and(
+								eq(schema.signalSchema.id, id),
+								eq(schema.signalSchema.isBuiltin, true),
+								isNull(schema.signalSchema.userId),
+							),
+						)
+						.limit(1),
+				);
+				return row ? yield* toScope(row) : null;
+			});
+
 			const findGlobalBySlug = Effect.fn("SignalSchemasRepository.findGlobalBySlug")(function* (
 				slug: string,
 			) {
@@ -148,7 +202,15 @@ export class SignalSchemasRepository extends Effect.Service<SignalSchemasReposit
 				},
 			);
 
-			return { insertBuiltin, findGlobalBySlug, findVisibleBySlug, updateBuiltinDisplay };
+			return {
+				insertBuiltin,
+				listActiveBuiltins,
+				findBuiltinById,
+				findGlobalBySlug,
+				findVisibleBySlug,
+				updateBuiltinDisplay,
+				findActiveBuiltinById,
+			};
 		},
 	},
 ) {}
