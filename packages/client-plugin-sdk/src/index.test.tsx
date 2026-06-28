@@ -7,9 +7,12 @@ import {
 	type PluginBridgeInit,
 } from "@ryot/contract/modules/plugins/client";
 import { waitFor } from "@testing-library/dom";
+import { Schema } from "effect";
+import { useState } from "react";
 import { afterAll, describe, expect, it } from "vitest";
 
 import { bootstrapClientPlugin, defineClientPlugin } from "./index";
+import { ryot } from "./ryot";
 
 const artifactMetadata = {
 	hash: "artifact-hash",
@@ -30,6 +33,16 @@ const init: PluginBridgeInit = {
 
 const channels: Array<{ channel: MessageChannel; messages: unknown[] }> = [];
 const FixtureHome = () => <p>Fixture home</p>;
+
+const OperationHome = () => {
+	const [result, setResult] = useState("pending");
+	useState(() => {
+		ryot.data
+			.invokeOperation({ slug: "greet", input: {}, output: Schema.String })
+			.then(setResult, () => setResult("error"));
+	});
+	return <p>Result {result}</p>;
+};
 
 const embedArtifactMetadata = (contents: string) => {
 	document.head.innerHTML = "";
@@ -163,5 +176,33 @@ describe("client plugin SDK", () => {
 
 		expect(second.messages).toEqual([]);
 		expect(document.getElementById("app")?.textContent).toBe("Fixture home");
+	});
+
+	it("does not drop an operation-result delivered immediately after the ready handshake", async () => {
+		document.body.innerHTML = '<div id="app"></div>';
+		embedArtifactMetadata(JSON.stringify(artifactMetadata));
+
+		bootstrapClientPlugin(defineClientPlugin({ home: OperationHome }));
+
+		const valid = openChannel();
+		dispatchInit(init, [valid.channel.port2], window.parent);
+		valid.channel.port1.postMessage({ type: "location", location: { path: "/", search: "" } });
+
+		await waitFor(() => {
+			expect(valid.messages).toContainEqual(
+				expect.objectContaining({ type: "operation-request", requestId: "operation-1" }),
+			);
+		});
+
+		valid.channel.port1.postMessage({
+			value: "Hello",
+			outcome: "success",
+			type: "operation-result",
+			requestId: "operation-1",
+		});
+
+		await waitFor(() => {
+			expect(document.getElementById("app")?.textContent).toBe("Result Hello");
+		});
 	});
 });
