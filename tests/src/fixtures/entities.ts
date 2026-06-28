@@ -1,6 +1,7 @@
 import { EntityId } from "@ryot/contract/schema/brands";
 
-import { requireObjectRecord, requirePresent } from "../test-support/assertions";
+import { requireObjectRecord, requirePresent } from "~/support/assertions";
+
 import type { Client } from "./auth";
 import type { ContractPayload } from "./contract-client";
 import { createTrackerWithSchema } from "./entity-schemas";
