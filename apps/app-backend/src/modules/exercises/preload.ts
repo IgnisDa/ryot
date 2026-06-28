@@ -125,7 +125,7 @@ export const BuiltinEntityPreloaderLive = Layer.scopedDiscard(
 					Effect.flatMap((result) =>
 						result.error
 							? Effect.logError(
-									`Builtin exercise search failed on page ${page}: ${result.error}`,
+									`Builtin exercise search failed on page ${page}: ${result.error.message}`,
 								).pipe(Effect.as<string[]>([]))
 							: decodeEntitySearchResult(result.value).pipe(
 									Effect.map(({ items }) => [...new Set(items.map((item) => item.externalId))]),

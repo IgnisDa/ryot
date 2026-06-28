@@ -24,6 +24,8 @@ The sandbox runs untrusted user code in single-use Deno subprocesses, exposes se
 7. Host-function stubs call `POST /rpc/:executionId/:fnName`; the bridge validates expiry, bearer token, request body, and function name before dispatching.
 8. The service adds server timing, removes the bridge session with an Effect finalizer, and returns the job result.
 
+User compilation runs in a one-shot Bun child process rather than the backend process. A two-permit semaphore bounds compilation concurrency, each process has a five-second wall-clock deadline, and timeout or cancellation kills its process group, including the native TypeScript child. Production runs on Linux, where the backend samples proportional memory across the compiler process tree and kills it above 256 MiB.
+
 ## API Shape
 
 - `POST /sandbox/scripts`: creates a stored script with `{ source }`; name, slug, and capabilities come from the static manifest.
@@ -36,12 +38,13 @@ Generic scripts declare an exact manifest `capabilities` tuple. The SDK exposes 
 
 - User code runs in a separate Deno process per execution.
 - Deno denies subprocess, env, FFI, write, prompt, npm, and remote module access and ignores ambient config and lock files.
-- Format-1 execution disables string code-generation constructors, `eval`, and workers before importing user code.
+- Format-1 execution hides the `Deno` global and disables string code-generation constructors, `eval`, and workers before importing user code.
 - Deno can only read the generated runner file, the read-only dependency runtime, and call the localhost bridge port.
 - Sandbox script network access must go through explicit host functions such as `httpCall`.
 - App-side source connectors are outside the sandbox runtime and use app runtime HTTP helpers.
 - Bridge calls require the per-execution bearer token and expire through Redis TTL.
 - Timeouts invalidate the pooled process and kill it.
+- Each Deno process starts with a 256 MiB V8 old-space limit.
 - Sandbox processes receive only `PATH` and `DENO_DIR`; user code cannot read env values because `--deny-env` is enabled.
 
 ## Process Pool
@@ -104,7 +107,26 @@ The SDK run function receives `(input, host, execution)`. `execution` contains `
 ## Errors And Debugging
 
 - Host-function exceptions are returned by the bridge and re-thrown by the runner stub.
-- Script exceptions produce `{ success: false, error }` in the sandbox result.
+- Completed user-code failures contain a structured error with a `load`, `input`, `execute`, or `output` phase, message, optional mapped `script.ts` line and column, and an allowlisted source stack.
+- Returned stacks contain only mapped `script.ts` frames. Data URLs, runner and dependency paths, bridge URLs, execution identifiers, and bearer tokens are removed.
 - Bridge validation returns 400 for bad body, 401 for invalid token, 404 for unknown function, and 410 for expired session.
-- Timeout, memory, and import failures surface as job errors.
-- Console calls are captured in the completed result's `logs` field.
+- Timeout and process termination remain workflow-level job failures; module import failures are completed results in the `load` phase.
+- Console calls are captured in the completed result's `logs` field. Oversized logs append one `[sandbox logs truncated]` marker and do not fail execution.
+- An oversized final value is rejected as an `output`-phase error and is never returned partially.
+
+## Resource Limits
+
+`limits.ts` owns the production values and UTF-8 measurement helpers used by compilation, API input, runtime requests, bridge dispatch, HTTP streaming, logs, results, and cache operations. Limits are fixed in this phase rather than exposed as environment settings.
+
+| Boundary                                              | Limit                         |
+| ----------------------------------------------------- | ----------------------------- |
+| TypeScript source / static manifest / compiled module | 256 KiB / 16 KiB / 1 MiB      |
+| Compiler concurrency / time / process-tree memory     | 2 / 5 seconds / 256 MiB       |
+| Driver context / runner request / final result        | 256 KiB / 2 MiB / 1 MiB       |
+| Bridge request / response                             | 1 MiB / 10 MiB                |
+| Host calls / `httpCall` calls per execution           | 200 / 50                      |
+| HTTP request / streamed response body                 | 1 MiB / 10 MiB                |
+| Log entry / count / total                             | 8 KiB / 500 / 256 KiB         |
+| Cache key / value / TTL                               | 256 bytes / 256 KiB / 30 days |
+
+The compiler supervisor samples proportional set size for the Bun worker and its TypeScript descendants in the Linux production image. This avoids double-counting shared pages but is a sampled process supervisor, not a cgroup hard ceiling. Non-Linux development retains the process, timeout, and concurrency boundaries without claiming a portable memory ceiling; Bun's `--smol` flag reduces baseline memory but is not treated as enforcement.

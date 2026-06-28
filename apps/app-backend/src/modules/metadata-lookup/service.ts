@@ -131,7 +131,7 @@ export class MetadataLookupService extends Effect.Service<MetadataLookupService>
 
 				if (!result.success) {
 					return yield* new SandboxRunError({
-						message: result.error ?? "TMDB search failed",
+						message: result.error?.message ?? "TMDB search failed",
 					});
 				}
 
