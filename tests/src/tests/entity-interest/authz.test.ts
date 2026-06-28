@@ -7,7 +7,7 @@ import {
 	postBackendJson,
 	seedMediaEntity,
 } from "~/fixtures";
-import { getBackendUrl, getPgClient } from "~/setup";
+import { getBackendUrl } from "~/setup";
 import { assertPresent } from "~/support/assertions";
 
 describe("interest authorization", () => {
@@ -38,11 +38,10 @@ describe("interest authorization", () => {
 			streamB.close();
 		}
 
-		const result = await getPgClient().query<{ populatedAt: string | null }>(
-			`select populated_at::text as "populatedAt" from entity where id = $1`,
-			[privateEntity.id],
+		const entity = await authA.client.run((contract) =>
+			contract.entities.get({ path: { entityId: privateEntity.id } }),
 		);
-		expect(result.rows[0]?.populatedAt ?? null).toBeNull();
+		expect(entity.populatedAt).toBeNull();
 	});
 
 	it("rejects an unauthenticated stream connection", async () => {
