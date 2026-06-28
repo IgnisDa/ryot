@@ -1,44 +1,37 @@
+import { defineSandboxTestHost, runSandboxTestDriver } from "@ryot/sandbox-sdk/testing";
+import type { BeforeCreateTriggerInput } from "@ryot/sandbox-sdk/trigger";
 import { describe, expect, it } from "vitest";
 
-import integrationProgressPolicyScriptCode from "./integration-progress-policy.sandbox.js" with { type: "text" };
-import { hostFailure, hostSuccess, runTriggerScript } from "./test-utils";
-
-const runIntegrationProgressPolicyScript = (
-	context: unknown,
-	hostFunctions: Record<string, (...args: Array<unknown>) => unknown>,
-) => runTriggerScript(integrationProgressPolicyScriptCode, context, hostFunctions);
-
-type EventFixture = {
-	occurredAt: string;
-	createdAt?: string;
-	properties: Record<string, unknown>;
-};
+import definition, { manifest } from "./integration-progress-policy.sandbox";
+import {
+	beforeCreateContext,
+	eventRecord,
+	execution,
+	hostFailure,
+	hostSuccess,
+	integrationRecord,
+} from "./test-utils";
 
 const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 
-const createTrigger = (overrides: Record<string, unknown> = {}) => ({
-	trigger: {
-		entityId: "entity_1",
-		origin: "integration",
-		entitySchemaSlug: "movie",
-		eventSchemaSlug: "progress",
-		integrationId: "integration_1",
-		occurredAt: minutesAgo(0),
+const createTrigger = (
+	overrides: Partial<BeforeCreateTriggerInput["trigger"]> = {},
+): BeforeCreateTriggerInput =>
+	beforeCreateContext({
 		properties: { progressPercent: 50, consumedOn: "Plex" },
 		...overrides,
-	},
-});
+	});
 
-const createHostFunctions = (options: {
-	events?: EventFixture[];
+const createHost = (options: {
+	claimed?: boolean;
 	thresholdHours?: string | number | null;
-	integration?: Record<string, unknown> | null;
+	events?: ReturnType<typeof eventRecord>[];
+	integration?: ReturnType<typeof integrationRecord> | null;
 }) => {
 	const calls: string[] = [];
-
 	return {
 		calls,
-		hostFunctions: {
+		host: defineSandboxTestHost(manifest, {
 			getIntegration: () => {
 				calls.push("getIntegration");
 				return options.integration ? hostSuccess(options.integration) : hostFailure();
@@ -51,70 +44,46 @@ const createHostFunctions = (options: {
 				calls.push("getAppConfigValue");
 				return hostSuccess(options.thresholdHours ?? "2");
 			},
-		},
+			claimCachedValue: () =>
+				hostSuccess(
+					options.claimed === false
+						? { claimed: false as const, value: null }
+						: { claimed: true as const },
+				),
+		}),
 	};
 };
 
-const claimsTrue = () => ({ success: true, data: { claimed: true } });
-const claimsFalse = () => ({ success: true, data: { claimed: false } });
-
-const integration = (overrides: Record<string, unknown> = {}) => ({
-	id: "integration_1",
-	minimumProgress: "2",
-	maximumProgress: "95",
-	...overrides,
-});
+const run = (context: BeforeCreateTriggerInput, host: ReturnType<typeof createHost>["host"]) =>
+	runSandboxTestDriver(definition.drivers.trigger, context, host, execution);
 
 describe("integration-progress-policy sandbox script", () => {
-	it("allows non-integration events immediately without any API calls", () => {
-		const { calls, hostFunctions } = createHostFunctions({ integration: integration() });
-
-		return runIntegrationProgressPolicyScript(createTrigger({ origin: "api" }), {
-			...hostFunctions,
-			claimCachedValue: claimsTrue,
-		}).then((result) => {
+	it("allows non-integration events immediately without host calls", () => {
+		const { calls, host } = createHost({ integration: integrationRecord() });
+		return run(createTrigger({ origin: "api" }), host).then((result) => {
 			expect(result).toEqual({ action: "allow" });
 			expect(calls).toHaveLength(0);
 			return undefined;
 		});
 	});
 
-	it("skips when progressPercent cannot be parsed", () => {
-		const { calls, hostFunctions } = createHostFunctions({ integration: integration() });
-
-		return runIntegrationProgressPolicyScript(
-			createTrigger({ properties: { progressPercent: "not-a-number", consumedOn: "Plex" } }),
-			{ ...hostFunctions, claimCachedValue: claimsTrue },
-		).then((result) => {
-			expect(result).toEqual({ action: "skip", reason: "invalid_progress" });
-			expect(calls).toHaveLength(0);
-			return undefined;
-		});
-	});
-
-	it("skips progress below the integration minimum", () => {
-		const { hostFunctions } = createHostFunctions({
-			integration: integration({ minimumProgress: "5" }),
-		});
-
-		return runIntegrationProgressPolicyScript(
-			createTrigger({ properties: { progressPercent: 3, consumedOn: "Plex" } }),
-			{ ...hostFunctions, claimCachedValue: claimsTrue },
-		).then((result) => {
-			expect(result).toEqual({ action: "skip", reason: "below_minimum_progress" });
+	it("skips invalid progress and progress below the integration minimum", () => {
+		const { host } = createHost({ integration: integrationRecord({ minimumProgress: 5 }) });
+		return Promise.all([
+			run(createTrigger({ properties: { progressPercent: "not-a-number" } }), host),
+			run(createTrigger({ properties: { progressPercent: 3, consumedOn: "Plex" } }), host),
+		]).then(([invalid, belowMinimum]) => {
+			expect(invalid).toEqual({ action: "skip", reason: "invalid_progress" });
+			expect(belowMinimum).toEqual({ action: "skip", reason: "below_minimum_progress" });
 			return undefined;
 		});
 	});
 
 	it("replaces progress above the integration maximum with 100", () => {
-		const { hostFunctions } = createHostFunctions({
-			events: [],
-			integration: integration({ maximumProgress: "95" }),
-		});
-
-		return runIntegrationProgressPolicyScript(
+		const { host } = createHost({ integration: integrationRecord({ maximumProgress: 95 }) });
+		return run(
 			createTrigger({ properties: { progressPercent: 97, consumedOn: "Plex" } }),
-			{ ...hostFunctions, claimCachedValue: claimsTrue },
+			host,
 		).then((result) => {
 			expect(result).toEqual({
 				action: "replace",
@@ -124,108 +93,79 @@ describe("integration-progress-policy sandbox script", () => {
 		});
 	});
 
-	it("skips duplicate progress at the same percentage for the same identity", () => {
-		const { hostFunctions } = createHostFunctions({
-			integration: integration(),
+	it("suppresses duplicates only for the same progress identity", () => {
+		const { host } = createHost({
+			integration: integrationRecord(),
 			events: [
-				{ occurredAt: minutesAgo(5), properties: { progressPercent: 35, consumedOn: "Plex" } },
-			],
-		});
-
-		return runIntegrationProgressPolicyScript(
-			createTrigger({ properties: { progressPercent: 35, consumedOn: "Plex" } }),
-			{ ...hostFunctions, claimCachedValue: claimsTrue },
-		).then((result) => {
-			expect(result).toEqual({ action: "skip", reason: "duplicate_progress" });
-			return undefined;
-		});
-	});
-
-	it("keeps anime positional keys in the de-duplication identity", () => {
-		const { hostFunctions } = createHostFunctions({
-			integration: integration(),
-			events: [
-				{
+				eventRecord({
 					occurredAt: minutesAgo(5),
 					properties: { animeEpisode: 1, consumedOn: "AniList", progressPercent: 35 },
-				},
+				}),
 			],
 		});
-
-		return runIntegrationProgressPolicyScript(
-			createTrigger({
-				entitySchemaSlug: "anime",
-				properties: { animeEpisode: 2, consumedOn: "AniList", progressPercent: 35 },
-			}),
-			{ ...hostFunctions, claimCachedValue: claimsTrue },
-		).then((result) => {
-			expect(result).toEqual({ action: "allow" });
+		return Promise.all([
+			run(
+				createTrigger({
+					entitySchemaSlug: "anime",
+					properties: { animeEpisode: 1, consumedOn: "AniList", progressPercent: 35 },
+				}),
+				host,
+			),
+			run(
+				createTrigger({
+					entitySchemaSlug: "anime",
+					properties: { animeEpisode: 2, consumedOn: "AniList", progressPercent: 35 },
+				}),
+				host,
+			),
+		]).then(([duplicate, distinct]) => {
+			expect(duplicate).toEqual({ action: "skip", reason: "duplicate_progress" });
+			expect(distinct).toEqual({ action: "allow" });
 			return undefined;
 		});
 	});
 
-	it("does not treat a different identity as a duplicate", () => {
-		const { hostFunctions } = createHostFunctions({
-			integration: integration(),
+	it("debounces recent completions and allows completions outside the threshold", () => {
+		const recent = createHost({
+			claimed: false,
+			integration: integrationRecord({ maximumProgress: 100 }),
 			events: [
-				{ occurredAt: minutesAgo(5), properties: { progressPercent: 35, consumedOn: "Netflix" } },
+				eventRecord({
+					id: "event-latest",
+					occurredAt: minutesAgo(1),
+					properties: { progressPercent: 50, consumedOn: "Plex" },
+				}),
+				eventRecord({
+					id: "event-complete",
+					occurredAt: minutesAgo(30),
+					properties: { progressPercent: 100, consumedOn: "Plex" },
+				}),
 			],
 		});
-
-		return runIntegrationProgressPolicyScript(
-			createTrigger({ properties: { progressPercent: 35, consumedOn: "Plex" } }),
-			{ ...hostFunctions, claimCachedValue: claimsTrue },
-		).then((result) => {
-			expect(result).toEqual({ action: "allow" });
-			return undefined;
-		});
-	});
-
-	it("skips a completion when a recent completion exists within the threshold", () => {
-		const { hostFunctions } = createHostFunctions({
-			integration: integration(),
+		const old = createHost({
+			claimed: false,
+			thresholdHours: 2,
+			integration: integrationRecord({ maximumProgress: 100 }),
 			events: [
-				{ occurredAt: minutesAgo(1), properties: { progressPercent: 50, consumedOn: "Plex" } },
-				{ occurredAt: minutesAgo(30), properties: { progressPercent: 100, consumedOn: "Plex" } },
+				eventRecord({
+					id: "event-latest",
+					occurredAt: minutesAgo(10),
+					properties: { progressPercent: 50, consumedOn: "Plex" },
+				}),
+				eventRecord({
+					id: "event-complete",
+					occurredAt: minutesAgo(180),
+					properties: { progressPercent: 100, consumedOn: "Plex" },
+				}),
 			],
 		});
 
-		return runIntegrationProgressPolicyScript(
-			createTrigger({ properties: { progressPercent: 100, consumedOn: "Plex" } }),
-			{ ...hostFunctions, claimCachedValue: claimsFalse },
-		).then((result) => {
-			expect(result).toEqual({ action: "skip", reason: "completed_recently" });
-			return undefined;
-		});
-	});
-
-	it("allows a completion when the prior completion is outside the threshold", () => {
-		const { hostFunctions } = createHostFunctions({
-			thresholdHours: "2",
-			integration: integration({ maximumProgress: "100" }),
-			events: [
-				{ occurredAt: minutesAgo(10), properties: { progressPercent: 50, consumedOn: "Plex" } },
-				{ occurredAt: minutesAgo(180), properties: { progressPercent: 100, consumedOn: "Plex" } },
-			],
-		});
-
-		return runIntegrationProgressPolicyScript(
-			createTrigger({ properties: { progressPercent: 100, consumedOn: "Plex" } }),
-			{ ...hostFunctions, claimCachedValue: claimsFalse },
-		).then((result) => {
-			expect(result).toEqual({ action: "allow" });
-			return undefined;
-		});
-	});
-
-	it("allows in-range progress with no matching prior events", () => {
-		const { hostFunctions } = createHostFunctions({ events: [], integration: integration() });
-
-		return runIntegrationProgressPolicyScript(
-			createTrigger({ properties: { progressPercent: 42, consumedOn: "Plex" } }),
-			{ ...hostFunctions, claimCachedValue: claimsTrue },
-		).then((result) => {
-			expect(result).toEqual({ action: "allow" });
+		return Promise.all([
+			run(createTrigger({ properties: { progressPercent: 100, consumedOn: "Plex" } }), recent.host),
+			run(createTrigger({ properties: { progressPercent: 100, consumedOn: "Plex" } }), old.host),
+		]).then(([recentResult, oldResult]) => {
+			expect(recentResult).toEqual({ action: "skip", reason: "completed_recently" });
+			expect(oldResult).toEqual({ action: "allow" });
 			return undefined;
 		});
 	});
