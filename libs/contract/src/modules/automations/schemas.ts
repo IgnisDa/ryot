@@ -48,6 +48,13 @@ export const SubscriptionRunStatus = Schema.Literal(
 
 export type SubscriptionRunStatus = typeof SubscriptionRunStatus.Type;
 
+export const SubscriptionRunTiming = strictStruct({
+	totalMs: Schema.Number,
+	executionMs: Schema.Number,
+});
+
+export type SubscriptionRunTiming = typeof SubscriptionRunTiming.Type;
+
 export const SubscriptionRunSkipReason = Schema.Union(
 	strictStruct({ kind: Schema.Literal("user_disabled") }),
 );

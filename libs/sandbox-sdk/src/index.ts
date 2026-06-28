@@ -392,6 +392,7 @@ const sandboxManifestBaseSchema = z.object({
 
 export const sandboxManifestSchema = z.discriminatedUnion("kind", [
 	sandboxManifestBaseSchema.extend({ kind: z.literal("script") }).strict(),
+	sandboxManifestBaseSchema.extend({ kind: z.literal("automation") }).strict(),
 	sandboxManifestBaseSchema
 		.extend({ kind: z.literal("provider"), providerInformation: providerInformationSchema })
 		.strict(),

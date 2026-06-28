@@ -7,6 +7,8 @@ import {
 	type AutomationRuleKind as AutomationRuleKindValue,
 	type AutomationRuleMetadata as AutomationRuleMetadataValue,
 	type SubscriptionRunSourceKind,
+	type SubscriptionRunSkipReason,
+	type SubscriptionRunTiming,
 } from "@ryot/contract/modules/automations/schemas";
 import {
 	AutomationRuleId,
@@ -20,7 +22,7 @@ import {
 	UserId,
 } from "@ryot/contract/schema/brands";
 import { and, asc, eq, isNull, or, type SQL } from "drizzle-orm";
-import { Effect, Schema } from "effect";
+import { DateTime, Effect, Schema } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
@@ -68,8 +70,19 @@ export type InsertSubscriptionRunInput = {
 	ruleId: AutomationRuleId;
 	signalId: SignalId | null;
 	executionUserId: UserId | null;
+	sandboxScriptId: SandboxScriptId;
 	operation: AutomationOperationValue;
 	sourceKind: SubscriptionRunSourceKind;
+	ruleMetadata: AutomationRuleMetadataValue | null;
+};
+
+export type FinishSubscriptionRunInput = {
+	id: SubscriptionRunId;
+	status: "failed" | "succeeded";
+	timing: SubscriptionRunTiming | null;
+	logs: AutomationRuleMetadataValue | null;
+	sandboxError: AutomationRuleMetadataValue | null;
+	returnedValue: AutomationRuleMetadataValue | null;
 };
 
 const decodeStored = <A, I>(value: unknown, valueSchema: Schema.Schema<A, I>, message: string) =>
@@ -168,6 +181,7 @@ const toStoredRun = (row: SubscriptionRunRow) => ({
 	finishedAt: row.finishedAt?.toISOString() ?? null,
 	scriptUpdatedAt: row.scriptUpdatedAt?.toISOString() ?? null,
 	originalRuleId: AutomationRuleId.make(row.originalRuleId),
+	sandboxScriptId: SandboxScriptId.make(row.sandboxScriptId),
 	signalId: row.signalId ? SignalId.make(row.signalId) : null,
 	ruleId: row.ruleId ? AutomationRuleId.make(row.ruleId) : null,
 	executionUserId: row.executionUserId ? UserId.make(row.executionUserId) : null,
@@ -251,6 +265,30 @@ export class AutomationsRepository extends Effect.Service<AutomationsRepository>
 						.limit(1),
 				);
 				return row ? { ...row, userId: row.userId ? UserId.make(row.userId) : null } : null;
+			});
+
+			const findScriptExecution = Effect.fn("AutomationsRepository.findScriptExecution")(function* (
+				scriptId: SandboxScriptId,
+			) {
+				const db = yield* CurrentDb;
+				const [row] = yield* dbEffect(() =>
+					db
+						.select({
+							userId: schema.sandboxScript.userId,
+							updatedAt: schema.sandboxScript.updatedAt,
+							isBuiltin: schema.sandboxScript.isBuiltin,
+						})
+						.from(schema.sandboxScript)
+						.where(eq(schema.sandboxScript.id, scriptId))
+						.limit(1),
+				);
+				return row
+					? {
+							isBuiltin: row.isBuiltin,
+							updatedAt: row.updatedAt.toISOString(),
+							userId: row.userId ? UserId.make(row.userId) : null,
+						}
+					: null;
 			});
 
 			const findByUnique = Effect.fn("AutomationsRepository.findByUnique")(function* (input: {
@@ -415,6 +453,70 @@ export class AutomationsRepository extends Effect.Service<AutomationsRepository>
 				return row ? toStoredRun(row) : null;
 			});
 
+			const markRunRunning = Effect.fn("AutomationsRepository.markRunRunning")(function* (input: {
+				id: SubscriptionRunId;
+				scriptUpdatedAt: Date;
+			}) {
+				const db = yield* CurrentDb;
+				const startedAt = yield* DateTime.nowAsDate;
+				const [row] = yield* dbEffect(() =>
+					db
+						.update(schema.subscriptionRun)
+						.set({
+							startedAt,
+							status: "running",
+							scriptUpdatedAt: input.scriptUpdatedAt,
+						})
+						.where(
+							and(
+								eq(schema.subscriptionRun.id, input.id),
+								eq(schema.subscriptionRun.status, "queued"),
+							),
+						)
+						.returning(),
+				);
+				return row ? toStoredRun(row) : null;
+			});
+
+			const finishRun = Effect.fn("AutomationsRepository.finishRun")(function* (
+				input: FinishSubscriptionRunInput,
+			) {
+				const db = yield* CurrentDb;
+				const finishedAt = yield* DateTime.nowAsDate;
+				const { id, ...outcome } = input;
+				const [row] = yield* dbEffect(() =>
+					db
+						.update(schema.subscriptionRun)
+						.set({ ...outcome, finishedAt })
+						.where(
+							and(eq(schema.subscriptionRun.id, id), eq(schema.subscriptionRun.status, "running")),
+						)
+						.returning(),
+				);
+				return row ? toStoredRun(row) : null;
+			});
+
+			const skipRun = Effect.fn("AutomationsRepository.skipRun")(function* (input: {
+				id: SubscriptionRunId;
+				reason: SubscriptionRunSkipReason;
+			}) {
+				const db = yield* CurrentDb;
+				const now = yield* DateTime.nowAsDate;
+				const [row] = yield* dbEffect(() =>
+					db
+						.update(schema.subscriptionRun)
+						.set({ status: "skipped", startedAt: now, finishedAt: now, skipReason: input.reason })
+						.where(
+							and(
+								eq(schema.subscriptionRun.id, input.id),
+								eq(schema.subscriptionRun.status, "queued"),
+							),
+						)
+						.returning(),
+				);
+				return row ? toStoredRun(row) : null;
+			});
+
 			const listRunsByOriginalRuleId = Effect.fn("AutomationsRepository.listRunsByOriginalRuleId")(
 				function* (input: { userId: UserId; originalRuleId: AutomationRuleId }) {
 					const db = yield* CurrentDb;
@@ -475,6 +577,8 @@ export class AutomationsRepository extends Effect.Service<AutomationsRepository>
 			});
 
 			return {
+				skipRun,
+				finishRun,
 				insertRun,
 				insertRule,
 				findRunById,
@@ -484,8 +588,10 @@ export class AutomationsRepository extends Effect.Service<AutomationsRepository>
 				isUserEnabled,
 				deleteUserRule,
 				findScriptScope,
+				markRunRunning,
 				findTargetScope,
 				setUserRuleActive,
+				findScriptExecution,
 				lockActiveSubscription,
 				listRunsByOriginalRuleId,
 			};

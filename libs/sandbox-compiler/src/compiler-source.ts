@@ -1,5 +1,6 @@
 import type { SandboxManifest } from "@ryot/sandbox-sdk";
 import {
+	SANDBOX_SDK_AUTOMATION_IMPORT,
 	SANDBOX_SDK_IMPORTS,
 	SANDBOX_SDK_PROVIDER_IMPORT,
 	SANDBOX_SDK_ROOT_IMPORT,
@@ -60,6 +61,7 @@ const inspectsGeneratedModule = (node: ts.CallExpression | ts.NewExpression) => 
 
 const inspectImports = (file: ts.SourceFile, allowRelativeImports: boolean) => {
 	const scriptHelpers = new Set<string>();
+	const automationHelpers = new Set<string>();
 	const providerHelpers = new Set<string>();
 	const manifestHelpers = new Set<string>();
 	const diagnostics: SandboxCompilerDiagnostic[] = [];
@@ -97,6 +99,7 @@ const inspectImports = (file: ts.SourceFile, allowRelativeImports: boolean) => {
 			if (
 				ts.isImportDeclaration(statement) &&
 				(specifier === SANDBOX_SDK_ROOT_IMPORT ||
+					specifier === SANDBOX_SDK_AUTOMATION_IMPORT ||
 					specifier === SANDBOX_SDK_PROVIDER_IMPORT ||
 					specifier === SANDBOX_SDK_TRIGGER_IMPORT)
 			) {
@@ -115,6 +118,9 @@ const inspectImports = (file: ts.SourceFile, allowRelativeImports: boolean) => {
 						}
 						if (importedName === "defineScript") {
 							scriptHelpers.add(element.name.text);
+						}
+						if (importedName === "defineAutomation") {
+							automationHelpers.add(element.name.text);
 						}
 						if (importedName === "defineProvider") {
 							providerHelpers.add(element.name.text);
@@ -170,6 +176,7 @@ const inspectImports = (file: ts.SourceFile, allowRelativeImports: boolean) => {
 		diagnostics,
 		driverHelpers,
 		scriptHelpers,
+		automationHelpers,
 		triggerHelpers,
 		manifestHelpers,
 		providerHelpers,
@@ -318,6 +325,7 @@ const getTopLevelDriverRecord = (file: ts.SourceFile, name: string) => {
 const inspectScriptDefinition = (
 	file: ts.SourceFile,
 	scriptHelpers: ReadonlySet<string>,
+	automationHelpers: ReadonlySet<string>,
 	providerHelpers: ReadonlySet<string>,
 	triggerHelpers: ReadonlyMap<string, "after_create" | "before_create">,
 	driverDefinitions: ReadonlyMap<string, DriverDefinition>,
@@ -342,11 +350,13 @@ const inspectScriptDefinition = (
 
 	const assignment = defaults[0];
 	const call = assignment?.expression;
-	let definitionKind: "provider" | "script" | "trigger" | null = null;
+	let definitionKind: "automation" | "provider" | "script" | "trigger" | null = null;
 	let triggerMode: "after_create" | "before_create" | null = null;
 	if (call && ts.isCallExpression(call) && ts.isIdentifier(call.expression)) {
 		if (scriptHelpers.has(call.expression.text)) {
 			definitionKind = "script";
+		} else if (automationHelpers.has(call.expression.text)) {
+			definitionKind = "automation";
 		} else if (providerHelpers.has(call.expression.text)) {
 			definitionKind = "provider";
 		} else if (triggerHelpers.has(call.expression.text)) {
@@ -369,7 +379,7 @@ const inspectScriptDefinition = (
 				diagnosticAt(
 					assignment ?? file,
 					"RYOT_DEFINITION",
-					"The default export must be a direct script, provider, or trigger definition call",
+					"The default export must be a direct automation, script, provider, or trigger definition call",
 				),
 			],
 		};
@@ -389,7 +399,7 @@ const inspectScriptDefinition = (
 			],
 		};
 	}
-	if (definitionKind === "trigger") {
+	if (definitionKind === "trigger" || definitionKind === "automation") {
 		let hasManifest = false;
 		let hasRun = false;
 		for (const property of definition.properties) {
@@ -419,7 +429,7 @@ const inspectScriptDefinition = (
 							diagnosticAt(
 								definition,
 								"RYOT_DEFINITION",
-								'The trigger definition must contain the exported "manifest" and a run function',
+								`The ${definitionKind} definition must contain the exported "manifest" and a run function`,
 							),
 						],
 		};
@@ -526,7 +536,7 @@ export const inspectSandboxModuleImports = (file: ts.SourceFile) =>
 
 export const sandboxDefinitionMismatch = (
 	inspection: {
-		readonly definitionKind: "provider" | "script" | "trigger" | null;
+		readonly definitionKind: "automation" | "provider" | "script" | "trigger" | null;
 		readonly triggerMode: "after_create" | "before_create" | null;
 	},
 	manifest: SandboxManifest,
@@ -534,6 +544,8 @@ export const sandboxDefinitionMismatch = (
 	let helper = "defineScript";
 	if (manifest.kind === "provider") {
 		helper = "defineProvider";
+	} else if (manifest.kind === "automation") {
+		helper = "defineAutomation";
 	} else if (manifest.kind === "trigger") {
 		helper =
 			manifest.mode === "before_create" ? "defineBeforeCreateTrigger" : "defineAfterCreateTrigger";
@@ -574,6 +586,7 @@ export const inspectSandboxSource = (
 	const definition = inspectScriptDefinition(
 		file,
 		imports.scriptHelpers,
+		imports.automationHelpers,
 		imports.providerHelpers,
 		imports.triggerHelpers,
 		drivers.driverDefinitions,
