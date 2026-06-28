@@ -100,26 +100,24 @@ export const compilePluginPackage = Effect.fn("PluginPipeline.compilePluginPacka
 		}));
 		const clientCompiler = yield* ClientPluginCompiler;
 		const clientEntry = input.manifest.client;
-		const clientArtifact = clientEntry
-			? yield* clientCompiler
-					.compile({
-						files: input.files,
-						entry: clientEntry.entry,
-						name: input.manifest.metadata.name,
-						apiVersion: clientEntry.apiVersion,
-						pluginDependencies: clientEntry.pluginDependencies ?? [],
-						publicExports: Object.fromEntries(
-							Object.entries(clientEntry.exports ?? {}).map(([name, declaration]) => [
-								name,
-								{ entry: declaration.entry, kind: declaration.kind },
-							]),
-						),
-					})
-					.pipe(Effect.tapError((error) => Effect.logError("plugin client compile error", error)))
-			: null;
+		if (clientEntry) {
+			yield* clientCompiler
+				.compile({
+					files: input.files,
+					name: input.manifest.metadata.name,
+					apiVersion: clientEntry.apiVersion,
+					pluginDependencies: clientEntry.pluginDependencies ?? [],
+					publicExports: Object.fromEntries(
+						Object.entries(clientEntry.exports ?? {}).map(([name, declaration]) => [
+							name,
+							{ entry: declaration.entry, kind: declaration.kind },
+						]),
+					),
+				})
+				.pipe(Effect.tapError((error) => Effect.logError("plugin client compile error", error)));
+		}
 		return {
 			scripts,
-			clientArtifact,
 			files: input.files,
 			manifest: input.manifest,
 			sourceHash: input.sourceHash,

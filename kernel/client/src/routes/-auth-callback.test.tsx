@@ -6,7 +6,6 @@ import { describe, expect, it } from "vitest";
 import { KernelApiTestLayer } from "#/api/ports.test-layer";
 import { OAuthTokenError } from "#/modules/auth/token-service";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
-import { ArtifactSessions } from "#/modules/plugins/artifact-sessions";
 import { PluginCatalogService } from "#/modules/plugins/catalog";
 import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/events.test-layer";
 import { PluginOperationsService } from "#/modules/plugins/operations";
@@ -90,11 +89,6 @@ const mountCallback = (
 			CustomizeRouteStubs,
 			Layer.succeed(PluginQueriesService, { query: () => Effect.die("not used") }),
 			Layer.succeed(PluginOperationsService, { invoke: () => Effect.die("not used") }),
-			Layer.succeed(ArtifactSessions, {
-				renew: () => Effect.die("not used"),
-				revoke: () => Effect.die("not used"),
-				create: () => Effect.die("not used"),
-			}),
 			makePluginCatalogEventsTestLayer().layer,
 			KernelApiTestLayer,
 			ClientPagesApiRouteStubs,

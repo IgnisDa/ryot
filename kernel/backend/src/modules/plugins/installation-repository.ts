@@ -177,6 +177,43 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				},
 			);
 
+			const findHomeSavedViewBySlug = Effect.fn(
+				"PluginInstallationRepository.findHomeSavedViewBySlug",
+			)(function* (userId: UserId, pluginInstallationId: string, slug: string) {
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
+					db
+						.select({
+							view: {
+								id: schema.savedView.id,
+								renderer: schema.savedView.renderer,
+								isDisabled: schema.savedView.isDisabled,
+							},
+							renderer: {
+								userId: schema.clientRenderer.userId,
+								publishedHash: schema.clientRenderer.publishedHash,
+								publishedRevision: schema.clientRenderer.publishedRevision,
+								publishedDefinition: schema.clientRenderer.publishedDefinition,
+							},
+						})
+						.from(schema.savedView)
+						.leftJoin(
+							schema.clientRenderer,
+							eq(schema.savedView.clientRendererId, schema.clientRenderer.id),
+						)
+						.where(
+							and(
+								eq(schema.savedView.userId, userId),
+								eq(schema.savedView.slug, slug),
+								eq(schema.savedView.isBuiltin, true),
+								eq(schema.savedView.pluginInstallationId, pluginInstallationId),
+							),
+						)
+						.limit(1),
+				);
+				return row ?? null;
+			});
+
 			const lockHomeSavedView = Effect.fn("PluginInstallationRepository.lockHomeSavedView")(
 				function* (userId: UserId, savedViewId: string) {
 					const db = yield* Database;
@@ -448,6 +485,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				listSystemForUser,
 				lockHomeSavedView,
 				findHomeSavedView,
+				findHomeSavedViewBySlug,
 				findByUserAndPlugin,
 				listPendingLifecycle,
 				listPrivateInstallations,

@@ -40,10 +40,11 @@ describe("Saved views lifecycle E2E", () => {
 			});
 			const listedViews = yield* listSavedViews(client);
 			const listedViewIds = listedViews.map((view) => view.id);
-			expect(createdView.entitySchemaSlug).toBe("book");
 			expect(listedViews.some((view) => view.isBuiltin)).toBe(true);
 			expect(listedViewIds).toContain(createdView.id);
-			expect(listedViews.find((view) => view.id === createdView.id)?.entitySchemaSlug).toBe("book");
+			expect(listedViews.find((view) => view.id === createdView.id)?.renderer).toEqual(
+				createdView.renderer,
+			);
 		}),
 	);
 
@@ -58,11 +59,13 @@ describe("Saved views lifecycle E2E", () => {
 				isBuiltin: true,
 				name: "All Collections",
 			});
-			const collectionsViewLayouts = requirePresent(
-				collectionsView?.layouts,
-				"All Collections saved view has no layouts",
-			);
-			expect(collectionsViewLayouts.grid.queryDocument).toMatchObject({
+			expect(collectionsView?.renderer).toEqual({ kind: "kernel", name: "entity-browser" });
+			expect(collectionsView?.settings).toMatchObject({
+				sourceName: "savedView",
+				entityIdField: "entityId",
+				entitySchemaSlugField: "entitySchemaSlug",
+			});
+			expect(collectionsView?.dataSources).toMatchObject({
 				queries: {
 					savedView: {
 						where: {
@@ -79,11 +82,6 @@ describe("Saved views lifecycle E2E", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const builtinView = yield* findBuiltinSavedView(client);
-			const builtinViewLayouts = requirePresent(
-				builtinView.layouts,
-				"Built-in saved view has no layouts",
-			);
-
 			yield* Effect.promise(() => new Promise((resolve) => setTimeout(resolve, 100)));
 			const updatedView = yield* client.call((c) =>
 				c.savedViews.update({
@@ -92,16 +90,17 @@ describe("Saved views lifecycle E2E", () => {
 						isDisabled: true,
 						icon: builtinView.icon,
 						name: builtinView.name,
-						layouts: builtinViewLayouts,
-						entitySchemaSlug: builtinView.entitySchemaSlug,
-						...(builtinView.pluginSlug ? { pluginSlug: builtinView.pluginSlug } : {}),
+						renderer: builtinView.renderer,
+						settings: builtinView.settings,
+						dataSources: builtinView.dataSources,
+						...(builtinView.pluginSlug ? { workspacePluginSlug: builtinView.pluginSlug } : {}),
 					},
 				}),
 			);
 			const fetchedView = yield* getSavedView(client, builtinView.slug);
 
 			expect(updatedView.id).toBe(builtinView.id);
-			expect(updatedView.entitySchemaSlug).toBe(builtinView.entitySchemaSlug);
+			expect(updatedView.renderer).toEqual(builtinView.renderer);
 			expect(fetchedView.createdAt).toBe(builtinView.createdAt);
 			expect(fetchedView.updatedAt).not.toBe(builtinView.updatedAt);
 			expect(fetchedView.isDisabled).toBe(true);
@@ -114,8 +113,9 @@ describe("Saved views lifecycle E2E", () => {
 			const createdView = yield* createSavedView(client, { name: "Lifecycle View" });
 			const fetchedView = yield* getSavedView(client, createdView.slug);
 			expect(fetchedView.id).toBe(createdView.id);
-			expect(createdView.entitySchemaSlug).toBe("book");
-			expect(fetchedView.entitySchemaSlug).toBe("book");
+			expect(fetchedView.renderer).toEqual(createdView.renderer);
+			expect(fetchedView.settings).toEqual(createdView.settings);
+			expect(fetchedView.dataSources).toEqual(createdView.dataSources);
 			expect(fetchedView.name).toBe("Lifecycle View");
 			expect(fetchedView.isBuiltin).toBe(false);
 			expect(fetchedView.isDisabled).toBe(false);
@@ -124,16 +124,17 @@ describe("Saved views lifecycle E2E", () => {
 
 			const clonedView = yield* cloneSavedView(client, createdView.slug);
 			expect(clonedView.id).not.toBe(createdView.id);
-			expect(clonedView.entitySchemaSlug).toBe("book");
 			expect(clonedView.name).toBe("Lifecycle View (Copy)");
 			expect(clonedView.isBuiltin).toBe(false);
-			expect(clonedView.layouts).toEqual(createdView.layouts);
+			expect(clonedView.renderer).toEqual(createdView.renderer);
+			expect(clonedView.settings).toEqual(createdView.settings);
+			expect(clonedView.dataSources).toEqual(createdView.dataSources);
 			const updatedClone = yield* updateSavedView(client, clonedView.slug, {
 				name: "Lifecycle View Revised",
 			});
 			const fetchedUpdated = yield* getSavedView(client, clonedView.slug);
 			expect(updatedClone.name).toBe("Lifecycle View Revised");
-			expect(updatedClone.entitySchemaSlug).toBe("book");
+			expect(updatedClone.renderer).toEqual(createdView.renderer);
 			expect(fetchedUpdated.id).toBe(clonedView.id);
 			const deletedOriginal = yield* deleteSavedView(client, createdView.slug);
 			const deletedClone = yield* deleteSavedView(client, clonedView.slug);
@@ -152,9 +153,10 @@ describe("Saved views lifecycle E2E", () => {
 			const builtinView = yield* findBuiltinSavedView(client);
 			const clonedView = yield* cloneSavedView(client, builtinView.slug);
 			expect(clonedView.name).toBe(`${builtinView.name} (Copy)`);
-			expect(clonedView.entitySchemaSlug).toBe(builtinView.entitySchemaSlug);
 			expect(clonedView.isBuiltin).toBe(false);
-			expect(clonedView.layouts).toEqual(builtinView.layouts);
+			expect(clonedView.renderer).toEqual(builtinView.renderer);
+			expect(clonedView.settings).toEqual(builtinView.settings);
+			expect(clonedView.dataSources).toEqual(builtinView.dataSources);
 			const deletedClone = yield* deleteSavedView(client, clonedView.slug);
 			const refreshedBuiltin = yield* getSavedView(client, builtinView.slug);
 			const remaining = yield* listSavedViews(client);
@@ -173,10 +175,7 @@ describe("Saved views lifecycle E2E", () => {
 				client.call((c) => c.savedViews.delete({ params: { viewSlug: builtinView.slug } })),
 			);
 			assertTaggedError(error, "SavedViewBadRequest");
-			expect(error.reason).toEqual({
-				viewSlug: builtinView.slug,
-				code: "builtin-view-immutable",
-			});
+			expect(error.reason).toEqual({ viewSlug: builtinView.slug, code: "builtin-view-immutable" });
 		}),
 	);
 
@@ -184,11 +183,6 @@ describe("Saved views lifecycle E2E", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const builtinView = yield* findBuiltinSavedView(client);
-			const builtinViewLayouts = requirePresent(
-				builtinView.layouts,
-				"Built-in saved view has no layouts",
-			);
-
 			const invalidUpdateError = yield* Effect.flip(
 				client.call((c) =>
 					c.savedViews.update({
@@ -211,14 +205,15 @@ describe("Saved views lifecycle E2E", () => {
 						isDisabled: true,
 						icon: builtinView.icon,
 						name: builtinView.name,
-						layouts: builtinViewLayouts,
-						entitySchemaSlug: builtinView.entitySchemaSlug,
-						...(builtinView.pluginSlug ? { pluginSlug: builtinView.pluginSlug } : {}),
+						renderer: builtinView.renderer,
+						settings: builtinView.settings,
+						dataSources: builtinView.dataSources,
+						...(builtinView.pluginSlug ? { workspacePluginSlug: builtinView.pluginSlug } : {}),
 					},
 				}),
 			);
 			expect(disableResult.isDisabled).toBe(true);
-			expect(disableResult.entitySchemaSlug).toBe(builtinView.entitySchemaSlug);
+			expect(disableResult.renderer).toEqual(builtinView.renderer);
 
 			yield* client.call((c) =>
 				c.savedViews.update({
@@ -227,16 +222,17 @@ describe("Saved views lifecycle E2E", () => {
 						isDisabled: false,
 						icon: builtinView.icon,
 						name: builtinView.name,
-						layouts: builtinViewLayouts,
-						entitySchemaSlug: builtinView.entitySchemaSlug,
-						...(builtinView.pluginSlug ? { pluginSlug: builtinView.pluginSlug } : {}),
+						renderer: builtinView.renderer,
+						settings: builtinView.settings,
+						dataSources: builtinView.dataSources,
+						...(builtinView.pluginSlug ? { workspacePluginSlug: builtinView.pluginSlug } : {}),
 					},
 				}),
 			);
 			const fetchedReEnabled = yield* getSavedView(client, builtinView.slug);
 
 			expect(fetchedReEnabled.isDisabled).toBe(false);
-			expect(fetchedReEnabled.entitySchemaSlug).toBe(builtinView.entitySchemaSlug);
+			expect(fetchedReEnabled.settings).toEqual(builtinView.settings);
 			expect(fetchedReEnabled.name).toBe(builtinView.name);
 		}),
 	);
@@ -262,10 +258,7 @@ describe("Saved views lifecycle E2E", () => {
 
 			for (const error of [updateError, cloneError, deleteError]) {
 				assertTaggedError(error, "SavedViewNotFound");
-				expect(error.reason).toEqual({
-					viewSlug: missingViewSlug,
-					code: "saved-view-not-found",
-				});
+				expect(error.reason).toEqual({ viewSlug: missingViewSlug, code: "saved-view-not-found" });
 			}
 		}),
 	);
@@ -280,7 +273,7 @@ describe("Saved views lifecycle E2E", () => {
 			const refreshedView = yield* getSavedView(client, createdView.slug);
 
 			expect(refreshedView.id).toBe(createdView.id);
-			expect(refreshedView.entitySchemaSlug).toBe("book");
+			expect(refreshedView.renderer).toEqual(createdView.renderer);
 			expect(refreshedView.isBuiltin).toBe(false);
 			expect(refreshedView.createdAt).toBe(createdView.createdAt);
 			expect(refreshedView.updatedAt).not.toBe(createdView.updatedAt);
@@ -305,7 +298,7 @@ describe("Saved views lifecycle E2E", () => {
 
 			expect(reEnabledView.isDisabled).toBe(false);
 			expect(fetchedReEnabled.isDisabled).toBe(false);
-			expect(fetchedReEnabled.entitySchemaSlug).toBe(createdView.entitySchemaSlug);
+			expect(fetchedReEnabled.dataSources).toEqual(createdView.dataSources);
 		}),
 	);
 
@@ -332,15 +325,18 @@ describe("Saved views lifecycle E2E", () => {
 				const { client } = yield* createAuthenticatedClient();
 				const pluginSlug = yield* installPluginScope(client);
 				const enabledTracked = yield* createSavedView(client, {
-					pluginSlug,
+					workspacePluginSlug: pluginSlug,
 					name: `Enabled Tracked ${crypto.randomUUID()}`,
 				});
 				const disabledTracked = yield* createSavedView(client, {
-					pluginSlug,
+					workspacePluginSlug: pluginSlug,
 					name: `Disabled Tracked ${crypto.randomUUID()}`,
 				});
 				yield* createSavedView(client, { name: `Standalone ${crypto.randomUUID()}` });
-				yield* updateSavedView(client, disabledTracked.slug, { pluginSlug, isDisabled: true });
+				yield* updateSavedView(client, disabledTracked.slug, {
+					isDisabled: true,
+					workspacePluginSlug: pluginSlug,
+				});
 
 				const listedViews = yield* listSavedViews(client, { pluginSlug, includeDisabled: true });
 
@@ -357,11 +353,11 @@ describe("Saved views lifecycle E2E", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const pluginSlug = yield* installPluginScope(client);
 			const first = yield* createSavedView(client, {
-				pluginSlug,
+				workspacePluginSlug: pluginSlug,
 				name: `Tracker View A ${crypto.randomUUID()}`,
 			});
 			const second = yield* createSavedView(client, {
-				pluginSlug,
+				workspacePluginSlug: pluginSlug,
 				name: `Tracker View B ${crypto.randomUUID()}`,
 			});
 			const standalone = yield* createSavedView(client, {
@@ -369,8 +365,8 @@ describe("Saved views lifecycle E2E", () => {
 			});
 
 			const reordered = yield* reorderSavedViews(client, {
-				viewSlugs: [second.slug, first.slug],
 				pluginSlug,
+				viewSlugs: [second.slug, first.slug],
 			});
 			const scopedViews = yield* listSavedViews(client, { pluginSlug, includeDisabled: true });
 			const topLevelViews = yield* listSavedViews(client, { includeDisabled: true });
@@ -388,7 +384,7 @@ describe("Saved views lifecycle E2E", () => {
 			const second = yield* createSavedView(client, { name: `Top View B ${crypto.randomUUID()}` });
 			const pluginSlug = yield* installPluginScope(client);
 			const tracked = yield* createSavedView(client, {
-				pluginSlug,
+				workspacePluginSlug: pluginSlug,
 				name: `Tracked Scope View ${crypto.randomUUID()}`,
 			});
 
@@ -410,12 +406,12 @@ describe("Saved views lifecycle E2E", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const pluginSlug = yield* installPluginScope(client);
 			const movedView = yield* createSavedView(client, {
-				pluginSlug,
+				workspacePluginSlug: pluginSlug,
 				name: `Movable View ${crypto.randomUUID()}`,
 			});
 
 			const updatedView = yield* updateSavedView(client, movedView.slug, {
-				pluginSlug: undefined,
+				workspacePluginSlug: null,
 				name: `${movedView.name} Updated`,
 			});
 			const fetchedView = yield* getSavedView(client, movedView.slug);
@@ -459,9 +455,10 @@ describe("Saved views lifecycle E2E", () => {
 				isBuiltin: true,
 				name: builtinView.name,
 				icon: builtinView.icon,
-				layouts: builtinView.layouts,
+				renderer: builtinView.renderer,
+				settings: builtinView.settings,
 				isDisabled: builtinView.isDisabled,
-				entitySchemaSlug: builtinView.entitySchemaSlug,
+				dataSources: builtinView.dataSources,
 			});
 		}),
 	);
@@ -471,7 +468,7 @@ describe("Saved views lifecycle E2E", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const pluginSlug = yield* installPluginScope(client);
 			const tracked = yield* createSavedView(client, {
-				pluginSlug,
+				workspacePluginSlug: pluginSlug,
 				name: `Scoped View ${crypto.randomUUID()}`,
 			});
 			const standalone = yield* createSavedView(client, {

@@ -241,7 +241,6 @@ const plugin: CatalogTable = {
 		version: physicalField("version", "text", false),
 		sourceHash: physicalField("source_hash", "text", false),
 		ingestedAt: physicalField("ingested_at", "date", false),
-		clientArtifactHash: physicalField("client_artifact_hash", "text"),
 	},
 };
 
@@ -297,15 +296,13 @@ const savedView: CatalogTable = {
 	visibility: { user: { type: "owned", column: "user_id", includeGlobal: false } },
 	fields: {
 		pluginSlug: installationPluginSlug(true),
-		layouts: physicalField("layouts", "json"),
-		renderer: physicalField("renderer", "json"),
-		settings: physicalField("settings", "json"),
+		renderer: physicalField("renderer", "json", false),
+		settings: physicalField("settings", "json", false),
 		id: physicalField("id", "text", false),
 		dataSources: physicalField("data_sources", "json"),
 		slug: physicalField("slug", "text", false),
 		name: physicalField("name", "text", false),
 		icon: physicalField("icon", "text", false),
-		entitySchemaSlug: physicalField("entity_schema_slug", "text"),
 		createdAt: physicalField("created_at", "date", false),
 		updatedAt: physicalField("updated_at", "date", false),
 		sortOrder: physicalField("sort_order", "number", false),

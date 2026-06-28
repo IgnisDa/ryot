@@ -10,7 +10,7 @@ import { Effect, Layer, Schema } from "effect";
 
 import {
 	ClientPageSessionPayloadFromJson,
-	hashPluginClientArtifactSessionToken,
+	hashClientPageSessionToken,
 	RedisService,
 } from "#lib/infrastructure/redis";
 import { databaseLayer, makeRedisService } from "#lib/test-utils/effect";
@@ -80,9 +80,7 @@ const makeLayer = (
 								return Promise.resolve("OK" as const);
 							},
 							get: (key: string) =>
-								Promise.resolve(
-									key.endsWith(hashPluginClientArtifactSessionToken(token)) ? raw : null,
-								),
+								Promise.resolve(key.endsWith(hashClientPageSessionToken(token)) ? raw : null),
 						}),
 						renewLease: () => Effect.succeed(true),
 						releaseLease: (key, value) => Effect.sync(() => options.onReleaseLease?.(key, value)),
@@ -187,9 +185,7 @@ it.effect("returns stale preparation when renewing a stale session", () => {
 	const currentIdentity = { ...identity, graphHash: "graph-2" };
 	return Effect.gen(function* () {
 		const sessions = yield* ClientPageSessionService;
-		const error = yield* Effect.flip(
-			sessions.renew(userId, hashPluginClientArtifactSessionToken(token)),
-		);
+		const error = yield* Effect.flip(sessions.renew(userId, hashClientPageSessionToken(token)));
 		expect(error._tag).toBe("ClientPageStalePreparation");
 	}).pipe(Effect.provide(Layer.mergeAll(makeLayer(currentIdentity, []), databaseLayer)));
 });
@@ -198,7 +194,7 @@ it.effect("keeps malformed, missing, and wrong-user renewals as not found", () =
 	return Effect.gen(function* () {
 		const sessions = yield* ClientPageSessionService;
 		const wrongUser = yield* Effect.flip(
-			sessions.renew(UserId.make("user-2"), hashPluginClientArtifactSessionToken(token)),
+			sessions.renew(UserId.make("user-2"), hashClientPageSessionToken(token)),
 		);
 		const missing = yield* Effect.flip(sessions.renew(userId, "b".repeat(64)));
 		const malformed = yield* Effect.flip(sessions.renew(userId, "malformed"));

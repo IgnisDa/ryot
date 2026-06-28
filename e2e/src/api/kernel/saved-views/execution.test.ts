@@ -1,24 +1,38 @@
+import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
+import { EntityBrowserSavedViewSettings } from "@ryot-app/contract/modules/saved-views/schemas";
 import { column, inArray, literal, table } from "@ryot-app/ryotql";
-import { savedViewCountRecipe, savedViewRecipe } from "@ryot-app/ryotql-recipes/saved-views";
-import { Effect } from "effect";
+import { savedViewCountRecipe } from "@ryot-app/ryotql-recipes/saved-views";
+import { Effect, Schema } from "effect";
 
 import {
+	buildSavedViewDataSources,
 	createAuthenticatedClient,
 	createEntityFixture,
 	createPluginEntitySchema,
-	createSavedViewWithGridDocument,
+	createSavedView,
 	executeRyotQLRecipe,
 	findBuiltinSchemaBySlug,
 	getSavedView,
-	rowsLayouts,
-	rowsFields,
 } from "~/fixtures/kernel";
 import { insertLibraryMembership, seedMediaEntity } from "~/fixtures/plugins/media";
 import { assertPresent, requirePresent, resultToEffect } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
+const countSavedView = Effect.fn(function* (
+	client: Parameters<typeof executeRyotQLRecipe>[0],
+	view: {
+		readonly dataSources: RyotQLDocument | null;
+		readonly settings: Readonly<Record<string, unknown>>;
+	},
+) {
+	const settings = yield* Schema.decodeUnknownEffect(EntityBrowserSavedViewSettings)(view.settings);
+	const dataSources = requirePresent(view.dataSources, "Saved view has no data sources");
+	const recipe = yield* resultToEffect(savedViewCountRecipe(dataSources, settings.entityIdField));
+	return yield* executeRyotQLRecipe(client, recipe);
+});
+
 describe("saved views execution", () => {
-	it.live("counts rows from a persisted saved-view query with its filter", () =>
+	it.live("counts rows from the persisted data source and its filter", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const { pluginSlug, schemaId } = yield* createPluginEntitySchema(client, {
@@ -28,7 +42,6 @@ describe("saved views execution", () => {
 				`Saved View Count Match One ${crypto.randomUUID()}`,
 				`Saved View Count Match Two ${crypto.randomUUID()}`,
 			];
-
 			yield* Effect.all(
 				[...matchingNames, `Saved View Count Other ${crypto.randomUUID()}`].map((name) =>
 					createEntityFixture(client, { entitySchemaSlug: schemaId, name }),
@@ -36,49 +49,39 @@ describe("saved views execution", () => {
 			);
 
 			const entity = table("entity", "entity");
-			const rowsQueryDocument = savedViewRecipe({
-				layout: { type: "card", mapping: rowsLayouts.grid },
-				source: {
-					type: "generated",
-					limit: 2,
-					fields: rowsFields,
-					entitySchemaSlugs: [schemaId],
-					where: inArray(
-						column(entity, "name"),
-						matchingNames.map((name) => literal(name)),
-					),
+			const base = buildSavedViewDataSources([schemaId]);
+			const query = requirePresent(base.queries.savedView, "Saved-view query is missing");
+			const dataSources = {
+				...base,
+				queries: {
+					...base.queries,
+					savedView: {
+						...query,
+						where: inArray(
+							column(entity, "name"),
+							matchingNames.map((name) => literal(name)),
+						),
+					},
 				},
-			}).document;
-			const createdView = yield* createSavedViewWithGridDocument(client, rowsQueryDocument, {
-				pluginSlug,
-				entitySchemaSlug: schemaId,
+			};
+			const created = yield* createSavedView(client, {
+				dataSources,
+				workspacePluginSlug: pluginSlug,
 				name: `Saved View Count ${crypto.randomUUID()}`,
 			});
-			const persistedView = yield* getSavedView(client, createdView.slug);
-			const persistedViewLayouts = requirePresent(
-				persistedView.layouts,
-				"Created saved view has no layouts",
-			);
-			const countRecipe = yield* resultToEffect(
-				savedViewCountRecipe(
-					persistedViewLayouts.grid.queryDocument,
-					persistedViewLayouts.grid.entityIdField,
-				),
-			);
-			const total = yield* executeRyotQLRecipe(client, countRecipe);
+			const persisted = yield* getSavedView(client, created.slug);
 
-			expect(total).toBe(2);
+			expect(yield* countSavedView(client, persisted)).toBe(2);
 		}),
 	);
 
-	it.live("executes a built-in all-shows view with per-user isolation", () =>
+	it.live("executes a built-in data source with per-user isolation", () =>
 		Effect.gen(function* () {
 			const userA = yield* createAuthenticatedClient();
 			const userB = yield* createAuthenticatedClient();
 			const { schema } = yield* findBuiltinSchemaBySlug(userA.client, "show");
 			const providerId = schema.providers[0]?.providerId;
 			assertPresent(providerId, "Expected a provider for the show schema");
-
 			const entity = yield* seedMediaEntity({
 				providerId,
 				userId: null,
@@ -99,30 +102,12 @@ describe("saved views execution", () => {
 					productionStatus: "Ended",
 				},
 			});
-
 			yield* insertLibraryMembership(userA.client, { mediaEntityId: entity.id });
 
 			const userAView = yield* getSavedView(userA.client, "all-shows");
 			const userBView = yield* getSavedView(userB.client, "all-shows");
-			const userALayouts = requirePresent(userAView.layouts, "User A saved view has no layouts");
-			const userBLayouts = requirePresent(userBView.layouts, "User B saved view has no layouts");
-			const userAResult = yield* executeRyotQLRecipe(
-				userA.client,
-				savedViewRecipe({
-					layout: { type: "card", mapping: userALayouts.grid },
-					source: { type: "persisted", queryDocument: userALayouts.grid.queryDocument },
-				}),
-			);
-			const userBResult = yield* executeRyotQLRecipe(
-				userB.client,
-				savedViewRecipe({
-					layout: { type: "card", mapping: userBLayouts.grid },
-					source: { type: "persisted", queryDocument: userBLayouts.grid.queryDocument },
-				}),
-			);
-
-			expect(userAResult.items.map((item) => item.title)).toContain(entity.name);
-			expect(userBResult.items).toHaveLength(0);
+			expect(yield* countSavedView(userA.client, userAView)).toBe(1);
+			expect(yield* countSavedView(userB.client, userBView)).toBe(0);
 		}),
 	);
 });

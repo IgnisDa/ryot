@@ -1,14 +1,6 @@
 import { DbError } from "@ryot-app/contract/errors";
-import type {
-	ListedSavedView,
-	SavedViewLayouts,
-} from "@ryot-app/contract/modules/saved-views/schemas";
-import {
-	EntitySchemaSlug,
-	PluginSlug,
-	SavedViewId,
-	type UserId,
-} from "@ryot-app/contract/schema/brands";
+import type { ListedSavedView } from "@ryot-app/contract/modules/saved-views/schemas";
+import { PluginSlug, SavedViewId, type UserId } from "@ryot-app/contract/schema/brands";
 import { and, asc, eq, getTableColumns, inArray, isNull, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
@@ -17,7 +9,6 @@ import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 
 type SavedViewRow = typeof schema.savedView.$inferSelect;
 type ListedSavedViewRow = SavedViewRow & { readonly pluginSlug: string | null };
-type LegacyListedSavedView = ListedSavedView & { readonly layouts: SavedViewLayouts };
 
 const savedViewPluginSlug = sql<string | null>`(
 	select ${schema.plugin.slug}
@@ -32,20 +23,10 @@ const savedViewSelection = {
 
 type RestoreCustomSavedViewInput = Omit<
 	SavedViewRow,
-	| "userId"
-	| "layouts"
-	| "revision"
-	| "renderer"
-	| "settings"
-	| "isBuiltin"
-	| "dataSources"
-	| "clientRendererId"
-	| "entitySchemaPluginId"
-	| "pluginInstallationId"
+	"userId" | "layouts" | "revision" | "isBuiltin" | "clientRendererId" | "pluginInstallationId"
 > & {
 	readonly userId: UserId;
-	readonly layouts: SavedViewLayouts;
-	readonly entitySchemaPluginId?: string | null | undefined;
+	readonly clientRendererId?: string | null | undefined;
 	readonly pluginInstallationId?: string | null | undefined;
 };
 
@@ -55,13 +36,10 @@ type CreateSavedViewInput = {
 	readonly icon: string;
 	readonly userId: UserId;
 	readonly clientRendererId?: string | null;
-	readonly entitySchemaSlug?: EntitySchemaSlug | null;
 	readonly pluginInstallationId?: string | null | undefined;
-	readonly entitySchemaPluginId?: string | null | undefined;
 	readonly dataSources?: (typeof schema.savedView.$inferSelect)["dataSources"];
-	readonly layouts?: NonNullable<(typeof schema.savedView.$inferSelect)["layouts"]>;
-	readonly renderer?: NonNullable<(typeof schema.savedView.$inferSelect)["renderer"]>;
-	readonly settings?: NonNullable<(typeof schema.savedView.$inferSelect)["settings"]>;
+	readonly renderer: (typeof schema.savedView.$inferSelect)["renderer"];
+	readonly settings: (typeof schema.savedView.$inferSelect)["settings"];
 };
 
 type BuiltinSavedViewInput = Omit<CreateSavedViewInput, "userId"> & {
@@ -75,11 +53,8 @@ type UpdateSavedViewData = {
 	readonly sortOrder?: number | undefined;
 	readonly clientRendererId?: string | null;
 	readonly pluginInstallationId: string | null;
-	readonly entitySchemaPluginId: string | null;
-	readonly entitySchemaSlug?: EntitySchemaSlug | null;
-	readonly layouts?: (typeof schema.savedView.$inferSelect)["layouts"];
-	readonly renderer?: (typeof schema.savedView.$inferSelect)["renderer"];
-	readonly settings?: (typeof schema.savedView.$inferSelect)["settings"];
+	readonly renderer: (typeof schema.savedView.$inferSelect)["renderer"];
+	readonly settings: (typeof schema.savedView.$inferSelect)["settings"];
 	readonly dataSources?: (typeof schema.savedView.$inferSelect)["dataSources"];
 };
 
@@ -95,20 +70,10 @@ const toListedSavedView = (row: ListedSavedViewRow): ListedSavedView => {
 		createdAt: row.createdAt.toISOString(),
 		updatedAt: row.updatedAt.toISOString(),
 		pluginSlug: row.pluginSlug === null ? null : PluginSlug.make(row.pluginSlug),
-		entitySchemaSlug:
-			row.entitySchemaSlug === null ? null : EntitySchemaSlug.make(row.entitySchemaSlug),
+		renderer: row.renderer,
+		settings: row.settings,
+		dataSources: row.dataSources,
 	};
-	if (row.renderer !== null) {
-		return {
-			...base,
-			renderer: row.renderer,
-			settings: row.settings ?? {},
-			dataSources: row.dataSources,
-		};
-	}
-	if (row.layouts !== null) {
-		return { ...base, layouts: row.layouts };
-	}
 	return base;
 };
 
@@ -152,20 +117,11 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 						.where(eq(schema.savedView.userId, userId))
 						.orderBy(asc(schema.savedView.id)),
 				);
-				return rows
-					.filter((row) => row.layouts !== null)
-					.map(
-						(row) =>
-							Object.assign(toListedSavedView(row), {
-								layouts: row.layouts,
-								pluginInstallationId: row.pluginInstallationId,
-								entitySchemaPluginId: row.entitySchemaPluginId,
-								// TODO(views): [task 13] Remove legacy saved view stuff at the end
-							}) as LegacyListedSavedView & {
-								readonly pluginInstallationId: string | null;
-								readonly entitySchemaPluginId: string | null;
-							},
-					);
+				return rows.map((row) =>
+					Object.assign(toListedSavedView(row), {
+						pluginInstallationId: row.pluginInstallationId,
+					}),
+				);
 			});
 
 			const restoreCustomView = Effect.fn("SavedViewsRepository.restoreCustomView")(function* (
@@ -283,15 +239,12 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 							slug: input.slug,
 							name: input.name,
 							icon: input.icon,
-							layouts: input.layouts,
 							renderer: input.renderer,
 							settings: input.settings,
 							dataSources: input.dataSources,
 							clientRendererId: input.clientRendererId,
-							entitySchemaSlug: input.entitySchemaSlug,
 							sortOrder: (orderRow?.maxSortOrder ?? -1) + 1,
 							pluginInstallationId: input.pluginInstallationId ?? null,
-							entitySchemaPluginId: input.entitySchemaPluginId ?? null,
 						})
 						.onConflictDoNothing({
 							target: [schema.savedView.userId, schema.savedView.slug],
@@ -320,16 +273,13 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 						.set({
 							icon: data.icon,
 							name: data.name,
-							layouts: data.layouts,
 							renderer: data.renderer,
 							settings: data.settings,
 							isDisabled: data.isDisabled,
 							dataSources: data.dataSources,
 							clientRendererId: data.clientRendererId,
-							entitySchemaSlug: data.entitySchemaSlug,
 							revision: sql`${schema.savedView.revision} + 1`,
 							pluginInstallationId: data.pluginInstallationId,
-							entitySchemaPluginId: data.entitySchemaPluginId,
 							...(sortOrder === undefined ? {} : { sortOrder }),
 						})
 						.where(and(eq(schema.savedView.slug, viewSlug), eq(schema.savedView.userId, userId)))
@@ -368,7 +318,22 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 				return rows.length;
 			});
 
-			const updateBuiltinStateBySlug = Effect.fn("SavedViewsRepository.updateBuiltinStateBySlug")(
+			const deleteBySlug = Effect.fn("SavedViewsRepository.deleteBySlug")(function* (
+				userId: UserId,
+				viewSlug: string,
+			) {
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
+					db
+						.delete(schema.savedView)
+						.where(and(eq(schema.savedView.slug, viewSlug), eq(schema.savedView.userId, userId)))
+						.returning(savedViewSelection),
+				);
+
+				return row ? toListedSavedView(row) : null;
+			});
+
+			const restoreBuiltinStateBySlug = Effect.fn("SavedViewsRepository.restoreBuiltinStateBySlug")(
 				function* (userId: UserId, viewSlug: string, isDisabled: boolean, sortOrder: number) {
 					const db = yield* Database;
 					const [row] = yield* mapDatabaseErrors(
@@ -384,25 +349,9 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 							)
 							.returning(savedViewSelection),
 					);
-
 					return row ? toListedSavedView(row) : null;
 				},
 			);
-
-			const deleteBySlug = Effect.fn("SavedViewsRepository.deleteBySlug")(function* (
-				userId: UserId,
-				viewSlug: string,
-			) {
-				const db = yield* Database;
-				const [row] = yield* mapDatabaseErrors(
-					db
-						.delete(schema.savedView)
-						.where(and(eq(schema.savedView.slug, viewSlug), eq(schema.savedView.userId, userId)))
-						.returning(savedViewSelection),
-				);
-
-				return row ? toListedSavedView(row) : null;
-			});
 
 			const ensureBuiltinViews = Effect.fn("SavedViewsRepository.ensureBuiltinViews")(function* (
 				userId: UserId,
@@ -443,10 +392,10 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 						const values = {
 							name: view.name,
 							icon: view.icon,
-							layouts: view.layouts,
-							entitySchemaSlug: view.entitySchemaSlug,
+							renderer: view.renderer,
+							settings: view.settings,
+							dataSources: view.dataSources,
 							pluginInstallationId: view.pluginInstallationId ?? null,
-							entitySchemaPluginId: view.entitySchemaPluginId ?? null,
 						};
 						return current
 							? mapDatabaseErrors(
@@ -511,9 +460,9 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 				listForBackup,
 				reorderBySlugs,
 				restoreCustomView,
+				restoreBuiltinStateBySlug,
 				ensureBuiltinViews,
 				restoreBuiltinViews,
-				updateBuiltinStateBySlug,
 				deleteGeneratedByInstallation,
 				hasCustomInstallationReferences,
 			};

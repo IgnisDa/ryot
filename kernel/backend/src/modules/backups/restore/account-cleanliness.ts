@@ -13,6 +13,7 @@ import {
 	AutomationsRepository,
 	type StoredNotificationSubscription,
 } from "#modules/automations/repository";
+import { ClientPagesRepository } from "#modules/client-pages/repository";
 import { DefinitionRegistry, type SavedViewDefinition } from "#modules/definition-registry/service";
 import { EntitiesRepository, type PortableEntityRecord } from "#modules/entities/repository";
 import { EventsRepository } from "#modules/events/repository";
@@ -39,12 +40,13 @@ type SavedViewRecord = {
 	readonly slug: string;
 	readonly name: string;
 	readonly icon: string;
-	readonly layouts: unknown;
+	readonly renderer: unknown;
+	readonly settings: unknown;
+	readonly dataSources: unknown;
 	readonly sortOrder: number;
 	readonly isBuiltin: boolean;
 	readonly isDisabled: boolean;
 	readonly pluginSlug: string | null;
-	readonly entitySchemaSlug: string | null;
 };
 
 export type AccountCleanlinessState = {
@@ -52,6 +54,7 @@ export type AccountCleanlinessState = {
 	readonly hasIntegrations: boolean;
 	readonly hasManagedAssets: boolean;
 	readonly hasNotificationChannels: boolean;
+	readonly hasClientRenderers?: boolean;
 	readonly profile: PortableUserProfile | null;
 	readonly savedViews: ReadonlyArray<SavedViewRecord>;
 	readonly defaultPreferences: Record<string, unknown>;
@@ -97,27 +100,32 @@ export const classifyAccountCleanliness = (
 	if (state.hasManagedAssets) {
 		return "managed-assets";
 	}
+	if (state.hasClientRenderers === true) {
+		return "saved-views";
+	}
 	const savedViews = state.savedViews.map(
 		({
 			slug,
 			name,
 			icon,
-			layouts,
+			renderer,
+			settings,
+			dataSources,
 			isBuiltin,
 			sortOrder,
 			isDisabled,
 			pluginSlug,
-			entitySchemaSlug,
 		}) => ({
 			slug,
 			name,
 			icon,
-			layouts,
+			renderer,
+			settings,
+			dataSources,
 			isBuiltin,
 			sortOrder,
 			isDisabled,
 			pluginSlug,
-			entitySchemaSlug,
 		}),
 	);
 	const expectedSavedViews = state.expectedSavedViews.map((view) => ({
@@ -126,10 +134,11 @@ export const classifyAccountCleanliness = (
 		isBuiltin: true,
 		icon: view.icon,
 		isDisabled: false,
-		layouts: view.layouts,
+		renderer: view.renderer,
+		settings: view.settings,
+		dataSources: view.dataSources,
 		sortOrder: view.sortOrder,
 		pluginSlug: view.pluginSlug,
-		entitySchemaSlug: view.entitySchemaSlug,
 	}));
 	if (!sameUnorderedRecords(savedViews, expectedSavedViews)) {
 		return "saved-views";
@@ -160,6 +169,7 @@ export class BackupAccountCleanliness extends Context.Service<BackupAccountClean
 	{
 		make: Effect.gen(function* () {
 			const auth = yield* AuthRepository;
+			const clientPages = yield* ClientPagesRepository;
 			const events = yield* EventsRepository;
 			const entities = yield* EntitiesRepository;
 			const uploads = yield* ManagedAssetsService;
@@ -182,6 +192,7 @@ export class BackupAccountCleanliness extends Context.Service<BackupAccountClean
 					const hasEvents = yield* events.hasUserEvents(userId);
 					const hasManagedAssets = (yield* uploads.listManagedAssetsForOwner(userId)).length > 0;
 					const views = yield* savedViews.listForBackup(userId);
+					const hasClientRenderers = (yield* clientPages.listRenderers(userId)).length > 0;
 					const subscriptions = yield* automations.listNotificationSubscriptionsForBackup(userId);
 					const states = yield* installations.listForUser(userId);
 					const hasIntegrations = yield* integrations.hasAnyForUser(userId);
@@ -192,6 +203,7 @@ export class BackupAccountCleanliness extends Context.Service<BackupAccountClean
 						hasEvents,
 						hasIntegrations,
 						hasManagedAssets,
+						hasClientRenderers,
 						savedViews: views,
 						pluginState: states,
 						entities: ownedEntities,

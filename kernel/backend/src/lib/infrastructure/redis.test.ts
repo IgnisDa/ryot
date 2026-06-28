@@ -1,4 +1,4 @@
-import { PluginSlug, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
+import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
@@ -6,9 +6,8 @@ import {
 	IMPORT_SOURCE_STATE_CLAIMED_TTL_SECONDS,
 	IMPORT_SOURCE_STATE_PENDING_TTL_SECONDS,
 	ImportSourceStateFromJson,
-	hashPluginClientArtifactSessionToken,
-	PLUGIN_CLIENT_ARTIFACT_SESSION_TTL_SECONDS,
-	PluginClientArtifactSessionPayloadFromJson,
+	hashClientPageSessionToken,
+	CLIENT_PAGE_SESSION_TTL_SECONDS,
 	redisKeys,
 } from "./redis";
 
@@ -76,41 +75,17 @@ describe("import source state", () => {
 	});
 });
 
-describe("plugin client artifact sessions", () => {
+describe("client page sessions", () => {
 	it("uses a centralized session key and a fifteen-minute lease", () => {
-		expect(redisKeys.pluginClientArtifactSession("session-1")).toBe(
-			"ryot:plugins:client-artifact-session:session-1",
-		);
-		expect(PLUGIN_CLIENT_ARTIFACT_SESSION_TTL_SECONDS).toBe(900);
+		expect(redisKeys.clientPageSession("session-1")).toBe("ryot:client-pages:session:session-1");
+		expect(CLIENT_PAGE_SESSION_TTL_SECONDS).toBe(900);
 	});
 
 	it("derives an opaque lease key from a stable SHA-256 fixture", () => {
 		const token = "artifact-session-token";
-		const sessionId = hashPluginClientArtifactSessionToken(token);
+		const sessionId = hashClientPageSessionToken(token);
 
 		expect(sessionId).toBe("22fded508748d6ee69f7a3a1e3ac0f1eaaef6f00b79d54acc02cbd9022f604d6");
-		expect(redisKeys.pluginClientArtifactSession(sessionId)).not.toContain(token);
-	});
-
-	it("round-trips strict lease payloads without storing the raw token", () => {
-		const payload = {
-			pluginId: "plugin-1",
-			sourceHash: "source-hash",
-			artifactHash: "artifact-hash",
-			installationId: "installation-1",
-			userId: UserId.make("user-1"),
-			pluginSlug: PluginSlug.make("plugin-slug"),
-		};
-		const encoded = Schema.encodeSync(PluginClientArtifactSessionPayloadFromJson)(payload);
-
-		expect(encoded).not.toContain("raw-token");
-		expect(Schema.decodeUnknownSync(PluginClientArtifactSessionPayloadFromJson)(encoded)).toEqual(
-			payload,
-		);
-		expect(() =>
-			Schema.decodeUnknownSync(PluginClientArtifactSessionPayloadFromJson)(
-				JSON.stringify({ ...payload, token: "raw-token" }),
-			),
-		).toThrow();
+		expect(redisKeys.clientPageSession(sessionId)).not.toContain(token);
 	});
 });

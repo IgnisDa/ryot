@@ -126,23 +126,75 @@ describe.skipIf(!RUN_LIVE)("live fixture provider smoke (real external APIs)", (
 				const views = yield* listSavedViews(client, { pluginSlug });
 				const view = views.find(({ slug }) => slug === SAVED_VIEW_SLUG);
 				assertPresent(view, "Expected the fixture-owned 'all-pokemon' saved view");
-				const viewLayouts = requirePresent(
-					view.layouts,
-					"Fixture-owned 'all-pokemon' saved view has no layouts",
+				const dataSources = requirePresent(
+					view.dataSources,
+					"Fixture-owned 'all-pokemon' saved view has no data sources",
 				);
+				const source = dataSources.queries.savedView;
+				assertPresent(source, "Expected the fixture-owned 'all-pokemon' named source");
+				assertCondition(source.output.type === "rows", "Expected 'all-pokemon' rows output");
 				expect(view.name).toBe("All Pokemon");
-				expect(view.entitySchemaSlug).toBe(schema.id);
-				expect(viewLayouts.grid.titleField).toBe("title");
-				expect(viewLayouts.grid.imageField).toBe("image");
-				expect(viewLayouts.table.columns.map(({ label }) => label)).toEqual([
-					"Name",
-					"Pokedex Number",
-					"Types",
-					"Abilities",
-					"Height (dm)",
-					"Weight (hg)",
-					"Base Experience",
-				]);
+				expect(view.renderer).toEqual({ kind: "kernel", name: "entity-browser" });
+				expect(view.settings).toMatchObject({
+					defaultLayout: "grid",
+					sourceName: "savedView",
+					entityIdField: "entityId",
+					layouts: ["grid", "list", "table"],
+					ownerPluginIdField: "ownerPluginId",
+					entitySchemaSlugField: "entitySchemaSlug",
+					addAction: {
+						type: "provider-search",
+						entitySchemaSlug: schema.id,
+						ownerPluginId: expect.any(String),
+					},
+				});
+				expect(source.output.fields).toEqual(
+					expect.arrayContaining([
+						expect.objectContaining({
+							key: "entityId",
+							expr: { type: "column", field: "id", tableAlias: "entity" },
+						}),
+						expect.objectContaining({
+							key: "ownerPluginId",
+							expr: { type: "column", field: "entitySchemaPluginId", tableAlias: "entity" },
+						}),
+						expect.objectContaining({
+							key: "entitySchemaSlug",
+							expr: { type: "column", field: "entitySchemaSlug", tableAlias: "entity" },
+						}),
+					]),
+				);
+				expect(source.where).toMatchObject({
+					type: "and",
+					predicates: expect.arrayContaining([
+						expect.objectContaining({
+							right: { type: "literal", value: schema.id },
+							left: { field: "entitySchemaSlug", tableAlias: "entity", type: "column" },
+						}),
+					]),
+				});
+				expect(view.settings["tableColumns"]).toEqual(
+					[
+						"Name",
+						"Pokedex Number",
+						"Types",
+						"Abilities",
+						"Height (dm)",
+						"Weight (hg)",
+						"Base Experience",
+					].map((label, index) => expect.objectContaining({ label, field: `column${index}` })),
+				);
+				expect(
+					source.output.fields.map((selection) => "key" in selection && selection.key),
+				).toEqual(
+					expect.arrayContaining([
+						"entityId",
+						"column0",
+						"image",
+						"ownerPluginId",
+						"entitySchemaSlug",
+					]),
+				);
 			}),
 		180_000,
 	);
@@ -253,25 +305,63 @@ describe.skipIf(!RUN_LIVE)("live fixture provider smoke (real external APIs)", (
 				const views = yield* listSavedViews(client, { pluginSlug });
 				const view = views.find(({ slug }) => slug === MOVE_SAVED_VIEW_SLUG);
 				assertPresent(view, "Expected the fixture-owned 'all-moves' saved view");
-				const viewLayouts = requirePresent(
-					view.layouts,
-					"Fixture-owned 'all-moves' saved view has no layouts",
+				const dataSources = requirePresent(
+					view.dataSources,
+					"Fixture-owned 'all-moves' saved view has no data sources",
 				);
+				const source = dataSources.queries.savedView;
+				assertPresent(source, "Expected the fixture-owned 'all-moves' named source");
+				assertCondition(source.output.type === "rows", "Expected 'all-moves' rows output");
 				expect(view.name).toBe("All Moves");
-				expect(view.entitySchemaSlug).toBe(schema.id);
-				expect(viewLayouts.grid.titleField).toBe("title");
-				expect(viewLayouts.grid.imageField).toBeNull();
-				expect(viewLayouts.table.imageField).toBeNull();
-				expect(viewLayouts.table.columns.map(({ label }) => label)).toEqual([
-					"Name",
-					"Type",
-					"Damage Class",
-					"Power",
-					"Accuracy",
-					"PP",
-					"Priority",
-					"Generation",
-				]);
+				expect(view.renderer).toEqual({ kind: "kernel", name: "entity-browser" });
+				expect(view.settings).toMatchObject({
+					defaultLayout: "grid",
+					sourceName: "savedView",
+					entityIdField: "entityId",
+					layouts: ["grid", "list", "table"],
+					ownerPluginIdField: "ownerPluginId",
+					entitySchemaSlugField: "entitySchemaSlug",
+					addAction: {
+						type: "provider-search",
+						entitySchemaSlug: schema.id,
+						ownerPluginId: expect.any(String),
+					},
+				});
+				expect(source.output.fields).toEqual(
+					expect.arrayContaining([
+						expect.objectContaining({
+							key: "entityId",
+							expr: { type: "column", field: "id", tableAlias: "entity" },
+						}),
+						expect.objectContaining({
+							key: "ownerPluginId",
+							expr: { type: "column", field: "entitySchemaPluginId", tableAlias: "entity" },
+						}),
+						expect.objectContaining({
+							key: "entitySchemaSlug",
+							expr: { type: "column", field: "entitySchemaSlug", tableAlias: "entity" },
+						}),
+					]),
+				);
+				expect(source.where).toMatchObject({
+					type: "and",
+					predicates: expect.arrayContaining([
+						expect.objectContaining({
+							right: { type: "literal", value: schema.id },
+							left: { field: "entitySchemaSlug", tableAlias: "entity", type: "column" },
+						}),
+					]),
+				});
+				expect(view.settings["tableColumns"]).toEqual(
+					["Name", "Type", "Damage Class", "Power", "Accuracy", "PP", "Priority", "Generation"].map(
+						(label, index) => expect.objectContaining({ label, field: `column${index}` }),
+					),
+				);
+				expect(
+					source.output.fields.map((selection) => "key" in selection && selection.key),
+				).toEqual(
+					expect.arrayContaining(["entityId", "column0", "ownerPluginId", "entitySchemaSlug"]),
+				);
 			}),
 		180_000,
 	);

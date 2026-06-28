@@ -69,12 +69,9 @@ export const validatePluginSourcePaths = (
 			}
 		}
 		if (manifest.client) {
-			for (const [entryLabel, entry] of [
-				["application", manifest.client.entry],
-				...Object.entries(manifest.client.exports ?? {}).map(
-					([name, declaration]) => [`public export ${name}`, declaration.entry] as const,
-				),
-			] as const) {
+			for (const [entryLabel, entry] of Object.entries(manifest.client.exports ?? {}).map(
+				([name, declaration]) => [`public export ${name}`, declaration.entry] as const,
+			)) {
 				if (!Object.hasOwn(files, entry)) {
 					return yield* fail(`Plugin client ${entryLabel} entry is missing from files: ${entry}`);
 				}

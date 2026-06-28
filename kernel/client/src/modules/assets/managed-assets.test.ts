@@ -3,13 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { decodeServerOrigin, resolveApiUrl } from "#/api/origin";
 import { makeUploadsApi } from "#/api/ports.test-layer";
-import {
-	collectManagedAssets,
-	ManagedAssetsService,
-	managedAssetKey,
-	resolveManagedAssetOutcome,
-	resolveAssetUrl,
-} from "#/modules/assets/managed-assets";
+import { ManagedAssetsService, resolveManagedAssetOutcome } from "#/modules/assets/managed-assets";
 
 describe("managed assets", () => {
 	const scope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.example") };
@@ -18,30 +12,6 @@ describe("managed assets", () => {
 		{ type: "s3", key: "permanent/remote.png" },
 	] as const;
 	const expiresAt = "2026-09-04T12:15:00.000Z";
-
-	it("deduplicates and orders only managed locators", () => {
-		expect(
-			collectManagedAssets([
-				{ type: "s3", key: "z" },
-				{ type: "remote", url: "https://images.example/cover.jpg" },
-				undefined,
-				{ type: "local", key: "a" },
-				{ type: "s3", key: "z" },
-			]),
-		).toEqual([
-			{ type: "local", key: "a" },
-			{ type: "s3", key: "z" },
-		]);
-	});
-
-	it("uses remote URLs directly and managed URLs by stable locator key", () => {
-		const asset = { type: "local", key: "cover" } as const;
-		const urls = new Map([[managedAssetKey(asset), "https://ryot.example/api/uploads/cover"]]);
-		expect(resolveAssetUrl(asset, urls)).toBe("https://ryot.example/api/uploads/cover");
-		expect(resolveAssetUrl({ type: "remote", url: "https://images.example/cover" }, urls)).toBe(
-			"https://images.example/cover",
-		);
-	});
 
 	it("resolves API-relative managed download paths", () => {
 		const origin = decodeServerOrigin("https://ryot.example");

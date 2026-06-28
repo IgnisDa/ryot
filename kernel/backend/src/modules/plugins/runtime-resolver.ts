@@ -389,9 +389,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 						manifest: {
 							...plugin.manifest,
 							savedViews: plugin.manifest.savedViews.filter(
-								({ slug, entitySchemaSlug }) =>
-									!baseSlugs.savedViews.has(slug) &&
-									(entitySchemaSlug === null || entitySchemaSlugs.has(entitySchemaSlug)),
+								({ slug }) => !baseSlugs.savedViews.has(slug),
 							),
 							signalSchemas: plugin.manifest.signalSchemas.filter(
 								({ slug, audiencePolicy }) =>

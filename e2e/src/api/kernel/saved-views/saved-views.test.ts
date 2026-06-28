@@ -1,179 +1,114 @@
 import { column, eq, literal, table } from "@ryot-app/ryotql";
-import { savedViewRecipe } from "@ryot-app/ryotql-recipes/saved-views";
 import { Effect } from "effect";
 
 import {
+	buildSavedViewDataSources,
 	createAuthenticatedClient,
-	buildSavedViewLayouts,
-	createSavedViewWithGridDocument,
+	createSavedView,
+	entityBrowserSettings,
 	findBuiltinPluginBySlug,
 	getSavedView,
 	listSavedViews,
-	rowsDocument,
-	rowsFields,
-	rowsLayouts,
-	updateSavedViewWithGridDocument,
+	rowsDataSources,
+	updateSavedView,
 } from "~/fixtures/kernel";
-import { assertCondition, assertPresent, requirePresent } from "~/support/assertions";
+import { requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 const entity = table("entity", "entity");
-
-const alternateRowsDocument = savedViewRecipe({
-	layout: { type: "card", mapping: rowsLayouts.grid },
-	source: {
-		type: "generated",
-		limit: 2,
-		entitySchemaSlugs: ["book"],
-		where: eq(column(entity, "name"), literal("A Book")),
-		fields: rowsFields,
+const savedViewQuery = requirePresent(
+	rowsDataSources.queries.savedView,
+	"Saved-view fixture query is missing",
+);
+const alternateDataSources = {
+	...rowsDataSources,
+	queries: {
+		...rowsDataSources.queries,
+		savedView: {
+			...savedViewQuery,
+			where: eq(column(entity, "name"), literal("A Book")),
+		},
 	},
-}).document;
+};
 
-describe("Saved views query documents E2E", () => {
-	it.live("stores media built-in saved views with canonical in-library filters", () =>
+describe("saved view definitions", () => {
+	it.live("stores shipped media views with a canonical renderer, settings, and data source", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const mediaPlugin = yield* findBuiltinPluginBySlug(client, "media");
-			const views = yield* listSavedViews(client, { pluginSlug: mediaPlugin.slug });
-			const allBooksView = views.find((view) => view.name === "All Books");
-			const allBooksLayouts = requirePresent(
-				allBooksView?.layouts,
-				"All Books saved view has no layouts",
+			const allBooks = requirePresent(
+				(yield* listSavedViews(client, { pluginSlug: mediaPlugin.slug })).find(
+					(view) => view.name === "All Books",
+				),
+				"All Books saved view not found",
 			);
 
-			expect(allBooksLayouts.grid.queryDocument).toMatchObject({
-				queries: {
-					savedView: {
-						from: { alias: "entity", table: "entity" },
-						output: {
-							type: "rows",
-							pagination: { limit: 20 },
-							fields: expect.arrayContaining([
-								expect.objectContaining({ key: "entityId" }),
-								expect.objectContaining({ key: "title" }),
-							]),
-						},
-						where: {
-							type: "and",
-							predicates: expect.arrayContaining([
-								expect.objectContaining({
-									type: "comparison",
-									right: { type: "literal", value: "book" },
-									left: expect.objectContaining({
-										tableAlias: "entity",
-										field: "entitySchemaSlug",
-									}),
-								}),
-								expect.objectContaining({ type: "exists" }),
-							]),
-						},
-					},
-				},
+			expect(allBooks.renderer).toEqual({ kind: "kernel", name: "entity-browser" });
+			expect(allBooks.settings).toMatchObject({
+				pageSize: 20,
+				defaultLayout: "grid",
+				sourceName: "savedView",
+				entityIdField: "entityId",
+				layouts: ["grid", "list", "table"],
+				ownerPluginIdField: "ownerPluginId",
+				entitySchemaSlugField: "entitySchemaSlug",
 			});
-			expect(allBooksView?.entitySchemaSlug).toBe("book");
+			expect(allBooks.dataSources?.queries.savedView).toMatchObject({
+				from: { alias: "entity", table: "entity" },
+				output: { type: "rows", pagination: { limit: 20 } },
+			});
 		}),
 	);
 
-	it.live("creates and retrieves a saved view with a key-based rows definition", () =>
+	it.live("creates and retrieves the complete canonical definition", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-
-			const createdView = yield* createSavedViewWithGridDocument(client, rowsDocument, {
-				name: `Rows View ${crypto.randomUUID()}`,
+			const created = yield* createSavedView(client, {
+				name: `Canonical View ${crypto.randomUUID()}`,
 			});
-			const fetchedView = yield* getSavedView(client, createdView.slug);
-			const fetchedViewLayouts = requirePresent(
-				fetchedView.layouts,
-				"Fetched saved view has no layouts",
-			);
+			const fetched = yield* getSavedView(client, created.slug);
 
-			expect(createdView.entitySchemaSlug).toBe("book");
-			expect(createdView.layouts).toEqual(rowsLayouts);
-			expect(fetchedView.entitySchemaSlug).toBe("book");
-			expect(fetchedViewLayouts).toEqual(rowsLayouts);
-			expect(fetchedViewLayouts.grid.entityIdField).toBe("entityId");
-			expect(fetchedViewLayouts.grid.titleField).toBe("title");
-			expect(fetchedViewLayouts.list.titleField).toBe("title");
-			expect(fetchedViewLayouts.table.columns[0].field).toBe("column0");
+			expect(created.renderer).toEqual({ kind: "kernel", name: "entity-browser" });
+			expect(created.settings).toEqual(entityBrowserSettings);
+			expect(created.dataSources).toEqual(rowsDataSources);
+			expect(fetched).toMatchObject({
+				id: created.id,
+				renderer: created.renderer,
+				settings: created.settings,
+				dataSources: created.dataSources,
+			});
 		}),
 	);
 
-	it.live("updates a saved view's explicit rows query document", () =>
+	it.live("updates settings and data sources together", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const createdView = yield* createSavedViewWithGridDocument(client, rowsDocument, {
-				name: `Updatable View ${crypto.randomUUID()}`,
+			const created = yield* createSavedView(client);
+			const settings = { ...entityBrowserSettings, pageSize: 7 };
+			const updated = yield* updateSavedView(client, created.slug, {
+				settings,
+				dataSources: alternateDataSources,
 			});
+			const fetched = yield* getSavedView(client, created.slug);
 
-			const updatedView = yield* updateSavedViewWithGridDocument(
-				client,
-				createdView.slug,
-				alternateRowsDocument,
-			);
-			const fetchedView = yield* getSavedView(client, createdView.slug);
-			const updatedViewLayouts = requirePresent(
-				updatedView.layouts,
-				"Updated saved view has no layouts",
-			);
-			const fetchedViewLayouts = requirePresent(
-				fetchedView.layouts,
-				"Fetched saved view has no layouts",
-			);
-
-			expect(updatedView.entitySchemaSlug).toBe("book");
-			expect(updatedViewLayouts.grid.queryDocument).toEqual(alternateRowsDocument);
-			expect(fetchedView.entitySchemaSlug).toBe("book");
-			expect(fetchedViewLayouts.grid.queryDocument).toEqual(alternateRowsDocument);
-			expect(fetchedViewLayouts.list).toEqual(rowsLayouts.list);
-			expect(fetchedViewLayouts.table).toEqual(rowsLayouts.table);
+			expect(updated.settings).toEqual(settings);
+			expect(updated.dataSources).toEqual(alternateDataSources);
+			expect(fetched.settings).toEqual(settings);
+			expect(fetched.dataSources).toEqual(alternateDataSources);
 		}),
 	);
 
-	it.live("preserves explicit fields and display keys without nested results", () =>
+	it.live("accepts an unknown schema filter as an empty entity browser", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const createdView = yield* createSavedViewWithGridDocument(client, rowsDocument, {
-				name: `Projected View ${crypto.randomUUID()}`,
+			const dataSources = buildSavedViewDataSources(["does-not-exist"]);
+			const created = yield* createSavedView(client, {
+				dataSources,
+				name: `Unknown Schema View ${crypto.randomUUID()}`,
 			});
-			const fetchedView = yield* getSavedView(client, createdView.slug);
-			const fetchedViewLayouts = requirePresent(
-				fetchedView.layouts,
-				"Fetched saved view has no layouts",
-			);
-			const query = fetchedViewLayouts.grid.queryDocument.queries.savedView;
-			assertPresent(query, "Expected the saved-view query");
-			assertCondition(
-				query.output.type === "rows",
-				"Expected the saved-view query to use rows output",
-			);
-			const output = query.output;
 
-			expect(output.type).toBe("rows");
-			expect(output.include).toBeUndefined();
-			expect(output.fields.every((selection) => "key" in selection)).toBe(true);
-			expect(output.fields.map((selection) => "key" in selection && selection.key)).toEqual(
-				expect.arrayContaining(["entityId", "title", "image"]),
-			);
-		}),
-	);
-
-	it.live("accepts an unknown entity discriminator as an empty saved view", () =>
-		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
-			const layouts = buildSavedViewLayouts({}, ["does-not-exist"]);
-			const createdView = yield* createSavedViewWithGridDocument(
-				client,
-				layouts.grid.queryDocument,
-				{
-					layouts,
-					entitySchemaSlug: null,
-					name: `Unknown Entity Schema View ${crypto.randomUUID()}`,
-				},
-			);
-
-			expect(createdView.entitySchemaSlug).toBeNull();
-			expect(createdView.layouts).toEqual(layouts);
+			expect(created.dataSources).toEqual(dataSources);
+			expect(created.renderer).toEqual({ kind: "kernel", name: "entity-browser" });
 		}),
 	);
 });

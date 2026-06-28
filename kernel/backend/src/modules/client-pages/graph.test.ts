@@ -77,7 +77,7 @@ it.effect("resolves recursive explicit dependencies to exact installation revisi
 		slug: "media",
 		client: {
 			apiVersion: 1,
-			entry: "client/index.tsx",
+			homeView: null,
 			pluginDependencies: ["fixture"],
 			exports: {
 				card: { kind: "component", entry: "client/card.tsx", automaticEntityPresentations: false },
@@ -90,7 +90,7 @@ it.effect("resolves recursive explicit dependencies to exact installation revisi
 		isDisabled: true,
 		client: {
 			apiVersion: 1,
-			entry: "client/index.tsx",
+			homeView: null,
 			pluginDependencies: ["media"],
 			exports: {
 				badge: {
@@ -143,7 +143,7 @@ it.effect("rejects a public import that is not a declared renderer dependency", 
 		slug: "media",
 		client: {
 			apiVersion: 1,
-			entry: "client/index.tsx",
+			homeView: null,
 			exports: {
 				card: { kind: "component", entry: "client/card.tsx", automaticEntityPresentations: false },
 			},
@@ -171,7 +171,7 @@ it.effect("roots a page graph at the selected plugin page export", () => {
 		isDisabled: true,
 		client: {
 			apiVersion: 1,
-			entry: "client/index.tsx",
+			homeView: null,
 			exports: {
 				details: {
 					kind: "page",
@@ -204,7 +204,7 @@ it.effect("uses one compiler graph for every route in a plugin revision", () => 
 		slug: "fixture",
 		client: {
 			apiVersion: 1,
-			entry: "client/index.tsx",
+			homeView: null,
 			notFoundPage: "not-found",
 			routes: { "/details/$itemId": "details", "/": "home" },
 			exports: {
@@ -256,7 +256,7 @@ it.effect("adds enabled automatic providers and fingerprints provider metadata",
 			slug: "fitness",
 			client: {
 				apiVersion: 1,
-				entry: "client/index.tsx",
+				homeView: null,
 				entities: { "fitness-entity": { gridPresentation: "card" } },
 				exports: {
 					card: {
@@ -307,7 +307,7 @@ it.effect("rejects automatic registrations that do not name presentation exports
 		slug: "fixture",
 		client: {
 			apiVersion: 1,
-			entry: "client/index.tsx",
+			homeView: null,
 			entities: { "fixture-entity": { gridPresentation: "card" } },
 			exports: {
 				card: { kind: "component", entry: "client/card.tsx", automaticEntityPresentations: false },

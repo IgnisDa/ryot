@@ -19,7 +19,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { imagesField } from "@ryot-app/contract/schema/core";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
-import { castJson, column, coalesce, jsonPath, literal, table } from "@ryot-app/ryotql";
+import { castJson, column, coalesce, field, jsonPath, literal, table } from "@ryot-app/ryotql";
 import {
 	buildSavedViewLayoutProjections,
 	savedViewRecipe,
@@ -119,18 +119,15 @@ async function createAndSignIn(): Promise<{
 
 type CreateCollectionBody = ContractPayload<"collections", "create">;
 type AddToCollectionBody = ContractPayload<"collections", "createMembership">;
-type CreateSavedViewBody = Extract<
-	ContractRequest<"savedViews", "create">["payload"],
-	{ readonly layouts: unknown }
->;
-type SavedViewLayouts = CreateSavedViewBody["layouts"];
+type CreateSavedViewBody = ContractRequest<"savedViews", "create">["payload"];
+type SavedViewDefinition = Pick<CreateSavedViewBody, "dataSources" | "settings">;
 type SavedViewProjectionInput = Parameters<typeof buildSavedViewLayoutProjections>[0];
 
 type SavedViewSpec = {
 	entitySchemaSlug: EntitySchemaInputSlug | null;
 	name: string;
 	icon: string;
-	layouts: SavedViewLayouts;
+	layouts: SavedViewDefinition;
 	pluginSlug?: PluginSlug;
 };
 
@@ -428,7 +425,7 @@ function buildSeedLayouts(
 	grid: ReturnType<typeof cardConfig>,
 	columns: ReadonlyArray<SeedTableColumn>,
 	list = grid,
-): SavedViewLayouts {
+): SavedViewDefinition {
 	const [first] = scope;
 	if (!first) {
 		throw new Error("Seed saved view requires at least one schema");
@@ -442,19 +439,6 @@ function buildSeedLayouts(
 			columns: columns as [SeedTableColumn, ...SeedTableColumn[]],
 		},
 	});
-	const documentFor = (fields: readonly FieldSelection[]) =>
-		savedViewRecipe({
-			layout: {
-				type: "card",
-				mapping: projections.grid.mappings,
-			},
-			source: {
-				type: "generated",
-				fields,
-				limit: 20,
-				entitySchemaSlugs: scope as [string, ...string[]],
-			},
-		}).document;
 	const tableDocumentFor = (fields: readonly FieldSelection[]) =>
 		savedViewRecipe({
 			layout: { type: "table", mapping: projections.table.mappings },
@@ -465,26 +449,25 @@ function buildSeedLayouts(
 				entitySchemaSlugs: scope as [string, ...string[]],
 			},
 		}).document;
+	const dataSources = tableDocumentFor([
+		...projections.table.fields,
+		field("ownerPluginId", column(seedEntity, "entitySchemaPluginId")),
+		field("entitySchemaSlug", column(seedEntity, "entitySchemaSlug")),
+	]);
 	return {
-		grid: {
-			...projections.grid.mappings,
-			queryDocument: documentFor(projections.grid.fields),
-		},
-		list: {
-			...projections.list.mappings,
-			queryDocument: savedViewRecipe({
-				layout: { type: "card", mapping: projections.list.mappings },
-				source: {
-					type: "generated",
-					fields: projections.list.fields,
-					limit: 20,
-					entitySchemaSlugs: scope as [string, ...string[]],
-				},
-			}).document,
-		},
-		table: {
-			...projections.table.mappings,
-			queryDocument: tableDocumentFor(projections.table.fields),
+		dataSources,
+		settings: {
+			pageSize: 20,
+			addAction: null,
+			sortChoices: [],
+			searchFields: [],
+			defaultLayout: "grid",
+			layouts: ["grid", "list", "table"],
+			sourceName: "savedView",
+			entityIdField: "entityId",
+			ownerPluginIdField: "ownerPluginId",
+			entitySchemaSlugField: "entitySchemaSlug",
+			tableColumns: projections.table.mappings.columns,
 		},
 	};
 }
@@ -493,18 +476,18 @@ async function createSavedView(
 	apiClient: APIClient,
 	name: string,
 	icon: string,
-	layouts: SavedViewLayouts,
-	entitySchemaSlug: EntitySchemaInputSlug | null,
+	definition: SavedViewDefinition,
+	_entitySchemaSlug: EntitySchemaInputSlug | null,
 	pluginSlug?: PluginSlug,
 ) {
 	return apiClient.run((c) =>
 		c.savedViews.create({
 			payload: {
-				entitySchemaSlug,
 				name,
 				icon,
-				pluginSlug,
-				layouts,
+				renderer: { kind: "kernel", name: "entity-browser" },
+				workspacePluginSlug: pluginSlug,
+				...definition,
 			},
 		}),
 	);

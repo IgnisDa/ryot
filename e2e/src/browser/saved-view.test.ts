@@ -1,9 +1,17 @@
-import { pluginClientCatalogRecipe } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
-import { Effect } from "effect";
+import {
+	column,
+	defineRecipe,
+	eq,
+	literal,
+	selectedField,
+	selectedOptionalRow,
+	table,
+} from "@ryot-app/ryotql";
+import { Effect, Result, Schema } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
 import {
-	buildSavedViewLayouts,
+	buildSavedViewDataSources,
 	createEntity,
 	createEntityBrowserSavedView,
 	createSavedView,
@@ -16,6 +24,7 @@ import {
 	installTestProvider,
 	makeEntitySchemaSlug,
 	makeSession,
+	pollUntil,
 	setUserLanguage,
 	uninstallTestProvider,
 	type InstalledTestProvider,
@@ -40,6 +49,17 @@ const SECOND_RESULT_TITLE = `Saved View Result Two ${SUITE_ID}`;
 const IMPORT_TIMEOUT = 150_000;
 const MODAL_LABEL = "Add from a provider";
 const PROVIDER_SLUG = `${ENTITY_SCHEMA_SLUG}.saved-view-add`;
+const plugin = table("plugin", "savedViewPlugin");
+const pluginIdRecipe = (slug: string) =>
+	defineRecipe(() => ({
+		queries: {
+			plugin: selectedOptionalRow(plugin, {
+				where: eq(column(plugin, "slug"), literal(slug)),
+				selection: { id: selectedField(column(plugin, "id"), Schema.String) },
+			}),
+		},
+		map: ({ plugin: row }) => Result.succeed(row?.id ?? null),
+	}))();
 
 let email: string;
 let password: string;
@@ -91,9 +111,7 @@ beforeAll(async () => {
 				],
 			});
 			const ownerPluginId = requirePresent(
-				(yield* executeRyotQLRecipe(client, pluginClientCatalogRecipe())).items.find(
-					({ slug }) => slug === provider.pluginSlug,
-				)?.pluginId,
+				yield* executeRyotQLRecipe(client, pluginIdRecipe(provider.pluginSlug)),
 				"Installed provider owner plugin ID was not found",
 			);
 			const settings = {
@@ -147,7 +165,7 @@ afterAll(async () => {
 	await Effect.runPromise(uninstallTestProvider(provider));
 });
 
-it.live("automatically populates and translates partial entities visible in a saved view", () =>
+it.live("automatically populates and translates entities rendered by a saved view", () =>
 	Effect.gen(function* () {
 		const id = crypto.randomUUID();
 		const schemaSlug = `browser-interest-${id}`;
@@ -188,27 +206,40 @@ it.live("automatically populates and translates partial entities visible in a sa
 		});
 		const view = yield* createSavedView(client, {
 			name: `Interest View ${id}`,
-			entitySchemaSlug: makeEntitySchemaSlug(schemaSlug),
-			layouts: buildSavedViewLayouts({}, [schemaSlug]),
+			dataSources: buildSavedViewDataSources([schemaSlug]),
 		});
 		expect((yield* getEntity(client, entity.id)).populationStatus).toBe("pending");
 		const browser = yield* Playwright.Browser;
 		const page = yield* browser.newPage({ locale: "en-US" });
 		yield* signInThroughHostedOAuth(page, user.email, user.password);
 		yield* page.goto(`${getFrontendUrl()}/v/${view.slug}`);
-		yield* page
-			.getByText("1 populating", { exact: true })
-			.waitFor({ state: "visible", timeout: IMPORT_TIMEOUT });
-		const card = page.getByRole("link", { name: `Open ${translatedName}`, exact: true });
-		yield* card.waitFor({ state: "visible", timeout: IMPORT_TIMEOUT });
-		yield* page.getByText("2,042", { exact: true }).waitFor({ state: "visible" });
-		yield* page.getByText("populating", { exact: false }).waitFor({ state: "hidden" });
-		yield* page.getByText("translating", { exact: false }).waitFor({ state: "hidden" });
-		expect(yield* card.isVisible()).toBe(true);
+		const runtime = page.locator("iframe").contentFrame();
+		yield* runtime.getByRole("heading", { level: 1, name: "Entity browser" }).waitFor();
+		yield* pollUntil(
+			"saved-view entity population and translation",
+			getEntity(client, entity.id).pipe(
+				Effect.map((current) =>
+					current.populationStatus === "ready" && current.translationStatus === "ready"
+						? current
+						: null,
+				),
+			),
+		);
+		yield* runtime.getByText(translatedName, { exact: true }).waitFor({
+			state: "visible",
+			timeout: IMPORT_TIMEOUT,
+		});
+		yield* runtime.getByRole("radio", { name: "Table view" }).click();
+		yield* runtime.getByText(translatedName, { exact: true }).waitFor({
+			state: "visible",
+			timeout: IMPORT_TIMEOUT,
+		});
+		yield* runtime.getByText("2,042", { exact: true }).waitFor({ state: "visible" });
+		expect((yield* getEntity(client, entity.id)).name).toBe(translatedName);
 	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
 );
 
-it.live("marks a saved-view row whose translation is still outstanding", () =>
+it.live("keeps source data visible when saved-view translation is outstanding", () =>
 	Effect.gen(function* () {
 		const id = crypto.randomUUID();
 		const user = yield* createTestUser();
@@ -245,24 +276,30 @@ it.live("marks a saved-view row whose translation is still outstanding", () =>
 		});
 		const view = yield* createSavedView(client, {
 			name: `Translating View ${id}`,
-			entitySchemaSlug: makeEntitySchemaSlug(schemaSlug),
-			layouts: buildSavedViewLayouts({}, [schemaSlug]),
+			dataSources: buildSavedViewDataSources([schemaSlug]),
 		});
 		const browser = yield* Playwright.Browser;
 		const page = yield* browser.newPage({ locale: "en-US" });
 		yield* signInThroughHostedOAuth(page, user.email, user.password);
 		yield* page.goto(`${getFrontendUrl()}/v/${view.slug}`);
-		yield* page
+		const runtime = page.locator("iframe").contentFrame();
+		yield* pollUntil(
+			"saved-view entity population with pending translation",
+			getEntity(client, entity.id).pipe(
+				Effect.map((current) =>
+					current.populationStatus === "ready" && current.translationStatus === "pending"
+						? current
+						: null,
+				),
+			),
+		);
+		yield* runtime.getByRole("radio", { name: "Table view" }).click();
+		yield* runtime.getByRole("button", { name: "Refresh", exact: true }).click();
+		yield* runtime
 			.getByText("2,043", { exact: true })
 			.waitFor({ state: "visible", timeout: IMPORT_TIMEOUT });
-		yield* page
-			.getByText("1 translating", { exact: true })
-			.waitFor({ state: "visible", timeout: IMPORT_TIMEOUT });
-		yield* page.getByText("populating", { exact: false }).waitFor({ state: "hidden" });
 		expect((yield* getEntity(client, entity.id)).translationStatus).toBe("pending");
-		expect(
-			yield* page.getByRole("link", { name: `Open ${sourceName}`, exact: true }).isVisible(),
-		).toBe(true);
+		expect(yield* runtime.getByText(sourceName, { exact: true }).isVisible()).toBe(true);
 	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
 );
 

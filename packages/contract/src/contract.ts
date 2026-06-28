@@ -12,7 +12,7 @@ import { GodModeGroup } from "./modules/god-mode/contract";
 import { ImportsGroup } from "./modules/imports/contract";
 import { IntegrationsGroup } from "./modules/integrations/contract";
 import { NotificationsGroup } from "./modules/notifications/contract";
-import { PluginArtifactSessionsGroup, PluginsGroup } from "./modules/plugins/contract";
+import { PluginsGroup } from "./modules/plugins/contract";
 import { ProviderEntitiesGroup } from "./modules/provider-entities/contract";
 import { RelationshipsGroup } from "./modules/relationships/contract";
 import { RyotQLGroup } from "./modules/ryotql/contract";
@@ -47,7 +47,6 @@ export type AppGroups =
 	| typeof RyotQLGroup
 	| typeof InterestGroup
 	| typeof NotificationsGroup
-	| typeof PluginArtifactSessionsGroup
 	| typeof PluginsGroup;
 
 export const AppContract: HttpApi.HttpApi<"ryot", AppGroups> = HttpApi.make("ryot")
@@ -74,7 +73,6 @@ export const AppContract: HttpApi.HttpApi<"ryot", AppGroups> = HttpApi.make("ryo
 	.add(RyotQLGroup)
 	.add(InterestGroup)
 	.add(NotificationsGroup)
-	.add(PluginArtifactSessionsGroup)
 	.add(PluginsGroup)
 	.annotate(OpenApi.Title, "Ryot API")
 	.annotate(OpenApi.Description, "API documentation for the Ryot backend");

@@ -62,7 +62,6 @@ export const catalog: PluginClientCatalog = [
 		homeSavedViewId: null,
 		sourceHash: "source-hash",
 		installationId: "installation-1",
-		clientArtifactHash: "artifact-hash",
 	},
 ];
 
@@ -237,12 +236,8 @@ export const EntityRouteStubs = makeEntityRouteStub();
 export const SavedViewRouteStubs = Layer.mergeAll(
 	Layer.succeed(ManagedAssetsService, {
 		read: () => Effect.succeed([]),
-		resolve: () => Effect.succeed(new Map<string, string>()),
 	}),
 	Layer.succeed(SavedViewsService, {
-		count: () => Effect.die("not used"),
-		refresh: () => Effect.die("not used"),
-		loadPage: () => Effect.die("not used"),
 		loadRecord: () => Effect.die("not used"),
 	}),
 );

@@ -16,7 +16,6 @@ const entry = {
 	homeSavedViewId: null,
 	sourceHash: "source-hash",
 	installationId: "installation-1",
-	clientArtifactHash: "artifact-hash",
 };
 
 const response = {
@@ -32,10 +31,19 @@ describe("plugin client catalog recipe", () => {
 		);
 
 		expect(query).toMatchObject({
-			where: { right: { value: "active" } },
 			output: { pagination: { after: "cursor", limit: 100 } },
 			from: { alias: "installation", table: "pluginInstallation" },
 			joins: [{ type: "inner", table: { alias: "plugin", table: "plugin" } }],
+			where: {
+				type: "and",
+				predicates: [
+					{ type: "comparison", right: { type: "literal", value: "active" } },
+					{
+						type: "isNotNull",
+						expr: { type: "column", field: "clientApiVersion", tableAlias: "plugin" },
+					},
+				],
+			},
 		});
 		expect(query.output.orderBy).toEqual([
 			{
@@ -47,41 +55,11 @@ describe("plugin client catalog recipe", () => {
 		]);
 	});
 
-	it("decodes installations with their client artifact identity", () => {
+	it("decodes installations with their public client availability", () => {
 		expect(Result.getOrThrow(pluginClientCatalogRecipe().decode(response))).toEqual({
 			items: response.data.installations.items,
 			pageInfo: response.data.installations.pageInfo,
 		});
-	});
-
-	it("decodes plugins without a compiled client artifact", () => {
-		const decoded = pluginClientCatalogRecipe().decode({
-			data: {
-				installations: rowsResult(
-					[{ ...entry, clientApiVersion: null, clientArtifactHash: null }],
-					{ hasMore: false, limit: 100, nextCursor: null },
-				),
-			},
-		});
-
-		expect(Result.getOrThrow(decoded).items[0]).toMatchObject({
-			clientApiVersion: null,
-			clientArtifactHash: null,
-		});
-	});
-
-	it("retains an unsupported numeric client API version for client-side validation", () => {
-		const decoded = pluginClientCatalogRecipe().decode({
-			data: {
-				installations: rowsResult([{ ...entry, clientApiVersion: 2 }], {
-					limit: 100,
-					hasMore: false,
-					nextCursor: null,
-				}),
-			},
-		});
-
-		expect(Result.getOrThrow(decoded).items[0]?.clientApiVersion).toBe(2);
 	});
 
 	it("retains disabled and incompatible installations", () => {

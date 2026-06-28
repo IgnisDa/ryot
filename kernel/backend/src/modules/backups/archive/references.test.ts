@@ -1,9 +1,9 @@
 import { expect, it } from "@effect/vitest";
 
-import { redactV2SchemaSecrets } from "./references";
+import { redactSchemaSecrets } from "./references";
 
 it("redacts schema-marked configuration secrets and records pointers", () => {
-	const result = redactV2SchemaSecrets(
+	const result = redactSchemaSecrets(
 		{ token: "secret", unit: "minutes" },
 		{
 			unknownKeys: "strict",

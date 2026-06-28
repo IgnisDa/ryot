@@ -28,11 +28,15 @@ const ClientCompilerPackageExport = Schema.Struct({
 export const ClientCompilerWorkerRequestBase64 = Schema.Union([
 	Schema.Struct({
 		...ClientCompilerWorkerRequestFields,
-		entry: Schema.String,
 		files: Schema.Record(Schema.String, CanonicalBase64),
 		pluginDependencies: Schema.optional(Schema.Array(Schema.String)),
-		application: Schema.optional(Schema.Literals(["page", "plugin"])),
-		publicExports: Schema.optional(Schema.Record(Schema.String, ClientCompilerPackageExport)),
+		publicExports: Schema.Record(Schema.String, ClientCompilerPackageExport),
+	}),
+	Schema.Struct({
+		...ClientCompilerWorkerRequestFields,
+		entry: Schema.String,
+		application: Schema.Literal("page"),
+		files: Schema.Record(Schema.String, CanonicalBase64),
 	}),
 	Schema.Struct({
 		...ClientCompilerWorkerRequestFields,
@@ -174,13 +178,13 @@ export const decodeClientCompilerWorkerRequest = (input: string) =>
 			}
 			return {
 				name: request.name,
-				entry: request.entry,
 				apiVersion: request.apiVersion,
-				...(request.application === undefined ? {} : { application: request.application }),
-				...(request.pluginDependencies === undefined
+				...("entry" in request
+					? { entry: request.entry, application: request.application }
+					: { publicExports: request.publicExports }),
+				...(!("pluginDependencies" in request) || request.pluginDependencies === undefined
 					? {}
 					: { pluginDependencies: request.pluginDependencies }),
-				...(request.publicExports === undefined ? {} : { publicExports: request.publicExports }),
 				files: Object.fromEntries(
 					Object.entries(request.files).map(([path, contents]) => [path, decodeBase64(contents)]),
 				),

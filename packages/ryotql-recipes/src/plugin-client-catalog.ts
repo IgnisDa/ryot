@@ -2,10 +2,12 @@ import { PluginInstallationHealth } from "@ryot-app/contract/modules/plugins/sch
 import { SavedViewId } from "@ryot-app/contract/schema/brands";
 import {
 	ascending,
+	and,
 	column,
 	defineRecipe,
 	eq,
 	join,
+	isNotNull,
 	literal,
 	selectedField,
 	selectedRows,
@@ -23,8 +25,11 @@ export const pluginClientCatalogRecipe = defineRecipe(
 			installations: selectedRows(installation, {
 				limit: 100,
 				after: input.after,
-				where: eq(column(plugin, "status"), literal("active")),
 				joins: [join("inner", plugin, eq(column(plugin, "id"), column(installation, "pluginId")))],
+				where: and(
+					eq(column(plugin, "status"), literal("active")),
+					isNotNull(column(plugin, "clientApiVersion")),
+				),
 				orderBy: [
 					ascending(column(installation, "sortOrder")),
 					ascending(column(plugin, "slug")),
@@ -44,14 +49,7 @@ export const pluginClientCatalogRecipe = defineRecipe(
 						column(installation, "homeSavedViewId"),
 						Schema.NullOr(SavedViewId),
 					),
-					clientArtifactHash: selectedField(
-						column(plugin, "clientArtifactHash"),
-						Schema.NullOr(Schema.String),
-					),
-					clientApiVersion: selectedField(
-						column(plugin, "clientApiVersion"),
-						Schema.NullOr(Schema.Number),
-					),
+					clientApiVersion: selectedField(column(plugin, "clientApiVersion"), Schema.Literal(1)),
 				},
 			}),
 		},

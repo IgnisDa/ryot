@@ -1,7 +1,5 @@
 import { assert, expect, it } from "@effect/vitest";
-import type { SavedViewLayouts } from "@ryot-app/contract/modules/saved-views/schemas";
-import { EntitySchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
-import { ascending, column, document, field, rows, table } from "@ryot-app/ryotql";
+import { UserId } from "@ryot-app/contract/schema/brands";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Cause, Effect, Exit, Layer, Option } from "effect";
 
@@ -10,34 +8,6 @@ import { Database } from "#lib/infrastructure/db/service";
 import { SavedViewsRepository } from "./repository";
 
 const userId = UserId.make("user-1");
-const entity = table("entity", "record");
-const queryDocument = document({
-	savedView: rows(entity, {
-		orderBy: [ascending(column(entity, "name"))],
-		fields: [field("id", column(entity, "id")), field("name", column(entity, "name"))],
-	}),
-});
-const cardLayout = {
-	queryDocument,
-	callout: null,
-	overline: null,
-	imageField: null,
-	titleField: "name",
-	entityIdField: "id",
-	primaryMetadata: null,
-	secondaryMetadata: null,
-} as const;
-const layouts = {
-	grid: cardLayout,
-	list: cardLayout,
-	table: {
-		queryDocument,
-		imageField: null,
-		entityIdField: "id",
-		columns: [{ label: "Name", field: "name", displayKind: "text" }],
-	},
-} satisfies SavedViewLayouts;
-
 const savedViewRow = (input: {
 	id: string;
 	slug: string;
@@ -46,16 +16,18 @@ const savedViewRow = (input: {
 }) => ({
 	...input,
 	userId,
-	layouts,
+	settings: {},
+	dataSources: null,
+	clientRendererId: null,
+	renderer: { kind: "kernel", name: "results-table" } as const,
 	icon: "old",
 	name: "Old",
 	sortOrder: 9,
 	isDisabled: true,
 	pluginSlug: "private",
-	entitySchemaSlug: "record",
 	createdAt: new Date(0),
 	updatedAt: new Date(0),
-	entitySchemaPluginId: "plugin-id",
+	revision: 1,
 });
 
 const makeLayer = (
@@ -81,14 +53,14 @@ const makeLayer = (
 };
 
 const desiredView = {
-	layouts,
+	settings: {},
+	dataSources: null,
+	renderer: { kind: "kernel", name: "results-table" } as const,
 	sortOrder: 1,
 	icon: "updated",
 	name: "Updated",
 	slug: "generated",
-	entitySchemaPluginId: "plugin-id",
 	pluginInstallationId: "installation-id",
-	entitySchemaSlug: EntitySchemaSlug.make("record"),
 };
 
 it.effect("reconciles generated views while preserving user-controlled state", () => {
@@ -118,7 +90,9 @@ it.effect("reconciles generated views while preserving user-controlled state", (
 		expect(mutations.updates).toEqual([
 			expect.not.objectContaining({ isDisabled: expect.anything(), sortOrder: expect.anything() }),
 		]);
-		expect(mutations.updates).toMatchObject([{ name: "Updated", icon: "updated" }]);
+		expect(mutations.updates).toMatchObject([
+			{ name: "Updated", icon: "updated", renderer: desiredView.renderer },
+		]);
 	}).pipe(Effect.provide(layer));
 });
 

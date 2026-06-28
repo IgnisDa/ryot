@@ -18,7 +18,6 @@ it.effect("round trips request and response bytes through canonical Base64", () 
 	Effect.gen(function* () {
 		const request = {
 			name: "Fixture plugin",
-			entry: "client/index.tsx",
 			pluginDependencies: ["media"],
 			apiVersion: CLIENT_API_VERSION,
 			files: { "client/index.tsx": new Uint8Array([0x00, 0xff, 0x7f]) },
@@ -56,8 +55,8 @@ it.effect("rejects non-canonical and invalid Base64", () =>
 				JSON.stringify({
 					contents,
 					name: "Fixture plugin",
-					entry: "client/index.tsx",
 					apiVersion: CLIENT_API_VERSION,
+					publicExports: {},
 					files: { "client/index.tsx": contents },
 				}),
 			).pipe(Effect.flip);

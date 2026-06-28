@@ -51,18 +51,13 @@ const mockRepository = Layer.mock(PluginRepository);
 const makeRepository = (overrides: MockOverrides<typeof mockRepository>) =>
 	mockRepository({ ...overrides });
 
-const makeStoredPlugin = (
-	manifest: PluginManifest,
-	sourceHash: string,
-	clientArtifactHash: string | null = null,
-): StoredPlugin => {
+const makeStoredPlugin = (manifest: PluginManifest, sourceHash: string): StoredPlugin => {
 	return {
 		manifest,
 		sourceHash,
 		ownerId: null,
 		scope: "system",
 		status: "active",
-		clientArtifactHash,
 		slug: manifest.metadata.slug,
 		id: `${manifest.metadata.slug}-plugin-id`,
 		scripts: manifest.scripts.map((script) => {
@@ -192,12 +187,9 @@ const makeLayer = (input?: {
 	readonly integrationFences?: Array<unknown>;
 	readonly afterPersist?: Effect.Effect<void>;
 	readonly persisted?: Array<NormalizedPlugin>;
-	readonly cachedClientArtifactExists?: boolean;
-	readonly cachedClientCompilerVersion?: number;
 	readonly databaseLayer?: Layer.Layer<Database>;
 	readonly hasWorkflowReferences?: () => boolean;
 	readonly systemPluginSlugs?: ReadonlySet<string>;
-	readonly cachedClientArtifactHash?: string | null;
 	readonly publish?: RedisService["Service"]["publish"];
 	readonly initialInstalled?: ReadonlyArray<StoredPlugin>;
 	readonly repositoryList?: PluginRepository["Service"]["list"];
@@ -243,20 +235,7 @@ const makeLayer = (input?: {
 					return null;
 				}
 				const manifest: PluginManifest = input.cachedManifest ?? fixtureManifest();
-				if (
-					manifest.client &&
-					(input.cachedClientArtifactHash === null ||
-						input.cachedClientArtifactHash === undefined ||
-						input.cachedClientArtifactExists === false ||
-						input.cachedClientCompilerVersion !== CLIENT_COMPILER_VERSION)
-				) {
-					return null;
-				}
-				const cached = makeStoredPlugin(
-					manifest,
-					sourceHash,
-					input.cachedClientArtifactHash ?? null,
-				);
+				const cached = makeStoredPlugin(manifest, sourceHash);
 				const index = installed.findIndex(
 					(plugin) => plugin.manifest.metadata.slug === cached.manifest.metadata.slug,
 				);
@@ -272,13 +251,12 @@ const makeLayer = (input?: {
 				const pluginId = `${identity.slug}-plugin-id`;
 				yield* Effect.sync(() => {
 					input?.persisted?.push(plugin);
-					const { clientArtifact, files: _files, ...revision } = plugin;
+					const { files: _files, ...revision } = plugin;
 					const stored = {
 						...revision,
 						...identity,
 						id: pluginId,
 						status: "active",
-						clientArtifactHash: clientArtifact?.hash ?? null,
 					};
 					const index = installed.findIndex((candidate) => candidate.slug === identity.slug);
 					if (index >= 0) {
@@ -356,7 +334,6 @@ it.effect("validates, compiles, content-addresses, persists, loads, and publishe
 		expect(persisted).toEqual([
 			{
 				files: source.files,
-				clientArtifact: null,
 				scripts: plugin.scripts,
 				manifest: plugin.manifest,
 				sourceHash: plugin.sourceHash,
@@ -444,7 +421,6 @@ it.effect("returns a committed install when Redis publication fails", () => {
 		expect(persisted).toEqual([
 			{
 				files: source.files,
-				clientArtifact: null,
 				scripts: plugin.scripts,
 				manifest: plugin.manifest,
 				sourceHash: plugin.sourceHash,
@@ -503,7 +479,6 @@ it.effect("accepts user bootstrap declarations through explicit system ingestion
 		expect(persisted).toEqual([
 			{
 				files: source.files,
-				clientArtifact: null,
 				scripts: plugin.scripts,
 				manifest: plugin.manifest,
 				sourceHash: plugin.sourceHash,
@@ -1289,8 +1264,8 @@ it.effect("returns structured validation and compiler diagnostics", () => {
 const clientManifest = (): PluginManifest => ({
 	...fixtureManifest(),
 	client: {
-		entry: "client/index.ts",
 		apiVersion: CLIENT_API_VERSION,
+		homeView: null,
 		exports: {
 			summary: { kind: "component", entry: "client/index.ts", automaticEntityPresentations: false },
 		},
@@ -1317,15 +1292,14 @@ const clientArtifact = (): PluginClientArtifact => ({
 	],
 });
 
-it.effect("skips client compilation for a current cached client artifact", () => {
+it.effect("skips client validation for a matching source hash", () => {
 	const requests: Array<ClientPluginCompilerInput> = [];
 	const persisted: Array<NormalizedPlugin> = [];
 	return Effect.gen(function* () {
 		const ingestion = yield* PluginIngestionService;
 		const source = yield* loadPluginSource(fixturePackageRoot(), clientManifest());
-		const plugin = yield* ingestion.ingestSystemPlugin(source);
+		yield* ingestion.ingestSystemPlugin(source);
 
-		expect(plugin.clientArtifactHash).toBe("client-artifact-hash");
 		expect(requests).toEqual([]);
 		expect(persisted).toEqual([]);
 	}).pipe(
@@ -1334,9 +1308,6 @@ it.effect("skips client compilation for a current cached client artifact", () =>
 				cached: true,
 				persisted,
 				cachedManifest: clientManifest(),
-				cachedClientArtifactExists: true,
-				cachedClientArtifactHash: "client-artifact-hash",
-				cachedClientCompilerVersion: CLIENT_COMPILER_VERSION,
 				clientCompile: (request) =>
 					Effect.sync(() => {
 						requests.push(request);
@@ -1347,127 +1318,43 @@ it.effect("skips client compilation for a current cached client artifact", () =>
 	);
 });
 
-it.effect("recompiles a source-hash match when its client artifact hash is null", () => {
-	const artifact = clientArtifact();
-	const requests: Array<ClientPluginCompilerInput> = [];
-	const persisted: Array<NormalizedPlugin> = [];
-	return Effect.gen(function* () {
-		const ingestion = yield* PluginIngestionService;
-		const source = yield* loadPluginSource(fixturePackageRoot(), clientManifest());
-		yield* ingestion.ingestSystemPlugin(source);
+it.effect(
+	"validates the declared client sources without attaching an artifact to the plugin",
+	() => {
+		const artifact = clientArtifact();
+		const persisted: Array<NormalizedPlugin> = [];
+		const requests: Array<ClientPluginCompilerInput> = [];
+		return Effect.gen(function* () {
+			const ingestion = yield* PluginIngestionService;
+			const source = yield* loadPluginSource(fixturePackageRoot(), clientManifest());
+			yield* ingestion.ingestSystemPlugin(source);
 
-		expect(requests).toHaveLength(1);
-		expect(persisted).toEqual([expect.objectContaining({ clientArtifact: artifact })]);
-	}).pipe(
-		Effect.provide(
-			makeLayer({
-				cached: true,
-				persisted,
-				cachedManifest: clientManifest(),
-				cachedClientArtifactHash: null,
-				cachedClientCompilerVersion: CLIENT_COMPILER_VERSION,
-				clientCompile: (request) =>
-					Effect.sync(() => {
-						requests.push(request);
-						return artifact;
-					}),
-			}),
-		),
-	);
-});
-
-it.effect("recompiles and persists a source-hash match with compiler version 0", () => {
-	const artifact = clientArtifact();
-	const requests: Array<ClientPluginCompilerInput> = [];
-	const persisted: Array<NormalizedPlugin> = [];
-	return Effect.gen(function* () {
-		const ingestion = yield* PluginIngestionService;
-		const source = yield* loadPluginSource(fixturePackageRoot(), clientManifest());
-		yield* ingestion.ingestSystemPlugin(source);
-
-		expect(requests).toHaveLength(1);
-		expect(persisted).toEqual([expect.objectContaining({ clientArtifact: artifact })]);
-	}).pipe(
-		Effect.provide(
-			makeLayer({
-				persisted,
-				cached: true,
-				cachedClientCompilerVersion: 0,
-				cachedManifest: clientManifest(),
-				cachedClientArtifactHash: "client-artifact-hash",
-				clientCompile: (request) =>
-					Effect.sync(() => {
-						requests.push(request);
-						return artifact;
-					}),
-			}),
-		),
-	);
-});
-
-it.effect("recompiles a source-hash match when its linked client artifact is missing", () => {
-	const artifact = clientArtifact();
-	const requests: Array<ClientPluginCompilerInput> = [];
-	const persisted: Array<NormalizedPlugin> = [];
-	return Effect.gen(function* () {
-		const ingestion = yield* PluginIngestionService;
-		const source = yield* loadPluginSource(fixturePackageRoot(), clientManifest());
-		yield* ingestion.ingestSystemPlugin(source);
-
-		expect(requests).toHaveLength(1);
-		expect(persisted).toEqual([expect.objectContaining({ clientArtifact: artifact })]);
-	}).pipe(
-		Effect.provide(
-			makeLayer({
-				persisted,
-				cached: true,
-				cachedManifest: clientManifest(),
-				cachedClientArtifactExists: false,
-				cachedClientArtifactHash: "client-artifact-hash",
-				cachedClientCompilerVersion: CLIENT_COMPILER_VERSION,
-				clientCompile: (request) =>
-					Effect.sync(() => {
-						requests.push(request);
-						return artifact;
-					}),
-			}),
-		),
-	);
-});
-
-it.effect("compiles the declared client entry and persists its artifact", () => {
-	const artifact = clientArtifact();
-	const persisted: Array<NormalizedPlugin> = [];
-	const requests: Array<ClientPluginCompilerInput> = [];
-	return Effect.gen(function* () {
-		const ingestion = yield* PluginIngestionService;
-		const source = yield* loadPluginSource(fixturePackageRoot(), clientManifest());
-		yield* ingestion.ingestSystemPlugin(source);
-
-		expect(requests).toEqual([
-			{
-				apiVersion: 1,
-				files: source.files,
-				pluginDependencies: [],
-				entry: "client/index.ts",
-				name: clientManifest().metadata.name,
-				publicExports: { summary: { entry: "client/index.ts", kind: "component" } },
-			},
-		]);
-		expect(persisted).toEqual([expect.objectContaining({ clientArtifact: artifact })]);
-	}).pipe(
-		Effect.provide(
-			makeLayer({
-				persisted,
-				clientCompile: (request) =>
-					Effect.sync(() => {
-						requests.push(request);
-						return artifact;
-					}),
-			}),
-		),
-	);
-});
+			expect(requests).toEqual([
+				{
+					apiVersion: 1,
+					files: source.files,
+					pluginDependencies: [],
+					name: clientManifest().metadata.name,
+					publicExports: { summary: { entry: "client/index.ts", kind: "component" } },
+				},
+			]);
+			expect(persisted).toEqual([
+				expect.not.objectContaining({ clientArtifact: expect.anything() }),
+			]);
+		}).pipe(
+			Effect.provide(
+				makeLayer({
+					persisted,
+					clientCompile: (request) =>
+						Effect.sync(() => {
+							requests.push(request);
+							return artifact;
+						}),
+				}),
+			),
+		);
+	},
+);
 
 it.effect("fails ingestion without persisting when client compilation fails", () => {
 	const persisted: Array<NormalizedPlugin> = [];

@@ -50,12 +50,16 @@ type ClientPluginCompilerBaseInput = {
 	readonly apiVersion: typeof CLIENT_API_VERSION;
 };
 
-export type ClientPluginCompilerSingleInput = ClientPluginCompilerBaseInput & {
+export type ClientPluginCompilerPageInput = ClientPluginCompilerBaseInput & {
 	readonly entry: string;
-	readonly application?: "page" | "plugin";
+	readonly application: "page";
+	readonly files: Readonly<Record<string, Uint8Array>>;
+};
+
+export type ClientPluginCompilerPackageInput = ClientPluginCompilerBaseInput & {
 	readonly pluginDependencies?: readonly string[];
 	readonly files: Readonly<Record<string, Uint8Array>>;
-	readonly publicExports?: Readonly<Record<string, ClientPluginCompilerPackageExport>>;
+	readonly publicExports: Readonly<Record<string, ClientPluginCompilerPackageExport>>;
 };
 
 export type ClientPluginExportKind = "component" | "page" | "presentation";
@@ -99,7 +103,8 @@ export type ClientPluginCompilerGraphInput = ClientPluginCompilerBaseInput & {
 };
 
 export type ClientPluginCompilerInput =
-	| ClientPluginCompilerSingleInput
+	| ClientPluginCompilerPageInput
+	| ClientPluginCompilerPackageInput
 	| ClientPluginCompilerGraphInput;
 
 const GENERATED_PAGE_ENTRY = "client/__ryot_page_entry.tsx";
@@ -192,7 +197,6 @@ const packageValidationSource = (
 ) => {
 	const imports = [
 		`import type { ComponentType } from "react";`,
-		`import { bootstrapClientPage } from "@ryot-app/client-sdk/plugin";`,
 		`import type { EntityPresentationDefinition } from "@ryot-app/client-sdk/plugin";`,
 	];
 	for (const [index, [, declaration]] of sortBy(
@@ -202,9 +206,7 @@ const packageValidationSource = (
 		const specifier = `./${declaration.entry.slice(CLIENT_SOURCE_ROOT.length).replace(/\.(?:ts|tsx)$/, "")}`;
 		imports.push(`import PublicExport${index} from ${JSON.stringify(specifier)};`);
 		imports.push(
-			declaration.kind === "page"
-				? `const publicExport${index} = () => bootstrapClientPage(PublicExport${index});`
-				: `const publicExport${index}: ${publicExportType(declaration.kind)} = PublicExport${index};`,
+			`const publicExport${index}: ${publicExportType(declaration.kind)} = PublicExport${index};`,
 		);
 		imports.push(`void publicExport${index};`);
 	}
@@ -253,11 +255,11 @@ export const compileClientPlugin = (input: ClientPluginCompilerInput) =>
 	Effect.gen(function* () {
 		let entry: string;
 		const pluginName = input.name;
-		let packagePageEntry: string | undefined;
 		const graphInput = "contributors" in input;
+		const packageInput = !graphInput && !("application" in input);
 		let automaticExports: readonly string[] = [];
 		let files: Readonly<Record<string, Uint8Array>>;
-		const application = input.application ?? "plugin";
+		const application = "application" in input ? input.application : undefined;
 		let publicExportPaths: Readonly<Record<string, string>> = {};
 		let pluginRouteRegistry: ClientPluginRouteRegistry | undefined;
 		let automaticRegistry: readonly ClientPluginAutomaticRegistryEntry[] = [];
@@ -392,13 +394,9 @@ export const compileClientPlugin = (input: ClientPluginCompilerInput) =>
 			);
 			automaticExports = automaticRegistry.map(({ exportSpecifier }) => exportSpecifier);
 		} else {
-			entry = input.entry;
+			entry = "entry" in input ? input.entry : GENERATED_PACKAGE_VALIDATION_ENTRY;
 			files = input.files;
-			packagePublicExports = input.publicExports ?? {};
-			packagePageEntry = sortBy(
-				Object.values(packagePublicExports).filter(({ kind }) => kind === "page"),
-				({ entry: pageEntry }) => pageEntry,
-			)[0]?.entry;
+			packagePublicExports = "publicExports" in input ? input.publicExports : {};
 			for (const [name, declaration] of Object.entries(packagePublicExports)) {
 				if (
 					!PUBLIC_EXPORT_NAME.test(name) ||
@@ -417,9 +415,10 @@ export const compileClientPlugin = (input: ClientPluginCompilerInput) =>
 		}
 
 		if (
-			(!entry.endsWith(".ts") && !entry.endsWith(".tsx")) ||
-			!(graphInput ? entry.includes("/client/") : entry.startsWith(CLIENT_SOURCE_ROOT)) ||
-			!Object.hasOwn(files, entry)
+			!packageInput &&
+			((!entry.endsWith(".ts") && !entry.endsWith(".tsx")) ||
+				!(graphInput ? entry.includes("/client/") : entry.startsWith(CLIENT_SOURCE_ROOT)) ||
+				!Object.hasOwn(files, entry))
 		) {
 			return yield* failure(
 				entry,
@@ -481,8 +480,8 @@ export const compileClientPlugin = (input: ClientPluginCompilerInput) =>
 			? `contributors/${input.entry.contributor}/${GENERATED_PAGE_ENTRY}`
 			: GENERATED_PAGE_ENTRY;
 		const generatedPageSourceEntry =
-			application === "page" || application === "plugin-route" ? entry : packagePageEntry;
-		const buildEntry = generatedPageSourceEntry === undefined ? entry : generatedPageEntry;
+			application === "page" || application === "plugin-route" ? entry : undefined;
+		const buildEntry = packageInput ? GENERATED_PACKAGE_VALIDATION_ENTRY : generatedPageEntry;
 		if (generatedPageSourceEntry !== undefined) {
 			if (Object.hasOwn(sourceFiles, generatedPageEntry)) {
 				return yield* failure(
@@ -499,7 +498,7 @@ export const compileClientPlugin = (input: ClientPluginCompilerInput) =>
 							automaticRegistry,
 						);
 		}
-		if (!graphInput && Object.keys(packagePublicExports).length > 0) {
+		if (packageInput) {
 			if (Object.hasOwn(sourceFiles, GENERATED_PACKAGE_VALIDATION_ENTRY)) {
 				return yield* failure(
 					entry,
@@ -520,26 +519,17 @@ export const compileClientPlugin = (input: ClientPluginCompilerInput) =>
 		);
 		const dependencies = yield* resolveClientPluginCompilerDependencies;
 		const bundled = yield* bundleClientPlugin(
-			{ entry: buildEntry, assetNames, files: sourceFiles, publicExports: publicExportPaths },
+			{
+				entry: buildEntry,
+				assetNames,
+				files: sourceFiles,
+				publicExports: publicExportPaths,
+				...(packageInput ? { unresolvedPluginDependencies: input.pluginDependencies ?? [] } : {}),
+			},
 			dependencies.compilerRoot,
 		);
 		if ("diagnostics" in bundled) {
 			return yield* clientPluginCompilationFailure(bundled.diagnostics);
-		}
-		if (!graphInput && Object.keys(packagePublicExports).length > 0) {
-			const validationBundle = yield* bundleClientPlugin(
-				{
-					files: sourceFiles,
-					assetNames,
-					publicExports: {},
-					entry: GENERATED_PACKAGE_VALIDATION_ENTRY,
-					unresolvedPluginDependencies: input.pluginDependencies ?? [],
-				},
-				dependencies.compilerRoot,
-			);
-			if ("diagnostics" in validationBundle) {
-				return yield* clientPluginCompilationFailure(validationBundle.diagnostics);
-			}
 		}
 		const reachablePublicExports = sortBy([
 			...new Set([...bundled.publicExports, ...automaticExports]),

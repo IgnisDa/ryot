@@ -36,7 +36,6 @@ import { IntegrationsService } from "#/modules/integrations/service";
 import { CustomizeSidebarService } from "#/modules/navigation/customize/service";
 import { NavigationService } from "#/modules/navigation/service";
 import { NotificationChannelsService } from "#/modules/notifications/service";
-import { ArtifactSessions } from "#/modules/plugins/artifact-sessions";
 import { PluginCatalogService } from "#/modules/plugins/catalog";
 import { PluginCatalogEventsService } from "#/modules/plugins/events";
 import { PluginOperationsService } from "#/modules/plugins/operations";
@@ -101,7 +100,6 @@ export const ClientLive = Layer.mergeAll(
 	EntitiesService.layer,
 	ManagedAssetsService.layer,
 	ServerLive,
-	ArtifactSessions.layer,
 	ClientPageSessions.layer,
 	NavigationService.layer,
 	CustomizeSidebarService.layer,

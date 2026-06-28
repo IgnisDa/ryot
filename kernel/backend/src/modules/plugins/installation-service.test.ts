@@ -42,6 +42,9 @@ const bytes = (value: string) => new TextEncoder().encode(value);
 type HomeSavedView = Effect.Success<
 	ReturnType<PluginInstallationRepository["Service"]["findHomeSavedView"]>
 >;
+type DefaultHomeSavedView = Effect.Success<
+	ReturnType<PluginInstallationRepository["Service"]["findHomeSavedViewBySlug"]>
+>;
 
 const failureOf = (exit: Exit.Exit<unknown, unknown>) => {
 	assert(Exit.isFailure(exit));
@@ -71,7 +74,6 @@ const storedPrivatePlugin = (manifest: PluginManifest): StoredPlugin => ({
 	scope: "user",
 	ownerId: userId,
 	status: "active",
-	clientArtifactHash: null,
 	slug: manifest.metadata.slug,
 	id: `${manifest.metadata.slug}-plugin-id`,
 	sourceHash: `hash-${manifest.metadata.slug}`,
@@ -128,6 +130,7 @@ const makeLayer = (input?: {
 	readonly homeViewUpdates?: Array<Record<string, unknown>>;
 	readonly homeViewTransactionScopes?: Array<"root" | "transaction">;
 	readonly homeTargets?: ReadonlyMap<string, NonNullable<HomeSavedView>>;
+	readonly defaultHomeTargets?: ReadonlyMap<string, NonNullable<DefaultHomeSavedView>>;
 	readonly claimedUploads?: Array<Record<string, unknown>>;
 	readonly privateInstallations?: Array<PluginPrivateInstallationRow>;
 	readonly materialize?: (userId: UserId) => Effect.Effect<void, DbError>;
@@ -186,6 +189,8 @@ const makeLayer = (input?: {
 			Effect.succeed((input?.installations ?? []).find((row) => row.pluginId === pluginId) ?? null),
 		findHomeSavedView: (_ownerId, savedViewId) =>
 			Effect.succeed(input?.homeTargets?.get(savedViewId) ?? null),
+		findHomeSavedViewBySlug: (_ownerId, installationId, slug) =>
+			Effect.succeed(input?.defaultHomeTargets?.get(`${installationId}:${slug}`) ?? null),
 		lockHomeSavedView: (_ownerId, savedViewId) =>
 			Effect.gen(function* () {
 				const database = yield* Database;
@@ -327,7 +332,6 @@ const systemEntry = (manifest: PluginManifest): PluginRegistryEntry => ({
 	scripts: [],
 	ownerId: null,
 	scope: "system",
-	clientArtifactHash: null,
 	slug: manifest.metadata.slug,
 	id: `${manifest.metadata.slug}-plugin-id`,
 	sourceHash: `hash-${manifest.metadata.slug}`,
@@ -743,6 +747,55 @@ it.effect("sets and clears a usable home view without requiring workspace placem
 	);
 });
 
+it.effect("accepts a home view backed by an advertised plugin page", () => {
+	const savedViewId = SavedViewId.make("plugin-view");
+	const manifest = privateManifest({
+		client: {
+			homeView: null,
+			apiVersion: 1,
+			exports: {
+				summary: {
+					kind: "page",
+					entry: "client/summary.tsx",
+					settingsSchema: { fields: {} },
+					automaticEntityPresentations: false,
+				},
+			},
+		},
+	});
+	const privatePlugin = storedPrivatePlugin(manifest);
+	const installation = installationRow({ pluginId: privatePlugin.id });
+	return Effect.gen(function* () {
+		const service = yield* PluginInstallationService;
+		expect(yield* service.setHomeView(userId, privatePlugin.slug, { savedViewId })).toEqual({
+			savedViewId,
+		});
+	}).pipe(
+		Effect.provide(
+			makeLayer({
+				installations: [installation],
+				privatePlugins: [privatePlugin],
+				homeTargets: new Map([
+					[
+						savedViewId,
+						{
+							renderer: null,
+							view: {
+								isDisabled: false,
+								renderer: {
+									kind: "plugin",
+									pluginId: privatePlugin.id,
+									exportName: "summary",
+								},
+							},
+						},
+					],
+				]),
+			}),
+		),
+	);
+});
+
 it.effect("rejects missing, disabled, and unusable home views", () => {
 	const updates: Array<Record<string, unknown>> = [];
 	const privatePlugin = storedPrivatePlugin(privateManifest());
@@ -838,6 +891,96 @@ it.effect("falls back from a stale home override but preserves a usable selectio
 			{ slug: "stale", homeSavedViewId: null },
 		]);
 	}).pipe(Effect.provide(makeLayer({ homeTargets, installations })));
+});
+
+it.effect("falls back to the manifest home and preserves the plugin root for null homes", () => {
+	const defaultId = SavedViewId.make("default-home-id");
+	const staleId = SavedViewId.make("stale-home-id");
+	const kernelView = kernelDefinitionSource().savedViews[0];
+	assert(kernelView?.renderer.kind === "kernel");
+	const defaultPlugin = systemEntry(
+		privateManifest({
+			metadata: { ...privateManifest().metadata, slug: "defaulted" },
+			client: {
+				apiVersion: 1,
+				homeView: "default-home",
+				exports: {
+					widget: {
+						kind: "component",
+						entry: "client/widget.tsx",
+						automaticEntityPresentations: false,
+					},
+				},
+			},
+			savedViews: [
+				{
+					...kernelView,
+					slug: "default-home",
+					pluginSlug: "defaulted",
+					renderer: kernelView.renderer,
+				},
+			],
+		}),
+	);
+	const rootPlugin = systemEntry(
+		privateManifest({
+			metadata: { ...privateManifest().metadata, slug: "rooted" },
+			client: {
+				apiVersion: 1,
+				homeView: null,
+				exports: {
+					root: {
+						kind: "page",
+						entry: "client/root.tsx",
+						settingsSchema: { fields: {} },
+						automaticEntityPresentations: false,
+					},
+				},
+				routes: { "/": "root" },
+			},
+		}),
+	);
+	const defaultInstallation = installationRow({
+		pluginSlug: "defaulted",
+		pluginScope: "system",
+		pluginId: defaultPlugin.id,
+		homeSavedViewId: staleId,
+	});
+	const rootInstallation = installationRow({
+		pluginSlug: "rooted",
+		pluginScope: "system",
+		pluginId: rootPlugin.id,
+	});
+	return Effect.gen(function* () {
+		const loader = yield* PluginLoader;
+		loader.load(defaultPlugin);
+		loader.load(rootPlugin);
+		const service = yield* PluginInstallationService;
+		const listed = yield* service.listInstallations(userId);
+		expect(listed.map(({ slug, homeSavedViewId }) => ({ slug, homeSavedViewId }))).toEqual([
+			{ slug: "defaulted", homeSavedViewId: defaultId },
+			{ slug: "rooted", homeSavedViewId: null },
+		]);
+	}).pipe(
+		Effect.provide(
+			makeLayer({
+				installations: [defaultInstallation, rootInstallation],
+				defaultHomeTargets: new Map([
+					[
+						`${defaultInstallation.id}:default-home`,
+						{
+							renderer: null,
+							view: {
+								id: defaultId,
+								isDisabled: false,
+								renderer: { kind: "kernel", name: "entity-browser" },
+							},
+						},
+					],
+				]),
+			}),
+		),
+	);
 });
 
 it.effect("patches config while preserving omitted secrets and returning a safe response", () => {
@@ -1699,7 +1842,13 @@ it.effect("marks a private installation incompatible when a shipped plugin claim
 	const healthUpdates: Array<Record<string, unknown>> = [];
 	const kernelView = kernelDefinitionSource().savedViews[0];
 	assert(kernelView);
-	const savedView = { ...kernelView, name: "Shared View", slug: "shared-view" };
+	assert(kernelView.renderer.kind === "kernel");
+	const savedView = {
+		...kernelView,
+		name: "Shared View",
+		slug: "shared-view",
+		renderer: kernelView.renderer,
+	};
 	const withSavedView = (slug: string) =>
 		privateManifest({
 			savedViews: [savedView],
