@@ -1,6 +1,6 @@
 import { expect, it } from "@effect/vitest";
 import { APIError } from "better-auth/api";
-import type { Either } from "effect";
+import type { Result } from "effect";
 import { Effect } from "effect";
 import { describe } from "vitest";
 
@@ -42,12 +42,12 @@ const runGate = (deps: SessionGateDeps, userId: string) =>
 			assertApiError(error);
 			return error;
 		},
-	}).pipe(Effect.either);
+	}).pipe(Effect.result);
 
-const extractError = (either: Either.Either<void, APIError>): APIError => {
-	expect(either._tag).toBe("Left");
-	if (either._tag === "Left") {
-		return either.left;
+const extractError = (either: Result.Result<void, APIError>): APIError => {
+	expect(either._tag).toBe("Failure");
+	if (either._tag === "Failure") {
+		return either.failure;
 	}
 	throw new Error("Expected gate failure but gate succeeded");
 };
@@ -62,7 +62,7 @@ describe("gateSessionCreation", () => {
 			});
 
 			const either = yield* runGate(deps, "user-1");
-			expect(either._tag).toBe("Right");
+			expect(either._tag).toBe("Success");
 			expect(called).toBe(false);
 		}),
 	);
@@ -76,7 +76,7 @@ describe("gateSessionCreation", () => {
 			});
 
 			const either = yield* runGate(deps, "user-1");
-			expect(either._tag).toBe("Right");
+			expect(either._tag).toBe("Success");
 			expect(called).toBe(true);
 		}),
 	);
@@ -131,7 +131,7 @@ describe("gateSessionCreation", () => {
 			};
 
 			const either = yield* runGate(deps, "missing-user");
-			expect(either._tag).toBe("Right");
+			expect(either._tag).toBe("Success");
 			expect(called).toBe(false);
 		}),
 	);
