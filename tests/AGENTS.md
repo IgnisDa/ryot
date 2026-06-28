@@ -13,6 +13,15 @@ This package contains end-to-end and integration-style tests for Ryot.
 - Do not refactor `tests/src/seed-script.ts` as part of test fixture cleanup unless explicitly requested.
 - Document how a test pattern or fixture works in this file, and how the backend behaves in `apps/app-backend/AGENTS.md`, rather than in scattered code comments. Keep inline comments to hyper-local notes that decode a single assertion (expected order, arithmetic) or justify a lint suppression.
 
+## Runner & Effect Conventions
+
+- The suite runs on vitest-on-bun: `cd tests && bun run test` (`bun --bun run vitest run`). `vitest.config.ts` owns the config — `fileParallelism: false` (files run sequentially, one shared backend), `testTimeout`/`hookTimeout` 180s, the `~/` → `src/` alias, and the `agent` reporter.
+- `global-setup.ts` provisions the containers and one shared backend once per run and `provide`s `backendUrl`/`dbUrl`; test code reads them via `inject` through `support/backend.ts` (`getBackendUrl`, `getPgClient` — a lazy per-file pg pool). `test-setup.ts` registers `addEqualityTesters`. Workers cannot import globalSetup state, so all shared handles cross this `provide`/`inject` seam.
+- Import the runner surface only from `~/support/effect-test` (`describe`, `expect`, `assert`, `it`, `beforeAll`, `afterAll`); oxlint bans importing `bun:test`/`vitest`/`@effect/vitest` under `src/tests/**`. Test bodies are `Effect.gen` under `it.live` (no resources) or `it.scopedLive` (per-test `Effect.acquireRelease` resources). `it.effect` is deliberately withheld — it installs Effect's `TestClock`, which deadlocks the real-time waits these E2E suites depend on. `view-language/parse-field-path.test.ts` is a pure unit test and uses plain `it`.
+- Fixtures are Effect-native. `makeSession(...).call(program, headers?)` returns `Effect<A, E>`; assert an expected failure with `yield* Effect.flip(client.call(...))`. `pollUntil(label, check: Effect<A | null>, opts)` retries `check` until non-null (fails with the tagged `PollTimeout`). Resource fixtures expose scoped acquire-release variants for `it.scopedLive`: `openInterestStreamScoped`, `startFakeAppriseServerScoped`, `startFakeHttpServerScoped` — they auto-close at test end, so no manual `stop()`/`close()`/`afterEach`.
+- `beforeAll`/`afterAll` stay plain async hooks (vitest owns their lifecycle); run Effect fixtures inside them via `Effect.runPromise`. Raw `fetch`, `response.json()`, `postBackendJson`, and other Promise-returning boundary helpers are wrapped with `Effect.promise(() => ...)` inside Effect bodies.
+- `tsconfig.json` enables the `@effect/language-service` plugin (diagnostics run during `tsc`). Enforced as errors: `globalDateInEffect`, `processEnvInEffect`, `globalTimersInEffect`, `globalConsoleInEffect`, `globalErrorInEffectFailure`. Disabled because the harness legitimately needs them: `asyncFunction` (vitest hooks, Promise-boundary fixtures, seed-script), `nodeBuiltinImport` (spawning backends, temp dirs, log reads), `globalFetchInEffect` (raw HTTP to non-contract endpoints), `preferSchemaOverJson` (sandbox source strings, response comparisons), `newPromise` (the SSE listener bridges in `fixtures/interest-sse.ts`).
+
 ## Hermetic Provider Tests
 
 Every provider-driven test except the live smoke suite runs offline against a fake provider, so search/import/populate/translate/trending flows stay deterministic and make no external calls.
@@ -71,7 +80,7 @@ Coverage is intentionally minimal (a drift signal, not exhaustive): OpenLibrary 
 
 ## Timeouts & Pool Sizing
 
-- Inner poll budgets (event waits in `fixtures/events.ts`, sandbox polls in `fixtures/sandbox.ts`) are sized generously and kept comfortably below the outer 180s per-test timeout (`package.json`), so a genuine hang still fails. Automation and sandbox results flow through the durable-queue pipeline, whose p99 latency spikes under full-suite load — that's what the headroom is for.
+- Inner poll budgets (event waits in `fixtures/events.ts`, sandbox polls in `fixtures/sandbox.ts`) are sized generously and kept comfortably below the outer 180s per-test timeout (`testTimeout`/`hookTimeout` in `vitest.config.ts`), so a genuine hang still fails. Automation and sandbox results flow through the durable-queue pipeline, whose p99 latency spikes under full-suite load — that's what the headroom is for.
 - `DATABASE_WORKFLOW_POOL_MAX` (`support/provisioning.ts`) must exceed `SANDBOX_WORKER_CONCURRENCY` plus headroom: the cluster `SingleRunner` permanently reserves one connection even though advisory shard locks are disabled, so usable connections = max − 1. Starving this pool manifests as random cross-cutting timeouts, not an obvious pool-exhaustion error. The Postgres container's `max_connections` must in turn cover the app pool, the workflow pool, and the harness pool combined.
 
 ## Isolation
