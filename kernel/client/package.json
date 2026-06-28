@@ -18,6 +18,8 @@
 		"@fontsource-variable/outfit": "5.3.0",
 		"@ryot/client-ui-sdk": "workspace:*",
 		"@ryot/contract": "workspace:*",
+		"@ryot/ryotql": "workspace:*",
+		"@ryot/ryotql-recipes": "workspace:*",
 		"@tailwindcss/vite": "^4.1.18",
 		"@tanstack/react-form": "2.0.0-alpha.1",
 		"@tanstack/react-router": "latest",
