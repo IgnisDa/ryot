@@ -27,9 +27,11 @@ export const EntityDetail = Schema.Struct({
 
 export type EntityDetail = typeof EntityDetail.Type;
 
-const RequiredEntitySchemaSlug = Schema.Trim.pipe(
-	Schema.filter((value) => value.length > 0, { message: () => "Entity schema id is required" }),
-	Schema.brand("EntitySchemaSlug"),
+const RequiredEntitySchemaSlug = Schema.compose(
+	Schema.Trim.pipe(
+		Schema.filter((value) => value.length > 0, { message: () => "Entity schema id is required" }),
+	),
+	EntitySchemaSlug,
 );
 
 const OptionalExternalId = Schema.transform(Schema.String, Schema.UndefinedOr(Schema.String), {
