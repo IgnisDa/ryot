@@ -5,6 +5,7 @@ import type {
 	ListedIntegration,
 } from "@ryot/contract/modules/integrations/schemas";
 import { isSinkProvider, type IntegrationLot } from "@ryot/contract/modules/integrations/types";
+import type { ImportRunId } from "@ryot/contract/schema/brands";
 import { IntegrationId, UserId } from "@ryot/contract/schema/brands";
 import { and, desc, eq } from "drizzle-orm";
 import { Effect } from "effect";
@@ -203,9 +204,9 @@ export class IntegrationsRepository extends Effect.Service<IntegrationsRepositor
 
 			const updateForUser = Effect.fn("IntegrationsRepository.updateForUser")(function* (input: {
 				userId: UserId;
+				integrationId: IntegrationId;
 				name?: string | null | undefined;
 				isDisabled?: boolean | undefined;
-				integrationId: IntegrationId;
 				syncOwnership?: boolean | undefined;
 				minimumProgress?: string | undefined;
 				maximumProgress?: string | undefined;
@@ -263,6 +264,43 @@ export class IntegrationsRepository extends Effect.Service<IntegrationsRepositor
 				return row ? normalizeIntegration(frontendUrl, row) : null;
 			});
 
+			const disableForUserIfEnabled = Effect.fn("IntegrationsRepository.disableForUserIfEnabled")(
+				function* (input: { userId: UserId; integrationId: IntegrationId }) {
+					const db = yield* CurrentDb;
+					const [row] = yield* dbEffect(() =>
+						db
+							.update(schema.integration)
+							.set({ isDisabled: true })
+							.where(and(ownedIntegrationWhere(input), eq(schema.integration.isDisabled, false)))
+							.returning({ id: schema.integration.id }),
+					);
+					return row !== undefined;
+				},
+			);
+
+			const hasAutoDisableClaim = Effect.fn("IntegrationsRepository.hasAutoDisableClaim")(
+				function* (importRunId: ImportRunId) {
+					const db = yield* CurrentDb;
+					const [row] = yield* dbEffect(() =>
+						db
+							.select({ importRunId: schema.integrationAutoDisableClaim.importRunId })
+							.from(schema.integrationAutoDisableClaim)
+							.where(eq(schema.integrationAutoDisableClaim.importRunId, importRunId))
+							.limit(1),
+					);
+					return row !== undefined;
+				},
+			);
+
+			const insertAutoDisableClaim = Effect.fn("IntegrationsRepository.insertAutoDisableClaim")(
+				function* (input: { importRunId: ImportRunId; integrationId: IntegrationId }) {
+					const db = yield* CurrentDb;
+					yield* dbEffect(() =>
+						db.insert(schema.integrationAutoDisableClaim).values(input).onConflictDoNothing(),
+					);
+				},
+			);
+
 			const deleteForUser = Effect.fn("IntegrationsRepository.deleteForUser")(function* (input: {
 				userId: UserId;
 				integrationId: IntegrationId;
@@ -272,14 +310,17 @@ export class IntegrationsRepository extends Effect.Service<IntegrationsRepositor
 			});
 
 			return {
-				createForUser,
-				getByIdAnyUser,
 				getForUser,
-				getUserDisableIntegrations,
-				listEnabledYankIntegrations,
 				listForUser,
+				createForUser,
 				updateForUser,
 				deleteForUser,
+				getByIdAnyUser,
+				hasAutoDisableClaim,
+				insertAutoDisableClaim,
+				disableForUserIfEnabled,
+				getUserDisableIntegrations,
+				listEnabledYankIntegrations,
 			};
 		}),
 	},

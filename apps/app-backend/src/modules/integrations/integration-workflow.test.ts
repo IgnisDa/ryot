@@ -6,6 +6,8 @@ import {
 	ImportRunId,
 	IntegrationId,
 	SandboxScriptId,
+	SignalId,
+	SignalSchemaId,
 	UserId,
 } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
@@ -23,6 +25,7 @@ import { ImportRunFailuresService } from "#modules/imports/failure-service";
 import { ImportsRepository } from "#modules/imports/repository";
 import { loadImportAdapterResult } from "#modules/imports/runtime/source-payload-store";
 import { ImportsService } from "#modules/imports/service";
+import { SignalEmissionService, type EmitSignalInput } from "#modules/signals/service";
 
 import { ProcessIntegrationRunWorkflow } from "./integration-workflow";
 import { runIntegrationRunWorkflow } from "./integration-workflow-live";
@@ -41,12 +44,13 @@ import {
 
 const now = "2026-06-17T00:00:00.000Z";
 
-const mockImportsRepository = Layer.mock(ImportsRepository);
-const mockImportRunFailuresService = Layer.mock(ImportRunFailuresService);
 const mockImportsService = Layer.mock(ImportsService);
-const mockIntegrationsRepository = Layer.mock(IntegrationsRepository);
-const mockIntegrationsService = Layer.mock(IntegrationsService);
+const mockImportsRepository = Layer.mock(ImportsRepository);
 const mockEntitiesRepository = Layer.mock(EntitiesRepository);
+const mockIntegrationsService = Layer.mock(IntegrationsService);
+const mockSignalEmissionService = Layer.mock(SignalEmissionService);
+const mockIntegrationsRepository = Layer.mock(IntegrationsRepository);
+const mockImportRunFailuresService = Layer.mock(ImportRunFailuresService);
 
 const mangaGroup = (overrides: Record<string, unknown> = {}) => ({
 	itemIndex: 0,
@@ -99,6 +103,7 @@ const makeIntegrationsRepository = (
 const makeIntegrationsService = (overrides: MockOverrides<typeof mockIntegrationsService> = {}) =>
 	mockIntegrationsService({
 		update: () => Effect.succeed(makeIntegration()),
+		disableIfEnabled: () => Effect.succeed(false),
 		...overrides,
 		_tag: "IntegrationsService",
 	});
@@ -137,6 +142,15 @@ const makeEntitiesRepository = (overrides: MockOverrides<typeof mockEntitiesRepo
 		_tag: "EntitiesRepository",
 	});
 
+const makeSignalEmissionService = (
+	overrides: MockOverrides<typeof mockSignalEmissionService> = {},
+) =>
+	mockSignalEmissionService({
+		_tag: "SignalEmissionService",
+		emit: () => Effect.die("unexpected signal emission"),
+		...overrides,
+	});
+
 const makeRedisLayer = () => {
 	const store = new Map<string, string>();
 	return Layer.succeed(
@@ -163,12 +177,13 @@ const makeRedisLayer = () => {
 };
 
 type TestLayerOptions = {
-	importsRepository?: Layer.Layer<ImportsRepository>;
 	importsService?: Layer.Layer<ImportsService>;
-	importRunFailuresService?: Layer.Layer<ImportRunFailuresService>;
-	integrationsRepository?: Layer.Layer<IntegrationsRepository>;
+	importsRepository?: Layer.Layer<ImportsRepository>;
 	integrationsService?: Layer.Layer<IntegrationsService>;
+	signalEmissionService?: Layer.Layer<SignalEmissionService>;
+	integrationsRepository?: Layer.Layer<IntegrationsRepository>;
 	integrationOperations?: Partial<IntegrationRunOperationsValue>;
+	importRunFailuresService?: Layer.Layer<ImportRunFailuresService>;
 };
 
 const makeIntegrationOperations = (overrides: Partial<IntegrationRunOperationsValue> = {}) =>
@@ -192,6 +207,7 @@ const makeTestLayer = (options: TestLayerOptions) =>
 		options.importRunFailuresService ?? makeImportRunFailuresService(),
 		options.integrationsRepository ?? makeIntegrationsRepository(),
 		options.integrationsService ?? makeIntegrationsService(),
+		options.signalEmissionService ?? makeSignalEmissionService(),
 		makeEntitiesRepository(),
 	);
 
@@ -668,8 +684,8 @@ it.effect("records a YouTube Music sandbox failure as a source-fetch failure", (
 });
 
 it.effect("disables a yank integration after continuous failures during finalization", () => {
+	let emitted: EmitSignalInput | undefined;
 	const integrationUpdates: Array<Record<string, unknown>> = [];
-	const notificationDispatches: Array<Record<string, unknown>> = [];
 
 	const options = {
 		integrationOperations: {
@@ -694,9 +710,29 @@ it.effect("disables a yank integration after continuous failures during finaliza
 				),
 		}),
 		integrationsService: makeIntegrationsService({
-			update: (userId, integrationId, body) => {
-				integrationUpdates.push({ userId, integrationId, ...body });
-				return Effect.succeed(makeKomgaIntegration({ isDisabled: true }));
+			disableIfEnabled: (userId, integrationId, runId) => {
+				integrationUpdates.push({ userId, integrationId, runId, isDisabled: true });
+				return Effect.succeed(true);
+			},
+		}),
+		signalEmissionService: makeSignalEmissionService({
+			emit: (input) => {
+				emitted = input;
+				return Effect.succeed({
+					wasCreated: true,
+					recipientUserIds: input.principal.kind === "user" ? [input.principal.userId] : [],
+					signal: {
+						origin: input.origin,
+						subjectEntityId: null,
+						schemaSlug: input.schemaSlug,
+						id: SignalId.make("signal-1"),
+						createdAt: "2026-06-17T00:00:00.000Z",
+						occurredAt: input.occurredAt.toISOString(),
+						signalSchemaId: SignalSchemaId.make("signal-schema-1"),
+						properties: { integrationId: "int_1", providerName: "komga" },
+						actorUserId: input.principal.kind === "user" ? input.principal.userId : null,
+					},
+				});
 			},
 		}),
 	} satisfies TestLayerOptions;
@@ -708,36 +744,17 @@ it.effect("disables a yank integration after continuous failures during finaliza
 			yield* runIntegrationRunWorkflow(yankPayload, "run_1");
 
 			expect(integrationUpdates).toEqual([
-				{ userId: "user_1", isDisabled: true, integrationId: "int_1" },
+				{ userId: "user_1", runId: "run_1", isDisabled: true, integrationId: "int_1" },
 			]);
-			expect(notificationDispatches).toEqual([
-				{
-					workflowName: "NotificationDeliveryWorkflow",
-					// The engine-level id is a hash of the workflow idempotency key
-					// (payload.executionId), so only the payload carries the raw value.
-					executionId: expect.any(String),
-					payload: {
-						userId: "user_1",
-						executionId: "run_1-integration-disabled",
-						request: {
-							kind: "event",
-							eventType: "integration_disabled_due_to_too_many_errors",
-							message: "Integration komga has been disabled due to too many errors",
-						},
-					},
-				},
-			]);
+			expect(emitted).toMatchObject({
+				executionId: "run_1",
+				discriminator: "int_1",
+				schemaSlug: "integration.disabled",
+				principal: { kind: "user", userId: "user_1" },
+				properties: { integrationId: "int_1", providerName: "komga" },
+				origin: { kind: "integration", importRunId: "run_1", integrationId: "int_1" },
+			});
+			expect(emitted?.occurredAt).toBeInstanceOf(Date);
 		}),
-		{
-			execute: (workflow, dispatch) =>
-				Effect.sync(() => {
-					notificationDispatches.push({
-						payload: dispatch.payload,
-						workflowName: workflow.name,
-						executionId: dispatch.executionId,
-					});
-					return undefined;
-				}),
-		},
 	);
 });

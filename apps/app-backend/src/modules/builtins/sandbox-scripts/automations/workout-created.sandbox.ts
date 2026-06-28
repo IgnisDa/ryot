@@ -1,0 +1,26 @@
+import { defineManifest } from "@ryot/sandbox-sdk";
+import { defineAutomation } from "@ryot/sandbox-sdk/automation";
+
+export const manifest = defineManifest({
+	kind: "automation",
+	requiredAppConfigKeys: [],
+	capabilities: ["emitSignal"],
+	name: "Workout Created Detector",
+	slug: "automation.workout-created",
+});
+
+export default defineAutomation({
+	manifest,
+	run: ({ automation }, host) => {
+		const entity = automation.source.kind === "entity" ? automation.source.after : undefined;
+		if (automation.origin.kind !== "api" || entity?.entitySchemaSlug !== "workout") {
+			return Promise.resolve(null);
+		}
+
+		return host.emitSignal({
+			discriminator: entity.id,
+			schemaSlug: "workout.created",
+			properties: { workoutId: entity.id, workoutName: entity.name },
+		});
+	},
+});
