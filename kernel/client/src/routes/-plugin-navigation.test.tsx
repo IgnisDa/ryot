@@ -471,12 +471,15 @@ describe("client page routes", () => {
 		const view = mount({ entry: "/fixture?keep=1&dialog=open" });
 		const bridge = connectFrame(await screen.findByTitle("fixture plugin"));
 		await waitFor(() => expect(bridge.messages).toHaveLength(1));
+		const initialNavigation = Schema.decodeUnknownSync(PluginBridgeLocation)(bridge.messages[0]);
 		bridge.port.postMessage({
 			mode: "push",
 			type: "navigate",
 			target: { kind: "plugin-route", pluginSlug: "journal", path: "/entries", search: "q=x" },
 		});
 		await waitFor(() => expect(view.router.state.location.pathname).toBe("/journal/entries"));
+		expect(view.router.state.location.state.ryotEntryKey).toEqual(expect.any(String));
+		expect(view.router.state.location.state.ryotEntryKey).not.toBe(initialNavigation.key);
 
 		view.unmount();
 		const searchView = mount({ entry: "/fixture?keep=1&dialog=open" });
@@ -495,9 +498,8 @@ describe("client page routes", () => {
 		const replacedSearch = Schema.decodeUnknownSync(PluginBridgeLocation)(searchBridge.messages[1]);
 		expect(replacedSearch).toMatchObject({
 			index: initialSearch.index,
-			screenKey: initialSearch.screenKey,
+			key: initialSearch.key,
 		});
-		expect(replacedSearch.key).not.toBe(initialSearch.key);
 	});
 
 	it("prepares entities directly and allows a disabled ready installation", async () => {

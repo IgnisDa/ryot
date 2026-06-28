@@ -248,7 +248,6 @@ export const mountPluginPage = (
 			key: "k0",
 			compact: false,
 			edgeBack: false,
-			screenKey: "k0",
 			type: "location",
 			leading: "drawer",
 			...overrides,
