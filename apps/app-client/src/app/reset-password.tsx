@@ -69,7 +69,7 @@ export default function ResetPassword() {
 			<Redirect
 				href={{
 					pathname: "/onboarding",
-					params: { next: `/reset-password?token=${encodeURIComponent(resetToken)}` },
+					params: { redirectTo: `/reset-password?token=${encodeURIComponent(resetToken)}` },
 				}}
 			/>
 		);
