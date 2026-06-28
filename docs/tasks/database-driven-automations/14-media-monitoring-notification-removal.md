@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -29,13 +29,30 @@ only, and a repository-wide search finds no direct delivery call in media monito
 
 ## Acceptance criteria
 
-- [ ] Media monitoring contains no direct notification workflow calls and no message
-      construction; a test pins this
-- [ ] Every detected change in the PRD's sole-producers table is covered by a parity test through
+- [x] Media monitoring contains no direct notification workflow calls and no message construction
+- [x] Every detected change in the PRD's sole-producers table is covered by a parity test through
       the signal path
-- [ ] Every active catalog signal schema has an enabled producer
-- [ ] The documentation cutover is complete; no sibling document describes configured events or
+- [x] Every active catalog signal schema has an enabled producer
+- [x] The documentation cutover is complete; no sibling document describes configured events or
       the trigger model as current behavior
+
+## Implementation notes
+
+- `MediaMonitoringRefreshWorkflow` now only composes the provider-population workflow. Lifecycle
+  detectors emit signals from the population mutation envelopes, and user-owned subscriptions
+  resolve the monitoring audience and deliver notifications.
+- Removed the media-monitoring snapshot diff, message builders, post-refresh subscriber fan-out,
+  and the repository queries that existed only for that path.
+- Existing detector and notification-script tests cover every media signal in the sole-producers
+  table. The infrequent-refresh e2e cases now prove baseline silence, status-change delivery, and
+  independent season/episode delivery through signal subscriptions; association e2e coverage
+  remains in its dedicated suite.
+- Added a catalog-gating test that requires every active signal schema to have a linked lifecycle
+  producer, except `integration.disabled`, whose integration workflow author path is covered by its
+  workflow test.
+- The planned source-text test asserting that removed implementation names stay absent was not
+  retained, per explicit direction to remove references to the old code. Functional signal-path
+  coverage and a repository search were used instead.
 
 ## User stories addressed
 
