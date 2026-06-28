@@ -8,7 +8,7 @@ The sandbox runs untrusted user code in single-use Deno subprocesses, exposes se
 
 - `service.ts`: builds execution payloads, registers bridge sessions, checks out Deno subprocesses, and returns sandbox results.
 - `runtime.ts`: owns the Deno runner file, process pool, package cache, and bridge server.
-- `runner-source.sandbox.js`: source executed by each Deno subprocess.
+- `runner-source.sandbox.ts` + `runner-utilities.sandbox.ts`: the TypeScript-authored Deno runner. `sandbox:compile` bundles them ahead of execution into the ignored `runner.generated.ts`, and `sandbox:check-runner` (`deno check` with `deno.json`) type-checks them with Deno globals outside the backend `tsc`.
 - `host-functions.ts`: app-bound bridge functions for user, entity, event, integration, query-engine, and config access.
 - `shared.ts`: shared types and helpers for host-function implementations.
 - Sandbox scripts and script-side helpers (`providers/`, `triggers/`, `script-helpers/`) live under `modules/builtins/sandbox-scripts/`, not here — this folder is only the execution runtime.
@@ -59,13 +59,13 @@ Format-1 user modules can import the SDK root plus the explicit `/zod`, `/dayjs`
 
 `PackageCacheManager` builds the exact pinned package versions into self-contained ESM files under an immutable, content-addressed, read-only directory in `SANDBOX_DENO_DIR`. Its Deno import map resolves approved SDK imports to those local files. A separate content-addressed Deno cache starts without registry packages. Concurrent builders publish atomically and reuse the same verified module set.
 
-Temporary format-0 compilation rewrites the built-ins' existing `npm:` dependency strings to the corresponding approved SDK paths. The runtime's `/youtubei` module uses youtubei.js's Deno/server platform, and the explicit Day.js plugin path preserves existing custom-parse-format imports during incremental migration.
+Built-ins import the same approved SDK entry points as user scripts. The runtime's `/youtubei` module uses youtubei.js's Deno/server platform, and the explicit Day.js plugin path backs the `/dayjs/custom-parse-format` entry point.
 
 Deno receives the import map and runs with `--cached-only`, `--no-npm`, `--no-remote`, `--no-config`, and `--no-lock`; execution never resolves a registry, npm cache, ambient project configuration, or remote URL. Updating an approved package changes the generated content hash automatically; the manual runtime format is reserved for incompatible loader-policy changes.
 
 ## Host Functions
 
-Host functions are bridge handlers exposed only when listed in format-1 manifest `capabilities` or temporary format-0 `metadata.allowedHostFunctions`. The backend intersects those declarations with its implementation registry, and the format-1 runner intersects the approved names with the compiled definition's manifest before constructing the driver host.
+Host functions are bridge handlers exposed only when listed in the compiled module's manifest `capabilities`. The backend intersects those declarations with its implementation registry, and the runner intersects the approved names with the compiled definition's manifest before constructing the driver host.
 
 | Scope   | Functions                                                                                                                                                          |
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -83,7 +83,7 @@ Script-scoped functions use execution metadata such as `scriptId`. User-scoped f
 2. Implement the context-first method in the typed backend registry in `service.ts` or `host-functions.ts`.
 3. Decode its untrusted RPC argument array in `bridge-adapter.ts`; implementation functions must not accept unknown argument arrays.
 4. Use `requireUserSandboxRunInput(input, fnName)` for user-scoped functions.
-5. Add the function name to this section and to any temporary format-0 script metadata that should be allowed to call it.
+5. Add the function name to this section.
 
 ## Driver Functions
 
@@ -102,7 +102,7 @@ const main = defineDriver(manifest, {
 export default defineScript({ manifest, drivers: { main } });
 ```
 
-The SDK run function receives `(input, host, execution)`. `execution` contains `{ metadata, sandboxScriptId }`. Temporary format-0 built-ins continue to register legacy `driver(name, fn)` functions inside their compatibility module.
+The SDK run function receives `(input, host, execution)`. `execution` contains `{ metadata, sandboxScriptId }`.
 
 ## Errors And Debugging
 

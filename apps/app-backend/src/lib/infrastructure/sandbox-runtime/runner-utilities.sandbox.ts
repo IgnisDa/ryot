@@ -1,48 +1,119 @@
+export interface SandboxRunnerLimits {
+	readonly resultBytes: number;
+	readonly hostCallCount: number;
+	readonly httpCallCount: number;
+	readonly logEntryBytes: number;
+	readonly logEntryCount: number;
+	readonly logTotalBytes: number;
+	readonly bridgeRequestBytes: number;
+	readonly bridgeResponseBytes: number;
+	readonly logTruncationMarker: string;
+}
+
+export interface SandboxRunnerPayload {
+	readonly token: string;
+	readonly apiBase: string;
+	readonly scriptId: string;
+	readonly context?: unknown;
+	readonly driverName: string;
+	readonly executionId: string;
+	readonly compiledCode: string;
+	readonly apiFunctions?: unknown;
+	readonly compiledFormat: number;
+	readonly limits: SandboxRunnerLimits;
+	readonly metadata?: Record<string, unknown>;
+}
+
+export interface SandboxRunnerError {
+	readonly line?: number;
+	readonly phase: string;
+	readonly stack?: string;
+	readonly column?: number;
+	readonly message: string;
+}
+
+export interface SandboxLogCollector {
+	readonly logs: string[];
+	readonly console: {
+		readonly log: (...args: unknown[]) => void;
+		readonly info: (...args: unknown[]) => void;
+		readonly warn: (...args: unknown[]) => void;
+		readonly debug: (...args: unknown[]) => void;
+		readonly error: (...args: unknown[]) => void;
+	};
+}
+
 const mathMax = Math.max;
 const mathMin = Math.min;
 const decoder = new TextDecoder();
 const encoder = new TextEncoder();
 const reflectApply = Reflect.apply;
 const arrayIsArray = Array.isArray;
-const failurePhases = new WeakMap();
 const nativeError = globalThis.Error;
 const nativeNumber = globalThis.Number;
 const nativeString = globalThis.String;
+const failurePhases = new WeakMap<object, string>();
 const jsonStringify = JSON.stringify.bind(JSON);
 const encodeText = encoder.encode.bind(encoder);
 const decodeText = decoder.decode.bind(decoder);
-const sourceFramePattern =
-	/(?:(?:sandbox-user:)?script\.ts|(?:sandbox-built-in:)?(?:providers|triggers|script-helpers)\/[a-zA-Z0-9_./-]+\.ts):(\d+):(\d+)/;
 const getFailurePhase = failurePhases.get.bind(failurePhases);
 const setFailurePhase = failurePhases.set.bind(failurePhases);
-const typedArrayPrototype = Object.getPrototypeOf(Uint8Array.prototype);
 const truncationDecoder = new TextDecoder("utf-8", { fatal: true });
+const typedArrayPrototype = Object.getPrototypeOf(Uint8Array.prototype) as object;
 const decodeTruncatedText = truncationDecoder.decode.bind(truncationDecoder);
-const arrayJoin = Object.getOwnPropertyDescriptor(Array.prototype, "join").value;
-const arrayPush = Object.getOwnPropertyDescriptor(Array.prototype, "push").value;
-const regexpExec = Object.getOwnPropertyDescriptor(RegExp.prototype, "exec").value;
-const stringTrim = Object.getOwnPropertyDescriptor(String.prototype, "trim").value;
-const stringSplit = Object.getOwnPropertyDescriptor(String.prototype, "split").value;
-const typedArraySet = Object.getOwnPropertyDescriptor(typedArrayPrototype, "set").value;
-const stringReplace = Object.getOwnPropertyDescriptor(String.prototype, "replace").value;
-const typedArraySubarray = Object.getOwnPropertyDescriptor(typedArrayPrototype, "subarray").value;
+const sourceFramePattern =
+	/(?:(?:sandbox-user:)?script\.ts|(?:sandbox-built-in:)?(?:providers|triggers|script-helpers)\/[a-zA-Z0-9_./-]+\.ts):(\d+):(\d+)/;
 
-const join = (values, separator) => reflectApply(arrayJoin, values, [separator]);
-const push = (values, value) => reflectApply(arrayPush, values, [value]);
-const replace = (value, pattern, replacement) =>
+const ownMethod = <T>(prototype: object, name: string): T => {
+	const descriptor = Object.getOwnPropertyDescriptor(prototype, name);
+	if (!descriptor) {
+		throw new nativeError(`Sandbox runner could not resolve ${name}`);
+	}
+	return descriptor.value as T;
+};
+
+const arrayJoin = ownMethod<(this: readonly unknown[], separator?: string) => string>(
+	Array.prototype,
+	"join",
+);
+const arrayPush = ownMethod<(this: unknown[], value: unknown) => number>(Array.prototype, "push");
+const regexpExec = ownMethod<(this: RegExp, value: string) => RegExpExecArray | null>(
+	RegExp.prototype,
+	"exec",
+);
+const stringTrim = ownMethod<(this: string) => string>(String.prototype, "trim");
+const stringSplit = ownMethod<(this: string, separator: string | RegExp) => string[]>(
+	String.prototype,
+	"split",
+);
+const typedArraySet = ownMethod<
+	(this: Uint8Array, array: ArrayLike<number>, offset?: number) => void
+>(typedArrayPrototype, "set");
+const stringReplace = ownMethod<
+	(this: string, pattern: string | RegExp, replacement: string) => string
+>(String.prototype, "replace");
+const typedArraySubarray = ownMethod<
+	(this: Uint8Array, begin?: number, end?: number) => Uint8Array
+>(typedArrayPrototype, "subarray");
+
+const join = (values: readonly unknown[], separator: string): string =>
+	reflectApply(arrayJoin, values, [separator]);
+const push = <T>(values: T[], value: T): number => reflectApply(arrayPush, values, [value]);
+const replace = (value: string, pattern: string | RegExp, replacement: string): string =>
 	reflectApply(stringReplace, value, [pattern, replacement]);
-const split = (value, separator) => reflectApply(stringSplit, value, [separator]);
-const trim = (value) => reflectApply(stringTrim, value, []);
+const split = (value: string, separator: string | RegExp): string[] =>
+	reflectApply(stringSplit, value, [separator]);
+const trim = (value: string): string => reflectApply(stringTrim, value, []);
 
-export const isRecord = (value) =>
+export const isRecord = (value: unknown): value is Record<string, unknown> =>
 	value !== null && typeof value === "object" && !arrayIsArray(value);
 
-const formatArg = (value) => {
+const formatArg = (value: unknown): string => {
 	if (typeof value === "string") {
 		return value;
 	}
 	try {
-		return jsonStringify(value);
+		return nativeString(jsonStringify(value));
 	} catch {
 		try {
 			return nativeString(value);
@@ -52,7 +123,7 @@ const formatArg = (value) => {
 	}
 };
 
-const truncateUtf8 = (value, maximumBytes) => {
+const truncateUtf8 = (value: string, maximumBytes: number): string => {
 	const encoded = encodeText(value);
 	if (encoded.byteLength <= maximumBytes) {
 		return value;
@@ -68,8 +139,8 @@ const truncateUtf8 = (value, maximumBytes) => {
 	return "";
 };
 
-export const createLogCollector = (limits) => {
-	const logs = [];
+export const createLogCollector = (limits: SandboxRunnerLimits): SandboxLogCollector => {
+	const logs: string[] = [];
 	let totalBytes = 0;
 	let truncated = false;
 	const marker = limits.logTruncationMarker;
@@ -83,7 +154,7 @@ export const createLogCollector = (limits) => {
 		}
 	};
 
-	const append = (entry) => {
+	const append = (entry: string) => {
 		if (truncated) {
 			return;
 		}
@@ -114,7 +185,7 @@ export const createLogCollector = (limits) => {
 		appendMarker();
 	};
 
-	const write = (prefix, args) => {
+	const write = (prefix: string, args: unknown[]) => {
 		let entry = prefix;
 		for (let index = 0; index < args.length; index += 1) {
 			entry += (index === 0 ? "" : " ") + formatArg(args[index]);
@@ -134,12 +205,15 @@ export const createLogCollector = (limits) => {
 	};
 };
 
-export const readBridgeResponse = async (response, maximumBytes) => {
+export const readBridgeResponse = async (
+	response: Response,
+	maximumBytes: number,
+): Promise<{ body: string; oversized: boolean }> => {
 	if (!response.body) {
 		return { body: "", oversized: false };
 	}
 	const reader = response.body.getReader();
-	const chunks = [];
+	const chunks: Uint8Array[] = [];
 	let bytes = 0;
 	for (;;) {
 		const next = await reader.read();
@@ -158,22 +232,25 @@ export const readBridgeResponse = async (response, maximumBytes) => {
 	let offset = 0;
 	for (let index = 0; index < chunks.length; index += 1) {
 		const chunk = chunks[index];
+		if (!chunk) {
+			continue;
+		}
 		reflectApply(typedArraySet, body, [chunk, offset]);
 		offset += chunk.byteLength;
 	}
 	return { body: decodeText(body), oversized: false };
 };
 
-export const throwPhase = (phase, error) => {
+export const throwPhase = (phase: string, error: unknown): never => {
 	const failure = isRecord(error) ? error : new nativeError(nativeString(error));
 	setFailurePhase(failure, phase);
 	throw failure;
 };
 
-export const failurePhase = (error, fallback) =>
+export const failurePhase = (error: unknown, fallback: string): string =>
 	isRecord(error) ? (getFailurePhase(error) ?? fallback) : fallback;
 
-const safeErrorProperty = (error, property) => {
+const safeErrorProperty = (error: unknown, property: string): string | undefined => {
 	try {
 		const value = isRecord(error) ? error[property] : undefined;
 		return typeof value === "string" ? value : undefined;
@@ -182,7 +259,12 @@ const safeErrorProperty = (error, property) => {
 	}
 };
 
-const sanitizeMessage = (message, payload, phase, hasMappedFrames) => {
+const sanitizeMessage = (
+	message: string,
+	payload: SandboxRunnerPayload | undefined,
+	phase: string,
+	hasMappedFrames: boolean,
+): string => {
 	let sanitized = message;
 	const secrets = [payload?.token, payload?.apiBase, payload?.executionId];
 	for (let index = 0; index < secrets.length; index += 1) {
@@ -197,8 +279,9 @@ const sanitizeMessage = (message, payload, phase, hasMappedFrames) => {
 	if (phase === "load" && !hasMappedFrames) {
 		const lines = split(sanitized, "\n");
 		for (let index = 0; index < lines.length; index += 1) {
-			if (trim(lines[index])) {
-				return lines[index];
+			const line = lines[index];
+			if (line && trim(line)) {
+				return line;
 			}
 		}
 		return "Sandbox module failed to load";
@@ -206,12 +289,20 @@ const sanitizeMessage = (message, payload, phase, hasMappedFrames) => {
 	return sanitized;
 };
 
-export const executionError = (error, phase, payload) => {
+export const executionError = (
+	error: unknown,
+	phase: string,
+	payload: SandboxRunnerPayload | undefined,
+): SandboxRunnerError => {
 	const rawStack = safeErrorProperty(error, "stack") ?? "";
-	const frames = [];
+	const frames: Array<{ line: number; column: number }> = [];
 	const lines = split(rawStack, "\n");
 	for (let index = 0; index < lines.length; index += 1) {
-		const match = reflectApply(regexpExec, sourceFramePattern, [lines[index]]);
+		const line = lines[index];
+		if (!line) {
+			continue;
+		}
+		const match = reflectApply(regexpExec, sourceFramePattern, [line]);
 		if (!match?.[1] || !match[2]) {
 			continue;
 		}
@@ -237,6 +328,9 @@ export const executionError = (error, phase, payload) => {
 	let sanitizedStack = "";
 	for (let index = 0; index < frames.length; index += 1) {
 		const frame = frames[index];
+		if (!frame) {
+			continue;
+		}
 		sanitizedStack += `${sanitizedStack ? "\n" : ""}    at script.ts:${frame.line}:${frame.column}`;
 	}
 	return {
@@ -247,7 +341,7 @@ export const executionError = (error, phase, payload) => {
 	};
 };
 
-export const validateLimits = (limits) => {
+export const validateLimits = (limits: unknown): limits is SandboxRunnerLimits => {
 	if (!isRecord(limits)) {
 		return false;
 	}
@@ -261,11 +355,10 @@ export const validateLimits = (limits) => {
 		"bridgeRequestBytes",
 		"bridgeResponseBytes",
 	]) {
-		if (!Number.isSafeInteger(limits[key]) || limits[key] <= 0) {
+		const value = limits[key];
+		if (!Number.isSafeInteger(value) || (typeof value === "number" && value <= 0)) {
 			return false;
 		}
 	}
 	return typeof limits.logTruncationMarker === "string" && limits.logTruncationMarker.length > 0;
 };
-
-export default "";

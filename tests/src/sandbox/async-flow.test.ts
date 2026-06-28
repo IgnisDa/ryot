@@ -336,7 +336,7 @@ describe("sandbox async flow", () => {
 		expect(result.error?.line).toBeGreaterThan(0);
 		expect(result.error?.column).toBeGreaterThan(0);
 		expect(result.error?.stack).not.toContain("data:application/javascript");
-		expect(result.error?.stack).not.toContain("runner-source.sandbox.js");
+		expect(result.error?.stack).not.toContain("runner.mjs");
 	});
 
 	it("rejects invalid TypeScript without creating a script row", async () => {
