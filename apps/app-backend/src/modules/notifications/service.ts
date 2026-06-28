@@ -102,7 +102,22 @@ export class NotificationsService extends Effect.Service<NotificationsService>()
 				return undefined;
 			});
 
-			return { create, delete: remove, list, test, trigger, update };
+			const sendMessage = Effect.fn("NotificationsService.sendMessage")(function* (input: {
+				userId: UserId;
+				message: string;
+				executionId?: string | undefined;
+			}) {
+				yield* provideWorkflowEngine(
+					enqueueNotificationDelivery({
+						userId: input.userId,
+						executionId: input.executionId,
+						request: { kind: "message", message: input.message },
+					}),
+				);
+				return undefined;
+			});
+
+			return { create, delete: remove, list, sendMessage, test, trigger, update };
 		}),
 	},
 ) {}
