@@ -63,11 +63,7 @@ it.effect("creates user-owned relationships with exact plugin provenance", () =>
 			entries: [{ entityId: entityId("related"), properties: {} }],
 		});
 		expect(created).toMatchObject([
-			{
-				userId,
-				scope: "user",
-				relationshipSchemaPluginId: "private-plugin-id",
-			},
+			{ userId, scope: "user", relationshipSchemaPluginId: "private-plugin-id" },
 		]);
 	}).pipe(Effect.provide(layer));
 });
@@ -188,10 +184,7 @@ it.effect(
 					{ entityId: entityId("created"), properties: { roles: ["actor"] } },
 					{ entityId: entityId("same"), properties: { roles: ["actor"] } },
 					{ entityId: entityId("changed"), properties: { roles: ["actor", "director"] } },
-					{
-						entityId: entityId("conflict-update"),
-						properties: { roles: ["actor", "director"] },
-					},
+					{ entityId: entityId("conflict-update"), properties: { roles: ["actor", "director"] } },
 					{ entityId: entityId("conflict-noop"), properties: { roles: ["actor"] } },
 				],
 			});

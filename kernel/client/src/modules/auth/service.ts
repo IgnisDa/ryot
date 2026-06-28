@@ -110,9 +110,7 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 				.pipe(Effect.mapError((cause) => new OAuthTokenError({ reason: "request-failed", cause })));
 			const probe = yield* tokens.accessToken(origin, clientId).pipe(
 				Effect.map(
-					(token): AuthorizationProbe => ({
-						kind: token === null ? "unauthorized" : "authorized",
-					}),
+					(token): AuthorizationProbe => ({ kind: token === null ? "unauthorized" : "authorized" }),
 				),
 				Effect.catchTag("OAuthTokenError", (error) => {
 					if (isLostAuthorization(error)) {

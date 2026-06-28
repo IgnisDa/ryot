@@ -1,7 +1,4 @@
-export type PokemonTypesProps = {
-	readonly name: string;
-	readonly types: readonly string[];
-};
+export type PokemonTypesProps = { readonly name: string; readonly types: readonly string[] };
 
 const PokemonTypes = ({ name, types }: PokemonTypesProps) => (
 	<section className="rounded-lg border border-border bg-surface p-4 text-text">

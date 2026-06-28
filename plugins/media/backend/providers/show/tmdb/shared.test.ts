@@ -154,14 +154,7 @@ describe("show.tmdb sandbox script", () => {
 					name: "Season 1",
 					poster_path: "/season.jpg",
 					season_number: 1,
-					episodes: [
-						{
-							id: 11,
-							name: "Pilot",
-							episode_number: 1,
-							still_path: "/still.jpg",
-						},
-					],
+					episodes: [{ id: 11, name: "Pilot", episode_number: 1, still_path: "/still.jpg" }],
 				});
 			}
 			return httpSuccess({
@@ -258,11 +251,7 @@ describe("show.tmdb sandbox script", () => {
 							externalId: "2",
 							language: "fr",
 							entitySchemaSlug: "show-episode",
-							properties: {
-								parentShowExternalId: "1",
-								seasonNumber: 1,
-								episodeNumber: 2,
-							},
+							properties: { parentShowExternalId: "1", seasonNumber: 1, episodeNumber: 2 },
 						},
 						host,
 						execution,

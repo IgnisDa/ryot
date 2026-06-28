@@ -28,10 +28,7 @@ const makeDb = () => {
 		from: () => ({
 			where: (condition: Parameters<typeof dialect.sqlToQuery>[0]) => {
 				state.queryParams = dialect.sqlToQuery(condition).params;
-				return {
-					limit: () => Effect.succeed([row]),
-					orderBy: () => Effect.succeed([row]),
-				};
+				return { limit: () => Effect.succeed([row]), orderBy: () => Effect.succeed([row]) };
 			},
 		}),
 	});
@@ -48,10 +45,7 @@ it.effect("preserves falsy JSON metadata loaded from notification state", () => 
 	const db = makeDb();
 	return Effect.gen(function* () {
 		const repository = yield* AutomationsRepository;
-		const subscription = yield* repository.findNotificationSubscription({
-			userId,
-			ruleId: row.id,
-		});
+		const subscription = yield* repository.findNotificationSubscription({ userId, ruleId: row.id });
 		expect(subscription?.metadata).toBe(false);
 	}).pipe(Effect.provide(makeLayer(db)));
 });

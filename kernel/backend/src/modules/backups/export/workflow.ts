@@ -17,10 +17,7 @@ const EXPORT_EXPIRY_MILLIS = 24 * 60 * 60 * 1_000;
 const dateFromMillis = (milliseconds: number) => new Date(milliseconds);
 const MAX_ARCHIVE_BYTES = ARCHIVE_LIMITS.maxTotalUncompressedBytes + 64 * 1024 * 1024;
 
-const ExportBackupWorkflowPayload = Schema.Struct({
-	userId: UserId,
-	runId: BackupRunId,
-});
+const ExportBackupWorkflowPayload = Schema.Struct({ userId: UserId, runId: BackupRunId });
 type ExportBackupWorkflowPayload = typeof ExportBackupWorkflowPayload.Type;
 
 const ExportArtifact = Schema.Struct({

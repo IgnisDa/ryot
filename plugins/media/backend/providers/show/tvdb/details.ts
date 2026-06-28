@@ -148,9 +148,7 @@ export const getTvdbShowDetails = (
 					Effect.map(
 						Effect.all(
 							batch.map((sid) => tvdbGet(host, `/seasons/${sid}/extended`)),
-							{
-								concurrency: "unbounded",
-							},
+							{ concurrency: "unbounded" },
 						),
 						(results) => [...responses, ...results],
 					),

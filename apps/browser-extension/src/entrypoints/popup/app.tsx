@@ -49,10 +49,7 @@ const App = () => {
 		try {
 			const parsedUrl = new URL(urlString);
 			if (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:") {
-				setFormState((prev) => ({
-					...prev,
-					error: "URL must start with http:// or https://",
-				}));
+				setFormState((prev) => ({ ...prev, error: "URL must start with http:// or https://" }));
 				return false;
 			}
 			setFormState((prev) => ({ ...prev, error: undefined }));
@@ -75,9 +72,7 @@ const App = () => {
 
 		const loadExtensionStatus = async () => {
 			try {
-				const response = await browser.runtime.sendMessage({
-					type: MESSAGE_TYPES.GET_STATUS,
-				});
+				const response = await browser.runtime.sendMessage({ type: MESSAGE_TYPES.GET_STATUS });
 				if (response.success) {
 					setExtensionStatus(response.data);
 				}

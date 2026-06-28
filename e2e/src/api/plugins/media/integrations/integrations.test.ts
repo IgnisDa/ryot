@@ -191,9 +191,7 @@ describe("Progress normalization", () => {
 				expect(progressEvents).toHaveLength(1);
 				expect(
 					requirePresent(progressEvents[0], "Expected progress event").properties,
-				).toMatchObject({
-					progressPercent: 50,
-				});
+				).toMatchObject({ progressPercent: 50 });
 			}),
 	);
 });

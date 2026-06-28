@@ -23,10 +23,7 @@ const completeReplay = async <Input extends JsonValue>(
 			run(
 				input,
 				{ replayJournal: () => Effect.succeed(journal) },
-				{
-					metadata: {},
-					sandboxScriptId: "workflow-test",
-				},
+				{ metadata: {}, sandboxScriptId: "workflow-test" },
 			),
 		).then((envelope) => {
 			if (envelope.state === "completed") {

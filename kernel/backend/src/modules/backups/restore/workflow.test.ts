@@ -224,9 +224,7 @@ it.effect("keeps a committed restore successful when spool cleanup fails", () =>
 	const fileSystem = Layer.effect(
 		FileSystem.FileSystem,
 		Effect.map(FileSystem.FileSystem, (fs) =>
-			Object.assign(Object.create(fs), {
-				remove: () => Effect.die("spool cleanup failed"),
-			}),
+			Object.assign(Object.create(fs), { remove: () => Effect.die("spool cleanup failed") }),
 		),
 	).pipe(Layer.provide(BunFileSystem.layer));
 
@@ -252,9 +250,7 @@ it.effect("keeps a committed restore successful when spool cleanup fails", () =>
 					getRunById: () => Effect.succeed(runningRun),
 					updateProgress: () => Effect.succeed({ ...runningRun, progress: 90 }),
 				},
-				cleanliness: {
-					assertAccountIsClean: () => Effect.void.pipe(Effect.as(undefined)),
-				},
+				cleanliness: { assertAccountIsClean: () => Effect.void.pipe(Effect.as(undefined)) },
 				writer: {
 					assertRequiredPlugins: () => Effect.succeed(new Map()),
 					restoreRecords: () => Effect.void.pipe(Effect.as(undefined)),
@@ -460,9 +456,7 @@ it.effect("rolls back managed assets and domain rows and removes newly staged ob
 		Effect.provide(
 			makeLayer({
 				database,
-				cleanliness: {
-					assertAccountIsClean: () => Effect.void.pipe(Effect.as(undefined)),
-				},
+				cleanliness: { assertAccountIsClean: () => Effect.void.pipe(Effect.as(undefined)) },
 				repository: {
 					getRunById: () => Effect.succeed(runningRun),
 					updateProgress: () => Effect.die("failed transaction must not checkpoint"),

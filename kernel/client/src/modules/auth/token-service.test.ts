@@ -24,10 +24,7 @@ const idToken = (nonce: string) => {
 };
 
 const jsonResponse = (value: unknown, status = 200) =>
-	new Response(JSON.stringify(value), {
-		status,
-		headers: { "content-type": "application/json" },
-	});
+	new Response(JSON.stringify(value), { status, headers: { "content-type": "application/json" } });
 
 const requestUrl = (input: Parameters<typeof fetch>[0]) => {
 	if (typeof input === "string") {

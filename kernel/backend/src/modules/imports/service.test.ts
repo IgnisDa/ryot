@@ -36,13 +36,7 @@ import { ImportWorkflowPinning, type ImportWorkflowPinningValue } from "./workfl
 const now = "2026-07-16T00:00:00.000Z";
 const configSchema = {
 	unknownKeys: "strict",
-	fields: {
-		deltaApiKey: {
-			type: "string",
-			label: "Delta API key",
-			description: "Delta API key",
-		},
-	},
+	fields: { deltaApiKey: { type: "string", label: "Delta API key", description: "Delta API key" } },
 } as const;
 
 const uploadProperty = (extensions: ReadonlyArray<string>, required = true) => ({
@@ -228,10 +222,7 @@ it.effect("validates extensions against the claimed original file name", () => {
 		Layer.mergeAll(
 			makeImportSourceCatalog(
 				betaSource({
-					inputSchema: {
-						unknownKeys: "strict",
-						fields: { uploadToken: uploadProperty(["json"]) },
-					},
+					inputSchema: { unknownKeys: "strict", fields: { uploadToken: uploadProperty(["json"]) } },
 				}),
 			),
 			mockUploadsService({
@@ -252,10 +243,7 @@ it.effect("validates extensions against the claimed original file name", () => {
 
 	return Effect.gen(function* () {
 		const error = yield* Effect.flip(
-			(yield* ImportsService).startImportRun(user, {
-				source: "beta",
-				uploadToken: "tok_beta",
-			}),
+			(yield* ImportsService).startImportRun(user, { source: "beta", uploadToken: "tok_beta" }),
 		);
 		expect(error).toMatchObject({
 			reason: { code: "unsupported-file-extension", allowedExtensions: ["json"] },
@@ -287,10 +275,7 @@ it.effect("rejects temporary uploads claimed from S3 storage", () => {
 
 	return Effect.gen(function* () {
 		const error = yield* Effect.flip(
-			(yield* ImportsService).startImportRun(user, {
-				source: "beta",
-				uploadToken: "tok_s3",
-			}),
+			(yield* ImportsService).startImportRun(user, { source: "beta", uploadToken: "tok_s3" }),
 		);
 		expect(error).toMatchObject({ reason: { code: "upload-unavailable", field: "uploadToken" } });
 		expect(deletedIntentIds).toEqual(["intent-s3"]);
@@ -428,9 +413,7 @@ it.effect("rejects undeclared upload token fields before claims or work", () => 
 		makeImportsRepository(),
 		Layer.mergeAll(
 			makeImportSourceCatalog(betaSource()),
-			mockUploadsService({
-				claimTemporaryUpload: () => Effect.die("must not claim"),
-			}),
+			mockUploadsService({ claimTemporaryUpload: () => Effect.die("must not claim") }),
 			Layer.succeed(
 				WorkflowEngine,
 				makeWorkflowEngine({ execute: () => Effect.die("must not start") }),
@@ -455,19 +438,14 @@ it.effect("rejects a source whose declared plugin config keys are unset", () => 
 		makeImportsRepository(),
 		Layer.mergeAll(
 			makeImportSourceCatalog(betaSource({ requiredPluginConfigKeys: ["deltaApiKey"] })),
-			mockUploadsService({
-				claimTemporaryUpload: () => Effect.die("must not claim"),
-			}),
+			mockUploadsService({ claimTemporaryUpload: () => Effect.die("must not claim") }),
 			Layer.succeed(WorkflowEngine, makeWorkflowEngine()),
 		),
 	);
 
 	return Effect.gen(function* () {
 		const error = yield* Effect.flip(
-			(yield* ImportsService).startImportRun(user, {
-				source: "beta",
-				uploadToken: "beta",
-			}),
+			(yield* ImportsService).startImportRun(user, { source: "beta", uploadToken: "beta" }),
 		);
 		expect(error).toMatchObject({
 			reason: {
@@ -572,17 +550,12 @@ it.effect("stores decoded payload credentials without exposing them in the input
 			),
 		),
 		importWorkflowPinningLayer,
-		makeRedisService({
-			set: (_key, value) => Effect.sync(() => void stored.push(value)),
-		}),
+		makeRedisService({ set: (_key, value) => Effect.sync(() => void stored.push(value)) }),
 	);
 
 	return Effect.gen(function* () {
 		expect(
-			yield* (yield* ImportsService).startImportRun(user, {
-				apiKey: "secret",
-				source: "beta",
-			}),
+			yield* (yield* ImportsService).startImportRun(user, { apiKey: "secret", source: "beta" }),
 		).toEqual({ id: "run-1" });
 		expect(createdInput?.inputSummary).toEqual({ source: "beta" });
 		const [options] = executed;
@@ -718,10 +691,7 @@ it.effect("rolls back uploads, source state, and the pin when file dispatch fail
 
 	return Effect.gen(function* () {
 		const error = yield* Effect.flip(
-			(yield* ImportsService).startImportRun(user, {
-				source: "beta",
-				uploadToken: "tok_beta",
-			}),
+			(yield* ImportsService).startImportRun(user, { source: "beta", uploadToken: "tok_beta" }),
 		);
 
 		expect(error).toMatchObject({ reason: { code: "queue-unavailable", operation: "import-run" } });
@@ -742,9 +712,7 @@ it.effect("cleans up claimed uploads without releasing a pin that never register
 	const deletedIntentIds: string[] = [];
 	const updates: Array<Record<string, unknown>> = [];
 	const layer = makeServiceLayer(
-		makeImportsRepository({
-			updateRun: (input) => Effect.sync(() => void updates.push(input)),
-		}),
+		makeImportsRepository({ updateRun: (input) => Effect.sync(() => void updates.push(input)) }),
 		Layer.mergeAll(
 			makeImportSourceCatalog(betaSource()),
 			mockUploadsService({
@@ -776,10 +744,7 @@ it.effect("cleans up claimed uploads without releasing a pin that never register
 
 	return Effect.gen(function* () {
 		const error = yield* Effect.flip(
-			(yield* ImportsService).startImportRun(user, {
-				source: "beta",
-				uploadToken: "tok_beta",
-			}),
+			(yield* ImportsService).startImportRun(user, { source: "beta", uploadToken: "tok_beta" }),
 		);
 
 		expect(error).toMatchObject({ reason: { code: "queue-unavailable", operation: "import-run" } });

@@ -217,11 +217,7 @@ describe("POST /uploads/intents", () => {
 			for (const contentType of ["", "application/octet-stream"]) {
 				const intent = yield* client.call((c) =>
 					c.uploads.createIntent({
-						payload: {
-							contentType,
-							kind: "temporary",
-							fileName: "fallback.csv",
-						},
+						payload: { contentType, kind: "temporary", fileName: "fallback.csv" },
 					}),
 				);
 				expect(intent.headers).toEqual({ "content-type": "text/csv" });
@@ -230,11 +226,7 @@ describe("POST /uploads/intents", () => {
 				const error = yield* Effect.flip(
 					client.call((c) =>
 						c.uploads.createIntent({
-							payload: {
-								fileName,
-								kind: "temporary",
-								contentType: "application/octet-stream",
-							},
+							payload: { fileName, kind: "temporary", contentType: "application/octet-stream" },
 						}),
 					),
 				);
@@ -266,11 +258,7 @@ describe("POST /uploads/intents", () => {
 
 			const intent = yield* client.call((c) =>
 				c.uploads.createIntent({
-					payload: {
-						kind: "permanent",
-						fileName: "missing.csv",
-						contentType: "text/csv",
-					},
+					payload: { kind: "permanent", fileName: "missing.csv", contentType: "text/csv" },
 				}),
 			);
 			const missing = yield* Effect.flip(

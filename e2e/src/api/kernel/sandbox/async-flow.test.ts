@@ -100,9 +100,7 @@ describe("sandbox async flow", () => {
 				requiredPluginConfigKeys: [],
 				requiredSystemConfigKeys: [],
 			});
-			const updatedJob = yield* enqueueSandboxScript(userId, {
-				scriptId: reinstalled.scriptId,
-			});
+			const updatedJob = yield* enqueueSandboxScript(userId, { scriptId: reinstalled.scriptId });
 			expect(requireCompletedSandboxValue(yield* pollSandboxResult(userId, updatedJob.jobId))).toBe(
 				43,
 			);
@@ -120,9 +118,7 @@ describe("sandbox async flow", () => {
 				capabilities: ["httpCall"],
 				source: httpCallSandboxSource({ name: "http-call", slug, url: httpServerUrl }),
 			});
-			const { jobId } = yield* enqueueSandboxScript(userId, {
-				scriptId,
-			});
+			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId });
 
 			const value = requireObjectRecord(
 				requireCompletedSandboxValue(yield* pollSandboxResult(userId, jobId)),
@@ -306,9 +302,7 @@ describe("sandbox async flow", () => {
 					name: "undeclared-system-config",
 				}),
 			});
-			const undeclaredJob = yield* enqueueSandboxScript(userId, {
-				scriptId: undeclared.scriptId,
-			});
+			const undeclaredJob = yield* enqueueSandboxScript(userId, { scriptId: undeclared.scriptId });
 			const result = yield* pollSandboxResult(userId, undeclaredJob.jobId);
 
 			assertCompleted(result, "sandbox job");

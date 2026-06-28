@@ -51,11 +51,7 @@ export const search = defineProvider({
 					const imageId = stringValue(asRecord(record?.["logo"])?.["image_id"]);
 					const image = imageId ? getImageUrl(imageId) : null;
 					return [
-						{
-							title: name,
-							externalId: String(id),
-							...(image === null ? {} : { imageUrl: image }),
-						},
+						{ title: name, externalId: String(id), ...(image === null ? {} : { imageUrl: image }) },
 					];
 				});
 				return { items, details: buildPagination(offset, results.length, totalItems, input.page) };

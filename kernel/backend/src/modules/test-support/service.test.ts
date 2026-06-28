@@ -81,10 +81,7 @@ const makeServiceLayer = (
 						Effect.succeed({ status: "notFound" as const, cronSlug, pluginSlug }),
 					...overrides.pluginCrons,
 				}),
-				mockPluginBoots({
-					trigger: () => Effect.void,
-					...overrides.pluginBoots,
-				}),
+				mockPluginBoots({ trigger: () => Effect.void, ...overrides.pluginBoots }),
 				mockPluginIngestion({}),
 				mockPluginInstallations({}),
 				mockInterest({ ...overrides.interest }),
@@ -222,10 +219,7 @@ it.effect("delegates sandbox execution with the explicit executing user", () => 
 			jobId: "job-id",
 			executionId: "execution-id",
 		});
-		expect(enqueueInput).toEqual({
-			payload: { scriptId },
-			userId: executingUserId,
-		});
+		expect(enqueueInput).toEqual({ payload: { scriptId }, userId: executingUserId });
 	}).pipe(Effect.provide(layer));
 });
 

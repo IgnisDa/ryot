@@ -235,10 +235,7 @@ export const validateSavedViewDefinition = Effect.fn("validateSavedViewDefinitio
 			Effect.mapError(
 				(error) =>
 					new SavedViewBadRequest({
-						reason: {
-							code: "settings-incompatible",
-							message: formatPropertyIssues(error.issues),
-						},
+						reason: { code: "settings-incompatible", message: formatPropertyIssues(error.issues) },
 					}),
 			),
 		);
@@ -258,10 +255,7 @@ export const validateSavedViewDefinition = Effect.fn("validateSavedViewDefinitio
 		Effect.mapError(
 			(error) =>
 				new SavedViewBadRequest({
-					reason: {
-						code: "settings-incompatible",
-						message: formatPropertyIssues(error.issues),
-					},
+					reason: { code: "settings-incompatible", message: formatPropertyIssues(error.issues) },
 				}),
 		),
 	);

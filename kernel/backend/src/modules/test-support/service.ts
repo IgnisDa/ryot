@@ -214,10 +214,7 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 					name: string | null;
 					properties: Record<string, unknown> | null;
 				}) {
-					yield* translations.upsert({
-						...input,
-						populatedAt: yield* DateTime.nowAsDate,
-					});
+					yield* translations.upsert({ ...input, populatedAt: yield* DateTime.nowAsDate });
 					return { entityId: input.entityId, language: input.language };
 				},
 			);

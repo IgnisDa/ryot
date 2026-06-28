@@ -165,12 +165,7 @@ describe("shared value contracts", () => {
 		};
 		expect(
 			decode(changeUserRelationshipsArgsSchema)([
-				[
-					{
-						deletes: [],
-						creates: [{ ...identity, properties: {} }],
-					},
-				],
+				[{ deletes: [], creates: [{ ...identity, properties: {} }] }],
 			]),
 		).toHaveLength(1);
 		expect(() =>
@@ -224,9 +219,7 @@ describe("sandbox test hosts", () => {
 					.getCachedValue(input.key)
 					.pipe(Effect.map((value) => (typeof value === "number" ? value : null))),
 		});
-		const host = defineSandboxTestHost(manifest, {
-			getCachedValue: () => Effect.succeed(42),
-		});
+		const host = defineSandboxTestHost(manifest, { getCachedValue: () => Effect.succeed(42) });
 
 		expect(
 			await Effect.runPromise(
@@ -264,10 +257,7 @@ describe("domain host contracts", () => {
 
 		expect(
 			await Effect.runPromise(
-				runSandboxTestScript(definition, {}, host, {
-					metadata: {},
-					sandboxScriptId: "script-1",
-				}),
+				runSandboxTestScript(definition, {}, host, { metadata: {}, sandboxScriptId: "script-1" }),
 			),
 		).toEqual({ rows: 2 });
 	});

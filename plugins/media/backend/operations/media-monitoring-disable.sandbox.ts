@@ -38,8 +38,6 @@ export default defineOperation({
 			if (deletes.length > 0) {
 				yield* host.changeUserRelationships([{ creates: [], deletes }]);
 			}
-			return {
-				results: alignedMediaMonitoringResults(input.entityIds, targets, () => false),
-			};
+			return { results: alignedMediaMonitoringResults(input.entityIds, targets, () => false) };
 		}),
 });

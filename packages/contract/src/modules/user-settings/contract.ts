@@ -6,9 +6,10 @@ import { UpdateUserPreferencesBody, UserAvatar, UserPreferences, UserSettings } 
 export const UserSettingsGroup = HttpApiGroup.make("userSettings")
 	.annotate(OpenApi.Description, "Manage the current user's settings.")
 	.add(
-		HttpApiEndpoint.get("get", "/user-settings", {
-			success: UserSettings,
-		}).annotate(OpenApi.Description, "Get the current user's settings."),
+		HttpApiEndpoint.get("get", "/user-settings", { success: UserSettings }).annotate(
+			OpenApi.Description,
+			"Get the current user's settings.",
+		),
 	)
 	.add(
 		HttpApiEndpoint.patch("updatePreferences", "/user-settings/preferences", {

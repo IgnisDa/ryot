@@ -306,9 +306,7 @@ it.effect("executes and materializes dynamic search options", () => {
 		const schema = yield* service.resolveSearchOptionsSchema(user, providerId);
 		expect(schema).toMatchObject({
 			fields: {
-				status: {
-					choices: { kind: "static", values: [{ value: "active", label: "Active" }] },
-				},
+				status: { choices: { kind: "static", values: [{ value: "active", label: "Active" }] } },
 			},
 		});
 		expect(executions).toHaveLength(1);

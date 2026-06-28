@@ -6,11 +6,10 @@ import { pluginCatalogGroup, type CatalogEntry } from "#/modules/ui/catalog/sele
 
 export const PRO_REQUIRED_INTEGRATION_MESSAGE = "Ryot Pro is required to use this integration.";
 
-const lotLabels = {
-	push: "Push",
-	sink: "Webhook",
-	yank: "Scheduled",
-} as const satisfies Record<IntegrationLot, string>;
+const lotLabels = { push: "Push", sink: "Webhook", yank: "Scheduled" } as const satisfies Record<
+	IntegrationLot,
+	string
+>;
 
 export const integrationLotLabel = (lot: IntegrationLot) => lotLabels[lot];
 

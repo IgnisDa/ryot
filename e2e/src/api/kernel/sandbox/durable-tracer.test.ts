@@ -226,10 +226,7 @@ describe("universal durable sandbox tracer", () => {
 				data: {
 					body: "try later",
 					status: 503,
-					headers: {
-						"content-length": "9",
-						"content-type": "application/octet-stream",
-					},
+					headers: { "content-length": "9", "content-type": "application/octet-stream" },
 				},
 			});
 			expect(value.startedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);

@@ -10,9 +10,7 @@ type CreateCollectionPayload = ContractPayload<"collections", "create">;
 
 export type CreateCollectionOptions = Partial<
 	Omit<CreateCollectionPayload, "membershipPropertiesSchema">
-> & {
-	membershipPropertiesSchema?: AppSchema;
-};
+> & { membershipPropertiesSchema?: AppSchema };
 
 export const createCollection = (client: Client, options: CreateCollectionOptions = {}) =>
 	Effect.gen(function* () {

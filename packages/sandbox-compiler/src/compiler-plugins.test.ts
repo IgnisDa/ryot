@@ -13,14 +13,8 @@ it.effect(
 		Effect.gen(function* () {
 			const packageRoot = new URL("../test-fixtures/multi-file-plugin", import.meta.url).pathname;
 			const scripts = [
-				{
-					kind: "script",
-					entry: "scripts/zeta.sandbox.ts",
-				},
-				{
-					kind: "script",
-					entry: "scripts/alpha.sandbox.ts",
-				},
+				{ kind: "script", entry: "scripts/zeta.sandbox.ts" },
+				{ kind: "script", entry: "scripts/alpha.sandbox.ts" },
 			] as const;
 			const first = yield* compilePluginSandboxEntries(packageRoot, scripts);
 			const second = yield* compilePluginSandboxEntries(packageRoot, scripts.toReversed());
@@ -389,11 +383,7 @@ export default defineProvider({
 });
 `;
 		const failure = yield* compilePluginSandboxSourceEntries({ "provider.sandbox.ts": source }, [
-			{
-				kind: "provider",
-				providerOperation: "search",
-				entry: "provider.sandbox.ts",
-			},
+			{ kind: "provider", providerOperation: "search", entry: "provider.sandbox.ts" },
 		]).pipe(Effect.flip);
 
 		expect(failure.diagnostics).toEqual([

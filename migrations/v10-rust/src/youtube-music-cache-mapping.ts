@@ -12,10 +12,7 @@ const CacheRow = Schema.Struct({
 	expiresAtMs: Schema.Finite,
 });
 
-const IntegrationRow = Schema.Struct({
-	id: Schema.String,
-	userId: Schema.String,
-});
+const IntegrationRow = Schema.Struct({ id: Schema.String, userId: Schema.String });
 
 const decodeCacheRows = Schema.decodeUnknownEffect(Schema.Array(CacheRow));
 const decodeIntegrationRows = Schema.decodeUnknownEffect(Schema.Array(IntegrationRow));

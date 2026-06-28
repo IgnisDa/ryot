@@ -102,10 +102,7 @@ export const writePluginArchive = (pluginPackage: PluginArchivePackage) => {
 	return concat(output);
 };
 
-type ExtractedEntry = {
-	readonly chunks: Uint8Array[];
-	bytes: number;
-};
+type ExtractedEntry = { readonly chunks: Uint8Array[]; bytes: number };
 
 const readUint16 = (view: DataView, offset: number) => view.getUint16(offset, true);
 const readUint32 = (view: DataView, offset: number) => view.getUint32(offset, true);
@@ -378,14 +375,8 @@ export const readPluginArchiveStream = <E>(
 	Effect.gen(function* () {
 		const reader = new PluginArchiveReader();
 		yield* Stream.runForEach(input, (chunk) =>
-			Effect.try({
-				try: () => reader.push(chunk, false),
-				catch: normalizeError,
-			}),
+			Effect.try({ try: () => reader.push(chunk, false), catch: normalizeError }),
 		);
-		yield* Effect.try({
-			try: () => reader.push(new Uint8Array(0), true),
-			catch: normalizeError,
-		});
+		yield* Effect.try({ try: () => reader.push(new Uint8Array(0), true), catch: normalizeError });
 		return yield* Effect.try({ try: () => reader.finish(), catch: normalizeError });
 	});

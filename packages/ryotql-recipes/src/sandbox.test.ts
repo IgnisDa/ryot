@@ -10,9 +10,7 @@ describe("sandbox recipes", () => {
 		const recipe = entityReadRecipe({ entityIds: ["entity-1", "entity-2"] });
 		const query = recipe.document.queries.entities;
 		assert(query);
-		expect(query.where).toMatchObject({
-			values: [{ value: "entity-1" }, { value: "entity-2" }],
-		});
+		expect(query.where).toMatchObject({ values: [{ value: "entity-1" }, { value: "entity-2" }] });
 		expect(
 			Result.getOrThrow(
 				recipe.decode({
@@ -49,10 +47,7 @@ describe("sandbox recipes", () => {
 	});
 
 	it("prepares event reads and rejects malformed entity cardinality", () => {
-		const eventRecipe = eventReadRecipe({
-			entitySchemaSlug: "book",
-			eventSchemaSlug: "progress",
-		});
+		const eventRecipe = eventReadRecipe({ entitySchemaSlug: "book", eventSchemaSlug: "progress" });
 		const query = eventRecipe.document.queries.events;
 		assert(query);
 		expect(query.where).toMatchObject({ type: "and" });

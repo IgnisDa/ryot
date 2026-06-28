@@ -121,14 +121,8 @@ export class UserStateService extends Context.Service<UserStateService>()("UserS
 			const mergeInto = EntityId.make(trimmedMergeInto);
 
 			const [fromScope, intoScope] = yield* Effect.all([
-				entitiesRepository.getEntityMergeScopeForUser({
-					userId: user.id,
-					entityId: mergeFrom,
-				}),
-				entitiesRepository.getEntityMergeScopeForUser({
-					userId: user.id,
-					entityId: mergeInto,
-				}),
+				entitiesRepository.getEntityMergeScopeForUser({ userId: user.id, entityId: mergeFrom }),
+				entitiesRepository.getEntityMergeScopeForUser({ userId: user.id, entityId: mergeInto }),
 			]);
 			if (!fromScope || !intoScope) {
 				return yield* new UserStateNotFound({

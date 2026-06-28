@@ -9,11 +9,7 @@ import { mediaPlugin } from "./plugin";
 const uploadToken = "upload-1";
 
 it("builds a typed media request accepted by the open import envelope", () => {
-	const body = createMediaImportRunBody({
-		source: "igdb",
-		uploadToken,
-		collection: "Favorites",
-	});
+	const body = createMediaImportRunBody({ source: "igdb", uploadToken, collection: "Favorites" });
 
 	expect(Schema.decodeUnknownSync(CreateImportRunBody)(body)).toEqual(body);
 	expect(body.collection).toBe("Favorites");

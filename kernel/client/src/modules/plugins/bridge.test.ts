@@ -979,11 +979,7 @@ describe("plugin bridge", () => {
 			}),
 		);
 		expect(calls).toEqual([
-			{
-				operationSlug: "greet",
-				input: { greeting: "hi" },
-				pluginSlug: PluginSlug.make("fixture"),
-			},
+			{ operationSlug: "greet", input: { greeting: "hi" }, pluginSlug: PluginSlug.make("fixture") },
 		]);
 	});
 

@@ -106,9 +106,7 @@ it.effect("does not claim a second disable transition after a concurrent run win
 			listRecentStatusesByIntegrationId: () =>
 				Effect.succeed(Array.from({ length: 5 }, () => ({ status: "failed" as const }))),
 		}),
-		integrationsService: makeIntegrationsService({
-			disableIfEnabled: () => Effect.succeed(false),
-		}),
+		integrationsService: makeIntegrationsService({ disableIfEnabled: () => Effect.succeed(false) }),
 	});
 
 	return Effect.gen(function* () {

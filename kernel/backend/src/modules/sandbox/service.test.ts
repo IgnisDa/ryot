@@ -228,10 +228,7 @@ it.effect("polls a job only for its explicit executing user", () => {
 		makePluginRuntime(),
 		Layer.succeed(
 			WorkflowEngine,
-			makeWorkflowEngine({
-				poll: () => Effect.succeedNone,
-				execute: () => Effect.succeed(null),
-			}),
+			makeWorkflowEngine({ poll: () => Effect.succeedNone, execute: () => Effect.succeed(null) }),
 		),
 	);
 

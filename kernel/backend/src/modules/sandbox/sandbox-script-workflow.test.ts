@@ -71,19 +71,10 @@ const makeProjectionRedis = () =>
 const controlledWorkflowDependencies = Layer.mergeAll(
 	databaseLayer,
 	Layer.succeed(RedisService, makeProjectionRedis()),
-	Layer.mock(SandboxArtifactStore)({
-		retain: () => Effect.void,
-		release: () => Effect.void,
-	}),
-	Layer.mock(SandboxPluginScriptResolver)({
-		findActiveScriptById: () => Effect.die("unused"),
-	}),
-	Layer.mock(KernelWorkflowReferences)({
-		execute: () => Effect.die("unused"),
-	}),
-	Layer.mock(SandboxDurableHostDispatcher)({
-		dispatch: () => Effect.die("unused"),
-	}),
+	Layer.mock(SandboxArtifactStore)({ retain: () => Effect.void, release: () => Effect.void }),
+	Layer.mock(SandboxPluginScriptResolver)({ findActiveScriptById: () => Effect.die("unused") }),
+	Layer.mock(KernelWorkflowReferences)({ execute: () => Effect.die("unused") }),
+	Layer.mock(SandboxDurableHostDispatcher)({ dispatch: () => Effect.die("unused") }),
 );
 
 it("sanitizes child id names deterministically", () => {
@@ -183,10 +174,7 @@ fi
 		Layer.succeed(WorkflowEngine, engine),
 		Layer.succeed(WorkflowInstance, instance),
 		Layer.succeed(RedisService, makeRedisService({ client: redisClient })),
-		Layer.mock(SandboxArtifactStore)({
-			retain: () => Effect.void,
-			release: () => Effect.void,
-		}),
+		Layer.mock(SandboxArtifactStore)({ retain: () => Effect.void, release: () => Effect.void }),
 		Layer.mock(SandboxRepository)({
 			isPluginScript: () =>
 				Effect.sync(() => {
@@ -287,9 +275,7 @@ fi
 					return { kernel: "recorded" };
 				}),
 		}),
-		Layer.mock(SandboxDurableHostDispatcher)({
-			dispatch: () => Effect.die("unused"),
-		}),
+		Layer.mock(SandboxDurableHostDispatcher)({ dispatch: () => Effect.die("unused") }),
 	);
 	const payload = {
 		input: {},
@@ -381,13 +367,7 @@ it.effect("retains a plugin workflow reference while durably suspended", () => {
 	return Effect.gen(function* () {
 		const result = yield* Workflow.intoResult(
 			runSandboxScriptWorkflowBody(
-				{
-					scriptId,
-					input: {},
-					executionId,
-					resolutionMode: "exact",
-					subject: { type: "system" },
-				},
+				{ scriptId, input: {}, executionId, resolutionMode: "exact", subject: { type: "system" } },
 				executionId,
 				() =>
 					Effect.succeed({
@@ -504,11 +484,7 @@ it.effect("reconstructs a completed host write after interruption without repeat
 			value:
 				sandboxPayload.executionId === `${executionId}-replay-0`
 					? { state: "pending" as const, requests: [request] }
-					: {
-							requests: [request],
-							state: "completed" as const,
-							output: { completed: true },
-						},
+					: { requests: [request], state: "completed" as const, output: { completed: true } },
 		});
 
 	return Effect.gen(function* () {
@@ -568,13 +544,7 @@ it.effect("releases a plugin workflow reference before returning terminal failur
 	return Effect.gen(function* () {
 		const exit = yield* Effect.exit(
 			runSandboxScriptWorkflowBody(
-				{
-					scriptId,
-					input: {},
-					executionId,
-					resolutionMode: "exact",
-					subject: { type: "system" },
-				},
+				{ scriptId, input: {}, executionId, resolutionMode: "exact", subject: { type: "system" } },
 				executionId,
 				() =>
 					Effect.succeed({
@@ -780,13 +750,7 @@ it.effect("executes a pending batch with request-indexed script child identities
 			}),
 		);
 		const result = yield* runSandboxScriptWorkflowBody(
-			{
-				scriptId,
-				input: {},
-				executionId,
-				resolutionMode: "exact",
-				subject: { type: "system" },
-			},
+			{ scriptId, input: {}, executionId, resolutionMode: "exact", subject: { type: "system" } },
 			executionId,
 			(sandboxPayload) => {
 				if (sandboxPayload.executionId === `${executionId}-replay-0`) {
@@ -873,19 +837,14 @@ it.effect("dispatches plugin children as child workflows with an exact script pi
 		});
 	}).pipe(
 		Effect.provide(
-			Layer.mock(SandboxArtifactStore)({
-				retain: () => Effect.void,
-				release: () => Effect.void,
-			}),
+			Layer.mock(SandboxArtifactStore)({ retain: () => Effect.void, release: () => Effect.void }),
 		),
 		Effect.provideService(
 			WorkflowInstance,
 			WorkflowInstance.initial(SandboxScriptWorkflow, "parent"),
 		),
 		Effect.provideService(WorkflowEngine, engine),
-		Effect.provideService(KernelWorkflowReferences, {
-			execute: () => Effect.die("unused"),
-		}),
+		Effect.provideService(KernelWorkflowReferences, { execute: () => Effect.die("unused") }),
 	);
 });
 
@@ -984,11 +943,7 @@ it.effect("dispatches library imports with the parent workflow subject", () => {
 			},
 		]);
 	}).pipe(
-		Effect.provide(
-			Layer.mock(SandboxArtifactStore)({
-				retain: () => Effect.void,
-			}),
-		),
+		Effect.provide(Layer.mock(SandboxArtifactStore)({ retain: () => Effect.void })),
 		Effect.provideService(
 			WorkflowInstance,
 			WorkflowInstance.initial(SandboxScriptWorkflow, "parent"),

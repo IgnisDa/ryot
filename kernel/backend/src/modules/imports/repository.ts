@@ -195,16 +195,18 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 		}) {
 			const db = yield* Database;
 			yield* mapDatabaseErrors(
-				db.insert(schema.importRunFailure).values({
-					runId: input.runId,
-					stage: input.stage,
-					reason: input.reason,
-					itemIndex: input.itemIndex,
-					sourceLabel: input.sourceLabel ?? null,
-					eventSchemaSlug: input.eventSchemaSlug ?? null,
-					sourceIdentifier: input.sourceIdentifier ?? null,
-					entitySchemaSlug: input.entitySchemaSlug ?? null,
-				}),
+				db
+					.insert(schema.importRunFailure)
+					.values({
+						runId: input.runId,
+						stage: input.stage,
+						reason: input.reason,
+						itemIndex: input.itemIndex,
+						sourceLabel: input.sourceLabel ?? null,
+						eventSchemaSlug: input.eventSchemaSlug ?? null,
+						sourceIdentifier: input.sourceIdentifier ?? null,
+						entitySchemaSlug: input.entitySchemaSlug ?? null,
+					}),
 			);
 		});
 

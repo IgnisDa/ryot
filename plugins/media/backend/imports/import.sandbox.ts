@@ -113,10 +113,7 @@ export default defineWorkflow({
 			const integrationScriptSlug = input.sourcePayload?.["integrationScriptSlug"];
 			const isIntegration =
 				typeof integrationId === "string" && typeof integrationScriptSlug === "string";
-			let parserInput: typeof MediaImportDispatchParserInput.Type = {
-				start: 0,
-				limit: BATCH_SIZE,
-			};
+			let parserInput: typeof MediaImportDispatchParserInput.Type = { start: 0, limit: BATCH_SIZE };
 			if (input.source === "igdb") {
 				const collection = input.sourcePayload?.["collection"];
 				if (typeof collection !== "string" || !collection.trim()) {
@@ -237,10 +234,7 @@ export default defineWorkflow({
 						integrationAdapter(integrationScriptSlug),
 						input.sourcePayload?.["integrationContext"] ?? {},
 					);
-					batch = {
-						...result,
-						totalItems: result.failures.length + result.entityGroups.length,
-					};
+					batch = { ...result, totalItems: result.failures.length + result.entityGroups.length };
 					failRun = result.entityGroups.length === 0 && result.failures.length > 0;
 				} else {
 					batch = yield* replay.activity(`parse-${batchIndex}`, mediaImportParser(input.source), {
@@ -262,9 +256,7 @@ export default defineWorkflow({
 				);
 				const resolutionOutput =
 					resolutionItems.length > 0
-						? yield* replay.child(`resolve-${batchIndex}`, resolution, {
-								items: resolutionItems,
-							})
+						? yield* replay.child(`resolve-${batchIndex}`, resolution, { items: resolutionItems })
 						: { results: [] };
 				const resolutionByIndex = new Map(
 					resolutionOutput.results.map((result) => [result.index, result]),
@@ -304,9 +296,7 @@ export default defineWorkflow({
 				);
 				const populationOutput =
 					populationItems.length > 0
-						? yield* replay.child(`populate-${batchIndex}`, population, {
-								items: populationItems,
-							})
+						? yield* replay.child(`populate-${batchIndex}`, population, { items: populationItems })
 						: { results: [] };
 				const populationByIndex = new Map(
 					populationOutput.results.map((result) => [result.index, result]),

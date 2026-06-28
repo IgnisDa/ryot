@@ -93,13 +93,7 @@ const enumArrayProp = (
 const arrayProp = (
 	items: AppPropertyDefinition,
 	overrides: Partial<AppArrayProperty> = {},
-): AppPropertyDefinition => ({
-	items,
-	label: "F",
-	type: "array",
-	description: "F",
-	...overrides,
-});
+): AppPropertyDefinition => ({ items, label: "F", type: "array", description: "F", ...overrides });
 
 const objectProp = (
 	properties: Record<string, AppPropertyDefinition>,
@@ -424,10 +418,7 @@ describe("parseAppSchemaPropertiesSafe - boolean property", () => {
 	});
 
 	it("accepts false", () => {
-		expect(parse({ b: bool() }, { b: false })).toMatchObject({
-			success: true,
-			data: { b: false },
-		});
+		expect(parse({ b: bool() }, { b: false })).toMatchObject({ success: true, data: { b: false } });
 	});
 
 	it("rejects a non-boolean value", () => {
@@ -599,11 +590,7 @@ describe("parseAppSchemaPropertiesSafe - rule conditions", () => {
 	});
 
 	it("rejects a submitted hidden property with the rule message", () => {
-		const rule = visibilityRule(["secret"], {
-			value: false,
-			operator: "eq",
-			path: ["enabled"],
-		});
+		const rule = visibilityRule(["secret"], { value: false, operator: "eq", path: ["enabled"] });
 		const s = schema(
 			{ enabled: bool(), secret: str() },
 			{ rules: [{ ...rule, message: "secret is not accepted while disabled" }] },
@@ -914,9 +901,7 @@ describe("validateAppSchemaDefinition", () => {
 	});
 
 	it("rejects nested upload declarations unless explicitly allowed", () => {
-		const upload = str({
-			format: { kind: "upload", allowedFileExtensions: ["pdf"] },
-		});
+		const upload = str({ format: { kind: "upload", allowedFileExtensions: ["pdf"] } });
 		const s = schema({ metadata: objectProp({ attachments: arrayProp(upload) }) });
 
 		expect(validateAppSchemaDefinition(s)).toEqual([

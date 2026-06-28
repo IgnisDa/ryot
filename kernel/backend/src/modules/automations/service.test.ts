@@ -291,9 +291,7 @@ it.effect("resolves global lifecycle bindings without reading automation rules",
 		operation: "create",
 		target: lifecycleTarget,
 	});
-	const layer = makeLayer(makeRepository(), {
-		listAutomations: () => Effect.succeed([binding]),
-	});
+	const layer = makeLayer(makeRepository(), { listAutomations: () => Effect.succeed([binding]) });
 
 	return Effect.gen(function* () {
 		const service = yield* AutomationsService;
@@ -369,11 +367,7 @@ it.effect("lists durable run attribution by its sole rule ID", () => {
 		ruleMetadata: definition.metadata,
 		id: SubscriptionRunId.make("run-1"),
 	});
-	const layer = makeLayer(
-		makeRepository({
-			listRunsByRuleId: () => Effect.succeed([retained]),
-		}),
-	);
+	const layer = makeLayer(makeRepository({ listRunsByRuleId: () => Effect.succeed([retained]) }));
 
 	return Effect.gen(function* () {
 		const service = yield* AutomationsService;
@@ -392,11 +386,7 @@ it.effect("resolves user and row-owner execution principals", () => {
 			rowUserId: otherUserId,
 			rule: storedRule({ userId: null, isBuiltin: true }),
 		},
-		{
-			expected: null,
-			rowUserId: null,
-			rule: storedRule({ userId: null, isBuiltin: true }),
-		},
+		{ expected: null, rowUserId: null, rule: storedRule({ userId: null, isBuiltin: true }) },
 	] as const;
 
 	return Effect.forEach(cases, ({ expected, rowUserId, rule }) => {
@@ -406,10 +396,7 @@ it.effect("resolves user and row-owner execution principals", () => {
 			makeRepository({
 				findRunById: () => Effect.succeed(null),
 				lockActiveNotificationSubscription: () => Effect.succeed(notificationState),
-				findScriptExecution: () =>
-					Effect.succeed({
-						updatedAt: "2026-07-20T10:00:00.000Z",
-					}),
+				findScriptExecution: () => Effect.succeed({ updatedAt: "2026-07-20T10:00:00.000Z" }),
 				insertRun: (input) => {
 					executionUserId = input.executionUserId;
 					return Effect.succeed(storedRunFromInsert(input));
@@ -638,9 +625,7 @@ it.effect("truncates every oversized artifact without changing a successful stat
 		expect(result.status).toBe("succeeded");
 		expect(outcome?.status).toBe("succeeded");
 		expect(outcome?.logs).toMatchObject({ marker: SUBSCRIPTION_RUN_TRUNCATION_MARKER });
-		expect(outcome?.returnedValue).toMatchObject({
-			marker: SUBSCRIPTION_RUN_TRUNCATION_MARKER,
-		});
+		expect(outcome?.returnedValue).toMatchObject({ marker: SUBSCRIPTION_RUN_TRUNCATION_MARKER });
 		expect(utf8ByteLength(stableStringify(outcome?.logs))).toBeLessThanOrEqual(
 			SUBSCRIPTION_RUN_ARTIFACT_BYTES,
 		);
@@ -684,9 +669,7 @@ it.effect("truncates an oversized UTF-8 sandbox error while preserving failed st
 			error: { message: oversized },
 		});
 		expect(result.status).toBe("failed");
-		expect(outcome?.sandboxError).toMatchObject({
-			marker: SUBSCRIPTION_RUN_TRUNCATION_MARKER,
-		});
+		expect(outcome?.sandboxError).toMatchObject({ marker: SUBSCRIPTION_RUN_TRUNCATION_MARKER });
 		expect(utf8ByteLength(stableStringify(outcome?.sandboxError))).toBeLessThanOrEqual(
 			SUBSCRIPTION_RUN_ARTIFACT_BYTES,
 		);

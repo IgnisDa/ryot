@@ -25,11 +25,7 @@ export type AnilistMediaType = "ANIME" | "MANGA";
 
 export type AnilistTitleLanguage = "english" | "native" | "romaji";
 
-type AnilistRemoteImage = {
-	type: "remote";
-	url: string;
-	purpose: "cover" | "backdrop";
-};
+type AnilistRemoteImage = { type: "remote"; url: string; purpose: "cover" | "backdrop" };
 
 const ANILIST_GRAPHQL_URL = "https://graphql.anilist.co";
 

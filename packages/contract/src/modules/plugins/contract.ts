@@ -23,9 +23,7 @@ export const PluginCatalogEventStream = HttpApiSchema.StreamUint8Array({
 	contentType: "text/event-stream",
 });
 
-export const PluginCatalogInvalidatedMessage = Schema.Struct({
-	userId: UserId,
-});
+export const PluginCatalogInvalidatedMessage = Schema.Struct({ userId: UserId });
 export type PluginCatalogInvalidatedMessage = typeof PluginCatalogInvalidatedMessage.Type;
 
 export const decodePluginCatalogInvalidatedMessage = Schema.decodeUnknownResult(
@@ -40,9 +38,10 @@ export const encodePluginCatalogInvalidatedMessage = Schema.encodeSync(
 export const PluginsGroup = HttpApiGroup.make("plugins")
 	.annotate(OpenApi.Description, "Manages installed plugins for this instance.")
 	.add(
-		HttpApiEndpoint.get("list", "/plugins", {
-			success: PluginInstallationList,
-		}).annotate(OpenApi.Description, "Lists the caller's plugin installations."),
+		HttpApiEndpoint.get("list", "/plugins", { success: PluginInstallationList }).annotate(
+			OpenApi.Description,
+			"Lists the caller's plugin installations.",
+		),
 	)
 	.add(
 		HttpApiEndpoint.get("events", "/plugins/events", {

@@ -118,9 +118,7 @@ describe("EntitiesService", () => {
 
 	it("maps query failures to the route error", async () => {
 		const client = createRyotClient(
-			createTestRyotAdapter({
-				query: () => Promise.reject(new Error("query unavailable")),
-			}),
+			createTestRyotAdapter({ query: () => Promise.reject(new Error("query unavailable")) }),
 		);
 		const runtime = ManagedRuntime.make(EntitiesService.layer);
 

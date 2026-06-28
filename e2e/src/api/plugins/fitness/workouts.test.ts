@@ -28,9 +28,7 @@ describe("Workouts E2E", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const fitnessPlugin = yield* findBuiltinPluginBySlug(client, "fitness");
-			const schemas = yield* listEntitySchemas(client, {
-				pluginSlug: fitnessPlugin.slug,
-			});
+			const schemas = yield* listEntitySchemas(client, { pluginSlug: fitnessPlugin.slug });
 			const workoutSchema = schemas.find((schema) => schema.slug === "workout");
 
 			expect(workoutSchema).toBeDefined();
@@ -51,16 +49,8 @@ describe("Workouts E2E", () => {
 					label: "Comment",
 					description: "Optional notes or comments about this workout",
 				},
-				images: {
-					type: "array",
-					label: "Images",
-					description: "Images attached to this workout",
-				},
-				videos: {
-					type: "array",
-					label: "Videos",
-					description: "Videos attached to this workout",
-				},
+				images: { type: "array", label: "Images", description: "Images attached to this workout" },
+				videos: { type: "array", label: "Videos", description: "Videos attached to this workout" },
 				endedAt: {
 					type: "datetime",
 					label: "Ended At",
@@ -107,9 +97,7 @@ describe("Workouts E2E", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const fitnessPlugin = yield* findBuiltinPluginBySlug(client, "fitness");
-			const views = yield* listSavedViews(client, {
-				pluginSlug: fitnessPlugin.slug,
-			});
+			const views = yield* listSavedViews(client, { pluginSlug: fitnessPlugin.slug });
 			const allWorkoutsView = views.find((view) => view.name === "All Workouts");
 			assertPresent(allWorkoutsView, "Expected the built-in All Workouts saved view");
 			const dataSources = requirePresent(
@@ -283,34 +271,19 @@ describe("Workouts E2E", () => {
 							entityId: exerciseId,
 							sessionEntityId: workoutOneId,
 							eventSchemaSlug: workoutSetEventSchema.id,
-							properties: {
-								reps: 10,
-								setOrder: 0,
-								setLot: "normal",
-								exerciseOrder: 0,
-							},
+							properties: { reps: 10, setOrder: 0, setLot: "normal", exerciseOrder: 0 },
 						},
 						{
 							entityId: exerciseId,
 							sessionEntityId: workoutOneId,
 							eventSchemaSlug: workoutSetEventSchema.id,
-							properties: {
-								reps: 8,
-								setOrder: 1,
-								setLot: "normal",
-								exerciseOrder: 0,
-							},
+							properties: { reps: 8, setOrder: 1, setLot: "normal", exerciseOrder: 0 },
 						},
 						{
 							entityId: exerciseId,
 							sessionEntityId: workoutTwoId,
 							eventSchemaSlug: workoutSetEventSchema.id,
-							properties: {
-								reps: 6,
-								setOrder: 0,
-								setLot: "normal",
-								exerciseOrder: 0,
-							},
+							properties: { reps: 6, setOrder: 0, setLot: "normal", exerciseOrder: 0 },
 						},
 					],
 				}),
@@ -337,23 +310,13 @@ describe("Workouts E2E", () => {
 							entityId: exerciseId,
 							sessionEntityId: workoutOneId,
 							eventSchemaSlug: workoutSetEventSchema.id,
-							properties: {
-								reps: 10,
-								setOrder: 0,
-								setLot: "normal",
-								exerciseOrder: 0,
-							},
+							properties: { reps: 10, setOrder: 0, setLot: "normal", exerciseOrder: 0 },
 						},
 						{
 							entityId: exerciseId,
 							sessionEntityId: workoutTwoId,
 							eventSchemaSlug: workoutSetEventSchema.id,
-							properties: {
-								reps: 8,
-								setOrder: 0,
-								setLot: "normal",
-								exerciseOrder: 0,
-							},
+							properties: { reps: 8, setOrder: 0, setLot: "normal", exerciseOrder: 0 },
 						},
 					],
 				}),

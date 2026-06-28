@@ -511,9 +511,7 @@ export const inspectSandboxModuleImports = (file: ts.SourceFile, sourcePath: str
 	inspectImports(file, true, sourcePath).diagnostics;
 
 export const sandboxDefinitionMismatch = (
-	inspection: {
-		readonly definitionKind: SandboxManifest["kind"] | null;
-	},
+	inspection: { readonly definitionKind: SandboxManifest["kind"] | null },
 	manifest: SandboxManifest,
 ) => {
 	let helper = "defineScript";

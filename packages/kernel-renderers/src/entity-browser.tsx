@@ -307,12 +307,7 @@ const Browser = ({ input }: { readonly input: typeof EntityBrowserPageInput.Type
 			const deduped = [...new Map(items.map((item) => [item.entityId, item])).values()];
 			replay.complete();
 			refreshReplay.current = undefined;
-			setState({
-				identity,
-				items: deduped,
-				depth: pages.length,
-				pageInfo: page.result.pageInfo,
-			});
+			setState({ identity, items: deduped, depth: pages.length, pageInfo: page.result.pageInfo });
 			return;
 		}
 		setState((current) => {

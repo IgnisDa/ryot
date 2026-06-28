@@ -72,9 +72,7 @@ describe("third-party integration provider redaction", () => {
 				({ id }) => deleteIntegration(client, id).pipe(Effect.asVoid, Effect.orDie),
 			);
 			const listed = yield* client.call((c) =>
-				c.integrations.get({
-					params: { integrationId: IntegrationId.make(created.id) },
-				}),
+				c.integrations.get({ params: { integrationId: IntegrationId.make(created.id) } }),
 			);
 			expect(listed.providerSpecifics).toEqual({
 				credentials: { username: "alice" },

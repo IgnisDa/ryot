@@ -15,10 +15,7 @@ type RunCounts = Pick<
 	"totalItems" | "failedItems" | "importedItems" | "processedItems"
 >;
 
-type ImportRunFailureNotice = {
-	readonly label: string;
-	readonly detail: string;
-};
+type ImportRunFailureNotice = { readonly label: string; readonly detail: string };
 
 const stoppedEarly = {
 	label: "Stopped early",

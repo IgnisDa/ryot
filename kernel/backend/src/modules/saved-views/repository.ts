@@ -42,9 +42,7 @@ type CreateSavedViewInput = {
 	readonly settings: (typeof schema.savedView.$inferSelect)["settings"];
 };
 
-type BuiltinSavedViewInput = Omit<CreateSavedViewInput, "userId"> & {
-	readonly sortOrder: number;
-};
+type BuiltinSavedViewInput = Omit<CreateSavedViewInput, "userId"> & { readonly sortOrder: number };
 
 type UpdateSavedViewData = {
 	readonly icon: string;
@@ -118,9 +116,7 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 						.orderBy(asc(schema.savedView.id)),
 				);
 				return rows.map((row) =>
-					Object.assign(toListedSavedView(row), {
-						pluginInstallationId: row.pluginInstallationId,
-					}),
+					Object.assign(toListedSavedView(row), { pluginInstallationId: row.pluginInstallationId }),
 				);
 			});
 
@@ -219,9 +215,7 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 				const db = yield* Database;
 				const [orderRow] = yield* mapDatabaseErrors(
 					db
-						.select({
-							maxSortOrder: sql<number>`coalesce(max(${schema.savedView.sortOrder}), -1)`,
-						})
+						.select({ maxSortOrder: sql<number>`coalesce(max(${schema.savedView.sortOrder}), -1)` })
 						.from(schema.savedView)
 						.where(
 							and(
@@ -246,9 +240,7 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 							sortOrder: (orderRow?.maxSortOrder ?? -1) + 1,
 							pluginInstallationId: input.pluginInstallationId ?? null,
 						})
-						.onConflictDoNothing({
-							target: [schema.savedView.userId, schema.savedView.slug],
-						})
+						.onConflictDoNothing({ target: [schema.savedView.userId, schema.savedView.slug] })
 						.returning(savedViewSelection),
 				);
 
@@ -405,13 +397,15 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 										.where(eq(schema.savedView.id, current.id)),
 								)
 							: mapDatabaseErrors(
-									db.insert(schema.savedView).values({
-										...values,
-										userId,
-										slug: view.slug,
-										isBuiltin: true,
-										sortOrder: view.sortOrder,
-									}),
+									db
+										.insert(schema.savedView)
+										.values({
+											...values,
+											userId,
+											slug: view.slug,
+											isBuiltin: true,
+											sortOrder: view.sortOrder,
+										}),
 								);
 					},
 					{ discard: true },
@@ -476,9 +470,7 @@ const getNextSortOrder = Effect.fn(function* (userId: UserId, pluginInstallation
 	const db = yield* Database;
 	const [orderRow] = yield* mapDatabaseErrors(
 		db
-			.select({
-				maxSortOrder: sql<number>`coalesce(max(${schema.savedView.sortOrder}), -1)`,
-			})
+			.select({ maxSortOrder: sql<number>`coalesce(max(${schema.savedView.sortOrder}), -1)` })
 			.from(schema.savedView)
 			.where(
 				and(

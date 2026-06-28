@@ -208,10 +208,7 @@ const unmatched = {
 	origin: "https://provider.test",
 } as const satisfies HttpRateLimitAuthorityResolution;
 
-type HttpOutcome = Readonly<{
-	status: number;
-	headers?: Readonly<Record<string, string>>;
-}>;
+type HttpOutcome = Readonly<{ status: number; headers?: Readonly<Record<string, string>> }>;
 
 type CapturedLog = Readonly<{
 	message: string;
@@ -352,13 +349,7 @@ const makeHttpHarness = (options: {
 					args: ["GET", "https://provider.test/private?token=secret"],
 				},
 			},
-			{
-				scriptId,
-				input: {},
-				executionId,
-				resolutionMode: "exact",
-				subject: principal.subject,
-			},
+			{ scriptId, input: {}, executionId, resolutionMode: "exact", subject: principal.subject },
 			principal,
 			executionId,
 		);
@@ -621,13 +612,7 @@ it.effect("does not swallow coordination interruption", () => {
 					name: "httpCall",
 					args: { capability: "httpCall", args: ["GET", "https://provider.test"] },
 				},
-				{
-					scriptId,
-					input: {},
-					executionId,
-					resolutionMode: "exact",
-					subject: principal.subject,
-				},
+				{ scriptId, input: {}, executionId, resolutionMode: "exact", subject: principal.subject },
 				principal,
 				executionId,
 			),

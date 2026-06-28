@@ -45,14 +45,7 @@ const toMediaEntities = (items: unknown, providerSlug: string) =>
 			return [];
 		}
 		const name = stringValue(item["name"]) ?? stringValue(item["title"]) ?? "Loading...";
-		return [
-			{
-				externalId,
-				providerSlug,
-				name,
-				relationshipProperties: { roles: ["Company"] },
-			},
-		];
+		return [{ externalId, providerSlug, name, relationshipProperties: { roles: ["Company"] } }];
 	});
 
 export const details = defineProvider({

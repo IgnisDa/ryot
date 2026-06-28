@@ -147,9 +147,7 @@ effectIt.effect("resolves first-observed children from the pinned plugin revisio
 		select: () => ({
 			from: () => ({
 				leftJoin: () => ({
-					leftJoin: () => ({
-						where: () => ({ limit: () => Effect.succeed([selectedPinRow]) }),
-					}),
+					leftJoin: () => ({ where: () => ({ limit: () => Effect.succeed([selectedPinRow]) }) }),
 				}),
 				where: (condition: SQLCondition) => ({
 					limit: () => {

@@ -532,10 +532,7 @@ describe("import run detail", () => {
 				loadRun: () =>
 					Effect.succeed(
 						decodeRun([
-							makeRun({
-								status: "failed",
-								failureReason: { code: "source-fetch-failed" },
-							}),
+							makeRun({ status: "failed", failureReason: { code: "source-fetch-failed" } }),
 						]),
 					),
 			}),

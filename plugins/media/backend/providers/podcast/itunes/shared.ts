@@ -146,10 +146,7 @@ const translationResult = (item: UnknownRecord | null, nameKey: string, missing:
 		);
 	}
 	const description = stringValue(item["description"]);
-	return {
-		name,
-		...(description ? { properties: { description } } : {}),
-	};
+	return { name, ...(description ? { properties: { description } } : {}) };
 };
 export const search = defineProvider({
 	manifest,
@@ -246,10 +243,7 @@ export const details = defineProvider({
 					}
 					return yield* lookup(host, episodeLookup).pipe(
 						Effect.map((episodesPayload) => {
-							const unlinkedCreators: Array<{
-								role: string;
-								name: string;
-							}> = [];
+							const unlinkedCreators: Array<{ role: string; name: string }> = [];
 							const artistName = trimmedString(podcast["artistName"]);
 							if (artistName) {
 								unlinkedCreators.push({ role: "Artist", name: artistName });

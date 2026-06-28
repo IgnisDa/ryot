@@ -17,16 +17,8 @@ export const fitnessSavedViews = () => {
 		readonly entitySchemaSlug: "exercise" | "measurement" | "workout" | "workout-template";
 		readonly orderBy?: readonly OrderBy[] | undefined;
 	}> = [
-		{
-			name: "All Exercises",
-			slug: "all-exercises",
-			entitySchemaSlug: "exercise",
-		},
-		{
-			name: "All Workouts",
-			slug: "all-workouts",
-			entitySchemaSlug: "workout",
-		},
+		{ name: "All Exercises", slug: "all-exercises", entitySchemaSlug: "exercise" },
+		{ name: "All Workouts", slug: "all-workouts", entitySchemaSlug: "workout" },
 		{
 			slug: "all-measurements",
 			name: "All Measurements",

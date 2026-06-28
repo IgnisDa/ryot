@@ -12,9 +12,7 @@ export type CustomizeDraftItem = {
 	readonly isDisabled: boolean;
 };
 
-export type CustomizeDraftViewItem = CustomizeDraftItem & {
-	readonly pluginSlug: string | null;
-};
+export type CustomizeDraftViewItem = CustomizeDraftItem & { readonly pluginSlug: string | null };
 
 export type CustomizeDraft = {
 	readonly views: readonly CustomizeDraftViewItem[];

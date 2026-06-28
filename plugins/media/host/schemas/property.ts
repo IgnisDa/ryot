@@ -60,18 +60,8 @@ const unlinkedCreatorItemSchema: AppPropertyDefinition = {
 	description: "Item",
 	unknownKeys: "strict",
 	properties: {
-		name: {
-			label: "Name",
-			type: "string",
-			description: "Name",
-			validation: { required: true },
-		},
-		role: {
-			label: "Role",
-			type: "string",
-			description: "Role",
-			validation: { required: true },
-		},
+		name: { label: "Name", type: "string", description: "Name", validation: { required: true } },
+		role: { label: "Role", type: "string", description: "Role", validation: { required: true } },
 	},
 };
 

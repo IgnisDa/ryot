@@ -33,9 +33,7 @@ export const DefinitionsRoutesLive = HttpApiBuilder.group(AppContract, "definiti
 						pluginSlug:
 							definition.pluginSlug === null ? null : PluginSlug.make(definition.pluginSlug),
 						eventSchemas: Object.values(definition.eventSchemas).map((eventSchema) =>
-							Object.assign({}, eventSchema, {
-								slug: EventSchemaSlug.make(eventSchema.slug),
-							}),
+							Object.assign({}, eventSchema, { slug: EventSchemaSlug.make(eventSchema.slug) }),
 						),
 						providers: schemaProviders
 							.filter(({ entitySchemaSlug }) => entitySchemaSlug === definition.slug)

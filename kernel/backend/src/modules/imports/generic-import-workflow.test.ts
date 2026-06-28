@@ -571,12 +571,7 @@ it.effect("imports private event and relationship schemas from one effective sna
 		expect(eventExecutions).toEqual([
 			expect.objectContaining({
 				payload: expect.objectContaining({
-					payload: [
-						expect.objectContaining({
-							eventSchemaSlug: "private-event",
-							properties: {},
-						}),
-					],
+					payload: [expect.objectContaining({ eventSchemaSlug: "private-event", properties: {} })],
 				}),
 			}),
 		]);
@@ -638,9 +633,7 @@ it.effect("imports private event and relationship schemas from one effective sna
 							};
 						}),
 				}),
-				Layer.mock(ImportsService)({
-					update: () => Effect.void,
-				}),
+				Layer.mock(ImportsService)({ update: () => Effect.void }),
 				Layer.mock(ImportRunFailuresService)({
 					create: (input) => Effect.sync(() => failures.push(input)).pipe(Effect.asVoid),
 				}),

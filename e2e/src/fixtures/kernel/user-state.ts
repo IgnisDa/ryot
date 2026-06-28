@@ -21,11 +21,7 @@ import { executeRyotQL, requireRyotQLValue } from "./ryotql";
 
 type MergeUserStateBody = ContractPayload<"userState", "mergeUserState">;
 
-type RelationshipRoot = {
-	schema: string;
-	sourceSchema: string;
-	targetSchema: string;
-};
+type RelationshipRoot = { schema: string; sourceSchema: string; targetSchema: string };
 
 const aggregateCount = (result: { data: Record<string, unknown> }, key: string) => {
 	const value = result.data[key];

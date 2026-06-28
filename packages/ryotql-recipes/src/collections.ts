@@ -13,12 +13,7 @@ import {
 import { Result, Schema } from "effect";
 
 export const allCollectionsRecipe = defineRecipe(
-	(
-		input: {
-			readonly after?: string | undefined;
-			readonly limit?: number | undefined;
-		} = {},
-	) => {
+	(input: { readonly after?: string | undefined; readonly limit?: number | undefined } = {}) => {
 		const collection = table("entity", "collection");
 		return {
 			queries: {

@@ -29,9 +29,7 @@ import { sandboxRunnerSource } from "./runner.generated";
 import type { BoundHostFunction } from "./shared";
 import { readSandboxByteLimitedText } from "./stream-utils";
 
-const SandboxRpcArgs = Schema.Struct({
-	args: Schema.Array(Schema.Unknown),
-});
+const SandboxRpcArgs = Schema.Struct({ args: Schema.Array(Schema.Unknown) });
 
 const decodeSandboxRpcBody = Schema.decodeUnknownEffect(Schema.fromJsonString(SandboxRpcArgs));
 const encodeSandboxRpcResponse = Schema.encodeUnknownEffect(Schema.fromJsonString(Schema.Unknown));
@@ -452,10 +450,7 @@ export class BridgeService extends Context.Service<BridgeService>()("BridgeServi
 			),
 		);
 
-		const server = yield* BunHttpServer.make({
-			port: 0,
-			hostname: "127.0.0.1",
-		});
+		const server = yield* BunHttpServer.make({ port: 0, hostname: "127.0.0.1" });
 		yield* HttpServer.serveEffect(
 			HttpEffect.fromWebHandler((request) =>
 				Effect.runPromiseWith(runtime)(handleRequest(request)),

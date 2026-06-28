@@ -1,14 +1,8 @@
 import { useRef, type KeyboardEvent, type ReactNode } from "react";
 
-export type RadioGroupOption = {
-	readonly value: string;
-	readonly label: string;
-};
+export type RadioGroupOption = { readonly value: string; readonly label: string };
 
-export type RadioGroupOptionView = {
-	readonly content: ReactNode;
-	readonly className?: string;
-};
+export type RadioGroupOptionView = { readonly content: ReactNode; readonly className?: string };
 
 type RadioGroupProps<O extends RadioGroupOption> = {
 	readonly label: string;

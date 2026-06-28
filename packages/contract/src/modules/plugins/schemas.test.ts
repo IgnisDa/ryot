@@ -10,9 +10,7 @@ import {
 	UpdatePrivatePluginBody,
 } from "./schemas";
 
-const uploadPayload = {
-	uploadToken: "fixture-upload-token",
-};
+const uploadPayload = { uploadToken: "fixture-upload-token" };
 
 describe("UpdatePrivatePluginBody", () => {
 	it("decodes an upload token and config patch", () => {
@@ -110,10 +108,7 @@ it("accepts only JSON operation HTTP payloads and results", () => {
 
 	expect(
 		decodeBody({ payload: { values: [null, true, 1, "ok"] }, sourceHash: "source-hash" }),
-	).toEqual({
-		sourceHash: "source-hash",
-		payload: { values: [null, true, 1, "ok"] },
-	});
+	).toEqual({ sourceHash: "source-hash", payload: { values: [null, true, 1, "ok"] } });
 	expect(decodeBody({ payload: { values: [null, true, 1, "ok"] } })).toEqual({
 		payload: { values: [null, true, 1, "ok"] },
 	});

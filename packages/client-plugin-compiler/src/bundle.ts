@@ -205,10 +205,7 @@ export const bundleClientPlugin = (sources: ClientPluginSources, compilerRoot: s
 				}));
 				builder.onResolve(
 					{ filter: /^@tanstack\/(?:hotkeys|react-hotkeys|store)$/ },
-					({ path }) => ({
-						namespace: "file",
-						path: Bun.resolveSync(path, compilerRoot),
-					}),
+					({ path }) => ({ namespace: "file", path: Bun.resolveSync(path, compilerRoot) }),
 				);
 				builder.onResolve({ filter: /^@tanstack\/react-store$/ }, ({ importer, path }) => ({
 					namespace: "file",
@@ -228,10 +225,7 @@ export const bundleClientPlugin = (sources: ClientPluginSources, compilerRoot: s
 				}));
 				builder.onResolve(
 					{ filter: /^effect\/(?:DateTime|Match|Option|Result|Schema|SchemaGetter)$/ },
-					({ path }) => ({
-						namespace: "file",
-						path: Bun.resolveSync(path, compilerRoot),
-					}),
+					({ path }) => ({ namespace: "file", path: Bun.resolveSync(path, compilerRoot) }),
 				);
 				builder.onLoad({ filter: /.*/, namespace: EFFECT_NAMESPACE }, () => ({
 					loader: "js" as const,

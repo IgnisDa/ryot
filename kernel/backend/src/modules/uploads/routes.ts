@@ -62,10 +62,7 @@ const localDownloadResponse = (
 		const parsedRange = parseRange(range, file.size);
 		if (!parsedRange) {
 			return HttpServerResponse.empty({
-				headers: {
-					"accept-ranges": "bytes",
-					"content-range": `bytes */${file.size}`,
-				},
+				headers: { "accept-ranges": "bytes", "content-range": `bytes */${file.size}` },
 				status: 416,
 			});
 		}

@@ -37,16 +37,11 @@ async function handleOrderPaid(
 	const polarCustomerId = order.customer.id;
 	const externalCustomerId = order.customer.externalId ?? undefined;
 
-	console.log("Received order.paid event", {
-		polarCustomerId,
-		externalCustomerId,
-	});
+	console.log("Received order.paid event", { polarCustomerId, externalCustomerId });
 
 	const customer = await findCustomer(polarCustomerId, externalCustomerId);
 	if (!customer) {
-		return {
-			error: `No customer found for Polar customer ID: ${polarCustomerId}`,
-		};
+		return { error: `No customer found for Polar customer ID: ${polarCustomerId}` };
 	}
 
 	const productId = order.productId;
@@ -83,10 +78,7 @@ async function handleSubscriptionRevoked(
 	const polarCustomerId = subscription.customer.id;
 	const externalCustomerId = subscription.customer.externalId ?? undefined;
 
-	console.log("Received subscription.revoked event", {
-		polarCustomerId,
-		externalCustomerId,
-	});
+	console.log("Received subscription.revoked event", { polarCustomerId, externalCustomerId });
 
 	const customer = await findCustomer(polarCustomerId, externalCustomerId);
 	if (!customer) {
@@ -114,9 +106,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 		console.error("Polar webhook validation failed:", error);
 		const isInvalidSignature = error instanceof WebhookVerificationError;
 		return data(
-			{
-				error: isInvalidSignature ? "Invalid webhook signature" : "Invalid webhook payload",
-			},
+			{ error: isInvalidSignature ? "Invalid webhook signature" : "Invalid webhook payload" },
 			{ status: isInvalidSignature ? 401 : 400 },
 		);
 	}

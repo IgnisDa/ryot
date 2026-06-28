@@ -39,49 +39,35 @@ const user = {
 const mockEntitiesRepository = Layer.mock(EntitiesRepository);
 
 const makeEntitiesRepository = (overrides: MockOverrides<typeof mockEntitiesRepository> = {}) =>
-	mockEntitiesRepository({
-		...overrides,
-	});
+	mockEntitiesRepository({ ...overrides });
 
 const mockEventsRepository = Layer.mock(EventsRepository);
 
 const makeEventsRepository = (overrides: MockOverrides<typeof mockEventsRepository> = {}) =>
-	mockEventsRepository({
-		...overrides,
-	});
+	mockEventsRepository({ ...overrides });
 
 const mockEventsService = Layer.mock(EventsService);
 
 const makeEventsService = (overrides: MockOverrides<typeof mockEventsService> = {}) =>
-	mockEventsService({
-		...overrides,
-	});
+	mockEventsService({ ...overrides });
 
 const mockRelationshipsRepository = Layer.mock(RelationshipsRepository);
 
 const makeRelationshipsRepository = (
 	overrides: MockOverrides<typeof mockRelationshipsRepository> = {},
-) =>
-	mockRelationshipsRepository({
-		...overrides,
-	});
+) => mockRelationshipsRepository({ ...overrides });
 
 const mockRelationshipsService = Layer.mock(RelationshipsService);
 
 const makeRelationshipsService = (overrides: MockOverrides<typeof mockRelationshipsService> = {}) =>
-	mockRelationshipsService({
-		...overrides,
-	});
+	mockRelationshipsService({ ...overrides });
 
 const mockRelationshipSchemasRepository = Layer.mock(RelationshipSchemasRepository);
 const mockPluginRuntime = Layer.mock(PluginRuntimeResolver);
 
 const makeRelationshipSchemasRepository = (
 	overrides: MockOverrides<typeof mockRelationshipSchemasRepository> = {},
-) =>
-	mockRelationshipSchemasRepository({
-		...overrides,
-	});
+) => mockRelationshipSchemasRepository({ ...overrides });
 
 const makePluginRuntimeLayer = (
 	mergeIdentityProperties: ReadonlyArray<string> = [],
@@ -185,9 +171,7 @@ it.effect("rejects clearing user state when the entity schema denies it", () => 
 
 		assertExitFails(
 			exit,
-			new UserStateBadRequest({
-				reason: { code: "operation-denied", operation: "clear" },
-			}),
+			new UserStateBadRequest({ reason: { code: "operation-denied", operation: "clear" } }),
 		);
 	}).pipe(Effect.provide(layer));
 });
@@ -350,9 +334,7 @@ it.effect("allows merging entities with matching declared identity properties", 
 			getEntityMergeScopeForUser: ({ entityId }) =>
 				Effect.succeed(makeMergeScope({ entityId, properties: { kind: "novel" } })),
 		}),
-		eventsRepository: makeEventsRepository({
-			listUserEventIdsForEntity: () => Effect.succeed([]),
-		}),
+		eventsRepository: makeEventsRepository({ listUserEventIdsForEntity: () => Effect.succeed([]) }),
 		relationshipsRepository: makeRelationshipsRepository({
 			listUserRelationshipsForEntityWithProvenance: () => Effect.succeed([]),
 		}),
@@ -399,9 +381,7 @@ it.effect("rejects merging entities with mismatched declared identity properties
 
 		assertExitFails(
 			exit,
-			new UserStateBadRequest({
-				reason: { code: "identity-property-mismatch", property: "kind" },
-			}),
+			new UserStateBadRequest({ reason: { code: "identity-property-mismatch", property: "kind" } }),
 		);
 	}).pipe(Effect.provide(layer));
 });

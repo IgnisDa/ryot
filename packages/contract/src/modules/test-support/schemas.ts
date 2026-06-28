@@ -87,9 +87,7 @@ export const TestSupportEnqueueSandboxResponse = Schema.Struct({
 	executionId: Schema.String,
 });
 
-export const TestSupportSandboxReplayProjectionBody = Schema.Struct({
-	executionId: Schema.String,
-});
+export const TestSupportSandboxReplayProjectionBody = Schema.Struct({ executionId: Schema.String });
 
 export const TestSupportTriggerPluginCronBody = strictStruct({
 	pluginSlug: PluginSlug,

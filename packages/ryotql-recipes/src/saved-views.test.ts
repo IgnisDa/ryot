@@ -149,16 +149,8 @@ describe("saved-view recipes", () => {
 				{ key: "column0", label: "Name", value: { displayKind: "text", value: "Piranesi" } },
 				{ key: "column1", label: "Score", value: { displayKind: "number", value: null } },
 				{ key: "column2", label: "Active", value: { displayKind: "boolean", value: true } },
-				{
-					key: "column3",
-					label: "Published",
-					value: { displayKind: "date", value: "2026-08-12" },
-				},
-				{
-					key: "column4",
-					label: "Details",
-					value: { displayKind: "json", value: { pages: 272 } },
-				},
+				{ key: "column3", label: "Published", value: { displayKind: "date", value: "2026-08-12" } },
+				{ key: "column4", label: "Details", value: { displayKind: "json", value: { pages: 272 } } },
 			],
 		});
 	});
@@ -166,11 +158,7 @@ describe("saved-view recipes", () => {
 	it("rejects malformed plain values according to display metadata", () => {
 		const prepared = savedViewRecipe({
 			layout: { type: "table", mapping: projections.table.mappings },
-			source: {
-				type: "generated",
-				fields: projections.table.fields,
-				entitySchemaSlugs: ["book"],
-			},
+			source: { type: "generated", fields: projections.table.fields, entitySchemaSlugs: ["book"] },
 		});
 
 		expect(
@@ -205,11 +193,7 @@ describe("saved-view recipes", () => {
 		const where = eq(column(entity, "status"), literal("active"));
 		const joins = [join("inner", related, eq(column(entity, "id"), column(related, "id")))];
 		const source = document({
-			savedView: rows(entity, {
-				where,
-				joins,
-				fields: [field("id", column(entity, "id"))],
-			}),
+			savedView: rows(entity, { where, joins, fields: [field("id", column(entity, "id"))] }),
 		});
 		const prepared = Result.getOrThrow(savedViewCountRecipe(source, "id"));
 
@@ -369,9 +353,7 @@ describe("saved-view recipes", () => {
 			__entityBrowserTranslationStatus: "pending",
 		};
 		const decoded = Result.getOrThrow(
-			prepared.decode({
-				data: { entityBrowser: { type: "rows", pageInfo, items: [row] } },
-			}),
+			prepared.decode({ data: { entityBrowser: { type: "rows", pageInfo, items: [row] } } }),
 		);
 		expect(decoded).toEqual({
 			pageInfo,

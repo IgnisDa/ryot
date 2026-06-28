@@ -473,13 +473,15 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			if (inserted) {
 				if (artifact.files.length > 0) {
 					yield* mapDatabaseErrors(
-						db.insert(schema.pluginClientArtifactFile).values(
-							artifact.files.map((file) => ({
-								...file,
-								artifactHash: artifact.hash,
-								contents: Buffer.from(file.contents),
-							})),
-						),
+						db
+							.insert(schema.pluginClientArtifactFile)
+							.values(
+								artifact.files.map((file) => ({
+									...file,
+									artifactHash: artifact.hash,
+									contents: Buffer.from(file.contents),
+								})),
+							),
 					);
 				}
 				return undefined;
@@ -593,13 +595,15 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			const sourceEntries = Object.entries(plugin.files);
 			if (sourceEntries.length > 0) {
 				yield* mapDatabaseErrors(
-					db.insert(schema.pluginSourceFile).values(
-						sourceEntries.map(([path, contents]) => ({
-							path,
-							pluginId,
-							contents: Buffer.from(contents),
-						})),
-					),
+					db
+						.insert(schema.pluginSourceFile)
+						.values(
+							sourceEntries.map(([path, contents]) => ({
+								path,
+								pluginId,
+								contents: Buffer.from(contents),
+							})),
+						),
 				);
 			}
 			const existingProviders = yield* mapDatabaseErrors(
@@ -678,9 +682,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 						const providerId = providerSlug ? providerIdBySlug.get(providerSlug) : undefined;
 						if (providerSlug && !providerId) {
 							return Effect.fail(
-								new DbError({
-									message: `Plugin ${slug} is missing provider ${providerSlug}`,
-								}),
+								new DbError({ message: `Plugin ${slug} is missing provider ${providerSlug}` }),
 							);
 						}
 						return mapDatabaseErrors(

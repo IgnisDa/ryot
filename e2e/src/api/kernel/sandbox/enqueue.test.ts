@@ -30,9 +30,7 @@ describe("sandbox enqueue by script ID", () => {
 			const { userId } = yield* createAuthenticatedClient();
 
 			const error = yield* Effect.flip(
-				enqueueSandboxScript(userId, {
-					scriptId: SandboxScriptId.make(crypto.randomUUID()),
-				}),
+				enqueueSandboxScript(userId, { scriptId: SandboxScriptId.make(crypto.randomUUID()) }),
 			);
 
 			assertTaggedError(error, "TestSupportNotFound");

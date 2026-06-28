@@ -12,10 +12,7 @@ import { PluginCatalogService } from "#/modules/plugins/catalog";
 import { PluginCatalogProvider, usePluginCatalog } from "#/modules/plugins/catalog-provider";
 import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/events.test-layer";
 
-const scope: ApiScope = {
-	userId: "user-1",
-	serverUrl: decodeServerOrigin("https://ryot.example"),
-};
+const scope: ApiScope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.example") };
 const catalog: PluginClientCatalog = [
 	{
 		sortOrder: 0,

@@ -671,11 +671,7 @@ export type ExecutionMetadata = Schema.Schema.Type<typeof executionMetadataSchem
 export type SandboxWorkflowReference<
 	Input extends Schema.Constraint,
 	Output extends Schema.ConstraintDecoder<unknown>,
-> = {
-	readonly input: Input;
-	readonly output: Output;
-	readonly workflowSlug: string;
-};
+> = { readonly input: Input; readonly output: Output; readonly workflowSlug: string };
 
 export type SandboxWorkflowHost = {
 	readonly executeWorkflow?: <

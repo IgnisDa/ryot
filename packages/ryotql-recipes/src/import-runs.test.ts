@@ -222,9 +222,7 @@ describe("import-run recipes", () => {
 
 		expect(
 			Result.isFailure(
-				detailRecipe.decode({
-					data: { run: rows([runItem, runItem], 2), failures: rows([]) },
-				}),
+				detailRecipe.decode({ data: { run: rows([runItem, runItem], 2), failures: rows([]) } }),
 			),
 		).toBe(true);
 		expect(Result.isFailure(manualImportRunsRecipe({ limit: 2 }).decode({ data: {} }))).toBe(true);
