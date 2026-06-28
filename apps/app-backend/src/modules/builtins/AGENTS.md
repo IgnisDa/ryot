@@ -10,53 +10,11 @@ orchestration lives in `../user-bootstrap/bootstrap.ts`.
 
 ## Media Lifecycle
 
-### Events
+Six event schemas (`backlog`, `progress`, `complete`, `dropped`, `on_hold`, `review`) are defined per media entity schema in `entity-schemas.ts` — that file is the source of truth for which properties live on which event. The semantics below are the load-bearing behavior not derivable from the schema alone.
 
-Six event schemas are defined per media entity schema in `entity-schemas.ts`:
+### Episode Tracking
 
-| Slug       | Meaning                                                          |
-| ---------- | ---------------------------------------------------------------- |
-| `backlog`  | User intends to consume this item later. No properties.          |
-| `progress` | User is actively consuming this item. Carries `progressPercent`. |
-| `complete` | User finished the item. Carries timestamps and `completionMode`. |
-| `dropped`  | User stopped before finishing. Carries `progressPercent`.        |
-| `on_hold`  | User paused before finishing. Carries `progressPercent`.         |
-| `review`   | User rated or wrote about this item.                             |
-
-### Shared Properties
-
-`consumedOn` (optional string) is on `progress`, `complete`, `dropped`, and `on_hold`. It records
-the source platform (e.g. "Netflix", "Jellyfin"). V2 intentionally stores at most one source
-string per event. The aggregate across history is derivable via a query, not stored separately.
-
-`startedOn` (optional datetime) is on `complete`, `dropped`, and `on_hold`. It records when the
-user started the current consumption session.
-
-`timeSpent` (optional number, **minutes**) is on `complete`, `dropped`, and `on_hold`.
-
-### Episode-Specific Progress Properties
-
-For `anime` and `manga`, progress/dropped/on_hold events carry additional fields directly:
-
-| Entity  | Extra fields                  |
-| ------- | ----------------------------- |
-| `anime` | `animeEpisode`                |
-| `manga` | `mangaVolume`, `mangaChapter` |
-
-`show` and `podcast` track episode-level progress differently: each has a dedicated
-`show-episode` / `podcast-episode` entity schema (with `seasonNumber`/`episodeNumber` on
-`show-episode` and `episodeNumber` on `podcast-episode`), and progress/dropped/on_hold events are
-logged against those episode entities instead of the parent `show`/`podcast` entity. The `show`
-and `podcast` entity schemas themselves exclude the `progress` event schema.
-
-`complete` events carry **none** of the episode-specific fields above — completion is always at
-the whole-entity level.
-
-### `complete` Event Properties
-
-`completionMode` is always required (`just_now`, `unknown`, or `custom_timestamps`);
-`completedOn` is required only when `completionMode = "custom_timestamps"`. `startedOn`,
-`timeSpent` (minutes), and `consumedOn` are optional.
+`show` and `podcast` track episode-level progress on dedicated `show-episode` / `podcast-episode` entities, not on the parent — the parent schemas exclude the `progress` event schema entirely. `anime` and `manga` carry episode/chapter fields (`animeEpisode`, `mangaVolume`, `mangaChapter`) directly on their progress/dropped/on_hold events. `complete` is always at the whole-entity level and carries no episode-specific fields.
 
 ### State Derivation
 
@@ -144,9 +102,3 @@ a progress event's `occurredAt` via `createProgressResult`
 (`apps/app-backend/src/modules/integrations/sinks/shared.ts`), defaulting to now, and the
 Auto-Complete Trigger reuses that always-present `occurredAt` as the resulting `complete` event's
 `completedOn`.
-
-### `progressPercent` Validation
-
-`number`, required, `exclusiveMinimum: 0`, `maximum: 100`, rounded to 2 decimal places — `0` is
-invalid (`1` is the intended floor for a freshly started item) and values above `100` are
-rejected by schema validation.
