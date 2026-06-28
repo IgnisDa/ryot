@@ -47,8 +47,8 @@ it.effect("builds the v1 request shape for every HTTP notification provider", ()
 
 	const program = Effect.gen(function* () {
 		const service = yield* NotificationDeliveryService;
-		for (const platformSpecifics of specifics) {
-			yield* service.send({ message: "hello", platformSpecifics });
+		for (const channelSpecifics of specifics) {
+			yield* service.send({ message: "hello", channelSpecifics });
 		}
 	}).pipe(
 		Effect.provide(
