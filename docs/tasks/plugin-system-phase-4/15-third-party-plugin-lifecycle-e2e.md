@@ -2,7 +2,7 @@
 
 **Parent Plan:** [Plugin System - Phase 4](./README.md)
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -17,16 +17,16 @@ or fitness behavior.
 
 ## Acceptance criteria
 
-- [ ] The fixture is installed and visible through the real ingestion/loader path without restart
-- [ ] Search executes fixture provider code and returns deterministic data
-- [ ] Import populates a fixture entity through the generic provider/import path
-- [ ] A fixture event is created and its declared automation produces an observable asserted effect
-- [ ] Uninstall conflicts while entity or workflow references remain
-- [ ] Cleanup uses owning public/test-support paths rather than direct table mutation
-- [ ] Uninstall succeeds after references clear and the package disappears from active catalogs
-- [ ] A historical script id cannot execute after uninstall
-- [ ] Assertions cover each lifecycle stage rather than relying on status-only smoke checks
-- [ ] The test is hermetic, offline, and leaves no active package or durable work behind
+- [x] The fixture is installed and visible through the real ingestion/loader path without restart
+- [x] Search executes fixture provider code and returns deterministic data
+- [x] Import populates a fixture entity through the generic provider/import path
+- [x] A fixture event is created and its declared automation produces an observable asserted effect
+- [x] Uninstall conflicts while entity or workflow references remain
+- [x] Cleanup uses owning public/test-support paths rather than direct table mutation
+- [x] Uninstall succeeds after references clear and the package disappears from active catalogs
+- [x] A historical script id cannot execute after uninstall
+- [x] Assertions cover each lifecycle stage rather than relying on status-only smoke checks
+- [x] The test is hermetic, offline, and leaves no active package or durable work behind
 
 ## User stories addressed
 
