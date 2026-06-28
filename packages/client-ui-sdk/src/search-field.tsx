@@ -3,16 +3,16 @@ import clsx from "clsx";
 import { useRef, type ReactNode } from "react";
 
 import { Badge } from "./badge";
+import { useFieldEscape } from "./field-escape";
 import { useShortcut } from "./shortcut";
 
 type SearchFieldProps = {
 	readonly label: string;
 	readonly value: string;
 	readonly icon: ReactNode;
-	readonly clearIcon: ReactNode;
 	readonly shortcut?: Hotkey;
 	readonly className?: string;
-	readonly shortcutEnabled?: boolean;
+	readonly clearIcon: ReactNode;
 	readonly placeholder?: string;
 	readonly onSubmit?: () => void;
 	readonly onChange: (value: string) => void;
@@ -28,12 +28,12 @@ export function SearchField({
 	clearIcon,
 	className,
 	placeholder,
-	shortcutEnabled = true,
 }: SearchFieldProps) {
 	const input = useRef<HTMLInputElement>(null);
 	useShortcut(shortcut ?? "/", () => input.current?.focus(), {
-		enabled: shortcutEnabled && shortcut !== undefined,
+		enabled: shortcut !== undefined,
 	});
+	useFieldEscape(input, { hasValue: value !== "", onClear: () => onChange("") });
 
 	return (
 		<form
@@ -55,12 +55,12 @@ export function SearchField({
 				type="search"
 				value={value}
 				aria-label={label}
+				aria-keyshortcuts={shortcut}
 				placeholder={placeholder ?? label}
-				aria-keyshortcuts={shortcutEnabled ? shortcut : undefined}
 				onChange={(event) => onChange(event.currentTarget.value)}
 				className="h-full w-full rounded-full border border-border-strong bg-surface-2 pr-9 pl-9 text-base text-text outline-none placeholder:text-text-subtle focus-visible:ring-2 focus-visible:ring-focus md:rounded-md md:bg-bg md:text-[13px]"
 			/>
-			{value === "" && shortcutEnabled && shortcut !== undefined && (
+			{value === "" && shortcut !== undefined && (
 				<Badge
 					variant="key"
 					aria-hidden="true"

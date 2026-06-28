@@ -1,6 +1,7 @@
 import clsx from "clsx";
-import { useDeferredValue, useState, type ReactNode } from "react";
+import { useDeferredValue, useRef, useState, type ReactNode } from "react";
 
+import { useFieldEscape } from "./field-escape";
 import { Modal } from "./modal";
 
 export type MultiSelectChoice = {
@@ -37,6 +38,8 @@ export function MultiSelect({
 }: MultiSelectProps) {
 	const [open, setOpen] = useState(false);
 	const [query, setQuery] = useState("");
+	const search = useRef<HTMLInputElement>(null);
+	useFieldEscape(search, { hasValue: query !== "", onClear: () => setQuery("") });
 	const deferredQuery = useDeferredValue(query);
 	const selected = new Set(selectedValues);
 	const normalizedQuery = deferredQuery.trim().toLocaleLowerCase();
@@ -127,6 +130,7 @@ export function MultiSelect({
 							{searchIcon}
 						</span>
 						<input
+							ref={search}
 							value={query}
 							autoComplete="off"
 							placeholder="Search options"
