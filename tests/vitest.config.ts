@@ -6,11 +6,11 @@ export default defineConfig({
 	resolve: { alias: [{ find: /^~\//, replacement: srcDir }] },
 	test: {
 		isolate: true,
-		reporters: ["agent"],
 		testTimeout: 180_000,
 		hookTimeout: 180_000,
 		setupFiles: ["./test-setup.ts"],
 		globalSetup: ["./global-setup.ts"],
 		include: ["src/tests/**/*.test.ts"],
+		reporters: ["hanging-process", "agent"],
 	},
 });
