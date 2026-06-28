@@ -3,7 +3,7 @@ import { BadRequest, DbError, NotFound, SandboxRunError } from "@ryot/contract/e
 import {
 	AutomationOperation,
 	AutomationOrigin,
-	AutomationRuleMetadata,
+	AutomationProperties,
 	SubscriptionRunSourceKind,
 } from "@ryot/contract/modules/automations/schemas";
 import {
@@ -26,11 +26,6 @@ export const SubscriptionExecutionWorkflowError = Schema.Union(
 	BadRequest,
 	SandboxRunError,
 );
-
-export const AutomationProperties = Schema.Record({
-	key: Schema.String,
-	value: AutomationRuleMetadata,
-});
 
 const EntityReference = Schema.Struct({
 	id: EntityId,

@@ -3,8 +3,14 @@ import { Effect, Schema } from "effect";
 import { DbError } from "../errors";
 import { AppSchema, type AppPropertyDefinition } from "./property-schema";
 
+export const decodeStoredSchema = <A, I>(
+	value: unknown,
+	valueSchema: Schema.Schema<A, I>,
+	message: string,
+) => Schema.decodeUnknown(valueSchema)(value).pipe(Effect.mapError(() => new DbError({ message })));
+
 export const decodeStoredAppSchema = (value: unknown, message: string) =>
-	Schema.decodeUnknown(AppSchema)(value).pipe(Effect.mapError(() => new DbError({ message })));
+	decodeStoredSchema(value, AppSchema, message);
 
 export const stringField = (label: string, description: string) =>
 	({ label, description, type: "string" }) as const;

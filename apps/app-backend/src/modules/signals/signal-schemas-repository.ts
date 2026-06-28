@@ -6,10 +6,10 @@ import {
 	type SignalCatalogState as SignalCatalogStateValue,
 } from "@ryot/contract/modules/automations/schemas";
 import { SignalSchemaId, UserId } from "@ryot/contract/schema/brands";
-import { decodeStoredAppSchema } from "@ryot/contract/schema/core";
+import { decodeStoredAppSchema, decodeStoredSchema } from "@ryot/contract/schema/core";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { and, asc, eq, isNull, or, sql } from "drizzle-orm";
-import { Effect, Schema } from "effect";
+import { Effect } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
@@ -32,23 +32,17 @@ export type BuiltinSignalSchemaInput = Pick<
 	"audiencePolicy" | "catalogState" | "name" | "propertiesSchema" | "slug"
 >;
 
-const decodeStoredValue = <A, I>(
-	value: unknown,
-	valueSchema: Schema.Schema<A, I>,
-	message: string,
-) => Schema.decodeUnknown(valueSchema)(value).pipe(Effect.mapError(() => new DbError({ message })));
-
 const toScope = Effect.fn(function* (row: SignalSchemaRow) {
 	const propertiesSchema = yield* decodeStoredAppSchema(
 		row.propertiesSchema,
 		`Invalid properties schema for signal schema ${row.id}`,
 	);
-	const audiencePolicy = yield* decodeStoredValue(
+	const audiencePolicy = yield* decodeStoredSchema(
 		row.audiencePolicy,
 		SignalAudiencePolicy,
 		`Invalid audience policy for signal schema ${row.id}`,
 	);
-	const catalogState = yield* decodeStoredValue(
+	const catalogState = yield* decodeStoredSchema(
 		row.catalogState,
 		SignalCatalogState,
 		`Invalid catalog state for signal schema ${row.id}`,

@@ -36,6 +36,11 @@ export const AutomationRuleMetadata = JsonValueSchema;
 
 export type AutomationRuleMetadata = typeof AutomationRuleMetadata.Type;
 
+export const AutomationProperties = Schema.Record({
+	key: Schema.String,
+	value: AutomationRuleMetadata,
+});
+
 export const AutomationPolicyResult = Schema.Union(
 	strictStruct({ action: Schema.Literal("allow") }),
 	strictStruct({ action: Schema.Literal("skip"), reason: Schema.String }),
