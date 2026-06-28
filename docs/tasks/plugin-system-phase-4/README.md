@@ -157,6 +157,8 @@ temporary scaffolding and directly affected migration residue without broad unre
 - Keep the V1 legacy-bootstrap quarantine and first-party boot package wiring as narrow justified exceptions. The retained backup client's required contract media types are a temporary documented exception.
 - Every reported violation includes the matching term, file, line, and source text. Every allowlist entry includes a reason and the narrowest practical path/term match.
 - Temporary entries used to keep the branch shippable while known leaks move must identify their removal task. Final acceptance permits only enduring justified exceptions.
+- Task 17 refactors the runtime-cycle analysis out of the module-DAG renderer and runs it through `purity:check`; the HTML renderer remains an optional consumer of the same analysis.
+- The current 13-cycle runtime baseline is not allowlisted. Tasks 02-16 may remove cycles incrementally, and Task 17 must reach and enforce zero runtime cycles.
 
 ### Media library ownership
 
@@ -264,6 +266,7 @@ temporary scaffolding and directly affected migration residue without broad unre
 - Tests prove Ryot-owned behavior and branching, not Effect, Deno, PostgreSQL, or schema-library behavior in isolation.
 - Existing e2e assertions are preserved. A behavior change requires explicit owner approval; file moves and fixture plumbing are not permission to weaken assertions.
 - The purity gate is tested with representative forbidden hits, allowlisted hits, generated/test exclusions, manifest-derived vocabulary changes, and exact file/line diagnostics.
+- Module-DAG tests cover import-edge extraction and deterministic cycle diagnostics; final acceptance runs the non-rendering cycle check through `purity:check` and requires zero runtime cycles.
 - Library tests cover new-user bootstrap, retry/idempotency, media-only eligibility, event/import/collection membership, ownership-source merging, user-state clear/merge policy, and exclusion of fitness/unrelated schemas.
 - Import tests install a fixture declaring a source absent from the central contract, invoke it through the generic envelope, validate payload/artifact rejection, and observe terminal workflow results.
 - Runtime tests cover atomic module materialization, cache reuse, concurrent builders, path grants, source mapping, sanitized errors, and file cleanup liveness.
