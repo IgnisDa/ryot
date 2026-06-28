@@ -163,7 +163,7 @@
         "better-auth": "1.7.2",
         "dotenv": "17.3.1",
         "effect": "4.0.0-rc.111",
-        "effect-playwright": "0.8.0-1",
+        "effect-playwright": "0.8.0-2",
         "fflate": "^0.8.3",
         "get-port": "7.2.0",
         "oauth2-mock-server": "9.1.0",
@@ -2231,7 +2231,7 @@
 
     "effect": ["effect@4.0.0-rc.111", "", { "dependencies": { "@standard-schema/spec": "^1.1.0", "fast-check": "^4.9.0", "msgpackr": "^2.0.5" } }, "sha512-ASd5L58EIR0CUNueZNKKjSsyOCd+2alxOAIaTcHaqkJkPsaYSsw5Cg/cfANk5K4Jr2YsX756xvX11shzqsreWA=="],
 
-    "effect-playwright": ["effect-playwright@0.8.0-1", "", { "dependencies": { "playwright-core": "^1.62.1" }, "peerDependencies": { "@playwright/test": "^1.62.1", "effect": "^4.0.0-rc.111" }, "optionalPeers": ["@playwright/test"], "bin": { "effect-playwright": "./bin/cli.mjs" } }, "sha512-cmU8hZ/lM71SyFi9RzLtoC+WQ0tQR7RIS+wFSbsnqJQ6hHOQRnTyta0rJvEor4IvswDFKZhicuiJ9TwQu+qt2Q=="],
+    "effect-playwright": ["effect-playwright@0.8.0-2", "", { "dependencies": { "playwright-core": "^1.62.1" }, "peerDependencies": { "@playwright/test": "^1.62.1", "effect": "^4.0.0-rc.111" }, "optionalPeers": ["@playwright/test"], "bin": { "effect-playwright": "./bin/cli.mjs" } }, "sha512-NMq3l7kufxFWqSKyrdJ1Lbbwc1mwT7Xbje61DRakf+m2LmkOz+4ojVMdnpPX6vw6+/MZ+aIn1wG19OOwAWQ3UA=="],
 
     "electron-to-chromium": ["electron-to-chromium@1.5.331", "", {}, "sha512-IbxXrsTlD3hRodkLnbxAPP4OuJYdWCeM3IOdT+CpcMoIwIoDfCmRpEtSPfwBXxVkg9xmBeY7Lz2Eo2TDn/HC3Q=="],
 
