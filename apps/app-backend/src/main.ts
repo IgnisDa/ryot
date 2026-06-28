@@ -10,6 +10,7 @@ import { PackageCacheManager } from "./lib/infrastructure/sandbox-runtime/runtim
 import { AutomationsRepository } from "./modules/automations/repository";
 import { AutomationsService } from "./modules/automations/service";
 import { SeedService } from "./modules/builtins/seed";
+import { LifecycleDispatchNoop } from "./modules/entities/lifecycle-dispatch";
 import { EntitiesRepository } from "./modules/entities/repository";
 import { EntitiesService } from "./modules/entities/service";
 import { EntitySchemasRepository } from "./modules/entity-schemas/repository";
@@ -53,7 +54,11 @@ if (Bun.env["RUN_MIGRATION_ONLY"] === "true") {
 			SignalSchemasService.Default,
 			TrackersService.Default,
 		),
-		Layer.mergeAll(MigrationBootstrapRepositoriesLive, MigrationQueryEngineLive),
+		Layer.mergeAll(
+			LifecycleDispatchNoop,
+			MigrationQueryEngineLive,
+			MigrationBootstrapRepositoriesLive,
+		),
 	);
 	const MigrationOnlyLive = MigrationsComplete.Default.pipe(
 		Layer.flatMap(() =>

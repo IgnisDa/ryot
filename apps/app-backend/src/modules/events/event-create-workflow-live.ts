@@ -20,6 +20,7 @@ import { Context, DateTime, Effect, Layer, Option, Schema } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
+import { LifecycleDispatch } from "#modules/entities/lifecycle-dispatch";
 import { SandboxExecutionQueue } from "#modules/sandbox/durable-queues";
 import { RunSandboxWorkflow } from "#modules/sandbox/sandbox-run-workflow";
 
@@ -47,6 +48,7 @@ const PreparedBeforeTrigger = Schema.Struct({
 const PreparedItem = Schema.Struct({
 	entityId: EntityId,
 	occurredAt: Schema.String,
+	subjectName: Schema.String,
 	eventSchemaId: EventSchemaId,
 	propertiesSchema: AppSchema,
 	eventSchemaName: Schema.String,
@@ -66,12 +68,13 @@ const CreatedEvent = Schema.Struct({
 	createdAt: Schema.String,
 	updatedAt: Schema.String,
 	occurredAt: Schema.String,
+	subjectName: Schema.String,
 	eventSchemaId: EventSchemaId,
 	eventSchemaName: Schema.String,
 	eventSchemaSlug: Schema.String,
-	isGlobalReference: Schema.Boolean,
 	entitySchemaId: EntitySchemaId,
 	entitySchemaSlug: Schema.String,
+	isGlobalReference: Schema.Boolean,
 	sessionEntityId: Schema.optional(EntityId),
 	properties: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
 });
@@ -154,15 +157,16 @@ const prepareItem = Effect.fn("prepareEventCreateItem")(function* (
 
 			return {
 				entityId,
+				sessionEntityId,
 				eventSchemaId: eventSchemaScope.id,
+				subjectName: entityScope.entityName,
+				occurredAt: occurredAt.toISOString(),
 				eventSchemaName: eventSchemaScope.name,
 				eventSchemaSlug: eventSchemaScope.slug,
-				occurredAt: occurredAt.toISOString(),
-				propertiesSchema: eventSchemaScope.propertiesSchema,
 				entitySchemaId: entityScope.entitySchemaId,
 				entitySchemaSlug: entityScope.entitySchemaSlug,
 				isGlobalEntity: entityScope.entityUserId === null,
-				sessionEntityId,
+				propertiesSchema: eventSchemaScope.propertiesSchema,
 				beforeTriggers: beforeTriggers.map((trigger) => ({
 					id: trigger.id,
 					sandboxScriptId: trigger.sandboxScriptId,
@@ -197,19 +201,20 @@ const writeEvent = Effect.fn("writeEventCreateItem")(function* (
 					properties,
 					userId: payload.userId,
 					entityId: prepared.entityId,
-					occurredAt: DateTime.toDate(DateTime.unsafeMake(raw.occurredAt)),
 					eventSchemaId: prepared.eventSchemaId,
 					sessionEntityId: raw.sessionEntityId,
 					eventSchemaName: prepared.eventSchemaName,
 					eventSchemaSlug: prepared.eventSchemaSlug,
 					id: EventId.make(`${payload.executionId}-event-${itemIndex}`),
+					occurredAt: DateTime.toDate(DateTime.unsafeMake(raw.occurredAt)),
 				}),
 			);
 
 			return {
 				...createdEvent,
-				isGlobalReference: prepared.isGlobalEntity,
+				subjectName: prepared.subjectName,
 				entitySchemaId: prepared.entitySchemaId,
+				isGlobalReference: prepared.isGlobalEntity,
 				entitySchemaSlug: prepared.entitySchemaSlug,
 			} satisfies CreatedEvent;
 		}),
@@ -385,6 +390,39 @@ const toCreatedEventWithContext = (event: CreatedEvent): CreatedEventWithContext
 	sessionEntityId: event.sessionEntityId,
 });
 
+const dispatchLifecycleOccurrence = Effect.fn("dispatchEventLifecycleOccurrence")(function* (
+	payload: EventCreateWorkflowPayload,
+	itemIndex: number,
+	event: CreatedEvent,
+) {
+	if (!payload.lifecycleOrigin) {
+		return;
+	}
+	const lifecycleDispatch = yield* LifecycleDispatch;
+	yield* lifecycleDispatch.dispatch({
+		recordId: event.id,
+		rowUserId: payload.userId,
+		occurredAt: event.createdAt,
+		origin: payload.lifecycleOrigin,
+		occurrenceId: `${payload.executionId}-lifecycle-${itemIndex}`,
+		source: {
+			kind: "event",
+			after: {
+				id: event.id,
+				properties: event.properties,
+				occurredAt: event.occurredAt,
+				eventSchemaId: event.eventSchemaId,
+				eventSchemaSlug: event.eventSchemaSlug,
+				subject: {
+					id: event.entityId,
+					name: event.subjectName,
+					entitySchemaSlug: event.entitySchemaSlug,
+				},
+			},
+		},
+	});
+});
+
 export const runEventCreateWorkflow = Effect.fn("runEventCreateWorkflow")(function* (
 	payload: EventCreateWorkflowPayload,
 ) {
@@ -404,6 +442,7 @@ export const runEventCreateWorkflow = Effect.fn("runEventCreateWorkflow")(functi
 			referencedGlobalEntityIds.add(createdEvent.entityId);
 		}
 		createdEvents.push(toCreatedEventWithContext(createdEvent));
+		yield* dispatchLifecycleOccurrence(payload, itemIndex, createdEvent);
 	}
 
 	if (createdEvents.length > 0) {

@@ -155,6 +155,7 @@ export class EntitiesRepository extends Effect.Service<EntitiesRepository>()("En
 					db
 						.select({
 							entityId: schema.entity.id,
+							entityName: schema.entity.name,
 							entityUserId: schema.entity.userId,
 							isBuiltin: schema.entitySchema.isBuiltin,
 							entitySchemaSlug: schema.entitySchema.slug,

@@ -20,6 +20,7 @@ import {
 	makeWorkflowEngine,
 	transactionLayer,
 } from "#lib/test-utils/effect";
+import { LifecycleDispatchNoop } from "#modules/entities/lifecycle-dispatch";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { EventsService } from "#modules/events/service";
@@ -174,7 +175,9 @@ const makeServiceLayer = (
 	const relationshipsRepository = options.relationshipsRepository ?? makeRelationshipsRepository();
 
 	const entitiesServiceLayer = EntitiesService.Default.pipe(
-		Layer.provide(Layer.mergeAll(dbRunnerLayer, makeQueryEngine(), entitiesRepository)),
+		Layer.provide(
+			Layer.mergeAll(dbRunnerLayer, LifecycleDispatchNoop, makeQueryEngine(), entitiesRepository),
+		),
 	);
 
 	const relationshipsServiceLayer = RelationshipsService.Default.pipe(
