@@ -349,9 +349,32 @@ describe("settings navigation", () => {
 });
 
 describe("account settings", () => {
+	it("retries a failed account identity query", async () => {
+		let sessionReads = 0;
+		mountView(
+			"/settings/account",
+			undefined,
+			undefined,
+			makeAuthStub({
+				settledSession: () => {
+					sessionReads++;
+					return sessionReads === 2
+						? Effect.die("account unavailable")
+						: Effect.succeed(authenticated);
+				},
+			}),
+		);
+
+		await screen.findByText("Could not load your account.");
+		fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+
+		await screen.findByRole("button", { name: "New avatar" });
+		expect(sessionReads).toBe(3);
+	});
+
 	it("renders the current identity: name, email, and user ID", async () => {
 		mountView("/settings/account");
-		await screen.findByRole("heading", { name: "Account" });
+		await screen.findByRole("button", { name: "New avatar" });
 
 		const profile = screen.getByRole("heading", { name: "Profile" }).closest("section");
 		expect(profile).not.toBeNull();
@@ -429,11 +452,17 @@ describe("account settings", () => {
 					}),
 			}),
 		);
-		await screen.findByRole("heading", { name: "Account" });
+		await screen.findByRole("button", { name: "New avatar" });
+		const readsBeforeGenerate = refreshes.filter((forceRefresh) => !forceRefresh).length;
 
 		fireEvent.click(screen.getByRole("button", { name: "New avatar" }));
 
-		await waitFor(() => expect(refreshes).toContain(true));
+		await waitFor(() => {
+			expect(refreshes).toContain(true);
+			expect(refreshes.filter((forceRefresh) => !forceRefresh).length).toBeGreaterThan(
+				readsBeforeGenerate,
+			);
+		});
 		expect(generated).toEqual(["https://ryot.example/avatar.png"]);
 	});
 
@@ -448,7 +477,7 @@ describe("account settings", () => {
 			undefined,
 			makeUserSettingsStub({ refreshAvatar: () => Deferred.await(gate) }),
 		);
-		await screen.findByRole("heading", { name: "Account" });
+		await screen.findByRole("button", { name: "New avatar" });
 
 		fireEvent.click(screen.getByRole("button", { name: "New avatar" }));
 
@@ -468,7 +497,7 @@ describe("account settings", () => {
 			undefined,
 			makeUserSettingsStub({ refreshAvatar: () => Effect.die("avatar generation failed") }),
 		);
-		await screen.findByRole("heading", { name: "Account" });
+		await screen.findByRole("button", { name: "New avatar" });
 
 		fireEvent.click(screen.getByRole("button", { name: "New avatar" }));
 
@@ -509,6 +538,37 @@ describe("account settings", () => {
 		expect(view.router.state.location.pathname).toBe("/settings/account");
 		expect(screen.getByRole("button", { name: "Sign out" }).hasAttribute("disabled")).toBe(false);
 	});
+
+	it("leaves navigation to an external logout without refreshing account data", async () => {
+		const signOuts: string[] = [];
+		let sessionReads = 0;
+		const view = mountView(
+			"/settings/account",
+			undefined,
+			undefined,
+			makeAuthStub({
+				signOut: (origin) =>
+					Effect.sync(() => {
+						signOuts.push(origin);
+						return true;
+					}),
+				settledSession: () =>
+					Effect.sync(() => {
+						sessionReads++;
+						return authenticated;
+					}),
+			}),
+		);
+		await screen.findByRole("button", { name: "Sign out" });
+		const readsBeforeSignOut = sessionReads;
+
+		fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
+
+		await waitFor(() => expect(signOuts).toEqual([server]));
+		await screen.findByRole("button", { name: "Sign out" });
+		expect(view.router.state.location.pathname).toBe("/settings/account");
+		expect(sessionReads).toBe(readsBeforeSignOut);
+	});
 });
 
 describe("preferences settings", () => {
@@ -525,7 +585,7 @@ describe("preferences settings", () => {
 
 	it("renders appearance beside the server-backed preferences", async () => {
 		mountPreferences();
-		await screen.findByRole("heading", { name: "Content and data" });
+		await screen.findByRole("switch", { name: "Show NSFW content" });
 
 		expect(screen.getByRole("radiogroup", { name: "Appearance" })).not.toBeNull();
 		expect(screen.getByRole("switch", { name: "Show NSFW content" })).not.toBeNull();
@@ -537,17 +597,24 @@ describe("preferences settings", () => {
 
 	it("submits only the changed preferences and reports the save", async () => {
 		const saved: UpdateUserPreferencesBody[] = [];
+		let settingsReads = 0;
+		let current = userSettings;
 		const view = mountPreferences(
 			makeUserSettingsStub({
+				get: () =>
+					Effect.sync(() => {
+						settingsReads++;
+						return current;
+					}),
 				updatePreferences: (_scope, request) =>
 					Effect.sync(() => {
 						saved.push(request.payload);
-						return { ...userSettings.preferences, ...request.payload };
+						current = { ...current, preferences: { ...current.preferences, ...request.payload } };
+						return current.preferences;
 					}),
 			}),
 		);
-		await screen.findByRole("heading", { name: "Content and data" });
-		const submit = screen.getByRole("button", { name: "Save changes" });
+		const submit = await screen.findByRole("button", { name: "Save changes" });
 		expect(submit.hasAttribute("disabled")).toBe(true);
 
 		fireEvent.click(screen.getByRole("switch", { name: "Show NSFW content" }));
@@ -555,6 +622,7 @@ describe("preferences settings", () => {
 		fireEvent.click(submit);
 
 		await screen.findByText("Preferences saved.");
+		await waitFor(() => expect(settingsReads).toBe(2));
 		expect(saved).toEqual([{ allowNsfw: true }]);
 		expect(view.interestEvents).toEqual(["acquire"]);
 		expect(screen.getByRole("button", { name: "Save changes" }).hasAttribute("disabled")).toBe(
@@ -573,7 +641,7 @@ describe("preferences settings", () => {
 					}),
 			}),
 		);
-		await screen.findByRole("heading", { name: "Content and data" });
+		await screen.findByRole("button", { name: "Save changes" });
 
 		fireEvent.click(screen.getByRole("button", { name: "Metadata language: Provider default" }));
 		fireEvent.click(screen.getByRole("radio", { name: "Spanish" }));
@@ -587,7 +655,7 @@ describe("preferences settings", () => {
 	it("disables preference controls while a save is pending", async () => {
 		const gate = Effect.runSync(Deferred.make<typeof userSettings.preferences>());
 		mountPreferences(makeUserSettingsStub({ updatePreferences: () => Deferred.await(gate) }));
-		await screen.findByRole("heading", { name: "Content and data" });
+		await screen.findByRole("button", { name: "Save changes" });
 		fireEvent.click(screen.getByRole("switch", { name: "Show NSFW content" }));
 		fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
@@ -615,7 +683,7 @@ describe("preferences settings", () => {
 		const view = mountPreferences(
 			makeUserSettingsStub({ updatePreferences: () => Effect.die("save failed") }),
 		);
-		await screen.findByRole("heading", { name: "Content and data" });
+		await screen.findByRole("button", { name: "Save changes" });
 		fireEvent.click(screen.getByRole("button", { name: "Metadata language: Provider default" }));
 		fireEvent.click(screen.getByRole("radio", { name: "Spanish" }));
 		fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
@@ -627,7 +695,7 @@ describe("preferences settings", () => {
 		mountPreferences(
 			makeUserSettingsStub({ updatePreferences: () => Effect.die("preference update failed") }),
 		);
-		await screen.findByRole("heading", { name: "Content and data" });
+		await screen.findByRole("button", { name: "Save changes" });
 
 		fireEvent.click(screen.getByRole("switch", { name: "Disable integrations" }));
 		fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
@@ -639,6 +707,33 @@ describe("preferences settings", () => {
 		expect(screen.getByRole("button", { name: "Save changes" }).hasAttribute("disabled")).toBe(
 			false,
 		);
+	});
+
+	it("keeps preferences visible when their mutation refresh fails", async () => {
+		let settingsReads = 0;
+		mountPreferences(
+			makeUserSettingsStub({
+				updatePreferences: (_scope, request) =>
+					Effect.succeed({ ...userSettings.preferences, ...request.payload }),
+				get: () => {
+					settingsReads++;
+					return settingsReads === 1
+						? Effect.succeed(userSettings)
+						: Effect.die("settings refresh failed");
+				},
+			}),
+		);
+		const nsfw = await screen.findByRole("switch", { name: "Show NSFW content" });
+
+		fireEvent.click(nsfw);
+		fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+		await screen.findByText("Preferences saved.");
+		await waitFor(() => expect(settingsReads).toBe(2));
+		expect(screen.getByRole("switch", { name: "Show NSFW content" })).toBe(nsfw);
+		expect(
+			screen.queryByText("Could not load your settings. Check the server and try again."),
+		).toBeNull();
 	});
 
 	it("keeps appearance usable when the settings request fails", async () => {

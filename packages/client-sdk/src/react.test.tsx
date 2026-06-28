@@ -47,12 +47,18 @@ const activeScreen = (active: boolean, children: ReactNode) => (
 	<ActiveScreenContext.Provider value={active}>{children}</ActiveScreenContext.Provider>
 );
 
-const render = (children: ReactNode, runtime = plainClock().runtime) => {
+const render = (children: ReactNode, runtime = plainClock().runtime, hostServices?: unknown) => {
 	const container = document.createElement("div");
 	document.body.append(container);
 	const root = createRoot(container);
 	roots.push(root);
-	act(() => root.render(<RyotProvider runtime={runtime}>{children}</RyotProvider>));
+	act(() =>
+		root.render(
+			<RyotProvider hostServices={hostServices} runtime={runtime}>
+				{children}
+			</RyotProvider>,
+		),
+	);
 	return container;
 };
 
@@ -403,6 +409,20 @@ describe("useRyotQuery", () => {
 		await waitFor(() => expect(container.textContent).toBe("success:ready"));
 	});
 
+	it("supplies host services to query definitions", async () => {
+		type HostServices = { readonly read: (input: string) => Promise<string> };
+		const query = createRyotQuery<string, string, HostServices>(({ hostServices, input }) =>
+			hostServices.read(input),
+		);
+		const View = () => <p>{useRyotQuery(query, "settings").data ?? "pending"}</p>;
+		const clock = makeClock();
+		const container = render(<View />, clock.runtime, {
+			read: (input: string) => Promise.resolve(`host:${input}`),
+		});
+
+		await waitFor(() => expect(container.textContent).toBe("host:settings"));
+	});
+
 	it("exposes Promise failures as plain errors", async () => {
 		const query = createRyotQuery(() => Promise.reject(new Error("offline")));
 		const View = () => {
@@ -723,9 +743,13 @@ describe("useRyotQuery", () => {
 	});
 
 	it("isolates caches between providers", async () => {
+		type HostServices = { readonly value: string };
 		let calls = 0;
-		const query = createRyotQuery(() => Promise.resolve(++calls));
-		const View = () => <p>{useRyotQuery(query).status}</p>;
+		const query = createRyotQuery<void, string, HostServices>(({ hostServices }) => {
+			calls++;
+			return Promise.resolve(hostServices.value);
+		});
+		const View = () => <p>{useRyotQuery(query).data ?? "pending"}</p>;
 		const { runtime } = plainClock();
 		const container = document.createElement("div");
 		document.body.append(container);
@@ -734,17 +758,60 @@ describe("useRyotQuery", () => {
 		act(() =>
 			root.render(
 				<>
-					<RyotProvider runtime={runtime}>
+					<RyotProvider hostServices={{ value: "left" }} runtime={runtime}>
 						<View />
 					</RyotProvider>
-					<RyotProvider runtime={runtime}>
+					<RyotProvider hostServices={{ value: "right" }} runtime={runtime}>
 						<View />
 					</RyotProvider>
 				</>,
 			),
 		);
 
-		await waitFor(() => expect(container.textContent).toBe("successsuccess"));
+		await waitFor(() => expect(container.textContent).toBe("leftright"));
+		expect(calls).toBe(2);
+	});
+
+	it("keeps host service identity out of query cache identity", async () => {
+		type HostServices = { readonly value: string };
+		let calls = 0;
+		let latest: RyotQueryResult<string> | undefined;
+		const query = createRyotQuery<{ readonly page: number }, string, HostServices>(
+			({ hostServices, input }) => {
+				calls++;
+				return Promise.resolve(`${hostServices.value}:${input.page}`);
+			},
+		);
+		const View = () => {
+			latest = useRyotQuery(query, { page: 1 });
+			return <p>{latest.data ?? "pending"}</p>;
+		};
+		const clock = makeClock();
+		const container = document.createElement("div");
+		document.body.append(container);
+		const root = createRoot(container);
+		roots.push(root);
+		act(() =>
+			root.render(
+				<RyotProvider hostServices={{ value: "first" }} runtime={clock.runtime}>
+					<View />
+				</RyotProvider>,
+			),
+		);
+		await waitFor(() => expect(container.textContent).toBe("first:1"));
+
+		act(() =>
+			root.render(
+				<RyotProvider hostServices={{ value: "second" }} runtime={clock.runtime}>
+					<View />
+				</RyotProvider>,
+			),
+		);
+		expect(container.textContent).toBe("first:1");
+		expect(calls).toBe(1);
+
+		act(() => latest?.refetch());
+		await waitFor(() => expect(container.textContent).toBe("second:1"));
 		expect(calls).toBe(2);
 	});
 });
@@ -839,6 +906,27 @@ describe("useEntityRefresh", () => {
 });
 
 describe("useRyotMutation", () => {
+	it("supplies host services to mutation definitions", async () => {
+		type HostServices = { readonly write: (input: string) => Promise<string> };
+		let latest: RyotMutationResult<string, string> | undefined;
+		const mutation = createRyotMutation<string, string, HostServices>(({ hostServices, input }) =>
+			hostServices.write(input),
+		);
+		const View = () => {
+			latest = useRyotMutation(mutation);
+			return null;
+		};
+		const clock = makeClock();
+		render(<View />, clock.runtime, {
+			write: (input: string) => Promise.resolve(`host:${input}`),
+		});
+
+		if (!latest) {
+			throw new Error("Mutation hook did not render");
+		}
+		await expect(latest.mutateAsync("save")).resolves.toBe("host:save");
+	});
+
 	it("does not duplicate the capability mutation-completed hint", async () => {
 		let hints = 0;
 		let latest: RyotMutationResult<void, string> | undefined;

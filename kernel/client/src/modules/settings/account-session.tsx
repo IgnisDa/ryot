@@ -2,38 +2,19 @@ import { StatusMessage } from "@ryot-app/client-ui-sdk";
 import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import { useNavigate } from "@tanstack/react-router";
 import clsx from "clsx";
-import { useEffect, useRef, useState } from "react";
 
-import type { ServerOrigin } from "#/api/origin";
-import { AuthService } from "#/modules/auth/service";
 import { SettingsSection } from "#/modules/settings/settings-section";
-import type { ClientRuntime } from "#/runtime";
 
 export function AccountSession(props: {
-	readonly server: ServerOrigin;
-	readonly runtime: ClientRuntime;
+	readonly failed: boolean;
+	readonly isPending: boolean;
+	readonly onSignOut: () => Promise<boolean>;
 }) {
 	const navigate = useNavigate();
-	const actionController = useRef(new AbortController());
-	const [pending, setPending] = useState(false);
-	const [error, setError] = useState<string>();
-	useEffect(() => () => actionController.current.abort(), []);
 
 	async function signOut() {
-		const auth = props.runtime.runSync(AuthService);
-		setPending(true);
-		setError(undefined);
-		const launched = await props.runtime
-			.runPromise(auth.signOut(props.server), { signal: actionController.current.signal })
-			.catch(() => null);
-		if (launched === null) {
-			if (!actionController.current.signal.aborted) {
-				setPending(false);
-				setError("Could not sign out.");
-			}
-			return;
-		}
-		if (!launched) {
+		const launched = await props.onSignOut().catch(() => null);
+		if (launched === false) {
 			await navigate({ replace: true, to: "/auth", search: { redirect: undefined } });
 		}
 	}
@@ -43,19 +24,19 @@ export function AccountSession(props: {
 			<div className="flex flex-col gap-3">
 				<button
 					type="button"
-					disabled={pending}
+					disabled={props.isPending}
 					onClick={() => void signOut()}
 					className={clsx(
 						"flex h-12 items-center gap-3 rounded-xl border border-border bg-surface px-4",
-						pending && "opacity-60",
+						props.isPending && "opacity-60",
 					)}
 				>
 					<AppIcon size={18} name="logout" className="text-danger" />
 					<span className="flex-1 text-left text-sm font-medium text-danger">
-						{pending ? "Signing out..." : "Sign out"}
+						{props.isPending ? "Signing out..." : "Sign out"}
 					</span>
 				</button>
-				{error && <StatusMessage tone="error">{error}</StatusMessage>}
+				{props.failed && <StatusMessage tone="error">Could not sign out.</StatusMessage>}
 			</div>
 		</SettingsSection>
 	);

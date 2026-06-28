@@ -47,6 +47,8 @@ import {
 } from "./schedule";
 import { createSettleTracker } from "./settle";
 
+export { ActiveScreenContext };
+
 const staleTime = 30 * 1_000;
 const idleTTL = 5 * 60 * 1_000;
 const queryTypeId = Symbol("@ryot-app/client-sdk/react/query");
@@ -65,26 +67,36 @@ const PageRefreshRegistryContext = createContext<PageRefreshRegistry | undefined
 const RyotContext = createContext<
 	| {
 			readonly client: RyotClient;
+			readonly hostServices: unknown;
 			readonly schedule: RyotSchedule;
 			readonly navigation: PluginRouterNavigation | undefined;
 	  }
 	| undefined
 >(undefined);
 
-type QueryContext<Input> = {
+type QueryContext<Input, HostServices> = {
 	readonly input: Input;
 	readonly client: RyotClient;
 	readonly signal: AbortSignal;
+	readonly hostServices: HostServices;
 };
 
-type MutationContext<Input> = QueryContext<Input>;
+type MutationContext<Input, HostServices> = QueryContext<Input, HostServices>;
 
-export interface RyotQuery<Input, Data> {
-	readonly [queryTypeId]: { readonly data?: Data; readonly input?: Input };
+export interface RyotQuery<Input, Data, HostServices = undefined> {
+	readonly [queryTypeId]: {
+		readonly data?: Data;
+		readonly input?: Input;
+		readonly hostServices?: HostServices;
+	};
 }
 
-export interface RyotMutation<Input, Data> {
-	readonly [mutationTypeId]: { readonly data?: Data; readonly input?: Input };
+export interface RyotMutation<Input, Data, HostServices = undefined> {
+	readonly [mutationTypeId]: {
+		readonly data?: Data;
+		readonly input?: Input;
+		readonly hostServices?: HostServices;
+	};
 }
 
 export type RyotQueryResult<Data> = {
@@ -117,13 +129,14 @@ const browserFocusSignal = Atom.readable((get) => {
 	if (typeof window === "undefined" || typeof document === "undefined") {
 		return version;
 	}
+	const ownerDocument = document;
 	const onVisibilityChange = () => {
-		if (document.visibilityState === "visible") {
+		if (ownerDocument.visibilityState === "visible") {
 			get.setSelf(++version);
 		}
 	};
-	document.addEventListener("visibilitychange", onVisibilityChange);
-	get.addFinalizer(() => document.removeEventListener("visibilitychange", onVisibilityChange));
+	ownerDocument.addEventListener("visibilitychange", onVisibilityChange);
+	get.addFinalizer(() => ownerDocument.removeEventListener("visibilitychange", onVisibilityChange));
 	return version;
 });
 
@@ -177,62 +190,83 @@ const makeQueryAtom = <Data,>(
 	);
 };
 
-class QueryDefinition<Input, Data> implements RyotQuery<Input, Data> {
+class QueryDefinition<Input, Data, HostServices> implements RyotQuery<Input, Data, HostServices> {
 	readonly [queryTypeId] = {};
 
 	constructor(
-		readonly atom: (client: RyotClient, input: Input) => ReturnType<typeof makeQueryAtom<Data>>,
+		readonly atom: (
+			registry: AtomRegistry.AtomRegistry,
+			client: RyotClient,
+			hostServices: HostServices,
+			input: Input,
+		) => ReturnType<typeof makeQueryAtom<Data>>,
 		readonly entityInterest?: RyotQueryOptions<Input, Data>["entityInterest"],
 	) {}
 }
 
-class MutationDefinition<Input, Data> implements RyotMutation<Input, Data> {
+class MutationDefinition<Input, Data, HostServices> implements RyotMutation<
+	Input,
+	Data,
+	HostServices
+> {
 	readonly [mutationTypeId] = {};
 
-	constructor(readonly run: (context: MutationContext<Input>) => Promise<Data>) {}
+	constructor(readonly run: (context: MutationContext<Input, HostServices>) => Promise<Data>) {}
 }
 
 export function createRyotQuery<Data>(
-	query: (context: Omit<QueryContext<void>, "input">) => Promise<Data>,
+	query: (context: Omit<QueryContext<void, undefined>, "input">) => Promise<Data>,
 	options?: RyotQueryOptions<void, Data>,
 ): RyotQuery<void, Data>;
-export function createRyotQuery<Input, Data>(
-	query: (context: QueryContext<Input>) => Promise<Data>,
+export function createRyotQuery<Input, Data, HostServices = undefined>(
+	query: (context: QueryContext<Input, HostServices>) => Promise<Data>,
 	options?: RyotQueryOptions<Input, Data>,
-): RyotQuery<Input, Data>;
-export function createRyotQuery<Input, Data>(
-	query: (context: QueryContext<Input>) => Promise<Data>,
+): RyotQuery<Input, Data, HostServices>;
+export function createRyotQuery<Input, Data, HostServices = undefined>(
+	query: (context: QueryContext<Input, HostServices>) => Promise<Data>,
 	options?: RyotQueryOptions<Input, Data>,
 ) {
-	const clients = new WeakMap<
-		RyotClient,
-		(input: Input) => ReturnType<typeof makeQueryAtom<Data>>
-	>();
-	return new QueryDefinition<Input, Data>((client, input) => {
-		let inputs = clients.get(client);
-		if (!inputs) {
-			inputs = Atom.family((familyInput: Input) =>
-				makeQueryAtom<Data>(
-					(signal) => query({ client, input: familyInput, signal }),
-					options?.initialData?.(familyInput),
-					options?.cancelOnUnmount,
-					options?.entityInterest !== undefined,
-				),
-			);
-			clients.set(client, inputs);
+	type ClientQueries = {
+		hostServices: HostServices;
+		readonly inputs: (input: Input) => ReturnType<typeof makeQueryAtom<Data>>;
+	};
+	const registries = new WeakMap<AtomRegistry.AtomRegistry, WeakMap<RyotClient, ClientQueries>>();
+	return new QueryDefinition<Input, Data, HostServices>((registry, client, hostServices, input) => {
+		let clients = registries.get(registry);
+		if (!clients) {
+			clients = new WeakMap();
+			registries.set(registry, clients);
 		}
-		return inputs(input);
+		let clientQueries = clients.get(client);
+		if (!clientQueries) {
+			const current: ClientQueries = {
+				hostServices,
+				inputs: Atom.family((familyInput: Input) =>
+					makeQueryAtom<Data>(
+						(signal) =>
+							query({ client, input: familyInput, signal, hostServices: current.hostServices }),
+						options?.initialData?.(familyInput),
+						options?.cancelOnUnmount,
+						options?.entityInterest !== undefined,
+					),
+				),
+			};
+			clientQueries = current;
+			clients.set(client, clientQueries);
+		}
+		clientQueries.hostServices = hostServices;
+		return clientQueries.inputs(input);
 	}, options?.entityInterest);
 }
 
 export function createRyotMutation<Data>(
-	mutation: (context: Omit<MutationContext<void>, "input">) => Promise<Data>,
+	mutation: (context: Omit<MutationContext<void, undefined>, "input">) => Promise<Data>,
 ): RyotMutation<void, Data>;
-export function createRyotMutation<Input, Data>(
-	mutation: (context: MutationContext<Input>) => Promise<Data>,
-): RyotMutation<Input, Data>;
-export function createRyotMutation<Input, Data>(
-	mutation: (context: MutationContext<Input>) => Promise<Data>,
+export function createRyotMutation<Input, Data, HostServices = undefined>(
+	mutation: (context: MutationContext<Input, HostServices>) => Promise<Data>,
+): RyotMutation<Input, Data, HostServices>;
+export function createRyotMutation<Input, Data, HostServices = undefined>(
+	mutation: (context: MutationContext<Input, HostServices>) => Promise<Data>,
 ) {
 	return new MutationDefinition(mutation);
 }
@@ -240,11 +274,13 @@ export function createRyotMutation<Input, Data>(
 export const RyotProvider = ({
 	runtime,
 	children,
+	hostServices,
 }: {
 	children: ReactNode;
 	runtime: RyotRuntime;
+	readonly hostServices?: unknown;
 }) => {
-	const value = useMemo(
+	const runtimeValue = useMemo(
 		() =>
 			runtime.runSync(
 				Effect.all({
@@ -259,6 +295,7 @@ export const RyotProvider = ({
 			),
 		[runtime],
 	);
+	const value = useMemo(() => ({ ...runtimeValue, hostServices }), [runtimeValue, hostServices]);
 	const refreshRegistry = useMemo<ManagedPageRefreshRegistry>(() => {
 		const handles = new Set<PageRefreshHandle>();
 		const catchUps = new Set<PageRefreshHandle>();
@@ -699,27 +736,33 @@ export const useEntityRefresh = (options: {
 	return { settled };
 };
 
-export function useRyotQuery<Data>(
-	query: RyotQuery<void, Data>,
+export function useRyotQuery<Data, HostServices>(
+	query: RyotQuery<void, Data, HostServices>,
 	input?: void,
 	options?: RyotQueryHookOptions,
 ): RyotQueryResult<Data>;
-export function useRyotQuery<Input, Data>(
-	query: RyotQuery<Input, Data>,
+export function useRyotQuery<Input, Data, HostServices>(
+	query: RyotQuery<Input, Data, HostServices>,
 	input: Input,
 	options?: RyotQueryHookOptions,
 ): RyotQueryResult<Data>;
-export function useRyotQuery<Data>(
-	query: RyotQuery<unknown, Data>,
+export function useRyotQuery<Data, HostServices>(
+	query: RyotQuery<unknown, Data, HostServices>,
 	input?: unknown,
 	options?: RyotQueryHookOptions,
 ): RyotQueryResult<Data> {
-	const client = useRyot();
-	const schedule = useRyotSchedule();
+	const context = useContext(RyotContext);
+	const registry = useContext(RegistryContext);
+	if (!context) {
+		throw new Error("useRyotQuery must be used within RyotProvider");
+	}
+	const { client, hostServices, schedule } = context;
 	if (!(query instanceof QueryDefinition)) {
 		throw new Error("useRyotQuery requires a query created by createRyotQuery");
 	}
-	const atom = query.atom(client, input);
+	// The definition declares the host type; React context cannot link that generic to a provider.
+	// oxlint-disable-next-line typescript/no-unsafe-type-assertion
+	const atom = query.atom(registry, client, hostServices as HostServices, input);
 	useQueryInterest(client, schedule, atom, input, query.entityInterest);
 	const result = useAtomValue(atom);
 	const refetch = useAtomRefresh(atom);
@@ -754,10 +797,19 @@ export function useRyotQuery<Data>(
 	};
 }
 
-export const useRyotMutation = <Input, Data>(
-	mutation: RyotMutation<Input, Data>,
+export const useRyotMutation = <Input, Data, HostServices>(
+	mutation: RyotMutation<Input, Data, HostServices>,
 ): RyotMutationResult<Input, Data> => {
-	const client = useRyot();
+	const context = useContext(RyotContext);
+	if (!context) {
+		throw new Error("useRyotMutation must be used within RyotProvider");
+	}
+	const { client, hostServices } = context;
+	// The definition declares the host type; React context cannot link that generic to a provider.
+	// oxlint-disable-next-line typescript/no-unsafe-type-assertion
+	const typedHostServices = hostServices as HostServices;
+	const latestHostServices = useRef(typedHostServices);
+	latestHostServices.current = typedHostServices;
 	if (!(mutation instanceof MutationDefinition)) {
 		throw new Error("useRyotMutation requires a mutation created by createRyotMutation");
 	}
@@ -765,7 +817,8 @@ export const useRyotMutation = <Input, Data>(
 		() =>
 			Atom.fn<Input>()<Error, Data>((input) =>
 				Effect.tryPromise({
-					try: (signal) => mutation.run({ client, input, signal }),
+					try: (signal) =>
+						mutation.run({ client, input, signal, hostServices: latestHostServices.current }),
 					catch: (error) => (error instanceof Error ? error : new Error(String(error))),
 				}),
 			),
