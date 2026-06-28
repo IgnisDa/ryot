@@ -1,15 +1,17 @@
 #!/usr/bin/env bun
 
-import { Command, CommandExecutor } from "@effect/platform";
-import { BunContext, BunRuntime } from "@effect/platform-bun";
+import { BunServices, BunRuntime } from "@effect/platform-bun";
 import { CompilerWorkerResponse } from "@ryot/sandbox-compiler/protocol";
 import { Data, Effect, Schema, Stream } from "effect";
+import { ChildProcess } from "effect/unstable/process";
 
 class CompilerWorkerSmokeError extends Data.TaggedError("CompilerWorkerSmokeError")<{
 	message: string;
 }> {}
 
-const decodeWorkerResponse = Schema.decode(Schema.parseJson(CompilerWorkerResponse));
+const decodeWorkerResponse = Schema.decodeUnknownEffect(
+	Schema.fromJsonString(CompilerWorkerResponse),
+);
 
 const program = Effect.gen(function* () {
 	const workerPath = process.argv[2];
@@ -17,26 +19,28 @@ const program = Effect.gen(function* () {
 		return yield* new CompilerWorkerSmokeError({ message: "Compiler worker path is required" });
 	}
 
-	const executor = yield* CommandExecutor.CommandExecutor;
-	const command = Command.make(
+	const command = ChildProcess.make(
 		process.execPath,
-		"--smol",
-		"--no-orphans",
-		"--no-install",
-		"--no-env-file",
-		workerPath,
-	).pipe(Command.feed(""), Command.stdout("pipe"), Command.stderr("pipe"));
-	const worker = yield* executor.start(command);
-	yield* Effect.addFinalizer(() => worker.kill("SIGKILL").pipe(Effect.ignore));
+		["--smol", "--no-orphans", "--no-install", "--no-env-file", workerPath],
+		{ stdin: Stream.empty, stdout: "pipe", stderr: "pipe" },
+	);
+	const worker = yield* command;
+	yield* Effect.addFinalizer(() => worker.kill({ killSignal: "SIGKILL" }).pipe(Effect.ignore));
 	const [stdout, stderr, exitCode] = yield* Effect.all(
 		[
 			worker.stdout.pipe(
-				Stream.decodeText("utf-8"),
-				Stream.runFold("", (output, chunk) => output + chunk),
+				Stream.decodeText({ encoding: "utf-8" }),
+				Stream.runFold(
+					() => "",
+					(output, chunk) => output + chunk,
+				),
 			),
 			worker.stderr.pipe(
-				Stream.decodeText("utf-8"),
-				Stream.runFold("", (output, chunk) => output + chunk),
+				Stream.decodeText({ encoding: "utf-8" }),
+				Stream.runFold(
+					() => "",
+					(output, chunk) => output + chunk,
+				),
 			),
 			worker.exitCode,
 		],
@@ -69,4 +73,4 @@ const program = Effect.gen(function* () {
 	return yield* Effect.void;
 });
 
-BunRuntime.runMain(Effect.scoped(program).pipe(Effect.provide(BunContext.layer)));
+BunRuntime.runMain(Effect.scoped(program).pipe(Effect.provide(BunServices.layer)));
