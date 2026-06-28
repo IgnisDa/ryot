@@ -19,6 +19,7 @@ import {
 	type PluginRyotQLOutcome,
 	type PluginRyotQLRequest,
 } from "@ryot/contract/modules/plugins/client";
+import { isJsonValue } from "@ryot/contract/schema/json";
 import { Match, Result, Schema } from "effect";
 
 export const HANDSHAKE_TIMEOUT_MS = 15_000;
@@ -136,9 +137,13 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 				if (state !== "active" || !pending.has(request.requestId)) {
 					return undefined;
 				}
+				const result =
+					outcome.outcome === "success" && !isJsonValue(outcome.value)
+						? ({ outcome: "failure", reason: "transport" } as const)
+						: outcome;
 				try {
 					channel.port1.postMessage({
-						...outcome,
+						...result,
 						type: "operation-result",
 						requestId: request.requestId,
 					} satisfies PluginBridgeOperationResult);
