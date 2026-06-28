@@ -1,10 +1,11 @@
 import { expect, it } from "@effect/vitest";
+import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { EntityId, EntitySchemaId, SandboxScriptId } from "@ryot/contract/schema/brands";
 import { dayjs } from "@ryot/ts-utils/dayjs";
 import { Effect, Layer } from "effect";
 
 import type { MockOverrides } from "#lib/test-utils/effect";
-import { transactionLayer } from "#lib/test-utils/effect";
+import { makeWorkflowEngine, transactionLayer } from "#lib/test-utils/effect";
 import { AuthService } from "#modules/auth/service";
 import { EntitiesService } from "#modules/entities/service";
 import { EntitySchemasService } from "#modules/entity-schemas/service";
@@ -26,6 +27,10 @@ const mockTranslations = Layer.mock(TranslationsService);
 const mockRelationships = Layer.mock(RelationshipsService);
 const mockEntitySchemas = Layer.mock(EntitySchemasService);
 const mockRelationshipSchemas = Layer.mock(RelationshipSchemasService);
+const workflowEngineLayer = Layer.succeed(
+	WorkflowEngine,
+	makeWorkflowEngine({ execute: () => Effect.void.pipe(Effect.as(undefined)) }),
+);
 
 const makeServiceLayer = (
 	overrides: {
@@ -46,6 +51,7 @@ const makeServiceLayer = (
 				mockRelationships({ _tag: "RelationshipsService", ...overrides.relationships }),
 				mockEntitySchemas({ _tag: "EntitySchemasService", ...overrides.entitySchemas }),
 				mockRelationshipSchemas({ _tag: "RelationshipSchemasService" }),
+				workflowEngineLayer,
 			),
 		),
 	);

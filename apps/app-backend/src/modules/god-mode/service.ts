@@ -1,10 +1,8 @@
-import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { defaultUserPreferences } from "@ryot/contract/auth-middleware";
 import type { BadRequest, DbError } from "@ryot/contract/errors";
 import { badRequest, internalError, notFound } from "@ryot/contract/errors";
 import type { ProvisionUserBody } from "@ryot/contract/modules/god-mode/contract";
 import { UserId } from "@ryot/contract/schema/brands";
-import { generateId } from "better-auth";
 import { DateTime, Effect, Either } from "effect";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
@@ -15,7 +13,6 @@ import { AuthService } from "#modules/auth/service";
 import { NotificationSubscriptionsService } from "#modules/automations/notification-subscriptions-service";
 import { EntitiesService } from "#modules/entities/service";
 import { SavedViewsService } from "#modules/saved-views/service";
-import { InfrequentCronWorkflow } from "#modules/scheduler/cron-workflow";
 import { TrackersService } from "#modules/trackers/service";
 import { acquireBootstrapLock, performBootstrap } from "#modules/user-bootstrap/bootstrap";
 
@@ -73,7 +70,6 @@ export class GodModeService extends Effect.Service<GodModeService>()("GodModeSer
 		const config = yield* AppConfig;
 		const redis = yield* RedisService;
 		const runWithDb = yield* DbRunner;
-		const engine = yield* WorkflowEngine;
 		const entities = yield* EntitiesService;
 		const trackers = yield* TrackersService;
 		const repository = yield* GodModeRepository;
@@ -383,19 +379,6 @@ export class GodModeService extends Effect.Service<GodModeService>()("GodModeSer
 			return { userId, email: snapshot.user.email, resetUrl };
 		});
 
-		const triggerInfrequentCron = () =>
-			Effect.gen(function* () {
-				const executionId = `infrequent-cron-manual-${generateId()}`;
-				yield* engine
-					.execute(InfrequentCronWorkflow, {
-						executionId,
-						discard: true,
-						payload: { executionId },
-					})
-					.pipe(Effect.orDie);
-				return { executionId };
-			});
-
 		return {
 			resetUser,
 			listUsers,
@@ -403,7 +386,6 @@ export class GodModeService extends Effect.Service<GodModeService>()("GodModeSer
 			provisionUser,
 			setUserDisabled,
 			resetUserPassword,
-			triggerInfrequentCron,
 		};
 	}),
 }) {}
