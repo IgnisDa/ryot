@@ -48,7 +48,7 @@ type PermanentAllowlistEntry = {
 	term: string;
 	reason: string;
 	kind: "permanent";
-	category: "backup-contract" | "boot-wiring" | "legacy-bootstrap";
+	category: "boot-wiring" | "legacy-bootstrap";
 };
 
 export type PurityAllowlistEntry = PermanentAllowlistEntry | TemporaryAllowlistEntry;
@@ -215,7 +215,6 @@ export const scanPuritySources = (
 };
 
 const permanentScopes = {
-	"backup-contract": "libs/contract/src/schema/media-types.ts",
 	"boot-wiring": "apps/app-backend/src/modules/plugins/boot-sources.ts",
 	"legacy-bootstrap": "apps/app-backend/src/modules/legacy-bootstrap/**",
 } as const;

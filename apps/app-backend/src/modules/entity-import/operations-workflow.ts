@@ -9,6 +9,7 @@ import { Context, Effect, Layer } from "effect";
 import { DbRunner } from "#lib/infrastructure/db/service";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { processSandboxExecution } from "#modules/sandbox/durable-queues";
+import { SandboxPluginScriptResolver } from "#modules/sandbox/plugin-script-resolver";
 import { SandboxRepository } from "#modules/sandbox/repository";
 
 import type { EntityImportPayload } from "./schemas";
@@ -57,6 +58,7 @@ export const EntityImportWorkflowOperationsLive = Layer.effect(
 		const runWithDb = yield* DbRunner;
 		const repository = yield* SandboxRepository;
 		const pluginRuntime = yield* PluginRuntimeResolver;
+		const pluginScriptResolver = yield* SandboxPluginScriptResolver;
 		const queueFactory = yield* PersistedQueue.PersistedQueueFactory;
 		return {
 			processSandbox: (payload, executionId) =>
@@ -64,6 +66,7 @@ export const EntityImportWorkflowOperationsLive = Layer.effect(
 					Effect.provideService(DbRunner, runWithDb),
 					Effect.provideService(SandboxRepository, repository),
 					Effect.provideService(PluginRuntimeResolver, pluginRuntime),
+					Effect.provideService(SandboxPluginScriptResolver, pluginScriptResolver),
 					Effect.provideService(PersistedQueue.PersistedQueueFactory, queueFactory),
 				),
 		} satisfies EntityImportWorkflowOperationsValue;

@@ -1,3 +1,8 @@
+// TODO: Delete this file when the retained app-client-backup is removed.
+import type { ContractSuccess } from "@/lib/contract-client";
+import type { EntityImage } from "@/lib/entity-image";
+
+import type { MediaScopeSlug } from "../media/constants";
 import type {
 	AnimeProperties,
 	AudiobookProperties,
@@ -11,12 +16,7 @@ import type {
 	UnlinkedCreator,
 	VideoGameProperties,
 	VisualNovelProperties,
-} from "@ryot/contract/schema/media-types";
-
-import type { ContractSuccess } from "@/lib/contract-client";
-import type { EntityImage } from "@/lib/entity-image";
-
-import type { MediaScopeSlug } from "../media/constants";
+} from "./media-types";
 
 export type AppUnlinkedCreator = UnlinkedCreator & { id?: string; image?: EntityImage };
 
