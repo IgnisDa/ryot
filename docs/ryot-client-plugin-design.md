@@ -1,7 +1,7 @@
 # Ryot Client Plugin Architecture
 
 **Status:** Accepted design
-**Scope:** Ryot client kernel, client-side plugin runtime, client plugin SDK, client UI SDK, web/native packaging, routing, and native capability boundaries.
+**Scope:** Ryot client kernel, client-side plugin runtime, shared client SDK, client UI SDK, web/native packaging, routing, and native capability boundaries.
 
 ## 1. Summary
 
@@ -41,7 +41,7 @@ Native application
                     ├── kernel screens
                     └── plugin iframe — React DOM
                           │
-                          └── @ryot/client-plugin-sdk
+                           └── @ryot/client-sdk/plugin
 
 Kernel JavaScript
   │
@@ -172,7 +172,7 @@ Plugins can directly use normal browser UI facilities such as:
 - Web Audio where appropriate
 - other supported web-platform APIs
 
-Ryot should not recreate browser capabilities inside the client plugin SDK.
+Ryot should not recreate browser capabilities inside the client SDK.
 
 The SDK exists for Ryot/kernel/native functionality that is not simply normal browser functionality.
 
@@ -226,7 +226,10 @@ React
 React DOM
 TypeScript / TSX
 Tailwind CSS
-@ryot/client-plugin-sdk
+@ryot/client-sdk
+@ryot/client-sdk/react
+@ryot/client-sdk/plugin
+@ryot/client-sdk/effect
 @ryot/client-ui-sdk
 browser APIs
 ```
@@ -292,8 +295,10 @@ react
 react-dom
 react/jsx-runtime
 
-@ryot/client-plugin-sdk
-@ryot/client-plugin-sdk/*
+@ryot/client-sdk
+@ryot/client-sdk/react
+@ryot/client-sdk/plugin
+@ryot/client-sdk/effect
 
 @ryot/client-ui-sdk
 @ryot/client-ui-sdk/*
@@ -370,7 +375,7 @@ The compiler owns the effective versions of:
 - React
 - React DOM
 - Tailwind
-- client plugin SDK
+- client SDK
 - client UI SDK
 - UI implementation dependencies
 
@@ -407,7 +412,7 @@ When an update replaces artifact A with artifact B, the kernel force-reloads any
 
 ### Artifact identity is embedded, never authored
 
-The artifact hash covers the compiled bundle, stylesheet, and assets, so it cannot exist inside them. The compiler emits `index.html` last, embedding the artifact hash and the V1 markers as JSON in a `<script type="application/json" id="ryot-client-artifact">` element.
+The artifact hash covers the compiled bundle, stylesheet, and assets, so it cannot exist inside them. The compiler emits `index.html` last, embedding the artifact hash and the exact client markers, including bridge protocol V2, as JSON in a `<script type="application/json" id="ryot-client-artifact">` element.
 
 `bootstrapClientPlugin` reads that element and refuses to accept a bridge port when it is absent or malformed. Plugin source therefore never declares, derives, or passes its own artifact identity, and the kernel, the compiler, and the running plugin compare the same embedded values.
 
@@ -482,7 +487,7 @@ Normal Tailwind static-analysis rules apply. Plugins must not assume that arbitr
 
 ## 9. `@ryot/client-ui-sdk`
 
-`@ryot/client-ui-sdk` is the supported React UI platform for plugins.
+`@ryot/client-ui-sdk` is the supported React UI platform for plugins. It remains separate from `@ryot/client-sdk`.
 
 It is also suitable for use by the kernel so that kernel screens and plugin screens share the same DOM-based design-system implementation.
 
@@ -515,11 +520,20 @@ For example, the chart API should remain a Ryot chart API even if its internal i
 
 ---
 
-## 10. `@ryot/client-plugin-sdk`
+## 10. `@ryot/client-sdk`
 
-`@ryot/client-plugin-sdk` is the typed contract between plugin JavaScript and the Ryot kernel.
+`@ryot/client-sdk` is the shared, environment-neutral client contract between the Ryot kernel and plugin JavaScript.
 
-It exposes semantic kernel capabilities, not kernel implementation details.
+`RyotClient` exposes semantic Promise-based APIs, not kernel implementation details. Hosts construct it with an explicit adapter and pass the client to consumers through the provider/client boundary. It does not bind a global mutable bridge.
+
+The package has four public surfaces:
+
+- `@ryot/client-sdk` — the shared client contract and `RyotClient`
+- `@ryot/client-sdk/react` — React integration
+- `@ryot/client-sdk/plugin` — the plugin runtime adapter and plugin routing surface
+- `@ryot/client-sdk/effect` — the supported schema surface
+
+The kernel supplies a direct adapter to kernel services. The plugin runtime supplies a `MessageChannel` adapter. Both use the same environment-neutral client contract.
 
 Initial categories should be approximately:
 
@@ -542,30 +556,52 @@ lifecycle
 
 The exact methods should be added incrementally.
 
-### What V1 ships
+### Current data API
 
-The namespace object is real and starts with one category:
+The client starts with one data category. An explicit client value is shown as `ryot` here:
 
 ```ts
-import { ryot } from "@ryot/client-plugin-sdk";
-import { Schema } from "@ryot/client-plugin-sdk/effect";
+import { Schema } from "@ryot/client-sdk/effect";
 
+import { useRyot } from "@ryot/client-sdk/react";
+
+const ryot = useRyot();
 const Greeting = Schema.Struct({ greeting: Schema.String });
 
 const { greeting } = await ryot.data.invokeOperation({
-  slug: "greet",
-  input: { name },
-  output: Greeting,
+	slug: "greet",
+	input: { name },
+	output: Greeting,
 });
 ```
 
-A rejected call throws `PluginOperationError` carrying one `reason`: `"operation-failed"` for a failure the backend declared, `"transport"` for an unexpected one, or `"malformed-result"` when the value does not decode against `output`.
+The shared query API is recipe-based:
 
-`@ryot/client-plugin-sdk/effect` re-exports `Schema` and nothing else, mirroring `@ryot/sandbox-sdk/effect` for backend scripts, so both halves of a plugin describe their operation payloads the same way. It costs nothing: the SDK already bundles `effect` to decode bridge messages. Plugin source must import `Schema` through that subpath; a bare `effect` import stays untrusted, keeping one ABI surface rather than two.
+```ts
+const result = await ryot.data.query(recipe);
+```
 
-`invokeOperation` takes an output codec but no input codec. The client cannot know what the operation accepts, and the backend already validates input and answers with a typed failure, so a second client-side declaration would only be a mirror that can drift.
+The recipe owns its query document and result decoder. The client executes the document and decodes the result locally; consumers do not parse generic `RowItem` values directly. Query requests use the existing user-scoped backend authorization behavior rather than a client-specific bypass.
 
-Navigation remains the hook surface introduced with plugin-private routes and has not moved under `ryot.navigation`.
+`invokeOperation` remains the current plugin operation API. It takes an operation slug, input, and output codec, but no input codec. The backend validates operation input and the client decodes the returned value against `output`. A rejected call throws `PluginOperationError` carrying one `reason`: `"operation-failed"` for a failure the backend declared, `"transport"` for an unexpected one, or `"malformed-result"` when the value does not decode against `output`.
+
+`@ryot/client-sdk/effect` re-exports `Schema` and nothing else, mirroring `@ryot/sandbox-sdk/effect` for backend scripts, so both halves of a plugin describe their operation payloads the same way. Plugin source must import `Schema` through that subpath; a bare `effect` import stays untrusted.
+
+Plugin bootstrap and routing imports come from the plugin surface:
+
+```ts
+import {
+	PluginLink,
+	bootstrapClientPlugin,
+	defineClientPlugin,
+	usePluginLocation,
+	usePluginNavigation,
+	usePluginParams,
+	usePluginSearch,
+} from "@ryot/client-sdk/plugin";
+```
+
+Navigation remains this hook and link surface and has not moved under `ryot.navigation`.
 
 Possible examples:
 
@@ -582,10 +618,6 @@ await ryot.notifications.schedule(...);
 await ryot.screen.keepAwake(true);
 
 await ryot.liveActivity.start(...);
-
-ryot.navigation.openEntity(entityId);
-ryot.navigation.openView(viewSlug);
-ryot.navigation.push({ path: "/workouts/123" });
 ```
 
 The SDK must not expose Capacitor directly.
@@ -598,9 +630,9 @@ Third-party plugins must not import or invoke native plugins themselves.
 
 A plugin iframe and the kernel execute in separate JavaScript/document contexts.
 
-Communication occurs through a version-tagged message/RPC bridge.
+Communication between a plugin iframe and the kernel occurs through the exact version-tagged bridge protocol V2.
 
-The preferred web primitive is `MessageChannel`, with the kernel explicitly handing a communication port to the top-level plugin document.
+The preferred plugin transport is `MessageChannel`, with the kernel explicitly handing a communication port to the top-level plugin document. The shared `RyotClient` does not depend on this transport: the kernel direct adapter calls kernel services directly, while the plugin adapter serializes the same semantic calls over the session `MessagePort`.
 
 Conceptually:
 
@@ -625,15 +657,17 @@ The bridge needs:
 - cancellation where useful
 - exact protocol-version validation
 - installation-bound session identity
-- capability negotiation
+- declared capabilities from plugin metadata
 
 Plugin authors interact with the TypeScript SDK, not the wire protocol.
 
-### V1 request/response calls
+### Protocol V2 request/response calls
 
-V1 implements request/response calls for one purpose: invoking a backend operation belonging to the bridge session's own installation.
+Protocol V2 implements strict request/response calls for plugin data access. It carries navigation messages, recipe-backed RyotQL query messages, and backend operation messages over the plugin session port.
 
 Plugin to kernel carries `{ type: "operation-request", requestId, operationSlug, input }`. Kernel to plugin answers `{ type: "operation-result", requestId, outcome }`, where `outcome` is `{ outcome: "success", value }` or `{ outcome: "failure", reason }` and `reason` is `"operation-failed"` for a failure the backend declared or `"transport"` for an unexpected one. The SDK adds a third plugin-side reason, `"malformed-result"`, when a success value does not decode against the caller's output schema.
+
+Recipe queries carry the recipe document through the same exact V2 session protocol. The response is decoded locally by the recipe's decoder after the client receives it.
 
 `input` is optional on the wire and the kernel forwards an absent one as JSON `null`, so a plugin that omits it gets the backend's typed input rejection rather than a call that never settles.
 
@@ -641,9 +675,9 @@ The request carries no plugin, installation, package, artifact, user, or server 
 
 Correlation is per-session: `requestId` need only be unique on one port, and the kernel ignores a request reusing an in-flight id, so a call settles exactly once.
 
-Teardown is kernel-side. Closing or replacing a bridge aborts every in-flight call, releases the kernel's request bookkeeping, and posts nothing further. The plugin half is released by destroying the plugin document: closing the kernel port raises no event on the plugin's port, so a plugin-side promise is not rejected but dies with the document. Every V1 path that closes a bridge also replaces the iframe, so the two are equivalent today. A future path that closes a bridge while keeping the document alive must first drain the plugin's pending calls.
+Teardown is kernel-side. Closing or replacing a bridge aborts every in-flight call, releases the kernel's request bookkeeping, and posts nothing further. The plugin half is released by destroying the plugin document: closing the kernel port raises no event on the plugin's port, so a plugin-side promise is not rejected but dies with the document. Every current path that closes a bridge also replaces the iframe, so the two are equivalent today. A future path that closes a bridge while keeping the document alive must first drain the plugin's pending calls.
 
-Only `outcome` and `reason` cross the port. Internal causes and backend diagnostics stay in the kernel.
+Only declared result values, outcomes, and failure reasons cross the port. Internal causes and backend diagnostics stay in the kernel.
 
 ### Bridge identity
 
@@ -684,7 +718,7 @@ Plugin browser storage such as LocalStorage or IndexedDB must be treated as non-
 
 Plugin UI does not receive the user's Ryot authentication cookie, bearer token, or other primary Ryot credentials.
 
-Authenticated application data is accessed through the client plugin SDK and kernel-owned transport.
+Authenticated application data is accessed through `RyotClient` and its explicit adapter.
 
 Conceptually:
 
@@ -700,16 +734,26 @@ kernel
 Ryot backend
 ```
 
-The concrete V1 path is:
+The concrete operation path is:
 
 ```text
 ryot.data.invokeOperation({ slug, input, output })
-  -> plugin SDK operation bridge on the session MessagePort
+  -> plugin SDK operation adapter on the session MessagePort
   -> kernel bridge session, which supplies the installation's plugin slug
   -> kernel authenticated transport (browser credentials, ApiScope)
   -> POST /plugins/:pluginSlug/operations/:operationSlug
   -> backend operation authorization for the authenticated user
   -> plugin backend sandbox
+```
+
+The concrete query path is:
+
+```text
+ryot.data.query(recipe)
+  -> direct kernel adapter or plugin MessageChannel adapter
+  -> authenticated transport
+  -> existing RyotQL endpoint and user-scoped authorization
+  -> local recipe result decoding
 ```
 
 The plugin names only an operation slug and its input. The installed plugin slug, the authenticated user, and the selected server all come from the kernel-owned session, so a plugin cannot reach another installation's operation or substitute another installation's identity.
@@ -718,7 +762,7 @@ The kernel uses Effect services and `@effect/atom-react` internally for applicat
 
 Plugins do not need to know that internal implementation.
 
-Plugin-facing React hooks may be provided by the SDK where useful.
+The React adapter exposes `RyotProvider` and `useRyot`; it supplies the explicit `RyotClient` to plugin components without creating a module-global client.
 
 ### External networking
 
@@ -969,7 +1013,10 @@ The plugin's in-memory router renders the corresponding React route.
 When plugin code requests navigation:
 
 ```ts
-ryot.navigation.push({
+import { usePluginNavigation } from "@ryot/client-sdk/plugin";
+
+const { push } = usePluginNavigation();
+push({
 	path: "/workouts/456",
 });
 ```
@@ -1024,7 +1071,7 @@ The plugin maps the entity schema to its renderer.
 
 Entity ownership must never be guessed only from an unqualified schema slug.
 
-The kernel resolves provenance through an application-owned named RyotQL recipe with a colocated result schema and decoder. The recipe follows the normal kernel data path through Effect atoms and authenticated transport and returns the persisted entity-schema plugin identity required to derive the current user's installation.
+The kernel resolves provenance through an application-owned named RyotQL recipe with a colocated result schema and decoder. `RyotClient` executes the recipe document through the normal authenticated data path and decodes the result locally before the route resolver uses the persisted entity-schema plugin identity to derive the current user's installation.
 
 Media-specific entity recipes remain in the Media plugin. The kernel recipe resolves the renderer owner; the selected plugin then loads its domain data.
 
@@ -1119,7 +1166,7 @@ RouteTarget
 
 This route resolver should be a small, explicit, heavily tested kernel subsystem.
 
-The kernel obtains its installation and client-artifact catalog through an application-owned named RyotQL recipe. Its decoded result includes the stable plugin and installation identities, slug, health, disabled state, package source hash, client artifact hash, client API version, and declared capabilities needed by routing and `PluginHost`.
+The kernel obtains its installation and client-artifact catalog through an application-owned named RyotQL recipe. `RyotClient` decodes the result locally. Its decoded result includes the stable plugin and installation identities, slug, health, disabled state, package source hash, client artifact hash, client API version, and declared capabilities needed by routing and `PluginHost`.
 
 ---
 
@@ -1409,17 +1456,17 @@ The capability system does not need to become an elaborate security sandbox in V
 
 ---
 
-## 31. V1 version markers and reload behavior
+## 31. Exact version markers and reload behavior
 
-V1 records exact markers for:
+The current client contract records exact markers for:
 
 1. client SDK/API level
 2. bridge protocol level
 3. client artifact format/compiler version
 
-Plugin source declares the exact client API level it targets. The compiler emits the exact bridge protocol, artifact format, and compiler versions into artifact metadata. The kernel validates exact expected values before execution.
+The client API level remains 1, and the bridge protocol level is exactly V2. Plugin source declares the exact client API level it targets. The compiler emits the exact bridge protocol, artifact format, and compiler versions into artifact metadata. The kernel validates exact expected values before execution.
 
-The greenfield V1 implementation does not support version ranges, compatibility negotiation, protocol adapters, legacy bridges, or client-state migrations. The kernel, SDKs, compiler, and built-in plugin artifacts advance together. An unexpected marker is a build or installation error, not a request for fallback behavior.
+The greenfield implementation does not support version ranges, compatibility negotiation, protocol adapters, legacy bridges, or client-state migrations. The kernel, SDKs, compiler, and built-in plugin artifacts advance together. An unexpected marker is a build or installation error, not a request for fallback behavior.
 
 Plugin updates force-reload the mounted iframe so one bridge session never spans package revisions.
 
@@ -1437,10 +1484,13 @@ A conceptual kernel data flow remains:
 screen / feature
   │
   ▼
-Effect Atom
+RyotClient Promise API
   │
   ▼
-kernel app client
+direct kernel adapter
+  │
+  ▼
+Effect service / atom
   │
   ▼
 authenticated transport
@@ -1451,7 +1501,7 @@ backend
 
 Plugin authors do not need direct knowledge of this implementation.
 
-The client plugin SDK may expose React-friendly query hooks or data abstractions backed internally by the kernel.
+The shared client SDK may expose React-friendly query hooks or data abstractions through `@ryot/client-sdk/react`, backed by the explicit `RyotClient`.
 
 ---
 
@@ -1468,7 +1518,10 @@ Third-party authors should install the SDK packages locally for:
 For example:
 
 ```text
-@ryot/client-plugin-sdk
+@ryot/client-sdk
+@ryot/client-sdk/react
+@ryot/client-sdk/plugin
+@ryot/client-sdk/effect
 @ryot/client-ui-sdk
 ```
 
