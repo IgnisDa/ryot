@@ -20,7 +20,7 @@ export function SettingsIndex() {
 		<SettingsFrame title="Settings" backFallbackHref={backFallbackHref}>
 			<div
 				data-testid="settings-index-sections"
-				className="mx-auto w-full max-w-2xl rounded-xl border border-border bg-surface p-2"
+				className="rounded-xl border border-border bg-surface p-2"
 			>
 				<SettingsSectionNav
 					active={null}
