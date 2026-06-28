@@ -1,8 +1,43 @@
 # Kernel Client
 
 The React DOM kernel. On the web it runs in the browser; on iOS and Android the same build runs
-inside a Capacitor host. This document covers native packaging and branding. Application
-architecture lives in `docs/ryot-client-plugin-design.md`.
+inside a Capacitor host. This document covers the client's own architecture, native packaging, and
+branding. The kernel-plugin protocol lives in `docs/ryot-client-plugin-design.md`.
+
+## Services And Ports
+
+`AuthenticatedApi` and `AdminApi` are the only services that run a contract program, and `ClientLive`
+does not export them. Every other module depends on a narrow group port such as `RyotQLApi` or
+`SavedViewsApi`, because a program that receives every contract group cannot be stubbed without
+asserting over groups the caller never touches. Adding an endpoint widens the port that owns it.
+
+API port test layers come from the shared makers in `#/api/ports.test-layer`, which default every
+operation to `Effect.die`, so a test declares only the endpoints it exercises and a stray call fails
+loudly rather than returning a stub value nobody meant to provide.
+
+Every layer in `ClientLive` must be synchronously constructible. `main.tsx` resolves the runtime with
+`runSync`, which builds the whole graph, so an `Effect.promise` or `Effect.tryPromise` in a layer
+effect fails at boot on every platform. Asynchronous setup belongs inside the service's own
+operations.
+
+## Navigation And The Edge Gesture
+
+`resolveEdge` is the single verdict for the left-edge gesture, the mobile header's leading control,
+and the viewport class, so a swipe can never contradict the control the user sees.
+
+It returns an `owner` alongside the `intent`, and exactly one document mounts an edge strip. The
+kernel keeps the edge for the drawer and for back on kernel-rendered routes; a plugin child route
+hands the edge to the plugin document, which owns both screens and can therefore animate. The plugin
+executes that gesture but never decides it: the verdict arrives as `edgeBack` on the location
+message and the plugin commits by posting `navigate-back`, leaving the pop to the kernel. Per-frame
+gesture data never crosses the bridge.
+
+`compact` travels on the same message, because media queries inside the iframe see the content area
+rather than the window. One definition of compact, in the resolver.
+
+The location message also carries the history `index` and `key`. They are the plugin screen stack's
+only means of telling push from pop from replace, so a navigation path that cannot supply them must
+not exist. `historyEntry` is the one place allowed to touch TanStack's `__TSR_*` state fields.
 
 ## Build Variants
 
@@ -22,8 +57,8 @@ informational at runtime and must not be made environment-dependent.
   `app/src/debug/res/values/` overrides the display strings and the launcher background from
   `app/src/main`.
 
-Both variants install side by side, which is what the retired Expo client got from `APP_VARIANT`.
-`bun run ios` and `bun run android` build Debug, so they produce the dev variant.
+Both variants install side by side. `bun run ios` and `bun run android` build Debug, so they
+produce the dev variant.
 
 The debug icon puts the mark on the complement of the brand orange so the two are distinguishable
 in a launcher. On Android it only reaches the adaptive icon, so API 24 and 25 fall back to the
@@ -50,8 +85,7 @@ one needs; the package script is only an entry point. Never hand-edit the emitte
 `drawable-*`, or `Assets.xcassets` output.
 
 The splash logo is sized per platform because `capacitor-assets` scales the iOS splash logo
-relative to the source image but the Android one relative to the target canvas. The values chosen
-render the mark at roughly the 100pt the Expo client used.
+relative to the source image but the Android one relative to the target canvas.
 
 The iOS debug icon is generated first, because `icon-only.png` bakes the orange into its pixels
 and no background colour can move that icon off brand. That pass reads `assets/dev`, where the
@@ -103,6 +137,64 @@ entry, and the sheet closes because `add` is gone. Its own close affordances pop
 falling back to a replace when the sheet was entered directly and there is no pushed entry to
 drop. Closing with a push would leave the opened state one Back away, so every Back affordance
 would re-enter the sheet instead of leaving the saved view.
+
+An overlay also makes the rest of the page inert, not merely focus-trapped: trapping Tab still
+leaves the background reachable by a screen reader's virtual cursor. Portalled overlays get that
+from the SDK's `useInertBackground`; the mobile drawer is a controlled overlay rather than a portal,
+so the shell sets `inert` on its own content wrapper while the drawer is open.
+
+Modal, menu, focus-trap, scroll-lock, outside-dismiss, and Escape behaviour all come from
+`@ryot-app/client-ui-sdk`. An overlay the kernel owns rather than renders through `Modal` or `Menu` —
+the mobile drawer, the workspace switcher — still wraps its content in the SDK's `OverlayScope`, so
+one mechanism dismisses every overlay and an open one silences the shortcuts behind it. That is why
+a route never disables its own shortcuts because an overlay is open. Back interception stays
+kernel-owned and travels into the SDK as an injected `onInterceptBack`, which returns `true` to mean
+the kernel consumed the close request; the SDK never imports `BackInterceptors`, the router, or
+Capacitor.
+
+The drawer is a controlled overlay rather than a `<dialog>` because `showModal()` cannot be dragged
+progressively open: the panel and scrim stay driven by the shared progress motion value the edge
+gesture writes, and the drawer leaves the tree once that value reaches zero. Its scroll lock is
+released through the `unlock` that `useScrollLock` returns rather than effect cleanup, since a lock
+that only lifts on unmount lands the next route on a frozen page; `closeThen` restores overflow and
+navigates inside one `flushSync`.
+
+Because the shell's content wrapper carries the drawer's motion transform, a route-owned overlay
+positions against a `relative` wrapper the route itself renders around its scroll container.
+`fixed` resolves against the transformed ancestor, and `absolute` inside the scroller scrolls away
+with the content.
+
+## Titles And Landmarks
+
+Every route declares its document title through `usePageTitle`, and the kernel owns the resulting
+announcement. Exactly one caller may be mounted per tree, and the rule is most-recent-registration-
+wins rather than deepest-wins: React runs effects child-first, so depth is not achievable from
+registration order, and recency is what stops an outgoing route's cleanup from clobbering an
+incoming route's title. Shared frames that already take a `title` prop — `SettingsFrame`,
+`AuthStatus`, `SavedViewNotice` — call it on behalf of every route they render, so their consumers
+must not. `PluginHost` is the exception and owns no title: its notice and its iframe are mounted at
+the same time, because the iframe must survive the loading-to-ready transition for the bridge
+handshake, so the plugin route is the single title owner for every branch it renders.
+
+The skip link and the route announcer live in `__root.tsx`. Every route renders exactly one `<main>`
+carrying `mainContentProps`, including each pending, error, and not-found branch; the plugin-ready
+branch wraps its iframe in one, because focus cannot cross into the plugin document's own landmark.
+
+## Sidebar
+
+The desktop sidebar and mobile drawer render the same `SidebarNav`, and its data comes from the
+`_authenticated` loader rather than a component fetch.
+
+Sidebar customization renders in two places — the desktop aside, which is shell chrome, and the
+`/customize-sidebar` route's `<main>` — so the shell owns the single draft and publishes it through
+context. The frame is picked with `useIsDesktop` rather than a CSS `md:` toggle, or both frames put
+their switches and drag handles in the accessibility tree at once.
+
+Saving is a plan of saved-view updates and reorders, then leaving, and only then `router.invalidate()`
+subscribed to the router's next `onResolved` — never called around the leave. Starting a load aborts
+whatever the router has in flight and a pop settles asynchronously through the history listener, so
+invalidating on either side of the leave races the navigation and the sidebar goes on rendering the
+order the user just changed until a full page load. Loaded navigation data is never patched in place.
 
 ## OAuth Runtime Client
 
