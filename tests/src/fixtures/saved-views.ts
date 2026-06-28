@@ -14,7 +14,8 @@ import {
 	queryEngineSystemRef,
 } from "@ryot/query-engine";
 
-import { requirePresent } from "../test-support/assertions";
+import { requirePresent } from "~/support/assertions";
+
 import type { Client } from "./auth";
 import type { ContractPayload, ContractSuccess } from "./contract-client";
 import {

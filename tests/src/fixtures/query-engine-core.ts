@@ -9,7 +9,8 @@ import {
 	queryEngineSystemRef,
 } from "@ryot/query-engine";
 
-import { requireObjectRecord, requireString } from "../test-support/assertions";
+import { requireObjectRecord, requireString } from "~/support/assertions";
+
 import type { Client } from "./auth";
 import { postBackendJson, type ContractPayload, type ContractSuccess } from "./contract-client";
 

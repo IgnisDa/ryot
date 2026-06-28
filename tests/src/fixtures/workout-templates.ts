@@ -1,4 +1,5 @@
-import { requirePresent } from "../test-support/assertions";
+import { requirePresent } from "~/support/assertions";
+
 import type { Client } from "./auth";
 import { createEntity } from "./entities";
 import { findBuiltinSchemaBySlug } from "./entity-schemas";

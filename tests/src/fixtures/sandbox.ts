@@ -1,5 +1,6 @@
-import { getPgClient } from "../setup";
-import { assertCompleted, requirePresent } from "../test-support/assertions";
+import { getPgClient } from "~/setup";
+import { assertCompleted, requirePresent } from "~/support/assertions";
+
 import type { Client } from "./auth";
 import type { ContractPayload, ContractSuccess } from "./contract-client";
 import { type PollOptions, pollUntil } from "./polling";

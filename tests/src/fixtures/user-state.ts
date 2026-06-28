@@ -1,7 +1,8 @@
 import { EntityId } from "@ryot/contract/schema/brands";
 
-import { getPgClient } from "../setup";
-import { requirePresent } from "../test-support/assertions";
+import { getPgClient } from "~/setup";
+import { requirePresent } from "~/support/assertions";
+
 import type { Client } from "./auth";
 import type { ContractPayload, ContractSuccess } from "./contract-client";
 

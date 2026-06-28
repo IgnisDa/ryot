@@ -1,7 +1,8 @@
 import { createAuthClient } from "better-auth/client";
 
-import { getBackendUrl, getPgClient } from "../setup";
-import { requireNonEmptyArray, requirePresent } from "../test-support/assertions";
+import { getBackendUrl, getPgClient } from "~/setup";
+import { requireNonEmptyArray, requirePresent } from "~/support/assertions";
+
 import { cookieHeaderFromSetCookies } from "./auth-2fa";
 import { type ContractSession, makeSession } from "./contract-client";
 

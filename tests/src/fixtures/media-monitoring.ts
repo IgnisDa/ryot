@@ -1,6 +1,7 @@
 import { EntityId } from "@ryot/contract/schema/brands";
 
-import { getPgClient } from "../setup";
+import { getPgClient } from "~/setup";
+
 import type { Client } from "./auth";
 
 export const getMediaMonitoringStatus = (client: Client, entityId: string) =>

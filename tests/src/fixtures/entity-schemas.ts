@@ -1,8 +1,8 @@
 import { EntitySchemaId, SandboxScriptId, TrackerId } from "@ryot/contract/schema/brands";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 
-import { getPgClient } from "../setup";
-import { assertPresent, requirePresent } from "../test-support/assertions";
+import { getPgClient } from "~/setup";
+import { assertPresent, requirePresent } from "~/support/assertions";
 
 export type { AppSchema };
 import type { Client } from "./auth";

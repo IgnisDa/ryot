@@ -5,7 +5,7 @@ import {
 	type RequestHeaders,
 } from "@ryot/contract/client";
 
-import { getBackendUrl } from "../setup";
+import { getBackendUrl } from "~/setup";
 
 export type {
 	ContractPayload,
