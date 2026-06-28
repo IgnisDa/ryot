@@ -1,5 +1,5 @@
-import { Effect } from "effect";
 import { PluginSlug } from "@ryot/contract/schema/brands";
+import { Effect } from "effect";
 
 import {
 	createAuthenticatedClient,
