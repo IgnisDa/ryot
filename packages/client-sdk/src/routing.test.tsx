@@ -54,22 +54,20 @@ const Home = () => {
 };
 
 let roots: Root[] = [];
-let channels: MessageChannel[] = [];
 
 const openChannel = () => {
-	const channel = new MessageChannel();
 	const messages: unknown[] = [];
-	channel.port1.addEventListener("message", ({ data }) => messages.push(data));
-	channel.port1.start();
-	channels.push(channel);
+	const locations = createPluginLocationStore();
+	const send = (path: string, search = "") => locations.set({ path, search });
+	const navigate = (
+		mode: "push" | "replace",
+		to: { path: string; search?: Record<string, string> },
+	) => {
+		const search = to.search ? new URLSearchParams(to.search).toString() : "";
+		messages.push({ mode, type: "navigate", location: { path: to.path, search } });
+	};
 
-	const locations = createPluginLocationStore(channel.port2);
-	channel.port2.start();
-
-	const send = (path: string, search = "") =>
-		channel.port1.postMessage({ type: "location", location: { path, search } });
-
-	return { messages, send, locations, port: channel.port2 };
+	return { messages, send, navigate, locations };
 };
 
 const renderRouter = (
@@ -84,7 +82,7 @@ const renderRouter = (
 	act(() => {
 		root.render(
 			<PluginRouter
-				port={channel.port}
+				navigate={channel.navigate}
 				locations={channel.locations}
 				definition={{ home: Home, routes }}
 			/>,
@@ -108,12 +106,7 @@ afterEach(() => {
 	for (const root of roots) {
 		act(() => root.unmount());
 	}
-	for (const channel of channels) {
-		channel.port1.close();
-		channel.port2.close();
-	}
 	roots = [];
-	channels = [];
 	mountCount = 0;
 });
 

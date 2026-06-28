@@ -4,7 +4,7 @@ import { strictStruct } from "../../schema/utils";
 import { RyotQLDocument, RyotQLResponse } from "../ryotql/language";
 
 export const CLIENT_API_VERSION = 1 as const;
-export const CLIENT_BRIDGE_PROTOCOL_VERSION = 2 as const;
+export const CLIENT_BRIDGE_PROTOCOL_VERSION = 3 as const;
 export const CLIENT_ARTIFACT_FORMAT = 1 as const;
 export const CLIENT_COMPILER_VERSION = 1 as const;
 
@@ -92,6 +92,13 @@ export const PluginBridgeNavigate = strictStruct({
 });
 
 export type PluginBridgeNavigate = Schema.Schema.Type<typeof PluginBridgeNavigate>;
+
+export const PluginBridgeLifecycleClose = strictStruct({
+	type: Schema.Literal("lifecycle-close"),
+	reason: Schema.Literals(["disposed", "failed"]),
+});
+
+export type PluginBridgeLifecycleClose = Schema.Schema.Type<typeof PluginBridgeLifecycleClose>;
 
 export const PluginOperationFailureReason = Schema.Literals(["transport", "operation-failed"]);
 
@@ -183,7 +190,17 @@ export type PluginBridgeRyotQLResult = Schema.Schema.Type<typeof PluginBridgeRyo
 export const PluginBridgeClientMessage = Schema.Union([
 	PluginBridgeNavigate,
 	PluginBridgeRyotQLRequest,
+	PluginBridgeLifecycleClose,
 	PluginBridgeOperationRequest,
 ]);
 
 export type PluginBridgeClientMessage = Schema.Schema.Type<typeof PluginBridgeClientMessage>;
+
+export const PluginBridgeHostMessage = Schema.Union([
+	PluginBridgeLocation,
+	PluginBridgeRyotQLResult,
+	PluginBridgeLifecycleClose,
+	PluginBridgeOperationResult,
+]);
+
+export type PluginBridgeHostMessage = Schema.Schema.Type<typeof PluginBridgeHostMessage>;
