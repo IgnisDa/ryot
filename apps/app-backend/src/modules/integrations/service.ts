@@ -16,7 +16,7 @@ import { providerLotByProvider } from "@ryot/contract/modules/integrations/types
 import type { ImportRunId, IntegrationId, UserId } from "@ryot/contract/schema/brands";
 import { Effect, Either, Schema } from "effect";
 
-import { DbRunner } from "#lib/infrastructure/db/service";
+import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
 import { ImportsService } from "#modules/imports/service";
 
 import { ProcessIntegrationRunWorkflow } from "./integration-workflow";
@@ -67,6 +67,7 @@ export class IntegrationsService extends Effect.Service<IntegrationsService>()(
 		effect: Effect.gen(function* () {
 			const runWithDb = yield* DbRunner;
 			const engine = yield* WorkflowEngine;
+			const runInTransaction = yield* TransactionRunner;
 			const importsService = yield* ImportsService;
 			const repository = yield* IntegrationsRepository;
 
@@ -182,6 +183,26 @@ export class IntegrationsService extends Effect.Service<IntegrationsService>()(
 				}
 
 				return updated;
+			});
+
+			const disableIfEnabled = Effect.fn("IntegrationsService.disableIfEnabled")(function* (
+				userId: UserId,
+				integrationId: IntegrationId,
+				importRunId: ImportRunId,
+			) {
+				return yield* runInTransaction(
+					Effect.gen(function* () {
+						if (yield* repository.hasAutoDisableClaim(importRunId)) {
+							return true;
+						}
+						const disabled = yield* repository.disableForUserIfEnabled({ userId, integrationId });
+						if (!disabled) {
+							return yield* repository.hasAutoDisableClaim(importRunId);
+						}
+						yield* repository.insertAutoDisableClaim({ importRunId, integrationId });
+						return true;
+					}),
+				);
 			});
 
 			const deleteIntegration = Effect.fn("IntegrationsService.delete")(function* (
@@ -306,6 +327,7 @@ export class IntegrationsService extends Effect.Service<IntegrationsService>()(
 				update,
 				listRuns,
 				handleWebhook,
+				disableIfEnabled,
 				prepareScheduledYankRuns,
 				delete: deleteIntegration,
 			};

@@ -1,14 +1,14 @@
 import { Activity } from "@effect/workflow";
 import { ListedIntegration } from "@ryot/contract/modules/integrations/schemas";
 import { UserId } from "@ryot/contract/schema/brands";
-import { Cause, Effect, Layer, Schema } from "effect";
+import { Cause, DateTime, Effect, Layer, Schema } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
 import {
 	markImportRunStarted,
 	sanitizeErrorMessage,
 } from "#modules/imports/runtime/import-run-status";
-import { enqueueNotificationDelivery } from "#modules/notifications/notification-delivery-workflow";
+import { SignalEmissionService } from "#modules/signals/service";
 
 import { failRun, toIntegrationWorkflowError } from "./failure-workflow";
 import { ProcessIntegrationRunWorkflow } from "./integration-workflow";
@@ -54,16 +54,18 @@ const runIntegrationRun = Effect.fn("runIntegrationRun")(function* (
 	});
 
 	if (wasDisabled) {
-		const deliveryExecutionId = `${executionId}-integration-disabled`;
-		yield* enqueueNotificationDelivery({
-			userId: integration.userId,
-			executionId: deliveryExecutionId,
-			request: {
-				kind: "event",
-				eventType: "integration_disabled_due_to_too_many_errors",
-				message: `Integration ${integration.provider} has been disabled due to too many errors`,
-			},
-		}).pipe(Effect.mapError(toIntegrationWorkflowError));
+		const signals = yield* SignalEmissionService;
+		yield* signals
+			.emit({
+				executionId,
+				discriminator: integration.id,
+				schemaSlug: "integration.disabled",
+				occurredAt: yield* DateTime.nowAsDate,
+				principal: { kind: "user", userId: integration.userId },
+				properties: { integrationId: integration.id, providerName: integration.provider },
+				origin: { kind: "integration", importRunId: payload.runId, integrationId: integration.id },
+			})
+			.pipe(Effect.mapError(toIntegrationWorkflowError));
 	}
 });
 

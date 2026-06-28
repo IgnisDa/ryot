@@ -7,6 +7,7 @@ import {
 } from "./media-property-schemas";
 import {
 	builtinEventAutomationRuleLinks,
+	builtinEntityAutomationRuleLinks,
 	builtinSandboxScripts,
 	builtinSignalAutomationRuleLinks,
 } from "./registry";
@@ -208,7 +209,9 @@ describe("builtinSandboxScripts", () => {
 
 	it("registers migrated event scripts as automation rules", () => {
 		const automations = builtinSandboxScripts().filter(({ slug }) => slug.startsWith("trigger."));
-		const links = builtinEventAutomationRuleLinks();
+		const links = builtinEventAutomationRuleLinks().filter(({ scriptSlug }) =>
+			scriptSlug.startsWith("trigger."),
+		);
 
 		expect(automations.map(({ slug }) => slug).sort()).toEqual([
 			"trigger.auto-complete-on-full-progress",
@@ -266,6 +269,49 @@ describe("builtinSandboxScripts", () => {
 		expect(policy.manifest.requiredAppConfigKeys).toEqual([
 			"scheduler.progressUpdateThresholdHours",
 		]);
+	});
+
+	it("registers exactly one lifecycle producer for review and workout signals", () => {
+		const reviewLinks = builtinEventAutomationRuleLinks().filter(
+			({ scriptSlug }) => scriptSlug === "automation.review-created",
+		);
+		const workoutLinks = builtinEntityAutomationRuleLinks().filter(
+			({ scriptSlug }) => scriptSlug === "automation.workout-created",
+		);
+
+		expect(reviewLinks).toEqual([
+			{
+				kind: "subscription",
+				eventSchemaSlug: "review",
+				name: "Review Created Detector",
+				scriptSlug: "automation.review-created",
+			},
+		]);
+		expect(workoutLinks).toEqual([
+			{
+				entitySchemaSlug: "workout",
+				name: "Workout Created Detector",
+				scriptSlug: "automation.workout-created",
+			},
+		]);
+		expect(
+			builtinEntityAutomationRuleLinks().filter(
+				({ scriptSlug }) => scriptSlug === "automation.review-created",
+			),
+		).toEqual([]);
+		expect(
+			builtinEventAutomationRuleLinks().filter(
+				({ scriptSlug }) => scriptSlug === "automation.workout-created",
+			),
+		).toEqual([]);
+	});
+
+	it("registers the shared notification script with only send-notification authority", () => {
+		const notifier = builtinSandboxScripts().find(({ slug }) => slug === "automation.notification");
+		assert(notifier);
+		expect(notifier.manifest.kind).toBe("automation");
+		expect(notifier.manifest.capabilities).toEqual(["sendNotification"]);
+		expect(notifier.compiledCode).toContain("ryot:sandbox-script");
 	});
 
 	it("registers automation test scripts with isolated capabilities", () => {
