@@ -1,10 +1,11 @@
 ﻿import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 
-import { SandboxScriptId } from "@ryot/contract/schema/brands";
+import { SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 
 import {
 	afterCreateTriggerSource,
 	appConfigSandboxSource,
+	adminHeaders,
 	createAuthenticatedClient,
 	createEntity,
 	createEntitySchema,
@@ -21,7 +22,6 @@ import {
 	throwingSandboxSource,
 	userPreferencesSandboxSource,
 } from "~/fixtures";
-import { getPgClient } from "~/setup";
 import {
 	assertCompleted,
 	assertTaggedError,
@@ -67,32 +67,28 @@ describe("sandbox async flow", () => {
 			},
 		});
 		expect("compiledCode" in script).toBe(false);
-		const stored = await getPgClient().query<{
-			source: string;
-			metadata: unknown;
-			compiledCode: string;
-			compiledFormat: number;
-		}>(
-			`select source, compiled_code as "compiledCode", compiled_format as "compiledFormat", metadata
-			 from sandbox_script where id = $1`,
-			[scriptId],
+		const stored = await getBackendClient().run(
+			(c) =>
+				c.testSupport.getSandboxScript({
+					path: { scriptId: SandboxScriptId.make(scriptId) },
+				}),
+			adminHeaders,
 		);
-		expect(stored.rows[0]).toMatchObject({
+		expect(stored).toMatchObject({
 			source,
 			compiledFormat: 1,
 			metadata: script.manifest,
 		});
-		expect(stored.rows[0]?.compiledCode).toContain(
-			"sourceMappingURL=data:application/json;base64,",
+		expect(stored.compiledCode).toContain("sourceMappingURL=data:application/json;base64,");
+		await getBackendClient().run(
+			(c) =>
+				c.testSupport.patchSandboxScript({
+					path: { scriptId: SandboxScriptId.make(scriptId) },
+					payload: { source: 'throw new Error("authored source must not execute");' },
+				}),
+			adminHeaders,
 		);
-		await getPgClient().query(`update sandbox_script set source = $1 where id = $2`, [
-			'throw new Error("authored source must not execute");',
-			scriptId,
-		]);
-		const { jobId } = await enqueueSandboxScript(client, {
-			scriptId,
-			driverName: "main",
-		});
+		const { jobId } = await enqueueSandboxScript(client, { scriptId, driverName: "main" });
 
 		const result = await pollSandboxResult(client, jobId);
 
@@ -339,7 +335,7 @@ describe("sandbox async flow", () => {
 	});
 
 	it("rejects invalid TypeScript without creating a script row", async () => {
-		const { client } = await createAuthenticatedClient();
+		const { client, userId } = await createAuthenticatedClient();
 		const slug = `invalid-typescript-${crypto.randomUUID()}`;
 		const source = invalidTypeScriptSandboxSource({ name: "Invalid TypeScript", slug });
 		const error = await client.runError((c) => c.sandbox.createScript({ payload: { source } }));
@@ -361,11 +357,11 @@ describe("sandbox async flow", () => {
 			]),
 		);
 
-		const rows = await getPgClient().query<{ id: string }>(
-			`select id from sandbox_script where source = $1`,
-			[source],
+		const rows = await getBackendClient().run(
+			(c) => c.testSupport.listSandboxScripts({ urlParams: { userId: UserId.make(userId) } }),
+			adminHeaders,
 		);
-		expect(rows.rowCount).toBe(0);
+		expect(rows.some((row) => row.source === source)).toBe(false);
 	});
 
 	it("returns 404 for a non-existent job id", async () => {

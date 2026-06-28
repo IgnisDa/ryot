@@ -1,24 +1,18 @@
-import { getPgClient } from "~/setup";
+import { SandboxScriptId } from "@ryot/contract/schema/brands";
+
 import { assertCompleted, requirePresent } from "~/support/assertions";
 
+import { adminHeaders } from "./admin";
 import type { Client } from "./auth";
-import type { ContractPayload, ContractSuccess } from "./contract-client";
+import { type ContractPayload, type ContractSuccess, getBackendClient } from "./contract-client";
 import { type PollOptions, pollUntil } from "./polling";
 
-type CreateSandboxScriptBody = ContractPayload<"sandbox", "createScript">;
 type EnqueueSandboxBody = ContractPayload<"sandbox", "enqueue">;
-type SandboxResult = Exclude<ContractSuccess<"sandbox", "getResult">, { status: "pending" }>;
-type CompletedSandboxResult = Extract<SandboxResult, { status: "completed" }>;
 type SandboxExecutionError = NonNullable<CompletedSandboxResult["error"]>;
-
-type StoredScriptRepresentation = {
-	slug: string;
-	name: string;
-	source: string;
-	metadata: unknown;
-	compiledCode: string;
-	compiledFormat: number;
-};
+type CreateSandboxScriptBody = ContractPayload<"sandbox", "createScript">;
+type CompletedSandboxResult = Extract<SandboxResult, { status: "completed" }>;
+type StoredScriptRepresentation = ContractSuccess<"testSupport", "getSandboxScript">;
+type SandboxResult = Exclude<ContractSuccess<"sandbox", "getResult">, { status: "pending" }>;
 
 const representationValues = (row: StoredScriptRepresentation) => [
 	row.slug,
@@ -37,22 +31,17 @@ export async function createSandboxScript(client: Client, body: CreateSandboxScr
 
 export async function createAndPromoteSandboxScript(client: Client, source: string) {
 	const script = await createSandboxScript(client, { source });
-	const pg = getPgClient();
+	const backend = getBackendClient();
+	const scriptId = SandboxScriptId.make(script.id);
 	try {
-		const stored = await pg.query<StoredScriptRepresentation>(
-			`select slug, name, source, metadata, compiled_code as "compiledCode",
-			        compiled_format as "compiledFormat"
-			 from sandbox_script where id = $1`,
-			[script.id],
+		const before = await backend.run(
+			(c) => c.testSupport.getSandboxScript({ path: { scriptId } }),
+			adminHeaders,
 		);
-		const before = requirePresent(stored.rows[0], "Compiled sandbox script was not persisted");
-		const promoted = await pg.query<StoredScriptRepresentation>(
-			`update sandbox_script set is_builtin = true, user_id = null where id = $1
-			 returning slug, name, source, metadata, compiled_code as "compiledCode",
-			           compiled_format as "compiledFormat"`,
-			[script.id],
+		const after = await backend.run(
+			(c) => c.testSupport.promoteSandboxScript({ path: { scriptId } }),
+			adminHeaders,
 		);
-		const after = requirePresent(promoted.rows[0], "Failed to promote compiled sandbox script");
 		if (
 			JSON.stringify(representationValues(after)) !== JSON.stringify(representationValues(before))
 		) {
@@ -61,8 +50,8 @@ export async function createAndPromoteSandboxScript(client: Client, source: stri
 
 		return script;
 	} catch (error) {
-		await pg
-			.query(`delete from sandbox_script where id = $1`, [script.id])
+		await backend
+			.run((c) => c.testSupport.deleteSandboxScript({ path: { scriptId } }), adminHeaders)
 			.catch((cleanupError) => {
 				console.error("[sandbox] failed promotion cleanup", cleanupError);
 			});
@@ -76,34 +65,29 @@ export async function replaceSandboxScriptCompiledRepresentation(
 	source: string,
 ) {
 	const replacement = await createSandboxScript(client, { source });
-	const pg = getPgClient();
+	const backend = getBackendClient();
+	const replacementId = SandboxScriptId.make(replacement.id);
+	const targetId = SandboxScriptId.make(targetScriptId);
 	let temporaryRemoved = false;
 	try {
-		const stored = await pg.query<StoredScriptRepresentation>(
-			`select slug, name, source, metadata, compiled_code as "compiledCode",
-			        compiled_format as "compiledFormat"
-			 from sandbox_script where id = $1`,
-			[replacement.id],
+		const before = await backend.run(
+			(c) => c.testSupport.getSandboxScript({ path: { scriptId: replacementId } }),
+			adminHeaders,
 		);
-		const before = requirePresent(stored.rows[0], "Replacement sandbox script was not persisted");
-		const updated = await pg.query<StoredScriptRepresentation>(
-			`update sandbox_script as target
-			 set slug = replacement.slug,
-			     name = replacement.name,
-			     source = replacement.source,
-			     metadata = replacement.metadata,
-			     compiled_code = replacement.compiled_code,
-			     compiled_format = replacement.compiled_format
-			 from sandbox_script as replacement
-			 where target.id = $1 and replacement.id = $2
-			 returning target.slug, target.name, target.source, target.metadata,
-			           target.compiled_code as "compiledCode",
-			           target.compiled_format as "compiledFormat"`,
-			[targetScriptId, replacement.id],
-		);
-		const after = requirePresent(
-			updated.rows[0],
-			"Failed to replace sandbox script representation",
+		const after = await backend.run(
+			(c) =>
+				c.testSupport.patchSandboxScript({
+					path: { scriptId: targetId },
+					payload: {
+						slug: before.slug,
+						name: before.name,
+						source: before.source,
+						metadata: before.metadata,
+						compiledCode: before.compiledCode,
+						compiledFormat: before.compiledFormat,
+					},
+				}),
+			adminHeaders,
 		);
 		if (
 			JSON.stringify(representationValues(after)) !== JSON.stringify(representationValues(before))
@@ -111,13 +95,16 @@ export async function replaceSandboxScriptCompiledRepresentation(
 			throw new Error("Sandbox script replacement changed its compiled representation");
 		}
 	} finally {
-		const deleted = await pg
-			.query(`delete from sandbox_script where id = $1`, [replacement.id])
+		const deleted = await backend
+			.run(
+				(c) => c.testSupport.deleteSandboxScript({ path: { scriptId: replacementId } }),
+				adminHeaders,
+			)
 			.catch((error) => {
 				console.error("[sandbox] temporary replacement cleanup failed", error);
 				return null;
 			});
-		temporaryRemoved = deleted?.rowCount === 1;
+		temporaryRemoved = deleted?.id === replacementId;
 	}
 	if (!temporaryRemoved) {
 		throw new Error("Failed to remove temporary replacement sandbox script");

@@ -27,6 +27,7 @@ const makeTranslationsRepository = (
 		_tag: "TranslationsRepository",
 		createOverlay: () => Effect.sync(() => undefined),
 		findOverlay: () => Effect.succeed(null),
+		listByEntity: () => Effect.succeed([]),
 		findUserLanguage: () => Effect.succeed(null),
 		updateOverlay: () => Effect.succeed("translation-1"),
 		...overrides,
@@ -90,5 +91,44 @@ it.effect("fails when update finds no existing overlay", () => {
 		const service = yield* TranslationsService;
 		const exit = yield* Effect.exit(service.update(input));
 		expect(exit).toEqual(Exit.fail(new NotFound({ message: "Translation overlay not found" })));
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("creates a missing overlay during upsert", () => {
+	let createdInput: unknown;
+	const layer = makeServiceLayer(
+		makeTranslationsRepository({
+			createOverlay: (received) =>
+				Effect.sync(() => {
+					createdInput = received;
+					return undefined;
+				}),
+		}),
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* TranslationsService;
+		yield* service.upsert(input);
+		expect(createdInput).toEqual(input);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("updates an existing overlay during upsert", () => {
+	let updatedInput: unknown;
+	const layer = makeServiceLayer(
+		makeTranslationsRepository({
+			findOverlay: () => Effect.succeed({ name: "Old", properties: {} }),
+			updateOverlay: (received) =>
+				Effect.sync(() => {
+					updatedInput = received;
+					return "translation-1";
+				}),
+		}),
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* TranslationsService;
+		yield* service.upsert(input);
+		expect(updatedInput).toEqual(input);
 	}).pipe(Effect.provide(layer));
 });

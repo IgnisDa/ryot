@@ -241,11 +241,88 @@ export class EntitySchemasRepository extends Effect.Service<EntitySchemasReposit
 				return row ? { id: EntitySchemaId.make(row.id) } : null;
 			});
 
+			const getBuiltinDetailsBySlug = Effect.fn("EntitySchemasRepository.getBuiltinDetailsBySlug")(
+				function* (slug: string) {
+					const db = yield* CurrentDb;
+					const [row] = yield* dbEffect(() =>
+						db
+							.select({
+								id: schema.entitySchema.id,
+								slug: schema.entitySchema.slug,
+								name: schema.entitySchema.name,
+							})
+							.from(schema.entitySchema)
+							.where(
+								and(
+									eq(schema.entitySchema.slug, slug),
+									isNull(schema.entitySchema.userId),
+									eq(schema.entitySchema.isBuiltin, true),
+								),
+							)
+							.limit(1),
+					);
+					return row ? { ...row, id: EntitySchemaId.make(row.id) } : null;
+				},
+			);
+
+			const linkSandboxScript = Effect.fn("EntitySchemasRepository.linkSandboxScript")(
+				function* (input: { entitySchemaId: EntitySchemaId; sandboxScriptId: SandboxScriptId }) {
+					const db = yield* CurrentDb;
+					const [inserted] = yield* dbEffect(() =>
+						db
+							.insert(schema.entitySchemaSandboxScript)
+							.values(input)
+							.onConflictDoNothing({
+								target: [
+									schema.entitySchemaSandboxScript.entitySchemaId,
+									schema.entitySchemaSandboxScript.sandboxScriptId,
+								],
+							})
+							.returning({ id: schema.entitySchemaSandboxScript.id }),
+					);
+					if (inserted) {
+						return inserted;
+					}
+
+					const [existing] = yield* dbEffect(() =>
+						db
+							.select({ id: schema.entitySchemaSandboxScript.id })
+							.from(schema.entitySchemaSandboxScript)
+							.where(
+								and(
+									eq(schema.entitySchemaSandboxScript.entitySchemaId, input.entitySchemaId),
+									eq(schema.entitySchemaSandboxScript.sandboxScriptId, input.sandboxScriptId),
+								),
+							)
+							.limit(1),
+					);
+					if (!existing) {
+						return yield* new DbError({
+							message: "Entity schema script link conflict but not found",
+						});
+					}
+					return existing;
+				},
+			);
+
+			const deleteSandboxScriptLinks = Effect.fn(
+				"EntitySchemasRepository.deleteSandboxScriptLinks",
+			)(function* (sandboxScriptId: SandboxScriptId) {
+				const db = yield* CurrentDb;
+				const rows = yield* dbEffect(() =>
+					db
+						.delete(schema.entitySchemaSandboxScript)
+						.where(eq(schema.entitySchemaSandboxScript.sandboxScriptId, sandboxScriptId))
+						.returning({ id: schema.entitySchemaSandboxScript.id }),
+				);
+				return rows.length;
+			});
+
 			const createEntitySchema = Effect.fn("EntitySchemasRepository.createEntitySchema")(
 				function* (input: {
+					slug: Slug;
 					icon: string;
 					name: string;
-					slug: Slug;
 					userId: UserId;
 					accentColor: string;
 					propertiesSchema: AppSchema;
@@ -303,12 +380,15 @@ export class EntitySchemasRepository extends Effect.Service<EntitySchemasReposit
 			);
 
 			return {
-				listVisibleBySlugs,
+				findBySlug,
 				listByUser,
 				getByIdForUser,
-				findBySlug,
 				getBuiltinBySlug,
+				linkSandboxScript,
+				listVisibleBySlugs,
 				createEntitySchema,
+				getBuiltinDetailsBySlug,
+				deleteSandboxScriptLinks,
 			};
 		},
 	},

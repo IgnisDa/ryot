@@ -80,6 +80,7 @@ import { SavedViewsRepository } from "#modules/saved-views/repository";
 import { SavedViewsService } from "#modules/saved-views/service";
 import { FrequentCronSchedulerLive } from "#modules/scheduler/frequent-cron";
 import { InfrequentCronSchedulerLive } from "#modules/scheduler/infrequent-cron";
+import { TestSupportService } from "#modules/test-support/service";
 import { TrackersRepository } from "#modules/trackers/repository";
 import { TrackersService } from "#modules/trackers/service";
 import { UploadsService } from "#modules/uploads/service";
@@ -265,7 +266,12 @@ const ServicesLive = Layer.mergeAll(
 	InterestServicesLive,
 );
 
-const ServiceDependenciesLive = Layer.provide(ServicesLive, ApplicationInfrastructureLive);
+const ServicesWithTestSupportLive = Layer.provideMerge(TestSupportService.Default, ServicesLive);
+
+const ServiceDependenciesLive = Layer.provide(
+	ServicesWithTestSupportLive,
+	ApplicationInfrastructureLive,
+);
 
 const RuntimeLive = Layer.mergeAll(
 	AddEntityToCollectionWorkflowDefinitionsLive,

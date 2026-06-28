@@ -72,7 +72,22 @@ export class TranslationsService extends Effect.Service<TranslationsService>()(
 				return undefined;
 			});
 
-			return { requestFill, create, update };
+			const upsert = Effect.fn("TranslationsService.upsert")(function* (
+				input: TranslationOverlayInput,
+			) {
+				const existing = yield* runWithDb(
+					repository.findOverlay({ entityId: input.entityId, language: input.language }),
+				);
+				return yield* existing ? update(input) : create(input);
+			});
+
+			const listByEntity = Effect.fn("TranslationsService.listByEntity")(function* (
+				entityId: EntityId,
+			) {
+				return yield* runWithDb(repository.listByEntity(entityId));
+			});
+
+			return { requestFill, create, update, upsert, listByEntity };
 		}),
 	},
 ) {}

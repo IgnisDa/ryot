@@ -5,7 +5,12 @@ import type {
 	CreateEntitySchemaBody,
 	SearchEntitySchemasBody,
 } from "@ryot/contract/modules/entity-schemas/schemas";
-import { type EntitySchemaId, Slug, TrackerId } from "@ryot/contract/schema/brands";
+import {
+	type EntitySchemaId,
+	type SandboxScriptId,
+	Slug,
+	TrackerId,
+} from "@ryot/contract/schema/brands";
 import { generateId } from "better-auth";
 import { Effect, Schema } from "effect";
 
@@ -208,7 +213,38 @@ export class EntitySchemasService extends Effect.Service<EntitySchemasService>()
 				return yield* sandboxApiService.getResult(user, jobId);
 			});
 
-			return { list, create, getById, search, getSearchResult };
+			const getBuiltinBySlug = Effect.fn("EntitySchemasService.getBuiltinBySlug")(function* (
+				slug: string,
+			) {
+				const found = yield* runWithDb(repository.getBuiltinDetailsBySlug(slug));
+				if (!found) {
+					return yield* notFound("Entity schema not found");
+				}
+				return found;
+			});
+
+			const linkSandboxScript = Effect.fn("EntitySchemasService.linkSandboxScript")(
+				function* (input: { entitySchemaId: EntitySchemaId; sandboxScriptId: SandboxScriptId }) {
+					return yield* runWithDb(repository.linkSandboxScript(input));
+				},
+			);
+
+			const deleteSandboxScriptLinks = Effect.fn("EntitySchemasService.deleteSandboxScriptLinks")(
+				function* (sandboxScriptId: SandboxScriptId) {
+					return yield* runWithDb(repository.deleteSandboxScriptLinks(sandboxScriptId));
+				},
+			);
+
+			return {
+				list,
+				search,
+				create,
+				getById,
+				getSearchResult,
+				getBuiltinBySlug,
+				linkSandboxScript,
+				deleteSandboxScriptLinks,
+			};
 		}),
 	},
 ) {}

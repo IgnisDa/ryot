@@ -8,6 +8,7 @@ import {
 	EventId,
 	EventSchemaId,
 	ImportRunId,
+	SandboxScriptId,
 	UserId,
 } from "@ryot/contract/schema/brands";
 import { Effect, Exit, Layer } from "effect";
@@ -114,6 +115,38 @@ it.effect("requires entityId or sessionEntityId when listing events", () => {
 		expect(exit).toEqual(
 			Exit.fail(new BadRequest({ message: "Either entityId or sessionEntityId is required" })),
 		);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("creates event schema triggers with safe defaults", () => {
+	let createInput: unknown;
+	const layer = makeEventsServiceLayer({
+		eventsRepository: makeEventsRepository({
+			createTrigger: (input) =>
+				Effect.sync(() => {
+					createInput = input;
+					return { id: "trigger-id" };
+				}),
+		}),
+	});
+	const input = {
+		position: 10,
+		userId: user.id,
+		name: "Before Create",
+		phase: "before_create" as const,
+		sandboxScriptId: SandboxScriptId.make("script-id"),
+		eventSchemaId: EventSchemaId.make("event-schema-id"),
+	};
+
+	return Effect.gen(function* () {
+		const service = yield* EventsService;
+		expect(yield* service.createTrigger(input)).toEqual({ id: "trigger-id" });
+		expect(createInput).toEqual({
+			...input,
+			metadata: {},
+			isActive: true,
+			isBuiltin: false,
+		});
 	}).pipe(Effect.provide(layer));
 });
 

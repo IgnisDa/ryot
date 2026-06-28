@@ -3,6 +3,7 @@ import { badRequest, notFound } from "@ryot/contract/errors";
 import { TranslationStatus, type EntityDetail } from "@ryot/contract/modules/entities/schemas";
 import type { RowItem } from "@ryot/contract/modules/query-engine/language";
 import { EntityId, EntitySchemaId, SandboxScriptId } from "@ryot/contract/schema/brands";
+import type { UserId } from "@ryot/contract/schema/brands";
 import { buildEntityDetailQueryDocument } from "@ryot/query-engine";
 import { Effect, Schema } from "effect";
 
@@ -21,7 +22,26 @@ import { QueryEngineService } from "#modules/query-engine/service";
 
 import { EntitiesRepository, type InsertEntityInputBase } from "./repository";
 
-type CreateEntityInput = InsertEntityInputBase & { properties: unknown };
+type CreateEntityInput = {
+	name: string;
+	properties: unknown;
+	entitySchemaId: EntitySchemaId;
+} & (
+	| {
+			scope: "global";
+			externalId: string;
+			populatedAt: Date | null;
+			sandboxScriptId: SandboxScriptId;
+	  }
+	| {
+			scope: "user";
+			userId: UserId;
+			externalId?: string | undefined;
+			sandboxScriptId?: SandboxScriptId | undefined;
+	  }
+);
+
+type CreateAnyEntityInput = InsertEntityInputBase & { properties: unknown };
 
 type UpdateEntityInput = {
 	name: string;
@@ -77,7 +97,9 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 			);
 		});
 
-		const create = Effect.fn("EntitiesService.create")(function* (input: CreateEntityInput) {
+		const createEntity = Effect.fn("EntitiesService.createEntity")(function* (
+			input: CreateAnyEntityInput,
+		) {
 			if (input.scope === "user") {
 				const hasExternalId = input.externalId !== undefined;
 				const hasScriptId = input.sandboxScriptId !== undefined;
@@ -120,6 +142,16 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 			const properties = yield* parseEntityProperties(input.properties, scope.propertiesSchema);
 
 			return yield* runWithDb(repository.insertEntity({ ...input, name, properties }));
+		});
+
+		const create = Effect.fn("EntitiesService.create")(function* (input: CreateEntityInput) {
+			return yield* createEntity(input);
+		});
+
+		const createGlobal = Effect.fn("EntitiesService.createGlobal")(function* (
+			input: Omit<Extract<CreateAnyEntityInput, { scope: "global" }>, "scope">,
+		) {
+			return yield* createEntity({ ...input, scope: "global" });
 		});
 
 		const update = Effect.fn("EntitiesService.update")(function* (input: UpdateEntityInput) {
@@ -209,6 +241,37 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 			return { ...entity, translationStatus } satisfies EntityDetail;
 		});
 
-		return { create, update, upsert, getById };
+		const getByIdAnyScope = Effect.fn("EntitiesService.getByIdAnyScope")(function* (
+			entityId: EntityId,
+		) {
+			const entity = yield* runWithDb(repository.getById(entityId));
+			if (!entity) {
+				return yield* notFound(entityNotFoundError);
+			}
+			return entity;
+		});
+
+		const deleteByIds = Effect.fn("EntitiesService.deleteByIds")(function* (
+			ids: readonly [EntityId, ...EntityId[]],
+		) {
+			return yield* runWithDb(repository.deleteByIds(ids));
+		});
+
+		const deleteBySandboxScript = Effect.fn("EntitiesService.deleteBySandboxScript")(function* (
+			sandboxScriptId: SandboxScriptId,
+		) {
+			return yield* runWithDb(repository.deleteBySandboxScript(sandboxScriptId));
+		});
+
+		return {
+			create,
+			update,
+			upsert,
+			getById,
+			deleteByIds,
+			createGlobal,
+			getByIdAnyScope,
+			deleteBySandboxScript,
+		};
 	}),
 }) {}

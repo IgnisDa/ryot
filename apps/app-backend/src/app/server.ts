@@ -28,6 +28,7 @@ import { RelationshipsRoutesLive } from "#modules/relationships/routes";
 import { SandboxRoutesLive } from "#modules/sandbox/routes";
 import { SavedViewsRoutesLive } from "#modules/saved-views/routes";
 import { SystemRoutesLive } from "#modules/system/routes";
+import { TestSupportRoutesLive } from "#modules/test-support/routes";
 import { TrackersRoutesLive } from "#modules/trackers/routes";
 import { UploadsRoutesLive } from "#modules/uploads/routes";
 import { UserPreferencesRoutesLive } from "#modules/user-preferences/routes";
@@ -90,7 +91,7 @@ const ApiBaseLive = HttpApiBuilder.api(AppContract).pipe(
 	Layer.provide(UploadsRoutesLive),
 	Layer.provide(SavedViewsRoutesLive),
 	Layer.provide(CollectionsRoutesLive),
-	Layer.provide(GodModeRoutesLive),
+	Layer.provide(Layer.mergeAll(GodModeRoutesLive, TestSupportRoutesLive)),
 	Layer.provide(ImportsRoutesLive),
 	Layer.provide(Layer.mergeAll(IntegrationsRoutesLive, NotificationsRoutesLive)),
 	Layer.provide(

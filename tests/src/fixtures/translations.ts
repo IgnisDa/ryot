@@ -1,8 +1,10 @@
-import { getPgClient } from "~/setup";
+import { EntityId } from "@ryot/contract/schema/brands";
 
+import { adminHeaders } from "./admin";
 import type { Client } from "./auth";
+import { getBackendClient } from "./contract-client";
 import { getEntity } from "./entities";
-import { deleteGlobalEntityByProvenance, seedMediaEntity } from "./media";
+import { seedMediaEntity } from "./media";
 import { pollUntil, type PollOptions } from "./polling";
 
 type EntityTranslationRow = {
@@ -12,7 +14,14 @@ type EntityTranslationRow = {
 };
 
 async function markEntityPopulated(entityId: string) {
-	await getPgClient().query(`update entity set populated_at = now() where id = $1`, [entityId]);
+	await getBackendClient().run(
+		(c) =>
+			c.testSupport.setEntityPopulatedAt({
+				path: { entityId: EntityId.make(entityId) },
+				payload: { populatedAt: new Date().toISOString() },
+			}),
+		adminHeaders,
+	);
 }
 
 export async function seedPopulatedProviderEntity(input: {
@@ -22,13 +31,6 @@ export async function seedPopulatedProviderEntity(input: {
 	sandboxScriptId: string;
 	properties: Record<string, unknown>;
 }) {
-	const provenance = {
-		externalId: input.externalId,
-		entitySchemaId: input.entitySchemaId,
-		sandboxScriptId: input.sandboxScriptId,
-	};
-	await deleteGlobalEntityByProvenance(provenance);
-
 	const seeded = await seedMediaEntity({
 		userId: null,
 		name: input.name,
@@ -48,42 +50,40 @@ export async function seedEntityTranslation(input: {
 	name?: string | null;
 	properties?: Record<string, unknown> | null;
 }) {
-	await getPgClient().query(
-		`insert into entity_translation (id, entity_id, language, name, properties, populated_at)
-		 values ($1, $2, $3, $4, $5::jsonb, now())
-		 on conflict (entity_id, language) do update
-		   set name = excluded.name,
-		       properties = excluded.properties,
-		       populated_at = excluded.populated_at`,
-		[
-			crypto.randomUUID(),
-			input.entityId,
-			input.language,
-			input.name ?? null,
-			input.properties == null ? null : JSON.stringify(input.properties),
-		],
+	await getBackendClient().run(
+		(c) =>
+			c.testSupport.upsertEntityTranslation({
+				payload: {
+					language: input.language,
+					name: input.name ?? null,
+					properties: input.properties ?? null,
+					entityId: EntityId.make(input.entityId),
+				},
+			}),
+		adminHeaders,
 	);
 }
 
 export async function getEntityTranslationRow(input: { entityId: string; language: string }) {
-	const result = await getPgClient().query<EntityTranslationRow>(
-		`select name, properties, populated_at::text as "populatedAt"
-		 from entity_translation
-		 where entity_id = $1 and language = $2
-		 limit 1`,
-		[input.entityId, input.language],
+	const rows = await getBackendClient().run(
+		(c) =>
+			c.testSupport.listEntityTranslations({
+				path: { entityId: EntityId.make(input.entityId) },
+			}),
+		adminHeaders,
 	);
-
-	return result.rows[0] ?? null;
+	return (
+		(rows.find((row) => row.language === input.language) as EntityTranslationRow | undefined) ??
+		null
+	);
 }
 
 export async function countEntityTranslations(entityId: string) {
-	const result = await getPgClient().query<{ count: string }>(
-		`select count(*)::text as count from entity_translation where entity_id = $1`,
-		[entityId],
+	const rows = await getBackendClient().run(
+		(c) => c.testSupport.listEntityTranslations({ path: { entityId: EntityId.make(entityId) } }),
+		adminHeaders,
 	);
-
-	return Number(result.rows[0]?.count ?? "0");
+	return rows.length;
 }
 
 /** Re-reads the entity detail endpoint until its translationStatus settles to `target`. */
