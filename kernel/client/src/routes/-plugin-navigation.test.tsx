@@ -30,6 +30,7 @@ import {
 	SavedViewRouteStubs,
 	NavigationRouteStubs,
 	ProviderAddRouteStubs,
+	IntegrationRouteStubs,
 	makeWorkspaceRecorder,
 } from "#/routes/-route-fixtures";
 
@@ -58,6 +59,7 @@ const mountView = (
 	const runtime = ManagedRuntime.make(
 		Layer.mergeAll(
 			ProviderAddRouteStubs,
+			IntegrationRouteStubs,
 			AuthStub,
 			GodModeRouteStubs,
 			ServerStub,

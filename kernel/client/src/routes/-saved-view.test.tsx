@@ -36,6 +36,7 @@ import {
 	CustomizeRouteStubs,
 	NavigationRouteStubs,
 	ProviderAddRouteStubs,
+	IntegrationRouteStubs,
 } from "#/routes/-route-fixtures";
 
 const entity = table("entity", "entity");
@@ -230,6 +231,7 @@ const mountView = (
 	const runtime = ManagedRuntime.make(
 		Layer.mergeAll(
 			providerAdd,
+			IntegrationRouteStubs,
 			makeAuthStub(),
 			GodModeRouteStubs,
 			ServerStub,
