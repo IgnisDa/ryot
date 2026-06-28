@@ -9,8 +9,11 @@ import { Result, Schema } from "effect";
 import { createElement, type ComponentType } from "react";
 import { createRoot } from "react-dom/client";
 
+import { createPluginLocationStore, PluginRouter, type PluginRouteDefinition } from "./routing";
+
 export type ClientPluginDefinition = {
 	readonly home: ComponentType;
+	readonly routes?: readonly PluginRouteDefinition[];
 };
 
 const decodeArtifactMetadata = Schema.decodeUnknownResult(
@@ -55,6 +58,7 @@ export const bootstrapClientPlugin = (definition: ClientPluginDefinition) => {
 		}
 
 		initialized = true;
+		const locations = createPluginLocationStore(port);
 		port.start();
 		port.postMessage({
 			sessionId: init.sessionId,
@@ -64,6 +68,15 @@ export const bootstrapClientPlugin = (definition: ClientPluginDefinition) => {
 			bridgeVersion: artifactMetadata.bridgeVersion,
 			compilerVersion: artifactMetadata.compilerVersion,
 		} satisfies PluginBridgeReady);
-		createRoot(rootElement).render(createElement(definition.home));
+		createRoot(rootElement).render(createElement(PluginRouter, { definition, port, locations }));
 	});
 };
+
+export {
+	PluginLink,
+	usePluginLocation,
+	usePluginNavigation,
+	usePluginParams,
+	usePluginSearch,
+	type PluginRouteDefinition,
+} from "./routing";

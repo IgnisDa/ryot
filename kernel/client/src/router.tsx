@@ -1,4 +1,4 @@
-import { createRouter as createTanStackRouter } from "@tanstack/react-router";
+import { createRouter as createTanStackRouter, type RouterHistory } from "@tanstack/react-router";
 
 import type { RouterContext } from "./routes/__root";
 import { routeTree } from "./routeTree.gen";
@@ -23,9 +23,10 @@ function RestoringSession() {
 	);
 }
 
-export function getRouter(context: RouterContext) {
+export function getRouter(context: RouterContext, history?: RouterHistory) {
 	const router = createTanStackRouter({
 		context,
+		history,
 		routeTree,
 		scrollRestoration: true,
 		defaultPreload: "intent",
