@@ -1,6 +1,5 @@
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
 import { DbError, unknownToMessage } from "@ryot/contract/errors";
-import { AutomationRuleMetadata } from "@ryot/contract/modules/automations/schemas";
 import { Effect, Either, Layer, Match, Schema } from "effect";
 
 import {
@@ -11,11 +10,12 @@ import {
 
 import type { AutomationRuleTarget } from "./repository";
 import { AutomationsService } from "./service";
-import { SubscriptionExecutionWorkflow } from "./subscription-execution-workflow";
+import {
+	AutomationProperties,
+	SubscriptionExecutionWorkflow,
+} from "./subscription-execution-workflow";
 
-const decodeProperties = Schema.decodeUnknown(
-	Schema.Record({ key: Schema.String, value: AutomationRuleMetadata }),
-);
+const decodeProperties = Schema.decodeUnknown(AutomationProperties);
 
 const sourceSnapshot = <A>(source: { after?: A; before?: A }): A => {
 	const snapshot = source.after ?? source.before;

@@ -16,7 +16,6 @@ import { populateMediaEntityGroups } from "./population-workflow";
 import { resolveMediaEntityGroups } from "./resolution-workflow";
 import { createProgressReporter } from "./shared-workflow";
 import type { ImportMediaEntityGroup } from "./types";
-import type { MediaImportWorkflowOptions } from "./types-workflow";
 import { writeMediaEntityGroups } from "./writing-workflow";
 
 const cloneMediaEntityGroups = (
@@ -144,9 +143,6 @@ export const processNormalizedMediaImport = Effect.fn("processNormalizedMediaImp
 		userId: payload.userId,
 		...(payload.integrationId ? { integrationId: payload.integrationId } : {}),
 	};
-	const options: MediaImportWorkflowOptions = payload.integrationId
-		? { integrationId: payload.integrationId }
-		: {};
 
 	const adapterResult = yield* loadNormalizedAdapterResult(payload.runId);
 	const { failures } = adapterResult;
@@ -173,7 +169,6 @@ export const processNormalizedMediaImport = Effect.fn("processNormalizedMediaImp
 	});
 
 	const { failures: writeFailures, importedItems } = yield* writeMediaEntityGroups({
-		options,
 		executionId,
 		entityGroups,
 		entityIdsByKey,
