@@ -23,6 +23,16 @@ Check with the user that these modules match their expectations. Check with the 
 
 <prd-template>
 
+## Tasks
+
+**Overall Progress:** 0 of 0 tasks completed
+
+**Current Task:** None
+
+### Task List
+
+Tasks will be added here when you run the prd-to-issues skill.
+
 ## Problem Statement
 
 The problem that the user is facing, from the user's perspective.
@@ -72,18 +82,6 @@ A description of the things that are out of scope for this PRD.
 ## Further Notes
 
 Any further notes about the feature.
-
----
-
-## Tasks
-
-**Overall Progress:** 0 of 0 tasks completed
-
-**Current Task:** None
-
-### Task List
-
-Tasks will be added here when you run the prd-to-issues skill.
 
 </prd-template>
 
