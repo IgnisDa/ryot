@@ -148,6 +148,8 @@ it.effect("keeps provider entity population behind the canonical workflow", () =
 		for (const source of [trigger, preload, libraryWorkflow, monitoringWorkflow]) {
 			expect(source).toContain("ProviderEntityPopulationWorkflow");
 		}
+		expect(preload.match(/pollWorkflowWithResumeNudge\(/g)?.length ?? 0).toBe(2);
+		expect(preload).toContain("`${preloadRunId}-exercise-${externalId}`");
 
 		expect(mediaOperations).toContain("LibraryEntityImportWorkflow");
 		expect(mediaOperations).not.toContain("ProviderEntityPopulationWorkflow");

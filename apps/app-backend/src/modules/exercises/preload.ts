@@ -7,6 +7,7 @@ import { Cause, Effect, Layer } from "effect";
 import { AppConfig } from "#lib/infrastructure/config/service";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { CurrentDb, DbRunner, dbEffect } from "#lib/infrastructure/db/service";
+import { pollWorkflowWithResumeNudge } from "#lib/infrastructure/workflow";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { ProviderEntityPopulationWorkflow } from "#modules/entity-import/provider-entity-population-workflow";
 import { decodeProviderSearchResult } from "#modules/sandbox/provider-contracts";
@@ -15,6 +16,7 @@ import { RunSandboxWorkflow } from "#modules/sandbox/sandbox-run-workflow";
 
 const builtinExercisePageSize = 100;
 const builtinExerciseExpectedCount = 873;
+const builtinExerciseImportConcurrency = 5;
 const builtinExerciseScriptSlug = "exercise.free-exercise-db";
 
 const countImportedGlobalEntities = Effect.fn(function* (input: {
@@ -109,19 +111,26 @@ export const BuiltinEntityPreloaderLive = Layer.scopedDiscard(
 
 		const preloadRunId = generateId();
 
-		const searchPage = (page: number) =>
-			engine
+		const searchPage = (page: number) => {
+			const executionId = `${preloadRunId}-search-${page}`;
+			return engine
 				.execute(RunSandboxWorkflow, {
-					executionId: `${preloadRunId}-search-${page}`,
+					executionId,
 					payload: {
+						executionId,
 						userId: null,
 						scriptId: script.id,
 						driverName: "search",
-						executionId: `${preloadRunId}-search-${page}`,
 						context: { query: "", page, pageSize: builtinExercisePageSize },
 					},
 				})
 				.pipe(
+					Effect.raceFirst(
+						pollWorkflowWithResumeNudge(engine, RunSandboxWorkflow, executionId).pipe(
+							Effect.delay("250 millis"),
+							Effect.forever,
+						),
+					),
 					Effect.flatMap((result) =>
 						result.error
 							? Effect.logError(
@@ -133,22 +142,37 @@ export const BuiltinEntityPreloaderLive = Layer.scopedDiscard(
 								),
 					),
 				);
+		};
 
-		const scheduleImport = (externalId: string) =>
-			engine
+		const importExercise = (externalId: string) => {
+			const executionId = `${preloadRunId}-exercise-${externalId}`;
+			return engine
 				.execute(ProviderEntityPopulationWorkflow, {
-					discard: true,
-					executionId: `builtin-exercise-${externalId}`,
+					executionId,
 					payload: {
 						externalId,
+						executionId,
 						userId: null,
 						mode: "ensure",
 						scriptId: preloadTarget.sandboxScriptId,
 						entitySchemaId: preloadTarget.entitySchemaId,
-						executionId: `builtin-exercise-${externalId}`,
 					},
 				})
-				.pipe(Effect.orDie);
+				.pipe(
+					Effect.raceFirst(
+						pollWorkflowWithResumeNudge(engine, ProviderEntityPopulationWorkflow, executionId).pipe(
+							Effect.delay("250 millis"),
+							Effect.forever,
+						),
+					),
+					Effect.as(true),
+					Effect.catchAll((error) =>
+						Effect.logError(
+							`Failed to import builtin exercise '${externalId}': ${unknownToMessage(error)}`,
+						).pipe(Effect.as(false)),
+					),
+				);
+		};
 
 		const runPreload = Effect.gen(function* () {
 			yield* Effect.logInfo(
@@ -173,11 +197,13 @@ export const BuiltinEntityPreloaderLive = Layer.scopedDiscard(
 					.slice(0, remaining);
 
 				yield* Effect.logInfo(
-					`Scheduling ${scheduledIds.length} builtin exercises from page ${page}`,
+					`Importing ${scheduledIds.length} builtin exercises from page ${page}`,
 				);
 
-				yield* Effect.forEach(scheduledIds, scheduleImport, { discard: true });
-				remaining -= scheduledIds.length;
+				const importResults = yield* Effect.forEach(scheduledIds, importExercise, {
+					concurrency: builtinExerciseImportConcurrency,
+				});
+				remaining -= importResults.filter(Boolean).length;
 
 				if (remaining <= 0 || externalIds.length < builtinExercisePageSize) {
 					break;
@@ -185,6 +211,10 @@ export const BuiltinEntityPreloaderLive = Layer.scopedDiscard(
 
 				page += 1;
 			}
+
+			yield* Effect.logInfo(
+				`Builtin exercise preload finished (${preloadLimit - remaining}/${preloadLimit} imported)`,
+			);
 		}).pipe(
 			Effect.catchAllCause((cause) =>
 				Effect.logError(
