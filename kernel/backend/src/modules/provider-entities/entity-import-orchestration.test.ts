@@ -40,9 +40,9 @@ const importWithoutMembership = (entitySchemaSlug: string) => {
 				executionId,
 				externalId: "external-1",
 				origin: { kind: "import" },
-				entityScope: { type: "global", userId: UserId.make("user-1") },
 				providerId: SandboxProviderId.make("provider-1"),
 				entitySchemaSlug: EntitySchemaSlug.make(entitySchemaSlug),
+				entityScope: { type: "global", userId: UserId.make("user-1") },
 			},
 			executionId,
 		);
@@ -53,7 +53,7 @@ const importWithoutMembership = (entitySchemaSlug: string) => {
 				name: "ProviderEntityPopulationWorkflow",
 				options: expect.objectContaining({ executionId: `${executionId}-provider-population` }),
 			}),
-			{ name: "provider-import-automation", options: { executionId } },
+			{ options: { executionId }, name: "provider-import-automation" },
 		]);
 	}).pipe(
 		Effect.provideService(
@@ -61,7 +61,7 @@ const importWithoutMembership = (entitySchemaSlug: string) => {
 			makeWorkflowActivityEngine(instance, {
 				execute: (workflow, options) =>
 					Effect.sync(() => {
-						calls.push({ name: workflow._tag, options });
+						calls.push({ options, name: workflow._tag });
 						return entity;
 					}),
 			}),
@@ -99,8 +99,8 @@ it.effect("fails the import when a provider-import automation fails", () => {
 		createdAt: "2026-01-01T00:00:00.000Z",
 		updatedAt: "2026-01-01T00:00:00.000Z",
 		populatedAt: "2026-01-01T00:00:00.000Z",
-		entitySchemaSlug: EntitySchemaSlug.make("record"),
 		providerId: SandboxProviderId.make("provider-1"),
+		entitySchemaSlug: EntitySchemaSlug.make("record"),
 	};
 
 	return Effect.gen(function* () {
@@ -110,9 +110,9 @@ it.effect("fails the import when a provider-import automation fails", () => {
 					executionId,
 					externalId: "external-1",
 					origin: { kind: "import" },
-					entityScope: { type: "global", userId: UserId.make("user-1") },
-					entitySchemaSlug: EntitySchemaSlug.make("record"),
 					providerId: SandboxProviderId.make("provider-1"),
+					entitySchemaSlug: EntitySchemaSlug.make("record"),
+					entityScope: { type: "global", userId: UserId.make("user-1") },
 				},
 				executionId,
 			),

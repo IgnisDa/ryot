@@ -8,19 +8,19 @@ import { details, manifest, search } from "./shared";
 type IgdbCompanyHost = SandboxHost<typeof manifest.capabilities>;
 
 const httpSuccess = (body: unknown, headers: Record<string, string> = {}) =>
-	Effect.succeed({ status: 200, headers, body: JSON.stringify(body) });
+	Effect.succeed({ headers, status: 200, body: JSON.stringify(body) });
 
 const makeHost = (overrides: Partial<IgdbCompanyHost>): IgdbCompanyHost =>
 	defineSandboxTestHost(manifest, {
-		getCachedValue: () => Effect.succeed({ accessToken: "Bearer cached", clientId: "client-id" }),
 		setCachedValue: () => Effect.succeed(null),
+		httpCall: () => Effect.fail({ message: "no route" }),
+		getCachedValue: () => Effect.succeed({ clientId: "client-id", accessToken: "Bearer cached" }),
 		getPluginConfig: (keys) =>
 			Effect.succeed(
 				Object.fromEntries(
 					keys.map((key) => [key, key === "twitchClientId" ? "client-id" : "client-secret"]),
 				),
 			),
-		httpCall: () => Effect.fail({ message: "no route" }),
 		...overrides,
 	});
 
@@ -33,7 +33,7 @@ describe("company.igdb sandbox script", () => {
 			httpCall: (_method, url) => {
 				if (url.startsWith("https://id.twitch.tv/oauth2/token")) {
 					tokenPosts += 1;
-					return httpSuccess({ access_token: "unexpected", token_type: "bearer" });
+					return httpSuccess({ token_type: "bearer", access_token: "unexpected" });
 				}
 				return httpSuccess([{ id: 7, name: "Studio", logo: { image_id: "logo1" } }], {
 					"x-count": "1",
@@ -43,7 +43,7 @@ describe("company.igdb sandbox script", () => {
 
 		return runSandboxTestScript(
 			search,
-			{ query: "studio", page: 1, pageSize: 20 },
+			{ page: 1, pageSize: 20, query: "studio" },
 			host,
 			execution,
 		).pipe(
@@ -73,15 +73,15 @@ describe("company.igdb sandbox script", () => {
 					{
 						id: 7,
 						name: "Studio",
-						start_date: 1_262_304_000,
 						description: "A studio.",
+						start_date: 1_262_304_000,
 						logo: { image_id: "logo1" },
+						published: [{ id: 10, name: "Alpha" }],
 						websites: [{ url: "https://studio.example" }],
 						developed: [
 							{ id: 10, name: "Alpha" },
 							{ id: 11, name: "Beta" },
 						],
-						published: [{ id: 10, name: "Alpha" }],
 					},
 				]);
 			},

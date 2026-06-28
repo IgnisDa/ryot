@@ -49,8 +49,8 @@ describe("POST /relationships", () => {
 			const result = yield* createRelationship(client, {
 				sourceEntityId: source.id,
 				targetEntityId: target.id,
-				relationshipSchemaSlug: relSchema.id,
 				properties: { rating: 7 },
+				relationshipSchemaSlug: relSchema.id,
 			});
 
 			expect(result.wasInserted).toBe(true);
@@ -71,15 +71,15 @@ describe("POST /relationships", () => {
 			yield* createRelationship(client, {
 				sourceEntityId: source.id,
 				targetEntityId: target.id,
-				relationshipSchemaSlug: relSchema.id,
 				properties: { rating: 3 },
+				relationshipSchemaSlug: relSchema.id,
 			});
 
 			const upserted = yield* createRelationship(client, {
 				sourceEntityId: source.id,
 				targetEntityId: target.id,
-				relationshipSchemaSlug: relSchema.id,
 				properties: { rating: 9 },
+				relationshipSchemaSlug: relSchema.id,
 			});
 
 			expect(upserted.wasInserted).toBe(false);
@@ -108,8 +108,8 @@ describe("POST /relationships", () => {
 
 			assertTaggedError(error, "RelationshipNotFound");
 			expect(error.reason).toEqual({
-				code: "relationship-schema-not-found",
 				relationshipSchemaSlug: relSchema.id,
+				code: "relationship-schema-not-found",
 			});
 		}),
 	);
@@ -139,8 +139,8 @@ describe("POST /relationships", () => {
 						payload: {
 							sourceEntityId: source.id,
 							targetEntityId: target.id,
-							relationshipSchemaSlug: strictSchema.id,
 							properties: { status: "deleted" },
+							relationshipSchemaSlug: strictSchema.id,
 						},
 					}),
 				),

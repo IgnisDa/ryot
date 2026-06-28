@@ -56,7 +56,7 @@ describe("book.hardcover sandbox script", () => {
 			});
 		});
 		return Effect.runPromise(
-			runSandboxTestScript(search, { query: "book", page: 1, pageSize: 20 }, host, execution).pipe(
+			runSandboxTestScript(search, { page: 1, pageSize: 20, query: "book" }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.items).toEqual([
 						{
@@ -84,8 +84,8 @@ describe("book.hardcover sandbox script", () => {
 						release_year: 2020,
 						description: "A book.",
 						release_date: "2020-01-01",
-						images: [{ url: "https://img/alt.jpg" }],
 						image: { url: "https://img/cover.jpg" },
+						images: [{ url: "https://img/alt.jpg" }],
 						cached_tags: { Genre: [{ tag: "science fiction" }, { tag: "ADVENTURE" }] },
 						book_series: [
 							{
@@ -94,8 +94,8 @@ describe("book.hardcover sandbox script", () => {
 							},
 						],
 						contributions: [
-							{ contribution: "Author", author_id: 7, author: { name: "Jane Doe" } },
-							{ contribution: "Editor", author_id: 7, author: { name: "Jane Doe" } },
+							{ author_id: 7, contribution: "Author", author: { name: "Jane Doe" } },
+							{ author_id: 7, contribution: "Editor", author: { name: "Jane Doe" } },
 						],
 					},
 				},
@@ -112,8 +112,8 @@ describe("book.hardcover sandbox script", () => {
 							relationshipSchemaSlug: "person-to-book",
 							entities: [
 								{
-									name: "Jane Doe",
 									externalId: "7",
+									name: "Jane Doe",
 									providerSlug: "person.hardcover",
 									relationshipProperties: { roles: ["Author", "Editor"] },
 								},
@@ -138,8 +138,8 @@ describe("book.hardcover sandbox script", () => {
 							relationshipSchemaSlug: "book-group-to-book",
 							entities: [
 								{
-									name: "The Series",
 									externalId: "100",
+									name: "The Series",
 									providerSlug: "book-group.hardcover",
 									relationshipProperties: { roles: ["Member"] },
 								},
@@ -155,8 +155,8 @@ describe("book.hardcover sandbox script", () => {
 						genres: ["Science Fiction", "Adventure"],
 						sourceUrl: "https://hardcover.app/books/the-book",
 						images: [
-							{ type: "remote", url: "https://img/cover.jpg", purpose: "cover" },
-							{ type: "remote", url: "https://img/alt.jpg", purpose: "cover" },
+							{ type: "remote", purpose: "cover", url: "https://img/cover.jpg" },
+							{ type: "remote", purpose: "cover", url: "https://img/alt.jpg" },
 						],
 					});
 					return undefined;

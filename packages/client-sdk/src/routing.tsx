@@ -98,7 +98,7 @@ export const usePluginScreenSurface = () => {
 };
 
 export const useRyotViewport = () => {
-	const { compact, safeAreaBottom, safeAreaTop } = usePluginChrome();
+	const { compact, safeAreaTop, safeAreaBottom } = usePluginChrome();
 
 	return useMemo(
 		() => ({ compact, safeAreaTop, safeAreaBottom }),
@@ -160,7 +160,7 @@ type PluginLinkProps = { readonly to: RyotNavigationTarget } & Omit<
 
 const navigationTargetHref = (target: RyotNavigationTarget) =>
 	Match.value(target).pipe(
-		Match.when({ kind: "plugin-route" }, ({ path, pluginSlug, search }) => {
+		Match.when({ kind: "plugin-route" }, ({ path, search, pluginSlug }) => {
 			const searchString = search === undefined ? "" : new URLSearchParams(search).toString();
 			const route = `/${encodeURIComponent(pluginSlug)}${path === "/" ? "" : path}`;
 			return searchString ? `${route}?${searchString}` : route;
@@ -196,7 +196,7 @@ export const PluginLink = ({ to, onClick, children, onAuxClick, ...rest }: Plugi
 	};
 
 	return (
-		<a {...rest} href={href} onAuxClick={handleAuxClick} onClick={handleClick}>
+		<a {...rest} href={href} onClick={handleClick} onAuxClick={handleAuxClick}>
 			{children}
 		</a>
 	);
@@ -243,7 +243,7 @@ const matchRoute = (routes: readonly PluginRouteDefinition[], path: string) => {
 		});
 
 		if (matched) {
-			return { params, route };
+			return { route, params };
 		}
 	}
 
@@ -538,8 +538,8 @@ function Screen(props: {
 	const active = props.role === "active";
 	const scrollRoot = useRef<HTMLDivElement>(null);
 	const [floatingRoot, setFloatingRoot] = useState<HTMLDivElement | null>(null);
-	const { location, params } = props.screen;
-	const value = useMemo(() => ({ location, params }), [location, params]);
+	const { params, location } = props.screen;
+	const value = useMemo(() => ({ params, location }), [location, params]);
 	const surface = useMemo<PluginScreenSurface>(
 		() => ({ floatingRoot, isActive: active, scrollRootRef: scrollRoot }),
 		[active, floatingRoot],

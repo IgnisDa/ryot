@@ -21,7 +21,7 @@ it.effect("normalizes persisted lifecycle rows to the wire operation", () => {
 		finishedAt: new Date("2026-08-24T00:00:03.000Z"),
 		accessRevokedAt: new Date("2026-08-24T00:00:01.000Z"),
 		databaseCleanupCompletedAt: new Date("2026-08-24T00:00:02.000Z"),
-		resetResult: { userId: "user-1", email: "user@example.com", resetUrl: null },
+		resetResult: { resetUrl: null, userId: "user-1", email: "user@example.com" },
 	};
 	const database = Database.of(
 		Object.assign(Object.create(null), {
@@ -44,7 +44,7 @@ it.effect("normalizes persisted lifecycle rows to the wire operation", () => {
 			createdAt: "2026-08-24T00:00:00.000Z",
 			startedAt: "2026-08-24T00:00:01.000Z",
 			finishedAt: "2026-08-24T00:00:03.000Z",
-			resetResult: { userId: "user-1", email: "user@example.com", resetUrl: null },
+			resetResult: { resetUrl: null, userId: "user-1", email: "user@example.com" },
 		});
 	}).pipe(Effect.provide(layer));
 });

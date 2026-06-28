@@ -50,7 +50,7 @@ beforeAll(async () => {
 				}),
 				search: fakeProviderSearchResult([
 					{ externalId: IMPORT_EXTERNAL_ID, title: "E2E Private Record One" },
-					{ externalId: "e2e-private-record-2", title: "E2E Private Record Two", metadata: [2] },
+					{ metadata: [2], title: "E2E Private Record Two", externalId: "e2e-private-record-2" },
 				]),
 				entitySchemas: [
 					{
@@ -74,13 +74,13 @@ beforeAll(async () => {
 			audiobookProvider = yield* installTestProvider({
 				client,
 				rootEntitySchemaSlug: audiobookSchema.id,
-				details: fakeProviderDetailsResult({ name: "E2E Imported Audiobook", properties: {} }),
+				details: fakeProviderDetailsResult({ properties: {}, name: "E2E Imported Audiobook" }),
 			});
 			const { schema: workoutSchema } = yield* findBuiltinSchemaBySlug(client, "workout");
 			workoutProvider = yield* installTestProvider({
 				client,
 				rootEntitySchemaSlug: workoutSchema.id,
-				details: fakeProviderDetailsResult({ name: "E2E Imported Workout", properties: {} }),
+				details: fakeProviderDetailsResult({ properties: {}, name: "E2E Imported Workout" }),
 			});
 		}),
 	);
@@ -108,7 +108,7 @@ describe("provider entity search", () => {
 			expect(search.providerId).toBe(provider.providerId);
 			expect(search.items).toEqual([
 				{ externalId: IMPORT_EXTERNAL_ID, title: "E2E Private Record One" },
-				{ externalId: "e2e-private-record-2", title: "E2E Private Record Two", metadata: [2] },
+				{ metadata: [2], title: "E2E Private Record Two", externalId: "e2e-private-record-2" },
 			]);
 			const firstItem = search.items[0];
 			assertPresent(firstItem, "Expected the first search item");
@@ -243,7 +243,7 @@ describe("GET /provider-entities/imports/:jobId — provider entity import resul
 					operation: "details",
 					name: "Reingested E2E Provider details",
 					slug: `${provider.providerSlug}.details`,
-					result: fakeProviderDetailsResult({ name: "Reingested Entity", properties: {} }),
+					result: fakeProviderDetailsResult({ properties: {}, name: "Reingested Entity" }),
 				}),
 			);
 

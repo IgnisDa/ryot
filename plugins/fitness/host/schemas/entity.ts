@@ -21,7 +21,7 @@ const reviewPropertiesSchema = {
 		rating: {
 			label: "Rating",
 			type: "number" as const,
-			validation: { maximum: 100, minimum: 0 },
+			validation: { minimum: 0, maximum: 100 },
 			description: "Your personal rating from 0 (lowest) to 100 (highest)",
 		},
 	},

@@ -9,13 +9,13 @@ const encoder = new TextEncoder();
 
 const fixture = {
 	files: {
+		"client/d.svg": new Uint8Array([0xff, 0x00, 0x7f]),
+		"client/a.ts": encoder.encode("export const a = 'a';\n"),
+		"shared/a.ts": encoder.encode("export const a = 'a';\n"),
 		"backend/z.ts": encoder.encode("export const z = 'z';\n"),
 		"backend/a.ts": encoder.encode("export const a = 'a';\n"),
-		"client/a.ts": encoder.encode("export const a = 'a';\n"),
 		"client/b.tsx": encoder.encode("export const b = 'b';\n"),
 		"client/c.css": encoder.encode(".fixture { color: red; }\n"),
-		"client/d.svg": new Uint8Array([0xff, 0x00, 0x7f]),
-		"shared/a.ts": encoder.encode("export const a = 'a';\n"),
 	},
 	manifest: {
 		boot: [],

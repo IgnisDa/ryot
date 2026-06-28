@@ -6,10 +6,10 @@ import { search } from "./shared";
 export const manifest = defineManifest({
 	kind: "provider",
 	name: "MyAnimeList Search",
+	requiredSystemConfigKeys: [],
 	slug: "anime.myanimelist.search",
 	requiredPluginConfigKeys: ["malClientId"],
-	requiredSystemConfigKeys: [],
 	capabilities: ["httpCall", "getPluginConfig", "getUserPreferences"],
 });
 
-export default defineProvider({ manifest, operation: "search", run: search.run });
+export default defineProvider({ manifest, run: search.run, operation: "search" });

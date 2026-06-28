@@ -5,11 +5,11 @@ import { search } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "provider",
+	requiredSystemConfigKeys: [],
 	name: "Hardcover Company Search",
 	slug: "company.hardcover.search",
 	capabilities: ["httpCall", "getPluginConfig"],
 	requiredPluginConfigKeys: ["hardcoverApiKey"],
-	requiredSystemConfigKeys: [],
 });
 
-export default defineProvider({ manifest, operation: "search", run: search.run });
+export default defineProvider({ manifest, run: search.run, operation: "search" });

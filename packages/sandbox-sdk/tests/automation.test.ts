@@ -12,8 +12,8 @@ import { describe, expect, test } from "vitest";
 import { defineManifest, SANDBOX_SCRIPT_DEFINITION } from "../src/driver";
 
 const manifest = defineManifest({
-	kind: "automation",
 	capabilities: [],
+	kind: "automation",
 	name: "Test automation",
 	slug: "test-automation",
 	requiredPluginConfigKeys: [],
@@ -24,7 +24,7 @@ const policyRun = () => Effect.succeed({ action: "allow" as const });
 
 describe("automation definitions", () => {
 	test("compiles automations and policies to direct entrypoints", () => {
-		const automation = defineAutomation({ manifest, run });
+		const automation = defineAutomation({ run, manifest });
 		const policy = defineAutomationPolicy({ manifest, run: policyRun });
 
 		expect(automation).toMatchObject({
@@ -48,10 +48,10 @@ describe("automation definitions", () => {
 			automation: {
 				ruleId: "rule-1",
 				operation: "update",
-				origin: { kind: "provider_refresh" },
-				occurrenceId: "occurrence-1",
-				occurredAt: "2026-07-29T00:00:00.000Z",
 				source: { kind: "entity" },
+				occurrenceId: "occurrence-1",
+				origin: { kind: "provider_refresh" },
+				occurredAt: "2026-07-29T00:00:00.000Z",
 				population: {
 					rootPreviouslyPopulated: true,
 					scopeEntity: { id: "root-1", name: "Root", entitySchemaSlug: "root" },

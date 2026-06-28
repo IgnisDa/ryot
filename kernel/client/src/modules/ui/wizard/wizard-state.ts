@@ -21,8 +21,8 @@ export type WizardAction =
 
 const previousStep = {
 	pick: "pick",
-	review: "configure",
 	configure: "pick",
+	review: "configure",
 } as const satisfies Record<WizardStep, WizardStep>;
 
 export const createWizardState = (): WizardState => ({ step: "pick", slug: undefined });

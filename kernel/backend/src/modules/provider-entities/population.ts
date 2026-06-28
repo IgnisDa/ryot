@@ -119,7 +119,7 @@ export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (
 				entitySchemaSlug: childEntitySchema.id,
 				updateExisting: input.syncExisting ?? false,
 				...(input.scope === "user"
-					? { scope: "user" as const, userId: input.userId }
+					? { userId: input.userId, scope: "user" as const }
 					: { scope: "global" as const }),
 			})
 			.pipe(mapDbErrorToSandbox);
@@ -143,7 +143,7 @@ export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (
 			relationshipSchemaPluginId: relationshipSchema.pluginId,
 			entries: processedChildren.map((child) => ({ properties: {}, entityId: child.entity.id })),
 			...(input.scope === "user"
-				? { scope: "user" as const, userId: input.userId }
+				? { userId: input.userId, scope: "user" as const }
 				: { scope: "global" as const }),
 		});
 	}

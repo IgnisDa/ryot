@@ -5,7 +5,7 @@ import { workoutPresentationRecipe } from "./workout-presentation-query";
 const rows = (items: readonly Record<string, unknown>[], limit: number) => ({
 	items,
 	type: "rows",
-	pageInfo: { hasMore: false, limit, nextCursor: null },
+	pageInfo: { limit, hasMore: false, nextCursor: null },
 });
 
 describe("workout presentation recipe", () => {
@@ -31,11 +31,11 @@ describe("workout presentation recipe", () => {
 		expect(workouts.output.pagination).toEqual({ limit: 100 });
 		expect(workouts.output.include).toEqual([
 			expect.objectContaining({
-				key: "sets",
 				limit: 100,
-				from: { alias: "presentationSet", table: "event" },
+				key: "sets",
+				from: { table: "event", alias: "presentationSet" },
 				joins: [
-					expect.objectContaining({ table: { alias: "presentationExercise", table: "entity" } }),
+					expect.objectContaining({ table: { table: "entity", alias: "presentationExercise" } }),
 				],
 				where: expect.objectContaining({
 					predicates: expect.arrayContaining([

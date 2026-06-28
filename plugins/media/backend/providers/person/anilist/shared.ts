@@ -17,9 +17,9 @@ export const manifest = defineManifest({
 	name: "Anilist",
 	kind: "provider",
 	slug: "person.anilist",
+	capabilities: ["httpCall"],
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
-	capabilities: ["httpCall"],
 });
 
 const STAFF_SEARCH_QUERY = `
@@ -41,8 +41,8 @@ export const search = defineProvider({
 	operation: "search",
 	run: (input, host) =>
 		anilistGraphql(host, "person search", STAFF_SEARCH_QUERY, {
-			search: input.query,
 			page: input.page,
+			search: input.query,
 			perPage: input.pageSize,
 		}).pipe(
 			Effect.map((data) => {
@@ -139,7 +139,7 @@ const formatFuzzyDate = (value: unknown) => {
 type StaffPages = { staffData: UnknownRecord; staffEdges: unknown[]; characterEdges: unknown[] };
 
 const getStaffPage = (host: AnilistHost, staffId: number, page: number) =>
-	anilistGraphql(host, "person details", STAFF_DETAILS_QUERY, { id: staffId, page }).pipe(
+	anilistGraphql(host, "person details", STAFF_DETAILS_QUERY, { page, id: staffId }).pipe(
 		Effect.map((data) => {
 			const staff = asRecord(data?.["Staff"]);
 			if (!staff) {
@@ -186,8 +186,8 @@ export const details = defineProvider({
 	run: (input, host) => {
 		const staffId = parseAnilistId(input.externalId, "staff");
 		return collectStaffPages(host, staffId, 1, {
-			staffData: null,
 			staffEdges: [],
+			staffData: null,
 			characterEdges: [],
 		}).pipe(
 			Effect.map(({ staffData, staffEdges, characterEdges }) => {
@@ -217,8 +217,8 @@ export const details = defineProvider({
 						return;
 					}
 					relatedByKey.set(key, {
-						providerSlug,
 						externalId,
+						providerSlug,
 						relationshipProperties: { roles: [role] },
 						name: pickPreferredMediaName(record["title"]),
 					});
@@ -246,6 +246,18 @@ export const details = defineProvider({
 
 				return {
 					name,
+					properties: {
+						alternateNames: [],
+						gender: stringValue(staffData["gender"]),
+						birthPlace: stringValue(staffData["homeTown"]),
+						sourceUrl: `https://anilist.co/staff/${staffId}`,
+						birthDate: formatFuzzyDate(staffData["dateOfBirth"]),
+						deathDate: formatFuzzyDate(staffData["dateOfDeath"]),
+						description: cleanHtmlDescription(staffData["description"]),
+						images: image
+							? [{ url: image, type: "remote" as const, purpose: "profile" as const }]
+							: [],
+					},
 					relatedEntityGroups: [
 						{
 							direction: "outgoing" as const,
@@ -260,18 +272,6 @@ export const details = defineProvider({
 							entities: relatedEntities.filter((entity) => entity.providerSlug === "manga.anilist"),
 						},
 					],
-					properties: {
-						alternateNames: [],
-						gender: stringValue(staffData["gender"]),
-						sourceUrl: `https://anilist.co/staff/${staffId}`,
-						birthPlace: stringValue(staffData["homeTown"]),
-						birthDate: formatFuzzyDate(staffData["dateOfBirth"]),
-						deathDate: formatFuzzyDate(staffData["dateOfDeath"]),
-						images: image
-							? [{ type: "remote" as const, url: image, purpose: "profile" as const }]
-							: [],
-						description: cleanHtmlDescription(staffData["description"]),
-					},
 				};
 			}),
 		);

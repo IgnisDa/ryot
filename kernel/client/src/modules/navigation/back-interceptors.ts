@@ -12,6 +12,16 @@ export function createBackInterceptors(): BackInterceptors {
 		readonly priority: "iframe" | "kernel";
 	}> = [];
 	return {
+		register: (interceptor, options) => {
+			const registered = { run: interceptor, priority: options?.priority ?? "kernel" };
+			interceptors.push(registered);
+			return () => {
+				const index = interceptors.indexOf(registered);
+				if (index !== -1) {
+					interceptors.splice(index, 1);
+				}
+			};
+		},
 		run: () => {
 			const snapshot = [...interceptors].sort((left, right) => {
 				if (left.priority === right.priority) {
@@ -25,16 +35,6 @@ export function createBackInterceptors(): BackInterceptors {
 				}
 			}
 			return false;
-		},
-		register: (interceptor, options) => {
-			const registered = { run: interceptor, priority: options?.priority ?? "kernel" };
-			interceptors.push(registered);
-			return () => {
-				const index = interceptors.indexOf(registered);
-				if (index !== -1) {
-					interceptors.splice(index, 1);
-				}
-			};
 		},
 	};
 }

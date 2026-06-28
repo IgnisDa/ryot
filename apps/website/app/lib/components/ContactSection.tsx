@@ -46,8 +46,8 @@ export const ContactSection = (props: ContactSectionProps) => {
 				<CardContent className="p-8">
 					<Form
 						method="POST"
-						action={withQuery(".?index", { intent: "contactSubmission" })}
 						className="space-y-6"
+						action={withQuery(".?index", { intent: "contactSubmission" })}
 					>
 						<div>
 							<label
@@ -106,9 +106,9 @@ export const ContactSection = (props: ContactSectionProps) => {
 		<section id="contact" className="py-20 bg-muted/30">
 			<div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
 				<SectionHeader
+					maxWidth="max-w-2xl"
 					subtitle="Get in Touch"
 					title="Have Questions? We're Here to Help"
-					maxWidth="max-w-2xl"
 					description="Whether you need technical support, have feature requests, or want to learn more about Ryot, we'd love to hear from you."
 				/>
 

@@ -80,7 +80,7 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 						directory: root,
 						prefix: ".ryot-write-test-",
 					});
-					yield* fs.remove(probe, { recursive: true, force: true });
+					yield* fs.remove(probe, { force: true, recursive: true });
 					return root;
 				});
 			const permanentRoot = yield* resolveRoot(localDir).pipe(Effect.orDie);
@@ -264,7 +264,7 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 				if (!valid) {
 					return yield* badRequest("Local download target is invalid or expired");
 				}
-				return { contentType, key };
+				return { key, contentType };
 			});
 
 			const existingPath = (key: string) =>

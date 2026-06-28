@@ -91,17 +91,17 @@ const tableProjection = (input: TableProjectionInput) => {
 	] as const;
 
 	return {
+		mappings: {
+			columns,
+			entityIdField: entityId,
+			imageField: input.image === null ? null : image,
+		} satisfies SavedViewTableMapping & { readonly entityIdField: string },
 		fields: [
 			field(entityId, column(input.entity, "id")),
 			...(input.image === null ? [] : [field(image, input.image)]),
 			...input.columns.map((tableColumn, index) => field(`column${index}`, tableColumn.expression)),
 			...syncSelections(input.entity),
 		] satisfies readonly FieldSelection[],
-		mappings: {
-			columns,
-			entityIdField: entityId,
-			imageField: input.image === null ? null : image,
-		} satisfies SavedViewTableMapping & { readonly entityIdField: string },
 	};
 };
 
@@ -170,8 +170,8 @@ const generatedDocument = (input: SavedViewGeneratedSource) => {
 			after: input.after,
 			limit: input.limit,
 			fields: input.fields,
-			where: input.where ? and(schemaFilter, input.where) : schemaFilter,
 			orderBy: input.orderBy ?? [ascending(column(entity, "name"))],
+			where: input.where ? and(schemaFilter, input.where) : schemaFilter,
 		}),
 	});
 };
@@ -197,10 +197,10 @@ const displayValue = (
 	fieldName: string,
 ): Result.Result<SavedViewDisplayValue, Error> => {
 	if (value === null) {
-		return Result.succeed({ displayKind, value } as SavedViewDisplayValue);
+		return Result.succeed({ value, displayKind } as SavedViewDisplayValue);
 	}
 	if (displayKind === "json") {
-		return Result.succeed({ displayKind, value });
+		return Result.succeed({ value, displayKind });
 	}
 	if (displayKind === "managed-asset") {
 		return Result.map(Schema.decodeUnknownResult(AssetLocator)(value), (asset) => ({
@@ -210,17 +210,17 @@ const displayValue = (
 	}
 	if (displayKind === "date") {
 		return typeof value === "string" && Option.isSome(DateTime.make(value))
-			? Result.succeed({ displayKind, value })
+			? Result.succeed({ value, displayKind })
 			: Result.fail(new Error(`Saved-view field '${fieldName}' must be a valid date`));
 	}
 	if (displayKind === "text" && typeof value === "string") {
-		return Result.succeed({ displayKind, value });
+		return Result.succeed({ value, displayKind });
 	}
 	if (displayKind === "number" && typeof value === "number") {
-		return Result.succeed({ displayKind, value });
+		return Result.succeed({ value, displayKind });
 	}
 	if (displayKind === "boolean" && typeof value === "boolean") {
-		return Result.succeed({ displayKind, value });
+		return Result.succeed({ value, displayKind });
 	}
 	return Result.fail(new Error(`Saved-view field '${fieldName}' must be ${displayKind}`));
 };
@@ -276,7 +276,7 @@ const tableItem = (
 		const entityId = yield* textField(row, mapping.entityIdField);
 		const image = yield* imageField(row, mapping.imageField);
 		const cells = yield* Result.all(
-			mapping.columns.map(({ field: fieldName, label, displayKind }) =>
+			mapping.columns.map(({ label, displayKind, field: fieldName }) =>
 				Result.flatMap(rawField(row, fieldName), (value) =>
 					Result.map(displayValue(value, displayKind, fieldName), (decoded) => ({
 						label,
@@ -286,7 +286,7 @@ const tableItem = (
 				),
 			),
 		);
-		return { sync, entityId, image, cells };
+		return { sync, image, cells, entityId };
 	});
 
 const savedViewRows = rowsResultSchema(Schema.Record(Schema.String, JsonValue));
@@ -318,7 +318,7 @@ const savedViewQuery = (query: RyotQLDocument["queries"][string], layout: SavedV
 		Result.flatMap(Schema.decodeUnknownResult(savedViewRows)(result), ({ items, pageInfo }) =>
 			Result.map(
 				Result.all(items.map((row) => tableItem(row, layout.mapping))),
-				(decodedItems) => ({ items: decodedItems, pageInfo }),
+				(decodedItems) => ({ pageInfo, items: decodedItems }),
 			),
 		),
 });
@@ -355,6 +355,7 @@ export const savedViewCountRecipe = (
 				);
 			}
 			const recipe = defineRecipe(() => ({
+				map: ({ savedViewCount }) => Result.succeed(savedViewCount.total),
 				queries: {
 					savedViewCount: selectedAggregate(query.from, {
 						where: query.where,
@@ -367,7 +368,6 @@ export const savedViewCountRecipe = (
 						},
 					}),
 				},
-				map: ({ savedViewCount }) => Result.succeed(savedViewCount.total),
 			}));
 			return recipe();
 		}),
@@ -399,8 +399,8 @@ export const SavedViewPageIdentity = Schema.Struct({ icon: Schema.String, name: 
 
 export const EntityBrowserPageInput = Schema.Struct({
 	dataSources: RyotQLDocument,
-	view: Schema.NullOr(SavedViewPageIdentity),
 	settings: EntityBrowserSavedViewSettings,
+	view: Schema.NullOr(SavedViewPageIdentity),
 	target: Schema.Struct({ savedViewId: Schema.String }),
 });
 
@@ -541,6 +541,7 @@ export const entityBrowserRecipe = (
 			},
 		};
 		const recipe = defineRecipe(() => ({
+			map: ({ entityBrowser }) => Result.succeed(entityBrowser),
 			queries: {
 				entityBrowser: {
 					document: query,
@@ -554,7 +555,7 @@ export const entityBrowserRecipe = (
 											Result.gen(function* () {
 												const cells = yield* Result.all(
 													(input.settings.tableColumns ?? []).map(
-														({ field: fieldName, label, displayKind }) =>
+														({ label, displayKind, field: fieldName }) =>
 															Result.flatMap(rawField(row, fieldName), (value) =>
 																Result.map(
 																	displayValue(value, displayKind, fieldName),
@@ -566,15 +567,15 @@ export const entityBrowserRecipe = (
 												const item = {
 													cells,
 													name: yield* textField(row, nameField),
-													sync: yield* syncFields(row, populationField, translationField),
 													entityId: yield* textField(row, input.settings.entityIdField),
-													ownerPluginId: yield* nullableTextField(
-														row,
-														input.settings.ownerPluginIdField,
-													),
+													sync: yield* syncFields(row, populationField, translationField),
 													entitySchemaSlug: yield* textField(
 														row,
 														input.settings.entitySchemaSlugField,
+													),
+													ownerPluginId: yield* nullableTextField(
+														row,
+														input.settings.ownerPluginIdField,
 													),
 												};
 												return yield* Schema.decodeUnknownResult(EntityBrowserResultItem)(item);
@@ -592,12 +593,11 @@ export const entityBrowserRecipe = (
 										}
 										seen.add(item.entityId);
 									}
-									return { items: decoded, pageInfo };
+									return { pageInfo, items: decoded };
 								}),
 						),
 				},
 			},
-			map: ({ entityBrowser }) => Result.succeed(entityBrowser),
 		}));
 		return Result.succeed(recipe());
 	});
@@ -626,6 +626,7 @@ export const entityBrowserCountRecipe = (
 		}
 		const search = searchResult.success;
 		const recipe = defineRecipe(() => ({
+			map: ({ entityBrowserCount }) => Result.succeed(entityBrowserCount.total),
 			queries: {
 				entityBrowserCount: selectedAggregate(query.from, {
 					joins: query.joins,
@@ -638,15 +639,14 @@ export const entityBrowserCountRecipe = (
 					},
 				}),
 			},
-			map: ({ entityBrowserCount }) => Result.succeed(entityBrowserCount.total),
 		}));
 		return Result.succeed(recipe());
 	});
 
 export const ResultsTablePageInput = Schema.Struct({
 	dataSources: RyotQLDocument,
-	view: Schema.NullOr(SavedViewPageIdentity),
 	settings: ResultsTableSavedViewSettings,
+	view: Schema.NullOr(SavedViewPageIdentity),
 	target: Schema.Struct({ savedViewId: Schema.String }),
 });
 
@@ -685,7 +685,7 @@ const typedKeyPart = (value: JsonValueType): JsonValueType => {
 			),
 		};
 	}
-	return { type: typeof value, value };
+	return { value, type: typeof value };
 };
 
 const resultsTableItem = (row: SavedViewRawRow, settings: ResultsTableSavedViewSettingsValue) =>
@@ -700,7 +700,7 @@ const resultsTableItem = (row: SavedViewRawRow, settings: ResultsTableSavedViewS
 			),
 		);
 		const cells = yield* Result.all(
-			settings.columns.map(({ field: fieldName, label, displayKind }) =>
+			settings.columns.map(({ label, displayKind, field: fieldName }) =>
 				Result.flatMap(rawField(row, fieldName), (value) =>
 					Result.map(displayValue(value, displayKind, fieldName), (decoded) => ({
 						label,
@@ -713,7 +713,7 @@ const resultsTableItem = (row: SavedViewRawRow, settings: ResultsTableSavedViewS
 		const entityId = settings.entityLink
 			? yield* textField(row, settings.entityLink.entityIdField)
 			: undefined;
-		return { key: JSON.stringify(keyParts), entityId, cells };
+		return { cells, entityId, key: JSON.stringify(keyParts) };
 	});
 
 export const resultsTableRecipe = (
@@ -731,6 +731,7 @@ export const resultsTableRecipe = (
 			},
 		};
 		const recipe = defineRecipe(() => ({
+			map: ({ resultsTable }) => Result.succeed(resultsTable),
 			queries: {
 				resultsTable: {
 					document: query,
@@ -751,12 +752,11 @@ export const resultsTableRecipe = (
 										}
 										keys.add(item.key);
 									}
-									return { items: decoded, pageInfo };
+									return { pageInfo, items: decoded };
 								}),
 						),
 				},
 			},
-			map: ({ resultsTable }) => Result.succeed(resultsTable),
 		}));
 		return recipe();
 	});

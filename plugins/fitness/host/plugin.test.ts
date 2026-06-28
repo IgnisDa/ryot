@@ -42,15 +42,15 @@ it("declares the complete fitness-owned source", () => {
 		apiVersion: 1,
 		homeView: null,
 		entities: {
-			workout: { listPresentation: "workout-row", gridPresentation: "workout-card" },
 			exercise: { listPresentation: "entity-row", gridPresentation: "entity-card" },
+			workout: { listPresentation: "workout-row", gridPresentation: "workout-card" },
 			measurement: { listPresentation: "entity-row", gridPresentation: "entity-card" },
 			"workout-template": { listPresentation: "entity-row", gridPresentation: "entity-card" },
 		},
 		exports: {
-			"workout-card": {
+			"entity-row": {
 				kind: "presentation",
-				entry: "client/workout-card.ts",
+				entry: "client/entity-row.ts",
 				automaticEntityPresentations: false,
 			},
 			"workout-row": {
@@ -63,9 +63,9 @@ it("declares the complete fitness-owned source", () => {
 				entry: "client/entity-card.ts",
 				automaticEntityPresentations: false,
 			},
-			"entity-row": {
+			"workout-card": {
 				kind: "presentation",
-				entry: "client/entity-row.ts",
+				entry: "client/workout-card.ts",
 				automaticEntityPresentations: false,
 			},
 		},
@@ -134,10 +134,10 @@ it("declares the complete fitness-owned source", () => {
 		).not.toThrow();
 	}
 	expect(
-		[hevyManifest, openScaleManifest, strongAppManifest].map(({ capabilities, kind, slug }) => ({
-			capabilities,
+		[hevyManifest, openScaleManifest, strongAppManifest].map(({ kind, slug, capabilities }) => ({
 			kind,
 			slug,
+			capabilities,
 		})),
 	).toEqual([
 		{

@@ -36,8 +36,8 @@ it.effect("builds exact-version dependency modules in a read-only runtime direct
 				{ name: "cheerio", version: "1.2.0" },
 				{ name: "youtubei", version: "17.2.0" },
 				{ name: "fflate", version: "0.8.3" },
-				{ name: "papaparse", version: "5.5.3" },
-				{ name: "fast-xml-parser", version: "5.8.0" },
+				{ version: "5.5.3", name: "papaparse" },
+				{ version: "5.8.0", name: "fast-xml-parser" },
 				{ name: "ryotql", version: "workspace" },
 			]);
 			const importMap = yield* fs.readFileString(runtime.importMapPath);

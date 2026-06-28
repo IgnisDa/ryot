@@ -7,7 +7,7 @@ export const processSubmission = <Schema extends z.ZodType>(formData: FormData, 
 	const submission = parseWithZod(formData, { schema });
 	if (submission.status !== "success") {
 		// oxlint-disable-next-line only-throw-error
-		throw Response.json({ status: "idle", submission } as const, { status: 422 });
+		throw Response.json({ submission, status: "idle" } as const, { status: 422 });
 	}
 	return submission.value;
 };

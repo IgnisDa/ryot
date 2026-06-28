@@ -39,13 +39,13 @@ export const ImportEntityRef = Schema.Union([ResolvedEntityRef, UnresolvedEntity
 export type ImportEntityRef = typeof ImportEntityRef.Type;
 
 export const UnresolvedEpisodeRef = Schema.Union([
-	Schema.Struct({ type: Schema.Literal("show-season"), seasonNumber: Schema.Int }),
+	Schema.Struct({ seasonNumber: Schema.Int, type: Schema.Literal("show-season") }),
 	Schema.Struct({
-		type: Schema.Literal("show"),
 		seasonNumber: Schema.Int,
 		episodeNumber: Schema.Int,
+		type: Schema.Literal("show"),
 	}),
-	Schema.Struct({ type: Schema.Literal("podcast"), episodeNumber: Schema.Int }),
+	Schema.Struct({ episodeNumber: Schema.Int, type: Schema.Literal("podcast") }),
 ]);
 
 export type UnresolvedEpisodeRef = typeof UnresolvedEpisodeRef.Type;
@@ -80,8 +80,8 @@ export type ImportMediaEntityGroup = typeof ImportMediaEntityGroup.Type;
 export const MediaImportAdapterFailure = Schema.Struct({
 	message: Schema.String,
 	itemIndex: Schema.Number,
-	stage: genericImportFailureSchema.fields.stage,
 	sourceLabel: Schema.optional(Schema.String),
+	stage: genericImportFailureSchema.fields.stage,
 	sourceIdentifier: Schema.optional(Schema.String),
 	entitySchemaSlug: genericImportFailureSchema.fields.entitySchemaSlug,
 	context: Schema.optional(Schema.Record(Schema.String, jsonValueSchema)),
@@ -102,14 +102,14 @@ export const MediaImportAdapterBatch = Schema.Struct({
 });
 
 const traktUserTarget = strictStruct({
-	username: Schema.NonEmptyString,
 	mode: Schema.Literal("user"),
+	username: Schema.NonEmptyString,
 });
 
 const traktListTarget = strictStruct({
 	url: TraktImportUrl,
-	collection: Schema.NonEmptyString,
 	mode: Schema.Literal("list"),
+	collection: Schema.NonEmptyString,
 });
 
 const traktExportTarget = strictStruct({

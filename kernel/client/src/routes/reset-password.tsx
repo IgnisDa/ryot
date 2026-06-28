@@ -14,7 +14,7 @@ import { ServerService } from "#/modules/server/service";
 import type { ClientRuntime } from "#/runtime";
 
 const errorVisibility = createErrorVisibility(
-	({ fieldState, state }) => fieldState.meta.isBlurred || state.submissionAttempts > 0,
+	({ state, fieldState }) => fieldState.meta.isBlurred || state.submissionAttempts > 0,
 );
 
 export const Route = createFileRoute("/reset-password")({
@@ -22,7 +22,7 @@ export const Route = createFileRoute("/reset-password")({
 	validateSearch: (search) => ({
 		token: typeof search.token === "string" && search.token !== "" ? search.token : undefined,
 	}),
-	beforeLoad: ({ context, search }) => {
+	beforeLoad: ({ search, context }) => {
 		if (search.token === undefined) {
 			return { server: null };
 		}
@@ -44,7 +44,7 @@ export const Route = createFileRoute("/reset-password")({
 function ResetPassword() {
 	const { token } = Route.useSearch();
 	const navigate = Route.useNavigate();
-	const { runtime, server } = Route.useRouteContext();
+	const { server, runtime } = Route.useRouteContext();
 
 	if (token === undefined) {
 		return (
@@ -57,7 +57,7 @@ function ResetPassword() {
 						variant="primary"
 						className="w-full"
 						onClick={() =>
-							void navigate({ replace: true, to: "/auth", search: { redirect: undefined } })
+							void navigate({ to: "/auth", replace: true, search: { redirect: undefined } })
 						}
 					>
 						Back to sign in
@@ -71,7 +71,7 @@ function ResetPassword() {
 		return null;
 	}
 
-	return <ResetPasswordForm runtime={runtime} server={server} token={token} />;
+	return <ResetPasswordForm token={token} server={server} runtime={runtime} />;
 }
 
 function ResetPasswordForm(props: {
@@ -130,7 +130,7 @@ function ResetPasswordForm(props: {
 						variant="primary"
 						className="w-full"
 						onClick={() =>
-							void navigate({ replace: true, to: "/auth", search: { redirect: undefined } })
+							void navigate({ to: "/auth", replace: true, search: { redirect: undefined } })
 						}
 					>
 						Sign in
@@ -147,7 +147,7 @@ function ResetPasswordForm(props: {
 				className="ui-stack ui-card mx-auto w-[min(100%,480px)]"
 			>
 				<div>
-					<h1 id="reset-password-title" className="ui-heading">
+					<h1 className="ui-heading" id="reset-password-title">
 						Choose a new password
 					</h1>
 					<p className="ui-subtitle">Use at least 8 characters.</p>
@@ -202,7 +202,7 @@ function ResetPasswordForm(props: {
 												}}
 											/>
 											{field.errors[0] && (
-												<small id="new-password-error" role="alert" className="ui-field-error">
+												<small role="alert" id="new-password-error" className="ui-field-error">
 													{field.errors[0].message}
 												</small>
 											)}

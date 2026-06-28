@@ -6,14 +6,14 @@ import { apiScopeKey } from "#/api/scope";
 describe("API scope", () => {
 	it("uses canonical origins to partition users and servers", () => {
 		const firstOrigin = decodeServerOrigin("https://one.test");
-		const first = apiScopeKey({ serverUrl: firstOrigin, userId: "user-1" });
+		const first = apiScopeKey({ userId: "user-1", serverUrl: firstOrigin });
 
 		expect(first).toBe(
-			apiScopeKey({ serverUrl: decodeServerOrigin("https://one.test/"), userId: "user-1" }),
+			apiScopeKey({ userId: "user-1", serverUrl: decodeServerOrigin("https://one.test/") }),
 		);
-		expect(first).not.toBe(apiScopeKey({ serverUrl: firstOrigin, userId: "user-2" }));
+		expect(first).not.toBe(apiScopeKey({ userId: "user-2", serverUrl: firstOrigin }));
 		expect(first).not.toBe(
-			apiScopeKey({ serverUrl: decodeServerOrigin("https://two.test"), userId: "user-1" }),
+			apiScopeKey({ userId: "user-1", serverUrl: decodeServerOrigin("https://two.test") }),
 		);
 	});
 

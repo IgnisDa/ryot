@@ -92,9 +92,9 @@ const toStoredPlugin = Effect.fn(function* (row: PluginRow, scripts: ReadonlyArr
 	}
 	let identity: StoredPluginIdentity | null = null;
 	if (row.scope === "system" && row.ownerId === null) {
-		identity = { id: row.id, slug: row.slug, ownerId: null, scope: "system" };
+		identity = { id: row.id, ownerId: null, slug: row.slug, scope: "system" };
 	} else if (row.scope === "user" && row.ownerId !== null) {
-		identity = { id: row.id, slug: row.slug, ownerId: row.ownerId, scope: "user" };
+		identity = { id: row.id, scope: "user", slug: row.slug, ownerId: row.ownerId };
 	}
 	if (!identity) {
 		return yield* new DbError({ message: `Plugin ${row.slug} has invalid persisted identity` });
@@ -227,7 +227,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 						.orderBy(asc(schema.plugin.slug)),
 				).pipe(
 					Effect.map((rows) =>
-						rows.map(({ manifestMetadata: manifest, id, slug, version, sourceHash }) => ({
+						rows.map(({ id, slug, version, sourceHash, manifestMetadata: manifest }) => ({
 							id,
 							slug,
 							version,
@@ -570,13 +570,13 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 				identity.scope === "system"
 					? {
 							target: schema.plugin.slug,
-							targetWhere: sql`${schema.plugin.scope} = 'system'`,
 							set: { ...mutation, ingestedAt: sql`now()` },
+							targetWhere: sql`${schema.plugin.scope} = 'system'`,
 						}
 					: {
-							target: [schema.plugin.ownerId, schema.plugin.slug],
-							targetWhere: sql`${schema.plugin.scope} = 'user'`,
 							set: { ...mutation, ingestedAt: sql`now()` },
+							targetWhere: sql`${schema.plugin.scope} = 'user'`,
+							target: [schema.plugin.ownerId, schema.plugin.slug],
 						};
 			const [persisted] = yield* mapDatabaseErrors(
 				db
@@ -700,16 +700,16 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 									compiledFormat: script.compiledFormat,
 								})
 								.onConflictDoUpdate({
-									target: [
-										schema.sandboxScript.pluginId,
-										schema.sandboxScript.slug,
-										schema.sandboxScript.contentHash,
-									],
 									set: {
 										updatedAt: sql`now()`,
 										metadata: script.metadata,
 										providerId: providerId ?? null,
 									},
+									target: [
+										schema.sandboxScript.pluginId,
+										schema.sandboxScript.slug,
+										schema.sandboxScript.contentHash,
+									],
 								})
 								.returning({
 									id: schema.sandboxScript.id,

@@ -34,17 +34,17 @@ const collection = (overrides: Partial<NavigationCollection> = {}): NavigationCo
 describe("sidebar sections", () => {
 	it("filters disabled rows, sorts items, and scopes workspace and global views", () => {
 		const data: NavigationData = {
+			collections: [
+				collection({ sortOrder: 2, slug: "second", name: "Second Collection" }),
+				collection({ sortOrder: 1, name: "First Collection", slug: "first-collection" }),
+				collection({ isDisabled: true, name: "Hidden Collection", slug: "hidden-collection" }),
+			],
 			savedViews: [
-				view({ name: "Later", slug: "later", sortOrder: 4, pluginSlug: "media" }),
-				view({ name: "Global", slug: "global", sortOrder: 2 }),
+				view({ sortOrder: 4, name: "Later", slug: "later", pluginSlug: "media" }),
+				view({ sortOrder: 2, name: "Global", slug: "global" }),
 				view({ name: "First", slug: "first", sortOrder: -1, pluginSlug: "media" }),
 				view({ name: "Other", slug: "other", pluginSlug: "fitness" }),
 				view({ name: "Hidden", slug: "hidden", isDisabled: true, pluginSlug: "media" }),
-			],
-			collections: [
-				collection({ name: "Second Collection", slug: "second", sortOrder: 2 }),
-				collection({ name: "First Collection", slug: "first-collection", sortOrder: 1 }),
-				collection({ name: "Hidden Collection", slug: "hidden-collection", isDisabled: true }),
 			],
 		};
 
@@ -65,8 +65,8 @@ describe("sidebar sections", () => {
 
 	it("pluralizes a Home-only workspace summary", () => {
 		const sections = sidebarSections({
-			data: { savedViews: [], collections: [] },
 			workspaceSlug: undefined,
+			data: { savedViews: [], collections: [] },
 		});
 
 		expect(sections.views.map(sidebarItemKey)).toEqual(["home"]);
@@ -75,8 +75,9 @@ describe("sidebar sections", () => {
 
 	it("formats a workspace picker summary from enabled views in sort order", () => {
 		const data: NavigationData = {
+			collections: [],
 			savedViews: [
-				view({ name: "Fourth", slug: "fourth", sortOrder: 4, pluginSlug: "media" }),
+				view({ sortOrder: 4, name: "Fourth", slug: "fourth", pluginSlug: "media" }),
 				view({
 					sortOrder: 0,
 					name: "Disabled",
@@ -84,11 +85,10 @@ describe("sidebar sections", () => {
 					isDisabled: true,
 					pluginSlug: "media",
 				}),
-				view({ name: "Second", slug: "second", sortOrder: 2, pluginSlug: "media" }),
-				view({ name: "Other", slug: "other", sortOrder: 1, pluginSlug: "fitness" }),
-				view({ name: "First", slug: "first", sortOrder: 1, pluginSlug: "media" }),
+				view({ sortOrder: 2, name: "Second", slug: "second", pluginSlug: "media" }),
+				view({ sortOrder: 1, name: "Other", slug: "other", pluginSlug: "fitness" }),
+				view({ sortOrder: 1, name: "First", slug: "first", pluginSlug: "media" }),
 			],
-			collections: [],
 		};
 
 		expect(workspacePickerSummary(data, "media")).toBe("First, Second, Fourth");
@@ -97,13 +97,13 @@ describe("sidebar sections", () => {
 
 	it("adds the remaining count and handles empty workspaces", () => {
 		const data: NavigationData = {
-			savedViews: [
-				view({ name: "First", slug: "first", sortOrder: 0, pluginSlug: "media" }),
-				view({ name: "Second", slug: "second", sortOrder: 1, pluginSlug: "media" }),
-				view({ name: "Third", slug: "third", sortOrder: 2, pluginSlug: "media" }),
-				view({ name: "Fourth", slug: "fourth", sortOrder: 3, pluginSlug: "media" }),
-			],
 			collections: [],
+			savedViews: [
+				view({ sortOrder: 0, name: "First", slug: "first", pluginSlug: "media" }),
+				view({ sortOrder: 1, name: "Second", slug: "second", pluginSlug: "media" }),
+				view({ sortOrder: 2, name: "Third", slug: "third", pluginSlug: "media" }),
+				view({ sortOrder: 3, name: "Fourth", slug: "fourth", pluginSlug: "media" }),
+			],
 		};
 
 		expect(workspacePickerSummary(data, "media")).toBe("First, Second, Third +1");

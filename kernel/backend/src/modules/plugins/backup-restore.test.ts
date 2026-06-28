@@ -57,9 +57,9 @@ const makeLayer = (input?: {
 		PluginRepository,
 		Object.assign(Object.create(null), {
 			persist: input?.persist,
+			listPortablePluginMetadata: () => Effect.succeed([]),
 			lockIngestion: () => input?.lockIngestion?.() ?? Effect.void,
 			listActiveManifests: () => input?.listActiveManifests?.() ?? Effect.succeed([]),
-			listPortablePluginMetadata: () => Effect.succeed([]),
 		}),
 	);
 	const ingestionLockLayer = PluginIngestionLock.layer.pipe(Layer.provide(repositoryLayer));
@@ -116,8 +116,8 @@ it.effect("rejects a private backup package whose source hash is not exact", () 
 				{
 					manifest,
 					files: {},
-					slug: manifest.metadata.slug,
 					sourceHash: "a".repeat(64),
+					slug: manifest.metadata.slug,
 					version: manifest.metadata.version,
 					key: `user:${manifest.metadata.slug}:${"a".repeat(64)}`,
 				},
@@ -134,9 +134,9 @@ it.effect("rejects a definition collision before private plugin persistence", ()
 		entitySchemas: [
 			{
 				icon: "box",
+				eventSchemas: [],
 				name: "Collision",
 				slug: "collision",
-				eventSchemas: [],
 				propertiesSchema: { fields: {} },
 			},
 		],
@@ -172,11 +172,11 @@ it.effect("rejects a definition collision before private plugin persistence", ()
 					entitySchemas: {
 						collision: {
 							icon: "box",
-							pluginId: "system-id",
-							pluginSlug: "system",
+							eventSchemas: {},
 							name: "Collision",
 							slug: "collision",
-							eventSchemas: {},
+							pluginSlug: "system",
+							pluginId: "system-id",
 							mergeIdentityProperties: [],
 							propertiesSchema: { fields: {} },
 						},
@@ -196,10 +196,10 @@ it.effect("rejects compilation failure before private plugin persistence", () =>
 		scripts: [
 			{
 				entry,
-				kind: "script" as const,
-				capabilities: [] as const,
 				name: "Broken script",
 				slug: "fixture.broken",
+				kind: "script" as const,
+				capabilities: [] as const,
 				requiredPluginConfigKeys: [] as const,
 				requiredSystemConfigKeys: [] as const,
 			},

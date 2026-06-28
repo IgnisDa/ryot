@@ -353,8 +353,8 @@ describe("authentication service", () => {
 			Effect.provide(
 				authLayer(
 					makeTokens({
-						clear: () => Effect.sync(() => calls.push("clear")),
 						logout: () => Effect.die("not used"),
+						clear: () => Effect.sync(() => calls.push("clear")),
 					}),
 					makeStorage(),
 					invalidClient,

@@ -78,7 +78,7 @@ export const translateTmdbShow = (input: ProviderTranslateInput, host: TmdbHost,
 			try: () => getTranslationRequest(input),
 			catch: (error) => (error instanceof Error ? error : new Error(String(error))),
 		});
-		const { langCode, region } = parseTranslationLanguage(input.language);
+		const { region, langCode } = parseTranslationLanguage(input.language);
 		const [translationsData, imagesData] = yield* Effect.all([
 			tmdbGet(host, request.translationsPath, {}, token),
 			tmdbGet(host, request.imagesPath, { include_image_language: langCode }, token).pipe(
@@ -100,7 +100,7 @@ export const translateTmdbShow = (input: ProviderTranslateInput, host: TmdbHost,
 			properties["description"] = description;
 		}
 		if (imageUrl) {
-			properties["images"] = [{ type: "remote", url: imageUrl, purpose: request.purpose }];
+			properties["images"] = [{ url: imageUrl, type: "remote", purpose: request.purpose }];
 		}
 		return {
 			...(name ? { name } : {}),

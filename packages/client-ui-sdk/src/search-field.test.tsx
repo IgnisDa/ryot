@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { SearchField } from "./search-field";
 
-const icons = { icon: <span data-testid="search-icon" />, clearIcon: <span /> };
+const icons = { clearIcon: <span />, icon: <span data-testid="search-icon" /> };
 
 describe("SearchField", () => {
 	it("names the input from its label and reports every keystroke", () => {
@@ -29,12 +29,12 @@ describe("SearchField", () => {
 		expect(screen.queryByText("/")).toBeNull();
 
 		view.rerender(
-			<SearchField {...icons} value="" label="Search" shortcut="/" onChange={() => {}} />,
+			<SearchField {...icons} value="" shortcut="/" label="Search" onChange={() => {}} />,
 		);
 		expect(screen.getByText("/").getAttribute("aria-hidden")).toBe("true");
 
 		view.rerender(
-			<SearchField {...icons} value="du" label="Search" shortcut="/" onChange={() => {}} />,
+			<SearchField {...icons} value="du" shortcut="/" label="Search" onChange={() => {}} />,
 		);
 		expect(screen.queryByText("/")).toBeNull();
 	});
@@ -80,7 +80,7 @@ describe("SearchField", () => {
 	});
 
 	it("focuses itself when its shortcut is pressed", () => {
-		render(<SearchField {...icons} value="" label="Search" shortcut="/" onChange={() => {}} />);
+		render(<SearchField {...icons} value="" shortcut="/" label="Search" onChange={() => {}} />);
 
 		fireEvent.keyDown(document, { key: "/" });
 

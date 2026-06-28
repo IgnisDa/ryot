@@ -54,10 +54,10 @@ export const createTypeScriptSourcesProject = (
 	tsserverPath: string,
 ) =>
 	createTypeScriptSourcesProjectForEntries(sources, [sources.entry], sdkEntries, tsserverPath).pipe(
-		Effect.flatMap(({ diagnostics, entrySourceFiles, sourceFiles }) => {
+		Effect.flatMap(({ diagnostics, sourceFiles, entrySourceFiles }) => {
 			const sourceFile = entrySourceFiles[sources.entry];
 			return sourceFile
-				? Effect.succeed({ diagnostics, sourceFile, sourceFiles })
+				? Effect.succeed({ sourceFile, diagnostics, sourceFiles })
 				: Effect.fail(
 						new TypeScriptProjectError({
 							message: "TypeScript did not load the sandbox entry file",

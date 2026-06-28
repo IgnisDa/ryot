@@ -39,8 +39,8 @@ const init: PluginBridgeInit = {
 	bridgeVersion: metadata.bridgeVersion,
 	compilerVersion: metadata.compilerVersion,
 };
-const document = { queries: {}, output: {} } as PreparedRecipe<unknown>["document"];
-const asset = { key: "permanent/image.png", type: "local" } as const;
+const document = { output: {}, queries: {} } as PreparedRecipe<unknown>["document"];
+const asset = { type: "local", key: "permanent/image.png" } as const;
 const assetResolution = {
 	asset,
 	expiresAt: "2026-01-01T00:15:00.000Z",
@@ -59,7 +59,7 @@ const membership = {
 const channels: MessageChannel[] = [];
 const EmptyScreen = () => null;
 const operationTarget = { pluginSlug: "fixture" } as const;
-const routeResolver = () => ({ element: createElement(EmptyScreen), params: {} });
+const routeResolver = () => ({ params: {}, element: createElement(EmptyScreen) });
 const routeLocation = (path: string, search = ""): PluginRouteLocation => ({
 	path,
 	search,
@@ -69,8 +69,8 @@ const entityLocation = (entityId: string, entitySchemaSlug: string, search = "")
 	Schema.decodeUnknownSync(PluginEntityLocation)({
 		search,
 		entityId,
-		entitySchemaSlug,
 		kind: "entity",
+		entitySchemaSlug,
 	});
 
 const openRuntime = () => {
@@ -134,7 +134,7 @@ afterEach(() => {
 
 describe("plugin runtime", () => {
 	it("advertises document overlays and acknowledges LIFO dismissal requests", async () => {
-		const { channel, messages, runtime } = openRuntime();
+		const { channel, runtime, messages } = openRuntime();
 		activate(channel);
 		await delay();
 		const dismissed: string[] = [];
@@ -162,7 +162,7 @@ describe("plugin runtime", () => {
 	});
 
 	it("aggregates deterministic bounded interest, routes hints, and clears disposed owners", async () => {
-		const { channel, messages, runtime } = openRuntime();
+		const { channel, runtime, messages } = openRuntime();
 		activate(channel);
 		await delay();
 		const firstEvents: EntityUpdate[] = [];
@@ -178,7 +178,7 @@ describe("plugin runtime", () => {
 			{ foreground: ["z", "a"], visible: rows.toReversed() },
 			first,
 		);
-		const b = runtime.client.entities.watch({ foreground: ["row-599"], visible: ["z"] }, second);
+		const b = runtime.client.entities.watch({ visible: ["z"], foreground: ["row-599"] }, second);
 		await delay();
 		const interests = () =>
 			messages.filter(
@@ -190,13 +190,13 @@ describe("plugin runtime", () => {
 			);
 		expect(interests().at(-1)).toEqual({
 			type: "entity-interest",
-			foreground: ["a", "row-599", "z"],
 			visible: rows.slice(0, 497),
+			foreground: ["a", "row-599", "z"],
 		});
-		a.update({ foreground: ["a", "z", "a"], visible: rows });
+		a.update({ visible: rows, foreground: ["a", "z", "a"] });
 		await delay();
 		expect(interests()).toHaveLength(2);
-		channel.port1.postMessage({ type: "entity-updated", entityId: "z", reason: "populated" });
+		channel.port1.postMessage({ entityId: "z", reason: "populated", type: "entity-updated" });
 		channel.port1.postMessage({
 			entityId: "unknown",
 			reason: "translated",
@@ -208,17 +208,17 @@ describe("plugin runtime", () => {
 		b.dispose();
 		a.dispose();
 		await delay();
-		expect(interests().at(-1)).toEqual({ type: "entity-interest", foreground: [], visible: [] });
-		const terminal = runtime.client.entities.watch({ foreground: ["a"], visible: [] }, first);
+		expect(interests().at(-1)).toEqual({ visible: [], foreground: [], type: "entity-interest" });
+		const terminal = runtime.client.entities.watch({ visible: [], foreground: ["a"] }, first);
 		runtime.dispose();
 		terminal.dispose();
-		expect(() => terminal.update({ foreground: [], visible: [] })).toThrow(
+		expect(() => terminal.update({ visible: [], foreground: [] })).toThrow(
 			new RyotClientError("disposed"),
 		);
 	});
 
 	it("forwards semantic kernel shortcuts only while active", async () => {
-		const { channel, messages, runtime } = openRuntime();
+		const { channel, runtime, messages } = openRuntime();
 
 		runtime.forwardKernelShortcut("command-center");
 		activate(channel);
@@ -227,8 +227,8 @@ describe("plugin runtime", () => {
 		runtime.forwardKernelShortcut("workspace-switcher");
 		await delay();
 
-		expect(messages).toContainEqual({ shortcut: "command-center", type: "kernel-shortcut" });
-		expect(messages).toContainEqual({ shortcut: "workspace-switcher", type: "kernel-shortcut" });
+		expect(messages).toContainEqual({ type: "kernel-shortcut", shortcut: "command-center" });
+		expect(messages).toContainEqual({ type: "kernel-shortcut", shortcut: "workspace-switcher" });
 		expect(
 			messages.filter(
 				(message) =>
@@ -241,7 +241,7 @@ describe("plugin runtime", () => {
 	});
 
 	it("publishes one atomic navigation snapshot and no header of its own", async () => {
-		const { channel, messages, runtime } = openRuntime();
+		const { channel, runtime, messages } = openRuntime();
 		const snapshots: unknown[] = [];
 		runtime.navigation.subscribe(() => snapshots.push(runtime.navigation.getSnapshot()));
 
@@ -263,7 +263,7 @@ describe("plugin runtime", () => {
 			edgeBack: false,
 			leading: "drawer",
 			entry: { index: 0, key: "k0" },
-			screens: [{ key: "k0", location: { kind: "route", path: "/" } }],
+			screens: [{ key: "k0", location: { path: "/", kind: "route" } }],
 		});
 		expect(headersIn(messages)).toEqual([]);
 	});
@@ -284,13 +284,13 @@ describe("plugin runtime", () => {
 		await delay();
 
 		expect(runtime.navigation.getSnapshot()).toMatchObject({
-			screens: [{ key: "k0", location }],
-			entry: { index: 0, key: "k0", location },
+			screens: [{ location, key: "k0" }],
+			entry: { index: 0, location, key: "k0" },
 		});
 	});
 
 	it("stamps a published title with the current entry and ignores one before any location", async () => {
-		const { channel, messages, runtime } = openRuntime();
+		const { channel, runtime, messages } = openRuntime();
 
 		runtime.navigation.publishTitle("Too early");
 		await delay();
@@ -323,7 +323,7 @@ describe("plugin runtime", () => {
 	});
 
 	it("normalizes a published title so a header never breaches the bridge contract", async () => {
-		const { channel, messages, runtime } = openRuntime();
+		const { channel, runtime, messages } = openRuntime();
 		const overlong = "O".repeat(PLUGIN_HEADER_TITLE_MAX + 40);
 
 		channel.port1.postMessage({
@@ -387,7 +387,7 @@ describe("plugin runtime", () => {
 	});
 
 	it("does not report screen state after teardown starts", async () => {
-		const { channel, messages, runtime } = openRuntime();
+		const { channel, runtime, messages } = openRuntime();
 		runtime.navigation.subscribe(() => runtime.dispose());
 
 		activate(channel);
@@ -401,14 +401,14 @@ describe("plugin runtime", () => {
 
 		expect(runtime.navigation.getSnapshot()).toMatchObject({ safeAreaTop: 0, safeAreaBottom: 0 });
 
-		channel.port1.postMessage({ safeAreaTop: 59, safeAreaBottom: 34, type: "viewport" });
+		channel.port1.postMessage({ safeAreaTop: 59, type: "viewport", safeAreaBottom: 34 });
 		await delay();
 
 		expect(runtime.navigation.getSnapshot()).toMatchObject({ safeAreaTop: 59, safeAreaBottom: 34 });
 	});
 
 	it("owns handshake, activation, dispatch, and correlated calls", async () => {
-		const { channel, messages, runtime } = openRuntime();
+		const { channel, runtime, messages } = openRuntime();
 		await expect(
 			runtime.client.data.query({ document, decode: Result.succeed }),
 		).rejects.toMatchObject({ reason: "transport" });
@@ -438,7 +438,7 @@ describe("plugin runtime", () => {
 	});
 
 	it("sends a managed asset batch and resolves its correlated result", async () => {
-		const { channel, messages, runtime } = openRuntime();
+		const { channel, runtime, messages } = openRuntime();
 		activate(channel);
 		await delay();
 
@@ -487,7 +487,7 @@ describe("plugin runtime", () => {
 	});
 
 	it("fails a ready session through shared teardown", async () => {
-		const { channel, messages, runtime } = openRuntime();
+		const { channel, runtime, messages } = openRuntime();
 		runtime.fatal();
 		runtime.fatal();
 		await delay();
@@ -523,12 +523,12 @@ describe("plugin runtime", () => {
 	});
 
 	it("sends navigation through the client adapter after activation", async () => {
-		const { channel, messages, runtime } = openRuntime();
+		const { channel, runtime, messages } = openRuntime();
 		expect(() =>
 			runtime.client.navigation.push({
-				pluginSlug: "fixture",
-				kind: "plugin-route",
 				path: "/early",
+				kind: "plugin-route",
+				pluginSlug: "fixture",
 			}),
 		).toThrow(new RyotClientError("transport"));
 		expect(messages).not.toContainEqual(expect.objectContaining({ type: "navigate" }));
@@ -542,7 +542,7 @@ describe("plugin runtime", () => {
 			pluginSlug: "fixture",
 			search: { tab: "stats" },
 		});
-		runtime.client.navigation.replace({ pluginSlug: "fixture", kind: "plugin-route", path: "/" });
+		runtime.client.navigation.replace({ path: "/", kind: "plugin-route", pluginSlug: "fixture" });
 		runtime.client.navigation.push({ kind: "entity", entityId: "entity-1" });
 		runtime.client.navigation.push({ kind: "saved-view", savedViewId: "view-1" });
 		await delay();
@@ -550,12 +550,12 @@ describe("plugin runtime", () => {
 		expect(messages).toContainEqual({
 			mode: "push",
 			type: "navigate",
-			target: { pluginSlug: "fixture", kind: "plugin-route", path: "/items", search: "tab=stats" },
+			target: { path: "/items", search: "tab=stats", kind: "plugin-route", pluginSlug: "fixture" },
 		});
 		expect(messages).toContainEqual({
 			mode: "replace",
 			type: "navigate",
-			target: { pluginSlug: "fixture", kind: "plugin-route", path: "/", search: "" },
+			target: { path: "/", search: "", kind: "plugin-route", pluginSlug: "fixture" },
 		});
 		expect(messages).toContainEqual({
 			mode: "push",
@@ -570,7 +570,7 @@ describe("plugin runtime", () => {
 	});
 
 	it("sends semantic merged page-search updates after activation", async () => {
-		const { channel, messages, runtime } = openRuntime();
+		const { channel, runtime, messages } = openRuntime();
 		activate(channel);
 		await delay();
 
@@ -584,7 +584,7 @@ describe("plugin runtime", () => {
 		expect(messages).toContainEqual({
 			mode: "push",
 			type: "page-search",
-			update: { dialog: "add-to-collection", entityId: "entity-1" },
+			update: { entityId: "entity-1", dialog: "add-to-collection" },
 		});
 		expect(messages).toContainEqual({
 			mode: "replace",
@@ -594,7 +594,7 @@ describe("plugin runtime", () => {
 	});
 
 	it("sends provider-search requests and receives page refresh signals after activation", async () => {
-		const { channel, messages, runtime } = openRuntime();
+		const { channel, runtime, messages } = openRuntime();
 		let refreshes = 0;
 		runtime.client.mutationCompleted.subscribe(() => refreshes++);
 		activate(channel);
@@ -618,7 +618,7 @@ describe("plugin runtime", () => {
 	});
 
 	it("rejects every pending call once and blocks new admissions after disposal", async () => {
-		const { channel, messages, runtime } = openRuntime();
+		const { channel, runtime, messages } = openRuntime();
 		activate(channel);
 		await delay();
 		const query = runtime.client.data.query({ document, decode: Result.succeed });
@@ -667,7 +667,7 @@ describe("plugin runtime", () => {
 	});
 
 	it("fails the session when aggregate pending requests exceed the admission limit", async () => {
-		const { channel, messages, runtime } = openRuntime();
+		const { channel, runtime, messages } = openRuntime();
 		activate(channel);
 		await delay();
 		const pending = Array.from({ length: CLIENT_BRIDGE_MAX_PENDING_REQUESTS }, (_, index) => {
@@ -712,7 +712,7 @@ describe("plugin runtime", () => {
 	});
 
 	it("cancels one query exactly once, releases admission, and ignores its late result", async () => {
-		const { channel, messages, runtime } = openRuntime();
+		const { channel, runtime, messages } = openRuntime();
 		activate(channel);
 		await delay();
 		const controller = new AbortController();
@@ -761,7 +761,7 @@ describe("plugin runtime", () => {
 	});
 
 	it("cancels an asset request and suppresses its late result", async () => {
-		const { channel, messages, runtime } = openRuntime();
+		const { channel, runtime, messages } = openRuntime();
 		activate(channel);
 		await delay();
 		const controller = new AbortController();
@@ -805,7 +805,7 @@ describe("plugin runtime", () => {
 	});
 
 	it("rejects simultaneous pending calls once on fatal failure and ignores late results", async () => {
-		const { channel, messages, runtime } = openRuntime();
+		const { channel, runtime, messages } = openRuntime();
 		activate(channel);
 		await delay();
 
@@ -858,9 +858,9 @@ describe("plugin runtime", () => {
 		).rejects.toMatchObject({ reason: "protocol" });
 		expect(() =>
 			runtime.client.navigation.push({
-				pluginSlug: "fixture",
-				kind: "plugin-route",
 				path: "/late",
+				kind: "plugin-route",
+				pluginSlug: "fixture",
 			}),
 		).toThrow(new RyotClientError("protocol"));
 		await delay();
@@ -878,7 +878,7 @@ describe("plugin runtime", () => {
 	});
 
 	it("sends an upload source across the port untouched and resolves its token", async () => {
-		const { channel, messages, runtime } = openRuntime();
+		const { channel, runtime, messages } = openRuntime();
 		activate(channel);
 		await delay();
 
@@ -900,8 +900,8 @@ describe("plugin runtime", () => {
 		);
 		expect(request).toMatchObject({
 			fileName: "items.csv",
-			contentType: "text/csv",
 			requestId: "upload-1",
+			contentType: "text/csv",
 		});
 		if (
 			typeof request !== "object" ||
@@ -955,7 +955,7 @@ describe("plugin runtime", () => {
 	});
 
 	it("preserves operation success and failure semantics", async () => {
-		const { channel, messages, runtime } = openRuntime();
+		const { channel, runtime, messages } = openRuntime();
 		activate(channel);
 		await delay();
 
@@ -1011,7 +1011,7 @@ describe("plugin runtime", () => {
 	});
 
 	it("transports collection mutations and preserves sanitized failures", async () => {
-		const { channel, messages, runtime } = openRuntime();
+		const { channel, runtime, messages } = openRuntime();
 		activate(channel);
 		await delay();
 
@@ -1086,7 +1086,7 @@ describe("plugin runtime", () => {
 	});
 
 	it("classifies peer failure as protocol for every pending call", async () => {
-		const { channel, messages, runtime } = openRuntime();
+		const { channel, runtime, messages } = openRuntime();
 		activate(channel);
 		await delay();
 		const query = runtime.client.data.query({ document, decode: Result.succeed });
@@ -1196,22 +1196,22 @@ describe("plugin runtime", () => {
 
 		expect(() =>
 			runtime.client.navigation.push({
-				pluginSlug: "fixture",
-				kind: "plugin-route",
 				path: "/items",
+				kind: "plugin-route",
+				pluginSlug: "fixture",
 			}),
 		).toThrow(new RyotClientError("transport"));
 		expect(() =>
 			runtime.client.navigation.push({
-				pluginSlug: "fixture",
-				kind: "plugin-route",
 				path: "/late",
+				kind: "plugin-route",
+				pluginSlug: "fixture",
 			}),
 		).toThrow(new RyotClientError("transport"));
 	});
 
 	it("applies the init theme mode before any host message arrives", async () => {
-		const { channel, messages, attributes, runtime } = openRuntime();
+		const { channel, runtime, messages, attributes } = openRuntime();
 
 		expect(attributes.get("data-theme")).toBe("light");
 
@@ -1234,7 +1234,7 @@ describe("plugin runtime", () => {
 	});
 
 	it("publishes live themes without changing location, runtime identity, or pending calls", async () => {
-		const { channel, attributes, runtime } = openRuntime();
+		const { channel, runtime, attributes } = openRuntime();
 		activate(channel);
 		await delay();
 		const client = runtime.client;
@@ -1265,12 +1265,12 @@ describe("plugin runtime", () => {
 	});
 
 	it("fails the shared lifecycle when a live theme is malformed", async () => {
-		const { channel, messages, runtime } = openRuntime();
+		const { channel, runtime, messages } = openRuntime();
 		activate(channel);
 		await delay();
 		const query = runtime.client.data.query({ document, decode: Result.succeed });
 		await delay();
-		channel.port1.postMessage({ mode: "system", type: "theme" });
+		channel.port1.postMessage({ type: "theme", mode: "system" });
 
 		await expect(query).rejects.toMatchObject({ reason: "protocol" });
 		await expect(

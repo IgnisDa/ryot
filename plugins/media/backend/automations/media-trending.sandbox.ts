@@ -13,9 +13,9 @@ import {
 export const manifest = defineManifest({
 	kind: "script",
 	slug: "media-trending",
+	requiredSystemConfigKeys: [],
 	name: "Media Trending Refresh",
 	requiredPluginConfigKeys: ["tmdbAccessToken"],
-	requiredSystemConfigKeys: [],
 	capabilities: [
 		"log",
 		"httpCall",
@@ -47,7 +47,7 @@ export default defineScript({
 				const result = yield* provider.script.run({}, host).pipe(
 					Effect.flatMap(({ items }) =>
 						host.upsertGlobalEntities(
-							items.map(({ externalId, name }) => ({
+							items.map(({ name, externalId }) => ({
 								name,
 								externalId,
 								properties: {},
@@ -56,7 +56,7 @@ export default defineScript({
 							})),
 						),
 					),
-					Effect.map((items) => ({ success: true as const, items })),
+					Effect.map((items) => ({ items, success: true as const })),
 					Effect.catch((error) =>
 						host
 							.log([
@@ -86,7 +86,7 @@ export default defineScript({
 			}
 
 			if (providerCount === 0) {
-				return { synced: false, itemCount: 0, providerCount };
+				return { itemCount: 0, synced: false, providerCount };
 			}
 
 			const fetchedAt = DateTime.formatIso(DateTime.nowUnsafe());
@@ -104,7 +104,7 @@ export default defineScript({
 					relationships: rankedItems.map(({ entityId }, index) => ({
 						sourceEntityId: entityId,
 						targetEntityId: entityId,
-						properties: { rank: index + 1, fetchedAt },
+						properties: { fetchedAt, rank: index + 1 },
 					})),
 				},
 			]);

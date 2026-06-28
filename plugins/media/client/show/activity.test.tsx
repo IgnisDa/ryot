@@ -38,7 +38,7 @@ afterEach(() => {
 
 describe("show activity tab", () => {
 	it("renders the loading branch while the activity query is pending", () => {
-		const { container, unmount } = renderActivity(mapShowActivity(pendingQueryResult()));
+		const { unmount, container } = renderActivity(mapShowActivity(pendingQueryResult()));
 
 		expect(container.textContent).toContain("Loading activity...");
 		expect(container.textContent).not.toContain("Coverage");
@@ -47,7 +47,7 @@ describe("show activity tab", () => {
 
 	it("offers a retry from the transport error branch", () => {
 		const retries: number[] = [];
-		const { container, unmount } = renderActivity(
+		const { unmount, container } = renderActivity(
 			mapShowActivity(transportErrorQueryResult()),
 			() => retries.push(1),
 		);
@@ -66,14 +66,14 @@ describe("show activity tab", () => {
 	});
 
 	it("hides decoder internals behind a stable malformed message", () => {
-		const { container, unmount } = renderActivity(mapShowActivity(malformedQueryResult()));
+		const { unmount, container } = renderActivity(mapShowActivity(malformedQueryResult()));
 
 		expect(container.textContent).toContain("Unable to load activity");
 		unmount();
 	});
 
 	it("explains an unrecorded history and offers the deferred log control", () => {
-		const { container, unmount } = renderActivity(
+		const { unmount, container } = renderActivity(
 			mapShowActivity(readyQueryResult(emptyShowActivity())),
 		);
 		const log = Array.from(container.querySelectorAll("button")).find(
@@ -91,7 +91,7 @@ describe("show activity tab", () => {
 	});
 
 	it("leads with the figures a reader opens the tab for", () => {
-		const { container, unmount } = renderActivity(readyState());
+		const { unmount, container } = renderActivity(readyState());
 
 		expect(container.textContent).toContain("Episodes");
 		expect(container.textContent).toContain("2 / 4");
@@ -103,7 +103,7 @@ describe("show activity tab", () => {
 	});
 
 	it("shows season coverage with specials on their own row", () => {
-		const { container, unmount } = renderActivity(readyState());
+		const { unmount, container } = renderActivity(readyState());
 
 		expect(container.textContent).toContain("Coverage");
 		expect(container.textContent).toContain("Season 1");
@@ -114,7 +114,7 @@ describe("show activity tab", () => {
 	});
 
 	it("reads a day of watching as one entry listing its episodes", () => {
-		const { container, unmount } = renderActivity(
+		const { unmount, container } = renderActivity(
 			readyState({
 				parentEvents: [],
 				episodeEvents: [],
@@ -132,7 +132,7 @@ describe("show activity tab", () => {
 	});
 
 	it("names the finish and the collection changes in the same record", () => {
-		const { container, unmount } = renderActivity(readyState());
+		const { unmount, container } = renderActivity(readyState());
 
 		expect(container.textContent).toContain("Finished the show");
 		expect(container.textContent).toContain("Added to the Watchlist collection");
@@ -141,7 +141,7 @@ describe("show activity tab", () => {
 	});
 
 	it("separates watches only once a second one is completed", () => {
-		const { container, unmount } = renderActivity(
+		const { unmount, container } = renderActivity(
 			mapShowActivity(readyQueryResult(rewatchedShowActivity())),
 		);
 
@@ -151,14 +151,14 @@ describe("show activity tab", () => {
 	});
 
 	it("keeps a single watch free of separators", () => {
-		const { container, unmount } = renderActivity(readyState());
+		const { unmount, container } = renderActivity(readyState());
 
 		expect(container.textContent).not.toMatch(/Watch \d/);
 		unmount();
 	});
 
 	it("keeps a spoiler review hidden until the reader asks for it", async () => {
-		const { container, unmount } = renderActivity(readyState());
+		const { unmount, container } = renderActivity(readyState());
 		const reveal = Array.from(container.querySelectorAll("button")).find(
 			(button) => button.getAttribute("aria-label") === "Show spoiler review",
 		);
@@ -178,7 +178,7 @@ describe("show activity tab", () => {
 	});
 
 	it("shows a review without spoilers straight away", () => {
-		const { container, unmount } = renderActivity(readyState());
+		const { unmount, container } = renderActivity(readyState());
 
 		expect(container.textContent).toContain("82 / 100");
 		expect(container.textContent).toContain("A devastating watch.");
@@ -186,7 +186,7 @@ describe("show activity tab", () => {
 	});
 
 	it("says only recent activity is shown once the window is truncated", () => {
-		const { container, unmount } = renderActivity(readyState({ truncated: true }));
+		const { unmount, container } = renderActivity(readyState({ truncated: true }));
 
 		expect(container.textContent).toContain("Only your most recent activity is shown here.");
 		expect(container.textContent).toContain("Latest");
@@ -196,7 +196,7 @@ describe("show activity tab", () => {
 	});
 
 	it("never surfaces identifiers or completion internals in the record", () => {
-		const { container, unmount } = renderActivity(readyState());
+		const { unmount, container } = renderActivity(readyState());
 
 		expect(container.textContent).not.toContain("episode-1");
 		expect(container.textContent).not.toContain("show-complete");
@@ -205,7 +205,7 @@ describe("show activity tab", () => {
 	});
 
 	it("leaves the record unchanged for the deferred complete history control", () => {
-		const { container, unmount } = renderActivity(readyState());
+		const { unmount, container } = renderActivity(readyState());
 		const viewHistory = Array.from(container.querySelectorAll("button")).find(
 			(button) => button.textContent === "View complete history",
 		);

@@ -58,7 +58,7 @@ const OpenScaleAdapterResultSchema = Schema.Struct({
 type OpenScaleAdapterResult = typeof OpenScaleAdapterResultSchema.Type;
 
 export const adaptOpenScaleCsv = (csvText: string): OpenScaleAdapterResult => {
-	const { headers, rows } = parseCsvText(csvText);
+	const { rows, headers } = parseCsvText(csvText);
 	if (headers.length === 0) {
 		throw new Error("OpenScale CSV is empty or has no header row");
 	}
@@ -124,8 +124,8 @@ export const adaptOpenScaleCsv = (csvText: string): OpenScaleAdapterResult => {
 			failures.push({
 				itemIndex: rowIdx,
 				sourceLabel: `Row ${rowIdx + 1}`,
-				message: "Could not parse date/time value",
 				sourceIdentifier: String(rowIdx + 1),
+				message: "Could not parse date/time value",
 			});
 			continue;
 		}
@@ -170,7 +170,7 @@ export const adaptOpenScaleCsv = (csvText: string): OpenScaleAdapterResult => {
 				hasBadNumeric = true;
 				break;
 			}
-			statistics.push({ key: normalizeKey(header), label: header, value: numVal });
+			statistics.push({ label: header, value: numVal, key: normalizeKey(header) });
 		}
 
 		if (hasBadNumeric) {
@@ -180,7 +180,7 @@ export const adaptOpenScaleCsv = (csvText: string): OpenScaleAdapterResult => {
 			sourceLabel,
 			sourceIdentifier,
 			itemIndex: rowIdx,
-			properties: { recordedAt, comment, statistics },
+			properties: { comment, recordedAt, statistics },
 		});
 	}
 

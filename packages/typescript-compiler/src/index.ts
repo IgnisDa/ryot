@@ -90,16 +90,16 @@ export const createTypeScriptProject = (options: TypeScriptProjectOptions) => {
 		}),
 	});
 	const fs = {
+		realpath: (path) => (isVirtualPath(path) ? path : undefined),
 		readFile: (path) => (isVirtualPath(path) ? virtual.readFile?.(path) : undefined),
 		fileExists: (path) => (isVirtualPath(path) ? virtual.fileExists?.(path) : undefined),
 		directoryExists: (path) => (isVirtualPath(path) ? virtual.directoryExists?.(path) : undefined),
 		getAccessibleEntries: (path) =>
 			isVirtualPath(path) ? virtual.getAccessibleEntries?.(path) : undefined,
-		realpath: (path) => (isVirtualPath(path) ? path : undefined),
 	} satisfies FileSystem;
 
 	return Effect.acquireUseRelease(
-		Effect.sync(() => new API({ cwd: "/", fs, tsserverPath: options.tsserverPath })),
+		Effect.sync(() => new API({ fs, cwd: "/", tsserverPath: options.tsserverPath })),
 		(api) =>
 			Effect.gen(function* () {
 				const snapshot = yield* Effect.tryPromise(() =>

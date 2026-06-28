@@ -30,7 +30,7 @@ describe("ThemeController", () => {
 			}),
 		);
 		const theme = makeTestThemeStore("system");
-		const view = render(<ThemeController runtime={runtime} theme={theme} />);
+		const view = render(<ThemeController theme={theme} runtime={runtime} />);
 
 		expect(view.container.textContent).toBe("");
 

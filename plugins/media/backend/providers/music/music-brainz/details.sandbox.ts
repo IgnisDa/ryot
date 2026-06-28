@@ -5,11 +5,11 @@ import { details } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "provider",
-	name: "MusicBrainz Music Details",
-	slug: "music.music-brainz.details",
+	capabilities: ["httpCall"],
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
-	capabilities: ["httpCall"],
+	name: "MusicBrainz Music Details",
+	slug: "music.music-brainz.details",
 });
 
-export default defineProvider({ manifest, operation: "details", run: details.run });
+export default defineProvider({ manifest, run: details.run, operation: "details" });

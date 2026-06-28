@@ -36,7 +36,7 @@ export function resolveEdge(input: {
 	} else if (intent === "back" && input.hasPluginBackScreen && compact) {
 		owner = "plugin";
 	}
-	return { owner, compact, intent };
+	return { owner, intent, compact };
 }
 
 function resolveIntent(

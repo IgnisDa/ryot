@@ -25,7 +25,7 @@ export const compilePluginSandboxEntryPaths = (
 			sandboxCompilerDiagnostic("RYOT_PLUGIN_ENTRY", "Plugin script entries must be unique"),
 		]);
 	}
-	return compileSandboxPackageEntries({ entry: entries[0] ?? "", files }, entries, declarations);
+	return compileSandboxPackageEntries({ files, entry: entries[0] ?? "" }, entries, declarations);
 };
 
 export const compilePluginSandboxSourceEntries = (
@@ -37,7 +37,7 @@ export const compilePluginSandboxSourceEntries = (
 		sortedEntries(scripts),
 		new Map(
 			scripts.map(
-				({ entry, kind, providerOperation }) =>
+				({ kind, entry, providerOperation }) =>
 					[entry, providerOperation ? { kind, providerOperation } : { kind }] as const,
 			),
 		),

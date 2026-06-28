@@ -54,10 +54,6 @@ const podcastEpisodeInclude = (episodeLimit: number) => {
 	return selectedInclude(episode, {
 		limit: episodeLimit,
 		orderBy: [ascending(episodeNumber)],
-		where: and(
-			entitySchema(episode, "podcast-episode"),
-			relationshipTo(episodeRelationship, entity, episode, "podcast-to-podcast-episode"),
-		),
 		joins: [
 			join(
 				"inner",
@@ -65,13 +61,17 @@ const podcastEpisodeInclude = (episodeLimit: number) => {
 				eq(column(episodeRelationship, "targetEntityId"), column(episode, "id")),
 			),
 		],
+		where: and(
+			entitySchema(episode, "podcast-episode"),
+			relationshipTo(episodeRelationship, entity, episode, "podcast-to-podcast-episode"),
+		),
 		selection: {
 			...entityIdentitySelection(episode),
+			episodeNumber: selectedField(episodeNumber, Schema.Number),
 			state: selectedField(
 				episodeLifecycleStateExpression(episode, "podcastEpisodeDetailLifecycle"),
 				EpisodeLifecycleStateSchema,
 			),
-			episodeNumber: selectedField(episodeNumber, Schema.Number),
 		},
 	});
 };
@@ -96,6 +96,7 @@ export const showsByLifecycleStateRecipe = defineRecipe(
 			"showListLifecycle",
 		);
 		return {
+			map: ({ shows }) => Result.succeed(shows),
 			queries: {
 				shows: selectedRows(entity, {
 					after: input.after,
@@ -111,7 +112,6 @@ export const showsByLifecycleStateRecipe = defineRecipe(
 					),
 				}),
 			},
-			map: ({ shows }) => Result.succeed(shows),
 		};
 	},
 );
@@ -125,18 +125,18 @@ export const podcastDetailRecipe = defineRecipe(
 			"podcastDetailLifecycle",
 		);
 		return {
+			map: ({ podcast }) => Result.succeed(podcast ?? null),
 			queries: {
 				podcast: selectedOptionalRow(entity, {
+					orderBy: [ascending(column(entity, "id"))],
+					include: { episodes: podcastEpisodeInclude(input.episodeLimit) },
+					where: and(entitySchema(entity, "podcast"), entityId(entity, input.entityId)),
 					selection: {
 						...entityIdentitySelection(entity),
 						state: selectedField(lifecycle.state, EpisodicLifecycleStateSchema),
 					},
-					include: { episodes: podcastEpisodeInclude(input.episodeLimit) },
-					orderBy: [ascending(column(entity, "id"))],
-					where: and(entitySchema(entity, "podcast"), entityId(entity, input.entityId)),
 				}),
 			},
-			map: ({ podcast }) => Result.succeed(podcast ?? null),
 		};
 	},
 );
@@ -155,6 +155,7 @@ export const podcastsByLifecycleStateRecipe = defineRecipe(
 			"podcastListLifecycle",
 		);
 		return {
+			map: ({ podcasts }) => Result.succeed(podcasts),
 			queries: {
 				podcasts: selectedRows(entity, {
 					after: input.after,
@@ -170,7 +171,6 @@ export const podcastsByLifecycleStateRecipe = defineRecipe(
 					),
 				}),
 			},
-			map: ({ podcasts }) => Result.succeed(podcasts),
 		};
 	},
 );
@@ -190,6 +190,12 @@ const recommendationQuery = (input: {
 		limit: input.limit,
 		groupBy: entityIdentitySelection(target),
 		orderBy: [measureDescending("recommendingSourceCount")],
+		measures: {
+			recommendingSourceCount: selectedMeasure(
+				{ function: "countDistinct", expr: column(source, "id") },
+				Schema.Number,
+			),
+		},
 		joins: [
 			join("inner", source, eq(column(relationship, "sourceEntityId"), column(source, "id"))),
 			join("inner", target, eq(column(relationship, "targetEntityId"), column(target, "id"))),
@@ -200,17 +206,12 @@ const recommendationQuery = (input: {
 			entitySchema(target, input.entitySchemaSlug),
 			input.where({ source, target }),
 		),
-		measures: {
-			recommendingSourceCount: selectedMeasure(
-				{ function: "countDistinct", expr: column(source, "id") },
-				Schema.Number,
-			),
-		},
 	});
 };
 
 export const personalMediaSuggestionsRecipe = defineRecipe(
 	(input: { readonly entitySchemaSlug: string; readonly limit?: number | undefined }) => ({
+		map: ({ recommendations }) => Result.succeed(recommendations),
 		queries: {
 			recommendations: recommendationQuery({
 				limit: input.limit ?? 20,
@@ -222,7 +223,6 @@ export const personalMediaSuggestionsRecipe = defineRecipe(
 					),
 			}),
 		},
-		map: ({ recommendations }) => Result.succeed(recommendations),
 	}),
 );
 
@@ -235,6 +235,7 @@ export const collectionMediaSuggestionsRecipe = defineRecipe(
 		const collection = table("entity", "collection");
 		const membership = table("relationship", "collectionMembership");
 		return {
+			map: ({ recommendations }) => Result.succeed(recommendations),
 			queries: {
 				recommendations: recommendationQuery({
 					limit: input.limit ?? 20,
@@ -259,7 +260,6 @@ export const collectionMediaSuggestionsRecipe = defineRecipe(
 						),
 				}),
 			},
-			map: ({ recommendations }) => Result.succeed(recommendations),
 		};
 	},
 );
@@ -277,6 +277,7 @@ export const trendingMediaRecipe = defineRecipe(
 		const rank = castNumber(jsonPath(column(relationship, "properties"), "rank"));
 		const fetchedAt = castDate(jsonPath(column(relationship, "properties"), "fetchedAt"));
 		return {
+			map: ({ trending }) => Result.succeed(trending),
 			queries: {
 				trending: selectedRows(relationship, {
 					after: input.after,
@@ -299,7 +300,6 @@ export const trendingMediaRecipe = defineRecipe(
 					),
 				}),
 			},
-			map: ({ trending }) => Result.succeed(trending),
 		};
 	},
 );
@@ -338,7 +338,7 @@ export const defaultMediaSavedViewRecipe = (input: {
 			),
 		}),
 	} as const;
-	return savedViewRecipe({ layout: input.layout, source });
+	return savedViewRecipe({ source, layout: input.layout });
 };
 
 export type PodcastDetailResult = Recipe.Success<typeof podcastDetailRecipe>;

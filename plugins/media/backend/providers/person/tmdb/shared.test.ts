@@ -14,9 +14,9 @@ const httpSuccess = (body: unknown) =>
 const makeHost = (httpCall: TmdbHost["httpCall"]) =>
 	defineSandboxTestHost(manifest, {
 		httpCall,
+		getUserPreferences: () => Effect.succeed({ allowNsfw: false, disableIntegrations: false }),
 		getPluginConfig: (keys) =>
 			Effect.succeed(Object.fromEntries(keys.map((key) => [key, "token"]))),
-		getUserPreferences: () => Effect.succeed({ allowNsfw: false, disableIntegrations: false }),
 	});
 
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
@@ -26,8 +26,8 @@ describe("person.tmdb sandbox script", () => {
 		const host = makeHost((_method, url) => {
 			if (url.includes("/combined_credits")) {
 				return httpSuccess({
-					cast: [{ id: 2, media_type: "movie", title: "Film" }],
-					crew: [{ id: 3, media_type: "tv", name: "Show", job: "Director" }],
+					cast: [{ id: 2, title: "Film", media_type: "movie" }],
+					crew: [{ id: 3, name: "Show", job: "Director", media_type: "tv" }],
 				});
 			}
 			return httpSuccess({
@@ -46,13 +46,13 @@ describe("person.tmdb sandbox script", () => {
 						images: [
 							{
 								type: "remote",
-								url: "https://image.tmdb.org/t/p/original/main.jpg",
 								purpose: "profile",
+								url: "https://image.tmdb.org/t/p/original/main.jpg",
 							},
 							{
 								type: "remote",
-								url: "https://image.tmdb.org/t/p/original/alt.jpg",
 								purpose: "profile",
+								url: "https://image.tmdb.org/t/p/original/alt.jpg",
 							},
 						],
 					},
@@ -101,7 +101,7 @@ describe("person.tmdb sandbox script", () => {
 		return Effect.runPromise(
 			runSandboxTestScript(
 				translate,
-				{ externalId: "1", language: "fr", entitySchemaSlug: "person" },
+				{ language: "fr", externalId: "1", entitySchemaSlug: "person" },
 				host,
 				execution,
 			).pipe(
@@ -110,8 +110,8 @@ describe("person.tmdb sandbox script", () => {
 						images: [
 							{
 								type: "remote",
-								url: "https://image.tmdb.org/t/p/original/localized.jpg",
 								purpose: "profile",
+								url: "https://image.tmdb.org/t/p/original/localized.jpg",
 							},
 						],
 					});

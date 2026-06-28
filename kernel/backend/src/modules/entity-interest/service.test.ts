@@ -12,18 +12,18 @@ const principal = { preferredLanguage: "es", userId: UserId.make("user-1") };
 it.effect("removes filtered memberships and carries tokens for terminal updates", () => {
 	const events: string[] = [];
 	const pending = Array.from({ length: 101 }, (_, index) => ({
-		revision: index === 100 ? 2 : 1,
 		entityId: `entity-${index}`,
+		revision: index === 100 ? 2 : 1,
 	}));
 	const store = Layer.mock(EntityInterestStore)({
-		removePending: ({ pending: chunk }) =>
-			Effect.sync(() => {
-				events.push(`remove:${chunk.map(({ entityId }) => entityId).join(",")}`);
-				return chunk.map(({ entityId }) => entityId);
-			}),
 		markReconciled: ({ pending: chunk }) =>
 			Effect.sync(() => {
 				events.push(`mark:${chunk.length}`);
+				return chunk.map(({ entityId }) => entityId);
+			}),
+		removePending: ({ pending: chunk }) =>
+			Effect.sync(() => {
+				events.push(`remove:${chunk.map(({ entityId }) => entityId).join(",")}`);
 				return chunk.map(({ entityId }) => entityId);
 			}),
 	});
@@ -48,7 +48,7 @@ it.effect("removes filtered memberships and carries tokens for terminal updates"
 
 	return Effect.gen(function* () {
 		const service = yield* InterestService;
-		const result = yield* service.reconcile({ principal, pending, sessionId: "session-1" });
+		const result = yield* service.reconcile({ pending, principal, sessionId: "session-1" });
 
 		expect(events).toEqual([
 			"reconcile:100",
@@ -61,8 +61,8 @@ it.effect("removes filtered memberships and carries tokens for terminal updates"
 		expect(result).toHaveLength(100);
 		expect(result.some(({ message }) => message.entityId === "entity-99")).toBe(false);
 		expect(result.at(-1)).toEqual({
-			pending: { entityId: "entity-100", revision: 2 },
-			message: { type: "entity-updated", entityId: "entity-100", reason: "populated" },
+			pending: { revision: 2, entityId: "entity-100" },
+			message: { reason: "populated", type: "entity-updated", entityId: "entity-100" },
 		});
 	}).pipe(Effect.provide(layer));
 });
@@ -80,7 +80,7 @@ it.effect("does not catch reconciliation failures", () => {
 				service.reconcile({
 					principal,
 					sessionId: "session-1",
-					pending: [{ entityId: "entity-1", revision: 1 }],
+					pending: [{ revision: 1, entityId: "entity-1" }],
 				}),
 			),
 		).toBe(error);
@@ -91,6 +91,11 @@ it.effect("sets test membership without reconciliation", () => {
 	let reconciled: unknown;
 	let replacement: unknown;
 	const store = Layer.mock(EntityInterestStore)({
+		markReconciled: (input) =>
+			Effect.sync(() => {
+				reconciled = input;
+				return [];
+			}),
 		getSessionMetadata: () =>
 			Effect.succeed([
 				{ revision: 3, sessionId: "session-1", preferredLanguage: "es", userId: principal.userId },
@@ -101,13 +106,8 @@ it.effect("sets test membership without reconciliation", () => {
 				return {
 					revision: 4,
 					status: "applied" as const,
-					pending: [{ entityId: "entity-1", revision: 4 }],
+					pending: [{ revision: 4, entityId: "entity-1" }],
 				};
-			}),
-		markReconciled: (input) =>
-			Effect.sync(() => {
-				reconciled = input;
-				return [];
 			}),
 	});
 	const reconciler = Layer.mock(InterestReconciler)({
@@ -120,7 +120,7 @@ it.effect("sets test membership without reconciliation", () => {
 		yield* service.setEntityInterestMembership({ sessionId: "session-1", entityIds: ["entity-1"] });
 		expect(reconciled).toEqual({
 			sessionId: "session-1",
-			pending: [{ entityId: "entity-1", revision: 4 }],
+			pending: [{ revision: 4, entityId: "entity-1" }],
 		});
 		expect(replacement).toEqual({ revision: 4, sessionId: "session-1", entityIds: ["entity-1"] });
 	}).pipe(Effect.provide(layer));

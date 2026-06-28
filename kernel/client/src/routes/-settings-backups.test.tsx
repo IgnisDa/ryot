@@ -51,11 +51,11 @@ const makeRun = (overrides: Partial<BackupRun> = {}): BackupRun => ({
 	progress: 100,
 	kind: "export",
 	status: "completed",
-	artifactProvider: "local",
 	createdAt: at(-HOUR_MS),
+	artifactProvider: "local",
 	expiresAt: at(23 * HOUR_MS),
-	id: BackupRunId.make("backup_1"),
 	startedAt: at(-HOUR_MS + 2_000),
+	id: BackupRunId.make("backup_1"),
 	finishedAt: at(-HOUR_MS + 100_000),
 	...overrides,
 });
@@ -80,8 +80,8 @@ const uploadStub = () =>
 				headers: {},
 				intentId: "intent_1",
 				method: "PUT" as const,
-				uploadUrl: "/uploads/local/put",
 				expiresAt: at(HOUR_MS),
+				uploadUrl: "/uploads/local/put",
 			}),
 	});
 
@@ -122,7 +122,7 @@ const mountView = (
 		),
 	);
 	const router = getRouter(
-		{ runtime, theme, backInterceptors: createBackInterceptors() },
+		{ theme, runtime, backInterceptors: createBackInterceptors() },
 		createMemoryHistory({ initialEntries: [initialEntry] }),
 	);
 	const view = render(<RouterProvider router={router} />);
@@ -258,7 +258,7 @@ describe("backups list", () => {
 			makeBackupsApi({
 				listRuns: () =>
 					Effect.succeed({
-						items: [makeRun({ progress: 25, status: "running", finishedAt: null })],
+						items: [makeRun({ progress: 25, finishedAt: null, status: "running" })],
 					}),
 			}),
 		);
@@ -346,13 +346,13 @@ describe("backup records", () => {
 		mountView(
 			"/settings/backups",
 			makeBackupsApi({
-				deleteRun: (_scope, request) => {
-					deleted.push(request.params.id);
-					return Effect.succeed({ id: request.params.id });
-				},
 				listRuns: () => {
 					loads += 1;
 					return Effect.succeed({ items: loads === 1 ? [makeRun()] : [] });
+				},
+				deleteRun: (_scope, request) => {
+					deleted.push(request.params.id);
+					return Effect.succeed({ id: request.params.id });
 				},
 			}),
 		);
@@ -458,7 +458,7 @@ describe("backup restore", () => {
 						items:
 							loads === 1
 								? [makeRun()]
-								: [makeRun({ kind: "restore", status: "running", progress: 10 })],
+								: [makeRun({ progress: 10, kind: "restore", status: "running" })],
 					});
 				},
 			}),
@@ -483,7 +483,7 @@ describe("backup restore", () => {
 			makeBackupsApi({
 				listRuns: () => Effect.succeed({ items: [makeRun()] }),
 				createRestore: () =>
-					Effect.fail(conflict({ code: "account-not-clean", category: "entities" })),
+					Effect.fail(conflict({ category: "entities", code: "account-not-clean" })),
 			}),
 			uploadStub(),
 		);

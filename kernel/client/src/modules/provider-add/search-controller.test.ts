@@ -20,7 +20,7 @@ const response = (
 	providerId,
 	providerName: "Provider",
 	rootEntitySchemaSlug: EntitySchemaSlug.make("book"),
-	details: nextPage === undefined ? undefined : { totalItems: 42, nextPage },
+	details: nextPage === undefined ? undefined : { nextPage, totalItems: 42 },
 	items: externalIds.map((externalId) => ({ externalId, title: externalId })),
 });
 
@@ -30,7 +30,7 @@ const reduce = (state: ProviderSearchState, ...events: readonly ProviderSearchEv
 const searched = (query: string) =>
 	reduce(
 		createProviderSearchState(),
-		{ type: "query-changed", query },
+		{ query, type: "query-changed" },
 		{ type: "search-requested" },
 	);
 
@@ -41,7 +41,7 @@ describe("provider search controller", () => {
 		const initial = createProviderSearchState("dune");
 		expect(initial.query).toBe("dune");
 
-		const cleared = providerSearchReducer(initial, { type: "query-changed", query: "" });
+		const cleared = providerSearchReducer(initial, { query: "", type: "query-changed" });
 		expect(cleared.query).toBe("");
 		expect(cleared.items).toEqual([]);
 
@@ -56,8 +56,8 @@ describe("provider search controller", () => {
 
 		const loaded = providerSearchReducer(first, {
 			type: "response-received",
-			token: first.operation?.token ?? -1,
 			response: response(["a", "b"], 2),
+			token: first.operation?.token ?? -1,
 		});
 		expect(loaded.status).toBe("ready");
 		expect(loaded.items.map((item) => item.externalId)).toEqual(["a", "b"]);
@@ -69,8 +69,8 @@ describe("provider search controller", () => {
 
 		const appended = providerSearchReducer(loadingMore, {
 			type: "response-received",
-			token: loadingMore.operation?.token ?? -1,
 			response: response(["c"], null),
+			token: loadingMore.operation?.token ?? -1,
 		});
 		expect(appended.items.map((item) => item.externalId)).toEqual(["a", "b", "c"]);
 		expect(hasMoreProviderSearchResults(appended)).toBe(false);
@@ -78,8 +78,8 @@ describe("provider search controller", () => {
 		const restarted = providerSearchReducer(appended, { type: "search-requested" });
 		const replaced = providerSearchReducer(restarted, {
 			type: "response-received",
-			token: restarted.operation?.token ?? -1,
 			response: response(["z"], null),
+			token: restarted.operation?.token ?? -1,
 		});
 		expect(replaced.items.map((item) => item.externalId)).toEqual(["z"]);
 	});
@@ -110,14 +110,14 @@ describe("provider search controller", () => {
 
 	it("keeps the generation stable across search status changes", () => {
 		const changed = providerSearchReducer(createProviderSearchState(), {
-			type: "query-changed",
 			query: "dune",
+			type: "query-changed",
 		});
 		const loading = providerSearchReducer(changed, { type: "search-requested" });
 		const ready = providerSearchReducer(loading, {
 			type: "response-received",
-			token: loading.operation?.token ?? -1,
 			response: response(["a"], 2),
+			token: loading.operation?.token ?? -1,
 		});
 		const loadingMore = providerSearchReducer(ready, { type: "next-page-requested" });
 		const failed = providerSearchReducer(loadingMore, {
@@ -143,7 +143,7 @@ describe("provider search controller", () => {
 		for (const event of [
 			{ type: "provider-changed" },
 			{ type: "options-changed" },
-			{ type: "query-changed", query: "other" },
+			{ query: "other", type: "query-changed" },
 		] satisfies readonly ProviderSearchEvent[]) {
 			const cleared = providerSearchReducer(loaded, event);
 			expect(cleared.items).toEqual([]);
@@ -153,7 +153,7 @@ describe("provider search controller", () => {
 			expect(cleared.generation).toBeGreaterThan(loaded.generation);
 		}
 
-		expect(providerSearchReducer(loaded, { type: "query-changed", query: "dune" })).toBe(loaded);
+		expect(providerSearchReducer(loaded, { query: "dune", type: "query-changed" })).toBe(loaded);
 	});
 
 	it("issues nothing for a blank query and refuses a next page without one", () => {

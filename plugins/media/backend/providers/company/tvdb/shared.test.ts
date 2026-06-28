@@ -13,8 +13,8 @@ const httpSuccess = (body: unknown) =>
 const makeHost = (httpCall: TvdbHost["httpCall"]) =>
 	defineSandboxTestHost(manifest, {
 		httpCall,
-		getCachedValue: () => Effect.succeed("Bearer test-token"),
 		setCachedValue: () => Effect.succeed(null),
+		getCachedValue: () => Effect.succeed("Bearer test-token"),
 		getPluginConfig: (keys) =>
 			Effect.succeed(Object.fromEntries(keys.map((key) => [key, "test-api-key"]))),
 	});
@@ -27,8 +27,8 @@ describe("company.tvdb sandbox script", () => {
 			httpSuccess({
 				data: {
 					name: "Studio",
-					movies: [{ id: 2, name: "Film" }, { tvdb_id: "4", title: "Sequel" }, { id: 6 }],
 					series: [{ id: "3", name: "Show" }],
+					movies: [{ id: 2, name: "Film" }, { tvdb_id: "4", title: "Sequel" }, { id: 6 }],
 				},
 			}),
 		);
@@ -54,8 +54,8 @@ describe("company.tvdb sandbox script", () => {
 								relationshipProperties: { roles: ["Company"] },
 							},
 							{
-								name: "Loading...",
 								externalId: "6",
+								name: "Loading...",
 								providerSlug: "movie.tvdb",
 								relationshipProperties: { roles: ["Company"] },
 							},
@@ -99,7 +99,7 @@ describe("company.tvdb sandbox script", () => {
 				expect(result.properties).toEqual({
 					headquarters: "United States",
 					alternateNames: ["First", "Second"],
-					images: [{ type: "remote", url: "https://img.example/logo.png", purpose: "logo" }],
+					images: [{ type: "remote", purpose: "logo", url: "https://img.example/logo.png" }],
 				});
 				return undefined;
 			}),
@@ -131,14 +131,14 @@ describe("company.tvdb sandbox script", () => {
 	it("searches companies and falls back to primaryImage for the image", () => {
 		const host = makeHost(() =>
 			httpSuccess({
+				links: { next: null, total_items: 1 },
 				data: [{ tvdb_id: "10", name: "Studio", primaryImage: "https://img.example/p.png" }],
-				links: { total_items: 1, next: null },
 			}),
 		);
 
 		return runSandboxTestScript(
 			search,
-			{ query: "studio", page: 1, pageSize: 20 },
+			{ page: 1, pageSize: 20, query: "studio" },
 			host,
 			execution,
 		).pipe(

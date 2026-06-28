@@ -20,16 +20,16 @@ const CUSTOM_LANGUAGE = "custom";
 const DEFAULT_LANGUAGE = "default";
 
 const LANGUAGE_OPTIONS = [
-	{ value: "en", label: "English", hint: "en" },
-	{ value: "es", label: "Spanish", hint: "es" },
-	{ value: "fr", label: "French", hint: "fr" },
-	{ value: "de", label: "German", hint: "de" },
-	{ value: "it", label: "Italian", hint: "it" },
-	{ value: "pt", label: "Portuguese", hint: "pt" },
-	{ value: "ja", label: "Japanese", hint: "ja" },
-	{ value: "ko", label: "Korean", hint: "ko" },
-	{ value: "zh", label: "Chinese", hint: "zh" },
-	{ value: "ru", label: "Russian", hint: "ru" },
+	{ hint: "en", value: "en", label: "English" },
+	{ hint: "es", value: "es", label: "Spanish" },
+	{ hint: "fr", value: "fr", label: "French" },
+	{ hint: "de", value: "de", label: "German" },
+	{ hint: "it", value: "it", label: "Italian" },
+	{ hint: "pt", value: "pt", label: "Portuguese" },
+	{ hint: "ja", value: "ja", label: "Japanese" },
+	{ hint: "ko", value: "ko", label: "Korean" },
+	{ hint: "zh", value: "zh", label: "Chinese" },
+	{ hint: "ru", value: "ru", label: "Russian" },
 ] as const satisfies readonly SelectChoice[];
 
 const languageChoices: readonly SelectChoice[] = [
@@ -92,8 +92,8 @@ function LanguageField(props: {
 				choices={languageChoices}
 				disabled={props.disabled}
 				label="Metadata language"
-				checkIcon={<AppIcon name="check" size={16} />}
-				chevronIcon={<AppIcon name="chevron-down" size={16} />}
+				checkIcon={<AppIcon size={16} name="check" />}
+				chevronIcon={<AppIcon size={16} name="chevron-down" />}
 			/>
 			{isCustom && (
 				<TextField

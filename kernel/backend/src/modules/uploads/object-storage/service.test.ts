@@ -46,6 +46,10 @@ it.effect("bounds S3 writes and deletes a partial object", () => {
 				mockLocalStorage({}),
 				mockS3({
 					isConfigured: true,
+					deleteObject: (key) =>
+						Effect.sync(() => {
+							deleted.push(key);
+						}),
 					writeObject: (_key, stream) =>
 						Stream.runDrain(stream).pipe(
 							Effect.mapError((error) =>
@@ -54,10 +58,6 @@ it.effect("bounds S3 writes and deletes a partial object", () => {
 									: new BadRequest({ message: "S3 object write failed" }),
 							),
 						),
-					deleteObject: (key) =>
-						Effect.sync(() => {
-							deleted.push(key);
-						}),
 				}),
 			),
 		),

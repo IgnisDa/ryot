@@ -190,7 +190,7 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 										catch: (error) => new PluginValidationError({ issues: [String(error)] }),
 									});
 									yield* validateSnapshot(snapshot);
-									return { plugin: authoritative, snapshot };
+									return { snapshot, plugin: authoritative };
 								}).pipe(Effect.provideService(Database, transaction)),
 							),
 						).pipe(
@@ -277,17 +277,17 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 								const plugin = installed.find((candidate) => candidate.slug === slug);
 								if (!plugin) {
 									return yield* new PluginNotFoundError({
-										reason: { code: "plugin-not-found", pluginSlug },
+										reason: { pluginSlug, code: "plugin-not-found" },
 									});
 								}
 								if (systemPlugins.slugs.has(slug)) {
 									return yield* new PluginConflictError({
-										reason: { code: "boot-configured", pluginSlug },
+										reason: { pluginSlug, code: "boot-configured" },
 									});
 								}
 								if (yield* repository.hasIntegrationReferences({ pluginId: plugin.id })) {
 									return yield* new PluginConflictError({
-										reason: { code: "integration-referenced", pluginSlug },
+										reason: { pluginSlug, code: "integration-referenced" },
 									});
 								}
 								const schemaSlugs = plugin.manifest.entitySchemas.map(
@@ -300,17 +300,17 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 									})
 								) {
 									return yield* new PluginConflictError({
-										reason: { code: "entity-referenced", pluginSlug },
+										reason: { pluginSlug, code: "entity-referenced" },
 									});
 								}
 								if (yield* repository.hasDefinitionReferences(plugin.id)) {
 									return yield* new PluginConflictError({
-										reason: { code: "entity-referenced", pluginSlug },
+										reason: { pluginSlug, code: "entity-referenced" },
 									});
 								}
 								if (yield* workflowReferences.hasReferences(plugin.id)) {
 									return yield* new PluginConflictError({
-										reason: { code: "workflow-referenced", pluginSlug },
+										reason: { pluginSlug, code: "workflow-referenced" },
 									});
 								}
 								const remaining = installed.filter((candidate) => candidate.slug !== slug);
@@ -347,7 +347,7 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 						),
 					);
 					loader.replace(result.snapshot);
-					yield* publishInvalidation(stableStringify({ action: "uninstall", slug }));
+					yield* publishInvalidation(stableStringify({ slug, action: "uninstall" }));
 					return toSystemPluginItem(result.plugin);
 				},
 			);
@@ -445,7 +445,7 @@ export class PluginInvalidationSubscriber extends Context.Service<PluginInvalida
 					Effect.andThen(Effect.tryPromise(() => subscriber.quit()).pipe(Effect.ignore)),
 				),
 			);
-			return { dispatch, recover, subscribed: true as const };
+			return { recover, dispatch, subscribed: true as const };
 		}),
 	},
 ) {

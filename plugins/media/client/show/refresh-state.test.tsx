@@ -32,7 +32,7 @@ describe("show refresh failures", () => {
 			const error = new RyotClientError(reason);
 			const summary = errorQueryResult(
 				error,
-				decodeShowSummaryResult({ requested: [{ schemaSlug: "show" }], show: [showSummaryRow] }),
+				decodeShowSummaryResult({ show: [showSummaryRow], requested: [{ schemaSlug: "show" }] }),
 			);
 			const overview = errorQueryResult(error, decodeShowOverview());
 			const seasons = errorQueryResult(error, decodeShowEpisodesResult({}));

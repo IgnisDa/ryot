@@ -70,13 +70,13 @@ export async function openInterestWebSocket(
 	>();
 	const {
 		promise: ready,
-		resolve: resolveReady,
 		reject: rejectReady,
+		resolve: resolveReady,
 	} = Promise.withResolvers<EntityInterestReadyMessage>();
 	const {
 		promise: closed,
-		resolve: resolveClosed,
 		reject: rejectClosed,
+		resolve: resolveClosed,
 	} = Promise.withResolvers<void>();
 	void closed.catch(() => undefined);
 
@@ -99,7 +99,7 @@ export async function openInterestWebSocket(
 	};
 
 	socket.addEventListener("open", () => {
-		socket.send(encodeEntityInterestClientMessage({ type: "authenticate", ticket }));
+		socket.send(encodeEntityInterestClientMessage({ ticket, type: "authenticate" }));
 	});
 	socket.addEventListener("error", () => {
 		fail(new Error("Entity interest WebSocket failed"));
@@ -192,7 +192,7 @@ export async function openInterestWebSocket(
 							reject(error);
 							socket.close(1002, "Acknowledgement timeout");
 						}, timeoutMs);
-						acknowledgements.set(commandRevision, { resolve, reject, timer });
+						acknowledgements.set(commandRevision, { timer, reject, resolve });
 						socket.send(
 							encodeEntityInterestClientMessage({ ...message, revision: commandRevision }),
 						);
@@ -218,6 +218,13 @@ export async function openInterestWebSocket(
 			}
 			const waiter: EntityUpdatedWaiter = {
 				reject,
+				onMessage: (message: EntityInterestEntityUpdatedMessage) => {
+					if (isEntityUpdatedMatch(message, entityId, reason)) {
+						clearTimeout(waiter.timer);
+						listeners.delete(waiter);
+						resolve(message);
+					}
+				},
 				timer: setTimeout(() => {
 					listeners.delete(waiter);
 					reject(
@@ -226,13 +233,6 @@ export async function openInterestWebSocket(
 						),
 					);
 				}, waitOptions.timeoutMs ?? 90_000),
-				onMessage: (message: EntityInterestEntityUpdatedMessage) => {
-					if (isEntityUpdatedMatch(message, entityId, reason)) {
-						clearTimeout(waiter.timer);
-						listeners.delete(waiter);
-						resolve(message);
-					}
-				},
 			};
 			listeners.add(waiter);
 		});
@@ -271,9 +271,9 @@ export async function openInterestWebSocket(
 		ready: readyMessage,
 		waitForEntityUpdated,
 		expectNoEntityUpdated,
-		replaceInterest: (entityIds) => sendCommand({ type: "replace", entityIds }),
-		updateInterest: (input) => sendCommand({ type: "update", ...input }),
 		getEntityUpdatedMessages: () => messages.slice(),
+		updateInterest: (input) => sendCommand({ type: "update", ...input }),
+		replaceInterest: (entityIds) => sendCommand({ entityIds, type: "replace" }),
 		close: () => {
 			if (failure) {
 				return Promise.reject(failure);

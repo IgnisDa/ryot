@@ -23,12 +23,12 @@ afterEach(() => {
 it("reads a single upload by the schema field key", async () => {
 	const keys: string[] = [];
 	Reflect.set(globalThis, filesystemKey, {
+		writeScratchChunks: () => Promise.resolve(),
 		readArtifact: () => Promise.reject(new Error("single artifact must not be read")),
 		readNamedArtifact: (key: string) => {
 			keys.push(key);
 			return Promise.resolve(encoder.encode("export"));
 		},
-		writeScratchChunks: () => Promise.resolve(),
 	});
 
 	await expect(Effect.runPromise(readImportArtifactText())).resolves.toBe("export");
@@ -38,18 +38,18 @@ it("reads a single upload by the schema field key", async () => {
 it("reads all three Movary uploads by their declared artifact keys", async () => {
 	const keys: string[] = [];
 	Reflect.set(globalThis, filesystemKey, {
+		writeScratchChunks: () => Promise.resolve(),
 		readArtifact: () => Promise.reject(new Error("single artifact must not be read")),
 		readNamedArtifact: (key: string) => {
 			keys.push(key);
 			const files: Record<string, string> = {
-				historyUploadToken: "title,tmdb_id,watched_at\nArrival,42,2026-01-03",
-				ratingsUploadToken: "title,tmdb_id,user_rating\nArrival,42,8",
 				watchlistUploadToken: "title,tmdb_id\nArrival,42",
+				ratingsUploadToken: "title,tmdb_id,user_rating\nArrival,42,8",
+				historyUploadToken: "title,tmdb_id,watched_at\nArrival,42,2026-01-03",
 			};
 			const text = files[key] ?? "";
 			return Promise.resolve(encoder.encode(text));
 		},
-		writeScratchChunks: () => Promise.resolve(),
 	});
 
 	const result = await Effect.runPromise(movary.run({ start: 0, limit: 25 }, host, execution));
@@ -60,6 +60,7 @@ it("reads all three Movary uploads by their declared artifact keys", async () =>
 it("reads only the supplied optional MyAnimeList named artifact", async () => {
 	const keys: string[] = [];
 	Reflect.set(globalThis, filesystemKey, {
+		writeScratchChunks: () => Promise.resolve(),
 		readArtifact: () => Promise.reject(new Error("single artifact must not be read")),
 		readNamedArtifact: (key: string) => {
 			keys.push(key);
@@ -71,12 +72,11 @@ it("reads only the supplied optional MyAnimeList named artifact", async () => {
 				),
 			);
 		},
-		writeScratchChunks: () => Promise.resolve(),
 	});
 
 	const result = await Effect.runPromise(
 		myanimelist.run(
-			{ start: 0, limit: 25, hasAnimeFile: false, hasMangaFile: true },
+			{ start: 0, limit: 25, hasMangaFile: true, hasAnimeFile: false },
 			host,
 			execution,
 		),
@@ -95,19 +95,19 @@ it("imports a Trakt ZIP without reading plugin configuration", async () => {
 		"base64",
 	);
 	Reflect.set(globalThis, filesystemKey, {
+		writeScratchChunks: () => Promise.resolve(),
 		readArtifact: () => Promise.reject(new Error("single artifact must not be read")),
 		readNamedArtifact: (key: string) => {
 			keys.push(key);
 			return Promise.resolve(archive);
 		},
-		writeScratchChunks: () => Promise.resolve(),
 	});
 	const result = await Effect.runPromise(
 		trakt.run(
 			{ start: 0, limit: 25, mode: "export", hasExportFile: true },
 			{
-				getPluginConfig: () => Effect.die("plugin config must not be read"),
 				httpCall: () => Effect.die("HTTP must not be called"),
+				getPluginConfig: () => Effect.die("plugin config must not be read"),
 			} satisfies SandboxHost<["artifact-read", "httpCall", "getPluginConfig"]>,
 			execution,
 		),

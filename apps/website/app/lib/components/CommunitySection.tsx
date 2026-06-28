@@ -22,7 +22,7 @@ export const CommunitySection = () => {
 						</Button>
 					</a>
 					<a target="_blank" rel="noopener noreferrer" href="https://github.com/IgnisDa/ryot">
-						<Button variant="outline" size="lg" className="min-w-45">
+						<Button size="lg" variant="outline" className="min-w-45">
 							<svg
 								role="img"
 								viewBox="0 0 24 24"

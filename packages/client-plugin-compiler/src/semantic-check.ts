@@ -41,10 +41,10 @@ export const checkClientPluginTypes = (
 		(path) => TYPESCRIPT_SOURCE.test(path) && !TEST_SOURCE.test(path),
 	);
 	return createTypeScriptProject({
-		entries: [...entries, AMBIENT_FILE],
-		projectKind: "client plugin",
-		tsserverPath: dependencies.tsserverPath,
 		virtualRoot: VIRTUAL_ROOT,
+		projectKind: "client plugin",
+		entries: [...entries, AMBIENT_FILE],
+		tsserverPath: dependencies.tsserverPath,
 		files: { ...files, [AMBIENT_FILE]: ambientSource },
 		compilerOptions: {
 			types: [],
@@ -73,7 +73,7 @@ export const checkClientPluginTypes = (
 			),
 		},
 	}).pipe(
-		Effect.map(({ diagnostics, entrySourceFiles, sourceFiles }) => {
+		Effect.map(({ diagnostics, sourceFiles, entrySourceFiles }) => {
 			const fallbackFile = entrySourceFiles[entries[0] ?? AMBIENT_FILE];
 			if (!fallbackFile) {
 				return [];

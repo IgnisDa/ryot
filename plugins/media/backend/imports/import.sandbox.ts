@@ -100,7 +100,7 @@ const kernelImport = {
 const resolutionCandidates = (entitySchemaSlug: string) =>
 	Object.entries(mediaImportResolutionActivitySlugByProvider).flatMap(
 		([providerSlug, scriptSlug]) =>
-			providerSlug.startsWith(`${entitySchemaSlug}.`) ? [{ providerSlug, scriptSlug }] : [],
+			providerSlug.startsWith(`${entitySchemaSlug}.`) ? [{ scriptSlug, providerSlug }] : [],
 	);
 
 export default defineWorkflow({
@@ -182,7 +182,7 @@ export default defineWorkflow({
 								...target,
 								...(target.mode === "user"
 									? { username: target.username.trim() }
-									: { collection: target.collection.trim(), url: target.url.trim() }),
+									: { url: target.url.trim(), collection: target.collection.trim() }),
 							};
 			}
 			if (["plex", "audiobookshelf", "media_tracker"].includes(input.source)) {
@@ -288,7 +288,7 @@ export default defineWorkflow({
 									providerSlug: group.entityRef.providerSlug,
 									entitySchemaSlug: group.entityRef.entitySchemaSlug,
 									origin: isIntegration
-										? { kind: "integration" as const, integrationId, importRunId: input.runId }
+										? { integrationId, importRunId: input.runId, kind: "integration" as const }
 										: { kind: "import" as const, importRunId: input.runId },
 								},
 							]

@@ -28,11 +28,11 @@ import { ShowFact, ShowLinkButton, ShowRefreshStatus, ShowStatusMessage } from "
 import { showActivityQuery } from "./queries";
 
 const MARKER_TONE: Record<ShowActivityRow["type"], string> = {
+	beat: "bg-border",
 	watch: "bg-success",
 	review: "bg-accent",
 	progress: "bg-accent",
 	completion: "bg-accent",
-	beat: "bg-border",
 	collection: "bg-transparent",
 };
 
@@ -43,9 +43,9 @@ function ShowActivitySummaryFigures(props: {
 	const { summary } = props;
 	const span = showActivitySpanLabel(summary);
 	const figures = [
-		{ label: "Episodes", value: showActivityEpisodesLabel(summary), detail: undefined },
-		{ label: "Watches", value: showActivityWatchesLabel(summary), detail: undefined },
-		{ label: "Time", value: showActivityTimeLabel(summary), detail: undefined },
+		{ label: "Episodes", detail: undefined, value: showActivityEpisodesLabel(summary) },
+		{ label: "Watches", detail: undefined, value: showActivityWatchesLabel(summary) },
+		{ label: "Time", detail: undefined, value: showActivityTimeLabel(summary) },
 		{ label: span.label, value: span.value, detail: span.detail },
 	];
 	return (
@@ -72,11 +72,11 @@ function ShowActivityCoverageRow(props: { readonly season: ShowActivitySeasonCov
 			<p className="w-16 font-ui text-[11.5px] text-text-muted">{season.label}</p>
 			<div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-pill bg-surface-2">
 				<div
+					style={{ width: `${season.percent ?? 0}%` }}
 					className={clsx(
 						"h-full rounded-pill",
 						season.watched === season.total ? "bg-success" : "bg-accent",
 					)}
-					style={{ width: `${season.percent ?? 0}%` }}
 				/>
 			</div>
 			<p className="w-14 text-right font-ui text-[11.5px] text-text-subtle tabular-nums">
@@ -102,7 +102,7 @@ function ShowActivityCoverageStrip(props: { readonly coverage: ShowActivityCover
 			</p>
 			<div className="flex flex-col gap-2">
 				{rows.map((season) => (
-					<ShowActivityCoverageRow key={season.seasonNumber} season={season} />
+					<ShowActivityCoverageRow season={season} key={season.seasonNumber} />
 				))}
 			</div>
 		</div>
@@ -321,7 +321,7 @@ function ShowActivityEmpty() {
 }
 
 function ShowActivityRecord(props: { readonly compact: boolean; readonly view: ShowActivityView }) {
-	const { compact, view } = props;
+	const { view, compact } = props;
 	return (
 		<div
 			className={clsx(

@@ -36,11 +36,20 @@ export const ClientCompilerWorkerRequestBase64 = Schema.Union([
 		...ClientCompilerWorkerRequestFields,
 		contributorOrder: Schema.Array(Schema.String),
 		application: Schema.Literals(["page", "plugin-route"]),
-		entry: Schema.Struct({ contributor: Schema.String, path: Schema.String }),
 		publicExports: Schema.Record(Schema.String, ClientCompilerPublicExport),
+		entry: Schema.Struct({ path: Schema.String, contributor: Schema.String }),
 		contributors: Schema.Record(
 			Schema.String,
 			Schema.Struct({ files: Schema.Record(Schema.String, CanonicalBase64) }),
+		),
+		routeRegistry: Schema.optional(
+			Schema.Struct({
+				home: Schema.String,
+				notFound: Schema.optional(Schema.String),
+				routes: Schema.Array(
+					Schema.Struct({ path: Schema.String, exportSpecifier: Schema.String }),
+				),
+			}),
 		),
 		automaticRegistry: Schema.optional(
 			Schema.Array(
@@ -51,15 +60,6 @@ export const ClientCompilerWorkerRequestBase64 = Schema.Union([
 					layout: Schema.Literals(["grid", "list"]),
 				}),
 			),
-		),
-		routeRegistry: Schema.optional(
-			Schema.Struct({
-				home: Schema.String,
-				notFound: Schema.optional(Schema.String),
-				routes: Schema.Array(
-					Schema.Struct({ path: Schema.String, exportSpecifier: Schema.String }),
-				),
-			}),
 		),
 	}),
 ]);
@@ -81,8 +81,8 @@ const ClientCompilerWorkerSuccess = Schema.Struct({
 });
 
 const ClientCompilerWorkerFailure = Schema.Struct({
-	error: ClientPluginCompilerFailure,
 	success: Schema.Literal(false),
+	error: ClientPluginCompilerFailure,
 });
 
 export const ClientCompilerWorkerResponseBase64 = Schema.Union([

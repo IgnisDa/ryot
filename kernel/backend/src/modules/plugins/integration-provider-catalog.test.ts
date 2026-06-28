@@ -14,7 +14,7 @@ import { PluginRuntimeResolver } from "./runtime-resolver";
 import { fixtureManifest, fixturePluginIdentity } from "./test-support";
 
 const settingsSchema = {
-	fields: { token: { type: "string", label: "Token", description: "API token", secret: true } },
+	fields: { token: { secret: true, type: "string", label: "Token", description: "API token" } },
 } satisfies PluginManifest["integrationProviders"][number]["settingsSchema"];
 const epoch = new Date(0);
 const userId = UserId.make("user-1");
@@ -97,7 +97,7 @@ const catalogLayer = () => {
 	const loader = makePluginLoader(makeDefinitionRegistry());
 	loader.rebuild([
 		pluginWithProviders("zebra", [
-			{ settingsSchema, slug: "iota", lot: "push", name: "Iota", description: "Iota push" },
+			{ lot: "push", slug: "iota", name: "Iota", settingsSchema, description: "Iota push" },
 		]),
 		pluginWithProviders("apple", [
 			{
@@ -131,7 +131,7 @@ it.effect("lists providers from every plugin ordered by plugin slug then provide
 		const catalog = yield* IntegrationProviderCatalog;
 
 		expect(
-			(yield* catalog.listForUser(userId)).map(({ pluginSlug, slug }) => `${pluginSlug}/${slug}`),
+			(yield* catalog.listForUser(userId)).map(({ slug, pluginSlug }) => `${pluginSlug}/${slug}`),
 		).toEqual(["apple/lambda", "apple/theta", "zebra/iota"]);
 	}).pipe(Effect.provide(catalogLayer())),
 );
@@ -232,7 +232,7 @@ it.effect(
 			yield* Deferred.succeed(release, undefined);
 
 			expect(yield* Fiber.join(fiber)).toMatchObject({
-				provider: { description: "Old provider", slug: "theta" },
+				provider: { slug: "theta", description: "Old provider" },
 				script: { id: "old-script", contentHash: "script-apple" },
 			});
 		}),

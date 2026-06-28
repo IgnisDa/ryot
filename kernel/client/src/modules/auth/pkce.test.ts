@@ -31,7 +31,7 @@ describe("OAuth PKCE", () => {
 			);
 			expect(generateOAuthRandomValue()).toMatch(/^[A-Za-z0-9_-]{43}$/);
 		} finally {
-			Object.defineProperty(globalThis, "crypto", { configurable: true, value: secure });
+			Object.defineProperty(globalThis, "crypto", { value: secure, configurable: true });
 		}
 	});
 });

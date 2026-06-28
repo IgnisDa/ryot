@@ -74,13 +74,13 @@ describe("managedAssetBatches", () => {
 
 	it("canonicalizes duplicate and reordered locators to the same batch key", () => {
 		const first = managedAssetBatches([
-			{ type: "s3", key: "b" },
-			{ type: "local", key: "a" },
-			{ type: "s3", key: "b" },
+			{ key: "b", type: "s3" },
+			{ key: "a", type: "local" },
+			{ key: "b", type: "s3" },
 		]);
 		const second = managedAssetBatches([
-			{ type: "local", key: "a" },
-			{ type: "s3", key: "b" },
+			{ key: "a", type: "local" },
+			{ key: "b", type: "s3" },
 		]);
 
 		expect(first.map((batch) => batch.key)).toEqual(second.map((batch) => batch.key));

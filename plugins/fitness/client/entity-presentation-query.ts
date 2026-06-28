@@ -29,6 +29,7 @@ export const fitnessPresentationRecipe = defineRecipe(
 		const recordedAt =
 			input.slug === "workout-template" ? column(entity, "createdAt") : property("recordedAt");
 		return {
+			map: ({ entities }) => Result.succeed(entities.items),
 			queries: {
 				entities: selectedRows(entity, {
 					limit: 100,
@@ -49,9 +50,9 @@ export const fitnessPresentationRecipe = defineRecipe(
 							column(entity, "translationStatus"),
 							TranslationStatus,
 						),
-						images: selectedField(
-							isExercise ? castJson(property("images")) : literal(null),
-							Schema.NullOr(Schema.Array(AssetLocator)),
+						callout: selectedField(
+							isExercise ? titleCase(property("level")) : literal(null),
+							nullableText,
 						),
 						primary: selectedField(
 							isExercise ? titleCase(property("kind")) : castDate(recordedAt),
@@ -61,14 +62,13 @@ export const fitnessPresentationRecipe = defineRecipe(
 							isExercise ? titleCase(property("equipment")) : castText(property("comment")),
 							nullableText,
 						),
-						callout: selectedField(
-							isExercise ? titleCase(property("level")) : literal(null),
-							nullableText,
+						images: selectedField(
+							isExercise ? castJson(property("images")) : literal(null),
+							Schema.NullOr(Schema.Array(AssetLocator)),
 						),
 					},
 				}),
 			},
-			map: ({ entities }) => Result.succeed(entities.items),
 		};
 	},
 );

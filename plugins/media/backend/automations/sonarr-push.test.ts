@@ -52,8 +52,8 @@ const schema = entitySchemaRecord({
 const createAutomation = (properties: Record<string, string>) =>
 	eventAutomationContext({
 		eventSchemaSlug: "add-entity-to-collection",
-		subject: { id: "collection-1", name: "Collection", entitySchemaSlug: "collection" },
 		properties: { relationshipId: "rel-1", relationshipProperties: {}, ...properties },
+		subject: { id: "collection-1", name: "Collection", entitySchemaSlug: "collection" },
 	});
 
 const createHttpCall =
@@ -79,8 +79,8 @@ const createHost = (options: {
 }) =>
 	defineSandboxTestHost(manifest, {
 		httpCall: options.httpCall,
-		log: options.log ?? (() => Effect.succeed(null)),
 		getEntitySchemas: () => hostSuccess([schema]),
+		log: options.log ?? (() => Effect.succeed(null)),
 		listIntegrations: () => hostSuccess(options.integrations ?? []),
 		getUserPreferences: () => hostSuccess({ allowNsfw: false, disableIntegrations: false }),
 		executeRyotql: () =>
@@ -92,12 +92,12 @@ describe("sonarr-push sandbox script", () => {
 		const calls: HttpCall[] = [];
 		const host = createHost({
 			entity: showEntity,
-			integrations: [sonarrIntegration],
 			httpCall: createHttpCall(calls),
+			integrations: [sonarrIntegration],
 		});
 		return Effect.runPromise(
 			definition
-				.run(createAutomation({ entitySchemaSlug: "show", entityId: "show-1" }), host, execution)
+				.run(createAutomation({ entityId: "show-1", entitySchemaSlug: "show" }), host, execution)
 				.pipe(
 					Effect.map(() => {
 						expect(calls).toHaveLength(1);
@@ -123,12 +123,12 @@ describe("sonarr-push sandbox script", () => {
 			Effect.all(
 				[
 					definition.run(
-						createAutomation({ entitySchemaSlug: "movie", entityId: "movie-1" }),
-						createHost({ entity: showEntity, integrations: [sonarrIntegration], httpCall }),
+						createAutomation({ entityId: "movie-1", entitySchemaSlug: "movie" }),
+						createHost({ httpCall, entity: showEntity, integrations: [sonarrIntegration] }),
 						execution,
 					),
 					definition.run(
-						createAutomation({ entitySchemaSlug: "show", entityId: "show-1" }),
+						createAutomation({ entityId: "show-1", entitySchemaSlug: "show" }),
 						createHost({
 							httpCall,
 							integrations: [sonarrIntegration],
@@ -152,12 +152,12 @@ describe("sonarr-push sandbox script", () => {
 			const warnings: (readonly LogEntry[])[] = [];
 			const host = createHost({
 				entity: showEntity,
+				log: createLog(warnings),
 				integrations: [sonarrIntegration],
 				httpCall: () => httpFailure("already exists"),
-				log: createLog(warnings),
 			});
 			const result = yield* definition.run(
-				createAutomation({ entitySchemaSlug: "show", entityId: "show-1" }),
+				createAutomation({ entityId: "show-1", entitySchemaSlug: "show" }),
 				host,
 				execution,
 			);

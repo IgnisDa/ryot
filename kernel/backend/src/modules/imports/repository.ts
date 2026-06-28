@@ -23,11 +23,11 @@ import {
 type ImportRunRow = typeof schema.importRun.$inferSelect;
 
 const normalizeRun = (row: ImportRunRow): ListedImportRun => ({
-	id: ImportRunId.make(row.id),
 	source: row.source,
 	status: row.status,
 	progress: row.progress,
 	totalItems: row.totalItems,
+	id: ImportRunId.make(row.id),
 	failedItems: row.failedItems,
 	inputSummary: row.inputSummary,
 	failureReason: row.failureReason,

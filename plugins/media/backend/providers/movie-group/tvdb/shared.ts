@@ -15,9 +15,9 @@ export const manifest = defineManifest({
 	name: "TVDB",
 	kind: "provider",
 	slug: "movie-group.tvdb",
-	capabilities: ["httpCall", "getCachedValue", "setCachedValue", "getPluginConfig"],
-	requiredPluginConfigKeys: ["tvdbApiKey"],
 	requiredSystemConfigKeys: [],
+	requiredPluginConfigKeys: ["tvdbApiKey"],
+	capabilities: ["httpCall", "getCachedValue", "setCachedValue", "getPluginConfig"],
 });
 
 export const search = defineProvider({
@@ -48,7 +48,7 @@ export const details = defineProvider({
 			const description = translation.description ?? stringValue(list["overview"]);
 			const image = stringValue(list["image"]);
 			const images = image
-				? [{ type: "remote" as const, url: image, purpose: "cover" as const }]
+				? [{ url: image, type: "remote" as const, purpose: "cover" as const }]
 				: [];
 			const movieEntities = recordsValue(list["entities"]).filter(
 				(entity) => entity["movieId"] != null,
@@ -78,9 +78,9 @@ export const details = defineProvider({
 				properties: { parts, images, sourceUrl, description },
 				relatedEntityGroups: [
 					{
+						entities: relatedEntities,
 						direction: "outgoing" as const,
 						synchronization: "authoritative" as const,
-						entities: relatedEntities,
 						relationshipSchemaSlug: "movie-group-to-movie",
 					},
 				],

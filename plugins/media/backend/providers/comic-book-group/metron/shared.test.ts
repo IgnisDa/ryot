@@ -35,7 +35,7 @@ describe("comic-book-group.metron sandbox script", () => {
 		);
 
 		return Effect.runPromise(
-			runSandboxTestScript(search, { query: "saga", page: 1, pageSize: 20 }, host, execution).pipe(
+			runSandboxTestScript(search, { page: 1, pageSize: 20, query: "saga" }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.items).toEqual([{ title: "Saga", metadata: [60], externalId: "10" }]);
 					expect(result.details).toEqual({ totalItems: 1, nextPage: null });
@@ -54,9 +54,9 @@ describe("comic-book-group.metron sandbox script", () => {
 		);
 
 		return Effect.runPromise(
-			runSandboxTestScript(search, { query: "saga", page: 1, pageSize: 20 }, host, execution).pipe(
+			runSandboxTestScript(search, { page: 1, pageSize: 20, query: "saga" }, host, execution).pipe(
 				Effect.map((result) => {
-					expect(result.details).toEqual({ totalItems: 100, nextPage: 2 });
+					expect(result.details).toEqual({ nextPage: 2, totalItems: 100 });
 				}),
 			),
 		);
@@ -69,7 +69,7 @@ describe("comic-book-group.metron sandbox script", () => {
 					results: [{ id: 1, issue: "Saga #1" }, { id: 2, issue_name: "Saga #2" }, { id: 3 }],
 				});
 			}
-			return httpSuccess({ name: "Saga", desc: "A comic.", issue_count: 3 });
+			return httpSuccess({ name: "Saga", issue_count: 3, desc: "A comic." });
 		});
 
 		return Effect.runPromise(
@@ -95,8 +95,8 @@ describe("comic-book-group.metron sandbox script", () => {
 									relationshipProperties: { order: 2 },
 								},
 								{
-									name: "Loading...",
 									externalId: "3",
+									name: "Loading...",
 									providerSlug: "comic-book.metron",
 									relationshipProperties: { order: 3 },
 								},

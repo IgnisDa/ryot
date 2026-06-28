@@ -27,7 +27,7 @@ export class ClientPageSessions extends Context.Service<ClientPageSessions>()(
 			const api = yield* ClientPagesApi;
 			const create = (scope: ApiScope, identity: PreparedClientPage["identity"]) =>
 				api.createSession(scope, { payload: { identity } }).pipe(
-					Effect.map(({ expiresAt, sessionId, token }) => ({
+					Effect.map(({ token, expiresAt, sessionId }) => ({
 						expiresAt,
 						sessionId,
 						src: `${serverApiUrl(scope.serverUrl)}/client-pages/artifacts/${encodeURIComponent(token)}/index.html`,
@@ -41,7 +41,7 @@ export class ClientPageSessions extends Context.Service<ClientPageSessions>()(
 				sessionId: string,
 			): Effect.Effect<ClientPageSessionRenewal, ClientPageSessionTemporary> =>
 				api.renewSession(scope, { params: { sessionId } }).pipe(
-					Effect.map(({ expiresAt }) => ({ outcome: "renewed" as const, expiresAt })),
+					Effect.map(({ expiresAt }) => ({ expiresAt, outcome: "renewed" as const })),
 					Effect.catchTag(
 						"AuthenticatedApiError",
 						(
@@ -51,7 +51,7 @@ export class ClientPageSessions extends Context.Service<ClientPageSessions>()(
 							ClientPageSessionTemporary
 						> => {
 							if (isStale(error.cause)) {
-								return Effect.succeed({ outcome: "replace", reason: "stale" });
+								return Effect.succeed({ reason: "stale", outcome: "replace" });
 							}
 							if (isNotFound(error.cause)) {
 								return Effect.succeed({ outcome: "replace", reason: "not-found" });
@@ -70,7 +70,7 @@ export class ClientPageSessions extends Context.Service<ClientPageSessions>()(
 								: Effect.fail(new ClientPageSessionTemporary()),
 						),
 					);
-			return { create, renew, revoke };
+			return { renew, create, revoke };
 		}),
 	},
 ) {

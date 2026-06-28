@@ -24,6 +24,6 @@ export const Route = createFileRoute("/auth_/logout/callback")({
 			}),
 		);
 		// oxlint-disable-next-line typescript/only-throw-error
-		throw redirect({ replace: true, to: "/auth", search: { redirect: undefined } });
+		throw redirect({ to: "/auth", replace: true, search: { redirect: undefined } });
 	},
 });

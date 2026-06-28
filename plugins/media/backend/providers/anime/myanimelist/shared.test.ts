@@ -15,9 +15,9 @@ const httpSuccess = (body: unknown) =>
 const makeHost = (httpCall: MyAnimeListAnimeHost["httpCall"], allowNsfw = false) =>
 	defineSandboxTestHost(manifest, {
 		httpCall,
+		getUserPreferences: () => Effect.succeed({ allowNsfw, disableIntegrations: false }),
 		getPluginConfig: (keys) =>
 			Effect.succeed(Object.fromEntries(keys.map((key) => [key, "client-id"]))),
-		getUserPreferences: () => Effect.succeed({ allowNsfw, disableIntegrations: false }),
 	});
 
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
@@ -36,18 +36,18 @@ describe("anime.myanimelist sandbox script", () => {
 	it("loads the MAL client ID and sends it in the auth header", () => {
 		const configKeys: string[] = [];
 		const host = defineSandboxTestHost(manifest, {
+			getUserPreferences: () => Effect.succeed({ allowNsfw: false, disableIntegrations: false }),
 			getPluginConfig: (keys) => {
 				configKeys.push(...keys);
 				return Effect.succeed(Object.fromEntries(keys.map((key) => [key, "client-id"])));
 			},
-			getUserPreferences: () => Effect.succeed({ allowNsfw: false, disableIntegrations: false }),
 			httpCall: (_method, _url, options) => {
 				expect(options?.headers).toEqual({ "X-MAL-CLIENT-ID": "client-id" });
 				return httpSuccess({ data: [], paging: {} });
 			},
 		});
 		return Effect.runPromise(
-			runSandboxTestScript(search, { query: "hero", page: 1, pageSize: 20 }, host, execution).pipe(
+			runSandboxTestScript(search, { page: 1, pageSize: 20, query: "hero" }, host, execution).pipe(
 				Effect.map(() => {
 					expect(configKeys).toEqual(["malClientId"]);
 					return undefined;
@@ -83,9 +83,9 @@ describe("anime.myanimelist sandbox script", () => {
 							synchronization: "authoritative",
 							relationshipSchemaSlug: "media-suggestion",
 							entities: [
-								{ name: "Related Anime", externalId: "3", providerSlug: "anime.myanimelist" },
-								{ name: "Related Manga", externalId: "4", providerSlug: "manga.myanimelist" },
-								{ name: "Anime Pick", externalId: "2", providerSlug: "anime.myanimelist" },
+								{ externalId: "3", name: "Related Anime", providerSlug: "anime.myanimelist" },
+								{ externalId: "4", name: "Related Manga", providerSlug: "manga.myanimelist" },
+								{ externalId: "2", name: "Anime Pick", providerSlug: "anime.myanimelist" },
 							],
 						},
 					]);
@@ -125,8 +125,8 @@ describe("anime.myanimelist sandbox script", () => {
 						sourceUrl: "https://myanimelist.net/anime/1/Source",
 						airingSchedule: [{ episode: 1, airingAt: "2024-01-05T00:00:00.000Z" }],
 						images: [
-							{ type: "remote", url: "https://img/l.jpg", purpose: "cover" },
-							{ type: "remote", url: "https://img/m.jpg", purpose: "cover" },
+							{ type: "remote", purpose: "cover", url: "https://img/l.jpg" },
+							{ type: "remote", purpose: "cover", url: "https://img/m.jpg" },
 						],
 					});
 					return undefined;
@@ -145,7 +145,7 @@ describe("anime.myanimelist sandbox script", () => {
 		return Effect.runPromise(
 			runSandboxTestScript(
 				search,
-				{ query: "hero", page: 1, pageSize: 20 },
+				{ page: 1, pageSize: 20, query: "hero" },
 				makeHost((_method, url) => collectUrl(url)),
 				execution,
 			)
@@ -153,7 +153,7 @@ describe("anime.myanimelist sandbox script", () => {
 					Effect.flatMap(() =>
 						runSandboxTestScript(
 							search,
-							{ query: "hero", page: 1, pageSize: 20 },
+							{ page: 1, pageSize: 20, query: "hero" },
 							makeHost((_method, url) => collectUrl(url), true),
 							execution,
 						),
@@ -187,12 +187,12 @@ describe("anime.myanimelist sandbox script", () => {
 			}),
 		);
 		return Effect.runPromise(
-			runSandboxTestScript(search, { query: "found", page: 1, pageSize: 20 }, host, execution).pipe(
+			runSandboxTestScript(search, { page: 1, pageSize: 20, query: "found" }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.items).toEqual([
 						{ title: "Found", externalId: "5", metadata: [2021], imageUrl: "https://img/5.jpg" },
 					]);
-					expect(result.details).toEqual({ totalItems: 2, nextPage: 2 });
+					expect(result.details).toEqual({ nextPage: 2, totalItems: 2 });
 					return undefined;
 				}),
 			),

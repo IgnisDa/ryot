@@ -69,7 +69,7 @@ const buildSchemaMaps = (definitions: DefinitionSnapshot) => {
 	const savedViews = new Map<string, QualifiedSchema>();
 
 	for (const definition of Object.values(definitions.entitySchemas)) {
-		const qualified = { pluginId: definition.pluginId ?? null, slug: definition.slug };
+		const qualified = { slug: definition.slug, pluginId: definition.pluginId ?? null };
 		addUnique(
 			entitySchemas,
 			qualifiedKey(qualified.pluginId, qualified.slug),
@@ -81,13 +81,13 @@ const buildSchemaMaps = (definitions: DefinitionSnapshot) => {
 			addUnique(
 				eventSchemas,
 				eventKey(eventPluginId, definition.slug, event.slug),
-				{ pluginId: eventPluginId, slug: event.slug },
+				{ slug: event.slug, pluginId: eventPluginId },
 				"event schema",
 			);
 		}
 	}
 	for (const definition of Object.values(definitions.relationshipSchemas)) {
-		const qualified = { pluginId: definition.pluginId ?? null, slug: definition.slug };
+		const qualified = { slug: definition.slug, pluginId: definition.pluginId ?? null };
 		addUnique(
 			relationshipSchemas,
 			qualifiedKey(qualified.pluginId, qualified.slug),
@@ -96,7 +96,7 @@ const buildSchemaMaps = (definitions: DefinitionSnapshot) => {
 		);
 	}
 	for (const definition of Object.values(definitions.savedViews)) {
-		const qualified = { pluginId: definition.pluginId ?? null, slug: definition.slug };
+		const qualified = { slug: definition.slug, pluginId: definition.pluginId ?? null };
 		addUnique(
 			savedViews,
 			qualifiedKey(qualified.pluginId, qualified.slug),
@@ -105,7 +105,7 @@ const buildSchemaMaps = (definitions: DefinitionSnapshot) => {
 		);
 	}
 
-	return { entitySchemas, eventSchemas, relationshipSchemas, savedViews };
+	return { savedViews, eventSchemas, entitySchemas, relationshipSchemas };
 };
 
 export const buildLegacyPackageResolution = Effect.fn("buildLegacyPackageResolution")(function* (
@@ -162,8 +162,8 @@ export const buildLegacyPackageResolution = Effect.fn("buildLegacyPackageResolut
 		database
 			.select({
 				id: schema.sandboxProvider.id,
-				pluginId: schema.sandboxProvider.pluginId,
 				slug: schema.sandboxProvider.slug,
+				pluginId: schema.sandboxProvider.pluginId,
 			})
 			.from(schema.sandboxProvider)
 			.where(inArray(schema.sandboxProvider.pluginId, pluginIds)),
@@ -197,8 +197,8 @@ export const buildLegacyPackageResolution = Effect.fn("buildLegacyPackageResolut
 					id: schema.pluginInstallation.id,
 					userId: schema.pluginInstallation.userId,
 					health: schema.pluginInstallation.health,
-					isDisabled: schema.pluginInstallation.isDisabled,
 					pluginId: schema.pluginInstallation.pluginId,
+					isDisabled: schema.pluginInstallation.isDisabled,
 				})
 				.from(schema.pluginInstallation)
 				.where(
@@ -266,12 +266,12 @@ export const buildLegacyPackageResolution = Effect.fn("buildLegacyPackageResolut
 
 	return {
 		...buildSchemaMaps(snapshot.definitions),
-		fitnessPluginId: fitness.id,
-		integrationProviders,
-		installations,
-		mediaPluginId: media.id,
-		providers,
 		scripts,
+		providers,
+		installations,
+		integrationProviders,
+		mediaPluginId: media.id,
+		fitnessPluginId: fitness.id,
 	} satisfies LegacyPackageResolution;
 });
 
@@ -295,9 +295,9 @@ export const resolveEntityMigrationTargets = <
 				: requireMapped(resolution.providers, pluginId, target.providerSlug, "provider");
 		return {
 			...target,
-			entitySchemaPluginId: entitySchema.pluginId,
-			entitySchemaSlug: entitySchema.slug,
 			providerId,
+			entitySchemaSlug: entitySchema.slug,
+			entitySchemaPluginId: entitySchema.pluginId,
 		};
 	});
 
@@ -318,8 +318,8 @@ export const resolveRelationshipMigrationTargets = (input: {
 		);
 		targets.push({
 			lot,
-			relationshipSchemaPluginId: relationshipSchema.pluginId,
 			relationshipSchemaSlug: relationshipSchema.slug,
+			relationshipSchemaPluginId: relationshipSchema.pluginId,
 		});
 	}
 	return targets;

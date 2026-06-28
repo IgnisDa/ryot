@@ -17,9 +17,9 @@ const addSession = Effect.fn("test.addSession")(function* (
 	yield* bridge.addSession(executionId, {
 		parentSpan,
 		apiFunctions: { test: () => host() },
-		token: options.token ?? `${executionId}-token`,
 		expiresAt: options.expiresAt ?? now + 60_000,
 		hostCallLimit: SANDBOX_LIMITS.hostCalls.total,
+		token: options.token ?? `${executionId}-token`,
 	});
 });
 

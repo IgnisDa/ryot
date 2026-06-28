@@ -10,17 +10,17 @@ import {
 
 export const manifest = defineManifest({
 	kind: "operation",
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 	name: "Media monitoring status",
 	capabilities: ["executeRyotql"],
 	slug: "operation.media-monitoring-status",
-	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 });
 
 export default defineOperation({
 	manifest,
-	input: MediaMonitoringStatusInput,
 	output: MediaMonitoringOutput,
+	input: MediaMonitoringStatusInput,
 	run: (input, host) =>
 		queryMediaMonitoringTargets(input.entityIds, host.executeRyotql).pipe(
 			Effect.map((targets) => ({

@@ -137,7 +137,7 @@ export const PluginThemeSnapshot = strictStruct({ resolvedMode: PluginThemeMode 
 export type PluginThemeSnapshot = Schema.Schema.Type<typeof PluginThemeSnapshot>;
 
 export const ClientPageTarget = Schema.Union([
-	strictStruct({ kind: Schema.Literal("saved-view"), savedViewId: SavedViewId }),
+	strictStruct({ savedViewId: SavedViewId, kind: Schema.Literal("saved-view") }),
 	strictStruct({
 		path: Schema.String,
 		search: Schema.String,
@@ -146,8 +146,8 @@ export const ClientPageTarget = Schema.Union([
 	}),
 	strictStruct({
 		entityId: EntityId,
-		entitySchemaSlug: EntitySchemaSlug,
 		kind: Schema.Literal("entity"),
+		entitySchemaSlug: EntitySchemaSlug,
 		entitySchemaPluginId: Schema.NullOr(Schema.String),
 	}),
 ]);
@@ -155,8 +155,8 @@ export const ClientPageTarget = Schema.Union([
 export type ClientPageTarget = Schema.Schema.Type<typeof ClientPageTarget>;
 
 export const ClientPageRenderer = Schema.Union([
-	strictStruct({ kind: Schema.Literal("kernel"), name: Schema.String }),
-	strictStruct({ kind: Schema.Literal("custom"), id: ClientRendererId }),
+	strictStruct({ name: Schema.String, kind: Schema.Literal("kernel") }),
+	strictStruct({ id: ClientRendererId, kind: Schema.Literal("custom") }),
 	strictStruct({
 		pluginId: Schema.String,
 		exportName: Schema.String,
@@ -261,8 +261,8 @@ export type PluginRouteLocation = Schema.Schema.Type<typeof PluginRouteLocation>
 export const PluginEntityLocation = strictStruct({
 	entityId: EntityId,
 	search: Schema.String,
-	entitySchemaSlug: EntitySchemaSlug,
 	kind: Schema.Literal("entity"),
+	entitySchemaSlug: EntitySchemaSlug,
 });
 
 export type PluginEntityLocation = Schema.Schema.Type<typeof PluginEntityLocation>;
@@ -272,7 +272,7 @@ export const PluginLogicalLocation = Schema.Union([PluginRouteLocation, PluginEn
 export type PluginLogicalLocation = Schema.Schema.Type<typeof PluginLogicalLocation>;
 
 export const PluginNavigationTarget = Schema.Union([
-	strictStruct({ kind: Schema.Literal("saved-view"), savedViewId: SavedViewId }),
+	strictStruct({ savedViewId: SavedViewId, kind: Schema.Literal("saved-view") }),
 	strictStruct({ entityId: EntityId, kind: Schema.Literal("entity") }),
 	strictStruct({
 		path: Schema.String,
@@ -319,8 +319,8 @@ export const PluginBridgeDismissOverlay = strictStruct({
 export type PluginBridgeDismissOverlay = Schema.Schema.Type<typeof PluginBridgeDismissOverlay>;
 
 export const PluginBridgeDismissOverlayResult = strictStruct({
-	dismissed: Schema.Boolean,
 	requestId: Schema.String,
+	dismissed: Schema.Boolean,
 	type: Schema.Literal("dismiss-overlay-result"),
 });
 
@@ -502,9 +502,9 @@ export type PluginCollectionBridgeErrorReason = Schema.Schema.Type<
 >;
 
 const collectionRequestVariants = [
-	strictStruct({ action: Schema.Literal("create"), input: CreateCollectionBody }),
-	strictStruct({ action: Schema.Literal("upsert-membership"), input: CreateMembershipBody }),
-	strictStruct({ action: Schema.Literal("remove-membership"), input: DeleteMembershipBody }),
+	strictStruct({ input: CreateCollectionBody, action: Schema.Literal("create") }),
+	strictStruct({ input: CreateMembershipBody, action: Schema.Literal("upsert-membership") }),
+	strictStruct({ input: DeleteMembershipBody, action: Schema.Literal("remove-membership") }),
 ] as const;
 
 export const PluginCollectionRequest = Schema.Union(collectionRequestVariants);
@@ -531,8 +531,8 @@ const pluginCollectionSuccessFields = {
 };
 
 const pluginCollectionFailureFields = {
-	reason: PluginCollectionBridgeErrorReason,
 	outcome: Schema.Literal("failure"),
+	reason: PluginCollectionBridgeErrorReason,
 };
 
 const pluginBridgeCollectionResultFields = {
@@ -587,8 +587,8 @@ const pluginAssetSuccessFields = {
 };
 
 const pluginAssetFailureFields = {
-	reason: PluginAssetBridgeErrorReason,
 	outcome: Schema.Literal("failure"),
+	reason: PluginAssetBridgeErrorReason,
 };
 
 const pluginBridgeAssetResultFields = {
@@ -631,8 +631,8 @@ export type PluginBridgeOperationRequest = Schema.Schema.Type<typeof PluginBridg
 const pluginOperationSuccessFields = { value: JsonValue, outcome: Schema.Literal("success") };
 
 const pluginOperationFailureFields = {
-	reason: PluginOperationBridgeErrorReason,
 	outcome: Schema.Literal("failure"),
+	reason: PluginOperationBridgeErrorReason,
 };
 
 const pluginBridgeOperationResultFields = {
@@ -680,8 +680,8 @@ const pluginUploadSuccessFields = {
 };
 
 const pluginUploadFailureFields = {
-	reason: PluginUploadBridgeErrorReason,
 	outcome: Schema.Literal("failure"),
+	reason: PluginUploadBridgeErrorReason,
 };
 
 const pluginBridgeUploadResultFields = {
@@ -764,7 +764,7 @@ export const PluginBridgeEntityInterest = strictStruct({
 	.pipe(
 		Schema.check(
 			Schema.makeFilter(
-				({ foreground, visible }) =>
+				({ visible, foreground }) =>
 					foreground.length + visible.length <= MAX_INTEREST_ENTITY_IDS ||
 					"Too many entity interests",
 			),

@@ -21,7 +21,7 @@ const createPolicyContext = (
 	origin?: AutomationPolicyInput["automation"]["origin"],
 ) =>
 	policyAutomationContext(
-		{ properties: { progressPercent: 50, consumedOn: "Plex" }, ...overrides },
+		{ properties: { consumedOn: "Plex", progressPercent: 50 }, ...overrides },
 		origin,
 	);
 
@@ -35,26 +35,26 @@ const createHost = (options: {
 	return {
 		calls,
 		host: defineSandboxTestHost(manifest, {
-			getCurrentIntegration: () => {
-				calls.push("getCurrentIntegration");
-				return options.integration ? hostSuccess(options.integration) : hostFailure();
-			},
 			executeRyotql: () => {
 				calls.push("executeRyotql");
 				return hostSuccess(ryotqlRows("events", options.events ?? []));
 			},
+			getCurrentIntegration: () => {
+				calls.push("getCurrentIntegration");
+				return options.integration ? hostSuccess(options.integration) : hostFailure();
+			},
+			claimPersistentValue: () =>
+				hostSuccess(
+					options.claimed === false
+						? { value: null, claimed: false as const }
+						: { claimed: true as const },
+				),
 			getPluginConfig: (keys) => {
 				calls.push("getPluginConfig");
 				return hostSuccess(
 					Object.fromEntries(keys.map((key) => [key, options.thresholdHours ?? "2"])),
 				);
 			},
-			claimPersistentValue: () =>
-				hostSuccess(
-					options.claimed === false
-						? { claimed: false as const, value: null }
-						: { claimed: true as const },
-				),
 		}),
 	};
 };
@@ -64,7 +64,7 @@ const run = (context: AutomationPolicyInput, host: ReturnType<typeof createHost>
 
 describe("integration-progress-policy sandbox script", () => {
 	it("allows non-integration events immediately without host calls", () => {
-		const { calls, host } = createHost({ integration: integrationRecord() });
+		const { host, calls } = createHost({ integration: integrationRecord() });
 		return Effect.runPromise(
 			run(createPolicyContext({}, { kind: "api" }), host).pipe(
 				Effect.map((result) => {
@@ -102,13 +102,13 @@ describe("integration-progress-policy sandbox script", () => {
 		const { host } = createHost({ integration: integrationRecord({ maximumProgress: 95 }) });
 		return Effect.runPromise(
 			run(
-				createPolicyContext({ properties: { progressPercent: 97, consumedOn: "Plex" } }),
+				createPolicyContext({ properties: { consumedOn: "Plex", progressPercent: 97 } }),
 				host,
 			).pipe(
 				Effect.map((result) => {
 					expect(result).toEqual({
 						action: "replace",
-						body: { properties: { progressPercent: 100, consumedOn: "Plex" } },
+						body: { properties: { consumedOn: "Plex", progressPercent: 100 } },
 					});
 					return undefined;
 				}),
@@ -122,7 +122,7 @@ describe("integration-progress-policy sandbox script", () => {
 			events: [
 				eventRecord({
 					occurredAt: minutesAgo(5),
-					properties: { animeEpisode: 1, consumedOn: "AniList", progressPercent: 35 },
+					properties: { animeEpisode: 1, progressPercent: 35, consumedOn: "AniList" },
 				}),
 			],
 		});
@@ -132,14 +132,14 @@ describe("integration-progress-policy sandbox script", () => {
 					run(
 						createPolicyContext({
 							entitySchemaSlug: "anime",
-							properties: { animeEpisode: 1, consumedOn: "AniList", progressPercent: 35 },
+							properties: { animeEpisode: 1, progressPercent: 35, consumedOn: "AniList" },
 						}),
 						host,
 					),
 					run(
 						createPolicyContext({
 							entitySchemaSlug: "anime",
-							properties: { animeEpisode: 2, consumedOn: "AniList", progressPercent: 35 },
+							properties: { animeEpisode: 2, progressPercent: 35, consumedOn: "AniList" },
 						}),
 						host,
 					),
@@ -163,12 +163,12 @@ describe("integration-progress-policy sandbox script", () => {
 				eventRecord({
 					id: "event-latest",
 					occurredAt: minutesAgo(1),
-					properties: { progressPercent: 50, consumedOn: "Plex" },
+					properties: { consumedOn: "Plex", progressPercent: 50 },
 				}),
 				eventRecord({
 					id: "event-complete",
 					occurredAt: minutesAgo(30),
-					properties: { progressPercent: 100, consumedOn: "Plex" },
+					properties: { consumedOn: "Plex", progressPercent: 100 },
 				}),
 			],
 		});
@@ -180,12 +180,12 @@ describe("integration-progress-policy sandbox script", () => {
 				eventRecord({
 					id: "event-latest",
 					occurredAt: minutesAgo(10),
-					properties: { progressPercent: 50, consumedOn: "Plex" },
+					properties: { consumedOn: "Plex", progressPercent: 50 },
 				}),
 				eventRecord({
 					id: "event-complete",
 					occurredAt: minutesAgo(180),
-					properties: { progressPercent: 100, consumedOn: "Plex" },
+					properties: { consumedOn: "Plex", progressPercent: 100 },
 				}),
 			],
 		});
@@ -194,11 +194,11 @@ describe("integration-progress-policy sandbox script", () => {
 			Effect.all(
 				[
 					run(
-						createPolicyContext({ properties: { progressPercent: 100, consumedOn: "Plex" } }),
+						createPolicyContext({ properties: { consumedOn: "Plex", progressPercent: 100 } }),
 						recent.host,
 					),
 					run(
-						createPolicyContext({ properties: { progressPercent: 100, consumedOn: "Plex" } }),
+						createPolicyContext({ properties: { consumedOn: "Plex", progressPercent: 100 } }),
 						old.host,
 					),
 				],

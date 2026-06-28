@@ -25,6 +25,8 @@ export const pokemonDetailRecipe = defineRecipe((input: { readonly entityId: str
 	const pokemon = table("entity", "pokemon");
 	const property = (key: string) => jsonPath(column(pokemon, "properties"), key);
 	return {
+		map: ({ pokemon: row, requested: requestedRow }) =>
+			Result.succeed({ pokemon: row ?? null, entitySchemaSlug: requestedRow?.schemaSlug ?? null }),
 		queries: {
 			requested: selectedOptionalRow(requested, {
 				orderBy: [ascending(column(requested, "id"))],
@@ -40,27 +42,25 @@ export const pokemonDetailRecipe = defineRecipe((input: { readonly entityId: str
 					eq(column(pokemon, "entitySchemaSlug"), literal("pokemon")),
 				),
 				selection: {
+					id: selectedField(column(pokemon, "id"), Schema.String),
+					name: selectedField(column(pokemon, "name"), Schema.String),
 					types: selectedField(property("types"), PokemonStringsSchema),
 					height: selectedField(property("height"), PokemonNumberSchema),
 					weight: selectedField(property("weight"), PokemonNumberSchema),
 					images: selectedField(property("images"), PokemonArtworkListSchema),
-					id: selectedField(column(pokemon, "id"), Schema.String),
 					abilities: selectedField(property("abilities"), PokemonStringsSchema),
-					name: selectedField(column(pokemon, "name"), Schema.String),
 					pokedexNumber: selectedField(property("pokedexNumber"), PokemonNumberSchema),
-					baseExperience: selectedField(property("baseExperience"), PokemonNumberSchema),
 					sourceUrl: selectedField(property("sourceUrl"), Schema.NullOr(Schema.String)),
+					baseExperience: selectedField(property("baseExperience"), PokemonNumberSchema),
 				},
 			}),
 		},
-		map: ({ pokemon: row, requested: requestedRow }) =>
-			Result.succeed({ pokemon: row ?? null, entitySchemaSlug: requestedRow?.schemaSlug ?? null }),
 	};
 });
 
 export type PokemonDetailData = Recipe.Success<typeof pokemonDetailRecipe>;
 
 export const pokemonDetailQuery = createRyotQuery<{ readonly entityId: string }, PokemonDetailData>(
-	({ client, input, signal }) => client.data.query(pokemonDetailRecipe(input), { signal }),
-	{ entityInterest: ({ input }) => ({ foreground: [input.entityId], visible: [] }) },
+	({ input, client, signal }) => client.data.query(pokemonDetailRecipe(input), { signal }),
+	{ entityInterest: ({ input }) => ({ visible: [], foreground: [input.entityId] }) },
 );

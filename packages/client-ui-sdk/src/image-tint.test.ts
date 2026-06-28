@@ -4,13 +4,13 @@ import { deriveImageTint, getImageTintGradientStops, quantizeImageTintPixels } f
 
 describe("image tint", () => {
 	it("prefers the dark muted color when both are usable", () => {
-		expect(deriveImageTint({ darkMuted: "#369", dominant: "#F00" })).toBe("#395E84");
-		expect(deriveImageTint({ darkMuted: "#963", dominant: "#00F" })).toBe("#845E39");
+		expect(deriveImageTint({ dominant: "#F00", darkMuted: "#369" })).toBe("#395E84");
+		expect(deriveImageTint({ dominant: "#00F", darkMuted: "#963" })).toBe("#845E39");
 	});
 
 	it("uses the dominant color when dark muted is unusable", () => {
 		expect(deriveImageTint({ dominant: "#00FF00", darkMuted: "not-a-color" })).toBe("#398439");
-		expect(deriveImageTint({ darkMuted: undefined, dominant: "#123456" })).toBe("#294560");
+		expect(deriveImageTint({ dominant: "#123456", darkMuted: undefined })).toBe("#294560");
 	});
 
 	it("caps saturation, clamps lightness, and expands short hex colors", () => {

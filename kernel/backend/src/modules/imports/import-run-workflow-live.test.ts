@@ -31,8 +31,8 @@ import { ImportsService } from "./service";
 const executionId = "import-run-dispatch";
 const payload = {
 	userId: UserId.make("user-1"),
-	runId: ImportRunId.make("run-1"),
 	sourceStateId: "source-state-1",
+	runId: ImportRunId.make("run-1"),
 } satisfies ImportRunJobData;
 
 const sourceState = {
@@ -79,8 +79,8 @@ const makeHarness = (
 			);
 
 	return {
-		activityNames,
 		sandboxCalls,
+		activityNames,
 		sandboxParents,
 		layer: Layer.mergeAll(
 			makeAppConfigLayer(),
@@ -133,7 +133,7 @@ it.effect("dispatches a registry-declared source to its owning plugin's import w
 			method: "executeWorkflow",
 			input: {
 				executionId: `${executionId}-import`,
-				input: { runId: "run-1", source: "nu" },
+				input: { source: "nu", runId: "run-1" },
 				subject: { type: "user", userId: "user-1" },
 				scriptId: SandboxScriptId.make("accepted.nu-import"),
 				grants: {
@@ -199,8 +199,8 @@ it.effect("hands a secret-bearing stored source payload to the plugin import wor
 		expect(executed).toMatchObject({
 			input: {
 				input: {
-					runId: "run-1",
 					source: "eta",
+					runId: "run-1",
 					sourcePayload: { apiKey: "secret", collection: "Favorites" },
 				},
 			},

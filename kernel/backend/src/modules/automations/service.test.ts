@@ -45,13 +45,13 @@ const kernelScript = {
 	pluginId: null,
 	providerId: null,
 	compiledFormat: 1,
-	contentHash: "hash-1",
 	source: "export {};",
-	compiledCode: "export {};",
+	contentHash: "hash-1",
 	createdAt: new Date(0),
 	updatedAt: new Date(0),
-	slug: "automation.notification",
+	compiledCode: "export {};",
 	name: "Notification delivery",
+	slug: "automation.notification",
 	metadata: { kind: "automation" as const },
 };
 
@@ -117,8 +117,8 @@ const makePluginRuntime = (overrides: MockOverrides<typeof mockPluginRuntime> = 
 		listAutomations: () => Effect.succeed([]),
 		findAutomation: () => Effect.succeed(null),
 		findKernelScript: () => Effect.succeed(null),
-		getEffectiveDefinitions: () => Effect.succeed(definitions.getSnapshot()),
 		findScriptAvailableToUser: () => Effect.succeed(null),
+		getEffectiveDefinitions: () => Effect.succeed(definitions.getSnapshot()),
 		...overrides,
 	});
 
@@ -158,7 +158,7 @@ const makeLayer = (
 
 it.effect("resolves only built-in rules for a global row", () => {
 	const globalBuiltin = storedRule({ userId: null, isBuiltin: true });
-	const policy = storedRule({ userId: null, isBuiltin: true, kind: "policy" });
+	const policy = storedRule({ userId: null, kind: "policy", isBuiltin: true });
 	const layer = makeLayer(makeRepository(), {
 		listAutomations: () =>
 			Effect.succeed([
@@ -172,7 +172,7 @@ it.effect("resolves only built-in rules for a global row", () => {
 
 	return Effect.gen(function* () {
 		const service = yield* AutomationsService;
-		const rules = yield* service.resolveActive({ target, operation: "signal", rowUserId: null });
+		const rules = yield* service.resolveActive({ target, rowUserId: null, operation: "signal" });
 		expect(rules).toEqual([globalBuiltin]);
 	}).pipe(Effect.provide(layer));
 });
@@ -198,7 +198,7 @@ it.effect("resolves a source-zero notification formatter for the row owner", () 
 
 	return Effect.gen(function* () {
 		const service = yield* AutomationsService;
-		const rules = yield* service.resolveActive({ target, operation: "signal", rowUserId: userId });
+		const rules = yield* service.resolveActive({ target, rowUserId: userId, operation: "signal" });
 		expect(rules).toEqual([globalBuiltin, own]);
 	}).pipe(Effect.provide(layer));
 });
@@ -232,13 +232,13 @@ it.effect(
 			}),
 			{
 				getEffectiveDefinitions: () => Effect.succeed(pluginDefinitions),
+				findKernelScript: () => Effect.die("plugin formatter fell back to source zero"),
 				findScriptAvailableToUser: (ownerId, definitionPluginId, slug) => {
 					expect(ownerId).toBe(userId);
 					expect(definitionPluginId).toBe(pluginId);
 					expect(slug).toBe(kernelScript.slug);
 					return Effect.succeed(pluginScript);
 				},
-				findKernelScript: () => Effect.die("plugin formatter fell back to source zero"),
 			},
 		);
 
@@ -257,18 +257,18 @@ it.effect(
 it.effect("treats state with no live formatter as inert", () => {
 	const layer = makeLayer(
 		makeRepository({
-			isUserEnabled: () => Effect.succeed(true),
 			findRunById: () => Effect.succeed(null),
+			isUserEnabled: () => Effect.succeed(true),
+			insertRun: () => Effect.die("stale notification state inserted a run"),
 			lockActiveNotificationSubscription: () => Effect.succeed(storedState()),
 			listActiveNotificationSubscriptions: () => Effect.succeed([storedState()]),
-			insertRun: () => Effect.die("stale notification state inserted a run"),
 		}),
 	);
 
 	return Effect.gen(function* () {
 		const service = yield* AutomationsService;
 		expect(
-			yield* service.resolveActive({ target, operation: "signal", rowUserId: userId }),
+			yield* service.resolveActive({ target, rowUserId: userId, operation: "signal" }),
 		).toEqual([]);
 		expect(
 			yield* service.prepareRun({
@@ -316,7 +316,7 @@ it.effect("returns no rules for a disabled row owner", () => {
 	return Effect.gen(function* () {
 		const service = yield* AutomationsService;
 		expect(
-			yield* service.resolveActive({ target, operation: "signal", rowUserId: userId }),
+			yield* service.resolveActive({ target, rowUserId: userId, operation: "signal" }),
 		).toEqual([]);
 	}).pipe(Effect.provide(layer));
 });
@@ -326,8 +326,8 @@ it.effect("does not insert a run after its rule was deactivated or deleted", () 
 	const layer = makeLayer(
 		makeRepository({
 			findRunById: () => Effect.succeed(null),
-			lockActiveNotificationSubscription: () => Effect.succeed(null),
 			insertRun: () => Effect.die("unexpected insert"),
+			lockActiveNotificationSubscription: () => Effect.succeed(null),
 		}),
 		{
 			findAutomation: (owner) => {
@@ -389,7 +389,7 @@ it.effect("resolves user and row-owner execution principals", () => {
 		{ expected: null, rowUserId: null, rule: storedRule({ userId: null, isBuiltin: true }) },
 	] as const;
 
-	return Effect.forEach(cases, ({ expected, rowUserId, rule }) => {
+	return Effect.forEach(cases, ({ rule, expected, rowUserId }) => {
 		let executionUserId: UserId | null | undefined;
 		const notificationState = rule.userId ? storedState() : null;
 		const layer = makeLayer(
@@ -484,6 +484,7 @@ it.effect("skips a queued run when its execution user is disabled", () => {
 		makeRepository({
 			findRunById: () => Effect.succeed(queued),
 			isUserEnabled: () => Effect.succeed(false),
+			findScriptExecution: () => Effect.die("disabled run loaded its script"),
 			skipRun: (input) => {
 				skipReason = input.reason;
 				return Effect.succeed({
@@ -494,7 +495,6 @@ it.effect("skips a queued run when its execution user is disabled", () => {
 					finishedAt: "2026-07-20T10:00:01.000Z",
 				});
 			},
-			findScriptExecution: () => Effect.die("disabled run loaded its script"),
 		}),
 	);
 
@@ -572,9 +572,9 @@ it.effect("resumes an already running run without rechecking a newly disabled us
 	const layer = makeLayer(
 		makeRepository({
 			findRunById: () => Effect.succeed(running),
+			skipRun: () => Effect.die("running replay was skipped"),
 			isUserEnabled: () => Effect.die("running replay rechecked its user"),
 			findScriptExecution: () => Effect.die("running replay reloaded its script"),
-			skipRun: () => Effect.die("running replay was skipped"),
 		}),
 	);
 

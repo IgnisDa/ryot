@@ -19,9 +19,9 @@ const workspace = (slug: string, isDisabled = false) => ({
 });
 
 const initial: CustomizeDraft = {
-	savedViews: [item("recent", null), item("all", null, true)],
-	views: [item("shows", "media"), item("movies", "media")],
 	workspaces: [workspace("media"), workspace("fitness")],
+	views: [item("shows", "media"), item("movies", "media")],
+	savedViews: [item("recent", null), item("all", null, true)],
 };
 
 const build = (draft: CustomizeDraft) =>
@@ -75,7 +75,7 @@ describe("buildCustomizePlan", () => {
 		const plan = build({ ...initial, savedViews: [item("recent", null), item("all", null)] });
 
 		expect(plan.updates).toEqual([
-			{ viewSlug: "all", payload: { icon: "list", name: "ALL", isDisabled: false } },
+			{ viewSlug: "all", payload: { name: "ALL", icon: "list", isDisabled: false } },
 		]);
 	});
 

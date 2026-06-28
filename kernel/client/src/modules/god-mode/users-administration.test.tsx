@@ -18,9 +18,9 @@ const makeUser = (index: number, authState: GodModeUser["authState"] = "credenti
 		disabledAt: null,
 		name: `Reader ${index}`,
 		twoFactorEnabled: false,
+		id: UserId.make(`user-${index}`),
 		email: `reader-${index}@example.com`,
 		createdAt: "2026-09-01T00:00:00.000Z",
-		id: UserId.make(`user-${index}`),
 	}) satisfies GodModeUser;
 
 const makeOperations = (users: ReadonlyArray<GodModeUser>, calls: Array<unknown>) =>
@@ -29,19 +29,6 @@ const makeOperations = (users: ReadonlyArray<GodModeUser>, calls: Array<unknown>
 			Promise.resolve(
 				Exit.succeed({ email: "reader-0@example.com", resetUrl: "https://example.com/reset" }),
 			),
-		listUsers: (search, offset, limit) => {
-			calls.push({ search, offset, limit });
-			const matching = users.filter((user) => user.email.includes(search));
-			return Promise.resolve(
-				Exit.succeed({ total: matching.length, users: matching.slice(offset, offset + limit) }),
-			);
-		},
-		setUserDisabled: (userId, disabled) => {
-			calls.push({ userId, disabled });
-			return Promise.resolve(
-				Exit.succeed({ id: userId, disabledAt: disabled ? "2026-09-02T00:00:00.000Z" : null }),
-			);
-		},
 		resetUser: () =>
 			Promise.resolve(
 				Exit.succeed({
@@ -50,6 +37,19 @@ const makeOperations = (users: ReadonlyArray<GodModeUser>, calls: Array<unknown>
 					resetUrl: "https://example.com/reset-after-account-reset",
 				}),
 			),
+		setUserDisabled: (userId, disabled) => {
+			calls.push({ userId, disabled });
+			return Promise.resolve(
+				Exit.succeed({ id: userId, disabledAt: disabled ? "2026-09-02T00:00:00.000Z" : null }),
+			);
+		},
+		listUsers: (search, offset, limit) => {
+			calls.push({ limit, search, offset });
+			const matching = users.filter((user) => user.email.includes(search));
+			return Promise.resolve(
+				Exit.succeed({ total: matching.length, users: matching.slice(offset, offset + limit) }),
+			);
+		},
 		deleteUser: () =>
 			Promise.resolve(
 				Exit.succeed({

@@ -19,8 +19,8 @@ export const ListedEvent = Schema.Struct({
 	createdAt: Schema.String,
 	updatedAt: Schema.String,
 	occurredAt: Schema.String,
-	eventSchemaSlug: EventSchemaSlug,
 	eventSchemaName: Schema.String,
+	eventSchemaSlug: EventSchemaSlug,
 	sessionEntityId: Schema.optional(EntityId),
 	properties: Schema.Record(Schema.String, Schema.Unknown),
 });
@@ -42,9 +42,9 @@ export const EventCreateFailureReason = Schema.Union([
 	strictStruct({ code: Schema.Literal("entity-id-required") }),
 	strictStruct({ code: Schema.Literal("invalid-properties") }),
 	strictStruct({ code: Schema.Literal("event-schema-slug-required") }),
-	strictStruct({ code: Schema.Literal("entity-not-found"), entityId: EntityId }),
-	strictStruct({ code: Schema.Literal("session-entity-not-found"), entityId: EntityId }),
-	strictStruct({ code: Schema.Literal("invalid-occurred-at"), occurredAt: Schema.String }),
+	strictStruct({ entityId: EntityId, code: Schema.Literal("entity-not-found") }),
+	strictStruct({ entityId: EntityId, code: Schema.Literal("session-entity-not-found") }),
+	strictStruct({ occurredAt: Schema.String, code: Schema.Literal("invalid-occurred-at") }),
 	strictStruct({
 		eventSchemaSlug: EventSchemaSlug,
 		code: Schema.Literal("event-schema-not-found"),
@@ -64,7 +64,7 @@ export class EventCreateItemError extends Schema.TaggedError<EventCreateItemErro
 ) {}
 
 export const EventCreateItemOutcome = Schema.Union([
-	strictStruct({ index: Schema.Number, status: Schema.Literal("written"), eventId: EventId }),
+	strictStruct({ eventId: EventId, index: Schema.Number, status: Schema.Literal("written") }),
 	strictStruct({
 		index: Schema.Number,
 		reason: Schema.String,

@@ -11,8 +11,8 @@ export const manifest = defineManifest({
 	kind: "script",
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
-	slug: "media-monitoring-targets",
 	capabilities: ["executeRyotql"],
+	slug: "media-monitoring-targets",
 	name: "List media monitoring targets",
 });
 

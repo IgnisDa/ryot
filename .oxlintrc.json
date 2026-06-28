@@ -1,5 +1,6 @@
 {
 	"env": { "node": true, "browser": true },
+	"jsPlugins": ["eslint-plugin-perfectionist"],
 	"settings": { "react": { "version": "19.0.0" } },
 	"$schema": "./node_modules/oxlint/configuration_schema.json",
 	"categories": { "perf": "warn", "suspicious": "warn", "correctness": "error" },
@@ -60,6 +61,14 @@
 		"typescript/no-unused-vars": [
 			"error",
 			{ "varsIgnorePattern": "^_", "argsIgnorePattern": "^_", "caughtErrorsIgnorePattern": "^_" }
+		],
+		"perfectionist/sort-objects": [
+			"error",
+			{ "type": "line-length", "order": "asc", "partitionByNewLine": true }
+		],
+		"perfectionist/sort-jsx-props": [
+			"error",
+			{ "type": "line-length", "order": "asc", "partitionByNewLine": true }
 		],
 		"no-restricted-properties": [
 			"error",

@@ -59,10 +59,10 @@ export const parseKodi = (rawBody: string, occurredAt: string) =>
 			return failureResult("Kodi webhook payload is missing show episode coordinates");
 		}
 		return progressResult({
-			entityRef: resolvedMediaRef(lot, "tmdb", id, id),
-			consumedOn: "kodi",
 			occurredAt,
+			consumedOn: "kodi",
 			progressPercent: progress,
+			entityRef: resolvedMediaRef(lot, "tmdb", id, id),
 			...(locator ? { unresolvedEpisode: locator } : {}),
 		});
 	}).pipe(Effect.orElseSucceed(() => failureResult("Could not parse Kodi webhook payload")));

@@ -8,19 +8,19 @@ import { details, manifest, search } from "./shared";
 type IgdbGroupHost = SandboxHost<typeof manifest.capabilities>;
 
 const httpSuccess = (body: unknown, headers: Record<string, string> = {}) =>
-	Effect.succeed({ status: 200, headers, body: JSON.stringify(body) });
+	Effect.succeed({ headers, status: 200, body: JSON.stringify(body) });
 
 const makeHost = (overrides: Partial<IgdbGroupHost>): IgdbGroupHost =>
 	defineSandboxTestHost(manifest, {
 		getCachedValue: () => Effect.succeed(null),
 		setCachedValue: () => Effect.succeed(null),
+		httpCall: () => Effect.fail({ message: "no route" }),
 		getPluginConfig: (keys) =>
 			Effect.succeed(
 				Object.fromEntries(
 					keys.map((key) => [key, key === "twitchClientId" ? "client-id" : "client-secret"]),
 				),
 			),
-		httpCall: () => Effect.fail({ message: "no route" }),
 		...overrides,
 	});
 
@@ -33,7 +33,7 @@ describe("video-game-group.igdb sandbox script", () => {
 			httpCall: (_method, url) => {
 				if (url.startsWith("https://id.twitch.tv/oauth2/token")) {
 					tokenPosts += 1;
-					return httpSuccess({ access_token: "token", token_type: "bearer", expires_in: 3600 });
+					return httpSuccess({ expires_in: 3600, token_type: "bearer", access_token: "token" });
 				}
 				return httpSuccess(
 					[
@@ -52,7 +52,7 @@ describe("video-game-group.igdb sandbox script", () => {
 		});
 
 		return Effect.runPromise(
-			runSandboxTestScript(search, { query: "saga", page: 1, pageSize: 20 }, host, execution).pipe(
+			runSandboxTestScript(search, { page: 1, pageSize: 20, query: "saga" }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(tokenPosts).toBe(1);
 					expect(result.items).toEqual([
@@ -73,7 +73,7 @@ describe("video-game-group.igdb sandbox script", () => {
 		const host = makeHost({
 			httpCall: (_method, url) => {
 				if (url.startsWith("https://id.twitch.tv/oauth2/token")) {
-					return httpSuccess({ access_token: "token", token_type: "bearer", expires_in: 3600 });
+					return httpSuccess({ expires_in: 3600, token_type: "bearer", access_token: "token" });
 				}
 				return httpSuccess([
 					{

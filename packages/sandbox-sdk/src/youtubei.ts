@@ -91,20 +91,20 @@ const resolveRequestParts = (
 				}
 			}
 		}
-		return { body, headers, method, url: base.url };
+		return { body, method, headers, url: base.url };
 	};
 	if (input instanceof Request) {
 		mergeHeaders(headers, input.headers);
 		return Effect.tryPromise(() => input.text()).pipe(
 			Effect.map((text) =>
-				applyInit({ body: text ? text : undefined, method: input.method, url: input.url }),
+				applyInit({ url: input.url, method: input.method, body: text ? text : undefined }),
 			),
 			Effect.catch(() =>
-				Effect.succeed(applyInit({ body: undefined, method: input.method, url: input.url })),
+				Effect.succeed(applyInit({ url: input.url, body: undefined, method: input.method })),
 			),
 		);
 	}
-	return Effect.succeed(applyInit({ body: undefined, method: "GET", url: String(input) }));
+	return Effect.succeed(applyInit({ method: "GET", body: undefined, url: String(input) }));
 };
 
 const isHostError = (error: unknown): error is { message: string } =>
@@ -125,7 +125,7 @@ const makeFetch = (host: YoutubeiHost): typeof fetch =>
 					return host.httpCall(parts.method, parts.url, options).pipe(
 						Effect.map(
 							(result) =>
-								new Response(result.body, { headers: result.headers, status: result.status }),
+								new Response(result.body, { status: result.status, headers: result.headers }),
 						),
 						Effect.catch((error) =>
 							isHostError(error)

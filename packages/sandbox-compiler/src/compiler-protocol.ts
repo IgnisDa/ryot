@@ -21,8 +21,8 @@ const CompilerWorkerSuccess = Schema.Struct({
 });
 
 const CompilerWorkerFailure = Schema.Struct({
-	success: Schema.Literal(false),
 	error: SandboxCompilerFailure,
+	success: Schema.Literal(false),
 });
 
 export const CompilerWorkerResponse = Schema.Union([CompilerWorkerSuccess, CompilerWorkerFailure]);

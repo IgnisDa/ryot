@@ -28,7 +28,7 @@ const serverOptions = [
 export const Route = createFileRoute("/onboarding")({
 	component: Onboarding,
 	validateSearch: (search) => ({ redirect: sanitizeRedirect(search.redirect) }),
-	beforeLoad: ({ context, search }): ReturnType<typeof redirect> | undefined => {
+	beforeLoad: ({ search, context }): ReturnType<typeof redirect> | undefined => {
 		const isNative = isNativePlatform();
 		const server = context.runtime.runSync(
 			Effect.flatMap(ServerService, (service) => service.selected),
@@ -101,10 +101,10 @@ function Onboarding() {
 		dispatch({ type: "succeeded" });
 		const decision = decideOnboardingCompletion(search.redirect);
 		if (decision.action === "enter-god-mode") {
-			await navigate({ href: decision.to, replace: true, search: { redirect: undefined } });
+			await navigate({ replace: true, href: decision.to, search: { redirect: undefined } });
 			return;
 		}
-		await navigate({ to: decision.to, replace: true, search: { redirect: decision.redirectTo } });
+		await navigate({ replace: true, to: decision.to, search: { redirect: decision.redirectTo } });
 	}
 
 	return (
@@ -143,8 +143,8 @@ function Onboarding() {
 									name="server-mode"
 									value={option.mode}
 									checked={mode === option.mode}
-									className="mt-0.75 size-4.5 accent-accent"
 									onChange={() => changeMode(option.mode)}
+									className="mt-0.75 size-4.5 accent-accent"
 								/>
 								<span className="grid gap-0.75">
 									<strong className="text-base font-semibold">{option.label}</strong>
@@ -177,7 +177,7 @@ function Onboarding() {
 					)}
 				</fieldset>
 
-				<div className="flex min-h-11.25 items-center" aria-live="polite">
+				<div aria-live="polite" className="flex min-h-11.25 items-center">
 					{validationError && (
 						<p role="alert" id="server-url-error" className="ui-form-status text-danger">
 							{validationError}

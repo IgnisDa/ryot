@@ -9,9 +9,9 @@ import definition, { manifest } from "./resolve-episodes.sandbox";
 const rowsResponse = (entityIds: string[]) => ({
 	data: {
 		episodes: {
-			items: entityIds.map((entityId) => ({ entityId })),
-			pageInfo: { hasMore: false, limit: 2, nextCursor: null },
 			type: "rows" as const,
+			items: entityIds.map((entityId) => ({ entityId })),
+			pageInfo: { limit: 2, hasMore: false, nextCursor: null },
 		},
 	},
 });
@@ -39,28 +39,28 @@ const showRef = {
 } as const;
 const seasonRef = {
 	index: 0,
-	kind: "show-season",
 	seasonNumber: 2,
+	kind: "show-season",
 	showEntityId: "show-1",
 } as const;
 const podcastRef = {
 	index: 0,
 	kind: "podcast",
-	podcastEntityId: "podcast-1",
 	episodeNumber: 7,
+	podcastEntityId: "podcast-1",
 } as const;
 
 describe("resolve episodes operation", () => {
 	it("builds a relational show query with explicit episode, season, and show joins", async () => {
-		const { documents, host } = createHost([["episode-1"]]);
+		const { host, documents } = createHost([["episode-1"]]);
 
 		await expect(
 			Effect.runPromise(runSandboxTestScript(definition, { refs: [showRef] }, host, execution)),
 		).resolves.toEqual({ results: [{ index: 0, entityId: "episode-1" }] });
 		const query = documents[0]?.queries["episodes"];
 		expect(query).toMatchObject({
-			from: { alias: "episode", table: "entity" },
-			output: { pagination: { limit: 2 }, type: "rows" },
+			from: { table: "entity", alias: "episode" },
+			output: { type: "rows", pagination: { limit: 2 } },
 		});
 		expect(query?.joins?.map((join) => join.table.alias)).toEqual([
 			"seasonEpisode",
@@ -71,7 +71,7 @@ describe("resolve episodes operation", () => {
 	});
 
 	it("builds a relational podcast query with the podcast episode join", async () => {
-		const { documents, host } = createHost([["episode-9"]]);
+		const { host, documents } = createHost([["episode-9"]]);
 
 		await expect(
 			Effect.runPromise(runSandboxTestScript(definition, { refs: [podcastRef] }, host, execution)),
@@ -81,7 +81,7 @@ describe("resolve episodes operation", () => {
 	});
 
 	it("builds a relational show season query", async () => {
-		const { documents, host } = createHost([["season-2"]]);
+		const { host, documents } = createHost([["season-2"]]);
 
 		await expect(
 			Effect.runPromise(runSandboxTestScript(definition, { refs: [seasonRef] }, host, execution)),
@@ -89,13 +89,13 @@ describe("resolve episodes operation", () => {
 		const query = documents[0]?.queries["episodes"];
 		expect(query).toMatchObject({
 			from: { alias: "season", table: "entity" },
-			output: { pagination: { limit: 2 }, type: "rows" },
+			output: { type: "rows", pagination: { limit: 2 } },
 		});
 		expect(query?.joins?.map((join) => join.table.alias)).toEqual(["showSeason", "show"]);
 	});
 
 	it("emits documents accepted by the RyotQL contract", async () => {
-		const { documents, host } = createHost([[], []]);
+		const { host, documents } = createHost([[], []]);
 
 		await Effect.runPromise(
 			runSandboxTestScript(
@@ -111,7 +111,7 @@ describe("resolve episodes operation", () => {
 	});
 
 	it("resolves only unique matches and echoes each caller index with its own result", async () => {
-		const { documents, host } = createHost([
+		const { host, documents } = createHost([
 			["episode-1"],
 			[],
 			["episode-2", "episode-3"],

@@ -149,12 +149,12 @@ const migrateAsset = (
 
 		yield* s3.writeObject(key, yield* s3.openObject(asset.key), contentType);
 		yield* repository.registerPermanentOwnedObject({
-			contentType,
 			key,
-			ownerUserId: UserId.make(asset.userId),
-			provider: "s3",
-			sha256,
 			size,
+			sha256,
+			contentType,
+			provider: "s3",
+			ownerUserId: UserId.make(asset.userId),
 		});
 		return key;
 	}).pipe(Effect.catchCause(() => Effect.succeed(null)));
@@ -246,12 +246,12 @@ export const migrateLegacyS3Assets = Effect.gen(function* () {
 
 	return {
 		deleted,
-		deletionFailures,
-		discovered: references.size,
-		managedAssetRows: managedAssetKeys.size,
-		referencesMigrated: replacements.size,
 		unresolved,
 		updatedRows,
+		deletionFailures,
+		discovered: references.size,
+		referencesMigrated: replacements.size,
+		managedAssetRows: managedAssetKeys.size,
 	} satisfies LegacyS3AssetMigrationResult;
 });
 
@@ -271,16 +271,16 @@ export const buildLegacyS3AssetReportSql = (result: LegacyS3AssetMigrationResult
 	];
 	if (result.unresolved > 0) {
 		entries.push({
-			count: String(result.unresolved),
 			level: "warning" as const,
+			count: String(result.unresolved),
 			message:
 				"asset locator(s) could not be resolved or registered; original locators were retained",
 		});
 	}
 	if (result.deletionFailures > 0) {
 		entries.push({
-			count: String(result.deletionFailures),
 			level: "warning" as const,
+			count: String(result.deletionFailures),
 			message: "legacy S3 object(s) could not be deleted; orphaned bytes remain in the bucket",
 		});
 	}

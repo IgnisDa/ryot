@@ -18,9 +18,9 @@ export const manifest = defineManifest({
 	name: "TMDB",
 	kind: "provider",
 	slug: "movie-group.tmdb",
+	requiredSystemConfigKeys: [],
 	capabilities: ["httpCall", "getPluginConfig"],
 	requiredPluginConfigKeys: ["tmdbAccessToken"],
-	requiredSystemConfigKeys: [],
 });
 
 const stripCollectionSuffix = (name: string) =>
@@ -35,7 +35,7 @@ export const search = defineProvider({
 			const data = yield* tmdbGet(
 				host,
 				"/search/collection",
-				{ query: input.query, language: "en-US", page: String(input.page) },
+				{ language: "en-US", query: input.query, page: String(input.page) },
 				token,
 			);
 			const results = recordsValue(data["results"]);
@@ -134,7 +134,7 @@ export const translate = defineProvider({
 			if (!/^\d+$/.test(input.externalId)) {
 				return yield* Effect.fail(new Error("externalId must be a numeric TMDB collection ID"));
 			}
-			const { langCode, region } = parseTranslationLanguage(input.language);
+			const { region, langCode } = parseTranslationLanguage(input.language);
 			const token = yield* getTmdbAccessToken(host);
 			const [translationsData, imagesData] = yield* Effect.all(
 				[
@@ -164,7 +164,7 @@ export const translate = defineProvider({
 				properties["description"] = description;
 			}
 			if (imageUrl) {
-				properties["images"] = [{ type: "remote", url: imageUrl, purpose: "cover" }];
+				properties["images"] = [{ url: imageUrl, type: "remote", purpose: "cover" }];
 			}
 			return {
 				...(name ? { name } : {}),

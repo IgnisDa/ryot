@@ -97,12 +97,12 @@ type ProviderSearchPanelProps = {
 
 const schemaFormIcons: SchemaFormIcons = {
 	close: <AppIcon name="x" size={14} />,
-	check: <AppIcon name="check" size={14} />,
-	upload: <AppIcon name="upload" size={15} />,
-	search: <AppIcon name="search" size={15} />,
-	remove: <AppIcon name="trash-2" size={14} />,
-	file: <AppIcon name="file-text" size={15} />,
-	chevron: <AppIcon name="chevron-down" size={15} />,
+	check: <AppIcon size={14} name="check" />,
+	upload: <AppIcon size={15} name="upload" />,
+	search: <AppIcon size={15} name="search" />,
+	remove: <AppIcon size={14} name="trash-2" />,
+	file: <AppIcon size={15} name="file-text" />,
+	chevron: <AppIcon size={15} name="chevron-down" />,
 };
 
 function StatusLine(props: { readonly text: string }) {
@@ -151,7 +151,7 @@ function ProviderChips(props: {
 				className="flex gap-1.5"
 				value={props.selectedProviderId}
 				renderOption={(option, selected) => ({
-					content: <Chip label={option.label} checked={selected} />,
+					content: <Chip checked={selected} label={option.label} />,
 				})}
 				onChange={(value) => {
 					const selected = options.find((option) => option.value === value);
@@ -207,8 +207,8 @@ function ProviderSearchResultList(props: {
 				<ProviderSearchResultRow
 					item={item}
 					key={item.externalId}
-					linkedEntityId={links?.get(item.externalId)}
 					onAdd={() => props.onAdd(item.externalId)}
+					linkedEntityId={links?.get(item.externalId)}
 					entry={providerEntityImportEntry(props.importState, item.externalId)}
 				/>
 			))}
@@ -272,7 +272,7 @@ export function ProviderSearchPanel(props: ProviderSearchPanelProps) {
 	const searchInput = useRef<HTMLInputElement>(null);
 	useFieldEscape(searchInput, {
 		hasValue: state.query !== "",
-		onClear: () => dispatch({ type: "query-changed", query: "" }),
+		onClear: () => dispatch({ query: "", type: "query-changed" }),
 	});
 
 	useEffect(() => {
@@ -367,7 +367,7 @@ export function ProviderSearchPanel(props: ProviderSearchPanelProps) {
 			}),
 		);
 		if ("value" in result) {
-			dispatch({ type: "response-received", token: operation.token, response: result.value });
+			dispatch({ token: operation.token, response: result.value, type: "response-received" });
 			return;
 		}
 		dispatch({ type: "request-failed", token: operation.token });
@@ -413,8 +413,8 @@ export function ProviderSearchPanel(props: ProviderSearchPanelProps) {
 						value={state.query}
 						placeholder="Search"
 						aria-label="Search providers"
-						className="min-w-0 flex-1 bg-transparent text-base text-text outline-none md:text-sm"
 						onChange={(event) => dispatch({ type: "query-changed", query: event.target.value })}
+						className="min-w-0 flex-1 bg-transparent text-base text-text outline-none md:text-sm"
 						onKeyDown={(event) => {
 							if (event.key === "Enter") {
 								void requestSearch();
@@ -425,10 +425,10 @@ export function ProviderSearchPanel(props: ProviderSearchPanelProps) {
 						<button
 							type="button"
 							aria-label="Clear search"
+							onClick={() => dispatch({ query: "", type: "query-changed" })}
 							className="flex size-6 shrink-0 items-center justify-center rounded"
-							onClick={() => dispatch({ type: "query-changed", query: "" })}
 						>
-							<AppIcon size={15} name="x" className="shrink-0 text-text-subtle" />
+							<AppIcon name="x" size={15} className="shrink-0 text-text-subtle" />
 						</button>
 					)}
 				</div>
@@ -445,7 +445,7 @@ export function ProviderSearchPanel(props: ProviderSearchPanelProps) {
 					onClick={props.onClose}
 					className="hidden md:flex md:h-8 md:w-8 md:items-center md:justify-center md:rounded-md"
 				>
-					<AppIcon size={16} name="x" className="text-text-muted" />
+					<AppIcon name="x" size={16} className="text-text-muted" />
 				</button>
 			</div>
 
@@ -480,7 +480,7 @@ export function ProviderSearchPanel(props: ProviderSearchPanelProps) {
 								className="flex items-center justify-between rounded-lg border border-border bg-surface-2 px-3 py-2.5"
 							>
 								<span className="flex items-center gap-2">
-									<AppIcon name="sliders-horizontal" size={15} className="text-text-muted" />
+									<AppIcon size={15} name="sliders-horizontal" className="text-text-muted" />
 									<span className="text-sm font-medium text-text">Advanced options</span>
 									{activeOptionCount > 0 ? (
 										<span className="text-xs text-text-muted">({activeOptionCount})</span>
@@ -537,7 +537,7 @@ export function ProviderSearchPanel(props: ProviderSearchPanelProps) {
 						Match.when("failed", () => (
 							<div className="grid gap-2">
 								<PanelFailure className="min-h-32" />
-								<Button onClick={() => void requestSearch()} aria-label="Try searching again">
+								<Button aria-label="Try searching again" onClick={() => void requestSearch()}>
 									Try again
 								</Button>
 							</div>

@@ -354,6 +354,7 @@ export const readPluginArchive = (
 	input: Uint8Array | AsyncIterable<Uint8Array>,
 ): Effect.Effect<PluginArchivePackage, PluginArchiveError> =>
 	Effect.tryPromise({
+		catch: normalizeError,
 		try: async () => {
 			const reader = new PluginArchiveReader();
 			if (input instanceof Uint8Array) {
@@ -366,7 +367,6 @@ export const readPluginArchive = (
 			}
 			return reader.finish();
 		},
-		catch: normalizeError,
 	});
 
 export const readPluginArchiveStream = <E>(
@@ -375,8 +375,8 @@ export const readPluginArchiveStream = <E>(
 	Effect.gen(function* () {
 		const reader = new PluginArchiveReader();
 		yield* Stream.runForEach(input, (chunk) =>
-			Effect.try({ try: () => reader.push(chunk, false), catch: normalizeError }),
+			Effect.try({ catch: normalizeError, try: () => reader.push(chunk, false) }),
 		);
-		yield* Effect.try({ try: () => reader.push(new Uint8Array(0), true), catch: normalizeError });
-		return yield* Effect.try({ try: () => reader.finish(), catch: normalizeError });
+		yield* Effect.try({ catch: normalizeError, try: () => reader.push(new Uint8Array(0), true) });
+		return yield* Effect.try({ catch: normalizeError, try: () => reader.finish() });
 	});

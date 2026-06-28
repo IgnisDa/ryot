@@ -48,15 +48,15 @@ export const formatRunCount = (value: number) =>
 
 export const runStatusPill = (status: RunStatus) =>
 	Match.value(status).pipe(
-		Match.when("pending", () => ({ icon: "clock", label: "Queued", tone: "muted" }) as const),
-		Match.when("running", () => ({ icon: "rotate-ccw", label: "Running", tone: "info" }) as const),
+		Match.when("pending", () => ({ icon: "clock", tone: "muted", label: "Queued" }) as const),
+		Match.when("running", () => ({ tone: "info", label: "Running", icon: "rotate-ccw" }) as const),
 		Match.when(
 			"completed",
-			() => ({ icon: "circle-check", label: "Completed", tone: "success" }) as const,
+			() => ({ tone: "success", label: "Completed", icon: "circle-check" }) as const,
 		),
 		Match.when(
 			"failed",
-			() => ({ icon: "circle-alert", label: "Failed", tone: "danger" }) as const,
+			() => ({ tone: "danger", label: "Failed", icon: "circle-alert" }) as const,
 		),
 		Match.exhaustive,
 	);

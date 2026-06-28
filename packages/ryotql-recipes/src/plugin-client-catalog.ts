@@ -21,6 +21,7 @@ const installation = table("pluginInstallation", "installation");
 
 export const pluginClientCatalogRecipe = defineRecipe(
 	(input: { readonly after?: string | undefined } = {}) => ({
+		map: ({ installations }) => Result.succeed(installations),
 		queries: {
 			installations: selectedRows(installation, {
 				limit: 100,
@@ -45,15 +46,14 @@ export const pluginClientCatalogRecipe = defineRecipe(
 					sortOrder: selectedField(column(installation, "sortOrder"), Schema.Number),
 					isDisabled: selectedField(column(installation, "isDisabled"), Schema.Boolean),
 					health: selectedField(column(installation, "health"), PluginInstallationHealth),
+					clientApiVersion: selectedField(column(plugin, "clientApiVersion"), Schema.Literal(1)),
 					homeSavedViewId: selectedField(
 						column(installation, "homeSavedViewId"),
 						Schema.NullOr(SavedViewId),
 					),
-					clientApiVersion: selectedField(column(plugin, "clientApiVersion"), Schema.Literal(1)),
 				},
 			}),
 		},
-		map: ({ installations }) => Result.succeed(installations),
 	}),
 );
 

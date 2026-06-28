@@ -70,7 +70,7 @@ it.effect("rejects a non-push integration provider bound to a non-script kind", 
 			bindings: { ...manifest.bindings, entityAutomations: [] },
 			scripts: [
 				...manifest.scripts,
-				{ ...script, kind: "script" as const, name: "Sink", slug: "integration.sink" },
+				{ ...script, name: "Sink", kind: "script" as const, slug: "integration.sink" },
 			],
 			integrationProviders: [
 				{
@@ -80,7 +80,7 @@ it.effect("rejects a non-push integration provider bound to a non-script kind", 
 					lot: "sink" as const,
 					description: "Lambda sink",
 					settingsSchema: {
-						fields: { username: { type: "string" as const, label: "User", description: "User" } },
+						fields: { username: { label: "User", description: "User", type: "string" as const } },
 					},
 				},
 			],

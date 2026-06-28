@@ -45,7 +45,7 @@ export const fixtureExamplePropertiesSchema: AppSchema = {
 export const fixturePersonPropertiesSchema: AppSchema = {
 	fields: {
 		images,
-		name: { type: "string", label: "Name", description: "Name" },
+		name: { label: "Name", type: "string", description: "Name" },
 		description: {
 			type: "string",
 			translatable: true,

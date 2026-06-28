@@ -11,8 +11,8 @@ const candidate = (
 	externalId: "1",
 	publishYear: 2005,
 	title: "The Office",
-	providerSlug: "show.tmdb",
 	entitySchemaSlug: "show",
+	providerSlug: "show.tmdb",
 	...overrides,
 });
 
@@ -34,15 +34,15 @@ describe("chooseBestMetadataLookupTitleMatch", () => {
 					publishYear: 2024,
 					externalId: "partial",
 					title: "Dune: Part Two",
-					providerSlug: "movie.tmdb",
 					entitySchemaSlug: "movie",
+					providerSlug: "movie.tmdb",
 				}),
 				candidate({
 					title: "Dune",
 					publishYear: 2021,
 					externalId: "exact",
-					providerSlug: "movie.tmdb",
 					entitySchemaSlug: "movie",
+					providerSlug: "movie.tmdb",
 				}),
 			],
 		});
@@ -57,10 +57,10 @@ describe("chooseBestMetadataLookupTitleMatch", () => {
 				candidate({
 					externalId: "movie_1",
 					title: "The Gentlemen",
-					providerSlug: "movie.tmdb",
 					entitySchemaSlug: "movie",
+					providerSlug: "movie.tmdb",
 				}),
-				candidate({ title: "The Gentlemen", externalId: "show_1" }),
+				candidate({ externalId: "show_1", title: "The Gentlemen" }),
 			],
 		});
 

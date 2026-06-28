@@ -9,8 +9,8 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "Listen Notes",
 	slug: "podcast.listennotes",
-	requiredPluginConfigKeys: ["listennotesApiKey"],
 	requiredSystemConfigKeys: [],
+	requiredPluginConfigKeys: ["listennotesApiKey"],
 	capabilities: ["httpCall", "getPluginConfig", "getCachedValue", "setCachedValue"],
 });
 type ListennotesHost = SandboxHost<typeof manifest.capabilities>;
@@ -199,8 +199,8 @@ const mapEpisode = (
 		title,
 		publishDate,
 		number: episodeNumberOffset + index + 1,
-		overview: stringValue(item["description"]),
 		thumbnail: stringValue(item["thumbnail"]),
+		overview: stringValue(item["description"]),
 		runtime: runtimeSeconds === null ? null : Math.trunc(runtimeSeconds / 60),
 	};
 };
@@ -211,7 +211,7 @@ const mapRecommendation = (raw: unknown) => {
 	if (!item || !externalId || !title) {
 		return null;
 	}
-	return { name: title, externalId, providerSlug: manifest.slug };
+	return { externalId, name: title, providerSlug: manifest.slug };
 };
 const fetchPodcastDetails = (
 	host: ListennotesHost,
@@ -239,8 +239,8 @@ export const search = defineProvider({
 		listennotesGet(host, "/search", {
 			q: input.query,
 			type: "podcast",
-			offset: (input.page - 1) * input.pageSize,
 			len_per_page: input.pageSize,
+			offset: (input.page - 1) * input.pageSize,
 		}).pipe(
 			Effect.map((payloadValue) => {
 				const payload = asRecord(payloadValue);
@@ -313,8 +313,8 @@ export const details = defineProvider({
 			const image = stringValue(firstPage?.["image"]);
 			const explicit = firstPage?.["explicit_content"];
 			const childEntities = episodes.map((episode) => ({
-				entitySchemaSlug: "podcast-episode",
 				externalId: episode.id,
+				entitySchemaSlug: "podcast-episode",
 				name: episode.title || `Episode ${episode.number}`,
 				properties: {
 					runtime: episode.runtime,
@@ -322,7 +322,7 @@ export const details = defineProvider({
 					episodeNumber: episode.number,
 					publishDate: episode.publishDate,
 					...(episode.thumbnail
-						? { images: [{ type: "remote", url: episode.thumbnail, purpose: "cover" }] }
+						? { images: [{ type: "remote", purpose: "cover", url: episode.thumbnail }] }
 						: {}),
 				},
 			}));
@@ -341,14 +341,14 @@ export const details = defineProvider({
 				properties: {
 					totalEpisodes: totalEpisodes ?? episodes.length,
 					sourceUrl: getSourceUrl(title, input.externalId),
-					isNsfw: typeof explicit === "boolean" ? explicit : null,
 					description: stringValue(firstPage?.["description"]),
-					images: image ? [{ type: "remote" as const, url: image, purpose: "cover" as const }] : [],
+					isNsfw: typeof explicit === "boolean" ? explicit : null,
 					providerRating: numberValue(firstPage?.["listen_score"]),
 					genres: collectGenres(firstPage?.["genre_ids"], genresById),
-					unlinkedCreators: publisher ? [{ role: "Publishing", name: publisher }] : [],
 					publishDate: getIsoDateFromTimestamp(firstPage?.["earliest_pub_date_ms"]),
+					unlinkedCreators: publisher ? [{ name: publisher, role: "Publishing" }] : [],
 					publishYear: getPublishYearFromTimestamp(firstPage?.["earliest_pub_date_ms"]),
+					images: image ? [{ url: image, type: "remote" as const, purpose: "cover" as const }] : [],
 				},
 			};
 		}),

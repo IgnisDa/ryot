@@ -45,7 +45,7 @@ const installEchoOperationPlugin = (client: Client) => {
 					manifest,
 					files: {
 						[entry]: new TextEncoder().encode(
-							operationSandboxSource({ name: "E2E Echo Operation", slug: scriptSlug }),
+							operationSandboxSource({ slug: scriptSlug, name: "E2E Echo Operation" }),
 						),
 					},
 				},
@@ -66,7 +66,7 @@ describe("plugin operations", () => {
 			const { result } = yield* client.call((c) =>
 				c.plugins.invoke({
 					payload: { payload: { titles: ["dune", "arcane"] } },
-					params: { pluginSlug: plugin.pluginSlug, operationSlug: "echo" },
+					params: { operationSlug: "echo", pluginSlug: plugin.pluginSlug },
 				}),
 			);
 
@@ -123,7 +123,7 @@ describe("plugin operations", () => {
 				client.call((c) =>
 					c.plugins.invoke({
 						payload: { payload: { titles: "dune" } },
-						params: { pluginSlug: plugin.pluginSlug, operationSlug: "echo" },
+						params: { operationSlug: "echo", pluginSlug: plugin.pluginSlug },
 					}),
 				),
 			);
@@ -131,7 +131,7 @@ describe("plugin operations", () => {
 			assertTaggedError(failure, "PluginInvocationError");
 			expect(failure.reason).toMatchObject({
 				code: "runtime-failed",
-				diagnostics: [{ code: "sandbox-runtime-error", phase: "input", severity: "error" }],
+				diagnostics: [{ phase: "input", severity: "error", code: "sandbox-runtime-error" }],
 			});
 		}),
 	);
@@ -145,7 +145,7 @@ describe("plugin operations", () => {
 				getApiClient().call((c) =>
 					c.plugins.invoke({
 						payload: { payload: { titles: ["dune"] } },
-						params: { pluginSlug: plugin.pluginSlug, operationSlug: "echo" },
+						params: { operationSlug: "echo", pluginSlug: plugin.pluginSlug },
 					}),
 				),
 			);

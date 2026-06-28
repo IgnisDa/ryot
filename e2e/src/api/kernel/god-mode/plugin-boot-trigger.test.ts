@@ -40,12 +40,12 @@ const bootEntityQueryDocument = () =>
 			return rows(entity, {
 				limit: 1,
 				orderBy: [ascending(column(entity, "id"))],
+				where: eq(column(entity, "externalId"), literal(EXTERNAL_ID)),
 				fields: [
 					field("id", column(entity, "id")),
 					field("name", column(entity, "name")),
 					field("entitySchemaSlug", column(entity, "entitySchemaSlug")),
 				],
-				where: eq(column(entity, "externalId"), literal(EXTERNAL_ID)),
 			});
 		})(),
 	});
@@ -67,6 +67,15 @@ describe("POST /test-support/plugin-boot (custom plugin boot dispatch)", () => {
 				const installed = yield* installTestPluginBundle({
 					scope: "system",
 					configSchema: { fields: {}, unknownKeys: "strict" },
+					providers: [
+						{
+							slug: PROVIDER_SLUG,
+							name: "E2E Test Boot Provider",
+							information: { source: "e2e" },
+							rootEntitySchemaSlug: movieSchema.id,
+							operations: { details: DETAILS_SCRIPT_SLUG },
+						},
+					],
 					files: {
 						[bootEntry]: BOOT_SOURCE,
 						[detailsEntry]: providerSandboxSource({
@@ -79,33 +88,24 @@ describe("POST /test-support/plugin-boot (custom plugin boot dispatch)", () => {
 					scripts: [
 						{
 							kind: "provider",
+							capabilities: [],
 							entry: detailsEntry,
 							slug: DETAILS_SCRIPT_SLUG,
 							providerSlug: PROVIDER_SLUG,
 							providerOperation: "details",
-							name: "E2E Test Boot Provider details",
-							capabilities: [],
 							requiredPluginConfigKeys: [],
 							requiredSystemConfigKeys: [],
+							name: "E2E Test Boot Provider details",
 						},
 						{
 							kind: "script",
 							entry: bootEntry,
 							slug: SCRIPT_SLUG,
-							providerSlug: PROVIDER_SLUG,
 							name: "E2E Test Boot",
-							capabilities: ["upsertGlobalEntities"],
+							providerSlug: PROVIDER_SLUG,
 							requiredPluginConfigKeys: [],
 							requiredSystemConfigKeys: [],
-						},
-					],
-					providers: [
-						{
-							slug: PROVIDER_SLUG,
-							rootEntitySchemaSlug: movieSchema.id,
-							name: "E2E Test Boot Provider",
-							information: { source: "e2e" },
-							operations: { details: DETAILS_SCRIPT_SLUG },
+							capabilities: ["upsertGlobalEntities"],
 						},
 					],
 				});
@@ -184,7 +184,7 @@ describe("POST /test-support/plugin-boot (custom plugin boot dispatch)", () => {
 				const result = requireRows(data.entities, "entities");
 				const row = result.items[0];
 
-				expect(row).toMatchObject({ entitySchemaSlug: "movie", name: "E2E Test Boot" });
+				expect(row).toMatchObject({ name: "E2E Test Boot", entitySchemaSlug: "movie" });
 			}),
 	);
 });

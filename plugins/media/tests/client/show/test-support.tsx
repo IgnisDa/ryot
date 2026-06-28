@@ -16,13 +16,13 @@ export const mountRyotClient = (adapter: Partial<RyotClientAdapter>, children: R
 		advance,
 		setTime,
 		container,
-		rerender: (next: ReactNode) =>
-			act(() => root.render(<RyotProvider runtime={runtime}>{next}</RyotProvider>)),
 		unmount: () => {
 			act(() => root.unmount());
 			container.remove();
 			void dispose();
 		},
+		rerender: (next: ReactNode) =>
+			act(() => root.render(<RyotProvider runtime={runtime}>{next}</RyotProvider>)),
 	};
 };
 

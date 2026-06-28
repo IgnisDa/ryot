@@ -80,7 +80,7 @@ const startProviderSearchNextPage = (state: ProviderSearchState): ProviderSearch
 		...state,
 		requestToken: token,
 		status: "loading-more",
-		operation: { token, page: state.nextPage, phase: "load-more" },
+		operation: { token, phase: "load-more", page: state.nextPage },
 	};
 };
 

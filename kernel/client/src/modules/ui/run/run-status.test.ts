@@ -41,10 +41,10 @@ describe("run status presentation", () => {
 
 	it("maps every run status to its pill", () => {
 		expect((["pending", "running", "completed", "failed"] as const).map(runStatusPill)).toEqual([
-			{ icon: "clock", label: "Queued", tone: "muted" },
-			{ icon: "rotate-ccw", label: "Running", tone: "info" },
-			{ icon: "circle-check", label: "Completed", tone: "success" },
-			{ icon: "circle-alert", label: "Failed", tone: "danger" },
+			{ icon: "clock", tone: "muted", label: "Queued" },
+			{ tone: "info", label: "Running", icon: "rotate-ccw" },
+			{ tone: "success", label: "Completed", icon: "circle-check" },
+			{ tone: "danger", label: "Failed", icon: "circle-alert" },
 		]);
 	});
 

@@ -6,7 +6,7 @@ const UserStateBadRequestReason = Schema.Union([
 	Schema.Struct({ code: Schema.Literal("same-entity-merge") }),
 	Schema.Struct({ code: Schema.Literal("entity-schema-mismatch") }),
 	Schema.Struct({ code: Schema.Literal("relationship-merge-failed") }),
-	Schema.Struct({ code: Schema.Literal("identity-property-mismatch"), property: Schema.String }),
+	Schema.Struct({ property: Schema.String, code: Schema.Literal("identity-property-mismatch") }),
 	Schema.Struct({
 		code: Schema.Literal("required-field"),
 		field: Schema.Literals(["entityId", "mergeFrom", "mergeInto"]),
@@ -19,8 +19,8 @@ const UserStateBadRequestReason = Schema.Union([
 
 const UserStateNotFoundReason = Schema.Union([
 	Schema.Struct({
-		entityIds: Schema.NonEmptyArray(EntityId),
 		code: Schema.Literal("entity-not-found"),
+		entityIds: Schema.NonEmptyArray(EntityId),
 	}),
 ]);
 

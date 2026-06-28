@@ -14,7 +14,7 @@ describe("God Mode sessions", () => {
 
 		expect(sessionId).toBe("session-1");
 		expect(sessionId).not.toContain("admin-secret");
-		expect(Effect.runSync(sessions.get(sessionId))).toEqual({ token: "admin-secret", origin });
+		expect(Effect.runSync(sessions.get(sessionId))).toEqual({ origin, token: "admin-secret" });
 		expect(Effect.runSync(sessions.get("admin-secret"))).toBeNull();
 
 		Effect.runSync(sessions.clear(sessionId));

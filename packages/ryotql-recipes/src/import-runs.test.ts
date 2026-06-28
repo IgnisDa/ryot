@@ -37,7 +37,7 @@ const failureItem = {
 	createdAt: "2026-01-01T01:06:00+02:00",
 	reason: { code: "input-transformation-failed" },
 };
-const pageInfo = { hasMore: true, limit: 2, nextCursor: "next" };
+const pageInfo = { limit: 2, hasMore: true, nextCursor: "next" };
 const rows = (items: readonly unknown[], limit = 2, type = "rows") => ({
 	type,
 	items,
@@ -51,18 +51,18 @@ const fieldKeys = (query: NamedQuery) =>
 describe("import-run recipes", () => {
 	it("prepares manual and integration lists with fields, pagination, filters, and order", () => {
 		const manual = requireRowsQuery(
-			manualImportRunsRecipe({ after: "manual-cursor", limit: 7 }).document.queries.importRuns,
+			manualImportRunsRecipe({ limit: 7, after: "manual-cursor" }).document.queries.importRuns,
 		);
 		const integration = requireRowsQuery(
 			integrationImportRunsRecipe({
-				after: "integration-cursor",
 				limit: 5,
+				after: "integration-cursor",
 				integrationId: "integration-1",
 			}).document.queries.importRuns,
 		);
 
-		expect(manual.output.pagination).toEqual({ after: "manual-cursor", limit: 7 });
-		expect(integration.output.pagination).toEqual({ after: "integration-cursor", limit: 5 });
+		expect(manual.output.pagination).toEqual({ limit: 7, after: "manual-cursor" });
+		expect(integration.output.pagination).toEqual({ limit: 5, after: "integration-cursor" });
 		expect(fieldKeys(manual)).toEqual([
 			"id",
 			"source",
@@ -87,15 +87,15 @@ describe("import-run recipes", () => {
 	it("prepares optional run detail and paginated failures in one document", () => {
 		const document = importRunRecipe({
 			runId: "run-1",
-			failureAfter: "failure-cursor",
 			failureLimit: 6,
+			failureAfter: "failure-cursor",
 		}).document;
 
 		expect(Object.keys(document.queries)).toEqual(["run", "failures"]);
 		expect(requireRowsQuery(document.queries.run).output.pagination).toEqual({ limit: 2 });
 		expect(requireRowsQuery(document.queries.failures).output.pagination).toEqual({
-			after: "failure-cursor",
 			limit: 6,
+			after: "failure-cursor",
 		});
 		expect(fieldKeys(requireRowsQuery(document.queries.failures))).toEqual([
 			"id",
@@ -106,8 +106,8 @@ describe("import-run recipes", () => {
 			"reason",
 			"sourceLabel",
 			"eventSchemaSlug",
-			"entitySchemaSlug",
 			"sourceIdentifier",
+			"entitySchemaSlug",
 		]);
 	});
 
@@ -154,12 +154,12 @@ describe("import-run recipes", () => {
 				pageInfo,
 				items: [
 					{
-						id: "failure-1",
-						runId: "run-1",
 						itemIndex: 4,
-						reason: { code: "input-transformation-failed" },
+						runId: "run-1",
+						id: "failure-1",
 						stage: "input_transformation",
 						createdAt: "2025-12-31T23:06:00.000Z",
+						reason: { code: "input-transformation-failed" },
 					},
 				],
 			},
@@ -222,7 +222,7 @@ describe("import-run recipes", () => {
 
 		expect(
 			Result.isFailure(
-				detailRecipe.decode({ data: { run: rows([runItem, runItem], 2), failures: rows([]) } }),
+				detailRecipe.decode({ data: { failures: rows([]), run: rows([runItem, runItem], 2) } }),
 			),
 		).toBe(true);
 		expect(Result.isFailure(manualImportRunsRecipe({ limit: 2 }).decode({ data: {} }))).toBe(true);

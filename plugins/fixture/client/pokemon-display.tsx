@@ -26,7 +26,7 @@ export const PokemonArtwork = ({
 	);
 };
 
-export const PokemonDetails = ({ abilities, height, weight }: PokemonDetailsData) => (
+export const PokemonDetails = ({ height, weight, abilities }: PokemonDetailsData) => (
 	<dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
 		<dt className="text-text-muted">Abilities</dt>
 		<dd>{abilities && abilities.length > 0 ? abilities.join(", ") : "Unavailable"}</dd>

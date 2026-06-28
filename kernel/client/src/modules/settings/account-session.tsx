@@ -15,7 +15,7 @@ export function AccountSession(props: {
 	async function signOut() {
 		const launched = await props.onSignOut().catch(() => null);
 		if (launched === false) {
-			await navigate({ replace: true, to: "/auth", search: { redirect: undefined } });
+			await navigate({ to: "/auth", replace: true, search: { redirect: undefined } });
 		}
 	}
 

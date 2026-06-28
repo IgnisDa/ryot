@@ -22,21 +22,21 @@ const schema = {
 			kind: "validation",
 			validation: { required: true },
 			message: "Note is required for the UK region",
-			when: { operator: "eq", path: ["region"], value: "uk" },
+			when: { value: "uk", operator: "eq", path: ["region"] },
 		},
 	],
 	fields: {
 		note: { ...described("Note"), type: "string" },
 		year: { ...described("Year"), type: "integer", defaultValue: 2026 },
 		payload: { ...described("Payload"), type: "object", properties: {} },
+		adult: { ...described("Adult"), type: "boolean", defaultValue: false },
+		title: { ...described("Title"), type: "string", validation: { required: true } },
+		tags: { ...described("Tags"), type: "array", items: { ...described("Tag"), type: "string" } },
 		records: {
 			...described("Records"),
 			type: "array",
 			items: { ...described("Record"), type: "object", properties: {} },
 		},
-		adult: { ...described("Adult"), type: "boolean", defaultValue: false },
-		title: { ...described("Title"), type: "string", validation: { required: true } },
-		tags: { ...described("Tags"), type: "array", items: { ...described("Tag"), type: "string" } },
 		region: {
 			...described("Region"),
 			type: "enum",
@@ -63,7 +63,7 @@ const visibilitySchema = {
 			path: ["secret"],
 			kind: "visibility",
 			visibility: { hidden: true },
-			when: { operator: "neq", path: ["advanced"], value: true },
+			when: { value: true, operator: "neq", path: ["advanced"] },
 		},
 	],
 	fields: {
@@ -73,12 +73,18 @@ const visibilitySchema = {
 } satisfies AppSchema;
 
 const cascadingVisibilitySchema = {
+	fields: {
+		note: { ...described("Note"), type: "string" },
+		detail: { ...described("Detail"), type: "string" },
+		dependent: { ...described("Dependent"), type: "string" },
+		advanced: { ...described("Advanced"), type: "boolean", defaultValue: false },
+	},
 	rules: [
 		{
 			path: ["detail"],
 			kind: "visibility",
 			visibility: { hidden: true },
-			when: { operator: "neq", path: ["advanced"], value: true },
+			when: { value: true, operator: "neq", path: ["advanced"] },
 		},
 		{
 			kind: "visibility",
@@ -93,36 +99,9 @@ const cascadingVisibilitySchema = {
 			when: { operator: "eq", path: ["detail"], value: "enabled" },
 		},
 	],
-	fields: {
-		note: { ...described("Note"), type: "string" },
-		detail: { ...described("Detail"), type: "string" },
-		dependent: { ...described("Dependent"), type: "string" },
-		advanced: { ...described("Advanced"), type: "boolean", defaultValue: false },
-	},
 } satisfies AppSchema;
 
 const uploadSchema = {
-	rules: [
-		{
-			kind: "visibility",
-			path: ["exportUploadToken"],
-			visibility: { hidden: true },
-			when: { path: ["mode"], value: "export", operator: "neq" },
-		},
-		{
-			path: ["username"],
-			kind: "visibility",
-			visibility: { hidden: true },
-			when: { path: ["mode"], value: "user", operator: "neq" },
-		},
-		{
-			path: ["collection"],
-			kind: "validation",
-			validation: { required: true },
-			message: "An export needs a collection",
-			when: { operator: "exists", path: ["exportUploadToken"] },
-		},
-	],
 	fields: {
 		collection: { ...described("Collection"), type: "string" },
 		username: { ...described("Username"), type: "string", validation: { required: true } },
@@ -139,6 +118,27 @@ const uploadSchema = {
 			format: { kind: "upload", allowedFileExtensions: ["zip"] },
 		},
 	},
+	rules: [
+		{
+			kind: "visibility",
+			path: ["exportUploadToken"],
+			visibility: { hidden: true },
+			when: { path: ["mode"], value: "export", operator: "neq" },
+		},
+		{
+			path: ["username"],
+			kind: "visibility",
+			visibility: { hidden: true },
+			when: { value: "user", path: ["mode"], operator: "neq" },
+		},
+		{
+			kind: "validation",
+			path: ["collection"],
+			validation: { required: true },
+			message: "An export needs a collection",
+			when: { operator: "exists", path: ["exportUploadToken"] },
+		},
+	],
 } satisfies AppSchema;
 
 describe("schema form state", () => {
@@ -233,10 +233,10 @@ describe("schema form state", () => {
 		const positionedSchema = {
 			fields: {
 				last: { ...described("Last"), type: "string" },
-				second: { ...described("Second"), type: "string", position: 2 },
-				first: { ...described("First"), type: "string", position: 1 },
-				secondTie: { ...described("Second tie"), type: "string", position: 2 },
 				alsoLast: { ...described("Also last"), type: "string" },
+				first: { ...described("First"), position: 1, type: "string" },
+				second: { ...described("Second"), position: 2, type: "string" },
+				secondTie: { ...described("Second tie"), position: 2, type: "string" },
 			},
 		} satisfies AppSchema;
 
@@ -257,11 +257,11 @@ describe("schema form state", () => {
 			{ key: "advanced", required: false },
 			{ key: "secret", required: true },
 		]);
-		expect(validateSchemaFormValues(visibilitySchema, { advanced: false, secret: "" }).size).toBe(
+		expect(validateSchemaFormValues(visibilitySchema, { secret: "", advanced: false }).size).toBe(
 			0,
 		);
 		expect(
-			validateSchemaFormValues(visibilitySchema, { advanced: true, secret: "" }).get("secret"),
+			validateSchemaFormValues(visibilitySchema, { secret: "", advanced: true }).get("secret"),
 		).toBe("Secret is required");
 	});
 
@@ -309,6 +309,16 @@ describe("schema form state", () => {
 
 	it("uses blank defaults for exists conditions and conditional requiredness", () => {
 		const defaultedSchema = {
+			fields: {
+				note: { ...described("Note"), type: "string" },
+				text: { ...described("Text"), type: "string", defaultValue: "" },
+				selections: {
+					...described("Selections"),
+					defaultValue: [],
+					type: "enum-array",
+					choices: { values: [], kind: "static" },
+				},
+			},
 			rules: [
 				{
 					path: ["note"],
@@ -318,24 +328,14 @@ describe("schema form state", () => {
 					when: {
 						operator: "all",
 						conditions: [
-							{ operator: "exists", path: ["text"] },
+							{ path: ["text"], operator: "exists" },
 							{ operator: "exists", path: ["selections"] },
 						],
 					},
 				},
 			],
-			fields: {
-				note: { ...described("Note"), type: "string" },
-				text: { ...described("Text"), type: "string", defaultValue: "" },
-				selections: {
-					...described("Selections"),
-					type: "enum-array",
-					defaultValue: [],
-					choices: { kind: "static", values: [] },
-				},
-			},
 		} satisfies AppSchema;
-		const values = { note: undefined, text: "", selections: [] };
+		const values = { text: "", selections: [], note: undefined };
 
 		expect(describeSchemaFormFields(defaultedSchema, values).fields).toContainEqual(
 			expect.objectContaining({ key: "note", required: true }),
@@ -353,7 +353,7 @@ describe("schema form state", () => {
 					path: ["note"],
 					kind: "validation",
 					validation: { required: true },
-					when: { operator: "eq", path: ["region"], value: "us" },
+					when: { value: "us", operator: "eq", path: ["region"] },
 				},
 			],
 			fields: {
@@ -374,19 +374,19 @@ describe("schema form state", () => {
 
 	it("prefers an active conditional message for a statically required field", () => {
 		const requiredSchema = {
+			fields: {
+				region: { ...described("Region"), type: "string" },
+				title: { ...described("Title"), type: "string", validation: { required: true } },
+			},
 			rules: [
 				{
 					path: ["title"],
 					kind: "validation",
 					validation: { required: true },
 					message: "A UK title is required",
-					when: { operator: "eq", path: ["region"], value: "uk" },
+					when: { value: "uk", operator: "eq", path: ["region"] },
 				},
 			],
-			fields: {
-				region: { ...described("Region"), type: "string" },
-				title: { ...described("Title"), type: "string", validation: { required: true } },
-			},
 		} satisfies AppSchema;
 
 		expect(validateSchemaFormValues(requiredSchema, { title: "", region: "uk" }).get("title")).toBe(
@@ -396,7 +396,7 @@ describe("schema form state", () => {
 
 	it("evaluates existence, membership, and combined rule conditions", () => {
 		const conditional = (when: AppSchema["rules"]) => ({ ...schema, rules: when });
-		const values = { title: "Dune", region: "uk", year: 2026, note: undefined };
+		const values = { year: 2026, region: "uk", title: "Dune", note: undefined };
 		const noteRule = {
 			path: ["note"],
 			kind: "validation",
@@ -405,13 +405,13 @@ describe("schema form state", () => {
 
 		expect(
 			validateSchemaFormValues(
-				conditional([{ ...noteRule, when: { operator: "exists", path: ["region"] } }]),
+				conditional([{ ...noteRule, when: { path: ["region"], operator: "exists" } }]),
 				values,
 			).get("note"),
 		).toBe("Note is required");
 		expect(
 			validateSchemaFormValues(
-				conditional([{ ...noteRule, when: { operator: "not_exists", path: ["region"] } }]),
+				conditional([{ ...noteRule, when: { path: ["region"], operator: "not_exists" } }]),
 				values,
 			).get("note"),
 		).toBeUndefined();
@@ -426,7 +426,7 @@ describe("schema form state", () => {
 		expect(
 			validateSchemaFormValues(
 				conditional([
-					{ ...noteRule, when: { operator: "not_in", path: ["region"], value: ["uk"] } },
+					{ ...noteRule, when: { value: ["uk"], path: ["region"], operator: "not_in" } },
 				]),
 				values,
 			).get("note"),
@@ -439,8 +439,8 @@ describe("schema form state", () => {
 						when: {
 							operator: "all",
 							conditions: [
-								{ operator: "eq", path: ["region"], value: "uk" },
-								{ operator: "neq", path: ["year"], value: 1999 },
+								{ value: "uk", operator: "eq", path: ["region"] },
+								{ value: 1999, path: ["year"], operator: "neq" },
 							],
 						},
 					},
@@ -455,7 +455,7 @@ describe("schema form state", () => {
 						...noteRule,
 						when: {
 							operator: "any",
-							conditions: [{ operator: "eq", path: ["region"], value: "de" }],
+							conditions: [{ value: "de", operator: "eq", path: ["region"] }],
 						},
 					},
 				]),
@@ -475,7 +475,7 @@ describe("schema form state", () => {
 					: ({
 							...described("Trigger"),
 							type: "enum-array",
-							choices: { kind: "static", values: [] },
+							choices: { values: [], kind: "static" },
 						} as const);
 			return {
 				fields: { trigger, note: { ...described("Note"), type: "string" } },
@@ -514,12 +514,6 @@ describe("schema form state", () => {
 	it("validates primitive array bounds and item declarations", () => {
 		const arrays = {
 			fields: {
-				tags: {
-					...described("Tags"),
-					type: "array",
-					validation: { minItems: 2, maxItems: 3 },
-					items: { ...described("Tag"), type: "string", validation: { minLength: 2 } },
-				},
 				scores: {
 					...described("Scores"),
 					type: "array",
@@ -528,6 +522,12 @@ describe("schema form state", () => {
 						type: "integer",
 						validation: { minimum: 0, maximum: 100 },
 					},
+				},
+				tags: {
+					...described("Tags"),
+					type: "array",
+					validation: { minItems: 2, maxItems: 3 },
+					items: { ...described("Tag"), type: "string", validation: { minLength: 2 } },
 				},
 			},
 		} satisfies AppSchema;
@@ -545,10 +545,10 @@ describe("schema form state", () => {
 		expect(validateSchemaFormValues(arrays, { scores: [1.5] }).get("scores")).toContain(
 			"invalid value",
 		);
-		expect(validateSchemaFormValues(arrays, { tags: ["ok", "yes"], scores: [50] }).size).toBe(0);
-		expect(toSchemaFormPayload(arrays, { tags: ["ok", "yes"], scores: [50] })).toEqual({
-			tags: ["ok", "yes"],
+		expect(validateSchemaFormValues(arrays, { scores: [50], tags: ["ok", "yes"] }).size).toBe(0);
+		expect(toSchemaFormPayload(arrays, { scores: [50], tags: ["ok", "yes"] })).toEqual({
 			scores: [50],
+			tags: ["ok", "yes"],
 		});
 	});
 
@@ -558,15 +558,15 @@ describe("schema form state", () => {
 				year: { ...described("Year"), type: "integer" },
 				site: { ...described("Site"), type: "string", format: { kind: "url" } },
 				region: { ...described("Region"), type: "enum", choices: choices("us", "uk") },
-				handle: {
-					...described("Handle"),
-					type: "string",
-					validation: { minLength: 3, maxLength: 8, pattern: "^[a-z]+$" },
-				},
 				score: {
 					...described("Score"),
 					type: "number",
 					validation: { minimum: 0, maximum: 10, multipleOf: 2 },
+				},
+				handle: {
+					...described("Handle"),
+					type: "string",
+					validation: { minLength: 3, maxLength: 8, pattern: "^[a-z]+$" },
 				},
 			},
 		} satisfies AppSchema;
@@ -611,8 +611,8 @@ describe("schema form state", () => {
 					...described("Kind"),
 					type: "enum",
 					defaultValue: "radarr",
-					validation: { required: true },
 					choices: choices("radarr"),
+					validation: { required: true },
 				},
 			},
 		} satisfies AppSchema;
@@ -646,7 +646,7 @@ describe("schema form state", () => {
 		const annotatedSchema = {
 			fields: {
 				plain: { ...described("Plain"), type: "string" },
-				token: { ...described("Token"), type: "string", secret: true },
+				token: { ...described("Token"), secret: true, type: "string" },
 				link: { ...described("Link"), type: "string", format: { kind: "url" } },
 				contact: { ...described("Contact"), type: "string", format: { kind: "email" } },
 			},
@@ -656,7 +656,7 @@ describe("schema form state", () => {
 			{ key: "plain", secret: false, format: undefined },
 			{ key: "token", secret: true, format: undefined },
 			{ key: "link", secret: false, format: "url" },
-			{ key: "contact", secret: false, format: "email" },
+			{ secret: false, key: "contact", format: "email" },
 		]);
 	});
 
@@ -664,21 +664,21 @@ describe("schema form state", () => {
 		const controlSchema = {
 			fields: {
 				text: { ...described("Text"), type: "string" },
-				count: { ...described("Count"), type: "integer" },
 				flag: { ...described("Flag"), type: "boolean" },
-				pair: { ...described("Pair"), type: "enum", choices: choices("us", "uk") },
+				count: { ...described("Count"), type: "integer" },
 				sole: { ...described("Sole"), type: "enum", choices: choices("only") },
+				pair: { ...described("Pair"), type: "enum", choices: choices("us", "uk") },
 				many: { ...described("Many"), type: "enum", choices: choices("a", "b", "c", "d") },
-				wordy: {
-					...described("Wordy"),
-					type: "enum",
-					choices: choices("a", "an extremely long label"),
-				},
 				tags: { ...described("Tags"), type: "enum-array", choices: choices("epic", "scifi") },
 				list: {
 					...described("List"),
 					type: "array",
 					items: { ...described("Item"), type: "boolean" },
+				},
+				wordy: {
+					...described("Wordy"),
+					type: "enum",
+					choices: choices("a", "an extremely long label"),
 				},
 			},
 		} satisfies AppSchema;
@@ -687,14 +687,14 @@ describe("schema form state", () => {
 			describeSchemaFormFields(controlSchema).fields.map((field) => [field.key, field.control]),
 		).toEqual([
 			["text", "text"],
-			["count", "text"],
 			["flag", "switch"],
-			["pair", "segmented"],
+			["count", "text"],
 			["sole", "chips"],
+			["pair", "segmented"],
 			["many", "chips"],
-			["wordy", "chips"],
 			["tags", "multi-select"],
 			["list", "list"],
+			["wordy", "chips"],
 		]);
 	});
 
@@ -757,8 +757,8 @@ describe("schema form state", () => {
 				baseUrl: { ...described("Base URL"), type: "string", validation: { required: true } },
 				apiKey: {
 					...described("API key"),
-					type: "string",
 					secret: true,
+					type: "string",
 					validation: { required: true },
 				},
 			},

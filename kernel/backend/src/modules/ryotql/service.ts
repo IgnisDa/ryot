@@ -70,7 +70,7 @@ export class RyotQLService extends Context.Service<RyotQLService>()("RyotQLServi
 		});
 
 		const executeForUser = (userId: string, language: string | null, document: RyotQLDocument) =>
-			executeWithScope({ type: "user", userId, language }, document);
+			executeWithScope({ userId, language, type: "user" }, document);
 
 		const executeForPlugin = (
 			scope: Omit<Extract<RyotQLExecutionScope, { type: "plugin" }>, "type">,
@@ -89,7 +89,7 @@ export class RyotQLService extends Context.Service<RyotQLService>()("RyotQLServi
 		const execute = (user: CurrentUserValue, document: RyotQLDocument) =>
 			executeForUser(user.id, user.preferences.language, document);
 
-		return { execute, executeForUser, executeForPlugin, validate };
+		return { execute, validate, executeForUser, executeForPlugin };
 	}),
 }) {
 	static readonly layer = Layer.effect(this, this.make);

@@ -26,7 +26,7 @@ export const runPluginImportWorkflow = Effect.fn("runPluginImportWorkflow")(func
 	const artifactReferenceExecutionId = `${executionId}-import-orchestrator`;
 	const artifactDispatchReferenceExecutionId = `${executionId}-import-dispatch`;
 	let uploadIntentIds: ReadonlyArray<string> = [];
-	const { failRunAndCleanup, cleanupArtifactsBestEffort, cleanupUploadsBestEffort } =
+	const { failRunAndCleanup, cleanupUploadsBestEffort, cleanupArtifactsBestEffort } =
 		createImportRunLifecycle(payload, executionId);
 	const releaseImportWorkflowPin = Activity.make({
 		name: "release-import-workflow-pin",

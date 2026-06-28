@@ -107,7 +107,7 @@ export function ShowCardContent(props: {
 				className={clsx("flex h-full min-w-0 flex-col", props.compact ? "gap-2.5" : "gap-3")}
 			>
 				<PluginLink className="block min-w-0" to={{ kind: "entity", entityId: props.entityId }}>
-					<ShowArtwork compact={props.compact} layout="grid" show={props.data} />
+					<ShowArtwork layout="grid" show={props.data} compact={props.compact} />
 				</PluginLink>
 				<div className="flex min-w-0 flex-col gap-1.5">
 					<span className="flex min-w-0 items-baseline gap-1.5">
@@ -118,7 +118,7 @@ export function ShowCardContent(props: {
 						</PluginLink>
 						{isTitleProvisional(props.data) && <SyncPip reason="translating" />}
 					</span>
-					<ShowFacts compact={props.compact} show={props.data} />
+					<ShowFacts show={props.data} compact={props.compact} />
 				</div>
 			</article>
 		</ManagedAssetProvider>
@@ -141,7 +141,7 @@ export function ShowRowContent(props: {
 				)}
 			>
 				<PluginLink className="block min-w-0" to={{ kind: "entity", entityId: props.entityId }}>
-					<ShowArtwork compact={props.compact} layout="list" show={props.data} />
+					<ShowArtwork layout="list" show={props.data} compact={props.compact} />
 				</PluginLink>
 				<div className="flex min-w-0 flex-col gap-1.5">
 					<span className="flex min-w-0 items-baseline gap-1.5">
@@ -152,7 +152,7 @@ export function ShowRowContent(props: {
 						</PluginLink>
 						{isTitleProvisional(props.data) && <SyncPip reason="translating" />}
 					</span>
-					<ShowFacts compact={props.compact} show={props.data} />
+					<ShowFacts show={props.data} compact={props.compact} />
 				</div>
 			</article>
 		</ManagedAssetProvider>
@@ -161,12 +161,12 @@ export function ShowRowContent(props: {
 
 function ShowCard({ data, reference }: EntityPresentationComponentProps<ShowPresentationViewData>) {
 	const { compact } = useRyotViewport();
-	return <ShowCardContent compact={compact} data={data} entityId={reference.entityId} />;
+	return <ShowCardContent data={data} compact={compact} entityId={reference.entityId} />;
 }
 
 function ShowRow({ data, reference }: EntityPresentationComponentProps<ShowPresentationViewData>) {
 	const { compact } = useRyotViewport();
-	return <ShowRowContent compact={compact} data={data} entityId={reference.entityId} />;
+	return <ShowRowContent data={data} compact={compact} entityId={reference.entityId} />;
 }
 
 export const showCardPresentation = defineEntityPresentation({

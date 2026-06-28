@@ -32,8 +32,8 @@ export const signal = snakeCase.table(
 		id: text().notNull().primaryKey(),
 		signalSchemaSlug: text().notNull(),
 		origin: jsonb().$type<AutomationOrigin>().notNull(),
-		properties: jsonb().$type<Record<string, unknown>>().notNull(),
 		occurredAt: timestamp({ withTimezone: true }).notNull(),
+		properties: jsonb().$type<Record<string, unknown>>().notNull(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		actorUserId: text().references(() => user.id, { onDelete: "cascade" }),
 		subjectEntityId: text().references(() => entity.id, { onDelete: "set null" }),
@@ -67,22 +67,22 @@ export const notificationSubscriptionState = snakeCase.table(
 	"notification_subscription_state",
 	{
 		signalSchemaSlug: text().notNull(),
-		metadata: jsonb().$type<AutomationRuleMetadata>(),
 		isActive: boolean().notNull().default(true),
+		metadata: jsonb().$type<AutomationRuleMetadata>(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		signalSchemaPluginId: text().references(() => plugin.id, { onDelete: "restrict" }),
 		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
+		updatedAt: timestamp({ withTimezone: true })
+			.defaultNow()
+			.$onUpdate(() => /* @__PURE__ */ new Date())
+			.notNull(),
 		id: text()
 			.$type<AutomationRuleId>()
 			.notNull()
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ AutomationRuleId.make(generateId())),
-		updatedAt: timestamp({ withTimezone: true })
-			.defaultNow()
-			.$onUpdate(() => /* @__PURE__ */ new Date())
-			.notNull(),
 	},
 	(table) => [
 		index("notification_subscription_state_user_id_idx").on(table.userId),
@@ -104,20 +104,20 @@ export const subscriptionRun = snakeCase.table(
 		occurrenceId: text().notNull(),
 		sandboxScriptId: text().notNull(),
 		id: text().notNull().primaryKey(),
-		logs: jsonb().$type<AutomationRuleMetadata>(),
-		timing: jsonb().$type<SubscriptionRunTiming>(),
 		startedAt: timestamp({ withTimezone: true }),
+		logs: jsonb().$type<AutomationRuleMetadata>(),
 		finishedAt: timestamp({ withTimezone: true }),
+		timing: jsonb().$type<SubscriptionRunTiming>(),
+		scriptUpdatedAt: timestamp({ withTimezone: true }),
 		ruleMetadata: jsonb().$type<AutomationRuleMetadata>(),
 		sandboxError: jsonb().$type<AutomationRuleMetadata>(),
 		skipReason: jsonb().$type<SubscriptionRunSkipReason>(),
 		returnedValue: jsonb().$type<AutomationRuleMetadata>(),
 		operation: text().$type<AutomationOperation>().notNull(),
-		scriptUpdatedAt: timestamp({ withTimezone: true }),
 		sourceKind: text().$type<SubscriptionRunSourceKind>().notNull(),
 		queuedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-		status: text().$type<SubscriptionRunStatus>().notNull().default("queued"),
 		signalId: text().references(() => signal.id, { onDelete: "cascade" }),
+		status: text().$type<SubscriptionRunStatus>().notNull().default("queued"),
 		executionUserId: text().references(() => user.id, { onDelete: "cascade" }),
 	},
 	(table) => [

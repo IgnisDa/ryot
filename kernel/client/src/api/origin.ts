@@ -27,8 +27,8 @@ export const ServerOrigin = ServerOriginString.pipe(
 	Schema.decodeTo(
 		Schema.String,
 		SchemaTransformation.transform({
-			decode: (value) => new URL(value).origin,
 			encode: (value) => value,
+			decode: (value) => new URL(value).origin,
 		}),
 	),
 	Schema.brand("ServerOrigin"),

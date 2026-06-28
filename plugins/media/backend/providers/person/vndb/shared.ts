@@ -63,7 +63,7 @@ export const details = defineProvider({
 		return vndbPost(
 			host,
 			"producer",
-			{ fields: "id,name,description,lang,type,aliases", filters: ["id", "=", input.externalId] },
+			{ filters: ["id", "=", input.externalId], fields: "id,name,description,lang,type,aliases" },
 			"VNDB producer details request failed",
 		).pipe(
 			Effect.map((payload) => {

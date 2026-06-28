@@ -68,7 +68,7 @@ export const runYoutubeMusicYank = (
 			Effect.flatMap((client) => buildHistory(client, timezone, occurredAt)),
 		);
 		const songs = [...new Map(history.songs.map((song) => [song.videoId, song])).values()];
-		const { isFinalWindow, localDate, ttlSeconds } = dailyProgressWindow(timezone, occurredAt);
+		const { localDate, ttlSeconds, isFinalWindow } = dailyProgressWindow(timezone, occurredAt);
 		const groups = yield* Effect.forEach(songs, (song, itemIndex) =>
 			Effect.gen(function* () {
 				const key = `${integration.id}:${song.videoId}:${localDate}`;
@@ -95,13 +95,6 @@ export const runYoutubeMusicYank = (
 				return {
 					itemIndex,
 					collectionMemberships: [],
-					entityRef: {
-						sourceLabel: song.title,
-						externalId: song.videoId,
-						kind: "resolved" as const,
-						entitySchemaSlug: "music",
-						providerSlug: "music.youtube-music",
-					},
 					events: [
 						{
 							occurredAt,
@@ -109,6 +102,13 @@ export const runYoutubeMusicYank = (
 							properties: { progressPercent, consumedOn: "youtube_music" },
 						},
 					],
+					entityRef: {
+						sourceLabel: song.title,
+						externalId: song.videoId,
+						kind: "resolved" as const,
+						entitySchemaSlug: "music",
+						providerSlug: "music.youtube-music",
+					},
 				};
 			}),
 		);

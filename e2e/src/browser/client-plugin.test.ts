@@ -62,7 +62,7 @@ const observeBridgeMessages = (page: Playwright.Page, observations: BridgeObserv
 						? message.sessionId
 						: null;
 				if (typeof reporter === "function") {
-					void Promise.resolve(reporter({ bridgeSessionId, serialized })).catch(() => undefined);
+					void Promise.resolve(reporter({ serialized, bridgeSessionId })).catch(() => undefined);
 				}
 			};
 
@@ -119,7 +119,7 @@ const readArtifactSession = (frame: Playwright.Locator, selectedApiUrl: string) 
 				),
 			);
 		}
-		return { credential, src };
+		return { src, credential };
 	});
 
 const expectSameArtifactSession = (current: ArtifactSession, expected: ArtifactSession) => {
@@ -222,8 +222,8 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 			"Fixture Pokemon schema was not registered",
 		);
 		const pokemon = yield* createEntity(client, {
-			name: "E2E deterministic Bulbasaur",
 			entitySchemaSlug: pokemonSchema.id,
+			name: "E2E deterministic Bulbasaur",
 			properties: {
 				height: 7,
 				weight: 69,
@@ -247,8 +247,8 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		const home = fixture.locator("body");
 
 		const { historyLengthBeforeSubmit } = yield* signInThroughHostedOAuth(page, email, password, {
-			captureHistory: true,
 			entryPath: "/",
+			captureHistory: true,
 		});
 		// Sign-in lands on the first enabled workspace by (sortOrder, slug), which earlier
 		// suites change by installing system plugins into the shared database.
@@ -435,7 +435,7 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		yield* waitForFreshBridgeSession(bridgeObservations, navigationBridgeSession);
 		yield* waitForArtifactSessionRevoked(page, navigationArtifact);
 
-		yield* fixture.getByRole("button", { name: "Greet", exact: true }).click();
+		yield* fixture.getByRole("button", { exact: true, name: "Greet" }).click();
 		yield* expectVisibleText(home, "Greeted 1 times.");
 		const revisionAArtifact = yield* readArtifactSession(frame, apiUrl);
 		const revisionABridgeSession = yield* waitForFreshBridgeSession(
@@ -493,7 +493,7 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		yield* mediaFrame.waitFor({ state: "visible" });
 		const media = mediaFrame.contentFrame();
 		yield* media
-			.getByRole("heading", { level: 1, name: "E2E deterministic show", exact: true })
+			.getByRole("heading", { level: 1, exact: true, name: "E2E deterministic show" })
 			.waitFor({ state: "visible" });
 		expect((yield* readArtifactSession(mediaFrame, apiUrl)).src).toContain(
 			"/api/client-pages/artifacts/",

@@ -29,16 +29,6 @@ it("accepts new schemas, optional properties, and widened enums", () => {
 		assert(kind.choices.kind === "static");
 		return {
 			...previous,
-			entitySchemas: [
-				entityWithFields(previous, {
-					...entity.propertiesSchema.fields,
-					optional: { type: "string", label: "Optional", description: "Optional value" },
-					kind: {
-						...kind,
-						choices: { kind: "static", values: [...kind.choices.values, { value: "three" }] },
-					},
-				}),
-			],
 			signalSchemas: [
 				...previous.signalSchemas,
 				{
@@ -49,6 +39,16 @@ it("accepts new schemas, optional properties, and widened enums", () => {
 					audiencePolicy: { kind: "actor" },
 					notificationScriptSlug: "fixture.automation",
 				},
+			],
+			entitySchemas: [
+				entityWithFields(previous, {
+					...entity.propertiesSchema.fields,
+					optional: { type: "string", label: "Optional", description: "Optional value" },
+					kind: {
+						...kind,
+						choices: { kind: "static", values: [...kind.choices.values, { value: "three" }] },
+					},
+				}),
 			],
 		};
 	});
@@ -119,7 +119,7 @@ it.each([
 				entitySchemas: [
 					entityWithFields(previous, {
 						...entity.propertiesSchema.fields,
-						name: { type: "number", label: "Name", description: "Fixture name" },
+						name: { label: "Name", type: "number", description: "Fixture name" },
 					}),
 				],
 			};

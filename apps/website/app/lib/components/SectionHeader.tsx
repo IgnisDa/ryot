@@ -26,7 +26,7 @@ export const SectionHeader = (props: SectionHeaderProps) => {
 	return (
 		<div className="text-center mb-16">
 			{props.subtitle && (
-				<Badge variant={props.badgeVariant ?? "outline"} className="mb-6">
+				<Badge className="mb-6" variant={props.badgeVariant ?? "outline"}>
 					{Icon && <Icon className="w-4 h-4 mr-2" />}
 					{props.subtitle}
 				</Badge>

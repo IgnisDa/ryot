@@ -13,10 +13,10 @@ describe("saved-view schemas", () => {
 		expect(
 			Result.isFailure(
 				Schema.decodeUnknownResult(CreateSavedViewBody)({
+					layouts: {},
 					icon: "table",
 					name: "Old view",
 					entitySchemaSlug: null,
-					layouts: {},
 				}),
 			),
 		).toBe(true);
@@ -50,14 +50,14 @@ describe("saved-view schemas", () => {
 			ownerPluginIdField: "ownerPluginId",
 			entitySchemaSlugField: "entitySchemaSlug",
 			tableColumns: [{ label: "Name", field: "name", displayKind: "text" }],
-			sortChoices: [
-				{ name: "newest", label: "Newest", orderBy: [{ field: "createdAt", direction: "desc" }] },
-			],
 			addAction: {
 				type: "provider-search",
 				entitySchemaSlug: "movie",
 				ownerPluginId: "media-plugin",
 			},
+			sortChoices: [
+				{ name: "newest", label: "Newest", orderBy: [{ direction: "desc", field: "createdAt" }] },
+			],
 		});
 		const resultsInput = {
 			pageSize: 50,

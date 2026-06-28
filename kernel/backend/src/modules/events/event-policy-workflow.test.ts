@@ -44,9 +44,9 @@ const registry = makeDefinitionRegistry({
 		{
 			icon: "record",
 			name: "Record",
-			pluginId: "private-plugin-id",
 			pluginSlug: "test",
 			slug: entitySchemaSlug,
+			pluginId: "private-plugin-id",
 			propertiesSchema: { fields: {} },
 			eventSchemas: [
 				{
@@ -55,9 +55,9 @@ const registry = makeDefinitionRegistry({
 					propertiesSchema: {
 						fields: {
 							rating: {
+								type: "number",
 								label: "Rating",
 								description: "Rating",
-								type: "number",
 								validation: { required: true },
 							},
 						},
@@ -153,8 +153,8 @@ const run = (input: {
 								isBuiltin: false,
 								entityUserId: userId,
 								entityId: requestedId,
-								entitySchemaSlug: EntitySchemaSlug.make("record"),
 								propertiesSchema: { fields: {} },
+								entitySchemaSlug: EntitySchemaSlug.make("record"),
 								entityName: requestedId === entityId ? "Dune" : "Reading session",
 							},
 				),
@@ -240,8 +240,8 @@ it.effect("runs policies in position order and validates each replacement before
 		});
 		expect(test.created[0]).toMatchObject({
 			sessionEntityId,
-			eventSchemaPluginId: "private-plugin-id",
 			properties: { rating: 10 },
+			eventSchemaPluginId: "private-plugin-id",
 		});
 	});
 });
@@ -249,8 +249,8 @@ it.effect("runs policies in position order and validates each replacement before
 it.effect("skips policies that do not apply to the event origin", () => {
 	const test = run({
 		payload: payload([1]),
-		policies: [{ ...policy("integration-only", 10), metadata: { origins: ["integration"] } }],
 		process: () => ({ action: "allow" }),
+		policies: [{ ...policy("integration-only", 10), metadata: { origins: ["integration"] } }],
 	});
 
 	return Effect.gen(function* () {
@@ -271,9 +271,9 @@ it.effect("runs subject-batched policies once per subject in an event-create pay
 	assert(second);
 	assert(third);
 	const test = run({
-		payload: { ...batchedPayload, payload: [first, second, { ...third, entityId: otherEntityId }] },
-		policies: [{ ...policy("subject-batched", 10), metadata: { batchMode: "subject" } }],
 		process: () => ({ action: "allow" }),
+		policies: [{ ...policy("subject-batched", 10), metadata: { batchMode: "subject" } }],
+		payload: { ...batchedPayload, payload: [first, second, { ...third, entityId: otherEntityId }] },
 	});
 
 	return Effect.gen(function* () {
@@ -317,7 +317,7 @@ it.effect("reauthorizes a replacement session entity", () => {
 		expect(test.created).toHaveLength(0);
 		expect(result.failure).toEqual({
 			index: 0,
-			reason: { code: "session-entity-not-found", entityId: inaccessibleId },
+			reason: { entityId: inaccessibleId, code: "session-entity-not-found" },
 		});
 	});
 });

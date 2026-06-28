@@ -20,9 +20,9 @@ const httpSuccess = (body: unknown) =>
 const makeHost = (httpCall: TmdbHost["httpCall"]) =>
 	defineSandboxTestHost(manifest, {
 		httpCall,
+		getUserPreferences: () => Effect.succeed({ allowNsfw: false, disableIntegrations: false }),
 		getPluginConfig: (keys) =>
 			Effect.succeed(Object.fromEntries(keys.map((key) => [key, "token"]))),
-		getUserPreferences: () => Effect.succeed({ allowNsfw: false, disableIntegrations: false }),
 	});
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
 describe("movie.tmdb sandbox script", () => {
@@ -43,13 +43,13 @@ describe("movie.tmdb sandbox script", () => {
 		expect({
 			kind: trendingManifest.kind,
 			slug: trendingManifest.slug,
-			operation: "operation" in trending ? trending.operation : null,
 			capabilities: trendingManifest.capabilities,
+			operation: "operation" in trending ? trending.operation : null,
 			requiredPluginConfigKeys: trendingManifest.requiredPluginConfigKeys,
 		}).toEqual({
 			kind: "script",
-			slug: "movie.tmdb.trending",
 			operation: null,
+			slug: "movie.tmdb.trending",
 			capabilities: ["httpCall", "getPluginConfig"],
 			requiredPluginConfigKeys: ["tmdbAccessToken"],
 		});
@@ -59,8 +59,8 @@ describe("movie.tmdb sandbox script", () => {
 			if (url.includes("/movie/1/recommendations")) {
 				return httpSuccess({
 					results: [
-						{ id: 2, title: "Pick One", name: "Pick One" },
-						{ id: 3, title: "Pick Two", name: "Pick Two" },
+						{ id: 2, name: "Pick One", title: "Pick One" },
+						{ id: 3, name: "Pick Two", title: "Pick Two" },
 					],
 				});
 			}
@@ -145,8 +145,8 @@ describe("movie.tmdb sandbox script", () => {
 							synchronization: "authoritative",
 							relationshipSchemaSlug: "media-suggestion",
 							entities: [
-								{ name: "Pick One", externalId: "2", providerSlug: "movie.tmdb" },
-								{ name: "Pick Two", externalId: "3", providerSlug: "movie.tmdb" },
+								{ externalId: "2", name: "Pick One", providerSlug: "movie.tmdb" },
+								{ externalId: "3", name: "Pick Two", providerSlug: "movie.tmdb" },
 							],
 						},
 					]);
@@ -210,10 +210,10 @@ describe("movie.tmdb sandbox script", () => {
 					expect(requestedPages).toEqual(["1", "2", "3"]);
 					expect(result).toEqual({
 						items: [
-							{ name: "First Movie", externalId: "1" },
-							{ name: "Second Movie", externalId: "2" },
-							{ name: "Third Movie", externalId: "4" },
-							{ name: "Fourth Movie", externalId: "5" },
+							{ externalId: "1", name: "First Movie" },
+							{ externalId: "2", name: "Second Movie" },
+							{ externalId: "4", name: "Third Movie" },
+							{ externalId: "5", name: "Fourth Movie" },
 						],
 					});
 					return undefined;

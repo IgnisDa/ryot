@@ -6,8 +6,8 @@ const SandboxTiming = Schema.Struct({ totalMs: Schema.Finite, executionMs: Schem
 export const SandboxExecutionResult = Schema.Struct({
 	value: Schema.Unknown,
 	logs: Schema.Array(Schema.String),
-	timing: Schema.optional(SandboxTiming),
 	status: Schema.Literal("completed"),
+	timing: Schema.optional(SandboxTiming),
 	error: Schema.NullOr(SandboxExecutionError),
 	harvest: Schema.optional(
 		Schema.NullOr(Schema.Struct({ chunkHandles: Schema.Array(Schema.String) })),

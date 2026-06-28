@@ -3,7 +3,7 @@ import { Schema, SchemaGetter } from "effect";
 import { EntityId, EntitySchemaSlug, SandboxProviderId } from "../../schema/brands";
 
 const EntityBadRequestReason = Schema.Union([
-	Schema.Struct({ code: Schema.Literal("name-required"), field: Schema.Literal("name") }),
+	Schema.Struct({ field: Schema.Literal("name"), code: Schema.Literal("name-required") }),
 	Schema.Struct({
 		code: Schema.Literal("incomplete-provenance"),
 		fields: Schema.Tuple([Schema.Literal("externalId"), Schema.Literal("providerId")]),
@@ -19,7 +19,7 @@ const EntityBadRequestReason = Schema.Union([
 ]);
 
 const EntityNotFoundReason = Schema.Union([
-	Schema.Struct({ code: Schema.Literal("entity-not-found"), entityId: EntityId }),
+	Schema.Struct({ entityId: EntityId, code: Schema.Literal("entity-not-found") }),
 	Schema.Struct({
 		entitySchemaSlug: EntitySchemaSlug,
 		code: Schema.Literal("entity-schema-not-found"),
@@ -69,21 +69,21 @@ const RequiredEntitySchemaSlug = Schema.Trim.pipe(
 
 const OptionalExternalId = Schema.String.pipe(
 	Schema.decodeTo(Schema.UndefinedOr(Schema.String), {
+		encode: SchemaGetter.transform((value) => value ?? ""),
 		decode: SchemaGetter.transform((value) => {
 			const trimmed = value.trim();
 			return trimmed.length > 0 ? trimmed : undefined;
 		}),
-		encode: SchemaGetter.transform((value) => value ?? ""),
 	}),
 );
 
 const OptionalSandboxProviderId = Schema.String.pipe(
 	Schema.decodeTo(Schema.UndefinedOr(SandboxProviderId), {
+		encode: SchemaGetter.transform((value) => value ?? ""),
 		decode: SchemaGetter.transform((value) => {
 			const trimmed = value.trim();
 			return trimmed.length > 0 ? trimmed : undefined;
 		}),
-		encode: SchemaGetter.transform((value) => value ?? ""),
 	}),
 );
 

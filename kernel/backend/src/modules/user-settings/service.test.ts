@@ -46,7 +46,7 @@ it.effect("returns the caller's current preferences when the body is empty", () 
 		const service = yield* UserSettingsService;
 		const result = yield* service.updatePreferences(makeUser(defaultUserPreferences), {});
 
-		expect(result).toEqual({ allowNsfw: false, language: null, disableIntegrations: false });
+		expect(result).toEqual({ language: null, allowNsfw: false, disableIntegrations: false });
 	}).pipe(Effect.provide(makeServiceLayer())),
 );
 
@@ -54,11 +54,11 @@ it.effect("only overwrites the fields provided in the body", () =>
 	Effect.gen(function* () {
 		const service = yield* UserSettingsService;
 		const result = yield* service.updatePreferences(
-			makeUser({ allowNsfw: true, language: "es", disableIntegrations: false }),
+			makeUser({ language: "es", allowNsfw: true, disableIntegrations: false }),
 			{ disableIntegrations: true },
 		);
 
-		expect(result).toEqual({ allowNsfw: true, language: "es", disableIntegrations: true });
+		expect(result).toEqual({ language: "es", allowNsfw: true, disableIntegrations: true });
 	}).pipe(Effect.provide(makeServiceLayer())),
 );
 
@@ -66,11 +66,11 @@ it.effect("allows explicitly clearing the language preference", () =>
 	Effect.gen(function* () {
 		const service = yield* UserSettingsService;
 		const result = yield* service.updatePreferences(
-			makeUser({ allowNsfw: false, language: "es", disableIntegrations: false }),
+			makeUser({ language: "es", allowNsfw: false, disableIntegrations: false }),
 			{ language: null },
 		);
 
-		expect(result).toEqual({ allowNsfw: false, language: null, disableIntegrations: false });
+		expect(result).toEqual({ language: null, allowNsfw: false, disableIntegrations: false });
 	}).pipe(Effect.provide(makeServiceLayer())),
 );
 
@@ -91,7 +91,7 @@ it.effect("persists merged preferences through better-auth", () => {
 		expect(calls).toEqual([
 			{
 				userId: user.id,
-				preferences: { allowNsfw: true, language: null, disableIntegrations: false },
+				preferences: { language: null, allowNsfw: true, disableIntegrations: false },
 			},
 		]);
 	}).pipe(Effect.provide(layer));
@@ -102,7 +102,7 @@ it.effect("generates and persists a fresh avatar", () => {
 	const layer = makeServiceLayer({
 		updateUserImage: (userId, image) =>
 			Effect.sync(() => {
-				calls.push({ userId, image });
+				calls.push({ image, userId });
 			}),
 	});
 

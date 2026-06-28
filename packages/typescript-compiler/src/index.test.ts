@@ -30,10 +30,10 @@ it.effect("collects project and source diagnostics and exposes entry source file
 				"syntactic.ts": "export const broken = ;",
 			},
 			compilerOptions: {
-				lib: ["ES2022"],
 				types: [],
 				strict: true,
 				noEmit: true,
+				lib: ["ES2022"],
 				target: "ES2022",
 				module: "ESNext",
 			},
@@ -56,16 +56,16 @@ it.effect("normalizes diagnostics with logical files and structural locations", 
 			tsserverPath: resolveTypeScriptCompilerPath(from),
 			files: { "source.ts": "\nconst value: string = 1;" },
 			compilerOptions: {
-				lib: ["ES2022"],
 				types: [],
 				strict: true,
 				noEmit: true,
+				lib: ["ES2022"],
 				target: "ES2022",
 				module: "ESNext",
 			},
 		});
 		const diagnostic = project.diagnostics.find(
-			({ category, code }) => category === DiagnosticCategory.Error && code === 2322,
+			({ code, category }) => category === DiagnosticCategory.Error && code === 2322,
 		);
 		const sourceFile = project.entrySourceFiles["source.ts"];
 		expect(diagnostic).toBeDefined();

@@ -124,6 +124,8 @@ const deriveManifestScripts = Effect.fn("deriveManifestScripts")(function* (
 	sources: ReadonlyArray<SourceFile>,
 ) {
 	const files = yield* Effect.try({
+		catch: (error) =>
+			new BuildError({ message: `Backend source is not valid UTF-8: ${String(error)}` }),
 		try: () =>
 			Object.fromEntries(
 				sources
@@ -133,8 +135,6 @@ const deriveManifestScripts = Effect.fn("deriveManifestScripts")(function* (
 					)
 					.map(({ contents, path: sourcePath }) => [sourcePath, backendDecoder.decode(contents)]),
 			),
-		catch: (error) =>
-			new BuildError({ message: `Backend source is not valid UTF-8: ${String(error)}` }),
 	});
 	const derived = yield* derivePluginSandboxScripts(files).pipe(
 		Effect.catchTags({
@@ -172,7 +172,7 @@ const compileClientArtifact = Effect.fn("compileClientArtifact")(function* (
 		publicExports: Object.fromEntries(
 			Object.entries(manifest.client.exports ?? {}).map(([name, declaration]) => [
 				name,
-				{ entry: declaration.entry, kind: declaration.kind },
+				{ kind: declaration.kind, entry: declaration.entry },
 			]),
 		),
 	}).pipe(
@@ -297,7 +297,7 @@ const runBuildChild = Effect.fn("runBuildChild")(function* (options: BuildOption
 				"build",
 				...(options.output === undefined ? [] : ["--output", options.output]),
 			],
-			{ cwd: options.cwd, stderr: "inherit", stdin: "inherit", stdout: "inherit" },
+			{ cwd: options.cwd, stdin: "inherit", stderr: "inherit", stdout: "inherit" },
 		),
 	);
 });
@@ -340,7 +340,7 @@ const buildCommand = Command.make(
 		watch: Flag.boolean("watch").pipe(Flag.withDefault(false)),
 		output: Flag.string("output").pipe(Flag.withSchema(Schema.NonEmptyString), Flag.optional),
 	},
-	Effect.fn("buildCommand")(function* ({ output, watch }) {
+	Effect.fn("buildCommand")(function* ({ watch, output }) {
 		const options = { cwd: process.cwd(), output: Option.getOrUndefined(output) };
 		if (watch) {
 			return yield* watchPlugin(options);

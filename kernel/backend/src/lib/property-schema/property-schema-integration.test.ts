@@ -13,12 +13,12 @@ describe("property schema DSL", () => {
 	it.effect("parses a valid schema definition", () =>
 		Effect.gen(function* () {
 			const parsed = yield* parseLabeledPropertySchemaInput(
-				{ fields: { rating: { label: "Rating", description: "Rating", type: "number" } } },
+				{ fields: { rating: { type: "number", label: "Rating", description: "Rating" } } },
 				"Entity schema properties",
 			);
 
 			expect(parsed).toEqual({
-				fields: { rating: { label: "Rating", description: "Rating", type: "number" } },
+				fields: { rating: { type: "number", label: "Rating", description: "Rating" } },
 			});
 		}),
 	);
@@ -66,6 +66,14 @@ describe("property schema DSL", () => {
 		Effect.gen(function* () {
 			const schema = yield* parseLabeledPropertySchemaInput(
 				{
+					rules: [
+						{
+							kind: "validation",
+							path: ["progressPercent"],
+							validation: { required: true },
+							when: { operator: "eq", path: ["status"], value: "completed" },
+						},
+					],
 					fields: {
 						status: {
 							type: "string",
@@ -78,25 +86,17 @@ describe("property schema DSL", () => {
 							defaultValue: 0,
 							label: "Progress Percent",
 							description: "Progress Percent",
-							validation: { exclusiveMaximum: 100, minimum: 0 },
 							normalize: { round: { scale: 2 } },
+							validation: { minimum: 0, exclusiveMaximum: 100 },
 						},
 					},
-					rules: [
-						{
-							kind: "validation",
-							path: ["progressPercent"],
-							validation: { required: true },
-							when: { operator: "eq", path: ["status"], value: "completed" },
-						},
-					],
 				},
 				"Event properties",
 			);
 
 			expect(
-				parseAppSchemaPropertiesSafe({ properties: { status: "draft" }, propertiesSchema: schema }),
-			).toEqual({ success: true, data: { progressPercent: 0, status: "draft" } });
+				parseAppSchemaPropertiesSafe({ propertiesSchema: schema, properties: { status: "draft" } }),
+			).toEqual({ success: true, data: { status: "draft", progressPercent: 0 } });
 
 			const completed = parseAppSchemaPropertiesSafe({
 				propertiesSchema: schema,
@@ -105,7 +105,7 @@ describe("property schema DSL", () => {
 
 			expect(completed).toEqual({
 				success: true,
-				data: { progressPercent: 25.56, status: "completed" },
+				data: { status: "completed", progressPercent: 25.56 },
 			});
 		}),
 	);
@@ -115,6 +115,13 @@ describe("property schema DSL", () => {
 			const schema = yield* parseLabeledPropertySchemaInput(
 				{
 					fields: {
+						looseMeta: {
+							type: "object",
+							label: "Loose Meta",
+							description: "Loose Meta",
+							unknownKeys: "passthrough",
+							properties: { name: { label: "Name", type: "string", description: "Name" } },
+						},
 						strictMeta: {
 							type: "object",
 							label: "Strict Meta",
@@ -128,13 +135,6 @@ describe("property schema DSL", () => {
 									validation: { required: true },
 								},
 							},
-						},
-						looseMeta: {
-							type: "object",
-							label: "Loose Meta",
-							description: "Loose Meta",
-							unknownKeys: "passthrough",
-							properties: { name: { type: "string", label: "Name", description: "Name" } },
 						},
 					},
 				},

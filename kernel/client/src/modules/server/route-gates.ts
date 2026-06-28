@@ -38,6 +38,6 @@ export function decideOnboardingCompletion(redirectIntent: unknown): OnboardingC
 	const redirectTo = sanitizeRedirect(redirectIntent);
 	const pathname = redirectTo && new URL(redirectTo, "https://ryot.invalid").pathname;
 	return redirectTo !== undefined && pathname !== undefined && /^\/god-mode(?:\/|$)/.test(pathname)
-		? { action: "enter-god-mode", to: redirectTo }
-		: { action: "start-oauth", redirectTo, to: "/auth" };
+		? { to: redirectTo, action: "enter-god-mode" }
+		: { redirectTo, to: "/auth", action: "start-oauth" };
 }

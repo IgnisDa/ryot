@@ -48,17 +48,17 @@ const isPermanentObjectKey = (key: string) => /^permanent\/[A-Za-z0-9_-]+\.[a-z0
 const validateManagedAsset = (input: RegisterManagedAssetInput) => {
 	if (!isPermanentObjectKey(input.key)) {
 		return Effect.fail(
-			new UploadBadRequest({ reason: { code: "asset-metadata-invalid", field: "key" } }),
+			new UploadBadRequest({ reason: { field: "key", code: "asset-metadata-invalid" } }),
 		);
 	}
 	if (!/^[a-f0-9]{64}$/.test(input.sha256)) {
 		return Effect.fail(
-			new UploadBadRequest({ reason: { code: "asset-metadata-invalid", field: "sha256" } }),
+			new UploadBadRequest({ reason: { field: "sha256", code: "asset-metadata-invalid" } }),
 		);
 	}
 	if (!Number.isSafeInteger(input.size) || input.size < 0) {
 		return Effect.fail(
-			new UploadBadRequest({ reason: { code: "asset-metadata-invalid", field: "size" } }),
+			new UploadBadRequest({ reason: { field: "size", code: "asset-metadata-invalid" } }),
 		);
 	}
 	return Effect.void;
@@ -125,7 +125,7 @@ export class ManagedAssetsService extends Context.Service<ManagedAssetsService>(
 				"ManagedAssetsService.verifyManagedAssetOwnership",
 			)(function* (ownerUserId: UserId, locators: ReadonlyArray<ManagedAssetLocator>) {
 				const assets = yield* repository.listByOwnerAndLocators(ownerUserId, locators);
-				const requested = new Set(locators.map(({ type, key }) => `${type}\0${key}`));
+				const requested = new Set(locators.map(({ key, type }) => `${type}\0${key}`));
 				if (assets.length !== requested.size) {
 					return yield* new UploadBadRequest({ reason: { code: "asset-forbidden" } });
 				}
@@ -145,7 +145,7 @@ export class ManagedAssetsService extends Context.Service<ManagedAssetsService>(
 				const extension = resolvePermanentExtension(input.contentType);
 				if (extension === null) {
 					return yield* new UploadBadRequest({
-						reason: { code: "asset-content-type-unsupported", contentType: input.contentType },
+						reason: { contentType: input.contentType, code: "asset-content-type-unsupported" },
 					});
 				}
 				const metadata: RegisterManagedAssetInput = {
@@ -154,7 +154,7 @@ export class ManagedAssetsService extends Context.Service<ManagedAssetsService>(
 					key: `permanent/${ownerNamespace(input.ownerUserId)}_${input.sha256}.${extension}`,
 				};
 				yield* validateManagedAsset(metadata);
-				const locator: ManagedAssetLocator = { type: metadata.provider, key: metadata.key };
+				const locator: ManagedAssetLocator = { key: metadata.key, type: metadata.provider };
 				const verifyStoredObject = Effect.gen(function* () {
 					const stored = yield* objectStorage.statObject(locator);
 					if (!storedMetadataMatches(stored, metadata)) {
@@ -265,7 +265,7 @@ export class ManagedAssetsService extends Context.Service<ManagedAssetsService>(
 										UPLOAD_URL_EXPIRY_SECONDS,
 										managed.contentType === "image/svg+xml" ? "attachment" : undefined,
 									);
-						return { asset, downloadUrl, expiresAt };
+						return { asset, expiresAt, downloadUrl };
 					}),
 				);
 			});

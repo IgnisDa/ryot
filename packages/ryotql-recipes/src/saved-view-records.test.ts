@@ -19,40 +19,40 @@ const item = {
 	updatedAt: "2026-01-02T01:00:00+02:00",
 	renderer: { kind: "kernel", name: "entity-browser" },
 };
-const pageInfo = { hasMore: true, limit: 2, nextCursor: "next" };
+const pageInfo = { limit: 2, hasMore: true, nextCursor: "next" };
 const rows = (items: readonly unknown[], limit = 2) => rowsResult(items, { ...pageInfo, limit });
 
 describe("saved-view record recipes", () => {
 	it("prepares list filters, fields, pagination, and ordering", () => {
 		const query = requireRowsQuery(
 			savedViewRecordsRecipe({
-				after: "cursor",
 				limit: 7,
+				after: "cursor",
 				pluginSlug: "media",
 				includeDisabled: false,
 			}).document.queries.savedViews,
 		);
 
-		expect(query.output.pagination).toEqual({ after: "cursor", limit: 7 });
+		expect(query.output.pagination).toEqual({ limit: 7, after: "cursor" });
 		expect(query.output.fields.map((field) => ("key" in field ? field.key : null))).toEqual([
 			"id",
 			"slug",
 			"name",
 			"icon",
-			"renderer",
-			"settings",
-			"dataSources",
 			"sortOrder",
 			"createdAt",
 			"updatedAt",
 			"isBuiltin",
+			"renderer",
 			"isDisabled",
 			"pluginSlug",
+			"dataSources",
+			"settings",
 		]);
 		expect(query.where).toMatchObject({
 			predicates: [
-				{ left: { field: "isDisabled" }, right: { value: false } },
-				{ left: { field: "pluginSlug" }, right: { value: "media" } },
+				{ right: { value: false }, left: { field: "isDisabled" } },
+				{ right: { value: "media" }, left: { field: "pluginSlug" } },
 			],
 		});
 	});
@@ -63,7 +63,7 @@ describe("saved-view record recipes", () => {
 		);
 
 		expect(query.output.pagination).toEqual({ limit: 2 });
-		expect(query.where).toMatchObject({ right: { value: "view-one" }, left: { field: "slug" } });
+		expect(query.where).toMatchObject({ left: { field: "slug" }, right: { value: "view-one" } });
 	});
 
 	it("decodes plain records, page info, nulls, and normalized dates", () => {

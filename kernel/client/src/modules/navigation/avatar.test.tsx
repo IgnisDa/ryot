@@ -24,7 +24,7 @@ describe("avatar", () => {
 	});
 
 	it("uses the user icon for a null image", () => {
-		const { container } = render(<Avatar name="Ada Lovelace" image={null} />);
+		const { container } = render(<Avatar image={null} name="Ada Lovelace" />);
 
 		expect(screen.queryByRole("img")).toBeNull();
 		expect(container.querySelector('[data-app-icon="user"]')).not.toBeNull();

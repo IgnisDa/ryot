@@ -57,8 +57,8 @@ const installHttpScriptScoped = (input: {
 	});
 	return Effect.acquireRelease(
 		installTestPlugin({
-			scope: "system",
 			source,
+			scope: "system",
 			pluginSlug: input.pluginSlug,
 			httpRateLimits: input.httpRateLimits,
 			script: {
@@ -131,15 +131,15 @@ describe("deployment-global sandbox HTTP rate limiting", () => {
 				slug,
 				pluginSlug,
 				name: "Global rate limit",
-				url: `${http.url}/provider/catalog`,
 				httpRateLimits: [declaration],
+				url: `${http.url}/provider/catalog`,
 			});
 			const conflictingPluginSlug = `e2e-global-rate-limit-conflict-${crypto.randomUUID()}`;
 			const conflictingSlug = `global-rate-limit-conflict-${crypto.randomUUID()}`;
 			const conflictingSource = httpCallSandboxSource({
+				slug: conflictingSlug,
 				url: `${http.url}/provider/conflict`,
 				name: "Conflicting global rate limit",
-				slug: conflictingSlug,
 			});
 			const conflict = yield* Effect.flip(
 				installTestPlugin({
@@ -151,9 +151,9 @@ describe("deployment-global sandbox HTTP rate limiting", () => {
 						kind: "script",
 						slug: conflictingSlug,
 						capabilities: ["httpCall"],
-						name: "Conflicting global rate limit",
 						requiredPluginConfigKeys: [],
 						requiredSystemConfigKeys: [],
+						name: "Conflicting global rate limit",
 					},
 				}),
 			);
@@ -290,8 +290,8 @@ describe("deployment-global sandbox HTTP rate limiting", () => {
 			});
 			const slug = `unmatched-integration-${crypto.randomUUID()}`;
 			const plugin = yield* installHttpScriptScoped({
-				failure: true,
 				slug,
+				failure: true,
 				name: "Unmatched trusted integration",
 				url: `${http.url}/integration/trusted-webhook`,
 			});
@@ -359,11 +359,11 @@ describe("isolated deployment-global sandbox HTTP rate limiting", () => {
 			coreInfrastructure = infrastructure;
 			apiEnvA = buildApiEnv({
 				port: apiPortA,
-				dbUrl: infrastructure.dbUrl,
 				frontendUrl: apiOriginA(),
+				dbUrl: infrastructure.dbUrl,
+				label: "Global Rate Limit API A",
 				redisUrl: infrastructure.redisUrl,
 				s3BucketName: ISOLATED_BUCKET_NAME,
-				label: "Global Rate Limit API A",
 				s3Endpoint: infrastructure.s3Endpoint,
 				extraEnv: { SCHEDULER_DISABLE_DISPATCHERS: "true" },
 			});
@@ -373,9 +373,9 @@ describe("isolated deployment-global sandbox HTTP rate limiting", () => {
 				port: apiPortB,
 				frontendUrl: apiOriginA(),
 				dbUrl: infrastructure.dbUrl,
+				label: "Global Rate Limit API B",
 				redisUrl: infrastructure.redisUrl,
 				s3BucketName: ISOLATED_BUCKET_NAME,
-				label: "Global Rate Limit API B",
 				s3Endpoint: infrastructure.s3Endpoint,
 				extraEnv: { SCHEDULER_DISABLE_DISPATCHERS: "true" },
 			});
@@ -425,10 +425,10 @@ describe("isolated deployment-global sandbox HTTP rate limiting", () => {
 							slug,
 							entry,
 							kind: "script",
-							name: "Isolated global rate limit",
 							capabilities: ["httpCall"],
 							requiredPluginConfigKeys: [],
 							requiredSystemConfigKeys: [],
+							name: "Isolated global rate limit",
 						},
 					],
 				});

@@ -23,6 +23,16 @@ const input = (overrides: {
 		occurrenceId: "occurrence-1",
 		origin: { kind: "provider_refresh" },
 		occurredAt: "2026-07-20T10:00:00.000Z",
+		source: {
+			kind: "relationship",
+			after: {
+				properties: {},
+				id: "relationship-1",
+				source: { id: "source-1", name: "Source", entitySchemaSlug: "show" },
+				target: { id: "target-1", name: "Target", entitySchemaSlug: "show-season" },
+				relationshipSchemaSlug: overrides.relationshipSchemaSlug ?? "show-to-show-season",
+			},
+		},
 		population: {
 			rootPreviouslyPopulated: overrides.rootPreviouslyPopulated ?? true,
 			...(overrides.parentEntity ? { parentEntity: overrides.parentEntity } : {}),
@@ -35,16 +45,6 @@ const input = (overrides: {
 				afterCount: overrides.afterCount ?? 3,
 				beforeCount: overrides.beforeCount ?? 2,
 				createdCount: overrides.createdCount ?? 1,
-			},
-		},
-		source: {
-			kind: "relationship",
-			after: {
-				properties: {},
-				id: "relationship-1",
-				source: { id: "source-1", name: "Source", entitySchemaSlug: "show" },
-				target: { id: "target-1", name: "Target", entitySchemaSlug: "show-season" },
-				relationshipSchemaSlug: overrides.relationshipSchemaSlug ?? "show-to-show-season",
 			},
 		},
 	},
@@ -89,12 +89,12 @@ it("emits aggregate episode discovery with the created count and season", () =>
 			afterCount: 5,
 			beforeCount: 2,
 			createdCount: 3,
+			relationshipSchemaSlug: "show-season-to-show-episode",
 			parentEntity: {
 				name: "Season 2",
 				properties: { seasonNumber: 2 },
 				entitySchemaSlug: "show-season",
 			},
-			relationshipSchemaSlug: "show-season-to-show-episode",
 		}),
 	).pipe(
 		Effect.map((calls) => {
@@ -116,12 +116,12 @@ it("emits aggregate episode discovery with the created count and season", () =>
 it("does not treat a podcast parent as season context", () =>
 	run(
 		input({
+			relationshipSchemaSlug: "podcast-to-podcast-episode",
 			parentEntity: {
 				name: "Special Podcast",
-				properties: { seasonNumber: 0 },
 				entitySchemaSlug: "podcast",
+				properties: { seasonNumber: 0 },
 			},
-			relationshipSchemaSlug: "podcast-to-podcast-episode",
 		}),
 	).pipe(
 		Effect.map((calls) => {
@@ -145,22 +145,22 @@ it("stays silent off-leader, on first population, without net changes, and for s
 				run(input({ afterCount: 2, beforeCount: 2 })),
 				run(
 					input({
+						relationshipSchemaSlug: "show-season-to-show-episode",
 						parentEntity: {
 							name: "Season Zero",
 							properties: { seasonNumber: 0 },
 							entitySchemaSlug: "show-season",
 						},
-						relationshipSchemaSlug: "show-season-to-show-episode",
 					}),
 				),
 				run(
 					input({
+						relationshipSchemaSlug: "show-season-to-show-episode",
 						parentEntity: {
-							name: "Bonus Specials Collection",
 							properties: { seasonNumber: 2 },
 							entitySchemaSlug: "show-season",
+							name: "Bonus Specials Collection",
 						},
-						relationshipSchemaSlug: "show-season-to-show-episode",
 					}),
 				),
 			],

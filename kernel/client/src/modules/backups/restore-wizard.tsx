@@ -25,7 +25,7 @@ const stepHeadings = {
 } as const satisfies Record<BackupRestoreStep, string>;
 
 const createRestoreMutation = createRyotMutation<string, BackupRunIdResponse, KernelHostServices>(
-	async ({ client, hostServices, input, signal }) => {
+	async ({ input, client, signal, hostServices }) => {
 		const result = await hostServices.runtime.runPromise(
 			Effect.flatMap(BackupsApi, (api) =>
 				api.createRestore(hostServices.scope, { payload: { uploadToken: input } }),

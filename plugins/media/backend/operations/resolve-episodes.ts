@@ -25,11 +25,13 @@ export const resolveEpisodeRecipe = defineRecipe((ref: ResolveEpisodesRef) => {
 		const season = table("entity", "season");
 		const showSeason = table("relationship", "showSeason");
 		return {
+			map: ({ episodes }) =>
+				Result.succeed(episodes.items.length === 1 ? (episodes.items[0]?.entityId ?? null) : null),
 			queries: {
 				episodes: selectedRows(season, {
 					limit: 2,
-					selection: { entityId: selectedField(column(season, "id"), Schema.String) },
 					orderBy: [ascending(column(season, "id"))],
+					selection: { entityId: selectedField(column(season, "id"), Schema.String) },
 					joins: [
 						join(
 							"inner",
@@ -50,8 +52,6 @@ export const resolveEpisodeRecipe = defineRecipe((ref: ResolveEpisodesRef) => {
 					),
 				}),
 			},
-			map: ({ episodes }) =>
-				Result.succeed(episodes.items.length === 1 ? (episodes.items[0]?.entityId ?? null) : null),
 		};
 	}
 	const episode = table("entity", "episode");
@@ -62,6 +62,8 @@ export const resolveEpisodeRecipe = defineRecipe((ref: ResolveEpisodesRef) => {
 		const seasonEpisode = table("relationship", "seasonEpisode");
 		const showSeason = table("relationship", "showSeason");
 		return {
+			map: ({ episodes }) =>
+				Result.succeed(episodes.items.length === 1 ? (episodes.items[0]?.entityId ?? null) : null),
 			queries: {
 				episodes: selectedRows(episode, {
 					limit: 2,
@@ -106,14 +108,14 @@ export const resolveEpisodeRecipe = defineRecipe((ref: ResolveEpisodesRef) => {
 					),
 				}),
 			},
-			map: ({ episodes }) =>
-				Result.succeed(episodes.items.length === 1 ? (episodes.items[0]?.entityId ?? null) : null),
 		};
 	}
 
 	const podcast = table("entity", "podcast");
 	const relationship = table("relationship", "podcastEpisode");
 	return {
+		map: ({ episodes }) =>
+			Result.succeed(episodes.items.length === 1 ? (episodes.items[0]?.entityId ?? null) : null),
 		queries: {
 			episodes: selectedRows(episode, {
 				limit: 2,
@@ -139,8 +141,6 @@ export const resolveEpisodeRecipe = defineRecipe((ref: ResolveEpisodesRef) => {
 				),
 			}),
 		},
-		map: ({ episodes }) =>
-			Result.succeed(episodes.items.length === 1 ? (episodes.items[0]?.entityId ?? null) : null),
 	};
 });
 

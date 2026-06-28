@@ -34,7 +34,7 @@ const toLifecycleOrigin = (input: EventCreateInput): AutomationOrigin | undefine
 		),
 		Match.when("integration", () =>
 			integrationId
-				? ({ kind: "integration", integrationId, ...(importRunId ? { importRunId } : {}) } as const)
+				? ({ integrationId, kind: "integration", ...(importRunId ? { importRunId } : {}) } as const)
 				: undefined,
 		),
 		Match.when("sandbox", () =>
@@ -86,7 +86,7 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 			return yield* repository.deleteEvent(input);
 		});
 
-		return { create, delete: deleteEvent, update };
+		return { create, update, delete: deleteEvent };
 	}),
 }) {
 	static readonly layer = Layer.effect(this, this.make);

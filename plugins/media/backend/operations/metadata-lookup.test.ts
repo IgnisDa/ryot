@@ -27,9 +27,9 @@ const createHost = (integration = integrationRecord({ provider: "ryot_browser_ex
 		queries,
 		host: defineSandboxTestHost(manifest, {
 			getCurrentIntegration: () => Effect.succeed(integration),
+			getUserPreferences: () => Effect.succeed({ allowNsfw: false, disableIntegrations: false }),
 			getPluginConfig: (keys) =>
 				Effect.succeed(Object.fromEntries(keys.map((key) => [key, "token"]))),
-			getUserPreferences: () => Effect.succeed({ allowNsfw: false, disableIntegrations: false }),
 			httpCall: (_method, url) => {
 				const requestUrl = new URL(url);
 				const query = requestUrl.searchParams.get("query") ?? "";
@@ -55,7 +55,7 @@ const runLookup = (titles: string[], integration?: ReturnType<typeof integration
 
 describe("metadata lookup operation", () => {
 	it("aligns batched results with the requested titles and attaches show coordinates", async () => {
-		const { queries, result } = runLookup([
+		const { result, queries } = runLookup([
 			"Breaking Bad S02E03",
 			"The Matrix (1999)",
 			"Totally Unknown Thing",
@@ -67,12 +67,12 @@ describe("metadata lookup operation", () => {
 					status: "found",
 					title: "Breaking Bad",
 					showInformation: { season: 2, episode: 3 },
-					data: { source: "tmdb", lot: "show", identifier: "1396" },
+					data: { lot: "show", source: "tmdb", identifier: "1396" },
 				},
 				{
 					status: "found",
 					title: "The Matrix",
-					data: { source: "tmdb", lot: "movie", identifier: "603" },
+					data: { lot: "movie", source: "tmdb", identifier: "603" },
 				},
 				{ notFound: true, status: "notFound" },
 			],
@@ -88,7 +88,7 @@ describe("metadata lookup operation", () => {
 	});
 
 	it("rejects integrations that are not browser extensions before searching", async () => {
-		const { queries, result } = runLookup(["Breaking Bad S02E03"], integrationRecord());
+		const { result, queries } = runLookup(["Breaking Bad S02E03"], integrationRecord());
 
 		await expect(Effect.runPromise(Effect.flip(result))).resolves.toEqual(
 			new Error("Integration is not a browser extension integration"),
@@ -97,7 +97,7 @@ describe("metadata lookup operation", () => {
 	});
 
 	it("rejects a batch containing a blank title", async () => {
-		const { queries, result } = runLookup(["Breaking Bad S02E03", "   "]);
+		const { result, queries } = runLookup(["Breaking Bad S02E03", "   "]);
 
 		await expect(Effect.runPromise(Effect.flip(result))).resolves.toEqual(
 			new Error("title is required"),

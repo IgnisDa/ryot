@@ -272,7 +272,7 @@ const define = <const F extends ConfigFields>(
 	resolveEnvKey: ConfigEnvironmentKeyResolver,
 	redactSecrets: boolean,
 ) => {
-	const schema = { fields: schemaFields(fields), unknownKeys: "strict" } satisfies AppSchema;
+	const schema = { unknownKeys: "strict", fields: schemaFields(fields) } satisfies AppSchema;
 	return {
 		fields,
 		schema,

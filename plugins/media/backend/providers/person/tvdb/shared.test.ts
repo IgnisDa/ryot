@@ -13,8 +13,8 @@ const httpSuccess = (body: unknown) =>
 const makeHost = (httpCall: TvdbHost["httpCall"]) =>
 	defineSandboxTestHost(manifest, {
 		httpCall,
-		getCachedValue: () => Effect.succeed("Bearer test-token"),
 		setCachedValue: () => Effect.succeed(null),
+		getCachedValue: () => Effect.succeed("Bearer test-token"),
 		getPluginConfig: (keys) =>
 			Effect.succeed(Object.fromEntries(keys.map((key) => [key, "test-api-key"]))),
 	});
@@ -33,10 +33,10 @@ describe("person.tvdb sandbox script", () => {
 		const host = detailsHost({
 			name: "Person Name",
 			characters: [
-				{ movieId: 10, movie: { name: "Film A" }, peopleType: "Actor" },
+				{ movieId: 10, peopleType: "Actor", movie: { name: "Film A" } },
 				{ movie_id: 10, people_type: "Director" },
 				{ movieId: 10, peopleType: "Actor" },
-				{ seriesId: 20, series: { name: "Show B" }, peopleType: "Writer" },
+				{ seriesId: 20, peopleType: "Writer", series: { name: "Show B" } },
 				{ series_id: 30 },
 			],
 		});
@@ -69,8 +69,8 @@ describe("person.tvdb sandbox script", () => {
 								relationshipProperties: { roles: ["Writer"] },
 							},
 							{
-								name: "Loading...",
 								externalId: "30",
+								name: "Loading...",
 								providerSlug: "show.tvdb",
 								relationshipProperties: { roles: ["Actor"] },
 							},
@@ -87,11 +87,11 @@ describe("person.tvdb sandbox script", () => {
 		const host = detailsHost({
 			name: "P",
 			gender: 2,
-			image: "http://img/1.jpg",
 			slug: "john-doe",
 			birth: "1980-01-01",
 			death: "2020-01-01",
 			birthPlace: "New York",
+			image: "http://img/1.jpg",
 			biographies: [{ biography: "Bio text" }],
 		});
 
@@ -105,8 +105,8 @@ describe("person.tvdb sandbox script", () => {
 					birthDate: "1980-01-01",
 					deathDate: "2020-01-01",
 					description: "Bio text",
-					images: [{ type: "remote", url: "http://img/1.jpg", purpose: "profile" }],
 					sourceUrl: "https://www.thetvdb.com/people/john-doe",
+					images: [{ type: "remote", purpose: "profile", url: "http://img/1.jpg" }],
 				});
 				return undefined;
 			}),
@@ -125,10 +125,10 @@ describe("person.tvdb sandbox script", () => {
 				expect(result.name).toBe("Trans Name");
 				expect(result.properties).toMatchObject({
 					gender: null,
-					description: "Trans desc",
 					birthDate: null,
 					deathDate: null,
 					birthPlace: null,
+					description: "Trans desc",
 					sourceUrl: "https://www.thetvdb.com/people/5",
 				});
 				return undefined;
@@ -141,15 +141,15 @@ describe("person.tvdb sandbox script", () => {
 		const host = makeHost(() =>
 			httpSuccess({
 				data: [
-					{ name: "First", overview: "First desc", isPrimary: false },
-					{ name: "Primary", overview: "Primary desc", isPrimary: true },
+					{ name: "First", isPrimary: false, overview: "First desc" },
+					{ name: "Primary", isPrimary: true, overview: "Primary desc" },
 				],
 			}),
 		);
 
 		return runSandboxTestScript(
 			translate,
-			{ externalId: "5", language: "es", entitySchemaSlug: "person" },
+			{ language: "es", externalId: "5", entitySchemaSlug: "person" },
 			host,
 			execution,
 		).pipe(
@@ -167,7 +167,7 @@ describe("person.tvdb sandbox script", () => {
 			Effect.runPromise(
 				runSandboxTestScript(
 					translate,
-					{ externalId: "abc", language: "es", entitySchemaSlug: "person" },
+					{ language: "es", externalId: "abc", entitySchemaSlug: "person" },
 					host,
 					execution,
 				),
@@ -188,7 +188,7 @@ describe("person.tvdb sandbox script", () => {
 
 		return runSandboxTestScript(
 			search,
-			{ query: "John", page: 1, pageSize: 20 },
+			{ page: 1, pageSize: 20, query: "John" },
 			host,
 			execution,
 		).pipe(

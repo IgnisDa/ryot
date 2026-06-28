@@ -102,51 +102,90 @@ export const bindSandboxHostFunctions = (
 	implementations: SandboxHostImplementationMap,
 	input: SandboxRunInput,
 ): Record<keyof SandboxHostImplementationMap, BoundHostFunction> => ({
+	log: bindHostFunction(
+		coreSandboxHostContracts.log,
+		(...args) => implementations.log(input, ...args),
+		defaultFailure("log"),
+	),
+	span: bindHostFunction(
+		coreSandboxHostContracts.span,
+		(...args) => implementations.span(input, ...args),
+		defaultFailure("span"),
+	),
 	emitSignal: bindHostFunction(
 		automationSandboxHostContracts.emitSignal,
 		(...args) => implementations.emitSignal(input, ...args),
 		defaultFailure("emitSignal"),
-	),
-	getEntitySchemas: bindHostFunction(
-		domainSandboxHostContracts.getEntitySchemas,
-		(...args) => implementations.getEntitySchemas(input, ...args),
-		defaultFailure("getEntitySchemas"),
-	),
-	getCurrentIntegration: bindHostFunction(
-		domainSandboxHostContracts.getCurrentIntegration,
-		(...args) => implementations.getCurrentIntegration(input, ...args),
-		defaultFailure("getCurrentIntegration"),
-	),
-	listEventSchemas: bindHostFunction(
-		domainSandboxHostContracts.listEventSchemas,
-		(...args) => implementations.listEventSchemas(input, ...args),
-		defaultFailure("listEventSchemas"),
-	),
-	listIntegrations: bindHostFunction(
-		domainSandboxHostContracts.listIntegrations,
-		(...args) => implementations.listIntegrations(input, ...args),
-		defaultFailure("listIntegrations"),
-		(args) => normalizeOptionalNull(args, 0),
 	),
 	createEvents: bindHostFunction(
 		domainSandboxHostContracts.createEvents,
 		(...args) => implementations.createEvents(input, ...args),
 		defaultFailure("createEvents"),
 	),
-	changeUserRelationships: bindHostFunction(
-		domainSandboxHostContracts.changeUserRelationships,
-		(...args) => implementations.changeUserRelationships(input, ...args),
-		defaultFailure("changeUserRelationships"),
+	getCachedValue: bindHostFunction(
+		coreSandboxHostContracts.getCachedValue,
+		(...args) => implementations.getCachedValue(input, ...args),
+		defaultFailure("getCachedValue"),
+	),
+	setCachedValue: bindHostFunction(
+		coreSandboxHostContracts.setCachedValue,
+		(...args) => implementations.setCachedValue(input, ...args),
+		defaultFailure("setCachedValue"),
+	),
+	getPluginConfig: bindHostFunction(
+		coreSandboxHostContracts.getPluginConfig,
+		(...args) => implementations.getPluginConfig(input, ...args),
+		defaultFailure("getPluginConfig"),
+	),
+	getSystemConfig: bindHostFunction(
+		coreSandboxHostContracts.getSystemConfig,
+		(...args) => implementations.getSystemConfig(input, ...args),
+		defaultFailure("getSystemConfig"),
+	),
+	getEntitySchemas: bindHostFunction(
+		domainSandboxHostContracts.getEntitySchemas,
+		(...args) => implementations.getEntitySchemas(input, ...args),
+		defaultFailure("getEntitySchemas"),
+	),
+	listEventSchemas: bindHostFunction(
+		domainSandboxHostContracts.listEventSchemas,
+		(...args) => implementations.listEventSchemas(input, ...args),
+		defaultFailure("listEventSchemas"),
+	),
+	sendNotification: bindHostFunction(
+		automationSandboxHostContracts.sendNotification,
+		(...args) => implementations.sendNotification(input, ...args),
+		defaultFailure("sendNotification"),
+	),
+	getUserPreferences: bindHostFunction(
+		coreSandboxHostContracts.getUserPreferences,
+		(...args) => implementations.getUserPreferences(input, ...args),
+		defaultFailure("getUserPreferences"),
 	),
 	ensureUserEntities: bindHostFunction(
 		domainSandboxHostContracts.ensureUserEntities,
 		(...args) => implementations.ensureUserEntities(input, ...args),
 		defaultFailure("ensureUserEntities"),
 	),
+	claimPersistentValue: bindHostFunction(
+		coreSandboxHostContracts.claimPersistentValue,
+		(...args) => implementations.claimPersistentValue(input, ...args),
+		defaultFailure("claimPersistentValue"),
+	),
 	upsertGlobalEntities: bindHostFunction(
 		domainSandboxHostContracts.upsertGlobalEntities,
 		(...args) => implementations.upsertGlobalEntities(input, ...args),
 		defaultFailure("upsertGlobalEntities"),
+	),
+	getCurrentIntegration: bindHostFunction(
+		domainSandboxHostContracts.getCurrentIntegration,
+		(...args) => implementations.getCurrentIntegration(input, ...args),
+		defaultFailure("getCurrentIntegration"),
+	),
+	changeUserRelationships: bindHostFunction(
+		domainSandboxHostContracts.changeUserRelationships,
+		(...args) => implementations.changeUserRelationships(input, ...args),
+		defaultFailure("changeUserRelationships"),
 	),
 	executeRyotql: bindHostFunction(
 		domainSandboxHostContracts.executeRyotql,
@@ -160,21 +199,6 @@ export const bindSandboxHostFunctions = (
 		(...args) => implementations.upsertGlobalRelationships(input, ...args),
 		defaultFailure("upsertGlobalRelationships"),
 	),
-	getCachedValue: bindHostFunction(
-		coreSandboxHostContracts.getCachedValue,
-		(...args) => implementations.getCachedValue(input, ...args),
-		defaultFailure("getCachedValue"),
-	),
-	log: bindHostFunction(
-		coreSandboxHostContracts.log,
-		(...args) => implementations.log(input, ...args),
-		defaultFailure("log"),
-	),
-	span: bindHostFunction(
-		coreSandboxHostContracts.span,
-		(...args) => implementations.span(input, ...args),
-		defaultFailure("span"),
-	),
 	httpCall: bindHostFunction(
 		coreSandboxHostContracts.httpCall,
 		(...args) => implementations.httpCall(input, ...args),
@@ -182,34 +206,10 @@ export const bindSandboxHostFunctions = (
 		(args) => normalizeOptionalNull(args, 2),
 		preserveHttpFailureDetails,
 	),
-	setCachedValue: bindHostFunction(
-		coreSandboxHostContracts.setCachedValue,
-		(...args) => implementations.setCachedValue(input, ...args),
-		defaultFailure("setCachedValue"),
-	),
-	claimPersistentValue: bindHostFunction(
-		coreSandboxHostContracts.claimPersistentValue,
-		(...args) => implementations.claimPersistentValue(input, ...args),
-		defaultFailure("claimPersistentValue"),
-	),
-	getPluginConfig: bindHostFunction(
-		coreSandboxHostContracts.getPluginConfig,
-		(...args) => implementations.getPluginConfig(input, ...args),
-		defaultFailure("getPluginConfig"),
-	),
-	getSystemConfig: bindHostFunction(
-		coreSandboxHostContracts.getSystemConfig,
-		(...args) => implementations.getSystemConfig(input, ...args),
-		defaultFailure("getSystemConfig"),
-	),
-	getUserPreferences: bindHostFunction(
-		coreSandboxHostContracts.getUserPreferences,
-		(...args) => implementations.getUserPreferences(input, ...args),
-		defaultFailure("getUserPreferences"),
-	),
-	sendNotification: bindHostFunction(
-		automationSandboxHostContracts.sendNotification,
-		(...args) => implementations.sendNotification(input, ...args),
-		defaultFailure("sendNotification"),
+	listIntegrations: bindHostFunction(
+		domainSandboxHostContracts.listIntegrations,
+		(...args) => implementations.listIntegrations(input, ...args),
+		defaultFailure("listIntegrations"),
+		(args) => normalizeOptionalNull(args, 0),
 	),
 });

@@ -103,16 +103,16 @@ it.effect("replays a running restore without changing its start state", () => {
 	}).pipe(
 		Effect.provide(
 			makeLayer({
-				repository: {
-					getRunById: () => Effect.succeed(runningRun),
-					markRunRunning: () => Effect.die("running replay must not update the run"),
-				},
 				cleanliness: {
 					assertAccountIsClean: () =>
 						Effect.sync(() => {
 							cleanlinessChecks += 1;
 							return undefined;
 						}),
+				},
+				repository: {
+					getRunById: () => Effect.succeed(runningRun),
+					markRunRunning: () => Effect.die("running replay must not update the run"),
 				},
 			}),
 		),
@@ -218,7 +218,7 @@ it.effect("keeps a committed restore successful when spool cleanup fails", () =>
 			clientRenderers: [],
 			entityDependencies: [],
 			notificationSubscriptions: [],
-			profile: { name: "User", image: null, preferences: {} },
+			profile: { image: null, name: "User", preferences: {} },
 		},
 	});
 	const fileSystem = Layer.effect(
@@ -240,29 +240,29 @@ it.effect("keeps a committed restore successful when spool cleanup fails", () =>
 		Effect.provide(
 			makeLayer({
 				fileSystem,
-				database: {
-					transaction: (run: (transaction: object) => Effect.Effect<void, unknown, unknown>) =>
-						run(Object.assign(Object.create(null), { execute: () => Effect.void })).pipe(
-							Effect.tap(() => Effect.sync(() => void (committed = true))),
-						),
-				},
-				repository: {
-					getRunById: () => Effect.succeed(runningRun),
-					updateProgress: () => Effect.succeed({ ...runningRun, progress: 90 }),
-				},
 				cleanliness: { assertAccountIsClean: () => Effect.void.pipe(Effect.as(undefined)) },
 				writer: {
 					assertRequiredPlugins: () => Effect.succeed(new Map()),
 					restoreRecords: () => Effect.void.pipe(Effect.as(undefined)),
 				},
+				repository: {
+					getRunById: () => Effect.succeed(runningRun),
+					updateProgress: () => Effect.succeed({ ...runningRun, progress: 90 }),
+				},
 				objectStorage: {
+					selectStorageProvider: () => Effect.succeed("local" as const),
 					openObject: () =>
 						Effect.succeed(
 							archive.pipe(
 								Stream.mapError(() => new BadRequest({ message: "archive stream failed" })),
 							),
 						),
-					selectStorageProvider: () => Effect.succeed("local" as const),
+				},
+				database: {
+					transaction: (run: (transaction: object) => Effect.Effect<void, unknown, unknown>) =>
+						run(Object.assign(Object.create(null), { execute: () => Effect.void })).pipe(
+							Effect.tap(() => Effect.sync(() => void (committed = true))),
+						),
 				},
 			}),
 		),
@@ -281,18 +281,6 @@ it.effect("stops before plugin persistence and asset staging when package prefli
 		appVersion: "backend-v1",
 		createdAt: "2026-08-23T12:00:00.000Z",
 		events: { count: 0, bytes: 0, chunks: [], sha256: EMPTY_SHA256 },
-		records: {
-			entities: [],
-			savedViews: [],
-			integrations: [],
-			installations: [],
-			relationships: [],
-			privatePlugins: [],
-			clientRenderers: [],
-			entityDependencies: [],
-			notificationSubscriptions: [],
-			profile: { name: "User", image: null, preferences: {} },
-		},
 		assets: [
 			{
 				chunks: [asset],
@@ -304,6 +292,18 @@ it.effect("stops before plugin persistence and asset staging when package prefli
 				},
 			},
 		],
+		records: {
+			entities: [],
+			savedViews: [],
+			integrations: [],
+			installations: [],
+			relationships: [],
+			privatePlugins: [],
+			clientRenderers: [],
+			entityDependencies: [],
+			notificationSubscriptions: [],
+			profile: { image: null, name: "User", preferences: {} },
+		},
 	});
 	return Effect.gen(function* () {
 		const operations = yield* RestoreBackupWorkflowOperations;
@@ -315,16 +315,16 @@ it.effect("stops before plugin persistence and asset staging when package prefli
 	}).pipe(
 		Effect.provide(
 			makeLayer({
-				database: { transaction: () => Effect.die("preflight failure reached persistence") },
 				repository: { getRunById: () => Effect.succeed(runningRun) },
 				writer: { assertRequiredPlugins: () => Effect.succeed(new Map()) },
-				pluginRestore: {
-					prepare: () => Effect.fail(new BadRequest({ message: "Plugin compilation failed" })),
-					persist: () =>
-						Effect.sync(() => {
-							persisted = true;
-							return new Map();
-						}),
+				database: { transaction: () => Effect.die("preflight failure reached persistence") },
+				objectStorage: {
+					openObject: () =>
+						Effect.succeed(
+							archive.pipe(
+								Stream.mapError(() => new BadRequest({ message: "archive stream failed" })),
+							),
+						),
 				},
 				managedAssets: {
 					stageContentAddressedPermanentAsset: () =>
@@ -333,13 +333,13 @@ it.effect("stops before plugin persistence and asset staging when package prefli
 							return Effect.die("package failure staged an asset");
 						}).pipe(Effect.flatten),
 				},
-				objectStorage: {
-					openObject: () =>
-						Effect.succeed(
-							archive.pipe(
-								Stream.mapError(() => new BadRequest({ message: "archive stream failed" })),
-							),
-						),
+				pluginRestore: {
+					prepare: () => Effect.fail(new BadRequest({ message: "Plugin compilation failed" })),
+					persist: () =>
+						Effect.sync(() => {
+							persisted = true;
+							return new Map();
+						}),
 				},
 			}),
 		),
@@ -359,7 +359,7 @@ it.effect("records a safe specific failure before best-effort temporary cleanup"
 					code: "required-plugin-unavailable",
 				},
 			}),
-			{ intentId: "intent-id", provider: "local", key: "temporary/archive.zip" },
+			{ provider: "local", intentId: "intent-id", key: "temporary/archive.zip" },
 		);
 		expect(calls).toEqual(["fail:required-plugin-unavailable", "delete", "delete", "delete"]);
 	}).pipe(
@@ -398,18 +398,6 @@ it.effect("rolls back managed assets and domain rows and removes newly staged ob
 		appVersion: "backend-v1",
 		createdAt: "2026-08-23T12:00:00.000Z",
 		events: { count: 0, bytes: 0, chunks: [], sha256: EMPTY_SHA256 },
-		records: {
-			entities: [],
-			savedViews: [],
-			integrations: [],
-			installations: [],
-			relationships: [],
-			privatePlugins: [],
-			clientRenderers: [],
-			entityDependencies: [],
-			notificationSubscriptions: [],
-			profile: { name: "User", image: null, preferences: {} },
-		},
 		assets: [
 			{
 				chunks: [asset],
@@ -421,6 +409,18 @@ it.effect("rolls back managed assets and domain rows and removes newly staged ob
 				},
 			},
 		],
+		records: {
+			entities: [],
+			savedViews: [],
+			integrations: [],
+			installations: [],
+			relationships: [],
+			privatePlugins: [],
+			clientRenderers: [],
+			entityDependencies: [],
+			notificationSubscriptions: [],
+			profile: { image: null, name: "User", preferences: {} },
+		},
 	});
 	const database = {
 		transaction: (run: (transaction: object) => Effect.Effect<unknown, unknown, unknown>) => {
@@ -448,7 +448,7 @@ it.effect("rolls back managed assets and domain rows and removes newly staged ob
 		const error = yield* operations
 			.restore(payload, { provider: "local", intentId: "intent-id", key: "temporary/archive.zip" })
 			.pipe(Effect.flip);
-		expect(error.failure).toEqual({ code: "archive-invalid", issue: "invalid-entry" });
+		expect(error.failure).toEqual({ issue: "invalid-entry", code: "archive-invalid" });
 		expect([...managedAssets]).toEqual([]);
 		expect([...domainRows]).toEqual([]);
 		expect([...objects]).toEqual([]);
@@ -461,6 +461,15 @@ it.effect("rolls back managed assets and domain rows and removes newly staged ob
 					getRunById: () => Effect.succeed(runningRun),
 					updateProgress: () => Effect.die("failed transaction must not checkpoint"),
 				},
+				objectStorage: {
+					selectStorageProvider: () => Effect.succeed("local" as const),
+					openObject: () =>
+						Effect.succeed(
+							archive.pipe(
+								Stream.mapError(() => new BadRequest({ message: "archive stream failed" })),
+							),
+						),
+				},
 				writer: {
 					assertRequiredPlugins: () => Effect.succeed(new Map()),
 					restoreRecords: () =>
@@ -470,16 +479,18 @@ it.effect("rolls back managed assets and domain rows and removes newly staged ob
 							),
 						),
 				},
-				objectStorage: {
-					openObject: () =>
-						Effect.succeed(
-							archive.pipe(
-								Stream.mapError(() => new BadRequest({ message: "archive stream failed" })),
-							),
-						),
-					selectStorageProvider: () => Effect.succeed("local" as const),
-				},
 				managedAssets: {
+					registerManagedAssetInLockedTransaction: (metadata) =>
+						Effect.sync(() => {
+							managedAssets.add(metadata.key);
+							return { ...metadata, createdAt };
+						}),
+					cleanupStagedPermanentAsset: (staged) =>
+						Effect.sync(() => {
+							if (!managedAssets.has(staged.locator.key)) {
+								objects.delete(staged.locator.key);
+							}
+						}),
 					stageContentAddressedPermanentAsset: (input) => {
 						const { stream, ...metadata } = input;
 						return Stream.runDrain(stream).pipe(
@@ -496,17 +507,6 @@ it.effect("rolls back managed assets and domain rows and removes newly staged ob
 							),
 						);
 					},
-					registerManagedAssetInLockedTransaction: (metadata) =>
-						Effect.sync(() => {
-							managedAssets.add(metadata.key);
-							return { ...metadata, createdAt };
-						}),
-					cleanupStagedPermanentAsset: (staged) =>
-						Effect.sync(() => {
-							if (!managedAssets.has(staged.locator.key)) {
-								objects.delete(staged.locator.key);
-							}
-						}),
 				},
 			}),
 		),
@@ -522,15 +522,15 @@ it.effect("runs restore claim, direct writes, and cleanup without application ho
 		Layer.succeed(WorkflowInstance, instance),
 		Layer.succeed(WorkflowEngine, engine),
 		Layer.mock(RestoreBackupWorkflowOperations, {
+			fail: () => Effect.sync(() => void calls.push("fail")),
 			begin: () => Effect.sync(() => (calls.push("begin"), true)),
+			restore: () => Effect.sync(() => void calls.push("restore")),
+			cleanup: () => Effect.sync(() => void calls.push("cleanup")),
 			claim: () =>
 				Effect.sync(() => {
 					calls.push("claim");
 					return { intentId: "intent", provider: "local" as const, key: "temporary/input.zip" };
 				}),
-			restore: () => Effect.sync(() => void calls.push("restore")),
-			cleanup: () => Effect.sync(() => void calls.push("cleanup")),
-			fail: () => Effect.sync(() => void calls.push("fail")),
 		}),
 	);
 	return Effect.gen(function* () {

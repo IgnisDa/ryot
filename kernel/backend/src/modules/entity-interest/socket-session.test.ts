@@ -26,6 +26,20 @@ const makeSocket = Effect.fn(function* (
 	let gateReady = readyWriteGate !== undefined;
 	let shouldFailReadyWrite = failReadyWrite;
 	const socket = Socket.make({
+		runRaw: (handler) =>
+			Effect.gen(function* () {
+				yield* Deferred.succeed(opened, undefined);
+				for (;;) {
+					const frame = yield* Queue.take(inbound);
+					if (frame === null) {
+						return;
+					}
+					const result = handler(frame);
+					if (Effect.isEffect(result)) {
+						yield* result;
+					}
+				}
+			}),
 		writer: Effect.succeed((frame) =>
 			Effect.gen(function* () {
 				if (frame instanceof Uint8Array) {
@@ -52,20 +66,6 @@ const makeSocket = Effect.fn(function* (
 				return undefined;
 			}),
 		),
-		runRaw: (handler) =>
-			Effect.gen(function* () {
-				yield* Deferred.succeed(opened, undefined);
-				for (;;) {
-					const frame = yield* Queue.take(inbound);
-					if (frame === null) {
-						return;
-					}
-					const result = handler(frame);
-					if (Effect.isEffect(result)) {
-						yield* result;
-					}
-				}
-			}),
 	});
 	const nextMessage = Effect.fn(function* () {
 		const frame = yield* Queue.take(writes);
@@ -100,20 +100,26 @@ const makeLayer = (
 ) =>
 	Layer.mergeAll(
 		Layer.mock(EntityInterestTicketService)({
-			consume: () => Effect.succeed({ userId: UserId.make("user-1"), preferredLanguage: "es" }),
+			consume: () => Effect.succeed({ preferredLanguage: "es", userId: UserId.make("user-1") }),
 		}),
 		Layer.mock(EntityInterestStore)({
-			openSession: ({ sessionId }) =>
-				Effect.sync(() => {
-					activity.push(`open:${sessionId}`);
-				}).pipe(Effect.as(undefined)),
+			renewSession: () => Effect.succeed(true),
+			markReconciled: ({ pending }) => Effect.succeed(pending.map(({ entityId }) => entityId)),
 			closeSession: (sessionId) =>
 				Effect.sync(() => {
 					activity.push(`close:${sessionId}`);
 					return true;
 				}),
-			renewSession: () => Effect.succeed(true),
-			markReconciled: ({ pending }) => Effect.succeed(pending.map(({ entityId }) => entityId)),
+			openSession: ({ sessionId }) =>
+				Effect.sync(() => {
+					activity.push(`open:${sessionId}`);
+				}).pipe(Effect.as(undefined)),
+			updateInterest: ({ revision }) =>
+				Effect.succeed({
+					revision,
+					status: "applied" as const,
+					pending: [{ revision, entityId: "entity-2" }],
+				}),
 			replaceInterest: ({ revision }) =>
 				Effect.gen(function* () {
 					options.onReplace?.();
@@ -132,14 +138,8 @@ const makeLayer = (
 					return {
 						revision,
 						status: "applied" as const,
-						pending: [{ entityId: "entity-1", revision }],
+						pending: [{ revision, entityId: "entity-1" }],
 					};
-				}),
-			updateInterest: ({ revision }) =>
-				Effect.succeed({
-					revision,
-					status: "applied" as const,
-					pending: [{ entityId: "entity-2", revision }],
 				}),
 		}),
 		Layer.mock(InterestService)({
@@ -172,7 +172,7 @@ describe("entity interest socket session", () => {
 					);
 					yield* Deferred.await(socket.opened);
 					yield* socket.send(
-						encodeEntityInterestClientMessage({ type: "authenticate", ticket: "ticket" }),
+						encodeEntityInterestClientMessage({ ticket: "ticket", type: "authenticate" }),
 					);
 					const ready = yield* socket.nextMessage();
 					if (ready.type !== "ready") {
@@ -186,7 +186,7 @@ describe("entity interest socket session", () => {
 							entityIds: ["entity-1"],
 						}),
 					);
-					expect(yield* socket.nextMessage()).toEqual({ type: "applied", revision: 1 });
+					expect(yield* socket.nextMessage()).toEqual({ revision: 1, type: "applied" });
 					yield* socket.send(
 						encodeEntityInterestClientMessage({
 							remove: [],
@@ -195,7 +195,7 @@ describe("entity interest socket session", () => {
 							add: ["entity-2"],
 						}),
 					);
-					expect(yield* socket.nextMessage()).toEqual({ type: "applied", revision: 2 });
+					expect(yield* socket.nextMessage()).toEqual({ revision: 2, type: "applied" });
 
 					yield* socket.remoteClose;
 					yield* Fiber.await(fiber);
@@ -229,7 +229,7 @@ describe("entity interest socket session", () => {
 				);
 				yield* Deferred.await(socket.opened);
 				yield* socket.send(
-					encodeEntityInterestClientMessage({ type: "authenticate", ticket: "invalid" }),
+					encodeEntityInterestClientMessage({ ticket: "invalid", type: "authenticate" }),
 				);
 				const close = yield* Queue.take(socket.writes);
 				if (!Socket.isCloseEvent(close)) {
@@ -264,7 +264,7 @@ describe("entity interest socket session", () => {
 				);
 				yield* Deferred.await(socket.opened);
 				yield* socket.send(
-					encodeEntityInterestClientMessage({ type: "authenticate", ticket: "ticket" }),
+					encodeEntityInterestClientMessage({ ticket: "ticket", type: "authenticate" }),
 				);
 				const close = yield* Queue.take(socket.writes);
 				expect(Socket.isCloseEvent(close) && close.code).toBe(1011);
@@ -294,7 +294,7 @@ describe("entity interest socket session", () => {
 				);
 				yield* Deferred.await(socket.opened);
 				yield* socket.send(
-					encodeEntityInterestClientMessage({ type: "authenticate", ticket: "ticket" }),
+					encodeEntityInterestClientMessage({ ticket: "ticket", type: "authenticate" }),
 				);
 				yield* socket.send(
 					encodeEntityInterestClientMessage({
@@ -308,7 +308,7 @@ describe("entity interest socket session", () => {
 				yield* Effect.yieldNow;
 				expect(replacements).toBe(0);
 				yield* Deferred.succeed(readyWriteGate, undefined);
-				expect(yield* socket.nextMessage()).toEqual({ type: "applied", revision: 1 });
+				expect(yield* socket.nextMessage()).toEqual({ revision: 1, type: "applied" });
 				yield* socket.remoteClose;
 				yield* Fiber.await(fiber);
 			}),
@@ -327,7 +327,7 @@ describe("entity interest socket session", () => {
 				);
 				yield* Deferred.await(socket.opened);
 				yield* socket.send(
-					encodeEntityInterestClientMessage({ type: "authenticate", ticket: "ticket" }),
+					encodeEntityInterestClientMessage({ ticket: "ticket", type: "authenticate" }),
 				);
 				const ready = yield* socket.nextMessage();
 				if (ready.type !== "ready") {
@@ -365,7 +365,7 @@ describe("entity interest socket session", () => {
 				);
 				yield* Deferred.await(socket.opened);
 				yield* socket.send(
-					encodeEntityInterestClientMessage({ type: "authenticate", ticket: "ticket" }),
+					encodeEntityInterestClientMessage({ ticket: "ticket", type: "authenticate" }),
 				);
 				expect((yield* socket.nextMessage()).type).toBe("ready");
 				yield* socket.send(
@@ -377,7 +377,7 @@ describe("entity interest socket session", () => {
 					}),
 				);
 				yield* socket.send(
-					encodeEntityInterestClientMessage({ type: "replace", revision: 1, entityIds: [] }),
+					encodeEntityInterestClientMessage({ revision: 1, entityIds: [], type: "replace" }),
 				);
 
 				const close = yield* Queue.take(socket.writes);
@@ -408,14 +408,14 @@ describe("entity interest socket session", () => {
 				);
 				yield* Deferred.await(socket.opened);
 				yield* socket.send(
-					encodeEntityInterestClientMessage({ type: "authenticate", ticket: "ticket" }),
+					encodeEntityInterestClientMessage({ ticket: "ticket", type: "authenticate" }),
 				);
 				expect((yield* socket.nextMessage()).type).toBe("ready");
 				yield* socket.send(
-					encodeEntityInterestClientMessage({ type: "replace", revision: 1, entityIds: [] }),
+					encodeEntityInterestClientMessage({ revision: 1, entityIds: [], type: "replace" }),
 				);
 				yield* socket.send(
-					encodeEntityInterestClientMessage({ type: "replace", revision: 1, entityIds: [] }),
+					encodeEntityInterestClientMessage({ revision: 1, entityIds: [], type: "replace" }),
 				);
 
 				const close = yield* Queue.take(socket.writes);
@@ -440,11 +440,11 @@ describe("entity interest socket session", () => {
 				);
 				yield* Deferred.await(socket.opened);
 				yield* socket.send(
-					encodeEntityInterestClientMessage({ type: "authenticate", ticket: "ticket" }),
+					encodeEntityInterestClientMessage({ ticket: "ticket", type: "authenticate" }),
 				);
 				expect((yield* socket.nextMessage()).type).toBe("ready");
 				yield* socket.send(
-					encodeEntityInterestClientMessage({ type: "replace", revision: 1, entityIds: [] }),
+					encodeEntityInterestClientMessage({ revision: 1, entityIds: [], type: "replace" }),
 				);
 
 				expect(yield* socket.nextMessage()).toEqual({
@@ -468,25 +468,25 @@ describe("entity interest socket session", () => {
 				const layer = Layer.mergeAll(
 					Layer.mock(EntityInterestTicketService)({
 						consume: () =>
-							Effect.succeed({ userId: UserId.make("user-1"), preferredLanguage: null }),
+							Effect.succeed({ preferredLanguage: null, userId: UserId.make("user-1") }),
 					}),
 					Layer.mock(EntityInterestStore)({
-						openSession: () => Effect.sync(() => undefined),
 						closeSession: () => Effect.succeed(true),
 						renewSession: () => Effect.succeed(true),
+						openSession: () => Effect.sync(() => undefined),
+						markReconciled: () => Deferred.succeed(markAttempted, undefined).pipe(Effect.as([])),
 						replaceInterest: () =>
 							Effect.succeed({
 								revision: 1,
 								status: "applied" as const,
-								pending: [{ entityId: "entity-1", revision: 1 }],
+								pending: [{ revision: 1, entityId: "entity-1" }],
 							}),
-						markReconciled: () => Deferred.succeed(markAttempted, undefined).pipe(Effect.as([])),
 					}),
 					Layer.mock(InterestService)({
 						reconcile: () =>
 							Effect.succeed([
 								{
-									pending: { entityId: "entity-1", revision: 1 },
+									pending: { revision: 1, entityId: "entity-1" },
 									message: {
 										reason: "populated" as const,
 										type: "entity-updated" as const,
@@ -503,7 +503,7 @@ describe("entity interest socket session", () => {
 				);
 				yield* Deferred.await(socket.opened);
 				yield* socket.send(
-					encodeEntityInterestClientMessage({ type: "authenticate", ticket: "ticket" }),
+					encodeEntityInterestClientMessage({ ticket: "ticket", type: "authenticate" }),
 				);
 				expect((yield* socket.nextMessage()).type).toBe("ready");
 				yield* socket.send(
@@ -513,7 +513,7 @@ describe("entity interest socket session", () => {
 						entityIds: ["entity-1"],
 					}),
 				);
-				expect(yield* socket.nextMessage()).toEqual({ type: "applied", revision: 1 });
+				expect(yield* socket.nextMessage()).toEqual({ revision: 1, type: "applied" });
 				yield* Deferred.await(markAttempted);
 				expect(yield* Queue.poll(socket.writes)).toEqual(Option.none());
 				yield* socket.remoteClose;
@@ -535,7 +535,7 @@ describe("entity interest socket session", () => {
 				);
 				yield* Deferred.await(socket.opened);
 				yield* socket.send(
-					encodeEntityInterestClientMessage({ type: "authenticate", ticket: "ticket" }),
+					encodeEntityInterestClientMessage({ ticket: "ticket", type: "authenticate" }),
 				);
 				expect((yield* socket.nextMessage()).type).toBe("ready");
 				yield* TestClock.adjust("25 seconds");
@@ -560,7 +560,7 @@ describe("entity interest socket session", () => {
 				);
 				yield* Deferred.await(socket.opened);
 				yield* socket.send(
-					encodeEntityInterestClientMessage({ type: "authenticate", ticket: "ticket" }),
+					encodeEntityInterestClientMessage({ ticket: "ticket", type: "authenticate" }),
 				);
 				const ready = yield* socket.nextMessage();
 				assert(ready.type === "ready");
@@ -613,15 +613,15 @@ describe("entity interest socket session", () => {
 				);
 				yield* Deferred.await(socket.opened);
 				yield* socket.send(
-					encodeEntityInterestClientMessage({ type: "authenticate", ticket: "ticket" }),
+					encodeEntityInterestClientMessage({ ticket: "ticket", type: "authenticate" }),
 				);
 				expect((yield* socket.nextMessage()).type).toBe("ready");
 				yield* socket.send(
-					encodeEntityInterestClientMessage({ type: "replace", revision: 1, entityIds: [] }),
+					encodeEntityInterestClientMessage({ revision: 1, entityIds: [], type: "replace" }),
 				);
 				yield* Deferred.await(replaceStarted);
 				yield* socket.send(
-					encodeEntityInterestClientMessage({ type: "replace", revision: 2, entityIds: [] }),
+					encodeEntityInterestClientMessage({ revision: 2, entityIds: [], type: "replace" }),
 				);
 
 				yield* TestClock.adjust("25 seconds");

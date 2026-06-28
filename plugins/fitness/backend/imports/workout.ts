@@ -18,6 +18,20 @@ export const toWorkoutWriteItem = (workout: WorkoutImportItem): GenericImportWri
 		subjectEntityAlias: "workout",
 		sourceLabel: workout.sourceLabel,
 		sourceIdentifier: workout.sourceIdentifier,
+		events: workout.exercises.flatMap((exercise, exerciseOrder) =>
+			exercise.sets.map((set, setOrder) => ({
+				occurredAt: workout.startedAt,
+				sessionEntityAlias: "workout",
+				eventSchemaSlug: "workout-set",
+				entityAlias: `exercise-${exerciseOrder}`,
+				properties: buildWorkoutSetEventProperties({
+					set,
+					setOrder,
+					exerciseOrder,
+					exerciseKind: exercise.kind,
+				}),
+			})),
+		),
 		entities: [
 			...workout.exercises.map((exercise, index) => ({
 				name: exercise.name,
@@ -37,19 +51,5 @@ export const toWorkoutWriteItem = (workout: WorkoutImportItem): GenericImportWri
 				properties: workoutProperties,
 			},
 		],
-		events: workout.exercises.flatMap((exercise, exerciseOrder) =>
-			exercise.sets.map((set, setOrder) => ({
-				occurredAt: workout.startedAt,
-				sessionEntityAlias: "workout",
-				eventSchemaSlug: "workout-set",
-				entityAlias: `exercise-${exerciseOrder}`,
-				properties: buildWorkoutSetEventProperties({
-					set,
-					setOrder,
-					exerciseOrder,
-					exerciseKind: exercise.kind,
-				}),
-			})),
-		),
 	};
 };

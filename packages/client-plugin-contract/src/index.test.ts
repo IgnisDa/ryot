@@ -46,7 +46,7 @@ const document = {
 	queries: {
 		items: {
 			from: { alias: "item", table: "item" },
-			output: { fields: [], orderBy: [], pagination: { limit: 10 }, type: "rows" },
+			output: { fields: [], orderBy: [], type: "rows", pagination: { limit: 10 } },
 		},
 	},
 } as const;
@@ -94,7 +94,7 @@ describe("plugin client artifact contract", () => {
 				decode({
 					...artifact,
 					files: [
-						{ name: "plugin.js", contents: new Uint8Array([0xff]), contentType: "text/javascript" },
+						{ name: "plugin.js", contentType: "text/javascript", contents: new Uint8Array([0xff]) },
 					],
 				}),
 			),
@@ -103,7 +103,7 @@ describe("plugin client artifact contract", () => {
 			Result.isFailure(
 				decode({
 					...artifact,
-					files: [{ name: "plugin.js", contents: "", contentType: "text/javascript" }],
+					files: [{ contents: "", name: "plugin.js", contentType: "text/javascript" }],
 				}),
 			),
 		).toBe(true);
@@ -119,7 +119,7 @@ describe("plugin client bridge contract", () => {
 			type: "entity-interest",
 			visible: Array.from({ length: 499 }, (_, i) => `row-${i}`),
 		};
-		const update = { type: "entity-updated", entityId: "root", reason: "translated" };
+		const update = { entityId: "root", reason: "translated", type: "entity-updated" };
 		expect(Result.isSuccess(client(interest))).toBe(true);
 		expect(Result.isSuccess(host(update))).toBe(true);
 		expect(Result.isFailure(host(interest))).toBe(true);
@@ -212,11 +212,11 @@ describe("plugin client bridge contract", () => {
 			expect(Result.isFailure(decodeHost(message))).toBe(true);
 		}
 		expect(
-			Result.isFailure(decodeClient({ shortcut: "command-palette", type: "kernel-shortcut" })),
+			Result.isFailure(decodeClient({ type: "kernel-shortcut", shortcut: "command-palette" })),
 		).toBe(true);
 		expect(
 			Result.isFailure(
-				decodeClient({ extra: true, shortcut: "command-center", type: "kernel-shortcut" }),
+				decodeClient({ extra: true, type: "kernel-shortcut", shortcut: "command-center" }),
 			),
 		).toBe(true);
 	});
@@ -224,7 +224,7 @@ describe("plugin client bridge contract", () => {
 	it("accepts only strict leading intents and requires location ownership fields", () => {
 		const decodeLeading = Schema.decodeUnknownResult(PluginLeadingIntent);
 		const decodeHost = Schema.decodeUnknownResult(PluginBridgeHostMessage);
-		const location = { kind: "route", path: "/", search: "" };
+		const location = { path: "/", search: "", kind: "route" };
 		const message = {
 			index: 0,
 			location,
@@ -273,18 +273,18 @@ describe("plugin client bridge contract", () => {
 
 		expect(
 			Result.isSuccess(
-				decode({ index: 2, key: "k2", header: { title: "Details" }, type: "header" }),
+				decode({ index: 2, key: "k2", type: "header", header: { title: "Details" } }),
 			),
 		).toBe(true);
 		expect(Result.isSuccess(decode({ index: 2, key: "k2", header: null, type: "header" }))).toBe(
 			true,
 		);
-		expect(Result.isFailure(decode({ header: { title: "Details" }, type: "header" }))).toBe(true);
+		expect(Result.isFailure(decode({ type: "header", header: { title: "Details" } }))).toBe(true);
 		expect(
-			Result.isFailure(decode({ index: 2, key: "k2", header: { title: "" }, type: "header" })),
+			Result.isFailure(decode({ index: 2, key: "k2", type: "header", header: { title: "" } })),
 		).toBe(true);
 		expect(
-			Result.isFailure(decode({ extra: true, index: 2, key: "k2", header: null, type: "header" })),
+			Result.isFailure(decode({ index: 2, key: "k2", extra: true, header: null, type: "header" })),
 		).toBe(true);
 	});
 
@@ -316,7 +316,7 @@ describe("plugin client bridge contract", () => {
 			settings: {},
 			dataSources: null,
 			route: { params: {} },
-			renderer: { exportName: "detail", pluginId: "plugin-1", kind: "plugin" },
+			renderer: { kind: "plugin", exportName: "detail", pluginId: "plugin-1" },
 		};
 
 		expect(
@@ -382,7 +382,7 @@ describe("plugin client bridge contract", () => {
 	it("admits viewport insets from the host and a drawer request from the plugin", () => {
 		const decodeClient = Schema.decodeUnknownResult(PluginBridgeClientMessage);
 		const decodeHost = Schema.decodeUnknownResult(PluginBridgeHostMessage);
-		const viewport = { safeAreaTop: 0, safeAreaBottom: 0, type: "viewport" };
+		const viewport = { safeAreaTop: 0, type: "viewport", safeAreaBottom: 0 };
 
 		expect(Result.isSuccess(decodeHost(viewport))).toBe(true);
 		expect(Result.isFailure(decodeHost({ type: "viewport" }))).toBe(true);
@@ -402,7 +402,7 @@ describe("plugin client bridge contract", () => {
 				decode({
 					mode: "push",
 					type: "page-search",
-					update: { dialog: "add-to-collection", entityId: "entity-1" },
+					update: { entityId: "entity-1", dialog: "add-to-collection" },
 				}),
 			),
 		).toBe(true);
@@ -460,7 +460,7 @@ describe("plugin client bridge contract", () => {
 			edgeBack: false,
 			type: "location",
 		};
-		const targetEntity = { entityId: "entity-1", kind: "entity" };
+		const targetEntity = { kind: "entity", entityId: "entity-1" };
 		const route = { kind: "route", path: "/details", search: "tab=stats" };
 		const pluginRoute = {
 			path: "/details",
@@ -507,21 +507,21 @@ describe("plugin client bridge contract", () => {
 			Result.isFailure(decodeHost({ ...hostFields, location: { ...entity, extra: true } })),
 		).toBe(true);
 		expect(
-			Result.isSuccess(decodeClient({ target: pluginRoute, mode: "push", type: "navigate" })),
+			Result.isSuccess(decodeClient({ mode: "push", type: "navigate", target: pluginRoute })),
 		).toBe(true);
 		expect(
-			Result.isSuccess(decodeClient({ target: savedView, mode: "replace", type: "navigate" })),
+			Result.isSuccess(decodeClient({ mode: "replace", type: "navigate", target: savedView })),
 		).toBe(true);
 		expect(
-			Result.isSuccess(decodeClient({ target: targetEntity, mode: "push", type: "navigate" })),
+			Result.isSuccess(decodeClient({ mode: "push", type: "navigate", target: targetEntity })),
 		).toBe(true);
 		expect(
 			Result.isFailure(
-				decodeClient({ leading: "back", target: pluginRoute, mode: "push", type: "navigate" }),
+				decodeClient({ mode: "push", leading: "back", type: "navigate", target: pluginRoute }),
 			),
 		).toBe(true);
 		expect(
-			Result.isFailure(decodeClient({ location: pluginRoute, mode: "push", type: "navigate" })),
+			Result.isFailure(decodeClient({ mode: "push", type: "navigate", location: pluginRoute })),
 		).toBe(true);
 		expect(
 			Result.isFailure(
@@ -549,7 +549,7 @@ describe("plugin client bridge contract", () => {
 
 		expect(Result.isSuccess(decodeHost({ mode: "light", type: "theme" }))).toBe(true);
 		expect(Result.isFailure(decodeHost({ type: "theme" }))).toBe(true);
-		expect(Result.isFailure(decodeHost({ mode: "system", type: "theme" }))).toBe(true);
+		expect(Result.isFailure(decodeHost({ type: "theme", mode: "system" }))).toBe(true);
 		expect(Result.isFailure(decodeClient({ type: "theme-applied" }))).toBe(true);
 	});
 
@@ -573,7 +573,7 @@ describe("plugin client bridge contract", () => {
 			requestId: "collection-1",
 			type: "collection-request" as const,
 			action: "upsert-membership" as const,
-			input: { entityId: "entity-1", collectionId: "collection-1", properties: { rank: 1 } },
+			input: { entityId: "entity-1", properties: { rank: 1 }, collectionId: "collection-1" },
 		};
 
 		expect(Result.isSuccess(decodeClient(request))).toBe(true);
@@ -615,9 +615,9 @@ describe("plugin client bridge contract", () => {
 	it("decodes only the strict RyotQL cancellation message", () => {
 		const decode = Schema.decodeUnknownResult(PluginBridgeRyotQLCancel);
 
-		expect(Result.isSuccess(decode({ requestId: "request-1", type: "ryotql-cancel" }))).toBe(true);
+		expect(Result.isSuccess(decode({ type: "ryotql-cancel", requestId: "request-1" }))).toBe(true);
 		expect(
-			Result.isFailure(decode({ reason: "caller", requestId: "request-1", type: "ryotql-cancel" })),
+			Result.isFailure(decode({ reason: "caller", type: "ryotql-cancel", requestId: "request-1" })),
 		).toBe(true);
 		expect(Result.isFailure(decode({ type: "ryotql-cancel" }))).toBe(true);
 	});
@@ -625,8 +625,8 @@ describe("plugin client bridge contract", () => {
 	it("carries an upload source as a Blob and rejects any other value", () => {
 		const decodeRequest = Schema.decodeUnknownResult(PluginBridgeClientMessage);
 		const request = {
-			requestId: "request-1",
 			fileName: "items.csv",
+			requestId: "request-1",
 			contentType: "text/csv",
 			type: "upload-request" as const,
 			source: new Blob(["id,title"], { type: "text/csv" }),
@@ -649,10 +649,10 @@ describe("plugin client bridge contract", () => {
 		expect(
 			Result.isSuccess(
 				decodeRequest({
-					requestId: "request-1",
 					fileName: "items.csv",
-					contentType: "text/csv",
+					requestId: "request-1",
 					type: "upload-request",
+					contentType: "text/csv",
 					source: new File(["id,title"], "items.csv", { type: "text/csv" }),
 				}),
 			),
@@ -666,8 +666,8 @@ describe("plugin client bridge contract", () => {
 			Result.isSuccess(
 				decodeResult({
 					outcome: "success",
-					requestId: "request-1",
 					type: "upload-result",
+					requestId: "request-1",
 					token: { token: "upload-token", expiresAt: "2026-01-01T00:00:00.000Z" },
 				}),
 			),
@@ -676,8 +676,8 @@ describe("plugin client bridge contract", () => {
 			Result.isSuccess(
 				decodeResult({
 					outcome: "failure",
-					requestId: "request-1",
 					type: "upload-result",
+					requestId: "request-1",
 					reason: "operation-failed",
 				}),
 			),
@@ -686,8 +686,8 @@ describe("plugin client bridge contract", () => {
 			Result.isFailure(
 				decodeResult({
 					outcome: "failure",
-					requestId: "request-1",
 					type: "upload-result",
+					requestId: "request-1",
 					reason: "asset-failed",
 				}),
 			),
@@ -808,14 +808,14 @@ describe("plugin client bridge contract", () => {
 		const decodeBridgeRequest = Schema.decodeUnknownResult(PluginBridgeAssetRequest);
 		const decodeCancel = Schema.decodeUnknownResult(PluginBridgeAssetCancel);
 		const decodeClient = Schema.decodeUnknownResult(PluginBridgeClientMessage);
-		const asset = { key: "permanent/image.png", type: "local" };
+		const asset = { type: "local", key: "permanent/image.png" };
 
 		expect(Result.isSuccess(decodeRequest({ assets: [asset] }))).toBe(true);
 		expect(Result.isFailure(decodeRequest({ assets: [] }))).toBe(true);
 		expect(
 			Result.isFailure(decodeRequest({ assets: [{ type: "remote", url: "https://example.com" }] })),
 		).toBe(true);
-		expect(Result.isFailure(decodeRequest({ assets: [asset], extra: true }))).toBe(true);
+		expect(Result.isFailure(decodeRequest({ extra: true, assets: [asset] }))).toBe(true);
 		expect(
 			Result.isSuccess(
 				decodeBridgeRequest({ assets: [asset], requestId: "asset-1", type: "asset-request" }),
@@ -848,7 +848,7 @@ describe("plugin client bridge contract", () => {
 			true,
 		);
 		expect(
-			Result.isFailure(decodeCancel({ requestId: "asset-1", type: "asset-cancel", extra: true })),
+			Result.isFailure(decodeCancel({ extra: true, requestId: "asset-1", type: "asset-cancel" })),
 		).toBe(true);
 	});
 
@@ -858,7 +858,7 @@ describe("plugin client bridge contract", () => {
 		const decodeResult = Schema.decodeUnknownResult(PluginBridgeAssetResult);
 		const resolution = {
 			expiresAt: "2026-01-01T00:15:00.000Z",
-			asset: { key: "permanent/image.png", type: "local" },
+			asset: { type: "local", key: "permanent/image.png" },
 			url: "https://ryot.test/api/uploads/local/download?key=permanent%2Fimage.png",
 		};
 
@@ -947,14 +947,14 @@ describe("plugin client bridge contract", () => {
 				items: {
 					items: [],
 					type: "rows",
-					pageInfo: { hasMore: false, limit: 10, nextCursor: null },
+					pageInfo: { limit: 10, hasMore: false, nextCursor: null },
 				},
 			},
 		};
 
 		expect(
 			Result.isSuccess(
-				decode({ response, outcome: "success", requestId: "request-1", type: "ryotql-result" }),
+				decode({ response, outcome: "success", type: "ryotql-result", requestId: "request-1" }),
 			),
 		).toBe(true);
 		expect(

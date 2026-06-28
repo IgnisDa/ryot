@@ -14,9 +14,9 @@ import { EntityInterestSubscriber } from "./subscriber";
 
 const subscriber = Object.assign(Object.create(Redis.prototype), {
 	on: () => subscriber,
-	removeAllListeners: () => subscriber,
 	quit: () => Promise.resolve("OK"),
 	subscribe: () => Promise.resolve(1),
+	removeAllListeners: () => subscriber,
 }) satisfies Redis;
 
 const client = Object.assign(Object.create(Redis.prototype), {
@@ -59,8 +59,8 @@ it.effect("routes valid messages and ignores malformed data", () => {
 		expect(lookedUp).toEqual(["entity-1", "entity-2"]);
 		expect(progressed).toEqual(["entity-2"]);
 		expect(frames).toEqual([
-			{ type: "entity-updated", entityId: "entity-1", reason: "translated" },
-			{ type: "entity-updated", entityId: "entity-2", reason: "populated" },
+			{ entityId: "entity-1", reason: "translated", type: "entity-updated" },
+			{ reason: "populated", entityId: "entity-2", type: "entity-updated" },
 		]);
 	}).pipe(Effect.provide(Layer.provideMerge(EntityInterestSubscriber.layer, dependencies)));
 });
@@ -73,8 +73,8 @@ it.effect("bounds progression retries and absorbs the final failure", () => {
 		LocalInterestSessions.layer,
 		Layer.succeed(RedisService, makeRedisService({ client })),
 		Layer.mock(EntityInterestStore)({
-			listWatchingSessions: () => Effect.succeed(["session-1", "stale-session"]),
 			markPending: (input) => Effect.sync(() => markedPending.push(input)),
+			listWatchingSessions: () => Effect.succeed(["session-1", "stale-session"]),
 		}),
 		Layer.mock(EntityInterestProgression)({
 			populated: () =>
@@ -125,7 +125,7 @@ it.effect("delivers a private publication only after watching membership is conf
 			encodeEntityUpdatedMessage(EntityId.make("private-entity"), "translated"),
 		);
 		expect(frames).toEqual([
-			{ type: "entity-updated", entityId: "private-entity", reason: "translated" },
+			{ reason: "translated", type: "entity-updated", entityId: "private-entity" },
 		]);
 	}).pipe(Effect.provide(Layer.provideMerge(EntityInterestSubscriber.layer, dependencies)));
 });

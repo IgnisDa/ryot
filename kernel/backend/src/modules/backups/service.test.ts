@@ -14,9 +14,9 @@ import { BackupsService } from "./service";
 const user: CurrentUserValue = {
 	image: null,
 	name: "Backup User",
-	email: "backup@example.com",
 	id: UserId.make("user-1"),
-	preferences: { allowNsfw: false, language: null, disableIntegrations: false },
+	email: "backup@example.com",
+	preferences: { language: null, allowNsfw: false, disableIntegrations: false },
 };
 const timestamp = "2026-08-23T12:00:00.000Z";
 const runId = BackupRunId.make("run-1");
@@ -105,8 +105,8 @@ it.effect("streams an owned unexpired artifact without buffering", () => {
 	const bytes = new TextEncoder().encode("archive");
 	const layer = makeLayer({
 		uploads: {
-			statObject: () => Effect.succeed({ size: bytes.length, contentType: null }),
 			openObject: () => Effect.succeed(Stream.make(bytes)),
+			statObject: () => Effect.succeed({ contentType: null, size: bytes.length }),
 		},
 		repository: {
 			getRunById: () => Effect.succeed(completedRun),
@@ -136,12 +136,12 @@ it.effect("deletes an artifact before its run and performs cleanup in the same o
 		artifactProvider: "local" as const,
 	};
 	const layer = makeLayer({
+		uploads: { deleteObject: () => Effect.sync(() => void calls.push("artifact")) },
 		repository: {
 			getRunById: () => Effect.succeed(completedRun),
 			getArtifactById: () => Effect.succeed(artifact),
 			deleteRunById: () => Effect.sync(() => (calls.push("run"), completedRun)),
 		},
-		uploads: { deleteObject: () => Effect.sync(() => void calls.push("artifact")) },
 	});
 	return Effect.gen(function* () {
 		const service = yield* BackupsService;

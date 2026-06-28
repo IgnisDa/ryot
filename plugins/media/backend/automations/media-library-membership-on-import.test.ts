@@ -11,7 +11,7 @@ const libraryRows = {
 		library: {
 			type: "rows" as const,
 			items: [{ entityId: "library-1" }],
-			pageInfo: { hasMore: false, limit: 1, nextCursor: null },
+			pageInfo: { limit: 1, hasMore: false, nextCursor: null },
 		},
 	},
 };
@@ -79,7 +79,7 @@ it("is idempotent when the same import hook runs repeatedly", () => {
 		executeRyotql: () => hostSuccess(libraryRows),
 		changeUserRelationships: (batches) => {
 			changes.push(batches);
-			return hostSuccess([{ created: changes.length === 1 ? 1 : 0, deleted: 0 }]);
+			return hostSuccess([{ deleted: 0, created: changes.length === 1 ? 1 : 0 }]);
 		},
 	});
 

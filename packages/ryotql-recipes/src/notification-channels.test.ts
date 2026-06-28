@@ -4,7 +4,7 @@ import { assert, describe, expect, it } from "vitest";
 import { notificationChannelsRecipe } from "./notification-channels";
 import { rowsResponse } from "./test-utils";
 
-const pageInfo = { hasMore: true, limit: 2, nextCursor: "next" };
+const pageInfo = { limit: 2, hasMore: true, nextCursor: "next" };
 const channel = {
 	id: "channel-1",
 	channel: "ntfy",
@@ -13,7 +13,7 @@ const channel = {
 	createdAt: "2026-01-01T01:00:00+02:00",
 	updatedAt: "2026-01-02T01:00:00+02:00",
 };
-const recipe = notificationChannelsRecipe({ after: "cursor", limit: 7 });
+const recipe = notificationChannelsRecipe({ limit: 7, after: "cursor" });
 const responseWithItems = (items: readonly unknown[]) =>
 	rowsResponse("notificationChannels", items, pageInfo);
 
@@ -23,10 +23,10 @@ describe("notification channel recipes", () => {
 		assert(query);
 		assert(query.output.type === "rows");
 
-		expect(query.output.pagination).toEqual({ after: "cursor", limit: 7 });
+		expect(query.output.pagination).toEqual({ limit: 7, after: "cursor" });
 		expect(
 			query.output.fields.map((selection) => ("key" in selection ? selection.key : null)),
-		).toEqual(["id", "channel", "description", "isDisabled", "createdAt", "updatedAt"]);
+		).toEqual(["id", "createdAt", "updatedAt", "isDisabled", "description", "channel"]);
 		expect(Result.getOrThrow(recipe.decode(responseWithItems([channel])))).toEqual({
 			pageInfo,
 			items: [

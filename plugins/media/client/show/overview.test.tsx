@@ -24,13 +24,13 @@ afterEach(() => {
 
 describe("ShowOverview", () => {
 	it("renders the gallery, cast, companies and recommendations from a ready overview", () => {
-		const { container, unmount } = mountRyotClient(
+		const { unmount, container } = mountRyotClient(
 			noopAdapter,
 			<ShowOverview
 				compact
-				overview={{ status: "ready", overview: readyOverview }}
 				show={decodeShowSummary()}
 				refreshOverview={() => undefined}
+				overview={{ status: "ready", overview: readyOverview }}
 			/>,
 		);
 
@@ -45,7 +45,7 @@ describe("ShowOverview", () => {
 	});
 
 	it("omits the cast, companies and recommendations sections when the overview has none", () => {
-		const { container, unmount } = mountRyotClient(
+		const { unmount, container } = mountRyotClient(
 			noopAdapter,
 			<ShowOverview
 				compact
@@ -63,7 +63,7 @@ describe("ShowOverview", () => {
 	});
 
 	it("shows a loading notice while the overview is loading", () => {
-		const { container, unmount } = mountRyotClient(
+		const { unmount, container } = mountRyotClient(
 			noopAdapter,
 			<ShowOverview
 				compact
@@ -79,7 +79,7 @@ describe("ShowOverview", () => {
 
 	it("retries a failed overview load through the refresh callback", async () => {
 		let refreshCount = 0;
-		const { container, unmount } = mountRyotClient(
+		const { unmount, container } = mountRyotClient(
 			noopAdapter,
 			<ShowOverview
 				compact

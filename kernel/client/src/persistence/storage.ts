@@ -34,22 +34,22 @@ const makeStorage = (storage: BrowserStorage | undefined): ClientStorage["Servic
 	clearServerSelection: Effect.sync(() => storage?.removeItem(SERVER_SELECTION_KEY)),
 	remove: (keys) => Effect.sync(() => keys.forEach((key) => storage?.removeItem(key))),
 	setServerSelection: (origin) => Effect.sync(() => storage?.setItem(SERVER_SELECTION_KEY, origin)),
-	setSavedViewLayout: (scope, slug, layout) =>
-		Effect.sync(() => storage?.setItem(savedViewLayoutKey(scope, slug), layout)),
-	setRememberedProvider: (scope, entitySchemaSlug, providerId) =>
-		Effect.sync(() => storage?.setItem(rememberedProviderKey(scope, entitySchemaSlug), providerId)),
 	setThemePreference: (preference) =>
 		Effect.sync(() => storage?.setItem(THEME_PREFERENCE_KEY, preference)),
-	getThemePreference: Effect.sync(() => {
-		const value = storage?.getItem(THEME_PREFERENCE_KEY);
-		return isThemePreference(value) ? value : "system";
-	}),
+	setSavedViewLayout: (scope, slug, layout) =>
+		Effect.sync(() => storage?.setItem(savedViewLayoutKey(scope, slug), layout)),
 	setLastWorkspace: (scope, slug) =>
 		Effect.sync(() => {
 			if (isWorkspaceSlug(slug)) {
 				storage?.setItem(lastWorkspaceKey(scope), slug);
 			}
 		}),
+	getThemePreference: Effect.sync(() => {
+		const value = storage?.getItem(THEME_PREFERENCE_KEY);
+		return isThemePreference(value) ? value : "system";
+	}),
+	setRememberedProvider: (scope, entitySchemaSlug, providerId) =>
+		Effect.sync(() => storage?.setItem(rememberedProviderKey(scope, entitySchemaSlug), providerId)),
 	getLastWorkspace: (scope) =>
 		Effect.sync(() => {
 			const value = storage?.getItem(lastWorkspaceKey(scope));

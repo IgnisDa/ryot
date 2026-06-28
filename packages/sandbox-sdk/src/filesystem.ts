@@ -38,7 +38,7 @@ export const readArtifact = () =>
 	Effect.suspend(() => {
 		const filesystem = binding();
 		return filesystem
-			? Effect.tryPromise({ try: () => filesystem.readArtifact(), catch: filesystemError })
+			? Effect.tryPromise({ catch: filesystemError, try: () => filesystem.readArtifact() })
 			: Effect.fail(filesystemError("Sandbox artifact grant is unavailable"));
 	});
 
@@ -46,7 +46,7 @@ export const readNamedArtifact = (key: string) =>
 	Effect.suspend(() => {
 		const filesystem = binding();
 		return filesystem
-			? Effect.tryPromise({ try: () => filesystem.readNamedArtifact(key), catch: filesystemError })
+			? Effect.tryPromise({ catch: filesystemError, try: () => filesystem.readNamedArtifact(key) })
 			: Effect.fail(filesystemError("Sandbox artifact grant is unavailable"));
 	});
 
@@ -61,7 +61,7 @@ export const writeScratchChunks = (chunks: ReadonlyArray<SandboxScratchChunk>) =
 			contents: typeof contents === "string" ? encoder.encode(contents) : contents,
 		}));
 		return Effect.tryPromise({
-			try: () => filesystem.writeScratchChunks(encoded),
 			catch: filesystemError,
+			try: () => filesystem.writeScratchChunks(encoded),
 		}).pipe(Effect.as({ chunkFiles: encoded.map(({ name }) => name) }));
 	});

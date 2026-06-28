@@ -17,8 +17,8 @@ export const manifest = defineManifest({
 	name: "TVDB",
 	kind: "provider",
 	slug: "person.tvdb",
-	requiredPluginConfigKeys: ["tvdbApiKey"],
 	requiredSystemConfigKeys: [],
+	requiredPluginConfigKeys: ["tvdbApiKey"],
 	capabilities: ["httpCall", "getCachedValue", "setCachedValue", "getPluginConfig"],
 });
 
@@ -45,7 +45,7 @@ const addMedia = (entities: Map<string, RoleRelatedEntity>, entity: RoleRelatedE
 	}
 };
 
-const TVDB_GENDER_MAP: Readonly<Record<number, string>> = { 1: "Male", 2: "Female", 3: "Other" };
+const TVDB_GENDER_MAP: Readonly<Record<number, string>> = { 1: "Male", 3: "Other", 2: "Female" };
 
 export const details = defineProvider({
 	manifest,
@@ -114,30 +114,30 @@ export const details = defineProvider({
 					relatedEntityGroups: [
 						{
 							direction: "outgoing" as const,
-							synchronization: "authoritative" as const,
 							entities: [...movieById.values()],
+							synchronization: "authoritative" as const,
 							relationshipSchemaSlug: "person-to-movie",
 						},
 						{
 							direction: "outgoing" as const,
-							synchronization: "authoritative" as const,
 							entities: [...showById.values()],
 							relationshipSchemaSlug: "person-to-show",
+							synchronization: "authoritative" as const,
 						},
 					],
 					properties: {
 						gender,
 						description,
 						alternateNames: [],
-						images: image
-							? [{ type: "remote" as const, url: image, purpose: "profile" as const }]
-							: [],
 						birthDate: stringValue(person["birth"]),
 						deathDate: stringValue(person["death"]),
+						birthPlace: stringValue(person["birthPlace"]),
+						images: image
+							? [{ url: image, type: "remote" as const, purpose: "profile" as const }]
+							: [],
 						sourceUrl: slug
 							? `https://www.thetvdb.com/people/${slug}`
 							: `https://www.thetvdb.com/people/${input.externalId}`,
-						birthPlace: stringValue(person["birthPlace"]),
 					},
 				};
 			}),

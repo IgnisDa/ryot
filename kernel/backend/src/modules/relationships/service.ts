@@ -225,9 +225,9 @@ export const reconcileGlobalRelationships = Effect.fn("RelationshipsService.reco
 								seen.add(key);
 
 								const properties = yield* parseAppSchemaProperties({
-									propertiesSchema: definition.propertiesSchema,
 									kind: "Relationship",
 									properties: relationship.properties,
+									propertiesSchema: definition.propertiesSchema,
 								}).pipe(
 									Effect.mapError(
 										(error) =>
@@ -413,13 +413,13 @@ export class RelationshipsService extends Context.Service<RelationshipsService>(
 				mergeUserProperties,
 				delete: deleteRelationship,
 				deleteUserRelationshipById,
+				reconcileGlobal: (groups: ReadonlyArray<ReconcileGlobalRelationshipGroup>) =>
+					reconcileGlobalRelationships(groups).pipe(
+						Effect.provideService(RelationshipsRepository, repository),
+					),
 				changeUser: (userId: UserId, batches: ReadonlyArray<ChangeUserRelationshipBatch>) =>
 					changeUserRelationships(userId, batches).pipe(
 						Effect.provideService(PluginRuntimeResolver, pluginRuntime),
-						Effect.provideService(RelationshipsRepository, repository),
-					),
-				reconcileGlobal: (groups: ReadonlyArray<ReconcileGlobalRelationshipGroup>) =>
-					reconcileGlobalRelationships(groups).pipe(
 						Effect.provideService(RelationshipsRepository, repository),
 					),
 			};

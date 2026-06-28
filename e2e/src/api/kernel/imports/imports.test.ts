@@ -80,7 +80,7 @@ describe("Plugin Import Public Boundary", () => {
 
 	it.live("runs an installed source absent from the central contract to terminal success", () =>
 		Effect.gen(function* () {
-			const { client, token } = yield* createAuthenticatedClient();
+			const { token, client } = yield* createAuthenticatedClient();
 			const archiveUploadToken = yield* uploadImportFile(
 				token,
 				"name,value\nfixture,1\n",
@@ -88,7 +88,7 @@ describe("Plugin Import Public Boundary", () => {
 				"text/csv",
 			);
 			const created = yield* client.call((c) =>
-				c.imports.createRun({ payload: { source: FIXTURE_IMPORT_SOURCE, archiveUploadToken } }),
+				c.imports.createRun({ payload: { archiveUploadToken, source: FIXTURE_IMPORT_SOURCE } }),
 			);
 
 			const completed = yield* pollImportRunUntilTerminal(client, created.id);
@@ -167,7 +167,7 @@ describe("Plugin Import Public Boundary", () => {
 
 	it.live("rejects upload-token fields not declared by the selected source", () =>
 		Effect.gen(function* () {
-			const { client, token } = yield* createAuthenticatedClient();
+			const { token, client } = yield* createAuthenticatedClient();
 			const [archiveUploadToken, undeclaredUploadToken] = yield* Effect.all([
 				uploadImportFile(token, "fixture", "fixture.csv", "text/csv"),
 				uploadImportFile(token, "other", "other.csv", "text/csv"),
@@ -181,13 +181,13 @@ describe("Plugin Import Public Boundary", () => {
 			);
 
 			assertTaggedError(error, "ImportRequestError");
-			expect(error.reason).toEqual({ code: "invalid-input", field: null });
+			expect(error.reason).toEqual({ field: null, code: "invalid-input" });
 		}),
 	);
 
 	it.live("rejects reserved and schema-invalid fields before claiming uploads", () =>
 		Effect.gen(function* () {
-			const { client, token } = yield* createAuthenticatedClient();
+			const { token, client } = yield* createAuthenticatedClient();
 			const archiveUploadToken = yield* uploadImportFile(
 				token,
 				"fixture",
@@ -206,7 +206,7 @@ describe("Plugin Import Public Boundary", () => {
 				),
 			);
 			assertTaggedError(integrationError, "ImportRequestError");
-			expect(integrationError.reason).toEqual({ code: "invalid-input", field: null });
+			expect(integrationError.reason).toEqual({ field: null, code: "invalid-input" });
 
 			const schemaError = yield* Effect.flip(
 				client.call((c) =>
@@ -224,7 +224,7 @@ describe("Plugin Import Public Boundary", () => {
 			assertTaggedError(schemaError, "ImportRequestError");
 
 			const created = yield* client.call((c) =>
-				c.imports.createRun({ payload: { source: FIXTURE_IMPORT_SOURCE, archiveUploadToken } }),
+				c.imports.createRun({ payload: { archiveUploadToken, source: FIXTURE_IMPORT_SOURCE } }),
 			);
 			expect((yield* pollImportRunUntilTerminal(client, created.id)).status).toBe("completed");
 		}),
@@ -243,7 +243,7 @@ describe("Plugin Import Public Boundary", () => {
 
 	it.live("rejects an invalid named artifact extension", () =>
 		Effect.gen(function* () {
-			const { client, token } = yield* createAuthenticatedClient();
+			const { token, client } = yield* createAuthenticatedClient();
 			const archiveUploadToken = yield* uploadImportFile(
 				token,
 				"fixture",
@@ -252,7 +252,7 @@ describe("Plugin Import Public Boundary", () => {
 			);
 			const error = yield* Effect.flip(
 				client.call((c) =>
-					c.imports.createRun({ payload: { source: FIXTURE_IMPORT_SOURCE, archiveUploadToken } }),
+					c.imports.createRun({ payload: { archiveUploadToken, source: FIXTURE_IMPORT_SOURCE } }),
 				),
 			);
 
@@ -262,7 +262,7 @@ describe("Plugin Import Public Boundary", () => {
 
 	it.live("rejects an unknown source before claiming uploads or starting a workflow", () =>
 		Effect.gen(function* () {
-			const { client, token } = yield* createAuthenticatedClient();
+			const { token, client } = yield* createAuthenticatedClient();
 			const archiveUploadToken = yield* uploadImportFile(
 				token,
 				"fixture",
@@ -280,7 +280,7 @@ describe("Plugin Import Public Boundary", () => {
 			expect((yield* listManualImportRuns(client, undefined, 20)).items).toEqual([]);
 
 			const created = yield* client.call((c) =>
-				c.imports.createRun({ payload: { source: FIXTURE_IMPORT_SOURCE, archiveUploadToken } }),
+				c.imports.createRun({ payload: { archiveUploadToken, source: FIXTURE_IMPORT_SOURCE } }),
 			);
 			expect((yield* pollImportRunUntilTerminal(client, created.id)).status).toBe("completed");
 		}),
@@ -304,7 +304,7 @@ describe("Plugin Import Public Boundary", () => {
 			assertPresent(fixtureImportPlugin, "Fixture import plugin is missing");
 			yield* uninstallWhenReleased(fixtureImportPlugin);
 
-			const { client, token } = yield* createAuthenticatedClient();
+			const { token, client } = yield* createAuthenticatedClient();
 			const archiveUploadToken = yield* uploadImportFile(
 				token,
 				"fixture",
@@ -313,7 +313,7 @@ describe("Plugin Import Public Boundary", () => {
 			);
 			const error = yield* Effect.flip(
 				client.call((c) =>
-					c.imports.createRun({ payload: { source: FIXTURE_IMPORT_SOURCE, archiveUploadToken } }),
+					c.imports.createRun({ payload: { archiveUploadToken, source: FIXTURE_IMPORT_SOURCE } }),
 				),
 			);
 			assertTaggedError(error, "ImportRequestError");

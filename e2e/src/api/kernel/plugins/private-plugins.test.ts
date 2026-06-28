@@ -37,6 +37,7 @@ describe("private plugins", () => {
 				client,
 				document({
 					installations: rows(installation, {
+						where: eq(column(plugin, "scope"), literal("system")),
 						joins: [
 							join("inner", plugin, eq(column(installation, "pluginId"), column(plugin, "id"))),
 						],
@@ -46,7 +47,6 @@ describe("private plugins", () => {
 							field("sortOrder", column(installation, "sortOrder")),
 							field("isDisabled", column(installation, "isDisabled")),
 						],
-						where: eq(column(plugin, "scope"), literal("system")),
 					}),
 				}),
 			);
@@ -61,7 +61,7 @@ describe("private plugins", () => {
 					health: requireRyotQLText(item, "health"),
 					sortOrder: requireRyotQLValue(item, "sortOrder"),
 					isDisabled: requireRyotQLValue(item, "isDisabled"),
-				}).toEqual({ health: "ready", sortOrder: 0, isDisabled: false });
+				}).toEqual({ sortOrder: 0, health: "ready", isDisabled: false });
 			}
 		}),
 	);

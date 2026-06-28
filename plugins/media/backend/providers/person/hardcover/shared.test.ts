@@ -39,7 +39,7 @@ describe("person.hardcover sandbox script", () => {
 
 		return runSandboxTestScript(
 			search,
-			{ query: "jane", page: 1, pageSize: 20 },
+			{ page: 1, pageSize: 20, query: "jane" },
 			host,
 			execution,
 		).pipe(
@@ -65,8 +65,8 @@ describe("person.hardcover sandbox script", () => {
 						death_date: null,
 						born_date: "1970-01-01",
 						image: { url: "https://img/j.jpg" },
-						links: [{ url: "https://jane.example" }],
 						alternate_names: ["J. Doe", "Janey"],
+						links: [{ url: "https://jane.example" }],
 						contributions: [{ contribution: "Author", book: { id: 42, title: "The Book" } }],
 					},
 				},
@@ -92,13 +92,13 @@ describe("person.hardcover sandbox script", () => {
 					},
 				]);
 				expect(result.properties).toEqual({
-					description: "Bio.",
 					deathDate: null,
+					description: "Bio.",
 					birthDate: "1970-01-01",
-					alternateNames: ["J. Doe", "Janey"],
 					website: "https://jane.example",
+					alternateNames: ["J. Doe", "Janey"],
 					sourceUrl: "https://hardcover.app/authors/jane-doe",
-					images: [{ type: "remote", url: "https://img/j.jpg", purpose: "profile" }],
+					images: [{ type: "remote", purpose: "profile", url: "https://img/j.jpg" }],
 				});
 				return undefined;
 			}),

@@ -44,7 +44,7 @@ const sandboxExecutionFailure = (error: SandboxRunError) => ({
 	logs: [],
 	value: null,
 	status: "completed" as const,
-	error: { phase: "execute" as const, message: error.message },
+	error: { message: error.message, phase: "execute" as const },
 });
 
 const toPluginWorkflowResult = (result: Workflow.Result<JsonValue, SandboxRunError> | undefined) =>
@@ -55,8 +55,8 @@ const toSandboxRunResult = (result: Workflow.Result<JsonValue, SandboxRunError> 
 		onFailure: String,
 		onSuccess: (value) => {
 			const {
-				harvest: _harvest,
 				status: _status,
+				harvest: _harvest,
 				...completed
 			} = Schema.decodeUnknownSync(SandboxExecutionResult)(value);
 			return completed;
@@ -335,9 +335,9 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 						})
 						.pipe(
 							Effect.matchCauseEffect({
+								onSuccess: Effect.succeed,
 								onFailure: (cause) =>
 									releaseRegistration.pipe(Effect.andThen(Effect.failCause(cause))),
-								onSuccess: Effect.succeed,
 							}),
 							Effect.orDie,
 						);

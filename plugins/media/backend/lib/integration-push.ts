@@ -53,8 +53,8 @@ export const logPushFailure = (
 		.log([
 			{
 				level: "warning",
-				message: `${integration} push failed`,
 				attributes: { error: error.message },
+				message: `${integration} push failed`,
 			},
 		])
 		.pipe(

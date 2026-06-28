@@ -103,7 +103,7 @@ const runtimeDirectoryPrefix = `runtime-v${SANDBOX_RUNTIME_DEPENDENCY_FORMAT}-${
 const runtimeImportMap = {
 	imports: {
 		...Object.fromEntries(
-			runtimeModules.map(({ runtimeFile, sdkImport }) => [sdkImport, `./${runtimeFile}`]),
+			runtimeModules.map(({ sdkImport, runtimeFile }) => [sdkImport, `./${runtimeFile}`]),
 		),
 		effect: `./${EFFECT_RUNTIME_FILE}`,
 		[PLUGIN_KIT_EFFECT_IMPORT]: `./${EFFECT_RUNTIME_FILE}`,
@@ -142,8 +142,8 @@ const sandboxRuntimePaths = (
 	return {
 		directory,
 		importMapPath: `${directory}/import-map.json`,
-		cacheDirectory: `${denoDir}/cache-v${SANDBOX_RUNTIME_DEPENDENCY_FORMAT}-${contentHash}`,
 		moduleDirectory: `${directory}/${runtimeModuleDirectoryName}`,
+		cacheDirectory: `${denoDir}/cache-v${SANDBOX_RUNTIME_DEPENDENCY_FORMAT}-${contentHash}`,
 	};
 };
 
@@ -191,6 +191,10 @@ const buildRuntimeModule = (
 	runtimeSourceResolveDir?: string,
 ) =>
 	Effect.tryPromise({
+		catch: (error) =>
+			new SandboxRuntimeDependencyError({
+				message: `Sandbox runtime dependency build failed: ${String(error)}`,
+			}),
 		try: () =>
 			Bun.build({
 				format: "esm",
@@ -235,10 +239,6 @@ const buildRuntimeModule = (
 							},
 						]
 					: [],
-			}),
-		catch: (error) =>
-			new SandboxRuntimeDependencyError({
-				message: `Sandbox runtime dependency build failed: ${String(error)}`,
 			}),
 	}).pipe(
 		Effect.flatMap((result) => {
@@ -361,6 +361,10 @@ export const ensureSandboxRuntimeDependencies = (denoDir: string) =>
 		const sdkDirectory = sdkEntry.slice(0, sdkEntry.lastIndexOf("/"));
 		const entries = yield* Effect.forEach(runtimeModules, (runtimeModule) =>
 			Effect.try({
+				catch: (error) =>
+					new SandboxRuntimeDependencyError({
+						message: `Sandbox runtime dependency ${runtimeModule.name}@${runtimeModule.version} could not be resolved: ${String(error)}`,
+					}),
 				try: () => {
 					const resolved = Bun.resolveSync(
 						runtimeModule.sourceImport,
@@ -376,10 +380,6 @@ export const ensureSandboxRuntimeDependencies = (denoDir: string) =>
 						runtimeSource: runtimeModule.runtimeSource,
 					};
 				},
-				catch: (error) =>
-					new SandboxRuntimeDependencyError({
-						message: `Sandbox runtime dependency ${runtimeModule.name}@${runtimeModule.version} could not be resolved: ${String(error)}`,
-					}),
 			}),
 		);
 
@@ -390,7 +390,7 @@ export const ensureSandboxRuntimeDependencies = (denoDir: string) =>
 					yield* fs.makeDirectory(`${temporaryDirectory}/${runtimeModuleDirectoryName}`);
 					yield* Effect.forEach(
 						entries,
-						({ entrypoint, name, runtimeFile, runtimeSource }) =>
+						({ name, entrypoint, runtimeFile, runtimeSource }) =>
 							buildRuntimeModule(
 								name,
 								entrypoint,

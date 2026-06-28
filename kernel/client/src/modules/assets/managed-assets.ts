@@ -35,7 +35,7 @@ export const mapManagedAssetResolutions = (
 	scope: ApiScope,
 	response: DownloadResolutionResponse,
 ): PluginManagedAssetResolution[] =>
-	response.map(({ asset, downloadUrl, expiresAt }) => ({
+	response.map(({ asset, expiresAt, downloadUrl }) => ({
 		asset,
 		expiresAt,
 		url: resolveApiUrl(scope.serverUrl, downloadUrl),
@@ -72,7 +72,7 @@ export const resolveManagedAssetOutcome = (
 	ManagedAssetsService.pipe(
 		Effect.flatMap((service) => service.read(scope, assets)),
 		Effect.match({
-			onSuccess: (resolutions) => ({ outcome: "success", resolutions }) as const,
+			onSuccess: (resolutions) => ({ resolutions, outcome: "success" }) as const,
 			onFailure: (error) =>
 				({ outcome: "failure", reason: classifyManagedAssetCause(error.cause) }) as const,
 		}),

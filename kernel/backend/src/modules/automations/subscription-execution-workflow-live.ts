@@ -197,7 +197,7 @@ export const runSubscriptionExecutionWorkflow = Effect.fn("SubscriptionExecution
 						logs: [],
 						value: null,
 						status: "completed" as const,
-						error: { phase: "execute" as const, message: error.message },
+						error: { message: error.message, phase: "execute" as const },
 					}),
 				),
 			);

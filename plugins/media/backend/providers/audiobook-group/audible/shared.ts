@@ -6,12 +6,12 @@ import { asRecord, stringValue } from "../../../lib/records";
 import { audibleFetchJson } from "../../../lib/vendors/audible";
 
 export const manifest = defineManifest({
-	kind: "provider",
 	name: "Audible",
-	slug: "audiobook-group.audible",
+	kind: "provider",
 	capabilities: ["httpCall"],
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
+	slug: "audiobook-group.audible",
 });
 
 const CATALOG_URL = "https://api.audible.com/1.0/catalog/products";
@@ -66,6 +66,12 @@ export const details = defineProvider({
 
 			return {
 				name: title,
+				properties: {
+					images: [],
+					description: null,
+					parts: sortedAsins.length,
+					sourceUrl: `https://www.audible.com/series/${input.externalId}/${title}`,
+				},
 				relatedEntityGroups: [
 					{
 						entities: relatedEntities,
@@ -74,12 +80,6 @@ export const details = defineProvider({
 						relationshipSchemaSlug: "audiobook-group-to-audiobook",
 					},
 				],
-				properties: {
-					images: [],
-					description: null,
-					parts: sortedAsins.length,
-					sourceUrl: `https://www.audible.com/series/${input.externalId}/${title}`,
-				},
 			};
 		}),
 });

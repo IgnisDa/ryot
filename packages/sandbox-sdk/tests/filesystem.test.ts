@@ -39,7 +39,7 @@ test("reads the artifact and writes a batch of named chunks through the runner b
 	const namedArtifact = await Effect.runPromise(readNamedArtifact("historyFilePath"));
 	const manifest = await Effect.runPromise(
 		writeScratchChunks([
-			{ name: "chunk-0.json", contents: "[0]" },
+			{ contents: "[0]", name: "chunk-0.json" },
 			{ name: "chunk-1.bin", contents: new Uint8Array([1]) },
 		]),
 	);

@@ -35,7 +35,7 @@ describe("saved views execution", () => {
 	it.live("counts rows from the persisted data source and its filter", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { pluginSlug, schemaId } = yield* createPluginEntitySchema(client, {
+			const { schemaId, pluginSlug } = yield* createPluginEntitySchema(client, {
 				schemaName: `Saved View Count ${crypto.randomUUID()}`,
 			});
 			const matchingNames = [
@@ -44,7 +44,7 @@ describe("saved views execution", () => {
 			];
 			yield* Effect.all(
 				[...matchingNames, `Saved View Count Other ${crypto.randomUUID()}`].map((name) =>
-					createEntityFixture(client, { entitySchemaSlug: schemaId, name }),
+					createEntityFixture(client, { name, entitySchemaSlug: schemaId }),
 				),
 			);
 

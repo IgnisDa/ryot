@@ -7,12 +7,12 @@ import type { RoleRelatedEntity } from "../../../lib/role-accumulator";
 import { getIdentifier, loadMetronJson, type MetronHost } from "../../../lib/vendors/metron";
 
 export const manifest = defineManifest({
-	kind: "provider",
 	name: "Metron",
+	kind: "provider",
 	slug: "comic-book.metron",
+	requiredSystemConfigKeys: [],
 	capabilities: ["httpCall", "getPluginConfig"],
 	requiredPluginConfigKeys: ["metronUsername", "metronPassword"],
-	requiredSystemConfigKeys: [],
 });
 
 type SuggestionEntity = { name: string; externalId: string; providerSlug: string };
@@ -215,8 +215,8 @@ export const details = defineProvider({
 					groupRelatedEntities.push({
 						externalId: seriesId,
 						providerSlug: "comic-book-group.metron",
-						name: stringValue(seriesRecord["name"]) ?? "Loading...",
 						relationshipProperties: { roles: ["Member"] },
+						name: stringValue(seriesRecord["name"]) ?? "Loading...",
 					});
 				}
 			}
@@ -224,6 +224,15 @@ export const details = defineProvider({
 			const suggestions = yield* collectSuggestions(host, input.externalId, payload["arcs"]);
 			return {
 				name: title,
+				properties: {
+					genres: [],
+					description: stringValue(payload["desc"]),
+					publishDate: parsePublishDate(payload["cover_date"]),
+					publishYear: parsePublishYear(payload["cover_date"]),
+					pages: pageCount === null ? null : Math.trunc(pageCount),
+					sourceUrl: `https://metron.cloud/issue/${input.externalId}`,
+					images: image ? [{ url: image, type: "remote" as const, purpose: "cover" as const }] : [],
+				},
 				relatedEntityGroups: [
 					{
 						entities: people,
@@ -233,8 +242,8 @@ export const details = defineProvider({
 					},
 					{
 						direction: "incoming" as const,
-						synchronization: "additive" as const,
 						entities: groupRelatedEntities,
+						synchronization: "additive" as const,
 						relationshipSchemaSlug: "comic-book-group-to-comic-book",
 					},
 					{
@@ -244,15 +253,6 @@ export const details = defineProvider({
 						relationshipSchemaSlug: "media-suggestion",
 					},
 				],
-				properties: {
-					genres: [],
-					description: stringValue(payload["desc"]),
-					pages: pageCount === null ? null : Math.trunc(pageCount),
-					publishDate: parsePublishDate(payload["cover_date"]),
-					publishYear: parsePublishYear(payload["cover_date"]),
-					sourceUrl: `https://metron.cloud/issue/${input.externalId}`,
-					images: image ? [{ type: "remote" as const, url: image, purpose: "cover" as const }] : [],
-				},
 			};
 		}),
 });

@@ -314,7 +314,7 @@ export class EntityInterestStore extends Context.Service<EntityInterestStore>()(
 					}
 					pending.push({ entityId, revision: pendingRevision });
 				}
-				return { status, revision, pending };
+				return { status, pending, revision };
 			};
 
 			const openSession = Effect.fn("EntityInterestStore.openSession")(function* (input: {

@@ -63,10 +63,10 @@ const resolve = (
 ) =>
 	resolveClientPageGraph({
 		plugins,
+		userId: UserId.make("user-1"),
 		definition: rendererDefinition,
 		publishedHash: "renderer-source",
 		rendererName: "Composed renderer",
-		userId: UserId.make("user-1"),
 		rendererId: ClientRendererId.make("renderer-1"),
 		rendererFiles: { "client/page.tsx": bytes(rendererSource) },
 		loadPluginFiles: (candidate) => Effect.succeed(pluginFiles[candidate.id] ?? null),
@@ -85,8 +85,8 @@ it.effect("resolves recursive explicit dependencies to exact installation revisi
 		},
 	});
 	const fixture = plugin({
-		slug: "fixture",
 		scope: "user",
+		slug: "fixture",
 		isDisabled: true,
 		client: {
 			apiVersion: 1,
@@ -107,12 +107,12 @@ it.effect("resolves recursive explicit dependencies to exact installation revisi
 			'import Card from "@ryot-app/plugins/media/card"; export default Card;',
 			[fixture, media],
 			{
+				[fixture.id]: { "client/badge.tsx": bytes("export default function Badge() {}") },
 				[media.id]: {
 					"client/card.tsx": bytes(
 						'import Badge from "@ryot-app/plugins/fixture/badge"; export default Badge;',
 					),
 				},
-				[fixture.id]: { "client/badge.tsx": bytes("export default function Badge() {}") },
 			},
 		);
 		expect(
@@ -206,7 +206,7 @@ it.effect("uses one compiler graph for every route in a plugin revision", () => 
 			apiVersion: 1,
 			homeView: null,
 			notFoundPage: "not-found",
-			routes: { "/details/$itemId": "details", "/": "home" },
+			routes: { "/": "home", "/details/$itemId": "details" },
 			exports: {
 				home: { ...definition(""), kind: "page", entry: "client/home.tsx" },
 				details: { ...definition(""), kind: "page", entry: "client/details.tsx" },
@@ -223,15 +223,15 @@ it.effect("uses one compiler graph for every route in a plugin revision", () => 
 		Effect.gen(function* () {
 			const resolved = yield* resolvePluginPageTarget({
 				plugins: [fixture],
-				target: { kind: "plugin-route", pluginId: fixture.id, path, search: "" },
 				findEntity: () => Effect.succeed(null),
+				target: { path, search: "", kind: "plugin-route", pluginId: fixture.id },
 			});
 			return yield* resolveClientPageGraph({
 				plugins: [fixture],
 				plugin: resolved.plugin,
 				application: "plugin-route",
-				exportName: resolved.exportName,
 				userId: UserId.make("user-1"),
+				exportName: resolved.exportName,
 				loadPluginFiles: () => Effect.succeed(files),
 			});
 		});
@@ -333,14 +333,14 @@ it.effect("rejects automatic registrations that do not name presentation exports
 it.effect("records a kernel renderer as a production-owned graph contributor", () =>
 	Effect.gen(function* () {
 		const graph = yield* resolveClientPageGraph({
-			kernel: true,
 			plugins: [],
+			kernel: true,
 			sourceHash: "kernel-source",
-			rendererName: "Entity browser",
 			userId: UserId.make("user-1"),
+			rendererName: "Entity browser",
+			loadPluginFiles: () => Effect.succeed(null),
 			definition: definition("", { automaticEntityPresentations: true }),
 			rendererFiles: { "client/page.tsx": bytes("export default function Page() {}") },
-			loadPluginFiles: () => Effect.succeed(null),
 		});
 		expect(graph.identity.contributors).toEqual([
 			{
@@ -354,7 +354,7 @@ it.effect("records a kernel renderer as a production-owned graph contributor", (
 			},
 		]);
 		expect(graph.contributors).toEqual([
-			{ kind: "kernel-renderer", name: "Entity browser", sourceHash: "kernel-source" },
+			{ name: "Entity browser", kind: "kernel-renderer", sourceHash: "kernel-source" },
 		]);
 	}),
 );

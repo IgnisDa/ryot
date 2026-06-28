@@ -12,7 +12,7 @@ export const markImportRunStarted = Effect.fn("imports.markImportRunStarted")(fu
 ) {
 	const startedAt = yield* DateTime.nowAsDate;
 	const imports = yield* ImportsService;
-	yield* imports.update({ runId, status: "running", startedAt });
+	yield* imports.update({ runId, startedAt, status: "running" });
 });
 
 export const failImportRun = Effect.fn("imports.failImportRun")(function* (
@@ -21,7 +21,7 @@ export const failImportRun = Effect.fn("imports.failImportRun")(function* (
 ) {
 	const finishedAt = yield* DateTime.nowAsDate;
 	const imports = yield* ImportsService;
-	yield* imports.update({ runId, failureReason, status: "failed", finishedAt });
+	yield* imports.update({ runId, finishedAt, failureReason, status: "failed" });
 });
 
 export const recordImportRunFailure = Effect.fn("imports.recordImportRunFailure")(function* (
