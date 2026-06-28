@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -35,20 +35,36 @@ Deterministic Identity sections.
 
 ## Acceptance criteria
 
-- [ ] Emitting a signal enqueues dispatch after commit and starts one durable execution per
+- [x] Emitting a signal enqueues dispatch after commit and starts one durable execution per
       matching active rule; sibling failures are isolated
-- [ ] The run row transitions queued → running → succeeded/failed/skipped with queued, started,
+- [x] The run row transitions queued → running → succeeded/failed/skipped with queued, started,
       and finished timestamps recorded
-- [ ] Principal resolution follows the PRD: rule owner for user rules, row owner for built-in
+- [x] Principal resolution follows the PRD: rule owner for user rules, row owner for built-in
       rules on user rows, system for built-in rules on global rows (requiring built-in rule and
       script)
-- [ ] Disabled execution users produce a skipped run with a structured user-disabled reason and
+- [x] Disabled execution users produce a skipped run with a structured user-disabled reason and
       no automatic replay on re-enablement
-- [ ] Logs, error, and returned value are truncated at the single cap with explicit markers;
+- [x] Logs, error, and returned value are truncated at the single cap with explicit markers;
       truncation never changes run status; the sandbox receives the complete context
-- [ ] Workflow replay does not duplicate runs
-- [ ] The SDK automation entry point type-checks the seeded script, and the end-to-end
+- [x] Workflow replay does not duplicate runs
+- [x] The SDK automation entry point type-checks the seeded script, and the end-to-end
       signal-to-succeeded-run tracer passes
+
+## Implementation notes
+
+- Signal emission dispatches only after its signal and recipient transaction commits. Matching
+  rules each receive an independent deterministic `SubscriptionExecutionWorkflow` execution.
+- The workflow records the script update timestamp and rechecks disabled users before first start,
+  resumes already-running replays, awaits `RunSandboxWorkflow`, and persists status, timing, logs,
+  errors, and returned values.
+- Stored artifacts share the sandbox log total-byte cap and use an explicit truncation envelope.
+- The SDK and compiler now support `@ryot/sandbox-sdk/automation` and its complete typed context.
+- A hidden `automation.test-tracer` signal schema, compiled built-in script, and global built-in
+  rule are seeded idempotently for the tracer path.
+- Migration `0005_broken_midnight.sql` adds the run timing artifact omitted by the prior
+  persistence slice.
+- Migration `0006_smooth_ronan.sql` snapshots the sandbox script ID and rule metadata on each run
+  so a queued run remains executable after its rule is deactivated or deleted.
 
 ## User stories addressed
 
