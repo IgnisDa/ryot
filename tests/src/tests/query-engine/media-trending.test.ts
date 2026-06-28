@@ -1,4 +1,4 @@
-import { buildTrendingMediaQueryDocument } from "@ryot/query-engine";
+import { buildTrendingMediaQueryDocument } from "@ryot/query-engine/recipes/media";
 import { DateTime, Effect } from "effect";
 
 import {
