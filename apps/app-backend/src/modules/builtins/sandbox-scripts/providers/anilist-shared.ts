@@ -1,5 +1,4 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk";
-import { load } from "@ryot/sandbox-sdk/cheerio";
 import type {
 	ProviderDetailsRelatedEntity,
 	ProviderSearchInput,
@@ -8,37 +7,24 @@ import type {
 	ProviderTranslateResult,
 } from "@ryot/sandbox-sdk/provider";
 
+import { getUserIsNsfw } from "../script-helpers/host";
+import {
+	asRecord,
+	numberValue,
+	parseJsonResponse,
+	stringValue,
+	type UnknownRecord,
+} from "../script-helpers/records";
+
 export type AnilistHost = SandboxHost<readonly ["httpCall"]>;
 
 export type AnilistUserHost = SandboxHost<readonly ["httpCall", "getUserPreferences"]>;
-
-export type UnknownRecord = Record<string, unknown>;
 
 export type AnilistMediaType = "ANIME" | "MANGA";
 
 export type AnilistTitleLanguage = "english" | "native" | "romaji";
 
 const ANILIST_GRAPHQL_URL = "https://graphql.anilist.co";
-
-const isRecord = (value: unknown): value is UnknownRecord =>
-	value !== null && typeof value === "object" && !Array.isArray(value);
-
-export const asRecord = (value: unknown): UnknownRecord | null => (isRecord(value) ? value : null);
-
-export const stringValue = (value: unknown) =>
-	typeof value === "string" && value.trim() ? value.trim() : null;
-
-export const numberValue = (value: unknown) =>
-	typeof value === "number" && Number.isFinite(value) ? value : null;
-
-const parseJsonResponse = (responseBody: string) => {
-	try {
-		const value: unknown = JSON.parse(responseBody);
-		return value;
-	} catch {
-		throw new Error("Anilist returned invalid JSON");
-	}
-};
 
 const extractGraphQlErrorMessage = (payload: UnknownRecord | null) => {
 	const errors = payload?.["errors"];
@@ -64,7 +50,7 @@ export const anilistGraphql = (
 			if (!response.success) {
 				throw new Error(response.error || `Anilist ${label} request failed`);
 			}
-			const payload = asRecord(parseJsonResponse(response.data.body));
+			const payload = asRecord(parseJsonResponse(response.data.body, "Anilist"));
 			const graphQlErrorMessage = extractGraphQlErrorMessage(payload);
 			if (graphQlErrorMessage) {
 				throw new Error(`Anilist ${label} GraphQL error: ${graphQlErrorMessage}`);
@@ -207,18 +193,6 @@ export const collectGenres = (genres: unknown, tags: unknown) => {
 	}
 	return [...genreSet];
 };
-
-export const cleanHtmlDescription = (html: unknown) => {
-	if (typeof html !== "string" || !html.trim()) {
-		return null;
-	}
-	const $ = load(html);
-	$("br").replaceWith("\n");
-	return $.root().text().trim();
-};
-
-export const getUserIsNsfw = (host: AnilistUserHost) =>
-	host.getUserPreferences().then((preferences) => preferences.success && preferences.data.isNsfw);
 
 export const requireAnilistMedia = (data: UnknownRecord | null, type: AnilistMediaType) => {
 	const media = asRecord(data?.["Media"]);

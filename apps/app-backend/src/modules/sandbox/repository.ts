@@ -114,25 +114,9 @@ export class SandboxRepository extends Effect.Service<SandboxRepository>()("Sand
 			return row ? { ...row, id: SandboxScriptId.make(row.id) } : null;
 		});
 
-		const findProviderInformation = Effect.fn("SandboxRepository.findProviderInformation")(
-			function* (scriptId: SandboxScriptId) {
-				const db = yield* CurrentDb;
-				const [row] = yield* dbEffect(() =>
-					db
-						.select({ metadata: schema.sandboxScript.metadata })
-						.from(schema.sandboxScript)
-						.where(eq(schema.sandboxScript.id, scriptId))
-						.limit(1),
-				);
-
-				return row?.metadata.providerInformation ?? null;
-			},
-		);
-
 		return {
 			createScript,
 			getScriptForUser,
-			findProviderInformation,
 			findScriptBySlugForUser,
 		};
 	},

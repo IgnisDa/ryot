@@ -1,35 +1,13 @@
 import type { SandboxHost } from "@ryot/sandbox-sdk";
 import dayjs from "@ryot/sandbox-sdk/dayjs";
 
+import { asRecord, parseJsonResponse, stringValue } from "../script-helpers/records";
+
 export type MusicBrainzHost = SandboxHost<readonly ["httpCall"]>;
-
-export type UnknownRecord = Record<string, unknown>;
-
-const isRecord = (value: unknown): value is UnknownRecord =>
-	value !== null && typeof value === "object" && !Array.isArray(value);
-
-export const asRecord = (value: unknown): UnknownRecord | null => (isRecord(value) ? value : null);
-
-export const stringValue = (value: unknown) =>
-	typeof value === "string" && value.trim() ? value.trim() : null;
-
-export const numberValue = (value: unknown) =>
-	typeof value === "number" && Number.isFinite(value) ? value : null;
-
-export const trimmedString = (value: unknown) => (typeof value === "string" ? value.trim() : "");
 
 const MB_BASE = "https://musicbrainz.org/ws/2";
 const CAA_BASE = "https://coverartarchive.org";
 const MB_HEADERS = { Accept: "application/json" };
-
-const parseJsonResponse = (responseBody: string) => {
-	try {
-		const value: unknown = JSON.parse(responseBody);
-		return value;
-	} catch {
-		throw new Error("MusicBrainz returned invalid JSON");
-	}
-};
 
 export const mbGet = (
 	host: MusicBrainzHost,
@@ -45,7 +23,7 @@ export const mbGet = (
 			}
 			throw new Error(response.error || `MusicBrainz request failed: ${path}`);
 		}
-		return parseJsonResponse(response.data.body);
+		return parseJsonResponse(response.data.body, "MusicBrainz");
 	});
 };
 
@@ -61,7 +39,7 @@ export const fetchCoverArtUrl = (
 		}
 		let payload: unknown;
 		try {
-			payload = parseJsonResponse(response.data.body);
+			payload = parseJsonResponse(response.data.body, "MusicBrainz");
 		} catch {
 			return null;
 		}
@@ -133,35 +111,4 @@ export const getPublishYear = (dateValue: unknown) => {
 export const buildLuceneQuery = (query: string, fields: readonly string[]) => {
 	const escaped = query.replace(/([+\-!(){}[\]^"~*?:\\/])/g, "\\$1");
 	return fields.map((field) => `${field}:(${escaped})`).join(" OR ");
-};
-
-export type RoleRelatedEntity = {
-	name: string;
-	externalId: string;
-	scriptSlug: string;
-	relationshipProperties: { roles: string[] };
-};
-
-export const createRoleAccumulator = () => {
-	const entities: RoleRelatedEntity[] = [];
-	const byKey = new Map<string, RoleRelatedEntity>();
-	const add = (entity: RoleRelatedEntity) => {
-		const key = `${entity.scriptSlug}:${entity.externalId}`;
-		const existing = byKey.get(key);
-		if (!existing) {
-			byKey.set(key, entity);
-			entities.push(entity);
-			return;
-		}
-		existing.relationshipProperties.roles = [
-			...new Set([
-				...existing.relationshipProperties.roles,
-				...entity.relationshipProperties.roles,
-			]),
-		];
-		if (existing.name === "Loading..." && entity.name !== "Loading...") {
-			existing.name = entity.name;
-		}
-	};
-	return { entities, add };
 };

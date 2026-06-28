@@ -2,15 +2,17 @@ import { defineManifest } from "@ryot/sandbox-sdk";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 
 import {
-	anilistGraphql,
+	type UnknownRecord,
 	asRecord,
-	mediaScriptSlug,
 	numberValue,
+	stringValue,
+} from "../../script-helpers/records";
+import {
+	anilistGraphql,
+	mediaScriptSlug,
 	parseAnilistId,
 	pickPreferredMediaName,
-	stringValue,
 	type AnilistHost,
-	type UnknownRecord,
 } from "../anilist-shared";
 
 export const manifest = defineManifest({
