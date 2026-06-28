@@ -21,6 +21,7 @@ it("declares the complete fitness-owned source", () => {
 		fitnessPlugin.entitySchemas.slice(1).every((schema) => !("mergeIdentityProperties" in schema)),
 	).toBe(true);
 	expect(fitnessPlugin.crons).toEqual([]);
+	expect(fitnessPlugin.userBootstrap).toEqual([]);
 	expect(fitnessPlugin.boot).toEqual([
 		{
 			slug: "preload-exercises",

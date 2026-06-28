@@ -1,31 +1,16 @@
 import { expect, it } from "@effect/vitest";
-import { EntityId, EntitySchemaSlug, UserId } from "@ryot/contract/schema/brands";
-import mediaPlugin from "@ryot/plugin-media";
+import { SandboxRunError } from "@ryot/contract/errors";
+import { UserId } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { CurrentDb } from "#lib/infrastructure/db/service";
+import { CurrentDb, TransactionRunner } from "#lib/infrastructure/db/service";
 import { NotificationSubscriptionsService } from "#modules/automations/notification-subscriptions-service";
-import { DefinitionRegistry, makeDefinitionRegistry } from "#modules/definition-registry/service";
-import { EntitiesService } from "#modules/entities/service";
-import { makePluginLoader } from "#modules/plugins/loader";
 
 import { performBootstrap } from "./bootstrap";
+import { PluginUserBootstrapDispatcher } from "./plugin-dispatch";
 
 const userId = UserId.make("user-id");
-const librarySchemaId = EntitySchemaSlug.make("library-schema-id");
-
-const makeEntity = () => ({
-	properties: {},
-	name: "Library",
-	externalId: null,
-	populatedAt: null,
-	providerId: null,
-	entitySchemaSlug: librarySchemaId,
-	updatedAt: "2026-07-16T00:00:00.000Z",
-	createdAt: "2026-07-16T00:00:00.000Z",
-	id: EntityId.make("library-entity-id"),
-});
 
 const makeBootstrapDb = (options?: {
 	bootstrapCompletedAt?: Date | null;
@@ -37,25 +22,15 @@ const makeBootstrapDb = (options?: {
 	return Object.assign(Object.create(null), {
 		select: () => ({
 			from: (table: unknown) => {
-				if (table === schema.user) {
-					return {
-						where: () =>
-							Object.assign(Promise.resolve(userRows), {
-								for: () => Promise.resolve(userRows),
-							}),
-					};
+				if (table !== schema.user) {
+					return { where: () => Promise.resolve([]) };
 				}
-
-				if (table === schema.entity) {
-					return {
-						where: () =>
-							Object.assign(Promise.resolve([]), {
-								limit: () => Promise.resolve([]),
-							}),
-					};
-				}
-
-				return { where: () => Promise.resolve([]) };
+				return {
+					where: () =>
+						Object.assign(Promise.resolve(userRows), {
+							for: () => Promise.resolve(userRows),
+						}),
+				};
 			},
 		}),
 		update: () => ({
@@ -70,84 +45,103 @@ const makeBootstrapDb = (options?: {
 	});
 };
 
-const makeServiceLayers = (createdEntities: unknown[], defaultRuleUserIds: UserId[]) => {
-	const entitiesLayer = Layer.mock(EntitiesService)({
-		_tag: "EntitiesService",
-		create: (input) =>
-			Effect.sync(() => {
-				createdEntities.push(input);
-				return makeEntity();
-			}),
-	});
-	const notificationSubscriptionsLayer = Layer.mock(NotificationSubscriptionsService)({
-		_tag: "NotificationSubscriptionsService",
-		ensureDefaultRules: (inputUserId) =>
-			Effect.sync(() => {
-				defaultRuleUserIds.push(inputUserId);
-			}),
-	});
-
-	return Layer.mergeAll(entitiesLayer, notificationSubscriptionsLayer);
-};
-
-const pluginDefinitionsLayer = () => {
-	const registry = makeDefinitionRegistry();
-	makePluginLoader(registry).load({ manifest: mediaPlugin, sourceHash: "test", scripts: [] });
-	return Layer.succeed(DefinitionRegistry, { _tag: "DefinitionRegistry", ...registry });
+const makeLayer = (options: {
+	db?: object;
+	onDefaultRules?: (userId: UserId) => void;
+	dispatch: (userId: UserId) => Effect.Effect<undefined, SandboxRunError>;
+}) => {
+	const db = options.db ?? makeBootstrapDb();
+	return Layer.mergeAll(
+		Layer.succeed(TransactionRunner, <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+			Effect.provideService(effect, CurrentDb, db),
+		),
+		Layer.mock(PluginUserBootstrapDispatcher)({
+			_tag: "PluginUserBootstrapDispatcher",
+			dispatchAll: options.dispatch,
+		}),
+		Layer.mock(NotificationSubscriptionsService)({
+			_tag: "NotificationSubscriptionsService",
+			ensureDefaultRules: (inputUserId) => Effect.sync(() => options.onDefaultRules?.(inputUserId)),
+		}),
+	);
 };
 
 it.effect(
-	"creates the library entity, ensures default rules, and sets the completion marker",
+	"dispatches plugin bootstrap, ensures default rules, and sets the completion marker",
 	() => {
 		let markerUpdated = false;
-		const createdEntities: unknown[] = [];
+		const dispatchedUserIds: UserId[] = [];
 		const defaultRuleUserIds: UserId[] = [];
 
 		return Effect.gen(function* () {
 			yield* performBootstrap(userId);
 
-			expect(createdEntities).toHaveLength(1);
+			expect(dispatchedUserIds).toEqual([userId]);
 			expect(defaultRuleUserIds).toEqual([userId]);
 			expect(markerUpdated).toBe(true);
 		}).pipe(
 			Effect.provide(
-				Layer.mergeAll(
-					pluginDefinitionsLayer(),
-					Layer.succeed(
-						CurrentDb,
-						makeBootstrapDb({ onMarkComplete: () => (markerUpdated = true) }),
-					),
-					makeServiceLayers(createdEntities, defaultRuleUserIds),
-				),
+				makeLayer({
+					dispatch: (inputUserId) =>
+						Effect.sync(() => {
+							dispatchedUserIds.push(inputUserId);
+						}).pipe(Effect.as(undefined)),
+					db: makeBootstrapDb({ onMarkComplete: () => (markerUpdated = true) }),
+					onDefaultRules: (inputUserId) => defaultRuleUserIds.push(inputUserId),
+				}),
 			),
 		);
 	},
 );
 
 it.effect("short-circuits when the completion marker is already set", () => {
-	let markerUpdated = false;
-	const createdEntities: unknown[] = [];
-	const defaultRuleUserIds: UserId[] = [];
+	let dispatched = false;
+	let defaultRulesEnsured = false;
 
 	return Effect.gen(function* () {
 		yield* performBootstrap(userId);
 
-		expect(createdEntities).toEqual([]);
-		expect(defaultRuleUserIds).toEqual([]);
-		expect(markerUpdated).toBe(false);
+		expect(dispatched).toBe(false);
+		expect(defaultRulesEnsured).toBe(false);
 	}).pipe(
 		Effect.provide(
-			Layer.mergeAll(
-				pluginDefinitionsLayer(),
-				Layer.succeed(
-					CurrentDb,
-					makeBootstrapDb({
-						bootstrapCompletedAt: new Date("2026-01-01T00:00:00Z"),
-						onMarkComplete: () => (markerUpdated = true),
-					}),
-				),
-				makeServiceLayers(createdEntities, defaultRuleUserIds),
-			),
+			makeLayer({
+				db: makeBootstrapDb({ bootstrapCompletedAt: new Date("2026-01-01T00:00:00Z") }),
+				dispatch: () =>
+					Effect.sync(() => {
+						dispatched = true;
+					}).pipe(Effect.as(undefined)),
+				onDefaultRules: () => {
+					defaultRulesEnsured = true;
+				},
+			}),
+		),
+	);
+});
+
+it.effect("does not complete after plugin failure and reruns the plugin safely on retry", () => {
+	let attempts = 0;
+	let markerUpdated = false;
+
+	return Effect.gen(function* () {
+		const first = yield* Effect.exit(performBootstrap(userId));
+		expect(first._tag).toBe("Failure");
+		expect(markerUpdated).toBe(false);
+
+		yield* performBootstrap(userId);
+		expect(attempts).toBe(2);
+		expect(markerUpdated).toBe(true);
+	}).pipe(
+		Effect.provide(
+			makeLayer({
+				dispatch: () => {
+					attempts += 1;
+					return attempts === 1
+						? Effect.fail(new SandboxRunError({ message: "bootstrap failed" }))
+						: Effect.sync((): undefined => undefined);
+				},
+				db: makeBootstrapDb({ onMarkComplete: () => (markerUpdated = true) }),
+			}),
 		),
 	);
 });

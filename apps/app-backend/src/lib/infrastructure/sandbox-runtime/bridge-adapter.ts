@@ -174,6 +174,14 @@ export const bindSandboxHostFunctions = (
 			"changeUserRelationships expects an array of valid change batches",
 		),
 	),
+	ensureUserEntities: bindHostFunction(
+		domainSandboxHostContracts.ensureUserEntities,
+		(...args) => implementations.ensureUserEntities(input, ...args),
+		defaultFailure(
+			"ensureUserEntities",
+			"ensureUserEntities expects an array of valid entity items",
+		),
+	),
 	upsertGlobalEntities: bindHostFunction(
 		domainSandboxHostContracts.upsertGlobalEntities,
 		(...args) => implementations.upsertGlobalEntities(input, ...args),

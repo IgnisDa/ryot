@@ -152,8 +152,18 @@ export class PluginIngestionService extends Effect.Service<PluginIngestionServic
 			);
 
 			const ingestPluginUnlocked = Effect.fn("PluginIngestionService.ingestPluginUnlocked")(
-				function* (source: PluginSource) {
+				function* (source: PluginSource, trusted: boolean) {
 					const manifest = yield* decodePluginManifest(source.manifest);
+					if (
+						manifest.userBootstrap.length > 0 &&
+						(!trusted || !bootConfiguredPluginSlugs.has(manifest.metadata.slug))
+					) {
+						return yield* new PluginValidationError({
+							issues: [
+								"User bootstrap declarations are allowed only for boot-configured trusted plugins",
+							],
+						});
+					}
 					const files = source.files;
 					yield* validatePluginSourcePaths(files, manifest.scripts);
 					const sourceHash = digest(stableStringify({ files, manifest }));
@@ -255,7 +265,19 @@ export class PluginIngestionService extends Effect.Service<PluginIngestionServic
 			const ingestPlugin = Effect.fn("PluginIngestionService.ingestPlugin")(
 				(source: PluginSource) =>
 					mutationLock.withPermits(1)(
-						ingestPluginUnlocked(source).pipe(
+						ingestPluginUnlocked(source, false).pipe(
+							Effect.catchTags({
+								SchemaEvolutionError: (error) => Effect.fail(badRequest(validationMessage(error))),
+								PluginValidationError: (error) => Effect.fail(badRequest(validationMessage(error))),
+								SandboxCompilerFailure: (error) => Effect.fail(badRequest(error.message)),
+							}),
+						),
+					),
+			);
+			const ingestTrustedPlugin = Effect.fn("PluginIngestionService.ingestTrustedPlugin")(
+				(source: PluginSource) =>
+					mutationLock.withPermits(1)(
+						ingestPluginUnlocked(source, true).pipe(
 							Effect.catchTags({
 								SchemaEvolutionError: (error) => Effect.fail(badRequest(validationMessage(error))),
 								PluginValidationError: (error) => Effect.fail(badRequest(validationMessage(error))),
@@ -340,7 +362,14 @@ export class PluginIngestionService extends Effect.Service<PluginIngestionServic
 				mutationLock.withPermits(1)(Effect.uninterruptible(uninstallPluginUnlocked(slug))),
 			);
 
-			return { rebuild, listPlugins, ingestPlugin, installPlugin, uninstallPlugin };
+			return {
+				rebuild,
+				listPlugins,
+				ingestPlugin,
+				installPlugin,
+				uninstallPlugin,
+				ingestTrustedPlugin,
+			};
 		}),
 	},
 ) {}

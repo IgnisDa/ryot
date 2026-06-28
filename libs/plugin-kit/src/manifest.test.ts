@@ -20,6 +20,13 @@ const manifest = definePlugin({
 		},
 	},
 	boot: [{ slug: "boot.test", scriptSlug: "automation.test", description: "Boot test data" }],
+	userBootstrap: [
+		{
+			slug: "bootstrap.test",
+			description: "Bootstrap user data",
+			scriptSlug: "provider.test.preload",
+		},
+	],
 	crons: [
 		{
 			lot: "script",
@@ -200,6 +207,7 @@ describe("definePlugin", () => {
 		type HasWorkflows = "workflows" extends keyof PluginManifest ? true : false;
 		type HasOperations = "operations" extends keyof PluginManifest ? true : false;
 		type HasCapabilities = "capabilities" extends keyof PluginManifest ? true : false;
+		type HasUserBootstrap = "userBootstrap" extends keyof PluginManifest ? true : false;
 		type HasImportSources = "importSources" extends keyof PluginManifest ? true : false;
 		type HasIntegrationProviders = "integrationProviders" extends keyof PluginManifest
 			? true
@@ -212,10 +220,11 @@ describe("definePlugin", () => {
 			HasOperations,
 			HasWorkflows,
 			HasImportSources,
+			HasUserBootstrap,
 			HasIntegrationProviders,
-		] = [false, true, true, true, true, true, true];
+		] = [false, true, true, true, true, true, true, true];
 
-		expect(optionalSections).toEqual([false, true, true, true, true, true, true]);
+		expect(optionalSections).toEqual([false, true, true, true, true, true, true, true]);
 	});
 
 	it("decodes the manifest with the canonical Effect schema", () => {
@@ -281,6 +290,21 @@ describe("definePlugin", () => {
 				scripts: [{ ...manifest.scripts[0], kind: "legacy" }],
 			}),
 		).toThrow();
+	});
+
+	it("requires unique user bootstrap entries targeting direct scripts in the same package", () => {
+		const entry = manifest.userBootstrap[0];
+		assert(entry);
+		expect(Schema.decodeUnknownSync(PluginManifest)(manifest).userBootstrap).toEqual([entry]);
+		for (const userBootstrap of [
+			[{ ...entry }, { ...entry }],
+			[{ ...entry, scriptSlug: "missing.script" }],
+			[{ ...entry, scriptSlug: "automation.test" }],
+		]) {
+			expect(() =>
+				Schema.decodeUnknownSync(PluginManifest)({ ...manifest, userBootstrap }),
+			).toThrow();
+		}
 	});
 
 	it("accepts operation scripts and validates operation declarations", () => {

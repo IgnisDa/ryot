@@ -80,6 +80,12 @@ export type UpsertGlobalEntityItem = {
 
 export type UpsertGlobalEntitiesOptions = { maximumTotal?: number };
 
+export type EnsureUserEntityItem = {
+	name: string;
+	properties: unknown;
+	entitySchemaSlug: EntitySchemaSlug;
+};
+
 type ValidatedGlobalEntityItem = Omit<UpsertGlobalEntityItem, "properties"> & {
 	properties: Record<string, unknown>;
 };
@@ -199,6 +205,43 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 
 		const create = Effect.fn("EntitiesService.create")(function* (input: CreateEntityInput) {
 			return yield* createEntity(input, input.origin);
+		});
+
+		const ensureUserEntities = Effect.fn("EntitiesService.ensureUserEntities")(function* (
+			userId: UserId,
+			items: ReadonlyArray<EnsureUserEntityItem>,
+		) {
+			yield* runWithDb(
+				repository.lockUserEntityEnsureScopes({
+					userId,
+					entitySchemaSlugs: items.map(({ entitySchemaSlug }) => entitySchemaSlug),
+				}),
+			);
+			return yield* Effect.forEach(items, (item) =>
+				runWithDb(
+					repository
+						.findUserEntityWithoutProvenance({
+							userId,
+							entitySchemaSlug: item.entitySchemaSlug,
+						})
+						.pipe(
+							Effect.flatMap((existing) =>
+								existing
+									? Effect.succeed({ entityId: existing.id, wasInserted: false })
+									: createEntity(
+											{
+												userId,
+												scope: "user",
+												name: item.name,
+												properties: item.properties,
+												entitySchemaSlug: item.entitySchemaSlug,
+											},
+											{ kind: "bootstrap" },
+										).pipe(Effect.map((entity) => ({ entityId: entity.id, wasInserted: true }))),
+							),
+						),
+				),
+			);
 		});
 
 		const createGlobal = Effect.fn("EntitiesService.createGlobal")(function* (
@@ -427,6 +470,7 @@ export class EntitiesService extends Effect.Service<EntitiesService>()("Entities
 			deleteByIds,
 			createGlobal,
 			getByIdAnyScope,
+			ensureUserEntities,
 			upsertGlobalEntities,
 		};
 	}),

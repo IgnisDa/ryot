@@ -2,7 +2,7 @@
 
 **Parent Plan:** [Plugin System - Phase 4](./README.md)
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -20,16 +20,16 @@ those belong to Phase 5.
 
 ## Acceptance criteria
 
-- [ ] `userBootstrap` is a distinct manifest section with stable entry slug, description, and direct compatible script target
-- [ ] Ingestion rejects missing, foreign, duplicate, or incompatible bootstrap script references
-- [ ] Only trusted boot-configured packages may declare or dispatch the section in Phase 4
-- [ ] Bootstrap scripts execute with kernel-bound user authority and deterministic idempotent execution identity
-- [ ] The new batch host capability can ensure user entities only for schemas owned by the executing package
-- [ ] Host input and output use Effect Schema and the public SDK/bridge/backend path is Effect-only
-- [ ] The media package declares a bootstrap script that ensures exactly one library with existing name and initial properties
-- [ ] A failed plugin bootstrap prevents overall user bootstrap completion and retries safely
-- [ ] Backend, SDK, plugin, and e2e tests cover validation, authority, foreign-schema rejection, first creation, and idempotent retry
-- [ ] Kernel user bootstrap no longer contains the `library` schema slug or media naming
+- [x] `userBootstrap` is a distinct manifest section with stable entry slug, description, and direct compatible script target
+- [x] Ingestion rejects missing, foreign, duplicate, or incompatible bootstrap script references
+- [x] Only trusted boot-configured packages may declare or dispatch the section in Phase 4
+- [x] Bootstrap scripts execute with kernel-bound user authority and deterministic idempotent execution identity
+- [x] The new batch host capability can ensure user entities only for schemas owned by the executing package
+- [x] Host input and output use Effect Schema and the public SDK/bridge/backend path is Effect-only
+- [x] The media package declares a bootstrap script that ensures exactly one library with existing name and initial properties
+- [x] A failed plugin bootstrap prevents overall user bootstrap completion and retries safely
+- [x] Backend, SDK, plugin, and e2e tests cover validation, authority, foreign-schema rejection, first creation, and idempotent retry
+- [x] Kernel user bootstrap no longer contains the `library` schema slug or media naming
 
 ## User stories addressed
 
