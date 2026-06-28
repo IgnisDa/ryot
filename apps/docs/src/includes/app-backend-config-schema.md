@@ -24,7 +24,7 @@
 | App Config Key | Variable | Description | Required | Sensitive | Default |
 |---|---|---|---|---|---|
 | `server.corsOrigins` | `SERVER_CORS_ORIGINS` | Comma-separated list of allowed CORS origins | No | No | — |
-| `server.adminAccessToken` | `SERVER_ADMIN_ACCESS_TOKEN` | Bearer token required for god-mode admin endpoints | No | Yes | `changeme` |
+| `server.adminAccessToken` | `SERVER_ADMIN_ACCESS_TOKEN` | Bearer token required for god-mode admin endpoints | Yes | Yes | — |
 | `server.disableNotifications` | `SERVER_DISABLE_NOTIFICATIONS` | Disable delivery of all notifications | No | No | `false` |
 | `server.disableBackgroundJobs` | `SERVER_DISABLE_BACKGROUND_JOBS` | Disable all scheduled background jobs (both the frequent and infrequent cron tiers) | No | No | `false` |
 
