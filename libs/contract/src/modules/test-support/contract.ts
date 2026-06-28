@@ -6,7 +6,6 @@ import { Conflict, InternalError, NotFound, Unauthorized } from "../../errors";
 import {
 	EntityId,
 	EntitySchemaId,
-	EventSchemaId,
 	RelationshipSchemaId,
 	SandboxScriptId,
 	UserId,
@@ -172,18 +171,4 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 			)
 			.addSuccess(Schema.Struct({ id: Schema.String }), { status: 201 })
 			.addError(InternalError, { status: 500 }),
-	)
-	.add(
-		HttpApiEndpoint.post("createEventSchemaTrigger", "/test-support/event-schema-triggers")
-			.setPayload(
-				Schema.Struct({
-					name: Schema.String,
-					position: Schema.Number,
-					eventSchemaId: EventSchemaId,
-					sandboxScriptId: SandboxScriptId,
-					userId: Schema.optional(UserId),
-					phase: Schema.Literal("before_create", "after_create"),
-				}),
-			)
-			.addSuccess(Schema.Struct({ id: Schema.String }), { status: 201 }),
 	);

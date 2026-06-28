@@ -3,11 +3,11 @@ export const importRunStatuses = ["pending", "running", "completed", "failed"] a
 export type ImportRunStatus = (typeof importRunStatuses)[number];
 
 export const importRunFailureStages = [
+	"event_policy",
 	"source_fetch",
 	"database_commit",
 	"provider_details",
 	"provider_resolution",
-	"event_before_trigger",
 	"input_transformation",
 ] as const;
 

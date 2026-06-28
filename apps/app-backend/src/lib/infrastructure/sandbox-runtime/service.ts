@@ -124,7 +124,7 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 		const httpClient = yield* HttpClient.HttpClient;
 
 		// `runSandbox` reads `apiFunctions`, and some host functions are built from `runSandbox`
-		// (a trigger script can itself create events, which runs further before-create triggers).
+		// (an automation can create events, which evaluates further policies and subscriptions).
 		// The late `let` binding ties this mutual reference; `runSandbox` is only ever invoked after
 		// `apiFunctions` is assigned below.
 		let apiFunctions: SandboxHostImplementationMap;

@@ -3,7 +3,6 @@
 import { SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 
 import {
-	afterCreateTriggerSource,
 	appConfigSandboxSource,
 	adminHeaders,
 	createAuthenticatedClient,
@@ -96,28 +95,6 @@ describe("sandbox async flow", () => {
 
 		expect(result.value).toBe(42);
 		expect(result.error).toBeNull();
-	});
-
-	it("compiles an after-create trigger module through script creation", async () => {
-		const { client } = await createAuthenticatedClient();
-		const slug = `after-create-trigger-${crypto.randomUUID()}`;
-		const source = afterCreateTriggerSource({ name: "After-create trigger", slug });
-
-		const script = await createSandboxScript(client, { source });
-
-		expect(script).toMatchObject({
-			slug,
-			source,
-			name: "After-create trigger",
-			manifest: {
-				slug,
-				kind: "trigger",
-				mode: "after_create",
-				capabilities: [],
-				name: "After-create trigger",
-				requiredAppConfigKeys: [],
-			},
-		});
 	});
 
 	it("returns not found when another user polls the job", async () => {

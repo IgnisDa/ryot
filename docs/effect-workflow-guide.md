@@ -501,10 +501,10 @@ describe either as a "confirmed bug" the way #6294 is. `apps/app-backend` curren
 instances of either pattern**. Every child-workflow dispatch that used to run transitively from
 inside an `Activity.make` body has been refactored so the dispatch now happens from a workflow body:
 
-- The `EventCreateWorkflow` body dispatches before-create trigger sandboxes through
-  `DurableQueue.process(SandboxExecutionQueue)` and after-create triggers as discarded
-  `RunSandboxWorkflow` children — both from the body, no longer from a single `createEventsForUser`
-  activity that ran them transitively (`events/event-create-workflow-live.ts`).
+- The `EventCreateWorkflow` body evaluates event-create policies through
+  `DurableQueue.process(SandboxExecutionQueue)` and dispatches committed lifecycle occurrences to
+  automation subscriptions, all outside its write activities
+  (`events/event-create-workflow-live.ts`).
 - The collection-added event is dispatched from `AddEntityToCollectionWorkflow`'s body, not from an
   `Activity.make` wrapper around `addToCollection` (`collections/add-entity-to-collection-workflow-live.ts:44`).
 - Integration reconciliation runs dispatch `ProcessIntegrationRunWorkflow` from
@@ -628,11 +628,11 @@ The workflows and durable queues that each single-own a business operation, all 
 above:
 
 - **`EventCreateWorkflow`** (`events/event-create-workflow-live.ts`) — orchestrates event creation
-  from its body: a `prepare-item` activity resolves scopes/triggers, before-create triggers run via
-  `DurableQueue.process(SandboxExecutionQueue)`, a `write-event` activity persists the row,
-  after-create triggers are resolved in an activity and dispatched as discarded `RunSandboxWorkflow`
-  children from the body, and library membership for referenced global entities is dispatched
-  through `EnsureLibraryMembershipQueue`.
+  from its body: a `prepare-item` activity resolves scopes and ordered policies, policies run via
+  `DurableQueue.process(SandboxExecutionQueue)`, a `write-event` activity persists the row, the
+  committed lifecycle occurrence dispatches matching `SubscriptionExecutionWorkflow` children,
+  and library membership for referenced global entities is dispatched through
+  `EnsureLibraryMembershipQueue`.
 - **`EnsureLibraryMembershipQueue`** — the canonical durable owner of the library-membership write.
   Following the module dependency-inversion rule, the queue *definition* lives in the generic events
   module (`events/durable-queues.ts`) while its *worker* lives in the feature module

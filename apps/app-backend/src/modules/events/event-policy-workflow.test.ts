@@ -143,8 +143,6 @@ const run = (input: {
 		}),
 		Layer.mock(EventsRepository, {
 			_tag: "EventsRepository",
-			getActiveAfterCreateTriggers: () => Effect.succeed([]),
-			getActiveBeforeCreateTriggers: () => Effect.succeed([]),
 			createEvent: (event) => {
 				assert(event.id);
 				created.push(event);

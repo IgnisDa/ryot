@@ -1,9 +1,8 @@
 import * as PersistedQueue from "@effect/experimental/PersistedQueue";
 import { Activity, DurableQueue } from "@effect/workflow";
-import { WorkflowEngine } from "@effect/workflow/WorkflowEngine";
-import type { WorkflowInstance } from "@effect/workflow/WorkflowEngine";
+import type { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import type { DbError, SandboxRunError } from "@ryot/contract/errors";
-import { badRequest, unknownToMessage } from "@ryot/contract/errors";
+import { badRequest } from "@ryot/contract/errors";
 import type {
 	EventCreateFailureReason,
 	EventCreateItemOutcome,
@@ -12,13 +11,7 @@ import type {
 	SandboxCompletedResult,
 	SandboxExecutionPayload,
 } from "@ryot/contract/modules/sandbox/schemas";
-import {
-	EntityId,
-	EntitySchemaId,
-	EventId,
-	EventSchemaId,
-	SandboxScriptId,
-} from "@ryot/contract/schema/brands";
+import { EntityId, EntitySchemaId, EventId, EventSchemaId } from "@ryot/contract/schema/brands";
 import { AppSchema } from "@ryot/contract/schema/property-schema";
 import { Context, DateTime, Effect, Layer, Schema } from "effect";
 
@@ -27,7 +20,6 @@ import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-r
 import { AutomationsService } from "#modules/automations/service";
 import { LifecycleDispatch } from "#modules/entities/lifecycle-dispatch";
 import { SandboxExecutionQueue } from "#modules/sandbox/durable-queues";
-import { RunSandboxWorkflow } from "#modules/sandbox/sandbox-run-workflow";
 
 import { EnsureLibraryMembershipQueue } from "./durable-queues";
 import {
@@ -35,13 +27,12 @@ import {
 	EventCreateWorkflowError,
 	type EventCreateWorkflowPayload,
 } from "./event-create-workflow";
-import { type CreatedEventWithContext, resolveEventCreateItemScopes } from "./event-creation";
+import { resolveEventCreateItemScopes } from "./event-creation";
 import type { EventPolicyDraft } from "./event-policy-engine";
 import {
 	decodeEventPolicyProperties,
 	EventPolicyProperties,
 	PreparedEventPolicy,
-	PreparedLegacyBeforeTrigger,
 	runEventCreatePolicies,
 } from "./event-policy-engine";
 import { EventsRepository } from "./repository";
@@ -60,7 +51,6 @@ const PreparedItem = Schema.Struct({
 	sessionEntityId: Schema.optional(EntityId),
 	properties: EventPolicyProperties,
 	policies: Schema.Array(PreparedEventPolicy),
-	beforeTriggers: Schema.Array(PreparedLegacyBeforeTrigger),
 });
 
 type PreparedItem = typeof PreparedItem.Type;
@@ -69,27 +59,16 @@ const CreatedEvent = Schema.Struct({
 	id: EventId,
 	entityId: EntityId,
 	createdAt: Schema.String,
-	updatedAt: Schema.String,
 	occurredAt: Schema.String,
 	subjectName: Schema.String,
 	eventSchemaId: EventSchemaId,
-	eventSchemaName: Schema.String,
 	eventSchemaSlug: Schema.String,
-	entitySchemaId: EntitySchemaId,
 	entitySchemaSlug: Schema.String,
 	isGlobalReference: Schema.Boolean,
-	sessionEntityId: Schema.optional(EntityId),
 	properties: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
 });
 
 type CreatedEvent = typeof CreatedEvent.Type;
-
-const AfterCreateTrigger = Schema.Struct({
-	id: Schema.String,
-	eventSchemaId: EventSchemaId,
-	sandboxScriptId: SandboxScriptId,
-	metadata: Schema.Struct({ inheritedProperties: Schema.optional(Schema.Array(Schema.String)) }),
-});
 
 type EnsureLibraryMembershipInput = {
 	userId: EventCreateWorkflowPayload["userId"];
@@ -140,9 +119,7 @@ const prepareItem = Effect.fn("prepareEventCreateItem")(function* (
 	itemIndex: number,
 	item: EventCreateWorkflowPayload["payload"][number],
 ) {
-	const runWithDb = yield* DbRunner;
 	const automations = yield* AutomationsService;
-	const eventsRepository = yield* EventsRepository;
 
 	return yield* Activity.make({
 		success: PreparedItem,
@@ -158,18 +135,10 @@ const prepareItem = Effect.fn("prepareEventCreateItem")(function* (
 			}).pipe(Effect.mapError((error) => badRequest(error.message)));
 			const properties = yield* decodeEventPolicyProperties(parsedProperties);
 
-			const [policies, beforeTriggers] = yield* Effect.all([
-				automations.resolveActivePolicies({
-					userId: payload.userId,
-					target: { id: eventSchemaScope.id, kind: "event_schema" },
-				}),
-				runWithDb(
-					eventsRepository.getActiveBeforeCreateTriggers({
-						userId: payload.userId,
-						eventSchemaIds: [eventSchemaScope.id],
-					}),
-				),
-			]);
+			const policies = yield* automations.resolveActivePolicies({
+				userId: payload.userId,
+				target: { id: eventSchemaScope.id, kind: "event_schema" },
+			});
 
 			return {
 				entityId,
@@ -184,11 +153,6 @@ const prepareItem = Effect.fn("prepareEventCreateItem")(function* (
 				entitySchemaSlug: entityScope.entitySchemaSlug,
 				isGlobalEntity: entityScope.entityUserId === null,
 				propertiesSchema: eventSchemaScope.propertiesSchema,
-				beforeTriggers: beforeTriggers.map((trigger) => ({
-					id: trigger.id,
-					position: trigger.position,
-					sandboxScriptId: trigger.sandboxScriptId,
-				})),
 				policies: policies.map((policy) => ({
 					id: policy.id,
 					metadata: policy.metadata,
@@ -229,108 +193,19 @@ const writeEvent = Effect.fn("writeEventCreateItem")(function* (
 			);
 
 			return {
-				...createdEvent,
+				id: createdEvent.id,
+				entityId: createdEvent.entityId,
+				createdAt: createdEvent.createdAt,
+				occurredAt: createdEvent.occurredAt,
+				properties: createdEvent.properties,
+				eventSchemaId: createdEvent.eventSchemaId,
 				subjectName: prepared.subjectName,
-				entitySchemaId: prepared.entitySchemaId,
+				eventSchemaSlug: prepared.eventSchemaSlug,
 				isGlobalReference: prepared.isGlobalEntity,
 				entitySchemaSlug: prepared.entitySchemaSlug,
 			} satisfies CreatedEvent;
 		}),
 	});
-});
-
-const resolveAfterTriggers = Effect.fn("resolveEventCreateAfterTriggers")(function* (
-	payload: EventCreateWorkflowPayload,
-	eventSchemaIds: EventSchemaId[],
-) {
-	const runWithDb = yield* DbRunner;
-	const eventsRepository = yield* EventsRepository;
-
-	return yield* Activity.make({
-		error: EventCreateWorkflowError,
-		name: "resolve-after-triggers",
-		success: Schema.Array(AfterCreateTrigger),
-		execute: runWithDb(
-			eventsRepository.getActiveAfterCreateTriggers({ userId: payload.userId, eventSchemaIds }),
-		),
-	});
-});
-
-const dispatchAfterTriggers = Effect.fn(function* (
-	payload: EventCreateWorkflowPayload,
-	createdEvents: ReadonlyArray<CreatedEventWithContext>,
-	triggers: ReadonlyArray<typeof AfterCreateTrigger.Type>,
-) {
-	const workflowEngine = yield* WorkflowEngine;
-	const pairs = createdEvents.flatMap((event) =>
-		triggers
-			.filter((trigger) => trigger.eventSchemaId === event.eventSchemaId)
-			.map((trigger) => ({ event, trigger })),
-	);
-
-	yield* Effect.forEach(
-		pairs,
-		({ event, trigger }) => {
-			const inheritedKeys = trigger.metadata.inheritedProperties ?? [];
-			const inheritedProperties = Object.fromEntries(
-				inheritedKeys
-					.filter((key) => key in event.properties)
-					.map((key) => [key, event.properties[key]]),
-			);
-
-			const executionId = `event-schema-trigger-${trigger.id}-${event.id}`;
-			return workflowEngine
-				.execute(RunSandboxWorkflow, {
-					executionId,
-					discard: true,
-					payload: {
-						executionId,
-						userId: payload.userId,
-						driverName: "trigger",
-						scriptId: trigger.sandboxScriptId,
-						context: {
-							trigger: {
-								eventId: event.id,
-								inheritedProperties,
-								phase: "after_create",
-								entityId: event.entityId,
-								createdAt: event.createdAt,
-								updatedAt: event.updatedAt,
-								occurredAt: event.occurredAt,
-								properties: event.properties,
-								eventSchemaId: event.eventSchemaId,
-								entitySchemaId: event.entitySchemaId,
-								eventSchemaSlug: event.eventSchemaSlug,
-								entitySchemaSlug: event.entitySchemaSlug,
-							},
-						},
-					},
-				})
-				.pipe(
-					Effect.catchAll((error) =>
-						Effect.logWarning(
-							`Failed to dispatch after-create trigger: ${unknownToMessage(error)}`,
-						),
-					),
-				);
-		},
-		{ discard: true },
-	);
-});
-
-const toCreatedEventWithContext = (event: CreatedEvent): CreatedEventWithContext => ({
-	id: event.id,
-	entityId: event.entityId,
-	createdAt: event.createdAt,
-	updatedAt: event.updatedAt,
-	occurredAt: event.occurredAt,
-	properties: event.properties,
-	eventSchemaId: event.eventSchemaId,
-	eventSchemaName: event.eventSchemaName,
-	eventSchemaSlug: event.eventSchemaSlug,
-	entitySchemaId: event.entitySchemaId,
-	entitySchemaSlug: event.entitySchemaSlug,
-	sessionEntityId: event.sessionEntityId,
 });
 
 const dispatchLifecycleOccurrence = Effect.fn("dispatchEventLifecycleOccurrence")(function* (
@@ -369,8 +244,8 @@ const dispatchLifecycleOccurrence = Effect.fn("dispatchEventLifecycleOccurrence"
 export const runEventCreateWorkflow = Effect.fn("runEventCreateWorkflow")(function* (
 	payload: EventCreateWorkflowPayload,
 ) {
+	let createdCount = 0;
 	const outcomes: EventCreateItemOutcome[] = [];
-	const createdEvents: CreatedEventWithContext[] = [];
 	const referencedGlobalEntityIds = new Set<EntityId>();
 	const operations = yield* EventCreateWorkflowOperations;
 	let failure: { index: number; reason: EventCreateFailureReason } | null = null;
@@ -422,16 +297,8 @@ export const runEventCreateWorkflow = Effect.fn("runEventCreateWorkflow")(functi
 			referencedGlobalEntityIds.add(createdEvent.entityId);
 		}
 		outcomes.push({ index: itemIndex, eventId: createdEvent.id, status: "written" });
-		createdEvents.push(toCreatedEventWithContext(createdEvent));
+		createdCount += 1;
 		yield* dispatchLifecycleOccurrence(payload, itemIndex, createdEvent);
-	}
-
-	if (createdEvents.length > 0) {
-		const uniqueSchemaIds = [...new Set(createdEvents.map((event) => event.eventSchemaId))];
-		const afterTriggers = yield* resolveAfterTriggers(payload, uniqueSchemaIds);
-		if (afterTriggers.length > 0) {
-			yield* dispatchAfterTriggers(payload, createdEvents, afterTriggers);
-		}
 	}
 
 	yield* Effect.forEach(
@@ -445,7 +312,7 @@ export const runEventCreateWorkflow = Effect.fn("runEventCreateWorkflow")(functi
 		{ discard: true },
 	);
 
-	return { failure, outcomes, count: createdEvents.length };
+	return { failure, outcomes, count: createdCount };
 });
 
 const EventCreateWorkflowLive = EventCreateWorkflow.toLayer((payload) =>

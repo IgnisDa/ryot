@@ -1,5 +1,5 @@
 import { defineManifest, type IntegrationRecord } from "@ryot/sandbox-sdk";
-import { defineAfterCreateTrigger } from "@ryot/sandbox-sdk/trigger";
+import { defineAutomation } from "@ryot/sandbox-sdk/automation";
 
 import {
 	fetchEntity,
@@ -16,8 +16,7 @@ const JELLYFIN_AUTH_HEADER =
 	'MediaBrowser Client="Ryot", Device="Ryot", DeviceId="ryot-integration", Version="2.0.0"';
 
 export const manifest = defineManifest({
-	kind: "trigger",
-	mode: "after_create",
+	kind: "automation",
 	name: "Jellyfin Push",
 	slug: "trigger.jellyfin-push",
 	requiredAppConfigKeys: [],
@@ -149,37 +148,41 @@ const markPlayedInJellyfin = (
 	});
 };
 
-export default defineAfterCreateTrigger({
+export default defineAutomation({
 	manifest,
-	run: ({ trigger }, host) => {
-		if (trigger.entitySchemaSlug !== "movie" && trigger.entitySchemaSlug !== "show") {
-			return Promise.resolve();
+	run: ({ automation }, host) => {
+		const event = automation.source.kind === "event" ? automation.source.after : undefined;
+		const entitySchemaSlug = event?.subject.entitySchemaSlug;
+		if (!event || (entitySchemaSlug !== "movie" && entitySchemaSlug !== "show")) {
+			return Promise.resolve(null);
 		}
 
 		return Promise.all([
 			integrationsDisabledForUser(host),
 			listActiveIntegrations(host, "jellyfin_push"),
-		]).then(([disabled, integrations]) => {
-			if (disabled || integrations.length === 0) {
-				return undefined;
-			}
-			return fetchEntity(host, trigger.entityId).then((entity) => {
-				if (!entity) {
+		])
+			.then(([disabled, integrations]) => {
+				if (disabled || integrations.length === 0) {
 					return undefined;
 				}
-				return resolveEntityProviderName(host, entity).then((providerName) => {
-					const tmdbId = providerName === "TMDB" ? entity.externalId : null;
-					const title = entity.name || null;
-					if (!tmdbId && !title) {
+				return fetchEntity(host, event.subject.id).then((entity) => {
+					if (!entity) {
 						return undefined;
 					}
-					return integrations.reduce(
-						(current, integration) =>
-							current.then(() => markPlayedInJellyfin(host, integration, { tmdbId, title })),
-						Promise.resolve(),
-					);
+					return resolveEntityProviderName(host, entity).then((providerName) => {
+						const tmdbId = providerName === "TMDB" ? entity.externalId : null;
+						const title = entity.name || null;
+						if (!tmdbId && !title) {
+							return undefined;
+						}
+						return integrations.reduce(
+							(current, integration) =>
+								current.then(() => markPlayedInJellyfin(host, integration, { tmdbId, title })),
+							Promise.resolve(),
+						);
+					});
 				});
-			});
-		});
+			})
+			.then(() => null);
 	},
 });

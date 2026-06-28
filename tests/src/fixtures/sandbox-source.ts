@@ -1,5 +1,4 @@
 import type { JsonPrimitive, JsonValue, SandboxHostCapability } from "@ryot/sandbox-sdk";
-import type { BeforeCreateTriggerResult } from "@ryot/sandbox-sdk/trigger";
 
 type SandboxSourceIdentity = {
 	readonly name: string;
@@ -231,63 +230,4 @@ const trendingResult = trendingResultSchema.parse(JSON.parse(${JSON.stringify(
 			JSON.stringify({ items: input.items }),
 		)}));`,
 	});
-}
-
-type BeforeCreateTriggerFixtureBehavior =
-	| BeforeCreateTriggerResult
-	| { readonly action: "throw"; readonly message: string };
-
-export function beforeCreateTriggerSource(
-	input: SandboxSourceIdentity & { readonly behavior: BeforeCreateTriggerFixtureBehavior },
-) {
-	return `
-import { defineManifest } from "@ryot/sandbox-sdk";
-import {
-  defineBeforeCreateTrigger,
-  type BeforeCreateTriggerResult,
-} from "@ryot/sandbox-sdk/trigger";
-
-export const manifest = defineManifest({
-  kind: "trigger",
-  mode: "before_create",
-  name: ${JSON.stringify(input.name)},
-  slug: ${JSON.stringify(input.slug)},
-  capabilities: [],
-  requiredAppConfigKeys: [],
-});
-
-type Behavior = BeforeCreateTriggerResult | { readonly action: "throw"; readonly message: string };
-const behavior: Behavior = JSON.parse(${JSON.stringify(JSON.stringify(input.behavior))});
-
-export default defineBeforeCreateTrigger({
-  manifest,
-  run: async () => {
-    if (behavior.action === "throw") {
-      throw new Error(behavior.message);
-    }
-    return behavior;
-  },
-});
-`;
-}
-
-export function afterCreateTriggerSource(input: SandboxSourceIdentity) {
-	return `
-import { defineManifest } from "@ryot/sandbox-sdk";
-import { defineAfterCreateTrigger } from "@ryot/sandbox-sdk/trigger";
-
-export const manifest = defineManifest({
-  kind: "trigger",
-  mode: "after_create",
-  name: ${JSON.stringify(input.name)},
-  slug: ${JSON.stringify(input.slug)},
-  capabilities: [],
-  requiredAppConfigKeys: [],
-});
-
-export default defineAfterCreateTrigger({
-  manifest,
-  run: async () => undefined,
-});
-`;
 }
