@@ -14,9 +14,7 @@ export class RelationshipSchemasRepository extends Effect.Service<RelationshipSc
 			const definitions = yield* DefinitionRegistry;
 			const findBuiltinBySlug = (slug: string) => {
 				const definition = definitions.getRelationshipSchema(slug);
-				return Effect.succeed(
-					definition ? toScope(definition, definitions.isRelationshipSchemaBuiltin(slug)) : null,
-				);
+				return Effect.succeed(definition ? toScope(definition) : null);
 			};
 			const findById = (slug: RelationshipSchemaSlug, _userId: UserId | null) =>
 				findBuiltinBySlug(slug);
@@ -29,11 +27,7 @@ export class RelationshipSchemasRepository extends Effect.Service<RelationshipSc
 						item.sourceEntitySchemaSlug === input.sourceEntitySchemaSlug &&
 						item.targetEntitySchemaSlug === input.targetEntitySchemaSlug,
 				);
-				return Effect.succeed(
-					definition
-						? toScope(definition, definitions.isRelationshipSchemaBuiltin(definition.slug))
-						: null,
-				);
+				return Effect.succeed(definition ? toScope(definition) : null);
 			};
 			return { findById, findBuiltinBySlug, findGlobalBySchemaIds };
 		}),
@@ -42,9 +36,8 @@ export class RelationshipSchemasRepository extends Effect.Service<RelationshipSc
 
 const toScope = (
 	definition: NonNullable<ReturnType<DefinitionRegistry["getRelationshipSchema"]>>,
-	isBuiltin: boolean,
 ) => ({
-	isBuiltin,
+	isBuiltin: true,
 	name: definition.name,
 	slug: definition.slug,
 	propertiesSchema: definition.propertiesSchema,
