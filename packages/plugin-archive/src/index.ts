@@ -41,6 +41,7 @@ export class PluginArchiveError extends Schema.TaggedError<PluginArchiveError>()
 	{ reason: PluginArchiveErrorReason },
 ) {}
 
+const CLIENT_SOURCE_EXTENSIONS = [".ts", ".tsx", ".css", ".svg"];
 const DETERMINISTIC_MTIME = new Date("1980-01-01T00:00:00.000Z");
 const decoder = new TextDecoder("utf-8", { fatal: true });
 const encoder = new TextEncoder();
@@ -194,7 +195,7 @@ const validateCentralDirectory = (bytes: Uint8Array) => {
 			path !== "manifest.json" &&
 			!path.startsWith("backend/") &&
 			(!path.startsWith("client/") ||
-				![".ts", ".tsx", ".css", ".svg"].some((extension) => path.endsWith(extension)))
+				!CLIENT_SOURCE_EXTENSIONS.some((extension) => path.endsWith(extension)))
 		) {
 			throw failure("unexpected-entry");
 		}
