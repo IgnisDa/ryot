@@ -1,16 +1,16 @@
 import type { UserId } from "@ryot/contract/schema/brands";
 import { and, eq } from "drizzle-orm";
-import { Effect } from "effect";
+import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { CurrentDb, dbEffect } from "#lib/infrastructure/db/service";
 
 export type PluginStateRow = typeof schema.pluginState.$inferSelect;
 
-export class DefinitionsRepository extends Effect.Service<DefinitionsRepository>()(
+export class DefinitionsRepository extends Context.Service<DefinitionsRepository>()(
 	"DefinitionsRepository",
 	{
-		sync: () => {
+		make: Effect.sync(() => {
 			const listPluginStates = Effect.fn(function* (userId: UserId) {
 				const db = yield* CurrentDb;
 				return yield* dbEffect(() =>
@@ -58,6 +58,8 @@ export class DefinitionsRepository extends Effect.Service<DefinitionsRepository>
 				return row ?? null;
 			});
 			return { getPluginState, listPluginStates, upsertPluginState };
-		},
+		}),
 	},
-) {}
+) {
+	static readonly layer = Layer.effect(this, this.make);
+}
