@@ -2,7 +2,7 @@ import { expect, it } from "@effect/vitest";
 import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import { Effect, Layer } from "effect";
 
-import { makeWorkflowEngine } from "#lib/test-support/effect";
+import { makeWorkflowEngine } from "#lib/test-utils/effect";
 import { InfrequentCronWorkflow } from "#modules/scheduler/cron-workflow";
 
 import { mediaTrendingInfrequentTask } from "./infrequent-task";

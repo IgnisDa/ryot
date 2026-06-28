@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import type { AppConfigValue } from "#lib/infrastructure/config/service";
 import { AppConfig, validateSystemConfig } from "#lib/infrastructure/config/service";
-import { makeAppConfigLayer } from "#lib/test-support/effect";
+import { makeAppConfigLayer } from "#lib/test-utils/effect";
 
 type Overrides = Parameters<typeof makeAppConfigLayer>[0];
 

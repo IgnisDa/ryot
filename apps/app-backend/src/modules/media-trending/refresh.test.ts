@@ -10,12 +10,12 @@ import {
 } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
-import type { MockOverrides } from "#lib/test-support/effect";
+import type { MockOverrides } from "#lib/test-utils/effect";
 import {
 	dbRunnerLayer,
 	makeWorkflowActivityEngine,
 	transactionLayer,
-} from "#lib/test-support/effect";
+} from "#lib/test-utils/effect";
 import { EntitiesService } from "#modules/entities/service";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";

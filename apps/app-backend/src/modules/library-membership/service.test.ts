@@ -14,7 +14,7 @@ import {
 	makeAppConfigLayer,
 	makeWorkflowEngine,
 	transactionLayer,
-} from "#lib/test-support/effect";
+} from "#lib/test-utils/effect";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { SandboxRepository } from "#modules/sandbox/repository";
 

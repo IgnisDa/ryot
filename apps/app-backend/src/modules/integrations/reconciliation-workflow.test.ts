@@ -3,7 +3,7 @@ import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngin
 import { ImportRunId, IntegrationId, UserId } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
-import { makeWorkflowActivityEngine } from "#lib/test-support/effect";
+import { makeWorkflowActivityEngine } from "#lib/test-utils/effect";
 
 import type { IntegrationReconciliationRun } from "./jobs";
 import {

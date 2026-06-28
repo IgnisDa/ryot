@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 
-import { stubHttpClientLayer, type StubHttpResponse } from "#lib/test-support/source-http";
+import { stubHttpClientLayer, type StubHttpResponse } from "#lib/test-utils/source-http";
 
 import { adaptPlexData } from "./adapter";
 

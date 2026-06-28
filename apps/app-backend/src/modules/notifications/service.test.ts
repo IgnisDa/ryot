@@ -4,7 +4,7 @@ import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { UserId } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
-import { dbRunnerLayer, makeWorkflowEngine } from "#lib/test-support/effect";
+import { dbRunnerLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
 
 import { NotificationsRepository } from "./repository";
 import { NotificationsService } from "./service";
