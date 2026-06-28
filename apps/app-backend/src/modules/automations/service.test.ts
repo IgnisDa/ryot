@@ -113,7 +113,6 @@ const mockRepository = Layer.mock(AutomationsRepository);
 const mockPluginRuntime = Layer.mock(PluginRuntimeResolver);
 const makePluginRuntime = (overrides: MockOverrides<typeof mockPluginRuntime> = {}) =>
 	mockPluginRuntime({
-		_tag: "PluginRuntimeResolver",
 		listAutomations: () => Effect.succeed([]),
 		findAutomation: () => Effect.succeed(null),
 		findKernelScript: () => Effect.succeed(null),
@@ -122,7 +121,7 @@ const makePluginRuntime = (overrides: MockOverrides<typeof mockPluginRuntime> = 
 	});
 
 const makeRepository = (overrides: MockOverrides<typeof mockRepository> = {}) =>
-	mockRepository({ _tag: "AutomationsRepository", ...overrides });
+	mockRepository({ ...overrides });
 
 const definitions = makeDefinitionRegistry({
 	savedViews: [],
@@ -144,14 +143,14 @@ const makeLayer = (
 	repository: ReturnType<typeof makeRepository>,
 	pluginRuntime: MockOverrides<typeof mockPluginRuntime> = {},
 ) =>
-	AutomationsService.Default.pipe(
+	AutomationsService.layer.pipe(
 		Layer.provide(
 			Layer.mergeAll(
 				dbRunnerLayer,
 				transactionLayer,
 				repository,
 				makePluginRuntime(pluginRuntime),
-				Layer.succeed(DefinitionRegistry, { _tag: "DefinitionRegistry", ...definitions }),
+				Layer.succeed(DefinitionRegistry, { ...definitions }),
 			),
 		),
 	);
