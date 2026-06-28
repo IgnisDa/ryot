@@ -1446,7 +1446,7 @@ it("loads and executes the generated MyAnimeList and MangaUpdates modules in Den
 					});
 				}
 				const malConfigCall = bridge.calls.find((call) => call.fnName === "getAppConfigValue");
-				expect(malConfigCall?.args).toEqual(["providers.malClientId"]);
+				expect(malConfigCall?.args).toEqual(["animeAndManga.malClientId"]);
 			}),
 		),
 	));
@@ -1516,7 +1516,7 @@ it("loads and executes the generated Hardcover book module in Deno through the G
 					properties: { publishYear: 2020, genres: ["Science Fiction"] },
 				});
 				const configCall = bridge.calls.find((call) => call.fnName === "getAppConfigValue");
-				expect(configCall?.args).toEqual(["providers.hardcoverApiKey"]);
+				expect(configCall?.args).toEqual(["books.hardcoverApiKey"]);
 			}),
 		),
 	));
@@ -1832,7 +1832,7 @@ it("loads and executes the generated ListenNotes podcast module in Deno through 
 					],
 				});
 				const configCall = bridge.calls.find((call) => call.fnName === "getAppConfigValue");
-				expect(configCall?.args).toEqual(["providers.listennotesApiKey"]);
+				expect(configCall?.args).toEqual(["podcasts.listennotesApiKey"]);
 			}),
 		),
 	));

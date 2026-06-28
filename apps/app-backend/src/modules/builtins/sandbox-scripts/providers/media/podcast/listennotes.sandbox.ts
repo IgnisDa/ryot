@@ -9,7 +9,7 @@ export const manifest = defineManifest({
 	name: "Listen Notes",
 	slug: "podcast.listennotes",
 	providerInformation: { source: "listennotes" },
-	requiredAppConfigKeys: ["providers.listennotesApiKey"],
+	requiredAppConfigKeys: ["podcasts.listennotesApiKey"],
 	capabilities: ["httpCall", "getAppConfigValue", "getCachedValue", "setCachedValue"],
 });
 
@@ -70,7 +70,7 @@ const parseJsonResponse = (responseBody: string): unknown => {
 };
 
 const getApiKey = (host: ListennotesHost) =>
-	host.getAppConfigValue("providers.listennotesApiKey").then((response) => {
+	host.getAppConfigValue("podcasts.listennotesApiKey").then((response) => {
 		if (!response.success) {
 			throw new Error(response.error || "Could not load ListenNotes API key");
 		}

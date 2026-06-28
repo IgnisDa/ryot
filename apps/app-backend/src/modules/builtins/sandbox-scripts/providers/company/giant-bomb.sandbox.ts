@@ -21,7 +21,7 @@ export const manifest = defineManifest({
 	slug: "company.giant-bomb",
 	providerInformation: { source: "giant-bomb" },
 	capabilities: ["httpCall", "getAppConfigValue"],
-	requiredAppConfigKeys: ["providers.giantBombApiKey"],
+	requiredAppConfigKeys: ["videoGames.giantBombApiKey"],
 });
 
 const getGameGuid = (game: Record<string, unknown> | null) => {
