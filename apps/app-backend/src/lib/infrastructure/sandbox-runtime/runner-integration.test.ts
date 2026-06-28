@@ -8,6 +8,9 @@ import { afterAll, assert, beforeAll, expect, it } from "vitest";
 import {
 	sandboxAnimeDotAnilistScript,
 	sandboxAnimeDotMyanimelistScript,
+	sandboxComicDashBookDotMetronScript,
+	sandboxExerciseDotFreeDashExerciseDashDbScript,
+	sandboxVisualDashNovelDotVndbScript,
 	sandboxAudiobookDotAudibleScript,
 	sandboxBookDotGoogleDashBooksScript,
 	sandboxBookDotHardcoverScript,
@@ -2088,6 +2091,196 @@ it("loads and executes the generated IGDB module in Deno through the Twitch OAut
 					{ accessToken: "Bearer tok", clientId: "twitch-cred" },
 					3300,
 				]);
+			}),
+		),
+	));
+
+it("loads and executes the generated Metron module in Deno through Basic auth", () =>
+	Effect.runPromise(
+		Effect.scoped(
+			Effect.gen(function* () {
+				const bridge = yield* Effect.acquireRelease(
+					Effect.sync(() =>
+						startCoreHostBridge({
+							appConfigValue: "metron-cred",
+							httpResponse: (url) => {
+								const requestUrl = new URL(url);
+								expect(requestUrl.host).toBe("metron.cloud");
+								expect(requestUrl.pathname).toBe("/api/issue/");
+								return {
+									count: 1,
+									results: [
+										{
+											id: 5,
+											number: "1",
+											cover_date: "2021-04-01",
+											image: "https://img/m.jpg",
+											series: { name: "My Series" },
+										},
+									],
+								};
+							},
+						}),
+					),
+					(value) => Effect.promise(value.stop),
+				);
+				const entry = sandboxComicDashBookDotMetronScript;
+				const compiled = {
+					manifest: entry.manifest,
+					format: entry.compiledFormat,
+					javascript: entry.compiledCode,
+				};
+				const result = yield* runInDeno(
+					compiled,
+					"search",
+					{ query: "series", page: 1, pageSize: 20 },
+					{
+						apiBase: `http://127.0.0.1:${bridge.port}`,
+						apiFunctions: compiled.manifest.capabilities,
+					},
+				);
+				assert(result !== null && typeof result === "object");
+				expect(result).toMatchObject({ success: true });
+				expect(Reflect.get(result, "value")).toMatchObject({
+					details: { totalItems: 1, nextPage: null },
+					items: [
+						{
+							externalId: "5",
+							titleProperty: { kind: "text", value: "My Series #1" },
+							primarySubtitleProperty: { kind: "number", value: 2021 },
+							imageProperty: { kind: "image", value: { type: "remote", url: "https://img/m.jpg" } },
+						},
+					],
+				});
+			}),
+		),
+	));
+
+it("loads and executes the generated VNDB module in Deno", () =>
+	Effect.runPromise(
+		Effect.scoped(
+			Effect.gen(function* () {
+				const bridge = yield* Effect.acquireRelease(
+					Effect.sync(() =>
+						startCoreHostBridge({
+							httpResponse: (url) => {
+								const requestUrl = new URL(url);
+								expect(requestUrl.host).toBe("api.vndb.org");
+								expect(requestUrl.pathname).toBe("/kana/vn");
+								return {
+									count: 1,
+									more: false,
+									results: [
+										{
+											id: "v17",
+											title: "My VN",
+											released: "2015-06-01",
+											image: { url: "https://img/vn.jpg" },
+										},
+									],
+								};
+							},
+						}),
+					),
+					(value) => Effect.promise(value.stop),
+				);
+				const entry = sandboxVisualDashNovelDotVndbScript;
+				const compiled = {
+					manifest: entry.manifest,
+					format: entry.compiledFormat,
+					javascript: entry.compiledCode,
+				};
+				const result = yield* runInDeno(
+					compiled,
+					"search",
+					{ query: "vn", page: 1, pageSize: 20 },
+					{
+						apiBase: `http://127.0.0.1:${bridge.port}`,
+						apiFunctions: compiled.manifest.capabilities,
+					},
+				);
+				assert(result !== null && typeof result === "object");
+				expect(result).toMatchObject({ success: true });
+				expect(Reflect.get(result, "value")).toMatchObject({
+					details: { totalItems: 1, nextPage: null },
+					items: [
+						{
+							externalId: "v17",
+							titleProperty: { kind: "text", value: "My VN" },
+							primarySubtitleProperty: { kind: "number", value: 2015 },
+							imageProperty: {
+								kind: "image",
+								value: { type: "remote", url: "https://img/vn.jpg" },
+							},
+						},
+					],
+				});
+			}),
+		),
+	));
+
+it("loads and executes the generated Free Exercise DB module in Deno with cache chunking", () =>
+	Effect.runPromise(
+		Effect.scoped(
+			Effect.gen(function* () {
+				const bridge = yield* Effect.acquireRelease(
+					Effect.sync(() =>
+						startCoreHostBridge({
+							httpResponse: (url) => {
+								expect(new URL(url).host).toBe("raw.githubusercontent.com");
+								return [
+									{
+										name: "Bench Press",
+										category: "strength",
+										force: "push",
+										level: "beginner",
+										mechanic: "compound",
+										equipment: "barbell",
+										primaryMuscles: ["chest"],
+										secondaryMuscles: ["triceps"],
+										instructions: ["Lower the bar", "Press up"],
+										images: ["Bench_Press/0.jpg"],
+									},
+								];
+							},
+						}),
+					),
+					(value) => Effect.promise(value.stop),
+				);
+				const entry = sandboxExerciseDotFreeDashExerciseDashDbScript;
+				const compiled = {
+					manifest: entry.manifest,
+					format: entry.compiledFormat,
+					javascript: entry.compiledCode,
+				};
+				const result = yield* runInDeno(
+					compiled,
+					"search",
+					{ query: "bench", page: 1, pageSize: 20 },
+					{
+						apiBase: `http://127.0.0.1:${bridge.port}`,
+						apiFunctions: compiled.manifest.capabilities,
+					},
+				);
+				assert(result !== null && typeof result === "object");
+				expect(result).toMatchObject({ success: true });
+				expect(Reflect.get(result, "value")).toMatchObject({
+					details: { totalItems: 1, nextPage: null },
+					items: [
+						{
+							externalId: "Bench Press",
+							titleProperty: { kind: "text", value: "Bench Press" },
+							imageProperty: { kind: "image" },
+						},
+					],
+				});
+				const cacheWrites = bridge.calls.filter((call) => call.fnName === "setCachedValue");
+				expect(cacheWrites.length).toBeGreaterThanOrEqual(2);
+				const metadataWrite = cacheWrites.find(
+					(call) => call.args[0] === "free-exercise-db:normalized:v1",
+				);
+				assert(metadataWrite !== undefined);
+				expect(metadataWrite.args[1]).toMatchObject({ chunkCount: 1 });
 			}),
 		),
 	));

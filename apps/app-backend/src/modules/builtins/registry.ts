@@ -1,5 +1,11 @@
 import {
 	type GeneratedBuiltinSandboxScript,
+	sandboxComicDashBookDashGroupDotMetronScript,
+	sandboxComicDashBookDotMetronScript,
+	sandboxCompanyDotVndbScript,
+	sandboxExerciseDotFreeDashExerciseDashDbScript,
+	sandboxPersonDotMetronScript,
+	sandboxVisualDashNovelDotVndbScript,
 	sandboxCompanyDotGiantDashBombScript,
 	sandboxCompanyDotIgdbScript,
 	sandboxPersonDotGiantDashBombScript,
@@ -52,57 +58,13 @@ import {
 	sandboxTriggerDotRadarrDashPushScript,
 	sandboxTriggerDotSonarrDashPushScript,
 } from "./generated-sandbox/registry";
-import vndbCompanyScriptCode from "./sandbox-scripts/providers/company/vndb.sandbox.js" with { type: "text" };
-import freeExerciseDbScriptCode from "./sandbox-scripts/providers/fitness/exercise/free-exercise-db.sandbox.js" with { type: "text" };
-import metronComicBookGroupScriptCode from "./sandbox-scripts/providers/media-group/metron.sandbox.js" with { type: "text" };
-import metronComicBookScriptCode from "./sandbox-scripts/providers/media/comic-book/metron.sandbox.js" with { type: "text" };
-import vndbVisualNovelScriptCode from "./sandbox-scripts/providers/media/visual-novel/vndb.sandbox.js" with { type: "text" };
-import metronPersonScriptCode from "./sandbox-scripts/providers/person/metron.sandbox.js" with { type: "text" };
-
-const BUILTIN_ALLOWED_HOST_FUNCTIONS: string[] = [
-	"httpCall",
-	"getCachedValue",
-	"setCachedValue",
-	"getAppConfigValue",
-	"getUserPreferences",
-];
-
-const script = (
-	name: string,
-	slug: string,
-	code: string,
-	requiredAppConfigKeys?: string[],
-	providerInformation?: { source: string; canonicalLanguage?: string },
-) => ({
-	name,
-	slug,
-	code,
-	metadata: {
-		providerInformation,
-		requiredAppConfigKeys,
-		allowedHostFunctions: BUILTIN_ALLOWED_HOST_FUNCTIONS,
-	},
-});
-
-const providerScript = (
-	name: string,
-	slug: string,
-	code: string,
-	source: string,
-	requiredAppConfigKeys?: string[],
-) => script(name, slug, code, requiredAppConfigKeys, { source });
 
 export const builtinSandboxScripts = () => [
-	providerScript(
-		"Free Exercise DB",
-		"exercise.free-exercise-db",
-		freeExerciseDbScriptCode,
-		"free-exercise-db",
-	),
+	sandboxExerciseDotFreeDashExerciseDashDbScript,
 	sandboxBookDotOpenlibraryScript,
 	sandboxAudiobookDotAudibleScript,
 	sandboxPodcastDotItunesScript,
-	providerScript("VNDB", "visual-novel.vndb", vndbVisualNovelScriptCode, "vndb"),
+	sandboxVisualDashNovelDotVndbScript,
 	sandboxAnimeDotAnilistScript,
 	sandboxMangaDotAnilistScript,
 	sandboxCompanyDotAnilistScript,
@@ -111,7 +73,7 @@ export const builtinSandboxScripts = () => [
 	sandboxCompanyDotIgdbScript,
 	sandboxCompanyDotTmdbScript,
 	sandboxCompanyDotTvdbScript,
-	providerScript("VNDB", "company.vndb", vndbCompanyScriptCode, "vndb"),
+	sandboxCompanyDotVndbScript,
 	sandboxPersonDotAnilistScript,
 	sandboxPersonDotAudibleScript,
 	sandboxPersonDotGiantDashBombScript,
@@ -135,14 +97,8 @@ export const builtinSandboxScripts = () => [
 	sandboxPersonDotTvdbScript,
 	sandboxAnimeDotMyanimelistScript,
 	sandboxMangaDotMyanimelistScript,
-	providerScript("Metron", "comic-book.metron", metronComicBookScriptCode, "metron", [
-		"providers.metronUsername",
-		"providers.metronPassword",
-	]),
-	providerScript("Metron", "person.metron", metronPersonScriptCode, "metron", [
-		"providers.metronUsername",
-		"providers.metronPassword",
-	]),
+	sandboxComicDashBookDotMetronScript,
+	sandboxPersonDotMetronScript,
 	sandboxMusicDotSpotifyScript,
 	sandboxPersonDotSpotifyScript,
 	sandboxVideoDashGameDotIgdbScript,
@@ -150,10 +106,7 @@ export const builtinSandboxScripts = () => [
 	sandboxMovieDashGroupDotTvdbScript,
 	sandboxAudiobookDashGroupDotAudibleScript,
 	sandboxBookDashGroupDotHardcoverScript,
-	providerScript("Metron", "comic-book-group.metron", metronComicBookGroupScriptCode, "metron", [
-		"providers.metronUsername",
-		"providers.metronPassword",
-	]),
+	sandboxComicDashBookDashGroupDotMetronScript,
 	sandboxMusicDashGroupDotSpotifyScript,
 	sandboxMusicDashGroupDotMusicDashBrainzScript,
 	sandboxMusicDashGroupDotYoutubeDashMusicScript,
