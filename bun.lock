@@ -465,6 +465,19 @@
         "vitest": "4.1.9",
       },
     },
+    "plugins/fixture": {
+      "name": "@ryot/fixture-plugin",
+      "dependencies": {
+        "@ryot/contract": "workspace:*",
+      },
+      "devDependencies": {
+        "@ryot/cli": "workspace:*",
+        "@ryot/client-plugin-sdk": "workspace:*",
+        "@ryot/client-ui-sdk": "workspace:*",
+        "@types/react": "^19.2.0",
+        "@types/react-dom": "^19.2.0",
+      },
+    },
     "plugins/media": {
       "name": "@ryot/media-plugin",
       "dependencies": {
@@ -1279,6 +1292,8 @@
     "@ryot/docs": ["@ryot/docs@workspace:apps/docs"],
 
     "@ryot/fitness-plugin": ["@ryot/fitness-plugin@workspace:plugins/fitness"],
+
+    "@ryot/fixture-plugin": ["@ryot/fixture-plugin@workspace:plugins/fixture"],
 
     "@ryot/kernel-backend": ["@ryot/kernel-backend@workspace:kernel/backend"],
 
@@ -3347,6 +3362,8 @@
     "@ryot/client-ui-sdk/react": ["react@19.2.6", "", {}, "sha512-sfWGGfavi0xr8Pg0sVsyHMAOziVYKgPLNrS7ig+ivMNb3wbCBw3KxtflsGBAwD3gYQlE/AEZsTLgToRrSCjb0Q=="],
 
     "@ryot/client-ui-sdk/react-dom": ["react-dom@19.2.6", "", { "dependencies": { "scheduler": "^0.27.0" }, "peerDependencies": { "react": "^19.2.6" } }, "sha512-0prMI+hvBbPjsWnxDLxlCGyM8PN6UuWjEUCYmZhO67xIV9Xasa/r/vDnq+Xyq4Lo27g8QSbO5YzARu0D1Sps3g=="],
+
+    "@ryot/fixture-plugin/@types/react": ["@types/react@19.2.15", "", { "dependencies": { "csstype": "^3.2.2" } }, "sha512-eRwcGNHve+E8qtEQSSRl6urh+rFop4v8gm6O8rGv25CodbvFdLjA1vVQ1KkiFE0w0UPOnb8tDiFKL5lp0rtY5Q=="],
 
     "@ryot/kernel-client/@tailwindcss/vite": ["@tailwindcss/vite@4.3.0", "", { "dependencies": { "@tailwindcss/node": "4.3.0", "@tailwindcss/oxide": "4.3.0", "tailwindcss": "4.3.0" }, "peerDependencies": { "vite": "^5.2.0 || ^6 || ^7 || ^8" } }, "sha512-t6J3OrB5Fc0ExuhohouH0fWUGMYL6PTLhW+E7zIk/pdbnJARZDCwjBznFnkh5ynRnIRSI4YjtTH0t6USjJISrw=="],
 
