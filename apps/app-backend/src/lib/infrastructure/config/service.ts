@@ -1,18 +1,19 @@
-import { ConfigError, Effect, LogLevel, Option, Redacted } from "effect";
+import type { LogLevel } from "effect";
+import { Config, Context, Effect, Layer, Option, Redacted, Schema, SchemaIssue } from "effect";
 
 import { SystemConfigSource, type SystemConfigValue } from "./system";
 
 const logLevels: Record<string, LogLevel.LogLevel> = {
-	all: LogLevel.All,
-	off: LogLevel.None,
-	info: LogLevel.Info,
-	none: LogLevel.None,
-	debug: LogLevel.Debug,
-	error: LogLevel.Error,
-	fatal: LogLevel.Fatal,
-	trace: LogLevel.Trace,
-	warn: LogLevel.Warning,
-	warning: LogLevel.Warning,
+	all: "All",
+	off: "None",
+	info: "Info",
+	warn: "Warn",
+	none: "None",
+	debug: "Debug",
+	error: "Error",
+	fatal: "Fatal",
+	trace: "Trace",
+	warning: "Warn",
 };
 
 export type AppConfigValue = Omit<SystemConfigValue, "server"> & {
@@ -23,14 +24,17 @@ export type AppConfigValue = Omit<SystemConfigValue, "server"> & {
 
 const mapLogLevel = (
 	config: SystemConfigValue,
-): Effect.Effect<AppConfigValue, ConfigError.ConfigError> => {
+): Effect.Effect<AppConfigValue, Config.ConfigError> => {
 	const level = logLevels[config.server.logLevel.toLowerCase()];
 	return level
 		? Effect.succeed({ ...config, server: { ...config.server, logLevel: level } })
-		: Effect.fail(
-				ConfigError.InvalidData([], `Unsupported SERVER_LOG_LEVEL '${config.server.logLevel}'`),
-			);
+		: Effect.fail(configError(`Unsupported SERVER_LOG_LEVEL '${config.server.logLevel}'`));
 };
+
+const configError = (message: string) =>
+	new Config.ConfigError(
+		new Schema.SchemaError(new SchemaIssue.InvalidValue(Option.none(), { message })),
+	);
 
 const isNonEmpty = (opt: Option.Option<string>): opt is Option.Some<string> =>
 	Option.isSome(opt) && opt.value.length > 0;
@@ -60,7 +64,7 @@ export const isSmtpEnabled = (config: AppConfigValue): boolean =>
 
 export const validateSystemConfig = (
 	config: AppConfigValue,
-): Effect.Effect<AppConfigValue, ConfigError.ConfigError> =>
+): Effect.Effect<AppConfigValue, Config.ConfigError> =>
 	Effect.gen(function* () {
 		const { clientId, clientSecret, issuerUrl } = config.server.oidc;
 		const oidcSetCount = [
@@ -71,8 +75,7 @@ export const validateSystemConfig = (
 
 		if (oidcSetCount > 0 && oidcSetCount < 3) {
 			return yield* Effect.fail(
-				ConfigError.InvalidData(
-					[],
+				configError(
 					"Partial OIDC configuration detected. Set all three of SERVER_OIDC_CLIENT_ID, SERVER_OIDC_ISSUER_URL, and SERVER_OIDC_CLIENT_SECRET, or none of them.",
 				),
 			);
@@ -81,8 +84,7 @@ export const validateSystemConfig = (
 		const oidcEnabled = oidcSetCount === 3;
 		if (config.users.disableLocalAuth && !oidcEnabled) {
 			return yield* Effect.fail(
-				ConfigError.InvalidData(
-					[],
+				configError(
 					"USERS_DISABLE_LOCAL_AUTH is set but OIDC credentials are incomplete. Set SERVER_OIDC_CLIENT_ID, SERVER_OIDC_ISSUER_URL, and SERVER_OIDC_CLIENT_SECRET.",
 				),
 			);
@@ -96,8 +98,7 @@ export const validateSystemConfig = (
 		].filter(Boolean).length;
 		if (smtpSetCount > 0 && smtpSetCount < 3) {
 			return yield* Effect.fail(
-				ConfigError.InvalidData(
-					[],
+				configError(
 					"Partial SMTP configuration detected. Set all three of SERVER_SMTP_SERVER, SERVER_SMTP_USER, and SERVER_SMTP_PASSWORD, or none of them.",
 				),
 			);
@@ -108,8 +109,7 @@ export const validateSystemConfig = (
 		const usableWorkflowConnections = config.database.workflowPoolMax - 1;
 		if (config.sandbox.workerConcurrency > usableWorkflowConnections) {
 			return yield* Effect.fail(
-				ConfigError.InvalidData(
-					[],
+				configError(
 					`SANDBOX_WORKER_CONCURRENCY (${config.sandbox.workerConcurrency}) exceeds the usable workflow-pool connections (${usableWorkflowConnections}). The cluster SQL runner permanently reserves one connection of DATABASE_WORKFLOW_POOL_MAX (${config.database.workflowPoolMax}), so usable connections = DATABASE_WORKFLOW_POOL_MAX - 1; a higher sandbox worker concurrency starves the workflow engine. Raise DATABASE_WORKFLOW_POOL_MAX or lower SANDBOX_WORKER_CONCURRENCY.`,
 				),
 			);
@@ -128,9 +128,11 @@ export const validateSystemConfig = (
 		return config;
 	});
 
-export class AppConfig extends Effect.Service<AppConfig>()("AppConfig", {
-	effect: Effect.gen(function* () {
+export class AppConfig extends Context.Service<AppConfig>()("AppConfig", {
+	make: Effect.gen(function* () {
 		const system = yield* SystemConfigSource;
 		return yield* validateSystemConfig(yield* mapLogLevel(system));
 	}),
-}) {}
+}) {
+	static readonly layer = Layer.effect(this, this.make);
+}
