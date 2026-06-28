@@ -2,7 +2,7 @@ import { expect, it } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { BadRequest } from "@ryot/contract/errors";
 import type { ListedSavedView, SavedViewLayouts } from "@ryot/contract/modules/saved-views/schemas";
-import { EntitySchemaSlug, SavedViewId, UserId } from "@ryot/contract/schema/brands";
+import { EntitySchemaSlug, PluginSlug, SavedViewId, UserId } from "@ryot/contract/schema/brands";
 import { ascending, column, document, field, rows, table } from "@ryot/ryotql";
 import { Effect, Layer } from "effect";
 
@@ -138,8 +138,9 @@ it.effect("rejects built-in layout changes but permits state updates", () => {
 	return Effect.gen(function* () {
 		const service = yield* SavedViewsService;
 		const updated = yield* service.update(user, builtin.slug, {
-			...createBody,
 			isDisabled: true,
+			icon: builtin.icon,
+			name: builtin.name,
 		});
 		const exit = yield* Effect.exit(
 			service.update(user, builtin.slug, {
@@ -157,11 +158,49 @@ it.effect("rejects built-in layout changes but permits state updates", () => {
 		);
 
 		expect(updated.isDisabled).toBe(true);
+		expect(updated.layouts).toEqual(builtin.layouts);
 		assertExitFails(exit, new BadRequest({ message: "Cannot modify built-in saved views" }));
 		assertExitFails(
 			entitySchemaExit,
 			new BadRequest({ message: "Cannot modify built-in saved views" }),
 		);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("preserves omitted layouts when updating a non-built-in view", () => {
+	let stored: ListedSavedView | undefined;
+	const layer = makeServiceLayer(
+		makeRepository({
+			findBySlug: () => Effect.succeed(baseView),
+			updateBySlug: (_userId, _slug, data) =>
+				Effect.sync(() => {
+					const updated = {
+						...baseView,
+						...data,
+						pluginSlug: data.pluginSlug ?? null,
+						sortOrder: data.sortOrder ?? baseView.sortOrder,
+					};
+					stored = updated;
+					return updated;
+				}),
+		}),
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* SavedViewsService;
+		const updated = yield* service.update(user, baseView.slug, {
+			icon: "heart",
+			isDisabled: true,
+			name: "Updated View",
+		});
+
+		expect(updated).toMatchObject({
+			layouts,
+			icon: "heart",
+			isDisabled: true,
+			name: "Updated View",
+		});
+		expect(stored?.layouts).toEqual(layouts);
 	}).pipe(Effect.provide(layer));
 });
 
@@ -231,6 +270,52 @@ it.effect("updates and reorders while preserving each layout set", () => {
 		expect(updates).toEqual([
 			{ layouts, slug: "view-b", sortOrder: 0 },
 			{ layouts, slug: "view-a", sortOrder: 1 },
+		]);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("reorders only saved views in the requested scope", () => {
+	const views = [
+		{ ...baseView, slug: "global-a", sortOrder: 0 },
+		{ ...baseView, slug: "global-b", sortOrder: 1 },
+		{
+			...baseView,
+			sortOrder: 0,
+			slug: "plugin-a-view",
+			pluginSlug: PluginSlug.make("plugin-a"),
+		},
+	];
+	const updates: Array<{ slug: string; sortOrder?: number }> = [];
+	const layer = makeServiceLayer(
+		makeRepository({
+			listByUser: () => Effect.succeed(views),
+			findBySlug: (_userId, slug) =>
+				Effect.succeed(views.find((view) => view.slug === slug) ?? null),
+			updateBySlug: (_userId, slug, data) =>
+				Effect.sync(() => {
+					updates.push({
+						slug,
+						...(data.sortOrder === undefined ? {} : { sortOrder: data.sortOrder }),
+					});
+					return {
+						...baseView,
+						...data,
+						slug,
+						pluginSlug: data.pluginSlug ?? null,
+						sortOrder: data.sortOrder ?? baseView.sortOrder,
+					};
+				}),
+		}),
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* SavedViewsService;
+		expect(yield* service.reorder(user, { viewSlugs: ["global-b", "global-a"] })).toEqual({
+			viewSlugs: ["global-b", "global-a"],
+		});
+		expect(updates).toEqual([
+			{ slug: "global-b", sortOrder: 0 },
+			{ slug: "global-a", sortOrder: 1 },
 		]);
 	}).pipe(Effect.provide(layer));
 });
