@@ -1,5 +1,6 @@
 import { useRyot } from "@ryot-app/client-sdk/react";
 import { Button, Menu, type MenuItem } from "@ryot-app/client-ui-sdk";
+import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import { useSchemaForm, type SchemaFormValues } from "@ryot-app/client-ui-sdk/schema-form";
 import {
 	IntegrationNotFoundError,
@@ -28,7 +29,6 @@ import {
 } from "#/modules/integrations/provider-selection";
 import { integrationSaveFailure } from "#/modules/integrations/save-failure";
 import { INTEGRATION_RUNS_PAGE_SIZE, IntegrationsService } from "#/modules/integrations/service";
-import { AppIcon } from "#/modules/navigation/app-icon";
 import { SettingsFrame } from "#/modules/settings/settings-frame";
 import { DestructiveConfirmation } from "#/modules/ui/destructive-confirmation";
 import { isTerminalRunStatus } from "#/modules/ui/run/run-status";

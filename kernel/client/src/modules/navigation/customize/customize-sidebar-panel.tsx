@@ -1,6 +1,6 @@
+import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import clsx from "clsx";
 
-import { AppIcon } from "#/modules/navigation/app-icon";
 import { CustomizePanel } from "#/modules/navigation/customize/customize-panel";
 import type { CustomizeSection } from "#/modules/navigation/customize/customize-state";
 import type { CustomizeDraftState } from "#/modules/navigation/customize/use-customize-draft";

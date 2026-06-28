@@ -33,9 +33,17 @@ imports, which is why the `AppSchema` form stays on the `./schema-form` subpath:
 `@ryot-app/contract`, `effect`, and `@tanstack/react-form`, and re-exporting it from the root barrel
 would land that weight in every artifact instead of only in the plugins that render a schema form.
 
-For the same reason the schema form takes its upload transport as a `SchemaFileUpload` prop and
-components take icons as `ReactNode` props: the SDK knows nothing about servers, auth, or scopes,
-and owns no icon set.
+For the same reason the schema form takes its upload transport as a `SchemaFileUpload` prop: the SDK
+knows nothing about servers, auth, or scopes.
+
+`AppIcon` stays on the `./icon` subpath for the same weight reason. Its registry names every icon
+the product uses, so importing it pulls the whole set rather than the handful a screen renders, and
+re-exporting it from the root barrel would land that set in every artifact. Components here still
+take icons as `ReactNode` props and never import `AppIcon` themselves, which keeps the registry out
+of a plugin that renders no icon while leaving one shared icon vocabulary for the surfaces that do.
+Registering a name is what makes it available everywhere; an unregistered name renders a stable
+circle rather than nothing, so a call site never needs to reach for `lucide-react` or an inline
+`<svg>` of its own.
 
 ## Shortcuts And Overlays
 

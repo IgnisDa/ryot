@@ -6,6 +6,7 @@ import {
 	TextField,
 	type SelectChoice,
 } from "@ryot-app/client-ui-sdk";
+import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import type {
 	UpdateUserPreferencesBody,
 	UserPreferences,
@@ -13,7 +14,6 @@ import type {
 import { useForm } from "@tanstack/react-form";
 import { useState } from "react";
 
-import { AppIcon } from "#/modules/navigation/app-icon";
 import { makePreferenceDraft, preferencePayload } from "#/modules/settings/preference-draft";
 
 const CUSTOM_LANGUAGE = "custom";

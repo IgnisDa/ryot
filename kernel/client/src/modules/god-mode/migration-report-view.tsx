@@ -1,4 +1,5 @@
 import { Button } from "@ryot-app/client-ui-sdk";
+import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import clsx from "clsx";
 import { Exit } from "effect";
 import { useEffect, useEffectEvent, useState } from "react";
@@ -9,7 +10,6 @@ import {
 	migrationReportLevelPresentation,
 } from "#/modules/god-mode/migration-report";
 import type { GodModeMigrationReport } from "#/modules/god-mode/service";
-import { AppIcon } from "#/modules/navigation/app-icon";
 
 type MigrationReportEntry = GodModeMigrationReport["entries"][number];
 
