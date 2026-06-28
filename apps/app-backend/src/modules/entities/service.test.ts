@@ -31,13 +31,12 @@ const user = {
 const mockEntitiesRepository = Layer.mock(EntitiesRepository);
 
 const makeEntitiesRepository = (overrides: MockOverrides<typeof mockEntitiesRepository> = {}) =>
-	mockEntitiesRepository({ _tag: "EntitiesRepository", ...overrides });
+	mockEntitiesRepository({ ...overrides });
 
 const mockQueryEngine = Layer.mock(QueryEngineService);
 
 const makeQueryEngine = (overrides: MockOverrides<typeof mockQueryEngine> = {}) =>
 	mockQueryEngine({
-		_tag: "QueryEngineService",
 		validate: () => Effect.void.pipe(Effect.as(undefined)),
 		...overrides,
 	});
@@ -47,7 +46,7 @@ const makeServiceLayer = (
 	options: { queryEngine?: Layer.Layer<QueryEngineService> } = {},
 ) =>
 	Layer.mergeAll(
-		EntitiesService.Default.pipe(
+		EntitiesService.layer.pipe(
 			Layer.provide(
 				Layer.mergeAll(
 					dbRunnerLayer,
@@ -213,10 +212,10 @@ it.effect("does not reuse the bootstrap service with its no-op lifecycle dispatc
 			}),
 	});
 	const dependencies = Layer.mergeAll(dbRunnerLayer, makeQueryEngine(), repository);
-	const bootstrap = Layer.fresh(EntitiesService.Default).pipe(
+	const bootstrap = Layer.fresh(EntitiesService.layer).pipe(
 		Layer.provide(Layer.mergeAll(dependencies, LifecycleDispatchNoop)),
 	);
-	const runtime = EntitiesService.Default.pipe(
+	const runtime = EntitiesService.layer.pipe(
 		Layer.provide(
 			Layer.mergeAll(
 				dependencies,
