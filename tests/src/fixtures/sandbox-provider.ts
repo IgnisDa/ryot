@@ -1,6 +1,15 @@
 import { randomUUID } from "node:crypto";
 
+import type { ProviderInformation } from "@ryot/sandbox-sdk";
+import type {
+	ProviderDetailsResult,
+	ProviderSearchResult,
+	ProviderTranslateResult,
+} from "@ryot/sandbox-sdk/provider";
+
 import { getPgClient } from "../setup";
+import type { Client } from "./auth";
+import { createAndPromoteSandboxScript } from "./sandbox";
 
 export type SeededProviderScript = {
 	slug: string;
@@ -9,31 +18,44 @@ export type SeededProviderScript = {
 };
 
 export async function seedBuiltinProviderScript(input: {
-	code: string;
 	slug?: string;
 	name?: string;
+	client: Client;
+	drivers: FakeProviderDrivers;
 	linkToEntitySchemaId?: string;
-	metadata?: Record<string, unknown>;
+	providerInformation?: ProviderInformation;
 }): Promise<SeededProviderScript> {
 	const pg = getPgClient();
-	const scriptId = randomUUID();
-	const slug = input.slug ?? `e2e-provider-${scriptId}`;
+	const slug = input.slug ?? `e2e-provider-${randomUUID()}`;
 	const name = input.name ?? "E2E Provider Script";
-
-	await pg.query(
-		`insert into sandbox_script (id, slug, name, code, is_builtin, metadata, user_id)
-		 values ($1, $2, $3, $4, true, $5::jsonb, null)`,
-		[scriptId, slug, name, input.code, JSON.stringify(input.metadata ?? {})],
+	const script = await createAndPromoteSandboxScript(
+		input.client,
+		providerSandboxSource({
+			name,
+			slug,
+			drivers: input.drivers,
+			providerInformation: input.providerInformation ?? { source: "e2e" },
+		}),
 	);
+	const scriptId = script.id;
 
 	let entitySchemaScriptId: string | null = null;
 	if (input.linkToEntitySchemaId) {
 		entitySchemaScriptId = randomUUID();
-		await pg.query(
-			`insert into entity_schema_sandbox_script (id, entity_schema_id, sandbox_script_id)
-			 values ($1, $2, $3)`,
-			[entitySchemaScriptId, input.linkToEntitySchemaId, scriptId],
-		);
+		try {
+			await pg.query(
+				`insert into entity_schema_sandbox_script (id, entity_schema_id, sandbox_script_id)
+				 values ($1, $2, $3)`,
+				[entitySchemaScriptId, input.linkToEntitySchemaId, scriptId],
+			);
+		} catch (error) {
+			await pg
+				.query(`delete from sandbox_script where id = $1`, [scriptId])
+				.catch((cleanupError) => {
+					console.error("[sandbox-provider] failed link cleanup", cleanupError);
+				});
+			throw error;
+		}
 	}
 
 	return { slug, scriptId, entitySchemaScriptId };
@@ -61,14 +83,12 @@ export async function cleanupBuiltinProviderScript(seeded: SeededProviderScript)
 	}
 }
 
-export type FakeSearchItem = {
-	title: string;
-	externalId: string;
-	subtitle?: number | null;
-};
+type FakeSearchItem = { title: string; externalId: string; subtitle?: number | null };
 
-export function searchDriverCode(items: ReadonlyArray<FakeSearchItem>): string {
-	const result = {
+export function fakeProviderSearchResult(
+	items: ReadonlyArray<FakeSearchItem>,
+): ProviderSearchResult {
+	return {
 		items: items.map((item) => ({
 			externalId: item.externalId,
 			titleProperty: { kind: "text", value: item.title },
@@ -82,48 +102,90 @@ export function searchDriverCode(items: ReadonlyArray<FakeSearchItem>): string {
 					}),
 		})),
 	};
-	return `driver("search", async function () { return ${JSON.stringify(result)}; });`;
 }
 
-export type FakeRelatedEntity = {
-	name: string;
-	externalId: string;
-	scriptSlug: string;
-	relationshipProperties?: Record<string, unknown>;
-};
-
-export type FakeRelatedEntityGroup = {
-	relationshipSchemaSlug: string;
-	direction: "incoming" | "outgoing";
-	entities: ReadonlyArray<FakeRelatedEntity>;
-	synchronization: "authoritative" | "additive";
-};
-
-export function detailsDriverCode(result: {
-	name: string;
-	properties?: Record<string, unknown>;
-	relatedEntityGroups?: ReadonlyArray<FakeRelatedEntityGroup>;
-}): string {
-	const payload = {
+export function fakeProviderDetailsResult(
+	result: Pick<ProviderDetailsResult, "name"> &
+		Partial<Pick<ProviderDetailsResult, "properties" | "relatedEntityGroups">>,
+): ProviderDetailsResult {
+	return {
 		name: result.name,
 		properties: result.properties ?? {},
 		...(result.relatedEntityGroups ? { relatedEntityGroups: result.relatedEntityGroups } : {}),
 	};
-	return `driver("details", async function () { return ${JSON.stringify(payload)}; });`;
 }
 
-export function translateDriverCode(
-	translations: Record<
-		string,
-		{ name?: string | null; properties?: Record<string, unknown> | null }
-	>,
-): string {
-	return `driver("translate", async function (context) {
-	var translations = ${JSON.stringify(translations)};
-	var language = context && context.language;
-	if (language && Object.prototype.hasOwnProperty.call(translations, language)) {
-		return translations[language];
+export function fakeProviderTranslations(
+	translations: Record<string, ProviderTranslateResult>,
+): Readonly<Record<string, ProviderTranslateResult>> {
+	return translations;
+}
+
+export type FakeProviderDrivers = {
+	readonly details?: ProviderDetailsResult;
+	readonly search?: ProviderSearchResult;
+	readonly translations?: Readonly<Record<string, ProviderTranslateResult>>;
+};
+
+export function providerSandboxSource(input: {
+	readonly name: string;
+	readonly slug: string;
+	readonly drivers: FakeProviderDrivers;
+	readonly providerInformation: ProviderInformation;
+}) {
+	const declarations: string[] = [];
+	const driverEntries: string[] = [];
+	const providerImports = ["defineProvider", "defineProviderDriver"];
+
+	if (input.drivers.search) {
+		providerImports.push("providerSearchResultSchema");
+		declarations.push(`const searchResult = providerSearchResultSchema.parse(JSON.parse(${JSON.stringify(
+			JSON.stringify(input.drivers.search),
+		)}));
+const search = defineProviderDriver(manifest, "search", async () => searchResult);`);
+		driverEntries.push("search");
 	}
-	return {};
-});`;
+	if (input.drivers.details) {
+		providerImports.push("providerDetailsResultSchema");
+		declarations.push(`const detailsResult = providerDetailsResultSchema.parse(JSON.parse(${JSON.stringify(
+			JSON.stringify(input.drivers.details),
+		)}));
+const details = defineProviderDriver(manifest, "details", async () => detailsResult);`);
+		driverEntries.push("details");
+	}
+	if (input.drivers.translations) {
+		providerImports.push("providerTranslateResultSchema");
+		declarations.push(`const translations = z.record(z.string(), providerTranslateResultSchema).parse(
+  JSON.parse(${JSON.stringify(JSON.stringify(input.drivers.translations))}),
+);
+const translate = defineProviderDriver(manifest, "translate", async ({ language }) =>
+  translations[language] ?? {},
+);`);
+		driverEntries.push("translate");
+	}
+	if (driverEntries.length === 0) {
+		throw new Error("Fake provider requires at least one driver");
+	}
+
+	return `
+import { defineManifest } from "@ryot/sandbox-sdk";
+import { ${providerImports.join(", ")} } from "@ryot/sandbox-sdk/provider";
+import * as z from "@ryot/sandbox-sdk/zod";
+
+export const manifest = defineManifest({
+  kind: "provider",
+  name: ${JSON.stringify(input.name)},
+  slug: ${JSON.stringify(input.slug)},
+  capabilities: [],
+  requiredAppConfigKeys: [],
+  providerInformation: ${JSON.stringify(input.providerInformation)},
+});
+
+${declarations.join("\n\n")}
+
+export default defineProvider({
+  manifest,
+  drivers: { ${driverEntries.join(", ")} },
+});
+`;
 }
