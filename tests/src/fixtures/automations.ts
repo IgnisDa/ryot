@@ -1,4 +1,10 @@
-import { AutomationRuleId, EntityId, SignalSchemaId, UserId } from "@ryot/contract/schema/brands";
+import {
+	AutomationRuleId,
+	EntityId,
+	SignalId,
+	SignalSchemaId,
+	UserId,
+} from "@ryot/contract/schema/brands";
 
 import { getPgClient } from "~/setup";
 
@@ -98,35 +104,31 @@ export function pollSignalWithRecipientCount(
 	);
 }
 
-export async function querySubscriptionRunStatuses(input: {
-	executionUserId: string;
-	signalId?: string;
-}) {
-	const params: unknown[] = [input.executionUserId];
-	const conditions = ["execution_user_id = $1"];
-	if (input.signalId) {
-		params.push(input.signalId);
-		conditions.push(`signal_id = $${params.length}`);
-	}
-	const result = await getPgClient().query<{ status: string }>(
-		`select status from subscription_run where ${conditions.join(" and ")}`,
-		params,
+export function listSubscriptionRuns(input: { executionUserId: string; signalId?: string }) {
+	return getBackendClient().run(
+		(c) =>
+			c.testSupport.listSubscriptionRuns({
+				payload: {
+					executionUserId: UserId.make(input.executionUserId),
+					signalId: input.signalId ? SignalId.make(input.signalId) : undefined,
+				},
+			}),
+		adminHeaders,
 	);
-	return result.rows.map((row) => row.status);
 }
 
 const terminalRunStatuses = new Set(["succeeded", "failed", "skipped"]);
 
-export function pollTerminalSubscriptionRunStatuses(
+export function pollTerminalSubscriptionRuns(
 	input: { executionUserId: string; signalId?: string },
 	options: PollOptions = {},
 ) {
 	return pollUntil(
 		`terminal subscription run(s) for user '${input.executionUserId}'`,
 		async () => {
-			const statuses = await querySubscriptionRunStatuses(input);
-			return statuses.length > 0 && statuses.every((status) => terminalRunStatuses.has(status))
-				? statuses
+			const runs = await listSubscriptionRuns(input);
+			return runs.length > 0 && runs.every((run) => terminalRunStatuses.has(run.status))
+				? runs
 				: null;
 		},
 		options,
