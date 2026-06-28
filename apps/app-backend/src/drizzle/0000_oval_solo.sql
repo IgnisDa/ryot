@@ -198,7 +198,6 @@ CREATE TABLE "notification_channel" (
 	"platform" text NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"platform_specifics" jsonb NOT NULL,
-	"configured_events" text[] NOT NULL,
 	"user_id" text NOT NULL,
 	"id" text PRIMARY KEY NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
