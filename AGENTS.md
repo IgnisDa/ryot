@@ -4,7 +4,7 @@
 
 - **Monorepo**: Uses `turbo`. All frontend commands must use `turbo`.
 - **GitHub**: Use `gh` CLI; raw API only when `gh` doesn't support it.
-- **Dependencies**: `cd <app> && bun add -E` (exact versions, no ranges).
+- **Dependencies**: `cd <app> && bun add` (bun pins exact versions by default).
 - **Bash paths**: Always quote with single quotes (e.g., `git add 'path/file.ts'`).
 - **Linting and Formatting**: `bun turbo --filter=@ryot/app-backend check`.
 
@@ -14,7 +14,7 @@ Do not add functionality, abstractions, or generalization the user has not expli
 
 ## Coding Standards
 
-- **Type safety**: Prefer `z.infer`, `Pick`, `Omit`, `ReturnType`, and indexed access types over parallel hand-written interfaces. Zod schemas are the source of truth.
+- **Type safety**: Prefer `z.infer` / `Schema.Schema.Type`, `Pick`, `Omit`, `ReturnType`, and indexed access types over parallel hand-written interfaces. The package's schema library (Zod for frontend packages, Effect Schema for `app-backend` and `@ryot/contract`) is the source of truth.
 - **Pattern matching**: Prefer `match` from `ts-pattern` over `switch`.
 - **Pattern discovery**: Before writing new code, launch an `explore` subagent to find existing patterns to replicate. `explore` subagents should be used only for discovery, not for any decision making. They should not create any files.
 - **Dates**: Prefer `dayjs` from `@ryot/ts-utils`. Avoid manual `Date` handling.
