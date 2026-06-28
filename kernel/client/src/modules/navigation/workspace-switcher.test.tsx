@@ -126,7 +126,7 @@ describe("workspace switcher", () => {
 		fireEvent.keyDown(document, { key: " ", ctrlKey: true, shiftKey: true });
 		expect(screen.getByRole("menu")).toBeTruthy();
 		expect(trigger.getAttribute("aria-keyshortcuts")).toBe("Mod+Shift+Space");
-		expect(screen.getByText("Mod+Shift+Space")).toBeTruthy();
+		expect(screen.getByText("⌘⇧Space")).toBeTruthy();
 	});
 
 	it("does not register the desktop shortcut when it is not enabled", () => {
