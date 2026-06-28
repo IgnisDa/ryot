@@ -116,7 +116,7 @@ for (const targetScope of scopes) {
 				const layer = makeLayer(
 					makeRepository({
 						findTargetScope: () => Effect.succeed(targetScope.value),
-						findScriptScope: () => Effect.succeed(scriptScope.value),
+						findScriptScope: () => Effect.succeed({ ...scriptScope.value, capabilities: [] }),
 						insertRule: (input) =>
 							allowed
 								? Effect.succeed(storedRuleFromInsert(input))
@@ -175,7 +175,7 @@ it.effect("seeds an unchanged built-in rule idempotently", () => {
 			insertRule: () => Effect.die("unexpected insert"),
 			updateBuiltin: () => Effect.die("unexpected update"),
 			findTargetScope: () => Effect.succeed({ userId: null, isBuiltin: true }),
-			findScriptScope: () => Effect.succeed({ userId: null, isBuiltin: true }),
+			findScriptScope: () => Effect.succeed({ userId: null, isBuiltin: true, capabilities: [] }),
 		}),
 	);
 
@@ -191,7 +191,7 @@ it.effect("requires global built-in references for built-in rules", () => {
 	const layer = makeLayer(
 		makeRepository({
 			findTargetScope: () => Effect.succeed({ userId, isBuiltin: false }),
-			findScriptScope: () => Effect.succeed({ userId: null, isBuiltin: true }),
+			findScriptScope: () => Effect.succeed({ userId: null, isBuiltin: true, capabilities: [] }),
 		}),
 	);
 
@@ -203,6 +203,28 @@ it.effect("requires global built-in references for built-in rules", () => {
 			Exit.fail(
 				new BadRequest({
 					message: "Built-in rules require built-in global targets and scripts",
+				}),
+			),
+		);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("rejects a global built-in rule backed by a notification script", () => {
+	const layer = makeLayer(
+		makeRepository({
+			findTargetScope: () => Effect.succeed({ userId: null, isBuiltin: true }),
+			findScriptScope: () =>
+				Effect.succeed({ userId: null, isBuiltin: true, capabilities: ["sendNotification"] }),
+		}),
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* AutomationsService;
+		const { userId: _userId, ...builtin } = definition;
+		expect(yield* Effect.exit(service.ensureBuiltin(builtin))).toEqual(
+			Exit.fail(
+				new BadRequest({
+					message: "Global built-in rules cannot use sendNotification scripts",
 				}),
 			),
 		);
@@ -393,7 +415,7 @@ it.effect("resolves user, row-owner, and system execution principals", () => {
 			makeRepository({
 				findRunById: () => Effect.succeed(null),
 				lockActiveSubscription: () => Effect.succeed(rule),
-				findScriptScope: () => Effect.succeed({ userId: null, isBuiltin: true }),
+				findScriptScope: () => Effect.succeed({ userId: null, isBuiltin: true, capabilities: [] }),
 				insertRun: (input) => {
 					executionUserId = input.executionUserId;
 					return Effect.succeed(storedRunFromInsert(input));

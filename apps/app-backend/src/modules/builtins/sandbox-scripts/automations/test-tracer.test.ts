@@ -10,6 +10,7 @@ const input = {
 		operation: "signal",
 		origin: { kind: "api" },
 		occurrenceId: "signal-1",
+		occurredAt: "2026-07-20T10:00:00.000Z",
 		source: {
 			kind: "signal",
 			signal: {
@@ -23,11 +24,33 @@ const input = {
 	},
 } as const satisfies AutomationInput;
 
-it("returns stable tracer identifiers from automation context", () =>
-	runSandboxTestDriver(definition.drivers.automation, input, defineSandboxTestHost(manifest, {}), {
-		metadata: {},
-		sandboxScriptId: "script-1",
-	}).then((result) => {
-		expect(result).toEqual({ ruleId: "rule-1", occurrenceId: "signal-1" });
+it("emits a deterministic actor signal from the occurrence", () => {
+	const calls: unknown[] = [];
+	return runSandboxTestDriver(
+		definition.drivers.automation,
+		input,
+		defineSandboxTestHost(manifest, {
+			emitSignal: (request) => {
+				calls.push(request);
+				return Promise.resolve({
+					success: true,
+					data: { signalId: "signal-2", wasCreated: true },
+				});
+			},
+		}),
+		{ metadata: {}, sandboxScriptId: "script-1" },
+	).then((result) => {
+		expect(result).toEqual({
+			success: true,
+			data: { signalId: "signal-2", wasCreated: true },
+		});
+		expect(calls).toEqual([
+			{
+				discriminator: "signal-1",
+				properties: { message: "trace" },
+				schemaSlug: "automation.test-emitted",
+			},
+		]);
 		return undefined;
-	}));
+	});
+});
