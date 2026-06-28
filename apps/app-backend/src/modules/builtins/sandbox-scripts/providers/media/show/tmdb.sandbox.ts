@@ -2,7 +2,6 @@ import { defineDriver, defineManifest } from "@ryot/sandbox-sdk";
 import { defineProvider, defineProviderDriver } from "@ryot/sandbox-sdk/provider";
 import * as z from "@ryot/sandbox-sdk/zod";
 
-import { getTmdbShowDetails } from "./tmdb-details";
 import {
 	fetchTrendingItems,
 	getImageUrl,
@@ -13,7 +12,8 @@ import {
 	recordsValue,
 	stringValue,
 	tmdbGet,
-} from "./tmdb-shared";
+} from "../../tmdb-shared";
+import { getTmdbShowDetails } from "./tmdb-details";
 import { translateTmdbShow } from "./tmdb-translation";
 
 export const manifest = defineManifest({
@@ -121,7 +121,13 @@ export const trending = defineDriver(manifest, {
 	run: (_input, host) =>
 		getTmdbAccessToken(host)
 			.then((token) =>
-				fetchTrendingItems(host, manifest.providerInformation.canonicalLanguage, token),
+				fetchTrendingItems(
+					host,
+					"/trending/tv/day",
+					manifest.providerInformation.canonicalLanguage,
+					token,
+					{ scriptSlug: manifest.slug, nameKeys: ["name", "original_name"] },
+				),
 			)
 			.then((items) => ({ items })),
 });
