@@ -209,6 +209,23 @@ describe("OIDC sign-in happy path (Backend A)", () => {
 		const sessionCookie = await oidcSignIn(requireMockOidcServer(), username, getBackendUrlA());
 		expect(await listTrackerCount(getBackendUrlA(), sessionCookie)).toBeGreaterThan(0);
 	});
+
+	it("first-time OIDC sign-in bootstraps the user with the default notification rules", async () => {
+		const username = `user-${crypto.randomUUID()}`;
+		const sessionCookie = await oidcSignIn(requireMockOidcServer(), username, getBackendUrlA());
+
+		const client = makeSession(getBackendUrlA());
+		const headers = { Cookie: sessionCookie };
+		const [catalog, rules] = await Promise.all([
+			client.run((c) => c.automations.listCatalog(), headers),
+			client.run((c) => c.automations.listRules(), headers),
+		]);
+		expect(rules).toHaveLength(catalog.length);
+		expect(rules.map((rule) => rule.signalSchema.id).sort()).toEqual(
+			catalog.map((schema) => schema.id).sort(),
+		);
+		expect(rules.every((rule) => rule.isActive)).toBe(true);
+	});
 });
 
 describe("OIDC idempotency (Backend A)", () => {

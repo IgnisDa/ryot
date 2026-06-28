@@ -2,7 +2,35 @@ import { EntityId } from "@ryot/contract/schema/brands";
 
 import { getPgClient } from "~/setup";
 
+import { adminHeaders } from "./admin";
 import type { Client } from "./auth";
+import { getBackendClient } from "./contract-client";
+import { pollUntil } from "./polling";
+
+export const waitForMediaMonitoringRefresh = (executionId: string) =>
+	pollUntil("media monitoring refresh workflow completion", async () => {
+		const result = await getPgClient().query<{ complete: boolean }>(
+			`select exists (
+				select 1
+				from cluster_messages m
+				inner join cluster_replies r on r.request_id = m.id
+				where m.entity_type = 'Workflow/MediaMonitoringRefreshWorkflow'
+				  and m.tag = 'run'
+				  and m.payload like ('%' || $1 || '%')
+				  and r.payload not like '%Suspended%'
+			) as complete`,
+			[executionId],
+		);
+		return result.rows[0]?.complete ? true : null;
+	});
+
+export async function triggerCronAndWaitForEntity(entityId: string) {
+	const result = await getBackendClient().run(
+		(c) => c.testSupport.triggerInfrequentCron(),
+		adminHeaders,
+	);
+	await waitForMediaMonitoringRefresh(`${result.executionId}-${entityId}`);
+}
 
 export const getMediaMonitoringStatus = (client: Client, entityId: string) =>
 	client.run((contract) =>

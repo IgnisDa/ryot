@@ -14,13 +14,24 @@ describe("GET /system/config auth block defaults", () => {
 });
 
 describe("Email sign-up", () => {
-	it("bootstraps a new user with tracker rows after sign-up", async () => {
+	it("bootstraps a new user with tracker rows and default notification rules after sign-up", async () => {
 		const { cookies } = await createTestUser();
+		const headers = { Cookie: cookies };
 		const trackers = await getBackendClient().run(
 			(c) => c.trackers.list({ urlParams: { includeDisabled: true } }),
-			{ Cookie: cookies },
+			headers,
 		);
 		expect(trackers.length).toBeGreaterThan(0);
+
+		const [catalog, rules] = await Promise.all([
+			getBackendClient().run((c) => c.automations.listCatalog(), headers),
+			getBackendClient().run((c) => c.automations.listRules(), headers),
+		]);
+		expect(rules).toHaveLength(catalog.length);
+		expect(rules.map((rule) => rule.signalSchema.id).sort()).toEqual(
+			catalog.map((schema) => schema.id).sort(),
+		);
+		expect(rules.every((rule) => rule.isActive)).toBe(true);
 	});
 
 	it("returns an error for a duplicate email sign-up", async () => {
