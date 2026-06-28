@@ -186,6 +186,7 @@ both limits and fan out those independent child executions under the global sand
 | Script context / runner request / final result        | 256 KiB / 2 MiB / 1 MiB       |
 | Workflow context / durable calls / final result       | 64 KiB / 1,000 / 4 MiB        |
 | Bridge request / response                             | 1 MiB / 10 MiB                |
+| Concurrent in-flight host calls per execution         | 4                             |
 | Host calls / `httpCall` calls per execution           | 200 / 50                      |
 | HTTP request / streamed response body                 | 1 MiB / 10 MiB                |
 | Log entry / count / total                             | 8 KiB / 500 / 256 KiB         |
@@ -193,3 +194,8 @@ both limits and fan out those independent child executions under the global sand
 | Cache key / value / TTL                               | 256 bytes / 256 KiB / 30 days |
 
 The compiler supervisor samples proportional set size for the Bun worker and its TypeScript descendants in the Linux production image. This avoids double-counting shared pages but is a sampled process supervisor, not a cgroup hard ceiling. Non-Linux development retains the process, timeout, and concurrency boundaries without claiming a portable memory ceiling; Bun's `--smol` flag reduces baseline memory but is not treated as enforcement.
+
+Each active bridge session owns its concurrency permits. Calls beyond the in-flight limit wait within
+that session while cumulative host-call and `httpCall` budgets continue counting independently.
+Session removal interrupts active and queued calls; permit release remains safe across success,
+failure, defects, timeout, and cancellation.
