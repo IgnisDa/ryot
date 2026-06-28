@@ -2,9 +2,9 @@
 
 ## Tasks
 
-**Overall Progress:** 9 of 18 tasks completed
+**Overall Progress:** 10 of 18 tasks completed
 
-**Current Task:** [Task 10](./10-content-addressed-disk-modules.md) (todo)
+**Current Task:** [Task 11](./11-per-execution-host-call-concurrency.md) (todo)
 
 ### Task List
 
@@ -19,7 +19,7 @@
 | 07  | [Domain-Neutral Operational Gate](./07-domain-neutral-operational-gate.md)                    | done   |
 | 08  | [Registry Trust and Provenance Simplification](./08-registry-trust-provenance.md)             | done   |
 | 09  | [Effect-Only Authoring Boundary](./09-effect-only-authoring-boundary.md)                      | done   |
-| 10  | [Content-Addressed Disk Modules](./10-content-addressed-disk-modules.md)                      | todo   |
+| 10  | [Content-Addressed Disk Modules](./10-content-addressed-disk-modules.md)                      | done   |
 | 11  | [Per-Execution Host-Call Concurrency](./11-per-execution-host-call-concurrency.md)            | todo   |
 | 12  | [Sandbox and Database Limit Retuning](./12-sandbox-database-limit-retuning.md)                | todo   |
 | 13  | [Race-Safe Resolution and Uninstall Fencing](./13-race-safe-resolution-uninstall.md)          | todo   |
