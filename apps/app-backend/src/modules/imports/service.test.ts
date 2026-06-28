@@ -301,6 +301,39 @@ it.effect("rejects an undeclared file source", () => {
 	}).pipe(Effect.provide(layer));
 });
 
+it.effect("rejects an undeclared artifact token before claiming uploads or starting work", () => {
+	const layer = makeServiceLayer(
+		makeImportsRepository(),
+		Layer.mergeAll(
+			makeImportSourceCatalog(goodreadsSource()),
+			mockUploadsService({
+				_tag: "UploadsService",
+				claimUploadToken: () => Effect.die("upload token must not be claimed"),
+			}),
+			Layer.succeed(
+				WorkflowEngine,
+				makeWorkflowEngine({ execute: () => Effect.die("workflow must not start") }),
+			),
+		),
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* ImportsService;
+
+		const error = yield* Effect.flip(
+			service.startImportRun(user, {
+				source: "goodreads",
+				uploadToken: "tok_goodreads",
+				historyUploadToken: "tok_history",
+			}),
+		);
+
+		expect(error.message).toBe(
+			"Import source does not declare upload token field: historyUploadToken",
+		);
+	}).pipe(Effect.provide(layer));
+});
+
 it.effect("rejects a registry source whose declared plugin config keys are unset", () => {
 	const layer = makeServiceLayer(
 		makeImportsRepository(),
@@ -344,11 +377,11 @@ it.effect("queues a payload run when the registry declares the source as payload
 		makeImportsRepository(),
 		Layer.mergeAll(
 			makeImportSourceCatalog({
+				configSchema,
 				input: "payload",
 				slug: "goodreads",
 				name: "Goodreads",
 				pluginSlug: "media",
-				configSchema,
 				requiredPluginConfigKeys: [],
 				description: "Goodreads account",
 				workflowSlug: "goodreads-import",
@@ -369,9 +402,7 @@ it.effect("queues a payload run when the registry declares the source as payload
 	return Effect.gen(function* () {
 		const service = yield* ImportsService;
 
-		expect(
-			yield* service.startImportRun(user, { source: "goodreads", uploadToken: "tok_goodreads" }),
-		).toEqual({ id: "run-1" });
+		expect(yield* service.startImportRun(user, { source: "goodreads" })).toEqual({ id: "run-1" });
 
 		const [options] = executed;
 		assert(options !== undefined);
