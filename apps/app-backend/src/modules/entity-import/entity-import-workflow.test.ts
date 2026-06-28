@@ -2261,6 +2261,13 @@ it.effect("dispatches only material nested entity updates with the root populati
 		id: EntityId.make("season-1"),
 		entitySchemaId: EntitySchemaId.make("schema-season"),
 	};
+	const secondSeasonEntity = {
+		...seasonEntity,
+		name: "Season 2",
+		externalId: "season-2",
+		properties: { seasonNumber: 2 },
+		id: EntityId.make("season-2"),
+	};
 	const episodeBefore = {
 		...baseEntity,
 		name: "Pilot",
@@ -2327,6 +2334,13 @@ it.effect("dispatches only material nested entity updates with the root populati
 								},
 							],
 						},
+						{
+							name: "Season 2",
+							childEntities: [],
+							externalId: "season-2",
+							properties: { seasonNumber: 2 },
+							entitySchemaSlug: "show-season",
+						},
 					],
 				},
 			}),
@@ -2347,6 +2361,9 @@ it.effect("dispatches only material nested entity updates with the root populati
 			upsertResult: (input) => {
 				if (input.externalId === "season-1") {
 					return Effect.succeed(noop(seasonEntity, "show-season"));
+				}
+				if (input.externalId === "season-2") {
+					return Effect.succeed(noop(secondSeasonEntity, "show-season"));
 				}
 				if (input.externalId === "episode-1") {
 					return Effect.succeed({
@@ -2376,8 +2393,10 @@ it.effect("dispatches only material nested entity updates with the root populati
 		payload.executionId,
 		Effect.gen(function* () {
 			yield* runProviderEntityPopulationWorkflow(payload, payload.executionId);
-			expect(dispatched).toHaveLength(1);
-			expect(dispatched[0]).toMatchObject({
+			expect(dispatched).toHaveLength(4);
+			const entityDispatch = dispatched.find(({ source }) => source.kind === "entity");
+			assert(entityDispatch);
+			expect(entityDispatch).toMatchObject({
 				operation: "update",
 				recordId: "episode-1",
 				origin: { kind: "provider_refresh" },
@@ -2392,6 +2411,43 @@ it.effect("dispatches only material nested entity updates with the root populati
 					scopeEntity: { id: "show-1", name: "Severance", entitySchemaSlug: "show" },
 				},
 			});
+			const relationshipDispatches = dispatched.filter(
+				({ source }) => source.kind === "relationship",
+			);
+			const seasonDispatches = relationshipDispatches.filter(
+				({ source }) =>
+					source.kind === "relationship" &&
+					source.after?.relationshipSchemaSlug === "show-to-show-season",
+			);
+			expect(seasonDispatches).toHaveLength(2);
+			expect(seasonDispatches.filter(({ population }) => population?.batch?.isLeader)).toHaveLength(
+				1,
+			);
+			expect(new Set(seasonDispatches.map(({ population }) => population?.batch?.id)).size).toBe(1);
+			for (const dispatch of seasonDispatches) {
+				expect(dispatch.population?.batch).toMatchObject({
+					afterCount: 2,
+					beforeCount: 0,
+					createdCount: 2,
+					deletedCount: 0,
+					updatedCount: 0,
+				});
+			}
+			const episodeDispatch = relationshipDispatches.find(
+				({ source }) =>
+					source.kind === "relationship" &&
+					source.after?.relationshipSchemaSlug === "show-season-to-show-episode",
+			);
+			assert(episodeDispatch);
+			expect(episodeDispatch.population?.batch).toMatchObject({
+				isLeader: true,
+				afterCount: 1,
+				beforeCount: 0,
+				createdCount: 1,
+				deletedCount: 0,
+				updatedCount: 0,
+			});
+			expect(new Set(relationshipDispatches.map(({ occurrenceId }) => occurrenceId)).size).toBe(3);
 		}),
 	);
 });

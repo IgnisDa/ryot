@@ -63,6 +63,16 @@ const formatMessage = (signal: AutomationSignalSnapshot) => {
 	if (signal.signalSchemaSlug === "media.content-count.changed") {
 		return `Number of ${stringProperty(signal.properties, "contentType")} changed from ${numberProperty(signal.properties, "oldCount")} to ${numberProperty(signal.properties, "newCount")} for ${stringProperty(signal.properties, "entityName")}`;
 	}
+	if (signal.signalSchemaSlug === "media.season-count.changed") {
+		return `Number of seasons changed from ${numberProperty(signal.properties, "oldCount")} to ${numberProperty(signal.properties, "newCount")} for ${stringProperty(signal.properties, "entityName")}`;
+	}
+	if (signal.signalSchemaSlug === "media.episode.discovered") {
+		const seasonNumber = optionalNumberProperty(signal.properties, "seasonNumber");
+		const scope = seasonNumber === null ? "" : ` in season ${seasonNumber}`;
+		const discoveredCount = numberProperty(signal.properties, "discoveredCount");
+		const episodes = discoveredCount === 1 ? "episode" : "episodes";
+		return `${discoveredCount} new ${episodes} discovered${scope} for ${stringProperty(signal.properties, "entityName")}`;
+	}
 	if (signal.signalSchemaSlug === "media.release-date.changed") {
 		const entityName = stringProperty(signal.properties, "entityName");
 		if (stringProperty(signal.properties, "changeKind") === "publish_year") {

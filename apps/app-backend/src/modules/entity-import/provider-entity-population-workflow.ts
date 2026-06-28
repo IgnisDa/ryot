@@ -7,6 +7,7 @@ import type {
 	ProviderDetailsChildEntity,
 	ProviderDetailsRelatedEntityGroup,
 } from "@ryot/sandbox-sdk/provider";
+import { stableStringify } from "@ryot/ts-utils/json";
 import { asRecord } from "@ryot/ts-utils/predicates";
 import { Cause, DateTime, Effect, Schedule, Schema } from "effect";
 
@@ -19,7 +20,11 @@ import {
 import { ProviderEntitySaveResult } from "#modules/entities/mutation-outcomes";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
-import { RelationshipMutationOutcomes } from "#modules/relationships/mutation-outcomes";
+import {
+	RelationshipMutationOutcomes,
+	type RelationshipMutationOutcome,
+	type RelationshipMutationSnapshot,
+} from "#modules/relationships/mutation-outcomes";
 import {
 	ProviderDetailsChildEntitySchema,
 	ProviderDetailsRelatedEntityGroupSchema,
@@ -71,6 +76,11 @@ type ChildEntitySetScope = {
 const ProviderEntitySaveEnvelope = Schema.Struct({
 	committedAt: Schema.String,
 	result: ProviderEntitySaveResult,
+});
+
+const RelationshipSyncEnvelope = Schema.Struct({
+	committedAt: Schema.String,
+	outcomes: RelationshipMutationOutcomes,
 });
 
 const checkExistingEntity = Effect.fn("checkExistingEntity")(function* (
@@ -159,13 +169,16 @@ const syncRelatedEntityGroupScope = Effect.fn("syncProviderRelatedEntityGroupSco
 
 	return yield* Activity.make({
 		error: SandboxRunError,
-		success: RelationshipMutationOutcomes,
+		success: RelationshipSyncEnvelope,
 		name: `sync-related-entity-group:${index}:${group.relationshipSchemaSlug}`,
 		execute: runInTransaction(
-			syncRelatedEntityGroup({
-				group,
-				primaryEntityId: entity.id,
-				primaryEntitySchemaId: payload.entitySchemaId,
+			Effect.gen(function* () {
+				const outcomes = yield* syncRelatedEntityGroup({
+					group,
+					primaryEntityId: entity.id,
+					primaryEntitySchemaId: payload.entitySchemaId,
+				});
+				return { outcomes, committedAt: (yield* DateTime.nowAsDate).toISOString() };
 			}),
 		).pipe(
 			dieOnDbError,
@@ -266,6 +279,31 @@ const toLifecycleSnapshot = (snapshot: ProviderEntitySaveResult["outcome"]["afte
 	properties: asRecord(snapshot.properties) ?? {},
 });
 
+const toLifecycleRelationshipSnapshot = (snapshot: RelationshipMutationSnapshot) => ({
+	id: snapshot.id,
+	source: snapshot.sourceEntity,
+	target: snapshot.targetEntity,
+	relationshipSchemaId: snapshot.relationshipSchemaId,
+	properties: asRecord(snapshot.properties) ?? {},
+	relationshipSchemaSlug: snapshot.relationshipSchemaSlug,
+});
+
+const deterministicId = (prefix: string, parts: ReadonlyArray<string>) =>
+	`${prefix}_${new Bun.CryptoHasher("sha256").update(stableStringify(parts)).digest("base64url")}`;
+
+const relationshipSnapshot = (outcome: RelationshipMutationOutcome) =>
+	outcome.after ?? outcome.before;
+
+const relationshipMutationIdentity = (outcome: RelationshipMutationOutcome) => {
+	const snapshot = relationshipSnapshot(outcome);
+	return stableStringify([
+		snapshot.relationshipSchemaId,
+		snapshot.sourceEntity.id,
+		snapshot.targetEntity.id,
+		outcome.operation,
+	]);
+};
+
 const dispatchEntityMutation = Effect.fn("dispatchProviderEntityMutation")(function* (input: {
 	phase: string;
 	committedAt: string;
@@ -297,6 +335,75 @@ const dispatchEntityMutation = Effect.fn("dispatchProviderEntityMutation")(funct
 		.pipe(Effect.mapError((error) => new SandboxRunError({ message: error.message })));
 });
 
+const dispatchRelationshipSync = Effect.fn("dispatchProviderRelationshipSync")(function* (input: {
+	committedAt: string;
+	executionId: string;
+	anchorEntityId: EntityId;
+	direction: "incoming" | "outgoing";
+	origin: EntityImportPayload["origin"];
+	outcomes: ReadonlyArray<RelationshipMutationOutcome>;
+	population: Omit<LifecyclePopulationContext, "batch">;
+}) {
+	const material = input.outcomes.filter((outcome) => outcome.operation !== "noop");
+	if (material.length === 0) {
+		return;
+	}
+	const [firstOutcome] = material;
+	if (!firstOutcome) {
+		return;
+	}
+	const first = relationshipSnapshot(firstOutcome);
+	const leaderIdentity = material.reduce((leader, outcome) => {
+		const identity = relationshipMutationIdentity(outcome);
+		return identity < leader ? identity : leader;
+	}, relationshipMutationIdentity(firstOutcome));
+	const batchId = deterministicId("relationship_batch", [
+		input.executionId,
+		first.relationshipSchemaId,
+		input.direction,
+		input.anchorEntityId,
+	]);
+	const batch = {
+		id: batchId,
+		afterCount: input.outcomes.filter(({ after }) => after !== null).length,
+		beforeCount: input.outcomes.filter(({ before }) => before !== null).length,
+		createdCount: material.filter(({ operation }) => operation === "create").length,
+		deletedCount: material.filter(({ operation }) => operation === "delete").length,
+		updatedCount: material.filter(({ operation }) => operation === "update").length,
+	};
+	const lifecycleDispatch = yield* LifecycleDispatch;
+	for (const outcome of material) {
+		const snapshot = relationshipSnapshot(outcome);
+		const occurrenceId = deterministicId("relationship_occurrence", [
+			input.executionId,
+			snapshot.relationshipSchemaId,
+			input.direction,
+			snapshot.sourceEntity.id,
+			snapshot.targetEntity.id,
+			outcome.operation,
+		]);
+		yield* lifecycleDispatch
+			.dispatch({
+				occurrenceId,
+				rowUserId: null,
+				origin: input.origin,
+				operation: outcome.operation,
+				occurredAt: input.committedAt,
+				recordId: snapshot.id,
+				population: {
+					...input.population,
+					batch: { ...batch, isLeader: relationshipMutationIdentity(outcome) === leaderIdentity },
+				},
+				source: {
+					kind: "relationship",
+					...(outcome.after ? { after: toLifecycleRelationshipSnapshot(outcome.after) } : {}),
+					...(outcome.before ? { before: toLifecycleRelationshipSnapshot(outcome.before) } : {}),
+				},
+			})
+			.pipe(Effect.mapError((error) => new SandboxRunError({ message: error.message })));
+	}
+});
+
 const owningSeasonForScope = (scope: ChildEntitySetScope) => {
 	if (scope.parentEntitySchemaSlug !== "show-season") {
 		return undefined;
@@ -323,6 +430,19 @@ const writeChildEntityScopes = Effect.fn("writeChildEntityScopes")(function* (
 		}
 		const processed = yield* writeChildEntitySetScope(payload, options, scope);
 		const owningSeason = owningSeasonForScope(scope);
+		yield* dispatchRelationshipSync({
+			executionId,
+			direction: "outgoing",
+			origin: payload.origin,
+			committedAt: processed.committedAt,
+			anchorEntityId: scope.parentEntityId,
+			outcomes: processed.relationshipOutcomes,
+			population: {
+				rootPreviouslyPopulated,
+				scopeEntity: scope.scopeEntity,
+				...(owningSeason ? { owningSeason } : {}),
+			},
+		});
 		for (const [index, childEntity] of scope.childEntities.entries()) {
 			const child = processed.processedChildren[index];
 			if (!child) {
@@ -383,11 +503,18 @@ const synchronizeEntityGraph = Effect.fn("synchronizeEntityGraph")(function* (
 		committedAt: rootSave.committedAt,
 		population: { scopeEntity, rootPreviouslyPopulated },
 	});
-	yield* Effect.forEach(
-		details.relatedEntityGroups,
-		(group, index) => syncRelatedEntityGroupScope(payload, entity, group, index),
-		{ discard: true },
-	);
+	for (const [index, group] of details.relatedEntityGroups.entries()) {
+		const synced = yield* syncRelatedEntityGroupScope(payload, entity, group, index);
+		yield* dispatchRelationshipSync({
+			executionId,
+			origin: payload.origin,
+			anchorEntityId: entity.id,
+			outcomes: synced.outcomes,
+			direction: group.direction,
+			committedAt: synced.committedAt,
+			population: { scopeEntity, rootPreviouslyPopulated },
+		});
+	}
 	yield* writeChildEntityScopes(payload, executionId, options, rootPreviouslyPopulated, {
 		scopeEntity,
 		parentName: entity.name,
