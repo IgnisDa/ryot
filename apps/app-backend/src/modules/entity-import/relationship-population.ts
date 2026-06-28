@@ -1,5 +1,9 @@
 import { SandboxRunError, dieOnDbError } from "@ryot/contract/errors";
 import type { EntityId, EntitySchemaId } from "@ryot/contract/schema/brands";
+import type {
+	ProviderDetailsRelatedEntity,
+	ProviderDetailsRelatedEntityGroup,
+} from "@ryot/sandbox-sdk/provider";
 import { Effect } from "effect";
 
 import { DbRunner } from "#lib/infrastructure/db/service";
@@ -10,18 +14,16 @@ import { RelationshipSchemasRepository } from "#modules/relationship-schemas/rep
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
 
-import type { EntityDetailsRelatedEntity, EntityDetailsRelationshipGroup } from "./population";
-
 export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(function* (input: {
 	primaryEntityId: EntityId;
 	primaryEntitySchemaId: EntitySchemaId;
-	group: EntityDetailsRelationshipGroup;
+	group: ProviderDetailsRelatedEntityGroup;
 }) {
 	const runWithDb = yield* DbRunner;
 	const entities = yield* EntitiesService;
 	const repository = yield* EntitiesRepository;
-	const relationshipsRepository = yield* RelationshipsRepository;
 	const relationships = yield* RelationshipsService;
+	const relationshipsRepository = yield* RelationshipsRepository;
 	const relationshipSchemasRepository = yield* RelationshipSchemasRepository;
 
 	const relationshipSchema = yield* runWithDb(
@@ -34,7 +36,7 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 	}
 
 	const entries: Array<{ entityId: EntityId; properties: Record<string, unknown> }> = [];
-	const uniqueRelatedEntities = new Map<string, EntityDetailsRelatedEntity>();
+	const uniqueRelatedEntities = new Map<string, ProviderDetailsRelatedEntity>();
 	for (const relatedEntity of input.group.entities) {
 		uniqueRelatedEntities.set(
 			`${relatedEntity.scriptSlug}:${relatedEntity.externalId}`,

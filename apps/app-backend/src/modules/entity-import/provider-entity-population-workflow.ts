@@ -2,21 +2,22 @@ import { Activity, Workflow } from "@effect/workflow";
 import { SandboxRunError, dieOnDbError } from "@ryot/contract/errors";
 import { ListedEntity } from "@ryot/contract/modules/entities/schemas";
 import { encodeEntityUpdatedMessage } from "@ryot/contract/modules/entity-interest/messages";
+import type { ProviderDetailsRelatedEntityGroup } from "@ryot/sandbox-sdk/provider";
 import { Cause, DateTime, Effect, Schedule, Schema } from "effect";
 
 import { DbRunner, TransactionRunner } from "#lib/infrastructure/db/service";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
+import {
+	ProviderDetailsChildEntitySchema,
+	ProviderDetailsRelatedEntityGroupSchema,
+	decodeProviderDetailsResult,
+} from "#modules/sandbox/provider-contracts";
 
 import { EntityImportPayload } from "./entity-import-workflow";
 import { EntityImportWorkflowOperations } from "./operations-workflow";
-import {
-	EntityDetailsChildEntity,
-	EntityDetailsRelationshipGroup,
-	decodeEntityDetailsResult,
-	processChildEntityTree,
-} from "./population";
+import { processChildEntityTree } from "./population";
 import { syncRelatedEntityGroup } from "./relationship-population";
 
 // Child schema hierarchy for provider container types. Only consulted during
@@ -39,8 +40,8 @@ type SynchronizeOptions = {
 const ValidatedEntityDetails = Schema.Struct({
 	name: Schema.String,
 	properties: Schema.Unknown,
-	childEntities: Schema.Array(EntityDetailsChildEntity),
-	relatedEntityGroups: Schema.Array(EntityDetailsRelationshipGroup),
+	childEntities: Schema.Array(ProviderDetailsChildEntitySchema),
+	relatedEntityGroups: Schema.Array(ProviderDetailsRelatedEntityGroupSchema),
 });
 
 type ValidatedEntityDetails = typeof ValidatedEntityDetails.Type;
@@ -70,7 +71,7 @@ const validateEntityDetails = Effect.fn("validateEntityDetails")(function* (valu
 		success: ValidatedEntityDetails,
 		name: "validate-entity-details",
 		execute: Effect.gen(function* () {
-			const details = yield* decodeEntityDetailsResult(value).pipe(
+			const details = yield* decodeProviderDetailsResult(value).pipe(
 				Effect.mapError(
 					(error) => new SandboxRunError({ message: `Invalid entity details: ${error.message}` }),
 				),
@@ -89,7 +90,7 @@ const validateEntityDetails = Effect.fn("validateEntityDetails")(function* (valu
 const writeRelatedEntities = Effect.fn("writeProviderRelatedEntities")(function* (
 	payload: EntityImportPayload,
 	entity: ListedEntity,
-	groups: ReadonlyArray<EntityDetailsRelationshipGroup>,
+	groups: ReadonlyArray<ProviderDetailsRelatedEntityGroup>,
 ) {
 	yield* Effect.forEach(
 		groups,
