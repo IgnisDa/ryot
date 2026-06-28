@@ -47,7 +47,7 @@ COPY --from=sandbox-compiler-runtime --chown=ryot:ryot /app/node_modules ./node_
 COPY --from=sandbox-compiler-runtime --chown=ryot:ryot /app/libs ./libs
 RUN bun -e 'const worker = Bun.spawn([process.execPath, "--smol", "--no-orphans", "--no-install", "--no-env-file", "/home/ryot/dist/compiler-worker.js"], { stdin: "pipe", stdout: "pipe", stderr: "pipe" }); await worker.stdin.end(); const [stdout, stderr, exitCode] = await Promise.all([new Response(worker.stdout).text(), new Response(worker.stderr).text(), worker.exited]); const response = JSON.parse(stdout); if (exitCode !== 0 || response.success !== false || response.error.diagnostics.some(({ code }) => code === "RYOT_COMPILER" || code === "RYOT_COMPILER_PROCESS")) throw new Error(`Compiler worker smoke failed: ${stderr || stdout}`)'
 # Build the read-only sandbox dependency runtime so startup requires no registry access.
-RUN POPULATE_SANDBOX_CACHE_ONLY=true bun run dist/main.js && \
+RUN PREPARE_SANDBOX_RUNTIME_ONLY=true bun run dist/main.js && \
     chown -R ryot:ryot /home/ryot/tmp
 USER ryot
 ENV NODE_ENV=production
