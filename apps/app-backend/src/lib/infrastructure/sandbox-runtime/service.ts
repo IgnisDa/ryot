@@ -3,13 +3,17 @@ import { FetchHttpClient, HttpClient, HttpClientRequest } from "@effect/platform
 import { isHttpMethod } from "@effect/platform/HttpMethod";
 import { SandboxRunError, TimeoutError, unknownToMessage } from "@ryot/contract/errors";
 import { SandboxExecutionError } from "@ryot/contract/modules/sandbox/schemas";
-import type { CoreSandboxHostMethodMap } from "@ryot/sandbox-sdk";
+import {
+	AUTOMATION_SANDBOX_HOST_CAPABILITIES,
+	type CoreSandboxHostMethodMap,
+} from "@ryot/sandbox-sdk";
 import { generateId } from "better-auth";
 import { Clock, Duration, Effect, Match, Runtime, Schema, Stream } from "effect";
 
 import { AppConfig } from "../config/service";
 import { redisKeys, RedisService } from "../redis";
 import { ServerRun } from "../server-run";
+import { makeAutomationSandboxApiFunctions } from "./automation-host-functions";
 import { bindSandboxHostFunctions } from "./bridge-adapter";
 import { makeAdditionalSandboxApiFunctions } from "./host-functions";
 import {
@@ -40,6 +44,22 @@ const invalidResponseMessage = "Invalid JSON response from Deno process";
 const defaultHeaders = { "User-Agent": "Ryot ( https://github.com/ignisda/ryot )" };
 const getCacheKey = (serverRunId: string, scriptId: string, key: string) =>
 	redisKeys.sandboxRunCache(serverRunId, scriptId, key);
+
+const automationHostFunctions = new Set<string>(AUTOMATION_SANDBOX_HOST_CAPABILITIES);
+
+export const selectSandboxHostFunctions = (
+	boundApiFunctions: Readonly<Record<string, BoundHostFunction>>,
+	input: Pick<SandboxRunInput, "allowedHostFunctions" | "subscriptionRun">,
+) => {
+	const selectedApiFunctions: Record<string, BoundHostFunction> = {};
+	for (const key of input.allowedHostFunctions) {
+		const fn = boundApiFunctions[key];
+		if (fn && (!automationHostFunctions.has(key) || input.subscriptionRun)) {
+			selectedApiFunctions[key] = fn;
+		}
+	}
+	return selectedApiFunctions;
+};
 
 export const readSandboxHttpResponseText = (response: HttpClientResponse.HttpClientResponse) =>
 	response.stream.pipe(
@@ -120,13 +140,7 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 
 					const boundApiFunctions: Readonly<Record<string, BoundHostFunction>> =
 						bindSandboxHostFunctions(apiFunctions, input);
-					const selectedApiFunctions: Record<string, BoundHostFunction> = {};
-					for (const key of input.allowedHostFunctions) {
-						const fn = boundApiFunctions[key];
-						if (fn) {
-							selectedApiFunctions[key] = fn;
-						}
-					}
+					const selectedApiFunctions = selectSandboxHostFunctions(boundApiFunctions, input);
 
 					const token = generateId();
 					const requestLine = `${encodeSandboxRunnerRequest({
@@ -207,6 +221,7 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 			);
 
 		const additionalApiFunctions = yield* makeAdditionalSandboxApiFunctions();
+		const automationApiFunctions = yield* makeAutomationSandboxApiFunctions();
 
 		apiFunctions = {
 			getCachedValue: (input, key) => {
@@ -324,6 +339,7 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 				);
 			},
 			...additionalApiFunctions,
+			...automationApiFunctions,
 		};
 
 		return { run: runSandbox };

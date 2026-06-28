@@ -198,7 +198,12 @@ const SignalEmissionServiceLive = Layer.provide(
 
 const RuntimeSandboxServiceLive = Layer.provide(
 	SandboxService.Default,
-	Layer.mergeAll(EventsServiceLive, QueryEngineServiceLive),
+	Layer.mergeAll(
+		EventsServiceLive,
+		QueryEngineServiceLive,
+		SignalEmissionServiceLive,
+		NotificationsService.Default,
+	),
 );
 
 const SandboxApiServiceLive = Layer.provide(SandboxApiService.Default, SandboxCompiler.Default);

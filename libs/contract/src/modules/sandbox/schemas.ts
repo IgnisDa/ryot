@@ -5,7 +5,8 @@ import {
 } from "@ryot/sandbox-sdk";
 import { Schema } from "effect";
 
-import { SandboxScriptId, UserId } from "../../schema/brands";
+import { SandboxScriptId, SubscriptionRunId, UserId } from "../../schema/brands";
+import { AutomationOrigin } from "../automations/schemas";
 
 export const ProviderInformation = Schema.Struct({
 	source: Schema.String,
@@ -99,6 +100,13 @@ export const SandboxExecutionPayload = Schema.Struct({
 	driverName: Schema.String,
 	executionId: Schema.String,
 	userId: Schema.NullOr(UserId),
+	subscriptionRun: Schema.optional(
+		Schema.Struct({
+			id: SubscriptionRunId,
+			origin: AutomationOrigin,
+			occurredAt: Schema.String,
+		}),
+	),
 });
 
 export type SandboxExecutionPayload = Schema.Schema.Type<typeof SandboxExecutionPayload>;

@@ -10,6 +10,7 @@ import {
 	type SubscriptionRunSkipReason,
 	type SubscriptionRunTiming,
 } from "@ryot/contract/modules/automations/schemas";
+import { SandboxScriptMetadata } from "@ryot/contract/modules/sandbox/schemas";
 import {
 	AutomationRuleId,
 	EntitySchemaId,
@@ -39,6 +40,10 @@ export type AutomationRuleTarget =
 export type AutomationReferenceScope = {
 	isBuiltin: boolean;
 	userId: UserId | null;
+};
+
+export type AutomationScriptScope = AutomationReferenceScope & {
+	capabilities: ReadonlyArray<string>;
 };
 
 export type StoredAutomationRule = {
@@ -258,13 +263,26 @@ export class AutomationsRepository extends Effect.Service<AutomationsRepository>
 					db
 						.select({
 							userId: schema.sandboxScript.userId,
+							metadata: schema.sandboxScript.metadata,
 							isBuiltin: schema.sandboxScript.isBuiltin,
 						})
 						.from(schema.sandboxScript)
 						.where(eq(schema.sandboxScript.id, scriptId))
 						.limit(1),
 				);
-				return row ? { ...row, userId: row.userId ? UserId.make(row.userId) : null } : null;
+				if (!row) {
+					return null;
+				}
+				const metadata = yield* decodeStored(
+					row.metadata,
+					SandboxScriptMetadata,
+					`Invalid metadata for sandbox script ${scriptId}`,
+				);
+				return {
+					isBuiltin: row.isBuiltin,
+					capabilities: metadata.capabilities ?? [],
+					userId: row.userId ? UserId.make(row.userId) : null,
+				} satisfies AutomationScriptScope;
 			});
 
 			const findScriptExecution = Effect.fn("AutomationsRepository.findScriptExecution")(function* (

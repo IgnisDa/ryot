@@ -222,6 +222,9 @@ export class AutomationsService extends Effect.Service<AutomationsService>()("Au
 					) {
 						return yield* badRequest("Built-in rules require built-in global targets and scripts");
 					}
+					if (references.script.capabilities.includes("sendNotification")) {
+						return yield* badRequest("Global built-in rules cannot use sendNotification scripts");
+					}
 					const existing = yield* repository.findByUnique({
 						userId: null,
 						target: input.target,

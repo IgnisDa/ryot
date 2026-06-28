@@ -360,19 +360,58 @@ export type DomainSandboxHostImplementationMap<Context> = {
 	) => ReturnType<DomainSandboxHostMethodMap[Capability]>;
 };
 
+export const AUTOMATION_SANDBOX_HOST_CAPABILITIES = ["emitSignal", "sendNotification"] as const;
+
+export type AutomationSandboxHostCapability = (typeof AUTOMATION_SANDBOX_HOST_CAPABILITIES)[number];
+
+export const emitSignalRequestSchema = z
+	.object({
+		schemaSlug: z.string().min(1),
+		discriminator: z.string().min(1),
+		subjectEntityId: sandboxIdSchema.optional(),
+		properties: z.record(z.string(), jsonValueSchema),
+	})
+	.strict();
+export const emitSignalArgsSchema = z.tuple([emitSignalRequestSchema]);
+export const emitSignalResultSchema = hostResultSchema(
+	z.object({ signalId: z.string(), wasCreated: z.boolean() }).strict(),
+);
+
+export const sendNotificationArgsSchema = z.tuple([z.string().trim().min(1)]);
+
+export const automationSandboxHostContracts = {
+	emitSignal: { args: emitSignalArgsSchema, result: emitSignalResultSchema },
+	sendNotification: { args: sendNotificationArgsSchema, result: hostResultSchema(z.null()) },
+} as const;
+
+export type AutomationSandboxHostMethodMap = SandboxHostMethodMapFromContracts<
+	typeof automationSandboxHostContracts
+>;
+
+export type AutomationSandboxHostImplementationMap<Context> = {
+	readonly [Capability in AutomationSandboxHostCapability]: (
+		context: Context,
+		...args: Parameters<AutomationSandboxHostMethodMap[Capability]>
+	) => ReturnType<AutomationSandboxHostMethodMap[Capability]>;
+};
+
 export const SANDBOX_HOST_CAPABILITIES = [
 	...CORE_SANDBOX_HOST_CAPABILITIES,
 	...DOMAIN_SANDBOX_HOST_CAPABILITIES,
+	...AUTOMATION_SANDBOX_HOST_CAPABILITIES,
 ] as const;
 
 export const sandboxHostCapabilitySchema = z.enum(SANDBOX_HOST_CAPABILITIES);
 
 export type SandboxHostCapability = z.infer<typeof sandboxHostCapabilitySchema>;
 
-export type SandboxHostMethodMap = CoreSandboxHostMethodMap & DomainSandboxHostMethodMap;
+export type SandboxHostMethodMap = CoreSandboxHostMethodMap &
+	DomainSandboxHostMethodMap &
+	AutomationSandboxHostMethodMap;
 
 export type SandboxHostImplementationMap<Context> = CoreSandboxHostImplementationMap<Context> &
-	DomainSandboxHostImplementationMap<Context>;
+	DomainSandboxHostImplementationMap<Context> &
+	AutomationSandboxHostImplementationMap<Context>;
 
 const manifestStringSchema = z
 	.string()

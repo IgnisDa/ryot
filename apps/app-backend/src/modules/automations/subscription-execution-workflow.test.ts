@@ -79,6 +79,7 @@ const payload = {
 	operation: "signal",
 	sourceKind: "signal",
 	occurrenceId: signalId,
+	occurredAt: "2026-07-20T10:00:00.000Z",
 	origin: { kind: "api" },
 	source: {
 		kind: "signal",
@@ -152,11 +153,13 @@ it.effect("runs the complete signal-to-succeeded-run tracer with full automation
 				userId,
 				scriptId,
 				driverName: "automation",
+				subscriptionRun: { id: runId, origin: payload.origin, occurredAt: payload.occurredAt },
 				context: {
 					automation: {
 						ruleId,
 						source: payload.source,
 						occurrenceId: signalId,
+						occurredAt: payload.occurredAt,
 						ruleMetadata: { mode: "trace" },
 					},
 				},

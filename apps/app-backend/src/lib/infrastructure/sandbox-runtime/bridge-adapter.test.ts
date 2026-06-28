@@ -28,6 +28,7 @@ const makeImplementations = (
 ): SandboxHostImplementationMap => ({
 	httpCall: () => Promise.resolve(apiFailure("unused")),
 	getEntity: () => Promise.resolve(apiFailure("unused")),
+	emitSignal: () => Promise.resolve(apiFailure("unused")),
 	listEvents: () => Promise.resolve(apiFailure("unused")),
 	createEvents: () => Promise.resolve(apiFailure("unused")),
 	getIntegration: () => Promise.resolve(apiFailure("unused")),
@@ -36,6 +37,7 @@ const makeImplementations = (
 	getEntitySchema: () => Promise.resolve(apiFailure("unused")),
 	listEventSchemas: () => Promise.resolve(apiFailure("unused")),
 	listIntegrations: () => Promise.resolve(apiFailure("unused")),
+	sendNotification: () => Promise.resolve(apiFailure("unused")),
 	claimCachedValue: () => Promise.resolve(apiFailure("unused")),
 	getAppConfigValue: () => Promise.resolve(apiFailure("unused")),
 	executeQueryEngine: () => Promise.resolve(apiFailure("unused")),
@@ -192,6 +194,41 @@ describe("bindSandboxHostFunctions", () => {
 				expect(calls).toBe(1);
 				expect(receivedUserId).toBe("user-1");
 			}),
+	);
+
+	it.effect("rejects caller-selected signal recipients and invalid notification messages", () =>
+		Effect.gen(function* () {
+			let calls = 0;
+			const implementations = makeImplementations({
+				emitSignal: () => {
+					calls += 1;
+					return Promise.resolve(apiFailure("unexpected"));
+				},
+				sendNotification: () => {
+					calls += 1;
+					return Promise.resolve(apiFailure("unexpected"));
+				},
+			});
+			const bound = bindSandboxHostFunctions(implementations, input);
+
+			expect(
+				yield* Effect.promise(() =>
+					bound.emitSignal([
+						{
+							discriminator: "review-1",
+							schemaSlug: "review.created",
+							recipientUserIds: ["user-2"],
+							properties: { message: "trace" },
+						},
+					]),
+				),
+			).toEqual({ success: false, error: "emitSignal expects a valid signal request" });
+			expect(yield* Effect.promise(() => bound.sendNotification(["   "]))).toEqual({
+				success: false,
+				error: "sendNotification expects a non-empty message string",
+			});
+			expect(calls).toBe(0);
+		}),
 	);
 
 	it.effect("normalizes transport null only for optional tuple arguments", () =>

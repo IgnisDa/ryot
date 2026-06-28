@@ -158,6 +158,7 @@ export const runSubscriptionExecutionWorkflow = Effect.fn("runSubscriptionExecut
 			source: payload.source,
 			ruleId: prepared.ruleId,
 			operation: payload.operation,
+			occurredAt: payload.occurredAt,
 			occurrenceId: payload.occurrenceId,
 			...(payload.population ? { population: payload.population } : {}),
 			...(prepared.ruleMetadata === null ? {} : { ruleMetadata: prepared.ruleMetadata }),
@@ -169,6 +170,11 @@ export const runSubscriptionExecutionWorkflow = Effect.fn("runSubscriptionExecut
 			userId: prepared.executionUserId,
 			scriptId: prepared.sandboxScriptId,
 			executionId: `${prepared.runId}-sandbox`,
+			subscriptionRun: {
+				id: prepared.runId,
+				origin: payload.origin,
+				occurredAt: payload.occurredAt,
+			},
 		});
 
 		yield* recordRunOutcome(prepared.runId, result);

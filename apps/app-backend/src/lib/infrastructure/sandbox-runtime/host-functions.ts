@@ -24,12 +24,12 @@ import { getSandboxAppConfigValue } from "./app-config";
 import { sandboxCacheKeyError, sandboxCacheTtlError, sandboxCacheValueError } from "./limits";
 import {
 	apiFailure,
-	apiSuccess,
 	type AdditionalSandboxHostImplementationMap,
 	isJsonValue,
 	toSandboxJsonValue,
 	type UserSandboxRunInput,
 	requireUserSandboxRunInput,
+	runSandboxHostEffect,
 } from "./shared";
 
 type SandboxHostFunctionContext =
@@ -74,17 +74,6 @@ export const normalizePreferences = (value: unknown) => {
 		disableIntegrations: source["disableIntegrations"] === true,
 	};
 };
-
-const runHostEffect = <A>(
-	runPromise: <A, E>(effect: Effect.Effect<A, E>) => Promise<A>,
-	effect: Effect.Effect<A, unknown>,
-) =>
-	runPromise(
-		effect.pipe(
-			Effect.map(apiSuccess),
-			Effect.catchAll((error) => Effect.succeed(apiFailure(unknownToMessage(error)))),
-		),
-	);
 
 export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 	AdditionalSandboxHostImplementationMap,
@@ -158,7 +147,7 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 
 				const redisKey = redisKeys.sandboxCache(input.scriptId, key.trim());
 
-				return runHostEffect(
+				return runSandboxHostEffect(
 					runPromise,
 					Effect.gen(function* () {
 						const serialized = yield* Schema.encode(Schema.parseJson(Schema.Unknown))(value).pipe(
@@ -205,7 +194,7 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 			},
 			createEvents: (rawInput, body) => {
 				const input = requireUserSandboxRunInput(rawInput, "createEvents");
-				return runHostEffect(
+				return runSandboxHostEffect(
 					runPromise,
 					decodeCreateEventsPayload(body).pipe(
 						Effect.flatMap((payload) => createEvents(input, payload)),
@@ -215,7 +204,7 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 			executeQueryEngine: (rawInput, query) => {
 				const input = requireUserSandboxRunInput(rawInput, "executeQueryEngine");
 
-				return runHostEffect(
+				return runSandboxHostEffect(
 					runPromise,
 					decodeQueryDocument(query).pipe(
 						Effect.flatMap((doc) =>
@@ -237,7 +226,7 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 					return Promise.resolve(apiFailure("getAppConfigValue expects a non-empty key string"));
 				}
 
-				return runHostEffect(
+				return runSandboxHostEffect(
 					runPromise,
 					getSandboxAppConfigValue(config, key.trim(), input.scriptIsBuiltin).pipe(
 						Effect.flatMap((value) =>
@@ -250,7 +239,7 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 			},
 			getEntity: (rawInput, entityId) => {
 				const input = requireUserSandboxRunInput(rawInput, "getEntity");
-				return runHostEffect(
+				return runSandboxHostEffect(
 					runPromise,
 					requireNonEmptyString(entityId, "getEntity expects a non-empty entityId").pipe(
 						Effect.flatMap((rawEntityId) =>
@@ -263,8 +252,8 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 								);
 								const entity = yield* runWithDb(
 									entitiesRepository.getByIdForUser({
-										userId: UserId.make(input.userId),
 										entityId: resolvedEntityId,
+										userId: UserId.make(input.userId),
 									}),
 								);
 								if (!entity) {
@@ -279,7 +268,7 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 			},
 			getEntitySchema: (rawInput, entitySchemaId) => {
 				const input = requireUserSandboxRunInput(rawInput, "getEntitySchema");
-				return runHostEffect(
+				return runSandboxHostEffect(
 					runPromise,
 					requireNonEmptyString(
 						entitySchemaId,
@@ -309,7 +298,7 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 			},
 			getIntegration: (rawInput, integrationId) => {
 				const input = requireUserSandboxRunInput(rawInput, "getIntegration");
-				return runHostEffect(
+				return runSandboxHostEffect(
 					runPromise,
 					requireNonEmptyString(
 						integrationId,
@@ -339,11 +328,11 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 			},
 			getUserPreferences: (rawInput) => {
 				const input = requireUserSandboxRunInput(rawInput, "getUserPreferences");
-				return runHostEffect(runPromise, readUserPreferences(UserId.make(input.userId)));
+				return runSandboxHostEffect(runPromise, readUserPreferences(UserId.make(input.userId)));
 			},
 			listEventSchemas: (rawInput, entitySchemaId) => {
 				const input = requireUserSandboxRunInput(rawInput, "listEventSchemas");
-				return runHostEffect(
+				return runSandboxHostEffect(
 					runPromise,
 					requireNonEmptyString(
 						entitySchemaId,
@@ -382,7 +371,7 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 			},
 			listEvents: (rawInput, query) => {
 				const input = requireUserSandboxRunInput(rawInput, "listEvents");
-				return runHostEffect(
+				return runSandboxHostEffect(
 					runPromise,
 					decodeListEventsQuery(query ?? {}).pipe(
 						Effect.flatMap((parsedQuery) => {
@@ -432,7 +421,7 @@ export const makeAdditionalSandboxApiFunctions = (): Effect.Effect<
 					return Promise.resolve(apiFailure("listIntegrations isDisabled must be a boolean"));
 				}
 
-				return runHostEffect(
+				return runSandboxHostEffect(
 					runPromise,
 					runWithDb(
 						integrationsRepository.listForUser({
