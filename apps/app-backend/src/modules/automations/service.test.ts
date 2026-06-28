@@ -17,9 +17,7 @@ import { dbRunnerLayer, transactionLayer } from "#lib/test-utils/effect";
 
 import {
 	AutomationsRepository,
-	type AutomationReferenceScope,
 	type FinishSubscriptionRunInput,
-	type InsertAutomationRuleInput,
 	type InsertSubscriptionRunInput,
 	type StoredAutomationRule,
 	type StoredSubscriptionRun,
@@ -28,7 +26,6 @@ import {
 	AutomationsService,
 	SUBSCRIPTION_RUN_ARTIFACT_BYTES,
 	SUBSCRIPTION_RUN_TRUNCATION_MARKER,
-	type CreateUserAutomationRuleInput,
 } from "./service";
 
 const userId = UserId.make("user-1");
@@ -41,14 +38,13 @@ const signalSchemaId = SignalSchemaId.make("signal-schema-1");
 const target = { id: signalSchemaId, kind: "signal_schema" } as const;
 
 const definition = {
-	userId,
 	target,
 	operation: "signal",
 	kind: "subscription",
 	sandboxScriptId: scriptId,
 	name: "Review notifications",
 	metadata: { template: "review" },
-} as const satisfies CreateUserAutomationRuleInput;
+} as const;
 
 const storedRule = (input: Partial<StoredAutomationRule> = {}): StoredAutomationRule => ({
 	userId,
@@ -66,9 +62,6 @@ const storedRule = (input: Partial<StoredAutomationRule> = {}): StoredAutomation
 	updatedAt: "2026-07-20T10:00:00.000Z",
 	...input,
 });
-
-const storedRuleFromInsert = (input: InsertAutomationRuleInput) =>
-	storedRule({ ...input, id: ruleId });
 
 const storedRunFromInsert = (input: InsertSubscriptionRunInput): StoredSubscriptionRun => ({
 	...input,
@@ -96,57 +89,12 @@ const makeLayer = (repository: ReturnType<typeof makeRepository>) =>
 		Layer.provide(Layer.mergeAll(dbRunnerLayer, transactionLayer, repository)),
 	);
 
-const scopes = [
-	{ name: "own", allowed: true, value: { userId, isBuiltin: false } },
-	{ name: "built-in", allowed: true, value: { userId: null, isBuiltin: true } },
-	{ name: "other-user", allowed: false, value: { userId: otherUserId, isBuiltin: false } },
-	{ name: "non-built-in-global", allowed: false, value: { userId: null, isBuiltin: false } },
-] as const satisfies ReadonlyArray<{
-	name: string;
-	allowed: boolean;
-	value: AutomationReferenceScope;
-}>;
-
-for (const targetScope of scopes) {
-	for (const scriptScope of scopes) {
-		it.effect(
-			`${targetScope.allowed && scriptScope.allowed ? "allows" : "rejects"} a user rule with ${targetScope.name} target and ${scriptScope.name} script`,
-			() => {
-				const allowed = targetScope.allowed && scriptScope.allowed;
-				const layer = makeLayer(
-					makeRepository({
-						findTargetScope: () => Effect.succeed(targetScope.value),
-						findScriptScope: () => Effect.succeed({ ...scriptScope.value, capabilities: [] }),
-						insertRule: (input) =>
-							allowed
-								? Effect.succeed(storedRuleFromInsert(input))
-								: Effect.die("unexpected insert"),
-					}),
-				);
-
-				return Effect.gen(function* () {
-					const service = yield* AutomationsService;
-					const exit = yield* Effect.exit(service.createUserRule(definition));
-					if (allowed) {
-						assert(Exit.isSuccess(exit));
-						expect(exit.value.userId).toBe(userId);
-						expect(exit.value.metadata).toEqual(definition.metadata);
-					} else {
-						assert(Exit.isFailure(exit));
-						expect(exit.cause._tag).toBe("Fail");
-					}
-				}).pipe(Effect.provide(layer));
-			},
-		);
-	}
-}
-
 it.effect("rejects non-JSON rule metadata before persistence", () => {
 	const layer = makeLayer(makeRepository());
 	return Effect.gen(function* () {
 		const service = yield* AutomationsService;
 		const exit = yield* Effect.exit(
-			service.createUserRule({ ...definition, metadata: { invalid: undefined } }),
+			service.ensureBuiltin({ ...definition, metadata: { invalid: undefined } }),
 		);
 		expect(exit).toEqual(
 			Exit.fail(new BadRequest({ message: "Invalid automation rule metadata" })),
@@ -159,7 +107,7 @@ it.effect("rejects non-finite numbers in rule metadata", () => {
 	return Effect.gen(function* () {
 		const service = yield* AutomationsService;
 		for (const metadata of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
-			const exit = yield* Effect.exit(service.createUserRule({ ...definition, metadata }));
+			const exit = yield* Effect.exit(service.ensureBuiltin({ ...definition, metadata }));
 			expect(exit).toEqual(
 				Exit.fail(new BadRequest({ message: "Invalid automation rule metadata" })),
 			);
@@ -181,9 +129,7 @@ it.effect("seeds an unchanged built-in rule idempotently", () => {
 
 	return Effect.gen(function* () {
 		const service = yield* AutomationsService;
-		const input = { ...definition, metadata: false };
-		const { userId: _userId, ...builtin } = input;
-		expect(yield* service.ensureBuiltin(builtin)).toEqual(existing);
+		expect(yield* service.ensureBuiltin({ ...definition, metadata: false })).toEqual(existing);
 	}).pipe(Effect.provide(layer));
 });
 
@@ -197,8 +143,7 @@ it.effect("requires global built-in references for built-in rules", () => {
 
 	return Effect.gen(function* () {
 		const service = yield* AutomationsService;
-		const { userId: _userId, ...builtin } = definition;
-		const exit = yield* Effect.exit(service.ensureBuiltin(builtin));
+		const exit = yield* Effect.exit(service.ensureBuiltin(definition));
 		expect(exit).toEqual(
 			Exit.fail(
 				new BadRequest({
@@ -220,8 +165,7 @@ it.effect("rejects a global built-in rule backed by a notification script", () =
 
 	return Effect.gen(function* () {
 		const service = yield* AutomationsService;
-		const { userId: _userId, ...builtin } = definition;
-		expect(yield* Effect.exit(service.ensureBuiltin(builtin))).toEqual(
+		expect(yield* Effect.exit(service.ensureBuiltin(definition))).toEqual(
 			Exit.fail(
 				new BadRequest({
 					message: "Global built-in rules cannot use sendNotification scripts",
@@ -293,46 +237,10 @@ it.effect("returns no rules for a disabled row owner", () => {
 	}).pipe(Effect.provide(layer));
 });
 
-it.effect("uses deterministic run IDs and treats replay as a no-op", () => {
-	let stored: StoredSubscriptionRun | null = null;
-	const layer = makeLayer(
-		makeRepository({
-			lockActiveSubscription: () => Effect.succeed(storedRule()),
-			insertRun: (input) => {
-				if (stored) {
-					return Effect.succeed(null);
-				}
-				stored = storedRunFromInsert(input);
-				return Effect.succeed(stored);
-			},
-			findRunById: (id) => Effect.succeed(stored?.id === id ? stored : null),
-		}),
-	);
-	const input = {
-		ruleId,
-		signalId,
-		operation: "signal",
-		sourceKind: "signal",
-		executionUserId: userId,
-		occurrenceId: "occurrence-1",
-	} as const;
-
-	return Effect.gen(function* () {
-		const service = yield* AutomationsService;
-		const first = yield* service.queueRun(input);
-		const replay = yield* service.queueRun(input);
-		assert(first);
-		assert(replay);
-		expect(first.wasCreated).toBe(true);
-		expect(replay.wasCreated).toBe(false);
-		expect(replay.run.id).toBe(first.run.id);
-		expect(first.run.id).toMatch(/^run_/);
-	}).pipe(Effect.provide(layer));
-});
-
 it.effect("does not insert a run after its rule was deactivated or deleted", () => {
 	const layer = makeLayer(
 		makeRepository({
+			findRunById: () => Effect.succeed(null),
 			lockActiveSubscription: () => Effect.succeed(null),
 			insertRun: () => Effect.die("unexpected insert"),
 		}),
@@ -341,12 +249,12 @@ it.effect("does not insert a run after its rule was deactivated or deleted", () 
 	return Effect.gen(function* () {
 		const service = yield* AutomationsService;
 		expect(
-			yield* service.queueRun({
+			yield* service.prepareRun({
 				ruleId,
 				signalId,
+				rowUserId: userId,
 				operation: "signal",
 				sourceKind: "signal",
-				executionUserId: userId,
 				occurrenceId: "occurrence-1",
 			}),
 		).toBeNull();

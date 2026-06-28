@@ -4,7 +4,6 @@ import type { AutomationOrigin } from "@ryot/contract/modules/automations/schema
 import type {
 	EntityId,
 	EntitySchemaId,
-	IntegrationId,
 	SandboxScriptId,
 	UserId,
 } from "@ryot/contract/schema/brands";
@@ -60,7 +59,3 @@ export class MediaImportWorkflowOperations extends Context.Tag("MediaImportWorkf
 	MediaImportWorkflowOperations,
 	MediaImportWorkflowOperationsValue
 >() {}
-
-export type MediaImportWorkflowOptions = {
-	integrationId?: IntegrationId;
-};

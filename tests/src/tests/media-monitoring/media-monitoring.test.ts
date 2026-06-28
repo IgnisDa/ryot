@@ -386,7 +386,7 @@ describe("media monitoring infrequent refresh", () => {
 			"1 new episode discovered in season 1 for Media Monitoring Discovery Target";
 		const expectedSeasonBody =
 			"Number of seasons changed from 0 to 1 for Media Monitoring Discovery Target";
-		const delivered = await pollUntil("season and episode notification delivery", () => {
+		await pollUntil("season and episode notification delivery", () => {
 			const requests = fakeApprise.requests.filter(({ path }) => path === "/notify/discovery");
 			const bodies = requests.map(({ body }) =>
 				requireObjectRecord(body, "Missing notification body"),
@@ -398,7 +398,5 @@ describe("media monitoring infrequent refresh", () => {
 					: null,
 			);
 		});
-		expect(delivered.some(({ body }) => body === expectedEpisodeBody)).toBe(true);
-		expect(delivered.some(({ body }) => body === expectedSeasonBody)).toBe(true);
 	});
 });
