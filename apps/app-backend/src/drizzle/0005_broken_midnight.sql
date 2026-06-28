@@ -1,1 +1,0 @@
-ALTER TABLE "subscription_run" ADD COLUMN "timing" jsonb;

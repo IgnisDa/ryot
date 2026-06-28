@@ -5,50 +5,8 @@
 		{
 			"idx": 0,
 			"version": "7",
-			"when": 1784260666019,
-			"tag": "0000_rich_chimera",
-			"breakpoints": true
-		},
-		{
-			"idx": 1,
-			"version": "7",
-			"when": 1784315099101,
-			"tag": "0001_typescript_sandbox_sdk",
-			"breakpoints": true
-		},
-		{
-			"idx": 2,
-			"version": "7",
-			"when": 1784470554847,
-			"tag": "0002_complete_sandbox_cutover",
-			"breakpoints": true
-		},
-		{
-			"idx": 3,
-			"version": "7",
-			"when": 1784547810995,
-			"tag": "0003_magenta_darkhawk",
-			"breakpoints": true
-		},
-		{
-			"idx": 4,
-			"version": "7",
-			"when": 1784550112838,
-			"tag": "0004_right_nebula",
-			"breakpoints": true
-		},
-		{
-			"idx": 5,
-			"version": "7",
-			"when": 1784556391904,
-			"tag": "0005_broken_midnight",
-			"breakpoints": true
-		},
-		{
-			"idx": 6,
-			"version": "7",
-			"when": 1784557157747,
-			"tag": "0006_smooth_ronan",
+			"when": 1784560856301,
+			"tag": "0000_light_darkhawk",
 			"breakpoints": true
 		}
 	]
