@@ -13,11 +13,8 @@ import { DbRunner } from "#lib/infrastructure/db/service";
 import { validateAppSchemaDefinition } from "#lib/property-schema/property-schema-runtime";
 import { slugify } from "#lib/shared/slug";
 import { requireText } from "#lib/shared/validation";
-import { builtinRelationshipSchemas } from "#modules/builtins/relationship-schemas";
 
 import { RelationshipSchemasRepository } from "./repository";
-
-const reservedRelationshipSchemaSlugs = new Set(builtinRelationshipSchemas().map((s) => s.slug));
 
 const relationshipSchemaNotFoundError = "Relationship schema not found";
 
@@ -37,11 +34,6 @@ const resolveRelationshipSchemaCreateInput = Effect.fn(function* (
 ) {
 	const name = yield* requireText(input.name, "Relationship schema name is required");
 	const slug = yield* resolveRelationshipSchemaSlug({ name, slug: input.slug });
-
-	if (reservedRelationshipSchemaSlugs.has(slug)) {
-		return yield* badRequest(`Relationship schema slug "${slug}" is reserved for built-in schemas`);
-	}
-
 	return { name, slug };
 });
 
@@ -134,6 +126,12 @@ export class RelationshipSchemasService extends Effect.Service<RelationshipSchem
 					name: payload.name,
 					slug: payload.slug,
 				});
+				const builtin = yield* runWithDb(repository.findBuiltinBySlug(resolved.slug));
+				if (builtin) {
+					return yield* badRequest(
+						`Relationship schema slug "${resolved.slug}" is reserved for built-in schemas`,
+					);
+				}
 
 				const propertiesSchema = yield* parseRelationshipPropertiesSchema(payload.propertiesSchema);
 
