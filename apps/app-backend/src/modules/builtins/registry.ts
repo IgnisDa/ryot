@@ -1,6 +1,7 @@
 import {
 	type GeneratedBuiltinSandboxScript,
 	sandboxAutomationDotMediaDashEntityDashUpdatedScript,
+	sandboxAutomationDotMediaDashRelationshipDashSyncScript,
 	sandboxAutomationDotNotificationScript,
 	sandboxAutomationDotReviewDashCreatedScript,
 	sandboxAutomationDotTestDashPolicyScript,
@@ -76,6 +77,7 @@ const mediaUpdateEntitySchemaSlugs = [
 export const builtinSandboxScripts = () => [
 	sandboxAutomationDotNotificationScript,
 	sandboxAutomationDotMediaDashEntityDashUpdatedScript,
+	sandboxAutomationDotMediaDashRelationshipDashSyncScript,
 	sandboxAutomationDotReviewDashCreatedScript,
 	sandboxAutomationDotTestDashPolicyScript,
 	sandboxAutomationDotTestDashNotifierScript,
@@ -162,6 +164,17 @@ export const builtinEntityAutomationRuleLinks = () => [
 		scriptSlug: sandboxAutomationDotMediaDashEntityDashUpdatedScript.slug,
 	})),
 ];
+
+export const builtinRelationshipAutomationRuleLinks = () =>
+	["show-to-show-season", "show-season-to-show-episode", "podcast-to-podcast-episode"].flatMap(
+		(relationshipSchemaSlug) =>
+			(["create", "update", "delete"] as const).map((operation) => ({
+				operation,
+				relationshipSchemaSlug,
+				name: sandboxAutomationDotMediaDashRelationshipDashSyncScript.name,
+				scriptSlug: sandboxAutomationDotMediaDashRelationshipDashSyncScript.slug,
+			})),
+	);
 
 export const entitySchemaSandboxScriptLinks = () =>
 	[
