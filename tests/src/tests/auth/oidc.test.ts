@@ -13,7 +13,6 @@ import {
 } from "~/fixtures/auth-oidc";
 import { requirePresent } from "~/support/assertions";
 import {
-	attachProcessLogs,
 	buildBackendEnv,
 	startCoreTestInfrastructure,
 	spawnBackendProcess,
@@ -106,10 +105,11 @@ beforeAll(async () => {
 		port: number,
 		extraEnv: Record<string, string> = {},
 	) => {
-		const proc = spawnBackendProcess(
+		return spawnBackendProcess(
 			buildBackendEnv({
 				port,
 				frontendUrl,
+				label: `Backend ${label}`,
 				dbUrl: infrastructure.dbUrl,
 				s3BucketName: S3_BUCKET_NAME,
 				redisUrl: infrastructure.redisUrl,
@@ -117,8 +117,6 @@ beforeAll(async () => {
 				extraEnv: { ...sharedEnv, ...extraEnv },
 			}),
 		);
-		attachProcessLogs(proc, `Backend ${label}`);
-		return proc;
 	};
 
 	backendProcessA = startBackend("A", backendOriginA, backendPortA, {
