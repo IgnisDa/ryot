@@ -119,19 +119,6 @@ export const queryInLibraryRelationship = (
 		}),
 	);
 
-export const waitForInLibraryRelationship = (
-	client: Client,
-	entityId: string,
-	entitySchemaSlug: string,
-) =>
-	pollUntil(
-		`in-library relationship for entity ${entityId}`,
-		Effect.gen(function* () {
-			const result = yield* queryInLibraryRelationship(client, entityId, entitySchemaSlug);
-			return result.data.items.length >= 1 ? result : null;
-		}),
-	);
-
 export const getGlobalEntityByProvenance = (
 	client: Client,
 	input: { externalId: string; providerId: string; entitySchemaSlug: string },
