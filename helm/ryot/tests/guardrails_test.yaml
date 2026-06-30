@@ -1,0 +1,219 @@
+suite: validation guardrails
+templates:
+  - templates/configmap.yaml
+release:
+  name: ryot
+  namespace: default
+tests:
+  # ---- image / service ----
+  - it: fails when image.repository is empty
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.auth.password: pw
+      image.repository: ""
+    asserts:
+      - failedTemplate:
+          errorPattern: "image.repository is required"
+
+  - it: fails when service.port is empty
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.auth.password: pw
+      service.port: ""
+    asserts:
+      - failedTemplate:
+          errorPattern: "service.port is required"
+
+  # ---- admin token / pro key ----
+  - it: fails when admin access token is missing
+    set:
+      postgres.auth.password: pw
+    asserts:
+      - failedTemplate:
+          errorPattern: "secret.adminAccessToken.value or secret.adminAccessToken.existingSecret is required"
+
+  - it: fails when admin token existingSecret has no key
+    set:
+      postgres.auth.password: pw
+      secret.adminAccessToken.existingSecret: my-secret
+      secret.adminAccessToken.existingSecretKey: ""
+    asserts:
+      - failedTemplate:
+          errorPattern: "secret.adminAccessToken.existingSecretKey is required when secret.adminAccessToken.existingSecret is set"
+
+  - it: fails when pro key existingSecret has no key
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.auth.password: pw
+      secret.proKey.existingSecret: my-secret
+      secret.proKey.existingSecretKey: ""
+    asserts:
+      - failedTemplate:
+          errorPattern: "secret.proKey.existingSecretKey is required when secret.proKey.existingSecret is set"
+
+  # ---- bundled postgres ----
+  - it: fails when bundled postgres has no password
+    set:
+      secret.adminAccessToken.value: tok
+    asserts:
+      - failedTemplate:
+          errorPattern: "The chart ships no default password"
+
+  - it: fails when bundled postgres username is blank
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.auth.password: pw
+      postgres.auth.username: ""
+    asserts:
+      - failedTemplate:
+          errorPattern: "postgres.auth.username is required when postgres.enabled is true"
+
+  - it: fails when bundled postgres database is blank
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.auth.password: pw
+      postgres.auth.database: ""
+    asserts:
+      - failedTemplate:
+          errorPattern: "postgres.auth.database is required when postgres.enabled is true"
+
+  - it: fails when postgres existingSecret has no password key
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.auth.existingSecret: pg-secret
+      postgres.auth.existingSecretPasswordKey: ""
+    asserts:
+      - failedTemplate:
+          errorPattern: "postgres.auth.existingSecretPasswordKey is required when postgres.auth.existingSecret is set"
+
+  - it: fails when postgres image tag is blank
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.auth.password: pw
+      postgres.image.tag: ""
+    asserts:
+      - failedTemplate:
+          errorPattern: "postgres.image.tag is required when postgres.enabled is true"
+
+  - it: fails when persistence enabled without size
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.auth.password: pw
+      postgres.persistence.size: ""
+    asserts:
+      - failedTemplate:
+          errorPattern: "postgres.persistence.size is required when postgres.persistence.enabled is true"
+
+  - it: fails when persistence enabled without mountPath
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.auth.password: pw
+      postgres.persistence.mountPath: ""
+    asserts:
+      - failedTemplate:
+          errorPattern: "postgres.persistence.mountPath is required when postgres.persistence.enabled is true"
+
+  # ---- external database ----
+  - it: fails when external db has no url and no host component
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.enabled: false
+    asserts:
+      - failedTemplate:
+          errorPattern: "externalDatabase.host.value or externalDatabase.host.existingSecret is required"
+
+  - it: fails when external db component password is missing
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.enabled: false
+      externalDatabase.host.value: db.example.com
+      externalDatabase.database.value: ryot
+      externalDatabase.username.value: ryot
+    asserts:
+      - failedTemplate:
+          errorPattern: "externalDatabase.password.value or externalDatabase.password.existingSecret is required"
+
+  - it: fails when external db full-url existingSecret has no key
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.enabled: false
+      externalDatabase.existingSecret: db-secret
+      externalDatabase.existingSecretKey: ""
+    asserts:
+      - failedTemplate:
+          errorPattern: "externalDatabase.existingSecretKey is required when externalDatabase.existingSecret is set"
+
+  - it: fails when external db component existingSecret has no key
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.enabled: false
+      externalDatabase.host.existingSecret: db-secret
+      externalDatabase.host.existingSecretKey: ""
+      externalDatabase.database.value: ryot
+      externalDatabase.username.value: ryot
+      externalDatabase.password.value: pw
+    asserts:
+      - failedTemplate:
+          errorPattern: "externalDatabase.host.existingSecretKey is required when externalDatabase.host.existingSecret is set"
+
+  # ---- ingress ----
+  - it: fails when ingress enabled with empty hosts
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.auth.password: pw
+      ingress.enabled: true
+      ingress.hosts: []
+    asserts:
+      - failedTemplate:
+          errorPattern: "ingress.hosts must contain at least one entry"
+
+  - it: fails when ingress host is missing the host field
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.auth.password: pw
+      ingress.enabled: true
+      ingress.hosts:
+        - paths:
+            - path: /
+              pathType: Prefix
+    asserts:
+      - failedTemplate:
+          errorPattern: "ingress.hosts\\[0\\].host is required"
+
+  - it: fails when ingress host has no paths
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.auth.password: pw
+      ingress.enabled: true
+      ingress.hosts:
+        - host: ryot.example.com
+    asserts:
+      - failedTemplate:
+          errorPattern: "ingress.hosts\\[0\\].paths must contain at least one entry"
+
+  # ---- happy paths render without error ----
+  - it: renders with bundled postgres and a password
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.auth.password: pw
+    asserts:
+      - notFailedTemplate: {}
+
+  - it: renders with an external full url
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.enabled: false
+      externalDatabase.url: postgres://u:p@h:5432/d
+    asserts:
+      - notFailedTemplate: {}
+
+  - it: renders with external db components
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.enabled: false
+      externalDatabase.host.value: db.example.com
+      externalDatabase.database.value: ryot
+      externalDatabase.username.value: ryot
+      externalDatabase.password.value: pw
+    asserts:
+      - notFailedTemplate: {}

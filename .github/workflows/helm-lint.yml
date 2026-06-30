@@ -1,0 +1,37 @@
+name: Helm Lint
+
+on:
+  pull_request:
+    paths:
+      - "helm/**"
+      - ".github/workflows/helm-lint.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.16.4
+
+      - name: helm lint
+        # Provide the minimum required values so the guardrails pass and lint
+        # exercises a real render.
+        run: |
+          helm lint helm/ryot \
+            --set secret.adminAccessToken.value=ci-admin-token \
+            --set postgres.auth.password=ci-postgres-password
+
+      - name: helm template (render sanity)
+        run: |
+          helm template ryot helm/ryot \
+            --set secret.adminAccessToken.value=ci-admin-token \
+            --set postgres.auth.password=ci-postgres-password \
+            > /dev/null
