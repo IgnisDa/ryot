@@ -13,6 +13,12 @@ helm install ryot ./helm/ryot \
   --set postgres.auth.password="$(openssl rand -hex 16)"
 ```
 
+## Releases
+
+Each published GitHub release packages the chart and pushes it to the gh-pages
+Helm repo via [chart-releaser](https://helm.sh/docs/howto/chart_releaser_action/).
+The release tag drives the chart version (a leading `v` is stripped).
+
 ## What gets deployed
 
 - A single `Deployment` running the Ryot container (frontend + backend + Caddy
