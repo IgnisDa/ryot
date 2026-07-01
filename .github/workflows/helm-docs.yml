@@ -1,0 +1,53 @@
+name: Helm Docs
+
+on:
+  pull_request:
+    paths:
+      - "helm/**"
+      - ".github/workflows/helm-docs.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  # Avoid overlapping auto-commits on rapid pushes to the same PR.
+  group: helm-docs-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Check out the PR branch itself so the regenerated docs can be
+          # pushed back to it.
+          ref: ${{ github.head_ref }}
+
+      - name: Install helm-docs
+        env:
+          HELM_DOCS_VERSION: "1.14.2"
+        run: |
+          curl -sSLo helm-docs.tar.gz \
+            "https://github.com/norwoodj/helm-docs/releases/download/v${HELM_DOCS_VERSION}/helm-docs_${HELM_DOCS_VERSION}_Linux_x86_64.tar.gz"
+          tar -xf helm-docs.tar.gz helm-docs
+          sudo mv helm-docs /usr/local/bin/helm-docs
+          helm-docs --version
+
+      - name: Generate VALUES.md
+        # Writes helm/ryot/VALUES.md from the annotations in values.yaml and
+        # leaves the hand-written README.md untouched.
+        run: helm-docs --chart-search-root helm --output-file VALUES.md
+
+      - name: Commit regenerated docs
+        run: |
+          if [ -n "$(git status --porcelain helm/ryot/VALUES.md)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add helm/ryot/VALUES.md
+            git commit -m "docs(helm): regenerate VALUES.md [skip ci]"
+            git push
+          else
+            echo "VALUES.md is already up to date."
+          fi

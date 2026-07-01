@@ -226,4 +226,6 @@ Ryot exposes `/health` on the service port; liveness and readiness probes use it
 | `service.port`               | `8000`                   | Service port                         |
 | `ingress.enabled`            | `false`                  | Enable ingress                       |
 
-See [values.yaml](./values.yaml) for the full list.
+See [values.yaml](./values.yaml) for the full list, or the auto-generated
+[VALUES.md](./VALUES.md) for the rendered reference table (regenerated on every
+PR by [helm-docs](https://github.com/norwoodj/helm-docs)).
