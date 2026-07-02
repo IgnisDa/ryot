@@ -170,6 +170,31 @@ tests:
       - equal:
           path: metadata.name
           value: ryot-postgres
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: data
+            mountPath: /var/lib/postgresql
+
+  - it: mounts the data volume even when persistence is disabled
+    templates:
+      - templates/postgres-statefulset.yaml
+    set:
+      secret.adminAccessToken.value: tok
+      postgres.auth.password: pw
+      postgres.persistence.enabled: false
+    asserts:
+      # emptyDir volume must actually be mounted, not just declared.
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: data
+            mountPath: /var/lib/postgresql
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: data
+            emptyDir: {}
 
   - it: renders no postgres StatefulSet when bundled db is disabled
     templates:

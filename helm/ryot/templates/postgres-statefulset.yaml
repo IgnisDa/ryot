@@ -45,11 +45,11 @@ spec:
                 secretKeyRef:
                   name: {{ include "ryot.postgres.secretName" . }}
                   key: {{ include "ryot.postgres.secretPasswordKey" . }}
-          {{- if .Values.postgres.persistence.enabled }}
           volumeMounts:
+            # Backed by the volumeClaimTemplate when persistence is enabled, or
+            # by an emptyDir (declared below) when it is disabled.
             - name: data
               mountPath: {{ .Values.postgres.persistence.mountPath }}
-          {{- end }}
           livenessProbe:
             exec:
               command:
