@@ -10,6 +10,11 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  # Cancel superseded runs when a PR is updated in quick succession.
+  group: helm-guardrails-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   unittest:
     runs-on: ubuntu-latest

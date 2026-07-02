@@ -10,6 +10,11 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  # Cancel superseded runs when a PR is updated in quick succession.
+  group: helm-lint-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   lint:
     runs-on: ubuntu-latest

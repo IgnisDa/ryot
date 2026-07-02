@@ -8,6 +8,11 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  # Serialize releases; never cancel an in-progress publish (queue instead).
+  group: helm-release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   release:
     runs-on: ubuntu-latest

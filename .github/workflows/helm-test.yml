@@ -10,6 +10,12 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  # Cancel superseded runs when a PR is updated; this job spins up a kind
+  # cluster and waits up to 10m, so stale runs are especially wasteful.
+  group: helm-test-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   install-and-test:
     runs-on: ubuntu-latest
