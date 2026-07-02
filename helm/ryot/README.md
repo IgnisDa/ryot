@@ -235,7 +235,7 @@ Ryot exposes `/health` on the service port; liveness and readiness probes use it
 | `config.frontendUrl`         | `""`                     | `FRONTEND_URL`                       |
 | `config.usersAllowRegistration` | `true`               | `USERS_ALLOW_REGISTRATION`           |
 | `postgres.enabled`           | `true`                   | Deploy bundled PostgreSQL            |
-| `postgres.auth.password`     | `postgres`               | Bundled DB password (change this)    |
+| `postgres.auth.password`     | `""` (required)          | Bundled DB password (no default)     |
 | `postgres.persistence.size`  | `8Gi`                    | Data volume size                     |
 | `service.port`               | `8000`                   | Service port                         |
 | `ingress.enabled`            | `false`                  | Enable ingress                       |
