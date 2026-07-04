@@ -9,7 +9,7 @@ The sandbox runs untrusted user code in single-use Deno subprocesses, exposes se
 - `service.ts`: builds execution payloads, registers bridge sessions, checks out Deno subprocesses, and returns sandbox results.
 - `runtime.ts`: owns the Deno runner file, process pool, package cache, and bridge server.
 - `runner-source.sandbox.ts` + `runner-utilities.sandbox.ts`: the TypeScript-authored Deno runner. `sandbox:compile` bundles them ahead of execution into the ignored `runner.generated.ts`, and `sandbox:check-runner` (`deno check` with `deno.json`) type-checks them with Deno globals outside the backend `tsc`.
-- `host-functions.ts`: app-bound bridge functions for user, entity, event, integration, query-engine, and config access.
+- `host-functions.ts` and `automation-host-functions.ts`: app-bound bridge functions for user, entity, event, integration, query-engine, config, signal, and notification access.
 - `shared.ts`: shared types and helpers for host-function implementations.
 - Sandbox scripts and script-side helpers (`providers/`, `triggers/`, `script-helpers/`) live under `modules/builtins/sandbox-scripts/`, not here — this folder is only the execution runtime.
 
@@ -74,13 +74,16 @@ Deno receives the import map and runs with `--cached-only`, `--no-npm`, `--no-re
 
 Host functions are bridge handlers exposed only when listed in the compiled module's manifest `capabilities`. The backend intersects those declarations with its implementation registry, and the runner intersects the approved names with the compiled definition's manifest before constructing the driver host.
 
-| Scope   | Functions                                                                                                                                                          |
-| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Runtime | `httpCall`                                                                                                                                                         |
-| Script  | `getAppConfigValue`, `getCachedValue`, `setCachedValue`, `claimCachedValue`                                                                                        |
-| User    | `createEvents`, `executeQueryEngine`, `getEntity`, `getEntitySchema`, `getIntegration`, `getUserPreferences`, `listEventSchemas`, `listEvents`, `listIntegrations` |
+| Scope                   | Functions                                                                                                                                                          |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Runtime                 | `httpCall`                                                                                                                                                         |
+| Script                  | `getAppConfigValue`, `getCachedValue`, `setCachedValue`, `claimCachedValue`                                                                                        |
+| User                    | `createEvents`, `executeQueryEngine`, `getEntity`, `getEntitySchema`, `getIntegration`, `getUserPreferences`, `listEventSchemas`, `listEvents`, `listIntegrations` |
+| Automation subscription | `emitSignal`, `sendNotification`                                                                                                                                   |
 
 Script-scoped functions use execution metadata such as `scriptId`. User-scoped functions require `userId` and are unavailable for system executions. `claimCachedValue` atomically writes a script-scoped cached value only when the key does not already exist.
+
+Automation functions require both a declared script capability and the server-only subscription-run marker. Public script creation rejects these capabilities, so only seeded built-ins can declare them. Direct sandbox enqueue and policy executions do not receive them even if stored metadata lists the capability. `sendNotification` additionally requires a user principal; system subscriptions cannot send notifications.
 
 `getCachedValue` and `setCachedValue` are scoped to the current server run, so their values are refreshed after a backend restart. `claimCachedValue` remains persistent across restarts.
 
