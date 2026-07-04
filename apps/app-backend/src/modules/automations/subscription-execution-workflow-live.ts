@@ -1,10 +1,7 @@
 import type { SandboxRunError } from "@ryot/contract/errors";
 import { badRequest } from "@ryot/contract/errors";
 import { AutomationRuleMetadata } from "@ryot/contract/modules/automations/schemas";
-import type {
-	SandboxCompletedResult,
-	SandboxExecutionPayload,
-} from "@ryot/contract/modules/sandbox/schemas";
+import type { SandboxExecutionPayload } from "@ryot/contract/modules/sandbox/schemas";
 import {
 	AutomationRuleId,
 	SandboxScriptId,
@@ -18,6 +15,7 @@ import { Activity } from "effect/unstable/workflow";
 import type { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { processSandboxExecutionQueue } from "#modules/sandbox/durable-queues";
+import type { SandboxExecutionResult } from "#modules/sandbox/execution-result";
 
 import { AutomationsService } from "./service";
 import {
@@ -45,7 +43,7 @@ export type SubscriptionExecutionWorkflowOperationsValue = {
 	runSandbox: (
 		payload: SandboxExecutionPayload,
 	) => Effect.Effect<
-		SandboxCompletedResult,
+		SandboxExecutionResult,
 		SandboxRunError,
 		WorkflowEngine | WorkflowInstance | PersistedQueue.PersistedQueueFactory
 	>;
@@ -109,7 +107,7 @@ const beginRun = Effect.fn("beginSubscriptionRun")(function* (prepared: Prepared
 
 const recordRunOutcome = Effect.fn("recordSubscriptionRunOutcome")(function* (
 	runId: SubscriptionRunId,
-	result: SandboxCompletedResult,
+	result: SandboxExecutionResult,
 ) {
 	const service = yield* AutomationsService;
 	return yield* Activity.make({

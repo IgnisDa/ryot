@@ -1,6 +1,5 @@
 import type { SandboxRunError } from "@ryot/contract/errors";
 import { toSandboxRunError } from "@ryot/contract/errors";
-import type { SandboxCompletedResult as SandboxCompletedResultValue } from "@ryot/contract/modules/sandbox/schemas";
 import { Context, Effect, Layer } from "effect";
 import { PersistedQueue } from "effect/unstable/persistence";
 import type { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
@@ -11,6 +10,7 @@ import {
 	type UnsupportedProviderOperationError,
 } from "#modules/plugins/runtime-resolver";
 import { processSandboxExecution } from "#modules/sandbox/durable-queues";
+import type { SandboxExecutionResult } from "#modules/sandbox/execution-result";
 import { SandboxPluginScriptResolver } from "#modules/sandbox/plugin-script-resolver";
 import { SandboxRepository } from "#modules/sandbox/repository";
 
@@ -43,7 +43,7 @@ export type TranslateEntityWorkflowOperationsValue = {
 		payload: TranslateEntityWorkflowPayload,
 		executionId: string,
 	) => Effect.Effect<
-		SandboxCompletedResultValue,
+		SandboxExecutionResult,
 		SandboxRunError | UnsupportedProviderOperationError,
 		WorkflowEngine | WorkflowInstance
 	>;

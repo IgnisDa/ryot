@@ -39,6 +39,7 @@ import {
 	sandboxGrantPathError,
 	type SandboxProcessGrants,
 } from "./filesystem-grants";
+import { SandboxHarvestHandleStore } from "./harvest-handles";
 import { SandboxHostImplementations } from "./host-implementations";
 import {
 	sandboxContextError,
@@ -160,6 +161,7 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 		const processes = yield* ProcessPool;
 		const fs = yield* FileSystem.FileSystem;
 		const hostImplementations = yield* SandboxHostImplementations;
+		const harvestHandles = yield* SandboxHarvestHandleStore;
 
 		const harvestRoot = path.join(
 			config.tmpDir,
@@ -358,6 +360,13 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 									),
 								)
 							: [];
+					const chunkHandles =
+						harvest && input.workflowExecutionId
+							? yield* harvestHandles.register(input.workflowExecutionId, chunkPaths)
+							: [];
+					if (harvest && !input.workflowExecutionId) {
+						yield* fs.remove(harvest.directory, { force: true, recursive: true });
+					}
 
 					const executionMs = raw.timing?.executionMs;
 					const finishedAt = yield* Clock.currentTimeMillis;
@@ -374,7 +383,7 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 						success: raw.success,
 						executionId: input.executionId,
 						value: raw.success ? (raw.value ?? null) : null,
-						harvest: harvest ? { chunkPaths, directory: harvest.directory } : null,
+						harvest: harvest && input.workflowExecutionId ? { chunkHandles } : null,
 						timing: { totalMs, executionMs: typeof executionMs === "number" ? executionMs : 0 },
 					};
 				}),
@@ -395,6 +404,8 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 	}),
 }) {
 	static readonly layer = Layer.effect(this, this.make).pipe(
-		Layer.provide(Layer.mergeAll(ProcessPool.layer, BridgeService.layer)),
+		Layer.provide(
+			Layer.mergeAll(ProcessPool.layer, BridgeService.layer, SandboxHarvestHandleStore.layer),
+		),
 	);
 }
