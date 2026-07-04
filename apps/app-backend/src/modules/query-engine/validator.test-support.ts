@@ -2,10 +2,12 @@ import type { EntitySource, Expr } from "@ryot/contract/modules/query-engine/lan
 import {
 	buildQueryEngineEntityRowsDocument,
 	queryEngineEntitySource,
+} from "@ryot/query-engine/documents";
+import {
 	queryEngineLiteral,
 	queryEnginePropertyRef,
 	queryEngineSystemRef,
-} from "@ryot/query-engine";
+} from "@ryot/query-engine/primitives";
 
 import type { RowsQueryDocument } from "./executor/types";
 

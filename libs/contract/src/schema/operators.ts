@@ -1,4 +1,7 @@
-import { queryEngineArithmeticOperators, queryEngineComparisonOperators } from "@ryot/query-engine";
+import {
+	queryEngineArithmeticOperators,
+	queryEngineComparisonOperators,
+} from "@ryot/query-engine/primitives";
 import { Schema } from "effect";
 
 export const ArithmeticOperator = Schema.Literal(...queryEngineArithmeticOperators);
