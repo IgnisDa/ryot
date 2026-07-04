@@ -20,9 +20,8 @@ export const SandboxScriptMetadata = Schema.Struct({
 	slug: Schema.optional(Schema.String),
 	providerInformation: Schema.optional(ProviderInformation),
 	capabilities: Schema.optional(Schema.Array(Schema.String)),
-	mode: Schema.optional(Schema.Literal("before_create", "after_create")),
 	requiredAppConfigKeys: Schema.optional(Schema.Array(Schema.String)),
-	kind: Schema.optional(Schema.Literal("script", "provider", "trigger", "automation")),
+	kind: Schema.optional(Schema.Literal("script", "provider", "automation")),
 });
 
 export type SandboxScriptMetadata = Schema.Schema.Type<typeof SandboxScriptMetadata>;
@@ -41,11 +40,6 @@ export const SandboxScriptManifest = Schema.Union(
 		...SandboxScriptManifestFields,
 		kind: Schema.Literal("provider"),
 		providerInformation: ProviderInformation,
-	}),
-	Schema.Struct({
-		...SandboxScriptManifestFields,
-		kind: Schema.Literal("trigger"),
-		mode: Schema.Literal("before_create", "after_create"),
 	}),
 ) satisfies Schema.Schema<SdkSandboxScriptManifest>;
 
