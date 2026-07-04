@@ -12,7 +12,7 @@ import { viteCompilerError } from "./error";
 import type { ViteCompilerError, ViteDiagnostic } from "./error";
 import { buildWithVite } from "./vite";
 import { acquireCompilerWorkspace, stageSourceFiles, validateRelativePath } from "./workspace";
-import type { CompilerWorkspaceOptions, WorkspaceFile } from "./workspace";
+import type { CompilerWorkspace, CompilerWorkspaceOptions, WorkspaceFile } from "./workspace";
 
 export interface DenoEsmAlias {
 	readonly find: string | RegExp;
@@ -39,9 +39,19 @@ export interface DenoEsmExternalBuildOptions extends DenoEsmBuildCommonOptions {
 
 export type DenoEsmBuildOptions = DenoEsmStagedBuildOptions | DenoEsmExternalBuildOptions;
 
+export interface DenoEsmPackageBuildOptions extends DenoEsmBuildCommonOptions {
+	readonly concurrency?: number;
+	readonly entries: readonly string[];
+	readonly sources: readonly WorkspaceFile[];
+}
+
 export interface DenoEsmBuildResult {
 	readonly javascript: string;
 	readonly diagnostics: readonly ViteDiagnostic[];
+}
+
+export interface DenoEsmPackageModule extends DenoEsmBuildResult {
+	readonly entry: string;
 }
 
 const typeScriptProject = {
@@ -248,6 +258,44 @@ const denoConfig = (
 	},
 });
 
+const buildStagedEntry = Effect.fn("buildDenoEsmEntry")(function* (
+	workspace: CompilerWorkspace,
+	entry: string,
+	options: DenoEsmBuildCommonOptions,
+) {
+	const result = yield* buildWithVite({
+		workspace,
+		typeScriptProject,
+		config: denoConfig(
+			entry,
+			options.outputFile,
+			options.aliases ?? [],
+			options.approvedExternalSpecifiers,
+			workspace,
+		),
+	});
+	const output = result.files[0];
+	if (result.files.length !== 1 || output?.path !== options.outputFile) {
+		return yield* Effect.fail(diagnosticError(`Vite did not emit exactly ${options.outputFile}`));
+	}
+	const javascript = new TextDecoder()
+		.decode(output.bytes)
+		.replace(
+			"sourceMappingURL=data:application/json;charset=utf-8;base64,",
+			"sourceMappingURL=data:application/json;base64,",
+		)
+		.replace(/^\/\/#region .*\/source\/(.+)$/gm, "//#region $1")
+		.replace(/^\/\/#region .*\/generated\/(.+)$/gm, "//#region ryot:generated/$1");
+	yield* Effect.fromResult(
+		auditDenoEsmOutput(
+			javascript,
+			options.approvedExternalSpecifiers,
+			options.approvedDynamicImportExpressions,
+		),
+	);
+	return { javascript, diagnostics: result.diagnostics } satisfies DenoEsmBuildResult;
+});
+
 export const buildDenoEsm = Effect.fn("buildDenoEsm")(function* (options: DenoEsmBuildOptions) {
 	return yield* Effect.scoped(
 		Effect.gen(function* () {
@@ -260,39 +308,29 @@ export const buildDenoEsm = Effect.fn("buildDenoEsm")(function* (options: DenoEs
 			} else {
 				entry = options.entry;
 			}
-			const result = yield* buildWithVite({
-				workspace,
-				typeScriptProject,
-				config: denoConfig(
-					entry,
-					options.outputFile,
-					options.aliases ?? [],
-					options.approvedExternalSpecifiers,
-					workspace,
-				),
-			});
-			const output = result.files[0];
-			if (result.files.length !== 1 || output?.path !== options.outputFile) {
-				return yield* Effect.fail(
-					diagnosticError(`Vite did not emit exactly ${options.outputFile}`),
-				);
-			}
-			const javascript = new TextDecoder()
-				.decode(output.bytes)
-				.replace(
-					"sourceMappingURL=data:application/json;charset=utf-8;base64,",
-					"sourceMappingURL=data:application/json;base64,",
-				)
-				.replace(/^\/\/#region .*\/source\/(.+)$/gm, "//#region $1")
-				.replace(/^\/\/#region .*\/generated\/(.+)$/gm, "//#region ryot:generated/$1");
-			yield* Effect.fromResult(
-				auditDenoEsmOutput(
-					javascript,
-					options.approvedExternalSpecifiers,
-					options.approvedDynamicImportExpressions,
-				),
+			return yield* buildStagedEntry(workspace, entry, options);
+		}),
+	);
+});
+
+export const buildDenoEsmPackage = Effect.fn("buildDenoEsmPackage")(function* (
+	options: DenoEsmPackageBuildOptions,
+) {
+	return yield* Effect.scoped(
+		Effect.gen(function* () {
+			const workspace = yield* acquireCompilerWorkspace(options.workspaceOptions);
+			const stagedEntries = yield* Effect.forEach(options.entries, (entry) =>
+				Effect.fromResult(validateRelativePath(entry)),
 			);
-			return { javascript, diagnostics: result.diagnostics };
+			yield* stageSourceFiles(workspace, options.sources);
+			return yield* Effect.forEach(
+				stagedEntries,
+				(entry) =>
+					buildStagedEntry(workspace, resolve(workspace.sourcePath, entry), options).pipe(
+						Effect.map((result) => Object.assign({ entry }, result) satisfies DenoEsmPackageModule),
+					),
+				{ concurrency: options.concurrency ?? 1 },
+			);
 		}),
 	);
 });
