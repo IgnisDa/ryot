@@ -14,13 +14,12 @@ import {
 	findBuiltinSchemaBySlug,
 	getBackendClient,
 	getBuiltinEntitySchemaId,
+	listSignals,
 	pollEntityImportResult,
-	pollSignalId,
-	pollSignalRecipientCount,
+	pollSignal,
+	pollSignalWithRecipientCount,
 	pollTerminalSubscriptionRunStatuses,
 	queryAutomationRuleCount,
-	querySignalId,
-	querySignalRecipientUserIds,
 	querySubscriptionRunStatuses,
 	seedBuiltinProviderScript,
 	seedMediaEntity,
@@ -141,7 +140,10 @@ describe("Delete user automation data cleanup", () => {
 			properties: { endedAt: "2026-07-21T11:00:00Z", startedAt: "2026-07-21T10:00:00Z" },
 		});
 
-		const signalId = await pollSignalId({ schemaSlug: "workout.created", actorUserId: rawUserId });
+		const { id: signalId } = await pollSignal({
+			actorUserId: rawUserId,
+			schemaSlug: "workout.created",
+		});
 		await pollTerminalSubscriptionRunStatuses({ executionUserId: rawUserId, signalId });
 
 		await client.run(
@@ -149,9 +151,9 @@ describe("Delete user automation data cleanup", () => {
 			adminAccessTokenHeaders(ADMIN_TOKEN),
 		);
 
-		expect(
-			await querySignalId({ schemaSlug: "workout.created", actorUserId: rawUserId }),
-		).toBeNull();
+		expect(await listSignals({ schemaSlug: "workout.created", actorUserId: rawUserId })).toEqual(
+			[],
+		);
 		expect(await querySubscriptionRunStatuses({ executionUserId: rawUserId, signalId })).toEqual(
 			[],
 		);
@@ -236,11 +238,10 @@ describe("Delete user automation data cleanup", () => {
 				});
 				assertCompleted(imported, "delete-user shared association import");
 
-				const signalId = await pollSignalId({
-					schemaSlug: "person.media.associated",
-					subjectEntityId: person.id,
-				});
-				await pollSignalRecipientCount(signalId, 2);
+				const { id: signalId } = await pollSignalWithRecipientCount(
+					{ schemaSlug: "person.media.associated", subjectEntityId: person.id },
+					2,
+				);
 				await Promise.all([
 					pollTerminalSubscriptionRunStatuses({
 						signalId,
@@ -259,13 +260,12 @@ describe("Delete user automation data cleanup", () => {
 					adminAccessTokenHeaders(ADMIN_TOKEN),
 				);
 
-				expect(
-					await querySignalId({
-						subjectEntityId: person.id,
-						schemaSlug: "person.media.associated",
-					}),
-				).toBe(signalId);
-				expect(await querySignalRecipientUserIds(signalId)).toEqual([secondMonitor.userId]);
+				const [remainingSignal] = await listSignals({
+					subjectEntityId: person.id,
+					schemaSlug: "person.media.associated",
+				});
+				expect(remainingSignal?.id).toBe(signalId);
+				expect(remainingSignal?.recipientUserIds).toEqual([UserId.make(secondMonitor.userId)]);
 				expect(
 					await querySubscriptionRunStatuses({ signalId, executionUserId: firstMonitor.userId }),
 				).toEqual([]);

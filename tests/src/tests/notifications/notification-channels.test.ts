@@ -10,7 +10,7 @@ import {
 	findBuiltinSchemaBySlug,
 	getBackendClient,
 	listNotificationChannels,
-	pollSignalId,
+	pollSignal,
 	pollTerminalSubscriptionRunStatuses,
 	startFakeAppriseServer,
 	testNotificationChannels,
@@ -143,7 +143,10 @@ describe("notification delivery", () => {
 			properties: { endedAt: "2026-07-21T11:00:00Z", startedAt: "2026-07-21T10:00:00Z" },
 		});
 
-		const signalId = await pollSignalId({ schemaSlug: "workout.created", actorUserId: userId });
+		const { id: signalId } = await pollSignal({
+			schemaSlug: "workout.created",
+			actorUserId: userId,
+		});
 		const statuses = await pollTerminalSubscriptionRunStatuses({
 			signalId,
 			executionUserId: userId,
