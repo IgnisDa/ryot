@@ -229,12 +229,6 @@ const smtpGroup = group(
 	},
 );
 
-const notificationsGroup = group(
-	"Notification delivery settings",
-	Config.all({ smtp: smtpGroup.config }),
-	{ smtp: smtpGroup.meta },
-);
-
 const usersGroup = group(
 	"User account settings",
 	Config.all({
@@ -252,12 +246,10 @@ const schedulerGroup = group(
 	Config.all({
 		frequentCronJobsSchedule: fields.frequentCronJobsSchedule.config,
 		infrequentCronJobsSchedule: fields.infrequentCronJobsSchedule.config,
-		progressUpdateThresholdHours: fields.progressUpdateThresholdHours.config,
 	}),
 	{
 		frequentCronJobsSchedule: fields.frequentCronJobsSchedule.meta,
 		infrequentCronJobsSchedule: fields.infrequentCronJobsSchedule.meta,
-		progressUpdateThresholdHours: fields.progressUpdateThresholdHours.meta,
 	},
 );
 
@@ -311,23 +303,111 @@ const serverGroup = group(
 	"Server settings",
 	Config.all({
 		oidc: oidcGroup.config,
+		smtp: smtpGroup.config,
 		logLevel: logLevel.config,
 		logFile: fields.logFile.config,
+		traktClientId: fields.traktClientId.config,
 		corsOrigins: fields.corsOrigins.config,
 		otlpEndpoint: fields.otlpEndpoint.config,
 		adminAccessToken: fields.adminAccessToken.config,
 		disableNotifications: fields.disableNotifications.config,
 		disableBackgroundJobs: fields.disableBackgroundJobs.config,
+		progressUpdateThresholdHours: fields.progressUpdateThresholdHours.config,
 	}),
 	{
 		oidc: oidcGroup.meta,
+		smtp: smtpGroup.meta,
 		logLevel: logLevel.meta,
 		logFile: fields.logFile.meta,
+		traktClientId: fields.traktClientId.meta,
 		corsOrigins: fields.corsOrigins.meta,
 		otlpEndpoint: fields.otlpEndpoint.meta,
 		adminAccessToken: fields.adminAccessToken.meta,
 		disableNotifications: fields.disableNotifications.meta,
 		disableBackgroundJobs: fields.disableBackgroundJobs.meta,
+		progressUpdateThresholdHours: fields.progressUpdateThresholdHours.meta,
+	},
+);
+
+export const moviesAndShowsConfigDefinition = group(
+	"Movies and Shows configuration",
+	Config.all({
+		tmdbAccessToken: fields.tmdbAccessToken.config,
+		tvdbApiKey: fields.tvdbApiKey.config,
+	}),
+	{
+		tmdbAccessToken: fields.tmdbAccessToken.meta,
+		tvdbApiKey: fields.tvdbApiKey.meta,
+	},
+);
+
+export const animeAndMangaConfigDefinition = group(
+	"Anime and Manga configuration",
+	Config.all({
+		malClientId: fields.malClientId.config,
+	}),
+	{
+		malClientId: fields.malClientId.meta,
+	},
+);
+
+export const comicBooksConfigDefinition = group(
+	"Comic Books configuration",
+	Config.all({
+		metronUsername: fields.metronUsername.config,
+		metronPassword: fields.metronPassword.config,
+	}),
+	{
+		metronUsername: fields.metronUsername.meta,
+		metronPassword: fields.metronPassword.meta,
+	},
+);
+
+export const booksConfigDefinition = group(
+	"Books configuration",
+	Config.all({
+		hardcoverApiKey: fields.hardcoverApiKey.config,
+		googleBooksApiKey: fields.googleBooksApiKey.config,
+	}),
+	{
+		hardcoverApiKey: fields.hardcoverApiKey.meta,
+		googleBooksApiKey: fields.googleBooksApiKey.meta,
+	},
+);
+
+export const musicConfigDefinition = group(
+	"Music configuration",
+	Config.all({
+		spotifyClientId: fields.spotifyClientId.config,
+		spotifyClientSecret: fields.spotifyClientSecret.config,
+	}),
+	{
+		spotifyClientId: fields.spotifyClientId.meta,
+		spotifyClientSecret: fields.spotifyClientSecret.meta,
+	},
+);
+
+export const podcastsConfigDefinition = group(
+	"Podcasts configuration",
+	Config.all({
+		listennotesApiKey: fields.listennotesApiKey.config,
+	}),
+	{
+		listennotesApiKey: fields.listennotesApiKey.meta,
+	},
+);
+
+export const videoGamesConfigDefinition = group(
+	"Video Games configuration",
+	Config.all({
+		giantBombApiKey: fields.giantBombApiKey.config,
+		twitchClientId: fields.twitchClientId.config,
+		twitchClientSecret: fields.twitchClientSecret.config,
+	}),
+	{
+		giantBombApiKey: fields.giantBombApiKey.meta,
+		twitchClientId: fields.twitchClientId.meta,
+		twitchClientSecret: fields.twitchClientSecret.meta,
 	},
 );
 
@@ -365,7 +445,6 @@ export const systemConfigDefinition = group(
 		scheduler: schedulerGroup.config,
 		fileStorage: fileStorageGroup.config,
 		frontendUrl: fields.frontendUrl.config,
-		notifications: notificationsGroup.config,
 		builtinExercisePreloadLimit: fields.builtinExercisePreloadLimit.config,
 	}),
 	{
@@ -382,43 +461,6 @@ export const systemConfigDefinition = group(
 		scheduler: schedulerGroup.meta,
 		fileStorage: fileStorageGroup.meta,
 		frontendUrl: fields.frontendUrl.meta,
-		notifications: notificationsGroup.meta,
 		builtinExercisePreloadLimit: fields.builtinExercisePreloadLimit.meta,
-	},
-);
-
-export const providerConfigDefinition = group(
-	"Provider integration configuration",
-	Config.all({
-		tvdbApiKey: fields.tvdbApiKey.config,
-		malClientId: fields.malClientId.config,
-		traktClientId: fields.traktClientId.config,
-		metronUsername: fields.metronUsername.config,
-		twitchClientId: fields.twitchClientId.config,
-		metronPassword: fields.metronPassword.config,
-		tmdbAccessToken: fields.tmdbAccessToken.config,
-		hardcoverApiKey: fields.hardcoverApiKey.config,
-		spotifyClientId: fields.spotifyClientId.config,
-		giantBombApiKey: fields.giantBombApiKey.config,
-		googleBooksApiKey: fields.googleBooksApiKey.config,
-		listennotesApiKey: fields.listennotesApiKey.config,
-		twitchClientSecret: fields.twitchClientSecret.config,
-		spotifyClientSecret: fields.spotifyClientSecret.config,
-	}),
-	{
-		tvdbApiKey: fields.tvdbApiKey.meta,
-		malClientId: fields.malClientId.meta,
-		traktClientId: fields.traktClientId.meta,
-		metronUsername: fields.metronUsername.meta,
-		twitchClientId: fields.twitchClientId.meta,
-		metronPassword: fields.metronPassword.meta,
-		tmdbAccessToken: fields.tmdbAccessToken.meta,
-		hardcoverApiKey: fields.hardcoverApiKey.meta,
-		spotifyClientId: fields.spotifyClientId.meta,
-		giantBombApiKey: fields.giantBombApiKey.meta,
-		googleBooksApiKey: fields.googleBooksApiKey.meta,
-		listennotesApiKey: fields.listennotesApiKey.meta,
-		twitchClientSecret: fields.twitchClientSecret.meta,
-		spotifyClientSecret: fields.spotifyClientSecret.meta,
 	},
 );

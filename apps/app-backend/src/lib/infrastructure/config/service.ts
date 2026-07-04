@@ -2,7 +2,16 @@ import type { Config } from "effect";
 import { ConfigError, Effect, Option, Redacted } from "effect";
 
 import type { GroupMeta } from "./builder";
-import { providerConfigDefinition, systemConfigDefinition } from "./definition";
+import {
+	animeAndMangaConfigDefinition,
+	booksConfigDefinition,
+	comicBooksConfigDefinition,
+	moviesAndShowsConfigDefinition,
+	musicConfigDefinition,
+	podcastsConfigDefinition,
+	systemConfigDefinition,
+	videoGamesConfigDefinition,
+} from "./definition";
 import { SystemConfigSource, type SystemConfigValue } from "./system";
 
 const isNonEmpty = (opt: Option.Option<string>): opt is Option.Some<string> =>
@@ -21,7 +30,7 @@ export const isOidcEnabled = (config: SystemConfigValue): boolean => {
 export const getSmtpCredentials = (
 	config: SystemConfigValue,
 ): Option.Option<{ server: string; user: Redacted.Redacted; password: Redacted.Redacted }> => {
-	const { password, server, user } = config.notifications.smtp;
+	const { password, server, user } = config.server.smtp;
 	if (!isNonEmpty(server) || !isNonEmptyRedacted(user) || !isNonEmptyRedacted(password)) {
 		return Option.none();
 	}
@@ -61,7 +70,7 @@ export const validateSystemConfig = (
 			);
 		}
 
-		const { password, server, user } = config.notifications.smtp;
+		const { password, server, user } = config.server.smtp;
 		const smtpSetCount = [
 			isNonEmpty(server),
 			isNonEmptyRedacted(user),
@@ -102,21 +111,63 @@ export const validateSystemConfig = (
 		return config;
 	});
 
-export type ProviderConfigValue = Config.Config.Success<typeof providerConfigDefinition.config>;
+export type MoviesAndShowsConfigValue = Config.Config.Success<
+	typeof moviesAndShowsConfigDefinition.config
+>;
+export type AnimeAndMangaConfigValue = Config.Config.Success<
+	typeof animeAndMangaConfigDefinition.config
+>;
+export type ComicBooksConfigValue = Config.Config.Success<typeof comicBooksConfigDefinition.config>;
+export type BooksConfigValue = Config.Config.Success<typeof booksConfigDefinition.config>;
+export type MusicConfigValue = Config.Config.Success<typeof musicConfigDefinition.config>;
+export type PodcastsConfigValue = Config.Config.Success<typeof podcastsConfigDefinition.config>;
+export type VideoGamesConfigValue = Config.Config.Success<typeof videoGamesConfigDefinition.config>;
 
 export const appConfigMeta: GroupMeta = {
 	kind: "group",
 	description: "Application configuration",
-	children: { ...systemConfigDefinition.meta.children, providers: providerConfigDefinition.meta },
+	children: {
+		...systemConfigDefinition.meta.children,
+		moviesAndShows: moviesAndShowsConfigDefinition.meta,
+		animeAndManga: animeAndMangaConfigDefinition.meta,
+		comicBooks: comicBooksConfigDefinition.meta,
+		books: booksConfigDefinition.meta,
+		music: musicConfigDefinition.meta,
+		podcasts: podcastsConfigDefinition.meta,
+		videoGames: videoGamesConfigDefinition.meta,
+	},
 };
 
 export class AppConfig extends Effect.Service<AppConfig>()("AppConfig", {
 	effect: Effect.gen(function* () {
 		const system = yield* SystemConfigSource;
-		const providers = yield* providerConfigDefinition.config;
+		const moviesAndShows = yield* moviesAndShowsConfigDefinition.config;
+		const animeAndManga = yield* animeAndMangaConfigDefinition.config;
+		const comicBooks = yield* comicBooksConfigDefinition.config;
+		const books = yield* booksConfigDefinition.config;
+		const music = yield* musicConfigDefinition.config;
+		const podcasts = yield* podcastsConfigDefinition.config;
+		const videoGames = yield* videoGamesConfigDefinition.config;
 		const validated = yield* validateSystemConfig(system);
-		return { ...validated, providers };
+		return {
+			...validated,
+			moviesAndShows,
+			animeAndManga,
+			comicBooks,
+			books,
+			music,
+			podcasts,
+			videoGames,
+		};
 	}),
 }) {}
 
-export type AppConfigValue = SystemConfigValue & { providers: ProviderConfigValue };
+export type AppConfigValue = SystemConfigValue & {
+	moviesAndShows: MoviesAndShowsConfigValue;
+	animeAndManga: AnimeAndMangaConfigValue;
+	comicBooks: ComicBooksConfigValue;
+	books: BooksConfigValue;
+	music: MusicConfigValue;
+	podcasts: PodcastsConfigValue;
+	videoGames: VideoGamesConfigValue;
+};
