@@ -55,6 +55,7 @@ import {
 	showEpisodicKindConfig,
 } from "./lifecycle-expressions";
 import { MediaImageListSchema, MediaImageSchema } from "./media-image";
+import { WatchProviderListSchema } from "./watch-provider";
 
 const showEpisodeInclude = (season: Table, episodeLimit: number) => {
 	const episode = table("entity", "episode");
@@ -243,6 +244,10 @@ export const showSummaryRecipe = defineRecipe(
 						publishDate: selectedField(
 							propertyText(entity, "publishDate"),
 							Schema.NullOr(Schema.String),
+						),
+						watchProviders: selectedField(
+							propertyJson(entity, "watchProviders"),
+							WatchProviderListSchema,
 						),
 						publishYear: selectedField(
 							propertyNumber(entity, "publishYear"),

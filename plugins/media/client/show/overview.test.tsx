@@ -12,7 +12,8 @@ import {
 } from "../../tests/client/show/overview-fixture";
 import { decodeShowSummary } from "../../tests/client/show/summary-fixture";
 import { mountRyotClient } from "../../tests/client/show/test-support";
-import { ShowOverview } from "./overview";
+import { ShowOverview, ShowWatchProvidersSection } from "./overview";
+import { watchProviderGroups, watchProviderLink } from "./watch-providers";
 
 const noopAdapter = { query: () => Promise.resolve({}) };
 
@@ -59,6 +60,46 @@ describe("ShowOverview", () => {
 		expect(container.textContent).not.toContain("Cast & crew");
 		expect(container.textContent).not.toContain("Production companies");
 		expect(container.textContent).not.toContain("More like this");
+		unmount();
+	});
+
+	it("renders each offer group, the region attribution and the link for the region", () => {
+		const show = decodeShowSummary();
+		const { unmount, container } = mountRyotClient(
+			noopAdapter,
+			<ShowWatchProvidersSection
+				compact
+				region="US"
+				divided={false}
+				link={watchProviderLink(show, "US")}
+				groups={watchProviderGroups(show, "US")}
+			/>,
+		);
+
+		expect(container.textContent).toContain("Where to watch");
+		expect(container.textContent).toContain("Stream");
+		expect(container.textContent).toContain("Netflix");
+		expect(container.textContent).toContain("Apple TV");
+		expect(container.textContent).toContain("Availability in United States, from JustWatch.");
+		expect(
+			container.querySelector('a[href="https://www.themoviedb.org/tv/1/watch?locale=US"]'),
+		).not.toBeNull();
+		unmount();
+	});
+
+	it("omits the watch providers section when the region carries none", () => {
+		const { unmount, container } = mountRyotClient(
+			noopAdapter,
+			<ShowOverview
+				compact
+				refreshOverview={() => undefined}
+				show={decodeShowSummary({ watchProviders: null })}
+				overview={{ status: "ready", overview: readyOverview }}
+			/>,
+		);
+
+		expect(container.textContent).not.toContain("Where to watch");
+		expect(container.textContent).not.toContain("JustWatch");
 		unmount();
 	});
 
