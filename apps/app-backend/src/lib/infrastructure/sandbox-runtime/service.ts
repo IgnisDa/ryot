@@ -42,9 +42,6 @@ const decoder = new TextDecoder();
 const encoder = new TextEncoder();
 const invalidResponseMessage = "Invalid JSON response from Deno process";
 const defaultHeaders = { "User-Agent": "Ryot ( https://github.com/ignisda/ryot )" };
-const getCacheKey = (serverRunId: string, scriptId: string, key: string) =>
-	redisKeys.sandboxRunCache(serverRunId, scriptId, key);
-
 const automationHostFunctions = new Set<string>(AUTOMATION_SANDBOX_HOST_CAPABILITIES);
 
 export const selectSandboxHostFunctions = (
@@ -231,28 +228,30 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 				}
 
 				return runPromise(
-					redis.get(getCacheKey(serverRun.id, input.scriptId, key.trim())).pipe(
-						Effect.flatMap((cached) => {
-							if (cached === null) {
-								return Effect.succeed(apiSuccess(null));
-							}
-							const valueError = sandboxCacheValueError("getCachedValue", cached, "stored value");
-							if (valueError) {
-								return Effect.succeed(apiFailure(valueError));
-							}
-							return Schema.decode(Schema.parseJson(Schema.Unknown))(cached).pipe(
-								Effect.map((value) =>
-									isJsonValue(value)
-										? apiSuccess(value)
-										: apiFailure("getCachedValue: stored value is not valid JSON"),
-								),
-								Effect.orElseSucceed(() =>
-									apiFailure("getCachedValue: stored value is not valid JSON"),
-								),
-							);
-						}),
-						Effect.orDie,
-					),
+					redis
+						.get(redisKeys.sandboxRunCache(serverRun.id, input.userId, input.scriptId, key.trim()))
+						.pipe(
+							Effect.flatMap((cached) => {
+								if (cached === null) {
+									return Effect.succeed(apiSuccess(null));
+								}
+								const valueError = sandboxCacheValueError("getCachedValue", cached, "stored value");
+								if (valueError) {
+									return Effect.succeed(apiFailure(valueError));
+								}
+								return Schema.decode(Schema.parseJson(Schema.Unknown))(cached).pipe(
+									Effect.map((value) =>
+										isJsonValue(value)
+											? apiSuccess(value)
+											: apiFailure("getCachedValue: stored value is not valid JSON"),
+									),
+									Effect.orElseSucceed(() =>
+										apiFailure("getCachedValue: stored value is not valid JSON"),
+									),
+								);
+							}),
+							Effect.orDie,
+						),
 				);
 			},
 			httpCall: (_input, method, url, options) => {
@@ -329,7 +328,16 @@ export class SandboxService extends Effect.Service<SandboxService>()("SandboxSer
 							return valueError
 								? Effect.succeed(apiFailure(valueError))
 								: redis
-										.set(getCacheKey(serverRun.id, input.scriptId, key.trim()), serialized, expiry)
+										.set(
+											redisKeys.sandboxRunCache(
+												serverRun.id,
+												input.userId,
+												input.scriptId,
+												key.trim(),
+											),
+											serialized,
+											expiry,
+										)
 										.pipe(Effect.as(apiSuccess(null)), Effect.orDie);
 						}),
 						Effect.orElseSucceed(() =>

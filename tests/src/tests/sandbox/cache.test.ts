@@ -3,8 +3,8 @@ import { Effect } from "effect";
 import {
 	cacheSandboxSource,
 	createAuthenticatedClient,
-	createSandboxScript,
 	enqueueSandboxScript,
+	installSandboxScriptScoped,
 	pollSandboxResult,
 	requireCompletedSandboxValue,
 } from "~/fixtures";
@@ -12,14 +12,17 @@ import { requireObjectRecord } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 describe("sandbox cache functions", () => {
-	it.live(
+	it.scopedLive(
 		"setCachedValue stores a value that getCachedValue retrieves within the same script",
 		() =>
 			Effect.gen(function* () {
-				const { client } = yield* createAuthenticatedClient();
+				const { userId } = yield* createAuthenticatedClient();
 				const cacheKey = `cache-test-${crypto.randomUUID()}`;
 				const slug = `cache-round-trip-${crypto.randomUUID()}`;
-				const { id: scriptId } = yield* createSandboxScript(client, {
+				const { scriptId } = yield* installSandboxScriptScoped({
+					slug,
+					name: "cache-round-trip",
+					capabilities: ["setCachedValue", "getCachedValue"],
 					source: cacheSandboxSource({
 						slug,
 						key: cacheKey,
@@ -29,10 +32,10 @@ describe("sandbox cache functions", () => {
 						name: "cache-round-trip",
 					}),
 				});
-				const { jobId } = yield* enqueueSandboxScript(client, { scriptId, driverName: "main" });
+				const { jobId } = yield* enqueueSandboxScript(userId, { scriptId, driverName: "main" });
 
 				const value = requireObjectRecord(
-					requireCompletedSandboxValue(yield* pollSandboxResult(client, jobId)),
+					requireCompletedSandboxValue(yield* pollSandboxResult(userId, jobId)),
 					"Expected cache write result to be an object",
 				);
 				expect(value.success).toBe(true);
@@ -40,23 +43,21 @@ describe("sandbox cache functions", () => {
 			}),
 	);
 
-	it.live("getCachedValue returns null for a key that was never set", () =>
+	it.scopedLive("getCachedValue returns null for a key that was never set", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
+			const { userId } = yield* createAuthenticatedClient();
 			const missingKey = `cache-missing-${crypto.randomUUID()}`;
 			const slug = `cache-miss-${crypto.randomUUID()}`;
-			const { id: scriptId } = yield* createSandboxScript(client, {
-				source: cacheSandboxSource({
-					slug,
-					key: missingKey,
-					operation: "get",
-					name: "cache-miss",
-				}),
+			const { scriptId } = yield* installSandboxScriptScoped({
+				slug,
+				name: "cache-miss",
+				capabilities: ["getCachedValue"],
+				source: cacheSandboxSource({ slug, key: missingKey, operation: "get", name: "cache-miss" }),
 			});
-			const { jobId } = yield* enqueueSandboxScript(client, { scriptId, driverName: "main" });
+			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId, driverName: "main" });
 
 			const value = requireObjectRecord(
-				requireCompletedSandboxValue(yield* pollSandboxResult(client, jobId)),
+				requireCompletedSandboxValue(yield* pollSandboxResult(userId, jobId)),
 				"Expected cache miss result to be an object",
 			);
 			expect(value.success).toBe(true);
@@ -64,12 +65,15 @@ describe("sandbox cache functions", () => {
 		}),
 	);
 
-	it.live("cache is isolated between different scripts for the same key", () =>
+	it.scopedLive("cache is isolated between different scripts for the same key", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
+			const { userId } = yield* createAuthenticatedClient();
 			const sharedKey = `cache-isolation-${crypto.randomUUID()}`;
 			const writerSlug = `cache-writer-${crypto.randomUUID()}`;
-			const { id: writerScriptId } = yield* createSandboxScript(client, {
+			const { scriptId: writerScriptId } = yield* installSandboxScriptScoped({
+				slug: writerSlug,
+				name: "cache-writer",
+				capabilities: ["setCachedValue"],
 				source: cacheSandboxSource({
 					key: sharedKey,
 					ttlSeconds: 60,
@@ -80,7 +84,10 @@ describe("sandbox cache functions", () => {
 				}),
 			});
 			const readerSlug = `cache-reader-${crypto.randomUUID()}`;
-			const { id: readerScriptId } = yield* createSandboxScript(client, {
+			const { scriptId: readerScriptId } = yield* installSandboxScriptScoped({
+				slug: readerSlug,
+				name: "cache-reader",
+				capabilities: ["getCachedValue"],
 				source: cacheSandboxSource({
 					key: sharedKey,
 					slug: readerSlug,
@@ -89,18 +96,18 @@ describe("sandbox cache functions", () => {
 				}),
 			});
 
-			const { jobId: writeJobId } = yield* enqueueSandboxScript(client, {
+			const { jobId: writeJobId } = yield* enqueueSandboxScript(userId, {
 				driverName: "main",
 				scriptId: writerScriptId,
 			});
-			yield* pollSandboxResult(client, writeJobId);
+			yield* pollSandboxResult(userId, writeJobId);
 
-			const { jobId: readJobId } = yield* enqueueSandboxScript(client, {
+			const { jobId: readJobId } = yield* enqueueSandboxScript(userId, {
 				driverName: "main",
 				scriptId: readerScriptId,
 			});
 			const value = requireObjectRecord(
-				requireCompletedSandboxValue(yield* pollSandboxResult(client, readJobId)),
+				requireCompletedSandboxValue(yield* pollSandboxResult(userId, readJobId)),
 				"Expected cache isolation read result to be an object",
 			);
 			expect(value.success).toBe(true);
@@ -108,51 +115,60 @@ describe("sandbox cache functions", () => {
 		}),
 	);
 
-	it.live("built-in scripts share a cache partition across users for the same key", () =>
+	it.scopedLive("cache is isolated per executing user for the same script and key", () =>
 		Effect.gen(function* () {
-			const { client: clientA } = yield* createAuthenticatedClient();
-			const { client: clientB } = yield* createAuthenticatedClient();
-
-			const cacheKey = `builtin-shared-cache-${crypto.randomUUID()}`;
-
-			const writerSlug = `builtin-cache-writer-${crypto.randomUUID()}`;
-			const { id: writerScriptId } = yield* createSandboxScript(clientA, {
+			const { userId: userIdA } = yield* createAuthenticatedClient();
+			const { userId: userIdB } = yield* createAuthenticatedClient();
+			const cacheKey = `executing-user-cache-${crypto.randomUUID()}`;
+			const slug = `executing-user-cache-${crypto.randomUUID()}`;
+			const { scriptId } = yield* installSandboxScriptScoped({
+				slug,
+				name: "executing-user-cache",
+				capabilities: ["setCachedValue", "getCachedValue"],
 				source: cacheSandboxSource({
+					slug,
 					key: cacheKey,
-					ttlSeconds: 60,
-					slug: writerSlug,
-					operation: "set",
-					name: "builtin-cache-writer",
-					value: { sharedValue: true },
+					operation: "byInput",
+					name: "executing-user-cache",
+					value: { privateValue: true },
 				}),
 			});
 
-			const { jobId: writeJobId } = yield* enqueueSandboxScript(clientA, {
-				scriptId: writerScriptId,
+			const { jobId: writeJobId } = yield* enqueueSandboxScript(userIdA, {
+				scriptId,
 				driverName: "main",
+				context: { operation: "set" },
 			});
-			yield* pollSandboxResult(clientA, writeJobId);
+			expect(
+				requireObjectRecord(
+					requireCompletedSandboxValue(yield* pollSandboxResult(userIdA, writeJobId)),
+					"Expected cache write result to be an object",
+				).data,
+			).toEqual({ privateValue: true });
 
-			const readerSlug = `builtin-cache-reader-${crypto.randomUUID()}`;
-			const { id: readerScriptId } = yield* createSandboxScript(clientB, {
-				source: cacheSandboxSource({
-					key: cacheKey,
-					slug: readerSlug,
-					operation: "get",
-					name: "builtin-cache-reader",
-				}),
-			});
-
-			const { jobId: readJobId } = yield* enqueueSandboxScript(clientB, {
+			const { jobId: otherReadJobId } = yield* enqueueSandboxScript(userIdB, {
+				scriptId,
 				driverName: "main",
-				scriptId: readerScriptId,
+				context: { operation: "get" },
 			});
-			const value = requireObjectRecord(
-				requireCompletedSandboxValue(yield* pollSandboxResult(clientB, readJobId)),
+			const otherValue = requireObjectRecord(
+				requireCompletedSandboxValue(yield* pollSandboxResult(userIdB, otherReadJobId)),
 				"Expected cross-user cache result to be an object",
 			);
-			expect(value.success).toBe(true);
-			expect(value.data).toBeNull();
+			expect(otherValue.success).toBe(true);
+			expect(otherValue.data).toBeNull();
+
+			const { jobId: ownerReadJobId } = yield* enqueueSandboxScript(userIdA, {
+				scriptId,
+				driverName: "main",
+				context: { operation: "get" },
+			});
+			const ownerValue = requireObjectRecord(
+				requireCompletedSandboxValue(yield* pollSandboxResult(userIdA, ownerReadJobId)),
+				"Expected owner cache result to be an object",
+			);
+			expect(ownerValue.success).toBe(true);
+			expect(ownerValue.data).toEqual({ privateValue: true });
 		}),
 	);
 });

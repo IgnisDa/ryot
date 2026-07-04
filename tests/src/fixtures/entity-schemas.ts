@@ -1,4 +1,4 @@
-import { PluginSlug, SandboxScriptId } from "@ryot/contract/schema/brands";
+import { PluginSlug, SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
 import type { AppSchema } from "@ryot/contract/schema/property-schema";
 import { Brand, Effect } from "effect";
 
@@ -12,7 +12,10 @@ import { createPluginScope, listPluginWorkspaces } from "./plugin-workspaces";
 import { type PollOptions, pollUntil } from "./polling";
 import { installTestDefinitions } from "./test-plugin";
 
-type EnqueueEntitySearchBody = Omit<ContractPayload<"sandbox", "enqueue">, "driverName">;
+type EnqueueEntitySearchBody = Omit<
+	ContractPayload<"testSupport", "enqueueSandbox">,
+	"driverName" | "executingUserId"
+>;
 
 type EnqueueEntityImportBody = ContractPayload<"entityImport", "import">;
 type EntitySchemaInputSlug = ContractPayload<"entities", "create">["entitySchemaSlug"];
@@ -158,10 +161,14 @@ export const listBuiltinEntitySchemas = (client: Client) =>
 export const findBuiltinSchemaWithProviders = (client: Client) =>
 	findBuiltinSchemaBySlug(client, "book");
 
-export const enqueueEntitySearch = (client: Client, body: EnqueueEntitySearchBody) =>
+export const enqueueEntitySearch = (executingUserId: string, body: EnqueueEntitySearchBody) =>
 	Effect.gen(function* () {
-		const result = yield* client.call((c) =>
-			c.sandbox.enqueue({ payload: { ...body, driverName: "search" } }),
+		const result = yield* getBackendClient().call(
+			(c) =>
+				c.testSupport.enqueueSandbox({
+					payload: { ...body, driverName: "search", executingUserId: UserId.make(executingUserId) },
+				}),
+			adminHeaders,
 		);
 
 		return {
@@ -169,11 +176,22 @@ export const enqueueEntitySearch = (client: Client, body: EnqueueEntitySearchBod
 		};
 	});
 
-export const pollEntitySearchResult = (client: Client, jobId: string, options: PollOptions = {}) =>
+export const pollEntitySearchResult = (
+	executingUserId: string,
+	jobId: string,
+	options: PollOptions = {},
+) =>
 	pollUntil(
 		`entity search job '${jobId}'`,
 		Effect.gen(function* () {
-			const result = yield* client.call((c) => c.sandbox.getResult({ path: { jobId } }));
+			const result = yield* getBackendClient().call(
+				(c) =>
+					c.testSupport.getSandboxResult({
+						path: { jobId },
+						urlParams: { executingUserId: UserId.make(executingUserId) },
+					}),
+				adminHeaders,
+			);
 			return result.status !== "pending" ? result : null;
 		}),
 		options,

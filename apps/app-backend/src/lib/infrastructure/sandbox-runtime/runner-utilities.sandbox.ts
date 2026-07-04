@@ -62,7 +62,7 @@ const truncationDecoder = new TextDecoder("utf-8", { fatal: true });
 const typedArrayPrototype = Object.getPrototypeOf(Uint8Array.prototype) as object;
 const decodeTruncatedText = truncationDecoder.decode.bind(truncationDecoder);
 const sourceFramePattern =
-	/(?:(?:sandbox-user:)?script\.ts|(?:sandbox-built-in:)?(?:automations|providers|script-helpers)\/[a-zA-Z0-9_./-]+\.ts):(\d+):(\d+)/;
+	/(?:(?:sandbox-user:)?script\.ts|sandbox-built-in:[a-zA-Z0-9_./-]+\.ts|(?:automations|providers|script-helpers)\/[a-zA-Z0-9_./-]+\.ts):(\d+):(\d+)/;
 
 const ownMethod = <T>(prototype: object, name: string): T => {
 	const descriptor = Object.getOwnPropertyDescriptor(prototype, name);

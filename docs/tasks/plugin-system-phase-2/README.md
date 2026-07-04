@@ -24,9 +24,9 @@ open, and you record the choice you make in the plan file.
 
 ## Tasks
 
-**Overall Progress:** 6 of 8 tasks completed
+**Overall Progress:** 7 of 8 tasks completed
 
-**Current Task:** [Task 07](./07-remove-user-sandbox-scripts.md) (todo)
+**Current Task:** [Task 08](./08-codebase-cleanup.md) (todo)
 
 ### Task List
 
@@ -38,7 +38,7 @@ open, and you record the choice you make in the plan file.
 | 04  | [Admin Install Surface and Test Fixture](./04-admin-install-surface-and-fixture.md) | AFK  | done   |
 | 05  | [Notification Subscription State Table](./05-notification-subscription-state.md)    | AFK  | done   |
 | 06  | [Notification Automation Ownership](./06-notification-automation-ownership.md)         | AFK  | done   |
-| 07  | [Remove the Per-User Sandbox-Script Feature](./07-remove-user-sandbox-scripts.md)   | AFK  | todo   |
+| 07  | [Remove the Per-User Sandbox-Script Feature](./07-remove-user-sandbox-scripts.md)   | AFK  | done   |
 | 08  | [Codebase Cleanup](./08-codebase-cleanup.md)                                        | AFK  | todo   |
 
 Task 06 assigns notification formatting to the owner of each signal and must complete before
