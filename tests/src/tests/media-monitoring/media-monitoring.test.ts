@@ -19,7 +19,7 @@ import {
 	seedBuiltinProviderScript,
 	seedMediaEntity,
 	startFakeAppriseServer,
-	waitForMediaMonitoringRefresh,
+	triggerCronAndWaitForEntity,
 	type Client,
 	pollUntil,
 } from "~/fixtures";
@@ -314,10 +314,7 @@ describe("media monitoring infrequent refresh", () => {
 					enableMediaMonitoring(second.client, cronEntityId),
 				]);
 
-				const baseline = yield* getBackendClient().call(
-					(contract) => contract.testSupport.triggerInfrequentCron(),
-					adminHeaders,
-				);
+				yield* triggerCronAndWaitForEntity(first, cronEntityId);
 				yield* pollUntil(
 					"media monitoring baseline population",
 					Effect.gen(function* () {
@@ -330,7 +327,6 @@ describe("media monitoring infrequent refresh", () => {
 							: null;
 					}),
 				);
-				yield* waitForMediaMonitoringRefresh(`${baseline.executionId}-${cronEntityId}`);
 				expect(fakeApprise.requests).toEqual([]);
 
 				yield* replaceSandboxScriptCompiledRepresentation(
@@ -343,10 +339,7 @@ describe("media monitoring infrequent refresh", () => {
 						drivers: { details: providerDetails("Ended") },
 					}),
 				);
-				const changed = yield* getBackendClient().call(
-					(contract) => contract.testSupport.triggerInfrequentCron(),
-					adminHeaders,
-				);
+				yield* triggerCronAndWaitForEntity(first, cronEntityId);
 				yield* pollUntil(
 					"media monitoring changed provider refresh",
 					Effect.gen(function* () {
@@ -357,7 +350,6 @@ describe("media monitoring infrequent refresh", () => {
 						return properties.productionStatus === "Ended" ? true : null;
 					}),
 				);
-				yield* waitForMediaMonitoringRefresh(`${changed.executionId}-${cronEntityId}`);
 				const delivered = yield* pollUntil(
 					"media monitoring status notification delivery",
 					Effect.sync(() => {
@@ -389,11 +381,7 @@ describe("media monitoring infrequent refresh", () => {
 				});
 				yield* enableMediaMonitoring(owner.client, discoveryEntityId);
 
-				const baseline = yield* getBackendClient().call(
-					(contract) => contract.testSupport.triggerInfrequentCron(),
-					adminHeaders,
-				);
-				yield* waitForMediaMonitoringRefresh(`${baseline.executionId}-${discoveryEntityId}`);
+				yield* triggerCronAndWaitForEntity(owner, discoveryEntityId);
 				expect(fakeApprise.requests.filter(({ path }) => path === "/notify/discovery")).toEqual([]);
 
 				yield* replaceSandboxScriptCompiledRepresentation(
@@ -406,11 +394,7 @@ describe("media monitoring infrequent refresh", () => {
 						drivers: { details: discoveryProviderDetails(1) },
 					}),
 				);
-				const changed = yield* getBackendClient().call(
-					(contract) => contract.testSupport.triggerInfrequentCron(),
-					adminHeaders,
-				);
-				yield* waitForMediaMonitoringRefresh(`${changed.executionId}-${discoveryEntityId}`);
+				yield* triggerCronAndWaitForEntity(owner, discoveryEntityId);
 				const expectedEpisodeBody =
 					"1 new episode discovered in season 1 for Media Monitoring Discovery Target";
 				const expectedSeasonBody =

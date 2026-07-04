@@ -34,7 +34,7 @@ client                        interest module                     rest of backen
 ```
 
 1. **Open the stream.** The `stream` handler ([routes.ts](routes.ts)) resolves `CurrentUser` from the group's `AuthMiddleware`, then returns `buildInterestStreamResponse` ([stream.ts](stream.ts)). On the SSE scope's _acquire_, `StreamRegistry.add` registers the `streamId` and an `enqueue` closure; a `connected` frame is emitted. On _release_ (client disconnect), `StreamRegistry.remove` runs.
-2. **Declare interest.** The `declareInterest` handler truncates the id set to the cap, then calls `setInterestIfOwner` **before** reconciling (see invariants), then runs `InterestReconciler.reconcile`.
+2. **Declare interest.** `InterestService.declareInterest` truncates the id set to the cap, then calls `setInterestIfOwner` **before** reconciling (see invariants), then runs `InterestReconciler.reconcile`.
 3. **Reconcile** ([service.ts](service.ts)) reads the ids through the query engine in chunks, and for each row decides: enqueue population, enqueue translation, or classify as already-terminal.
 4. **Return catch-up.** Terminal rows are returned inline as `{ terminal }`, filtered to the stream's _current_ interest set.
 5. **Fan out completions.** When a population or translation workflow finishes, it publishes `{ entityId, reason }` to the single Redis channel. `StreamRegistry`'s duplicated subscriber decodes it and pushes an `entity:updated` frame to every local stream whose interest includes that id.
@@ -45,8 +45,8 @@ client                        interest module                     rest of backen
 - **[messages.ts](../../../../../libs/contract/src/modules/entity-interest/messages.ts)** — all wire schemas: `EntityUpdatedReason` (the completion-reason vocabulary), the Redis pub/sub payload codec, the SSE/terminal frame shapes, the POST body/response, and `MAX_INTEREST_ENTITY_IDS = 500`.
 - **[registry.ts](registry.ts)** — `StreamRegistry`: the per-process `streamId → { userId, enqueue, interest }` map, the `byEntity` reverse index for fan-out, and the single duplicated Redis subscriber (a scoped `Effect.Service`, torn down via finalizer).
 - **[stream.ts](stream.ts)** — the SSE transport: a push stream whose acquire/release drive `registry.add`/`registry.remove`, merged with the heartbeat stream.
-- **[service.ts](service.ts)** — `InterestReconciler`: the chunked query-engine read plus `handleRow`'s enqueue-or-terminal state machine.
-- **[routes.ts](routes.ts)** — the two thin handlers: register-before-reconcile, cap + log, swallow reconcile failure, gate terminal results on current interest.
+- **[service.ts](service.ts)** — `InterestService` owns capped interest registration and register-before-reconcile orchestration; `InterestReconciler` owns the chunked query-engine read plus `handleRow`'s enqueue-or-terminal state machine.
+- **[routes.ts](routes.ts)** — the two thin handlers delegate stream transport and declaration orchestration to their owning services.
 - **[stream.test.ts](stream.test.ts)** — SSE lifecycle unit test (add + `connected` on subscribe, remove on interrupt) with a stand-in registry, no Redis.
 
 ## Wire Protocol (Client Contract)
@@ -66,7 +66,7 @@ These are the load-bearing "why"s. Changing the code without preserving them sil
 
 ### Register interest _before_ reconciling
 
-[routes.ts](routes.ts) calls `setInterestIfOwner` before `reconciler.reconcile`. A background workflow can complete and publish to Redis _during_ the reconcile read; if the stream's interest weren't already in `StreamRegistry`, `fanOut` would find no matching stream and the completion would be lost for that client.
+`InterestService.declareInterest` calls `setInterest` before `reconciler.reconcile`. A background workflow can complete and publish to Redis _during_ the reconcile read; if the stream's interest weren't already in `StreamRegistry`, `fanOut` would find no matching stream and the completion would be lost for that client.
 
 ### Populate-before-translate
 
@@ -79,7 +79,7 @@ Translation must **never** be enqueued for an unpopulated entity: a fill on an u
 
 ### Replace semantics + terminal gating
 
-Each POST **supersedes** the prior interest set for that stream (`setInterestIfOwner` diffs against the previous set and updates `byEntity` for only the real changes). Because a _newer_ POST can drop ids while an _earlier_ reconcile is still awaiting, [routes.ts](routes.ts) filters the returned `terminal` list through `registry.hasInterest(streamId, id)` at return time — so it never surfaces results the stream no longer cares about.
+Each POST **supersedes** the prior interest set for that stream (`setInterestIfOwner` diffs against the previous set and updates `byEntity` for only the real changes). Because a _newer_ POST can drop ids while an _earlier_ reconcile is still awaiting, `InterestService.declareInterest` filters the returned `terminal` list through `registry.hasInterest(streamId, id)` at return time — so it never surfaces results the stream no longer cares about.
 
 ### Duplicate delivery is intentional
 
@@ -87,7 +87,7 @@ Already-terminal entities have no future completion event to wait for, so they a
 
 ### The interest-set cap (500) and chunk size (100)
 
-`reconcile` runs `⌈N/100⌉` **sequential** query-engine transactions per POST, each holding a DB connection (there is no `in` operator, so the id filter is an `or`-of-`eq`, and each document's page limit ≤ `MAX_ROOT_PAGE_SIZE = 100`). An unbounded set — even a legitimate huge saved view — would turn one POST into a slow, connection-hogging request. [routes.ts](routes.ts) **truncates to `MAX_INTEREST_ENTITY_IDS = 500` and logs a warning** rather than rejecting, so an oversized-but-legit view still gets _partial_ real-time updates. (Cap + chunk together bound one POST to ≤ 5 sequential reconcile transactions.)
+`reconcile` runs `⌈N/100⌉` **sequential** query-engine transactions per POST, each holding a DB connection (there is no `in` operator, so the id filter is an `or`-of-`eq`, and each document's page limit ≤ `MAX_ROOT_PAGE_SIZE = 100`). An unbounded set — even a legitimate huge saved view — would turn one POST into a slow, connection-hogging request. `InterestService.setInterest` **truncates to `MAX_INTEREST_ENTITY_IDS = 500` and logs a warning** rather than rejecting, so an oversized-but-legit view still gets _partial_ real-time updates. (Cap + chunk together bound one POST to ≤ 5 sequential reconcile transactions.)
 
 ### Reconcile failure never fails the POST
 
@@ -124,11 +124,11 @@ The module deliberately reuses existing infrastructure rather than reimplementin
 - **Population producer** (`#modules/entities` `EntityPopulationTrigger` → `#modules/entity-import`) — `request({ entityId, externalId, userId, entitySchemaId, sandboxScriptId })` enqueues `ProviderEntityPopulationWorkflow` (`mode: "ensure"`) with `executionId = populate-${entityId}`, `discard: true`. Idempotency is `@effect/workflow` execution-id coalescing, so blind per-row calls collapse to one in-flight run. On completion, the `publish-primary-entity` activity publishes `entity:updated` with `reason: "populated"` **after** `populatedAt` is durably written ([entity-import/provider-entity-population-workflow.ts](../entity-import/provider-entity-population-workflow.ts)).
 - **Translation producer** (`#modules/entity-translation` `TranslationsService.requestFill`) — enqueues `TranslateEntityWorkflow` with `executionId = translate-${entityId}-${language}`, `discard: true`. On success it upserts the overlay (all-null row when the provider has no translation — a negative cache that is never refetched) and publishes `entity:updated` with `reason: "translated"`. On transient sandbox failure it writes **no** row (status stays `pending`, so the next reconcile retries).
 - **Redis** (`#lib/infrastructure/redis`) — owns only the transport: `redisKeys.entityUpdatedChannel = "ryot:entity:updated"` and the generic `RedisService` (pub/sub, get/set). The message vocabulary itself — `EntityUpdatedReason`, `EntityUpdatedMessage`, `encodeEntityUpdatedMessage` (producer side) and `decodeEntityUpdatedMessage` (the **synchronous, `Either`-returning** decoder shaped for the raw ioredis callback, which is not an Effect context) — is owned by this module's [messages.ts](../../../../../libs/contract/src/modules/entity-interest/messages.ts), since it is client-contract-facing, not backend-infra. The `reason` rides _in the payload_ because only the publisher knows whether it populated or translated; the registry is generic fan-out.
-- **Wiring** (`app/layers.ts`, `app/server.ts`, `libs/contract/src/contract.ts`) — `InterestGroup` is `.add()`ed to the single `AppContract`; `InterestRoutesLive` is provided into the API layer; `StreamRegistry.Default` and `InterestReconciler.Default` are merged into `ServicesLive`. `AuthMiddlewareLive` is provided once at the API level and covers both endpoints. The SSE endpoint being a real contract endpoint (via `handleRaw`) is why it appears in `/docs` and gets group-level 401 handling — unlike the pre-migration raw route.
+- **Wiring** (`app/layers.ts`, `app/server.ts`, `libs/contract/src/contract.ts`) — `InterestGroup` is `.add()`ed to the single `AppContract`; `InterestRoutesLive` is provided into the API layer; `StreamRegistry.Default` and `InterestReconciler.Default` provide `InterestService.Default` in `ServicesLive`. `AuthMiddlewareLive` is provided once at the API level and covers both endpoints. The SSE endpoint being a real contract endpoint (via `handleRaw`) is why it appears in `/docs` and gets group-level 401 handling — unlike the pre-migration raw route.
 
 ## Conventions
 
-- Keep `routes.ts` thin: register interest, reconcile, gate results. Business logic lives in `InterestReconciler`; transport lives in `stream.ts`/`registry.ts`.
+- Keep `routes.ts` thin. Interest registration and declaration orchestration live in `InterestService`, row reconciliation lives in `InterestReconciler`, and transport lives in `stream.ts`/`registry.ts`.
 - Wire schemas and the `reason` vocabulary both stay in `messages.ts`. Don't redefine either inline.
 - When the protocol or behavior changes, update this file, the reference client `tests/src/fixtures/interest-sse.ts`, and the e2e tests (`tests/src/tests/entity-interest/authz.test.ts`, `tests/src/tests/entity-interest/population-dispatch.test.ts`, `tests/src/tests/query-engine/translation-status.test.ts`).
 - Any new completion `reason` must be added to `EntityUpdatedReason` in `messages.ts` and threaded through `handleRow`'s terminal mapping and both publisher workflows.

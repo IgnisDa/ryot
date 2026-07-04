@@ -1,8 +1,17 @@
 import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { TranslationStatus } from "@ryot/contract/modules/entities/schemas";
-import type { EntityUpdatedReason } from "@ryot/contract/modules/entity-interest/messages";
+import {
+	type DeclareInterestBody,
+	type EntityUpdatedReason,
+	MAX_INTEREST_ENTITY_IDS,
+} from "@ryot/contract/modules/entity-interest/messages";
 import type { RowItem } from "@ryot/contract/modules/query-engine/language";
-import { EntityId, EntitySchemaId, SandboxScriptId } from "@ryot/contract/schema/brands";
+import {
+	EntityId,
+	EntitySchemaId,
+	SandboxScriptId,
+	type UserId,
+} from "@ryot/contract/schema/brands";
 import { buildEntityInterestQueryDocument } from "@ryot/query-engine";
 import { Effect, Schema } from "effect";
 
@@ -19,6 +28,8 @@ import {
 } from "#modules/query-engine/response-helpers";
 import { QueryEngineService } from "#modules/query-engine/service";
 import { MAX_ROOT_PAGE_SIZE } from "#modules/query-engine/validator/shared";
+
+import { StreamRegistry } from "./registry";
 
 const chunk = <T>(items: readonly T[], size: number): T[][] => {
 	const chunks: T[][] = [];
@@ -146,5 +157,56 @@ export class InterestReconciler extends Effect.Service<InterestReconciler>()("In
 		});
 
 		return { reconcile };
+	}),
+}) {}
+
+export class InterestService extends Effect.Service<InterestService>()("InterestService", {
+	effect: Effect.gen(function* () {
+		const registry = yield* StreamRegistry;
+		const reconciler = yield* InterestReconciler;
+
+		const setInterest = Effect.fn("InterestService.setInterest")(function* (input: {
+			userId: UserId;
+			streamId: string;
+			entityIds: readonly string[];
+		}) {
+			const entityIds = input.entityIds.slice(0, MAX_INTEREST_ENTITY_IDS);
+			if (entityIds.length < input.entityIds.length) {
+				yield* Effect.logWarning("interest set truncated").pipe(
+					Effect.annotateLogs({
+						streamId: input.streamId,
+						cap: MAX_INTEREST_ENTITY_IDS,
+						declared: input.entityIds.length,
+					}),
+				);
+			}
+			yield* registry.setInterestIfOwner(input.streamId, input.userId, entityIds);
+			return entityIds;
+		});
+
+		const declareInterest = Effect.fn("InterestService.declareInterest")(function* (
+			user: CurrentUserValue,
+			payload: DeclareInterestBody,
+		) {
+			const entityIds = yield* setInterest({
+				userId: user.id,
+				streamId: payload.streamId,
+				entityIds: payload.entityIds,
+			});
+			const terminal = yield* reconciler
+				.reconcile(user, entityIds)
+				.pipe(
+					Effect.catchAll((error) =>
+						Effect.logWarning("interest reconcile failed", error).pipe(Effect.as([])),
+					),
+				);
+			return {
+				terminal: terminal.filter((update) =>
+					registry.hasInterest(payload.streamId, update.entityId),
+				),
+			};
+		});
+
+		return { setInterest, declareInterest };
 	}),
 }) {}
