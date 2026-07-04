@@ -9,6 +9,6 @@ describe("fitness query recipes", () => {
 			entityId: "template-id",
 		});
 
-		expect(doc.output.include?.[0]).toMatchObject({ key: "workouts", limit: 6 });
+		expect(doc.output.include[0]).toMatchObject({ key: "workouts", limit: 6 });
 	});
 });
