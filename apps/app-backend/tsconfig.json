@@ -1,5 +1,9 @@
 {
-	"exclude": ["node_modules", "src/lib/infrastructure/sandbox-runtime/*.sandbox.ts"],
+	"exclude": [
+		"node_modules",
+		"src/modules/plugins/test-fixtures/**/*.sandbox.ts",
+		"src/lib/infrastructure/sandbox-runtime/*.sandbox.ts"
+	],
 	"$schema": "https://raw.githubusercontent.com/Effect-TS/tsgo/refs/heads/main/schema.json",
 	"compilerOptions": {
 		"noEmit": true,

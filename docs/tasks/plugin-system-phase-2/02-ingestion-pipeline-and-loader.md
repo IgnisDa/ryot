@@ -4,7 +4,7 @@
 
 **Type:** AFK
 
-**Status:** todo
+**Status:** done
 
 ## Before you start
 
@@ -60,22 +60,22 @@ tests below). Do not restate or re-derive it.
 
 ## Acceptance criteria
 
-- [ ] `ingestPlugin` validates, compiles, content-addresses, persists, and loads a fixture
+- [x] `ingestPlugin` validates, compiles, content-addresses, persists, and loads a fixture
       plugin into a test registry snapshot with an atomic swap (plan §4)
-- [ ] Ingestion unit tests cover each failure mode: manifest validation failure, compile
+- [x] Ingestion unit tests cover each failure mode: manifest validation failure, compile
       diagnostic, slug collision, dangling binding, and `/` in a slug (plan §7)
-- [ ] Loader unit tests cover atomic swap under concurrent reads and boot short-circuit on a
+- [x] Loader unit tests cover atomic swap under concurrent reads and boot short-circuit on a
       matching `sourceHash` (plan §7)
-- [ ] The schema-evolution differ accepts additive changes and rejects each breaking category
+- [x] The schema-evolution differ accepts additive changes and rejects each breaking category
       with a structured error, under unit test (plan §4, §7)
-- [ ] The Redis invalidation message → snapshot-rebuild path is unit-tested (a two-backend e2e
+- [x] The Redis invalidation message → snapshot-rebuild path is unit-tested (a two-backend e2e
       is explicitly out of scope, plan §7 `[RECOMMENDED]`)
-- [ ] `plugin` table and additive `sandbox_script` `pluginSlug`/`contentHash` columns exist via
+- [x] `plugin` table and additive `sandbox_script` `pluginSlug`/`contentHash` columns exist via
       a regenerated migration; existing builtin seeding still works and the full suite stays
       green (cross-phase invariant 1)
-- [ ] The boot definition source is unchanged (SeedService still runs); the loader is exercised
+- [x] The boot definition source is unchanged (SeedService still runs); the loader is exercised
       only by tests in this slice
-- [ ] `[IMPLEMENTER-DECIDES]` precompilation-cache choice is measured and recorded in the plan
+- [x] `[IMPLEMENTER-DECIDES]` precompilation-cache choice is measured and recorded in the plan
 
 ## User stories addressed
 
