@@ -241,92 +241,88 @@ const dispatchLifecycleOccurrence = Effect.fn("dispatchEventLifecycleOccurrence"
 	});
 });
 
-export const runEventCreateWorkflow = Effect.fn("runEventCreateWorkflow")(function* (
-	payload: EventCreateWorkflowPayload,
-) {
-	let createdCount = 0;
-	const outcomes: EventCreateItemOutcome[] = [];
-	const referencedGlobalEntityIds = new Set<EntityId>();
-	const operations = yield* EventCreateWorkflowOperations;
-	let failure: { index: number; reason: EventCreateFailureReason } | null = null;
+export const runEventCreateWorkflow = Effect.fn("EventCreateWorkflow")(
+	function* (payload: EventCreateWorkflowPayload, executionId: string) {
+		yield* Effect.annotateCurrentSpan({
+			executionId,
+			userId: payload.userId,
+			...(payload.importRunId ? { importRunId: payload.importRunId } : {}),
+			...(payload.integrationId ? { integrationId: payload.integrationId } : {}),
+		});
+		let createdCount = 0;
+		const outcomes: EventCreateItemOutcome[] = [];
+		const referencedGlobalEntityIds = new Set<EntityId>();
+		const operations = yield* EventCreateWorkflowOperations;
+		let failure: { index: number; reason: EventCreateFailureReason } | null = null;
 
-	for (const [itemIndex, item] of payload.payload.entries()) {
-		const attempt = yield* Effect.gen(function* () {
-			const prepared = yield* prepareItem(payload, itemIndex, item);
-			const policyResult = yield* runEventCreatePolicies(
+		for (const [itemIndex, item] of payload.payload.entries()) {
+			const attempt = yield* Effect.gen(function* () {
+				const prepared = yield* prepareItem(payload, itemIndex, item);
+				const policyResult = yield* runEventCreatePolicies(
+					payload,
+					itemIndex,
+					prepared,
+					operations.processSandboxExecution,
+				);
+				return { policyResult, prepared, kind: "prepared" as const };
+			}).pipe(
+				Effect.catchTags({
+					BadRequest: (error) =>
+						Effect.succeed({
+							kind: "failed" as const,
+							reason: { kind: "bad_request" as const, message: error.message },
+						}),
+					NotFound: (error) =>
+						Effect.succeed({
+							kind: "failed" as const,
+							reason: { kind: "not_found" as const, message: error.message },
+						}),
+				}),
+			);
+			if (attempt.kind === "failed") {
+				failure = { index: itemIndex, reason: attempt.reason };
+				break;
+			}
+			if (attempt.policyResult.kind === "skipped") {
+				outcomes.push({
+					index: itemIndex,
+					status: "skipped_by_policy",
+					reason: attempt.policyResult.reason,
+				});
+				continue;
+			}
+
+			const createdEvent = yield* writeEvent(
 				payload,
 				itemIndex,
-				prepared,
-				operations.processSandboxExecution,
+				attempt.prepared,
+				attempt.policyResult.draft,
 			);
-			return { policyResult, prepared, kind: "prepared" as const };
-		}).pipe(
-			Effect.catchTags({
-				BadRequest: (error) =>
-					Effect.succeed({
-						kind: "failed" as const,
-						reason: { kind: "bad_request" as const, message: error.message },
-					}),
-				NotFound: (error) =>
-					Effect.succeed({
-						kind: "failed" as const,
-						reason: { kind: "not_found" as const, message: error.message },
-					}),
-			}),
+			if (createdEvent.isGlobalReference) {
+				referencedGlobalEntityIds.add(createdEvent.entityId);
+			}
+			outcomes.push({ index: itemIndex, eventId: createdEvent.id, status: "written" });
+			createdCount += 1;
+			yield* dispatchLifecycleOccurrence(payload, itemIndex, createdEvent);
+		}
+
+		yield* Effect.forEach(
+			referencedGlobalEntityIds,
+			(entityId) =>
+				operations.ensureLibraryMembership({
+					entityId,
+					userId: payload.userId,
+					executionId: `${payload.executionId}-libref-${entityId}`,
+				}),
+			{ discard: true },
 		);
-		if (attempt.kind === "failed") {
-			failure = { index: itemIndex, reason: attempt.reason };
-			break;
-		}
-		if (attempt.policyResult.kind === "skipped") {
-			outcomes.push({
-				index: itemIndex,
-				status: "skipped_by_policy",
-				reason: attempt.policyResult.reason,
-			});
-			continue;
-		}
 
-		const createdEvent = yield* writeEvent(
-			payload,
-			itemIndex,
-			attempt.prepared,
-			attempt.policyResult.draft,
-		);
-		if (createdEvent.isGlobalReference) {
-			referencedGlobalEntityIds.add(createdEvent.entityId);
-		}
-		outcomes.push({ index: itemIndex, eventId: createdEvent.id, status: "written" });
-		createdCount += 1;
-		yield* dispatchLifecycleOccurrence(payload, itemIndex, createdEvent);
-	}
-
-	yield* Effect.forEach(
-		referencedGlobalEntityIds,
-		(entityId) =>
-			operations.ensureLibraryMembership({
-				entityId,
-				userId: payload.userId,
-				executionId: `${payload.executionId}-libref-${entityId}`,
-			}),
-		{ discard: true },
-	);
-
-	return { failure, outcomes, count: createdCount };
-});
-
-const EventCreateWorkflowLive = EventCreateWorkflow.toLayer((payload, executionId) =>
-	runEventCreateWorkflow(payload).pipe(
-		Effect.withSpan("EventCreateWorkflow", {
-			attributes: {
-				executionId,
-				userId: payload.userId,
-				...(payload.importRunId ? { importRunId: payload.importRunId } : {}),
-				...(payload.integrationId ? { integrationId: payload.integrationId } : {}),
-			},
-		}),
-		Effect.annotateLogs({ executionId, workflow: "EventCreateWorkflow" }),
-	),
+		return { failure, outcomes, count: createdCount };
+	},
+	(effect, _payload, executionId) =>
+		Effect.annotateLogs(effect, { executionId, workflow: "EventCreateWorkflow" }),
 );
+
+const EventCreateWorkflowLive = EventCreateWorkflow.toLayer(runEventCreateWorkflow);
 
 export const EventCreateWorkflowDefinitionsLive = Layer.mergeAll(EventCreateWorkflowLive);

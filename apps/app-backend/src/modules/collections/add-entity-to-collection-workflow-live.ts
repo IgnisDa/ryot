@@ -22,8 +22,14 @@ const WriteCollectionMembershipResult = Schema.Struct({
 	addEventSchemaId: Schema.NullOr(EventSchemaId),
 });
 
-export const runAddEntityToCollectionWorkflow = Effect.fn("runAddEntityToCollectionWorkflow")(
-	function* (payload: AddEntityToCollectionWorkflowPayload) {
+export const runAddEntityToCollectionWorkflow = Effect.fn("AddEntityToCollectionWorkflow")(
+	function* (payload: AddEntityToCollectionWorkflowPayload, executionId: string) {
+		yield* Effect.annotateCurrentSpan({
+			executionId,
+			userId: payload.userId,
+			entityId: payload.entityId,
+			collectionId: payload.collectionId,
+		});
 		const engine = yield* WorkflowEngine;
 		const collections = yield* CollectionsService;
 
@@ -40,13 +46,13 @@ export const runAddEntityToCollectionWorkflow = Effect.fn("runAddEntityToCollect
 		});
 
 		if (result.wasInserted && result.addEventSchemaId) {
-			const executionId = `collection-membership-added-${result.memberOf.id}`;
+			const eventExecutionId = `collection-membership-added-${result.memberOf.id}`;
 			yield* engine
 				.execute(EventCreateWorkflow, {
-					executionId,
+					executionId: eventExecutionId,
 					discard: true,
 					payload: {
-						executionId,
+						executionId: eventExecutionId,
 						origin: "collection",
 						userId: payload.userId,
 						payload: [
@@ -73,19 +79,10 @@ export const runAddEntityToCollectionWorkflow = Effect.fn("runAddEntityToCollect
 
 		return { memberOf: result.memberOf };
 	},
+	(effect, _payload, executionId) =>
+		Effect.annotateLogs(effect, { executionId, workflow: "AddEntityToCollectionWorkflow" }),
 );
 
 export const AddEntityToCollectionWorkflowDefinitionsLive = AddEntityToCollectionWorkflow.toLayer(
-	(payload, executionId) =>
-		runAddEntityToCollectionWorkflow(payload).pipe(
-			Effect.withSpan("AddEntityToCollectionWorkflow", {
-				attributes: {
-					executionId,
-					userId: payload.userId,
-					entityId: payload.entityId,
-					collectionId: payload.collectionId,
-				},
-			}),
-			Effect.annotateLogs({ executionId, workflow: "AddEntityToCollectionWorkflow" }),
-		),
+	(payload, executionId) => runAddEntityToCollectionWorkflow(payload, executionId),
 );

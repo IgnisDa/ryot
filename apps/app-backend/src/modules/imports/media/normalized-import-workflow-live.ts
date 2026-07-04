@@ -134,72 +134,68 @@ const finalizeMediaImportRun = (input: {
 		});
 	});
 
-export const processNormalizedMediaImport = Effect.fn("processNormalizedMediaImport")(function* (
-	payload: NormalizedMediaImportJobData,
-	executionId: string,
-) {
-	const jobData = {
-		runId: payload.runId,
-		userId: payload.userId,
-		...(payload.integrationId ? { integrationId: payload.integrationId } : {}),
-	};
+export const processNormalizedMediaImport = Effect.fn("ProcessNormalizedMediaImportWorkflow")(
+	function* (payload: NormalizedMediaImportJobData, executionId: string) {
+		yield* Effect.annotateCurrentSpan({
+			executionId,
+			runId: payload.runId,
+			userId: payload.userId,
+			...(payload.integrationId ? { integrationId: payload.integrationId } : {}),
+		});
+		const jobData = {
+			runId: payload.runId,
+			userId: payload.userId,
+			...(payload.integrationId ? { integrationId: payload.integrationId } : {}),
+		};
 
-	const adapterResult = yield* loadNormalizedAdapterResult(payload.runId);
-	const { failures } = adapterResult;
-	const entityGroups = cloneMediaEntityGroups(adapterResult);
-	const groups = entityGroups.length;
-	const adapterFailureCount = failures.length;
-	const progress = makeMediaProgressReporters({ groups, payload: jobData });
+		const adapterResult = yield* loadNormalizedAdapterResult(payload.runId);
+		const { failures } = adapterResult;
+		const entityGroups = cloneMediaEntityGroups(adapterResult);
+		const groups = entityGroups.length;
+		const adapterFailureCount = failures.length;
+		const progress = makeMediaProgressReporters({ groups, payload: jobData });
 
-	yield* recordMediaAdapterFailures(jobData, failures);
-	yield* recordMediaTotalItems(jobData, groups + adapterFailureCount);
+		yield* recordMediaAdapterFailures(jobData, failures);
+		yield* recordMediaTotalItems(jobData, groups + adapterFailureCount);
 
-	const resolveFailures = yield* resolveMediaEntityGroups({
-		executionId,
-		entityGroups,
-		payload: jobData,
-		reportProgress: progress.resolution,
-	});
+		const resolveFailures = yield* resolveMediaEntityGroups({
+			executionId,
+			entityGroups,
+			payload: jobData,
+			reportProgress: progress.resolution,
+		});
 
-	const { failures: populateFailures, entityIdsByKey } = yield* populateMediaEntityGroups({
-		executionId,
-		entityGroups,
-		payload: jobData,
-		reportProgress: progress.population,
-	});
+		const { failures: populateFailures, entityIdsByKey } = yield* populateMediaEntityGroups({
+			executionId,
+			entityGroups,
+			payload: jobData,
+			reportProgress: progress.population,
+		});
 
-	const { failures: writeFailures, importedItems } = yield* writeMediaEntityGroups({
-		executionId,
-		entityGroups,
-		entityIdsByKey,
-		payload: jobData,
-		reportProgress: progress.writing,
-	});
+		const { failures: writeFailures, importedItems } = yield* writeMediaEntityGroups({
+			executionId,
+			entityGroups,
+			entityIdsByKey,
+			payload: jobData,
+			reportProgress: progress.writing,
+		});
 
-	const failedItems = adapterFailureCount + resolveFailures + populateFailures + writeFailures;
-	const processedItems = adapterFailureCount + groups;
+		const failedItems = adapterFailureCount + resolveFailures + populateFailures + writeFailures;
+		const processedItems = adapterFailureCount + groups;
 
-	yield* finalizeMediaImportRun({
-		failedItems,
-		importedItems,
-		processedItems,
-		payload: jobData,
-	});
-});
+		yield* finalizeMediaImportRun({
+			failedItems,
+			importedItems,
+			processedItems,
+			payload: jobData,
+		});
+	},
+	(effect, _payload, executionId) =>
+		Effect.annotateLogs(effect, { executionId, workflow: "ProcessNormalizedMediaImportWorkflow" }),
+);
 
 const ProcessNormalizedMediaImportWorkflowLive = ProcessNormalizedMediaImportWorkflow.toLayer(
-	(payload, executionId) =>
-		processNormalizedMediaImport(payload, executionId).pipe(
-			Effect.withSpan("ProcessNormalizedMediaImportWorkflow", {
-				attributes: {
-					runId: payload.runId,
-					userId: payload.userId,
-					executionId,
-					...(payload.integrationId ? { integrationId: payload.integrationId } : {}),
-				},
-			}),
-			Effect.annotateLogs({ executionId, workflow: "ProcessNormalizedMediaImportWorkflow" }),
-		),
+	processNormalizedMediaImport,
 );
 
 export const ProcessNormalizedMediaImportWorkflowDefinitionsLive =

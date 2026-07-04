@@ -25,6 +25,11 @@ const makeSandboxExecutionQueueWorkerLive = (concurrency: number) =>
 		SandboxExecutionQueue,
 		(payload) =>
 			Effect.gen(function* () {
+				yield* Effect.annotateCurrentSpan({
+					userId: payload.userId,
+					scriptId: payload.scriptId,
+					executionId: payload.executionId,
+				});
 				const runWithDb = yield* DbRunner;
 				const repository = yield* SandboxRepository;
 				const sandbox = yield* RuntimeSandboxService;
@@ -59,13 +64,6 @@ const makeSandboxExecutionQueueWorkerLive = (concurrency: number) =>
 				};
 			}).pipe(
 				Effect.mapError((error) => new SandboxRunError({ message: unknownToMessage(error) })),
-				Effect.withSpan("SandboxExecutionQueue", {
-					attributes: {
-						userId: payload.userId,
-						scriptId: payload.scriptId,
-						executionId: payload.executionId,
-					},
-				}),
 			),
 		{ concurrency },
 	);

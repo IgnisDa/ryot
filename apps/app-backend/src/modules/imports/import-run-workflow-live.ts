@@ -11,17 +11,12 @@ import { ImportRunArtifacts } from "./runtime/workflow-helpers";
 const ProcessImportRunWorkflowLive = ProcessImportRunWorkflow.toLayer((payload, executionId) =>
 	Effect.gen(function* () {
 		if (!isOneTimeMediaImportSource(payload.source)) {
-			yield* runOneTimeNonMediaImportWorkflow(payload);
+			yield* runOneTimeNonMediaImportWorkflow(payload, executionId);
 			return;
 		}
 
 		yield* runOneTimeMediaImportWorkflow(payload, executionId);
-	}).pipe(
-		Effect.withSpan("ProcessImportRunWorkflow", {
-			attributes: { runId: payload.runId, userId: payload.userId, executionId },
-		}),
-		Effect.annotateLogs({ executionId, workflow: "ProcessImportRunWorkflow" }),
-	),
+	}),
 );
 
 export const ImportWorkflowDefinitionsLive = ProcessImportRunWorkflowLive.pipe(

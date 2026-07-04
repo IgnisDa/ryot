@@ -150,7 +150,7 @@ it.effect("creates events inside workflow activities", () => {
 	);
 
 	return Effect.gen(function* () {
-		const result = yield* runEventCreateWorkflow(payload);
+		const result = yield* runEventCreateWorkflow(payload, payload.executionId);
 
 		expect(result).toEqual({
 			count: 1,
@@ -210,7 +210,10 @@ it.effect(
 		);
 
 		return Effect.gen(function* () {
-			yield* runEventCreateWorkflow({ ...payload, lifecycleOrigin: { kind: "api" } });
+			yield* runEventCreateWorkflow(
+				{ ...payload, lifecycleOrigin: { kind: "api" } },
+				payload.executionId,
+			);
 
 			expect(dispatched).toHaveLength(1);
 			const [occurrence] = dispatched;
@@ -274,7 +277,7 @@ it.effect("does not dispatch a lifecycle occurrence when no lifecycle origin is 
 	);
 
 	return Effect.gen(function* () {
-		yield* runEventCreateWorkflow(payload);
+		yield* runEventCreateWorkflow(payload, payload.executionId);
 		expect(dispatchCalls).toBe(0);
 	}).pipe(
 		Effect.provide(layer),

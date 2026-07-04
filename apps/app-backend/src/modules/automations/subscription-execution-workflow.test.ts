@@ -148,7 +148,7 @@ it.effect("runs a signal subscription to completion with full automation context
 		service,
 		operations,
 		Effect.gen(function* () {
-			expect(yield* runSubscriptionExecutionWorkflow(payload)).toBe(runId);
+			expect(yield* runSubscriptionExecutionWorkflow(payload, "execution-1")).toBe(runId);
 			expect(sandboxPayload).toMatchObject({
 				userId,
 				scriptId,
@@ -198,7 +198,7 @@ it.effect("does not execute the sandbox for an already terminal run", () => {
 		service,
 		operations,
 		Effect.gen(function* () {
-			expect(yield* runSubscriptionExecutionWorkflow(payload)).toBe(runId);
+			expect(yield* runSubscriptionExecutionWorkflow(payload, "execution-1")).toBe(runId);
 		}),
 	);
 });
@@ -229,7 +229,7 @@ it.effect("rejects contradictory source context before preparing a run", () => {
 		service,
 		operations,
 		Effect.gen(function* () {
-			const exit = yield* Effect.exit(runSubscriptionExecutionWorkflow(invalid));
+			const exit = yield* Effect.exit(runSubscriptionExecutionWorkflow(invalid, "execution-1"));
 			expect(Exit.isFailure(exit)).toBe(true);
 		}),
 	);

@@ -70,7 +70,7 @@ it.effect("dispatches a process run for every eligible integration from the body
 			},
 		},
 		Effect.gen(function* () {
-			yield* runIntegrationReconciliationWorkflow(payload);
+			yield* runIntegrationReconciliationWorkflow(payload, payload.executionId);
 
 			expect(captured).toMatchObject([
 				{
@@ -106,7 +106,9 @@ it.effect("swallows a run dispatch failure and continues to the remaining runs",
 			},
 		},
 		Effect.gen(function* () {
-			const exit = yield* Effect.exit(runIntegrationReconciliationWorkflow(payload));
+			const exit = yield* Effect.exit(
+				runIntegrationReconciliationWorkflow(payload, payload.executionId),
+			);
 			expect(exit._tag).toBe("Success");
 			expect(dispatched).toEqual(["run-1", "run-2"]);
 		}),
