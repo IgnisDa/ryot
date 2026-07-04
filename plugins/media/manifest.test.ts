@@ -20,7 +20,8 @@ it("declares the complete media-owned source", () => {
 	expect(mediaPlugin.entitySchemas.map(({ slug }) => slug)).toContain("library");
 	expect(mediaPlugin.relationshipSchemas.map(({ slug }) => slug)).toContain("in-library");
 	expect(mediaPlugin.providers).toHaveLength(51);
-	expect(mediaPlugin.scripts).toHaveLength(143);
+	expect(mediaPlugin.scripts).toHaveLength(153);
+	expect(mediaPlugin.integrationProviders).toHaveLength(13);
 	expect(mediaPlugin.scripts.every((script) => !("providerInformation" in script))).toBe(true);
 	expect(
 		mediaPlugin.scripts.filter(({ slug }) => slug.startsWith("activity.media-import-resolve.")),

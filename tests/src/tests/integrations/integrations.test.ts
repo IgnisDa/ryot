@@ -7,19 +7,23 @@ import {
 	createIntegration,
 	createKodiIntegration,
 	deleteIntegration,
-	getImportRun,
 	getIntegration,
 	listEventSlugs,
 	listEventsForEntity,
 	listIntegrations,
-	postIntegrationWebhook,
+	postIntegrationWebhookAndWait,
 	pollImportRunUntilTerminal,
 	seedGlobalShowEpisodeTree,
 	updateUserPreferences,
 	waitForEventSlugs,
 	waitForEventWithSchema,
 } from "~/fixtures";
-import { assertTaggedError, requireObjectRecord, requirePresent } from "~/support/assertions";
+import {
+	assertTaggedError,
+	requireObjectRecord,
+	requirePresent,
+	requireString,
+} from "~/support/assertions";
 import { getBackendUrl } from "~/support/backend";
 import { describe, expect, it } from "~/support/effect-test";
 
@@ -189,28 +193,34 @@ describe("Integration CRUD", () => {
 		}),
 	);
 
-	it.live("PATCH updates name and preserves secret fields when omitted", () =>
+	it.live("PATCH updates name while client responses redact secret fields", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 
-			const { id } = yield* createAudiobookshelfIntegration(client);
+			const created = yield* createAudiobookshelfIntegration(client);
+			const createdSpecifics = created.providerSpecifics;
+			expect(created.name).toBe("ABS");
+			expect(createdSpecifics.kind).toBe("audiobookshelf");
+			expect(createdSpecifics).not.toHaveProperty("token");
+			expect(createdSpecifics.baseUrl).toBe("https://abs.example.com");
 
 			const data = yield* client.call((c) =>
 				c.integrations.update({
 					payload: { name: "My ABS" },
-					path: { integrationId: IntegrationId.make(id) },
+					path: { integrationId: IntegrationId.make(created.id) },
 				}),
 			);
 
 			expect(data.name).toBe("My ABS");
+			expect(data.providerSpecifics).not.toHaveProperty("token");
+			expect(data.providerSpecifics.baseUrl).toBe("https://abs.example.com");
 
-			const integration = yield* getIntegration(client, id);
+			const integration = yield* getIntegration(client, created.id);
 			const specifics = integration.providerSpecifics;
+			expect(integration.name).toBe("My ABS");
 			expect(specifics.kind).toBe("audiobookshelf");
-			if (specifics.kind === "audiobookshelf") {
-				expect(specifics.token).toBe("test-token");
-				expect(specifics.baseUrl).toBe("https://abs.example.com");
-			}
+			expect(specifics).not.toHaveProperty("token");
+			expect(specifics.baseUrl).toBe("https://abs.example.com");
 		}),
 	);
 
@@ -273,7 +283,7 @@ describe("Webhook routes", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const { id } = yield* createKodiIntegration(client);
 
-			const data = yield* postIntegrationWebhook(client, id, kodiPayload);
+			const { data } = yield* postIntegrationWebhookAndWait(client, id, kodiPayload);
 
 			expect(data.runId).toBeDefined();
 		}),
@@ -299,6 +309,8 @@ describe("Webhook routes", () => {
 
 			expect(response.status).toBe(202);
 			expect(data.runId).toBeDefined();
+			const runId = requireString(data.runId, "Expected runId from webhook");
+			yield* pollImportRunUntilTerminal(client, runId);
 		}),
 	);
 
@@ -313,16 +325,13 @@ describe("Webhook routes", () => {
 					showName: "Live Sink Test Show",
 				});
 
-				const data = yield* postIntegrationWebhook(client, id, {
+				const { run: completedRun } = yield* postIntegrationWebhookAndWait(client, id, {
 					lot: "show",
 					progress: 45,
 					identifier: tmdbId,
 					show_season_number: 1,
 					show_episode_number: 2,
 				});
-
-				const runId = requirePresent(data.runId, "Expected runId from webhook");
-				const completedRun = yield* pollImportRunUntilTerminal(client, runId);
 
 				expect(completedRun.status).toBe("completed");
 				expect(completedRun.failedItems).toBe(0);
@@ -346,11 +355,7 @@ describe("Webhook routes", () => {
 				}),
 			);
 
-			const data = yield* postIntegrationWebhook(client, id, kodiPayload);
-
-			const runId = requirePresent(data.runId, "Expected runId from webhook");
-
-			const run = yield* getImportRun(client, runId);
+			const { run } = yield* postIntegrationWebhookAndWait(client, id, kodiPayload);
 			expect(run.status).toBe("failed");
 		}),
 	);
@@ -362,11 +367,7 @@ describe("Webhook routes", () => {
 
 			yield* updateUserPreferences(client, { disableIntegrations: true });
 
-			const data = yield* postIntegrationWebhook(client, id, kodiPayload);
-
-			const runId = requirePresent(data.runId, "Expected runId from webhook");
-
-			const run = yield* getImportRun(client, runId);
+			const { run } = yield* postIntegrationWebhookAndWait(client, id, kodiPayload);
 			expect(run.status).toBe("failed");
 		}),
 	);
@@ -406,16 +407,13 @@ describe("Progress normalization", () => {
 					showName: "Progress Clamp Test Show",
 				});
 
-				const data = yield* postIntegrationWebhook(client, id, {
+				const { run: completedRun } = yield* postIntegrationWebhookAndWait(client, id, {
 					lot: "show",
 					progress: 97,
 					identifier: tmdbId,
 					show_season_number: 1,
 					show_episode_number: 2,
 				});
-
-				const runId = requirePresent(data.runId, "Expected runId from webhook");
-				const completedRun = yield* pollImportRunUntilTerminal(client, runId);
 
 				expect(completedRun.status).toBe("completed");
 				expect(completedRun.failedItems).toBe(0);
@@ -453,27 +451,23 @@ describe("Progress normalization", () => {
 					showName: "Progress Filter Test Show",
 				});
 
-				const firstData = yield* postIntegrationWebhook(client, id, {
+				const { run: firstRun } = yield* postIntegrationWebhookAndWait(client, id, {
 					lot: "show",
 					progress: 5,
 					identifier: tmdbId,
 					show_season_number: 1,
 					show_episode_number: 2,
 				});
-				const firstRunId = requirePresent(firstData.runId, "Expected runId from webhook");
-				const firstRun = yield* pollImportRunUntilTerminal(client, firstRunId);
 				expect(firstRun.status).toBe("completed");
 				expect(firstRun.failedItems).toBe(0);
 
-				const secondData = yield* postIntegrationWebhook(client, id, {
+				const { run: secondRun } = yield* postIntegrationWebhookAndWait(client, id, {
 					lot: "show",
 					progress: 50,
 					identifier: tmdbId,
 					show_season_number: 1,
 					show_episode_number: 2,
 				});
-				const secondRunId = requirePresent(secondData.runId, "Expected runId from webhook");
-				const secondRun = yield* pollImportRunUntilTerminal(client, secondRunId);
 				expect(secondRun.status).toBe("completed");
 				expect(secondRun.failedItems).toBe(0);
 
@@ -500,13 +494,15 @@ describe("Import run visibility", () => {
 				const { client } = yield* createAuthenticatedClient();
 				const { id: integrationId } = yield* createKodiIntegration(client);
 
-				const webhookData = yield* postIntegrationWebhook(client, integrationId, kodiPayload);
-				const runId = requirePresent(webhookData.runId, "Expected runId from webhook");
+				const { run, runId } = yield* postIntegrationWebhookAndWait(
+					client,
+					integrationId,
+					kodiPayload,
+				);
 
 				const allRuns = yield* client.call((c) => c.imports.listRuns());
 				expect(allRuns.find((r) => r.id === runId)).toBeUndefined();
 
-				const run = yield* getImportRun(client, runId);
 				expect(run.id).toBe(ImportRunId.make(runId));
 
 				const integrationRuns = yield* client.call((c) =>

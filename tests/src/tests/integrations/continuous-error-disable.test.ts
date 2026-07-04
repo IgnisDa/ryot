@@ -4,14 +4,11 @@ import {
 	createAuthenticatedClient,
 	createIntegration,
 	createNotificationChannel,
-	getImportRun,
 	getIntegration,
-	pollImportRunUntilTerminal,
 	pollUntil,
-	postIntegrationWebhook,
+	postIntegrationWebhookAndWait,
 	startFakeAppriseServer,
 } from "~/fixtures";
-import { requirePresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
 import type { FakeHttpServer } from "~/support/fake-http-server";
 
@@ -52,9 +49,7 @@ describe("integration auto-disable on continuous errors", () => {
 				// producing a genuinely failed run on an enabled integration. The runs must be
 				// sequential so the recent-status window sees 5 consecutive failures.
 				for (let attempt = 0; attempt < 5; attempt++) {
-					const data = yield* postIntegrationWebhook(client, id, {});
-					const runId = requirePresent(data.runId, "Expected runId from webhook");
-					const run = yield* pollImportRunUntilTerminal(client, runId);
+					const { run } = yield* postIntegrationWebhookAndWait(client, id, {});
 					expect(run.status).toBe("failed");
 				}
 
@@ -86,9 +81,7 @@ describe("integration auto-disable on continuous errors", () => {
 
 				// A further webhook fails fast at the disabled-integration guard without
 				// running the workflow, so no duplicate notification is produced.
-				const afterDisable = yield* postIntegrationWebhook(client, id, {});
-				const afterDisableRunId = requirePresent(afterDisable.runId, "Expected runId from webhook");
-				const afterDisableRun = yield* getImportRun(client, afterDisableRunId);
+				const { run: afterDisableRun } = yield* postIntegrationWebhookAndWait(client, id, {});
 				expect(afterDisableRun.status).toBe("failed");
 
 				yield* Effect.sleep(Duration.millis(3000));
