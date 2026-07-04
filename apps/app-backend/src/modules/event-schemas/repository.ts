@@ -1,5 +1,5 @@
 import { EntitySchemaSlug, EventSchemaSlug, type UserId } from "@ryot/contract/schema/brands";
-import { Effect } from "effect";
+import { Context, Effect, Layer } from "effect";
 
 import {
 	DefinitionRegistry,
@@ -14,10 +14,10 @@ const toListed = (entitySchemaSlug: string, event: EventSchemaDefinition) => ({
 	entitySchemaSlug: EntitySchemaSlug.make(entitySchemaSlug),
 });
 
-export class EventSchemasRepository extends Effect.Service<EventSchemasRepository>()(
+export class EventSchemasRepository extends Context.Service<EventSchemasRepository>()(
 	"EventSchemasRepository",
 	{
-		effect: Effect.gen(function* () {
+		make: Effect.gen(function* () {
 			const definitions = yield* DefinitionRegistry;
 			const getEntitySchemaScopeById = (input: {
 				entitySchemaSlug: EntitySchemaSlug;
@@ -69,4 +69,6 @@ export class EventSchemasRepository extends Effect.Service<EventSchemasRepositor
 			};
 		}),
 	},
-) {}
+) {
+	static readonly layer = Layer.effect(this, this.make);
+}

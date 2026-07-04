@@ -1,6 +1,4 @@
 import { expect, it } from "@effect/vitest";
-import { Workflow } from "@effect/workflow";
-import { WorkflowEngine, WorkflowInstance } from "@effect/workflow/WorkflowEngine";
 import type { SandboxExecutionPayload } from "@ryot/contract/modules/sandbox/schemas";
 import {
 	AutomationRuleId,
@@ -11,6 +9,8 @@ import {
 	SandboxScriptId,
 } from "@ryot/contract/schema/brands";
 import { Effect, Layer } from "effect";
+import { Workflow } from "effect/unstable/workflow";
+import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 import { assert } from "vitest";
 
 import { dbRunnerLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
@@ -64,8 +64,8 @@ const registry = makeDefinitionRegistry({
 		},
 	],
 });
-const eventSchemasRepository = EventSchemasRepository.Default.pipe(
-	Layer.provide(Layer.succeed(DefinitionRegistry, { _tag: "DefinitionRegistry", ...registry })),
+const eventSchemasRepository = EventSchemasRepository.layer.pipe(
+	Layer.provide(Layer.succeed(DefinitionRegistry, { ...registry })),
 );
 
 const policy = (id: string, position: number): ResolvedAutomationRule => ({
@@ -104,7 +104,7 @@ const run = (input: {
 	const created: unknown[] = [];
 	const sandboxPayloads: SandboxExecutionPayload[] = [];
 	const instance = WorkflowInstance.initial(EventCreateWorkflow, input.payload.executionId);
-	let engine: WorkflowEngine["Type"];
+	let engine: WorkflowEngine["Service"];
 	engine = makeWorkflowEngine({
 		activityExecute: (activity) =>
 			Effect.gen(function* () {
@@ -122,7 +122,6 @@ const run = (input: {
 		dbRunnerLayer,
 		LifecycleDispatchNoop,
 		Layer.mock(AutomationsService, {
-			_tag: "AutomationsService",
 			resolveActivePolicies: () => Effect.succeed(input.policies),
 		}),
 		Layer.mock(EventCreateWorkflowOperations, {
@@ -138,7 +137,6 @@ const run = (input: {
 			},
 		}),
 		Layer.mock(EntitiesRepository, {
-			_tag: "EntitiesRepository",
 			getEntityScopeForUser: ({ entityId: requestedId }) =>
 				Effect.succeed(
 					input.isEntityReadable?.(requestedId) === false
@@ -155,7 +153,6 @@ const run = (input: {
 		}),
 		eventSchemasRepository,
 		Layer.mock(EventsRepository, {
-			_tag: "EventsRepository",
 			createEvent: (event) => {
 				assert(event.id);
 				created.push(event);
