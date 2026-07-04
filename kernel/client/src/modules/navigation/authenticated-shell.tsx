@@ -1,3 +1,4 @@
+import { KERNEL_SHORTCUTS, type KernelShortcut } from "@ryot-app/client-plugin-contract";
 import { Modal, useShortcut } from "@ryot-app/client-ui-sdk";
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import {
@@ -83,6 +84,7 @@ export function AuthenticatedShell(props: {
 	const { backInterceptors, runtime, scope, server } = useRouteContext({ from: "/_authenticated" });
 	const [drawerOpen, setDrawerOpen] = useState(false);
 	const [searchOpen, setSearchOpen] = useState(false);
+	const [workspaceSwitcherOpen, setWorkspaceSwitcherOpen] = useState(false);
 	const [pluginHeader, setPluginHeader] = useState<PluginHeaderState | null>(null);
 	const [pluginScreenState, setPluginScreenState] = useState<PluginDestinationScreenState | null>(
 		null,
@@ -143,6 +145,15 @@ export function AuthenticatedShell(props: {
 		setDiscarding(false);
 		return true;
 	});
+	const onKernelShortcut = (shortcut: KernelShortcut) => {
+		if (shortcut === "command-center") {
+			setSearchOpen(true);
+			return;
+		}
+		if (isDesktop) {
+			setWorkspaceSwitcherOpen(true);
+		}
+	};
 	const customize = useCustomizeDraft({
 		catalog,
 		data: props.navigation,
@@ -305,7 +316,7 @@ export function AuthenticatedShell(props: {
 		);
 	}, [activePluginDestination?.installation.installationId, entry.index, entry.key]);
 	useDesktopEffect(() => setDrawerOpen(false));
-	useShortcut("Meta+K", () => setSearchOpen(true));
+	useShortcut(KERNEL_SHORTCUTS.commandCenter, () => setSearchOpen(true));
 
 	return (
 		<div data-testid="authenticated-shell" className="flex h-dvh min-h-0 flex-col md:flex-row">
@@ -317,13 +328,16 @@ export function AuthenticatedShell(props: {
 				isPro={props.isPro}
 				activeKey={activeKey}
 				activeHome={homeActive}
+				shortcutsEnabled={isDesktop}
 				navigation={props.navigation}
 				onNavigateHome={navigateHome}
 				onNavigateItem={navigateItem}
 				onEditSection={openCustomize}
 				activeSettings={settingsActive}
 				onSelectWorkspace={selectWorkspace}
+				workspaceSwitcherOpen={workspaceSwitcherOpen}
 				onOpenSearch={() => setSearchOpen(true)}
+				onWorkspaceSwitcherOpenChange={setWorkspaceSwitcherOpen}
 				onNavigateSettings={() => navigate({ href: "/settings" })}
 				customizePanel={
 					customizeActive && isDesktop ? (
@@ -380,6 +394,7 @@ export function AuthenticatedShell(props: {
 									>
 										<PluginDestination
 											target={activePluginDestination}
+											onKernelShortcut={onKernelShortcut}
 											onScreenState={publishPluginScreenState}
 										>
 											<Outlet />

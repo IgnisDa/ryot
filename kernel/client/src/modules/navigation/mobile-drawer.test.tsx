@@ -179,6 +179,18 @@ describe("mobile drawer", () => {
 		expect(screen.queryByRole("dialog", { name: "Navigation" })).toBeNull();
 	});
 
+	it("resets its workspace menu when the drawer closes", async () => {
+		render(<Harness />);
+		await openDrawer();
+		fireEvent.click(screen.getByRole("button", { name: "Media workspace, media" }));
+		expect(screen.getByRole("menu", { name: "Workspaces" })).toBeTruthy();
+
+		fireEvent.click(screen.getByTestId("drawer-scrim"));
+		await openDrawer();
+
+		expect(screen.queryByRole("menu", { name: "Workspaces" })).toBeNull();
+	});
+
 	it("releases body scrolling before it reports the close", async () => {
 		const overflow: Array<string> = [];
 		render(<Harness onClose={() => overflow.push(document.body.style.overflow)} />);

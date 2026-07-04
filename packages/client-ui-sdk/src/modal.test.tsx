@@ -70,6 +70,28 @@ describe("Modal", () => {
 		expect(document.activeElement).toBe(trigger);
 	});
 
+	it("focuses the dialog panel and closes on Escape when it has no interactive children", () => {
+		let closes = 0;
+		render(
+			<Modal
+				label="Information"
+				closeLabel="Close dialog"
+				onClose={() => {
+					closes += 1;
+				}}
+			>
+				No actions available
+			</Modal>,
+		);
+
+		const dialog = screen.getByRole("dialog", { name: "Information" });
+		expect(dialog.tabIndex).toBe(-1);
+		expect(document.activeElement).toBe(dialog);
+
+		fireEvent.keyDown(document, { key: "Escape" });
+		expect(closes).toBe(1);
+	});
+
 	it("closes on Escape and on the scrim, and locks body scroll while open", () => {
 		document.body.style.overflow = "auto";
 		let closes = 0;

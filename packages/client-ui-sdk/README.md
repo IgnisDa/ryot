@@ -52,8 +52,13 @@ while an input, textarea, or contenteditable holds focus. Shortcuts are scope-aw
 registration belongs to the innermost enclosing `OverlayScope`, and only the topmost scope's
 shortcuts fire. A call site therefore never gates a shortcut on whether some overlay is open —
 passing `enabled` for that is the bug the scope exists to prevent. A shortcut is registered against
-the document that runs it, so a kernel shortcut never fires while focus sits inside a plugin iframe,
-and vice versa.
+the document that runs it. Ordinary shortcuts remain document-local. Reserved kernel shortcuts are
+forwarded semantically from a focused plugin iframe: its bootstrap recognizes `Mod+K` for the
+command center and `Mod+Shift+Space` for the desktop workspace switcher, then sends a
+`{ type: "kernel-shortcut", shortcut: "command-center" | "workspace-switcher" }` bridge message
+rather than a raw `KeyboardEvent` or key payload. The kernel owns the actions and desktop gating. An
+active plugin `OverlayScope` suppresses root forwarding, so plugins must not bind either reserved
+combination at their root; neither is a public `RyotClient` capability.
 
 `OverlayScope` owns three things that must not drift apart: it pushes the keyboard scope that
 suppresses everything behind it, it registers the overlay's own Escape, and it publishes the scope
